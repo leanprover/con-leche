@@ -462,15 +462,65 @@ def nativeSkels (p : NativeParts) (sk : List InstallSkel) : List InstallSkel :=
     .proj (projTableName p.cvT.name) :: sumSkels p.toInductiveShape sk
   else sumSkels p.toInductiveShape sk
 
+/-! ### The mutual route's skeleton (task #278)
+
+The mutual install pushes, in this order: the `k` type formers (the
+block's own names), every constructor (`consMutualCtors`, the sum
+route's conses), the `k` recursors — member `m`'s at the block's rule
+prefix, its major index that prefix plus the member's index count, its
+rules one per constructor OF THAT MEMBER — and finally a projection
+table at every STRUCTURE-LIKE member (one constructor, no index).
+Everything in the list is a function of the recognised block: the
+stages keep the declared names, the declared index counts and the
+declared field counts. -/
+
+/-- The formers' conses at the skeleton level (the first former
+deepest, as `mutualFormers`). -/
+def mutualIndSkels (fs : List (ConstantVal × Nat)) (sk : List InstallSkel) :
+    List InstallSkel :=
+  fs.foldl (fun acc f => .ind f.1.name :: acc) sk
+
+/-- Member `m`'s recursor at the skeleton level. -/
+def mutualRecSkel (b : MutualBlock) (rn : Name) (nIdx : Nat) (cs : List Name) :
+    InstallSkel :=
+  .recr rn (b.rulePrefix + nIdx) b.rulePrefix cs
+
+/-- The projection table of member `mIdx` at the skeleton level: one
+at a structure-like member, nothing otherwise. -/
+def mutualTableSkel (b : MutualBlock) (T : Name) (nIdx mIdx : Nat)
+    (sk : List InstallSkel) : List InstallSkel :=
+  match b.ownCtors mIdx with
+  | [_] => if nIdx == 0 then .proj (projTableName T) :: sk else sk
+  | _ => sk
+
+/-- The block record's skeleton: the formers, the constructors, the
+`k` recursors, the structure-like members' tables. -/
+def mutualBlockSkels (b : MutualBlock) (sk : List InstallSkel) : List InstallSkel :=
+  b.formers.zipIdx.foldl
+      (fun acc f => mutualTableSkel b f.1.1.name f.1.2 f.2 acc)
+    (b.formers.zipIdx.foldl
+        (fun acc f => mutualRecSkel b (f.1.1.name.str "rec") f.1.2
+          ((b.ownCtors f.2).map (·.2.cv.name)) :: acc)
+      (sumCtorSkels b.nP (b.ctors.map fun c => (c.cv.name, c.nF))
+        (mutualIndSkels b.formers sk)))
+
+/-- The mutual route's skeleton (task #278). -/
+def mutualSkels (p : MutualParts) (sk : List InstallSkel) : List InstallSkel :=
+  mutualBlockSkels p.toBlock sk
+
 /-- The dispatch below the direct-sum gate: the direct recursive gate
 (task #188; the sum's skeleton with the table at a structure-like
-block), then the modeled block.  The RECOGNISER decides, and nothing
-else (task #219), so the skeleton list needs no environment at all. -/
+block), then the mutual gate (task #278), then the modeled block.  The
+RECOGNISER decides, and nothing else (task #219), so the skeleton list
+needs no environment at all. -/
 def indDeclSkels (nP : Nat) (block : List ConstantInfo) (sk : List InstallSkel) :
     List InstallSkel :=
   match nativeParts? nP block with
   | some p => nativeSkels p sk
-  | none => indDeclSkelsModeled block sk
+  | none =>
+    match mutualParts? nP block with
+    | some q => mutualSkels q sk
+    | none => indDeclSkelsModeled block sk
 
 /-- The skeletons one declaration installs. -/
 def declCSkels : Declaration → List InstallSkel → List InstallSkel
@@ -1196,6 +1246,454 @@ theorem checkNativeS_skels (mode : CheckMode) {fe : FEnv}
   intro fe' h'
   rwa [nativeSkels_withSort hq'] at h'
 
+/-! ### The mutual install's skeleton (task #278)
+
+Every stage keeps the block's own names: the formers' telescope stage
+(`checkSumTeleF`) and the constructors' normalisation
+(`normCtorValMF`) re-check at the declared header, the recursors are
+the generated ones at `T_m.rec` with one rule per constructor of the
+member, and the projection tables sit at the structure-like members.
+So the whole install skeleton is a function of the recognised block —
+the two folds that run over the CHECKED members (the recursors' store
+and the tables) are transported to the declared ones by
+`foldl_zipIdx_congr`. -/
+
+/-- `List.mapM` at the value level: each step's value is a function of
+its input, so the result list is the input's `map`. -/
+theorem Yields.mapM_map {α β γ : Type} {f : α → CheckCM β} {g : β → γ} {h : α → γ}
+    (hf : ∀ a, Yields (f a) (fun b => g b = h a)) :
+    ∀ l : List α, Yields (l.mapM f) (fun l' => l'.map g = l.map h)
+  | [] => by
+      rw [List.mapM_nil]
+      exact Yields.pure rfl
+  | a :: l => by
+      rw [List.mapM_cons]
+      refine Yields.bind' (hf a) fun b hb => ?_
+      refine Yields.bind' (Yields.mapM_map hf l) fun l' hl' => ?_
+      exact Yields.pure (by simp [hb, hl'])
+
+/-- A pointwise reading of a `map` equality. -/
+private theorem getD_of_map_eq {α β γ : Type} [Inhabited α] [Inhabited β]
+    {f : α → γ} {g : β → γ} {l₁ : List α} {l₂ : List β} (h : l₁.map f = l₂.map g)
+    {i : Nat} (hi : i < l₁.length) :
+    f (l₁.getD i default) = g (l₂.getD i default) := by
+  have hlen : l₁.length = l₂.length := by
+    have := congrArg List.length h; simpa using this
+  have hi2 : i < l₂.length := by omega
+  have hkey : Option.map f l₁[i]? = Option.map g l₂[i]? := by
+    rw [← List.getElem?_map, ← List.getElem?_map, h]
+  rw [List.getElem?_eq_getElem hi, List.getElem?_eq_getElem hi2] at hkey
+  simp only [Option.map_some, Option.some.injEq] at hkey
+  rw [List.getD_eq_getElem?_getD, List.getD_eq_getElem?_getD,
+    List.getElem?_eq_getElem hi, List.getElem?_eq_getElem hi2]
+  exact hkey
+
+/-- The same at a `List.range` comparand. -/
+private theorem getD_range_of_map_eq {α γ : Type} [Inhabited α]
+    {f : α → γ} {g : Nat → γ} {l : List α} {k : Nat}
+    (h : l.map f = (List.range k).map g) {i : Nat} (hi : i < k) :
+    f (l.getD i default) = g i := by
+  have hlen : l.length = k := by
+    have := congrArg List.length h; simpa using this
+  have hstep := getD_of_map_eq h (show i < l.length by omega)
+  have hr : (List.range k).getD i default = i := by
+    rw [List.getD_eq_getElem?_getD,
+      List.getElem?_eq_getElem (show i < (List.range k).length by simpa using hi)]
+    simp
+  rwa [hr] at hstep
+
+/-- Two `zipIdx` folds agree when the lists have the same length and
+the steps agree pointwise: the bridge from a driver fold over the
+CHECKED members to the specification's fold over the declared ones. -/
+private theorem foldl_zipIdx_congr {α β γ : Type} [Inhabited α] [Inhabited β]
+    {F : γ → α × Nat → γ} {G : γ → β × Nat → γ} :
+    ∀ (l₁ : List α) (l₂ : List β) (n : Nat) (c : γ), l₁.length = l₂.length →
+      (∀ (c : γ) (i : Nat), i < l₁.length →
+        F c (l₁.getD i default, n + i) = G c (l₂.getD i default, n + i)) →
+      (l₁.zipIdx n).foldl F c = (l₂.zipIdx n).foldl G c
+  | [], l₂, n, c, hlen, _ => by
+      cases l₂ with
+      | nil => rfl
+      | cons b l₂ => simp at hlen
+  | a :: l₁, l₂, n, c, hlen, hstep => by
+      cases l₂ with
+      | nil => simp at hlen
+      | cons b l₂ =>
+        simp only [List.zipIdx_cons, List.foldl_cons]
+        have h0 := hstep c 0 (by simp)
+        simp only [List.getD_cons_zero, Nat.add_zero] at h0
+        rw [h0]
+        refine foldl_zipIdx_congr l₁ l₂ (n + 1) _ (by simpa using hlen) ?_
+        intro c' i hi
+        have hs := hstep c' (i + 1) (by simpa using hi)
+        have he : n + (i + 1) = n + 1 + i := by omega
+        rw [he] at hs
+        simpa only [List.getD_cons_succ] using hs
+
+/-- The formers' checks: the checked formers carry the declared names
+and index counts.  The whole stage runs at ONE index, so it pushes
+nothing. -/
+theorem mutualFormerChecksS_names (mode : CheckMode) (nP : Nat) :
+    ∀ (fs : List (ConstantVal × Nat)) {fe : FEnv},
+      Yields (mutualFormerChecksS mode fe nP fs)
+        (fun fms => fms.map (fun f => (f.cvTa.name, f.nIdx)) = fs.map (fun f => (f.1.name, f.2)))
+  | [], fe => by
+      unfold mutualFormerChecksS
+      exact Yields.pure rfl
+  | (cv, nIdx) :: fs, fe => by
+      unfold mutualFormerChecksS
+      refine Yields.bind' (checkConstantValF_name (sharedOpsC mode fe) fe cv) fun cvTa₀ hn₀ => ?_
+      refine Yields.bind' (checkSumTeleF_name (sharedOpsC mode fe) fe cv (nP + nIdx) cvTa₀)
+        fun r hn => ?_
+      obtain ⟨cvTa, s⟩ := r
+      have hn' : cvTa.name = cv.name := by
+        rcases hn with h1 | h1
+        · exact h1.trans hn₀
+        · exact h1
+      ybind
+      split
+      split
+      case isFalse => exact Yields.ofThrowBind
+      case isTrue =>
+      refine Yields.bind' (mutualFormerChecksS_names mode nP fs (fe := fe)) fun fms hq => ?_
+      exact Yields.pure (by simp [hn', hq])
+
+/-- The names a list of checked formers conses, as the skeleton fold
+reads them. -/
+private theorem mutualIndSkels_congr :
+    ∀ {fs gs : List (ConstantVal × Nat)} (sk : List InstallSkel),
+      fs.map (·.1.name) = gs.map (·.1.name) → mutualIndSkels fs sk = mutualIndSkels gs sk
+  | [], [], _, _ => rfl
+  | [], _ :: _, _, h => by simp at h
+  | _ :: _, [], _, h => by simp at h
+  | f :: fs, g :: gs, sk, h => by
+    simp only [List.map_cons, List.cons.injEq] at h
+    simp only [mutualIndSkels, List.foldl_cons, h.1]
+    exact mutualIndSkels_congr _ h.2
+
+/-- The formers' conses: one `.ind` per member, at the checked name
+(the first member deepest, as `consMutualFormers`). -/
+theorem consMutualFormersF_skels :
+    ∀ {fms : List MutualFormerA} {fe : FEnv} {sk : List InstallSkel}, SkelIs fe sk →
+      SkelIs (consMutualFormersF fms fe)
+        (mutualIndSkels (fms.map (fun f => (f.cvTa, f.nIdx))) sk)
+  | [], _, _, h => h
+  | f :: fs, fe, sk, h => by
+    have hstep := consMutualFormersF_skels (fms := fs)
+      (h.push (.indInfo f.cvTa {}))
+    simpa [consMutualFormersF, mutualIndSkels, ciSkel] using hstep
+
+/-- The formers' stage: one `.ind` per member, at the declared name,
+and the checked formers carry the declared names and index counts.
+The stage flushes once, checks every member at that one index, and
+conses afterwards. -/
+theorem mutualFormersS_skels (mode : CheckMode) (nP : Nat)
+    (fs : List (ConstantVal × Nat)) {fe : FEnv} {sk : List InstallSkel} (h : SkelIs fe sk) :
+    Yields (mutualFormersS mode nP fs fe)
+      (fun r => SkelIs r.1 (mutualIndSkels fs sk) ∧
+        r.2.map (fun f => (f.cvTa.name, f.nIdx)) = fs.map (fun f => (f.1.name, f.2))) := by
+  unfold mutualFormersS
+  ybind
+  refine Yields.bind' (mutualFormerChecksS_names mode nP fs (fe := fe)) fun fms hq => ?_
+  refine Yields.pure ⟨?_, hq⟩
+  refine (mutualIndSkels_congr (fs := fms.map (fun f => (f.cvTa, f.nIdx))) sk ?_) ▸
+    consMutualFormersF_skels h
+  have := congrArg (List.map Prod.fst) hq
+  simpa [List.map_map, Function.comp_def] using this
+
+/-- The constructors' normalisation stores a constant of the declared
+name. -/
+theorem normCtorValMF_name (ops : CheckerOps CheckCM) (fe : FEnv)
+    (memberNames : List Name) (nP nF : Nat) (cvC cvCa : ConstantVal)
+    (hn : cvCa.name = cvC.name) :
+    Yields (normCtorValMF ops fe memberNames nP nF cvC cvCa) (fun r => r.name = cvC.name) := by
+  unfold normCtorValMF
+  yields
+  all_goals (dsimp only; split)
+  all_goals first
+    | (apply Yields.pure; exact hn)
+    | exact Yields.mono (checkConstantValF_name ops fe _) (fun _ h => h)
+
+/-- One constructor's stage keeps the declared name. -/
+theorem checkMutualCtorF_name (ops : CheckerOps CheckCM) (w : StructWalkers) (fe : FEnv)
+    (memberNames : List Name) (T : Name) (lps : List Name) (nP nIdx : Nat) (rs : Level)
+    (isProp large : Bool) (cvC : ConstantVal) (nF : Nat) (cvTa : ConstantVal) :
+    Yields (checkMutualCtorF ops w fe memberNames T lps nP nIdx rs isProp large cvC nF cvTa)
+      (fun r => r.1.name = cvC.name) := by
+  unfold checkMutualCtorF
+  refine Yields.bind' (checkConstantValF_name ops fe cvC) fun cvCa₀ hn₀ => ?_
+  refine Yields.bind' (normCtorValMF_name ops fe memberNames nP nF cvC cvCa₀ hn₀)
+    fun cvCa hn => ?_
+  yields
+  all_goals (apply Yields.pure; exact hn)
+
+/-- The constructor list's names and field counts are the block's. -/
+theorem checkMutualCtorsF_names (ops : CheckerOps CheckCM) (w : StructWalkers) (fe : FEnv)
+    (b : MutualBlock) (fms : List MutualFormerA) (isProp : Bool) :
+    ∀ (cs : List MutualCtor),
+      Yields (checkMutualCtorsF ops w fe b fms isProp cs)
+        (fun r => r.1.map (fun c => (c.1.name, c.2)) = cs.map (fun c => (c.cv.name, c.nF)))
+  | [] => Yields.pure rfl
+  | c :: cs => by
+    unfold checkMutualCtorsF
+    refine Yields.bind' (checkMutualCtorF_name ops w fe b.memberNames _ b.lps b.nP _ _
+      isProp b.large c.cv c.nF _) fun q hn => ?_
+    obtain ⟨cvCa, sorts⟩ := q
+    refine Yields.bind' (checkMutualCtorsF_names ops w fe b fms isProp cs) fun rest hrest => ?_
+    obtain ⟨rest, srest⟩ := rest
+    have hn' : cvCa.name = c.cv.name := hn
+    exact Yields.pure (by simp [hn', hrest])
+
+/-- The constructors' conses at the skeleton level (the sum route's). -/
+theorem consMutualCtorsF_skels (nP : Nat) :
+    ∀ {ctorsA : List (ConstantVal × Nat)} {fe : FEnv} {sk : List InstallSkel},
+      SkelIs fe sk →
+      SkelIs (consMutualCtorsF nP ctorsA fe)
+        (sumCtorSkels nP (ctorsA.map fun c => (c.1.name, c.2)) sk)
+  | [], _, _, h => h
+  | c :: cs, fe, sk, h => by
+    have hstep := consMutualCtorsF_skels nP (ctorsA := cs)
+      (h.push (.ctorInfo c.1 nP c.2))
+    simpa [consMutualCtorsF, sumCtorSkels, ciSkel] using hstep
+
+/-- The recursor-type stage returns the generated recursor's name. -/
+theorem checkMutualRecTyF_name (ops : CheckerOps CheckCM) (w : StructWalkers) (fe : FEnv)
+    (b : MutualBlock) (formers4 : List MutualFormer) (ctors4 : List MutualCtor4)
+    (mIdx : Nat) (streamRec : Option ConstantVal) :
+    Yields (checkMutualRecTyF ops w fe b formers4 ctors4 mIdx streamRec)
+      (fun cvRa => cvRa.name = b.recName mIdx) := by
+  unfold checkMutualRecTyF
+  yields
+  all_goals (apply Yields.pure; rfl)
+
+/-- The `k` recursor types, in member order. -/
+theorem checkMutualRecTysF_names (ops : CheckerOps CheckCM) (w : StructWalkers) (fe : FEnv)
+    (b : MutualBlock) (formers4 : List MutualFormer) (ctors4 : List MutualCtor4)
+    (streamRecs : Option (List (ConstantVal × List RecRule))) :
+    ∀ (k : Nat),
+      Yields (checkMutualRecTysF ops w fe b formers4 ctors4 streamRecs k)
+        (fun cvRas => cvRas.map (·.name) = (List.range k).map b.recName)
+  | 0 => by
+      unfold checkMutualRecTysF
+      exact Yields.pure rfl
+  | k + 1 => by
+      unfold checkMutualRecTysF
+      refine Yields.bind' (checkMutualRecTysF_names ops w fe b formers4 ctors4 streamRecs k)
+        fun earlier hearlier => ?_
+      refine Yields.bind' (checkMutualRecTyF_name ops w fe b formers4 ctors4 k _)
+        fun cvRa hcvRa => ?_
+      refine Yields.pure ?_
+      rw [List.range_succ]
+      simp [hearlier, hcvRa]
+
+/-- One member's rules fire that member's own constructors. -/
+theorem checkMutualMemberRulesF_ctors (w : StructWalkers) (feR : FEnv) (b : MutualBlock)
+    (formers4 : List MutualFormer) (ctors4 : List MutualCtor4) (mIdx : Nat)
+    (streamRec : Option (ConstantVal × List RecRule)) :
+    Yields (checkMutualMemberRulesF (m := CheckCM) w feR b formers4 ctors4 mIdx streamRec)
+      (fun l => l.map (·.1.cv.name) = (b.ownCtors mIdx).map (·.2.cv.name)) := by
+  unfold checkMutualMemberRulesF
+  have step : ∀ (a : Nat × MutualCtor),
+      Yields (do
+          let rhs ← unwrapOr (mutualRecRhs b.lps b.elim b.large b.nP formers4 ctors4
+            b.recName (b.rlps.map Level.param) a.1) (.internal "mutual: recursor rule")
+          unless rhs.allLevelParamsDefined b.rlps && w.resolve feR rhs &&
+              rhs.looseBVarsBounded 0 && !rhs.hasFvar do
+            throw (.internal "mutual: recursor rule scoping")
+          pure (a.2, rhs) : CheckCM (MutualCtor × Expr))
+        (fun r => r.1.cv.name = a.2.cv.name) := by
+    intro a
+    yields
+    all_goals (apply Yields.pure; rfl)
+  cases streamRec with
+  | none =>
+    exact Yields.mapM_map (g := fun (r : MutualCtor × Expr) => r.1.cv.name)
+      (h := fun (r : Nat × MutualCtor) => r.2.cv.name) (fun a => step a) _
+  | some r =>
+    obtain ⟨cvR, rules⟩ := r
+    simp only []
+    split
+    all_goals first
+      | exact Yields.ofThrowBind
+      | exact Yields.mapM_map (g := fun (r : MutualCtor × Expr) => r.1.cv.name)
+          (h := fun (r : Nat × MutualCtor) => r.2.cv.name) (fun a => step a) _
+
+/-- The `k` rule groups, in member order. -/
+theorem checkMutualAllRulesF_ctors (w : StructWalkers) (feR : FEnv) (b : MutualBlock)
+    (formers4 : List MutualFormer) (ctors4 : List MutualCtor4)
+    (streamRecs : Option (List (ConstantVal × List RecRule))) :
+    ∀ (k : Nat),
+      Yields (checkMutualAllRulesF (m := CheckCM) w feR b formers4 ctors4 streamRecs k)
+        (fun rs => rs.map (fun l => l.map (·.1.cv.name))
+          = (List.range k).map (fun m => (b.ownCtors m).map (·.2.cv.name)))
+  | 0 => by
+      unfold checkMutualAllRulesF
+      exact Yields.pure rfl
+  | k + 1 => by
+      unfold checkMutualAllRulesF
+      refine Yields.bind' (checkMutualAllRulesF_ctors w feR b formers4 ctors4 streamRecs k)
+        fun earlier hearlier => ?_
+      refine Yields.bind' (checkMutualMemberRulesF_ctors w feR b formers4 ctors4 k _)
+        fun rules hrules => ?_
+      refine Yields.pure ?_
+      rw [List.range_succ]
+      simp [hearlier, hrules]
+
+/-- The stored rules of a mutual recursor are one per constructor of
+its member, in block order. -/
+theorem mutualRules_map_ctor (find? : Name → Option ConstantInfo) (recName : Name)
+    (nP mI rP : Nat) (recTy : Expr) :
+    ∀ (l : List (MutualCtor × Expr)),
+      (mutualRules find? recName nP mI rP recTy l).map (·.ctor) = l.map (·.1.cv.name)
+  | [] => rfl
+  | (c, rhs) :: rest => by
+      simp only [mutualRules, List.map_cons, recRuleBits_ctor,
+        mutualRules_map_ctor find? recName nP mI rP recTy rest]
+
+/-- The recursor group's conses at the skeleton level. -/
+theorem storeMutualRecsF_skels (fe₂ : FEnv) (b : MutualBlock) (fms : List MutualFormerA)
+    (rulesOf : List (List (MutualCtor × Expr))) :
+    ∀ (l : List (ConstantVal × Nat)) {fe : FEnv} {sk : List InstallSkel}, SkelIs fe sk →
+      SkelIs (storeMutualRecsF fe₂ b fms rulesOf l fe)
+        (l.foldl (fun acc c => mutualRecSkel b c.1.name (fms.getD c.2 default).nIdx
+          ((rulesOf.getD c.2 []).map (·.1.cv.name)) :: acc) sk)
+  | [], _, _, h => h
+  | (cvRa, mIdx) :: rest, fe, sk, h => by
+    have hstep := storeMutualRecsF_skels fe₂ b fms rulesOf rest
+      (h.push (.recInfo cvRa (b.rulePrefix + (fms.getD mIdx default).nIdx) b.rulePrefix
+        (mutualRules fe₂.find? cvRa.name b.nP (b.rulePrefix + (fms.getD mIdx default).nIdx)
+          b.rulePrefix cvRa.type (rulesOf.getD mIdx []))))
+    simpa [storeMutualRecsF, ciSkel, mutualRecSkel, mutualRules_map_ctor] using hstep
+
+/-- One member's projection table at the skeleton level. -/
+theorem mutualMemberTableF_skels {w : StructWalkers} {fe : FEnv} {sk : List InstallSkel}
+    (h : SkelIs fe sk) (b : MutualBlock) (f : MutualFormerA)
+    (ctorsA : List (ConstantVal × Nat)) (sortss : List (List Level)) (mIdx : Nat) :
+    Yields (mutualMemberTableF (m := CheckCM) w b f ctorsA sortss mIdx fe)
+      (fun fe' => SkelIs fe' (mutualTableSkel b f.cvTa.name f.nIdx mIdx sk)) := by
+  unfold mutualMemberTableF mutualTableSkel
+  cases b.ownCtors mIdx with
+  | nil => exact Yields.pure h
+  | cons x xs =>
+    cases xs with
+    | nil =>
+      obtain ⟨J, c⟩ := x
+      cases hn : f.nIdx with
+      | zero => exact checkStructProjTableF_skels h _ _ _ _ _ _ _ _ _
+      | succ n => exact Yields.pure h
+    | cons y ys => exact Yields.pure h
+
+/-- The table stage over the members. -/
+theorem mutualTablesF_skels (w : StructWalkers) (b : MutualBlock)
+    (ctorsA : List (ConstantVal × Nat)) (sortss : List (List Level)) :
+    ∀ (l : List (MutualFormerA × Nat)) {fe : FEnv} {sk : List InstallSkel}, SkelIs fe sk →
+      Yields (mutualTablesF (m := CheckCM) w b ctorsA sortss l fe)
+        (fun fe' => SkelIs fe'
+          (l.foldl (fun acc f => mutualTableSkel b f.1.cvTa.name f.1.nIdx f.2 acc) sk))
+  | [], _, _, h => by
+      unfold mutualTablesF
+      exact Yields.pure h
+  | (f, mIdx) :: rest, fe, sk, h => by
+    unfold mutualTablesF
+    refine Yields.bind' (mutualMemberTableF_skels h b f ctorsA sortss mIdx) fun fe' h' => ?_
+    simpa using mutualTablesF_skels w b ctorsA sortss rest h'
+
+/-- **The mutual install's skeleton** (task #278): the block record's,
+the two member-indexed folds transported from the checked members to
+the declared ones. -/
+theorem checkMutualCoreS_skels (mode : CheckMode) {fe : FEnv} {sk : List InstallSkel}
+    (h : SkelIs fe sk) (b : MutualBlock)
+    (streamRecs : Option (List (ConstantVal × List RecRule))) :
+    Yields (checkMutualCoreS mode fe b streamRecs)
+      (fun fe' => SkelIs fe' (mutualBlockSkels b sk)) := by
+  unfold checkMutualCoreS mutualBlockSkels
+  simp only []
+  ybind
+  refine Yields.bind' (mutualFormersS_skels mode b.nP b.formers h) fun r hr => ?_
+  obtain ⟨fe₁, fms⟩ := r
+  obtain ⟨h₁, hfms⟩ := hr
+  simp only [] at h₁ hfms ⊢
+  have hlenF : fms.length = b.formers.length := by
+    have := congrArg List.length hfms; simpa using this
+  ybind
+  ybind
+  ybind
+  ybind
+  split
+  case isFalse => exact Yields.ofThrowBind
+  case isTrue =>
+  refine Yields.bind' (checkMutualCtorsF_names (sharedOpsC mode fe₁) structWalkersC fe₁ b fms
+    _ b.ctors) fun r hctors => ?_
+  obtain ⟨ctorsA, sortss⟩ := r
+  simp only [] at hctors ⊢
+  ybind
+  split
+  case isFalse => exact Yields.ofThrowBind
+  case isTrue =>
+  ybind
+  refine Yields.bind' (checkMutualRecTysF_names (sharedOpsC mode _) structWalkersC _ b _ _
+    streamRecs b.k) fun cvRas hcvRas => ?_
+  refine Yields.bind' (checkMutualAllRulesF_ctors structWalkersC _ b _ _ streamRecs b.k)
+    fun rulesOf hrulesOf => ?_
+  ybind
+  -- the constructors' conses, then the recursor group, then the tables
+  have hlenR : cvRas.length = b.k := by
+    have := congrArg List.length hcvRas; simpa using this
+  have hlenRu : rulesOf.length = b.k := by
+    have := congrArg List.length hrulesOf; simpa using this
+  have h₂ : SkelIs (consMutualCtorsF b.nP ctorsA fe₁)
+      (sumCtorSkels b.nP (b.ctors.map fun c => (c.cv.name, c.nF)) (mutualIndSkels b.formers sk)) := by
+    have := consMutualCtorsF_skels b.nP (ctorsA := ctorsA) h₁
+    rwa [hctors] at this
+  have h₃ := storeMutualRecsF_skels (consMutualCtorsF b.nP ctorsA fe₁) b fms rulesOf
+    cvRas.zipIdx h₂
+  refine Yields.mono (mutualTablesF_skels structWalkersC b ctorsA sortss fms.zipIdx h₃) ?_
+  intro fe' hfe'
+  -- the recursors' fold, transported to the declared members
+  have hrec : cvRas.zipIdx.foldl (fun acc c => mutualRecSkel b c.1.name
+        (fms.getD c.2 default).nIdx ((rulesOf.getD c.2 []).map (·.1.cv.name)) :: acc)
+      (sumCtorSkels b.nP (b.ctors.map fun c => (c.cv.name, c.nF)) (mutualIndSkels b.formers sk))
+      = b.formers.zipIdx.foldl (fun acc f => mutualRecSkel b (f.1.1.name.str "rec") f.1.2
+        ((b.ownCtors f.2).map (·.2.cv.name)) :: acc)
+      (sumCtorSkels b.nP (b.ctors.map fun c => (c.cv.name, c.nF)) (mutualIndSkels b.formers sk)) := by
+    refine foldl_zipIdx_congr cvRas b.formers 0 _ (by
+      rw [hlenR]; exact (rfl : b.k = b.formers.length)) ?_
+    intro c i hi
+    have hik : i < b.k := by rw [hlenR] at hi; exact hi
+    have hiF : i < fms.length := by
+      rw [hlenF]; exact (show i < b.k from hik)
+    have hn := getD_range_of_map_eq hcvRas hik
+    have hnI := getD_of_map_eq hfms hiF
+    have hru : (rulesOf.getD i ([] : List (MutualCtor × Expr))).map (·.1.cv.name)
+        = (b.ownCtors i).map (·.2.cv.name) := getD_range_of_map_eq hrulesOf hik
+    simp only [Prod.mk.injEq] at hnI
+    simp only [Nat.zero_add, mutualRecSkel, hn, hnI.2, hru, MutualBlock.recName]
+  rw [hrec] at hfe'
+  -- the tables' fold, likewise
+  have htbl : ∀ init : List InstallSkel,
+      List.foldl (fun acc (f : MutualFormerA × Nat) =>
+          mutualTableSkel b f.1.cvTa.name f.1.nIdx f.2 acc) init fms.zipIdx
+        = List.foldl (fun acc (f : (ConstantVal × Nat) × Nat) =>
+            mutualTableSkel b f.1.1.name f.1.2 f.2 acc) init b.formers.zipIdx := by
+    intro init
+    refine foldl_zipIdx_congr fms b.formers 0 init hlenF ?_
+    intro c' i hi
+    have hnI := getD_of_map_eq hfms hi
+    simp only [Prod.mk.injEq] at hnI
+    simp only [hnI.1, hnI.2]
+  rw [htbl] at hfe'
+  exact hfe'
+
+/-- The recognised mutual block: the recursor pin is a `throw`, so the
+skeleton is the core's. -/
+theorem checkMutualS_skels (mode : CheckMode) {fe : FEnv} {sk : List InstallSkel}
+    (h : SkelIs fe sk) (p : MutualParts) :
+    Yields (checkMutualS mode fe p) (fun fe' => SkelIs fe' (mutualSkels p sk)) := by
+  unfold checkMutualS mutualSkels
+  split
+  case isFalse => exact Yields.ofThrowBind
+  case isTrue => exact checkMutualCoreS_skels mode h p.toBlock _
+
 /-! ### The tolerated-axiom branch
 
 `sorryAx` is the one axiom the checker tolerates as a declaration, and
@@ -1333,7 +1831,10 @@ theorem checkDeclC_skels (mode : CheckMode) {fe : FEnv}
       split
       · unfold indDeclSkels
         cases nativeParts? nP block with
-        | none => exact checkIndDeclSF_skels mode h block
+        | none =>
+          cases mutualParts? nP block with
+          | none => exact checkIndDeclSF_skels mode h block
+          | some q => exact checkMutualS_skels mode h q
         | some p => exact checkNativeS_skels mode h p
       · exact Yields.ofThrow
 

@@ -578,6 +578,392 @@ theorem checkNativeS_push (mode : CheckMode) {env : Env} {fe : FEnv}
   case isTrue _ =>
   exact checkNativeTailS_push mode h₁' (by rw [hpC']; exact hnd) hns' hfrs'
 
+/-! ## The mutual route (task #278) -/
+
+/-- Two readings of the same action. -/
+theorem Yields.and {α : Type} {m : CheckCM α} {P Q : α → Prop}
+    (hP : Yields m P) (hQ : Yields m Q) : Yields m (fun a => P a ∧ Q a) :=
+  fun s a s' hr => ⟨hP s a s' hr, hQ s a s' hr⟩
+
+private theorem map_fst_zipIdx {α β : Type} (f : α → β) :
+    ∀ (l : List α) (n : Nat), (l.zipIdx n).map (fun c => f c.1) = l.map f
+  | [], _ => rfl
+  | a :: l, n => by
+      simp only [List.zipIdx_cons, List.map_cons, List.cons.injEq, true_and]
+      exact map_fst_zipIdx f l (n + 1)
+
+private theorem fst_mem_of_mem_zipIdx {α : Type} : ∀ {l : List α} {n : Nat} {c : α × Nat},
+    c ∈ l.zipIdx n → c.1 ∈ l
+  | [], _, _, h => by simp at h
+  | a :: l, n, c, h => by
+      rw [List.zipIdx_cons] at h
+      rcases List.mem_cons.mp h with rfl | h
+      · exact List.mem_cons_self
+      · exact List.mem_cons_of_mem _ (fst_mem_of_mem_zipIdx h)
+
+/-- The block's constructors have distinct names. -/
+private theorem nodup_ctors_of_blockNames {b : MutualBlock} (h : b.blockNames.Nodup) :
+    (b.ctors.map (·.cv.name)).Nodup := by
+  unfold MutualBlock.blockNames at h
+  exact (List.nodup_append.mp (List.nodup_append.mp h).1).2.1
+
+/-- The block's members have distinct names. -/
+private theorem nodup_members_of_blockNames {b : MutualBlock} (h : b.blockNames.Nodup) :
+    (b.formers.map (·.1.name)).Nodup := by
+  unfold MutualBlock.blockNames MutualBlock.memberNames at h
+  exact (List.nodup_append.mp (List.nodup_append.mp h).1).1
+
+/-- … and so do its recursors. -/
+private theorem nodup_recs_of_blockNames {b : MutualBlock} (h : b.blockNames.Nodup) :
+    ((List.range b.k).map b.recName).Nodup := by
+  unfold MutualBlock.blockNames at h
+  exact (List.nodup_append.mp h).2.1
+
+/-- The recogniser's recursor pin, at one member: the stream's record
+is the generated recursor's name. -/
+private theorem mutualRecPin_name {p : MutualParts} (h : mutualRecPinOk p = true) {m : Nat}
+    {x : ConstantVal × List RecRule}
+    (hx : (p.members.map fun mb => (mb.cvR, mb.rules))[m]? = some x) :
+    x.1.name = p.toBlock.recName m := by
+  have hm : m < p.members.length := by
+    have := List.getElem?_eq_some_iff.mp hx
+    simpa using this.1
+  have hmem : p.members[m]? = some p.members[m] := List.getElem?_eq_getElem hm
+  have hxv : x = (p.members[m].cvR, p.members[m].rules) := by
+    rw [List.getElem?_map, hmem] at hx
+    simpa using hx.symm
+  have hall := (List.all_eq_true.mp h) m (List.mem_range.mpr (by simpa [MutualParts.k] using hm))
+  rw [hmem] at hall
+  simp only [Bool.and_eq_true, beq_iff_eq] at hall
+  rw [hxv]
+  show p.members[m].cvR.name = _
+  rw [hall.1.1.1.1]
+  show _ = ((p.members.map (fun (mb : MutualMember) => (mb.cv, mb.nIdx))).getD m
+    default).1.name.str "rec"
+  rw [List.getD_eq_getElem?_getD, List.getElem?_map, hmem]
+  rfl
+
+/-! ### The stages
+
+The four environment transitions of the mutual install are fresh
+chains for the same reasons the fixpoint route's are: the formers and
+the constructors are checked by `checkConstantValF` at the index they
+are pushed onto, the projection tables carry their own freshness
+guard, and the block's own shape guard (`mutualShapeOk`) supplies the
+distinctness the folds need.  The RECURSORS are the one place where
+the check and the push are not at the same name: the stage checks the
+STREAM's record and stores the GENERATED constant, so the name pin of
+the recogniser (`mutualRecPinOk`, `mutualParts?_recPinned` above) is
+what ties the two together. -/
+
+/-- **The recogniser stores the pin it computed**: a recognised block's
+`recPinned` bit IS `mutualRecPinOk` of the record, which is what ties
+the recursor stage's freshness check (on the stream's record) to the
+constant the install stores (the generated one). -/
+theorem mutualParts?_recPinned {nP : Nat} {block : List ConstantInfo} {p : MutualParts}
+    (h : mutualParts? nP block = some p) : p.recPinned = mutualRecPinOk p := by
+  unfold mutualParts? at h
+  simp only [] at h
+  repeat (split at h <;> first | contradiction | skip)
+  all_goals (injection h with h; subst h; rfl)
+
+/-- The block's shape guard: its declaration names are distinct. -/
+theorem mutualShapeOk_nodup (b : MutualBlock) :
+    Yields (mutualShapeOk (m := CheckCM) b) (fun _ => b.blockNames.Nodup) := by
+  unfold mutualShapeOk
+  yields
+  all_goals (apply Yields.pure; assumption)
+
+/-- The formers' checks: every member's name is the declared one and
+is fresh at the block's starting index (the stage checks them ALL
+there — official's `check_inductive_types` runs before
+`declare_inductive_types`). -/
+theorem mutualFormerChecksS_fresh (mode : CheckMode) (nP : Nat) :
+    ∀ (fs : List (ConstantVal × Nat)) {fe : FEnv},
+      Yields (mutualFormerChecksS mode fe nP fs)
+        (fun fms => fms.map (·.cvTa.name) = fs.map (·.1.name) ∧
+          ∀ f ∈ fms, fe.find? f.cvTa.name = none)
+  | [], _ => by
+      unfold mutualFormerChecksS
+      exact Yields.pure ⟨rfl, fun _ hf => nomatch hf⟩
+  | (cv, nIdx) :: fs, fe => by
+      unfold mutualFormerChecksS
+      refine Yields.bind' (checkConstantValF_fresh (sharedOpsC mode fe) fe cv) fun cvTa₀ h₀ => ?_
+      obtain ⟨hn₀, hfr⟩ := h₀
+      refine Yields.bind' (checkSumTeleF_name (sharedOpsC mode fe) fe cv (nP + nIdx) cvTa₀)
+        fun r hn => ?_
+      obtain ⟨cvTa, s⟩ := r
+      have hn' : cvTa.name = cv.name := by
+        rcases hn with h1 | h1
+        · exact h1.trans hn₀
+        · exact h1
+      ybind
+      split
+      split
+      case isFalse => exact Yields.ofThrowBind
+      case isTrue =>
+      refine Yields.bind' (mutualFormerChecksS_fresh mode nP fs (fe := fe)) fun fms hq => ?_
+      refine Yields.pure ⟨by simp [hn', hq.1], fun f hf => ?_⟩
+      rcases List.mem_cons.mp hf with rfl | hf
+      · show fe.find? cvTa.name = none
+        rw [hn']; exact hfr
+      · exact hq.2 f hf
+
+/-- The formers' conses: a fresh chain from the block's starting
+index. -/
+theorem consMutualFormersF_push :
+    ∀ {fms : List MutualFormerA} {env : Env} {fe : FEnv},
+      PushChain env fe → FreshNames fe.env (fms.map (·.cvTa.name)) →
+      PushChain env (consMutualFormersF fms fe)
+  | [], _, _, h, _ => h
+  | f :: fs, env, fe, h, hf => by
+    have hfr : fe.find? f.cvTa.name = none := by
+      rw [h.find?]
+      exact hf.2 _ (by simp)
+    exact consMutualFormersF_push (fms := fs) (h.push hfr)
+      (FreshNames.step (c := .indInfo f.cvTa {}) hf)
+
+/-- The formers' stage is a fresh chain: the members' names are the
+block's, distinct by the shape guard, and every one of them is fresh
+at the index the whole stage runs at. -/
+theorem mutualFormersS_push (mode : CheckMode) (nP : Nat)
+    (fs : List (ConstantVal × Nat)) {env : Env} {fe : FEnv} (h : PushChain env fe)
+    (hnd : (fs.map (·.1.name)).Nodup) :
+    Yields (mutualFormersS mode nP fs fe) (fun r => PushChain env r.1) := by
+  unfold mutualFormersS
+  ybind
+  refine Yields.bind' (mutualFormerChecksS_fresh mode nP fs (fe := fe)) fun fms hq => ?_
+  refine Yields.pure (consMutualFormersF_push h ⟨by rw [hq.1]; exact hnd, ?_⟩)
+  intro n hn
+  obtain ⟨f, hf, rfl⟩ := List.mem_map.mp hn
+  rw [← h.find?]
+  exact hq.2 f hf
+
+/-- One constructor is checked at the environment it is pushed onto. -/
+theorem checkMutualCtorF_fresh (ops : CheckerOps CheckCM) (w : StructWalkers) (fe : FEnv)
+    (memberNames : List Name) (T : Name) (lps : List Name) (nP nIdx : Nat) (rs : Level)
+    (isProp large : Bool) (cvC : ConstantVal) (nF : Nat) (cvTa : ConstantVal) :
+    Yields (checkMutualCtorF ops w fe memberNames T lps nP nIdx rs isProp large cvC nF cvTa)
+      (fun r => r.1.name = cvC.name ∧ fe.find? cvC.name = none) := by
+  unfold checkMutualCtorF
+  refine Yields.bind' (checkConstantValF_fresh ops fe cvC) fun cvCa₀ h₀ => ?_
+  obtain ⟨hn₀, hfr⟩ := h₀
+  refine Yields.bind' (normCtorValMF_name ops fe memberNames nP nF cvC cvCa₀ hn₀)
+    fun cvCa hn => ?_
+  yields
+  all_goals (apply Yields.pure; exact ⟨hn, hfr⟩)
+
+/-- Every stored constructor is fresh at the formers' environment. -/
+theorem checkMutualCtorsF_fresh (ops : CheckerOps CheckCM) (w : StructWalkers) (fe : FEnv)
+    (b : MutualBlock) (fms : List MutualFormerA) (isProp : Bool) :
+    ∀ (cs : List MutualCtor),
+      Yields (checkMutualCtorsF ops w fe b fms isProp cs)
+        (fun r => ∀ c ∈ r.1, fe.find? c.1.name = none)
+  | [] => Yields.pure (fun _ hc => nomatch hc)
+  | c :: cs => by
+    unfold checkMutualCtorsF
+    refine Yields.bind' (checkMutualCtorF_fresh ops w fe b.memberNames _ b.lps b.nP _ _
+      isProp b.large c.cv c.nF _) fun q hq => ?_
+    obtain ⟨cvCa, sorts⟩ := q
+    obtain ⟨hn, hfr⟩ := hq
+    refine Yields.bind' (checkMutualCtorsF_fresh ops w fe b fms isProp cs) fun rest hrest => ?_
+    obtain ⟨rest, srest⟩ := rest
+    refine Yields.pure ?_
+    intro d hd
+    rcases List.mem_cons.mp hd with rfl | hd
+    · show fe.find? cvCa.name = none
+      rw [hn]; exact hfr
+    · exact hrest d hd
+
+/-- The constructors' conses: a fresh chain from the formers' index. -/
+theorem consMutualCtorsF_push (nP : Nat) :
+    ∀ {ctorsA : List (ConstantVal × Nat)} {env : Env} {fe : FEnv},
+      PushChain env fe → FreshNames fe.env (ctorsA.map (·.1.name)) →
+      PushChain env (consMutualCtorsF nP ctorsA fe)
+  | [], _, _, h, _ => h
+  | c :: cs, env, fe, h, hf => by
+    have hfr : fe.find? c.1.name = none := by
+      rw [h.find?]
+      exact hf.2 _ (by simp)
+    exact consMutualCtorsF_push nP (ctorsA := cs) (h.push hfr)
+      (FreshNames.step (c := .ctorInfo c.1 nP c.2) hf)
+
+/-- One recursor: the stage checks the STREAM's record, so its
+freshness is the GENERATED name's exactly when the two names agree
+(the recogniser's pin). -/
+theorem checkMutualRecTyF_fresh (ops : CheckerOps CheckCM) (w : StructWalkers) (fe : FEnv)
+    (b : MutualBlock) (formers4 : List MutualFormer) (ctors4 : List MutualCtor4)
+    (mIdx : Nat) (cvR : ConstantVal) (hnm : cvR.name = b.recName mIdx) :
+    Yields (checkMutualRecTyF ops w fe b formers4 ctors4 mIdx (some cvR))
+      (fun cvRa => fe.find? cvRa.name = none) := by
+  unfold checkMutualRecTyF
+  ybind
+  split
+  case h_2 => rename_i hne; exact absurd rfl (hne cvR)
+  case h_1 =>
+  rename_i cvR' heq
+  injection heq with heq
+  subst heq
+  split
+  case isFalse => exact Yields.ofThrowBind
+  case isTrue =>
+  ybind
+  ybind
+  refine Yields.bind' (checkConstantValF_fresh ops fe cvR) fun cvRi hcv => ?_
+  yields
+  all_goals
+    (refine Yields.pure ?_
+     show fe.find? (b.recName mIdx) = none
+     rw [← hnm]
+     exact hcv.2)
+
+/-- The `k` recursor types are all fresh at the constructors'
+environment. -/
+theorem checkMutualRecTysF_fresh (ops : CheckerOps CheckCM) (w : StructWalkers) (fe : FEnv)
+    (b : MutualBlock) (formers4 : List MutualFormer) (ctors4 : List MutualCtor4)
+    (rs : List (ConstantVal × List RecRule))
+    (hnm : ∀ m x, rs[m]? = some x → x.1.name = b.recName m) :
+    ∀ (k : Nat), k ≤ rs.length →
+      Yields (checkMutualRecTysF ops w fe b formers4 ctors4 (some rs) k)
+        (fun cvRas => ∀ cv ∈ cvRas, fe.find? cv.name = none)
+  | 0, _ => by
+      unfold checkMutualRecTysF
+      exact Yields.pure (fun _ hc => nomatch hc)
+  | k + 1, hk => by
+      unfold checkMutualRecTysF
+      refine Yields.bind' (checkMutualRecTysF_fresh ops w fe b formers4 ctors4 rs hnm k
+        (by omega)) fun earlier hearlier => ?_
+      obtain ⟨x, hx⟩ : ∃ x, rs[k]? = some x :=
+        ⟨rs[k]'(by omega), List.getElem?_eq_getElem (by omega)⟩
+      have hstream : (some rs).bind (fun rs => (rs[k]?).map (·.1)) = some x.1 := by
+        simp [hx]
+      rw [hstream]
+      refine Yields.bind' (checkMutualRecTyF_fresh ops w fe b formers4 ctors4 k x.1
+        (hnm k x hx)) fun cvRa hcvRa => ?_
+      refine Yields.pure ?_
+      intro cv hcv
+      rcases List.mem_append.mp hcv with hcv | hcv
+      · exact hearlier cv hcv
+      · rw [List.mem_singleton.mp hcv]; exact hcvRa
+
+/-- The recursor group's conses: a fresh chain from the constructors'
+index. -/
+theorem storeMutualRecsF_push (fe₂ : FEnv) (b : MutualBlock) (fms : List MutualFormerA)
+    (rulesOf : List (List (MutualCtor × Expr))) :
+    ∀ (l : List (ConstantVal × Nat)) {env : Env} {fe : FEnv},
+      PushChain env fe → FreshNames fe.env (l.map (·.1.name)) →
+      PushChain env (storeMutualRecsF fe₂ b fms rulesOf l fe)
+  | [], _, _, h, _ => h
+  | (cvRa, mIdx) :: rest, env, fe, h, hf => by
+    have hfr : fe.find? cvRa.name = none := by
+      rw [h.find?]
+      exact hf.2 _ (by simp)
+    exact storeMutualRecsF_push fe₂ b fms rulesOf rest (h.push hfr)
+      (FreshNames.step (c := .recInfo cvRa (b.rulePrefix + (fms.getD mIdx default).nIdx)
+        b.rulePrefix (mutualRules fe₂.find? cvRa.name b.nP
+          (b.rulePrefix + (fms.getD mIdx default).nIdx) b.rulePrefix cvRa.type
+          (rulesOf.getD mIdx []))) hf)
+
+/-- The projection tables carry their own freshness guard. -/
+theorem mutualTablesF_push (w : StructWalkers) (b : MutualBlock)
+    (ctorsA : List (ConstantVal × Nat)) (sortss : List (List Level)) :
+    ∀ (l : List (MutualFormerA × Nat)) {env : Env} {fe : FEnv}, PushChain env fe →
+      Yields (mutualTablesF (m := CheckCM) w b ctorsA sortss l fe)
+        (fun fe' => PushChain env fe')
+  | [], _, _, h => by
+      unfold mutualTablesF
+      exact Yields.pure h
+  | (f, mIdx) :: rest, env, fe, h => by
+    unfold mutualTablesF
+    refine Yields.bind' (Q := fun fe' => PushChain env fe') ?_ fun fe' h' => ?_
+    · unfold mutualMemberTableF
+      cases b.ownCtors mIdx with
+      | nil => exact Yields.pure h
+      | cons x xs =>
+        cases xs with
+        | nil =>
+          obtain ⟨J, c⟩ := x
+          cases hn : f.nIdx with
+          | zero => exact checkStructProjTableF_push h _ _ _ _ _ _ _ _ _
+          | succ n => exact Yields.pure h
+        | cons y ys => exact Yields.pure h
+    · exact mutualTablesF_push w b ctorsA sortss rest h'
+
+/-- The mutual core is a fresh chain, given the recursors' name pin. -/
+theorem checkMutualCoreS_push (mode : CheckMode) {env : Env} {fe : FEnv}
+    (h : PushChain env fe) (b : MutualBlock) (rs : List (ConstantVal × List RecRule))
+    (hlen : b.k ≤ rs.length)
+    (hnm : ∀ m x, rs[m]? = some x → x.1.name = b.recName m) :
+    Yields (checkMutualCoreS mode fe b (some rs)) (fun fe' => PushChain env fe') := by
+  unfold checkMutualCoreS
+  simp only []
+  refine Yields.bind' (mutualShapeOk_nodup b) fun _ hnd => ?_
+  refine Yields.bind' (mutualFormersS_push mode b.nP b.formers h
+    (nodup_members_of_blockNames hnd)) fun r h₁ => ?_
+  obtain ⟨fe₁, fms⟩ := r
+  simp only [] at h₁ ⊢
+  ybind
+  ybind
+  ybind
+  ybind
+  split
+  case isFalse => exact Yields.ofThrowBind
+  case isTrue =>
+  refine Yields.bind'
+    (Yields.and (checkMutualCtorsF_fresh (sharedOpsC mode fe₁) structWalkersC fe₁ b fms _ b.ctors)
+      (checkMutualCtorsF_names (sharedOpsC mode fe₁) structWalkersC fe₁ b fms _ b.ctors))
+    fun r hr => ?_
+  obtain ⟨ctorsA, sortss⟩ := r
+  obtain ⟨hfrs, hctors⟩ := hr
+  simp only [] at hfrs hctors ⊢
+  ybind
+  split
+  case isFalse => exact Yields.ofThrowBind
+  case isTrue =>
+  -- the constructors' conses
+  have hnames : ctorsA.map (·.1.name) = b.ctors.map (·.cv.name) := by
+    have := congrArg (List.map Prod.fst) hctors
+    simpa [List.map_map, Function.comp_def] using this
+  have h₂ : PushChain env (consMutualCtorsF b.nP ctorsA fe₁) := by
+    refine consMutualCtorsF_push b.nP h₁ ⟨?_, ?_⟩
+    · rw [hnames]
+      exact nodup_ctors_of_blockNames hnd
+    · intro n hn
+      obtain ⟨c, hc, rfl⟩ := List.mem_map.mp hn
+      rw [← h₁.find?]
+      exact hfrs c hc
+  ybind
+  refine Yields.bind'
+    (Yields.and (checkMutualRecTysF_fresh (sharedOpsC mode _) structWalkersC _ b _ _ rs hnm b.k
+      hlen) (checkMutualRecTysF_names (sharedOpsC mode _) structWalkersC _ b _ _ (some rs) b.k))
+    fun cvRas hcvRas => ?_
+  obtain ⟨hfrR, hnR⟩ := hcvRas
+  ybind
+  ybind
+  refine Yields.mono (mutualTablesF_push structWalkersC b ctorsA sortss fms.zipIdx
+    (storeMutualRecsF_push (consMutualCtorsF b.nP ctorsA fe₁) b fms _ cvRas.zipIdx h₂ ⟨?_, ?_⟩))
+    (fun _ h' => h')
+  · rw [show cvRas.zipIdx.map (fun c => c.1.name) = cvRas.map (·.name) from
+      map_fst_zipIdx (·.name) cvRas 0, hnR]
+    exact nodup_recs_of_blockNames hnd
+  · intro n hn
+    obtain ⟨c, hc, rfl⟩ := List.mem_map.mp hn
+    rw [← h₂.find?]
+    exact hfrR c.1 (fst_mem_of_mem_zipIdx hc)
+
+/-- The recognised mutual block is a fresh chain. -/
+theorem checkMutualS_push (mode : CheckMode) {env : Env} {fe : FEnv}
+    (h : PushChain env fe) (p : MutualParts) (hpin : p.recPinned = mutualRecPinOk p) :
+    Yields (checkMutualS mode fe p) (fun fe' => PushChain env fe') := by
+  unfold checkMutualS
+  split
+  case isFalse => exact Yields.ofThrowBind
+  case isTrue hrp =>
+  refine checkMutualCoreS_push mode h p.toBlock _ ?_ ?_
+  · simp [MutualBlock.k, MutualParts.toBlock]
+  · intro m x hx
+    exact mutualRecPin_name (by rw [← hpin]; exact hrp) hx
+
 /-! ## The declaration clause and the two drivers' steps -/
 
 theorem installBasisDeclF_push {env : Env} {fe : FEnv} (h : PushChain env fe)
@@ -689,7 +1075,10 @@ theorem checkDeclC_push (mode : CheckMode) {env : Env} {fe : FEnv}
     · exact checkBasisDeclC_push h _
     · split
       · cases nativeParts? nP block with
-        | none => exact checkIndDeclSF_push mode h block
+        | none =>
+          cases hmp : mutualParts? nP block with
+          | none => exact checkIndDeclSF_push mode h block
+          | some q => exact checkMutualS_push mode h q (mutualParts?_recPinned hmp)
         | some p => exact checkNativeS_push mode h p
       · exact Yields.ofThrow
 
