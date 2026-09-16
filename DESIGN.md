@@ -79479,7 +79479,7 @@ the same reason.
 
 ##### (e) GATES
 
-`lake build` 684 jobs warning-free (was 681: `MutualNormPres`,
+`lake build` 683 jobs warning-free (was 681: `MutualNormPres`,
 `MutualNorm`); `lake test` warning-free; layering base 344 / model 256
 / caps 3 / umbrella 1, 0 base→lane, 0 impl→theory; trust surface 13
 escapes in 5 allowlisted files (615 scanned); overview-links 112;
