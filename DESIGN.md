@@ -74865,3 +74865,43 @@ conjunct and one per half of `pinsScoped`:
   19 reaching fixtures a pin has NO free variable at all (a
   parameterless block's pin, `List Nat`), so the annotation half is
   vacuous there and the loose-bvar half is what carries them.
+
+#### K.31 — the pins are structurally distinct: ALREADY CHECKED, now named (2026-09-16, task #315, lane L-B's DESIGN §U.23 (d))
+
+L-B asked for a new Bool `pinsDistinct st := (st.pins.map (·.pin)).Nodup`
+after `nestedGroupsOk`, because `replaceAllNested` rewrites a
+container-recursive field to the pin `find?` FINDS, which is the group's
+own copy only if the pins are pairwise distinct — and neither K.28 nor
+K.29 certifies that.
+
+**The check already exists.**  It has been the FIRST conjunct of
+`nestedContainersOk` since task #279 K.15 (2) — `decide ((pins.map
+(·.pin)).Nodup) && …` — and `nestedContainersOk env st.pins = true` has
+been a conjunct of the run relation since K.14.  What was missing was
+not the check but a NAME: the fact sits inside an `&&` chain, and
+`INTERFACE.md` §3 tells a consumer to decompose it with
+`Bool.and_eq_true`, which is easy to miss.
+
+So K.31 adds no check.  `pinsDistinct` is factored out as a named
+definition, `nestedContainersOk` calls it, and the run relation gains
+`pinsDistinct st.pins = true` as its own conjunct — **read off the same
+Bool** in `checkNested_inv` (`(Bool.and_eq_true _ _).mp hcont |>.1`), so
+there is no second evaluation and no second failure mode.  Adding a
+duplicate runtime check would have been the "invariants over runtime
+gates" mistake: the invariant is established once, at the mint.
+
+**Why it cannot fire** (unchanged, K.15 (2)): `replaceIfNested` mints
+only on a pin MISS, and when it misses it mints the container's whole
+`all`-group, so no two pins can carry the same term; and
+`containerGroupOk` makes a group-mate's group coincide with the group
+already minted, so a group-mate cannot be minted twice either.
+
+**Gates.**  `lake build`/`lake test` exit 0 warning-free; nested-shadow
+**27/27**; the Mathlib nested cone exit 0, 4 926 accepted, its 41 shadow
+lines byte-identical to the K.30 run.  Negative control: making
+`pinsDistinct` decide `Nodup` of the pin list APPENDED TO ITSELF — a
+forced duplicate — turns 24 of the 27 fixtures into `nested: a container
+the elimination pinned fails a fact its own install established`, which
+is `nestedContainersOk`'s message, confirming that the named Bool is the
+one that conjunct evaluates and that it is reached at every fixture that
+gets that far.

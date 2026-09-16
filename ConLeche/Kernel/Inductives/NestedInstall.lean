@@ -282,6 +282,25 @@ def restoreTbl (p : NestedParts) (st : ElimState) : RestoreTbl :=
       ++ (st.types.drop p.k).flatMap (fun t => t.ctors.map (·.1))
       ++ st.pins.map (fun q => q.aux.str "rec") }
 
+/-- **THE PINS ARE STRUCTURALLY DISTINCT** (task #279 K.15 (2), named
+for task #315 K.31).
+
+The elimination DEDUPES: `replaceIfNested` mints only on a pin MISS, and
+when it misses it mints the container's whole `all`-group, so two pins
+can never carry the same term — and `containerGroupOk` makes a
+group-mate's group coincide with the group already minted, so a
+group-mate cannot be minted twice either.
+
+It is what makes `replaceAllNested`'s rewrite of a container-recursive
+field correct: the field is rewritten to the pin `find?` FINDS, which is
+the group's own copy only if the pins are pairwise distinct.  Recorded
+since K.15 (2) as the first conjunct of `nestedContainersOk`; K.31 gives
+it a NAME so the model can consume it without decomposing that `&&`
+chain, and adds it to the run relation as its own conjunct — read off
+the same Bool, so there is no second evaluation and no second check. -/
+def pinsDistinct (pins : List NestedPin) : Bool :=
+  decide ((pins.map (·.pin)).Nodup)
+
 /-- **The containers' facts at every pin** (task #279 K.14): the three
 syntactic facts about a container the model tier's ψ needs and no stored
 record exposes (`containerFactsOk`).  `none` from `containerInfo?` is
@@ -289,10 +308,10 @@ impossible here for the reason K.11 (a) records: the pin exists only
 because `replaceIfNested` recovered its container at this same
 environment. -/
 def nestedContainersOk (env : Env) (pins : List NestedPin) : Bool :=
-  -- the pins are STRUCTURALLY DISTINCT (K.15 (2)): the elimination
-  -- dedupes — `replaceIfNested` mints only on a pin MISS — so this is a
-  -- fact of the mint, recorded for the model tier
-  decide ((pins.map (·.pin)).Nodup) &&
+  -- the pins are STRUCTURALLY DISTINCT (K.15 (2), named `pinsDistinct`
+  -- at K.31): the elimination dedupes — `replaceIfNested` mints only on
+  -- a pin MISS — so this is a fact of the mint, recorded for the model
+  pinsDistinct pins &&
   pins.all fun q =>
     match containerInfo? env q.container with
     | some ci => containerFactsOk env ci
