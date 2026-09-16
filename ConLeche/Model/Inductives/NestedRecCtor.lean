@@ -214,7 +214,7 @@ theorem NestedTailIn.ctorPinInv (hnames : NestedCtorPinNames env p st)
 
 
 omit I in
-private theorem auxCtorNames_flat (lps : List Name) : ∀ (ts : List AuxType) (s : Nat),
+theorem auxCtorNames_flat (lps : List Name) : ∀ (ts : List AuxType) (s : Nat),
     (((ts.zipIdx s).map fun (tm : AuxType × Nat) =>
         tm.1.ctors.map fun cc =>
           (⟨⟨cc.1, lps, cc.2.1⟩, cc.2.2, tm.2⟩ : ConLeche.MutualCtor)).flatten).map (·.cv.name)
@@ -339,6 +339,205 @@ theorem NestedTailIn.ctorPinRead
     hpinDs]
   rw [show (ConstantInfo.ctorInfo cvc ci.nP cc.nFields).toConstantVal.levelParams
       = cvT.levelParams from hcvc, ← hψJ ψ]
+
+
+omit I in
+/-- Two frames from spines of one length over one base agree only on
+equal spines. -/
+private theorem consListInjLen {as bs : List V} {ρ : Nat → V} (hl : as.length = bs.length)
+    (h : consList as ρ = consList bs ρ) : as = bs := by
+  apply List.ext_getElem hl
+  intro i hi₁ hi₂
+  have hk : as.length - 1 - i < as.length := by omega
+  have := congrFun h (as.length - 1 - i)
+  rw [consList_getD_lt as ρ _ hk, consList_getD_lt bs ρ _ (by omega),
+    show as.length - 1 - (as.length - 1 - i) = i from by omega,
+    show bs.length - 1 - (as.length - 1 - i) = i from by omega,
+    List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hi₁, List.getD_eq_getElem?_getD,
+    List.getElem?_eq_getElem hi₂] at this
+  exact this
+
+/-- The container member's constructor, at the RESTORED environment. -/
+theorem NestedTailIn.ctorPinFind2
+    {qn : NestedPin} {jc : Nat} {ci : ContainerInfo} {J : ContainerMember}
+    {cc : ContainerCtor}
+    (hci : ConLeche.containerInfo? env qn.container = some ci) (hJmem : J ∈ ci.members)
+    (hccj : J.ctors[jc]? = some cc) :
+    ∃ cvc : ConstantVal, (ENV₂).find? cc.name = some (.ctorInfo cvc ci.nP cc.nFields) := by
+  have hndNames : (fms.map (·.cvTa.name)).Nodup := by
+    rw [I.out.facts.names]
+    have h0 := I.out.nodup
+    unfold ConLeche.MutualBlock.blockNames at h0
+    exact (List.nodup_append.mp (List.nodup_append.mp h0).1).1
+  obtain ⟨cvT, caps, cvR, mI, rP, rules, -, -, -, -, hmembers⟩ := ConLeche.containerInfo?_inv hci
+  obtain ⟨cvC, capsC, cvRc, mIc, rulesC, -, -, -, -, -, -, hccs⟩ := hmembers J hJmem
+  obtain ⟨r, cvc, -, hccr, hfindcc, -⟩ := hccs jc cc hccj
+  rw [← hccr] at hfindcc
+  have hFE1 : FindPreserved env (ENV₁) :=
+    (consMutualFormers_extend (fms := fms.take p.k) (env := env)
+      (fun f hf => by
+        obtain ⟨t, ht⟩ := List.getElem?_of_mem (List.mem_of_mem_take hf)
+        exact I.out.facts.fresh t f ht)
+      (by
+        have := hndNames
+        rw [← List.take_append_drop p.k fms, List.map_append] at this
+        exact (List.nodup_append.mp this).1)).1
+  exact ⟨cvc, I.out.stage.find (hFE1 hfindcc)⟩
+
+
+/-- **THE CRUX**: the container's fitting field spine fits the COPY's
+telescope at the scratch block — `CopyCtorInst.fit_iff_at` at the
+container's `ChainFit`, its composed slots identified with the scratch
+block's own by `NestedTailIn.slotAt_aux` (F5). -/
+theorem NestedTailIn.ctorPinFieldsFit {mpA : EnvModelM V μ ENVA} {cvRas : List ConstantVal}
+    (S : NestedScratchOut F env b fms f₀ ctorsA kinds mp₁ ppsF W idxF dsF esF srcsF fvsPF xFvsF
+      xrestF eissF tssF stored mpA cvRas)
+    {q₀ kJ i : Nat} {dJ : BlockModel V} (G : PG mp₂.base2 q₀ kJ dJ) (hi : i < kJ)
+    (ψ : Name → Nat) (ρ₀ : Nat → V) (as : List V) (hsp : SpineFit ρ₀ ((D).params ψ) as)
+    {jc : Nat} {cA : ConstantVal × Nat}
+    (hjA : ((DA).ctorsM (p.k + q₀ + i))[jc]? = some cA)
+    {cAJ : ConstantVal × Nat} (hjJ : (dJ.ctorsM i)[jc]? = some cAJ)
+    {fs : List V}
+    (hfsJ : SpineFit (consList ((((D).pinAt (q₀ + i)).Ds ψ).map (interp V (consList as ρ₀)))
+      (consList as ρ₀)) (((dJ.Fss i (((D).pinAt (q₀ + i)).ψJ ψ)).getD jc [])) fs) :
+    SpineFit (consList as ρ₀) (((DA).Fss (p.k + q₀ + i) ψ).getD jc []) fs := by
+  have hρp : Sat V ((D).params ψ).reverse (consList as ρ₀) := (D).satOfSpine hsp
+  have hi' : i < dJ.k := by rw [G.kEq]; exact hi
+  obtain ⟨cvT', cvR', mI', rP', rules', hIJ⟩ := G.rep i hi
+  have hDsFit := G.DsFit i hi ψ ρ₀ as hsp
+  have hρJ := dJ.satOfSpine hDsFit
+  have hwJ : dJ.w (((D).pinAt (q₀ + i)).ψJ ψ) = f₀.s.eval ψ := G.w i hi ψ
+  have hcdJ := hIJ.ctorData hjJ
+  have hjJlt : jc < (dJ.ctorsM i).length := (List.getElem?_eq_some_iff.mp hjJ).1
+  -- (1) the container's own fit at its least tuple
+  have hfitsJ : FitsFrom ((dJ.rss i).getD jc [])
+      (dJ.slotAt (((D).pinAt (q₀ + i)).ψJ ψ)
+        (lfpTuple (f₀.s.eval ψ) dJ.k
+          (dJ.idx (((D).pinAt (q₀ + i)).ψJ ψ)
+            (consList ((((D).pinAt (q₀ + i)).Ds ψ).map (interp V (consList as ρ₀)))
+              (consList as ρ₀)))
+          (dJ.Φ (((D).pinAt (q₀ + i)).ψJ ψ)
+            (consList ((((D).pinAt (q₀ + i)).Ds ψ).map (interp V (consList as ρ₀)))
+              (consList as ρ₀)))) i jc) 0
+      (consList ((((D).pinAt (q₀ + i)).Ds ψ).map (interp V (consList as ρ₀))) (consList as ρ₀))
+      ((dJ.Fss i (((D).pinAt (q₀ + i)).ψJ ψ)).getD jc []) fs := by
+    have := G.reps.fitsFrom_of_spineFit_go (G.typed _) (G.pinsTyped _) hi' hjJ hρJ _ 0 [] fs rfl
+      trivial (by rw [consList_nil]; exact hfsJ)
+    rw [consList_nil, hwJ] at this
+    exact this
+  -- (2) the index equations at the result's tuple
+  have hEs := G.reps.res_es_fit (G.typed _) hi' hjJ hρJ hfsJ
+  have hidxeq : ∀ l, l < (dJ.IdsM i (((D).pinAt (q₀ + i)).ψJ ψ)).length →
+      interp V (consList fs
+          (consList ((((D).pinAt (q₀ + i)).Ds ψ).map (interp V (consList as ρ₀)))
+            (consList as ρ₀)))
+          (((dJ.Ess i (((D).pinAt (q₀ + i)).ψJ ψ)).getD jc []).getD l default)
+        = Tower.projS l (dJ.tup (((D).pinAt (q₀ + i)).ψJ ψ) i
+            ((dJ.esF i jc (((D).pinAt (q₀ + i)).ψJ ψ)).map (interp V (consList fs
+              (consList ((((D).pinAt (q₀ + i)).Ds ψ).map (interp V (consList as ρ₀)))
+                (consList as ρ₀)))))) := by
+    intro l hl
+    rw [hIJ.IdsM_length] at hl
+    have hlenE : ((dJ.esF i jc (((D).pinAt (q₀ + i)).ψJ ψ)).map (interp V (consList fs
+        (consList ((((D).pinAt (q₀ + i)).Ds ψ).map (interp V (consList as ρ₀)))
+          (consList as ρ₀))))).length = dJ.nIdxAt i := by
+      rw [List.length_map, hcdJ.lenE]
+    have hgetD : interp V (consList fs
+          (consList ((((D).pinAt (q₀ + i)).Ds ψ).map (interp V (consList as ρ₀)))
+            (consList as ρ₀)))
+          (((dJ.Ess i (((D).pinAt (q₀ + i)).ψJ ψ)).getD jc []).getD l default)
+        = ((dJ.esF i jc (((D).pinAt (q₀ + i)).ψJ ψ)).map (interp V (consList fs
+            (consList ((((D).pinAt (q₀ + i)).Ds ψ).map (interp V (consList as ρ₀)))
+              (consList as ρ₀))))).getD l pt := by
+      rw [IsBlockModel.Ess_getD hjJ, List.getD_eq_getElem?_getD, List.getD_eq_getElem?_getD,
+        List.getElem?_map, List.getElem?_eq_getElem (by rw [hcdJ.lenE]; exact hl),
+        Option.map_some, Option.getD_some, Option.getD_some]
+    rw [hgetD]
+    show _ = Tower.projS l (tupW (dJ.uM i (((D).pinAt (q₀ + i)).ψJ ψ)) _)
+    by_cases hu : dJ.uM i (((D).pinAt (q₀ + i)).ψJ ψ) = 0
+    · rw [tupW, if_pos hu, Tower.projS_pt]
+      have hrep := spineFit_zero_replicate (hu ▸ (hIJ.idxOk _ _ hρJ i hi').2) hEs
+      rw [hrep, List.getD_eq_getElem?_getD,
+        List.getElem?_eq_getElem (by rw [List.length_replicate, hIJ.IdsM_length]; exact hl)]
+      simp
+    · rw [tupW, if_neg hu, Tower.projS_mkTower l _ (by rw [hlenE]; exact hl),
+        List.getD_eq_getElem?_getD, List.getElem?_eq_getElem (by rw [hlenE]; exact hl),
+        Option.getD_some]
+  -- (3) the composed fit at the copy's global tables
+  have hLJmem : InTupleSpace (f₀.s.eval ψ) kJ
+      (dJ.idx (((D).pinAt (q₀ + i)).ψJ ψ)
+        (consList ((((D).pinAt (q₀ + i)).Ds ψ).map (interp V (consList as ρ₀))) (consList as ρ₀)))
+      (lfpTuple (f₀.s.eval ψ) dJ.k
+        (dJ.idx (((D).pinAt (q₀ + i)).ψJ ψ)
+          (consList ((((D).pinAt (q₀ + i)).Ds ψ).map (interp V (consList as ρ₀)))
+            (consList as ρ₀)))
+        (dJ.Φ (((D).pinAt (q₀ + i)).ψJ ψ)
+          (consList ((((D).pinAt (q₀ + i)).Ds ψ).map (interp V (consList as ρ₀)))
+            (consList as ρ₀)))) := by
+    rw [← G.kEq]; exact lfpTuple_mem _ _ _ _
+  have hinst := G.inst i hi ψ (consList as ρ₀) hρp _ hLJmem i hi jc hjJlt
+  have hcomposed := ((CopyCtorInst.fit_iff_at G.reps (G.typed _) (G.pinsTyped _) hi' G.kEq hwJ
+      (nestedU_pin_group mp₂.base2 G hi ψ) hρJ (G.idx i hi ψ i hi) hjJ hinst _ fs).mpr
+      ⟨hfitsJ, hidxeq⟩).1
+  -- (4) the scratch block's own fit
+  have hck : p.k + q₀ + i < b.k := by rw [I.out.bk]; have := G.seg; omega
+  obtain ⟨cvTA, cvRA, mIA, rPA, rulesA, hIA⟩ := S.reps (p.k + q₀ + i) hck
+  have hjAlt : jc < ((DA).ctorsM (p.k + q₀ + i)).length := (List.getElem?_eq_some_iff.mp hjA).1
+  have hρpA : Sat V ((DA).params ψ).reverse (consList as ρ₀) := hρp
+  obtain ⟨hJl, hJ, -⟩ := mutualBlockModel_ctorsM_get I.out.grouped I.out.facts.lenA hjA
+  have hnf : mutNFOf ctorsA (b.ownOffset (p.k + q₀ + i) + jc) = cA.2 := mutNFOf_eq hJ
+  have hksl : (mutKsOf kinds (b.ownOffset (p.k + q₀ + i) + jc)).length = cA.2 :=
+    (I.out.facts.ksJ _ cA hJ).1
+  have hlenDs : (dsF (b.ownOffset (p.k + q₀ + i) + jc) ψ).length = b.nP + cA.2 :=
+    (I.out.facts.CD _ cA hJ).len ψ
+  have hlenFA : (((DA).Fss (p.k + q₀ + i) ψ).getD jc []).length = cA.2 := hIA.Fss_length hjA ψ
+  have hrsA : ((DA).rss (p.k + q₀ + i)).getD jc [] = rsOf ((DA).ksF (p.k + q₀ + i) jc) :=
+    IsBlockModel.rss_getD hjAlt
+  have hfitsA : FitsFrom (((DA).rss (p.k + q₀ + i)).getD jc [])
+      ((DA).slotAt ψ
+        (lfpTuple ((DA).w ψ) (DA).k ((DA).idx ψ (consList as ρ₀)) ((DA).Φ ψ (consList as ρ₀)))
+        (p.k + q₀ + i) jc) 0 (consList as ρ₀) (((DA).Fss (p.k + q₀ + i) ψ).getD jc []) fs := by
+    refine (fitsFrom_iff_frames_spine ?_ ?_).mpr hcomposed
+    · rw [hlenFA, blkFss0_getD hJl, shadowFs_length, hnf]
+    · intro l hl fs₁ hl₁ hsp₁ hfA hfC
+      rw [hlenFA] at hl
+      have hrEq : (((DA).rss (p.k + q₀ + i)).getD jc []).getD (0 + l) false
+          = ((blkRss ctorsA kinds).getD (b.ownOffset (p.k + q₀ + i) + jc) []).getD (0 + l) false := by
+        rw [hrsA, blkRss_getD hJl]
+        rfl
+      constructor
+      · by_cases hr : (((DA).rss (p.k + q₀ + i)).getD jc []).getD (0 + l) false = true
+        · rw [if_pos hr, Nat.zero_add]
+          rw [← S.reps.real_dom_eq (S.typed ψ).1 (PinsTyped.of_noPins rfl ψ) hck hjA hρpA hl
+            (by rw [← hrsA, Nat.zero_add] at *; exact hr) hsp₁]
+          exact Subset.refl _
+        · rw [if_neg hr]
+          exact Subset.refl _
+      · by_cases hr : (((DA).rss (p.k + q₀ + i)).getD jc []).getD (0 + l) false = true
+        · rw [if_pos hr, if_pos (hrEq ▸ hr), Nat.zero_add]
+          have hF5 := I.slotAt_aux S G hi ψ ρ₀ as hsp hjA hl
+            (by rw [← hrsA, Nat.zero_add] at *; exact hr) hsp₁
+          rw [hwJ] at hF5
+          exact hF5
+        · have hrf : (((DA).rss (p.k + q₀ + i)).getD jc []).getD (0 + l) false = false := by
+            simpa using hr
+          have hnrec : ¬ recAt b.nP
+              (kindsOf (mutKsOf kinds (b.ownOffset (p.k + q₀ + i) + jc))) (b.nP + l) := by
+            intro hrec
+            have hkind := hrec.2
+            rw [Nat.add_sub_cancel_left] at hkind
+            have hb := (rsOf_getD_iff
+              (ks := kindsOf (mutKsOf kinds (b.ownOffset (p.k + q₀ + i) + jc)))
+              (by rw [kindsOf_length, hksl]; exact hl)).mpr hkind
+            rw [← blkRss_getD hJl, ← Nat.zero_add l, ← hrEq] at hb
+            rw [hrf] at hb
+            exact Bool.false_ne_true hb
+          rw [if_neg hr, if_neg (by rw [← hrEq]; exact hr),
+            IsBlockModel.Fss_getD hjA, blkFss0_getD hJl,
+            shadowFs_getD (by rw [hnf]; exact hl), if_neg hnrec]
+          rfl
+  exact S.reps.spineFit_of_fitsFrom (S.typed ψ).1 (PinsTyped.of_noPins rfl ψ) hck hjA hρpA
+    (lfpTuple_mem _ _ _ _) (TupleLe.refl _ _ _) hfitsA
 
 
 end Run
