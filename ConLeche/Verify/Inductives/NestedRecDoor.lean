@@ -5,6 +5,7 @@ public import ConLeche.Verify.Inductives.NestedAuxInv
 public import ConLeche.Verify.Inductives.MutualInv
 import ConLeche.Verify.Inductives.FrontDoor
 import ConLeche.Verify.Inductives.StructRec
+import ConLeche.Verify.Inductives.NestedRestoreKit
 
 public section
 
@@ -371,6 +372,117 @@ theorem mutualRecTy_stripPis {lps : List Name} {elim : Name} {large : Bool} {nP 
       · obtain ⟨y, -, rfl⟩ := List.mem_map.mp ha; rfl
       · rw [List.mem_singleton.mp ha]; rfl
   · exact nomatch h
+
+/-! ## The restore walk, per binder -/
+
+/-- **The restore walk's telescope, per binder**: the walk of a
+`∀`-telescope is the telescope of the walks — binder `i`'s domain is
+the walk of the source's at depth `d + i`, its binder meta unchanged,
+and the walk of the body is the body of the walk.
+`rk_restoreWalk_stripPis` with the DOMAINS named. -/
+theorem restoreWalk_stripPis_doms {R : RestoreTbl} :
+    ∀ (n : Nat) {d : Nat} {e e' : Expr} {bs : List (Expr × BinderMeta)} {body : Expr},
+      restoreWalk R d e = .ok e' → e.stripPis n = some (bs, body) →
+      ∃ (bs' : List (Expr × BinderMeta)) (body' : Expr),
+        e'.stripPis n = some (bs', body') ∧ restoreWalk R (d + n) body = .ok body' ∧
+          bs'.length = bs.length ∧ bs'.map (·.2) = bs.map (·.2) ∧
+          ∀ (i : Nat) (x : Expr × BinderMeta), bs[i]? = some x →
+            ∃ y : Expr × BinderMeta, bs'[i]? = some y ∧ restoreWalk R (d + i) x.1 = .ok y.1 := by
+  intro n
+  induction n with
+  | zero =>
+    intro d e e' bs body hw hs
+    simp only [Expr.stripPis, Option.some.injEq, Prod.mk.injEq] at hs
+    obtain ⟨rfl, rfl⟩ := hs
+    exact ⟨[], e', rfl, hw, rfl, rfl, fun i x hx => by simp at hx⟩
+  | succ n ih =>
+    intro d e e' bs body hw hs
+    cases e with
+    | forallE ty b bm =>
+      rw [Expr.stripPis] at hs
+      cases hb : b.stripPis n with
+      | none => rw [hb] at hs; exact nomatch hs
+      | some pr =>
+        obtain ⟨bs₀, body₀⟩ := pr
+        rw [hb] at hs
+        simp only [Option.map_some, Option.some.injEq, Prod.mk.injEq] at hs
+        obtain ⟨rfl, rfl⟩ := hs
+        obtain ⟨ty', b', hty, hbw, rfl⟩ := restoreWalk_forallE_inv hw
+        obtain ⟨bs', body', hs', hw', hlen, hmeta, hdom⟩ := ih hbw hb
+        refine ⟨(ty', bm) :: bs', body', ?_, ?_, ?_, ?_, ?_⟩
+        · rw [Expr.stripPis, hs']; rfl
+        · rw [show d + (n + 1) = d + 1 + n by omega]; exact hw'
+        · simp only [List.length_cons, hlen]
+        · simp only [List.map_cons, hmeta]
+        · intro i x hx
+          cases i with
+          | zero =>
+            simp only [List.getElem?_cons_zero, Option.some.injEq] at hx
+            exact ⟨(ty', bm), rfl, by rw [Nat.add_zero, ← hx]; exact hty⟩
+          | succ i =>
+            simp only [List.getElem?_cons_succ] at hx ⊢
+            obtain ⟨y, hy, hwy⟩ := hdom i x hx
+            exact ⟨y, hy, by rw [show d + (i + 1) = d + 1 + i by omega]; exact hwy⟩
+    | bvar _ | fvar _ _ | sort _ | const _ _ | app _ _
+    | lam _ _ _ | letE _ _ _ | lit _ | proj _ _ _ => exact nomatch hs
+
+/-- **The restored type's telescope, per binder**: below the parameter
+prefix the domains are the source's verbatim (the restore strips them
+untouched); above it binder `nP + i`'s domain is the walk of the
+source's at depth `i`.  `rk_restoreNested_stripPis` with the DOMAINS
+named. -/
+theorem restoreNested_stripPis_doms {R : RestoreTbl} {nP nF : Nat} (hnP : R.nP = nP)
+    {tyA tyR : Expr} {cbs : List (Expr × BinderMeta)} {resid : Expr}
+    (hstrip : tyA.stripPis (nP + nF) = some (cbs, resid))
+    (hres : restoreNested R tyA = .ok tyR)
+    (hfree : ∀ n ∈ R.auxNames, resid.mentionsConst n = false) :
+    ∃ cbs' : List (Expr × BinderMeta), tyR.stripPis (nP + nF) = some (cbs', resid) ∧
+      cbs'.length = cbs.length ∧ cbs'.map (·.2) = cbs.map (·.2) ∧
+      (∀ i, i < nP → cbs'[i]? = cbs[i]?) ∧
+      ∀ (i : Nat) (x : Expr × BinderMeta), cbs[nP + i]? = some x →
+        ∃ y : Expr × BinderMeta, cbs'[nP + i]? = some y ∧ restoreWalk R i x.1 = .ok y.1 := by
+  obtain ⟨mid, h1, h2⟩ := rk_stripPis_split nP nF hstrip
+  have hcl : cbs.length = nP + nF := stripPis_length _ hstrip
+  have htk : (cbs.take nP).length = nP := by rw [List.length_take, hcl]; omega
+  have hs : tyA.stripPis R.nP = some (cbs.take nP, mid) := by rw [hnP]; exact h1
+  have hpi : 0 < R.nP → ∃ ty b bm, tyA = Expr.forallE ty b bm := by
+    intro hlt
+    rw [hnP] at hlt
+    obtain ⟨j, rfl⟩ : ∃ j, nP = j + 1 := ⟨nP - 1, by omega⟩
+    cases tyA with
+    | forallE ty b bm => exact ⟨ty, b, bm, rfl⟩
+    | bvar _ | fvar _ _ | sort _ | const _ _ | app _ _
+    | lam _ _ _ | letE _ _ _ | lit _ | proj _ _ _ => exact nomatch h1
+  obtain ⟨body', hw, rfl⟩ := restoreNested_pis hs hpi hres
+  obtain ⟨bs', body'', hsb, hw', hlen', hmeta, hdom⟩ := restoreWalk_stripPis_doms nF hw h2
+  have hresid : restoreWalk R (0 + nF) resid = .ok resid :=
+    restoreWalk_of_no_aux (0 + nF) resid hfree
+  obtain rfl : body'' = resid := Except.ok.inj (hw'.symm.trans hresid)
+  rw [mkPisB_eq_foldr]
+  have hlenD : (cbs.drop nP).length = nF := by rw [List.length_drop, hcl]; omega
+  refine ⟨cbs.take nP ++ bs', stripPis_append nP ?_ hsb, ?_, ?_, ?_, ?_⟩
+  · have hmk := rk_mkPisB_stripPis (cbs.take nP) body'
+    rw [htk] at hmk
+    exact hmk
+  · rw [List.length_append, htk, hlen', hlenD, hcl]
+  · rw [List.map_append, hmeta, ← List.map_append, List.take_append_drop]
+  · intro i hi
+    rw [List.getElem?_append_left (by rw [htk]; exact hi), List.getElem?_take_of_lt hi]
+  · intro i x hx
+    have hx' : (cbs.drop nP)[i]? = some x := by rw [List.getElem?_drop]; exact hx
+    obtain ⟨y, hy, hwy⟩ := hdom i x hx'
+    refine ⟨y, ?_, by rw [Nat.zero_add] at hwy; exact hwy⟩
+    rw [List.getElem?_append_right (by rw [htk]; omega), htk,
+      show nP + i - nP = i from by omega]
+    exact hy
+
+/-- **An auxiliary-free binder is its own restoration**: at a domain
+mentioning no auxiliary name the walk is the identity, so the restored
+telescope carries the source's domain verbatim. -/
+theorem restoreWalk_dom_id {R : RestoreTbl} {i : Nat} {x y : Expr}
+    (hy : restoreWalk R i x = .ok y)
+    (hfree : ∀ n ∈ R.auxNames, x.mentionsConst n = false) : y = x :=
+  Except.ok.inj (hy.symm.trans (restoreWalk_of_no_aux i x hfree))
 
 /-! ## The auxiliary recursor IS the scratch install's generated one -/
 
