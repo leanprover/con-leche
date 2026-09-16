@@ -77668,3 +77668,134 @@ and `pinsScoped`, ~40 lines) + its threading and `NestedPinsScoped`'s
 discharge (½ session, with s10); **s10** = `u` 1; the identities
 (`idx`/`inst`) 2; `pinFix` 1–2.  M7 4–5; M8 1–2.  Remaining **11–15**
 (−1 for s9 landing; the K.30 threading rides with s10).
+
+#### U.23 — L-B: the copy identities — `idx` PROVED from the run, `inst` the named residual, the group's shared level assignment found missing (lane L-B, 2026-09-16)
+
+L-B = §U.21 (e)'s `NestedPinsIdent` (`idx ∧ inst` per pin group).
+`idx` — the copy's index telescope is the container's instantiated at
+the pin — is a THEOREM from the run (`nestedPinsIdx`,
+`Model/Inductives/NestedCopyIdx.lean`); `inst` — `CopyCtorInst` at every
+copy constructor — stays NAMED, verbatim, as `NestedPinsInst`, with the
+consumer `nestedPinsIdent_of : NestedPinsScoped → NestedPinsInst →
+NestedPinsIdent`.  `nestedPinsStaged_of` is unchanged; the integration
+composes `nestedPinsStaged_of hS hFix hU (nestedPinsIdent_of hS hI)`.
+No checker code changed; no `sorry`, no axioms, no `maxHeartbeats`.
+
+##### (a) THE CHAIN for `idx`
+
+K.28 certifies the copy's former as `mkCopy`'s output at the recorded
+source: `t.type = closeTelescope pbs 0 tyI` with `tyI = instPis
+(instantiateLevelParams J.lps lvls J.type) Ds` (`mkCopy_type`).  Read at
+the prefix model (`copyType_read`):
+
+1. `closeTelescope pbs 0 tyI = mkPisB pbs (tyI.abstractRange 0 nP 0)`
+   when the domains of `pbs` carry no fvars — the first former's binders,
+   off its closed type (`closeTelescope_eq_mkPisB`,
+   `Verify/Inductives/NestedCopyTele.lean`; `abstractRange_succ_low` is
+   `abstractRange_succ` from the low end).  So the copy's type is the
+   first former's OWN telescope over the bulk abstraction, whose opening
+   is `instSeq` of the openers (`openPisAtFvars_mkPisB`) and reads as
+   `tyI` (`eraseAnnots_openAbstract` + the erasure law) — no round trip
+   of `closeTelescope` against `openPisAtFvars` was needed.
+2. `tyI` reads at depth `nP` as the container's stored type read at the
+   pin's level assignment (`denoteMeta_instLevels`, `denoteMeta_lift` +
+   the closed reading's `liftN`-invariance), peeled along the components'
+   readings (`denoteMeta_instPisAt_peel`, with `instPis` as an `instPisAt`
+   residual) — and **a Π-tower's peel along the parameters IS the tower
+   over the index data instantiated at the components from cut 0**
+   (`peelPis_mkPisAV_sort`): `instPis`'s order (the outermost parameter
+   first, at the highest cut) is `AnnotTerm.instAll`'s, so `instTeleP`
+   (the triples' `instTele`) is what comes out.
+3. `mkPisAV_sort_inj` equates the two towers ending in sorts (no length
+   hypothesis: a `.pi` is never a `.sort`), and `FormerData` pins both
+   ends — the copy's at the pre-block model (`MutualFormersFacts.FD₀`,
+   crossed to the prefix model by `NestedPinsRun.cross`), the
+   container's at the STORED constant (`IsBlockModel.former`).
+
+The pin's components are scoped by K.30 (`NestedPinsScoped`, already a
+premise of `nestedPinsStaged_of`): `WScoped_of_openers` is
+`pinRead_of_inferAt`'s scope half, `WScoped_of_mkAppN`/
+`looseBVarsBounded_of_mkAppN` pass it to the arguments.
+
+##### (b) FINDING — the group's pins must SHARE the level assignment; two `NestedPinGroupSyn` fields
+
+`idx`, `u` and `inst` are all stated at pin `q₀ + i`'s `ψJ` for MEMBER
+`i'`: `dJ.IdsM i' ((pinAt (q₀ + i)).ψJ ψ)`.  At the ABSTRACT group
+(`NestedPinsIdsAt` quantifies over any `dJ` with `NestedPinGroupSyn`)
+nothing ties `cvT_i.levelParams` to `cvT_{i'}.levelParams`:
+`IsBlockModel.ctors` gives it when the block has a constructor
+(`BlockCtorFacts`' `levelParams = cvT.levelParams` at every member's
+`cvT`), and a constructor-free multi-member group has no such clause.
+The fact is true of every `containerInfo?` group (`cvC.levelParams =
+cvT.levelParams` per member) and is now a field, `ψJEq : ∀ i i' < kJ,
+∀ ψ, (pinAt (q₀ + i)).ψJ ψ = (pinAt (q₀ + i')).ψJ ψ`, proved at
+`groupSyn` from the BASE group.  Likewise `IsBlockModel` has no `found`
+clause, so `rep`'s existential `cvT` is not the stored constant; the
+identities read the stored type, so `stored : ∀ i < kJ, ∃ cvT caps cvR
+mI rP rules, env₂.find? J = some (.indInfo cvT caps) ∧ IsBlockModel … ∧
+ψJ-spelling` is the second field (`rep` is untouched, `ofParts`
+untouched; both fields sit at the END of the structure).  L-A's `u`
+discharge needs `ψJEq` in the same way.
+
+##### (c) GATES
+
+`lake build` 663 jobs warning-free (was 661: `NestedCopyTele`,
+`NestedCopyIdx`); `lake test` warning-free; layering base 336 / model
+245 / caps 3 / umbrella 1, 0 base→lane, 0 impl→theory; trust surface 13
+escapes in 5 allowlisted files (596 scanned); overview-links 112;
+quote-gate 2; no-local-paths OK; proofdeps 4955 rows / 12 roots / 0
+doors UNCHANGED.  shake: the seven implied imports of the two new
+modules removed (new modules, no compensation); pub-imports: three
+demotables — `NestedPins`'s `public import NestedLoop` REFUSED by the
+compiler (`unknown identifier SetTheory`, the one-import-view class, a
+`FALLBACK` entry), `Fold`'s `AxiomReduce` and `Harvest`'s `DivModCert`
+DEMOTED (the build accepts; these two are not L-B's subject and stand at
+the base tree as well — the fixpoint is order-dependent and the new
+modules changed the graph), after which their two allowlist lines were
+no longer proposed and are deleted.  Standard axioms only
+(`nestedPinsIdent_of`, `nestedPinsIdx`: `propext, Classical.choice,
+Quot.sound`).
+
+##### (d) THE RESIDUAL `inst`, sized
+
+`NestedPinsInst` is `NestedPinsIdent`'s second conjunct verbatim
+(`NestedCopyIdx.lean`).  Its discharge, per field of every copy
+constructor: (1) the stored constructor = `replaceAllNested` of
+`mkCopy`'s output re-opened at the first former's openers (K.28 +
+K.30 (2) for the exact round trip), then `normCtorValM`'s identity arm
+(`nestedCopyCtorType_eq`); (2) `replaceAllNested`'s per-field action —
+a container-recursive field `J'' p⃗ is` is `J'' Ds is'` after
+instantiation (uniformity, K.14) and becomes `aux params is'` at the pin
+`st.pins.find? (·.pin == J'' Ds)` FINDS, which must be the GROUP's copy
+`k + q₀ + tgts`: **pin distinctness, certified by neither K.28 nor K.29**
+(two groups may record the same `(J, lvls, Ds)`).  Two routes for the
+maintainer: a kernel request K.31, one Bool `pinsDistinct st :=
+(st.pins.map (·.pin)).Nodup` (it cannot fire: `mkCopies` runs only on a
+`find?` miss and mints a whole group, and `containerGroupOk` makes a
+group-mate's group coincide with the container's), or an `elimLoop`
+invariant in `PinsAligned`'s style carrying "every pin's group at its
+`Ds` is present" + Nodup relative to the final list's
+`nestedContainersOk` (~500 lines, an Opus lane); (3) the aux name → the
+member index (`PinsAligned` + `hnd`) and `mutualCtorKinds` on the
+rewritten domain read back as the container's `ksF` shifted (ordinary
+stays ordinary unless it mentions a member — the `ordF` right arm); (4)
+the readings (`MutualCtorDataI` at the aux block against `BlockCtorFacts`
+at the container) through `copyType_read`'s twin at a constructor body;
+(5) the SEMANTIC `ordF` right arm — a container-ordinary field rewritten
+to a member or another pin has its entry at the auxiliary carrier equal
+to the container's domain read at the pin's frame: the members' `leaf`
+via `ofNested_lfp`, the other pins' `pinLeaf`, the assembly's induction
+over the pin order (§U.17 (b) 3).  Sized 2 sessions (unchanged from
+§U.21 (f)), item (2)'s certification decision first.  The Tree/List
+check the brief asked for first is subsumed: `idx` is proved for every
+group, and `inst`'s per-field syntactic lemma is item (2), which the
+List instance does not shortcut (its `cons` tail IS the group-copy
+rewrite that needs distinctness).
+
+Lean traps: `mkPisB` is a Verify `def` (private body) — its cons/nil
+laws are `mkPisB_eq_foldr` read backwards (`mkPisB_nil`/`mkPisB_cons`);
+`pinAtE` likewise (`List.mem_of_getElem? PD.pin` instead of `unfold`);
+an `rcases` `-` on `containerInfo?_inv`'s `rP` witness clears the
+per-member conjunction that depends on it — name every witness; the
+`show` at `blockIds` fails on `p.k + q₀ + i'` vs `p.k + (q₀ + i')` —
+`unfold blockIds; rw [Nat.add_assoc]`.
