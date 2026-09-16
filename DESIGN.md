@@ -79669,3 +79669,239 @@ proofdeps 4955 rows / 12 roots / 0 doors UNCHANGED.
 
 Cost: one session, as sized.  Next on M7: the readings at `k + nPins`
 (§U.25 (e) 2, lane M7-2), then `hceq`/`heq` and the stage.
+
+#### U.29 — M7-2: the readings at `k + nPins` — the run half PROVED, the frames found to need the restore reading law AT THE RECURSOR TYPE (lane M7-2, 2026-09-16)
+
+Lane M7-2 off `agent/uniform-315` bf10dfcd (branch
+`agent/uniform-m7read`), continuing the Fable agent's WIP secured at
+e8b00857.  Deliverable: DESIGN §U.25 (e) 2 — `NestedRecReadingsOf`,
+the readings' named fact of the recursors' stage skeleton
+(`NestedRecsStage.lean`).  No checker code changed; no `sorry`, no
+axioms, no `maxHeartbeats`; `#print axioms` of every new theorem is
+`[propext, Classical.choice, Quot.sound]`.
+
+**Status: THIRTEEN of `NestedRecReadings`' FOURTEEN clauses are
+proved at the run; the fourteenth — `frames` (`ReadingFramesT`) — is
+NOT, and (c) re-sizes it.**  `NestedRecReadingsOf` itself is therefore
+still open; nothing new is named for the gap (the residual is a
+hypothesis of the theorem that delivers the record, (b)).
+
+##### (a) WHAT IS PROVED — verbatim
+
+*The door, per binder* (`ConLeche/Verify/Inductives/NestedRecDoor.lean`,
+the Fable agent's file, now imported and gated):
+
+```lean
+theorem restoreWalk_stripPis_doms {R : RestoreTbl} :
+    ∀ (n : Nat) {d : Nat} {e e' : Expr} {bs : List (Expr × BinderMeta)} {body : Expr},
+      restoreWalk R d e = .ok e' → e.stripPis n = some (bs, body) →
+      ∃ (bs' : List (Expr × BinderMeta)) (body' : Expr),
+        e'.stripPis n = some (bs', body') ∧ restoreWalk R (d + n) body = .ok body' ∧
+          bs'.length = bs.length ∧ bs'.map (·.2) = bs.map (·.2) ∧
+          ∀ (i : Nat) (x : Expr × BinderMeta), bs[i]? = some x →
+            ∃ y : Expr × BinderMeta, bs'[i]? = some y ∧ restoreWalk R (d + i) x.1 = .ok y.1
+```
+
+with `restoreNested_stripPis_doms` (below the parameter prefix the
+restored domains are the source's VERBATIM — the restore strips those
+binders untouched; above it binder `nP + i`'s is the walk of the
+source's at depth `i`) and `restoreWalk_dom_id` (an auxiliary-free
+domain is its own restoration).  `rk_restoreNested_stripPis` gave the
+binder METAS; these give the DOMAINS.
+
+*The tower's entries* (`Model/Inductives/NestedRecRead.lean`):
+`restoredRecTy_reading` gains the clause
+
+```lean
+        (∀ (i : Nat) (x : Expr), fvs[i]? = some x →
+          denoteMeta m.acval env φ i (Expr.fvarTypeD x) = some (rds.getD i default).2.2)
+```
+
+— opener `i`'s annotation reads to entry `i` of the tower, which
+`openPisAtFvars_denotePTele` already computes and the proof discarded
+(`stripPisAV_of_piTeleAV`'s `(pps.map (·.2.2)).reverse = Γ` turned
+around).
+
+*The run* (`Model/Inductives/NestedRecTypes.lean`, new, 479 lines):
+
+| theorem | statement (short) |
+| --- | --- |
+| `NestedTailIn.auxRecTy` | the read-back's recursor at class `c` IS the scratch install's generated one, so its type is a `∀`-telescope of `nP + k + n + nIdx_c + 1` binders, every binder carrying the elimination datum, over the constant-free conclusion.  `auxStored_rec_eq` + `mutualRecTy_stripPis`, with the door's existential formers'/constructors'/kinds' runs identified with the tail's by determinism (`NestedCoreOut.formers`/`.ctors`/`.kindsRun`) |
+| `NestedTailIn.tblNP` | `(restoreTbl p st).nP = b.nP` (`auxBlock_fields`) |
+| `NestedTailIn.recTyRead` | one class's restored recursor type reads, at EVERY level assignment, to a Π-tower of that length over `mutualConcAV b.k b.ctors.length (fms.getD c default).nIdx c`, with the elimination datum's bits, closed domains, graded and formed at the ONE sort the pre-annotated door inferred for it, the readings stable under `b.rlps` (`denoteMeta_params_ext` + `mkPisAV_inj`) |
+| `NestedTailIn.storedLen`, `.lenM`, `.lenN` | the read-back is `b.k` long, the restored member recursors `p.k`, the auxiliary ones `pinsS.length` |
+| `nestedRecCvAt`, `NestedTailIn.classRecTy` | class `c`'s restored recursor constant (a member's below `k`, a pin's above) and `recTyRead` at it |
+| `NestedTailIn.kT`, `.nCtorsT`, `.nIdxT` | the block model's bookkeeping at the run: the classes are the auxiliary members (`I.out.bk`), the minors the auxiliary constructors (`nestedBlockModel_nCtorsT` at `NestedStageFacts.ctorsLen` + `checkMutualCore_inv`'s member bound), and **class `c`'s index count is its auxiliary former's** — a member's by construction, a pin's through its group (`nestedBlockModel_nIdxT_pin` at `NestedPinGroup.pinNIdx`/`.idx`, the length premise from `MutualFormersFacts.FD`'s `FormerData.len`) |
+| `NestedTailIn.large`, `.wEq` | `b.large = f₀.s.isNeverZero` (the core run identified with the tail's) and `d.w ψ = f₀.s.eval ψ` |
+| **`NestedTailIn.readings`** | **the record**, (b) |
+
+##### (b) THE RECORD, AND THE ONE RESIDUAL — verbatim
+
+```lean
+theorem NestedTailIn.readings
+    (hfr : ∀ (rdsM : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm))
+      (concM : Nat → AnnotTerm),
+      (∀ (c : Nat) (ψ : Name → Nat), c < (D).kT →
+        denoteMeta mp₂.base2.acval ENV₂ ψ 0 (nestedRecCvAt p.k cvRms cvRns c).type
+          = some (mkPisAV (rdsM c ψ) (concM c))) →
+      (∀ (c : Nat) (ψ : Name → Nat), c < (D).kT →
+        (rdsM c ψ).length = (D).nP + (D).kT + (D).nCtorsT PC + (D).nIdxT c + 1) →
+      ∀ (ψ : Name → Nat) (ρ : Nat → V) (c : Nat), c < (D).kT →
+        (D).ReadingFramesT PC ψ (b.elimLevel.eval ψ) (rdsM c ψ) (concM c) c ρ) :
+    ∃ (s : (Name → Nat) → Nat) (rdsM : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm))
+      (concM : Nat → AnnotTerm),
+      NestedRecReadings mp₂.base2 (D) PC cvRms cvRns b.rlps b.elimLevel s rdsM concM
+```
+
+The residual is a HYPOTHESIS, not a new named fact: it says "the
+frames hold of the readings", and its two premises pin `rdsM`/`concM`
+exactly (a reading is a function, and `mkPisAV_inj` at the length makes
+the split unique), so whoever proves the concrete reading discharges
+it directly and nothing has to be re-chosen.  The thirteen clauses are
+`lenM`/`lenN` (`restoreRecTys_id` + `auxStoredAll_get`),
+`readM`/`readN`/`lpsM`/`lpsN` (`classRecTy`), `len` (the bookkeeping
+above), `bits` (`pwBit_zeronessOf`), `below`, `params`, `okTy`, `sort`
+(the classes' inferred sorts joined, `univ_mono`) and `wℓ`
+(`elimLevel_zero_of_w_zero`).
+
+##### (c) THE FINDING — `ReadingFramesT` needs the RESTORE READING LAW at the recursor type; §U.25 (e) 2 was under-sized
+
+§U.25 (e) 2 sized the readings at **2 sessions** ("the readings
+themselves" + "`MotivesTypedT`/`MinorsTypedT`").  The first half's
+plan — "a `nestedRecDataAV`/`nestedConcAV` + `denoteMeta_nestedRecTy`
+(the walk through `restoreWalk` at the auxiliary type:
+`restoreNested_pis` + the `restoreWalk` kit of §U.19)" — reads as one
+lemma; it is not.  What it asks for is **§U.21b's restore reading law
+again, at the recursor type**, and that was itself a full session with
+five new modules (`NestedCtorRead`/`NestedCtorOpened`/`NestedCtorRefl`/
+`NestedReadLaw`/`NestedTransfer`, ~2 500 lines) for the CONSTRUCTOR.
+
+Why no cheaper route exists, checked this session:
+
+1. **The abstract tower is not enough.**  `restoredRecTy_reading`
+   gives the reading's length, bits and closedness without ever
+   naming a domain, and that carries thirteen clauses ((b)).  It
+   cannot carry `frames`: `ReadingFramesT` must SPLIT a fitting spine
+   into `ps ++ Msl ++ msl ++ is ++ [t]` and type each piece, which
+   needs the reading AT each of the `nP + kT + nCtorsT + nIdx + 1`
+   positions — i.e. all of them.
+2. **The restored type is not `mutualRecTy` of anything.**  The
+   restore turns `structFamI T.pin_q lps nP nIdx …` (the family
+   `.const T.pin_q lvls` at the parameters and indices) into the
+   CONTAINER at the pin's components, `J Ds ı⃗` — the parameters are
+   replaced, so no `MutualFormer` list spells it and
+   `denoteMeta_mutualRecTy` cannot be re-run on it.  (Generalising
+   `mutualRecTy` over an arbitrary family head would be a checker
+   change.)
+3. **The MEMBER positions ARE exempt** (checked: `elimLoop` rewrites
+   only `t.ctors`, never `t.type`, so no member's type ever acquires a
+   minted name).  The parameters come from member `0`'s type, a member
+   motive's domain from `structFamI T_m …` over that member's index
+   telescope, and a member class's index telescope and major likewise
+   — all auxiliary-free, so `restoreWalk_dom_id` makes the restored
+   domain the auxiliary one VERBATIM and its reading is the auxiliary
+   reading transferred (`nt_denoteMeta_transfer`).  The walk is real
+   only at the PIN motives/index telescopes/majors (`structFamI
+   T.pin_q …` → the container at `Ds`, and a nested-through-nested
+   copy's telescope) and at the MINORS.
+4. **The minors reuse what §U.21b proved, but only at the members.**
+   A minor's field domains are its constructor's, so at a member's
+   constructor the restored domains are `NestedCtorRead`'s `dsR mm j ψ`
+   — already available from `nestedReadLaw`.  At a COPY's constructor
+   the restored domain is the container's constructor field at `Ds`,
+   while `nestedPc`'s `Fss` are the AUXILIARY readings (§U.28 (b)):
+   the two read to different `AnnotTerm`s and the same SET, which is
+   the pin identification (`pinLeaf`, §U.15–U.17) seen at the minors.
+
+**The machinery is in place and was completed this session**: the
+restored telescope's binder `nP + i` is the walk of the auxiliary's at
+depth `i` (`restoreNested_stripPis_doms`), opener `i`'s annotation
+reads to entry `i` of the tower (`restoredRecTy_reading`'s new
+clause), the transfer from the scratch model to the prefix model is
+`nt_denoteMeta_transfer`, and the pin's reading at depth is
+`nt_denoteMeta_restoredPin`.  What remains is the per-position
+identification itself.
+
+**RE-SIZING of §U.25 (e) 2** (was 2):
+
+* (e) 2a — this session: the run half, thirteen clauses.  **DONE**;
+* (e) 2b — `denoteMeta_nestedRecTy`: `nestedRecDataAV`/`nestedConcAV`
+  over the EXTENDED class lists (`kT` motives, `nCtorsT` minors in
+  auxiliary order) built from the block model, and the per-position
+  identification at the four kinds of position (parameters; motives,
+  member and pin arm; minors, member and copy arm; the index telescope
+  and the major, both arms).  **3–4 sessions**;
+* (e) 2c — `BlockReadings`' twin at `kT` (`cds` at `minorIdxT`),
+  `spineFit_recData_inv`'s twin and `interp_mutualConcAV_at`'s twin:
+  mechanical twins of `BlockRecTyped.lean` once 2b lands.
+  **1 session**;
+* (e) 2d — `MotivesTypedT`/`MinorsTypedT` from the frame (`motive_app_mem`'s
+  and `minor_fold_mem`'s twins, the index readings' fits at the pins'
+  constructors).  **1–2 sessions**.
+
+So §U.25 (e) 2 is **5–8 sessions, not 2**; with (e) 3–5 unchanged
+(4–5) the recursors' stage of a nested block is **8–12 from here**
+(§U.25's total of 5½–6 after L-D is superseded).
+
+##### (d) THE PROOF-TERM DOOR (found by putting the lane's modules in the build)
+
+`NestedRecRead.lean` was in NO root, so `lake build` never built it and
+no gate had ever seen the lane.  Registering it (and the new file) in
+`ConLeche/Model.lean` found a genuine **door**: the Fable agent's
+`mutualMotivesPis_stripPis`/`mutualMinorsPis_stripPis` unfolded their
+functions with `simp only [<the def>]`, which REALIZES
+`mutualMotivesPis.match_1.splitter` and `mutualMinorsPis.match_1.splitter`
+in `NestedRecDoor` — a Verify module below every capstone in the import
+order — so the splitters' attribution moved there and **all twelve
+capstone roots acquired the lane's module** (proofdeps: 10 rows
+entering).  The two telescopes now unfold through `rfl`-proved step
+lemmas (`doorMotivesPis_nil/_cons`, `doorMinorsPis_nil/_cons`), which
+realize nothing.  The rule, worth keeping: *in a module that sits
+below the capstones, never unfold a shared kernel function through its
+equation lemmas — state the step by `rfl` and `rw` it.*
+
+The same exercise found five demotable `public import`s (four applied;
+the door's `NestedInv` is §U.21 (f)'s one-import-view class and stays),
+three removable imports (deleted, the #223 criterion clean) and four
+removals the compiler refuses (allowlisted with their reason).
+
+##### (e) LEAN TRAPS
+
+* `subst h` with `h : a = b` eliminates the **RHS** variable: a
+  determinism argument stated as `fms' = fms` substitutes the SECTION
+  variable `fms` away and every later mention of it is an unknown
+  identifier.  State it `fms = fms'`.
+* `rw [denoteMeta_params_ext …] at h` fails with "motive is not type
+  correct" when `h`'s right-hand side mentions `Classical.choose (hread ψ₁)`
+  — the choice's PROOF argument has the rewritten term in its type.
+  `obtain ⟨rdsF, hspec⟩ : ∃ rdsF, ∀ ψ, … := ⟨fun ψ => Classical.choose (hread ψ), …⟩`
+  first: `rdsF ψ₁` is then an opaque application and the rewrite goes
+  through.
+* `Classical.skolem.mp` turns `∀ c, ∃ u rds, c < k → P c u rds` into
+  `∃ uOf, ∀ c, ∃ rds, …` without restating `P` — the tree has no
+  `choose` tactic, and spelling a 20-line predicate twice is how this
+  file first went wrong.
+* `omit I in` must come BEFORE the docstring, not between it and the
+  `theorem` ("unexpected token 'omit'").
+* A `local notation` is local to its SECTION: `NestedRecRead.lean`'s
+  `D`/`PC` had to be re-declared in the new file.
+* `lake env lean <file>` typechecks against the OLEANS, so a module the
+  roots do not list is invisible to `lake build` — which is how the
+  lane's files stayed outside every gate.
+
+##### (f) FILES AND GATES
+
+New: `ConLeche/Model/Inductives/NestedRecTypes.lean` (479).  Touched:
+`NestedRecRead.lean` (+1 clause, −1 import), `NestedRecsStage.lean`
+(two demotions, one removal), `Verify/Inductives/NestedRecDoor.lean`
+(+the per-binder lemmas, the four `rfl` step lemmas, three demotions,
+one removal), `ConLeche/Model.lean` (+2 lines),
+`tests/shake-allowlist.txt` (+4).
+
+Gates at HEAD: `lake build` 687 jobs warning-free; `lake test`
+warning-free EXIT 0; shake 510 removals all allowlisted / pub-imports
+1245 of 1942 public, none demotable (35 dot-notation fallbacks);
+layering base 344 / model 260 / caps 3 / umbrella 1, 0 base→lane, 0
+impl→theory; trust surface 13 escapes in 5 allowlisted files (619
+scanned); no-local-paths OK; overview-links 112; quote-gate 2;
+proofdeps 4955 rows / 12 roots / 0 doors.
