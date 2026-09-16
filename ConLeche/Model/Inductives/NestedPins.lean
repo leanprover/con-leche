@@ -360,6 +360,19 @@ structure NestedPinGroupSyn (m : EnvModel V env₂) (q₀ kJ : Nat) (dJ : BlockM
     SpineFit ρ ((D).params ψ) as →
     SpineFit (consList as ρ) (dJ.params (((D).pinAt (q₀ + i)).ψJ ψ))
       ((((D).pinAt (q₀ + i)).Ds ψ).map (interp V (consList as ρ)))
+  /-- `rep` at the STORED constant (task #315 L-B): the block at the
+  pin's container is asserted at the constant the environment holds
+  under that name — the syntactic identities read the stored type -/
+  stored : ∀ i, i < kJ → ∃ (cvT : ConstantVal) (caps : IndCaps) (cvR : ConstantVal) (mI rP : Nat)
+    (rules : List RecRule),
+    env₂.find? ((D).pinAt (q₀ + i)).J = some (.indInfo cvT caps) ∧
+    IsBlockModel m ((D).pinAt (q₀ + i)).J cvT cvR mI rP rules dJ i ∧
+    ∀ ψ : Name → Nat,
+      ((D).pinAt (q₀ + i)).ψJ ψ = Level.substFn ψ cvT.levelParams ((D).pinAt (q₀ + i)).lvls
+  /-- the group's pins share the level assignment (the members of a
+  container group share their level parameters; task #315 L-B) -/
+  ψJEq : ∀ i i', i < kJ → i' < kJ → ∀ ψ : Name → Nat,
+    ((D).pinAt (q₀ + i)).ψJ ψ = ((D).pinAt (q₀ + i')).ψJ ψ
 
 /-- **A pin group's IDENTITY facts** (NAMED, DESIGN §U.21 (e), §U.22,
 §U.24): the copy-instantiation identities (K.28's pre-image computed
@@ -1162,7 +1175,9 @@ theorem NestedPinsRun.groupSyn
         exact ⟨rfl, rfl⟩
       w := ?_
       ctorCount := ?_
-      DsFit := ?_ }
+      DsFit := ?_
+      stored := ?_
+      ψJEq := ?_ }
   · -- rep: the block at the `i`-th pin's container, the level assignment spelled
     intro i hi
     obtain ⟨-, -, cvR, mI, rP, rules, hI⟩ := hIB i hi
@@ -1246,6 +1261,36 @@ theorem NestedPinsRun.groupSyn
     rw [hψ] at hwd
     refine pinFit_of_wd hI CM.reps (CM.typed _).1 (hfr _) ?_ hwd
     rw [hvs, List.length_map, hDsLen]
+  · -- stored: the block at the STORED constant of the `i`-th pin's container
+    intro i hi
+    obtain ⟨-, -, cvR, mI, rP, rules, hI⟩ := hIB i hi
+    obtain ⟨cvC, capsC, -, -, -, -, hfM, -, hlpsM, htyM, -⟩ := hmemInfo i hi
+    have hname : cvC.name = (memberOf env st q i).name := ConLeche.Env.find?_name hfM
+    have hcv : cvC = ⟨(memberOf env st q i).name, (memberOf env st q i).lps, (memberOf env st q i).type⟩ := by
+      cases cvC
+      simp only [ConstantVal.mk.injEq]
+      exact ⟨hname, hlpsM.symm, htyM.symm⟩
+    refine ⟨⟨(memberOf env st q i).name, (memberOf env st q i).lps, (memberOf env st q i).type⟩,
+      capsC, cvR, mI, rP, rules, ?_, ?_, fun ψ => ?_⟩
+    · rw [hpinAt, hgp i hi]
+      show (ENV₁).find? (memberOf env st q i).name = _
+      rw [← hcv]
+      exact hF _ _ (fun _ _ _ _ h => nomatch h) hfM
+    · rw [hpinAt, hgp i hi]; exact hI
+    · rw [hpinAt, hgp i hi]; rfl
+  · -- ψJEq: the group's members share their level parameters
+    intro i i' hi hi' ψ
+    rw [hpinAt, hpinAt, hgp i hi, hgp i' hi']
+    show Level.substFn ψ (memberOf env st q i).lps (srcAtE st p q).2.1
+      = Level.substFn ψ (memberOf env st q i').lps (srcAtE st p q).2.1
+    obtain ⟨cvT₀, _caps₀, _cvR₀, _mI₀, rP₀, _rules₀, -, -, -, -, hall⟩ :=
+      ConLeche.containerInfo?_inv PD.base
+    have hlps : ∀ i, i < (pinAtE st q).grpSize → (memberOf env st q i).lps = cvT₀.levelParams := by
+      intro i hi
+      obtain ⟨cvC, _capsC, _cvRc, _mIc, _rulesC, -, -, hlpsM, -, hlpsT, -, -⟩ :=
+        hall _ (List.mem_of_getElem? (PD.grp i hi).2.2.2.2)
+      rw [hlpsM, hlpsT]
+    rw [hlps i hi, hlps i' hi']
 
 /-- **A pin's level assignment is the substitution at its container's
 level parameters** (`NestedPinFacts.pinψ`, U-19b's interface; task

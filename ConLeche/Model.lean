@@ -131,6 +131,8 @@ public import ConLeche.Model.Inductives.NestedRecTyped
 public import ConLeche.Model.Inductives.NestedStageCtor
 public import ConLeche.Model.Inductives.NestedLoop
 public import ConLeche.Model.Inductives.NestedPins
+public import ConLeche.Model.Inductives.NestedCopyIdx
+public import ConLeche.Model.Inductives.NestedCopyRead
 public import ConLeche.Model.Inductives.NestedTransfer
 public import ConLeche.Model.Inductives.NestedCtorRead
 public import ConLeche.Model.Inductives.NestedCtorOpened
