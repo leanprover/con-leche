@@ -469,10 +469,14 @@ structure PinRecLaws {env : Env} (m : EnvModel V env) (d : BlockModel V) (pc : N
   /-- the pins' index telescopes are graded at the pins' frames -/
   idxOk : ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (d.params ψ).reverse ρp →
     ∀ q, q < d.nPins → IdxOk ((d.pinAt q).u ψ) (d.pinFrame q ψ ρp) ((d.pinAt q).Ids ψ)
-  /-- **the pin's fibre**: the pin's carrier at `X` decomposes by the
-  pin's constructors, the recursive fields read at the extended tuple -/
+  /-- **the pin's fibre**: the pin's carrier at `X` — for `X` BELOW THE
+  CARRIER (task #315 M7-1, DESIGN §U.28: at the composed model the
+  pins' operator reads the members CLAMPED, so above the carrier the
+  ← direction is false) — decomposes by the pin's constructors, the
+  recursive fields read at the extended tuple -/
   fibre : ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (d.params ψ).reverse ρp →
-    ∀ X, InTupleSpace (d.w ψ) d.k (d.idx ψ ρp) X → ∀ q, q < d.nPins →
+    ∀ X, InTupleSpace (d.w ψ) d.k (d.idx ψ ρp) X →
+    TupleLe d.k (d.idx ψ ρp) X (lfpTuple (d.w ψ) d.k (d.idx ψ ρp) (d.Φ ψ ρp)) → ∀ q, q < d.nPins →
     ∀ t, t ∈ˢ d.pinIdx q ψ ρp → ∀ x,
       x ∈ˢ app (d.pinCar ψ ρp X q) t ↔
         ∃ j fs, j < (pc q).ctors.length ∧ d.ChainFitT pc ψ ρp (d.famAt ψ ρp X) t (d.k + q) j fs ∧
@@ -657,7 +661,9 @@ predecessor in the union of the extended tuple at `X` — the pin's
 `fibre`. -/
 theorem kitPredT_from_pin {pc : Nat → PinCtors V} (hp : PinRecLaws m d pc) {ψ : Name → Nat}
     {ρp : Nat → V} (hρp : Sat V (d.params ψ).reverse ρp) (hw : d.w ψ ≠ 0) {X : Nat → V}
-    (hX : InTupleSpace (d.w ψ) d.k (d.idx ψ ρp) X) {q : Nat} (hq : q < d.nPins) {t : V}
+    (hX : InTupleSpace (d.w ψ) d.k (d.idx ψ ρp) X)
+    (hXL : TupleLe d.k (d.idx ψ ρp) X (lfpTuple (d.w ψ) d.k (d.idx ψ ρp) (d.Φ ψ ρp)))
+    {q : Nat} (hq : q < d.nPins) {t : V}
     (ht : t ∈ˢ d.pinIdx q ψ ρp) {x : V} (hx : x ∈ˢ app (d.pinCar ψ ρp X q) t) :
     d.kitPredT pc ψ ρp (tagged (d.k + q) t x) ⊆ˢ unionSet d.kT (d.idxT ψ ρp) (d.famAt ψ ρp X) := by
   intro v hv
@@ -669,7 +675,7 @@ theorem kitPredT_from_pin {pc : Nat → PinCtors V} (hp : PinRecLaws m d pc) {ψ
   rw [BlockModel.FssT_of_pin hnk, hq'] at hlen hi''
   rw [BlockModel.rssT_of_pin hnk, hq'] at hi''
   rw [BlockModel.injT_of_pin hnk, hq'] at hxe
-  obtain ⟨j₂, fs₂, hj₂, hfit, hx₂⟩ := (hp.fibre ψ ρp hρp X hX q hq t ht x).mp hx
+  obtain ⟨j₂, fs₂, hj₂, hfit, hx₂⟩ := (hp.fibre ψ ρp hρp X hX hXL q hq t ht x).mp hx
   have hlen₂ : fs₂.length = (((pc q).Fss ψ).getD j₂ []).length := by
     have := hfit.1.length_eq
     rwa [BlockModel.FssT_of_pin hnk, hq'] at this
@@ -770,7 +776,7 @@ theorem pinsAcc_of {pc : Nat → PinCtors V} (hp : PinRecLaws m d pc) {ψ : Name
   -- the element is in the pin's carrier at the carrier
   have hfitL := d.ChainFitT_mono pc hYle htgts hfit
   have hxL : (pc q).inj ψ j fs ∈ˢ app (d.pinCar ψ ρp (lfpTuple (d.w ψ) d.k (d.idx ψ ρp) (d.Φ ψ ρp)) q) t :=
-    (hp.fibre ψ ρp hρp _ hLmem q hq t ht _).mpr ⟨j, fs, hj, hfitL, rfl⟩
+    (hp.fibre ψ ρp hρp _ hLmem (TupleLe.refl _ _ _) q hq t ht _).mpr ⟨j, fs, hj, hfitL, rfl⟩
   have hu : tagged (d.k + q) t ((pc q).inj ψ j fs) ∈ˢ d.unionT ψ ρp := by
     refine tagged_mem_unionSet (by unfold BlockModel.kT; omega) ?_ ?_
     · rw [d.idxT_of_pin hnk, hq']; exact ht
@@ -1221,7 +1227,7 @@ theorem kitStT_mem (hreps : IsBlockModels m d) {pc : Nat → PinCtors V} (hp : P
       rw [d.famAt_of_pin hck] at hx
       rw [d.idxT_of_pin hck] at hi
       obtain ⟨j, fs, hj, hcf, rfl⟩ :=
-        (hp.fibre ψ ρp hρp _ (lfpTuple_mem _ _ _ _) _ hq i hi x).mp hx
+        (hp.fibre ψ ρp hρp _ (lfpTuple_mem _ _ _ _) (TupleLe.refl _ _ _) _ hq i hi x).mp hx
       rw [Nat.add_sub_cancel' (Nat.le_of_not_lt hck)] at hcf
       refine ⟨j, fs, ?_, hcf, ?_⟩
       · rw [BlockModel.ctorsT_of_pin hck]; exact hj
