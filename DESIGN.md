@@ -74818,3 +74818,50 @@ lines byte-identical to the K.28 run.  Negative controls, one per half:
 of the 27 fixtures into `nested: a pin's mint group is not the
 container's group as minted` — so both the group-shape half and the
 per-member half are reached.
+
+#### K.30 — the pins at the RESTORED formers' environment, and their scope exactly (2026-09-16, task #315 M6, the model lane's DESIGN §U.21 (d))
+
+Two facts the model's `NestedPinsScoped` needs of a pin AT the block's
+parameter context, where the run gave neither.
+
+**1. Post-check (a), a third time.**  `nestedPinsOk` ran at the SCRATCH
+environment and at the RESTORED one; the model reads the block's prefix
+model over a third, `consNestedFormers members env` — the environment
+`restoreCtors` runs at.  The pins are now typed there too, right after
+that environment is formed.  It is ADDED, never substituted, so the
+accept set can only narrow — and it cannot narrow: a pin mentions the
+pre-block constants and the block's members, which this environment
+holds exactly as the scratch one does.  **Measured**: the third
+inference costs **+0.024 %** over the 27 shadow fixtures
+(3 926 955 941 against 3 926 001 206 instructions:u, summed over the
+runs), which is what one expects of a memoised inference on terms the
+route has already inferred twice.
+
+**2. `pinsScoped nP st`.**  `pinsClosed` says a pin abstracted over the
+parameters is fvar-free with loose bvars below `nP`; this says the
+sharper thing: every free variable of a pin — annotation included — IS
+one of the FIRST FORMER's openers, at that index and with that
+annotation, and the pin has no loose bound variable at all.  `.internal`
+on failure, and it cannot fire: `replaceIfNested` reads a nested
+occurrence's arguments off a term opened at exactly these openers,
+`mkCopy`'s output is closed over them and re-opened at them by
+`elimCtors`, and `nestedOccOk` — official's "nested inductive datatypes
+parameters cannot contain local variables" — refuses a parameter with a
+loose bound variable.
+
+Both in both routes and in `checkNested_inv`/`DeclNestedRun`.
+
+**Gates.**  `lake build`/`lake test` exit 0 warning-free; nested-shadow
+**27/27**; the Mathlib nested cone exit 0, 4 926 accepted, its 41 shadow
+lines byte-identical to the K.29 run.  Negative controls, one per
+conjunct and one per half of `pinsScoped`:
+
+* the third run moved to the PRE-block environment → 24 of 27 fixtures
+  turn into `reject unknown constant P4C` (it is reached, and the
+  environment is what makes it pass);
+* `!q.pin.looseBVarsBounded 0` → 24 of 27 turn into the `.internal`;
+* the annotation clause falsified (`some (.fvar l.1 (.sort .zero))`) →
+  only **5 of 27**.  That is a measurement, not a weakness: at the other
+  19 reaching fixtures a pin has NO free variable at all (a
+  parameterless block's pin, `List Nat`), so the annotation half is
+  vacuous there and the loose-bvar half is what carries them.

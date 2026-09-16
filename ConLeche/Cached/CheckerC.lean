@@ -357,6 +357,9 @@ def checkNestedS (fe : FEnv) (p : NestedParts) : CheckCM FEnv := do
   -- the pins' mint groups (K.29), as in the pure route
   unless nestedGroupsOk fe.env p st do
     throw (.internal "nested: a pin's mint group is not the container's group as minted")
+  -- the pins' scope (K.30), as in the pure route
+  unless pinsScoped p.nP st do
+    throw (.internal "nested: a pin's free variables are not the block's parameter openers")
   -- the field kinds at the pins (§U.1 (c) fact 6), as in the pure route
   unless nestedPinKindsOk p b st stored do
     throw (.internal "nested: a stored field at a pin is not classified ordinary, \
@@ -364,6 +367,9 @@ def checkNestedS (fe : FEnv) (p : NestedParts) : CheckCM FEnv := do
   -- the RESTORED block is built on the PRE-BLOCK index, not the scratch
   -- one: only the restored constants are stored
   let fe₁ := consNestedFormersF members fe
+  -- post-check (a) a third time (K.30), at the restored formers' index
+  flushC
+  nestedPinsOk (sharedOpsC mode fe₁) fe₁.env p.nP st.pins
   flushC
   let ctorsR ← members.mapM fun a =>
     restoreCtorsF (sharedOpsC mode fe₁) fe₁ R p.lps a.ctors

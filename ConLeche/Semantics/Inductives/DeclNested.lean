@@ -195,11 +195,18 @@ def DeclNestedRun (μ : CheckMode) (F : Nat) (env : Env)
     -- THE PINS' MINT GROUPS (K.29): the segment, its size, the member
     -- order, and the group's shared level instantiation and components
     ConLeche.nestedGroupsOk env p st = true ∧
+    -- THE PINS' SCOPE (K.30): every pin's free variables are the first
+    -- former's openers, annotation included, and no loose bvar
+    ConLeche.pinsScoped p.nP st = true ∧
     -- THE FIELD KINDS (K.26): every stored field of the auxiliary block
     -- is classified `.ordinary`, `.recursive` or `.reflexive`, and
     -- `nestedPinKinds p b stored` is that classification — the kinds the
     -- direct route's monotonicity reads at the copies
     ConLeche.nestedPinKindsOk p b st stored = true ∧
+    -- POST-CHECK (a) A THIRD TIME (K.30): the pins typed at the
+    -- environment holding the RESTORED formers — the model tier's own
+    ConLeche.nestedPinsOk (m := CheckM) (fueledOps μ F)
+        (consNestedFormers (stored.take p.k) env) p.nP st.pins = .ok () ∧
     -- the restored constructors, at the environment holding the formers
     (stored.take p.k).mapM (fun a =>
         restoreCtors (m := CheckM) (fueledOps μ F)
@@ -407,7 +414,7 @@ theorem declNestedRun_etaClosed {μ : CheckMode} {F : Nat} {env envOut : Env}
     {p : NestedParts} (hE : EtaFamiliesClosed env)
     (h : DeclNestedRun μ F env p envOut) : EtaFamiliesClosed envOut := by
   obtain ⟨-, -, st, b, envAux, stored, ctorsR, cvRms, cvRns, rulesM, rulesN, fmsA, ctorsA,
-    -, -, -, -, -, -, -, -, -, -, -, hcaps, -, -, -, hctors, hrm, hrn, -, -, htbl,
+    -, -, -, -, -, -, -, -, -, -, -, hcaps, -, -, -, -, -, hctors, hrm, hrn, -, -, htbl,
     -, -, -⟩ := h
   refine EtaFamiliesClosed.ofFreshExt hE ?_
   -- the formers
