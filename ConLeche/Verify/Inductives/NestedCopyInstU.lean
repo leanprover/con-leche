@@ -374,6 +374,29 @@ theorem instPis_ilp_mkPisB (ks : List Name) (us : List Level) (Ds : List Expr)
     instPis_mkPisB _ Ds _ (by rw [List.length_map]; exact hlen),
     instSeq_mkPisB Ds (Ds.length - 1) _ _ (by omega), List.length_map]
 
+/-! ## Leaves of an application spine (task #315 L-B) -/
+
+/-- The head's leaves are the spine's. -/
+theorem fvarLeaves_mkAppN_head : ∀ (xs : List Expr) {f : Expr} {l : Nat × Expr},
+    l ∈ f.fvarLeaves → l ∈ (Expr.mkAppN f xs).fvarLeaves
+  | [], _, _, hl => hl
+  | x :: xs, f, l, hl => by
+    refine fvarLeaves_mkAppN_head xs (f := .app f x) ?_
+    simp only [Expr.fvarLeaves, List.mem_append]
+    exact Or.inl hl
+
+/-- **An argument's leaves are the spine's** — the converse of
+`fvarLeaves_mkAppN`, which is what carries a pin's scope (K.30) to its
+components. -/
+theorem fvarLeaves_mkAppN_arg : ∀ (xs : List Expr) {f x : Expr} {l : Nat × Expr},
+    x ∈ xs → l ∈ x.fvarLeaves → l ∈ (Expr.mkAppN f xs).fvarLeaves
+  | y :: xs, f, x, l, hx, hl => by
+    rcases List.mem_cons.mp hx with rfl | hx
+    · refine fvarLeaves_mkAppN_head xs (f := .app f x) ?_
+      simp only [Expr.fvarLeaves, List.mem_append]
+      exact Or.inr hl
+    · exact fvarLeaves_mkAppN_arg xs hx hl
+
 /-! ## The instantiated body's frame (task #315 L-B, DESIGN §U.33 (c) 4) -/
 
 /-- **The copy's constructor body is closed and scoped by the pin's
