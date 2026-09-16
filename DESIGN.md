@@ -78996,3 +78996,174 @@ Cost: one session (the L-A three-way ~⅔ — the `NestedFit` replay and
 two auto-merge traps, the `hfitAt` universe and `pinNIdx`'s `hk`; the
 rest ~⅓).  Next: part 2 = L-B's merge, then M7 (`NestedTailModeled`)
 and M8.
+
+#### U.28 — M7-1: `PinRecLaws` and `pc` at `nestedBlockModel`; the pins' fibre is a law BELOW THE CARRIER (lane M7-1, 2026-09-16)
+
+One of the two parallel lanes off `agent/uniform-315` c6ec9571 (branch
+`agent/uniform-m7pin`).  Deliverable: DESIGN §U.25 (e) 1 — the pins'
+constructor data `nestedPc` and the recursor kit's laws `PinRecLaws`
+at the nested run's block model, so that everything L-D's kit proves
+(the accessibility, the class induction, `hcandT`, the ι rule) applies
+to a NESTED block.  No checker code changed; no `sorry`, no axioms, no
+`maxHeartbeats`; `#print axioms` of every new theorem is `[propext,
+Classical.choice, Quot.sound]`.
+
+##### (a) WHAT IS PROVED — verbatim
+
+The run-level theorem (`ConLeche/Model/Inductives/NestedPinLaws.lean`),
+under exactly the hypotheses `nestedBlockReps_of` already carries (the
+auxiliary block's formers' facts, the grouping check, the block's
+length, a model of the restored environment and the pins' groups):
+
+```lean
+theorem nestedPinRecLaws_of (hμ : μ.verifiedChecks = true)
+    (h : MutualFormersFacts V F g mp b fms f₀ ctorsA sortss kinds mp₁ ppsF W idxF dsF esF srcsF
+      fvsPF xFvsF xrestF eissF tssF)
+    (h3 : ConLeche.mutualCtorsGrouped b.ctors = true)
+    (hbk : b.k = p.k + pinsS.length)
+    (m : EnvModel V env₂)
+    (hgroups : ∀ q, q < pinsS.length → ∃ (q₀ kJ i : Nat) (dJ : BlockModel V),
+      q = q₀ + i ∧ i < kJ ∧ PG m q₀ kJ dJ) :
+    PinRecLaws m (D) PC
+```
+
+with `D` = `nestedBlockModel …` and `PC` = `nestedPc b ctorsA kinds
+p.k f₀.s dsF esF eissF tssF` — pin `q`'s constructors read off the
+AUXILIARY lists at the copies' positions, `.drop (b.ownOffset (k +
+q))` so that the member-local index `j` reads the global one
+(`ctors := (b.ownCtors (k + q)).map fun jc => ctorsA.getD jc.1
+default`, `Fss`/`rss`/`tlss`/`Eiss`/`Ess` the dropped
+`blkFss0`/`blkRss`/`mutTlss`/`mutEiss0`/`mutEss0`, `tgts` the
+`mutTgts` entry, `inj := injW (resSort.eval ψ) j (mkTower (fs ++
+[pt]))`).
+
+Per clause, as §U.25 (e) 1 planned: `fibre` = `tupleLfpΦ_fibre` at
+position `k + q` at the EXTENDED tuple through the pins' fixed-point
+law; `ind` = `lfpTuple_induction` at `pinsOp X`; `mkZero`/`mkInj` =
+`injW_zero`/`injW_pos` + `mkTower_inj`; `idxOk` = the container's
+`idxOk` at the pin's frame (`NestedPinGroup.rep` + `.DsFit` + `.pinU`
++ `.pinIds`); `tgtsLt` = the auxiliary block's kinds
+(`MutualFormersFacts.ksJ`, whose bound is `∀ i` — no K.26 clause was
+needed); the per-constructor bookkeeping (member-local `j` against the
+global position) is `NestedPinGroup.grp` + `.ctorCount`.
+
+The two model-level bridges, in `BlockComposed.lean`'s spelling:
+`ofNested_pin_fibre` (`ofNested_fibre`'s pin twin) and
+`ofNested_pin_ind`.  The pure half, appended to
+`ConLeche/SetTheory/Derive/LfpCompose.lean`:
+
+```lean
+theorem app_pinsCar_eq {X : Nat → V} (hX : InTupleSpace w k Is X)
+    (hXL : TupleLe k Is X (lfpTuple w (k + n) Is Ψ)) {q : Nat} (hq : q < n) {t : V}
+    (ht : t ∈ˢ Is (k + q)) :
+    SetTheory.app (pinsCar w k n Is Ψ X q) t
+      = SetTheory.app (Ψ (extT w k n Is Ψ X) (k + q)) t
+```
+
+```lean
+theorem pinsCar_induction {X : Nat → V} (hX : InTupleSpace w k Is X) (P : Nat → V → V → Prop)
+    (hP : ∀ q, q < n → ∀ t, t ∈ˢ Is (k + q) → ∀ x,
+      x ∈ˢ SetTheory.app
+          (Ψ (segJoin k n X (sepTuple w n (fun q => Is (k + q)) (pinsOp w k n Is Ψ X) P))
+            (k + q)) t →
+        P q t x) :
+    ∀ q, q < n → ∀ t, t ∈ˢ Is (k + q) → ∀ x,
+      x ∈ˢ SetTheory.app (pinsCar w k n Is Ψ X q) t → P q t x
+```
+
+with `app_pinsJoin_eq` (the clamp is invisible below `L⁺`),
+`pinsJoin_le`, `pinsOp_maps` and the two space lemmas beside them.
+
+The instantiation check asked for by the lane: `nestedHcandT_of` =
+`IsBlockModel.hcandT` at `nestedBlockModel`/`nestedPc` through
+`nestedPinRecLaws_of` (its remaining premises — `ReadingFramesT`,
+`hne`, `hbits`, `hwℓ`, `IsBlockModels` and the member's
+`IsBlockModel` — are hypotheses of that theorem, M7-2's and
+`nestedBlockReps_of`'s), and `nestedClassInd_all` = the class
+induction likewise.  Both compile; neither names a new fact.
+
+##### (b) THE FINDING — `PinRecLaws.fibre` is FALSE above the carrier; the kit adapted
+
+L-D's `fibre` clause asked for the decomposition at EVERY tuple `X` of
+the tuple space.  At the composed model that is false in the `←`
+direction, and the reason is the clamp (`LfpCompose.lean`'s docstring):
+`pinCar X` is `pinsCar X = lfpTuple (pinsOp X)` and
+
+    pinsOp X Y q = Ψ (segJoin k n (meetT Is X L⁺) Y) (k + q),
+
+the members read at `X ⊓ L⁺`, not at `X`.  So a spine one of whose
+member fields is a junk value of `X` above the auxiliary carrier fits
+the pin's constructor at `famAt X` — the clause's right-hand side —
+while its injection is NOT in `pinCar X q` (at `w ≠ 0` the tags and
+towers are injective, `mkInj`).  The `→` direction is fine at every
+`X` (the clamped tuple is below `X`, and the fit is monotone), and so
+is `ind` (the clamp only weakens the step's hypothesis).
+
+Per the lane's ruling — the kit adapts to the model — the clause now
+carries the premise
+
+    TupleLe d.k (d.idx ψ ρp) X (lfpTuple (d.w ψ) d.k (d.idx ψ ρp) (d.Φ ψ ρp))
+
+and its four call sites were adapted: `pinsAcc_of`, `kitStT_mem` and
+`injT_mem_famAt` read `fibre` AT THE CARRIER (`TupleLe.refl`), and
+`kitPredT_from_pin` — which has no consumer in the tree — takes the
+premise as an argument.  Nothing else in `NestedRecCand.lean`/
+`NestedRecTyped.lean` changed; the diff is one clause and four lines.
+Had the clause stayed as it was, the pins would have needed a
+container presentation of their member-targeting fields inside the
+seal (the alternative `LfpCompose.lean` records) — the cost the clamp
+was introduced to avoid.
+
+The `pc` datum's `ctors` field is the AUXILIARY constructors
+(`ctorsA` at the copies' positions), not the container's: only its
+LENGTH is read by these laws, and the length is the container's by
+`NestedPinGroup.ctorCount`.  If M7's readings want the container's
+`ConstantVal`s (the restored minors' names), that is a change of
+`nestedPc`'s `ctors` alone — no law here reads a name.
+
+##### (c) LEAN TRAPS
+
+* `rw` against the block model's projections: `hΨ`'s laws are stated
+  with `Level.eval ψ resSort` / `nestedIs …` while the goal carries
+  `(D).w ψ` / `(D).idx ψ ρp`; the two are defeq but not syntactically
+  equal, so a `rw` fails.  Either rewrite the goal first
+  (`rw [ofNested_w, ofNested_idx]`, both `rfl`-lemmas) or pin the pure
+  lemma's implicits to the `(D)` spelling (`pinsCar_induction (w :=
+  (D).w ψ) (Is := (D).idx ψ ρp) …`).  Both appear in this file.
+* A `show` that folds a definitional term (`((mutTgts …).getD …).getD
+  i 0` into `(PC q).tgts j i`) makes the NEXT `rw` fail on the folded
+  pattern: rewrite with the unfolded spelling BEFORE the `show`/
+  `unfold` that folds it.
+* **A section `variable` whose type mentions another explicit section
+  variable through a `local notation` can elaborate to a
+  sorry-carrying type SILENTLY**: the file built green, with only
+  `declaration uses 'sorry'` on the consumer theorems and no error,
+  and `#print` showed the offending argument replaced by `sorry`
+  inside an otherwise correct proof term.  Writing the same
+  hypotheses as ordinary binders of the theorem fixed it.  Treat
+  `declaration uses 'sorry'` with no `sorry` in the file as a
+  variable-elaboration bug, and check `#print axioms` on every new
+  theorem.
+* `BlockModel.famAt_of_mem` takes the model explicitly
+  (`(D).famAt_of_mem h`, not `BlockModel.famAt_of_mem h`).
+
+##### (d) FILES AND GATES
+
+New: `ConLeche/Model/Inductives/NestedPinLaws.lean` (483 lines), one
+`public import` line in `ConLeche/Model.lean`.  Appended:
+`ConLeche/SetTheory/Derive/LfpCompose.lean` (+100).  Adapted:
+`ConLeche/Model/Inductives/NestedRecCand.lean` (the `fibre` clause,
+`kitPredT_from_pin`'s premise, two call sites) and
+`NestedRecTyped.lean` (one call site).  `NestedCore.lean`,
+`BlockComposed.lean`, `NestedFit.lean`, `BlockRep.lean` untouched.
+
+Gates: `lake build` 673 jobs warning-free; `lake test` warning-free
+EXIT 0; shake 498 removals, all allowlisted; pub-imports 1220 of 1857
+in-tree edges public, none demotable (31 dot-notation fallbacks);
+layering base 337 / model 253 / caps 3 / umbrella 1, 0 base→lane, 0
+impl→theory; trust surface 13 escapes in 5 allowlisted files (605
+scanned); no-local-paths OK; overview-links 112; quote-gate 2;
+proofdeps 4955 rows / 12 roots / 0 doors UNCHANGED.
+
+Cost: one session, as sized.  Next on M7: the readings at `k + nPins`
+(§U.25 (e) 2, lane M7-2), then `hceq`/`heq` and the stage.

@@ -313,7 +313,7 @@ theorem IsBlockModels.injT_mem_famAt {env : Env} {m : EnvModel V env} {d : Block
   · have hq : c - d.k < d.nPins := by unfold BlockModel.kT at hc; omega
     rw [d.idxT_of_pin hck] at ht
     rw [d.famAt_of_pin hck, BlockModel.injT_of_pin hck]
-    refine (hp.fibre ψ ρp hρp _ (lfpTuple_mem _ _ _ _) _ hq t ht _).mpr ⟨j, fs, ?_, ?_, rfl⟩
+    refine (hp.fibre ψ ρp hρp _ (lfpTuple_mem _ _ _ _) (TupleLe.refl _ _ _) _ hq t ht _).mpr ⟨j, fs, ?_, ?_, rfl⟩
     · rw [BlockModel.ctorsT_of_pin hck] at hj; exact hj
     · rw [Nat.add_sub_cancel' (Nat.le_of_not_lt hck)]; exact hfit
 
