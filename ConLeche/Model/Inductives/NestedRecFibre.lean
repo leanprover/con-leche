@@ -1,9 +1,7 @@
 module
 
 public import ConLeche.Model.Inductives.NestedRecScratch
-public import ConLeche.Model.Inductives.NestedCore
-public import ConLeche.Model.Inductives.NestedAux
-public import ConLeche.Model.Inductives.NestedFit
+import ConLeche.Model.Inductives.NestedAux
 public section
 
 /-!
