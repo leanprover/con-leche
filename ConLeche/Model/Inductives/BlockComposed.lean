@@ -316,6 +316,50 @@ theorem ofNested_pin_block {q₀ kJ : Nat} (hseg : q₀ + kJ ≤ pins.length) {I
   rw [ofNested_pinCar_lfp h (by omega), ← Nat.add_assoc]
   exact lfpTuple_seg_congr hΨ.2.2 hΨ.1 (by omega) hIs hΦ hi
 
+/-- **THE FALSIFIER OF `pinLeaf` AT `ofNested`** (M6 s3, DESIGN §U.15
+(a)): at a `Type`-valued block every element of a pin's carrier at the
+block's carrier is the tagged tower of a spine at the copy's
+constructor's GLOBAL position `J` in the auxiliary lists (`mems J =
+k + q`) — the sealed former's fibre law tags by list position.  The
+container's own elements carry ITS positions (`ofNative`: `j`;
+`ofMutual`: `ownOffset mm + j`), so `pinLeaf`'s set equality fails
+wherever the two tag sets differ (`ofNested_pin_tag_lt`). -/
+theorem ofNested_pin_tag (hS : TupleLfpShape (k + pins.length) (blockIds nP ppsA ψ) mems nFs tgtsG rss
+      (Eiss₀ ψ) (Fss₀ ψ) (Ess₀ ψ))
+    (hw : (D).w ψ ≠ 0) {q : Nat} (hq : q < pins.length) {t x : V}
+    (ht : t ∈ˢ (D).idx ψ ρp (k + q))
+    (hx : x ∈ˢ SetTheory.app
+      ((D).pinCar ψ ρp (lfpTuple ((D).w ψ) k ((D).idx ψ ρp) ((D).Φ ψ ρp)) q) t) :
+    ∃ J fs, J < (Fss₀ ψ).length ∧ mems.getD J 0 = k + q ∧ x = inj J (mkTower (fs ++ [pt])) := by
+  have hΨ := nestedΨ_functor h
+  have ht' : t ∈ˢ idxSet (W ψ) ρp (blockIds nP ppsA ψ (k + q)) := ht
+  rw [ofNested_pinCar_lfp h hq] at hx
+  change x ∈ˢ SetTheory.app (lfpTuple (resSort.eval ψ) (k + pins.length) (nestedIs nP ppsA W ψ ρp)
+    (ΨA ψ ρp) (k + q)) t at hx
+  rw [← app_lfpTuple_eq hΨ.2.2 hΨ.1 hΨ.2.1 (m := k + q) (by omega) ht'] at hx
+  obtain ⟨J, fs, hJ, hmem, -, -, rfl⟩ :=
+    (tupleLfpΦ_fibre h hS (lfpTuple_mem _ _ _ _) (by omega) ht' x).mp hx
+  exact ⟨J, fs, hJ, hmem, injW_pos hw _ _⟩
+
+/-- Hence, with the copies' constructors listed AFTER the block's `nC`
+own constructors (the auxiliary order), no element tagged below `nC` —
+a container's first constructor's value `inj 0 _` (`List.nil`) among
+them — lies in any pin's carrier at the carrier: the container's leaf
+is NOT the pin's carrier, and `ofNested_pin_block`'s `hΦ` is
+unprovable for `ofNested` as built.  The fix is the tagging (§U.15). -/
+theorem ofNested_pin_tag_lt (hS : TupleLfpShape (k + pins.length) (blockIds nP ppsA ψ) mems nFs tgtsG
+      rss (Eiss₀ ψ) (Fss₀ ψ) (Ess₀ ψ))
+    (hw : (D).w ψ ≠ 0) {nC : Nat} (hord : ∀ J, k ≤ mems.getD J 0 → nC ≤ J)
+    {q : Nat} (hq : q < pins.length) {t : V} (ht : t ∈ˢ (D).idx ψ ρp (k + q))
+    {J₀ : Nat} (hJ₀ : J₀ < nC) (y : V) :
+    ¬ inj J₀ y ∈ˢ SetTheory.app
+      ((D).pinCar ψ ρp (lfpTuple ((D).w ψ) k ((D).idx ψ ρp) ((D).Φ ψ ρp)) q) t := by
+  intro hx
+  obtain ⟨J, fs, -, hmem, heq⟩ := ofNested_pin_tag h hS hw hq ht hx
+  obtain ⟨rfl, -⟩ := inj_inj heq
+  have := hord J₀ (by omega)
+  omega
+
 /-- **The block's carrier is the auxiliary least tuple's members**
 (Bekić, the nested form). -/
 theorem ofNested_lfp {mm : Nat} (hmm : mm < k) :

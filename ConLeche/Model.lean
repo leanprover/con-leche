@@ -120,6 +120,7 @@ public import ConLeche.Model.Inductives.MutualCore
 public import ConLeche.Model.Inductives.TupleLfp
 public import ConLeche.Model.Inductives.BlockRepMutual
 public import ConLeche.Model.Inductives.BlockComposed
+public import ConLeche.Model.Inductives.DeclNestedCore
 public import ConLeche.Model.Inductives.MutualRecData
 public import ConLeche.Model.Inductives.MutualRecRead
 public import ConLeche.Model.Inductives.MutualRuleRead

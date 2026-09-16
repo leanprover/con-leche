@@ -75300,3 +75300,302 @@ from K.12's annotated pins, `hPinIdx`, the `fibre` bookkeeping) 1–2 →
 **M6 3–4 (was 3–5)**.  M7 nested recursors + flip 3–4 (+1 for the
 `k + nPins`-class recursor kit, §U.13 (f) 4, and the `ind_reps`-like
 field, (f) 1); M8 1–2.  Remaining **7–11** (was 8–13).
+
+#### U.15 — M6 session 3: the consumer stated, `pinLeaf` FALSIFIED at `ofNested` — the constructor tags are the seam (session U-13, 2026-09-16)
+
+M6 s3 was to prove `pinLeaf` for the composed block model and begin
+the assembly.  Consumer first: the nested half's run-level consumer
+`declNested_of` and its two named facts are stated and compiled ((b)).
+Then `pinLeaf` was attempted and REFUTED for `ofNested` as built —
+not a proof gap but a false statement, pinned by a checked falsifier
+at the block model ((a)): the sealed former tags every element by its
+constructor's GLOBAL list position, so a pin's carrier inside the
+`k + n` former is a different set from the container's own leaf.  The
+maintainer's ruling for the branch ("constructor tags are member-local
+everywhere; the pin identification is at the set level") is therefore
+a design the branch has to MEET, and (c) says how, inside the seal: the
+sum body cased on the tuple's member, per-member chain suffixes, the
+elimination law exporting the member-local tag.  Its Semantics twin
+was started this session ((d)).  No checker code changed; no `sorry`,
+no axioms, no `maxHeartbeats`.
+
+##### (a) THE FINDING — `pinLeaf` is false at `ofNested`: the tags
+
+`pinLeaf` (§U.13 (b)) is a SET EQUALITY: the container's stored leaf at
+the pin's components and indices equals `pinCar` at the block's
+carrier.  `ofNested` (§U.14 (c)) takes `pinCar := pinsCar` at the
+sealed `tupleLfpΦ` on `k + n` components over the auxiliary lists, and
+the sealed API's own fibre law says what its elements are:
+
+    tupleLfpΦ_fibre : x ∈ app (tupleLfpΦ … X mm) t ↔ ∃ J fs, J < |Fss₀| ∧ mems J = mm ∧ … ∧
+                      x = injW w J (mkTower (fs ++ [pt]))
+
+— the tag is the constructor's position `J` in the ONE global list.
+At the block's carrier a pin's carrier is the auxiliary least tuple's
+component (`ofNested_pinCar_lfp`), so every element of it is
+`inj J _` with `mems J = k + q` — a position past the block's own
+constructors when the copies are listed after them (the auxiliary
+order).  The container's own leaf carries the container's tags:
+`ofNative` tags member-locally (`injW w j`, one member), `ofMutual`
+tags globally within ITS block (`injW w (blockMinorIdx ctorsM mm j)`
+= `ownOffset mm + j`, the shape `MutualTableFacts.inj` records and the
+tables decode), and `List.nil` is `inj 0 (mkTower [pt])` either way.
+So the two sets differ whenever the tag sets do — always, for a
+container with a first constructor.  Checked, in
+`ConLeche/Model/Inductives/BlockComposed.lean`:
+
+    ofNested_pin_tag    : x ∈ app (pinCar ψ ρp L q) t → ∃ J fs, J < |Fss₀ ψ| ∧ mems J = k + q ∧
+                          x = inj J (mkTower (fs ++ [pt]))                      -- w ≠ 0, TupleLfpShape
+    ofNested_pin_tag_lt : (∀ J, k ≤ mems J → nC ≤ J) → J₀ < nC → ¬ inj J₀ y ∈ app (pinCar ψ ρp L q) t
+
+(`L` the block's carrier `lfpTuple … (D).Φ`).  With `nC` the block's
+own constructor count, `List.nil`'s tag `0 < nC` and `List.nil ∈
+⟦List⟧ ⟦Tree⟧`, `pinLeaf` fails for `Tree ::= node (List Tree)`.  The
+proof is four lines through the EXPORTED laws (`ofNested_pinCar_lfp`,
+`app_lfpTuple_eq`, `tupleLfpΦ_fibre`, `injW_pos`): no representation
+seam (`of_tagged`, `_repr`) was opened — the tag is part of the API,
+not of the encoding.
+
+Consequently `ofNested_pin_block`'s hypothesis `hΦ` — the copies'
+segment section of `nestedΨ` equals the container's operator `dJ.Φ`
+on its space — is unprovable: the two operators' fibres are the same
+towers under different top tags.  Nothing else in §U.14 is affected:
+`functor`/`pinMem`/`pinMono`/`fibre`/`leaf`/`mkZero`/`mkInj` stand,
+the clamp and the segment Bekić stand, and so does the pure Tree/List
+instance (whose `auxΦ` takes the container's operator as an ABSTRACT
+`Sat`-guarded functor — the falsifier of s2 could not see a tag).
+
+Why the earlier lanes' "tag obstacle" is not this: §M.59/§M.60
+(`agent/nested-279m`) tagged the members into ONE flat family with
+position tags and identified copies with containers by a bijection;
+here the members are separate components and the copies are never
+identified with anything — the SAME set is required, and only the
+top-level tag of the copied constructors stands in the way.  It is
+also not the modeller's world: no re-indexing is proposed.
+
+##### (b) THE CONSUMER — `declNested_of`, `ConLeche/Model/Inductives/DeclNestedCore.lean` (NEW, 311 lines)
+
+The run-level consumer of the nested half, `declBlock`'s pattern
+(§U.6) over `DeclNestedRun` (§U.12), with two named facts:
+
+```lean
+theorem declNested_of (hμ : μ.verifiedChecks = true) {F : Nat} {env envOut : Env}
+    {p : NestedParts} (mp : EnvModelM V μ env) (hE : ConLeche.EtaFamiliesClosed env)
+    (hpins : EnvBlockModels mp.base2)
+    (hcore : NestedCoreModeled V μ F) (htail : NestedTailModeled V μ F)
+    (h : ConLeche.Semantics.DeclNestedRun μ F env p envOut) :
+    Nonempty (EnvModelM V μ envOut)
+```
+
+* **`NestedCoreModeled V μ F`** (M6's fact): from a model `mp` of the
+  pre-block environment with `PinsModeled mp.base2 st.pins` and the
+  run's conjuncts through `restoreCtors` (the two front guards, the
+  annotated inputs, `elimNested`, the mimic count, `copiesFresh`,
+  `nestedContainersOk`, `auxBlock`, the scratch `checkMutualCore …
+  none true`, `auxStoredAll`, `pinsClosed`, `pinsOkAux`, the restored
+  formers' freshness/η, `nestedPinKindsOk`, `restoreCtors`), a model
+  `mp₂` of `consNestedCtors ctorsR.flatten (consNestedFormers
+  (stored.take p.k) env)` agreeing with `mp` off the block's names,
+  and a block model `d` with `NestedBlockModelOf env p st ctorsR d ∧
+  IsBlockModels mp₂.base2 d ∧ ∀ ψ, FormersTyped ∧ CtorsTyped ∧
+  PinsTyped`.  Consumer: `declNested_of`.
+* **`NestedTailModeled V μ F`** (M7's fact): from such an `mp₂`/`d`
+  and the run's remaining conjuncts (the restored recursor types at
+  `k + nPins` motives, the rules at the rule-less provision, the
+  tables, post-checks (a) and (c)), a model of `envOut`.  Consumer:
+  `declNested_of`.
+* **`EnvBlockModels m`** — the premise, in the shape of the `EnvModelM`
+  field to come (§U.13 (f) 1): every stored `indInfo` is member `mm`
+  of a block model `d` with `IsBlockModel m J cv cvR mI rP rules d mm`,
+  `IsBlockModels m d`, `FormersTyped`/`CtorsTyped` at every `ψ`, and
+  THE TAG SHAPE `d.inj ψ mm' j fs = injW (d.w ψ) j (mkTower (fs ++
+  [pt]))` — member-local, the ruling's shape.  `PinsModeled m pins` is
+  its reading at the elimination's pins (`pinsModeled_of_env` via
+  `nestedContainersOk` → `containerInfo?_found`).  A premise until the
+  field exists; the tag shape is exactly what (c) makes true of every
+  instance.
+* **`NestedBlockModelOf env p st ctorsR d`**: `k`, `nP`, `env₀`,
+  `memberNames`, `large`, `nPins = st.pins.length`, pin `q`'s container
+  and level arguments and components are the elimination's `q`-th pin
+  (`pin.pin = mkAppN (.const J lvls) DsE`), a member's constructors are
+  its restored ones.  Grows at its consumer (M7).
+
+Naming rule honoured: the two facts are named with their run-level
+consumer compiled in the same session; `NestedBlockModelOf` is a
+Prop-structure over the run's data, not a hypothesis.
+
+##### (c) THE FIX — member-local tags INSIDE THE SEAL: the cased body
+
+The ruling fixes the target: every block model's `inj ψ mm j` is the
+tagged tower at the MEMBER-LOCAL position `j`, and a copy's
+constructors — the container's, instantiated at the pin, in the
+container's order — then carry the container's tags by construction,
+so the pin identification is a set equality with no tag in sight.  The
+seal has to deliver it, and the representation's ONE global chain list
+is what stands in the way: the term-level sum body `sumBodyAV w chains
+= PSigma' Nat (λ k, caseAVAt w towers 1 k)` makes the element's tag
+the case discriminant, i.e. the chain's list position.
+
+**The cased body.**  The auxiliary family's functor becomes
+
+    caseFunAVI W w Idss k offs … := λ (X : famTy) (t : idxTy),
+        caseAVAt w [ sumBodyAV w ((chainsXI W (auxIds W Idss) 1 …).drop (offs.getD m 0)) ]_{m < k} 0 (fst (fst t))
+
+— at an index tuple `t = ⟨inj m ⟨ı⃗⟩⟩` of member `m` (its tag `m` read
+off the tuple by two `fst`s) the sum ranges over member `m`'s SUFFIX
+of the global chain list, from its first constructor `offs m` on; the
+element `inj j (mkTower (fs ++ [pt]))` of the `j`-th chain of that
+suffix is member `m`'s constructor `j`'s, and the later members'
+chains in the suffix are dead at `t` (their tagged index equation
+fails).  Nothing else changes: the chain list, its readings, the tuple
+encoding `splitFun`/`tagEnc`, the tupler, the λ-tower.  The premise
+stays the GLOBAL grading (`FixChainsOkI`/`XChainsOk` at the global
+list; a suffix's chains are among the global ones); `fixStepI_mono`
+reads only `hI`/`hfit` of it, so the cased functor's monotonicity and
+membership are per-suffix instances of the 1-ary lemmas; the
+elimination law is `fixStepI_elim` at the suffix with the tag `j`
+LOCAL; the closed family — `XChainsOk.hclosed`, discharged in the
+Model tier by `FixWitness` through the generic
+`container_closed_exists` (whose shapes `A i` may depend on the index)
+— is the same argument with the shape's global tag `J` (`shapeTag`)
+and the builder `mk a g := inj (J - offs (mems J)) …`: a wrapper over
+`FixWitness`'s exported per-list lemmas, not a re-proof.
+
+**What re-bases on it** (M6 s4): the sealed `TupleLfp.lean` —
+`tupleLfpΦ := splitFun … (caseFunVI …)`, `tupleLfpAV` through a cased
+`mutualTyAVI` (MutualLeafI's `auxBodyAV`/`mutualLeafBody_facts`/
+`_mem`/`_wellDenoted`/`_fold` re-based, ~150 lines), `tupleLfpΦ_fibre`
+with `x = injW w (J - offs (mems J)) (mkTower (fs ++ [pt]))`,
+`stageTupleFormers` (MutualStageFormer at the cased body), the
+assembly's `XChainsOk` (MutualChains) unchanged in statement plus the
+cased `hclosed`; the mutual route's three GLOBAL tag sites go
+member-local: `ofMutual.inj`, `MutualTableFacts.inj` (`ownOffset mm +
+j` → `j`; the table bundle reads the shape abstractly), and the
+constructor stage's leaf `sumMkAV w J` → `sumMkAV w (J - offs (mems
+J))` (`stageMutualCtors`/`blockReps_of`'s `ctor` clause via
+`sumMkAV_fold` at the local tag).  `ofNative` (`k = 1`) is already
+local.  M4 is landed on master with global tags; the change stays on
+the branch under ruling (i) 1 until the nested approach is shown to
+work.
+
+**Then `pinLeaf`** (M6 s5) is §U.14 (e) unchanged: the nested block's
+auxiliary lists are the members' constructors grouped by member, then
+each copy's in the container's order; `ofNested_pin_block`'s `hΦ` at
+`Y` in the container's space is the fibres' agreement chain by chain —
+the copy's chain `j` of member `mmJ` at frame `ρp` with slots at
+`segJoin L⁺ Y` against the container's `ChainFit` at frame `ρJ[L]`
+(`pinFrame`) and tuple `Y`: ordinary fields by the instantiation
+law (`interp ρp (F[Ds]) = interp (consList ⟦Ds⟧ ρp) F`, `interp_inst`
+iterated — K.12's instantiation as a reading law), member-targeting
+fields by `leaf` (`⟦T_m⟧ p⃗ e⃗ = app (L m) ⟨e⃗⟩`, where (X.1)
+`denoteMeta_absMembers` reads `Ds` with the members abstracted),
+pin-targeting fields at `Y`'s components (`segJoin_add`), the index
+equation by the same substitution — and the tags agree because both
+are `j`, the universes because `injW` reads `w` only as `w = 0`
+(`mutualCrossChecks`' `isEquiv` of the copy's sort with the block's,
+`Level.eval` through the pin's instantiation).  `hIs`/`hPinIdx` is the
+same substitution law at the index telescopes.
+
+**Two consumer-less checks, recorded.**  K.27 stays without a consumer
+(§U.14 (g) 2).  Post-check (a) at `envOut` (`nestedPinsOk`) is ALSO
+without a consumer at the model: the fit of `⟦Ds⟧[L]` at the
+container's parameter telescope, which `pinLeaf`'s step (e) 2 needs at
+the carrier, is derivable at `mp₂` from the restored CONSTRUCTORS'
+typing (`CtorsTyped` → the nested field's domain `mkAppN ⟦J⟧ (Ds ++
+Eis)` well-denoted → `spineFit_of_wellDenoted_mkAppN_pis` at
+`PinsTyped`, i.e. `IsBlockModels.nest_fit`), and for a pin occurring
+only inside another pin's components (`Array (List T)`) from the outer
+pin's fit, `WellDenoted` being hereditary.  Both checks stay in the
+kernel for verdict parity (official runs them); neither is a run fact
+the model reads.
+
+##### (d) THE CASED BODY'S SEMANTICS TWIN — `ConLeche/Semantics/Tower/CaseFamI.lean`
+
+Started this session in an Opus lane (the definitions above and the
+mirrors of `fixStepI_univ`, `caseFamFI_app`, `caseFunVI_app`,
+`caseFunAVI_facts`, `caseBodyAVI_facts`, `caseStepI_mono`,
+`caseFunVI_mono/_maps`, `caseStepI_elim/_intro/_zero_elim`,
+`caseFamI_app_eq` with the closed family an explicit hypothesis); the
+outcome is recorded in the session's memory note and SIGNATURE, and
+the file joins the build graph with M6 s4's re-base (it is not
+imported yet).  Not started: the (W) wrapper, the re-base, the tag
+sites.
+
+##### (e) THE GAPS — §U.14 (f) revised
+
+| gap | consumer | status |
+| --- | --- | --- |
+| the members' constructors' field kinds with targets in members ++ pins | `BlockCtorFacts` (`nest`/`tgts`), `TupleLfpShape.tgtOk` | K.26 re-keyed (`nestedPinKindsOk`); NAMED this session as a hypothesis of `NestedCoreModeled` (consumer `declNested_of`); discharge = the assembly (s5/s6) |
+| the pins' components at the openers and their readings; `Ds.length = nPJ` | `PinSyn.DsE/Ds`, `pinShape` | K.12/K.3/K.14; `NestedBlockModelOf.pin` fixes `DsE` = the elimination's pin; assembly |
+| `hPinIdx`/`hIs`: the copy's telescope at the block's frame = `J`'s at the pin's frame | `ofNested_pinMem/_pinMono`, `ofNested_pin_block` | the instantiation law at the index telescopes; assembly |
+| **the tags**: a pin's elements = the container's elements | `pinLeaf` | **FALSIFIED at `ofNested` as built ((a)); the fix is (c), the seal's re-base (s4)** |
+| the same-universe fact `w ψ = 0 ↔ dJ.w (ψJ ψ) = 0` | the tags' `injW` | `mutualCrossChecks`' `isEquiv` at the aux block (`checkMutualCore_inv`), `Level.eval` through the pin's level instantiation; assembly |
+| the fit of the pins' components at the containers' telescopes, at the CARRIER | `pinLeaf` (e) 2 | derivable from `CtorsTyped` at `mp₂` ((c), last paragraph) — post-check (a) has no consumer at the model |
+| the containers' block models with the member-local tag shape | `pinLeaf`, M7's classes | the premise `EnvBlockModels`/`PinsModeled` ((b)); the tag shape true of `ofNative` now, of `ofMutual`/`ofNested` after s4 |
+| `PinsTyped` | the fits | on the branch (`acval_memType`); a conjunct of `NestedCoreModeled`'s conclusion |
+| the restored recursors' shape (`k + nPins` motives) | M7 (`NestedTailModeled`) | §U.1 (c) 7 |
+
+##### (f) FINDINGS, WITH COST
+
+1. **`pinLeaf` is false at `ofNested`** ((a); ~2 h to see through the
+   representation's three layers — `tupleLfpΦ` → `splitFun` →
+   `fixFunVI` → `sumBodyAV`'s `PSigma' Nat (λ k, case k)` — and ½ h
+   to pin as a theorem).  The `k + n`-ary former's fibre law exports
+   the global tag, and every consumer of the pin's carrier
+   (`real_dom_eq`, `inj_mem`, `spineFit_of_fitsFrom`, `table_fibreAt`)
+   needs the SAME element in the slot and in the field's real domain,
+   so no weakening of `pinLeaf` to a bijection is available.
+2. **The ruling's "member-local everywhere" is the target, not the
+   state**: `ofMutual`/`MutualTableFacts`/the mutual constructor stage
+   tag globally (three sites, all branch-local to change); `ofNative`
+   is local.  A per-member-local former is what a later block
+   composing an earlier one needs — the containers' tags are theirs.
+3. **The fix is a cased sum body, and it is cheap in statement**: the
+   global chain list, the readings, the tuple encoding and the premise
+   are untouched; only the body's discriminant (two `fst`s) and the
+   per-member suffix change; mono/maps/elim are per-suffix instances,
+   the (W) a wrapper.  Cost: the Semantics twin (~500 lines, started),
+   the (W) wrapper (~150), the seal's re-base (~300 changed lines
+   across `TupleLfp`/`MutualLeafI`/`MutualStageFormer`), the three
+   tag sites: 1–2 sessions, mechanical.
+4. **Post-check (a) has no consumer at the model** ((c) last
+   paragraph): the fit at the carrier comes from the constructors'
+   typing, hereditarily.  With K.27 (§U.14 (g) 2) that makes both pin
+   checks verdict-parity checks.
+5. **`EnvBlockModels` is the right premise shape**: env-level (every
+   stored inductive), so the consumer needs no elimination state to
+   state it, and it names the `EnvModelM` field to come; basis blocks
+   (`Nat`, `Empty`, `PUnit`, `Eq`) need their block models
+   (`lfpTuple_one`) for it to be dischargeable — M7/M8's field work.
+6. Lean traps: `rw` with a lemma stated at `resSort.eval ψ` does not
+   find `(D).w ψ` (defeq, not syntactic) — `change` the hypothesis
+   first, restate the membership at the raw index set; an
+   `@[expose] def` in a `public section` file with `CtorsTyped` in its
+   statement needs `BlockRecWD` imported publicly (`BlockRecKit` has
+   only `FormersTyped`/`PinsTyped`); the `do`-block `containerInfo?`
+   inverts by `cases` on `env.find?` then on the constant with
+   `simp [bind, Option.bind]` on the non-`indInfo` arms.
+
+##### (g) GATES
+
+`lake build` 639 jobs warning-free (was 638: `DeclNestedCore`), `lake
+test` and the file gates as recorded in the session's memory note
+(layering base 321 / model 235 / caps 3 / umbrella 1, 0 base→lane, 0
+impl→theory; trust surface 13 escapes in 5 allowlisted files (571
+scanned); overview-links 112; quote-gate 2; no-local-paths OK; shake
+and proofdeps at the end of the session).
+
+##### (h) RE-SIZING
+
+M6: s1 (census, the arm), s2 (the composed operator), s3 (this
+session: the consumer, the falsifier, the cased body's twin started)
+done; s4 = the seal's re-base on the cased body (the (W) wrapper,
+`TupleLfp`/`MutualLeafI`/`MutualStageFormer`, the three tag sites,
+gates) 1–2; s5 = `pinLeaf` ((c) third paragraph: `hΦ` by the
+instantiation law, `hIs`, the same-universe fact) + the assembly's
+formers' stage 1–2; s6 = the assembly's constructors' stage and
+`blockReps_of`'s nested twin → `NestedCoreModeled` 1–2 → **M6 6–8
+(was 3–4)**.  M7 = `NestedTailModeled` (the `k + nPins`-class recursor
+kit, the rules, the tables, the `EnvBlockModels` field) + the flip 4–5;
+M8 1–2.  Remaining **11–15** (was 7–11): the tag finding costs 2–3
+sessions, all mechanical.
