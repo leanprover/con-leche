@@ -80353,6 +80353,92 @@ impl→theory; trust surface 13 escapes in 5 allowlisted files (627
 scanned); no-local-paths OK; overview-links 112; quote-gate 2;
 proofdeps 4955 rows / 12 roots / 0 doors.
 
+##### (k) CONTINUATION 3 — the scratch reading (§1d) and the FIBRE KIT proved; two more cannot-fire records found; base 83bc2d7b merged
+
+*Base*: `agent/uniform-315` 83bc2d7b merged (K.34 = `blockReadBackOk`;
+`checkMutualCore_inv` gained a trailing conjunct, destructured with `-`
+at `NestedRecTypes.lean`/`NestedRecScratch.lean`).  **Numbering**: the
+kernel lane took K.34 for the read-back, so the plan's record
+`nestedAuxAppsOk` (PLAN §1a) is **K.35 (provisional)** from here.
+
+*Exported* (`NestedCore.lean`/`NestedLoop.lean`): `NestedStageFacts` now
+carries `find : FindPreserved ENV₁ ENV₂` and `pinψ` (the pin's level
+assignment is `Level.substFn ψ cvT.levelParams lvls` at the container's
+stored record), both from `NestedLoopFacts` — the constructor pins'
+readings need them at the tail.
+
+*§1d — the scratch reading* (`Model/Inductives/NestedRecScratch.lean`,
+236, Opus): `structure NestedScratchOut … (mpA : EnvModelM V μ ENVA)
+(cvRas)` — the scratch constructors' model `mpA` at `ENVA =
+consMutualCtors b.nP ctorsA (consMutualFormers fms env)` with
+`mutualCtorsStage`'s three outputs, `MutualBlockModelOf env b fms ctorsA
+DA`, `IsBlockModels mpA.base2 DA`, `FormersTyped ∧ CtorsTyped`,
+`MemberStored`, the scratch `checkMutualRecTys` run at `mutualGenData`,
+`cvRas.length = b.k`, **`cvEq : stored[c]? = some a → cvRas[c]? = some
+a.cvRa`** (the read-back's recursor IS the scratch run's), `recData`
+(`MutualRecData` at `DA.blockRds` + the sort) and `readings`
+(`BlockReadings` at `DA`); `theorem NestedTailIn.scratch : ∃ mpA cvRas,
+NestedScratchOut …` — pure assembly of `checkMutualCore_inv`,
+`mutualCtorsStage`, `blockReps_of`, `blockRecData_of`,
+`blockReadings_of`, `auxStored_rec_eq`, with the determinism
+identifications stated `fms = fms'` (trap (e)).  Two conventions worth
+keeping: a record whose parameters are the section's variables is
+declared with an explicit `variable` block (a binder list of the same
+names shadows AND auto-includes); a projection through a `local
+notation` is `(DA).foo`, never `DA.foo`.
+
+*The fibre kit* (`Model/Inductives/NestedRecFibre.lean`, Opus; seven
+theorems, standard axioms): `IsBlockModels.ctorsTyped` (the constructors
+typed at ANY block model of an `EnvModelM` — `mem_type` at
+`BlockCtorData.read`), `piTele_congr`/`slotSet_congr_app` (a slot only
+sees its body at FITTING spines — `piR_congr` pointwise),
+**`NestedTailIn.fibreAt`** — THE fibre identity —
+
+```lean
+theorem NestedTailIn.fibreAt (ψ : Name → Nat) (ρ : Nat → V) (as : List V)
+    (hsp : SpineFit ρ ((D).params ψ) as) {c : Nat} (hc : c < b.k) (is : List V)
+    (hi : SpineFit (consList as ρ) (blockIds b.nP ppsF ψ c) is) :
+    SetTheory.app ((Laux ψ (consList as ρ)) c) (tupW (W ψ) is)
+      = SetTheory.app ((Lcomp ψ (consList as ρ)) c)
+          (tupW (nestedU p.k W pinsS ψ c) is)
+```
+
+(`Laux` the scratch block's least tuple at `mutualBlockModel`, `Lcomp`
+the composed model's extended one: `tupleLfpAV_fold` applied to the SAME
+stored term twice, at `Ws := fun _ => W ψ` with
+`MutualFormersFacts.tupleOk` and at `Ws := nestedU …` with
+`nestedLfpOk_of_formers`), `NestedTailIn.pinCarAt` (a container block
+model's least tuple at its pin agrees pointwise with the composed tuple
+at the pin's class — `IsBlockModel.leaf` vs `nestedPinLeaf_of` +
+`ofNested_pinCar_lfp`), `NestedTailIn.pinSegAt` (the family equality at
+every component of a group at the REPRESENTATIVE's `ψJ`/`Ds` —
+`ofNested_pin_block_of_inst`; needed because nothing in `NestedPinGroup`
+equates `ψJ` across a group), and `NestedTailIn.slotAt_aux` (the scratch
+block's recursive slots at its least tuple ARE the composed slots of
+`CopyCtorInst.fit_iff_at`'s left side, at `NestedPinGroup.inst`'s
+instantiation, modulo `rw [G.w i hi ψ, G.kEq]`).  This is the bridge
+both T2 and the frames (§1e) consume: a fit at the COPY's telescope at
+the scratch carrier ↔ a fit at the CONTAINER's at the pin frame.
+
+*Two further cannot-fire records, found designing T2* (PLAN §1c):
+
+* **K.36 (provisional) `NestedCtorPinNames`** — the restore's constructor
+  names round-trip: `replacePrefix aux J (replacePrefix J aux cc.name) =
+  cc.name` for every container constructor `cc`.  `copiesFresh` says the
+  fresh auxiliary NAME is unused; it does not say it is not a proper
+  PREFIX of a stored constructor's name, and `replacePrefix` acts on the
+  first matching prefix — so the model cannot resolve the restored
+  constructor to the container's `j`-th constructor without it.  Stated
+  as a `Prop` at the tail (the record's model face), T2's hypothesis.
+* **`hctorsJ`** — a pin group's constructors BY NAME AND IN ORDER
+  (`(dJ.ctorsM i).map (·.1.name) = J.ctors.map (·.name)`):
+  `ContainerModeled.member`'s clause one structure earlier
+  (`NestedPinGroupSyn.ctorsOf`, L-B) that `NestedPinGroup` does not
+  carry; T2's second hypothesis until the group exports it.
+
+*Status*: §1d DONE, fibre kit DONE; T2 (`NestedTailIn.ctorArm` =
+`RestoreAgree.ctor` at the tail) IN PROGRESS on this branch.
+
 #### U.30 — L-B session 2: `CopyCtorInst.ordF` at the READING, the normalisation's reading law PROVED, `ContainerModeled`'s three clauses (lane L-B, 2026-09-16)
 
 Three maintainer rulings opened this session; the first two are landed,
