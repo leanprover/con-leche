@@ -1,12 +1,9 @@
 module
 
-public import ConLeche.Model.Inductives.NestedRecTypes
 public import ConLeche.Verify.Inductives.NestedRecWalk
-import ConLeche.Model.Inductives.NestedTransfer
-import ConLeche.Model.Inductives.StructRecSpine
+public import ConLeche.Model.Inductives.StructRecSpine
 import ConLeche.Model.Inductives.SumRecRead
 import ConLeche.Model.Steps.Stuck
-import ConLeche.Model.Steps.CapsRows
 import ConLeche.Model.Annot.BitLemmas
 import ConLeche.Model.Annot.BitErase
 import ConLeche.Verify.Inductives.NestedRestoreOpen

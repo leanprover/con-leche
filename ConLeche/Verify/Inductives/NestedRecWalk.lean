@@ -1,7 +1,6 @@
 module
 
 public import ConLeche.Verify.Inductives.NestedInv
-import ConLeche.Verify.Inductives.NestedRestoreKit
 import ConLeche.Verify.Inductives.StructRec
 
 public section
