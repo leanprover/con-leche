@@ -34,8 +34,8 @@ block model (the strengthened premise `PinsModeled`/`ContainerModeled`,
 model serves the whole group; the components' readings at the prefix
 model are the pin's own reading (`pinDs`), which needs the pin's
 `inferType` run AT THE PREFIX ENVIRONMENT and the pins' free variables
-to be the block's parameter openers — the kernel request K.30, NAMED
-here as `NestedPinsScoped` until it is a run conjunct; the group's
+to be the block's parameter openers — the run conjuncts K.30
+(`NestedPinsRun.scoped`; U-19 named this `NestedPinsScoped`); the group's
 syntactic fields (`NestedPinGroupSyn`: the segment, the block at every
 member, the typing, the injection shape, the pin's shape fields, the
 same-universe fact `w`, the constructor counts, the components' fit
@@ -660,7 +660,10 @@ structure NestedPinsRun (V : Type w) [SetTheory V] (μ : CheckMode) (F : Nat) {e
   hcaps : (stored.take p.k).all (fun a => !a.caps.eta && (env.find? a.cvTa.name).isNone) = true
   hsrc : ConLeche.nestedCopySrcOk env p st = true
   hgrp : ConLeche.nestedGroupsOk env p st = true
+  hscoped : ConLeche.pinsScoped p.nP st = true
   hkinds : ConLeche.nestedPinKindsOk p b st stored = true
+  hpinsE : ConLeche.nestedPinsOk (m := ConLeche.CheckM) (fueledOps μ F)
+      (ConLeche.consMutualFormers (fms.take p.k) env) p.nP st.pins = .ok ()
   hformers : ConLeche.mutualFormers (m := ConLeche.CheckM) (fueledOps μ F) b.nP b.formers env true
       = .ok (ConLeche.consMutualFormers fms env, fms)
   h : MutualFormersFacts V F true mp b fms f₀ ctorsA sortss kinds mp₁ ppsF W idxF dsF esF srcsF
@@ -685,38 +688,6 @@ structure NestedPinsRun (V : Type w) [SetTheory V] (μ : CheckMode) (F : Nat) {e
       = .ok ctorsR
 
 /-! ## The named facts -/
-
-/-- **THE PINS' SCOPE AND TYPING AT THE PREFIX ENVIRONMENT** (NAMED —
-the kernel request K.30, DESIGN §U.21 (d); consumer `nestedPinsStaged_of`
-for `pinDs` and `DsFit`): the pins' `inferType` run at the RESTORED
-FORMERS' environment (`consNestedFormers (stored.take p.k) env`, which
-is the prefix formers' environment), and the pins' free variables the
-block's first former's parameter openers — annotation included — with
-no loose bound variable.  Both are facts of the mint that no conjunct
-of the run records: the run types the pins at the scratch environment
-(`pinsOkAux`) and at the restored environment (post-check (a)), neither
-of which the prefix model models. -/
-@[expose] def NestedPinsScoped (V : Type w) [SetTheory V] (μ : CheckMode) (F : Nat) : Prop :=
-  ∀ {env : Env} (mp : EnvModelM V μ env) (p : NestedParts) (st : ElimState) (b : MutualBlock)
-    (envAux : Env) (stored : List AuxStored) (ctorsR : List (List (ConstantVal × Nat × Nat)))
-    (fmsA ctorsA₀ : List ConstantVal)
-    (fms : List MutualFormerA) (f₀ : MutualFormerA) (ctorsA : List (ConstantVal × Nat))
-    (sortss : List (List Level)) (kinds : List (List (RecFieldKind × Nat)))
-    (mp₁ : EnvModelM V μ (ConLeche.consMutualFormers fms env))
-    (ppsF : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)) (W : (Name → Nat) → Nat)
-    (idxF : Nat → List Expr) (dsF : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm))
-    (esF : Nat → (Name → Nat) → List AnnotTerm) (srcsF : Nat → List (Option Nat))
-    (fvsPF xFvsF : Nat → List Expr) (xrestF : Nat → Expr)
-    (eissF : Nat → (Name → Nat) → List (List AnnotTerm))
-    (tssF : Nat → (Name → Nat) → List (List (Nat × Nat × AnnotTerm)))
-    (mp₁' : EnvModelM V μ (ConLeche.consMutualFormers (fms.take p.k) env)),
-    NestedPinsRun V μ F mp p st b envAux stored ctorsR fmsA ctorsA₀ fms f₀ ctorsA sortss kinds mp₁
-      ppsF W idxF dsF esF srcsF fvsPF xFvsF xrestF eissF tssF mp₁' →
-    ConLeche.nestedPinsOk (m := ConLeche.CheckM) (fueledOps μ F)
-      (ConLeche.consMutualFormers (fms.take p.k) env) p.nP st.pins = .ok () ∧
-    ∃ (fvs : List Expr) (o : Expr), ConLeche.openPisAtFvars b.nP f₀.cvTa.type 0 = some (fvs, o) ∧
-      ∀ q ∈ st.pins, q.pin.looseBVarsBounded 0 = true ∧
-        ∀ l ∈ q.pin.fvarLeaves, Expr.fvar l.1 l.2 ∈ fvs
 
 /-- The named identity facts' common shape: at the run and at any
 `PinSyn` list whose syntactic facts hold, every group whose syntactic
@@ -978,6 +949,28 @@ theorem NestedPinsRun.formerType :
   obtain ⟨bs', hstrip'⟩ := R.h.strip t f hft
   rw [hcvTa] at hstrip'
   exact ⟨hcvTa, bs', hstrip'⟩
+
+/-- **THE PINS' SCOPE AND TYPING AT THE PREFIX ENVIRONMENT** (K.30's
+two conjuncts consumed, task #315 U-20 — the named fact
+`NestedPinsScoped` of U-19, discharged): the run's third `nestedPinsOk`
+IS at the prefix formers' environment (`consNestedFormers_take_eq`,
+applied by `nestedCoreModeled_of`), and `pinsScoped` inverted at the
+elimination's first type — the first former's own type (`formerType`
+at `t = 0`) — gives the openers every pin's free variables lie among,
+with no loose bound variable. -/
+theorem NestedPinsRun.scoped :
+    ConLeche.nestedPinsOk (m := ConLeche.CheckM) (fueledOps μ F) (ENV₁) p.nP st.pins = .ok () ∧
+    ∃ (fvs : List Expr) (o : Expr), ConLeche.openPisAtFvars b.nP f₀.cvTa.type 0 = some (fvs, o) ∧
+      ∀ q ∈ st.pins, q.pin.looseBVarsBounded 0 = true ∧
+        ∀ l ∈ q.pin.fvarLeaves, Expr.fvar l.1 l.2 ∈ fvs := by
+  refine ⟨R.hpinsE, ?_⟩
+  obtain ⟨t₀, params, o, ht₀, hop, hall⟩ := ConLeche.pinsScoped_inv R.hscoped
+  have hnP : b.nP = p.nP := (ConLeche.auxBlock_former R.hb).1
+  have hty : st.types[0]? = some t₀ := by rw [← List.head?_eq_getElem?]; exact ht₀
+  obtain ⟨hcvTa, -⟩ := R.formerType 0 f₀ R.h.first t₀ hty
+  refine ⟨params, o, ?_, hall⟩
+  rw [hcvTa, hnP]
+  exact hop
 
 /-- **A pin's reading at the prefix model** (K.30 consumed): the pin's
 `inferType` run at the prefix environment and its scope give its
@@ -1376,21 +1369,22 @@ end Discharge
 
 /-! ## The consumer -/
 
-/-- **`NestedPinsStaged` modulo the four named facts**: the pins' scope
-and typing at the prefix environment (K.30), the pin-free containers,
-the index-universe agreement and the copy-instantiation identities. -/
-theorem nestedPinsStaged_of {F : Nat} (hS : NestedPinsScoped V μ F) (hFix : NestedPinsFix V μ F)
+/-- **`NestedPinsStaged` modulo the three named facts**: the pin-free
+containers, the index-universe agreement and the copy-instantiation
+identities (the pins' scope and typing at the prefix environment are
+K.30's conjuncts, `NestedPinsRun.scoped`). -/
+theorem nestedPinsStaged_of {F : Nat} (hFix : NestedPinsFix V μ F)
     (hU : NestedPinsU V μ F) (hId : NestedPinsIdent V μ F) : NestedPinsStaged V μ F := by
   intro hμ env mp hE p st b envAux stored ctorsR fmsA ctorsA₀ fms f₀ ctorsA sortss kinds mp₁ ppsF W
     idxF dsF esF srcsF fvsPF xFvsF xrestF eissF tssF mp₁' hPM h0 h1 hfA hcA helim hcount hfresh hcont
-    hb haux hstored hclosed hpinsAux hcaps hsrc hgrp hkinds hformers h hbk h3 hnd hctorsA hleafM' hoff'
-    hfind' hctors
+    hb haux hstored hclosed hpinsAux hcaps hsrc hgrp hscoped hkinds hpinsE hformers h hbk h3 hnd hctorsA
+    hleafM' hoff' hfind' hctors
   have R : NestedPinsRun V μ F mp p st b envAux stored ctorsR fmsA ctorsA₀ fms f₀ ctorsA sortss kinds
       mp₁ ppsF W idxF dsF esF srcsF fvsPF xFvsF xrestF eissF tssF mp₁' :=
     ⟨hμ, hE, hPM, h0, h1, hfA, hcA, helim, hcount, hfresh, hcont, hb, haux, hstored, hclosed, hpinsAux,
-      hcaps, hsrc, hgrp, hkinds, hformers, h, hbk, h3, hnd, hctorsA, hleafM', hoff', hfind', hctors⟩
-  obtain ⟨hpinsE, fvs, o, hop, hsc⟩ := hS mp p st b envAux stored ctorsR fmsA ctorsA₀ fms f₀ ctorsA
-    sortss kinds mp₁ ppsF W idxF dsF esF srcsF fvsPF xFvsF xrestF eissF tssF mp₁' R
+      hcaps, hsrc, hgrp, hscoped, hkinds, hpinsE, hformers, h, hbk, h3, hnd, hctorsA, hleafM', hoff',
+      hfind', hctors⟩
+  obtain ⟨hpinsE, fvs, o, hop, hsc⟩ := R.scoped
   obtain ⟨pbs, hpbs, hPD⟩ := R.pinData
   have SF := R.synFacts hpinsE hop hsc
   refine ⟨_, SF.pinsLen, SF.pinRec, SF.pinDs, ?_, ?_, ?_⟩

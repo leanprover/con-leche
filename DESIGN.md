@@ -77870,3 +77870,151 @@ conjunct and one per half of `pinsScoped`:
   19 reaching fixtures a pin has NO free variable at all (a
   parameterless block's pin, `List Nat`), so the annotation half is
   vacuous there and the loose-bvar half is what carries them.
+
+#### U.26 — integration 1: U-19b and K.30 merged, `NestedPinsScoped` and the two `NestedPinFacts` fields DISCHARGED, `NestedCtorsStaged` closed modulo the three identity facts (session U-20, 2026-09-16)
+
+The lane branch takes the two READY provider branches in order —
+`agent/uniform-s9b` c81c3517 (U-19b, `nestedReadLaw`, §U.21b) at
+7aa349bb and `agent/uniform-m5` d33e2c3c (K.30, §K.30) at 51f7020b —
+and the model consumes what they brought.  After this session the
+nested consumer `declNested_of` closes over EXACTLY
+`NestedPinsFix`/`NestedPinsU`/`NestedPinsIdent` (the three identity
+facts, §U.21 (e)), `NestedTailModeled` (M7) and the premise
+`EnvBlockModels`; `NestedPinsScoped` is gone.  No checker code
+changed on the lane (K.30's is the kernel lane's, merged); no
+`sorry`, no axioms, no `maxHeartbeats`.
+
+##### (a) THE MERGES
+
+*U-19b* (7aa349bb).  Conflicts in the Model root, DESIGN (U.21 then
+U.21b), the FALLBACK comment in `scripts/pub-import-plan.py` (the
+same five entries on both sides — one comment kept) and the shake
+allowlist (U-18's four hanging `NestedLoop` lines gone, U-19b's kit
+lines in, U-19's `NestedRecNames` reason kept) — all resolved keeping
+both.  `NestedLoop.lean`/`NestedRestoreOpen.lean`/`NestedRestoreTbl.lean`
+auto-merged.  The merge's proof adaptation is (b).
+
+*K.30* (51f7020b).  DESIGN only (K.30 appended after U.21b);
+`declNested_of` names the two new conjuncts.  Gates on each merge
+commit before building on it: build warning-free, `lake test`, shake
++ pub-imports, layering, trust surface, no-local-paths,
+overview-links, quote-gate, proofdeps 4955/0 doors; nested-shadow
+27/27 on the K.30 merge.
+
+**The import gate on the union** (a FINDING of the class §U.15
+recorded — the pub-import fixpoint moves when a root gains modules):
+eleven `public import`s called demotable, none of them proposed on
+either branch alone.  Nine demoted (`NestedTransfer`'s `EnvModel`,
+`Stuck`, `MutualInstall`, `BitRestrict`, `BitErase`, `BitInst`,
+`BitLemmas`, `Shift`; `NestedRestoreKit`'s `NestedInv`); two refused
+by the compiler and recorded as FALLBACK — `NestedPins ↔ NestedLoop`
+(the `variable` binders reach `SetTheory` only through the public
+closure, the known class) and `NestedTransfer ↔ EraseAnnots` (a
+PUBLIC statement names `Expr.eraseAnnots`; a public statement is
+elaborated in the public view, where a plain import is invisible —
+a sharper spelling of the module-system rule than "a `rfl` stops
+closing").  The demoted `NestedRestoreKit` import then met the #223
+criterion CLEAN (the only delta from the `NoSuchModule` floor is the
+removal itself) and is deleted; four allowlist lines no longer
+proposed (`NestedTransfer`'s `Bit*` — as plain imports shake keeps
+them) deleted.  shake 502 → 498 removals, all allowlisted; pub-imports
+none demotable.
+
+##### (b) THE TWO `NestedPinFacts` FIELDS (§U.21b (b)) DISCHARGED at `pinsOf`
+
+Both are facts of `pinOf`'s construction, proved in
+`Model/Inductives/NestedPins.lean`'s Discharge section and supplied by
+`nestedPinsStaged_of`:
+
+* **`NestedPinsRun.pinψ`** — at the prefix environment's record
+  `(ENV₁).find? (pinOf … q).J = some (.indInfo cvT caps)`: `lvls.length
+  = cvT.levelParams.length ∧ ∀ ψ, ψJ ψ = Level.substFn ψ cvT.levelParams
+  lvls`.  The pin's container is the group member `memberOf env st q
+  (q − grpBase)` (`PinData.grp` at `grpBase + (q − grpBase) = q`); the
+  member's stored record at the pre-block environment
+  (`containerInfo?_inv` at the base's group) crosses to ENV₁
+  (`NestedPinsRun.cross`), so `cvT` is that record and the member's
+  `lps` are its `levelParams`; the count is K.28's `mkCopy_inv`
+  (`lvls.length = J.lps.length`) at the pin's own copy record, with
+  `J`'s record the same member's.
+* **`NestedPinsRun.pinNIdx`** — `(fms.getD (p.k + q) default).nIdx =
+  (pinOf … q).nIdx` (= the group block model's `nIdxAt (q − grpBase)`).
+  `IsBlockModel.strip` at the group's block model (crossed to the
+  prefix model) strips the member's type at `nP + nIdxAt i` to a sort;
+  `mkCopy_stripPis_sort` carries that to the copy's type at
+  `pbs.length + nIdxAt i`; `formerType` strips the auxiliary former at
+  `p.k + q` at `b.nP + nIdx` to its sort; `stripPis_sort_unique`
+  equates the counts.  (The obligation is `NestedPinGroup.pinNIdx`'s
+  from the copy's side, as §U.21b (b) said.)
+
+##### (c) `NestedPinsScoped` DISCHARGED from K.30's two conjuncts
+
+The conjuncts are threaded as K.29's `hgrp` was, in `DeclNestedRun`'s
+order: `pinsScoped p.nP st = true` after `nestedGroupsOk`, and the
+third `nestedPinsOk` after `nestedPinKindsOk` — through
+`NestedCoreModeled` (at `consNestedFormers (stored.take p.k) env`,
+the run's spelling), `declNested_of`, `NestedCtorsStaged`/
+`nestedStageFacts_of`/`nestedCoreModeled_of` (at `consMutualFormers
+(fms.take p.k) env` like `hctors`, converted by
+`consNestedFormers_take_eq` where `hctors` is), `NestedPinsStaged`/
+`nestedLoopFacts_of`/`nestedCtorsStaged_of`, and `NestedPinsRun`
+(fields `hscoped`, `hpinsE`).  NOT threaded through `NestedReadLaw`
+(proved, no consumer of them — the law's hypothesis list stays
+U-19b's) nor `NestedTailModeled` (M7's subject, lane L-D's file;
+`declNested_of` passes it the run's other conjuncts as before).
+
+`NestedPinsRun.scoped` replaces the named fact: the typing conjunct
+verbatim; the scope from the Verify inversion **`pinsScoped_inv`**
+(`Verify/Inductives/NestedGroupInv.lean` (B)): `∃ t₀ params o,
+st.types.head? = some t₀ ∧ openPisAtFvars nP t₀.type 0 = some (params, o)
+∧ ∀ q ∈ st.pins, q.pin.looseBVarsBounded 0 = true ∧ ∀ l ∈
+q.pin.fvarLeaves, Expr.fvar l.1 l.2 ∈ params` — and the first type IS
+the first former's (`formerType` at `t = 0`, `head?_eq_getElem?`),
+`b.nP = p.nP` (`auxBlock_former`).  ~40 lines, as §U.21 (d) sized.
+
+##### (d) THE RESIDUAL — verbatim, with the lanes that own it
+
+`nestedPinsStaged_of : NestedPinsFix V μ F → NestedPinsU V μ F →
+NestedPinsIdent V μ F → NestedPinsStaged V μ F`, the three §U.21 (e)
+shapes unchanged (each `NestedPinsIdsAt V μ F P`):
+
+* **`NestedPinsFix V μ F`** — `P := dJ.pins = []` — lane L-C
+  (`agent/uniform-pinfix`).
+* **`NestedPinsU V μ F`** — `P := ∀ i < kJ, ∀ ψ i', i' < kJ → (W ψ = 0
+  ↔ dJ.uM i' ((pinsS.getD (q₀ + i) default).ψJ ψ) = 0)` — lane L-A
+  (`agent/uniform-s10`).
+* **`NestedPinsIdent V μ F`** — `P := (∀ i < kJ, ∀ ψ i', i' < kJ →
+  blockIds b.nP ppsF ψ (p.k + q₀ + i') = instTele ((pinsS.getD (q₀ + i)
+  default).Ds ψ) 0 (dJ.IdsM i' ((pinsS.getD (q₀ + i) default).ψJ ψ))) ∧
+  (∀ i < kJ, ∀ ψ ρp, Sat V (((ppsF 0 ψ).take b.nP).map (·.2.2)).reverse
+  ρp → ∀ Y, InTupleSpace (f₀.s.eval ψ) kJ (dJ.idx …) Y → ∀ i' < kJ, ∀ j
+  < (dJ.ctorsM i').length, CopyCtorInst … dJ (ψJ ψ) (Ds ψ) q₀ kJ Y i' j)`
+  — lane L-B (`agent/uniform-ident`).
+
+`NestedTailModeled V μ F` (§U.15) — lane L-D (`agent/uniform-m7rec`).
+`EnvBlockModels` stays the premise.
+
+##### (e) THE CHAIN, VERIFIED
+
+`nestedCoreModeled_of (nestedCtorsStaged_of (nestedPinsStaged_of hFix hU
+hId) nestedReadLaw) : NestedCoreModeled V μ F` and `declNested_of hμ mp
+hE hpins (that) htail h : Nonempty (EnvModelM V μ envOut)` compile
+against the built tree with exactly `hFix hU hId htail hpins` free
+(probe outside the build, `#print axioms`: `[propext, Classical.choice, Quot.sound]`).
+
+##### (f) FILES AND GATES
+
+`NestedPins.lean` (+`pinψ`/`pinNIdx`/`scoped`, −`NestedPinsScoped`,
+`NestedPinsRun` +2 fields, `nestedPinsStaged_of` three premises),
+`NestedLoop.lean`/`NestedCore.lean`/`DeclNestedCore.lean` (the
+threading), `NestedGroupInv.lean` (+`pinsScoped_inv`),
+`NestedTransfer.lean`/`NestedRestoreKit.lean` (imports),
+`scripts/pub-import-plan.py` (+2 FALLBACK), `tests/shake-allowlist.txt`
+(−4).  Gates at HEAD: build 669 warning-free, `lake test`
+warning-free, shake 498/498 + none demotable, layering 337/249/3/1,
+trust surface 13 in 5, no-local-paths, overview-links 112, quote-gate
+2, proofdeps 4955/0 doors, nested-shadow 27/27.
+
+Cost: one session (the merges' adaptation ~½, the discharges ~½).
+Remaining as §U.21b sized: s10, the identities, `pinFix` in flight on
+the provider lanes; then integration 2 (their merge) and M7/M8.

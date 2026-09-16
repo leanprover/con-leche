@@ -25,8 +25,10 @@ about `Expr.stripPis` they all rest on.
   stored former, its recursor (at the SAME rule prefix and the same
   level parameters), and its constructors — one per recursor rule, in
   rule order, each a stored `ctorInfo` at the group's parameter count.
-* **The pins' front door** (`nestedPinsOk_inv`, `pinsClosed_inv`).  The
-  loop's two syntactic tests and its inference, per pin.
+* **The pins' front door** (`nestedPinsOk_inv`, `pinsClosed_inv`,
+  `pinsScoped_inv`).  The loop's two syntactic tests and its inference,
+  per pin; and K.30's scope — the first type's openers, every pin's free
+  variables among them, no loose bound variable.
 * **A telescope ending in a sort has ONE binder count**
   (`stripPis_sort_unique`): `stripPis` is deterministic in the count,
   so two readings of the same former agree on everything.
@@ -101,6 +103,34 @@ theorem pinsClosed_inv {nP : Nat} {pins : List NestedPin}
   have hq' := List.all_eq_true.mp h q hq
   simp only [Bool.and_eq_true, Bool.not_eq_eq_eq_not, Bool.not_true] at hq'
   exact hq'
+
+/-- **THE PINS' SCOPE, INVERTED** (task #315 K.30, consumed at U-20):
+`pinsScoped` is the Bool the run relation records; this is what it
+stands for.  The FIRST type's parameter openers exist, and every pin
+has no loose bound variable and every free variable — annotation
+included — is one of those openers, at its own index. -/
+theorem pinsScoped_inv {nP : Nat} {st : ElimState} (h : pinsScoped nP st = true) :
+    ∃ (t₀ : AuxType) (params : List Expr) (o : Expr),
+      st.types.head? = some t₀ ∧ openPisAtFvars nP t₀.type 0 = some (params, o) ∧
+      ∀ q ∈ st.pins, q.pin.looseBVarsBounded 0 = true ∧
+        ∀ l ∈ q.pin.fvarLeaves, Expr.fvar l.1 l.2 ∈ params := by
+  unfold pinsScoped at h
+  cases ht : st.types.head? with
+  | none => rw [ht] at h; exact nomatch h
+  | some t₀ =>
+    rw [ht, Option.bind_some] at h
+    cases ho : openPisAtFvars nP t₀.type 0 with
+    | none => rw [ho] at h; exact nomatch h
+    | some po =>
+      rw [ho] at h
+      obtain ⟨params, o⟩ := po
+      refine ⟨t₀, params, o, rfl, ho, ?_⟩
+      intro q hq
+      have hq' := List.all_eq_true.mp h q hq
+      simp only [Bool.and_eq_true] at hq'
+      refine ⟨hq'.1, fun l hl => ?_⟩
+      have hl' := List.all_eq_true.mp hq'.2 l hl
+      exact List.mem_of_getElem? (beq_iff_eq.mp hl')
 
 /-- **POST-CHECK (a), INVERTED** (task #315): the loop's two syntactic
 tests and its inference, at every pin. -/

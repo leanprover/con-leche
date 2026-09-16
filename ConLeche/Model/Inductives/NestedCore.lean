@@ -1234,7 +1234,14 @@ Consumer: `nestedStageFacts_of` → `nestedCoreModeled_of`. -/
     (stored.take p.k).all (fun a => !a.caps.eta && (env.find? a.cvTa.name).isNone) = true →
     ConLeche.nestedCopySrcOk env p st = true →
     ConLeche.nestedGroupsOk env p st = true →
+    -- THE PINS' SCOPE (K.30): every pin's free variables are the first
+    -- former's openers, annotation included, and no loose bvar
+    ConLeche.pinsScoped p.nP st = true →
     ConLeche.nestedPinKindsOk p b st stored = true →
+    -- POST-CHECK (a) A THIRD TIME (K.30): the pins typed at the prefix
+    -- formers' environment (`consNestedFormers_take_eq`)
+    ConLeche.nestedPinsOk (m := ConLeche.CheckM) (fueledOps μ F)
+      (ConLeche.consMutualFormers (fms.take p.k) env) p.nP st.pins = .ok () →
     -- the auxiliary block's formers' stage, at the scratch run
     ConLeche.mutualFormers (m := ConLeche.CheckM) (fueledOps μ F) b.nP b.formers env true
       = .ok (ConLeche.consMutualFormers fms env, fms) →
@@ -1318,7 +1325,10 @@ theorem nestedStageFacts_of (hst : NestedCtorsStaged V μ F) (hμ : μ.verifiedC
     (hcaps : (stored.take p.k).all (fun a => !a.caps.eta && (env.find? a.cvTa.name).isNone) = true)
     (hsrc : ConLeche.nestedCopySrcOk env p st = true)
     (hgrp : ConLeche.nestedGroupsOk env p st = true)
+    (hsc : ConLeche.pinsScoped p.nP st = true)
     (hkinds : ConLeche.nestedPinKindsOk p b st stored = true)
+    (hpins₁ : ConLeche.nestedPinsOk (m := ConLeche.CheckM) (fueledOps μ F)
+      (ConLeche.consMutualFormers (fms.take p.k) env) p.nP st.pins = .ok ())
     (hnd : b.blockNames.Nodup) (h3 : ConLeche.mutualCtorsGrouped b.ctors = true)
     (hformers : ConLeche.mutualFormers (m := ConLeche.CheckM) (fueledOps μ F) b.nP b.formers env true
       = .ok (ConLeche.consMutualFormers fms env, fms))
@@ -1387,8 +1397,8 @@ theorem nestedStageFacts_of (hst : NestedCtorsStaged V μ F) (hμ : μ.verifiedC
   -- the loop
   obtain ⟨mp₂, dsR, xFvsR, pinsS, L⟩ := hst hμ mp hE p st b envAux stored ctorsR fmsA ctorsA₀ fms f₀
     ctorsA sortss kinds mp₁ ppsF W idxF dsF esF srcsF fvsPF xFvsF xrestF eissF tssF mp₁' hPM h0 h1
-    hfA hcA helim hcount hfresh hcont hb haux hstored hclosed hpinsAux hcaps hsrc hgrp hkinds hformers h
-    hbk h3 hnd hctorsA hleafM' hoff' hfind' hctors
+    hfA hcA helim hcount hfresh hcont hb haux hstored hclosed hpinsAux hcaps hsrc hgrp hsc hkinds hpins₁
+    hformers h hbk h3 hnd hctorsA hleafM' hoff' hfind' hctors
   -- the names
   have hnames : (fms.take p.k).map (·.cvTa.name) = p.memberNames := by
     rw [List.map_take, h.names]
@@ -1482,7 +1492,7 @@ off the elimination, pins off the loop's records). -/
 theorem nestedCoreModeled_of {F : Nat} (hst : NestedCtorsStaged V μ F) :
     NestedCoreModeled V μ F := by
   intro hμ env mp hE p st b envAux stored ctorsR fmsA ctorsA₀ hPM h0 h1 hfA hcA helim hcount hfresh
-    hcont hb haux hstored hclosed hpinsAux hcaps hsrc hgrp hkinds hctors
+    hcont hb haux hstored hclosed hpinsAux hcaps hsrc hgrp hsc hkinds hpins₁ hctors
   obtain ⟨hnd, hlp, hmem, h3, env₁, fms, f₀, tq₀, ctorsA, sortss, kinds, formers4, ctors4, cvRas,
     rulesOf, hformers, hf₀, htq₀, hcross, -, hctorsA, hkindsA, hfo, -, -, -, -⟩ :=
     ConLeche.checkMutualCore_inv haux
@@ -1491,9 +1501,10 @@ theorem nestedCoreModeled_of {F : Nat} (hst : NestedCtorsStaged V μ F) :
     mutualFormersStage hμ mp hE b hnd hlp hmem hformers hf₀ htq₀ hcross hctorsA hkindsA hfo
   have hbk : b.k = p.k + st.pins.length := ConLeche.auxBlock_k_count hfA helim hb
   obtain ⟨henv, -⟩ := ConLeche.consNestedFormers_take_eq haux hformers hstored p.k (by omega)
-  rw [henv] at hctors
+  rw [henv] at hctors hpins₁
   obtain ⟨mp₂, dsR, xFvsR, pinsS, S⟩ := nestedStageFacts_of hst hμ hE hPM h0 h1 hfA hcA helim hcount
-    hfresh hcont hb haux hstored hclosed hpinsAux hcaps hsrc hgrp hkinds hnd h3 hformers hctorsA h hbk hctors
+    hfresh hcont hb haux hstored hclosed hpinsAux hcaps hsrc hgrp hsc hkinds hpins₁ hnd h3 hformers hctorsA h
+    hbk hctors
   have hbk' : b.k = p.k + pinsS.length := by rw [hbk, S.pinsLen]
   obtain ⟨hreps, htyped⟩ := nestedBlockReps_of hμ h h3 hbk' mp₂ S.findM S.leafM S.FD S.ctorsLen
     S.ctorFacts S.domFacts S.groups

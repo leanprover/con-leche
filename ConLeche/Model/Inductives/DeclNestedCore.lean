@@ -188,7 +188,14 @@ Consumer: `declNested_of`. -/
     (stored.take p.k).all (fun a => !a.caps.eta && (env.find? a.cvTa.name).isNone) = true →
     ConLeche.nestedCopySrcOk env p st = true →
     ConLeche.nestedGroupsOk env p st = true →
+    -- THE PINS' SCOPE (K.30): every pin's free variables are the first
+    -- former's openers, annotation included, and no loose bvar
+    ConLeche.pinsScoped p.nP st = true →
     ConLeche.nestedPinKindsOk p b st stored = true →
+    -- POST-CHECK (a) A THIRD TIME (K.30): the pins typed at the
+    -- environment holding the RESTORED formers
+    ConLeche.nestedPinsOk (m := ConLeche.CheckM) (fueledOps μ F)
+      (ConLeche.consNestedFormers (stored.take p.k) env) p.nP st.pins = .ok () →
     (stored.take p.k).mapM (fun a =>
         ConLeche.restoreCtors (m := ConLeche.CheckM) (fueledOps μ F)
           (ConLeche.consNestedFormers (stored.take p.k) env) (ConLeche.restoreTbl p st) p.lps
@@ -322,11 +329,11 @@ theorem declNested_of (hμ : μ.verifiedChecks = true) {F : Nat} {env envOut : E
     Nonempty (EnvModelM V μ envOut) := by
   obtain ⟨h0, h1, st, b, envAux, stored, ctorsR, cvRms, cvRns, rulesM, rulesN, fmsA, ctorsA,
     hfA, hcA, helim, hcount, hfresh, hcont, hb, haux, hstored, hclosed, hpinsAux, hcaps, hsrc,
-    hgrp, -, hkinds, -, hctors, hrm, hrn, hrulesM, hrulesN, htbl, hpinsOut, hcnt, hrecs⟩ := h
+    hgrp, hsc, hkinds, hpins₁, hctors, hrm, hrn, hrulesM, hrulesN, htbl, hpinsOut, hcnt, hrecs⟩ := h
   have hPM : PinsModeled mp.base2 st.pins := pinsModeled_of_env hpins hcont
   obtain ⟨mp₂, hag, d, hd, hreps, htyped⟩ := hcore hμ mp hE p st b envAux stored ctorsR fmsA ctorsA
-    hPM h0 h1 hfA hcA helim hcount hfresh hcont hb haux hstored hclosed hpinsAux hcaps hsrc hgrp hkinds
-    hctors
+    hPM h0 h1 hfA hcA helim hcount hfresh hcont hb haux hstored hclosed hpinsAux hcaps hsrc hgrp hsc
+    hkinds hpins₁ hctors
   exact htail hμ mp hE p envOut st b envAux stored ctorsR cvRms cvRns rulesM rulesN fmsA ctorsA
     hPM h0 h1 hfA hcA helim hcount hfresh hcont hb haux hstored hclosed hpinsAux hcaps hsrc hgrp hkinds
     hctors hrm hrn hrulesM hrulesN htbl hpinsOut hcnt hrecs mp₂ d hag hd hreps htyped
