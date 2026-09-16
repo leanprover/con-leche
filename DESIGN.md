@@ -81376,6 +81376,41 @@ keep `blockOf mp.base2`) and `hnew` (`nestedBlockAt_of` at the output model).
    `declNested_of`); L-B `agent/uniform-ident` 70172b1d NOT merged (no need
    yet — the assembly of L-B's arms into `CopyShapeA` is the later step).
 
+##### (e′) LANE L-B's THREE CLAUSES (session 7's request), and step (i)'s two leaf laws
+
+Added where L-B asked, in the shape `NestedPinsRun.groupSyn` discharges:
+
+1. `NestedPinGroupSyn` takes the elimination state and records the MINT
+   GROUP: `grp : ∀ i < kJ, (st.pins.getD (q₀ + i)).grpBase = q₀ ∧ …grpSize = kJ`
+   (`PinData.grp`) — every group-indexed run Bool (K.32 included) is keyed
+   by it.  Call sites: `NestedPinSynFacts.groups`, `NestedPinsIdsAt`,
+   `groupSyn`, `idxIdent`, and ONE binder line of L-B's
+   `NestedCopyInst.lean` (`st` inserted before `mp₁'.base2`).
+2. `NestedPinGroupSyn.modeled : ∀ i < kJ, ∀ ci, containerInfo? env
+   ((D).pinAt (q₀ + i)).J = some ci → ContainerModeled m ci dJ` — the
+   container's block model at the pin's OWN group (`ordFree`/
+   `pinsNotMembers` live there).  Discharged by `containerInfo?_eq_of_names`
+   (`Verify/Inductives/NestedGroupInv.lean`, NEW: two groups agreeing on
+   `nP` and member NAMES are one group, member by member through
+   `containerInfo?_member_det`) at `PinData.own`'s name list against the
+   base's, so the pin's own group IS `baseInfo env st q` and `CM` applies.
+3. `ContainerModeled.namesLen : d.memberNames.length = d.k` — without it
+   `memberName`'s `getD … .anonymous` makes `ordFree` unusable past the
+   list's end.  `crossEnv` passes it; the routes' read-back (K.34's
+   `ContainerModeled.of_reading`, to come) must supply it.
+
+Step (i)'s two leaf laws are PROVED (`NestedPinLeafAll.lean`), the `hZ`
+of `copyEntryAt_of_read` at the two kinds of target: `memberTarget_reads`
+(a member target reads as the block's carrier at the block's index
+universe — the auxiliary leaf `hleafM` at the parameters,
+`tupleLfpAV_fold`, `ofNested_lfp`) and `pinTarget_reads` (a pin target
+reads as its container's least tuple at the pin's frame, at the pin's
+index universe — `dJ.leaf` at `DsFit`, `pinIds`, `pinU`).  What (i) still
+needs: the `pinF` entry at the tuple `segJoin k n L P` (`real_dom_eq` +
+`slotSet_instTele` + `dJ.pinCar ψJ ρJ LJ qK = P (t - k)` through `PinCorr`,
+`dJ.pinLeaf`, `dJ'.leaf` and `spineFit_congr_below`), then `fit_iff_at`
+at that tuple per group and `app_lfpTuple_eq` at the container.
+
 ##### (f) LEAN TRAPS
 
 * A section `variable (acval …)` declared EXPLICIT makes every later theorem
@@ -81391,6 +81426,11 @@ keep `blockOf mp.base2`) and `hnew` (`nestedBlockAt_of` at the output model).
 * `lake env lean` on a file whose IMPORTS' statements changed reads stale
   oleans and reports the new names unknown — build the imports first.
 * There is no `∉ˢ` notation: `¬ x ∈ˢ …`.
+* `rw [h₁, h₂] at a b c` applies EVERY rewrite to EVERY hypothesis and
+  fails on the first that lacks a pattern — split by hypothesis.
+* A helper inserted just before a theorem lands BETWEEN that theorem's
+  docstring and its `theorem` ("unexpected token '/--'"): insert before
+  the docstring.
 
 ##### (g) GATES AND FILES
 
