@@ -187,7 +187,10 @@ theorem ContainerModeled.crossEnv {env₁ env₂ : Env} {m₁ : EnvModel V env�
     member := fun i M hM => by
       obtain ⟨hname, hcnt, cvR, mI, rP, rules, hI⟩ := h.member i M hM
       exact ⟨hname, hcnt, cvR, mI, rP, rules, hI.crossEnv hF hres hag hde⟩
-    frame := h.frame }
+    frame := h.frame
+    ordFree := h.ordFree
+    pinsNotMembers := h.pinsNotMembers
+    pinNP := h.pinNP }
 
 /-- **The prefix formers' cons, as a crossing**: from the pre-block
 model to any model of the prefix formers' environment agreeing with it
