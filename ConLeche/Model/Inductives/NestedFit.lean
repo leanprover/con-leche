@@ -303,6 +303,31 @@ variable {ψ : Name → Nat} {ρp : Nat → V}
 local notation "L⁺" => lfpTuple (resSort.eval ψ) (k + pins.length) (nestedIs nP k ppsA W pins ψ ρp)
   (ΨA ψ ρp)
 
+/-- **The entry identity at a target OUTSIDE the group** — the shared
+third conjunct of `CopyCtorInst.ordF`'s right arm and of
+`CopyCtorInst.pinF`: at a spine fitting the copy's constructor up to
+field `l`, the CONTAINER's domain read at the pin's frame IS the
+copy's slot at the auxiliary least tuple, taken at the field's target.
+(Named separately so that the residual `NestedPinsEntry` — the DAG
+induction over the pins, DESIGN §U.23 (e) — states it once.) -/
+@[expose] def CopyEntry (dJ : BlockModel V) (ψJ : Name → Nat) (Ds : List AnnotTerm)
+    (q₀ kJ : Nat) (Y : Nat → V) (i j l : Nat) : Prop :=
+  ∀ fs₁ : List V, fs₁.length = l →
+    FitsFrom (rss.getD (offs (k + q₀ + i) + j) [])
+      (fun i' ρ => slotSet (resSort.eval ψ)
+        (nestedU k W pins ψ ((tgtsG.getD (offs (k + q₀ + i) + j) []).getD i' 0)) ρ
+        (((tlss ψ).getD (offs (k + q₀ + i) + j) []).getD i' [])
+        (((Eiss₀ ψ).getD (offs (k + q₀ + i) + j) []).getD i' [])
+        (segJoin (k + q₀) kJ L⁺ Y ((tgtsG.getD (offs (k + q₀ + i) + j) []).getD i' 0)))
+      0 ρp (((Fss₀ ψ).getD (offs (k + q₀ + i) + j) []).take l) fs₁ →
+    interp V (consList fs₁ (consList (Ds.map (interp V ρp)) ρp))
+        (((dJ.Fss i ψJ).getD j []).getD l default)
+      = slotSet (resSort.eval ψ)
+          (nestedU k W pins ψ ((tgtsG.getD (offs (k + q₀ + i) + j) []).getD l 0)) (consList fs₁ ρp)
+          (((tlss ψ).getD (offs (k + q₀ + i) + j) []).getD l [])
+          (((Eiss₀ ψ).getD (offs (k + q₀ + i) + j) []).getD l [])
+          (L⁺ ((tgtsG.getD (offs (k + q₀ + i) + j) []).getD l 0))
+
 /-- **The instantiation identities of one copy's constructor**: the
 container `dJ`'s member `i`, constructor `j`, copied at the pin group
 `[q₀, q₀ + kJ)` whose components read as `Ds` (at the block's
@@ -353,21 +378,10 @@ structure CopyCtorInst (dJ : BlockModel V) (ψJ : Name → Nat) (Ds : List Annot
     ((rss.getD (offs (k + q₀ + i) + j) []).getD l false = true ∧
       ¬ (k + q₀ ≤ (tgtsG.getD (offs (k + q₀ + i) + j) []).getD l 0 ∧
         (tgtsG.getD (offs (k + q₀ + i) + j) []).getD l 0 < k + q₀ + kJ) ∧
-      ∀ fs₁ : List V, fs₁.length = l →
-        FitsFrom (rss.getD (offs (k + q₀ + i) + j) [])
-          (fun i' ρ => slotSet (resSort.eval ψ)
-            (nestedU k W pins ψ ((tgtsG.getD (offs (k + q₀ + i) + j) []).getD i' 0)) ρ
-            (((tlss ψ).getD (offs (k + q₀ + i) + j) []).getD i' [])
-            (((Eiss₀ ψ).getD (offs (k + q₀ + i) + j) []).getD i' [])
-            (segJoin (k + q₀) kJ L⁺ Y ((tgtsG.getD (offs (k + q₀ + i) + j) []).getD i' 0)))
-          0 ρp (((Fss₀ ψ).getD (offs (k + q₀ + i) + j) []).take l) fs₁ →
-        interp V (consList fs₁ (consList (Ds.map (interp V ρp)) ρp))
-            (((dJ.Fss i ψJ).getD j []).getD l default)
-          = slotSet (resSort.eval ψ)
-              (nestedU k W pins ψ ((tgtsG.getD (offs (k + q₀ + i) + j) []).getD l 0)) (consList fs₁ ρp)
-              (((tlss ψ).getD (offs (k + q₀ + i) + j) []).getD l [])
-              (((Eiss₀ ψ).getD (offs (k + q₀ + i) + j) []).getD l [])
-              (L⁺ ((tgtsG.getD (offs (k + q₀ + i) + j) []).getD l 0)))
+      CopyEntry (V := V) (nP := nP) (k := k) (resSort := resSort) (ppsA := ppsA) (W := W)
+        (pins := pins) (offs := offs) (mems := mems) (nFs := nFs) (tgtsG := tgtsG) (rss := rss)
+        (tlss := tlss) (Eiss₀ := Eiss₀) (Fss₀ := Fss₀) (Ess₀ := Ess₀) (ψ := ψ) (ρp := ρp)
+        dJ ψJ Ds q₀ kJ Y i j l)
   /-- **a container-recursive field at one of the container's OWN
   pins** (a container that is itself nested): copy-recursive at a
   target OUTSIDE the group — the block's pin for the container's pin
@@ -379,21 +393,10 @@ structure CopyCtorInst (dJ : BlockModel V) (ψJ : Name → Nat) (Ds : List Annot
     (rss.getD (offs (k + q₀ + i) + j) []).getD l false = true ∧
     ¬ (k + q₀ ≤ (tgtsG.getD (offs (k + q₀ + i) + j) []).getD l 0 ∧
       (tgtsG.getD (offs (k + q₀ + i) + j) []).getD l 0 < k + q₀ + kJ) ∧
-    ∀ fs₁ : List V, fs₁.length = l →
-      FitsFrom (rss.getD (offs (k + q₀ + i) + j) [])
-        (fun i' ρ => slotSet (resSort.eval ψ)
-            (nestedU k W pins ψ ((tgtsG.getD (offs (k + q₀ + i) + j) []).getD i' 0)) ρ
-          (((tlss ψ).getD (offs (k + q₀ + i) + j) []).getD i' [])
-          (((Eiss₀ ψ).getD (offs (k + q₀ + i) + j) []).getD i' [])
-          (segJoin (k + q₀) kJ L⁺ Y ((tgtsG.getD (offs (k + q₀ + i) + j) []).getD i' 0)))
-        0 ρp (((Fss₀ ψ).getD (offs (k + q₀ + i) + j) []).take l) fs₁ →
-      interp V (consList fs₁ (consList (Ds.map (interp V ρp)) ρp))
-          (((dJ.Fss i ψJ).getD j []).getD l default)
-        = slotSet (resSort.eval ψ)
-              (nestedU k W pins ψ ((tgtsG.getD (offs (k + q₀ + i) + j) []).getD l 0)) (consList fs₁ ρp)
-            (((tlss ψ).getD (offs (k + q₀ + i) + j) []).getD l [])
-            (((Eiss₀ ψ).getD (offs (k + q₀ + i) + j) []).getD l [])
-            (L⁺ ((tgtsG.getD (offs (k + q₀ + i) + j) []).getD l 0))
+    CopyEntry (V := V) (nP := nP) (k := k) (resSort := resSort) (ppsA := ppsA) (W := W)
+      (pins := pins) (offs := offs) (mems := mems) (nFs := nFs) (tgtsG := tgtsG) (rss := rss)
+      (tlss := tlss) (Eiss₀ := Eiss₀) (Fss₀ := Fss₀) (Ess₀ := Ess₀) (ψ := ψ) (ρp := ρp)
+      dJ ψJ Ds q₀ kJ Y i j l
   /-- the result's index readings instantiated under the fields -/
   es : ∀ l, l < (dJ.IdsM i ψJ).length →
     ((Ess₀ ψ).getD (offs (k + q₀ + i) + j) []).getD l default
