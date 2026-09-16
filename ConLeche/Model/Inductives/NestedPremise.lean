@@ -1,16 +1,20 @@
 module
 
-public import ConLeche.Kernel.Inductives.NestedInstall
+public import ConLeche.Semantics.Inductives.DeclNested
 public import ConLeche.Model.Inductives.BlockRecWD
 public section
 
 /-!
-# The nested route's premise, the model with its blocks, and the run's record (task #315, M6 s3 / M7-3)
+# The nested route's premise, the model with its blocks, and the run's record (task #315, M6 s3 / M7)
 
 The definitions `declNested_of`'s two named facts are stated over,
-split out of `DeclNestedCore.lean` so that the CROSSING kit
-(`ContainerCross.lean` — a container's block model across an
-environment extension) can sit between the premise and its consumer:
+split out of `DeclNestedCore.lean` for two reasons: the tail grew to
+the CONCRETE block model (task #315 M7-2, DESIGN §U.29), so the
+consumer must import `NestedCore.lean` and name `nestedBlockModel` —
+everything `NestedCore.lean` needs of the consumer's file lives here;
+and the CROSSING kit (`ContainerCross.lean` — a container's block model
+across an environment extension, task #315 M7-3) sits between the
+premise and its consumer:
 
 * `ContainerModeled` / `EnvBlockModels` / `PinsModeled` — a stored
   container's block model in the container's own terms, at every
@@ -165,7 +169,9 @@ structure EnvModelB (V : Type w) [SetTheory V] (μ : CheckMode) (env : Env)
 /-- **The block model is the run's block**: its arities, names and
 constructors are the recogniser's and the restore's, its pins the
 elimination's (the container, its level arguments and its components
-at the block's parameter openers).  Grows at its consumer (M7). -/
+at the block's parameter openers).  The consumer (M7) reads the block
+model CONCRETELY (`NestedCoreOut`, `DeclNestedCore.lean`); this record
+is what the abstract clauses of the assembly consume. -/
 structure NestedBlockModelOf (env : Env) (p : NestedParts) (st : ElimState)
     (ctorsR : List (List (ConstantVal × Nat × Nat))) (d : BlockModel V) : Prop where
   k : d.k = p.k
@@ -181,6 +187,5 @@ structure NestedBlockModelOf (env : Env) (p : NestedParts) (st : ElimState)
     pin.pin = Expr.mkAppN (.const pin.container (d.pinAt q).lvls) (d.pinAt q).DsE
   /-- a member's constructors are its restored ones -/
   ctors : ∀ t, t < p.k → d.ctorsM t = (ctorsR.getD t []).map fun c => (c.1, c.2.2)
-
 
 end ConLeche.Model

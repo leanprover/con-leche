@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Model.Inductives.NestedFit
-public import ConLeche.Model.Inductives.DeclNestedCore
+public import ConLeche.Model.Inductives.NestedPremise
 public import ConLeche.Model.Inductives.MutualCore
 import ConLeche.Kernel.Inductives.NestedParts
 import ConLeche.Model.Inductives.NestedAux
@@ -1534,46 +1534,5 @@ theorem nestedStageFacts_of (hst : NestedCtorsStaged V μ F) (hμ : μ.verifiedC
       exact List.mem_map_of_mem (List.mem_of_getElem? (by rw [List.getElem?_take_of_lt ht]; exact hft))))]
 
 end Stage
-
-/-! ## The consumer -/
-
-/-- **The nested core, modulo the restored constructors' loop**: the
-scratch run's formers' stage (`mutualFormersStage` at the `auxRoute`
-grade), the prefix stage and the loop (`nestedStageFacts_of`), the
-block model at every member (`nestedBlockReps_of`), and the block
-model's record (`NestedBlockModelOf`: arities off `auxBlock`, names
-off the elimination, pins off the loop's records). -/
-theorem nestedCoreModeled_of {F : Nat} (hst : NestedCtorsStaged V μ F) :
-    NestedCoreModeled V μ F := by
-  intro hμ env mp hE p st b envAux stored ctorsR fmsA ctorsA₀ hPM h0 h1 hfA hcA helim hcount hfresh
-    hcont hb haux hstored hclosed hpinsAux hcaps hsrc hgrp hsc hkinds hpins₁ hctors
-  obtain ⟨hnd, hlp, hmem, h3, env₁, fms, f₀, tq₀, ctorsA, sortss, kinds, formers4, ctors4, cvRas,
-    rulesOf, hformers, hf₀, htq₀, hcross, -, hctorsA, hkindsA, hfo, -, -, -, -⟩ :=
-    ConLeche.checkMutualCore_inv haux
-  obtain ⟨-, rfl⟩ := ConLeche.mutualFormers_inv hformers
-  obtain ⟨mp₁, ppsF, W, idxF, dsF, esF, srcsF, fvsPF, xFvsF, xrestF, eissF, tssF, h⟩ :=
-    mutualFormersStage hμ mp hE b hnd hlp hmem hformers hf₀ htq₀ hcross hctorsA hkindsA hfo
-  have hbk : b.k = p.k + st.pins.length := ConLeche.auxBlock_k_count hfA helim hb
-  obtain ⟨henv, -⟩ := ConLeche.consNestedFormers_take_eq haux hformers hstored p.k (by omega)
-  rw [henv] at hctors hpins₁
-  obtain ⟨mp₂, dsR, xFvsR, pinsS, S⟩ := nestedStageFacts_of hst hμ hE hPM h0 h1 hfA hcA helim hcount
-    hfresh hcont hb haux hstored hclosed hpinsAux hcaps hsrc hgrp hsc hkinds hpins₁ hnd h3 hformers hctorsA h
-    hbk hctors
-  have hbk' : b.k = p.k + pinsS.length := by rw [hbk, S.pinsLen]
-  obtain ⟨hreps, htyped⟩ := nestedBlockReps_of hμ h h3 hbk' mp₂ S.findM S.leafM S.FD S.ctorsLen
-    S.ctorFacts S.domFacts S.groups
-  rw [henv]
-  refine ⟨mp₂, S.agree, _, ?_, hreps, htyped⟩
-  exact
-    { k := rfl
-      nP := (ConLeche.auxBlock_fields hb).1
-      env₀ := rfl
-      memberNames := S.names
-      large := (ConLeche.auxBlock_fields hb).2.2.1
-      nPins := S.pinsLen
-      pin := S.pinRec
-      ctors := fun _ _ => rfl }
-
-
 
 end ConLeche.Model

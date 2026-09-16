@@ -127,8 +127,11 @@ public import ConLeche.Model.Inductives.NestedAux
 public import ConLeche.Model.Inductives.NestedPremise
 public import ConLeche.Model.Inductives.ContainerCross
 public import ConLeche.Model.Inductives.EnvModelBStages
-public import ConLeche.Model.Inductives.DeclNestedCore
 public import ConLeche.Model.Inductives.NestedCore
+public import ConLeche.Model.Inductives.DeclNestedCore
+public import ConLeche.Model.Inductives.NestedRecsStage
+public import ConLeche.Model.Inductives.NestedRecRead
+public import ConLeche.Model.Inductives.NestedRecTypes
 public import ConLeche.Model.Inductives.NestedRec
 public import ConLeche.Model.Inductives.NestedRecCand
 public import ConLeche.Model.Inductives.NestedRecTyped
