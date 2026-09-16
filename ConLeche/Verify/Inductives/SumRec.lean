@@ -32,18 +32,17 @@ instantiated at the parameters and the extras and then at the
 fields: the motive extra applied to the constructor at the
 variables. -/
 theorem instSeq_minorBody_at (tfvs extras xFvs : List Expr) {C : Name}
-    {lps : List Name} {nP nF : Nat} {mfv : Expr}
+    {lps : List Name} {mot nP nF : Nat} {mfv : Expr}
     (hlenT : tfvs.length = nP) (hlenX : xFvs.length = nF)
     (hclT : ∀ a ∈ tfvs, a.looseBVarsBounded 0 = true)
     (hclE : ∀ a ∈ extras, a.looseBVarsBounded 0 = true)
     (hclX : ∀ a ∈ xFvs, a.looseBVarsBounded 0 = true)
-    (hhead : extras[0]? = some mfv) :
+    (hhead : extras[mot]? = some mfv) :
     instSeq xFvs (nF - 1) (instSeq (tfvs ++ extras) (nP + extras.length - 1 + nF)
-        (.app (.bvar (nF + extras.length - 1)) (structCtorSpineAt C lps extras.length nP nF)))
+        (.app (.bvar (nF + extras.length - 1 - mot)) (structCtorSpineAt C lps extras.length nP nF)))
       = .app mfv (Expr.mkAppN (.const C (lps.map .param)) (tfvs ++ xFvs)) := by
-  have hpos : 0 < extras.length := by
-    have := (List.getElem?_eq_some_iff.mp hhead).1
-    omega
+  have hmot : mot < extras.length := (List.getElem?_eq_some_iff.mp hhead).1
+  have hpos : 0 < extras.length := by omega
   have hcl : ∀ a ∈ tfvs ++ extras, a.looseBVarsBounded 0 = true := by
     intro a ha
     rcases List.mem_append.mp ha with h | h
@@ -55,11 +54,12 @@ theorem instSeq_minorBody_at (tfvs extras xFvs : List Expr) {C : Name}
   rw [instSeq_app, instSeq_mkAppN, instSeq_app, instSeq_mkAppN,
     List.map_append, List.map_append]
   have hhead' : instSeq (tfvs ++ extras) (nP + extras.length - 1 + nF)
-      (.bvar (nF + extras.length - 1)) = mfv := by
-    have := instSeq_bvar (tfvs ++ extras) (nP + extras.length - 1 + nF) (nF + extras.length - 1)
-      hcl (by omega) (by rw [hlen]; omega)
-    rw [show nP + extras.length - 1 + nF - (nF + extras.length - 1) = nP from by omega,
-      List.getElem?_append_right (by omega), hlenT, Nat.sub_self, hhead] at this
+      (.bvar (nF + extras.length - 1 - mot)) = mfv := by
+    have := instSeq_bvar (tfvs ++ extras) (nP + extras.length - 1 + nF)
+      (nF + extras.length - 1 - mot) hcl (by omega) (by rw [hlen]; omega)
+    rw [show nP + extras.length - 1 + nF - (nF + extras.length - 1 - mot) = nP + mot from by omega,
+      List.getElem?_append_right (by omega), hlenT,
+      show nP + mot - nP = mot from by omega, hhead] at this
     exact (Option.some.inj this).symm
   rw [hhead', instSeq_eq_self _ _ hclM,
     instSeq_eq_self (e := Expr.const C (lps.map .param)) _ _ rfl,
@@ -188,22 +188,21 @@ at the parameters, the extras and the fields: the motive extra at the
 index expressions (instantiated at the parameters and the fields
 alone) and the constructor at the variables. -/
 theorem instSeq_minorBodyI_at (tfvs extras xFvs : List Expr) {C : Name}
-    {lps : List Name} {nP nF : Nat} {mfv : Expr} {es : List Expr}
+    {lps : List Name} {mot nP nF : Nat} {mfv : Expr} {es : List Expr}
     (hlenT : tfvs.length = nP) (hlenX : xFvs.length = nF)
     (hclT : ∀ a ∈ tfvs, a.looseBVarsBounded 0 = true)
     (hclE : ∀ a ∈ extras, a.looseBVarsBounded 0 = true)
     (hclX : ∀ a ∈ xFvs, a.looseBVarsBounded 0 = true)
-    (hhead : extras[0]? = some mfv)
+    (hhead : extras[mot]? = some mfv)
     (hes : ∀ e ∈ es, e.looseBVarsBounded (nP + nF) = true) :
     instSeq xFvs (nF - 1) (instSeq (tfvs ++ extras) (nP + extras.length - 1 + nF)
-        (Expr.mkAppN (.bvar (nF + extras.length - 1))
+        (Expr.mkAppN (.bvar (nF + extras.length - 1 - mot))
           (es.map (Expr.liftLooseBVars extras.length nF) ++ [structCtorSpineAt C lps extras.length nP nF])))
       = Expr.mkAppN mfv
           (es.map (fun e => instSeq xFvs (nF - 1) (instSeq tfvs (nP + nF - 1) e)) ++
             [Expr.mkAppN (.const C (lps.map .param)) (tfvs ++ xFvs)]) := by
-  have hpos : 0 < extras.length := by
-    have := (List.getElem?_eq_some_iff.mp hhead).1
-    omega
+  have hmot : mot < extras.length := (List.getElem?_eq_some_iff.mp hhead).1
+  have hpos : 0 < extras.length := by omega
   have hsp := instSeq_minorBody_at tfvs extras xFvs hlenT hlenX hclT hclE hclX hhead
     (C := C) (lps := lps)
   simp only [instSeq_app] at hsp

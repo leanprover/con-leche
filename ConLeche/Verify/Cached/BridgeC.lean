@@ -638,7 +638,10 @@ theorem checkDeclStepC_run (hμ : mode.verifiedChecks = true) {env : Env} (henv 
           if indParamsOk nP block = true then
             (match nativeParts? nP block with
               | some p => checkNativeS mode (mkFEnv env) p
-              | none => checkIndDeclSF mode (mkFEnv env) block)
+              | none =>
+                match mutualParts? nP block with
+                | some q => checkMutualS mode (mkFEnv env) q
+                | none => checkIndDeclSF mode (mkFEnv env) block)
           else throw (CheckError.invalid "number of parameters mismatch"))
         s₀.flushed = .ok (fe', s') := h
     cases hpin : basisPinHit block with

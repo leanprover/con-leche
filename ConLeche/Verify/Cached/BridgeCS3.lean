@@ -470,6 +470,410 @@ theorem checkNativeRecS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env
   obtain rfl : rhss = rhss' := hRs
   exact SimC.pure hs₆ rfl
 
+/-! ### The mutual install (task #278)
+
+The member-aware stages, at the shared operations.  Each is its
+fixpoint-route twin with a member LIST in place of the one former:
+the positivity normalisation walks `mentionsMember`, the constructor
+stage pins the residual at the constructor's own member, the recursor
+stage generates and compares member `m`'s recursor, and the two cross
+loops (`mutualDomsOk`, `mutualCrossChecks`) are official's
+`check_inductive_types`.  The rule stages call no operation at all. -/
+
+/-- `List.mapM` as a `SimC` (the kit has no `LawfulMonad`, so the walk
+is over `List.mapM.loop`). -/
+protected theorem SimC.mapMLoop {α β : Type} {f : α → CheckCM β} {g : α → FueledM β}
+    (hf : ∀ (a : α) {s : CState}, CSOK mode env s → SimC mode env s RelVC (f a) (g a)) :
+    ∀ (l : List α) (acc : List β) {s₀ : CState}, CSOK mode env s₀ →
+      SimC mode env s₀ RelVC (List.mapM.loop f l acc) (List.mapM.loop g l acc)
+  | [], acc, s₀, hs => by
+      unfold List.mapM.loop
+      exact SimC.pure hs rfl
+  | a :: l, acc, s₀, hs => by
+      unfold List.mapM.loop
+      refine SimC.bind (hf a hs) (fun s₁ b b' hs₁ hb => ?_)
+      obtain rfl : b = b' := hb
+      exact SimC.mapMLoop hf l (b :: acc) hs₁
+
+protected theorem SimC.mapM {α β : Type} {f : α → CheckCM β} {g : α → FueledM β}
+    (hf : ∀ (a : α) {s : CState}, CSOK mode env s → SimC mode env s RelVC (f a) (g a))
+    (l : List α) {s₀ : CState} (hs : CSOK mode env s₀) :
+    SimC mode env s₀ RelVC (l.mapM f) (l.mapM g) :=
+  SimC.mapMLoop hf l [] hs
+
+/-- Official's parameter loop (`check_inductive_types`) at the shared
+operations. -/
+theorem mutualDomsOkS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env)
+    {fvs doms : List Expr}
+    (hc : ∀ (i : Nat) (x : Expr), fvs[i]? = some x → WScoped i (Expr.fvarTypeD x))
+    (ht : ∀ (i : Nat) (x : Expr), doms[i]? = some x → WScoped i x) :
+    ∀ {j : Nat} {s₀ : CState}, CSOK mode env s₀ →
+      SimC mode env s₀ RelVC
+        (mutualDomsOk (sharedOpsC mode (mkFEnv env)) env fvs doms j)
+        (mutualDomsOk (fueledOpsM mode) env fvs doms j)
+  | 0, s₀, hs => SimC.pure hs rfl
+  | j + 1, s₀, hs => by
+    unfold mutualDomsOk
+    dsimp only [sharedOpsC]
+    refine SimC.bind (SimC.unwrapOr' hs) (fun s₁ a a' hs₁ hP => ?_)
+    obtain ⟨rfl, hae⟩ := hP
+    refine SimC.bind (SimC.unwrapOr' hs₁) (fun s₂ b b' hs₂ hQ => ?_)
+    obtain ⟨rfl, hbe⟩ := hQ
+    refine SimC.bind (opB_sim hμ henv hs₂ (hc j a hae) (ht j b hbe))
+      (fun s₃ c c' hs₃ hC => ?_)
+    obtain rfl : c = c' := hC
+    cases c with
+    | false =>
+      simp only [Bool.false_eq_true, ↓reduceIte]
+      exact SimC.throw_bind
+    | true =>
+      simp only [↓reduceIte]
+      exact mutualDomsOkS_sim hμ henv hc ht hs₃
+
+/-- The cross-member checks at the shared operations: the level
+comparison is a pure lift, the parameter domains are the loop
+above. -/
+theorem mutualCrossChecksS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env)
+    {nP : Nat} {f₀ : MutualFormerA} {doms₀ : List Expr}
+    (ht : ∀ (i : Nat) (x : Expr), doms₀[i]? = some x → WScoped i x) :
+    ∀ {fs : List MutualFormerA} {s₀ : CState}, CSOK mode env s₀ →
+      (∀ f ∈ fs, WScoped 0 f.cvTa.type) →
+      SimC mode env s₀ RelVC
+        (mutualCrossChecks (sharedOpsC mode (mkFEnv env)) env nP f₀ doms₀ fs)
+        (mutualCrossChecks (fueledOpsM mode) env nP f₀ doms₀ fs)
+  | [], s₀, hs, _ => SimC.pure hs rfl
+  | f :: fs, s₀, hs, hw => by
+    unfold mutualCrossChecks
+    dsimp only [sharedOpsC]
+    refine SimC.bind (SimC.liftFueled _ _ hs) (fun s₁ c c' hs₁ hC => ?_)
+    obtain rfl : c = c' := hC
+    cases c with
+    | false =>
+      simp only [Bool.false_eq_true, ↓reduceIte]
+      exact SimC.throw_bind
+    | true =>
+    simp only [↓reduceIte]
+    refine SimC.bind (SimC.unwrapOr' hs₁) (fun s₂ tq tq' hs₂ hT => ?_)
+    obtain ⟨rfl, hop⟩ := hT
+    obtain ⟨tfvs, trest⟩ := tq
+    dsimp only
+    obtain ⟨htfvsW, -⟩ := openPisAtFvars_WScoped nP f.cvTa.type 0 hop
+      (hw f List.mem_cons_self)
+    refine SimC.bind (mutualDomsOkS_sim hμ henv
+        (fun i x hx => by
+          obtain ⟨ty, rfl⟩ := openPisAtFvars_index nP f.cvTa.type 0 hop i x hx
+          have hwx := htfvsW _ (List.mem_of_getElem? hx)
+          simp only [WScoped] at hwx
+          rw [Nat.zero_add] at hwx
+          exact hwx.2)
+        ht hs₂)
+      (fun s₃ u u' hs₃ hU => ?_)
+    exact mutualCrossChecksS_sim hμ henv ht hs₃ (fun f' hf' => hw f' (List.mem_cons_of_mem _ hf'))
+
+/-- Official's positivity walk over the member list, at the shared
+operations. -/
+theorem normPosDomMS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env)
+    (memberNames : List Name) :
+    ∀ {fuel d : Nat} {e : Expr} {s₀ : CState}, CSOK mode env s₀ → WScoped d e →
+      SimC mode env s₀ RelVC
+        (normPosDomM (sharedOpsC mode (mkFEnv env)) env memberNames d fuel e)
+        (normPosDomM (fueledOpsM mode) env memberNames d fuel e)
+  | 0, d, e, s₀, hs, hw => by
+    unfold normPosDomM
+    exact SimC.throw
+  | fuel + 1, d, e, s₀, hs, hw => by
+    unfold normPosDomM
+    dsimp only [sharedOpsC]
+    split
+    · exact SimC.pure hs rfl
+    refine SimC.bind (opE_whnf_sim hμ henv hs hw) (fun s₁ w w' hs₁ hR => ?_)
+    obtain ⟨rfl, hw'⟩ := hR
+    split
+    · exact SimC.pure hs₁ rfl
+    · split
+      · next dom body bm =>
+        simp only [WScoped] at hw'
+        split
+        · exact SimC.throw
+        · refine SimC.bind
+            (normPosDomMS_sim hμ henv memberNames hs₁ (WScoped.instantiate1 hw'.1 0 hw'.2))
+            (fun s₂ b b' hs₂ hB => ?_)
+          obtain rfl : b = b' := hB
+          exact SimC.pure hs₂ rfl
+      · exact SimC.pure hs₁ rfl
+
+/-- The field-domain walk over the member list. -/
+theorem normFieldDomsMS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env)
+    (memberNames : List Name) :
+    ∀ {n i : Nat} {e : Expr} {s₀ : CState}, CSOK mode env s₀ → WScoped i e →
+      SimC mode env s₀ RelVC
+        (normFieldDomsM (sharedOpsC mode (mkFEnv env)) env memberNames i n e)
+        (normFieldDomsM (fueledOpsM mode) env memberNames i n e)
+  | 0, i, e, s₀, hs, hw => by
+    unfold normFieldDomsM
+    exact SimC.pure hs rfl
+  | n + 1, i, e, s₀, hs, hw => by
+    match e with
+    | .forallE dom body bm =>
+      simp only [normFieldDomsM]
+      simp only [WScoped] at hw
+      refine SimC.bind (normPosDomMS_sim hμ henv memberNames hs hw.1) (fun s₁ d d' hs₁ hD => ?_)
+      obtain rfl : d = d' := hD
+      refine SimC.bind
+        (normFieldDomsMS_sim hμ henv memberNames hs₁ (WScoped.instantiate1 hw.1 0 hw.2))
+        (fun s₂ q q' hs₂ hQ => ?_)
+      obtain rfl : q = q' := hQ
+      exact SimC.pure hs₂ rfl
+    | .bvar _ | .fvar _ _ | .sort _ | .const _ _ | .app _ _ | .lam _ _ _ | .letE _ _ _
+    | .lit _ | .proj _ _ _ =>
+      simp only [normFieldDomsM]
+      exact SimC.throw
+
+/-- The constructor's normalisation over the member list. -/
+theorem normCtorValMS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env)
+    {memberNames : List Name} {nP nF : Nat} {cvC cvCa : ConstantVal}
+    (hs : CSOK mode env s₀) (hCw : WScoped 0 cvCa.type) :
+    SimC mode env s₀ (fun v w => v = w ∧ WScoped 0 v.type)
+      (normCtorValM (sharedOpsC mode (mkFEnv env)) env memberNames nP nF cvC cvCa)
+      (normCtorValM (fueledOpsM mode) env memberNames nP nF cvC cvCa) := by
+  unfold normCtorValM
+  refine SimC.bind (SimC.unwrapOr' hs) (fun s₁ q q' hs₁ hQ => ?_)
+  obtain ⟨rfl, -⟩ := hQ
+  obtain ⟨cbs, _⟩ := q
+  dsimp only
+  refine SimC.bind (SimC.unwrapOr' hs₁) (fun s₂ r r' hs₂ hR => ?_)
+  obtain ⟨rfl, hop⟩ := hR
+  obtain ⟨fvsP, crest⟩ := r
+  dsimp only
+  obtain ⟨-, hcrW0⟩ := openPisAtFvars_WScoped nP cvCa.type 0 hop hCw
+  have hcrW : WScoped nP crest := by rwa [Nat.zero_add] at hcrW0
+  refine SimC.bind (normFieldDomsMS_sim hμ henv memberNames hs₂ hcrW) (fun s₃ u u' hs₃ hU => ?_)
+  obtain rfl : u = u' := hU
+  obtain ⟨fbs, resid⟩ := u
+  dsimp only
+  split
+  · exact SimC.pure hs₃ ⟨rfl, hCw⟩
+  · exact checkConstantValS_sim hμ henv hs₃
+
+/-- One constructor of a mutual block at the shared operations. -/
+theorem checkMutualCtorS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env)
+    {memberNames : List Name} {T : Name} {lps : List Name} {nP nIdx : Nat}
+    {resSort : Level} {isProp large : Bool} {cvC : ConstantVal} {nF : Nat}
+    {cvTa : ConstantVal} (hTf : cvTa.type.hasFvar = false) (hs : CSOK mode env s₀) :
+    SimC mode env s₀ RelVC
+      (checkMutualCtor (sharedOpsC mode (mkFEnv env)) env memberNames T lps nP nIdx resSort
+        isProp large cvC nF cvTa)
+      (checkMutualCtor (fueledOpsM mode) env memberNames T lps nP nIdx resSort isProp large
+        cvC nF cvTa) := by
+  unfold checkMutualCtor
+  dsimp only [sharedOpsC]
+  refine SimC.bind (checkConstantValS_sim hμ henv hs)
+    (fun s₀' cvCa₀ cvCa₀' hs₀' hP₀ => ?_)
+  obtain ⟨rfl, hCw₀⟩ := hP₀
+  refine SimC.bind (normCtorValMS_sim hμ henv hs₀' hCw₀) (fun s₁ cvCa cvCa' hs₁ hP => ?_)
+  obtain ⟨rfl, hCw⟩ := hP
+  refine SimC.bind (SimC.unwrapOr' hs₁) (fun s₂ q q' hs₂ hQ => ?_)
+  obtain ⟨rfl, -⟩ := hQ
+  obtain ⟨cbs, cbody⟩ := q
+  dsimp only
+  by_cases h1 : structCtorResidOk T lps nP nF nIdx cbody = true
+  case neg => simp only [if_neg h1]; exact SimC.throw_bind
+  simp only [if_pos h1]
+  refine SimC.bind (SimC.unwrapOr' hs₂) (fun s₃ cq cq' hs₃ hR => ?_)
+  obtain ⟨rfl, hop⟩ := hR
+  obtain ⟨fvsP, crest⟩ := cq
+  dsimp only
+  obtain ⟨hfvsW0, hcrW0⟩ := openPisAtFvars_WScoped nP cvCa.type 0 hop hCw
+  have hcrW : WScoped nP crest := by rwa [Nat.zero_add] at hcrW0
+  refine SimC.bind (SimC.unwrapOr' hs₃) (fun s₄ tq tq' hs₄ hS => ?_)
+  obtain ⟨rfl, hci⟩ := hS
+  obtain ⟨tfvs, trest⟩ := tq
+  dsimp only
+  obtain ⟨htfvsW0, -⟩ := openPisAtFvars_WScoped nP cvTa.type 0 hci
+    (WScoped.of_not_hasFvar hTf)
+  refine SimC.bind (checkStructDomsAtS_sim hμ (off := 0) henv
+      (fun i x hx => by
+        obtain ⟨ty, rfl⟩ := openPisAtFvars_index nP cvCa.type 0 hop i x hx
+        have hw := hfvsW0 _ (List.mem_of_getElem? hx)
+        simp only [WScoped] at hw
+        exact hw.2)
+      (fun i x hx => by
+        rw [List.getElem?_map] at hx
+        obtain ⟨y, hy, rfl⟩ := Option.map_eq_some_iff.mp hx
+        obtain ⟨ty, rfl⟩ := openPisAtFvars_index nP cvTa.type 0 hci i y hy
+        have hw := htfvsW0 _ (List.mem_of_getElem? hy)
+        simp only [WScoped] at hw
+        exact hw.2)
+      hs₄)
+    (fun s₅ u1 u1' hs₅ hU1 => ?_)
+  refine SimC.bind (SimC.unwrapOr' hs₅) (fun s₆ xq xq' hs₆ hT => ?_)
+  obtain ⟨rfl, hox⟩ := hT
+  obtain ⟨xFvs, cresid⟩ := xq
+  dsimp only
+  obtain ⟨hxW, -⟩ := openPisAtFvars_WScoped nF crest nP hox hcrW
+  have hxPos : ∀ (i : Nat) (x : Expr), xFvs[i]? = some x →
+      WScoped (nP + i) (Expr.fvarTypeD x) := by
+    intro i x hx
+    obtain ⟨ty, rfl⟩ := openPisAtFvars_index nF crest nP hox i x hx
+    have hw := hxW _ (List.mem_of_getElem? hx)
+    simp only [WScoped] at hw
+    exact hw.2
+  by_cases h2 : (cresid.getAppFn == Expr.const T (lps.map .param) &&
+      cresid.getAppArgs.take nP == fvsP && cresid.getAppArgs.length == nP + nIdx) = true
+  case neg => simp only [if_neg h2]; exact SimC.throw_bind
+  simp only [if_pos h2]
+  by_cases h3 : (xFvs.all fun x => Expr.constsResolve env x.fvarTypeD) = true
+  case neg => simp only [if_neg h3]; exact SimC.throw_bind
+  simp only [if_pos h3]
+  by_cases h4 : ((cresid.getAppArgs.drop nP).all fun e => Expr.constsResolve env e) = true
+  case neg => simp only [if_neg h4]; exact SimC.throw_bind
+  simp only [if_pos h4]
+  refine SimC.bind (checkStructFieldSortsIS_sim hμ henv hxPos hs₆)
+    (fun s₇ sorts sorts' hs₇ hS => ?_)
+  obtain rfl : sorts = sorts' := hS
+  exact SimC.pure hs₇ rfl
+
+/-- The constructor list of a mutual block: every constructor is
+checked at the environment holding all the formers. -/
+theorem checkMutualCtorsS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env)
+    {b : MutualBlock} {fms : List MutualFormerA} {isProp : Bool}
+    (hTf : ∀ m : Nat, ((fms.getD m default).cvTa.type).hasFvar = false) :
+    ∀ {cs : List MutualCtor} {s₀ : CState}, CSOK mode env s₀ →
+      SimC mode env s₀ RelVC
+        (checkMutualCtors (sharedOpsC mode (mkFEnv env)) env b fms isProp cs)
+        (checkMutualCtors (fueledOpsM mode) env b fms isProp cs)
+  | [], s₀, hs => SimC.pure hs rfl
+  | c :: cs, s₀, hs => by
+    unfold checkMutualCtors
+    dsimp only [sharedOpsC]
+    refine SimC.bind (checkMutualCtorS_sim hμ henv (hTf c.member) hs)
+      (fun s₁ q q' hs₁ hP => ?_)
+    obtain rfl : q = q' := hP
+    obtain ⟨cvCa, sorts⟩ := q
+    dsimp only
+    refine SimC.bind (checkMutualCtorsS_sim hμ henv hTf hs₁) (fun s₂ rest rest' hs₂ hR => ?_)
+    obtain rfl : rest = rest' := hR
+    obtain ⟨rest, srest⟩ := rest
+    exact SimC.pure hs₂ rfl
+
+/-- Member `m`'s recursor type, generated and compared, at the shared
+operations. -/
+theorem checkMutualRecTyS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env)
+    {b : MutualBlock} {formers4 : List MutualFormer} {ctors4 : List MutualCtor4}
+    {mIdx : Nat} {streamRec : Option ConstantVal} (hs : CSOK mode env s₀) :
+    SimC mode env s₀ RelVC
+      (checkMutualRecTy (sharedOpsC mode (mkFEnv env)) env b formers4 ctors4 mIdx streamRec)
+      (checkMutualRecTy (fueledOpsM mode) env b formers4 ctors4 mIdx streamRec) := by
+  unfold checkMutualRecTy
+  dsimp only [sharedOpsC]
+  refine SimC.bind (SimC.unwrapOr' hs) (fun s₁ recTy recTy' hs₁ hR => ?_)
+  obtain ⟨rfl, -⟩ := hR
+  by_cases h1 : (Expr.allLevelParamsDefined b.rlps recTy &&
+      Expr.constsResolve env recTy && Expr.looseBVarsBounded 0 recTy &&
+      !recTy.hasFvar) = true
+  case neg => simp only [if_neg h1]; exact SimC.throw_bind
+  simp only [if_pos h1]
+  have hRf : recTy.hasFvar = false := by
+    simp only [Bool.and_eq_true, Bool.not_eq_eq_eq_not, Bool.not_true] at h1
+    exact h1.2
+  have hwR : WScoped 0 recTy := WScoped.of_not_hasFvar hRf
+  refine SimC.bind (opE_infer_sim hμ henv hs₁ hwR) (fun s₂ sty sty' hs₂ hS => ?_)
+  obtain ⟨rfl, hwsty⟩ := hS
+  refine SimC.bind (opS_sim hμ henv hs₂ hwsty) (fun s₃ u u' hs₃ hU => ?_)
+  cases streamRec with
+  | none => exact SimC.pure hs₃ rfl
+  | some cvR =>
+    dsimp only
+    refine SimC.bind (checkConstantValS_sim hμ henv hs₃) (fun s₄ cvRi cvRi' hs₄ hP => ?_)
+    obtain ⟨rfl, hwI⟩ := hP
+    refine SimC.bind (opB_sim hμ henv hs₄ hwI hwR) (fun s₅ c c' hs₅ hC => ?_)
+    obtain rfl : c = c' := hC
+    cases c with
+    | false =>
+      simp only [Bool.false_eq_true, ↓reduceIte]
+      exact SimC.throw_bind
+    | true =>
+      simp only [↓reduceIte]
+      exact SimC.pure hs₅ rfl
+
+/-- The `k` recursor types, in member order. -/
+theorem checkMutualRecTysS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env)
+    {b : MutualBlock} {formers4 : List MutualFormer} {ctors4 : List MutualCtor4}
+    {streamRecs : Option (List (ConstantVal × List RecRule))} :
+    ∀ {k : Nat} {s₀ : CState}, CSOK mode env s₀ →
+      SimC mode env s₀ RelVC
+        (checkMutualRecTys (sharedOpsC mode (mkFEnv env)) env b formers4 ctors4 streamRecs k)
+        (checkMutualRecTys (fueledOpsM mode) env b formers4 ctors4 streamRecs k)
+  | 0, s₀, hs => SimC.pure hs rfl
+  | k + 1, s₀, hs => by
+    unfold checkMutualRecTys
+    refine SimC.bind (checkMutualRecTysS_sim hμ henv hs) (fun s₁ e e' hs₁ hE => ?_)
+    obtain rfl : e = e' := hE
+    refine SimC.bind (checkMutualRecTyS_sim hμ henv hs₁) (fun s₂ cvRa cvRa' hs₂ hC => ?_)
+    obtain rfl : cvRa = cvRa' := hC
+    exact SimC.pure hs₂ rfl
+
+/-- Member `m`'s rules: generated and scoped, no operation called. -/
+theorem checkMutualMemberRulesS_sim {envR : Env} {b : MutualBlock}
+    {formers4 : List MutualFormer} {ctors4 : List MutualCtor4} {mIdx : Nat}
+    {streamRec : Option (ConstantVal × List RecRule)} (hs : CSOK mode env s₀) :
+    SimC mode env s₀ RelVC
+      (checkMutualMemberRules (m := CheckCM) envR b formers4 ctors4 mIdx streamRec)
+      (checkMutualMemberRules (m := FueledM) envR b formers4 ctors4 mIdx streamRec) := by
+  have hstep : ∀ (a : Nat × MutualCtor) {s : CState}, CSOK mode env s →
+      SimC mode env s RelVC
+        (do
+          let rhs ← unwrapOr (mutualRecRhs b.lps b.elim b.large b.nP formers4 ctors4
+            b.recName (b.rlps.map Level.param) a.1) (.internal "mutual: recursor rule")
+          unless rhs.allLevelParamsDefined b.rlps && Expr.constsResolve envR rhs &&
+              rhs.looseBVarsBounded 0 && !rhs.hasFvar do
+            throw (.internal "mutual: recursor rule scoping")
+          pure (a.2, rhs) : CheckCM (MutualCtor × Expr))
+        (do
+          let rhs ← unwrapOr (mutualRecRhs b.lps b.elim b.large b.nP formers4 ctors4
+            b.recName (b.rlps.map Level.param) a.1) (.internal "mutual: recursor rule")
+          unless rhs.allLevelParamsDefined b.rlps && Expr.constsResolve envR rhs &&
+              rhs.looseBVarsBounded 0 && !rhs.hasFvar do
+            throw (.internal "mutual: recursor rule scoping")
+          pure (a.2, rhs) : FueledM (MutualCtor × Expr)) := by
+    intro a s hsa
+    refine SimC.bind (SimC.unwrapOr' hsa) (fun s₁ rhs rhs' hs₁ hP => ?_)
+    obtain ⟨rfl, -⟩ := hP
+    by_cases h1 : (Expr.allLevelParamsDefined b.rlps rhs &&
+        Expr.constsResolve envR rhs && Expr.looseBVarsBounded 0 rhs &&
+        !rhs.hasFvar) = true
+    case neg => simp only [if_neg h1]; exact SimC.throw_bind
+    simp only [if_pos h1]
+    exact SimC.pure hs₁ rfl
+  unfold checkMutualMemberRules
+  cases streamRec with
+  | none => exact SimC.mapM hstep _ hs
+  | some r =>
+    obtain ⟨cvR, rules⟩ := r
+    dsimp only
+    by_cases h1 : mutualRulesOk b.recName (b.rlps.map Level.param) b.nP b.k b.n ctors4
+        ((b.ownCtors mIdx).map (·.1)) (rules.map (·.rhs)) cvR.type = true
+    case neg => simp only [if_neg h1]; exact SimC.throw_bind
+    simp only [if_pos h1]
+    exact SimC.mapM hstep _ hs
+
+/-- The `k` rule groups, in member order. -/
+theorem checkMutualAllRulesS_sim {envR : Env} {b : MutualBlock}
+    {formers4 : List MutualFormer} {ctors4 : List MutualCtor4}
+    {streamRecs : Option (List (ConstantVal × List RecRule))} :
+    ∀ {k : Nat} {s₀ : CState}, CSOK mode env s₀ →
+      SimC mode env s₀ RelVC
+        (checkMutualAllRules (m := CheckCM) envR b formers4 ctors4 streamRecs k)
+        (checkMutualAllRules (m := FueledM) envR b formers4 ctors4 streamRecs k)
+  | 0, s₀, hs => SimC.pure hs rfl
+  | k + 1, s₀, hs => by
+    unfold checkMutualAllRules
+    refine SimC.bind (checkMutualAllRulesS_sim hs) (fun s₁ e e' hs₁ hE => ?_)
+    obtain rfl : e = e' := hE
+    refine SimC.bind (checkMutualMemberRulesS_sim hs₁) (fun s₂ r r' hs₂ hR => ?_)
+    obtain rfl : r = r' := hR
+    exact SimC.pure hs₂ rfl
+
 end Walks3
 
 end ConLeche.Cached

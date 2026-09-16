@@ -274,18 +274,18 @@
   2916            whnfCoreBody mode (coreKnot mode env wrap fuel) env d e
   2917          whnf := fun d e => whnfBody (coreKnot mode env wrap fuel) env d e
 
-== ConLeche/Model/Fold.lean#L308-L315
-   308  theorem no_proof_of_False_pure (V : Type w) [SetTheory V]
-   309      {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : Nat}
-   310      {ds : List Declaration} {env' : Env}
-   311      (h : checkDeclsPure μ (fueledOps μ F) pins ds = .ok env') :
-   312      ∀ c ∈ env'.consts,
-   313        c.toConstantVal.type = .const falseName [] → False := by
-   314    obtain ⟨mp⟩ := checkDeclsPure_sound_of (V := V) hμ h
-   315    exact fun c hc hty => no_constant_of_False mp c hc hty
+== ConLeche/Model/Fold.lean#L304-L311
+   304  theorem no_proof_of_False_pure (V : Type w) [SetTheory V]
+   305      {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : Nat}
+   306      {ds : List Declaration} {env' : Env}
+   307      (h : checkDeclsPure μ (fueledOps μ F) pins ds = .ok env') :
+   308      ∀ c ∈ env'.consts,
+   309        c.toConstantVal.type = .const falseName [] → False := by
+   310    obtain ⟨mp⟩ := checkDeclsPure_sound_of (V := V) hμ h
+   311    exact fun c hc hty => no_constant_of_False mp c hc hty
 
 == ConLeche/Model/Fold.lean#L165
-   165  theorem declStep_preserves (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env} {d : Declaration}
+   165  reads, and no step below changed a line. -/
 
 == ConLeche/Model/Capstone.lean#L151-L157
    151  theorem no_constant_of_False (mp : EnvModelM V μ env)
@@ -362,9 +362,9 @@
    104    deriving DecidableEq, Repr, Hashable
 
 == ConLeche/Verify/Cached/AgreeFloor.lean#L1431-L1433
-  1431  theorem checkDecls_skels {mode : CheckMode} {ds : Array Declaration}
-  1432      {env : Env} (h : checkDecls mode pins ds = .ok env) :
-  1433      envSkels env = streamSkels ds.toList := by
+  1431  theorem checkMutualCtorsF_names (ops : CheckerOps CheckCM) (w : StructWalkers) (fe : FEnv)
+  1432      (b : MutualBlock) (fms : List MutualFormerA) (isProp : Bool) :
+  1433      ∀ (cs : List MutualCtor),
 
 == ConLeche/Term/Syntax.lean#L176-L205
    176    deriving Repr, DecidableEq, Inhabited
@@ -723,6 +723,35 @@
 == ConLeche/Model/Inductives/DeclNative.lean#L63
     63  theorem declNative (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
 
+== ConLeche/Kernel/Inductives/MutualParts.lean#L185
+   185  def mutualParts? (nPd : Nat) (block : List ConstantInfo) : Option MutualParts :=
+
+== ConLeche/Kernel/Inductives/MutualInstall.lean#L585
+   585  def checkMutualCore (ops : CheckerOps m) (env : Env) (b : MutualBlock)
+
+== ConLeche/SetTheory/Derive/LfpTuple.lean#L91
+    91  noncomputable def lfpTuple (w k : Nat) (Is : Nat → V) (Φ : (Nat → V) → Nat → V) : Nat → V :=
+
+== ConLeche/SetTheory/Derive/LfpTuple.lean#L285-L287
+   285  theorem lfpTuple_eq_section (h : ∃ L, IsClosedTuple w k Is Φ L) (hmono : MonoTuple w k Is Φ)
+   286      {m : Nat} (hm : m < k) :
+   287      lfpTuple w k Is Φ m = lfpFamSet w (Is m) (secF w Is Φ (lfpTuple w k Is Φ) m) := by
+
+== ConLeche/SetModel/TupleContainer.lean#L127
+   127  theorem tupleContainer_closed_exists {w : Nat} (hw : w ≠ 0) {k : Nat} {Is : Nat → V}
+
+== ConLeche/SetModel/UnionRec.lean#L208
+   208  noncomputable def unionRec (ℓ w k : Nat) (Is : Nat → V) (Φ : (Nat → V) → Nat → V)
+
+== ConLeche/Model/Inductives/BlockRep.lean#L399
+   399  structure IsBlockModel (m : EnvModel V env) (T : Name) (cvT cvR : ConstantVal) (mI rP : Nat)
+
+== ConLeche/Model/Inductives/DeclBlock.lean#L285
+   285  theorem declBlock (hμ : μ.verifiedChecks = true) {F : Nat} {env envOut : Env}
+
+== ConLeche/Model/Inductives/MutualTables.lean#L228
+   228  theorem declMutual (hμ : μ.verifiedChecks = true) {F : Nat} {env envOut : Env}
+
 == ConLeche/Kernel/Inductives/Modeled.lean#L68-L79
     68  def checkIotaThm (ops : CheckerOps m) (env' envSelf : Env)
     69      (f : Name → Name) (cvName : Name) (lps : List Name) (tyA : Expr)
@@ -742,11 +771,11 @@
      8  # The in-process modeller's kit (task #200)
      9  
     10  Shared pieces of the in-process construction of `_model` families for
-    11  nested and mutual inductive blocks (`ConLeche/Frontend/InModel/*`):
-    12  
-    13  * the naming scheme (lean-inductive-models' `_impl` names, so the two
-    14    generators' streams are diffable — none of these names is special to
-    15    the checker: only the public `_model` slots are consumed, and only
+    11  nested inductive blocks (`ConLeche/Frontend/InModel/*`; mutual blocks
+    12  are the kernel's own, `ConLeche/Kernel/Inductives/Mutual*.lean`):
+    13  
+    14  * the naming scheme (lean-inductive-models' `_impl` names, so the two
+    15    generators' streams are diffable — none of these names is special to
 
 == ConLeche/Frontend/InModel/Nested.lean#L47-L54
     47  Declines (the residual): a field mentioning the block other than as a
@@ -1017,7 +1046,7 @@
     52  def falseBasis : List ConstantInfo := [falseRaw, falseRecRaw]
 
 == Main.lean#L992
-   992  def main (args : List String) : IO UInt32 := do
+   992  
 
 == ConLeche/MainTheorem.lean#L110-L117
    110  theorem no_False_declaration (V : Type w) [SetTheory V]

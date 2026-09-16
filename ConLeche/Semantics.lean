@@ -29,6 +29,9 @@ public import ConLeche.Semantics.DeclEta
 public import ConLeche.Semantics.DeclRun
 public import ConLeche.Verify.Inductives.SumWF
 public import ConLeche.Semantics.Inductives.DeclSumEta
+-- The native mutual route's run relation is on `DeclIndRunDispatch`
+-- since M4 (task #315), so `DeclSumEta` above already pulls it in.
+public import ConLeche.Semantics.Inductives.DeclMutual
 public import ConLeche.Semantics.DeclIndRun
 public import ConLeche.Semantics.IndBlockFacts
 public import ConLeche.Semantics.IndBlockRun
@@ -41,6 +44,12 @@ public import ConLeche.Semantics.Tower.TowerLeaf
 public import ConLeche.Semantics.Tower.TowerMk
 public import ConLeche.Semantics.Tower.TowerRec
 public import ConLeche.Semantics.Tower.TowerWire
+public import ConLeche.Semantics.Tower.FixTuple
+public import ConLeche.Semantics.Tower.SigChainI
+public import ConLeche.Semantics.Tower.SigChainWire
+public import ConLeche.Semantics.Tower.BlockRecPair
+public import ConLeche.Semantics.Tower.MutualLeafI
+public import ConLeche.Semantics.Tower.MutualLeafFacts
 public import ConLeche.Semantics.ProjFnFacts
 public import ConLeche.Semantics.Bridge.Decl
 public import ConLeche.Semantics.Bridge.DeclRun

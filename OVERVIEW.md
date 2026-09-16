@@ -359,7 +359,7 @@ Read from the outside in:
    on exhaustion every operation throws
    ([the fuel knot's base case in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Core.lean#L2908-L2917)).
    Its declaration fold is what the model tier proves things about
-   ([theorem `no_proof_of_False_pure` in `ConLeche/Model/Fold.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Fold.lean#L308-L315)).
+   ([theorem `no_proof_of_False_pure` in `ConLeche/Model/Fold.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Fold.lean#L304-L311)).
 5. **The model tier** (`ConLeche/Model/*`, the graded set model)
    shows that each declaration step preserves an invariant on the
    environment
@@ -406,7 +406,7 @@ differ from a textbook presentation and matter for the proof:
   annotation pass
   ([function `annotateBody` in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Core.lean#L2788))
   records at every binder the sort of its codomain as a "Prop-when"
-  datum, a function of the level parameters
+  block model, a function of the level parameters
   ([the `PropWhen` module's account in `ConLeche/Kernel/PropWhen.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/PropWhen.lean#L1-L40)),
   stored in the binder's metadata
   ([structure `BinderMeta` in `ConLeche/Kernel/Expr.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Expr.lean#L102-L104)).
@@ -561,7 +561,44 @@ Inductive blocks are not trusted from the stream. Three cases:
   [theorem `declNative` in `ConLeche/Model/Inductives/DeclNative.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Inductives/DeclNative.lean#L63).
   Structure-like blocks additionally get first-class projections, η,
   unit-likeness and K exactly under official's conditions.
-* **Mutual and nested blocks** are handled by an in-process modeller
+* **Mutual blocks** — several type formers, one recursor each — take
+  the native mutual route. The recogniser reads the block off the
+  stream's records
+  ([function `mutualParts?` in `ConLeche/Kernel/Inductives/MutualParts.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/MutualParts.lean#L185)),
+  and the install checks the formers at the pre-block environment and
+  official's cross-member checks, the constructors with their kinds,
+  generates the block's recursors and their rules and compares them
+  with the stream's, and conses the structure-like members' projection
+  tables
+  ([function `checkMutualCore` in `ConLeche/Kernel/Inductives/MutualInstall.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/MutualInstall.lean#L585)).
+  In the model a block is ONE block model: **inductives denote the least
+  solution of their recursive system** — the members are the
+  components of the least pre-fixed tuple of one monotone operator on
+  tuples of families
+  ([the least pre-fixed tuple in `ConLeche/SetTheory/Derive/LfpTuple.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/SetTheory/Derive/LfpTuple.lean#L91)),
+  and a member on its own is the least fixed point of its section,
+  the other members held at their carriers
+  ([Bekić's section law in `ConLeche/SetTheory/Derive/LfpTuple.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/SetTheory/Derive/LfpTuple.lean#L285-L287)),
+  which is exactly a single block's shape. So structurally equal
+  definitions coincide in the model, and block boundaries and names
+  are invisible there: a type is what its recursive system says,
+  whether it was declared alone, inside a block, or under another
+  name. That the least solution is a member of the universe is the
+  member-container theorem at tuples
+  ([theorem `tupleContainer_closed_exists` in `ConLeche/SetModel/TupleContainer.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/SetModel/TupleContainer.lean#L127)).
+  The block's recursors are one chosen tuple pinned by its ι
+  equations; its existence is the recursion theorem, once, over the
+  disjoint union of the members' values
+  ([the union recursor in `ConLeche/SetModel/UnionRec.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/SetModel/UnionRec.lean#L208)).
+  What every member carries in the model is the block model
+  ([structure `IsBlockModel` in `ConLeche/Model/Inductives/BlockRep.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Inductives/BlockRep.lean#L399));
+  the model-tier theorem for the whole install is
+  [theorem `declBlock` in `ConLeche/Model/Inductives/DeclBlock.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Inductives/DeclBlock.lean#L285),
+  whose two named facts — the stages up to the recursors keep the
+  model and leave the block model, the projection tables keep it from
+  there — are proved
+  ([theorem `declMutual` in `ConLeche/Model/Inductives/MutualTables.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Inductives/MutualTables.lean#L228)).
+* **Nested blocks** are handled by an in-process modeller
   (`ConLeche/Frontend/InModel/*`): at parse time the checker generates,
   over its own `Expr`, a *model* of the block, an auxiliary family plus
   definitions and theorems stating the constructors' and recursor's
@@ -574,15 +611,15 @@ Inductive blocks are not trusted from the stream. Three cases:
   a standalone tool that translates mutual and nested inductive types
   into single ones with a syntactic correspondence between the original
   and its model; ConLeche originally ran that tool as a preprocessor and
-  now performs the same construction in process
+  now performs the same construction in process, for nested blocks
   ([the modeller's kit in `ConLeche/Frontend/InModel/Kit.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Frontend/InModel/Kit.lean#L7-L15)).
   The model is generated and checked; nothing external is trusted, and
   nothing is read from the input: a stream record whose name happens to
   carry a `_model` component is an ordinary declaration with no effect
-  on any block, and the install dispatch is the RECOGNISER alone — a
-  mutual or nested block carries several type formers, resp. several
-  recursors, so the fixpoint route's recogniser refuses it outright and
-  no model lookup is needed to route it. A nested occurrence under a
+  on any block, and the install dispatch is the RECOGNISERS alone — a
+  nested block carries more recursors than type formers, so neither the
+  fixpoint route's nor the mutual route's recogniser takes it and no
+  model lookup is needed to route it. A nested occurrence under a
   binder is outside the scheme and declines
   ([the modeller's residual in `ConLeche/Frontend/InModel/Nested.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Frontend/InModel/Nested.lean#L47-L54)).
 
@@ -736,7 +773,7 @@ declare it.)
   file does not declare, and a pinned Nat operation's dependencies are
   moved ahead of it. Two are not: a projection function is rewritten to
   its recursor form (`ConLeche/Frontend/ProjRec.lean`), and the models
-  of mutual and nested blocks are generated — here and nowhere else;
+  of nested blocks are generated — here and nowhere else;
   the input is never read for one, and the generated records are
   counted as what they are, declarations of the fold rather than
   records of the file.
@@ -759,7 +796,7 @@ declare it.)
   whose result sort can be zero — where the official kernel generates
   only the small one, this checker takes the subsingleton case under
   the per-field `PropWhen` criterion, which is what carries the models
-  of mutual and nested blocks. All three are licensed by the soundness
+  of nested blocks. All three are licensed by the soundness
   proof.
 
 ## 10. Naming conventions
@@ -785,8 +822,9 @@ Three words name things rather than tiers. An inductive block is
 installed by one of two routes: the **native** one (`checkNative`,
 `Kernel/Inductives/Native*.lean`), which builds the block's carrier as
 a least fixed point, and the **modeled** one (`checkModeled`,
-`Kernel/Inductives/Modeled.lean`), which installs a mutual or nested
-block through a generated `_model` family. `Struct*` and `Sum*` inside
+`Kernel/Inductives/Modeled.lean`), which installs a nested block
+through a generated `_model` family; a mutual block is the native
+route's (`checkMutual`, `Kernel/Inductives/Mutual*.lean`). `Struct*` and `Sum*` inside
 those directories are the two stage kits the native route builds on —
 the structure-shaped kit (projections, η, the entry telescope) and the
 tagged-sum kit (the constructors as a sum). `Gated` marks the parked

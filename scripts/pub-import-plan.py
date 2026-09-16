@@ -71,12 +71,36 @@ FALLBACK = {
     # other side.  (The fixpoint is order-dependent: this edge became a
     # demotion candidate only when #285 changed the graph around it.)
     ('ConLeche.Kernel.BasisA','ConLeche.Kernel.BasisGen'),
+    # task #315 U-10: the one-import-view class of U-5/U-7 again — the plan
+    # proposed demoting EVERY public import of these files, which leaves
+    # their statements without `SetTheory`/`Name`/`Env`/`NoProjEnv`/
+    # `consMutualFormers` in the public view ("Unknown identifier … imported
+    # privately"); one re-export each stays.
+    ('ConLeche.Model.Inductives.BlockRecBridge','ConLeche.Model.Inductives.BlockRecWD'),
+    ('ConLeche.Model.Inductives.MutualNoProj','ConLeche.Model.Inductives.TowerCons'),
+    ('ConLeche.Model.Inductives.MutualNoProj','ConLeche.Verify.Inductives.MutualInv'),
     # task #290: every statement of `Verify/Frontend/Local.lean` is over
     # Naive's `NRes`, `isDigit`, `isWs`; the model calls the edge demotable
     # (the private `import Scan.Equiv` covers the constants), but a private
     # import is invisible to a public statement — the build says
     # `unknown identifier NRes`.
     ('ConLeche.Verify.Frontend.Local','ConLeche.Frontend.Scan.Naive'),
+    # task #315 U-7: `MutualIdxUniv`'s one public import is likewise the
+    # file's whole public view — demoting it kills its own
+    # `variable [SetTheory V]` (`unknown identifier SetTheory`).
+    ('ConLeche.Model.Inductives.MutualIdxUniv','ConLeche.Model.Inductives.StructData'),
+    # task #315 U-7: `MutualIdxUniv`'s public STATEMENTS name `restrictΨ`
+    # (`formerLevels_of`) and `IdxOk` (`formerIdxOk`), which reach the file
+    # only through `FixStageRec`'s closure — task #290's class: a private
+    # import is invisible to a public statement (`unknown identifier`).
+    ('ConLeche.Model.Inductives.MutualIdxUniv','ConLeche.Model.Inductives.FixStageRec'),
+    # task #315: `BlockRecWD`'s one public import is the file's whole
+    # public view (`SetTheory`, `BlockReadings`, `BlockReps`, the datum);
+    # the model calls it demotable (nothing downstream re-exports through
+    # it that a STATEMENT names — `DeclBlock`'s needs are in exposed
+    # `def … : Prop` BODIES, task #253's class), and demoting it makes the
+    # file's own `variable [SetTheory V]` fail to resolve.
+    ('ConLeche.Model.Inductives.BlockRecWD','ConLeche.Model.Inductives.BlockRecTyped'),
 }
 
 files=[f for f in subprocess.check_output(['git','ls-files','*.lean']).decode().split()

@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Semantics.Inductives.DeclNative
-public import ConLeche.Semantics.Bridge.DeclRun
+import ConLeche.Semantics.Bridge.DeclRun
 import ConLeche.Semantics.Bridge.DeclIndRun
 
 @[expose] public section
@@ -56,8 +56,9 @@ theorem checkDeclRun_ofEnvFactsE
     DeclRun μ F (DeclIndRunDispatch μ F env) env d env₂ :=
   checkDeclRun_of
     -- FLAG-AGNOSTIC (task #175 wiring W4): case on the `.indDecl`
-    -- clause's own `nativeParts?` dispatch — `declNativeRun_of`
-    -- on the direct arm, `declIndRun_of` on the modeled one.
+    -- clause's own three-way dispatch — `declNativeRun_of` on the
+    -- fixpoint arm, `declMutualRun_of` on the mutual one (task #278),
+    -- `declIndRun_of` on the modeled one.
     (fun {block nP} hpin hh => by
       -- task #293: the pinned-block recognition came first, and this
       -- block is not one of the five
@@ -73,8 +74,13 @@ theorem checkDeclRun_ofEnvFactsE
           intro hh
           exact declNativeRun_of hh
         | none =>
-          intro hh
-          exact declIndRun_of hh
+          cases hmf : mutualParts? nP block with
+          | some q =>
+            intro hh
+            exact declMutualRun_of hh
+          | none =>
+            intro hh
+            exact declIndRun_of hh
       · rw [if_neg hok] at hh
         exact nomatch hh) h
 

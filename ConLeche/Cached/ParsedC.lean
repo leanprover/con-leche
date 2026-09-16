@@ -244,7 +244,12 @@ def checkDeclC (pins : List NatOpPinSet) (fe : FEnv) (pd : Declaration) :
       -- one the modeled path's (its model the in-process modeller's).
       match nativeParts? nP block with
       | some p => checkNativeS mode fe p
-      | none => checkIndDeclSF mode fe block
+      | none =>
+        -- a MUTUAL block (several formers, one recursor each) is its
+        -- own route (task #278); everything else the modeled path's
+        match mutualParts? nP block with
+        | some q => checkMutualS mode fe q
+        | none => checkIndDeclSF mode fe block
     else throw (.invalid "number of parameters mismatch")
   | .quotDecl k cv =>
     -- `checkDecl`'s twin (task #293): the `type` record installs the
