@@ -337,6 +337,159 @@ local notation "PG" => NestedPinGroup (V := V) (p := p) (b := b) (fms := fms) (f
   (dsF := dsF) (esF := esF) (srcsF := srcsF) (fvsPF := fvsPF) (xrestF := xrestF) (eissF := eissF)
   (tssF := tssF) (ctorsR := ctorsR) (dsR := dsR) (xFvsR := xFvsR) (pinsS := pinsS)
 
+/-- **`pinLeaf` as a fact of the block model**, at ANY model carrying the
+groups (`nestedBlockReps_of` reads it at the run's model; the
+constructors' loop needs it at every intermediate one): the pin's
+container read at its components and index spine is the pin's
+component of the block's least fixed point, at the tower of the
+spine. -/
+theorem nestedPinLeaf_of (hμ : μ.verifiedChecks = true)
+    (h : MutualFormersFacts V F g mp b fms f₀ ctorsA sortss kinds mp₁ ppsF W idxF dsF esF srcsF
+      fvsPF xFvsF xrestF eissF tssF)
+    (h3 : ConLeche.mutualCtorsGrouped b.ctors = true)
+    (hbk : b.k = p.k + pinsS.length)
+    (m : EnvModel V env₂)
+    (hgroups : ∀ q, q < pinsS.length → ∃ (q₀ kJ i : Nat) (dJ : BlockModel V),
+      q = q₀ + i ∧ i < kJ ∧ PG m q₀ kJ dJ) :
+    ∀ q, q < (D).nPins → ∀ (ψ : Name → Nat) (ρ : Nat → V) (as is : List V),
+      SpineFit ρ ((D).params ψ) as →
+      SpineFit ((D).pinFrame q ψ (consList as ρ)) (((D).pinAt q).Ids ψ) is →
+      ((((D).pinAt q).Ds ψ).map (interp V (consList as ρ)) ++ is).foldl SetTheory.app
+          (interp V ρ (m.acval ((D).pinAt q).J (((D).pinAt q).ψJ ψ)))
+        = SetTheory.app ((D).pinCar ψ (consList as ρ)
+              (lfpTuple ((D).w ψ) (D).k ((D).idx ψ (consList as ρ)) ((D).Φ ψ (consList as ρ))) q)
+            (tupW (((D).pinAt q).u ψ) is) := by
+  intro q hq ψ ρ as is hsp hisFit
+  obtain ⟨q₀, kJ, i, dJ, rfl, hi, G⟩ := hgroups q hq
+  obtain ⟨cvT, cvR, mI, rP, rules, hI⟩ := G.rep i hi
+  have hρp : Sat V ((D).params ψ).reverse (consList as ρ) := (D).satOfSpine hsp
+  exact ofNested_pinLeaf_of hI (nestedLfpOk_of_formers h hμ hbk ψ (consList as ρ) hρp)
+    (nestedShape_of_formers h hbk ψ) G.seg hi G.reps G.noPins
+    G.kEq (G.w i hi ψ) (G.u i hi ψ) (G.inj _) (G.idx i hi ψ)
+    (fun i' hi' j => G.grp h3 h.lenA ψ hi' j)
+    (G.inst i hi ψ _ hρp) rfl rfl rfl (G.pinU i hi ψ) (G.pinIds hi ψ) (G.DsFit i hi ψ ρ as hsp)
+    hisFit
+
+/-- **The nested-entry identity**, at ANY model carrying the groups: the
+container's leaf at the lifted components and the index readings reads
+like the copy's leaf at the parameter variables and the same readings,
+at every frame `consList fs₂ (consList as ρ)` at which the application
+is graded.  This is what a nested field's restored domain buys: the
+restore's entry and the auxiliary block's entry denote alike. -/
+theorem nestedIdent_of (hμ : μ.verifiedChecks = true)
+    (h : MutualFormersFacts V F g mp b fms f₀ ctorsA sortss kinds mp₁ ppsF W idxF dsF esF srcsF
+      fvsPF xFvsF xrestF eissF tssF)
+    (h3 : ConLeche.mutualCtorsGrouped b.ctors = true)
+    (hbk : b.k = p.k + pinsS.length)
+    (m : EnvModel V env₂)
+    (hgroups : ∀ q, q < pinsS.length → ∃ (q₀ kJ i : Nat) (dJ : BlockModel V),
+      q = q₀ + i ∧ i < kJ ∧ PG m q₀ kJ dJ) :
+    ∀ q, q < pinsS.length → ∀ (ψ : Name → Nat) (ρ : Nat → V) (as : List V),
+      SpineFit ρ ((D).params ψ) as →
+      ∀ (e : Nat) (fs₂ : List V) (Eis : List AnnotTerm), fs₂.length = e →
+        Eis.length = ((D).pinAt q).nIdx →
+        WellDenoted V (consList fs₂ (consList as ρ))
+          (AnnotTerm.mkAppN (m.acval ((D).pinAt q).J (((D).pinAt q).ψJ ψ))
+            ((((D).pinAt q).Ds ψ).map (·.liftN e 0) ++ Eis)) →
+        interp V (consList fs₂ (consList as ρ))
+            (AnnotTerm.mkAppN (m.acval ((D).pinAt q).J (((D).pinAt q).ψJ ψ))
+              ((((D).pinAt q).Ds ψ).map (·.liftN e 0) ++ Eis))
+          = interp V (consList fs₂ (consList as ρ))
+            (AnnotTerm.mkAppN
+              (mutMemberLeaf b fms f₀ ctorsA kinds ppsF W dsF esF eissF tssF (p.k + q) ψ)
+              (paramBvarsAt b.nP (b.nP + e) ++ Eis)) := by
+  -- the readers the assembly also derives
+  have hkT : b.k = fms.length := h.lenFms.symm
+  have hplen : ∀ ψ : Name → Nat, ((D).params ψ).length = b.nP := by
+    intro ψ
+    show (((ppsF 0 ψ).take b.nP).map (·.2.2)).length = b.nP
+    rw [List.length_map, List.length_take, (h.FD 0 f₀ h.first).len ψ]
+    omega
+  have hframeT : ∀ (t : Nat) (f : MutualFormerA), fms[t]? = some f →
+      ∀ (ψ : Name → Nat) (ρ' : Nat → V),
+        Sat V ((D).params ψ).reverse ρ' ↔ Sat V (((ppsF t ψ).take b.nP).map (·.2.2)).reverse ρ' :=
+    fun t f hft ψ ρ' => (h.frame t f hft ψ ρ').symm
+  have hpinLeaf := nestedPinLeaf_of hμ h h3 hbk m hgroups
+  intro q hq ψ ρ as hsp e fs₂ Eis he hEl hwd
+  obtain ⟨q₀, kJ, i, dJ, rfl, hi, G⟩ := hgroups q hq
+  obtain ⟨cvT, cvR, mI, rP, rules, hI⟩ := G.rep i hi
+  subst he
+  rw [show p.k + (q₀ + i) = p.k + q₀ + i from (Nat.add_assoc _ _ _).symm]
+  have hρp : Sat V ((D).params ψ).reverse (consList as ρ) := (D).satOfSpine hsp
+  have hlenAs : as.length = b.nP := by rw [hsp.length_eq, hplen]
+  have hOk' := nestedLfpOk_of_formers h hμ hbk ψ (consList as ρ) hρp
+  have hWpos : W ψ ≠ 0 := TupleLfpOk.W_pos hOk'
+  have hEl' : Eis.length = dJ.nIdxAt i := by rw [hEl, G.pinNIdx i hi]
+  have htgt : p.k + q₀ + i < p.k + pinsS.length := by omega
+  have htl : p.k + q₀ + i < fms.length := by rw [← hkT, hbk]; exact htgt
+  have hft_t := fms_get htl
+  have hisFit := nestedFit_of_wd hI (G.typed _) rfl (G.pinDsLen i hi ψ) hEl' hwd
+  -- the left side: the pin's leaf at the block's carrier
+  have hlift : (((D).pinAt (q₀ + i)).Ds ψ).map
+      (interp V (consList fs₂ (consList as ρ)) ∘ fun Dc => Dc.liftN fs₂.length 0)
+      = (((D).pinAt (q₀ + i)).Ds ψ).map (interp V (consList as ρ)) :=
+    List.map_congr_left fun Dc _ => by
+      show interp V (consList fs₂ (consList as ρ)) (Dc.liftN fs₂.length 0) = _
+      exact interp_liftN_consList Dc fs₂ (consList as ρ)
+  rw [interp_mkAppN_foldl, List.map_append, List.map_map, hlift,
+    interp_closed (V := V) (m.cval_closedL _ _) _ ρ]
+  have hPL := hpinLeaf (q₀ + i) (by show q₀ + i < pinsS.length; omega) ψ ρ as
+    (Eis.map (interp V (consList fs₂ (consList as ρ)))) hsp
+    (by
+      show SpineFit (consList ((((D).pinAt (q₀ + i)).Ds ψ).map (interp V (consList as ρ)))
+        (consList as ρ)) (((D).pinAt (q₀ + i)).Ids ψ) _
+      rw [G.pinIds hi ψ]
+      exact hisFit)
+  have hpc : (D).pinCar ψ (consList as ρ)
+      (lfpTuple ((D).w ψ) (D).k ((D).idx ψ (consList as ρ)) ((D).Φ ψ (consList as ρ)))
+      (q₀ + i)
+    = lfpTuple ((D).w ψ) (p.k + pinsS.length) ((D).idx ψ (consList as ρ))
+      (nestedΨ (V := V) b.nP p.k pinsS.length f₀.s ppsF W b.ownOffset
+        (mutMems ctorsA.length (mutMemF b)) (mutNFs ctorsA.length (mutNFOf ctorsA))
+        (mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)) (blkRss ctorsA kinds)
+        (fun ψ => mutTlss ctorsA.length tssF ψ) (fun ψ => mutEiss0 ctorsA.length eissF ψ)
+        (fun ψ => blkFss0 b ctorsA kinds dsF ψ) (fun ψ => mutEss0 ctorsA.length esF ψ)
+        ψ (consList as ρ)) (p.k + (q₀ + i)) :=
+    ofNested_pinCar_lfp hOk' (by show q₀ + i < pinsS.length; omega)
+  rw [hPL, G.pinU i hi ψ, tupW_pos hWpos, hpc]
+  -- the right side: the copy's leaf at the auxiliary carrier
+  unfold mutMemberLeaf
+  rw [interp_mkAppN_foldl, List.map_append,
+    map_paramBvarsAt_interp (ρp := consList as ρ) (fun j' => consList_apply_add fs₂ _ j'),
+    interp_closed (V := V) (tupleLfpAV_below h.blockOk b.ownOffset
+      ((h.FD _ _ hft_t).below ψ) ((h.FD _ _ hft_t).len ψ) ψ) _ ρ]
+  have hrng : (List.range b.nP).reverse.map (consList as ρ) = as := by
+    have h1 := consList_range_reverse b.nP (consList as ρ)
+    have h2 : (fun j' => consList as ρ (j' + b.nP)) = ρ := by
+      funext j'; rw [← hlenAs]; exact consList_apply_add as ρ j'
+    rw [h2] at h1
+    exact consList_inj_len (by simp [hlenAs]) h1
+  rw [hrng]
+  have hnI : ((ppsF (p.k + q₀ + i) ψ).drop b.nP).length
+      = (fms.getD (p.k + q₀ + i) default).nIdx := by
+    rw [List.length_drop, (h.FD _ _ hft_t).len ψ]
+    exact Nat.add_sub_cancel_left _ _
+  have hsp_t : SpineFit ρ (((ppsF (p.k + q₀ + i) ψ).take b.nP).map (·.2.2)) as :=
+    spineFit_of_frames (by
+        rw [hplen, List.length_map, List.length_take, (h.FD _ _ hft_t).len ψ]; omega)
+      (fun ρ' => hframeT _ _ hft_t ψ ρ') hsp
+  have hi_t : SpineFit (consList as ρ) (((ppsF (p.k + q₀ + i) ψ).drop b.nP).map (·.2.2))
+      (Eis.map (interp V (consList fs₂ (consList as ρ)))) := by
+    show SpineFit (consList as ρ) (blockIds b.nP ppsF ψ (p.k + q₀ + i)) _
+    rw [G.idx i hi ψ i hi]
+    have := (spineFit_instTele (((D).pinAt (q₀ + i)).Ds ψ) (consList as ρ)
+      (dJ.IdsM i (((D).pinAt (q₀ + i)).ψJ ψ)) []
+      (Eis.map (interp V (consList fs₂ (consList as ρ))))).mpr hisFit
+    simpa using this
+  rw [← hnI,
+    show mutRss ctorsA.length (mutKsOf kinds) = blkRss ctorsA kinds from rfl,
+    show mutFss0 b.nP ctorsA.length dsF (mutKsOf kinds) (mutNFOf ctorsA) ψ
+      = blkFss0 b ctorsA kinds dsF ψ from rfl]
+  rw [tupleLfpAV_fold (by rw [hbk]; exact htgt) (h.tupleOk hμ ψ (consList as ρ) hρp) rfl
+    hsp_t hi_t]
+  rw [hbk, ← Nat.add_assoc]
+  rfl
+
 /-- **The nested block's block model at the restored environment, at
 every member** (`blockReps_of`'s nested twin): from the auxiliary
 block's formers' facts, the constructors' stage's outputs at the model
@@ -518,23 +671,7 @@ theorem nestedBlockReps_of (hμ : μ.verifiedChecks = true)
       = idxSet (W ψ) ρp (blockIds b.nP ppsF ψ (p.k + (q₀ + i)))
     rw [G.pinU i hi ψ, G.pinIds hi ψ, ← Nat.add_assoc, G.idx i hi ψ i hi, idxSet_instTele Iff.rfl]
   -- `pinLeaf`, as a fact of the block model (also read by the constructors' clause)
-  have hpinLeaf : ∀ q, q < (D).nPins → ∀ (ψ : Name → Nat) (ρ : Nat → V) (as is : List V),
-      SpineFit ρ ((D).params ψ) as →
-      SpineFit ((D).pinFrame q ψ (consList as ρ)) (((D).pinAt q).Ids ψ) is →
-      ((((D).pinAt q).Ds ψ).map (interp V (consList as ρ)) ++ is).foldl SetTheory.app
-          (interp V ρ (mp₂.base2.acval ((D).pinAt q).J (((D).pinAt q).ψJ ψ)))
-        = SetTheory.app ((D).pinCar ψ (consList as ρ)
-              (lfpTuple ((D).w ψ) (D).k ((D).idx ψ (consList as ρ)) ((D).Φ ψ (consList as ρ))) q)
-            (tupW (((D).pinAt q).u ψ) is) := by
-    intro q hq ψ ρ as is hsp hisFit
-    obtain ⟨q₀, kJ, i, dJ, rfl, hi, G⟩ := hgroups q hq
-    obtain ⟨cvT, cvR, mI, rP, rules, hI⟩ := G.rep i hi
-    have hρp : Sat V ((D).params ψ).reverse (consList as ρ) := (D).satOfSpine hsp
-    exact ofNested_pinLeaf_of hI (hOk ψ (consList as ρ) hρp) (hS ψ) G.seg hi G.reps G.noPins
-      G.kEq (G.w i hi ψ) (G.u i hi ψ) (G.inj _) (G.idx i hi ψ)
-      (fun i' hi' j => G.grp h3 hlenA ψ hi' j)
-      (G.inst i hi ψ _ hρp) rfl rfl rfl (G.pinU i hi ψ) (G.pinIds hi ψ) (G.DsFit i hi ψ ρ as hsp)
-      hisFit
+  have hpinLeaf := nestedPinLeaf_of hμ h h3 hbk mp₂.base2 hgroups
   have hpinU : ∀ q, q < (D).nPins → ∀ ψ : Name → Nat, ((D).pinAt q).u ψ = W ψ := by
     intro q hq ψ
     obtain ⟨q₀, kJ, i, dJ, rfl, hi, G⟩ := hgroups q hq
@@ -758,7 +895,6 @@ theorem nestedBlockReps_of (hμ : μ.verifiedChecks = true)
       have hjR : j < (ctorsR.getD mm' []).length := (List.getElem?_eq_some_iff.mp hc).1
       have hCD := hBF.2.2
       have hρp : Sat V ((D).params ψ).reverse (consList as ρ) := (D).satOfSpine hsp
-      have hlenAs : as.length = b.nP := by rw [hsp.length_eq, hplen]
       rw [hleaf ψ]
       show (as ++ fs).foldl SetTheory.app (interp V ρ (sumMkAV (f₀.s.eval ψ) j
           (dsF (b.ownOffset mm' + j) ψ) (((dsF (b.ownOffset mm' + j) ψ).drop b.nP).map (·.2.2))
@@ -771,8 +907,6 @@ theorem nestedBlockReps_of (hμ : μ.verifiedChecks = true)
         have hlenR : (dsR mm' j ψ).length = b.nP + c.2.2 := hCD.len ψ
         have hksl : (mutKsOf kinds (b.ownOffset mm' + j)).length = c.2.2 := by
           rw [← hnF]; exact (h.ksJ _ _ hJ).1
-        have hOk' := hOk ψ (consList as ρ) hρp
-        have hWpos : W ψ ≠ 0 := TupleLfpOk.W_pos hOk'
         -- the restored fields are graded at every fitting prefix
         have hFok : FieldsOkB 0 (consList as ρ) (((dsR mm' j ψ).drop b.nP).map (·.2.2)) := by
           have hok : WellDenoted V (fun i => consList as ρ (i + b.nP))
@@ -819,7 +953,6 @@ theorem nestedBlockReps_of (hμ : μ.verifiedChecks = true)
               rw [← hbk, hkT]; exact (h.ksJ _ _ hJ).2.2 l
             have hqlt : (D).tgts mm' j l - p.k < pinsS.length := by omega
             obtain ⟨q₀, kJ, i, dJ, hqeq, hi, G⟩ := hgroups _ hqlt
-            obtain ⟨cvT, cvR, mI, rP, rules, hI⟩ := G.rep i hi
             have hkl : l < (kindsOf (mutKsOf kinds (b.ownOffset mm' + j))).length := by
               rw [kindsOf_length, hksl]; exact hl
             have hkind := (rsOf_getD_iff hkl).mp hr
@@ -847,74 +980,10 @@ theorem nestedBlockReps_of (hμ : μ.verifiedChecks = true)
                     (AnnotTerm.mkAppN
                       (mutMemberLeaf b fms f₀ ctorsA kinds ppsF W dsF esF eissF tssF ((D).tgts mm' j l) ψ)
                       (paramBvarsAt b.nP (b.nP + e) ++ Eis)) := by
+              have hb := nestedIdent_of hμ h h3 hbk mp₂.base2 hgroups (q₀ + i) (by omega) ψ ρ as hsp
+              rw [← Nat.add_assoc, htqEq] at hb
               intro e fs₂ Eis he hEl hwd
-              subst he
-              have hisFit := nestedFit_of_wd hI (G.typed _) rfl (G.pinDsLen i hi ψ) hEl hwd
-              -- the left side: the pin's leaf at the block's carrier
-              have hlift : (((D).pinAt (q₀ + i)).Ds ψ).map
-                  (interp V (consList fs₂ (consList as ρ)) ∘ fun Dc => Dc.liftN fs₂.length 0)
-                  = (((D).pinAt (q₀ + i)).Ds ψ).map (interp V (consList as ρ)) :=
-                List.map_congr_left fun Dc _ => by
-                  show interp V (consList fs₂ (consList as ρ)) (Dc.liftN fs₂.length 0) = _
-                  exact interp_liftN_consList Dc fs₂ (consList as ρ)
-              rw [interp_mkAppN_foldl, List.map_append, List.map_map, hlift,
-                interp_closed (V := V) (mp₂.base2.cval_closedL _ _) _ ρ]
-              have hPL := hpinLeaf (q₀ + i) (by show q₀ + i < pinsS.length; omega) ψ ρ as
-                (Eis.map (interp V (consList fs₂ (consList as ρ)))) hsp
-                (by
-                  show SpineFit (consList ((((D).pinAt (q₀ + i)).Ds ψ).map (interp V (consList as ρ)))
-                    (consList as ρ)) (((D).pinAt (q₀ + i)).Ids ψ) _
-                  rw [G.pinIds hi ψ]
-                  exact hisFit)
-              have hpc : (D).pinCar ψ (consList as ρ)
-                  (lfpTuple ((D).w ψ) (D).k ((D).idx ψ (consList as ρ)) ((D).Φ ψ (consList as ρ)))
-                  (q₀ + i)
-                = lfpTuple ((D).w ψ) (p.k + pinsS.length) ((D).idx ψ (consList as ρ))
-                  (nestedΨ (V := V) b.nP p.k pinsS.length f₀.s ppsF W b.ownOffset
-                    (mutMems ctorsA.length (mutMemF b)) (mutNFs ctorsA.length (mutNFOf ctorsA))
-                    (mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)) (blkRss ctorsA kinds)
-                    (fun ψ => mutTlss ctorsA.length tssF ψ) (fun ψ => mutEiss0 ctorsA.length eissF ψ)
-                    (fun ψ => blkFss0 b ctorsA kinds dsF ψ) (fun ψ => mutEss0 ctorsA.length esF ψ)
-                    ψ (consList as ρ)) (p.k + (q₀ + i)) :=
-                ofNested_pinCar_lfp hOk' (by show q₀ + i < pinsS.length; omega)
-              rw [hPL, G.pinU i hi ψ, tupW_pos hWpos, hpc]
-              -- the right side: the copy's leaf at the auxiliary carrier
-              unfold mutMemberLeaf
-              rw [interp_mkAppN_foldl, List.map_append,
-                map_paramBvarsAt_interp (ρp := consList as ρ) (fun j' => consList_apply_add fs₂ _ j'),
-                interp_closed (V := V) (tupleLfpAV_below h.blockOk b.ownOffset
-                  ((h.FD _ _ hft_t).below ψ) ((h.FD _ _ hft_t).len ψ) ψ) _ ρ]
-              have hrng : (List.range b.nP).reverse.map (consList as ρ) = as := by
-                have h1 := consList_range_reverse b.nP (consList as ρ)
-                have h2 : (fun j' => consList as ρ (j' + b.nP)) = ρ := by
-                  funext j'; rw [← hlenAs]; exact consList_apply_add as ρ j'
-                rw [h2] at h1
-                exact consList_inj_len (by simp [hlenAs]) h1
-              rw [hrng]
-              have hnI : ((ppsF ((D).tgts mm' j l) ψ).drop b.nP).length
-                  = (fms.getD ((D).tgts mm' j l) default).nIdx := by
-                rw [List.length_drop, (h.FD _ _ hft_t).len ψ]
-                exact Nat.add_sub_cancel_left _ _
-              have hsp_t : SpineFit ρ (((ppsF ((D).tgts mm' j l) ψ).take b.nP).map (·.2.2)) as :=
-                spineFit_of_frames (by
-                    rw [hplen, List.length_map, List.length_take, (h.FD _ _ hft_t).len ψ]; omega)
-                  (fun ρ' => hframeT _ _ hft_t ψ ρ') hsp
-              have hi_t : SpineFit (consList as ρ) (((ppsF ((D).tgts mm' j l) ψ).drop b.nP).map (·.2.2))
-                  (Eis.map (interp V (consList fs₂ (consList as ρ)))) := by
-                show SpineFit (consList as ρ) (blockIds b.nP ppsF ψ ((D).tgts mm' j l)) _
-                rw [← htqEq, G.idx i hi ψ i hi]
-                have := (spineFit_instTele (((D).pinAt (q₀ + i)).Ds ψ) (consList as ρ)
-                  (dJ.IdsM i (((D).pinAt (q₀ + i)).ψJ ψ)) []
-                  (Eis.map (interp V (consList fs₂ (consList as ρ))))).mpr hisFit
-                simpa using this
-              rw [← hnI,
-                show mutRss ctorsA.length (mutKsOf kinds) = blkRss ctorsA kinds from rfl,
-                show mutFss0 b.nP ctorsA.length dsF (mutKsOf kinds) (mutNFOf ctorsA) ψ
-                  = blkFss0 b ctorsA kinds dsF ψ from rfl]
-              rw [tupleLfpAV_fold (by rw [hbk]; exact htgt) (h.tupleOk hμ ψ (consList as ρ) hρp) rfl
-                hsp_t hi_t]
-              rw [hbk, ← htqEq, ← Nat.add_assoc]
-              rfl
+              exact hb e fs₂ Eis he (by rw [G.pinNIdx i hi]; exact hEl) hwd
             rcases hkind with hk | hk
             · -- a finitary nested field
               have hk' : kindAt (mutKsOf kinds (b.ownOffset mm' + j)) l = .recursive := by
@@ -1173,6 +1242,10 @@ Consumer: `nestedStageFacts_of` → `nestedCoreModeled_of`. -/
       fvsPF xFvsF xrestF eissF tssF →
     b.k = p.k + st.pins.length →
     ConLeche.mutualCtorsGrouped b.ctors = true →
+    b.blockNames.Nodup →
+    ConLeche.checkMutualCtors (m := ConLeche.CheckM) (fueledOps μ F)
+      (ConLeche.consMutualFormers fms env) b fms (Level.isEquiv f₀.s .zero == some true) true b.ctors
+      = .ok (ctorsA, sortss) →
     -- the prefix formers' model: the members' leaves the auxiliary
     -- block's, agreeing with the pre-block model off the members,
     -- the members stored with their data
@@ -1315,7 +1388,7 @@ theorem nestedStageFacts_of (hst : NestedCtorsStaged V μ F) (hμ : μ.verifiedC
   obtain ⟨mp₂, dsR, xFvsR, pinsS, L⟩ := hst hμ mp hE p st b envAux stored ctorsR fmsA ctorsA₀ fms f₀
     ctorsA sortss kinds mp₁ ppsF W idxF dsF esF srcsF fvsPF xFvsF xrestF eissF tssF mp₁' hPM h0 h1
     hfA hcA helim hcount hfresh hcont hb haux hstored hclosed hpinsAux hcaps hsrc hgrp hkinds hformers h
-    hbk h3 hleafM' hoff' hfind' hctors
+    hbk h3 hnd hctorsA hleafM' hoff' hfind' hctors
   -- the names
   have hnames : (fms.take p.k).map (·.cvTa.name) = p.memberNames := by
     rw [List.map_take, h.names]

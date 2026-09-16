@@ -170,11 +170,12 @@ structure BlockOpened (env₀ : Env) (Tof : Nat → Name) (nIdxOf : Nat → Nat)
       (∀ e ∈ body.getAppArgs.drop nP, e.constsResolve env₀ = true) ∧
       (∀ y ∈ xFvs.drop (i + 1), y.fvarTypeD.mentionsFvar (nP + i) = false) ∧
       xrest.mentionsFvar (nP + i) = false
-  /-- a NESTED finitary field: the pin's container at the pin's
-  components, then index arguments free of the block -/
+  /-- a NESTED finitary field: the pin's container (the components'
+  identity is SEMANTIC — `BlockCtorData.nestEntry` — since the opened
+  form re-annotates the parameter variables), then index arguments free
+  of the block -/
   nestF : ∀ i x q, xFvs[i]? = some x → nest i = some q → ks.getD i .ordinary = .recursive →
     x.fvarTypeD.getAppFn = Expr.const (pins q).J (pins q).lvls ∧
-    x.fvarTypeD.getAppArgs.take (pins q).nPJ = (pins q).DsE ∧
     x.fvarTypeD.getAppArgs.length = (pins q).nPJ + (pins q).nIdx ∧
     (∀ e ∈ x.fvarTypeD.getAppArgs.drop (pins q).nPJ, e.constsResolve env₀ = true) ∧
     (∀ y ∈ xFvs.drop (i + 1), y.fvarTypeD.mentionsFvar (nP + i) = false) ∧
@@ -186,7 +187,6 @@ structure BlockOpened (env₀ : Env) (Tof : Nat → Name) (nIdxOf : Nat → Nat)
       afvs.length ≠ 0 ∧
       (∀ a ∈ afvs, a.fvarTypeD.constsResolve env₀ = true) ∧
       body.getAppFn = Expr.const (pins q).J (pins q).lvls ∧
-      body.getAppArgs.take (pins q).nPJ = (pins q).DsE ∧
       body.getAppArgs.length = (pins q).nPJ + (pins q).nIdx ∧
       (∀ e ∈ body.getAppArgs.drop (pins q).nPJ, e.constsResolve env₀ = true) ∧
       (∀ y ∈ xFvs.drop (i + 1), y.fvarTypeD.mentionsFvar (nP + i) = false) ∧

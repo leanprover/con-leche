@@ -846,4 +846,159 @@ theorem auxStored_ctor_eq {env envAux : Env} {b : MutualBlock} {F : Nat}
   obtain ⟨e1, e2, e3⟩ := ConstantInfo.ctorInfo.inj (Option.some.inj (hfind.symm.trans hrec))
   exact ⟨cA, by rw [← ownCtors_getElem?_idx hg hown]; exact hcA, e1, e2, e3⟩
 
+/-! ## The restored constructors' names (task #315 M6 s8)
+
+The restore keeps the block's parameter count on every constructor and
+keeps the names DISTINCT: member `mm`'s `j`-th restored constructor
+carries the name of `ctorsA[b.ownOffset mm + j]`, the grouping guard
+makes `(mm, j) ↦ b.ownOffset mm + j` injective on the members' runs,
+and the block's `Nodup` names the auxiliary constructors apart. -/
+
+private theorem restoredCtors_offset_le_add (b : MutualBlock) (m : Nat) :
+    ∀ d, b.ownOffset m ≤ b.ownOffset (m + d)
+  | 0 => Nat.le_refl _
+  | d + 1 => by
+    rw [show m + (d + 1) = (m + d) + 1 from rfl, ownOffset_succ]
+    exact Nat.le_trans (restoredCtors_offset_le_add b m d) (Nat.le_add_right _ _)
+
+private theorem restoredCtors_offset_mono {b : MutualBlock} {m n : Nat} (h : m ≤ n) :
+    b.ownOffset m ≤ b.ownOffset n := by
+  obtain ⟨d, hd⟩ := Nat.le.dest h
+  rw [← hd]
+  exact restoredCtors_offset_le_add b m d
+
+private theorem restoredCtors_nodup_idx {γ : Type} {N : List γ} (hN : N.Nodup) {a c : Nat} {x : γ}
+    (ha : N[a]? = some x) (hc : N[c]? = some x) : a = c := by
+  obtain ⟨hal, hax⟩ := List.getElem?_eq_some_iff.mp ha
+  obtain ⟨hcl, hcx⟩ := List.getElem?_eq_some_iff.mp hc
+  rcases Nat.lt_trichotomy a c with h | h | h
+  · exact absurd (hax.trans hcx.symm)
+      ((List.pairwise_iff_getElem (R := fun x y => x ≠ y)).mp hN a c hal hcl h)
+  · exact h
+  · exact absurd (hcx.trans hax.symm)
+      ((List.pairwise_iff_getElem (R := fun x y => x ≠ y)).mp hN c a hcl hal h)
+
+private theorem restoredCtors_at {env envAux envR : Env} {p : NestedParts} {b : MutualBlock}
+    {F : Nat} {fms : List MutualFormerA} {isProp : Bool} {ctorsA : List (ConstantVal × Nat)}
+    {sortss : List (List Level)} {stored : List AuxStored}
+    {ctorsR : List (List (ConstantVal × Nat × Nat))} {R : RestoreTbl} {lps : List Name}
+    (haux : checkMutualCore (fueledOps mode F) env b none true = .ok envAux)
+    (hformers : mutualFormers (fueledOps mode F) b.nP b.formers env true
+      = .ok (consMutualFormers fms env, fms))
+    (hctorsA : checkMutualCtors (fueledOps mode F) (consMutualFormers fms env) b fms isProp true
+      b.ctors = .ok (ctorsA, sortss))
+    (h3 : mutualCtorsGrouped b.ctors = true)
+    (hstored : auxStoredAll envAux b b.k = some stored)
+    (hctors : (stored.take p.k).mapM
+      (fun a => restoreCtors (m := CheckM) (fueledOps mode F) envR R lps a.ctors) = .ok ctorsR) :
+    ∀ (mm j : Nat) (l : List (ConstantVal × Nat × Nat)) (c : ConstantVal × Nat × Nat),
+      ctorsR[mm]? = some l → l[j]? = some c →
+        c.2.1 = b.nP ∧ j < (b.ownCtors mm).length ∧
+        ∃ cA : ConstantVal × Nat,
+          ctorsA[b.ownOffset mm + j]? = some cA ∧ c.1.name = cA.1.name := by
+  obtain ⟨hlenR, hallR⟩ := mapM_except_inv hctors
+  intro mm j l c hl hc
+  have hmm : mm < (stored.take p.k).length := by
+    rw [← hlenR]; exact (List.getElem?_eq_some_iff.mp hl).1
+  obtain ⟨a, l', ha, hl', hrun⟩ := hallR mm hmm
+  obtain rfl := Option.some.inj (hl'.symm.trans hl)
+  have hst : stored[mm]? = some a := by
+    rw [List.getElem?_take] at ha
+    by_cases hlt : mm < p.k
+    · rwa [if_pos hlt] at ha
+    · rw [if_neg hlt] at ha; exact absurd ha (by simp)
+  obtain ⟨hlenC, hallC⟩ := restoreCtors_id hrun
+  have hj : j < a.ctors.length := by
+    rw [← hlenC]; exact (List.getElem?_eq_some_iff.mp hc).1
+  obtain ⟨c₀, hc₀⟩ : ∃ c₀, a.ctors[j]? = some c₀ := ⟨a.ctors[j]'hj, List.getElem?_eq_getElem hj⟩
+  obtain ⟨ty, -, hceq⟩ := hallC j c₀ c hc₀ hc
+  obtain ⟨hlenOwn, hallOwn⟩ := auxStored_ctor_eq haux hformers hctorsA h3 hstored hst
+  obtain ⟨cA, hcA, e1, e2, -⟩ := hallOwn j c₀ hc₀
+  refine ⟨?_, ?_, cA, hcA, ?_⟩
+  · rw [hceq]; exact e2
+  · rw [← hlenOwn]; exact hj
+  · rw [hceq]
+    change c₀.1.name = cA.1.name
+    exact congrArg ConstantVal.name e1
+
+/-- The restored constructors carry the block's parameter count. -/
+theorem restoredCtors_nP {env envAux envR : Env} {p : NestedParts} {b : MutualBlock} {F : Nat}
+    {fms : List MutualFormerA} {isProp : Bool} {ctorsA : List (ConstantVal × Nat)}
+    {sortss : List (List Level)} {stored : List AuxStored}
+    {ctorsR : List (List (ConstantVal × Nat × Nat))} {R : RestoreTbl} {lps : List Name}
+    (haux : checkMutualCore (fueledOps mode F) env b none true = .ok envAux)
+    (hformers : mutualFormers (fueledOps mode F) b.nP b.formers env true
+      = .ok (consMutualFormers fms env, fms))
+    (hctorsA : checkMutualCtors (fueledOps mode F) (consMutualFormers fms env) b fms isProp true
+      b.ctors = .ok (ctorsA, sortss))
+    (h3 : mutualCtorsGrouped b.ctors = true)
+    (hstored : auxStoredAll envAux b b.k = some stored)
+    (hctors : (stored.take p.k).mapM
+      (fun a => restoreCtors (m := CheckM) (fueledOps mode F) envR R lps a.ctors) = .ok ctorsR) :
+    ∀ c ∈ ctorsR.flatten, c.2.1 = b.nP := by
+  have hkey := restoredCtors_at haux hformers hctorsA h3 hstored hctors
+  intro c hc
+  obtain ⟨l, hl, hcl⟩ := List.mem_flatten.mp hc
+  obtain ⟨mm, hmm⟩ := List.getElem?_of_mem hl
+  obtain ⟨j, hj⟩ := List.getElem?_of_mem hcl
+  exact (hkey mm j l c hmm hj).1
+
+/-- **The restored constructors' names are pairwise distinct**. -/
+theorem restoredCtors_nodup {env envAux envR : Env} {p : NestedParts} {b : MutualBlock} {F : Nat}
+    {fms : List MutualFormerA} {isProp : Bool} {ctorsA : List (ConstantVal × Nat)}
+    {sortss : List (List Level)} {stored : List AuxStored}
+    {ctorsR : List (List (ConstantVal × Nat × Nat))} {R : RestoreTbl} {lps : List Name}
+    (haux : checkMutualCore (fueledOps mode F) env b none true = .ok envAux)
+    (hformers : mutualFormers (fueledOps mode F) b.nP b.formers env true
+      = .ok (consMutualFormers fms env, fms))
+    (hctorsA : checkMutualCtors (fueledOps mode F) (consMutualFormers fms env) b fms isProp true
+      b.ctors = .ok (ctorsA, sortss))
+    (h3 : mutualCtorsGrouped b.ctors = true)
+    (hstored : auxStoredAll envAux b b.k = some stored)
+    (hctors : (stored.take p.k).mapM
+      (fun a => restoreCtors (m := CheckM) (fueledOps mode F) envR R lps a.ctors) = .ok ctorsR)
+    (hndB : b.blockNames.Nodup)
+    (hnamesC : ctorsA.map (·.1.name) = b.ctors.map (·.cv.name)) :
+    (ctorsR.flatten.map (·.1.name)).Nodup := by
+  have hkey := restoredCtors_at haux hformers hctorsA h3 hstored hctors
+  have hndA : (ctorsA.map (·.1.name)).Nodup := by
+    have hb : (b.memberNames ++ b.ctors.map (·.cv.name)
+        ++ (List.range b.k).map b.recName).Nodup := hndB
+    rw [hnamesC]
+    exact (List.nodup_append.mp (List.nodup_append.mp hb).1).2.1
+  have hidx : ∀ (mm j : Nat) (l : List (ConstantVal × Nat × Nat)) (c : ConstantVal × Nat × Nat),
+      ctorsR[mm]? = some l → l[j]? = some c →
+        j < (b.ownCtors mm).length ∧
+        (ctorsA.map (·.1.name))[b.ownOffset mm + j]? = some c.1.name := by
+    intro mm j l c hl hc
+    obtain ⟨-, hjl, cA, hcA, hn⟩ := hkey mm j l c hl hc
+    refine ⟨hjl, ?_⟩
+    rw [List.getElem?_map, hcA, hn]
+    rfl
+  rw [List.map_flatten]
+  refine List.pairwise_flatten.mpr ⟨?_, ?_⟩
+  · intro l hl
+    obtain ⟨lr, hlr, rfl⟩ := List.mem_map.mp hl
+    obtain ⟨mm, hmm⟩ := List.getElem?_of_mem hlr
+    refine List.pairwise_map.mpr (List.pairwise_iff_getElem.mpr ?_)
+    intro i j hi hj hij hEq
+    obtain ⟨-, h1⟩ := hidx mm i lr lr[i] hmm (List.getElem?_eq_getElem hi)
+    obtain ⟨-, h2⟩ := hidx mm j lr lr[j] hmm (List.getElem?_eq_getElem hj)
+    rw [hEq] at h1
+    have := restoredCtors_nodup_idx hndA h1 h2
+    omega
+  · refine List.pairwise_map.mpr (List.pairwise_iff_getElem.mpr ?_)
+    intro i j hi hj hij x hx y hy hEq
+    obtain ⟨cx, hcx, rfl⟩ := List.mem_map.mp hx
+    obtain ⟨cy, hcy, rfl⟩ := List.mem_map.mp hy
+    obtain ⟨jx, hjx⟩ := List.getElem?_of_mem hcx
+    obtain ⟨jy, hjy⟩ := List.getElem?_of_mem hcy
+    obtain ⟨hbx, h1⟩ := hidx i jx _ cx (List.getElem?_eq_getElem hi) hjx
+    obtain ⟨-, h2⟩ := hidx j jy _ cy (List.getElem?_eq_getElem hj) hjy
+    rw [hEq] at h1
+    have heq2 := restoredCtors_nodup_idx hndA h1 h2
+    have hmono : b.ownOffset (i + 1) ≤ b.ownOffset j := restoredCtors_offset_mono hij
+    rw [ownOffset_succ] at hmono
+    omega
+
 end ConLeche

@@ -128,6 +128,10 @@ FALLBACK = {
     # kernel's nested functions) — the same class.
     ('ConLeche.Verify.Inductives.NestedAuxInv','ConLeche.Kernel.Inductives.NestedInstall'),
     ('ConLeche.Verify.Inductives.NestedElimInv','ConLeche.Kernel.Inductives.NestedInstall'),
+    # task #315 U-18: `NestedRecNames`'s statements name `AuxStored`/`Env`
+    # — the same class (the demotion the gate proposed is refused by the
+    # compiler).
+    ('ConLeche.Verify.Inductives.NestedRecNames','ConLeche.Kernel.Inductives.NestedInstall'),
     # task #315: `BlockRecWD`'s one public import is the file's whole
     # public view (`SetTheory`, `BlockReadings`, `BlockReps`, the datum);
     # the model calls it demotable (nothing downstream re-exports through
