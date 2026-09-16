@@ -726,4 +726,106 @@ end Laws
 
 end Compose
 
+/-! ## The pins' section as a fibre and as an induction (task #315, M7) -/
+
+section PinLaws
+
+variable {w k n : Nat} {Is : Nat → V} {Ψ : (Nat → V) → Nat → V}
+
+/-- The tuple the pins' operator reads at `X` — the members CLAMPED
+(`meetT`), the pins at `S` — is in the tuple space. -/
+theorem inTupleSpace_pinsJoin {X S : Nat → V} (hX : InTupleSpace w k Is X)
+    (hS : InTupleSpace w n (fun q => Is (k + q)) S) :
+    InTupleSpace w (k + n) Is (segJoin k n (meetT Is X (lfpTuple w (k + n) Is Ψ)) S) :=
+  inTupleSpace_segJoin' (fun j hj hout => inTupleSpace_meetT hX _ j (lt_of_not_seg hj hout)) hS
+
+/-- The honest join — the members at `X`, the pins at `S` — is in the
+tuple space. -/
+theorem inTupleSpace_join {X S : Nat → V} (hX : InTupleSpace w k Is X)
+    (hS : InTupleSpace w n (fun q => Is (k + q)) S) :
+    InTupleSpace w (k + n) Is (segJoin k n X S) :=
+  inTupleSpace_segJoin' (fun j hj hout => hX j (lt_of_not_seg hj hout)) hS
+
+/-- The clamped join is below the honest one. -/
+theorem pinsJoin_le (X S : Nat → V) :
+    TupleLe (k + n) Is (segJoin k n (meetT Is X (lfpTuple w (k + n) Is Ψ)) S) (segJoin k n X S) := by
+  intro j hj
+  by_cases hin : k ≤ j ∧ j < k + n
+  · rw [segJoin_in _ _ hin, segJoin_in _ _ hin]; exact FamLe.refl _ _
+  · rw [segJoin_out _ _ hin, segJoin_out _ _ hin]
+    exact meetT_le_left (k := k) X _ j (lt_of_not_seg hj hin)
+
+section PinLawsFacts
+
+variable (hmono : MonoTuple w (k + n) Is Ψ) (hmaps : MapsTuple w (k + n) Is Ψ)
+  (hcl : ∃ L, IsClosedTuple w (k + n) Is Ψ L)
+
+include hmono hmaps hcl
+
+omit hmono hcl in
+/-- The pins' operator preserves the pins' tuple space. -/
+theorem pinsOp_maps {X : Nat → V} (hX : InTupleSpace w k Is X) :
+    MapsTuple w n (fun q => Is (k + q)) (pinsOp w k n Is Ψ X) :=
+  fun Y hY q hq => hmaps _ (inTupleSpace_pinsJoin hX hY) (k + q) (by omega)
+
+omit hmaps hcl in
+/-- **The clamp is invisible below the auxiliary carrier**: at `X` below
+`L⁺` the fibres of `Ψ` at the clamped join and at the honest join
+agree. -/
+theorem app_pinsJoin_eq {X S : Nat → V} (hX : InTupleSpace w k Is X)
+    (hXL : TupleLe k Is X (lfpTuple w (k + n) Is Ψ))
+    (hS : InTupleSpace w n (fun q => Is (k + q)) S) {j : Nat} (hj : j < k + n) {t : V}
+    (ht : t ∈ˢ Is j) :
+    SetTheory.app (Ψ (segJoin k n (meetT Is X (lfpTuple w (k + n) Is Ψ)) S) j) t
+      = SetTheory.app (Ψ (segJoin k n X S) j) t := by
+  have hge : TupleLe (k + n) Is (segJoin k n X S)
+      (segJoin k n (meetT Is X (lfpTuple w (k + n) Is Ψ)) S) := by
+    intro j' hj'
+    by_cases hin : k ≤ j' ∧ j' < k + n
+    · rw [segJoin_in _ _ hin, segJoin_in _ _ hin]; exact FamLe.refl _ _
+    · rw [segJoin_out _ _ hin, segJoin_out _ _ hin]
+      exact meetT_eq_of_le hXL j' (lt_of_not_seg hj' hin)
+  exact Subset.antisymm
+    (hmono _ _ (inTupleSpace_pinsJoin hX hS) (inTupleSpace_join hX hS) (pinsJoin_le X S) j hj t ht)
+    (hmono _ _ (inTupleSpace_join hX hS) (inTupleSpace_pinsJoin hX hS) hge j hj t ht)
+
+/-- **The pins' fixed-point law** (DESIGN §U.25 (e) 1): at a members'
+tuple below the auxiliary carrier a pin's carrier is `Ψ`'s fibre at
+the EXTENDED tuple — the pins' section is closed, and the clamp is
+invisible there. -/
+theorem app_pinsCar_eq {X : Nat → V} (hX : InTupleSpace w k Is X)
+    (hXL : TupleLe k Is X (lfpTuple w (k + n) Is Ψ)) {q : Nat} (hq : q < n) {t : V}
+    (ht : t ∈ˢ Is (k + q)) :
+    SetTheory.app (pinsCar w k n Is Ψ X q) t
+      = SetTheory.app (Ψ (extT w k n Is Ψ X) (k + q)) t := by
+  have hfix := app_lfpTuple_eq (pinsOp_closed_exists hmono hcl hX) (pinsOp_mono hmono hX)
+    (pinsOp_maps hmaps hX) hq ht
+  rw [show pinsCar w k n Is Ψ X = lfpTuple w n (fun q => Is (k + q)) (pinsOp w k n Is Ψ X) from rfl,
+    ← hfix]
+  exact app_pinsJoin_eq hmono hX hXL (pinsCar_mem X) (by omega) ht
+
+omit hmaps in
+/-- **The pins' induction** (DESIGN §U.25 (e) 1): the pins' carriers at
+`X` are the LEAST families closed under `Ψ`'s pin fibres with the
+members read at `X` and the pins at the separated carriers — the
+clamp only WEAKENS the step, so the honest join may be read. -/
+theorem pinsCar_induction {X : Nat → V} (hX : InTupleSpace w k Is X) (P : Nat → V → V → Prop)
+    (hP : ∀ q, q < n → ∀ t, t ∈ˢ Is (k + q) → ∀ x,
+      x ∈ˢ SetTheory.app
+          (Ψ (segJoin k n X (sepTuple w n (fun q => Is (k + q)) (pinsOp w k n Is Ψ X) P))
+            (k + q)) t →
+        P q t x) :
+    ∀ q, q < n → ∀ t, t ∈ˢ Is (k + q) → ∀ x,
+      x ∈ˢ SetTheory.app (pinsCar w k n Is Ψ X q) t → P q t x := by
+  refine lfpTuple_induction (pinsOp_closed_exists hmono hcl hX) (pinsOp_mono hmono hX) P ?_
+  intro q hq t ht x hx
+  refine hP q hq t ht x ?_
+  have hS := sepTuple_mem w n (fun q => Is (k + q)) (pinsOp w k n Is Ψ X) P
+  exact hmono _ _ (inTupleSpace_pinsJoin hX hS) (inTupleSpace_join hX hS)
+    (pinsJoin_le X _) (k + q) (by omega) t ht x hx
+
+end PinLawsFacts
+
+end PinLaws
+
 end ConLeche.SetTheory
