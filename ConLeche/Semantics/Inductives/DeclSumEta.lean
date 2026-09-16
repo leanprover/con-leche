@@ -194,7 +194,11 @@ theorem declNativeRun_etaClosed {μ : CheckMode} {F : Nat} {env env₂ : Env}
 /-! ## The dispatch -/
 
 /-- The `.indDecl` run dispatch keeps the η-families closed, by the
-kernel's own case split. -/
+kernel's own case split.  The mutual arm's pin bit comes from the
+recogniser (`mutualParts?_recPinned`): the install's `recPinned` guard
+IS `mutualRecPinOk` at a recognised block, which is what says the
+stored recursors carry the names the stream's records carry — the
+freshness the η argument needs. -/
 theorem declIndRunDispatchEtaClosed {μ : CheckMode} {F : Nat}
     {env envI : Env} {block : List ConstantInfo} {nP : Nat}
     (hE : EtaFamiliesClosed env)
@@ -202,6 +206,10 @@ theorem declIndRunDispatchEtaClosed {μ : CheckMode} {F : Nat}
   unfold DeclIndRunDispatch at h
   split at h
   · exact declNativeRun_etaClosed hE h
-  · exact declIndEtaClosedRun hE h
+  · split at h
+    · next q heq =>
+      exact declMutualRun_etaClosed
+        (by rw [← ConLeche.mutualParts?_recPinned heq]; exact h.1) hE h
+    · exact declIndEtaClosedRun hE h
 
 end ConLeche.Semantics

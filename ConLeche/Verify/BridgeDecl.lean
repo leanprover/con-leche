@@ -1317,7 +1317,9 @@ theorem checkDecl_datF (env : Env) (d : Declaration) (F : Nat) :
     · split
       · split
         · exact checkNative_datF env _ F
-        · exact checkModeled_datF env block F
+        · split
+          · exact checkMutual_datF env _ F
+          · exact checkModeled_datF env block F
       · rfl
 
 theorem checkDeclsPure_datF (ds : List Declaration) (F : Nat) :

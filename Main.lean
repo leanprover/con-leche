@@ -532,7 +532,7 @@ def checkMain (file : String) (mode : CheckMode) (stride jobs : Nat)
     -- neither a wholesale text buffer nor a scratch file exists in
     -- this process.
     -- THE IN-PROCESS MODELLER (the ONLY model source there is):
-    -- mutual and nested blocks
+    -- NESTED blocks
     -- get their `_model` family generated at parse time
     -- (`ConLeche/Frontend/InModel.lean`);
     -- `CON_LECHE_INMODEL=0` turns it off, `CON_LECHE_INMODEL_DUMP=OUT`
@@ -561,7 +561,7 @@ def checkMain (file : String) (mode : CheckMode) (stride jobs : Nat)
           in-process: {String.intercalate ", " (inModelled.toList.map toString)} \
           ({genRecords} generated records, checked by the fold as \
           declarations and not counted as records of the file)"
-      -- the census (`CON_LECHE_INMODEL_CENSUS=1`): every mutual/nested block's
+      -- the census (`CON_LECHE_INMODEL_CENSUS=1`): every nested block's
       -- outcome, then stop — the parse only, no fold
       if (← IO.getEnv "CON_LECHE_INMODEL_CENSUS") == some "1" then
         for (n, why) in inModelDeclined do
@@ -843,7 +843,7 @@ def usage : String := String.intercalate "\n" [
   "                    argument position; no input is read.",
   "",
   "  CON_LECHE_INMODEL=0    turn the IN-PROCESS MODELLER off.  By",
-  "                    default every mutual or nested inductive block",
+  "                    default every NESTED inductive block",
   "                    gets a model generated at parse time",
   "                    (ConLeche/Frontend/InModel/*) and pushed ahead of",
   "                    the block; the generated records are checked by",
@@ -857,13 +857,13 @@ def usage : String := String.intercalate "\n" [
   "                    a stream record named `T._model` is an ordinary",
   "                    declaration and routes nothing -- so",
   "                    with the flag off",
-  "                    every mutual or nested block reaches the fold",
+  "                    every nested block reaches the fold",
   "                    bare and the run declines with 'no install",
   "                    route for'.",
   "                    A verdict produced with it set is not the",
   "                    checker's verdict on the stream.",
   "  CON_LECHE_INMODEL_CENSUS=1",
-  "                    report every mutual or nested block's modelling",
+  "                    report every nested block's modelling",
   "                    outcome and STOP AFTER THE PARSE.  The fold does",
   "                    not run, so nothing is checked and the run",
   "                    always EXITS 2 (declined) -- exit 0 is reserved",
@@ -925,7 +925,8 @@ def usage : String := String.intercalate "\n" [
   "NO PREPROCESSOR.  The input is a RAW lean4export stream:",
   "there is no external tool, no dependency and no spawn.  Every",
   "inductive block is installed by the fixed-point route — structures,",
-  "sums, indexed families, finitary fixed points and reflexive blocks —",
+  "sums, indexed families, finitary fixed points, reflexive blocks and",
+  "mutual blocks —",
   "or through a `_model` family the frontend generates IN-PROCESS at",
   "parse time and then checks as ordinary declarations.  No model is",
   "ever read from the input: a stream record whose name",

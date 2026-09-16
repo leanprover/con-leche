@@ -1,9 +1,11 @@
 module
 
 public import ConLeche.Verify.Cached.BridgeCS4
+import ConLeche.Verify.FastOps
 import ConLeche.Verify.Inductives.StructWF
 import ConLeche.Verify.Inductives.SumWF
 import ConLeche.Verify.Inductives.FixWF
+import ConLeche.Verify.Inductives.MutualWF
 import ConLeche.Verify.Cached.WalkersC
 
 public section
@@ -716,9 +718,554 @@ theorem checkIndDeclSF_run (hμ : mode.verifiedChecks = true) {env : Env} (henv 
         injection hv
       exact hF₂p
 
+/-! ## The mutual install (task #278)
+
+The `FEnv`-to-`Env` mirrors of the member-aware stages (the
+`ConLeche/Verify/CheckerF.lean` family at a mutual block), then the
+run bridges: the formers' flushing fold, the cross-member checks, the
+constructors, the recursors and the tables. -/
+
+section MutualMirrors
+
+variable {m : Type → Type} [Monad m] [MonadExceptOf CheckError m]
+
+theorem normCtorValMF_eq (ops : CheckerOps m) (env : Env) (memberNames : List Name)
+    (nP nF : Nat) (cvC cvCa : ConstantVal) :
+    normCtorValMF ops (mkFEnv env) memberNames nP nF cvC cvCa
+      = normCtorValM ops env memberNames nP nF cvC cvCa := by
+  simp only [normCtorValMF, normCtorValM, mkFEnv_env, checkConstantValF_eq]
+
+theorem checkMutualCtorF_eq (ops : CheckerOps m) (env : Env) (memberNames : List Name)
+    (T : Name) (lps : List Name) (nP nIdx : Nat) (resSort : Level) (isProp large : Bool)
+    (cvC : ConstantVal) (nF : Nat) (cvTa : ConstantVal) :
+    checkMutualCtorF ops .plain (mkFEnv env) memberNames T lps nP nIdx resSort isProp large
+        cvC nF cvTa
+      = checkMutualCtor ops env memberNames T lps nP nIdx resSort isProp large cvC nF cvTa := by
+  simp only [checkMutualCtorF, checkMutualCtor, checkConstantValF_eq, normCtorValMF_eq,
+    checkStructDomsAtFA_eq, checkStructDomsAtF_eq, openPisAtFvarsF_eq,
+    checkStructFieldSortsIFA_eq, checkStructFieldSortsIF_eq, StructWalkers.plain,
+    constsResolveF_eq]
+
+theorem checkMutualCtorsF_eq (ops : CheckerOps m) (env : Env) (b : MutualBlock)
+    (fms : List MutualFormerA) (isProp : Bool) :
+    ∀ (cs : List MutualCtor),
+      checkMutualCtorsF ops .plain (mkFEnv env) b fms isProp cs
+        = checkMutualCtors ops env b fms isProp cs
+  | [] => rfl
+  | c :: cs => by
+    simp only [checkMutualCtorsF, checkMutualCtors, checkMutualCtorF_eq,
+      checkMutualCtorsF_eq ops env b fms isProp cs]
+
+theorem checkMutualRecTyF_eq (ops : CheckerOps m) (env : Env) (b : MutualBlock)
+    (formers4 : List MutualFormer) (ctors4 : List MutualCtor4) (mIdx : Nat)
+    (streamRec : Option ConstantVal) :
+    checkMutualRecTyF ops .plain (mkFEnv env) b formers4 ctors4 mIdx streamRec
+      = checkMutualRecTy ops env b formers4 ctors4 mIdx streamRec := by
+  simp only [checkMutualRecTyF, checkMutualRecTy, mkFEnv_env, checkConstantValF_eq,
+    StructWalkers.plain, constsResolveF_eq] <;> rfl
+
+theorem checkMutualRecTysF_eq (ops : CheckerOps m) (env : Env) (b : MutualBlock)
+    (formers4 : List MutualFormer) (ctors4 : List MutualCtor4)
+    (streamRecs : Option (List (ConstantVal × List RecRule))) :
+    ∀ (k : Nat),
+      checkMutualRecTysF ops .plain (mkFEnv env) b formers4 ctors4 streamRecs k
+        = checkMutualRecTys ops env b formers4 ctors4 streamRecs k
+  | 0 => rfl
+  | k + 1 => by
+    simp only [checkMutualRecTysF, checkMutualRecTys, checkMutualRecTyF_eq,
+      checkMutualRecTysF_eq ops env b formers4 ctors4 streamRecs k]
+
+theorem checkMutualMemberRulesF_eq (envR : Env) (b : MutualBlock)
+    (formers4 : List MutualFormer) (ctors4 : List MutualCtor4) (mIdx : Nat)
+    (streamRec : Option (ConstantVal × List RecRule)) :
+    checkMutualMemberRulesF (m := m) .plain (mkFEnv envR) b formers4 ctors4 mIdx streamRec
+      = checkMutualMemberRules (m := m) envR b formers4 ctors4 mIdx streamRec := by
+  simp only [checkMutualMemberRulesF, checkMutualMemberRules, StructWalkers.plain,
+    constsResolveF_eq] <;> rfl
+
+theorem checkMutualAllRulesF_eq (envR : Env) (b : MutualBlock)
+    (formers4 : List MutualFormer) (ctors4 : List MutualCtor4)
+    (streamRecs : Option (List (ConstantVal × List RecRule))) :
+    ∀ (k : Nat),
+      checkMutualAllRulesF (m := m) .plain (mkFEnv envR) b formers4 ctors4 streamRecs k
+        = checkMutualAllRules (m := m) envR b formers4 ctors4 streamRecs k
+  | 0 => rfl
+  | k + 1 => by
+    simp only [checkMutualAllRulesF, checkMutualAllRules, checkMutualMemberRulesF_eq,
+      checkMutualAllRulesF_eq envR b formers4 ctors4 streamRecs k]
+
+end MutualMirrors
+
+theorem consMutualFormersF_mkFEnv :
+    ∀ (fms : List MutualFormerA) (env : Env),
+      consMutualFormersF fms (mkFEnv env) = mkFEnv (consMutualFormers fms env)
+  | [], _ => rfl
+  | f :: fs, env => by
+    simp only [consMutualFormersF, consMutualFormers, push_mkFEnv,
+      consMutualFormersF_mkFEnv fs ⟨.indInfo f.cvTa {} :: env.consts⟩]
+
+theorem consMutualCtorsF_mkFEnv (nP : Nat) :
+    ∀ (cs : List (ConstantVal × Nat)) (env : Env),
+      consMutualCtorsF nP cs (mkFEnv env) = mkFEnv (consMutualCtors nP cs env)
+  | [], _ => rfl
+  | c :: cs, env => by
+    simp only [consMutualCtorsF, consMutualCtors, push_mkFEnv,
+      consMutualCtorsF_mkFEnv nP cs ⟨.ctorInfo c.1 nP c.2 :: env.consts⟩]
+
+theorem provisionMutualRecsF_mkFEnv (b : MutualBlock) (fms : List MutualFormerA) :
+    ∀ (l : List (ConstantVal × Nat)) (env : Env),
+      provisionMutualRecsF b fms l (mkFEnv env) = mkFEnv (provisionMutualRecs b fms l env)
+  | [], _ => rfl
+  | (cvRa, mIdx) :: rest, env => by
+    simp only [provisionMutualRecsF, provisionMutualRecs, push_mkFEnv,
+      provisionMutualRecsF_mkFEnv b fms rest _]
+
+theorem storeMutualRecsF_mkFEnv (env₂ : Env) (b : MutualBlock) (fms : List MutualFormerA)
+    (rulesOf : List (List (MutualCtor × Expr))) :
+    ∀ (l : List (ConstantVal × Nat)) (env : Env),
+      storeMutualRecsF (mkFEnv env₂) b fms rulesOf l (mkFEnv env)
+        = mkFEnv (storeMutualRecs env₂ b fms rulesOf l env)
+  | [], _ => rfl
+  | (cvRa, mIdx) :: rest, env => by
+    simp only [storeMutualRecsF, storeMutualRecs, push_mkFEnv, mkFEnv_find?_fun,
+      storeMutualRecsF_mkFEnv env₂ b fms rulesOf rest _]
+
+theorem mutualOpenedOkF_eq (env₀ : Env) (members : List (Name × Nat × Nat))
+    (lps : List Name) (nP : Nat) (cty : Expr) (nF : Nat) (ks : List (RecFieldKind × Nat)) :
+    mutualOpenedOkF .plain (mkFEnv env₀) members lps nP cty nF ks
+      = mutualOpenedOk env₀ members lps nP cty nF ks := by
+  simp only [mutualOpenedOkF, mutualOpenedOk, StructWalkers.plain, constsResolveF_eq] <;> rfl
+
+theorem mutualFieldsOkF_eq (env₀ : Env) (members : List (Name × Nat × Nat))
+    (lps : List Name) (nP : Nat) (ctorsA : List (ConstantVal × Nat))
+    (kinds : List (List (RecFieldKind × Nat))) :
+    mutualFieldsOkF .plain (mkFEnv env₀) members lps nP ctorsA kinds
+      = mutualFieldsOk env₀ members lps nP ctorsA kinds := by
+  simp only [mutualFieldsOkF, mutualFieldsOk, mutualOpenedOkF_eq] <;> rfl
+
+/-! ### The mutual install's run bridges -/
+
+/-- The block's shape guard is operation-free: it leaves the state
+alone, and the pure twin takes the same branch. -/
+theorem mutualShapeOkC_bind {β : Type} {b : MutualBlock} {k : Unit → CheckCM β}
+    {s₀ s' : CState} {v : β}
+    (h : (mutualShapeOk (m := CheckCM) b >>= k) s₀ = .ok (v, s')) :
+    mutualShapeOk (m := CheckM) b = .ok () ∧ k () s₀ = .ok (v, s') := by
+  unfold mutualShapeOk at h ⊢
+  simp only [] at h ⊢
+  by_cases h1 : b.blockNames.Nodup
+  case neg => rw [if_neg h1] at h; exact absurd h throwC_bind_ok
+  by_cases h2 : ((b.formers.all fun f => f.1.levelParams == b.lps) &&
+      b.ctors.all fun c => c.cv.levelParams == b.lps) = true
+  case neg =>
+    rw [if_pos h1, if_neg h2] at h
+    exact absurd h throwC_bind_ok
+  by_cases h3 : (b.ctors.all fun c => decide (c.member < b.k)) = true
+  case neg =>
+    rw [if_pos h1, if_pos h2, if_neg h3] at h
+    exact absurd h throwC_bind_ok
+  by_cases h4 : mutualCtorsGrouped b.ctors = true
+  case neg =>
+    rw [if_pos h1, if_pos h2, if_pos h3, if_neg h4] at h
+    exact absurd h throwC_bind_ok
+  rw [if_pos h1, if_pos h2, if_pos h3, if_pos h4] at h
+  rw [if_pos h1, if_pos h2, if_pos h3, if_pos h4]
+  simp only [pure_bind] at h
+  exact ⟨rfl, h⟩
+
+/-- The kinds' classification at a mutual block is operation-free. -/
+theorem classifyMutualKindsC_ok {members : List (Name × Nat × Nat)} {lps : List Name}
+    {nP : Nat} {ctorsA : List (ConstantVal × Nat)} {s₀ s' : CState}
+    {kinds : List (List (RecFieldKind × Nat))}
+    (h : classifyMutualKinds (m := CheckCM) members lps nP ctorsA s₀ = .ok (kinds, s')) :
+    s' = s₀ ∧ classifyMutualKinds (m := CheckM) members lps nP ctorsA = .ok kinds := by
+  unfold classifyMutualKinds at h ⊢
+  obtain ⟨ks, s₁, hu, h⟩ := bindC_ok h
+  cases hk : ctorsA.mapM (mutualCtorKinds members lps nP) with
+  | none => rw [hk] at hu; exact nomatch hu
+  | some ks' =>
+  rw [hk] at hu
+  simp only [unwrapOr] at hu
+  obtain ⟨rfl, rfl⟩ := pureC_ok hu
+  simp only [unwrapOr, hk]
+  try dsimp only at h
+  split at h
+  · exact absurd h throwC_bind_ok
+  · try dsimp only at h
+    split at h
+    · exact absurd h throwC_bind_ok
+    · obtain ⟨rfl, rfl⟩ := pureC_ok h
+      simp only [*, bind, Except.bind, ↓reduceIte, pure, Except.pure]
+      exact ⟨trivial, rfl⟩
+
+/-- One member's projection table at the cached driver. -/
+theorem mutualMemberTableS_run {b : MutualBlock} {f : MutualFormerA}
+    {ctorsA : List (ConstantVal × Nat)} {sortss : List (List Level)} {mIdx : Nat}
+    (env : Env) {s₀ : CState} {fe' : FEnv} {s' : CState}
+    (henv : EnvWF env) (hwf : CSOKF s₀)
+    (h : mutualMemberTableF (m := CheckCM) .plain b f ctorsA sortss mIdx (mkFEnv env) s₀
+      = .ok (fe', s')) :
+    CSOKF s' ∧ fe' = mkFEnv fe'.env ∧ EnvWF fe'.env ∧
+    mutualMemberTable (m := CheckM) b f ctorsA sortss mIdx env = .ok fe'.env := by
+  unfold mutualMemberTableF at h
+  unfold mutualMemberTable
+  cases hoc : b.ownCtors mIdx with
+  | nil =>
+    rw [hoc] at h
+    obtain ⟨rfl, rfl⟩ := pureC_ok h
+    exact ⟨hwf, rfl, henv, rfl⟩
+  | cons x xs =>
+    cases xs with
+    | cons y ys =>
+      rw [hoc] at h
+      obtain ⟨rfl, rfl⟩ := pureC_ok h
+      exact ⟨hwf, rfl, henv, rfl⟩
+    | nil =>
+      obtain ⟨J, c⟩ := x
+      rw [hoc] at h
+      simp only [] at h ⊢
+      by_cases hz : (f.nIdx == 0) = true
+      · rw [if_pos hz] at h
+        rw [if_pos hz]
+        obtain ⟨hres, hfe, henv', F, hF⟩ := checkStructProjTableS_run env henv hwf h
+        refine ⟨hres, hfe, henv', ?_⟩
+        rw [← checkStructProjTable_datF (F := F)]
+        exact hF
+      · rw [if_neg hz] at h
+        rw [if_neg hz]
+        obtain ⟨rfl, rfl⟩ := pureC_ok h
+        exact ⟨hwf, rfl, henv, rfl⟩
+
+/-- The table stage over the members. -/
+theorem mutualTablesS_run {b : MutualBlock} {ctorsA : List (ConstantVal × Nat)}
+    {sortss : List (List Level)} :
+    ∀ (l : List (MutualFormerA × Nat)) (env : Env) {s₀ : CState} {fe' : FEnv} {s' : CState},
+      EnvWF env → CSOKF s₀ →
+      mutualTablesF (m := CheckCM) .plain b ctorsA sortss l (mkFEnv env) s₀ = .ok (fe', s') →
+      CSOKF s' ∧ fe' = mkFEnv fe'.env ∧ EnvWF fe'.env ∧
+      mutualTables (m := CheckM) b ctorsA sortss l env = .ok fe'.env
+  | [], env, s₀, fe', s', henv, hwf, h => by
+    unfold mutualTablesF at h
+    obtain ⟨rfl, rfl⟩ := pureC_ok h
+    exact ⟨hwf, rfl, henv, rfl⟩
+  | (f, mIdx) :: rest, env, s₀, fe', s', henv, hwf, h => by
+    unfold mutualTablesF at h
+    obtain ⟨fe₁, s₁, hstep, h⟩ := bindC_ok h
+    obtain ⟨hwf₁, hfe₁, henv₁, hp₁⟩ := mutualMemberTableS_run env henv hwf hstep
+    rw [hfe₁] at h
+    obtain ⟨hwf', hfe', henv', hp'⟩ := mutualTablesS_run rest fe₁.env henv₁ hwf₁ h
+    refine ⟨hwf', hfe', henv', ?_⟩
+    unfold mutualTables
+    simp only [Bind.bind, Except.bind]
+    rw [hp₁]
+    exact hp'
+
+/-- **The formers' checks at the cached driver**: every member's
+former is checked at the SAME index — the block's starting one — so
+one memo invariant carries the whole stage, and the pure comparand is
+`mutualFormerChecks` at that one environment. -/
+theorem mutualFormerChecksS_run (hμ : mode.verifiedChecks = true) {nP : Nat} :
+    ∀ (l : List (ConstantVal × Nat)) (env : Env) {s₀ : CState}
+      {fms : List MutualFormerA} {s' : CState},
+      EnvWF env → CSOK mode env s₀ →
+      mutualFormerChecksS mode (mkFEnv env) nP l s₀ = .ok (fms, s') →
+      CSOK mode env s' ∧ (∀ f ∈ fms, f.cvTa.type.hasFvar = false) ∧
+      ∃ F, mutualFormerChecks (fueledOps mode F) env nP l = .ok fms
+  | [], env, s₀, fms, s', _, hs, h => by
+    unfold mutualFormerChecksS at h
+    obtain ⟨hr, rfl⟩ := pureC_ok h
+    subst hr
+    exact ⟨hs, (fun f hf => nomatch hf), 0, rfl⟩
+  | (cv, nIdx) :: rest, env, s₀, fms, s', henv, hs, h => by
+    unfold mutualFormerChecksS at h
+    -- the constant check and official's telescope, both at `env`
+    rw [checkConstantValF_eq] at h
+    obtain ⟨cvTa₀, s₂, hcv, h⟩ := bindC_ok h
+    obtain ⟨hs₂, cvTa₀', hP₀, F₁, hF₁⟩ := (checkConstantValS_sim hμ henv hs) cvTa₀ s₂ hcv
+    obtain ⟨rfl, hw₀⟩ := hP₀
+    rw [checkSumTeleF_pushC] at h
+    obtain ⟨q, s₃, hte, h⟩ := bindC_ok h
+    obtain ⟨hs₃, q', hPq, F₂, hF₂⟩ := (checkSumTeleS_sim hμ henv hs₂ hw₀) q s₃ hte
+    obtain ⟨rfl, hwT⟩ := hPq
+    obtain ⟨cvTa, sx⟩ := q
+    simp only [] at h
+    -- the pure guards
+    cases hst : cvTa.type.stripPis (nP + nIdx) with
+    | none =>
+      rw [hst] at h
+      simp only [unwrapOr] at h
+      exact absurd h throwC_bind_ok
+    | some tq =>
+    rw [hst] at h
+    simp only [unwrapOr, pure_bind] at h
+    obtain ⟨tbs, tbody⟩ := tq
+    by_cases hb : (tbody == Expr.sort sx) = true
+    case neg =>
+      rw [if_neg hb] at h
+      exact absurd h throwC_bind_ok
+    rw [if_pos hb] at h
+    have hF₂p : checkSumTele (fueledOps mode (max F₁ F₂)) env cv (nP + nIdx) cvTa₀
+        = .ok (cvTa, sx) := by
+      rw [← checkSumTele_datF]; exact FueledM.up (Nat.le_max_right _ _) hF₂
+    have hF₁p : checkConstantVal (fueledOps mode (max F₁ F₂)) env cv = .ok cvTa₀ := by
+      rw [← checkConstantVal_datF]; exact FueledM.up (Nat.le_max_left _ _) hF₁
+    obtain ⟨cv', hccv'⟩ : ∃ cv',
+        checkConstantVal (fueledOps mode (max F₁ F₂)) env cv' = .ok cvTa := by
+      rcases checkSumTele_shape hF₂p with ⟨rfl, -⟩ | ⟨ty, hccv⟩
+      · exact ⟨cv, hF₁p⟩
+      · exact ⟨{ cv with type := ty }, hccv⟩
+    have hTf : cvTa.type.hasFvar = false := (checkConstantVal_typeWF hccv').1
+    -- the rest of the stage, at the SAME environment
+    obtain ⟨q2, s₄, hrec, h⟩ := bindC_ok h
+    obtain ⟨hs₄, hall, F₃, hF₃⟩ := mutualFormerChecksS_run hμ rest env henv hs₃ hrec
+    obtain ⟨hr, rfl⟩ := pureC_ok h
+    subst hr
+    obtain ⟨G, hle₁, hle₂, hle₃⟩ : ∃ G, F₁ ≤ G ∧ F₂ ≤ G ∧ F₃ ≤ G :=
+      ⟨max F₁ (max F₂ F₃), by omega, by omega, by omega⟩
+    refine ⟨hs₄, ?_, G, ?_⟩
+    · intro f hf
+      rcases List.mem_cons.mp hf with rfl | hf
+      · exact hTf
+      · exact hall f hf
+    · have g₁ : checkConstantVal (fueledOps mode G) env cv = .ok cvTa₀ := by
+        rw [← checkConstantVal_datF]; exact FueledM.up hle₁ hF₁
+      have g₂ : checkSumTele (fueledOps mode G) env cv (nP + nIdx) cvTa₀ = .ok (cvTa, sx) := by
+        rw [← checkSumTele_datF]; exact FueledM.up hle₂ hF₂
+      have g₃ : mutualFormerChecks (fueledOps mode G) env nP rest = .ok q2 := by
+        rw [← mutualFormerChecks_datF]
+        exact FueledM.up hle₃ (by rw [mutualFormerChecks_datF]; exact hF₃)
+      unfold mutualFormerChecks
+      simp only [Bind.bind, Except.bind, pure, Except.pure]
+      rw [g₁]
+      simp only [Except.bind]
+      rw [g₂]
+      simp only [Except.bind, unwrapOr, hst, if_pos hb]
+      rw [g₃]
+      simp only [pure, Except.pure, Except.bind, if_pos hb]
+
+/-- The formers' stage at the cached driver: ONE flush entering it,
+the checks at that index, the conses after them. -/
+theorem mutualFormersS_run (hμ : mode.verifiedChecks = true) {nP : Nat}
+    (l : List (ConstantVal × Nat)) (env : Env) {s₀ : CState}
+    {r : FEnv × List MutualFormerA} {s' : CState}
+    (henv : EnvWF env) (hwf : CSOKF s₀)
+    (h : mutualFormersS mode nP l (mkFEnv env) s₀ = .ok (r, s')) :
+    CSOKF s' ∧ r.1 = mkFEnv r.1.env ∧ EnvWF r.1.env ∧
+    (∀ f ∈ r.2, f.cvTa.type.hasFvar = false) ∧
+    ∃ F, mutualFormers (fueledOps mode F) nP l env = .ok (r.1.env, r.2) := by
+  unfold mutualFormersS at h
+  obtain ⟨u, s₁, hfl, h⟩ := bindC_ok h
+  rw [flushC_run] at hfl
+  injection hfl with hfl
+  obtain rfl : s₀.flushed = s₁ := congrArg Prod.snd hfl
+  obtain ⟨fms, s₂, hchk, h⟩ := bindC_ok h
+  obtain ⟨hs₂, hTfs, F, hF⟩ := mutualFormerChecksS_run hμ l env henv (flushC_csok hwf) hchk
+  obtain ⟨hr, rfl⟩ := pureC_ok h
+  subst hr
+  simp only []
+  rw [consMutualFormersF_mkFEnv]
+  refine ⟨hs₂.residue, rfl, ?_, hTfs, F, ?_⟩
+  · exact envWF_consMutualFormers henv (mutualFormerChecks_typeWF hF)
+  · unfold mutualFormers
+    simp only [Bind.bind, Except.bind, pure, Except.pure, hF, mkFEnv_env]
+
+/-- A `getD` is a member or the default. -/
+private theorem getD_mem_or_default {α : Type} [Inhabited α] (l : List α) (i : Nat) :
+    l.getD i default ∈ l ∨ l.getD i default = default := by
+  rw [List.getD_eq_getElem?_getD]
+  cases hm : l[i]? with
+  | none => exact Or.inr rfl
+  | some x => exact Or.inl (by simpa using List.mem_of_getElem? hm)
+
+/-- **The mutual install at the cached driver is reproduced by the pure
+fueled `checkMutualCore`** (task #278): the formers' flushing fold, the
+cross-member checks at the formers' environment, the constructors
+there too, the recursors at the constructors' environment and the
+tables on top. -/
+theorem checkMutualCoreS_run (hμ : mode.verifiedChecks = true) {env : Env} (henv : EnvWF env)
+    {b : MutualBlock} {streamRecs : Option (List (ConstantVal × List RecRule))}
+    {s₀ : CState} (hwf : CSOKF s₀) {feOut : FEnv} {s' : CState}
+    (h : checkMutualCoreS mode (mkFEnv env) b streamRecs s₀ = .ok (feOut, s')) :
+    CSOKF s' ∧ feOut = mkFEnv feOut.env ∧
+    ∃ F, checkMutualCore (fueledOps mode F) env b streamRecs = .ok feOut.env := by
+  unfold checkMutualCoreS at h
+  simp only [] at h
+  rw [structWalkersC_eq_plain] at h
+  -- 0. the block's shape
+  obtain ⟨hshapeP, h⟩ := mutualShapeOkC_bind h
+  -- 1. the formers, each at the index it is pushed onto
+  obtain ⟨r1, s₁, hform, h⟩ := bindC_ok h
+  obtain ⟨fe₁, fms⟩ := r1
+  obtain ⟨hwf₁, hfe₁, henv₁, hTfs, F₁, hF₁⟩ :=
+    mutualFormersS_run hμ b.formers env henv hwf hform
+  simp only [] at hfe₁ henv₁ hTfs hF₁ h
+  rw [hfe₁] at h
+  -- the first member
+  cases hf₀ : fms[0]? with
+  | none =>
+    rw [hf₀] at h
+    simp only [unwrapOr] at h
+    exact absurd h throwC_bind_ok
+  | some f₀ =>
+  rw [hf₀] at h
+  simp only [unwrapOr, pure_bind] at h
+  -- the flush entering the cross-member checks
+  obtain ⟨u1, sB, hfl1, h⟩ := bindC_ok h
+  rw [flushC_run] at hfl1
+  injection hfl1 with hfl1
+  obtain rfl : s₁.flushed = sB := congrArg Prod.snd hfl1
+  have hf₀mem : f₀ ∈ fms := List.mem_of_getElem? hf₀
+  have hf₀f : f₀.cvTa.type.hasFvar = false := hTfs f₀ hf₀mem
+  cases htq₀ : openPisAtFvars b.nP f₀.cvTa.type 0 with
+  | none =>
+    rw [htq₀] at h
+    simp only [unwrapOr] at h
+    exact absurd h throwC_bind_ok
+  | some tq₀ =>
+  rw [htq₀] at h
+  simp only [unwrapOr, pure_bind] at h
+  obtain ⟨htq₀W, -⟩ := openPisAtFvars_WScoped b.nP f₀.cvTa.type 0 htq₀
+    (Expr.WScoped.of_not_hasFvar hf₀f)
+  -- 2. the cross-member checks
+  obtain ⟨u2, s₂, hcross, h⟩ := bindC_ok h
+  obtain ⟨hs₂, u2', -, F₂, hF₂⟩ :=
+    (mutualCrossChecksS_sim hμ henv₁
+      (fun i x hx => by
+        rw [List.getElem?_map] at hx
+        obtain ⟨y, hy, rfl⟩ := Option.map_eq_some_iff.mp hx
+        obtain ⟨ty, rfl⟩ := openPisAtFvars_index b.nP f₀.cvTa.type 0 htq₀ i y hy
+        have hw := htq₀W _ (List.mem_of_getElem? hy)
+        simp only [Expr.WScoped] at hw
+        rw [Nat.zero_add] at hw
+        exact hw.2)
+      (flushC_csok hwf₁)
+      (fun f hf => Expr.WScoped.of_not_hasFvar (hTfs f hf))) u2 s₂ hcross
+  -- the eliminator's level parameters
+  by_cases hlg : (b.large == f₀.s.isNeverZero) = true
+  case neg =>
+    rw [if_neg hlg] at h
+    exact absurd h throwC_bind_ok
+  rw [if_pos hlg] at h
+  -- 3. the constructors at the formers' environment
+  rw [checkMutualCtorsF_eq] at h
+  obtain ⟨r3, s₃, hctors, h⟩ := bindC_ok h
+  obtain ⟨ctorsA, sortss⟩ := r3
+  obtain ⟨hs₃, r3', hP3, F₃, hF₃⟩ :=
+    (checkMutualCtorsS_sim hμ henv₁ (fms := fms)
+      (fun m => by
+        rcases getD_mem_or_default fms m with hm | hm
+        · exact hTfs _ hm
+        · rw [hm]; rfl) hs₂) (ctorsA, sortss) s₃ hctors
+  obtain rfl : (ctorsA, sortss) = r3' := hP3
+  have hF₃p : checkMutualCtors (fueledOps mode F₃) fe₁.env b fms
+      (Level.isEquiv f₀.s .zero == some true) b.ctors = .ok (ctorsA, sortss) := by
+    rw [← checkMutualCtors_datF]; exact hF₃
+  -- the kinds, classified on the stored constructors
+  simp only [] at h
+  obtain ⟨kinds, s₄, hkinds, h⟩ := bindC_ok h
+  obtain ⟨hs₄eq, hkindsP⟩ := classifyMutualKindsC_ok hkinds
+  -- the kinds re-checked on the opened constructors
+  rw [mutualFieldsOkF_eq] at h
+  by_cases hfk : mutualFieldsOk env b.members3 b.lps b.nP ctorsA kinds = true
+  case neg =>
+    rw [if_neg hfk] at h
+    exact absurd h throwC_bind_ok
+  rw [if_pos hfk] at h
+  -- 4. the recursors at the constructors' environment
+  rw [consMutualCtorsF_mkFEnv] at h
+  have henv₂ : EnvWF (consMutualCtors b.nP ctorsA fe₁.env) :=
+    envWF_consMutualCtors henv₁ (checkMutualCtors_typeWF hF₃p)
+  obtain ⟨u5, sC, hfl2, h⟩ := bindC_ok h
+  rw [flushC_run] at hfl2
+  injection hfl2 with hfl2
+  obtain rfl : s₄.flushed = sC := congrArg Prod.snd hfl2
+  rw [checkMutualRecTysF_eq] at h
+  obtain ⟨cvRas, s₅, hrectys, h⟩ := bindC_ok h
+  obtain ⟨hs₅, cvRas', hP5, F₅, hF₅⟩ :=
+    (checkMutualRecTysS_sim hμ henv₂ (flushC_csok (hs₄eq ▸ hs₃.residue))) cvRas s₅ hrectys
+  obtain rfl : cvRas = cvRas' := hP5
+  have hF₅p : checkMutualRecTys (fueledOps mode F₅) (consMutualCtors b.nP ctorsA fe₁.env) b
+      (mutualGenData b fms ctorsA kinds).1 (mutualGenData b fms ctorsA kinds).2 streamRecs b.k
+      = .ok cvRas := by
+    rw [← checkMutualRecTys_datF]; exact hF₅
+  rw [provisionMutualRecsF_mkFEnv, checkMutualAllRulesF_eq] at h
+  obtain ⟨rulesOf, s₆, hrules, h⟩ := bindC_ok h
+  obtain ⟨hs₆, rulesOf', hP6, F₆, hF₆⟩ := (checkMutualAllRulesS_sim hs₅) rulesOf s₆ hrules
+  obtain rfl : rulesOf = rulesOf' := hP6
+  have hF₆p : checkMutualAllRules (m := CheckM)
+      (provisionMutualRecs b fms cvRas.zipIdx (consMutualCtors b.nP ctorsA fe₁.env)) b
+      (mutualGenData b fms ctorsA kinds).1 (mutualGenData b fms ctorsA kinds).2 streamRecs b.k
+      = .ok rulesOf := by
+    rw [← checkMutualAllRules_datF]; exact hF₆
+  have henv₃ : EnvWF (storeMutualRecs (consMutualCtors b.nP ctorsA fe₁.env) b fms rulesOf
+      cvRas.zipIdx (consMutualCtors b.nP ctorsA fe₁.env)) := mutual_recs_wf henv₂ hF₅p hF₆p
+  -- 5. the projection tables
+  rw [storeMutualRecsF_mkFEnv] at h
+  obtain ⟨u7, sD, hfl3, h⟩ := bindC_ok h
+  rw [flushC_run] at hfl3
+  injection hfl3 with hfl3
+  obtain rfl : s₆.flushed = sD := congrArg Prod.snd hfl3
+  obtain ⟨hwfO, hfeO, -, hF₇⟩ := mutualTablesS_run fms.zipIdx _ henv₃ hs₆.residue.flushed h
+  -- the pure run, at the joined fuel
+  obtain ⟨G, hle₁, hle₂, hle₃, hle₅⟩ : ∃ G, F₁ ≤ G ∧ F₂ ≤ G ∧ F₃ ≤ G ∧ F₅ ≤ G :=
+    ⟨max F₁ (max F₂ (max F₃ F₅)), by omega, by omega, by omega, by omega⟩
+  refine ⟨hwfO, hfeO, G, ?_⟩
+  have g₁ : mutualFormers (fueledOps mode G) b.nP b.formers env = .ok (fe₁.env, fms) := by
+    rw [← mutualFormers_datF]
+    exact FueledM.up hle₁ (by rw [mutualFormers_datF]; exact hF₁)
+  have g₂ : mutualCrossChecks (fueledOps mode G) fe₁.env b.nP f₀
+      (tq₀.1.map Expr.fvarTypeD) fms = .ok () := by
+    rw [← mutualCrossChecks_datF]
+    exact FueledM.up hle₂ hF₂
+  have g₃ : checkMutualCtors (fueledOps mode G) fe₁.env b fms
+      (Level.isEquiv f₀.s .zero == some true) b.ctors = .ok (ctorsA, sortss) := by
+    rw [← checkMutualCtors_datF]; exact FueledM.up hle₃ hF₃
+  have g₅ : checkMutualRecTys (fueledOps mode G) (consMutualCtors b.nP ctorsA fe₁.env) b
+      (mutualGenData b fms ctorsA kinds).1 (mutualGenData b fms ctorsA kinds).2 streamRecs b.k
+      = .ok cvRas := by
+    rw [← checkMutualRecTys_datF]; exact FueledM.up hle₅ hF₅
+  unfold checkMutualCore
+  simp only [Bind.bind, Except.bind, pure, Except.pure]
+  rw [hshapeP]
+  simp only [Except.bind, pure, Except.pure]
+  rw [g₁]
+  simp only [Except.bind, pure, Except.pure, unwrapOr, hf₀, htq₀]
+  rw [g₂]
+  simp only [Except.bind, pure, Except.pure, if_pos hlg]
+  rw [g₃]
+  simp only [Except.bind, pure, Except.pure]
+  rw [hkindsP]
+  simp only [Except.bind, pure, Except.pure, if_pos hfk]
+  rw [g₅]
+  simp only [Except.bind, pure, Except.pure]
+  rw [hF₆p]
+  simp only [Except.bind, pure, Except.pure]
+  exact hF₇
+
+/-- **The recognised mutual block at the cached driver is reproduced by
+the pure fueled `checkMutual`.** -/
+theorem checkMutualS_run (hμ : mode.verifiedChecks = true) {env : Env} (henv : EnvWF env)
+    {p : MutualParts} {s₀ : CState} (hwf : CSOKF s₀) {feOut : FEnv} {s' : CState}
+    (h : checkMutualS mode (mkFEnv env) p s₀ = .ok (feOut, s')) :
+    CSOKF s' ∧ feOut = mkFEnv feOut.env ∧
+    ∃ F, checkMutual (fueledOps mode F) env p = .ok feOut.env := by
+  unfold checkMutualS at h
+  simp only [] at h
+  by_cases hpin : p.recPinned = true
+  case neg =>
+    rw [if_neg hpin] at h
+    exact absurd h throwC_bind_ok
+  rw [if_pos hpin] at h
+  obtain ⟨hres, hfe, F, hF⟩ := checkMutualCoreS_run hμ henv hwf h
+  refine ⟨hres, hfe, F, ?_⟩
+  unfold checkMutual
+  simp only [Bind.bind, Except.bind, pure, Except.pure, if_pos hpin]
+  exact hF
+
 /-- The inductive-block dispatch of the cached driver: a RECOGNISED
-block goes to `checkNativeS`, everything else to `checkIndDeclSF`,
-and either way the pure fueled `checkDecl` reproduces the run. -/
+fixpoint block goes to `checkNativeS`, a recognised MUTUAL block to
+`checkMutualS` (task #278), everything else to `checkIndDeclSF`, and
+either way the pure fueled `checkDecl` reproduces the run. -/
 theorem checkModeledOrNativeSF_run (hμ : mode.verifiedChecks = true) {env : Env} (henv : EnvWF env)
     {block : List ConstantInfo} {nP : Nat} (hpin : basisPinHit block = none)
     (hok : indParamsOk nP block = true)
@@ -726,7 +1273,10 @@ theorem checkModeledOrNativeSF_run (hμ : mode.verifiedChecks = true) {env : Env
     {feOut : FEnv} {s' : CState}
     (h : (match nativeParts? nP block with
           | some p => checkNativeS mode (mkFEnv env) p
-          | none => checkIndDeclSF mode (mkFEnv env) block) s₀ =
+          | none =>
+            match mutualParts? nP block with
+            | some q => checkMutualS mode (mkFEnv env) q
+            | none => checkIndDeclSF mode (mkFEnv env) block) s₀ =
       .ok (feOut, s')) :
     CSOKF s' ∧ feOut = mkFEnv feOut.env ∧
     ∃ F, checkDecl mode (fueledOps mode F) pins env (.indDecl block nP) =
@@ -740,7 +1290,10 @@ theorem checkModeledOrNativeSF_run (hμ : mode.verifiedChecks = true) {env : Env
         if indParamsOk nP block = true then
           (match nativeParts? nP block with
             | some p => checkNative (fueledOps mode F) env p
-            | none => checkModeled mode (fueledOps mode F) env block)
+            | none =>
+              match mutualParts? nP block with
+              | some q => checkMutual (fueledOps mode F) env q
+              | none => checkModeled mode (fueledOps mode F) env block)
         else throw (CheckError.invalid "number of parameters mismatch")) = .ok feOut.env
   -- task #293: this block is not one of the five pinned ones (the
   -- recognition happened before the dispatch, on both sides)
@@ -752,7 +1305,14 @@ theorem checkModeledOrNativeSF_run (hμ : mode.verifiedChecks = true) {env : Env
     exact ⟨hres, hfe, F, hF⟩
   | none =>
     rw [hfp] at h
-    obtain ⟨hres, hfe, F, hF⟩ := checkIndDeclSF_run hμ henv hwf h
-    exact ⟨hres, hfe, F, hF⟩
+    cases hmp : mutualParts? nP block with
+    | some q =>
+      rw [hmp] at h
+      obtain ⟨hres, hfe, F, hF⟩ := checkMutualS_run hμ henv hwf h
+      exact ⟨hres, hfe, F, hF⟩
+    | none =>
+      rw [hmp] at h
+      obtain ⟨hres, hfe, F, hF⟩ := checkIndDeclSF_run hμ henv hwf h
+      exact ⟨hres, hfe, F, hF⟩
 
 end ConLeche.Cached
