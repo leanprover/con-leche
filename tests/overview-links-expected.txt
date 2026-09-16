@@ -7,8 +7,8 @@
 
 >>> OVERVIEW.md
 
-== Main.lean#L714
-   714          -- record array the driver already holds — never a diagnostic
+== Main.lean#L740
+   740  def usage : String := String.intercalate "\n" [
 
 == Main.lean#L48
     48  def ConLeche.CheckError.exitCode : CheckError → UInt32
@@ -144,11 +144,11 @@
    366      (e : InstalledEnv mode pins ds) (k : Nat)
    367      (hk : k < e.pend.size) : Except (CheckError × Nat) (PLift (GroupChecked mode e k)) :=
 
-== Main.lean#L176
-   176      {ds : List ConLeche.Declaration}
+== Main.lean#L202
+   202  def checkLoop (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride t0 : Nat)
 
-== Main.lean#L294
-   294      (e : ConLeche.Cached.InstalledEnv mode ConLeche.natOpPinSets ds)
+== Main.lean#L320
+   320  def checkPool (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride t0 jobs : Nat)
 
 == ConLeche/Cached/Installed.lean#L399-L403
    399  def collectChecks {pins : List NatOpPinSet} {ds : List Declaration}
@@ -157,11 +157,11 @@
    402      (j : Nat) → (∀ i, i < j → GroupChecked mode e i) →
    403        Except (CheckError × Nat) (PLift (∀ i, GroupChecked mode e i))
 
-== Main.lean#L333-L336
-   333    let mut results : List (Array (Nat × ConLeche.Cached.RecordResult mode e)) := []
-   334    let mut failure : Option IO.Error := none
-   335    for t in tasks do
-   336      match ← IO.wait t with
+== Main.lean#L359-L362
+   359  def checkDeclsIO (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride total t0 tParse jobs : Nat)
+   360      (noMark shadow : Bool) (ds : Array ConLeche.Declaration) :
+   361      IO (Except (ConLeche.CheckError × Nat)
+   362        { env : ConLeche.Env // ConLeche.Cached.checkDecls mode ConLeche.natOpPinSets ds = .ok env }) := do
 
 == ConLeche/Cached/Installed.lean#L534-L536
    534  theorem fullyChecked_checkDecls {pins : List NatOpPinSet} {ds : Array Declaration}
@@ -704,8 +704,8 @@
 == ConLeche/Kernel/Inductives/NativeInstall.lean#L546
    546  def classifyFixKinds (T : Name) (lps : List Name) (nP nIdx : Nat)
 
-== ConLeche/Kernel/Inductives/NativeInstall.lean#L617
-   617    unless blockReadBackOk envOut p.nP [(q.cvTa, q.ctorsA)] do
+== ConLeche/Kernel/Inductives/NativeInstall.lean#L625
+   625  def checkNative (ops : CheckerOps m) (env : Env) (p₀ : NativeParts) : m Env := do
 
 == ConLeche/SetModel/Value.lean#L510-L517
    510  noncomputable def lfpFamSpace (w : Nat) (I : V) : V := piR (w + 1) I fun _ => univ w
@@ -726,8 +726,8 @@
 == ConLeche/Kernel/Inductives/MutualParts.lean#L185
    185  def mutualParts? (nPd : Nat) (block : List ConstantInfo) : Option MutualParts :=
 
-== ConLeche/Kernel/Inductives/MutualInstall.lean#L585
-   585  /-- **The projection table** at a STRUCTURE-LIKE member — one
+== ConLeche/Kernel/Inductives/MutualInstall.lean#L616
+   616  def checkMutualCore (ops : CheckerOps m) (env : Env) (b : MutualBlock)
 
 == ConLeche/SetTheory/Derive/LfpTuple.lean#L91
     91  noncomputable def lfpTuple (w k : Nat) (Is : Nat → V) (Φ : (Nat → V) → Nat → V) : Nat → V :=
