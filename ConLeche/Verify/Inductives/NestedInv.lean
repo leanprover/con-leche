@@ -272,6 +272,39 @@ theorem normCtorValM_true_stores {env : Env} {memberNames : List Name} {nP nF F 
     rw [checkConstantValPre_ok h]
     simpa using hp
 
+/-- **THE STORED CONSTRUCTOR'S RESIDUAL IS THE MINTED ONE'S** (task
+#315 L-B): whatever `normCtorValM` stores, its type is either the
+constant it was given or that constant's telescope re-closed around
+**the very residual the two-stage opening of the given type hands
+back**.  Only the field domains differ. -/
+theorem normCtorValM_resid {env : Env} {memberNames : List Name} {nP nF F : Nat}
+    {cvC cvCa cvCa' : ConstantVal}
+    (h : normCtorValM (m := CheckM) (fueledOps mode F) env memberNames nP nF cvC cvCa true
+      = .ok cvCa') :
+    cvCa' = cvCa ∨
+      ∃ (pbs fbs : List (Expr × BinderMeta)) (fvs xFvs : List Expr) (crest xrest : Expr),
+        openPisAtFvars nP cvCa.type 0 = some (fvs, crest) ∧
+        openPisAtFvars nF crest nP = some (xFvs, xrest) ∧
+        fbs.length = nF ∧
+        cvCa'.type = closeTelescope (pbs ++ fbs) 0 xrest := by
+  unfold normCtorValM at h
+  obtain ⟨q, hq, h⟩ := exceptBind_ok h
+  obtain ⟨cbs, cres⟩ := q
+  try simp only at h
+  obtain ⟨rr, hr, h⟩ := exceptBind_ok h
+  obtain ⟨fvs, crest'⟩ := rr
+  try simp only at h
+  obtain ⟨u, hu, h⟩ := exceptBind_ok h
+  obtain ⟨fbs, resid⟩ := u
+  try simp only at h
+  obtain ⟨xFvs, hopX, hfbs⟩ := normFieldDomsM_open hu
+  split at h
+  · simp only [pure, Except.pure, Except.ok.injEq] at h
+    exact Or.inl h.symm
+  · refine Or.inr ⟨List.zipWith (fun (x : Expr) (bb : Expr × BinderMeta) => (x.fvarTypeD, bb.2))
+        fvs cbs, fbs, fvs, xFvs, crest', resid, unwrapOr_ok hr, hopX, hfbs, ?_⟩
+    rw [checkConstantValPre_ok h]
+
 /-- One constructor at the grade: the front door is
 `checkConstantValPre`, which returns its input, so what the stage
 stores is `normCtorValM`'s output ON THE MINTED CONSTANT — the
