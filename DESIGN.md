@@ -79631,6 +79631,124 @@ Cost: well under a session, most of it the two re-merges the moving pin
 cost and the arena run.  Next: L-B's assembly and M7's three named
 facts, as after 3b.
 
+##### (k) INTEGRATION 3d — the K.34 follow-up, L-B sessions 6–7 and L-E session 1 merged; the residual splits into SHAPE and ENTRY (session U-26)
+
+Three merges into the lane, each `--no-ff` at its pinned sha with its
+gates run before it was committed.  After this session `declNested_of`'s
+chain reads
+
+```lean
+declNested_of hμ mp hE
+  (nestedCoreModeled_of
+    (nestedCtorsStaged_of (nestedPinsStaged_of (nestedPinsIdent_of hSh hEn)) nestedReadLaw))
+  htail h : Nonempty (EnvModelM V μ envOut)
+```
+
+and closes over exactly **`hSh : NestedPinsShape V μ F`**, **`hEn :
+NestedPinsEntry V μ F`** and **`htail : NestedTailModeled V μ F`** (plus
+`mp : EnvModelB V μ env`, `hE` and the run) — `NestedPinsInst` is gone,
+split by L-E into the entry-free shape half and the entry half.
+
+*The K.34 follow-up* (047322c4) — `agent/uniform-m5` **1a7d2541**.  The
+kernel lane's answer to the two things §U.27 (j) reported rather than
+edited: `Kernel/Inductives/NestedElim.lean`'s comment now names
+`NativeParts.lean` as `containerInfo?`'s home, and SIX OVERVIEW anchors
+are repointed — `Main.lean` L714→L740 (the usage text), L176→L202
+(`checkLoop`), L294→L320 (`checkPool`), L333-L336→L359-L362
+(`checkDeclsIO`), `MutualInstall.lean` L585→L616 (`checkMutualCore`) and
+`NativeInstall.lean` L617→L625 (`checkNative`).  The sixth is the one 3c
+had already repointed on the lane, so the forecast conflict did not
+happen: OVERVIEW.md and `tests/overview-links-expected.txt` auto-merged
+to the union, the shared anchor's two sides being byte-identical.  No
+`--update` was run — every repointed anchor was diffed and each citing
+paragraph re-read against the new line, and all six now land on the
+definition the paragraph names (the four `Main.lean` ones had slid onto
+a binder line, an argument line and two body lines).
+
+*L-B sessions 6–7* (9ddab55a) — `agent/uniform-ident` **ab07ff64**, a
+descendant of the lane's 47c15aee, so the union is a recursive merge
+over that base: **no conflict at all.**  3c's binder edits
+(`DeclNestedCore.lean`, `DeclBlock.lean`, `NestedAuxInv.lean`,
+`NestedRecDoor.lean`) touch nothing L-B changed, and DESIGN auto-merged
+with §U.35/§U.37 in their numeric place after §K.34.  It brings B1
+(`openPisAtFvars_domain` and the `os_field_domain*` corollaries,
+`structPsAt_of_instSeq_fvsP`, `blockCtorFieldDomain`), B3
+(`whnf_indApp_eq` ported into `Verify/InferLemmas.lean`), K.32 read back
+(`nestedCopyTargetsOk_head`/`_mentions`, `nestedPinKinds_get`,
+`nestedPinKindsOk_inv`, the shared `copyGroupTargetHead`) and the two
+SHAPE arms `NestedPinsRun.copyOrdFRight_shape`/`.copyPinF_shape`.
+`NestedCopyKinds` is UN-HUNG — its allowlist line in `NestedCopyRead.lean`
+goes, and the shake proposal set with it: 509 → 508.
+
+*L-E session 1* (4f783661) — `agent/uniform-entry` **2aab2a7a**, which
+contains the lane's 83bc2d7b.  **DESIGN.md was the only conflict** (§U.36
+against L-B's §U.35/§U.37), resolved by number — §U.35, §U.36, §U.37 —
+and verified to be a pure union: zero lines dropped against EITHER
+parent.  The one line the integration was warned about,
+`Model/Inductives/NestedCopyInst.lean`'s `NestedPinGroupSyn` binder
+(L-E inserted `st` before `mp₁'.base2`; L-B's session 7 added theorems
+around it), auto-merged CORRECTLY — L-E's binder, all of L-B's theorems
+— and the build confirms it.  No adaptation was needed on the lane for
+any of the three merges.
+
+L-E brings the structure change: `CopyCtorInst` split into
+`CopyCtorShape` (entry-free) and `CopyEntryAt`/`CopyEntryOut`
+(`NestedFit.lean`, `fit_iff_at`/`fit_imp` re-argumented);
+`PinShapes`/`BlockAt`/`EnvBlocksOf`, `EnvBlockModels := ∃ B, …`,
+`blockOf := epsilon` and `ContainerModeled.namesLen`
+(`NestedPremise.lean`); the crossing kit's extensions
+(`ContainerCross.lean`); `NestedPinsInst` → `NestedPinsShape` +
+`NestedPinsEntry` with `nestedPinsIdent_of hSh hEn`
+(`NestedCopyIdx.lean`); the new `NestedPinLeafAll.lean`
+(`nestedPinShapes_of`, `nestedBlockAt_of`, `NestedPinGroup.same`,
+`PinRecLaws.pinCar_empty_of_noFit`); `lfp_pins_le_of_section_closed` at
+the end of `SetTheory/Derive/LfpCompose.lean`; and
+`NestedPinGroupSyn.grp`/`.modeled` with `containerInfo?_eq_of_names`.
+L-B's two shape arms are STANDALONE on the merged tree — assembling them
+into `CopyCtorShape` is L-E's session 2, and this integration did not
+attempt it.
+
+**The import gate on the union brought nothing new**, as in §U.27 (b),
+(g) and (h): shake 509 → 508 → 508 proposed, all allowlisted, at the
+three merge commits (the only allowlist change is L-B's own retired
+line); pub-imports none demotable at each, 36 dot-notation fallbacks,
+1256 of 1974 in-tree edges public after the K.34 follow-up, 1256 of 1979
+after L-B and 1258 of 1982 after L-E.  `scripts/pub-import-plan.py` is
+untouched — neither branch added a FALLBACK, so there was no union to
+take.
+
+Gates at each merge commit: build warning-free (693 jobs at the
+follow-up and at L-B, 694 with L-E's `NestedPinLeafAll`), `lake test`
+warning-free, shake + pub-imports as above, layering 346/264/3/1 →
+346/264/3/1 → 346/265/3/1 with 0 base→lane and 0 impl→theory, trust
+surface 13 escapes in 5 allowlisted files (625, 625, 626 scanned),
+no-local-paths, overview-links 112, quote-gate 2, proofdeps 4955 rows /
+12 roots / 0 doors (unchanged at all three), nested-shadow 27/27 on the
+final commit.  No `sorry`, no axioms, no `maxHeartbeats`, no checker
+code changed on the lane (the follow-up's `NestedElim.lean` comment is
+the kernel lane's, merged).
+
+**The chain, re-verified** (`_tmp/uniform-315/chain-probe-u26.lean`,
+outside the build): the composition above typechecks with exactly `hSh`,
+`hEn` and `htail` free, and `nestedTailModeled_of hrd heqs hst` still
+typechecks at the same tree.  `#print axioms` of both: `[propext,
+Classical.choice, Quot.sound]`.
+
+##### (l) THE RESIDUAL AFTER 3d
+
+* **`NestedPinsShape V μ F`** — lane L-B: two of its five arms
+  (`ordF`-right and `pinF`, §U.37) are in the tree as standalone
+  theorems, three are open, and the assembly is L-E's session 2.
+* **`NestedPinsEntry V μ F`** — lane L-E, the entry half of the split
+  (§U.36's global entry theorem, steps (i)/(iii)/(iv)).
+* **`NestedTailModeled V μ F`** — M7-2's `nestedTailModeled_of` modulo
+  `NestedRecReadingsOf`, `NestedRecEqsOf` and `NestedRecsStored`.
+
+Cost: well under a session — one auto-merged anchor union, one
+conflict-free recursive merge, and one DESIGN conflict resolved by
+number.  Next: L-E's session 2 (the shape assembly) and M7's three
+stage facts.
+
 #### K.32 — the copies' recursive targets come from the container's own recursion (2026-09-16, task #315, lane L-B's DESIGN §U.23 (e))
 
 The model's `ordF` arm needs to know that a container-ORDINARY field
