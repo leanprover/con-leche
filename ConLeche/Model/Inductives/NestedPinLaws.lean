@@ -173,7 +173,7 @@ telescopes and index expressions and its results' index readings, all
 dropped to the copy's first position so that the member-local index
 `j` reads the global one — with the injection the tagged tower at `j`
 (the member-local tag inside the seal, §U.16). -/
-noncomputable def nestedPc (b : MutualBlock) (ctorsA : List (ConstantVal × Nat))
+@[expose] noncomputable def nestedPc (b : MutualBlock) (ctorsA : List (ConstantVal × Nat))
     (kinds : List (List (RecFieldKind × Nat))) (k : Nat) (resSort : Level)
     (dsF : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm))
     (esF : Nat → (Name → Nat) → List AnnotTerm)
