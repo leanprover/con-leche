@@ -495,4 +495,24 @@ theorem declStep_preserves_of_cons (mp : EnvModelM V μ env)
     hmemNew hvalReads hnh hnat_ops hdiv_mod heq_law hcaps_ok hrec_rules hreduce_ops
     htower_ok
 
+/-- **The cons step's carrier equation, read as AGREEMENT** (task #315
+M7-3): a fresh cons values every OLD constant as the prefix did, which
+is the one model-facing fact the block-model field `EnvModelB.blocks`
+needs of a stage (`ContainerCross.lean`).  The stage theorems above
+this one used to drop the equation on the floor (`.choose`); they hand
+it back in this shape instead. -/
+theorem exists_agrees_of_cons {mp : EnvModelM V μ env} {c₀ : ConstantInfo}
+    {A : (Name → Nat) → AnnotTerm} (hfresh : env.find? c₀.name = none)
+    (h : ∃ mp' : EnvModelM V μ ⟨c₀ :: env.consts⟩,
+      mp'.base2.acval = acvalWith mp.base2.acval c₀.name A) :
+    ∃ mp' : EnvModelM V μ ⟨c₀ :: env.consts⟩, AcvalAgrees mp.base2 mp'.base2 := by
+  obtain ⟨mp', hacv⟩ := h
+  refine ⟨mp', fun n hn => ?_⟩
+  have hne : n ≠ c₀.name := by
+    intro hh
+    rw [hh, hfresh] at hn
+    exact nomatch hn
+  rw [hacv]
+  exact acvalWith_ne hne
+
 end ConLeche.Model

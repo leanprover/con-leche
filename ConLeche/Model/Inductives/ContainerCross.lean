@@ -103,8 +103,25 @@ theorem ContainerModeled.crossEnv {env₁ env₂ : Env} {m₁ : EnvModel V env�
 
 /-! ## The field across an extension -/
 
+/-- **The blocks survive a change of carrier at the SAME environment**:
+the reading does not move at all, and `ContainerModeled` crosses on the
+agreement alone. -/
+theorem EnvBlockModels.crossSame {env : Env} {m₁ m₂ : EnvModel V env}
+    (hag : AcvalAgrees m₁ m₂) (hb : EnvBlockModels m₁) : EnvBlockModels m₂ := by
+  intro J ci hci
+  obtain ⟨d, C⟩ := hb J ci hci
+  refine ⟨d, C.crossEnv (fun _ _ _ hf => hf) (fun _ h => h) hag ?_
+    (C.k ▸ containerInfo?_members_pos hci)⟩
+  intro ψ dp e ea hd
+  rw [denoteMeta_acval_congr (acval₁ := m₂.acval) (acval₂ := m₁.acval) hag dp e]
+  exact hd
+
 /-- **The blocks survive a non-inductive fresh cons**: the reading does
-not move (`containerInfo?_cons_nonInd`) and the block model crosses. -/
+not move (`containerInfo?_cons_nonInd`) and the block model crosses.
+The only model-facing input is the carriers' AGREEMENT at the stored
+names: `denoteMeta` consults the valuation only at names it found, so
+the reading transport `hde` follows from it
+(`denoteMeta_acval_congr` then `denoteMeta_env_mono`). -/
 theorem EnvBlockModels.crossCons {env : Env} {m₁ : EnvModel V env} {c₀ : ConstantInfo}
     {m₂ : EnvModel V ⟨c₀ :: env.consts⟩}
     (hfresh : env.find? c₀.name = none)
@@ -112,8 +129,7 @@ theorem EnvBlockModels.crossCons {env : Env} {m₁ : EnvModel V env} {c₀ : Con
       (∀ cv mI rP rules, c₀ ≠ .recInfo cv mI rP rules) ∧
       (∀ cv nP nF, c₀ ≠ .ctorInfo cv nP nF))
     (hntc : ∀ tbl, c₀ ≠ .projInfo tbl)
-    (hag : ∀ n : Name, (env.find? n).isSome = true → m₂.acval n = m₁.acval n)
-    (hacv : m₂.acval = ConLeche.Semantics.acvalWith m₁.acval c₀.name (m₂.acval c₀.name))
+    (hag : AcvalAgrees m₁ m₂)
     (hb : EnvBlockModels m₁) : EnvBlockModels m₂ := by
   intro J ci hci
   rw [ConLeche.containerInfo?_cons_nonInd hfresh hkind] at hci
@@ -122,10 +138,10 @@ theorem EnvBlockModels.crossCons {env : Env} {m₁ : EnvModel V env} {c₀ : Con
     (constsResolve_of_findPreserved (findPreserved_cons hfresh)) hag ?_
     (C.k ▸ containerInfo?_members_pos hci)⟩
   intro ψ dp e ea hd
-  rw [hacv]
-  exact denoteMeta_env_mono (findPreserved_cons hfresh) (litGuardsMono_cons hfresh)
-    (findProj?_cons_of_base_none hntc) dp e
-    (by rw [denoteMeta_acvalWith_fresh hfresh]; exact hd)
+  refine denoteMeta_env_mono (findPreserved_cons hfresh) (litGuardsMono_cons hfresh)
+    (findProj?_cons_of_base_none hntc) dp e ?_
+  rw [denoteMeta_acval_congr (acval₁ := m₂.acval) (acval₂ := m₁.acval) hag dp e]
+  exact hd
 
 /-- **The blocks survive an inductive extension, modulo the new block's
 own containers**: an OLD container's block is read the same at the
@@ -159,28 +175,35 @@ theorem EnvBlockModels.crossInd {env₁ env₂ : Env} {m₁ : EnvModel V env₁}
     obtain ⟨d, C⟩ := hb J ci h₁
     exact ⟨d, C.crossEnv hF hres hag hde (C.k ▸ containerInfo?_members_pos h₁)⟩
 
-/-- **The model WITH ITS BLOCKS survives a non-inductive fresh cons** —
-the maintenance shape of every non-inductive stage of the fold: the
-`EnvModelM` the stage already produces, plus its carrier equation
-(`acvalWith` at the fresh name), give the `blocks` field back. -/
-noncomputable def EnvModelB.consNonInd {env : Env} {c₀ : ConstantInfo}
-    (mb : EnvModelB V μ env) (m' : EnvModelM V μ ⟨c₀ :: env.consts⟩)
-    (hfresh : env.find? c₀.name = none)
-    (hkind : (∀ cv caps, c₀ ≠ .indInfo cv caps) ∧
+/-! ## The non-inductive stages of the fold -/
+
+/-- **A stage that installs NOTHING, or conses ONE fresh constant of a
+non-inductive kind** — the shape of every value-kind stage of the P
+fold (definitions, theorems, opaques, axioms; the tolerated axiom skip
+is the left arm): the new environment is the old one or one cons whose
+name is fresh and whose head is neither of the three inductive kinds
+`containerInfo?` reads nor a projection table. -/
+@[expose] def NonIndStep (env env₂ : Env) : Prop :=
+  env₂ = env ∨
+    ∃ c₀ : ConstantInfo, env₂ = ⟨c₀ :: env.consts⟩ ∧ env.find? c₀.name = none ∧
+      (∀ cv caps, c₀ ≠ .indInfo cv caps) ∧
       (∀ cv mI rP rules, c₀ ≠ .recInfo cv mI rP rules) ∧
-      (∀ cv nP nF, c₀ ≠ .ctorInfo cv nP nF))
-    (hntc : ∀ tbl, c₀ ≠ .projInfo tbl)
-    (hacv : m'.base2.acval
-      = ConLeche.Semantics.acvalWith mb.base2.acval c₀.name (m'.base2.acval c₀.name)) :
-    EnvModelB V μ ⟨c₀ :: env.consts⟩ where
+      (∀ cv nP nF, c₀ ≠ .ctorInfo cv nP nF) ∧ (∀ tbl, c₀ ≠ .projInfo tbl)
+
+/-- **The model WITH ITS BLOCKS survives a non-inductive stage** — the
+maintenance shape of every value-kind stage of the fold: the
+`EnvModelM` the stage already produces, plus the agreement of its
+carrier with the old one at the stored names, give the `blocks` field
+back. -/
+noncomputable def EnvModelB.ofNonIndStep {env env₂ : Env}
+    (mb : EnvModelB V μ env) (m' : EnvModelM V μ env₂)
+    (hstep : NonIndStep env env₂)
+    (hag : AcvalAgrees mb.base2 m'.base2) :
+    EnvModelB V μ env₂ where
   toEnvModelM := m'
   blocks := by
-    refine EnvBlockModels.crossCons hfresh hkind hntc (fun n hn => ?_) hacv mb.blocks
-    have hne : n ≠ c₀.name := by
-      intro h
-      rw [h, hfresh] at hn
-      exact nomatch hn
-    rw [hacv]
-    exact acvalWith_ne hne
+    rcases hstep with rfl | ⟨c₀, rfl, hfresh, hi, hr, hc, ht⟩
+    · exact EnvBlockModels.crossSame hag mb.blocks
+    · exact EnvBlockModels.crossCons hfresh ⟨hi, hr, hc⟩ ht hag mb.blocks
 
 end ConLeche.Model
