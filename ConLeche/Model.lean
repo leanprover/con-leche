@@ -129,6 +129,7 @@ public import ConLeche.Model.Inductives.NestedCore
 public import ConLeche.Model.Inductives.NestedRec
 public import ConLeche.Model.Inductives.NestedRecCand
 public import ConLeche.Model.Inductives.NestedRecTyped
+public import ConLeche.Model.Inductives.NestedPinLaws
 public import ConLeche.Model.Inductives.NestedStageCtor
 public import ConLeche.Model.Inductives.NestedLoop
 public import ConLeche.Model.Inductives.NestedPins

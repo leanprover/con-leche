@@ -351,9 +351,12 @@ theorem declNested_of (hμ : μ.verifiedChecks = true) {F : Nat} {env envOut : E
     Nonempty (EnvModelM V μ envOut) := by
   obtain ⟨h0, h1, st, b, envAux, stored, ctorsR, cvRms, cvRns, rulesM, rulesN, fmsA, ctorsA,
     hfA, hcA, helim, hcount, hfresh, hcont, hb, haux, hstored, hclosed, hpinsAux, hcaps, hsrc,
-    -, hgrp, hsc, hkinds, hpins₁, hctors, hrm, hrn, hrulesM, hrulesN, htbl, hpinsOut, hcnt, hrecs⟩ := h
+    -, hgrp, hsc, -, hkinds, hpins₁, hctors, hrm, hrn, hrulesM, hrulesN, htbl, hpinsOut, hcnt,
+    hrecs⟩ := h
   -- the `-` after `hsrc` is K.31's `pinsDistinct` conjunct: named for the
-  -- identities' discharge (`NestedPinsIdent`, lane L-B), not consumed here
+  -- identities' discharge (`NestedPinsIdent`, lane L-B), not consumed here;
+  -- the `-` after `hsc` is K.32's `nestedCopyTargetsOk`, named for the same
+  -- discharge's `ordF` arm, not consumed here either
   have hPM : PinsModeled mp.base2 st.pins := pinsModeled_of_env hpins hcont
   obtain ⟨mp₂, hag, d, hd, hreps, htyped⟩ := hcore hμ mp hE p st b envAux stored ctorsR fmsA ctorsA
     hPM h0 h1 hfA hcA helim hcount hfresh hcont hb haux hstored hclosed hpinsAux hcaps hsrc hgrp hsc
