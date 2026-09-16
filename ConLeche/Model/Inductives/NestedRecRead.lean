@@ -9,6 +9,7 @@ import ConLeche.Model.IndTowerRead
 import ConLeche.Model.Inductives.StructData
 import ConLeche.Model.Inductives.NestedCtorRead
 import ConLeche.Model.Inductives.StructFrames
+import ConLeche.Model.Inductives.SumRecRead
 public section
 
 /-!
@@ -64,16 +65,23 @@ theorem restoredRecTy_reading {env : Env} (m : EnvModel V env) {φ : Name → Na
     {ea : AnnotTerm} (hea : denoteMeta m.acval env φ 0 tyR = some ea) :
     ∃ (rds : List (Nat × Nat × AnnotTerm)) (conc : AnnotTerm),
       ea = mkPisAV rds conc ∧ rds.length = nP + N ∧
-      (∀ e ∈ rds, e.1 = 0 ∧ e.2.1 = pwBit φ pw) ∧ DomsBelow 0 rds := by
+      (∀ e ∈ rds, e.1 = 0 ∧ e.2.1 = pwBit φ pw) ∧ DomsBelow 0 rds ∧
+      ∃ fvs : List Expr, fvs.length = nP + N ∧
+        (∀ (i : Nat) (x : Expr), fvs[i]? = some x → ∃ ty, x = Expr.fvar i ty) ∧
+        denoteMeta m.acval env φ (nP + N) (Expr.instSeq fvs (nP + N - 1) resid) = some conc := by
   obtain ⟨cbs', hstrip', hmeta'⟩ := ConLeche.rk_restoreNested_stripPis hnP hstrip hres hfree
   have hlen' : cbs'.length = nP + N := ConLeche.Expr.stripPis_length _ hstrip'
   have htyR : tyR = ConLeche.mkPisB cbs' resid := ConLeche.stripPis_mkPisB _ hstrip'
-  obtain ⟨fvs, o, hop⟩ := openPisAtFvars_of_stripPis_isSome (nP + N) (e := tyR) 0
-    (by rw [hstrip']; rfl)
-  obtain ⟨Γ, Rr, hpi, -, -⟩ := openPisAtFvars_denotePTele (nP + N) hop hea
+  obtain ⟨fvs, hlenF, -, hopB⟩ := ConLeche.openPisAtFvars_mkPisB (nP + N) cbs' hlen' 0
+  have hop : openPisAtFvars (nP + N) tyR 0 = some (fvs, Expr.instSeq fvs (nP + N - 1) resid) := by
+    rw [htyR]; exact hopB resid
+  obtain ⟨Γ, Rr, hpi, hR, -⟩ := openPisAtFvars_denotePTele (nP + N) hop hea
   obtain ⟨rds, hst, -⟩ := stripPisAV_of_piTeleAV hpi
   obtain ⟨heq, hlen⟩ := stripPisAV_eq_mkPis hst
-  refine ⟨rds, Rr, heq, hlen, ?_, ?_⟩
+  have hidx := ConLeche.openPisAtFvars_index (nP + N) tyR 0 hop
+  refine ⟨rds, Rr, heq, hlen, ?_, ?_, fvs, hlenF, fun i x hx => by
+    obtain ⟨ty, hty⟩ := hidx i x hx
+    exact ⟨ty, by rw [hty, Nat.zero_add]⟩, by rw [Nat.zero_add] at hR; exact hR⟩
   · intro e he
     obtain ⟨k, hk⟩ := List.getElem?_of_mem he
     have hkl : k < rds.length := (List.getElem?_eq_some_iff.mp hk).1
@@ -199,5 +207,105 @@ theorem nestedBlockModel_nIdxT_pin {env₂ : Env} {m : EnvModel V env₂} {q₀ 
   exact h.symm
 
 end Bookkeeping
+
+/-! ## The conclusion's reading -/
+
+/-- **The recursor type's conclusion, opened and read**: the residual
+`motive_c ı⃗ t` — the motive's variable applied to the index variables
+and the major — opened at the standard openers of the whole telescope
+and read at its depth is `mutualConcAV k n nIdx mm` (the bound
+variables read back as themselves). -/
+theorem denoteMeta_recConc_opened {acval : Name → (Name → Nat) → AnnotTerm} {env : Env}
+    {φ : Name → Nat} {N k n nIdx mm : Nat} (hN : nIdx + n + k + 1 ≤ N) (hmm : mm < k)
+    {fvs : List Expr} (hlen : fvs.length = N)
+    (hidx : ∀ (i : Nat) (x : Expr), fvs[i]? = some x → ∃ ty, x = Expr.fvar i ty) :
+    denoteMeta acval env φ N (Expr.instSeq fvs (N - 1)
+        (Expr.mkAppN (.bvar (nIdx + n + k - mm)) (ConLeche.structPsAt 1 nIdx ++ [.bvar 0])))
+      = some (mutualConcAV k n nIdx mm) := by
+  have hcl : ∀ a ∈ fvs, a.looseBVarsBounded 0 = true := by
+    intro a ha
+    obtain ⟨i, hi⟩ := List.getElem?_of_mem ha
+    obtain ⟨ty, rfl⟩ := hidx i a hi
+    rfl
+  -- a bound variable below the depth opens to its opener
+  have hvar : ∀ j, j < N → ∃ ty, Expr.instSeq fvs (N - 1) (.bvar j) = Expr.fvar (N - 1 - j) ty := by
+    intro j hj
+    have h := Expr.instSeq_bvar fvs (N - 1) j hcl (by omega) (by rw [hlen]; omega)
+    obtain ⟨ty, hty⟩ := hidx (N - 1 - j) _ h
+    exact ⟨ty, hty⟩
+  rw [Expr.instSeq_mkAppN, List.map_append]
+  simp only [List.map_cons, List.map_nil]
+  obtain ⟨tyH, hH⟩ := hvar (nIdx + n + k - mm) (by omega)
+  obtain ⟨ty0, h0⟩ := hvar 0 (by omega)
+  rw [hH, h0]
+  have hspP : DenoteMetaSpine acval env φ N ((ConLeche.structPsAt 1 nIdx).map (Expr.instSeq fvs (N - 1)))
+      (idxVarsAV nIdx 1) := by
+    refine DenoteMetaSpine.of_getD _ _ (by simp [ConLeche.structPsAt, idxVarsAV]) ?_
+    intro q hq
+    have hq' : q < nIdx := by simpa [ConLeche.structPsAt] using hq
+    have h1 : ((ConLeche.structPsAt 1 nIdx).map (Expr.instSeq fvs (N - 1))).getD q default
+        = Expr.instSeq fvs (N - 1) (.bvar (1 + nIdx - 1 - q)) := by
+      rw [List.getD_eq_getElem?_getD, List.getElem?_map]
+      simp only [ConLeche.structPsAt, List.getElem?_map, List.getElem?_range hq', Option.map_some,
+        Option.getD_some]
+    have h2 : (idxVarsAV nIdx 1).getD q default = .bvar (1 + nIdx - 1 - q) := by
+      rw [List.getD_eq_getElem?_getD]
+      simp only [idxVarsAV, List.getElem?_map, List.getElem?_range hq', Option.map_some,
+        Option.getD_some]
+    rw [h1, h2]
+    obtain ⟨tyq, hq2⟩ := hvar (1 + nIdx - 1 - q) (by omega)
+    rw [hq2, denoteMeta_fvar, show N - 1 - (N - 1 - (1 + nIdx - 1 - q)) = 1 + nIdx - 1 - q from by
+      omega]
+  have hsp : DenoteMetaSpine acval env φ N
+      ((ConLeche.structPsAt 1 nIdx).map (Expr.instSeq fvs (N - 1)) ++ [Expr.fvar (N - 1 - 0) ty0])
+      (idxVarsAV nIdx 1 ++ [.bvar 0]) :=
+    hspP.append (.cons (by rw [denoteMeta_fvar, show N - 1 - (N - 1 - 0) = 0 from by omega]) .nil)
+  rw [denoteMeta_mkAppN hsp (denoteMeta_fvar _ _ _ _),
+    show N - 1 - (N - 1 - (nIdx + n + k - mm)) = 1 + nIdx + n + k - 1 - mm from by omega]
+  unfold mutualConcAV
+  rw [AnnotTerm.mkAppN_append_one]
+
+/-! ## One class's restored recursor type, read at the door -/
+
+/-- **One restored recursor type reads at the door** to a Π-tower over
+the auxiliary's binder count with the conclusion `motive_c ı⃗ t`
+(`mutualConcAV`), the elimination datum's bits, closed domains, graded
+at every frame and formed at the sort the door inferred
+(`claimsAt_of`'s sort row at the pre-annotated door's own
+`inferTypeCore`/`ensureSortCore` run). -/
+theorem nestedRecTy_read_of {μ : CheckMode} {F : Nat} (hμ : μ.verifiedChecks = true) {env₂ : Env}
+    (mp₂ : EnvModelM V μ env₂) {R : RestoreTbl} {nP k n nIdx mm : Nat} (hnP : R.nP = nP)
+    (hmm : mm < k) {tyA : Expr} {cbs : List (Expr × BinderMeta)} {pw : PropWhen}
+    (hstrip : tyA.stripPis (nP + (k + n + nIdx + 1)) = some (cbs,
+      Expr.mkAppN (.bvar (nIdx + n + k - mm)) (ConLeche.structPsAt 1 nIdx ++ [.bvar 0])))
+    (hmeta : ∀ x ∈ cbs, x.2 = (⟨pw⟩ : BinderMeta))
+    (hfree : ∀ n' ∈ R.auxNames, (Expr.mkAppN (.bvar (nIdx + n + k - mm))
+      (ConLeche.structPsAt 1 nIdx ++ [.bvar 0])).mentionsConst n' = false)
+    {o : ConstantVal} (hres : ConLeche.restoreNested R tyA = .ok o.type)
+    (hb : o.type.looseBVarsBounded 0 = true) (hfv : o.type.hasFvar = false)
+    {sty : Expr} {u : Level} (hinf : ConLeche.inferTypeCore μ env₂ F 0 o.type = .ok sty)
+    (hens : ConLeche.ensureSortCore μ env₂ F 0 sty = .ok u) (ψ : Name → Nat) :
+    ∃ rds : List (Nat × Nat × AnnotTerm),
+      denoteMeta mp₂.base2.acval env₂ ψ 0 o.type = some (mkPisAV rds (mutualConcAV k n nIdx mm)) ∧
+      rds.length = nP + (k + n + nIdx + 1) ∧
+      (∀ e ∈ rds, e.1 = 0 ∧ e.2.1 = pwBit ψ pw) ∧ DomsBelow 0 rds ∧
+      ∀ ρ : Nat → V, WellDenotedV V ρ (mkPisAV rds (mutualConcAV k n nIdx mm)) ∧
+        interp V ρ (mkPisAV rds (mutualConcAV k n nIdx mm)) ∈ˢ (univ (u.eval ψ) : V) := by
+  have hws : Expr.WScoped 0 o.type := Expr.WScoped.of_not_hasFvar hfv
+  have hL : Expr.LeavesBounded o.type := Expr.LeavesBounded.of_not_hasFvar hfv
+  have hnil : o.type.fvarLeaves = [] := Expr.fvarLeaves_eq_nil_of_not_hasFvar hfv
+  obtain ⟨ea, hea⟩ := acceptedReads_of mp₂.base2 ψ hinf hws hb hL
+  obtain ⟨rds, conc, rfl, hlen, hbits, hbelow, fvs, hlenF, hidx, hR⟩ :=
+    restoredRecTy_reading mp₂.base2 hnP hstrip hmeta hfree hres hb hfv hea
+  have hconc : conc = mutualConcAV k n nIdx mm := by
+    have h := denoteMeta_recConc_opened (acval := mp₂.base2.acval) (env := env₂) (φ := ψ)
+      (N := nP + (k + n + nIdx + 1)) (k := k) (n := n) (nIdx := nIdx) (mm := mm)
+      (by omega) hmm hlenF hidx
+    rw [hR] at h
+    exact Option.some.inj h
+  subst hconc
+  refine ⟨rds, hea, hlen, hbits, hbelow, fun ρ => ?_⟩
+  have hc := claimsAt_of hμ mp₂ ψ F
+  exact hc.sortRow hinf hens hws hb hL (CtxOk.nil hnil) hea ρ (Sat_nil V ρ)
 
 end ConLeche.Model
