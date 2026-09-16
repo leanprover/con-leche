@@ -207,4 +207,119 @@ theorem WScoped_of_mkAppN {d : Nat} :
     · exact hf.2
     · exact hxs y hy
 
+
+/-! ## The open/close round trip, up to `ErasedEq` (task #315 L-B, DESIGN §U.38 (c))
+
+A copy's constructor is STORED closed (`closeTelescope`) and READ open
+(`openPisAtFvars`, twice — `MutualCtorDataI.opens`), so every identity
+about the elimination's output has to travel that round trip.  It is
+**not** an identity: `closeTelescope` leaves each binder's domain where
+it stands and the re-opening plants `.fvar i (bs.getD i).1`, so every
+free variable the body carries comes back with the CLOSING telescope's
+annotation — which at a copy's fields is the positivity-NORMALISED
+domain, not the one the minted opening planted.  `abstract1_instantiate1`
+is exact only under `fvarConsistent`, which is what fails there; the
+tolerance the readings consume is `ErasedEq` (`denoteMeta_erasedEq`),
+and `ErasedEq` is exactly blind to `fvar` annotations. -/
+
+/-- `abstract1_instantiate1` with its consistency hypothesis dropped:
+the round trip changes nothing an interpretation reads. -/
+theorem abstract1_instantiate1_erasedEq {d : Nat} {ty : Expr} :
+    ∀ (e : Expr) (k : Nat), e.looseBVarsBounded k = true →
+      Expr.ErasedEq ((e.abstract1 d k).instantiate1 (.fvar d ty) k) e := by
+  intro e
+  induction e <;> intro k hb <;>
+    simp_all [Expr.looseBVarsBounded, Expr.abstract1, Expr.instantiate1, Expr.ErasedEq]
+  case bvar i =>
+    have h1 : ¬ (i = k) := by omega
+    have h2 : ¬ (i > k) := by omega
+    simp [h1, h2, Expr.ErasedEq]
+  case fvar idx ty' ih =>
+    by_cases hidx : idx = d
+    · subst hidx
+      rw [if_pos rfl]
+      show (Expr.instantiate1 (.bvar k) (.fvar idx ty) k).ErasedEq (.fvar idx ty')
+      simp only [Expr.instantiate1]
+      exact rfl
+    · rw [if_neg hidx]
+      exact Expr.ErasedEq.rfl _
+
+/-- The checker's opener respects `ErasedEq`: what it does to a term is
+determined by the shape the interpretation reads. -/
+theorem openPisAtFvars_erasedEq :
+    ∀ (k : Nat) {e e' : Expr} {d : Nat} {fvs : List Expr} {body : Expr},
+      Expr.ErasedEq e e' → openPisAtFvars k e' d = some (fvs, body) →
+      ∃ (fvs' : List Expr) (body' : Expr),
+        openPisAtFvars k e d = some (fvs', body') ∧ fvs'.length = fvs.length ∧
+        Expr.ErasedEq body' body := by
+  intro k
+  induction k with
+  | zero =>
+    intro e e' d fvs body he h
+    simp only [openPisAtFvars, Option.some.injEq, Prod.mk.injEq] at h
+    obtain ⟨rfl, rfl⟩ := h
+    exact ⟨[], e, rfl, rfl, he⟩
+  | succ k ih =>
+    intro e e' d fvs body he h
+    match e', h with
+    | .forallE dom' body' m', h =>
+      match e, he with
+      | .forallE dom bodyE m, he =>
+        obtain ⟨rfl, hdom, hbody⟩ := he
+        simp only [openPisAtFvars] at h
+        cases hop : openPisAtFvars k (body'.instantiate1 (.fvar d dom') 0) (d + 1) with
+        | none => rw [hop] at h; exact nomatch h
+        | some q =>
+          rw [hop] at h
+          simp only [Option.some.injEq, Prod.mk.injEq] at h
+          obtain ⟨rfl, rfl⟩ := h
+          obtain ⟨fvs₂, body₂, hop₂, hlen₂, he₂⟩ := ih
+            (Expr.ErasedEq.instantiate1 hbody
+              (show Expr.ErasedEq (Expr.fvar d dom) (Expr.fvar d dom') from rfl)) hop
+          refine ⟨Expr.fvar d dom :: fvs₂, body₂, ?_, by simp [hlen₂], he₂⟩
+          show (match openPisAtFvars k (bodyE.instantiate1 (.fvar d dom) 0) (d + 1) with
+            | some (fvs, e) => some (Expr.fvar d dom :: fvs, e)
+            | none => none) = _
+          rw [hop₂]
+
+/-- A closed telescope is bound-variable closed. -/
+theorem looseBVarsBounded_closeTelescope :
+    ∀ (bs : List (Expr × BinderMeta)) (i : Nat) (r : Expr),
+      (∀ b ∈ bs, b.1.looseBVarsBounded 0 = true) → r.looseBVarsBounded 0 = true →
+      (closeTelescope bs i r).looseBVarsBounded 0 = true
+  | [], _, r, _, hr => hr
+  | (dom, bm) :: bs, i, r, hbs, hr => by
+    show (Expr.looseBVarsBounded 0 dom &&
+      Expr.looseBVarsBounded 1 ((closeTelescope bs (i + 1) r).abstract1 i 0)) = true
+    rw [hbs (dom, bm) List.mem_cons_self, Bool.true_and]
+    exact ConLeche.looseBVarsBounded_abstract1 _ 0
+      (looseBVarsBounded_closeTelescope bs (i + 1) r
+        (fun b hb => hbs b (List.mem_cons_of_mem _ hb)) hr)
+
+/-- **THE ROUND TRIP** (task #315 L-B): a telescope closed over
+bound-variable-closed binders and re-opened at the same depth gives
+back its own binders' domains and a body `ErasedEq` to the one it was
+closed around. -/
+theorem openPisAtFvars_closeTelescope :
+    ∀ (bs : List (Expr × BinderMeta)) (i : Nat) (r : Expr),
+      (∀ b ∈ bs, b.1.looseBVarsBounded 0 = true) → r.looseBVarsBounded 0 = true →
+      ∃ (fvs : List Expr) (r' : Expr),
+        openPisAtFvars bs.length (closeTelescope bs i r) i = some (fvs, r') ∧
+        fvs.length = bs.length ∧ Expr.ErasedEq r' r
+  | [], i, r, _, _ => ⟨[], r, rfl, rfl, Expr.ErasedEq.rfl r⟩
+  | (dom, bm) :: bs, i, r, hbs, hr => by
+    obtain ⟨fvs, r', hop, hlen, her⟩ :=
+      openPisAtFvars_closeTelescope bs (i + 1) r
+        (fun b hb => hbs b (List.mem_cons_of_mem _ hb)) hr
+    obtain ⟨fvs₂, body₂, hop₂, hlen₂, he₂⟩ := openPisAtFvars_erasedEq bs.length
+      (abstract1_instantiate1_erasedEq (ty := dom) (closeTelescope bs (i + 1) r) 0
+        (looseBVarsBounded_closeTelescope bs (i + 1) r
+          (fun b hb => hbs b (List.mem_cons_of_mem _ hb)) hr)) hop
+    refine ⟨Expr.fvar i dom :: fvs₂, body₂, ?_, by simp [hlen₂, hlen], he₂.trans her⟩
+    show (match openPisAtFvars bs.length
+        (((closeTelescope bs (i + 1) r).abstract1 i 0).instantiate1 (.fvar i dom) 0) (i + 1) with
+      | some (fvs, e) => some (Expr.fvar i dom :: fvs, e)
+      | none => none) = _
+    rw [hop₂]
+
 end ConLeche
