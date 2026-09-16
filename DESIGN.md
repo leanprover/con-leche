@@ -74944,3 +74944,44 @@ lines byte-identical to the K.31 run.  Negative control: falsifying the
 head comparison turns 19 of the 27 fixtures into `nested: a copy's
 group-recursive field does not come from the container's own
 recursion` — the 19 whose blocks constrain at least one position.
+
+#### K.33 — the copies' positivity normalisation: MEASURED, no check (2026-09-16, task #315, lane L-B's DESIGN §U.23 (e))
+
+L-B asked for a conjunct saying `normCtorValM`'s positivity
+normalisation is the IDENTITY at every copy (`ty' == cvCa.type` at
+`g := true`), so that `CopyCtorInst`'s left `ordF` arm — a SYNTACTIC
+`AnnotTerm` equality — could read the stored auxiliary constructor as
+the elimination's rewritten one.  Its own text says a `false` would be
+"a positive DECLINE of that shape".  **The maintainer's rule forbids
+that**: no decline on anything official accepts.  So no conjunct was
+added, and this is the measurement instead.
+
+**The arm IS exercised.**  A scratch build (instrumented
+`normCtorValMF`, not committed) counted the copy constructors whose
+stored type differs from the minted one:
+
+* the 27 shadow fixtures: **6** — `_nested.InModelNested.DMap_1.node`,
+  `_nested.P22T_1.mk`, `_nested.P26D_1.node`, `_nested.P2D_1.node`,
+  `_nested.Subtype_1.mk`, `_nested.Wrap_1.mk` (one per block);
+* the 41-block Mathlib cone: **2** —
+  `_nested.Std.DTreeMap.Internal.Impl_3.inner` and `…_5.inner`.
+
+**The difference is exactly the λ-pin β-redex.**  At
+`_nested.P2D_1.node` the minted second field is
+
+    (fun (_ : Nat) => P2) (bvar 0)
+
+and the stored one is
+
+    P2
+
+— the container `P2D`'s parameter is instantiated by the λ-pin
+`fun _ => P2`, the mint substitutes it into the field, and the
+normalisation `whnf`s the redex away.  That is K.12's λ-pin shape and
+K.17's whnf witness, in the one place they still bite.
+
+**Consequence for the model.**  The syntactic identity is FALSE at these
+8 constructors, so the affected `ordF` arm has to be taken at the
+READING (an `interp` equality across the β step) and not syntactically.
+It is not a rare corner — 6 of the 27 fixtures and 2 real Mathlib
+containers hit it.
