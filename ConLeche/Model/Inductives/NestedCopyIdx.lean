@@ -22,12 +22,14 @@ public section
 /-!
 # The copies' index telescopes (task #315 L-B, DESIGN §U.23)
 
-`NestedPinsIdent` (`NestedPins.lean`) asks two identities of every pin
+`NestedPinsIdent` (`NestedPins.lean`) asks three facts of every pin
 group: `idx` — the copy's index telescope is the container's
-instantiated at the pin — and `inst` — `CopyCtorInst` at every copy
-constructor.  This module discharges `idx` from the run and names
-`inst` as the residual `NestedPinsInst`; `nestedPinsIdent_of` is the
-consumer.
+instantiated at the pin — `shape` — `CopyCtorShape` at every copy
+constructor (lane L-B) — and `entry` — the entries at the auxiliary
+carrier (the whole block's theorem, lane L-E, DESIGN §U.36).  This
+module discharges `idx` from the run and names the other two as the
+residuals `NestedPinsShape` and `NestedPinsEntry`; `nestedPinsIdent_of`
+is the consumer.
 
 The chain for `idx`: K.28 certifies the copy's former as `mkCopy`'s
 output at the recorded source, i.e. `closeTelescope pbs 0 tyI` with

@@ -81407,6 +81407,14 @@ Files: `NestedFit.lean` (rewritten below the fits' congruences),
 (`NestedPinGroup.shape`/`.entry`/`.same`, `nestedPinLeaf_of`; `NestedFit`
 demoted), `NestedLoop.lean` (`crossEnv` with `hmem`/`hpin`),
 `NestedPinLeafAll.lean` (NEW), `LfpCompose.lean` (+1), `Model.lean` (+1 line).
-The gates' numbers are the session's memory note's; the import gate's two
-demotions were APPLIED (`NestedCore`'s `NestedFit` and `NestedPremise`'s
-`BlockRecWD`).  Next: (i) of (c), 1–1.5 sessions; then (iii)/(iv).
+Gates at the session's last commit: `lake build` 694 jobs warning-free;
+`lake test` warning-free; layering base 346 / model 265 / caps 3 /
+umbrella 1, 0 base→lane, 0 impl→theory; trust surface 13 escapes in 5
+allowlisted files (626 scanned); no-local-paths OK; overview-links 112;
+quote-gate 2; proofdeps 4955 rows / 12 roots / 0 doors (unchanged); shake
+509/509 allowlisted after the import gate's two proposals were taken to
+their end — `NestedCore`'s `NestedFit` and `NestedPremise`'s `BlockRecWD`
+edges first demoted, then DELETED (both re-exported through
+`NestedPremise`/`NestedRecCand`); pub-imports 1258 of 1978 in-tree edges
+public, none demotable (36 dot-notation fallbacks).  Next: (i) of (c),
+1–1.5 sessions; then (iii)/(iv).

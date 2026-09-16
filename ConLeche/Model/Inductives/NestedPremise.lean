@@ -1,7 +1,6 @@
 module
 
 public import ConLeche.Semantics.Inductives.DeclNested
-import ConLeche.Model.Inductives.BlockRecWD
 public import ConLeche.Model.Inductives.NestedRecCand
 public import ConLeche.Model.Inductives.NestedFit
 public section
@@ -20,7 +19,13 @@ premise and its consumer:
 
 * `ContainerModeled` / `EnvBlockModels` / `PinsModeled` — a stored
   container's block model in the container's own terms, at every
-  stored container, and read at the elimination's pins;
+  stored container, and read at the elimination's pins; with it the
+  container's pins' LAWS and SHAPES (`BlockAt`: `PinRecLaws` — the
+  pins' carriers are the least families closed under the pins'
+  constructors — and `PinShapes`, the pins' `CopyCtorShape` against
+  their containers) at ONE global assignment of block models to
+  container groups (`EnvBlocksOf`; `blockOf` is its witness), task
+  #315 L-E, DESIGN §U.36;
 * `EnvModelB` — the P-tier environment invariant WITH its blocks
   (task #315 M7-3, DESIGN §U.31): `EnvModelM` and, on top, that field;
 * `NestedBlockModelOf` — the record of the nested run's own block
