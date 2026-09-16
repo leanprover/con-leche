@@ -3,6 +3,7 @@ module
 public import ConLeche.Model.Inductives.DeclNestedCore
 public import ConLeche.Model.Inductives.NestedRec
 public import ConLeche.Model.Inductives.NestedRecTyped
+public import ConLeche.Model.Inductives.NestedPinLaws
 import ConLeche.Verify.Inductives.NestedElimInv
 public section
 
@@ -11,13 +12,13 @@ public section
 
 `MutualRecsModeled`'s twin at `k + nPins` classes (DESIGN §U.25 (e) 5,
 §U.29), stated CONSUMER FIRST: `NestedTailModeled` (`DeclNestedCore.lean`)
-is discharged by `nestedTailModeled_of` from four named facts at the
+is discharged by `nestedTailModeled_of` from three named facts at the
 run's data — the tail's conjuncts and the core's concrete output
-(`NestedTailIn`) — each with this skeleton as its consumer:
+(`NestedTailIn`) — each with this skeleton as its consumer, the pins'
+constructors `nestedPc` and their laws `PinRecLaws` at
+`nestedBlockModel` being lane M7-1's theorem `nestedPinRecLaws_of`
+(`NestedPinLaws.lean`, DESIGN §U.28):
 
-* `NestedPinLawsOf` — the pins' constructors `nestedPinCtors` (the
-  auxiliary block's lists at the copies' positions, DESIGN §U.25 (e) 1)
-  and their laws `PinRecLaws` at `nestedBlockModel` (lane M7-1);
 * `NestedRecReadingsOf` — THE READINGS (item 2, this lane): the
   `k + nPins` restored recursor types read at the model of the restored
   environment to Π-towers `mkPisAV (rdsM c ψ) (concM c)`, formed at a
@@ -49,37 +50,6 @@ universe w
 
 variable {V : Type w} [SetTheory V]
 variable {μ : CheckMode}
-
-/-! ## The pins' constructors at the run -/
-
-/-- **Pin `q`'s constructors at the pin**, from the auxiliary block's
-lists at the copy's positions `b.ownOffset (k + q) + j` (DESIGN §U.25
-(e) 1): the copy's constructors with their field counts, the field
-domains as the sealed operator reads them (`blkFss0`), the recursive
-flags (`blkRss`), the targets in `members ++ pins` (K.26's re-keyed
-kinds), the reflexive telescopes, index expressions and result
-readings (`tssF`/`eissF`/`esF`), and the injection the tagged tower
-at the MEMBER-LOCAL position (`ofNested`'s). -/
-@[expose] noncomputable def nestedPinCtors (b : MutualBlock) (f₀ : MutualFormerA)
-    (ctorsA : List (ConstantVal × Nat)) (kinds : List (List (RecFieldKind × Nat)))
-    (dsF : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm))
-    (esF : Nat → (Name → Nat) → List AnnotTerm)
-    (eissF : Nat → (Name → Nat) → List (List AnnotTerm))
-    (tssF : Nat → (Name → Nat) → List (List (Nat × Nat × AnnotTerm))) (k q : Nat) :
-    PinCtors V where
-  ctors := (b.ownCtors (k + q)).map fun c => ctorsA.getD c.1 default
-  Fss := fun ψ => (List.range (b.ownCtors (k + q)).length).map fun j =>
-    (blkFss0 b ctorsA kinds dsF ψ).getD (b.ownOffset (k + q) + j) []
-  rss := (List.range (b.ownCtors (k + q)).length).map fun j =>
-    (blkRss ctorsA kinds).getD (b.ownOffset (k + q) + j) []
-  tgts := fun j i => tgtAt (mutKsOf kinds (b.ownOffset (k + q) + j)) i
-  tlss := fun ψ => (List.range (b.ownCtors (k + q)).length).map fun j =>
-    tssF (b.ownOffset (k + q) + j) ψ
-  Eiss := fun ψ => (List.range (b.ownCtors (k + q)).length).map fun j =>
-    eissF (b.ownOffset (k + q) + j) ψ
-  Ess := fun ψ => (List.range (b.ownCtors (k + q)).length).map fun j =>
-    esF (b.ownOffset (k + q) + j) ψ
-  inj := fun ψ j fs => injW (f₀.s.eval ψ) j (mkTower (fs ++ [pt]))
 
 /-! ## The readings, the equations, the tuple -/
 
@@ -327,39 +297,10 @@ end Facts
 
 /-! ## The named facts, at the run -/
 
-/-- **The pins' constructors and their laws at the run** (DESIGN §U.25
-(e) 1, lane M7-1): `PinRecLaws` at `nestedBlockModel` and
-`nestedPinCtors`, at every tail input.  Consumer: `nestedTailModeled_of`. -/
-@[expose] def NestedPinLawsOf (V : Type w) [SetTheory V] (μ : CheckMode) (F : Nat) : Prop :=
-  ∀ {env : Env} (mp : EnvModelM V μ env) (p : NestedParts) (envOut : Env) (st : ElimState)
-    (b : MutualBlock) (envAux : Env) (stored : List AuxStored)
-    (ctorsR : List (List (ConstantVal × Nat × Nat))) (cvRms cvRns : List ConstantVal)
-    (rulesM rulesN : List (List RecRule)) (fmsA ctorsA₀ : List ConstantVal)
-    (fms : List MutualFormerA) (f₀ : MutualFormerA) (ctorsA : List (ConstantVal × Nat))
-    (sortss : List (List Level)) (kinds : List (List (RecFieldKind × Nat)))
-    (mp₁ : EnvModelM V μ (ConLeche.consMutualFormers fms env))
-    (ppsF : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)) (W : (Name → Nat) → Nat)
-    (idxF : Nat → List Expr) (dsF : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm))
-    (esF : Nat → (Name → Nat) → List AnnotTerm) (srcsF : Nat → List (Option Nat))
-    (fvsPF xFvsF : Nat → List Expr) (xrestF : Nat → Expr)
-    (eissF : Nat → (Name → Nat) → List (List AnnotTerm))
-    (tssF : Nat → (Name → Nat) → List (List (Nat × Nat × AnnotTerm)))
-    (dsR : Nat → Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)) (xFvsR : Nat → Nat → List Expr)
-    (pinsS : List PinSyn)
-    (mp₂ : EnvModelM V μ (ConLeche.consNestedCtors ctorsR.flatten
-      (ConLeche.consMutualFormers (fms.take p.k) env))),
-    NestedTailIn F mp p envOut st b envAux stored ctorsR cvRms cvRns rulesM rulesN fmsA ctorsA₀
-      fms f₀ ctorsA sortss kinds mp₁ ppsF W idxF dsF esF srcsF fvsPF xFvsF xrestF eissF tssF dsR
-      xFvsR pinsS mp₂ →
-    PinRecLaws mp₂.base2
-      (nestedBlockModel (V := V) p b fms f₀ ctorsA kinds env ppsF W idxF dsF esF srcsF fvsPF xrestF
-        eissF tssF ctorsR dsR xFvsR pinsS)
-      (nestedPinCtors (V := V) b f₀ ctorsA kinds dsF esF eissF tssF p.k)
-
 /-- **The readings at the run** (DESIGN §U.25 (e) 2, this lane): at
 every tail input, a sort `s` and readings `rdsM`/`concM` with
 `NestedRecReadings` at the model of the restored environment, the
-block model `nestedBlockModel`, the pins' constructors `nestedPinCtors`,
+block model `nestedBlockModel`, the pins' constructors `nestedPc`,
 the restored recursors `cvRms`/`cvRns`, the recursors' level
 parameters `b.rlps` and the elimination level `b.elimLevel`.
 Consumer: `nestedTailModeled_of`. -/
@@ -389,7 +330,7 @@ Consumer: `nestedTailModeled_of`. -/
       NestedRecReadings mp₂.base2
         (nestedBlockModel (V := V) p b fms f₀ ctorsA kinds env ppsF W idxF dsF esF srcsF fvsPF
           xrestF eissF tssF ctorsR dsR xFvsR pinsS)
-        (nestedPinCtors (V := V) b f₀ ctorsA kinds dsF esF eissF tssF p.k)
+        (nestedPc (V := V) b ctorsA kinds p.k f₀.s dsF esF eissF tssF)
         cvRms cvRns b.rlps b.elimLevel s rdsM concM
 
 /-- **The equations at the run** (DESIGN §U.25 (e) 3–4): at every tail
@@ -422,13 +363,13 @@ input and every readings record, equations `eqs` with `NestedRecEqs`
       NestedRecReadings mp₂.base2
         (nestedBlockModel (V := V) p b fms f₀ ctorsA kinds env ppsF W idxF dsF esF srcsF fvsPF
           xrestF eissF tssF ctorsR dsR xFvsR pinsS)
-        (nestedPinCtors (V := V) b f₀ ctorsA kinds dsF esF eissF tssF p.k)
+        (nestedPc (V := V) b ctorsA kinds p.k f₀.s dsF esF eissF tssF)
         cvRms cvRns b.rlps b.elimLevel s rdsM concM →
       ∃ eqs : (Name → Nat) → List AnnotTerm,
         NestedRecEqs
           (nestedBlockModel (V := V) p b fms f₀ ctorsA kinds env ppsF W idxF dsF esF srcsF fvsPF
             xrestF eissF tssF ctorsR dsR xFvsR pinsS)
-          (nestedPinCtors (V := V) b f₀ ctorsA kinds dsF esF eissF tssF p.k)
+          (nestedPc (V := V) b ctorsA kinds p.k f₀.s dsF esF eissF tssF)
           (fun ψ => b.elimLevel.eval ψ) rdsM concM eqs
 
 /-- **The stage proper** (DESIGN §U.25 (e) 5): at every tail input, from
@@ -462,12 +403,12 @@ post-block environment.  Consumer: `nestedTailModeled_of`. -/
       NestedRecReadings mp₂.base2
         (nestedBlockModel (V := V) p b fms f₀ ctorsA kinds env ppsF W idxF dsF esF srcsF fvsPF
           xrestF eissF tssF ctorsR dsR xFvsR pinsS)
-        (nestedPinCtors (V := V) b f₀ ctorsA kinds dsF esF eissF tssF p.k)
+        (nestedPc (V := V) b ctorsA kinds p.k f₀.s dsF esF eissF tssF)
         cvRms cvRns b.rlps b.elimLevel s rdsM concM →
       NestedRecEqs
         (nestedBlockModel (V := V) p b fms f₀ ctorsA kinds env ppsF W idxF dsF esF srcsF fvsPF
           xrestF eissF tssF ctorsR dsR xFvsR pinsS)
-        (nestedPinCtors (V := V) b f₀ ctorsA kinds dsF esF eissF tssF p.k)
+        (nestedPc (V := V) b ctorsA kinds p.k f₀.s dsF esF eissF tssF)
         (fun ψ => b.elimLevel.eval ψ) rdsM concM eqs →
       NestedRecTuple
         (nestedBlockModel (V := V) p b fms f₀ ctorsA kinds env ppsF W idxF dsF esF srcsF fvsPF
@@ -477,12 +418,12 @@ post-block environment.  Consumer: `nestedTailModeled_of`. -/
 /-! ## The skeleton -/
 
 /-- **THE RECURSORS' STAGE OF A NESTED BLOCK, assembled** — `NestedTailModeled`
-from its four named facts: at the tail's input the pins' laws and the
-readings are found, the equations at the readings follow, the chosen
+from its three named facts: at the tail's input the pins' laws are
+M7-1's (`nestedPinRecLaws_of`), the readings are found, the equations at the readings follow, the chosen
 tuple exists (`nestedRecsTuple_of`: `nestedRecs` with `hcand` from
 `hcandT` at the readings' frames), and the stage conses the post-block
 model from them. -/
-theorem nestedTailModeled_of {F : Nat} (hpc : NestedPinLawsOf V μ F)
+theorem nestedTailModeled_of {F : Nat}
     (hrd : NestedRecReadingsOf V μ F) (heqs : NestedRecEqsOf V μ F)
     (hst : NestedRecsStored V μ F) : NestedTailModeled V μ F := by
   intro hμ env mp hE p envOut st b envAux stored ctorsR cvRms cvRns rulesM rulesN fmsA ctorsA₀
@@ -495,9 +436,7 @@ theorem nestedTailModeled_of {F : Nat} (hpc : NestedPinLawsOf V μ F)
     ⟨hμ, hE, hPM, h0, h1, hfA, hcA, helim, hcount, hfresh, hcont, hb, haux, hstored, hclosed,
       hpinsAux, hcaps, hsrc, hgrp, hkinds, hctors, hrm, hrn, hrulesM, hrulesN, htbl, hpinsOut, hcnt,
       hrecs, henv, O⟩
-  have hp := hpc mp p envOut st b envAux stored ctorsR cvRms cvRns rulesM rulesN fmsA ctorsA₀ fms f₀
-    ctorsA sortss kinds mp₁ ppsF W idxF dsF esF srcsF fvsPF xFvsF xrestF eissF tssF dsR xFvsR pinsS
-    mp₂ I
+  have hp := nestedPinRecLaws_of hμ O.facts O.grouped O.bk mp₂.base2 O.stage.groups
   obtain ⟨s, rdsM, concM, R⟩ := hrd mp p envOut st b envAux stored ctorsR cvRms cvRns rulesM rulesN
     fmsA ctorsA₀ fms f₀ ctorsA sortss kinds mp₁ ppsF W idxF dsF esF srcsF fvsPF xFvsF xrestF eissF
     tssF dsR xFvsR pinsS mp₂ I
