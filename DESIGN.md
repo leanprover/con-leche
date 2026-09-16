@@ -74221,3 +74221,183 @@ applied (`MutualRecData`'s `BlockRep`/`StructData`/`MutualInv`,
    not contain") with a hint — `public import`; `lake build <Module>`
    by name builds a module the roots do not yet list, which `lake env
    lean` of an importer needs.
+
+#### U.10 — M4 session 4b: the recursors' stage, second half — the rule law and the store swap; `MutualRecsStored` closed (session U-9, 2026-09-16)
+
+`MutualRecsStored` is PROVED (`mutualRecsStored`), hence
+`MutualRecsModeled` (`mutualRecsModeled`) and `MutualCoreModeled`
+(`mutualCoreModeled`): stages 0–4 of the mutual install keep the model
+and leave the datum at the recursors' environment.  `declBlock` has one
+premise left, `MutualTablesModeled` (its consumer `declBlock_of_tables`).
+No checker code changed; no `sorry`, no axioms, no `maxHeartbeats`
+(the reference's store needed 1.6 M and its rule law 6.4 M — both
+elaborate at the default budget here).  New: `Model/Inductives/
+MutualRecsLaw.lean` (915 — the rule law), `MutualRecsStore.lean` (672 —
+the assembly), `BlockRecBridge.lean` (500 — the tuple-variable→leaf
+bridge and the readings' congruence), `BlockRepCross.lean` (516 — the
+datum transported), `MutualRecsSwap.lean` (328 — the store as a swap).
+Three Opus lanes ran in parallel (the swap port, the transport, the
+bridge kit); all at the default budget.
+
+##### (a) THE RULE LAW — `MutualRecsLaw.lean`
+
+```lean
+theorem blockRecRuleLaw {env₀ env₃ : Env} {m₀ : EnvModel V env₀} (m₃ : EnvModel V env₃)
+    {d : BlockRepData V} (hreps : BlockReps m₀ d) … (φ : Name → Nat) :
+    RecRuleLaw m₃ φ cvRa.name cvRa mI rP rl
+```
+
+At the store's model `m₃` (the recursor's leaf the chosen tuple's
+projection, the constructors' leaves the constructors' model's, the
+recursor type, the constructor type and the rule reading as the datum
+says), rule `(t, j)` fires.  The proof runs at the RESTRICTED
+assignment `ψ' = restrictΨ rlps ψR`: the rule's reading at `ψR` is its
+reading at `ψ'` (`denoteMeta_params_ext`, the rule's level parameters
+are `rlps`), the recursor type's by `MutualRecData.params`, the
+constructor type's by `CtorDataI.params`, and the leaves at `ψR` ARE
+the leaves at `ψ'` (`restrictΨ` is idempotent — FINDING 3 of §U.9
+paying off: no congruence of any reading in `ψ`).
+
+FINDING 1 — **the `paramsBlind` rule fires with no index pin.**  The
+kernel's mutual rule compares no parameters; the model's law gets the
+recursor spine `xs ++ [C ys]` fitting the recursor type and `ys`
+fitting the constructor type, and nothing relating `ys.take nP` to
+`xs.take nP`.  The uniform datum makes this trivial: the constructor's
+value is its injection of the FIELD spine (`BlockRep.ctor`, blind to
+its parameters), and the major's membership in member `t`'s carrier at
+the RECURSOR's parameters (the last domain of the recursor spine's fit,
+`spineFit_recData_inv`) decodes it — `BlockRep.fibre` at `lfpTuple`
+(`carrier_app_eq`) and `mkInj` give that the fields fit at the
+recursor's parameters (`spineFit_of_fitsFrom`) and that the index
+arguments are the constructor's index readings there (`es_eq_is`).  So
+the tuple's equation (`ProvisionedRecs.iota`, `blockRecs_iota`) applies
+at the recursor's own parameter spine `ps ++ Msl ++ msl ++ fs`, and
+`RecRuleLaw`'s `IotaIndexPin` hypothesis is never consumed.  The
+fixpoint route's `fixRecLawCore` needed the parameter frames' `Sat`
+agreement (`hiff`), the subsingleton criterion and a block split of
+the spine.
+
+The equation's left-hand side at the frame is the tuple's member `t`
+applied (`interp_specLhsAV_at`) to the parameters, motives, minors,
+the index readings (= the recursor's index arguments) and the
+constructor's value (= the injection = the major); its right-hand
+side is the rule core with the TUPLE's variables.  The bridge
+(`interp_specRuleCoreAV_leaf`: the tuple's variables at the ih frames
+read to the leaves' values, `interp_tupleVarAV_at`) turns it into the
+core with the LEAVES, which is closed under the rule's binders
+(`mutualRuleCoreAV_below`) so its value is frame-independent
+(`interp_congr_below`, `consList_agree_below`), and `mkLamsAV_fold`
+β-reduces the rule's λ-tower along the fitting spine.  At `ℓ = 0` both
+sides are the point (the recursor type's first binder and the rule's
+first binder carry the zero bit; `eq_pt_of_mem_univZero`,
+`mkLamsAV_zero_head`), as on the fixpoint route.
+
+##### (b) THE RIGHT-HAND SIDE GRADED — `ruleRhs_wdV`
+
+FINDING 2 — **the rule's grading is the equation's.**  `RecRuleLaw`
+wants the read right-hand side `WellDenotedV` at every frame.  The
+reference proved this from scratch (`mutualRuleOk`, 802 lines at
+6.4 M heartbeats).  Here it is `blockEq_wd`/`blockEq_valid` at the
+tuple of the leaves' values, carried across the bridge: the λ-tower's
+domains are the equation's own (`WellDenoted_mkPisAV_inv`), its body
+the core with the leaves (`WellDenoted_specRuleCoreAV_leaf` from the
+equation's body at a fitting spine), and the λ clause's codomain the
+minor's conclusion at the rule's frame (`ruleConcAV` — `minor_conc`'s
+term at `o = k + n`; membership by `minor_fold_mem` with the ih values
+from `ihApp_facts`, the `Prop` regime by `minor_conc`'s bound), all
+through `mkLamsAV_bits_wellDenoted`/`_validV` and
+`underTowerOk_of_fieldsOkB`.  ~300 lines at the default budget.
+
+##### (c) THE STORE — `MutualRecsSwap.lean`, `MutualRecsStore.lean`
+
+`mutualRecsStore` is `inductives`' `stageMutualRecsStore` without the
+carrier invariant (`EnvModelM.swapP` takes none here): the provision
+and the store are a shape-level swap (`swapShList_provision_store`),
+the three syntactic facts cross (`swapFacts_of_shList`), the
+environment's well-formedness is the kernel's (`mutual_recs_wf`), the
+prefix's rule rows transport (`RecRuleLaw.swapP`) and the block's are
+the caller's `hlaws`.  The assembly supplies `hlaws` from
+`blockRecRuleLaw`: a stored rule of member `t` is its `i`-th own
+constructor's (`mutualRules_mem_shape`, `memberRule_of` through
+`checkMutualMemberRules_inv` and the grouping), its right-hand side
+reads at the provisioned model (`ruleRhs_read_of`:
+`denoteMeta_mutualRecRhs` at the datum's readings, the recursor table
+made total below `k` by `mutualRecRhs_congr_recOf` — the reading layer
+asks for a stored name at EVERY index), and the reading crosses the
+swap unchanged (`denoteMeta_swap`); the reading's model is identified
+with the constructors' by `mutualRuleDataAV_congr` (the constructors'
+leaves are untouched by the provision) and `mutualRuleCoreAV_congr_Rof`
+(the recursors are read at the fields' targets only, where the
+provisioned leaves are the chosen tuple's).
+
+##### (d) THE DATUM TRANSPORTED ONCE — `BlockRepCross.lean`
+
+`BlockRep.crossEnv` (and `BlockReps`, `FormersTyped`, `CtorsTyped`,
+`MemberStored`, `MutualRecData`) under four hypotheses — non-recursor
+lookups preserved, `constsResolve` monotone, the leaves of every stored
+name unchanged, every successful reading reproduced — instantiated
+twice: along the provision (fresh conses; `ProvisionedRecs.agree`,
+`provisionMutualRecs_extend`, `provision_hde`) and across the swap
+(the same leaves; `SwapCongr`, `denoteMeta_swap`).  FINDING 3 — the
+planned `constsBound_of_denoteMeta` is FALSE: `denoteMeta`'s `.fvar`
+clause reads no annotation, so a reading can succeed at an unbound
+annotation.  Lane X instead proved `denoteMeta_env_mono` — the
+extension crossing WITHOUT `denoteMeta_envExtend_mono`'s `ConstsBound`
+premise (a successful reading refutes the unfound-constant clause by
+itself) — and the transport carries no boundedness side condition.
+
+##### (e) M4 RE-SIZED; s5
+
+**Session 5** = `MutualTablesModeled` (stage 5: the structure-like
+members' projection tables — `mutualMemberTable`/`checkStructProjTable`
+at the member's leaf; the datum's injection is the sum route's tower
+`injW w j (mkTower (fs ++ [pt]))` (`ofMutual_mkInj`,
+`tupleLfpAV_repr`), so the fixpoint route's table stage instantiates
+at the datum) + the FLIP (`declInductive`'s mutual arm calls
+`declBlock`; the kernel's mutual route wired; `MutualDatumOf` at the
+run) + the full gates + the LANDING on master with the OVERVIEW line
+(inductives denote the least solution of their recursive system, so
+structurally equal definitions coincide in the model and block
+boundaries and names are invisible there) — 1–2 sessions.  M4 1–2
+left; M5 2–3; M6 3–5; M7 3–4; M8 1–2.  Total remaining **10–16**.
+
+##### (f) GATES, FINDINGS, TRAPS
+
+Gates at HEAD: `lake build` 618 jobs warning-free (was 613), `lake test`
+green, layering 0/0 edges, trust surface 13/13 allowlisted,
+overview-links 103, quote-gate 2, no-local-paths OK, proofdeps 4361
+rows / 0 doors, shake 490 removals all allowlisted (12 new lines, all
+compensated per the `--only` runs) / `pub-imports: none demotable`
+(11 fallbacks).  The import gate took THREE rounds: the full run's
+13 proposals for the five new modules (12 compensated → allowlisted;
+`MutualRecsLaw`'s `BlockRecFrames` clean → deleted) and 4 demotable
+`public import`s (`BlockRecLeaf`'s `Annot.Valid`, `MutualRecsStage`'s
+`FixStageRec`/`MutualRecs`/`MutualGrouped` → `import`); the demotions
+then made `MutualRecsStage`'s `MutualRecs`/`MutualGrouped` lines
+removable, and the `--only` run reported the floor → deleted; round
+three green.
+
+1. **No index pin** ((a)).
+2. **The rule's grading is the equation's** ((b)).
+3. **`constsBound_of_denoteMeta` is false** ((d)).
+4. **Heartbeats**: the port, the law and the assembly at the default
+   budget (the reference: 1.6 M + 6.4 M + 6.4 M).
+5. **Three lanes in parallel**: the swap port, the transport, the bridge
+   kit — ~5, ~12, ~10 minutes; each compiled its one file by
+   `lake env lean` against the session's oleans.
+6. Lean traps: `getD_range_map` is `{α : Type}` — at `V : Type w` the
+   `rw` fails as "did not find pattern" (a universe-polymorphic twin
+   `getD_range_map'`); `obtain … := f ?a ?b` with named holes creates
+   NO goals ("no goals to be solved" at the next bullet) — `have` the
+   arguments first; `RecRule.fire.plain` is `RecRuleFire.plain`; a
+   theorem `MutualBlock.foo` declared inside `namespace ConLeche.Model`
+   lives in `ConLeche.Model.MutualBlock`, so `b.foo` fails ("does not
+   contain") — call it by name; `domsBelow_mono (by omega) h` leaves
+   the bound a metavariable for `omega` — bind `h` first; `T` of
+   `mkLamsAV_bits_wellDenoted` is not inferable from the goal; a
+   `rw [← lemma _ …]` whose term argument is `_` matches the first
+   occurrence — pass the hypothesis that fixes it; `FieldsOkB.append`
+   needs `List.map_append` first; `List.getD_eq_getElem?_getD` rewrites
+   the first `getD` — pass `(l := …)`; `lake env lean` reports fewer
+   linter warnings than `lake build` (an unused section variable and an
+   unused named binder surfaced only in the build).
