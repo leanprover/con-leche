@@ -79333,3 +79333,26 @@ compiler in one test build and entered as `FALLBACK`s.  Gates on the merged
 tree: build 681 warning-free, test clean, layering 343/255/3/1 0/0, trust
 13/5 (613), links 112, quote 2, paths OK, proofdeps 4955/12/0, shake
 506/506, pub-imports none demotable (35 fallbacks).
+
+##### (f) PART 2 — L-B merged (df3665aa)
+
+`agent/uniform-ident` dfebbb66 (L-B, §U.23 (e)–(h): the SYNTACTIC half
+of `NestedPinsInst`'s discharge — the `NestedCopy*` kit under
+`Verify/Inductives/` (`Prov`, `Rewrite`, `InstU`, `Kinds`, `Glue`,
+`Tele`) and `Model/Inductives/` (`Found`, `Idx`, `Read`), and
+`nestedPinsIdent_of : NestedPinsInst V μ F → NestedPinsIdent V μ F`
+(`Model/Inductives/NestedCopyIdx.lean`) re-argumented without `hS`)
+merged with NO conflict — L-B had merged c6ec9571 into its branch
+first.  `NestedPinsInst` stays NAMED (its assembly is L-B's session 2).
+Gates at the merge commit: build 681 warning-free, `lake test`
+warning-free, shake 506/506 (L-B's allowlist lines, as forecast),
+pub-imports none demotable (35 dot-notation fallbacks, 1232 of 1909
+public), layering 343/255/3/1, trust surface 13 in 5 (613 scanned),
+no-local-paths, overview-links 112, quote-gate 2, proofdeps 4955 rows /
+0 doors, nested-shadow 27/27.  The chain probe re-run with
+`nestedPinsStaged_of (nestedPinsIdent_of hI)`: `declNested_of` closes
+over exactly `hI : NestedPinsInst V μ F`, `htail : NestedTailModeled V
+μ F`, `hpins : EnvBlockModels mp.base2` (plus the run), `#print axioms`
+`[propext, Classical.choice, Quot.sound]`.  Residual after part 2:
+`NestedPinsInst` (L-B s2), `NestedTailModeled` (M7), the premise
+`EnvBlockModels`.  Part 3 (M7-1/M7-2/L-B-s2) follows.
