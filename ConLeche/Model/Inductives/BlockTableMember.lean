@@ -1,8 +1,6 @@
 module
 
 public import ConLeche.Model.Inductives.FixEntryLaw
-public import ConLeche.Model.Inductives.TowerCons
-public import ConLeche.Verify.Inductives.MutualInv
 public section
 
 /-!

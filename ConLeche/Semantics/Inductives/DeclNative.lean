@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Semantics.DeclIndRun
+import ConLeche.Semantics.DeclIndRun
 import ConLeche.Verify.Inductives.SumWF
 public import ConLeche.Verify.Inductives.FixWF
 public import ConLeche.Semantics.Inductives.DeclMutual

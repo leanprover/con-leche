@@ -4,9 +4,9 @@ public import ConLeche.Model.Inductives.BlockRecWD
 public import ConLeche.Model.Inductives.MutualRecs
 public import ConLeche.Model.Inductives.MutualRecData
 public import ConLeche.Model.Inductives.MutualFormersKit
-public import ConLeche.Model.Swap
-public import ConLeche.Verify.Extend.Recs
-public import ConLeche.Kernel.Inductives.MutualInstall
+import ConLeche.Model.Swap
+import ConLeche.Verify.Extend.Recs
+import ConLeche.Kernel.Inductives.MutualInstall
 public section
 
 /-!

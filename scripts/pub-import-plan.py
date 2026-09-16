@@ -71,6 +71,14 @@ FALLBACK = {
     # other side.  (The fixpoint is order-dependent: this edge became a
     # demotion candidate only when #285 changed the graph around it.)
     ('ConLeche.Kernel.BasisA','ConLeche.Kernel.BasisGen'),
+    # task #315 U-10: the one-import-view class of U-5/U-7 again — the plan
+    # proposed demoting EVERY public import of these files, which leaves
+    # their statements without `SetTheory`/`Name`/`Env`/`NoProjEnv`/
+    # `consMutualFormers` in the public view ("Unknown identifier … imported
+    # privately"); one re-export each stays.
+    ('ConLeche.Model.Inductives.BlockRecBridge','ConLeche.Model.Inductives.BlockRecWD'),
+    ('ConLeche.Model.Inductives.MutualNoProj','ConLeche.Model.Inductives.TowerCons'),
+    ('ConLeche.Model.Inductives.MutualNoProj','ConLeche.Verify.Inductives.MutualInv'),
     # task #290: every statement of `Verify/Frontend/Local.lean` is over
     # Naive's `NRes`, `isDigit`, `isWs`; the model calls the edge demotable
     # (the private `import Scan.Equiv` covers the constants), but a private

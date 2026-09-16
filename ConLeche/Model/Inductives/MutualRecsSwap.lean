@@ -1,9 +1,9 @@
 module
 
-public import ConLeche.Model.Swap
+import ConLeche.Model.Swap
 public import ConLeche.Model.Inductives.MutualFormersKit
-public import ConLeche.Verify.Inductives.MutualWF
-public import ConLeche.Semantics.IndBlockFacts
+import ConLeche.Verify.Inductives.MutualWF
+import ConLeche.Semantics.IndBlockFacts
 public section
 
 /-!

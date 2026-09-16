@@ -6,7 +6,6 @@ public import ConLeche.Kernel.Checker
 -- #315 M1: the route is cherry-picked UNWIRED), so `Kernel.Checker`
 -- does not reach it; the `mutual*_datF` family below is about its
 -- stages and imports them directly.
-public import ConLeche.Kernel.Inductives.MutualInstall
 
 public section
 

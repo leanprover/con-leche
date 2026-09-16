@@ -1,7 +1,9 @@
 module
 
 public import ConLeche.Model.Inductives.MutualRecsStage
-public import ConLeche.Model.Inductives.BlockRecBridge
+import ConLeche.Model.Inductives.BlockRecBridge
+import ConLeche.Model.Inductives.BlockRecValid
+import ConLeche.Model.Inductives.BlockRecLeaf
 import ConLeche.Model.Inductives.BlockRecEq
 import ConLeche.Model.Inductives.BlockRecKit
 import ConLeche.Model.Inductives.BlockRecTyped

@@ -1,8 +1,7 @@
 module
 
 public import ConLeche.Model.Inductives.BlockRecWD
-public import ConLeche.Model.Inductives.BlockRecValid
-public import ConLeche.Model.Inductives.BlockRecLeaf
+import ConLeche.Model.Inductives.BlockRecLeaf
 import ConLeche.Semantics.Tower.FixWire
 public section
 

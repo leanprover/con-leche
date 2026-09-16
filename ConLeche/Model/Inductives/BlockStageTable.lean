@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Model.Inductives.BlockTableMember
-public import ConLeche.Model.Inductives.StructBodyFrames
+import ConLeche.Model.Inductives.StructBodyFrames
 import ConLeche.Model.Inductives.BlockRecFrames
 import ConLeche.Model.Inductives.FixStageTable
 import ConLeche.Model.Inductives.FixLeafOk

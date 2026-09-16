@@ -1,10 +1,10 @@
 module
 
 public import ConLeche.Model.Inductives.BlockTableOf
-public import ConLeche.Model.Inductives.BlockStageTable
-public import ConLeche.Model.Inductives.BlockStageTables
-public import ConLeche.Model.Inductives.MutualNoProj
-public import ConLeche.Model.Inductives.MutualRecsStore
+import ConLeche.Model.Inductives.BlockStageTable
+import ConLeche.Model.Inductives.BlockStageTables
+import ConLeche.Model.Inductives.MutualNoProj
+import ConLeche.Model.Inductives.MutualRecsStore
 import ConLeche.Model.Inductives.MutualFormersKit
 import ConLeche.Model.Inductives.MutualRecsStage
 import ConLeche.Verify.Inductives.MutualGrouped

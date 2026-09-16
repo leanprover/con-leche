@@ -2,9 +2,7 @@ module
 
 public import ConLeche.Model.Inductives.BlockRepMutual
 public import ConLeche.Model.Inductives.MutualStageCtor
-public import ConLeche.Model.Inductives.MutualRecs
 import ConLeche.Model.Inductives.MutualIdxUniv
-public import ConLeche.Verify.Inductives.MutualGrouped
 import ConLeche.Model.Inductives.MutualFormersKit
 import ConLeche.Model.Inductives.MutualLeafBelow
 import ConLeche.Model.Inductives.SumStageFormer

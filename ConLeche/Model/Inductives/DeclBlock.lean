@@ -4,7 +4,6 @@ public import ConLeche.Semantics.Inductives.DeclMutual
 public import ConLeche.Model.Inductives.BlockRecWD
 public import ConLeche.Model.Inductives.MutualRecs
 public import ConLeche.Verify.Inductives.MutualGrouped
-public import ConLeche.Semantics.Tower.SumMk
 import ConLeche.Verify.Inductives.SumRec
 import ConLeche.Verify.Inductives.MutualInv
 import ConLeche.Verify.Extend.Inversions

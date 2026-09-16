@@ -2,8 +2,9 @@ module
 
 public import ConLeche.Model.Inductives.MutualRecsLaw
 public import ConLeche.Model.Inductives.MutualRecsSwap
-public import ConLeche.Model.Inductives.BlockRepCross
+import ConLeche.Model.Inductives.BlockRepCross
 import ConLeche.Model.Swap
+import ConLeche.Model.Inductives.BlockRecBridge
 import ConLeche.Verify.Inductives.MutualGrouped
 import ConLeche.Verify.Inductives.MutualInv
 import ConLeche.Verify.Inductives.MutualWF
