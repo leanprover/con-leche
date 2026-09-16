@@ -995,6 +995,10 @@ theorem checkNested_inv {env envOut : Env} {p : NestedParts} {F : Nat}
       -- `mkCopy`'s output at the `(J, lvls, Ds)` it records, so the
       -- copy-instantiation identities are a field read
       nestedCopySrcOk env p st = true ∧
+      -- THE PINS ARE STRUCTURALLY DISTINCT (K.15 (2), named at K.31):
+      -- read off `nestedContainersOk`'s first conjunct, so this costs no
+      -- second check — what `replaceAllNested`'s `find?` rewrite needs
+      pinsDistinct st.pins = true ∧
       -- THE PINS' MINT GROUPS (K.29): the segment, its size, the
       -- member order, and the group's shared `lvls`/`Ds`
       nestedGroupsOk env p st = true ∧
@@ -1166,7 +1170,8 @@ theorem checkNested_inv {env envOut : Env} {p : NestedParts} {F : Nat}
   subst henv
   exact ⟨st, b, envAux, stored, ctorsR, cvRms, cvRns, rulesM, rulesN, fmsA, ctorsA,
     hfmsA, hctorsA, helim', beq_iff_eq.mp hcnt, hfresh, hcont, hb', haux, hst', hpc,
-    (by cases uA; exact hpinsAux), hcaps, hsrc, hgrp, hsc, hkd,
+    (by cases uA; exact hpinsAux), hcaps, hsrc,
+    (Bool.and_eq_true _ _ |>.mp hcont).1, hgrp, hsc, hkd,
     (by cases uP₁; exact hpins₁), hctors, hrm, hrn, hrlm, hrln, htbl,
     (by cases u₀; exact hpins), hlen, by cases u₁; exact hrecs⟩
 

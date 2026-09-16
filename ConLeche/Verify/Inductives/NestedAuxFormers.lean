@@ -144,7 +144,7 @@ theorem nestedContainersOk_group {env : Env} {pins : List NestedPin}
     ∀ q ∈ pins, ∃ ci : ContainerInfo, containerInfo? env q.container = some ci ∧
       ∀ M ∈ ci.members, ∃ ci' : ContainerInfo, containerInfo? env M.name = some ci' ∧
         ci'.nP = ci.nP ∧ ci'.members.map (·.name) = ci.members.map (·.name) := by
-  simp only [nestedContainersOk, Bool.and_eq_true, decide_eq_true_eq] at h
+  simp only [nestedContainersOk, pinsDistinct, Bool.and_eq_true, decide_eq_true_eq] at h
   obtain ⟨hnd, hall⟩ := h
   refine ⟨hnd, fun q hq => ?_⟩
   have hq' := List.all_eq_true.mp hall q hq
