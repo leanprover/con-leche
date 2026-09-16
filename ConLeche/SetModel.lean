@@ -7,6 +7,7 @@ public import ConLeche.SetModel.UnionRec
 public import ConLeche.SetModel.TupleContainer
 public import ConLeche.SetModel.MutualPair
 public import ConLeche.SetModel.NestedTreeList
+public import ConLeche.SetModel.TreeListCompose
 
 @[expose] public section
 
@@ -31,7 +32,10 @@ mention neither `Expr` nor the annotated syntax `AnnotTerm`.
   closed tuple of a block presented as a member container ((W) at
   tuples, the `Prop` regime, the nested slot); the pure experiments
   `MutualPair` (a two-member mutual block) and `NestedTreeList`
-  (`Tree ::= node (List Tree)` through a `Sat`-guarded container).
+  (`Tree ::= node (List Tree)` through a `Sat`-guarded container), with
+  `TreeListCompose` — the same block through the general composed
+  operator of `SetTheory/Derive/LfpCompose` (the pins solved at the
+  auxiliary operator, Bekić at a segment).
 
 `Ops` and `Value` carry the namespace `ConLeche.SetModel`.  The tier
 imports only `ConLeche/SetTheory/*` and `ConLeche/Term/*`; the Expr-facing
