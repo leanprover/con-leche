@@ -723,11 +723,34 @@
 == ConLeche/Model/Inductives/DeclNative.lean#L63
     63  theorem declNative (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
 
-== ConLeche/Kernel/Inductives/MutualInstall.lean#L620-L623
-   620  def checkMutual (ops : CheckerOps m) (env : Env) (p : MutualParts) : m Env := do
-   621    unless p.recPinned do
-   622      throw (.invalid "mutual: a recursor record is not the generated recursor")
-   623    checkMutualCore ops env p.toBlock (some (p.members.map fun mb => (mb.cvR, mb.rules)))
+== ConLeche/Kernel/Inductives/MutualParts.lean#L185
+   185  def mutualParts? (nPd : Nat) (block : List ConstantInfo) : Option MutualParts :=
+
+== ConLeche/Kernel/Inductives/MutualInstall.lean#L585
+   585  def checkMutualCore (ops : CheckerOps m) (env : Env) (b : MutualBlock)
+
+== ConLeche/SetTheory/Derive/LfpTuple.lean#L91
+    91  noncomputable def lfpTuple (w k : Nat) (Is : Nat → V) (Φ : (Nat → V) → Nat → V) : Nat → V :=
+
+== ConLeche/SetTheory/Derive/LfpTuple.lean#L285-L287
+   285  theorem lfpTuple_eq_section (h : ∃ L, IsClosedTuple w k Is Φ L) (hmono : MonoTuple w k Is Φ)
+   286      {m : Nat} (hm : m < k) :
+   287      lfpTuple w k Is Φ m = lfpFamSet w (Is m) (secF w Is Φ (lfpTuple w k Is Φ) m) := by
+
+== ConLeche/SetModel/TupleContainer.lean#L127
+   127  theorem tupleContainer_closed_exists {w : Nat} (hw : w ≠ 0) {k : Nat} {Is : Nat → V}
+
+== ConLeche/SetModel/UnionRec.lean#L208
+   208  noncomputable def unionRec (ℓ w k : Nat) (Is : Nat → V) (Φ : (Nat → V) → Nat → V)
+
+== ConLeche/Model/Inductives/BlockRep.lean#L399
+   399  structure BlockRep (m : EnvModel V env) (T : Name) (cvT cvR : ConstantVal) (mI rP : Nat)
+
+== ConLeche/Model/Inductives/DeclBlock.lean#L286
+   286  theorem declBlock (hμ : μ.verifiedChecks = true) {F : Nat} {env envOut : Env}
+
+== ConLeche/Model/Inductives/MutualTables.lean#L228
+   228  theorem declMutual (hμ : μ.verifiedChecks = true) {F : Nat} {env envOut : Env}
 
 == ConLeche/Kernel/Inductives/Modeled.lean#L68-L79
     68  def checkIotaThm (ops : CheckerOps m) (env' envSelf : Env)
