@@ -29,10 +29,8 @@ public import ConLeche.Semantics.DeclEta
 public import ConLeche.Semantics.DeclRun
 public import ConLeche.Verify.Inductives.SumWF
 public import ConLeche.Semantics.Inductives.DeclSumEta
--- The native mutual route's run relation (task #315 M1) is not on
--- `DeclIndRunDispatch` yet — the route is cherry-picked UNWIRED — so
--- nothing above it imports it; the aggregator keeps it on the build
--- graph, with `Verify/Inductives/Mutual{Inv,WF}.lean` under it.
+-- The native mutual route's run relation is on `DeclIndRunDispatch`
+-- since M4 (task #315), so `DeclSumEta` above already pulls it in.
 public import ConLeche.Semantics.Inductives.DeclMutual
 public import ConLeche.Semantics.DeclIndRun
 public import ConLeche.Semantics.IndBlockFacts
