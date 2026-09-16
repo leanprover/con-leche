@@ -67,6 +67,8 @@ theorem restoredRecTy_reading {env : Env} (m : EnvModel V env) {φ : Name → Na
       (∀ e ∈ rds, e.1 = 0 ∧ e.2.1 = pwBit φ pw) ∧ DomsBelow 0 rds ∧
       ∃ fvs : List Expr, fvs.length = nP + N ∧
         (∀ (i : Nat) (x : Expr), fvs[i]? = some x → ∃ ty, x = Expr.fvar i ty) ∧
+        (∀ (i : Nat) (x : Expr), fvs[i]? = some x →
+          denoteMeta m.acval env φ i (Expr.fvarTypeD x) = some (rds.getD i default).2.2) ∧
         denoteMeta m.acval env φ (nP + N) (Expr.instSeq fvs (nP + N - 1) resid) = some conc := by
   obtain ⟨cbs', hstrip', hmeta'⟩ := ConLeche.rk_restoreNested_stripPis hnP hstrip hres hfree
   have hlen' : cbs'.length = nP + N := ConLeche.Expr.stripPis_length _ hstrip'
@@ -74,13 +76,14 @@ theorem restoredRecTy_reading {env : Env} (m : EnvModel V env) {φ : Name → Na
   obtain ⟨fvs, hlenF, -, hopB⟩ := ConLeche.openPisAtFvars_mkPisB (nP + N) cbs' hlen' 0
   have hop : openPisAtFvars (nP + N) tyR 0 = some (fvs, Expr.instSeq fvs (nP + N - 1) resid) := by
     rw [htyR]; exact hopB resid
-  obtain ⟨Γ, Rr, hpi, hR, -⟩ := openPisAtFvars_denotePTele (nP + N) hop hea
-  obtain ⟨rds, hst, -⟩ := stripPisAV_of_piTeleAV hpi
+  obtain ⟨Γ, Rr, hpi, hR, hdom⟩ := openPisAtFvars_denotePTele (nP + N) hop hea
+  obtain ⟨rds, hst, hΓ⟩ := stripPisAV_of_piTeleAV hpi
   obtain ⟨heq, hlen⟩ := stripPisAV_eq_mkPis hst
   have hidx := ConLeche.openPisAtFvars_index (nP + N) tyR 0 hop
   refine ⟨rds, Rr, heq, hlen, ?_, ?_, fvs, hlenF, fun i x hx => by
     obtain ⟨ty, hty⟩ := hidx i x hx
-    exact ⟨ty, by rw [hty, Nat.zero_add]⟩, by rw [Nat.zero_add] at hR; exact hR⟩
+    exact ⟨ty, by rw [hty, Nat.zero_add]⟩, fun i x hx => ?_,
+    by rw [Nat.zero_add] at hR; exact hR⟩
   · intro e he
     obtain ⟨k, hk⟩ := List.getElem?_of_mem he
     have hkl : k < rds.length := (List.getElem?_eq_some_iff.mp hk).1
@@ -107,6 +110,22 @@ theorem restoredRecTy_reading {env : Env} (m : EnvModel V env) {φ : Name → Na
     rw [hbm2]
   · have hw : Expr.WScoped 0 tyR := Expr.WScoped.of_not_hasFvar hfv
     exact (stripPisAV_below hst (bvarsBelow_of_reading hw hb hea)).1
+  · -- the opener's annotation reads to its own entry of the tower
+    have hi : i < nP + N := by
+      have := (List.getElem?_eq_some_iff.mp hx).1
+      rw [hlenF] at this
+      exact this
+    have h := hdom i x hx
+    rw [Nat.zero_add] at h
+    rw [h, ← hΓ]
+    congr 1
+    rw [List.getD_eq_getElem?_getD, List.getD_eq_getElem?_getD, List.getElem?_reverse (by
+      rw [List.length_map, hlen]; omega), List.getElem?_map, List.length_map, hlen,
+      show nP + N - 1 - (nP + N - 1 - i) = i from by omega]
+    cases hr : rds[i]? with
+    | none =>
+      exact absurd (List.getElem?_eq_none_iff.mp hr) (by rw [hlen]; omega)
+    | some e => rfl
 
 /-! ## Bookkeeping at the nested block model -/
 
@@ -294,7 +313,7 @@ theorem nestedRecTy_read_of {μ : CheckMode} {F : Nat} (hμ : μ.verifiedChecks 
   have hL : Expr.LeavesBounded o.type := Expr.LeavesBounded.of_not_hasFvar hfv
   have hnil : o.type.fvarLeaves = [] := Expr.fvarLeaves_eq_nil_of_not_hasFvar hfv
   obtain ⟨ea, hea⟩ := acceptedReads_of mp₂.base2 ψ hinf hws hb hL
-  obtain ⟨rds, conc, rfl, hlen, hbits, hbelow, fvs, hlenF, hidx, hR⟩ :=
+  obtain ⟨rds, conc, rfl, hlen, hbits, hbelow, fvs, hlenF, hidx, -, hR⟩ :=
     restoredRecTy_reading mp₂.base2 hnP hstrip hmeta hfree hres hb hfv hea
   have hconc : conc = mutualConcAV k n nIdx mm := by
     have h := denoteMeta_recConc_opened (acval := mp₂.base2.acval) (env := env₂) (φ := ψ)
