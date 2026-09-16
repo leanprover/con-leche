@@ -164,33 +164,12 @@ theorem piTeleAV_mkPisAV_take {nP nIdx : Nat} (pps : List (Nat × Nat × AnnotTe
     Nat.min_eq_left (Nat.le_add_right _ _)] at h
   exact h
 
-/-! ## Kit: the container's block model crosses to the prefix model -/
+/-! ## Kit: the container's block model crosses to the prefix model
 
-/-- **A container's block model crosses an extension** (the
-`IsBlockModel(s).crossEnv` hypotheses): every model-dependent clause
-travels, the arities and counts are model-free. -/
-theorem ContainerModeled.crossEnv {env₁ env₂ : Env} {m₁ : EnvModel V env₁} {m₂ : EnvModel V env₂}
-    {ci : ContainerInfo} {d : BlockModel V}
-    (hF : ∀ (n : Name) (c : ConstantInfo),
-      (∀ cv mI rP rules, c ≠ .recInfo cv mI rP rules) →
-      env₁.find? n = some c → env₂.find? n = some c)
-    (hres : ∀ e : Expr, e.constsResolve env₁ = true → e.constsResolve env₂ = true)
-    (hag : ∀ n : Name, (env₁.find? n).isSome = true → m₂.acval n = m₁.acval n)
-    (hde : ∀ (ψ : Name → Nat) (dp : Nat) (e : Expr) {ea : AnnotTerm},
-      denoteMeta m₁.acval env₁ ψ dp e = some ea → denoteMeta m₂.acval env₂ ψ dp e = some ea)
-    (hk : 0 < d.k) (h : ContainerModeled m₁ ci d) : ContainerModeled m₂ ci d :=
-  { k := h.k, nP := h.nP
-    reps := h.reps.crossEnv hF hres hag hde
-    typed := fun ψ => ⟨(h.typed ψ).1.crossEnv hag h.reps, (h.typed ψ).2.1.crossEnv hag h.reps,
-      (h.typed ψ).2.2.crossEnv hag h.reps hk⟩
-    inj := h.inj
-    member := fun i M hM => by
-      obtain ⟨hname, hcnt, cvR, mI, rP, rules, hI⟩ := h.member i M hM
-      exact ⟨hname, hcnt, cvR, mI, rP, rules, hI.crossEnv hF hres hag hde⟩
-    frame := h.frame
-    ordFree := h.ordFree
-    pinsNotMembers := h.pinsNotMembers
-    pinNP := h.pinNP }
+`ContainerModeled.crossEnv` — every model-dependent clause travels, the
+arities and counts are model-free — lives in `ContainerCross.lean`
+(task #315 M7-3), below this file with the rest of the field's
+maintenance kit. -/
 
 /-- **The prefix formers' cons, as a crossing**: from the pre-block
 model to any model of the prefix formers' environment agreeing with it
