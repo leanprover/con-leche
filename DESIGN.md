@@ -81458,3 +81458,269 @@ edges first demoted, then DELETED (both re-exported through
 `NestedPremise`/`NestedRecCand`); pub-imports 1258 of 1978 in-tree edges
 public, none demotable (36 dot-notation fallbacks).  Next: (i) of (c),
 1–1.5 sessions; then (iii)/(iv).
+
+#### U.40 — M7-3 session 2: the routes' lifts hit the PROJECTION TABLES — K.34 inverted, the crossing's reading hypothesis REFUTED, and the census the flip needs (lane M7-3, session 2, 2026-09-16)
+
+Session 1 (§U.31) built the field `EnvModelB.blocks` and its
+maintenance at the fold's VALUE kinds, and left the three inductive
+routes to session 2: each hands back the block it installed, as
+`BlockAt` at the reading K.34 certifies, and carries the OLD blocks
+across by `EnvBlocksOf.crossInd`.  K.34 landed, so the reading is
+there.  **The lifts are nevertheless blocked, and by something the
+crossing kit's own shape hid**: `crossInd`'s reading hypothesis is
+false at every route.  This session inverts K.34, refutes the
+hypothesis in the tree, identifies the fix (every record it needs is
+already there), and re-censuses what the flip owes.
+
+##### (a) K.34, INVERTED (`Model/Inductives/ContainerCross.lean`)
+
+The route's Bool compares an `Option ContainerInfo` with `==`, so the
+three container records' structural `BEq` is made lawful first
+(`instLawfulBEqContainerCtor`/`Member`/`Info`: every field is a `Name`,
+an `Expr`, a `Nat` or a list of those).  Then:
+
+```lean
+theorem containerInfo?_of_readBack {envOut : Env} {nP : Nat}
+    {members : List (ConstantVal × List (ConstantVal × Nat))}
+    (h : ConLeche.blockReadBackOk envOut nP members = true)
+    {i : Nat} {c : ConstantVal × List (ConstantVal × Nat)} (hi : members[i]? = some c) :
+    ConLeche.containerInfo? envOut c.1.name
+      = some (ConLeche.blockContainerInfo nP members)
+```
+
+and the record itself, which turns `ContainerModeled`'s four DATA
+clauses into the block's own data — the member count, the parameter
+count, the member names and the constructors' names — leaving the
+model-facing ones as arguments:
+
+```lean
+theorem ContainerModeled.of_readBack {env : Env} {m : EnvModel V env} {nP : Nat}
+    {members : List (ConstantVal × List (ConstantVal × Nat))} {d : BlockModel V}
+    (hk : d.k = members.length) (hnP : d.nP = nP)
+    (hnamesLen : d.memberNames.length = d.k)
+    (hnames : ∀ i, i < d.k → d.memberName i = (members.getD i default).1.name)
+    (hctorNames : ∀ i, i < d.k →
+      (d.ctorsM i).map (·.1.name) = (members.getD i default).2.map (·.1.name))
+    (hreps : IsBlockModels m d)
+    (htyped : ∀ ψ : Name → Nat, FormersTyped m d ψ ∧ CtorsTyped m d ψ ∧ PinsTyped m d ψ)
+    (hinj : ∀ (ψ : Name → Nat) (mm' j : Nat) (fs : List V),
+      d.inj ψ mm' j fs = injW (d.w ψ) j (mkTower (fs ++ [pt])))
+    (hframe : ∀ i, i < d.k → ∀ (ψ : Name → Nat) (ρ : Nat → V),
+      Sat V (d.params ψ).reverse ρ ↔ Sat V (((d.ppsM i ψ).take d.nP).map (·.2.2)).reverse ρ)
+    (hordFree : ∀ (i j l : Nat) (x : Expr), i < d.k → j < (d.ctorsM i).length →
+      (d.xFvsF i j)[l]? = some x → (d.ksF i j).getD l .ordinary = .ordinary →
+      ConLeche.mentionsMember d.memberNames x.fvarTypeD = false)
+    (hpinsNotMembers : ∀ q, q < d.nPins → (d.pinAt q).J ∉ d.memberNames)
+    (hpinNP : ∀ q, q < d.nPins → ∃ ci' : ContainerInfo,
+      ConLeche.containerInfo? d.env₀ (d.pinAt q).J = some ci' ∧ (d.pinAt q).nPJ = ci'.nP)
+    (hmember : ∀ i, i < d.k → ∃ (cvR : ConstantVal) (mI rP : Nat) (rules : List RecRule),
+      IsBlockModel m (members.getD i default).1.name (members.getD i default).1 cvR mI rP rules
+        d i) :
+    ContainerModeled m (ConLeche.blockContainerInfo nP members) d
+```
+
+The member clause's constant is the stored one ON THE NOSE:
+`blockContainerInfo` copies the member's `ConstantVal` field by field,
+so `⟨M.name, M.lps, M.type⟩` IS the route's `cvT` (structure eta).
+`namesLen` (lane L-B's request, §U.36 (e′) 3) is an argument, not a
+consequence: `memberNames` is the route's list and only the route knows
+its length.
+
+**`hmember` is the whole of the remaining work**, and it is stated at
+the OUTPUT model.  Which is where the routes stop.
+
+##### (b) THE WALL: the crossing's reading hypothesis is REFUTABLE
+
+`ContainerModeled.crossEnv` — and through it `BlockAt.crossEnv`,
+`EnvBlocksOf.crossInd`, `EnvBlockModels.crossInd` — takes
+
+```
+  hde : ∀ (ψ : Name → Nat) (dp : Nat) (e : Expr) {ea : AnnotTerm},
+    denoteMeta m₁.acval env₁ ψ dp e = some ea → denoteMeta m₂.acval env₂ ψ dp e = some ea
+```
+
+for EVERY expression.  `denoteMeta` reads `.proj sn i e` through the
+environment's projection table when there is one (`projAV`, always
+headed by `fst`) and through the PAIR decoder when there is none
+(`AnnotTerm.projPair?`, which at `i = 1` is `snd` and at `i = 0` is
+`fst`).  So a table cons at a structure whose slot `1` was untabled
+MOVES a successful reading, and the hypothesis is false:
+
+```lean
+theorem denoteMeta_not_mono_of_newTable {acval₁ acval₂ : Name → (Name → Nat) → AnnotTerm}
+    {env₁ env₂ : Env} {ψ : Name → Nat} {dp : Nat} {sn : Name} {entry : ConLeche.ProjEntry}
+    (h₁ : env₁.findProj? sn 1 = none) (h₂ : env₂.findProj? sn 1 = some entry) :
+    ∃ (e : Expr) (ea : AnnotTerm),
+      denoteMeta acval₁ env₁ ψ dp e = some ea ∧ denoteMeta acval₂ env₂ ψ dp e ≠ some ea
+```
+
+(the witness is `.proj sn 1 (.sort .zero)`, read as `snd (sort 0)` on
+one side and as `fst (snd (sort 0))` on the other), with the consumer
+
+```lean
+theorem hde_not_of_newTable {env₁ env₂ : Env} {m₁ : EnvModel V env₁} {m₂ : EnvModel V env₂}
+    {sn : Name} {entry : ConLeche.ProjEntry}
+    (h₁ : env₁.findProj? sn 1 = none) (h₂ : env₂.findProj? sn 1 = some entry) :
+    ¬ (∀ (ψ : Name → Nat) (dp : Nat) (e : Expr) {ea : AnnotTerm},
+        denoteMeta m₁.acval env₁ ψ dp e = some ea →
+        denoteMeta m₂.acval env₂ ψ dp e = some ea)
+```
+
+**Every inductive route ends by consing the projection tables of its
+structure-like members** — `checkNativeTable` (native, the last stage
+of `declNative`), `mutualTables` (mutual, `MutualTablesModeled`'s whole
+subject), `nestedTables` (nested, inside the tail) — and a structure
+with two or more fields has a slot `1`.  So the wall is at every route,
+for the block it installs (its members are the newly tabled
+structures) AND for the old containers it must carry across.
+
+The VALUE kinds escape it by construction: `EnvBlocksOf.crossCons`
+takes `hntc : ∀ tbl, c₀ ≠ .projInfo tbl`, and `NonIndStep` carries that
+conjunct — §U.31 (c)'s four lifts are unaffected and stay proved.
+
+##### (c) THE FIX, and that its records are already in the tree
+
+The fix is not a stronger route fact; it is a WEAKER hypothesis.  A
+reading crosses a table cons as soon as its subject has no projection
+at the newly tabled structure — `denoteMeta_envExtend_mono_at`
+(`Model/Annot/BitExtendTower.lean`), which takes `ConstsBound env₁ e`
+and `∀ j, Expr.NoProjAt T j e` and is exactly how `TableMember.cross`
+already carries a member's table data past ANOTHER member's table
+(`BlockStageTables.lean`).  What has to change is the shape of `hde`
+through the crossing chain, and the guards have to be discharged at
+each site.  Both halves are supported by records that exist:
+
+1. **The subjects are the stored types and their openings.**  The 39
+   `hde` uses in `BlockRepCross.lean` are at `cvT.type`, `cvC.type`,
+   `cvR.type`, at `x.fvarTypeD` for `x ∈ d.xFvsF i j`, and at the
+   `idxF`/`eis`/`refl`-telescope spines — and
+   `BlockCtorDataX.opens` ties `fvsP`/`xFvs`/`xrest` to the stored
+   constructor type through `openPisAtFvars`, while the spines are
+   `getAppArgs` of those.
+2. **Their resolution is recorded.**  `BlockOpened`'s `ord` gives
+   `x.fvarTypeD.constsResolve env₀ = true` at an ordinary field, and
+   `recF`/`reflF`/`nestF`/`nestReflF` give it for the arguments of a
+   recursive, reflexive or nested one (whose head is a member or a
+   pin — a `.const`, projection-free by itself); `residRes` gives it
+   for the residual's index arguments; `IsBlockModel.idxRes` for
+   `d.idxF`.
+3. **`constsResolve` at an environment where the tabled structure is
+   FRESH is exactly `NoProjAt`** — `Expr.noProjAt_of_constsResolve`.
+   A block's own members are fresh at its `env₀` (the pre-block
+   environment the block model records), and so are they at any OLDER
+   container's `env₀`.  So both halves of `crossInd` — the new block
+   and the old containers — get their guards from the same lemma.
+4. For the stored types themselves the mutual route has the stronger
+   `mutualNoProj` (`NoProjEnv` at the RECURSORS' environment, the very
+   fact `stageBlockTablesGo` already threads).
+
+**The change, and where it lands**: `hde` gains a guard (`∀ T ∈ Ts, ∀ j,
+Expr.NoProjAt T j e`, `Ts` the extension's newly tabled structures) in
+`FormerData.crossEnv'`, `CtorDataI.crossEnv`, `BlockCtorDataX.crossEnv`,
+`IsBlockModel.crossEnv`, `IsBlockModels.crossEnv` and `RecData.crossEnv`
+(`BlockRepCross.lean`), each site discharging it from (1)+(2)+(3);
+`ContainerModeled.crossEnv`/`BlockAt.crossEnv`/`EnvBlocksOf.crossInd`
+(`ContainerCross.lean`) then take the two dischargeable premises
+(`hTs : ∀ T ∈ Ts, env₁.find? T = none` and the extension's table
+frame) in place of `hde`.  `denoteMeta_envExtend_mono_at` is stated at
+ONE structure name and wants a predicate version (or one iteration per
+member).  **Sized 1.5–2 sessions**, and it is the prerequisite of all
+three route lifts.
+
+##### (d) THE CENSUS THE FLIP OWES — four install arms and the basis, not three routes
+
+Reading `Model/Fold.lean`'s `declStep_preserves` and
+`DeclInductive.lean`'s dispatch, the `EnvModelB` obligations are:
+
+* `declNative` (recognised single block) and `declMutual` (recognised
+  mutual block) — the two this session was to lift, blocked at (b);
+* **`declInd`, the MODELED arm** (`DeclIndRun`, the nested rest) —
+  §U.31 counted three routes and this is a fourth.  It builds NO block
+  model at all (the block model is built only by
+  `mutualBlockModelOf_ofMutual` and `nestedBlockModel`), and it
+  installs real inductives, so `containerInfo?` reads them and the
+  field demands their `BlockAt`.  **The fold cannot flip to
+  `EnvModelB` while this arm is reachable**: covering it means either
+  a block model for an arbitrary stream block (which is the work #315
+  exists to avoid) or RETIRING the arm — i.e. the nested route wired
+  (M5 + M7).  This is a scheduling fact for M8, and it is new.
+* **the pinned basis blocks** — `basisDecl`, `quotDecl .type` and the
+  pinned `.indDecl` split all go to `basisStepPB_of`.  `Nat`, `Eq`,
+  `PUnit`, `Empty` and `False` are installed as real inductives with
+  their recursors, so `containerInfo?` reads each of them and the
+  field demands a `BlockAt`.  `Quot` is excluded by `containerInfo?`
+  itself (`quotName`).  **What is missing per basis block, exactly**:
+  a `BlockModel V` at `k = 1` and no pins (`BlockModel.ofNative`'s
+  shape), with `Φ` the block's own operator and the PINNED carrier
+  identified with `lfpTuple` of it (`ω` for `Nat`, the `refl`-fibre
+  family for `Eq`, the point for `PUnit`, the empty family for
+  `Empty`/`False`); `IsBlockModel` at the pinned constant (its
+  `functor`/`fibre`/`leaf`/`ctor`/`mkZero`/`mkInj` clauses are
+  `BlockRepOne.lean`'s at the pinned family, the syntactic ones the
+  pin's own record); `FormersTyped`/`CtorsTyped`/`PinsTyped`;
+  `inj = injW … mkTower`; `frame`; `ordFree`; the two pin clauses
+  vacuous; and the READ-BACK at the pinned environment, which
+  `declBasisPB_*` does not compute (K.34's Bool is a conjunct of the
+  three INSTALL routes' runs only — the basis blocks would need
+  either their own Bool or a syntactic argument about the pinned
+  records).  **Sized 3–5 sessions**: `Empty`/`False`/`PUnit` are
+  cheap, `Nat` needs `ω = lfpTuple` of the successor operator, `Eq`
+  the indexed family at one index.
+
+##### (e) THE SIZING, corrected (replacing §U.31 (f))
+
+* the value kinds: DONE (§U.31);
+* K.34: LANDED; its inversion: DONE (this session);
+* **the crossing's guard (c): 1.5–2 sessions — prerequisite of everything below**;
+* the native route's lift: 1.5–2 (its table stage is `declNativeTable`,
+  and `IsBlockModel` at `BlockModel.ofNative` has never been assembled —
+  `BlockRepOne.lean`'s docstring says so; the semantic clauses are
+  proved, the syntactic ones are `declNative`'s own facts);
+* the mutual route's lift: 1.5–2 (`MutualTablesModeled`'s conclusion
+  must hand back the block model and the agreement at `envOut`, which
+  `stageBlockTablesGo` must thread — it already threads the carrier
+  agreement off the table names);
+* the nested tail's: with M7-2, +1;
+* the modeled arm: RETIRED, not lifted (see (d));
+* the basis blocks: 3–5;
+* the fold's flip (M8): 1–2, and only after the modeled arm is gone.
+
+##### (f) The nested tail's supply list (§U.36 (d)), restated at the wall
+
+Nothing was written into `declNested_of`'s output type this session,
+because the honest list is not a list of PREMISES yet: three of its
+four items are provable only after (c).  What the tail owes, in the
+order it will be discharged:
+
+1. the block's own reading, from the run's K.34 conjunct —
+   `containerInfo?_of_readBack` at `(stored.take p.k).zip ctorsR`;
+2. `ContainerModeled mpOut ci_new (nestedBlockModel …)` through
+   `ContainerModeled.of_readBack`, whose `hmember` is `nestedBlockReps_of`
+   CROSSED past `nestedTables` — (c);
+3. `BlockAt` at `B' ci_new`, i.e. (2) with `nestedPinRecLaws_of` (M7-1)
+   and `nestedPinShapes_of` (L-E, `NestedPinLeafAll.lean`), the groups
+   naming `blockOf mp.base2 (baseInfo env st q)` as their model —
+   `NestedStageFacts.groups` strengthened, unchanged from §U.36 (d);
+4. the old containers, `EnvBlocksOf.crossInd` at
+   `B' := fun ci => if ci = ci_new then nestedBlockModel … else blockOf mp.base2 ci`,
+   with `hold` by `containerInfo?_ext_ind_eq` and the reading premises
+   the run already carries — and `hde` replaced by (c)'s guards.
+
+##### (g) Why no hypothesis was named
+
+The lane's rule: a clause that is not provable from the stored facts is
+REPORTED, not named.  The blocked clause here is not a missing kernel
+record — the kernel already checks everything the fix needs
+(`NoProjEnv` bookkeeping, the openings, the read-back) — so there is no
+K.36 in it.  It is a model-tier hypothesis that was stated too strong
+in session 1, and `hde_not_of_newTable` is the evidence, in the tree,
+that it must be weakened rather than discharged.
+
+##### (h) GATES AND FILES
+
+Files: `ConLeche/Model/Inductives/ContainerCross.lean` only (the
+read-back section, the three `LawfulBEq` instances, the two refutation
+theorems, and the module docstring's new paragraph); `DESIGN.md`.
+`EnvModelBStages.lean`, `MutualTables.lean`, `DeclNative.lean` and
+`DeclNestedCore.lean` are UNCHANGED — no route lift is stated, because
+none is provable before (c).
