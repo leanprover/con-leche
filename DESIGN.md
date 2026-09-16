@@ -74984,3 +74984,306 @@ recursors + flip 3–4 (+1 for the `k + nPins`-class kit rewrite, finding
 4, and the `ind_reps`-like field, finding 1, if M5 does not carry the
 containers' models); M8 1–2.  Remaining **8–13** (was 9–14 with M5's
 2–3 running in parallel).
+
+#### U.14 — M6 session 2: the composed operator, built and falsified (session U-12, 2026-09-16)
+
+M5 merged first (`agent/uniform-m5` d37d94c2 into the branch at
+7e1ea730: the nested kernel route UNWIRED, `DeclNestedRun` on the build
+graph, K.26 re-keyed to the pins, `--nested-shadow`, 26 fixtures; DESIGN
+§U.12 kept as M5 wrote it, §U.13 after it).  Then §U.13 (d)'s design
+was BUILT at the pure level and at the block-model level, and the
+falsifier ran at both: the composed operator's `functor`, `pinMem`,
+`pinMono`, the `fibre` shape, `leaf`, `mkZero`/`mkInj` and the two Bekić
+identities CLOSE from the auxiliary former's premise alone; `pinLeaf`
+is reduced to ONE pure theorem (`lfpTuple_seg_congr`) plus the copy
+readings' congruence (M6 s3).  One design change against §U.13 (d),
+found by the falsifier — the pins are solved SIMULTANEOUSLY and
+CLAMPED at the auxiliary carrier — and one consequence for the
+maintainer's pending K.27 ruling: **K.27 has no consumer in the block
+model.**  No checker code changed; no run fact is named (no run-level
+consumer reached this session: the assembly is s3/M7); no `sorry`, no
+axioms, no `maxHeartbeats`.
+
+##### (a) THE FALSIFIER'S FINDING — monotonicity above the auxiliary carrier
+
+§U.13 (d) defined pin `q`'s carrier at a members' tuple `X` as the
+least fixed point of `Ψ`'s section at the pin, at `X`, and claimed
+`pinMono`/`functor` "by leastness (`Ψ` monotone at every component)".
+Leastness proves `P X ≤ P Y` for `X ≤ Y` only from a CLOSED tuple of
+the pins' section AT `Y` (the carrier at `Y` is then closed for the
+section at `X`, and `lfpTuple_le` applies); `Ψ`'s `functor` supplies
+ONE closed tuple, `L⁺ = lfpTuple (k + n) Ψ`, and its pin components
+close the section at `X` only when `X ≤ L⁺` on the members.  Above the
+auxiliary carrier the total `lfpTuple` is the EMPTY tuple when no
+closed tuple exists, and `pinMono` is FALSE there (a pin at `X ≤ L⁺`
+is non-empty, at some `Y ≥ X` it would be empty).  The block model's
+`functor` demands `MonoTuple` on the whole tuple space
+(`lfpTuple_closed` compares the least tuple with an ARBITRARY closed
+tuple), so this is not a restriction one can live with.
+
+Two honest fixes exist.  (i) Closed tuples of the pins' section at
+EVERY members' tuple — true (the pins' components are a container in
+the pins with the member-targeting fields as SHAPE data, in `univ w`
+because the tuple space is) but not exported by the sealed former:
+proving it is `FixWitness.lean`'s shadow-spine argument with a
+three-way split (ordinary / member-targeting / pin-targeting fields),
+~800 lines inside the seal — §U.13 (d)'s "(W-aux), positions = the
+copies' recursive fields, shapes = the rest", priced at a session.
+(ii) **THE CLAMP**: solve the pins at `X ⊓ L⁺` — the members' tuple
+met componentwise with the auxiliary carrier (`famMeet`/`meetT`).
+Every section solved is then at a tuple below `L⁺`, where `L⁺`'s pins
+close it; monotonicity, membership and the closed tuple follow from
+`Ψ`'s laws with no container law and no level fact; and below `L⁺` the
+clamp is the identity (`meetT_eq_of_le`), so at the block's carrier —
+the ONLY tuple any consumer reads a pin at (§U.13 (a)'s census: the
+slot kit at `X ≤ L`, `inhab_all` at `sepTuple ≤ L`, `pinLeaf`/`leaf` at
+`L`) — the pins' carriers are the honest sections' least tuples.  (ii)
+was built (~50 lines).  D-2b's rule stands: `Φ` at every frame is
+whatever the assembly composes; the block model does not spell it, and
+nothing observes the clamp.
+
+The second deviation from (d): the pins are solved SIMULTANEOUSLY
+(one `lfpTuple` over the `n` pin components at fixed members) instead
+of by iterated `composeAt`.  The iteration is the same object by
+Bekić, but a pin's own carrier — the single-family lfp of ITS section
+at the OTHER pins' carriers — is what `pinLeaf` identifies with the
+container, and the simultaneous form gives it by Bekić AT A SEGMENT
+(`lfpTuple_seg`, the generalisation of `lfpTuple_eq_section` from one
+component to a segment): a MUTUAL container's copies occupy a segment
+of the pins and are identified as a block, which the one-pin-at-a-time
+iteration cannot express (its per-pin sections are circular across a
+mutual container's copies).  `composeAt` (M2, `TupleContainer.lean`)
+stays as the one-pin instance's (W) lemma; nothing new reads it.
+
+##### (b) THE PURE HALF — `ConLeche/SetTheory/Derive/LfpCompose.lean` (NEW, 651 lines)
+
+Segments: `segJoin a s Z Y` (the tuple `Z` with `[a, a + s)` replaced by
+`Y`, re-indexed), `segOf`, `segSec Ψ a s Z` (the section at the segment,
+an operator on `s` components) with their space/order laws
+(`inTupleSpace_segJoin'` asks the complement in the space OFF the
+segment only — the clamped tuple is in the space at the members only;
+`lt_of_not_seg` because `omega` does not see through `¬ (A ∧ B)`).
+**`lfpTuple_seg`** (Bekić at a segment):
+
+    lfpTuple w N Is Ψ (a + q) = lfpTuple w s (fun q => Is (a + q)) (segSec Ψ a s (lfpTuple w N Is Ψ)) q
+
+**`lfpTuple_congr`** (the least tuple is a congruence in the operator
+on the tuple space and in the index sets, below `k`; via
+`isClosedTuple_congr`) and **`lfpTuple_seg_congr`** (the segment
+against ANOTHER presentation of its section — the `pinLeaf` theorem's
+pure core).  The clamp: `famMeet`, `meetT` and their lattice laws.  The
+composed operator:
+
+    pinsOp   w k n Is Ψ X := segSec Ψ k n (meetT Is X (lfpTuple w (k + n) Is Ψ))   -- the pins' section at X ⊓ L⁺
+    pinsCar  w k n Is Ψ X := lfpTuple w n (fun q => Is (k + q)) (pinsOp … X)        -- the pins' carriers at X
+    extT     w k n Is Ψ X := segJoin k n X (pinsCar … X)                              -- X extended by its pins
+    composeΦ w k n Is Ψ X := Ψ (extT … X)                                             -- read at the members
+
+under `hmono`/`hmaps`/`hcl` of `Ψ` on `k + n`: `pinsCar_mem`
+(unconditional), `isClosedTuple_pinsOp_aux` (L⁺'s pins close the pins'
+operator at EVERY `X` — the clamp's purpose), `pinsCar_mono`,
+`extT_mem/_le`, **`composeΦ_mono`**, **`composeΦ_maps`**,
+**`composeΦ_closed_exists`** (witness `L⁺`: `isClosedTuple_composeΦ_aux`),
+`extT_eq_famAt` (the extended tuple at a target is the block model's
+`famAt` spelling), and Bekić's nested form — `isClosedTuple_extT_lfp`
+(the composed least tuple extended by its pins is `Ψ`-closed; the clamp
+is the identity there because the composed least tuple is below `L⁺`),
+**`lfpTuple_composeΦ`** (`lfpTuple k composeΦ m = lfpTuple (k + n) Ψ m`),
+**`pinsCar_lfp`** (`pinsCar (lfpTuple k composeΦ) q = lfpTuple (k + n) Ψ (k + q)`),
+`extT_lfp`.  `nested-279m`'s `Bekic.lean` was read and NOT cherry-picked:
+it is stated over `famSpace` at a disjoint union of index SETS (the
+tagged world); the tuple form above is ~120 lines and is what the
+block model consumes.
+
+##### (c) THE BLOCK-MODEL HALF — `ConLeche/Model/Inductives/BlockComposed.lean` (NEW, 381 lines)
+
+`nestedIs nP ppsA W ψ ρp` (the `k + n` index-tuple sets at the block's
+frame, every component at `W`), `nestedΨ` (the sealed `tupleLfpΦ` at
+`k + n` over the eliminated block's readings in GLOBAL constructor
+order — the members' constructors, then the copies'), the premise
+**`NestedLfpOk ψ ρp`** (`TupleLfpOk` at `k + n`), and
+**`BlockModel.ofNested`** — `ofMutual`'s data with `pins`, the `k + n`
+telescopes `ppsA` as `ppsM` (so `ofNested_idx : (D).idx ψ ρp = nestedIs …`
+is `rfl` — the composed operator's tuple space IS the block model's),
+`Φ := composeΦ`, `pinCar := pinsCar`, `inj` the tagged towers at the
+global position.  The laws, each at ONE frame under `NestedLfpOk`:
+
+| clause | theorem | what closes it |
+| --- | --- | --- |
+| `functor` | `ofNested_functor` | `tupleLfpΦ_functor` at `k + n` → `composeΦ_mono/_maps/_closed_exists` |
+| `pinMem` | `ofNested_pinMem` | `pinsCar_mem`, given **`hPinIdx : (D).pinIdx q ψ ρp = (D).idx ψ ρp (k + q)`** |
+| `pinMono` | `ofNested_pinMono` | `pinsCar_mono`, given `hPinIdx` |
+| `fibre` | `ofNested_fibre` + `ofNested_famAt` | `tupleLfpΦ_fibre` at `extT X` (`TupleLfpShape` at `k + n`); a nested slot reads `extT X (k + q) = pinsCar X q = famAt` |
+| `leaf` | `ofNested_leaf` | `tupleLfpAV_fold` at the `k + n`-ary former, then `lfpTuple_composeΦ` |
+| `pinLeaf` | `ofNested_pin_block` (+ `IsBlockModel.leaf` of the container) | `pinsCar_lfp` + `lfpTuple_seg_congr`, given the copy readings' congruence `hΦ` and the index sets `hIs` |
+| `mkZero`/`mkInj` | `ofNested_mkZero/_mkInj` | as `ofMutual` |
+
+`hPinIdx` is the SUBSTITUTION behind the elimination: the container's
+own index telescope at the pin's frame (`pinIdx`: `idxSet ((pinAt q).u ψ)
+(consList ⟦Ds⟧ ρp) (J's Ids)`) is the copy's telescope at the block's
+frame (`idxSet (W ψ) ρp (blockIds nP ppsA ψ (k + q))`) — it fixes two
+things the assembly must supply in the `PinSyn` records: `(pinAt q).u ψ
+= W ψ` (the pin's index sort is the auxiliary block's common `W`; the
+same choice `ofMutual` makes for the members) and the instantiated
+telescope's reading law (K.12's annotated elimination: the copy's
+former type is `J`'s instantiated at `Ds`).  The `fibre`'s
+per-constructor bookkeeping (member-local `j` ↔ global `J`,
+`fitsFrom_congr` with `slotAt_of_mem`/`slotAt_of_pin`, the pin's
+frame `fun n => ρ (n + i)` = `ρp` below the `i` earlier fields by
+`consList_apply_add`) is the assembly's, exactly as `MutualCore`'s
+`fibre` proof does it at ~80 lines.
+
+##### (d) THE TREE/LIST INSTANCE — `ConLeche/SetModel/TreeListCompose.lean` (NEW, 237 lines, Opus lane)
+
+The pure falsifier at the experiment's shape, PASSED (Opus lane, ~6
+minutes, all six items): the composed operator instantiated at
+`NestedTreeList`'s AUXILIARY two-member operator `auxΦ` (trees over
+lists, lists as the `Sat`-guarded container at the tree parameter).
+`auxΦ_mono`/`auxΦ_maps`/`auxΦ_closed` under `ContainerOk` and the level
+fact `hw : S.w ≤ S.w'` — consumed exactly where `NestedTreeList` consumed
+it, at the container's guards (`LΦ_param_mono`: the map action in the
+parameter from the fibre at both parameters); then, with NO further
+hypothesis, **`composed_tree`** (the composed least tuple's tree
+component is the auxiliary's), **`pinsCar_tree`** — the `pinLeaf` shape
+at `Tree`/`List`:
+
+    app (pinsCar S.w 1 1 uIs (auxΦ S) L 0) pt = listAt S (app (L 0) pt)      -- L the composed carrier
+
+(`pinsCar_lfp`, then `lfpTuple_seg` at the segment `[1, 2)`, whose
+section is `oneTuple (S.LΦ (app (L⁺ 0) pt))` BELOW `1` only — hence
+`lfpTuple_congr`, not a function equality — then `lfpTuple_one` and
+`composed_tree`), and the optional **`composeΦ_eq_treeΦfree`**: below
+the auxiliary carrier the composed operator IS the experiment's
+`treeΦfree` (the clamp is the identity there, the pins' least tuple is
+`listAt`).  Two of the lane's findings are kept in the file's docstring:
+the section and `oneTuple` differ at `q ≥ 1` (so the congruence is
+componentwise below `k`, never `funext`), and `1 + ?n =?= 2` does not
+unify (`extT_mem`'s `n`/`Ψ` explicit).  `univ_mem_of_subset_mem`
+(`Lfp.lean`) is the lemma for "a subset of a member of `univ w` is a
+member".  The lane's own congruence lemma was replaced by
+`LfpCompose`'s `lfpTuple_congr` (`hIs := fun _ _ => rfl`).
+
+##### (e) WHAT `pinLeaf` STILL NEEDS — M6 s3, the shape fixed
+
+`pinLeaf` at pin `q = q₀ + i` (the container `J` with `kJ` members, its
+copies at `[k + q₀, k + q₀ + kJ)`), at the block's carrier `L`:
+
+1. `IsBlockModel m J … dJ i` at the PRE-block model (the premise
+   `PinsModeled`, §U.13 (f) 1 — `EnvModelM` has no block-model field);
+2. `⟦Ds⟧[L]` fits `J`'s parameter telescope — post-check (a)
+   `nestedPinsOk` at the restored environment, read through
+   `PinsTyped`/`spineFit_of_wellDenoted_mkAppN_pis` (the fit AT THE
+   CARRIER; nothing at any other tuple);
+3. `hIs`: `J`'s index sets at the pin's frame are the copies' at the
+   block's frame (the same substitution law as `hPinIdx`);
+4. `hΦ`: the copies' section of `nestedΨ` at the auxiliary least tuple
+   agrees with `dJ.Φ ψJ ρJ` on `J`'s tuple space — the copy readings'
+   congruence: the copy's constructors are `J`'s instantiated at `Ds`
+   (K.12), the members' leaves inside `Ds` read as `L`'s components
+   (`ofNested_lfp` + `leaf`), the other pins inside `Ds` as their
+   `pinLeaf` (induction from the LAST pin down: a pin's components
+   mention only LATER pins, official's elimination order — this is
+   where (X.1) `denoteMeta_absMembers` enters, reading `Ds` with the
+   members abstracted);
+5. then `dJ.leaf` at `⟦Ds⟧[L]` and the index spine turns
+   `lfpTuple … dJ.Φ … i` into `J`'s stored reading, and
+   `ofNested_pin_block` is `pinLeaf`.
+
+Sized 1–2 sessions (unchanged): the congruence (4) is the work, the
+rest is instantiation.
+
+##### (f) THE GAPS — §U.13 (e) revised
+
+| gap | consumer | status |
+| --- | --- | --- |
+| the members' constructors' field kinds with targets in members ++ pins | `BlockCtorFacts` (`nest`/`tgts`), `TupleLfpShape.tgtOk` | K.26 re-keyed (`nestedPinKindsOk`, on the branch since the merge); NOT named — its run-level consumer is the assembly (s3/M7) |
+| the pins' components at the openers and their readings; `Ds.length = nPJ` | `PinSyn.DsE/Ds`, `pinShape` | K.12/K.3/K.14, on the branch; assembly |
+| `hPinIdx`/`hIs`: the copy's telescope at the block's frame = `J`'s at the pin's frame | `ofNested_pinMem/_pinMono`, `ofNested_pin_block` | NEW SHAPE (this session): a substitution law of K.12's annotated instantiation; assembly |
+| the pins fit the containers' parameter telescopes AT EVERY TUPLE `X` | — | **NO CONSUMER** (the clamp; finding (g) 2): K.27 `nestedPinsAbsOk` is NOT needed by the block model |
+| the same fit at the CARRIER | `pinLeaf` (e) 2 | post-check (a) `nestedPinsOk` at the restored environment, on the branch; assembly |
+| the containers' block models | `pinLeaf` (e) 1, M7's classes | the premise `PinsModeled` until the `ind_reps`-like field (§U.13 (f) 1) |
+| `PinsTyped` | the fits | on the branch (`acval_memType`); assembly |
+| the restored recursors' shape (`k + nPins` motives) | M7 | §U.1 (c) 7 |
+
+##### (g) FINDINGS, WITH COST
+
+1. **The composed operator's monotonicity needs the clamp** ((a); 1 h
+   to find, ½ h to build): §U.13 (d)'s "monotone by leastness" was
+   wrong above the auxiliary carrier; the honest unclamped route
+   costs a sealed (W-pins) law (~1 session) and no consumer wants it.
+2. **K.27 has no consumer in the block model** (a consequence of 1,
+   checked against every pin-reading clause): `functor`/`pinMem`/
+   `pinMono` come from `Ψ`'s laws, `Ψ = tupleLfpΦ` at the auxiliary
+   block's readings needs `TupleLfpOk` at `k + n` — the auxiliary
+   block's OWN chain grading (its copies' fields are ordinary or
+   member-headed after the elimination; the scratch install's
+   `checkMutualCore` is the run fact) — and `pinLeaf` needs the fit AT
+   THE CARRIER only, which post-check (a) records.  §U.13 (e)'s K.27
+   row ("the fit at every `X`, consumer `pinMono`/`pinMem`/`functor`")
+   is retired.  For the maintainer's pending arm-6 ruling: the model
+   does not need `nestedPinsAbsOk`; if the kernel keeps it, it is for
+   verdict parity alone.
+3. **Simultaneous, not iterated** ((a) second paragraph): Bekić at a
+   SEGMENT is the form a mutual container's copies need; the per-pin
+   iteration cannot identify them.
+4. **`ppsM := ppsA`**: giving the block model the `k + n` telescopes
+   makes the composed operator's tuple space the block model's by
+   `rfl` and moves every index-set identification into ONE hypothesis
+   (`hPinIdx`), where `ofMutual` had none.
+5. **The falsifier at the block model needs no syntactic Tree/List
+   fixture**: `ofNested`'s laws are the extended `IsBlockModel`'s
+   semantic clauses verbatim, generic in the readings; the syntactic
+   instance is the assembly's (s3), and the pure Tree/List instance
+   ((d)) tests the pure half at the experiment's operator.
+6. **The shake gate after a merge** (¾ h, three builds): the M5 merge
+   changed the graph around `NestedSlotRead` (U-11's file, untouched
+   here) and the pub-import gate then called its three re-exports
+   individually demotable.  Demoting all three empties the file's public
+   view (`Name`/`Level`/`Expr` unknown); demoting `Verify.Subst` alone
+   leaves the EXPOSED `def`s `Expr.absConstAt`/`absMembersGo` naming
+   `fvarsBelow`/`substFvarAt` privately ("unknown identifier" — task
+   #253's class: a private import is invisible to an exposed body), and
+   without `Annot.Bit` the proofs' `rfl`s stop closing.  U-11 had
+   applied the plan's own `--only` result; the three edges are now
+   `FALLBACK` entries in `scripts/pub-import-plan.py` with this reason.
+   The fixpoint is order-dependent, so a merge can turn a pinned edge
+   into a candidate: run the shake gate on a merge commit before
+   building on it.
+7. Lean traps: a local notation `Ψ` collides with a named argument
+   `(Ψ := …)` (rename the notation); a theorem whose statement
+   mentions the block-model instance `D` cannot be applied by `have`
+   from a hypothesis that does not mention `D`'s other data (the
+   auto-bound implicits are unresolved) — state the auxiliary laws
+   over the raw objects (`resSort.eval ψ`, `nestedIs …`, `rfl` to the
+   `D` forms); a `have` from a lemma stated over `(fun q => Is (a + q))
+   (j - a)` is not beta-reduced, `rwa [Nat.add_sub_cancel' …] at this`
+   misses — `simp only [...] at this; exact this`; `omega` does not see
+   through `¬ (A ∧ B)` in context (`lt_of_not_seg`); a
+   `by_cases`-branch `· omega` on a hypothesis that is FALSE (the
+   complement in the space at a segment position) is a specification
+   error, not a tactic one — weaken the lemma (`inTupleSpace_segJoin'`).
+
+##### (h) GATES
+
+`lake build` 638 jobs warning-free (was 635: `LfpCompose`,
+`BlockComposed`, `TreeListCompose`), `lake test` warning-free EXIT 0;
+layering base 321 / model 234 / caps 3 / umbrella 1, 0 base→lane,
+0 impl→theory; proofdeps 4915 rows across 12 roots, 0 doors (no
+capstone closure gained a module); trust surface 13 escapes in 5
+allowlisted files (570 scanned); overview-links 112 (unchanged);
+quote-gate 2; no-local-paths OK.  Shake 494 removals all allowlisted (the three new
+files needed no allowlist line); pub-imports 1140 of 1667 in-tree edges
+public, none demotable (19 fallbacks: the 16 before plus
+`NestedSlotRead`'s three, finding 6).
+Lanes: one Opus lane (the Tree/List instance, ~6 minutes, its one
+file by `lake env lean`); the coordinator owned the pure module, the
+block-model module, the roots and the build.
+
+##### (i) RE-SIZING
+
+M6: s1 (census, the arm) and s2 (this session) done; s3 = `pinLeaf`
+per (e) + the syntactic assembly's first half (the `PinSyn` records
+from K.12's annotated pins, `hPinIdx`, the `fibre` bookkeeping) 1–2 →
+**M6 3–4 (was 3–5)**.  M7 nested recursors + flip 3–4 (+1 for the
+`k + nPins`-class recursor kit, §U.13 (f) 4, and the `ind_reps`-like
+field, (f) 1); M8 1–2.  Remaining **7–11** (was 8–13).

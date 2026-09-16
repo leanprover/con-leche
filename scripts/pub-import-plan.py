@@ -84,6 +84,17 @@ FALLBACK = {
     # their statements without `SetTheory`/`Name`/`Env`/`NoProjEnv`/
     # `consMutualFormers` in the public view ("Unknown identifier … imported
     # privately"); one re-export each stays.
+    # task #315 U-12: `NestedSlotRead`'s three re-exports became demotion
+    # candidates when the M5 merge changed the graph around them (the
+    # fixpoint is order-dependent).  Demoting all three empties the file's
+    # public view (`Name`/`Level`/`Expr` unknown); demoting `Verify.Subst`
+    # alone leaves the EXPOSED `def`s `Expr.absConstAt`/`absMembersGo`
+    # naming `fvarsBelow`/`substFvarAt` privately ("unknown identifier",
+    # task #253's class), and without `Annot.Bit` the proofs' `rfl`s stop
+    # closing.  U-11 applied the plan's own `--only` result; it stays.
+    ('ConLeche.Model.Inductives.NestedSlotRead','ConLeche.Model.Annot.EnvModel'),
+    ('ConLeche.Model.Inductives.NestedSlotRead','ConLeche.Model.Annot.Bit'),
+    ('ConLeche.Model.Inductives.NestedSlotRead','ConLeche.Verify.Subst'),
     ('ConLeche.Model.Inductives.BlockRecBridge','ConLeche.Model.Inductives.BlockRecWD'),
     ('ConLeche.Model.Inductives.MutualNoProj','ConLeche.Model.Inductives.TowerCons'),
     ('ConLeche.Model.Inductives.MutualNoProj','ConLeche.Verify.Inductives.MutualInv'),
