@@ -118,6 +118,225 @@ def checkConstantVal (ops : CheckerOps m) (env : Env) (cv : ConstantVal) : m Con
   let _u ← ops.ensureSort env 0 stype
   pure { cv with type := type }
 
+/-! ## `.proj` nodes on the pre-annotated path (task #279 K.13)
+
+The annotation walk is what validates a `.proj` node's STRUCTURE-NAME
+slot: `annotateBody`'s `.proj` clause infers the subject, reduces its
+type to a head `const T`, looks the table entry up at `T` and `i`, and
+throws `invalid projection: the node names another structure` unless the
+node's own name is that `T` (task #271, issue #7).  A path that skips
+the walk (`checkConstantValPre`) must not skip that, so the same
+condition is asked SYNTACTICALLY here: a node `.proj sn i e` must have a
+table entry AT ITS OWN NAME and index.
+
+**It narrows nothing.**  Whenever the walk accepted a node it had
+`env.findProj? T i = some entry` and `T = sn`, hence
+`env.findProj? sn i = some entry` — this predicate.  And inference,
+which runs right after, asks the same pair again (`inferBody`'s `.proj`
+clause: `T = sn` with the entry at `T`), so a node this rejects would
+have been refused a few steps later anyway; what the check adds is the
+official VERDICT (`invalid`, not `notImplemented`) and a syntactic fact
+the model tier can read off the run. -/
+def Expr.projTablesOk (env : Env) : Expr → Bool
+  | .bvar _ | .sort _ | .lit _ | .const _ _ => true
+  | .fvar _ ty => ty.projTablesOk env
+  | .app f a => f.projTablesOk env && a.projTablesOk env
+  | .lam ty body _ | .forallE ty body _ =>
+    ty.projTablesOk env && body.projTablesOk env
+  | .letE ty val body =>
+    ty.projTablesOk env && val.projTablesOk env && body.projTablesOk env
+  | .proj sn i e => (env.findProj? sn i).isSome && e.projTablesOk env
+
+/-! ### `projTablesOk`, memoized (the task #215 discipline)
+
+The walk runs over a whole declared type, and a stream may put a
+DAG-shared tower in one; the memoized walk is swapped in by `@[csimp]`,
+as `constsResolveF` is — kernel-checked, no trust point, the pure
+definition stays what every proof consumes. -/
+
+/-- The memo's invariant: every recorded answer is the real one. -/
+def ProjTblMemoInv (env : Env) (memo : Std.HashMap Expr Bool) : Prop :=
+  ∀ (k : Expr) (r : Bool), memo[k]? = some r → r = k.projTablesOk env
+
+theorem ProjTblMemoInv.empty {env : Env} : ProjTblMemoInv env {} := by
+  intro k r h; simp at h
+
+theorem ProjTblMemoInv.insert {env : Env} {memo : Std.HashMap Expr Bool}
+    (hm : ProjTblMemoInv env memo) {e : Expr} {r : Bool}
+    (heq : r = e.projTablesOk env) :
+    ProjTblMemoInv env (memo.insert e r) := by
+  intro k r' hk
+  rw [Std.HashMap.getElem?_insert] at hk
+  split at hk
+  · rename_i hbeq
+    cases hk
+    rw [← eq_of_beq hbeq]
+    exact heq
+  · exact hm k r' hk
+
+/-- Memoized `projTablesOk`. -/
+def Expr.projTablesOkGo (env : Env) (memo : Std.HashMap Expr Bool) :
+    Expr → Bool × Std.HashMap Expr Bool
+  | .bvar _ => (true, memo)
+  | .sort _ => (true, memo)
+  | .lit _ => (true, memo)
+  | .const _ _ => (true, memo)
+  | e =>
+    match memo[e]? with
+    | some r => (r, memo)
+    | none =>
+      let (r, memo) : Bool × Std.HashMap Expr Bool :=
+        match e with
+        | .fvar _ ty => projTablesOkGo env memo ty
+        | .app f a =>
+          let (b₁, memo) := projTablesOkGo env memo f
+          let (b₂, memo) := projTablesOkGo env memo a
+          (b₁ && b₂, memo)
+        | .lam ty body _ =>
+          let (b₁, memo) := projTablesOkGo env memo ty
+          let (b₂, memo) := projTablesOkGo env memo body
+          (b₁ && b₂, memo)
+        | .forallE ty body _ =>
+          let (b₁, memo) := projTablesOkGo env memo ty
+          let (b₂, memo) := projTablesOkGo env memo body
+          (b₁ && b₂, memo)
+        | .letE ty val body =>
+          let (b₁, memo) := projTablesOkGo env memo ty
+          let (b₂, memo) := projTablesOkGo env memo val
+          let (b₃, memo) := projTablesOkGo env memo body
+          (b₁ && b₂ && b₃, memo)
+        | .proj sn i sub =>
+          let (b, memo) := projTablesOkGo env memo sub
+          ((env.findProj? sn i).isSome && b, memo)
+        | e => (e.projTablesOk env, memo)
+      (r, memo.insert e r)
+
+/-- **The memoized walk is `projTablesOk`.** -/
+theorem Expr.projTablesOkGo_spec {env : Env} :
+    ∀ (e : Expr) (memo : Std.HashMap Expr Bool), ProjTblMemoInv env memo →
+      (projTablesOkGo env memo e).1 = e.projTablesOk env ∧
+        ProjTblMemoInv env (projTablesOkGo env memo e).2 := by
+  intro e
+  induction e with
+  | bvar i => intro memo hm; exact ⟨rfl, hm⟩
+  | sort u => intro memo hm; exact ⟨rfl, hm⟩
+  | const n us => intro memo hm; exact ⟨rfl, hm⟩
+  | lit l => intro memo hm; exact ⟨rfl, hm⟩
+  | fvar i ty ih =>
+    intro memo hm
+    rw [projTablesOkGo]
+    split
+    · rename_i r hhit
+      exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
+    · obtain ⟨h1, h2⟩ := ih memo hm
+      refine ⟨by simp [projTablesOk, h1], ?_⟩
+      exact h2.insert (by simp [projTablesOk, h1])
+  | app a b iha ihb =>
+    intro memo hm
+    rw [projTablesOkGo]
+    split
+    · rename_i r hhit
+      exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
+    · obtain ⟨h1, h2⟩ := iha memo hm
+      obtain ⟨h3, h4⟩ := ihb _ h2
+      refine ⟨by simp [projTablesOk, h1, h3], ?_⟩
+      exact h4.insert (by simp [projTablesOk, h1, h3])
+  | lam ty body bi iht ihb =>
+    intro memo hm
+    rw [projTablesOkGo]
+    split
+    · rename_i r hhit
+      exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
+    · obtain ⟨h1, h2⟩ := iht memo hm
+      obtain ⟨h3, h4⟩ := ihb _ h2
+      refine ⟨by simp [projTablesOk, h1, h3], ?_⟩
+      exact h4.insert (by simp [projTablesOk, h1, h3])
+  | forallE ty body bi iht ihb =>
+    intro memo hm
+    rw [projTablesOkGo]
+    split
+    · rename_i r hhit
+      exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
+    · obtain ⟨h1, h2⟩ := iht memo hm
+      obtain ⟨h3, h4⟩ := ihb _ h2
+      refine ⟨by simp [projTablesOk, h1, h3], ?_⟩
+      exact h4.insert (by simp [projTablesOk, h1, h3])
+  | letE ty val body iht ihv ihb =>
+    intro memo hm
+    rw [projTablesOkGo]
+    split
+    · rename_i r hhit
+      exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
+    · obtain ⟨h1, h2⟩ := iht memo hm
+      obtain ⟨h3, h4⟩ := ihv _ h2
+      obtain ⟨h5, h6⟩ := ihb _ h4
+      refine ⟨by simp [projTablesOk, h1, h3, h5], ?_⟩
+      exact h6.insert (by simp [projTablesOk, h1, h3, h5])
+  | proj sn i sub ih =>
+    intro memo hm
+    rw [projTablesOkGo]
+    split
+    · rename_i r hhit
+      exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
+    · obtain ⟨h1, h2⟩ := ih memo hm
+      refine ⟨by simp [projTablesOk, h1], ?_⟩
+      exact h2.insert (by simp [projTablesOk, h1])
+
+/-- The executed `projTablesOk` (one memoized DAG walk). -/
+def Expr.projTablesOkFast (env : Env) (e : Expr) : Bool :=
+  (projTablesOkGo env {} e).1
+
+@[csimp] theorem Expr.projTablesOk_eq_projTablesOkFast :
+    @Expr.projTablesOk = @Expr.projTablesOkFast := by
+  funext env e
+  exact (projTablesOkGo_spec e {} ProjTblMemoInv.empty).1.symm
+
+
+/-- **`checkConstantVal` on an input that is ALREADY ANNOTATED** (task
+#279 K.10; the maintainer's ruling: "only terms from the outside need
+annotations inferred, those that we construct ourselves don't — pass a
+flag to the whole install whether the input is annotated or not, and
+skip annotating if it is").
+
+Every check of `checkConstantVal` runs, on `cv.type` itself; the one
+thing that does not is the annotation WALK, so the stored type IS the
+input, syntactically.  Nothing is weakened: `ops.inferType` below is
+what VALIDATES every binder datum — `inferBody`'s ∀ and λ clauses
+compare the stored datum with the sort they infer and DECLINE on a
+mismatch (`Level.zeronessOf v == mb.pw`) — and it re-checks the scope of
+every leaf, so a wrong datum or a dangling variable in a "pre-annotated"
+input is refused exactly as it would have been.
+
+What the skipped walk would additionally have done: the ζ-reduction of a
+`let` (the only caller is the nested route, whose copies are built from
+stored let-free types and annotated components) and the literal-support
+guards (`natLitSupported`/`strLitSupported`, which the container's stored
+type and the annotated components already passed at their own checks).
+It must therefore only be called on a term the checker built itself out
+of already-checked pieces — which is what the `auxRoute` grade at
+`mutualFormerChecks` decides. -/
+def checkConstantValPre (ops : CheckerOps m) (env : Env) (cv : ConstantVal) :
+    m ConstantVal := do
+  if (env.find? cv.name).isSome then
+    throw (.invalid s!"duplicate declaration {cv.name}")
+  if reservedBasisNames.contains cv.name then
+    throw (.invalid s!"reserved basis name {cv.name}")
+  if cv.name.isProjFnShape then
+    throw (.invalid s!"reserved projection name {cv.name}")
+  unless Name.nodup cv.levelParams do
+    throw (.invalid s!"duplicate universe parameters in {cv.name}")
+  unless cv.type.looseBVarsBounded 0 do
+    throw (.invalid s!"loose bound variable in type of {cv.name}")
+  if cv.type.hasFvar then
+    throw (.invalid s!"unexpected free variable in type of {cv.name}")
+  unless cv.type.allLevelParamsDefined cv.levelParams do
+    throw (.invalid s!"undeclared universe parameter in type of {cv.name}")
+  unless cv.type.constsResolve env do
+    throw (.invalid s!"unknown constant in type of {cv.name}")
+  let stype ← ops.inferType env 0 cv.type
+  let _u ← ops.ensureSort env 0 stype
+  pure cv
+
 /-- Compare binder domains at offsets `o₁`/`o₂` for `n` positions, the
 right side viewed through `g` (identity, lifting, or renaming). -/
 def domsMatchAux (g : Nat → Expr → Expr)

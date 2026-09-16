@@ -109,6 +109,24 @@ protected def toString : Name → String
 
 instance : ToString Name := ⟨Name.toString⟩
 
+/-- Is `pre` a prefix of `n` (`n` itself included)?  Official's
+`is_prefix_of`.  Lives here, below every install, because the nested
+route's reserved prefix is read at the mutual installer's member loop
+(task #279 K.10). -/
+def hasPrefixOf (pre : Name) : Name → Bool
+  | .anonymous => (Name.anonymous == pre)
+  | .str p s => (Name.str p s == pre) || Name.hasPrefixOf pre p
+  | .num p k => (Name.num p k == pre) || Name.hasPrefixOf pre p
+
 end Name
+
+/-- Official's `g_nested`: the prefix the nested route's auxiliary mimic
+types are minted under (`ConLeche/Kernel/Inductives/NestedElim.lean`).
+They exist only in the scratch environment, so a stream naming one is
+rejected (`check_no_nested_aux`, leanprover/lean4#14616) — and a member
+of the block a nested install hands the MUTUAL installer carries it
+exactly when the kernel minted that member itself, which is what
+`checkMutualCore`'s `auxRoute` grade reads (task #279 K.10). -/
+def nestedPrefixName : Name := .str .anonymous "_nested"
 
 end ConLeche

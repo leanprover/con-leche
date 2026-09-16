@@ -148,17 +148,33 @@ former's type is checked and read at official's telescope
 as official's `check_inductive_types` does — `declare_inductive_types`
 comes after, so a former type mentioning an earlier member of the same
 block is official's "unknown identifier" and is rejected here too. -/
-def mutualFormerChecks (ops : CheckerOps m) (env : Env) (nP : Nat) :
+def mutualFormerChecks (ops : CheckerOps m) (env : Env) (nP : Nat)
+    (auxRoute : Bool := false) :
     List (ConstantVal × Nat) → m (List MutualFormerA)
   | [] => pure []
   | (cv, nIdx) :: rest => do
-    let cvTa₀ ← checkConstantVal ops env cv
+    -- **THE PRE-ANNOTATED BLOCK** (task #279 K.10, widened by K.12 on
+    -- the maintainer's ruling).  `auxRoute` says: the CALLER built every
+    -- member of this block out of annotated pieces, so no member's type
+    -- needs an annotation inferred.  The nested route's scratch install
+    -- passes it, and only it — its real members are the constants its
+    -- input-annotation stage checked, and its copies are minted out of
+    -- those and out of the containers' stored types at annotated pins.
+    -- The walk is skipped and the stored type IS the given one,
+    -- syntactically.  Every check still runs, `ops.inferType` included,
+    -- which is what validates each binder datum.  Off `auxRoute` every
+    -- member is annotated as before, so the MUTUAL route is untouched.
+    -- The grade is an explicit OPT-IN, not a name test: nothing here
+    -- reads a member's name.
+    let cvTa₀ ←
+      if auxRoute then checkConstantValPre ops env cv
+      else checkConstantVal ops env cv
     let (cvTa, s) ← checkSumTele ops env cv (nP + nIdx) cvTa₀
     let (_, tbody) ← unwrapOr (cvTa.type.stripPis (nP + nIdx))
       (.internal "mutual: type former telescope")
     unless tbody == Expr.sort s do
       throw (.internal "mutual: type former result sort")
-    let fs ← mutualFormerChecks ops env nP rest
+    let fs ← mutualFormerChecks ops env nP auxRoute rest
     pure (⟨cvTa, nIdx, s⟩ :: fs)
 
 /-- The formers' conses, in block order (the first former deepest),
@@ -172,8 +188,8 @@ def consMutualFormers : List MutualFormerA → Env → Env
 consed afterwards; returns the environment holding all of them and the
 checked formers in order. -/
 def mutualFormers (ops : CheckerOps m) (nP : Nat) (formers : List (ConstantVal × Nat))
-    (env : Env) : m (Env × List MutualFormerA) := do
-  let fms ← mutualFormerChecks ops env nP formers
+    (env : Env) (auxRoute : Bool := false) : m (Env × List MutualFormerA) := do
+  let fms ← mutualFormerChecks ops env nP auxRoute formers
   pure (consMutualFormers fms env, fms)
 
 /-- Official's `check_inductive_types` parameter check: member `m`'s
@@ -242,7 +258,7 @@ def normFieldDomsM (ops : CheckerOps m) (env : Env) (memberNames : List Name) :
 /-- `normCtorVal` at a mutual block: the checked constructor with its
 field domains normalised over the member list. -/
 def normCtorValM (ops : CheckerOps m) (env : Env) (memberNames : List Name) (nP nF : Nat)
-    (cvC cvCa : ConstantVal) : m ConstantVal := do
+    (cvC cvCa : ConstantVal) (preAnnotated : Bool := false) : m ConstantVal := do
   let (cbs, _) ← unwrapOr (cvCa.type.stripPis nP)
     (.notImplemented "mutual: constructor telescope")
   let (fvsP, crest) ← unwrapOr (openPisAtFvars nP cvCa.type 0)
@@ -251,6 +267,13 @@ def normCtorValM (ops : CheckerOps m) (env : Env) (memberNames : List Name) (nP 
   let (fbs, resid) ← normFieldDomsM ops env memberNames nP nF crest
   let ty' := closeTelescope (pbs ++ fbs) 0 resid
   if ty' == cvCa.type then pure cvCa
+  else if preAnnotated then
+    -- the POSITIVITY NORMALISATION of a type we built ourselves: its
+    -- binder data came from the given annotated constant, and `whnf`
+    -- only substitutes and peels, so there is no placeholder left to
+    -- compute.  Every check still runs, `inferType` included, which is
+    -- what validates each datum (task #279 K.12).
+    checkConstantValPre ops env { cvC with type := ty' }
   else checkConstantVal ops env { cvC with type := ty' }
 
 /-- **One constructor's type** at a mutual block (`checkSumCtor` with
@@ -265,9 +288,11 @@ index argument is caught by the kinds), and the per-field universe
 bound.  Returns the annotated constructor and its fields' sorts. -/
 def checkMutualCtor (ops : CheckerOps m) (env : Env) (memberNames : List Name) (T : Name)
     (lps : List Name) (nP nIdx : Nat) (resSort : Level) (isProp large : Bool)
-    (cvC : ConstantVal) (nF : Nat) (cvTa : ConstantVal) : m (ConstantVal × List Level) := do
-  let cvCa₀ ← checkConstantVal ops env cvC
-  let cvCa ← normCtorValM ops env memberNames nP nF cvC cvCa₀
+    (cvC : ConstantVal) (nF : Nat) (cvTa : ConstantVal) (preAnnotated : Bool := false) :
+    m (ConstantVal × List Level) := do
+  let cvCa₀ ←
+    if preAnnotated then checkConstantValPre ops env cvC else checkConstantVal ops env cvC
+  let cvCa ← normCtorValM ops env memberNames nP nF cvC cvCa₀ preAnnotated
   let (_, cbody) ← unwrapOr (cvCa.type.stripPis (nP + nF))
     (.notImplemented "mutual: constructor telescope")
   unless structCtorResidOk T lps nP nF nIdx cbody do
@@ -295,14 +320,20 @@ formers (`fms`: the checked formers, indexed by member); returns the
 annotated constructors with their field counts and their fields'
 sorts. -/
 def checkMutualCtors (ops : CheckerOps m) (env : Env) (b : MutualBlock)
-    (fms : List MutualFormerA) (isProp : Bool) :
+    (fms : List MutualFormerA) (isProp : Bool) (auxRoute : Bool := false) :
     List MutualCtor → m (List (ConstantVal × Nat) × List (List Level))
   | [] => pure ([], [])
   | c :: cs => do
     let f := fms.getD c.member default
+    -- `auxRoute` (K.12): the caller built every constructor of this
+    -- block out of annotated pieces, so the walk is skipped for all of
+    -- them.  The positivity NORMALISATION still runs: skipping it
+    -- changes verdicts at a λ-pin, where the copied field is a redex
+    -- whose head is a `.lam` and `mutualPositivity` reads no member
+    -- application.
     let (cvCa, sorts) ← checkMutualCtor ops env b.memberNames f.cvTa.name b.lps b.nP f.nIdx f.s
-      isProp b.large c.cv c.nF f.cvTa
-    let (rest, srest) ← checkMutualCtors ops env b fms isProp cs
+      isProp b.large c.cv c.nF f.cvTa auxRoute
+    let (rest, srest) ← checkMutualCtors ops env b fms isProp auxRoute cs
     pure ((cvCa, c.nF) :: rest, sorts :: srest)
 
 /-- Official's `check_positivity` telescope walk on a field domain
@@ -583,11 +614,13 @@ def mutualTables (b : MutualBlock) (ctorsA : List (ConstantVal × Nat))
 the module docstring); `streamRecs` are the stream's recursor records
 in member order, compared with the generated recursors when given. -/
 def checkMutualCore (ops : CheckerOps m) (env : Env) (b : MutualBlock)
-    (streamRecs : Option (List (ConstantVal × List RecRule))) : m Env := do
+    (streamRecs : Option (List (ConstantVal × List RecRule)))
+    (auxRoute : Bool := false) : m Env := do
   let nP := b.nP
   mutualShapeOk b
-  -- 1. the formers, consed
-  let (env₁, fms) ← mutualFormers ops nP b.formers env
+  -- 1. the formers, consed (`auxRoute`: the nested route's scratch
+  -- install, whose members are pre-annotated throughout — K.10, K.12)
+  let (env₁, fms) ← mutualFormers ops nP b.formers env auxRoute
   let f₀ ← unwrapOr fms[0]? (.internal "mutual: no member")
   -- 2. the cross-member checks and the eliminator
   let tq₀ ← unwrapOr (openPisAtFvars nP f₀.cvTa.type 0) (.internal "mutual: former telescope")
@@ -598,7 +631,7 @@ def checkMutualCore (ops : CheckerOps m) (env : Env) (b : MutualBlock)
   -- 3. the constructors at the environment holding the formers, their
   -- kinds classified on the stored (normalised) constructors and
   -- re-checked in the opened form the model reads
-  let (ctorsA, sortss) ← checkMutualCtors ops env₁ b fms isProp b.ctors
+  let (ctorsA, sortss) ← checkMutualCtors ops env₁ b fms isProp auxRoute b.ctors
   let kinds ← classifyMutualKinds b.members3 b.lps nP ctorsA
   unless mutualFieldsOk env b.members3 b.lps nP ctorsA kinds do
     throw (.internal "mutual: field kinds")

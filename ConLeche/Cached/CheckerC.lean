@@ -272,7 +272,7 @@ def checkMutualCoreS (fe : FEnv) (b : MutualBlock)
     throw (.invalid "mutual: the recursors' level parameters are not the generated ones")
   let isProp := Level.isEquiv f₀.s .zero == some true
   let (ctorsA, sortss) ← checkMutualCtorsF (sharedOpsC mode fe₁) structWalkersC fe₁ b fms isProp
-    b.ctors
+    false b.ctors
   let kinds ← classifyMutualKinds (m := CheckCM) b.members3 b.lps nP ctorsA
   unless mutualFieldsOkF structWalkersC fe b.members3 b.lps nP ctorsA kinds do
     throw (.internal "mutual: field kinds")

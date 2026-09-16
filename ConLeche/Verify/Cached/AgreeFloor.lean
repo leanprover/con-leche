@@ -1403,6 +1403,13 @@ theorem mutualFormersS_skels (mode : CheckMode) (nP : Nat)
 
 /-- The constructors' normalisation stores a constant of the declared
 name. -/
+theorem checkConstantValPreF_name (ops : CheckerOps CheckCM) (fe : FEnv)
+    (cv : ConstantVal) :
+    Yields (checkConstantValPreF ops fe cv) (fun cvA => cvA.name = cv.name) := by
+  unfold checkConstantValPreF
+  yields
+  all_goals (apply Yields.pure; rfl)
+
 theorem normCtorValMF_name (ops : CheckerOps CheckCM) (fe : FEnv)
     (memberNames : List Name) (nP nF : Nat) (cvC cvCa : ConstantVal)
     (hn : cvCa.name = cvC.name) :
@@ -1410,8 +1417,10 @@ theorem normCtorValMF_name (ops : CheckerOps CheckCM) (fe : FEnv)
   unfold normCtorValMF
   yields
   all_goals (dsimp only; split)
+  all_goals try split
   all_goals first
     | (apply Yields.pure; exact hn)
+    | exact Yields.mono (checkConstantValPreF_name ops fe _) (fun _ h => h)
     | exact Yields.mono (checkConstantValF_name ops fe _) (fun _ h => h)
 
 /-- One constructor's stage keeps the declared name. -/
@@ -1431,7 +1440,7 @@ theorem checkMutualCtorF_name (ops : CheckerOps CheckCM) (w : StructWalkers) (fe
 theorem checkMutualCtorsF_names (ops : CheckerOps CheckCM) (w : StructWalkers) (fe : FEnv)
     (b : MutualBlock) (fms : List MutualFormerA) (isProp : Bool) :
     ∀ (cs : List MutualCtor),
-      Yields (checkMutualCtorsF ops w fe b fms isProp cs)
+      Yields (checkMutualCtorsF ops w fe b fms isProp false cs)
         (fun r => r.1.map (fun c => (c.1.name, c.2)) = cs.map (fun c => (c.cv.name, c.nF)))
   | [] => Yields.pure rfl
   | c :: cs => by

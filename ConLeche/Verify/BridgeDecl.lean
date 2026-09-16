@@ -306,6 +306,12 @@ theorem checkConstantVal_datF (env : Env) (cv : ConstantVal) (F : Nat) :
   unfold checkConstantVal
   datF_tac
 
+theorem checkConstantValPre_datF (env : Env) (cv : ConstantVal) (F : Nat) :
+    (checkConstantValPre (fueledOpsM mode) env cv).val F =
+      checkConstantValPre (fueledOps mode F) env cv := by
+  unfold checkConstantValPre
+  datF_tac
+
 theorem checkProjLookups_datF (env' : Env) (T ctorName : Name) (lps : List Name) (nP nF i : Nat) (F : Nat) :
     (checkProjLookups env' T ctorName lps nP nF i : FueledM _).val F =
       (checkProjLookups env' T ctorName lps nP nF i : CheckM _) := by
@@ -892,20 +898,21 @@ theorem mutualShapeOk_datF (b : MutualBlock) (F : Nat) :
   unfold mutualShapeOk
   simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw, FueledM.atF_ite]
 
-theorem mutualFormerChecks_datF (nP : Nat) (F : Nat) (env : Env) :
+theorem mutualFormerChecks_datF (nP : Nat) (F : Nat) (env : Env) (auxRoute : Bool) :
     ∀ (fs : List (ConstantVal × Nat)),
-      (mutualFormerChecks (fueledOpsM mode) env nP fs).val F =
-        mutualFormerChecks (fueledOps mode F) env nP fs
+      (mutualFormerChecks (fueledOpsM mode) env nP auxRoute fs).val F =
+        mutualFormerChecks (fueledOps mode F) env nP auxRoute fs
   | [] => rfl
   | (_, _) :: rest => by
     unfold mutualFormerChecks
     simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw, FueledM.atF_ite,
-      unwrapOr_atF, checkConstantVal_datF, checkSumTele_datF,
-      mutualFormerChecks_datF nP F env rest]
+      unwrapOr_atF, checkConstantVal_datF, checkConstantValPre_datF, checkSumTele_datF,
+      mutualFormerChecks_datF nP F env auxRoute rest]
 
-theorem mutualFormers_datF (nP : Nat) (F : Nat) (fs : List (ConstantVal × Nat)) (env : Env) :
-    (mutualFormers (fueledOpsM mode) nP fs env).val F =
-      mutualFormers (fueledOps mode F) nP fs env := by
+theorem mutualFormers_datF (nP : Nat) (F : Nat) (fs : List (ConstantVal × Nat)) (env : Env)
+    (auxRoute : Bool) :
+    (mutualFormers (fueledOpsM mode) nP fs env auxRoute).val F =
+      mutualFormers (fueledOps mode F) nP fs env auxRoute := by
   unfold mutualFormers
   simp only [FueledM.atF_bind, FueledM.atF_pure, mutualFormerChecks_datF]
 
@@ -984,35 +991,35 @@ theorem normFieldDomsM_datF (env : Env) (memberNames : List Name) (F : Nat) (n :
       simp only [normFieldDomsM, FueledM.atF_throw]
 
 theorem normCtorValM_datF (env : Env) (memberNames : List Name) (nP nF : Nat)
-    (cvC cvCa : ConstantVal) (F : Nat) :
-    (normCtorValM (fueledOpsM mode) env memberNames nP nF cvC cvCa).val F =
-      normCtorValM (fueledOps mode F) env memberNames nP nF cvC cvCa := by
+    (cvC cvCa : ConstantVal) (F : Nat) (preAnnotated : Bool) :
+    (normCtorValM (fueledOpsM mode) env memberNames nP nF cvC cvCa preAnnotated).val F =
+      normCtorValM (fueledOps mode F) env memberNames nP nF cvC cvCa preAnnotated := by
   unfold normCtorValM
   simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw, FueledM.atF_ite,
-    unwrapOr_atF, checkConstantVal_datF, normFieldDomsM_datF]
+    unwrapOr_atF, checkConstantVal_datF, checkConstantValPre_datF, normFieldDomsM_datF]
 
 theorem checkMutualCtor_datF (env : Env) (memberNames : List Name) (T : Name)
     (lps : List Name) (nP nIdx : Nat) (resSort : Level) (isProp large : Bool)
-    (cvC : ConstantVal) (nF : Nat) (cvTa : ConstantVal) (F : Nat) :
+    (cvC : ConstantVal) (nF : Nat) (cvTa : ConstantVal) (F : Nat) (preAnnotated : Bool) :
     (checkMutualCtor (fueledOpsM mode) env memberNames T lps nP nIdx resSort isProp large
-      cvC nF cvTa).val F =
+      cvC nF cvTa preAnnotated).val F =
       checkMutualCtor (fueledOps mode F) env memberNames T lps nP nIdx resSort isProp large
-        cvC nF cvTa := by
+        cvC nF cvTa preAnnotated := by
   unfold checkMutualCtor
   simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw,
-    FueledM.atF_ite, unwrapOr_atF, checkConstantVal_datF, normCtorValM_datF,
-    checkStructFieldSortsI_datF, checkStructDomsAt_datF]
+    FueledM.atF_ite, unwrapOr_atF, checkConstantVal_datF, checkConstantValPre_datF,
+    normCtorValM_datF, checkStructFieldSortsI_datF, checkStructDomsAt_datF]
 
 theorem checkMutualCtors_datF (env : Env) (b : MutualBlock) (fms : List MutualFormerA)
-    (isProp : Bool) (F : Nat) :
+    (isProp : Bool) (F : Nat) (auxRoute : Bool) :
     ∀ cs : List MutualCtor,
-      (checkMutualCtors (fueledOpsM mode) env b fms isProp cs).val F =
-        checkMutualCtors (fueledOps mode F) env b fms isProp cs
+      (checkMutualCtors (fueledOpsM mode) env b fms isProp auxRoute cs).val F =
+        checkMutualCtors (fueledOps mode F) env b fms isProp auxRoute cs
   | [] => rfl
   | _ :: cs => by
     unfold checkMutualCtors
     simp only [FueledM.atF_bind, FueledM.atF_pure, checkMutualCtor_datF,
-      checkMutualCtors_datF env b fms isProp F cs]
+      checkMutualCtors_datF env b fms isProp F auxRoute cs]
 
 /-- The kinds' classification at a mutual block at fuel `F`:
 operation-free, so the fuel is irrelevant. -/
@@ -1094,9 +1101,9 @@ theorem mutualTables_datF (b : MutualBlock) (ctorsA : List (ConstantVal × Nat))
       mutualTables_datF b ctorsA sortss F rest]
 
 theorem checkMutualCore_datF (env : Env) (b : MutualBlock)
-    (streamRecs : Option (List (ConstantVal × List RecRule))) (F : Nat) :
-    (checkMutualCore (fueledOpsM mode) env b streamRecs).val F =
-      checkMutualCore (fueledOps mode F) env b streamRecs := by
+    (streamRecs : Option (List (ConstantVal × List RecRule))) (F : Nat) (auxRoute : Bool) :
+    (checkMutualCore (fueledOpsM mode) env b streamRecs auxRoute).val F =
+      checkMutualCore (fueledOps mode F) env b streamRecs auxRoute := by
   unfold checkMutualCore
   simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw, FueledM.atF_ite,
     unwrapOr_atF, liftFueled_atF, mutualShapeOk_datF, mutualFormers_datF,

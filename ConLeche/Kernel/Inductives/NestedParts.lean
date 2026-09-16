@@ -53,11 +53,6 @@ namespace ConLeche
 
 /-! ## The reserved prefix and the copies' names -/
 
-/-- Official's `g_nested`: the prefix the auxiliary mimic types are
-minted under.  They exist only in the scratch environment, so a stream
-naming one is rejected (`check_no_nested_aux`, leanprover/lean4#14616). -/
-def nestedPrefixName : Name := .str .anonymous "_nested"
-
 /-- `pre ++ n` — official's `name::operator+`. -/
 def Name.appendName (pre : Name) : Name → Name
   | .anonymous => pre
@@ -69,12 +64,6 @@ string component (`_nested.List` ↦ `_nested.List_1`). -/
 def Name.appendIndexAfter : Name → Nat → Name
   | .str p s, i => .str p (s ++ "_" ++ toString i)
   | n, i => .str n ("_" ++ toString i)
-
-/-- Is `pre` a prefix of `n` (`n` itself included)? -/
-def Name.hasPrefixOf (pre : Name) : Name → Bool
-  | .anonymous => (Name.anonymous == pre)
-  | .str p s => (Name.str p s == pre) || Name.hasPrefixOf pre p
-  | .num p k => (Name.num p k == pre) || Name.hasPrefixOf pre p
 
 /-- Official's `name::replace_prefix`: `old` replaced by `new` where it
 is a prefix, the name itself otherwise. -/
@@ -419,6 +408,144 @@ them. -/
 def uniformIndOccsOk (indNames : List Name) (lvls : List Level) (nP : Nat)
     (ctorTypes : List Expr) : Bool :=
   ctorTypes.all (uniformIndOccsE indNames lvls nP 0)
+
+/-! ## The containers' facts (task #279 K.14)
+
+Three syntactic facts about the CONTAINERS a nested block nests
+through.  The model tier's ψ needs them and no `IndRep`/`EnvWF` clause
+exposes them (the model lane's DESIGN §M.28); they are facts of every
+container the checker itself installed, so the route RE-ASKS them of the
+stored constants and records the answer — the K.1–K.13 pattern, a
+kernel-recorded fact rather than a new datum field.  A failure is
+`.internal`: it cannot happen on an environment this checker built.  -/
+
+/-- The motive's sort of a stored recursor: strip the `nP` parameter
+binders, take the first motive binder's domain, and read the sort its
+own telescope ends in (`Π ı⃗ (t : C p⃗ ı⃗), Sort w`). -/
+def containerMotiveSort? (nP : Nat) (recTy : Expr) : Option Level :=
+  match recTy.stripPis nP with
+  | some (_, .forallE dom _ _) =>
+    match dom.piBinders with
+    | (_, .sort w) => some w
+    | _ => none
+  | _ => none
+
+/-- **The two recursor facts** the model lane's `ContainersRep` states
+of every container member (§M.28), read off the stored recursor's level
+parameters and type:
+
+* LARGE (the recursor carries one level parameter more than the block —
+  the elimination universe, `u :: lps`): that universe is NOT among the
+  block's own (`large → elim ∉ lps`), so a substitution at the pin's
+  levels leaves it free for the carrier's rank;
+* SMALL (the recursor's level parameters ARE the block's): the motive's
+  sort is `Prop` (`large = false → w = 0`).
+
+Both hold of every recursor the checker generates — the mutual route
+mints the elimination universe with `mkUniqueName`-style freshness and
+sets the motive's sort to `.zero` at a small-eliminating block — and
+neither is exposed by any stored record, which is why they are asked
+here. -/
+def containerRecOk (env : Env) (nP : Nat) (J : ContainerMember) : Bool :=
+  match env.find? (J.name.str "rec") with
+  | some (.recInfo cvR _ _ _) =>
+    if cvR.levelParams == J.lps then
+      match containerMotiveSort? nP cvR.type with
+      | some w => Level.isEquiv w .zero == some true
+      | none => false
+    else
+      match cvR.levelParams with
+      | u :: rest => rest == J.lps && !J.lps.contains u
+      | [] => false
+  | _ => false
+
+/-- The head constant of a field domain, its OWN `Π` binders peeled (a
+reflexive field's `a⃗ : A⃗` prefix), with the peel depth. -/
+def fieldHeadAt (dom : Expr) : Option (Name × List Expr × Nat) :=
+  let (fbs, res) := dom.piBinders
+  match res.getAppFn with
+  | .const C _ => some (C, res.getAppArgs, fbs.length)
+  | _ => none
+
+/-- **A field domain that MENTIONS the group is NOT ORDINARY**
+(task #279 K.15 (3)) — it is one of the two shapes the positivity walk
+leaves: the field's own binders peeled, the residual is an application
+of a GROUP MEMBER whose first `nP` arguments are the block's parameters
+(a recursive or reflexive field, the bound variables at the field's
+frame: `nP` parameters, `i` earlier fields, the peeled binders), or of a
+STORED INDUCTIVE (a NESTED field — the member sits inside that
+container's parameters).  A field that mentions no member is ORDINARY
+and passes.  This is the statement the model lane's `BridgeSyntax`
+sub-term clause needs: a field the container classifies as ordinary
+mentions no member, so a group pin cannot sit inside a pin minted there.
+
+**The nested arm is not slack**, it is the shape a NESTED container
+has: `P4C`'s own stored constructor carries `Array (P4C α)`, which
+mentions the group member `P4C` without being headed by it
+(`tests/e2e/nested_p04.ndjson`, measured — DESIGN K.15). -/
+def containerFieldOk (env : Env) (names : List Name) (nP i : Nat) (dom : Expr) : Bool :=
+  if !names.any (fun T => dom.mentionsConst T) then true else
+  match fieldHeadAt dom with
+  | some (C, args, d) =>
+    (names.contains C && args.length ≥ nP &&
+      (List.range nP).all (fun j => args[j]? == some (Expr.bvar (nP + i - 1 - j + d)))) ||
+    (match env.find? C with | some (.indInfo _ _) => true | _ => false)
+  | none => false
+
+/-- The fields of one stored constructor. -/
+def containerCtorFieldsOk (env : Env) (names : List Name) (nP : Nat) (c : ContainerCtor) :
+    Bool :=
+  match c.type.stripPis (nP + c.nFields) with
+  | some (bs, _) =>
+    (List.range c.nFields).all fun i =>
+      match bs[nP + i]? with
+      | some (dom, _) => containerFieldOk env names nP i dom
+      | none => false
+  | none => false
+
+/-- **A group's members recover the same group** (K.15 (2)): every
+member's own `containerInfo?` reads the same `all`-order and the same
+parameter count — a fact of any environment this checker built (the
+motive prefix of every member's recursor lists the block in block
+order), and one the model tier needs to instantiate a group-mate's
+reads at the group's one datum. -/
+def containerGroupOk (env : Env) (ci : ContainerInfo) : Bool :=
+  ci.members.all fun J =>
+    match containerInfo? env J.name with
+    | some ci' =>
+      ci'.nP == ci.nP && ci'.members.map (·.name) == ci.members.map (·.name)
+    | none => false
+
+/-- **The four facts at one container**: its stored constructors'
+occurrences of the group are UNIFORM — every occurrence of a member is
+applied to the group's parameters and universe levels, which is
+`uniformIndOccsOk`, the very walk official runs over a block being
+declared (`check_uniform_ind_occs`) and this route runs over the nested
+block itself — and the two recursor facts at every member.
+
+The uniformity is what the model lane's `BridgeSyntax` sub-term clause
+rests on: a pin of a group is that group's member applied to the pin's
+components, so a group pin can be a sub-term of another pin only where
+the stored constructor carries the member at the parameter spine, and
+uniformity is exactly the statement that every occurrence is of that
+shape.
+
+**`Name.nodup J.lps`** (task #279 K.21) is the fourth: a member's
+declared LEVEL PARAMETERS are pairwise distinct.  `checkConstantVal`
+asks it of every constant at its own install, so it holds of any
+container this checker stored; no record exposes it, and the model
+tier's forward fire needs it for the level equation (a repeated
+parameter would make the substitution at the pin's levels ambiguous).
+The alternative — an `EnvWF`/`ConstWF` clause — was sized at a session
+and reverted, so it is recorded here like the other three. -/
+def containerFactsOk (env : Env) (ci : ContainerInfo) : Bool :=
+  containerGroupOk env ci &&
+  ci.members.all fun J =>
+    Name.nodup J.lps &&
+    uniformIndOccsOk (ci.members.map (·.name)) (J.lps.map Level.param) ci.nP
+      (J.ctors.map (·.type)) &&
+    containerRecOk env ci.nP J &&
+    J.ctors.all (containerCtorFieldsOk env (ci.members.map (·.name)) ci.nP)
 
 /-! ## The recogniser -/
 

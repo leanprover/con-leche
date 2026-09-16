@@ -1,6 +1,7 @@
 module
 
 public import ConLeche.Kernel.Inductives.NestedElim
+public import ConLeche.Kernel.Inductives.MutualInstall
 
 @[expose] public section
 
@@ -31,15 +32,28 @@ follow see exactly official's environment.
 Three post-checks close the holes the copies would leave (official's,
 in official's order):
 
+* **(o)** the copies' REFERENCE RELATION is computed and topologically
+  sorted (`nestedTopoOrder`, DESIGN §M.22): the order the model's
+  forward fold recurses along, with a cyclic block a positive DECLINE;
+* **(a′′)** every pin, abstracted over the block's parameters, is FREE
+  OF free variables and has its loose bound variables within the
+  parameter telescope (`pinsClosed`) — the pair `ConstWF` demands of a
+  nested RULE's stored pins, and the only certificate these have;
 * **(a)** every pin `I Ds` is type-checked at the block's parameter
   context in the RESTORED environment (leanprover/lean4#14577 — the
   parametric arguments do not appear in the auxiliary declaration, so
   they would otherwise escape type checking; the arena's
-  `nested-unused-param`);
+  `nested-unused-param`), and — `pinsOkAux`, for the model tier — at the
+  SCRATCH environment as well, where the two fold spellings need the
+  pins to fit the container's parameter telescope;
 * **(b)** the restored constructor types, recursor types and rule
   right-hand sides are re-checked (leanprover/lean4#14621 — "not
   necessary … added to catch bugs"; here it is also where the stored
   terms earn their `EnvWF` facts);
+* **(a′)** every name the elimination MINTS — each copy's type, its
+  constructors and its recursor — is free in the PRE-BLOCK environment
+  (`copiesFresh`; official's `check_name` at `declare_inductive_types`),
+  so that the scratch environment's cons shadows nothing;
 * **(c)** the stream's `k + numNested` recursor records are compared
   with the restored generated ones — the types by one `isDefEq` each,
   the rules structurally — as the fixpoint and mutual routes compare
@@ -271,6 +285,22 @@ def restoreTbl (p : NestedParts) (st : ElimState) : RestoreTbl :=
       ++ (st.types.drop p.k).flatMap (fun t => t.ctors.map (·.1))
       ++ st.pins.map (fun q => q.aux.str "rec") }
 
+/-- **The containers' facts at every pin** (task #279 K.14): the three
+syntactic facts about a container the model tier's ψ needs and no stored
+record exposes (`containerFactsOk`).  `none` from `containerInfo?` is
+impossible here for the reason K.11 (a) records: the pin exists only
+because `replaceIfNested` recovered its container at this same
+environment. -/
+def nestedContainersOk (env : Env) (pins : List NestedPin) : Bool :=
+  -- the pins are STRUCTURALLY DISTINCT (K.15 (2)): the elimination
+  -- dedupes — `replaceIfNested` mints only on a pin MISS — so this is a
+  -- fact of the mint, recorded for the model tier
+  decide ((pins.map (·.pin)).Nodup) &&
+  pins.all fun q =>
+    match containerInfo? env q.container with
+    | some ci => containerFactsOk env ci
+    | none => false
+
 /-! ## The install -/
 
 /-- The stored members of the auxiliary block, read back out of the
@@ -302,6 +332,62 @@ def auxStored? (envAux : Env) (b : MutualBlock) (mIdx : Nat) : Option AuxStored 
     | _ => none
   pure ⟨cvTa, caps, nIdx, ctors, cvRa, mI, rP, rules, tbl⟩
 
+/-- **The block's FORMERS, checked as the install will store them**
+(task #279 K.12).
+
+The elimination mints every copy out of the pieces it is given, so the
+pieces are ANNOTATED FIRST — the maintainer's principle: a term we build
+ourselves is built from annotated parts and validated afterwards, never
+re-annotated.  This is `mutualFormerChecks`' own pair of steps at the
+pre-block environment: the front door (`checkConstantVal` — the walk, the
+scope and resolution checks, `inferType` and `ensureSort`) and
+`checkSumTele`, which keeps a type that is already a syntactic `nP +
+nIdx` telescope ending in a sort and otherwise stores the checked close
+of its `whnfTelescope` (task #195; official's `check_inductive_types`
+reduces before each binder, so `T : id Type` is a correct stream).  The
+result is the constant the scratch install will store for that member,
+so the elimination's parameter openers and binders — read off the FIRST
+former — are the stored former's, by construction. -/
+def nestedAnnotFormers (ops : CheckerOps m) (env : Env) (nP : Nat) :
+    List (ConstantVal × Nat) → m (List ConstantVal)
+  | [] => pure []
+  | (cv, nIdx) :: rest => do
+    let cvTa₀ ← checkConstantVal ops env cv
+    let (cvTa, _s) ← checkSumTele ops env cv (nP + nIdx) cvTa₀
+    let restA ← nestedAnnotFormers ops env nP rest
+    pure (cvTa :: restA)
+
+/-- **The block's CONSTRUCTORS, annotated at the formers' environment**
+(K.12): `checkMutualCtor`'s front door, at the environment
+`checkMutualCtor` uses — the pre-block constants plus the block's
+formers.  A constructor's type mentions the block's own members and
+constants the environment already carries (a nested occurrence is an
+application of a STORED container), so this environment is all it
+needs; the copies do not exist yet and no constructor of the STREAM
+mentions one (the reserved-prefix guard). -/
+def nestedAnnotCtors (ops : CheckerOps m) (envF : Env) :
+    List MutualCtor → m (List ConstantVal)
+  | [] => pure []
+  | c :: rest => do
+    let cvCa ← checkConstantVal ops envF c.cv
+    let restA ← nestedAnnotCtors ops envF rest
+    pure (cvCa :: restA)
+
+/-- The environment the constructors are annotated at: the pre-block
+constants plus the block's formers at their CHECKED types, which is
+`consMutualFormers` at the very records the scratch install will cons. -/
+def nestedFormerEnv (fmsA : List ConstantVal) (env : Env) : Env :=
+  ⟨(fmsA.map fun cv => ConstantInfo.indInfo cv {}).reverse ++ env.consts⟩
+
+/-- **The elimination's input**, built from the annotated formers and
+constructors (K.12): one `AuxType` per member, with its constructors in
+block order. -/
+def nestedTypes0 (p : NestedParts) (fmsA ctorsA : List ConstantVal) : List AuxType :=
+  fmsA.zipIdx.map fun (cvT, mIdx) =>
+    ⟨cvT.name, cvT.type,
+      (p.ctors.zip ctorsA).filterMap fun (c, cvCa) =>
+        if c.member == mIdx then some (cvCa.name, cvCa.type, c.nF) else none⟩
+
 /-- The block's own members' stored records, in member order, then the
 mimics' (whose only stored part the restore keeps is the recursor). -/
 def auxStoredAll (envAux : Env) (b : MutualBlock) : Nat → Option (List AuxStored)
@@ -318,7 +404,13 @@ def restoreCtors (ops : CheckerOps m) (env : Env) (R : RestoreTbl) (lps : List N
   | [] => pure []
   | (cvCa, nP, nF) :: rest => do
     let ty ← nestedLift (restoreNested R cvCa.type)
-    let cvA ← checkConstantVal ops env { cvCa with levelParams := lps, type := ty }
+    -- **PRE-ANNOTATED** (K.19): the restore is a constant replacement on
+    -- a term the scratch install already stored annotated, so the
+    -- restored type needs no annotation inferred — every check of
+    -- `checkConstantVal` still runs, `inferType` included, and the
+    -- stored constant is `restoreNested R` of the auxiliary one,
+    -- SYNTACTICALLY
+    let cvA ← checkConstantValPre ops env { cvCa with levelParams := lps, type := ty }
     let rest' ← restoreCtors ops env R lps rest
     pure ((cvA, nP, nF) :: rest')
 
@@ -345,11 +437,20 @@ def restoreRules (ops : CheckerOps m) (envR : Env) (R : RestoreTbl) (lps : List 
     List RecRule → m (List RecRule)
   | [] => pure []
   | rl :: rest => do
-    let rhs ← nestedLift (restoreNested R rl.rhs)
-    let rhsA ← ops.annotate envR 0 rhs
+    let rhsA ← nestedLift (restoreNested R rl.rhs)
+    -- **PRE-ANNOTATED** (K.19): the generated rule's right-hand side is
+    -- the scratch install's own annotated term with the auxiliary
+    -- constants replaced, so no annotation is inferred here.  Every
+    -- check the walk's caller made still runs — the scope and
+    -- resolution tests below, the `.proj` structure-name slot the walk
+    -- itself checked (K.13's `projTablesOk`), and `inferType`, which
+    -- VALIDATES every binder datum — and the stored right-hand side is
+    -- `restoreNested R` of the auxiliary one, SYNTACTICALLY.
     unless rhsA.allLevelParamsDefined lps && rhsA.constsResolve envR &&
         rhsA.looseBVarsBounded 0 && !rhsA.hasFvar do
       throw (.invalid s!"nested: the restored rule of {recName} does not scope")
+    unless rhsA.projTablesOk envR do
+      throw (.invalid "invalid projection: the node names another structure")
     let _ty ← ops.inferType envR 0 rhsA
     let ctor : Name :=
       if isMimic then
@@ -358,11 +459,24 @@ def restoreRules (ops : CheckerOps m) (envR : Env) (R : RestoreTbl) (lps : List 
         | none => rl.ctor
       else rl.ctor
     unless !isMimic || (R.ctorPins.any fun q => q.1 == rl.ctor) do
-      throw (.invalid s!"failed to restore nested inductive types, '{rl.ctor}' is not a         constructor of an auxiliary type")
-    let cnP : Nat :=
+      throw (.invalid s!"failed to restore nested inductive types, '{rl.ctor}' is not a \
+        constructor of an auxiliary type")
+    -- **THE CONSTRUCTOR IS STORED** (task #279 K.24): official reads the
+    -- rule's constructor with `env.get`, which THROWS on an unknown
+    -- constant; this read used to fall back on the stream's own
+    -- `ctorParams`, which is a fallback where official has a verdict.
+    -- It is now the verdict: a restored rule whose constructor is not a
+    -- stored constructor at this environment is INVALID.  On a
+    -- well-formed stream it cannot fire — the constructors were stored
+    -- two stages earlier (`consNestedCtors`) and the mimics' names come
+    -- from the restore table — so the accept set does not move; what it
+    -- buys is the model tier's premise, that every restored rule's
+    -- constructor is a stored `ctorInfo`.
+    let cnP : Nat ←
       match envR.find? ctor with
-      | some (.ctorInfo _ n _) => n
-      | _ => rl.ctorParams
+      | some (.ctorInfo _ n _) => pure n
+      | _ => throw (.invalid s!"failed to restore nested inductive types, '{ctor}' is not \
+          a constructor")
     let fire : RecRuleFire :=
       if isMimic then
         match nestedFireShape envR lps recTy mI rP cnP with
@@ -383,7 +497,8 @@ def restoreRecTys (ops : CheckerOps m) (env : Env) (R : RestoreTbl) (lps : List 
   | a :: rest => do
     let nm := names.headD a.cvRa.name
     let ty ← nestedLift (restoreNested R a.cvRa.type)
-    let cvA ← checkConstantVal ops env ⟨nm, a.cvRa.levelParams, ty⟩
+    -- pre-annotated, as at the constructors (K.19)
+    let cvA ← checkConstantValPre ops env ⟨nm, a.cvRa.levelParams, ty⟩
     let rest' ← restoreRecTys ops env R lps (names.drop 1) rest
     pure (cvA :: rest')
 
@@ -404,7 +519,31 @@ def storeNestedRecs : List (ConstantVal × Nat × Nat × List RecRule) → Env �
 generated one — the name and the level parameters, the type by one
 `isDefEq`, the rules structurally (official's replay,
 `checkPostponedRecursors`). -/
-def nestedRecOk (ops : CheckerOps m) (env : Env) (streamRec : ConstantVal × List RecRule)
+def nestedRulesOk (nP k n : Nat) (recTy : Expr) (own : List (Nat × Nat))
+    (srules grules : List RecRule) : Bool :=
+  srules.length == grules.length && srules.length == own.length &&
+  (List.range own.length).all fun j =>
+    match srules[j]?, grules[j]?, own[j]? with
+    | some a, some g, some (J, nF) =>
+      a.ctor == g.ctor && a.nfields == g.nfields && a.nfields == nF &&
+        mutualRulePrefixOk recTy nP k n J nF a.rhs &&
+        (match a.rhs.stripLams (nP + k + n + nF), g.rhs.stripLams (nP + k + n + nF) with
+         | some (_, ab), some (_, gb) => Expr.resetMeta ab == Expr.resetMeta gb
+         | _, _ => false)
+    | _, _, _ => false
+
+/-- **Post-check (c)**: one stream recursor record against the restored
+generated one — the name and the level parameters, the type by one
+`isDefEq`, the rules structurally (official's replay,
+`checkPostponedRecursors`).  As at the mutual route, the rule bodies
+are compared under the `λ` prefix and the PREFIX is checked against the
+stream's OWN recursor type (`mutualRulePrefixOk`): the copies' field
+domains are stored NORMALISED (official's positivity walk `whnf`s them
+too, but official keeps the declared spelling in the rule's binders), so
+a redex pin — `DMap α (fun _ => PT α)`, whose copied field is
+`(fun _ => PT α) k` — differs there and nowhere else. -/
+def nestedRecOk (ops : CheckerOps m) (env : Env) (nP k n : Nat)
+    (streamRec : ConstantVal × List RecRule) (own : List (Nat × Nat))
     (cvRa : ConstantVal) (rules : List RecRule) : m Unit := do
   let (cvR, srules) := streamRec
   unless cvR.name == cvRa.name && cvR.levelParams == cvRa.levelParams do
@@ -412,37 +551,74 @@ def nestedRecOk (ops : CheckerOps m) (env : Env) (streamRec : ConstantVal × Lis
   let cvRi ← checkConstantVal ops env cvR
   unless ← ops.isDefEq env 0 cvRi.type cvRa.type do
     throw (.invalid s!"nested: the type of {cvR.name} is not the generated one")
-  unless srules.length == rules.length &&
-      (List.range rules.length).all (fun j =>
-        match srules[j]?, rules[j]? with
-        | some a, some g =>
-          a.ctor == g.ctor && a.nfields == g.nfields &&
-            Expr.resetMeta a.rhs == Expr.resetMeta g.rhs
-        | _, _ => false) do
+  unless nestedRulesOk nP k n cvRi.type own srules rules do
     throw (.invalid s!"nested: the rules of {cvR.name} are not the generated ones")
 
 /-- Post-check (c) over a list of records. -/
-def nestedRecsOk (ops : CheckerOps m) (env : Env) :
-    List ((ConstantVal × List RecRule) × ConstantVal × List RecRule) → m Unit
+def nestedRecsOk (ops : CheckerOps m) (env : Env) (nP k n : Nat) :
+    List ((ConstantVal × List RecRule) × List (Nat × Nat) × ConstantVal × List RecRule) →
+      m Unit
   | [] => pure ()
-  | (sr, cvRa, rules) :: rest => do
-    nestedRecOk ops env sr cvRa rules
-    nestedRecsOk ops env rest
+  | (sr, own, cvRa, rules) :: rest => do
+    nestedRecOk ops env nP k n sr own cvRa rules
+    nestedRecsOk ops env nP k n rest
 
 /-- **Post-check (a)** (leanprover/lean4#14577): every pin `I Ds` is
 type-checked at the block's parameter context in the RESTORED
 environment.  The parametric arguments `Ds` do not appear in the
 auxiliary declaration, so they escape every other check; the arena's
 `nested-unused-param` is an ill-typed one. -/
-def nestedPinsOk (ops : CheckerOps m) (env : Env) (nP : Nat) (fvsA : List Expr) :
+def nestedPinsOk (ops : CheckerOps m) (env : Env) (nP : Nat) :
     List NestedPin → m Unit
   | [] => pure ()
   | q :: rest => do
-    let pinA := Expr.instantiateList (Expr.abstractRange q.pin 0 nP 0) fvsA.reverse
-    let e ← ops.annotate env nP pinA
-    let ty ← ops.inferType env nP e
-    let _u ← ops.ensureSort env nP ty
-    nestedPinsOk ops env nP fvsA rest
+    let pinB := Expr.abstractRange q.pin 0 nP 0
+    -- **THE PIN'S SCOPE** (`pinsClosed`, the model lane's DESIGN §M.20
+    -- finding 1): no free variable, and every loose bound variable
+    -- within the block's parameter telescope.  Nothing else certifies
+    -- it — `annotateBody` certifies only that each `.fvar` it REACHES
+    -- carries an index below the depth, it never descends into an
+    -- fvar's type annotation and never compares it with the opener's,
+    -- and it passes `.bvar` through; and a pin's components appear in
+    -- no other term the route checks.  The precedent is `ConstWF`,
+    -- which demands exactly this pair of a nested RULE's stored pins.
+    unless !pinB.hasFvar && pinB.looseBVarsBounded nP do
+      throw (.invalid "nested: a pin is not closed at the block's parameter telescope")
+    -- official's `tc.check(nested, lparams)`: the pin is TYPE-CHECKED,
+    -- not required to be a sort — a pin of an indexed container
+    -- (`Vec (T α)`) is a function into one.  The pin is the
+    -- elimination's own term, ANNOTATED (K.12: the elimination ran on
+    -- annotated inputs) and already opened at the block's parameter
+    -- variables, so nothing is annotated or instantiated here:
+    -- inference VALIDATES every datum in it, which is the
+    -- `checkConstantValPre` discipline applied to a term the kernel
+    -- built itself.
+    let _ty ← ops.inferType env nP q.pin
+    nestedPinsOk ops env nP rest
+
+/-- **The pins' scope, as one Bool over the list** — the same pair of
+tests `nestedPinsOk` throws on, so that the run relation records the
+fact for EVERY pin without inverting that loop.
+
+**It narrows only where official rejects too.**  A pin is
+`J Ds` with `Ds` the container's parameter arguments read out of a
+constructor body that was opened at the block's parameters and at
+NOTHING else (`Expr.instPis cty params`, `params = openPisAtFvars nP
+…`), and the stream's own terms carry no free variable at all
+(`checkConstantVal`).  So the only free variables a pin can hold are
+`0 … nP-1`, which `abstractRange … 0 nP 0` removes — and a pin that
+held a FIELD variable was already rejected by `nestedOccOk`, official's
+"nested inductive datatypes parameters cannot contain local variables".
+Loose bound variables likewise: a pin has none in the opened context
+(`nestedOccOk`'s `looseBVarsBounded 0`), and `abstractRange` introduces
+one only at an abstracted parameter, at a depth-bumped index below
+`nP`.  A pin failing either test is therefore a term no kernel run
+produces, and official — whose own `type_checker` would meet the same
+term — refuses it as well. -/
+def pinsClosed (nP : Nat) (pins : List NestedPin) : Bool :=
+  pins.all fun q =>
+    let pinB := Expr.abstractRange q.pin 0 nP 0
+    !pinB.hasFvar && pinB.looseBVarsBounded nP
 
 /-- The projection table of a restored structure-like member: the
 scratch block's table with its bodies recomputed from the RESTORED
@@ -466,6 +642,194 @@ def nestedTables : List (Name × Option ProjTable × List (ConstantVal × Nat ×
 
 /-! ## The install -/
 
+/-- **THE GROUP EXCLUSION** (task #279 K.23, the model lane's
+`NestedGroupExclusionOk`, DESIGN §M.45), as a decision on STORED data.
+
+At every pin `j`, every constructor `l` of its copy and every field `i`
+of that constructor's STORED type: if the field's head — its own `Π`
+binders peeled — is the `aux` name of a pin of the SAME MINT GROUP, then
+the CONTAINER's constructor field at the same position is
+RECURSIVE-SHAPED: headed by a member of the container's group applied to
+the exact parameter variables (`containerFieldOk`'s first arm, K.15).
+Contrapositively: a container-ORDINARY field is never copy-recursive
+into a group-mate.
+
+**Why it is recorded and not argued.**  It cannot fire — a group-mate
+target needs the target pin's components to BE the source's `Ds`, and a
+copy's constructor body is the container's stored constructor
+instantiated at `Ds`, so such a reduct would need `Ds` to contain
+itself.  That argument is STRONG NORMALISATION (`D ↝* C[D]` is an
+infinite reduction), and the model tier has no normalisation fact and
+cannot state one — which is exactly why the fact is recorded here
+instead.  A failure is `.internal`: not a decline, and not a narrowing,
+because no well-formed stream reaches it.
+
+Every missing datum answers `true`: the model lane's statement is a
+chain of implications, so a hypothesis that does not hold makes it
+vacuous.  Only the final shape — the container field's head — is a
+conclusion, and its absence is the failure. -/
+def nestedGroupExclusionOk (env envAux : Env) (p : NestedParts) (st : ElimState) : Bool :=
+  st.pins.zipIdx.all fun (q, j) =>
+    match st.types[p.k + j]?, containerInfo? env q.container with
+    | some tyA, some ci =>
+      ci.members.all fun J =>
+        !(J.name == q.container) ||
+        tyA.ctors.zipIdx.all fun (c, l) =>
+          match envAux.find? c.1 with
+          | some (.ctorInfo cvS nPS nFS) =>
+            match cvS.type.stripPis (nPS + nFS) with
+            | some (bsS, _) =>
+              (List.range nFS).all fun i =>
+                match bsS[nPS + i]? with
+                | some domS =>
+                  match fieldHeadAt domS.1 with
+                  | some (aux, _, _) =>
+                    -- is the stored field's head a GROUP-MATE's copy?
+                    if (List.range q.grpSize).any (fun t =>
+                        match st.pins[q.grpBase + t]? with
+                        | some q' => q'.aux == aux
+                        | none => false) then
+                      -- then the container's own field is a member
+                      -- occurrence at the parameters
+                      match J.ctors[l]? with
+                      | some cJ =>
+                        match cJ.type.stripPis (ci.nP + cJ.nFields) with
+                        | some (bsJ, _) =>
+                          match bsJ[ci.nP + i]? with
+                          | some domJ =>
+                            match fieldHeadAt domJ.1 with
+                            | some (C, argsJ, nJ) =>
+                              (ci.members.map (·.name)).contains C &&
+                                ci.nP ≤ argsJ.length &&
+                                (List.range ci.nP).all fun k =>
+                                  argsJ[k]? == some (Expr.bvar (ci.nP + i - 1 - k + nJ))
+                            | none => false
+                          | none => true
+                        | none => true
+                      | none => true
+                    else true
+                  | none => true
+                | none => true
+            | none => true
+          | _ => true
+    | _, _ => true
+
+/-- **THE AUXILIARY BLOCK'S FIELD KINDS** (task #279 K.26, the direct
+nested lane's DESIGN §DR.1 (b), variant C), read off the STORED
+constructors.
+
+`checkMutualCore` classifies every field of every constructor of the
+auxiliary block — the block's own members' and every copy's — by
+`mutualCtorKinds`, and installs the block only if no field is
+`.negative` (official's "non positive or non valid occurrence") or
+`.unsupported` (a nested occurrence inside the auxiliary block).  That
+classification is the elimination's whole point at a copy: a copy field
+is `.ordinary` (it mentions no member of the auxiliary block), or
+`.recursive`/`.reflexive` INTO a named member — a real member of the
+block at a container-parameter position, or another copy one container
+level down.
+
+The classification is not returned by the install, so it is recomputed
+here on the very constructors the install STORED (`stored`, read back
+out of the scratch environment by `auxStoredAll`), with the same
+function on the same data.  `nestedCopyKinds b stored` is per member, in
+block order: the block's own members first, then one entry per copy
+(`drop p.k`), and inside a member one entry per constructor and one kind
+per field.
+
+**Why it is recorded and not derived.**  The model tier's composed
+functor `X ↦ ⟦J⟧(Ds[X])` is monotone exactly when every copy field reads
+monotonically at the block's frame, and the kinds say which ones do:
+`.ordinary` is constant in the frame, `.recursive`/`.reflexive` read the
+target member.  Deriving the same fact from the container's stored
+constructors would need a syntactic positivity walk of its own, and such
+a walk can DECLINE a stream official accepts — official's positivity
+runs after the parameters are substituted, where a field that inspects a
+parameter reduces, and a walk with the parameter free is stuck on it.
+Recording what the install already decided cannot decline at all.
+
+**It cannot fire.**  `nestedCopyKinds` answers `none` only if a stored
+constructor's type does not strip its own `nP + nF` binders, which is
+the telescope `checkMutualCtors` opened to check it; and a `.negative`
+or `.unsupported` kind is exactly what `classifyMutualKinds` threw on,
+at this block, on these types.  A failure is therefore `.internal`. -/
+def nestedCopyKinds (b : MutualBlock) (stored : List AuxStored) :
+    Option (List (List (List (RecFieldKind × Nat)))) :=
+  stored.mapM fun a =>
+    a.ctors.mapM fun (cvCa, _nP, nF) => mutualCtorKinds b.members3 b.lps b.nP (cvCa, nF)
+
+/-- The kinds exist and every field of the auxiliary block is
+`.ordinary`, `.recursive` or `.reflexive` — the classification
+`classifyMutualKinds` let through (K.26). -/
+def nestedCopyKindsOk (b : MutualBlock) (stored : List AuxStored) : Bool :=
+  match nestedCopyKinds b stored with
+  | some kinds =>
+    kinds.all fun ks => ks.all fun k => k.all fun (r, _) =>
+      r == .ordinary || r == .recursive || r == .reflexive
+  | none => false
+
+/-- **The whnf witness at the constructors' fields** (task #279 K.17 (a),
+the model lane's DESIGN §M.30).
+
+At a λ-pin the copy's minted constructor carries a REDEX where the
+container's field was ordinary — `DMap α (fun _ => PT α)`'s copied field
+is `(fun _ => PT α) k` — and the constructors' stage stores the
+positivity NORMALISATION, which `whnf`s exactly there
+(`normPosDomM`).  The model tier transports the field's denotation
+across that reduction and needs the run to WITNESS it, on terms in the
+block's own vocabulary: so both sides are restored (`restoreNested`, the
+pure constant replacement) and the minted field is `whnf`'d at the
+environment holding the block's formers — the same `ops.whnf` the
+stage's own normalisation used, at the same frame — and compared with
+the stored field.
+
+**It cannot fire**: it is the same reduction, of the same term, at an
+environment that differs from the stage's only by the restore's own
+replacement (aux name ↦ container at the pin), which `whnf` treats
+alike.  A failure is therefore `.internal`. -/
+def nestedFieldWhnfOk (ops : CheckerOps m) (env : Env) (nP : Nat)
+    (fvsM fvsS : List Expr) : Nat → m Unit
+  | 0 => pure ()
+  | i + 1 => do
+    nestedFieldWhnfOk ops env nP fvsM fvsS i
+    let dm := (fvsM.getD (nP + i) default).fvarTypeD
+    let ds := (fvsS.getD (nP + i) default).fvarTypeD
+    -- only where the stage's normalisation CHANGED the field: those are
+    -- the fields it `whnf`'d (`normPosDomM` reduces a domain that
+    -- mentions a member and returns every other one untouched), and the
+    -- ones the model tier has to transport a denotation across.  An
+    -- unchanged field is compared as it stands — `whnf`ing it here would
+    -- reduce what the stage never reduced.
+    unless dm == ds do
+      let w ← ops.whnf env (nP + i) dm
+      unless w == ds do
+        throw (.internal "nested: the stored constructor field is not the processed \
+          field's weak head normal form")
+
+/-- The witness at one constructor, then the rest: the processed
+(minted) constructor against the STORED one, both restored. -/
+def nestedCtorsWhnfOk (ops : CheckerOps m) (env : Env) (R : RestoreTbl) (nP : Nat) :
+    List (MutualCtor × (ConstantVal × Nat × Nat)) → m Unit
+  | [] => pure ()
+  | (c, (cvS, _, nF)) :: rest => do
+    let mintedR ← nestedLift (restoreNested R c.cv.type)
+    let storedR ← nestedLift (restoreNested R cvS.type)
+    let (fvsM, _) ← unwrapOr (openPisAtFvars (nP + nF) mintedR 0)
+      (.internal "nested: the processed constructor's telescope")
+    let (fvsS, _) ← unwrapOr (openPisAtFvars (nP + nF) storedR 0)
+      (.internal "nested: the stored constructor's telescope")
+    nestedFieldWhnfOk ops env nP fvsM fvsS nF
+    nestedCtorsWhnfOk ops env R nP rest
+
+/-- The processed/stored constructor pairs of the whole auxiliary
+block, member by member (the block's own members and every copy). -/
+def nestedCtorPairs (b : MutualBlock) (stored : List AuxStored) :
+    List (MutualCtor × (ConstantVal × Nat × Nat)) :=
+  (List.range b.k).flatMap fun mIdx =>
+    match stored[mIdx]? with
+    | some a => ((b.ownCtors mIdx).map (·.2)).zip a.ctors
+    | none => []
+
 /-- **Check and install a recognised NESTED block** (see the module
 docstring): official's two syntactic front guards, the elimination, the
 auxiliary mutual block checked in a scratch environment, the restore,
@@ -479,27 +843,130 @@ def checkNested (ops : CheckerOps m) (env : Env) (p : NestedParts) : m Env := do
   unless uniformIndOccsOk p.memberNames (p.lps.map Level.param) p.nP ctorTypes do
     throw (.invalid "invalid occurrence of datatype being declared: it must be applied \
       to the parameters and universe levels of the mutual declaration")
-  -- 1. the elimination, and the mimic count against the stream's records
-  let types0 : List AuxType := p.formers.zipIdx.map fun ((cv, _), mIdx) =>
-    ⟨cv.name, cv.type,
-      (p.ctors.filter (fun c => c.member == mIdx)).map fun c => (c.cv.name, c.cv.type, c.nF)⟩
-  let st ← nestedLift (m := m) (elimNested env p.nP p.lps types0)
+  -- 1. THE ELIMINATION'S INPUTS, ANNOTATED (K.12): the formers as the
+  -- install will store them and the constructors at the environment
+  -- holding those formers — so every piece the elimination instantiates,
+  -- closes over or pins is annotated, and every copy it mints is
+  -- annotated BY CONSTRUCTION, with no annotation pass left to run on it
+  let fmsA ← nestedAnnotFormers ops env p.nP p.formers
+  let ctorsA ← nestedAnnotCtors ops (nestedFormerEnv fmsA env) p.ctors
+  -- 2. the elimination, and the mimic count against the stream's records
+  let st ← nestedLift (m := m) (elimNested env p.nP p.lps (nestedTypes0 p fmsA ctorsA))
   unless st.pins.length == p.numNested do
     throw (.invalid s!"the block carries {p.numNested} recursor records past its \
       {p.k} type formers; the elimination finds {st.pins.length} nested occurrences")
+  -- the minted names are free in the PRE-BLOCK environment
+  -- (`copiesFresh`; official's `check_name` at
+  -- `declare_inductive_types`), so that the scratch environment's cons
+  -- shadows nothing a later declaration could reach
+  unless copiesFresh env p.k st do
+    throw (.invalid "nested: an auxiliary type generated by the elimination names a \
+      constant the environment already carries")
+  -- THE CONTAINERS' FACTS (K.14, the model lane's DESIGN §M.28): every
+  -- container the elimination pinned has uniform occurrences of its own
+  -- group in its stored constructors, and every member's stored
+  -- recursor keeps its elimination universe out of the block's level
+  -- parameters (large) or eliminates into `Prop` (small).  All three
+  -- hold of any container this checker installed — a failure is a
+  -- broken environment, not a stream's fault.
+  unless nestedContainersOk env st.pins do
+    throw (.internal "nested: a container the elimination pinned fails a fact its own \
+      install established")
+  -- THE COPIES' ORDER (DESIGN §M.22, the maintainer's decision: the
+  -- KERNEL computes it).  The model's forward fold is one term per
+  -- copy, built from the terms of the copies it REFERS to, and that
+  -- relation has no syntactic well-founded measure — on the raw terms
+  -- it is not even acyclic.  So the relation is computed here from the
+  -- elimination's own result and a topological order is emitted; a
+  -- CYCLE is a positive DECLINE.  It cannot fire on a stream official
+  -- accepts: §M.22 records that KINDING excludes the cycles, and the
+  -- copies are type-checked (the scratch install, below) — but the
+  -- kernel does not read kinding, so the order is computed rather than
+  -- argued.
+  let _order ← nestedLift (m := m)
+    ((nestedTopoOrder (ElimState.grp st) p.k st).mapError fun (j, j') =>
+      CheckError.notImplemented s!"nested: the copies' reference relation has a cycle \
+        ({(st.pins.getD j default).aux} at {(st.pins.getD j default).container} refers to \
+        {(st.pins.getD j' default).aux} at {(st.pins.getD j' default).container} and back)")
   -- 2. the auxiliary mutual block, checked in a SCRATCH environment
   let b ← unwrapOr (auxBlock p st)
     (.invalid "invalid nested inductive datatype, ill-formed declaration")
-  let envAux ← checkMutualCore ops env b none
+  -- `auxRoute := true` (K.10, widened by K.12): EVERY member of this
+  -- block is pre-annotated — the real members are the constants the
+  -- input-annotation stage checked, and the copies are minted out of
+  -- them and out of the containers' stored types at annotated pins — so
+  -- the install's front doors (the formers' and the constructors')
+  -- skip the annotation walk throughout and the stored types are the
+  -- minted ones.  Every check still runs, `inferType` included, which
+  -- is what validates each binder datum.  The grade is the CALLER's
+  -- single explicit opt-in for the whole block: no name is
+  -- interpreted.
+  let envAux ← checkMutualCore ops env b none true
   let stored ← unwrapOr (auxStoredAll envAux b b.k)
     (.internal "nested: the auxiliary block's stored records")
   let R := restoreTbl p st
   let members := stored.take p.k
   let mimics := stored.drop p.k
+  -- POST-CHECK (a) AT THE SCRATCH ENVIRONMENT (`pinsOkAux`, the model
+  -- lane's request): the same pins, type-checked where the AUXILIARY
+  -- block is installed.  It is ADDED, never substituted for the run at
+  -- the restored environment, so the accept set can only narrow.  The
+  -- two runs agree on everything a pin can MENTION: a pin is a
+  -- sub-term of a constructor's field domain, and `checkMutualCtor`
+  -- resolves those at the environment holding the pre-block constants
+  -- and the block's FORMERS (never its constructors), which `envAux`
+  -- and the restored environment hold identically — the formers are
+  -- the very `indInfo`s the auxiliary install stored, and the restore
+  -- re-adds them unchanged.  The one thing the restore respells that a
+  -- pin could reach is a projection TABLE's bodies, through a
+  -- `.proj T i` node; running BOTH is what makes that case checked
+  -- rather than assumed.
+  -- the pins' SCOPE, once for the whole list (`pinsClosed`); the same
+  -- pair of tests guards each pin inside `nestedPinsOk`, and this pass
+  -- is what the run relation records
+  unless pinsClosed p.nP st.pins do
+    throw (.invalid "nested: a pin is not closed at the block's parameter telescope")
+  nestedPinsOk ops envAux p.nP st.pins
   -- 3. the formers, re-stored with the block's own `all` (our records
   -- carry no `all`, so the stored type and capabilities are official's
   -- unchanged re-add)
+  -- **THE RESTORED FORMERS: FRESH, AND WITHOUT THE η BIT** (K.20).  Every
+  -- member is re-stored with the record the AUXILIARY install stored for
+  -- it, and that install's formers stage conses `{}`
+  -- (`consMutualFormers`), so no restored former carries the η bit; and
+  -- its name is free in the pre-block environment, which the same
+  -- install's front door checked at this very environment.  Both are
+  -- facts of an environment we built, and the model tier needs them to
+  -- keep the η families closed across the install
+  -- (`declNestedRun_etaClosed`); they are RECORDED here rather than
+  -- re-derived through the scratch install's four cons stages, which is
+  -- a `find?`-shadowing argument about our own environment.  A failure
+  -- is `.internal`.
+  unless members.all (fun a => !a.caps.eta && (env.find? a.cvTa.name).isNone) do
+    throw (.internal "nested: a restored former is not a fresh non-eta family")
+  -- **THE GROUP EXCLUSION** (K.23): a stored copy-constructor field
+  -- headed by a GROUP-MATE's copy comes from a container field that is
+  -- itself a member occurrence at the parameters.  It cannot fire (a
+  -- group-mate target would need the pin's components to contain
+  -- themselves — strong normalisation), and the model tier cannot state
+  -- that argument, so the fact is recorded here.
+  unless nestedGroupExclusionOk env envAux p st do
+    throw (.internal "nested: a stored copy field is recursive into its own mint group \
+      where the container's field is not a member occurrence")
+  -- **THE FIELD KINDS** (K.26): the classification the scratch install
+  -- decided, recomputed on the constructors it stored, so that the model
+  -- tier reads a copy field's kind off the run instead of re-deciding
+  -- positivity at the container.  A failure is `.internal`.
+  unless nestedCopyKindsOk b stored do
+    throw (.internal "nested: a stored field of the auxiliary block is not classified \
+      ordinary, recursive or reflexive")
   let env₁ := consNestedFormers members env
+  -- THE WHNF WITNESS (K.17 (a)): at every constructor of the auxiliary
+  -- block — the block's own and every copy — the STORED field is the
+  -- weak head normal form of the PROCESSED one, both in the block's own
+  -- vocabulary.  It is the stage's own normalisation re-run on its own
+  -- terms, so it cannot differ; a failure is `.internal`.
+  nestedCtorsWhnfOk ops env₁ R p.nP (nestedCtorPairs b stored)
   -- 4. the constructors, restored and re-checked (post-check (b))
   let ctorsR ← members.mapM fun a => restoreCtors ops env₁ R p.lps a.ctors
   let env₂ := consNestedCtors ctorsR.flatten env₁
@@ -514,9 +981,9 @@ def checkNested (ops : CheckerOps m) (env : Env) (p : NestedParts) : m Env := do
   let envR := provisionNestedRecs provisions env₂
   -- 6. the rules, restored and re-checked (post-check (b))
   let rulesM ← (cvRms.zip members).mapM fun (cvRa, a) =>
-    restoreRules ops envR R p.lps cvRa.name false cvRa.type a.mI a.rP a.rules
+    restoreRules ops envR R cvRa.levelParams cvRa.name false cvRa.type a.mI a.rP a.rules
   let rulesN ← (cvRns.zip mimics).mapM fun (cvRa, a) =>
-    restoreRules ops envR R p.lps cvRa.name true cvRa.type a.mI a.rP a.rules
+    restoreRules ops envR R cvRa.levelParams cvRa.name true cvRa.type a.mI a.rP a.rules
   let env₃ := storeNestedRecs
     ((cvRms.zip (members.zip rulesM)).map (fun (cv, a, rs) => (cv, a.mI, a.rP, rs))
       ++ (cvRns.zip (mimics.zip rulesN)).map (fun (cv, a, rs) => (cv, a.mI, a.rP, rs))) env₂
@@ -524,17 +991,24 @@ def checkNested (ops : CheckerOps m) (env : Env) (p : NestedParts) : m Env := do
   let env₄ ← nestedTables (m := m)
     ((members.zip ctorsR).zipIdx.map fun ((a, cs), mIdx) =>
       ((p.formers.getD mIdx default).1.name, a.tbl, cs)) env₃
-  -- 8. POST-CHECK (a): the pins, typed at the parameter context
-  let a₀ ← unwrapOr members.head? (.internal "nested: no member")
-  let (fvsA, _) ← unwrapOr (openPisAtFvars p.nP a₀.cvTa.type 0)
-    (.internal "nested: the block's parameter telescope")
-  nestedPinsOk ops env₄ p.nP fvsA st.pins
+  -- 8. POST-CHECK (a): the pins, typed at the parameter context of the
+  -- RESTORED environment (the variables and the telescope are the ones
+  -- `pinsOkAux` already used, above — the SAME annotated components,
+  -- from the re-mint)
+  nestedPinsOk ops env₄ p.nP st.pins
   -- 9. POST-CHECK (c): the stream's records against the generated ones
   unless p.memberRecs.length == cvRms.length && p.mimicRecs.length == cvRns.length do
     throw (.invalid "nested: the block's recursor records are not the generated ones")
-  nestedRecsOk ops env₄
-    ((p.memberRecs.zip (cvRms.zip rulesM)).map (fun (sr, cv, rs) => (sr, cv, rs))
-      ++ (p.mimicRecs.zip (cvRns.zip rulesN)).map (fun (sr, cv, rs) => (sr, cv, rs)))
+  -- the stream's records are checked at the environment BEFORE the
+  -- recursors are stored, as the mutual route checks its own
+  -- (`checkMutualRecTy`): the record is compared, never added
+  let ownOf : Nat → List (Nat × Nat) := fun mIdx =>
+    (b.ownCtors mIdx).map fun (J, c) => (J, c.nF)
+  let mRows := ((p.memberRecs.zip cvRms).zip rulesM).zipIdx.map
+    (fun (((sr, cv), rs), mIdx) => (sr, ownOf mIdx, cv, rs))
+  let nRows := ((p.mimicRecs.zip cvRns).zip rulesN).zipIdx.map
+    (fun (((sr, cv), rs), j) => (sr, ownOf (p.k + j), cv, rs))
+  nestedRecsOk ops env₂ p.nP b.k b.n (mRows ++ nRows)
   pure env₄
 
 end ConLeche

@@ -757,7 +757,7 @@ theorem checkMutualCtorF_fresh (ops : CheckerOps CheckCM) (w : StructWalkers) (f
 theorem checkMutualCtorsF_fresh (ops : CheckerOps CheckCM) (w : StructWalkers) (fe : FEnv)
     (b : MutualBlock) (fms : List MutualFormerA) (isProp : Bool) :
     ∀ (cs : List MutualCtor),
-      Yields (checkMutualCtorsF ops w fe b fms isProp cs)
+      Yields (checkMutualCtorsF ops w fe b fms isProp false cs)
         (fun r => ∀ c ∈ r.1, fe.find? c.1.name = none)
   | [] => Yields.pure (fun _ hc => nomatch hc)
   | c :: cs => by
