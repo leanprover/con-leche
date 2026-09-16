@@ -203,6 +203,65 @@ theorem NestedTailIn.fibreAt (ψ : Name → Nat) (ρ : Nat → V) (as : List V)
   rw [← hC] at hfoldC
   exact hfoldA.symm.trans hfoldC
 
+/-! ## F4 — the container's least tuple at a pin -/
+
+/-- **THE PIN'S FIBRE IDENTITY**: the CONTAINER block model `dJ`'s own
+least tuple at component `i` and the COMPOSED block's least tuple at
+the copy's class `p.k + q₀ + i` agree pointwise at every spine fitting
+the container's index telescope — the container's `leaf` at the pin's
+components (`IsBlockModel.leaf` at `dJ`) against the pin's leaf at the
+block's carrier (`nestedPinLeaf_of`), the carrier read as the extended
+least tuple by Bekić (`ofNested_pinCar_lfp`), the universes matched by
+`nestedU_pin_group`. -/
+theorem NestedTailIn.pinCarAt {q₀ kJ i : Nat} {dJ : BlockModel V}
+    (G : PG mp₂.base2 q₀ kJ dJ) (hi : i < kJ)
+    (ψ : Name → Nat) (ρ : Nat → V) (as : List V) (hsp : SpineFit ρ ((D).params ψ) as)
+    (is : List V)
+    (hi' : SpineFit
+      (consList ((((D).pinAt (q₀ + i)).Ds ψ).map (interp V (consList as ρ))) (consList as ρ))
+      (dJ.IdsM i (((D).pinAt (q₀ + i)).ψJ ψ)) is) :
+    SetTheory.app
+        (lfpTuple (dJ.w (((D).pinAt (q₀ + i)).ψJ ψ)) dJ.k
+          (dJ.idx (((D).pinAt (q₀ + i)).ψJ ψ)
+            (consList ((((D).pinAt (q₀ + i)).Ds ψ).map (interp V (consList as ρ)))
+              (consList as ρ)))
+          (dJ.Φ (((D).pinAt (q₀ + i)).ψJ ψ)
+            (consList ((((D).pinAt (q₀ + i)).Ds ψ).map (interp V (consList as ρ)))
+              (consList as ρ))) i)
+        (tupW (dJ.uM i (((D).pinAt (q₀ + i)).ψJ ψ)) is)
+      = SetTheory.app ((Lcomp ψ (consList as ρ)) (p.k + q₀ + i))
+          (tupW (nestedU p.k W pinsS ψ (p.k + q₀ + i)) is) := by
+  have h := I.out.facts
+  have hq : q₀ + i < pinsS.length := by have := G.seg; omega
+  have hρp : Sat V ((D).params ψ).reverse (consList as ρ) := (D).satOfSpine hsp
+  have hρp' : Sat V (((ppsF 0 ψ).take b.nP).map (·.2.2)).reverse (consList as ρ) := hρp
+  have hOk' := nestedLfpOk_of_formers h I.hμ I.out.bk ψ (consList as ρ) hρp'
+    (nestedPinBound_of mp₂.base2 I.out.stage.groups ψ _ hρp)
+  obtain ⟨cvT, cvR, mI, rP, rules, hI⟩ := G.rep i hi
+  have hleaf := hI.leaf (((D).pinAt (q₀ + i)).ψJ ψ) (consList as ρ)
+    ((((D).pinAt (q₀ + i)).Ds ψ).map (interp V (consList as ρ))) is
+    (G.DsFit i hi ψ ρ as hsp) hi'
+  have htup : dJ.tup (((D).pinAt (q₀ + i)).ψJ ψ) i is
+      = tupW (dJ.uM i (((D).pinAt (q₀ + i)).ψJ ψ)) is := rfl
+  rw [htup] at hleaf
+  have hPL := nestedPinLeaf_of I.hμ h I.out.grouped I.out.bk mp₂.base2 I.out.stage.groups
+    (q₀ + i) hq ψ ρ as is hsp (by rw [G.pinIds hi ψ]; exact hi')
+  have hpc : (D).pinCar ψ (consList as ρ)
+        (lfpTuple ((D).w ψ) (D).k ((D).idx ψ (consList as ρ)) ((D).Φ ψ (consList as ρ))) (q₀ + i)
+      = lfpTuple ((D).w ψ) (p.k + pinsS.length) ((D).idx ψ (consList as ρ))
+          (ΨN ψ (consList as ρ)) (p.k + q₀ + i) := by
+    rw [show p.k + q₀ + i = p.k + (q₀ + i) from Nat.add_assoc _ _ _]
+    exact ofNested_pinCar_lfp hOk' hq
+  have hclosed : interp V (consList as ρ)
+        (mp₂.base2.acval ((D).pinAt (q₀ + i)).J (((D).pinAt (q₀ + i)).ψJ ψ))
+      = interp V ρ (mp₂.base2.acval ((D).pinAt (q₀ + i)).J (((D).pinAt (q₀ + i)).ψJ ψ)) :=
+    interp_closed (V := V) (mp₂.base2.cval_closedL _ _) _ _
+  have hu : nestedU p.k W pinsS ψ (p.k + q₀ + i) = ((D).pinAt (q₀ + i)).u ψ := by
+    rw [Nat.add_assoc]
+    exact nestedU_pin p.k W pinsS ψ (q₀ + i)
+  rw [← hleaf, hclosed, hPL, hpc, hu]
+  rfl
+
 end Run
 
 end ConLeche.Model
