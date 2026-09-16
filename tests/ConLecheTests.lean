@@ -584,4 +584,38 @@ halves of `Expr.zeta` a reader is most likely to get wrong. -/
 example : ConLeche.AnnotOf
     (.letE (.sort .zero) (.const (Name.anonymous.str "v") []) (.bvar 0)) (.const (Name.anonymous.str "v") []) := rfl
 
+/-! ## `whnf` is the identity on an inductive-headed application
+
+`whnf_indApp_eq` (`ConLeche/Verify/InferLemmas.lean`) proves that a
+stored inductive type FORMER is whnf-stuck at any spine: no arm of
+`whnfCore` applies, the literal acceleration declines and there is no
+value to unfold.  These guards run the real reduction on a hand-built
+environment holding one such former and read the subject back
+unchanged, in both modes.
+
+The negative control puts a stored DEFINITION at the head of the same
+spine, where the delta step DOES fire — so the positive guards are not
+measuring an environment in which `whnf` happens to be the identity on
+everything. -/
+
+private def indAppI : Name := .str .anonymous "IndAppI"
+private def indAppD : Name := .str .anonymous "IndAppD"
+
+private def indAppEnv : Env :=
+  ⟨[.indInfo ⟨indAppI, [], .sort (.succ .zero)⟩ {},
+    .defnInfo ⟨indAppD, [], .sort (.succ .zero)⟩ (.const indAppI []) (.regular 1)]⟩
+
+private def indAppSpine (hd : Name) : Expr :=
+  Expr.mkAppN (.const hd []) [.sort .zero, .sort (.succ .zero)]
+
+#guard (whnf .verified indAppEnv 100 0 (indAppSpine indAppI)).toOption
+  == some (indAppSpine indAppI)
+#guard (whnf .trusted indAppEnv 100 0 (indAppSpine indAppI)).toOption
+  == some (indAppSpine indAppI)
+
+-- NEGATIVE CONTROL: the definition-headed spine reduces (to the
+-- former-headed one, which is then stuck).
+#guard (whnf .verified indAppEnv 100 0 (indAppSpine indAppD)).toOption
+  == some (indAppSpine indAppI)
+
 end ConLecheTests
