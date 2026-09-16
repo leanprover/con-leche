@@ -360,6 +360,10 @@ def checkNestedS (fe : FEnv) (p : NestedParts) : CheckCM FEnv := do
   -- the pins' scope (K.30), as in the pure route
   unless pinsScoped p.nP st do
     throw (.internal "nested: a pin's free variables are not the block's parameter openers")
+  -- the copies' recursive targets (K.32), as in the pure route
+  unless nestedCopyTargetsOk fe.env p b st stored do
+    throw (.internal "nested: a copy's group-recursive field does not come from the \
+      container's own recursion")
   -- the field kinds at the pins (§U.1 (c) fact 6), as in the pure route
   unless nestedPinKindsOk p b st stored do
     throw (.internal "nested: a stored field at a pin is not classified ordinary, \

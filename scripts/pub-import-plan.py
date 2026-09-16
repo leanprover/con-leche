@@ -110,6 +110,22 @@ FALLBACK = {
     # import is invisible to a public statement — the build says
     # `unknown identifier NRes`.
     ('ConLeche.Verify.Frontend.Local','ConLeche.Frontend.Scan.Naive'),
+    # task #315 L-B (§U.23): `NestedPins`' one public import is the file's
+    # whole public view — `NestedLoop` is where `SetTheory` reaches it, and
+    # the edge became a demotion candidate when `NestedCopyIdx` (a public
+    # importer of `NestedPins`) changed the graph around it (the fixpoint is
+    # order-dependent); demoting it: `unknown identifier SetTheory`.
+    ('ConLeche.Model.Inductives.NestedPins','ConLeche.Model.Inductives.NestedLoop'),
+    # task #315 L-B (§U.23 (e)/(g)): the `inst` kit's one-import views —
+    # `mkPisB` (NestedRestoreOpen), the elimination's records
+    # (NestedElimInv) and the telescope kit (NestedCopyTele) reach the
+    # files' PUBLIC statements through these re-exports; the checker calls
+    # the edges demotable after integration 2 changed the graph, the
+    # compiler refuses ("unknown identifier" / "invalid field notation").
+    ('ConLeche.Verify.Inductives.NestedCopyInstU','ConLeche.Verify.Inductives.NestedRestoreOpen'),
+    ('ConLeche.Verify.Inductives.NestedCopyKinds','ConLeche.Verify.Inductives.NestedRestoreOpen'),
+    ('ConLeche.Verify.Inductives.NestedCopyProv','ConLeche.Verify.Inductives.NestedElimInv'),
+    ('ConLeche.Verify.Inductives.NestedCopyRewrite','ConLeche.Verify.Inductives.NestedCopyTele'),
     # task #315 U-7: `MutualIdxUniv`'s one public import is likewise the
     # file's whole public view — demoting it kills its own
     # `variable [SetTheory V]` (`unknown identifier SetTheory`).

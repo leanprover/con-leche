@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Model.AxiomReduce
+import ConLeche.Model.AxiomReduce
 import ConLeche.Model.DeclInd
 import ConLeche.Model.Inductives.DeclStruct
 import ConLeche.Semantics.IndBlockFacts
