@@ -99,9 +99,11 @@ tagged towers at the global position. -/
   xrestF := xrestF
   eissF := eissF
   tssF := tssF
+  pins := []
   Φ := fun ψ ρp =>
     tupleLfpΦ (W ψ) (resSort.eval ψ) ρp k (blockIds nP ppsM ψ) mems nFs tgtsG rss (tlss ψ) (Eiss₀ ψ)
       (Fss₀ ψ) (Ess₀ ψ)
+  pinCar := fun _ _ _ _ => pt
   inj := fun ψ mm j fs => injW (resSort.eval ψ) (blockMinorIdx ctorsM mm j) (mkTower (fs ++ [pt]))
 
 section Mutual
@@ -131,6 +133,9 @@ theorem ofMutual_IdsM (mm : Nat) (ψ : Name → Nat) : (D).IdsM mm ψ = blockIds
 index universe. -/
 theorem ofMutual_idx (ψ : Name → Nat) (ρp : Nat → V) :
     (D).idx ψ ρp = fun mm => idxSet (W ψ) ρp (blockIds nP ppsM ψ mm) := rfl
+
+/-- A mutual block has no pins: every field targets a member. -/
+theorem ofMutual_pins : (D).pins = [] := rfl
 
 /-- The block model's operator: the `k`-ary fixed point's. -/
 theorem ofMutual_Φ (ψ : Name → Nat) (ρp : Nat → V) :
@@ -244,6 +249,7 @@ theorem mutualBlockModelOf_ofMutual (env : Env) (b : MutualBlock) (fms : List Mu
     rw [List.getD_eq_getElem?_getD, hf₀]
     rfl
   large := rfl
+  pins := rfl
   ctors := fun _ _ => rfl
 
 end ConLeche.Model

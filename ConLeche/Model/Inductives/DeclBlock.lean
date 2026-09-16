@@ -76,6 +76,9 @@ structure MutualBlockModelOf (env : Env) (b : MutualBlock) (fms : List MutualFor
   nIdxs : d.nIdxs = fms.map (·.nIdx)
   resSort : d.resSort = (fms.getD 0 default).s
   large : d.large = b.large
+  /-- a mutual block has no pins: every field targets a member
+  (the nested-slot arm is the nested route's, task #315 M6) -/
+  pins : d.pins = []
   ctors : ∀ t, t < b.k → d.ctorsM t = (b.ownCtors t).map fun q => ctorsA.getD q.1 default
 
 /-- **The block model's table facts** (M4 s5): what the structure-like

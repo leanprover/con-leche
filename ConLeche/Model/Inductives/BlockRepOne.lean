@@ -138,11 +138,13 @@ towers (the point at `w = 0`). -/
   xrestF := fun _ => xrestF
   eissF := fun _ => eissF
   tssF := fun _ => tssF
+  pins := []
   Φ := fun ψ ρp =>
     let cds := fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0
     let Ids := ((ppsAll ψ).drop nP).map (·.2.2)
     oneTuple (fixFunVI (uAV ψ) (resSort.eval ψ) ρp Ids Ids.length (rssOfK ksF ctorsA.length)
       (tlssOfR cds) (eissOfR cds) (fssOfR nP cds) (essOfR cds))
+  pinCar := fun _ _ _ _ => pt
   inj := fun ψ _ j fs => injW (resSort.eval ψ) j (mkTower (fs ++ [pt]))
 
 section One

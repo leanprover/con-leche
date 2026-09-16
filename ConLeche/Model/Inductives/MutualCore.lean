@@ -2038,8 +2038,14 @@ theorem blockReps_of (hμ : μ.verifiedChecks = true) (h0 : b.blockNames.Nodup)
     refine
       { memberLt := hmm, member := rfl, strip := ?_, isProp := rfl, mI := rfl, rP := rfl
         rules := fun hne => absurd rfl hne, former := ?_, ctors := ?_, memsFound := ?_
+        pinsFound := fun q hq => absurd hq (Nat.not_lt_zero q)
         tgtsLt := ?_, idxRes := ?_, uParams := ?_, paramsIff := ?_, idxOk := ?_, functor := ?_
-        fibre := ?_, leaf := ?_, ctor := ?_, mkZero := ofMutual_mkZero, mkInj := ?_ }
+        fibre := ?_
+        pinShape := fun q hq => absurd hq (Nat.not_lt_zero q)
+        pinMem := fun _ _ _ _ _ q hq => absurd hq (Nat.not_lt_zero q)
+        pinMono := fun _ _ _ _ _ _ _ _ q hq => absurd hq (Nat.not_lt_zero q)
+        pinLeaf := fun q hq => absurd hq (Nat.not_lt_zero q)
+        leaf := ?_, ctor := ?_, mkZero := ofMutual_mkZero, mkInj := ?_ }
     · -- strip
       obtain ⟨bs, hstrip⟩ := h.strip _ _ hft
       rw [hNIdx _ _ hft]
@@ -2054,7 +2060,13 @@ theorem blockReps_of (hμ : μ.verifiedChecks = true) (h0 : b.blockNames.Nodup)
       refine ⟨hfind, by rw [hlpsT]; exact hlpsC, ?_⟩
       have hCD' := (hCD.congr_sort (h.sEq _ _ (fms_get (h.motLt _ hJl)))).withOpened
         (h.CD _ cA hJ).opened
-      have hB := hCD'.toBlock
+      have hn : ∀ i, i < cA.2 → (D).nestOf mm' j i = none := by
+        intro i _
+        refine (D).nestOf_none ?_
+        show tgtAt (mutKsOf kinds (b.ownOffset mm' + j)) i < b.k
+        rw [hkT]
+        exact (h.ksJ _ cA hJ).2.2 i
+      have hB := hCD'.toBlock (fun i => (D).nestOf mm' j i) (D).pinAt hn
       rw [hlpsT]
       have hT : (D).memberName mm' = (fms.getD (mutMemF b (b.ownOffset mm' + j)) default).cvTa.name := by
         rw [hmemJ]; exact hName _ _ (fms_get (by rw [← hkT]; exact hmm'))
@@ -2084,8 +2096,8 @@ theorem blockReps_of (hμ : μ.verifiedChecks = true) (h0 : b.blockNames.Nodup)
       have hj' : ((D).ctorsM mm')[j]? = some (((D).ctorsM mm').getD j default) := by
         rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hj]; rfl
       obtain ⟨-, hJ, -⟩ := hctorJ mm' j _ hj'
-      show tgtAt (mutKsOf kinds (b.ownOffset mm' + j)) i < b.k
-      rw [hkT]
+      show tgtAt (mutKsOf kinds (b.ownOffset mm' + j)) i < b.k + 0
+      rw [Nat.add_zero, hkT]
       exact (h.ksJ _ _ hJ).2.2 i
     · -- idxRes
       intro mm' j cA hmm' hj e he
@@ -2137,6 +2149,11 @@ theorem blockReps_of (hμ : μ.verifiedChecks = true) (h0 : b.blockNames.Nodup)
           (fun l _ => rfl) (fun l hl hr => ?_) (fun l hl hr => ?_)
         · rw [shadowFs_length, hnF] at hl
           intro ρ'
+          have htgtl : (D).tgts mm' j (0 + l) < (D).k := by
+            show tgtAt (mutKsOf kinds (b.ownOffset mm' + j)) (0 + l) < b.k
+            rw [hkT]
+            exact (h.ksJ _ cA hJ).2.2 (0 + l)
+          rw [(D).slotAt_of_mem htgtl]
           show slotSet _ _ _ _ _ _ = slotSet (f₀.s.eval ψ) (W ψ) ρ'
             ((((D).tlss mm' ψ).getD j []).getD (0 + l) [])
             ((((D).Eiss mm' ψ).getD j []).getD (0 + l) []) (X ((D).tgts mm' j (0 + l)))

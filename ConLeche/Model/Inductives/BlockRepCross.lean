@@ -223,7 +223,8 @@ theorem CtorDataI.crossEnv {env₁ env₂ : Env} {m₁ : EnvModel V env₁} {m�
 is needed, since they are read — and the recursive and reflexive
 entries' target formers by `hag` (every target is stored: `hTof`). -/
 theorem BlockCtorData.crossEnv {env₁ env₂ : Env} {m₁ : EnvModel V env₁} {m₂ : EnvModel V env₂}
-    {env₀ : Env} {T : Name} {Tof : Nat → Name} {nIdxOf : Nat → Nat} {lps : List Name}
+    {env₀ : Env} {T : Name} {Tof : Nat → Name} {nIdxOf : Nat → Nat}
+    {nest : Nat → Option Nat} {pins : Nat → PinSyn} {lps : List Name}
     {cvC : ConstantVal} {nP nF nIdx : Nat} {resSort : Level} {isProp large : Bool}
     {idxArgs : List Expr} {ds : (Name → Nat) → List (Nat × Nat × AnnotTerm)}
     {Es : (Name → Nat) → List AnnotTerm} {srcs : List (Option Nat)} {ks : List RecFieldKind}
@@ -233,10 +234,11 @@ theorem BlockCtorData.crossEnv {env₁ env₂ : Env} {m₁ : EnvModel V env₁} 
     (hde : ∀ (ψ : Name → Nat) (dp : Nat) (e : Expr) {ea : AnnotTerm},
       denoteMeta m₁.acval env₁ ψ dp e = some ea → denoteMeta m₂.acval env₂ ψ dp e = some ea)
     (hT : (env₁.find? T).isSome = true)
-    (hTof : ∀ i, i < nF → (env₁.find? (Tof i)).isSome = true)
-    (h : BlockCtorData m₁ env₀ T Tof nIdxOf lps cvC nP nF nIdx resSort isProp large idxArgs
+    (hTof : ∀ i, i < nF → nest i = none → (env₁.find? (Tof i)).isSome = true)
+    (hJ : ∀ i q, i < nF → nest i = some q → (env₁.find? (pins q).J).isSome = true)
+    (h : BlockCtorData m₁ env₀ T Tof nIdxOf nest pins lps cvC nP nF nIdx resSort isProp large idxArgs
       ds Es srcs ks fvsP xFvs xrest Eiss tss) :
-    BlockCtorData m₂ env₀ T Tof nIdxOf lps cvC nP nF nIdx resSort isProp large idxArgs
+    BlockCtorData m₂ env₀ T Tof nIdxOf nest pins lps cvC nP nF nIdx resSort isProp large idxArgs
       ds Es srcs ks fvsP xFvs xrest Eiss tss :=
   { toCtorDataI := h.toCtorDataI.crossEnv hag hde hT
     opened := h.opened
@@ -249,12 +251,18 @@ theorem BlockCtorData.crossEnv {env₁ env₂ : Env} {m₁ : EnvModel V env₁} 
     idxEq := h.idxEq
     domRead := fun ψ i x hx => hde ψ (nP + i) x.fvarTypeD (h.domRead ψ i x hx)
     eissLen := h.eissLen
-    eisRead := fun ψ i x hx hk =>
-      DenoteMetaSpine.crossEnv (fun e => hde ψ (nP + i) e) (h.eisRead ψ i x hx hk)
+    eisRead := fun ψ i x hx hn hk =>
+      DenoteMetaSpine.crossEnv (fun e => hde ψ (nP + i) e) (h.eisRead ψ i x hx hn hk)
     eisLen := h.eisLen
-    recEntry := fun ψ i hk hi => by
-      rw [hag (Tof i) (hTof i hi)]
-      exact h.recEntry ψ i hk hi
+    recEntry := fun ψ i hn hk hi => by
+      rw [hag (Tof i) (hTof i hi hn)]
+      exact h.recEntry ψ i hn hk hi
+    nestEisRead := fun ψ i x q hx hq hk =>
+      DenoteMetaSpine.crossEnv (fun e => hde ψ (nP + i) e) (h.nestEisRead ψ i x q hx hq hk)
+    nestEisLen := h.nestEisLen
+    nestEntry := fun ψ i q hq hk hi => by
+      rw [hag (pins q).J (hJ i q hi hq)]
+      exact h.nestEntry ψ i q hq hk hi
     eissParams := h.eissParams
     eissBelow := h.eissBelow
     ordNone := h.ordNone
@@ -264,16 +272,26 @@ theorem BlockCtorData.crossEnv {env₁ env₂ : Env} {m₁ : EnvModel V env₁} 
     tssPiBits := h.tssPiBits
     tssBelow := h.tssBelow
     tssParams := h.tssParams
-    reflOpen := fun ψ i x hx hk => by
-      obtain ⟨afvs, body, hop, hlenTl, hdoms, hsp⟩ := h.reflOpen ψ i x hx hk
+    reflOpen := fun ψ i x hx hn hk => by
+      obtain ⟨afvs, body, hop, hlenTl, hdoms, hsp⟩ := h.reflOpen ψ i x hx hn hk
       exact ⟨afvs, body, hop, hlenTl,
         fun k a hka => hde ψ (nP + i + k) a.fvarTypeD (hdoms k a hka),
         DenoteMetaSpine.crossEnv
           (fun e => hde ψ (nP + i + ((tss ψ).getD i []).length) e) hsp⟩
     eisLenRefl := h.eisLenRefl
-    reflEntry := fun ψ i hk hi => by
-      rw [hag (Tof i) (hTof i hi)]
-      exact h.reflEntry ψ i hk hi }
+    reflEntry := fun ψ i hn hk hi => by
+      rw [hag (Tof i) (hTof i hi hn)]
+      exact h.reflEntry ψ i hn hk hi
+    nestReflOpen := fun ψ i x q hx hq hk => by
+      obtain ⟨afvs, body, hop, hlenTl, hdoms, hsp⟩ := h.nestReflOpen ψ i x q hx hq hk
+      exact ⟨afvs, body, hop, hlenTl,
+        fun k a hka => hde ψ (nP + i + k) a.fvarTypeD (hdoms k a hka),
+        DenoteMetaSpine.crossEnv
+          (fun e => hde ψ (nP + i + ((tss ψ).getD i []).length) e) hsp⟩
+    nestEisLenRefl := h.nestEisLenRefl
+    nestReflEntry := fun ψ i q hq hk hi => by
+      rw [hag (pins q).J (hJ i q hi hq)]
+      exact h.nestReflEntry ψ i q hq hk hi }
 
 /-- **The block's representation crosses the change**: the stored
 types' readings by `hde`, the members' and constructors' lookups by
@@ -314,13 +332,32 @@ theorem IsBlockModel.crossEnv {env₁ env₂ : Env} {m₁ : EnvModel V env₁} {
         intro mm' j cA hmm' hj
         obtain ⟨hfind, hlps, hdata⟩ := h.ctors mm' j cA hmm' hj
         refine ⟨hF _ _ (fun _ _ _ _ hcon => nomatch hcon) hfind, hlps, ?_⟩
-        refine hdata.crossEnv hag hde (hmem mm' hmm') (fun i hi => ?_)
-        refine hmem _ (h.tgtsLt mm' j i hmm' (List.getElem?_eq_some_iff.mp hj).1 ?_)
-        rw [hdata.ksLen]
-        exact hi
+        have hiK : ∀ i, i < cA.2 → i < (d.ksF mm' j).length := fun i hi => by
+          rw [hdata.ksLen]; exact hi
+        refine hdata.crossEnv hag hde (hmem mm' hmm') (fun i hi hn => ?_) (fun i q hi hq => ?_)
+        · rcases Nat.lt_or_ge (d.tgts mm' j i) d.k with hc | hc
+          · exact hmem _ hc
+          · rw [d.nestOf_some (Nat.not_lt.mpr hc)] at hn
+            exact nomatch hn
+        · have hlt := h.tgtsLt mm' j i hmm' (List.getElem?_eq_some_iff.mp hj).1 (hiK i hi)
+          have hnt : ¬ d.tgts mm' j i < d.k := by
+            intro hc
+            rw [d.nestOf_none hc] at hq
+            exact nomatch hq
+          have hge := Nat.not_lt.mp hnt
+          have hqlt : d.tgts mm' j i - d.k < d.nPins := by omega
+          rw [d.nestOf_some hnt] at hq
+          obtain rfl : q = d.tgts mm' j i - d.k := (Option.some.inj hq).symm
+          obtain ⟨cv, caps, hf⟩ := h.pinsFound _ hqlt
+          rw [hf]
+          rfl
       memsFound := by
         intro mm' hmm'
         obtain ⟨cv, caps, hf⟩ := h.memsFound mm' hmm'
+        exact ⟨cv, caps, hF _ _ (fun _ _ _ _ hcon => nomatch hcon) hf⟩
+      pinsFound := by
+        intro q hq
+        obtain ⟨cv, caps, hf⟩ := h.pinsFound q hq
         exact ⟨cv, caps, hF _ _ (fun _ _ _ _ hcon => nomatch hcon) hf⟩
       tgtsLt := h.tgtsLt
       idxRes := fun mm' j cA hmm' hj e he => hres e (h.idxRes mm' j cA hmm' hj e he)
@@ -329,6 +366,14 @@ theorem IsBlockModel.crossEnv {env₁ env₂ : Env} {m₁ : EnvModel V env₁} {
       idxOk := h.idxOk
       functor := h.functor
       fibre := h.fibre
+      pinShape := h.pinShape
+      pinMem := h.pinMem
+      pinMono := h.pinMono
+      pinLeaf := by
+        intro q hq ψ ρ as is hsp hi
+        obtain ⟨cv, caps, hf⟩ := h.pinsFound q hq
+        rw [hag (d.pinAt q).J (by rw [hf]; rfl)]
+        exact h.pinLeaf q hq ψ ρ as is hsp hi
       leaf := by
         intro ψ ρ as is hsp hi
         rw [hag T hTs]

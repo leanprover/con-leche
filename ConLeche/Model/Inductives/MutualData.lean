@@ -653,13 +653,18 @@ theorem kindsOf_getD' (ks : List (RecFieldKind × Nat)) (i : Nat) :
 readings. -/
 theorem MutualOpened.toBlock {env₀ : Env} {members : List (Name × Nat × Nat)} {lps : List Name}
     {nP nF : Nat} {ks : List (RecFieldKind × Nat)} {fvsP xFvs : List Expr} {xrest : Expr}
+    (nest : Nat → Option Nat) (pins : Nat → PinSyn)
+    (hn : ∀ i x, xFvs[i]? = some x → nest i = none)
     (h : MutualOpened env₀ members lps nP nF ks fvsP xFvs xrest) :
     BlockOpened env₀ (fun i => mutualNameOf members (tgtAt ks i))
-      (fun i => mutualNIdxOf members (tgtAt ks i)) lps nP nF (kindsOf ks) fvsP xFvs xrest :=
+      (fun i => mutualNIdxOf members (tgtAt ks i)) nest pins lps nP nF (kindsOf ks) fvsP xFvs
+      xrest :=
   ⟨h.residRes,
     fun i x hx hk => h.ord i x hx (by rwa [kindsOf_getD'] at hk),
-    fun i x hx hk => h.recF i x hx (by rwa [kindsOf_getD'] at hk),
-    fun i x hx hk => h.reflF i x hx (by rwa [kindsOf_getD'] at hk),
+    fun i x hx _ hk => h.recF i x hx (by rwa [kindsOf_getD'] at hk),
+    fun i x hx _ hk => h.reflF i x hx (by rwa [kindsOf_getD'] at hk),
+    (fun i x q hx hq _ => by rw [hn i x hx] at hq; exact nomatch hq),
+    (fun i x q hx hq _ => by rw [hn i x hx] at hq; exact nomatch hq),
     fun i hi => by simpa only [kindsOf_getD'] using h.kinds i hi⟩
 
 /-- **The mutual constructor's data IS the uniform block model's**
@@ -673,18 +678,25 @@ theorem MutualCtorDataI.toBlock {m : EnvModel V env} {env₀ : Env}
     {srcs : List (Option Nat)} {ks : List (RecFieldKind × Nat)} {fvsP xFvs : List Expr}
     {xrest : Expr} {Eiss : (Name → Nat) → List (List AnnotTerm)}
     {tss : (Name → Nat) → List (List (Nat × Nat × AnnotTerm))}
+    (nest : Nat → Option Nat) (pins : Nat → PinSyn) (hn : ∀ i, i < nF → nest i = none)
     (h : MutualCtorDataI m env₀ members T lps cvC nP nF nIdx resSort isProp large idxArgs
       ds Es srcs ks fvsP xFvs xrest Eiss tss) :
     BlockCtorData m env₀ T (fun i => mutualNameOf members (tgtAt ks i))
-      (fun i => mutualNIdxOf members (tgtAt ks i)) lps cvC nP nF nIdx resSort isProp large
-      idxArgs ds Es srcs (kindsOf ks) fvsP xFvs xrest Eiss tss :=
+      (fun i => mutualNIdxOf members (tgtAt ks i)) nest pins lps cvC nP nF nIdx resSort isProp
+      large idxArgs ds Es srcs (kindsOf ks) fvsP xFvs xrest Eiss tss :=
+  have hnx : ∀ i x, xFvs[i]? = some x → nest i = none := fun i x hx =>
+    hn i (h.xLen ▸ (List.getElem?_eq_some_iff.mp hx).1)
   { h.toCtorDataI with
-    opened := h.opened.toBlock, opens := h.opens, ksLen := kindsOf_length.trans h.ksLen
+    opened := h.opened.toBlock nest pins hnx, opens := h.opens
+    ksLen := kindsOf_length.trans h.ksLen
     xLen := h.xLen, pLen := h.pLen, xIdx := h.xIdx, pIdx := h.pIdx, idxEq := h.idxEq
     domRead := h.domRead, eissLen := h.eissLen
-    eisRead := fun ψ i x hx hk => h.eisRead ψ i x hx (by rwa [kindsOf_getD'] at hk)
-    eisLen := fun ψ i hk hi => h.eisLen ψ i (by rwa [kindsOf_getD'] at hk) hi
-    recEntry := fun ψ i hk hi => h.recEntry ψ i (by rwa [kindsOf_getD'] at hk) hi
+    eisRead := fun ψ i x hx _ hk => h.eisRead ψ i x hx (by rwa [kindsOf_getD'] at hk)
+    eisLen := fun ψ i _ hk hi => h.eisLen ψ i (by rwa [kindsOf_getD'] at hk) hi
+    recEntry := fun ψ i _ hk hi => h.recEntry ψ i (by rwa [kindsOf_getD'] at hk) hi
+    nestEisRead := fun _ i x q hx hq _ => by rw [hnx i x hx] at hq; exact nomatch hq
+    nestEisLen := fun _ i q hq _ hi => by rw [hn i hi] at hq; exact nomatch hq
+    nestEntry := fun _ i q hq _ hi => by rw [hn i hi] at hq; exact nomatch hq
     eissParams := h.eissParams, eissBelow := h.eissBelow
     ordNone := fun ψ i h₁ h₂ =>
       h.ordNone ψ i (by rwa [kindsOf_getD'] at h₁) (by rwa [kindsOf_getD'] at h₂)
@@ -692,8 +704,11 @@ theorem MutualCtorDataI.toBlock {m : EnvModel V env} {env₀ : Env}
     tssNone := fun ψ i hk => h.tssNone ψ i (by rwa [kindsOf_getD'] at hk)
     tssBits := h.tssBits, tssPiBits := h.tssPiBits, tssBelow := h.tssBelow
     tssParams := h.tssParams
-    reflOpen := fun ψ i x hx hk => h.reflOpen ψ i x hx (by rwa [kindsOf_getD'] at hk)
-    eisLenRefl := fun ψ i hk hi => h.eisLenRefl ψ i (by rwa [kindsOf_getD'] at hk) hi
-    reflEntry := fun ψ i hk hi => h.reflEntry ψ i (by rwa [kindsOf_getD'] at hk) hi }
+    reflOpen := fun ψ i x hx _ hk => h.reflOpen ψ i x hx (by rwa [kindsOf_getD'] at hk)
+    eisLenRefl := fun ψ i _ hk hi => h.eisLenRefl ψ i (by rwa [kindsOf_getD'] at hk) hi
+    reflEntry := fun ψ i _ hk hi => h.reflEntry ψ i (by rwa [kindsOf_getD'] at hk) hi
+    nestReflOpen := fun _ i x q hx hq _ => by rw [hnx i x hx] at hq; exact nomatch hq
+    nestEisLenRefl := fun _ i q hq _ hi => by rw [hn i hi] at hq; exact nomatch hq
+    nestReflEntry := fun _ i q hq _ hi => by rw [hn i hi] at hq; exact nomatch hq }
 
 end ConLeche.Model

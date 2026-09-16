@@ -136,6 +136,7 @@ public import ConLeche.Model.Inductives.BlockStageTable
 public import ConLeche.Model.Inductives.BlockStageTables
 public import ConLeche.Model.Inductives.MutualNoProj
 public import ConLeche.Model.Inductives.MutualTables
+public import ConLeche.Model.Inductives.NestedSlotRead
 public import ConLeche.Model.Annot.Bit
 public import ConLeche.Model.Annot.BitLemmas
 public import ConLeche.Model.Annot.BitShift

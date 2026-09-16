@@ -591,13 +591,13 @@ Inductive blocks are not trusted from the stream. Three cases:
   disjoint union of the members' values
   ([the union recursor in `ConLeche/SetModel/UnionRec.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/SetModel/UnionRec.lean#L208)).
   What every member carries in the model is the block model
-  ([structure `IsBlockModel` in `ConLeche/Model/Inductives/BlockRep.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Inductives/BlockRep.lean#L399));
+  ([structure `IsBlockModel` in `ConLeche/Model/Inductives/BlockRep.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Inductives/BlockRep.lean#L591));
   the model-tier theorem for the whole install is
-  [theorem `declBlock` in `ConLeche/Model/Inductives/DeclBlock.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Inductives/DeclBlock.lean#L285),
+  [theorem `declBlock` in `ConLeche/Model/Inductives/DeclBlock.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Inductives/DeclBlock.lean#L288),
   whose two named facts — the stages up to the recursors keep the
   model and leave the block model, the projection tables keep it from
   there — are proved
-  ([theorem `declMutual` in `ConLeche/Model/Inductives/MutualTables.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Inductives/MutualTables.lean#L228)).
+  ([theorem `declMutual` in `ConLeche/Model/Inductives/MutualTables.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Inductives/MutualTables.lean#L231)).
 * **Nested blocks** are handled by an in-process modeller
   (`ConLeche/Frontend/InModel/*`): at parse time the checker generates,
   over its own `Expr`, a *model* of the block, an auxiliary family plus

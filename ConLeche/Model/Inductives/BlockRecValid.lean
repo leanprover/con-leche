@@ -159,7 +159,8 @@ under every fitting telescope spine — read off the constructor's entry
 at that position (`recEntry` has no telescope, `reflEntry` one, and
 both end in the target former's application, whose arguments the
 `mkAppN` inversion hands back). -/
-theorem field_kind_validV {j : Nat} {cA : ConstantVal × Nat} (hj : (d.ctorsM mm)[j]? = some cA)
+theorem field_kind_validV (hnp : d.pins = [])
+    {j : Nat} {cA : ConstantVal × Nat} (hj : (d.ctorsM mm)[j]? = some cA)
     {ψ : Name → Nat} {ρp : Nat → V} (hρp : Sat V (d.params ψ).reverse ρp)
     {fs : List V} (hfs : SpineFit ρp ((d.Fss mm ψ).getD j []) fs)
     {i : Nat} (hiI : i ∈ ConLeche.recIdxOf (d.ksF mm j)) :
@@ -170,6 +171,8 @@ theorem field_kind_validV {j : Nat} {cA : ConstantVal × Nat} (hj : (d.ctorsM mm
   have hiK : i < (d.ksF mm j).length := (mem_recIdxOf.mp hiI).1
   have hiA : i < cA.2 := by rw [← hcd.ksLen]; exact hiK
   have hkind := (mem_recIdxOf.mp hiI).2
+  have hnest : d.nestOf mm j i = none :=
+    d.nestOf_none (h.tgt_lt (List.getElem?_eq_some_iff.mp hj).1 hiK hnp)
   have hfsI := spineFit_take' hfs (i := i) (by rw [h.Fss_length hj]; exact Nat.le_of_lt hiA)
   have hdomF : ((d.Fss mm ψ).getD j []).getD i default
       = ((d.dsF mm j ψ).getD (d.nP + i) default).2.2 := by
@@ -187,10 +190,10 @@ theorem field_kind_validV {j : Nat} {cA : ConstantVal × Nat} (hj : (d.ctorsM mm
     | cons _ _ => exact hbs.elim
     | nil =>
       intro E hE
-      rw [hcd.recEntry ψ i hrec hiA] at hvF
+      rw [hcd.recEntry ψ i hnest hrec hiA] at hvF
       rw [consList_nil]
       exact (AnnotValid.mkAppN_inv hvF).2 E (List.mem_append_right _ hE)
-  · rw [hcd.reflEntry ψ i hrefl hiA] at hvF
+  · rw [hcd.reflEntry ψ i hnest hrefl hiA] at hvF
     have hinv := AnnotValid_mkPisAV_inv hvF
     exact ⟨hinv.1, fun bs hbs E hE =>
       (AnnotValid.mkAppN_inv (hinv.2 bs hbs)).2 E (List.mem_append_right _ hE)⟩
@@ -208,7 +211,7 @@ bound variables, the field's index readings moved
 telescope's — no application-chain obligation is owed here, so the
 frame's motives and minors are consumed by the moves alone. -/
 theorem IsBlockModels.ihApp_validV {m : EnvModel V env} {d : BlockModel V} (hreps : IsBlockModels m d)
-    {ψ : Name → Nat} {elimL : Level} {ρ : Nat → V} {rs : List V}
+    (hnp : d.pins = []) {ψ : Name → Nat} {elimL : Level} {ρ : Nat → V} {rs : List V}
     {c : Nat} (hc : c < d.k) {j : Nat} {cA : ConstantVal × Nat} (hj : (d.ctorsM c)[j]? = some cA)
     {ps Msl msl fs : List V} (hmsl : Msl.length = d.k) (hmin : msl.length = d.nCtors)
     (hpsC : SpineFit (consList rs ρ) (d.params ψ) ps)
@@ -224,7 +227,7 @@ theorem IsBlockModels.ihApp_validV {m : EnvModel V env} {d : BlockModel V} (hrep
   have hρpc : Sat V (d.params ψ).reverse (consList ps (consList rs ρ)) := d.satOfSpine hpsC
   have hlenfs : fs.length = cA.2 := by rw [hfs'.length_eq, h.Fss_length hj]
   have hiA : i < cA.2 := by rw [← hcd.ksLen]; exact (mem_recIdxOf.mp hiI).1
-  have hkindV := h.field_kind_validV hj hρpc hfs' hiI
+  have hkindV := h.field_kind_validV hnp hj hρpc hfs' hiI
   have hk : 0 < d.k := by omega
   obtain ⟨M0, Msl', rfl⟩ : ∃ M0 Msl', Msl = M0 :: Msl' := by
     cases Msl with
@@ -279,7 +282,7 @@ theorem IsBlockModels.ihApp_validV {m : EnvModel V env} {d : BlockModel V} (hrep
 /-- **The rules' equations are bit-valid at every typed tuple** —
 `blockEq_wd`'s `AnnotValid` half. -/
 theorem IsBlockModels.blockEq_valid {m : EnvModel V env} {d : BlockModel V} (hreps : IsBlockModels m d)
-    {ψ : Name → Nat} (_hfT : FormersTyped m d ψ) (_hcT : CtorsTyped m d ψ)
+    (hnp : d.pins = []) {ψ : Name → Nat} (_hfT : FormersTyped m d ψ) (_hcT : CtorsTyped m d ψ)
     (hval : ∀ (n : Name) (ρ : Nat → V), AnnotValid V ρ (m.acval n ψ))
     {elimL : Level} {Ls : List AnnotTerm} {nIdxs : List Nat} {pps : List (Nat × Nat × AnnotTerm)}
     {ipss : List (List (Nat × Nat × AnnotTerm))} {cds : List CtorDatumR} {mots : Nat → Nat}
@@ -384,7 +387,7 @@ theorem IsBlockModels.blockEq_valid {m : EnvModel V env} {d : BlockModel V} (hre
       rcases List.mem_append.mp ha with ha | ha
       · exact fieldBvars_validV ha
       · obtain ⟨i, hiI, rfl⟩ := List.mem_map.mp ha
-        exact hreps.ihApp_validV hc hj hF.mslLen hF.minsLen hpsC hfs' hiI
+        exact hreps.ihApp_validV hnp hc hj hF.mslLen hF.minsLen hpsC hfs' hiI
   · -- **the `Prop` regime**: an equation is a truth value
     show interp V (consList xs (consList rs ρ)) (AnnotTerm.eqE _ _) ∈ˢ (univZero : V)
     rw [interp_eqE]

@@ -233,8 +233,8 @@ include h
 in the tuple space, a value of `Φ X c` at an index tuple has every
 `kitPred` predecessor in `X`'s union — the block model's `fibre` read at the
 recursive positions. -/
-theorem kitPred_from {ψ : Name → Nat} {ρp : Nat → V} (hρp : Sat V (d.params ψ).reverse ρp)
-    (hw : d.w ψ ≠ 0) :
+theorem kitPred_from (hnp : d.pins = []) {ψ : Name → Nat} {ρp : Nat → V}
+    (hρp : Sat V (d.params ψ).reverse ρp) (hw : d.w ψ ≠ 0) :
     PredsFrom (d.w ψ) d.k (d.idx ψ ρp) (d.Φ ψ ρp) (d.kitPred ψ ρp) := by
   intro X hX _ c hc i hi x hx v hv
   obtain ⟨-, c', i', j, fs, i'', bs, hc', hj, hlen, heq, hi'', hbs, rfl⟩ := mem_relPred.mp hv
@@ -246,13 +246,17 @@ theorem kitPred_from {ψ : Name → Nat} {ρp : Nat → V} (hρp : Sat V (d.para
   -- the field's value is in its slot at the prefix
   have hmem := hfit.1.rec_mem i'' hi''F (by rw [Nat.zero_add]; exact hrec)
   rw [Nat.zero_add] at hmem
-  unfold BlockModel.slotAt at hmem
-  -- the target is a member
+  -- the target is a member (no pins)
   have hi''K : i'' < (d.ksF c j).length := by
     have hj' : j < (d.ctorsM c).length := hj
     rw [BlockModel.rss, rssOfK_getD hj'] at hrec
     exact rsOf_getD_true_lt hrec
-  have htgt : d.tgts c j i'' < d.k := h.tgtsLt c j i'' hc hj hi''K
+  have hj' : j < (d.ctorsM c).length := hj
+  have htgt : d.tgts c j i'' < d.k := by
+    have := h.tgtsLt c j i'' hc hj' hi''K
+    simp only [BlockModel.nPins, hnp, List.length_nil, Nat.add_zero] at this
+    exact this
+  rw [d.slotAt_of_mem htgt] at hmem
   have hXt := hX _ htgt
   have hXu : ∀ t, SetTheory.app (X (d.tgts c j i'')) t ∈ˢ (univ (d.w ψ) : V) :=
     fun t => app_famSpace_mem_univ hXt t

@@ -106,7 +106,7 @@ members are the one constructor's injections of fitting field spines
 — the block model's `fibre` at the tuple's own value, decoded by
 `spineFit_of_fitsFrom` — and the injection is the tagged tower. -/
 theorem IsBlockModels.table_fibreAt {m : EnvModel V env} {d : BlockModel V} (hreps : IsBlockModels m d)
-    {ψ : Name → Nat} (hfT : FormersTyped m d ψ) {mm : Nat} (hmm : mm < d.k)
+    {ψ : Name → Nat} (hfT : FormersTyped m d ψ) (hPT : PinsTyped m d ψ) {mm : Nat} (hmm : mm < d.k)
     {cA : ConstantVal × Nat} (hone : d.ctorsM mm = [cA]) (hnI : d.nIdxAt mm = 0) {J : Nat}
     (hinj : ∀ fs : List V, d.inj ψ mm 0 fs = injW (d.w ψ) J (mkTower (fs ++ [pt])))
     {ρ' : Nat → V} (hρ' : Sat V (((d.dsF mm 0 ψ).take d.nP).map (·.2.2)).reverse ρ') :
@@ -128,7 +128,8 @@ theorem IsBlockModels.table_fibreAt {m : EnvModel V env} {d : BlockModel V} (hre
       exact Nat.lt_one_iff.mp hjlt
     subst hj0
     refine ⟨fs, ?_, rfl⟩
-    have := hreps.spineFit_of_fitsFrom hfT hmm hj hρp (TupleLe.refl _ _ _) hfit.1
+    have := hreps.spineFit_of_fitsFrom hfT hPT hmm hj hρp (lfpTuple_mem _ _ _ _)
+      (TupleLe.refl _ _ _) hfit.1
     rwa [IsBlockModel.Fss_getD hj] at this
   refine ⟨fun hw x hx => ?_, fun hw x hx => ?_⟩
   · obtain ⟨fs, hsp, rfl⟩ := key x hx

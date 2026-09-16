@@ -214,10 +214,12 @@ theorem blockCtorRead_of {m : EnvModel V env} {env₀ : Env} {T : Name} {Tof : N
     {srcs : List (Option Nat)} {ks : List RecFieldKind} {fvsP xFvs : List Expr} {xrest : Expr}
     {Eiss : (Name → Nat) → List (List AnnotTerm)}
     {tss : (Name → Nat) → List (List (Nat × Nat × AnnotTerm))}
+    {nest : Nat → Option Nat} {pins : Nat → PinSyn}
     (ψ : Name → Nat)
     (hf : env.find? cA.1.name = some (.ctorInfo cA.1 nP cA.2)) (hlps : cA.1.levelParams = lps)
-    (hD : BlockCtorData m env₀ T Tof nIdxOfT lps cA.1 nP cA.2 nIdx resSort isProp large idxArgs
-      ds Es srcs ks fvsP xFvs xrest Eiss tss)
+    (hD : BlockCtorData m env₀ T Tof nIdxOfT nest pins lps cA.1 nP cA.2 nIdx resSort isProp large
+      idxArgs ds Es srcs ks fvsP xFvs xrest Eiss tss)
+    (hn : ∀ i, i < cA.2 → nest i = none)
     {Tname : Nat → Name} {nIdxOf : Nat → Nat} {mot : Nat} {moti : Nat → Nat}
     (hT : Tname mot = T) (hI : nIdxOf mot = nIdx)
     (htgt : ∀ i ∈ ConLeche.recIdxOf ks, Tname (moti i) = Tof i ∧ nIdxOf (moti i) = nIdxOfT i) :
@@ -284,8 +286,8 @@ theorem blockCtorRead_of {m : EnvModel V env} {env₀ : Env} {T : Name} {Tof : N
     obtain ⟨hlt, hk⟩ := hmemF i' hi'
     rw [(htgt i' hi').2]
     rcases hk with hk | hk
-    · exact hD.eisLen ψ i' hk hlt
-    · exact hD.eisLenRefl ψ i' hk hlt
+    · exact hD.eisLen ψ i' (hn i' hlt) hk hlt
+    · exact hD.eisLenRefl ψ i' (hn i' hlt) hk hlt
   · -- the telescope's length: the raw binder type's own `∀`-binders
     intro i' hi'
     obtain ⟨hlt, hk⟩ := hmemF i' hi'
@@ -298,11 +300,11 @@ theorem blockCtorRead_of {m : EnvModel V env} {env₀ : Env} {T : Name} {Tof : N
       simp only [List.getD_eq_getElem?_getD, hb, Option.getD_some]
     rw [hteleEq, ← (hpb i' hlt x hx b hb).1]
     rcases hk with hk | hk
-    · obtain ⟨hfn, -, -, -, -, -⟩ := hD.opened.recF i' x hx hk
+    · obtain ⟨hfn, -, -, -, -, -⟩ := hD.opened.recF i' x hx (hn i' hlt) hk
       rw [Expr.piBinders_nil_of_getAppFn_const hfn,
         hD.tssNone ψ i' (fun h => by rw [hk] at h; exact nomatch h)]
       rfl
-    · obtain ⟨afvs, body, -, hlenTl, -, -⟩ := hD.reflOpen ψ i' x hx hk
+    · obtain ⟨afvs, body, -, hlenTl, -, -⟩ := hD.reflOpen ψ i' x hx (hn i' hlt) hk
       rw [hlenTl]
   · -- a field's domain reads to its entry
     intro i' hi' fvs o hop x hx
@@ -320,10 +322,10 @@ theorem blockCtorRead_of {m : EnvModel V env} {env₀ : Env} {T : Name} {Tof : N
     obtain ⟨b, hb, hbd⟩ := hbGet i' hlt
     rw [hbd, ← (hpb i' hlt x hx b hb).2, (htgt i' hi').2]
     rcases hk with hk | hk
-    · obtain ⟨hfn, -, hlenA, -, -, -⟩ := hD.opened.recF i' x hx hk
+    · obtain ⟨hfn, -, hlenA, -, -, -⟩ := hD.opened.recF i' x hx (hn i' hlt) hk
       rw [Expr.piBinders_nil_body (Expr.piBinders_nil_of_getAppFn_const hfn)]
       exact hlenA
-    · obtain ⟨afvs, body, hop, -, -, -, -, hlenA, -, -, -⟩ := hD.opened.reflF i' x hx hk
+    · obtain ⟨afvs, body, hop, -, -, -, -, hlenA, -, -, -⟩ := hD.opened.reflF i' x hx (hn i' hlt) hk
       have hbody := openPisAtFvars_instSeq (x.fvarTypeD.piBinders).1.length hop
         (Expr.stripPis_piBinders x.fvarTypeD)
       have hfvA : ∀ a ∈ afvs, ∃ (k : Nat) (ty : Expr), a = Expr.fvar k ty := by
@@ -339,9 +341,9 @@ theorem blockCtorRead_of {m : EnvModel V env} {env₀ : Env} {T : Name} {Tof : N
     rw [(htgt i' hi').1]
     rcases hk with hk | hk
     · rw [hD.tssNone ψ i' (fun h => by rw [hk] at h; exact nomatch h),
-        hD.recEntry ψ i' hk hlt]
+        hD.recEntry ψ i' (hn i' hlt) hk hlt]
       rfl
-    · exact hD.reflEntry ψ i' hk hlt
+    · exact hD.reflEntry ψ i' (hn i' hlt) hk hlt
 
 /-! ## The stored recursor type's data, from the run -/
 

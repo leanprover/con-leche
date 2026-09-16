@@ -271,7 +271,8 @@ parameters, motives, minors, the field's index readings and the field
 applied.  Stated at the tuple frame `consList rs ρ`; the prefix's frame
 `hF` is at the base frame `ρ` (the readings are closed). -/
 theorem IsBlockModels.ihApp_facts {m : EnvModel V env} {d : BlockModel V} (hreps : IsBlockModels m d)
-    {ψ : Name → Nat} (hfT : FormersTyped m d ψ) {elimL : Level} {Ls : List AnnotTerm}
+    (hnp : d.pins = []) {ψ : Name → Nat} (hfT : FormersTyped m d ψ) {elimL : Level}
+    {Ls : List AnnotTerm}
     {nIdxs : List Nat} {pps : List (Nat × Nat × AnnotTerm)}
     {ipss : List (List (Nat × Nat × AnnotTerm))} {cds : List CtorDatumR} {mots : Nat → Nat}
     {tgts : Nat → Nat → Nat} (hR : BlockReadings m d ψ elimL Ls nIdxs pps ipss cds mots tgts)
@@ -329,13 +330,13 @@ theorem IsBlockModels.ihApp_facts {m : EnvModel V env} {d : BlockModel V} (hreps
     rw [rsOf_getD hiK, decide_eq_true_iff]; exact hkind
   have hiR : i ∈ recIdx ((d.rss c).getD j []) ((d.Fss c ψ).getD j []).length := by
     rw [h.recIdx_eq hj]; exact hiI
-  have htgt : d.tgts c j i < d.k := h.tgtsLt c j i hc hj' hiK
+  have htgt : d.tgts c j i < d.k := h.tgt_lt hj' hiK hnp
   obtain ⟨cvT', cvR', mI', rP', rules', h'⟩ := hreps _ htgt
   have hfsI := spineFit_take' hfs (i := i) (by rw [h.Fss_length hj]; exact Nat.le_of_lt hiA)
   have hfsI' := spineFit_take' hfs' (i := i) (by rw [h.Fss_length hj]; exact Nat.le_of_lt hiA)
   have hlenI : (fs.take i).length = i := by
     rw [List.length_take, hlenfs]; exact Nat.min_eq_left (Nat.le_of_lt hiA)
-  have hfitL := hreps.fitsFrom_of_spineFit_go hfT hc hj hρp _ 0 [] fs rfl trivial
+  have hfitL := hreps.fitsFrom_of_spineFit_go hfT (PinsTyped.of_noPins hnp ψ) hc hj hρp _ 0 [] fs rfl trivial
     (by rw [consList_nil]; exact hfs)
   rw [consList_nil] at hfitL
   -- the motives are non-empty
@@ -383,10 +384,10 @@ theorem IsBlockModels.ihApp_facts {m : EnvModel V env} {d : BlockModel V} (hreps
       | cons _ _ => exact hbs.elim
       | nil =>
         refine ⟨fun E hE => ?_, fun l hl => absurd hl (Nat.not_lt_zero _)⟩
-        rw [hcd.recEntry ψ i hrec hiA] at hwdF
+        rw [hcd.recEntry ψ i (d.nestOf_none htgt) hrec hiA] at hwdF
         rw [consList_nil]
         exact wellDenoted_of_mkAppN_arg hwdF E (List.mem_append_right _ hE)
-    · rw [hcd.reflEntry ψ i hrefl hiA] at hwdF hmemF
+    · rw [hcd.reflEntry ψ i (d.nestOf_none htgt) hrefl hiA] at hwdF hmemF
       have hinv := WellDenoted_mkPisAV_inv hwdF
       refine ⟨hinv.1, fun bs hbs => ⟨fun E hE => ?_, ?_⟩⟩
       · exact wellDenoted_of_mkAppN_arg (hinv.2 bs hbs) E (List.mem_append_right _ hE)
@@ -397,7 +398,7 @@ theorem IsBlockModels.ihApp_facts {m : EnvModel V env} {d : BlockModel V} (hreps
         rw [← consList_append (fs.take i) bs', show d.nP + i + ((d.tssF c j ψ).getD i []).length
             = d.nP + (fs.take i ++ bs').length from by
               rw [List.length_append, hlenI, hlenbs']; omega]
-        have hE := hreps.refl_eis_fit hfT hc hj hρpc hiA hrefl hfsI' hbs'
+        have hE := hreps.refl_eis_fit hfT hc hj hρpc hiA htgt hrefl hfsI' hbs'
         rw [← consList_append (fs.take i) bs'] at hE
         rw [h'.leaf_app' hpl hρpc rfl hE]
         have := d.carrier_app_mem_univ htgt hE
@@ -446,8 +447,8 @@ theorem IsBlockModels.ihApp_facts {m : EnvModel V env} {d : BlockModel V} (hreps
         (by rw [List.length_append, List.length_append, hlenps, hlenI, hlenbs]) _ _
     have hEis : SpineFit (consList ps ρ) (d.IdsM (d.tgts c j i) ψ)
         (((d.eissF c j ψ).getD i []).map (interp V (consList bs (consList (fs.take i) (consList ps ρ))))) :=
-      hreps.eis_fit hfT hc hj hρp hiA hr hfsI hbs
-    have hv := hreps.kitPred_mem hc hj' hfitL hiR
+      hreps.eis_fit hfT hc hj hρp hiA htgt hr hfsI hbs
+    have hv := hreps.kitPred_mem hnp hc hj' hfitL hiR
       (bs := bs) (by rw [BlockModel.teleAt, IsBlockModel.tlss_getD hj]; exact hbs) pt
     rw [BlockModel.eisAt, IsBlockModel.Eiss_getD hj] at hv
     have hfold : bs.foldl SetTheory.app (fs.getD i pt)
@@ -606,7 +607,8 @@ by `CtorsTyped`, and the right-hand side's chain is the frame's minor
 at the fields (its type's leading Π-tower) and the inductive
 hypotheses' applications (`ihApp_facts`, then `ihPisAVM_appChainOk`). -/
 theorem IsBlockModels.blockEq_wd {m : EnvModel V env} {d : BlockModel V} (hreps : IsBlockModels m d)
-    {ψ : Name → Nat} (hfT : FormersTyped m d ψ) (hcT : CtorsTyped m d ψ) {elimL : Level}
+    (hnp : d.pins = []) {ψ : Name → Nat} (hfT : FormersTyped m d ψ) (hcT : CtorsTyped m d ψ)
+    {elimL : Level}
     {Ls : List AnnotTerm} {nIdxs : List Nat} {pps : List (Nat × Nat × AnnotTerm)}
     {ipss : List (List (Nat × Nat × AnnotTerm))} {cds : List CtorDatumR} {mots : Nat → Nat}
     {tgts : Nat → Nat → Nat} (hR : BlockReadings m d ψ elimL Ls nIdxs pps ipss cds mots tgts)
@@ -712,7 +714,7 @@ theorem IsBlockModels.blockEq_wd {m : EnvModel V env} {d : BlockModel V} (hreps 
       have hEs : SpineFit (consList ps ρ) (d.IdsM c ψ)
           ((d.esF c j ψ).map (interp V (consList fs (consList ps ρ)))) :=
         hreps.res_es_fit hfT hc hj hρp hfs
-      have hinj := hreps.inj_mem hfT hc hj hρp hfs
+      have hinj := hreps.inj_mem hfT (PinsTyped.of_noPins hnp ψ) hc hj hρp hfs
       have hsp₁ := hreps.spineFit_recData_of hR hc hpreρ hF hEs hinj
       -- the constructor's application: its value and its grading
       have hCval : ∀ σ σ' : Nat → V, interp V σ (m.acval cA.1.name ψ) = interp V σ' (m.acval cA.1.name ψ) :=
@@ -766,7 +768,7 @@ theorem IsBlockModels.blockEq_wd {m : EnvModel V env} {d : BlockModel V} (hreps 
       unfold specRuleCoreAV
       -- the inductive hypotheses' applications
       have hih := fun i (hiI : i ∈ ConLeche.recIdxOf (d.ksF c j)) =>
-        hreps.ihApp_facts hfT hR ρ hlen hrs hc hj hpreρ hF hpsC hfs hfs' hiI
+        hreps.ihApp_facts hnp hfT hR ρ hlen hrs hc hj hpreρ hF hpsC hfs hfs' hiI
       refine (mkAppN_wellDenoted_of_chain (f := AnnotTerm.bvar (cA.2 + d.nCtors - 1 - d.minorIdx c j))
         (by simp) (fun a ha => ?_) ?_).1
       · rcases List.mem_append.mp ha with ha | ha
@@ -810,7 +812,7 @@ theorem IsBlockModels.blockEq_wd {m : EnvModel V env} {d : BlockModel V} (hreps 
                 (ConLeche.recIdxOf (d.ksF c j)).length 0) ∈ˢ (univZero : V) := by
           intro h0 fs' hfs'' ihs hl
           rw [interp_liftN, ← hl, shiftE_consList]
-          have hmc := hreps.minor_conc hfT hc hj hρp (Msl := Msl) (msl' := msl.take (d.minorIdx c j)) hoJ
+          have hmc := hreps.minor_conc hfT (PinsTyped.of_noPins hnp ψ) hc hj hρp (Msl := Msl) (msl' := msl.take (d.minorIdx c j)) hoJ
             hF.mslLen hF.motives hfs''
           rw [hmc.1]
           have := hmc.2
@@ -848,7 +850,7 @@ theorem IsBlockModels.blockEq_wd {m : EnvModel V env} {d : BlockModel V} (hreps 
         have hgetD : (ConLeche.recIdxOf (d.ksF c j)).getD l 0 = (ConLeche.recIdxOf (d.ksF c j))[l] := by
           rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hl, Option.getD_some]
         have hmotL : d.tgts c j (ConLeche.recIdxOf (d.ksF c j))[l] < Msl.length := by
-          rw [hF.mslLen]; exact h.tgtsLt c j _ hc hj' (mem_recIdxOf.mp hiI).1
+          rw [hF.mslLen]; exact h.tgt_lt hj' (mem_recIdxOf.mp hiI).1 hnp
         have hlenTake : (((ConLeche.recIdxOf (d.ksF c j)).map fun i =>
             interp V (consList fs (consList msl (consList Msl (consList ps (consList rs ρ)))))
               (ihAppAVK (tupleVarAV d.k (d.nP + d.k + d.nCtors + cA.2 + ((d.tssF c j ψ).getD i []).length) (d.tgts c j i))
@@ -903,7 +905,7 @@ typed (`FormersTyped`, `CtorsTyped`), the readings the block model's
 (`BlockReadings`), the regime fact `w = 0 → ℓ = 0`, and the recursor
 types' formation (`hT`).  What M4's recursor stage consumes. -/
 theorem IsBlockModels.blockRecsAt {m : EnvModel V env} {d : BlockModel V} (hreps : IsBlockModels m d)
-    (hfT : ∀ ψ, FormersTyped m d ψ) (hcT : ∀ ψ, CtorsTyped m d ψ) {elimL : Level}
+    (hnp : d.pins = []) (hfT : ∀ ψ, FormersTyped m d ψ) (hcT : ∀ ψ, CtorsTyped m d ψ) {elimL : Level}
     (hwℓ : ∀ ψ, d.w ψ = 0 → elimL.eval ψ = 0) {Ls : (Name → Nat) → List AnnotTerm}
     {nIdxs : List Nat} {pps : (Name → Nat) → List (Nat × Nat × AnnotTerm)}
     {ipss : (Name → Nat) → List (List (Nat × Nat × AnnotTerm))}
@@ -938,10 +940,10 @@ theorem IsBlockModels.blockRecsAt {m : EnvModel V env} {d : BlockModel V} (hreps
     (fun ψ ρ rs hlen hrs e he => by
       obtain ⟨c, j, cA, hc, hj, rfl⟩ := d.mem_specEqs he
       exact ⟨specEqAV_univZero _ _ _ _,
-        hreps.blockEq_wd (hfT ψ) (hcT ψ) (hR ψ) (fun mm hmm ρ => (hT ψ ρ mm hmm).2) ρ hlen hrs hc hj⟩)
-    (fun ψ ρ mm hmm => hreps.blockCand_mem (hfT ψ) (hwℓ ψ) (hR ψ) ρ hmm)
+        hreps.blockEq_wd hnp (hfT ψ) (hcT ψ) (hR ψ) (fun mm hmm ρ => (hT ψ ρ mm hmm).2) ρ hlen hrs hc hj⟩)
+    (fun ψ ρ mm hmm => hreps.blockCand_mem hnp (hfT ψ) (hwℓ ψ) (hR ψ) ρ hmm)
     (fun ψ ρ e he => by
       obtain ⟨c, j, cA, hc, hj, rfl⟩ := d.mem_specEqs he
-      exact hreps.blockCand_eq (hfT ψ) (hwℓ ψ) (hR ψ) ρ hc hj)
+      exact hreps.blockCand_eq hnp (hfT ψ) (hwℓ ψ) (hR ψ) ρ hc hj)
 
 end ConLeche.Model

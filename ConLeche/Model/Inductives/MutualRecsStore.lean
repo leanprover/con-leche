@@ -323,7 +323,7 @@ theorem ruleRhs_read_of (hd : MutualBlockModelOf env₀ b fms ctorsA d)
     simp only [hfields, List.mem_map] at him
     obtain ⟨i', hi'', rfl⟩ := him
     obtain ⟨cvT, cvR, mI, rP, rules, hrep⟩ := hrepsP c hc
-    exact hrep.tgtsLt c j i' hc hj' (mem_recIdxOf.mp hi'').1
+    exact hrep.tgt_lt hj' (mem_recIdxOf.mp hi'').1 hd.pins
   have hgen' : ConLeche.mutualRecRhs b.lps b.elim b.large b.nP formers4 ctors4
       (fun q => b.recName (if q < d.k then q else 0)) (b.rlps.map Level.param) (d.minorIdx t i)
       = some rhs := by
@@ -339,7 +339,7 @@ theorem ruleRhs_read_of (hd : MutualBlockModelOf env₀ b fms ctorsA d)
   congr 2
   refine mutualRuleCoreAV_congr_Rof fun i' hi'' => ?_
   obtain ⟨cvT, cvR, mI, rP, rules, hrep⟩ := hrepsP t ht
-  rw [if_pos (hrep.tgtsLt t i i' ht hi' (mem_recIdxOf.mp hi'').1)]
+  rw [if_pos (hrep.tgt_lt hi' (mem_recIdxOf.mp hi'').1 hd.pins)]
 
 end Reading
 
@@ -610,13 +610,13 @@ theorem mutualRecsStore_of (mp₂ : EnvModelM V μ env₂)
       · -- the core: the recursors are the provisioned leaves
         refine mutualRuleCoreAV_congr_Rof fun i' hi'' => ?_
         obtain ⟨cvT, cvR, mI, rP, rules', hrep⟩ := hreps t ht
-        have htgt := hrep.tgtsLt t i i' ht hi' (mem_recIdxOf.mp hi'').1
+        have htgt := hrep.tgt_lt hi' (mem_recIdxOf.mp hi'').1 hd.pins
         rw [← (hP.names _ htgt).1]
         exact hP.leaves _ htgt ψ
     have hrule : (⟨cr.1.cv.name, cr.1.nF, b.nP, ConLeche.RecRuleFire.plain, cr.2, kb, eb, true⟩ : RecRule)
         = ⟨cA.1.name, cA.2, d.nP, .plain, cr.2, kb, eb, true⟩ := by
       rw [hnm, hnF, hd.nP]
-    refine blockRecRuleLaw m₃ hreps (fun ψ => (htyped ψ).1) (fun ψ => (htyped ψ).2)
+    refine blockRecRuleLaw m₃ hreps hd.pins (fun ψ => (htyped ψ).1) (fun ψ => (htyped ψ).2)
       (fun n ψ ρ => mp₂.acval_validV n ψ ρ) hwℓ hR (fun ψ mm hmm ρ => (hP.recData mm hmm).okTy ψ ρ)
       hrdsR hleafCl (fun t' ht' ψ ρ => hP.leafTyped ψ ρ t' ht') hP.iota
       (fun c j cA' hc hj ψ => by rw [hac]; exact congrFun (hagC c j cA' hc hj) ψ) ht hi

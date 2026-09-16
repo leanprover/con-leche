@@ -256,9 +256,11 @@ theorem blockCtorReadsM_of (hd : MutualBlockModelOf env₀ b fms ctorsA d) (hrep
   rw [d.recMots_at hc hj', d.recTgts_at hc hj', List.getD_eq_getElem?_getD,
     List.getD_eq_getElem?_getD, d.recCds_getElem? ψ hc hj', d.cds_getElem? ψ hj, hoff, h4,
     ← hnm, ← hnF, hmem, hfields, Option.getD_some, Option.getD_some, ← hd.nP]
-  refine blockCtorRead_of ψ hfind hlpsA hD (d.recTname_lt hc) rfl fun i hi => ?_
+  refine blockCtorRead_of ψ hfind hlpsA hD
+    (fun i hi => d.nestOf_none (hrep.tgt_lt hj' (by rw [hD.ksLen]; exact hi) hd.pins))
+    (d.recTname_lt hc) rfl fun i hi => ?_
   have hilt : i < (d.ksF c j).length := (mem_recIdxOf.mp hi).1
-  exact ⟨d.recTname_lt (hrep.tgtsLt c j i hc hj' hilt), rfl⟩
+  exact ⟨d.recTname_lt (hrep.tgt_lt hj' hilt hd.pins), rfl⟩
 
 /-- **The block's recursor types read to the block model's Π-towers, graded
 at the kernel's inferred sort** — `mutualRecData_of` at every member,
@@ -489,7 +491,7 @@ theorem mutualRecsProvision (hμ : μ.verifiedChecks = true) {env₂ : Env}
         WellDenoted V ρ (d.recLeaf mp₂.base2 b.elimLevel sOf b.rlps mm ψ)) ∧
       ∀ e ∈ d.recEqs mp₂.base2 b.elimLevel (restrictΨ b.rlps ψ),
         (pt : V) ∈ˢ interp V (consList ((List.range d.k).map a) ρ) e :=
-    fun ψ ρ => hreps.blockRecsAt (fun ψ => (htyped ψ).1) (fun ψ => (htyped ψ).2) hwℓ hR
+    fun ψ ρ => hreps.blockRecsAt hd.pins (fun ψ => (htyped ψ).1) (fun ψ => (htyped ψ).2) hwℓ hR
       (s := sOf) (fun ψ ρ mm hmm => hT ψ ρ mm hmm) (restrictΨ b.rlps ψ) ρ
   -- **the run facts** about the generated recursors
   obtain ⟨hlenR', hallR⟩ := ConLeche.checkMutualRecTys_inv hrectys
@@ -559,9 +561,9 @@ theorem mutualRecsProvision (hμ : μ.verifiedChecks = true) {env₂ : Env}
       (fun rs hlen hrs e he => ?_) t
     obtain ⟨c, j, cA, hc, hj, rfl⟩ := d.mem_specEqs he
     exact ⟨specEqAV_univZero _ _ _ _,
-      hreps.blockEq_wd (htyped _).1 (htyped _).2 (hR _)
+      hreps.blockEq_wd hd.pins (htyped _).1 (htyped _).2 (hR _)
         (fun mm hmm ρ => ((hRD mm hmm).1.okTy _ ρ).1) ρ hlen hrs hc hj,
-      hreps.blockEq_valid (htyped _).1 (htyped _).2 (fun n ρ => mp₂.acval_validV n _ ρ) (hR _)
+      hreps.blockEq_valid hd.pins (htyped _).1 (htyped _).2 (fun n ρ => mp₂.acval_validV n _ ρ) (hR _)
         (fun mm hmm ρ => (hRD mm hmm).1.okTy _ ρ) ρ hlen hrs hc hj⟩
   -- **the conses**
   obtain ⟨mpP, hEP, -, hRDP, hleafP, hagP⟩ :=

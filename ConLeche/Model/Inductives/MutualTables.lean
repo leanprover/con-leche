@@ -47,7 +47,8 @@ the set-level clauses `BlockTableOf.lean`'s, the sorts the table
 facts', the names the run's. -/
 theorem tableMember_of {env : Env} {m : EnvModel V env} {b : MutualBlock}
     {fms : List MutualFormerA} {sortss : List (List Level)} {d : BlockModel V}
-    (hreps : IsBlockModels m d) (htyped : ∀ ψ : Name → Nat, FormersTyped m d ψ ∧ CtorsTyped m d ψ)
+    (hreps : IsBlockModels m d) (hpins : d.pins = [])
+    (htyped : ∀ ψ : Name → Nat, FormersTyped m d ψ ∧ CtorsTyped m d ψ)
     (htf : MutualTableFacts b fms sortss d)
     {mIdx : Nat} (hmm : mIdx < d.k) {f : MutualFormerA} (hft : fms[mIdx]? = some f)
     (hname : d.memberName mIdx = f.cvTa.name)
@@ -120,7 +121,8 @@ theorem tableMember_of {env : Env} {m : EnvModel V env} {b : MutualBlock}
         exact h.table_fold hreps (htf.frame mIdx hmm) hnI ψ ρ ts hsp
       fib := fun ψ ρ' hρ' => by
         rw [hsEq]
-        exact hreps.table_fibreAt (htyped ψ).1 hmm hone hnI (hinj ψ) hρ'
+        exact hreps.table_fibreAt (htyped ψ).1 (PinsTyped.of_noPins hpins ψ) hmm hone hnI
+          (hinj ψ) hρ'
       ctor := fun ψ ρ as fs hspP hspF => by
         rw [hsEq]
         exact h.table_ctor hreps hone (hinj ψ) ρ as fs hspP hspF
@@ -182,7 +184,8 @@ theorem memberTableOk_of {env env₀ : Env} {m : EnvModel V env} {b : MutualBloc
   have hsD : sortss.getD J [] = sorts := by rw [List.getD_eq_getElem?_getD, hsj]; rfl
   obtain ⟨hCshape, hresC⟩ := hcnames J _ hcA
   refine ⟨d.ppsM mIdx, d.dsF mIdx 0, d.esF mIdx 0, hnm, hnF, ?_⟩
-  have htm := tableMember_of hreps htyped htf hmmd hft hname hstored hd.nP hnIdx hone hJ hlpsC hnp
+  have htm := tableMember_of hreps hd.pins htyped htf hmmd hft hname hstored hd.nP hnIdx hone hJ
+    hlpsC hnp
     hTshape hresT hresR hCshape hresC hsj
   rw [hsD, ← hnF, ← hd.nP]
   exact htm

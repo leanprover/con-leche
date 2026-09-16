@@ -74592,3 +74592,306 @@ after the deletions.
    compound command persists into the next call, and a call without one
    runs where the previous left off — always `cd` explicitly; the prose
    pass of a rename hits `section` NAMES.
+
+#### U.13 — M6 session 1: the `fibre` census and the composed block model's nested-slot arm (session U-11, 2026-09-16)
+
+M6 opened with its falsifier — the census of every consumer of
+`IsBlockModel.fibre` and of the fit vocabulary (`ChainFit`, `FitsFrom`,
+`slotSet`, `slotAt`) on master — and, the census having found no
+consumer that cannot take a nested slot, the block model was EXTENDED
+with the arm and every consumer re-proved or restricted (the recursor
+kit is mutual-only until M7, by hypothesis).  No checker code changed;
+no run fact is named (there is no nested run relation on the branch —
+the M5 lane's is at its K1/K3/K5 cherry-picks, DESIGN §U.1 (c)'s
+recorded shapes are what the GAPS below are stated in); no `sorry`, no
+axioms, no `maxHeartbeats`.  The reading law (X.1) is cherry-picked
+(`ConLeche/Model/Inductives/NestedSlotRead.lean`, the direct lane's
+`DirectSlot.lean` §1–§2 at `474d4a4a`, proofs verbatim).
+
+##### (a) THE CENSUS — no consumer refuses the arm; two are mutual-only by content
+
+Consumers of `IsBlockModel.fibre` on master (all in `Model/Inductives/`)
+and what a NESTED slot — a position whose entry reads the target PIN's
+carrier at the tuple `X` — changes for each:
+
+| consumer | direction | what the arm changes | outcome |
+| --- | --- | --- | --- |
+| `IsBlockModels.inj_mem` (`BlockRecKit`) — the fibre's converse | `.mpr` at the carrier `L` | needs "a fit at the real domains is a fit at the slots at `L`" (`fitsFrom_of_spineFit_go` → `real_dom_eq`): at a nested position the field's reading must EQUAL the pin's carrier at `L` | TAKES THE ARM: `real_dom_eq`'s pin branch = `nestEntry` + the pin's leaf (`pinLeaf` via `pin_app'`) + the lifted components' reading (`interp_liftN_consList`); new hypothesis `PinsTyped` |
+| `IsBlockModels.kitSt_mem` (`BlockRecKit`) — the step lands in the bound | `.mp` at `L`, then `spineFit_of_fitsFrom` at `X = L` | the slot-to-domain direction needs `slotAt_mono` (slot at `X ≤ L` inside the slot at `L`) and `real_dom_eq` | the SLOT KIT takes the arm (`slotAt_mono`'s pin branch = `pinMono`); the STEP itself is mutual-only (its inductive hypotheses `kitIhs` range over the recursive positions with the target's MOTIVE `Ms (tgts …)`, a `k`-motive union recursor) → `hnp : d.pins = []` |
+| `IsBlockModels.inhab_all` (`BlockRecKit`) — the `Prop`-regime induction | `.mp` at the SEPARATED tuple | `slotAt_mono` at `X = sepTuple < L`, i.e. the pin's carrier MONOTONE in the tuple at `w = 0` too — the one place where deriving monotonicity from `functor`+`fibre`+`mkInj` fails (`mkInj` is absent at `w = 0`); hence `pinMono` is a CLAUSE, not a derived law | slot kit takes the arm; the induction is mutual-only (`hnp`) |
+| `IsBlockModel.kitPred_from` (`BlockRecCand`) — `PredsFrom` | `.mp` at every `X` | a nested position's value lies in the pin's carrier, which is NOT a component of the union `unionSet d.k …` — the predecessor relation `PredRel` tags predecessors by their target member | mutual-only (`hnp`); M7 rebuilds the kit at `k + nPins` classes (the pins' classes = `pinCar` at `L`, §U.1 (b)) |
+| `blockRecRuleLaw` (`MutualRecsLaw`) — the major decoded by the fibre's converse | `.mp` at `L` | `spineFit_of_fitsFrom` at `L` — the slot kit | takes the arm through the kit; the RULE LAW is the `k`-motive recursor's (`hnp`) |
+| `IsBlockModels.table_fibreAt` (`BlockTableOf`) — the structure-like member's fibre | `.mp` at `L` | `spineFit_of_fitsFrom` at `L` | takes the arm (a structure-like member may have a nested field: `structure S where xs : List S` — the table's `FibreAt` at the field's REAL domain is exactly `real_dom_eq`'s pin branch) |
+| `IsBlockModel.crossEnv` (`BlockRepCross`) | verbatim | the new clauses cross: `pinLeaf` names the container's leaf (`hag` at a stored name, `pinsFound`), `pinMem`/`pinMono`/`pinShape` are model-free; `BlockCtorData.crossEnv` needs the pins' containers stored (`nestEntry` names `m.acval J`) | takes the arm with one more hypothesis (the pins' containers are found at `env₁`) |
+| `ofMember` (`BlockRep`) — the section view | verbatim | none: a section's fibre reads `ChainFit` at `updTuple L mm X`, the pins at the block's own `pinCar` | unchanged |
+
+Consumers of `FitsFrom`/`slotSet`/`slotAt` that are not `fibre`
+readers: `tupleLfpΦ_fibre` (`TupleLfp`, sealed) states its fit with an
+EXPLICIT slot function `fun i ρ => slotSet … (X (tgts …))` and is
+untouched; the mutual assembly (`MutualCore` ~2117–2145) and
+`ofNative_fibre` (`BlockRepOne`) identified that slot with `slotAt` by
+`rfl`, which the arm breaks — they now rewrite with
+`BlockModel.slotAt_of_mem` (every target `< k` there); the native
+tower kits (`FixFamI`, `FixRecCoreI`, `FixSquashI`, …) read `slotSet`
+at their OWN family and never see the block model.  The
+`Struct*`/`idxRecover`/tower kits DR.1 (c) listed as the risk do not
+consume `IsBlockModel.fibre` on master at all: the tables read the
+block model through the flat bundle (`TableMember`, §U.11 (a)), whose
+`fib` is supplied by `table_fibreAt` above.
+
+**Outcome: the census PASSES.**  Every consumer takes the arm through
+FOUR slot-kit lemmas (`real_dom_eq`, `slotAt_mono`,
+`spineFit_of_fitsFrom`, `fitsFrom_of_spineFit_go`) — nothing else
+reads a slot's content — and the recursor kit (union over `k`
+classes) is restricted by ONE hypothesis `hnp : d.pins = []` that the
+mutual instance discharges by `rfl` (`ofMutual`/`ofNative` set
+`pins := []`).  The census cost one Fable session's first third; DR.1
+(c) had priced it as "a census item, not a risk", correctly.
+
+##### (b) THE EXTENDED BLOCK MODEL — verbatim
+
+A TARGET is a member (`tgt < k`) or a pin (`tgt = k + q`); `tgts`
+ranges over `k + nPins` (`tgtsLt`).  A pin is a syntactic record plus
+ONE abstract semantic field:
+
+```
+structure PinSyn where
+  J : Name                                   -- the container
+  lvls : List Level                          -- the pin's level arguments
+  ψJ : (Name → Nat) → (Name → Nat)           -- the container's level assignment at the pin
+  nPJ : Nat                                  -- its parameter count
+  DsE : List Expr                            -- the components at the block's parameter openers (K.3: fvar-free below them)
+  Ds : (Name → Nat) → List AnnotTerm         -- their BAKED readings at depth nP (the members' leaves inside)
+  nIdx : Nat                                 -- the container's index count
+  u : (Name → Nat) → Nat                     -- its index-tuple sort at the pin
+  pps : (Name → Nat) → List (Nat × Nat × AnnotTerm)   -- the container's OWN telescope reading (closed)
+PinSyn.Ids q ψ := ((q.pps (q.ψJ ψ)).drop q.nPJ).map (·.2.2)
+
+BlockModel += pins : List PinSyn                                          -- before Φ
+             pinCar : (Name → Nat) → (Nat → V) → (Nat → V) → Nat → V     -- pin q's carrier as a FAMILY at (ψ, ρp, X)
+nPins := pins.length;  pinAt q := pins.getD q default
+nestOf mm j i := if tgts mm j i < k then none else some (tgts mm j i - k)
+pinFrame q ψ ρp := consList (((pinAt q).Ds ψ).map (interp V ρp)) ρp      -- the container's frame at the pin
+pinIdx q ψ ρp := idxSet ((pinAt q).u ψ) (pinFrame q ψ ρp) ((pinAt q).Ids ψ)
+uT tgt ψ := if tgt < k then uM tgt ψ else (pinAt (tgt - k)).u ψ
+famAt ψ ρp X tgt := if tgt < k then X tgt else pinCar ψ ρp X (tgt - k)   -- A TARGET'S FAMILY AT X
+slotAt ψ X mm j i ρ := slotSet (w ψ) (uT (tgts mm j i) ψ) ρ tl Eis (famAt ψ (fun n => ρ (n + i)) X (tgts mm j i))
+```
+
+— the nested slot is the recursive slot's `slotSet` at the target's
+family; the parameter frame a pin's carrier is taken at is the slot's
+frame below its `i` earlier fields (`consList_apply_add`).  `ChainFit`,
+`FitsFrom`, `rss` (`rsOf ksF`: a nested field's kind is
+`.recursive`/`.reflexive` with a pin target — K.26 re-keyed) are
+UNCHANGED; there is no parallel `Option` list (D-2a's spelling) because
+the target index space already distinguishes the arm.
+
+`BlockOpened`/`BlockCtorData` take `(nest : Nat → Option Nat) (pins :
+Nat → PinSyn)` after `nIdxOf`; the eight target-dependent clauses
+(`recF`, `reflF`, `eisRead`, `eisLen`, `recEntry`, `reflOpen`,
+`eisLenRefl`, `reflEntry`) are guarded by `nest i = none`, and their
+NESTED twins are:
+
+```
+nestF     : xFvs[i]? = some x → nest i = some q → ks[i] = .recursive →
+            x.fvarTypeD.getAppFn = .const (pins q).J (pins q).lvls ∧ args.take nPJ = DsE ∧ args.length = nPJ + nIdx ∧
+            (∀ e ∈ args.drop nPJ, e.constsResolve env₀) ∧ later fields and the residual free of the field
+nestReflF : the same under the field's telescope
+nestEisRead/nestEisLen/nestEisLenRefl/nestReflOpen : as the member clauses, at the pin's parameter count and index count
+nestEntry : nest i = some q → ks[i] = .recursive → i < nF →
+            ds[nP + i].2.2 = mkAppN (m.acval (pins q).J ((pins q).ψJ ψ)) (((pins q).Ds ψ).map (·.liftN i 0) ++ Eiss[i])
+nestReflEntry : … = mkPisAV tss[i] (mkAppN (m.acval J ψJ) ((Ds ψ).map (·.liftN (i + |tss[i]|) 0) ++ Eiss[i]))
+```
+
+`BlockCtorFacts` passes `(fun i => d.nestOf mm j i) d.pinAt`;
+`.ofFix`/`MutualCtorDataI.toBlock` take `nest`/`pins` with `hn : ∀ i <
+nF, nest i = none` and discharge the twins by vacuity.  `IsBlockModel`
+gains, beside `tgtsLt : … < d.k + d.nPins`:
+
+```
+pinsFound : ∀ q < nPins, ∃ cv caps, env.find? (pinAt q).J = some (.indInfo cv caps)
+pinShape  : ∀ q < nPins, ∀ ψ, (∀ d' ∈ pps (ψJ ψ), d'.2.1 ≠ 0) ∧ (Ds ψ).length = nPJ ∧ (pps (ψJ ψ)).length = nPJ + nIdx
+pinMem    : ∀ ψ ρp, Sat … → ∀ X, InTupleSpace … X → ∀ q < nPins, pinCar ψ ρp X q ∈ famSpace (w ψ) (pinIdx q ψ ρp)
+pinMono   : ∀ ψ ρp, Sat … → ∀ X Y, InTupleSpace X → InTupleSpace Y → TupleLe X Y → ∀ q < nPins,
+            FamLe (pinIdx q ψ ρp) (pinCar ψ ρp X q) (pinCar ψ ρp Y q)
+pinLeaf   : ∀ q < nPins, ∀ ψ ρ as is, SpineFit ρ (params ψ) as → SpineFit (pinFrame q ψ (consList as ρ)) ((pinAt q).Ids ψ) is →
+            (((pinAt q).Ds ψ).map (interp V (consList as ρ)) ++ is).foldl app (interp V ρ (m.acval (pinAt q).J ((pinAt q).ψJ ψ)))
+              = app (pinCar ψ (consList as ρ) (lfpTuple (w ψ) k (idx ψ (consList as ρ)) (Φ ψ (consList as ρ))) q) (tupW ((pinAt q).u ψ) is)
+```
+
+Why these and no others (consumer-first): `pinMono` is read by
+`slotAt_mono` (needed at `w = 0` by `inhab_all`, where the
+`functor`+`fibre`+`mkInj` derivation is unavailable); `pinMem` by the
+membership steps (`slotSet_fold_mem`'s bound) and by M7's classes;
+`pinLeaf` by `real_dom_eq`'s pin branch — it is the block model's form
+of "the pin's stored reading at the carrier IS the composed slot at
+the least tuple", the equation (X.1)+K.27 discharge in the ASSEMBLY
+(no consumer reads (X.1) or K.27 directly); `pinShape` and
+`pinsFound` by the fits and the crossing.  NOT a clause: a pin's
+FIBRE (the container's constructor decomposition at the pin's frame,
+the M7 accessibility induction's tool) — its consumer is M7's, and it
+is stated then.  D-2b holds by construction: `Φ` at every frame IS
+whatever the assembly composes; the block model does not spell it.
+
+##### (c) THE SLOT KIT AT THE ARM; the recursor kit restricted
+
+`Model/Inductives/BlockRecKit.lean`: `PinsTyped m d ψ` (the containers
+typed at their telescopes at the block's sort — the run's
+`acval_memType` at each container with the auxiliary block's
+same-universe rule; `of_noPins`), `IsBlockModel.tgt_lt`/`tgt_cases`,
+`IsBlockModel.pin_app'` (`pinLeaf` at index expressions under `e`
+binders, the lifted components read at the parameter frame by
+`interp_liftN_consList`), `IsBlockModels.nest_fit` (a graded
+application of the container at lifted components and index readings
+fits its index telescope at the pin's frame:
+`spineFit_of_wellDenoted_mkAppN_pis` at `PinsTyped`, the spine split at
+`nPJ` by `pinShape`), `nest_eis_fit`, `nest_refl_eis_fit`;
+`real_dom_eq` and `slotAt_mono` branch on `tgt_cases`
+(`slotAt_of_mem`/`slotAt_of_pin`); `rec_eis_fit`/`refl_eis_fit`/`eis_fit`
+take `hmem : tgts < k`; `real_dom_eq`, `slotAt_mono`,
+`spineFit_of_fitsFrom(_go)`, `fitsFrom_of_spineFit_go`, `inj_mem`,
+`minor_conc` take `hPT : PinsTyped`; `slotAt_mono`/`spineFit_of_fitsFrom`
+take the tuple's membership `hXs`.  The recursor kit — `kitPred_from`,
+`kitPred_mem`, `kitIhs_mem`, `minor_fold_mem`, `kitSt_mem`, `inhab_all`,
+`blockRecAt_mem_B/_eq` and everything above them to `declMutual` —
+takes `hnp : d.pins = []`.  Where the run-level statements quantify the
+block model (`MutualRecsModeled`/`MutualRecsStored`: `∀ d,
+MutualBlockModelOf … d → …`), `hnp` cannot be derived at a concrete
+model, so `MutualBlockModelOf` gained the field `pins : d.pins = []`
+(one producer, `mutualBlockModelOf_ofMutual`, by `rfl`; every consumer
+reads `hd.pins`) — the exported statements `mutualCoreModeled`,
+`mutualRecsModeled`, `mutualRecsStored`, `mutualTablesModeled`,
+`declMutual`, `declBlock`, `declInductive` are verbatim.  Two general
+facts took `hPT` rather than `hnp`: `IsBlockModels.table_fibreAt`
+(`BlockTableOf`) and `minor_conc`.  `BlockCtorData.crossEnv`'s `hTof`
+is now guarded by `nest i = none` (at a pin target `Tof i` is
+`.anonymous`) and it takes `hJ` (the pins' containers found);
+`IsBlockModel.crossEnv` derives both from `tgtsLt`/`pinsFound`.
+`NestedSlotRead`'s imports were narrowed by the #223 criterion (the
+`--only` run demotes `BitInst`/`WellDenotedTransport` to private and
+re-exports `Annot.EnvModel`, `Annot.Bit`, `Verify.Subst`) — applied,
+no allowlist line.
+
+##### (d) THE COMPOSED OPERATOR — designed, the theorem shape for M6 s2/s3
+
+The block model's `Φ` and `pinCar` for a nested block are DEFINED from
+the AUXILIARY tuple operator — the sealed `tupleLfpΦ` at `k + nPins`
+components over the ELIMINATED block's constructor readings (the
+members' constructors with targets in members ++ pins, and at pin `q`
+the container's constructors instantiated at the pin, whose kinds are
+K.26 re-keyed) — by ITERATED `composeAt` (`SetModel/TupleContainer.lean`):
+
+    Ψ  := tupleLfpΦ W w ρp (k + nPins) Ids⁺ mems⁺ nFs⁺ tgts⁺ rss⁺ …      -- the aux operator, a pure set-level object
+    Φ  := composeAt … (composeAt … Ψ (k + nPins - 1)) … k                -- every pin component replaced by its section's lfp
+    pinCar ψ ρp X q := lfpFamSet w (Ids⁺ (k + q)) (secF … Ψ_q X (k + q))  -- the section's lfp at the members' X
+
+— no auxiliary block is INSTALLED or modelled; `Ψ` is the operator the
+elimination's readings denote.  Then: `functor` = `tupleLfpΦ_functor`
+at `k + nPins` composed through `closedTuple_composeAt` iterated
+(MonoTuple/MapsTuple at the members from `Ψ`'s, the closed tuple from
+`tupleContainer_closed_exists` at `k + nPins` — (W-aux), positions =
+the copies' recursive fields, shapes = the rest); `fibre` =
+`tupleLfpΦ_fibre` at the EXTENDED tuple (component `k + q` = `pinCar X
+q`), whose slot at a pin target is `slotSet … (X⁺ (k + q))` =
+`slotAt`'s `famAt` by construction; `pinMem`/`pinMono` = the sections'
+lfps are in the family space and monotone in `X` by leastness (`Ψ`
+monotone at every component); `leaf` = `tupleLfpAV_fold` at the composed
+operator (the members' leaves are `tupleLfpAV` at the EXTENDED lists:
+the term-level leaf of a nested member is the `k + nPins`-ary former's
+component, exactly #278's restored former); `pinLeaf` = the one
+equation that consumes (X.1) and K.27: the container's carrier at the
+frame `Ds[L]` (`dJ.leaf` at the container's OWN block model, the fit of
+`⟦Ds⟧` there = post-check (a) at the carrier) equals the section's lfp
+of `Ψ` at `L` — `Ψ`'s pin component reads the copied constructors,
+whose readings at the frame are the container's stored constructors'
+readings at `Ds[curry X]` (the substitution law behind K.12's
+annotated elimination), and `lfpTuple_eq_section` closes.  The
+composed lfp's MEMBERS equal the aux lfp's members (Bekić, iterated:
+`nested-279m`'s `SetTheory/Derive/Bekic.lean` `bekic_nested`, 286 pure
+lines, a cherry-pick candidate); M6 s2 = the pure half (`Ψ`, iterated
+`composeAt`, `functor`/`fibre`/`pinMem`/`pinMono` over `TupleLfpOk` at
+`k + nPins`, the Bekić iteration), s3 = `pinLeaf` and `leaf` (the copy
+readings' congruence, the curry towers' membership) — both at the
+block-model level over hypotheses in M5's shapes, the Tree/List instance
+first as the falsifier of s2.
+
+##### (e) THE GAPS — facts of the RUN, stated in §U.1 (c)'s recorded shapes, not named
+
+| gap | consumer | M5's shape |
+| --- | --- | --- |
+| the members' constructors' field kinds with targets in members ++ pins | `BlockCtorFacts` (`nest`/`tgts`) | K.26 re-keyed: `(kind, target)` per field, `target ∈ members ++ pins` |
+| the pins' components at the openers and their readings; `Ds.length = nPJ` | `PinSyn.DsE/Ds`, `pinShape` | K.12's annotated pins, K.3 `pinsClosed`, K.14 `nestedContainersOk` |
+| the pins' components fit the containers' parameter telescopes AT EVERY TUPLE `X` of the tuple space | `pinMono`/`pinMem`/`functor` (the container's clauses are `Sat`-guarded) | **K.27 `nestedPinsAbsOk`** (`NestedPinsAbsOk` in `DirectSlot.lean` §3, the `_inv` row at the abstracted members) |
+| the same fit at the CARRIER | `pinLeaf` | post-check (a) `nestedPinsOk` at the restored environment |
+| the containers' block models (`IsBlockModel m J … dJ mmJ` at the pre-block model) | `pinLeaf`, `pinMem`, `pinMono`, M7's classes | NOT a run fact and NOT in `EnvModelM` (finding 1 below): a fold invariant to add, or the premise `PinsModeled` until then |
+| the containers typed at the block's sort (`PinsTyped`) | the fits | `acval_memType` at each container + the aux block's same-universe check (`checkMutualCore`'s former stage) |
+| the pins' index telescopes mention no member | `pinIdx` is `X`-independent | the aux formers' types are checked at the PRE-block environment (`checkMutualCore … env b`'s former stage) |
+| the restored recursors' shape (`k + nPins` motives) | M7 | §U.1 (c) 7 |
+
+##### (f) FINDINGS, WITH COST
+
+1. **`EnvModelM` carries no block model of a stored inductive** (¼ h,
+   found at the census): the brief's "the containers' block models
+   at the pins, from `EnvModelM`" has no source on master —
+   `declMutual` BUILDS its block model from the run and discards it.
+   A nested block's assembly therefore takes `PinsModeled` as a
+   premise until an invariant `ind_reps`-like field (M4's plan item
+   "`BasisRep*` so `ind_reps` holds at every stored recursor", never
+   landed) records every stored block's model — basis blocks included
+   (`lfpTuple_one`).  Cost: +1 session at M7 or M8; the field is the
+   right design (the block model is the thing a LATER block consumes).
+2. **`pinMono` must be a clause** (½ h): at `w ≠ 0` a slot's
+   monotonicity in the tuple follows from `functor`+`fibre`+`mkInj`
+   (a fitting spine's injection is in `Φ X ⊆ Φ L`, decoded back by
+   `mkInj`), at `w = 0` it does not, and `inhab_all` reads it there.
+3. **No parallel `Option` list**: D-2a's "keyed by a parallel `List
+   (Option NestedSlot)` because `RecFieldKind` is checker code" was
+   about the KINDS; with K.26 re-keyed the kind of a nested field is
+   `.recursive`/`.reflexive` and its TARGET index says "pin" — the
+   block model's `tgts` already had the room.
+4. **The recursor kit is mutual-only by content, not by accident**:
+   `kitIhs` reads the target's motive `Ms (tgts …)` and `PredRel` tags
+   by the target member; both are `k`-class objects.  M7's kit at
+   `k + nPins` classes is a rewrite of `BlockRecCand`'s five
+   definitions, not of the block model.
+5. **The census's DR.1 (c) risk list was stale**: `Struct*`,
+   `idxRecover` and the tower kits do not read `IsBlockModel.fibre`
+   (the tables read the flat bundle); the real readers are four kit
+   lemmas.
+6. Lean traps: a `by` block inside an anonymous constructor swallows
+   the following fields (parenthesise); `BlockOpened` has no `xLen`,
+   so a vacuity hypothesis on it must be indexed by the field
+   variables (`∀ i x, xFvs[i]? = some x → …`); a
+   `rw [h.xLen] at this` on `i < xFvs.length` inside a `getElem?`
+   proof fails on the dependent motive — use `h.xLen ▸ …`; a `List.map
+   f ∘ g` after `List.map_map` is matched by `show` with the composed
+   function spelled out.
+
+##### (g) GATES
+
+`lake build` 625 jobs warning-free (was 624: `NestedSlotRead`),
+`lake test` 538 warning-free; layering base 313 / model 233 / caps 3 /
+umbrella 1, 0 base→lane, 0 impl→theory; proofdeps 4915 rows across 12
+roots, 0 doors (unchanged: no capstone closure gained a module);
+trust surface 13 escapes in 5 allowlisted files (561 scanned);
+overview-links 112 (three anchors repointed on pure line shifts:
+`IsBlockModel`, `declBlock`, `declMutual` — the citing paragraph
+re-read, its claims unchanged); quote-gate 2; no-local-paths OK; shake
+492 removals all allowlisted, pub-imports none demotable (14 fallbacks).
+Lanes: the cherry-pick, the leaf instances, the recursor chain, the
+tail (Opus, ~3, ~3, ~7, ~12 minutes), each building only its own
+modules by name; the coordinator owned `BlockRep`/`BlockRecKit`/
+`BlockRecCand`.
+
+##### (h) RE-SIZING
+
+M6: this session 1 (census PASSED, the block model extended, the slot
+kit at the arm, (X.1) cherry-picked, the composed operator designed);
+s2 = the pure composed operator (`Ψ`, iterated `composeAt`, the Bekić
+iteration, `functor`/`fibre`/`pinMem`/`pinMono`, the Tree/List
+instance as falsifier) 1–2; s3 = `pinLeaf`/`leaf` (the copy readings'
+congruence, curry towers) 1–2 → **M6 3–5, unchanged**.  M7 nested
+recursors + flip 3–4 (+1 for the `k + nPins`-class kit rewrite, finding
+4, and the `ind_reps`-like field, finding 1, if M5 does not carry the
+containers' models); M8 1–2.  Remaining **8–13** (was 9–14 with M5's
+2–3 running in parallel).

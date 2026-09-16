@@ -142,7 +142,7 @@ and `blockEq_valid` carried across the bridge): the λ-tower over the
 rule's binder data with the leaves `Rof` as the recursors, at a tuple
 `rs` of the leaves' values typed at the recursor types. -/
 theorem IsBlockModels.ruleRhs_wdV {m : EnvModel V env} {d : BlockModel V} (hreps : IsBlockModels m d)
-    {ψ : Name → Nat} (hfT : FormersTyped m d ψ) (hcT : CtorsTyped m d ψ)
+    (hnp : d.pins = []) {ψ : Name → Nat} (hfT : FormersTyped m d ψ) (hcT : CtorsTyped m d ψ)
     (hval : ∀ (n : Name) (ρ : Nat → V), AnnotValid V ρ (m.acval n ψ))
     {elimL : Level}
     (hR : BlockReadings m d ψ elimL (d.recLs m ψ) d.recNIdxs (d.recPps ψ) (d.recIpss ψ) (d.recCds ψ)
@@ -181,8 +181,8 @@ theorem IsBlockModels.ruleRhs_wdV {m : EnvModel V env} {d : BlockModel V} (hreps
   have hrs' : ∀ mm, mm < d.k → rs.getD mm pt ∈ˢ interp V ρ
       (mkPisAV (mutualRecDataAV m ψ (d.recLs m ψ) d.nP d.recNIdxs elimL (d.recPps ψ) (d.recIpss ψ)
         (d.recCds ψ) d.recMots d.recTgts mm) (mutualConcAV d.k d.nCtors (d.nIdxAt mm) mm)) := hrs
-  have hwdEq := hreps.blockEq_wd hfT hcT hR (fun mm hmm ρ' => (hokT' mm hmm ρ').1) ρ hlen hrs' hc hj
-  have hvEq := hreps.blockEq_valid hfT hcT hval hR hokT' ρ hlen hrs' hc hj
+  have hwdEq := hreps.blockEq_wd hnp hfT hcT hR (fun mm hmm ρ' => (hokT' mm hmm ρ').1) ρ hlen hrs' hc hj
+  have hvEq := hreps.blockEq_valid hnp hfT hcT hval hR hokT' ρ hlen hrs' hc hj
   unfold specEqAV at hwdEq hvEq
   obtain ⟨-, hbodyW⟩ := WellDenoted_mkPisAV_inv hwdEq
   obtain ⟨-, hbodyV⟩ := AnnotValid_mkPisAV_inv hvEq
@@ -305,7 +305,7 @@ theorem IsBlockModels.ruleRhs_wdV {m : EnvModel V env} {d : BlockModel V} (hreps
       rw [hfrσ, AnnotValid_eqE] at hvT
       -- the inductive hypotheses' applications (at the tuple frame)
       have hih := fun i (hiI : i ∈ ConLeche.recIdxOf (d.ksF c j)) =>
-        hreps.ihApp_facts hfT hR ρ hlen hrs' hc hj hpre hF hpsC hfs hfs' hiI
+        hreps.ihApp_facts hnp hfT hR ρ hlen hrs' hc hj hpre hF hpsC hfs hfs' hiI
       -- the bridge's premises: the tuple's variables read to the leaves
       have hbr : ∀ i ∈ ConLeche.recIdxOf (d.ksF c j), ∀ bs : List V,
           bs.length = ((d.tssF c j ψ).getD i []).length →
@@ -315,7 +315,7 @@ theorem IsBlockModels.ruleRhs_wdV {m : EnvModel V env} {d : BlockModel V} (hreps
             = interp V (consList bs (consList fs (consList msl (consList Msl (consList ps (consList rs ρ))))))
               (Rof (d.tgts c j i)) := by
         intro i hiI bs hbs
-        have htgt : d.tgts c j i < d.k := h.tgtsLt c j i hc hj' (mem_recIdxOf.mp hiI).1
+        have htgt : d.tgts c j i < d.k := h.tgt_lt hj' (mem_recIdxOf.mp hiI).1 hnp
         rw [← hbs, interp_tupleVarAV_at hlenps hF.mslLen hF.minsLen hlenfs, hρcD _ htgt,
           hRval _ htgt]
       have hbrW : ∀ i ∈ ConLeche.recIdxOf (d.ksF c j), ∀ bs : List V,
@@ -323,13 +323,13 @@ theorem IsBlockModels.ruleRhs_wdV {m : EnvModel V env} {d : BlockModel V} (hreps
           WellDenoted V (consList bs (consList fs (consList msl (consList Msl (consList ps (consList rs ρ))))))
             (Rof (d.tgts c j i)) := by
         intro i hiI bs _
-        exact (hRok _ (h.tgtsLt c j i hc hj' (mem_recIdxOf.mp hiI).1) _).1
+        exact (hRok _ (h.tgt_lt hj' (mem_recIdxOf.mp hiI).1 hnp) _).1
       have hbrV : ∀ i ∈ ConLeche.recIdxOf (d.ksF c j), ∀ bs : List V,
           bs.length = ((d.tssF c j ψ).getD i []).length →
           AnnotValid V (consList bs (consList fs (consList msl (consList Msl (consList ps (consList rs ρ))))))
             (Rof (d.tgts c j i)) := by
         intro i hiI bs _
-        exact (hRok _ (h.tgtsLt c j i hc hj' (mem_recIdxOf.mp hiI).1) _).2
+        exact (hRok _ (h.tgt_lt hj' (mem_recIdxOf.mp hiI).1 hnp) _).2
       -- the core with the leaves, at the tuple frame
       have hwdL := WellDenoted_specRuleCoreAV_leaf hbr hbrW hwdT.2
       have hvL := AnnotValid_specRuleCoreAV_leaf hbrV hvT.2
@@ -340,7 +340,7 @@ theorem IsBlockModels.ruleRhs_wdV {m : EnvModel V env} {d : BlockModel V} (hreps
           (mutualRuleCoreAV (pwBit ψ (Level.zeronessOf elimL)) Rof (d.tgts c j) d.nP d.k d.nCtors cA.2
             (d.minorIdx c j) (ConLeche.recIdxOf (d.ksF c j)) (d.tssF c j ψ) (d.eissF c j ψ)).erase := by
         refine mutualRuleCoreAV_below
-          (fun i hi => hRcl _ (h.tgtsLt c j i hc hj' (mem_recIdxOf.mp hi).1)) hk (fun i hi => ?_)
+          (fun i hi => hRcl _ (h.tgt_lt hj' (mem_recIdxOf.mp hi).1 hnp)) hk (fun i hi => ?_)
           (hcd.tssBelow ψ) (hcd.eissBelow ψ) ?_
         · rw [← hcd.ksLen]; exact (mem_recIdxOf.mp hi).1
         · simp only [List.length_append, hlenps, hF.mslLen, hF.minsLen, hlenfs]
@@ -372,10 +372,10 @@ theorem IsBlockModels.ruleRhs_wdV {m : EnvModel V env} {d : BlockModel V} (hreps
         have hoJ : Msl.length + (msl.take (d.minorIdx c j)).length = d.k + d.minorIdx c j := by
           rw [hF.mslLen, List.length_take, hF.minsLen]; congr 1; exact Nat.min_eq_left (Nat.le_of_lt hJ)
         have ho : Msl.length + msl.length = d.k + d.nCtors := by rw [hF.mslLen, hF.minsLen]
-        have hconc := hreps.minor_conc hfT hc hj hρp (Msl := Msl) (msl' := msl) ho hF.mslLen hF.motives hfs
+        have hconc := hreps.minor_conc hfT (PinsTyped.of_noPins hnp ψ) hc hj hρp (Msl := Msl) (msl' := msl) ho hF.mslLen hF.motives hfs
         unfold BlockModel.ruleConcAV
         rw [hconc.1]
-        refine hreps.minor_fold_mem hfT hc hj hρp (Msl := Msl) (msl' := msl.take (d.minorIdx c j)) hoJ
+        refine hreps.minor_fold_mem hnp hfT hc hj hρp (Msl := Msl) (msl' := msl.take (d.minorIdx c j)) hoJ
           hF.mslLen hF.motives hb (hF.minors c j cA hc hj) hfs (by rw [List.length_map]) ?_
         intro l hl
         rw [List.length_map] at hl
@@ -390,7 +390,7 @@ theorem IsBlockModels.ruleRhs_wdV {m : EnvModel V env} {d : BlockModel V} (hreps
         intro hb0
         rw [hfrρ]
         have ho : Msl.length + msl.length = d.k + d.nCtors := by rw [hF.mslLen, hF.minsLen]
-        have hconc := hreps.minor_conc hfT hc hj hρp (Msl := Msl) (msl' := msl) ho hF.mslLen hF.motives hfs
+        have hconc := hreps.minor_conc hfT (PinsTyped.of_noPins hnp ψ) hc hj hρp (Msl := Msl) (msl' := msl) ho hF.mslLen hF.motives hfs
         unfold BlockModel.ruleConcAV
         rw [hconc.1]
         have := hconc.2
@@ -437,13 +437,13 @@ theorem IsBlockModels.ruleRhs_wdV {m : EnvModel V env} {d : BlockModel V} (hreps
           AnnotValid V (consList bs (consList fs (consList msl (consList Msl (consList ps (consList rs ρ))))))
             (Rof (d.tgts c j i)) := by
         intro i hiI bs _
-        exact (hRok _ (h.tgtsLt c j i hc hj' (mem_recIdxOf.mp hiI).1) _).2
+        exact (hRok _ (h.tgt_lt hj' (mem_recIdxOf.mp hiI).1 hnp) _).2
       have hvL := AnnotValid_specRuleCoreAV_leaf hbrV hvT.2
       have hcl : Term.bvarsBelow (ps ++ Msl ++ msl ++ fs).length
           (mutualRuleCoreAV (pwBit ψ (Level.zeronessOf elimL)) Rof (d.tgts c j) d.nP d.k d.nCtors cA.2
             (d.minorIdx c j) (ConLeche.recIdxOf (d.ksF c j)) (d.tssF c j ψ) (d.eissF c j ψ)).erase := by
         refine mutualRuleCoreAV_below
-          (fun i hi => hRcl _ (h.tgtsLt c j i hc hj' (mem_recIdxOf.mp hi).1)) hk (fun i hi => ?_)
+          (fun i hi => hRcl _ (h.tgt_lt hj' (mem_recIdxOf.mp hi).1 hnp)) hk (fun i hi => ?_)
           (hcd.tssBelow ψ) (hcd.eissBelow ψ) ?_
         · rw [← hcd.ksLen]; exact (mem_recIdxOf.mp hi).1
         · simp only [List.length_append, hlenps, hF.mslLen, hF.minsLen, hlenfs]
@@ -468,7 +468,7 @@ equation of the chosen tuple (`hiota`) at the recursor's own parameter
 spine — the major decoded by the fibre's converse — and the rule's
 right-hand side β-reduced along the fitting spine. -/
 theorem blockRecRuleLaw {env₀ env₃ : Env} {m₀ : EnvModel V env₀} (m₃ : EnvModel V env₃)
-    {d : BlockModel V} (hreps : IsBlockModels m₀ d)
+    {d : BlockModel V} (hreps : IsBlockModels m₀ d) (hnp : d.pins = [])
     (hfT : ∀ ψ, FormersTyped m₀ d ψ) (hcT : ∀ ψ, CtorsTyped m₀ d ψ)
     (hval : ∀ (n : Name) (ψ : Name → Nat) (ρ : Nat → V), AnnotValid V ρ (m₀.acval n ψ))
     {elimL : Level} (hwℓ : ∀ ψ, d.w ψ = 0 → elimL.eval ψ = 0)
@@ -539,7 +539,7 @@ theorem blockRecRuleLaw {env₀ env₃ : Env} {m₀ : EnvModel V env₀} (m₃ :
   have hokRa : ∀ ρ : Nat → V, WellDenotedV V ρ
       (d.ruleRhsAV m₀ elimL (fun t' => d.recLeaf m₀ elimL s rlps t' ψR) t j cA.2 ψ') := by
     intro ρ
-    refine hreps.ruleRhs_wdV (hfT ψ') (hcT ψ') (fun n ρ' => hval n ψ' ρ') (hR ψ') (hokT ψ') ρ
+    refine hreps.ruleRhs_wdV hnp (hfT ψ') (hcT ψ') (fun n ρ' => hval n ψ' ρ') (hR ψ') (hokT ψ') ρ
       (rs := (List.range d.k).map fun t' => interp V ρ (d.recLeaf m₀ elimL s rlps t' ψR))
       (by simp) (fun mm hmm => ?_) hRcl hRok (fun t' ht' σ => ?_) ht hj
     · rw [getD_range_map' _ _ _ hmm]
@@ -712,7 +712,8 @@ theorem blockRecRuleLaw {env₀ env₃ : Env} {m₀ : EnvModel V env₀} (m₃ :
     obtain ⟨rfl, rfl⟩ := h.mkInj ψ' hw t ht j fsY j' fs' hj' hj'lt
       (by rw [hlenFY, h.Fss_length hj]) hchain.1.length_eq (hCinj.symm.trans hinj)
     have hfs : SpineFit (consList ps ρ) ((d.Fss t ψ').getD j []) fsY :=
-      hreps.spineFit_of_fitsFrom (hfT ψ') ht hj hρp (TupleLe.refl _ _ _) hchain.1
+      hreps.spineFit_of_fitsFrom (hfT ψ') (PinsTyped.of_noPins hnp ψ') ht hj hρp
+        (lfpTuple_mem _ _ _ _) (TupleLe.refl _ _ _) hchain.1
     have hisEq : (d.esF t j ψ').map (interp V (consList fsY (consList ps ρ))) = is :=
       h.es_eq_is hρp hj his hchain.2
     -- the tuple of the leaves' values
@@ -856,7 +857,7 @@ theorem blockRecRuleLaw {env₀ env₃ : Env} {m₀ : EnvModel V env₀} (m₃ :
           (fun t' => d.recLeaf m₀ elimL s rlps t' ψR) (d.tgts t j) d.nP d.k d.nCtors cA.2
           (d.minorIdx t j) (ConLeche.recIdxOf (d.ksF t j)) (d.tssF t j ψ') (d.eissF t j ψ')).erase := by
       refine mutualRuleCoreAV_below
-        (fun i hi => hRcl _ (h.tgtsLt t j i ht hj' (mem_recIdxOf.mp hi).1)) hk (fun i hi => ?_)
+        (fun i hi => hRcl _ (h.tgt_lt hj' (mem_recIdxOf.mp hi).1 hnp)) hk (fun i hi => ?_)
         (hcd.tssBelow ψ') (hcd.eissBelow ψ') ?_
       · rw [← hcd.ksLen]; exact (mem_recIdxOf.mp hi).1
       · simp only [List.length_append, hlenps, hF.mslLen, hF.minsLen, hlenFY]
@@ -877,7 +878,7 @@ theorem blockRecRuleLaw {env₀ env₃ : Env} {m₀ : EnvModel V env₀} (m₃ :
             (consList ((List.range d.k).map fun t' => interp V ρ (d.recLeaf m₀ elimL s rlps t' ψR)) ρ))))))
             (d.recLeaf m₀ elimL s rlps (d.tgts t j i) ψR) := by
       intro i hiI bs hbs
-      have htgt : d.tgts t j i < d.k := h.tgtsLt t j i ht hj' (mem_recIdxOf.mp hiI).1
+      have htgt : d.tgts t j i < d.k := h.tgt_lt hj' (mem_recIdxOf.mp hiI).1 hnp
       rw [← hbs, interp_tupleVarAV_at hlenps hF.mslLen hF.minsLen hlenFY, hρcD _ htgt]
       exact (interp_closed V (hRcl _ htgt) _ _).symm
     have hrhs : interp V (consList (ps ++ Msl ++ msl ++ fsY)
