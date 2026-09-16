@@ -202,6 +202,9 @@ def DeclNestedRun (μ : CheckMode) (F : Nat) (env : Env)
     -- THE PINS' SCOPE (K.30): every pin's free variables are the first
     -- former's openers, annotation included, and no loose bvar
     ConLeche.pinsScoped p.nP st = true ∧
+    -- THE COPIES' RECURSIVE TARGETS (K.32): a group-recursive copy
+    -- field comes from the container's own recursion at the spine
+    ConLeche.nestedCopyTargetsOk env p b st stored = true ∧
     -- THE FIELD KINDS (K.26): every stored field of the auxiliary block
     -- is classified `.ordinary`, `.recursive` or `.reflexive`, and
     -- `nestedPinKinds p b stored` is that classification — the kinds the
@@ -418,7 +421,7 @@ theorem declNestedRun_etaClosed {μ : CheckMode} {F : Nat} {env envOut : Env}
     {p : NestedParts} (hE : EtaFamiliesClosed env)
     (h : DeclNestedRun μ F env p envOut) : EtaFamiliesClosed envOut := by
   obtain ⟨-, -, st, b, envAux, stored, ctorsR, cvRms, cvRns, rulesM, rulesN, fmsA, ctorsA,
-    -, -, -, -, -, -, -, -, -, -, -, hcaps, -, -, -, -, -, -, hctors, hrm, hrn, -, -, htbl,
+    -, -, -, -, -, -, -, -, -, -, -, hcaps, -, -, -, -, -, -, -, hctors, hrm, hrn, -, -, htbl,
     -, -, -⟩ := h
   refine EtaFamiliesClosed.ofFreshExt hE ?_
   -- the formers

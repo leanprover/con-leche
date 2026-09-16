@@ -79356,3 +79356,83 @@ over exactly `hI : NestedPinsInst V μ F`, `htail : NestedTailModeled V
 `[propext, Classical.choice, Quot.sound]`.  Residual after part 2:
 `NestedPinsInst` (L-B s2), `NestedTailModeled` (M7), the premise
 `EnvBlockModels`.  Part 3 (M7-1/M7-2/L-B-s2) follows.
+
+#### K.32 — the copies' recursive targets come from the container's own recursion (2026-09-16, task #315, lane L-B's DESIGN §U.23 (e))
+
+The model's `ordF` arm needs to know that a container-ORDINARY field
+cannot instantiate to the group's own pin.  It could only do so through
+a parameter-headed shape `β …` whose component is `J_m (Ds.take r)` with
+`r < nPJ` — a parameter whose type contains itself, excluded by TYPING
+and by no syntactic fact the run records.  `nestedCopyTargetsOk env p b
+st stored` says it at the elimination's OUTPUT, where it is a property
+of `mkCopy` + `replaceAllNested`: per copy `k + q` of the group
+`[gb, gb + gs)`, constructor `j`, field `l`, if the aux block's kind at
+`(j, l)` is `.recursive`/`.reflexive` with a target in
+`[k + gb, k + gb + gs)`, then the CONTAINER member's stored constructor
+`j`, at field `l`, with as many `Π` binders peeled as the copy's field
+carries, is headed by the group member the target names and applied to
+the container's parameter spine (`structPsAt (l + d) ci.nP`).
+`.internal` on failure; one conjunct of `DeclNestedRun` and
+`checkNested_inv`, in both routes.
+
+**MEASURED BEFORE LANDING** (K.25's method, a `dbg_trace` probe on the
+cached route, reverted): **zero fires** — 31 nested blocks over the 27
+shadow fixtures and 41 over the Mathlib cone, all `true`.  And it is not
+vacuous: a companion probe counted the positions the Bool CONSTRAINS —
+**29 across 25 of the 31 fixture blocks**, **51 across 39 of the 41 cone
+blocks**.  The multi-member group case is exercised (`nested_p05`'s
+container group has two members, and both of its constrained positions
+are group-targeted), so no nested-through-nested fixture was needed for
+the group-targeting case.
+
+**Cost**: +0.0965 % instructions over the 27 fixtures
+(3 930 738 147 against 3 926 947 260 instructions:u, summed, the
+baseline taken by removing only this call).
+
+**Gates.**  `lake build`/`lake test` exit 0 warning-free; nested-shadow
+27/27; the Mathlib nested cone exit 0, 4 926 accepted, its 41 shadow
+lines byte-identical to the K.31 run.  Negative control: falsifying the
+head comparison turns 19 of the 27 fixtures into `nested: a copy's
+group-recursive field does not come from the container's own
+recursion` — the 19 whose blocks constrain at least one position.
+
+#### K.33 — the copies' positivity normalisation: MEASURED, no check (2026-09-16, task #315, lane L-B's DESIGN §U.23 (e))
+
+L-B asked for a conjunct saying `normCtorValM`'s positivity
+normalisation is the IDENTITY at every copy (`ty' == cvCa.type` at
+`g := true`), so that `CopyCtorInst`'s left `ordF` arm — a SYNTACTIC
+`AnnotTerm` equality — could read the stored auxiliary constructor as
+the elimination's rewritten one.  Its own text says a `false` would be
+"a positive DECLINE of that shape".  **The maintainer's rule forbids
+that**: no decline on anything official accepts.  So no conjunct was
+added, and this is the measurement instead.
+
+**The arm IS exercised.**  A scratch build (instrumented
+`normCtorValMF`, not committed) counted the copy constructors whose
+stored type differs from the minted one:
+
+* the 27 shadow fixtures: **6** — `_nested.InModelNested.DMap_1.node`,
+  `_nested.P22T_1.mk`, `_nested.P26D_1.node`, `_nested.P2D_1.node`,
+  `_nested.Subtype_1.mk`, `_nested.Wrap_1.mk` (one per block);
+* the 41-block Mathlib cone: **2** —
+  `_nested.Std.DTreeMap.Internal.Impl_3.inner` and `…_5.inner`.
+
+**The difference is exactly the λ-pin β-redex.**  At
+`_nested.P2D_1.node` the minted second field is
+
+    (fun (_ : Nat) => P2) (bvar 0)
+
+and the stored one is
+
+    P2
+
+— the container `P2D`'s parameter is instantiated by the λ-pin
+`fun _ => P2`, the mint substitutes it into the field, and the
+normalisation `whnf`s the redex away.  That is K.12's λ-pin shape and
+K.17's whnf witness, in the one place they still bite.
+
+**Consequence for the model.**  The syntactic identity is FALSE at these
+8 constructors, so the affected `ordF` arm has to be taken at the
+READING (an `interp` equality across the β step) and not syntactically.
+It is not a rare corner — 6 of the 27 fixtures and 2 real Mathlib
+containers hit it.
