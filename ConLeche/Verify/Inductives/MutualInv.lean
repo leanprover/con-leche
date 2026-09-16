@@ -1,6 +1,7 @@
 module
 
 public import ConLeche.Verify.Inductives.SumInv
+public import ConLeche.Verify.Inductives.FrontDoor
 import ConLeche.Kernel.Inductives.MutualInstall
 import ConLeche.Verify.Inductives.FixParts
 
@@ -851,5 +852,184 @@ theorem checkMutual_inv {env envOut : Env} {p : MutualParts} {F : Nat}
   case neg => rw [if_neg hp] at h; close_throw
   rw [if_pos hp] at h
   exact ⟨hp, h⟩
+
+
+/-! ## The stages at a GRADE (task #315 M6 s6, DESIGN §U.18 (a))
+
+The nested route's scratch install runs the mutual installer at the
+`auxRoute` grade, whose front door is `checkConstantValPre`.  The
+lemmas above are stated at grade `false`; their twins below are
+generic in the grade and return the door's facts as `FrontDoorFacts`
+in place of the `checkConstantVal` run.  The model tier's mutual stage
+theorems consume THESE, so that the mutual and the nested route share
+one proof. -/
+
+/-- The formers' checks at the empty block, at a grade. -/
+theorem mutualFormerChecksG_nil_inv {nP F : Nat} {g : Bool} {env : Env} {fms : List MutualFormerA}
+    (h : mutualFormerChecks (fueledOps mode F) env nP g [] = .ok fms) :
+    fms = [] := by
+  simp only [mutualFormerChecks, pure, Except.pure, Except.ok.injEq] at h
+  exact h.symm
+
+/-- **The formers' checks, one member at a time, at a grade**:
+`mutualFormerChecks_inv` with the door's facts in place of the run. -/
+theorem mutualFormerChecksG_inv {nP F : Nat} {g : Bool} {cv : ConstantVal} {nIdx : Nat}
+    {rest : List (ConstantVal × Nat)} {env : Env} {fms : List MutualFormerA}
+    (h : mutualFormerChecks (fueledOps mode F) env nP g ((cv, nIdx) :: rest) = .ok fms) :
+    ∃ (cvTa₀ cvTa : ConstantVal) (s : Level) (bs : List (Expr × BinderMeta))
+      (fs : List MutualFormerA),
+      FrontDoorFacts mode F env cv cvTa₀ ∧
+      checkSumTele (fueledOps mode F) env cv (nP + nIdx) cvTa₀ = .ok (cvTa, s) ∧
+      cvTa.type.stripPis (nP + nIdx) = some (bs, Expr.sort s) ∧
+      mutualFormerChecks (fueledOps mode F) env nP g rest = .ok fs ∧
+      fms = ⟨cvTa, nIdx, s⟩ :: fs := by
+  unfold mutualFormerChecks at h
+  -- the door is a join point of the do-block: split on the grade, and
+  -- run the one tail on both doors
+  cases g <;> simp only [if_true, Bool.false_eq_true, if_false] at h
+  all_goals
+    obtain ⟨cvTa₀, hccv, h⟩ := exceptBind_ok h
+    have hdoor : FrontDoorFacts mode F env cv cvTa₀ := by
+      first
+        | exact FrontDoorFacts.ofPre hccv
+        | exact FrontDoorFacts.ofCheck hccv
+    obtain ⟨q, htele, h⟩ := exceptBind_ok h
+    obtain ⟨cvTa, s⟩ := q
+    try simp only at h
+    obtain ⟨q2, hq2, h⟩ := exceptBind_ok h
+    obtain ⟨bs, tbody⟩ := q2
+    have hq2' := unwrapOr_ok hq2
+    try simp only at h
+    by_cases hc : (tbody == Expr.sort s) = true
+    case neg => rw [if_neg hc] at h; close_throw
+    rw [if_pos hc] at h
+    try simp only [bind, Except.bind] at h
+    obtain ⟨fs, hrec, h⟩ := exceptBind_ok h
+    simp only [pure, Except.pure, Except.ok.injEq] at h
+    obtain rfl := h
+    exact ⟨cvTa₀, cvTa, s, bs, fs, hdoor, htele, by rw [hq2', beq_iff_eq.mp hc], hrec, rfl⟩
+
+/-- **Every checked former went through a front door at the pre-block
+environment**, at a grade (`mutualFormerChecks_checked`'s twin). -/
+theorem mutualFormerChecksG_checked {nP F : Nat} {g : Bool} :
+    ∀ {l : List (ConstantVal × Nat)} {env : Env} {fms : List MutualFormerA},
+      mutualFormerChecks (fueledOps mode F) env nP g l = .ok fms →
+      ∀ f ∈ fms, ∃ cv', FrontDoorFacts mode F env cv' f.cvTa
+  | [], _, _, h, f, hf => by
+    obtain rfl := mutualFormerChecksG_nil_inv h
+    exact nomatch hf
+  | (cv, nIdx) :: rest, env, fms, h, f, hf => by
+    obtain ⟨cvTa₀, cvTa, s, bs, fs, hdoor, htele, -, hrest, rfl⟩ := mutualFormerChecksG_inv h
+    rcases List.mem_cons.mp hf with rfl | hf
+    · rcases checkSumTele_shape htele with ⟨rfl, -⟩ | ⟨ty, hccv⟩
+      · exact ⟨cv, hdoor⟩
+      · exact ⟨{ cv with type := ty }, .ofCheck hccv⟩
+    · exact mutualFormerChecksG_checked hrest f hf
+
+/-- The normalisation at a grade: what it stores went through the
+door at that grade (`normCtorValM_inv`'s twin). -/
+theorem normCtorValMG_inv {env : Env} {memberNames : List Name} {nP nF F : Nat} {g : Bool}
+    {cvC cvCa₀ cvCa : ConstantVal}
+    (h₀ : FrontDoorFacts mode F env cvC cvCa₀)
+    (h : normCtorValM (fueledOps mode F) env memberNames nP nF cvC cvCa₀ g = .ok cvCa) :
+    ∃ ty', FrontDoorFacts mode F env { cvC with type := ty' } cvCa := by
+  unfold normCtorValM at h
+  obtain ⟨q, hq, h⟩ := exceptBind_ok h
+  obtain ⟨cbs, _⟩ := q
+  try simp only at h
+  obtain ⟨r, hr, h⟩ := exceptBind_ok h
+  obtain ⟨fvsP, crest⟩ := r
+  try simp only at h
+  obtain ⟨u, hu, h⟩ := exceptBind_ok h
+  obtain ⟨fbs, resid⟩ := u
+  try simp only at h
+  split at h
+  · simp only [pure, Except.pure, Except.ok.injEq] at h
+    subst h
+    exact ⟨cvC.type, h₀⟩
+  · exact ⟨_, FrontDoorFacts.ofGrade g h⟩
+
+/-- **One constructor's stage at a grade**, inverted
+(`checkMutualCtor_shape`'s twin: the door's facts in place of the run). -/
+theorem checkMutualCtorG_shape {env : Env} {memberNames : List Name} {T : Name}
+    {lps : List Name} {nP nIdx : Nat} {resSort : Level} {isProp large : Bool}
+    {cvC cvTa cvCa : ConstantVal} {nF F : Nat} {g : Bool} {sorts : List Level}
+    (h : checkMutualCtor (fueledOps mode F) env memberNames T lps nP nIdx resSort isProp large
+      cvC nF cvTa g = .ok (cvCa, sorts)) :
+    (∃ ty', FrontDoorFacts mode F env { cvC with type := ty' } cvCa) ∧
+    (∃ cbs es, cvCa.type.stripPis (nP + nF)
+      = some (cbs, Expr.mkAppN (.const T (lps.map .param)) (structPsAt nF nP ++ es)) ∧
+      es.length = nIdx) ∧
+    ∃ (fvsP : List Expr) (crest : Expr) (tfvs : List Expr) (trest : Expr)
+      (xFvs idxArgs : List Expr),
+      openPisAtFvars nP cvCa.type 0 = some (fvsP, crest) ∧
+      openPisAtFvars nP cvTa.type 0 = some (tfvs, trest) ∧
+      checkStructDomsAt (fueledOps mode F) env 0 fvsP
+        (tfvs.map Expr.fvarTypeD) nP = .ok () ∧
+      openPisAtFvars nF crest nP
+        = some (xFvs, Expr.mkAppN (.const T (lps.map .param)) (fvsP ++ idxArgs)) ∧
+      idxArgs.length = nIdx ∧
+      (∀ x ∈ xFvs, x.fvarTypeD.constsResolve env = true) ∧
+      (∀ e ∈ idxArgs, e.constsResolve env = true) ∧
+      checkStructFieldSortsI (fueledOps mode F) env isProp large resSort
+        nP xFvs idxArgs nF = .ok sorts := by
+  unfold checkMutualCtor at h
+  -- the door is a join point of the do-block: split on the grade, and
+  -- run the one tail on both doors
+  cases g <;> simp only [if_true, Bool.false_eq_true, if_false] at h
+  all_goals
+  obtain ⟨cvCa₀, hccv₀, h⟩ := exceptBind_ok h
+  have hdoor₀ : FrontDoorFacts mode F env cvC cvCa₀ := by
+    first
+      | exact FrontDoorFacts.ofPre hccv₀
+      | exact FrontDoorFacts.ofCheck hccv₀
+  obtain ⟨cvCa', hnorm, h⟩ := exceptBind_ok h
+  have hccv := normCtorValMG_inv hdoor₀ hnorm
+  obtain ⟨q, hq, h⟩ := exceptBind_ok h
+  obtain ⟨cbs, cbody⟩ := q
+  have hq' := unwrapOr_ok hq
+  try simp only at h
+  by_cases hc : structCtorResidOk T lps nP nF nIdx cbody = true
+  case neg => rw [if_neg hc] at h; close_throw
+  rw [if_pos hc] at h
+  obtain ⟨cq, hcq, h⟩ := exceptBind_ok h
+  have hcq' := unwrapOr_ok hcq
+  obtain ⟨fvsP, crest⟩ := cq
+  obtain ⟨tq, htq, h⟩ := exceptBind_ok h
+  have htq' := unwrapOr_ok htq
+  obtain ⟨tfvs, trest⟩ := tq
+  try simp only at h
+  obtain ⟨u, hdoms, h⟩ := exceptBind_ok h
+  obtain ⟨xq, hxq, h⟩ := exceptBind_ok h
+  have hxq' := unwrapOr_ok hxq
+  obtain ⟨xFvs, xrest⟩ := xq
+  try simp only at h
+  by_cases h2 : (xrest.getAppFn == Expr.const T (lps.map .param) &&
+      xrest.getAppArgs.take nP == fvsP && xrest.getAppArgs.length == nP + nIdx) = true
+  case neg => rw [if_neg h2] at h; close_throw
+  rw [if_pos h2] at h
+  by_cases h3 : (xFvs.all fun x => Expr.constsResolve env x.fvarTypeD) = true
+  case neg => rw [if_neg h3] at h; close_throw
+  rw [if_pos h3] at h
+  by_cases h4 : ((xrest.getAppArgs.drop nP).all fun e => Expr.constsResolve env e) = true
+  case neg => rw [if_neg h4] at h; close_throw
+  rw [if_pos h4] at h
+  obtain ⟨sorts', hsorts, h⟩ := exceptBind_ok h
+  simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
+  obtain ⟨rfl, rfl⟩ := h
+  simp only [structCtorResidOk, Bool.and_eq_true, beq_iff_eq] at hc
+  simp only [Bool.and_eq_true, beq_iff_eq] at h2
+  obtain ⟨es, hes, hesl⟩ := residual_shape hc.1.1 hc.2 hc.1.2
+  refine ⟨hccv, ⟨cbs, es, by rw [hq', hes], hesl⟩,
+    fvsP, crest, tfvs, trest, xFvs, xrest.getAppArgs.drop nP,
+    hcq', htq', by cases u; exact hdoms, ?_, ?_, ?_, ?_, hsorts⟩
+  · rw [hxq']
+    congr 1
+    rw [← h2.1.2, List.take_append_drop, ← h2.1.1, Expr.mkAppN_getApp]
+  · rw [List.length_drop, h2.2]; omega
+  · intro x hx
+    exact List.all_eq_true.mp h3 x hx
+  · intro e he
+    exact List.all_eq_true.mp h4 e he
 
 end ConLeche
