@@ -182,6 +182,127 @@ theorem instSeq_structPsAt (Ds : List Expr) (l : Nat)
       List.getElem?_eq_getElem (by omega)] at hhit
     exact (Option.some.inj hhit).symm
 
+/-! ## Reading a parameter spine back (task #315 L-B) -/
+
+/-- A FULL instantiation sequence (`|as| = t + 1`) turns a bound
+variable above its top cut into a bound variable again: the lowering
+steps stay ahead of the arguments, so nothing in `as` is ever reached.
+Together with `Expr.instSeq_bvar` this is the complete case split on
+what a sequence does to a `bvar`. -/
+private theorem instSeq_bvar_above :
+    ∀ (as : List Expr) (t j : Nat), as.length = t + 1 → t < j →
+      ∃ j', Expr.instSeq as t (.bvar j) = .bvar j'
+  | [], _, _, hlen, _ => by simp at hlen
+  | a :: as, t, j, hlen, hj => by
+    show ∃ j', Expr.instSeq as (t - 1) ((Expr.bvar j).instantiate1 a t) = _
+    rw [show (Expr.bvar j).instantiate1 a t = Expr.bvar (j - 1) from by
+      simp only [Expr.instantiate1]
+      rw [if_neg (by omega : ¬ j = t), if_pos (by omega : j > t)]]
+    cases t with
+    | zero =>
+      obtain rfl : as = [] := List.eq_nil_of_length_eq_zero (by simpa using hlen)
+      exact ⟨j - 1, rfl⟩
+    | succ t' =>
+      exact instSeq_bvar_above as t' (j - 1) (by simpa using hlen) (by omega)
+
+/-- An instantiation sequence can only produce an `fvar` out of an
+`fvar` or out of a bound variable: `Expr.instantiate1` preserves every
+other constructor, so the head it started from is the head it ends
+with. -/
+private theorem instSeq_fvar_cases :
+    ∀ (as : List Expr) (t : Nat) (e : Expr) (i : Nat) (ty : Expr),
+      Expr.instSeq as t e = .fvar i ty →
+      (∃ j, e = .bvar j) ∨ (∃ ty', e = .fvar i ty')
+  | [], _, e, _, ty, h => Or.inr ⟨ty, h⟩
+  | a :: as, t, e, i, ty, h => by
+    have h' : Expr.instSeq as (t - 1) (e.instantiate1 a t) = Expr.fvar i ty := h
+    have ih := instSeq_fvar_cases as (t - 1) (e.instantiate1 a t) i ty h'
+    cases e with
+    | bvar j => exact Or.inl ⟨j, rfl⟩
+    | fvar i' ty' =>
+      refine Or.inr ⟨ty', ?_⟩
+      rcases ih with ⟨j, hj⟩ | ⟨ty'', hj⟩ <;>
+        simp only [Expr.instantiate1] at hj
+      · exact absurd hj (by simp)
+      · rw [(Expr.fvar.inj hj).1]
+    | _ =>
+      rcases ih with ⟨j, hj⟩ | ⟨ty'', hj⟩ <;>
+        simp only [Expr.instantiate1] at hj <;> exact Expr.noConfusion hj
+
+/-- **The converse of `instSeq_structPsAt`**: a CLOSED parameter spine
+that instantiates to the telescope's own parameter openers WAS the
+canonical `structPsAt` spine.  A stored constructor field's domain is
+an application `mkAppN (.const T us) (pargs ++ is)` with `pargs`
+fvar-free; once the domain has been opened at the block's telescope and
+its first `nP` arguments read off as the parameter openers `fvsP`
+(indices `0 … nP-1`, the remaining openers `rest` all above `nP`), this
+identifies `pargs` syntactically — which is what lets the caller
+re-instantiate the same spine at a pin's components with
+`instSeq_structPsAt`. -/
+theorem structPsAt_of_instSeq_fvsP (nP l : Nat) (fvsP rest pargs : List Expr)
+    (hlenP : fvsP.length = nP)
+    (hfvsP : ∀ k, k < nP → ∃ ty, fvsP[k]? = some (Expr.fvar k ty))
+    (hrest : ∀ a ∈ rest, ∃ (j : Nat) (ty : Expr), a = Expr.fvar j ty ∧ nP ≤ j)
+    (hlenR : rest.length = l)
+    (hcl : ∀ a ∈ pargs, a.hasFvar = false)
+    (hlen : pargs.length = nP)
+    (hmap : pargs.map (Expr.instSeq (fvsP ++ rest) (nP + l - 1)) = fvsP) :
+    pargs = structPsAt l nP := by
+  have hvslen : (fvsP ++ rest).length = nP + l := by
+    rw [List.length_append, hlenP, hlenR]
+  have hclvs : ∀ a ∈ fvsP ++ rest, a.looseBVarsBounded 0 = true := by
+    intro a ha
+    rcases List.mem_append.mp ha with ha | ha
+    · obtain ⟨m, hm, rfl⟩ := List.mem_iff_getElem.mp ha
+      obtain ⟨ty2, hty2⟩ := hfvsP m (by omega)
+      rw [List.getElem?_eq_getElem hm] at hty2
+      rw [Option.some.inj hty2]
+      rfl
+    · obtain ⟨j, ty2, rfl, _⟩ := hrest a ha
+      rfl
+  apply List.ext_getElem
+  · simp [structPsAt, hlen]
+  · intro k h1 _
+    have hk : k < nP := by omega
+    obtain ⟨ty, hty⟩ := hfvsP k hk
+    -- the `k`-th entry instantiates to the `k`-th opener
+    have hfk : Expr.instSeq (fvsP ++ rest) (nP + l - 1) pargs[k] = Expr.fvar k ty := by
+      have hc := congrArg (fun L => L[k]?) hmap
+      simp only [List.getElem?_map, List.getElem?_eq_getElem h1,
+        Option.map_some, hty] at hc
+      exact Option.some.inj hc
+    -- an fvar-free entry that becomes an `fvar` was a `bvar`
+    rcases instSeq_fvar_cases _ _ _ _ _ hfk with ⟨j, hj⟩ | ⟨ty', hj⟩
+    case _ =>
+      rw [hj] at hfk
+      -- it cannot sit above the sequence's top cut
+      have hle : j ≤ nP + l - 1 := by
+        by_cases hgt : nP + l - 1 < j
+        · obtain ⟨j', hj'⟩ := instSeq_bvar_above (fvsP ++ rest) (nP + l - 1) j
+            (by omega) hgt
+          rw [hj'] at hfk
+          exact absurd hfk (by simp)
+        · omega
+      -- so it hits the opener list, at the index the openers' distinctness forces
+      have hhit := Expr.instSeq_bvar (fvsP ++ rest) (nP + l - 1) j hclvs hle (by omega)
+      rw [hfk] at hhit
+      have hidx : nP + l - 1 - j = k := by
+        by_cases hlt : nP + l - 1 - j < nP
+        · obtain ⟨ty2, hty2⟩ := hfvsP _ hlt
+          rw [List.getElem?_append_left (by omega), hty2] at hhit
+          exact (Expr.fvar.inj (Option.some.inj hhit)).1
+        · rw [List.getElem?_append_right (by omega)] at hhit
+          have hmem : Expr.fvar k ty ∈ rest :=
+            List.mem_of_getElem? hhit
+          obtain ⟨j2, ty2, heq, hge⟩ := hrest _ hmem
+          rw [(Expr.fvar.inj heq).1] at hk
+          omega
+      rw [hj]
+      simp only [structPsAt, List.getElem_map, List.getElem_range]
+      rw [show j = l + nP - 1 - k from by omega]
+    case _ =>
+      exact absurd (hcl _ (List.getElem_mem h1)) (by rw [hj]; simp [Expr.hasFvar])
+
 /-! ## Level instantiation -/
 
 /-- Level instantiation walks a `∀`-telescope: the domains and the body
