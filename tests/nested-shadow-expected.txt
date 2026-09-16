@@ -54,3 +54,8 @@ tests/e2e/nested_pin_prop_cod.ndjson 0 T=accept,
 # `checkMutualCore` before the restore was reached; the shadow runs the
 # CACHED route now (task #279 K.20), and the block accepts.
 tests/e2e/tower_nested.ndjson 1 NTow=accept,
+# nested_prop_idx: the container's indices are PROP-sorted while the
+# block's member is TYPE-indexed (DESIGN §U.17 (g) 1).  OFFICIAL
+# ACCEPTS the block, so the model-side gap is real; the route accepts
+# it too.
+tests/e2e/nested_prop_idx.ndjson 1 T=accept,

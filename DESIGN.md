@@ -76239,3 +76239,106 @@ for `ofNested` with `pinLeaf` from `ofNested_pinLeaf_of` at `hnp`,
 `EnvBlockModels` field on `EnvModelM`, the flip) 4–5; M8 1–2; the two
 gaps of (g) 1–2 +1–2 after the rulings.  Remaining **11–15** (was
 10–13).
+
+#### K.27 — the pins at ABSTRACTED members: MEASURED, and NOT NEEDED (2026-09-16, task #314 DR-2 → task #315 U-12)
+
+The direct lane asked for one more conjunct: every pin typed at the
+PRE-BLOCK environment with the block's members replaced by fvars of
+their former types (`nestedPinsAbsOk`, `absPin` over
+`Expr.absMembersGo`/`absConstAt`), so that the model could read the
+inference row at an FVAR context — quantified over every value of the
+members, hence at the family VARIABLE, which is where the composed
+functor's laws are stated.  **It is not in the checker, and it is not
+going in**: U-12 built the composed block model and found the conjunct
+has NO CONSUMER — `functor`/`pinMem`/`pinMono` come from the auxiliary
+block's own chain grading at the scratch install, and `pinLeaf` needs
+the fit only AT the carrier, which post-check (a) (`nestedPinsOk` at the
+block's parameter context) already gives.  A check without a consumer is
+certification tax.  What follows is what the probe established, so that
+nobody re-derives it.
+
+**Measured, twice.**  The probe (`_tmp/uniform-m5/probe-k27.patch`, on
+the cached route) ran the check over the 26 shadow fixtures (30 nested
+blocks) and the 41-block Mathlib cone: **ZERO failures**, every block
+still accepting.  A reach control — inferring at depth `nP` instead of
+`nP + k`, so the member variables are out of scope — turns **18 of the
+26** fixtures into an error, which is what says the abstraction is
+non-trivial at every pin and the check was actually reached.
+
+**The argument, five arms closed and one open**
+(`_tmp/uniform-m5/K27-argument.md`).  The concrete and the abstract term
+differ only at leaves, and the leaves get the SAME type: `.const T_m
+(lps.map .param)` instantiates the stored former type at its own
+parameters, which is `ty_m`, and the fvar's annotation IS `ty_m`.  That
+settles (1) the leaf arms, (2) `.app`, (3) `whnf`/`whnfCore` — no arm
+fires for either head: β needs a `.lam`, ι a constructor application, δ
+a *definition*, and a member is `.indInfo` while an fvar has no entry at
+all, so both spines are stuck — (4) `isDefEq` congruence, the
+abstraction being a uniform replacement, and (5) proof irrelevance,
+whose verdict is a function of the inferred types.  **Arm 6 — structure
+η and unit-like/K — does NOT close**: both shortcuts read the type
+head's STORED record, and at the scratch environment a member is a full
+inductive (constructors, projections, the η bit) while the abstract
+run's head is an fvar with none of that, so the shortcut can fire
+concretely and not abstractly — the accept-then-decline direction.  It
+is vacuous only because no sub-term of a pin has a member-headed type:
+a pin's only variables are the block's parameters, whose types precede
+the members, and a closed inhabitant of a member type over pre-block
+constants would need a type-polymorphic axiom — `sorryAx`, whose every
+use the fold declines (task #292), or `Classical.choice`, which
+regresses with no base case.  That is a fold-level property, not a fact
+of the pin check, which is why the maintainer would not have it as a
+plain check.
+
+**Docket**: revisit only if a consumer appears.  The probe patch and the
+argument are kept in `_tmp/uniform-m5/`; `Expr.absConstAt`/
+`absMembersGo` live on `agent/direct-nested` in
+`Model/Inductives/DirectSlot.lean` and were NOT moved to the kernel.
+
+#### K.28 — the copies' SOURCES, recorded (2026-09-16, task #315 M6, the model lane's DESIGN §U.17 (g) 3)
+
+The model's discharge of the copy-instantiation identities
+(`CopyCtorInst`, `hidx`, `hgrp`) needs to know which container member,
+at which level instantiation and which components, each minted copy
+came from.  In the kernel that is true by construction; in
+`Verify/Inductives/` it is a theorem nobody has, because getting it
+means inverting `elimNested`/`mkCopies` through the replacement loop —
+the existing identities (`nestedCopyFormerType_eq`,
+`nestedCopyCtorType_eq`) start at `st.types`, i.e. AFTER the mint.  So
+the kernel records it: **recorded, never inferred**.
+
+**The record.**  `AuxType.src : Option (Name × List Level × List Expr)`,
+set by `mkCopy` to `(J.name, lvls, Ds)` and `none` at the block's own
+members (which are not minted).  One Bool conjunct,
+`nestedCopySrcOk env p st = true`, in both routes and in the run
+relation: at every pin `q` the pin is `J.{lvls} Ds`, the container's
+group is `containerInfo? env J.name`'s, and `st.types[k + q]` is what
+`mkCopy pbs lvls Ds aux J` minted — `pbs` being the block's first
+former's parameter binders (premise B, K.8), derived inside the Bool
+from `st.types.head?` so the conjunct needs no extra witness.
+`.internal` on failure.
+
+**A FINDING, and the reason the Bool stops where it does.**  The first
+version compared the minted constructors WHOLE (`c.ctors == t.ctors`)
+and **fired at 23 of the 26 shadow fixtures**.  It is not a corner
+case: a minted body is `mkCopy`'s only until `replaceAllNested` runs
+over it, and that pass rewrites every nested occurrence inside it into
+an aux name — INCLUDING the container's own recursive occurrences, so
+`List`'s copy has its `cons` tail rewritten to the copy's own name.
+The bodies therefore differ at essentially every copy.  What the Bool
+certifies is what no later pass touches: the pin's shape, the former's
+telescope-closed TYPE, and the constructors' NAMES and field counts.
+What the model gets is the PRE-IMAGE — the source, certified, from
+which `mkCopy`'s output is a computation it can perform itself — which
+is item (a) of §U.17 (g) 3's chain; item (c), `replaceAllNested`'s
+action on those bodies, is untouched by this record and stays the
+model's, and it is bigger than (g) 3 suggested: every copy's every
+recursive field is rewritten, not just the cross-container ones.
+
+**Gates.**  `lake build`/`lake test` exit 0 warning-free; nested-shadow
+**26/26**; the Mathlib nested cone exit 0, **4 926 accepted** with its
+41 shadow lines byte-identical to the run before K.28.  Negative
+control: `&& false` inside the `mkCopy` comparison turns 23 of the 26
+fixtures into `nested: a minted auxiliary type is not the copy of the
+container it records`, so the comparison is reached at every fixture
+that gets that far.

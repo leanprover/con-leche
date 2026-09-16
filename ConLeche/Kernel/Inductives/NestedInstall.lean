@@ -383,7 +383,9 @@ def nestedTypes0 (p : NestedParts) (fmsA ctorsA : List ConstantVal) : List AuxTy
   fmsA.zipIdx.map fun (cvT, mIdx) =>
     ⟨cvT.name, cvT.type,
       (p.ctors.zip ctorsA).filterMap fun (c, cvCa) =>
-        if c.member == mIdx then some (cvCa.name, cvCa.type, c.nF) else none⟩
+        if c.member == mIdx then some (cvCa.name, cvCa.type, c.nF) else none,
+      -- the block's own members are NOT minted: no source (K.28)
+      none⟩
 
 /-- The block's own members' stored records, in member order, then the
 mimics' (whose only stored part the restore keeps is the recursor). -/
@@ -639,6 +641,77 @@ def nestedTables : List (Name × Option ProjTable × List (ConstantVal × Nat ×
 
 /-! ## The install -/
 
+/-- **THE COPIES' SOURCES, RECORDED AND RE-CHECKED** (task #315 K.28,
+the model lane's DESIGN §U.17 (g) 3).
+
+Every auxiliary type past the block's own `k` members was MINTED by
+`mkCopies`, out of a container member `J`, a level instantiation `lvls`
+and the pin's components `Ds`; `AuxType.src` now carries that triple.
+This Bool says the record is the truth: at every pin `q`, the pin is
+`J.{lvls} Ds` and the aux type `st.types[k + q]` is what
+`mkCopy pbs lvls Ds aux J` minted — its name, its telescope-closed
+TYPE, and its constructors' NAMES and field counts — where `pbs` is the
+block's first former's parameter binders (premise B, K.8: every copy is
+minted with those, not the minting constructor's) and `J` is the member
+of `containerInfo? env (src.1)`'s group with that name.
+
+**Not the constructors' BODIES, and that is a finding.**  A minted body
+is `mkCopy`'s only until `replaceAllNested` runs over it, and that pass
+rewrites every nested occurrence INSIDE it into an aux name — including
+the container's own recursive occurrences (`List α`'s `cons` tail
+becomes the copy's own name), so the bodies differ at essentially every
+copy of the corpus, not in a corner case.  Demanding `c.ctors ==
+t.ctors` here fires at 23 of the 26 shadow fixtures.  What the record
+gives the model is therefore the PRE-IMAGE: the source, certified, from
+which `mkCopy`'s output is a computation; the step from that output to
+the stored constructors is `replaceAllNested`'s action, which is the
+model's own item and not a fact any Bool here can state.
+
+**Why it is recorded and not inferred.**  The model's discharge of the
+copy-instantiation identities (`CopyCtorInst` and the index-telescope
+and group identities beside it) needs to know which container member,
+at which levels and components, a copy came from — true by construction
+in the kernel and a theorem nowhere: recovering it is an inversion of
+`elimNested`/`mkCopies` through the replacement loop, which
+`Verify/Inductives/` does not have (`nestedCopyFormerType_eq` and
+`nestedCopyCtorType_eq` start at `st.types`, i.e. after the mint).  One
+field and one Bool turn that inversion into a field read.
+
+**It cannot fire.**  `mkCopies` writes the field and the type in the
+same breath, from the same `mkCopy` call; the former's type and the
+constructors' names and arities are what no later pass touches
+(`replaceAllNested` rewrites bodies, and `elimLoop` sets `ctors` only
+through it).  A failure is therefore `.internal`. -/
+def nestedCopySrcOk (env : Env) (p : NestedParts) (st : ElimState) : Bool :=
+  match st.types.head?.bind (fun t₀ => t₀.type.stripPis p.nP) with
+  | some (pbs, _) =>
+    (List.range st.pins.length).all fun q =>
+      match st.types[p.k + q]?, st.pins[q]? with
+      | some t, some qn =>
+        match t.src with
+        | some (Jn, lvls, Ds) =>
+          Jn == qn.container &&
+            qn.pin == Expr.mkAppN (.const Jn lvls) Ds &&
+            (match containerInfo? env Jn with
+             | some ci =>
+               match ci.members.find? (fun J => J.name == Jn) with
+               | some J =>
+                 match mkCopy pbs lvls Ds t.name J with
+                 | .ok c =>
+                   c.name == t.name && c.type == t.type &&
+                     -- the constructors' NAMES and arities, not their
+                     -- bodies: `replaceAllNested` rewrites a minted
+                     -- body's own nested occurrences into pins
+                     -- afterwards (see the docstring)
+                     c.ctors.map (fun x => (x.1, x.2.2)) ==
+                       t.ctors.map (fun x => (x.1, x.2.2))
+                 | .error _ => false
+               | none => false
+             | none => false)
+        | none => false
+      | _, _ => false
+  | none => false
+
 /-- **THE FIELD KINDS AT THE PINS** (task #315 §U.1 (c) fact 6; task
 #279 K.26 variant C, re-keyed from the copies to the PINS).
 
@@ -798,6 +871,13 @@ def checkNested (ops : CheckerOps m) (env : Env) (p : NestedParts) : m Env := do
   -- so that the model tier reads a pin's field kinds off the run instead
   -- of re-deciding positivity at the container.  A failure is
   -- `.internal`.
+  -- **THE COPIES' SOURCES** (K.28): every minted type is `mkCopy`'s
+  -- output at the source it records, so the model reads the
+  -- copy-instantiation identities off the record instead of inverting
+  -- the elimination.  A failure is `.internal`.
+  unless nestedCopySrcOk env p st do
+    throw (.internal "nested: a minted auxiliary type is not the copy of the container \
+      it records")
   unless nestedPinKindsOk p b st stored do
     throw (.internal "nested: a stored field at a pin is not classified ordinary, \
       recursive or reflexive into the block")
