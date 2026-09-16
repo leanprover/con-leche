@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Semantics.Inductives.DeclNested
-public import ConLeche.Model.Inductives.BlockRecWD
+import ConLeche.Model.Inductives.BlockRecWD
 public import ConLeche.Model.Inductives.NestedRecCand
 public import ConLeche.Model.Inductives.NestedFit
 public section

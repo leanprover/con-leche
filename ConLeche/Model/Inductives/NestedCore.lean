@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Model.Inductives.NestedFit
+import ConLeche.Model.Inductives.NestedFit
 public import ConLeche.Model.Inductives.NestedPremise
 public import ConLeche.Model.Inductives.MutualCore
 import ConLeche.Kernel.Inductives.NestedParts
