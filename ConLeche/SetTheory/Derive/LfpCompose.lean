@@ -311,6 +311,84 @@ theorem lfpTuple_seg_congr {w N a s : Nat} {Is Is' : Nat → V} {Ψ Φ' : (Nat �
   rw [lfpTuple_seg h hmono hN hi]
   exact lfpTuple_congr hIs (fun Y hY i hi => hΦ Y hY i hi) hi
 
+/-! ## Congruence AT THE CARRIER: agreement at the other presentation's least tuple -/
+
+section CongrAt
+
+variable {w s : Nat} {Is : Nat → V} {S Φ' : (Nat → V) → Nat → V}
+
+/-- The tuple space and the order transport along equal index sets. -/
+theorem inTupleSpace_congr {k : Nat} {Is Is' : Nat → V} (hIs : ∀ m, m < k → Is m = Is' m)
+    {X : Nat → V} : InTupleSpace w k Is X ↔ InTupleSpace w k Is' X :=
+  ⟨fun h m hm => by rw [← hIs m hm]; exact h m hm, fun h m hm => by rw [hIs m hm]; exact h m hm⟩
+
+theorem tupleLe_congr {k : Nat} {Is Is' : Nat → V} (hIs : ∀ m, m < k → Is m = Is' m)
+    {X Y : Nat → V} : TupleLe k Is X Y ↔ TupleLe k Is' X Y :=
+  ⟨fun h m hm => by rw [← hIs m hm]; exact h m hm, fun h m hm => by rw [hIs m hm]; exact h m hm⟩
+
+/-- **Two least tuples agree when the operators agree AT one's carrier
+and are ordered BELOW it**: `S`'s least tuple is `Φ'`'s when `S` reads
+as `Φ'` at `Φ'`'s least tuple `L'` and dominates `Φ'` on the tuples of
+the space below `L'`.  (Task #315 L-C: a nested container's copies read
+the container's own pins as CONSTANTS — the auxiliary carrier's pin
+components — where the container's operator reads its pins' carriers
+AT THE TUPLE; the two agree at the carrier and are ordered below it,
+and are equal nowhere else, so `lfpTuple_congr`'s agreement on the
+whole space is not available.)  `L'` is `S`-closed since `S L' = Φ' L'
+≤ L'`, and `S`'s least tuple is `Φ'`-closed since it is below `L'`, where
+`Φ' ≤ S`. -/
+theorem lfpTuple_eq_of_at (hmonoS : MonoTuple w s Is S) (hclS : ∃ L, IsClosedTuple w s Is S L)
+    (hmono' : MonoTuple w s Is Φ') (hcl' : ∃ L', IsClosedTuple w s Is Φ' L')
+    (hat : ∀ i, i < s → S (lfpTuple w s Is Φ') i = Φ' (lfpTuple w s Is Φ') i)
+    (hle : ∀ Y, InTupleSpace w s Is Y → TupleLe s Is Y (lfpTuple w s Is Φ') →
+      TupleLe s Is (Φ' Y) (S Y))
+    {i : Nat} (hi : i < s) : lfpTuple w s Is S i = lfpTuple w s Is Φ' i := by
+  have hL'mem := lfpTuple_mem w s Is Φ'
+  have hSmem := lfpTuple_mem w s Is S
+  -- `L'` is `S`-closed: `S L' = Φ' L' ≤ L'`
+  have hSle : TupleLe s Is (lfpTuple w s Is S) (lfpTuple w s Is Φ') :=
+    lfpTuple_le ⟨hL'mem, fun j hj => by rw [hat j hj]; exact lfpTuple_closed hcl' hmono' j hj⟩
+  -- `S`'s least tuple is `Φ'`-closed: `Φ' LS ≤ S LS ≤ LS`
+  have h'le : TupleLe s Is (lfpTuple w s Is Φ') (lfpTuple w s Is S) :=
+    lfpTuple_le ⟨hSmem, fun j hj =>
+      (hle _ hSmem hSle j hj).trans (lfpTuple_closed hclS hmonoS j hj)⟩
+  exact famSpace_ext (hSmem i hi) (hL'mem i hi) fun t ht =>
+    Subset.antisymm (hSle i hi t ht) (h'le i hi t ht)
+
+end CongrAt
+
+/-- **Bekić at a segment, against a presentation agreeing AT ITS CARRIER**
+(`lfpTuple_seg_congr`'s twin, task #315 L-C): when the segment's section
+at the least tuple agrees with `Φ'` AT `Φ'`'s least tuple and dominates
+`Φ'` on the segment's tuple space BELOW it, the least tuple's segment is
+`Φ'`'s least tuple.  This is the theorem a pin of a container that is
+ITSELF nested instantiates: the copies' section reads the container's
+own pins as the auxiliary carrier's components, the container's
+operator reads them as its pins' carriers at the tuple, and the two
+agree at the container's carrier only (`pinMono` orders them below). -/
+theorem lfpTuple_seg_congr_at {w N a s : Nat} {Is Is' : Nat → V} {Ψ Φ' : (Nat → V) → Nat → V}
+    (h : ∃ L, IsClosedTuple w N Is Ψ L) (hmono : MonoTuple w N Is Ψ) (hN : a + s ≤ N)
+    (hIs : ∀ i, i < s → Is (a + i) = Is' i)
+    (hmono' : MonoTuple w s Is' Φ') (hcl' : ∃ L', IsClosedTuple w s Is' Φ' L')
+    (hat : ∀ i, i < s →
+      Ψ (segJoin a s (lfpTuple w N Is Ψ) (lfpTuple w s Is' Φ')) (a + i)
+        = Φ' (lfpTuple w s Is' Φ') i)
+    (hle : ∀ Y, InTupleSpace w s Is' Y → TupleLe s Is' Y (lfpTuple w s Is' Φ') → ∀ i, i < s →
+      FamLe (Is' i) (Φ' Y i) (Ψ (segJoin a s (lfpTuple w N Is Ψ) Y) (a + i)))
+    {i : Nat} (hi : i < s) :
+    lfpTuple w N Is Ψ (a + i) = lfpTuple w s Is' Φ' i := by
+  rw [lfpTuple_seg h hmono hN hi, lfpTuple_congr hIs (fun _ _ _ _ => rfl) hi]
+  have hLmem := lfpTuple_mem w N Is Ψ
+  -- the section's laws, transported to `Is'`
+  have hmonoS : MonoTuple w s Is' (segSec Ψ a s (lfpTuple w N Is Ψ)) := by
+    intro X Y hX hY hXY
+    exact (tupleLe_congr hIs).mp (segSec_mono hmono hN hLmem X Y ((inTupleSpace_congr hIs).mpr hX)
+      ((inTupleSpace_congr hIs).mpr hY) ((tupleLe_congr hIs).mpr hXY))
+  have hclS : ∃ L, IsClosedTuple w s Is' (segSec Ψ a s (lfpTuple w N Is Ψ)) L :=
+    ⟨_, (isClosedTuple_congr hIs (fun _ _ _ _ => rfl)).mp
+      (isClosedTuple_segSec_of_closed hN (lfpTuple_isClosed h hmono))⟩
+  exact lfpTuple_eq_of_at hmonoS hclS hmono' hcl' hat (fun Y hY hYle j hj => hle Y hY hYle j hj) hi
+
 /-! ## The meet of families, and the clamp -/
 
 /-- The pointwise meet of two families over `I`. -/

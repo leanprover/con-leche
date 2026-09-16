@@ -433,6 +433,19 @@ theorem CtorsTyped.crossEnv {env₁ env₂ : Env} {m₁ : EnvModel V env₁} {m�
   rw [hag cA.1.name (by rw [hfind]; rfl), hbody]
   exact h c hc j cA hj ρ
 
+/-- The pins' typing crosses the change: the pins' containers are
+stored (`pinsFound`), so `hag` values them alike. -/
+theorem PinsTyped.crossEnv {env₁ env₂ : Env} {m₁ : EnvModel V env₁} {m₂ : EnvModel V env₂}
+    {d : BlockModel V} {ψ : Name → Nat}
+    (hag : ∀ n : Name, (env₁.find? n).isSome = true → m₂.acval n = m₁.acval n)
+    (hreps : IsBlockModels m₁ d) (hk : 0 < d.k) (h : PinsTyped m₁ d ψ) :
+    PinsTyped m₂ d ψ := by
+  intro q hq ρ
+  obtain ⟨cvT, cvR, mI, rP, rules, hb⟩ := hreps 0 hk
+  obtain ⟨cv, caps, hf⟩ := hb.pinsFound q hq
+  rw [hag (d.pinAt q).J (by rw [hf]; rfl)]
+  exact h q hq ρ
+
 /-- A member's store fact crosses the change: the lookup by `hF` (a
 member is stored as an inductive, never a recursor), its former's data
 by `hde`. -/

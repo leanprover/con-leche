@@ -39,9 +39,8 @@ here as `NestedPinsScoped` until it is a run conjunct; the group's
 syntactic fields (`NestedPinGroupSyn`: the segment, the block at every
 member, the typing, the injection shape, the pin's shape fields, the
 same-universe fact `w`, the constructor counts, the components' fit
-`DsFit`) are PROVED; the identities (`NestedPinGroupIds`: `noPins`,
-`u`, `idx`, `inst`) stay NAMED with this consumer — `NestedPinsFix`
-(the pin-free container, `pinFix`), `NestedPinsU` (the per-component
+`DsFit`) are PROVED; the identities (`NestedPinGroupIds`: `u`, `idx`,
+`inst`) stay NAMED with this consumer — `NestedPinsU` (the per-component
 index universes, s10) and `NestedPinsIdent` (the copy-instantiation
 identities).
 -/
@@ -172,10 +171,11 @@ theorem ContainerModeled.crossEnv {env₁ env₂ : Env} {m₁ : EnvModel V env�
     (hag : ∀ n : Name, (env₁.find? n).isSome = true → m₂.acval n = m₁.acval n)
     (hde : ∀ (ψ : Name → Nat) (dp : Nat) (e : Expr) {ea : AnnotTerm},
       denoteMeta m₁.acval env₁ ψ dp e = some ea → denoteMeta m₂.acval env₂ ψ dp e = some ea)
-    (h : ContainerModeled m₁ ci d) : ContainerModeled m₂ ci d :=
+    (hk : 0 < d.k) (h : ContainerModeled m₁ ci d) : ContainerModeled m₂ ci d :=
   { k := h.k, nP := h.nP
     reps := h.reps.crossEnv hF hres hag hde
-    typed := fun ψ => ⟨(h.typed ψ).1.crossEnv hag h.reps, (h.typed ψ).2.crossEnv hag h.reps⟩
+    typed := fun ψ => ⟨(h.typed ψ).1.crossEnv hag h.reps, (h.typed ψ).2.1.crossEnv hag h.reps,
+      (h.typed ψ).2.2.crossEnv hag h.reps hk⟩
     inj := h.inj
     member := fun i M hM => by
       obtain ⟨hname, hcnt, cvR, mI, rP, rules, hI⟩ := h.member i M hM
@@ -324,6 +324,7 @@ the injection shape, the pin's shape fields, the same-universe fact
 `w`, the constructor counts and the components' fit. -/
 structure NestedPinGroupSyn (m : EnvModel V env₂) (q₀ kJ : Nat) (dJ : BlockModel V) : Prop where
   seg : q₀ + kJ ≤ pinsS.length
+  kpos : 0 < kJ
   reps : IsBlockModels m dJ
   kEq : dJ.k = kJ
   rep : ∀ i, i < kJ → ∃ (cvT cvR : ConstantVal) (mI rP : Nat) (rules : List RecRule),
@@ -331,6 +332,7 @@ structure NestedPinGroupSyn (m : EnvModel V env₂) (q₀ kJ : Nat) (dJ : BlockM
     ∀ ψ : Name → Nat,
       ((D).pinAt (q₀ + i)).ψJ ψ = Level.substFn ψ cvT.levelParams ((D).pinAt (q₀ + i)).lvls
   typed : ∀ ψ : Name → Nat, FormersTyped m dJ ψ
+  pinsTyped : ∀ ψ : Name → Nat, PinsTyped m dJ ψ
   inj : ∀ (ψJ : Name → Nat) (mm' j : Nat) (fs : List V),
     dJ.inj ψJ mm' j fs = injW (dJ.w ψJ) j (mkTower (fs ++ [pt]))
   pinU : ∀ i, i < kJ → ∀ ψ : Name → Nat, ((D).pinAt (q₀ + i)).u ψ = W ψ
@@ -349,12 +351,12 @@ structure NestedPinGroupSyn (m : EnvModel V env₂) (q₀ kJ : Nat) (dJ : BlockM
     SpineFit (consList as ρ) (dJ.params (((D).pinAt (q₀ + i)).ψJ ψ))
       ((((D).pinAt (q₀ + i)).Ds ψ).map (interp V (consList as ρ)))
 
-/-- **A pin group's IDENTITY facts** (NAMED, DESIGN §U.21 (e)): the
-pin-free container (`pinFix`), the index-universe agreement (s10) and
-the copy-instantiation identities (K.28's pre-image computed through
-`replaceAllNested`'s action). -/
+/-- **A pin group's IDENTITY facts** (NAMED, DESIGN §U.21 (e), §U.24):
+the index-universe agreement (s10) and the copy-instantiation
+identities (K.28's pre-image computed through `replaceAllNested`'s
+action; at a container that is itself nested, `CopyCtorInst.pinF`).
+The pin-free restriction `noPins` is gone (task #315 L-C). -/
 structure NestedPinGroupIds (m : EnvModel V env₂) (q₀ kJ : Nat) (dJ : BlockModel V) : Prop where
-  noPins : dJ.pins = []
   u : ∀ i, i < kJ → ∀ (ψ : Name → Nat) (i' : Nat), i' < kJ →
     (W ψ = 0 ↔ dJ.uM i' (((D).pinAt (q₀ + i)).ψJ ψ) = 0)
   idx : ∀ i, i < kJ → ∀ (ψ : Name → Nat) (i' : Nat), i' < kJ →
@@ -388,11 +390,11 @@ local notation "PGI" => NestedPinGroupIds (V := V) (p := p) (b := b) (fms := fms
 /-- The group from its two halves. -/
 theorem NestedPinGroupSyn.ofParts {m : EnvModel V env₂} {q₀ kJ : Nat} {dJ : BlockModel V}
     (S : PGS m q₀ kJ dJ) (I : PGI m q₀ kJ dJ) : PG m q₀ kJ dJ :=
-  { seg := S.seg, reps := S.reps, noPins := I.noPins, kEq := S.kEq
+  { seg := S.seg, kpos := S.kpos, reps := S.reps, kEq := S.kEq
     rep := fun i hi => by
       obtain ⟨cvT, cvR, mI, rP, rules, hI, -⟩ := S.rep i hi
       exact ⟨cvT, cvR, mI, rP, rules, hI⟩
-    typed := S.typed, inj := S.inj, pinU := S.pinU, pinNP := S.pinNP, pinNIdx := S.pinNIdx
+    typed := S.typed, pinsTyped := S.pinsTyped, inj := S.inj, pinU := S.pinU, pinNP := S.pinNP, pinNIdx := S.pinNIdx
     pinPps := S.pinPps, pinDsLen := S.pinDsLen, w := S.w, u := I.u, idx := I.idx
     ctorCount := S.ctorCount, DsFit := S.DsFit, inst := I.inst }
 
@@ -764,13 +766,6 @@ half holds has the identity `P`. -/
         P mp p st b fms f₀ ctorsA kinds ppsF W idxF dsF esF srcsF fvsPF xrestF eissF tssF ctorsR
           dsR xFvsR pinsS mp₁' q₀ kJ dJ
 
-/-- **The containers are pin-free** (NAMED, `pinFix`; consumer
-`nestedPinsStaged_of`): `NestedPinGroup.noPins` — false of a container
-that is itself a nested block, the design question DESIGN §U.17 (g) 2
-records. -/
-@[expose] def NestedPinsFix (V : Type w) [SetTheory V] (μ : CheckMode) (F : Nat) : Prop :=
-  NestedPinsIdsAt V μ F fun _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ dJ => dJ.pins = []
-
 /-- **The index-universe agreement** (NAMED, s10; consumer
 `nestedPinsStaged_of`): `NestedPinGroup.u` — the per-component index
 universes inside the seal. -/
@@ -1043,7 +1038,7 @@ theorem NestedPinsRun.groupSyn
   have CM₀ : ContainerModeled mp.base2 (baseInfo env st q) (blockOf mp.base2 (baseInfo env st q)) :=
     blockOf_spec (R.hPM _ hbaseMem _ PD.base)
   have CM : ContainerModeled mp₁'.base2 (baseInfo env st q) (blockOf mp.base2 (baseInfo env st q)) :=
-    CM₀.crossEnv hF hres hag hde
+    CM₀.crossEnv hF hres hag hde (by rw [CM₀.k, PD.baseLen]; exact hkpos)
   have hkJ : (blockOf mp.base2 (baseInfo env st q)).k = (pinAtE st q).grpSize := by
     rw [CM.k, PD.baseLen]
   -- the group's pins, described
@@ -1122,10 +1117,12 @@ theorem NestedPinsRun.groupSyn
     blockOf mp.base2 (baseInfo env st q), by omega, by omega, ?_⟩
   refine
     { seg := by rw [hlenS]; exact hb3
+      kpos := hkpos
       reps := CM.reps
       kEq := hkJ
       rep := ?_
       typed := fun ψ => (CM.typed ψ).1
+      pinsTyped := fun ψ => (CM.typed ψ).2.2
       inj := CM.inj
       pinU := fun i hi ψ => by rw [hpinAt, hgp i hi]; rfl
       pinNP := fun i hi => by rw [hpinAt, hgp i hi]; rfl
@@ -1272,10 +1269,13 @@ end Discharge
 
 /-! ## The consumer -/
 
-/-- **`NestedPinsStaged` modulo the four named facts**: the pins' scope
-and typing at the prefix environment (K.30), the pin-free containers,
-the index-universe agreement and the copy-instantiation identities. -/
-theorem nestedPinsStaged_of {F : Nat} (hS : NestedPinsScoped V μ F) (hFix : NestedPinsFix V μ F)
+/-- **`NestedPinsStaged` modulo the three named facts**: the pins' scope
+and typing at the prefix environment (K.30), the index-universe
+agreement and the copy-instantiation identities.  (The pin-free
+containers, `NestedPinsFix`, were the fourth: DISCHARGED by task #315
+L-C — the assembly reads a container's own pins through its `pinLeaf`
+and `pinMono`, DESIGN §U.24.) -/
+theorem nestedPinsStaged_of {F : Nat} (hS : NestedPinsScoped V μ F)
     (hU : NestedPinsU V μ F) (hId : NestedPinsIdent V μ F) : NestedPinsStaged V μ F := by
   intro hμ env mp hE p st b envAux stored ctorsR fmsA ctorsA₀ fms f₀ ctorsA sortss kinds mp₁ ppsF W
     idxF dsF esF srcsF fvsPF xFvsF xrestF eissF tssF mp₁' hPM h0 h1 hfA hcA helim hcount hfresh hcont
@@ -1291,9 +1291,7 @@ theorem nestedPinsStaged_of {F : Nat} (hS : NestedPinsScoped V μ F) (hFix : Nes
   refine ⟨_, SF.pinsLen, SF.pinRec, SF.pinDs, ?_⟩
   intro dsR' xFvsR' q hq
   obtain ⟨q₀, kJ, i, dJ, hqe, hi, S⟩ := SF.groups dsR' xFvsR' q hq
-  refine ⟨q₀, kJ, i, dJ, hqe, hi, S.ofParts ⟨?_, ?_, ?_, ?_⟩⟩
-  · exact hFix mp p st b envAux stored ctorsR fmsA ctorsA₀ fms f₀ ctorsA sortss kinds mp₁ ppsF W idxF
-      dsF esF srcsF fvsPF xFvsF xrestF eissF tssF mp₁' R _ SF dsR' xFvsR' q₀ kJ dJ S
+  refine ⟨q₀, kJ, i, dJ, hqe, hi, S.ofParts ⟨?_, ?_, ?_⟩⟩
   · exact hU mp p st b envAux stored ctorsR fmsA ctorsA₀ fms f₀ ctorsA sortss kinds mp₁ ppsF W idxF
       dsF esF srcsF fvsPF xFvsF xrestF eissF tssF mp₁' R _ SF dsR' xFvsR' q₀ kJ dJ S
   · exact (hId mp p st b envAux stored ctorsR fmsA ctorsA₀ fms f₀ ctorsA sortss kinds mp₁ ppsF W idxF
