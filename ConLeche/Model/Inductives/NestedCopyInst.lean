@@ -8,6 +8,7 @@ import ConLeche.Verify.Inductives.NestedCopyProv
 import ConLeche.Verify.Inductives.NestedCopyInstU
 import ConLeche.Verify.Inductives.NestedCopyTele
 import ConLeche.Verify.Inductives.NestedCopyRewrite
+import ConLeche.Verify.Inductives.NestedOpenSpine
 public section
 
 /-!
@@ -40,6 +41,46 @@ open ConLeche (Env Expr Name Level CheckMode ConstantInfo ConstantVal RecFieldKi
 universe w
 
 variable {V : Type w} [SetTheory V] {μ : CheckMode} {env : Env}
+
+/-! ## B1 at a container's constructor (PLAN §3/§4's bridge)
+
+Every arm below but `len` and `es` has to cross ONE systematic
+mismatch twice: what the tree knows about a container's field `l` is
+`BlockOpened.recF`/`.reflF`/`.ord`/`.nestF`, stated at the OPENED
+domain `xFvs[l].fvarTypeD`, while what `copyFields` hands over is the
+CLOSED one, `fcs[l].1`, with `bvar`s for the parameters and the
+earlier fields.  `os_field_domain`
+(`ConLeche/Verify/Inductives/NestedOpenSpine.lean`, on
+`openPisAtFvars_domain`) is that bridge; this is it plugged into
+`BlockCtorData`, whose `opens` field carries exactly the two-stage
+opening it wants. -/
+
+/-- **The container's field `l`, opened and closed.**  `BlockCtorData`'s
+opened field variable carries the closed domain instantiated at the
+parameter openers followed by the earlier field openers — on the nose,
+which is what the arms need: they read the domain's head and argument
+spine syntactically. -/
+theorem blockCtorFieldDomain {m : EnvModel V env} {env₀ : Env} {T : Name}
+    {Tof : Nat → Name} {nIdxOf : Nat → Nat} {nest : Nat → Option Nat} {pins : Nat → PinSyn}
+    {lps : List Name} {cvC : ConstantVal} {nP nF nIdx : Nat} {resSort : Level}
+    {isProp large : Bool} {idxArgs : List Expr}
+    {ds : (Name → Nat) → List (Nat × Nat × AnnotTerm)} {Es : (Name → Nat) → List AnnotTerm}
+    {srcs : List (Option Nat)} {ks : List RecFieldKind} {fvsP xFvs : List Expr} {xrest : Expr}
+    {Eiss : (Name → Nat) → List (List AnnotTerm)}
+    {tss : (Name → Nat) → List (List (Nat × Nat × AnnotTerm))}
+    (hD : BlockCtorData m env₀ T Tof nIdxOf nest pins lps cvC nP nF nIdx resSort isProp large
+      idxArgs ds Es srcs ks fvsP xFvs xrest Eiss tss)
+    {pcs fcs : List (Expr × ConLeche.BinderMeta)} {resid : Expr}
+    (hstrip : cvC.type.stripPis (nP + nF) = some (pcs ++ fcs, resid))
+    (hpcs : pcs.length = nP)
+    {l : Nat} {x : Expr} {bd : Expr × ConLeche.BinderMeta}
+    (hx : xFvs[l]? = some x) (hb : fcs[l]? = some bd) :
+    x.fvarTypeD = Expr.instSeq (fvsP ++ xFvs.take l) (nP + l - 1) bd.1 := by
+  obtain ⟨crest, hopP, hopX⟩ := hD.opens
+  exact ConLeche.os_field_domain nP nF l
+    (openPisAtFvars_add nP hopP (by rw [Nat.zero_add]; exact hopX))
+    hstrip hD.pLen hpcs hx hb
+
 
 section Assembly
 
@@ -508,3 +549,4 @@ theorem NestedPinsRun.copyFields {pbs : List (Expr × ConLeche.BinderMeta)}
 end Assembly
 
 end ConLeche.Model
+
