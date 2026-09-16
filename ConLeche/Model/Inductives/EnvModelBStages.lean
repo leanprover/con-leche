@@ -1,9 +1,9 @@
 module
 
-public import ConLeche.Model.Fold
-public import ConLeche.Model.Harvest
 public import ConLeche.Model.Inductives.ContainerCross
-public import ConLeche.Semantics.DeclRun
+import ConLeche.Semantics.DeclRun
+import ConLeche.Model.Fold
+import ConLeche.Model.Harvest
 public section
 
 /-!

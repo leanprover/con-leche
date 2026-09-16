@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Semantics.Inductives.DeclNested
+public import ConLeche.Kernel.Inductives.NestedInstall
 public import ConLeche.Model.Inductives.BlockRecWD
 public section
 

@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Kernel.Inductives.NestedParts
-public import ConLeche.Verify.EnvWF
+import ConLeche.Verify.EnvWF
 public import ConLeche.Verify.EnvPreds
 import ConLeche.Verify.Inductives.NestedCopyGlue
 

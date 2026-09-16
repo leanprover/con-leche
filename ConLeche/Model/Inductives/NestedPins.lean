@@ -4,6 +4,7 @@ public import ConLeche.Model.Inductives.NestedLoop
 import ConLeche.Model.Inductives.StructRows
 import ConLeche.Model.Inductives.BlockRecFrames
 import ConLeche.Model.Inductives.BlockRepCross
+import ConLeche.Model.Inductives.ContainerCross
 import ConLeche.Model.Inductives.MutualFormersKit
 import ConLeche.Model.Inductives.StructEntryKit
 import ConLeche.Model.Inductives.StructRecKit2

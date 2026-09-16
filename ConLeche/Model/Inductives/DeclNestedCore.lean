@@ -1,6 +1,7 @@
 module
 
-public import ConLeche.Model.Inductives.ContainerCross
+public import ConLeche.Model.Inductives.NestedPremise
+public import ConLeche.Semantics.Inductives.DeclNested
 public section
 
 /-!
