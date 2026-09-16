@@ -1,8 +1,7 @@
 module
 
 public import ConLeche.Verify.Inductives.NestedInv
-public import ConLeche.Verify.Inductives.NestedAuxInv
-public import ConLeche.Verify.Inductives.MutualInv
+import ConLeche.Verify.Inductives.MutualInv
 import ConLeche.Verify.Inductives.FrontDoor
 import ConLeche.Verify.Inductives.StructRec
 import ConLeche.Verify.Inductives.NestedRestoreKit
@@ -258,6 +257,32 @@ theorem replacePisPw_some_stripPis {pw : PropWhen} :
     | .lam _ _ _, h | .letE _ _ _, h | .lit _, h | .proj _ _ _, h =>
       simp [Expr.replacePisPw] at h
 
+/-- The motives' telescope's two steps, by `rfl`.  NOT `simp only
+[mutualMotivesPis]`: unfolding through the equation lemmas realizes
+`mutualMotivesPis.match_1.splitter` HERE, and this module sits below
+every capstone in the import order, so the splitter's attribution moves
+into it and the proof-term gate reads a door. -/
+private theorem doorMotivesPis_nil {lps : List Name} {nP : Nat} {ℓ : Level} {pw : PropWhen}
+    {i : Nat} {body : Expr} : mutualMotivesPis lps nP ℓ pw [] i body = some body := rfl
+
+private theorem doorMotivesPis_cons {lps : List Name} {nP : Nat} {ℓ : Level} {pw : PropWhen}
+    {f : MutualFormer} {fs : List MutualFormer} {i : Nat} {body : Expr} :
+    mutualMotivesPis lps nP ℓ pw (f :: fs) i body
+      = (mutualMotiveTy lps nP ℓ i f).bind fun mty =>
+          (mutualMotivesPis lps nP ℓ pw fs (i + 1) body).map fun rest =>
+            Expr.forallE mty rest ⟨pw⟩ := rfl
+
+/-- The minors' telescope's two steps, by `rfl` (same reason). -/
+private theorem doorMinorsPis_nil {lps : List Name} {nP : Nat} {pw : PropWhen} {o : Nat}
+    {body : Expr} : mutualMinorsPis lps nP pw [] o body = some body := rfl
+
+private theorem doorMinorsPis_cons {lps : List Name} {nP : Nat} {pw : PropWhen}
+    {c : MutualCtor4} {cs : List MutualCtor4} {o : Nat} {body : Expr} :
+    mutualMinorsPis lps nP pw (c :: cs) o body
+      = (mutualMinorTy lps nP o pw c).bind fun mty =>
+          (mutualMinorsPis lps nP pw cs (o + 1) body).map fun rest =>
+            Expr.forallE mty rest ⟨pw⟩ := rfl
+
 /-- The motives' telescope: one `∀` per former, meta `⟨pw⟩`, the body
 under them. -/
 theorem mutualMotivesPis_stripPis {lps : List Name} {nP : Nat} {ℓ : Level} {pw : PropWhen} :
@@ -269,11 +294,12 @@ theorem mutualMotivesPis_stripPis {lps : List Name} {nP : Nat} {ℓ : Level} {pw
   induction fs with
   | nil =>
     intro i body mots h
-    simp only [mutualMotivesPis, Option.some.injEq] at h
+    rw [doorMotivesPis_nil, Option.some.injEq] at h
     exact ⟨[], by rw [← h]; rfl, by simp⟩
   | cons f fs ih =>
     intro i body mots h
-    simp only [mutualMotivesPis, Option.bind_eq_some_iff, Option.map_eq_some_iff] at h
+    rw [doorMotivesPis_cons] at h
+    simp only [Option.bind_eq_some_iff, Option.map_eq_some_iff] at h
     obtain ⟨mty, -, rest, hrest, rfl⟩ := h
     obtain ⟨bs, hbs, hmeta⟩ := ih hrest
     refine ⟨(mty, ⟨pw⟩) :: bs, ?_, ?_⟩
@@ -294,11 +320,12 @@ theorem mutualMinorsPis_stripPis {lps : List Name} {nP : Nat} {pw : PropWhen} :
   induction cs with
   | nil =>
     intro o body mins h
-    simp only [mutualMinorsPis, Option.some.injEq] at h
+    rw [doorMinorsPis_nil, Option.some.injEq] at h
     exact ⟨[], by rw [← h]; rfl, by simp⟩
   | cons c cs ih =>
     intro o body mins h
-    simp only [mutualMinorsPis, Option.bind_eq_some_iff, Option.map_eq_some_iff] at h
+    rw [doorMinorsPis_cons] at h
+    simp only [Option.bind_eq_some_iff, Option.map_eq_some_iff] at h
     obtain ⟨mty, -, rest, hrest, rfl⟩ := h
     obtain ⟨bs, hbs, hmeta⟩ := ih hrest
     refine ⟨(mty, ⟨pw⟩) :: bs, ?_, ?_⟩

@@ -4,7 +4,6 @@ public import ConLeche.Model.Inductives.NestedRecsStage
 import ConLeche.Verify.Inductives.NestedRestoreKit
 import ConLeche.Verify.Inductives.NestedRestoreOpen
 import ConLeche.Verify.Inductives.MutualGrouped
-import ConLeche.Model.Inductives.StructRecKit2
 import ConLeche.Model.IndTowerRead
 import ConLeche.Model.Inductives.StructData
 import ConLeche.Model.Inductives.NestedCtorRead

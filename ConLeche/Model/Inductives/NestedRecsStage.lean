@@ -1,8 +1,7 @@
 module
 
 public import ConLeche.Model.Inductives.DeclNestedCore
-public import ConLeche.Model.Inductives.NestedRec
-public import ConLeche.Model.Inductives.NestedRecTyped
+import ConLeche.Model.Inductives.NestedRec
 public import ConLeche.Model.Inductives.NestedPinLaws
 import ConLeche.Verify.Inductives.NestedElimInv
 public section
