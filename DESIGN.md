@@ -79316,7 +79316,7 @@ two auto-merge traps, the `hfitAt` universe and `pinNIdx`'s `hk`; the
 rest ~⅓).  Next: part 2 = L-B's merge, then M7 (`NestedTailModeled`)
 and M8.
 
-##### (h) The merge of `agent/uniform-315` c6ec9571 (integration 2, part 1) into L-B
+##### (e′) The merge of `agent/uniform-315` c6ec9571 (integration 2, part 1) into L-B
 
 Merged at the coordinator's request so that part 2 is a fast merge.
 `NestedPins.lean` auto-merged (L-A's `kpos`/`pinsTyped` and L-B's
@@ -79418,6 +79418,122 @@ Residual after 3a, unchanged: `NestedPinsInst` (lane L-B session 2),
 `EnvBlockModels`.  Cost: well under a session (both merges DESIGN-only
 conflicts, one `obtain` binder).  Next: integration 3b (M7-2 and L-B
 s2).
+
+##### (h) INTEGRATION 3b — L-B sessions 2–5, M7-3 and M7-2 merged; `EnvBlockModels` is no longer a premise (session U-24)
+
+Part 3's second half: three merges into the lane, each `--no-ff` at the
+pinned sha, its gates run before it was committed.  After this session
+`declNested_of` takes the model WITH ITS BLOCKS and closes over exactly
+TWO named facts:
+
+```lean
+theorem declNested_of (hμ : μ.verifiedChecks = true) {F : Nat} {env envOut : Env}
+    {p : NestedParts} (mp : EnvModelB V μ env) (hE : ConLeche.EtaFamiliesClosed env)
+    (hcore : NestedCoreModeled V μ F) (htail : NestedTailModeled V μ F)
+    (h : ConLeche.Semantics.DeclNestedRun μ F env p envOut) :
+    Nonempty (EnvModelM V μ envOut) := by
+```
+
+*L-B sessions 2–5* (e8326ac2) — `agent/uniform-ident` 6807ae0d, a
+descendant of the lane's bf10dfcd: NO conflict, `--no-ff` only so the
+merge commit carries the record.  `CopyCtorInst.ordF`'s ordinary arm at
+the READING with the model tier's new `normCtorValM` law (§U.30),
+`CopyEntry`, `ContainerModeled`'s three clauses and `member` at the
+constructor NAMES (§U.30, §U.32), and the copies' constructor assembly
+`NestedCopyInst` — `ctorRecord`/`ctorPair`/`copyLen`/`copyBody`/
+`copyFields` — over the bridges `instPis_ilp_mkPisB`/`instPisILP_frame`
+(§U.32–§U.34).  `NestedPinsInst` stays NAMED: its four remaining arms
+are L-B's next session.
+
+*M7-3* (8ce503c8) — `agent/uniform-m7env` 44997d60, which had merged
+L-B at 7f6cbfc5 (session 3), so the union is a recursive merge over two
+bases.  **DESIGN.md was the only conflict** (§U.31 against L-B's
+§U.33/§U.34, resolved by number), and no proof needed adapting: L-B's
+sessions 4 and 5 touched `NestedCopyInst`, `NestedCopyRead`,
+`NestedCopyInstU` and `NestedGroupInv`, none of which M7-3 changed, and
+`ContainerModeled.crossEnv`'s move from `NestedPins.lean` into the new
+`ContainerCross.lean` already carried L-B's three clauses.  The premise
+`EnvBlockModels` leaves `declNested_of`'s signature here: it is
+`mp.blocks`, and `PinsModeled` is read off it.
+
+*M7-2* (ae7d6435) — `agent/uniform-m7read` 0cbf1d9d, THE three-way
+point: M7-2 branched off bf10dfcd and split `NestedPremise.lean` out of
+`DeclNestedCore.lean` for its OWN reason (the tail grew to the concrete
+block model, so the consumer must import `NestedCore.lean`), which M7-3
+had just done for the crossing kit.  Five conflicts, all resolved to the
+union:
+
+1. `NestedPremise.lean` (add/add).  M7-3's file is the stronger one —
+   the three L-B clauses, `member` at the constructor names, and
+   `EnvModelB` — so it stands, with M7-2's two docstring paragraphs
+   folded in.  ONE adaptation, and the compiler found it: M7-3's shake
+   refactoring had moved the file's public import to
+   `Kernel.Inductives.NestedInstall`, which was sound while
+   `NestedCore.lean` imported `DeclNestedCore.lean`; with the order
+   REVERSED, `Verify/Inductives/NestedInv` stops reaching
+   `NestedCore.lean` (`restoreCtors_id`, `auxStoredAll_get` unknown).
+   The import is M7-2's `Semantics.Inductives.DeclNested` again — which
+   is exactly what M7-2's allowlist line records, and shake still
+   proposes that line (509/509).
+2. `DeclNestedCore.lean` (three-way).  M7-2's shape — the concrete
+   `NestedCoreOut`, `NestedCoreModeled`/`NestedTailModeled` stated over
+   it, `nestedCoreModeled_of` moved here beside its statement — with
+   M7-3's `mp : EnvModelB`: `pinsModeled_of_env mp.blocks hcont` and
+   `mp.toEnvModelM` into both named facts.  Its imports are M7-2's
+   (`NestedCore` public, `NestedAuxInv`/`NestedElimInv` private).
+3. `ConLeche/Model.lean` — the union in dependency order:
+   `NestedPremise`, `ContainerCross`, `EnvModelBStages`, `NestedCore`,
+   `DeclNestedCore`, then M7-2's `NestedRecsStage`/`NestedRecRead`/
+   `NestedRecTypes`.
+4. DESIGN.md — §U.29 in its numeric place.
+5. `tests/shake-allowlist.txt` — the union, one copy each (nine lines,
+   all still proposed).  `scripts/pub-import-plan.py` did NOT conflict:
+   M7-2 added no FALLBACK.
+
+**The import gate on the union brought nothing new**, as in §U.27 (b)
+and (g): shake 505 → 505 → 509 proposed, all allowlisted, at the three
+merge commits (the only allowlist change is M7-2's own four lines);
+pub-imports none demotable at each, 36 dot-notation fallbacks, 1240 of
+1929 in-tree edges public after L-B, 1249 of 1948 after M7-3 and 1256 of
+1974 after M7-2.
+
+Gates at each merge commit: build warning-free (685 jobs at L-B, 689
+with M7-3's four modules, 693 with M7-2's four), `lake test`
+warning-free, shake + pub-imports as above, layering 344/258/3/1 →
+345/261/3/1 → 346/264/3/1 with 0 base→lane and 0 impl→theory, trust
+surface 13 escapes in 5 allowlisted files (617, 621, 625 scanned),
+no-local-paths, overview-links 112 (M7-3's two repointed `Model/Fold.lean`
+anchors, the citing paragraphs re-read on the branch), quote-gate 2,
+proofdeps 4955 rows / 12 roots / 0 doors (unchanged at all three),
+nested-shadow 27/27 on the final commit.  No `sorry`, no axioms, no
+`maxHeartbeats`, no checker code changed on the lane.
+
+**The chain, re-verified** (`_tmp/uniform-315/chain-probe-u24.lean`,
+outside the build): `declNested_of hμ mp hE (nestedCoreModeled_of
+(nestedCtorsStaged_of (nestedPinsStaged_of (nestedPinsIdent_of hI))
+nestedReadLaw)) htail h : Nonempty (EnvModelM V μ envOut)` closes over
+exactly `hI : NestedPinsInst V μ F` and `htail : NestedTailModeled V μ F`
+(plus `mp : EnvModelB V μ env`, `hE` and the run) — **`EnvBlockModels`
+is no longer free**.  M7-2's skeleton typechecks at the same tree:
+`nestedTailModeled_of hrd heqs hst : NestedTailModeled V μ F` over
+`NestedRecReadingsOf`/`NestedRecEqsOf`/`NestedRecsStored`.  `#print
+axioms` of both probes: `[propext, Classical.choice, Quot.sound]`.
+
+##### (i) THE RESIDUAL AFTER 3b
+
+* **`NestedPinsInst V μ F`** — lane L-B's next session (the four
+  remaining arms of `CopyCtorInst`, §U.34 (d)).
+* **`NestedTailModeled V μ F`** — M7, now with a skeleton: it is
+  `nestedTailModeled_of` modulo `NestedRecReadingsOf` (M7-2 has
+  thirteen of its fourteen clauses, §U.29), `NestedRecEqsOf` and
+  `NestedRecsStored`.
+* `EnvBlockModels` is **gone from the chain** — it is `EnvModelB`'s
+  field, maintained across the fold's value stages (§U.31); M8 flips the
+  fold to carrying it.
+
+Cost: one session, ~⅔ of it the three-way (`NestedPremise`'s union and
+the import order it broke, `DeclNestedCore`'s two sides).  Next: L-B's
+assembly and M7's three named facts.
 
 #### K.32 — the copies' recursive targets come from the container's own recursion (2026-09-16, task #315, lane L-B's DESIGN §U.23 (e))
 
