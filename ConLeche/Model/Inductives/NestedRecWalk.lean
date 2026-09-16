@@ -168,6 +168,7 @@ structure RestoreAgree (R : RestoreTbl) (lps : List Name) (arityOf : Name → Op
     ∃ ci' : ConstantInfo, envR.find? n' = some ci' ∧
       ci'.toConstantVal.levelParams = ci.toConstantVal.levelParams ∧ acvalA n = acvalR n'
   recNone : ∀ n n', R.recMap.lookup n = some n' → envA.find? n = none → envR.find? n' = none
+  keyNotRec : ∀ n, R.IsKey n → R.recMap.lookup n = none
   pin : ∀ n pin, R.pins.lookup n = some pin →
     pin.looseBVarsBounded nP = true ∧
     ∃ (ci : ConstantInfo) (J : Name) (ψJ : Name → Nat) (Ds : List AnnotTerm) (nIdx : Nat),
@@ -324,5 +325,335 @@ theorem denoteMeta_congr_auxFree :
     rw [instSeq_fvar_idx, denoteMeta_fvar, denoteMeta_fvar]
 
 end Congr
+
+/-! ## The reading law of the walk -/
+
+omit [SetTheory V] in
+/-- A spine's arguments resolve where the spine does. -/
+theorem constsResolve_mkAppN_args {env : Env} :
+    ∀ (args : List Expr) (f : Expr), (Expr.mkAppN f args).constsResolve env = true →
+      f.constsResolve env = true ∧ ∀ a ∈ args, a.constsResolve env = true
+  | [], _, h => ⟨h, fun _ ha => nomatch ha⟩
+  | a :: as, f, h => by
+    have h' : (Expr.mkAppN (.app f a) as).constsResolve env = true := h
+    obtain ⟨hfa, hall⟩ := constsResolve_mkAppN_args as (.app f a) h'
+    simp only [Expr.constsResolve, Bool.and_eq_true] at hfa
+    exact ⟨hfa.1, fun x hx => by
+      rcases List.mem_cons.mp hx with rfl | hx'
+      · exact hfa.2
+      · exact hall x hx'⟩
+
+omit [SetTheory V] in
+theorem paramBvarsAt_eq_range (nP D : Nat) :
+    ((List.range nP).map fun k => AnnotTerm.bvar (D - 1 - (0 + k))) = paramBvarsAt nP D := by
+  unfold paramBvarsAt
+  exact List.map_congr_left fun k _ => by rw [Nat.zero_add]
+
+omit [SetTheory V] in
+/-- A read spine at one carrier is one at another when every argument reads alike. -/
+theorem DenoteMetaSpine.congr_envs {acval₁ acval₂ : Name → (Name → Nat) → AnnotTerm}
+    {env₁ env₂ : Env} {φ : Name → Nat} {D : Nat} :
+    ∀ {as : List Expr} {vs : List AnnotTerm}, DenoteMetaSpine acval₁ env₁ φ D as vs →
+      (∀ a ∈ as, denoteMeta acval₁ env₁ φ D a = denoteMeta acval₂ env₂ φ D a) →
+      DenoteMetaSpine acval₂ env₂ φ D as vs
+  | _, _, .nil, _ => .nil
+  | _, _, .cons ha hrest, hag =>
+    .cons (by rw [← hag _ List.mem_cons_self]; exact ha)
+      (DenoteMetaSpine.congr_envs hrest fun a ha' => hag a (List.mem_cons_of_mem _ ha'))
+
+section Walk
+
+variable {R : RestoreTbl} {lps : List Name} {arityOf : Name → Option Nat}
+  {acvalA acvalR : Name → (Name → Nat) → AnnotTerm} {envA envR : Env} {φ : Name → Nat}
+  {nP : Nat} {params : List AnnotTerm}
+  (hk : R.KeysInAux)
+  (hag : RestoreAgree (V := V) R lps arityOf acvalA acvalR envA envR φ nP params)
+include hk hag
+
+/-- **THE READING LAW OF THE WALK** (PLAN-M7 §1b): at a term of the shape
+`AuxAppsOk` at depth `d` below the parameters, its walk `e'` resolving at
+the restored environment, and the two terms opened at the parameter
+openers `fvsP` and the depth's openers `fvs`, the restored reading
+interprets like the auxiliary one at every frame `consList xs (consList
+as ρ₀)` — `as` fitting the parameters, `xs` the `d` values — at which
+the restored reading is graded.  Induction on the shape: a key-headed
+application by the leaf agreements (`RestoreAgree.pin`/`.ctor`, the
+arguments unvisited by the walk and auxiliary-free, hence read alike by
+`denoteMeta_congr_auxFree`), a binder by `piR_congr`/`lamR_congr` under
+`WellDenoted`'s own clauses, an application componentwise, a constant by
+the leaf agreements, a variable and a sort as themselves. -/
+theorem denoteMeta_restoreWalk :
+    ∀ {d : Nat} {e : Expr}, AuxAppsOk R lps arityOf d e →
+      ∀ {e' : Expr}, ConLeche.restoreWalk R d e = .ok e' → e'.constsResolve envR = true →
+      ∀ {fvsP fvs : List Expr}, OpenersFrom fvsP 0 nP → OpenersFrom fvs nP d →
+      ∀ {A A' : AnnotTerm},
+        denoteMeta acvalA envA φ (nP + d) (Expr.instSeq (fvsP ++ fvs) (nP + d - 1) e) = some A →
+        denoteMeta acvalR envR φ (nP + d) (Expr.instSeq (fvsP ++ fvs) (nP + d - 1) e') = some A' →
+        ∀ (as xs : List V) (ρ₀ : Nat → V), SpineFit ρ₀ params as → xs.length = d →
+          WellDenoted V (consList xs (consList as ρ₀)) A' →
+          interp V (consList xs (consList as ρ₀)) A' = interp V (consList xs (consList as ρ₀)) A := by
+  intro d e h
+  induction h with
+  | @key d n args ar hkey har hlen htake hall _ =>
+    intro e' hw hres fvsP fvs hP hF A A' hA hA' as xs ρ₀ hsp hxs hwd
+    have hnP := hag.nPEq
+    have hV : OpenersFrom (fvsP ++ fvs) 0 (nP + d) := hP.append hF
+    have hfvV : ∀ a ∈ fvsP ++ fvs, ∃ i ty, a = Expr.fvar i ty := fun a ha => by
+      obtain ⟨i, hi⟩ := List.getElem?_of_mem ha
+      obtain ⟨ty, rfl⟩ := hV.2 i a hi
+      exact ⟨_, _, rfl⟩
+    have hclV := hV.closed
+    have hrec := hag.keyNotRec n hkey
+    -- the arguments past the parameters
+    have hargs : args = args.take R.nP ++ args.drop R.nP := (List.take_append_drop _ _).symm
+    have hrestLen : (args.drop R.nP).length = ar := by rw [List.length_drop, hlen]; omega
+    have hPs : (args.take R.nP).map (Expr.instSeq (fvsP ++ fvs) (nP + d - 1)) = fvsP := by
+      rw [htake, hnP]
+      exact ConLeche.map_instSeq_structPsAt_prefix fvsP fvs nP d hclV hP.1 hF.1
+    -- the auxiliary reading
+    rw [Expr.instSeq_mkAppN, hargs, List.map_append, hPs] at hA
+    obtain ⟨fa, vs, hfa, hspine, rfl⟩ := denoteMeta_mkAppN_inv hA
+    obtain ⟨vsP, Es, rfl, hspP, hspE⟩ := DenoteMetaSpine.append_inv hspine
+    have hvsP : vsP = paramBvarsAt nP (nP + d) := by
+      have h1 := denoteMetaSpine_fvars (acval := acvalA) (env := envA) (φ := φ) (nP + d) fvsP 0
+        (fun k x hx => hP.2 k x hx)
+      rw [hP.1, paramBvarsAt_eq_range] at h1
+      exact DenoteMetaSpine.unique hspP h1
+    subst hvsP
+    -- every argument past the parameters resolves at the restored environment, hence is
+    -- auxiliary-free, hence reads alike
+    have hEsR : DenoteMetaSpine acvalR envR φ (nP + d)
+        ((args.drop R.nP).map (Expr.instSeq (fvsP ++ fvs) (nP + d - 1))) Es := by
+      refine DenoteMetaSpine.congr_envs hspE fun x hx => ?_
+      obtain ⟨a, ha, rfl⟩ := List.mem_map.mp hx
+      have hfree : ∀ m ∈ R.auxNames, a.mentionsConst m = false := by
+        intro m hm
+        refine ConLeche.rk_mentionsConst_false_of_constsResolve ?_ (hag.auxFresh m hm)
+        rcases AuxAppsOk.key_inv (d := d) (lps := lps) hk hkey har hlen hrec with
+            ⟨pin, hpin, hw'⟩ | ⟨hp0, pin, newName, hc, hw'⟩
+        · rw [hw'] at hw
+          obtain rfl := Except.ok.inj hw
+          exact (constsResolve_mkAppN_args _ _ hres).2 a ha
+        · obtain ⟨-, -, ci, J, ilvls, ψJ, Ds, nF, -, -, -, hhead, -, -⟩ := hag.ctor n pin newName hc
+          rw [hw' J ilvls (hhead d)] at hw
+          obtain rfl := Except.ok.inj hw
+          exact (constsResolve_mkAppN_args _ _ hres).2 a ha
+      have hD : (fvsP ++ fvs).length = nP + d := hV.1
+      have := denoteMeta_congr_auxFree hk hag (hall a ha) hfree (fvsP ++ fvs) (nP + d) hD hfvV
+      exact this
+    have hEsLen : Es.length = ar := by
+      rw [← DenoteMetaSpine.length hspE, List.length_map, hrestLen]
+    -- the head's reading
+    rcases AuxAppsOk.key_inv (d := d) (lps := lps) hk hkey har hlen hrec with
+        ⟨pin, hpin, hw'⟩ | ⟨hp0, pin, newName, hc, hw'⟩
+    · -- a pin
+      obtain ⟨hbound, ci, J, ψJ, Ds, nIdx, hfA, hlpsA, harN, hread, hident⟩ := hag.pin n pin hpin
+      have hfa' : fa = acvalA n φ := by
+        rw [Expr.instSeq_eq_self _ _ (e := Expr.const n (lps.map .param)) rfl,
+          denoteMeta_const hfA (by rw [List.length_map, hlpsA])] at hfa
+        have := Option.some.inj hfa
+        rw [← this, hlpsA]
+        congr 1
+        funext q
+        exact Level.substFn_map_param
+      subst hfa'
+      rw [hw'] at hw
+      obtain rfl := Except.ok.inj hw
+      rw [Expr.instSeq_mkAppN] at hA'
+      have hlift : Expr.instSeq (fvsP ++ fvs) (nP + d - 1) (pin.liftLooseBVars d 0)
+          = Expr.instSeq fvsP (nP - 1) pin := by
+        have := Expr.instSeq_liftLooseBVars_prefix fvsP fvs (q := pin) hP.closed
+          (by rw [hP.1]; exact hbound)
+        rw [hP.1, hF.1] at this
+        exact this
+      rw [hlift] at hA'
+      obtain ⟨fa', vs', hfa', hspine', rfl⟩ := denoteMeta_mkAppN_inv hA'
+      rw [hread fvsP d hP] at hfa'
+      obtain rfl := Option.some.inj hfa'
+      obtain rfl := (DenoteMetaSpine.unique hspine' hEsR).symm
+      rw [← AnnotTerm.mkAppN_append] at hwd ⊢
+      have hnIdx : nIdx = ar := by
+        rw [harN] at har
+        exact Option.some.inj har
+      exact hident d as xs ρ₀ Es hsp hxs (by rw [hEsLen, hnIdx]) hwd
+    · -- a constructor pin
+      obtain ⟨hbound, -, ci, J, ilvls, ψJ, Ds, nF, hfA, hlpsA, harN, hhead, hread, hident⟩ :=
+        hag.ctor n pin newName hc
+      have hfa' : fa = acvalA n φ := by
+        rw [Expr.instSeq_eq_self _ _ (e := Expr.const n (lps.map .param)) rfl,
+          denoteMeta_const hfA (by rw [List.length_map, hlpsA])] at hfa
+        have := Option.some.inj hfa
+        rw [← this, hlpsA]
+        congr 1
+        funext q
+        exact Level.substFn_map_param
+      subst hfa'
+      rw [hw' J ilvls (hhead d)] at hw
+      obtain rfl := Except.ok.inj hw
+      rw [Expr.instSeq_mkAppN] at hA'
+      obtain ⟨fa', vs', hfa', hspine', rfl⟩ := denoteMeta_mkAppN_inv hA'
+      rw [hread fvsP fvs d hP hF] at hfa'
+      obtain rfl := Option.some.inj hfa'
+      obtain rfl := (DenoteMetaSpine.unique hspine' hEsR).symm
+      rw [← AnnotTerm.mkAppN_append] at hwd ⊢
+      have hnF : nF = ar := by
+        rw [harN] at har
+        exact Option.some.inj har
+      exact hident d as xs ρ₀ Es hsp hxs (by rw [hEsLen, hnF]) hwd
+  | @app d f a hnk _ _ ihf iha =>
+    intro e' hw hres fvsP fvs hP hF A A' hA hA' as xs ρ₀ hsp hxs hwd
+    obtain ⟨f', a', hwf, hwa, rfl⟩ := ConLeche.restoreWalk_app_inv hnk hw
+    simp only [Expr.constsResolve, Bool.and_eq_true] at hres
+    rw [Expr.instSeq_app] at hA hA'
+    obtain ⟨fA, aA, hfA, haA, rfl⟩ := denoteMeta_app_inv hA
+    obtain ⟨fA', aA', hfA', haA', rfl⟩ := denoteMeta_app_inv hA'
+    rw [WellDenoted_app] at hwd
+    rw [interp_app, interp_app, ihf hwf hres.1 hP hF hfA hfA' as xs ρ₀ hsp hxs hwd.1,
+      iha hwa hres.2 hP hF haA haA' as xs ρ₀ hsp hxs hwd.2.1]
+  | @lam d ty b bm _ _ ihty ihb =>
+    intro e' hw hres fvsP fvs hP hF A A' hA hA' as xs ρ₀ hsp hxs hwd
+    obtain ⟨ty', b', hwty, hwb, rfl⟩ := ConLeche.restoreWalk_lam_inv hw
+    simp only [Expr.constsResolve, Bool.and_eq_true] at hres
+    have hV : OpenersFrom (fvsP ++ fvs) 0 (nP + d) := hP.append hF
+    rw [ConLeche.instSeq_lam _ _ _ _ _ (by rw [hV.1]; omega)] at hA hA'
+    obtain ⟨tA, bA, htA, hbA, rfl⟩ := denoteMeta_lam_inv hA
+    obtain ⟨tA', bA', htA', hbA', rfl⟩ := denoteMeta_lam_inv hA'
+    rw [WellDenoted_lam] at hwd
+    have hty := ihty hwty hres.1 hP hF htA htA' as xs ρ₀ hsp hxs hwd.1
+    -- the bodies at the same opener (the annotation is invisible to the reading)
+    have hopen : ∀ (X TY : Expr),
+        (Expr.instSeq (fvsP ++ fvs) (nP + d - 1 + 1) X).instantiate1 (.fvar (nP + d) TY) 0
+          = Expr.instSeq (fvsP ++ (fvs ++ [Expr.fvar (nP + d) TY])) (nP + (d + 1) - 1) X := by
+      intro X TY
+      rw [← List.append_assoc, show nP + (d + 1) - 1 = nP + d from by omega,
+        ConLeche.instSeq_snoc_at hV.1]
+      rcases Nat.eq_zero_or_pos (nP + d) with h0 | hpos
+      · have hnil : fvsP ++ fvs = [] := List.eq_nil_of_length_eq_zero (by rw [hV.1, h0])
+        rw [hnil]
+        rfl
+      · rw [show nP + d - 1 + 1 = nP + d from by omega]
+    rw [hopen] at hbA
+    rw [denoteMeta_congr_eraseAnnots _ _
+        ((Expr.instSeq (fvsP ++ fvs) (nP + d - 1 + 1) b').instantiate1
+          (.fvar (nP + d) (Expr.instSeq (fvsP ++ fvs) (nP + d - 1) ty)) 0)
+        (by rw [ConLeche.Expr.eraseAnnots_instantiate1, ConLeche.Expr.eraseAnnots_instantiate1]; rfl),
+      hopen] at hbA'
+    have hF' := hF.snoc (Expr.instSeq (fvsP ++ fvs) (nP + d - 1) ty)
+    rw [interp_lam, interp_lam, hty]
+    refine lamR_congr fun x hx => ?_
+    have hwdb := hwd.2.1 x (by rw [hty]; exact hx)
+    have := ihb hwb hres.2 hP hF' hbA hbA' as (xs ++ [x]) ρ₀ hsp
+      (by rw [List.length_append, List.length_singleton, hxs])
+      (by rw [consList_append, consList_cons, consList_nil]; exact hwdb)
+    rw [consList_append, consList_cons, consList_nil] at this
+    exact this
+  | @forallE d ty b bm _ _ ihty ihb =>
+    intro e' hw hres fvsP fvs hP hF A A' hA hA' as xs ρ₀ hsp hxs hwd
+    obtain ⟨ty', b', hwty, hwb, rfl⟩ := ConLeche.restoreWalk_forallE_inv hw
+    simp only [Expr.constsResolve, Bool.and_eq_true] at hres
+    have hV : OpenersFrom (fvsP ++ fvs) 0 (nP + d) := hP.append hF
+    rw [Expr.instSeq_forallE _ _ _ _ _ (by rw [hV.1]; omega)] at hA hA'
+    obtain ⟨tA, bA, htA, hbA, rfl⟩ := denoteMeta_forallE_inv hA
+    obtain ⟨tA', bA', htA', hbA', rfl⟩ := denoteMeta_forallE_inv hA'
+    rw [WellDenoted_pi] at hwd
+    have hty := ihty hwty hres.1 hP hF htA htA' as xs ρ₀ hsp hxs hwd.1
+    have hopen : ∀ (X TY : Expr),
+        (Expr.instSeq (fvsP ++ fvs) (nP + d - 1 + 1) X).instantiate1 (.fvar (nP + d) TY) 0
+          = Expr.instSeq (fvsP ++ (fvs ++ [Expr.fvar (nP + d) TY])) (nP + (d + 1) - 1) X := by
+      intro X TY
+      rw [← List.append_assoc, show nP + (d + 1) - 1 = nP + d from by omega,
+        ConLeche.instSeq_snoc_at hV.1]
+      rcases Nat.eq_zero_or_pos (nP + d) with h0 | hpos
+      · have hnil : fvsP ++ fvs = [] := List.eq_nil_of_length_eq_zero (by rw [hV.1, h0])
+        rw [hnil]
+        rfl
+      · rw [show nP + d - 1 + 1 = nP + d from by omega]
+    rw [hopen] at hbA
+    rw [denoteMeta_congr_eraseAnnots _ _
+        ((Expr.instSeq (fvsP ++ fvs) (nP + d - 1 + 1) b').instantiate1
+          (.fvar (nP + d) (Expr.instSeq (fvsP ++ fvs) (nP + d - 1) ty)) 0)
+        (by rw [ConLeche.Expr.eraseAnnots_instantiate1, ConLeche.Expr.eraseAnnots_instantiate1]; rfl),
+      hopen] at hbA'
+    have hF' := hF.snoc (Expr.instSeq (fvsP ++ fvs) (nP + d - 1) ty)
+    rw [interp_pi, interp_pi, hty]
+    refine piR_congr fun x hx => ?_
+    have hwdb := hwd.2 x (by rw [hty]; exact hx)
+    have := ihb hwb hres.2 hP hF' hbA hbA' as (xs ++ [x]) ρ₀ hsp
+      (by rw [List.length_append, List.length_singleton, hxs])
+      (by rw [consList_append, consList_cons, consList_nil]; exact hwdb)
+    rw [consList_append, consList_cons, consList_nil] at this
+    exact this
+  | @const d n us _ hcase =>
+    intro e' hw _ fvsP fvs _ _ A A' hA hA' as xs ρ₀ _ _ _
+    rcases hcase with hn | hr
+    · rw [ConLeche.restoreWalk_const_free hn] at hw
+      obtain rfl := Except.ok.inj hw
+      rw [Expr.instSeq_eq_self _ _ (e := Expr.const n us) rfl] at hA hA'
+      cases hfA : envA.find? n with
+      | none => rw [denoteMeta, hfA] at hA; exact nomatch hA
+      | some ci =>
+        obtain ⟨ci', hfR, hlps⟩ := hag.leafSome n hn ci hfA
+        rw [denoteMeta, hfA] at hA
+        rw [denoteMeta, hfR] at hA'
+        dsimp only at hA hA'
+        by_cases hl : us.length = ci.toConstantVal.levelParams.length
+        · rw [if_pos hl] at hA
+          rw [if_pos (by rw [hlps]; exact hl)] at hA'
+          obtain rfl := Option.some.inj hA
+          obtain rfl := Option.some.inj hA'
+          rw [hlps, hag.leaf n hn]
+        · rw [if_neg hl] at hA; exact nomatch hA
+    · obtain ⟨n', hr'⟩ := Option.isSome_iff_exists.mp hr
+      have hn : n ∈ R.auxNames := hk.2.2 n n' hr'
+      rw [ConLeche.restoreWalk_const_rec hr' hn] at hw
+      obtain rfl := Except.ok.inj hw
+      rw [Expr.instSeq_eq_self _ _ (e := Expr.const n us) rfl] at hA
+      rw [Expr.instSeq_eq_self _ _ (e := Expr.const n' us) rfl] at hA'
+      cases hfA : envA.find? n with
+      | none => rw [denoteMeta, hfA] at hA; exact nomatch hA
+      | some ci =>
+        obtain ⟨ci', hfR, hlps, hleaf⟩ := hag.recKey n n' hr' ci hfA
+        rw [denoteMeta, hfA] at hA
+        rw [denoteMeta, hfR] at hA'
+        dsimp only at hA hA'
+        by_cases hl : us.length = ci.toConstantVal.levelParams.length
+        · rw [if_pos hl] at hA
+          rw [if_pos (by rw [hlps]; exact hl)] at hA'
+          obtain rfl := Option.some.inj hA
+          obtain rfl := Option.some.inj hA'
+          rw [hlps, hleaf]
+        · rw [if_neg hl] at hA; exact nomatch hA
+  | @bvar d i =>
+    intro e' hw _ fvsP fvs hP hF A A' hA hA' as xs ρ₀ _ _ _
+    rw [ConLeche.restoreWalk_bvar] at hw
+    obtain rfl := Except.ok.inj hw
+    have hV : OpenersFrom (fvsP ++ fvs) 0 (nP + d) := hP.append hF
+    rcases instSeq_bvar_cases (fvsP ++ fvs) (nP + d - 1) i hV.closed with ⟨x, hx, hxe⟩ | ⟨j, hj⟩
+    · obtain ⟨k, hk'⟩ := List.getElem?_of_mem hx
+      obtain ⟨ty, rfl⟩ := hV.2 k x hk'
+      rw [hxe, denoteMeta_fvar] at hA hA'
+      obtain rfl := Option.some.inj hA
+      obtain rfl := Option.some.inj hA'
+      rfl
+    · rw [hj, denoteMeta_bvar] at hA
+      exact nomatch hA
+  | @sort d u =>
+    intro e' hw _ fvsP fvs _ _ A A' hA hA' as xs ρ₀ _ _ _
+    rw [ConLeche.restoreWalk_sort] at hw
+    obtain rfl := Except.ok.inj hw
+    rw [Expr.instSeq_eq_self _ _ (e := Expr.sort u) rfl, denoteMeta_sort] at hA hA'
+    obtain rfl := Option.some.inj hA
+    obtain rfl := Option.some.inj hA'
+    rfl
+  | @fvar d i ty =>
+    intro e' hw _ fvsP fvs _ _ A A' hA hA' as xs ρ₀ _ _ _
+    rw [ConLeche.restoreWalk_fvar] at hw
+    obtain rfl := Except.ok.inj hw
+    rw [instSeq_fvar_idx, denoteMeta_fvar] at hA hA'
+    obtain rfl := Option.some.inj hA
+    obtain rfl := Option.some.inj hA'
+    rfl
+
+end Walk
 
 end ConLeche.Model
