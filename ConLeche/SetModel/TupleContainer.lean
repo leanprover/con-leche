@@ -11,7 +11,7 @@ public import ConLeche.SetModel.TaggedSum
 
 The least pre-fixed TUPLE of a block's operator (`lfpTuple`,
 `ConLeche/SetTheory/Derive/LfpTuple.lean`) is a fixed point only under a
-closed tuple, and the uniform datum's `functor` clause records one
+closed tuple, and the uniform block model's `functor` clause records one
 (`∃ L, IsClosedTuple …`).  This module supplies it for every block
 whose operator is presented as a **member container per component**:
 an element of component `m`'s fibre at `i` is `mk m a g` for a shape
@@ -29,7 +29,7 @@ a tuple of families over `Is` is one family over `unionIdx k Is =
 operator is one container over that union (the shapes tagged by their
 member), and the closed family the container theorem yields splits
 back into a closed tuple.  The union is a device of THIS proof: it is
-neither a carrier nor an index set of the datum, exactly as
+neither a carrier nor an index set of the block model, exactly as
 `UnionRec.lean`'s union of values is the recursor's index set only.
 
 Two further forms complete (W):

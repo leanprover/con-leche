@@ -289,8 +289,8 @@ def mutualIhPis (nF o : Nat) (pw : PropWhen) (teleOf : Nat → List (Expr × Bin
       (mutualIhPis nF o pw teleOf idxOf is (l + 1) body) ⟨pw⟩
 
 /-- A constructor's minor premise: its field telescope lifted under the
-`o` extras (`k` motives and the earlier minors), every binder's datum
-reset to the elimination datum, then the `ih` binders, ending in
+`o` extras (`k` motives and the earlier minors), every binder's block model
+reset to the elimination block model, then the `ih` binders, ending in
 `motive_{m} e⃗ (C p⃗ f⃗)` at the constructor's own member `m`
 (`structMinorTyR`). -/
 def mutualMinorTy (lps : List Name) (nP o : Nat) (pw : PropWhen) (c : MutualCtor4) :

@@ -11,7 +11,7 @@ public section
 /-!
 # `tupleLfpAV` — the `k`-ary least fixed point as a DERIVED term former (task #315, M4)
 
-The uniform datum records a block as the least pre-fixed TUPLE of an
+The uniform block model records a block as the least pre-fixed TUPLE of an
 operator on tuples of families (`lfpTuple`).  The term language has
 one fixpoint primitive, `lfpFam`, over a single index set; rather than
 add a tuple primitive (28 `interp`-unfolding sites, every tier above),
@@ -33,7 +33,7 @@ expressions `Ess₀`:
   least fixed point at the index tuple;
 * `tupleLfpΦ W w ρp k Idss mems nFs tgts rss tlss Eiss₀ Fss₀ Ess₀` — the
   block's tuple operator at a parameter frame, a meta-level function
-  on tuples of families (the datum's `Φ`);
+  on tuples of families (the block model's `Φ`);
 * `TupleLfpOk` — the premise at a parameter frame (the block's chains
   graded);
 * the laws: **`tupleLfpAV_fold`** (the interp law: the leaf at fitting
@@ -44,7 +44,7 @@ expressions `Ess₀`:
   of the mutual install at the API** (`stageTupleFormers`: the run of
   `mutualFormers` conses the `k` members with their `k`-ary leaves,
   every member stored with its data crossed and its leaf typed — what
-  `FormersTyped` and `BlockRep.former` read).  The stage's premises are
+  `FormersTyped` and `IsBlockModel.former` read).  The stage's premises are
   two further sealed `Prop`s, `TupleLfpBlockOk` (stability and
   closedness of the block's data) and, per member, `TupleLfpStageOk`
   (the chains graded at the member's parameter frames); their
@@ -280,7 +280,7 @@ variable {W w : Nat} {k : Nat} {Ids : Nat → List AnnotTerm} {mems nFs : List N
   {Eiss₀ : List (List (List AnnotTerm))} {Fss₀ Ess₀ : List (List AnnotTerm)}
 
 /-- **`Φ` is a monotone, space-preserving tuple functor with a closed
-tuple** (the datum's `functor` clause), from the premise. -/
+tuple** (the block model's `functor` clause), from the premise. -/
 theorem tupleLfpΦ_functor {ρp : Nat → V}
     (h : TupleLfpOk W w ρp k Ids mems nFs tgts rss tlss Eiss₀ Fss₀ Ess₀) :
     MonoTuple w k (fun m => idxSet W ρp (Ids m))
@@ -293,7 +293,7 @@ theorem tupleLfpΦ_functor {ρp : Nat → V}
   ⟨splitFun_mono henc (fixFunVI_mono h.2), splitFun_maps henc (fixFunVI_maps h.2),
     splitFun_closed_exists henc (fixFunVI_closed_exists h.2)⟩
 
-/-- **The interp law** (the datum's `leaf` clause): member `m`'s leaf
+/-- **The interp law** (the block model's `leaf` clause): member `m`'s leaf
 at a spine fitting its parameters and its own indices is the `m`-th
 component of the block's least fixed point at the index tuple — the
 tower of the index spine. -/
@@ -479,8 +479,8 @@ members consed with their `k`-ary leaves (`tupleLfpAV … t`), the
 model's leaves off the block the pre-block model's, and every member
 stored at the formers' environment with the block's empty capability
 record, its data crossed to the formers' model and its leaf typed at
-its former's reading (what `FormersTyped` and `BlockRep.former` read
-at the datum).  Premises: the block premise, and per member its
+its former's reading (what `FormersTyped` and `IsBlockModel.former` read
+at the block model).  Premises: the block premise, and per member its
 binder data at the pre-block model and its member premise. -/
 theorem stageTupleFormers {F nP : Nat} {resSort : Level} {lps : List Name}
     {W : (Name → Nat) → Nat} {k : Nat} {Ids : (Name → Nat) → Nat → List AnnotTerm}
@@ -550,7 +550,7 @@ theorem stageTupleFormers {F nP : Nat} {resSort : Level} {lps : List Name}
 
 /-! ## The fibre law (sealed)
 
-The datum's `fibre` clause at the derived former: component `mm`'s
+The block model's `fibre` clause at the derived former: component `mm`'s
 fibre of the operator at `(X, t)` is the set of the tagged towers of
 the spines fitting one of member `mm`'s constructors at `(X, t)` — a
 recursive field read at the TARGET member's component of `X`, the
@@ -819,7 +819,7 @@ theorem tagTerm_iff (hT : TagOk W ρp (tupleIdss k Ids)) {mem : Nat} (hmem : mem
       exact this
     rw [hv]
 
-/-- **The fibre of the operator** (the datum's `fibre` clause):
+/-- **The fibre of the operator** (the block model's `fibre` clause):
 component `mm`'s fibre at `(X, t)` is the set of the tagged towers
 `injW w J ⟨f⃗, pt⟩` of the spines `f⃗` fitting one of member `mm`'s
 constructors `J` at `(X, t)` — a recursive field read at the target

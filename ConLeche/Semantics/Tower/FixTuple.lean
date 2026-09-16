@@ -8,11 +8,11 @@ public import ConLeche.SetTheory.Derive.LfpTuple
 # The native leaf is the one-member block (task #315)
 
 The ONE fixpoint route's type-former leaf is `fixFamI = lfpFamSet w I
-fixFunVI` (`FixLeafI.lean`).  The uniform route's datum is a block of
+fixFunVI` (`FixLeafI.lean`).  The uniform route's block model is a block of
 `k` families as one least pre-fixed TUPLE (`lfpTuple`,
 `ConLeche/SetTheory/Derive/LfpTuple.lean`); at `k = 1` the two agree
 with no hypothesis (`lfpTuple_one`), so every native block already IS
-a one-member block of the uniform datum — the statement the route
+a one-member block of the uniform block model — the statement the route
 keeps while it generalises the installer to `k` members.
 -/
 

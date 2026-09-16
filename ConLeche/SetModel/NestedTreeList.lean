@@ -13,9 +13,9 @@ The nested half of the falsifying experiment.  The block
 is modelled **uniformly**: there is ONE block, of ONE member, whose
 operator is the *composite* of the node arm with the container's
 carrier — no auxiliary block, no copy of `List`.  The container is an
-**abstract, SAT-GUARDED datum** (`NestedSig` + `ContainerOk`): its
+**abstract, SAT-GUARDED block model** (`NestedSig` + `ContainerOk`): its
 laws are stated only under the guard `α ∈ˢ univ w'`, `univ w'` being
-the parameter's domain, exactly as the datum's `Sat` guard does.  That
+the parameter's domain, exactly as the block model's `Sat` guard does.  That
 is what distinguishes this experiment from the earlier ones
 (`SetTheory/Derive/BekicTreeList.lean`,
 `SetModel/DirectTreeList.lean`), whose container operators were TOTAL
@@ -73,17 +73,17 @@ universe u
 
 variable {V : Type u} [SetTheory V]
 
-/-! ## The block's data: the tree side and the container datum -/
+/-! ## The block's data: the tree side and the container block model -/
 
 /-- The data of the nested block `Tree ::= node (List Tree)`: the tree
-side (`UT`, `mkNode`) and the container datum (`mkNil`, `mkCons`, the
+side (`UT`, `mkNode`) and the container block model (`mkNil`, `mkCons`, the
 set-level family functor `LΦ` in the parameter, and the two levels —
 `w` the value level, `w'` the container's parameter sort). -/
 structure NestedSig (V : Type u) [SetTheory V] where
   /-- The value level: every carrier lives in `univ w`. -/
   w : Nat
   /-- The container's parameter sort level: `List`'s parameter domain
-  is `univ w'`, and the datum's clauses are guarded by it. -/
+  is `univ w'`, and the block model's clauses are guarded by it. -/
   w' : Nat
   /-- The ambient bound of the tree carrier. -/
   UT : V
@@ -97,7 +97,7 @@ structure NestedSig (V : Type u) [SetTheory V] where
   `LΦ α` is a graph on `famSpace w unitSet` (`List` has no indices). -/
   LΦ : V → V
 
-/-- The laws of the datum — the container's clauses **only under the
+/-- The laws of the block model — the container's clauses **only under the
 guard** `α ∈ˢ univ w'`, the tree side's bound total. -/
 structure ContainerOk (S : NestedSig V) : Prop where
   /-- The ambient bound is a set of the value level. -/
@@ -138,7 +138,7 @@ theorem mem_univ_w' {S : NestedSig V} (hw : S.w ≤ S.w') {x : V} (hx : x ∈ˢ 
 /-! ## The container's carrier at a parameter, and its map action -/
 
 /-- `⟦List⟧ α` — the container's LEAF at the parameter value `α`, the
-datum's `leaf` clause shape. -/
+block model's `leaf` clause shape. -/
 noncomputable def listAt (S : NestedSig V) (α : V) : V :=
   app (lfpFamSet S.w unitSet (S.LΦ α)) pt
 

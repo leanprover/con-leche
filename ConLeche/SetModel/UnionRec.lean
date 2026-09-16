@@ -23,7 +23,7 @@ Abstractly, over a tuple functor `Φ` with carrier `L = lfpTuple w k Is
 
 * `PredsFrom`: an element built by `Φ` from a tuple `X` has all its
   predecessors in `X`'s union — the one fact the constructor
-  decomposition (the datum's `fibre`) must supply;
+  decomposition (the block model's `fibre`) must supply;
 * every value of the carrier is accessible (`unionAcc_all`), by
   SIMULTANEOUS lfp induction (`lfpTuple_induction`);
 * hence the recursor's graph has exactly one value at every union

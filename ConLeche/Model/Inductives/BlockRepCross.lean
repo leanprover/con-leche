@@ -10,14 +10,14 @@ import ConLeche.Kernel.Inductives.MutualInstall
 public section
 
 /-!
-# The uniform datum across an environment change (task #315 U-9, M4 s4b)
+# The uniform block model across an environment change (task #315 U-9, M4 s4b)
 
 The block's representation is read once, at the environment holding the
 members and their constructors, and consumed at two LATER
 environments: the one the `k` recursors are provisioned rule-less at
 (`provisionMutualRecs`) and the one they are stored at with their
 rules (a rule-list swap of the former).  This file transports the
-datum — and its companions — across both, with ONE generic lemma per
+block model — and its companions — across both, with ONE generic lemma per
 structure.
 
 The two changes are crossed uniformly by four hypotheses relating two
@@ -63,7 +63,7 @@ variable {V : Type w} [SetTheory V]
 `ConstsBound env₀ e` to refute the `.const` clause's unfound branch and
 to feed the binder cases' `instantiate1`; a SUCCESSFUL reading refutes
 that branch by itself (the clause is `none` there), and the binder
-cases then need nothing.  Dropping the premise is what lets the datum's
+cases then need nothing.  Dropping the premise is what lets the block model's
 opened readings cross with no `openPisAtFvars` detour. -/
 theorem denoteMeta_env_mono {env₁ env₂ : Env}
     {acval : Name → (Name → Nat) → AnnotTerm} {φ : Name → Nat}
@@ -173,7 +173,7 @@ theorem DenoteMetaSpine.crossEnv {acval₁ acval₂ : Name → (Name → Nat) �
   | [], _, .nil => .nil
   | _ :: _, _ :: _, .cons ha h => .cons (hde _ ha) (DenoteMetaSpine.crossEnv hde h)
 
-/-! ## The datum's structures across the change -/
+/-! ## The block model's structures across the change -/
 
 /-- The former's data crosses any change the readings cross. -/
 theorem FormerData.crossEnv' {env₁ env₂ : Env} {m₁ : EnvModel V env₁} {m₂ : EnvModel V env₂}
@@ -280,10 +280,10 @@ types' readings by `hde`, the members' and constructors' lookups by
 `hF` (neither is a recursor entry), the residual index arguments by
 `hres`, and the leaf and constructor equations by `hag` — every name
 they value is stored (`memsFound`, the constructors' own lookups).
-Everything else is the datum's and moves unchanged. -/
-theorem BlockRep.crossEnv {env₁ env₂ : Env} {m₁ : EnvModel V env₁} {m₂ : EnvModel V env₂}
+Everything else is the block model's and moves unchanged. -/
+theorem IsBlockModel.crossEnv {env₁ env₂ : Env} {m₁ : EnvModel V env₁} {m₂ : EnvModel V env₂}
     {T : Name} {cvT cvR : ConstantVal} {mI rP : Nat} {rules : List RecRule}
-    {d : BlockRepData V} {mm : Nat}
+    {d : BlockModel V} {mm : Nat}
     (hF : ∀ (n : Name) (ci : ConstantInfo),
       (∀ cv mI rP rules, ci ≠ .recInfo cv mI rP rules) →
       env₁.find? n = some ci → env₂.find? n = some ci)
@@ -291,8 +291,8 @@ theorem BlockRep.crossEnv {env₁ env₂ : Env} {m₁ : EnvModel V env₁} {m₂
     (hag : ∀ n : Name, (env₁.find? n).isSome = true → m₂.acval n = m₁.acval n)
     (hde : ∀ (ψ : Name → Nat) (dp : Nat) (e : Expr) {ea : AnnotTerm},
       denoteMeta m₁.acval env₁ ψ dp e = some ea → denoteMeta m₂.acval env₂ ψ dp e = some ea)
-    (h : BlockRep m₁ T cvT cvR mI rP rules d mm) :
-    BlockRep m₂ T cvT cvR mI rP rules d mm := by
+    (h : IsBlockModel m₁ T cvT cvR mI rP rules d mm) :
+    IsBlockModel m₂ T cvT cvR mI rP rules d mm := by
   have hmem : ∀ mm', mm' < d.k → (env₁.find? (d.memberName mm')).isSome = true := by
     intro mm' hmm'
     obtain ⟨cv, caps, hf⟩ := h.memsFound mm' hmm'
@@ -342,8 +342,8 @@ theorem BlockRep.crossEnv {env₁ env₂ : Env} {m₁ : EnvModel V env₁} {m₂
       mkInj := h.mkInj }
 
 /-- The block at every member crosses the change. -/
-theorem BlockReps.crossEnv {env₁ env₂ : Env} {m₁ : EnvModel V env₁} {m₂ : EnvModel V env₂}
-    {d : BlockRepData V}
+theorem IsBlockModels.crossEnv {env₁ env₂ : Env} {m₁ : EnvModel V env₁} {m₂ : EnvModel V env₂}
+    {d : BlockModel V}
     (hF : ∀ (n : Name) (ci : ConstantInfo),
       (∀ cv mI rP rules, ci ≠ .recInfo cv mI rP rules) →
       env₁.find? n = some ci → env₂.find? n = some ci)
@@ -351,8 +351,8 @@ theorem BlockReps.crossEnv {env₁ env₂ : Env} {m₁ : EnvModel V env₁} {m�
     (hag : ∀ n : Name, (env₁.find? n).isSome = true → m₂.acval n = m₁.acval n)
     (hde : ∀ (ψ : Name → Nat) (dp : Nat) (e : Expr) {ea : AnnotTerm},
       denoteMeta m₁.acval env₁ ψ dp e = some ea → denoteMeta m₂.acval env₂ ψ dp e = some ea)
-    (h : BlockReps m₁ d) :
-    BlockReps m₂ d := by
+    (h : IsBlockModels m₁ d) :
+    IsBlockModels m₂ d := by
   intro c hc
   obtain ⟨cvT, cvR, mI, rP, rules, hb⟩ := h c hc
   exact ⟨cvT, cvR, mI, rP, rules, hb.crossEnv hF hres hag hde⟩
@@ -360,9 +360,9 @@ theorem BlockReps.crossEnv {env₁ env₂ : Env} {m₁ : EnvModel V env₁} {m�
 /-- The members' typing crosses the change: the member names are
 stored (`hreps`), so `hag` values them alike. -/
 theorem FormersTyped.crossEnv {env₁ env₂ : Env} {m₁ : EnvModel V env₁} {m₂ : EnvModel V env₂}
-    {d : BlockRepData V} {ψ : Name → Nat}
+    {d : BlockModel V} {ψ : Name → Nat}
     (hag : ∀ n : Name, (env₁.find? n).isSome = true → m₂.acval n = m₁.acval n)
-    (hreps : BlockReps m₁ d) (h : FormersTyped m₁ d ψ) :
+    (hreps : IsBlockModels m₁ d) (h : FormersTyped m₁ d ψ) :
     FormersTyped m₂ d ψ := by
   intro t ht ρ
   obtain ⟨cvT, cvR, mI, rP, rules, hb⟩ := hreps t ht
@@ -373,9 +373,9 @@ theorem FormersTyped.crossEnv {env₁ env₂ : Env} {m₁ : EnvModel V env₁} {
 /-- The constructors' typing crosses the change: both the
 constructor's own name and its member's are stored (`hreps`). -/
 theorem CtorsTyped.crossEnv {env₁ env₂ : Env} {m₁ : EnvModel V env₁} {m₂ : EnvModel V env₂}
-    {d : BlockRepData V} {ψ : Name → Nat}
+    {d : BlockModel V} {ψ : Name → Nat}
     (hag : ∀ n : Name, (env₁.find? n).isSome = true → m₂.acval n = m₁.acval n)
-    (hreps : BlockReps m₁ d) (h : CtorsTyped m₁ d ψ) :
+    (hreps : IsBlockModels m₁ d) (h : CtorsTyped m₁ d ψ) :
     CtorsTyped m₂ d ψ := by
   intro c hc j cA hj ρ
   obtain ⟨cvT, cvR, mI, rP, rules, hb⟩ := hreps c hc

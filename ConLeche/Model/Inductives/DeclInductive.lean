@@ -20,12 +20,12 @@ dispatch; its conclusion a model of the post-block environment.
 Today the dispatch (`DeclIndRunDispatch`, `Semantics/Inductives/DeclNative.lean`)
 has three arms — the ONE fixpoint route (`checkNative`, task #210) for a
 recognised single block, the native mutual route (`checkMutual`, task
-#315 M4: `declMutual`, the block as ONE datum) for a recognised mutual
+#315 M4: `declMutual`, the block as ONE block model) for a recognised mutual
 block, and the modeled route (`checkModeled`) for the nested rest — and
 the proof below is the fold's own case split (`declStep_preserves`,
 `Model/Fold.lean`).  The uniform route (DESIGN §U.1) changes what
 stands under this statement, milestone by milestone — a nested block's
-shape check at the composed datum, the modeled arm deleted — and never
+shape check at the composed block model, the modeled arm deleted — and never
 the statement.
 -/
 

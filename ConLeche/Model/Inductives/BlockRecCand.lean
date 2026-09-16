@@ -5,13 +5,13 @@ public import ConLeche.SetModel.UnionRec
 public section
 
 /-!
-# The block's recursor candidate, over the datum (task #315, M3)
+# The block's recursor candidate, over the block model (task #315, M3)
 
 The uniform route's recursors are the projections of ONE chosen tuple
 pinned by its ι equations (DESIGN §U.4, `Semantics/Tower/SigChainI.lean`).
 The tuple's EXISTENCE is the block's union recursor at the frame's
-motives and minors: this file defines that candidate over the datum
-`BlockRep`, as data — the recursion kit's predecessor map, bound and
+motives and minors: this file defines that candidate over the block model
+`IsBlockModel`, as data — the recursion kit's predecessor map, bound and
 step (`kitPred`/`kitB`/`kitSt`), the union recursor at them
 (`blockRecAt`), a member's value at a leaf frame of its recursor type
 (`blockLeafV`: the frame's motives, minors, index values and major
@@ -19,7 +19,7 @@ read off by position), and the λ-tower over the recursor type's binder
 data (`blockCand`).
 
 The first of the kit's three obligations, **`PredsFrom`**
-(`BlockRep.kitPred_from`), is proved here: the datum's `fibre` read at
+(`IsBlockModel.kitPred_from`), is proved here: the block model's `fibre` read at
 the recursive positions — the value is `inj c j f⃗` with `f⃗` fitting
 constructor `j`'s entries at `X` (`ChainFit`), the decode unique by
 `mkInj`, a recursive field's value in its slot (the target member's
@@ -35,7 +35,7 @@ equations at the candidate are M3's remaining sessions (DESIGN §U.4
 Conventions.  A union element is `tagged c i x` (`UnionRec.lean`):
 class `c` = the member, `i` its index tuple, `x` the value.  The step
 decodes `x` into member `c`'s constructor `j` and field spine `f⃗`
-through `BlockRep.mkInj` (classical choice; the datum's `inj` stays
+through `IsBlockModel.mkInj` (classical choice; the block model's `inj` stays
 abstract).  Member `c`'s constructor `j` is the block's minor
 `minorIdx c j` (the minors are in block order: member `0`'s
 constructors, then member `1`'s, …).
@@ -53,9 +53,9 @@ universe w
 
 variable {V : Type w} [SetTheory V]
 
-namespace BlockRepData
+namespace BlockModel
 
-variable (d : BlockRepData V)
+variable (d : BlockModel V)
 
 /-- The block's minor index of member `mm`'s constructor `j`. -/
 @[expose] def minorIdx (mm j : Nat) : Nat :=
@@ -114,7 +114,7 @@ call's element. -/
             (fs.getD i' pt)))
 
 /-- The value's constructor and fields, when it has them (unique by
-`BlockRep.mkInj` at `w ≠ 0`). -/
+`IsBlockModel.mkInj` at `w ≠ 0`). -/
 @[expose] def Decodes (ψ : Name → Nat) (c : Nat) (x : V) : Prop :=
   ∃ (j : Nat) (fs : List V), j < (d.ctorsM c).length ∧
     fs.length = ((d.Fss c ψ).getD j []).length ∧ x = d.inj ψ c j fs
@@ -165,7 +165,7 @@ leaf is the union recursor at the frame. -/
     (mm : Nat) (ρ : Nat → V) : V :=
   lamTower ℓ ρ rds (d.blockLeafV ψ ℓ mm)
 
-end BlockRepData
+end BlockModel
 
 /-! ## Kit -/
 
@@ -220,18 +220,18 @@ theorem rsOf_getD_true_lt {ks : List RecFieldKind} {i : Nat} (h : (rsOf ks).getD
     rw [List.getD_eq_getElem?_getD, List.getElem?_eq_none (by simpa [rsOf] using hi)] at h
     exact nomatch h
 
-/-! ## `PredsFrom` at the datum -/
+/-! ## `PredsFrom` at the block model -/
 
-namespace BlockRep
+namespace IsBlockModel
 
 variable {m : EnvModel V env} {T : Name} {cvT cvR : ConstantVal} {mI rP : Nat}
-  {rules : List RecRule} {d : BlockRepData V} {mm : Nat}
-  (h : BlockRep m T cvT cvR mI rP rules d mm)
+  {rules : List RecRule} {d : BlockModel V} {mm : Nat}
+  (h : IsBlockModel m T cvT cvR mI rP rules d mm)
 include h
 
 /-- **The predecessors come from the argument tuple**: at any tuple `X`
 in the tuple space, a value of `Φ X c` at an index tuple has every
-`kitPred` predecessor in `X`'s union — the datum's `fibre` read at the
+`kitPred` predecessor in `X`'s union — the block model's `fibre` read at the
 recursive positions. -/
 theorem kitPred_from {ψ : Name → Nat} {ρp : Nat → V} (hρp : Sat V (d.params ψ).reverse ρp)
     (hw : d.w ψ ≠ 0) :
@@ -246,11 +246,11 @@ theorem kitPred_from {ψ : Name → Nat} {ρp : Nat → V} (hρp : Sat V (d.para
   -- the field's value is in its slot at the prefix
   have hmem := hfit.1.rec_mem i'' hi''F (by rw [Nat.zero_add]; exact hrec)
   rw [Nat.zero_add] at hmem
-  unfold BlockRepData.slotAt at hmem
+  unfold BlockModel.slotAt at hmem
   -- the target is a member
   have hi''K : i'' < (d.ksF c j).length := by
     have hj' : j < (d.ctorsM c).length := hj
-    rw [BlockRepData.rss, rssOfK_getD hj'] at hrec
+    rw [BlockModel.rss, rssOfK_getD hj'] at hrec
     exact rsOf_getD_true_lt hrec
   have htgt : d.tgts c j i'' < d.k := h.tgtsLt c j i'' hc hj hi''K
   have hXt := hX _ htgt
@@ -260,6 +260,6 @@ theorem kitPred_from {ψ : Name → Nat} {ρp : Nat → V} (hρp : Sat V (d.para
   refine tagged_mem_unionSet htgt ?_ hval
   exact mem_idx_of_app_famSpace hXt hval
 
-end BlockRep
+end IsBlockModel
 
 end ConLeche.Model

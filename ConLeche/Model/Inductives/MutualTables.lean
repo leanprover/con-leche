@@ -15,9 +15,9 @@ public section
 # The tables' stage, discharged; `declBlock` closed (task #315, M4 s5)
 
 `MutualTablesModeled` (`DeclBlock.lean`) is PROVED: at the recursors'
-environment the datum instantiates the flat table bundle at every
+environment the block model instantiates the flat table bundle at every
 structure-like member (`tableMember_of`, `memberTableOk_of` —
-`BlockTableOf.lean`'s set-level clauses, the datum's readings, the
+`BlockTableOf.lean`'s set-level clauses, the block model's readings, the
 table facts, the names read off the run, the `NoProjEnv` bookkeeping
 `MutualNoProj.lean`), and the members' fold (`stageBlockTables`,
 `BlockStageTables.lean`) at the P step (`blockTableStep`,
@@ -39,15 +39,15 @@ universe w
 
 variable {V : Type w} [SetTheory V] {μ : CheckMode}
 
-/-! ## The bundle at a structure-like member, from the datum -/
+/-! ## The bundle at a structure-like member, from the block model -/
 
 /-- **The flat table bundle at a structure-like member**, from the
-datum at the recursors' environment: the readings are the datum's,
+block model at the recursors' environment: the readings are the block model's,
 the set-level clauses `BlockTableOf.lean`'s, the sorts the table
 facts', the names the run's. -/
 theorem tableMember_of {env : Env} {m : EnvModel V env} {b : MutualBlock}
-    {fms : List MutualFormerA} {sortss : List (List Level)} {d : BlockRepData V}
-    (hreps : BlockReps m d) (htyped : ∀ ψ : Name → Nat, FormersTyped m d ψ ∧ CtorsTyped m d ψ)
+    {fms : List MutualFormerA} {sortss : List (List Level)} {d : BlockModel V}
+    (hreps : IsBlockModels m d) (htyped : ∀ ψ : Name → Nat, FormersTyped m d ψ ∧ CtorsTyped m d ψ)
     (htf : MutualTableFacts b fms sortss d)
     {mIdx : Nat} (hmm : mIdx < d.k) {f : MutualFormerA} (hft : fms[mIdx]? = some f)
     (hname : d.memberName mIdx = f.cvTa.name)
@@ -139,17 +139,17 @@ theorem tableMember_of {env : Env} {m : EnvModel V env} {b : MutualBlock}
       sortsF := fun ψ ρ hρ j hjF as hsp => (hfieldsS ψ ρ hρ).2.2.2 j hjF as hsp }
 
 /-- **A member's table data, when the kernel conses its table**: at a
-structure-like member the bundle from the datum, with the kernel's
-constructor position identified with the datum's (`ownCtors`, the
+structure-like member the bundle from the block model, with the kernel's
+constructor position identified with the block model's (`ownCtors`, the
 grouping). -/
 theorem memberTableOk_of {env env₀ : Env} {m : EnvModel V env} {b : MutualBlock}
     {fms : List MutualFormerA} {ctorsA : List (ConstantVal × Nat)} {sortss : List (List Level)}
-    {d : BlockRepData V} (h3 : ConLeche.mutualCtorsGrouped b.ctors = true)
+    {d : BlockModel V} (h3 : ConLeche.mutualCtorsGrouped b.ctors = true)
     (hlenA : ctorsA.length = b.ctors.length)
     (hnamesA : ∀ (J : Nat) (cA : ConstantVal × Nat) (ct : MutualCtor),
       ctorsA[J]? = some cA → b.ctors[J]? = some ct →
       cA.1.name = ct.cv.name ∧ cA.2 = ct.nF ∧ cA.1.levelParams = b.lps)
-    (hd : MutualDatumOf env₀ b fms ctorsA d) (hreps : BlockReps m d)
+    (hd : MutualBlockModelOf env₀ b fms ctorsA d) (hreps : IsBlockModels m d)
     (htyped : ∀ ψ : Name → Nat, FormersTyped m d ψ ∧ CtorsTyped m d ψ)
     (htf : MutualTableFacts b fms sortss d)
     {mIdx : Nat} {f : MutualFormerA} (hft : fms[mIdx]? = some f) (hmm : mIdx < b.k)
@@ -190,7 +190,7 @@ theorem memberTableOk_of {env env₀ : Env} {m : EnvModel V env} {b : MutualBloc
 /-! ## The named fact, discharged -/
 
 /-- **Stage 5 keeps the model** — `MutualTablesModeled`, proved: the
-bundle at every structure-like member from the datum, the fold over
+bundle at every structure-like member from the block model, the fold over
 the members at the P step. -/
 theorem mutualTablesModeled {F : Nat} : MutualTablesModeled V μ F := by
   intro hμ env hwf hproj b streamRecs fms f₀ tq₀ ctorsA sortss kinds formers4 ctors4 cvRas rulesOf

@@ -20,7 +20,7 @@ beyond `blockRecs`'s semantic package:
   (`Semantics/Tower/SigChainWire.lean`); here the two block-shaped
   inputs, the conclusion `mutualConcAV` and the recursor type
   `mkPisAV rds (mutualConcAV …)`, and **the rules' equations
-  themselves** (`BlockReps.specEqs_below`): the Π-tower's domains are
+  themselves** (`IsBlockModels.specEqs_below`): the Π-tower's domains are
   the readings' prefix (closed by `BlockReadings.below`) and the
   constructor's fields lifted under the motives and minors (closed by
   the constructor's `CtorDataI.below`), and the body's two application
@@ -376,7 +376,7 @@ theorem specEqAV_below {ruleData : List (Nat × AnnotTerm)} {lhs rhs : AnnotTerm
 /-! ## The block's equations -/
 
 /-- **The block's rule equations are closed under the tuple binders.** -/
-theorem BlockReps.specEqs_below {m : EnvModel V env} {d : BlockRepData V} (hreps : BlockReps m d)
+theorem IsBlockModels.specEqs_below {m : EnvModel V env} {d : BlockModel V} (hreps : IsBlockModels m d)
     {ψ : Name → Nat} {elimL : Level} {Ls : List AnnotTerm} {nIdxs : List Nat}
     {pps : List (Nat × Nat × AnnotTerm)} {ipss : List (List (Nat × Nat × AnnotTerm))}
     {cds : List CtorDatumR} {mots : Nat → Nat} {tgts : Nat → Nat → Nat}

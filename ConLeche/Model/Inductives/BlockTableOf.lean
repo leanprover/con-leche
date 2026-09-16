@@ -7,13 +7,13 @@ import ConLeche.Model.Inductives.StructStageCtor
 public section
 
 /-!
-# The table bundle's set-level content, from the datum (task #315, M4 s5)
+# The table bundle's set-level content, from the block model (task #315, M4 s5)
 
 At a STRUCTURE-LIKE member (one constructor, no index) the flat table
 bundle's three set-level clauses (`TableMember.fold`, `.fib`, `.ctor`)
-are the datum's own clauses read at the empty index tuple: the
+are the block model's own clauses read at the empty index tuple: the
 carrier is the member's `lfpTuple` component there (`tableCarrier`),
-its members decode by `BlockRep.fibre` at the tuple's own value
+its members decode by `IsBlockModel.fibre` at the tuple's own value
 (`carrier_app_eq`) into the one constructor's injections of fitting
 spines (`spineFit_of_fitsFrom`), and the injection is the tagged tower
 at the constructor's global position (`MutualTableFacts.inj`).
@@ -33,15 +33,15 @@ variable {V : Type w} [SetTheory V] {env : Env}
 
 /-- **A member's carrier at a parameter frame**, at the empty index
 tuple (the structure-like member's only one). -/
-@[expose] noncomputable def BlockRepData.tableCarrier (d : BlockRepData V) (mm : Nat)
+@[expose] noncomputable def BlockModel.tableCarrier (d : BlockModel V) (mm : Nat)
     (ψ : Name → Nat) (ρ' : Nat → V) : V :=
   SetTheory.app (lfpTuple (d.w ψ) d.k (d.idx ψ ρ') (d.Φ ψ ρ') mm) (d.tup ψ mm [])
 
-namespace BlockRep
+namespace IsBlockModel
 
 variable {m : EnvModel V env} {T : Name} {cvT cvR : ConstantVal} {mI rP : Nat}
-  {rules : List RecRule} {d : BlockRepData V} {mm : Nat}
-  (h : BlockRep m T cvT cvR mI rP rules d mm)
+  {rules : List RecRule} {d : BlockModel V} {mm : Nat}
+  (h : IsBlockModel m T cvT cvR mI rP rules d mm)
 include h
 
 /-- At an index-free member the empty tuple is an index tuple. -/
@@ -55,7 +55,7 @@ theorem tup_nil_mem (hnI : d.nIdxAt mm = 0) (ψ : Name → Nat) (ρ' : Nat → V
 
 /-- **The bundle's `fold`**: the member at a fitting spine of its own
 parameter telescope is the carrier at the spine's frame. -/
-theorem table_fold (hreps : BlockReps m d)
+theorem table_fold (hreps : IsBlockModels m d)
     (hframe : ∀ (ψ : Name → Nat) (ρ : Nat → V),
       Sat V (((d.ppsM mm ψ).take d.nP).map (·.2.2)).reverse ρ ↔ Sat V (d.params ψ).reverse ρ)
     (hnI : d.nIdxAt mm = 0) (ψ : Name → Nat) (ρ : Nat → V) (ts : List V)
@@ -79,7 +79,7 @@ theorem table_fold (hreps : BlockReps m d)
 
 /-- **The bundle's `ctor`**: the one constructor at fitting parameters
 and fields is the tagged tower injection. -/
-theorem table_ctor (hreps : BlockReps m d) {cA : ConstantVal × Nat} (hone : d.ctorsM mm = [cA])
+theorem table_ctor (hreps : IsBlockModels m d) {cA : ConstantVal × Nat} (hone : d.ctorsM mm = [cA])
     {ψ : Name → Nat} {J : Nat}
     (hinj : ∀ fs : List V, d.inj ψ mm 0 fs = injW (d.w ψ) J (mkTower (fs ++ [pt])))
     (ρ : Nat → V) (as fs : List V)
@@ -97,15 +97,15 @@ theorem table_ctor (hreps : BlockReps m d) {cA : ConstantVal × Nat} (hone : d.c
       (fun ρ' => (h.paramsIff mm 0 cA h.memberLt hj ψ ρ').symm) ρ as
       (by rw [hspP.length_eq, hlen₁])).mp hspP
   rw [← hinj]
-  exact h.ctor mm 0 cA h.memberLt hj ψ ρ as fs hspP' (by rw [BlockRep.Fss_getD hj]; exact hspF)
+  exact h.ctor mm 0 cA h.memberLt hj ψ ρ as fs hspP' (by rw [IsBlockModel.Fss_getD hj]; exact hspF)
 
-end BlockRep
+end IsBlockModel
 
 /-- **The bundle's `fib`**: at a structure-like member the carrier's
 members are the one constructor's injections of fitting field spines
-— the datum's `fibre` at the tuple's own value, decoded by
+— the block model's `fibre` at the tuple's own value, decoded by
 `spineFit_of_fitsFrom` — and the injection is the tagged tower. -/
-theorem BlockReps.table_fibreAt {m : EnvModel V env} {d : BlockRepData V} (hreps : BlockReps m d)
+theorem IsBlockModels.table_fibreAt {m : EnvModel V env} {d : BlockModel V} (hreps : IsBlockModels m d)
     {ψ : Name → Nat} (hfT : FormersTyped m d ψ) {mm : Nat} (hmm : mm < d.k)
     {cA : ConstantVal × Nat} (hone : d.ctorsM mm = [cA]) (hnI : d.nIdxAt mm = 0) {J : Nat}
     (hinj : ∀ fs : List V, d.inj ψ mm 0 fs = injW (d.w ψ) J (mkTower (fs ++ [pt])))
@@ -119,7 +119,7 @@ theorem BlockReps.table_fibreAt {m : EnvModel V env} {d : BlockRepData V} (hreps
       ∃ fs : List V, SpineFit ρ' (((d.dsF mm 0 ψ).drop d.nP).map (·.2.2)) fs ∧
         x = d.inj ψ mm 0 fs := by
     intro x hx
-    unfold BlockRepData.tableCarrier at hx
+    unfold BlockModel.tableCarrier at hx
     rw [← h.carrier_app_eq hρp hmm ht] at hx
     obtain ⟨j, fs, hjlt, hfit, rfl⟩ :=
       (h.fibre ψ ρ' hρp _ (lfpTuple_mem _ _ _ _) mm hmm _ ht _).mp hx
@@ -129,7 +129,7 @@ theorem BlockReps.table_fibreAt {m : EnvModel V env} {d : BlockRepData V} (hreps
     subst hj0
     refine ⟨fs, ?_, rfl⟩
     have := hreps.spineFit_of_fitsFrom hfT hmm hj hρp (TupleLe.refl _ _ _) hfit.1
-    rwa [BlockRep.Fss_getD hj] at this
+    rwa [IsBlockModel.Fss_getD hj] at this
   refine ⟨fun hw x hx => ?_, fun hw x hx => ?_⟩
   · obtain ⟨fs, hsp, rfl⟩ := key x hx
     exact ⟨fs, by rw [hinj, injW_pos hw], hsp⟩

@@ -18,7 +18,7 @@ the constructor's GLOBAL block position `J`, and the constructor's
 value at a fitting parameter-and-field spine is the tagged tower
 injection `injW w J (mkTower (fs ++ [pt]))`.
 
-The three entry laws are datum-level twins of the fixpoint route's
+The three entry laws are block model-level twins of the fixpoint route's
 tag-generic cores (`FixEntryLaw.lean`): where those read the leaves
 SYNTACTICALLY (`mkLamsAV …` for the former, `sumMkAV …` for the
 constructor), the twins here read them SEMANTICALLY — the former by

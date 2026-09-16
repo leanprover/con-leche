@@ -5,15 +5,15 @@ public import ConLeche.Model.Inductives.TupleLfp
 public section
 
 /-!
-# The uniform datum of a mutual block — `BlockRepData.ofMutual` (task #315, M4)
+# The uniform block model of a mutual block — `BlockModel.ofMutual` (task #315, M4)
 
 `ofNative`'s twin (`BlockRepOne.lean`) for a block of `k ≥ 1` members
 installed by the mutual route (`checkMutualCore`,
-`Kernel/Inductives/MutualInstall.lean`): the datum's per-member and
+`Kernel/Inductives/MutualInstall.lean`): the block model's per-member and
 per-constructor readings are the stages' outputs, keyed by member and
 member-local constructor position; the tuple operator is the `k`-ary
 fixed point's (`tupleLfpΦ`, `TupleLfp.lean` — the derived term former's
-semantic operator, whose representation the datum never sees), the
+semantic operator, whose representation the block model never sees), the
 injections are the sum route's tagged towers at the constructor's
 GLOBAL block position (`blockMinorIdx`, the minor's index:
 `injW w J ⟨f⃗, pt⟩`, what `sumMkAV` folds to and what the table stage
@@ -21,12 +21,12 @@ reads), and every member's index-tuple sort is the block's common
 index universe `W` (`TupleLfpOk`: the members' index telescopes are
 graded at one positive universe).
 
-The datum's SEMANTIC clauses come from the term former's API:
+The block model's SEMANTIC clauses come from the term former's API:
 `functor` is `tupleLfpΦ_functor` (`ofMutual_functor`), `leaf` is the
 interp law `tupleLfpAV_fold` (`ofMutual_leaf`), `mkZero`/`mkInj` are
 the injections' own laws; `fibre` and `ctor` are the recursor stage's
 (M4 session 3, `tupleLfpΦ_fibre` and `sumMkAV_fold`).  The run-level
-shape is `MutualDatumOf` (`mutualDatumOf_ofMutual`, by construction).
+shape is `MutualBlockModelOf` (`mutualBlockModelOf_ofMutual`, by construction).
 -/
 
 namespace ConLeche.Model
@@ -50,20 +50,20 @@ telescope reading. -/
   ((ppsM t ψ).drop nP).map (·.2.2)
 
 /-- Constructor `j` of member `mm`'s GLOBAL block position (the
-recursors' minor index; `BlockRepData.minorIdx` at the datum). -/
+recursors' minor index; `BlockModel.minorIdx` at the block model). -/
 @[expose] def blockMinorIdx (ctorsM : Nat → List (ConstantVal × Nat)) (mm j : Nat) : Nat :=
   ((List.range mm).map fun t => (ctorsM t).length).sum + j
 
-/-! ## The datum -/
+/-! ## The block model -/
 
-/-- **The uniform datum of a mutual block** (see the module docstring):
+/-- **The uniform block model of a mutual block** (see the module docstring):
 the readings per member and member-local constructor, the block's
 index universe `W` as every member's index-tuple sort, the tuple
 operator the `k`-ary fixed point's at the block's constructor data in
 GLOBAL constructor order (`mems`, `nFs`, `tgts`, `rss`, `tlss`,
 `Eiss₀`, `Fss₀`, `Ess₀` — `tupleLfpAV`'s arguments), the injections the
 tagged towers at the global position. -/
-@[expose] noncomputable def BlockRepData.ofMutual (nP k : Nat) (resSort : Level) (isProp large : Bool)
+@[expose] noncomputable def BlockModel.ofMutual (nP k : Nat) (resSort : Level) (isProp large : Bool)
     (env₀ : Env) (memberNames : List Name) (nIdxs : List Nat)
     (ppsM : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)) (W : (Name → Nat) → Nat)
     (ctorsM : Nat → List (ConstantVal × Nat)) (idxF : Nat → Nat → List Expr)
@@ -76,7 +76,7 @@ tagged towers at the global position. -/
     (mems nFs : List Nat) (tgtsG : List (List Nat)) (rss : List (List Bool))
     (tlss : (Name → Nat) → List (List (List (Nat × Nat × AnnotTerm))))
     (Eiss₀ : (Name → Nat) → List (List (List AnnotTerm)))
-    (Fss₀ Ess₀ : (Name → Nat) → List (List AnnotTerm)) : BlockRepData V where
+    (Fss₀ Ess₀ : (Name → Nat) → List (List AnnotTerm)) : BlockModel V where
   nP := nP
   k := k
   resSort := resSort
@@ -120,38 +120,38 @@ variable {nP k : Nat} {resSort : Level} {isProp large : Bool} {env₀ : Env} {me
   {Eiss₀ : (Name → Nat) → List (List (List AnnotTerm))}
   {Fss₀ Ess₀ : (Name → Nat) → List (List AnnotTerm)}
 
-local notation "D" => (BlockRepData.ofMutual (V := V) nP k resSort isProp large env₀ memberNames
+local notation "D" => (BlockModel.ofMutual (V := V) nP k resSort isProp large env₀ memberNames
   nIdxs ppsM W ctorsM idxF dsF esF srcsF ksF tgts fvsPF xFvsF xrestF eissF tssF mems nFs tgtsG rss
   tlss Eiss₀ Fss₀ Ess₀)
 
-/-- The datum's index telescopes are the block's. -/
+/-- The block model's index telescopes are the block's. -/
 theorem ofMutual_IdsM (mm : Nat) (ψ : Name → Nat) : (D).IdsM mm ψ = blockIds nP ppsM ψ mm := rfl
 
-/-- The datum's index-tuple sets: every member's over the block's
+/-- The block model's index-tuple sets: every member's over the block's
 index universe. -/
 theorem ofMutual_idx (ψ : Name → Nat) (ρp : Nat → V) :
     (D).idx ψ ρp = fun mm => idxSet (W ψ) ρp (blockIds nP ppsM ψ mm) := rfl
 
-/-- The datum's operator: the `k`-ary fixed point's. -/
+/-- The block model's operator: the `k`-ary fixed point's. -/
 theorem ofMutual_Φ (ψ : Name → Nat) (ρp : Nat → V) :
     (D).Φ ψ ρp
       = tupleLfpΦ (W ψ) ((D).w ψ) ρp k (blockIds nP ppsM ψ) mems nFs tgtsG rss (tlss ψ) (Eiss₀ ψ)
           (Fss₀ ψ) (Ess₀ ψ) := rfl
 
-/-- The datum's injections: the tagged towers at the global position. -/
+/-- The block model's injections: the tagged towers at the global position. -/
 theorem ofMutual_inj (ψ : Name → Nat) (mm j : Nat) (fs : List V) :
     (D).inj ψ mm j fs = injW ((D).w ψ) (blockMinorIdx ctorsM mm j) (mkTower (fs ++ [pt])) := rfl
 
-/-- The datum's minor index is the global position. -/
+/-- The block model's minor index is the global position. -/
 theorem ofMutual_minorIdx (mm j : Nat) : (D).minorIdx mm j = blockMinorIdx ctorsM mm j := rfl
 
-/-- The datum's index tuple is the tower (the index universe is
+/-- The block model's index tuple is the tower (the index universe is
 positive). -/
 theorem ofMutual_tup {ψ : Name → Nat} (hW : W ψ ≠ 0) (mm : Nat) (is : List V) :
     (D).tup ψ mm is = mkTower is :=
   tupW_pos hW is
 
-/-- **`functor` for the datum**, from the term former's premise at the
+/-- **`functor` for the block model**, from the term former's premise at the
 parameter frame. -/
 theorem ofMutual_functor {ψ : Name → Nat} {ρp : Nat → V}
     (h : TupleLfpOk (W ψ) ((D).w ψ) ρp k (blockIds nP ppsM ψ) mems nFs tgtsG rss (tlss ψ) (Eiss₀ ψ)
@@ -161,7 +161,7 @@ theorem ofMutual_functor {ψ : Name → Nat} {ρp : Nat → V}
     ∃ L, IsClosedTuple ((D).w ψ) k ((D).idx ψ ρp) ((D).Φ ψ ρp) L :=
   tupleLfpΦ_functor h
 
-/-- **`leaf` for the datum**: member `mm`'s term-level leaf
+/-- **`leaf` for the block model**: member `mm`'s term-level leaf
 (`tupleLfpAV`) at fitting parameters and indices is the least
 pre-fixed TUPLE's component `mm` at the index tuple — the interp law
 `tupleLfpAV_fold`.  The parameter spine fits the MEMBER's own
@@ -180,7 +180,7 @@ theorem ofMutual_leaf {ψ : Name → Nat} {ρ : Nat → V} {as is : List V} {mm 
   rw [ofMutual_tup h.W_pos]
   exact tupleLfpAV_fold hmm h rfl hsp hi
 
-/-- `mkZero` for the datum: at a `Prop`-valued block every injection is
+/-- `mkZero` for the block model: at a `Prop`-valued block every injection is
 the point. -/
 theorem ofMutual_mkZero (ψ : Name → Nat) (hw : (D).w ψ = 0) (mm j : Nat) (fs : List V) :
     (D).inj ψ mm j fs = pt := by
@@ -188,7 +188,7 @@ theorem ofMutual_mkZero (ψ : Name → Nat) (hw : (D).w ψ = 0) (mm j : Nat) (fs
   have hw' : resSort.eval ψ = 0 := hw
   rw [hw', injW_zero]
 
-/-- `mkInj` for the datum, within a member: the global positions of a
+/-- `mkInj` for the block model, within a member: the global positions of a
 member's constructors are distinct, and the towers are injective at
 equal lengths. -/
 theorem ofMutual_mkInj (ψ : Name → Nat) (hw : (D).w ψ ≠ 0) {mm j j' : Nat} {fs fs' : List V}
@@ -210,12 +210,12 @@ theorem ofMutual_mkInj (ψ : Name → Nat) (hw : (D).w ψ ≠ 0) {mm j j' : Nat}
 
 end Mutual
 
-/-! ## The datum of a run -/
+/-! ## The block model of a run -/
 
-/-- **`ofMutual` at the run's block is the run's datum**
-(`MutualDatumOf`): its arities, names, sort and constructors are the
+/-- **`ofMutual` at the run's block is the run's block model**
+(`MutualBlockModelOf`): its arities, names, sort and constructors are the
 block record's and the stages' outputs — by construction. -/
-theorem mutualDatumOf_ofMutual (env : Env) (b : MutualBlock) (fms : List MutualFormerA)
+theorem mutualBlockModelOf_ofMutual (env : Env) (b : MutualBlock) (fms : List MutualFormerA)
     (ctorsA : List (ConstantVal × Nat)) {f₀ : MutualFormerA} (hf₀ : fms[0]? = some f₀)
     (isProp : Bool) (ppsM : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm))
     (W : (Name → Nat) → Nat) (idxF : Nat → Nat → List Expr)
@@ -229,8 +229,8 @@ theorem mutualDatumOf_ofMutual (env : Env) (b : MutualBlock) (fms : List MutualF
     (tlss : (Name → Nat) → List (List (List (Nat × Nat × AnnotTerm))))
     (Eiss₀ : (Name → Nat) → List (List (List AnnotTerm)))
     (Fss₀ Ess₀ : (Name → Nat) → List (List AnnotTerm)) :
-    MutualDatumOf env b fms ctorsA
-      (BlockRepData.ofMutual (V := V) b.nP b.k f₀.s isProp b.large env (fms.map (·.cvTa.name))
+    MutualBlockModelOf env b fms ctorsA
+      (BlockModel.ofMutual (V := V) b.nP b.k f₀.s isProp b.large env (fms.map (·.cvTa.name))
         (fms.map (·.nIdx)) ppsM W (fun t => (b.ownCtors t).map fun q => ctorsA.getD q.1 default)
         idxF dsF esF srcsF ksF tgts fvsPF xFvsF xrestF eissF tssF mems nFs tgtsG rss tlss Eiss₀
         Fss₀ Ess₀) where

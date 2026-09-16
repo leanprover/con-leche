@@ -16,16 +16,16 @@ and names, their readings, the fields' sorts, and — the set-level
 content — the member's carrier `S` at a parameter frame with its
 `FibreAt` shape at the constructor's GLOBAL block position `J`, and
 the constructor's value at a fitting spine as the tagged tower
-injection.  The bundle is FLAT (no datum inside), because it must
+injection.  The bundle is FLAT (no block model inside), because it must
 cross the OTHER members' table conses (`TableMember.cross`,
 `BlockStageTables.lean`): a table's cons changes the reading of
 `.proj` nodes of ITS structure, so the transport is by the
-`NoProjEnv` bookkeeping of stored types, not by a datum transport.
+`NoProjEnv` bookkeeping of stored types, not by a block model transport.
 
-The uniform datum (`BlockRep`, DESIGN §U.3) instantiates the bundle
+The uniform block model (`IsBlockModel`, DESIGN §U.3) instantiates the bundle
 once at the recursors' environment (`MutualTables.lean`): `S` is the
 member's `lfpTuple` component at the empty index tuple, the fibre is
-the datum's `fibre` clause decoded by `mkInj`, the injection the
+the block model's `fibre` clause decoded by `mkInj`, the injection the
 tower `injW w J (mkTower (fs ++ [pt]))` (`ofMutual_mkInj`).
 -/
 
@@ -71,7 +71,7 @@ structure TableMember (m : EnvModel V env) (lps : List Name) (nP : Nat) (T : Nam
   resC : ConLeche.reservedBasisNames.contains cvCa.name = false
   /-- the member's type reads as its parameter telescope -/
   FD : FormerData m cvTa nP resSort pps
-  /-- the constructor's type reads as the datum says -/
+  /-- the constructor's type reads as the block model says -/
   CDread : ∀ ψ : Name → Nat, denoteMeta m.acval env ψ 0 cvCa.type
     = some (mkPisAV (ds ψ) (ctorBodyAVI m T nP nF ψ (Es ψ)))
   CDlen : ∀ ψ : Name → Nat, (ds ψ).length = nP + nF

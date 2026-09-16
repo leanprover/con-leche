@@ -45,7 +45,7 @@ variable {V : Type w} [SetTheory V] {env : Env}
 /-- The constructors' values typed at their types' readings — the
 run's `EnvModelM.mem_type` at each stored constructor (with
 `CtorDataI.read`); consumed by the left-hand side's grading. -/
-@[expose] def CtorsTyped (m : EnvModel V env) (d : BlockRepData V) (ψ : Name → Nat) : Prop :=
+@[expose] def CtorsTyped (m : EnvModel V env) (d : BlockModel V) (ψ : Name → Nat) : Prop :=
   ∀ c, c < d.k → ∀ (j : Nat) (cA : ConstantVal × Nat), (d.ctorsM c)[j]? = some cA →
     ∀ ρ : Nat → V,
       interp V ρ (m.acval cA.1.name ψ)
@@ -186,7 +186,7 @@ theorem ihPisAVM_appChainOk {b nF o : Nat} {moti : Nat → Nat}
 /-- At elimination level zero the recursor type's conclusion is a truth
 value at every fitting spine (the `Prop`-regime side condition of the
 applications). -/
-theorem BlockReps.conc_univZero {m : EnvModel V env} {d : BlockRepData V} (hreps : BlockReps m d)
+theorem IsBlockModels.conc_univZero {m : EnvModel V env} {d : BlockModel V} (hreps : IsBlockModels m d)
     {ψ : Name → Nat} {elimL : Level} {Ls : List AnnotTerm} {nIdxs : List Nat}
     {pps : List (Nat × Nat × AnnotTerm)} {ipss : List (List (Nat × Nat × AnnotTerm))}
     {cds : List CtorDatumR} {mots : Nat → Nat} {tgts : Nat → Nat → Nat}
@@ -204,7 +204,7 @@ theorem BlockReps.conc_univZero {m : EnvModel V env} {d : BlockRepData V} (hreps
   rwa [hℓ, univ_zero] at this
 
 /-- A member's carrier at an index tuple lies in the block's universe. -/
-theorem BlockRepData.carrier_app_mem_univ (d : BlockRepData V) {ψ : Name → Nat} {ρp : Nat → V} {mm : Nat} (hmm : mm < d.k)
+theorem BlockModel.carrier_app_mem_univ (d : BlockModel V) {ψ : Name → Nat} {ρp : Nat → V} {mm : Nat} (hmm : mm < d.k)
     {is : List V} (his : SpineFit ρp (d.IdsM mm ψ) is) :
     SetTheory.app (lfpTuple (d.w ψ) d.k (d.idx ψ ρp) (d.Φ ψ ρp) mm) (d.tup ψ mm is)
       ∈ˢ (univ (d.w ψ) : V) :=
@@ -214,7 +214,7 @@ theorem BlockRepData.carrier_app_mem_univ (d : BlockRepData V) {ψ : Name → Na
 the constructor typed at its type's reading (`CtorsTyped`), the
 constructor at parameters `ps` and a fitting field spine `fs` is graded
 along the chain. -/
-theorem BlockReps.ctor_chainOk {m : EnvModel V env} {d : BlockRepData V} (hreps : BlockReps m d)
+theorem IsBlockModels.ctor_chainOk {m : EnvModel V env} {d : BlockModel V} (hreps : IsBlockModels m d)
     {ψ : Name → Nat} (hfT : FormersTyped m d ψ) (hcT : CtorsTyped m d ψ) {c : Nat} (hc : c < d.k)
     {j : Nat} {cA : ConstantVal × Nat} (hj : (d.ctorsM c)[j]? = some cA) {ρ₀ : Nat → V}
     {ps : List V} (hps : SpineFit ρ₀ (d.params ψ) ps) {fs : List V}
@@ -236,7 +236,7 @@ theorem BlockReps.ctor_chainOk {m : EnvModel V env} {d : BlockRepData V} (hreps 
         funext i; rw [← hlenps, consList_apply_add]
       rw [hrng, hρ₀] at this
       exact this
-    · rw [← BlockRep.Fss_getD hj]; exact hfs
+    · rw [← IsBlockModel.Fss_getD hj]; exact hfs
   have hbitsC : ∀ d' ∈ d.dsF c j ψ, (d.w ψ = 0 ↔ d'.2.1 = 0) := fun d' hd' => hcd.bits ψ d' hd'
   refine appChainOk_of_mkPisAV' hbitsC (fun hw as' hsp => ?_) (hcT c hc j cA hj ρ₀) hspC
   -- the `Prop` regime: the body is the carrier at a tuple, a truth value
@@ -252,7 +252,7 @@ theorem BlockReps.ctor_chainOk {m : EnvModel V env} {d : BlockRepData V} (hreps 
   have hlenfs' : fs'.length = cA.2 := by
     rw [hfs'.length_eq, List.length_map, List.length_drop, hcd.len]; omega
   have hfsF : SpineFit (consList ps' ρ₀) ((d.Fss c ψ).getD j []) fs' := by
-    rw [BlockRep.Fss_getD hj]; exact hfs'
+    rw [IsBlockModel.Fss_getD hj]; exact hfs'
   have hEs := hreps.res_es_fit hfT hc hj hsat' hfsF
   unfold ctorBodyAVI
   rw [consList_append, paramBvars_eq_paramBvarsAt, ← hlenfs',
@@ -270,7 +270,7 @@ typed tuple**: graded, and its value in the ih binder's domain — the
 parameters, motives, minors, the field's index readings and the field
 applied.  Stated at the tuple frame `consList rs ρ`; the prefix's frame
 `hF` is at the base frame `ρ` (the readings are closed). -/
-theorem BlockReps.ihApp_facts {m : EnvModel V env} {d : BlockRepData V} (hreps : BlockReps m d)
+theorem IsBlockModels.ihApp_facts {m : EnvModel V env} {d : BlockModel V} (hreps : IsBlockModels m d)
     {ψ : Name → Nat} (hfT : FormersTyped m d ψ) {elimL : Level} {Ls : List AnnotTerm}
     {nIdxs : List Nat} {pps : List (Nat × Nat × AnnotTerm)}
     {ipss : List (List (Nat × Nat × AnnotTerm))} {cds : List CtorDatumR} {mots : Nat → Nat}
@@ -357,7 +357,7 @@ theorem BlockReps.ihApp_facts {m : EnvModel V env} {d : BlockRepData V} (hreps :
     rw [consList_nil, consList_motives_cons]
   -- the field's domain at its position
   have hdomF : ((d.Fss c ψ).getD j []).getD i default = ((d.dsF c j ψ).getD (d.nP + i) default).2.2 := by
-    rw [BlockRep.Fss_getD hj, fields_getD (by rw [List.length_drop, hcd.len]; omega),
+    rw [IsBlockModel.Fss_getD hj, fields_getD (by rw [List.length_drop, hcd.len]; omega),
       List.getD_eq_getElem?_getD, List.getElem?_drop, ← List.getD_eq_getElem?_getD]
   have hwdF : WellDenoted V (consList (fs.take i) (consList ps (consList rs ρ)))
       (((d.dsF c j ψ).getD (d.nP + i) default).2.2) := by
@@ -448,8 +448,8 @@ theorem BlockReps.ihApp_facts {m : EnvModel V env} {d : BlockRepData V} (hreps :
         (((d.eissF c j ψ).getD i []).map (interp V (consList bs (consList (fs.take i) (consList ps ρ))))) :=
       hreps.eis_fit hfT hc hj hρp hiA hr hfsI hbs
     have hv := hreps.kitPred_mem hc hj' hfitL hiR
-      (bs := bs) (by rw [BlockRepData.teleAt, BlockRep.tlss_getD hj]; exact hbs) pt
-    rw [BlockRepData.eisAt, BlockRep.Eiss_getD hj] at hv
+      (bs := bs) (by rw [BlockModel.teleAt, IsBlockModel.tlss_getD hj]; exact hbs) pt
+    rw [BlockModel.eisAt, IsBlockModel.Eiss_getD hj] at hv
     have hfold : bs.foldl SetTheory.app (fs.getD i pt)
         ∈ˢ SetTheory.app (lfpTuple (d.w ψ) d.k (d.idx ψ (consList ps ρ)) (d.Φ ψ (consList ps ρ)) (d.tgts c j i))
           (d.tup ψ (d.tgts c j i)
@@ -605,7 +605,7 @@ type (`spineFit_recData_of`) with the constructor's application graded
 by `CtorsTyped`, and the right-hand side's chain is the frame's minor
 at the fields (its type's leading Π-tower) and the inductive
 hypotheses' applications (`ihApp_facts`, then `ihPisAVM_appChainOk`). -/
-theorem BlockReps.blockEq_wd {m : EnvModel V env} {d : BlockRepData V} (hreps : BlockReps m d)
+theorem IsBlockModels.blockEq_wd {m : EnvModel V env} {d : BlockModel V} (hreps : IsBlockModels m d)
     {ψ : Name → Nat} (hfT : FormersTyped m d ψ) (hcT : CtorsTyped m d ψ) {elimL : Level}
     {Ls : List AnnotTerm} {nIdxs : List Nat} {pps : List (Nat × Nat × AnnotTerm)}
     {ipss : List (List (Nat × Nat × AnnotTerm))} {cds : List CtorDatumR} {mots : Nat → Nat}
@@ -665,7 +665,7 @@ theorem BlockReps.blockEq_wd {m : EnvModel V env} {d : BlockRepData V} (hreps : 
       rw [consList_append, consList_append, ← consList_append Msl msl,
         show Ls.length + cds.length = (Msl ++ msl).length from by
           rw [List.length_append, hF.mslLen, hF.minsLen, hlenLc],
-        shiftE_consList, ← BlockRep.Fss_getD hj]
+        shiftE_consList, ← IsBlockModel.Fss_getD hj]
       exact (h.ctor_okB hj hρp).1
   · -- **the body at a fitting spine**
     intro xs hxs
@@ -691,9 +691,9 @@ theorem BlockReps.blockEq_wd {m : EnvModel V env} {d : BlockRepData V} (hreps : 
     have hfs' : SpineFit (consList ps (consList rs ρ)) ((d.Fss c ψ).getD j []) fs := by
       rw [rebit_map_dom, spineFit_liftDoms, consList_append, consList_append, ← consList_append Msl msl,
         hlenMm, shiftE_consList] at hfsL
-      rw [BlockRep.Fss_getD hj]; exact hfsL
+      rw [IsBlockModel.Fss_getD hj]; exact hfsL
     have hfs : SpineFit (consList ps ρ) ((d.Fss c ψ).getD j []) fs := by
-      rw [BlockRep.Fss_getD hj] at hfs' ⊢
+      rw [IsBlockModel.Fss_getD hj] at hfs' ⊢
       exact spineFit_transport (DomsBelow.drop d.nP (hcd.below ψ)) (by rw [hlenps, Nat.zero_add]) hfs'
     have hEsρ : (d.esF c j ψ).map (interp V (consList fs (consList ps (consList rs ρ))))
         = (d.esF c j ψ).map (interp V (consList fs (consList ps ρ))) := by
@@ -797,7 +797,7 @@ theorem BlockReps.blockEq_wd {m : EnvModel V env} {d : BlockRepData V} (hreps : 
           rw [rebit_map_dom, spineFit_liftDoms, ← consList_append Msl (msl.take (d.minorIdx c j)),
             show d.k + d.minorIdx c j = (Msl ++ msl.take (d.minorIdx c j)).length from by
               rw [List.length_append]; exact hoJ.symm,
-            shiftE_consList, ← BlockRep.Fss_getD hj]
+            shiftE_consList, ← IsBlockModel.Fss_getD hj]
           exact hfs
         -- the `Prop` regime: the minor's conclusion is a truth value
         have hconcZ : elimL.eval ψ = 0 → ∀ fs' : List V, SpineFit (consList ps ρ) ((d.Fss c ψ).getD j []) fs' →
@@ -831,7 +831,7 @@ theorem BlockReps.blockEq_wd {m : EnvModel V env} {d : BlockRepData V} (hreps : 
             rw [rebit_map_dom, spineFit_liftDoms, ← consList_append Msl (msl.take (d.minorIdx c j)),
               show d.k + d.minorIdx c j = (Msl ++ msl.take (d.minorIdx c j)).length from by
                 rw [List.length_append]; exact hoJ.symm,
-              shiftE_consList, ← BlockRep.Fss_getD hj] at hsp
+              shiftE_consList, ← IsBlockModel.Fss_getD hj] at hsp
             exact hsp
           exact ihPisAVM_zero_univZero (hb.mpr h0) _ _ _ _ (hconcZ h0 as' hfs'')
         refine appChainOk_append (appChainOk_of_mkPisAV' hbitsM hpropM hmin hfitM) ?_
@@ -861,11 +861,11 @@ theorem BlockReps.blockEq_wd {m : EnvModel V env} {d : BlockRepData V} (hreps : 
           (fun d' hd' => by rw [mem_rebit hd']; exact hb) _, rebit_map_dom]
         exact (hih _ hiI).2
 
-/-! ## `blockRecs` at the datum's readings — closed modulo the run facts -/
+/-! ## `blockRecs` at the block model's readings — closed modulo the run facts -/
 
 /-- **The block's rule equations**, in the kernel's constructor order
 (`minorIdx`): member by member, constructor by constructor. -/
-@[expose] def BlockRepData.specEqs {env : Env} (d : BlockRepData V) (m : EnvModel V env)
+@[expose] def BlockModel.specEqs {env : Env} (d : BlockModel V) (m : EnvModel V env)
     (ψ : Name → Nat) (elimL : Level) (Ls : List AnnotTerm) (nIdxs : List Nat)
     (pps : List (Nat × Nat × AnnotTerm)) (ipss : List (List (Nat × Nat × AnnotTerm)))
     (cds : List CtorDatumR) (mots : Nat → Nat) (tgts : Nat → Nat → Nat) : List AnnotTerm :=
@@ -878,7 +878,7 @@ theorem BlockReps.blockEq_wd {m : EnvModel V env} {d : BlockRepData V} (hreps : 
         (d.tssF c j ψ) (d.eissF c j ψ))
 
 /-- An equation of the block is a rule's. -/
-theorem BlockRepData.mem_specEqs {env : Env} {d : BlockRepData V} {m : EnvModel V env}
+theorem BlockModel.mem_specEqs {env : Env} {d : BlockModel V} {m : EnvModel V env}
     {ψ : Name → Nat} {elimL : Level} {Ls : List AnnotTerm} {nIdxs : List Nat}
     {pps : List (Nat × Nat × AnnotTerm)} {ipss : List (List (Nat × Nat × AnnotTerm))}
     {cds : List CtorDatumR} {mots : Nat → Nat} {tgts : Nat → Nat → Nat} {e : AnnotTerm}
@@ -888,21 +888,21 @@ theorem BlockRepData.mem_specEqs {env : Env} {d : BlockRepData V} {m : EnvModel 
         (specLhsAV d.k d.nP d.nCtors cA.2 c (d.esF c j ψ) (m.acval cA.1.name ψ))
         (specRuleCoreAV (pwBit ψ (Level.zeronessOf elimL)) d.k (d.tgts c j) d.nP d.nCtors cA.2
           (d.minorIdx c j) (ConLeche.recIdxOf (d.ksF c j)) (d.tssF c j ψ) (d.eissF c j ψ)) := by
-  unfold BlockRepData.specEqs at he
+  unfold BlockModel.specEqs at he
   obtain ⟨c, hc, he⟩ := List.mem_flatMap.mp he
   obtain ⟨j, hj, rfl⟩ := List.mem_map.mp he
   have hj' : j < (d.ctorsM c).length := List.mem_range.mp hj
   refine ⟨c, j, (d.ctorsM c).getD j default, List.mem_range.mp hc, ?_, rfl⟩
   rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hj']; rfl
 
-/-- **The block's recursors at the datum's readings** — `blockRecs`
+/-- **The block's recursors at the block model's readings** — `blockRecs`
 with its four premises discharged (`blockCand_mem`, `blockCand_eq`,
 `blockEq_wd`) from the run-level facts at every level assignment: the
-datum at every member (`BlockReps`), the members and constructors
-typed (`FormersTyped`, `CtorsTyped`), the readings the datum's
+block model at every member (`IsBlockModels`), the members and constructors
+typed (`FormersTyped`, `CtorsTyped`), the readings the block model's
 (`BlockReadings`), the regime fact `w = 0 → ℓ = 0`, and the recursor
 types' formation (`hT`).  What M4's recursor stage consumes. -/
-theorem BlockReps.blockRecsAt {m : EnvModel V env} {d : BlockRepData V} (hreps : BlockReps m d)
+theorem IsBlockModels.blockRecsAt {m : EnvModel V env} {d : BlockModel V} (hreps : IsBlockModels m d)
     (hfT : ∀ ψ, FormersTyped m d ψ) (hcT : ∀ ψ, CtorsTyped m d ψ) {elimL : Level}
     (hwℓ : ∀ ψ, d.w ψ = 0 → elimL.eval ψ = 0) {Ls : (Name → Nat) → List AnnotTerm}
     {nIdxs : List Nat} {pps : (Name → Nat) → List (Nat × Nat × AnnotTerm)}

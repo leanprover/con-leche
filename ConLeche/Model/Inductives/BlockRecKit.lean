@@ -7,12 +7,12 @@ import ConLeche.Model.Inductives.FixRecFrames
 public section
 
 /-!
-# The block's recursion kit, discharged at the datum (task #315, M3)
+# The block's recursion kit, discharged at the block model (task #315, M3)
 
 The candidate recursor's data (`BlockRecCand.lean`: the predecessor
 map, the bound and the step) satisfy the union recursor's three
 obligations (`SetModel/UnionRec.lean`) at every frame of the `k`-motive
-recursor type: `PredsFrom` was `BlockRep.kitPred_from`; here the BOUND
+recursor type: `PredsFrom` was `IsBlockModel.kitPred_from`; here the BOUND
 lies in `univ ℓ` (`kitB_mem`: the frame's motive at the tuple's
 spine and the value, the motive typed at `motiveAVIL`, member `c`'s
 `leaf` reading the major's domain as the carrier's fibre) and the
@@ -26,15 +26,15 @@ at `w = 0` — hence `ℓ = 0`, the run fact — every value is `pt` and the
 bound is a truth value made true by the same fold at the real
 decomposition).
 
-**What the obligations need beyond the datum**: the recursor type's
+**What the obligations need beyond the block model**: the recursor type's
 `WellDenoted` at the frame (the run's `MutualRecData.okTy`, already a
 `blockRecs` premise through `hT`).  It supplies the index readings'
 FITS — a recursive field's index expressions at the target member's
 index telescope (`ihDom_wd_fit`) and the constructor's result indices
 at its own (`minor_conc_facts`) — which at an index sort `Prop` no
-clause of the datum determines (the tuple is `pt`), and the
+clause of the block model determines (the tuple is `pt`), and the
 `Prop`-regime side conditions of every application.  The block is
-needed at EVERY member (`BlockReps`): the motives and the recursive
+needed at EVERY member (`IsBlockModels`): the motives and the recursive
 fields range over all of them.
 -/
 
@@ -51,25 +51,25 @@ universe w
 variable {V : Type w} [SetTheory V] {env : Env}
 
 /-- **The block at every member**: each member is a stored inductive
-represented at the datum — what `declBlock` installs (M4). -/
-@[expose] def BlockReps (m : EnvModel V env) (d : BlockRepData V) : Prop :=
+represented at the block model — what `declBlock` installs (M4). -/
+@[expose] def IsBlockModels (m : EnvModel V env) (d : BlockModel V) : Prop :=
   ∀ c, c < d.k → ∃ (cvT cvR : ConstantVal) (mI rP : Nat) (rules : List RecRule),
-    BlockRep m (d.memberName c) cvT cvR mI rP rules d c
+    IsBlockModel m (d.memberName c) cvT cvR mI rP rules d c
 
 /-! ## Per-member facts -/
 
-namespace BlockRep
+namespace IsBlockModel
 
 variable {m : EnvModel V env} {T : Name} {cvT cvR : ConstantVal} {mI rP : Nat}
-  {rules : List RecRule} {d : BlockRepData V} {mm : Nat}
-  (h : BlockRep m T cvT cvR mI rP rules d mm)
+  {rules : List RecRule} {d : BlockModel V} {mm : Nat}
+  (h : IsBlockModel m T cvT cvR mI rP rules d mm)
 include h
 
 theorem ppsM_length (ψ : Name → Nat) : (d.ppsM mm ψ).length = d.nP + d.nIdxAt mm :=
   h.former.len ψ
 
 theorem IdsM_length (ψ : Name → Nat) : (d.IdsM mm ψ).length = d.nIdxAt mm := by
-  unfold BlockRepData.IdsM
+  unfold BlockModel.IdsM
   rw [List.length_map, List.length_drop, h.ppsM_length]
   omega
 
@@ -132,28 +132,28 @@ theorem motive_app_mem {ψ : Name → Nat} (hpl : (d.params ψ).length = d.nP) {
     SetTheory.app (is.foldl SetTheory.app M) x ∈ˢ (univ (elimL.eval ψ) : V) :=
   app_mem_piR_pos (pwBit_ne_zero_of_isNever ConLeche.PropWhen.isNever_never ψ) (h.motive_fold hpl hρp hM hsp) hx
 
-end BlockRep
+end IsBlockModel
 
-theorem BlockReps.params_length {m : EnvModel V env} {d : BlockRepData V} (hreps : BlockReps m d)
+theorem IsBlockModels.params_length {m : EnvModel V env} {d : BlockModel V} (hreps : IsBlockModels m d)
     (hk : 0 < d.k) (ψ : Name → Nat) : (d.params ψ).length = d.nP := by
   obtain ⟨_, _, _, _, _, h0⟩ := hreps 0 hk
-  unfold BlockRepData.params
+  unfold BlockModel.params
   rw [List.length_map, List.length_take, h0.ppsM_length]
   exact Nat.min_eq_left (Nat.le_add_right _ _)
 
 /-! ## The bound -/
 
-theorem BlockRepData.kitB_tagged (d : BlockRepData V) (ψ : Name → Nat) (Ms : Nat → V) (c : Nat)
+theorem BlockModel.kitB_tagged (d : BlockModel V) (ψ : Name → Nat) (Ms : Nat → V) (c : Nat)
     (i x : V) :
     d.kitB ψ Ms (tagged c i x)
       = SetTheory.app ((isOfW (d.uM c ψ) (d.nIdxAt c) i).foldl SetTheory.app (Ms c)) x := by
-  unfold BlockRepData.kitB tagged
+  unfold BlockModel.kitB tagged
   rw [sfst_kpair, ssnd_kpair, natIdx_vnat, sfst_kpair, ssnd_kpair]
 
 /-- **The bound's obligation**: at every element of the carrier's
 union the bound is in `univ ℓ` — the frame's motives typed at their
 readings. -/
-theorem BlockReps.kitB_mem {m : EnvModel V env} {d : BlockRepData V} (hreps : BlockReps m d)
+theorem IsBlockModels.kitB_mem {m : EnvModel V env} {d : BlockModel V} (hreps : IsBlockModels m d)
     {ψ : Name → Nat} {ρp : Nat → V} (hρp : Sat V (d.params ψ).reverse ρp) {elimL : Level}
     {Ms : Nat → V}
     (hMs : ∀ c, c < d.k → Ms c ∈ˢ interp V ρp
@@ -166,24 +166,24 @@ theorem BlockReps.kitB_mem {m : EnvModel V env} {d : BlockRepData V} (hreps : Bl
   have hpl := hreps.params_length (by omega) ψ
   have hi' : i ∈ˢ idxSet (d.uM c ψ) ρp (d.IdsM c ψ) := hi
   obtain ⟨is, hsp, rfl⟩ := mem_idxSet_elim hi'
-  rw [BlockRepData.kitB_tagged, ← h.IdsM_length ψ, isOfW_tupW (h.idxOk ψ ρp hρp c hc) hsp]
+  rw [BlockModel.kitB_tagged, ← h.IdsM_length ψ, isOfW_tupW (h.idxOk ψ ρp hρp c hc) hsp]
   exact h.motive_app_mem hpl hρp (hMs c hc) hsp hx
 
 /-! ## The constructors' data, per member -/
 
 /-- **The members typed at their formers' readings** — the run's
 `EnvModelM.acval_memType` at each member (a fact of the model's
-invariant, not of the datum: `leaf` fixes the former at fitting spines
+invariant, not of the block model: `leaf` fixes the former at fitting spines
 only).  Consumer: the index readings' fits below. -/
-@[expose] def FormersTyped (m : EnvModel V env) (d : BlockRepData V) (ψ : Name → Nat) : Prop :=
+@[expose] def FormersTyped (m : EnvModel V env) (d : BlockModel V) (ψ : Name → Nat) : Prop :=
   ∀ t, t < d.k → ∀ ρ : Nat → V,
     interp V ρ (m.acval (d.memberName t) ψ) ∈ˢ interp V ρ (mkPisAV (d.ppsM t ψ) (.sort (d.w ψ)))
 
-namespace BlockRep
+namespace IsBlockModel
 
 variable {m : EnvModel V env} {T : Name} {cvT cvR : ConstantVal} {mI rP : Nat}
-  {rules : List RecRule} {d : BlockRepData V} {mm : Nat}
-  (h : BlockRep m T cvT cvR mI rP rules d mm)
+  {rules : List RecRule} {d : BlockModel V} {mm : Nat}
+  (h : IsBlockModel m T cvT cvR mI rP rules d mm)
 include h
 
 /-- Constructor `j`'s data (the block's clause at the member itself). -/
@@ -268,7 +268,7 @@ theorem ctor_okB {j : Nat} {cA : ConstantVal × Nat} (hj : (d.ctorsM mm)[j]? = s
   unfold ctorBodyAVI at this
   rwa [paramBvars_eq_paramBvarsAt] at this
 
-end BlockRep
+end IsBlockModel
 
 /-! ## The index readings' fits -/
 
@@ -276,7 +276,7 @@ end BlockRep
 telescope**: the former is typed at its reading (`FormersTyped`), so
 the application's `WellDenoted` package puts the parameter values and
 the index readings in the former's domains. -/
-theorem BlockReps.former_app_fit {m : EnvModel V env} {d : BlockRepData V} (hreps : BlockReps m d)
+theorem IsBlockModels.former_app_fit {m : EnvModel V env} {d : BlockModel V} (hreps : IsBlockModels m d)
     {ψ : Name → Nat} (hfT : FormersTyped m d ψ) {t : Nat} (ht : t < d.k) {ρp : Nat → V}
     {as' : List V} {e : Nat} (he : as'.length = e) {Eis : List AnnotTerm}
     (hlen : Eis.length = d.nIdxAt t)
@@ -307,7 +307,7 @@ theorem BlockReps.former_app_fit {m : EnvModel V env} {d : BlockRepData V} (hrep
 
 /-- A recursive field's index expressions fit its target's index
 telescope at every fitting prefix. -/
-theorem BlockReps.rec_eis_fit {m : EnvModel V env} {d : BlockRepData V} (hreps : BlockReps m d)
+theorem IsBlockModels.rec_eis_fit {m : EnvModel V env} {d : BlockModel V} (hreps : IsBlockModels m d)
     {ψ : Name → Nat} (hfT : FormersTyped m d ψ) {c : Nat} (hc : c < d.k) {j : Nat}
     {cA : ConstantVal × Nat} (hj : (d.ctorsM c)[j]? = some cA) {ρp : Nat → V}
     (hρp : Sat V (d.params ψ).reverse ρp) {i : Nat} (hi : i < cA.2)
@@ -319,7 +319,7 @@ theorem BlockReps.rec_eis_fit {m : EnvModel V env} {d : BlockRepData V} (hreps :
   have hcd := h.ctorData hj
   have hlenF := h.Fss_length hj ψ
   have hwd := fieldsOkB_getD (h.ctor_okB hj hρp).1 (j := i) (by rw [hlenF]; exact hi) hfs'
-  rw [BlockRep.Fss_getD hj, fields_getD (by rw [List.length_drop, hcd.len]; omega),
+  rw [IsBlockModel.Fss_getD hj, fields_getD (by rw [List.length_drop, hcd.len]; omega),
     List.getD_eq_getElem?_getD, List.getElem?_drop, ← List.getD_eq_getElem?_getD,
     hcd.recEntry ψ i hrec hi] at hwd
   have hlen' : fs'.length = i := by
@@ -329,7 +329,7 @@ theorem BlockReps.rec_eis_fit {m : EnvModel V env} {d : BlockRepData V} (hreps :
 
 /-- A reflexive field's index expressions fit its target's index
 telescope at every fitting prefix and telescope spine. -/
-theorem BlockReps.refl_eis_fit {m : EnvModel V env} {d : BlockRepData V} (hreps : BlockReps m d)
+theorem IsBlockModels.refl_eis_fit {m : EnvModel V env} {d : BlockModel V} (hreps : IsBlockModels m d)
     {ψ : Name → Nat} (hfT : FormersTyped m d ψ) {c : Nat} (hc : c < d.k) {j : Nat}
     {cA : ConstantVal × Nat} (hj : (d.ctorsM c)[j]? = some cA) {ρp : Nat → V}
     (hρp : Sat V (d.params ψ).reverse ρp) {i : Nat} (hi : i < cA.2)
@@ -342,7 +342,7 @@ theorem BlockReps.refl_eis_fit {m : EnvModel V env} {d : BlockRepData V} (hreps 
   have hcd := h.ctorData hj
   have hlenF := h.Fss_length hj ψ
   have hwd := fieldsOkB_getD (h.ctor_okB hj hρp).1 (j := i) (by rw [hlenF]; exact hi) hfs'
-  rw [BlockRep.Fss_getD hj, fields_getD (by rw [List.length_drop, hcd.len]; omega),
+  rw [IsBlockModel.Fss_getD hj, fields_getD (by rw [List.length_drop, hcd.len]; omega),
     List.getD_eq_getElem?_getD, List.getElem?_drop, ← List.getD_eq_getElem?_getD,
     hcd.reflEntry ψ i hrefl hi] at hwd
   have hlen' : fs'.length = i := by
@@ -357,7 +357,7 @@ theorem BlockReps.refl_eis_fit {m : EnvModel V env} {d : BlockRepData V} (hreps 
 
 /-- The constructor's result index readings fit its member's index
 telescope at every fitting field spine. -/
-theorem BlockReps.res_es_fit {m : EnvModel V env} {d : BlockRepData V} (hreps : BlockReps m d)
+theorem IsBlockModels.res_es_fit {m : EnvModel V env} {d : BlockModel V} (hreps : IsBlockModels m d)
     {ψ : Name → Nat} (hfT : FormersTyped m d ψ) {c : Nat} (hc : c < d.k) {j : Nat}
     {cA : ConstantVal × Nat} (hj : (d.ctorsM c)[j]? = some cA) {ρp : Nat → V}
     (hρp : Sat V (d.params ψ).reverse ρp) {fs : List V}
@@ -383,11 +383,11 @@ theorem spineFit_take' {Fs : List AnnotTerm} {ρ : Nat → V} {as : List V}
   rw [this]
   exact h1
 
-namespace BlockRep
+namespace IsBlockModel
 
 variable {m : EnvModel V env} {T : Name} {cvT cvR : ConstantVal} {mI rP : Nat}
-  {rules : List RecRule} {d : BlockRepData V} {mm : Nat}
-  (h : BlockRep m T cvT cvR mI rP rules d mm)
+  {rules : List RecRule} {d : BlockModel V} {mm : Nat}
+  (h : IsBlockModel m T cvT cvR mI rP rules d mm)
 include h
 
 /-- `leaf_app` at index EXPRESSIONS: the former at the parameter
@@ -410,12 +410,12 @@ theorem leaf_app' {ψ : Name → Nat} (hpl : (d.params ψ).length = d.nP) {ρp :
   rw [hfr] at this
   exact this
 
-end BlockRep
+end IsBlockModel
 
 /-- **A recursive or reflexive field's real domain is its slot at the
 carrier** — the field's entry reads to the slot set at the block's
 least tuple, at every fitting prefix. -/
-theorem BlockReps.real_dom_eq {m : EnvModel V env} {d : BlockRepData V} (hreps : BlockReps m d)
+theorem IsBlockModels.real_dom_eq {m : EnvModel V env} {d : BlockModel V} (hreps : IsBlockModels m d)
     {ψ : Name → Nat} (hfT : FormersTyped m d ψ) {c : Nat} (hc : c < d.k) {j : Nat}
     {cA : ConstantVal × Nat} (hj : (d.ctorsM c)[j]? = some cA) {ρp : Nat → V}
     (hρp : Sat V (d.params ψ).reverse ρp) {i : Nat} (hi : i < cA.2)
@@ -432,8 +432,8 @@ theorem BlockReps.real_dom_eq {m : EnvModel V env} {d : BlockRepData V} (hreps :
   have htgt := h.tgtsLt c j i hc (List.getElem?_eq_some_iff.mp hj).1 (by rw [hcd.ksLen]; exact hi)
   obtain ⟨cvT', cvR', mI', rP', rules', ht⟩ := hreps _ htgt
   have hiK : i < (d.ksF c j).length := by rw [hcd.ksLen]; exact hi
-  unfold BlockRepData.slotAt
-  rw [BlockRep.tlss_getD hj, BlockRep.Eiss_getD hj, BlockRep.Fss_getD hj,
+  unfold BlockModel.slotAt
+  rw [IsBlockModel.tlss_getD hj, IsBlockModel.Eiss_getD hj, IsBlockModel.Fss_getD hj,
     fields_getD (by rw [List.length_drop, hcd.len]; omega), List.getD_eq_getElem?_getD,
     List.getElem?_drop, ← List.getD_eq_getElem?_getD]
   have hk : (d.ksF c j).getD i .ordinary = .recursive ∨ (d.ksF c j).getD i .ordinary = .reflexive := by
@@ -459,7 +459,7 @@ theorem BlockReps.real_dom_eq {m : EnvModel V env} {d : BlockRepData V} (hreps :
 
 /-- A recursive slot at a tuple below the carrier is within the slot at
 the carrier. -/
-theorem BlockReps.slotAt_mono {m : EnvModel V env} {d : BlockRepData V} (hreps : BlockReps m d)
+theorem IsBlockModels.slotAt_mono {m : EnvModel V env} {d : BlockModel V} (hreps : IsBlockModels m d)
     {ψ : Name → Nat} (hfT : FormersTyped m d ψ) {c : Nat} (hc : c < d.k) {j : Nat}
     {cA : ConstantVal × Nat} (hj : (d.ctorsM c)[j]? = some cA) {ρp : Nat → V}
     (hρp : Sat V (d.params ψ).reverse ρp) {i : Nat} (hi : i < cA.2)
@@ -479,8 +479,8 @@ theorem BlockReps.slotAt_mono {m : EnvModel V env} {d : BlockRepData V} (hreps :
       Option.map_some, Option.getD_some, decide_eq_true_iff] at hr
     rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hiK]
     exact hr
-  unfold BlockRepData.slotAt slotSet
-  rw [BlockRep.tlss_getD hj, BlockRep.Eiss_getD hj]
+  unfold BlockModel.slotAt slotSet
+  rw [IsBlockModel.tlss_getD hj, IsBlockModel.Eiss_getD hj]
   refine piTele_mono fun bs hbs => ?_
   rw [List.nil_append]
   refine hX _ htgt _ ?_
@@ -494,8 +494,8 @@ theorem BlockReps.slotAt_mono {m : EnvModel V env} {d : BlockRepData V} (hreps :
 
 /-- **A fit at the slots of a tuple below the carrier fits the real
 domains** (the slot is within the real domain). -/
-theorem BlockReps.spineFit_of_fitsFrom_go {m : EnvModel V env} {d : BlockRepData V}
-    (hreps : BlockReps m d) {ψ : Name → Nat} (hfT : FormersTyped m d ψ) {c : Nat} (hc : c < d.k)
+theorem IsBlockModels.spineFit_of_fitsFrom_go {m : EnvModel V env} {d : BlockModel V}
+    (hreps : IsBlockModels m d) {ψ : Name → Nat} (hfT : FormersTyped m d ψ) {c : Nat} (hc : c < d.k)
     {j : Nat} {cA : ConstantVal × Nat} (hj : (d.ctorsM c)[j]? = some cA) {ρp : Nat → V}
     (hρp : Sat V (d.params ψ).reverse ρp) {X : Nat → V}
     (hX : TupleLe d.k (d.idx ψ ρp) X (lfpTuple (d.w ψ) d.k (d.idx ψ ρp) (d.Φ ψ ρp))) :
@@ -522,7 +522,7 @@ theorem BlockReps.spineFit_of_fitsFrom_go {m : EnvModel V env} {d : BlockRepData
       rw [List.getD_eq_getElem?_getD, hFi]; rfl
     obtain ⟨ha, hrest⟩ := hf
     have hmem : a ∈ˢ interp V (consList fs' ρp) F := by
-      rw [BlockRep.rss_getD (List.getElem?_eq_some_iff.mp hj).1] at ha
+      rw [IsBlockModel.rss_getD (List.getElem?_eq_some_iff.mp hj).1] at ha
       split at ha
       · next hr =>
         rw [← hF, hreps.real_dom_eq hfT hc hj hρp (by rw [← hlenF]; exact hi) hr hfs']
@@ -538,8 +538,8 @@ theorem BlockReps.spineFit_of_fitsFrom_go {m : EnvModel V env} {d : BlockRepData
     rw [consList_append, consList_cons, consList_nil] at this
     exact this
 
-theorem BlockReps.spineFit_of_fitsFrom {m : EnvModel V env} {d : BlockRepData V}
-    (hreps : BlockReps m d) {ψ : Name → Nat} (hfT : FormersTyped m d ψ) {c : Nat} (hc : c < d.k)
+theorem IsBlockModels.spineFit_of_fitsFrom {m : EnvModel V env} {d : BlockModel V}
+    (hreps : IsBlockModels m d) {ψ : Name → Nat} (hfT : FormersTyped m d ψ) {c : Nat} (hc : c < d.k)
     {j : Nat} {cA : ConstantVal × Nat} (hj : (d.ctorsM c)[j]? = some cA) {ρp : Nat → V}
     (hρp : Sat V (d.params ψ).reverse ρp) {X : Nat → V}
     (hX : TupleLe d.k (d.idx ψ ρp) X (lfpTuple (d.w ψ) d.k (d.idx ψ ρp) (d.Φ ψ ρp))) {fs : List V}
@@ -550,8 +550,8 @@ theorem BlockReps.spineFit_of_fitsFrom {m : EnvModel V env} {d : BlockRepData V}
   rwa [consList_nil] at this
 
 /-- **A fit at the real domains fits the slots at the carrier.** -/
-theorem BlockReps.fitsFrom_of_spineFit_go {m : EnvModel V env} {d : BlockRepData V}
-    (hreps : BlockReps m d) {ψ : Name → Nat} (hfT : FormersTyped m d ψ) {c : Nat} (hc : c < d.k)
+theorem IsBlockModels.fitsFrom_of_spineFit_go {m : EnvModel V env} {d : BlockModel V}
+    (hreps : IsBlockModels m d) {ψ : Name → Nat} (hfT : FormersTyped m d ψ) {c : Nat} (hc : c < d.k)
     {j : Nat} {cA : ConstantVal × Nat} (hj : (d.ctorsM c)[j]? = some cA) {ρp : Nat → V}
     (hρp : Sat V (d.params ψ).reverse ρp) :
     ∀ (rest : List AnnotTerm) (i : Nat) (fs' as : List V),
@@ -578,7 +578,7 @@ theorem BlockReps.fitsFrom_of_spineFit_go {m : EnvModel V env} {d : BlockRepData
       rw [List.getD_eq_getElem?_getD, hFi]; rfl
     obtain ⟨ha, hrest⟩ := hf
     refine ⟨?_, ?_⟩
-    · rw [BlockRep.rss_getD (List.getElem?_eq_some_iff.mp hj).1]
+    · rw [IsBlockModel.rss_getD (List.getElem?_eq_some_iff.mp hj).1]
       split
       · next hr =>
         rw [← hreps.real_dom_eq hfT hc hj hρp (by rw [← hlenF]; exact hi) hr hfs', hF]
@@ -596,7 +596,7 @@ theorem BlockReps.fitsFrom_of_spineFit_go {m : EnvModel V env} {d : BlockRepData
 /-- **The fibre's converse**: a constructor's injection at a fitting
 field spine is in the carrier's fibre at the tuple of its result index
 readings. -/
-theorem BlockReps.inj_mem {m : EnvModel V env} {d : BlockRepData V} (hreps : BlockReps m d)
+theorem IsBlockModels.inj_mem {m : EnvModel V env} {d : BlockModel V} (hreps : IsBlockModels m d)
     {ψ : Name → Nat} (hfT : FormersTyped m d ψ) {c : Nat} (hc : c < d.k) {j : Nat}
     {cA : ConstantVal × Nat} (hj : (d.ctorsM c)[j]? = some cA) {ρp : Nat → V}
     (hρp : Sat V (d.params ψ).reverse ρp) {fs : List V}
@@ -619,11 +619,11 @@ theorem BlockReps.inj_mem {m : EnvModel V env} {d : BlockRepData V} (hreps : Blo
       rw [List.length_map, hcd.lenE]
     have hgetD : interp V (consList fs ρp) (((d.Ess c ψ).getD j []).getD l default)
         = ((d.esF c j ψ).map (interp V (consList fs ρp))).getD l pt := by
-      rw [BlockRep.Ess_getD hj, List.getD_eq_getElem?_getD, List.getD_eq_getElem?_getD,
+      rw [IsBlockModel.Ess_getD hj, List.getD_eq_getElem?_getD, List.getD_eq_getElem?_getD,
         List.getElem?_map, List.getElem?_eq_getElem (by rw [hcd.lenE]; exact hl), Option.map_some,
         Option.getD_some, Option.getD_some]
     rw [hgetD]
-    unfold BlockRepData.tup
+    unfold BlockModel.tup
     by_cases hu : d.uM c ψ = 0
     · rw [tupW, if_pos hu, Tower.projS_pt]
       have hrep := spineFit_zero_replicate (hu ▸ (h.idxOk ψ ρp hρp c hc).2) hEs
@@ -653,9 +653,9 @@ theorem sum_range_lt (f : Nat → Nat) : ∀ (k c : Nat), c < k →
 omit [SetTheory V] in
 /-- The block's minor index of a member's constructor is within the
 block's minors. -/
-theorem BlockRepData.minorIdx_lt (d : BlockRepData V) {c j : Nat} (hc : c < d.k)
+theorem BlockModel.minorIdx_lt (d : BlockModel V) {c j : Nat} (hc : c < d.k)
     (hj : j < (d.ctorsM c).length) : d.minorIdx c j < d.nCtors := by
-  unfold BlockRepData.minorIdx BlockRepData.nCtors
+  unfold BlockModel.minorIdx BlockModel.nCtors
   have := sum_range_lt (fun t => (d.ctorsM t).length) d.k c hc
   omega
 
@@ -664,7 +664,7 @@ theorem BlockRepData.minorIdx_lt (d : BlockRepData V) {c j : Nat} (hc : c < d.k)
 /-- A recursive or reflexive field's index expressions fit its target's
 index telescope at every fitting prefix and telescope spine (the two
 kinds together; a finitary field's telescope is empty). -/
-theorem BlockReps.eis_fit {m : EnvModel V env} {d : BlockRepData V} (hreps : BlockReps m d)
+theorem IsBlockModels.eis_fit {m : EnvModel V env} {d : BlockModel V} (hreps : IsBlockModels m d)
     {ψ : Name → Nat} (hfT : FormersTyped m d ψ) {c : Nat} (hc : c < d.k) {j : Nat}
     {cA : ConstantVal × Nat} (hj : (d.ctorsM c)[j]? = some cA) {ρp : Nat → V}
     (hρp : Sat V (d.params ψ).reverse ρp) {i : Nat} (hi : i < cA.2)
@@ -693,7 +693,7 @@ theorem BlockReps.eis_fit {m : EnvModel V env} {d : BlockRepData V} (hreps : Blo
 element of a decomposed value, the target member's element at the
 field's index readings and the field's fold along a fitting telescope
 spine lies in the predecessor set — and in the carrier's union. -/
-theorem BlockReps.kitPred_mem {m : EnvModel V env} {d : BlockRepData V} (hreps : BlockReps m d)
+theorem IsBlockModels.kitPred_mem {m : EnvModel V env} {d : BlockModel V} (hreps : IsBlockModels m d)
     {ψ : Name → Nat} {c : Nat} (hc : c < d.k) {j : Nat} (hj : j < (d.ctorsM c).length)
     {ρp : Nat → V} {fs : List V}
     (hfit : FitsFrom ((d.rss c).getD j [])
@@ -710,9 +710,9 @@ theorem BlockReps.kitPred_mem {m : EnvModel V env} {d : BlockRepData V} (hreps :
   obtain ⟨hi'F, hrec⟩ := mem_recIdx.mp hi'
   have hmem := hfit.rec_mem i' hi'F (by rw [Nat.zero_add]; exact hrec)
   rw [Nat.zero_add] at hmem
-  unfold BlockRepData.slotAt at hmem
+  unfold BlockModel.slotAt at hmem
   have hi'K : i' < (d.ksF c j).length := by
-    rw [BlockRepData.rss, rssOfK_getD hj] at hrec
+    rw [BlockModel.rss, rssOfK_getD hj] at hrec
     exact rsOf_getD_true_lt hrec
   have htgt : d.tgts c j i' < d.k := h.tgtsLt c j i' hc hj hi'K
   have hXt := lfpTuple_mem (d.w ψ) d.k (d.idx ψ ρp) (d.Φ ψ ρp) _ htgt
@@ -727,7 +727,7 @@ over the field's telescope of the graph's value at the recursive call
 is in the nested product of the target's motive at the field's index
 readings and the field applied — the graph's values are bounded by
 the motives (`unionGraph_mem_B`). -/
-theorem BlockReps.kitIhs_mem {m : EnvModel V env} {d : BlockRepData V} (hreps : BlockReps m d)
+theorem IsBlockModels.kitIhs_mem {m : EnvModel V env} {d : BlockModel V} (hreps : IsBlockModels m d)
     {ψ : Name → Nat} (hfT : FormersTyped m d ψ) {c : Nat} (hc : c < d.k) {j : Nat}
     {cA : ConstantVal × Nat} (hj : (d.ctorsM c)[j]? = some cA) {ρp : Nat → V}
     (hρp : Sat V (d.params ψ).reverse ρp) (hw : d.w ψ ≠ 0) {fs : List V}
@@ -757,7 +757,7 @@ theorem BlockReps.kitIhs_mem {m : EnvModel V env} {d : BlockRepData V} (hreps : 
   have hj' : j < (d.ctorsM c).length := (List.getElem?_eq_some_iff.mp hj).1
   obtain ⟨hi'F, hrec⟩ := mem_recIdx.mp hi'
   have hrec' : (rsOf (d.ksF c j)).getD i' false = true := by
-    rw [BlockRepData.rss, rssOfK_getD hj'] at hrec
+    rw [BlockModel.rss, rssOfK_getD hj'] at hrec
     exact hrec
   have hi'K : i' < (d.ksF c j).length := rsOf_getD_true_lt hrec'
   have hi'A : i' < cA.2 := by rw [← (h.ctorData hj).ksLen]; exact hi'K
@@ -775,14 +775,14 @@ theorem BlockReps.kitIhs_mem {m : EnvModel V env} {d : BlockRepData V} (hreps : 
   have hvU := relPred_subset _ _ _ _ hv
   have hgv := app_mem_of_mem_piSet hg hv
   have hB := unionGraph_mem_B hcl hmono hmaps (h.kitPred_from hρp hw) (hreps.kitB_mem hρp hMs) hvU hgv
-  rw [BlockRepData.kitB_tagged, ← ht.IdsM_length ψ] at hB
+  rw [BlockModel.kitB_tagged, ← ht.IdsM_length ψ] at hB
   have hEis : SpineFit ρp (d.IdsM (d.tgts c j i') ψ)
       ((d.eisAt ψ c j i').map (interp V (consList bs (consList (fs.take i') ρp)))) := by
     have := hreps.eis_fit hfT hc hj hρp hi'A hrec' hfs'
-      (bs := bs) (by rw [BlockRepData.teleAt, BlockRep.tlss_getD hj] at hbs; exact hbs)
-    rw [BlockRepData.eisAt, BlockRep.Eiss_getD hj]
+      (bs := bs) (by rw [BlockModel.teleAt, IsBlockModel.tlss_getD hj] at hbs; exact hbs)
+    rw [BlockModel.eisAt, IsBlockModel.Eiss_getD hj]
     exact this
-  unfold BlockRepData.tup at hB
+  unfold BlockModel.tup at hB
   rw [isOfW_tupW (ht.idxOk ψ ρp hρp _ htgt) hEis] at hB
   exact hB
 
@@ -792,7 +792,7 @@ theorem BlockReps.kitIhs_mem {m : EnvModel V env} {d : BlockRepData V} (hreps : 
 `(p⃗, M⃗, m⃗, f⃗)`: the motive at the result index readings and the
 constructor's injection, in `univ ℓ` (the readings fit, the injection
 is in the carrier's fibre). -/
-theorem BlockReps.minor_conc {m : EnvModel V env} {d : BlockRepData V} (hreps : BlockReps m d)
+theorem IsBlockModels.minor_conc {m : EnvModel V env} {d : BlockModel V} (hreps : IsBlockModels m d)
     {ψ : Name → Nat} (hfT : FormersTyped m d ψ) {c : Nat} (hc : c < d.k) {j : Nat}
     {cA : ConstantVal × Nat} (hj : (d.ctorsM c)[j]? = some cA) {ρp : Nat → V}
     (hρp : Sat V (d.params ψ).reverse ρp) {Msl msl' : List V} {o : Nat}
@@ -826,7 +826,7 @@ their domains** lands in its conclusion: the motive at the result
 index readings and the constructor's injection.  The ih values are
 abstract here — the union recursor's (`kitIhs_mem`) at `w ≠ 0`, the
 points at a `Prop`-valued block. -/
-theorem BlockReps.minor_fold_mem {m : EnvModel V env} {d : BlockRepData V} (hreps : BlockReps m d)
+theorem IsBlockModels.minor_fold_mem {m : EnvModel V env} {d : BlockModel V} (hreps : IsBlockModels m d)
     {ψ : Name → Nat} (hfT : FormersTyped m d ψ) {c : Nat} (hc : c < d.k) {j : Nat}
     {cA : ConstantVal × Nat} (hj : (d.ctorsM c)[j]? = some cA) {ρp : Nat → V}
     (hρp : Sat V (d.params ψ).reverse ρp) {Msl msl' : List V} {o : Nat}
@@ -862,7 +862,7 @@ theorem BlockReps.minor_fold_mem {m : EnvModel V env} {d : BlockRepData V} (hrep
         ((rebit b (liftDoms o 0 ((d.dsF c j ψ).drop d.nP))).map (·.2.2)) as' ↔
       SpineFit ρp ((d.Fss c ψ).getD j []) as' := by
     intro as'
-    rw [rebit_map_dom, spineFit_liftDoms, hsh, BlockRep.Fss_getD hj]
+    rw [rebit_map_dom, spineFit_liftDoms, hsh, IsBlockModel.Fss_getD hj]
   -- the conclusion, lifted over the ih binders, at any ih spine
   have hconcL : ∀ (as' ihs : List V), ihs.length = (ConLeche.recIdxOf (d.ksF c j)).length →
       interp V (consList ihs (consList as' (consList msl' (consList Msl ρp))))
@@ -924,9 +924,9 @@ theorem BlockReps.minor_fold_mem {m : EnvModel V env} {d : BlockRepData V} (hrep
 
 /-- A `ChainFit`'s index equations say the result index readings ARE
 the tuple's spine. -/
-theorem BlockRep.es_eq_is {m : EnvModel V env} {T : Name} {cvT cvR : ConstantVal} {mI rP : Nat}
-    {rules : List RecRule} {d : BlockRepData V} {c : Nat}
-    (h : BlockRep m T cvT cvR mI rP rules d c) {ψ : Name → Nat} {ρp : Nat → V}
+theorem IsBlockModel.es_eq_is {m : EnvModel V env} {T : Name} {cvT cvR : ConstantVal} {mI rP : Nat}
+    {rules : List RecRule} {d : BlockModel V} {c : Nat}
+    (h : IsBlockModel m T cvT cvR mI rP rules d c) {ψ : Name → Nat} {ρp : Nat → V}
     (hρp : Sat V (d.params ψ).reverse ρp) {j : Nat} {cA : ConstantVal × Nat}
     (hj : (d.ctorsM c)[j]? = some cA) {fs is : List V} (hsp : SpineFit ρp (d.IdsM c ψ) is)
     (hidx : ∀ l, l < (d.IdsM c ψ).length →
@@ -941,7 +941,7 @@ theorem BlockRep.es_eq_is {m : EnvModel V env} {T : Name} {cvT cvR : ConstantVal
     rw [List.length_map, hcd.lenE] at h1
     have hl : l < (d.IdsM c ψ).length := by rw [h.IdsM_length]; exact h1
     have := hidx l hl
-    rw [BlockRep.Ess_getD hj, List.getD_eq_getElem?_getD,
+    rw [IsBlockModel.Ess_getD hj, List.getD_eq_getElem?_getD,
       List.getElem?_eq_getElem (by rw [hcd.lenE]; exact h1), Option.getD_some] at this
     rw [List.getElem_map, this]
     by_cases hu : d.uM c ψ = 0
@@ -959,15 +959,15 @@ theorem ssnd_ssnd_tagged (c : Nat) (i x : V) : ssnd (ssnd (tagged c i x)) = x :=
 /-- The step at a decodable value: the minor of SOME decode at its
 fields and the inductive hypotheses (the decode is unique at `w ≠ 0`,
 `mkInj`). -/
-theorem BlockRepData.kitSt_tagged (d : BlockRepData V) (ψ : Name → Nat) (ρp : Nat → V) (ℓ : Nat)
+theorem BlockModel.kitSt_tagged (d : BlockModel V) (ψ : Name → Nat) (ρp : Nat → V) (ℓ : Nat)
     (ms : Nat → V) {c : Nat} {i x : V} (g : V) (hdec : d.Decodes ψ c x) :
     ∃ (j' : Nat) (fs' : List V), j' < (d.ctorsM c).length ∧
       fs'.length = ((d.Fss c ψ).getD j' []).length ∧ x = d.inj ψ c j' fs' ∧
       d.kitSt ψ ρp ℓ ms (tagged c i x) g
         = (fs' ++ d.kitIhs ψ ρp ℓ c j' fs' g).foldl SetTheory.app (ms (d.minorIdx c j')) := by
-  unfold BlockRepData.kitSt
+  unfold BlockModel.kitSt
   rw [natIdx_sfst_tagged, ssnd_ssnd_tagged]
-  unfold BlockRepData.kitStAt
+  unfold BlockModel.kitStAt
   rw [dif_pos hdec]
   have hspec := Classical.choose_spec (Classical.choose_spec hdec)
   exact ⟨_, _, hspec.1, hspec.2.1, hspec.2.2, rfl⟩
@@ -978,7 +978,7 @@ the graph's fibres, the step lands in the bound.  The value decomposes
 (the fixed-point equation, `fibre`), the decode is the decomposition
 (`mkInj`), and the minor folds along the fields and the inductive
 hypotheses (`minor_fold_mem` at `kitIhs_mem`). -/
-theorem BlockReps.kitSt_mem {m : EnvModel V env} {d : BlockRepData V} (hreps : BlockReps m d)
+theorem IsBlockModels.kitSt_mem {m : EnvModel V env} {d : BlockModel V} (hreps : IsBlockModels m d)
     {ψ : Name → Nat} (hfT : FormersTyped m d ψ) {ρp : Nat → V}
     (hρp : Sat V (d.params ψ).reverse ρp) (hw : d.w ψ ≠ 0) {elimL : Level} {Ms : Nat → V}
     {Msl : List V} (hMsl : Msl.length = d.k) (hMseq : ∀ c, c < d.k → Ms c = Msl.getD c pt)
@@ -1013,7 +1013,7 @@ theorem BlockReps.kitSt_mem {m : EnvModel V env} {d : BlockRepData V} (hreps : B
   -- the decode is the decomposition
   obtain ⟨rfl, rfl⟩ := h.mkInj ψ hw c hc j fs j' fs' hj' hj'' hlenfs hlen' hx'
   -- the bound at the decoded element
-  rw [BlockRepData.kitB_tagged, ← h.IdsM_length ψ, isOfW_tupW (h.idxOk ψ ρp hρp c hc) hsp,
+  rw [BlockModel.kitB_tagged, ← h.IdsM_length ψ, isOfW_tupW (h.idxOk ψ ρp hρp c hc) hsp,
     hMseq c hc, ← h.es_eq_is hρp hj hsp hidx]
   have hfs := hreps.spineFit_of_fitsFrom hfT hc hj hρp (TupleLe.refl _ _ _) hfit
   have hJ := d.minorIdx_lt hc hj'
@@ -1021,10 +1021,10 @@ theorem BlockReps.kitSt_mem {m : EnvModel V env} {d : BlockRepData V} (hreps : B
     (o := d.k + d.minorIdx c j)
     (by rw [hMsl, List.length_take, hmsl]; congr 1; exact Nat.min_eq_left (Nat.le_of_lt hJ)) hMsl
     (fun c' hc' => by rw [← hMseq c' hc']; exact hMs c' hc') hb (hms c j cA hc hj) hfs ?_ ?_
-  · unfold BlockRepData.kitIhs
+  · unfold BlockModel.kitIhs
     rw [List.length_map, h.recIdx_eq hj]
   · intro l hl
-    unfold BlockRepData.kitIhs at hl ⊢
+    unfold BlockModel.kitIhs at hl ⊢
     rw [List.length_map] at hl
     rw [List.getD_eq_getElem?_getD, List.getElem?_map, List.getElem?_eq_getElem hl, Option.map_some,
       Option.getD_some]
@@ -1034,7 +1034,7 @@ theorem BlockReps.kitSt_mem {m : EnvModel V env} {d : BlockRepData V} (hreps : B
     rw [hgetD]
     have hmem := List.getElem_mem hl
     have := hreps.kitIhs_mem hfT hc hj hρp hw hfit hmem hMs hg
-    rw [BlockRepData.teleAt, BlockRep.tlss_getD hj, BlockRepData.eisAt, BlockRep.Eiss_getD hj] at this ⊢
+    rw [BlockModel.teleAt, IsBlockModel.tlss_getD hj, BlockModel.eisAt, IsBlockModel.Eiss_getD hj] at this ⊢
     rw [hMseq _ (h.tgtsLt c j _ hc hj' (by
         rw [(h.ctorData hj).ksLen, ← h.Fss_length hj ψ]; exact (mem_recIdx.mp hmem).1))] at this
     exact this
@@ -1050,7 +1050,7 @@ inhabits its conclusion.  This is the union recursor's job at `w ≠
 0` (`kitSt_mem`); at a `Prop`-valued block the predecessor map has no
 `PredsFrom` (the injections are all the point) and the induction is
 the argument. -/
-theorem BlockReps.inhab_all {m : EnvModel V env} {d : BlockRepData V} (hreps : BlockReps m d)
+theorem IsBlockModels.inhab_all {m : EnvModel V env} {d : BlockModel V} (hreps : IsBlockModels m d)
     {ψ : Name → Nat} (hfT : FormersTyped m d ψ) {ρp : Nat → V}
     (hρp : Sat V (d.params ψ).reverse ρp) {elimL : Level} (hℓ : elimL.eval ψ = 0)
     {Msl : List V} (hMsl : Msl.length = d.k)
@@ -1110,10 +1110,10 @@ theorem BlockReps.inhab_all {m : EnvModel V env} {d : BlockRepData V} (hreps : B
   obtain ⟨cvT', cvR', mI', rP', rules', ht⟩ := hreps _ htgt
   have hfs' := spineFit_take' hfs (i := i') (Nat.le_of_lt hi'F)
   -- the field's fold along a fitting telescope spine is in the restricted fibre
-  have hmem := hfit.rec_mem i' hi'F (by rw [Nat.zero_add, BlockRep.rss_getD hj']; exact hr)
+  have hmem := hfit.rec_mem i' hi'F (by rw [Nat.zero_add, IsBlockModel.rss_getD hj']; exact hr)
   rw [Nat.zero_add] at hmem
-  unfold BlockRepData.slotAt at hmem
-  rw [BlockRep.tlss_getD hj, BlockRep.Eiss_getD hj] at hmem
+  unfold BlockModel.slotAt at hmem
+  rw [IsBlockModel.tlss_getD hj, IsBlockModel.Eiss_getD hj] at hmem
   have hsepU : ∀ t, SetTheory.app (sepTuple (d.w ψ) d.k (d.idx ψ ρp) (d.Φ ψ ρp)
       (fun c i x => ∃ y, y ∈ˢ SetTheory.app
         ((isOfW (d.uM c ψ) (d.nIdxAt c) i).foldl SetTheory.app (Msl.getD c pt)) x) (d.tgts c j i')) t
@@ -1150,11 +1150,11 @@ theorem BlockReps.inhab_all {m : EnvModel V env} {d : BlockRepData V} (hreps : B
     rw [← ht.IdsM_length ψ, isOfW_tupW (ht.idxOk ψ ρp hρp _ htgt) hEis] at hP
     exact hP
 
-/-! ## The union recursor at the datum -/
+/-! ## The union recursor at the block model -/
 
 /-- **The candidate's leaf is typed** (`w ≠ 0`): the block's recursor at
 the frame's motives and minors lies in the bound. -/
-theorem BlockReps.blockRecAt_mem_B {m : EnvModel V env} {d : BlockRepData V} (hreps : BlockReps m d)
+theorem IsBlockModels.blockRecAt_mem_B {m : EnvModel V env} {d : BlockModel V} (hreps : IsBlockModels m d)
     {ψ : Name → Nat} (hfT : FormersTyped m d ψ) {ρp : Nat → V}
     (hρp : Sat V (d.params ψ).reverse ρp) (hw : d.w ψ ≠ 0) {elimL : Level} {Ms : Nat → V}
     {Msl : List V} (hMsl : Msl.length = d.k) (hMseq : ∀ c, c < d.k → Ms c = Msl.getD c pt)
@@ -1176,7 +1176,7 @@ theorem BlockReps.blockRecAt_mem_B {m : EnvModel V env} {d : BlockRepData V} (hr
 
 /-- **The candidate's recursion equation** (`w ≠ 0`): the block's
 recursor at a value is the step at the graph over its predecessors. -/
-theorem BlockReps.blockRecAt_eq {m : EnvModel V env} {d : BlockRepData V} (hreps : BlockReps m d)
+theorem IsBlockModels.blockRecAt_eq {m : EnvModel V env} {d : BlockModel V} (hreps : IsBlockModels m d)
     {ψ : Name → Nat} (hfT : FormersTyped m d ψ) {ρp : Nat → V}
     (hρp : Sat V (d.params ψ).reverse ρp) (hw : d.w ψ ≠ 0) {elimL : Level} {Ms : Nat → V}
     {Msl : List V} (hMsl : Msl.length = d.k) (hMseq : ∀ c, c < d.k → Ms c = Msl.getD c pt)

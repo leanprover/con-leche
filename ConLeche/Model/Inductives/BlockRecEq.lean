@@ -168,8 +168,8 @@ theorem lamTower_ihTeleAtGo {mm nF o i l : Nat} {ρp : Nat → V} {M : V} {ms : 
 /-- **A fitting spine of member `mm`'s recursor type, from the pieces**
 (the converse of `spineFit_recData_inv`): the prefix's fit, a fitting
 index spine and a major in the carrier's fibre. -/
-theorem BlockReps.spineFit_recData_of {m : EnvModel V env} {d : BlockRepData V}
-    (hreps : BlockReps m d) {ψ : Name → Nat} {elimL : Level} {Ls : List AnnotTerm}
+theorem IsBlockModels.spineFit_recData_of {m : EnvModel V env} {d : BlockModel V}
+    (hreps : IsBlockModels m d) {ψ : Name → Nat} {elimL : Level} {Ls : List AnnotTerm}
     {nIdxs : List Nat} {pps : List (Nat × Nat × AnnotTerm)}
     {ipss : List (List (Nat × Nat × AnnotTerm))} {cds : List CtorDatumR} {mots : Nat → Nat}
     {tgts : Nat → Nat → Nat} (hR : BlockReadings m d ψ elimL Ls nIdxs pps ipss cds mots tgts)
@@ -208,7 +208,7 @@ theorem BlockReps.spineFit_recData_of {m : EnvModel V env} {d : BlockRepData V}
 
 /-- At a zero bit a frame's minor is the point (its type is a
 `Prop`-regime Π-tower, or the truth value of its conclusion). -/
-theorem BlockReps.minor_eq_pt {m : EnvModel V env} {d : BlockRepData V} (hreps : BlockReps m d)
+theorem IsBlockModels.minor_eq_pt {m : EnvModel V env} {d : BlockModel V} (hreps : IsBlockModels m d)
     {ψ : Name → Nat} (hfT : FormersTyped m d ψ) {c : Nat} (hc : c < d.k) {j : Nat}
     {cA : ConstantVal × Nat} (hj : (d.ctorsM c)[j]? = some cA) {ρp : Nat → V}
     (hρp : Sat V (d.params ψ).reverse ρp) {Msl msl' : List V} {o : Nat}
@@ -238,7 +238,7 @@ theorem BlockReps.minor_eq_pt {m : EnvModel V env} {d : BlockRepData V} (hreps :
       simp only [ihPisAVM, List.length_nil] at hmJ
       rw [interp_liftN, shiftE_zero_zero] at hmJ
       have hfs : SpineFit ρp ((d.Fss c ψ).getD j []) [] := by
-        rw [BlockRep.Fss_getD hj, hds]; trivial
+        rw [IsBlockModel.Fss_getD hj, hds]; trivial
       have hconc := hreps.minor_conc hfT hc hj hρp ho hMsl hMs hfs
       rw [consList_nil] at hconc
       rw [hconc.1] at hmJ
@@ -379,7 +379,7 @@ readings and the constructor's injection) and the right-hand side
 (the minor at the fields and the inductive hypotheses' applications)
 read to the same value: at `ℓ ≠ 0` both are the union recursor's
 step at the decomposed value; at `ℓ = 0` both are the point. -/
-theorem BlockReps.blockCand_eq {m : EnvModel V env} {d : BlockRepData V} (hreps : BlockReps m d)
+theorem IsBlockModels.blockCand_eq {m : EnvModel V env} {d : BlockModel V} (hreps : IsBlockModels m d)
     {ψ : Name → Nat} (hfT : FormersTyped m d ψ) {elimL : Level}
     (hwℓ : d.w ψ = 0 → elimL.eval ψ = 0) {Ls : List AnnotTerm} {nIdxs : List Nat}
     {pps : List (Nat × Nat × AnnotTerm)} {ipss : List (List (Nat × Nat × AnnotTerm))}
@@ -435,9 +435,9 @@ theorem BlockReps.blockCand_eq {m : EnvModel V env} {d : BlockRepData V} (hreps 
   have hfs' : SpineFit (consList ps (consList cands ρ)) ((d.Fss c ψ).getD j []) fs := by
     rw [rebit_map_dom, spineFit_liftDoms, consList_append, consList_append, ← consList_append Msl msl,
       hlenMm, shiftE_consList] at hfsL
-    rw [BlockRep.Fss_getD hj]; exact hfsL
+    rw [IsBlockModel.Fss_getD hj]; exact hfsL
   have hfs : SpineFit (consList ps ρ) ((d.Fss c ψ).getD j []) fs := by
-    rw [BlockRep.Fss_getD hj] at hfs' ⊢
+    rw [IsBlockModel.Fss_getD hj] at hfs' ⊢
     exact spineFit_transport (DomsBelow.drop d.nP (hcd.below ψ)) (by rw [hlenps, Nat.zero_add]) hfs'
   have hEsρ : (d.esF c j ψ).map (interp V (consList fs (consList ps (consList cands ρ))))
       = (d.esF c j ψ).map (interp V (consList fs (consList ps ρ))) := by
@@ -508,7 +508,7 @@ theorem BlockReps.blockCand_eq {m : EnvModel V env} {d : BlockRepData V} (hreps 
       simp at this
     have hpt : d.blockCand ψ (elimL.eval ψ)
         (mutualRecDataAV m ψ Ls d.nP nIdxs elimL pps ipss cds mots tgts c) c ρ = pt := by
-      unfold BlockRepData.blockCand
+      unfold BlockModel.blockCand
       cases hd : mutualRecDataAV m ψ Ls d.nP nIdxs elimL pps ipss cds mots tgts c with
       | nil => exact absurd hd hne
       | cons d' ds' =>
@@ -532,7 +532,7 @@ theorem BlockReps.blockCand_eq {m : EnvModel V env} {d : BlockRepData V} (hreps 
     have hsp₁ := hreps.spineFit_recData_of hR hc hpreρ hF hEs hinj
     have hlenEs : ((d.esF c j ψ).map (interp V (consList fs (consList ps ρ)))).length = d.nIdxAt c := by
       rw [List.length_map, hcd.lenE]
-    unfold BlockRepData.blockCand
+    unfold BlockModel.blockCand
     rw [lamTower_fold hℓ hsp₁, d.blockLeafV_at ψ (elimL.eval ψ) c ρ _ hF.mslLen hF.minsLen hlenEs,
       hreps.blockRecAt_eq hfT hρp hw hF.mslLen hMseq hMs hb hF.minsLen
         (ms := fun J => if J < d.nCtors then msl.getD J pt else pt) hms hc
@@ -547,7 +547,7 @@ theorem BlockReps.blockCand_eq {m : EnvModel V env} {d : BlockRepData V} (hreps 
     rw [if_pos hJ, List.foldl_append, List.foldl_append]
     congr 1
     -- the inductive hypotheses' values
-    unfold BlockRepData.kitIhs
+    unfold BlockModel.kitIhs
     rw [h.recIdx_eq hj]
     apply List.map_congr_left
     intro i hiI
@@ -568,8 +568,8 @@ theorem BlockReps.blockCand_eq {m : EnvModel V env} {d : BlockRepData V} (hreps 
     -- the ih application, read and moved to the base frame
     simp only [Function.comp]
     rw [interp_ihAppAVK_at hlenps hF.mslLen hF.minsLen hlenfs hk hiA, hρcD _ htgt, hcandsD _ htgt,
-      lamTower_bit_agree hb, BlockRepData.teleAt, BlockRep.tlss_getD hj, BlockRepData.eisAt,
-      BlockRep.Eiss_getD hj]
+      lamTower_bit_agree hb, BlockModel.teleAt, IsBlockModel.tlss_getD hj, BlockModel.eisAt,
+      IsBlockModel.Eiss_getD hj]
     symm
     rw [show consList (fs.take i) (consList ps (consList cands ρ))
         = consList (ps ++ fs.take i) (consList cands ρ) from by rw [consList_append],
@@ -603,9 +603,9 @@ theorem BlockReps.blockCand_eq {m : EnvModel V env} {d : BlockRepData V} (hreps 
         (interp V (consList bs (consList (fs.take i) (consList ps ρ))))).length = d.nIdxAt (d.tgts c j i) := by
       rw [hEis.length_eq, ht.IdsM_length]
     have hv := hreps.kitPred_mem hc hj' hfitL hiR
-      (bs := bs) (by rw [BlockRepData.teleAt, BlockRep.tlss_getD hj]; exact hbsρ)
+      (bs := bs) (by rw [BlockModel.teleAt, IsBlockModel.tlss_getD hj]; exact hbsρ)
       (d.tup ψ c ((d.esF c j ψ).map (interp V (consList fs (consList ps ρ)))))
-    rw [BlockRepData.eisAt, BlockRep.Eiss_getD hj] at hv
+    rw [BlockModel.eisAt, IsBlockModel.Eiss_getD hj] at hv
     have hvU := relPred_subset _ _ _ _ hv
     have hfold : bs.foldl SetTheory.app (fs.getD i pt)
         ∈ˢ SetTheory.app (lfpTuple (d.w ψ) d.k (d.idx ψ (consList ps ρ)) (d.Φ ψ (consList ps ρ)) (d.tgts c j i))
@@ -613,7 +613,7 @@ theorem BlockReps.blockCand_eq {m : EnvModel V env} {d : BlockRepData V} (hreps 
             (((d.eissF c j ψ).getD i []).map (interp V (consList bs (consList (fs.take i) (consList ps ρ)))))) :=
       (tagged_mem_unionSet_iff.mp hvU).2.2
     have hsp₂ := hreps.spineFit_recData_of hR htgt hpreρ hF hEis hfold
-    unfold BlockRepData.blockCand
+    unfold BlockModel.blockCand
     rw [lamTower_fold hℓ hsp₂, d.blockLeafV_at ψ (elimL.eval ψ) _ ρ _ hF.mslLen hF.minsLen hlenEis,
       app_graph hv]
     rfl

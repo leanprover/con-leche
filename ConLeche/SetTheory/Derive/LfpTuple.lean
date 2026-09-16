@@ -28,12 +28,12 @@ monotonicity the least pre-fixed tuple is a fixed point
 component is the least pre-fixed FAMILY of its own SECTION — the
 set-level functor `secF w Is Φ L m` on `famSpace w (Is m)` obtained
 by holding the other components at their carriers `L` — so a member of
-a block has exactly the single-family datum shape (`lfpFamSet` of a
+a block has exactly the single-family block model shape (`lfpFamSet` of a
 set-level functor over its own index set), the other members entering
 its operator the way parameters do.  The converse is false
 (DESIGN §M.58: `(⊤, ⊤, ⊤)` satisfies "each an lfp of its section at the
 others" for the cyclic identity operator), which is why the block's
-datum records the TUPLE and the section form is a derived law.
+block model records the TUPLE and the section form is a derived law.
 
 Everything here is over the bare `SetTheory` interface; no syntax.
 -/

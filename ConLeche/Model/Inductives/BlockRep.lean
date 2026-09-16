@@ -5,7 +5,7 @@ public import ConLeche.SetTheory.Derive.LfpTuple
 public section
 
 /-!
-# `BlockRep` — THE ONE DATUM of an inductive block (task #315, M2)
+# `IsBlockModel` — THE ONE DATUM of an inductive block (task #315, M2)
 
 Every stored inductive type is a MEMBER of a block of `k` families,
 and the block is represented as the simultaneous least pre-fixed point
@@ -13,11 +13,11 @@ of ONE operator on a TUPLE of families (`lfpTuple`,
 `ConLeche/SetTheory/Derive/LfpTuple.lean`), one component per member,
 each over the member's own plain index-tuple set.  No member tag enters
 an index, no constructor position is flattened across members, no copy
-of anything is minted: the datum of a mutual block is the datum of a
+of anything is minted: the block model of a mutual block is the block model of a
 single family with the family replaced by a tuple, and a single family
 is the block with `k = 1` (`lfpTuple_one`).
 
-**The datum** (`BlockRepData`) is the fixpoint route's spelling of a
+**The block model** (`BlockModel`) is the fixpoint route's spelling of a
 block, keyed by MEMBER and by the member's OWN constructor position:
 per member its telescope reading, index-tuple sort and constructors,
 per constructor the readings of its stored type (`FixCtorDataI`'s
@@ -29,7 +29,7 @@ function on tuples) and the member-local constructor injections `inj`
 — both abstract, so a pinned block whose elements are not tagged
 towers (`Nat` as ω) is represented on the nose.
 
-**The clause** (`BlockRep`), for the stored inductive `T` = member `mm`
+**The clause** (`IsBlockModel`), for the stored inductive `T` = member `mm`
 with recursor `T.rec = .recInfo cvR mI rP rules`:
 
 * the stored types read as the spelling says (`former`, `ctors` — the
@@ -55,9 +55,9 @@ with recursor `T.rec = .recInfo cvR mI rP rules`:
   member at a `Type`-valued one (`mkInj` — cross-member disjointness is
   never needed: the recursor's union tags the members, DESIGN §U.1 (f)).
 
-**The section view** (`BlockRep.ofMember`, Bekić): member `mm`'s
+**The section view** (`IsBlockModel.ofMember`, Bekić): member `mm`'s
 component is the least pre-fixed FAMILY of `Φ`'s section at `mm`, the
-other members held at their carriers — a single-family datum whose
+other members held at their carriers — a single-family block model whose
 operator reads the other members as CONSTANTS, the way parameters
 enter (`lfpTuple_eq_section`).  It is a DERIVED law, not a clause:
 the section laws alone do not determine the tuple (DESIGN §M.58).
@@ -211,13 +211,13 @@ theorem BlockCtorData.ofFix {m : EnvModel V env} {env₀ : Env} {T : Name} {lps 
     tssParams := h.tssParams, reflOpen := h.reflOpen, eisLenRefl := h.eisLenRefl
     reflEntry := h.reflEntry }
 
-/-! ## The datum -/
+/-! ## The block model -/
 
-/-- **The representation datum of a block** (see the module
+/-- **The representation block model of a block** (see the module
 docstring): the fixpoint route's spelling of the block, keyed by
 member and by the member's own constructor position, the tuple
 operator `Φ` and the member-local constructor injections `inj`. -/
-structure BlockRepData (V : Type w) where
+structure BlockModel (V : Type w) where
   /-- the parameter count (shared by the members) -/
   nP : Nat
   /-- the number of members -/
@@ -271,9 +271,9 @@ structure BlockRepData (V : Type w) where
   (member-local) at a field spine -/
   inj : (Name → Nat) → Nat → Nat → List V → V
 
-namespace BlockRepData
+namespace BlockModel
 
-variable (d : BlockRepData V)
+variable (d : BlockModel V)
 
 /-- The result sort's value. -/
 @[expose] def w (ψ : Name → Nat) : Nat := d.resSort.eval ψ
@@ -336,7 +336,7 @@ members abstracted to `X`.) -/
   slotSet (d.w ψ) (d.uM (d.tgts mm j i) ψ) ρ (((d.tlss mm ψ).getD j []).getD i [])
     (((d.Eiss mm ψ).getD j []).getD i []) (X (d.tgts mm j i))
 
-end BlockRepData
+end BlockModel
 
 /-- **The fields fit**, from position `i` on, along the domain list
 `Fs` (a suffix of the constructor's), each value in its entry at the
@@ -360,9 +360,9 @@ theorem FitsFrom.length_eq {rs : List Bool} {slot : Nat → (Nat → V) → V} :
   | _, _, _ :: Fs, _ :: as, h =>
     congrArg Nat.succ (FitsFrom.length_eq (Fs := Fs) (as := as) h.2)
 
-namespace BlockRepData
+namespace BlockModel
 
-variable (d : BlockRepData V)
+variable (d : BlockModel V)
 
 /-- **A field spine fits member `mm`'s constructor `j` at the functor
 frame `(ρp, X, t)`**: it fits the constructor's entries at `X`, and the
@@ -375,15 +375,15 @@ constructor's index expressions at it are the components of the tuple
   ∀ l, l < (d.IdsM mm ψ).length →
     interp V (consList fs ρp) (((d.Ess mm ψ).getD j []).getD l default) = projS l t
 
-end BlockRepData
+end BlockModel
 
 /-! ## The clause -/
 
 /-- **The per-constructor facts of a block member's constructor** —
 `FixCtorFactsAt`'s target-aware twin: the constructor is stored with
-the block's level parameters and its type reads as the datum says, a
+the block's level parameters and its type reads as the block model says, a
 recursive field at the former of the member it targets. -/
-@[expose] def BlockCtorFacts {env : Env} (m : EnvModel V env) (d : BlockRepData V) (lps : List Name)
+@[expose] def BlockCtorFacts {env : Env} (m : EnvModel V env) (d : BlockModel V) (lps : List Name)
     (mm j : Nat) (cA : ConstantVal × Nat) : Prop :=
   env.find? cA.1.name = some (.ctorInfo cA.1 d.nP cA.2) ∧
   cA.1.levelParams = lps ∧
@@ -394,10 +394,10 @@ recursive field at the former of the member it targets. -/
 
 /-- **The representation of a stored inductive `T`**, member `mm` of
 its block, with recursor `T.rec = .recInfo cvR mI rP rules`, at the
-datum `d` (see the module docstring).  A single family is the instance
+block model `d` (see the module docstring).  A single family is the instance
 `k = 1`, `mm = 0`. -/
-structure BlockRep (m : EnvModel V env) (T : Name) (cvT cvR : ConstantVal) (mI rP : Nat)
-    (rules : List RecRule) (d : BlockRepData V) (mm : Nat) : Prop where
+structure IsBlockModel (m : EnvModel V env) (T : Name) (cvT cvR : ConstantVal) (mI rP : Nat)
+    (rules : List RecRule) (d : BlockModel V) (mm : Nat) : Prop where
   /-- `T` is a member of the block -/
   memberLt : mm < d.k
   /-- `T` is member `mm` -/
@@ -424,7 +424,7 @@ structure BlockRep (m : EnvModel V env) (T : Name) (cvT cvR : ConstantVal) (mI r
   /-- the former's type reads as the member's telescope -/
   former : FormerData m cvT (d.nP + d.nIdxAt mm) d.resSort (d.ppsM mm)
   /-- every constructor OF THE BLOCK is stored and its type reads as
-  the datum says, with the per-field target member -/
+  the block model says, with the per-field target member -/
   ctors : ∀ mm' j cA, mm' < d.k → (d.ctorsM mm')[j]? = some cA →
     BlockCtorFacts m d cvT.levelParams mm' j cA
   /-- every member is a stored inductive — what licenses the
@@ -489,22 +489,22 @@ structure BlockRep (m : EnvModel V env) (T : Name) (cvT cvR : ConstantVal) (mI r
 /-! ## Derived laws -/
 
 /-- A fitting parameter spine satisfies the parameter telescope. -/
-theorem BlockRepData.satOfSpine (d : BlockRepData V) {ψ : Name → Nat} {ρ : Nat → V} {as : List V}
+theorem BlockModel.satOfSpine (d : BlockModel V) {ψ : Name → Nat} {ρ : Nat → V} {as : List V}
     (hsp : SpineFit ρ (d.params ψ) as) : Sat V (d.params ψ).reverse (consList as ρ) := by
   have := ConLeche.Model.sat_of_spineFit (Sat_nil V ρ) hsp
   simpa using this
 
 /-- A member's own index spine lands, as a tuple, in its index-tuple
 set. -/
-theorem BlockRepData.tupMem (d : BlockRepData V) {ψ : Name → Nat} {ρp : Nat → V} {mm' : Nat}
+theorem BlockModel.tupMem (d : BlockModel V) {ψ : Name → Nat} {ρp : Nat → V} {mm' : Nat}
     {is : List V} (hsp : SpineFit ρp (d.IdsM mm' ψ) is) : d.tup ψ mm' is ∈ˢ d.idx ψ ρp mm' :=
   tupW_mem (u := d.uM mm' ψ) hsp
 
-namespace BlockRep
+namespace IsBlockModel
 
 variable {m : EnvModel V env} {T : Name} {cvT cvR : ConstantVal} {mI rP : Nat}
-  {rules : List RecRule} {d : BlockRepData V} {mm : Nat}
-  (h : BlockRep m T cvT cvR mI rP rules d mm)
+  {rules : List RecRule} {d : BlockModel V} {mm : Nat}
+  (h : IsBlockModel m T cvT cvR mI rP rules d mm)
 include h
 
 /-- The carrier's fixed-point equation at a member, fibrewise. -/
@@ -517,7 +517,7 @@ theorem carrier_app_eq {ψ : Name → Nat} {ρp : Nat → V} (hρp : Sat V (d.pa
 
 /-- **The section view (Bekić)**: member `mm`'s leaf is the least
 pre-fixed FAMILY of `Φ`'s section at `mm`, the other members held at
-the block's carriers — the single-family datum shape. -/
+the block's carriers — the single-family block model shape. -/
 theorem leaf_section {ψ : Name → Nat} {ρ : Nat → V} {as is : List V}
     (hsp : SpineFit ρ (d.params ψ) as) (hi : SpineFit (consList as ρ) (d.IdsM mm ψ) is) :
     (as ++ is).foldl app (interp V ρ (m.acval T ψ))
@@ -556,6 +556,6 @@ theorem ofMember {ψ : Name → Nat} {ρp : Nat → V} (hρp : Sat V (d.params �
   rw [app_secF hX]
   exact h.fibre ψ ρp hρp _ (inTupleSpace_updTuple hLmem hX) mm h.memberLt t ht x
 
-end BlockRep
+end IsBlockModel
 
 end ConLeche.Model

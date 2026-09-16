@@ -17,21 +17,21 @@ public section
 The recursor types' readings (`MutualRecData`, `mutualRecData_of`) are
 read off the generated types against the members' and constructors'
 reading premises (`FormerReadsM`, `MutualCtorReadsM`).  At the uniform
-datum those premises come from the datum's own clauses: a constructor's
-`BlockCtorData` (`BlockRep.ctors`, through `blockCtorRead_of`) and the
-members' stored records — the ONE run fact the datum does not carry,
+block model those premises come from the block model's own clauses: a constructor's
+`BlockCtorData` (`IsBlockModel.ctors`, through `blockCtorRead_of`) and the
+members' stored records — the ONE run fact the block model does not carry,
 `MemberStored`: member `t`'s checked constant is what the store finds
 under its name, at the block's level parameters, its telescope ending
-in its own sort, its `FormerData` at the datum's parameter data.  The
-kinds the run classified are the datum's (`hkinds`: `ksF`/`tgts` are
+in its own sort, its `FormerData` at the block model's parameter data.  The
+kinds the run classified are the block model's (`hkinds`: `ksF`/`tgts` are
 `kindsOf`/`tgtAt` of the classification at the block's own position,
 `ownOffset mm + j`), so the generated constructors' `recFields` are
-the datum's recursive positions paired with their targets
+the block model's recursive positions paired with their targets
 (`mutualRecFieldsOf_eq`).
 
 The recursor list, the position tables and the member table are the
-datum's (`MutualRecs.lean`); the block's `k` recursor types then read
-to `blockRds`, member `mm`'s reading's Π-tower over the datum's lists,
+block model's (`MutualRecs.lean`); the block's `k` recursor types then read
+to `blockRds`, member `mm`'s reading's Π-tower over the block model's lists,
 graded at the kernel's inferred sort (`blockRecData_of`).
 -/
 
@@ -48,7 +48,7 @@ universe w
 
 variable {V : Type w} [SetTheory V] {μ : CheckMode} {env : Env}
 
-/-! ## The members stored at the datum's readings -/
+/-! ## The members stored at the block model's readings -/
 
 /-- The reading layer's record, at the generators' former. -/
 theorem MemberStored.toFormerFacts {m : EnvModel V env} {lps : List Name} {nP : Nat}
@@ -61,29 +61,29 @@ theorem MemberStored.toFormerFacts {m : EnvModel V env} {lps : List Name} {nP : 
   strip := h.strip
   data := h.data.congr_sort (fun ψ => (h.sEq ψ).symm)
 
-/-! ## The datum's constructors at the block's positions -/
+/-! ## The block model's constructors at the block's positions -/
 
 section Positions
 
 variable {b : MutualBlock} {fms : List MutualFormerA} {ctorsA : List (ConstantVal × Nat)}
-  {d : BlockRepData V}
+  {d : BlockModel V}
 
 omit [SetTheory V] in
-/-- The datum's minor index is the block's own offset. -/
-theorem MutualDatumOf.minorIdx_eq (hd : MutualDatumOf env b fms ctorsA d) {c : Nat} (hc : c < b.k)
+/-- The block model's minor index is the block's own offset. -/
+theorem MutualBlockModelOf.minorIdx_eq (hd : MutualBlockModelOf env b fms ctorsA d) {c : Nat} (hc : c < b.k)
     (j : Nat) : d.minorIdx c j = b.ownOffset c + j := by
-  unfold BlockRepData.minorIdx ConLeche.MutualBlock.ownOffset
+  unfold BlockModel.minorIdx ConLeche.MutualBlock.ownOffset
   congr 2
   refine List.map_congr_left fun t ht => ?_
   rw [hd.ctors t (Nat.lt_trans (List.mem_range.mp ht) hc), List.length_map]
 
 omit [SetTheory V] in
-/-- The datum's constructor count is the block's. -/
-theorem MutualDatumOf.nCtors_eq (hd : MutualDatumOf env b fms ctorsA d)
+/-- The block model's constructor count is the block's. -/
+theorem MutualBlockModelOf.nCtors_eq (hd : MutualBlockModelOf env b fms ctorsA d)
     (h2 : b.ctors.all (fun c => c.member < b.k) = true) (hlenA : ctorsA.length = b.ctors.length) :
     d.nCtors = ctorsA.length := by
   have : d.nCtors = b.ownOffset b.k := by
-    unfold BlockRepData.nCtors ConLeche.MutualBlock.ownOffset
+    unfold BlockModel.nCtors ConLeche.MutualBlock.ownOffset
     rw [hd.k]
     congr 1
     exact List.map_congr_left fun t ht => by
@@ -93,7 +93,7 @@ theorem MutualDatumOf.nCtors_eq (hd : MutualDatumOf env b fms ctorsA d)
 omit [SetTheory V] in
 /-- A member's constructor is the checked constructor at the block's
 position, listed under that member. -/
-theorem MutualDatumOf.ctorsM_get (hd : MutualDatumOf env b fms ctorsA d)
+theorem MutualBlockModelOf.ctorsM_get (hd : MutualBlockModelOf env b fms ctorsA d)
     (hg : ConLeche.mutualCtorsGrouped b.ctors = true) (hlenA : ctorsA.length = b.ctors.length)
     {c j : Nat} (hc : c < b.k) {cA : ConstantVal × Nat} (hj : (d.ctorsM c)[j]? = some cA) :
     b.ownOffset c + j < ctorsA.length ∧ ctorsA[b.ownOffset c + j]? = some cA ∧
@@ -118,7 +118,7 @@ section Readings
 variable {F : Nat} {b : MutualBlock} {fms : List MutualFormerA}
   {ctorsA : List (ConstantVal × Nat)} {sortss : List (List Level)}
   {kinds : List (List (RecFieldKind × Nat))} {formers4 : List MutualFormer}
-  {ctors4 : List MutualCtor4} {d : BlockRepData V} {m : EnvModel V env} {env₀ : Env}
+  {ctors4 : List MutualCtor4} {d : BlockModel V} {m : EnvModel V env} {env₀ : Env}
 
 omit [SetTheory V] in
 /-- The generators' formers, positionally. -/
@@ -182,8 +182,8 @@ theorem ctorsA_names_of {isProp : Bool} (hctors : ConLeche.checkMutualCtors (m :
   rw [hty]
   exact ⟨rfl, hnF, hlpsC⟩
 
-/-- **The members' reading premises** at the datum's readers. -/
-theorem blockFormerReadsM_of (hd : MutualDatumOf env₀ b fms ctorsA d)
+/-- **The members' reading premises** at the block model's readers. -/
+theorem blockFormerReadsM_of (hd : MutualBlockModelOf env₀ b fms ctorsA d)
     (hgd : ConLeche.mutualGenData b fms ctorsA kinds = (formers4, ctors4))
     (hstored : ∀ (t : Nat) (f : MutualFormerA), fms[t]? = some f →
       MemberStored m b.lps b.nP f d.resSort (d.ppsM t))
@@ -210,9 +210,9 @@ theorem blockFormerReadsM_of (hd : MutualDatumOf env₀ b fms ctorsA d)
     exact (hstored t _ (by
       rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem ht]; rfl)).toFormerFacts
 
-/-- **The constructors' reading premises** at the datum's lists and
+/-- **The constructors' reading premises** at the block model's lists and
 tables. -/
-theorem blockCtorReadsM_of (hd : MutualDatumOf env₀ b fms ctorsA d) (hreps : BlockReps m d)
+theorem blockCtorReadsM_of (hd : MutualBlockModelOf env₀ b fms ctorsA d) (hreps : IsBlockModels m d)
     (h2 : b.ctors.all (fun c => c.member < b.k) = true)
     (hg : ConLeche.mutualCtorsGrouped b.ctors = true)
     (hlenA : ctorsA.length = b.ctors.length) (hlenK : kinds.length = ctorsA.length)
@@ -260,11 +260,11 @@ theorem blockCtorReadsM_of (hd : MutualDatumOf env₀ b fms ctorsA d) (hreps : B
   have hilt : i < (d.ksF c j).length := (mem_recIdxOf.mp hi).1
   exact ⟨d.recTname_lt (hrep.tgtsLt c j i hc hj' hilt), rfl⟩
 
-/-- **The block's recursor types read to the datum's Π-towers, graded
+/-- **The block's recursor types read to the block model's Π-towers, graded
 at the kernel's inferred sort** — `mutualRecData_of` at every member,
-the readings the datum's. -/
+the readings the block model's. -/
 theorem blockRecData_of (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ env)
-    (hd : MutualDatumOf env₀ b fms ctorsA d) (hreps : BlockReps mp.base2 d)
+    (hd : MutualBlockModelOf env₀ b fms ctorsA d) (hreps : IsBlockModels mp.base2 d)
     (hlenF : fms.length = b.k) (h0k : 0 < b.k)
     (h2 : b.ctors.all (fun c => c.member < b.k) = true)
     (hg : ConLeche.mutualCtorsGrouped b.ctors = true)
@@ -335,18 +335,18 @@ end Readings
 
 /-! ## The leaf and the provisioned model -/
 
-namespace BlockRepData
+namespace BlockModel
 
-variable (d : BlockRepData V)
+variable (d : BlockModel V)
 
-/-- **The block's rule equations** at the datum's lists (the leaf's
+/-- **The block's rule equations** at the block model's lists (the leaf's
 specification, `specEqs` at the readings built here). -/
 @[expose] def recEqs (m : EnvModel V env) (elimL : Level) (ψ : Name → Nat) : List AnnotTerm :=
   d.specEqs m ψ elimL (d.recLs m ψ) d.recNIdxs (d.recPps ψ) (d.recIpss ψ) (d.recCds ψ)
     d.recMots d.recTgts
 
 /-- **Member `t`'s recursor leaf**: the chosen tuple's `t`-th
-projection (`blockLeafAV`) at the datum's readings, taken at the
+projection (`blockLeafAV`) at the block model's readings, taken at the
 level assignment RESTRICTED to the recursors' level parameters
 (`restrictΨ rlps ψ`) — the leaf then depends on those parameters
 alone by construction, and the readings agree at the two assignments
@@ -356,7 +356,7 @@ alone by construction, and the readings agree at the two assignments
   blockLeafAV (s (restrictΨ rlps ψ)) d.k (fun t' => d.blockRds m elimL t' (restrictΨ rlps ψ))
     d.blockConc (d.recEqs m elimL (restrictΨ rlps ψ)) t
 
-end BlockRepData
+end BlockModel
 
 /-- **The state after the recursors' rule-less conses** — what the
 store's stage (M4 s4b) consumes: the `k` recursors are consed at the
@@ -365,7 +365,7 @@ constructors' model's, the stored types' readings are at the
 provisioned model, and the leaves are typed at their readings and
 satisfy the block's rule equations (the ι rules, `blockRecs_iota`). -/
 structure ProvisionedRecs {env₂ : Env} (mp₂ : EnvModelM V μ env₂) (b : MutualBlock)
-    (fms : List MutualFormerA) (cvRas : List ConstantVal) (d : BlockRepData V)
+    (fms : List MutualFormerA) (cvRas : List ConstantVal) (d : BlockModel V)
     (s : (Name → Nat) → Nat)
     (mpP : EnvModelM V μ (ConLeche.provisionMutualRecs b fms cvRas.zipIdx env₂)) : Prop where
   eta : ConLeche.EtaFamiliesClosed (ConLeche.provisionMutualRecs b fms cvRas.zipIdx env₂)
@@ -402,10 +402,10 @@ section Provision
 variable {F : Nat} {b : MutualBlock} {fms : List MutualFormerA} {f₀ : MutualFormerA}
   {ctorsA : List (ConstantVal × Nat)} {sortss : List (List Level)}
   {kinds : List (List (RecFieldKind × Nat))} {formers4 : List MutualFormer}
-  {ctors4 : List MutualCtor4} {d : BlockRepData V}
+  {ctors4 : List MutualCtor4} {d : BlockModel V}
 
-/-- **The recursors' provisioning stage at the datum** (M4 s4a): the
-recursor types read to the datum's Π-towers (`blockRecData_of`), the
+/-- **The recursors' provisioning stage at the block model** (M4 s4a): the
+recursor types read to the block model's Π-towers (`blockRecData_of`), the
 block's recursor tuple exists at every assignment (`blockRecsAt`),
 its projections are closed (`blockRecAVI_below`), bit-valid
 (`blockRecAVI_validV`, `blockEq_valid`) and stable under the
@@ -427,7 +427,7 @@ theorem mutualRecsProvision (hμ : μ.verifiedChecks = true) {env₂ : Env}
     {streamRecs : Option (List (ConstantVal × List RecRule))} {cvRas : List ConstantVal}
     (hrectys : ConLeche.checkMutualRecTys (m := ConLeche.CheckM) (ConLeche.fueledOps μ F) env₂ b
       formers4 ctors4 streamRecs b.k = .ok cvRas)
-    (hd : MutualDatumOf env b fms ctorsA d) (hreps : BlockReps mp₂.base2 d)
+    (hd : MutualBlockModelOf env b fms ctorsA d) (hreps : IsBlockModels mp₂.base2 d)
     (htyped : ∀ ψ : Name → Nat, FormersTyped mp₂.base2 d ψ ∧ CtorsTyped mp₂.base2 d ψ)
     (hrecNames : ∀ t, t < b.k → env₂.find? (b.recName t) = none ∧
       ConLeche.reservedBasisNames.contains (b.recName t) = false ∧
@@ -531,12 +531,12 @@ theorem mutualRecsProvision (hμ : μ.verifiedChecks = true) {env₂ : Env}
         = d.recLeaf mp₂.base2 b.elimLevel sOf b.rlps t ψ₂ := by
     intro t ht ψ₁ ψ₂ hφ
     rw [(hshape t ht).2.1] at hφ
-    unfold BlockRepData.recLeaf
+    unfold BlockModel.recLeaf
     rw [restrictΨ_congr hφ]
   have hAcl : ∀ t, t < d.k → ∀ ψ : Name → Nat,
       Term.bvarsBelow 0 (d.recLeaf mp₂.base2 b.elimLevel sOf b.rlps t ψ).erase := by
     intro t ht ψ
-    unfold BlockRepData.recLeaf blockLeafAV
+    unfold BlockModel.recLeaf blockLeafAV
     refine blockRecAVI_below (K := 0) (fun mm hmm => ?_) (fun e he => ?_) t
     · exact blockRecTy_below ((hRD mm hmm).1.below _) ((hRD mm hmm).1.len _)
     · rw [Nat.zero_add]
@@ -553,7 +553,7 @@ theorem mutualRecsProvision (hμ : μ.verifiedChecks = true) {env₂ : Env}
       (hRD t ht).1.params ψ _ fun q hq =>
         (restrictΨ_agree b.rlps ψ q (by rw [← (hshape t ht).2.1]; exact hq)).symm
     refine ⟨⟨hwd, ?_⟩, by rw [hrds, hval]; exact hmem⟩
-    unfold BlockRepData.recLeaf blockLeafAV
+    unfold BlockModel.recLeaf blockLeafAV
     refine blockRecAVI_validV
       (fun mm hmm => ⟨(hT _ ρ mm hmm).1, (hT _ ρ mm hmm).2, ((hRD mm hmm).1.okTy _ ρ).2⟩)
       (fun rs hlen hrs e he => ?_) t
@@ -588,12 +588,12 @@ end Provision
 
 /-! ## The store's stage, named -/
 
-/-- **The store keeps the model and the datum** — the named fact of
+/-- **The store keeps the model and the block model** — the named fact of
 `mutualRecsModeled_of` (M4 s4b): at the provisioned model
 (`ProvisionedRecs`: the `k` recursors consed rule-less with the
 chosen tuple's projections as leaves, typed and satisfying the rule
 equations), the group store — the same `k` names with their rules, a
-swap — cons a model of the recursors' environment at which the datum
+swap — cons a model of the recursors' environment at which the block model
 still holds, every other leaf the constructors' model's.  The run
 facts are `MutualRecsModeled`'s, verbatim.  Consumer:
 `mutualRecsModeled_of`. -/
@@ -636,7 +636,7 @@ facts are `MutualRecsModeled`'s, verbatim.  Consumer:
       ConLeche.EtaFamiliesClosed
         (ConLeche.consMutualCtors b.nP ctorsA (ConLeche.consMutualFormers fms env)) →
       (∀ n, n ∉ b.blockNames → ∀ ψ : Name → Nat, mp₂.base2.acval n ψ = mp.base2.acval n ψ) →
-      ∀ d : BlockRepData V, MutualDatumOf env b fms ctorsA d → BlockReps mp₂.base2 d →
+      ∀ d : BlockModel V, MutualBlockModelOf env b fms ctorsA d → IsBlockModels mp₂.base2 d →
         (∀ ψ : Name → Nat, FormersTyped mp₂.base2 d ψ ∧ CtorsTyped mp₂.base2 d ψ) →
         (∀ t, t < b.k →
           (ConLeche.consMutualCtors b.nP ctorsA (ConLeche.consMutualFormers fms env)).find?
@@ -658,7 +658,7 @@ facts are `MutualRecsModeled`'s, verbatim.  Consumer:
                 rulesOf cvRas.zipIdx
                 (ConLeche.consMutualCtors b.nP ctorsA (ConLeche.consMutualFormers fms env))),
             (∀ n, n ∉ b.blockNames → ∀ ψ : Name → Nat, mp₃.base2.acval n ψ = mp₂.base2.acval n ψ) ∧
-            BlockReps mp₃.base2 d ∧
+            IsBlockModels mp₃.base2 d ∧
             (∀ ψ : Name → Nat, FormersTyped mp₃.base2 d ψ ∧ CtorsTyped mp₃.base2 d ψ) ∧
             ∀ (t : Nat) (f : MutualFormerA), fms[t]? = some f →
               MemberStored mp₃.base2 b.lps b.nP f d.resSort (d.ppsM t)

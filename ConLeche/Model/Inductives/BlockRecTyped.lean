@@ -16,10 +16,10 @@ candidate) at the CONCRETE readings M4 assembles: member `mm`'s
 recursor type reads to `mkPisAV (mutualRecDataAV m ψ Ls nP nIdxs elimL
 pps ipss cds mots tgts mm) (mutualConcAV k n nIdx mm)`
 (`denoteMeta_mutualRecTy`), and `BlockReadings` says those readings are
-the datum's — the leaves are the members', the index counts and
+the block model's — the leaves are the members', the index counts and
 telescopes the members', the constructor data list is the members'
 constructor data in block order, the minors' members and targets the
-datum's.
+block model's.
 
 `hcand`: a fitting spine of the recursor type decomposes into the
 parameters, the `k` motives, the `n` minors, the member's indices and
@@ -42,16 +42,16 @@ universe w
 
 variable {V : Type w} [SetTheory V] {env : Env}
 
-/-! ## The readings are the datum's -/
+/-! ## The readings are the block model's -/
 
-/-- **The `k`-motive recursor types' readings are the datum's** — what
+/-- **The `k`-motive recursor types' readings are the block model's** — what
 M4's assembly supplies from `FormerReadsM`/`MutualCtorReadsM` and the
-datum's construction: the leaves, index counts and telescopes are the
+block model's construction: the leaves, index counts and telescopes are the
 members', the parameter data's domains are the block's, the
 constructor data list is the members' constructor data in block order
-(`minorIdx`), the minors' members and targets are the datum's, and
+(`minorIdx`), the minors' members and targets are the block model's, and
 the readings' domains are closed at their depths (`MutualRecData.below`). -/
-structure BlockReadings (m : EnvModel V env) (d : BlockRepData V) (ψ : Name → Nat) (elimL : Level)
+structure BlockReadings (m : EnvModel V env) (d : BlockModel V) (ψ : Name → Nat) (elimL : Level)
     (Ls : List AnnotTerm) (nIdxs : List Nat) (pps : List (Nat × Nat × AnnotTerm))
     (ipss : List (List (Nat × Nat × AnnotTerm))) (cds : List CtorDatumR) (mots : Nat → Nat)
     (tgts : Nat → Nat → Nat) : Prop where
@@ -113,8 +113,8 @@ theorem mutualRuleDataAV_eq_prefix {m : EnvModel V env} {ψ : Name → Nat} {Ls 
 
 /-- **The frame of the readings' prefix**: a fit of the parameters,
 motives and minors, decomposed with the pieces' typings in the
-datum's spellings. -/
-structure PrefixFrame (m : EnvModel V env) (d : BlockRepData V) (ψ : Name → Nat) (elimL : Level)
+block model's spellings. -/
+structure PrefixFrame (m : EnvModel V env) (d : BlockModel V) (ψ : Name → Nat) (elimL : Level)
     (ρ : Nat → V) (ps Msl msl : List V) : Prop where
   params : SpineFit ρ (d.params ψ) ps
   mslLen : Msl.length = d.k
@@ -129,7 +129,7 @@ structure PrefixFrame (m : EnvModel V env) (d : BlockRepData V) (ψ : Name → N
           (d.tssF c j ψ) (d.eissF c j ψ))
 
 /-- A fit of the readings' prefix decomposes. -/
-theorem spineFit_prefix_inv {m : EnvModel V env} {d : BlockRepData V} {ψ : Name → Nat}
+theorem spineFit_prefix_inv {m : EnvModel V env} {d : BlockModel V} {ψ : Name → Nat}
     {elimL : Level} {Ls : List AnnotTerm} {nIdxs : List Nat} {pps : List (Nat × Nat × AnnotTerm)}
     {ipss : List (List (Nat × Nat × AnnotTerm))} {cds : List CtorDatumR} {mots : Nat → Nat}
     {tgts : Nat → Nat → Nat} (hR : BlockReadings m d ψ elimL Ls nIdxs pps ipss cds mots tgts)
@@ -181,8 +181,8 @@ theorem recPrefixAV_bits {m : EnvModel V env} {ψ : Name → Nat} {Ls : List Ann
 /-- **A fitting spine of member `mm`'s recursor type decomposes**: the
 prefix frame, a fitting index spine of the member and a major in the
 carrier's fibre at its tuple. -/
-theorem BlockReps.spineFit_recData_inv {m : EnvModel V env} {d : BlockRepData V}
-    (hreps : BlockReps m d) {ψ : Name → Nat} {elimL : Level} {Ls : List AnnotTerm}
+theorem IsBlockModels.spineFit_recData_inv {m : EnvModel V env} {d : BlockModel V}
+    (hreps : IsBlockModels m d) {ψ : Name → Nat} {elimL : Level} {Ls : List AnnotTerm}
     {nIdxs : List Nat} {pps : List (Nat × Nat × AnnotTerm)}
     {ipss : List (List (Nat × Nat × AnnotTerm))} {cds : List CtorDatumR} {mots : Nat → Nat}
     {tgts : Nat → Nat → Nat} (hR : BlockReadings m d ψ elimL Ls nIdxs pps ipss cds mots tgts)
@@ -222,13 +222,13 @@ theorem BlockReps.spineFit_recData_inv {m : EnvModel V env} {d : BlockRepData V}
 
 /-- **The candidate's leaf at a frame of its recursor type** is the
 union recursor at the frame's data. -/
-theorem BlockRepData.blockLeafV_at (d : BlockRepData V) (ψ : Name → Nat) (ℓ mm : Nat)
+theorem BlockModel.blockLeafV_at (d : BlockModel V) (ψ : Name → Nat) (ℓ mm : Nat)
     (ρ : Nat → V) {ps Msl msl is : List V} (t : V) (hMsl : Msl.length = d.k)
     (hmsl : msl.length = d.nCtors) (his : is.length = d.nIdxAt mm) :
     d.blockLeafV ψ ℓ mm (consList (ps ++ Msl ++ msl ++ is ++ [t]) ρ)
       = d.blockRecAt ψ (consList ps ρ) ℓ (fun c => if c < d.k then Msl.getD c pt else pt)
           (fun J => if J < d.nCtors then msl.getD J pt else pt) mm (d.tup ψ mm is) t := by
-  unfold BlockRepData.blockLeafV
+  unfold BlockModel.blockLeafV
   have hfr : consList (ps ++ Msl ++ msl ++ is ++ [t]) ρ
       = cons t (consList is (consList msl (consList Msl (consList ps ρ)))) := by
     simp only [consList_append, consList_cons, consList_nil]
@@ -272,7 +272,7 @@ theorem BlockRepData.blockLeafV_at (d : BlockRepData V) (ψ : Name → Nat) (ℓ
 
 /-- The conclusion of member `mm`'s recursor type at a frame: motive
 `mm` at the index spine and the major. -/
-theorem interp_mutualConcAV_at (d : BlockRepData V) (ρ : Nat → V) {ps Msl msl is : List V}
+theorem interp_mutualConcAV_at (d : BlockModel V) (ρ : Nat → V) {ps Msl msl is : List V}
     (t : V) (hMsl : Msl.length = d.k) (hmsl : msl.length = d.nCtors) {mm : Nat} (hmm : mm < d.k)
     (his : is.length = d.nIdxAt mm) :
     interp V (consList (ps ++ Msl ++ msl ++ is ++ [t]) ρ)
@@ -323,7 +323,7 @@ recursor type.  At `w ≠ 0` the leaf is the union recursor, in the
 bound (`blockRecAt_mem_B`); at `w = 0` (hence `ℓ = 0`, the run fact
 `hwℓ`) the candidate is the point and the type is inhabited at every
 fitting spine by the induction (`inhab_all`). -/
-theorem BlockReps.blockCand_mem {m : EnvModel V env} {d : BlockRepData V} (hreps : BlockReps m d)
+theorem IsBlockModels.blockCand_mem {m : EnvModel V env} {d : BlockModel V} (hreps : IsBlockModels m d)
     {ψ : Name → Nat} (hfT : FormersTyped m d ψ) {elimL : Level}
     (hwℓ : d.w ψ = 0 → elimL.eval ψ = 0) {Ls : List AnnotTerm} {nIdxs : List Nat}
     {pps : List (Nat × Nat × AnnotTerm)} {ipss : List (List (Nat × Nat × AnnotTerm))}
@@ -376,7 +376,7 @@ theorem BlockReps.blockCand_mem {m : EnvModel V env} {d : BlockRepData V} (hreps
     refine ⟨fun hw => ?_, ?_, huniv⟩
     · have := hreps.blockRecAt_mem_B hfT hρp hw hF.mslLen hMseq hMs hb hF.minsLen
         (ms := fun J => if J < d.nCtors then msl.getD J pt else pt) hms hmm (tupW_mem his) ht
-      rw [BlockRepData.kitB_tagged, ← h.IdsM_length ψ, isOfW_tupW (h.idxOk ψ (consList ps ρ) hρp mm hmm) his,
+      rw [BlockModel.kitB_tagged, ← h.IdsM_length ψ, isOfW_tupW (h.idxOk ψ (consList ps ρ) hρp mm hmm) his,
         if_pos hmm] at this
       exact this
     · rcases Classical.em (d.w ψ = 0) with hw0 | hw
@@ -386,7 +386,7 @@ theorem BlockReps.blockCand_mem {m : EnvModel V env} {d : BlockRepData V} (hreps
         exact this
       · have := hreps.blockRecAt_mem_B hfT hρp hw hF.mslLen hMseq hMs hb hF.minsLen
           (ms := fun J => if J < d.nCtors then msl.getD J pt else pt) hms hmm (tupW_mem his) ht
-        rw [BlockRepData.kitB_tagged, ← h.IdsM_length ψ, isOfW_tupW (h.idxOk ψ (consList ps ρ) hρp mm hmm) his,
+        rw [BlockModel.kitB_tagged, ← h.IdsM_length ψ, isOfW_tupW (h.idxOk ψ (consList ps ρ) hρp mm hmm) his,
           if_pos hmm] at this
         exact ⟨_, this⟩
   rcases Classical.em (d.w ψ = 0) with hw0 | hw
@@ -399,7 +399,7 @@ theorem BlockReps.blockCand_mem {m : EnvModel V env} {d : BlockRepData V} (hreps
       simp at this
     have hpt : d.blockCand ψ (elimL.eval ψ)
         (mutualRecDataAV m ψ Ls d.nP nIdxs elimL pps ipss cds mots tgts mm) mm ρ = pt := by
-      unfold BlockRepData.blockCand
+      unfold BlockModel.blockCand
       cases hd : mutualRecDataAV m ψ Ls d.nP nIdxs elimL pps ipss cds mots tgts mm with
       | nil => exact absurd hd hne
       | cons d' ds' =>
@@ -408,7 +408,7 @@ theorem BlockReps.blockCand_mem {m : EnvModel V env} {d : BlockRepData V} (hreps
     rw [hpt]
     exact pt_mem_mkPisAV_zero_of hne (fun d' hd' => (hbits d' hd').mp hℓ)
       fun xs hxs => (hleaf xs hxs).2.1
-  · unfold BlockRepData.blockCand
+  · unfold BlockModel.blockCand
     exact lamTower_mem hbits (towerWalk_of fun xs hxs =>
       ⟨(hleaf xs hxs).1 hw, fun h0 => by rw [← univ_zero, ← h0]; exact (hleaf xs hxs).2.2⟩)
 

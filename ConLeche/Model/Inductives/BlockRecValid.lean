@@ -28,12 +28,12 @@ lift transports — and drops every chain obligation:
 
 * the DOMAINS are the recursor type's prefix (`hokT`'s validity half)
   and the constructor's fields lifted under the motives and minors
-  (the constructor type's validity half, `BlockRep.ctor_validV`);
+  (the constructor type's validity half, `IsBlockModel.ctor_validV`);
 * the LEFT-hand side is a spine of bound variables, the constructor's
   index readings (valid at the fields' frame, lifted) and the
   constructor's own value (`hval`);
 * the RIGHT-hand side is the minor's variable at the fields and the
-  inductive hypotheses' λ-towers (`BlockReps.ihApp_validV`): the moved
+  inductive hypotheses' λ-towers (`IsBlockModels.ihApp_validV`): the moved
   telescope's validity is the field's telescope's (`fieldsValid_ihTeleAtGo`)
   and the moved index expressions' is the field's (`AnnotValid_ihIdxAtM`),
   both read off the field's own entry in the constructor's telescope
@@ -109,11 +109,11 @@ theorem teleVarsAV_validV [SetTheory V] {m : Nat} {σ : Nat → V} {a : AnnotTer
     (ha : a ∈ teleVarsAV m) : AnnotValid V σ a := by
   obtain ⟨_, -, rfl⟩ := List.mem_map.mp ha; trivial
 
-namespace BlockRep
+namespace IsBlockModel
 
 variable {m : EnvModel V env} {T : Name} {cvT cvR : ConstantVal} {mI rP : Nat}
-  {rules : List RecRule} {d : BlockRepData V} {mm : Nat}
-  (h : BlockRep m T cvT cvR mI rP rules d mm)
+  {rules : List RecRule} {d : BlockModel V} {mm : Nat}
+  (h : IsBlockModel m T cvT cvR mI rP rules d mm)
 include h
 
 /-- **The constructor's fields are valid and its body is valid at
@@ -137,7 +137,7 @@ theorem ctor_validV {j : Nat} {cA : ConstantVal × Nat} (hj : (d.ctorsM mm)[j]? 
   unfold ctorBodyAVI at this
   rwa [paramBvars_eq_paramBvarsAt] at this
 
-end BlockRep
+end IsBlockModel
 
 omit [SetTheory V] in
 theorem tupleVarAV_validV [SetTheory V] {k dp t : Nat} {σ : Nat → V} :
@@ -146,11 +146,11 @@ theorem tupleVarAV_validV [SetTheory V] {k dp t : Nat} {σ : Nat → V} :
 
 /-! ## A recursive field's telescope and index readings, valid -/
 
-namespace BlockRep
+namespace IsBlockModel
 
 variable {m : EnvModel V env} {T : Name} {cvT cvR : ConstantVal} {mI rP : Nat}
-  {rules : List RecRule} {d : BlockRepData V} {mm : Nat}
-  (h : BlockRep m T cvT cvR mI rP rules d mm)
+  {rules : List RecRule} {d : BlockModel V} {mm : Nat}
+  (h : IsBlockModel m T cvT cvR mI rP rules d mm)
 include h
 
 /-- **A recursive field's validity data**: field `i`'s telescope is
@@ -173,7 +173,7 @@ theorem field_kind_validV {j : Nat} {cA : ConstantVal × Nat} (hj : (d.ctorsM mm
   have hfsI := spineFit_take' hfs (i := i) (by rw [h.Fss_length hj]; exact Nat.le_of_lt hiA)
   have hdomF : ((d.Fss mm ψ).getD j []).getD i default
       = ((d.dsF mm j ψ).getD (d.nP + i) default).2.2 := by
-    rw [BlockRep.Fss_getD hj, fields_getD (by rw [List.length_drop, hcd.len]; omega),
+    rw [IsBlockModel.Fss_getD hj, fields_getD (by rw [List.length_drop, hcd.len]; omega),
       List.getD_eq_getElem?_getD, List.getElem?_drop, ← List.getD_eq_getElem?_getD]
   have hvF : AnnotValid V (consList (fs.take i) ρp)
       (((d.dsF mm j ψ).getD (d.nP + i) default).2.2) := by
@@ -195,7 +195,7 @@ theorem field_kind_validV {j : Nat} {cA : ConstantVal × Nat} (hj : (d.ctorsM mm
     exact ⟨hinv.1, fun bs hbs E hE =>
       (AnnotValid.mkAppN_inv (hinv.2 bs hbs)).2 E (List.mem_append_right _ hE)⟩
 
-end BlockRep
+end IsBlockModel
 
 /-! ## One inductive hypothesis' application, valid -/
 
@@ -207,7 +207,7 @@ bound variables, the field's index readings moved
 (`AnnotValid_ihIdxAtM`) and the field's own variable applied to the
 telescope's — no application-chain obligation is owed here, so the
 frame's motives and minors are consumed by the moves alone. -/
-theorem BlockReps.ihApp_validV {m : EnvModel V env} {d : BlockRepData V} (hreps : BlockReps m d)
+theorem IsBlockModels.ihApp_validV {m : EnvModel V env} {d : BlockModel V} (hreps : IsBlockModels m d)
     {ψ : Name → Nat} {elimL : Level} {ρ : Nat → V} {rs : List V}
     {c : Nat} (hc : c < d.k) {j : Nat} {cA : ConstantVal × Nat} (hj : (d.ctorsM c)[j]? = some cA)
     {ps Msl msl fs : List V} (hmsl : Msl.length = d.k) (hmin : msl.length = d.nCtors)
@@ -278,7 +278,7 @@ theorem BlockReps.ihApp_validV {m : EnvModel V env} {d : BlockRepData V} (hreps 
 
 /-- **The rules' equations are bit-valid at every typed tuple** —
 `blockEq_wd`'s `AnnotValid` half. -/
-theorem BlockReps.blockEq_valid {m : EnvModel V env} {d : BlockRepData V} (hreps : BlockReps m d)
+theorem IsBlockModels.blockEq_valid {m : EnvModel V env} {d : BlockModel V} (hreps : IsBlockModels m d)
     {ψ : Name → Nat} (_hfT : FormersTyped m d ψ) (_hcT : CtorsTyped m d ψ)
     (hval : ∀ (n : Name) (ρ : Nat → V), AnnotValid V ρ (m.acval n ψ))
     {elimL : Level} {Ls : List AnnotTerm} {nIdxs : List Nat} {pps : List (Nat × Nat × AnnotTerm)}
@@ -329,7 +329,7 @@ theorem BlockReps.blockEq_valid {m : EnvModel V env} {d : BlockRepData V} (hreps
       rw [consList_append, consList_append, ← consList_append Msl msl,
         show Ls.length + cds.length = (Msl ++ msl).length from by
           rw [List.length_append, hF.mslLen, hF.minsLen, hlenLc],
-        shiftE_consList, ← BlockRep.Fss_getD hj]
+        shiftE_consList, ← IsBlockModel.Fss_getD hj]
       exact (h.ctor_validV hj hρp).1
   · -- **the body at a fitting spine**
     intro xs hxs
@@ -354,7 +354,7 @@ theorem BlockReps.blockEq_valid {m : EnvModel V env} {d : BlockRepData V} (hreps
     have hfs' : SpineFit (consList ps (consList rs ρ)) ((d.Fss c ψ).getD j []) fs := by
       rw [rebit_map_dom, spineFit_liftDoms, consList_append, consList_append,
         ← consList_append Msl msl, hlenMm, shiftE_consList] at hfsL
-      rw [BlockRep.Fss_getD hj]; exact hfsL
+      rw [IsBlockModel.Fss_getD hj]; exact hfsL
     have hfr : consList (ps ++ Msl ++ msl ++ fs) (consList rs ρ)
         = consList fs (consList msl (consList Msl (consList ps (consList rs ρ)))) := by
       simp only [consList_append]

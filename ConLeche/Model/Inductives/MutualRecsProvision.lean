@@ -26,8 +26,8 @@ stored types' readings cross every cons (`MutualRecData.cross`), and
 the leaves of the members already consed are untouched.
 
 The reference (`inductives`' `stageMutualRecsProvision`) threaded a
-caller's carrier invariant through the loop; the uniform datum needs
-none — `BlockReps` is transported once, at the end (`MutualRecsStage`).
+caller's carrier invariant through the loop; the uniform block model needs
+none — `IsBlockModels` is transported once, at the end (`MutualRecsStage`).
 -/
 
 namespace ConLeche.Model

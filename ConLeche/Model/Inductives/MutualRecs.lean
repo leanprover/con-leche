@@ -4,14 +4,14 @@ public import ConLeche.Model.Inductives.BlockRecTyped
 public section
 
 /-!
-# The recursors' stage: the readings at the datum (task #315 U-8, M4 s4a)
+# The recursors' stage: the readings at the block model (task #315 U-8, M4 s4a)
 
 The block's recursor types are read (`mutualRecDataAV`, `MutualRecRead.lean`)
 off lists in BLOCK ORDER — the members' leaves, index counts and index
 data, the constructors' data — and off two position tables, a minor's
 member (`mots`) and its fields' targets (`tgts`).  `BlockReadings`
-(`BlockRecTyped.lean`) says those readings are the datum's.  Here the
-lists and tables are BUILT from the datum: member `t`'s entries are its
+(`BlockRecTyped.lean`) says those readings are the block model's.  Here the
+lists and tables are BUILT from the block model: member `t`'s entries are its
 readers, the constructor list is the members' `cds` flattened in block
 order, the position tables are the same flattening of the members'
 indices and target readers — so that `BlockReadings` holds at them by
@@ -19,7 +19,7 @@ position (`blockReadings_of`), the one non-positional clause (`below`,
 the readings' closedness) taken from the stored recursor type's own
 (`MutualRecData.below`).
 
-The flattening is `List.flatMap` over `List.range d.k`; the datum's
+The flattening is `List.flatMap` over `List.range d.k`; the block model's
 `minorIdx c j` is exactly the flat position of member `c`'s
 constructor `j` (`getElem?_flatMap_range`), and every flat position
 decomposes that way (`flatMap_range_index`).
@@ -38,13 +38,13 @@ universe w
 
 variable {V : Type w} [SetTheory V] {env : Env}
 
-/-! ## The members stored at the datum's readings -/
+/-! ## The members stored at the block model's readings -/
 
-/-- **A member is stored at the datum's readings** — the recursor
-stage's one run fact beyond the datum (M4 s4a): its checked constant is
+/-- **A member is stored at the block model's readings** — the recursor
+stage's one run fact beyond the block model (M4 s4a): its checked constant is
 what the store finds under its name, at the block's level parameters,
 its telescope ends in its OWN sort (equivalent to the block's), and
-its parameter data are the datum's.  Supplied by `blockReps_of`. -/
+its parameter data are the block model's.  Supplied by `blockReps_of`. -/
 structure MemberStored (m : EnvModel V env) (lps : List Name) (nP : Nat) (f : MutualFormerA)
     (resSort : Level) (pps : (Name → Nat) → List (Nat × Nat × AnnotTerm)) : Prop where
   find : env.find? f.cvTa.name = some (.indInfo f.cvTa {})
@@ -100,11 +100,11 @@ theorem flatMap_range_index {α : Type} (L : Nat → List α) :
     · exact ⟨k, J - ((List.range k).map fun t => (L t).length).sum, Nat.lt_succ_self k, by omega,
         by omega⟩
 
-/-! ## The readings, built from the datum -/
+/-! ## The readings, built from the block model -/
 
-namespace BlockRepData
+namespace BlockModel
 
-variable (d : BlockRepData V)
+variable (d : BlockModel V)
 
 /-- The members' leaves, in block order. -/
 @[expose] def recLs (m : EnvModel V env) (ψ : Name → Nat) : List AnnotTerm :=
@@ -224,7 +224,7 @@ theorem recTname_lt {q : Nat} (hq : q < d.k) : d.recTname q = d.memberName q := 
   unfold recTname
   rw [if_pos hq]
 
-/-- **Member `t`'s recursor type's binder data** at the datum's lists. -/
+/-- **Member `t`'s recursor type's binder data** at the block model's lists. -/
 @[expose] def blockRds (m : EnvModel V env) (elimL : Level) (t : Nat) (ψ : Name → Nat) :
     List (Nat × Nat × AnnotTerm) :=
   mutualRecDataAV m ψ (d.recLs m ψ) d.nP d.recNIdxs elimL (d.recPps ψ) (d.recIpss ψ) (d.recCds ψ)
@@ -233,13 +233,13 @@ theorem recTname_lt {q : Nat} (hq : q < d.k) : d.recTname q = d.memberName q := 
 /-- **Member `t`'s recursor type's conclusion**. -/
 @[expose] def blockConc (t : Nat) : AnnotTerm := mutualConcAV d.k d.nCtors (d.nIdxAt t) t
 
-end BlockRepData
+end BlockModel
 
 /-! ## `BlockReadings` at them -/
 
-/-- **The readings built from the datum are the datum's**: every clause
+/-- **The readings built from the block model are the block model's**: every clause
 by position, the closedness the stored recursor types' own. -/
-theorem BlockRepData.blockReadings_of (d : BlockRepData V) (m : EnvModel V env) (ψ : Name → Nat)
+theorem BlockModel.blockReadings_of (d : BlockModel V) (m : EnvModel V env) (ψ : Name → Nat)
     (elimL : Level)
     (hbelow : ∀ mm, mm < d.k →
       DomsBelow 0 (mutualRecDataAV m ψ (d.recLs m ψ) d.nP d.recNIdxs elimL (d.recPps ψ)

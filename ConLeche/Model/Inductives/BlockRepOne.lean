@@ -5,22 +5,22 @@ import ConLeche.Semantics.Tower.FixTuple
 public section
 
 /-!
-# `BlockRep` at `k = 1` reproduces the native route's datum (task #315, M2)
+# `IsBlockModel` at `k = 1` reproduces the native route's block model (task #315, M2)
 
 The ONE fixpoint route (`checkNative`, task #210) represents a single
 family by the least pre-fixed family of its X-chain functor `fixFunVI`
 (`Semantics/Tower/FixLeafI.lean`, `FixFamI.lean`).  This module builds
-the uniform datum of that block — `BlockRepData.ofNative`: one member,
+the uniform block model of that block — `BlockModel.ofNative`: one member,
 every field targeting it, the tuple operator the one-member tuple of
 `fixFunVI` (`oneTuple`), the injections the tagged point-terminated
-towers `injW w j (mkTower (fs ++ [pt]))` — and proves the datum's
+towers `injW w j (mkTower (fs ++ [pt]))` — and proves the block model's
 SEMANTIC clauses from the native route's own facts, clause by clause:
 
 * `functor`: `MonoTuple`/`MapsTuple`/the closed tuple from
   `fixFunVI_mono`/`_maps`/`_closed_exists` through the one-member
   lemmas (`monoTuple_one_of`, …);
 * `fibre`: the native elimination `fixStepI_elim` (and its intro) with
-  the syntactic X-chain fit translated into the datum's semantic
+  the syntactic X-chain fit translated into the block model's semantic
   `FitsFrom` (`spineFit_chainXIGo_iff`: entry by entry, `xEntry_rec`
   is the slot and `xEntry_ord` the domain) and the terminator into the
   projection equations (`EqAll_eqsXI_gen`);
@@ -30,13 +30,13 @@ SEMANTIC clauses from the native route's own facts, clause by clause:
 * `mkZero`/`mkInj`: the injections' own laws (`injW_zero`, `inj_inj`,
   `mkTower_inj`).
 
-So the native route's proofs can be re-based on `BlockRep` without
+So the native route's proofs can be re-based on `IsBlockModel` without
 loss: every semantic fact they read of the single family is a clause
-of the one-member datum.  The syntactic clauses (`former`, `ctors`,
+of the one-member block model.  The syntactic clauses (`former`, `ctors`,
 `rules`, …) are the native route's own reading structures
 (`FormerData`, `FixCtorFactsAt` through `BlockCtorData.ofFix`), which
-`declNative` establishes as it goes; assembling them into a `BlockRep`
-is the `declBlock` assembly's job (M4), where the datum gets its first
+`declNative` establishes as it goes; assembling them into a `IsBlockModel`
+is the `declBlock` assembly's job (M4), where the block model gets its first
 consumer.
 -/
 
@@ -102,20 +102,20 @@ theorem spineFit_chainXIGo_iff (hI : IdxOk u ρp Ids) {X t : V} {rs : List Bool}
 
 end Fit
 
-/-! ## The one-member datum -/
+/-! ## The one-member block model -/
 
-/-- **The uniform datum of a native block**: one member, every field
+/-- **The uniform block model of a native block**: one member, every field
 targeting it, the tuple operator the one-member tuple of `fixFunVI`
-at the datum's own lists, the injections the tagged point-terminated
+at the block model's own lists, the injections the tagged point-terminated
 towers (the point at `w = 0`). -/
-@[expose] noncomputable def BlockRepData.ofNative (nP : Nat) (resSort : Level) (isProp large : Bool)
+@[expose] noncomputable def BlockModel.ofNative (nP : Nat) (resSort : Level) (isProp large : Bool)
     (env₀ : Env) (T : Name) (nIdx : Nat) (ppsAll : (Name → Nat) → List (Nat × Nat × AnnotTerm))
     (uAV : (Name → Nat) → Nat) (ctorsA : List (ConstantVal × Nat)) (idxF : Nat → List Expr)
     (dsF : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm))
     (esF : Nat → (Name → Nat) → List AnnotTerm) (srcsF : Nat → List (Option Nat))
     (ksF : Nat → List RecFieldKind) (fvsPF xFvsF : Nat → List Expr) (xrestF : Nat → Expr)
     (eissF : Nat → (Name → Nat) → List (List AnnotTerm))
-    (tssF : Nat → (Name → Nat) → List (List (Nat × Nat × AnnotTerm))) : BlockRepData V where
+    (tssF : Nat → (Name → Nat) → List (List (Nat × Nat × AnnotTerm))) : BlockModel V where
   nP := nP
   k := 1
   resSort := resSort
@@ -156,14 +156,14 @@ variable {nP : Nat} {resSort : Level} {isProp large : Bool} {env₀ : Env} {T : 
   {eissF : Nat → (Name → Nat) → List (List AnnotTerm)}
   {tssF : Nat → (Name → Nat) → List (List (Nat × Nat × AnnotTerm))}
 
-local notation "D" => (BlockRepData.ofNative (V := V) nP resSort isProp large env₀ T nIdx ppsAll uAV
+local notation "D" => (BlockModel.ofNative (V := V) nP resSort isProp large env₀ T nIdx ppsAll uAV
   ctorsA idxF dsF esF srcsF ksF fvsPF xFvsF xrestF eissF tssF)
 
-/-- The one-member datum's index-tuple set is the native one. -/
+/-- The one-member block model's index-tuple set is the native one. -/
 theorem ofNative_idx (ψ : Name → Nat) (ρp : Nat → V) :
     (D).idx ψ ρp = fun _ => idxSet (uAV ψ) ρp ((D).IdsM 0 ψ) := rfl
 
-/-- The one-member datum's operator applied: the native functor at the
+/-- The one-member block model's operator applied: the native functor at the
 tuple's component `0`. -/
 theorem ofNative_Φ (ψ : Name → Nat) (ρp : Nat → V) (X : Nat → V) (mm : Nat) :
     (D).Φ ψ ρp X mm

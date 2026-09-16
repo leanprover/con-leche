@@ -26,14 +26,14 @@ import ConLeche.Semantics.Tower.SumRec
 public section
 
 /-!
-# The rule law at the datum (task #315 U-9, M4 s4b)
+# The rule law at the block model (task #315 U-9, M4 s4b)
 
 The stored rules of a block's recursors fire in the model
 (`RecRuleLaw`, `Annot/EnvModelM.lean`): at every level assignment and
 every fitting spine, member `t`'s recursor at the spine and constructor
 `(t, j)`'s value is the rule's right-hand side at the spine's prefix
 and the constructor's fields.  Two facts make the law at the uniform
-datum:
+block model:
 
 * **The equation.**  The chosen tuple satisfies rule `(t, j)`'s
   equation `specEqAV` at the tuple frame (`ProvisionedRecs.iota`,
@@ -47,10 +47,10 @@ datum:
   binder data with the leaves as the recursors).
 * **The fibre's converse.**  The kernel's rule is `paramsBlind`: the
   major's parameters are not compared with the recursor's.  The
-  constructor's value ignores its parameters (`BlockRep.ctor`: an
+  constructor's value ignores its parameters (`IsBlockModel.ctor`: an
   injection of the field spine), and the major's membership in the
   member's carrier at the RECURSOR's parameters (the recursor spine's
-  fit) decodes it (`BlockRep.fibre`, `mkInj`): the fields fit at the
+  fit) decodes it (`IsBlockModel.fibre`, `mkInj`): the fields fit at the
   recursor's parameters and the index arguments are the constructor's
   index readings there — so the equation applies at the recursor's own
   parameter spine, and no index pin (`IotaIndexPin`) is consumed.
@@ -78,13 +78,13 @@ universe w u
 
 variable {V : Type w} [SetTheory V] {env : Env}
 
-/-! ## The rule's right-hand side at the datum -/
+/-! ## The rule's right-hand side at the block model -/
 
-namespace BlockRepData
+namespace BlockModel
 
-variable (d : BlockRepData V)
+variable (d : BlockModel V)
 
-/-- **Rule `(c, j)`'s binder data** at the datum's readings. -/
+/-- **Rule `(c, j)`'s binder data** at the block model's readings. -/
 @[expose] def ruleData (m : EnvModel V env) (elimL : Level) (c j : Nat) (ψ : Name → Nat) :
     List (Nat × AnnotTerm) :=
   mutualRuleDataAV m ψ (d.recLs m ψ) d.nP d.recNIdxs elimL (d.recPps ψ) (d.recIpss ψ) (d.recCds ψ)
@@ -108,7 +108,7 @@ and minors) and the constructor at the parameters and fields. -/
       [AnnotTerm.mkAppN (m.acval C ψ) (paramBvarsAt d.nP (d.nP + (d.k + d.nCtors) + nF) ++
         fieldBvars nF)])
 
-end BlockRepData
+end BlockModel
 
 /-! ## Domain lists -/
 
@@ -141,7 +141,7 @@ theorem map_ruleDoms' (L : List (Nat × Nat × AnnotTerm)) :
 and `blockEq_valid` carried across the bridge): the λ-tower over the
 rule's binder data with the leaves `Rof` as the recursors, at a tuple
 `rs` of the leaves' values typed at the recursor types. -/
-theorem BlockReps.ruleRhs_wdV {m : EnvModel V env} {d : BlockRepData V} (hreps : BlockReps m d)
+theorem IsBlockModels.ruleRhs_wdV {m : EnvModel V env} {d : BlockModel V} (hreps : IsBlockModels m d)
     {ψ : Name → Nat} (hfT : FormersTyped m d ψ) (hcT : CtorsTyped m d ψ)
     (hval : ∀ (n : Name) (ρ : Nat → V), AnnotValid V ρ (m.acval n ψ))
     {elimL : Level}
@@ -214,7 +214,7 @@ theorem BlockReps.ruleRhs_wdV {m : EnvModel V env} {d : BlockRepData V} (hreps :
         rebit (pwBit ψ (Level.zeronessOf elimL))
           (liftDoms ((d.recLs m ψ).length + (d.recCds ψ).length) 0 ((d.dsF c j ψ).drop d.nP))).map
         fun q : Nat × Nat × AnnotTerm => (q.2.1, q.2.2) := by
-    unfold BlockRepData.ruleData mutualRuleDataAV recPrefixAV
+    unfold BlockModel.ruleData mutualRuleDataAV recPrefixAV
     simp only [List.append_assoc]
   have hL0 : DomsBelow 0 (recPrefixAV m ψ (d.recLs m ψ) d.nP d.recNIdxs elimL (d.recPps ψ)
       (d.recIpss ψ) (d.recCds ψ) d.recMots d.recTgts ++
@@ -230,7 +230,7 @@ theorem BlockReps.ruleRhs_wdV {m : EnvModel V env} {d : BlockRepData V} (hreps :
           (·.2.2) := by
     rw [hLdef, map_ruleDoms, List.map_append]
   -- the λ-tower: bits and the walk
-  unfold BlockRepData.ruleRhsAV
+  unfold BlockModel.ruleRhsAV
   rw [hLdef]
   refine ⟨mkLamsAV_bits_wellDenoted (m := pwBit ψ (Level.zeronessOf elimL))
     (T := d.ruleConcAV m c j cA.2 ψ cA.1.name) (fun q hq => ?_) ?_, mkLamsAV_bits_validV ?_⟩
@@ -257,7 +257,7 @@ theorem BlockReps.ruleRhs_wdV {m : EnvModel V env} {d : BlockRepData V} (hreps :
         rw [consList_append, consList_append, ← consList_append Msl msl,
           show (d.recLs m ψ).length + (d.recCds ψ).length = (Msl ++ msl).length from by
             rw [List.length_append, hF.mslLen, hF.minsLen, hlenLc],
-          shiftE_consList, ← BlockRep.Fss_getD hj]
+          shiftE_consList, ← IsBlockModel.Fss_getD hj]
         exact (h.ctor_okB hj hρp).1
     · -- **the body at a fitting spine**
       intro xs hxs
@@ -282,9 +282,9 @@ theorem BlockReps.ruleRhs_wdV {m : EnvModel V env} {d : BlockRepData V} (hreps :
       have hfs : SpineFit (consList ps ρ) ((d.Fss c ψ).getD j []) fs := by
         rw [rebit_map_dom, spineFit_liftDoms, consList_append, consList_append,
           ← consList_append Msl msl, hlenMm, shiftE_consList] at hfsL
-        rw [BlockRep.Fss_getD hj]; exact hfsL
+        rw [IsBlockModel.Fss_getD hj]; exact hfsL
       have hfs' : SpineFit (consList ps (consList rs ρ)) ((d.Fss c ψ).getD j []) fs := by
-        rw [BlockRep.Fss_getD hj] at hfs ⊢
+        rw [IsBlockModel.Fss_getD hj] at hfs ⊢
         exact spineFit_transport (DomsBelow.drop d.nP (hcd.below ψ)) (by rw [hlenps, Nat.zero_add]) hfs
       -- the same spine fits at the tuple frame
       have hxsσ : SpineFit (consList rs ρ)
@@ -373,7 +373,7 @@ theorem BlockReps.ruleRhs_wdV {m : EnvModel V env} {d : BlockRepData V} (hreps :
           rw [hF.mslLen, List.length_take, hF.minsLen]; congr 1; exact Nat.min_eq_left (Nat.le_of_lt hJ)
         have ho : Msl.length + msl.length = d.k + d.nCtors := by rw [hF.mslLen, hF.minsLen]
         have hconc := hreps.minor_conc hfT hc hj hρp (Msl := Msl) (msl' := msl) ho hF.mslLen hF.motives hfs
-        unfold BlockRepData.ruleConcAV
+        unfold BlockModel.ruleConcAV
         rw [hconc.1]
         refine hreps.minor_fold_mem hfT hc hj hρp (Msl := Msl) (msl' := msl.take (d.minorIdx c j)) hoJ
           hF.mslLen hF.motives hb (hF.minors c j cA hc hj) hfs (by rw [List.length_map]) ?_
@@ -391,7 +391,7 @@ theorem BlockReps.ruleRhs_wdV {m : EnvModel V env} {d : BlockRepData V} (hreps :
         rw [hfrρ]
         have ho : Msl.length + msl.length = d.k + d.nCtors := by rw [hF.mslLen, hF.minsLen]
         have hconc := hreps.minor_conc hfT hc hj hρp (Msl := Msl) (msl' := msl) ho hF.mslLen hF.motives hfs
-        unfold BlockRepData.ruleConcAV
+        unfold BlockModel.ruleConcAV
         rw [hconc.1]
         have := hconc.2
         rwa [hb.mp hb0, univ_zero] at this
@@ -409,7 +409,7 @@ theorem BlockReps.ruleRhs_wdV {m : EnvModel V env} {d : BlockRepData V} (hreps :
         rw [consList_append, consList_append, ← consList_append Msl msl,
           show (d.recLs m ψ).length + (d.recCds ψ).length = (Msl ++ msl).length from by
             rw [List.length_append, hF.mslLen, hF.minsLen, hlenLc],
-          shiftE_consList, ← BlockRep.Fss_getD hj]
+          shiftE_consList, ← IsBlockModel.Fss_getD hj]
         exact (h.ctor_validV hj hρp).1
     · have hxs₀ := hxs
       rw [List.map_append] at hxs
@@ -458,17 +458,17 @@ theorem BlockReps.ruleRhs_wdV {m : EnvModel V env} {d : BlockRepData V} (hreps :
 
 /-! ## The rule law -/
 
-/-- **The rule law at the datum** (`fixRecRuleLaw` at the uniform
-datum): at a model `m₃` of the store's environment whose recursor leaf
+/-- **The rule law at the block model** (`fixRecRuleLaw` at the uniform
+block model): at a model `m₃` of the store's environment whose recursor leaf
 for member `t` is the chosen tuple's projection (`hleafR`), whose
 constructors' leaves are the constructors' model's (`hagC`), and at
 which the recursor type, the constructor type and the rule read as the
-datum says (`hRD`, `hCread`, `hread`), rule `(t, j)` fires: the
+block model says (`hRD`, `hCread`, `hread`), rule `(t, j)` fires: the
 equation of the chosen tuple (`hiota`) at the recursor's own parameter
 spine — the major decoded by the fibre's converse — and the rule's
 right-hand side β-reduced along the fitting spine. -/
 theorem blockRecRuleLaw {env₀ env₃ : Env} {m₀ : EnvModel V env₀} (m₃ : EnvModel V env₃)
-    {d : BlockRepData V} (hreps : BlockReps m₀ d)
+    {d : BlockModel V} (hreps : IsBlockModels m₀ d)
     (hfT : ∀ ψ, FormersTyped m₀ d ψ) (hcT : ∀ ψ, CtorsTyped m₀ d ψ)
     (hval : ∀ (n : Name) (ψ : Name → Nat) (ρ : Nat → V), AnnotValid V ρ (m₀.acval n ψ))
     {elimL : Level} (hwℓ : ∀ ψ, d.w ψ = 0 → elimL.eval ψ = 0)
@@ -516,7 +516,7 @@ theorem blockRecRuleLaw {env₀ env₃ : Env} {m₀ : EnvModel V env₀} (m₃ :
   have hleafRes : ∀ t', d.recLeaf m₀ elimL s rlps t' (restrictΨ rlps ψR)
       = d.recLeaf m₀ elimL s rlps t' ψR := by
     intro t'
-    unfold BlockRepData.recLeaf
+    unfold BlockModel.recLeaf
     rw [restrictΨ_congr (lps := rlps) (fun q hq => restrictΨ_agree rlps ψR q hq)]
   have hreadR : denoteMeta m₃.acval env₃ ψR 0 rhs
       = some (d.ruleRhsAV m₀ elimL (fun t' => d.recLeaf m₀ elimL s rlps t' ψR) t j cA.2
@@ -622,7 +622,7 @@ theorem blockRecRuleLaw {env₀ env₃ : Env} {m₀ : EnvModel V env₀} (m₃ :
     rw [List.length_map, hpl] at hl
     exact hl
   have hrdLen : (d.ruleData m₀ elimL t j ψ').length = d.nP + d.k + d.nCtors + cA.2 := by
-    unfold BlockRepData.ruleData
+    unfold BlockModel.ruleData
     rw [mutualRuleDataAV_length hppsLen (hcd.len ψ'), (hR ψ').lsLen, (hR ψ').cdsLen]
   have hbits : ∀ q ∈ d.ruleData m₀ elimL t j ψ', q.1 = pwBit ψ' (Level.zeronessOf elimL) :=
     fun q hq => mem_mutualRuleDataAV hq
@@ -644,7 +644,7 @@ theorem blockRecRuleLaw {env₀ env₃ : Env} {m₀ : EnvModel V env₀} (m₃ :
         exact piR_zero_mem_univZero
     have hRaPt : interp V ρ
         (d.ruleRhsAV m₀ elimL (fun t' => d.recLeaf m₀ elimL s rlps t' ψR) t j cA.2 ψ') = pt := by
-      unfold BlockRepData.ruleRhsAV
+      unfold BlockModel.ruleRhsAV
       cases hlds : d.ruleData m₀ elimL t j ψ' with
       | nil => rw [hlds] at hrdLen; simp at hrdLen; omega
       | cons q rest =>
@@ -698,7 +698,7 @@ theorem blockRecRuleLaw {env₀ env₃ : Env} {m₀ : EnvModel V env₀} (m₃ :
       exact spineFit_of_sat_len (by rw [hlenPY, hpl])
         ((h.paramsIff t j cA ht hj ψ' _).mpr hsat)
     have hfsY : SpineFit (consList psY ρ) ((d.Fss t ψ').getD j []) fsY := by
-      rw [BlockRep.Fss_getD hj]; exact hspY₂
+      rw [IsBlockModel.Fss_getD hj]; exact hspY₂
     -- the constructor's value is its injection
     have hCinj : tv = d.inj ψ' t j fsY := by
       rw [← hCv, interp_mkAppN, ← List.foldl_map (f := interp V ρ) (g := SetTheory.app), hys, hCac]
@@ -755,10 +755,10 @@ theorem blockRecRuleLaw {env₀ env₃ : Env} {m₀ : EnvModel V env₀} (m₃ :
           (liftDoms ((d.recLs m₀ ψ').length + (d.recCds ψ').length) 0 ((d.dsF t j ψ').drop d.nP))).map
           (·.2.2)) fsY := by
       rw [rebit_map_dom, spineFit_liftDoms, consList_append, consList_append,
-        ← consList_append Msl msl, hlenMm, shiftE_consList, ← BlockRep.Fss_getD hj]
+        ← consList_append Msl msl, hlenMm, shiftE_consList, ← IsBlockModel.Fss_getD hj]
       exact hfs
     have hfitρ : SpineFit ρ ((d.ruleData m₀ elimL t j ψ').map (·.2)) (ps ++ Msl ++ msl ++ fsY) := by
-      unfold BlockRepData.ruleData
+      unfold BlockModel.ruleData
       rw [mutualRuleDataAV_eq_prefix, List.map_append]
       exact SpineFit.append hpre hfields
     have hL0 : DomsBelow 0 ((recPrefixAV m₀ ψ' (d.recLs m₀ ψ') d.nP d.recNIdxs elimL (d.recPps ψ')
@@ -776,7 +776,7 @@ theorem blockRecRuleLaw {env₀ env₃ : Env} {m₀ : EnvModel V env₀} (m₃ :
         interp V ρ (d.recLeaf m₀ elimL s rlps t' ψR)) ρ)
         ((d.ruleData m₀ elimL t j ψ').map (·.2)) (ps ++ Msl ++ msl ++ fsY) := by
       have hfitρ' := hfitρ
-      unfold BlockRepData.ruleData at hfitρ' ⊢
+      unfold BlockModel.ruleData at hfitρ' ⊢
       rw [mutualRuleDataAV_eq_prefix] at hfitρ' ⊢
       exact spineFit_transport₀ hL0 hfitρ'
     -- **the equation** at the recursor's own parameter spine
@@ -805,7 +805,7 @@ theorem blockRecRuleLaw {env₀ env₃ : Env} {m₀ : EnvModel V env₀} (m₃ :
       exact this
     have hfs' : SpineFit (consList ps (consList ((List.range d.k).map fun t' =>
         interp V ρ (d.recLeaf m₀ elimL s rlps t' ψR)) ρ)) ((d.Fss t ψ').getD j []) fsY := by
-      rw [BlockRep.Fss_getD hj] at hfs ⊢
+      rw [IsBlockModel.Fss_getD hj] at hfs ⊢
       exact spineFit_transport (DomsBelow.drop d.nP (hcd.below ψ')) (by rw [hlenps, Nat.zero_add]) hfs
     have hlhs : interp V (consList (ps ++ Msl ++ msl ++ fsY)
         (consList ((List.range d.k).map fun t' => interp V ρ (d.recLeaf m₀ elimL s rlps t' ψR)) ρ))
@@ -898,7 +898,7 @@ theorem blockRecRuleLaw {env₀ env₃ : Env} {m₀ : EnvModel V env₀} (m₃ :
         ← List.foldl_map (f := interp V ρ) (g := SetTheory.app), hargsEq, hxsv, hys,
         List.take_left' (by rw [List.length_append, List.length_append, hlenps, hF.mslLen, hF.minsLen]),
         List.drop_left' hlenPY]
-      unfold BlockRepData.ruleRhsAV
+      unfold BlockModel.ruleRhsAV
       exact (mkLamsAV_fold hnz hfitρ).symm
     · -- **the application is graded**
       intro hxs_ok hys_ok

@@ -17,7 +17,7 @@ run-level consumer `blockRecs`: the leaves are typed at the recursor
 types' readings, graded, and their tuple satisfies every rule's
 equation — from the readings' formation, the equations' grading at
 every fitting tuple, and the CANDIDATE tuple's typing and equations
-(`BlockRepData.blockCand`, the union recursor at the frame's motives
+(`BlockModel.blockCand`, the union recursor at the frame's motives
 and minors, `BlockRecCand.lean`).  The four named facts are M3's
 remaining sessions (DESIGN §U.4 (f)); `blockRecs` is their consumer.
 
@@ -116,7 +116,7 @@ types' sort `s` and the equations `eqs`. -/
   blockRecAVI s k (fun t => mkPisAV (rdsM t) (concM t)) eqs mm
 
 /-- **THE CONSUMER — the block's recursors** (DESIGN §U.4 (e)).  At a
-block datum `d` whose `k` recursor types read to `mkPisAV (rdsM mm ψ)
+block model `d` whose `k` recursor types read to `mkPisAV (rdsM mm ψ)
 (concM mm)` and whose rules' equations are `eqs ψ`: if the readings
 are formed at a sort `s ψ` and graded (`hT`), the equations are truth
 values and graded at every fitting tuple (`heq`), and the CANDIDATE
@@ -126,7 +126,7 @@ equation (`hceq`), then at every frame the leaves `blockLeafAV` are
 typed at the readings, graded, and their tuple satisfies every
 equation.  The four premises are named facts with this consumer
 (DESIGN §U.4 (f)). -/
-theorem blockRecs (d : BlockRepData V) (s ℓ : (Name → Nat) → Nat)
+theorem blockRecs (d : BlockModel V) (s ℓ : (Name → Nat) → Nat)
     (rdsM : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)) (concM : Nat → AnnotTerm)
     (eqs : (Name → Nat) → List AnnotTerm)
     (hT : ∀ (ψ : Name → Nat) (ρ : Nat → V) (mm : Nat), mm < d.k →

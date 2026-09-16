@@ -71866,9 +71866,9 @@ records drive everything below:
 * **§M.58's negative:** "each member's carrier is the lfp of its
   section at the others' final values" does NOT determine the tuple
   (`(⊤, ⊤, ⊤)` satisfies it for the cyclic identity operator).  So the
-  block's datum must record the TUPLE's leastness; the section form is
+  block's block model must record the TUPLE's leastness; the section form is
   a derived law (Bekić), not the clause.
-* **§DR.2's lesson:** a container's datum is `Sat`-guarded — its
+* **§DR.2's lesson:** a container's block model is `Sat`-guarded — its
   `functor`/`fibre`/`leaf` hold only where the parameter value lies in
   the parameter's domain — and the fit of a FAMILY VARIABLE in a
   container's parameter domain is a LEVEL fact (`w ≤ w'`) that no
@@ -71876,16 +71876,16 @@ records drive everything below:
   experiment with a total container cannot see this; this session's
   experiment takes the container `Sat`-guarded.
 
-##### (a) THE ONE DATUM — `BlockRep`
+##### (a) THE ONE DATUM — `IsBlockModel`
 
-`IndRep` (task #280, on `inductives`, never on master) is the datum of
+`IndRep` (task #280, on `inductives`, never on master) is the block model of
 ONE stored family: `leaf = lfpFamSet Φ`, `functor`, `fibre`, `ctor`,
 the chains (`chainXIGo`, `ChainFit`), an abstract injection `inj`.  The
-uniform datum is the same thing at a BLOCK of `k` members, with the
+uniform block model is the same thing at a BLOCK of `k` members, with the
 family functor replaced by a TUPLE functor:
 
 ```
-structure BlockRepData V where
+structure BlockModel V where
   nP k : Nat;  resSort; isProp; large; env₀            -- as IndRepData
   nIdxs   : Nat → Nat                                   -- member m's index count
   idx     : ψ → ρp → Nat → V                            -- member m's index-tuple SET (plain tuples, `tup ψ m is`)
@@ -71894,7 +71894,7 @@ structure BlockRepData V where
   inj     : ψ → Nat → Nat → List V → V                  -- member m's j-th constructor's injection (member-LOCAL j; abstract, as #280 ruled)
 ```
 
-and `BlockRep (m : EnvModel V env) (block data) (d : BlockRepData V) : Prop` with, per member `mm < k`:
+and `IsBlockModel (m : EnvModel V env) (block data) (d : BlockModel V) : Prop` with, per member `mm < k`:
 
 * SURVIVE VERBATIM IN SHAPE (from `IndRep`): `member`, `strip`,
   `isProp`, the index arithmetic (`mI = nP + k + Σ|ctors| + nIdxs mm`,
@@ -71931,7 +71931,7 @@ and `BlockRep (m : EnvModel V env) (block data) (d : BlockRepData V) : Prop` wit
   for the recursors: classes = the members followed by the pins, each
   with its motive; the pins' recursors (`T.rec_j`, official's mimics)
   are the union recursor's pin components; (iii) the derived
-  **section view** `BlockRep.ofMember d mm` — Bekić
+  **section view** `IsBlockModel.ofMember d mm` — Bekić
   (`lfpTuple_eq_section`): `leaf_mm = lfpFamSet w (idx mm) (secF w idx
   (Φ ψ ρp) L mm)` with the section's fibre reading the other members
   as CONSTANTS (their leaves), i.e. `IndRep`'s exact shape — the view a
@@ -71966,7 +71966,7 @@ as they are today.
   a tuple functor presented as a member container per component
   (shapes, positions, targets `(m', i')`, `mk`).  Its PROOF may use the
   tagged union `Σ_m idx m` as the code space's index set — a
-  proof-internal device, never a carrier or a datum.  For a NESTED
+  proof-internal device, never a carrier or a block model.  For a NESTED
   block the composed operator's closed member follows from the
   auxiliary tuple's (`closed_composed_of_closed_aux`, experiment item
   6): if `(L_T, L_J)` is closed for `Ψ (X_T, X_J) = (node-arm at X_J,
@@ -72083,13 +72083,13 @@ rest).  The route changes what stands UNDER the statement, milestone by
 milestone, and never the statement: the dispatch's native arm becomes
 `declBlock (h : DeclBlockRun μ F env p env₂)` at `k ≥ 1` members
 (mutual), a nested block is `declBlock` at the shape run of (c) with
-the composed datum, and the modeled arm is deleted at M-E.
+the composed block model, and the modeled arm is deleted at M-E.
 Decomposition of `declBlock`: the former stage (`k` formers at the
 pre-block environment, official's order), the constructor stage
-(member-aware kinds, nested slots), the carrier (`BlockRep` with
+(member-aware kinds, nested slots), the carrier (`IsBlockModel` with
 `lfpTuple` + (W)), the recursors (`unionRec` over the classes), the
 rules (`unionRec_eq` instances → `RecRuleLaw`), tables/caps
-(`Struct*` at structure-like members), `ind_reps := BlockRep` and the
+(`Struct*` at structure-like members), `ind_reps := IsBlockModel` and the
 `EnvModelM` assembly.  The run relation keeps `DeclNativeRun`'s shape:
 a conjunction of the kernel stages' `.ok` equations over their
 intermediate outputs plus recorded Bool facts.
@@ -72111,11 +72111,11 @@ stays until the last flip.
 | --- | --- | --- |
 | M0 (this session) | `LfpTuple`, `UnionRec`, the experiment, `declInductive`, `lfpTuple_one`, `fixFamI_eq_lfpTuple`, this record | 1 |
 | M1 | cherry-pick #278's kernel: `afd10251` (MutualParts/MutualInstall), `5fac0127` (wiring; keep the dispatch to modeled), `12cc2648` (the native-shaped rework — THE design), `15d0e1f2` (formers at the pre-block env), `ec115fc0` (`Semantics/Inductives/DeclMutual.lean` `DeclMutualRun`, `Verify/Inductives/MutualInv|MutualWF`); NOT `06d827e5`/`72251897`/`c95d1ae0` (the `auxRoute` grade — comes with M5); adapt to #285/#295/#304 renames; shadow gate | 1–2 (kernel lane) |
-| M2 | `BlockRepData`/`BlockRep`; the tuple Semantics (`blockFunV`/`blockFamI`, mono/maps/fibre per component, `xChainsOk` at `k`); (W) = tuple `container_closed_exists`; at `k = 1` identified with the fix kit through `lfpTuple_one` | 3–4 |
+| M2 | `BlockModel`/`IsBlockModel`; the tuple Semantics (`blockFunV`/`blockFamI`, mono/maps/fibre per component, `xChainsOk` at `k`); (W) = tuple `container_closed_exists`; at `k = 1` identified with the fix kit through `lfpTuple_one` | 3–4 |
 | M3 | recursors at `k`: `fixRecBodyAVI` with `k` motives at local tags, existence via `unionRec`, `nativeRecAVI_iota` per member, the squash regime | 3–4 |
 | M4 | `declBlock` assembly over `DeclMutualRun` (stages at `k`), flip mutual to native; `BasisRep*` (cherry-pick from `inductives` `Model/BasisRep*.lean`, rewritten through `lfpTuple_one`) so `ind_reps` holds at every stored recursor | 3–4 |
 | M5 | nested kernel: cherry-pick the surviving K-subset (K.3 `34489e6c`, K.12 `72251897`, K.14 `eb6284ae`, K.15 `466e5970`, K.21 `0e052597`, K.24 `f1bab5c3`, K.26 `522ec560` re-keyed to pins, K.8 `3cc45861`+`04280d8b` if not already, K.22 `#305`), `elimNested` (`14839638`, `2d75aea3`, `320f68f9`), the cached mirror shape (`c95d1ae0`, `a35016df`…); DROP `nestedTopoOrder`/K.6, restore-stores (K.19), K.23's Bool; add K.27 `.internal`; the shape run `DeclNestedRun'`; shadow 26/26 + cone 41/41 | 2–3 (kernel lane) |
-| M6 | the composed datum: nested arm (D-2a) in `chainXIGo`/`ChainFit` with the `fibre` consumers' census; (X) via `absMembersGo`/`denoteMeta_absMembers` (cherry-pick `992a53bf`'s Semantics half); (P) from the pins' kinds; (W) composed | 3–5 |
+| M6 | the composed block model: nested arm (D-2a) in `chainXIGo`/`ChainFit` with the `fibre` consumers' census; (X) via `absMembersGo`/`denoteMeta_absMembers` (cherry-pick `992a53bf`'s Semantics half); (P) from the pins' kinds; (W) composed | 3–5 |
 | M7 | nested recursors: classes = members ++ pins, pin accessibility through the containers' induction, mimic rules; `declBlock` at the nested shape run; flip nested to native | 3–4 |
 | M8 (M-E) | delete the modeled route, `Frontend/InModel/*`, `DeclInd` tiers; docs and gates | 1–2 |
 
@@ -72158,16 +72158,16 @@ unitSet`; no constructor hypothesis); the constructors' closure
 `PredsFrom` from injectivity and disjointness WITHIN a member
 (`mkA1_inj`, `mkB0_inj`, `mkA0 ≠ mkA1 b`) — **cross-member disjointness
 is NOT needed: the union's class tag separates the members** (that is
-the datum's `mkInj` per member, and it is why no block-position tag is
+the block model's `mkInj` per member, and it is why no block-position tag is
 ever needed); the recursor from the six `PairRecData` fields and nothing
 else.
 
 **(2) `ConLeche/SetModel/NestedTreeList.lean` (753 lines)** — `Tree ::=
 node (l : List Tree)` with `List` an ABSTRACT, `Sat`-GUARDED container
-datum (`NestedSig`/`ContainerOk`): parameter domain `univ w'`, values in
+block model (`NestedSig`/`ContainerOk`): parameter domain `univ w'`, values in
 `univ w`, injections `mkNil`/`mkCons`, a set-level family functor `LΦ α`
 whose four clauses `hLmono/hLmaps/hLcl/hLfibre` hold ONLY under `α ∈ univ
-w'` — the datum's `functor`/`fibre` shape (`hLfibre` stated at every
+w'` — the block model's `functor`/`fibre` shape (`hLfibre` stated at every
 family `Y ∈ famSpace`, not only at the fixed point); the container's
 leaf `listAt α := app (lfpFamSet w unitSet (LΦ α)) pt`.  Tree's operator
 COMPOSES the container: `treeΦ X 0 = graph (_ ↦ sep UT (∃ l ∈ listAt (app
@@ -72200,7 +72200,7 @@ value in the accessibility step, and at the container's induction at
 `treeΦ_maps`.  **The container's `fibre` is consumed at FAMILY-VARIABLE
 values, not only at the carrier** — at `α`/`α'` arbitrary tuple-space
 values in `listAt_mono`, and at `S₀` (the accessibility separation)
-against the induction's own separated family — so a datum whose `fibre`
+against the induction's own separated family — so a block model whose `fibre`
 held only at the carrier would be useless.  This is §DR.2's K.27 finding
 reproduced in the uniform setting with a guarded container: the fit of
 the family variable in the container's parameter domain is a LEVEL fact
@@ -72222,7 +72222,7 @@ remove the instances' boilerplate; `unionGraph_mem_B`; a `rfl` lemma
 
 The run-level consumer landed is `declInductive` ((d) above): the ONE
 statement over master's dispatch, proved from the two arms, and called
-by the fold.  Its `k = 1` instance is tied to the uniform datum by
+by the fold.  Its `k = 1` instance is tied to the uniform block model by
 `fixFamI_eq_lfpTuple` (`Semantics/Tower/FixTuple.lean`): the native
 leaf IS the one-member tuple lfp, by `lfpTuple_one`, with no
 hypothesis.
@@ -72235,8 +72235,8 @@ arrive with M1's cherry-pick).  Under the consumer-first rule
 (2026-09-14: a fact is NAMED only with a run-level consumer in the same
 session) **no run fact is named this session**; the candidates the
 design will need are listed in (c) as the run relation's conjuncts,
-unnamed.  The block datum `BlockRep` is likewise a design in (a), not a
-Lean structure yet: it is built at M2 on the new route's own datum,
+unnamed.  The block model `IsBlockModel` is likewise a design in (a), not a
+Lean structure yet: it is built at M2 on the new route's own block model,
 and its first consumer is `declBlock` at M4.
 
 #### U.2 — M1: the native mutual kernel route, cherry-picked unwired (session U-2, 2026-09-15)
@@ -72308,7 +72308,7 @@ Nothing that could move a verdict was taken:
 * **the whole Model tier** of #278 — `MutualRep`, the tag/aux sum
   encoding (`tagTyAV`, `auxBodyAV`, `motDispAV`),
   `Model/Inductives/Mutual*.lean` and `Model/Inductives/DeclMutual.lean`.
-  §U.1 (a) replaces it with the uniform datum: the members are the
+  §U.1 (a) replaces it with the uniform block model: the members are the
   components of ONE `lfpTuple`, not fibres of a tagged single family,
   and `MutualRep` is on §U.1 (b)'s DIE list.
 * **the cached route's `…F_eq`/simulation chain** (`90f44444`,
@@ -72437,9 +72437,9 @@ FINDINGS.
    dispatch, so it cannot land unwired at all.  That asymmetry is why
    (b)'s two "cached" items go to different milestones.
 
-#### U.3 — M2: the one datum `BlockRep`, (W) at tuples, the section view (session U-2, 2026-09-15)
+#### U.3 — M2: the one block model `IsBlockModel`, (W) at tuples, the section view (session U-2, 2026-09-15)
 
-M2's falsifier first, then the datum, then the datum at `k = 1`, then
+M2's falsifier first, then the block model, then the block model at `k = 1`, then
 the section view; U.2 is M1's record (the `#278` kernel cherry-pick,
 `agent/uniform-m1`, concurrent).  No checker code changed; no run fact
 named (no mutual/nested run relation on this branch yet); no `sorry`,
@@ -72447,7 +72447,7 @@ no axioms.
 
 ##### (a) (W) AT TUPLES — PASSED, three forms (`ConLeche/SetModel/TupleContainer.lean`, pure)
 
-The closed tuple the datum's `functor` clause records
+The closed tuple the block model's `functor` clause records
 (`∃ L, IsClosedTuple w k Is Φ L`) is supplied for every block whose
 operator is presented as a **member container per component**:
 
@@ -72473,7 +72473,7 @@ member (`kpair (vnat m) a` — so `mk` may depend on the member, as the
 native witness's `mkShape` does on the member's `rss/tlss/Fss`), and
 the closed family splits back.  The union is a device of this proof
 only (as `UnionRec`'s union of values is the recursor's index set
-only); nothing tagged survives into the datum.  Two more forms:
+only); nothing tagged survives into the block model.  Two more forms:
 
 * `closedTuple_zero : MapsTuple 0 k Is Φ → ∃ L, IsClosedTuple 0 k Is Φ L`
   — the `Prop` regime, the top tuple, no container presentation;
@@ -72502,13 +72502,13 @@ numPins` — and THAT needs the pin's functor presented as a container
 at FAMILY-VARIABLE parameters (the container's `fibre` at guarded
 frames + the K.27 level fit, §U.1 (f)).  This is the one fact (W)
 needs that no run on this branch gives; its consumer is M6's composed
-datum; it is NOT named here (the naming rule).  So (W)'s outcome:
+block model; it is NOT named here (the naming rule).  So (W)'s outcome:
 **no kernel record candidate for the mutual case; for the nested case
 the already-listed K.27.**
 
-##### (b) THE ONE DATUM — `BlockRepData`/`BlockRep` (`ConLeche/Model/Inductives/BlockRep.lean`)
+##### (b) THE ONE DATUM — `BlockModel`/`IsBlockModel` (`ConLeche/Model/Inductives/BlockRep.lean`)
 
-`BlockRepData V`: `nP k resSort isProp large env₀ memberNames nIdxs`;
+`BlockModel V`: `nP k resSort isProp large env₀ memberNames nIdxs`;
 per member `ppsM uM ctorsM`; per member AND member-local constructor
 `idxF dsF esF srcsF ksF fvsPF xFvsF xrestF eissF tssF` and per field
 `tgts : Nat → Nat → Nat → Nat` (the target member); `Φ : ψ → ρp → (Nat
@@ -72527,7 +72527,7 @@ one in its domain's reading; the terminator is the projection form
 (`EqAll_eqsXI_gen`'s RHS, regime-free: at `u = 0` it says the index
 values are `pt`, as `EqAll` does).
 
-`BlockRep m T cvT cvR mI rP rules d mm`, clauses verbatim:
+`IsBlockModel m T cvT cvR mI rP rules d mm`, clauses verbatim:
 `memberLt`, `member`, `strip`, `isProp`, `mI = nP + k + nCtors +
 nIdxAt mm`, `rP = nP + k + nCtors`, `rules` (conditioned on `rules ≠
 []`), `former : FormerData m cvT (nP + nIdxAt mm) resSort (ppsM mm)`,
@@ -72552,25 +72552,25 @@ Against §U.1 (a): GONE as planned (`essC/eissC`, `IdsC/u/tup` at a tag,
 `ModeledLeaf`, flat positions); ALSO GONE, a decision of this session:
 **`chains` (the syntactic X-chain grading `ChainsOk`)** — its semantic
 content is `functor`'s `MapsTuple` and `idxOk`, and the census of the
-uniform consumers (M4's assembly SUPPLIES the datum; M6/M7 READ
+uniform consumers (M4's assembly SUPPLIES the block model; M6/M7 READ
 `functor`/`fibre`/`leaf`/`ctor`/`mkInj`/`mkZero`/`tupMem` and the
 kinds/targets, never a chain's syntax) found no reader; and `tupMem`,
-now DERIVED (`BlockRepData.tupMem`, from `tupW_mem`).  The nested-slot
+now DERIVED (`BlockModel.tupMem`, from `tupW_mem`).  The nested-slot
 arm is not a placeholder clause: it is the `slotAt` arm M6 extends
 (a field whose domain is a pin through a stored container reads that
 container's leaf at the pin with the members abstracted to `X`);
-nothing in `BlockRep` needs reserving for it.  `FixOpened` itself is
+nothing in `IsBlockModel` needs reserving for it.  `FixOpened` itself is
 NOT generalised (it is consumed by ~20 native files); the twin lives
-beside the datum and the native route keeps its own until M4 rebases
+beside the block model and the native route keeps its own until M4 rebases
 it.
 
-##### (c) `BlockRep` AT `k = 1` REPRODUCES THE NATIVE DATUM (`ConLeche/Model/Inductives/BlockRepOne.lean`)
+##### (c) `IsBlockModel` AT `k = 1` REPRODUCES THE NATIVE DATUM (`ConLeche/Model/Inductives/BlockRepOne.lean`)
 
-`BlockRepData.ofNative nP resSort isProp large env₀ T nIdx ppsAll uAV
+`BlockModel.ofNative nP resSort isProp large env₀ T nIdx ppsAll uAV
 ctorsA idxF dsF esF srcsF ksF fvsPF xFvsF xrestF eissF tssF`: `k = 1`,
 `memberNames = [T]`, every `tgts = 0`, `Φ ψ ρp = oneTuple (fixFunVI
 (uAV ψ) (w ψ) ρp Ids |Ids| (rssOfK ksF n) (tlssOfR cds) (eissOfR cds)
-(fssOfR nP cds) (essOfR cds))` at the datum's OWN lists (`= d.rss 0`,
+(fssOfR nP cds) (essOfR cds))` at the block model's OWN lists (`= d.rss 0`,
 `d.tlss 0 ψ`, … by `rfl`), `inj ψ _ j fs = injW (w ψ) j (mkTower (fs ++
 [pt]))`.  PROVED, over the native route's own facts in the shape it
 has them:
@@ -72601,16 +72601,16 @@ has them:
   `mkTower_inj`.
 
 So every SEMANTIC fact the native proofs read of a single family is a
-clause of the one-member datum; the syntactic clauses are the native
+clause of the one-member block model; the syntactic clauses are the native
 reading structures themselves (`FormerData`, `FixCtorFactsAt` via
-`BlockCtorData.ofFix`).  The `BlockRep` ASSEMBLY (a `BlockRep` value
+`BlockCtorData.ofFix`).  The `IsBlockModel` ASSEMBLY (a `IsBlockModel` value
 for a native block) is M4's, together with its first consumer
-(`ind_reps := BlockRep` in `EnvModelM`; master's `EnvModelM` has no
+(`ind_reps := IsBlockModel` in `EnvModelM`; master's `EnvModelM` has no
 representation field today).
 
 ##### (d) THE SECTION VIEW — a derived law
 
-`BlockRep.ofMember (h) (hρp) : let L := lfpTuple …; let F := secF (w ψ)
+`IsBlockModel.ofMember (h) (hρp) : let L := lfpTuple …; let F := secF (w ψ)
 (idx ψ ρp) (Φ ψ ρp) L mm; MonoFam (w ψ) (idx ψ ρp mm) F ∧ MapsFam … F ∧
 (∃ L', IsClosedFam … F L') ∧ (∀ X ∈ famSpace …, ∀ t ∈ idx ψ ρp mm, ∀ x, x ∈
 app (app F X) t ↔ ∃ j fs, j < |ctorsM mm| ∧ ChainFit ψ ρp (updTuple L mm
@@ -72619,7 +72619,7 @@ F` — `IndRep`'s single-family `functor`/`fibre`/`leaf` shape with the
 other members read as CONSTANTS (`updTuple L mm X`: component `mm` is
 the variable, the rest the carriers), from `secF_mono/_maps`,
 `lfpTuple_closedFam_secF`, `app_secF`, `lfpTuple_eq_section`; and
-`BlockRep.leaf_section`: the member's leaf IS `app (lfpFamSet … F)
+`IsBlockModel.leaf_section`: the member's leaf IS `app (lfpFamSet … F)
 (tup ψ mm is)`.  This is the view a later block's composed operator
 consumes when it nests through member `mm`; it is derived, never
 stated (§M.58).
@@ -72641,18 +72641,18 @@ root; `BlockRepOne` on the `Model` root.
 
 | fact | consumer | status |
 | --- | --- | --- |
-| the mutual run relation `DeclMutualRun` (the kernel's stage equations + `mutualCtorKinds`' `(kind, target)` per field) | M4 `declBlock`: supplies `BlockRep` (`tgts` from the kinds, `ctors` via a target-aware `fixCtorData_of`) | M1's cherry-pick (`agent/uniform-m1` ba4c7e8f, §U.2), MERGED here — `DeclMutualRun` now exists on the branch; no fact named against it this session |
+| the mutual run relation `DeclMutualRun` (the kernel's stage equations + `mutualCtorKinds`' `(kind, target)` per field) | M4 `declBlock`: supplies `IsBlockModel` (`tgts` from the kinds, `ctors` via a target-aware `fixCtorData_of`) | M1's cherry-pick (`agent/uniform-m1` ba4c7e8f, §U.2), MERGED here — `DeclMutualRun` now exists on the branch; no fact named against it this session |
 | the member container presentation at `k ≥ 2` (FixWitness per member, `tgtM` = the field's target) | M4: `functor`'s closed tuple via `tupleContainer_closed_exists` | mechanical, unstarted |
 | the pin's `fibre`/`functor` at FAMILY-VARIABLE parameters + K.27 (`w ≤ w'`) | M6: the auxiliary tuple's container presentation for `closedTuple_composeAt`; the composed operator's monotonicity | §U.1 (c) 3, unchanged |
-| the k-member syntactic chains (`blockFunV`/`blockFamI`, `xChainsOk` at `k`) | M3's recursors (`fixRecBodyAVI` with `k` motives) — NOT the datum: `ChainFit` is semantic | M2's remaining sessions or M3 |
+| the k-member syntactic chains (`blockFunV`/`blockFamI`, `xChainsOk` at `k`) | M3's recursors (`fixRecBodyAVI` with `k` motives) — NOT the block model: `ChainFit` is semantic | M2's remaining sessions or M3 |
 
 ##### (g) RE-SIZING
 
 M2 was 3–4 sessions: this session did (W) (the risk item, PASSED at
-all three shapes), the datum, its `k = 1` semantic reproduction and the
+all three shapes), the block model, its `k = 1` semantic reproduction and the
 section view — **one session**.  What stays of M2: the tuple Semantics
 (`blockFunV`/`blockFamI` — the k-member SYNTACTIC functor spelling,
-needed by the recursors' terms, not by the datum) — 1–2 sessions,
+needed by the recursors' terms, not by the block model) — 1–2 sessions,
 better counted under M3 (which needs it first).  New table: M2 DONE
 (1); M3 recursors at `k` (incl. the tuple spelling) 4–5; M4 3–4; M5
 2–3; M6 3–5 (with (W) composed now a one-line instance); M7 3–4; M8
@@ -72710,7 +72710,7 @@ union recursor at level `0` supplies; the squash regime (`w = 0`,
 returns true for every mutual block (`m_ind_types.size() > 1`), and
 the kernel's `b.large = f₀.s.isNeverZero` makes `w = 0 → ℓ = 0` a
 recorded fact of the run (consumer: `blockRecs`'s candidate, (f)).
-The datum is unchanged: `BlockRep`'s `inj` stays abstract; the
+The block model is unchanged: `IsBlockModel`'s `inj` stays abstract; the
 candidate's step decodes a value into `(j, f⃗)` through `mkInj`
 (classical choice), as `MutualPair`'s `pairSt` does.
 
@@ -72836,7 +72836,7 @@ at bits `0` — of `lhs = rhs`), with `specEqAV_univZero` and
 holds at every fitting spine there).  `blockLeafAV s k rdsM concM eqs
 mm := blockRecAVI s k (fun t => mkPisAV (rdsM t) (concM t)) eqs mm`.
 
-**The candidate over the datum** (`BlockRecCand.lean`): the union
+**The candidate over the block model** (`BlockRecCand.lean`): the union
 recursor's data at a frame — `kitPred` (the predecessor relation
 `PredRel`, separated off the carrier's union: `tagged c i (inj c j f⃗)`
 has, per recursive field and per spine fitting its telescope, the
@@ -72850,9 +72850,9 @@ of the choice's values at the calls; junk off the decodable values),
 at a leaf frame `(p⃗, M⃗, m⃗, ı⃗_mm, t)` of its recursor type, the
 frame's motives/minors/indices/major read by position) and
 `blockCand ψ ℓ rds mm ρ := lamTower ℓ ρ rds (blockLeafV ψ ℓ mm)`.
-PROVED there: the kit's first obligation, **`BlockRep.kitPred_from :
+PROVED there: the kit's first obligation, **`IsBlockModel.kitPred_from :
 PredsFrom (d.w ψ) d.k (d.idx ψ ρp) (d.Φ ψ ρp) (d.kitPred ψ ρp)`** at
-`w ≠ 0` — the datum's `fibre` read at the recursive positions
+`w ≠ 0` — the block model's `fibre` read at the recursive positions
 (`FitsFrom.rec_mem`), the decode unique by `mkInj`, the field's value
 in its `slotSet`, its fold along a fitting telescope spine in the
 target's component (`slotSet_fold_mem`), the tuple in the target's
@@ -72866,7 +72866,7 @@ clause needed, M2's decision stands).
 **The statement**, verbatim:
 
 ```lean
-theorem blockRecs (d : BlockRepData V) (s ℓ : (Name → Nat) → Nat)
+theorem blockRecs (d : BlockModel V) (s ℓ : (Name → Nat) → Nat)
     (rdsM : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)) (concM : Nat → AnnotTerm)
     (eqs : (Name → Nat) → List AnnotTerm)
     (hT : ∀ (ψ : Name → Nat) (ρ : Nat → V) (mm : Nat), mm < d.k →
@@ -72957,7 +72957,7 @@ census) stands as the next risk.
    (`b.large = f₀.s.isNeverZero`), and the uniform candidate needs no
    index-sourced step (`sqPred`/`sqSt`).  At `k = 1` the native route
    keeps its own.
-3. **The datum's `chains` clause stays dropped**: the recursor's one
+3. **The block model's `chains` clause stays dropped**: the recursor's one
    syntactic-looking need — the predecessor's index tuple in the
    target's index set — is semantic (a family-space graph is empty off
    its domain, `mem_idx_of_app_famSpace`).
@@ -72969,15 +72969,15 @@ census) stands as the next risk.
    owns Model-tier files, the parent compiles only leaf files whose
    imports are already built, and never `lake build`s.
 
-#### U.5 — M3 session 2: `hcand` and `hceq` discharged at the datum (session U-4, 2026-09-15)
+#### U.5 — M3 session 2: `hcand` and `hceq` discharged at the block model (session U-4, 2026-09-15)
 
 M3's second session: the union recursor's remaining two obligations
-at the datum (the bound, the step), the inhabitation induction at a
+at the block model (the bound, the step), the inhabitation induction at a
 `Prop`-valued block, and `blockRecs`'s premises `hcand` (the
 candidate tuple typed at the `k`-motive readings) and `hceq` (the
 rules' equations at the candidate) DISCHARGED at the concrete readings
 M4 assembles.  No checker code changed; no `sorry`, no axioms; the
-datum `BlockRep` unchanged (one clause NOT added — (b) below).  Four
+block model `IsBlockModel` unchanged (one clause NOT added — (b) below).  Four
 new modules, 2 705 lines: `BlockRecFrames.lean` (467),
 `BlockRecKit.lean` (1 204), `BlockRecTyped.lean` (414),
 `BlockRecEq.lean` (620); two definitional changes in
@@ -72988,7 +72988,7 @@ new modules, 2 705 lines: `BlockRecFrames.lean` (467),
 `hcand` at the concrete readings (`ConLeche/Model/Inductives/BlockRecTyped.lean`):
 
 ```lean
-theorem BlockReps.blockCand_mem {m : EnvModel V env} {d : BlockRepData V} (hreps : BlockReps m d)
+theorem IsBlockModels.blockCand_mem {m : EnvModel V env} {d : BlockModel V} (hreps : IsBlockModels m d)
     {ψ : Name → Nat} (hfT : FormersTyped m d ψ) {elimL : Level}
     (hwℓ : d.w ψ = 0 → elimL.eval ψ = 0) {Ls : List AnnotTerm} {nIdxs : List Nat}
     {pps : List (Nat × Nat × AnnotTerm)} {ipss : List (List (Nat × Nat × AnnotTerm))}
@@ -73004,7 +73004,7 @@ theorem BlockReps.blockCand_mem {m : EnvModel V env} {d : BlockRepData V} (hreps
 `hceq` at the concrete readings, per rule `(c, j)` (`ConLeche/Model/Inductives/BlockRecEq.lean`):
 
 ```lean
-theorem BlockReps.blockCand_eq {m : EnvModel V env} {d : BlockRepData V} (hreps : BlockReps m d)
+theorem IsBlockModels.blockCand_eq {m : EnvModel V env} {d : BlockModel V} (hreps : IsBlockModels m d)
     {ψ : Name → Nat} (hfT : FormersTyped m d ψ) {elimL : Level}
     (hwℓ : d.w ψ = 0 → elimL.eval ψ = 0) {Ls : List AnnotTerm} {nIdxs : List Nat}
     {pps : List (Nat × Nat × AnnotTerm)} {ipss : List (List (Nat × Nat × AnnotTerm))}
@@ -73029,33 +73029,33 @@ elimL.eval ψ`, `eqs ψ :=` the `specEqAV` per rule — M4 assembles the
 `cds.length`, `nIdxs.getD mm 0` rewritten by `BlockReadings`) and the
 per-rule list from the rules' shapes.  Three premises:
 
-* **`BlockReps m d`** (`∀ c < k, ∃ cvT cvR mI rP rules, BlockRep m
+* **`IsBlockModels m d`** (`∀ c < k, ∃ cvT cvR mI rP rules, IsBlockModel m
   (memberName c) … d c`): the block at EVERY member.  The recursor of
   one member ranges over all members' motives and its minors' fields
-  target all members, so one `BlockRep` (a per-member clause set) is
-  not enough; M4's `declBlock` installs all `k` at once.  Not a datum
+  target all members, so one `IsBlockModel` (a per-member clause set) is
+  not enough; M4's `declBlock` installs all `k` at once.  Not a block model
   change.
 * **`FormersTyped m d ψ`** (`∀ t < k, ∀ ρ, interp ρ (acval (memberName t)
   ψ) ∈ interp ρ (mkPisAV (ppsM t ψ) (.sort (w ψ)))`): the members'
   values typed at their formers' readings — the run's
   `EnvModelM.acval_memType` at each member (with `former.read`).  A
-  fact of the MODEL'S INVARIANT, not of the datum; see (b) for why it
-  is needed and why nothing in `BlockRep` replaces it.
+  fact of the MODEL'S INVARIANT, not of the block model; see (b) for why it
+  is needed and why nothing in `IsBlockModel` replaces it.
 * **`hwℓ : w ψ = 0 → elimL.eval ψ = 0`**: the regime fact of §U.4 (a),
   M4's (`b.large = f₀.s.isNeverZero`).
 * **`BlockReadings m d ψ elimL Ls nIdxs pps ipss cds mots tgts`**: the
-  readings are the datum's — `Ls.length = k`, the leaves
+  readings are the block model's — `Ls.length = k`, the leaves
   `Ls.getD t = acval (memberName t)`, `nIdxs.getD t = nIdxAt t`, the
   parameter data's domains `= d.params ψ`, `ipss.getD t = (ppsM t
   ψ).drop nP`, `cds.length = nCtors`, `cds[minorIdx c j]? = some
   (name, nF, dsF, esF, recIdxOf ksF, eissF, tssF)`, `mots (minorIdx c
   j) = c`, `tgts (minorIdx c j) = d.tgts c j`, and `DomsBelow 0` of
   every member's `mutualRecDataAV` (`MutualRecData.below`).  All are
-  M4's assembly from `FormerReadsM`/`MutualCtorReadsM` and the datum's
+  M4's assembly from `FormerReadsM`/`MutualCtorReadsM` and the block model's
   construction (the kernel's flat constructor list is in block order,
   `minorIdx`).
 
-##### (b) THE FITS FINDING — what the kit needs beyond the datum, and where it comes from
+##### (b) THE FITS FINDING — what the kit needs beyond the block model, and where it comes from
 
 Stated before building (`_tmp/uniform-315/u4-plan.md`): the step's
 obligation needs a recursive field's INDEX READINGS to fit the target
@@ -73068,7 +73068,7 @@ domain's `WellDenoted` needs the fields to fit their real domains, a
 recursive field's real domain is the target's former at its index
 readings, and that fit is what was wanted.  The non-circular source is
 the native route's own (`FixChainFacts.lean`): the CONSTRUCTOR type's
-`WellDenoted` (`CtorDataI.okTy`, in `BlockRep` via `ctors`) at the field
+`WellDenoted` (`CtorDataI.okTy`, in `IsBlockModel` via `ctors`) at the field
 prefix, against the FORMER'S VALUE typed at its reading — the run's
 `EnvModelM.acval_memType`.  Hence `FormersTyped`, and
 `spineFit_of_wellDenoted_mkAppN_pis` (an application chain graded
@@ -73086,11 +73086,11 @@ tuple below the carrier is a fit of the real domains) and
 spine is in the carrier's fibre at the tuple of its result readings,
 the index equations by `projS_mkTower` / `projS_pt` with the fit at
 `u = 0`).  The recursor type's `WellDenoted` is NOT used anywhere in
-M3; `hT` stays M4's for `blockRecs` alone.  `BlockRep` gains no clause.
+M3; `hT` stays M4's for `blockRecs` alone.  `IsBlockModel` gains no clause.
 
 ##### (c) THE REGIME FINDING — the union recursor is a `Type`-valued block's, the induction a `Prop`-valued one's
 
-`PredsFrom` (`BlockRep.kitPred_from`, §U.4 (e)) holds at `w ≠ 0` only:
+`PredsFrom` (`IsBlockModel.kitPred_from`, §U.4 (e)) holds at `w ≠ 0` only:
 at a `Prop`-valued block every injection is the point (`mkZero`), the
 decode of `tagged c i pt` is ANY constructor at ANY spine of the right
 length, and the predecessor relation over-approximates — no
@@ -73159,8 +73159,8 @@ block would otherwise differ).
 | `hceq` | `blockRecs` | DONE (`blockCand_eq`, per rule; M4 maps it over the rules' list) |
 | `w = 0 → ℓ = 0` at a mutual block | `blockCand_mem`, `blockCand_eq` | M4: `b.large = f₀.s.isNeverZero` (`DeclMutualRun` stage 2) |
 | `FormersTyped m d ψ` | `rec_eis_fit`, `refl_eis_fit`, `res_es_fit` → `kitSt_mem`, `inhab_all` | M4: `EnvModelM.acval_memType` at each member's stored constant + `former.read` |
-| `BlockReps m d` | every kit lemma | M4: `declBlock` installs all `k` members |
-| `BlockReadings …` | `blockCand_mem`, `blockCand_eq` | M4: from `FormerReadsM`, `MutualCtorReadsM`, the datum's construction, `MutualRecData.below` |
+| `IsBlockModels m d` | every kit lemma | M4: `declBlock` installs all `k` members |
+| `BlockReadings …` | `blockCand_mem`, `blockCand_eq` | M4: from `FormerReadsM`, `MutualCtorReadsM`, the block model's construction, `MutualRecData.below` |
 
 Not named beyond these, by the rule.
 
@@ -73201,7 +73201,7 @@ for M4 above is stated in the shape M4 consumes off `DeclMutualRun`.
    rewriting**: the bounded readers in `blockLeafV` (the equation
    compares leaves off two spines) and `kitStAt` (the decode's
    projections in non-dependent positions).  Neither changes the
-   datum or the consumer.
+   block model or the consumer.
 4. **`obtain ⟨x, rfl, h⟩` reverts and re-introduces hypotheses
    mentioning the substituted variable, renaming them**: after
    `obtain ⟨t, rfl, ht⟩ := spineFit_singleton ht` the OLD `ht` (whose
@@ -73215,24 +73215,24 @@ for M4 above is stated in the shape M4 consumes off `DeclMutualRun`.
 6. **`rw [← consList_append]` matches the innermost `consList`**: give
    the lists explicitly (`← consList_append ps fs ρ`).
 7. **Model-tier `def`s applied across modules need `@[expose]`**
-   (`BlockReps`, `FormersTyped`, the candidate's `kitB`/`kitSt`/…):
-   "proof code is private by default" — an unexposed `def BlockReps …
+   (`IsBlockModels`, `FormersTyped`, the candidate's `kitB`/`kitSt`/…):
+   "proof code is private by default" — an unexposed `def IsBlockModels …
    := ∀ …` cannot be applied as a function from another file.
 
 #### U.6 — M3 closed (`heq`), M4 opened (`declBlock` stated) (session U-5, 2026-09-15)
 
 M3's last item and M4's first: the rules' equations GRADED at every
 typed tuple (`heq`, `blockRecs`'s fourth premise), `blockRecs` closed
-at the datum's readings modulo the run facts (`blockRecsAt`), and THE
+at the block model's readings modulo the run facts (`blockRecsAt`), and THE
 run-level consumer of M4 — `declBlock` over `DeclMutualRun` — stated
 and decomposed into its two named facts.  No checker code changed; no
-`sorry`, no axioms; the datum unchanged.  Two new modules:
+`sorry`, no axioms; the block model unchanged.  Two new modules:
 `BlockRecWD.lean` (947 lines), `DeclBlock.lean` (160).
 
-##### (a) `heq` DISCHARGED — `BlockReps.blockEq_wd` (`ConLeche/Model/Inductives/BlockRecWD.lean`)
+##### (a) `heq` DISCHARGED — `IsBlockModels.blockEq_wd` (`ConLeche/Model/Inductives/BlockRecWD.lean`)
 
 ```lean
-theorem BlockReps.blockEq_wd {m : EnvModel V env} {d : BlockRepData V} (hreps : BlockReps m d)
+theorem IsBlockModels.blockEq_wd {m : EnvModel V env} {d : BlockModel V} (hreps : IsBlockModels m d)
     {ψ : Name → Nat} (hfT : FormersTyped m d ψ) (hcT : CtorsTyped m d ψ) {elimL : Level}
     {Ls : List AnnotTerm} {nIdxs : List Nat} {pps : List (Nat × Nat × AnnotTerm)}
     {ipss : List (List (Nat × Nat × AnnotTerm))} {cds : List CtorDatumR} {mots : Nat → Nat}
@@ -73285,14 +73285,14 @@ equation of two application chains (`mkAppN_wellDenoted_of_chain`):
   carrier bound `carrier_app_mem_univ` at `w = 0`); the tower's value
   is in the ih domain's reading (`interp_ihDomAVM`, `lamTower_mem_piTele`,
   `interp_ihAppAVK_at`, moved to the base frame by
-  `lamTower_congr_bottom`) — `BlockReps.ihApp_facts`.
+  `lamTower_congr_bottom`) — `IsBlockModels.ihApp_facts`.
 
 ##### (b) THE CONSTRUCTORS-TYPED FINDING — `CtorsTyped`
 
 The left-hand side's last argument `C p⃗ f⃗` must itself be graded, and
 `WellDenoted` of an application asks the function's value in a
 Π-graph with the argument in its domain: the constructor's VALUE must
-be typed at its type's reading.  Nothing in `BlockRep` says so (`ctor`
+be typed at its type's reading.  Nothing in `IsBlockModel` says so (`ctor`
 fixes the fold's VALUE, `inj_mem` puts it in the carrier; neither is
 a chain fact), and the constructor's `WellDenoted` (`CtorDataI.okTy`)
 is about its TYPE.  The source is the model's invariant at the stored
@@ -73300,22 +73300,22 @@ constructor — `EnvModelM.mem_type` with `CtorDataI.read` — exactly as
 `FormersTyped` is `acval_memType` at the stored former (§U.5 (b)):
 
 ```lean
-@[expose] def CtorsTyped (m : EnvModel V env) (d : BlockRepData V) (ψ : Name → Nat) : Prop :=
+@[expose] def CtorsTyped (m : EnvModel V env) (d : BlockModel V) (ψ : Name → Nat) : Prop :=
   ∀ c, c < d.k → ∀ (j : Nat) (cA : ConstantVal × Nat), (d.ctorsM c)[j]? = some cA →
     ∀ ρ : Nat → V,
       interp V ρ (m.acval cA.1.name ψ)
         ∈ˢ interp V ρ (mkPisAV (d.dsF c j ψ) (ctorBodyAVI m (d.memberName c) d.nP cA.2 ψ (d.esF c j ψ)))
 ```
 
-(`BlockReps.ctor_chainOk`: the chain at a fitting parameter-and-field
+(`IsBlockModels.ctor_chainOk`: the chain at a fitting parameter-and-field
 spine, the `Prop`-regime side condition the carrier's bound.)  Named
 with its consumer (`blockEq_wd` → `blockRecsAt` → the recursor stage);
-not a datum clause: a run fact of the same kind as `FormersTyped`.
+not a block model clause: a run fact of the same kind as `FormersTyped`.
 
-##### (c) `blockRecs` CLOSED MODULO THE RUN FACTS — `BlockReps.blockRecsAt`
+##### (c) `blockRecs` CLOSED MODULO THE RUN FACTS — `IsBlockModels.blockRecsAt`
 
 ```lean
-theorem BlockReps.blockRecsAt {m : EnvModel V env} {d : BlockRepData V} (hreps : BlockReps m d)
+theorem IsBlockModels.blockRecsAt {m : EnvModel V env} {d : BlockModel V} (hreps : IsBlockModels m d)
     (hfT : ∀ ψ, FormersTyped m d ψ) (hcT : ∀ ψ, CtorsTyped m d ψ) {elimL : Level}
     (hwℓ : ∀ ψ, d.w ψ = 0 → elimL.eval ψ = 0) {Ls : (Name → Nat) → List AnnotTerm}
     {nIdxs : List Nat} {pps : (Name → Nat) → List (Nat × Nat × AnnotTerm)}
@@ -73342,9 +73342,9 @@ assignment: a constant-ψ instance is not an instance at all (finding
 
 | fact | source (M4) |
 | --- | --- |
-| `BlockReps m d` | the datum's assembly at the recursors' environment (session 3) |
+| `IsBlockModels m d` | the block model's assembly at the recursors' environment (session 3) |
 | `FormersTyped`, `CtorsTyped` | `EnvModelM.acval_memType` at the stored members and constructors with `FormerData.read`/`CtorDataI.read` |
-| `BlockReadings` | `FormerReadsM`/`MutualCtorReadsM` and the datum's construction; `MutualRecData.below` |
+| `BlockReadings` | `FormerReadsM`/`MutualCtorReadsM` and the block model's construction; `MutualRecData.below` |
 | `hwℓ` | DONE: `elimLevel_zero_of_w_zero` at the run's `b.large = f₀.s.isNeverZero` (`DeclBlock.lean`) |
 | `hT` | `MutualRecData.read`/`okTy` + the kernel's `ensureSort` through the claims' sort row (`checkMutualRecTy_shape`'s `inferTypeCore`/`ensureSortCore`) |
 
@@ -73366,16 +73366,16 @@ The run's stage decomposition with TWO named facts, each a
   eliminator, the constructors with their kinds, the recursor types
   and rules) keep the model: from a model of `env` a model of
   `storeMutualRecs (consMutualCtors …) …` whose leaves agree with the
-  pre-block model's off the block's names, at which THE DATUM holds —
-  `∃ d, MutualDatumOf env b fms ctorsA d ∧ BlockReps mp₃.base2 d ∧ ∀ ψ,
-  FormersTyped mp₃.base2 d ψ ∧ CtorsTyped mp₃.base2 d ψ` (`MutualDatumOf`:
-  the datum's arities, names, sort and constructors are the block
+  pre-block model's off the block's names, at which THE BLOCK MODEL holds —
+  `∃ d, MutualBlockModelOf env b fms ctorsA d ∧ IsBlockModels mp₃.base2 d ∧ ∀ ψ,
+  FormersTyped mp₃.base2 d ψ ∧ CtorsTyped mp₃.base2 d ψ` (`MutualBlockModelOf`:
+  the block model's arities, names, sort and constructors are the block
   record's and the stages' outputs).  Consumer: `declBlock`; its proof
   is M4 sessions 2–3 (the interface to (e) below).
 * **`MutualTablesModeled V μ`** — stage 5: at a model carrying the
-  datum, the structure-like members' projection tables cons a model of
+  block model, the structure-like members' projection tables cons a model of
   `envOut`.  Consumer: `declBlock`; M4 session 4.  Its inputs are the
-  datum facts alone; the table stage's proof (the fixpoint route's
+  block model facts alone; the table stage's proof (the fixpoint route's
   `stageFixTable` at the member's leaf) may need the CONCRETE injection
   (the tagged tower, (e)) — then the fact's interface grows at its
   consumer, not before.
@@ -73387,7 +73387,7 @@ s.isNeverZero` makes `w = s.eval ψ ≠ 0` there (`Level.isNeverZero_sound`).
 
 ##### (e) THE LEAF FINDING — the members' term-level leaves
 
-The datum's `leaf` clause needs, for each member, an `AnnotTerm` whose
+The block model's `leaf` clause needs, for each member, an `AnnotTerm` whose
 value at fitting parameters and indices is `app (lfpTuple w k Is Φ mm)
 (tup mm is)`.  `interp` has ONE fixpoint primitive, `BConst.lfpFam`
 (`lfpFam.{u,w} : Π I, ((I → Sort w) → (I → Sort w)) → I → Sort w`),
@@ -73399,7 +73399,7 @@ tier above.  Two spellings without a new primitive:
    index tuples, member `mm`'s leaf its fibre at tag `mm`: #278's
    `mutualTyAVI` with `tagTyAV W Idss := sumBodyAV W (uChains Idss)`
    (`Semantics/Tower/MutualLeafI.lean` on `inductives`, encoding-free
-   at the term level — the sum route's tagged tower).  The datum's
+   at the term level — the sum route's tagged tower).  The block model's
    `leaf` then needs `lfpTuple w k Is Φ = split (lfpFamSet w (unionIdx k
    Is) (join Φ))`: `TupleContainer.lean`'s proof device (`splitFam`/
    `joinFun`) stated as a theorem — pure, `tuple_ext` + leastness both
@@ -73417,7 +73417,7 @@ device, already accepted at (W).  Consequence for M4's sizing: the
 formers' stage cherry-picks `MutualLeafI.lean` (terms only) and adds
 the split/join theorem; nothing of #278's Model tier.  The
 constructors' leaves are the sum route's `sumMkAV` at the member's
-tagged tower — so the datum instance M4 assembles (`BlockRepData.ofMutual`,
+tagged tower — so the block model instance M4 assembles (`BlockModel.ofMutual`,
 `ofNative`'s twin) carries the CONCRETE injection `injW w j (mkTower
 (fs ++ [pt]))`, which is also what the table stage (d) reads.
 
@@ -73430,7 +73430,7 @@ the split/join theorem, the dummy-then-real former conses through
 caps `{}`), the constructors' readings at the dummy formers
 (`FormerReadsM`/`MutualCtorReadsM`, `CtorReadRT`); **session 3** — the
 constructors' conses (`ctorsLoopGen`'s twin) and the recursors: the
-datum instance `ofMutual` with `BlockReps` at every member (the
+block model instance `ofMutual` with `IsBlockModels` at every member (the
 container presentation per member for `functor`'s closed tuple via
 `tupleContainer_closed_exists`, `fibre`/`leaf`/`ctor`/`mkInj`/`mkZero`
 from the sum route's facts as `ofNative_*` does at `k = 1`),
@@ -73457,7 +73457,7 @@ the #223 criterion — compensated; one dot-notation fallback added,
 finding 4).
 
 1. **The left-hand side's grading needs the constructors typed** ((b)):
-   a run fact of `FormersTyped`'s kind, not a datum clause; the model
+   a run fact of `FormersTyped`'s kind, not a block model clause; the model
    invariant supplies both at the stored constants.  For M6 the same
    holds of a container pin's constructors.
 2. **`blockRecs` is closed modulo six run facts**, all in the shape M4
@@ -73489,11 +73489,11 @@ M4's formers' half, under two maintainer rulings received mid-session
 (the term language is ours to adjust; the preferred shape is a derived
 `k`-ary former with an API, no new `AnnotTerm` constructor).  No
 checker code changed; no `sorry`, no axioms, no `maxHeartbeats`
-raised; the datum unchanged.  New: `SetTheory/Derive/LfpSplit.lean`
+raised; the block model unchanged.  New: `SetTheory/Derive/LfpSplit.lean`
 (237 lines, the split/join theorem), `Model/Inductives/TupleLfp.lean`
 (539, the sealed former and its API, the formers' stage),
 `Model/Inductives/BlockRepMutual.lean` (250, `ofMutual`), and #278's
-proofs BELOW its datum cherry-picked (5 145 lines, (e)).
+proofs BELOW its block model cherry-picked (5 145 lines, (e)).
 
 ##### (a) THE LEAF DECISION, MEASURED — a derived former, not a primitive
 
@@ -73519,7 +73519,7 @@ term former with an API, its representation (the tagged sum, the
 encoding, split/join) private to one module — the `Std.HashMap`/
 `PropWhen` pattern.  Built this session ((c)); the `28`
 `interp`-unfolding sites are untouched; the term language gains no
-constructor; consumers of the datum never see a tag.
+constructor; consumers of the block model never see a tag.
 
 ##### (b) THE SPLIT/JOIN THEOREM — `SetTheory/Derive/LfpSplit.lean` (the session's first falsifier: PASSED)
 
@@ -73574,11 +73574,11 @@ tuple operator at a parameter frame; `TupleLfpOk W w ρp k Ids …` the
 premise at a frame; and the laws — the session's second falsifier,
 PASSED:
 
-* **`tupleLfpAV_fold`** (the interp law = the datum's `leaf`):
+* **`tupleLfpAV_fold`** (the interp law = the block model's `leaf`):
   `(as ++ is).foldl app (interp ρ (tupleLfpAV … m)) = app (lfpTuple w k
   (m ↦ idxSet W ρp (Ids m)) (tupleLfpΦ …) m) (mkTower is)` at spines
   fitting the member's parameters and indices;
-* **`tupleLfpΦ_functor`** (= the datum's `functor`): `MonoTuple`,
+* **`tupleLfpΦ_functor`** (= the block model's `functor`): `MonoTuple`,
   `MapsTuple`, a closed tuple;
 * `tupleLfpAV_below` (closed), `tupleLfpAV_wellDenotedV` (graded and
   valid under its tower), `tupleLfpAV_mem` (inhabits its former's
@@ -73596,7 +73596,7 @@ telescope `[tagTyAV]` along the **tagged encoding** `tagEnc W Ids m i
 := ⟨inj m ⟨projS 0 i, …, projS (nIdx_m − 1) i, pt⟩⟩` — an `IdxEnc`
 (`tagEnc_idxEnc`: `mem_tupleU`, `tagSet_elim`, `tagTuple_mem`, the
 towers' and tags' injectivity), which is what puts `lfpTuple_splitFun`
-under the leaf.  Consequence for the datum: every member's index-tuple
+under the leaf.  Consequence for the block model: every member's index-tuple
 sort is the block's index universe `W` (`TupleLfpOk`'s `TagOk`: the
 members' telescopes share a positive universe), so a member's index
 tuple is always a TOWER and the encoding decodes it by `projS`.
@@ -73609,11 +73609,11 @@ the tagged lists, the tagged chains' closedness); their introductions
 (session 3) is their only client — it establishes them from the
 constructors' readings exactly as #278's assembly did
 (`MutualChains.lean`, cherry-picked) — so the tag is visible to that
-proof and to nothing that consumes the datum.  Replacing the intros by
+proof and to nothing that consumes the block model.  Replacing the intros by
 untagged ones (the chain facts restated over `Eiss₀`/`Ess₀`) is a
 cleanup the assembly can do once it stands, not before.
 
-##### (d) THE DATUM INSTANCE — `BlockRepData.ofMutual` (`Model/Inductives/BlockRepMutual.lean`)
+##### (d) THE BLOCK MODEL INSTANCE — `BlockModel.ofMutual` (`Model/Inductives/BlockRepMutual.lean`)
 
 `ofNative`'s twin: the per-member/per-constructor readings as
 parameters, `uM := W` (the block's index universe), `Φ := tupleLfpΦ`
@@ -73621,24 +73621,24 @@ at `blockIds nP ppsM ψ` (member `t`'s index telescope off its
 reading), `inj ψ mm j fs := injW w (blockMinorIdx ctorsM mm j) ⟨f⃗, pt⟩`
 — the sum route's tagged tower at the constructor's GLOBAL position
 (the minor's index; `ofMutual_minorIdx : d.minorIdx = blockMinorIdx`
-by `rfl`).  Proved at the datum: `ofMutual_functor`, `ofMutual_leaf`
-(the API's laws, the `Is` and `Φ` matching the datum's `idx`/`Φ` by
+by `rfl`).  Proved at the block model: `ofMutual_functor`, `ofMutual_leaf`
+(the API's laws, the `Is` and `Φ` matching the block model's `idx`/`Φ` by
 `rfl` because the API is stated over the FUNCTION `Ids`, the list
 `tupleIdss k Ids` being the representation's), `ofMutual_mkZero`,
 `ofMutual_mkInj` (a member's global positions are distinct, `omega` on
 the prefix sum), and the run-level shape:
 
 ```lean
-theorem mutualDatumOf_ofMutual (env : Env) (b : MutualBlock) (fms : List MutualFormerA)
+theorem mutualBlockModelOf_ofMutual (env : Env) (b : MutualBlock) (fms : List MutualFormerA)
     (ctorsA : List (ConstantVal × Nat)) {f₀ : MutualFormerA} (hf₀ : fms[0]? = some f₀) … :
-    MutualDatumOf env b fms ctorsA (BlockRepData.ofMutual b.nP b.k f₀.s isProp b.large env
+    MutualBlockModelOf env b fms ctorsA (BlockModel.ofMutual b.nP b.k f₀.s isProp b.large env
       (fms.map (·.cvTa.name)) (fms.map (·.nIdx)) ppsM W
       (fun t => (b.ownCtors t).map fun q => ctorsA.getD q.1 default) …)
 ```
 
 — eight `rfl`s and one `getD`.  `ofMutual_leaf`'s parameter spine
 fits the MEMBER's own telescope (`((ppsM mm ψ).take nP)`), where
-`BlockRep.leaf` asks for the block's `d.params ψ` (member `0`'s): the
+`IsBlockModel.leaf` asks for the block's `d.params ψ` (member `0`'s): the
 cross-member identification of the parameter telescopes as spines is
 a run fact of `mutualCrossChecks` (the domains are `isDefEq`, hence
 equal in the model) — session 3's, listed in (g).
@@ -73727,9 +73727,9 @@ pre-block model's, and every member is stored at `env₁` (`find?`),
 its binder data crossed to the formers' model (`FormerData.crossEnv`
 at `consMutualFormers_extend`, agreement off the block by freshness)
 and its leaf typed at its former's reading — the three facts
-`BlockRep.member`/`former` and `FormersTyped` read at the datum.  The
+`IsBlockModel.member`/`former` and `FormersTyped` read at the block model.  The
 `strip` and `isProp` clauses are the block record's (`mutualFormerChecks_pos`,
-`MutualDatumOf`).
+`MutualBlockModelOf`).
 
 ##### (g) REMAINING PREMISES, WITH THEIR CONSUMERS; M4 RE-SIZED
 
@@ -73740,15 +73740,15 @@ nothing new was named at the run level).  What its proof — session 3
 | fact | source | consumer |
 | --- | --- | --- |
 | the chain-free first pass (formers at a dummy leaf) | `stageMembersG` at `sumTyAV … []`, as `inductives` did | reading the constructors at `env₁` |
-| the constructors' readings | `mutualCtorData_of` → `MutualCtorDataI` → `.toBlock` | `BlockRep.ctors` (via `BlockCtorFacts`), the datum's `dsF/esF/ksF/tgts/…` |
+| the constructors' readings | `mutualCtorData_of` → `MutualCtorDataI` → `.toBlock` | `IsBlockModel.ctors` (via `BlockCtorFacts`), the block model's `dsF/esF/ksF/tgts/…` |
 | `TupleLfpBlockOk`, `TupleLfpStageOk` (per member), `TupleLfpOk` (per frame) | `mutualChainFacts_at`/`mutualChainValidFacts_at`/`mutualChainFacts_of` (cherry-picked) through the `of_tagged` intros | `stageTupleFormers`, `ofMutual_functor/_leaf` |
-| the real conses = `stageTupleFormers` | (f) | `BlockRep.former`, `FormersTyped`, `memsFound` |
-| the readings at the real model = at the dummy model with the leaves substituted | `mutualCtorDataI_ident` (kit) | the datum's readings at `mp₁` |
-| the parameter telescopes agree as spines across members | `mutualCrossChecks` (`isDefEq` of the domains) at the model | `BlockRep.leaf` at `d.params` from `ofMutual_leaf`; `paramsIff` |
-| `fibre` | `fixStepI_elim` at the tagged data read through `tagEnc` and `slotFit_tag` (`MutualChains`) = the API's `tupleLfpΦ_fibre`, sealed | `BlockRep.fibre` |
-| `ctor` | `sumMkAV_fold` at the global position (`mutualCtorFold`, cherry-picked) | `BlockRep.ctor` |
-| the constructors' conses | `ctorsLoopGen`'s twin at `k` (`inductives`' `stageMutualCtors`, NOT taken — it reads `MutualRep`'s invariant; restate over `BlockRep`'s `ctors` clause) | `CtorsTyped`, `BlockCtorFacts` |
-| `BlockReadings`, `hT`, the recursors' conses, `RecRuleLaw` via `blockRecs_iota` | §U.6 (c)'s table | `blockRecsAt` → `BlockReps` at the recursors' env |
+| the real conses = `stageTupleFormers` | (f) | `IsBlockModel.former`, `FormersTyped`, `memsFound` |
+| the readings at the real model = at the dummy model with the leaves substituted | `mutualCtorDataI_ident` (kit) | the block model's readings at `mp₁` |
+| the parameter telescopes agree as spines across members | `mutualCrossChecks` (`isDefEq` of the domains) at the model | `IsBlockModel.leaf` at `d.params` from `ofMutual_leaf`; `paramsIff` |
+| `fibre` | `fixStepI_elim` at the tagged data read through `tagEnc` and `slotFit_tag` (`MutualChains`) = the API's `tupleLfpΦ_fibre`, sealed | `IsBlockModel.fibre` |
+| `ctor` | `sumMkAV_fold` at the global position (`mutualCtorFold`, cherry-picked) | `IsBlockModel.ctor` |
+| the constructors' conses | `ctorsLoopGen`'s twin at `k` (`inductives`' `stageMutualCtors`, NOT taken — it reads `MutualRep`'s invariant; restate over `IsBlockModel`'s `ctors` clause) | `CtorsTyped`, `BlockCtorFacts` |
+| `BlockReadings`, `hT`, the recursors' conses, `RecRuleLaw` via `blockRecs_iota` | §U.6 (c)'s table | `blockRecsAt` → `IsBlockModels` at the recursors' env |
 
 M4: session 2 DONE (this); **session 3** = the assembly above
 (`MutualCoreModeled` discharged) — its size is now that of `inductives`'
@@ -73789,19 +73789,19 @@ removal).
    (`MutualStageFormer`) although its statement half is Semantics
    material.
 3. **#278's Model tier splits along `MutualRep`**: everything below
-   the datum (5 145 lines) transfers as-is because the leaf TERM is
+   the block model (5 145 lines) transfers as-is because the leaf TERM is
    the same; the `lvls` field is the only drift, and removing it made
    eight heartbeat raises unnecessary.  `MutualCtorShape.lean`
    duplicates `sumCtorData_of`'s reading argument (an `inductives`
    refactor of `SumData.lean` not on master) — docketed cleanup.
-4. **The tag is visible to the assembly, not to the datum's
+4. **The tag is visible to the assembly, not to the block model's
    consumers** ((c)): the `of_tagged` intros are the honest seam;
    untagged intros are a cleanup after session 3.
 5. Lean traps: a `local notation` survives its `section`'s `end`
    when the section is re-opened with the same variables — "ambiguous
    term" with both instances; one section per notation.  `rw` with a
    lemma whose implicit `Ids.length` is definitionally `1` fails to
-   find the pattern at `1` — state the datum's `Φ` at
+   find the pattern at `1` — state the block model's `Φ` at
    `(auxIds …).length` (the API's `tupleLfpΦ` does).  `mkTower_inj rfl
    h` elaborates the length proof before `h` fixes the lists — pass
    `(by rfl)`.  `simp` on a goal that a preceding `rw [← hlen]`
@@ -73813,7 +73813,7 @@ removal).
 
 `MutualCoreModeled`'s proof, modulo ONE named fact for its last
 stage.  No checker code changed; no `sorry`, no axioms, no
-`maxHeartbeats`; one recorded datum deviation ((e) 4).  New:
+`maxHeartbeats`; one recorded block model deviation ((e) 4).  New:
 `Model/Inductives/MutualCore.lean` (2 368 lines — the three stage
 theorems and their facts), `MutualIdxUniv.lean` (360, the index
 universe), `MutualStageCtor.lean` (739, #278's constructor stage
@@ -73823,7 +73823,7 @@ fibre law and the assembly's seam).
 
 ##### (a) THE FIBRE LAW — `tupleLfpΦ_fibre`, sealed (`TupleLfp.lean`)
 
-The datum's `fibre` clause at the derived former, stated over the
+The block model's `fibre` clause at the derived former, stated over the
 UNTAGGED lists in the block's global constructor order: component
 `mm`'s fibre at `(X, t)` is the set of the tagged towers `injW w J
 ⟨f⃗, pt⟩` of the spines `f⃗` fitting a constructor `J` of member `mm`
@@ -73903,18 +73903,18 @@ record, every one within the default budget:
   (`mutualCtorFrames`), `fold` (`mutualCtorFold`), `fssOkP`.
 * **`mutualCtorsStage`** (stage 3): #278's `stageMutualCtors` at the
   derived leaves — its `env₀` is the formers' environment (the check
-  ran there; `MutualCtorDataI.monoEnv₀`), and the datum's pre-block
+  ran there; `MutualCtorDataI.monoEnv₀`), and the block model's pre-block
   witness is restored afterwards by swapping the model-free `opened`
   field (`MutualCtorDataI.withOpened`).  Outputs: every constructor's
   `MutualCtorFactsAt`, its residuals resolving, its leaf `sumMkAV` at
   the global position, the members' leaves untouched (their names are
   no constructor's, `blockNames.Nodup`), agreement off the constructors.
-* **`blockReps_of`** (the datum): `mutualDatum` = `BlockRepData.ofMutual`
+* **`blockReps_of`** (the block model): `mutualBlockModel` = `BlockModel.ofMutual`
   at the run's data, keyed per member through the block's own
   constructor positions — `ownOffset mm + j`, the global index
   (`MutualGrouped`: `ownCtors_getElem?_idx`, `ownCtors_of_ctors` under
-  `mutualCtorsGrouped`; `mutualDatum_ctorsM_get`, `mutualDatum_ofCtor`,
-  `mutualDatum_minorIdx`).  `BlockRep` at every member: `former`
+  `mutualCtorsGrouped`; `mutualBlockModel_ctorsM_get`, `mutualBlockModel_ofCtor`,
+  `mutualBlockModel_minorIdx`).  `IsBlockModel` at every member: `former`
   (crossed by `consMutualCtors_extend`), `ctors` (`congr_sort` +
   `withOpened` + `toBlock`, the target readers identified through
   `memT`), `memsFound`/`idxRes`/`uParams`/`paramsIff`/`idxOk`,
@@ -73926,7 +73926,7 @@ record, every one within the default budget:
   `spineFit_of_frames`), `ctor` (`sumMkAV_fold`; at `w = 0`
   `sumMkAV_zero`), `mkZero`/`mkInj`; `FormersTyped`/`CtorsTyped` from
   the model's `mem_type` at the stored members and constructors.
-  Deviation 4: `BlockRep.strip` now asks for a sort EQUIVALENT to the
+  Deviation 4: `IsBlockModel.strip` now asks for a sort EQUIVALENT to the
   block's — a member's stored type ends in its OWN declared sort, which
   official's cross-member check makes `isEquiv` to the first member's,
   not equal; the clause has no consumer on the branch.
@@ -73939,10 +73939,10 @@ theorem mutualCoreModeled_of {F : Nat} (hrec : MutualRecsModeled V μ F) :
 ```
 
 `MutualRecsModeled V μ F`: at a model of the constructors' environment
-carrying the datum (`MutualDatumOf`, `BlockReps`, the members and
+carrying the block model (`MutualBlockModelOf`, `IsBlockModels`, the members and
 constructors typed, every other leaf the pre-block model's), the
 recursor types, the rules at the rule-less provision and the group
-store cons a model of the recursors' environment at which the datum
+store cons a model of the recursors' environment at which the block model
 still holds, every other leaf untouched — the core's run facts
 verbatim.  Consumers: `mutualCoreModeled_of` (the assembly of stages
 0–3 above, the agreement composed through the constructors' and the
@@ -73951,19 +73951,19 @@ discharge is M4 sessions 4a–4b:
 
 | step | source |
 | --- | --- |
-| `BlockReadings` at the datum | the datum's readers (`cdsAt` at `ownOffset`), `MutualRecData.below` |
+| `BlockReadings` at the block model | the block model's readers (`cdsAt` at `ownOffset`), `MutualRecData.below` |
 | `hT` | `mutualRecData_of` (cherry-pick `inductives`' `MutualRecData.lean` lines 100–475: `MutualFormerFacts`, `formerReadsM_of`, `mutualCtorReadsM_of`) + the claims' sort row at `checkMutualRecTy_shape`'s `ensureSortCore` |
 | the tuple | `blockRecsAt` (§U.6 (c)) |
 | the `k` provision conses | `declStep_preserves_of_ind_rec_cons` at `blockLeafAV`; needs the leaf's closedness, ψ-stability and `AnnotValid` — `SigChainI` has none: `blockRecAVI_below/_params/_validV` to write |
 | `RecRuleLaw` per stored rule | `blockRecs_iota` + the `specRuleCoreAV → mutualRuleCoreAV` bridge (§U.4) + `denoteMeta_mutualRecRhs` |
 | the store | ONE swap from the provisioned model: a rule's right-hand side names the sibling recursors, so no per-cons model of `storeMutualRecs` exists — port `MutualStageRec.lean`'s `storeHead`/`swapShList_provision_store`/`storeMutualRecs_find?_inv`/`swapFacts_of_shList`/`stageMutualRecsStore` (leaf-agnostic) |
-| the datum at `mp₃` | `FormerData.crossEnv`; a `BlockCtorData.cross` to write; the semantic clauses read only the members' and constructors' leaves |
+| the block model at `mp₃` | `FormerData.crossEnv`; a `BlockCtorData.cross` to write; the semantic clauses read only the members' and constructors' leaves |
 
 ##### (f) M4 RE-SIZED
 
 Session 3 DONE (this).  **Session 4a** = readings, `hT`, `blockRecsAt`,
 the provision conses; **session 4b** = the rule law, the store swap, the
-datum transported — `MutualRecsModeled` discharged; **session 5** (was
+block model transported — `MutualRecsModeled` discharged; **session 5** (was
 4) = `MutualTablesModeled` + the FLIP + the full gates + the landing.
 New table: M4 3 left; M5 2–3; M6 3–5; M7 3–4; M8 1–2.  Total remaining
 **12–18** (was 11–17): the recursors' stage is two sessions, not one —
@@ -73978,7 +73978,7 @@ overview-links 103, quote-gate 2, no-local-paths OK, proofdeps 4361
 rows / 0 doors, shake 478 removals all allowlisted / `pub-imports: none
 demotable` (11 fallbacks).  The import gate on the new modules under
 the #223 criterion: `MutualIdxUniv`'s `FixChainFacts` and
-`BlockRepMutual`'s `BlockRep` CLEAN and deleted; `MutualGrouped`
+`BlockRepMutual`'s `IsBlockModel` CLEAN and deleted; `MutualGrouped`
 narrowed to the kernel's `MutualInstall`; `MutualStageCtor`'s four and
 `MutualData`'s `FixData` compensated / `--only`-silent, allowlisted;
 the plan's twelve demotions applied, two of which the build refused —
@@ -74005,9 +74005,9 @@ through `FixStageRec` (task #290's class) — recorded in `FALLBACK`.
    normalises the goal and a later `rw` with a `getD`-stated hypothesis
    stops matching (convert the hypothesis first); `Option.noConfusion`
    on `none = some f` elaborates at a wrong universe — `simp at hf`;
-   the `omit h in` readers (`BlockRep.Fss_getD`) take no instance;
-   `ofMutual_*` are stated at `BlockRepData.ofMutual`, so at
-   `mutualDatum` restate by `show` before `rw`; an anonymous-constructor
+   the `omit h in` readers (`IsBlockModel.Fss_getD`) take no instance;
+   `ofMutual_*` are stated at `BlockModel.ofMutual`, so at
+   `mutualBlockModel` restate by `show` before `rw`; an anonymous-constructor
    component `fun f hf => nomatch hf` fails with unresolved binder
    types — `refine` it.
 
@@ -74018,7 +74018,7 @@ through `FixStageRec` (task #290's class) — recorded in `FALLBACK`.
 checker code changed; no `sorry`, no axioms, no `maxHeartbeats` (the
 reference's `mutualRecData_of` needed 1.6 M — it elaborates at the
 default budget here, unchanged).  New: `Model/Inductives/MutualRecs.lean`
-(262 — the readings built from the datum), `MutualRecsProvision.lean`
+(262 — the readings built from the block model), `MutualRecsProvision.lean`
 (276 — the rule-less conses, generic in the leaf), `MutualRecsStage.lean`
 (693 — the readings from the run, the leaf, the assembly, the named
 store half), `BlockRecLeaf.lean` (433 — closedness and the chain's
@@ -74036,7 +74036,7 @@ theorem mutualRecsModeled_of {F : Nat} (hst : MutualRecsStored V μ F) :
 ```
 
 `mutualRecsProvision` (the stage's first half): at the constructors'
-model with the datum and the run facts, there are a sort `s` and a
+model with the block model and the run facts, there are a sort `s` and a
 model `mpP` of `provisionMutualRecs b fms cvRas.zipIdx env₂` with
 **`ProvisionedRecs mp₂ b fms cvRas d s mpP`** — the state s4b consumes:
 the `k` recursors consed at the generated names (`names`: `b.recName t`,
@@ -74048,19 +74048,19 @@ readings at the provisioned model (`recData`, `MutualRecData` at
 rule equation (`iota`, at the restricted assignment).  **`MutualRecsStored`**
 is `MutualRecsModeled`'s ∀-chain verbatim, continued: at ANY `s`, `mpP`
 with `ProvisionedRecs`, the group store `storeMutualRecs` cons a model
-at which the datum still holds, every other leaf the constructors'
+at which the block model still holds, every other leaf the constructors'
 model's.  Consumers: `mutualRecsModeled_of`, `declBlock_of_stored`.
 
-##### (b) THE READINGS BUILT FROM THE DATUM — `MutualRecs.lean`
+##### (b) THE READINGS BUILT FROM THE BLOCK MODEL — `MutualRecs.lean`
 
 The `k`-motive reading (`mutualRecDataAV`) runs over BLOCK-ORDER lists
-and two position tables; `BlockReadings` says they are the datum's.
+and two position tables; `BlockReadings` says they are the block model's.
 They are now BUILT from it: `recLs` (the members' leaves), `recNIdxs`,
 `recPps` (member `0`'s parameter data), `recIpss`, `recCds` (the
 members' `cds` flattened, `List.flatMap` over `List.range d.k`),
 `recMots`/`recTgts` (the same flattening of the members' indices and
 target readers, read by `getD`), `recTname` (member `0` off the block —
-the reading layer's `hfT` quantifies over EVERY position).  The datum's
+the reading layer's `hfT` quantifies over EVERY position).  The block model's
 `minorIdx c j` is exactly the flat position of member `c`'s entry `j`
 (`getElem?_flatMap_range`), and every flat position decomposes so
 (`flatMap_range_index`, `minor_index`); **`blockReadings_of`** then
@@ -74074,28 +74074,28 @@ The reading layer's run half is cherry-picked (`mutualRecData_of`:
 `denoteMeta_mutualRecTy` + the claims' `inferRow`/`sortRow` at the
 generated type — the sort row IS the kernel's `ensureSortCore`, there
 is no separate row to add; `formerReadsM_of` without `lvls`), and its
-constructor lemma is RE-BASED on the datum: `blockCtorRead_of` reads
+constructor lemma is RE-BASED on the block model: `blockCtorRead_of` reads
 ONE constructor's premise (`MutualCtorRead`) off its `BlockCtorData`,
 which names the fields' targets directly (`Tof`/`nIdxOfT`) where the
 recursor's table names them through `moti` — `htgt` is the agreement.
 `blockCtorReadsM_of` assembles the list over `recCds` (the block's
-positions through `MutualDatumOf.ctors` and `MutualGrouped`; the
+positions through `MutualBlockModelOf.ctors` and `MutualGrouped`; the
 checked constructors' names, field counts and level parameters from
 `checkMutualCtors` — `ctorsA_names_of`), `blockFormerReadsM_of` the
 members'; **`blockRecData_of`**: member `t`'s type reads to
 `mkPisAV (blockRds t ψ) (blockConc t)`, graded at a level `u_t`.
 
-FINDING 1 — the datum hides the STORED former: `BlockRep.former` reads
+FINDING 1 — the block model hides the STORED former: `IsBlockModel.former` reads
 an existential `cvT`, `memsFound` finds an unrelated `cv`, and the
 generated recursor type is built from the CHECKED constant's type.  So
-the recursor stage has one run fact beyond the datum: **`MemberStored`**
+the recursor stage has one run fact beyond the block model: **`MemberStored`**
 (the member's checked constant is what the store finds under its name,
 at the block's level parameters, its telescope ending in its own sort,
-its `FormerData` at the datum's parameter data) — supplied by
+its `FormerData` at the block model's parameter data) — supplied by
 `blockReps_of` (its third conjunct) from `MutualFormersFacts`.
-FINDING 2 — the datum's kinds are the run's: `ksF`/`tgts` are
+FINDING 2 — the block model's kinds are the run's: `ksF`/`tgts` are
 `kindsOf`/`tgtAt` of the classification at `ownOffset mm + j`, a `rfl`
-at `mutualDatum` and a hypothesis (`hkinds`) at the abstract datum,
+at `mutualBlockModel` and a hypothesis (`hkinds`) at the abstract block model,
 which `mutualRecFieldsOf_eq` turns into the generated constructors'
 `recFields`.
 
@@ -74108,7 +74108,7 @@ which `mutualRecFieldsOf_eq` turns into the generated constructors'
     d.blockConc (d.recEqs m elimL (restrictΨ rlps ψ)) t
 ```
 
-Member `t`'s leaf is the chosen tuple's projection at the datum's
+Member `t`'s leaf is the chosen tuple's projection at the block model's
 readings — taken at the assignment RESTRICTED to the recursors' level
 parameters (`restrictΨ b.rlps ψ`, the fixpoint route's device for the
 sort).  FINDING 3: this makes the leaf's stability under `rlps`
@@ -74148,8 +74148,8 @@ motives with no new lemma.
 `recProvisionCons` (one rule-less cons: `rec_rules` by
 `recRules_cons_fresh`, `caps_ok` vacuous at a recursor), `recsProvisionGo`,
 **`recsProvision`** — `inductives`' loop generic in the leaf and
-WITHOUT its carrier invariant: FINDING 5, the uniform datum is
-transported once (s4b's `BlockRep.crossEnv`, from the constructors'
+WITHOUT its carrier invariant: FINDING 5, the uniform block model is
+transported once (s4b's `IsBlockModel.crossEnv`, from the constructors'
 model to the store's along the agreement), where the tagged route had
 to thread a per-member representation through every anonymous carrier.
 
@@ -74177,7 +74177,7 @@ mutualRuleCoreAV (fun t => leaf t)` bridge — the tuple frame's variables
 ARE the leaves' values — + `denoteMeta_mutualRecRhs` at the restricted
 assignment), the rule's right-hand side `WellDenotedV` (lane C's kit at
 `Rof := leaf`), the store swap (port `MutualStageRec.lean` 640–930), and
-the datum transported (`BlockCtorData.crossEnv`/`BlockRep.crossEnv`,
+the block model transported (`BlockCtorData.crossEnv`/`IsBlockModel.crossEnv`,
 new) — 1–2 sessions; **session 5** = `MutualTablesModeled` + the FLIP
 + the full gates + the landing.  M4 2–3 left; M5 2–3; M6 3–5; M7 3–4;
 M8 1–2.  Total remaining **11–17**.
@@ -74190,15 +74190,15 @@ overview-links 103, quote-gate 2, no-local-paths OK, proofdeps 4361
 rows / 0 doors, shake 478 removals all allowlisted (NO new allowlist
 line) / `pub-imports: none demotable` (11 fallbacks).  The import gate
 on the six new modules under the #223 criterion: `BlockRecLeaf`'s
-`SigChainWire`, `MutualRecData`'s `TowerWire`, `BlockRep` and
+`SigChainWire`, `MutualRecData`'s `TowerWire`, `IsBlockModel` and
 `StructData` (the last two implied by `MutualRecRead`/`MutualData`),
 `MutualRecsProvision`'s `StructCaps` and `MutualWF` CLEAN and deleted;
 `MutualRecs`'s `BlockRecWD` + `BlockRecKit` relocated to
 `BlockRecTyped` (shake's own proposal); the plan's four demotions
-applied (`MutualRecData`'s `BlockRep`/`StructData`/`MutualInv`,
+applied (`MutualRecData`'s `IsBlockModel`/`StructData`/`MutualInv`,
 `MutualRecsStage`'s `MutualRecsProvision`).
 
-1. **The datum hides the stored former** ((c)) — `MemberStored`.
+1. **The block model hides the stored former** ((c)) — `MemberStored`.
 2. **The recursors' freshness needs the pin** ((g)) — `declBlock` takes it.
 3. **The leaf at the restricted assignment** ((d)) — stability by
    construction.
@@ -74215,8 +74215,8 @@ applied (`MutualRecData`'s `BlockRep`/`StructData`/`MutualInv`,
    at h`); `omit [SetTheory V] in` fails on a lemma whose statement
    mentions `EnvModel V env`; `Bool.and_eq_true` is not an iff
    (`.mp` unknown) — `simp only [Bool.and_eq_true] at h`; one section
-   `variable {env}` used for both the datum's environment and the
-   model's silently identifies them — name the datum's `env₀`; field
+   `variable {env}` used for both the block model's environment and the
+   model's silently identifies them — name the block model's `env₀`; field
    notation on a PRIVATELY imported def fails ("the environment does
    not contain") with a hint — `public import`; `lake build <Module>`
    by name builds a module the roots do not yet list, which `lake env
@@ -74227,7 +74227,7 @@ applied (`MutualRecData`'s `BlockRep`/`StructData`/`MutualInv`,
 `MutualRecsStored` is PROVED (`mutualRecsStored`), hence
 `MutualRecsModeled` (`mutualRecsModeled`) and `MutualCoreModeled`
 (`mutualCoreModeled`): stages 0–4 of the mutual install keep the model
-and leave the datum at the recursors' environment.  `declBlock` has one
+and leave the block model at the recursors' environment.  `declBlock` has one
 premise left, `MutualTablesModeled` (its consumer `declBlock_of_tables`).
 No checker code changed; no `sorry`, no axioms, no `maxHeartbeats`
 (the reference's store needed 1.6 M and its rule law 6.4 M — both
@@ -74235,7 +74235,7 @@ elaborate at the default budget here).  New: `Model/Inductives/
 MutualRecsLaw.lean` (915 — the rule law), `MutualRecsStore.lean` (672 —
 the assembly), `BlockRecBridge.lean` (500 — the tuple-variable→leaf
 bridge and the readings' congruence), `BlockRepCross.lean` (516 — the
-datum transported), `MutualRecsSwap.lean` (328 — the store as a swap).
+block model transported), `MutualRecsSwap.lean` (328 — the store as a swap).
 Three Opus lanes ran in parallel (the swap port, the transport, the
 bridge kit); all at the default budget.
 
@@ -74243,13 +74243,13 @@ bridge kit); all at the default budget.
 
 ```lean
 theorem blockRecRuleLaw {env₀ env₃ : Env} {m₀ : EnvModel V env₀} (m₃ : EnvModel V env₃)
-    {d : BlockRepData V} (hreps : BlockReps m₀ d) … (φ : Name → Nat) :
+    {d : BlockModel V} (hreps : IsBlockModels m₀ d) … (φ : Name → Nat) :
     RecRuleLaw m₃ φ cvRa.name cvRa mI rP rl
 ```
 
 At the store's model `m₃` (the recursor's leaf the chosen tuple's
 projection, the constructors' leaves the constructors' model's, the
-recursor type, the constructor type and the rule reading as the datum
+recursor type, the constructor type and the rule reading as the block model
 says), rule `(t, j)` fires.  The proof runs at the RESTRICTED
 assignment `ψ' = restrictΨ rlps ψR`: the rule's reading at `ψR` is its
 reading at `ψ'` (`denoteMeta_params_ext`, the rule's level parameters
@@ -74262,11 +74262,11 @@ FINDING 1 — **the `paramsBlind` rule fires with no index pin.**  The
 kernel's mutual rule compares no parameters; the model's law gets the
 recursor spine `xs ++ [C ys]` fitting the recursor type and `ys`
 fitting the constructor type, and nothing relating `ys.take nP` to
-`xs.take nP`.  The uniform datum makes this trivial: the constructor's
-value is its injection of the FIELD spine (`BlockRep.ctor`, blind to
+`xs.take nP`.  The uniform block model makes this trivial: the constructor's
+value is its injection of the FIELD spine (`IsBlockModel.ctor`, blind to
 its parameters), and the major's membership in member `t`'s carrier at
 the RECURSOR's parameters (the last domain of the recursor spine's fit,
-`spineFit_recData_inv`) decodes it — `BlockRep.fibre` at `lfpTuple`
+`spineFit_recData_inv`) decodes it — `IsBlockModel.fibre` at `lfpTuple`
 (`carrier_app_eq`) and `mkInj` give that the fields fit at the
 recursor's parameters (`spineFit_of_fitsFrom`) and that the index
 arguments are the constructor's index readings there (`es_eq_is`).  So
@@ -74321,7 +74321,7 @@ the caller's `hlaws`.  The assembly supplies `hlaws` from
 constructor's (`mutualRules_mem_shape`, `memberRule_of` through
 `checkMutualMemberRules_inv` and the grouping), its right-hand side
 reads at the provisioned model (`ruleRhs_read_of`:
-`denoteMeta_mutualRecRhs` at the datum's readings, the recursor table
+`denoteMeta_mutualRecRhs` at the block model's readings, the recursor table
 made total below `k` by `mutualRecRhs_congr_recOf` — the reading layer
 asks for a stored name at EVERY index), and the reading crosses the
 swap unchanged (`denoteMeta_swap`); the reading's model is identified
@@ -74330,9 +74330,9 @@ leaves are untouched by the provision) and `mutualRuleCoreAV_congr_Rof`
 (the recursors are read at the fields' targets only, where the
 provisioned leaves are the chosen tuple's).
 
-##### (d) THE DATUM TRANSPORTED ONCE — `BlockRepCross.lean`
+##### (d) THE BLOCK MODEL TRANSPORTED ONCE — `BlockRepCross.lean`
 
-`BlockRep.crossEnv` (and `BlockReps`, `FormersTyped`, `CtorsTyped`,
+`IsBlockModel.crossEnv` (and `IsBlockModels`, `FormersTyped`, `CtorsTyped`,
 `MemberStored`, `MutualRecData`) under four hypotheses — non-recursor
 lookups preserved, `constsResolve` monotone, the leaves of every stored
 name unchanged, every successful reading reproduced — instantiated
@@ -74350,11 +74350,11 @@ itself) — and the transport carries no boundedness side condition.
 
 **Session 5** = `MutualTablesModeled` (stage 5: the structure-like
 members' projection tables — `mutualMemberTable`/`checkStructProjTable`
-at the member's leaf; the datum's injection is the sum route's tower
+at the member's leaf; the block model's injection is the sum route's tower
 `injW w j (mkTower (fs ++ [pt]))` (`ofMutual_mkInj`,
 `tupleLfpAV_repr`), so the fixpoint route's table stage instantiates
-at the datum) + the FLIP (`declInductive`'s mutual arm calls
-`declBlock`; the kernel's mutual route wired; `MutualDatumOf` at the
+at the block model) + the FLIP (`declInductive`'s mutual arm calls
+`declBlock`; the kernel's mutual route wired; `MutualBlockModelOf` at the
 run) + the full gates + the LANDING on master with the OVERVIEW line
 (inductives denote the least solution of their recursive system, so
 structurally equal definitions coincide in the model and block
@@ -74401,3 +74401,113 @@ three green.
    the first `getD` — pass `(l := …)`; `lake env lean` reports fewer
    linter warnings than `lake build` (an unused section variable and an
    unused named binder surfaced only in the build).
+
+#### U.11 — M4 session 5: the tables' stage, the flip, the landing (session U-10, 2026-09-16)
+
+`MutualTablesModeled` is PROVED (`mutualTablesModeled`), so `declBlock`
+has no premise beyond the run (`declMutual`); `declInductive`'s
+dispatch gained its mutual arm, and the checker's did too: a mutual
+block installs through `checkMutual`/`checkMutualS`, the modeller's
+mutual rung is deleted (`InModel.wants` = nested only).  This is the
+mutual half of the uniform route, ready to land on master.  New:
+`Model/Inductives/BlockTableMember.lean` (the flat bundle),
+`BlockStageTable.lean` (the P step at one table), `BlockStageTables.lean`
+(the fold and the cross), `BlockTableOf.lean` (the bundle's set-level
+clauses from the block model), `MutualNoProj.lean` (the `NoProjEnv`
+bookkeeping off the run), `MutualTables.lean` (the assembly).  No
+`sorry`, no axioms, no `maxHeartbeats` — the reference's table stage
+carried 3.2 M and its fold 1.6 M; both elaborate at the default here.
+
+##### (a) THE TABLE STAGE IS A FLAT BUNDLE, CROSSED PER CONS
+
+FINDING 1 — **a table cons is not an extension in `denoteMeta`'s
+sense.**  `denoteMeta`'s `.proj` clause reads a `.proj T i e` node
+through the table when one is stored and as a PAIR projection when
+none is (`AnnotTerm.projPair?`), so consing `T`'s table changes the
+reading of every expression mentioning `T.proj i` — the `none →
+none` premise of `denoteMeta_env_mono` fails exactly there, and
+`IsBlockModel.crossEnv` (whose `hde` is quantified over every
+expression) cannot carry the block model across the second structure-like
+member's table.  What crosses is the reference's shape: a FLAT
+per-member bundle (`TableMember`, 29 fields) of the two lookups,
+the names, the readings, the sorts, and three set-level clauses at an
+ABSTRACT carrier `S ψ ρ'` — `fold` (the member at a fitting
+parameter spine is `S`), `fib` (`FibreAt w J Fs ρ' (S ψ ρ')`: the
+tag-`J` injections of point-terminated tuples over fitting field
+spines, the point at `w = 0`) and `ctor` (the constructor at fitting
+parameters and fields is `injW w J (mkTower (fs ++ [pt]))`) — and it
+crosses another member's table by the `NoProjEnv` bookkeeping of the
+stored types alone (`TableMember.cross`: `FormerData.cross`,
+`denoteMeta_cons_mono` under `ConsCrossAt`, `acvalWith_ne` for the
+leaves; the consed table's bodies mention only its own structure's
+projections, `noProjAt_structProjBodies`).
+
+The block model instantiates the bundle ONCE, at the recursors'
+environment (`tableMember_of`, `memberTableOk_of`): `S` is the
+member's `lfpTuple` component at the empty index tuple
+(`BlockModel.tableCarrier`), `fold` is `IsBlockModel.leaf` at `is = []`,
+`fib` is `IsBlockModel.fibre` at the tuple's own value (`carrier_app_eq`)
+decoded by `spineFit_of_fitsFrom` — the one constructor's fits are
+the field spine's — with the injection's shape from the table facts,
+`ctor` is `IsBlockModel.ctor` plus that shape.  The two lookups are
+`MemberStored.find` (strengthened to the kernel's capability record
+`{}`, so the η record is vacuous) and `BlockCtorFacts`; the readings
+are the block model's; the sorts are the constructor stage's, carried
+model-free (`MutualTableFacts.sorts`, from `mutualCtorFrames`'
+third component `sortsJ`); the names are read off the run
+(`mutualMemberNames`, `mutualCtorNames`, `recNames_of`).
+
+##### (b) THE P STEP AT AN ABSTRACT CARRIER — `stageBlockTable`
+
+`stageMutualTable` (the reference) read the carrier as the tagged
+union at the member's tag (`mutualCarrierAt`) and the constructor's
+leaf as `sumMkAV`; the uniform block model exposes neither spelling.  The
+entry-law cores of task #278 (`fixEntry*CoreT`, over `FibreAt` — the
+one #278 commit cherry-picked this session, `33d33316`) take the
+carrier abstractly already; what still named a spelling was the
+typing core's `hLlam` (the former's λ-tower, used to read the
+parameter spine's fit off `WellDenotedV (mkAppN L vs)`) and the iota
+and η cores' `sumMkAV` head.  Their twins at the bundle
+(`blockEntryTypingCore`, `blockEntryIotaCore`,
+`blockEntryIotaCoreZero`, `blockEntryEtaCore`) read the fit through
+the former's Π-MEMBERSHIP instead (`spineFit_of_wellDenoted_mkAppN_pis`
+at `FormersTyped`), and the constructor's value through the bundle's
+`ctor` clause at the spine the law's `TeleFit` hands over, in BOTH
+regimes — at `w = 0` the constructor's value is the point by
+`CtorsTyped` and `CDbits` (`interp_mkPisAV_mem_univZero`,
+`eq_pt_of_mem_univZero`: `TableMember.ctor_pt`), so `foldl_app_pt`
+closes iota and η without the syntactic `sumMkAV_zero`.
+
+FINDING 2 — the reference's table stage needed no heartbeat raise
+either: with the guard's content (`structProjGuard_eval_zero_iff`)
+and the unused-binder lift (`structField_free_of_unused`) lifted out
+as lemmas, the stage elaborates at the default budget, and its
+`hbound` was dead (the bundle's `boundP` has no consumer at the step;
+kept, it is the sorts' bound the O5 guard reads elsewhere).
+
+##### (c) THE CORE'S RICHER CONCLUSION; THE NAMED FACT OVER THE RUN
+
+`MutualCoreModeled` now concludes, inside its `∃ d`, `MemberStored`
+at the recursors' environment (crossed from the provision along the
+swap by `hF` alone — the stronger `find` needs no `caps` witness) and
+`MutualTableFacts b fms sortss d`: the injection's tower shape at the
+GLOBAL constructor position (`rfl` at `mutualBlockModel` through
+`mutualBlockModel_minorIdx`), every member's parameter frame the block's
+(`MutualFormersFacts.frame`), and the constructors' field sorts —
+model-free, so they travel from the constructor stage without
+transport (`mutualTableFacts_of`).  `MutualTablesModeled V μ F` is
+restated over the RUN FACTS (the stage equations, `EnvWF`/`ProjOkT`
+of the pre-block environment, the recursors' names), because the
+`NoProjEnv` bookkeeping is a run-level argument: `mutualNoProj`
+walks `noProjEnv_of_fresh` across the formers' conses (their types
+resolve before the block), the constructors' (annotated where the
+member has no table: `annotateCore_noProjAt`) and the recursors'
+store (the recursor types and rule right-hand sides are GENERATED
+from the block's records: `noProjAt_mutualRecTy`,
+`noProjAt_mutualRecRhs`, ported from #278's `MutualRuleFires`).
+`declBlock` threads; nothing about the tables enters the run
+relation.
+
+##### (d) THE FLIP
+
+(to be completed from lane W's report)

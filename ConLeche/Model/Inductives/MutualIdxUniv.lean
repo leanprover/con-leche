@@ -31,7 +31,7 @@ at a checked constant, producing the per-binder universes of a
 former's telescope as levels evaluated at the *restricted*
 assignment (the sorts are the checker's own, and nothing says they
 mention only the block's parameters); and `formerIdxOk` turns the
-index half of that datum — every index binder under a common bound —
+index half of that block model — every index binder under a common bound —
 into the `IdxOk`/`FieldsValid` pair the tuple leaf consumes.
 -/
 

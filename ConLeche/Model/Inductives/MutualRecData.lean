@@ -38,8 +38,8 @@ The READING-FROM-THE-RUN half, in the order the stage needs it:
   premises (`FormerReadsM`) from their `FormerData`s and their stored
   records;
 * `blockCtorRead_of` — ONE constructor's reading premise
-  (`MutualCtorRead`) from its uniform datum (`BlockCtorData`) and the
-  classified kinds: the datum's recursive positions are `recIdxOf` of
+  (`MutualCtorRead`) from its uniform block model (`BlockCtorData`) and the
+  classified kinds: the block model's recursive positions are `recIdxOf` of
   its kinds and it names the fields' TARGETS directly (`Tof`,
   `nIdxOfT`), where the recursor's member table names them through
   `moti` — `htgt` is that the two agree.  `mutualRecFieldsOf_eq` is
@@ -128,7 +128,7 @@ theorem filterMap_if_eq {α β : Type} (p : α → Bool) (g : α → β) :
     | false => simp [h, filterMap_if_eq p g l]
 
 omit [SetTheory V] in
-/-- **The generated constructor's recursive fields are the datum's
+/-- **The generated constructor's recursive fields are the block model's
 recursive positions, re-paired with their targets**: `mutualRecFieldsOf`
 walks the kinds with their targets, `recIdxOf` the kinds alone. -/
 theorem mutualRecFieldsOf_eq (ks : List (RecFieldKind × Nat)) :
@@ -202,9 +202,9 @@ theorem formerReadsM_of {m : EnvModel V env} {lps : List Name} {nP : Nat}
 
 /-! ## The constructors' reading premises -/
 
-/-- **One constructor's reading premise, from the uniform datum**
+/-- **One constructor's reading premise, from the uniform block model**
 (`fixCtorReadsR_of` at ONE position with a per-field TARGET member).
-The datum names the fields' targets directly (`Tof`, `nIdxOfT`); the
+The block model names the fields' targets directly (`Tof`, `nIdxOfT`); the
 recursor's member table names them through `moti`, and `htgt` is what
 the earlier stages know: at a recursive position the two agree. -/
 theorem blockCtorRead_of {m : EnvModel V env} {env₀ : Env} {T : Name} {Tof : Nat → Name}

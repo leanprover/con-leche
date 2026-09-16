@@ -639,7 +639,7 @@ theorem mutualCtorData_of (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ 
     rw [hTssGet ψ i hi, hEissGet ψ i hi]
     exact (hEisR ψ i ⟨hk, hi⟩).2.2.2.1
 
-/-! ## To the uniform datum (task #315) -/
+/-! ## To the uniform block model (task #315) -/
 
 /-- `kindsOf`'s reading at ANY position: beyond the list both sides
 default to `.ordinary`. -/
@@ -662,7 +662,7 @@ theorem MutualOpened.toBlock {env₀ : Env} {members : List (Name × Nat × Nat)
     fun i x hx hk => h.reflF i x hx (by rwa [kindsOf_getD'] at hk),
     fun i hi => by simpa only [kindsOf_getD'] using h.kinds i hi⟩
 
-/-- **The mutual constructor's data IS the uniform datum's**
+/-- **The mutual constructor's data IS the uniform block model's**
 (`BlockCtorData`): the fields correspond one to one, the kinds read
 through `kindsOf`, and the per-field target member through
 `mutualNameOf`/`mutualNIdxOf` at `tgtAt`. -/

@@ -6,7 +6,7 @@ public import ConLeche.SetTheory.Derive.LfpTuple
 /-!
 # The split/join theorem: a tuple lfp is the split of a union lfp (task #315, M4)
 
-The uniform datum records a block as the least pre-fixed TUPLE of an
+The uniform block model records a block as the least pre-fixed TUPLE of an
 operator on tuples of families (`lfpTuple`).  The checker's term
 language has ONE fixpoint primitive, a least pre-fixed FAMILY over a
 single index set (`lfpFam`), so a block's members are spelled at the
@@ -29,7 +29,7 @@ sum).  This module is the bridge, over the bare `SetTheory` interface:
   functor with a closed family.
 
 The union is a device of the TERM-LEVEL spelling and of this proof: it
-is neither a carrier nor an index set of the datum (DESIGN §U.6 (e)).
+is neither a carrier nor an index set of the block model (DESIGN §U.6 (e)).
 -/
 
 namespace ConLeche.SetTheory

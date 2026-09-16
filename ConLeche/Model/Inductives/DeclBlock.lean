@@ -17,7 +17,7 @@ environment survives the mutual install's run (`DeclMutualRun`,
 `Semantics/Inductives/DeclMutual.lean`).  Its proof is the run's stage
 decomposition: stages 0–4 (the shape, the formers, the cross-member
 checks, the constructors with their kinds, the recursors with their
-rules) keep the model and leave THE DATUM (`BlockRepData`, DESIGN
+rules) keep the model and leave THE BLOCK MODEL (`BlockModel`, DESIGN
 §U.3) at every member of the recursors' environment
 (`MutualCoreModeled`); stage 5 (the projection tables of the
 structure-like members) keeps it from there (`MutualTablesModeled`).
@@ -63,12 +63,12 @@ theorem elimLevel_zero_of_w_zero {elim : Name} {large : Bool} {s : Level}
     rw [hl] at hL
     exact ConLeche.Level.isNeverZero_sound ψ s hL.symm hw
 
-/-! ## The datum of a run -/
+/-! ## The block model of a run -/
 
-/-- **The datum is the run's block**: its arities, names, sort and
+/-- **The block model is the run's block**: its arities, names, sort and
 constructors are the block record's and the stages' outputs. -/
-structure MutualDatumOf (env : Env) (b : MutualBlock) (fms : List MutualFormerA)
-    (ctorsA : List (ConstantVal × Nat)) (d : BlockRepData V) : Prop where
+structure MutualBlockModelOf (env : Env) (b : MutualBlock) (fms : List MutualFormerA)
+    (ctorsA : List (ConstantVal × Nat)) (d : BlockModel V) : Prop where
   k : d.k = b.k
   nP : d.nP = b.nP
   env₀ : d.env₀ = env
@@ -78,8 +78,8 @@ structure MutualDatumOf (env : Env) (b : MutualBlock) (fms : List MutualFormerA)
   large : d.large = b.large
   ctors : ∀ t, t < b.k → d.ctorsM t = (b.ownCtors t).map fun q => ctorsA.getD q.1 default
 
-/-- **The datum's table facts** (M4 s5): what the structure-like
-members' projection tables read of the datum beyond `BlockRep` —
+/-- **The block model's table facts** (M4 s5): what the structure-like
+members' projection tables read of the block model beyond `IsBlockModel` —
 model-free, so they travel from the constructors' stage to the tables'
 without transport.  The injection is the sum route's tagged tower at
 the constructor's GLOBAL block position (`ofMutual_mkInj`'s shape,
@@ -89,7 +89,7 @@ non-`Prop` block, and each lies in the universe of the sort the
 constructor stage read (`mutualCtorFrames`), with those sorts bounded
 by the member's own. -/
 structure MutualTableFacts (b : MutualBlock) (fms : List MutualFormerA)
-    (sortss : List (List Level)) (d : BlockRepData V) : Prop where
+    (sortss : List (List Level)) (d : BlockModel V) : Prop where
   inj : ∀ (ψ : Name → Nat) (mm j : Nat) (fs : List V),
     d.inj ψ mm j fs = injW (d.w ψ) (b.ownOffset mm + j) (mkTower (fs ++ [pt]))
   frame : ∀ t, t < d.k → ∀ (ψ : Name → Nat) (ρ : Nat → V),
@@ -110,14 +110,14 @@ structure MutualTableFacts (b : MutualBlock) (fms : List MutualFormerA)
 
 /-! ## The named facts -/
 
-/-- **Stages 0–4 keep the model and leave the datum at the recursors'
+/-- **Stages 0–4 keep the model and leave the block model at the recursors'
 environment** — `declBlock`'s first named fact (M4 sessions 2–3): from
 a model of the pre-block environment and the run of stages 0–4, a
 model of the environment holding the formers, the constructors and
-the recursors with their rules, at which the block's datum holds at
-every member (`BlockReps`), with the members and constructors typed
-(`FormersTyped`, `CtorsTyped`), the members stored at the datum's
-readings (`MemberStored`), the datum's table facts
+the recursors with their rules, at which the block's block model holds at
+every member (`IsBlockModels`), with the members and constructors typed
+(`FormersTyped`, `CtorsTyped`), the members stored at the block model's
+readings (`MemberStored`), the block model's table facts
 (`MutualTableFacts`), and every other leaf the pre-block model's.
 Consumer: `declBlock`. -/
 @[expose] def MutualCoreModeled (V : Type w) [SetTheory V] (μ : CheckMode) (F : Nat) : Prop :=
@@ -164,14 +164,14 @@ Consumer: `declBlock`. -/
         (ConLeche.storeMutualRecs (ConLeche.consMutualCtors b.nP ctorsA env₁) b fms rulesOf
           cvRas.zipIdx (ConLeche.consMutualCtors b.nP ctorsA env₁)),
       (∀ n, n ∉ b.blockNames → ∀ ψ : Name → Nat, mp₃.base2.acval n ψ = mp.base2.acval n ψ) ∧
-      ∃ d : BlockRepData V, MutualDatumOf env b fms ctorsA d ∧ BlockReps mp₃.base2 d ∧
+      ∃ d : BlockModel V, MutualBlockModelOf env b fms ctorsA d ∧ IsBlockModels mp₃.base2 d ∧
         (∀ ψ : Name → Nat, FormersTyped mp₃.base2 d ψ ∧ CtorsTyped mp₃.base2 d ψ) ∧
         (∀ (t : Nat) (f : MutualFormerA), fms[t]? = some f →
           MemberStored mp₃.base2 b.lps b.nP f d.resSort (d.ppsM t)) ∧
         MutualTableFacts b fms sortss d
 
 /-- **Stage 5 keeps the model**: at a model of the recursors'
-environment carrying the datum (the block at every member, the members
+environment carrying the block model (the block at every member, the members
 and constructors typed, the members stored, the table facts), with the
 run of stages 0–4 (the `NoProjEnv` bookkeeping and the names' shapes
 are read off it), the structure-like members' projection tables cons a
@@ -224,8 +224,8 @@ model of the post-block environment — `declBlock`'s second named fact
           (ConLeche.consMutualCtors b.nP ctorsA (ConLeche.consMutualFormers fms env)) b fms
           rulesOf cvRas.zipIdx
           (ConLeche.consMutualCtors b.nP ctorsA (ConLeche.consMutualFormers fms env))))
-      (d : BlockRepData V),
-      MutualDatumOf env b fms ctorsA d → BlockReps mp₃.base2 d →
+      (d : BlockModel V),
+      MutualBlockModelOf env b fms ctorsA d → IsBlockModels mp₃.base2 d →
       (∀ ψ : Name → Nat, FormersTyped mp₃.base2 d ψ ∧ CtorsTyped mp₃.base2 d ψ) →
       (∀ (t : Nat) (f : MutualFormerA), fms[t]? = some f →
         MemberStored mp₃.base2 b.lps b.nP f d.resSort (d.ppsM t)) →
@@ -277,7 +277,7 @@ theorem recNames_of {F : Nat} {env₂ : Env} {p : MutualParts}
   exact ⟨hfresh, hnres, hpshape⟩
 
 /-- **The model survives a mutual block** (M4's run-level consumer):
-the run's stages 0–4 keep the model and leave the datum
+the run's stages 0–4 keep the model and leave the block model
 (`MutualCoreModeled`), the tables keep it from there
 (`MutualTablesModeled`).  The recursor records' pin (`mutualRecPinOk`,
 the dispatch's, as for `declMutualRun_etaClosed`) makes the stream's

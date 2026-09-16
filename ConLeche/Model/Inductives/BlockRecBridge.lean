@@ -38,8 +38,8 @@ its walk (`underTowerOk_of_fieldsOkB`, the `WellDenoted` twin of
 `underTowerValid_of_fieldsValid`), and the small frame facts the
 bridge's callers need — a spine recovered from a satisfying frame
 (`spineFit_of_sat_len`), a frame's agreement below its spine
-(`consList_agree_below`) and the converse of `BlockRepData.mem_specEqs`
-(`BlockRepData.mem_specEqs_of`).
+(`consList_agree_below`) and the converse of `BlockModel.mem_specEqs`
+(`BlockModel.mem_specEqs_of`).
 -/
 
 namespace ConLeche.Model
@@ -475,8 +475,8 @@ theorem spineFit_of_sat_len {Fs : List AnnotTerm} {as : List V} {ρ : Nat → V}
   rwa [hρ, hmap] at hs
 
 /-- **A rule's equation is one of the block's** — the converse of
-`BlockRepData.mem_specEqs`. -/
-theorem BlockRepData.mem_specEqs_of {env : Env} {d : BlockRepData V} {m : EnvModel V env}
+`BlockModel.mem_specEqs`. -/
+theorem BlockModel.mem_specEqs_of {env : Env} {d : BlockModel V} {m : EnvModel V env}
     {ψ : Name → Nat} {elimL : Level} {Ls : List AnnotTerm} {nIdxs : List Nat}
     {pps : List (Nat × Nat × AnnotTerm)} {ipss : List (List (Nat × Nat × AnnotTerm))}
     {cds : List CtorDatumR} {mots : Nat → Nat} {tgts : Nat → Nat → Nat} {c j : Nat}
@@ -491,7 +491,7 @@ theorem BlockRepData.mem_specEqs_of {env : Env} {d : BlockRepData V} {m : EnvMod
     exact this.1
   have hgetD : (d.ctorsM c).getD j default = cA := by
     rw [List.getD_eq_getElem?_getD, hj]; rfl
-  unfold BlockRepData.specEqs
+  unfold BlockModel.specEqs
   refine List.mem_flatMap.mpr ⟨c, List.mem_range.mpr hc, List.mem_map.mpr ⟨j, ?_, ?_⟩⟩
   · exact List.mem_range.mpr hj'
   · rw [hgetD]

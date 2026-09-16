@@ -406,7 +406,7 @@ differ from a textbook presentation and matter for the proof:
   annotation pass
   ([function `annotateBody` in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Core.lean#L2788))
   records at every binder the sort of its codomain as a "Prop-when"
-  datum, a function of the level parameters
+  block model, a function of the level parameters
   ([the `PropWhen` module's account in `ConLeche/Kernel/PropWhen.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/PropWhen.lean#L1-L40)),
   stored in the binder's metadata
   ([structure `BinderMeta` in `ConLeche/Kernel/Expr.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Expr.lean#L102-L104)).
@@ -571,7 +571,7 @@ Inductive blocks are not trusted from the stream. Three cases:
   with the stream's, and conses the structure-like members' projection
   tables
   ([function `checkMutualCore` in `ConLeche/Kernel/Inductives/MutualInstall.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/MutualInstall.lean#L585)).
-  In the model a block is ONE datum: **inductives denote the least
+  In the model a block is ONE block model: **inductives denote the least
   solution of their recursive system** — the members are the
   components of the least pre-fixed tuple of one monotone operator on
   tuples of families
@@ -590,12 +590,12 @@ Inductive blocks are not trusted from the stream. Three cases:
   equations; its existence is the recursion theorem, once, over the
   disjoint union of the members' values
   ([the union recursor in `ConLeche/SetModel/UnionRec.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/SetModel/UnionRec.lean#L208)).
-  What every member carries in the model is the block datum
-  ([structure `BlockRep` in `ConLeche/Model/Inductives/BlockRep.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Inductives/BlockRep.lean#L399));
+  What every member carries in the model is the block model
+  ([structure `IsBlockModel` in `ConLeche/Model/Inductives/BlockRep.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Inductives/BlockRep.lean#L399));
   the model-tier theorem for the whole install is
-  [theorem `declBlock` in `ConLeche/Model/Inductives/DeclBlock.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Inductives/DeclBlock.lean#L286),
+  [theorem `declBlock` in `ConLeche/Model/Inductives/DeclBlock.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Inductives/DeclBlock.lean#L285),
   whose two named facts — the stages up to the recursors keep the
-  model and leave the datum, the projection tables keep it from
+  model and leave the block model, the projection tables keep it from
   there — are proved
   ([theorem `declMutual` in `ConLeche/Model/Inductives/MutualTables.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Inductives/MutualTables.lean#L228)).
 * **Nested blocks** are handled by an in-process modeller
