@@ -96,6 +96,24 @@ theorem sigmaSet_zero_agree {w w' : Nat} (hz : w = 0 ↔ w' = 0) (A : V) (B : V 
   · have hw' : w' ≠ 0 := fun h => hw (hz.mpr h)
     rw [sigmaSet_pos hw, sigmaSet_pos hw']
 
+/-- **The bound law**: the hereditary bound over a telescope instantiated
+at the fields' depth, at the fields' frame, is the bound over the
+original telescope at the pin's frame (`interp_instAll` along the
+telescope; task #315 L-A, the pins' index telescopes at the squash
+regime). -/
+theorem fieldsBound_instTele (w : Nat) (ds : List AnnotTerm) (ρ : Nat → V) :
+    ∀ (ts : List AnnotTerm) (fs : List V),
+      FieldsBound w (consList fs ρ) (instTele ds fs.length ts)
+        ↔ FieldsBound w (consList fs (consList (ds.map (interp V ρ)) ρ)) ts
+  | [], _ => Iff.rfl
+  | t :: ts, fs => by
+    simp only [instTele, FieldsBound]
+    rw [interp_instAll ds fs ρ t]
+    refine and_congr Iff.rfl (forall_congr' fun a => imp_congr_right fun _ => ?_)
+    have := fieldsBound_instTele w ds ρ ts (fs ++ [a])
+    rw [List.length_append, List.length_singleton] at this
+    simpa only [consList_append, consList_cons, consList_nil] using this
+
 /-- **The tower law**: the tower set over a telescope instantiated at
 the fields' depth, at the fields' frame, is the tower set over the
 original telescope at the pin's frame — in either regime whenever the

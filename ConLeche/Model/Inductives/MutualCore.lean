@@ -1502,12 +1502,13 @@ witness — what `blockReps_of` reads, and what the NESTED assembly reads
 at the auxiliary block (`nestedLfpOk_of_formers`, task #315 M6 s5). -/
 theorem tupleOk (hμ : μ.verifiedChecks = true) (ψ : Name → Nat) (ρp : Nat → V)
     (hρp : Sat V (((ppsF 0 ψ).take b.nP).map (·.2.2)).reverse ρp) :
-    TupleLfpOk (W ψ) (f₀.s.eval ψ) ρp b.k (blockIds b.nP ppsF ψ) b.ownOffset
+    TupleLfpOk (W ψ) (fun _ => W ψ) (f₀.s.eval ψ) ρp b.k (blockIds b.nP ppsF ψ) b.ownOffset
       (mutMems ctorsA.length (mutMemF b)) (mutNFs ctorsA.length (mutNFOf ctorsA))
       (mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)) (blkRss ctorsA kinds)
       (mutTlss ctorsA.length tssF ψ) (mutEiss0 ctorsA.length eissF ψ)
       (blkFss0 b ctorsA kinds dsF ψ) (mutEss0 ctorsA.length esF ψ) :=
-  TupleLfpOk.of_tagged (h.idxAll 0 f₀ h.first ψ ρp hρp).1
+  have hT := (h.idxAll 0 f₀ h.first ψ ρp hρp).1
+  TupleLfpOk.of_tagged hT (fun _ _ h0 => absurd h0 hT.1)
     (h.chainFull hμ h.first ψ ρp hρp).1 (h.chainClosed hμ h.first ψ ρp hρp)
 
 /-- **The lists' shape** (`TupleLfpShape` at the block's lists): the
@@ -2078,7 +2079,7 @@ theorem blockReps_of (hμ : μ.verifiedChecks = true) (h0 : b.blockNames.Nodup)
     exact (hframeT _ _ (fms_get (h.motLt J hJl)) ψ ρ).trans ((h.framesJ hμ hJl).1 ψ ρ)
   -- the operator's premise at every parameter frame
   have hOk : ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V ((D).params ψ).reverse ρp →
-      TupleLfpOk (W ψ) ((D).w ψ) ρp b.k (blockIds b.nP ppsF ψ) b.ownOffset
+      TupleLfpOk (W ψ) (fun _ => W ψ) ((D).w ψ) ρp b.k (blockIds b.nP ppsF ψ) b.ownOffset
         (mutMems ctorsA.length (mutMemF b)) (mutNFs ctorsA.length (mutNFOf ctorsA))
         (mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)) (blkRss ctorsA kinds)
         (mutTlss ctorsA.length tssF ψ) (mutEiss0 ctorsA.length eissF ψ)
@@ -2247,7 +2248,8 @@ theorem blockReps_of (hμ : μ.verifiedChecks = true) (h0 : b.blockNames.Nodup)
           ∀ l, l < (blockIds b.nP ppsF ψ mm').length →
             interp V (consList fs ρp) ((esF (b.ownOffset mm' + j) ψ).getD l default) = projS l t
         rw [hJeq]
-      show x ∈ˢ SetTheory.app (tupleLfpΦ (W ψ) ((D).w ψ) ρp b.k (blockIds b.nP ppsF ψ) b.ownOffset
+      show x ∈ˢ SetTheory.app (tupleLfpΦ (W ψ) (fun _ => W ψ) ((D).w ψ) ρp b.k (blockIds b.nP ppsF ψ)
+        b.ownOffset
         (mutMems ctorsA.length (mutMemF b)) (mutNFs ctorsA.length (mutNFOf ctorsA))
         (mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)) (blkRss ctorsA kinds)
         (mutTlss ctorsA.length tssF ψ) (mutEiss0 ctorsA.length eissF ψ)

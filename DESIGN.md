@@ -78234,3 +78234,272 @@ induction both turning out unnecessary at this tier.  Lean traps: a
 see (`show` first); `subst hkJ` with `hkJ : dJ.k = kJ` eliminates the
 variable `kJ` and is the cleanest way to align `lfpTuple_mem`'s arity
 with the group's.
+
+#### U.22 — L-A: per-component index universes INSIDE the seal; `NestedPinsU` discharged (session U-21, 2026-09-16)
+
+§U.17 (g) 1's gap: `BlockModel.ofNested` gave all `k + n` components
+ONE index universe `W`, while a container reads its own `uM i` —
+`towerSet` at `u = 0` is a TRUTH VALUE and at `u ≠ 0` a set of pairs,
+so a `Prop`-indexed container copied into a `Type`-indexed block could
+not have its `pinLeaf` read at the container's own `tup`.  The fixture
+`tests/e2e/src/nested_prop_idx.lean` (`C (α : Type) (p : Prop) : p →
+Type` nested under `T : Nat → Type`, official-accepted) exhibits the
+shape, and the named fact `NestedPinsU` (`W ψ = 0 ↔ dJ.uM i' ψJ = 0`)
+was the placeholder for it.  The RULING was: per-component index
+universes inside the seal.  This session executes it; `NestedPinsU` is
+not weakened but GONE — a pin's recorded universe IS its container's.
+
+##### (a) THE SEAL: `Ws : Nat → Nat`
+
+`Model/Inductives/TupleLfp.lean` keeps its representation (ONE
+`lfpFam` over the tagged sum at the TERM's universe `W` — a term's
+binder annotations carry one universe, and the stored leaf IS this
+term) and takes the members' index universes as a FUNCTION.  Member
+`m`'s index-tuple set is `idxSet (Ws m) ρp (Ids m)`; the tagged
+encoding reads member `m`'s tuple at `Ws m` and tags it into the one
+set at `W`:
+
+```lean
+@[expose] noncomputable def tagEnc (W : Nat) (Ws : Nat → Nat) (Ids : Nat → List AnnotTerm) (mm : Nat)
+    (i : V) : V :=
+  tupW W [inj mm (mkTower ((if Ws mm = 0 then List.replicate (Ids mm).length pt
+    else (List.range (Ids mm).length).map fun l => projS l i) ++ [pt]))]
+```
+
+In the GRAPH regime (`Ws mm ≠ 0`) the components are the tower's
+projections; in the SQUASH regime (`Ws mm = 0`) the tuple is the point
+and the components are the FORCED proof points — sound exactly when
+the member's index domains are truth values, which is the premise's
+new conjunct.  Two lemmas say both regimes in one statement and are
+what every law below uses: `mem_idxSet_elim`
+(`Semantics/Tower/FixSquashI.lean`, already in the tree — an index
+tuple is `tupW u is` of a fitting spine at EITHER universe) and the
+encoding at such a tuple:
+
+```lean
+theorem tagEnc_tupW (W : Nat) {Ws : Nat → Nat} {Ids : Nat → List AnnotTerm} {mm : Nat} {ρp : Nat → V}
+    (hB : Ws mm = 0 → FieldsBound 0 ρp (Ids mm)) {is : List V} (hsp : SpineFit ρp (Ids mm) is) :
+    tagEnc W Ws Ids mm (tupW (Ws mm) is) = tupW W [inj mm (mkTower (is ++ [pt]))]
+```
+
+The premise gains the bound and `Ws`:
+
+```lean
+def TupleLfpOk (W : Nat) (Ws : Nat → Nat) (w : Nat) (ρp : Nat → V) (k : Nat)
+    (Ids : Nat → List AnnotTerm) (offs : Nat → Nat) (mems nFs : List Nat) (tgts : List (List Nat))
+    (rss : List (List Bool)) (tlss : List (List (List (Nat × Nat × AnnotTerm))))
+    (Eiss₀ : List (List (List AnnotTerm))) (Fss₀ Ess₀ : List (List AnnotTerm)) : Prop :=
+  TagOk W ρp (tupleIdss k Ids) ∧
+  (∀ m, m < k → Ws m = 0 → FieldsBound 0 ρp (Ids m)) ∧
+  XChainsOk … ∧ ∃ L, IsClosedFam …
+```
+
+and with it `TupleLfpOk.bound`, and **`TupleLfpOk.of_bound`** — the
+transport that makes the ONE stored term read at any admissible
+assignment (`h : TupleLfpOk W Ws …` → `(∀ m, m < k → Ws' m = 0 →
+FieldsBound 0 ρp (Ids m))` → `TupleLfpOk W Ws' …`): the
+representation's data do not mention `Ws`.  That is how the nested
+block's premise is obtained from the auxiliary block's uniform one
+(c).
+
+##### (b) THE EXPORTED LAWS WHOSE STATEMENTS CHANGED, verbatim
+
+Seal (`TupleLfp.lean`) — `tagEnc`, `tagEnc_tupW`, `TupleLfpOk`,
+`TupleLfpOk.of_bound` above, and:
+
+```lean
+theorem tagEnc_mkTower (W : Nat) {Ws : Nat → Nat} {Ids : Nat → List AnnotTerm} {mm : Nat}
+    (hz : Ws mm ≠ 0) {is : List V} (hlen : is.length = (Ids mm).length) :
+    tagEnc W Ws Ids mm (mkTower is) = tupW W [inj mm (mkTower (is ++ [pt]))]
+
+theorem tagEnc_idxEnc {W : Nat} {Ws : Nat → Nat} {ρp : Nat → V} {k : Nat} {Ids : Nat → List AnnotTerm}
+    (hT : TagOk W ρp (tupleIdss k Ids)) (hB : ∀ m, m < k → Ws m = 0 → FieldsBound 0 ρp (Ids m)) :
+    IdxEnc k (fun m => idxSet (Ws m) ρp (Ids m)) (tupleU W ρp (tupleIdss k Ids)) (tagEnc W Ws Ids)
+
+noncomputable def tupleLfpΦ (W : Nat) (Ws : Nat → Nat) (w : Nat) (ρp : Nat → V) (k : Nat)
+    (Ids : Nat → List AnnotTerm) (offs : Nat → Nat) (mems nFs : List Nat) (tgts : List (List Nat))
+    (rss : List (List Bool)) (tlss : List (List (List (Nat × Nat × AnnotTerm))))
+    (Eiss₀ : List (List (List AnnotTerm))) (Fss₀ Ess₀ : List (List AnnotTerm)) :
+    (Nat → V) → Nat → V
+
+theorem tupleLfpΦ_functor {ρp : Nat → V}
+    (h : TupleLfpOk W Ws w ρp k Ids offs mems nFs tgts rss tlss Eiss₀ Fss₀ Ess₀) :
+    MonoTuple w k (fun m => idxSet (Ws m) ρp (Ids m))
+      (tupleLfpΦ W Ws w ρp k Ids offs mems nFs tgts rss tlss Eiss₀ Fss₀ Ess₀) ∧
+    MapsTuple w k (fun m => idxSet (Ws m) ρp (Ids m))
+      (tupleLfpΦ W Ws w ρp k Ids offs mems nFs tgts rss tlss Eiss₀ Fss₀ Ess₀) ∧
+    ∃ L, IsClosedTuple w k (fun m => idxSet (Ws m) ρp (Ids m))
+      (tupleLfpΦ W Ws w ρp k Ids offs mems nFs tgts rss tlss Eiss₀ Fss₀ Ess₀) L
+
+theorem tupleLfpAV_fold {ρ : Nat → V} {as is : List V} {pps : List (Nat × Nat × AnnotTerm)}
+    {nP m : Nat} (hm : m < k)
+    (h : TupleLfpOk W Ws w (consList as ρ) k Ids offs mems nFs tgts rss tlss Eiss₀ Fss₀ Ess₀)
+    (hIds : Ids m = (pps.drop nP).map (·.2.2))
+    (hsp : SpineFit ρ ((pps.take nP).map (·.2.2)) as)
+    (hi : SpineFit (consList as ρ) ((pps.drop nP).map (·.2.2)) is) :
+    (as ++ is).foldl SetTheory.app (interp V ρ
+        (tupleLfpAV W w pps (pps.drop nP).length k Ids offs mems nFs tgts rss tlss Eiss₀ Fss₀ Ess₀ m))
+      = SetTheory.app (lfpTuple w k (fun m => idxSet (Ws m) (consList as ρ) (Ids m))
+          (tupleLfpΦ W Ws w (consList as ρ) k Ids offs mems nFs tgts rss tlss Eiss₀ Fss₀ Ess₀) m)
+          (tupW (Ws m) is)
+```
+
+— the stored term `tupleLfpAV` itself is UNCHANGED (it is the `W`-term);
+only what it is *read as* is per-component.  Further: `slotSet_tag_eq`
+(`+ hB`, and its right side is `slotSet w (Ws tgt) …`), `fitsFrom_tag_iff`
+(`+ hB`, the untagged side `slotSet w (Ws (tgtOf i)) …`), `tagTerm_iff`
+(`+ hB`, `+ hmm : mm < k`, `ht : t ∈ˢ idxSet (Ws mm) ρp (Ids mm)`) and
+
+```lean
+theorem tupleLfpΦ_fibre … (hX : InTupleSpace w k (fun m => idxSet (Ws m) ρp (Ids m)) X)
+    {mm : Nat} (hmm : mm < k) {t : V} (ht : t ∈ˢ idxSet (Ws mm) ρp (Ids mm)) (x : V) :
+    x ∈ˢ SetTheory.app (tupleLfpΦ W Ws w ρp k Ids … X mm) t ↔
+      ∃ j fs, … FitsFrom (rss.getD (offs mm + j) [])
+          (fun i ρ => slotSet w (Ws ((tgts.getD (offs mm + j) []).getD i 0)) ρ …) …
+```
+
+`Semantics/Tower/InstAll.lean` (one NEW law, beside the tower law it
+mirrors):
+
+```lean
+theorem fieldsBound_instTele (w : Nat) (ds : List AnnotTerm) (ρ : Nat → V) :
+    ∀ (ts : List AnnotTerm) (fs : List V),
+      FieldsBound w (consList fs ρ) (instTele ds fs.length ts)
+        ↔ FieldsBound w (consList fs (consList (ds.map (interp V ρ)) ρ)) ts
+```
+
+The MUTUAL half passes the constant assignment `fun _ => W ψ`
+(`BlockRepMutual.lean`'s `ofMutual`/`ofMutual_Φ`/`ofMutual_functor`/
+`ofMutual_leaf`, `MutualCore.lean`'s `tupleOk`/`blockReps_of`); its
+bound conjunct is vacuous (`W ψ ≠ 0`), and `ofMutual_leaf` no longer
+needs `ofNested_tup`'s rewrite — the law already delivers `tup`.
+
+##### (c) THE COMPOSED BLOCK MODEL: `nestedU`
+
+```lean
+@[expose] def nestedU (k : Nat) (W : (Name → Nat) → Nat) (pins : List PinSyn) (ψ : Name → Nat)
+    (m : Nat) : Nat :=
+  if m < k then W ψ else (pins.getD (m - k) default).u ψ
+```
+
+`BlockModel.ofNested`'s `uM := fun mm ψ => nestedU k W pins ψ mm`
+(`ofNested_uM`, `ofNested_uM_mem`, `ofNested_uT`), `nestedIs`/`nestedΨ`/
+`NestedLfpOk` take `k` and `pins` instead of `n` and read
+`idxSet (nestedU k W pins ψ m)`, and `ofNested_tup` needs `hmm : mm < k`
+(a pin component's tuple is the CONTAINER's, not the block's).  Every
+`slotSet` in `ofNested_fibre`/`ofNested_pin_block_of_fit`/`CopyCtorInst`
+is at the TARGET's universe `nestedU k W pins ψ tgt`.
+
+`NestedFit.lean`'s pin-group consumers (`CopyCtorInst.fit_iff`,
+`hfit_of_inst`, `hfit_of_inst_one`, `ofNested_pin_block_of_inst`,
+`ofNested_pinLeaf_of`) replace the agreement `hu : ∀ i', i' < kJ →
+(W ψ = 0 ↔ dJ.uM i' ψJ = 0)` by the EQUALITY
+
+```lean
+    (hu : ∀ i', i' < kJ → nestedU k W pins ψ (k + q₀ + i') = dJ.uM i' ψJ)
+```
+
+and `ofNested_pinLeaf_of` drops `hpu : ((D).pinAt (q₀ + i)).u ψ = W ψ`
+— its conclusion's `tupW (((D).pinAt (q₀ + i)).u ψ) is` IS the
+container's `tup` now, so `tupW_zero_agree` is no longer needed.
+
+The nested block's premise comes from the auxiliary block's uniform one
+by `TupleLfpOk.of_bound`; the bound at a pin component is the input:
+
+```lean
+theorem nestedLfpOk_of_formers (hμ : μ.verifiedChecks = true) {k : Nat} {pins : List PinSyn}
+    (hbk : b.k = k + pins.length) (ψ : Name → Nat) (ρp : Nat → V)
+    (hρp : Sat V (((ppsF 0 ψ).take b.nP).map (·.2.2)).reverse ρp)
+    (hpin : ∀ q, q < pins.length → (pins.getD q default).u ψ = 0 →
+      FieldsBound 0 ρp (blockIds b.nP ppsF ψ (k + q))) :
+    NestedLfpOk …
+```
+
+and it is DISCHARGED, not named, by **`nestedPinBound_of`**
+(`NestedCore.lean`): a pin whose container's index universe is `0` has
+the container's `idxOk` at the pin's frame a list of truth values
+(`IsBlockModel.idxOk`, at `dJ.uM i ψJ = 0`), which the instantiation
+identity `NestedPinGroup.idx` transports to the copy's telescope at the
+block's frame (`fieldsBound_instTele`).  The frame is split back into a
+fitting spine by the new `spineOfSat_params`.
+
+##### (d) `NestedPinsU` DISCHARGED
+
+`pinOf` (`NestedPins.lean`) records the pin's universe as the
+CONTAINER's — the group block model's `uM` at the pin's member and at
+the group's level assignment:
+
+```lean
+    u := fun ψ => (blockOf m (baseInfo env st q)).uM (q - (pinAtE st q).grpBase)
+      (Level.substFn ψ (memberOf env st q (q - (pinAtE st q).grpBase)).lps (srcAtE st p q).2.1)
+```
+
+so `NestedPinGroup`'s `u` is replaced by the STRENGTHENED shape field
+
+```lean
+  pinU : ∀ i, i < kJ → ∀ (ψ : Name → Nat) (i' : Nat), i' < kJ →
+    ((D).pinAt (q₀ + i')).u ψ = dJ.uM i' (((D).pinAt (q₀ + i)).ψJ ψ)
+```
+
+(in `NestedPinGroupSyn`, the PROVED half), and the named
+`NestedPinsU` is deleted: `nestedPinsStaged_of : NestedPinsScoped →
+NestedPinsFix → NestedPinsIdent → NestedPinsStaged`.  Proving `pinU`
+needs the group's pins to share their level assignment, which is
+**`PinData.lps_group`** — `containerInfo?` tests `cvC.levelParams ==
+cvT.levelParams` at every member, so all members of a group have the
+container's level parameters (`containerInfo?_inv`).  `pinOf`,
+`groupPin`, `pinsOf` no longer take the block's `W` at all: no pin
+reads it.
+
+##### (e) THE FIXTURE'S SHAPE AS A CHECK AT THE BLOCK MODEL
+
+```lean
+theorem ofNested_prop_idx {ψ : Name → Nat} {ρp : Nat → V} {mm q : Nat} (hW : W ψ ≠ 0)
+    (hmm : mm < k) (hu : ((D).pinAt q).u ψ = 0) :
+    (D).uM mm ψ = W ψ ∧ (D).uM (k + q) ψ = 0 ∧
+      (D).idx ψ ρp mm = idxSet (W ψ) ρp ((D).IdsM mm ψ) ∧
+      (D).idx ψ ρp (k + q) = idxSet 0 ρp ((D).IdsM (k + q) ψ) ∧
+      (∀ is : List V, (D).tup ψ mm is = mkTower is) ∧
+      (∀ is : List V, (D).tup ψ (k + q) is = pt)
+```
+
+— `T : Nat → Type`'s member at the graph regime and `C (α : Type)
+(p : Prop) : p → Type`'s copy at the squash regime, inside ONE seal.
+Under §U.17 (g) 1's uniform `W` the last two conjuncts were the
+member's at the pin, which is what falsified `pinLeaf` there.  The
+fixture itself is unchanged and no checker code moved: `nested_prop_idx`
+is still an e2e expectation of the elimination, not of the model.
+
+##### (f) FILES AND GATES
+
+`TupleLfp.lean`, `Semantics/Tower/InstAll.lean`, `BlockRepMutual.lean`,
+`MutualCore.lean`, `BlockComposed.lean`, `NestedFit.lean`,
+`NestedAux.lean`, `NestedCore.lean`, `NestedLoop.lean` (one field of
+`NestedPinGroup.crossEnv`), `NestedPins.lean`,
+`scripts/pub-import-plan.py` (+1 FALLBACK).  Gates at HEAD: build 661
+warning-free, `lake test` warning-free, shake 500/500 allowlisted,
+pub-imports none demotable (30 dot-notation fallbacks), layering
+335/244/3/1, trust surface 13 in 5, no-local-paths, overview-links 112,
+quote-gate 2, proofdeps 4955 rows / 12 roots / 0 doors, nested-shadow
+27/27.  No `sorry`, no axioms, no checker code, no `maxHeartbeats`.
+
+The one new FALLBACK is `NestedPins ↔ NestedLoop`: demoting it makes
+every statement in the file fail with `Unknown identifier SetTheory` —
+the file's section `variable` binders reach the class only through
+`NestedLoop`'s public closure (the known class of §U.15; the edge
+became a candidate only when `NestedPinsU`'s exposed `def` left the
+file, the order-dependence §U.26 records).
+
+A REUSE finding of the session: the seal's "an index tuple is the
+tuple of a fitting spine at either universe" already existed as
+`mem_idxSet_elim` (`Semantics/Tower/FixSquashI.lean`, the squash
+regime's kit for the fixpoint route) — the seal reuses it rather than
+carrying its own copy, and the two `*_zero_agree` lemmas drafted with
+it are not in the tree: with per-component universes nothing needs to
+move a set from one universe to another any more (`tupW_zero_agree` in
+`NestedFit.lean` keeps its ONE consumer inside `slotSet_instTele`,
+which is now called at `Iff.rfl`).
+
+Cost: one session (the seal ½, the composed model and the pins ½).
+Residual on the lane: `NestedPinsFix` (L-C `pinFix`), `NestedPinsIdent`
+(L-B, the identities), `NestedTailModeled` (L-D, M7).

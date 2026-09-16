@@ -149,7 +149,10 @@ FALLBACK = {
     # `variable` binders reach `SetTheory` only through `NestedLoop`'s
     # public closure (the same class), and `NestedTransfer`'s public
     # statements name `Expr.eraseAnnots` (a public statement is elaborated
-    # in the public view, where a plain import is invisible).
+    # in the public view, where a plain import is invisible).  Lane L-A
+    # met the first on its own base too (the edge became a candidate
+    # there when `NestedPinsU`'s exposed `def` left the file — the same
+    # order-dependence); one entry.
     ('ConLeche.Model.Inductives.NestedPins','ConLeche.Model.Inductives.NestedLoop'),
     ('ConLeche.Model.Inductives.NestedTransfer','ConLeche.Verify.EraseAnnots'),
     # task #315: `BlockRecWD`'s one public import is the file's whole

@@ -38,11 +38,18 @@ to be the block's parameter openers — the run conjuncts K.30
 (`NestedPinsRun.scoped`; U-19 named this `NestedPinsScoped`); the group's
 syntactic fields (`NestedPinGroupSyn`: the segment, the block at every
 member, the typing, the injection shape, the pin's shape fields, the
-same-universe fact `w`, the constructor counts, the components' fit
-`DsFit`) are PROVED; the identities (`NestedPinGroupIds`: `u`, `idx`,
-`inst`) stay NAMED with this consumer — `NestedPinsU` (the per-component
-index universes, s10) and `NestedPinsIdent` (the copy-instantiation
-identities).
+same-universe fact `w`, the pins' recorded index universes `pinU`, the
+constructor counts, the components' fit `DsFit`) are PROVED; the
+identities (`NestedPinGroupIds`: `idx`, `inst`) stay NAMED with this
+consumer — `NestedPinsIdent` (the copy-instantiation identities).
+
+The index universes are no longer among them (task #315 L-A, DESIGN
+§U.22): a pin's recorded `u` IS its container's index universe at the
+group's level assignment, so `NestedPinGroup.pinU` is a fact of
+`pinOf`'s construction and the named `NestedPinsU` is gone.  Nor is the
+pin-free restriction (task #315 L-C, DESIGN §U.24): `noPins` is gone
+from the group — the assembly reads a container's own pins through its
+`pinLeaf` and `pinMono` — and the named `NestedPinsFix` with it.
 -/
 
 namespace ConLeche.Model
@@ -320,8 +327,10 @@ local notation "PG" => NestedPinGroup (V := V) (p := p) (b := b) (fms := fms) (f
 segment, the container's block model at every member, `IsBlockModel`
 at each pin's container (with the pin's level assignment SPELLED as
 the substitution at the container's level parameters), the typing,
-the injection shape, the pin's shape fields, the same-universe fact
-`w`, the constructor counts and the components' fit. -/
+the injection shape, the pin's shape fields (the recorded index
+universe `pinU` among them — each pin's is its container's, §U.22),
+the same-universe fact `w`, the constructor counts and the components'
+fit. -/
 structure NestedPinGroupSyn (m : EnvModel V env₂) (q₀ kJ : Nat) (dJ : BlockModel V) : Prop where
   seg : q₀ + kJ ≤ pinsS.length
   kpos : 0 < kJ
@@ -335,7 +344,8 @@ structure NestedPinGroupSyn (m : EnvModel V env₂) (q₀ kJ : Nat) (dJ : BlockM
   pinsTyped : ∀ ψ : Name → Nat, PinsTyped m dJ ψ
   inj : ∀ (ψJ : Name → Nat) (mm' j : Nat) (fs : List V),
     dJ.inj ψJ mm' j fs = injW (dJ.w ψJ) j (mkTower (fs ++ [pt]))
-  pinU : ∀ i, i < kJ → ∀ ψ : Name → Nat, ((D).pinAt (q₀ + i)).u ψ = W ψ
+  pinU : ∀ i, i < kJ → ∀ (ψ : Name → Nat) (i' : Nat), i' < kJ →
+    ((D).pinAt (q₀ + i')).u ψ = dJ.uM i' (((D).pinAt (q₀ + i)).ψJ ψ)
   pinNP : ∀ i, i < kJ → ((D).pinAt (q₀ + i)).nPJ = dJ.nP
   pinNIdx : ∀ i, i < kJ → ((D).pinAt (q₀ + i)).nIdx = dJ.nIdxAt i
   pinPps : ∀ i, i < kJ → ((D).pinAt (q₀ + i)).pps = dJ.ppsM i
@@ -351,14 +361,14 @@ structure NestedPinGroupSyn (m : EnvModel V env₂) (q₀ kJ : Nat) (dJ : BlockM
     SpineFit (consList as ρ) (dJ.params (((D).pinAt (q₀ + i)).ψJ ψ))
       ((((D).pinAt (q₀ + i)).Ds ψ).map (interp V (consList as ρ)))
 
-/-- **A pin group's IDENTITY facts** (NAMED, DESIGN §U.21 (e), §U.24):
-the index-universe agreement (s10) and the copy-instantiation
-identities (K.28's pre-image computed through `replaceAllNested`'s
-action; at a container that is itself nested, `CopyCtorInst.pinF`).
-The pin-free restriction `noPins` is gone (task #315 L-C). -/
+/-- **A pin group's IDENTITY facts** (NAMED, DESIGN §U.21 (e), §U.22,
+§U.24): the copy-instantiation identities (K.28's pre-image computed
+through `replaceAllNested`'s action; at a container that is itself
+nested, `CopyCtorInst.pinF`).  The pin-free restriction `noPins` is
+gone (task #315 L-C), and the index-universe agreement `u` with it
+(task #315 L-A: a pin's recorded universe is its container's,
+`NestedPinGroupSyn.pinU`). -/
 structure NestedPinGroupIds (m : EnvModel V env₂) (q₀ kJ : Nat) (dJ : BlockModel V) : Prop where
-  u : ∀ i, i < kJ → ∀ (ψ : Name → Nat) (i' : Nat), i' < kJ →
-    (W ψ = 0 ↔ dJ.uM i' (((D).pinAt (q₀ + i)).ψJ ψ) = 0)
   idx : ∀ i, i < kJ → ∀ (ψ : Name → Nat) (i' : Nat), i' < kJ →
     blockIds b.nP ppsF ψ (p.k + q₀ + i')
       = instTele (((D).pinAt (q₀ + i)).Ds ψ) 0 (dJ.IdsM i' (((D).pinAt (q₀ + i)).ψJ ψ))
@@ -395,7 +405,7 @@ theorem NestedPinGroupSyn.ofParts {m : EnvModel V env₂} {q₀ kJ : Nat} {dJ : 
       obtain ⟨cvT, cvR, mI, rP, rules, hI, -⟩ := S.rep i hi
       exact ⟨cvT, cvR, mI, rP, rules, hI⟩
     typed := S.typed, pinsTyped := S.pinsTyped, inj := S.inj, pinU := S.pinU, pinNP := S.pinNP, pinNIdx := S.pinNIdx
-    pinPps := S.pinPps, pinDsLen := S.pinDsLen, w := S.w, u := I.u, idx := I.idx
+    pinPps := S.pinPps, pinDsLen := S.pinDsLen, w := S.w, idx := I.idx
     ctorCount := S.ctorCount, DsFit := S.DsFit, inst := I.inst }
 
 local notation "ENV₁" => (ConLeche.consMutualFormers (fms.take p.k) env)
@@ -480,11 +490,12 @@ theorem blockOf_spec {m : EnvModel V env} {ci : ContainerInfo}
 arguments and components, the container's level assignment as the
 substitution at the group member's level parameters, the group block
 model's arities at member `q - grpBase`, the components' readings at
-the prefix carrier `acval` and environment `env₁`, and the block's
-index universe `W`. -/
+the prefix carrier `acval` and environment `env₁`, and — the pin's own
+index universe — THE CONTAINER's, the group block model's `uM` at that
+member and that level assignment (§U.22; the block's `W` is the
+members' universe, not a copy's). -/
 noncomputable def pinOf (m : EnvModel V env) (st : ElimState) (p : NestedParts)
-    (acval : Name → (Name → Nat) → AnnotTerm) (env₁ : Env) (nP : Nat) (W : (Name → Nat) → Nat)
-    (q : Nat) : PinSyn :=
+    (acval : Name → (Name → Nat) → AnnotTerm) (env₁ : Env) (nP : Nat) (q : Nat) : PinSyn :=
   { J := (pinAtE st q).container
     lvls := (srcAtE st p q).2.1
     ψJ := fun ψ => Level.substFn ψ (memberOf env st q (q - (pinAtE st q).grpBase)).lps (srcAtE st p q).2.1
@@ -492,7 +503,8 @@ noncomputable def pinOf (m : EnvModel V env) (st : ElimState) (p : NestedParts)
     DsE := (srcAtE st p q).2.2
     Ds := fun ψ => (srcAtE st p q).2.2.map fun e => (denoteMeta acval env₁ ψ nP e).getD default
     nIdx := (blockOf m (baseInfo env st q)).nIdxAt (q - (pinAtE st q).grpBase)
-    u := W
+    u := fun ψ => (blockOf m (baseInfo env st q)).uM (q - (pinAtE st q).grpBase)
+      (Level.substFn ψ (memberOf env st q (q - (pinAtE st q).grpBase)).lps (srcAtE st p q).2.1)
     pps := (blockOf m (baseInfo env st q)).ppsM (q - (pinAtE st q).grpBase) }
 
 /-- **The facts the run certifies about pin `q`'s readers**: K.28 (the
@@ -737,13 +749,6 @@ half holds has the identity `P`. -/
         P mp p st b fms f₀ ctorsA kinds ppsF W idxF dsF esF srcsF fvsPF xrestF eissF tssF ctorsR
           dsR xFvsR pinsS mp₁' q₀ kJ dJ
 
-/-- **The index-universe agreement** (NAMED, s10; consumer
-`nestedPinsStaged_of`): `NestedPinGroup.u` — the per-component index
-universes inside the seal. -/
-@[expose] def NestedPinsU (V : Type w) [SetTheory V] (μ : CheckMode) (F : Nat) : Prop :=
-  NestedPinsIdsAt V μ F fun _ _ _ _ _ _ _ _ _ W _ _ _ _ _ _ _ _ _ _ _ pinsS _ q₀ kJ dJ =>
-    ∀ i, i < kJ → ∀ (ψ : Name → Nat) (i' : Nat), i' < kJ →
-      (W ψ = 0 ↔ dJ.uM i' ((pinsS.getD (q₀ + i) default).ψJ ψ) = 0)
 
 /-- **The copy-instantiation identities** (NAMED, the identities;
 consumer `nestedPinsStaged_of`): `NestedPinGroup.idx` and `.inst` —
@@ -780,8 +785,7 @@ variable {st : ElimState} {p : NestedParts} {pbs : List (Expr × ConLeche.Binder
 /-- **The `PinSyn` of the `i`-th pin of pin `q`'s group** — the record
 `pinOf` builds at it, spelled at the BASE pin's data. -/
 noncomputable def groupPin (m : EnvModel V env) (st : ElimState) (p : NestedParts)
-    (acval : Name → (Name → Nat) → AnnotTerm) (env₁ : Env) (nP : Nat) (W : (Name → Nat) → Nat)
-    (q i : Nat) : PinSyn :=
+    (acval : Name → (Name → Nat) → AnnotTerm) (env₁ : Env) (nP : Nat) (q i : Nat) : PinSyn :=
   { J := (memberOf env st q i).name
     lvls := (srcAtE st p q).2.1
     ψJ := fun ψ => Level.substFn ψ (memberOf env st q i).lps (srcAtE st p q).2.1
@@ -789,7 +793,8 @@ noncomputable def groupPin (m : EnvModel V env) (st : ElimState) (p : NestedPart
     DsE := (srcAtE st p q).2.2
     Ds := fun ψ => (srcAtE st p q).2.2.map fun e => (denoteMeta acval env₁ ψ nP e).getD default
     nIdx := (blockOf m (baseInfo env st q)).nIdxAt i
-    u := W
+    u := fun ψ => (blockOf m (baseInfo env st q)).uM i
+      (Level.substFn ψ (memberOf env st q i).lps (srcAtE st p q).2.1)
     pps := (blockOf m (baseInfo env st q)).ppsM i }
 
 variable (PD : PinData env st p pbs q)
@@ -807,10 +812,30 @@ theorem PinData.baseInfo_group {i : Nat} (hi : i < (pinAtE st q).grpSize) :
   unfold baseInfo
   rw [(PD.grp i hi).2.1]
 
+/-- **The group's members share their level parameters**: every member's
+stored former has the container's own (`containerInfo?` tests
+`cvC.levelParams == cvT.levelParams` at each), so the group's pins
+share their level assignment `ψJ` — what the per-component index
+universes are read at (DESIGN §U.22). -/
+theorem PinData.lps_group {i i' : Nat} (hi : i < (pinAtE st q).grpSize)
+    (hi' : i' < (pinAtE st q).grpSize) :
+    (memberOf env st q i).lps = (memberOf env st q i').lps := by
+  obtain ⟨cvT, -, -, -, rP, -, -, -, -, -, hM⟩ := ConLeche.containerInfo?_inv PD.base
+  have hmem : ∀ n, n < (pinAtE st q).grpSize →
+      memberOf env st q n ∈ (baseInfo env st q).members := by
+    intro n hn
+    have hlt : n < (baseInfo env st q).members.length := by rw [PD.baseLen]; exact hn
+    show (baseInfo env st q).members.getD n default ∈ _
+    rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hlt]
+    exact List.getElem_mem hlt
+  obtain ⟨cvC, -, -, -, -, -, -, h1, -, h2, -, -⟩ := hM _ (hmem i hi)
+  obtain ⟨cvC', -, -, -, -, -, -, h1', -, h2', -, -⟩ := hM _ (hmem i' hi')
+  rw [h1, h2, h1', h2']
+
 /-- The `i`-th pin of the group, at `pinOf`. -/
 theorem PinData.pinOf_group (m : EnvModel V env) (acval : Name → (Name → Nat) → AnnotTerm) (env₁ : Env)
-    (nP : Nat) (W : (Name → Nat) → Nat) {i : Nat} (hi : i < (pinAtE st q).grpSize) :
-    pinOf m st p acval env₁ nP W ((pinAtE st q).grpBase + i) = groupPin m st p acval env₁ nP W q i := by
+    (nP : Nat) {i : Nat} (hi : i < (pinAtE st q).grpSize) :
+    pinOf m st p acval env₁ nP ((pinAtE st q).grpBase + i) = groupPin m st p acval env₁ nP q i := by
   have h1 := (PD.grp i hi).1
   have h2 := (PD.grp i hi).2.1
   have hs := PD.srcAtE_group hi
@@ -833,19 +858,18 @@ end GroupPins
 
 /-- **The pins' `PinSyn` list**: one `pinOf` per pin of the elimination. -/
 noncomputable def pinsOf (m : EnvModel V env) (st : ElimState) (p : NestedParts)
-    (acval : Name → (Name → Nat) → AnnotTerm) (env₁ : Env) (nP : Nat) (W : (Name → Nat) → Nat) :
-    List PinSyn :=
-  (List.range st.pins.length).map (pinOf m st p acval env₁ nP W)
+    (acval : Name → (Name → Nat) → AnnotTerm) (env₁ : Env) (nP : Nat) : List PinSyn :=
+  (List.range st.pins.length).map (pinOf m st p acval env₁ nP)
 
 theorem pinsOf_length (m : EnvModel V env) (st : ElimState) (p : NestedParts)
-    (acval : Name → (Name → Nat) → AnnotTerm) (env₁ : Env) (nP : Nat) (W : (Name → Nat) → Nat) :
-    (pinsOf m st p acval env₁ nP W).length = st.pins.length := by
+    (acval : Name → (Name → Nat) → AnnotTerm) (env₁ : Env) (nP : Nat) :
+    (pinsOf m st p acval env₁ nP).length = st.pins.length := by
   simp [pinsOf]
 
 theorem pinsOf_getD (m : EnvModel V env) (st : ElimState) (p : NestedParts)
-    (acval : Name → (Name → Nat) → AnnotTerm) (env₁ : Env) (nP : Nat) (W : (Name → Nat) → Nat)
+    (acval : Name → (Name → Nat) → AnnotTerm) (env₁ : Env) (nP : Nat)
     {q : Nat} (hq : q < st.pins.length) :
-    (pinsOf m st p acval env₁ nP W).getD q default = pinOf m st p acval env₁ nP W q := by
+    (pinsOf m st p acval env₁ nP).getD q default = pinOf m st p acval env₁ nP q := by
   unfold pinsOf
   rw [List.getD_eq_getElem?_getD, List.getElem?_map, List.getElem?_range hq]
   rfl
@@ -990,7 +1014,7 @@ theorem NestedPinsRun.pinRead
   exact pinRead_of_inferAt R.hμ mp₁' hFD₀ hcl hbt hop hi hb hleaf ψ
 
 
-local notation "PINS" => (pinsOf mp.base2 st p mp₁'.base2.acval (ConLeche.consMutualFormers (fms.take p.k) env) b.nP W)
+local notation "PINS" => (pinsOf mp.base2 st p mp₁'.base2.acval (ConLeche.consMutualFormers (fms.take p.k) env) b.nP)
 
 /-- **The pin groups' syntactic half, at every pin** (the group of the
 pin's BASE pin, its block model, the fields from K.28/K.29/K.14, the
@@ -1012,9 +1036,9 @@ theorem NestedPinsRun.groupSyn
         mp₁'.base2 q₀ kJ dJ := by
   obtain ⟨hF, hres, hag, hde⟩ := R.cross
   have hnP : b.nP = p.nP := (ConLeche.auxBlock_former R.hb).1
-  have hlenS : (PINS).length = st.pins.length := pinsOf_length _ _ _ _ _ _ _
+  have hlenS : (PINS).length = st.pins.length := pinsOf_length _ _ _ _ _ _
   have hget : ∀ n, n < st.pins.length → (PINS).getD n default
-      = pinOf mp.base2 st p mp₁'.base2.acval (ENV₁) b.nP W n := fun n hn => pinsOf_getD _ _ _ _ _ _ _ hn
+      = pinOf mp.base2 st p mp₁'.base2.acval (ENV₁) b.nP n := fun n hn => pinsOf_getD _ _ _ _ _ _ hn
   have hpinAt : ∀ n, (nestedBlockModel (V := V) p b fms f₀ ctorsA kinds env ppsF W idxF dsF esF
       srcsF fvsPF xrestF eissF tssF ctorsR dsR' xFvsR' (PINS)).pinAt n = (PINS).getD n default :=
     fun _ => rfl
@@ -1037,10 +1061,10 @@ theorem NestedPinsRun.groupSyn
   -- the group's pins, described
   have hgp : ∀ i, i < (pinAtE st q).grpSize →
       (PINS).getD ((pinAtE st q).grpBase + i) default
-        = groupPin mp.base2 st p mp₁'.base2.acval (ENV₁) b.nP W q i := by
+        = groupPin mp.base2 st p mp₁'.base2.acval (ENV₁) b.nP q i := by
     intro i hi
     rw [hget _ (by omega)]
-    exact PD.pinOf_group _ _ _ _ _ hi
+    exact PD.pinOf_group _ _ _ _ hi
   -- the components' count
   obtain ⟨ci, hci, hDl, -, hnPci, -, -⟩ := PD.own
   have hDsLen : (srcAtE st p q).2.2.length = (blockOf mp.base2 (baseInfo env st q)).nP := by
@@ -1117,7 +1141,13 @@ theorem NestedPinsRun.groupSyn
       typed := fun ψ => (CM.typed ψ).1
       pinsTyped := fun ψ => (CM.typed ψ).2.2
       inj := CM.inj
-      pinU := fun i hi ψ => by rw [hpinAt, hgp i hi]; rfl
+      pinU := fun i hi ψ i' hi' => by
+        rw [hpinAt, hpinAt, hgp i' hi', hgp i hi]
+        show (blockOf mp.base2 (baseInfo env st q)).uM i'
+            (Level.substFn ψ (memberOf env st q i').lps (srcAtE st p q).2.1)
+          = (blockOf mp.base2 (baseInfo env st q)).uM i'
+            (Level.substFn ψ (memberOf env st q i).lps (srcAtE st p q).2.1)
+        rw [PD.lps_group hi' hi]
       pinNP := fun i hi => by rw [hpinAt, hgp i hi]; rfl
       pinNIdx := fun i hi => by rw [hpinAt, hgp i hi]; rfl
       pinPps := fun i hi => by rw [hpinAt, hgp i hi]; rfl
@@ -1227,11 +1257,11 @@ record's (`containerInfo?_inv` at the base's group), and K.28's
 theorem NestedPinsRun.pinψ {pbs : List (Expr × ConLeche.BinderMeta)}
     (hPD : ∀ q, q < st.pins.length → PinData env st p pbs q)
     {q : Nat} (hq : q < st.pins.length) (cvT : ConstantVal) (caps : IndCaps)
-    (hfind : (ENV₁).find? (pinOf mp.base2 st p mp₁'.base2.acval (ENV₁) b.nP W q).J
+    (hfind : (ENV₁).find? (pinOf mp.base2 st p mp₁'.base2.acval (ENV₁) b.nP q).J
       = some (.indInfo cvT caps)) :
-    (pinOf mp.base2 st p mp₁'.base2.acval (ENV₁) b.nP W q).lvls.length = cvT.levelParams.length ∧
-    ∀ ψ : Name → Nat, (pinOf mp.base2 st p mp₁'.base2.acval (ENV₁) b.nP W q).ψJ ψ
-      = Level.substFn ψ cvT.levelParams (pinOf mp.base2 st p mp₁'.base2.acval (ENV₁) b.nP W q).lvls := by
+    (pinOf mp.base2 st p mp₁'.base2.acval (ENV₁) b.nP q).lvls.length = cvT.levelParams.length ∧
+    ∀ ψ : Name → Nat, (pinOf mp.base2 st p mp₁'.base2.acval (ENV₁) b.nP q).ψJ ψ
+      = Level.substFn ψ cvT.levelParams (pinOf mp.base2 st p mp₁'.base2.acval (ENV₁) b.nP q).lvls := by
   obtain ⟨hF, -, -, -⟩ := R.cross
   have PD := hPD q hq
   obtain ⟨hb1, hb2, -⟩ := PD.seg
@@ -1273,7 +1303,7 @@ theorem NestedPinsRun.pinNIdx {pbs : List (Expr × ConLeche.BinderMeta)} (hpbs :
     (hPD : ∀ q, q < st.pins.length → PinData env st p pbs q)
     {q : Nat} (hq : q < st.pins.length) :
     (fms.getD (p.k + q) default).nIdx
-      = (pinOf mp.base2 st p mp₁'.base2.acval (ENV₁) b.nP W q).nIdx := by
+      = (pinOf mp.base2 st p mp₁'.base2.acval (ENV₁) b.nP q).nIdx := by
   obtain ⟨hF, hres, hag, hde⟩ := R.cross
   have hnP : b.nP = p.nP := (ConLeche.auxBlock_former R.hb).1
   have PD := hPD q hq
@@ -1334,9 +1364,9 @@ theorem NestedPinsRun.synFacts
       (esF := esF) (srcsF := srcsF) (fvsPF := fvsPF) (xrestF := xrestF) (eissF := eissF)
       (tssF := tssF) (ctorsR := ctorsR) (pinsS := PINS) st mp₁' := by
   obtain ⟨pbs, hpbs, hPD⟩ := R.pinData
-  have hlenS : (PINS).length = st.pins.length := pinsOf_length _ _ _ _ _ _ _
+  have hlenS : (PINS).length = st.pins.length := pinsOf_length _ _ _ _ _ _
   have hget : ∀ n, n < st.pins.length → (PINS).getD n default
-      = pinOf mp.base2 st p mp₁'.base2.acval (ENV₁) b.nP W n := fun n hn => pinsOf_getD _ _ _ _ _ _ _ hn
+      = pinOf mp.base2 st p mp₁'.base2.acval (ENV₁) b.nP n := fun n hn => pinsOf_getD _ _ _ _ _ _ hn
   refine ⟨hlenS, ?_, ?_, ?_⟩
   · -- the records
     intro q pin hpin
@@ -1366,14 +1396,15 @@ end Discharge
 
 /-! ## The consumer -/
 
-/-- **`NestedPinsStaged` modulo the two named facts**: the index-universe
-agreement and the copy-instantiation identities.  (The pins' scope and
-typing at the prefix environment are K.30's conjuncts,
-`NestedPinsRun.scoped`; the pin-free containers, `NestedPinsFix`, were a
-fourth: DISCHARGED by task #315 L-C — the assembly reads a container's
-own pins through its `pinLeaf` and `pinMono`, DESIGN §U.24.) -/
-theorem nestedPinsStaged_of {F : Nat}
-    (hU : NestedPinsU V μ F) (hId : NestedPinsIdent V μ F) : NestedPinsStaged V μ F := by
+/-- **`NestedPinsStaged` modulo the ONE named fact**: the
+copy-instantiation identities.  (The pins' scope and typing at the
+prefix environment are K.30's conjuncts, `NestedPinsRun.scoped`; the
+pin-free containers, `NestedPinsFix`, were DISCHARGED by task #315 L-C —
+the assembly reads a container's own pins through its `pinLeaf` and
+`pinMono`, DESIGN §U.24; the index-universe agreement, `NestedPinsU`, by
+task #315 L-A — a pin's recorded universe is its container's,
+DESIGN §U.22.) -/
+theorem nestedPinsStaged_of {F : Nat} (hId : NestedPinsIdent V μ F) : NestedPinsStaged V μ F := by
   intro hμ env mp hE p st b envAux stored ctorsR fmsA ctorsA₀ fms f₀ ctorsA sortss kinds mp₁ ppsF W
     idxF dsF esF srcsF fvsPF xFvsF xrestF eissF tssF mp₁' hPM h0 h1 hfA hcA helim hcount hfresh hcont
     hb haux hstored hclosed hpinsAux hcaps hsrc hgrp hscoped hkinds hpinsE hformers h hbk h3 hnd hctorsA
@@ -1390,18 +1421,16 @@ theorem nestedPinsStaged_of {F : Nat}
   · -- pinψ: the level assignment at the prefix environment's record
     intro q hq cvT caps hfind
     rw [pinsOf_length] at hq
-    rw [pinsOf_getD _ _ _ _ _ _ _ hq] at hfind ⊢
+    rw [pinsOf_getD _ _ _ _ _ _ hq] at hfind ⊢
     exact R.pinψ hPD hq cvT caps hfind
   · -- pinNIdx: the copy's index count
     intro q hq
     rw [pinsOf_length] at hq
-    rw [pinsOf_getD _ _ _ _ _ _ _ hq]
+    rw [pinsOf_getD _ _ _ _ _ _ hq]
     exact R.pinNIdx hpbs hPD hq
   intro dsR' xFvsR' q hq
   obtain ⟨q₀, kJ, i, dJ, hqe, hi, S⟩ := SF.groups dsR' xFvsR' q hq
-  refine ⟨q₀, kJ, i, dJ, hqe, hi, S.ofParts ⟨?_, ?_, ?_⟩⟩
-  · exact hU mp p st b envAux stored ctorsR fmsA ctorsA₀ fms f₀ ctorsA sortss kinds mp₁ ppsF W idxF
-      dsF esF srcsF fvsPF xFvsF xrestF eissF tssF mp₁' R _ SF dsR' xFvsR' q₀ kJ dJ S
+  refine ⟨q₀, kJ, i, dJ, hqe, hi, S.ofParts ⟨?_, ?_⟩⟩
   · exact (hId mp p st b envAux stored ctorsR fmsA ctorsA₀ fms f₀ ctorsA sortss kinds mp₁ ppsF W idxF
       dsF esF srcsF fvsPF xFvsF xrestF eissF tssF mp₁' R _ SF dsR' xFvsR' q₀ kJ dJ S).1
   · exact (hId mp p st b envAux stored ctorsR fmsA ctorsA₀ fms f₀ ctorsA sortss kinds mp₁ ppsF W idxF
