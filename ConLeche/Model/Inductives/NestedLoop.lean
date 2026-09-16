@@ -5,10 +5,6 @@ public import ConLeche.Model.Inductives.NestedStageCtor
 import ConLeche.Model.Inductives.BlockRepCross
 import ConLeche.Verify.Inductives.NestedAuxInv
 import ConLeche.Verify.Inductives.NestedInv
-import ConLeche.Verify.Inductives.NestedRestoreTbl
-import ConLeche.Verify.Inductives.NestedRestoreOpen
-import ConLeche.Verify.EraseAnnots
-import ConLeche.Model.Annot.BitErase
 public section
 
 /-!
@@ -131,6 +127,20 @@ structure NestedPinFacts (st : ElimState) (mp₁ : EnvModelM V μ ENV₁) : Prop
   pinDs : ∀ q, q < pinsS.length → ∀ ψ : Name → Nat,
     DenoteMetaSpine mp₁.base2.acval ENV₁ ψ b.nP (pinsS.getD q default).DsE
       ((pinsS.getD q default).Ds ψ)
+  /-- the container's level assignment at the pin is the pin's level
+  arguments substituted for the container's parameters, and the two
+  lists have one length (what `denoteMeta_const` reads at the head
+  `.const J lvls`; U-19b's reading law consumes it at `nestEntry`) -/
+  pinψ : ∀ q, q < pinsS.length → ∀ (cvT : ConstantVal) (caps : IndCaps),
+    (ENV₁).find? (pinsS.getD q default).J = some (.indInfo cvT caps) →
+    (pinsS.getD q default).lvls.length = cvT.levelParams.length ∧
+    ∀ ψ : Name → Nat, (pinsS.getD q default).ψJ ψ
+      = Level.substFn ψ cvT.levelParams (pinsS.getD q default).lvls
+  /-- the copy's index count is the pin's (the auxiliary block's member
+  `p.k + q` is the container member instantiated at the pin; U-19b's
+  reading law consumes it at `nestEisLen`) -/
+  pinNIdx : ∀ q, q < pinsS.length →
+    (fms.getD (p.k + q) default).nIdx = (pinsS.getD q default).nIdx
   groups : ∀ (dsR' : Nat → Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm))
     (xFvsR' : Nat → Nat → List Expr) (q : Nat), q < pinsS.length →
     ∃ (q₀ kJ i : Nat) (dJ : BlockModel V), q = q₀ + i ∧ i < kJ ∧

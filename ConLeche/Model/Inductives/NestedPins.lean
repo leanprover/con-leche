@@ -1227,6 +1227,110 @@ theorem NestedPinsRun.groupSyn
     refine pinFit_of_wd hI CM.reps (CM.typed _).1 (hfr _) ?_ hwd
     rw [hvs, List.length_map, hDsLen]
 
+/-- **A pin's level assignment is the substitution at its container's
+level parameters** (`NestedPinFacts.pinψ`, U-19b's interface; task
+#315 U-20): at the prefix environment's record of the pin's container,
+the pin's level arguments count the record's parameters and `pinOf`'s
+`ψJ` is the substitution at them — the group member's `lps` ARE the
+record's (`containerInfo?_inv` at the base's group), and K.28's
+`mkCopy` fixes the count (`mkCopy_inv`). -/
+theorem NestedPinsRun.pinψ {pbs : List (Expr × ConLeche.BinderMeta)}
+    (hPD : ∀ q, q < st.pins.length → PinData env st p pbs q)
+    {q : Nat} (hq : q < st.pins.length) (cvT : ConstantVal) (caps : IndCaps)
+    (hfind : (ENV₁).find? (pinOf mp.base2 st p mp₁'.base2.acval (ENV₁) b.nP W q).J
+      = some (.indInfo cvT caps)) :
+    (pinOf mp.base2 st p mp₁'.base2.acval (ENV₁) b.nP W q).lvls.length = cvT.levelParams.length ∧
+    ∀ ψ : Name → Nat, (pinOf mp.base2 st p mp₁'.base2.acval (ENV₁) b.nP W q).ψJ ψ
+      = Level.substFn ψ cvT.levelParams (pinOf mp.base2 st p mp₁'.base2.acval (ENV₁) b.nP W q).lvls := by
+  obtain ⟨hF, -, -, -⟩ := R.cross
+  have PD := hPD q hq
+  obtain ⟨hb1, hb2, -⟩ := PD.seg
+  have hi : q - (pinAtE st q).grpBase < (pinAtE st q).grpSize := by omega
+  have hqi : (pinAtE st q).grpBase + (q - (pinAtE st q).grpBase) = q := by omega
+  have hg := PD.grp _ hi
+  rw [hqi] at hg
+  obtain ⟨hcontE, -, -, -, hmemE⟩ := hg
+  -- the member's record at the pre-block environment, crossed
+  obtain ⟨_, _, _, _, _, _, -, -, -, -, hall⟩ := ConLeche.containerInfo?_inv PD.base
+  obtain ⟨cvC, capsC, -, -, -, hfM, -, hlpsM, -, -, -, -⟩ := hall _ (List.mem_of_getElem? hmemE)
+  have hfM₁ : (ENV₁).find? (memberOf env st q (q - (pinAtE st q).grpBase)).name
+      = some (.indInfo cvC capsC) := hF _ _ (fun _ _ _ _ h => nomatch h) hfM
+  have hfind' : (ENV₁).find? (memberOf env st q (q - (pinAtE st q).grpBase)).name
+      = some (.indInfo cvT caps) := by rw [← hcontE]; exact hfind
+  have hcv : cvC = cvT := (ConstantInfo.indInfo.inj (Option.some.inj (hfM₁.symm.trans hfind'))).1
+  -- K.28: the copy's level arguments count the member's parameters
+  obtain ⟨ci, hci, -, -, -, -, J, hJfind, hJn, c, hmk, -, -⟩ := PD.own
+  obtain ⟨hlvls, -, -, -, -, -⟩ := ConLeche.mkCopy_inv hmk
+  obtain ⟨_, _, _, _, _, _, -, -, -, -, hall'⟩ := ConLeche.containerInfo?_inv hci
+  obtain ⟨cvC', capsC', -, -, -, hfJ, -, hlpsJ, -, -, -, -⟩ :=
+    hall' _ (List.mem_of_find?_eq_some hJfind)
+  rw [hJn, hcontE] at hfJ
+  have hcv' : cvC' = cvC := (ConstantInfo.indInfo.inj (Option.some.inj (hfJ.symm.trans hfM))).1
+  refine ⟨?_, fun ψ => ?_⟩
+  · show (srcAtE st p q).2.1.length = cvT.levelParams.length
+    rw [hlvls, hlpsJ, hcv', hcv]
+  · show Level.substFn ψ (memberOf env st q (q - (pinAtE st q).grpBase)).lps (srcAtE st p q).2.1
+      = Level.substFn ψ cvT.levelParams (srcAtE st p q).2.1
+    rw [hlpsM, hcv]
+
+/-- **The copy's index count is the pin's** (`NestedPinFacts.pinNIdx`,
+U-19b's interface; task #315 U-20): the auxiliary former at `p.k + q`
+strips at the block's parameters plus its index count to its sort
+(`formerType`), and so does `mkCopy`'s output at the container member's
+index count (`IsBlockModel.strip` at the group's block model, through
+`mkCopy_stripPis_sort`); `stripPis_sort_unique` equates the counts. -/
+theorem NestedPinsRun.pinNIdx {pbs : List (Expr × ConLeche.BinderMeta)} (hpbs : pbs.length = p.nP)
+    (hPD : ∀ q, q < st.pins.length → PinData env st p pbs q)
+    {q : Nat} (hq : q < st.pins.length) :
+    (fms.getD (p.k + q) default).nIdx
+      = (pinOf mp.base2 st p mp₁'.base2.acval (ENV₁) b.nP W q).nIdx := by
+  obtain ⟨hF, hres, hag, hde⟩ := R.cross
+  have hnP : b.nP = p.nP := (ConLeche.auxBlock_former R.hb).1
+  have PD := hPD q hq
+  obtain ⟨hb1, hb2, -⟩ := PD.seg
+  have hi : q - (pinAtE st q).grpBase < (pinAtE st q).grpSize := by omega
+  have hqi : (pinAtE st q).grpBase + (q - (pinAtE st q).grpBase) = q := by omega
+  have hg := PD.grp _ hi
+  rw [hqi] at hg
+  obtain ⟨hcontE, -, -, -, hmemE⟩ := hg
+  -- the group's block model, at the prefix model
+  have hbaseMem : pinAtE st (pinAtE st q).grpBase ∈ st.pins := by
+    have hlt : (pinAtE st q).grpBase < st.pins.length := by omega
+    show st.pins.getD (pinAtE st q).grpBase default ∈ st.pins
+    rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hlt]
+    exact List.getElem_mem hlt
+  have CM₀ : ContainerModeled mp.base2 (baseInfo env st q) (blockOf mp.base2 (baseInfo env st q)) :=
+    blockOf_spec (R.hPM _ hbaseMem _ PD.base)
+  have CM : ContainerModeled mp₁'.base2 (baseInfo env st q) (blockOf mp.base2 (baseInfo env st q)) :=
+    CM₀.crossEnv hF hres hag hde
+  obtain ⟨-, -, cvR, mI, rP, rules, hI⟩ := CM.member _ _ hmemE
+  obtain ⟨bsM, sM, hstripM, -⟩ := hI.strip
+  -- K.28 at the pin: the copy from the member `J`, whose type is the member's
+  obtain ⟨ci, hci, hDl, -, hnPci, -, J, hJfind, hJn, c, hmk, hct, -⟩ := PD.own
+  obtain ⟨_, _, _, _, _, _, -, -, -, -, hall'⟩ := ConLeche.containerInfo?_inv hci
+  obtain ⟨cvC', capsC', -, -, -, hfJ, -, -, htyJ, -, -, -⟩ :=
+    hall' _ (List.mem_of_find?_eq_some hJfind)
+  obtain ⟨_, _, _, _, _, _, -, -, -, -, hall⟩ := ConLeche.containerInfo?_inv PD.base
+  obtain ⟨cvC, capsC, -, -, -, hfM, -, -, htyM, -, -, -⟩ := hall _ (List.mem_of_getElem? hmemE)
+  rw [hJn, hcontE] at hfJ
+  have hcv : cvC' = cvC := (ConstantInfo.indInfo.inj (Option.some.inj (hfJ.symm.trans hfM))).1
+  have hDsLen : (srcAtE st p q).2.2.length = (blockOf mp.base2 (baseInfo env st q)).nP := by
+    rw [hDl, hnPci, CM.nP]
+  have hJ' : J.type.stripPis ((srcAtE st p q).2.2.length
+      + (blockOf mp.base2 (baseInfo env st q)).nIdxAt (q - (pinAtE st q).grpBase))
+      = some (bsM, .sort sM) := by
+    rw [htyJ, hcv, ← htyM, hDsLen]
+    exact hstripM
+  obtain ⟨bs', hstrip'⟩ := ConLeche.mkCopy_stripPis_sort hmk hJ'
+  rw [hct] at hstrip'
+  -- the auxiliary former at this copy
+  have hlt : p.k + q < fms.length := by rw [R.h.lenFms, R.hbk]; omega
+  obtain ⟨-, bsF, hstripF⟩ := R.formerType _ _ (fms_get hlt) _ PD.ty
+  rw [hpbs, ← hnP] at hstrip'
+  obtain ⟨hn, -, -⟩ := ConLeche.stripPis_sort_unique hstrip' hstripF
+  show _ = (blockOf mp.base2 (baseInfo env st q)).nIdxAt (q - (pinAtE st q).grpBase)
+  omega
+
 /-- **The pins' syntactic facts at the prefix model** (PROVED): the
 records, the components' readings and every group's syntactic half,
 at `pinsOf`. -/
@@ -1287,8 +1391,19 @@ theorem nestedPinsStaged_of {F : Nat} (hS : NestedPinsScoped V μ F) (hFix : Nes
       hcaps, hsrc, hgrp, hkinds, hformers, h, hbk, h3, hnd, hctorsA, hleafM', hoff', hfind', hctors⟩
   obtain ⟨hpinsE, fvs, o, hop, hsc⟩ := hS mp p st b envAux stored ctorsR fmsA ctorsA₀ fms f₀ ctorsA
     sortss kinds mp₁ ppsF W idxF dsF esF srcsF fvsPF xFvsF xrestF eissF tssF mp₁' R
+  obtain ⟨pbs, hpbs, hPD⟩ := R.pinData
   have SF := R.synFacts hpinsE hop hsc
-  refine ⟨_, SF.pinsLen, SF.pinRec, SF.pinDs, ?_⟩
+  refine ⟨_, SF.pinsLen, SF.pinRec, SF.pinDs, ?_, ?_, ?_⟩
+  · -- pinψ: the level assignment at the prefix environment's record
+    intro q hq cvT caps hfind
+    rw [pinsOf_length] at hq
+    rw [pinsOf_getD _ _ _ _ _ _ _ hq] at hfind ⊢
+    exact R.pinψ hPD hq cvT caps hfind
+  · -- pinNIdx: the copy's index count
+    intro q hq
+    rw [pinsOf_length] at hq
+    rw [pinsOf_getD _ _ _ _ _ _ _ hq]
+    exact R.pinNIdx hpbs hPD hq
   intro dsR' xFvsR' q hq
   obtain ⟨q₀, kJ, i, dJ, hqe, hi, S⟩ := SF.groups dsR' xFvsR' q hq
   refine ⟨q₀, kJ, i, dJ, hqe, hi, S.ofParts ⟨?_, ?_, ?_, ?_⟩⟩

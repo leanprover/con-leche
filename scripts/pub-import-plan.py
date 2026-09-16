@@ -144,6 +144,14 @@ FALLBACK = {
     ('ConLeche.Model.Inductives.NestedStageCtor','ConLeche.Semantics.Tower.MutualTagI'),
     ('ConLeche.Verify.Inductives.NestedRestoreTbl','ConLeche.Kernel.Inductives.NestedInstall'),
     ('ConLeche.Verify.Inductives.NestedRestoreTbl','ConLeche.Verify.Inductives.NestedInv'),
+    # task #315 U-20: two of the eleven demotions the gate proposed when U-19
+    # and U-19b were merged, refused by the compiler — `NestedPins`'s
+    # `variable` binders reach `SetTheory` only through `NestedLoop`'s
+    # public closure (the same class), and `NestedTransfer`'s public
+    # statements name `Expr.eraseAnnots` (a public statement is elaborated
+    # in the public view, where a plain import is invisible).
+    ('ConLeche.Model.Inductives.NestedPins','ConLeche.Model.Inductives.NestedLoop'),
+    ('ConLeche.Model.Inductives.NestedTransfer','ConLeche.Verify.EraseAnnots'),
     # task #315: `BlockRecWD`'s one public import is the file's whole
     # public view (`SetTheory`, `BlockReadings`, `BlockReps`, the datum);
     # the model calls it demotable (nothing downstream re-exports through

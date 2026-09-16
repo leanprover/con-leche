@@ -165,7 +165,7 @@ the auxiliary block's `blockNames.Nodup` into a fact about the PINS.
 /-- **The elimination's alignment invariant**: the type list is the
 given `k` members plus one type per pin, and the pin at `q` is the type
 at `k + q`, under the name the mint gave both. -/
-def PinsAligned (k : Nat) (st : ElimState) : Prop :=
+@[expose] def PinsAligned (k : Nat) (st : ElimState) : Prop :=
   st.types.length = k + st.pins.length ∧
   ∀ (q : Nat) (qn : NestedPin), st.pins[q]? = some qn →
     ∃ t, st.types[k + q]? = some t ∧ t.name = qn.aux
