@@ -75279,7 +75279,20 @@ Lanes: one Opus lane (the Tree/List instance, ~6 minutes, its one
 file by `lake env lean`); the coordinator owned the pure module, the
 block-model module, the roots and the build.
 
-##### (i) RE-SIZING
+##### (i) MAINTAINER RULINGS FOR THE NESTED HALF (2026-09-16, effective now)
+
+1. **Nothing of M5–M8 merges to master until the approach is shown to
+   work** — no landing preparation for the nested milestones (no merge
+   messages, no OVERVIEW lines, no master-side gates) until then.
+2. **On the branch, add whatever flags and entries are needed** (the
+   `--nested-shadow` flag, allowlist and `FALLBACK` lines, shape
+   hypotheses) **as long as they are retired with the flip at M7**;
+   each carries its retirement in its comment.
+3. **The modeller and the modelled route may not get in the way**: on
+   the branch they may be bypassed, disabled or routed around freely
+   (their deletion is M8 anyway); the branch need not keep them intact.
+
+##### (j) RE-SIZING
 
 M6: s1 (census, the arm) and s2 (this session) done; s3 = `pinLeaf`
 per (e) + the syntactic assembly's first half (the `PinSyn` records
