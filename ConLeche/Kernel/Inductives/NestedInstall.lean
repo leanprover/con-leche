@@ -862,6 +862,77 @@ def nestedPinKindsOk (p : NestedParts) (b : MutualBlock) (st : ElimState)
           decide (t < p.k + st.pins.length)
   | none => false
 
+/-- **THE COPIES' RECURSIVE TARGETS COME FROM THE CONTAINER'S OWN
+RECURSION** (task #315 K.32, the model lane's DESIGN §U.23 (e)).
+
+At a copy of a container group, a field the auxiliary block classified
+`.recursive`/`.reflexive` INTO the same group must come from a field the
+CONTAINER's own stored constructor already had as a group occurrence:
+per copy `k + q` of the group `[gb, gb + gs)`, constructor `j` and field
+`l`, if the kind at `(j, l)` targets an aux member in
+`[k + gb, k + gb + gs)`, then the container member's stored constructor
+`j`, at field `l`, with its own `Π`-prefix (as many binders as the
+COPY's field carries) peeled, is headed by the container group's member
+that target names, applied to the container's parameter spine.
+
+**Why it is recorded and not derived.**  The model's `ordF` arm needs
+to know that a container-ORDINARY field cannot instantiate to the
+group's own pin.  It could only do so through a parameter-headed shape
+`β …` whose component is `J_m (Ds.take r)` with `r < nPJ` — a parameter
+whose type contains itself, excluded by TYPING and by no syntactic fact
+the run records.  This Bool says it at the elimination's output instead,
+where it is a property of `mkCopy` + `replaceAllNested`: the rewrite
+turns a group occurrence into the group's copy and touches nothing else,
+so a copy field classified recursive into the group comes from a
+container field that WAS that occurrence.
+
+**It cannot fire**, and a failure is `.internal`. -/
+def nestedCopyTargetsOk (env : Env) (p : NestedParts) (b : MutualBlock)
+    (st : ElimState) (stored : List AuxStored) : Bool :=
+  match nestedPinKinds p b stored with
+  | none => false
+  | some kinds =>
+    (List.range st.pins.length).all fun q =>
+      match st.pins[q]?, kinds[q]?, stored[p.k + q]? with
+      | some qn, some ks, some a =>
+        match containerInfo? env qn.container with
+        | none => false
+        | some ci =>
+          match ci.members[q - qn.grpBase]? with
+          | none => false
+          | some J =>
+            (List.range ks.length).all fun j =>
+              match ks[j]?, a.ctors[j]?, J.ctors[j]? with
+              | some kf, some (cvCa, _, nF), some cJ =>
+                (List.range kf.length).all fun l =>
+                  match kf[l]? with
+                  | none => true
+                  | some (r, t) =>
+                    -- only a field the aux block classified recursive
+                    -- into this copy's OWN group is constrained
+                    if (r == .recursive || r == .reflexive) &&
+                        p.k + qn.grpBase ≤ t &&
+                        t < p.k + qn.grpBase + qn.grpSize then
+                      match cvCa.type.stripPis (p.nP + nF),
+                          cJ.type.stripPis (ci.nP + cJ.nFields) with
+                      | some (cbs, _), some (jbs, _) =>
+                        match cbs[p.nP + l]?, jbs[ci.nP + l]? with
+                        | some domC, some domJ =>
+                          let d := (Expr.piBinders domC.1).1.length
+                          match domJ.1.stripPis d,
+                              ci.members[t - p.k - qn.grpBase]? with
+                          | some (_, jres), some Jt =>
+                            (match jres.getAppFn with
+                             | .const nm _ => nm == Jt.name
+                             | _ => false) &&
+                              jres.getAppArgs.take ci.nP == structPsAt (l + d) ci.nP
+                          | _, _ => false
+                        | _, _ => false
+                      | _, _ => false
+                    else true
+              | _, _, _ => false
+      | _, _, _ => false
+
 /-- **Check and install a recognised NESTED block** (see the module
 docstring): official's two syntactic front guards, the elimination, the
 auxiliary mutual block checked in a scratch environment, the restore,
@@ -982,6 +1053,13 @@ def checkNested (ops : CheckerOps m) (env : Env) (p : NestedParts) : m Env := do
   -- first former's openers, annotation included, and no loose bvar.
   unless pinsScoped p.nP st do
     throw (.internal "nested: a pin's free variables are not the block's parameter openers")
+  -- **THE COPIES' RECURSIVE TARGETS** (K.32): a copy field the aux
+  -- block classified recursive into its own group comes from a
+  -- container field that was a group occurrence at the parameter spine.
+  -- A failure is `.internal`.
+  unless nestedCopyTargetsOk env p b st stored do
+    throw (.internal "nested: a copy's group-recursive field does not come from the \
+      container's own recursion")
   unless nestedPinKindsOk p b st stored do
     throw (.internal "nested: a stored field at a pin is not classified ordinary, \
       recursive or reflexive into the block")

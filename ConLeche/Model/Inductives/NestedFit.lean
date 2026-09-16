@@ -28,8 +28,10 @@ IDENTITIES of the copy's readings (DESIGN §U.17, §U.24):
   container-recursive field at a MEMBER target is copy-recursive at
   the copy of its target with the telescope and index expressions
   instantiated (`recF`); a container-ordinary field is either
-  copy-ordinary with its domain instantiated, or copy-recursive at a
-  MEMBER or a pin OUTSIDE the group — the elimination's rewrite of an
+  copy-ordinary whose domain READS as the container's instantiated
+  (the stored copy is the elimination's rewrite only up to the
+  constructors' positivity normalisation, which `whnf`s), or
+  copy-recursive at a MEMBER or a pin OUTSIDE the group — the elimination's rewrite of an
   occurrence inside the components — whose entry at the auxiliary
   carrier is the container's domain read at the pin's frame (`ordF`);
   a container-recursive field at one of the CONTAINER'S OWN PINS (a
@@ -301,6 +303,31 @@ variable {ψ : Name → Nat} {ρp : Nat → V}
 local notation "L⁺" => lfpTuple (resSort.eval ψ) (k + pins.length) (nestedIs nP k ppsA W pins ψ ρp)
   (ΨA ψ ρp)
 
+/-- **The entry identity at a target OUTSIDE the group** — the shared
+third conjunct of `CopyCtorInst.ordF`'s right arm and of
+`CopyCtorInst.pinF`: at a spine fitting the copy's constructor up to
+field `l`, the CONTAINER's domain read at the pin's frame IS the
+copy's slot at the auxiliary least tuple, taken at the field's target.
+(Named separately so that the residual `NestedPinsEntry` — the DAG
+induction over the pins, DESIGN §U.23 (e) — states it once.) -/
+@[expose] def CopyEntry (dJ : BlockModel V) (ψJ : Name → Nat) (Ds : List AnnotTerm)
+    (q₀ kJ : Nat) (Y : Nat → V) (i j l : Nat) : Prop :=
+  ∀ fs₁ : List V, fs₁.length = l →
+    FitsFrom (rss.getD (offs (k + q₀ + i) + j) [])
+      (fun i' ρ => slotSet (resSort.eval ψ)
+        (nestedU k W pins ψ ((tgtsG.getD (offs (k + q₀ + i) + j) []).getD i' 0)) ρ
+        (((tlss ψ).getD (offs (k + q₀ + i) + j) []).getD i' [])
+        (((Eiss₀ ψ).getD (offs (k + q₀ + i) + j) []).getD i' [])
+        (segJoin (k + q₀) kJ L⁺ Y ((tgtsG.getD (offs (k + q₀ + i) + j) []).getD i' 0)))
+      0 ρp (((Fss₀ ψ).getD (offs (k + q₀ + i) + j) []).take l) fs₁ →
+    interp V (consList fs₁ (consList (Ds.map (interp V ρp)) ρp))
+        (((dJ.Fss i ψJ).getD j []).getD l default)
+      = slotSet (resSort.eval ψ)
+          (nestedU k W pins ψ ((tgtsG.getD (offs (k + q₀ + i) + j) []).getD l 0)) (consList fs₁ ρp)
+          (((tlss ψ).getD (offs (k + q₀ + i) + j) []).getD l [])
+          (((Eiss₀ ψ).getD (offs (k + q₀ + i) + j) []).getD l [])
+          (L⁺ ((tgtsG.getD (offs (k + q₀ + i) + j) []).getD l 0))
+
 /-- **The instantiation identities of one copy's constructor**: the
 container `dJ`'s member `i`, constructor `j`, copied at the pin group
 `[q₀, q₀ + kJ)` whose components read as `Ds` (at the block's
@@ -336,32 +363,25 @@ structure CopyCtorInst (dJ : BlockModel V) (ψJ : Name → Nat) (Ds : List Annot
     (((Eiss₀ ψ).getD (offs (k + q₀ + i) + j) []).getD l [])
       = (((dJ.Eiss i ψJ).getD j []).getD l []).map
           (AnnotTerm.instAll Ds (l + (((dJ.tlss i ψJ).getD j []).getD l []).length))
-  /-- a container-ordinary field: copy-ordinary with the domain
-  instantiated, or copy-recursive outside the group with the entry
-  identity at the auxiliary carrier -/
+  /-- a container-ordinary field: copy-ordinary whose domain READS as
+  the container's instantiated (at the frame the fits are taken at —
+  the stored copy is the elimination's rewrite only up to the
+  constructors' positivity normalisation), or copy-recursive outside
+  the group with the entry identity at the auxiliary carrier -/
   ordF : ∀ l, l < ((dJ.Fss i ψJ).getD j []).length →
     ((dJ.rss i).getD j []).getD l false = false →
     ((rss.getD (offs (k + q₀ + i) + j) []).getD l false = false ∧
-      ((Fss₀ ψ).getD (offs (k + q₀ + i) + j) []).getD l default
-        = AnnotTerm.instAll Ds l (((dJ.Fss i ψJ).getD j []).getD l default)) ∨
+      ∀ fs₁ : List V, fs₁.length = l →
+        interp V (consList fs₁ ρp) (((Fss₀ ψ).getD (offs (k + q₀ + i) + j) []).getD l default)
+          = interp V (consList fs₁ ρp)
+              (AnnotTerm.instAll Ds l (((dJ.Fss i ψJ).getD j []).getD l default))) ∨
     ((rss.getD (offs (k + q₀ + i) + j) []).getD l false = true ∧
       ¬ (k + q₀ ≤ (tgtsG.getD (offs (k + q₀ + i) + j) []).getD l 0 ∧
         (tgtsG.getD (offs (k + q₀ + i) + j) []).getD l 0 < k + q₀ + kJ) ∧
-      ∀ fs₁ : List V, fs₁.length = l →
-        FitsFrom (rss.getD (offs (k + q₀ + i) + j) [])
-          (fun i' ρ => slotSet (resSort.eval ψ)
-            (nestedU k W pins ψ ((tgtsG.getD (offs (k + q₀ + i) + j) []).getD i' 0)) ρ
-            (((tlss ψ).getD (offs (k + q₀ + i) + j) []).getD i' [])
-            (((Eiss₀ ψ).getD (offs (k + q₀ + i) + j) []).getD i' [])
-            (segJoin (k + q₀) kJ L⁺ Y ((tgtsG.getD (offs (k + q₀ + i) + j) []).getD i' 0)))
-          0 ρp (((Fss₀ ψ).getD (offs (k + q₀ + i) + j) []).take l) fs₁ →
-        interp V (consList fs₁ (consList (Ds.map (interp V ρp)) ρp))
-            (((dJ.Fss i ψJ).getD j []).getD l default)
-          = slotSet (resSort.eval ψ)
-              (nestedU k W pins ψ ((tgtsG.getD (offs (k + q₀ + i) + j) []).getD l 0)) (consList fs₁ ρp)
-              (((tlss ψ).getD (offs (k + q₀ + i) + j) []).getD l [])
-              (((Eiss₀ ψ).getD (offs (k + q₀ + i) + j) []).getD l [])
-              (L⁺ ((tgtsG.getD (offs (k + q₀ + i) + j) []).getD l 0)))
+      CopyEntry (V := V) (nP := nP) (k := k) (resSort := resSort) (ppsA := ppsA) (W := W)
+        (pins := pins) (offs := offs) (mems := mems) (nFs := nFs) (tgtsG := tgtsG) (rss := rss)
+        (tlss := tlss) (Eiss₀ := Eiss₀) (Fss₀ := Fss₀) (Ess₀ := Ess₀) (ψ := ψ) (ρp := ρp)
+        dJ ψJ Ds q₀ kJ Y i j l)
   /-- **a container-recursive field at one of the container's OWN
   pins** (a container that is itself nested): copy-recursive at a
   target OUTSIDE the group — the block's pin for the container's pin
@@ -373,21 +393,10 @@ structure CopyCtorInst (dJ : BlockModel V) (ψJ : Name → Nat) (Ds : List Annot
     (rss.getD (offs (k + q₀ + i) + j) []).getD l false = true ∧
     ¬ (k + q₀ ≤ (tgtsG.getD (offs (k + q₀ + i) + j) []).getD l 0 ∧
       (tgtsG.getD (offs (k + q₀ + i) + j) []).getD l 0 < k + q₀ + kJ) ∧
-    ∀ fs₁ : List V, fs₁.length = l →
-      FitsFrom (rss.getD (offs (k + q₀ + i) + j) [])
-        (fun i' ρ => slotSet (resSort.eval ψ)
-            (nestedU k W pins ψ ((tgtsG.getD (offs (k + q₀ + i) + j) []).getD i' 0)) ρ
-          (((tlss ψ).getD (offs (k + q₀ + i) + j) []).getD i' [])
-          (((Eiss₀ ψ).getD (offs (k + q₀ + i) + j) []).getD i' [])
-          (segJoin (k + q₀) kJ L⁺ Y ((tgtsG.getD (offs (k + q₀ + i) + j) []).getD i' 0)))
-        0 ρp (((Fss₀ ψ).getD (offs (k + q₀ + i) + j) []).take l) fs₁ →
-      interp V (consList fs₁ (consList (Ds.map (interp V ρp)) ρp))
-          (((dJ.Fss i ψJ).getD j []).getD l default)
-        = slotSet (resSort.eval ψ)
-              (nestedU k W pins ψ ((tgtsG.getD (offs (k + q₀ + i) + j) []).getD l 0)) (consList fs₁ ρp)
-            (((tlss ψ).getD (offs (k + q₀ + i) + j) []).getD l [])
-            (((Eiss₀ ψ).getD (offs (k + q₀ + i) + j) []).getD l [])
-            (L⁺ ((tgtsG.getD (offs (k + q₀ + i) + j) []).getD l 0))
+    CopyEntry (V := V) (nP := nP) (k := k) (resSort := resSort) (ppsA := ppsA) (W := W)
+      (pins := pins) (offs := offs) (mems := mems) (nFs := nFs) (tgtsG := tgtsG) (rss := rss)
+      (tlss := tlss) (Eiss₀ := Eiss₀) (Fss₀ := Fss₀) (Ess₀ := Ess₀) (ψ := ψ) (ρp := ρp)
+      dJ ψJ Ds q₀ kJ Y i j l
   /-- the result's index readings instantiated under the fields -/
   es : ∀ l, l < (dJ.IdsM i ψJ).length →
     ((Ess₀ ψ).getD (offs (k + q₀ + i) + j) []).getD l default
@@ -475,7 +484,7 @@ theorem CopyCtorInst.fit_iff_at {env : Env} {m : EnvModel V env} {q₀ kJ : Nat}
       rw [if_neg (by rw [hr']; exact Bool.false_ne_true)]
       refine ⟨Subset.refl _, ?_⟩
       rcases h.ordF _ hl hr' with ⟨hrC, hF⟩ | ⟨hrC, hout, hent⟩
-      · rw [if_neg (by rw [hrC]; exact Bool.false_ne_true), hF, interp_instAll]
+      · rw [if_neg (by rw [hrC]; exact Bool.false_ne_true), hF fs₁ rfl, interp_instAll]
       · rw [if_pos hrC, segJoin_out _ _ hout]
         exact hent fs₁ rfl hf'
   -- the index equations
@@ -552,7 +561,7 @@ theorem CopyCtorInst.fit_imp {env : Env} {m : EnvModel V env} {q₀ kJ : Nat} {Y
       rw [if_neg (by rw [hr']; exact Bool.false_ne_true)]
       refine ⟨Subset.refl _, ?_⟩
       rcases h.ordF _ hl hr' with ⟨hrC, hF⟩ | ⟨hrC, hout, hent⟩
-      · rw [if_neg (by rw [hrC]; exact Bool.false_ne_true), hF, interp_instAll]
+      · rw [if_neg (by rw [hrC]; exact Bool.false_ne_true), hF fs₁ rfl, interp_instAll]
         exact Subset.refl _
       · rw [if_pos hrC, segJoin_out _ _ hout, hent fs₁ rfl hf']
         exact Subset.refl _

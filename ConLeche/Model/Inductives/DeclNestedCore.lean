@@ -78,34 +78,41 @@ structure ContainerModeled {env : Env} (m : EnvModel V env) (ci : ContainerInfo)
   /-- the injections are the tagged towers at the member-local positions -/
   inj : ∀ (ψ : Name → Nat) (mm' j : Nat) (fs : List V),
     d.inj ψ mm' j fs = injW (d.w ψ) j (mkTower (fs ++ [pt]))
-  /-- member `i` is the `i`-th entry: its name, its constructor count,
-  and `IsBlockModel` at the entry's own constant -/
+  /-- member `i` is the `i`-th entry: its name, its CONSTRUCTORS BY
+  NAME AND IN ORDER (task #315 L-B: the copies' identities read the
+  entry's constructor records positionally — `IsBlockModel.rules` ties
+  the block model's constructors to a recursor's rule list, but no
+  clause ties THAT list to the environment's, so the count alone is
+  not enough), and `IsBlockModel` at the entry's own constant -/
   member : ∀ (i : Nat) (M : ContainerMember), ci.members[i]? = some M →
-    d.memberName i = M.name ∧ (d.ctorsM i).length = M.ctors.length ∧
+    d.memberName i = M.name ∧ (d.ctorsM i).map (·.1.name) = M.ctors.map (·.name) ∧
     ∃ (cvR : ConstantVal) (mI rP : Nat) (rules : List RecRule),
       IsBlockModel m M.name ⟨M.name, M.lps, M.type⟩ cvR mI rP rules d i
   /-- every member's parameter telescope is the first member's, as a frame -/
   frame : ∀ i, i < d.k → ∀ (ψ : Name → Nat) (ρ : Nat → V),
     Sat V (d.params ψ).reverse ρ ↔ Sat V (((d.ppsM i ψ).take d.nP).map (·.2.2)).reverse ρ
-  /-- **a field the block's kinds call ordinary mentions no member**
-  (task #315 L-B/M7-3, DESIGN §U.23 (e)): the classifier's own test
-  (`mutualCtorKinds`: ordinary ⟺ `!mentionsMember`), at the stored
-  constructor's raw domain — `BlockOpened.ord` only says the opened
-  domain resolves at `env₀` -/
-  ordFree : ∀ (i j l : Nat) (cA : ConstantVal × Nat), i < d.k → (d.ctorsM i)[j]? = some cA →
-    l < cA.2 → (d.ksF i j).getD l .ordinary = .ordinary →
-    ∀ (cbs : List (Expr × ConLeche.BinderMeta)) (cbody : Expr),
-      cA.1.type.stripPis (d.nP + cA.2) = some (cbs, cbody) →
-      ConLeche.mentionsMember d.memberNames (cbs.getD (d.nP + l) default).1 = false
-  /-- **a pin's container is not a member** (`BlockOpened.nestF`'s shape
-  alone is consistent with a member-at-parameters occurrence classified
-  nested) -/
-  pinsNotMembers : ∀ q, q < d.nPins → ∀ i, i < d.k → (d.pinAt q).J ≠ d.memberName i
-  /-- **a pin's container parameter count is `containerInfo?`'s** at the
-  model's environment (`replaceAllNested_occurrence` reads the
-  container's parameter count there) -/
-  pinNP : ∀ q, q < d.nPins → ∀ ci' : ContainerInfo,
-    ConLeche.containerInfo? env (d.pinAt q).J = some ci' → (d.pinAt q).nPJ = ci'.nP
+  /-- **an ORDINARY field mentions no member** (task #315 L-B, DESIGN
+  §U.30): `mutualCtorKinds` calls a field ordinary exactly when it
+  mentions none of the block's members, but `BlockOpened.ord` records
+  only `constsResolve env₀` and `env₀` is unconstrained, so the
+  abstract clauses do not carry it.  The copies' identities need it to
+  know that the elimination left a container-ordinary field alone
+  (`replaceAllNested_of_no_mention`). -/
+  ordFree : ∀ (i j l : Nat) (x : Expr), i < d.k → j < (d.ctorsM i).length →
+    (d.xFvsF i j)[l]? = some x → (d.ksF i j).getD l .ordinary = .ordinary →
+    ConLeche.mentionsMember d.memberNames x.fvarTypeD = false
+  /-- **a pin's container is not a member** of the block: the opened
+  form of a nested field (`BlockOpened.nestF`) is shape-compatible with
+  a member occurrence at the parameters, which the copies' kind reading
+  must exclude. -/
+  pinsNotMembers : ∀ q, q < d.nPins → (d.pinAt q).J ∉ d.memberNames
+  /-- **a pin's parameter count is the one `containerInfo?` reads**, at
+  the block's own pre-block environment (`d.env₀`, where
+  `BlockOpened.nestF` resolves the pin's index arguments):
+  `replaceAllNested_occurrence` splits a container application at
+  exactly that count. -/
+  pinNP : ∀ q, q < d.nPins → ∃ ci' : ContainerInfo,
+    ConLeche.containerInfo? d.env₀ (d.pinAt q).J = some ci' ∧ (d.pinAt q).nPJ = ci'.nP
 
 /-- **Every stored container carries its block's model** at the model
 `m`, in the container's own terms (`ContainerModeled` at the group
@@ -364,9 +371,12 @@ theorem declNested_of (hμ : μ.verifiedChecks = true) {F : Nat} {env envOut : E
     Nonempty (EnvModelM V μ envOut) := by
   obtain ⟨h0, h1, st, b, envAux, stored, ctorsR, cvRms, cvRns, rulesM, rulesN, fmsA, ctorsA,
     hfA, hcA, helim, hcount, hfresh, hcont, hb, haux, hstored, hclosed, hpinsAux, hcaps, hsrc,
-    -, hgrp, hsc, hkinds, hpins₁, hctors, hrm, hrn, hrulesM, hrulesN, htbl, hpinsOut, hcnt, hrecs⟩ := h
+    -, hgrp, hsc, -, hkinds, hpins₁, hctors, hrm, hrn, hrulesM, hrulesN, htbl, hpinsOut, hcnt,
+    hrecs⟩ := h
   -- the `-` after `hsrc` is K.31's `pinsDistinct` conjunct: named for the
-  -- identities' discharge (`NestedPinsIdent`, lane L-B), not consumed here
+  -- identities' discharge (`NestedPinsIdent`, lane L-B), not consumed here;
+  -- the `-` after `hsc` is K.32's `nestedCopyTargetsOk`, named for the same
+  -- discharge's `ordF` arm, not consumed here either
   have hPM : PinsModeled mp.base2 st.pins := pinsModeled_of_env mp.blocks hcont
   obtain ⟨mp₂, hag, d, hd, hreps, htyped⟩ := hcore hμ mp.toEnvModelM hE p st b envAux stored ctorsR
     fmsA ctorsA hPM h0 h1 hfA hcA helim hcount hfresh hcont hb haux hstored hclosed hpinsAux hcaps
