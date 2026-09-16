@@ -1114,6 +1114,15 @@ def checkNested (ops : CheckerOps m) (env : Env) (p : NestedParts) : m Env := do
   let nRows := ((p.mimicRecs.zip cvRns).zip rulesN).zipIdx.map
     (fun (((sr, cv), rs), j) => (sr, ownOf (p.k + j), cv, rs))
   nestedRecsOk ops env₂ p.nP b.k b.n (mRows ++ nRows)
+  -- **THE READ-BACK** (task #315 K.34): `containerInfo?` of the
+  -- environment this route produced, at every member of the block it
+  -- installed, is the block's own data — the reading the model's
+  -- environment field is quantified over.  The mimics are NOT members:
+  -- the motive walk stops at the first motive that is not a real
+  -- member's, which is the first mimic's.  It cannot fire.
+  unless blockReadBackOk env₄ p.nP ((members.zip ctorsR).map fun (a, cs) =>
+      (a.cvTa, cs.map fun (cv, _, nF) => (cv, nF))) do
+    throw (.internal "nested: the installed block does not read back as its own")
   pure env₄
 
 end ConLeche

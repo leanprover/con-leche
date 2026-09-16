@@ -79535,6 +79535,102 @@ Cost: one session, ~⅔ of it the three-way (`NestedPremise`'s union and
 the import order it broke, `DeclNestedCore`'s two sides).  Next: L-B's
 assembly and M7's three named facts.
 
+##### (j) INTEGRATION 3c — K.34 merged: every install route reads its own block back (session U-25)
+
+Part 3's third merge, and the smallest: ONE `--no-ff` of the kernel
+lane.  (The letter is `j`, not `i`: `(i)` above is 3b's residual.)
+
+*K.34* — `agent/uniform-m5` **3956ed41**.  6d26d01a (K.32) came in at
+3a, so the delta is K.34 alone (§K.34): `blockReadBackOk` and
+`blockContainerInfo` in `Kernel/Inductives/NativeParts.lean`, to which
+`containerInfo?` and `ContainerCtor`/`ContainerMember`/`ContainerInfo`
+(now `deriving BEq`) and `containerMotiveMember?`/`containerMembersGo`
+MOVED out of `NestedParts.lean`; the check at six call sites
+(`checkNative`/`S`, `checkMutualCore`/`S`, `checkNested`/`S`); a
+conjunct of `DeclNativeRun`/`DeclMutualRun`/`DeclNestedRun` and of
+`checkNativeTail_inv`/`checkMutualCore_inv`/`checkNested_inv`; and the
+kernel lane's own proof-tier threading (`MutualWF`, `DeclSumEta`,
+`Model/DeclNative`, `Model/DeclBlock`, `BridgeCSDecl`/`AgreeFloor`/
+`PushChain`).  The pinned sha moved twice under this session — a1f42f7b
+→ 65ea6d3a → 3956ed41, the SAME code tree with §K.34's Mathlib figure
+growing — and since the merge was never committed in between, it was
+aborted and redone at the final sha rather than stacked.
+
+**The conflicts: two, both mechanical.**  `DeclBlock.lean` — the `-`
+K.34 appends to the run's `obtain` against M4's extra `g : Bool`
+argument in `hcore`/`htables` (the union: fourteen `_`s AND the new
+binder).  `DESIGN.md` — §K.34 against §U.28–§U.34, resolved by
+chronology, K.34 after §K.33.
+
+**Four adaptations on the lane**, three of them the run relation's new
+conjunct reaching consumers the kernel lane could not see:
+
+1. `declNested_of` (`Model/Inductives/DeclNestedCore.lean`) gains one
+   `-` binder, exactly as it did for K.31 and K.32 — `mp.blocks`
+   already carries the block models of everything the fold has stored,
+   so the model consumes the route's own read-back nowhere yet.
+2. THREE consumers of `checkMutualCore_inv` that M7-2 and M7-3 brought
+   onto the lane after the kernel lane's base — `NestedAuxInv.lean`
+   (twice) and `NestedRecDoor.lean` (once) — take the inversion's last
+   component `htables` positionally, and it is now a conjunction; each
+   destructuring becomes `htables, -⟩`.  Nothing else in the tree reads
+   the inversion's tail.
+3. **The import gate asked for something for the first time since
+   §U.26**, and `containerInfo?`'s move is why: shake proposed deleting
+   `Verify/Inductives/ContainerFrame.lean`'s `public import
+   ConLeche.Kernel.Inductives.NestedParts`, the file's ONLY reason for
+   which was `containerInfo?`.  The criterion run (`--only
+   ConLeche.Kernel.Inductives.NestedParts`) is byte-identical to the
+   `--only ConLeche.NoSuchModule` floor — no compensating addition
+   anywhere — and yet the bare deletion does NOT build (`unknown
+   identifier containerInfo?`): the one-import-view class of §U.21 (f),
+   because `NativeParts` reaches this file's public view only through
+   that re-export.  The answer here is neither deletion nor an
+   allowlist line: the edge is REPOINTED to `public import
+   ConLeche.Kernel.Inductives.NativeParts`, where the constants now
+   live.  It builds, and shake is satisfied — `tests/shake-allowlist.txt`
+   is untouched by this session.  (The file's docstring, which named
+   `NestedParts.lean` as `containerInfo?`'s home, is repointed with it.)
+4. **A rotted anchor, blessed upstream.**  The kernel lane's
+   `overview-links.sh --update` recorded
+   `NativeInstall.lean#L617` as `unless blockReadBackOk envOut p.nP …`:
+   the read-back's own line had slid under the anchor and `def
+   checkNative` had moved to L625, so the gate passed on text that no
+   longer says what OVERVIEW.md's paragraph ("the whole install is one
+   entry") claims.  The anchor is repointed to L625 and the expectation
+   regenerated.  ONE stale reference is left where an integration may
+   not go: `Kernel/Inductives/NestedElim.lean:51` still cites
+   `containerInfo?`, `NestedParts.lean` — a comment in checker code,
+   reported to the kernel lane rather than edited here.
+
+**The chain, re-verified** (`_tmp/uniform-315/chain-probe-u25.lean`,
+outside the build): `declNested_of hμ mp hE (nestedCoreModeled_of
+(nestedCtorsStaged_of (nestedPinsStaged_of (nestedPinsIdent_of hI))
+nestedReadLaw)) htail h : Nonempty (EnvModelM V μ envOut)` still closes
+over exactly `hI : NestedPinsInst V μ F` and `htail :
+NestedTailModeled V μ F` (plus `mp : EnvModelB V μ env`, `hE` and the
+run), and `nestedTailModeled_of hrd heqs hst` still typechecks —
+K.34's conjunct is recorded, not consumed, so the residual after 3c is
+§U.27 (i)'s, unchanged.  `#print axioms` of both: `[propext,
+Classical.choice, Quot.sound]`.
+
+Gates at the merge commit: build warning-free (693 jobs), `lake test`
+warning-free, shake 509 proposed / 509 allowlisted (the allowlist
+untouched) + pub-imports none demotable (36 dot-notation fallbacks,
+1256 of 1974 in-tree edges public), layering 346/264/3/1 with 0
+base→lane and 0 impl→theory, trust surface 13 escapes in 5 allowlisted
+files (625 scanned), no-local-paths, overview-links 112, quote-gate 2,
+proofdeps 4955 rows / 12 roots / 0 doors (unchanged — the conjunct
+moved no module row), nested-shadow 27/27.  **And `tests/arena.sh`,
+the branch's first full arena run since the M4 flip: EXIT 0** — K.34
+fires on the master routes, so this was the run that had to be made.
+No `sorry`, no axioms, no `maxHeartbeats`, no checker code changed on
+the lane.
+
+Cost: well under a session, most of it the two re-merges the moving pin
+cost and the arena run.  Next: L-B's assembly and M7's three named
+facts, as after 3b.
+
 #### K.32 — the copies' recursive targets come from the container's own recursion (2026-09-16, task #315, lane L-B's DESIGN §U.23 (e))
 
 The model's `ordF` arm needs to know that a container-ORDINARY field
@@ -79614,6 +79710,78 @@ K.17's whnf witness, in the one place they still bite.
 READING (an `interp` equality across the β step) and not syntactically.
 It is not a rare corner — 6 of the 27 fixtures and 2 real Mathlib
 containers hit it.
+
+#### K.34 — every install route reads its own block back (2026-09-16, task #315 M7-3, the model lane's DESIGN §U.31 (d))
+
+The model's environment field (`EnvModelB.blocks : EnvBlockModels`) is
+quantified over the READING `containerInfo? env J = some ci`, and
+`ContainerModeled` ties the block model to `ci` at its member names,
+constructor names, `k` and `nP`.  A route that installs a block must
+therefore supply that reading of its OWN output — and no route computed
+it: `containerInfo?` occurred in the kernel at five sites, every one of
+them at a PRE-block environment, at a pin's container.  So the new
+block's `ContainerModeled` was not derivable from the run's stored
+facts.  This is the recomputation that makes it one.
+
+**`blockReadBackOk envOut nP members`** (`Kernel/Inductives/NativeParts.lean`):
+with `want := blockContainerInfo nP members` — the `all`-group in block
+order, the parameter count, each member's level parameters and stored
+type, each constructor by name with its stored type and field count —
+every member's `containerInfo? envOut` is `some want`.  One
+certification-only Bool per route, `.internal` on failure, in BOTH the
+pure and the cached mirror, and a conjunct of all three run relations
+and their inversions:
+
+* `checkNative`/`checkNativeS` → `DeclNativeRun`, `checkNativeTail_inv`;
+* `checkMutualCore`/`checkMutualCoreS` → `DeclMutualRun`,
+  `checkMutualCore_inv`;
+* `checkNested`/`checkNestedS` → `DeclNestedRun`, `checkNested_inv`.
+
+**The cluster moved.**  `containerInfo?` and its data types lived in
+`NestedParts.lean`, which the native and mutual routes cannot import
+(they are BELOW it).  The whole cluster — `ContainerCtor`,
+`ContainerMember`, `ContainerInfo` (now `deriving BEq`),
+`containerMotiveMember?`, `containerMembersGo`, `containerInfo?` — moved
+to `NativeParts.lean`, which all three routes see.  It depends only on
+`Expr.piBinders`/`stripPis`/`piArity`, `quotName` and `Env.find?`, so
+the move is a cut and a paste; nothing else changed.
+
+**It cannot fire**: the route built, and stored, the very records the
+walk reads.  A nested block's mimics are not members — the motive walk
+stops at the first motive that is not a real member's, which is the
+first mimic's — so the nested read-back is the block's own `k`.
+
+**MEASURED, K.25-style** (zero fires everywhere):
+
+* `tests/arena.sh` **EXIT 0** — 138 arena tests, 196 e2e fixtures, 15
+  annot, the trusted and both `--jobs` sweeps.  This is the native and
+  mutual routes' measurement: every inductive block of every fixture
+  goes through one of them.
+* nested-shadow **27/27**; the Mathlib nested cone exit 0, 4 926
+  accepted, its 41 shadow lines byte-identical to the K.32 run.
+* **init-full**: exit 0, 53 093 accepted.
+* **Mathlib** (`--jobs=8`, `ulimit -v 32000000`): exit 0, **654 504
+  accepted — master `c92d4351`'s own count**, measured at the M1–M4
+  landing (the 654 499 of the pre-#315 notes is the opaque-theorems
+  figure of task #258, not this tree's) and CONFIRMED here by running
+  master's own binary on the same stream: 654 504 both, at
+  12 015 482 741 002 instructions:u on the branch against
+  12 015 494 322 963 on master — the branch 0.0001 % BELOW master, i.e.
+  the read-back is under this run's noise at Mathlib scale as well.
+
+**COST.**  On init-full, where the native and mutual routes run on every
+one of 53 093 declarations: **538 110 757 559 against 538 104 476 012
+instructions:u, +0.00117 %** — noise, as expected.  `containerInfo?`
+walks the recursor's motive prefix once per member, which is bounded by
+the block's own size, and the walk is a `stripPis` plus one `find?` per
+member; there is no term traversal in it.  No cheaper equivalent is
+needed.
+
+**Negative control**: `&& false` inside the read-back turns the FIRST
+inductive block of every stream into `internal error: direct rec: the
+installed block does not read back as its own [at inductive And, fold
+position 10]`, and nested-shadow to 0/27 — the check is reached at
+every block of every route.
 
 #### U.28 — M7-1: `PinRecLaws` and `pc` at `nestedBlockModel`; the pins' fibre is a law BELOW THE CARRIER (lane M7-1, 2026-09-16)
 

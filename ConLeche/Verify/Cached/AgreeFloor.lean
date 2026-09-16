@@ -1183,10 +1183,10 @@ theorem checkNativeTailS_skels (mode : CheckMode) {fe : FEnv}
     simpa [ciSkel, sumSkels, hnR, sumRules_map_ctor _ _ _ _ _ _ hlen',
       hctors] using hpush
   -- the projection table at a structure-like block (task #210 Part A)
-  refine Yields.mono (checkNativeTableF_skels hpush' q.p q.ctorsA q.sortss hlenC hlenS) ?_
-  intro fe' h'
-  unfold nativeSkels
-  simpa [sumSkels] using h'
+  refine Yields.bind' (checkNativeTableF_skels hpush' q.p q.ctorsA q.sortss hlenC hlenS)
+    fun fe' h' => ?_
+  yields
+  all_goals (apply Yields.pure; unfold nativeSkels; simpa [sumSkels] using h')
 
 /-- The completed record's skeleton is the recognised one's: the sort
 the former read is not in it. -/
@@ -1656,8 +1656,10 @@ theorem checkMutualCoreS_skels (mode : CheckMode) {fe : FEnv} {sk : List Install
     rwa [hctors] at this
   have h₃ := storeMutualRecsF_skels (consMutualCtorsF b.nP ctorsA fe₁) b fms rulesOf
     cvRas.zipIdx h₂
-  refine Yields.mono (mutualTablesF_skels structWalkersC b ctorsA sortss fms.zipIdx h₃) ?_
-  intro fe' hfe'
+  refine Yields.bind' (mutualTablesF_skels structWalkersC b ctorsA sortss fms.zipIdx h₃)
+    fun fe' hfe' => ?_
+  yields
+  all_goals apply Yields.pure
   -- the recursors' fold, transported to the declared members
   have hrec : cvRas.zipIdx.foldl (fun acc c => mutualRecSkel b c.1.name
         (fms.getD c.2 default).nIdx ((rulesOf.getD c.2 []).map (·.1.cv.name)) :: acc)
