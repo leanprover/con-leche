@@ -34,13 +34,17 @@ as their consumer (DESIGN §U.25 (c)):
   `restoreRecTys`);
 * `heq` — the rules' equations graded at every fitting tuple (the
   member rules' AND the auxiliary rules');
-* `hcand` — the candidate typed at the readings (the kit's bound and
-  step obligations at the extended classes: `kitBT_mem` is proved at
-  a semantic motive typing; `kitStT_mem` needs the pins' minors'
-  readings);
-* `hceq` — every equation at the candidate (`blockRecAtT_eq` per rule,
-  member rules and auxiliary rules alike, the step decoded by the
-  class's injection).
+* `hcand` — the candidate typed at the readings: DISCHARGED in
+  `NestedRecTyped.lean` (`hcandT`, this statement's shape verbatim)
+  from the one readings-facing premise `ReadingFramesT` — the kit's
+  two obligations (`kitBT_mem`/`kitStT_mem` at `MotivesTypedT`/
+  `MinorsTypedT`) at `w ψ ≠ 0`, and `inhabT_all` at a `Prop`-valued
+  block;
+* `hceq` — every equation at the candidate (member rules and
+  auxiliary rules alike); its semantic core is `blockRecAtT_iota`
+  (the class recursor at a constructor's value IS the frame's minor
+  at the fields and the inductive hypotheses), the readings'
+  bookkeeping the stage's.
 
 `nestedRecs_iota` is `blockRecs_iota` (generic in `k`): an equation's
 membership at the tuple is the ι rule at every fitting spine.

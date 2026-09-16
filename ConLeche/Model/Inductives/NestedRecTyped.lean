@@ -8,14 +8,31 @@ public section
 /-!
 # The nested candidate at a frame (task #315, M7 — lane L-D)
 
-`BlockRecTyped.lean`'s twin at `k + nPins` classes: the frame
-decomposition of the extended candidate's leaf.  A fitting spine of
-class `c`'s RESTORED recursor type is `(p⃗, M⃗, m⃗, ı⃗_c, t)` — the
-block's parameters, the `k + nPins` motives (the members' and the
-auxiliary ones), the `nCtorsT` minors in auxiliary order, the class's
-index spine and the major — and the leaf there is the class recursor
-`blockRecAtT` at the frame's motives and minors, at the class's index
-tuple and the major.
+`BlockRecTyped.lean`'s twin at `k + nPins` classes: **`hcand` of
+`nestedRecs`** (`NestedRec.lean`, DESIGN §U.25) and the semantic core
+of `hceq`.
+
+A fitting spine of class `c`'s RESTORED recursor type is
+`(p⃗, M⃗, m⃗, ı⃗_c, t)` — the block's parameters, the `k + nPins`
+motives (the members' and the auxiliary ones), the `nCtorsT` minors in
+auxiliary order, the class's index spine and the major — and the leaf
+there is the class recursor `blockRecAtT` at the frame's motives and
+minors, at the class's index tuple and the major (`blockLeafVT_at`).
+`ReadingFramesT` is that decomposition, the frame's two semantic
+typings (`MotivesTypedT`/`MinorsTypedT`) and the conclusion's reading,
+in one predicate: the ONLY readings-facing premise of
+`blockCandT_mem`, which types the candidate at its reading — at
+`w ψ ≠ 0` by the kit (`blockRecAtT_mem_B`), at a `Prop`-valued block
+by `inhabT_all` (every class's motive at every value is an inhabited
+truth value, the classes' induction at the frame's minors and the
+point).  `hcandT` is `nestedRecs`'s `hcand` verbatim.
+
+`blockRecAtT_iota` is the ι rule at the candidate — a member's rule
+and an AUXILIARY one alike: at a value built by class `c`'s
+constructor `j` at a fitting field spine the class recursor IS the
+frame's minor `minorIdxT c j` folded along the fields and the
+inductive hypotheses.  What `hceq` still needs of the readings is
+their bookkeeping (DESIGN §U.25 (e) 3).
 -/
 
 namespace ConLeche.Model
@@ -271,5 +288,82 @@ theorem IsBlockModel.hcandT {env : Env} {m : EnvModel V env} {T : Name} {cvT cvR
       d.blockCandT pc ψ (ℓ ψ) (rdsM c ψ) c ρ ∈ˢ interp V ρ (mkPisAV (rdsM c ψ) (concM c)) :=
   fun ψ ρ c hc =>
     h.blockCandT_mem hreps hp (hwℓ ψ) hc (hne c ψ hc) (hbits c ψ hc) (hfr ψ ρ c hc)
+
+/-! ## The ι rule at the candidate -/
+
+/-- **A fitting spine's value is in its class's carrier**: at the
+carrier's extended tuple, class `c`'s constructor `j` at a fit lands in
+the class's family — a member's by the fixed-point equation and the
+block model's `fibre`, a pin's by `PinRecLaws.fibre`. -/
+theorem IsBlockModels.injT_mem_famAt {env : Env} {m : EnvModel V env} {d : BlockModel V}
+    (hreps : IsBlockModels m d) {pc : Nat → PinCtors V} (hp : PinRecLaws m d pc) {ψ : Name → Nat} {ρp : Nat → V}
+    (hρp : Sat V (d.params ψ).reverse ρp) {c : Nat} (hc : c < d.kT) {t : V}
+    (ht : t ∈ˢ d.idxT ψ ρp c) {j : Nat} (hj : j < (d.ctorsT pc c).length) {fs : List V}
+    (hfit : d.ChainFitT pc ψ ρp (d.famAt ψ ρp (lfpTuple (d.w ψ) d.k (d.idx ψ ρp) (d.Φ ψ ρp)))
+      t c j fs) :
+    d.injT pc ψ c j fs
+      ∈ˢ app (d.famAt ψ ρp (lfpTuple (d.w ψ) d.k (d.idx ψ ρp) (d.Φ ψ ρp)) c) t := by
+  by_cases hck : c < d.k
+  · obtain ⟨cvT', cvR', mI', rP', rules', h'⟩ := hreps c hck
+    rw [d.idxT_of_mem hck] at ht
+    rw [d.famAt_of_mem hck, ← h'.carrier_app_eq hρp hck ht, BlockModel.injT_of_mem hck]
+    refine (h'.fibre ψ ρp hρp _ (lfpTuple_mem _ _ _ _) c hck t ht _).mpr ⟨j, fs, ?_, ?_, rfl⟩
+    · rw [BlockModel.ctorsT_of_mem hck] at hj; exact hj
+    · exact d.chainFit_of_chainFitT pc hck hfit
+  · have hq : c - d.k < d.nPins := by unfold BlockModel.kT at hc; omega
+    rw [d.idxT_of_pin hck] at ht
+    rw [d.famAt_of_pin hck, BlockModel.injT_of_pin hck]
+    refine (hp.fibre ψ ρp hρp _ (lfpTuple_mem _ _ _ _) _ hq t ht _).mpr ⟨j, fs, ?_, ?_, rfl⟩
+    · rw [BlockModel.ctorsT_of_pin hck] at hj; exact hj
+    · rw [Nat.add_sub_cancel' (Nat.le_of_not_lt hck)]; exact hfit
+
+/-- **THE ι RULE AT THE CANDIDATE, SEMANTICALLY** — the heart of
+`hceq` (DESIGN §U.25 (c)), at a member's rule and an AUXILIARY one
+alike: at a value built by class `c`'s constructor `j` at a fitting
+field spine, the class recursor is the frame's minor
+(`minorIdxT c j`, the auxiliary order) folded along the fields and the
+inductive hypotheses.  The recursion equation (`blockRecAtT_eq` at the
+kit's two obligations) with the step's decode identified with the
+decomposition (`kitStT_tagged` and the class's `mkInj`). -/
+theorem IsBlockModel.blockRecAtT_iota {env : Env} {m : EnvModel V env} {T : Name}
+    {cvT cvR : ConstantVal} {mI rP : Nat} {rules : List RecRule} {d : BlockModel V} {mm : Nat}
+    (h : IsBlockModel m T cvT cvR mI rP rules d mm) (hreps : IsBlockModels m d)
+    {pc : Nat → PinCtors V} (hp : PinRecLaws m d pc) {ψ : Name → Nat} {ρp : Nat → V}
+    (hρp : Sat V (d.params ψ).reverse ρp) (hw : d.w ψ ≠ 0) {ℓ : Nat} {Ms ms : Nat → V}
+    (hMs : d.MotivesTypedT ψ ρp ℓ Ms) (hms : d.MinorsTypedT pc ψ ρp ℓ Ms ms) {c : Nat}
+    (hc : c < d.kT) {t : V} (ht : t ∈ˢ d.idxT ψ ρp c) {j : Nat} (hj : j < (d.ctorsT pc c).length)
+    {fs : List V}
+    (hfit : d.ChainFitT pc ψ ρp (d.famAt ψ ρp (lfpTuple (d.w ψ) d.k (d.idx ψ ρp) (d.Φ ψ ρp)))
+      t c j fs) :
+    d.blockRecAtT pc ψ ρp ℓ Ms ms c t (d.injT pc ψ c j fs)
+      = (fs ++ d.kitIhsT pc ψ ρp ℓ c j fs
+          (graph (fun v => recSel (recGraph ℓ (d.unionT ψ ρp) (d.kitPredT pc ψ ρp) (d.kitBT ψ Ms)
+              (d.kitStT pc ψ ρp ℓ ms)) v)
+            (d.kitPredT pc ψ ρp (tagged c t (d.injT pc ψ c j fs))))).foldl
+          app (ms (d.minorIdxT pc c j)) := by
+  have hx := hreps.injT_mem_famAt hp hρp hc ht hj hfit
+  have hB := h.kitBT_mem hreps hp hρp hMs
+  have hst := h.kitStT_mem hreps hp hρp hw hB hms
+  rw [h.blockRecAtT_eq hp hρp hw hB hst hc ht hx]
+  have hlenfs : fs.length = ((d.FssT pc ψ c).getD j []).length := hfit.1.length_eq
+  have hdec : d.DecodesT pc ψ c (d.injT pc ψ c j fs) := ⟨j, fs, hj, hlenfs, rfl⟩
+  obtain ⟨j', fs', hj', hlen', hx', heq⟩ := d.kitStT_tagged pc ψ ρp ℓ ms
+    (graph (fun v => recSel (recGraph ℓ (d.unionT ψ ρp) (d.kitPredT pc ψ ρp) (d.kitBT ψ Ms)
+        (d.kitStT pc ψ ρp ℓ ms)) v)
+      (d.kitPredT pc ψ ρp (tagged c t (d.injT pc ψ c j fs)))) hdec
+  rw [heq]
+  have hjfs : j = j' ∧ fs = fs' := by
+    by_cases hck : c < d.k
+    · rw [BlockModel.injT_of_mem hck] at hx'
+      rw [BlockModel.ctorsT_of_mem hck] at hj hj'
+      rw [BlockModel.FssT_of_mem hck] at hlenfs hlen'
+      exact h.mkInj ψ hw c hck j fs j' fs' hj hj' hlenfs hlen' hx'
+    · have hq : c - d.k < d.nPins := by unfold BlockModel.kT at hc; omega
+      rw [BlockModel.injT_of_pin hck] at hx'
+      rw [BlockModel.ctorsT_of_pin hck] at hj hj'
+      rw [BlockModel.FssT_of_pin hck] at hlenfs hlen'
+      exact hp.mkInj ψ hw _ hq j fs j' fs' hj hj' hlenfs hlen' hx'
+  obtain ⟨rfl, rfl⟩ := hjfs
+  rfl
 
 end ConLeche.Model

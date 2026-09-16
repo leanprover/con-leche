@@ -69,8 +69,24 @@ element of the extended union at the carrier is accessible along
 `kitPredT`: the members by `lfpTuple_induction`, the pins by
 `PinRecLaws.ind` at the separated tuple and at the carrier), the class
 kit `nestedKitC` and its two laws `blockRecAtT_mem_B`/`blockRecAtT_eq`
-under the bound's and the step's obligations, and the bound's
-obligation `kitBT_mem` at a semantic motive typing.
+under the bound's and the step's obligations, and **both obligations**
+— `kitBT_mem` and `kitStT_mem` — at the two SEMANTIC premises named
+here, `MotivesTypedT` (the frame's motives typed at a fitting index
+spine and a value of the class's carrier) and `MinorsTypedT` (the
+frame's minors typed at a fit and any choice of the inductive
+hypotheses in their domains, the TARGET CLASS's motive at the call's
+TUPLE): the index fits stay on the readings' side, outside the kit.
+
+**The induction over the classes** (`ClassStep`, `classInd_all`): a
+property closed under every class's constructors — the step read at
+the CARRIER's extended tuple, with the recursive fields' values along
+their telescopes as the inductive hypotheses, no separation in sight —
+holds of every value of the extended tuple.  Its two halves are
+`pinsInd_of` (the pins' leastness `PinRecLaws.ind` at a tuple whose
+member values carry the property) and `memInd_all` (the block's
+`lfpTuple_induction`, with the pins at the separated tuple); it is
+what the value-level obligations of the stage take (`inhabT_all`,
+`NestedRecTyped.lean`).
 -/
 
 namespace ConLeche.Model
@@ -558,6 +574,21 @@ theorem BlockModel.chainFitT_of_chainFit (d : BlockModel V) (pc : Nat → PinCto
     exact BlockModel.slotAtT_of_mem hc ψ ρp X j l
       (by rw [List.length_take, hfit.length_eq]; exact Nat.min_eq_left (Nat.le_of_lt hl))
   · rw [BlockModel.IdsT_of_mem hc, BlockModel.EssT_of_mem hc]
+    exact hidx
+
+/-- **The converse at a member**: a fit over the extended tuple at `X`
+is the member's fit at `X` (the slots agree at a member's fields —
+`slotAtT_of_mem` — and `congr_slot` is an iff). -/
+theorem BlockModel.chainFit_of_chainFitT (d : BlockModel V) (pc : Nat → PinCtors V) {ψ : Name → Nat}
+    {ρp : Nat → V} {X : Nat → V} {t : V} {c j : Nat} (hc : c < d.k) {fs : List V}
+    (hf : d.ChainFitT pc ψ ρp (d.famAt ψ ρp X) t c j fs) : d.ChainFit ψ ρp X t c j fs := by
+  obtain ⟨hfit, hidx⟩ := hf
+  rw [BlockModel.rssT_of_mem hc, BlockModel.FssT_of_mem hc] at hfit
+  refine ⟨(FitsFrom.congr_slot (Fs := (d.Fss c ψ).getD j []) (fun l hl => ?_)).mp hfit, ?_⟩
+  · rw [Nat.zero_add]
+    exact BlockModel.slotAtT_of_mem hc ψ ρp X j l
+      (by rw [List.length_take, hfit.length_eq]; exact Nat.min_eq_left (Nat.le_of_lt hl))
+  · rw [BlockModel.IdsT_of_mem hc, BlockModel.EssT_of_mem hc] at hidx
     exact hidx
 
 namespace IsBlockModel
