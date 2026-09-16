@@ -80021,6 +80021,170 @@ impl→theory; trust surface 13 escapes in 5 allowlisted files (619
 scanned); no-local-paths OK; overview-links 112; quote-gate 2;
 proofdeps 4955 rows / 12 roots / 0 doors.
 
+##### (g) THE PAPER PLAN — route T, verdict EXECUTION, 11–12 sessions (continuation 2, after the maintainer's plan-first instruction)
+
+The maintainer asked for a PLAN BEFORE MORE EXECUTION for the whole
+recursors' stage; it is `_tmp/uniform-m7read/PLAN-M7.md` (606 lines:
+given / to produce / argument with the bridges IN TREE / MISSING sized /
+SUSPECT with a refuting fixture / anticipated gaps / verdict).  The
+decisions it records, in force from here:
+
+1. **§U.21b's per-arm kit is NOT reusable at the recursor type.**  Its
+   arms classify a constructor's field domains as ORDINARY (auxiliary-free)
+   or PIN-HEADED; a recursor type's motive and minor binders are neither
+   (a motive is a Π over the copy's index telescope INTO a sort, a minor a
+   Π over the fields and the ih towers into the motive at the constructor
+   spine).  Its SEMANTIC half is reusable: `nt_denoteMeta_transfer`,
+   `nt_denoteMeta_restoredPin`, `nestedIdent_of`.
+2. **Route T over route S.**  Instead of the syntactic twin
+   `nestedRecDataAV`/`denoteMeta_nestedRecTy` + the `kT` twins of
+   `BlockRecTyped.lean` (route S, 2b + 2c), ONE semantic reading law of the
+   WALK: at a term of the shape `AuxAppsOk`, the restored term (opened at
+   the parameter and depth openers) interprets like the auxiliary one at
+   every graded frame whose parameter slots fit.  The frames then come by
+   TRANSFER from the mutual kit at the scratch block model `dAux =
+   mutualBlockModel` (`spineFit_recData_inv`, `motive_app_mem`,
+   `minor_fold_mem`, `eis_fit` verbatim — `dAux.pins = []`), so 2c's twins
+   are not needed; route T is ~3 sessions cheaper on the readings and its
+   two products (the walk law and the copy-constructor agreement) are
+   consumed again by item 5's rule readings and fire law.
+3. **K.34 `nestedAuxAppsOk`** (kernel record, CANNOT FIRE, requested from
+   the kernel lane; the exact Bool is in PLAN §1a): in every read-back
+   recursor type and rule, every application headed by a `pins` key or a
+   `ctorPins` key has exactly `nP + arity` arguments whose first `nP` are
+   `structPsAt d nP`.  The restore RELIES on it (`restoreNode` drops the
+   first `nP` arguments); the model consumes the same invariant at the pin
+   occurrences.  Until it lands, `AuxAppsOk` is a HYPOTHESIS of the walk
+   law, stated exactly as the record's Bool (so the conjunct slots in).
+   Alternative without a record: a Verify inversion of `mutualRecTy`/
+   `mutualRecRhs` (1½–2 sessions, syntactic).
+4. Sizing from 0cbf1d9d: K.34 ½ (kernel) · T1 walk law 1½ · T2
+   `nestedCtorIdent_of` 1 · 1d scratch reading ½ · 1e frames (2b′+2d) 2 ·
+   item 3 `hceq` 1 · item 4 `heq` ½ · item 5 stage 4–5 (the provision at
+   `provisionNestedRecs`' restatement, the rule law's `.plain` twin + an
+   auxiliary `.nested` fire law via `nestedFireShape_inv`, `restoreRules_at`,
+   the swap port, `PinRecLaws.crossEnv`, the tables' twin) = **11–12
+   sessions**; the readings 5–5½ of them.  **VERDICT: EXECUTION** — no
+   design gap; the one SUSPECT (T2 through K.33's `ordF` arm at the
+   reading) has a fixture (`nested_p02`/`P2D`) and no refutation.
+
+##### (h) DONE IN THIS CONTINUATION — T1, the walk's reading law, PROVED
+
+*The pins' components' readings exported* (57f8621d): the tail had `DsE`
+(the syntactic components) but no link to `Ds` (their readings).
+`NestedLoopFacts` and `NestedStageFacts` gain
+
+```lean
+  pinDs : ∀ q, q < pinsS.length → ∀ ψ : Name → Nat,
+    DenoteMetaSpine mp₂.base2.acval ENV₂ ψ b.nP (pinsS.getD q default).DsE
+      ((pinsS.getD q default).Ds ψ)
+```
+
+(`DenoteMetaSpine.transfer` along the loop's `hde₂`).
+
+*The shape and the inversions* (`Verify/Inductives/NestedRecWalk.lean`,
+335, 1a6785c1): `inductive AuxAppsOk R lps arityOf : Nat → Expr → Prop`
+(the model's face of K.34: `key` at `nP + ar` arguments whose prefix is
+`structPsAt d R.nP`, `app` off the keys, `lam`/`forallE` at `d + 1`,
+`const` off the keys and either non-auxiliary or in `recMap`, `bvar`,
+`sort`, `fvar`; no literal, projection or let), `RestoreTbl.IsKey`,
+`restoreWalk_lam_inv`/`_app_inv`/`_const_rec`/`_const_free`/`_ctorPin`,
+`restoreNested_lams` (the λ-prefix rebuilt), `AuxAppsOk.key_inv`,
+`map_instSeq_structPsAt_prefix`.
+
+*The openers, the leaf agreements and the law* (`Model/Inductives/
+NestedRecWalk.lean`, 656, 54de7f3f + d2e4198b): `OpenersFrom fvs k₀ n`
+(the openers at fvar indices `k₀ …`, with `.closed`/`.snoc`/`.append`),
+`instSeq_bvar_cases`, `instSeq_fvar_idx`; `structure RestoreAgree R lps
+arityOf acvalA acvalR envA envR φ nP params` — the walk's LEAF
+agreements: off the keys the two environments answer alike with agreeing
+values (`leafSome`/`leafNone`/`leaf`), the auxiliary names are fresh at
+the restored environment (`auxFresh`), the recursor map renames with
+agreeing values (`recKey`/`recNone`), a key is not in the map, and the two
+key arms — `pin`: the pin is bounded at `nP`, the copy is a constant of
+the scratch environment at `lps` with `arityOf = nIdx`, the pin opened at
+the parameters reads at depth `nP + d` to `mkAppN (acvalR J ψJ) (Ds.map
+(liftN d 0))`, and at every graded frame whose parameter slots fit, that
+at index readings `Es` interprets like the COPY at the parameter
+variables `paramBvarsAt nP (nP + d) ++ Es` (this is `nestedIdent_of`'s
+shape); `ctor`: the same for a constructor pin with `newName`/`ilvls`
+and field readings `Fs` (T2's shape, `nestedCtorIdent_of`, still open).
+`denoteMeta_congr_auxFree` (an auxiliary-free term reads alike at the two
+carriers, opened at fvars), `constsResolve_mkAppN_args`,
+`paramBvarsAt_eq_range`, `DenoteMetaSpine.congr_envs`, and
+
+```lean
+theorem denoteMeta_restoreWalk :
+    ∀ {d : Nat} {e : Expr}, AuxAppsOk R lps arityOf d e →
+      ∀ {e' : Expr}, ConLeche.restoreWalk R d e = .ok e' → e'.constsResolve envR = true →
+      ∀ {fvsP fvs : List Expr}, OpenersFrom fvsP 0 nP → OpenersFrom fvs nP d →
+      ∀ {A A' : AnnotTerm},
+        denoteMeta acvalA envA φ (nP + d) (Expr.instSeq (fvsP ++ fvs) (nP + d - 1) e) = some A →
+        denoteMeta acvalR envR φ (nP + d) (Expr.instSeq (fvsP ++ fvs) (nP + d - 1) e') = some A' →
+        ∀ (as xs : List V) (ρ₀ : Nat → V), SpineFit ρ₀ params as → xs.length = d →
+          WellDenoted V (consList xs (consList as ρ₀)) A' →
+          interp V (consList xs (consList as ρ₀)) A' = interp V (consList xs (consList as ρ₀)) A
+```
+
+— PROVED in all eight cases (induction on the shape; the key heads by
+`RestoreAgree.pin`/`.ctor` with the unvisited arguments read alike; the
+binders by `piR_congr`/`lamR_congr` under `WellDenoted_pi`/`_lam`'s
+clauses at the extended frame; the constants by the leaf agreements).
+`#print axioms`: `[propext, Classical.choice, Quot.sound]`.  The
+WellDenoted guard is on the RESTORED side only — the frames of the stage
+are stated at the restored readings, and the auxiliary side needs no
+guard because the agreement is proved at the restored one's elements.
+
+Also: `NestedCoreOut` gained `kindsRun` (the kinds' classification run, so
+the door's kinds identify with the tail's by determinism).
+
+Consumer status (consumer-first): the walk law's consumer is the frames'
+transfer (1e), on this branch next; `RestoreAgree` is instantiated at
+`mp₂.base2`/ENV₂ vs the scratch model there (pin arm from `nestedIdent_of`
++ `pinDs` + `nt_denoteMeta_restoredPin`; ctor arm = T2).
+
+Remaining from HEAD (PLAN §6 order): T2 `nestedCtorIdent_of` 1 · 1d ½ ·
+1e 2 · items 3–4 1½ · item 5 4–5 · K.34 ½ on the kernel lane = **9½–10½
+sessions**.
+
+##### (i) LEAN TRAPS (continuation 2)
+
+* A structure field named `nP` SHADOWS the parameter `nP` inside the later
+  fields' types (→ `nPEq`); a field named `rec` clashes with the
+  auto-generated recursor (→ `recKey`).
+* `rename_i` after `induction … with` picks binders in an order that
+  changes with the constructor's implicit arguments — name them at the
+  case: `| @key _ n args _ hkey …`.
+* `simp only [Option.bind_some]` makes no progress on a `bind` that is
+  the `Monad` instance's — `simp only [bind, Option.bind]`.
+* `rw [h]` under a `match` on the rewritten term fails — `show (if … then
+  … else …) = …` first, then rewrite.
+* `subst` on `fvsP ++ fvs = []` fails (not a variable) — case-split and
+  `rw [hnil]`.
+* `obtain rfl := DenoteMetaSpine.unique h₁ h₂` eliminates the SECOND
+  spine's variable; when it is the one the goal mentions, `.symm`.
+* The four `#223`-criterion import removals shake asked for on the two new
+  files compile (`NestedRestoreKit` in the Verify file; `NestedRecTypes`
+  (was `public`), `NestedTransfer`, `CapsRows` in the Model file) — applied.
+
+##### (j) FILES AND GATES (continuation 2)
+
+New: `ConLeche/Verify/Inductives/NestedRecWalk.lean` (335),
+`ConLeche/Model/Inductives/NestedRecWalk.lean` (656),
+`_tmp/uniform-m7read/PLAN-M7.md` (untracked, `_tmp/`), the subagent specs
+`spec-door.md`/`spec-walk.md`.  Touched: `NestedCore.lean` (+`pinDs` in
+`NestedLoopFacts`/`NestedStageFacts`, +`DenoteMetaSpine.transfer`),
+`NestedLoop.lean` (+1 line), `DeclNestedCore.lean` (+`kindsRun`),
+`ConLeche/Model.lean` (+1).
+
+Gates at e198512a: `lake build` 695 jobs warning-free; `lake test`
+warning-free EXIT 0; shake 509 removals all allowlisted / pub-imports
+1260 of 1988 public, none demotable (36 dot-notation fallbacks);
+layering base 347 / model 265 / caps 3 / umbrella 1, 0 base→lane, 0
+impl→theory; trust surface 13 escapes in 5 allowlisted files (627
+scanned); no-local-paths OK; overview-links 112; quote-gate 2;
+proofdeps 4955 rows / 12 roots / 0 doors.
+
 #### U.30 — L-B session 2: `CopyCtorInst.ordF` at the READING, the normalisation's reading law PROVED, `ContainerModeled`'s three clauses (lane L-B, 2026-09-16)
 
 Three maintainer rulings opened this session; the first two are landed,
