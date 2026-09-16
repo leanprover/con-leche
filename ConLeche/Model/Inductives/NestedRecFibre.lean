@@ -262,6 +262,167 @@ theorem NestedTailIn.pinCarAt {q₀ kJ i : Nat} {dJ : BlockModel V}
   rw [← hleaf, hclosed, hPL, hpc, hu]
   rfl
 
+/-! ## F5 — the scratch block's recursive slots are the composed slots -/
+
+/-- **The composed tuple's pin components ARE the container's own least
+tuple**, over the WHOLE group at the representative's level assignment
+and components (`ofNested_pin_block_of_inst` is stated for every
+component `i''` of the group at the ONE `ψJ`/`Ds` the representative
+fixes) — F5's in-group step. -/
+theorem NestedTailIn.pinSegAt {q₀ kJ i : Nat} {dJ : BlockModel V}
+    (G : PG mp₂.base2 q₀ kJ dJ) (hi : i < kJ)
+    (ψ : Name → Nat) (ρ : Nat → V) (as : List V) (hsp : SpineFit ρ ((D).params ψ) as)
+    {i'' : Nat} (hi'' : i'' < kJ) :
+    (Lcomp ψ (consList as ρ)) (p.k + q₀ + i'')
+      = lfpTuple (dJ.w (((D).pinAt (q₀ + i)).ψJ ψ)) dJ.k
+          (dJ.idx (((D).pinAt (q₀ + i)).ψJ ψ)
+            (consList ((((D).pinAt (q₀ + i)).Ds ψ).map (interp V (consList as ρ)))
+              (consList as ρ)))
+          (dJ.Φ (((D).pinAt (q₀ + i)).ψJ ψ)
+            (consList ((((D).pinAt (q₀ + i)).Ds ψ).map (interp V (consList as ρ)))
+              (consList as ρ))) i'' := by
+  have h := I.out.facts
+  have hq : q₀ + i'' < pinsS.length := by have := G.seg; omega
+  have hρp : Sat V ((D).params ψ).reverse (consList as ρ) := (D).satOfSpine hsp
+  have hρp' : Sat V (((ppsF 0 ψ).take b.nP).map (·.2.2)).reverse (consList as ρ) := hρp
+  have hOk' := nestedLfpOk_of_formers h I.hμ I.out.bk ψ (consList as ρ) hρp'
+    (nestedPinBound_of mp₂.base2 I.out.stage.groups ψ _ hρp)
+  have hpb : (D).pinCar ψ (consList as ρ)
+        (lfpTuple ((D).w ψ) (D).k ((D).idx ψ (consList as ρ)) ((D).Φ ψ (consList as ρ)))
+        (q₀ + i'')
+      = lfpTuple (dJ.w (((D).pinAt (q₀ + i)).ψJ ψ)) dJ.k
+          (dJ.idx (((D).pinAt (q₀ + i)).ψJ ψ)
+            (consList ((((D).pinAt (q₀ + i)).Ds ψ).map (interp V (consList as ρ)))
+              (consList as ρ)))
+          (dJ.Φ (((D).pinAt (q₀ + i)).ψJ ψ)
+            (consList ((((D).pinAt (q₀ + i)).Ds ψ).map (interp V (consList as ρ)))
+              (consList as ρ))) i'' :=
+    ofNested_pin_block_of_inst hOk' (nestedShape_of_formers h I.out.bk ψ) G.seg
+    G.reps (G.typed _) (G.pinsTyped _) G.kEq (G.w i hi ψ) (nestedU_pin_group mp₂.base2 G hi ψ)
+    (G.inj _) (dJ.satOfSpine (G.DsFit i hi ψ ρ as hsp)) (G.idx i hi ψ)
+    (fun i' hi' j => G.grp I.out.grouped h.lenA ψ hi' j) (G.inst i hi ψ _ hρp) hi''
+  have hpc : (D).pinCar ψ (consList as ρ)
+        (lfpTuple ((D).w ψ) (D).k ((D).idx ψ (consList as ρ)) ((D).Φ ψ (consList as ρ)))
+        (q₀ + i'')
+      = lfpTuple ((D).w ψ) (p.k + pinsS.length) ((D).idx ψ (consList as ρ))
+          (ΨN ψ (consList as ρ)) (p.k + q₀ + i'') := by
+    rw [show p.k + q₀ + i'' = p.k + (q₀ + i'') from Nat.add_assoc _ _ _]
+    exact ofNested_pinCar_lfp hOk' hq
+  exact hpc.symm.trans hpb
+
+/-- **THE SCRATCH BLOCK'S RECURSIVE SLOTS ARE THE COMPOSED SLOTS** of
+`CopyCtorInst.fit_iff_at`: the auxiliary block's slot at ITS least
+tuple is the copy's slot at the tuple `segJoin`ed from the composed
+least tuple and the container's own — the two families agree at every
+index spine the slot ever reads (`slotSet_congr_app`, the index
+readings' fits `IsBlockModels.rec_eis_fit`/`refl_eis_fit` at the
+scratch block), by the fibre identity `fibreAt` at a target outside
+the group and by `pinSegAt` at a target inside it. -/
+theorem NestedTailIn.slotAt_aux {mpA : EnvModelM V μ
+      (ConLeche.consMutualCtors b.nP ctorsA (ConLeche.consMutualFormers fms env))}
+    {cvRas : List ConstantVal}
+    (S : NestedScratchOut F env b fms f₀ ctorsA kinds mp₁ ppsF W idxF dsF esF srcsF fvsPF xFvsF
+      xrestF eissF tssF stored mpA cvRas)
+    {q₀ kJ i : Nat} {dJ : BlockModel V} (G : PG mp₂.base2 q₀ kJ dJ) (hi : i < kJ)
+    (ψ : Name → Nat) (ρ : Nat → V) (as : List V) (hsp : SpineFit ρ ((D).params ψ) as)
+    {j : Nat} {cA : ConstantVal × Nat} (hj : ((DA).ctorsM (p.k + q₀ + i))[j]? = some cA)
+    {i' : Nat} (hi' : i' < cA.2)
+    (hr : (rsOf ((DA).ksF (p.k + q₀ + i) j)).getD i' false = true)
+    {fs' : List V}
+    (hfs' : SpineFit (consList as ρ) ((((DA).Fss (p.k + q₀ + i) ψ).getD j []).take i') fs') :
+    (DA).slotAt ψ (Laux ψ (consList as ρ)) (p.k + q₀ + i) j i'
+        (consList fs' (consList as ρ))
+      = slotSet (f₀.s.eval ψ)
+          (nestedU p.k W pinsS ψ
+            (((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+                (b.ownOffset (p.k + q₀ + i) + j) []).getD i' 0))
+          (consList fs' (consList as ρ))
+          (((mutTlss ctorsA.length tssF ψ).getD (b.ownOffset (p.k + q₀ + i) + j) []).getD i' [])
+          (((mutEiss0 ctorsA.length eissF ψ).getD (b.ownOffset (p.k + q₀ + i) + j) []).getD i' [])
+          (segJoin (p.k + q₀) kJ (Lcomp ψ (consList as ρ))
+            (lfpTuple (dJ.w (((D).pinAt (q₀ + i)).ψJ ψ)) dJ.k
+              (dJ.idx (((D).pinAt (q₀ + i)).ψJ ψ)
+                (consList ((((D).pinAt (q₀ + i)).Ds ψ).map (interp V (consList as ρ)))
+                  (consList as ρ)))
+              (dJ.Φ (((D).pinAt (q₀ + i)).ψJ ψ)
+                (consList ((((D).pinAt (q₀ + i)).Ds ψ).map (interp V (consList as ρ)))
+                  (consList as ρ))))
+            (((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+                (b.ownOffset (p.k + q₀ + i) + j) []).getD i' 0)) := by
+  have h := I.out.facts
+  have hc : p.k + q₀ + i < b.k := by have := G.seg; rw [I.out.bk]; omega
+  have hρp : Sat V ((D).params ψ).reverse (consList as ρ) := (D).satOfSpine hsp
+  have hρpA : Sat V ((DA).params ψ).reverse (consList as ρ) := hρp
+  obtain ⟨cvT, cvR, mI, rP, rules, hIA⟩ := S.reps (p.k + q₀ + i) hc
+  have hjl : j < ((DA).ctorsM (p.k + q₀ + i)).length := (List.getElem?_eq_some_iff.mp hj).1
+  have hcd := hIA.ctorData hj
+  have hiK : i' < ((DA).ksF (p.k + q₀ + i) j).length := by rw [hcd.ksLen]; exact hi'
+  have htgt : (DA).tgts (p.k + q₀ + i) j i' < b.k := hIA.tgt_lt hjl hiK rfl
+  obtain ⟨hJl, hcAg, -⟩ := mutualBlockModel_ctorsM_get I.out.grouped h.lenA hj
+  have hnf : mutNFOf ctorsA (b.ownOffset (p.k + q₀ + i) + j) = cA.2 := by
+    show (ctorsA.getD (b.ownOffset (p.k + q₀ + i) + j) default).2 = cA.2
+    rw [List.getD_eq_getElem?_getD, hcAg]
+    rfl
+  -- the three table entries: the block model's and the global lists' agree
+  have hTG : ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+      (b.ownOffset (p.k + q₀ + i) + j) []).getD i' 0 = (DA).tgts (p.k + q₀ + i) j i' :=
+    mutTgts_getD hJl (by rw [hnf]; exact hi')
+  have hTL : ((mutTlss ctorsA.length tssF ψ).getD (b.ownOffset (p.k + q₀ + i) + j) []).getD i' []
+      = (((DA).tlss (p.k + q₀ + i) ψ).getD j []).getD i' [] := by
+    rw [mutTlss_getD hJl, IsBlockModel.tlss_getD hj]
+    rfl
+  have hEI : ((mutEiss0 ctorsA.length eissF ψ).getD (b.ownOffset (p.k + q₀ + i) + j) []).getD i' []
+      = (((DA).Eiss (p.k + q₀ + i) ψ).getD j []).getD i' [] := by
+    rw [mutEiss0_getD hJl, IsBlockModel.Eiss_getD hj]
+    rfl
+  -- the kind of the slot
+  have hk : ((DA).ksF (p.k + q₀ + i) j).getD i' .ordinary = .recursive ∨
+      ((DA).ksF (p.k + q₀ + i) j).getD i' .ordinary = .reflexive := by
+    unfold rsOf at hr
+    rw [List.getD_eq_getElem?_getD, List.getElem?_map, List.getElem?_eq_getElem hiK,
+      Option.map_some, Option.getD_some, decide_eq_true_iff] at hr
+    rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hiK]
+    exact hr
+  -- the target's family, at the scratch tuple and at the composed one
+  have key : ∀ tg : Nat, tg < b.k → ∀ eis : List V,
+      SpineFit (consList as ρ) (blockIds b.nP ppsF ψ tg) eis →
+      SetTheory.app ((Laux ψ (consList as ρ)) tg) (tupW (W ψ) eis)
+        = SetTheory.app
+            (segJoin (p.k + q₀) kJ (Lcomp ψ (consList as ρ))
+              (lfpTuple (dJ.w (((D).pinAt (q₀ + i)).ψJ ψ)) dJ.k
+                (dJ.idx (((D).pinAt (q₀ + i)).ψJ ψ)
+                  (consList ((((D).pinAt (q₀ + i)).Ds ψ).map (interp V (consList as ρ)))
+                    (consList as ρ)))
+                (dJ.Φ (((D).pinAt (q₀ + i)).ψJ ψ)
+                  (consList ((((D).pinAt (q₀ + i)).Ds ψ).map (interp V (consList as ρ)))
+                    (consList as ρ)))) tg)
+            (tupW (nestedU p.k W pinsS ψ tg) eis) := by
+    intro tg htg eis heis
+    rw [I.fibreAt ψ ρ as hsp htg eis heis]
+    by_cases hin : p.k + q₀ ≤ tg ∧ tg < p.k + q₀ + kJ
+    · obtain ⟨i'', htg', hi''⟩ : ∃ i'', tg = p.k + q₀ + i'' ∧ i'' < kJ :=
+        ⟨tg - (p.k + q₀), by omega, by omega⟩
+      subst htg'
+      rw [segJoin_add _ _ hi'', ← I.pinSegAt G hi ψ ρ as hsp hi'']
+    · rw [segJoin_out _ _ hin]
+  -- the slot, at a MEMBER target of the scratch block
+  rw [hTG, hTL, hEI, (DA).slotAt_of_mem htgt]
+  refine slotSet_congr_app fun bs hbs => ?_
+  refine key ((DA).tgts (p.k + q₀ + i) j i') htgt _ ?_
+  rcases hk with hk | hk
+  · -- a finitary recursive field: the telescope is empty, the spine is
+    have htn : ((DA).tssF (p.k + q₀ + i) j ψ).getD i' [] = [] :=
+      hcd.tssNone ψ i' (by rw [hk]; exact fun hh => nomatch hh)
+    rw [IsBlockModel.tlss_getD hj, htn] at hbs
+    cases bs with
+    | nil =>
+      rw [IsBlockModel.Eiss_getD hj]
+      exact S.reps.rec_eis_fit (S.typed ψ).1 hc hj hρpA hi' htgt hk hfs'
+    | cons _ _ => exact hbs.elim
+  · rw [IsBlockModel.tlss_getD hj] at hbs
+    rw [IsBlockModel.Eiss_getD hj]
+    exact S.reps.refl_eis_fit (S.typed ψ).1 hc hj hρpA hi' htgt hk hfs' hbs
+
 end Run
 
 end ConLeche.Model
