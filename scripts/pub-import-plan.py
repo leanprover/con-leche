@@ -126,6 +126,14 @@ FALLBACK = {
     ('ConLeche.Verify.Inductives.NestedCopyKinds','ConLeche.Verify.Inductives.NestedRestoreOpen'),
     ('ConLeche.Verify.Inductives.NestedCopyProv','ConLeche.Verify.Inductives.NestedElimInv'),
     ('ConLeche.Verify.Inductives.NestedCopyRewrite','ConLeche.Verify.Inductives.NestedCopyTele'),
+    # task #315 L-B (§U.34): the assembly's one public import is its whole
+    # public view — `SetTheory`, `EnvModelM`, `NestedPinsRun`,
+    # `NestedPinGroupSyn`, `PinData` and the block lists reach its
+    # statements only through this re-export; the edge became a demotion
+    # candidate when session 5's own theorems changed the graph around it
+    # (the fixpoint is order-dependent), and the compiler refuses it
+    # (`unknown identifier SetTheory`).
+    ('ConLeche.Model.Inductives.NestedCopyInst','ConLeche.Model.Inductives.NestedCopyRead'),
     # task #315 U-7: `MutualIdxUniv`'s one public import is likewise the
     # file's whole public view — demoting it kills its own
     # `variable [SetTheory V]` (`unknown identifier SetTheory`).
