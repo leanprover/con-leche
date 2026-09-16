@@ -9,7 +9,6 @@ import ConLeche.Verify.InstLevels
 import ConLeche.Semantics.Tower.FixWire
 -- The `inst` kit's two still-unconsumed modules (DESIGN §U.23 (e)):
 -- hung here until the assembly `nestedPinsInst_of` reads them.
-import ConLeche.Verify.Inductives.NestedCopyKinds
 import ConLeche.Model.Inductives.NestedCopyFound
 public section
 

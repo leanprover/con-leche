@@ -80911,3 +80911,192 @@ stands).  Standard axioms only on every new theorem
 `_mentions`/`_free`, `structPsAt_of_instSeq_fvsP`,
 `blockCtorFieldDomain`, and the ported `whnf_indApp_eq`/
 `whnf_ctorApp_eq`/`whnf_indApp_ok`).
+
+#### U.37 — L-B session 7: the two SHAPE arms, K.32 read back, and the `es` question settled (lane L-B, 2026-09-16)
+
+**Two of the five arms are in the tree**: `ordF`'s right arm (its
+target conjunct, complete) and `pinF`'s target conjunct.  `es`,
+`recF` and `ordF`-left are still NOT proved.  What the session also
+produced is the settlement (e) asked for before `es` was sized, and
+two gaps in `NestedPinGroupSyn`/`ContainerModeled` that every
+group-indexed run Bool runs into (d).
+
+##### (a) K.32, read back — `nestedCopyTargetsOk_head` and its two readers
+
+`nestedCopyTargetsOk` (K.32) is a run conjunct with no `_inv`
+(§U.30 (d)); `ConLeche/Verify/Inductives/NestedCopyKinds.lean` now
+reads it:
+
+```lean
+theorem nestedCopyTargetsOk_head …
+    (h : nestedCopyTargetsOk env p b st stored = true)
+    (hk : nestedPinKinds p b stored = some kinds) …
+    (hl : kf[l]? = some (r, t)) (hr : r = .recursive ∨ r = .reflexive)
+    (hlo : p.k + qn.grpBase ≤ t) (hhi : t < p.k + qn.grpBase + qn.grpSize) :
+    ∃ jbs rJ domJ Jt d tbs jres us,
+      cJ.type.stripPis (ci.nP + cJ.nFields) = some (jbs, rJ) ∧
+      jbs[ci.nP + l]? = some domJ ∧
+      ci.members[t - p.k - qn.grpBase]? = some Jt ∧
+      domJ.1.stripPis d = some (tbs, jres) ∧
+      jres.getAppFn = .const Jt.name us
+```
+
+with `nestedCopyTargetsOk_mentions` (the same clause as a
+`mentionsConst`) as a corollary, and `nestedPinKinds_get` /
+`nestedPinKindsOk_inv` (K.26's Bool) beside it.  The bridge from the
+copy's kind table to the model's `kinds` is
+`auxStored_ctor_eq` (the stored copy constructor IS `ctorsA[G].1`)
+composed with `classifyMutualKinds_inv` — so K.32's `(r, t)` at
+`(q, j, l)` IS `(mutKsOf kinds G).getD l` at `G = b.ownOffset (p.k +
+q₀ + i') + j`, and no separate record is needed.
+
+##### (b) The shared step, and the two arms
+
+`Model/Inductives/NestedCopyInst.lean`:
+
+```lean
+theorem NestedPinsRun.copyGroupTargetHead … :
+    ∃ (x : Expr) (d : Nat) (Tl : List (Expr × ConLeche.BinderMeta)) (body : Expr) (nm : Name)
+      (us : List Level),
+      (dJ.xFvsF i' j)[l]? = some x ∧
+      (x.fvarTypeD.piBinders).1.length = d ∧
+      x.fvarTypeD.stripPis d = some (Tl, body) ∧
+      body.getAppFn = Expr.const nm us ∧
+      nm ∈ dJ.memberNames
+```
+
+— K.32's clause transported to the CONTAINER's OPENED domain, which is
+the side `ContainerModeled.ordFree` and `BlockOpened.nestF`/
+`.nestReflF` speak of.  B1 (`blockCtorFieldDomain`, §U.35) carries the
+closed domain across; `instSeq_mkPisB` + `rk_piBinders_mkPisB_length`
++ `stripPis_mkPisB_self` turn the peeled closed telescope into the
+opened one, and `os_instSeq_head` (new, three lines) keeps the
+constant head.
+
+The two arms are then one contradiction each, and they are the arms'
+conclusions VERBATIM (minus `CopyEntry`):
+
+```lean
+theorem NestedPinsRun.copyOrdFRight_shape …
+    (hord : ((dJ.rss i').getD j []).getD l false = false)
+    (hrss : ((blkRss ctorsA kinds).getD (b.ownOffset (p.k + q₀ + i') + j) []).getD l false
+      = true) :
+    ¬ (p.k + q₀ ≤ ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+          (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0 ∧
+        ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+          (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0 < p.k + q₀ + kJ)
+```
+
+```lean
+theorem NestedPinsRun.copyPinF_shape …
+    (hrecC : ((dJ.rss i').getD j []).getD l false = true)
+    (hnest : ¬ dJ.tgts i' j l < dJ.k)
+    (hrss : ((blkRss ctorsA kinds).getD (b.ownOffset (p.k + q₀ + i') + j) []).getD l false
+      = true) :
+    ¬ (p.k + q₀ ≤ … ∧ … < p.k + q₀ + kJ)
+```
+
+`ordF`-right contradicts by a MENTION (a container-ordinary field
+mentions no member — `ordFree`); `pinF` must contradict by the HEAD,
+because a nested field's domain mentions members legitimately, inside
+the pin's components — `nestF` (finitary: the peel is empty, else the
+opened domain would be a `∀` with a `const` head) and `nestReflF`
+(reflexive: `piBinders` is exactly the peel, so
+`openPisAtFvars_instSeq` puts the two bodies' heads side by side)
+against `pinsNotMembers`.
+
+**`pinF`'s first conjunct — the copy's field IS recursive — is NOT
+proved**: that is the elimination's occurrence chain
+(`replaceAllNested_occurrence` → `whnf_indApp_eq` → the kinds), the
+same chain `recF` needs.  `ordF`-right does not need it: there the
+copy's kind is the case hypothesis.
+
+##### (c) FINDING — `hrss` is `blkRss`, and the copy's kind is where the two arms differ
+
+Both arms take the copy's `rss = true` as a hypothesis.  For
+`ordF`-right that IS the arm (the disjunction is decided by the copy's
+kind, §U.30 (a)); for `pinF` it is a residual.  The assembly should
+therefore not expect a symmetric pair: `copyOrdFRight_shape` is
+complete, `copyPinF_shape` is half.
+
+##### (d) FINDING — two clauses the group's interface does not carry
+
+Both arms read a run Bool that is indexed by the pin record's own
+group, and both need the container's abstract model at the pin's own
+`containerInfo?` group.  `NestedPinGroupSyn` records neither, so the
+theorems take them as hypotheses, in the shape the assembly can
+discharge at `NestedPinsRun.groupSyn` (which builds the group out of
+exactly these):
+
+* `hgb : (pinAtE st (q₀ + i')).grpBase = q₀` and
+  `hgs : (pinAtE st (q₀ + i')).grpSize = kJ` — `groupSyn` chooses
+  `q₀ := (pinAtE st q).grpBase`, `kJ := (pinAtE st q).grpSize`, but
+  `NestedPinGroupSyn` states neither, and `NestedPinsInst` quantifies
+  over ANY group satisfying it.  **Request to L-E: two clauses on
+  `NestedPinGroupSyn`.**
+* `CM : ∀ ciJ, containerInfo? env (pinsS.getD (q₀ + i') default).J = some ciJ →
+  ContainerModeled mp₁'.base2 ciJ dJ` — `groupSyn` has
+  `ContainerModeled` at the BASE pin's group (`blockOf_spec` off
+  `PinsModeled`); `NestedPinGroupSyn` keeps only `IsBlockModel` per
+  member, which carries no `ordFree`/`pinsNotMembers`.
+* `hmn : dJ.memberNames.length = dJ.k` — **`ordFree` is unusable
+  without it**: `mentionsMember d.memberNames` is a membership test in
+  the NAME LIST, `ContainerModeled.member` gives only
+  `d.memberName i = M.name`, and `memberName` is `getD … .anonymous`,
+  so past the list's end a target member's name is `.anonymous` and
+  the clause says nothing.  True of `blockOf` by construction.
+  **Request to L-E: one clause on `ContainerModeled`.**
+
+##### (e) SETTLED — `es` needs no new record, and where its real obstacle is
+
+§U.35 (e) asked whether the single `replaceAllNested` run `copyFields`
+records for the residual rewrites the index arguments `esJ[Ds]`.  **It
+does not, and nothing has to be recorded to say so.**  `replaceAllNested`
+tries `replaceIfNested` AT THE NODE and returns its result unchanged
+when it fires (`NestedElim.lean:250–254`); `replaceIfNested_occurrence`
+(in tree) says the result is
+`mkAppN (mkAppN (.const q.aux blvls) params) (args.drop ci.nP)` — the
+index arguments VERBATIM, never descended into.  So `Ess₀` reads
+`esJ[Ds]` and `es` is an identity about ONE substitution, with no
+hypothesis.  (K.35 is not requested.  A second, independent reason:
+`mutualCtorKinds` marks every field `.negative` when a residual index
+argument mentions a member, and `classifyMutualKinds` throws on that —
+so the run already excludes a rewritten index argument.)
+
+The real obstacle `es` has is elsewhere, and is worth recording before
+the next session sizes it:
+
+* the FIRING has to be established, and the mint condition
+  `elimNested_copyCtors` records
+  (`(Ds.any fun a => st.newNames.any …) = true`) is stated at the
+  FINAL elimination state, while `replaceAllNested_occurrence` wants
+  it at the state the run STARTS from — `newNames` grows the wrong
+  way for that.  The available route is `checkMutualCtor`'s residual
+  guard (`structCtorResidOk`, through `CtorDataI.resid` at the copy):
+  the stored copy's residual head is the copy's OWN former, and
+  `copiesFresh` makes that name different from the container member's,
+  so neither the prune nor a descending walk can have produced it —
+  the root fired.  That needs one small `Verify` lemma ("a descending
+  `replaceAllNested` keeps the spine's head", plus the observation
+  that `replaceIfNested`'s firing condition reads only
+  `args.take ci.nP`, the same at the root and at every prefix).
+* the READING half is untouched: `esF G ψ` and `dJ.esF i' j ψJ` are
+  `DenoteMetaSpine` readings at two DIFFERENT models (`mp₁.base2` over
+  the scratch formers vs `mp₁'.base2` over the prefix), two level
+  assignments and two depths, and the tree's only instantiation
+  reading law is `instPisILP_read`, stated at a whole `Π`-type.  B4 at
+  a SPINE is genuinely missing; §U.23's half-session sizing did not
+  count the opened/closed crossing on both sides.
+
+##### (f) GATES
+
+`lake build` 693 jobs warning-free; `lake test` warning-free; layering
+base 346 / model 264 / caps 3 / umbrella 1, 0/0; trust surface 13/5
+(625); overview-links 112; quote-gate 2; no-local-paths OK; proofdeps
+4955 rows / 12 roots / 0 doors; shake and pub-imports as recorded in
+the landing note.  Standard axioms only on every new theorem
+(`nestedPinKinds_get`, `nestedPinKindsOk_inv`,
+`nestedCopyTargetsOk_head`, `nestedCopyTargetsOk_mentions`,
+`blockCtorFieldMentions`, `os_instSeq_head`,
+`NestedPinsRun.copyGroupTargetHead`, `.copyOrdFRight_shape`,
+`.copyPinF_shape`).
