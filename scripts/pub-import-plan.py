@@ -79,6 +79,13 @@ FALLBACK = {
     # other side.  (The fixpoint is order-dependent: this edge became a
     # demotion candidate only when #285 changed the graph around it.)
     ('ConLeche.Kernel.BasisA','ConLeche.Kernel.BasisGen'),
+    # task #315 L-A: `NestedPins`'s section `variable` binders reach
+    # `SetTheory` only through `NestedLoop`'s public closure — demoting
+    # the line makes every statement in the file fail with `Unknown
+    # identifier SetTheory`.  (Another order-dependent move: the edge
+    # became a candidate when the named fact `NestedPinsU` was
+    # discharged and its exposed `def` left the file.)
+    ('ConLeche.Model.Inductives.NestedPins','ConLeche.Model.Inductives.NestedLoop'),
     # task #315 U-10: the one-import-view class of U-5/U-7 again — the plan
     # proposed demoting EVERY public import of these files, which leaves
     # their statements without `SetTheory`/`Name`/`Env`/`NoProjEnv`/

@@ -168,7 +168,7 @@ local notation "D" => (BlockModel.ofNested (V := V) nP k resSort isProp large en
   nIdxs ppsA W ctorsM idxF dsF esF srcsF ksF tgts fvsPF xFvsF xrestF eissF tssF pins offs mems nFs
   tgtsG rss tlss Eiss₀ Fss₀ Ess₀)
 
-local notation "ΨA" => nestedΨ (V := V) nP k pins.length resSort ppsA W offs mems nFs tgtsG rss tlss
+local notation "ΨA" => nestedΨ (V := V) nP k resSort ppsA W pins offs mems nFs tgtsG rss tlss
   Eiss₀ Fss₀ Ess₀
 
 variable {ψ : Name → Nat} {ρp : Nat → V}
@@ -177,7 +177,7 @@ variable {ψ : Name → Nat} {ρp : Nat → V}
 -- the pins' carriers at once), spelled without the block model so that
 -- the identities below mention only the lists (`(D).w ψ`, `(D).idx ψ ρp`
 -- are these by `rfl`).
-local notation "L⁺" => lfpTuple (resSort.eval ψ) (k + pins.length) (nestedIs nP ppsA W ψ ρp)
+local notation "L⁺" => lfpTuple (resSort.eval ψ) (k + pins.length) (nestedIs nP k ppsA W pins ψ ρp)
   (ΨA ψ ρp)
 
 /-- **The instantiation identities of one copy's constructor**: the
@@ -222,14 +222,16 @@ structure CopyCtorInst (dJ : BlockModel V) (ψJ : Name → Nat) (Ds : List Annot
         (tgtsG.getD (offs (k + q₀ + i) + j) []).getD l 0 < k + q₀ + kJ) ∧
       ∀ fs₁ : List V, fs₁.length = l →
         FitsFrom (rss.getD (offs (k + q₀ + i) + j) [])
-          (fun i' ρ => slotSet (resSort.eval ψ) (W ψ) ρ
+          (fun i' ρ => slotSet (resSort.eval ψ)
+            (nestedU k W pins ψ ((tgtsG.getD (offs (k + q₀ + i) + j) []).getD i' 0)) ρ
             (((tlss ψ).getD (offs (k + q₀ + i) + j) []).getD i' [])
             (((Eiss₀ ψ).getD (offs (k + q₀ + i) + j) []).getD i' [])
             (segJoin (k + q₀) kJ L⁺ Y ((tgtsG.getD (offs (k + q₀ + i) + j) []).getD i' 0)))
           0 ρp (((Fss₀ ψ).getD (offs (k + q₀ + i) + j) []).take l) fs₁ →
         interp V (consList fs₁ (consList (Ds.map (interp V ρp)) ρp))
             (((dJ.Fss i ψJ).getD j []).getD l default)
-          = slotSet (resSort.eval ψ) (W ψ) (consList fs₁ ρp)
+          = slotSet (resSort.eval ψ)
+              (nestedU k W pins ψ ((tgtsG.getD (offs (k + q₀ + i) + j) []).getD l 0)) (consList fs₁ ρp)
               (((tlss ψ).getD (offs (k + q₀ + i) + j) []).getD l [])
               (((Eiss₀ ψ).getD (offs (k + q₀ + i) + j) []).getD l [])
               (L⁺ ((tgtsG.getD (offs (k + q₀ + i) + j) []).getD l 0)))
@@ -242,12 +244,14 @@ structure CopyCtorInst (dJ : BlockModel V) (ψJ : Name → Nat) (Ds : List Annot
 /-- **`hfit` at one constructor**: the copy's fit at the joined tuple
 is the container's `ChainFit` at `Y` — from the identities, at a
 pin-free container of the group's size whose sort is the block's and
-whose index universes agree with the block's on `= 0`. -/
+whose index universes are the group's components' (`hu`: the pins'
+recorded universes, DESIGN §U.22). -/
 theorem CopyCtorInst.fit_iff {env : Env} {m : EnvModel V env} {dJ : BlockModel V}
     {ψJ : Name → Nat} {Ds : List AnnotTerm} {q₀ kJ : Nat} {Y : Nat → V} {i j : Nat}
     {T : Name} {cvT cvR : ConstantVal} {mI rP : Nat} {rules : List RecRule}
     (hI : IsBlockModel m T cvT cvR mI rP rules dJ i) (hnp : dJ.pins = []) (hkJ : dJ.k = kJ)
-    (hw : dJ.w ψJ = resSort.eval ψ) (hu : ∀ i', i' < kJ → (W ψ = 0 ↔ dJ.uM i' ψJ = 0))
+    (hw : dJ.w ψJ = resSort.eval ψ)
+    (hu : ∀ i', i' < kJ → nestedU k W pins ψ (k + q₀ + i') = dJ.uM i' ψJ)
     (hidx : blockIds nP ppsA ψ (k + q₀ + i) = instTele Ds 0 (dJ.IdsM i ψJ))
     {cA : ConstantVal × Nat} (hj : (dJ.ctorsM i)[j]? = some cA)
     (h : CopyCtorInst (V := V) (nP := nP) (k := k) (resSort := resSort) (ppsA := ppsA) (W := W)
@@ -255,7 +259,8 @@ theorem CopyCtorInst.fit_iff {env : Env} {m : EnvModel V env} {dJ : BlockModel V
       (tlss := tlss) (Eiss₀ := Eiss₀) (Fss₀ := Fss₀) (Ess₀ := Ess₀) (ψ := ψ) (ρp := ρp)
       dJ ψJ Ds q₀ kJ Y i j)
     (t : V) (fs : List V) :
-    (FitsFrom (rss.getD (offs (k + q₀ + i) + j) []) (fun i' ρ => slotSet (resSort.eval ψ) (W ψ) ρ
+    (FitsFrom (rss.getD (offs (k + q₀ + i) + j) []) (fun i' ρ => slotSet (resSort.eval ψ)
+        (nestedU k W pins ψ ((tgtsG.getD (offs (k + q₀ + i) + j) []).getD i' 0)) ρ
         (((tlss ψ).getD (offs (k + q₀ + i) + j) []).getD i' [])
         (((Eiss₀ ψ).getD (offs (k + q₀ + i) + j) []).getD i' [])
         (segJoin (k + q₀) kJ L⁺ Y ((tgtsG.getD (offs (k + q₀ + i) + j) []).getD i' 0)))
@@ -270,7 +275,8 @@ theorem CopyCtorInst.fit_iff {env : Env} {m : EnvModel V env} {dJ : BlockModel V
   have htgt : ∀ l, l < ((dJ.Fss i ψJ).getD j []).length → dJ.tgts i j l < kJ := fun l hl =>
     hkJ ▸ hI.tgt_lt hjl (hks ▸ hl) hnp
   -- the fits
-  have hfits : FitsFrom (rss.getD (offs (k + q₀ + i) + j) []) (fun i' ρ => slotSet (resSort.eval ψ) (W ψ) ρ
+  have hfits : FitsFrom (rss.getD (offs (k + q₀ + i) + j) []) (fun i' ρ => slotSet (resSort.eval ψ)
+        (nestedU k W pins ψ ((tgtsG.getD (offs (k + q₀ + i) + j) []).getD i' 0)) ρ
         (((tlss ψ).getD (offs (k + q₀ + i) + j) []).getD i' [])
         (((Eiss₀ ψ).getD (offs (k + q₀ + i) + j) []).getD i' [])
         (segJoin (k + q₀) kJ L⁺ Y ((tgtsG.getD (offs (k + q₀ + i) + j) []).getD i' 0)))
@@ -284,8 +290,8 @@ theorem CopyCtorInst.fit_iff {env : Env} {m : EnvModel V env} {dJ : BlockModel V
     by_cases hr : ((dJ.rss i).getD j []).getD fs₁.length false = true
     · obtain ⟨hrC, htg, htl, hEis⟩ := h.recF _ hl hr
       rw [if_pos hrC, if_pos hr, htg, segJoin_add _ _ (htgt _ hl),
-        dJ.slotAt_of_mem (hkJ ▸ htgt _ hl), hEis, hw]
-      exact slotSet_instTele Iff.rfl (hu _ (htgt _ hl)) Ds ρp fs₁ htl _ _
+        dJ.slotAt_of_mem (hkJ ▸ htgt _ hl), hEis, hw, hu _ (htgt _ hl)]
+      exact slotSet_instTele Iff.rfl Iff.rfl Ds ρp fs₁ htl _ _
     · have hr' : ((dJ.rss i).getD j []).getD fs₁.length false = false := by simpa using hr
       rcases h.ordF _ hl hr' with ⟨hrC, hF⟩ | ⟨hrC, hout, hent⟩
       · rw [if_neg (by rw [hrC]; exact Bool.false_ne_true),
@@ -308,7 +314,8 @@ the container member's, in order). -/
 theorem hfit_of_inst {env : Env} {m : EnvModel V env} {dJ : BlockModel V} {ψJ : Name → Nat}
     {Ds : List AnnotTerm} {q₀ kJ : Nat}
     (hreps : IsBlockModels m dJ) (hnp : dJ.pins = []) (hkJ : dJ.k = kJ)
-    (hw : dJ.w ψJ = resSort.eval ψ) (hu : ∀ i', i' < kJ → (W ψ = 0 ↔ dJ.uM i' ψJ = 0))
+    (hw : dJ.w ψJ = resSort.eval ψ)
+    (hu : ∀ i', i' < kJ → nestedU k W pins ψ (k + q₀ + i') = dJ.uM i' ψJ)
     (hidx : ∀ i, i < kJ → blockIds nP ppsA ψ (k + q₀ + i) = instTele Ds 0 (dJ.IdsM i ψJ))
     (hgrp : ∀ i, i < kJ → ∀ j, (offs (k + q₀ + i) + j < (Fss₀ ψ).length ∧
       mems.getD (offs (k + q₀ + i) + j) 0 = k + q₀ + i) ↔ j < (dJ.ctorsM i).length)
@@ -322,7 +329,8 @@ theorem hfit_of_inst {env : Env} {m : EnvModel V env} {dJ : BlockModel V} {ψJ :
       ∀ i, i < kJ → ∀ t, t ∈ˢ dJ.idx ψJ (consList (Ds.map (interp V ρp)) ρp) i → ∀ j fs,
       (offs (k + q₀ + i) + j < (Fss₀ ψ).length ∧
         mems.getD (offs (k + q₀ + i) + j) 0 = k + q₀ + i ∧
-        FitsFrom (rss.getD (offs (k + q₀ + i) + j) []) (fun i' ρ => slotSet (resSort.eval ψ) (W ψ) ρ
+        FitsFrom (rss.getD (offs (k + q₀ + i) + j) []) (fun i' ρ => slotSet (resSort.eval ψ)
+            (nestedU k W pins ψ ((tgtsG.getD (offs (k + q₀ + i) + j) []).getD i' 0)) ρ
             (((tlss ψ).getD (offs (k + q₀ + i) + j) []).getD i' [])
             (((Eiss₀ ψ).getD (offs (k + q₀ + i) + j) []).getD i' [])
             (segJoin (k + q₀) kJ L⁺ Y ((tgtsG.getD (offs (k + q₀ + i) + j) []).getD i' 0)))
@@ -357,7 +365,7 @@ session brief asked for first; the general statement subsumes it. -/
 theorem hfit_of_inst_one {env : Env} {m : EnvModel V env} {dJ : BlockModel V} {ψJ : Name → Nat}
     {Ds : List AnnotTerm} {q₀ : Nat}
     (hreps : IsBlockModels m dJ) (hnp : dJ.pins = []) (hkJ : dJ.k = 1)
-    (hw : dJ.w ψJ = resSort.eval ψ) (hu : W ψ = 0 ↔ dJ.uM 0 ψJ = 0)
+    (hw : dJ.w ψJ = resSort.eval ψ) (hu : nestedU k W pins ψ (k + q₀ + 0) = dJ.uM 0 ψJ)
     (hidx : blockIds nP ppsA ψ (k + q₀ + 0) = instTele Ds 0 (dJ.IdsM 0 ψJ))
     (hgrp : ∀ j, (offs (k + q₀ + 0) + j < (Fss₀ ψ).length ∧
       mems.getD (offs (k + q₀ + 0) + j) 0 = k + q₀ + 0) ↔ j < (dJ.ctorsM 0).length)
@@ -371,7 +379,8 @@ theorem hfit_of_inst_one {env : Env} {m : EnvModel V env} {dJ : BlockModel V} {�
       ∀ t, t ∈ˢ dJ.idx ψJ (consList (Ds.map (interp V ρp)) ρp) 0 → ∀ j fs,
       (offs (k + q₀ + 0) + j < (Fss₀ ψ).length ∧
         mems.getD (offs (k + q₀ + 0) + j) 0 = k + q₀ + 0 ∧
-        FitsFrom (rss.getD (offs (k + q₀ + 0) + j) []) (fun i' ρ => slotSet (resSort.eval ψ) (W ψ) ρ
+        FitsFrom (rss.getD (offs (k + q₀ + 0) + j) []) (fun i' ρ => slotSet (resSort.eval ψ)
+            (nestedU k W pins ψ ((tgtsG.getD (offs (k + q₀ + 0) + j) []).getD i' 0)) ρ
             (((tlss ψ).getD (offs (k + q₀ + 0) + j) []).getD i' [])
             (((Eiss₀ ψ).getD (offs (k + q₀ + 0) + j) []).getD i' [])
             (segJoin (k + q₀) 1 L⁺ Y ((tgtsG.getD (offs (k + q₀ + 0) + j) []).getD i' 0)))
@@ -402,7 +411,8 @@ theorem ofNested_pin_block_of_inst {env : Env} {m : EnvModel V env} {dJ : BlockM
       (Ess₀ ψ))
     (hseg : q₀ + kJ ≤ pins.length)
     (hreps : IsBlockModels m dJ) (hnp : dJ.pins = []) (hkJ : dJ.k = kJ)
-    (hw : dJ.w ψJ = resSort.eval ψ) (hu : ∀ i', i' < kJ → (W ψ = 0 ↔ dJ.uM i' ψJ = 0))
+    (hw : dJ.w ψJ = resSort.eval ψ)
+    (hu : ∀ i', i' < kJ → nestedU k W pins ψ (k + q₀ + i') = dJ.uM i' ψJ)
     (hinj : ∀ (mm' j : Nat) (fs : List V), dJ.inj ψJ mm' j fs = injW (dJ.w ψJ) j (mkTower (fs ++ [pt])))
     (hρJ : Sat V (dJ.params ψJ).reverse (consList (Ds.map (interp V ρp)) ρp))
     (hidx : ∀ i, i < kJ → blockIds nP ppsA ψ (k + q₀ + i) = instTele Ds 0 (dJ.IdsM i ψJ))
@@ -432,9 +442,9 @@ theorem ofNested_pin_block_of_inst {env : Env} {m : EnvModel V env} {dJ : BlockM
     exact (hI.functor ψJ _ hρJ).2.1
   · -- hIs
     intro i' hi'
-    show idxSet (W ψ) ρp (blockIds nP ppsA ψ (k + q₀ + i')) = _
-    rw [hidx i' hi']
-    exact idxSet_instTele (hu i' hi') Ds ρp _
+    show idxSet (nestedU k W pins ψ (k + q₀ + i')) ρp (blockIds nP ppsA ψ (k + q₀ + i')) = _
+    rw [hidx i' hi', hu i' hi']
+    exact idxSet_instTele Iff.rfl Ds ρp _
   · -- hinj
     intro i' j fs
     rw [hinj, hw']
@@ -451,9 +461,10 @@ theorem ofNested_pin_block_of_inst {env : Env} {m : EnvModel V env} {dJ : BlockM
 container at the pin's components and fitting indices is the pin's
 carrier at the block's carrier — the container's `leaf` at the pin's
 frame through `ofNested_pin_block_of_inst`.  The pin's record is the
-container's (`hpJ`/`hpψ`/`hpDs`/`hpu`/`hpIds`); the components fit the
-container's parameter telescope at the block's frame (`hDsFit`, the
-post-check `nestedPinsOk` read through `PinsTyped`). -/
+container's (`hpJ`/`hpψ`/`hpDs`/`hpIds`, and `hu` at the pin's own
+index universe); the components fit the container's parameter
+telescope at the block's frame (`hDsFit`, the post-check
+`nestedPinsOk` read through `PinsTyped`). -/
 theorem ofNested_pinLeaf_of {env : Env} {m : EnvModel V env} {dJ : BlockModel V}
     {T : Name} {cvT cvR : ConstantVal} {mI rP : Nat} {rules : List RecRule} {i : Nat}
     (hI : IsBlockModel m T cvT cvR mI rP rules dJ i)
@@ -465,7 +476,8 @@ theorem ofNested_pinLeaf_of {env : Env} {m : EnvModel V env} {dJ : BlockModel V}
       (Ess₀ ψ))
     (hseg : q₀ + kJ ≤ pins.length) (hi : i < kJ)
     (hreps : IsBlockModels m dJ) (hnp : dJ.pins = []) (hkJ : dJ.k = kJ)
-    (hw : dJ.w ψJ = resSort.eval ψ) (hu : ∀ i', i' < kJ → (W ψ = 0 ↔ dJ.uM i' ψJ = 0))
+    (hw : dJ.w ψJ = resSort.eval ψ)
+    (hu : ∀ i', i' < kJ → nestedU k W pins ψ (k + q₀ + i') = dJ.uM i' ψJ)
     (hinj : ∀ (mm' j : Nat) (fs : List V), dJ.inj ψJ mm' j fs = injW (dJ.w ψJ) j (mkTower (fs ++ [pt])))
     (hidx : ∀ i, i < kJ → blockIds nP ppsA ψ (k + q₀ + i) = instTele Ds 0 (dJ.IdsM i ψJ))
     (hgrp : ∀ i, i < kJ → ∀ j, (offs (k + q₀ + i) + j < (Fss₀ ψ).length ∧
@@ -478,7 +490,7 @@ theorem ofNested_pinLeaf_of {env : Env} {m : EnvModel V env} {dJ : BlockModel V}
         (tlss := tlss) (Eiss₀ := Eiss₀) (Fss₀ := Fss₀) (Ess₀ := Ess₀) (ψ := ψ) (ρp := consList as ρ)
         dJ ψJ Ds q₀ kJ Y i j)
     (hpJ : ((D).pinAt (q₀ + i)).J = T) (hpψ : ((D).pinAt (q₀ + i)).ψJ ψ = ψJ)
-    (hpDs : ((D).pinAt (q₀ + i)).Ds ψ = Ds) (hpu : ((D).pinAt (q₀ + i)).u ψ = W ψ)
+    (hpDs : ((D).pinAt (q₀ + i)).Ds ψ = Ds)
     (hpIds : ((D).pinAt (q₀ + i)).Ids ψ = dJ.IdsM i ψJ)
     (hDsFit : SpineFit (consList as ρ) (dJ.params ψJ) (Ds.map (interp V (consList as ρ))))
     (hisFit : SpineFit ((D).pinFrame (q₀ + i) ψ (consList as ρ)) (((D).pinAt (q₀ + i)).Ids ψ) is) :
@@ -489,12 +501,13 @@ theorem ofNested_pinLeaf_of {env : Env} {m : EnvModel V env} {dJ : BlockModel V}
           (tupW (((D).pinAt (q₀ + i)).u ψ) is) := by
   unfold BlockModel.pinFrame at hisFit
   rw [hpDs, hpIds] at hisFit
-  rw [hpDs, hpJ, hpψ, hpu, interp_closed (V := V) (m.cval_closedL T ψJ) ρ (consList as ρ),
+  rw [hpDs, hpJ, hpψ, interp_closed (V := V) (m.cval_closedL T ψJ) ρ (consList as ρ),
     hI.leaf ψJ (consList as ρ) _ is hDsFit hisFit,
     ofNested_pin_block_of_inst h hS hseg hreps hnp hkJ hw hu hinj (dJ.satOfSpine hDsFit) hidx hgrp
       hinst hi]
   unfold BlockModel.tup
-  rw [tupW_zero_agree (hu i hi)]
+  rw [← hu i hi, Nat.add_assoc, nestedU_pin]
+  rfl
 
 end Inst
 

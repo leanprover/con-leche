@@ -65,10 +65,16 @@ include h
 
 /-- **The nested block's frame premise is the auxiliary block's**
 (`MutualFormersFacts.tupleOk` at `b.k = k + n`): the tag, the chains'
-grading and the cased witness at the `k + n` components. -/
+grading and the cased witness at the `k + n` components — plus, at
+the per-component index universes, the squash bound of a pin whose
+container's index universe is `0` (`hpin`, the container's `idxOk`
+transported along the instantiation identity; `nestedPinBound_of`,
+`NestedCore.lean`). -/
 theorem nestedLfpOk_of_formers (hμ : μ.verifiedChecks = true) {k : Nat} {pins : List PinSyn}
     (hbk : b.k = k + pins.length) (ψ : Name → Nat) (ρp : Nat → V)
-    (hρp : Sat V (((ppsF 0 ψ).take b.nP).map (·.2.2)).reverse ρp) :
+    (hρp : Sat V (((ppsF 0 ψ).take b.nP).map (·.2.2)).reverse ρp)
+    (hpin : ∀ q, q < pins.length → (pins.getD q default).u ψ = 0 →
+      FieldsBound 0 ρp (blockIds b.nP ppsF ψ (k + q))) :
     NestedLfpOk (V := V) (nP := b.nP) (k := k) (resSort := f₀.s) (ppsA := ppsF) (W := W)
       (pins := pins) (offs := b.ownOffset) (mems := mutMems ctorsA.length (mutMemF b))
       (nFs := mutNFs ctorsA.length (mutNFOf ctorsA))
@@ -78,8 +84,15 @@ theorem nestedLfpOk_of_formers (hμ : μ.verifiedChecks = true) {k : Nat} {pins 
       (Fss₀ := fun ψ => blkFss0 b ctorsA kinds dsF ψ)
       (Ess₀ := fun ψ => mutEss0 ctorsA.length esF ψ) ψ ρp := by
   unfold NestedLfpOk
-  rw [← hbk]
-  exact h.tupleOk hμ ψ ρp hρp
+  have hOk := h.tupleOk hμ ψ ρp hρp
+  rw [hbk] at hOk
+  refine hOk.of_bound fun m hm hz => ?_
+  by_cases hmk : m < k
+  · rw [nestedU_mem hmk] at hz
+    exact absurd hz hOk.W_pos
+  · obtain ⟨q, rfl⟩ : ∃ q, m = k + q := ⟨m - k, by omega⟩
+    rw [nestedU_pin] at hz
+    exact hpin q (by omega) hz
 
 /-- **The nested block's lists' shape is the auxiliary block's**
 (`MutualFormersFacts.shape` at `b.k = k + n`). -/
