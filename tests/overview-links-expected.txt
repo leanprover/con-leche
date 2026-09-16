@@ -705,7 +705,7 @@
    546  def classifyFixKinds (T : Name) (lps : List Name) (nP nIdx : Nat)
 
 == ConLeche/Kernel/Inductives/NativeInstall.lean#L617
-   617  def checkNative (ops : CheckerOps m) (env : Env) (p₀ : NativeParts) : m Env := do
+   617    unless blockReadBackOk envOut p.nP [(q.cvTa, q.ctorsA)] do
 
 == ConLeche/SetModel/Value.lean#L510-L517
    510  noncomputable def lfpFamSpace (w : Nat) (I : V) : V := piR (w + 1) I fun _ => univ w

@@ -74985,3 +74985,75 @@ K.17's whnf witness, in the one place they still bite.
 READING (an `interp` equality across the β step) and not syntactically.
 It is not a rare corner — 6 of the 27 fixtures and 2 real Mathlib
 containers hit it.
+
+#### K.34 — every install route reads its own block back (2026-09-16, task #315 M7-3, the model lane's DESIGN §U.31 (d))
+
+The model's environment field (`EnvModelB.blocks : EnvBlockModels`) is
+quantified over the READING `containerInfo? env J = some ci`, and
+`ContainerModeled` ties the block model to `ci` at its member names,
+constructor names, `k` and `nP`.  A route that installs a block must
+therefore supply that reading of its OWN output — and no route computed
+it: `containerInfo?` occurred in the kernel at five sites, every one of
+them at a PRE-block environment, at a pin's container.  So the new
+block's `ContainerModeled` was not derivable from the run's stored
+facts.  This is the recomputation that makes it one.
+
+**`blockReadBackOk envOut nP members`** (`Kernel/Inductives/NativeParts.lean`):
+with `want := blockContainerInfo nP members` — the `all`-group in block
+order, the parameter count, each member's level parameters and stored
+type, each constructor by name with its stored type and field count —
+every member's `containerInfo? envOut` is `some want`.  One
+certification-only Bool per route, `.internal` on failure, in BOTH the
+pure and the cached mirror, and a conjunct of all three run relations
+and their inversions:
+
+* `checkNative`/`checkNativeS` → `DeclNativeRun`, `checkNativeTail_inv`;
+* `checkMutualCore`/`checkMutualCoreS` → `DeclMutualRun`,
+  `checkMutualCore_inv`;
+* `checkNested`/`checkNestedS` → `DeclNestedRun`, `checkNested_inv`.
+
+**The cluster moved.**  `containerInfo?` and its data types lived in
+`NestedParts.lean`, which the native and mutual routes cannot import
+(they are BELOW it).  The whole cluster — `ContainerCtor`,
+`ContainerMember`, `ContainerInfo` (now `deriving BEq`),
+`containerMotiveMember?`, `containerMembersGo`, `containerInfo?` — moved
+to `NativeParts.lean`, which all three routes see.  It depends only on
+`Expr.piBinders`/`stripPis`/`piArity`, `quotName` and `Env.find?`, so
+the move is a cut and a paste; nothing else changed.
+
+**It cannot fire**: the route built, and stored, the very records the
+walk reads.  A nested block's mimics are not members — the motive walk
+stops at the first motive that is not a real member's, which is the
+first mimic's — so the nested read-back is the block's own `k`.
+
+**MEASURED, K.25-style** (zero fires everywhere):
+
+* `tests/arena.sh` **EXIT 0** — 138 arena tests, 196 e2e fixtures, 15
+  annot, the trusted and both `--jobs` sweeps.  This is the native and
+  mutual routes' measurement: every inductive block of every fixture
+  goes through one of them.
+* nested-shadow **27/27**; the Mathlib nested cone exit 0, 4 926
+  accepted, its 41 shadow lines byte-identical to the K.32 run.
+* **init-full**: exit 0, 53 093 accepted.
+* **Mathlib** (`--jobs=8`, `ulimit -v 32000000`): exit 0, **654 504
+  accepted — master `c92d4351`'s own count**, measured at the M1–M4
+  landing (the 654 499 of the pre-#315 notes is the opaque-theorems
+  figure of task #258, not this tree's) and CONFIRMED here by running
+  master's own binary on the same stream: 654 504 both, at
+  12 015 482 741 002 instructions:u on the branch against
+  12 015 494 322 963 on master — the branch 0.0001 % BELOW master, i.e.
+  the read-back is under this run's noise at Mathlib scale as well.
+
+**COST.**  On init-full, where the native and mutual routes run on every
+one of 53 093 declarations: **538 110 757 559 against 538 104 476 012
+instructions:u, +0.00117 %** — noise, as expected.  `containerInfo?`
+walks the recursor's motive prefix once per member, which is bounded by
+the block's own size, and the walk is a `stripPis` plus one `find?` per
+member; there is no term traversal in it.  No cheaper equivalent is
+needed.
+
+**Negative control**: `&& false` inside the read-back turns the FIRST
+inductive block of every stream into `internal error: direct rec: the
+installed block does not read back as its own [at inductive And, fold
+position 10]`, and nested-shadow to 0/27 — the check is reached at
+every block of every route.

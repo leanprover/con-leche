@@ -799,7 +799,11 @@ theorem checkMutualCore_inv {env envOut : Env} {b : MutualBlock} {F : Nat}
         b formers4 ctors4 streamRecs b.k = .ok rulesOf ∧
       mutualTables (m := CheckM) b ctorsA sortss fms.zipIdx
         (storeMutualRecs (consMutualCtors b.nP ctorsA env₁) b fms rulesOf cvRas.zipIdx
-          (consMutualCtors b.nP ctorsA env₁)) = .ok envOut := by
+          (consMutualCtors b.nP ctorsA env₁)) = .ok envOut ∧
+      -- THE READ-BACK (K.34): `containerInfo?` of the environment this
+      -- route produced, at every member, is the block's own data
+      blockReadBackOk envOut b.nP (fms.zipIdx.map fun (f, mIdx) =>
+        (f.cvTa, (b.ownCtors mIdx).filterMap fun (J, _) => ctorsA[J]?)) = true := by
   unfold checkMutualCore at h
   simp only at h
   obtain ⟨u₀, hshape, h⟩ := exceptBind_ok h
@@ -835,9 +839,17 @@ theorem checkMutualCore_inv {env envOut : Env} {b : MutualBlock} {F : Nat}
   obtain ⟨cvRas, hrectys, h⟩ := exceptBind_ok h
   try simp only at h
   obtain ⟨rulesOf, hrules, h⟩ := exceptBind_ok h
+  try simp only at h
+  obtain ⟨envT, htbl, h⟩ := exceptBind_ok h
+  try simp only at h
+  by_cases hrb : blockReadBackOk envT b.nP (fms.zipIdx.map fun (f, mIdx) =>
+      (f.cvTa, (b.ownCtors mIdx).filterMap fun (J, _) => ctorsA[J]?)) = true
+  case neg => rw [if_neg hrb] at h; close_throw
+  rw [if_pos hrb] at h
+  obtain rfl : envT = envOut := by simpa [pure, Except.pure] using h
   refine ⟨env₁, fms, f₀, tq₀, ctorsA, sortss, kinds, formers4, ctors4, cvRas, rulesOf,
     hformers, hf₀', htq₀', by cases u₁; exact hcross, beq_iff_eq.mp hL, hctors, hkinds,
-    hfo, hgd, hrectys, hrules, h⟩
+    hfo, hgd, hrectys, hrules, htbl, hrb⟩
 
 /-- **The recognised block's install**: the recursor records' pin and
 the core. -/
