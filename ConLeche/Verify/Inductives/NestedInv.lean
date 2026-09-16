@@ -893,6 +893,9 @@ theorem checkNested_inv {env envOut : Env} {p : NestedParts} {F : Nat}
       -- THE PINS' SCOPE (K.30): the pins' free variables are the first
       -- former's openers, annotation included, and no loose bvar
       pinsScoped p.nP st = true ∧
+      -- THE COPIES' RECURSIVE TARGETS (K.32): a group-recursive copy
+      -- field comes from the container's own recursion at the spine
+      nestedCopyTargetsOk env p b st stored = true ∧
       -- THE FIELD KINDS (K.26): the auxiliary block's stored fields are
       -- classified `.ordinary`, `.recursive` or `.reflexive`, and
       -- `nestedPinKinds p b stored` is that classification
@@ -1027,6 +1030,10 @@ theorem checkNested_inv {env envOut : Env} {p : NestedParts} {F : Nat}
   case neg => rw [if_neg hsc] at h; close_throw
   rw [if_pos hsc] at h
   try simp only [bind, Except.bind] at h
+  by_cases htg : nestedCopyTargetsOk env p b st stored = true
+  case neg => rw [if_neg htg] at h; close_throw
+  rw [if_pos htg] at h
+  try simp only [bind, Except.bind] at h
   by_cases hkd : nestedPinKindsOk p b st stored = true
   case neg => rw [if_neg hkd] at h; close_throw
   rw [if_pos hkd] at h
@@ -1059,7 +1066,7 @@ theorem checkNested_inv {env envOut : Env} {p : NestedParts} {F : Nat}
   exact ⟨st, b, envAux, stored, ctorsR, cvRms, cvRns, rulesM, rulesN, fmsA, ctorsA,
     hfmsA, hctorsA, helim', beq_iff_eq.mp hcnt, hfresh, hcont, hb', haux, hst', hpc,
     (by cases uA; exact hpinsAux), hcaps, hsrc,
-    (Bool.and_eq_true _ _ |>.mp hcont).1, hgrp, hsc, hkd,
+    (Bool.and_eq_true _ _ |>.mp hcont).1, hgrp, hsc, htg, hkd,
     (by cases uP₁; exact hpins₁), hctors, hrm, hrn, hrlm, hrln, htbl,
     (by cases u₀; exact hpins), hlen, by cases u₁; exact hrecs⟩
 

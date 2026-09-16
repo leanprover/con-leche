@@ -74905,3 +74905,42 @@ the elimination pinned fails a fact its own install established`, which
 is `nestedContainersOk`'s message, confirming that the named Bool is the
 one that conjunct evaluates and that it is reached at every fixture that
 gets that far.
+
+#### K.32 — the copies' recursive targets come from the container's own recursion (2026-09-16, task #315, lane L-B's DESIGN §U.23 (e))
+
+The model's `ordF` arm needs to know that a container-ORDINARY field
+cannot instantiate to the group's own pin.  It could only do so through
+a parameter-headed shape `β …` whose component is `J_m (Ds.take r)` with
+`r < nPJ` — a parameter whose type contains itself, excluded by TYPING
+and by no syntactic fact the run records.  `nestedCopyTargetsOk env p b
+st stored` says it at the elimination's OUTPUT, where it is a property
+of `mkCopy` + `replaceAllNested`: per copy `k + q` of the group
+`[gb, gb + gs)`, constructor `j`, field `l`, if the aux block's kind at
+`(j, l)` is `.recursive`/`.reflexive` with a target in
+`[k + gb, k + gb + gs)`, then the CONTAINER member's stored constructor
+`j`, at field `l`, with as many `Π` binders peeled as the copy's field
+carries, is headed by the group member the target names and applied to
+the container's parameter spine (`structPsAt (l + d) ci.nP`).
+`.internal` on failure; one conjunct of `DeclNestedRun` and
+`checkNested_inv`, in both routes.
+
+**MEASURED BEFORE LANDING** (K.25's method, a `dbg_trace` probe on the
+cached route, reverted): **zero fires** — 31 nested blocks over the 27
+shadow fixtures and 41 over the Mathlib cone, all `true`.  And it is not
+vacuous: a companion probe counted the positions the Bool CONSTRAINS —
+**29 across 25 of the 31 fixture blocks**, **51 across 39 of the 41 cone
+blocks**.  The multi-member group case is exercised (`nested_p05`'s
+container group has two members, and both of its constrained positions
+are group-targeted), so no nested-through-nested fixture was needed for
+the group-targeting case.
+
+**Cost**: +0.0965 % instructions over the 27 fixtures
+(3 930 738 147 against 3 926 947 260 instructions:u, summed, the
+baseline taken by removing only this call).
+
+**Gates.**  `lake build`/`lake test` exit 0 warning-free; nested-shadow
+27/27; the Mathlib nested cone exit 0, 4 926 accepted, its 41 shadow
+lines byte-identical to the K.31 run.  Negative control: falsifying the
+head comparison turns 19 of the 27 fixtures into `nested: a copy's
+group-recursive field does not come from the container's own
+recursion` — the 19 whose blocks constrain at least one position.
