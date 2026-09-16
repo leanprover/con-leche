@@ -23,12 +23,12 @@ at the nested block:
   `k + nPins` motives), their rules, the projection tables and the
   two post-checks keep the model to the post-block environment.
 
-The containers' block models are a PREMISE (`EnvBlockModels`: every
-stored inductive is a member of a block whose block model holds at the
-pre-block model, with its injections the tagged towers at the
-constructors' MEMBER-LOCAL positions) until `EnvModelM` records the
-block model of every stored inductive (DESIGN §U.13 (f) 1); at the
-pins it is read as `PinsModeled`.  The tag shape is what the pin
+The containers' block models are the pre-block CARRIER'S OWN
+(`EnvModelB`, task #315 M7-3: `EnvModelM` with the field
+`EnvBlockModels` — every stored inductive is a member of a block whose
+block model holds at the model, with its injections the tagged towers
+at the constructors' MEMBER-LOCAL positions; DESIGN §U.13 (f) 1's
+field); at the pins it is read as `PinsModeled`.  The tag shape is what the pin
 identification (`pinLeaf`) needs — a copy's constructors are the
 container's, instantiated at the pin, at the SAME member-local
 positions (DESIGN §U.15 (a)).
@@ -87,6 +87,25 @@ structure ContainerModeled {env : Env} (m : EnvModel V env) (ci : ContainerInfo)
   /-- every member's parameter telescope is the first member's, as a frame -/
   frame : ∀ i, i < d.k → ∀ (ψ : Name → Nat) (ρ : Nat → V),
     Sat V (d.params ψ).reverse ρ ↔ Sat V (((d.ppsM i ψ).take d.nP).map (·.2.2)).reverse ρ
+  /-- **a field the block's kinds call ordinary mentions no member**
+  (task #315 L-B/M7-3, DESIGN §U.23 (e)): the classifier's own test
+  (`mutualCtorKinds`: ordinary ⟺ `!mentionsMember`), at the stored
+  constructor's raw domain — `BlockOpened.ord` only says the opened
+  domain resolves at `env₀` -/
+  ordFree : ∀ (i j l : Nat) (cA : ConstantVal × Nat), i < d.k → (d.ctorsM i)[j]? = some cA →
+    l < cA.2 → (d.ksF i j).getD l .ordinary = .ordinary →
+    ∀ (cbs : List (Expr × ConLeche.BinderMeta)) (cbody : Expr),
+      cA.1.type.stripPis (d.nP + cA.2) = some (cbs, cbody) →
+      ConLeche.mentionsMember d.memberNames (cbs.getD (d.nP + l) default).1 = false
+  /-- **a pin's container is not a member** (`BlockOpened.nestF`'s shape
+  alone is consistent with a member-at-parameters occurrence classified
+  nested) -/
+  pinsNotMembers : ∀ q, q < d.nPins → ∀ i, i < d.k → (d.pinAt q).J ≠ d.memberName i
+  /-- **a pin's container parameter count is `containerInfo?`'s** at the
+  model's environment (`replaceAllNested_occurrence` reads the
+  container's parameter count there) -/
+  pinNP : ∀ q, q < d.nPins → ∀ ci' : ContainerInfo,
+    ConLeche.containerInfo? env (d.pinAt q).J = some ci' → (d.pinAt q).nPJ = ci'.nP
 
 /-- **Every stored container carries its block's model** at the model
 `m`, in the container's own terms (`ContainerModeled` at the group
@@ -125,6 +144,23 @@ theorem pinsModeled_of_env {env : Env} {m : EnvModel V env} (hm : EnvBlockModels
     {pins : List NestedPin} (_hok : ConLeche.nestedContainersOk env pins = true) :
     PinsModeled m pins :=
   fun q _ ci hci => hm q.container ci hci
+
+/-! ## The model with its blocks -/
+
+/-- **The P-tier environment invariant WITH ITS BLOCKS** (task #315
+M7-3, DESIGN §U.31): `EnvModelM` and, on top, every stored container's
+block model (`EnvBlockModels` at the carrier) — the field that replaces
+the premise `EnvBlockModels` of the nested consumer.  A structure
+CARRYING `EnvModelM` rather than a field of it because `ContainerModeled`
+is stated at the block-model tier (`IsBlockModel`, the stage kits'
+readings), which sits ABOVE `EnvModelM` in the import order: the
+field's type cannot be named there.  Every stage of the fold lifts to
+it (`Model/Inductives/EnvModelBStages.lean`); the fold flips to carrying
+it with the nested route (M8). -/
+structure EnvModelB (V : Type w) [SetTheory V] (μ : CheckMode) (env : Env)
+    extends EnvModelM V μ env where
+  /-- every stored container carries its block's model -/
+  blocks : EnvBlockModels base2
 
 /-! ## The block model of a nested run -/
 
@@ -320,10 +356,9 @@ two post-checks — cons a model of the post-block environment —
 consumer): the run's stages through the restored constructors keep the
 model and leave the block model (`NestedCoreModeled`), the tail keeps
 it from there (`NestedTailModeled`); the containers' block models are
-the premise `EnvBlockModels` at the pre-block model. -/
+the pre-block carrier's own (`EnvModelB.blocks`, task #315 M7-3). -/
 theorem declNested_of (hμ : μ.verifiedChecks = true) {F : Nat} {env envOut : Env}
-    {p : NestedParts} (mp : EnvModelM V μ env) (hE : ConLeche.EtaFamiliesClosed env)
-    (hpins : EnvBlockModels mp.base2)
+    {p : NestedParts} (mp : EnvModelB V μ env) (hE : ConLeche.EtaFamiliesClosed env)
     (hcore : NestedCoreModeled V μ F) (htail : NestedTailModeled V μ F)
     (h : ConLeche.Semantics.DeclNestedRun μ F env p envOut) :
     Nonempty (EnvModelM V μ envOut) := by
@@ -332,12 +367,12 @@ theorem declNested_of (hμ : μ.verifiedChecks = true) {F : Nat} {env envOut : E
     -, hgrp, hsc, hkinds, hpins₁, hctors, hrm, hrn, hrulesM, hrulesN, htbl, hpinsOut, hcnt, hrecs⟩ := h
   -- the `-` after `hsrc` is K.31's `pinsDistinct` conjunct: named for the
   -- identities' discharge (`NestedPinsIdent`, lane L-B), not consumed here
-  have hPM : PinsModeled mp.base2 st.pins := pinsModeled_of_env hpins hcont
-  obtain ⟨mp₂, hag, d, hd, hreps, htyped⟩ := hcore hμ mp hE p st b envAux stored ctorsR fmsA ctorsA
-    hPM h0 h1 hfA hcA helim hcount hfresh hcont hb haux hstored hclosed hpinsAux hcaps hsrc hgrp hsc
-    hkinds hpins₁ hctors
-  exact htail hμ mp hE p envOut st b envAux stored ctorsR cvRms cvRns rulesM rulesN fmsA ctorsA
-    hPM h0 h1 hfA hcA helim hcount hfresh hcont hb haux hstored hclosed hpinsAux hcaps hsrc hgrp hkinds
-    hctors hrm hrn hrulesM hrulesN htbl hpinsOut hcnt hrecs mp₂ d hag hd hreps htyped
+  have hPM : PinsModeled mp.base2 st.pins := pinsModeled_of_env mp.blocks hcont
+  obtain ⟨mp₂, hag, d, hd, hreps, htyped⟩ := hcore hμ mp.toEnvModelM hE p st b envAux stored ctorsR
+    fmsA ctorsA hPM h0 h1 hfA hcA helim hcount hfresh hcont hb haux hstored hclosed hpinsAux hcaps
+    hsrc hgrp hsc hkinds hpins₁ hctors
+  exact htail hμ mp.toEnvModelM hE p envOut st b envAux stored ctorsR cvRms cvRns rulesM rulesN fmsA
+    ctorsA hPM h0 h1 hfA hcA helim hcount hfresh hcont hb haux hstored hclosed hpinsAux hcaps hsrc
+    hgrp hkinds hctors hrm hrn hrulesM hrulesN htbl hpinsOut hcnt hrecs mp₂ d hag hd hreps htyped
 
 end ConLeche.Model
