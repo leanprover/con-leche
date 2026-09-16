@@ -444,6 +444,36 @@ theorem containerInfo?_member_det {env : Env} {I₁ I₂ : Name} {ci₁ ci₂ : 
   simp only at hname hlps₁ hlps₂ hty₁ hty₂ hctors ⊢
   rw [hname, hlps₁, hlps₂, hty₁, hty₂, hctors]
 
+/-- **Two groups agreeing on their parameter count and member NAMES are
+one group** — every member record is a function of the environment at
+its name and the parameter count (`containerInfo?_member_det`). -/
+theorem containerInfo?_eq_of_names {env : Env} {I₁ I₂ : Name} {ci₁ ci₂ : ContainerInfo}
+    (h₁ : containerInfo? env I₁ = some ci₁) (h₂ : containerInfo? env I₂ = some ci₂)
+    (hnP : ci₁.nP = ci₂.nP) (hnames : ci₁.members.map (·.name) = ci₂.members.map (·.name)) :
+    ci₁ = ci₂ := by
+  have hmem : ci₁.members = ci₂.members := by
+    apply List.ext_getElem?
+    intro n
+    have := congrArg (fun l => l[n]?) hnames
+    simp only [List.getElem?_map] at this
+    cases h1 : ci₁.members[n]? with
+    | none =>
+      rw [h1] at this
+      cases h2 : ci₂.members[n]? with
+      | none => rfl
+      | some M₂ => rw [h2] at this; exact nomatch this
+    | some M₁ =>
+      rw [h1] at this
+      cases h2 : ci₂.members[n]? with
+      | none => rw [h2] at this; exact nomatch this
+      | some M₂ =>
+        rw [h2] at this
+        exact congrArg some (containerInfo?_member_det h₁ h₂ hnP (List.mem_of_getElem? h1)
+          (List.mem_of_getElem? h2) (Option.some.inj this))
+  cases ci₁; cases ci₂
+  simp only [ContainerInfo.mk.injEq] at hnP hmem ⊢
+  exact ⟨hnP, hmem⟩
+
 /-- **A member's record is determined by its name alone AT A
 CONSTRUCTOR POSITION** (task #315 L-B): two groups that both list a
 member of the same name agree on its level parameters, its type, and —

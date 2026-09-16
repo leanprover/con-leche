@@ -315,7 +315,7 @@ theorem NestedPinsRun.idxIdent
       (kinds := kinds) (env := env) (ppsF := ppsF) (W := W) (idxF := idxF) (dsF := dsF)
       (esF := esF) (srcsF := srcsF) (fvsPF := fvsPF) (xrestF := xrestF) (eissF := eissF)
       (tssF := tssF) (ctorsR := ctorsR) (dsR := dsR) (xFvsR := xFvsR) (pinsS := pinsS)
-      mp₁'.base2 q₀ kJ dJ) :
+      st mp₁'.base2 q₀ kJ dJ) :
     ∀ i, i < kJ → ∀ (ψ : Name → Nat) (i' : Nat), i' < kJ →
       blockIds b.nP ppsF ψ (p.k + q₀ + i')
         = instTele ((pinsS.getD (q₀ + i) default).Ds ψ) 0

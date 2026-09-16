@@ -1,6 +1,7 @@
 module
 
 public import ConLeche.Model.Inductives.NestedPinLaws
+import ConLeche.Model.Inductives.NestedAux
 public section
 
 /-!
@@ -134,6 +135,111 @@ theorem nestedBlockAt_of (m : EnvModel V env₂) {B : ContainerInfo → BlockMod
     (hL : PinRecLaws m (D) PC) (hS : PinShapes m B (D) PC) : BlockAt m B ci := by
   rw [BlockAt, hB]
   exact ⟨C, PC, hL, hS⟩
+
+/-! ## The targets read as the stored readings — step (i)'s two leaf laws -/
+
+/-- **A MEMBER target reads as the block's carrier**: at a spine fitting
+the member's index telescope at the parameter frame, the block's
+carrier at the member, at the spine's tuple (the block's index
+universe), is the member's stored reading — the auxiliary leaf
+(`hleafM`) at the parameters (`tupleLfpAV_fold`, Bekić's nested form
+`ofNested_lfp`) — applied to the spine.  The `hZ` of
+`copyEntryAt_of_read` at a member target. -/
+theorem memberTarget_reads (hμ : μ.verifiedChecks = true)
+    (h : MutualFormersFacts V F g mp b fms f₀ ctorsA sortss kinds mp₁ ppsF W idxF dsF esF srcsF
+      fvsPF xFvsF xrestF eissF tssF)
+    (hbk : b.k = p.k + pinsS.length)
+    (m : EnvModel V env₂)
+    (hleafM : ∀ (t : Nat) (f : MutualFormerA), t < p.k → fms[t]? = some f →
+      m.acval f.cvTa.name = mutMemberLeaf b fms f₀ ctorsA kinds ppsF W dsF esF eissF tssF t)
+    (hgroups : ∀ q, q < pinsS.length → ∃ (q₀ kJ i : Nat) (dJ : BlockModel V),
+      q = q₀ + i ∧ i < kJ ∧ PG m q₀ kJ dJ)
+    {ψ : Name → Nat} {ρp : Nat → V} (hρp : Sat V ((D).params ψ).reverse ρp)
+    {t : Nat} (ht : t < p.k) {is : List V} (his : SpineFit ρp (blockIds b.nP ppsF ψ t) is) :
+    SetTheory.app (lfpTuple ((D).w ψ) p.k ((D).idx ψ ρp) ((D).Φ ψ ρp) t) (tupW (W ψ) is)
+      = is.foldl SetTheory.app
+          (interp V ρp (targetRead m.acval (D).memberNames pinsS b.nP p.k ψ t)) := by
+  have hkT : b.k = fms.length := h.lenFms.symm
+  have hplen : ((D).params ψ).length = b.nP := by
+    show (((ppsF 0 ψ).take b.nP).map (·.2.2)).length = b.nP
+    rw [List.length_map, List.length_take, (h.FD 0 f₀ h.first).len ψ]
+    omega
+  have htl : t < fms.length := by rw [← hkT, hbk]; omega
+  have hft := fms_get htl
+  obtain ⟨ρ, as, rfl, hsp⟩ := spineOfSat_params (D) hρp
+  have hlenAs : as.length = b.nP := by rw [hsp.length_eq, hplen]
+  have hOk' := nestedLfpOk_of_formers h hμ hbk ψ (consList as ρ) hρp
+    (nestedPinBound_of m hgroups ψ _ hρp)
+  -- the stored reading is the auxiliary leaf at the parameters
+  have hName : (D).memberNames.getD t .anonymous = (fms.getD t default).cvTa.name := by
+    show ((fms.take p.k).map (·.cvTa.name)).getD t .anonymous = _
+    rw [List.getD_eq_getElem?_getD, List.getElem?_map, List.getElem?_take_of_lt ht, hft]
+    rfl
+  have hpar : (paramBvarsAt b.nP b.nP).map (interp V (consList as ρ))
+      = (List.range b.nP).reverse.map (consList as ρ) :=
+    map_paramBvarsAt_interp (nP := b.nP) (e := 0) (ρp := consList as ρ) (σ := consList as ρ)
+      (fun _ => rfl)
+  have hrng : (List.range b.nP).reverse.map (consList as ρ) = as := by
+    rw [← hlenAs]; exact range_reverse_map_consList as ρ
+  rw [targetRead_of_mem ht, interp_mkAppN_foldl, hpar, hrng, hName, hleafM t _ ht hft,
+    ← List.foldl_append]
+  unfold mutMemberLeaf
+  rw [interp_closed (V := V) (tupleLfpAV_below h.blockOk b.ownOffset
+      ((h.FD _ _ hft).below ψ) ((h.FD _ _ hft).len ψ) ψ) _ ρ]
+  -- the leaf law at the member, then Bekić
+  have hsp_t : SpineFit ρ (((ppsF t ψ).take b.nP).map (·.2.2)) as :=
+    spineFit_of_frames (by
+        show (((ppsF 0 ψ).take b.nP).map (·.2.2)).length = _
+        simp only [List.length_map, List.length_take, (h.FD 0 f₀ h.first).len ψ,
+          (h.FD _ _ hft).len ψ]
+        omega)
+      (fun ρ' => (h.frame t _ hft ψ ρ').symm) hsp
+  have hnI : ((ppsF t ψ).drop b.nP).length = (fms.getD t default).nIdx := by
+    rw [List.length_drop, (h.FD _ _ hft).len ψ]
+    exact Nat.add_sub_cancel_left _ _
+  have htk : t < p.k + pinsS.length := by omega
+  rw [← hnI,
+    show mutRss ctorsA.length (mutKsOf kinds) = blkRss ctorsA kinds from rfl,
+    show mutFss0 b.nP ctorsA.length dsF (mutKsOf kinds) (mutNFOf ctorsA) ψ
+      = blkFss0 b ctorsA kinds dsF ψ from rfl, hbk]
+  rw [tupleLfpAV_fold htk hOk' rfl hsp_t his, nestedU_mem ht]
+  exact congrArg (fun X => SetTheory.app X (tupW (W ψ) is)) (ofNested_lfp hOk' ht)
+
+/-- **A PIN target reads as its container's least tuple**: at a spine
+fitting the pin's index telescope at the pin's frame, the container's
+least tuple at the pin's frame, at the group's member, at the spine's
+tuple (the pin's index universe, the container's — `pinU`), is the
+pin's stored reading (the container at the components, `dJ.leaf` at
+the components' fit `DsFit`) applied to the spine.  The `hZ` of
+`copyEntryAt_of_read` at a pin target, with `P q` the container's least
+tuple. -/
+theorem pinTarget_reads (m : EnvModel V env₂) {q₀ kJ i : Nat} {dJ : BlockModel V}
+    (G : PG m q₀ kJ dJ) (hi : i < kJ)
+    {ψ : Name → Nat} {ρp : Nat → V} (hρp : Sat V ((D).params ψ).reverse ρp)
+    {is : List V}
+    (his : SpineFit (consList ((((D).pinAt (q₀ + i)).Ds ψ).map (interp V ρp)) ρp)
+      (((D).pinAt (q₀ + i)).Ids ψ) is) :
+    SetTheory.app
+        (lfpTuple (dJ.w (((D).pinAt (q₀ + i)).ψJ ψ)) dJ.k
+          (dJ.idx (((D).pinAt (q₀ + i)).ψJ ψ)
+            (consList ((((D).pinAt (q₀ + i)).Ds ψ).map (interp V ρp)) ρp))
+          (dJ.Φ (((D).pinAt (q₀ + i)).ψJ ψ)
+            (consList ((((D).pinAt (q₀ + i)).Ds ψ).map (interp V ρp)) ρp)) i)
+        (tupW (nestedU p.k W pinsS ψ (p.k + (q₀ + i))) is)
+      = is.foldl SetTheory.app
+          (interp V ρp (targetRead m.acval (D).memberNames pinsS b.nP p.k ψ (p.k + (q₀ + i)))) := by
+  obtain ⟨cvT, cvR, mI, rP, rules, hI⟩ := G.rep i hi
+  obtain ⟨ρ, as, rfl, hsp⟩ := spineOfSat_params (D) hρp
+  have hnlt : ¬ p.k + (q₀ + i) < p.k := by omega
+  have hpin : pinsS.getD (q₀ + i) default = (D).pinAt (q₀ + i) := rfl
+  rw [targetRead_of_pin hnlt, Nat.add_sub_cancel_left, hpin, interp_mkAppN_foldl,
+    ← List.foldl_append]
+  rw [G.pinIds hi ψ] at his
+  have hleaf := hI.leaf (((D).pinAt (q₀ + i)).ψJ ψ) (consList as ρ) _ is
+    (G.DsFit i hi ψ ρ as hsp) his
+  rw [hleaf]
+  unfold BlockModel.tup
+  rw [← Nat.add_assoc, nestedU_pin_group m G hi ψ i hi]
 
 end Assembly
 

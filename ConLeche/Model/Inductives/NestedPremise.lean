@@ -71,6 +71,11 @@ structure ContainerModeled {env : Env} (m : EnvModel V env) (ci : ContainerInfo)
     (d : BlockModel V) : Prop where
   /-- one member per `all`-group entry -/
   k : d.k = ci.members.length
+  /-- the member names are exactly the members (task #315 L-E, at lane
+  L-B's request: `memberName` reads `getD … .anonymous`, so a target
+  past the list's end would read as `.anonymous` and `ordFree` could
+  not be consumed) -/
+  namesLen : d.memberNames.length = d.k
   /-- the group's parameter count -/
   nP : d.nP = ci.nP
   /-- the block at every member -/

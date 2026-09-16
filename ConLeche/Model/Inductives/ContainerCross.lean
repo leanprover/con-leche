@@ -89,6 +89,7 @@ theorem ContainerModeled.crossEnv {env₁ env₂ : Env} {m₁ : EnvModel V env�
       denoteMeta m₁.acval env₁ ψ dp e = some ea → denoteMeta m₂.acval env₂ ψ dp e = some ea)
     (hk : 0 < d.k) (C : ContainerModeled m₁ ci d) : ContainerModeled m₂ ci d where
   k := C.k
+  namesLen := C.namesLen
   nP := C.nP
   reps := C.reps.crossEnv hF hres hag hde
   typed := fun ψ =>

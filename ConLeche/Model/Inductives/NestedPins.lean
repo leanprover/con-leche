@@ -314,9 +314,20 @@ the injection shape, the pin's shape fields (the recorded index
 universe `pinU` among them — each pin's is its container's, §U.22),
 the same-universe fact `w`, the constructor counts and the components'
 fit. -/
-structure NestedPinGroupSyn (m : EnvModel V env₂) (q₀ kJ : Nat) (dJ : BlockModel V) : Prop where
+structure NestedPinGroupSyn (st : ElimState) (m : EnvModel V env₂) (q₀ kJ : Nat) (dJ : BlockModel V) :
+    Prop where
   seg : q₀ + kJ ≤ pinsS.length
   kpos : 0 < kJ
+  /-- the group IS the elimination's mint group (task #315 L-E, at lane
+  L-B's request: every group-indexed run Bool — K.32 among them — is
+  keyed by the pin's recorded `grpBase`/`grpSize`) -/
+  grp : ∀ i, i < kJ →
+    (st.pins.getD (q₀ + i) default).grpBase = q₀ ∧ (st.pins.getD (q₀ + i) default).grpSize = kJ
+  /-- the container's block model in the container's own terms, at the
+  pin's OWN `containerInfo?` group (task #315 L-E, at lane L-B's
+  request: `ordFree`/`pinsNotMembers` live here, not in `IsBlockModel`) -/
+  modeled : ∀ i, i < kJ → ∀ ci : ContainerInfo,
+    ConLeche.containerInfo? env ((D).pinAt (q₀ + i)).J = some ci → ContainerModeled m ci dJ
   reps : IsBlockModels m dJ
   kEq : dJ.k = kJ
   rep : ∀ i, i < kJ → ∃ (cvT cvR : ConstantVal) (mI rP : Nat) (rules : List RecRule),
@@ -422,8 +433,8 @@ local notation "PGI" => NestedPinGroupIds (V := V) (p := p) (b := b) (fms := fms
   (tssF := tssF) (ctorsR := ctorsR) (dsR := dsR) (xFvsR := xFvsR) (pinsS := pinsS)
 
 /-- The group from its two halves. -/
-theorem NestedPinGroupSyn.ofParts {m : EnvModel V env₂} {q₀ kJ : Nat} {dJ : BlockModel V}
-    (S : PGS m q₀ kJ dJ) (I : PGI m q₀ kJ dJ) : PG m q₀ kJ dJ :=
+theorem NestedPinGroupSyn.ofParts {st : ElimState} {m : EnvModel V env₂} {q₀ kJ : Nat}
+    {dJ : BlockModel V} (S : PGS st m q₀ kJ dJ) (I : PGI m q₀ kJ dJ) : PG m q₀ kJ dJ :=
   { seg := S.seg, kpos := S.kpos, reps := S.reps, kEq := S.kEq
     rep := fun i hi => by
       obtain ⟨cvT, cvR, mI, rP, rules, hI, -⟩ := S.rep i hi
@@ -454,7 +465,7 @@ structure NestedPinSynFacts (st : ElimState) (mp₁ : EnvModelM V μ ENV₁) : P
         (kinds := kinds) (env := env) (ppsF := ppsF) (W := W) (idxF := idxF) (dsF := dsF)
         (esF := esF) (srcsF := srcsF) (fvsPF := fvsPF) (xrestF := xrestF) (eissF := eissF)
         (tssF := tssF) (ctorsR := ctorsR) (dsR := dsR') (xFvsR := xFvsR') (pinsS := pinsS)
-        mp₁.base2 q₀ kJ dJ
+        st mp₁.base2 q₀ kJ dJ
 
 end Assembly
 
@@ -751,7 +762,7 @@ half holds has the identity `P`. -/
           (kinds := kinds) (env := env) (ppsF := ppsF) (W := W) (idxF := idxF) (dsF := dsF)
           (esF := esF) (srcsF := srcsF) (fvsPF := fvsPF) (xrestF := xrestF) (eissF := eissF)
           (tssF := tssF) (ctorsR := ctorsR) (dsR := dsR) (xFvsR := xFvsR) (pinsS := pinsS)
-          mp₁'.base2 q₀ kJ dJ →
+          st mp₁'.base2 q₀ kJ dJ →
         P mp p st b fms f₀ ctorsA kinds ppsF W idxF dsF esF srcsF fvsPF xrestF eissF tssF ctorsR
           dsR xFvsR pinsS mp₁' q₀ kJ dJ
 
@@ -1050,7 +1061,7 @@ theorem NestedPinsRun.groupSyn
         (kinds := kinds) (env := env) (ppsF := ppsF) (W := W) (idxF := idxF) (dsF := dsF)
         (esF := esF) (srcsF := srcsF) (fvsPF := fvsPF) (xrestF := xrestF) (eissF := eissF)
         (tssF := tssF) (ctorsR := ctorsR) (dsR := dsR') (xFvsR := xFvsR') (pinsS := PINS)
-        mp₁'.base2 q₀ kJ dJ := by
+        st mp₁'.base2 q₀ kJ dJ := by
   obtain ⟨hF, hres, hag, hde⟩ := R.cross
   have hnP : b.nP = p.nP := (ConLeche.auxBlock_former R.hb).1
   have hlenS : (PINS).length = st.pins.length := pinsOf_length _ _ _ _ _ _
@@ -1153,6 +1164,17 @@ theorem NestedPinsRun.groupSyn
   refine
     { seg := by rw [hlenS]; exact hb3
       kpos := hkpos
+      grp := fun i hi => ⟨(PD.grp i hi).2.1, (PD.grp i hi).2.2.1⟩
+      modeled := fun i hi ci' hci' => by
+        rw [hpinAt, hgp i hi] at hci'
+        change ConLeche.containerInfo? env (memberOf env st q i).name = some ci' at hci'
+        have PDi := hPD ((pinAtE st q).grpBase + i) (by omega)
+        obtain ⟨cii, hcii, -, -, hnPi, hnamesi, -⟩ := PDi.own
+        rw [(PD.grp i hi).1] at hcii
+        rw [PD.baseInfo_group hi] at hnPi hnamesi
+        obtain rfl : ci' = cii := Option.some.inj (hci'.symm.trans hcii)
+        rw [ConLeche.containerInfo?_eq_of_names hci' PD.base hnPi hnamesi]
+        exact CM
       reps := CM.reps
       kEq := hkJ
       rep := ?_
