@@ -79828,6 +79828,216 @@ reasons; pub-imports none demotable.  Standard axioms only
 (`normPosDomM_read`, `normPosDomM_read_of`, `normPosDomM_pres`,
 and the unchanged `nestedPinsStaged_of`/`nestedPinsIdent_of`).
 
+#### U.31 — M7-3: the environment model carries every stored block's block model — `EnvModelB`, the value kinds maintained, the READBACK found missing (lane M7-3, 2026-09-16)
+
+DESIGN §U.13 (f) 1's field, opened.  `declNested_of` took the
+containers' block models as a PREMISE (`EnvBlockModels` at the
+pre-block model, §U.15); the field replaces it, and a field is only as
+good as its maintenance, so this session's subject is the maintenance
+and what it costs.
+
+##### (a) The structure, verbatim
+
+`ConLeche/Model/Inductives/NestedPremise.lean` (the premise, the
+record and the structure, split out of `DeclNestedCore.lean` so the
+crossing kit can sit between the premise and its consumer — the split
+M7-2 made for its own reason, taken from `agent/uniform-m7read`):
+
+```lean
+structure EnvModelB (V : Type w) [SetTheory V] (μ : CheckMode) (env : Env)
+    extends EnvModelM V μ env where
+  /-- every stored container carries its block's model -/
+  blocks : EnvBlockModels base2
+```
+
+A structure CARRYING `EnvModelM` rather than a field of it, because
+`ContainerModeled` is stated at the block-model tier (`IsBlockModel`,
+the stage kits' readings), which sits ABOVE `EnvModelM` in the import
+order: the field's type cannot be named there.  `declNested_of` takes
+it and discharges its own `hpins` premise from `mp.blocks`
+(`pinsModeled_of_env mp.blocks hcont`).
+
+##### (b) The maintenance kit (`Model/Inductives/ContainerCross.lean`)
+
+Per stage the field asks two questions, and the module answers both
+generically.
+
+* **Does the READING move?**  `containerInfo?` consults the
+  environment only through `find?` results of the three inductive
+  kinds, so a non-inductive extension changes no container's block
+  (`containerInfo?_cons_nonInd`) and an inductive one changes no OLD
+  container's (`containerInfo?_ext_ind`).  Both are M7-3's
+  `Verify/Inductives/ContainerFrame.lean`, built by the Opus sub-lane
+  before the hand-over; the proof technique there is worth keeping —
+  case-splitting inside an unfolded `containerInfo?` body cost 103 s of
+  kernel time per lemma, and NAMING the three readings it makes of a
+  lookup over an opaque continuation (`indBind`/`recBind`/`ctorView`,
+  each with its own congruence) brought that to 1.1 s.
+* **Does the BLOCK MODEL move?**  No.  `ContainerModeled.crossEnv`
+  (moved down from `NestedPins.lean`, where the pin lane had already
+  needed it) carries the three model-facing clauses — `reps`, `typed`,
+  `member` — by `BlockRepCross.lean`'s four hypotheses; `k`, `nP`,
+  `inj`, `frame` and L-B's `ordFree`/`pinsNotMembers`/`pinNP` name no
+  model at all.  `pinNP` reads `containerInfo?` at the block's OWN
+  pre-block environment `d.env₀` (§U.32's ruling), which no later
+  extension touches — had it been stated at the model's environment it
+  would have had to travel, and `ContainerModeled.crossEnv` would have
+  needed the frame lemma as a hypothesis.
+
+`PinsTyped.crossEnv` wants `0 < d.k`, so the kit also proves
+`containerInfo?_members_pos`: `containerInfo?` returns only a group
+whose name list CONTAINS the container it was asked about
+(`names.contains I`), so `ci.members` is never empty.
+
+From these: `EnvBlockModels.crossSame` (same environment, new
+carrier), `EnvBlockModels.crossCons` (a fresh non-inductive cons) and
+`EnvBlockModels.crossInd` (an inductive extension, with the new
+block's own containers as its last argument — the installing route's
+obligation).
+
+##### (c) The value kinds, maintained (`Model/Inductives/EnvModelBStages.lean`)
+
+The one model-facing input `crossCons` needs is `AcvalAgrees`
+(`Model/Annot/EnvModel.lean`): the new carrier values every OLD
+constant as the old one did.  `denoteMeta` consults the valuation only
+at names it found, so the reading transport is
+`denoteMeta_acval_congr` then `denoteMeta_env_mono` — no
+`ConstsBound` premise anywhere.
+
+**The fact was always proved and always thrown away.** Every
+cons-level step returns `∃ mp', mp'.base2.acval = acvalWith
+mp.base2.acval c₀.name A` (`declStep_preserves_of_cons`), and every
+stage above it ended `refine ⟨(… ).choose⟩`, keeping the model and
+dropping the equation.  So the change is one line of plumbing per
+stage: `exists_agrees_of_cons` (`Model/Install.lean`) reads the
+equation as agreement, and
+
+* `harvestDefn`, `harvestThm`, `harvestOpaque`, `harvestAxiom`, and
+* `axiomStd`, `axiomTrustCompiler`, `axiomOfReduce`, `axiomSkip`
+
+now conclude `∃ mp' : EnvModelM V μ env₂, AcvalAgrees mp.base2
+mp'.base2`.  `AxiomStepPB`'s signature is UNCHANGED (the census is read
+off it): `axiomStepAgree_of` is the strengthened statement and
+`axiomStepPB_of` its `Nonempty` projection; `declStep_preserves`'s
+three value branches take `.choose`.
+
+`NonIndStep env env₂` — the stage installs nothing (`Quot.sound`'s
+record, the tolerated `sorryAx` skip) or conses ONE fresh constant
+whose head is none of the three kinds `containerInfo?` consults and not
+a projection table — is read straight off each run
+(`declDefnRun_nonIndStep` and its three siblings), and
+
+```
+envModelB_defn / envModelB_thm / envModelB_opaque / envModelB_axiom
+  : EnvModelB V μ env → <the run> → Nonempty (EnvModelB V μ env₂)
+```
+
+are the four lifts.  `EnvModelB.empty` is the fold's base case
+(nothing stored, so `containerInfo?` reads nothing).
+
+##### (d) THE FINDING: no route records the READBACK of the block it installed (K.34)
+
+`EnvBlockModels` is quantified over the READING —
+`∀ J ci, containerInfo? env J = some ci → ∃ d, ContainerModeled m ci d`
+— and `ContainerModeled` ties `d` to `ci` at four clauses (`k`, `nP`,
+`member`'s names and constructor names).  A route that installs a
+block must therefore supply `containerInfo? envOut Jᵢ = some ci` AND
+the match of `ci` with the block model it built.
+
+**Nothing in the checker computes that reading.**  `containerInfo?`
+occurs in `ConLeche/Kernel/*` at exactly five sites — `NestedElim.lean`
+(the elimination's recovery) and `NestedInstall.lean`'s
+`nestedContainersOk` / `nestedCopySrcOk` / `nestedGroupsOk` / the
+occurrence walk — and every one of them reads the PRE-BLOCK
+environment, at a PIN's container.  No route reads its own output back.
+So the new block's `ContainerModeled` is not derivable from the run's
+stored facts, and per the lane's instruction it is REPORTED, not named
+as a hypothesis.
+
+**K.34, the request** (kernel lane): at the end of each install route,
+record the reading of the block just installed — one Bool per block,
+`containerInfo? envOut Jᵢ` compared with the block's own data (the
+`all`-group in block order, the parameter count, each member's
+constructors by name with their `numParams`/`nFields`).  It is a
+recomputation the model tier can invert in a session; the alternative
+is a syntactic theorem per route that the motive walk over the
+recursor type it BUILT recovers the block — for the native route a
+proof about `mkRecTy`'s motive prefix, for the nested route one about
+`restoreRecTys`' output, i.e. several sessions each and a fourth for
+the basis blocks.  The recomputation is the cheaper half by a wide
+margin and is the one the lane recommends.
+
+Until K.34 lands, `declNested_of`'s OUTPUT stays `Nonempty (EnvModelM V
+μ envOut)` — the INPUT is already `EnvModelB` and the premise
+`EnvBlockModels` is gone from its signature, which is the half of M7-3
+that does not depend on the readback.
+
+##### (e) The second half of the same wall: the inductive routes drop the block model, and the basis blocks have none
+
+Two more facts, found at the same census, that size the rest of the
+field:
+
+1. **Every inductive route discards its block model exactly as the
+   value stages discarded the agreement.**  `declMutual`
+   (`MutualTables.lean`) and `declNative` end at `Nonempty (EnvModelM V
+   μ envOut)`; `NestedTailModeled` does too.  The block model is built
+   (`mutualBlockModelOf_ofMutual`, `nestedBlockModel`) at the
+   CONSTRUCTORS' model `mp₂` and never crosses to the output model.
+   The fix is the same shape as (c)'s: the tail hands back a NAMED
+   `mp₃` with `IsBlockModels mp₃.base2 d`, the typed clauses and the
+   agreement, and `ContainerModeled.crossEnv` does the rest.  It is a
+   change to `NestedTailModeled`'s conclusion, which is M7-2's file and
+   in flight, so this lane states the required shape here rather than
+   editing it under them.
+2. **`ContainerModeled.member` is strictly stronger than
+   `IsBlockModels`**: it demands `IsBlockModel m M.name ⟨M.name, M.lps,
+   M.type⟩ …` at the STORED constant's value, while `IsBlockModels`
+   existentially quantifies `cvT` and ties it to nothing
+   (`memsFound` produces *some* `cv`).  Each route has the tie by
+   construction; the abstract clauses do not.  A `ContainerModeled.of_reading`
+   helper was NOT built this session: its exact shape depends on what
+   the routes hand back, and building it now would be a hypothesis
+   without a consumer.
+3. **The basis blocks have no block model at all.** `Nat`, `Eq`,
+   `PUnit`, `Empty` and `False` are installed as real inductives, so
+   `containerInfo?` reads them and the field demands their block
+   models; no `IsBlockModel` instance for any of them exists in the
+   tree (`BasisRep*`, M4's plan item, never landed — §U.13 (f) 1
+   already named it, `lfpTuple_one`).  `Quot` is excluded by
+   `containerInfo?` itself.
+
+##### (f) SIZING, from here
+
+* the value kinds: **DONE** (this session);
+* K.34 + its inversion: 1 kernel session + 1 model session;
+* the three inductive routes' tails handing back `d` at the output
+  model: 1–2 sessions each, and the nested one lands with M7-2;
+* the basis blocks' block models (`BasisRep*`): 2–4 sessions, and it is
+  the only piece with no existing machinery;
+* the fold's FLIP to `EnvModelB` (M8): unchanged, 1–2.
+
+##### (g) The import gate, and what shake asked for
+
+Four proposals, all four COMPENSATED and all four ADOPTED rather than
+allowlisted: `NestedPremise` takes `Kernel.Inductives.NestedInstall`
+(and `DeclNestedCore` imports `Semantics.Inductives.DeclNested`
+itself), `DeclNestedCore` imports `NestedPremise` — it names
+`EnvModelB`, not the crossing kit — and `NestedPins` imports
+`ContainerCross` by name for `ContainerModeled.crossEnv`.
+`EnvModelBStages`' `Fold`/`Harvest`/`DeclRun` imports and
+`ContainerFrame`'s `EnvWF` demoted to plain imports.
+
+##### (h) GATES
+
+`lake build` 689 jobs warning-free; `lake test` warning-free; layering
+base 345 / model 261 / caps 3 / umbrella 1, 0/0; trust surface 13/5
+(621 scanned); overview-links 112 (two `Model/Fold.lean` anchors
+repointed on the pure +12 line shift `axiomStepAgree_of` introduced —
+the citing paragraphs re-read, both claims unchanged); quote-gate 2;
+no-local-paths OK; proofdeps 4955 rows / 12 roots / 0 doors
+(unchanged); shake 509/509 allowlisted, pub-imports none demotable (35
+dot-notation fallbacks).  Standard axioms only on every new theorem.
+
 #### U.32 — L-B session 3: K.32 merged, the copies' constructor PAIR built, `len` discharged; the group's members found un-identified (lane L-B, 2026-09-16)
 
 `nestedPinsInst_of` is **not** built.  The session merged

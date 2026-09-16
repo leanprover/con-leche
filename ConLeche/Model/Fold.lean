@@ -74,6 +74,27 @@ def AxiomStepPB (V : Type w) [SetTheory V] (μ : CheckMode) : Prop :=
     DeclAxiomRun μ F env cv env₂ →
     Nonempty (EnvModelM V μ env₂)
 
+/-- **The axiom kind's step, WITH THE CARRIER AGREEMENT** (task #315
+M7-3): every `DeclAxiomR` branch conses one fresh `axiomInfo` (or, at
+the tolerated skip, nothing), so the model it produces values every OLD
+constant as the prefix model did — the fact the block-model field
+`EnvModelB.blocks` is maintained by (`EnvModelBStages.lean`).
+`axiomStepPB_of` is its `Nonempty` projection. -/
+theorem axiomStepAgree_of (hμ : μ.verifiedChecks = true) {F : Nat} {env : Env}
+    (mp : EnvModelM V μ env) {cv : ConstantVal} {env₂ : Env}
+    (hR : DeclAxiomRun μ F env cv env₂) :
+    ∃ mp' : EnvModelM V μ env₂, AcvalAgrees mp.base2 mp'.base2 := by
+  -- the `Quot.sound` arm (task #293) installs nothing
+  rcases hR with ⟨-, rfl⟩ | hR
+  · exact ⟨mp, AcvalAgrees.rfl' _⟩
+  obtain ⟨type', hcv, hbranch⟩ := hR
+  rcases hbranch with ⟨hok, rfl⟩ | ⟨hname, hok, rfl⟩ |
+    ⟨hor, hok, rfl⟩ | ⟨-, -, -, -, -, -, -, rfl⟩
+  · exact axiomStd hμ mp hcv hok
+  · exact axiomTrustCompiler hμ mp hcv hname hok
+  · exact axiomOfReduce hμ mp hcv hor hok
+  · exact axiomSkip mp
+
 /-- **`AxiomStepPB`, discharged — THE PIN BUNDLE IS CLOSED.**  All four
 `DeclAxiomR` branches: the two standard axioms (`axiomStd`, ENDGAME
 C), `Lean.trustCompiler` (`axiomTrustCompiler`, ENDGAME A part 2),
@@ -82,16 +103,7 @@ C), `Lean.trustCompiler` (`axiomTrustCompiler`, ENDGAME A part 2),
 nothing). -/
 theorem axiomStepPB_of (hμ : μ.verifiedChecks = true) : AxiomStepPB V μ := by
   intro _F _env mp _cv _env₂ hR
-  -- the `Quot.sound` arm (task #293) installs nothing
-  rcases hR with ⟨-, rfl⟩ | hR
-  · exact ⟨mp⟩
-  obtain ⟨type', hcv, hbranch⟩ := hR
-  rcases hbranch with ⟨hok, rfl⟩ | ⟨hname, hok, rfl⟩ |
-    ⟨hor, hok, rfl⟩ | ⟨-, -, -, -, -, -, -, rfl⟩
-  · exact axiomStd hμ mp hcv hok
-  · exact axiomTrustCompiler hμ mp hcv hname hok
-  · exact axiomOfReduce hμ mp hcv hor hok
-  · exact axiomSkip mp
+  exact ⟨(axiomStepAgree_of hμ mp hR).choose⟩
 
 /-- The basis kind's whole step, routed (basis tier). -/
 def BasisStepPB (V : Type w) [SetTheory V] (μ : CheckMode) : Prop :=
@@ -182,19 +194,19 @@ theorem declStep_preserves (hμ : μ.verifiedChecks = true) {F : Nat} {env env�
     have hsh := hrun
     obtain ⟨type', value', hcv, -, henv2, -, -⟩ := hsh
     subst henv2
-    exact harvestDefn hμ mp hrun
+    exact ⟨(harvestDefn hμ mp hrun).choose⟩
   | thmDecl cv value =>
     have hsh := hrun
     -- one dash fewer than the `DeclR` pattern: the run record has no
     -- is-a-proposition derivation row (task #161 S11a)
     obtain ⟨type', value', hcv, -, -, henv2⟩ := hsh
     subst henv2
-    exact harvestThm hμ mp hrun
+    exact ⟨(harvestThm hμ mp hrun).choose⟩
   | opaqueDecl cv value =>
     have hsh := hrun
     obtain ⟨type', value', hcv, -, henv2, -⟩ := hsh
     subst henv2
-    exact harvestOpaque hμ mp hrun
+    exact ⟨(harvestOpaque hμ mp hrun).choose⟩
   | axiomDecl cv => exact axiomStepPB_of hμ mp hrun
   | basisDecl kind => exact basisStepPB_of mp hrun
   | quotDecl k cv =>
