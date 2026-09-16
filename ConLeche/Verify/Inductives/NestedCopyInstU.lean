@@ -374,4 +374,32 @@ theorem instPis_ilp_mkPisB (ks : List Name) (us : List Level) (Ds : List Expr)
     instPis_mkPisB _ Ds _ (by rw [List.length_map]; exact hlen),
     instSeq_mkPisB Ds (Ds.length - 1) _ _ (by omega), List.length_map]
 
+/-! ## The instantiated body's frame (task #315 L-B, DESIGN §U.33 (c) 4) -/
+
+/-- **The copy's constructor body is closed and scoped by the pin's
+components**: `mkCopy` instantiates a STORED constructor's type — no
+`fvar` leaf, no loose bvar, and level substitution touches neither
+(`hasFvar_instantiateLevelParams`,
+`looseBVarsBounded_instantiateLevelParams`) — at the pin's components,
+so the result is bounded (`looseBVarsBounded_instPis`) and every leaf
+it has is one of the components' (`instPis_instPisAt` +
+`instPisAt_fvarLeaves`), hence one of the block's own parameter
+openers (K.30).  This is exactly what `instSeq_abstractRange_fvs` asks
+of the body it closes and reopens (DESIGN §U.33 (c) step 4). -/
+theorem instPisILP_frame {ks : List Name} {us : List Level} {T : Expr}
+    {Ds : List Expr} {cI : Expr} {params : List Expr}
+    (h : Expr.instPis (Expr.instantiateLevelParams ks us T) Ds = some cI)
+    (hb : T.looseBVarsBounded 0 = true) (hf : T.hasFvar = false)
+    (hcl : ∀ a ∈ Ds, a.looseBVarsBounded 0 = true)
+    (hlv : ∀ a ∈ Ds, ∀ l ∈ a.fvarLeaves, Expr.fvar l.1 l.2 ∈ params) :
+    cI.looseBVarsBounded 0 = true ∧ ∀ l ∈ cI.fvarLeaves, Expr.fvar l.1 l.2 ∈ params := by
+  refine ⟨looseBVarsBounded_instPis Ds _ _
+    (by rw [Expr.looseBVarsBounded_instantiateLevelParams]; exact hb) hcl h, fun l hl => ?_⟩
+  obtain ⟨ds, hds⟩ := instPis_instPisAt Ds _ _ h
+  rcases instPisAt_fvarLeaves Ds _ hds l hl with hl' | ⟨a, ha, hal⟩
+  · rw [Expr.fvarLeaves_eq_nil_of_not_hasFvar
+      (by rw [Expr.hasFvar_instantiateLevelParams]; exact hf)] at hl'
+    exact nomatch hl'
+  · exact hlv a ha l hal
+
 end ConLeche
