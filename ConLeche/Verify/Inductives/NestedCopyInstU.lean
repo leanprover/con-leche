@@ -354,4 +354,24 @@ theorem looseBVarsBounded_instSeq (as : List Expr) (t : Nat) (e : Expr)
   have h := looseBVarsBounded_instSeq_gen as t e hcl he (by omega)
   rwa [hlen, Nat.sub_self] at h
 
+/-! ## The copy's constructor telescope, in one step (task #315 L-B) -/
+
+/-- **`mkCopy`'s constructor body, as a telescope**: the container
+constructor's type is a `∀`-tower over its parameters `pcs` and its
+fields `fcs`; `mkCopy` substitutes the occurrence's levels and
+instantiates the parameters at the pin's components, which leaves the
+FIELDS' tower with each domain instantiated at the descending cuts
+from `|Ds| - 1` and the residual at `|Ds| - 1 + |fcs|`. -/
+theorem instPis_ilp_mkPisB (ks : List Name) (us : List Level) (Ds : List Expr)
+    (pcs fcs : List (Expr × BinderMeta)) (res : Expr) (hlen : pcs.length = Ds.length) :
+    Expr.instPis (Expr.instantiateLevelParams ks us (mkPisB (pcs ++ fcs) res)) Ds
+      = some (mkPisB (instTeleSeq Ds (Ds.length - 1) (fcs.map fun b =>
+            (Expr.instantiateLevelParams ks us b.1,
+              (⟨Level.substPW ks us b.2.pw⟩ : BinderMeta))))
+          (Expr.instSeq Ds (Ds.length - 1 + fcs.length)
+            (Expr.instantiateLevelParams ks us res))) := by
+  rw [ilp_mkPisB, List.map_append, mkPisB_append,
+    instPis_mkPisB _ Ds _ (by rw [List.length_map]; exact hlen),
+    instSeq_mkPisB Ds (Ds.length - 1) _ _ (by omega), List.length_map]
+
 end ConLeche
