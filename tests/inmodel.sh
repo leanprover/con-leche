@@ -38,10 +38,13 @@ BIN=.lake/build/bin/con-leche
 
 fixtures=("$@")
 if [ ${#fixtures[@]} = 0 ]; then
-  fixtures=(tests/e2e/inmodel_mutual.ndjson tests/e2e/inmodel_mutual_idx.ndjson
-            tests/e2e/inmodel_nested.ndjson tests/e2e/nested_rec.ndjson
+  # the NESTED fixtures only: a plain mutual block is the kernel's own
+  # since task #278 (`checkMutual`) and generates nothing here
+  # (`inmodel_mutual`, `inmodel_mutual_idx`, `ind_mutual_three` stay in
+  # the e2e suite); `ind_mutual_idxsort` keeps two nested blocks
+  fixtures=(tests/e2e/inmodel_nested.ndjson tests/e2e/nested_rec.ndjson
             tests/e2e/nested_struct_proj.ndjson tests/e2e/inmodel_groups.ndjson
-            tests/e2e/ind_mutual_three.ndjson tests/e2e/ind_mutual_idxsort.ndjson)
+            tests/e2e/ind_mutual_idxsort.ndjson)
 fi
 
 WORK=$(mktemp -d "$TMPDIR/inmodel.XXXXXX")

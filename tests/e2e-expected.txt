@@ -819,7 +819,11 @@
 # this is the residual class the mutual rung owes — a positive decline
 # naming it.  (nested_struct_proj, the same fixture family, ACCEPTS:
 # its reflexive member is not in a mutual block.)
-2 mutual_struct_proj.ndjson
+# TASK #278: 0.  The mutual block installs natively (`checkMutual`: the
+# reflexive member rides the fixpoint route's #202 kits inside the
+# scaffold), and the structure-like members get projection TABLES, so
+# the raw `.proj` nodes type as official's `infer_proj` types them.
+0 mutual_struct_proj.ndjson
 0 nested_struct_proj.ndjson
 # inmodel_mutual.ndjson (task #200 B1, the in-process modeller): three
 # index-free MUTUAL blocks — a data pair with cross recursion, a
@@ -1006,7 +1010,10 @@
 # --- follow-up 3.
 # TODO(#206-A3) official: 0 — piped (until #207): the preprocessor failed (exit 3)
 # TODO(#206-A3) official: 0 — raw: "former MA is not a telescope ending in a sort"
-2 ind_defhead_mutual.ndjson
+# TASK #278: 0 — the mutual install reads every former at official's
+# whnf'd telescope (`checkSumTele`, task #195) before building the
+# scaffold; A3 closed on the mutual block too.
+0 ind_defhead_mutual.ndjson
 #
 # --- the clean arms of the same family (regression guards): the
 # --- RECURSIVE def-headed block and a β-redex former.  Since task

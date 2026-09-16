@@ -561,7 +561,14 @@ Inductive blocks are not trusted from the stream. Three cases:
   [theorem `declNative` in `ConLeche/Model/Inductives/DeclNative.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Inductives/DeclNative.lean#L63).
   Structure-like blocks additionally get first-class projections, η,
   unit-likeness and K exactly under official's conditions.
-* **Mutual and nested blocks** are handled by an in-process modeller
+* **Mutual blocks** — several type formers over one parameter
+  telescope, one recursor each — are the kernel's own. The mutual
+  route checks every former at the pre-block environment, as official
+  does, classifies each constructor field member-aware, generates the
+  `k` recursors and their rules and compares them with the stream's
+  records, rejecting a record that is not the generated one
+  ([function `checkMutual` in `ConLeche/Kernel/Inductives/MutualInstall.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/MutualInstall.lean#L620-L623)).
+* **Nested blocks** are handled by an in-process modeller
   (`ConLeche/Frontend/InModel/*`): at parse time the checker generates,
   over its own `Expr`, a *model* of the block, an auxiliary family plus
   definitions and theorems stating the constructors' and recursor's
@@ -580,9 +587,9 @@ Inductive blocks are not trusted from the stream. Three cases:
   nothing is read from the input: a stream record whose name happens to
   carry a `_model` component is an ordinary declaration with no effect
   on any block, and the install dispatch is the RECOGNISER alone — a
-  mutual or nested block carries several type formers, resp. several
-  recursors, so the fixpoint route's recogniser refuses it outright and
-  no model lookup is needed to route it. A nested occurrence under a
+  nested block carries more recursors than type formers, so neither the
+  fixpoint route's recogniser nor the mutual one takes it, and no model
+  lookup is needed to route it. A nested occurrence under a
   binder is outside the scheme and declines
   ([the modeller's residual in `ConLeche/Frontend/InModel/Nested.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Frontend/InModel/Nested.lean#L47-L54)).
 

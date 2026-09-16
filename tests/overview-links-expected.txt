@@ -362,9 +362,9 @@
    104    deriving DecidableEq, Repr, Hashable
 
 == ConLeche/Verify/Cached/AgreeFloor.lean#L1431-L1433
-  1431  theorem checkDecls_skels {mode : CheckMode} {ds : Array Declaration}
-  1432      {env : Env} (h : checkDecls mode pins ds = .ok env) :
-  1433      envSkels env = streamSkels ds.toList := by
+  1431  theorem checkMutualCtorsF_names (ops : CheckerOps CheckCM) (w : StructWalkers) (fe : FEnv)
+  1432      (b : MutualBlock) (fms : List MutualFormerA) (isProp : Bool) :
+  1433      ∀ (cs : List MutualCtor),
 
 == ConLeche/Term/Syntax.lean#L176-L205
    176    deriving Repr, DecidableEq, Inhabited
@@ -723,6 +723,12 @@
 == ConLeche/Model/Inductives/DeclNative.lean#L63
     63  theorem declNative (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
 
+== ConLeche/Kernel/Inductives/MutualInstall.lean#L620-L623
+   620  def checkMutual (ops : CheckerOps m) (env : Env) (p : MutualParts) : m Env := do
+   621    unless p.recPinned do
+   622      throw (.invalid "mutual: a recursor record is not the generated recursor")
+   623    checkMutualCore ops env p.toBlock (some (p.members.map fun mb => (mb.cvR, mb.rules)))
+
 == ConLeche/Kernel/Inductives/Modeled.lean#L68-L79
     68  def checkIotaThm (ops : CheckerOps m) (env' envSelf : Env)
     69      (f : Name → Name) (cvName : Name) (lps : List Name) (tyA : Expr)
@@ -742,11 +748,11 @@
      8  # The in-process modeller's kit (task #200)
      9  
     10  Shared pieces of the in-process construction of `_model` families for
-    11  nested and mutual inductive blocks (`ConLeche/Frontend/InModel/*`):
-    12  
-    13  * the naming scheme (lean-inductive-models' `_impl` names, so the two
-    14    generators' streams are diffable — none of these names is special to
-    15    the checker: only the public `_model` slots are consumed, and only
+    11  nested inductive blocks (`ConLeche/Frontend/InModel/*`; mutual blocks
+    12  are the kernel's own, `ConLeche/Kernel/Inductives/Mutual*.lean`):
+    13  
+    14  * the naming scheme (lean-inductive-models' `_impl` names, so the two
+    15    generators' streams are diffable — none of these names is special to
 
 == ConLeche/Frontend/InModel/Nested.lean#L47-L54
     47  Declines (the residual): a field mentioning the block other than as a
@@ -1017,7 +1023,7 @@
     52  def falseBasis : List ConstantInfo := [falseRaw, falseRecRaw]
 
 == Main.lean#L992
-   992  def main (args : List String) : IO UInt32 := do
+   992  
 
 == ConLeche/MainTheorem.lean#L110-L117
    110  theorem no_False_declaration (V : Type w) [SetTheory V]
