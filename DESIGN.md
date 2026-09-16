@@ -80749,3 +80749,165 @@ that reason.  Standard axioms only (`instPisILP_frame`,
 `fvarLeaves_mkAppN_head`/`_arg`, `ctorRecord`, `ctorPair`, `copyLen`,
 `copyBody`, `copyFields`); the chain probe `nestedPinsStaged_of
 (nestedPinsIdent_of hI)` still compiles.
+
+#### U.35 — L-B session 6: the opened/closed bridge B1 with its corollaries, `whnf_indApp_eq` recovered; the arms NOT started (lane L-B, 2026-09-16)
+
+**No arm of `CopyCtorInst` beyond `len` is proved yet, and
+`nestedPinsInst_of` is still NOT built.**  What landed is the two
+`Verify` bridges §U.34 (d) and the maintainer's proof plan named as
+the blockers — B1 (the opened/closed identity, with the corollaries the
+arms call) and B3 (`whnf` on a stuck inductive application) — plus the
+two pieces that plug B1 into the frame `copyFields` established.  The
+five arms (`es`, `recF`, `ordF`-left, `ordF`-right's shape, `pinF`'s
+shape) were not started; (e) says what the next session walks into.
+
+##### (a) B1 — `openPisAtFvars_domain`, and what §U.34 (d) got wrong
+
+`Verify/Denote/TeleOpen.lean`, the DOMAIN twin of the *exact* body
+lemma `openPisAtFvars_instSeq` that was already sitting there:
+
+```lean
+theorem openPisAtFvars_domain :
+    ∀ (k : Nat) {e : Expr} {d : Nat} {fvs : List Expr} {body : Expr}
+      {bs : List (Expr × BinderMeta)} {body₀ : Expr},
+      openPisAtFvars k e d = some (fvs, body) →
+      e.stripPis k = some (bs, body₀) →
+      ∀ (l : Nat) (x : Expr) (b : Expr × BinderMeta),
+        fvs[l]? = some x → bs[l]? = some b →
+        x.fvarTypeD = Expr.instSeq (fvs.take l) (l - 1) b.1
+```
+
+Two corrections to §U.34 (d)'s spelling, both forced by the tree:
+
+* the instantiating list is the opener list's own prefix `fvs.take l`,
+  **not** `Expr.instSeq (openFvars d l) (l - 1)`.  With `openFvars` the
+  statement is FALSE: `openPisAtFvars` opens at `.fvar i dom` carrying
+  the binder's own domain, `openFvars` at `.fvar i (.sort .zero)`, and
+  `instantiate1` plants the annotation it is handed.  That difference
+  is exactly why `openPisAtFvars_stripPis`'s body half is stated up to
+  `ErasedEq` — and why the tree's other exact lemma,
+  `openPisAtFvars_instSeq`, is stated at `fvs`.  At the opener's own
+  prefix the per-binder identity is exact, which is the form the arms
+  need.
+* the per-binder step was already in the tree:
+  `Expr.stripPis_instantiate1_eq`'s second conjunct
+  (`b'.1 = b.1.instantiate1 v (j + i)`, `Verify/Subst.lean`).  The
+  induction is bookkeeping around it plus `Expr.stripPis_length`; it
+  is NOT the ~40-line structural induction (d) predicted.
+
+##### (b) The corollaries, at a constructor's FIELD
+
+`Verify/Inductives/NestedOpenSpine.lean` — the module that already
+does this job for the constructor's RESIDUAL
+(`os_openPisAtFvars_constSpine_stripPis`).  A constructor's telescope
+is opened in TWO stages (parameters at depth `0`, then fields at depth
+`nP`), which is the frame `BlockOpened` states its field facts at, so
+the bridge is stated at the COMPOSED opening and strip — a caller
+builds those with `openPisAtFvars_add` and `stripPis_append`, and
+nothing here has to climb to the model tier:
+
+```lean
+theorem os_field_domain (nP k l : Nat) …
+    (hop : openPisAtFvars (nP + k) e 0 = some (fvsP ++ xFvs, body))
+    (hstrip : e.stripPis (nP + k) = some (pcs ++ fcs, body₀))
+    (hlenP : fvsP.length = nP) (hlenC : pcs.length = nP)
+    (hx : xFvs[l]? = some x) (hb : fcs[l]? = some b) :
+    x.fvarTypeD = Expr.instSeq (fvsP ++ xFvs.take l) (nP + l - 1) b.1
+```
+
+with `os_field_domain_pos` at `copyFields`' spelling `nP - 1 + l`
+(under `0 < nP`, which every pinned container has), and the three
+transfers the arms call:
+
+* `os_field_domain_head` — the OPENED domain's `const` head is the
+  CLOSED domain's.  `os_instSeq_getAppFn_const_inv` (in tree) is the
+  reason: the substitution plants `fvar`s and can never manufacture a
+  `const` head.  This is the direction `recF`/`pinF` want, the one
+  §U.34 (d) said nothing supplies.
+* `os_field_domain_args` — the opened spine is the closed spine mapped.
+* `os_field_domain_mentions` / `os_field_domain_free` — mention
+  transfer both ways.  `_free` is the consumer's direction:
+  `ContainerModeled.ordFree` says the OPENED ordinary field mentions no
+  member, and `ordF`'s LEFT arm needs that of the CLOSED one to fire
+  `replaceAllNested_of_no_mention`.
+
+##### (c) B3 — `whnf_indApp_eq` was never on master
+
+`normPosDomM_inv`'s middle arm hands back `whnf D = w` and computes
+the kind on `w`; at a copy's recursive field `D` is `aux params is`, a
+stored INDUCTIVE former applied, so every recursive arm needs that run
+to be the identity.  DESIGN §U.1 records K.22 as surviving, but
+`git grep -i indApp` finds nothing in `ConLeche/`: task #305 proved it
+on branch `inductives` (521372af, merged there at 549af46e) and that
+branch never reached master.  The commit's
+`ConLeche/Verify/InferLemmas.lean` hunk still applies cleanly and
+builds unchanged, so it was ported as-is, with its test guards:
+`whnf_indApp_eq` (inversion form, no fuel side condition), the
+constructor twin `whnf_ctorApp_eq` (owing `C ≠ natSuccName` — `Nat.succ
+⟨n⟩` IS the literal-acceleration redex), the positive `whnf_indApp_ok`
+(owing the fuel bound and `natOpWfNames.contains J = false`), and the
+per-decline lemmas.
+
+##### (d) B1 plugged into the arms' frame
+
+Two more pieces, so the next session starts inside the argument rather
+than at the bridge:
+
+* `structPsAt_of_instSeq_fvsP` (`Verify/Inductives/NestedCopyInstU.lean`),
+  the converse of `instSeq_structPsAt`: a CLOSED, fvar-free parameter
+  spine that instantiates to the parameter openers WAS `structPsAt l
+  nP`.  `BlockOpened.recF` pins the opened spine's first `nP`
+  arguments to `fvsP`; the kit `recF`/`pinF` end in consumes the
+  closed `structPsAt` spelling.  An fvar-free argument can only become
+  an `fvar` by being a `bvar` the substitution hits, `Expr.instSeq_bvar`
+  says which opener it lands on, and the openers' indices are pairwise
+  distinct, so the depth is forced.  FINDING with its helper:
+  `instSeq_bvar_above` needs `as.length = t + 1` — without it
+  `instSeq`'s truncated `t - 1` lets a variable above the cut still
+  reach into the list (`instSeq [a,b] 0 (.bvar 1) = b`).  At the call
+  site the openers are exactly `nP + l` deep, so it is free.
+* `blockCtorFieldDomain` (`Model/Inductives/NestedCopyInst.lean`):
+  `os_field_domain` at `BlockCtorData`, whose `opens` field carries
+  precisely the two-stage opening and whose `pLen` the other
+  hypothesis.  `copyFields` (§U.34 (c)) already hands the container's
+  strip over in the matching shape —
+  `cc.type.stripPis (dJ.nP + cc.nFields) = some (pcs ++ fcs, mkAppN
+  (.const (dJ.memberName i') …) (structPsAt cc.nFields dJ.nP ++ esJ))`
+  with `pcs.length = dJ.nP` — so the bridge plugs straight in.
+
+##### (e) Where the next session starts, and one thing to check first
+
+The plan sizes `es` at half a session as "the residual is not
+normalised, so `Ess₀` = the readings of `esJ[Ds]`".  Reading
+`copyFields` against `CopyCtorInst.es`, that step is not free: the
+single `replaceAllNested` run `copyFields` records for the residual is
+on `instSeq Ds (nPJ - 1 + nF) (ILP … (mkAppN (.const (memberName i'))
+(structPsAt cc.nFields dJ.nP ++ esJ)))`, and the rewrite walks the
+INDEX arguments `esJ[Ds]` too.  The container's own index arguments
+resolve pre-block (`BlockOpened.residRes`), but `Ds` are the group's
+components and DO mention the block, so "the rewrite leaves the index
+spine alone" is a claim about `esJ`'s parameter occurrences, not a
+consequence of the residual being unnormalised.  Either K.14's
+uniformity gives it (the container's index arguments at a nested
+occurrence) or `es` needs its own small argument — settle that before
+sizing the arm.
+
+The verdict of the maintainer's plan (§5) is untouched by this
+session: `CopyEntry` at a pin target is still not provable per group,
+L-E owns the structure split, and nothing here edits `CopyCtorInst`,
+`NestedFit.lean`, `NestedPremise.lean` or `DeclNestedCore.lean`.
+
+##### (f) GATES
+
+`lake build` 693 jobs warning-free; `lake test` warning-free; layering
+base 346 / model 264 / caps 3 / umbrella 1, 0/0; trust surface 13/5
+(625); overview-links 112; quote-gate 2; no-local-paths OK; proofdeps
+4955 rows / 12 roots / 0 doors; shake 509/509 allowlisted (no new
+line: the four modules §U.34 un-hung stay un-hung, `NestedCopyKinds`
+and `NestedCopyFound` stay hung for the arms); pub-imports 1256/1975
+public, none demotable (§U.34's `NestedCopyRead` FALLBACK still
+stands).  Standard axioms only on every new theorem
+(`openPisAtFvars_domain`, `os_field_domain`/`_pos`/`_head`/`_args`/
+`_mentions`/`_free`, `structPsAt_of_instSeq_fvsP`,
+`blockCtorFieldDomain`, and the ported `whnf_indApp_eq`/
+`whnf_ctorApp_eq`/`whnf_indApp_ok`).
