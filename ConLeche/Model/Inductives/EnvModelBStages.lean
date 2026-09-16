@@ -142,9 +142,8 @@ base case): nothing is stored, so `containerInfo?` reads nothing. -/
 noncomputable def EnvModelB.empty (V : Type w) [SetTheory V] (μ : CheckMode) :
     EnvModelB V μ Env.empty where
   toEnvModelM := EnvModelM.empty V μ
-  blocks := by
-    intro J ci hci
+  blocks := ⟨fun _ => Classical.choice inferInstance, fun J ci hci => by
     obtain ⟨cv, caps, hf⟩ := containerInfo?_found hci
-    exact nomatch hf
+    exact nomatch hf⟩
 
 end ConLeche.Model

@@ -427,37 +427,63 @@ theorem nestedPinsIdx {F : Nat} :
   obtain ⟨-, fvs, o, hop, hsc⟩ := R.scoped
   exact R.idxIdent hop hsc SF S
 
-/-- **The copy-constructor identities** (NAMED — L-B's residual, DESIGN
-§U.23; consumer `nestedPinsIdent_of`): `NestedPinsIdent`'s `inst` half
-verbatim — `CopyCtorInst` at every constructor of every copy of the
-group, K.28's pre-image computed through `replaceAllNested`'s action. -/
-@[expose] def NestedPinsInst (V : Type w) [SetTheory V] (μ : CheckMode) (F : Nat) : Prop :=
+/-- **The copies' constructor SHAPES** (NAMED — lane L-B's deliverable,
+DESIGN §U.23/§U.36; consumer `nestedPinsIdent_of`): `CopyShapeA` at
+every constructor of every copy of the group — the entry-free
+identities (`len`, `recF`, `ordF` at the reading, `pinF`'s pin
+correspondence, `es`), K.28's pre-image computed through
+`replaceAllNested`'s action. -/
+@[expose] def NestedPinsShape (V : Type w) [SetTheory V] (μ : CheckMode) (F : Nat) : Prop :=
+  NestedPinsIdsAt V μ F fun _ p _ b fms f₀ ctorsA kinds ppsF W _ dsF esF _ _ _ eissF tssF _
+      _ _ pinsS mp₁' q₀ kJ dJ =>
+    ∀ i, i < kJ → ∀ (ψ : Name → Nat) (ρp : Nat → V),
+      Sat V (((ppsF 0 ψ).take b.nP).map (·.2.2)).reverse ρp →
+      ∀ i', i' < kJ → ∀ j, j < (dJ.ctorsM i').length →
+      CopyShapeA (V := V) (nP := b.nP) (k := p.k) (resSort := f₀.s) (ppsA := ppsF) (W := W)
+        (pins := pinsS) (offs := b.ownOffset) (memberNames := (fms.take p.k).map (·.cvTa.name))
+        (tgtsG := mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA))
+        (rss := blkRss ctorsA kinds) (tlss := fun ψ => mutTlss ctorsA.length tssF ψ)
+        (Eiss₀ := fun ψ => mutEiss0 ctorsA.length eissF ψ)
+        (Fss₀ := fun ψ => blkFss0 b ctorsA kinds dsF ψ)
+        (Ess₀ := fun ψ => mutEss0 ctorsA.length esF ψ) (ψ := ψ) (ρp := ρp)
+        mp₁'.base2.acval dJ ((pinsS.getD (q₀ + i) default).ψJ ψ) ((pinsS.getD (q₀ + i) default).Ds ψ)
+        q₀ kJ i' j
+
+/-- **The copies' ENTRIES at the auxiliary carrier** (NAMED — lane L-E's
+global entry theorem `nestedPinLeaf_all`, DESIGN §U.36; consumer
+`nestedPinsIdent_of`): `CopyEntryA` at every constructor of every copy
+of the group — at every copy-recursive field targeting OUTSIDE the
+group, the container's domain read at the pin's frame is the copy's
+slot at the auxiliary least tuple.  Not a per-group fact: a pin target
+is another group's `pinLeaf`, and the pin reference graph is cyclic at
+a self-nested container. -/
+@[expose] def NestedPinsEntry (V : Type w) [SetTheory V] (μ : CheckMode) (F : Nat) : Prop :=
   NestedPinsIdsAt V μ F fun _ p _ b _ f₀ ctorsA kinds ppsF W _ dsF esF _ _ _ eissF tssF _
       _ _ pinsS _ q₀ kJ dJ =>
     ∀ i, i < kJ → ∀ (ψ : Name → Nat) (ρp : Nat → V),
       Sat V (((ppsF 0 ψ).take b.nP).map (·.2.2)).reverse ρp →
-      ∀ Y, InTupleSpace (f₀.s.eval ψ) kJ
-          (dJ.idx ((pinsS.getD (q₀ + i) default).ψJ ψ)
-            (consList (((pinsS.getD (q₀ + i) default).Ds ψ).map (interp V ρp)) ρp)) Y →
-        ∀ i', i' < kJ → ∀ j, j < (dJ.ctorsM i').length →
-        CopyCtorInst (V := V) (nP := b.nP) (k := p.k) (resSort := f₀.s) (ppsA := ppsF) (W := W)
-          (pins := pinsS) (offs := b.ownOffset) (mems := mutMems ctorsA.length (mutMemF b))
-          (nFs := mutNFs ctorsA.length (mutNFOf ctorsA))
-          (tgtsG := mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA))
-          (rss := blkRss ctorsA kinds) (tlss := fun ψ => mutTlss ctorsA.length tssF ψ)
-          (Eiss₀ := fun ψ => mutEiss0 ctorsA.length eissF ψ)
-          (Fss₀ := fun ψ => blkFss0 b ctorsA kinds dsF ψ)
-          (Ess₀ := fun ψ => mutEss0 ctorsA.length esF ψ) (ψ := ψ) (ρp := ρp)
-          dJ ((pinsS.getD (q₀ + i) default).ψJ ψ) ((pinsS.getD (q₀ + i) default).Ds ψ) q₀ kJ Y i' j
+      ∀ i', i' < kJ → ∀ j, j < (dJ.ctorsM i').length →
+      CopyEntryA (V := V) (nP := b.nP) (k := p.k) (resSort := f₀.s) (ppsA := ppsF) (W := W)
+        (pins := pinsS) (offs := b.ownOffset) (mems := mutMems ctorsA.length (mutMemF b))
+        (nFs := mutNFs ctorsA.length (mutNFOf ctorsA))
+        (tgtsG := mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA))
+        (rss := blkRss ctorsA kinds) (tlss := fun ψ => mutTlss ctorsA.length tssF ψ)
+        (Eiss₀ := fun ψ => mutEiss0 ctorsA.length eissF ψ)
+        (Fss₀ := fun ψ => blkFss0 b ctorsA kinds dsF ψ)
+        (Ess₀ := fun ψ => mutEss0 ctorsA.length esF ψ) (ψ := ψ) (ρp := ρp)
+        dJ ((pinsS.getD (q₀ + i) default).ψJ ψ) ((pinsS.getD (q₀ + i) default).Ds ψ) q₀ kJ i' j
 
-/-- **`NestedPinsIdent` from the constructor identities**: `idx` is a
-theorem (`nestedPinsIdx`), `inst` the named residual. -/
-theorem nestedPinsIdent_of {F : Nat} (hI : NestedPinsInst V μ F) : NestedPinsIdent V μ F := by
+/-- **`NestedPinsIdent` from the shapes and the entries**: `idx` is a
+theorem (`nestedPinsIdx`), the shape and the entry the named residuals. -/
+theorem nestedPinsIdent_of {F : Nat} (hSh : NestedPinsShape V μ F) (hEn : NestedPinsEntry V μ F) :
+    NestedPinsIdent V μ F := by
   intro env mp p st b envAux stored ctorsR fmsA ctorsA₀ fms f₀ ctorsA sortss kinds mp₁ ppsF W idxF
     dsF esF srcsF fvsPF xFvsF xrestF eissF tssF mp₁' R pinsS SF dsR xFvsR q₀ kJ dJ S
   exact ⟨nestedPinsIdx mp p st b envAux stored ctorsR fmsA ctorsA₀ fms f₀ ctorsA sortss kinds
       mp₁ ppsF W idxF dsF esF srcsF fvsPF xFvsF xrestF eissF tssF mp₁' R pinsS SF dsR xFvsR q₀ kJ dJ S,
-    hI mp p st b envAux stored ctorsR fmsA ctorsA₀ fms f₀ ctorsA sortss kinds mp₁ ppsF W idxF dsF
+    hSh mp p st b envAux stored ctorsR fmsA ctorsA₀ fms f₀ ctorsA sortss kinds mp₁ ppsF W idxF dsF
+      esF srcsF fvsPF xFvsF xrestF eissF tssF mp₁' R pinsS SF dsR xFvsR q₀ kJ dJ S,
+    hEn mp p st b envAux stored ctorsR fmsA ctorsA₀ fms f₀ ctorsA sortss kinds mp₁ ppsF W idxF dsF
       esF srcsF fvsPF xFvsF xrestF eissF tssF mp₁' R pinsS SF dsR xFvsR q₀ kJ dJ S⟩
 
 end ConLeche.Model

@@ -212,12 +212,26 @@ structure NestedPinGroup (m : EnvModel V env₂) (q₀ kJ : Nat) (dJ : BlockMode
     SpineFit ρ ((D).params ψ) as →
     SpineFit (consList as ρ) (dJ.params (((D).pinAt (q₀ + i)).ψJ ψ))
       ((((D).pinAt (q₀ + i)).Ds ψ).map (interp V (consList as ρ)))
-  inst : ∀ i, i < kJ → ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V ((D).params ψ).reverse ρp →
-    ∀ Y, InTupleSpace (f₀.s.eval ψ) kJ
-        (dJ.idx (((D).pinAt (q₀ + i)).ψJ ψ)
-          (consList ((((D).pinAt (q₀ + i)).Ds ψ).map (interp V ρp)) ρp)) Y →
+  /-- the copies' constructor SHAPES (lane L-B) -/
+  shape :
+    ∀ i, i < kJ → ∀ (ψ : Name → Nat) (ρp : Nat → V),
+      Sat V ((D).params ψ).reverse ρp →
       ∀ i', i' < kJ → ∀ j, j < (dJ.ctorsM i').length →
-      CopyCtorInst (V := V) (nP := b.nP) (k := p.k) (resSort := f₀.s) (ppsA := ppsF) (W := W)
+      CopyShapeA (V := V) (nP := b.nP) (k := p.k) (resSort := f₀.s) (ppsA := ppsF) (W := W)
+        (pins := pinsS) (offs := b.ownOffset) (memberNames := (D).memberNames)
+        (tgtsG := mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA))
+        (rss := blkRss ctorsA kinds) (tlss := fun ψ => mutTlss ctorsA.length tssF ψ)
+        (Eiss₀ := fun ψ => mutEiss0 ctorsA.length eissF ψ)
+        (Fss₀ := fun ψ => blkFss0 b ctorsA kinds dsF ψ)
+        (Ess₀ := fun ψ => mutEss0 ctorsA.length esF ψ) (ψ := ψ) (ρp := ρp)
+        m.acval dJ (((D).pinAt (q₀ + i)).ψJ ψ) (((D).pinAt (q₀ + i)).Ds ψ)
+        q₀ kJ i' j
+  /-- the copies' ENTRIES at the auxiliary carrier (`nestedPinLeaf_all`) -/
+  entry :
+    ∀ i, i < kJ → ∀ (ψ : Name → Nat) (ρp : Nat → V),
+      Sat V ((D).params ψ).reverse ρp →
+      ∀ i', i' < kJ → ∀ j, j < (dJ.ctorsM i').length →
+      CopyEntryA (V := V) (nP := b.nP) (k := p.k) (resSort := f₀.s) (ppsA := ppsF) (W := W)
         (pins := pinsS) (offs := b.ownOffset) (mems := mutMems ctorsA.length (mutMemF b))
         (nFs := mutNFs ctorsA.length (mutNFOf ctorsA))
         (tgtsG := mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA))
@@ -225,7 +239,7 @@ structure NestedPinGroup (m : EnvModel V env₂) (q₀ kJ : Nat) (dJ : BlockMode
         (Eiss₀ := fun ψ => mutEiss0 ctorsA.length eissF ψ)
         (Fss₀ := fun ψ => blkFss0 b ctorsA kinds dsF ψ)
         (Ess₀ := fun ψ => mutEss0 ctorsA.length esF ψ) (ψ := ψ) (ρp := ρp)
-        dJ (((D).pinAt (q₀ + i)).ψJ ψ) (((D).pinAt (q₀ + i)).Ds ψ) q₀ kJ Y i' j
+        dJ (((D).pinAt (q₀ + i)).ψJ ψ) (((D).pinAt (q₀ + i)).Ds ψ) q₀ kJ i' j
 
 /-! ### The pin groups' consequences -/
 
@@ -414,13 +428,13 @@ theorem nestedPinLeaf_of (hμ : μ.verifiedChecks = true)
   obtain ⟨q₀, kJ, i, dJ, rfl, hi, G⟩ := hgroups q hq
   obtain ⟨cvT, cvR, mI, rP, rules, hI⟩ := G.rep i hi
   have hρp : Sat V ((D).params ψ).reverse (consList as ρ) := (D).satOfSpine hsp
-  exact ofNested_pinLeaf_of hI
+  exact ofNested_pinLeaf_of m.acval hI
     (nestedLfpOk_of_formers h hμ hbk ψ (consList as ρ) hρp (nestedPinBound_of m hgroups ψ _ hρp))
     (nestedShape_of_formers h hbk ψ) G.seg hi G.reps (G.typed _) (G.pinsTyped _)
     G.kEq (G.w i hi ψ) (nestedU_pin_group m G hi ψ) (G.inj _) (G.idx i hi ψ)
     (fun i' hi' j => G.grp h3 h.lenA ψ hi' j)
-    (G.inst i hi ψ _ hρp) rfl rfl rfl (G.pinIds hi ψ) (G.DsFit i hi ψ ρ as hsp)
-    hisFit
+    (G.shape i hi ψ _ hρp) (G.entry i hi ψ _ hρp) rfl rfl rfl (G.pinIds hi ψ)
+    (G.DsFit i hi ψ ρ as hsp) hisFit
 
 /-- **The nested-entry identity**, at ANY model carrying the groups: the
 container's leaf at the lifted components and the index readings reads

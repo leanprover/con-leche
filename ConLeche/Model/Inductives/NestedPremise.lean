@@ -2,6 +2,8 @@ module
 
 public import ConLeche.Semantics.Inductives.DeclNested
 public import ConLeche.Model.Inductives.BlockRecWD
+public import ConLeche.Model.Inductives.NestedRecCand
+public import ConLeche.Model.Inductives.NestedFit
 public section
 
 /-!
@@ -109,20 +111,120 @@ structure ContainerModeled {env : Env} (m : EnvModel V env) (ci : ContainerInfo)
   pinNP : ∀ q, q < d.nPins → ∃ ci' : ContainerInfo,
     ConLeche.containerInfo? d.env₀ (d.pinAt q).J = some ci' ∧ (d.pinAt q).nPJ = ci'.nP
 
+/-! ## The pins' laws and shapes of a stored block -/
+
+instance : Nonempty (BlockModel V) :=
+  ⟨{ nP := 0, k := 0, resSort := .zero, isProp := false, large := false, env₀ := ⟨[]⟩
+     memberNames := [], nIdxs := [], ppsM := fun _ _ => [], uM := fun _ _ => 0
+     ctorsM := fun _ => [], idxF := fun _ _ => [], dsF := fun _ _ _ => [], esF := fun _ _ _ => []
+     srcsF := fun _ _ => [], ksF := fun _ _ => [], tgts := fun _ _ _ => 0, fvsPF := fun _ _ => []
+     xFvsF := fun _ _ => [], xrestF := fun _ _ => .sort .zero, eissF := fun _ _ _ => []
+     tssF := fun _ _ _ => [], pins := [], Φ := fun _ _ _ _ => pt, pinCar := fun _ _ _ _ => pt
+     inj := fun _ _ _ _ => pt }⟩
+
+/-- **A stored block's targets, viewed** (task #315 L-E): the block
+model's members and pins at the class readers (`uT`/`IdsT`,
+`NestedRecCand.lean`), its pins' components, and the stored readings at
+the carrier `acval`. -/
+@[expose] def BlockModel.targetView (d : BlockModel V) (acval : Name → (Name → Nat) → AnnotTerm)
+    (ψ : Name → Nat) : TargetView V where
+  k := d.k
+  n := d.nPins
+  w := d.w ψ
+  u := fun t => d.uT t ψ
+  Ids := fun t => d.IdsT t ψ
+  Ds := fun t => (d.pinAt (t - d.k)).Ds ψ
+  EA := targetRead acval d.memberNames d.pins d.nP d.k ψ
+
+/-- **A pin group of a stored block, viewed** (task #315 L-E; the
+run's `NestedPinGroupSyn` made abstract): the pins `[q₀, q₀ + kJ)` of
+`d` are the members of one container block model `dJ` in order — named
+as its members, sharing their level assignment and components, with
+the container's arities at each member, the container's sort the
+block's at the group's level assignment, and the components fitting
+the container's parameters at every parameter frame of the block. -/
+structure PinGroupView (d dJ : BlockModel V) (q₀ kJ : Nat) : Prop where
+  seg : q₀ + kJ ≤ d.nPins
+  kpos : 0 < kJ
+  kEq : dJ.k = kJ
+  name : ∀ i, i < kJ → (d.pinAt (q₀ + i)).J = dJ.memberName i
+  same : ∀ i, i < kJ → ∀ ψ : Name → Nat,
+    (d.pinAt (q₀ + i)).ψJ ψ = (d.pinAt q₀).ψJ ψ ∧ (d.pinAt (q₀ + i)).Ds ψ = (d.pinAt q₀).Ds ψ
+  pinU : ∀ i, i < kJ → ∀ ψ : Name → Nat, (d.pinAt (q₀ + i)).u ψ = dJ.uM i ((d.pinAt q₀).ψJ ψ)
+  pinNP : ∀ i, i < kJ → (d.pinAt (q₀ + i)).nPJ = dJ.nP
+  pinNIdx : ∀ i, i < kJ → (d.pinAt (q₀ + i)).nIdx = dJ.nIdxAt i
+  pinPps : ∀ i, i < kJ → (d.pinAt (q₀ + i)).pps = dJ.ppsM i
+  pinDsLen : ∀ ψ : Name → Nat, ((d.pinAt q₀).Ds ψ).length = dJ.nP
+  w : ∀ ψ : Name → Nat, dJ.w ((d.pinAt q₀).ψJ ψ) = d.w ψ
+  DsFit : ∀ (ψ : Name → Nat) (ρ : Nat → V) (as : List V), SpineFit ρ (d.params ψ) as →
+    SpineFit (consList as ρ) (dJ.params ((d.pinAt q₀).ψJ ψ))
+      (((d.pinAt q₀).Ds ψ).map (interp V (consList as ρ)))
+
+/-- **The pins' shapes of a stored block** against a global assignment
+`B` of block models to container groups (task #315 L-E, DESIGN §U.36):
+every pin `q` of `d` sits in a group `(q₀, kJ)` whose container is
+`B ci` at the group `containerInfo?` reads for the pin's container, and
+pin `q`'s constructors (`pc q`, the copies restored — `PinCtors`) have
+`CopyCtorShape` against that container at the group's level assignment
+and components, at every parameter frame.  The assignment is ONE
+function for the whole environment so that the shape a container's own
+pins carry and the shape the block being installed proves speak of the
+SAME model of the pins' container — what the global entry theorem
+composes (`nestedPinLeaf_all`). -/
+@[expose] def PinShapes {env : Env} (m : EnvModel V env) (B : ContainerInfo → BlockModel V)
+    (d : BlockModel V) (pc : Nat → PinCtors V) : Prop :=
+  ∀ q, q < d.nPins → ∃ (q₀ kJ i : Nat) (ci : ContainerInfo), q = q₀ + i ∧ i < kJ ∧
+    ConLeche.containerInfo? env (d.pinAt q).J = some ci ∧
+    PinGroupView d (B ci) q₀ kJ ∧
+    ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (d.params ψ).reverse ρp →
+      ∀ i' j, i' < kJ → j < ((B ci).ctorsM i').length →
+      CopyCtorShape (d.targetView m.acval ψ) m.acval (B ci) ((d.pinAt q₀).ψJ ψ) ((d.pinAt q₀).Ds ψ)
+        (fun l => (pc (q₀ + i')).tgts j l) (((pc (q₀ + i')).tlss ψ).getD j [])
+        (((pc (q₀ + i')).Eiss ψ).getD j []) ρp i' j (d.k + q₀) kJ
+        (((pc (q₀ + i')).Fss ψ).getD j []) ((pc (q₀ + i')).rss.getD j [])
+        (((pc (q₀ + i')).Ess ψ).getD j [])
+
+/-- **A container group's obligation at the assignment `B`** (task #315
+L-E, DESIGN §U.36 — the `pins` clause the maintainer's plan asked of
+`ContainerModeled`, stated beside it because it names the OTHER
+containers' models through `B`): the group's block model `B ci` in the
+container's own terms, and its pins' constructors with the recursor
+kit's laws — the pins' carriers at any member tuple are the LEAST
+families closed under them (`PinRecLaws.ind`, the leastness the `Prop`
+countermodel of DESIGN §U.36 violates) — and their shapes against `B`. -/
+@[expose] def BlockAt {env : Env} (m : EnvModel V env) (B : ContainerInfo → BlockModel V)
+    (ci : ContainerInfo) : Prop :=
+  ContainerModeled m ci (B ci) ∧
+  ∃ pc : Nat → PinCtors V, PinRecLaws m (B ci) pc ∧ PinShapes m B (B ci) pc
+
+/-- **Every stored container carries its block's model at the
+assignment `B`**: at every group `containerInfo?` reads, `BlockAt`. -/
+@[expose] def EnvBlocksOf {env : Env} (m : EnvModel V env) (B : ContainerInfo → BlockModel V) :
+    Prop :=
+  ∀ (J : Name) (ci : ContainerInfo), ConLeche.containerInfo? env J = some ci → BlockAt m B ci
+
 /-- **Every stored container carries its block's model** at the model
 `m`, in the container's own terms (`ContainerModeled` at the group
-`containerInfo?` reads).  The shape of the `EnvModelM` field to come
-(DESIGN §U.13 (f) 1); a premise on the branch until then. -/
+`containerInfo?` reads), with its pins' laws and shapes — for ONE
+assignment of block models to container groups.  The `EnvModelB`
+field (DESIGN §U.13 (f) 1, §U.31). -/
 @[expose] def EnvBlockModels {env : Env} (m : EnvModel V env) : Prop :=
-  ∀ (J : Name) (ci : ContainerInfo), ConLeche.containerInfo? env J = some ci →
-    ∃ d : BlockModel V, ContainerModeled m ci d
+  ∃ B : ContainerInfo → BlockModel V, EnvBlocksOf m B
+
+/-- **The block model of a container group** — THE assignment the
+field witnesses, chosen once for the whole environment, so that every
+pin of a mint group reads the SAME block model and a container's own
+pins' shapes speak of the models the block being installed reads. -/
+noncomputable def blockOf {env : Env} (m : EnvModel V env) (ci : ContainerInfo) : BlockModel V :=
+  Classical.epsilon (EnvBlocksOf m) ci
 
 /-- **The pins' containers carry their blocks' models** — `EnvBlockModels`
-read at the elimination's pins (`ElimState.pins`): the premise the pin
-groups' assembly consumes (DESIGN §U.21). -/
+read at the elimination's pins (`ElimState.pins`) at the chosen
+assignment: the premise the pin groups' assembly consumes (DESIGN
+§U.21). -/
 @[expose] def PinsModeled {env : Env} (m : EnvModel V env) (pins : List NestedPin) : Prop :=
   ∀ q ∈ pins, ∀ ci : ContainerInfo, ConLeche.containerInfo? env q.container = some ci →
-    ∃ d : BlockModel V, ContainerModeled m ci d
+    BlockAt m (blockOf m) ci
 
 /-- A container the elimination read is a stored inductive. -/
 theorem containerInfo?_found {env : Env} {I : Name} {ci : ContainerInfo}
@@ -140,12 +242,38 @@ theorem containerInfo?_found {env : Env} {I : Name} {ci : ContainerInfo}
       | indInfo cv caps => exact ⟨cv, caps, rfl⟩
       | _ => simp [bind, Option.bind] at h
 
+/-- The chosen assignment carries every stored container's block. -/
+theorem blockOf_of_env {env : Env} {m : EnvModel V env} (hm : EnvBlockModels m) :
+    EnvBlocksOf m (blockOf m) :=
+  Classical.epsilon_spec hm
+
+/-- The chosen block model of a group is a `ContainerModeled` one. -/
+theorem blockOf_spec {env : Env} {m : EnvModel V env} {ci : ContainerInfo}
+    (h : BlockAt m (blockOf m) ci) : ContainerModeled m ci (blockOf m ci) :=
+  h.1
+
 /-- **The pins are modelled at an environment whose stored inductives
 are** (`EnvBlockModels` read at the pins' containers). -/
 theorem pinsModeled_of_env {env : Env} {m : EnvModel V env} (hm : EnvBlockModels m)
     {pins : List NestedPin} (_hok : ConLeche.nestedContainersOk env pins = true) :
     PinsModeled m pins :=
-  fun q _ ci hci => hm q.container ci hci
+  fun q _ ci hci => blockOf_of_env hm q.container ci hci
+
+/-- **The shapes read the assignment at the pins' containers only**. -/
+theorem PinShapes.congrB {env : Env} {m : EnvModel V env} {B B' : ContainerInfo → BlockModel V}
+    {d : BlockModel V} {pc : Nat → PinCtors V}
+    (hBB : ∀ q, q < d.nPins → ∀ ci : ContainerInfo,
+      ConLeche.containerInfo? env (d.pinAt q).J = some ci → B' ci = B ci)
+    (h : PinShapes m B d pc) : PinShapes m B' d pc := by
+  intro q hq
+  obtain ⟨q₀, kJ, i, ci, hqe, hi, hci, hgv, hsh⟩ := h q hq
+  rw [← hBB q hq ci hci] at hgv hsh
+  exact ⟨q₀, kJ, i, ci, hqe, hi, hci, hgv, hsh⟩
+
+/-- `PinRecLaws` reads no model: it crosses any change of model. -/
+theorem PinRecLaws.cross {env₁ env₂ : Env} {m₁ : EnvModel V env₁} {m₂ : EnvModel V env₂}
+    {d : BlockModel V} {pc : Nat → PinCtors V} (h : PinRecLaws m₁ d pc) : PinRecLaws m₂ d pc :=
+  ⟨h.tgtsLt, h.idxOk, h.fibre, h.mkZero, h.mkInj, h.ind⟩
 
 /-! ## The model with its blocks -/
 
