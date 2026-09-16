@@ -1335,7 +1335,7 @@ and index counts.  The whole stage runs at ONE index, so it pushes
 nothing. -/
 theorem mutualFormerChecksS_names (mode : CheckMode) (nP : Nat) :
     ∀ (fs : List (ConstantVal × Nat)) {fe : FEnv},
-      Yields (mutualFormerChecksS mode fe nP fs)
+      Yields (mutualFormerChecksS mode fe nP false fs)
         (fun fms => fms.map (fun f => (f.cvTa.name, f.nIdx)) = fs.map (fun f => (f.1.name, f.2)))
   | [], fe => by
       unfold mutualFormerChecksS
@@ -1389,7 +1389,7 @@ The stage flushes once, checks every member at that one index, and
 conses afterwards. -/
 theorem mutualFormersS_skels (mode : CheckMode) (nP : Nat)
     (fs : List (ConstantVal × Nat)) {fe : FEnv} {sk : List InstallSkel} (h : SkelIs fe sk) :
-    Yields (mutualFormersS mode nP fs fe)
+    Yields (mutualFormersS mode nP fs false fe)
       (fun r => SkelIs r.1 (mutualIndSkels fs sk) ∧
         r.2.map (fun f => (f.cvTa.name, f.nIdx)) = fs.map (fun f => (f.1.name, f.2))) := by
   unfold mutualFormersS
@@ -1613,7 +1613,7 @@ the declared ones. -/
 theorem checkMutualCoreS_skels (mode : CheckMode) {fe : FEnv} {sk : List InstallSkel}
     (h : SkelIs fe sk) (b : MutualBlock)
     (streamRecs : Option (List (ConstantVal × List RecRule))) :
-    Yields (checkMutualCoreS mode fe b streamRecs)
+    Yields (checkMutualCoreS mode fe b streamRecs false)
       (fun fe' => SkelIs fe' (mutualBlockSkels b sk)) := by
   unfold checkMutualCoreS mutualBlockSkels
   simp only []

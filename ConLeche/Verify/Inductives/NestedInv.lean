@@ -881,8 +881,8 @@ theorem checkNested_inv {env envOut : Env} {p : NestedParts} {F : Nat}
         = true ∧
       -- THE FIELD KINDS (K.26): the auxiliary block's stored fields are
       -- classified `.ordinary`, `.recursive` or `.reflexive`, and
-      -- `nestedCopyKinds b stored` is that classification
-      nestedCopyKindsOk b stored = true ∧
+      -- `nestedPinKinds p b stored` is that classification
+      nestedPinKindsOk p b st stored = true ∧
       -- the restored constructors, at the environment holding the formers
       (stored.take p.k).mapM (fun a =>
           restoreCtors (m := CheckM) (fueledOps mode F)
@@ -997,7 +997,7 @@ theorem checkNested_inv {env envOut : Env} {p : NestedParts} {F : Nat}
   case neg => rw [if_neg hcaps] at h; close_throw
   rw [if_pos hcaps] at h
   try simp only [bind, Except.bind] at h
-  by_cases hkd : nestedCopyKindsOk b stored = true
+  by_cases hkd : nestedPinKindsOk p b st stored = true
   case neg => rw [if_neg hkd] at h; close_throw
   rw [if_pos hkd] at h
   try simp only [bind, Except.bind] at h

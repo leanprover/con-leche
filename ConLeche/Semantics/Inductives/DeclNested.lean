@@ -190,9 +190,9 @@ def DeclNestedRun (μ : CheckMode) (F : Nat) (env : Env)
       = true ∧
     -- THE FIELD KINDS (K.26): every stored field of the auxiliary block
     -- is classified `.ordinary`, `.recursive` or `.reflexive`, and
-    -- `nestedCopyKinds b stored` is that classification — the kinds the
+    -- `nestedPinKinds p b stored` is that classification — the kinds the
     -- direct route's monotonicity reads at the copies
-    ConLeche.nestedCopyKindsOk b stored = true ∧
+    ConLeche.nestedPinKindsOk p b st stored = true ∧
     -- the restored constructors, at the environment holding the formers
     (stored.take p.k).mapM (fun a =>
         restoreCtors (m := CheckM) (fueledOps μ F)

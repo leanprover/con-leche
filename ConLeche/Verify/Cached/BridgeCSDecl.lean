@@ -970,7 +970,7 @@ theorem mutualFormerChecksS_run (hμ : mode.verifiedChecks = true) {nP : Nat} :
     ∀ (l : List (ConstantVal × Nat)) (env : Env) {s₀ : CState}
       {fms : List MutualFormerA} {s' : CState},
       EnvWF env → CSOK mode env s₀ →
-      mutualFormerChecksS mode (mkFEnv env) nP l s₀ = .ok (fms, s') →
+      mutualFormerChecksS mode (mkFEnv env) nP false l s₀ = .ok (fms, s') →
       CSOK mode env s' ∧ (∀ f ∈ fms, f.cvTa.type.hasFvar = false) ∧
       ∃ F, mutualFormerChecks (fueledOps mode F) env nP false l = .ok fms
   | [], env, s₀, fms, s', _, hs, h => by
@@ -981,6 +981,7 @@ theorem mutualFormerChecksS_run (hμ : mode.verifiedChecks = true) {nP : Nat} :
   | (cv, nIdx) :: rest, env, s₀, fms, s', henv, hs, h => by
     unfold mutualFormerChecksS at h
     -- the constant check and official's telescope, both at `env`
+    simp only [Bool.false_eq_true, if_false] at h
     rw [checkConstantValF_eq] at h
     obtain ⟨cvTa₀, s₂, hcv, h⟩ := bindC_ok h
     obtain ⟨hs₂, cvTa₀', hP₀, F₁, hF₁⟩ := (checkConstantValS_sim hμ henv hs) cvTa₀ s₂ hcv
@@ -1052,7 +1053,7 @@ theorem mutualFormersS_run (hμ : mode.verifiedChecks = true) {nP : Nat}
     (l : List (ConstantVal × Nat)) (env : Env) {s₀ : CState}
     {r : FEnv × List MutualFormerA} {s' : CState}
     (henv : EnvWF env) (hwf : CSOKF s₀)
-    (h : mutualFormersS mode nP l (mkFEnv env) s₀ = .ok (r, s')) :
+    (h : mutualFormersS mode nP l false (mkFEnv env) s₀ = .ok (r, s')) :
     CSOKF s' ∧ r.1 = mkFEnv r.1.env ∧ EnvWF r.1.env ∧
     (∀ f ∈ r.2, f.cvTa.type.hasFvar = false) ∧
     ∃ F, mutualFormers (fueledOps mode F) nP l env = .ok (r.1.env, r.2) := by
@@ -1088,9 +1089,9 @@ tables on top. -/
 theorem checkMutualCoreS_run (hμ : mode.verifiedChecks = true) {env : Env} (henv : EnvWF env)
     {b : MutualBlock} {streamRecs : Option (List (ConstantVal × List RecRule))}
     {s₀ : CState} (hwf : CSOKF s₀) {feOut : FEnv} {s' : CState}
-    (h : checkMutualCoreS mode (mkFEnv env) b streamRecs s₀ = .ok (feOut, s')) :
+    (h : checkMutualCoreS mode (mkFEnv env) b streamRecs false s₀ = .ok (feOut, s')) :
     CSOKF s' ∧ feOut = mkFEnv feOut.env ∧
-    ∃ F, checkMutualCore (fueledOps mode F) env b streamRecs = .ok feOut.env := by
+    ∃ F, checkMutualCore (fueledOps mode F) env b streamRecs false = .ok feOut.env := by
   unfold checkMutualCoreS at h
   simp only [] at h
   rw [structWalkersC_eq_plain] at h

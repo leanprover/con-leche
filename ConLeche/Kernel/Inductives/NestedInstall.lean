@@ -639,58 +639,59 @@ def nestedTables : List (Name × Option ProjTable × List (ConstantVal × Nat ×
 
 /-! ## The install -/
 
-/-- **THE AUXILIARY BLOCK'S FIELD KINDS** (task #279 K.26, the direct
-nested lane's DESIGN §DR.1 (b), variant C), read off the STORED
-constructors.
+/-- **THE FIELD KINDS AT THE PINS** (task #315 §U.1 (c) fact 6; task
+#279 K.26 variant C, re-keyed from the copies to the PINS).
 
 `checkMutualCore` classifies every field of every constructor of the
-auxiliary block — the block's own members' and every copy's — by
-`mutualCtorKinds`, and installs the block only if no field is
-`.negative` (official's "non positive or non valid occurrence") or
-`.unsupported` (a nested occurrence inside the auxiliary block).  That
-classification is the elimination's whole point at a copy: a copy field
-is `.ordinary` (it mentions no member of the auxiliary block), or
-`.recursive`/`.reflexive` INTO a named member — a real member of the
-block at a container-parameter position, or another copy one container
-level down.
+auxiliary block by `mutualCtorKinds` and installs the block only if no
+field is `.negative` (official's "non positive or non valid
+occurrence") or `.unsupported` (a nested occurrence inside the
+auxiliary block).  For a COPY — the container's constructors with the
+block's components substituted — that classification is the fact the
+model tier needs about the container at the pin: a field is `.ordinary`
+(it mentions no member of the auxiliary block), or `.recursive`/
+`.reflexive` INTO a named target, and the target index is an index into
+`members ++ pins`: a real member of the block (a container-parameter
+position, `head : α` at `α := Tree`) or another pin one container level
+down (`toList : List α` in `Array.mk`).
 
-The classification is not returned by the install, so it is recomputed
-here on the very constructors the install STORED (`stored`, read back
-out of the scratch environment by `auxStoredAll`), with the same
-function on the same data.  `nestedCopyKinds b stored` is per member, in
-block order: the block's own members first, then one entry per copy
-(`drop p.k`), and inside a member one entry per constructor and one kind
-per field.
+Keyed by PIN: `nestedPinKinds p b stored` drops the block's own members
+and lists, per pin in pin order, per container constructor, one kind per
+field.  The classification is recomputed on the constructors the scratch
+install STORED — which are the container's constructors INSTANTIATED at
+the pin's components, since that is what the elimination minted.
 
-**Why it is recorded and not derived.**  The model tier's composed
-functor `X ↦ ⟦J⟧(Ds[X])` is monotone exactly when every copy field reads
-monotonically at the block's frame, and the kinds say which ones do:
-`.ordinary` is constant in the frame, `.recursive`/`.reflexive` read the
-target member.  Deriving the same fact from the container's stored
-constructors would need a syntactic positivity walk of its own, and such
-a walk can DECLINE a stream official accepts — official's positivity
-runs after the parameters are substituted, where a field that inspects a
-parameter reduces, and a walk with the parameter free is stuck on it.
-Recording what the install already decided cannot decline at all.
+**Why it is recorded and not derived.**  The alternative is a syntactic
+positivity walk over the container's stored constructors with the
+parameter FREE, and such a walk can DECLINE a stream official accepts:
+official's positivity runs on the substituted field, where a field that
+inspects a parameter reduces, and the free-parameter walk is whnf-stuck
+on it.  A check that can fire on a correct stream is out; recording what
+the install already decided cannot fire at all.
 
-**It cannot fire.**  `nestedCopyKinds` answers `none` only if a stored
+**It cannot fire.**  `nestedPinKinds` answers `none` only if a stored
 constructor's type does not strip its own `nP + nF` binders, which is
-the telescope `checkMutualCtors` opened to check it; and a `.negative`
-or `.unsupported` kind is exactly what `classifyMutualKinds` threw on,
-at this block, on these types.  A failure is therefore `.internal`. -/
-def nestedCopyKinds (b : MutualBlock) (stored : List AuxStored) :
+the telescope `checkMutualCtors` opened to check it; a `.negative` or
+`.unsupported` kind is exactly what `classifyMutualKinds` threw on, at
+this block, on these types; and a target outside `members ++ pins` is
+outside the aux block `mutualCtorKinds` classified against.  A failure
+is `.internal`. -/
+def nestedPinKinds (p : NestedParts) (b : MutualBlock) (stored : List AuxStored) :
     Option (List (List (List (RecFieldKind × Nat)))) :=
-  stored.mapM fun a =>
+  (stored.drop p.k).mapM fun a =>
     a.ctors.mapM fun (cvCa, _nP, nF) => mutualCtorKinds b.members3 b.lps b.nP (cvCa, nF)
 
-/-- The kinds exist and every field of the auxiliary block is
-`.ordinary`, `.recursive` or `.reflexive` — the classification
-`classifyMutualKinds` let through (K.26). -/
-def nestedCopyKindsOk (b : MutualBlock) (stored : List AuxStored) : Bool :=
-  match nestedCopyKinds b stored with
+/-- The kinds exist at every pin, every field is `.ordinary`,
+`.recursive` or `.reflexive`, and every target is a position of
+`members ++ pins` (§U.1 (c) fact 6). -/
+def nestedPinKindsOk (p : NestedParts) (b : MutualBlock) (st : ElimState)
+    (stored : List AuxStored) : Bool :=
+  match nestedPinKinds p b stored with
   | some kinds =>
-    kinds.all fun ks => ks.all fun k => k.all fun (r, _) =>
-      r == .ordinary || r == .recursive || r == .reflexive
+    kinds.length == st.pins.length &&
+      kinds.all fun ks => ks.all fun k => k.all fun (r, t) =>
+        (r == .ordinary || r == .recursive || r == .reflexive) &&
+          decide (t < p.k + st.pins.length)
   | none => false
 
 /-- **Check and install a recognised NESTED block** (see the module
@@ -791,13 +792,15 @@ def checkNested (ops : CheckerOps m) (env : Env) (p : NestedParts) : m Env := do
   -- is `.internal`.
   unless members.all (fun a => !a.caps.eta && (env.find? a.cvTa.name).isNone) do
     throw (.internal "nested: a restored former is not a fresh non-eta family")
-  -- **THE FIELD KINDS** (K.26): the classification the scratch install
-  -- decided, recomputed on the constructors it stored, so that the model
-  -- tier reads a copy field's kind off the run instead of re-deciding
-  -- positivity at the container.  A failure is `.internal`.
-  unless nestedCopyKindsOk b stored do
-    throw (.internal "nested: a stored field of the auxiliary block is not classified \
-      ordinary, recursive or reflexive")
+  -- **THE FIELD KINDS AT THE PINS** (§U.1 (c) fact 6): the
+  -- classification the scratch install decided, recomputed on the
+  -- constructors it stored — the container's, at the pin's components —
+  -- so that the model tier reads a pin's field kinds off the run instead
+  -- of re-deciding positivity at the container.  A failure is
+  -- `.internal`.
+  unless nestedPinKindsOk p b st stored do
+    throw (.internal "nested: a stored field at a pin is not classified ordinary, \
+      recursive or reflexive into the block")
   let env₁ := consNestedFormers members env
   -- 4. the constructors, restored and re-checked (post-check (b))
   let ctorsR ← members.mapM fun a => restoreCtors ops env₁ R p.lps a.ctors
