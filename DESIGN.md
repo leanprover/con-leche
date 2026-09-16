@@ -74010,3 +74010,214 @@ through `FixStageRec` (task #290's class) — recorded in `FALLBACK`.
    `mutualDatum` restate by `show` before `rw`; an anonymous-constructor
    component `fun f hf => nomatch hf` fails with unresolved binder
    types — `refine` it.
+
+#### U.9 — M4 session 4a: the recursors' stage, first half — readings, types, the tuple, the rule-less conses (session U-8, 2026-09-16)
+
+`MutualRecsModeled`'s provisioning half, proved; its store half NAMED
+(`MutualRecsStored`) with the consumer `mutualRecsModeled_of`.  No
+checker code changed; no `sorry`, no axioms, no `maxHeartbeats` (the
+reference's `mutualRecData_of` needed 1.6 M — it elaborates at the
+default budget here, unchanged).  New: `Model/Inductives/MutualRecs.lean`
+(262 — the readings built from the datum), `MutualRecsProvision.lean`
+(276 — the rule-less conses, generic in the leaf), `MutualRecsStage.lean`
+(693 — the readings from the run, the leaf, the assembly, the named
+store half), `BlockRecLeaf.lean` (433 — closedness and the chain's
+validity), `BlockRecValid.lean` (391 — the equations bit-valid),
+`Semantics/Tower/SigChainWire.lean` (139 — the chain closed);
+`MutualRecData.lean` +345 (the reading layer's run half cherry-picked).
+Three Opus lanes ran in parallel (the cherry-pick, the closedness kit,
+the validity twin); every one compiled at the default budget.
+
+##### (a) THE SPLIT
+
+```lean
+theorem mutualRecsModeled_of {F : Nat} (hst : MutualRecsStored V μ F) :
+    MutualRecsModeled V μ F
+```
+
+`mutualRecsProvision` (the stage's first half): at the constructors'
+model with the datum and the run facts, there are a sort `s` and a
+model `mpP` of `provisionMutualRecs b fms cvRas.zipIdx env₂` with
+**`ProvisionedRecs mp₂ b fms cvRas d s mpP`** — the state s4b consumes:
+the `k` recursors consed at the generated names (`names`: `b.recName t`,
+level parameters `b.rlps`) with the leaves `recLeaf` (`leaves`), every
+other leaf the constructors' model's (`agree`), the stored types'
+readings at the provisioned model (`recData`, `MutualRecData` at
+`blockRds`), the leaves graded, bit-valid and typed at their readings
+(`leafTyped`), and the tuple of the leaves' values satisfying every
+rule equation (`iota`, at the restricted assignment).  **`MutualRecsStored`**
+is `MutualRecsModeled`'s ∀-chain verbatim, continued: at ANY `s`, `mpP`
+with `ProvisionedRecs`, the group store `storeMutualRecs` cons a model
+at which the datum still holds, every other leaf the constructors'
+model's.  Consumers: `mutualRecsModeled_of`, `declBlock_of_stored`.
+
+##### (b) THE READINGS BUILT FROM THE DATUM — `MutualRecs.lean`
+
+The `k`-motive reading (`mutualRecDataAV`) runs over BLOCK-ORDER lists
+and two position tables; `BlockReadings` says they are the datum's.
+They are now BUILT from it: `recLs` (the members' leaves), `recNIdxs`,
+`recPps` (member `0`'s parameter data), `recIpss`, `recCds` (the
+members' `cds` flattened, `List.flatMap` over `List.range d.k`),
+`recMots`/`recTgts` (the same flattening of the members' indices and
+target readers, read by `getD`), `recTname` (member `0` off the block —
+the reading layer's `hfT` quantifies over EVERY position).  The datum's
+`minorIdx c j` is exactly the flat position of member `c`'s entry `j`
+(`getElem?_flatMap_range`), and every flat position decomposes so
+(`flatMap_range_index`, `minor_index`); **`blockReadings_of`** then
+holds by position, its one semantic clause (`below`) the stored types'
+own closedness.  `blockRds m elimL t ψ` names member `t`'s reading's
+binder data at those lists, `blockConc t` its conclusion.
+
+##### (c) THE TYPES — `MutualRecData.lean`, `MutualRecsStage.lean`
+
+The reading layer's run half is cherry-picked (`mutualRecData_of`:
+`denoteMeta_mutualRecTy` + the claims' `inferRow`/`sortRow` at the
+generated type — the sort row IS the kernel's `ensureSortCore`, there
+is no separate row to add; `formerReadsM_of` without `lvls`), and its
+constructor lemma is RE-BASED on the datum: `blockCtorRead_of` reads
+ONE constructor's premise (`MutualCtorRead`) off its `BlockCtorData`,
+which names the fields' targets directly (`Tof`/`nIdxOfT`) where the
+recursor's table names them through `moti` — `htgt` is the agreement.
+`blockCtorReadsM_of` assembles the list over `recCds` (the block's
+positions through `MutualDatumOf.ctors` and `MutualGrouped`; the
+checked constructors' names, field counts and level parameters from
+`checkMutualCtors` — `ctorsA_names_of`), `blockFormerReadsM_of` the
+members'; **`blockRecData_of`**: member `t`'s type reads to
+`mkPisAV (blockRds t ψ) (blockConc t)`, graded at a level `u_t`.
+
+FINDING 1 — the datum hides the STORED former: `BlockRep.former` reads
+an existential `cvT`, `memsFound` finds an unrelated `cv`, and the
+generated recursor type is built from the CHECKED constant's type.  So
+the recursor stage has one run fact beyond the datum: **`MemberStored`**
+(the member's checked constant is what the store finds under its name,
+at the block's level parameters, its telescope ending in its own sort,
+its `FormerData` at the datum's parameter data) — supplied by
+`blockReps_of` (its third conjunct) from `MutualFormersFacts`.
+FINDING 2 — the datum's kinds are the run's: `ksF`/`tgts` are
+`kindsOf`/`tgtAt` of the classification at `ownOffset mm + j`, a `rfl`
+at `mutualDatum` and a hypothesis (`hkinds`) at the abstract datum,
+which `mutualRecFieldsOf_eq` turns into the generated constructors'
+`recFields`.
+
+##### (d) THE LEAF
+
+```lean
+@[expose] def recLeaf (m : EnvModel V env) (elimL : Level) (s : (Name → Nat) → Nat)
+    (rlps : List Name) (t : Nat) (ψ : Name → Nat) : AnnotTerm :=
+  blockLeafAV (s (restrictΨ rlps ψ)) d.k (fun t' => d.blockRds m elimL t' (restrictΨ rlps ψ))
+    d.blockConc (d.recEqs m elimL (restrictΨ rlps ψ)) t
+```
+
+Member `t`'s leaf is the chosen tuple's projection at the datum's
+readings — taken at the assignment RESTRICTED to the recursors' level
+parameters (`restrictΨ b.rlps ψ`, the fixpoint route's device for the
+sort).  FINDING 3: this makes the leaf's stability under `rlps`
+definitional (`restrictΨ_congr`) — no congruence of `mutualRecDataAV`/
+`mutualRuleDataAV` in `ψ` is ever needed; the readings at `ψ` and at
+its restriction agree by `MutualRecData.params`, and s4b reads the
+rules at the restriction through `denoteMeta_params_ext`.  The sort
+`s ψ` is the join (`foldr max`) of the members' inferred sorts
+(`Classical.choose` over `blockRecData_of`'s `∃ u`), each member's
+type in `univ (s ψ)` by `univ_mono`.  `blockRecsAt` at the restricted
+assignment gives the tuple: typed, its projections the leaves'
+values, graded, every equation satisfied.
+
+##### (e) THE LAWS — `BlockRecLeaf.lean`, `BlockRecValid.lean`, `SigChainWire.lean`
+
+The provision cons (`declStep_preserves_of_ind_rec_cons`) wants the
+leaf closed, bit-valid, graded, stable and typed.  Closedness:
+`blockRecAVI_below` (the Σ'-chain at depth `K`: the `i`-th lifted type
+at `K + i`, the equations at `K + k`), `blockRecTy_below` (the type,
+`mutualConcAV`'s head strictly below the arity — a `<`, not `≤`), and
+**`specEqs_below`** (every equation under the tuple binders: the prefix
+from `BlockReadings.below`, the lifted fields, `ihAppAVK` through
+`ihTeleAtGo_below`/`ihIdxAtM_below`, the constructor leaf by
+`cval_closedL`).  Validity: `blockRecAVI_validV` (the chain's `psigma`
+λ-binders quantify over fitting components, so the equations' validity
+is consumed at fitting tuples) and **`blockEq_valid`**, `blockEq_wd`'s
+`AnnotValid` twin line by line — FINDING 4: the validity half consumes
+NEITHER the members' and constructors' typing NOR the tuple's: the
+`app`/`eqE` clauses carry no chain condition and the reflexive field's
+`Prop` side condition has no counterpart in the `lam` clause; the
+fixpoint route's ih-tower validity kit (`mkLamsAV_bits_validV`,
+`fieldsValid_ihTeleAtGo`, `AnnotValid_ihIdxAtM`) re-frames to `k`
+motives with no new lemma.
+
+##### (f) THE CONSES — `MutualRecsProvision.lean`
+
+`recProvisionCons` (one rule-less cons: `rec_rules` by
+`recRules_cons_fresh`, `caps_ok` vacuous at a recursor), `recsProvisionGo`,
+**`recsProvision`** — `inductives`' loop generic in the leaf and
+WITHOUT its carrier invariant: FINDING 5, the uniform datum is
+transported once (s4b's `BlockRep.crossEnv`, from the constructors'
+model to the store's along the agreement), where the tagged route had
+to thread a per-member representation through every anonymous carrier.
+
+##### (g) THE RESTATEMENTS
+
+`MutualRecsModeled` gains three hypotheses — the recursors' names
+fresh, unreserved and no projection's at the constructors' environment;
+`MemberStored` at every member; the kinds' identification — and
+`mutualCoreModeled_of` supplies the last two (`blockReps_of`, `rfl`).
+FINDING 6: the first is NOT derivable from `MutualCoreModeled`'s run
+facts — `checkMutualRecTy` checks the stream's record by
+`checkConstantVal` only when a record is given, and the core is
+stated at an arbitrary `streamRecs`.  So `MutualCoreModeled` gains it
+too, and `declBlock` takes the recursor pin `mutualRecPinOk p` (as
+`declMutualRun_etaClosed` does) and derives it (`recNames_of`:
+`checkMutualRecTys_inv` → the record's `checkConstantVal_inv` →
+`mutualRecPinOk_name`).  `declBlock_of_recs` and the new
+`declBlock_of_stored` carry the pin.
+
+##### (h) M4 RE-SIZED
+
+Session 4a DONE (this).  **Session 4b** = the store half: the rule
+law per stored rule (`blockRecs_iota` + the `specRuleCoreAV →
+mutualRuleCoreAV (fun t => leaf t)` bridge — the tuple frame's variables
+ARE the leaves' values — + `denoteMeta_mutualRecRhs` at the restricted
+assignment), the rule's right-hand side `WellDenotedV` (lane C's kit at
+`Rof := leaf`), the store swap (port `MutualStageRec.lean` 640–930), and
+the datum transported (`BlockCtorData.crossEnv`/`BlockRep.crossEnv`,
+new) — 1–2 sessions; **session 5** = `MutualTablesModeled` + the FLIP
++ the full gates + the landing.  M4 2–3 left; M5 2–3; M6 3–5; M7 3–4;
+M8 1–2.  Total remaining **11–17**.
+
+##### (i) GATES, FINDINGS, TRAPS
+
+Gates at HEAD: `lake build` 613 jobs warning-free (was 607), `lake test`
+green, layering 0/0 edges, trust surface 13/13 allowlisted,
+overview-links 103, quote-gate 2, no-local-paths OK, proofdeps 4361
+rows / 0 doors, shake 478 removals all allowlisted (NO new allowlist
+line) / `pub-imports: none demotable` (11 fallbacks).  The import gate
+on the six new modules under the #223 criterion: `BlockRecLeaf`'s
+`SigChainWire`, `MutualRecData`'s `TowerWire`, `BlockRep` and
+`StructData` (the last two implied by `MutualRecRead`/`MutualData`),
+`MutualRecsProvision`'s `StructCaps` and `MutualWF` CLEAN and deleted;
+`MutualRecs`'s `BlockRecWD` + `BlockRecKit` relocated to
+`BlockRecTyped` (shake's own proposal); the plan's four demotions
+applied (`MutualRecData`'s `BlockRep`/`StructData`/`MutualInv`,
+`MutualRecsStage`'s `MutualRecsProvision`).
+
+1. **The datum hides the stored former** ((c)) — `MemberStored`.
+2. **The recursors' freshness needs the pin** ((g)) — `declBlock` takes it.
+3. **The leaf at the restricted assignment** ((d)) — stability by
+   construction.
+4. **Validity consumes no typing** ((e)).
+5. **No carrier invariant** ((f)).
+6. **Heartbeats**: three cherry-picks and two twins, all at the default
+   budget.
+7. Lean traps: `rw [List.getD_eq_getElem?_getD]` rewrites only the
+   first `getD`'s INSTANCE (two `getD`s over different lists are
+   different patterns) — repeat it; `show d.minorIdx c j = _ from rfl`
+   is a no-op rewrite (`_` unifies with the left side) — spell the
+   right side; a `rw [hd.nP]` on the goal does not reach a `d.nP`
+   INSIDE a def (`blockRds`) — rewrite the hypothesis (`rw [← hd.nP]
+   at h`); `omit [SetTheory V] in` fails on a lemma whose statement
+   mentions `EnvModel V env`; `Bool.and_eq_true` is not an iff
+   (`.mp` unknown) — `simp only [Bool.and_eq_true] at h`; one section
+   `variable {env}` used for both the datum's environment and the
+   model's silently identifies them — name the datum's `env₀`; field
+   notation on a PRIVATELY imported def fails ("the environment does
+   not contain") with a hint — `public import`; `lake build <Module>`
+   by name builds a module the roots do not yet list, which `lake env
+   lean` of an importer needs.
