@@ -1,8 +1,9 @@
 module
 
-public import ConLeche.Verify.BridgeWfImp
-public import ConLeche.Verify.Extend.Inversions
+public import ConLeche.Kernel.CheckerBase
 public import ConLeche.Verify.ProjSlots
+import ConLeche.Verify.BridgeWfImp
+import ConLeche.Verify.Extend.Inversions
 import ConLeche.Verify.ExceptBind
 
 public section

@@ -113,6 +113,15 @@ FALLBACK = {
     # only through `FixStageRec`'s closure — task #290's class: a private
     # import is invisible to a public statement (`unknown identifier`).
     ('ConLeche.Model.Inductives.MutualIdxUniv','ConLeche.Model.Inductives.FixStageRec'),
+    # task #315 U-16: `InstAll`'s one public import is the file's whole
+    # public view — demoting it kills its own `variable [SetTheory V]`
+    # (`unknown identifier SetTheory`), the `MutualIdxUniv` class.
+    ('ConLeche.Semantics.Tower.InstAll','ConLeche.Semantics.Tower.SumRecCase'),
+    # task #315 U-16: the two nested Verify modules' one public import is
+    # their whole public view (their statements name `Env`, `Expr`, the
+    # kernel's nested functions) — the same class.
+    ('ConLeche.Verify.Inductives.NestedAuxInv','ConLeche.Kernel.Inductives.NestedInstall'),
+    ('ConLeche.Verify.Inductives.NestedElimInv','ConLeche.Kernel.Inductives.NestedInstall'),
     # task #315: `BlockRecWD`'s one public import is the file's whole
     # public view (`SetTheory`, `BlockReadings`, `BlockReps`, the datum);
     # the model calls it demotable (nothing downstream re-exports through

@@ -2,7 +2,7 @@ module
 
 public import ConLeche.Model.Inductives.MutualStageFormer
 public import ConLeche.Model.Inductives.MutualRecRead
-public import ConLeche.Verify.Inductives.FrontDoor
+import ConLeche.Verify.Inductives.FrontDoor
 public section
 
 /-!

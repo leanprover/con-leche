@@ -76342,3 +76342,346 @@ control: `&& false` inside the `mkCopy` comparison turns 23 of the 26
 fixtures into `nested: a minted auxiliary type is not the copy of the
 container it records`, so the comparison is reached at every fixture
 that gets that far.
+
+#### U.18 — M6 session 6: the mutual stage at the GRADE, and the nested assembly `nestedCoreModeled_of` (session U-16, 2026-09-16)
+
+M6 s6 = §U.17 (i)'s "s6".  Two things landed: the mutual stage's model
+tier made generic in the grade (a prerequisite no plan had seen), and
+the assembly `nestedBlockReps_of` — `blockReps_of`'s nested twin with
+every clause of `IsBlockModel` discharged — consumed by
+`nestedCoreModeled_of : NestedCtorsStaged V μ F → NestedCoreModeled V μ F`.
+`NestedCoreModeled` is therefore discharged modulo ONE named fact, the
+restored constructors' stage, whose interface (`NestedStageFacts`, with
+the pin groups `NestedPinGroup`) is the verbatim list in (c).  K.28
+merged (`agent/uniform-m5` 21d8a505 at 00758b2a; its `nestedCopySrcOk`
+conjunct threaded through `NestedCoreModeled`/`NestedTailModeled`/
+`declNested_of`).  No checker code changed; no `sorry`, no axioms, no
+`maxHeartbeats`.
+
+##### (a) THE GRADE — `FrontDoorFacts`, and the stage generic in `g`
+
+**The finding.**  §U.17 (c) said the auxiliary block's premise is
+"free": run `mutualFormersStage` on `b` and read `MutualFormersFacts`.
+The FACTS are free — the STAGE was not: the scratch run is
+`checkMutualCore … b none true`, at the `auxRoute` grade, whose front
+door is `checkConstantValPre`, and NOTHING in `Model/` consumed that
+door (`grep checkConstantValPre ConLeche/Model` was empty).  Every
+reader (`formerData_of`, `ctorDataI_ofShape`, `formerLevels_of`,
+`MemberConsOk.ofCheck`, `mutualFormerChecks_pos`) started from
+`checkConstantVal_inv` — the annotation walk's run — and
+`mutualFormersStage`, `stageMutualCtor(s)`, `stageMutualFormers`,
+`stageTupleFormers`, `mutualCtorData_of`, `MutualShadow`/`MutualChains`'
+`hCtor` theorems and the three named facts of `DeclBlock`/`MutualCore`/
+`MutualRecsStage` were all stated at grade `false`.  Without the
+refactor, every input of the nested assembly would have had to be
+NAMED (the whole 30-field structure).
+
+**What the readers actually use of the walk.**  Reading the proofs: the
+reading itself comes from the `inferTypeCore` run (`acceptedReads_of`,
+`claimsAt_of … .inferRow`), and the walk contributed only two
+syntactic facts of its OUTPUT (`hasFvar = false`, `looseBVarsBounded 0`,
+via `annotate_syntax`) — which the pre-annotated door checks of its
+INPUT, its output being the input.  So both doors establish one
+interface, `Verify/Inductives/FrontDoor.lean`:
+
+```lean
+structure FrontDoorFacts (mode : CheckMode) (F : Nat) (env : Env) (cv cvA : ConstantVal) : Prop where
+  fresh nres pshape nodup   -- the name guards, at `cv`
+  name : cvA.name = cv.name          lps : cvA.levelParams = cv.levelParams
+  bounded noFvar lpsOk resolve       -- the stored type's four syntactic facts
+  infer : ∃ stype u, inferTypeCore mode env F 0 cvA.type = .ok stype ∧ ensureSortCore … = .ok u
+  slots : Expr.ProjSlotsOk env cvA.type
+```
+with `.ofCheck` (from `checkConstantVal_inv` + `checkConstantVal_typeWF`
++ `annotateCore_projSlotsOk`), `.ofPre` (the door's own guards; `slots`
+from the K.13 guard through the new `Expr.projSlotsOk_of_projTablesOk`
+— `projTablesOk` IS `ProjSlotsOk` as a Bool), `.ofGrade g`.  Lane L4a
+found the `slots` field: `mutualNoProj`'s "a constructor's type carries
+no `.proj T j`" step was the one reader needing more than the door's
+first eleven fields (it went through `annotateCore_noProjAt`), and
+`ProjSlotsOk.noProjAt hslot _ hdoor.slots` closes it at both grades.
+`FixStageTable.lean:682` can collapse the same way (not done).
+
+**The Verify twins** (`MutualInv.lean`/`MutualWF.lean`, old lemmas
+untouched): `mutualFormerChecksG_nil_inv/_inv/_checked`,
+`normCtorValMG_inv`, `checkMutualCtorG_shape` (the tuple of
+`checkMutualCtor_shape` with `∃ ty', FrontDoorFacts mode F env {cvC with
+type := ty'} cvCa` as its first component), `mutual_ctorG_typeWF`,
+`checkMutualCtorsG_typeWF`, `mutualFormerChecksG_typeWF`.  The graded
+`if` in the kernel's do-blocks is a JOIN POINT, not a bind on an `ite`:
+`exceptBind_ok` cannot peel it — `cases g <;> simp only [if_true,
+Bool.false_eq_true, if_false] at h` first, then one tail on both doors
+(`all_goals`), the door closed by `first | exact .ofPre hccv | exact
+.ofCheck hccv`.
+
+**The Model tier, generalised in place** (Opus lanes, one file each,
+`lake env lean` only; the coordinator built between layers):
+readers `formerData_ofDoor`/`ctorDataI_ofShapeDoor`/`formerLevels_ofDoor`
+(the old names kept as wrappers — the native route consumes them),
+`MemberConsOk.ofDoor`, `mutualFormerChecksG_pos`; then `{g : Bool}` on
+`stageMutualFormers`, `stageMutualCtor(s)(Go)`, `mutualShadowGrading`/
+`mutualTeleBound_of`/`mutualCtorFrames`, `mutualChainFacts_at`/
+`mutualChainValidFacts_at`/`mutualChainReal_at`, `mutualCtorData_of`,
+`stageTupleFormers`, `mutualNoProj` and its four name lemmas,
+`ctorsA_names_of`/`mutualRecsProvision`; `MutualFormersFacts V F g mp …`
+(the grade right after `F`; `runC` at `g`); `mutualFormersStage`,
+`mutualCtorsStage`, `blockReps_of`, `mutualTableFacts_of` through it;
+`MutualCoreModeled`/`MutualTablesModeled` (DeclBlock),
+`MutualRecsModeled` (MutualCore), `MutualRecsStored` (MutualRecsStage)
+quantify `(g : Bool)` right after `streamRecs` with both runs at `g`;
+`mutualCoreModeled_of`, `mutualRecsModeled_of`, `mutualRecsStored`,
+`mutualTablesModeled` intro it; `declMutual` instantiates `false` —
+UNCHANGED, and a consumer that passes a `false` run infers `g`.  So the
+SCRATCH INSTALL'S MODEL is now a theorem: `mutualCoreModeled` and
+`mutualTablesModeled` at `g := true` give `EnvModelM V μ envAux` with
+the auxiliary block's `IsBlockModels` at all `k + n` members (given the
+recursor names' freshness at the scratch environment, which the
+`hrecNames` hypothesis asks — derivable from the nested run, (d) 6).
+Two tidy-ups docketed: `stageMembersG` (MutualFormersKit) at a grade
+(`mutualFormersStage` calls its engine `stageMembersGoG` directly), and
+`checkMutualCtorsG_fresh` in Semantics (a local `have` in MutualCore).
+
+##### (b) THE ASSEMBLY — `Model/Inductives/NestedCore.lean` (NEW, ~1 000 lines)
+
+* `nestedBlockModel` (an `abbrev`, so that `BlockComposed`'s and
+  `NestedFit`'s lemmas — stated at `BlockModel.ofNested` — unify): the
+  nested block model at the run's data — `ofNested` at `b.nP`, `p.k`,
+  `f₀.s`, the first `p.k` members' names and index counts, `ppsF`/`W`,
+  the RESTORED constructors `(ctorsR.getD t []).map (c.1, c.2.2)`,
+  the auxiliary lists at `b.ownOffset`, and per restored constructor
+  the auxiliary constructor's data (`idxF`/`esF`/`srcsF`/`fvsPF`/`xrestF`/
+  `eissF`/`tssF` at `b.ownOffset mm + j`, `ksF := kindsOf (mutKsOf …)`,
+  `tgts := tgtAt …`) EXCEPT the two the restore changes — the binder
+  data `dsR` and the opened field variables `xFvsR` — which the stage
+  chooses; the pins' records `pinsS`.
+* the kit: `fitsFrom_nil_iff`, **`spineFit_iff_agree`** (a spine fits
+  two domain lists alike when they read alike at every fitting prefix;
+  `fitsFrom_iff_frames` at no flags), **`spineFit_instTele`** (a spine
+  fits `instTele Ds c Ids` at the block's frame iff it fits `Ids` at the
+  pin's frame), **`nestedFit_of_wd`** (`nest_fit` at the pieces, before
+  the block model exists: from the container's `IsBlockModel` at one
+  member and its `FormersTyped`, a graded application of the container
+  at lifted components and index readings fits the container's index
+  telescope at the pin's frame), `consList_inj_len`.
+* **`NestedPinGroup m q₀ kJ dJ`** — the pin group's facts (fields in (c)),
+  with `pinIds`, `found`, and **`grp`** (the grouping `hgrp` of
+  `ofNested_pinLeaf_of`, DERIVED from `ctorCount` and
+  `mutualCtorsGrouped` through `ownCtors_of_ctors`/`ownCtors_getElem?_idx`).
+* **`nestedBlockReps_of`** — every clause of `IsBlockModel` at every
+  member, plus `FormersTyped`/`CtorsTyped`/`PinsTyped`:
+  `memberLt/member/strip/isProp/mI/rP/rules/former/ctors/memsFound/
+  tgtsLt/idxRes/uParams/paramsIff/idxOk` as `blockReps_of` (the
+  restored constructor's positional correspondence to the auxiliary one
+  via `hctorA`/`hofCtor` and `ownCtors_of_ctors`); `pinsFound` from the
+  group's `IsBlockModel.memsFound`; `functor` = `ofNested_functor`;
+  `pinShape` from the container's `FormerData`; `pinMem`/`pinMono` =
+  `ofNested_pinMem/_pinMono` at `hPinIdx` (the pin's index set is the
+  copy's: `idx` + `idxSet_instTele`, NO `hu` needed there);
+  **`pinLeaf` = `ofNested_pinLeaf_of`** at the group;
+  `leaf` = `ofNested_leaf` (`hbk ▸`); `mkZero`/`mkInj` = `ofNested_*`;
+  **`fibre`**: `ofNested_fibre` then the bookkeeping to `ChainFit` — NOT
+  `fitsFrom_congr` (its slot hypothesis is for EVERY frame, and a pin
+  slot's carrier is taken at the frame below the fields) but
+  `fitsFrom_iff_frames` at fitting prefixes, where the frame below `l`
+  fields is the parameter frame (`consList_apply_add`), `uT` at a pin is
+  `W` (`pinU`), `famAt` is `extT` (`ofNested_famAt`), and at a
+  non-recursive position the restored domain is the auxiliary one
+  (`dsR`'s clause with the shadow's `if_neg`);
+  **`ctor`**: the restored constructor's leaf is the AUXILIARY leaf
+  `sumMkAV … j (dsF J ψ) …` (the stage's `leafM`), so `sumMkAV_fold` at
+  the auxiliary domains needs the spine's fit there — obtained from its
+  fit at the RESTORED domains by `spineFit_iff_agree`, whose per-position
+  obligation is the assembly's core identity: at a nested position the
+  restored entry (`nestEntry`: the container at the lifted components
+  and the index readings) and the auxiliary entry (`recEntry`: the
+  copy's leaf `tupleLfpAV … (k + q)` at the parameter variables and the
+  same index readings) read alike at every frame extending a fitting
+  prefix — `hbody`: left side by `interp_liftN_consList`, the pin's
+  leaf (`hpinLeaf`, the `pinLeaf` clause proven first), `pinU`,
+  `ofNested_pinCar_lfp`, `tupW_pos`; right side by
+  `map_paramBvarsAt_interp`, the copy's leaf closed (`tupleLfpAV_below`),
+  `tupleLfpAV_fold` at `b.k = k + n` with the index fit read through
+  `idx` + `spineFit_instTele` from the pin's fit (`nestedFit_of_wd` at
+  the restored field's grading, `fieldsOkB_getD` of the restored
+  `okTy`).  The REFLEXIVE nested field (`∀ ys, J Ds is`) is the same
+  identity under its telescope: `interp_mkPisAV_piTele` twice with ONE
+  body function (the left body's), `tssBits` for the bits, the right
+  base case being `hbody` at the extended prefix `fs₁ ++ ys`.
+* **`NestedStageFacts`** (the stage's outputs, a Prop-structure over the
+  data) and **`NestedCtorsStaged V μ F`** (NAMED: the run's conjuncts
+  through `restoreCtors` + `MutualFormersFacts` at `true` + `b.k = k +
+  n` → ∃ `mp₂ dsR xFvsR pinsS`, `NestedStageFacts`), stated at the
+  restored constructors over `consMutualFormers (fms.take p.k) env` —
+  `nestedCoreModeled_of` moves to `NestedCoreModeled`'s
+  `consNestedFormers (stored.take p.k) env` by
+  **`consNestedFormers_take_eq`** (Verify `NestedAuxInv`: the members'
+  `indInfo` records survive the scratch install — every later cons is a
+  `ctorInfo`, `recInfo` or `projInfo` — so `stored.take k'` IS
+  `fms.take k'` with the empty capability record).  The auxiliary facts
+  come from `checkMutualCore_inv haux` + `mutualFormersStage` at `g :=
+  true`; `b.k = p.k + st.pins.length` from **`auxBlock_k_count`**
+  (Verify `NestedElimInv`: `elimNested_types_length` — every mint
+  appends one type and one pin, through `mkCopies`/`replaceIfNested`/
+  `replaceAllNested`/`elimCtors`/`elimLoop`).
+
+##### (c) THE NAMED FACT — verbatim, with consumers and the planned discharge
+
+`NestedCtorsStaged` = ∃ `mp₂ : EnvModelM V μ (consNestedCtors ctorsR.flatten
+(consMutualFormers (fms.take p.k) env))`, `dsR`, `xFvsR`, `pinsS`, with
+`NestedStageFacts … mp mp₂ st` (D := `nestedBlockModel …`):
+
+| field | statement | consumer | discharge |
+| --- | --- | --- | --- |
+| `pinsLen` | `pinsS.length = st.pins.length` | `NestedBlockModelOf.nPins`, `hbk'` | the `PinSyn` construction from `st.pins` |
+| `pinRec` | `((D).pinAt q).J = pin.container ∧ pin.pin = mkAppN (.const … lvls) DsE` | `NestedBlockModelOf.pin` | K.28's `nestedCopySrcOk_inv` (`qn.pin = mkAppN (.const Jn lvls) Ds`) |
+| `names` | `(fms.take p.k).map (·.cvTa.name) = p.memberNames` | `NestedBlockModelOf.memberNames` | `mutualFormerChecksG_names` + the elimination keeps the first `k` types' names (Verify, not yet: `elimLoop` `set`s `{t with ctors := …}`) + `nestedAnnotFormers` keeps names (`FrontDoorFacts.name`) |
+| `agree` | `mp₂.acval n ψ = mp.acval n ψ` off the block's names | `NestedCoreModeled`'s first conjunct | the two conses' agreement (`stageTupleFormers`'s, the ctor loop's) |
+| `findM`/`leafM`/`FD` | the members' records `.indInfo f.cvTa {}`, leaves `mutMemberLeaf … t`, `FormerData` at `mp₂` | `memsFound`, `leaf`, `former`, `FormersTyped` | `stageTupleFormers` at the PREFIX (`mutualFormersG_take`, Verify `NestedAuxInv`, READY) with `h.FD₀`/`h.stageOk`/`h.blockOk` at `b.k`; crossed over the ctors' conses |
+| `ctorsLen` | `(ctorsR.getD mm []).length = (b.ownCtors mm).length` | the positional correspondence | `restoreCtors_id` + `auxStored?_inv` (`a.ctors` = the member's own constructors) |
+| `ctorsR` | per restored constructor: its auxiliary constructor `ctorsA[offs mm + j]`, equal field count, the record `.ctorInfo`, `levelParams = b.lps`, the leaf = the AUXILIARY `sumMkAV`, `idxF` resolves at `env₂`, **`BlockCtorFacts mp₂ (D) b.lps mm j (c.1, c.2.2)`** (the restored type's reading through the nested arm: `nestEntry`/`nestReflEntry` at `pinsS`) | `ctors`, `idxRes`, `ctor`, `CtorsTyped`, the fibre's lengths, `hbody` | THE RESTORE READING LAW + a `stageNestedCtor` twin of `stageMutualCtor` + the loop: `restoreNested` = `stripPisOrLams`+`restoreWalk` acts only at a field domain's head `aux_q p⃗ is ↦ J Ds is` (top-down, children unvisited; ordinary fields mention no aux: positivity), so the restored opened form is the auxiliary `MutualOpened` with `nestF`/`nestReflF` at the nested positions and its reading is `denoteMeta` of `mkAppN (.const J lvls) (Ds.lift ++ is)` = `nestEntry` (`denoteMeta_const`/`_mkAppN`, the lift law); the leaf's typing at the restored type = `sumMkAV_mem` at the auxiliary domains + `spineFit_iff_agree` (the same `hbody`, now at the cons's model); ~1 session |
+| `dsR` | `(dsR mm j ψ).length = (dsF J ψ).length`, equal `take nP`, and equal entries at every position that is not a nested recursive/reflexive field | `paramsIff`, the fibre's non-recursive positions, `hsp₂'` | the same reading law (the restore does not touch those positions) |
+| `groups` | every pin `q` is `q₀ + i` of a group `(q₀, kJ)` with a container block model `dJ`: `NestedPinGroup` | everything at the pins | below |
+
+`NestedPinGroup mp₂.base2 q₀ kJ dJ`:
+
+| field | statement | consumer | discharge |
+| --- | --- | --- | --- |
+| `seg` | `q₀ + kJ ≤ pinsS.length` | `ofNested_pinLeaf_of` | `NestedPin.grpBase/grpSize` (K.15 (2)) |
+| `reps`/`rep`/`typed`/`inj` | `IsBlockModels mp₂ dJ`, `IsBlockModel mp₂ ((D).pinAt (q₀+i)).J … dJ i`, `FormersTyped`, the member-local tag shape | `pinLeaf`, `pinsFound`, `PinsTyped`, `nestedFit_of_wd` | `EnvBlockModels mp.base2` (the premise) crossed to `mp₂` by `IsBlockModel.crossEnv` (`hde` from `denoteMeta_env_mono`: the container's constants are pre-block); ONE `dJ` per group (a strengthening of the per-inductive premise the `EnvModelM` field will give, M7) |
+| `noPins`/`kEq` | `dJ.pins = []`, `dJ.k = kJ` | the segment | the pin-free ruling (§U.17 (g) 2; (e) below); `containerInfo?`'s group |
+| `pinU`/`pinNP`/`pinNIdx`/`pinPps`/`pinDsLen` | `u = W`, `nPJ = dJ.nP`, `nIdx = dJ.nIdxAt i`, `pps = dJ.ppsM i`, `Ds.length = dJ.nP` | `hPinIdx`, `pinShape`, `nestedFit_of_wd` | the `PinSyn` construction |
+| `w` | `dJ.w (ψJ ψ) = f₀.s.eval ψ` | `hw`, `PinsTyped` | `copySort_eval` + `MutualFormersFacts.sEq` + `IsBlockModel.strip` (§U.17 (d)); the copy's type is `mkCopy`'s by K.28 (`nestedCopySrcOk_inv`, `mkCopy_inv`) — derivable now, not done |
+| **`u`** | `W ψ = 0 ↔ dJ.uM i' (ψJ ψ) = 0` | `hu` of `ofNested_pinLeaf_of` | **M6 s7: per-component index universes INSIDE the seal** — the gap is REAL (the kernel lane's fixture `tests/e2e/src/nested_prop_idx.lean`: official accepts, `hu` is false) |
+| `idx` | `blockIds b.nP ppsF ψ (p.k + q₀ + i') = instTele Ds 0 (dJ.IdsM i' (ψJ ψ))` | `hidx`, `hPinIdx`, `hi_t` | the identities (K.28's pre-image → `mkCopy`'s type = `closeTelescope pbs 0 (instPis (J.type[lvls]) Ds)`, read: `denoteMeta` through `instPis`/`instantiateLevelParams`/`closeTelescope` — item (b) of §U.17 (g) 3) |
+| `ctorCount` | `(dJ.ctorsM i').length = (b.ownCtors (p.k + q₀ + i')).length` | `grp` | `mkCopy_inv` (the copy's constructors are the member's, positionally) + `containerInfo?` ↔ `dJ.ctorsM` |
+| `DsFit` | the components fit the container's parameters at the block's frame | `hDsFit` | the scratch model (`mutualCoreModeled`/`mutualTablesModeled` at `true`, (a)) + `pinsOkAux`'s `inferType` run through `acceptedReads_of`/`inferRow` → `spineFit_of_wellDenoted_mkAppN_pis`; a pin minted INSIDE a copy (`Option Tree` under `List (Option Tree)`) is typed there and nowhere in the restored constructors, so this is the route, not `CtorsTyped` |
+| `inst` | `CopyCtorInst` at every `(Y, i', j)` of the group | `hinst` | K.28's pre-image + `replaceAllNested`'s action: the kernel lane's finding — EVERY recursive field of EVERY copy is rewritten (the container's own recursive occurrences become the copy's name), so item (c) of §U.17 (g) 3 is the general `recF` clause, not a corner; the identities' discharge computes `mkCopy`'s output from the certified `(J, lvls, Ds)` and follows the rewrite field by field (~2 sessions) |
+
+##### (d) FINDINGS, WITH COST
+
+1. **The grade** (a): one session's worth of refactor (11 Opus lanes in
+   four layers, ~2 h wall), no new mathematics, and it turned the
+   named list into the table above instead of a 30-field structure.
+   §U.17 (c)'s "free" was true of the premise given the facts, false of
+   the facts.  Bonus: the scratch install's model is a theorem.
+2. **`FrontDoorFacts` needs the `.proj` slot** — the one reader beyond
+   the eleven common facts (`mutualNoProj`).  `projTablesOk` (K.13's
+   guard) IS `ProjSlotsOk`; `FixStageTable.lean:682` is the next site.
+3. **`hu` is real** (the kernel lane's fixture): M6 s7 is the seal's
+   per-component index universes; `u` stays named this session.
+4. **K.28 certifies the PRE-IMAGE, not the copy** (the lane's finding,
+   §K.28): the identities' discharge is `mkCopy` computed from the
+   record plus `replaceAllNested`'s action on every recursive field —
+   re-sized 2 sessions (from "(g) 3 (c), a corner").
+5. **`fitsFrom_congr` does not reach the pin slots**: its slot agreement
+   is quantified over every frame, and a pin slot's carrier is taken at
+   the frame below the fields; `fitsFrom_iff_frames` (U-15) at fitting
+   prefixes is the right instrument, and `spineFit_iff_agree` is its
+   flag-free corollary.  The same prefix-wise agreement is what the
+   `ctor` clause needs (the restored fit ⇒ the auxiliary fit).
+6. **The recursor names at the scratch environment** are NOT checked by
+   `checkMutualRecTy` at `streamRecs = none` (only a stream record is
+   `checkConstantVal`ed), so `MutualCoreModeled`'s `hrecNames` at the
+   scratch install must come from the nested run: `restoreRecTys_fresh`
+   (the members' `T.rec` are fresh at the restored environment ⊇ the
+   pre-block one), `copiesFresh` (the copies' `aux.rec`), and the
+   `auxStoredAll` conjunct (a member or constructor NAMED like a
+   recursor would be SHADOWED by `storeMutualRecs` and `auxStored?`
+   would find a `recInfo` where it expects `indInfo`/`ctorInfo`).
+   ~100 lines of Verify, not done; consumer: `DsFit`'s discharge.
+7. Lean traps: a `where`-local lemma of a public theorem is not a
+   constant elsewhere (`spineFit_of_frames.consList_inj_of_length` —
+   duplicated as `consList_inj_len`); a local notation's name (`D`) as a
+   binder is an "invalid pattern"; a structure field named like a
+   parameter (`kJ`) shadows it in the later fields; `-` in an `obtain`
+   over `checkMutualCore_inv` clears every dependent conjunct
+   (`sortss` → the `mutualTables` conjunct vanishes); the `abbrev`
+   instance lets `exact` unify with `BlockModel.ofNested`-stated lemmas
+   but `rw` still wants the projection form — state the instance as a
+   `have hpc : (D).pinCar … = … := ofNested_pinCar_lfp …` and rewrite
+   with it; `mutMemberLeaf … t` is a FUNCTION of `ψ`; a `local
+   macro_rules` body with `obtain ⟨-, rfl⟩` silently fails to `subst`
+   (hygiene) — use an ordinary lemma.
+
+##### (e) THE `pinFix` DESIGN for gap (2) — a container that is itself nested
+
+§U.17 (g) 2: `ofNested_pin_block_of_fit`'s segment is the group, but a
+NESTED container's copy references the container's own pins as
+TOP-LEVEL pins of the nested block; its block model `dJ` reads that
+field as `dJ.pinCar ψJ ρJ Y q'` (at the tuple `Y`), the copy's operator
+as `L⁺ (k + q'')` (a constant in `Y`), and the operators disagree off
+the carrier.  The fix stays a set-level statement of the container's
+block model — no `Term`, no representation:
+
+```lean
+  /-- a pin's carrier at the least tuple is the least tuple of the pin's
+  container at its OWN parameters (its pins fixed the same way) -/
+  pinFix : ∀ ψ ρp, Sat V (d.params ψ).reverse ρp → ∀ q, q < d.nPins →
+    d.pinCar ψ ρp (lfpTuple (d.w ψ) d.k (d.idx ψ ρp) (d.Φ ψ ρp)) q
+      = the container's carrier at the pin, i.e. `pinLeaf`'s right side
+        stated at the CONTAINER'S least tuple: `lfpTuple (dJ.w ψJ) dJ.k
+        (dJ.idx ψJ ρJ) (dJ.Φ ψJ ρJ) i` at `ρJ = consList ⟦Ds⟧ ρp`
+```
+— `pinLeaf` already says this THROUGH the stored reading (`m.acval J`
+at `Ds ++ is`); `pinFix` says it of the CARRIER directly, so that a
+container's pin carrier at ITS carrier is ITS pin container's least
+tuple, transitively.  With it, `ofNested_pin_block_of_fit` is applied
+to the container `dJ` at its own pins FIRST (the inner `pinFix`), which
+turns `dJ.pinCar ψJ ρJ Y q'` at `Y := the container's carrier` into the
+inner container's least tuple, and `hΦ` is then an agreement AT THE
+CARRIER only, which `lfpTuple_seg_congr` needs (its `hΦ` is quantified
+over the space — so `lfpTuple_seg_congr` gets a twin `lfpTuple_seg_congr_at`
+whose `hΦ` holds at tuples below the carrier, ~150 lines pure).  Cost:
+the clause (every instance: `ofNative`/`ofMutual` vacuous, `ofNested` =
+`ofNested_pinCar_lfp` + `pinLeaf`'s shape), the pure twin, the
+assembly's induction from the innermost container outward (the pin
+order is creation order, and a copy mentions pins minted after it — so
+the induction is on the REVERSE order, well-founded as the copies form
+a DAG): 1–2 sessions, after M6 s7.  The alternative — `EnvBlockModels`
+carrying `ofNested`-shaped models with their auxiliary lists — needs
+no new clause but makes the premise representation-dependent, against
+the sealed-API rule; `pinFix` is preferred.
+
+##### (f) GATES AND RE-SIZING
+
+`lake build` 650 jobs warning-free, `lake test` warning-free EXIT 0;
+layering base 328 / model 239 / caps 3 / umbrella 1, 0 base→lane, 0
+impl→theory; trust surface 13 escapes in 5 allowlisted files (582
+scanned); overview-links 112; quote-gate 2; no-local-paths OK.
+**proofdeps: 4955 rows / 12 roots after a JUSTIFIED regeneration** — the
+ten capstones each acquired ONE module, `Verify/Inductives/FrontDoor`:
+the mutual route's readers (`formerData_of`, `ctorDataI_ofShape`,
+`formerLevels_of`, `MemberConsOk.ofCheck`, `mutualFormerChecks_pos`) now
+unfold through `FrontDoorFacts.ofCheck` — the front door's interface
+entering the closure the way the seal's representation modules did at
+U-14; no capstone reaches the nested route (still off the dispatch).
+The import gate (run on the merge+refactor state and again after the
+assembly): demotions APPLIED — `FrontDoor`'s two proof-only imports
+private with `Kernel.CheckerBase` re-exported, the four Model
+`public import FrontDoor` lines private (MutualCtorShape's then a CLEAN
+deletion — `StructData` re-exports it), NestedFit's `BlockRecKit` a
+clean deletion, `NestedCore`'s `NestedAux` private with `MutualCore` and
+`Kernel.Inductives.NestedParts` re-exported and `BlockRepCross` (unused)
+deleted, `NestedElimInv` on `MutualInv` (shake's compensated swap);
+three FALLBACK entries (`InstAll`, `NestedAuxInv`, `NestedElimInv`: a
+one-public-import file whose demotion kills its own `variable
+[SetTheory V]`/statement names — the `MutualIdxUniv` class); three
+allowlist lines for `NestedCore`'s `DeclNestedCore`/`NestedAuxInv`/
+`NestedElimInv` edges — the criterion reports the floor and a cold
+`lake build` accepts the file WITHOUT them although their constants
+(`NestedCoreModeled`, `consNestedFormers_take_eq`, `auxBlock_k_count`)
+are the file's, a resolution path the gate does not model (open
+question for the gate's owner); the edges are the intended ones and the
+two Verify modules have no root of their own.
+
+M6: s6 DONE (this session); **s7** = the restored constructors' stage
+(`NestedCtorsStaged` minus the identities and `u`: the reading law, the
+`stageNestedCtor` twin and loop, `stageTupleFormers` at the prefix, the
+containers' block models crossed, the `PinSyn` records, `w`,
+`ctorCount`, `DsFit` through the scratch model + `hrecNames` (d) 6)
+1–2 sessions; **s8** = the seal's per-component index universes (`u`)
+1; the identities (`idx`/`inst`, K.28's pre-image + `replaceAllNested`)
+2; gap (2) `pinFix` 1–2 (after s8).  M7 (`NestedTailModeled`: the
+`k + nPins`-class recursor kit, the `EnvBlockModels` field on
+`EnvModelM`, the flip) 4–5; M8 1–2.  Remaining **12–16** (was 11–15;
++1 for the identities' re-sizing, −1 for the assembly landing in one).

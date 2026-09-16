@@ -124,6 +124,7 @@ public import ConLeche.Model.Inductives.BlockComposed
 public import ConLeche.Model.Inductives.NestedFit
 public import ConLeche.Model.Inductives.NestedAux
 public import ConLeche.Model.Inductives.DeclNestedCore
+public import ConLeche.Model.Inductives.NestedCore
 public import ConLeche.Model.Inductives.MutualRecData
 public import ConLeche.Model.Inductives.MutualRecRead
 public import ConLeche.Model.Inductives.MutualRuleRead

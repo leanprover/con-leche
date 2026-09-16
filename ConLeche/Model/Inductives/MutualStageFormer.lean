@@ -5,7 +5,7 @@ public import ConLeche.Model.Inductives.MutualChains
 import ConLeche.Model.Inductives.MutualLeafBelow
 import ConLeche.Verify.Inductives.MutualInv
 import ConLeche.Verify.Inductives.MutualWF
-public import ConLeche.Verify.Inductives.FrontDoor
+import ConLeche.Verify.Inductives.FrontDoor
 public section
 
 /-!

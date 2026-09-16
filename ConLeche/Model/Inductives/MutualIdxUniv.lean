@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Model.Inductives.StructData
-public import ConLeche.Verify.Inductives.FrontDoor
+import ConLeche.Verify.Inductives.FrontDoor
 import ConLeche.Model.Inductives.StructBits
 import ConLeche.Model.Inductives.StructRows
 import ConLeche.Model.Inductives.StructTele

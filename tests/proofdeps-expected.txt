@@ -456,6 +456,7 @@ main_model :: ConLeche.Verify.Inductives.FixInv
 main_model :: ConLeche.Verify.Inductives.FixParts
 main_model :: ConLeche.Verify.Inductives.FixRec
 main_model :: ConLeche.Verify.Inductives.FixWF
+main_model :: ConLeche.Verify.Inductives.FrontDoor
 main_model :: ConLeche.Verify.Inductives.MutualGrouped
 main_model :: ConLeche.Verify.Inductives.MutualInv
 main_model :: ConLeche.Verify.Inductives.MutualWF
@@ -977,6 +978,7 @@ main_file_False :: ConLeche.Verify.Inductives.FixInv
 main_file_False :: ConLeche.Verify.Inductives.FixParts
 main_file_False :: ConLeche.Verify.Inductives.FixRec
 main_file_False :: ConLeche.Verify.Inductives.FixWF
+main_file_False :: ConLeche.Verify.Inductives.FrontDoor
 main_file_False :: ConLeche.Verify.Inductives.MutualGrouped
 main_file_False :: ConLeche.Verify.Inductives.MutualInv
 main_file_False :: ConLeche.Verify.Inductives.MutualWF
@@ -1469,6 +1471,7 @@ stream_False :: ConLeche.Verify.Inductives.FixInv
 stream_False :: ConLeche.Verify.Inductives.FixParts
 stream_False :: ConLeche.Verify.Inductives.FixRec
 stream_False :: ConLeche.Verify.Inductives.FixWF
+stream_False :: ConLeche.Verify.Inductives.FrontDoor
 stream_False :: ConLeche.Verify.Inductives.MutualGrouped
 stream_False :: ConLeche.Verify.Inductives.MutualInv
 stream_False :: ConLeche.Verify.Inductives.MutualWF
@@ -1960,6 +1963,7 @@ False_cached :: ConLeche.Verify.Inductives.FixInv
 False_cached :: ConLeche.Verify.Inductives.FixParts
 False_cached :: ConLeche.Verify.Inductives.FixRec
 False_cached :: ConLeche.Verify.Inductives.FixWF
+False_cached :: ConLeche.Verify.Inductives.FrontDoor
 False_cached :: ConLeche.Verify.Inductives.MutualGrouped
 False_cached :: ConLeche.Verify.Inductives.MutualInv
 False_cached :: ConLeche.Verify.Inductives.MutualWF
@@ -2451,6 +2455,7 @@ Empty_cached :: ConLeche.Verify.Inductives.FixInv
 Empty_cached :: ConLeche.Verify.Inductives.FixParts
 Empty_cached :: ConLeche.Verify.Inductives.FixRec
 Empty_cached :: ConLeche.Verify.Inductives.FixWF
+Empty_cached :: ConLeche.Verify.Inductives.FrontDoor
 Empty_cached :: ConLeche.Verify.Inductives.MutualGrouped
 Empty_cached :: ConLeche.Verify.Inductives.MutualInv
 Empty_cached :: ConLeche.Verify.Inductives.MutualWF
@@ -2942,6 +2947,7 @@ sound_cached :: ConLeche.Verify.Inductives.FixInv
 sound_cached :: ConLeche.Verify.Inductives.FixParts
 sound_cached :: ConLeche.Verify.Inductives.FixRec
 sound_cached :: ConLeche.Verify.Inductives.FixWF
+sound_cached :: ConLeche.Verify.Inductives.FrontDoor
 sound_cached :: ConLeche.Verify.Inductives.MutualGrouped
 sound_cached :: ConLeche.Verify.Inductives.MutualInv
 sound_cached :: ConLeche.Verify.Inductives.MutualWF
@@ -3526,6 +3532,7 @@ False_checked :: ConLeche.Verify.Inductives.FixInv
 False_checked :: ConLeche.Verify.Inductives.FixParts
 False_checked :: ConLeche.Verify.Inductives.FixRec
 False_checked :: ConLeche.Verify.Inductives.FixWF
+False_checked :: ConLeche.Verify.Inductives.FrontDoor
 False_checked :: ConLeche.Verify.Inductives.MutualGrouped
 False_checked :: ConLeche.Verify.Inductives.MutualInv
 False_checked :: ConLeche.Verify.Inductives.MutualWF
@@ -4016,6 +4023,7 @@ fullyChecked_sound :: ConLeche.Verify.Inductives.FixInv
 fullyChecked_sound :: ConLeche.Verify.Inductives.FixParts
 fullyChecked_sound :: ConLeche.Verify.Inductives.FixRec
 fullyChecked_sound :: ConLeche.Verify.Inductives.FixWF
+fullyChecked_sound :: ConLeche.Verify.Inductives.FrontDoor
 fullyChecked_sound :: ConLeche.Verify.Inductives.MutualGrouped
 fullyChecked_sound :: ConLeche.Verify.Inductives.MutualInv
 fullyChecked_sound :: ConLeche.Verify.Inductives.MutualWF
@@ -4461,6 +4469,7 @@ False_pure :: ConLeche.Verify.Inductives.FixInv
 False_pure :: ConLeche.Verify.Inductives.FixParts
 False_pure :: ConLeche.Verify.Inductives.FixRec
 False_pure :: ConLeche.Verify.Inductives.FixWF
+False_pure :: ConLeche.Verify.Inductives.FrontDoor
 False_pure :: ConLeche.Verify.Inductives.MutualGrouped
 False_pure :: ConLeche.Verify.Inductives.MutualInv
 False_pure :: ConLeche.Verify.Inductives.MutualWF
@@ -4906,6 +4915,7 @@ Empty_pure :: ConLeche.Verify.Inductives.FixInv
 Empty_pure :: ConLeche.Verify.Inductives.FixParts
 Empty_pure :: ConLeche.Verify.Inductives.FixRec
 Empty_pure :: ConLeche.Verify.Inductives.FixWF
+Empty_pure :: ConLeche.Verify.Inductives.FrontDoor
 Empty_pure :: ConLeche.Verify.Inductives.MutualGrouped
 Empty_pure :: ConLeche.Verify.Inductives.MutualInv
 Empty_pure :: ConLeche.Verify.Inductives.MutualWF

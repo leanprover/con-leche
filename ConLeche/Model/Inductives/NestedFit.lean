@@ -1,7 +1,6 @@
 module
 
 public import ConLeche.Model.Inductives.BlockComposed
-public import ConLeche.Model.Inductives.BlockRecKit
 public import ConLeche.Semantics.Tower.InstAll
 public section
 

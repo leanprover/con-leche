@@ -1,7 +1,6 @@
 module
 
 public import ConLeche.Model.Inductives.SumData
-public import ConLeche.Verify.Inductives.FrontDoor
 public section
 
 /-!
