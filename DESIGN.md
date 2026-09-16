@@ -79933,3 +79933,105 @@ build and allowlisted); pub-imports none demotable.  Standard axioms
 only.  The chain probe still closes: `nestedPinsStaged_of
 (nestedPinsIdent_of hI)` and `declNested_of hμ mp hE hpins hcore htail
 h` compile unchanged after the merge and the two structure changes.
+
+#### U.33 — L-B session 4: the arms' two remaining bridges; `nestedPinsInst_of` still open (lane L-B, 2026-09-16)
+
+**No arm beyond `len` was proved this session.**  What landed are the
+two bridges the four arms' shared syntactic step was missing, and the
+chain from `ctorPair` to the arms is now written out step by step so
+that the next session executes it rather than re-derives it.
+
+##### (a) `instPis_ilp_mkPisB` — `mkCopy`'s constructor body as ONE telescope
+
+```lean
+theorem instPis_ilp_mkPisB (ks : List Name) (us : List Level) (Ds : List Expr)
+    (pcs fcs : List (Expr × BinderMeta)) (res : Expr) (hlen : pcs.length = Ds.length) :
+    Expr.instPis (Expr.instantiateLevelParams ks us (mkPisB (pcs ++ fcs) res)) Ds
+      = some (mkPisB (instTeleSeq Ds (Ds.length - 1) (fcs.map fun b =>
+            (Expr.instantiateLevelParams ks us b.1,
+              (⟨Level.substPW ks us b.2.pw⟩ : BinderMeta))))
+          (Expr.instSeq Ds (Ds.length - 1 + fcs.length)
+            (Expr.instantiateLevelParams ks us res)))
+```
+
+— the container constructor's `∀`-tower over its parameters `pcs` and
+its fields `fcs`, with the levels substituted and the parameters
+instantiated at the pin's components, is the FIELDS' tower with domain
+`l` at cut `|Ds| - 1 + l` (`instTeleSeq_getD`) and the residual at
+`|Ds| - 1 + nF`.  Three kit lemmas in one step (`ilp_mkPisB`,
+`instPis_mkPisB`, `instSeq_mkPisB`); the side condition of the last
+(`as.length ≤ t + 1`) is discharged by `omega` at `t = |Ds| - 1`.
+
+##### (b) FINDING — the elimination's group and the pin's group are two records; `containerInfo?_member_ctor_det`
+
+`elimNested_copyCtors` hands back the mint's container member `J'` as a
+member of the group of the container `I` whose occurrence was REWRITTEN;
+K.28 (`PinData.own`) hands back `J` as a member of the group of the
+PIN's own container.  The two share only their NAME (both are the
+source record's first component, which is one value).  §U.32's
+`containerInfo?_member_det` needs `ci₁.nP = ci₂.nP`, which is available
+for two pins of one mint group but NOT for `I`'s group against a
+member's own.  The nP-free variant is what the assembly needs:
+
+```lean
+theorem containerInfo?_member_ctor_det {env : Env} {I₁ I₂ : Name} {ci₁ ci₂ : ContainerInfo}
+    (h₁ : containerInfo? env I₁ = some ci₁) (h₂ : containerInfo? env I₂ = some ci₂)
+    {M₁ M₂ : ContainerMember} (hm₁ : M₁ ∈ ci₁.members) (hm₂ : M₂ ∈ ci₂.members)
+    (hname : M₁.name = M₂.name) {j : Nat} {cc₁ cc₂ : ContainerCtor}
+    (hc₁ : M₁.ctors[j]? = some cc₁) (hc₂ : M₂.ctors[j]? = some cc₂) :
+    M₁.lps = M₂.lps ∧ M₁.type = M₂.type ∧ ci₁.nP = ci₂.nP ∧ cc₁ = cc₂
+```
+
+The lever: both groups read the member's constructors off its OWN
+recursor (one stored `recInfo`, so one `rulesC`), and position `j`
+names one stored `ctorInfo` — which carries the parameter count, so the
+two groups' `nP` agree as a CONSEQUENCE rather than a hypothesis.
+
+##### (c) The chain to the arms, as it now stands
+
+`ctorPair` (§U.32) + (a) + (b) give the stored copy constructor
+syntactically, in these steps — each with its supplier named:
+
+1. `elimNested_types_length` + `nestedTypes0_length` +
+   `nestedAnnotFormers_length` put the copy at index
+   `(nestedTypes0 …).length + q` = `p.k + q`, which is `PinData.ty`.
+2. `elimNested_copyCtors` at that index: the source triple (matched to
+   K.28's by `PinData.src` — one `t.src`), `mkCopy pbs₀ lvls Ds t.name
+   J' = .ok c`, and per constructor `j`: `c.ctors[j]? = some c₀`,
+   `c₀.2.1.stripPis nP = some (pbs', rest)`, `Expr.instPis c₀.2.1
+   params = some cbody`, `replaceAllNested … st₁ cbody = .ok (cbody',
+   st₂)`, and the stored `cj = (c₀.1, closeTelescope pbs' 0 cbody',
+   c₀.2.2)`.
+3. `mkCopy_inv` at `J'.ctors[j]`, then (b) to replace `J'`'s record by
+   the pin's `J`/`cc`: `c₀.2.1 = closeTelescope pbs₀ 0 cI` with
+   `Expr.instPis (instantiateLevelParams J.lps lvls cc.type) Ds = some cI`.
+4. `closeTelescope_eq_mkPisB` (`pbs₀` fvar-free: the first type is the
+   block's own former, closed, and `elimNested_types_prefix` says the
+   elimination left its TYPE in place) + `stripPis_mkPisB_self` give
+   `pbs' = pbs₀` and `rest = cI.abstractRange 0 nP 0`; `instPis_mkPisB`
+   then `instSeq_abstractRange_fvs` (K.30's scope of the pins, at the
+   first former's openers, which `elimNested_types_prefix` identifies
+   with `params`) give **`cbody = cI` ON THE NOSE**.
+5. (a) turns `cI` into `mkPisB Fs resid` with `Fs.getD l` the
+   container's `l`-th field domain instantiated; `replaceAllNested_mkPisB`
+   splits the rewrite domain by domain.
+6. `normCtorValM`'s output is the stored constant (`nestedCopyCtorType_eq`
+   + `normCtorValM_true_stores`); §U.30's `normPosDomM_read_of` says the
+   two READ alike, which is what `ordF`'s left arm now asks.
+
+Step 4's two remaining side conditions are the only ones without a
+named supplier yet: `cI.looseBVarsBounded 0 = true` and
+`cI.fvarLeaves ⊆ params` — both should come from `cc.type` being a
+stored constant's (closed, bounded: `EnvModel.wf` at the `ctorInfo`)
+together with the mint condition's `∀ a ∈ Ds, a.looseBVarsBounded 0`
+(`elimNested_copyCtors`) and K.30's leaf fact, through an
+`instPis`/`instantiateLevelParams` leaf-and-bound lemma that the kit
+does not yet carry.  That lemma is the next session's first item.
+
+##### (d) GATES
+
+`lake build` 685 jobs warning-free; `lake test` warning-free; layering
+base 344 / model 258 / caps 3 / umbrella 1, 0/0; trust surface 13/5
+(617); overview-links 112; quote-gate 2; no-local-paths OK; proofdeps
+4955 / 12 / 0 doors; shake 509/509 allowlisted; pub-imports none
+demotable.  Standard axioms only.
