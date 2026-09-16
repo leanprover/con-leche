@@ -80035,3 +80035,155 @@ base 344 / model 258 / caps 3 / umbrella 1, 0/0; trust surface 13/5
 (617); overview-links 112; quote-gate 2; no-local-paths OK; proofdeps
 4955 / 12 / 0 doors; shake 509/509 allowlisted; pub-imports none
 demotable.  Standard axioms only.
+
+#### U.34 — L-B session 5: the missing kit lemma, the copy constructor's body ON THE NOSE, and the fields' frame (lane L-B, 2026-09-16)
+
+**No arm of `CopyCtorInst` beyond `len` is proved yet, and
+`nestedPinsInst_of` is NOT built.**  What landed is §U.33 (c)'s whole
+SYNTACTIC chain: its one missing kit lemma, its stages as one theorem,
+and the per-field decomposition every arm is stated at.  The session
+ends at a NEW missing bridge, named in (d).
+
+##### (a) `instPisILP_frame` — §U.33 (c) step 4's two side conditions
+
+`Verify/Inductives/NestedCopyInstU.lean`:
+
+```lean
+theorem instPisILP_frame {ks : List Name} {us : List Level} {T : Expr}
+    {Ds : List Expr} {cI : Expr} {params : List Expr}
+    (h : Expr.instPis (Expr.instantiateLevelParams ks us T) Ds = some cI)
+    (hb : T.looseBVarsBounded 0 = true) (hf : T.hasFvar = false)
+    (hcl : ∀ a ∈ Ds, a.looseBVarsBounded 0 = true)
+    (hlv : ∀ a ∈ Ds, ∀ l ∈ a.fvarLeaves, Expr.fvar l.1 l.2 ∈ params) :
+    cI.looseBVarsBounded 0 = true ∧ ∀ l ∈ cI.fvarLeaves, Expr.fvar l.1 l.2 ∈ params
+```
+
+The kit did NOT lack the induction §U.33 predicted (~40 lines): both
+halves were already there under other names —
+`looseBVarsBounded_instPis` (`NestedCopyTele`) and `instPis_instPisAt`
++ `instPisAt_fvarLeaves` (`Verify/InferLeaves`, task #175's W2c).  What
+was missing is the COMBINATION at a stored constant's type, with the
+level substitution passing through (`hasFvar_instantiateLevelParams`,
+`looseBVarsBounded_instantiateLevelParams`) and the closed type
+contributing NO leaf (`fvarLeaves_eq_nil_of_not_hasFvar`), so every
+leaf of `cI` is one of the components'.  Two spine lemmas came with it
+(`fvarLeaves_mkAppN_head`, `fvarLeaves_mkAppN_arg`): the converse of
+`fvarLeaves_mkAppN`, which is how K.30's scope of a PIN reaches its
+components.
+
+##### (b) `NestedPinsRun.copyBody` — §U.33 (c) stages 1–5 as one theorem
+
+`Model/Inductives/NestedCopyInst.lean`.  For the group's member `i'`
+and constructor `j` it hands back the container's record `cc`/`J`, the
+block's parameter openers `params` (`openPisAtFvars b.nP f₀.cvTa.type
+0`, the spelling `NestedPinsRun.scoped` uses), the mint's pre-image
+`cI` with ITS FRAME (`cI.looseBVarsBounded 0 = true` and every leaf an
+opener — (a)), ONE `replaceAllNested` run
+
+```lean
+      ConLeche.replaceAllNested env (p.lps.map Level.param) params pbs₀ st₁ cI
+        = .ok (cbody', st₂) ∧
+```
+
+and the block's entry at the copy, whose type is `closeTelescope pbs₀
+0 cbody'`.  The chain is §U.33 (c) verbatim: `elimNested_copyCtors` at
+`p.k + q₀ + i'` (`nestedTypes0_length` + `nestedAnnotFormers_length`,
+`PinData.ty`), `mkCopy_inv`, `containerInfo?_member_ctor_det` to
+replace the ELIMINATION's container record by the PIN's own, then
+`closeTelescope_eq_mkPisB` + `stripPis_mkPisB_self` + `instPis_mkPisB`
++ `instSeq_abstractRange_fvs` — which give **`cbody = cI` on the
+nose**, as predicted.  `ctorPair` grew two components (the pin's own
+`containerInfo?` group and the member's membership) and `copyBody` a
+third (`(srcAtE st p (q₀ + i')).2.2.length = dJ.nP`); no proof outside
+the module changed.
+
+Two Lean traps worth recording, both from `rcases`' substitution
+direction: `obtain ⟨…, rfl⟩` on `containerInfo?_member_ctor_det`'s
+`cc₁ = cc₂` eliminates the wrong record (pass the pin's group as `h₁`
+so the equation points the other way), and `obtain rfl : cI' = cI`
+eliminates `cI` — a named `have` + `rw … at` is the fix.  §U.23 (d)'s
+"name every witness" applies to `containerInfo?_inv` here as well: its
+per-member clause mentions `cvT`, so a `-` on that witness silently
+drops the clause.
+
+##### (c) `NestedPinsRun.copyFields` — the frame the four arms are stated at
+
+The same module, on top of (b).  The container's constructor type
+strips as `pcs ++ fcs` over its residual at its own member
+(`CtorDataI.resid` off `IsBlockModel.ctors`); `instPis_ilp_mkPisB`
+(§U.33 (a)) turns the mint into the FIELDS' telescope with each domain
+at its own cut, `instTeleSeq_getD` names the `l`-th, and
+`replaceAllNested_mkPisB` splits the single run of (b) into one run per
+domain plus the residual:
+
+```lean
+      (∀ l, l < cc.nFields → ∃ st₁ st₂ : ElimState,
+        ConLeche.replaceAllNested env (p.lps.map Level.param) params pbs₀ st₁
+            (Expr.instSeq (srcAtE st p (q₀ + i')).2.2 (dJ.nP - 1 + l)
+              (Expr.instantiateLevelParams J.lps (pinsS.getD (q₀ + i') default).lvls
+                (fcs.getD l default).1))
+          = .ok ((Fs'.getD l default).1, st₂) ∧ st₂.pins <+: st.pins) ∧
+```
+
+with the copy's stored telescope recovered as `cbody'.stripPis
+cc.nFields = some (Fs', resid')`.  (The conclusion is spelled with
+`stripPis`, not `mkPisB`, on purpose: `mkPisB` is a `Verify` name the
+assembly's PUBLIC view does not carry, and buying it would cost a
+`public import`.)
+
+The kit is no longer hung: `NestedCopyRewrite`, `NestedCopyProv`,
+`NestedCopyInstU` and `NestedCopyGlue` now have their consumer and
+their four allowlist lines are deleted; `NestedCopyKinds` and
+`NestedCopyFound` stay hung for the arms.
+
+##### (d) FINDING — the next missing bridge: the CLOSED spelling of a container's recursive field
+
+Every remaining arm reads ONE instantiated domain
+`instSeq Ds (nPJ - 1 + l) (ILP J.lps lvls (fcs.getD l default).1)` —
+the container's `l`-th field domain **closed** (bvars for the
+parameters).  What the tree knows about that field is
+`BlockOpened.recF`/`.reflF`/`.ord` (`BlockCtorData.opened`), which
+describe the **opened** domain `xFvs[l].fvarTypeD`: head `const
+(memberName (tgts …)) (lps.map .param)`, `getAppArgs.take nP = fvsP`.
+`instSeq_structPsAt` and `instSeq_mkAppN_const` (the kit) consume the
+CLOSED spelling `mkAppN (.const T lvls') (structPsAt (l + d) nP ++ is)`
+— and nothing in the tree turns the opened shape back into it.
+
+K.32 (`nestedCopyTargetsOk`) supplies exactly that closed spelling, but
+only in the direction "the COPY's kind is recursive at a
+GROUP-INTERNAL target ⟹ the container's closed field `l` is headed by
+the member" — which is what `ordF`'s RIGHT arm and `pinF`'s "target
+outside the group" ask, not what `recF` ("the container is recursive at
+member `m` ⟹ the copy is") asks.  So `recF` — and `ordF`'s LEFT arm,
+which needs the converse "no member head ⟹ the rewrite leaves the
+domain alone" — wants the per-binder open/closed bridge:
+
+> for `openPisAtFvars n e d = some (fvs, body)` and `e.stripPis n =
+> some (bs, body₀)`, the `l`-th opened domain `fvs[l].fvarTypeD` is
+> `(bs.getD l default).1` instantiated at the earlier openers
+> (`Expr.instSeq (openFvars d l) (l - 1)`), EXACTLY (not merely
+> `ErasedEq`, because the arms read the head and the argument spine
+> through `getAppFn`/`getAppArgs`).
+
+`openPisAtFvars_stripPis` (`Verify/Denote/TeleOpen.lean`) proves the
+BODY half of this and only up to `ErasedEq`; the per-binder half does
+not exist.  §U.23 (e)'s assembly sketch assumed the closed spelling
+without naming its supplier — that is the gap.  It is the next
+session's first item, and it is a `Verify` lemma (no model, no run):
+either the exact per-binder form above, or a direct
+"opened head ⟹ closed head" corollary stated at a constructor's field.
+
+##### (e) GATES
+
+`lake build` 685 jobs warning-free; `lake test` warning-free; layering
+base 344 / model 258 / caps 3 / umbrella 1, 0/0; trust surface 13/5
+(617); overview-links 112; quote-gate 2; no-local-paths OK; proofdeps
+4955 / 12 / 0 doors; shake 505/505 allowlisted (four lines DELETED with
+the kit's un-hanging); pub-imports none demotable — the assembly's own
+`public import NestedCopyRead` became a demotion candidate when this
+session's theorems changed the graph and the compiler refuses it
+(`unknown identifier SetTheory`), so it is a new `FALLBACK` entry with
+that reason.  Standard axioms only (`instPisILP_frame`,
+`fvarLeaves_mkAppN_head`/`_arg`, `ctorRecord`, `ctorPair`, `copyLen`,
+`copyBody`, `copyFields`); the chain probe `nestedPinsStaged_of
+(nestedPinsIdent_of hI)` still compiles.
