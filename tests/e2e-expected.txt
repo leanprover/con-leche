@@ -148,6 +148,14 @@
 # detected unsupported feature: decline, never reject or crash.
 2 str_lit_declined.ndjson
 
+# nested_prop_idx.ndjson (tests/e2e/src/nested_prop_idx.lean): the
+# container's indices are PROP-sorted (`C α p : p → Type`, index a
+# proof) while the block's member is TYPE-indexed (`T : Nat → Type`) —
+# the shape the model lane's DESIGN §U.17 (g) 1 needs, and OFFICIAL
+# ACCEPTS it (lean v4.33.0 elaborates and kernel-checks it), so the
+# gap is not vacuous.
+0 nested_prop_idx.ndjson
+
 # nested_rec.ndjson: nested inductive with a parameter (task #48) —
 # `Tree.rec_1`'s List.nil/List.cons rules are `.nested`-certified iota
 # rules with an *open* stored parameter instantiation (`Tree α`);
