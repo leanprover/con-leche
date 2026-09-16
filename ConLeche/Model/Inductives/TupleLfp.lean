@@ -1,7 +1,6 @@
 module
 
 import ConLeche.Semantics.Tower.MutualLeafI
-import ConLeche.Semantics.Tower.InstAll
 public import ConLeche.SetTheory.Derive.LfpSplit
 public import ConLeche.Model.Inductives.MutualStageFormer
 import ConLeche.Model.Inductives.BlockRep
@@ -75,7 +74,7 @@ theorem (`SetTheory/Derive/LfpSplit.lean`, `lfpTuple_splitFun`) along
 the tagged encoding `tagEnc` — which reads member `m`'s tuple at ITS
 universe `Ws m` (task #315 L-A, DESIGN §U.22: in the squash regime the
 tuple is the point and the tag carries the forced spine of proof
-points; `idxSet_elim`/`tagEnc_tupW` are the two regimes in one
+points; `mem_idxSet_elim`/`tagEnc_tupW` are the two regimes in one
 statement).  The API takes the members' first
 constructor positions `offs : Nat → Nat` and exports the local tag in
 `tupleLfpΦ_fibre` (`injW w j` at member `mm`'s constructor `offs mm +
@@ -156,21 +155,6 @@ theorem tagEnc_mkTower (W : Nat) {Ws : Nat → Nat} {Ids : Nat → List AnnotTer
       rw [List.getElem_map, List.getElem_range, projS_mkTower l is h2]
   rw [h]
 
-/-- **An index tuple is the tuple of a fitting spine**, in both
-regimes: a tower's projections in the graph regime, the point of the
-squash regime being `tupW 0` of any fitting spine. -/
-theorem idxSet_elim {u : Nat} {ρp : Nat → V} {Ids : List AnnotTerm} {i : V}
-    (hi : i ∈ˢ idxSet u ρp Ids) :
-    ∃ is, SpineFit ρp Ids is ∧ is.length = Ids.length ∧ i = tupW u is := by
-  by_cases hz : u = 0
-  · subst hz
-    unfold idxSet at hi
-    obtain ⟨rfl, as, hfit⟩ := towerSet_zero_elim _ hi
-    have hsp := fitsS_teleOfFields.mp hfit
-    exact ⟨as, hsp, hsp.length_eq, (tupW_zero as).symm⟩
-  · obtain ⟨hsp, heq⟩ := towerSet_elim_teleOfFields hz hi
-    exact ⟨_, hsp, hsp.length_eq, by rw [tupW_pos hz]; exact heq⟩
-
 /-- **The encoding at a fitting spine's tuple**, in both regimes: the
 spine's tag.  In the squash regime the member's index domains are
 truth values (`hB`), so the fitting spine is the forced one the
@@ -184,11 +168,6 @@ theorem tagEnc_tupW (W : Nat) {Ws : Nat → Nat} {Ids : Nat → List AnnotTerm} 
     rw [if_pos hz, spineFit_zero_replicate (hB hz) hsp]
   · rw [tupW_pos hz]
     exact tagEnc_mkTower W hz hsp.length_eq
-
-/-- `idxSet` reads its universe only through `= 0`. -/
-theorem idxSet_zero_agree {u u' : Nat} (hz : u = 0 ↔ u' = 0) (ρp : Nat → V) (Ids : List AnnotTerm) :
-    idxSet u ρp Ids = idxSet u' ρp Ids :=
-  towerSet_zero_agree hz _
 
 /-- The auxiliary family's index set: the 1-tuples of the tags. -/
 theorem mem_tupleU {W : Nat} {ρp : Nat → V} {Idss : List (List AnnotTerm)} (hT : TagOk W ρp Idss)
@@ -241,7 +220,7 @@ theorem tagEnc_idxEnc {W : Nat} {Ws : Nat → Nat} {ρp : Nat → V} {k : Nat} {
   have hW := hT.1
   refine ⟨?_, ?_, ?_⟩
   · intro m hm i hi
-    obtain ⟨is, hsp, -, rfl⟩ := idxSet_elim hi
+    obtain ⟨is, hsp, rfl⟩ := mem_idxSet_elim hi
     rw [tagEnc_tupW W (hB m hm) hsp, tupW_pos hW]
     exact (mem_tupleU hT).mpr ⟨_, tagTuple_mem hT (tupleIdss_getElem? hm) hsp, rfl⟩
   · intro u hu
@@ -255,13 +234,13 @@ theorem tagEnc_idxEnc {W : Nat} {Ws : Nat → Nat} {ρp : Nat → V} {k : Nat} {
     refine ⟨m, hmk, tupW (Ws m) is, tupW_mem hsp, ?_⟩
     rw [tagEnc_tupW W (hB m hmk) hsp, tupW_pos hW]
   · intro m m' hm hm' i i' hi hi' heq
-    obtain ⟨is, hsp, hl, rfl⟩ := idxSet_elim hi
-    obtain ⟨is', hsp', hl', rfl⟩ := idxSet_elim hi'
+    obtain ⟨is, hsp, rfl⟩ := mem_idxSet_elim hi
+    obtain ⟨is', hsp', rfl⟩ := mem_idxSet_elim hi'
     rw [tagEnc_tupW W (hB m hm) hsp, tagEnc_tupW W (hB m' hm') hsp', tupW_pos hW, tupW_pos hW] at heq
     have h1 := mkTower_inj (by rfl) heq
     obtain ⟨rfl, h2⟩ := inj_inj (List.singleton_inj.mp h1)
     refine ⟨rfl, ?_⟩
-    have h3 := mkTower_inj (by simp [hl, hl']) h2
+    have h3 := mkTower_inj (by simp [hsp.length_eq, hsp'.length_eq]) h2
     rw [List.append_cancel_right h3]
 
 /-! ## The API: the former, the operator, the premise -/
@@ -879,7 +858,8 @@ theorem tagTerm_iff (hT : TagOk W ρp (tupleIdss k Ids))
   have hfitU := tagTupleAV_fit_of_wellDenoted hT hm hfr hlenE hok
   obtain ⟨-, hEok⟩ := WellDenoted.mkAppN_inv hok
   obtain ⟨hval, -⟩ := tagTupleAV_facts hT hm hfr hEok hfitU
-  obtain ⟨is, hsp, hlenIs, rfl⟩ := idxSet_elim ht
+  obtain ⟨is, hsp, rfl⟩ := mem_idxSet_elim ht
+  have hlenIs : is.length = (Ids mm).length := hsp.length_eq
   -- the tuple's components are the spine's, in both regimes
   have hpl : ∀ l, l < (Ids mm).length → is[l]? = some (projS l (tupW (Ws mm) is)) := by
     intro l hl
@@ -973,7 +953,7 @@ theorem tupleLfpΦ_fibre {mems nFs : List Nat} {tgts : List (List Nat)} {rss : L
     henc.mem mm hmm t ht
   -- the tuple's member tag is `mm`
   have htag : caseTag (tagEnc W Ws Ids mm t) = mm := by
-    obtain ⟨is, hsp, -, rfl⟩ := idxSet_elim ht
+    obtain ⟨is, hsp, rfl⟩ := mem_idxSet_elim ht
     rw [tagEnc_tupW W (hB mm hmm) hsp]
     exact caseTag_tupW hW _ _
   unfold tupleLfpΦ

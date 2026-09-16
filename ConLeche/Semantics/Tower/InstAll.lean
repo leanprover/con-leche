@@ -96,16 +96,6 @@ theorem sigmaSet_zero_agree {w w' : Nat} (hz : w = 0 ↔ w' = 0) (A : V) (B : V 
   · have hw' : w' ≠ 0 := fun h => hw (hz.mpr h)
     rw [sigmaSet_pos hw, sigmaSet_pos hw']
 
-/-- `towerSet` reads its universe only through `= 0` (the graph regime's
-pairs are the same set at every positive universe). -/
-theorem towerSet_zero_agree {w w' : Nat} (hz : w = 0 ↔ w' = 0) :
-    ∀ {n : Nat} (T : TeleS V n), towerSet w T = towerSet w' T
-  | _, .nil => rfl
-  | _, .cons A B => by
-    simp only [towerSet]
-    rw [sigmaSet_zero_agree hz]
-    exact sigma_congr fun a _ => towerSet_zero_agree hz (B a)
-
 /-- **The bound law**: the hereditary bound over a telescope instantiated
 at the fields' depth, at the fields' frame, is the bound over the
 original telescope at the pin's frame (`interp_instAll` along the
