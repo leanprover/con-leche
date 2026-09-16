@@ -376,6 +376,17 @@ structure NestedPinGroupSyn (m : EnvModel V env₂) (q₀ kJ : Nat) (dJ : BlockM
   container group share their level parameters; task #315 L-B) -/
   ψJEq : ∀ i i', i < kJ → i' < kJ → ∀ ψ : Name → Nat,
     ((D).pinAt (q₀ + i)).ψJ ψ = ((D).pinAt (q₀ + i')).ψJ ψ
+  /-- **the block model's constructors ARE the pin's own container
+  member's**, by name and in order, and the parameter counts agree
+  (task #315 L-B): a pin records its OWN container's group, the block
+  model is the group's BASE member's, and a member record is a
+  function of the environment at its name and the group's `nP`
+  (`containerInfo?_member_det`) — so the copies' identities may read
+  the constructor records the mint copied off positionally. -/
+  ctorsOf : ∀ i', i' < kJ → ∀ (ciJ : ContainerInfo) (J : ContainerMember),
+    ConLeche.containerInfo? env ((D).pinAt (q₀ + i')).J = some ciJ →
+    J ∈ ciJ.members → J.name = ((D).pinAt (q₀ + i')).J →
+    (dJ.ctorsM i').map (·.1.name) = J.ctors.map (·.name) ∧ dJ.nP = ciJ.nP
 
 /-- **A pin group's IDENTITY facts** (NAMED, DESIGN §U.21 (e), §U.22,
 §U.24): the copy-instantiation identities (K.28's pre-image computed
@@ -1140,7 +1151,8 @@ theorem NestedPinsRun.groupSyn
   -- IsBlockModel at member i, at the prefix model
   have hIB : ∀ i, i < (pinAtE st q).grpSize →
       (blockOf mp.base2 (baseInfo env st q)).memberName i = (memberOf env st q i).name ∧
-      ((blockOf mp.base2 (baseInfo env st q)).ctorsM i).length = (memberOf env st q i).ctors.length ∧
+      ((blockOf mp.base2 (baseInfo env st q)).ctorsM i).map (·.1.name)
+        = (memberOf env st q i).ctors.map (·.name) ∧
       ∃ (cvR : ConstantVal) (mI rP : Nat) (rules : List RecRule),
         IsBlockModel mp₁'.base2 (memberOf env st q i).name
           ⟨(memberOf env st q i).name, (memberOf env st q i).lps, (memberOf env st q i).type⟩
@@ -1180,7 +1192,8 @@ theorem NestedPinsRun.groupSyn
       ctorCount := ?_
       DsFit := ?_
       stored := ?_
-      ψJEq := ?_ }
+      ψJEq := ?_
+      ctorsOf := ?_ }
   · -- rep: the block at the `i`-th pin's container, the level assignment spelled
     intro i hi
     obtain ⟨-, -, cvR, mI, rP, rules, hI⟩ := hIB i hi
@@ -1227,7 +1240,11 @@ theorem NestedPinsRun.groupSyn
     have hrules : rulesC = rulesC' :=
       (ConLeche.ConstantInfo.recInfo.inj (Option.some.inj (hrJ.symm.trans hrM))).2.2.2
     rw [← Nat.add_assoc] at hown
-    rw [hcnt, hown, ← hcc, hcJ, hclJ, hclM, hrules]
+    have hcnt' : ((blockOf mp.base2 (baseInfo env st q)).ctorsM i').length
+        = (memberOf env st q i').ctors.length := by
+      have := congrArg List.length hcnt
+      simpa using this
+    rw [hcnt', hown, ← hcc, hcJ, hclJ, hclM, hrules]
   · -- DsFit: the components' readings fit the container's parameters
     intro i hi ψ ρ as hsp
     rw [hpinAt, hgp i hi]
@@ -1294,6 +1311,25 @@ theorem NestedPinsRun.groupSyn
         hall _ (List.mem_of_getElem? (PD.grp i hi).2.2.2.2)
       rw [hlpsM, hlpsT]
     rw [hlps i hi, hlps i' hi']
+  · -- ctorsOf: the pin's own container member IS the base group's
+    intro i' hi' ciJ J hciJ hJmem hJname
+    rw [hpinAt, hgp i' hi'] at hciJ hJname
+    change ConLeche.containerInfo? env (memberOf env st q i').name = some ciJ at hciJ
+    change J.name = (memberOf env st q i').name at hJname
+    have PDi := hPD ((pinAtE st q).grpBase + i') (by omega)
+    obtain ⟨cii, hcii, -, -, hnPi, -, -, -, -, -, -, -, -⟩ := PDi.own
+    have hbase : (pinAtE st ((pinAtE st q).grpBase + i')).grpBase = (pinAtE st q).grpBase :=
+      (PD.grp i' hi').2.1
+    have hbi : baseInfo env st ((pinAtE st q).grpBase + i') = baseInfo env st q := by
+      unfold baseInfo; rw [hbase]
+    rw [(PD.grp i' hi').1] at hcii
+    obtain rfl : cii = ciJ := Option.some.inj (hcii.symm.trans hciJ)
+    rw [hbi] at hnPi
+    have hMmem : memberOf env st q i' ∈ (baseInfo env st q).members :=
+      List.mem_of_getElem? (PD.grp i' hi').2.2.2.2
+    obtain rfl : J = memberOf env st q i' :=
+      ConLeche.containerInfo?_member_det hciJ PD.base hnPi hJmem hMmem hJname
+    exact ⟨(hIB i' hi').2.1, by rw [CM.nP, hnPi]⟩
 
 /-- **A pin's level assignment is the substitution at its container's
 level parameters** (`NestedPinFacts.pinψ`, U-19b's interface; task
