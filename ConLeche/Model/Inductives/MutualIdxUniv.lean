@@ -1,6 +1,7 @@
 module
 
 public import ConLeche.Model.Inductives.StructData
+public import ConLeche.Verify.Inductives.FrontDoor
 import ConLeche.Model.Inductives.StructBits
 import ConLeche.Model.Inductives.StructRows
 import ConLeche.Model.Inductives.StructTele
@@ -274,16 +275,16 @@ theorem formerIdxOk {env : Env} {m : EnvModel V env} {cvT : ConstantVal} {nP nId
 
 /-! ## The former's per-binder universes -/
 
-/-- **The former's binder universes**, from its `checkConstantVal`
-run: one level per binder (the sort the checker inferred for it), and
-at every assignment the binder's reading lands in that level's
-universe — evaluated at the assignment *restricted* to the constant's
-level parameters, since nothing says the checker's sorts mention only
+/-- **The former's binder universes**, from EITHER front door's facts:
+one level per binder (the sort the checker inferred for it), and at
+every assignment the binder's reading lands in that level's universe —
+evaluated at the assignment *restricted* to the constant's level
+parameters, since nothing says the checker's sorts mention only
 those. -/
-theorem formerLevels_of (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ env)
+theorem formerLevels_ofDoor (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ env)
     {F : Nat} {cvT cvTa : ConstantVal} {n : Nat} {resSort : Level}
     {bs : List (Expr × ConLeche.BinderMeta)}
-    (hccv : ConLeche.checkConstantVal (ConLeche.fueledOps μ F) env cvT = .ok cvTa)
+    (hfd : ConLeche.FrontDoorFacts μ F env cvT cvTa)
     (hstrip : cvTa.type.stripPis n = some (bs, .sort resSort))
     {pps : (Name → Nat) → List (Nat × Nat × AnnotTerm)}
     (hFD : FormerData mp.base2 cvTa n resSort pps) :
@@ -292,13 +293,12 @@ theorem formerLevels_of (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ en
         Sat V ((((pps ψ).take i).map (·.2.2)).reverse) ρ →
         interp V ρ ((pps ψ).getD i default).2.2
           ∈ˢ (univ (Level.eval (restrictΨ cvTa.levelParams ψ) (us.getD i .zero)) : V) := by
-  obtain ⟨-, -, -, -, hlbt, hitf, type', stype, uT, hann', htp', -, hst,
-    hens, rfl⟩ := ConLeche.checkConstantVal_inv hccv
-  obtain ⟨htf', hbt'⟩ := annotate_syntax hann' hitf hlbt
-  simp only at htf' hbt' htp' hst hens hstrip
-  have hw : Expr.WScoped 0 type' := Expr.WScoped.of_not_hasFvar htf'
-  have hL : Expr.LeavesBounded type' := Expr.LeavesBounded.of_not_hasFvar htf'
-  have hnil : type'.fvarLeaves = [] :=
+  obtain ⟨stype, uT, hst, hens⟩ := hfd.infer
+  have htf' := hfd.noFvar
+  have hbt' := hfd.bounded
+  have hw : Expr.WScoped 0 cvTa.type := Expr.WScoped.of_not_hasFvar htf'
+  have hL : Expr.LeavesBounded cvTa.type := Expr.LeavesBounded.of_not_hasFvar htf'
+  have hnil : cvTa.type.fvarLeaves = [] :=
     Expr.fvarLeaves_eq_nil_of_not_hasFvar htf'
   obtain ⟨fvs, hop⟩ := openPisAtFvars_of_stripPis_sort n 0 hstrip
   obtain ⟨us, hlenUs, hus⟩ := piLevels_of_infer (μ := μ) n hop hst hens
@@ -351,10 +351,30 @@ theorem formerLevels_of (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ en
   -- constant's level parameters; the readings do not tell the two
   -- apart (`params`), so the membership at one is the other's
   intro ψ i hi ρ hρ
-  have hpps : pps (restrictΨ cvT.levelParams ψ) = pps ψ :=
-    (hFD.params (restrictΨ cvT.levelParams ψ) ψ
-      (restrictΨ_agree cvT.levelParams ψ)).1
-  have hmem := hper (restrictΨ cvT.levelParams ψ) i hi ρ (by rw [hpps]; exact hρ)
+  have hpps : pps (restrictΨ cvTa.levelParams ψ) = pps ψ :=
+    (hFD.params (restrictΨ cvTa.levelParams ψ) ψ
+      (restrictΨ_agree cvTa.levelParams ψ)).1
+  have hmem := hper (restrictΨ cvTa.levelParams ψ) i hi ρ (by rw [hpps]; exact hρ)
   rwa [hpps] at hmem
+
+/-- **The former's binder universes**, from its `checkConstantVal`
+run: one level per binder (the sort the checker inferred for it), and
+at every assignment the binder's reading lands in that level's
+universe — evaluated at the assignment *restricted* to the constant's
+level parameters, since nothing says the checker's sorts mention only
+those. -/
+theorem formerLevels_of (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ env)
+    {F : Nat} {cvT cvTa : ConstantVal} {n : Nat} {resSort : Level}
+    {bs : List (Expr × ConLeche.BinderMeta)}
+    (hccv : ConLeche.checkConstantVal (ConLeche.fueledOps μ F) env cvT = .ok cvTa)
+    (hstrip : cvTa.type.stripPis n = some (bs, .sort resSort))
+    {pps : (Name → Nat) → List (Nat × Nat × AnnotTerm)}
+    (hFD : FormerData mp.base2 cvTa n resSort pps) :
+    ∃ us : List Level, us.length = n ∧
+      ∀ (ψ : Name → Nat) (i : Nat), i < n → ∀ ρ : Nat → V,
+        Sat V ((((pps ψ).take i).map (·.2.2)).reverse) ρ →
+        interp V ρ ((pps ψ).getD i default).2.2
+          ∈ˢ (univ (Level.eval (restrictΨ cvTa.levelParams ψ) (us.getD i .zero)) : V) :=
+  formerLevels_ofDoor hμ mp (ConLeche.FrontDoorFacts.ofCheck hccv) hstrip hFD
 
 end ConLeche.Model

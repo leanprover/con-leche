@@ -1,6 +1,7 @@
 module
 
 public import ConLeche.Model.Inductives.SumData
+public import ConLeche.Verify.Inductives.FrontDoor
 public section
 
 /-!
@@ -13,6 +14,11 @@ mutual route's constructor stage (`checkMutualCtor`, task #278)
 returns the SAME tuple, so its data
 (`ConLeche/Model/Inductives/MutualData.lean`) is this theorem at
 those pieces — the reading argument is written once.
+
+The reading consumes the constant's front door only through
+`FrontDoorFacts` (`ConLeche/Verify/Inductives/FrontDoor.lean`), so
+`ctorDataI_ofShapeDoor` is the theorem and `ctorDataI_ofShape` its
+`checkConstantVal` instance.
 -/
 
 namespace ConLeche.Model
@@ -28,16 +34,16 @@ universe w
 variable {V : Type w} [SetTheory V] {μ : CheckMode} {env : Env}
 
 /-- **The constructor's data, from its stage run's SHAPE** — the
-pieces `checkSumCtor_shape` returns.  The mutual route's stage
-(`checkMutualCtor`, task #278) returns the same tuple, so its data is
-this theorem at those pieces (`ConLeche/Model/Inductives/MutualData.lean`). -/
-theorem ctorDataI_ofShape (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ env)
+pieces `checkSumCtor_shape` returns, over EITHER front door
+(`FrontDoorFacts`).  The mutual route's stage (`checkMutualCtor`,
+task #278) returns the same tuple, so its data is this theorem at
+those pieces (`ConLeche/Model/Inductives/MutualData.lean`). -/
+theorem ctorDataI_ofShapeDoor (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ env)
     {F : Nat} {T : Name} {lps : List Name} {nP nF nIdx : Nat} {resSort : Level}
     {isProp large : Bool} {cvC cvTa cvCa : ConstantVal} {caps : IndCaps}
     {bs : List (Expr × ConLeche.BinderMeta)} {sorts : List Level} {ty' : Expr}
     {fvsP : List Expr} {crest : Expr} {xFvs idxArgs : List Expr}
-    (hccv : ConLeche.checkConstantVal (ConLeche.fueledOps μ F) env
-      { cvC with type := ty' } = .ok cvCa)
+    (hfd : ConLeche.FrontDoorFacts μ F env { cvC with type := ty' } cvCa)
     (hresid : ∃ cbs es, cvCa.type.stripPis (nP + nF)
       = some (cbs, Expr.mkAppN (.const T (lps.map .param)) (ConLeche.structPsAt nF nP ++ es)) ∧
       es.length = nIdx)
@@ -55,17 +61,17 @@ theorem ctorDataI_ofShape (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ 
       idxArgs
           = (Expr.mkAppN (.const T (lps.map .param)) (fvsP ++ idxArgs)).getAppArgs.drop nP ∧
       CtorDataI mp.base2 T lps cvCa nP nF nIdx resSort isProp large idxArgs ds Es srcs := by
-  obtain ⟨-, -, -, -, hlbt, hitf, type', stype, u, hann', htp', -, hst,
-    hens, rfl⟩ := ConLeche.checkConstantVal_inv hccv
-  obtain ⟨htf', hbt'⟩ := annotate_syntax hann' hitf hlbt
-  simp only at htf' hbt' htp' hst hens hopC hresid
-  have hw : Expr.WScoped 0 type' := Expr.WScoped.of_not_hasFvar htf'
-  have hL : Expr.LeavesBounded type' := Expr.LeavesBounded.of_not_hasFvar htf'
-  have hnil : type'.fvarLeaves = [] :=
+  obtain ⟨stype, u, hst, hens⟩ := hfd.infer
+  have htf' : cvCa.type.hasFvar = false := hfd.noFvar
+  have hbt' : cvCa.type.looseBVarsBounded 0 = true := hfd.bounded
+  have htp' : cvCa.type.allLevelParamsDefined cvCa.levelParams = true := hfd.lpsOk
+  have hw : Expr.WScoped 0 cvCa.type := Expr.WScoped.of_not_hasFvar htf'
+  have hL : Expr.LeavesBounded cvCa.type := Expr.LeavesBounded.of_not_hasFvar htf'
+  have hnil : cvCa.type.fvarLeaves = [] :=
     Expr.fvarLeaves_eq_nil_of_not_hasFvar htf'
   have hlenP : fvsP.length = nP := openPisAtFvars_length _ hopC
   have hopAll := openPisAtFvars_add nP hopC (by rw [Nat.zero_add]; exact hopX)
-  have hidx := openPisAtFvars_index nP type' 0 hopC
+  have hidx := openPisAtFvars_index nP cvCa.type 0 hopC
   obtain ⟨hlenX, hidxX, -⟩ := opening_vars_at hopX
   obtain ⟨F', tb, vb, hib, hensb, -, hbits⟩ :=
     piBits_of_infer hμ (nP + nF) hopAll hst hens
@@ -85,7 +91,7 @@ theorem ctorDataI_ofShape (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ 
   rw [hvb] at hbits
   -- the per-assignment reading
   have hper : ∀ ψ : Name → Nat, ∃ (ds : List (Nat × Nat × AnnotTerm)) (Es : List AnnotTerm),
-      denoteMeta mp.base2.acval env ψ 0 type'
+      denoteMeta mp.base2.acval env ψ 0 cvCa.type
         = some (mkPisAV ds (ctorBodyAVI mp.base2 T nP nF ψ Es)) ∧
       ds.length = nP + nF ∧ Es.length = nIdx ∧
       DenoteMetaSpine mp.base2.acval env ψ (nP + nF) idxArgs Es ∧
@@ -159,10 +165,10 @@ theorem ctorDataI_ofShape (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ 
   · -- level dependence
     intro ψ₁ ψ₂ hφ
     have h2 := (hspec ψ₂).1
-    have h1 : denoteMeta mp.base2.acval env ψ₂ 0 type'
+    have h1 : denoteMeta mp.base2.acval env ψ₂ 0 cvCa.type
         = some (mkPisAV (Classical.choose (hper ψ₁))
           (ctorBodyAVI mp.base2 T nP nF ψ₁ (Classical.choose (Classical.choose_spec (hper ψ₁))))) := by
-      rw [← denoteMeta_params_ext mp.base2 hφ 0 type' htp']
+      rw [← denoteMeta_params_ext mp.base2 hφ 0 cvCa.type htp']
       exact (hspec ψ₁).1
     obtain ⟨hds, hbody⟩ := mkPisAV_inj
       (by rw [(hspec ψ₁).2.1, (hspec ψ₂).2.1]) (Option.some.inj (h1.symm.trans h2))
@@ -204,7 +210,7 @@ theorem ctorDataI_ofShape (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ 
     -- family instantiated at `Prop`
     intro hl ψ hw0 ρ hρ
     have hc := claimsAt_of hμ mp ψ F
-    have hC : Opened mp.base2 ψ (nP + nF) type' (fvsP ++ xFvs)
+    have hC : Opened mp.base2 ψ (nP + nF) cvCa.type (fvsP ++ xFvs)
         (Expr.mkAppN (.const T (lps.map .param)) (fvsP ++ idxArgs))
         (((Classical.choose (hper ψ)).map (·.2.2)).reverse)
         (ctorBodyAVI mp.base2 T nP nF ψ (Classical.choose (Classical.choose_spec (hper ψ)))) :=
@@ -256,5 +262,36 @@ theorem ctorDataI_ofShape (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ 
             exact nomatch hsj'
     rw [hu0] at hmem
     exact hmem
+
+/-- **The constructor's data, from its stage run's SHAPE** — the
+pieces `checkSumCtor_shape` returns.  The mutual route's stage
+(`checkMutualCtor`, task #278) returns the same tuple, so its data is
+this theorem at those pieces (`ConLeche/Model/Inductives/MutualData.lean`). -/
+theorem ctorDataI_ofShape (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ env)
+    {F : Nat} {T : Name} {lps : List Name} {nP nF nIdx : Nat} {resSort : Level}
+    {isProp large : Bool} {cvC cvTa cvCa : ConstantVal} {caps : IndCaps}
+    {bs : List (Expr × ConLeche.BinderMeta)} {sorts : List Level} {ty' : Expr}
+    {fvsP : List Expr} {crest : Expr} {xFvs idxArgs : List Expr}
+    (hccv : ConLeche.checkConstantVal (ConLeche.fueledOps μ F) env
+      { cvC with type := ty' } = .ok cvCa)
+    (hresid : ∃ cbs es, cvCa.type.stripPis (nP + nF)
+      = some (cbs, Expr.mkAppN (.const T (lps.map .param)) (ConLeche.structPsAt nF nP ++ es)) ∧
+      es.length = nIdx)
+    (hopC : openPisAtFvars nP cvCa.type 0 = some (fvsP, crest))
+    (hopX : openPisAtFvars nF crest nP
+      = some (xFvs, Expr.mkAppN (.const T (lps.map .param)) (fvsP ++ idxArgs)))
+    (hlenI : idxArgs.length = nIdx)
+    (hsorts : ConLeche.checkStructFieldSortsI (ConLeche.fueledOps μ F) env isProp large resSort
+      nP xFvs idxArgs nF = .ok sorts)
+    (hfT : env.find? T = some (.indInfo cvTa caps))
+    (hlpsT : cvTa.levelParams = lps)
+    (hstripT : cvTa.type.stripPis (nP + nIdx) = some (bs, .sort resSort)) :
+    ∃ (ds : (Name → Nat) → List (Nat × Nat × AnnotTerm))
+      (Es : (Name → Nat) → List AnnotTerm) (srcs : List (Option Nat)),
+      idxArgs
+          = (Expr.mkAppN (.const T (lps.map .param)) (fvsP ++ idxArgs)).getAppArgs.drop nP ∧
+      CtorDataI mp.base2 T lps cvCa nP nF nIdx resSort isProp large idxArgs ds Es srcs :=
+  ctorDataI_ofShapeDoor hμ mp (ConLeche.FrontDoorFacts.ofCheck hccv) hresid hopC hopX hlenI
+    hsorts hfT hlpsT hstripT
 
 end ConLeche.Model

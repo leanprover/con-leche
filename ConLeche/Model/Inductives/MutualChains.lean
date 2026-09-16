@@ -353,10 +353,10 @@ over their own parameter-and-index data. -/
 theorem mutualChainFacts_at (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ env)
     {F : Nat} {members : List (Name × Nat × Nat)} {memberNames : List Name} {T : Name}
     {lps : List Name} {nP nF nIdx mem : Nat} {resSort : Level}
-    {isProp large : Bool} {cvC cvTa cvCa : ConstantVal} {env₀ : Env} {caps : IndCaps}
+    {isProp large g : Bool} {cvC cvTa cvCa : ConstantVal} {env₀ : Env} {caps : IndCaps}
     {sorts : List Level} {ks : List (RecFieldKind × Nat)}
     (hCtor : ConLeche.checkMutualCtor (ConLeche.fueledOps μ F) env memberNames T lps nP nIdx
-      resSort isProp large cvC nF cvTa = .ok (cvCa, sorts))
+      resSort isProp large cvC nF cvTa g = .ok (cvCa, sorts))
     (hfT : env.find? T = some (.indInfo cvTa caps))
     (hProp : isProp = true → ∀ ψ : Name → Nat, Level.eval ψ resSort = Level.eval ψ Level.zero)
     {ppsAll : (Name → Nat) → List (Nat × Nat × AnnotTerm)}
@@ -385,7 +385,7 @@ theorem mutualChainFacts_at (hμ : μ.verifiedChecks = true) (mp : EnvModelM V �
       [tagTupleAV W mem nF Idss (Es ψ)] := by
   -- the openings, the opened record
   obtain ⟨crest, hopP, hopX⟩ := hD.opens
-  obtain ⟨hcf, -, -, hcb⟩ := ConLeche.mutual_ctor_typeWF hCtor
+  obtain ⟨hcf, -, -, hcb⟩ := ConLeche.mutual_ctorG_typeWF hCtor
   have hopAll : openPisAtFvars (nP + nF) cvCa.type 0 = some (fvsP ++ xFvs, xrest) :=
     openPisAtFvars_add nP hopP (by rw [Nat.zero_add]; exact hopX)
   have hO : Opened mp.base2 ψ (nP + nF) cvCa.type (fvsP ++ xFvs) xrest
@@ -653,10 +653,10 @@ theorem tagTupleAV_validVC {W : Nat} {ρp : Nat → V} {Idss : List (List AnnotT
 theorem mutualChainValidFacts_at (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ env)
     {F : Nat} {members : List (Name × Nat × Nat)} {memberNames : List Name} {T : Name}
     {lps : List Name} {nP nF nIdx mem : Nat} {resSort : Level}
-    {isProp large : Bool} {cvC cvTa cvCa : ConstantVal} {env₀ : Env} {caps : IndCaps}
+    {isProp large g : Bool} {cvC cvTa cvCa : ConstantVal} {env₀ : Env} {caps : IndCaps}
     {sorts : List Level} {ks : List (RecFieldKind × Nat)}
     (hCtor : ConLeche.checkMutualCtor (ConLeche.fueledOps μ F) env memberNames T lps nP nIdx
-      resSort isProp large cvC nF cvTa = .ok (cvCa, sorts))
+      resSort isProp large cvC nF cvTa g = .ok (cvCa, sorts))
     (hfT : env.find? T = some (.indInfo cvTa caps))
     (hProp : isProp = true → ∀ ψ : Name → Nat, Level.eval ψ resSort = Level.eval ψ Level.zero)
     {ppsAll : (Name → Nat) → List (Nat × Nat × AnnotTerm)}
@@ -892,10 +892,10 @@ term by construction (the X-source chain is the real one shadowed). -/
 theorem mutualChainReal_at (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ env)
     {F : Nat} {members : List (Name × Nat × Nat)} {memberNames : List Name} {T : Name}
     {lps : List Name} {nP nF nIdx : Nat} {resSort : Level}
-    {isProp large : Bool} {cvC cvTa cvCa : ConstantVal} {env₀ : Env} {caps : IndCaps}
+    {isProp large g : Bool} {cvC cvTa cvCa : ConstantVal} {env₀ : Env} {caps : IndCaps}
     {sorts : List Level} {ks : List (RecFieldKind × Nat)}
     (hCtor : ConLeche.checkMutualCtor (ConLeche.fueledOps μ F) env memberNames T lps nP nIdx
-      resSort isProp large cvC nF cvTa = .ok (cvCa, sorts))
+      resSort isProp large cvC nF cvTa g = .ok (cvCa, sorts))
     (hfT : env.find? T = some (.indInfo cvTa caps))
     (hProp : isProp = true → ∀ ψ : Name → Nat, Level.eval ψ resSort = Level.eval ψ Level.zero)
     {ppsAll : (Name → Nat) → List (Nat × Nat × AnnotTerm)}
@@ -933,7 +933,7 @@ theorem mutualChainReal_at (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ
         [tagTupleAV W (tgtAt ks i) (i + ((tss ψ).getD i []).length) Idss ((Eiss ψ).getD i [])])
       0 [] (shadowFs nP (kindsOf ks) nF (((ds ψ).drop nP).map (·.2.2)))
       (((ds ψ).drop nP).map (·.2.2)) := by
-  obtain ⟨hcf, -, -, hcb⟩ := ConLeche.mutual_ctor_typeWF hCtor
+  obtain ⟨hcf, -, -, hcb⟩ := ConLeche.mutual_ctorG_typeWF hCtor
   have hlenDs := hD.len ψ
   have hlenFs : ((((ds ψ).drop nP).map (·.2.2))).length = nF := by simp [hlenDs]
   have hiff := (mutualCtorFrames hμ mp hCtor hfT hProp hFD hD.toCtorDataI hleafT).1 ψ ρp

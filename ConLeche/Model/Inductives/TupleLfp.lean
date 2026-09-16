@@ -509,9 +509,9 @@ theorem stageTupleFormers {F nP : Nat} {resSort : Level} {lps : List Name}
     {Fss₀ Ess₀ : (Name → Nat) → List (List AnnotTerm)}
     {ppsF : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)}
     (hB : TupleLfpBlockOk nP lps W k Ids mems nFs tgts rss tlss Eiss₀ Fss₀ Ess₀) (offs : Nat → Nat)
-    {formers : List (ConstantVal × Nat)} {env₁ : Env} {fms : List MutualFormerA}
+    {formers : List (ConstantVal × Nat)} {env₁ : Env} {fms : List MutualFormerA} {g : Bool}
     (mp : EnvModelM V μ env) (hE : ConLeche.EtaFamiliesClosed env)
-    (hrun : ConLeche.mutualFormers (m := ConLeche.CheckM) (ConLeche.fueledOps μ F) nP formers env
+    (hrun : ConLeche.mutualFormers (m := ConLeche.CheckM) (ConLeche.fueledOps μ F) nP formers env g
       = .ok (env₁, fms))
     (hnd : (fms.map (fun f => f.cvTa.name)).Nodup)
     (hmem : ∀ (t : Nat) (f : MutualFormerA), fms[t]? = some f →
@@ -551,7 +551,7 @@ theorem stageTupleFormers {F nP : Nat} {resSort : Level} {lps : List Name}
   obtain ⟨hchecks, rfl⟩ := ConLeche.mutualFormers_inv hrun
   -- every member is fresh before the block, and its type resolves there
   have hok : ∀ f ∈ fms, MemberConsOk env f.cvTa := fun f hf =>
-    MemberConsOk.ofCheck (ConLeche.mutualFormerChecks_checked hchecks f hf).choose_spec
+    MemberConsOk.ofDoor (ConLeche.mutualFormerChecksG_checked hchecks f hf).choose_spec
   have hfresh : ∀ f ∈ fms, env.find? f.cvTa.name = none := fun f hf => (hok f hf).fresh
   obtain ⟨hF, hG, hproj⟩ := consMutualFormers_extend (env := env) hfresh hnd
   have hag : ∀ n : Name, (env.find? n).isSome = true → mp.base2.acval n = mp₁.base2.acval n := by

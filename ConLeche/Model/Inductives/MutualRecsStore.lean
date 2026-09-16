@@ -645,11 +645,11 @@ end Store
 /-- **The store's stage, proved**: `mutualRecsStore_of` at the run
 facts of `MutualRecsStored`. -/
 theorem mutualRecsStored {F : Nat} : MutualRecsStored V μ F := by
-  intro hμ env mp hE b streamRecs fms f₀ tq₀ ctorsA sortss kinds formers4 ctors4 cvRas rulesOf
+  intro hμ env mp hE b streamRecs g fms f₀ tq₀ ctorsA sortss kinds formers4 ctors4 cvRas rulesOf
     h0 h1 h2 h3 hformers hf₀ htq₀ hcross hL hctors hkindsC hfo hgd hrectys hrules mp₂ hE₂ hagree
     d hd hreps htyped hrecNames hstored hkinds s mpP hP
   obtain ⟨hchecks, -⟩ := ConLeche.mutualFormers_inv hformers
-  have hlenF : fms.length = b.k := (mutualFormerChecks_pos hchecks).1
+  have hlenF : fms.length = b.k := (mutualFormerChecksG_pos hchecks).1
   obtain ⟨-, -, -, hlenK⟩ := ConLeche.classifyMutualKinds_inv hkindsC
   obtain ⟨hlenA, hnames⟩ := ctorsA_names_of hctors h1
   exact mutualRecsStore_of mp₂ h0 h2 h3 hf₀ hlenF hL hlenA hlenK hnames hgd hrectys hrules hd hreps

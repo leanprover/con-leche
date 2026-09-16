@@ -126,7 +126,7 @@ Consumer: `declBlock`. -/
 @[expose] def MutualCoreModeled (V : Type w) [SetTheory V] (μ : CheckMode) (F : Nat) : Prop :=
   μ.verifiedChecks = true →
   ∀ {env : Env} (mp : EnvModelM V μ env), ConLeche.EtaFamiliesClosed env →
-  ∀ (b : MutualBlock) (streamRecs : Option (List (ConstantVal × List RecRule)))
+  ∀ (b : MutualBlock) (streamRecs : Option (List (ConstantVal × List RecRule))) (g : Bool)
     (env₁ : Env) (fms : List MutualFormerA) (f₀ : MutualFormerA) (tq₀ : List Expr × Expr)
     (ctorsA : List (ConstantVal × Nat)) (sortss : List (List Level))
     (kinds : List (List (RecFieldKind × Nat))) (formers4 : List MutualFormer)
@@ -137,7 +137,7 @@ Consumer: `declBlock`. -/
       b.ctors.all (fun c => c.cv.levelParams == b.lps)) = true →
     b.ctors.all (fun c => c.member < b.k) = true →
     ConLeche.mutualCtorsGrouped b.ctors = true →
-    ConLeche.mutualFormers (m := ConLeche.CheckM) (fueledOps μ F) b.nP b.formers env
+    ConLeche.mutualFormers (m := ConLeche.CheckM) (fueledOps μ F) b.nP b.formers env g
       = .ok (env₁, fms) →
     fms[0]? = some f₀ →
     ConLeche.openPisAtFvars b.nP f₀.cvTa.type 0 = some tq₀ →
@@ -145,7 +145,7 @@ Consumer: `declBlock`. -/
       (tq₀.1.map Expr.fvarTypeD) fms = .ok () →
     b.large = f₀.s.isNeverZero →
     ConLeche.checkMutualCtors (m := ConLeche.CheckM) (fueledOps μ F) env₁ b fms
-      (Level.isEquiv f₀.s .zero == some true) false b.ctors = .ok (ctorsA, sortss) →
+      (Level.isEquiv f₀.s .zero == some true) g b.ctors = .ok (ctorsA, sortss) →
     ConLeche.classifyMutualKinds (m := ConLeche.CheckM) b.members3 b.lps b.nP ctorsA
       = .ok kinds →
     ConLeche.mutualFieldsOk env b.members3 b.lps b.nP ctorsA kinds = true →
@@ -183,7 +183,7 @@ model of the post-block environment — `declBlock`'s second named fact
 @[expose] def MutualTablesModeled (V : Type w) [SetTheory V] (μ : CheckMode) (F : Nat) : Prop :=
   μ.verifiedChecks = true →
   ∀ {env : Env}, ConLeche.EnvWF env → ConLeche.ProjOkT env →
-  ∀ (b : MutualBlock) (streamRecs : Option (List (ConstantVal × List RecRule)))
+  ∀ (b : MutualBlock) (streamRecs : Option (List (ConstantVal × List RecRule))) (g : Bool)
     (fms : List MutualFormerA) (f₀ : MutualFormerA) (tq₀ : List Expr × Expr)
     (ctorsA : List (ConstantVal × Nat)) (sortss : List (List Level))
     (kinds : List (List (RecFieldKind × Nat))) (formers4 : List MutualFormer)
@@ -194,7 +194,7 @@ model of the post-block environment — `declBlock`'s second named fact
       b.ctors.all (fun c => c.cv.levelParams == b.lps)) = true →
     b.ctors.all (fun c => c.member < b.k) = true →
     ConLeche.mutualCtorsGrouped b.ctors = true →
-    ConLeche.mutualFormers (m := ConLeche.CheckM) (fueledOps μ F) b.nP b.formers env
+    ConLeche.mutualFormers (m := ConLeche.CheckM) (fueledOps μ F) b.nP b.formers env g
       = .ok (ConLeche.consMutualFormers fms env, fms) →
     fms[0]? = some f₀ →
     ConLeche.openPisAtFvars b.nP f₀.cvTa.type 0 = some tq₀ →
@@ -202,7 +202,7 @@ model of the post-block environment — `declBlock`'s second named fact
       (ConLeche.consMutualFormers fms env) b.nP f₀ (tq₀.1.map Expr.fvarTypeD) fms = .ok () →
     b.large = f₀.s.isNeverZero →
     ConLeche.checkMutualCtors (m := ConLeche.CheckM) (fueledOps μ F)
-      (ConLeche.consMutualFormers fms env) b fms (Level.isEquiv f₀.s .zero == some true) false b.ctors
+      (ConLeche.consMutualFormers fms env) b fms (Level.isEquiv f₀.s .zero == some true) g b.ctors
       = .ok (ctorsA, sortss) →
     ConLeche.classifyMutualKinds (m := ConLeche.CheckM) b.members3 b.lps b.nP ctorsA
       = .ok kinds →
@@ -294,11 +294,11 @@ theorem declBlock (hμ : μ.verifiedChecks = true) {F : Nat} {env envOut : Env}
   obtain ⟨-, b, streamRecs, env₁, fms, f₀, tq₀, ctorsA, sortss, kinds, formers4, ctors4,
     cvRas, rulesOf, rfl, rfl, h0, h1, h2, h3, hformers, hf₀, htq₀, hcross, hL, hctors, hkinds,
     hfo, hgd, hrectys, hrules, htbl⟩ := h
-  obtain ⟨mp₃, -, d, hd, hreps, hT, hstored, htf⟩ := hcore hμ mp hE _ _ _ _ _ _ _ _ _ _ _ _ _
+  obtain ⟨mp₃, -, d, hd, hreps, hT, hstored, htf⟩ := hcore hμ mp hE _ _ _ _ _ _ _ _ _ _ _ _ _ _
     h0 h1 h2 h3 hformers hf₀ htq₀ hcross hL hctors hkinds hfo hgd hrectys hrules
     (recNames_of hpinOk hrectys)
   obtain ⟨-, rfl⟩ := ConLeche.mutualFormers_inv hformers
-  exact htables hμ mp.base2.wf mp.base2.proj_ok _ _ _ _ _ _ _ _ _ _ _ _ _ h0 h1 h2 h3 hformers
+  exact htables hμ mp.base2.wf mp.base2.proj_ok _ _ _ _ _ _ _ _ _ _ _ _ _ _ h0 h1 h2 h3 hformers
     hf₀ htq₀ hcross hL hctors hkinds hfo hgd hrectys hrules (recNames_of hpinOk hrectys) mp₃ d hd
     hreps hT hstored htf htbl
 

@@ -196,7 +196,7 @@ theorem memberTableOk_of {env env₀ : Env} {m : EnvModel V env} {b : MutualBloc
 bundle at every structure-like member from the block model, the fold over
 the members at the P step. -/
 theorem mutualTablesModeled {F : Nat} : MutualTablesModeled V μ F := by
-  intro hμ env hwf hproj b streamRecs fms f₀ tq₀ ctorsA sortss kinds formers4 ctors4 cvRas rulesOf
+  intro hμ env hwf hproj b streamRecs g fms f₀ tq₀ ctorsA sortss kinds formers4 ctors4 cvRas rulesOf
     envOut h0 h1 h2 h3 hformers hf₀ htq₀ hcross hL hctors hkinds hfo hgd hrectys hrules hrecNames
     mp₃ d hd hreps htyped hstored htf htbl
   have hnp := mutualNoProj hwf hproj hformers hctors hgd hrectys hrules
@@ -206,7 +206,7 @@ theorem mutualTablesModeled {F : Nat} : MutualTablesModeled V μ F := by
   obtain ⟨hlenA, hnamesA⟩ := ctorsA_names_of hctors h1
   obtain ⟨-, hsortsLen, -⟩ := ConLeche.checkMutualCtors_inv hctors
   obtain ⟨hchecks, -⟩ := ConLeche.mutualFormers_inv hformers
-  have hlenF : fms.length = b.k := (mutualFormerChecks_pos hchecks).1
+  have hlenF : fms.length = b.k := (mutualFormerChecksG_pos hchecks).1
   have hnd : (fms.map (·.cvTa.name)).Nodup := by
     rw [hnamesEq]
     have h0' := h0

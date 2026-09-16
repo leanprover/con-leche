@@ -90,8 +90,8 @@ the constructors' readings at `mp₁`, the cross-member frames, the
 block's index universe and chain facts, and the derived former's
 premises. -/
 structure MutualFormersFacts (V : Type w) [SetTheory V] {μ : CheckMode} {env : Env} (F : Nat)
-    (mp : EnvModelM V μ env) (b : MutualBlock) (fms : List MutualFormerA) (f₀ : MutualFormerA)
-    (ctorsA : List (ConstantVal × Nat)) (sortss : List (List Level))
+    (g : Bool) (mp : EnvModelM V μ env) (b : MutualBlock) (fms : List MutualFormerA)
+    (f₀ : MutualFormerA) (ctorsA : List (ConstantVal × Nat)) (sortss : List (List Level))
     (kinds : List (List (RecFieldKind × Nat)))
     (mp₁ : EnvModelM V μ (ConLeche.consMutualFormers fms env))
     (ppsF : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)) (W : (Name → Nat) → Nat)
@@ -150,7 +150,7 @@ structure MutualFormersFacts (V : Type w) [SetTheory V] {μ : CheckMode} {env : 
         b.memberNames (fms.getD (mutMemF b J) default).cvTa.name b.lps b.nP
         (fms.getD (mutMemF b J) default).nIdx (fms.getD (mutMemF b J) default).s
         (Level.isEquiv f₀.s Level.zero == some true) b.large (b.ctors.getD J default).cv cA.2
-        (fms.getD (mutMemF b J) default).cvTa = .ok (cA.1, sorts)
+        (fms.getD (mutMemF b J) default).cvTa g = .ok (cA.1, sorts)
   /-- the kinds: as many as fields, re-checked opened, targets members -/
   ksJ : ∀ (J : Nat) (cA : ConstantVal × Nat), ctorsA[J]? = some cA →
     (mutKsOf kinds J).length = cA.2 ∧
@@ -218,7 +218,7 @@ the real conses go through the derived former's API
 (`stageTupleFormers`); the constructors' data at the real model are
 identified with the first pass's off the recursive slots
 (`mutualCtorDataI_ident`). -/
-theorem mutualFormersStage (hμ : μ.verifiedChecks = true) {F : Nat}
+theorem mutualFormersStage (hμ : μ.verifiedChecks = true) {F : Nat} {g : Bool}
     (mp : EnvModelM V μ env) (hE : ConLeche.EtaFamiliesClosed env)
     (b : MutualBlock) {fms : List MutualFormerA} {f₀ : MutualFormerA} {tq₀ : List Expr × Expr}
     {ctorsA : List (ConstantVal × Nat)} {sortss : List (List Level)}
@@ -227,14 +227,14 @@ theorem mutualFormersStage (hμ : μ.verifiedChecks = true) {F : Nat}
     (h1 : (b.formers.all (fun f => f.1.levelParams == b.lps) &&
       b.ctors.all (fun c => c.cv.levelParams == b.lps)) = true)
     (h2 : b.ctors.all (fun c => c.member < b.k) = true)
-    (hformers : ConLeche.mutualFormers (m := ConLeche.CheckM) (fueledOps μ F) b.nP b.formers env
+    (hformers : ConLeche.mutualFormers (m := ConLeche.CheckM) (fueledOps μ F) b.nP b.formers env g
       = .ok (ConLeche.consMutualFormers fms env, fms))
     (hf0 : fms[0]? = some f₀)
     (htq0 : ConLeche.openPisAtFvars b.nP f₀.cvTa.type 0 = some tq₀)
     (hcross : ConLeche.mutualCrossChecks (m := ConLeche.CheckM) (fueledOps μ F)
       (ConLeche.consMutualFormers fms env) b.nP f₀ (tq₀.1.map Expr.fvarTypeD) fms = .ok ())
     (hctors : ConLeche.checkMutualCtors (m := ConLeche.CheckM) (fueledOps μ F)
-      (ConLeche.consMutualFormers fms env) b fms (Level.isEquiv f₀.s .zero == some true) false b.ctors
+      (ConLeche.consMutualFormers fms env) b fms (Level.isEquiv f₀.s .zero == some true) g b.ctors
       = .ok (ctorsA, sortss))
     (hkinds : ConLeche.classifyMutualKinds (m := ConLeche.CheckM) b.members3 b.lps b.nP ctorsA
       = .ok kinds)
@@ -246,11 +246,11 @@ theorem mutualFormersStage (hμ : μ.verifiedChecks = true) {F : Nat}
       (fvsPF xFvsF : Nat → List Expr) (xrestF : Nat → Expr)
       (eissF : Nat → (Name → Nat) → List (List AnnotTerm))
       (tssF : Nat → (Name → Nat) → List (List (Nat × Nat × AnnotTerm))),
-      MutualFormersFacts V F mp b fms f₀ ctorsA sortss kinds mp₁ ppsF W idxF dsF esF srcsF fvsPF
+      MutualFormersFacts V F g mp b fms f₀ ctorsA sortss kinds mp₁ ppsF W idxF dsF esF srcsF fvsPF
         xFvsF xrestF eissF tssF := by
   -- stage 1, split: the checks at the PRE-BLOCK environment, the conses after
   obtain ⟨hchecks, henv₁⟩ := ConLeche.mutualFormers_inv hformers
-  obtain ⟨hlenFms, hposF⟩ := mutualFormerChecks_pos hchecks
+  obtain ⟨hlenFms, hposF⟩ := mutualFormerChecksG_pos hchecks
   have hkF : fms.length = b.k := hlenFms
   -- the checked members carry the declared names and level parameters
   have hnamesF : fms.map (·.cvTa.name) = b.memberNames := by
@@ -262,10 +262,8 @@ theorem mutualFormersStage (hμ : μ.verifiedChecks = true) {F : Nat}
         rw [List.getElem?_eq_none_iff] at hft ⊢; omega
       simp [ConLeche.MutualBlock.memberNames, List.getElem?_map, hn]
     | some f =>
-      obtain ⟨cv, cv', bs, hl, hccv, hn1, -, -⟩ := hposF t f hft
-      obtain ⟨-, -, -, -, -, -, _, _, _, -, -, -, -, -, hty⟩ :=
-        ConLeche.checkConstantVal_inv hccv
-      simp [ConLeche.MutualBlock.memberNames, List.getElem?_map, hl, hty, hn1]
+      obtain ⟨cv, cv', bs, hl, hdoor, hn1, -, -⟩ := hposF t f hft
+      simp [ConLeche.MutualBlock.memberNames, List.getElem?_map, hl, hdoor.name, hn1]
   -- the block's names are distinct
   have hndM : (b.formers.map (·.1.name)).Nodup := by
     have h0' := h0
@@ -280,22 +278,17 @@ theorem mutualFormersStage (hμ : μ.verifiedChecks = true) {F : Nat}
   -- every member carries the block's level parameters and is fresh before the block
   have hlpsF : ∀ (t : Nat) (f : MutualFormerA), fms[t]? = some f → f.cvTa.levelParams = b.lps := by
     intro t f hft
-    obtain ⟨cv, cv', bs, hl, hccv, -, hl2, -⟩ := hposF t f hft
-    obtain ⟨-, -, -, -, -, -, _, _, _, -, -, -, -, -, hty⟩ :=
-      ConLeche.checkConstantVal_inv hccv
+    obtain ⟨cv, cv', bs, hl, hdoor, -, hl2, -⟩ := hposF t f hft
     have hall : (b.formers.all fun f => f.1.levelParams == b.lps) = true := by
       simpa using (Bool.and_eq_true _ _ |>.mp h1).1
     have := List.all_eq_true.mp hall (cv, f.nIdx) (List.mem_of_getElem? hl)
-    rw [hty]
-    show cv'.levelParams = _
-    rw [hl2]
+    rw [hdoor.lps, hl2]
     simpa using this
   have hfreshF : ∀ (t : Nat) (f : MutualFormerA), fms[t]? = some f →
       env.find? f.cvTa.name = none := by
     intro t f hft
-    obtain ⟨cv, cv', bs, -, hccv, -, -, -⟩ := hposF t f hft
-    obtain ⟨hfind, -, -, -, -, -, _, _, _, -, -, -, -, -, hty⟩ := ConLeche.checkConstantVal_inv hccv
-    rw [hty]; exact hfind
+    obtain ⟨cv, cv', bs, -, hdoor, -, -, -⟩ := hposF t f hft
+    rw [hdoor.name]; exact hdoor.fresh
   have hstripF : ∀ (t : Nat) (f : MutualFormerA), fms[t]? = some f →
       ∃ bs : List (Expr × BinderMeta), f.cvTa.type.stripPis (b.nP + f.nIdx) = some (bs, .sort f.s) := by
     intro t f hft
@@ -303,9 +296,8 @@ theorem mutualFormersStage (hμ : μ.verifiedChecks = true) {F : Nat}
     exact ⟨bs, hstrip⟩
   have hcbF : ∀ (t : Nat) (f : MutualFormerA), fms[t]? = some f → ConstsBound env f.cvTa.type := by
     intro t f hft
-    obtain ⟨cv, cv', bs, -, hccv, -, -, -⟩ := hposF t f hft
-    obtain ⟨-, -, -, -, -, -, _, _, _, -, -, htr, -, -, hty⟩ := ConLeche.checkConstantVal_inv hccv
-    exact constsBound_of_constsResolve _ (by rw [hty]; exact htr)
+    obtain ⟨cv, cv', bs, -, hdoor, -, -, -⟩ := hposF t f hft
+    exact constsBound_of_constsResolve _ hdoor.resolve
   -- the members' binder data at the pre-block carrier, and their binders' universes
   have hFDex : ∀ t : Nat, ∃ (pps : (Name → Nat) → List (Nat × Nat × AnnotTerm)) (us : List Level),
       (∀ f : MutualFormerA, fms[t]? = some f →
@@ -321,9 +313,9 @@ theorem mutualFormersStage (hμ : μ.verifiedChecks = true) {F : Nat}
       refine ⟨fun _ => [], [], fun f hf => ?_, fun _ _ => rfl⟩
       simp at hf
     | some f =>
-      obtain ⟨cv, cv', bs, -, hccv, -, -, hstrip⟩ := hposF t f hft
-      obtain ⟨pps, hFD⟩ := formerData_of hμ mp hccv hstrip
-      obtain ⟨us, -, hus⟩ := formerLevels_of hμ mp hccv hstrip hFD
+      obtain ⟨cv, cv', bs, -, hdoor, -, -, hstrip⟩ := hposF t f hft
+      obtain ⟨pps, hFD⟩ := formerData_ofDoor hμ mp hdoor hstrip
+      obtain ⟨us, -, hus⟩ := formerLevels_ofDoor hμ mp hdoor hstrip hFD
       refine ⟨pps, us, fun f' hf' => ?_, fun hn => nomatch hn⟩
       obtain rfl := Option.some.inj hf'
       refine ⟨hFD, fun ψ i hi ρ hρ => ?_⟩
@@ -380,7 +372,9 @@ theorem mutualFormersStage (hμ : μ.verifiedChecks = true) {F : Nat}
       rw [hp, hw]
     · exact fun ψ ρ => sumTyAV_wellDenotedV (hwalk ψ ρ).1 (hwalk ψ ρ).2
     · exact fun ψ ρ => sumTyAV_mem (hwalk ψ ρ).1
-  obtain ⟨mp₀, hleaf₀, hoff₀⟩ := stageMembersG mp hE hformers hndF hmem₀
+  obtain ⟨mp₀, hleaf₀, hoff₀⟩ := stageMembersGoG fms (fun i => i) env mp hE
+    (fun f hf => MemberConsOk.ofDoor (ConLeche.mutualFormerChecksG_checked hchecks f hf).choose_spec)
+    hndF hmem₀
   -- the block's readers
   have hk0 : 0 < fms.length := by
     have := (List.getElem?_eq_some_iff.mp hf0).1; omega
@@ -390,15 +384,14 @@ theorem mutualFormersStage (hμ : μ.verifiedChecks = true) {F : Nat}
   have hmemT : ∀ (t : Nat) (f : MutualFormerA), fms[t]? = some f →
       mutualNameOf b.members3 t = f.cvTa.name ∧ mutualNIdxOf b.members3 t = f.nIdx := by
     intro t f hft
-    obtain ⟨cv, cv', bs, hl, hccv, hn1, -, -⟩ := hposF t f hft
-    obtain ⟨-, -, -, -, -, -, _, _, _, -, -, -, -, -, hty⟩ := ConLeche.checkConstantVal_inv hccv
+    obtain ⟨cv, cv', bs, hl, hdoor, hn1, -, -⟩ := hposF t f hft
     have htk : t < b.k := by
       show t < b.formers.length
       exact (List.getElem?_eq_some_iff.mp hl).1
     have hgetD : b.formers.getD t default = (cv, f.nIdx) := by
       rw [List.getD_eq_getElem?_getD, hl]; rfl
     rw [mutualNameOf_members3 htk, mutualNIdxOf_members3 htk, hgetD]
-    exact ⟨by rw [hty]; exact hn1.symm, rfl⟩
+    exact ⟨by rw [hdoor.name]; exact hn1.symm, rfl⟩
   -- the constructors, positionally, and their classified kinds
   obtain ⟨hlenA, hlenS, hallC⟩ := ConLeche.checkMutualCtors_inv hctors
   obtain ⟨hkindsM, -, -, hlenK⟩ := ConLeche.classifyMutualKinds_inv hkinds
@@ -423,7 +416,7 @@ theorem mutualFormersStage (hμ : μ.verifiedChecks = true) {F : Nat}
           b.memberNames (fms.getD (mutMemF b J) default).cvTa.name b.lps b.nP
           (fms.getD (mutMemF b J) default).nIdx (fms.getD (mutMemF b J) default).s
           (Level.isEquiv f₀.s Level.zero == some true) b.large (b.ctors.getD J default).cv cA.2
-          (fms.getD (mutMemF b J) default).cvTa = .ok (cA.1, sorts) := by
+          (fms.getD (mutMemF b J) default).cvTa g = .ok (cA.1, sorts) := by
     intro J cA hJ
     have hJl : J < ctorsA.length := (List.getElem?_eq_some_iff.mp hJ).1
     obtain ⟨hnF, sorts, hsj, hrun⟩ := hallC J _ cA (hctorGet J hJl) hJ
@@ -757,12 +750,11 @@ theorem mutualFormersStage (hμ : μ.verifiedChecks = true) {F : Nat}
     intro J cA hJ
     have hJl : J < ctorsA.length := (List.getElem?_eq_some_iff.mp hJ).1
     obtain ⟨-, sorts, -, hrun⟩ := hrunC J cA hJ
-    obtain ⟨⟨ty', hccv⟩, -, -⟩ := ConLeche.checkMutualCtor_shape hrun
-    obtain ⟨-, -, -, -, -, -, _, _, _, -, -, -, -, -, hty⟩ := ConLeche.checkConstantVal_inv hccv
+    obtain ⟨⟨ty', hccv⟩, -, -⟩ := ConLeche.checkMutualCtorG_shape hrun
     have hall : (b.ctors.all fun c => c.cv.levelParams == b.lps) = true := by
       simpa using (Bool.and_eq_true _ _ |>.mp h1).2
     have hthis := List.all_eq_true.mp hall _ (List.mem_of_getElem? (hctorGet J hJl))
-    rw [hty]
+    rw [hccv.lps]
     simpa using hthis
   have hCDparams : ∀ J : Nat, J < ctorsA.length → ∀ ψ₁ ψ₂ : Name → Nat,
       (∀ q ∈ b.lps, ψ₁ q = ψ₂ q) →
@@ -983,18 +975,23 @@ theorem mutualFormersStage (hμ : μ.verifiedChecks = true) {F : Nat}
     | some cA =>
       have hJl : J < ctorsA.length := (List.getElem?_eq_some_iff.mp hJ).1
       obtain ⟨-, sorts, -, hrun⟩ := hrunC J cA hJ
-      obtain ⟨⟨ty', hccv⟩, -, -⟩ := ConLeche.checkMutualCtor_shape hrun
-      obtain ⟨-, -, -, -, -, -, _, _, _, -, -, -, -, -, hty⟩ := ConLeche.checkConstantVal_inv hccv
+      obtain ⟨⟨ty', hccv⟩, -, -⟩ := ConLeche.checkMutualCtorG_shape hrun
       rw [hctorGet J hJl]
       simp only [Option.map_some, Option.some.injEq]
-      rw [hty]
+      exact hccv.name
   have hresC : ∀ (J : Nat) (cA : ConstantVal × Nat), ctorsA[J]? = some cA →
       cA.1.type.constsResolve (ConLeche.consMutualFormers fms env) = true := by
     intro J cA hJ
     obtain ⟨-, sorts, -, hrun⟩ := hrunC J cA hJ
-    obtain ⟨⟨ty', hccv⟩, -, -⟩ := ConLeche.checkMutualCtor_shape hrun
-    obtain ⟨-, -, -, -, -, -, _, _, _, -, -, htr, -, -, hty⟩ := ConLeche.checkConstantVal_inv hccv
-    rw [hty]; exact htr
+    obtain ⟨⟨ty', hccv⟩, -, -⟩ := ConLeche.checkMutualCtorG_shape hrun
+    exact hccv.resolve
+  have hfreshC : ∀ c ∈ ctorsA, (ConLeche.consMutualFormers fms env).find? c.1.name = none := by
+    intro c hc
+    obtain ⟨J, hJ⟩ := List.getElem?_of_mem hc
+    obtain ⟨-, sorts, -, hrun⟩ := hrunC J c hJ
+    obtain ⟨⟨ty', hccv⟩, -, -⟩ := ConLeche.checkMutualCtorG_shape hrun
+    rw [hccv.name]
+    exact hccv.fresh
   have hCDpar₁ : ∀ J : Nat, J < ctorsA.length → ∀ ψ₁ ψ₂ : Name → Nat,
       (∀ q ∈ b.lps, ψ₁ q = ψ₂ q) →
       dsF J ψ₁ = dsF J ψ₂ ∧ esF J ψ₁ = esF J ψ₂ ∧ eissF J ψ₁ = eissF J ψ₂ ∧
@@ -1014,7 +1011,7 @@ theorem mutualFormersStage (hμ : μ.verifiedChecks = true) {F : Nat}
       FD₀ := hFD, FD := fun t f hft => (hstored t f hft).2.1, leaf := ?_, off := hoff₁
       lenA := hlenA', lenK := hlenAK.symm, motLt := hmotLt, runC := hrunC, ksJ := hksJ
       CD := hCD₁, lpsC := hlpsC, namesC := hnamesC
-      freshC := ConLeche.Semantics.checkMutualCtors_fresh hctors, resC := hresC
+      freshC := hfreshC, resC := hresC
       frame := hframeM, idxAll := hIdxAll, CDpar := hCDpar₁, ppsPar := hppsPar
       blockOk := hB, stageOk := ?_ }
   · intro t f hft
@@ -1142,7 +1139,7 @@ theorem mutNFOf_eq {ctorsA : List (ConstantVal × Nat)} {J : Nat} {cA : Constant
 
 section Facts
 
-variable {F : Nat} {mp : EnvModelM V μ env} {b : MutualBlock} {fms : List MutualFormerA}
+variable {F : Nat} {g : Bool} {mp : EnvModelM V μ env} {b : MutualBlock} {fms : List MutualFormerA}
   {f₀ : MutualFormerA} {ctorsA : List (ConstantVal × Nat)} {sortss : List (List Level)}
   {kinds : List (List (RecFieldKind × Nat))}
   {mp₁ : EnvModelM V μ (ConLeche.consMutualFormers fms env)}
@@ -1152,7 +1149,7 @@ variable {F : Nat} {mp : EnvModelM V μ env} {b : MutualBlock} {fms : List Mutua
   {fvsPF xFvsF : Nat → List Expr} {xrestF : Nat → Expr}
   {eissF : Nat → (Name → Nat) → List (List AnnotTerm)}
   {tssF : Nat → (Name → Nat) → List (List (Nat × Nat × AnnotTerm))}
-  (h : MutualFormersFacts V F mp b fms f₀ ctorsA sortss kinds mp₁ ppsF W idxF dsF esF srcsF fvsPF
+  (h : MutualFormersFacts V F g mp b fms f₀ ctorsA sortss kinds mp₁ ppsF W idxF dsF esF srcsF fvsPF
     xFvsF xrestF eissF tssF)
 include h
 
@@ -1986,7 +1983,7 @@ theorem MutualCtorDataI.withOpened {m : EnvModel V env} {env₀ env₀' : Env}
 
 section Reps
 
-variable {F : Nat} {mp : EnvModelM V μ env} {b : MutualBlock} {fms : List MutualFormerA}
+variable {F : Nat} {g : Bool} {mp : EnvModelM V μ env} {b : MutualBlock} {fms : List MutualFormerA}
   {f₀ : MutualFormerA} {ctorsA : List (ConstantVal × Nat)} {sortss : List (List Level)}
   {kinds : List (List (RecFieldKind × Nat))}
   {mp₁ : EnvModelM V μ (ConLeche.consMutualFormers fms env)}
@@ -2005,7 +2002,7 @@ every member, the members and constructors typed. -/
 theorem blockReps_of (hμ : μ.verifiedChecks = true) (h0 : b.blockNames.Nodup)
     (h2 : b.ctors.all (fun c => c.member < b.k) = true)
     (h3 : ConLeche.mutualCtorsGrouped b.ctors = true)
-    (h : MutualFormersFacts V F mp b fms f₀ ctorsA sortss kinds mp₁ ppsF W idxF dsF esF srcsF fvsPF
+    (h : MutualFormersFacts V F g mp b fms f₀ ctorsA sortss kinds mp₁ ppsF W idxF dsF esF srcsF fvsPF
       xFvsF xrestF eissF tssF)
     (mp₂ : EnvModelM V μ (ConLeche.consMutualCtors b.nP ctorsA (ConLeche.consMutualFormers fms env)))
     (hcons : ∀ (J : Nat) (cA : ConstantVal × Nat), ctorsA[J]? = some cA →
@@ -2364,7 +2361,7 @@ grading and bounds are the constructor stage's (`framesJ`, `sortsJ`).
 Consumer: `mutualCoreModeled_of`. -/
 theorem mutualTableFacts_of (hμ : μ.verifiedChecks = true)
     (h3 : ConLeche.mutualCtorsGrouped b.ctors = true)
-    (h : MutualFormersFacts V F mp b fms f₀ ctorsA sortss kinds mp₁ ppsF W idxF dsF esF srcsF fvsPF
+    (h : MutualFormersFacts V F g mp b fms f₀ ctorsA sortss kinds mp₁ ppsF W idxF dsF esF srcsF fvsPF
       xFvsF xrestF eissF tssF) :
     MutualTableFacts b fms sortss (D) where
   inj ψ mm j fs := by rfl
@@ -2401,7 +2398,7 @@ modulo its store half `MutualRecsStored` by `mutualRecsModeled_of`
 @[expose] def MutualRecsModeled (V : Type w) [SetTheory V] (μ : CheckMode) (F : Nat) : Prop :=
   μ.verifiedChecks = true →
   ∀ {env : Env} (mp : EnvModelM V μ env), ConLeche.EtaFamiliesClosed env →
-  ∀ (b : MutualBlock) (streamRecs : Option (List (ConstantVal × List RecRule)))
+  ∀ (b : MutualBlock) (streamRecs : Option (List (ConstantVal × List RecRule))) (g : Bool)
     (fms : List MutualFormerA) (f₀ : MutualFormerA) (tq₀ : List Expr × Expr)
     (ctorsA : List (ConstantVal × Nat)) (sortss : List (List Level))
     (kinds : List (List (RecFieldKind × Nat))) (formers4 : List ConLeche.MutualFormer)
@@ -2412,7 +2409,7 @@ modulo its store half `MutualRecsStored` by `mutualRecsModeled_of`
       b.ctors.all (fun c => c.cv.levelParams == b.lps)) = true →
     b.ctors.all (fun c => c.member < b.k) = true →
     ConLeche.mutualCtorsGrouped b.ctors = true →
-    ConLeche.mutualFormers (m := ConLeche.CheckM) (fueledOps μ F) b.nP b.formers env
+    ConLeche.mutualFormers (m := ConLeche.CheckM) (fueledOps μ F) b.nP b.formers env g
       = .ok (ConLeche.consMutualFormers fms env, fms) →
     fms[0]? = some f₀ →
     ConLeche.openPisAtFvars b.nP f₀.cvTa.type 0 = some tq₀ →
@@ -2420,7 +2417,7 @@ modulo its store half `MutualRecsStored` by `mutualRecsModeled_of`
       (ConLeche.consMutualFormers fms env) b.nP f₀ (tq₀.1.map Expr.fvarTypeD) fms = .ok () →
     b.large = f₀.s.isNeverZero →
     ConLeche.checkMutualCtors (m := ConLeche.CheckM) (fueledOps μ F)
-      (ConLeche.consMutualFormers fms env) b fms (Level.isEquiv f₀.s .zero == some true) false b.ctors
+      (ConLeche.consMutualFormers fms env) b fms (Level.isEquiv f₀.s .zero == some true) g b.ctors
       = .ok (ctorsA, sortss) →
     ConLeche.classifyMutualKinds (m := ConLeche.CheckM) b.members3 b.lps b.nP ctorsA
       = .ok kinds →
@@ -2469,7 +2466,7 @@ environment (`mutualFormersStage`, `mutualCtorsStage`,
 `blockReps_of`); stage 4 is the named fact. -/
 theorem mutualCoreModeled_of {F : Nat} (hrec : MutualRecsModeled V μ F) :
     MutualCoreModeled V μ F := by
-  intro hμ env mp hE b streamRecs env₁ fms f₀ tq₀ ctorsA sortss kinds formers4 ctors4 cvRas
+  intro hμ env mp hE b streamRecs g env₁ fms f₀ tq₀ ctorsA sortss kinds formers4 ctors4 cvRas
     rulesOf h0 h1 h2 h3 hformers hf₀ htq₀ hcross hL hctors hkinds hfo hgd hrectys hrules
     hrecNames
   obtain ⟨-, rfl⟩ := ConLeche.mutualFormers_inv hformers
@@ -2496,7 +2493,7 @@ theorem mutualCoreModeled_of {F : Nat} (hrec : MutualRecsModeled V μ F) :
       (mutualBlockModel (V := V) b fms f₀ ctorsA kinds env ppsF W idxF dsF esF srcsF fvsPF xFvsF xrestF
         eissF tssF) :=
     mutualBlockModelOf_ofMutual env b fms ctorsA hf₀ _ ppsF W _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
-  obtain ⟨mp₃, hag₃, hreps₃, htyped₃, hstored₃⟩ := hrec hμ mp hE b streamRecs fms f₀ tq₀ ctorsA
+  obtain ⟨mp₃, hag₃, hreps₃, htyped₃, hstored₃⟩ := hrec hμ mp hE b streamRecs g fms f₀ tq₀ ctorsA
     sortss kinds formers4 ctors4 cvRas rulesOf h0 h1 h2 h3 hformers hf₀ htq₀ hcross hL hctors
     hkinds hfo hgd hrectys hrules mp₂ hE₂ hagree _ hd hreps htyped hrecNames hstored
     (fun mm j _ _ => ⟨rfl, fun _ => rfl⟩)

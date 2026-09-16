@@ -167,6 +167,7 @@ Consumer: `declNested_of`. -/
     ConLeche.pinsClosed p.nP st.pins = true →
     ConLeche.nestedPinsOk (m := ConLeche.CheckM) (fueledOps μ F) envAux p.nP st.pins = .ok () →
     (stored.take p.k).all (fun a => !a.caps.eta && (env.find? a.cvTa.name).isNone) = true →
+    ConLeche.nestedCopySrcOk env p st = true →
     ConLeche.nestedPinKindsOk p b st stored = true →
     (stored.take p.k).mapM (fun a =>
         ConLeche.restoreCtors (m := ConLeche.CheckM) (fueledOps μ F)
@@ -214,6 +215,7 @@ two post-checks — cons a model of the post-block environment —
     ConLeche.pinsClosed p.nP st.pins = true →
     ConLeche.nestedPinsOk (m := ConLeche.CheckM) (fueledOps μ F) envAux p.nP st.pins = .ok () →
     (stored.take p.k).all (fun a => !a.caps.eta && (env.find? a.cvTa.name).isNone) = true →
+    ConLeche.nestedCopySrcOk env p st = true →
     ConLeche.nestedPinKindsOk p b st stored = true →
     (stored.take p.k).mapM (fun a =>
         ConLeche.restoreCtors (m := ConLeche.CheckM) (fueledOps μ F)
@@ -298,13 +300,14 @@ theorem declNested_of (hμ : μ.verifiedChecks = true) {F : Nat} {env envOut : E
     (h : ConLeche.Semantics.DeclNestedRun μ F env p envOut) :
     Nonempty (EnvModelM V μ envOut) := by
   obtain ⟨h0, h1, st, b, envAux, stored, ctorsR, cvRms, cvRns, rulesM, rulesN, fmsA, ctorsA,
-    hfA, hcA, helim, hcount, hfresh, hcont, hb, haux, hstored, hclosed, hpinsAux, hcaps, hkinds,
-    hctors, hrm, hrn, hrulesM, hrulesN, htbl, hpinsOut, hcnt, hrecs⟩ := h
+    hfA, hcA, helim, hcount, hfresh, hcont, hb, haux, hstored, hclosed, hpinsAux, hcaps, hsrc,
+    hkinds, hctors, hrm, hrn, hrulesM, hrulesN, htbl, hpinsOut, hcnt, hrecs⟩ := h
   have hPM : PinsModeled mp.base2 st.pins := pinsModeled_of_env hpins hcont
   obtain ⟨mp₂, hag, d, hd, hreps, htyped⟩ := hcore hμ mp hE p st b envAux stored ctorsR fmsA ctorsA
-    hPM h0 h1 hfA hcA helim hcount hfresh hcont hb haux hstored hclosed hpinsAux hcaps hkinds hctors
+    hPM h0 h1 hfA hcA helim hcount hfresh hcont hb haux hstored hclosed hpinsAux hcaps hsrc hkinds
+    hctors
   exact htail hμ mp hE p envOut st b envAux stored ctorsR cvRms cvRns rulesM rulesN fmsA ctorsA
-    hPM h0 h1 hfA hcA helim hcount hfresh hcont hb haux hstored hclosed hpinsAux hcaps hkinds hctors
-    hrm hrn hrulesM hrulesN htbl hpinsOut hcnt hrecs mp₂ d hag hd hreps htyped
+    hPM h0 h1 hfA hcA helim hcount hfresh hcont hb haux hstored hclosed hpinsAux hcaps hsrc hkinds
+    hctors hrm hrn hrulesM hrulesN htbl hpinsOut hcnt hrecs mp₂ d hag hd hreps htyped
 
 end ConLeche.Model

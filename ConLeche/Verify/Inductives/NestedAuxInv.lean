@@ -1,0 +1,452 @@
+module
+
+public import ConLeche.Verify.Inductives.NestedInv
+public import ConLeche.Verify.Inductives.MutualWF
+
+public section
+
+/-!
+# The scratch install's members, read back (task #315 M6 s6)
+
+The nested route installs its auxiliary block with the MUTUAL
+installer at the `auxRoute` grade and then reads the stored members
+back out of the scratch environment (`auxStored?`,
+`ConLeche/Kernel/Inductives/NestedInstall.lean`).  This module proves
+that what comes back IS what the formers' stage checked:
+
+* **the prefix run** (`mutualFormerChecksG_take`,
+  `mutualFormersG_take`): the formers' checks run every member at the
+  SAME pre-block environment, so a prefix of the block checks to the
+  prefix of the results — which is what the restore's partial
+  environments are compared against;
+* **the member records survive the scratch install**
+  (`checkMutualCore_find?_indInfo`, `checkMutualCore_member_record`):
+  every cons after the formers' is a constructor, a recursor or a
+  projection table, so an `indInfo` found at the install's output was
+  found at the formers' environment, where the block's `Nodup` names
+  it as its own member's;
+* **the restored formers' environment**
+  (`consNestedFormers_take_eq`): the read-back records cons the very
+  environment the formers' stage consed, prefix by prefix.
+-/
+
+namespace ConLeche
+
+variable {mode : CheckMode}
+
+/-! ## The formers' checks on a prefix -/
+
+/-- The formers' loop at a grade, one member, keeping the DOOR'S RUN
+(`mutualFormerChecksG_inv` keeps its facts instead, which does not
+rebuild). -/
+private theorem formerChecksG_cons_inv {nP F nIdx : Nat} {g : Bool} {cv : ConstantVal}
+    {rest : List (ConstantVal × Nat)} {env : Env} {fms : List MutualFormerA}
+    (h : mutualFormerChecks (fueledOps mode F) env nP g ((cv, nIdx) :: rest) = .ok fms) :
+    ∃ (cvTa₀ cvTa : ConstantVal) (s : Level) (bs : List (Expr × BinderMeta))
+      (fs : List MutualFormerA),
+      (if g then checkConstantValPre (m := CheckM) (fueledOps mode F) env cv
+        else checkConstantVal (fueledOps mode F) env cv) = .ok cvTa₀ ∧
+      checkSumTele (fueledOps mode F) env cv (nP + nIdx) cvTa₀ = .ok (cvTa, s) ∧
+      cvTa.type.stripPis (nP + nIdx) = some (bs, Expr.sort s) ∧
+      mutualFormerChecks (fueledOps mode F) env nP g rest = .ok fs ∧
+      fms = ⟨cvTa, nIdx, s⟩ :: fs := by
+  unfold mutualFormerChecks at h
+  cases g <;> simp only [if_true, Bool.false_eq_true, if_false] at h ⊢
+  all_goals
+    obtain ⟨cvTa₀, hccv, h⟩ := exceptBind_ok h
+    obtain ⟨q, htele, h⟩ := exceptBind_ok h
+    obtain ⟨cvTa, s⟩ := q
+    try simp only at h
+    obtain ⟨q2, hq2, h⟩ := exceptBind_ok h
+    obtain ⟨bs, tbody⟩ := q2
+    have hq2' := unwrapOr_ok hq2
+    try simp only at h
+    by_cases hc : (tbody == Expr.sort s) = true
+    case neg =>
+      exfalso
+      rw [if_neg hc] at h
+      simp only [bind, Except.bind, throw, throwThe, MonadExceptOf.throw] at h
+      exact absurd h (by simp)
+    rw [if_pos hc] at h
+    try simp only [bind, Except.bind] at h
+    obtain ⟨fs, hrec, h⟩ := exceptBind_ok h
+    simp only [pure, Except.pure, Except.ok.injEq] at h
+    obtain rfl := h
+    exact ⟨cvTa₀, cvTa, s, bs, fs, hccv, htele, by rw [hq2', beq_iff_eq.mp hc], hrec, rfl⟩
+
+/-- The formers' loop at a grade, one member, REBUILT from its steps. -/
+private theorem formerChecksG_cons_mk {nP F nIdx : Nat} {g : Bool} {cv cvTa₀ cvTa : ConstantVal}
+    {s : Level} {bs : List (Expr × BinderMeta)} {rest : List (ConstantVal × Nat)}
+    {env : Env} {fs : List MutualFormerA}
+    (hdoor : (if g then checkConstantValPre (m := CheckM) (fueledOps mode F) env cv
+        else checkConstantVal (fueledOps mode F) env cv) = .ok cvTa₀)
+    (htele : checkSumTele (fueledOps mode F) env cv (nP + nIdx) cvTa₀ = .ok (cvTa, s))
+    (hstrip : cvTa.type.stripPis (nP + nIdx) = some (bs, Expr.sort s))
+    (hrest : mutualFormerChecks (fueledOps mode F) env nP g rest = .ok fs) :
+    mutualFormerChecks (fueledOps mode F) env nP g ((cv, nIdx) :: rest)
+      = .ok (⟨cvTa, nIdx, s⟩ :: fs) := by
+  unfold mutualFormerChecks
+  cases g <;> simp only [if_true, Bool.false_eq_true, if_false] at hdoor ⊢
+  all_goals
+    rw [hdoor]
+    simp only [bind, Except.bind]
+    rw [htele]
+    simp only [unwrapOr, hstrip, pure, Except.pure, beq_self_eq_true, if_true]
+    rw [hrest]
+
+/-- **The formers' checks on a PREFIX**: the loop runs every member at
+the same pre-block environment, so a prefix of the block checks to the
+prefix of the results. -/
+theorem mutualFormerChecksG_take {nP F : Nat} {g : Bool} {env : Env} :
+    ∀ {l : List (ConstantVal × Nat)} {fms : List MutualFormerA},
+      mutualFormerChecks (fueledOps mode F) env nP g l = .ok fms →
+      ∀ k, mutualFormerChecks (fueledOps mode F) env nP g (l.take k) = .ok (fms.take k) := by
+  intro l
+  induction l with
+  | nil =>
+    intro fms h k
+    obtain rfl := mutualFormerChecksG_nil_inv h
+    simp only [List.take_nil]
+    exact h
+  | cons hd rest ih =>
+    intro fms h k
+    obtain ⟨cv, nIdx⟩ := hd
+    obtain ⟨cvTa₀, cvTa, s, bs, fs, hdoor, htele, hstrip, hrest, rfl⟩ :=
+      formerChecksG_cons_inv h
+    cases k with
+    | zero => simp only [List.take_zero]; rfl
+    | succ k =>
+      simp only [List.take_succ_cons]
+      exact formerChecksG_cons_mk hdoor htele hstrip (ih hrest k)
+
+/-- The formers' stage on a prefix: the prefix of the results, consed. -/
+theorem mutualFormersG_take {nP F : Nat} {g : Bool} {env env₁ : Env}
+    {formers : List (ConstantVal × Nat)} {fms : List MutualFormerA}
+    (h : mutualFormers (fueledOps mode F) nP formers env g = .ok (env₁, fms)) (k : Nat) :
+    mutualFormers (fueledOps mode F) nP (formers.take k) env g
+      = .ok (consMutualFormers (fms.take k) env, fms.take k) := by
+  obtain ⟨hchecks, -⟩ := mutualFormers_inv h
+  unfold mutualFormers
+  rw [mutualFormerChecksG_take hchecks k]
+  rfl
+
+/-- The formers' checks keep the block's length. -/
+theorem mutualFormerChecksG_length {nP F : Nat} {g : Bool} {env : Env} :
+    ∀ {l : List (ConstantVal × Nat)} {fms : List MutualFormerA},
+      mutualFormerChecks (fueledOps mode F) env nP g l = .ok fms → fms.length = l.length := by
+  intro l
+  induction l with
+  | nil => intro fms h; obtain rfl := mutualFormerChecksG_nil_inv h; rfl
+  | cons hd rest ih =>
+    intro fms h
+    obtain ⟨cv, nIdx⟩ := hd
+    obtain ⟨cvTa₀, cvTa, s, bs, fs, -, -, -, hrest, rfl⟩ := mutualFormerChecksG_inv h
+    simp only [List.length_cons, ih hrest]
+
+/-- **The checked formers, positionally**: the `t`-th checked member is
+the `t`-th declared one — its index count and its name the declared
+constant's. -/
+theorem mutualFormerChecksG_nIdx {nP F : Nat} {g : Bool} {env : Env} :
+    ∀ {l : List (ConstantVal × Nat)} {fms : List MutualFormerA},
+      mutualFormerChecks (fueledOps mode F) env nP g l = .ok fms →
+      ∀ (t : Nat) (f : MutualFormerA), fms[t]? = some f →
+        ∃ cv : ConstantVal, l[t]? = some (cv, f.nIdx) ∧ cv.name = f.cvTa.name := by
+  intro l
+  induction l with
+  | nil =>
+    intro fms h t f hf
+    obtain rfl := mutualFormerChecksG_nil_inv h
+    exact absurd hf (by simp)
+  | cons hd rest ih =>
+    intro fms h t f hf
+    obtain ⟨cv, nIdx⟩ := hd
+    obtain ⟨cvTa₀, cvTa, s, bs, fs, hdoor, htele, -, hrest, rfl⟩ := mutualFormerChecksG_inv h
+    cases t with
+    | zero =>
+      simp only [List.getElem?_cons_zero, Option.some.injEq] at hf
+      obtain rfl := hf
+      refine ⟨cv, rfl, ?_⟩
+      rcases checkSumTele_shape htele with ⟨rfl, -⟩ | ⟨ty, hccv⟩
+      · exact hdoor.name.symm
+      · exact (FrontDoorFacts.ofCheck hccv).name.symm
+    | succ t =>
+      simp only [List.getElem?_cons_succ] at hf ⊢
+      exact ih hrest t f hf
+
+/-- The checked formers carry the block's member names. -/
+theorem mutualFormerChecksG_names {nP F : Nat} {g : Bool} {env : Env} :
+    ∀ {l : List (ConstantVal × Nat)} {fms : List MutualFormerA},
+      mutualFormerChecks (fueledOps mode F) env nP g l = .ok fms →
+      fms.map (·.cvTa.name) = l.map (·.1.name) := by
+  intro l
+  induction l with
+  | nil => intro fms h; obtain rfl := mutualFormerChecksG_nil_inv h; rfl
+  | cons hd rest ih =>
+    intro fms h
+    obtain ⟨cv, nIdx⟩ := hd
+    obtain ⟨cvTa₀, cvTa, s, bs, fs, hdoor, htele, -, hrest, rfl⟩ := mutualFormerChecksG_inv h
+    have hname : cvTa.name = cv.name := by
+      rcases checkSumTele_shape htele with ⟨rfl, -⟩ | ⟨ty, hccv⟩
+      · exact hdoor.name
+      · exact (FrontDoorFacts.ofCheck hccv).name
+    simp only [List.map_cons, ih hrest, hname]
+
+/-! ## The formers' conses, at a member's own name -/
+
+/-- A lookup past the formers' conses of other names. -/
+theorem consMutualFormers_find?_of_ne :
+    ∀ {fms : List MutualFormerA} {env : Env} {n : Name},
+      (∀ g ∈ fms, g.cvTa.name ≠ n) →
+      (consMutualFormers fms env).find? n = env.find? n
+  | [], _, _, _ => rfl
+  | g :: gs, env, n, hne => by
+    show (consMutualFormers gs ⟨.indInfo g.cvTa {} :: env.consts⟩).find? n = _
+    rw [consMutualFormers_find?_of_ne (fun x hx => hne x (List.mem_cons_of_mem _ hx)),
+      Env.find?_cons]
+    exact if_neg (hne g List.mem_cons_self)
+
+/-- **Every consed former is found at its own name** with the block's
+empty capability record. -/
+theorem consMutualFormers_find?_self :
+    ∀ {fms : List MutualFormerA} {env : Env} {f : MutualFormerA},
+      f ∈ fms → (fms.map (·.cvTa.name)).Nodup →
+      (consMutualFormers fms env).find? f.cvTa.name = some (.indInfo f.cvTa {})
+  | [], _, _, hf, _ => nomatch hf
+  | g :: gs, env, f, hf, hnd => by
+    rw [List.map_cons, List.nodup_cons] at hnd
+    rcases List.mem_cons.mp hf with rfl | hf'
+    · show (consMutualFormers gs ⟨.indInfo f.cvTa {} :: env.consts⟩).find? f.cvTa.name = _
+      rw [consMutualFormers_find?_of_ne (fun x hx hh => hnd.1 (by
+        rw [← hh]; exact List.mem_map_of_mem hx))]
+      exact Env.find?_cons_self _ _
+    · show (consMutualFormers gs ⟨.indInfo g.cvTa {} :: env.consts⟩).find? f.cvTa.name = _
+      exact consMutualFormers_find?_self hf' hnd.2
+
+/-! ## An `indInfo` found past the scratch install's later stages -/
+
+/-- The constructors' conses add no `indInfo`. -/
+theorem consMutualCtors_find?_indInfo {nP : Nat} :
+    ∀ (cs : List (ConstantVal × Nat)) {env : Env} {n : Name} {cv : ConstantVal}
+      {caps : IndCaps},
+      (consMutualCtors nP cs env).find? n = some (.indInfo cv caps) →
+      env.find? n = some (.indInfo cv caps) := by
+  intro cs
+  induction cs with
+  | nil => intro env n cv caps h; exact h
+  | cons c rest ih =>
+    intro env n cv caps h
+    have h' := ih h
+    rw [Env.find?_cons] at h'
+    split at h'
+    · exact nomatch h'
+    · exact h'
+
+/-- The recursors' store adds no `indInfo`. -/
+theorem storeMutualRecs_find?_indInfo {env₂ : Env} {b : MutualBlock} {fms : List MutualFormerA}
+    {rulesOf : List (List (MutualCtor × Expr))} :
+    ∀ (l : List (ConstantVal × Nat)) {env : Env} {n : Name} {cv : ConstantVal}
+      {caps : IndCaps},
+      (storeMutualRecs env₂ b fms rulesOf l env).find? n = some (.indInfo cv caps) →
+      env.find? n = some (.indInfo cv caps) := by
+  intro l
+  induction l with
+  | nil => intro env n cv caps h; exact h
+  | cons hd rest ih =>
+    intro env n cv caps h
+    obtain ⟨cvRa, mIdx⟩ := hd
+    have h' := ih h
+    rw [Env.find?_cons] at h'
+    split at h'
+    · exact nomatch h'
+    · exact h'
+
+/-- The projection tables add no `indInfo`. -/
+theorem mutualTables_find?_indInfo {b : MutualBlock} {ctorsA : List (ConstantVal × Nat)}
+    {sortss : List (List Level)} :
+    ∀ (l : List (MutualFormerA × Nat)) {env env' : Env} {n : Name} {cv : ConstantVal}
+      {caps : IndCaps},
+      mutualTables (m := CheckM) b ctorsA sortss l env = .ok env' →
+      env'.find? n = some (.indInfo cv caps) →
+      env.find? n = some (.indInfo cv caps) := by
+  intro l
+  induction l with
+  | nil =>
+    intro env env' n cv caps h hf
+    obtain rfl := mutualTables_nil_inv h
+    exact hf
+  | cons hd rest ih =>
+    intro env env' n cv caps h hf
+    obtain ⟨f, mIdx⟩ := hd
+    obtain ⟨envI, hI, hrest⟩ := mutualTables_inv h
+    have hfI := ih hrest hf
+    rcases mutualMemberTable_inv hI with rfl | ⟨J, c, -, -, htbl⟩
+    · exact hfI
+    · obtain ⟨bodies, -, -, -, -, rfl⟩ := checkStructProjTable_inv htbl
+      rw [Env.find?_cons] at hfI
+      split at hfI
+      · exact nomatch hfI
+      · exact hfI
+
+/-- **An `indInfo` at the scratch install's output was consed by the
+FORMERS' stage**: everything after it is a constructor, a recursor or
+a projection table. -/
+theorem checkMutualCore_find?_indInfo {env envOut : Env} {b : MutualBlock} {F : Nat}
+    {streamRecs : Option (List (ConstantVal × List RecRule))} {g : Bool}
+    (h : checkMutualCore (fueledOps mode F) env b streamRecs g = .ok envOut)
+    {n : Name} {cv : ConstantVal} {caps : IndCaps}
+    (hf : envOut.find? n = some (.indInfo cv caps)) :
+    ∃ fms : List MutualFormerA,
+      mutualFormers (fueledOps mode F) b.nP b.formers env g
+        = .ok (consMutualFormers fms env, fms) ∧
+      (consMutualFormers fms env).find? n = some (.indInfo cv caps) := by
+  obtain ⟨-, -, -, -, env₁, fms, -, -, ctorsA, _sortss, -, -, -, cvRas, rulesOf,
+    hformers, -, -, -, -, -, -, -, -, -, -, htables⟩ := checkMutualCore_inv h
+  obtain ⟨-, rfl⟩ := mutualFormers_inv hformers
+  refine ⟨fms, hformers, ?_⟩
+  exact consMutualCtors_find?_indInfo ctorsA
+    (storeMutualRecs_find?_indInfo cvRas.zipIdx
+      (mutualTables_find?_indInfo fms.zipIdx htables hf))
+
+/-- **The member records survive the scratch install**: a member's own
+name answers with the constant the formers' stage checked, at the
+block's empty capability record. -/
+theorem checkMutualCore_member_record {env envOut : Env} {b : MutualBlock} {F : Nat}
+    {streamRecs : Option (List (ConstantVal × List RecRule))} {g : Bool}
+    (h : checkMutualCore (fueledOps mode F) env b streamRecs g = .ok envOut)
+    {fms : List MutualFormerA}
+    (hformers : mutualFormers (fueledOps mode F) b.nP b.formers env g
+      = .ok (consMutualFormers fms env, fms))
+    {t : Nat} {f : MutualFormerA} (hft : fms[t]? = some f)
+    {cv : ConstantVal} {caps : IndCaps}
+    (hf : envOut.find? f.cvTa.name = some (.indInfo cv caps)) :
+    cv = f.cvTa ∧ caps = {} := by
+  obtain ⟨fms', hformers', hfind⟩ := checkMutualCore_find?_indInfo h hf
+  have hfms : fms' = fms :=
+    congrArg Prod.snd (Except.ok.inj (hformers'.symm.trans hformers))
+  rw [hfms] at hfind
+  have hnd : (fms.map (·.cvTa.name)).Nodup := by
+    obtain ⟨hchecks, -⟩ := mutualFormers_inv hformers
+    rw [mutualFormerChecksG_names hchecks]
+    have hb : b.blockNames.Nodup := (checkMutualCore_inv h).1
+    unfold MutualBlock.blockNames MutualBlock.memberNames at hb
+    exact ((List.nodup_append.mp (List.nodup_append.mp hb).1).1)
+  have hmem : f ∈ fms := List.mem_of_getElem? hft
+  rw [consMutualFormers_find?_self hmem hnd, Option.some.injEq] at hfind
+  exact ⟨(ConstantInfo.indInfo.inj hfind).1.symm, (ConstantInfo.indInfo.inj hfind).2.symm⟩
+
+/-! ## The restored formers' environment -/
+
+/-- **The read-back at one member**, inverted as far as the FORMER
+goes: the member is the block's `mIdx`-th declared one, its index count
+is the block's, and its constant and capability record are what the
+scratch environment answers at its name. -/
+theorem auxStored?_inv {envAux : Env} {b : MutualBlock} {mIdx : Nat} {a : AuxStored}
+    (h : auxStored? envAux b mIdx = some a) :
+    ∃ cv : ConstantVal, b.formers[mIdx]? = some (cv, a.nIdx) ∧
+      envAux.find? cv.name = some (.indInfo a.cvTa a.caps) := by
+  unfold auxStored? at h
+  cases hfm : b.formers[mIdx]? with
+  | none => rw [hfm] at h; exact absurd h (by simp [bind, Option.bind])
+  | some p =>
+    obtain ⟨cv, nIdx⟩ := p
+    rw [hfm] at h
+    simp only [bind, Option.bind] at h
+    cases hfi : envAux.find? cv.name with
+    | none => rw [hfi] at h; exact absurd h (by simp)
+    | some ci =>
+      rw [hfi] at h
+      cases ci with
+      | indInfo cvTa caps =>
+        simp only [] at h
+        cases hfr : envAux.find? (cv.name.str "rec") with
+        | none => rw [hfr] at h; exact absurd h (by simp)
+        | some cir =>
+          rw [hfr] at h
+          cases cir with
+          | recInfo cvRa mI rP rules =>
+            simp only [] at h
+            split at h
+            · exact absurd h (by simp)
+            · simp only [pure, Option.some.injEq] at h
+              obtain rfl := h
+              exact ⟨cv, rfl, hfi⟩
+          | _ => exact absurd h (by simp)
+      | _ => exact absurd h (by simp)
+
+/-- The restore's conses and the formers' conses agree on lists that
+agree entry by entry (the capability record `{}` being the block's). -/
+private theorem consNested_eq_consMutual :
+    ∀ {xs : List AuxStored} {ys : List MutualFormerA} {env : Env},
+      xs.length = ys.length →
+      (∀ (i : Nat) (a : AuxStored) (f : MutualFormerA), xs[i]? = some a → ys[i]? = some f →
+        a.cvTa = f.cvTa ∧ a.caps = {}) →
+      consNestedFormers xs env = consMutualFormers ys env := by
+  intro xs
+  induction xs with
+  | nil =>
+    intro ys env hlen _
+    match ys with
+    | [] => rfl
+    | _ :: _ => simp at hlen
+  | cons a xs ih =>
+    intro ys env hlen hpt
+    match ys with
+    | [] => simp at hlen
+    | f :: ys =>
+      obtain ⟨h1, h2⟩ := hpt 0 a f rfl rfl
+      show consNestedFormers xs ⟨.indInfo a.cvTa a.caps :: env.consts⟩
+        = consMutualFormers ys ⟨.indInfo f.cvTa {} :: env.consts⟩
+      rw [h1, h2]
+      exact ih (by simpa using hlen)
+        (fun i a' f' ha hf => hpt (i + 1) a' f' (by simpa using ha) (by simpa using hf))
+
+/-- **The restored formers cons the environment the SCRATCH install's
+formers consed**, prefix by prefix: every record read back out of the
+scratch environment is the constant the formers' stage checked, at the
+block's empty capability record and its declared index count, so the
+restore's `consNestedFormers` on a prefix IS `consMutualFormers` on the
+same prefix of the checked formers. -/
+theorem consNestedFormers_take_eq {env envOut : Env} {b : MutualBlock} {F : Nat} {g : Bool}
+    {streamRecs : Option (List (ConstantVal × List RecRule))}
+    (h : checkMutualCore (fueledOps mode F) env b streamRecs g = .ok envOut)
+    {fms : List MutualFormerA}
+    (hformers : mutualFormers (fueledOps mode F) b.nP b.formers env g
+      = .ok (consMutualFormers fms env, fms))
+    {stored : List AuxStored} (hst : auxStoredAll envOut b b.k = some stored)
+    (k' : Nat) (hk : k' ≤ b.k) :
+    consNestedFormers (stored.take k') env = consMutualFormers (fms.take k') env ∧
+    ∀ (i : Nat) (a : AuxStored), i < k' → stored[i]? = some a →
+      ∃ f : MutualFormerA, fms[i]? = some f ∧ a.cvTa = f.cvTa ∧ a.caps = {} ∧
+        a.nIdx = f.nIdx := by
+  obtain ⟨hchecks, -⟩ := mutualFormers_inv hformers
+  have hlenF : fms.length = b.k := mutualFormerChecksG_length hchecks
+  obtain ⟨hlenS, hall⟩ := auxStoredAll_get hst
+  have key : ∀ (i : Nat) (a : AuxStored), i < b.k → stored[i]? = some a →
+      ∃ f : MutualFormerA, fms[i]? = some f ∧ a.cvTa = f.cvTa ∧ a.caps = {} ∧
+        a.nIdx = f.nIdx := by
+    intro i a hi ha
+    obtain ⟨cv, hfm, hfind⟩ := auxStored?_inv (hall i a ha)
+    obtain ⟨f, hf⟩ : ∃ f : MutualFormerA, fms[i]? = some f :=
+      ⟨fms[i]'(by omega), List.getElem?_eq_getElem (by omega)⟩
+    obtain ⟨cv', hfm', hname⟩ := mutualFormerChecksG_nIdx hchecks i f hf
+    have hp := Option.some.inj (hfm.symm.trans hfm')
+    have hcv : cv = cv' := congrArg Prod.fst hp
+    have hnid : a.nIdx = f.nIdx := congrArg Prod.snd hp
+    rw [hcv, hname] at hfind
+    obtain ⟨hcvTa, hcaps⟩ := checkMutualCore_member_record h hformers hf hfind
+    exact ⟨f, hf, hcvTa, hcaps, hnid⟩
+  refine ⟨?_, fun i a hi ha => key i a (by omega) ha⟩
+  refine consNested_eq_consMutual ?_ ?_
+  · rw [List.length_take, List.length_take, hlenS, hlenF]
+  · intro i a f ha hf
+    rw [List.getElem?_take] at ha hf
+    by_cases hik : i < k'
+    · rw [if_pos hik] at ha hf
+      obtain ⟨f', hf', h1, h2, -⟩ := key i a (by omega) ha
+      rw [hf'] at hf
+      obtain rfl := Option.some.inj hf
+      exact ⟨h1, h2⟩
+    · rw [if_neg hik] at ha
+      exact absurd ha (by simp)
+
+end ConLeche

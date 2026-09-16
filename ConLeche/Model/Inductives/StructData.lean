@@ -3,6 +3,7 @@ module
 public import ConLeche.Model.Inductives.StructLaws
 import ConLeche.Model.Inductives.StructRows
 import ConLeche.Verify.InstLevels
+public import ConLeche.Verify.Inductives.FrontDoor
 public import ConLeche.Semantics.Tower.TowerWire
 public section
 
@@ -91,22 +92,22 @@ structure FormerData {env : Env} (m : EnvModel V env) (cvT : ConstantVal)
   params : ∀ ψ₁ ψ₂ : Name → Nat, (∀ p ∈ cvT.levelParams, ψ₁ p = ψ₂ p) →
     pps ψ₁ = pps ψ₂ ∧ resSort.eval ψ₁ = resSort.eval ψ₂
 
-/-- The former's data, from its `checkConstantVal` run at the
-pre-block environment and the annotated telescope shape. -/
-theorem formerData_of (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ env)
+/-- The former's data, from EITHER front door's facts at the pre-block
+environment and the annotated telescope shape. -/
+theorem formerData_ofDoor (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ env)
     {F : Nat} {cvT cvTa : ConstantVal} {nP : Nat} {resSort : Level}
     {bs : List (Expr × ConLeche.BinderMeta)}
-    (hccv : ConLeche.checkConstantVal (ConLeche.fueledOps μ F) env cvT = .ok cvTa)
+    (hfd : ConLeche.FrontDoorFacts μ F env cvT cvTa)
     (hstrip : cvTa.type.stripPis nP = some (bs, .sort resSort)) :
     ∃ pps : (Name → Nat) → List (Nat × Nat × AnnotTerm),
       FormerData mp.base2 cvTa nP resSort pps := by
-  obtain ⟨-, -, -, -, hlbt, hitf, type', stype, u, hann', htp', htr', hst,
-    hens, rfl⟩ := ConLeche.checkConstantVal_inv hccv
-  obtain ⟨htf', hbt'⟩ := annotate_syntax hann' hitf hlbt
-  simp only at htf' hbt' htp' htr' hst hens hstrip
-  have hw : Expr.WScoped 0 type' := Expr.WScoped.of_not_hasFvar htf'
-  have hL : Expr.LeavesBounded type' := Expr.LeavesBounded.of_not_hasFvar htf'
-  have hnil : type'.fvarLeaves = [] :=
+  obtain ⟨stype, u, hst, hens⟩ := hfd.infer
+  have htf' := hfd.noFvar
+  have hbt' := hfd.bounded
+  have htp' := hfd.lpsOk
+  have hw : Expr.WScoped 0 cvTa.type := Expr.WScoped.of_not_hasFvar htf'
+  have hL : Expr.LeavesBounded cvTa.type := Expr.LeavesBounded.of_not_hasFvar htf'
+  have hnil : cvTa.type.fvarLeaves = [] :=
     Expr.fvarLeaves_eq_nil_of_not_hasFvar htf'
   obtain ⟨fvs, hop⟩ := openPisAtFvars_of_stripPis_sort nP 0 hstrip
   -- the bits: the opened body is `Sort resSort`, of sort `succ resSort`
@@ -116,7 +117,7 @@ theorem formerData_of (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ env)
   obtain rfl := ensureSortCore_sort_eq hensb
   -- per assignment: the reading, its peel, its grading
   have hper : ∀ ψ : Name → Nat, ∃ pps : List (Nat × Nat × AnnotTerm),
-      denoteMeta mp.base2.acval env ψ 0 type'
+      denoteMeta mp.base2.acval env ψ 0 cvTa.type
         = some (mkPisAV pps (.sort (resSort.eval ψ))) ∧
       pps.length = nP ∧
       (∀ d ∈ pps, d.2.1 ≠ 0) ∧
@@ -151,16 +152,27 @@ theorem formerData_of (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ env)
   · exact fun ψ => (Classical.choose_spec (hper ψ)).2.2.2.2
   · intro ψ₁ ψ₂ hφ
     have h2 := (Classical.choose_spec (hper ψ₂)).1
-    have h1 : denoteMeta mp.base2.acval env ψ₂ 0 type'
+    have h1 : denoteMeta mp.base2.acval env ψ₂ 0 cvTa.type
         = some (mkPisAV (Classical.choose (hper ψ₁))
           (.sort (resSort.eval ψ₁))) := by
-      rw [← denoteMeta_params_ext mp.base2 hφ 0 type' htp']
+      rw [← denoteMeta_params_ext mp.base2 hφ 0 cvTa.type htp']
       exact (Classical.choose_spec (hper ψ₁)).1
     obtain ⟨hp, hb⟩ := mkPisAV_inj
       (by rw [(Classical.choose_spec (hper ψ₁)).2.1,
         (Classical.choose_spec (hper ψ₂)).2.1])
       (Option.some.inj (h1.symm.trans h2))
     exact ⟨hp, AnnotTerm.sort.inj hb⟩
+
+/-- The former's data, from its `checkConstantVal` run at the
+pre-block environment and the annotated telescope shape. -/
+theorem formerData_of (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ env)
+    {F : Nat} {cvT cvTa : ConstantVal} {nP : Nat} {resSort : Level}
+    {bs : List (Expr × ConLeche.BinderMeta)}
+    (hccv : ConLeche.checkConstantVal (ConLeche.fueledOps μ F) env cvT = .ok cvTa)
+    (hstrip : cvTa.type.stripPis nP = some (bs, .sort resSort)) :
+    ∃ pps : (Name → Nat) → List (Nat × Nat × AnnotTerm),
+      FormerData mp.base2 cvTa nP resSort pps :=
+  formerData_ofDoor hμ mp (ConLeche.FrontDoorFacts.ofCheck hccv) hstrip
 
 /-- The former's data crosses a cons whose slot does not mention the
 stored type (any block cons after the former's). -/

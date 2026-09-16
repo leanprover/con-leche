@@ -49,7 +49,7 @@ variable {V : Type w} [SetTheory V] {μ : CheckMode} {env : Env}
 
 section Aux
 
-variable {F : Nat} {mp : EnvModelM V μ env} {b : MutualBlock} {fms : List MutualFormerA}
+variable {F : Nat} {g : Bool} {mp : EnvModelM V μ env} {b : MutualBlock} {fms : List MutualFormerA}
   {f₀ : MutualFormerA} {ctorsA : List (ConstantVal × Nat)} {sortss : List (List Level)}
   {kinds : List (List (RecFieldKind × Nat))}
   {mp₁ : EnvModelM V μ (ConLeche.consMutualFormers fms env)}
@@ -59,7 +59,7 @@ variable {F : Nat} {mp : EnvModelM V μ env} {b : MutualBlock} {fms : List Mutua
   {fvsPF xFvsF : Nat → List Expr} {xrestF : Nat → Expr}
   {eissF : Nat → (Name → Nat) → List (List AnnotTerm)}
   {tssF : Nat → (Name → Nat) → List (List (Nat × Nat × AnnotTerm))}
-  (h : MutualFormersFacts V F mp b fms f₀ ctorsA sortss kinds mp₁ ppsF W idxF dsF esF srcsF fvsPF
+  (h : MutualFormersFacts V F g mp b fms f₀ ctorsA sortss kinds mp₁ ppsF W idxF dsF esF srcsF fvsPF
     xFvsF xrestF eissF tssF)
 include h
 

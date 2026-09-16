@@ -2,6 +2,7 @@ module
 
 public import ConLeche.Verify.BridgeWfImp
 public import ConLeche.Verify.Extend.Inversions
+public import ConLeche.Verify.ProjSlots
 import ConLeche.Verify.ExceptBind
 
 public section
@@ -51,6 +52,51 @@ structure FrontDoorFacts (mode : CheckMode) (F : Nat) (env : Env) (cv cvA : Cons
   resolve : cvA.type.constsResolve env = true
   infer : ∃ stype u, inferTypeCore mode env F 0 cvA.type = .ok stype ∧
     ensureSortCore mode env F 0 stype = .ok u
+  /-- every `.proj` node of the stored type sits at a stored table slot
+  (the walk's `annotateCore_projSlotsOk`; the pre-annotated door's
+  `projTablesOk` guard, K.13) -/
+  slots : Expr.ProjSlotsOk env cvA.type
+
+/-- **`projTablesOk` is `ProjSlotsOk`, as a Bool**: the pre-annotated
+door's `.proj`-slot guard (K.13) says exactly what the annotation walk
+establishes of its output. -/
+theorem Expr.projSlotsOk_of_projTablesOk {env : Env} :
+    ∀ e : Expr, e.projTablesOk env = true → Expr.ProjSlotsOk env e := by
+  intro e
+  induction e with
+  | bvar j => intro _; simp
+  | sort u => intro _; simp
+  | lit l => intro _; simp
+  | const n us => intro _; simp
+  | fvar idx ty ih =>
+    intro h
+    rw [Expr.projSlotsOk_fvar]
+    exact ih (by simpa [Expr.projTablesOk] using h)
+  | app f a ihf iha =>
+    intro h
+    simp only [Expr.projTablesOk, Bool.and_eq_true] at h
+    rw [Expr.projSlotsOk_app]
+    exact ⟨ihf h.1, iha h.2⟩
+  | lam ty b mb ihty ihb =>
+    intro h
+    simp only [Expr.projTablesOk, Bool.and_eq_true] at h
+    rw [Expr.projSlotsOk_lam]
+    exact ⟨ihty h.1, ihb h.2⟩
+  | forallE ty b mb ihty ihb =>
+    intro h
+    simp only [Expr.projTablesOk, Bool.and_eq_true] at h
+    rw [Expr.projSlotsOk_forallE]
+    exact ⟨ihty h.1, ihb h.2⟩
+  | letE ty v b ihty ihv ihb =>
+    intro h
+    simp only [Expr.projTablesOk, Bool.and_eq_true] at h
+    rw [Expr.projSlotsOk_letE]
+    exact ⟨ihty h.1.1, ihv h.1.2, ihb h.2⟩
+  | proj s j e ihe =>
+    intro h
+    simp only [Expr.projTablesOk, Bool.and_eq_true] at h
+    rw [Expr.projSlotsOk_proj]
+    exact ⟨Option.isSome_iff_exists.mp h.1, ihe h.2⟩
 
 /-- The stored constant is the input with its type replaced. -/
 theorem FrontDoorFacts.eq {F : Nat} {env : Env} {cv cvA : ConstantVal}
@@ -69,10 +115,11 @@ theorem FrontDoorFacts.eq {F : Nat} {env : Env} {cv cvA : ConstantVal}
 theorem FrontDoorFacts.ofCheck {F : Nat} {env : Env} {cv cvA : ConstantVal}
     (h : checkConstantVal (fueledOps mode F) env cv = .ok cvA) :
     FrontDoorFacts mode F env cv cvA := by
-  obtain ⟨hfind, hnres, hpshape, hnodup, -, -, type', stype, u, -, -, -, hst, hens, rfl⟩ :=
+  obtain ⟨hfind, hnres, hpshape, hnodup, -, hitf, type', stype, u, hann, -, -, hst, hens, rfl⟩ :=
     checkConstantVal_inv h
   obtain ⟨htf, htp, htr, htb⟩ := checkConstantVal_typeWF h
-  exact ⟨hfind, hnres, hpshape, hnodup, rfl, rfl, htb, htf, htp, htr, stype, u, hst, hens⟩
+  exact ⟨hfind, hnres, hpshape, hnodup, rfl, rfl, htb, htf, htp, htr, ⟨stype, u, hst, hens⟩,
+    annotateCore_projSlotsOk (mode := mode) _ _ hann (Expr.FvarTysOk.of_not_hasFvar _ hitf)⟩
 
 /-- A thrown step never succeeds. -/
 private theorem doorThrow_ne_ok {α : Type} {e : CheckError} {a : α}
@@ -127,7 +174,7 @@ theorem FrontDoorFacts.ofPre {F : Nat} {env : Env} {cv cvA : ConstantVal}
   simp only [pure, Except.pure, Except.ok.injEq] at h
   subst h
   refine ⟨?_, Bool.eq_false_iff.mpr h2, Bool.eq_false_iff.mpr h3, h4, rfl, rfl, h5,
-    Bool.eq_false_iff.mpr h6, h7, h8, sty, u, hinf, hens⟩
+    Bool.eq_false_iff.mpr h6, h7, h8, ⟨sty, u, hinf, hens⟩, Expr.projSlotsOk_of_projTablesOk _ h9⟩
   cases hf : env.find? cv.name with
   | none => rfl
   | some ci => exact absurd (by rw [hf]; rfl) h1

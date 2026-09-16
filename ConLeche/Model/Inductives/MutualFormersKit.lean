@@ -2,6 +2,7 @@ module
 
 public import ConLeche.Model.Inductives.MutualStageFormer
 public import ConLeche.Model.Inductives.MutualRecRead
+public import ConLeche.Verify.Inductives.FrontDoor
 public section
 
 /-!
@@ -299,6 +300,39 @@ theorem mutualFormerChecks_pos {F nP : Nat} :
       rcases ConLeche.checkSumTele_shape htele with ⟨rfl, -⟩ | ⟨ty, hccv⟩
       · exact ⟨cv, cv, bs, rfl, hccv₀, rfl, rfl, hstrip⟩
       · exact ⟨cv, { cv with type := ty }, bs, rfl, hccv, rfl, rfl, hstrip⟩
+    | succ t =>
+      simp only [List.getElem?_cons_succ] at hf ⊢
+      exact hall t f hf
+
+/-- `mutualFormerChecks_pos` at a GRADE: every checked member went through a front door
+(`FrontDoorFacts`) at the pre-block environment (task #315 M6 s6). -/
+theorem mutualFormerChecksG_pos {F nP : Nat} {g : Bool} :
+    ∀ {l : List (ConstantVal × Nat)} {env : Env} {fms : List MutualFormerA},
+      ConLeche.mutualFormerChecks (m := ConLeche.CheckM) (ConLeche.fueledOps μ F) env nP g l
+        = .ok fms →
+      fms.length = l.length ∧
+      ∀ (t : Nat) (f : MutualFormerA), fms[t]? = some f →
+        ∃ (cv cv' : ConstantVal) (bs : List (Expr × BinderMeta)),
+          l[t]? = some (cv, f.nIdx) ∧
+          ConLeche.FrontDoorFacts μ F env cv' f.cvTa ∧
+          cv'.name = cv.name ∧ cv'.levelParams = cv.levelParams ∧
+          f.cvTa.type.stripPis (nP + f.nIdx) = some (bs, .sort f.s)
+  | [], _, _, h => by
+    obtain rfl := ConLeche.mutualFormerChecksG_nil_inv h
+    exact ⟨rfl, fun t f hf => nomatch hf⟩
+  | (cv, nIdx) :: rest, env, fms, h => by
+    obtain ⟨cvTa₀, cvTa, s, bs, fs, hdoor, htele, hstrip, hrest, rfl⟩ :=
+      ConLeche.mutualFormerChecksG_inv h
+    obtain ⟨hlen, hall⟩ := mutualFormerChecksG_pos hrest
+    refine ⟨by simp [hlen], ?_⟩
+    intro t f hf
+    cases t with
+    | zero =>
+      obtain rfl := Option.some.inj hf
+      rcases ConLeche.checkSumTele_shape htele with ⟨rfl, -⟩ | ⟨ty, hccv⟩
+      · exact ⟨cv, cv, bs, rfl, hdoor, rfl, rfl, hstrip⟩
+      · exact ⟨cv, { cv with type := ty }, bs, rfl,
+          ConLeche.FrontDoorFacts.ofCheck hccv, rfl, rfl, hstrip⟩
     | succ t =>
       simp only [List.getElem?_cons_succ] at hf ⊢
       exact hall t f hf

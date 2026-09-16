@@ -5,6 +5,7 @@ public import ConLeche.Model.Inductives.MutualChains
 import ConLeche.Model.Inductives.MutualLeafBelow
 import ConLeche.Verify.Inductives.MutualInv
 import ConLeche.Verify.Inductives.MutualWF
+public import ConLeche.Verify.Inductives.FrontDoor
 public section
 
 /-!
@@ -360,6 +361,12 @@ theorem MemberConsOk.ofCheck {F : Nat} {cvT cvTa : ConstantVal}
   exact ⟨by rw [hname]; exact hfind, by rw [hname]; exact hnres,
     by rw [hname]; exact hpshape, htf, htp, htr, htb⟩
 
+/-- Either front door establishes it (task #315 M6 s6). -/
+theorem MemberConsOk.ofDoor {F : Nat} {cvT cvTa : ConstantVal}
+    (h : ConLeche.FrontDoorFacts μ F env cvT cvTa) : MemberConsOk env cvTa :=
+  ⟨by rw [h.name]; exact h.fresh, by rw [h.name]; exact h.nres,
+    by rw [h.name]; exact h.pshape, h.noFvar, h.lpsOk, h.resolve, h.bounded⟩
+
 /-- … and it travels across a cons of a DIFFERENT name (freshness by
 the name, resolution by monotonicity). -/
 theorem MemberConsOk.cons {c₀ : ConstantInfo} {cvTa : ConstantVal}
@@ -562,7 +569,7 @@ check's own `constsResolve`), and the members' distinctness — the
 block's shape guard `b.blockNames.Nodup` — is what carries each
 member's freshness across the earlier members' conses.  The conclusion
 is the positional leaf equation plus the agreement off the block. -/
-theorem stageMutualFormers {F nP : Nat} {resSort : Level} {lps : List Name}
+theorem stageMutualFormers {F nP : Nat} {g : Bool} {resSort : Level} {lps : List Name}
     {W : (Name → Nat) → Nat} {Idss : (Name → Nat) → List (List AnnotTerm)}
     {rss : List (List Bool)} {tlss : (Name → Nat) → List (List (List (Nat × Nat × AnnotTerm)))}
     {Eiss' : (Name → Nat) → List (List (List AnnotTerm))}
@@ -577,7 +584,7 @@ theorem stageMutualFormers {F nP : Nat} {resSort : Level} {lps : List Name}
       (tlss ψ) (Eiss' ψ) (Fss₀ ψ) (Ess' ψ), FieldsBelow (nP + 2) chain)
     {formers : List (ConstantVal × Nat)} {env₁ : Env} {fms : List MutualFormerA}
     (mp : EnvModelM V μ env) (hE : ConLeche.EtaFamiliesClosed env)
-    (hrun : ConLeche.mutualFormers (m := ConLeche.CheckM) (ConLeche.fueledOps μ F) nP formers env
+    (hrun : ConLeche.mutualFormers (m := ConLeche.CheckM) (ConLeche.fueledOps μ F) nP formers env g
       = .ok (env₁, fms))
     (hnd : (fms.map (fun f => f.cvTa.name)).Nodup)
     (hmem : ∀ (t : Nat) (f : MutualFormerA), fms[t]? = some f →
@@ -593,7 +600,7 @@ theorem stageMutualFormers {F nP : Nat} {resSort : Level} {lps : List Name}
         mp₁.base2.acval n = mp.base2.acval n) := by
   obtain ⟨hchecks, rfl⟩ := ConLeche.mutualFormers_inv hrun
   exact stageMutualFormersGo hParams offs hIdsBelow hchainBelow fms (fun i => i) env mp hE
-    (fun f hf => MemberConsOk.ofCheck (ConLeche.mutualFormerChecks_checked hchecks f hf).choose_spec)
+    (fun f hf => MemberConsOk.ofDoor (ConLeche.mutualFormerChecksG_checked hchecks f hf).choose_spec)
     hnd hmem
 
 end ConLeche.Model
