@@ -712,6 +712,57 @@ def nestedCopySrcOk (env : Env) (p : NestedParts) (st : ElimState) : Bool :=
       | _, _ => false
   | none => false
 
+/-- **THE PINS' MINT GROUPS, CERTIFIED** (task #315 K.29, the model
+lane's DESIGN §U.19 (d)).
+
+`NestedPin.grpBase`/`grpSize` (K.15 (2)) are written by `mkCopies` and,
+until this conjunct, read by nothing: no fact of the run said that pin
+`q` lies in its own group, that the group is a contiguous block of the
+pin list of the container's `all`-group's size, that the group's `i`-th
+pin copies the container's `i`-th member, that the group's copies share
+the level instantiation and the components, or that the components'
+count is the container's parameter count.  K.28 certifies ONE pin's
+source; the group's SHAPE is this one.
+
+Per pin `q`, with `ci = containerInfo? env q.container` and
+`(_, lvls, Ds) = st.types[k + q].src` (K.28's record): `q` lies in
+`[grpBase, grpBase + grpSize)`, the group ends inside the pin list,
+`grpSize` is the container's group size, `Ds.length` is the container's
+parameter count, and at every `i < grpSize` the pin `grpBase + i` names
+the container's `i`-th member, carries the same group fields, and its
+type records the same `lvls` and `Ds`.
+
+**It cannot fire**: `mkCopies` mints a container's whole `all`-group in
+one pass, appending one pin per member in block order with the same
+`base`/`size` and the same `lvls`/`Ds` it was called with, and
+`replaceIfNested` calls it with the group of `containerInfo? env I`.  A
+failure is `.internal`.
+
+The consumers are the model lane's `NestedPinGroup.seg`/`kEq`/`rep`/
+`pinDsLen` — and through `pinDsLen` the copy's sort `w`, which strips at
+`Ds.length + nIdx`. -/
+def nestedGroupsOk (env : Env) (p : NestedParts) (st : ElimState) : Bool :=
+  (List.range st.pins.length).all fun q =>
+    match st.pins[q]?, st.types[p.k + q]? with
+    | some qn, some t =>
+      match containerInfo? env qn.container, t.src with
+      | some ci, some (_, lvls, Ds) =>
+        qn.grpBase ≤ q && q < qn.grpBase + qn.grpSize &&
+        qn.grpBase + qn.grpSize ≤ st.pins.length &&
+        qn.grpSize == ci.members.length && Ds.length == ci.nP &&
+        (List.range qn.grpSize).all fun i =>
+          match st.pins[qn.grpBase + i]?, ci.members[i]?,
+              st.types[p.k + qn.grpBase + i]? with
+          | some qi, some Ji, some ti =>
+            qi.container == Ji.name && qi.grpBase == qn.grpBase &&
+              qi.grpSize == qn.grpSize &&
+              (match ti.src with
+               | some (Jn', lvls', Ds') => Jn' == Ji.name && lvls' == lvls && Ds' == Ds
+               | none => false)
+          | _, _, _ => false
+      | _, _ => false
+    | _, _ => false
+
 /-- **THE FIELD KINDS AT THE PINS** (task #315 §U.1 (c) fact 6; task
 #279 K.26 variant C, re-keyed from the copies to the PINS).
 
@@ -878,6 +929,11 @@ def checkNested (ops : CheckerOps m) (env : Env) (p : NestedParts) : m Env := do
   unless nestedCopySrcOk env p st do
     throw (.internal "nested: a minted auxiliary type is not the copy of the container \
       it records")
+  -- **THE PINS' MINT GROUPS** (K.29): the group fields the mint wrote,
+  -- certified — the segment, its size, the member order, the shared
+  -- level instantiation and components.  A failure is `.internal`.
+  unless nestedGroupsOk env p st do
+    throw (.internal "nested: a pin's mint group is not the container's group as minted")
   unless nestedPinKindsOk p b st stored do
     throw (.internal "nested: a stored field at a pin is not classified ordinary, \
       recursive or reflexive into the block")
