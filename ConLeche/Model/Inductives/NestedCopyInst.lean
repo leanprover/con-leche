@@ -7,6 +7,7 @@ import ConLeche.Verify.Inductives.NestedCopyGlue
 import ConLeche.Verify.Inductives.NestedCopyProv
 import ConLeche.Verify.Inductives.NestedCopyInstU
 import ConLeche.Verify.Inductives.NestedCopyTele
+import ConLeche.Verify.Inductives.NestedCopyRewrite
 public section
 
 /-!
@@ -255,6 +256,7 @@ theorem NestedPinsRun.copyBody {pbs : List (Expr × ConLeche.BinderMeta)}
       J.ctors[j]? = some cc ∧
       cAJ.1.name = cc.name ∧ cAJ.1.type = cc.type ∧ cAJ.2 = cc.nFields ∧
       J.name = (pinsS.getD (q₀ + i') default).J ∧
+      (srcAtE st p (q₀ + i')).2.2.length = dJ.nP ∧
       ConLeche.openPisAtFvars b.nP f₀.cvTa.type 0 = some (params, o) ∧
       Expr.instPis (Expr.instantiateLevelParams J.lps (pinsS.getD (q₀ + i') default).lvls cc.type)
           (srcAtE st p (q₀ + i')).2.2 = some cI ∧
@@ -369,8 +371,14 @@ theorem NestedPinsRun.copyBody {pbs : List (Expr × ConLeche.BinderMeta)}
     rw [List.getElem?_eq_getElem (show jj < params.length by omega), hty', Nat.zero_add]
   rw [hcbody] at hrep
   rw [hpbs'] at hcjEq
+  have hDsnP : (srcAtE st p (q₀ + i')).2.2.length = dJ.nP := by
+    obtain ⟨ci₂, hci₂, hDsLen, -, -, -, -, -, -, -, -, -, -⟩ := PD.own
+    obtain ⟨-, hnPJ⟩ := S.ctorsOf i' hi' ci J hciP hJmem hJname
+    rw [hDsLen, hnPJ]
+    exact congrArg ContainerInfo.nP (Option.some.inj (((by rw [← hJc] at hci₂; exact hci₂ :
+      ConLeche.containerInfo? env (pinsS.getD (q₀ + i') default).J = some ci₂)).symm.trans hciP))
   refine ⟨cc, J, cI, cbody', o, params, pbs₀, st₁, st₂, cA, cname, hcc, hn, hty, hnf, hJname,
-    hopb, hinst, hcIb, hcIl, hrep, hp1, hp2, hcA, hnF, ?_⟩
+    hDsnP, hopb, hinst, hcIb, hcIl, hrep, hp1, hp2, hcA, hnF, ?_⟩
   rw [hbc]
   have : (copyAtE st p (q₀ + i')).ctors[j]!.2.1 = closeTelescope pbs₀ 0 cbody' := by
     have hb2 : (copyAtE st p (q₀ + i')).ctors[j]! = (cname,
@@ -379,6 +387,123 @@ theorem NestedPinsRun.copyBody {pbs : List (Expr × ConLeche.BinderMeta)}
     have := congrArg (fun x => x.2.1) hcjEq
     simpa using this
   rw [this]
+
+/-- **THE COPY'S FIELDS, ONE BY ONE** (DESIGN §U.33 (c) stage 5): the
+stored copy constructor's telescope is the CONTAINER's constructor
+telescope past its parameters — each field domain level-substituted
+and instantiated at the pin's components at the cut its own depth
+gives (`instPis_ilp_mkPisB`, `instTeleSeq_getD`) — run through the
+elimination's rewrite domain by domain (`replaceAllNested_mkPisB`),
+with the residual last.  This is the frame the four remaining arms of
+`CopyCtorInst` are stated at: they differ only in what they make of
+ONE `replaceAllNested` run on ONE instantiated domain. -/
+theorem NestedPinsRun.copyFields {pbs : List (Expr × ConLeche.BinderMeta)}
+    (hPD : ∀ q, q < st.pins.length → PinData env st p pbs q)
+    {i' : Nat} (hi' : i' < kJ) {j : Nat} {cAJ : ConstantVal × Nat}
+    (hj : (dJ.ctorsM i')[j]? = some cAJ) :
+    ∃ (cc : ContainerCtor) (J : ContainerMember) (lpsJ : List Name)
+      (pcs fcs Fs' : List (Expr × ConLeche.BinderMeta)) (esJ : List Expr)
+      (cbody' resid' o : Expr) (params : List Expr) (pbs₀ : List (Expr × ConLeche.BinderMeta))
+      (cA : ConstantVal × Nat) (cname : Name),
+      cAJ.1.name = cc.name ∧ cAJ.1.type = cc.type ∧ cAJ.2 = cc.nFields ∧
+      J.name = (pinsS.getD (q₀ + i') default).J ∧
+      (srcAtE st p (q₀ + i')).2.2.length = dJ.nP ∧
+      -- the container's constructor as a telescope: parameters, fields,
+      -- and the residual at its own member
+      cc.type.stripPis (dJ.nP + cc.nFields) = some (pcs ++ fcs,
+        Expr.mkAppN (.const (dJ.memberName i') (lpsJ.map Level.param))
+          (ConLeche.structPsAt cc.nFields dJ.nP ++ esJ)) ∧
+      pcs.length = dJ.nP ∧ fcs.length = cc.nFields ∧ esJ.length = dJ.nIdxAt i' ∧
+      -- the block's parameter openers
+      ConLeche.openPisAtFvars b.nP f₀.cvTa.type 0 = some (params, o) ∧
+      -- the copy's fields: one rewrite run per instantiated domain
+      Fs'.length = cc.nFields ∧
+      (∀ l, l < cc.nFields → ∃ st₁ st₂ : ElimState,
+        ConLeche.replaceAllNested env (p.lps.map Level.param) params pbs₀ st₁
+            (Expr.instSeq (srcAtE st p (q₀ + i')).2.2 (dJ.nP - 1 + l)
+              (Expr.instantiateLevelParams J.lps (pinsS.getD (q₀ + i') default).lvls
+                (fcs.getD l default).1))
+          = .ok ((Fs'.getD l default).1, st₂) ∧ st₂.pins <+: st.pins) ∧
+      (∃ st₁ st₂ : ElimState,
+        ConLeche.replaceAllNested env (p.lps.map Level.param) params pbs₀ st₁
+            (Expr.instSeq (srcAtE st p (q₀ + i')).2.2 (dJ.nP - 1 + cc.nFields)
+              (Expr.instantiateLevelParams J.lps (pinsS.getD (q₀ + i') default).lvls
+                (Expr.mkAppN (.const (dJ.memberName i') (lpsJ.map Level.param))
+                  (ConLeche.structPsAt cc.nFields dJ.nP ++ esJ))))
+          = .ok (resid', st₂) ∧ st₂.pins <+: st.pins) ∧
+      -- the block's entry, the rewritten telescope closed over `pbs₀`
+      cbody'.stripPis cc.nFields = some (Fs', resid') ∧
+      ctorsA[b.ownOffset (p.k + q₀ + i') + j]? = some cA ∧ cA.2 = cc.nFields ∧
+      b.ctors[b.ownOffset (p.k + q₀ + i') + j]?
+        = some ⟨⟨cname, p.lps, closeTelescope pbs₀ 0 cbody'⟩, cc.nFields, p.k + q₀ + i'⟩ := by
+  classical
+  obtain ⟨cc, J, cI, cbody', o, params, pbs₀, stA, stB, cA, cname, hcc, hn, hty, hnf, hJname,
+    hDsnP, hopb, hinst, -, -, hrep, -, hp2, hcA, hnF, hbc⟩ := R.copyBody SF S hPD hi' hj
+  -- the container's constructor telescope, off the block model
+  obtain ⟨cvT, caps, cvR, mI, rP, rules, -, hI, -⟩ := S.stored i' hi'
+  obtain ⟨-, -, hCD⟩ := hI.ctors i' j cAJ hI.memberLt hj
+  obtain ⟨cbs, esJ, hstripJ, hesJ⟩ := hCD.resid
+  rw [hty, hnf] at hstripJ
+  have hcbsLen : cbs.length = dJ.nP + cc.nFields := Expr.stripPis_length _ hstripJ
+  have hpl : (cbs.take dJ.nP).length = dJ.nP := by rw [List.length_take]; omega
+  have hfl : (cbs.drop dJ.nP).length = cc.nFields := by rw [List.length_drop]; omega
+  have hsplit : cbs.take dJ.nP ++ cbs.drop dJ.nP = cbs := List.take_append_drop _ _
+  have hmkJ := ConLeche.stripPis_mkPisB _ hstripJ
+  -- the mint's body, as the fields' telescope
+  have hinst2 := ConLeche.instPis_ilp_mkPisB J.lps (pinsS.getD (q₀ + i') default).lvls
+    (srcAtE st p (q₀ + i')).2.2 (cbs.take dJ.nP) (cbs.drop dJ.nP)
+    (Expr.mkAppN (.const (dJ.memberName i') (cvT.levelParams.map Level.param))
+      (ConLeche.structPsAt cc.nFields dJ.nP ++ esJ)) (by rw [hpl, hDsnP])
+  rw [hsplit, ← hmkJ] at hinst2
+  obtain rfl : cI = ConLeche.mkPisB
+      (ConLeche.instTeleSeq (srcAtE st p (q₀ + i')).2.2
+        ((srcAtE st p (q₀ + i')).2.2.length - 1)
+        ((cbs.drop dJ.nP).map fun bb =>
+          (Expr.instantiateLevelParams J.lps (pinsS.getD (q₀ + i') default).lvls bb.1,
+            (⟨Level.substPW J.lps (pinsS.getD (q₀ + i') default).lvls bb.2.pw⟩ : ConLeche.BinderMeta))))
+      (Expr.instSeq (srcAtE st p (q₀ + i')).2.2
+        ((srcAtE st p (q₀ + i')).2.2.length - 1 + (cbs.drop dJ.nP).length)
+        (Expr.instantiateLevelParams J.lps (pinsS.getD (q₀ + i') default).lvls
+          (Expr.mkAppN (.const (dJ.memberName i') (cvT.levelParams.map Level.param))
+            (ConLeche.structPsAt cc.nFields dJ.nP ++ esJ)))) :=
+    Option.some.inj (hinst.symm.trans hinst2)
+  -- the rewrite, domain by domain
+  obtain ⟨Fs', resid', hcb, hlenF, hfields, stC, stD, hres, -, hresP, -⟩ :=
+    ConLeche.replaceAllNested_mkPisB _ hrep
+  have hmapGet : ∀ (L : List (Expr × ConLeche.BinderMeta)) (l : Nat), l < L.length →
+      ((L.map fun bb =>
+          (Expr.instantiateLevelParams J.lps (pinsS.getD (q₀ + i') default).lvls bb.1,
+            (⟨Level.substPW J.lps (pinsS.getD (q₀ + i') default).lvls bb.2.pw⟩
+              : ConLeche.BinderMeta))).getD l default).1
+        = Expr.instantiateLevelParams J.lps (pinsS.getD (q₀ + i') default).lvls
+            (L.getD l default).1 := by
+    intro L l hl
+    have hgd : L.getD l default = L[l] := by
+      rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hl]; rfl
+    rw [List.getD_eq_getElem?_getD, List.getElem?_map, List.getElem?_eq_getElem hl,
+      Option.map_some, hgd]
+    rfl
+  have hbsLen : (ConLeche.instTeleSeq (srcAtE st p (q₀ + i')).2.2
+      ((srcAtE st p (q₀ + i')).2.2.length - 1)
+      ((cbs.drop dJ.nP).map fun bb =>
+        (Expr.instantiateLevelParams J.lps (pinsS.getD (q₀ + i') default).lvls bb.1,
+          (⟨Level.substPW J.lps (pinsS.getD (q₀ + i') default).lvls bb.2.pw⟩
+            : ConLeche.BinderMeta)))).length = cc.nFields := by
+    rw [ConLeche.instTeleSeq_length, List.length_map, hfl]
+  have hlenF' : Fs'.length = cc.nFields := by rw [hlenF, hbsLen]
+  refine ⟨cc, J, cvT.levelParams, cbs.take dJ.nP, cbs.drop dJ.nP, Fs', esJ, cbody', resid', o,
+    params, pbs₀, cA, cname, hn, hty, hnf, hJname, hDsnP, by rw [hsplit]; exact hstripJ, hpl, hfl,
+    hesJ, hopb, hlenF', ?_, ⟨stC, stD, ?_, hresP.trans hp2⟩, ?_, hcA, hnF, hbc⟩
+  · intro l hl
+    obtain ⟨-, st₁, st₂, hrun, -, hpre, -⟩ := hfields l (by rw [hbsLen]; exact hl)
+    refine ⟨st₁, st₂, ?_, hpre.trans hp2⟩
+    rw [ConLeche.instTeleSeq_getD _ _ _ _ (by rw [List.length_map, hfl]; exact hl),
+      hmapGet _ l (by rw [hfl]; exact hl), hDsnP] at hrun
+    exact hrun
+  · rw [hDsnP, List.length_drop, show cbs.length - dJ.nP = cc.nFields from by omega] at hres
+    exact hres
+  · rw [hcb, ← hlenF']
+    exact ConLeche.stripPis_mkPisB_self _ _
 
 end Assembly
 
