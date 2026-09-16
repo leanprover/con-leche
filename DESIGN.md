@@ -74784,3 +74784,37 @@ control: `&& false` inside the `mkCopy` comparison turns 23 of the 26
 fixtures into `nested: a minted auxiliary type is not the copy of the
 container it records`, so the comparison is reached at every fixture
 that gets that far.
+
+#### K.29 — the pins' mint GROUPS, certified (2026-09-16, task #315 M6, the model lane's DESIGN §U.19 (d))
+
+`NestedPin.grpBase`/`grpSize` are K.15 (2)'s RECORD: `mkCopies` writes
+them, and until this conjunct nothing in the run relation read them.  So
+the model's `NestedPinGroup.seg`/`kEq`/`rep`/`pinDsLen` — and through
+`pinDsLen` the copy's sort `w`, which strips at `Ds.length + nIdx` —
+were not derivable from the run as recorded: K.28 certifies ONE pin's
+source, and `mkCopy_inv` bounds `Ds.length` by `nP + nIdx` only.
+Recovering the shape by inverting `mkCopies` through `elimLoop` is the
+inversion K.28 exists to avoid, so the group's shape is recorded too.
+
+`nestedGroupsOk env p st`, one Bool, in both routes and in the run
+relation, `.internal` on failure.  Per pin `q`, with `ci =
+containerInfo? env q.container` and `(_, lvls, Ds)` its type's K.28
+source: `q ∈ [grpBase, grpBase + grpSize)`, the group ends inside the
+pin list, `grpSize = ci.members.length`, `Ds.length = ci.nP`, and at
+every `i < grpSize` the pin `grpBase + i` names `ci.members[i]`, carries
+the same `grpBase`/`grpSize`, and its type records the same `lvls` and
+`Ds`.
+
+**It cannot fire.**  `mkCopies` mints a container's whole `all`-group in
+one pass — one pin per member in block order, each with the `base`/`size`
+it was called with and the same `lvls`/`Ds` — and `replaceIfNested` calls
+it with the group of `containerInfo? env I`.  Every clause is a property
+of that one loop.
+
+**Gates.**  `lake build`/`lake test` exit 0 warning-free; nested-shadow
+**27/27**; the Mathlib nested cone exit 0, 4 926 accepted, its 41 shadow
+lines byte-identical to the K.28 run.  Negative controls, one per half:
+`grpSize == ci.members.length + 1` and `Ds' == Ds && false` each turn 24
+of the 27 fixtures into `nested: a pin's mint group is not the
+container's group as minted` — so both the group-shape half and the
+per-member half are reached.

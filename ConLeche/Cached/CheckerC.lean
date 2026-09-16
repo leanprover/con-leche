@@ -354,6 +354,9 @@ def checkNestedS (fe : FEnv) (p : NestedParts) : CheckCM FEnv := do
   unless nestedCopySrcOk fe.env p st do
     throw (.internal "nested: a minted auxiliary type is not the copy of the container \
       it records")
+  -- the pins' mint groups (K.29), as in the pure route
+  unless nestedGroupsOk fe.env p st do
+    throw (.internal "nested: a pin's mint group is not the container's group as minted")
   -- the field kinds at the pins (§U.1 (c) fact 6), as in the pure route
   unless nestedPinKindsOk p b st stored do
     throw (.internal "nested: a stored field at a pin is not classified ordinary, \
