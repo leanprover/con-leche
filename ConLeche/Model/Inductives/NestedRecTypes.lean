@@ -318,7 +318,7 @@ theorem NestedTailIn.nIdxT {c : Nat} (hc : c < b.k) :
 /-- The auxiliary block's largeness flag is the members' sort's. -/
 theorem NestedTailIn.large : b.large = f₀.s.isNeverZero := by
   obtain ⟨-, -, -, -, _env₁, fms', f₀', _tq₀, _ctorsA', _sortss', _kinds', _formers4, _ctors4,
-    _cvRas, _rulesOf, hformers', hf₀', -, -, hL, -, -, -, -, -, -, -⟩ :=
+    _cvRas, _rulesOf, hformers', hf₀', -, -, hL, -, -, -, -, -, -, -, -⟩ :=
     ConLeche.checkMutualCore_inv I.haux
   have hfms : fms = fms' := by
     have h := Except.ok.inj (I.out.formers.symm.trans hformers')

@@ -1187,6 +1187,16 @@ structure NestedStageFacts (st : ElimState) (mp₂ : EnvModelM V μ ENV₂) : Pr
   pinDs : ∀ q, q < pinsS.length → ∀ ψ : Name → Nat,
     DenoteMetaSpine mp₂.base2.acval ENV₂ ψ b.nP (pinsS.getD q default).DsE
       ((pinsS.getD q default).Ds ψ)
+  /-- the restored environment extends the prefix environment (M7-2) -/
+  find : FindPreserved ENV₁ ENV₂
+  /-- the pins' level assignment is the container's level parameters
+  instantiated at the pin's levels (task #315 M7-2: the constructor
+  pins' readings at the restored model need it) -/
+  pinψ : ∀ q, q < pinsS.length → ∀ (cvT : ConstantVal) (caps : IndCaps),
+    (ENV₁).find? (pinsS.getD q default).J = some (.indInfo cvT caps) →
+    (pinsS.getD q default).lvls.length = cvT.levelParams.length ∧
+    ∀ ψ : Name → Nat, (pinsS.getD q default).ψJ ψ
+      = Level.substFn ψ cvT.levelParams (pinsS.getD q default).lvls
   names : (fms.take p.k).map (·.cvTa.name) = p.memberNames
   agree : ∀ n, n ∉ p.memberNames ++ p.ctors.map (·.cv.name) →
     ∀ ψ : Name → Nat, mp₂.base2.acval n ψ = mp.base2.acval n ψ
@@ -1235,6 +1245,14 @@ structure NestedLoopFacts (st : ElimState) (mp₁ : EnvModelM V μ ENV₁) (mp�
     DenoteMetaSpine mp₂.base2.acval ENV₂ ψ b.nP (pinsS.getD q default).DsE
       ((pinsS.getD q default).Ds ψ)
   find : FindPreserved ENV₁ ENV₂
+  /-- the pins' level assignment is the container's level parameters
+  instantiated at the pin's levels (task #315 M7-2: the constructor
+  pins' readings at the restored model need it) -/
+  pinψ : ∀ q, q < pinsS.length → ∀ (cvT : ConstantVal) (caps : IndCaps),
+    (ENV₁).find? (pinsS.getD q default).J = some (.indInfo cvT caps) →
+    (pinsS.getD q default).lvls.length = cvT.levelParams.length ∧
+    ∀ ψ : Name → Nat, (pinsS.getD q default).ψJ ψ
+      = Level.substFn ψ cvT.levelParams (pinsS.getD q default).lvls
   hde : ∀ (ψ : Name → Nat) (dp : Nat) (e : Expr) {ea : AnnotTerm},
     denoteMeta mp₁.base2.acval ENV₁ ψ dp e = some ea →
     denoteMeta mp₂.base2.acval ENV₂ ψ dp e = some ea
@@ -1540,7 +1558,8 @@ theorem nestedStageFacts_of (hst : NestedCtorsStaged V μ F) (hμ : μ.verifiedC
     rw [hmemc]
     exact hmmk
   refine ⟨mp₂, dsR, xFvsR, pinsS,
-    { pinsLen := L.pinsLen, pinRec := L.pinRec, pinDs := L.pinDs, names := hnames, agree := ?_
+    { pinsLen := L.pinsLen, pinRec := L.pinRec, pinDs := L.pinDs, find := L.find, pinψ := L.pinψ
+      names := hnames, agree := ?_
       findM := fun t f ht hft => L.find (hfind' t f ht hft).1
       leafM := fun t f ht hft => (L.leafKeep t f ht hft).trans (hleafM' t f ht hft)
       FD := fun t f ht hft => FormerData.crossEnv' L.hde (hfind' t f ht hft).2

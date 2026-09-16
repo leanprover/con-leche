@@ -174,7 +174,7 @@ theorem NestedTailIn.scratch :
         xrestF eissF tssF stored mpA cvRas := by
   -- the scratch install's chain, at the tail's own runs
   obtain ⟨h0, h1, h2, h3, env₁, fms', f₀', tq₀, ctorsA', sortss', kinds', formers4, ctors4,
-    cvRas, rulesOf, hformers', hf₀', -, -, -, hctors', hkinds', -, hgd', hrectys', -, -⟩ :=
+    cvRas, rulesOf, hformers', hf₀', -, -, -, hctors', hkinds', -, hgd', hrectys', -, -, -⟩ :=
     ConLeche.checkMutualCore_inv I.haux
   obtain ⟨-, rfl⟩ := ConLeche.mutualFormers_inv hformers'
   have hfms : fms = fms' := congrArg Prod.snd (Except.ok.inj (I.out.formers.symm.trans hformers'))
