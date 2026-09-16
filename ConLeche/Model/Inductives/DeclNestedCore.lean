@@ -80,6 +80,8 @@ structure NestedCoreOut {env : Env} (F : Nat) (mp : EnvModelM V μ env) (p : Nes
   ctors : ConLeche.checkMutualCtors (m := ConLeche.CheckM) (fueledOps μ F)
     (ConLeche.consMutualFormers fms env) b fms (Level.isEquiv f₀.s .zero == some true) true b.ctors
     = .ok (ctorsA, sortss)
+  kindsRun : ConLeche.classifyMutualKinds (m := ConLeche.CheckM) b.members3 b.lps b.nP ctorsA
+    = .ok kinds
   bk : b.k = p.k + pinsS.length
   grouped : ConLeche.mutualCtorsGrouped b.ctors = true
   nodup : b.blockNames.Nodup
@@ -350,6 +352,7 @@ theorem nestedCoreModeled_of {F : Nat} (hst : NestedCtorsStaged V μ F) :
     { formers := hformers
       facts := h
       ctors := hctorsA
+      kindsRun := hkindsA
       bk := hbk'
       grouped := h3
       nodup := hnd
