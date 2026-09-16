@@ -594,6 +594,139 @@ theorem NestedPinsRun.copyFields {pbs : List (Expr × ConLeche.BinderMeta)}
   · rw [hcb, ← hlenF']
     exact ConLeche.stripPis_mkPisB_self _ _
 
+/-! ## The residual, identified (task #315 L-B, DESIGN §U.37 (e))
+
+A copy's constructor RESIDUAL is the container's — its own member at
+the parameter spine, followed by the constructor's index arguments —
+instantiated at the pin's components, and the elimination's rewrite
+fires at its ROOT: the occurrence test reads only the PARAMETER
+arguments, which the instantiation turns into the components, and the
+components mention a minted name already at the state the rewrite
+starts from (the mint verdict `copyFields` now carries).
+`replaceAllNested_occurrence` then says what the residual IS — the
+mimic of a pin at the block's parameter openers followed by **the
+container's index arguments instantiated, verbatim**: the walk returns
+the firing's result unchanged and never descends into them.  That is
+the syntactic half of `CopyCtorInst.es`.
+
+No level bookkeeping is needed: the occurrence lemma takes the head's
+level arguments as they come, so the substitution `J.lps ↦ lvls` never
+has to be computed. -/
+
+/-- **THE COPY'S RESIDUAL** (task #315 L-B): `copyFields`' package with
+the residual computed — the mimic of a pin of the elimination, applied
+to the block's parameter openers and to the CONTAINER's own index
+arguments, level-substituted and instantiated at the pin's components
+at the telescope's own cut. -/
+theorem NestedPinsRun.copyResid {pbs : List (Expr × ConLeche.BinderMeta)}
+    (hPD : ∀ q, q < st.pins.length → PinData env st p pbs q)
+    {i' : Nat} (hi' : i' < kJ) {j : Nat} {cAJ : ConstantVal × Nat}
+    (hj : (dJ.ctorsM i')[j]? = some cAJ) :
+    ∃ (cc : ContainerCtor) (J : ContainerMember) (lpsJ : List Name)
+      (pcs fcs Fs' : List (Expr × ConLeche.BinderMeta)) (esJ : List Expr)
+      (cbody' o : Expr) (params : List Expr) (pbs₀ : List (Expr × ConLeche.BinderMeta))
+      (cA : ConstantVal × Nat) (cname : Name) (qn : NestedPin) (usJ : List Level),
+      cAJ.1.name = cc.name ∧ cAJ.1.type = cc.type ∧ cAJ.2 = cc.nFields ∧
+      J.name = (pinsS.getD (q₀ + i') default).J ∧
+      (srcAtE st p (q₀ + i')).2.2.length = dJ.nP ∧
+      cc.type.stripPis (dJ.nP + cc.nFields) = some (pcs ++ fcs,
+        Expr.mkAppN (.const (dJ.memberName i') (lpsJ.map Level.param))
+          (ConLeche.structPsAt cc.nFields dJ.nP ++ esJ)) ∧
+      pcs.length = dJ.nP ∧ fcs.length = cc.nFields ∧ esJ.length = dJ.nIdxAt i' ∧
+      ConLeche.openPisAtFvars b.nP f₀.cvTa.type 0 = some (params, o) ∧
+      (∀ a ∈ (srcAtE st p (q₀ + i')).2.2, a.looseBVarsBounded 0 = true) ∧
+      Fs'.length = cc.nFields ∧
+      (∀ l, l < cc.nFields → ∃ st₁ st₂ : ElimState,
+        ConLeche.replaceAllNested env (p.lps.map Level.param) params pbs₀ st₁
+            (Expr.instSeq (srcAtE st p (q₀ + i')).2.2 (dJ.nP - 1 + l)
+              (Expr.instantiateLevelParams J.lps (pinsS.getD (q₀ + i') default).lvls
+                (fcs.getD l default).1))
+          = .ok ((Fs'.getD l default).1, st₂) ∧ st₂.pins <+: st.pins ∧
+        ((srcAtE st p (q₀ + i')).2.2.any fun a =>
+          st₁.newNames.any fun T => a.mentionsConst T) = true) ∧
+      -- the pin the residual's occurrence resolved to
+      qn ∈ st.pins ∧
+      qn.pin = Expr.mkAppN (.const (dJ.memberName i') usJ) (srcAtE st p (q₀ + i')).2.2 ∧
+      -- **the residual**: the mimic at the block's parameters, then the
+      -- container's index arguments instantiated, verbatim
+      cbody'.stripPis cc.nFields = some (Fs',
+        Expr.mkAppN (Expr.mkAppN (.const qn.aux (p.lps.map Level.param)) params)
+          (esJ.map fun e => Expr.instSeq (srcAtE st p (q₀ + i')).2.2 (dJ.nP - 1 + cc.nFields)
+            (Expr.instantiateLevelParams J.lps (pinsS.getD (q₀ + i') default).lvls e))) ∧
+      ctorsA[b.ownOffset (p.k + q₀ + i') + j]? = some cA ∧ cA.2 = cc.nFields ∧
+      b.ctors[b.ownOffset (p.k + q₀ + i') + j]?
+        = some ⟨⟨cname, p.lps, closeTelescope pbs₀ 0 cbody'⟩, cc.nFields, p.k + q₀ + i'⟩ := by
+  classical
+  obtain ⟨cc, J, lpsJ, pcs, fcs, Fs', esJ, cbody', resid', o, params, pbs₀, cA, cname,
+    hn, hty, hnf, hJname, hDsnP, hstripJ, hpl, hfl, hesJ, hopb, hDsB, hlenF, hfields,
+    ⟨stC, stD, hres, hresP, hresM⟩, hcb, hcA, hnF, hbc⟩ := R.copyFields SF S hPD hi' hj
+  obtain ⟨cvT, caps, cvR, mI, rP, rules, -, hI, -⟩ := S.stored i' hi'
+  have hmemJ : dJ.memberName i' = J.name := by rw [hJname]; exact hI.member
+  -- the pin's own container group, read at the member's name
+  obtain ⟨-, -, ci, -, -, -, hciP, -⟩ := R.ctorPair SF S hPD hi' hj
+  have hciJ : ConLeche.containerInfo? env (dJ.memberName i') = some ci := by
+    rw [hmemJ, hJname]; exact hciP
+  obtain ⟨cvT₂, caps₂, cvR₂, mI₂, rP₂, rules₂, hfindJ, -, hmemName, -, -⟩ :=
+    ConLeche.containerInfo?_inv hciJ
+  obtain ⟨M, hM, hMname⟩ : ∃ M ∈ ci.members, M.name = dJ.memberName i' :=
+    List.mem_map.mp hmemName
+  have hnPci : ci.nP = dJ.nP :=
+    (S.ctorsOf i' hi' ci M hciP hM (by rw [hMname, hmemJ]; exact hJname)).2.symm
+  -- a pinned container has parameters: its components mention a minted name
+  have hDsNe : 0 < (srcAtE st p (q₀ + i')).2.2.length := by
+    rcases hDsE : (srcAtE st p (q₀ + i')).2.2 with _ | ⟨d, ds⟩
+    · rw [hDsE] at hresM; simp at hresM
+    · simp
+  have hcut : dJ.nP - 1 + cc.nFields
+      = cc.nFields + (srcAtE st p (q₀ + i')).2.2.length - 1 := by
+    rw [hDsnP]; omega
+  -- the residual's input, as a constant-headed spine at the components
+  have hshape : Expr.instSeq (srcAtE st p (q₀ + i')).2.2 (dJ.nP - 1 + cc.nFields)
+      (Expr.instantiateLevelParams J.lps (pinsS.getD (q₀ + i') default).lvls
+        (Expr.mkAppN (.const (dJ.memberName i') (lpsJ.map Level.param))
+          (ConLeche.structPsAt cc.nFields dJ.nP ++ esJ)))
+      = Expr.mkAppN (.const (dJ.memberName i')
+          ((lpsJ.map Level.param).map
+            (Level.subst J.lps (pinsS.getD (q₀ + i') default).lvls)))
+          ((srcAtE st p (q₀ + i')).2.2 ++
+            esJ.map fun e => Expr.instSeq (srcAtE st p (q₀ + i')).2.2 (dJ.nP - 1 + cc.nFields)
+              (Expr.instantiateLevelParams J.lps (pinsS.getD (q₀ + i') default).lvls e)) := by
+    rw [ConLeche.ilp_mkAppN,
+      show Expr.instantiateLevelParams J.lps (pinsS.getD (q₀ + i') default).lvls
+          (.const (dJ.memberName i') (lpsJ.map Level.param))
+        = .const (dJ.memberName i')
+            ((lpsJ.map Level.param).map
+              (Level.subst J.lps (pinsS.getD (q₀ + i') default).lvls)) from rfl,
+      List.map_append, ConLeche.ilp_structPsAt, ConLeche.instSeq_mkAppN_const, List.map_append,
+      List.map_map]
+    congr 2
+    · rw [← hDsnP, show (srcAtE st p (q₀ + i')).2.2.length - 1 + cc.nFields
+        = cc.nFields + (srcAtE st p (q₀ + i')).2.2.length - 1 from by omega]
+      exact ConLeche.instSeq_structPsAt _ cc.nFields hDsB
+    · rw [List.map_map]; rfl
+  rw [hshape] at hres
+  -- the occurrence: the root fires, and the index arguments come back verbatim
+  have htake : ((srcAtE st p (q₀ + i')).2.2 ++
+      esJ.map fun e => Expr.instSeq (srcAtE st p (q₀ + i')).2.2 (dJ.nP - 1 + cc.nFields)
+        (Expr.instantiateLevelParams J.lps (pinsS.getD (q₀ + i') default).lvls e)).take ci.nP
+      = (srcAtE st p (q₀ + i')).2.2 := List.take_left' (by rw [hnPci, hDsnP])
+  have hdrop : ((srcAtE st p (q₀ + i')).2.2 ++
+      esJ.map fun e => Expr.instSeq (srcAtE st p (q₀ + i')).2.2 (dJ.nP - 1 + cc.nFields)
+        (Expr.instantiateLevelParams J.lps (pinsS.getD (q₀ + i') default).lvls e)).drop ci.nP
+      = esJ.map fun e => Expr.instSeq (srcAtE st p (q₀ + i')).2.2 (dJ.nP - 1 + cc.nFields)
+          (Expr.instantiateLevelParams J.lps (pinsS.getD (q₀ + i') default).lvls e) :=
+    List.drop_left' (by rw [hnPci, hDsnP])
+  obtain ⟨qn, hqnMem, hqnPin, hqnEq⟩ :=
+    ConLeche.replaceAllNested_occurrence rfl hfindJ hciJ
+      (by rw [List.length_append, hnPci, hDsnP]; omega)
+      (by rw [htake]; exact hresM) (by rw [htake]; exact hDsB) hres
+  rw [htake] at hqnPin
+  rw [hdrop] at hqnEq
+  subst hqnEq
+  exact ⟨cc, J, lpsJ, pcs, fcs, Fs', esJ, cbody', o, params, pbs₀, cA, cname, qn, _,
+    hn, hty, hnf, hJname, hDsnP, hstripJ, hpl, hfl, hesJ, hopb, hDsB, hlenF, hfields,
+    hresP.subset hqnMem, hqnPin, hcb, hcA, hnF, hbc⟩
+
 /-! ## The group-internal target, and the two shape arms (task #315 L-B)
 
 `CopyCtorInst.ordF`'s RIGHT arm and `CopyCtorInst.pinF` both claim
