@@ -74511,3 +74511,84 @@ relation.
 ##### (d) THE FLIP
 
 (to be completed from lane W's report)
+
+##### (e) THE NAME
+
+Maintainer ruling (2026-09-16), applied as the landing's last mechanical
+commit: "datum" is jargon.  `BlockRepData` → `BlockModel`, `BlockRep`/
+`BlockReps` → `IsBlockModel`/`IsBlockModels` (the `Is` prefix fights
+nothing — the native route's `IndRep` keeps its name and goes with the
+route), `mutualDatum`/`MutualDatumOf` → `mutualBlockModel`/
+`MutualBlockModelOf`; the prose of this task's files, of §U.1–§U.11, of
+OVERVIEW and of the memory says "the block model".  The module names
+(`BlockRep.lean`, `BlockRepOne/Mutual/Cross.lean`) stay, so the proofdeps
+rows, the allowlist paths and the link anchors do not move; older
+sections of DESIGN keep their vocabulary (a record is a record).  Two
+prose traps: "block datum" doubled to "block block model", and a
+`section Datum` is a NAME.
+
+##### (f) GATES, FINDINGS, TRAPS
+
+Gates at HEAD: `lake build` 624 jobs warning-free (was 618), `lake test`
+warning-free (538 jobs), `tests/arena.sh` exit 0 under `env -i`:
+layering base 313 / model 232 / caps 3 / umbrella 1, 0 base→lane, 0
+impl→theory; proofdeps **4915 rows across 12 roots, 0 doors** (was 4361:
+the mutual Model tier enters every capstone through `declInductive`'s
+arm — the justified door of §U.1 (d) — and `Frontend/InModel/Mutual`
+leaves); pindump 3 pinners reproduced; trust surface 13 escapes in 5
+allowlisted files (560 scanned); overview-links 112 (was 103); quote-gate
+2; no-local-paths OK; challenge OK; shake 492 removals all allowlisted /
+`pub-imports: none demotable` (14 fallbacks); inmodel OK (the 5 nested
+fixtures); axioms 20 theorems at the three; arena tutorial **90/92**, e2e
+**195/195** (the two moves), annot 15/15, mode flags 10/10, prelude 3/3,
+progress 15/15, worker pool 15/15, DAG-tower 14/14, the trusted sweep
+138+195+15 with the three recorded divergences, the `--jobs=1`/`--jobs=4`
+sweeps as at the default.  **init-full** `--verified --jobs=8` (`ulimit -v
+16000000`, `timeout 3000`): EXIT 0, accepted **53 093** declarations —
+master's count.  **Mathlib** `--verified --jobs=8 --progress=5000`
+(`ulimit -v 22000000`, `timeout 7200`): EXIT 0, accepted **654 504**
+declarations, 311 s wall at 8 workers — master's count (PERF's 654 499
+in the con-leche column is the same run less the 5 pinned records, as
+init-full's 53 088 is), with **41 blocks modelled in process where master
+models 51**: the ten mutual ones install natively now, and the modeller's
+generated records were never counted as records of the file.
+
+The import gate after the flip took FOUR rounds: the wiring moved the
+public closure (`Kernel.Checker` now re-exports `MutualInstall`), so the
+plan found 27 demotable `public import`s across 15 files, three of which
+are the one-import view again (kept, `FALLBACK`: `BlockRecBridge`→
+`BlockRecWD`, `MutualNoProj`→`TowerCons`/`MutualInv`) and two of which
+exposed private needs downstream (`MutualRecsLaw` ← `BlockRecValid`/
+`BlockRecLeaf`, `MutualRecsStore` ← `BlockRecBridge`); the #223
+criterion on 13 modules then found 7 clean deletions and 10 compensated
+lines (allowlisted), 8 stale allowlist lines went with the demotions,
+and one `--only-silent` line (`MutualNoProj`'s `MutualWF`) surfaced only
+after the deletions.
+
+1. **A table cons is not a `denoteMeta` extension** ((a)): the flat
+   bundle, crossed per cons.
+2. **The reference's table stage needed no heartbeat raise** ((b)),
+   and its `hbound` was dead.
+3. **The cached chain is three commits, not two** ((d)).
+4. **`Main.lean` has no route label to restore** ((d)).
+5. **`mutualRules_getElem?` does not exist** on this branch (the brief
+   assumed it): `mutualRules_shape` in `MutualNoProj.lean`.
+6. **`MemberStored.find` at `{}` crosses by `hF` alone** — no `caps`
+   witness, no extra premise.
+7. **The lanes**: five Opus lanes in parallel (the P step, the fold
+   and cross, the `NoProjEnv` bookkeeping, the core's conclusion, the
+   flip in its own worktree on a lane branch, merged and deleted) — ~5,
+   ~5, ~13, ~7, ~17 minutes; four compiled one file by `lake env lean`,
+   one owned the Model-tier build, one built the checker-side targets
+   only (the Model tier could not build until the tables closed).
+8. Lean traps: `blockTableStep := fun mp h hTbl => …` binds the
+   implicit `{lps}` after the explicit `mp` (`fun mp => stageBlockTable mp`);
+   `eval_foldl_max_if_zero_iff` has no `V` — neither `(V := V)` nor an
+   `omit [SetTheory V] in` on a `V`-free helper; `b.ctors.getElem J h`
+   is not a projection (`b.ctors[J]`); a theorem's unread hypothesis
+   trips `unusedVariables` — drop it rather than `set_option`; `lake`
+   has no `-j` (`LEAN_NUM_THREADS`); `grep -c` on zero matches exits 1,
+   so a `; echo EXIT=$?` after it reports the grep; a shell's `cd` in a
+   compound command persists into the next call, and a call without one
+   runs where the previous left off — always `cd` explicitly; the prose
+   pass of a rename hits `section` NAMES.
