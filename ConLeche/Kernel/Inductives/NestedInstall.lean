@@ -32,9 +32,6 @@ follow see exactly official's environment.
 Three post-checks close the holes the copies would leave (official's,
 in official's order):
 
-* **(o)** the copies' REFERENCE RELATION is computed and topologically
-  sorted (`nestedTopoOrder`, DESIGN §M.22): the order the model's
-  forward fold recurses along, with a cyclic block a positive DECLINE;
 * **(a′′)** every pin, abstracted over the block's parameters, is FREE
   OF free variables and has its loose bound variables within the
   parameter telescope (`pinsClosed`) — the pair `ConstWF` demands of a
@@ -642,78 +639,6 @@ def nestedTables : List (Name × Option ProjTable × List (ConstantVal × Nat ×
 
 /-! ## The install -/
 
-/-- **THE GROUP EXCLUSION** (task #279 K.23, the model lane's
-`NestedGroupExclusionOk`, DESIGN §M.45), as a decision on STORED data.
-
-At every pin `j`, every constructor `l` of its copy and every field `i`
-of that constructor's STORED type: if the field's head — its own `Π`
-binders peeled — is the `aux` name of a pin of the SAME MINT GROUP, then
-the CONTAINER's constructor field at the same position is
-RECURSIVE-SHAPED: headed by a member of the container's group applied to
-the exact parameter variables (`containerFieldOk`'s first arm, K.15).
-Contrapositively: a container-ORDINARY field is never copy-recursive
-into a group-mate.
-
-**Why it is recorded and not argued.**  It cannot fire — a group-mate
-target needs the target pin's components to BE the source's `Ds`, and a
-copy's constructor body is the container's stored constructor
-instantiated at `Ds`, so such a reduct would need `Ds` to contain
-itself.  That argument is STRONG NORMALISATION (`D ↝* C[D]` is an
-infinite reduction), and the model tier has no normalisation fact and
-cannot state one — which is exactly why the fact is recorded here
-instead.  A failure is `.internal`: not a decline, and not a narrowing,
-because no well-formed stream reaches it.
-
-Every missing datum answers `true`: the model lane's statement is a
-chain of implications, so a hypothesis that does not hold makes it
-vacuous.  Only the final shape — the container field's head — is a
-conclusion, and its absence is the failure. -/
-def nestedGroupExclusionOk (env envAux : Env) (p : NestedParts) (st : ElimState) : Bool :=
-  st.pins.zipIdx.all fun (q, j) =>
-    match st.types[p.k + j]?, containerInfo? env q.container with
-    | some tyA, some ci =>
-      ci.members.all fun J =>
-        !(J.name == q.container) ||
-        tyA.ctors.zipIdx.all fun (c, l) =>
-          match envAux.find? c.1 with
-          | some (.ctorInfo cvS nPS nFS) =>
-            match cvS.type.stripPis (nPS + nFS) with
-            | some (bsS, _) =>
-              (List.range nFS).all fun i =>
-                match bsS[nPS + i]? with
-                | some domS =>
-                  match fieldHeadAt domS.1 with
-                  | some (aux, _, _) =>
-                    -- is the stored field's head a GROUP-MATE's copy?
-                    if (List.range q.grpSize).any (fun t =>
-                        match st.pins[q.grpBase + t]? with
-                        | some q' => q'.aux == aux
-                        | none => false) then
-                      -- then the container's own field is a member
-                      -- occurrence at the parameters
-                      match J.ctors[l]? with
-                      | some cJ =>
-                        match cJ.type.stripPis (ci.nP + cJ.nFields) with
-                        | some (bsJ, _) =>
-                          match bsJ[ci.nP + i]? with
-                          | some domJ =>
-                            match fieldHeadAt domJ.1 with
-                            | some (C, argsJ, nJ) =>
-                              (ci.members.map (·.name)).contains C &&
-                                ci.nP ≤ argsJ.length &&
-                                (List.range ci.nP).all fun k =>
-                                  argsJ[k]? == some (Expr.bvar (ci.nP + i - 1 - k + nJ))
-                            | none => false
-                          | none => true
-                        | none => true
-                      | none => true
-                    else true
-                  | none => true
-                | none => true
-            | none => true
-          | _ => true
-    | _, _ => true
-
 /-- **THE AUXILIARY BLOCK'S FIELD KINDS** (task #279 K.26, the direct
 nested lane's DESIGN §DR.1 (b), variant C), read off the STORED
 constructors.
@@ -768,68 +693,6 @@ def nestedCopyKindsOk (b : MutualBlock) (stored : List AuxStored) : Bool :=
       r == .ordinary || r == .recursive || r == .reflexive
   | none => false
 
-/-- **The whnf witness at the constructors' fields** (task #279 K.17 (a),
-the model lane's DESIGN §M.30).
-
-At a λ-pin the copy's minted constructor carries a REDEX where the
-container's field was ordinary — `DMap α (fun _ => PT α)`'s copied field
-is `(fun _ => PT α) k` — and the constructors' stage stores the
-positivity NORMALISATION, which `whnf`s exactly there
-(`normPosDomM`).  The model tier transports the field's denotation
-across that reduction and needs the run to WITNESS it, on terms in the
-block's own vocabulary: so both sides are restored (`restoreNested`, the
-pure constant replacement) and the minted field is `whnf`'d at the
-environment holding the block's formers — the same `ops.whnf` the
-stage's own normalisation used, at the same frame — and compared with
-the stored field.
-
-**It cannot fire**: it is the same reduction, of the same term, at an
-environment that differs from the stage's only by the restore's own
-replacement (aux name ↦ container at the pin), which `whnf` treats
-alike.  A failure is therefore `.internal`. -/
-def nestedFieldWhnfOk (ops : CheckerOps m) (env : Env) (nP : Nat)
-    (fvsM fvsS : List Expr) : Nat → m Unit
-  | 0 => pure ()
-  | i + 1 => do
-    nestedFieldWhnfOk ops env nP fvsM fvsS i
-    let dm := (fvsM.getD (nP + i) default).fvarTypeD
-    let ds := (fvsS.getD (nP + i) default).fvarTypeD
-    -- only where the stage's normalisation CHANGED the field: those are
-    -- the fields it `whnf`'d (`normPosDomM` reduces a domain that
-    -- mentions a member and returns every other one untouched), and the
-    -- ones the model tier has to transport a denotation across.  An
-    -- unchanged field is compared as it stands — `whnf`ing it here would
-    -- reduce what the stage never reduced.
-    unless dm == ds do
-      let w ← ops.whnf env (nP + i) dm
-      unless w == ds do
-        throw (.internal "nested: the stored constructor field is not the processed \
-          field's weak head normal form")
-
-/-- The witness at one constructor, then the rest: the processed
-(minted) constructor against the STORED one, both restored. -/
-def nestedCtorsWhnfOk (ops : CheckerOps m) (env : Env) (R : RestoreTbl) (nP : Nat) :
-    List (MutualCtor × (ConstantVal × Nat × Nat)) → m Unit
-  | [] => pure ()
-  | (c, (cvS, _, nF)) :: rest => do
-    let mintedR ← nestedLift (restoreNested R c.cv.type)
-    let storedR ← nestedLift (restoreNested R cvS.type)
-    let (fvsM, _) ← unwrapOr (openPisAtFvars (nP + nF) mintedR 0)
-      (.internal "nested: the processed constructor's telescope")
-    let (fvsS, _) ← unwrapOr (openPisAtFvars (nP + nF) storedR 0)
-      (.internal "nested: the stored constructor's telescope")
-    nestedFieldWhnfOk ops env nP fvsM fvsS nF
-    nestedCtorsWhnfOk ops env R nP rest
-
-/-- The processed/stored constructor pairs of the whole auxiliary
-block, member by member (the block's own members and every copy). -/
-def nestedCtorPairs (b : MutualBlock) (stored : List AuxStored) :
-    List (MutualCtor × (ConstantVal × Nat × Nat)) :=
-  (List.range b.k).flatMap fun mIdx =>
-    match stored[mIdx]? with
-    | some a => ((b.ownCtors mIdx).map (·.2)).zip a.ctors
-    | none => []
-
 /-- **Check and install a recognised NESTED block** (see the module
 docstring): official's two syntactic front guards, the elimination, the
 auxiliary mutual block checked in a scratch environment, the restore,
@@ -872,22 +735,6 @@ def checkNested (ops : CheckerOps m) (env : Env) (p : NestedParts) : m Env := do
   unless nestedContainersOk env st.pins do
     throw (.internal "nested: a container the elimination pinned fails a fact its own \
       install established")
-  -- THE COPIES' ORDER (DESIGN §M.22, the maintainer's decision: the
-  -- KERNEL computes it).  The model's forward fold is one term per
-  -- copy, built from the terms of the copies it REFERS to, and that
-  -- relation has no syntactic well-founded measure — on the raw terms
-  -- it is not even acyclic.  So the relation is computed here from the
-  -- elimination's own result and a topological order is emitted; a
-  -- CYCLE is a positive DECLINE.  It cannot fire on a stream official
-  -- accepts: §M.22 records that KINDING excludes the cycles, and the
-  -- copies are type-checked (the scratch install, below) — but the
-  -- kernel does not read kinding, so the order is computed rather than
-  -- argued.
-  let _order ← nestedLift (m := m)
-    ((nestedTopoOrder (ElimState.grp st) p.k st).mapError fun (j, j') =>
-      CheckError.notImplemented s!"nested: the copies' reference relation has a cycle \
-        ({(st.pins.getD j default).aux} at {(st.pins.getD j default).container} refers to \
-        {(st.pins.getD j' default).aux} at {(st.pins.getD j' default).container} and back)")
   -- 2. the auxiliary mutual block, checked in a SCRATCH environment
   let b ← unwrapOr (auxBlock p st)
     (.invalid "invalid nested inductive datatype, ill-formed declaration")
@@ -944,15 +791,6 @@ def checkNested (ops : CheckerOps m) (env : Env) (p : NestedParts) : m Env := do
   -- is `.internal`.
   unless members.all (fun a => !a.caps.eta && (env.find? a.cvTa.name).isNone) do
     throw (.internal "nested: a restored former is not a fresh non-eta family")
-  -- **THE GROUP EXCLUSION** (K.23): a stored copy-constructor field
-  -- headed by a GROUP-MATE's copy comes from a container field that is
-  -- itself a member occurrence at the parameters.  It cannot fire (a
-  -- group-mate target would need the pin's components to contain
-  -- themselves — strong normalisation), and the model tier cannot state
-  -- that argument, so the fact is recorded here.
-  unless nestedGroupExclusionOk env envAux p st do
-    throw (.internal "nested: a stored copy field is recursive into its own mint group \
-      where the container's field is not a member occurrence")
   -- **THE FIELD KINDS** (K.26): the classification the scratch install
   -- decided, recomputed on the constructors it stored, so that the model
   -- tier reads a copy field's kind off the run instead of re-deciding
@@ -961,12 +799,6 @@ def checkNested (ops : CheckerOps m) (env : Env) (p : NestedParts) : m Env := do
     throw (.internal "nested: a stored field of the auxiliary block is not classified \
       ordinary, recursive or reflexive")
   let env₁ := consNestedFormers members env
-  -- THE WHNF WITNESS (K.17 (a)): at every constructor of the auxiliary
-  -- block — the block's own and every copy — the STORED field is the
-  -- weak head normal form of the PROCESSED one, both in the block's own
-  -- vocabulary.  It is the stage's own normalisation re-run on its own
-  -- terms, so it cannot differ; a failure is `.internal`.
-  nestedCtorsWhnfOk ops env₁ R p.nP (nestedCtorPairs b stored)
   -- 4. the constructors, restored and re-checked (post-check (b))
   let ctorsR ← members.mapM fun a => restoreCtors ops env₁ R p.lps a.ctors
   let env₂ := consNestedCtors ctorsR.flatten env₁

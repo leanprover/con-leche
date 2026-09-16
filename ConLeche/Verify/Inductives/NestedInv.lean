@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Verify.Inductives.MutualInv
-import ConLeche.Kernel.Inductives.NestedInstall
+public import ConLeche.Kernel.Inductives.NestedInstall
 
 public section
 
@@ -848,7 +848,7 @@ theorem checkNested_inv {env envOut : Env} {p : NestedParts} {F : Nat}
       (ctorsR : List (List (ConstantVal × Nat × Nat)))
       (cvRms cvRns : List ConstantVal)
       (rulesM rulesN : List (List RecRule))
-      (fmsA ctorsA : List ConstantVal) (order : List Nat),
+      (fmsA ctorsA : List ConstantVal),
       -- THE INPUTS, ANNOTATED (K.12): the formers as the install will
       -- store them, the constructors at the environment holding those
       -- formers — so every piece the elimination builds a copy out of is
@@ -865,8 +865,6 @@ theorem checkNested_inv {env envOut : Env} {p : NestedParts} {F : Nat}
       -- the CONTAINERS' facts (K.14): uniform occurrences of the group in
       -- the stored constructors, and the two recursor facts at every member
       nestedContainersOk env st.pins = true ∧
-      -- the copies' REFERENCE RELATION, topologically sorted
-      nestedTopoOrder (ElimState.grp st) p.k st = .ok order ∧
       -- the auxiliary mutual block, checked in a SCRATCH environment
       auxBlock p st = some b ∧
       checkMutualCore (m := CheckM) (fueledOps mode F) env b none true = .ok envAux ∧
@@ -881,21 +879,10 @@ theorem checkNested_inv {env envOut : Env} {p : NestedParts} {F : Nat}
       -- the restored formers are fresh and carry no η bit (K.20)
       (stored.take p.k).all (fun a => !a.caps.eta && (env.find? a.cvTa.name).isNone)
         = true ∧
-      -- THE GROUP EXCLUSION (K.23): a stored copy field headed by a
-      -- group-mate's copy comes from a container field that is a member
-      -- occurrence at the parameters
-      nestedGroupExclusionOk env envAux p st = true ∧
       -- THE FIELD KINDS (K.26): the auxiliary block's stored fields are
       -- classified `.ordinary`, `.recursive` or `.reflexive`, and
       -- `nestedCopyKinds b stored` is that classification
       nestedCopyKindsOk b stored = true ∧
-      -- THE WHNF WITNESS (K.17): at every constructor of the auxiliary
-      -- block, the STORED field is the weak head normal form of the
-      -- PROCESSED one wherever the stage's normalisation changed it,
-      -- both in the block's own vocabulary
-      nestedCtorsWhnfOk (m := CheckM) (fueledOps mode F)
-          (consNestedFormers (stored.take p.k) env) (restoreTbl p st) p.nP
-          (nestedCtorPairs b stored) = .ok () ∧
       -- the restored constructors, at the environment holding the formers
       (stored.take p.k).mapM (fun a =>
           restoreCtors (m := CheckM) (fueledOps mode F)
@@ -991,9 +978,6 @@ theorem checkNested_inv {env envOut : Env} {p : NestedParts} {F : Nat}
   case neg => rw [if_neg hcont] at h; close_throw
   rw [if_pos hcont] at h
   try simp only [bind, Except.bind] at h
-  obtain ⟨order, hto, h⟩ := exceptBind_ok h
-  have hto' := mapError_ok (nestedLift_ok hto)
-  try simp only at h
   obtain ⟨b, hb, h⟩ := exceptBind_ok h
   have hb' := unwrapOr_ok hb
   try simp only at h
@@ -1013,16 +997,10 @@ theorem checkNested_inv {env envOut : Env} {p : NestedParts} {F : Nat}
   case neg => rw [if_neg hcaps] at h; close_throw
   rw [if_pos hcaps] at h
   try simp only [bind, Except.bind] at h
-  by_cases hgx : nestedGroupExclusionOk env envAux p st = true
-  case neg => rw [if_neg hgx] at h; close_throw
-  rw [if_pos hgx] at h
-  try simp only [bind, Except.bind] at h
   by_cases hkd : nestedCopyKindsOk b stored = true
   case neg => rw [if_neg hkd] at h; close_throw
   rw [if_pos hkd] at h
   try simp only [bind, Except.bind] at h
-  obtain ⟨uW, hwhnf, h⟩ := exceptBind_ok h
-  try simp only at h
   obtain ⟨ctorsR, hctors, h⟩ := exceptBind_ok h
   try simp only at h
   obtain ⟨cvRms, hrm, h⟩ := exceptBind_ok h
@@ -1047,8 +1025,8 @@ theorem checkNested_inv {env envOut : Env} {p : NestedParts} {F : Nat}
     simpa [pure, Except.pure] using h
   subst henv
   exact ⟨st, b, envAux, stored, ctorsR, cvRms, cvRns, rulesM, rulesN, fmsA, ctorsA,
-    order, hfmsA, hctorsA, helim', beq_iff_eq.mp hcnt, hfresh, hcont, hto', hb', haux, hst', hpc,
-    (by cases uA; exact hpinsAux), hcaps, hgx, hkd, (by cases uW; exact hwhnf), hctors, hrm, hrn, hrlm, hrln, htbl,
+    hfmsA, hctorsA, helim', beq_iff_eq.mp hcnt, hfresh, hcont, hb', haux, hst', hpc,
+    (by cases uA; exact hpinsAux), hcaps, hkd, hctors, hrm, hrn, hrlm, hrln, htbl,
     (by cases u₀; exact hpins), hlen, by cases u₁; exact hrecs⟩
 
 end ConLeche

@@ -1,8 +1,7 @@
 module
 
-import ConLeche.Kernel.Inductives.NestedInstall
-import ConLeche.Verify.Inductives.NestedInv
-import ConLeche.Verify.Inductives.NestedOrderK
+public import ConLeche.Kernel.Inductives.NestedInstall
+public import ConLeche.Verify.Inductives.NestedInv
 public import ConLeche.Semantics.Inductives.DeclMutual
 
 @[expose] public section
@@ -21,19 +20,6 @@ types and rules at the rule-less provision, the projection tables of
 the structure-like members, and official's two remaining post-checks —
 the pins typed at the parameter context (leanprover/lean4#14577) and
 the stream's recursor records against the restored generated ones.
-
-**`order`** is the copies' TOPOLOGICAL ORDER along their reference
-relation (DESIGN §M.22, the maintainer's decision that the KERNEL
-computes it): `nestedTopoOrder (ElimState.grp st) p.k st = .ok order`,
-where `ElimState.grp` is the mint-group assignment the elimination now
-records on every pin (`NestedPin.grpBase`/`grpSize` — it is not
-recoverable from the pin list afterwards).  `copyRefB` is the model
-lane's `CopyRef` clause for clause, as a `Bool`; `nestedTopoOrder`
-checks its own result against `topoOrderOk`, whose four conjuncts ARE
-`TopoOrder`'s four fields, so the fields are facts about the result and
-not about the algorithm (`Verify/Inductives/NestedOrderK.lean`).  A
-CYCLE is a positive DECLINE, and it cannot fire on a stream official
-accepts — §M.22 records that kinding excludes the cycles.
 
 **THE ELIMINATION'S INPUTS ARE ANNOTATED** (K.12), which is why there is
 ONE state here and no re-mint.  `nestedAnnotFormers` puts every former
@@ -173,7 +159,7 @@ def DeclNestedRun (μ : CheckMode) (F : Nat) (env : Env)
     (ctorsR : List (List (ConstantVal × Nat × Nat)))
     (cvRms cvRns : List ConstantVal)
     (rulesM rulesN : List (List RecRule))
-    (fmsA ctorsA : List ConstantVal) (order : List Nat),
+    (fmsA ctorsA : List ConstantVal),
     -- THE INPUTS, ANNOTATED (K.12): the formers as the install will store
     -- them, the constructors at the environment holding those formers
     ConLeche.nestedAnnotFormers (m := CheckM) (fueledOps μ F) env p.nP p.formers = .ok fmsA ∧
@@ -188,9 +174,6 @@ def DeclNestedRun (μ : CheckMode) (F : Nat) (env : Env)
     -- the CONTAINERS' facts (K.14): uniform occurrences of the group in
     -- the stored constructors, and the two recursor facts at every member
     ConLeche.nestedContainersOk env st.pins = true ∧
-    -- the copies' REFERENCE RELATION, topologically sorted: the order
-    -- the model's forward fold recurses along (DESIGN §M.22)
-    nestedTopoOrder (ElimState.grp st) p.k st = .ok order ∧
     -- the auxiliary mutual block, checked in a SCRATCH environment
     auxBlock p st = some b ∧
     checkMutualCore (m := CheckM) (fueledOps μ F) env b none true = .ok envAux ∧
@@ -205,21 +188,11 @@ def DeclNestedRun (μ : CheckMode) (F : Nat) (env : Env)
     -- the restored formers are fresh and carry no η bit (K.20)
     (stored.take p.k).all (fun a => !a.caps.eta && (env.find? a.cvTa.name).isNone)
       = true ∧
-    -- THE GROUP EXCLUSION (K.23): a stored copy field headed by a
-    -- group-mate's copy comes from a container field that is a member
-    -- occurrence at the parameters
-    ConLeche.nestedGroupExclusionOk env envAux p st = true ∧
     -- THE FIELD KINDS (K.26): every stored field of the auxiliary block
     -- is classified `.ordinary`, `.recursive` or `.reflexive`, and
     -- `nestedCopyKinds b stored` is that classification — the kinds the
     -- direct route's monotonicity reads at the copies
     ConLeche.nestedCopyKindsOk b stored = true ∧
-    -- THE WHNF WITNESS (K.17): at every constructor of the auxiliary
-    -- block, the STORED field is the weak head normal form of the
-    -- PROCESSED one wherever the stage's normalisation changed it
-    ConLeche.nestedCtorsWhnfOk (m := CheckM) (fueledOps μ F)
-        (consNestedFormers (stored.take p.k) env) (restoreTbl p st) p.nP
-        (ConLeche.nestedCtorPairs b stored) = .ok () ∧
     -- the restored constructors, at the environment holding the formers
     (stored.take p.k).mapM (fun a =>
         restoreCtors (m := CheckM) (fueledOps μ F)
@@ -283,23 +256,6 @@ def DeclNestedRun (μ : CheckMode) (F : Nat) (env : Env)
             (fun (((sr, cv), rs), j) =>
               (sr, (b.ownCtors (p.k + j)).map (fun (J, c) => (J, c.nF)), cv, rs))))
       = .ok ()
-
-/-- **The copies' order, as the four `TopoOrder` fields in one place**
-(DESIGN K.6): what the run relation's `nestedTopoOrder … = .ok order`
-conjunct gives the model tier's fold.  The relation is the kernel's
-`Bool` one; the model lane turns it into its own `CopyRef` with one
-decidability lemma (`Verify/Inductives/NestedOrderK.lean`'s header). -/
-theorem topoFields_of {st : ConLeche.ElimState} {order : List Nat} {k : Nat}
-    (h : ConLeche.nestedTopoOrder (ConLeche.ElimState.grp st) k st = .ok order) :
-    order.Nodup ∧
-    (∀ j, j < st.pins.length → j ∈ order) ∧
-    (∀ j ∈ order, j < st.pins.length) ∧
-    (∀ j j', j < st.pins.length → j' < st.pins.length →
-      ConLeche.copyRefB (ConLeche.ElimState.grp st) k st j j' = true →
-      j' ∈ order ∧ order.idxOf j' < order.idxOf j) :=
-  ⟨ConLeche.nestedTopoOrder_nodup h, ConLeche.nestedTopoOrder_complete h,
-    ConLeche.nestedTopoOrder_bounded h,
-    fun _ _ hj hj' hR => ConLeche.nestedTopoOrder_ref h hj hj' hR⟩
 
 /-- The bridge inversion: a successful nested install is a run. -/
 theorem declNestedRun_of {μ : CheckMode} {F : Nat} {env envOut : Env} {p : NestedParts}
@@ -444,7 +400,7 @@ theorem declNestedRun_etaClosed {μ : CheckMode} {F : Nat} {env envOut : Env}
     {p : NestedParts} (hE : EtaFamiliesClosed env)
     (h : DeclNestedRun μ F env p envOut) : EtaFamiliesClosed envOut := by
   obtain ⟨-, -, st, b, envAux, stored, ctorsR, cvRms, cvRns, rulesM, rulesN, fmsA, ctorsA,
-    order, -, -, -, -, -, -, -, -, -, -, -, -, hcaps, -, -, -, hctors, hrm, hrn, -, -, htbl,
+    -, -, -, -, -, -, -, -, -, -, -, hcaps, -, hctors, hrm, hrn, -, -, htbl,
     -, -, -⟩ := h
   refine EtaFamiliesClosed.ofFreshExt hE ?_
   -- the formers

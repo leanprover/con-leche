@@ -333,6 +333,12 @@ def checkConstantValPre (ops : CheckerOps m) (env : Env) (cv : ConstantVal) :
     throw (.invalid s!"undeclared universe parameter in type of {cv.name}")
   unless cv.type.constsResolve env do
     throw (.invalid s!"unknown constant in type of {cv.name}")
+  -- **THE `.proj` NAME SLOT** (K.13): the annotation walk validated it
+  -- and this path skips the walk, so the same condition is asked here —
+  -- see `Expr.projTablesOk`.  Official's message, and official's
+  -- verdict: a node naming another structure is INVALID, not a decline.
+  unless cv.type.projTablesOk env do
+    throw (.invalid "invalid projection: the node names another structure")
   let stype ← ops.inferType env 0 cv.type
   let _u ← ops.ensureSort env 0 stype
   pure cv

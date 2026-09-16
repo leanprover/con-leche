@@ -32,6 +32,7 @@ public import ConLeche.Semantics.Inductives.DeclSumEta
 -- The native mutual route's run relation is on `DeclIndRunDispatch`
 -- since M4 (task #315), so `DeclSumEta` above already pulls it in.
 public import ConLeche.Semantics.Inductives.DeclMutual
+public import ConLeche.Semantics.Inductives.DeclNested
 public import ConLeche.Semantics.DeclIndRun
 public import ConLeche.Semantics.IndBlockFacts
 public import ConLeche.Semantics.IndBlockRun
