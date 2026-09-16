@@ -1371,6 +1371,28 @@ theorem framesJ (hμ : μ.verifiedChecks = true) {J : Nat} (hJ : J < ctorsA.leng
     (h.CD J _ hJg).toCtorDataI (h.leafT hmtG)
   exact ⟨h1, h2⟩
 
+/-- **The constructors' field sorts**, as the constructor stage read
+them: one per field, each bounded by its member's sort off `Prop`, and
+each field's reading along a fitting prefix a member of that sort's
+universe (`mutualCtorFrames`'s third component). -/
+theorem sortsJ (hμ : μ.verifiedChecks = true) {J : Nat} {cA : ConstantVal × Nat}
+    (hJ : ctorsA[J]? = some cA) :
+    ∃ sorts : List Level, sortss[J]? = some sorts ∧ sorts.length = cA.2 ∧
+      (∀ k, k < cA.2 → (Level.isEquiv f₀.s Level.zero == some true) = false →
+        Level.leq (sorts.getD k .zero) (fms.getD (mutMemF b J) default).s = some true) ∧
+      ∀ (ψ : Name → Nat) (ρ : Nat → V),
+        Sat V (((dsF J ψ).take b.nP).map (·.2.2)).reverse ρ →
+        ∀ k, k < cA.2 → ∀ as : List V,
+          SpineFit ρ ((((dsF J ψ).drop b.nP).map (·.2.2)).take k) as →
+          interp V (consList as ρ) ((((dsF J ψ).drop b.nP).map (·.2.2)).getD k default)
+            ∈ˢ (univ ((sorts.getD k .zero).eval ψ) : V) := by
+  have hJl : J < ctorsA.length := (List.getElem?_eq_some_iff.mp hJ).1
+  have hmtG := fms_get (h.motLt J hJl)
+  obtain ⟨-, sorts, hss, hrun⟩ := h.runC J _ hJ
+  obtain ⟨-, -, hlen, hleq, hmem⟩ := mutualCtorFrames hμ mp₁ hrun (h.find _ _ hmtG) (h.propJ hJl)
+    (h.FDm hJl) (h.CD J _ hJ).toCtorDataI (h.leafT hmtG)
+  exact ⟨sorts, hss, hlen, hleq, hmem⟩
+
 /-- **The constructor's fibre fold**: its residual at a fitting field
 spine is the auxiliary family's fibre at the tagged index tuple. -/
 theorem fold (hμ : μ.verifiedChecks = true) {J : Nat} {cA : ConstantVal × Nat}
@@ -2240,7 +2262,7 @@ theorem blockReps_of (hμ : μ.verifiedChecks = true) (h0 : b.blockNames.Nodup)
     · -- mkInj
       intro ψ hw' mm' hmm' j fs j' fs' hj hj' hlen hlen' heq
       exact ofMutual_mkInj ψ hw' hlen hlen' heq
-  refine ⟨hrep, fun ψ => ⟨?_, ?_⟩, fun t f hft => ⟨⟨{}, hFP₂ (h.find _ _ hft)⟩, h.lps _ _ hft,
+  refine ⟨hrep, fun ψ => ⟨?_, ?_⟩, fun t f hft => ⟨hFP₂ (h.find _ _ hft), h.lps _ _ hft,
     h.strip _ _ hft, h.sEq _ _ hft, hFD₂ _ _ hft⟩⟩
   · -- FormersTyped
     intro t ht ρ
@@ -2259,6 +2281,33 @@ theorem blockReps_of (hμ : μ.verifiedChecks = true) (h0 : b.blockNames.Nodup)
       rw [hmemJ]; exact hName _ _ (fms_get (by rw [← hkT]; exact hc))
     rw [hT]
     exact this
+
+/-- **The datum's table facts** at the run's data: the injection is the
+tagged tower at the constructor's GLOBAL block position
+(`mutualDatum_minorIdx`), every member's parameter frame is the
+block's (the cross-member identification), and the constructors' field
+sorts, grading and bounds are the constructor stage's (`framesJ`,
+`sortsJ`).  Consumer: `mutualCoreModeled_of`. -/
+theorem mutualTableFacts_of (hμ : μ.verifiedChecks = true)
+    (h3 : ConLeche.mutualCtorsGrouped b.ctors = true)
+    (h : MutualFormersFacts V F mp b fms f₀ ctorsA sortss kinds mp₁ ppsF W idxF dsF esF srcsF fvsPF
+      xFvsF xrestF eissF tssF) :
+    MutualTableFacts b fms sortss (D) where
+  inj ψ mm j fs := by
+    show injW ((D).w ψ) ((D).minorIdx mm j) (mkTower (fs ++ [pt])) = _
+    rw [mutualDatum_minorIdx]
+  frame t ht ψ ρ := h.frame t _ (fms_get (by rw [h.lenFms]; exact ht)) ψ ρ
+  sorts mm j cA _ hj := by
+    obtain ⟨hJl, hJ, hmemJ⟩ := mutualDatum_ctorsM_get h3 h.lenA hj
+    obtain ⟨sorts, hss, hlen, hleq, hmemS⟩ := h.sortsJ hμ hJ
+    refine ⟨sorts, hss, hlen, fun k hk hp => ?_, fun ψ ρ hρ => ?_⟩
+    · have hb := hleq k hk hp
+      rw [hmemJ] at hb
+      exact hb
+    · have hmtG := fms_get (h.motLt _ hJl)
+      have hfr := (h.framesJ hμ hJl).2 ψ ρ hρ
+      rw [h.sEq _ _ hmtG ψ] at hfr
+      exact ⟨hfr.1, hfr.2.1, hfr.2.2.1, hmemS ψ ρ hρ⟩
 
 end Reps
 
@@ -2338,7 +2387,9 @@ modulo its store half `MutualRecsStored` by `mutualRecsModeled_of`
               (ConLeche.consMutualCtors b.nP ctorsA (ConLeche.consMutualFormers fms env))),
           (∀ n, n ∉ b.blockNames → ∀ ψ : Name → Nat, mp₃.base2.acval n ψ = mp₂.base2.acval n ψ) ∧
           BlockReps mp₃.base2 d ∧
-          ∀ ψ : Name → Nat, FormersTyped mp₃.base2 d ψ ∧ CtorsTyped mp₃.base2 d ψ
+          (∀ ψ : Name → Nat, FormersTyped mp₃.base2 d ψ ∧ CtorsTyped mp₃.base2 d ψ) ∧
+          ∀ (t : Nat) (f : MutualFormerA), fms[t]? = some f →
+            MemberStored mp₃.base2 b.lps b.nP f d.resSort (d.ppsM t)
 
 /-- **The core of the mutual install, modulo its recursors' stage**:
 stages 0–3 keep the model and leave the datum at the constructors'
@@ -2373,11 +2424,12 @@ theorem mutualCoreModeled_of {F : Nat} (hrec : MutualRecsModeled V μ F) :
       (mutualDatum (V := V) b fms f₀ ctorsA kinds env ppsF W idxF dsF esF srcsF fvsPF xFvsF xrestF
         eissF tssF) :=
     mutualDatumOf_ofMutual env b fms ctorsA hf₀ _ ppsF W _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
-  obtain ⟨mp₃, hag₃, hreps₃, htyped₃⟩ := hrec hμ mp hE b streamRecs fms f₀ tq₀ ctorsA sortss kinds
-    formers4 ctors4 cvRas rulesOf h0 h1 h2 h3 hformers hf₀ htq₀ hcross hL hctors hkinds hfo hgd
-    hrectys hrules mp₂ hE₂ hagree _ hd hreps htyped hrecNames hstored
+  obtain ⟨mp₃, hag₃, hreps₃, htyped₃, hstored₃⟩ := hrec hμ mp hE b streamRecs fms f₀ tq₀ ctorsA
+    sortss kinds formers4 ctors4 cvRas rulesOf h0 h1 h2 h3 hformers hf₀ htq₀ hcross hL hctors
+    hkinds hfo hgd hrectys hrules mp₂ hE₂ hagree _ hd hreps htyped hrecNames hstored
     (fun mm j _ _ => ⟨rfl, fun _ => rfl⟩)
-  exact ⟨mp₃, fun n hn ψ => (hag₃ n hn ψ).trans (hagree n hn ψ), _, hd, hreps₃, htyped₃⟩
+  exact ⟨mp₃, fun n hn ψ => (hag₃ n hn ψ).trans (hagree n hn ψ), _, hd, hreps₃, htyped₃, hstored₃,
+    mutualTableFacts_of hμ h3 h⟩
 
 /-- **`declBlock` at the recursors' stage's fact**: the model survives
 a mutual block, given stage 4 (`MutualRecsModeled`) and stage 5
@@ -2385,7 +2437,7 @@ a mutual block, given stage 4 (`MutualRecsModeled`) and stage 5
 theorem declBlock_of_recs (hμ : μ.verifiedChecks = true) {F : Nat} {envOut : Env}
     {p : ConLeche.MutualParts} (mp : EnvModelM V μ env) (hE : ConLeche.EtaFamiliesClosed env)
     (hpinOk : ConLeche.mutualRecPinOk p = true)
-    (hrec : MutualRecsModeled V μ F) (htables : MutualTablesModeled V μ)
+    (hrec : MutualRecsModeled V μ F) (htables : MutualTablesModeled V μ F)
     (h : ConLeche.Semantics.DeclMutualRun μ F env p envOut) :
     Nonempty (EnvModelM V μ envOut) :=
   declBlock hμ mp hE hpinOk (mutualCoreModeled_of hrec) htables h

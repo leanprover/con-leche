@@ -283,8 +283,8 @@ theorem ruleRhs_read_of (hd : MutualDatumOf env₀ b fms ctorsA d)
       · assumption
       · exact h0k'
     obtain ⟨f, hf, hname⟩ := hmemF _ hq
-    obtain ⟨caps, hfind⟩ := (hstoredP _ f hf).find
-    refine ⟨.indInfo f.cvTa caps, ?_, (hstoredP _ f hf).lps⟩
+    have hfind := (hstoredP _ f hf).find
+    refine ⟨.indInfo f.cvTa {}, ?_, (hstoredP _ f hf).lps⟩
     show envP.find? (d.memberName (if q < d.k then q else 0)) = _
     rw [hname]
     exact hfind
@@ -387,7 +387,9 @@ theorem mutualRecsStore_of (mp₂ : EnvModelM V μ env₂)
     ∃ mp₃ : EnvModelM V μ (ConLeche.storeMutualRecs env₂ b fms rulesOf cvRas.zipIdx env₂),
       (∀ n, n ∉ b.blockNames → ∀ ψ : Name → Nat, mp₃.base2.acval n ψ = mp₂.base2.acval n ψ) ∧
       BlockReps mp₃.base2 d ∧
-      ∀ ψ : Name → Nat, FormersTyped mp₃.base2 d ψ ∧ CtorsTyped mp₃.base2 d ψ := by
+      (∀ ψ : Name → Nat, FormersTyped mp₃.base2 d ψ ∧ CtorsTyped mp₃.base2 d ψ) ∧
+      ∀ (t : Nat) (f : MutualFormerA), fms[t]? = some f →
+        MemberStored mp₃.base2 b.lps b.nP f d.resSort (d.ppsM t) := by
   have hkd : d.k = b.k := hd.k
   have h0k : 0 < b.k := by rw [← hlenF]; exact (List.getElem?_eq_some_iff.mp hf₀).1
   have hnC : d.nCtors = b.ctors.length := by rw [hd.nCtors_eq h2 hlenA, hlenA]
@@ -595,7 +597,7 @@ theorem mutualRecsStore_of (mp₂ : EnvModelM V μ env₂)
         refine List.map_congr_left fun t' ht' => ?_
         have ht'' : t' < d.k := List.mem_range.mp ht'
         have ht''' : t' < fms.length := by rw [hlenF, ← hkd]; exact ht''
-        obtain ⟨caps, hfind⟩ := (hstored t' (fms.getD t' default)
+        have hfind := (hstored t' (fms.getD t' default)
           (by rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem ht''']; rfl)).find
         have hname : d.memberName t' = (fms.getD t' default).cvTa.name := by
           show d.memberNames.getD t' .anonymous = _
@@ -624,7 +626,7 @@ theorem mutualRecsStore_of (mp₂ : EnvModelM V μ env₂)
   -- **the store**
   obtain ⟨mp₃, hac, -⟩ := mutualRecsStore (k := d.k) mp₂.base2.wf hrectys hrules mpP hP.lenR hfresh
     hnres hctorStored hlaws
-  refine ⟨mp₃, fun n hn ψ => ?_, ?_, fun ψ => ?_⟩
+  refine ⟨mp₃, fun n hn ψ => ?_, ?_, fun ψ => ?_, fun t f hf => ?_⟩
   · rw [hac]
     refine congrFun (hP.agree n fun t ht heq => hn ?_) ψ
     rw [heq, (hP.names t ht).1]
@@ -633,6 +635,7 @@ theorem mutualRecsStore_of (mp₂ : EnvModelM V μ env₂)
   · exact hrepsP.crossEnv hF₂ hres₂ (fun n _ => congrFun hac n) (swap_hde hcg hac)
   · exact ⟨(htypedP ψ).1.crossEnv (fun n _ => congrFun hac n) hrepsP,
       (htypedP ψ).2.crossEnv (fun n _ => congrFun hac n) hrepsP⟩
+  · exact (hstoredP t f hf).crossEnv hF₂ (swap_hde hcg hac)
 
 end Store
 
@@ -664,7 +667,7 @@ theorem mutualCoreModeled {F : Nat} : MutualCoreModeled V μ F :=
 block given the tables' stage (`MutualTablesModeled`). -/
 theorem declBlock_of_tables (hμ : μ.verifiedChecks = true) {F : Nat} {env envOut : Env}
     {p : ConLeche.MutualParts} (mp : EnvModelM V μ env) (hE : ConLeche.EtaFamiliesClosed env)
-    (hpinOk : ConLeche.mutualRecPinOk p = true) (htables : MutualTablesModeled V μ)
+    (hpinOk : ConLeche.mutualRecPinOk p = true) (htables : MutualTablesModeled V μ F)
     (h : ConLeche.Semantics.DeclMutualRun μ F env p envOut) :
     Nonempty (EnvModelM V μ envOut) :=
   declBlock hμ mp hE hpinOk mutualCoreModeled htables h

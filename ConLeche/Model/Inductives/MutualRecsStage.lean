@@ -55,7 +55,7 @@ theorem MemberStored.toFormerFacts {m : EnvModel V env} {lps : List Name} {nP : 
     {f : MutualFormerA} {resSort : Level} {pps : (Name → Nat) → List (Nat × Nat × AnnotTerm)}
     (h : MemberStored m lps nP f resSort pps) :
     MutualFormerFacts m lps nP ⟨f.cvTa.name, f.nIdx, f.cvTa.type⟩ f.cvTa f.s pps where
-  find := h.find
+  find := ⟨{}, h.find⟩
   tty := rfl
   lps := h.lps
   strip := h.strip
@@ -315,8 +315,8 @@ theorem blockRecData_of (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ en
       · assumption
       · rw [hd.k]; exact h0k
     obtain ⟨f, hf, hname⟩ := hmemF _ hq
-    obtain ⟨caps, hfind⟩ := (hstored _ f hf).find
-    refine ⟨.indInfo f.cvTa caps, ?_, (hstored _ f hf).lps⟩
+    have hfind := (hstored _ f hf).find
+    refine ⟨.indInfo f.cvTa {}, ?_, (hstored _ f hf).lps⟩
     show env.find? (d.memberName (if q < d.k then q else 0)) = _
     rw [hname]
     exact hfind
@@ -659,7 +659,9 @@ facts are `MutualRecsModeled`'s, verbatim.  Consumer:
                 (ConLeche.consMutualCtors b.nP ctorsA (ConLeche.consMutualFormers fms env))),
             (∀ n, n ∉ b.blockNames → ∀ ψ : Name → Nat, mp₃.base2.acval n ψ = mp₂.base2.acval n ψ) ∧
             BlockReps mp₃.base2 d ∧
-            ∀ ψ : Name → Nat, FormersTyped mp₃.base2 d ψ ∧ CtorsTyped mp₃.base2 d ψ
+            (∀ ψ : Name → Nat, FormersTyped mp₃.base2 d ψ ∧ CtorsTyped mp₃.base2 d ψ) ∧
+            ∀ (t : Nat) (f : MutualFormerA), fms[t]? = some f →
+              MemberStored mp₃.base2 b.lps b.nP f d.resSort (d.ppsM t)
 
 /-- **The recursors' stage, modulo its store**: the provisioning half
 (`mutualRecsProvision`) and the named store half. -/
@@ -683,7 +685,7 @@ block, given the store's stage (`MutualRecsStored`) and the tables'
 theorem declBlock_of_stored (hμ : μ.verifiedChecks = true) {F : Nat} {envOut : Env}
     {p : ConLeche.MutualParts} (mp : EnvModelM V μ env) (hE : ConLeche.EtaFamiliesClosed env)
     (hpinOk : ConLeche.mutualRecPinOk p = true)
-    (hst : MutualRecsStored V μ F) (htables : MutualTablesModeled V μ)
+    (hst : MutualRecsStored V μ F) (htables : MutualTablesModeled V μ F)
     (h : ConLeche.Semantics.DeclMutualRun μ F env p envOut) :
     Nonempty (EnvModelM V μ envOut) :=
   declBlock_of_recs hμ mp hE hpinOk (mutualRecsModeled_of hst) htables h

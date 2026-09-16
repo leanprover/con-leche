@@ -401,9 +401,7 @@ theorem MemberStored.crossEnv {env₁ env₂ : Env} {m₁ : EnvModel V env₁} {
       denoteMeta m₁.acval env₁ ψ dp e = some ea → denoteMeta m₂.acval env₂ ψ dp e = some ea)
     (h : MemberStored m₁ lps nP f resSort pps) :
     MemberStored m₂ lps nP f resSort pps where
-  find := by
-    obtain ⟨caps, hf⟩ := h.find
-    exact ⟨caps, hF _ _ (fun _ _ _ _ hcon => nomatch hcon) hf⟩
+  find := hF _ _ (fun _ _ _ _ hcon => nomatch hcon) h.find
   lps := h.lps
   strip := h.strip
   sEq := h.sEq

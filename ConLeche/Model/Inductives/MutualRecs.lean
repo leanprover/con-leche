@@ -47,7 +47,7 @@ its telescope ends in its OWN sort (equivalent to the block's), and
 its parameter data are the datum's.  Supplied by `blockReps_of`. -/
 structure MemberStored (m : EnvModel V env) (lps : List Name) (nP : Nat) (f : MutualFormerA)
     (resSort : Level) (pps : (Name → Nat) → List (Nat × Nat × AnnotTerm)) : Prop where
-  find : ∃ caps : IndCaps, env.find? f.cvTa.name = some (.indInfo f.cvTa caps)
+  find : env.find? f.cvTa.name = some (.indInfo f.cvTa {})
   lps : f.cvTa.levelParams = lps
   strip : ∃ bs : List (Expr × BinderMeta),
     f.cvTa.type.stripPis (nP + f.nIdx) = some (bs, Expr.sort f.s)
