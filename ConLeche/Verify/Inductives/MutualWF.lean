@@ -401,7 +401,7 @@ theorem checkMutualCore_wf {env envOut : Env} (henv : EnvWF env) {b : MutualBloc
     (h : checkMutualCore (fueledOps mode F) env b streamRecs = .ok envOut) :
     EnvWF envOut := by
   obtain ⟨-, -, -, -, env₁, fms, f₀, tq₀, ctorsA, sortss, kinds, formers4, ctors4,
-    cvRas, rulesOf, hformers, -, -, -, -, hctors, -, -, -, hrectys, hrules, htbl⟩ :=
+    cvRas, rulesOf, hformers, -, -, -, -, hctors, -, -, -, hrectys, hrules, htbl, -⟩ :=
     checkMutualCore_inv h
   have henv₁ : EnvWF env₁ := envWF_mutualFormers henv hformers
   have henv₂ : EnvWF (consMutualCtors b.nP ctorsA env₁) :=

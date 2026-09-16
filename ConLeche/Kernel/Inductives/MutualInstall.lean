@@ -644,7 +644,16 @@ def checkMutualCore (ops : CheckerOps m) (env : Env) (b : MutualBlock)
   let rulesOf ← checkMutualAllRules envR b formers4 ctors4 streamRecs b.k
   let env₃ := storeMutualRecs env₂ b fms rulesOf cvRas.zipIdx env₂
   -- 5. the projection tables of the structure-like members
-  mutualTables b ctorsA sortss fms.zipIdx env₃
+  let envOut ← mutualTables b ctorsA sortss fms.zipIdx env₃
+  -- **THE READ-BACK** (task #315 K.34): `containerInfo?` of the
+  -- environment this route produced, at every member of the block it
+  -- installed, is the block's own data.  It cannot fire — the route
+  -- stored the records the walk reads — and the model's environment
+  -- field is quantified over exactly this reading.
+  unless blockReadBackOk envOut nP (fms.zipIdx.map fun (f, mIdx) =>
+      (f.cvTa, (b.ownCtors mIdx).filterMap fun (J, _) => ctorsA[J]?)) do
+    throw (.internal "mutual: the installed block does not read back as its own")
+  pure envOut
 
 /-- Check and install a **recognised mutual block**: the recursor
 records' structural pin (thrown here, as official's replay rejects a

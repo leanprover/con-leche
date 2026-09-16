@@ -399,7 +399,12 @@ theorem checkNativeTailS_run (hμ : mode.verifiedChecks = true) {env env₁ : En
   rw [push_mkFEnv, show FEnv.find? (mkFEnv (consSumCtors p.nP ctorsA env₁))
     = (consSumCtors p.nP ctorsA env₁).find? from
     mkFEnv_find?_fun _] at h
-  obtain ⟨hwfO, hfeO, -, F₆, hF₆⟩ := checkNativeTableS_run _ henv₃ hs₃.residue h
+  obtain ⟨feT, sT, htblC, h⟩ := bindC_ok h
+  obtain ⟨hwfO, hfeO, -, F₆, hF₆⟩ := checkNativeTableS_run _ henv₃ hs₃.residue htblC
+  by_cases hrb : blockReadBackOk feT.env p.nP [(cvTa, ctorsA)] = true
+  case neg => rw [if_neg hrb] at h; exact nomatch h
+  rw [if_pos hrb] at h
+  obtain ⟨rfl, rfl⟩ := pureC_ok h
   obtain ⟨G, hle₀, hle₃, hle₆⟩ : ∃ G, F₀ ≤ G ∧ F₃ ≤ G ∧ F₆ ≤ G :=
     ⟨max F₀ (max F₃ F₆), by omega, by omega, by omega⟩
   refine ⟨hwfO, hfeO, G, ?_⟩
@@ -412,7 +417,7 @@ theorem checkNativeTailS_run (hμ : mode.verifiedChecks = true) {env env₁ : En
   have g₆ : checkNativeTable (m := CheckM) p ctorsA sortss
       ⟨.recInfo cvRa p.majorIdx p.rulePrefix
         (sumRules (consSumCtors p.nP ctorsA env₁).find? cvRa.name p.nP p.majorIdx p.rulePrefix cvRa.type ctorsA rhss)
-        :: (consSumCtors p.nP ctorsA env₁).consts⟩ = .ok feOut.env := by
+        :: (consSumCtors p.nP ctorsA env₁).consts⟩ = .ok feT.env := by
     rw [← checkNativeTable_datF]; exact FueledM.up hle₆ hF₆
   rw [checkNativeTail_datF]
   unfold checkNativeTail
@@ -426,7 +431,9 @@ theorem checkNativeTailS_run (hμ : mode.verifiedChecks = true) {env env₁ : En
   rw [if_pos hk, if_pos hr]
   rw [g₃]
   simp only [Except.bind]
-  exact g₆
+  rw [g₆]
+  simp only [Except.bind]
+  rw [if_pos hrb]
 
 /-- The direct recursive install at the cached driver is reproduced by
 the pure fueled `checkNative` (task #188): the pass at the syntactic
@@ -1209,7 +1216,14 @@ theorem checkMutualCoreS_run (hμ : mode.verifiedChecks = true) {env : Env} (hen
   rw [flushC_run] at hfl3
   injection hfl3 with hfl3
   obtain rfl : s₆.flushed = sD := congrArg Prod.snd hfl3
-  obtain ⟨hwfO, hfeO, -, hF₇⟩ := mutualTablesS_run fms.zipIdx _ henv₃ hs₆.residue.flushed h
+  obtain ⟨feT, sT, htblC, h⟩ := bindC_ok h
+  obtain ⟨hwfO, hfeO, -, hF₇⟩ :=
+    mutualTablesS_run fms.zipIdx _ henv₃ hs₆.residue.flushed htblC
+  by_cases hrb : blockReadBackOk feT.env b.nP (fms.zipIdx.map fun (f, mIdx) =>
+      (f.cvTa, (b.ownCtors mIdx).filterMap fun (J, _) => ctorsA[J]?)) = true
+  case neg => rw [if_neg hrb] at h; exact nomatch h
+  rw [if_pos hrb] at h
+  obtain ⟨rfl, rfl⟩ := pureC_ok h
   -- the pure run, at the joined fuel
   obtain ⟨G, hle₁, hle₂, hle₃, hle₅⟩ : ∃ G, F₁ ≤ G ∧ F₂ ≤ G ∧ F₃ ≤ G ∧ F₅ ≤ G :=
     ⟨max F₁ (max F₂ (max F₃ F₅)), by omega, by omega, by omega, by omega⟩
@@ -1244,7 +1258,9 @@ theorem checkMutualCoreS_run (hμ : mode.verifiedChecks = true) {env : Env} (hen
   simp only [Except.bind, pure, Except.pure]
   rw [hF₆p]
   simp only [Except.bind, pure, Except.pure]
-  exact hF₇
+  rw [hF₇]
+  simp only [Except.bind, pure, Except.pure]
+  rw [if_pos hrb]
 
 /-- **The recognised mutual block at the cached driver is reproduced by
 the pure fueled `checkMutual`.** -/

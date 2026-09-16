@@ -606,9 +606,17 @@ def checkNativeTail (ops : CheckerOps m) (env : Env) (q : NativePass Env) : m En
     throw (.invalid "direct rec: recursor rules are not the generated ones")
   let env₂ := consSumCtors p.nP q.ctorsA q.env₁
   let (cvRa, rhss) ← checkNativeRec ops env₂ p q.cvTa q.ctorsA
-  checkNativeTable p q.ctorsA q.sortss ⟨.recInfo cvRa p.majorIdx p.rulePrefix
+  let envOut ← checkNativeTable p q.ctorsA q.sortss ⟨.recInfo cvRa p.majorIdx p.rulePrefix
     (sumRules env₂.find? cvRa.name p.nP p.majorIdx p.rulePrefix cvRa.type
       q.ctorsA rhss) :: env₂.consts⟩
+  -- **THE READ-BACK** (task #315 K.34): `containerInfo?` of the
+  -- environment this route produced, at the member it installed, is the
+  -- block's own data.  It cannot fire — the route stored the records the
+  -- walk reads — and the model's environment field is quantified over
+  -- exactly this reading.
+  unless blockReadBackOk envOut p.nP [(q.cvTa, q.ctorsA)] do
+    throw (.internal "direct rec: the installed block does not read back as its own")
+  pure envOut
 
 /-- Check and install a **direct recursive block**: the distinct
 names, the pass over the former (with the block's capability record)
