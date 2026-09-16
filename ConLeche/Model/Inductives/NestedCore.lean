@@ -173,21 +173,24 @@ local notation "D" => (nestedBlockModel (V := V) p b fms f₀ ctorsA kinds env p
 
 /-- **A pin group's facts** (NAMED, DESIGN §U.18 (d)): the copies
 `[q₀, q₀ + kJ)` of the auxiliary block are the members of ONE
-pin-free container block model `dJ` at the model `m` of the restored
-environment — `IsBlockModel` at every member (the pins' records
-naming those members), typed, with the member-local tag shape — and
-the copy-instantiation identities of K.28's pre-image at every
-constructor of the group (`CopyCtorInst`, the index telescopes, the
-constructor counts, the components' fit), the same-universe fact `w`
-and the index-universe agreement `u` (§U.17 (g) 1, M6 s7). -/
+container block model `dJ` at the model `m` of the restored
+environment — its pin list FREE (a container that is itself nested,
+task #315 L-C, DESIGN §U.24) — `IsBlockModel` at every member (the
+pins' records naming those members), its members and pins typed, with
+the member-local tag shape — and the copy-instantiation identities of
+K.28's pre-image at every constructor of the group (`CopyCtorInst`,
+the index telescopes, the constructor counts, the components' fit),
+the same-universe fact `w` and the index-universe agreement `u`
+(§U.17 (g) 1, M6 s7). -/
 structure NestedPinGroup (m : EnvModel V env₂) (q₀ kJ : Nat) (dJ : BlockModel V) : Prop where
   seg : q₀ + kJ ≤ pinsS.length
+  kpos : 0 < kJ
   reps : IsBlockModels m dJ
-  noPins : dJ.pins = []
   kEq : dJ.k = kJ
   rep : ∀ i, i < kJ → ∃ (cvT cvR : ConstantVal) (mI rP : Nat) (rules : List RecRule),
     IsBlockModel m ((D).pinAt (q₀ + i)).J cvT cvR mI rP rules dJ i
   typed : ∀ ψ : Name → Nat, FormersTyped m dJ ψ
+  pinsTyped : ∀ ψ : Name → Nat, PinsTyped m dJ ψ
   inj : ∀ (ψJ : Name → Nat) (mm' j : Nat) (fs : List V),
     dJ.inj ψJ mm' j fs = injW (dJ.w ψJ) j (mkTower (fs ++ [pt]))
   pinU : ∀ i, i < kJ → ∀ ψ : Name → Nat, ((D).pinAt (q₀ + i)).u ψ = W ψ
@@ -364,7 +367,7 @@ theorem nestedPinLeaf_of (hμ : μ.verifiedChecks = true)
   obtain ⟨cvT, cvR, mI, rP, rules, hI⟩ := G.rep i hi
   have hρp : Sat V ((D).params ψ).reverse (consList as ρ) := (D).satOfSpine hsp
   exact ofNested_pinLeaf_of hI (nestedLfpOk_of_formers h hμ hbk ψ (consList as ρ) hρp)
-    (nestedShape_of_formers h hbk ψ) G.seg hi G.reps G.noPins
+    (nestedShape_of_formers h hbk ψ) G.seg hi G.reps (G.typed _) (G.pinsTyped _)
     G.kEq (G.w i hi ψ) (G.u i hi ψ) (G.inj _) (G.idx i hi ψ)
     (fun i' hi' j => G.grp h3 h.lenA ψ hi' j)
     (G.inst i hi ψ _ hρp) rfl rfl rfl (G.pinU i hi ψ) (G.pinIds hi ψ) (G.DsFit i hi ψ ρ as hsp)

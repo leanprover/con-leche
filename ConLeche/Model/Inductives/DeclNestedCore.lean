@@ -73,8 +73,8 @@ structure ContainerModeled {env : Env} (m : EnvModel V env) (ci : ContainerInfo)
   nP : d.nP = ci.nP
   /-- the block at every member -/
   reps : IsBlockModels m d
-  /-- the members and constructors typed -/
-  typed : ∀ ψ : Name → Nat, FormersTyped m d ψ ∧ CtorsTyped m d ψ
+  /-- the members, constructors and pins typed -/
+  typed : ∀ ψ : Name → Nat, FormersTyped m d ψ ∧ CtorsTyped m d ψ ∧ PinsTyped m d ψ
   /-- the injections are the tagged towers at the member-local positions -/
   inj : ∀ (ψ : Name → Nat) (mm' j : Nat) (fs : List V),
     d.inj ψ mm' j fs = injW (d.w ψ) j (mkTower (fs ++ [pt]))

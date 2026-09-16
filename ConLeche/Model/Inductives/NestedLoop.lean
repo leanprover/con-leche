@@ -92,12 +92,13 @@ theorem NestedPinGroup.crossEnv {env₁ env₂ : Env} {m₁ : EnvModel V env₁}
     (G : PG m₁ q₀ kJ dJ) : PG m₂ q₀ kJ dJ :=
   { seg := G.seg
     reps := G.reps.crossEnv hF hres hag hde
-    noPins := G.noPins
+    kpos := G.kpos
     kEq := G.kEq
     rep := fun i hi => by
       obtain ⟨cvT, cvR, mI, rP, rules, hI⟩ := G.rep i hi
       exact ⟨cvT, cvR, mI, rP, rules, hI.crossEnv hF hres hag hde⟩
     typed := fun ψ => (G.typed ψ).crossEnv hag G.reps
+    pinsTyped := fun ψ => (G.pinsTyped ψ).crossEnv hag G.reps (G.kEq ▸ G.kpos)
     inj := G.inj
     pinU := G.pinU
     pinNP := G.pinNP

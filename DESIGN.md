@@ -78057,3 +78057,180 @@ the elimination pinned fails a fact its own install established`, which
 is `nestedContainersOk`'s message, confirming that the named Bool is the
 one that conjunct evaluates and that it is reached at every fixture that
 gets that far.
+
+#### U.24 — L-C: the `pinFix` clause (session L-C, 2026-09-16)
+
+Lane L-C of task #315 (four provider lanes off 44a3d093, each owning
+one named fact of §U.21 (e)): `NestedPinsFix` — the pin-free
+restriction `NestedPinGroup.noPins : dJ.pins = []`, FALSE of a
+container that is itself nested (§U.17 (g) 2; `P4C α ::= node (List
+(P4C α))` under `P4 ::= mk (P4C P4)`, `tests/e2e/nested_p04.ndjson`;
+Mathlib's `TaggedText`/`MsgEmbed`).  DISCHARGED: the field is gone
+from `NestedPinGroup`/`NestedPinGroupIds`, the def `NestedPinsFix` is
+deleted, and `nestedPinsStaged_of : NestedPinsScoped → NestedPinsU →
+NestedPinsIdent → NestedPinsStaged` (three named facts).  No checker
+code changed; no `sorry`, no axioms, no `maxHeartbeats`; standard
+axioms only.  Branch `agent/uniform-pinfix`.
+
+##### (a) THE FINDING — `pinFix` is not a clause: it is `pinLeaf` at the carrier, and the tree already has it
+
+§U.18 (e) planned a new clause `pinFix : d.pinCar ψ ρp L q = the
+container's least tuple at ρJ`.  Stating it abstractly hits the
+question "WHICH container block model": the clause's right side must
+name a block model of the pin's container, and the consumer (the
+assembly at the block's group for the container's pin) holds ANOTHER
+one (`blockOf`, chosen at the base pin from `EnvBlockModels`'
+existential); relating two block models of one inductive needs their
+least tuples to agree, which is `leaf` + `mem_idxSet_elim` +
+`famSpace_ext` — and that is exactly what `pinLeaf` + `pinMem` already
+give of `pinCar` at the carrier.  So the clause would add nothing the
+existing clauses do not determine.  What the assembly needs is
+narrower still: at a container-recursive field whose target is one of
+the container's OWN pins, the container's slot at ITS carrier
+(`dJ.slotAt ψJ LJ i j l`, reading `dJ.pinCar ψJ ρJ LJ q'`) as a set —
+and `IsBlockModels.real_dom_eq` (`BlockRecKit.lean`, L-D's kit, M6)
+already says it IS the field's real domain (the pin's stored reading
+through `pinLeaf`, `pin_app'`), while `IsBlockModels.slotAt_mono` says
+the slot at a tuple BELOW the carrier is within it (`pinMono` at a pin
+target).  These two are the "inner `pinFix`" of §U.18 (e); no clause
+was added, `ofNative`/`ofMutual` are untouched.
+
+##### (b) THE PURE TWIN — agreement AT the carrier, order BELOW it
+
+§U.18 (e) asked for `lfpTuple_seg_congr_at` "whose `hΦ` holds at tuples
+below the carrier".  Agreement below the carrier is FALSE: the copy's
+operator reads the container's pin as the constant `L⁺ (k + q'')`
+(= `pinCar LJ q'`), the container's reads `pinCar Y q'`, and `pinMono`
+makes the latter smaller at `Y < LJ`.  What holds — and suffices — is
+agreement AT `LJ` and ONE inequality below it (`Φ' Y ≤ S Y` for `Y ≤
+LJ`):
+
+```lean
+theorem lfpTuple_eq_of_at (hmonoS : MonoTuple w s Is S) (hclS : ∃ L, IsClosedTuple w s Is S L)
+    (hmono' : MonoTuple w s Is Φ') (hcl' : ∃ L', IsClosedTuple w s Is Φ' L')
+    (hat : ∀ i, i < s → S (lfpTuple w s Is Φ') i = Φ' (lfpTuple w s Is Φ') i)
+    (hle : ∀ Y, InTupleSpace w s Is Y → TupleLe s Is Y (lfpTuple w s Is Φ') →
+      TupleLe s Is (Φ' Y) (S Y))
+    {i : Nat} (hi : i < s) : lfpTuple w s Is S i = lfpTuple w s Is Φ' i
+```
+(`L'` is `S`-closed since `S L' = Φ' L' ≤ L'`; `lfp S` is `Φ'`-closed
+since it is below `L'`, where `Φ' ≤ S`; the inequality is needed at
+`Y = lfp S` and no bound-free form of it holds.)  `lfpTuple_seg_congr_at`
+= `lfpTuple_seg` + `lfpTuple_congr` (index sets) + this, with
+`inTupleSpace_congr`/`tupleLe_congr` transporting the section's laws
+(`SetTheory/Derive/LfpCompose.lean`, +78).  At the block model:
+`ofNested_pin_block_at` (hypotheses `hat`/`hle` at the auxiliary
+operator) and `ofNested_pin_block_of_fit_at` (the fits: `hfitAt` an
+iff at `lfp ΦJ`, `hfitLe` one direction at `Y ≤ lfp ΦJ`; the fibrewise
+proof as before at the carrier, below it the container's fibre within
+the section's) replace `ofNested_pin_block`/`_of_fit`, which are
+DELETED (their universal `hΦ` has no consumer left).
+
+##### (c) THE IDENTITIES — `CopyCtorInst.recF` was FALSE at a pin target; the `pinF` arm
+
+`CopyCtorInst.recF` claimed of EVERY container-recursive field that
+the copy targets `k + q₀ + dJ.tgts i j l` — the group's copy of the
+target.  At a field targeting the container's own pin `q'` (`dJ.tgts =
+dJ.k + q'`), the copy targets the BLOCK's pin for `K (DsK[Ds])`, minted
+after the group at a position no abstract `dJ` fixes (its `pins` order
+is not a clause) — so `recF`, hence `NestedPinsIdent` as stated, was
+unprovable for nested containers, independently of `noPins`.  Fix
+(`NestedFit.lean`, the SHARED HUNK with L-B): `recF` gains the
+hypothesis `dJ.tgts i j l < dJ.k`; a new arm
+
+```lean
+  pinF : ∀ l, l < ((dJ.Fss i ψJ).getD j []).length →
+    ((dJ.rss i).getD j []).getD l false = true → ¬ dJ.tgts i j l < dJ.k →
+    (rss.getD (offs (k + q₀ + i) + j) []).getD l false = true ∧
+    ¬ (k + q₀ ≤ (tgtsG.getD (offs (k + q₀ + i) + j) []).getD l 0 ∧
+      (tgtsG.getD (offs (k + q₀ + i) + j) []).getD l 0 < k + q₀ + kJ) ∧
+    ∀ fs₁ : List V, fs₁.length = l →
+      FitsFrom (rss.getD (offs (k + q₀ + i) + j) []) (fun i' ρ => slotSet … (segJoin (k + q₀) kJ L⁺ Y …))
+        0 ρp (((Fss₀ ψ).getD (offs (k + q₀ + i) + j) []).take l) fs₁ →
+      interp V (consList fs₁ (consList (Ds.map (interp V ρp)) ρp)) (((dJ.Fss i ψJ).getD j []).getD l default)
+        = slotSet (resSort.eval ψ) (W ψ) (consList fs₁ ρp) … (L⁺ ((tgtsG.getD (offs (k + q₀ + i) + j) []).getD l 0))
+```
+— VERBATIM `ordF`'s right arm (copy-recursive outside the group, the
+container's real domain = the copy's slot at the auxiliary carrier),
+because a pin-targeting field's real domain is its pin's stored reading
+(`BlockCtorData.nestEntry`), i.e. the same kind of entry the
+elimination rewrites.  `ordF` is textually unchanged.  For L-B's
+discharge this is one more case of the shape it already handles for
+`ordF`'s right arm at a pin target ("`Tree` in `List Tree`'s `cons`");
+vacuous at a pin-free container.  The `L⁺` entry identity at a pin
+target is where the reverse-order induction over the copies' DAG lives
+(the block's `pinLeaf` at the later pin `q''`) — INSIDE the discharge
+of `NestedPinsIdent`, as it already must for `ordF`; this lane's
+consumers need no induction (each group is closed from its own `inst`),
+which is why none was written here.
+
+##### (d) THE FITS AT THE CARRIER — `fit_iff_at`/`fit_imp`, the carried spine fit
+
+`fitsFrom_iff_frames` needs entry EQUALITY at every position; the pin
+arm's equality holds at the carrier only and goes through
+`real_dom_eq`, which wants the container's prefix as a `SpineFit` of
+the REAL domains — which the old lemma did not carry.  Two twins
+(`fitsFrom_iff_frames_spine`/`fitsFrom_imp_frames_spine`) carry
+`SpineFit ρ (Fs.take l) fs₁` along, extended at each position by the
+entry's inclusion in its real domain (`real_dom_eq` at a recursive
+position, `rfl` at an ordinary one).  `CopyCtorInst.fit_iff_at` (at
+`Y = LJ`, an iff: member target by `recF` + `slotSet_instTele`; pin
+target by `real_dom_eq` + `pinF`; ordinary by `ordF`) and
+`CopyCtorInst.fit_imp` (at `Y ≤ LJ`, container → copy: the slots by
+`slotAt_mono` into the carrier's, then as at the carrier).  Both need
+the container TYPED — `FormersTyped`/`PinsTyped m dJ ψJ` — so
+`ContainerModeled.typed` is now the triple `FormersTyped ∧ CtorsTyped ∧
+PinsTyped` (true of every block model this checker builds: the pins'
+records are the containers' readings, `acval_memType` + the
+same-universe rule; `nestedBlockReps_of` proves the same triple of the
+block), `NestedPinGroupSyn`/`NestedPinGroup` gain `pinsTyped` (read off
+`ContainerModeled`, PROVED) and `kpos : 0 < kJ` (the group's size,
+`hkpos` at the construction; `PinsTyped.crossEnv` needs a member to
+reach `pinsFound`, hence `ContainerModeled.crossEnv (hk : 0 < d.k)`).
+Then `hfit_at_of_inst`/`hfit_le_of_inst`, `ofNested_pin_block_of_inst`
+and `ofNested_pinLeaf_of` WITHOUT `hnp`, with `hfT hPT`
+(`ofNested_pinLeaf_of_one_pin`: the `P4` shape — `kJ = 1`, the
+container's pin list `[pJ]` — the instance `hnp` excluded, derived from
+the general statement with nothing else, the block-model-level check).
+`nestedPinLeaf_of` passes `G.typed`/`G.pinsTyped`.
+
+##### (e) SHARED HUNKS (for integration 2)
+
+* `NestedFit.lean`: `CopyCtorInst.recF` (+ hypothesis `dJ.tgts i j l <
+  dJ.k`), `pinF` (new arm) — L-B's `NestedPinsIdent` is stated through
+  `CopyCtorInst`; `fitsFrom_iff_frames` kept (NestedCore uses it);
+  `hfit_of_inst`/`CopyCtorInst.fit_iff`/`hfit_of_inst_one` replaced by
+  the `_at`/`_imp`/`_one_pin` forms.
+* `DeclNestedCore.lean`: `ContainerModeled.typed` a triple (`.2` →
+  `.2.1` at every reader; `PinsTyped` at `.2.2`).
+* `NestedCore.lean`: `NestedPinGroup` −`noPins` +`kpos` +`pinsTyped`;
+  `nestedPinLeaf_of`'s call.  `NestedLoop.lean`:
+  `NestedPinGroup.crossEnv` likewise.
+* `NestedPins.lean`: `NestedPinGroupSyn` +`kpos` +`pinsTyped`,
+  `NestedPinGroupIds` −`noPins`, `ofParts`, the construction (`hkpos`,
+  `(CM.typed ψ).2.2`), `ContainerModeled.crossEnv (hk)` and its call,
+  `NestedPinsFix` DELETED, `nestedPinsStaged_of` without `hFix` (U-20
+  on the lane branch discharged `hS` in the same signature: the merge
+  keeps `hU hId` only).
+* `BlockRepCross.lean`: `PinsTyped.crossEnv` (new).
+* `BlockComposed.lean`: `ofNested_pin_block_at`/`_of_fit_at` (new),
+  `ofNested_pin_block`/`_of_fit` deleted.
+* `scripts/pub-import-plan.py`: U-20's FALLBACK hunk (NestedPins →
+  NestedLoop, NestedTransfer → EraseAnnots) copied verbatim — the gate
+  flags the first on this base too.
+
+##### (f) GATES AND COST
+
+`lake build` warning-free; `lake test` warning-free EXIT 0; layering
+335/244/3/1, 0/0; overview-links 112; quote-gate 2; no-local-paths OK;
+proofdeps 4955/12/0 UNCHANGED; trust surface 13 in 5; shake 500
+allowlisted, pub-imports none demotable (31 fallbacks); axioms of
+`nestedPinsStaged_of`, `ofNested_pinLeaf_of`, `lfpTuple_seg_congr_at`,
+`CopyCtorInst.fit_imp`: `propext, Classical.choice, Quot.sound`.  Cost:
+one session (pure twin ~80 lines; NestedFit +410 net; the rest
+plumbing); §U.18 (e)'s "1–2 sessions" held, the clause and the
+induction both turning out unnecessary at this tier.  Lean traps: a
+`fun i => (D).idx …` under `InTupleSpace` is a beta-redex `rw` will not
+see (`show` first); `subst hkJ` with `hkJ : dJ.k = kJ` eliminates the
+variable `kJ` and is the cleanest way to align `lfpTuple_mem`'s arity
+with the group's.
