@@ -75511,15 +75511,33 @@ the model reads.
 
 ##### (d) THE CASED BODY'S SEMANTICS TWIN — `ConLeche/Semantics/Tower/CaseFamI.lean`
 
-Started this session in an Opus lane (the definitions above and the
-mirrors of `fixStepI_univ`, `caseFamFI_app`, `caseFunVI_app`,
-`caseFunAVI_facts`, `caseBodyAVI_facts`, `caseStepI_mono`,
-`caseFunVI_mono/_maps`, `caseStepI_elim/_intro/_zero_elim`,
-`caseFamI_app_eq` with the closed family an explicit hypothesis); the
-outcome is recorded in the session's memory note and SIGNATURE, and
-the file joins the build graph with M6 s4's re-base (it is not
-imported yet).  Not started: the (W) wrapper, the re-base, the tag
-sites.
+BUILT this session (Opus lane, ~10 minutes; 563 lines, on the
+Semantics root, nothing dropped): `caseChains` (member `m`'s suffix
+of the global chain list, `caseChains_getElem?` = the suffix-to-global
+index shift), `caseTag` (`natIdx (sfst (sfst t))`), `caseBodies`,
+`caseFunAVI`/`caseBodyAVI` (the terms), `caseStepI`/`caseFamFI`/
+`caseFunVI`/`caseFamI` (the semantics), and the laws: the index
+tuple's decomposition `caseTag_of_mem` (`t = mkTower [inj m (mkTower
+(is ++ [pt]))]`, `caseTag t = m`, the spine fits member `m`'s
+telescope), the discriminant's reading and grading `caseDisc_facts`
+(both `.fst` clauses at `u = v = W`: `idxSet W ρp (auxIds W Idss)` IS
+`sigmaSet W (tagSet …) (fun _ => unitSet)` definitionally —
+`idxSet_auxIds_eq` — and the tag set a Σ over `omega`,
+`natFibre_uChains_univ`), `caseChains_okB` (the suffix graded from the
+global premise), `caseStepI_univ`, `caseFamFI_mem/_app`,
+`caseFunVI_mem/_app`, `caseBody_facts` (the selector picks member
+`caseTag t`'s sum: `selFibre_range`), `caseFunAVI_facts`,
+`caseBodyAVI_facts` (value = `caseFamI`, membership, grading — the
+`lfpFam` application typed as in `fixBodyAVI_facts`), `caseStepI_mono`
+(from `XChainsOk`'s `hI`/`hfit` at the global list, as predicted),
+`caseFamFI_le`, `caseFunVI_mono`, `caseFunVI_maps`, `caseStepI_intro`,
+**`caseStepI_elim`** (`x = inj j (mkTower (fs ++ [pt]))` with `j`
+LOCAL and the chain `offs.getD (caseTag t) 0 + j`), `caseStepI_zero_elim`,
+`caseFamI_app_eq` (the fixed point, the closed family an explicit
+hypothesis).  The premise is the EXISTING `FixChainsOkI`/`XChainsOk`
+at the global list plus `TagOk` and `Idss.length = k` — nothing new
+to establish upstream.  Not started: the (W) wrapper (`hclosed` for
+`caseFunVI`), the seal's re-base, the tag sites — M6 s4.
 
 ##### (e) THE GAPS — §U.14 (f) revised
 
@@ -75572,18 +75590,25 @@ sites.
    first, restate the membership at the raw index set; an
    `@[expose] def` in a `public section` file with `CtorsTyped` in its
    statement needs `BlockRecWD` imported publicly (`BlockRecKit` has
-   only `FormersTyped`/`PinsTyped`); the `do`-block `containerInfo?`
+   only `FormersTyped`/`PinsTyped`), and `EnvModelM` then reaches the
+   statements through that closure — the shake gate first demoted the
+   file's `public import EnvModelM` (the fixpoint moved when `CaseFamI`
+   joined the graph, finding 6 of §U.14 again) and then proposed the
+   private line's removal, clean under the `--only` criterion (the
+   floor plus the one removal), so it is gone; the `do`-block `containerInfo?`
    inverts by `cases` on `env.find?` then on the constant with
    `simp [bind, Option.bind]` on the non-`indInfo` arms.
 
 ##### (g) GATES
 
-`lake build` 639 jobs warning-free (was 638: `DeclNestedCore`), `lake
-test` and the file gates as recorded in the session's memory note
-(layering base 321 / model 235 / caps 3 / umbrella 1, 0 base→lane, 0
-impl→theory; trust surface 13 escapes in 5 allowlisted files (571
-scanned); overview-links 112; quote-gate 2; no-local-paths OK; shake
-and proofdeps at the end of the session).
+`lake build` 640 jobs warning-free (was 638: `DeclNestedCore`,
+`CaseFamI`), `lake test` warning-free EXIT 0; layering base 321 /
+model 235 / caps 3 / umbrella 1, 0 base→lane, 0 impl→theory; trust
+surface 13 escapes in 5 allowlisted files; overview-links 112;
+quote-gate 2; no-local-paths OK; proofdeps 4915 rows across 12 roots,
+0 doors; shake 494 removals all allowlisted, pub-imports none demotable
+(19 fallbacks) — as re-run after the second commit (the session's
+memory note records the final numbers).
 
 ##### (h) RE-SIZING
 

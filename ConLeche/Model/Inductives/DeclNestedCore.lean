@@ -2,7 +2,6 @@ module
 
 public import ConLeche.Semantics.Inductives.DeclNested
 public import ConLeche.Model.Inductives.BlockRecWD
-public import ConLeche.Model.Annot.EnvModelM
 public section
 
 /-!
