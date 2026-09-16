@@ -65,6 +65,15 @@ structure AuxType where
   type : Expr
   /-- the constructors: name, type, field count -/
   ctors : List (Name × Expr × Nat)
+  /-- **The SOURCE of a minted copy** (task #315 K.28): the container
+  member this type copies, the level instantiation and the pin's
+  components — `(J.name, lvls, Ds)`, as `mkCopy` was called.  `none` at
+  the block's OWN members, which the elimination does not mint.  It is
+  recorded rather than recovered because recovering it is an inversion
+  of `mkCopies` the proof tier does not have; the run relation carries
+  a Bool saying the type IS `mkCopy`'s output at this source, so the
+  model reads the copy-instantiation identities off the record. -/
+  src : Option (Name × List Level × List Expr) := none
   deriving Repr, Inhabited
 
 /-- A mimic: the auxiliary type's name, the container member it copies,
@@ -140,7 +149,7 @@ def mkCopy (pbs : List (Expr × BinderMeta)) (lvls : List Level)
     let some cI := Expr.instPis (Expr.instantiateLevelParams J.lps lvls c.type) Ds
       | .error (.invalid "invalid nested inductive datatype, ill-formed declaration")
     pure (Name.replacePrefix J.name auxName c.name, closeTelescope pbs 0 cI, c.nFields)
-  pure ⟨auxName, closeTelescope pbs 0 tyI, cs⟩
+  pure ⟨auxName, closeTelescope pbs 0 tyI, cs, some (J.name, lvls, Ds)⟩
 
 /-- **Official's `mk_unique_name`**: `base` with the running counter
 appended, the counter advanced until the name is free in the PRE-BLOCK

@@ -350,6 +350,10 @@ def checkNestedS (fe : FEnv) (p : NestedParts) : CheckCM FEnv := do
   nestedPinsOk (sharedOpsC mode feAux) feAux.env p.nP st.pins
   unless members.all (fun a => !a.caps.eta && (fe.find? a.cvTa.name).isNone) do
     throw (.internal "nested: a restored former is not a fresh non-eta family")
+  -- the copies' sources (K.28), as in the pure route
+  unless nestedCopySrcOk fe.env p st do
+    throw (.internal "nested: a minted auxiliary type is not the copy of the container \
+      it records")
   -- the field kinds at the pins (§U.1 (c) fact 6), as in the pure route
   unless nestedPinKindsOk p b st stored do
     throw (.internal "nested: a stored field at a pin is not classified ordinary, \

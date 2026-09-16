@@ -74736,3 +74736,51 @@ plain check.
 argument are kept in `_tmp/uniform-m5/`; `Expr.absConstAt`/
 `absMembersGo` live on `agent/direct-nested` in
 `Model/Inductives/DirectSlot.lean` and were NOT moved to the kernel.
+
+#### K.28 — the copies' SOURCES, recorded (2026-09-16, task #315 M6, the model lane's DESIGN §U.17 (g) 3)
+
+The model's discharge of the copy-instantiation identities
+(`CopyCtorInst`, `hidx`, `hgrp`) needs to know which container member,
+at which level instantiation and which components, each minted copy
+came from.  In the kernel that is true by construction; in
+`Verify/Inductives/` it is a theorem nobody has, because getting it
+means inverting `elimNested`/`mkCopies` through the replacement loop —
+the existing identities (`nestedCopyFormerType_eq`,
+`nestedCopyCtorType_eq`) start at `st.types`, i.e. AFTER the mint.  So
+the kernel records it: **recorded, never inferred**.
+
+**The record.**  `AuxType.src : Option (Name × List Level × List Expr)`,
+set by `mkCopy` to `(J.name, lvls, Ds)` and `none` at the block's own
+members (which are not minted).  One Bool conjunct,
+`nestedCopySrcOk env p st = true`, in both routes and in the run
+relation: at every pin `q` the pin is `J.{lvls} Ds`, the container's
+group is `containerInfo? env J.name`'s, and `st.types[k + q]` is what
+`mkCopy pbs lvls Ds aux J` minted — `pbs` being the block's first
+former's parameter binders (premise B, K.8), derived inside the Bool
+from `st.types.head?` so the conjunct needs no extra witness.
+`.internal` on failure.
+
+**A FINDING, and the reason the Bool stops where it does.**  The first
+version compared the minted constructors WHOLE (`c.ctors == t.ctors`)
+and **fired at 23 of the 26 shadow fixtures**.  It is not a corner
+case: a minted body is `mkCopy`'s only until `replaceAllNested` runs
+over it, and that pass rewrites every nested occurrence inside it into
+an aux name — INCLUDING the container's own recursive occurrences, so
+`List`'s copy has its `cons` tail rewritten to the copy's own name.
+The bodies therefore differ at essentially every copy.  What the Bool
+certifies is what no later pass touches: the pin's shape, the former's
+telescope-closed TYPE, and the constructors' NAMES and field counts.
+What the model gets is the PRE-IMAGE — the source, certified, from
+which `mkCopy`'s output is a computation it can perform itself — which
+is item (a) of §U.17 (g) 3's chain; item (c), `replaceAllNested`'s
+action on those bodies, is untouched by this record and stays the
+model's, and it is bigger than (g) 3 suggested: every copy's every
+recursive field is rewritten, not just the cross-container ones.
+
+**Gates.**  `lake build`/`lake test` exit 0 warning-free; nested-shadow
+**26/26**; the Mathlib nested cone exit 0, **4 926 accepted** with its
+41 shadow lines byte-identical to the run before K.28.  Negative
+control: `&& false` inside the `mkCopy` comparison turns 23 of the 26
+fixtures into `nested: a minted auxiliary type is not the copy of the
+container it records`, so the comparison is reached at every fixture
+that gets that far.

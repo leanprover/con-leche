@@ -879,6 +879,10 @@ theorem checkNested_inv {env envOut : Env} {p : NestedParts} {F : Nat}
       -- the restored formers are fresh and carry no η bit (K.20)
       (stored.take p.k).all (fun a => !a.caps.eta && (env.find? a.cvTa.name).isNone)
         = true ∧
+      -- THE COPIES' SOURCES (K.28): every minted auxiliary type is
+      -- `mkCopy`'s output at the `(J, lvls, Ds)` it records, so the
+      -- copy-instantiation identities are a field read
+      nestedCopySrcOk env p st = true ∧
       -- THE FIELD KINDS (K.26): the auxiliary block's stored fields are
       -- classified `.ordinary`, `.recursive` or `.reflexive`, and
       -- `nestedPinKinds p b stored` is that classification
@@ -997,6 +1001,10 @@ theorem checkNested_inv {env envOut : Env} {p : NestedParts} {F : Nat}
   case neg => rw [if_neg hcaps] at h; close_throw
   rw [if_pos hcaps] at h
   try simp only [bind, Except.bind] at h
+  by_cases hsrc : nestedCopySrcOk env p st = true
+  case neg => rw [if_neg hsrc] at h; close_throw
+  rw [if_pos hsrc] at h
+  try simp only [bind, Except.bind] at h
   by_cases hkd : nestedPinKindsOk p b st stored = true
   case neg => rw [if_neg hkd] at h; close_throw
   rw [if_pos hkd] at h
@@ -1026,7 +1034,7 @@ theorem checkNested_inv {env envOut : Env} {p : NestedParts} {F : Nat}
   subst henv
   exact ⟨st, b, envAux, stored, ctorsR, cvRms, cvRns, rulesM, rulesN, fmsA, ctorsA,
     hfmsA, hctorsA, helim', beq_iff_eq.mp hcnt, hfresh, hcont, hb', haux, hst', hpc,
-    (by cases uA; exact hpinsAux), hcaps, hkd, hctors, hrm, hrn, hrlm, hrln, htbl,
+    (by cases uA; exact hpinsAux), hcaps, hsrc, hkd, hctors, hrm, hrn, hrlm, hrln, htbl,
     (by cases u₀; exact hpins), hlen, by cases u₁; exact hrecs⟩
 
 end ConLeche
