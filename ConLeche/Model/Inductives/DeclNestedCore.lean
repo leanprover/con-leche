@@ -73,8 +73,8 @@ structure ContainerModeled {env : Env} (m : EnvModel V env) (ci : ContainerInfo)
   nP : d.nP = ci.nP
   /-- the block at every member -/
   reps : IsBlockModels m d
-  /-- the members and constructors typed -/
-  typed : ∀ ψ : Name → Nat, FormersTyped m d ψ ∧ CtorsTyped m d ψ
+  /-- the members, constructors and pins typed -/
+  typed : ∀ ψ : Name → Nat, FormersTyped m d ψ ∧ CtorsTyped m d ψ ∧ PinsTyped m d ψ
   /-- the injections are the tagged towers at the member-local positions -/
   inj : ∀ (ψ : Name → Nat) (mm' j : Nat) (fs : List V),
     d.inj ψ mm' j fs = injW (d.w ψ) j (mkTower (fs ++ [pt]))
@@ -188,7 +188,14 @@ Consumer: `declNested_of`. -/
     (stored.take p.k).all (fun a => !a.caps.eta && (env.find? a.cvTa.name).isNone) = true →
     ConLeche.nestedCopySrcOk env p st = true →
     ConLeche.nestedGroupsOk env p st = true →
+    -- THE PINS' SCOPE (K.30): every pin's free variables are the first
+    -- former's openers, annotation included, and no loose bvar
+    ConLeche.pinsScoped p.nP st = true →
     ConLeche.nestedPinKindsOk p b st stored = true →
+    -- POST-CHECK (a) A THIRD TIME (K.30): the pins typed at the
+    -- environment holding the RESTORED formers
+    ConLeche.nestedPinsOk (m := ConLeche.CheckM) (fueledOps μ F)
+      (ConLeche.consNestedFormers (stored.take p.k) env) p.nP st.pins = .ok () →
     (stored.take p.k).mapM (fun a =>
         ConLeche.restoreCtors (m := ConLeche.CheckM) (fueledOps μ F)
           (ConLeche.consNestedFormers (stored.take p.k) env) (ConLeche.restoreTbl p st) p.lps
@@ -322,11 +329,13 @@ theorem declNested_of (hμ : μ.verifiedChecks = true) {F : Nat} {env envOut : E
     Nonempty (EnvModelM V μ envOut) := by
   obtain ⟨h0, h1, st, b, envAux, stored, ctorsR, cvRms, cvRns, rulesM, rulesN, fmsA, ctorsA,
     hfA, hcA, helim, hcount, hfresh, hcont, hb, haux, hstored, hclosed, hpinsAux, hcaps, hsrc,
-    hgrp, hkinds, hctors, hrm, hrn, hrulesM, hrulesN, htbl, hpinsOut, hcnt, hrecs⟩ := h
+    -, hgrp, hsc, hkinds, hpins₁, hctors, hrm, hrn, hrulesM, hrulesN, htbl, hpinsOut, hcnt, hrecs⟩ := h
+  -- the `-` after `hsrc` is K.31's `pinsDistinct` conjunct: named for the
+  -- identities' discharge (`NestedPinsIdent`, lane L-B), not consumed here
   have hPM : PinsModeled mp.base2 st.pins := pinsModeled_of_env hpins hcont
   obtain ⟨mp₂, hag, d, hd, hreps, htyped⟩ := hcore hμ mp hE p st b envAux stored ctorsR fmsA ctorsA
-    hPM h0 h1 hfA hcA helim hcount hfresh hcont hb haux hstored hclosed hpinsAux hcaps hsrc hgrp hkinds
-    hctors
+    hPM h0 h1 hfA hcA helim hcount hfresh hcont hb haux hstored hclosed hpinsAux hcaps hsrc hgrp hsc
+    hkinds hpins₁ hctors
   exact htail hμ mp hE p envOut st b envAux stored ctorsR cvRms cvRns rulesM rulesN fmsA ctorsA
     hPM h0 h1 hfA hcA helim hcount hfresh hcont hb haux hstored hclosed hpinsAux hcaps hsrc hgrp hkinds
     hctors hrm hrn hrulesM hrulesN htbl hpinsOut hcnt hrecs mp₂ d hag hd hreps htyped

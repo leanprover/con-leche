@@ -29,7 +29,9 @@ constructors as the members' constructors, holds at every member
   nested arm's `BlockCtorData`, DESIGN §U.18 (c));
 * the pins' groups (`NestedPinGroup`, NAMED — the container's block
   model at the group, the copy-instantiation identities of K.28's
-  pre-image, the index-universe agreement `hu` of §U.17 (g) 1).
+  pre-image; the pins' recorded index universes are the containers'
+  own, `pinU`, DESIGN §U.22 — the per-component index universes inside
+  the seal closed §U.17 (g) 1's gap).
 
 Every clause of `IsBlockModel` is then discharged here: the operator's
 laws through `BlockComposed`, `pinLeaf` through `ofNested_pinLeaf_of`
@@ -173,31 +175,35 @@ local notation "D" => (nestedBlockModel (V := V) p b fms f₀ ctorsA kinds env p
 
 /-- **A pin group's facts** (NAMED, DESIGN §U.18 (d)): the copies
 `[q₀, q₀ + kJ)` of the auxiliary block are the members of ONE
-pin-free container block model `dJ` at the model `m` of the restored
-environment — `IsBlockModel` at every member (the pins' records
-naming those members), typed, with the member-local tag shape — and
-the copy-instantiation identities of K.28's pre-image at every
-constructor of the group (`CopyCtorInst`, the index telescopes, the
-constructor counts, the components' fit), the same-universe fact `w`
-and the index-universe agreement `u` (§U.17 (g) 1, M6 s7). -/
+container block model `dJ` at the model `m` of the restored
+environment — its pin list FREE (a container that is itself nested,
+task #315 L-C, DESIGN §U.24) — `IsBlockModel` at every member (the
+pins' records naming those members), its members and pins typed, with
+the member-local tag shape — and the copy-instantiation identities of
+K.28's pre-image at every constructor of the group (`CopyCtorInst`,
+the index telescopes, the constructor counts, the components' fit),
+the same-universe fact `w` and the pins' recorded index universes
+`pinU` — each the container's own, at the group's level assignment
+(§U.22; the agreement `u` of §U.17 (g) 1 is gone with the uniform
+universe it compared). -/
 structure NestedPinGroup (m : EnvModel V env₂) (q₀ kJ : Nat) (dJ : BlockModel V) : Prop where
   seg : q₀ + kJ ≤ pinsS.length
+  kpos : 0 < kJ
   reps : IsBlockModels m dJ
-  noPins : dJ.pins = []
   kEq : dJ.k = kJ
   rep : ∀ i, i < kJ → ∃ (cvT cvR : ConstantVal) (mI rP : Nat) (rules : List RecRule),
     IsBlockModel m ((D).pinAt (q₀ + i)).J cvT cvR mI rP rules dJ i
   typed : ∀ ψ : Name → Nat, FormersTyped m dJ ψ
+  pinsTyped : ∀ ψ : Name → Nat, PinsTyped m dJ ψ
   inj : ∀ (ψJ : Name → Nat) (mm' j : Nat) (fs : List V),
     dJ.inj ψJ mm' j fs = injW (dJ.w ψJ) j (mkTower (fs ++ [pt]))
-  pinU : ∀ i, i < kJ → ∀ ψ : Name → Nat, ((D).pinAt (q₀ + i)).u ψ = W ψ
+  pinU : ∀ i, i < kJ → ∀ (ψ : Name → Nat) (i' : Nat), i' < kJ →
+    ((D).pinAt (q₀ + i')).u ψ = dJ.uM i' (((D).pinAt (q₀ + i)).ψJ ψ)
   pinNP : ∀ i, i < kJ → ((D).pinAt (q₀ + i)).nPJ = dJ.nP
   pinNIdx : ∀ i, i < kJ → ((D).pinAt (q₀ + i)).nIdx = dJ.nIdxAt i
   pinPps : ∀ i, i < kJ → ((D).pinAt (q₀ + i)).pps = dJ.ppsM i
   pinDsLen : ∀ i, i < kJ → ∀ ψ : Name → Nat, (((D).pinAt (q₀ + i)).Ds ψ).length = dJ.nP
   w : ∀ i, i < kJ → ∀ ψ : Name → Nat, dJ.w (((D).pinAt (q₀ + i)).ψJ ψ) = f₀.s.eval ψ
-  u : ∀ i, i < kJ → ∀ (ψ : Name → Nat) (i' : Nat), i' < kJ →
-    (W ψ = 0 ↔ dJ.uM i' (((D).pinAt (q₀ + i)).ψJ ψ) = 0)
   idx : ∀ i, i < kJ → ∀ (ψ : Name → Nat) (i' : Nat), i' < kJ →
     blockIds b.nP ppsF ψ (p.k + q₀ + i')
       = instTele (((D).pinAt (q₀ + i)).Ds ψ) 0 (dJ.IdsM i' (((D).pinAt (q₀ + i)).ψJ ψ))
@@ -337,12 +343,57 @@ local notation "PG" => NestedPinGroup (V := V) (p := p) (b := b) (fms := fms) (f
   (dsF := dsF) (esF := esF) (srcsF := srcsF) (fvsPF := fvsPF) (xrestF := xrestF) (eissF := eissF)
   (tssF := tssF) (ctorsR := ctorsR) (dsR := dsR) (xFvsR := xFvsR) (pinsS := pinsS)
 
+/-- A frame satisfying the block's parameters is a fitting spine over a
+base (`satOfSpine`'s converse). -/
+theorem spineOfSat_params (d : BlockModel V) {ψ : Name → Nat} {ρp : Nat → V}
+    (h : Sat V (d.params ψ).reverse ρp) :
+    ∃ (ρ : Nat → V) (as : List V), ρp = consList as ρ ∧ SpineFit ρ (d.params ψ) as := by
+  refine ⟨fun i => ρp (i + (d.params ψ).length), (List.range (d.params ψ).length).reverse.map ρp,
+    (consList_range_reverse _ _).symm, ?_⟩
+  exact spineFit_of_sat (Δ₀ := []) (Ds := d.params ψ) (ρ := ρp) (by rw [List.append_nil]; exact h)
+
+/-- **A pin's recorded universe is its group's component's**: the
+block model's `nestedU` at the pin's component is the pin record's
+`u`, which the group says is the container's (`pinU`). -/
+theorem nestedU_pin_group (m : EnvModel V env₂) {q₀ kJ i : Nat} {dJ : BlockModel V}
+    (G : PG m q₀ kJ dJ) (hi : i < kJ) (ψ : Name → Nat) :
+    ∀ i', i' < kJ →
+      nestedU p.k W pinsS ψ (p.k + q₀ + i') = dJ.uM i' (((D).pinAt (q₀ + i)).ψJ ψ) := by
+  intro i' hi'
+  rw [Nat.add_assoc, nestedU_pin]
+  exact G.pinU i hi ψ i' hi'
+
+/-- **The pins' index telescopes at the squash regime are bounded**: a
+pin whose container's index universe is `0` has its copy's index
+telescope a list of truth values at the block's frame — the
+container's `idxOk` at the pin's frame (the components fit, `DsFit`),
+transported along the instantiation identity `idx`
+(`fieldsBound_instTele`).  What `NestedLfpOk`'s per-component premise
+asks beyond the auxiliary block's uniform one (DESIGN §U.22). -/
+theorem nestedPinBound_of (m : EnvModel V env₂)
+    (hgroups : ∀ q, q < pinsS.length → ∃ (q₀ kJ i : Nat) (dJ : BlockModel V),
+      q = q₀ + i ∧ i < kJ ∧ PG m q₀ kJ dJ)
+    (ψ : Name → Nat) (ρp : Nat → V) (hρp : Sat V ((D).params ψ).reverse ρp) :
+    ∀ q, q < pinsS.length → ((D).pinAt q).u ψ = 0 →
+      FieldsBound 0 ρp (blockIds b.nP ppsF ψ (p.k + q)) := by
+  intro q hq hz
+  obtain ⟨q₀, kJ, i, dJ, rfl, hi, G⟩ := hgroups q hq
+  obtain ⟨cvT, cvR, mI, rP, rules, hI⟩ := G.rep i hi
+  obtain ⟨ρ, as, rfl, hsp⟩ := spineOfSat_params (D) hρp
+  have hDsFit := G.DsFit i hi ψ ρ as hsp
+  have hJ := (hI.idxOk _ _ (dJ.satOfSpine hDsFit) i (G.kEq ▸ hi)).2
+  rw [← G.pinU i hi ψ i hi, hz] at hJ
+  rw [← Nat.add_assoc, G.idx i hi ψ i hi]
+  have := (fieldsBound_instTele 0 (((D).pinAt (q₀ + i)).Ds ψ) (consList as ρ)
+    (dJ.IdsM i (((D).pinAt (q₀ + i)).ψJ ψ)) []).mpr (by simpa only [consList_nil] using hJ)
+  simpa only [consList_nil, List.length_nil] using this
+
 /-- **`pinLeaf` as a fact of the block model**, at ANY model carrying the
 groups (`nestedBlockReps_of` reads it at the run's model; the
 constructors' loop needs it at every intermediate one): the pin's
 container read at its components and index spine is the pin's
-component of the block's least fixed point, at the tower of the
-spine. -/
+component of the block's least fixed point, at the tuple of the
+spine at the pin's own index universe. -/
 theorem nestedPinLeaf_of (hμ : μ.verifiedChecks = true)
     (h : MutualFormersFacts V F g mp b fms f₀ ctorsA sortss kinds mp₁ ppsF W idxF dsF esF srcsF
       fvsPF xFvsF xrestF eissF tssF)
@@ -363,11 +414,12 @@ theorem nestedPinLeaf_of (hμ : μ.verifiedChecks = true)
   obtain ⟨q₀, kJ, i, dJ, rfl, hi, G⟩ := hgroups q hq
   obtain ⟨cvT, cvR, mI, rP, rules, hI⟩ := G.rep i hi
   have hρp : Sat V ((D).params ψ).reverse (consList as ρ) := (D).satOfSpine hsp
-  exact ofNested_pinLeaf_of hI (nestedLfpOk_of_formers h hμ hbk ψ (consList as ρ) hρp)
-    (nestedShape_of_formers h hbk ψ) G.seg hi G.reps G.noPins
-    G.kEq (G.w i hi ψ) (G.u i hi ψ) (G.inj _) (G.idx i hi ψ)
+  exact ofNested_pinLeaf_of hI
+    (nestedLfpOk_of_formers h hμ hbk ψ (consList as ρ) hρp (nestedPinBound_of m hgroups ψ _ hρp))
+    (nestedShape_of_formers h hbk ψ) G.seg hi G.reps (G.typed _) (G.pinsTyped _)
+    G.kEq (G.w i hi ψ) (nestedU_pin_group m G hi ψ) (G.inj _) (G.idx i hi ψ)
     (fun i' hi' j => G.grp h3 h.lenA ψ hi' j)
-    (G.inst i hi ψ _ hρp) rfl rfl rfl (G.pinU i hi ψ) (G.pinIds hi ψ) (G.DsFit i hi ψ ρ as hsp)
+    (G.inst i hi ψ _ hρp) rfl rfl rfl (G.pinIds hi ψ) (G.DsFit i hi ψ ρ as hsp)
     hisFit
 
 /-- **The nested-entry identity**, at ANY model carrying the groups: the
@@ -418,7 +470,7 @@ theorem nestedIdent_of (hμ : μ.verifiedChecks = true)
   have hρp : Sat V ((D).params ψ).reverse (consList as ρ) := (D).satOfSpine hsp
   have hlenAs : as.length = b.nP := by rw [hsp.length_eq, hplen]
   have hOk' := nestedLfpOk_of_formers h hμ hbk ψ (consList as ρ) hρp
-  have hWpos : W ψ ≠ 0 := TupleLfpOk.W_pos hOk'
+    (nestedPinBound_of m hgroups ψ _ hρp)
   have hEl' : Eis.length = dJ.nIdxAt i := by rw [hEl, G.pinNIdx i hi]
   have htgt : p.k + q₀ + i < p.k + pinsS.length := by omega
   have htl : p.k + q₀ + i < fms.length := by rw [← hkT, hbk]; exact htgt
@@ -444,14 +496,14 @@ theorem nestedIdent_of (hμ : μ.verifiedChecks = true)
       (lfpTuple ((D).w ψ) (D).k ((D).idx ψ (consList as ρ)) ((D).Φ ψ (consList as ρ)))
       (q₀ + i)
     = lfpTuple ((D).w ψ) (p.k + pinsS.length) ((D).idx ψ (consList as ρ))
-      (nestedΨ (V := V) b.nP p.k pinsS.length f₀.s ppsF W b.ownOffset
+      (nestedΨ (V := V) b.nP p.k f₀.s ppsF W pinsS b.ownOffset
         (mutMems ctorsA.length (mutMemF b)) (mutNFs ctorsA.length (mutNFOf ctorsA))
         (mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)) (blkRss ctorsA kinds)
         (fun ψ => mutTlss ctorsA.length tssF ψ) (fun ψ => mutEiss0 ctorsA.length eissF ψ)
         (fun ψ => blkFss0 b ctorsA kinds dsF ψ) (fun ψ => mutEss0 ctorsA.length esF ψ)
         ψ (consList as ρ)) (p.k + (q₀ + i)) :=
     ofNested_pinCar_lfp hOk' (by show q₀ + i < pinsS.length; omega)
-  rw [hPL, G.pinU i hi ψ, tupW_pos hWpos, hpc]
+  rw [hPL, hpc]
   -- the right side: the copy's leaf at the auxiliary carrier
   unfold mutMemberLeaf
   rw [interp_mkAppN_foldl, List.map_append,
@@ -484,10 +536,11 @@ theorem nestedIdent_of (hμ : μ.verifiedChecks = true)
   rw [← hnI,
     show mutRss ctorsA.length (mutKsOf kinds) = blkRss ctorsA kinds from rfl,
     show mutFss0 b.nP ctorsA.length dsF (mutKsOf kinds) (mutNFOf ctorsA) ψ
-      = blkFss0 b ctorsA kinds dsF ψ from rfl]
-  rw [tupleLfpAV_fold (by rw [hbk]; exact htgt) (h.tupleOk hμ ψ (consList as ρ) hρp) rfl
-    hsp_t hi_t]
-  rw [hbk, ← Nat.add_assoc]
+      = blkFss0 b ctorsA kinds dsF ψ from rfl, hbk]
+  -- the copy's leaf read at the PER-COMPONENT index sets: the one term, the nested premise
+  have hu : nestedU p.k W pinsS ψ (p.k + q₀ + i) = ((D).pinAt (q₀ + i)).u ψ := by
+    rw [Nat.add_assoc]; exact nestedU_pin p.k W pinsS ψ (q₀ + i)
+  rw [tupleLfpAV_fold htgt hOk' rfl hsp_t hi_t, ← Nat.add_assoc, hu]
   rfl
 
 /-- **The nested block's block model at the restored environment, at
@@ -632,7 +685,8 @@ theorem nestedBlockReps_of (hμ : μ.verifiedChecks = true)
         (Eiss₀ := fun ψ => mutEiss0 ctorsA.length eissF ψ)
         (Fss₀ := fun ψ => blkFss0 b ctorsA kinds dsF ψ)
         (Ess₀ := fun ψ => mutEss0 ctorsA.length esF ψ) ψ ρp :=
-    fun ψ ρp hρp => nestedLfpOk_of_formers h hμ hbk ψ ρp hρp
+    fun ψ ρp hρp =>
+      nestedLfpOk_of_formers h hμ hbk ψ ρp hρp (nestedPinBound_of mp₂.base2 hgroups ψ ρp hρp)
   have hS : ∀ ψ : Name → Nat,
       TupleLfpShape (p.k + pinsS.length) (blockIds b.nP ppsF ψ) (mutMems ctorsA.length (mutMemF b))
         (mutNFs ctorsA.length (mutNFOf ctorsA))
@@ -668,14 +722,12 @@ theorem nestedBlockReps_of (hμ : μ.verifiedChecks = true)
     obtain ⟨q₀, kJ, i, dJ, rfl, hi, G⟩ := hgroups q hq
     show idxSet (((D).pinAt (q₀ + i)).u ψ)
         (consList ((((D).pinAt (q₀ + i)).Ds ψ).map (interp V ρp)) ρp) (((D).pinAt (q₀ + i)).Ids ψ)
-      = idxSet (W ψ) ρp (blockIds b.nP ppsF ψ (p.k + (q₀ + i)))
-    rw [G.pinU i hi ψ, G.pinIds hi ψ, ← Nat.add_assoc, G.idx i hi ψ i hi, idxSet_instTele Iff.rfl]
+      = idxSet (nestedU p.k W pinsS ψ (p.k + (q₀ + i))) ρp (blockIds b.nP ppsF ψ (p.k + (q₀ + i)))
+    have hu : nestedU p.k W pinsS ψ (p.k + (q₀ + i)) = ((D).pinAt (q₀ + i)).u ψ :=
+      nestedU_pin p.k W pinsS ψ (q₀ + i)
+    rw [hu, G.pinIds hi ψ, ← Nat.add_assoc, G.idx i hi ψ i hi, idxSet_instTele Iff.rfl]
   -- `pinLeaf`, as a fact of the block model (also read by the constructors' clause)
   have hpinLeaf := nestedPinLeaf_of hμ h h3 hbk mp₂.base2 hgroups
-  have hpinU : ∀ q, q < (D).nPins → ∀ ψ : Name → Nat, ((D).pinAt q).u ψ = W ψ := by
-    intro q hq ψ
-    obtain ⟨q₀, kJ, i, dJ, rfl, hi, G⟩ := hgroups q hq
-    exact G.pinU i hi ψ
   -- a member's constructor: its auxiliary constructor's data
   have hctorData : ∀ (mm j : Nat) (cA : ConstantVal × Nat), mm < p.k →
       ((D).ctorsM mm)[j]? = some cA → ∃ c : ConstantVal × Nat × Nat,
@@ -746,8 +798,11 @@ theorem nestedBlockReps_of (hμ : μ.verifiedChecks = true)
       obtain ⟨-, -, -, -, hres, -⟩ := hctorsR mm' j c hmm' hc
       exact hres e he
     · -- uParams
-      intro mm' _ ψ₁ ψ₂ hφ
+      intro mm' hmm' ψ₁ ψ₂ hφ
       rw [hlpsT] at hφ
+      show nestedU p.k W pinsS ψ₁ mm' = nestedU p.k W pinsS ψ₂ mm'
+      rw [nestedU_mem (k := p.k) (W := W) (pins := pinsS) (ψ := ψ₁) hmm',
+        nestedU_mem (k := p.k) (W := W) (pins := pinsS) (ψ := ψ₂) hmm']
       exact (h.blockOk.params hφ).1
     · -- paramsIff
       intro mm' j cA hmm' hj ψ ρ
@@ -758,6 +813,8 @@ theorem nestedBlockReps_of (hμ : μ.verifiedChecks = true)
       exact hframeC _ _ hJ ψ ρ
     · -- idxOk
       intro ψ ρp hρp mm' hmm'
+      show IdxOk (nestedU p.k W pinsS ψ mm') ρp _
+      rw [nestedU_mem (k := p.k) (W := W) (pins := pinsS) (ψ := ψ) hmm']
       exact TupleLfpOk.idxOk (hOk ψ ρp hρp) (Nat.lt_of_lt_of_le hmm' (Nat.le_add_right _ _))
     · -- functor
       intro ψ ρp hρp
@@ -770,11 +827,13 @@ theorem nestedBlockReps_of (hμ : μ.verifiedChecks = true)
       have hfitJ : ∀ (j : Nat) (cA : ConstantVal × Nat), ((D).ctorsM mm')[j]? = some cA →
           ∀ fs : List V,
           FitsFrom ((blkRss ctorsA kinds).getD (b.ownOffset mm' + j) [])
-              (fun i ρ => slotSet (f₀.s.eval ψ) (W ψ) ρ
+              (fun i ρ => slotSet (f₀.s.eval ψ)
+                (nestedU p.k W pinsS ψ (((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+                  (b.ownOffset mm' + j) []).getD i 0)) ρ
                 (((mutTlss ctorsA.length tssF ψ).getD (b.ownOffset mm' + j) []).getD i [])
                 (((mutEiss0 ctorsA.length eissF ψ).getD (b.ownOffset mm' + j) []).getD i [])
                 (extT (f₀.s.eval ψ) p.k pinsS.length ((D).idx ψ ρp)
-                  (nestedΨ (V := V) b.nP p.k pinsS.length f₀.s ppsF W b.ownOffset
+                  (nestedΨ (V := V) b.nP p.k f₀.s ppsF W pinsS b.ownOffset
                     (mutMems ctorsA.length (mutMemF b)) (mutNFs ctorsA.length (mutNFOf ctorsA))
                     (mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)) (blkRss ctorsA kinds)
                     (fun ψ => mutTlss ctorsA.length tssF ψ) (fun ψ => mutEiss0 ctorsA.length eissF ψ)
@@ -814,13 +873,8 @@ theorem nestedBlockReps_of (hμ : μ.verifiedChecks = true)
             rw [← hbk, hkT]; exact (h.ksJ _ _ hJ).2.2 l
           have hfr : (fun n => consList fs₁ ρp (n + l)) = ρp := by
             funext n; rw [← hl₁]; exact consList_apply_add fs₁ ρp n
-          have huT : (D).uT ((D).tgts mm' j l) ψ = W ψ := by
-            unfold BlockModel.uT
-            split
-            · rfl
-            · rename_i hnlt
-              change ¬ (D).tgts mm' j l < p.k at hnlt
-              exact hpinU _ (by show (D).tgts mm' j l - p.k < pinsS.length; omega) ψ
+          have huT : (D).uT ((D).tgts mm' j l) ψ = nestedU p.k W pinsS ψ ((D).tgts mm' j l) :=
+            ofNested_uT _ _
           show slotSet _ _ _ _ _ _ = slotSet ((D).w ψ) ((D).uT ((D).tgts mm' j l) ψ) (consList fs₁ ρp)
             ((((D).tlss mm' ψ).getD j []).getD l []) ((((D).Eiss mm' ψ).getD j []).getD l [])
             ((D).famAt ψ (fun n => consList fs₁ ρp (n + l)) X ((D).tgts mm' j l))
@@ -1234,7 +1288,14 @@ Consumer: `nestedStageFacts_of` → `nestedCoreModeled_of`. -/
     (stored.take p.k).all (fun a => !a.caps.eta && (env.find? a.cvTa.name).isNone) = true →
     ConLeche.nestedCopySrcOk env p st = true →
     ConLeche.nestedGroupsOk env p st = true →
+    -- THE PINS' SCOPE (K.30): every pin's free variables are the first
+    -- former's openers, annotation included, and no loose bvar
+    ConLeche.pinsScoped p.nP st = true →
     ConLeche.nestedPinKindsOk p b st stored = true →
+    -- POST-CHECK (a) A THIRD TIME (K.30): the pins typed at the prefix
+    -- formers' environment (`consNestedFormers_take_eq`)
+    ConLeche.nestedPinsOk (m := ConLeche.CheckM) (fueledOps μ F)
+      (ConLeche.consMutualFormers (fms.take p.k) env) p.nP st.pins = .ok () →
     -- the auxiliary block's formers' stage, at the scratch run
     ConLeche.mutualFormers (m := ConLeche.CheckM) (fueledOps μ F) b.nP b.formers env true
       = .ok (ConLeche.consMutualFormers fms env, fms) →
@@ -1318,7 +1379,10 @@ theorem nestedStageFacts_of (hst : NestedCtorsStaged V μ F) (hμ : μ.verifiedC
     (hcaps : (stored.take p.k).all (fun a => !a.caps.eta && (env.find? a.cvTa.name).isNone) = true)
     (hsrc : ConLeche.nestedCopySrcOk env p st = true)
     (hgrp : ConLeche.nestedGroupsOk env p st = true)
+    (hsc : ConLeche.pinsScoped p.nP st = true)
     (hkinds : ConLeche.nestedPinKindsOk p b st stored = true)
+    (hpins₁ : ConLeche.nestedPinsOk (m := ConLeche.CheckM) (fueledOps μ F)
+      (ConLeche.consMutualFormers (fms.take p.k) env) p.nP st.pins = .ok ())
     (hnd : b.blockNames.Nodup) (h3 : ConLeche.mutualCtorsGrouped b.ctors = true)
     (hformers : ConLeche.mutualFormers (m := ConLeche.CheckM) (fueledOps μ F) b.nP b.formers env true
       = .ok (ConLeche.consMutualFormers fms env, fms))
@@ -1387,8 +1451,8 @@ theorem nestedStageFacts_of (hst : NestedCtorsStaged V μ F) (hμ : μ.verifiedC
   -- the loop
   obtain ⟨mp₂, dsR, xFvsR, pinsS, L⟩ := hst hμ mp hE p st b envAux stored ctorsR fmsA ctorsA₀ fms f₀
     ctorsA sortss kinds mp₁ ppsF W idxF dsF esF srcsF fvsPF xFvsF xrestF eissF tssF mp₁' hPM h0 h1
-    hfA hcA helim hcount hfresh hcont hb haux hstored hclosed hpinsAux hcaps hsrc hgrp hkinds hformers h
-    hbk h3 hnd hctorsA hleafM' hoff' hfind' hctors
+    hfA hcA helim hcount hfresh hcont hb haux hstored hclosed hpinsAux hcaps hsrc hgrp hsc hkinds hpins₁
+    hformers h hbk h3 hnd hctorsA hleafM' hoff' hfind' hctors
   -- the names
   have hnames : (fms.take p.k).map (·.cvTa.name) = p.memberNames := by
     rw [List.map_take, h.names]
@@ -1482,7 +1546,7 @@ off the elimination, pins off the loop's records). -/
 theorem nestedCoreModeled_of {F : Nat} (hst : NestedCtorsStaged V μ F) :
     NestedCoreModeled V μ F := by
   intro hμ env mp hE p st b envAux stored ctorsR fmsA ctorsA₀ hPM h0 h1 hfA hcA helim hcount hfresh
-    hcont hb haux hstored hclosed hpinsAux hcaps hsrc hgrp hkinds hctors
+    hcont hb haux hstored hclosed hpinsAux hcaps hsrc hgrp hsc hkinds hpins₁ hctors
   obtain ⟨hnd, hlp, hmem, h3, env₁, fms, f₀, tq₀, ctorsA, sortss, kinds, formers4, ctors4, cvRas,
     rulesOf, hformers, hf₀, htq₀, hcross, -, hctorsA, hkindsA, hfo, -, -, -, -⟩ :=
     ConLeche.checkMutualCore_inv haux
@@ -1491,9 +1555,10 @@ theorem nestedCoreModeled_of {F : Nat} (hst : NestedCtorsStaged V μ F) :
     mutualFormersStage hμ mp hE b hnd hlp hmem hformers hf₀ htq₀ hcross hctorsA hkindsA hfo
   have hbk : b.k = p.k + st.pins.length := ConLeche.auxBlock_k_count hfA helim hb
   obtain ⟨henv, -⟩ := ConLeche.consNestedFormers_take_eq haux hformers hstored p.k (by omega)
-  rw [henv] at hctors
+  rw [henv] at hctors hpins₁
   obtain ⟨mp₂, dsR, xFvsR, pinsS, S⟩ := nestedStageFacts_of hst hμ hE hPM h0 h1 hfA hcA helim hcount
-    hfresh hcont hb haux hstored hclosed hpinsAux hcaps hsrc hgrp hkinds hnd h3 hformers hctorsA h hbk hctors
+    hfresh hcont hb haux hstored hclosed hpinsAux hcaps hsrc hgrp hsc hkinds hpins₁ hnd h3 hformers hctorsA h
+    hbk hctors
   have hbk' : b.k = p.k + pinsS.length := by rw [hbk, S.pinsLen]
   obtain ⟨hreps, htyped⟩ := nestedBlockReps_of hμ h h3 hbk' mp₂ S.findM S.leafM S.FD S.ctorsLen
     S.ctorFacts S.domFacts S.groups

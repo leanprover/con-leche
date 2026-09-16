@@ -44,7 +44,7 @@ data instantiated at the components (`peelPis_mkPisAV_sort`, the
 `instAll` order).  The two `FormerData` (the copy's at the pre-block
 model crossed to the prefix model; the container's at the stored
 constant) pin both ends.  The components' scope is K.30's
-(`NestedPinsScoped`).
+(`NestedPinsRun.scoped`).
 -/
 
 namespace ConLeche.Model
@@ -415,8 +415,8 @@ end Discharge
 /-! ## The consumer -/
 
 /-- **`idx` from the run** — `NestedPinsIdsAt` at the index-telescope
-identity, under K.30's scope of the pins. -/
-theorem nestedPinsIdx {F : Nat} (hS : NestedPinsScoped V μ F) :
+identity, with K.30's scope of the pins read off the run. -/
+theorem nestedPinsIdx {F : Nat} :
     NestedPinsIdsAt V μ F fun _ p _ b _ _ _ _ ppsF _ _ _ _ _ _ _ _ _ _ _ _ pinsS _ q₀ kJ dJ =>
       ∀ i, i < kJ → ∀ (ψ : Name → Nat) (i' : Nat), i' < kJ →
         blockIds b.nP ppsF ψ (p.k + q₀ + i')
@@ -424,8 +424,7 @@ theorem nestedPinsIdx {F : Nat} (hS : NestedPinsScoped V μ F) :
               (dJ.IdsM i' ((pinsS.getD (q₀ + i) default).ψJ ψ)) := by
   intro env mp p st b envAux stored ctorsR fmsA ctorsA₀ fms f₀ ctorsA sortss kinds mp₁ ppsF W idxF
     dsF esF srcsF fvsPF xFvsF xrestF eissF tssF mp₁' R pinsS SF dsR xFvsR q₀ kJ dJ S
-  obtain ⟨-, fvs, o, hop, hsc⟩ := hS mp p st b envAux stored ctorsR fmsA ctorsA₀ fms f₀ ctorsA
-    sortss kinds mp₁ ppsF W idxF dsF esF srcsF fvsPF xFvsF xrestF eissF tssF mp₁' R
+  obtain ⟨-, fvs, o, hop, hsc⟩ := R.scoped
   exact R.idxIdent hop hsc SF S
 
 /-- **The copy-constructor identities** (NAMED — L-B's residual, DESIGN
@@ -451,14 +450,12 @@ group, K.28's pre-image computed through `replaceAllNested`'s action. -/
           (Ess₀ := fun ψ => mutEss0 ctorsA.length esF ψ) (ψ := ψ) (ρp := ρp)
           dJ ((pinsS.getD (q₀ + i) default).ψJ ψ) ((pinsS.getD (q₀ + i) default).Ds ψ) q₀ kJ Y i' j
 
-/-- **`NestedPinsIdent` from K.30's scope and the constructor
-identities**: `idx` is a theorem (`nestedPinsIdx`), `inst` the named
-residual. -/
-theorem nestedPinsIdent_of {F : Nat} (hS : NestedPinsScoped V μ F) (hI : NestedPinsInst V μ F) :
-    NestedPinsIdent V μ F := by
+/-- **`NestedPinsIdent` from the constructor identities**: `idx` is a
+theorem (`nestedPinsIdx`), `inst` the named residual. -/
+theorem nestedPinsIdent_of {F : Nat} (hI : NestedPinsInst V μ F) : NestedPinsIdent V μ F := by
   intro env mp p st b envAux stored ctorsR fmsA ctorsA₀ fms f₀ ctorsA sortss kinds mp₁ ppsF W idxF
     dsF esF srcsF fvsPF xFvsF xrestF eissF tssF mp₁' R pinsS SF dsR xFvsR q₀ kJ dJ S
-  exact ⟨nestedPinsIdx hS mp p st b envAux stored ctorsR fmsA ctorsA₀ fms f₀ ctorsA sortss kinds
+  exact ⟨nestedPinsIdx mp p st b envAux stored ctorsR fmsA ctorsA₀ fms f₀ ctorsA sortss kinds
       mp₁ ppsF W idxF dsF esF srcsF fvsPF xFvsF xrestF eissF tssF mp₁' R pinsS SF dsR xFvsR q₀ kJ dJ S,
     hI mp p st b envAux stored ctorsR fmsA ctorsA₀ fms f₀ ctorsA sortss kinds mp₁ ppsF W idxF dsF
       esF srcsF fvsPF xFvsF xrestF eissF tssF mp₁' R pinsS SF dsR xFvsR q₀ kJ dJ S⟩

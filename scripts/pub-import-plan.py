@@ -116,6 +116,16 @@ FALLBACK = {
     # importer of `NestedPins`) changed the graph around it (the fixpoint is
     # order-dependent); demoting it: `unknown identifier SetTheory`.
     ('ConLeche.Model.Inductives.NestedPins','ConLeche.Model.Inductives.NestedLoop'),
+    # task #315 L-B (§U.23 (e)/(g)): the `inst` kit's one-import views —
+    # `mkPisB` (NestedRestoreOpen), the elimination's records
+    # (NestedElimInv) and the telescope kit (NestedCopyTele) reach the
+    # files' PUBLIC statements through these re-exports; the checker calls
+    # the edges demotable after integration 2 changed the graph, the
+    # compiler refuses ("unknown identifier" / "invalid field notation").
+    ('ConLeche.Verify.Inductives.NestedCopyInstU','ConLeche.Verify.Inductives.NestedRestoreOpen'),
+    ('ConLeche.Verify.Inductives.NestedCopyKinds','ConLeche.Verify.Inductives.NestedRestoreOpen'),
+    ('ConLeche.Verify.Inductives.NestedCopyProv','ConLeche.Verify.Inductives.NestedElimInv'),
+    ('ConLeche.Verify.Inductives.NestedCopyRewrite','ConLeche.Verify.Inductives.NestedCopyTele'),
     # task #315 U-7: `MutualIdxUniv`'s one public import is likewise the
     # file's whole public view — demoting it kills its own
     # `variable [SetTheory V]` (`unknown identifier SetTheory`).
@@ -150,6 +160,17 @@ FALLBACK = {
     ('ConLeche.Model.Inductives.NestedStageCtor','ConLeche.Semantics.Tower.MutualTagI'),
     ('ConLeche.Verify.Inductives.NestedRestoreTbl','ConLeche.Kernel.Inductives.NestedInstall'),
     ('ConLeche.Verify.Inductives.NestedRestoreTbl','ConLeche.Verify.Inductives.NestedInv'),
+    # task #315 U-20: two of the eleven demotions the gate proposed when U-19
+    # and U-19b were merged, refused by the compiler — `NestedPins`'s
+    # `variable` binders reach `SetTheory` only through `NestedLoop`'s
+    # public closure (the same class), and `NestedTransfer`'s public
+    # statements name `Expr.eraseAnnots` (a public statement is elaborated
+    # in the public view, where a plain import is invisible).  Lane L-A
+    # met the first on its own base too (the edge became a candidate
+    # there when `NestedPinsU`'s exposed `def` left the file — the same
+    # order-dependence); one entry.
+    ('ConLeche.Model.Inductives.NestedPins','ConLeche.Model.Inductives.NestedLoop'),
+    ('ConLeche.Model.Inductives.NestedTransfer','ConLeche.Verify.EraseAnnots'),
     # task #315: `BlockRecWD`'s one public import is the file's whole
     # public view (`SetTheory`, `BlockReadings`, `BlockReps`, the datum);
     # the model calls it demotable (nothing downstream re-exports through

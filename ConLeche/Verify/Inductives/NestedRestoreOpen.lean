@@ -384,8 +384,9 @@ theorem openPisAtFvars_mentionsFvar_false {q : Nat} :
     | bvar _ | fvar _ _ | sort _ | const _ _ | app _ _
     | lam _ _ _ | letE _ _ _ | lit _ | proj _ _ _ => exact nomatch h
 
-/-- A `∀`-telescope over a body. -/
-def mkPisB : List (Expr × BinderMeta) → Expr → Expr
+/-- A `∀`-telescope over a body (exposed: the reading law unfolds it
+binder by binder, task #315 U-19b). -/
+@[expose] def mkPisB : List (Expr × BinderMeta) → Expr → Expr
   | [], e => e
   | b :: bs, e => .forallE b.1 (mkPisB bs e) b.2
 
@@ -434,6 +435,20 @@ theorem instTeleB_length (v : Expr) : ∀ (j : Nat) (bs : List (Expr × BinderMe
   | j, b :: bs => by
     show (instTeleB v (j + 1) bs).length + 1 = bs.length + 1
     rw [instTeleB_length v (j + 1) bs]
+
+/-- `instTeleB` maps the domains and keeps the metas, positionally
+(task #315 U-19b: the reading law compares the auxiliary and the
+restored telescopes' binder bits). -/
+theorem instTeleB_getElem? (v : Expr) :
+    ∀ (bs : List (Expr × BinderMeta)) (j k : Nat),
+      (instTeleB v j bs)[k]? = bs[k]?.map fun b => (b.1.instantiate1 v (j + k), b.2)
+  | [], _, _ => by simp [instTeleB]
+  | _ :: _, _, 0 => by simp [instTeleB]
+  | _ :: bs, j, k + 1 => by
+    show (instTeleB v (j + 1) bs)[k]? = _
+    rw [instTeleB_getElem? v bs (j + 1) k]
+    simp only [List.getElem?_cons_succ]
+    rw [show j + 1 + k = j + (k + 1) from by omega]
 
 theorem mkPisB_instantiate1 (v : Expr) : ∀ (bs : List (Expr × BinderMeta)) (e : Expr)
     (j : Nat), (mkPisB bs e).instantiate1 v j

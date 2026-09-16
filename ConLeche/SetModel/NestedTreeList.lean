@@ -672,6 +672,47 @@ theorem treeRec_cons {h t : V} (hh : h ∈ˢ treeT S) (ht : t ∈ˢ treeLs S) :
     app_graph ((mem_treePred_cons hS).mpr ⟨tree_mem_treeIdx hh, Or.inl rfl⟩),
     app_graph ((mem_treePred_cons hS).mpr ⟨list_mem_treeIdx ht, Or.inr rfl⟩)]
 
+/-! ### The check: the instance IS the class kit (task #315 M7)
+
+The recursor above was built by hand from `recGraph_exists_unique` at
+the two-class union with `treeAcc_all`; the generic kit over classes
+with their own accessibility (`UnionRecKitC`, `UnionRec.lean`) is
+exactly that argument, so the instance's recursor is the kit's and its
+typing and recursion equation are the kit's two laws. -/
+
+/-- The nested block's recursion data as a class kit. -/
+noncomputable def treeKitC (hS : ContainerOk S) (hw : S.w ≤ S.w')
+    (hMT : ∀ x, x ∈ˢ treeT S → MT x ∈ˢ (univ ℓ : V))
+    (hML : ∀ l, l ∈ˢ treeLs S → ML l ∈ˢ (univ ℓ : V))
+    (hmNode : ∀ l ih, l ∈ˢ treeLs S → ih ∈ˢ ML l → mNode l ih ∈ˢ MT (S.mkNode l))
+    (hmNil : mNil ∈ˢ ML S.mkNil)
+    (hmCons : ∀ h t ih₁ ih₂, h ∈ˢ treeT S → t ∈ˢ treeLs S → ih₁ ∈ˢ MT h → ih₂ ∈ˢ ML t →
+      mCons h t ih₁ ih₂ ∈ˢ ML (S.mkCons h t)) :
+    UnionRecKitC ℓ 2 uIs (treeClasses S) :=
+  ⟨treePred S, treeB MT ML, treeSt S mNode mNil mCons, fun u _ => treePred_subset S u,
+    treeAcc_all hS hw, treeB_mem_univ hMT hML, treeSt_mem hS hw hMT hML hmNode hmNil hmCons⟩
+
+/-- The instance's recursor at a tagged value is the class kit's. -/
+theorem treeRec_eq_kitC (c : Nat) (i x : V) :
+    treeRec S MT ML mNode mNil mCons ℓ (tagged c i x)
+      = (treeKitC hS hw hMT hML hmNode hmNil hmCons).recAt c i x := rfl
+
+include hS hw hMT hML hmNode hmNil hmCons in
+/-- `treeRec_mem` through the class kit. -/
+theorem treeRec_mem' {c : Nat} (hc : c < 2) {i x : V} (hi : i ∈ˢ uIs c)
+    (hx : x ∈ˢ app (treeClasses S c) i) :
+    treeRec S MT ML mNode mNil mCons ℓ (tagged c i x) ∈ˢ treeB MT ML (tagged c i x) :=
+  (treeKitC hS hw hMT hML hmNode hmNil hmCons).rec_mem_B hc hi hx
+
+include hS hw hMT hML hmNode hmNil hmCons in
+/-- `treeRec_eq` through the class kit. -/
+theorem treeRec_eq' {c : Nat} (hc : c < 2) {i x : V} (hi : i ∈ˢ uIs c)
+    (hx : x ∈ˢ app (treeClasses S c) i) :
+    treeRec S MT ML mNode mNil mCons ℓ (tagged c i x)
+      = treeSt S mNode mNil mCons (tagged c i x)
+          (graph (fun v => treeRec S MT ML mNode mNil mCons ℓ v) (treePred S (tagged c i x))) :=
+  (treeKitC hS hw hMT hML hmNode hmNil hmCons).rec_eq hc hi hx
+
 end RecFacts
 
 /-! ## (W) without the ambient bound: the auxiliary tuple's closed tuple

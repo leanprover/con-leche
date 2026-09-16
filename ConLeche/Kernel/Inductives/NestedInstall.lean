@@ -282,6 +282,25 @@ def restoreTbl (p : NestedParts) (st : ElimState) : RestoreTbl :=
       ++ (st.types.drop p.k).flatMap (fun t => t.ctors.map (·.1))
       ++ st.pins.map (fun q => q.aux.str "rec") }
 
+/-- **THE PINS ARE STRUCTURALLY DISTINCT** (task #279 K.15 (2), named
+for task #315 K.31).
+
+The elimination DEDUPES: `replaceIfNested` mints only on a pin MISS, and
+when it misses it mints the container's whole `all`-group, so two pins
+can never carry the same term — and `containerGroupOk` makes a
+group-mate's group coincide with the group already minted, so a
+group-mate cannot be minted twice either.
+
+It is what makes `replaceAllNested`'s rewrite of a container-recursive
+field correct: the field is rewritten to the pin `find?` FINDS, which is
+the group's own copy only if the pins are pairwise distinct.  Recorded
+since K.15 (2) as the first conjunct of `nestedContainersOk`; K.31 gives
+it a NAME so the model can consume it without decomposing that `&&`
+chain, and adds it to the run relation as its own conjunct — read off
+the same Bool, so there is no second evaluation and no second check. -/
+def pinsDistinct (pins : List NestedPin) : Bool :=
+  decide ((pins.map (·.pin)).Nodup)
+
 /-- **The containers' facts at every pin** (task #279 K.14): the three
 syntactic facts about a container the model tier's ψ needs and no stored
 record exposes (`containerFactsOk`).  `none` from `containerInfo?` is
@@ -289,10 +308,10 @@ impossible here for the reason K.11 (a) records: the pin exists only
 because `replaceIfNested` recovered its container at this same
 environment. -/
 def nestedContainersOk (env : Env) (pins : List NestedPin) : Bool :=
-  -- the pins are STRUCTURALLY DISTINCT (K.15 (2)): the elimination
-  -- dedupes — `replaceIfNested` mints only on a pin MISS — so this is a
-  -- fact of the mint, recorded for the model tier
-  decide ((pins.map (·.pin)).Nodup) &&
+  -- the pins are STRUCTURALLY DISTINCT (K.15 (2), named `pinsDistinct`
+  -- at K.31): the elimination dedupes — `replaceIfNested` mints only on
+  -- a pin MISS — so this is a fact of the mint, recorded for the model
+  pinsDistinct pins &&
   pins.all fun q =>
     match containerInfo? env q.container with
     | some ci => containerFactsOk env ci
@@ -712,6 +731,31 @@ def nestedCopySrcOk (env : Env) (p : NestedParts) (st : ElimState) : Bool :=
       | _, _ => false
   | none => false
 
+/-- **THE PINS' SCOPE, EXACTLY** (task #315 K.30, the model lane's
+DESIGN §U.21 (d) 2).
+
+`pinsClosed` says a pin abstracted over the parameters has no free
+variable and no loose bound variable below `nP`.  This says the sharper
+thing the model's `CtxOk`/`WScoped` need of a pin AT the block's
+parameter context: every free variable of a pin — annotation included —
+IS one of the FIRST FORMER's openers, at that opener's index and with
+that opener's annotation, and the pin has no loose bound variable at
+all.
+
+**It cannot fire.**  `replaceIfNested` reads a nested occurrence's
+arguments off a term opened at exactly these openers; `mkCopy`'s output
+is closed over them and re-opened at them by `elimCtors`; and
+`nestedOccOk` — official's "nested inductive datatypes parameters cannot
+contain local variables" — refuses a parameter with a loose bound
+variable.  A failure is `.internal`. -/
+def pinsScoped (nP : Nat) (st : ElimState) : Bool :=
+  match st.types.head?.bind (fun t₀ => openPisAtFvars nP t₀.type 0) with
+  | some (params, _) =>
+    st.pins.all fun q =>
+      q.pin.looseBVarsBounded 0 &&
+        q.pin.fvarLeaves.all fun l => params[l.1]? == some (.fvar l.1 l.2)
+  | none => false
+
 /-- **THE PINS' MINT GROUPS, CERTIFIED** (task #315 K.29, the model
 lane's DESIGN §U.19 (d)).
 
@@ -934,10 +978,22 @@ def checkNested (ops : CheckerOps m) (env : Env) (p : NestedParts) : m Env := do
   -- level instantiation and components.  A failure is `.internal`.
   unless nestedGroupsOk env p st do
     throw (.internal "nested: a pin's mint group is not the container's group as minted")
+  -- **THE PINS' SCOPE** (K.30): every pin's free variables are the
+  -- first former's openers, annotation included, and no loose bvar.
+  unless pinsScoped p.nP st do
+    throw (.internal "nested: a pin's free variables are not the block's parameter openers")
   unless nestedPinKindsOk p b st stored do
     throw (.internal "nested: a stored field at a pin is not classified ordinary, \
       recursive or reflexive into the block")
   let env₁ := consNestedFormers members env
+  -- **POST-CHECK (a), A THIRD TIME** (K.30): the pins typed at the
+  -- environment holding the RESTORED FORMERS — the one `restoreCtors`
+  -- runs at, and the one the model tier reads the block's own prefix
+  -- model over.  ADDED, never substituted, so the accept set can only
+  -- narrow; and it cannot narrow, because a pin mentions the pre-block
+  -- constants and the block's members, which this environment holds
+  -- exactly as the scratch one does.
+  nestedPinsOk ops env₁ p.nP st.pins
   -- 4. the constructors, restored and re-checked (post-check (b))
   let ctorsR ← members.mapM fun a => restoreCtors ops env₁ R p.lps a.ctors
   let env₂ := consNestedCtors ctorsR.flatten env₁

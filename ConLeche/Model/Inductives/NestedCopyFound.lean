@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Model.Annot.BitLemmas
-public import ConLeche.Kernel.Inductives.StructParts
+import ConLeche.Kernel.Inductives.StructParts
 
 public section
 

@@ -2,7 +2,6 @@ module
 
 public import ConLeche.Model.Annot.Bit
 public import ConLeche.Semantics.ConstsBound
-import ConLeche.Verify.EnvWF
 
 public section
 

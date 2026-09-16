@@ -103,8 +103,8 @@ at the MEMBER-LOCAL position. -/
   tssF := tssF
   pins := []
   Φ := fun ψ ρp =>
-    tupleLfpΦ (W ψ) (resSort.eval ψ) ρp k (blockIds nP ppsM ψ) offs mems nFs tgtsG rss (tlss ψ)
-      (Eiss₀ ψ) (Fss₀ ψ) (Ess₀ ψ)
+    tupleLfpΦ (W ψ) (fun _ => W ψ) (resSort.eval ψ) ρp k (blockIds nP ppsM ψ) offs mems nFs tgtsG rss
+      (tlss ψ) (Eiss₀ ψ) (Fss₀ ψ) (Ess₀ ψ)
   pinCar := fun _ _ _ _ => pt
   inj := fun ψ _ j fs => injW (resSort.eval ψ) j (mkTower (fs ++ [pt]))
 
@@ -139,11 +139,12 @@ theorem ofMutual_idx (ψ : Name → Nat) (ρp : Nat → V) :
 /-- A mutual block has no pins: every field targets a member. -/
 theorem ofMutual_pins : (D).pins = [] := rfl
 
-/-- The block model's operator: the `k`-ary fixed point's. -/
+/-- The block model's operator: the `k`-ary fixed point's, every
+component at the block's one index universe. -/
 theorem ofMutual_Φ (ψ : Name → Nat) (ρp : Nat → V) :
     (D).Φ ψ ρp
-      = tupleLfpΦ (W ψ) ((D).w ψ) ρp k (blockIds nP ppsM ψ) offs mems nFs tgtsG rss (tlss ψ)
-          (Eiss₀ ψ) (Fss₀ ψ) (Ess₀ ψ) := rfl
+      = tupleLfpΦ (W ψ) (fun _ => W ψ) ((D).w ψ) ρp k (blockIds nP ppsM ψ) offs mems nFs tgtsG rss
+          (tlss ψ) (Eiss₀ ψ) (Fss₀ ψ) (Ess₀ ψ) := rfl
 
 /-- The block model's injections: the tagged towers at the MEMBER-LOCAL
 position. -/
@@ -162,8 +163,8 @@ theorem ofMutual_tup {ψ : Name → Nat} (hW : W ψ ≠ 0) (mm : Nat) (is : List
 /-- **`functor` for the block model**, from the term former's premise at the
 parameter frame. -/
 theorem ofMutual_functor {ψ : Name → Nat} {ρp : Nat → V}
-    (h : TupleLfpOk (W ψ) ((D).w ψ) ρp k (blockIds nP ppsM ψ) offs mems nFs tgtsG rss (tlss ψ)
-      (Eiss₀ ψ) (Fss₀ ψ) (Ess₀ ψ)) :
+    (h : TupleLfpOk (W ψ) (fun _ => W ψ) ((D).w ψ) ρp k (blockIds nP ppsM ψ) offs mems nFs tgtsG rss
+      (tlss ψ) (Eiss₀ ψ) (Fss₀ ψ) (Ess₀ ψ)) :
     MonoTuple ((D).w ψ) k ((D).idx ψ ρp) ((D).Φ ψ ρp) ∧
     MapsTuple ((D).w ψ) k ((D).idx ψ ρp) ((D).Φ ψ ρp) ∧
     ∃ L, IsClosedTuple ((D).w ψ) k ((D).idx ψ ρp) ((D).Φ ψ ρp) L :=
@@ -176,17 +177,16 @@ pre-fixed TUPLE's component `mm` at the index tuple — the interp law
 telescope (`hsp`); the cross-member identification with the block's
 `params` is the recursor stage's. -/
 theorem ofMutual_leaf {ψ : Name → Nat} {ρ : Nat → V} {as is : List V} {mm : Nat} (hmm : mm < k)
-    (h : TupleLfpOk (W ψ) ((D).w ψ) (consList as ρ) k (blockIds nP ppsM ψ) offs mems nFs tgtsG rss
-      (tlss ψ) (Eiss₀ ψ) (Fss₀ ψ) (Ess₀ ψ))
+    (h : TupleLfpOk (W ψ) (fun _ => W ψ) ((D).w ψ) (consList as ρ) k (blockIds nP ppsM ψ) offs mems
+      nFs tgtsG rss (tlss ψ) (Eiss₀ ψ) (Fss₀ ψ) (Ess₀ ψ))
     (hsp : SpineFit ρ (((ppsM mm ψ).take nP).map (·.2.2)) as)
     (hi : SpineFit (consList as ρ) ((D).IdsM mm ψ) is) :
     (as ++ is).foldl SetTheory.app (interp V ρ
         (tupleLfpAV (W ψ) ((D).w ψ) (ppsM mm ψ) ((ppsM mm ψ).drop nP).length k (blockIds nP ppsM ψ)
           offs mems nFs tgtsG rss (tlss ψ) (Eiss₀ ψ) (Fss₀ ψ) (Ess₀ ψ) mm))
       = SetTheory.app (lfpTuple ((D).w ψ) k ((D).idx ψ (consList as ρ)) ((D).Φ ψ (consList as ρ)) mm)
-          ((D).tup ψ mm is) := by
-  rw [ofMutual_tup h.W_pos]
-  exact tupleLfpAV_fold hmm h rfl hsp hi
+          ((D).tup ψ mm is) :=
+  tupleLfpAV_fold hmm h rfl hsp hi
 
 /-- `mkZero` for the block model: at a `Prop`-valued block every injection is
 the point. -/

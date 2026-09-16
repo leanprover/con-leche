@@ -337,4 +337,121 @@ end UnionRecKit
 
 end Rec
 
+/-! ## The recursor over classes with their OWN accessibility (task #315 M7)
+
+A NESTED block's recursion classes are the members' carriers followed
+by the PINS' carriers at the least tuple — and a pin's class is not a
+component of the tuple lfp, so `unionAcc_all`'s simultaneous induction
+does not reach it (`SetModel/NestedTreeList.lean`'s finding).  What the
+recursion theorem needs of the classes is only that every element of
+their union is ACCESSIBLE along the predecessor map and that the map
+stays inside the union: this section states the recursor over an
+ARBITRARY tuple of classes `C` under exactly those two obligations
+(`unionRecC`, `UnionRecKitC`), and the lfp version above is its instance
+(`unionRec_eq_unionRecC`, `UnionRecKit.toC`).  A nested block's class-wise
+accessibility is the block model's job (`Model/Inductives/NestedRecCand.lean`). -/
+
+section Classes
+
+variable {ℓ k : Nat} {Is C : Nat → V} {pred : V → V} {B : V → V} {st : V → V → V}
+
+/-- **The recursor over the classes `C`**: the selector of the
+recursion graph over their union, at class `c`, index `i`, value `x`. -/
+noncomputable def unionRecC (ℓ k : Nat) (Is C : Nat → V) (pred : V → V) (B : V → V)
+    (st : V → V → V) (c : Nat) (i x : V) : V :=
+  recSel (recGraph ℓ (unionSet k Is C) pred B st) (tagged c i x)
+
+/-- The lfp recursor is the class recursor at the carrier's classes. -/
+theorem unionRec_eq_unionRecC {w : Nat} {Φ : (Nat → V) → Nat → V} (c : Nat) (i x : V) :
+    unionRec ℓ w k Is Φ pred B st c i x = unionRecC ℓ k Is (lfpTuple w k Is Φ) pred B st c i x :=
+  rfl
+
+/-- **An accessibility introduction**: an element of the index set
+whose predecessors are all accessible is accessible (the `Acc`
+family's fixed-point equation, read backwards). -/
+theorem accFam_intro {I : V} {Cond : V → Prop} (hpred : ∀ i, i ∈ˢ I → pred i ⊆ˢ I) {u : V}
+    (hu : u ∈ˢ I) (hC : Cond u) (h : ∀ v, v ∈ˢ pred u → ∃ y, y ∈ˢ app (accFam I pred Cond) v) :
+    (pt : V) ∈ˢ app (accFam I pred Cond) u := by
+  unfold accFam
+  rw [← app_lfpFamSet_eq ⟨_, accStep_closed⟩ (accStep_mono hpred) accStep_maps hu,
+    app_app_accStep (lfpFamSet_mem _ _ _) hu]
+  exact pt_mem_truthVal ⟨hC, h⟩
+
+/-- **The recursion data over classes, bundled**: the predecessor map
+stays inside the union, every element of the union is accessible, the
+bound is a set at the level and the step lands in the bound. -/
+structure UnionRecKitC (ℓ k : Nat) (Is C : Nat → V) where
+  pred : V → V
+  B : V → V
+  st : V → V → V
+  predSub : ∀ u, u ∈ˢ unionSet k Is C → pred u ⊆ˢ unionSet k Is C
+  acc : ∀ u, u ∈ˢ unionSet k Is C →
+    ∃ y, y ∈ˢ app (accFam (unionSet k Is C) pred (fun _ => True)) u
+  hB : ∀ u, u ∈ˢ unionSet k Is C → B u ∈ˢ (univ ℓ : V)
+  hst : ∀ u, u ∈ˢ unionSet k Is C → ∀ g,
+    g ∈ˢ piSet (pred u) (fun j => app (recGraph ℓ (unionSet k Is C) pred B st) j) →
+    st u g ∈ˢ B u
+
+namespace UnionRecKitC
+
+variable (K : UnionRecKitC ℓ k Is C)
+
+/-- The kit's recursor at class `c`. -/
+noncomputable def recAt (c : Nat) (i x : V) : V := unionRecC ℓ k Is C K.pred K.B K.st c i x
+
+/-- **The recursion theorem over classes**: the graph has exactly one
+value at every union element. -/
+theorem exists_unique {u : V} (hu : u ∈ˢ unionSet k Is C) :
+    (∃ v, v ∈ˢ app (recGraph ℓ (unionSet k Is C) K.pred K.B K.st) u) ∧
+    ∀ v v', v ∈ˢ app (recGraph ℓ (unionSet k Is C) K.pred K.B K.st) u →
+      v' ∈ˢ app (recGraph ℓ (unionSet k Is C) K.pred K.B K.st) u → v = v' := by
+  obtain ⟨y, hy⟩ := K.acc u hu
+  exact recGraph_exists_unique K.hB K.predSub K.hst u hu y hy
+
+/-- The graph's values are bounded. -/
+theorem graph_mem_B {u v : V} (hu : u ∈ˢ unionSet k Is C)
+    (hv : v ∈ˢ app (recGraph ℓ (unionSet k Is C) K.pred K.B K.st) u) : v ∈ˢ K.B u := by
+  rw [app_recGraph_eq K.hB K.predSub hu] at hv
+  exact (mem_recGraphFibre.mp hv).1
+
+/-- The recursor's value is in the graph's fibre. -/
+theorem rec_mem {c : Nat} (hc : c < k) {i x : V} (hi : i ∈ˢ Is c) (hx : x ∈ˢ app (C c) i) :
+    K.recAt c i x ∈ˢ app (recGraph ℓ (unionSet k Is C) K.pred K.B K.st) (tagged c i x) :=
+  recSel_mem (K.exists_unique (tagged_mem_unionSet hc hi hx)).1
+
+/-- **Typing**: the recursor's value at a class element lies in the
+bound. -/
+theorem rec_mem_B {c : Nat} (hc : c < k) {i x : V} (hi : i ∈ˢ Is c) (hx : x ∈ˢ app (C c) i) :
+    K.recAt c i x ∈ˢ K.B (tagged c i x) :=
+  K.graph_mem_B (tagged_mem_unionSet hc hi hx) (K.rec_mem hc hi hx)
+
+/-- **The recursion equation**: the recursor at a class element is the
+step at the recursor's graph over its predecessors. -/
+theorem rec_eq {c : Nat} (hc : c < k) {i x : V} (hi : i ∈ˢ Is c) (hx : x ∈ˢ app (C c) i) :
+    K.recAt c i x
+      = K.st (tagged c i x)
+          (graph (fun j => recSel (recGraph ℓ (unionSet k Is C) K.pred K.B K.st) j)
+            (K.pred (tagged c i x))) :=
+  recSel_eq K.hB K.predSub (tagged_mem_unionSet hc hi hx)
+    (K.exists_unique (tagged_mem_unionSet hc hi hx)).1
+    fun j hj => K.exists_unique (K.predSub _ (tagged_mem_unionSet hc hi hx) j hj)
+
+end UnionRecKitC
+
+/-- The lfp kit is a class kit at the carrier's classes: the two
+obligations `predSub`/`acc` are `pred_sub_union`/`unionAcc_all_union`. -/
+noncomputable def UnionRecKit.toC {w : Nat} {Φ : (Nat → V) → Nat → V}
+    (K : UnionRecKit ℓ w k Is Φ) (h : ∃ L, IsClosedTuple w k Is Φ L)
+    (hmono : MonoTuple w k Is Φ) (hmaps : MapsTuple w k Is Φ) :
+    UnionRecKitC ℓ k Is (lfpTuple w k Is Φ) :=
+  ⟨K.pred, K.B, K.st, pred_sub_union h hmono hmaps K.predsFrom,
+    unionAcc_all_union h hmono hmaps K.predsFrom (fun _ => True) (fun _ _ => trivial), K.hB, K.hst⟩
+
+theorem UnionRecKit.toC_recAt {w : Nat} {Φ : (Nat → V) → Nat → V}
+    (K : UnionRecKit ℓ w k Is Φ) (h : ∃ L, IsClosedTuple w k Is Φ L)
+    (hmono : MonoTuple w k Is Φ) (hmaps : MapsTuple w k Is Φ) (c : Nat) (i x : V) :
+    (K.toC h hmono hmaps).recAt c i x = K.recAt c i x := rfl
+
+end Classes
+
 end ConLeche.SetTheory
