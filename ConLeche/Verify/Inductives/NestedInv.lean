@@ -1078,7 +1078,11 @@ theorem checkNested_inv {env envOut : Env} {p : NestedParts} {F : Nat}
             ++ (((p.mimicRecs.zip cvRns).zip rulesN).zipIdx.map
               (fun (((sr, cv), rs), j) =>
                 (sr, (b.ownCtors (p.k + j)).map (fun (J, c) => (J, c.nF)), cv, rs))))
-        = .ok () := by
+        = .ok () ∧
+      -- THE READ-BACK (K.34): `containerInfo?` of the environment this
+      -- route produced, at every member, is the block's own data
+      blockReadBackOk envOut p.nP (((stored.take p.k).zip ctorsR).map fun (a, cs) =>
+        (a.cvTa, cs.map fun (cv, _, nF) => (cv, nF))) = true := by
   unfold checkNested at h
   simp only at h
   by_cases hg₀ : (p.formers.all (fun f => !f.1.type.mentionsNestedAux) &&
@@ -1172,6 +1176,11 @@ theorem checkNested_inv {env envOut : Env} {p : NestedParts} {F : Nat}
   rw [if_pos hlen] at h
   try simp only [bind, Except.bind] at h
   obtain ⟨u₁, hrecs, h⟩ := exceptBind_ok h
+  try simp only at h
+  by_cases hrb : blockReadBackOk env₄ p.nP (((stored.take p.k).zip ctorsR).map fun (a, cs) =>
+      (a.cvTa, cs.map fun (cv, _, nF) => (cv, nF))) = true
+  case neg => rw [if_neg hrb] at h; close_throw
+  rw [if_pos hrb] at h
   have henv : env₄ = envOut := by
     simpa [pure, Except.pure] using h
   subst henv
@@ -1180,7 +1189,7 @@ theorem checkNested_inv {env envOut : Env} {p : NestedParts} {F : Nat}
     (by cases uA; exact hpinsAux), hcaps, hsrc,
     (Bool.and_eq_true _ _ |>.mp hcont).1, hgrp, hsc, htg, hkd,
     (by cases uP₁; exact hpins₁), hctors, hrm, hrn, hrlm, hrln, htbl,
-    (by cases u₀; exact hpins), hlen, by cases u₁; exact hrecs⟩
+    (by cases u₀; exact hpins), hlen, (by cases u₁; exact hrecs), hrb⟩
 
 /-! ## The restore, syntactically (task #315)
 

@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Kernel.Inductives.NestedParts
+public import ConLeche.Kernel.Inductives.NativeParts
 import ConLeche.Verify.EnvWF
 public import ConLeche.Verify.EnvPreds
 import ConLeche.Verify.Inductives.NestedCopyGlue
@@ -10,7 +10,7 @@ public section
 /-!
 # The container's block under an environment extension (task #315)
 
-`containerInfo?` (`ConLeche/Kernel/Inductives/NestedParts.lean`) reads
+`containerInfo?` (`ConLeche/Kernel/Inductives/NativeParts.lean`) reads
 the stored block of an inductive `I` off the environment.  The nested
 route installs constants while it runs, so the model tier needs to know
 when that reading is STABLE: an old container's block must be the same

@@ -211,9 +211,14 @@ def checkNativeTailS (fe : FEnv) (q : NativePass FEnv) : CheckCM FEnv := do
   flushC
   let (cvRa, rhss) ← checkNativeRecF (sharedOpsC mode fe₂) structWalkersC fe₂ p q.cvTa q.ctorsA
   -- the projection table at a structure-like block (task #210 Part A)
-  checkNativeTableF (m := CheckCM) structWalkersC p q.ctorsA q.sortss (fe₂.push (.recInfo cvRa
-    p.majorIdx p.rulePrefix (sumRules fe₂.find? cvRa.name p.nP p.majorIdx p.rulePrefix
-      cvRa.type q.ctorsA rhss)))
+  let feOut ← checkNativeTableF (m := CheckCM) structWalkersC p q.ctorsA q.sortss
+    (fe₂.push (.recInfo cvRa p.majorIdx p.rulePrefix
+      (sumRules fe₂.find? cvRa.name p.nP p.majorIdx p.rulePrefix
+        cvRa.type q.ctorsA rhss)))
+  -- the read-back (K.34), as in the pure route
+  unless blockReadBackOk feOut.env p.nP [(q.cvTa, q.ctorsA)] do
+    throw (.internal "direct rec: the installed block does not read back as its own")
+  pure feOut
 
 /-- `checkNative` through the index (task #188): the pass at the
 syntactic `is_rec` reading, again at the classified verdict where the
@@ -293,7 +298,12 @@ def checkMutualCoreS (fe : FEnv) (b : MutualBlock)
     streamRecs b.k
   let fe₃ := storeMutualRecsF fe₂ b fms rulesOf cvRas.zipIdx fe₂
   flushC
-  mutualTablesF (m := CheckCM) structWalkersC b ctorsA sortss fms.zipIdx fe₃
+  let feOut ← mutualTablesF (m := CheckCM) structWalkersC b ctorsA sortss fms.zipIdx fe₃
+  -- the read-back (K.34), as in the pure route
+  unless blockReadBackOk feOut.env nP (fms.zipIdx.map fun (f, mIdx) =>
+      (f.cvTa, (b.ownCtors mIdx).filterMap fun (J, _) => ctorsA[J]?)) do
+    throw (.internal "mutual: the installed block does not read back as its own")
+  pure feOut
 
 /-- `checkMutual` through the index. -/
 def checkMutualS (fe : FEnv) (p : MutualParts) : CheckCM FEnv := do
@@ -412,6 +422,10 @@ def checkNestedS (fe : FEnv) (p : NestedParts) : CheckCM FEnv := do
   let nRows := ((p.mimicRecs.zip cvRns).zip rulesN).zipIdx.map
     (fun (((sr, cv), rs), j) => (sr, ownOf (p.k + j), cv, rs))
   nestedRecsOkF (sharedOpsC mode fe₂) fe₂ p.nP b.k b.n (mRows ++ nRows)
+  -- the read-back (K.34), as in the pure route
+  unless blockReadBackOk fe₄.env p.nP ((members.zip ctorsR).map fun (a, cs) =>
+      (a.cvTa, cs.map fun (cv, _, nF) => (cv, nF))) do
+    throw (.internal "nested: the installed block does not read back as its own")
   pure fe₄
 
 /-- The modeled inductive block (mirrors `checkModeled`), returning

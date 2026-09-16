@@ -87,7 +87,11 @@ def DeclMutualRun (μ : CheckMode) (F : Nat) (env : Env)
     -- stage 5: the projection tables of the structure-like members
     ConLeche.mutualTables (m := ConLeche.CheckM) b ctorsA sortss fms.zipIdx
       (ConLeche.storeMutualRecs (ConLeche.consMutualCtors b.nP ctorsA env₁) b fms rulesOf
-        cvRas.zipIdx (ConLeche.consMutualCtors b.nP ctorsA env₁)) = .ok env₂
+        cvRas.zipIdx (ConLeche.consMutualCtors b.nP ctorsA env₁)) = .ok env₂ ∧
+    -- THE READ-BACK (K.34): `containerInfo?` of the environment this
+    -- route produced, at every member, is the block's own data
+    ConLeche.blockReadBackOk env₂ b.nP (fms.zipIdx.map fun (f, mIdx) =>
+      (f.cvTa, (b.ownCtors mIdx).filterMap fun (J, _) => ctorsA[J]?)) = true
 
 /-- The bridge inversion: a successful mutual install is a run. -/
 theorem declMutualRun_of {μ : CheckMode} {F : Nat} {env env₂ : Env} {p : MutualParts}
@@ -96,10 +100,10 @@ theorem declMutualRun_of {μ : CheckMode} {F : Nat} {env env₂ : Env} {p : Mutu
   obtain ⟨hpin, hcore⟩ := ConLeche.checkMutual_inv h
   obtain ⟨h0, h1, h2, h3, env₁, fms, f₀, tq₀, ctorsA, sortss, kinds, formers4, ctors4,
     cvRas, rulesOf, hformers, hf₀, htq₀, hcross, hL, hctors, hkinds, hfo, hgd, hrectys,
-    hrules, htbl⟩ := ConLeche.checkMutualCore_inv hcore
+    hrules, htbl, hrb⟩ := ConLeche.checkMutualCore_inv hcore
   exact ⟨hpin, p.toBlock, _, env₁, fms, f₀, tq₀, ctorsA, sortss, kinds, formers4, ctors4,
     cvRas, rulesOf, rfl, rfl, h0, h1, h2, h3, hformers, hf₀, htq₀, hcross, hL, hctors,
-    hkinds, hfo, hgd, hrectys, hrules, htbl⟩
+    hkinds, hfo, hgd, hrectys, hrules, htbl, hrb⟩
 
 /-! ## The η half: a fresh extension by non-formers -/
 
@@ -413,7 +417,7 @@ theorem declMutualRun_etaClosed {μ : CheckMode} {F : Nat} {env env₂ : Env}
     (h : DeclMutualRun μ F env p env₂) : EtaFamiliesClosed env₂ := by
   obtain ⟨-, b, streamRecs, env₁, fms, f₀, tq₀, ctorsA, sortss, kinds, formers4, ctors4,
     cvRas, rulesOf, rfl, rfl, -, -, -, -, hformers, -, -, -, -, hctors, -, -, -, hrectys,
-    -, htbl⟩ := h
+    -, htbl, -⟩ := h
   have hx1 : FreshEtaExt env env₁ := mutualFormers_freshExt hformers
   have hx2 : FreshEtaExt env₁ (ConLeche.consMutualCtors p.toBlock.nP ctorsA env₁) :=
     consMutualCtors_freshExt (nP := p.toBlock.nP) (checkMutualCtors_fresh hctors)

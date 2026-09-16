@@ -276,7 +276,12 @@ def DeclNestedRun (μ : CheckMode) (F : Nat) (env : Env)
           ++ (((p.mimicRecs.zip cvRns).zip rulesN).zipIdx.map
             (fun (((sr, cv), rs), j) =>
               (sr, (b.ownCtors (p.k + j)).map (fun (J, c) => (J, c.nF)), cv, rs))))
-      = .ok ()
+      = .ok () ∧
+    -- THE READ-BACK (K.34): `containerInfo?` of the environment this
+    -- route produced, at every member, is the block's own data — the
+    -- reading the model's environment field is quantified over
+    ConLeche.blockReadBackOk envOut p.nP (((stored.take p.k).zip ctorsR).map fun (a, cs) =>
+      (a.cvTa, cs.map fun (cv, _, nF) => (cv, nF))) = true
 
 /-- The bridge inversion: a successful nested install is a run. -/
 theorem declNestedRun_of {μ : CheckMode} {F : Nat} {env envOut : Env} {p : NestedParts}
@@ -422,7 +427,7 @@ theorem declNestedRun_etaClosed {μ : CheckMode} {F : Nat} {env envOut : Env}
     (h : DeclNestedRun μ F env p envOut) : EtaFamiliesClosed envOut := by
   obtain ⟨-, -, st, b, envAux, stored, ctorsR, cvRms, cvRns, rulesM, rulesN, fmsA, ctorsA,
     -, -, -, -, -, -, -, -, -, -, -, hcaps, -, -, -, -, -, -, -, hctors, hrm, hrn, -, -, htbl,
-    -, -, -⟩ := h
+    -, -, -, -⟩ := h
   refine EtaFamiliesClosed.ofFreshExt hE ?_
   -- the formers
   have hx1 : FreshEtaExt env (ConLeche.consNestedFormers (stored.take p.k) env) :=

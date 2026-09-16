@@ -75,7 +75,10 @@ def DeclNativeRun (μ : CheckMode) (F : Nat) (env : Env)
     checkNativeTable (m := ConLeche.CheckM) p ctorsA sortss
       ⟨.recInfo cvRa p.majorIdx p.rulePrefix
         (sumRules (consSumCtors p.nP ctorsA env₁).find? cvRa.name p.nP p.majorIdx p.rulePrefix cvRa.type ctorsA rhss)
-        :: (consSumCtors p.nP ctorsA env₁).consts⟩ = .ok env₂
+        :: (consSumCtors p.nP ctorsA env₁).consts⟩ = .ok env₂ ∧
+    -- THE READ-BACK (K.34): `containerInfo?` of the environment this
+    -- route produced, at the member it installed, is the block's own data
+    ConLeche.blockReadBackOk env₂ p.nP [(cvTa, ctorsA)] = true
 
 /-- The install after the pass, inverted: the monad-shape argument,
 one `cases` per bind, the guards by cases. -/
@@ -98,7 +101,8 @@ theorem checkNativeTail_inv {μ : CheckMode} {F : Nat} {env env₂ : Env}
         ⟨.recInfo cvRa q.p.majorIdx q.p.rulePrefix
           (sumRules (consSumCtors q.p.nP q.ctorsA q.env₁).find? cvRa.name q.p.nP q.p.majorIdx
             q.p.rulePrefix cvRa.type q.ctorsA rhss)
-          :: (consSumCtors q.p.nP q.ctorsA q.env₁).consts⟩ = .ok env₂ := by
+          :: (consSumCtors q.p.nP q.ctorsA q.env₁).consts⟩ = .ok env₂ ∧
+      ConLeche.blockReadBackOk env₂ q.p.nP [(q.cvTa, q.ctorsA)] = true := by
   rw [checkNativeTail] at h
   simp only [bind, Except.bind] at h
   -- the elimination guard
@@ -150,7 +154,13 @@ theorem checkNativeTail_inv {μ : CheckMode} {F : Nat} {env env₂ : Env}
   rw [hRec] at h
   dsimp only at h
   -- `cases … :` rewrote the opening and the recursor's run in the goal
-  exact ⟨cvRa, rhss, tfvs, trest, isorts, helim, rfl, hsorts, hk, hr, rfl, h⟩
+  obtain ⟨envT, htbl, h⟩ := exceptBind_ok h
+  try dsimp only at h
+  by_cases hrb : ConLeche.blockReadBackOk envT q.p.nP [(q.cvTa, q.ctorsA)] = true
+  case neg => rw [if_neg hrb] at h; exact nomatch h
+  rw [if_pos hrb] at h
+  obtain rfl : envT = env₂ := by simpa [pure, Except.pure] using h
+  exact ⟨cvRa, rhss, tfvs, trest, isorts, helim, rfl, hsorts, hk, hr, rfl, htbl, hrb⟩
 
 /-- A settled pass with the install after it is a run. -/
 theorem declNativeRun_of_pass {μ : CheckMode} {F : Nat} {env env₂ : Env}
