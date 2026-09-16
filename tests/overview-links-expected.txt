@@ -8,7 +8,7 @@
 >>> OVERVIEW.md
 
 == Main.lean#L714
-   714  def usage : String := String.intercalate "\n" [
+   714          -- record array the driver already holds — never a diagnostic
 
 == Main.lean#L48
     48  def ConLeche.CheckError.exitCode : CheckError → UInt32
@@ -145,10 +145,10 @@
    367      (hk : k < e.pend.size) : Except (CheckError × Nat) (PLift (GroupChecked mode e k)) :=
 
 == Main.lean#L176
-   176  def checkLoop (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride t0 : Nat)
+   176      {ds : List ConLeche.Declaration}
 
 == Main.lean#L294
-   294  def checkPool (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride t0 jobs : Nat)
+   294      (e : ConLeche.Cached.InstalledEnv mode ConLeche.natOpPinSets ds)
 
 == ConLeche/Cached/Installed.lean#L399-L403
    399  def collectChecks {pins : List NatOpPinSet} {ds : List Declaration}
@@ -158,10 +158,10 @@
    403        Except (CheckError × Nat) (PLift (∀ i, GroupChecked mode e i))
 
 == Main.lean#L333-L336
-   333  def checkDeclsIO (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride total t0 tParse jobs : Nat)
-   334      (noMark : Bool) (ds : Array ConLeche.Declaration) :
-   335      IO (Except (ConLeche.CheckError × Nat)
-   336        { env : ConLeche.Env // ConLeche.Cached.checkDecls mode ConLeche.natOpPinSets ds = .ok env }) := do
+   333    let mut results : List (Array (Nat × ConLeche.Cached.RecordResult mode e)) := []
+   334    let mut failure : Option IO.Error := none
+   335    for t in tasks do
+   336      match ← IO.wait t with
 
 == ConLeche/Cached/Installed.lean#L534-L536
    534  theorem fullyChecked_checkDecls {pins : List NatOpPinSet} {ds : Array Declaration}
@@ -362,9 +362,9 @@
    104    deriving DecidableEq, Repr, Hashable
 
 == ConLeche/Verify/Cached/AgreeFloor.lean#L1431-L1433
-  1431  theorem checkMutualCtorsF_names (ops : CheckerOps CheckCM) (w : StructWalkers) (fe : FEnv)
-  1432      (b : MutualBlock) (fms : List MutualFormerA) (isProp : Bool) :
-  1433      ∀ (cs : List MutualCtor),
+  1431        (fun r => r.1.name = cvC.name) := by
+  1432    unfold checkMutualCtorF
+  1433    refine Yields.bind' (checkConstantValF_name ops fe cvC) fun cvCa₀ hn₀ => ?_
 
 == ConLeche/Term/Syntax.lean#L176-L205
    176    deriving Repr, DecidableEq, Inhabited
@@ -727,7 +727,7 @@
    185  def mutualParts? (nPd : Nat) (block : List ConstantInfo) : Option MutualParts :=
 
 == ConLeche/Kernel/Inductives/MutualInstall.lean#L585
-   585  def checkMutualCore (ops : CheckerOps m) (env : Env) (b : MutualBlock)
+   585  /-- **The projection table** at a STRUCTURE-LIKE member — one
 
 == ConLeche/SetTheory/Derive/LfpTuple.lean#L91
     91  noncomputable def lfpTuple (w k : Nat) (Is : Nat → V) (Φ : (Nat → V) → Nat → V) : Nat → V :=
@@ -1039,14 +1039,14 @@
    227          pure fe
 
 == Main.lean#L747
-   747    "  --jobs=<n>        the number of worker threads for the check phase",
+   747    "                    gate skips per-redex argument certificates at",
 
 == ConLeche/Kernel/Basis/False.lean#L51-L52
     51  /-- The pinned `False` basis block, in install order. -/
     52  def falseBasis : List ConstantInfo := [falseRaw, falseRecRaw]
 
 == Main.lean#L992
-   992  
+   992    at every block the nested recogniser takes, and print its verdict.
 
 == ConLeche/MainTheorem.lean#L110-L117
    110  theorem no_False_declaration (V : Type w) [SetTheory V]
@@ -1171,5 +1171,5 @@
    415    private repr : PropWhenRepr
 
 == Main.lean#L730
-   730    "  --trusted         the unverified mode: the SAME checker bodies as",
+   730                s!" [at {declCName d}, a generated model record of \
 

@@ -54,6 +54,14 @@ DIR   = os.environ.get('PUBPLAN_DIR', '_tmp/m3')
 # a tree whose `rfl`s stop closing, so they stay public and the gate must not
 # ask for them again.
 FALLBACK = {
+    # task #315 M5: `DeclNestedRun` is an exposed `def … : Prop` whose
+    # STATEMENT names the nested route's own vocabulary (`NestedParts`,
+    # `ElimState`, `AuxStored`, the stage functions) and whose companion
+    # `declNestedRun_of` is `checkNested_inv`; the census attributes
+    # those to the proof, so the checker asks for the demotion and the
+    # compiler refuses it.
+    ('ConLeche.Semantics.Inductives.DeclNested', 'ConLeche.Kernel.Inductives.NestedInstall'),
+    ('ConLeche.Semantics.Inductives.DeclNested', 'ConLeche.Verify.Inductives.NestedInv'),
     ('ConLeche.Model.Install',        'ConLeche.Model.Annot.BitExtend'),
     ('ConLeche.Model.Install',        'ConLeche.Semantics.ConstsBound'),
     ('ConLeche.Model.Install',        'ConLeche.Verify.Extend.Sibs'),

@@ -100,7 +100,7 @@ theorem mutualShapeOk_inv {b : MutualBlock} {u : Unit}
 
 /-- The formers' checks at the empty block: nothing checked. -/
 theorem mutualFormerChecks_nil_inv {nP F : Nat} {env : Env} {fms : List MutualFormerA}
-    (h : mutualFormerChecks (fueledOps mode F) env nP [] = .ok fms) :
+    (h : mutualFormerChecks (fueledOps mode F) env nP false [] = .ok fms) :
     fms = [] := by
   simp only [mutualFormerChecks, pure, Except.pure, Except.ok.injEq] at h
   exact h.symm
@@ -111,13 +111,13 @@ telescope — ALL at the pre-block environment `env`, as official's
 `check_inductive_types` runs them, and so does the rest of the loop. -/
 theorem mutualFormerChecks_inv {nP F : Nat} {cv : ConstantVal} {nIdx : Nat}
     {rest : List (ConstantVal × Nat)} {env : Env} {fms : List MutualFormerA}
-    (h : mutualFormerChecks (fueledOps mode F) env nP ((cv, nIdx) :: rest) = .ok fms) :
+    (h : mutualFormerChecks (fueledOps mode F) env nP false ((cv, nIdx) :: rest) = .ok fms) :
     ∃ (cvTa₀ cvTa : ConstantVal) (s : Level) (bs : List (Expr × BinderMeta))
       (fs : List MutualFormerA),
       checkConstantVal (fueledOps mode F) env cv = .ok cvTa₀ ∧
       checkSumTele (fueledOps mode F) env cv (nP + nIdx) cvTa₀ = .ok (cvTa, s) ∧
       cvTa.type.stripPis (nP + nIdx) = some (bs, Expr.sort s) ∧
-      mutualFormerChecks (fueledOps mode F) env nP rest = .ok fs ∧
+      mutualFormerChecks (fueledOps mode F) env nP false rest = .ok fs ∧
       fms = ⟨cvTa, nIdx, s⟩ :: fs := by
   unfold mutualFormerChecks at h
   obtain ⟨cvTa₀, hccv, h⟩ := exceptBind_ok h
@@ -144,7 +144,7 @@ is what the well-formedness, freshness and model steps read off the
 stage. -/
 theorem mutualFormerChecks_checked {nP F : Nat} :
     ∀ {l : List (ConstantVal × Nat)} {env : Env} {fms : List MutualFormerA},
-      mutualFormerChecks (fueledOps mode F) env nP l = .ok fms →
+      mutualFormerChecks (fueledOps mode F) env nP false l = .ok fms →
       ∀ f ∈ fms, ∃ cv', checkConstantVal (fueledOps mode F) env cv' = .ok f.cvTa
   | [], _, _, h, f, hf => by
     obtain rfl := mutualFormerChecks_nil_inv h
@@ -160,9 +160,9 @@ theorem mutualFormerChecks_checked {nP F : Nat} :
 /-- The formers' stage, split: the checks at the pre-block
 environment, the conses after them. -/
 theorem mutualFormers_inv {nP F : Nat} {formers : List (ConstantVal × Nat)}
-    {env env' : Env} {fms : List MutualFormerA}
-    (h : mutualFormers (fueledOps mode F) nP formers env = .ok (env', fms)) :
-    mutualFormerChecks (fueledOps mode F) env nP formers = .ok fms ∧
+    {env env' : Env} {fms : List MutualFormerA} {auxRoute : Bool}
+    (h : mutualFormers (fueledOps mode F) nP formers env auxRoute = .ok (env', fms)) :
+    mutualFormerChecks (fueledOps mode F) env nP auxRoute formers = .ok fms ∧
       env' = consMutualFormers fms env := by
   unfold mutualFormers at h
   obtain ⟨fs, hchecks, h⟩ := exceptBind_ok h
@@ -437,10 +437,10 @@ theorem checkMutualCtor_shape {env : Env} {memberNames : List Name} {T : Name}
 the input and every entry is its constructor's run at its own
 member's former. -/
 theorem checkMutualCtors_inv {env : Env} {b : MutualBlock} {fms : List MutualFormerA}
-    {isProp : Bool} {F : Nat} :
+    {isProp auxRoute : Bool} {F : Nat} :
     ∀ {cs : List MutualCtor} {ctorsA : List (ConstantVal × Nat)}
       {sortss : List (List Level)},
-      checkMutualCtors (fueledOps mode F) env b fms isProp cs = .ok (ctorsA, sortss) →
+      checkMutualCtors (fueledOps mode F) env b fms isProp auxRoute cs = .ok (ctorsA, sortss) →
       ctorsA.length = cs.length ∧ sortss.length = cs.length ∧
       ∀ (j : Nat) (c : MutualCtor) (cA : ConstantVal × Nat),
         cs[j]? = some c → ctorsA[j]? = some cA →
@@ -449,7 +449,7 @@ theorem checkMutualCtors_inv {env : Env} {b : MutualBlock} {fms : List MutualFor
           checkMutualCtor (fueledOps mode F) env b.memberNames
             (fms.getD c.member default).cvTa.name b.lps b.nP (fms.getD c.member default).nIdx
             (fms.getD c.member default).s isProp b.large c.cv c.nF
-            (fms.getD c.member default).cvTa = .ok (cA.1, sorts)
+            (fms.getD c.member default).cvTa auxRoute = .ok (cA.1, sorts)
   | [], ctorsA, sortss, h => by
     simp only [checkMutualCtors, pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
     obtain ⟨rfl, rfl⟩ := h
@@ -769,8 +769,8 @@ theorem mutualParts?_recPinned {nPd : Nat} {block : List ConstantInfo} {p : Mutu
 
 /-- **The whole core chain**, as the install ran it. -/
 theorem checkMutualCore_inv {env envOut : Env} {b : MutualBlock} {F : Nat}
-    {streamRecs : Option (List (ConstantVal × List RecRule))}
-    (h : checkMutualCore (fueledOps mode F) env b streamRecs = .ok envOut) :
+    {streamRecs : Option (List (ConstantVal × List RecRule))} {auxRoute : Bool}
+    (h : checkMutualCore (fueledOps mode F) env b streamRecs auxRoute = .ok envOut) :
     b.blockNames.Nodup ∧
     (b.formers.all (fun f => f.1.levelParams == b.lps) &&
       b.ctors.all (fun c => c.cv.levelParams == b.lps)) = true ∧
@@ -781,14 +781,14 @@ theorem checkMutualCore_inv {env envOut : Env} {b : MutualBlock} {F : Nat}
       (sortss : List (List Level)) (kinds : List (List (RecFieldKind × Nat)))
       (formers4 : List MutualFormer) (ctors4 : List MutualCtor4)
       (cvRas : List ConstantVal) (rulesOf : List (List (MutualCtor × Expr))),
-      mutualFormers (fueledOps mode F) b.nP b.formers env = .ok (env₁, fms) ∧
+      mutualFormers (fueledOps mode F) b.nP b.formers env auxRoute = .ok (env₁, fms) ∧
       fms[0]? = some f₀ ∧
       openPisAtFvars b.nP f₀.cvTa.type 0 = some tq₀ ∧
       mutualCrossChecks (fueledOps mode F) env₁ b.nP f₀ (tq₀.1.map Expr.fvarTypeD) fms
         = .ok () ∧
       b.large = f₀.s.isNeverZero ∧
       checkMutualCtors (fueledOps mode F) env₁ b fms
-        (Level.isEquiv f₀.s .zero == some true) b.ctors = .ok (ctorsA, sortss) ∧
+        (Level.isEquiv f₀.s .zero == some true) auxRoute b.ctors = .ok (ctorsA, sortss) ∧
       classifyMutualKinds (m := CheckM) b.members3 b.lps b.nP ctorsA = .ok kinds ∧
       mutualFieldsOk env b.members3 b.lps b.nP ctorsA kinds = true ∧
       mutualGenData b fms ctorsA kinds = (formers4, ctors4) ∧

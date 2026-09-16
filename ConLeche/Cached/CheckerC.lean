@@ -1,6 +1,7 @@
 module
 
 public import ConLeche.Kernel.Inductives.MutualInstallF
+public import ConLeche.Kernel.Inductives.NestedInstallF
 public import ConLeche.Cached.CoreC
 
 @[expose] public section
@@ -234,36 +235,42 @@ def checkNativeS (fe : FEnv) (p₀ : NativeParts) : CheckCM FEnv := do
 checked at the block's starting index, so the whole stage runs at ONE
 environment and needs no flush of its own (`mutualFormersS` flushes
 once before it).  The pure comparand is `mutualFormerChecks`. -/
-def mutualFormerChecksS (fe : FEnv) (nP : Nat) : List (ConstantVal × Nat) →
-    CheckCM (List MutualFormerA)
+def mutualFormerChecksS (fe : FEnv) (nP : Nat) (auxRoute : Bool := false) :
+    List (ConstantVal × Nat) → CheckCM (List MutualFormerA)
   | [] => pure []
   | (cv, nIdx) :: rest => do
-    let cvTa₀ ← checkConstantValF (sharedOpsC mode fe) fe cv
+    -- the grade (task #279 K.10/K.12, through the index): at `auxRoute`
+    -- the caller built every member of this block out of annotated
+    -- pieces, so the walk is skipped and the stored type is the given one
+    let cvTa₀ ←
+      if auxRoute then checkConstantValPreF (sharedOpsC mode fe) fe cv
+      else checkConstantValF (sharedOpsC mode fe) fe cv
     let (cvTa, s) ← checkSumTeleF (sharedOpsC mode fe) fe cv (nP + nIdx) cvTa₀
     let (_, tbody) ← unwrapOr (cvTa.type.stripPis (nP + nIdx))
       (.internal "mutual: type former telescope")
     unless tbody == Expr.sort s do
       throw (.internal "mutual: type former result sort")
-    let fs ← mutualFormerChecksS fe nP rest
+    let fs ← mutualFormerChecksS fe nP auxRoute rest
     pure (⟨cvTa, nIdx, s⟩ :: fs)
 
 /-- `mutualFormers` through the index: ONE flush entering the stage
 (the driver's environment changed before it), the checks at that one
 index, the conses afterwards — no operation runs between an
 environment change and a flush. -/
-def mutualFormersS (nP : Nat) (formers : List (ConstantVal × Nat)) (fe : FEnv) :
-    CheckCM (FEnv × List MutualFormerA) := do
+def mutualFormersS (nP : Nat) (formers : List (ConstantVal × Nat)) (auxRoute : Bool)
+    (fe : FEnv) : CheckCM (FEnv × List MutualFormerA) := do
   flushC
-  let fms ← mutualFormerChecksS mode fe nP formers
+  let fms ← mutualFormerChecksS mode fe nP auxRoute formers
   pure (consMutualFormersF fms fe, fms)
 
 /-- `checkMutualCore` through the index (task #278): the stages at the
 index's environment, one flush per environment transition. -/
 def checkMutualCoreS (fe : FEnv) (b : MutualBlock)
-    (streamRecs : Option (List (ConstantVal × List RecRule))) : CheckCM FEnv := do
+    (streamRecs : Option (List (ConstantVal × List RecRule)))
+    (auxRoute : Bool) : CheckCM FEnv := do
   let nP := b.nP
   mutualShapeOk (m := CheckCM) b
-  let (fe₁, fms) ← mutualFormersS mode nP b.formers fe
+  let (fe₁, fms) ← mutualFormersS mode nP b.formers auxRoute fe
   let f₀ ← unwrapOr fms[0]? (.internal "mutual: no member")
   flushC
   let tq₀ ← unwrapOr (openPisAtFvars nP f₀.cvTa.type 0) (.internal "mutual: former telescope")
@@ -272,7 +279,7 @@ def checkMutualCoreS (fe : FEnv) (b : MutualBlock)
     throw (.invalid "mutual: the recursors' level parameters are not the generated ones")
   let isProp := Level.isEquiv f₀.s .zero == some true
   let (ctorsA, sortss) ← checkMutualCtorsF (sharedOpsC mode fe₁) structWalkersC fe₁ b fms isProp
-    b.ctors
+    auxRoute b.ctors
   let kinds ← classifyMutualKinds (m := CheckCM) b.members3 b.lps nP ctorsA
   unless mutualFieldsOkF structWalkersC fe b.members3 b.lps nP ctorsA kinds do
     throw (.internal "mutual: field kinds")
@@ -293,6 +300,102 @@ def checkMutualS (fe : FEnv) (p : MutualParts) : CheckCM FEnv := do
   unless p.recPinned do
     throw (.invalid "mutual: a recursor record is not the generated recursor")
   checkMutualCoreS mode fe p.toBlock (some (p.members.map fun mb => (mb.cvR, mb.rules)))
+    false
+
+/-- **`checkNested` through the index** (task #279 K.20): the nested
+route's stages at the cached driver's `FEnv`, one flush per environment
+transition.  The pure readers — the elimination, the container
+recovery, the read-back, the restore table and the fire shape — take
+`fe.env`, which is that index's own environment (the mutual mirror does
+the same for `mutualCrossChecks`); every front door and every cons goes
+through the index.
+
+The scratch install is `checkMutualCoreS … true`: the grade K.12 gave
+the whole auxiliary block, here through the index. -/
+def checkNestedS (fe : FEnv) (p : NestedParts) : CheckCM FEnv := do
+  let ctorTypes := p.ctors.map (fun c => c.cv.type)
+  unless p.formers.all (fun f => !f.1.type.mentionsNestedAux) &&
+      ctorTypes.all (fun t => !t.mentionsNestedAux) do
+    throw (.invalid "invalid declaration, it uses the reserved prefix '_nested'")
+  unless uniformIndOccsOk p.memberNames (p.lps.map Level.param) p.nP ctorTypes do
+    throw (.invalid "invalid occurrence of datatype being declared: it must be applied \
+      to the parameters and universe levels of the mutual declaration")
+  flushC
+  let fmsA ← nestedAnnotFormersF (sharedOpsC mode fe) fe p.nP p.formers
+  let feF := nestedFormerEnvF fmsA fe
+  flushC
+  let ctorsA ← nestedAnnotCtorsF (sharedOpsC mode feF) feF p.ctors
+  let st ← nestedLift (m := CheckCM)
+    (elimNested fe.env p.nP p.lps (nestedTypes0 p fmsA ctorsA))
+  unless st.pins.length == p.numNested do
+    throw (.invalid s!"the block carries {p.numNested} recursor records past its \
+      {p.k} type formers; the elimination finds {st.pins.length} nested occurrences")
+  unless copiesFresh fe.env p.k st do
+    throw (.invalid "nested: an auxiliary type generated by the elimination names a \
+      constant the environment already carries")
+  unless nestedContainersOk fe.env st.pins do
+    throw (.internal "nested: a container the elimination pinned fails a fact its own \
+      install established")
+  let b ← unwrapOr (auxBlock p st)
+    (.invalid "invalid nested inductive datatype, ill-formed declaration")
+  let feAux ← checkMutualCoreS mode fe b none true
+  let stored ← unwrapOr (auxStoredAll feAux.env b b.k)
+    (.internal "nested: the auxiliary block's stored records")
+  let R := restoreTbl p st
+  let members := stored.take p.k
+  let mimics := stored.drop p.k
+  unless pinsClosed p.nP st.pins do
+    throw (.invalid "nested: a pin is not closed at the block's parameter telescope")
+  flushC
+  nestedPinsOk (sharedOpsC mode feAux) feAux.env p.nP st.pins
+  unless members.all (fun a => !a.caps.eta && (fe.find? a.cvTa.name).isNone) do
+    throw (.internal "nested: a restored former is not a fresh non-eta family")
+  -- the field kinds at the pins (§U.1 (c) fact 6), as in the pure route
+  unless nestedPinKindsOk p b st stored do
+    throw (.internal "nested: a stored field at a pin is not classified ordinary, \
+      recursive or reflexive into the block")
+  -- the RESTORED block is built on the PRE-BLOCK index, not the scratch
+  -- one: only the restored constants are stored
+  let fe₁ := consNestedFormersF members fe
+  flushC
+  let ctorsR ← members.mapM fun a =>
+    restoreCtorsF (sharedOpsC mode fe₁) fe₁ R p.lps a.ctors
+  let fe₂ := consNestedCtorsF ctorsR.flatten fe₁
+  flushC
+  let memberNames := (List.range p.k).map fun mIdx =>
+    ((p.formers.getD mIdx default).1.name.str "rec")
+  let mimicNames := (List.range p.numNested).map p.mimicRecName
+  let cvRms ← restoreRecTysF (sharedOpsC mode fe₂) fe₂ R p.lps memberNames members
+  let cvRns ← restoreRecTysF (sharedOpsC mode fe₂) fe₂ R p.lps mimicNames mimics
+  let provisions := (cvRms.zip (members.map fun a => (a.mI, a.rP)))
+    ++ (cvRns.zip (mimics.map fun a => (a.mI, a.rP)))
+  let feR := provisionNestedRecsF provisions fe₂
+  flushC
+  let rulesM ← (cvRms.zip members).mapM fun (cvRa, a) =>
+    restoreRulesF (sharedOpsC mode feR) feR R cvRa.levelParams cvRa.name false cvRa.type
+      a.mI a.rP a.rules
+  let rulesN ← (cvRns.zip mimics).mapM fun (cvRa, a) =>
+    restoreRulesF (sharedOpsC mode feR) feR R cvRa.levelParams cvRa.name true cvRa.type
+      a.mI a.rP a.rules
+  let fe₃ := storeNestedRecsF
+    ((cvRms.zip (members.zip rulesM)).map (fun (cv, a, rs) => (cv, a.mI, a.rP, rs))
+      ++ (cvRns.zip (mimics.zip rulesN)).map (fun (cv, a, rs) => (cv, a.mI, a.rP, rs))) fe₂
+  flushC
+  let fe₄ ← nestedTablesF (m := CheckCM) structWalkersC
+    ((members.zip ctorsR).zipIdx.map fun ((a, cs), mIdx) =>
+      ((p.formers.getD mIdx default).1.name, a.tbl, cs)) fe₃
+  flushC
+  nestedPinsOk (sharedOpsC mode fe₄) fe₄.env p.nP st.pins
+  unless p.memberRecs.length == cvRms.length && p.mimicRecs.length == cvRns.length do
+    throw (.invalid "nested: the block's recursor records are not the generated ones")
+  let ownOf : Nat → List (Nat × Nat) := fun mIdx =>
+    (b.ownCtors mIdx).map fun (J, c) => (J, c.nF)
+  let mRows := ((p.memberRecs.zip cvRms).zip rulesM).zipIdx.map
+    (fun (((sr, cv), rs), mIdx) => (sr, ownOf mIdx, cv, rs))
+  let nRows := ((p.mimicRecs.zip cvRns).zip rulesN).zipIdx.map
+    (fun (((sr, cv), rs), j) => (sr, ownOf (p.k + j), cv, rs))
+  nestedRecsOkF (sharedOpsC mode fe₂) fe₂ p.nP b.k b.n (mRows ++ nRows)
+  pure fe₄
 
 /-- The modeled inductive block (mirrors `checkModeled`), returning
 the extended index. -/

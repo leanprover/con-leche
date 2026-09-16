@@ -680,7 +680,7 @@ there — official's `check_inductive_types` runs before
 `declare_inductive_types`). -/
 theorem mutualFormerChecksS_fresh (mode : CheckMode) (nP : Nat) :
     ∀ (fs : List (ConstantVal × Nat)) {fe : FEnv},
-      Yields (mutualFormerChecksS mode fe nP fs)
+      Yields (mutualFormerChecksS mode fe nP false fs)
         (fun fms => fms.map (·.cvTa.name) = fs.map (·.1.name) ∧
           ∀ f ∈ fms, fe.find? f.cvTa.name = none)
   | [], _ => by
@@ -729,7 +729,7 @@ at the index the whole stage runs at. -/
 theorem mutualFormersS_push (mode : CheckMode) (nP : Nat)
     (fs : List (ConstantVal × Nat)) {env : Env} {fe : FEnv} (h : PushChain env fe)
     (hnd : (fs.map (·.1.name)).Nodup) :
-    Yields (mutualFormersS mode nP fs fe) (fun r => PushChain env r.1) := by
+    Yields (mutualFormersS mode nP fs false fe) (fun r => PushChain env r.1) := by
   unfold mutualFormersS
   ybind
   refine Yields.bind' (mutualFormerChecksS_fresh mode nP fs (fe := fe)) fun fms hq => ?_
@@ -757,7 +757,7 @@ theorem checkMutualCtorF_fresh (ops : CheckerOps CheckCM) (w : StructWalkers) (f
 theorem checkMutualCtorsF_fresh (ops : CheckerOps CheckCM) (w : StructWalkers) (fe : FEnv)
     (b : MutualBlock) (fms : List MutualFormerA) (isProp : Bool) :
     ∀ (cs : List MutualCtor),
-      Yields (checkMutualCtorsF ops w fe b fms isProp cs)
+      Yields (checkMutualCtorsF ops w fe b fms isProp false cs)
         (fun r => ∀ c ∈ r.1, fe.find? c.1.name = none)
   | [] => Yields.pure (fun _ hc => nomatch hc)
   | c :: cs => by
@@ -894,7 +894,7 @@ theorem checkMutualCoreS_push (mode : CheckMode) {env : Env} {fe : FEnv}
     (h : PushChain env fe) (b : MutualBlock) (rs : List (ConstantVal × List RecRule))
     (hlen : b.k ≤ rs.length)
     (hnm : ∀ m x, rs[m]? = some x → x.1.name = b.recName m) :
-    Yields (checkMutualCoreS mode fe b (some rs)) (fun fe' => PushChain env fe') := by
+    Yields (checkMutualCoreS mode fe b (some rs) false) (fun fe' => PushChain env fe') := by
   unfold checkMutualCoreS
   simp only []
   refine Yields.bind' (mutualShapeOk_nodup b) fun _ hnd => ?_

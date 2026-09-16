@@ -200,6 +200,15 @@ if tests/challenge.sh; then :; else fail=1; fi
 # built tree; ~1 min, most of it the two olean dumps the fixpoint reads.
 if tests/shake.sh; then :; else fail=1; fi
 
+# THE NESTED ROUTE'S SHADOW GATE (task #279, task #315 M5).  The native
+# nested route is not on the dispatch — the accept set may not widen
+# ahead of the uniform model theorem — so what it does is OBSERVED
+# beside the install (`--nested-shadow`) and compared, block by block,
+# with a committed expectation: the probe shapes P1–P31, the arena's two
+# nested tests, and the fixtures that already carry a nested block.
+# ~26 checker runs.
+if tests/nested-shadow.sh; then :; else fail=1; fi
+
 # THE IN-PROCESS MODELLER'S GATE (task #200; the modeller is the only
 # model source since #207): the raw mutual/nested fixtures through the
 # generator, the debug dump re-checked in both modes, and the off

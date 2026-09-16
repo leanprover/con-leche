@@ -145,7 +145,7 @@ Consumer: `declBlock`. -/
       (tq₀.1.map Expr.fvarTypeD) fms = .ok () →
     b.large = f₀.s.isNeverZero →
     ConLeche.checkMutualCtors (m := ConLeche.CheckM) (fueledOps μ F) env₁ b fms
-      (Level.isEquiv f₀.s .zero == some true) b.ctors = .ok (ctorsA, sortss) →
+      (Level.isEquiv f₀.s .zero == some true) false b.ctors = .ok (ctorsA, sortss) →
     ConLeche.classifyMutualKinds (m := ConLeche.CheckM) b.members3 b.lps b.nP ctorsA
       = .ok kinds →
     ConLeche.mutualFieldsOk env b.members3 b.lps b.nP ctorsA kinds = true →
@@ -202,7 +202,7 @@ model of the post-block environment — `declBlock`'s second named fact
       (ConLeche.consMutualFormers fms env) b.nP f₀ (tq₀.1.map Expr.fvarTypeD) fms = .ok () →
     b.large = f₀.s.isNeverZero →
     ConLeche.checkMutualCtors (m := ConLeche.CheckM) (fueledOps μ F)
-      (ConLeche.consMutualFormers fms env) b fms (Level.isEquiv f₀.s .zero == some true) b.ctors
+      (ConLeche.consMutualFormers fms env) b fms (Level.isEquiv f₀.s .zero == some true) false b.ctors
       = .ok (ctorsA, sortss) →
     ConLeche.classifyMutualKinds (m := ConLeche.CheckM) b.members3 b.lps b.nP ctorsA
       = .ok kinds →

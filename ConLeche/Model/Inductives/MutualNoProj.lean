@@ -510,7 +510,7 @@ theorem mutualCtorNames {μ : CheckMode} {F : Nat} {env : Env} {b : MutualBlock}
     {fms : List MutualFormerA} {isProp : Bool} {ctorsA : List (ConstantVal × Nat)}
     {sortss : List (List Level)}
     (hctors : ConLeche.checkMutualCtors (m := ConLeche.CheckM) (fueledOps μ F) env b fms isProp
-      b.ctors = .ok (ctorsA, sortss)) :
+      false b.ctors = .ok (ctorsA, sortss)) :
     ∀ (J : Nat) (cA : ConstantVal × Nat), ctorsA[J]? = some cA →
       cA.1.name.isProjFnShape = false ∧ ConLeche.reservedBasisNames.contains cA.1.name = false := by
   intro J cA hJ
@@ -537,7 +537,7 @@ theorem mutualNoProj {μ : CheckMode} {F : Nat} {env : Env} (hwf : ConLeche.EnvW
     (hformers : ConLeche.mutualFormers (m := ConLeche.CheckM) (fueledOps μ F) b.nP b.formers env
       = .ok (ConLeche.consMutualFormers fms env, fms))
     (hctors : ConLeche.checkMutualCtors (m := ConLeche.CheckM) (fueledOps μ F)
-      (ConLeche.consMutualFormers fms env) b fms (Level.isEquiv f₀.s .zero == some true) b.ctors
+      (ConLeche.consMutualFormers fms env) b fms (Level.isEquiv f₀.s .zero == some true) false b.ctors
       = .ok (ctorsA, sortss))
     (hgd : ConLeche.mutualGenData b fms ctorsA kinds = (formers4, ctors4))
     (hrectys : ConLeche.checkMutualRecTys (m := ConLeche.CheckM) (fueledOps μ F)

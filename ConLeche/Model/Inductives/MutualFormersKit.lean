@@ -275,7 +275,7 @@ the `t`-th declared one's constant check at the PRE-BLOCK environment
 annotated type is the telescope ending in its result sort. -/
 theorem mutualFormerChecks_pos {F nP : Nat} :
     ∀ {l : List (ConstantVal × Nat)} {env : Env} {fms : List MutualFormerA},
-      ConLeche.mutualFormerChecks (m := ConLeche.CheckM) (ConLeche.fueledOps μ F) env nP l
+      ConLeche.mutualFormerChecks (m := ConLeche.CheckM) (ConLeche.fueledOps μ F) env nP false l
         = .ok fms →
       fms.length = l.length ∧
       ∀ (t : Nat) (f : MutualFormerA), fms[t]? = some f →

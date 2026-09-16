@@ -733,7 +733,8 @@ theorem normCtorValMF_eq (ops : CheckerOps m) (env : Env) (memberNames : List Na
     (nP nF : Nat) (cvC cvCa : ConstantVal) :
     normCtorValMF ops (mkFEnv env) memberNames nP nF cvC cvCa
       = normCtorValM ops env memberNames nP nF cvC cvCa := by
-  simp only [normCtorValMF, normCtorValM, mkFEnv_env, checkConstantValF_eq]
+  simp only [normCtorValMF, normCtorValM, mkFEnv_env, checkConstantValF_eq,
+    Bool.false_eq_true, if_false]
 
 theorem checkMutualCtorF_eq (ops : CheckerOps m) (env : Env) (memberNames : List Name)
     (T : Name) (lps : List Name) (nP nIdx : Nat) (resSort : Level) (isProp large : Bool)
@@ -742,6 +743,7 @@ theorem checkMutualCtorF_eq (ops : CheckerOps m) (env : Env) (memberNames : List
         cvC nF cvTa
       = checkMutualCtor ops env memberNames T lps nP nIdx resSort isProp large cvC nF cvTa := by
   simp only [checkMutualCtorF, checkMutualCtor, checkConstantValF_eq, normCtorValMF_eq,
+    Bool.false_eq_true, if_false,
     checkStructDomsAtFA_eq, checkStructDomsAtF_eq, openPisAtFvarsF_eq,
     checkStructFieldSortsIFA_eq, checkStructFieldSortsIF_eq, StructWalkers.plain,
     constsResolveF_eq]
@@ -749,8 +751,8 @@ theorem checkMutualCtorF_eq (ops : CheckerOps m) (env : Env) (memberNames : List
 theorem checkMutualCtorsF_eq (ops : CheckerOps m) (env : Env) (b : MutualBlock)
     (fms : List MutualFormerA) (isProp : Bool) :
     ∀ (cs : List MutualCtor),
-      checkMutualCtorsF ops .plain (mkFEnv env) b fms isProp cs
-        = checkMutualCtors ops env b fms isProp cs
+      checkMutualCtorsF ops .plain (mkFEnv env) b fms isProp false cs
+        = checkMutualCtors ops env b fms isProp false cs
   | [] => rfl
   | c :: cs => by
     simp only [checkMutualCtorsF, checkMutualCtors, checkMutualCtorF_eq,
@@ -968,9 +970,9 @@ theorem mutualFormerChecksS_run (hμ : mode.verifiedChecks = true) {nP : Nat} :
     ∀ (l : List (ConstantVal × Nat)) (env : Env) {s₀ : CState}
       {fms : List MutualFormerA} {s' : CState},
       EnvWF env → CSOK mode env s₀ →
-      mutualFormerChecksS mode (mkFEnv env) nP l s₀ = .ok (fms, s') →
+      mutualFormerChecksS mode (mkFEnv env) nP false l s₀ = .ok (fms, s') →
       CSOK mode env s' ∧ (∀ f ∈ fms, f.cvTa.type.hasFvar = false) ∧
-      ∃ F, mutualFormerChecks (fueledOps mode F) env nP l = .ok fms
+      ∃ F, mutualFormerChecks (fueledOps mode F) env nP false l = .ok fms
   | [], env, s₀, fms, s', _, hs, h => by
     unfold mutualFormerChecksS at h
     obtain ⟨hr, rfl⟩ := pureC_ok h
@@ -979,6 +981,7 @@ theorem mutualFormerChecksS_run (hμ : mode.verifiedChecks = true) {nP : Nat} :
   | (cv, nIdx) :: rest, env, s₀, fms, s', henv, hs, h => by
     unfold mutualFormerChecksS at h
     -- the constant check and official's telescope, both at `env`
+    simp only [Bool.false_eq_true, if_false] at h
     rw [checkConstantValF_eq] at h
     obtain ⟨cvTa₀, s₂, hcv, h⟩ := bindC_ok h
     obtain ⟨hs₂, cvTa₀', hP₀, F₁, hF₁⟩ := (checkConstantValS_sim hμ henv hs) cvTa₀ s₂ hcv
@@ -1031,10 +1034,11 @@ theorem mutualFormerChecksS_run (hμ : mode.verifiedChecks = true) {nP : Nat} :
         rw [← checkConstantVal_datF]; exact FueledM.up hle₁ hF₁
       have g₂ : checkSumTele (fueledOps mode G) env cv (nP + nIdx) cvTa₀ = .ok (cvTa, sx) := by
         rw [← checkSumTele_datF]; exact FueledM.up hle₂ hF₂
-      have g₃ : mutualFormerChecks (fueledOps mode G) env nP rest = .ok q2 := by
+      have g₃ : mutualFormerChecks (fueledOps mode G) env nP false rest = .ok q2 := by
         rw [← mutualFormerChecks_datF]
         exact FueledM.up hle₃ (by rw [mutualFormerChecks_datF]; exact hF₃)
       unfold mutualFormerChecks
+      simp only [Bool.false_eq_true, if_false]
       simp only [Bind.bind, Except.bind, pure, Except.pure]
       rw [g₁]
       simp only [Except.bind]
@@ -1049,7 +1053,7 @@ theorem mutualFormersS_run (hμ : mode.verifiedChecks = true) {nP : Nat}
     (l : List (ConstantVal × Nat)) (env : Env) {s₀ : CState}
     {r : FEnv × List MutualFormerA} {s' : CState}
     (henv : EnvWF env) (hwf : CSOKF s₀)
-    (h : mutualFormersS mode nP l (mkFEnv env) s₀ = .ok (r, s')) :
+    (h : mutualFormersS mode nP l false (mkFEnv env) s₀ = .ok (r, s')) :
     CSOKF s' ∧ r.1 = mkFEnv r.1.env ∧ EnvWF r.1.env ∧
     (∀ f ∈ r.2, f.cvTa.type.hasFvar = false) ∧
     ∃ F, mutualFormers (fueledOps mode F) nP l env = .ok (r.1.env, r.2) := by
@@ -1085,9 +1089,9 @@ tables on top. -/
 theorem checkMutualCoreS_run (hμ : mode.verifiedChecks = true) {env : Env} (henv : EnvWF env)
     {b : MutualBlock} {streamRecs : Option (List (ConstantVal × List RecRule))}
     {s₀ : CState} (hwf : CSOKF s₀) {feOut : FEnv} {s' : CState}
-    (h : checkMutualCoreS mode (mkFEnv env) b streamRecs s₀ = .ok (feOut, s')) :
+    (h : checkMutualCoreS mode (mkFEnv env) b streamRecs false s₀ = .ok (feOut, s')) :
     CSOKF s' ∧ feOut = mkFEnv feOut.env ∧
-    ∃ F, checkMutualCore (fueledOps mode F) env b streamRecs = .ok feOut.env := by
+    ∃ F, checkMutualCore (fueledOps mode F) env b streamRecs false = .ok feOut.env := by
   unfold checkMutualCoreS at h
   simp only [] at h
   rw [structWalkersC_eq_plain] at h
@@ -1158,7 +1162,7 @@ theorem checkMutualCoreS_run (hμ : mode.verifiedChecks = true) {env : Env} (hen
         · rw [hm]; rfl) hs₂) (ctorsA, sortss) s₃ hctors
   obtain rfl : (ctorsA, sortss) = r3' := hP3
   have hF₃p : checkMutualCtors (fueledOps mode F₃) fe₁.env b fms
-      (Level.isEquiv f₀.s .zero == some true) b.ctors = .ok (ctorsA, sortss) := by
+      (Level.isEquiv f₀.s .zero == some true) false b.ctors = .ok (ctorsA, sortss) := by
     rw [← checkMutualCtors_datF]; exact hF₃
   -- the kinds, classified on the stored constructors
   simp only [] at h
@@ -1218,7 +1222,7 @@ theorem checkMutualCoreS_run (hμ : mode.verifiedChecks = true) {env : Env} (hen
     rw [← mutualCrossChecks_datF]
     exact FueledM.up hle₂ hF₂
   have g₃ : checkMutualCtors (fueledOps mode G) fe₁.env b fms
-      (Level.isEquiv f₀.s .zero == some true) b.ctors = .ok (ctorsA, sortss) := by
+      (Level.isEquiv f₀.s .zero == some true) false b.ctors = .ok (ctorsA, sortss) := by
     rw [← checkMutualCtors_datF]; exact FueledM.up hle₃ hF₃
   have g₅ : checkMutualRecTys (fueledOps mode G) (consMutualCtors b.nP ctorsA fe₁.env) b
       (mutualGenData b fms ctorsA kinds).1 (mutualGenData b fms ctorsA kinds).2 streamRecs b.k

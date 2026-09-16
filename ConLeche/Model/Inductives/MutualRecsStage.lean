@@ -162,7 +162,7 @@ theorem ctors4_getElem? (hgd : ConLeche.mutualGenData b fms ctorsA kinds = (form
 parameters are the block record's** (`checkMutualCtors`' constant
 check keeps the name and the level parameters). -/
 theorem ctorsA_names_of {isProp : Bool} (hctors : ConLeche.checkMutualCtors (m := ConLeche.CheckM)
-      (ConLeche.fueledOps μ F) env b fms isProp b.ctors = .ok (ctorsA, sortss))
+      (ConLeche.fueledOps μ F) env b fms isProp false b.ctors = .ok (ctorsA, sortss))
     (h1 : (b.formers.all (fun f => f.1.levelParams == b.lps) &&
       b.ctors.all (fun c => c.cv.levelParams == b.lps)) = true) :
     ctorsA.length = b.ctors.length ∧
@@ -423,7 +423,7 @@ theorem mutualRecsProvision (hμ : μ.verifiedChecks = true) {env₂ : Env}
     (hf₀ : fms[0]? = some f₀) (hlenF : fms.length = b.k) (hL : b.large = f₀.s.isNeverZero)
     {env₁ : Env} {isProp : Bool}
     (hctors : ConLeche.checkMutualCtors (m := ConLeche.CheckM) (ConLeche.fueledOps μ F) env₁ b fms
-      isProp b.ctors = .ok (ctorsA, sortss))
+      isProp false b.ctors = .ok (ctorsA, sortss))
     (hlenK : kinds.length = ctorsA.length)
     (hgd : ConLeche.mutualGenData b fms ctorsA kinds = (formers4, ctors4))
     {streamRecs : Option (List (ConstantVal × List RecRule))} {cvRas : List ConstantVal}
@@ -621,7 +621,7 @@ facts are `MutualRecsModeled`'s, verbatim.  Consumer:
       (ConLeche.consMutualFormers fms env) b.nP f₀ (tq₀.1.map Expr.fvarTypeD) fms = .ok () →
     b.large = f₀.s.isNeverZero →
     ConLeche.checkMutualCtors (m := ConLeche.CheckM) (fueledOps μ F)
-      (ConLeche.consMutualFormers fms env) b fms (Level.isEquiv f₀.s .zero == some true) b.ctors
+      (ConLeche.consMutualFormers fms env) b fms (Level.isEquiv f₀.s .zero == some true) false b.ctors
       = .ok (ctorsA, sortss) →
     ConLeche.classifyMutualKinds (m := ConLeche.CheckM) b.members3 b.lps b.nP ctorsA
       = .ok kinds →

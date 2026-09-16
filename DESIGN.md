@@ -74593,6 +74593,95 @@ after the deletions.
    runs where the previous left off — always `cd` explicitly; the prose
    pass of a rename hits `section` NAMES.
 
+#### U.12 — M5: the nested kernel route on the uniform branch, unwired (session U-11, 2026-09-16)
+
+§U.1 (c) carried out: the nested route is on the branch, it is
+UNWIRED (the fold still sends a nested block to the modeller), it
+records the eight shape facts and nothing else, and the verdicts are
+master's to the declaration.
+
+**The port, and why it is not twelve cherry-picks.**  §U.1 (e)'s M5 list
+names the commits whose CONTENT survives, but 37 commits of `inductives`
+touch the same files between them, so the kept ones do not apply without
+the dropped ones' context: `34489e6c` conflicts in four files against
+K1/K3/K5 alone, and each later one conflicts worse.  What landed instead
+is three clean cherry-picks (`14839638`, `2d75aea3`, `320f68f9` — the
+route's own history) and then the nested-only modules at their final
+`inductives` state (aaa4b79e), whose cumulative content is the other
+nine commits'.  The nested modules are NEW files here, so no master-side
+history was overwritten; the commit message names all twelve hashes and
+says exactly this.  The maintainer accepted it as provenance.
+
+**What master's shapes needed.**  The grade is the only thing the nested
+route asks of the mutual one, and master's mutual route is #315's, not
+#278's: `checkConstantValPre` (+ the `Expr.projTablesOk` family and its
+`@[csimp]`) into `Kernel/CheckerBase.lean`, `checkConstantValPreF`/
+`projTablesOkF` into `DeclCheck.lean`, `auxRoute`/`preAnnotated` through
+`mutualFormerChecks`/`mutualFormers`/`normCtorValM`/`checkMutualCtor`/
+`checkMutualCtors`/`checkMutualCore` and their F and S twins, defaulted
+`false`.  That defaulting is what keeps the mutual route untouched, but
+the positions BEFORE a matched list lose their default, so 14 files
+across `Verify/`, `Model/` and `Cached/` gained an explicit `false`,
+each `unfold` of a graded stage gained `simp only [Bool.false_eq_true,
+if_false]`, and `mutualFormers_inv`/`checkMutualCtors_inv`/
+`checkMutualCore_inv` are now GENERALISED over the grade — the nested
+route inverts `checkMutualCore … none true`.
+
+**K.13's guard belongs to the pre-annotated door**, not to the grade
+that §U.1 (c) retires: the annotation walk is what validates a `.proj`
+node's structure-name slot, so `checkConstantValPre` asks
+`Expr.projTablesOk` syntactically, with official's `invalid`.
+
+**What died.**  K.6's order and its cycle decline (`copyRefB`,
+`copyRefsOf`, `topoOrderOk`, `topoGo`, `nestedTopoOrder`, and the
+`Expr.subB` family with its memo — nothing else used it), K.17's whnf
+witness, K.23's Bool, and the three conjuncts they fed, together with
+the `order` witness and `topoFields_of`.  `NestedOrderK.lean` was never
+brought over.  `ElimState.grp` survives: K.15 (2) reads it.
+
+**Fact 6, re-keyed** (`nestedPinKinds`/`nestedPinKindsOk`): K.26 keyed
+the classification by AUX MEMBER; the copies die with the encoding, so
+it is now keyed by PIN — per pin in pin order, per container
+constructor, one kind per field, with the target index read as a
+position of `members ++ pins` (which is what `mutualCtorKinds` already
+returns, the aux block being the members followed by one copy per pin).
+The Bool asks three things: the kinds exist at every pin
+(`length == st.pins.length`), no field is `.negative`/`.unsupported`,
+and every target is `< p.k + st.pins.length`.  `.internal` on failure;
+it cannot fire, and it re-reads a decision `classifyMutualKinds` made on
+these very types.  Variant B — a positivity walk over the container's
+constructors with the parameter FREE — stays ruled out: official's
+positivity runs on the SUBSTITUTED field, where a parameter-inspecting
+field reduces, and the free-parameter walk is whnf-stuck on it.
+
+**The shadow entry is a FLAG, not an env var.**  `--nested-shadow`, in
+`Args` beside `--no-mark-persistent`: at a block the nested recogniser
+takes, `checkNestedS` runs beside the install on the same pre-block
+environment and index, its state is discarded, and its verdict is
+printed.  `inductives` used `CON_LECHE_NESTED_SHADOW`; a flag is the
+documented interface and needs no new env hook.  Nothing sets it but
+`tests/nested-shadow.sh`.
+
+**`DeclNested` is ON the build graph** (`ConLeche/Semantics.lean`).  On
+`inductives` it was not, which is how a stale statement hid there once
+(K.10's addendum); here the strip and the root landed together.
+
+**Gates.**  `lake build`/`lake test` exit 0 warning-free; `tests/arena.sh`
+EXIT 0 including the new `nested-shadow` row; nested-shadow **26/26**;
+the Mathlib nested cone exit 0, **4 926 accepted — master's own count on
+the same stream** — with its **41 shadow lines byte-identical** to the
+`inductives` baseline.  Negative controls: narrowing fact 6's predicate
+to `.ordinary` turns 23 of the 26 fixtures into the `.internal` error,
+and asking `kinds.length == st.pins.length + 1` does the same — so both
+halves of the conjunct are reached and the pin-keying is not vacuous.
+
+**K.27 is NOT in.**  Its probe passed (26/26, 41/41) but the argument
+closes five of `inferTypeCore`'s six arms; arm 6 (structure η,
+unit-like/K) is vacuous only because no sub-term of a pin has a
+member-headed type, which rests on the fold's `sorryAx` decline.  That
+is with the maintainer; the conjunct lands as `.internal` in both routes
+the moment it is accepted.
+
 #### U.13 — M6 session 1: the `fibre` census and the composed block model's nested-slot arm (session U-11, 2026-09-16)
 
 M6 opened with its falsifier — the census of every consumer of

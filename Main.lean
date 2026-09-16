@@ -104,7 +104,7 @@ the stream's record index: the parse folds the basis and `quot` blocks
 into single records and generates the in-process models, so the two
 drift apart by a stream-dependent amount.  Calibrate by NAME. -/
 def installLoop (mode : ConLeche.CheckMode) (err : IO.FS.Stream)
-    (stride total t0 : Nat)
+    (stride total t0 : Nat) (shadow : Bool)
     (ds : Array ConLeche.Declaration)
     (p₀ : Nat × ConLeche.FEnv × Array ConLeche.Cached.PendingCheck) (s₀ : ConLeche.Cached.CState) :
     (i : Nat) →
@@ -125,9 +125,35 @@ def installLoop (mode : ConLeche.CheckMode) (err : IO.FS.Stream)
           {ConLeche.Cached.declCLabel pd} \
           t={ConLeche.Cached.msSecs (now - t0)}s\n"
         err.flush
+      -- **THE NESTED SHADOW** (`--nested-shadow`): at a block the NESTED
+      -- recogniser takes, the native nested route runs BESIDE the
+      -- install, on the very same pre-block environment and index, and
+      -- its verdict is printed.  Nothing of it reaches the fold — the
+      -- state it returns is discarded and the block is installed by the
+      -- dispatch as before, which for a nested block is still the
+      -- modelled route — so the accept set is untouched and the gate
+      -- (`tests/nested-shadow.sh`) is free to compare the two verdicts
+      -- declaration by declaration.  It goes when the uniform model
+      -- theorem covers the nested route and the dispatch takes it.
+      if shadow then
+        match pd with
+        | .indDecl block nP =>
+          match ConLeche.nestedParts? nP block with
+          | some q =>
+            let nm := (block.head?.map (·.name)).getD .anonymous
+            let verdict : String :=
+              match ConLeche.Cached.checkNestedS mode p.2.1 q s with
+              | .ok _ => "accept"
+              | .error (.invalid msg) => s!"reject {msg}"
+              | .error (.notImplemented what) => s!"decline {what}"
+              | .error (.internal msg) => s!"error {msg}"
+            err.putStr s!"con-leche: nested-shadow {nm} {verdict}\n"
+            err.flush
+          | none => pure ()
+        | _ => pure ()
       match h : ConLeche.Cached.annotDeclStep mode ConLeche.natOpPinSets p pd s with
       | .ok (p₁, s₁) =>
-        installLoop mode err stride total t0 ds p₀ s₀ (i + 1) p₁ s₁ (by
+        installLoop mode err stride total t0 shadow ds p₀ s₀ (i + 1) p₁ s₁ (by
           have hlist : ds.toList.take (i + 1) = ds.toList.take i ++ [pd] := by
             rw [List.take_add_one]
             simp [pd, Array.getElem?_eq_getElem hi]
@@ -331,7 +357,7 @@ the phase boundary, one when the check phase ends, and a summary with
 the three phase durations (`tParse` is when the parse finished) and
 the worker count. -/
 def checkDeclsIO (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride total t0 tParse jobs : Nat)
-    (noMark : Bool) (ds : Array ConLeche.Declaration) :
+    (noMark shadow : Bool) (ds : Array ConLeche.Declaration) :
     IO (Except (ConLeche.CheckError × Nat)
       { env : ConLeche.Env // ConLeche.Cached.checkDecls mode ConLeche.natOpPinSets ds = .ok env }) := do
   let heartbeat (line : String) : IO Unit := do
@@ -339,7 +365,7 @@ def checkDeclsIO (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride total 
       err.putStr s!"con-leche: {line}\n"
       err.flush
   let secs (ms : Nat) : String := ConLeche.Cached.msSecs ms
-  match ← installLoop mode err stride total t0 ds
+  match ← installLoop mode err stride total t0 shadow ds
       (0, ConLeche.mkFEnv ConLeche.Env.empty, #[]) {} 0
       (0, ConLeche.mkFEnv ConLeche.Env.empty, #[]) {} (.nil _ _) with
   | .error e =>
@@ -489,7 +515,7 @@ the verdict.  The three steps fail in ONE error type, the checker's
 chain is one `do` block up there and why the exit code below is
 `CheckError.exitCode` whichever step produced it. -/
 def checkMain (file : String) (mode : CheckMode) (stride jobs : Nat)
-    (noMark : Bool) : IO UInt32 := do
+    (noMark shadow : Bool) : IO UInt32 := do
     -- The opt-in progress heartbeat (`--progress[=<stride>]`):
     -- validated by the argument parse, before any work is done, and
     -- handed down as configuration.  EVERY SWITCH THAT SHAPES A
@@ -649,7 +675,7 @@ def checkMain (file : String) (mode : CheckMode) (stride jobs : Nat)
           (parse {ConLeche.Cached.msSecs (tParse - t0)}s)"
         (← IO.getStderr).flush
       let err ← IO.getStderr
-      let verdict ← checkDeclsIO mode err stride decls.size t0 tParse jobs noMark decls
+      let verdict ← checkDeclsIO mode err stride decls.size t0 tParse jobs noMark shadow decls
       match verdict with
       | .ok _ =>
         -- **The headline number is the FILE's declaration-record
@@ -799,6 +825,11 @@ def usage : String := String.intercalate "\n" [
   "                    on -- so this is a MEASUREMENT switch: it is how",
   "                    the mark's effect is measured on the shipped",
   "                    binary.",
+  "  --nested-shadow   run the native nested route beside the install at",
+  "                    every block the nested recogniser takes and print",
+  "                    its verdict on STDERR.  The route is not on the",
+  "                    dispatch, so nothing of it reaches the fold and no",
+  "                    verdict changes: this is how the two are compared.",
   "  --progress[=<stride>]",
   "                    opt-in progress heartbeat on STDERR, one line",
   "                    shape per phase:",
@@ -957,6 +988,12 @@ structure Args where
   the check phase runs on the pool; this turns it off, which is what
   measures its effect on the shipped binary. -/
   noMark : Bool := false
+  /-- `--nested-shadow`: run the native NESTED route beside the install
+  at every block the nested recogniser takes, and print its verdict.
+  A developer flag, like `--no-mark-persistent`: nothing of the shadow
+  reaches the fold, so the accept set is the same with it and without
+  it.  The gate `tests/nested-shadow.sh` is its only caller. -/
+  nestedShadow : Bool := false
   files : Array String := #[]
   bad : Option String := none
 
@@ -974,6 +1011,8 @@ def parseArgs : List String → Args → Args
   | "--progress" :: rest, a => parseArgs rest { a with progress := 1 }
   -- The persistent mark is on by default on the pool; this turns it off.
   | "--no-mark-persistent" :: rest, a => parseArgs rest { a with noMark := true }
+  -- The nested route's shadow, off by default (the gate turns it on).
+  | "--nested-shadow" :: rest, a => parseArgs rest { a with nestedShadow := true }
   | s :: rest, a =>
     if s.startsWith "--progress=" then
       match progressStride ((s.drop "--progress=".length).toString) with
@@ -1014,7 +1053,7 @@ def main (args : List String) : IO UInt32 := do
     let jobs := a.jobs.getD
       (let hw := (System.Platform.Internal.getHardwareConcurrency ()).toNat
        if hw = 0 then 1 else hw)
-    checkMain file a.mode a.progress jobs a.noMark
+    checkMain file a.mode a.progress jobs a.noMark a.nestedShadow
   | _ =>
     IO.eprintln usage
     return 3
