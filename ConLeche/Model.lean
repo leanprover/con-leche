@@ -127,6 +127,11 @@ public import ConLeche.Model.Inductives.DeclNestedCore
 public import ConLeche.Model.Inductives.NestedCore
 public import ConLeche.Model.Inductives.NestedStageCtor
 public import ConLeche.Model.Inductives.NestedLoop
+public import ConLeche.Model.Inductives.NestedTransfer
+public import ConLeche.Model.Inductives.NestedCtorRead
+public import ConLeche.Model.Inductives.NestedCtorOpened
+public import ConLeche.Model.Inductives.NestedCtorRefl
+public import ConLeche.Model.Inductives.NestedReadLaw
 public import ConLeche.Model.Inductives.MutualRecData
 public import ConLeche.Model.Inductives.MutualRecRead
 public import ConLeche.Model.Inductives.MutualRuleRead

@@ -77387,3 +77387,160 @@ seal's per-component index universes (`u`) 1; the identities
 (unchanged: −1 for the loop landing, +1 for the reading law's own
 session — its semantic half was under-sized at "the same `hbody`",
 which turned out to be the groups' consumer, (a)).
+
+#### U.21b — M6 s9′: THE RESTORE READING LAW discharged (session U-19b, 2026-09-16)
+
+M6 s9′ = §U.20 (g)'s "s9′".  `NestedReadLaw` (§U.20 (e)) is a THEOREM:
+`nestedReadLaw : NestedReadLaw V μ F` (`Model/Inductives/NestedReadLaw.lean`)
+— for every restored constructor, from its auxiliary twin's data at
+the scratch model, the door at the prefix environment and the pins'
+facts, the loop's per-constructor input (`NestedCtorInput`), the
+block model's constructor data through the nested arm
+(`BlockCtorData`) and the domain facts (`NestedCtorRead`).  Two
+fields were ADDED to `NestedPinFacts` (the interface the parallel
+session U-19 discharges; (c)).  No checker code changed; no `sorry`,
+no axioms, no `maxHeartbeats`.
+
+##### (a) THE ARGUMENT
+
+The restore touches a constructor's type at exactly the nested field
+domains (`restoreNested_opened`, §U.20 (f)); everything else of the
+restored constructor is its auxiliary twin's, transferred from the
+scratch model to the prefix model.  Per restored constructor
+`(mm, j)` with auxiliary twin `cA = ctorsA[b.ownOffset mm + j]`:
+
+1. **The syntactic record** (`ReadCtx.restoredOpened`, packaged as
+   `RestoredCtor`): the door (`restoreCtors_door`), the restored
+   parameter opening AT THE AUXILIARY OPENERS `fvsPF J` — from
+   `restoreNested_pis` and `openPisAtFvars_mkPisB` (the openers depend
+   only on the binders), which is what lets the openers' annotations be
+   read off the RESTORED type's resolution at the prefix environment
+   before `restoreNested_opened` is invoked — then
+   `restoreNested_opened`'s two openings at the SAME residual, and per
+   field one of three arms (`RestoredField`): (A) an auxiliary-free
+   position (ordinary, or a member target): the restored domain IS the
+   auxiliary domain; (B) a finitary pin target: the pin re-opened at
+   the parameter openers applied to the auxiliary index arguments; (C)
+   a reflexive pin target: the auxiliary telescope over that
+   (`os_openPisAtFvars_constSpine_stripPis`, lane X: the closed spine
+   under an opened telescope — `instantiate1` never touches an `fvar`,
+   so the parameter openers sit verbatim in the closed body).
+   `restoreNested_opened`'s `hnodep` is discharged by the auxiliary
+   `MutualOpened` alone (an auxiliary-mentioning field is not
+   ordinary, so `recF`/`reflF` give the dependence facts); `hxrest`
+   and the auxiliary-free arms by the auxiliary names' ABSENCE at the
+   prefix environment (`rk_restoreTbl_auxNames_fresh`: `copiesFresh`
+   + `PinsAligned` + `blockNames.Nodup`; `rk_mentionsConst_false_of_constsResolve`).
+2. **The reading** (`restoredCtor_reads`/`ReadSpec`, the template
+   `ctorDataI_ofShapeDoor`'s `hper`): the door's `inferTypeCore` run +
+   `acceptedReads_of` + `opened_of` define `dsR mm j ψ` (chosen); the
+   residual's index readings are the auxiliary `esF J ψ` by uniqueness
+   against the TRANSFERRED auxiliary spine.
+3. **The transfer** (`nt_denoteMeta_transfer`, lane M):
+   `denoteMeta_env_restrict` (the scratch environment extends the prefix
+   one: `nt_findPreserved_take`, `nt_findProj?_take`) composed with
+   `denoteMeta_congr_of_resolve` (the two carriers agree on the prefix
+   environment's names: members by `hleafM'`/`h.leaf`, the rest by
+   `hoff'`/`h.off`).  Every auxiliary reading the law re-uses resolves
+   at the prefix environment (the restored openers' annotations by the
+   door's `resolve`; the index arguments and telescope domains before
+   the block).
+4. **The bits** (`ReadCtx.bitsEq`): the walk keeps every binder meta
+   (`rk_restoreWalk_stripPis`, `rk_restoreNested_stripPis`), and a
+   telescope's reading carries its binders' bits
+   (`stripPisAV_denoteMeta_mkPisB`: the `.pi` entries are
+   `(0, pwBit φ bm.pw, _)`), so the restored and the auxiliary entries
+   agree in `.1`/`.2.1` at EVERY position — `bitsR` without any
+   `piBits_of_infer` re-derivation, and the domain facts
+   (`NestedCtorRead.dom`) are TRIPLE equalities at plain positions.
+5. **The nested entries**: (B) `nt_denoteMeta_restoredPin` (lane M):
+   the pin re-opened reads, at depth `nP + i`, as the container's leaf
+   at the components LIFTED by `i` — `eraseAnnots_openAbstract` +
+   `denoteMeta_congr_eraseAnnots` (the re-annotation is invisible),
+   `denoteMeta_lift` at the erased components (`WScoped nP` from
+   `pinsClosed` via `nt_fvarsBelow_of_abstractRange_noFvar`); the head
+   `acval J (substFn ψ cvT.levelParams lvls)` is `acval J (ψJ ψ)` by the
+   new `pinψ` field; the index readings are the auxiliary `eisRead`
+   transferred.  (C) the same under the reflexive telescope
+   (`ReadCtx.fieldEqC`, lane R): the restored telescope opens at the
+   AUXILIARY openers (`openPisAtFvars_mkPisB` again), its reading is
+   `openPisAtFvars_denotePTele`'s Π-tele whose domains are the
+   auxiliary `tss` (bits by `stripPisAV_denoteMeta_mkPisB` on both
+   sides, domains by transfer).
+6. **The identification** (`ReadCtx.agree_of`): the assembly's
+   `hsp₂'` block (§U.18 (b)) at the prefix model — `nestedIdent_of` at
+   `PF.groups dsR xFvsR`, the finitary and the reflexive shape.
+7. **The assembly**: `ReadCtx.ctorDataI_of` (`CtorDataI` at the
+   restored domains; `srcProp` transported by `fieldsBoundSrc_congr`
+   along the agreement), `ReadCtx.input_of` (`NestedCtorInput`: the
+   fold/chain facts as `mutualCtorsStage` instantiates them, member-
+   local at `j`), `ReadCtx.blockOpened_of` (lane O: `BlockOpened`,
+   the `mentionsFvar` facts on the RESTORED later fields by arm),
+   `ReadCtx.blockCtorData_of`, `ReadCtx.nestedCtorRead_of`
+   (`NestedCtorRead.lean`), `ReadCtx.reflC_of`/`ReadCtx.nestedCtorRead`
+   and the choice of `dsR`/`xFvsR` per constructor — `nestedReadLaw`
+   (`Model/Inductives/NestedReadLaw.lean`).
+
+##### (b) NAMED — the two `NestedPinFacts` fields added (consumer: this law)
+
+`Model/Inductives/NestedLoop.lean`, `NestedPinFacts` (U-19's interface;
+the ONLY hunk in a shared file):
+
+| field | statement | why the law needs it |
+| --- | --- | --- |
+| `pinψ` | `∀ q < pinsS.length, ∀ cvT caps, ENV₁.find? (pinsS.getD q default).J = some (.indInfo cvT caps) → (pinsS.getD q default).lvls.length = cvT.levelParams.length ∧ ∀ ψ, (pinsS.getD q default).ψJ ψ = Level.substFn ψ cvT.levelParams (pinsS.getD q default).lvls` | `denoteMeta_const` reads the pin's head `.const J lvls` as `acval J (substFn ψ cvT.levelParams lvls)`; `BlockCtorData.nestEntry` is stated at `acval J (ψJ ψ)`; nothing in `NestedPinGroup` relates `ψJ` to `lvls` |
+| `pinNIdx` | `∀ q < pinsS.length, (fms.getD (p.k + q) default).nIdx = (pinsS.getD q default).nIdx` | `BlockCtorData.nestEisLen` asks the auxiliary index readings' count (`mutualNIdxOf` of the COPY) to be the pin's; the copy-vs-container index count is K.28's identity (`mkCopy_inv`), not a fact of the reading |
+
+Both are facts of `pinsS`'s CONSTRUCTION (U-19 defines `ψJ` and
+`nIdx`); `pinNIdx` is the same obligation as `NestedPinGroup.pinNIdx`
+seen from the copy's side.
+
+##### (c) FINDINGS
+
+* **FINDING 1 (the opener trap).** `restoreNested_opened` needs the
+  auxiliary residual and every auxiliary-free field to mention no
+  auxiliary name; the parameter openers' annotations are the
+  constructor's own parameter domains, which resolve at the SCRATCH
+  environment — where the copies' formers ARE stored.  The way out is
+  the RESTORED type: its parameter opening has the same openers
+  (`restoreNested_pis` + `openPisAtFvars_mkPisB`), and it resolves at
+  the prefix environment (`FrontDoorFacts.resolve`), where the
+  auxiliary names are absent.  Cost: `rk_openPisAtFvars_constsResolve`
+  and the ordering of the proof (parameter opening BEFORE
+  `restoreNested_opened`).
+* **FINDING 2 (bits without inference).** The plan's `piBits_of_infer`
+  at the door was not needed: binder metas survive the walk, and a
+  reading's bits are the metas' (`stripPisAV_denoteMeta_mkPisB`).
+  This also closes `bitsR` at the NESTED positions, which the
+  `= 0 ↔` characterisation alone could not (it needs `≤ 1`, M6's shape lemma).
+* **FINDING 3 (`AllFvarsL`/`mkPisB`/`PinsAligned` sealed).** Three
+  U-18 kit `def`s in plain `public section`s were unusable from a new
+  module (`show` against their bodies fails); `mkPisB` and
+  `PinsAligned` got `@[expose]` (the reading law unfolds them),
+  `AllFvarsL` was worked around (lane X re-proved two lemmas with the
+  predicate spelled out).
+* **FINDING 4 (a lemma missing in the tree).** `denoteMeta`'s
+  `.const` clause reads an arbitrary `acval n ψ`, which MAY be a `.pi`,
+  so the natural "every `stripPisAV` entry of a reading has `.1 = 0`"
+  is FALSE without the syntactic telescope; `nt_stripPisAV_denoteMeta_shape`
+  and `stripPisAV_denoteMeta_mkPisB` carry it.
+
+##### (d) FILES AND GATES
+
+New: `Model/Inductives/NestedCtorRead.lean` (the context `ReadCtx`, the
+record `RestoredCtor`, the reading `ReadSpec`, the entries, the
+`CtorDataI`/`NestedCtorInput`/`BlockCtorData` assemblies, `agree_of`,
+`nestedCtorRead_of`), `NestedCtorOpened.lean` (lane O: `blockOpened_of`),
+`NestedCtorRefl.lean` (lane R: `fieldEqC`), `NestedReadLaw.lean`
+(`nestedReadLaw`), `NestedTransfer.lean` (lane M: `nt_*`);
+`Verify/Inductives/NestedRestoreKit.lean` (lane S: `rk_*`),
+`NestedOpenSpine.lean` (lane X: `os_*`).  Touched: `NestedLoop.lean`
+(the two `NestedPinFacts` fields), `NestedRestoreOpen.lean`
+(`@[expose] mkPisB`, `instTeleB_getElem?`), `NestedRestoreTbl.lean`
+(`@[expose] PinsAligned`), `Model.lean` (the roots).  Gates: see the
+session report (SIGNATURE-s9b.md).
+
+M6: s9′ DONE (this session).  The named facts of §U.20 (e) are now ONE:
+`NestedPinsStaged` (U-19, in flight), with its interface enlarged by
+`pinψ`/`pinNIdx` ((b)); s10 = `u`, the identities, `pinFix` as
+scheduled.  Remaining 11–15.
