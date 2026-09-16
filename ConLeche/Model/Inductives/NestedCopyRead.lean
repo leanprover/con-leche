@@ -7,13 +7,9 @@ import ConLeche.Model.Steps.TowerKit
 import ConLeche.Verify.Inductives.NestedCopyTele
 import ConLeche.Verify.InstLevels
 import ConLeche.Semantics.Tower.FixWire
--- The `inst` kit (DESIGN §U.23 (e)): hung here until the assembly
--- `nestedPinsInst_of` consumes it (the second `inst` session).
-import ConLeche.Verify.Inductives.NestedCopyRewrite
-import ConLeche.Verify.Inductives.NestedCopyProv
-import ConLeche.Verify.Inductives.NestedCopyInstU
+-- The `inst` kit's two still-unconsumed modules (DESIGN §U.23 (e)):
+-- hung here until the assembly `nestedPinsInst_of` reads them.
 import ConLeche.Verify.Inductives.NestedCopyKinds
-import ConLeche.Verify.Inductives.NestedCopyGlue
 import ConLeche.Model.Inductives.NestedCopyFound
 public section
 

@@ -388,3 +388,93 @@ theorem containerInfo?_inv {env : Env} {I : Name} {ci : ContainerInfo}
           | _ => simp only [hfI, hfR] at h; exact nomatch h
       | _ => simp only [hfI] at h; exact nomatch h
 
+
+/-! ## A group's members are determined by their names (task #315 L-B)
+
+A pin records its OWN container's group (`containerInfo?` at the pin's
+container), while the group's block model is the BASE pin's
+(`baseInfo`).  K.29 ties the two only by the members' NAMES and the
+parameter count; the copies' identities read the member RECORD (its
+type and its constructors' types and field counts), so the two records
+must be the same.  They are: every field of a `ContainerMember` is a
+function of the environment at the member's name, with the group's
+`nP` the only other input — the type and level parameters off the
+member's own `indInfo`, the constructors off its own recursor's rules
+and their `ctorInfo`s. -/
+
+/-- **A container group's member record is determined by its name** at
+groups with the same parameter count. -/
+theorem containerInfo?_member_det {env : Env} {I₁ I₂ : Name} {ci₁ ci₂ : ContainerInfo}
+    (h₁ : containerInfo? env I₁ = some ci₁) (h₂ : containerInfo? env I₂ = some ci₂)
+    (hnP : ci₁.nP = ci₂.nP) {M₁ M₂ : ContainerMember}
+    (hm₁ : M₁ ∈ ci₁.members) (hm₂ : M₂ ∈ ci₂.members) (hname : M₁.name = M₂.name) :
+    M₁ = M₂ := by
+  obtain ⟨cvT₁, caps₁, cvR₁, mI₁, rP₁, rules₁, -, -, -, -, hall₁⟩ := containerInfo?_inv h₁
+  obtain ⟨cvT₂, caps₂, cvR₂, mI₂, rP₂, rules₂, -, -, -, -, hall₂⟩ := containerInfo?_inv h₂
+  obtain ⟨cvC₁, capsC₁, cvRc₁, mIc₁, rulesC₁, hf₁, hr₁, hlps₁, hty₁, -, hlen₁, hct₁⟩ := hall₁ M₁ hm₁
+  obtain ⟨cvC₂, capsC₂, cvRc₂, mIc₂, rulesC₂, hf₂, hr₂, hlps₂, hty₂, -, hlen₂, hct₂⟩ := hall₂ M₂ hm₂
+  rw [hname] at hf₁ hr₁
+  obtain rfl : cvC₁ = cvC₂ := (ConstantInfo.indInfo.inj (Option.some.inj (hf₁.symm.trans hf₂))).1
+  obtain ⟨-, -, -, rfl⟩ := ConstantInfo.recInfo.inj (Option.some.inj (hr₁.symm.trans hr₂))
+  have hctors : M₁.ctors = M₂.ctors := by
+    refine List.ext_getElem? fun j => ?_
+    cases hc₁ : M₁.ctors[j]? with
+    | none =>
+      have : M₂.ctors[j]? = none := by
+        rw [List.getElem?_eq_none_iff] at hc₁ ⊢; omega
+      rw [this]
+    | some cc₁ =>
+      have hjlt : j < M₂.ctors.length := by
+        have := (List.getElem?_eq_some_iff.mp hc₁).1
+        omega
+      obtain ⟨cc₂, hc₂⟩ : ∃ cc₂, M₂.ctors[j]? = some cc₂ := ⟨_, List.getElem?_eq_getElem hjlt⟩
+      obtain ⟨r₁, cvc₁, hr₁', hn₁, hfc₁, htc₁⟩ := hct₁ j cc₁ hc₁
+      obtain ⟨r₂, cvc₂, hr₂', hn₂, hfc₂, htc₂⟩ := hct₂ j cc₂ hc₂
+      obtain rfl : r₁ = r₂ := Option.some.inj (hr₁'.symm.trans hr₂')
+      rw [hnP] at hfc₁
+      obtain ⟨rfl, -, hnf⟩ := ConstantInfo.ctorInfo.inj (Option.some.inj (hfc₁.symm.trans hfc₂))
+      have hcc : cc₁ = cc₂ := by
+        obtain ⟨n₁, t₁, f₁⟩ := cc₁
+        obtain ⟨n₂, t₂, f₂⟩ := cc₂
+        simp only at hn₁ hn₂ htc₁ htc₂ hnf ⊢
+        rw [hn₁, hn₂, htc₁, htc₂, hnf]
+      rw [hc₂, hcc]
+  obtain ⟨n₁, l₁, t₁, cs₁⟩ := M₁
+  obtain ⟨n₂, l₂, t₂, cs₂⟩ := M₂
+  simp only at hname hlps₁ hlps₂ hty₁ hty₂ hctors ⊢
+  rw [hname, hlps₁, hlps₂, hty₁, hty₂, hctors]
+
+/-- **A member's record is determined by its name alone AT A
+CONSTRUCTOR POSITION** (task #315 L-B): two groups that both list a
+member of the same name agree on its level parameters, its type, and —
+at every position where both list a constructor — on the constructor
+record.  Unlike `containerInfo?_member_det` this needs NO hypothesis
+about the groups' parameter counts: the two `ctorInfo`s the position
+names are the same stored constant, which pins the counts too.  It is
+what lets the elimination's own group (the container `I` whose
+occurrence was rewritten, `elimNested_copyCtors`) and the PIN's group
+(the copied member's own, K.28) be used interchangeably. -/
+theorem containerInfo?_member_ctor_det {env : Env} {I₁ I₂ : Name} {ci₁ ci₂ : ContainerInfo}
+    (h₁ : containerInfo? env I₁ = some ci₁) (h₂ : containerInfo? env I₂ = some ci₂)
+    {M₁ M₂ : ContainerMember} (hm₁ : M₁ ∈ ci₁.members) (hm₂ : M₂ ∈ ci₂.members)
+    (hname : M₁.name = M₂.name) {j : Nat} {cc₁ cc₂ : ContainerCtor}
+    (hc₁ : M₁.ctors[j]? = some cc₁) (hc₂ : M₂.ctors[j]? = some cc₂) :
+    M₁.lps = M₂.lps ∧ M₁.type = M₂.type ∧ ci₁.nP = ci₂.nP ∧ cc₁ = cc₂ := by
+  obtain ⟨cvT₁, caps₁, cvR₁, mI₁, rP₁, rules₁, -, -, -, -, hall₁⟩ := containerInfo?_inv h₁
+  obtain ⟨cvT₂, caps₂, cvR₂, mI₂, rP₂, rules₂, -, -, -, -, hall₂⟩ := containerInfo?_inv h₂
+  obtain ⟨cvC₁, capsC₁, cvRc₁, mIc₁, rulesC₁, hf₁, hr₁, hlps₁, hty₁, -, hlen₁, hct₁⟩ := hall₁ M₁ hm₁
+  obtain ⟨cvC₂, capsC₂, cvRc₂, mIc₂, rulesC₂, hf₂, hr₂, hlps₂, hty₂, -, hlen₂, hct₂⟩ := hall₂ M₂ hm₂
+  rw [hname] at hf₁ hr₁
+  obtain rfl : cvC₁ = cvC₂ := (ConstantInfo.indInfo.inj (Option.some.inj (hf₁.symm.trans hf₂))).1
+  obtain ⟨-, -, -, rfl⟩ := ConstantInfo.recInfo.inj (Option.some.inj (hr₁.symm.trans hr₂))
+  obtain ⟨r₁, cvc₁, hr₁', hn₁, hfc₁, htc₁⟩ := hct₁ j cc₁ hc₁
+  obtain ⟨r₂, cvc₂, hr₂', hn₂, hfc₂, htc₂⟩ := hct₂ j cc₂ hc₂
+  obtain rfl : r₁ = r₂ := Option.some.inj (hr₁'.symm.trans hr₂')
+  obtain ⟨rfl, hnP, hnf⟩ := ConstantInfo.ctorInfo.inj (Option.some.inj (hfc₁.symm.trans hfc₂))
+  refine ⟨by rw [hlps₁, hlps₂], by rw [hty₁, hty₂], hnP, ?_⟩
+  obtain ⟨n₁, t₁, f₁⟩ := cc₁
+  obtain ⟨n₂, t₂, f₂⟩ := cc₂
+  simp only at hn₁ hn₂ htc₁ htc₂ hnf ⊢
+  rw [hn₁, hn₂, htc₁, htc₂, hnf]
+
+end ConLeche

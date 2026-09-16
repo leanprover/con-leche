@@ -117,6 +117,7 @@ public import ConLeche.Model.Inductives.MutualFormersKit
 public import ConLeche.Model.Inductives.MutualIdxUniv
 public import ConLeche.Model.Inductives.MutualStageCtor
 public import ConLeche.Model.Inductives.MutualCore
+public import ConLeche.Model.Inductives.MutualNorm
 public import ConLeche.Model.Inductives.CaseWitness
 public import ConLeche.Model.Inductives.TupleLfp
 public import ConLeche.Model.Inductives.BlockRepMutual
@@ -134,6 +135,7 @@ public import ConLeche.Model.Inductives.NestedLoop
 public import ConLeche.Model.Inductives.NestedPins
 public import ConLeche.Model.Inductives.NestedCopyIdx
 public import ConLeche.Model.Inductives.NestedCopyRead
+public import ConLeche.Model.Inductives.NestedCopyInst
 public import ConLeche.Model.Inductives.NestedTransfer
 public import ConLeche.Model.Inductives.NestedCtorRead
 public import ConLeche.Model.Inductives.NestedCtorOpened

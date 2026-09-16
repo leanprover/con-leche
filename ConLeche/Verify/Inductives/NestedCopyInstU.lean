@@ -354,4 +354,75 @@ theorem looseBVarsBounded_instSeq (as : List Expr) (t : Nat) (e : Expr)
   have h := looseBVarsBounded_instSeq_gen as t e hcl he (by omega)
   rwa [hlen, Nat.sub_self] at h
 
+/-! ## The copy's constructor telescope, in one step (task #315 L-B) -/
+
+/-- **`mkCopy`'s constructor body, as a telescope**: the container
+constructor's type is a `∀`-tower over its parameters `pcs` and its
+fields `fcs`; `mkCopy` substitutes the occurrence's levels and
+instantiates the parameters at the pin's components, which leaves the
+FIELDS' tower with each domain instantiated at the descending cuts
+from `|Ds| - 1` and the residual at `|Ds| - 1 + |fcs|`. -/
+theorem instPis_ilp_mkPisB (ks : List Name) (us : List Level) (Ds : List Expr)
+    (pcs fcs : List (Expr × BinderMeta)) (res : Expr) (hlen : pcs.length = Ds.length) :
+    Expr.instPis (Expr.instantiateLevelParams ks us (mkPisB (pcs ++ fcs) res)) Ds
+      = some (mkPisB (instTeleSeq Ds (Ds.length - 1) (fcs.map fun b =>
+            (Expr.instantiateLevelParams ks us b.1,
+              (⟨Level.substPW ks us b.2.pw⟩ : BinderMeta))))
+          (Expr.instSeq Ds (Ds.length - 1 + fcs.length)
+            (Expr.instantiateLevelParams ks us res))) := by
+  rw [ilp_mkPisB, List.map_append, mkPisB_append,
+    instPis_mkPisB _ Ds _ (by rw [List.length_map]; exact hlen),
+    instSeq_mkPisB Ds (Ds.length - 1) _ _ (by omega), List.length_map]
+
+/-! ## Leaves of an application spine (task #315 L-B) -/
+
+/-- The head's leaves are the spine's. -/
+theorem fvarLeaves_mkAppN_head : ∀ (xs : List Expr) {f : Expr} {l : Nat × Expr},
+    l ∈ f.fvarLeaves → l ∈ (Expr.mkAppN f xs).fvarLeaves
+  | [], _, _, hl => hl
+  | x :: xs, f, l, hl => by
+    refine fvarLeaves_mkAppN_head xs (f := .app f x) ?_
+    simp only [Expr.fvarLeaves, List.mem_append]
+    exact Or.inl hl
+
+/-- **An argument's leaves are the spine's** — the converse of
+`fvarLeaves_mkAppN`, which is what carries a pin's scope (K.30) to its
+components. -/
+theorem fvarLeaves_mkAppN_arg : ∀ (xs : List Expr) {f x : Expr} {l : Nat × Expr},
+    x ∈ xs → l ∈ x.fvarLeaves → l ∈ (Expr.mkAppN f xs).fvarLeaves
+  | y :: xs, f, x, l, hx, hl => by
+    rcases List.mem_cons.mp hx with rfl | hx
+    · refine fvarLeaves_mkAppN_head xs (f := .app f x) ?_
+      simp only [Expr.fvarLeaves, List.mem_append]
+      exact Or.inr hl
+    · exact fvarLeaves_mkAppN_arg xs hx hl
+
+/-! ## The instantiated body's frame (task #315 L-B, DESIGN §U.33 (c) 4) -/
+
+/-- **The copy's constructor body is closed and scoped by the pin's
+components**: `mkCopy` instantiates a STORED constructor's type — no
+`fvar` leaf, no loose bvar, and level substitution touches neither
+(`hasFvar_instantiateLevelParams`,
+`looseBVarsBounded_instantiateLevelParams`) — at the pin's components,
+so the result is bounded (`looseBVarsBounded_instPis`) and every leaf
+it has is one of the components' (`instPis_instPisAt` +
+`instPisAt_fvarLeaves`), hence one of the block's own parameter
+openers (K.30).  This is exactly what `instSeq_abstractRange_fvs` asks
+of the body it closes and reopens (DESIGN §U.33 (c) step 4). -/
+theorem instPisILP_frame {ks : List Name} {us : List Level} {T : Expr}
+    {Ds : List Expr} {cI : Expr} {params : List Expr}
+    (h : Expr.instPis (Expr.instantiateLevelParams ks us T) Ds = some cI)
+    (hb : T.looseBVarsBounded 0 = true) (hf : T.hasFvar = false)
+    (hcl : ∀ a ∈ Ds, a.looseBVarsBounded 0 = true)
+    (hlv : ∀ a ∈ Ds, ∀ l ∈ a.fvarLeaves, Expr.fvar l.1 l.2 ∈ params) :
+    cI.looseBVarsBounded 0 = true ∧ ∀ l ∈ cI.fvarLeaves, Expr.fvar l.1 l.2 ∈ params := by
+  refine ⟨looseBVarsBounded_instPis Ds _ _
+    (by rw [Expr.looseBVarsBounded_instantiateLevelParams]; exact hb) hcl h, fun l hl => ?_⟩
+  obtain ⟨ds, hds⟩ := instPis_instPisAt Ds _ _ h
+  rcases instPisAt_fvarLeaves Ds _ hds l hl with hl' | ⟨a, ha, hal⟩
+  · rw [Expr.fvarLeaves_eq_nil_of_not_hasFvar
+      (by rw [Expr.hasFvar_instantiateLevelParams]; exact hf)] at hl'
+    exact nomatch hl'
+  · exact hlv a ha l hal
+
 end ConLeche

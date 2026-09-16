@@ -78,15 +78,41 @@ structure ContainerModeled {env : Env} (m : EnvModel V env) (ci : ContainerInfo)
   /-- the injections are the tagged towers at the member-local positions -/
   inj : ∀ (ψ : Name → Nat) (mm' j : Nat) (fs : List V),
     d.inj ψ mm' j fs = injW (d.w ψ) j (mkTower (fs ++ [pt]))
-  /-- member `i` is the `i`-th entry: its name, its constructor count,
-  and `IsBlockModel` at the entry's own constant -/
+  /-- member `i` is the `i`-th entry: its name, its CONSTRUCTORS BY
+  NAME AND IN ORDER (task #315 L-B: the copies' identities read the
+  entry's constructor records positionally — `IsBlockModel.rules` ties
+  the block model's constructors to a recursor's rule list, but no
+  clause ties THAT list to the environment's, so the count alone is
+  not enough), and `IsBlockModel` at the entry's own constant -/
   member : ∀ (i : Nat) (M : ContainerMember), ci.members[i]? = some M →
-    d.memberName i = M.name ∧ (d.ctorsM i).length = M.ctors.length ∧
+    d.memberName i = M.name ∧ (d.ctorsM i).map (·.1.name) = M.ctors.map (·.name) ∧
     ∃ (cvR : ConstantVal) (mI rP : Nat) (rules : List RecRule),
       IsBlockModel m M.name ⟨M.name, M.lps, M.type⟩ cvR mI rP rules d i
   /-- every member's parameter telescope is the first member's, as a frame -/
   frame : ∀ i, i < d.k → ∀ (ψ : Name → Nat) (ρ : Nat → V),
     Sat V (d.params ψ).reverse ρ ↔ Sat V (((d.ppsM i ψ).take d.nP).map (·.2.2)).reverse ρ
+  /-- **an ORDINARY field mentions no member** (task #315 L-B, DESIGN
+  §U.30): `mutualCtorKinds` calls a field ordinary exactly when it
+  mentions none of the block's members, but `BlockOpened.ord` records
+  only `constsResolve env₀` and `env₀` is unconstrained, so the
+  abstract clauses do not carry it.  The copies' identities need it to
+  know that the elimination left a container-ordinary field alone
+  (`replaceAllNested_of_no_mention`). -/
+  ordFree : ∀ (i j l : Nat) (x : Expr), i < d.k → j < (d.ctorsM i).length →
+    (d.xFvsF i j)[l]? = some x → (d.ksF i j).getD l .ordinary = .ordinary →
+    ConLeche.mentionsMember d.memberNames x.fvarTypeD = false
+  /-- **a pin's container is not a member** of the block: the opened
+  form of a nested field (`BlockOpened.nestF`) is shape-compatible with
+  a member occurrence at the parameters, which the copies' kind reading
+  must exclude. -/
+  pinsNotMembers : ∀ q, q < d.nPins → (d.pinAt q).J ∉ d.memberNames
+  /-- **a pin's parameter count is the one `containerInfo?` reads**, at
+  the block's own pre-block environment (`d.env₀`, where
+  `BlockOpened.nestF` resolves the pin's index arguments):
+  `replaceAllNested_occurrence` splits a container application at
+  exactly that count. -/
+  pinNP : ∀ q, q < d.nPins → ∃ ci' : ContainerInfo,
+    ConLeche.containerInfo? d.env₀ (d.pinAt q).J = some ci' ∧ (d.pinAt q).nPJ = ci'.nP
 
 /-- **Every stored container carries its block's model** at the model
 `m`, in the container's own terms (`ContainerModeled` at the group
