@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Verify.Subst
+import ConLeche.Verify.Subst
 public import ConLeche.Verify.Abstract
 import ConLeche.Verify.AbstractRange
 public import ConLeche.Verify.Denote.OpenVars

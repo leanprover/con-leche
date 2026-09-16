@@ -1,6 +1,5 @@
 module
 
-public import ConLeche.Kernel.Inductives.NestedInstall
 public import ConLeche.Verify.Inductives.NestedInv
 import ConLeche.Verify.Denote.TeleOpen
 

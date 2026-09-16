@@ -132,6 +132,18 @@ FALLBACK = {
     # — the same class (the demotion the gate proposed is refused by the
     # compiler).
     ('ConLeche.Verify.Inductives.NestedRecNames','ConLeche.Kernel.Inductives.NestedInstall'),
+    # task #315 U-19: the check called these five demotable and the
+    # compiler refused each — `NestedStageCtor`'s statements reach
+    # `SetTheory` only through `SumData`/`MutualTagI`'s public closure and
+    # the kernel's nested functions through `NestedInstall`;
+    # `NestedRestoreTbl`'s name `NestedParts`/`ElimState`/`restoreTbl`
+    # (`NestedInstall`) and the `restoreWalk` kit (`NestedInv`) — the
+    # same class.
+    ('ConLeche.Model.Inductives.NestedStageCtor','ConLeche.Kernel.Inductives.NestedInstall'),
+    ('ConLeche.Model.Inductives.NestedStageCtor','ConLeche.Model.Inductives.SumData'),
+    ('ConLeche.Model.Inductives.NestedStageCtor','ConLeche.Semantics.Tower.MutualTagI'),
+    ('ConLeche.Verify.Inductives.NestedRestoreTbl','ConLeche.Kernel.Inductives.NestedInstall'),
+    ('ConLeche.Verify.Inductives.NestedRestoreTbl','ConLeche.Verify.Inductives.NestedInv'),
     # task #315: `BlockRecWD`'s one public import is the file's whole
     # public view (`SetTheory`, `BlockReadings`, `BlockReps`, the datum);
     # the model calls it demotable (nothing downstream re-exports through
