@@ -78844,3 +78844,155 @@ the other lanes: NONE in `BlockRep.lean`/`BlockComposed.lean`/
 gains three `public import` lines (the only file every lane touches);
 `SetModel/UnionRec.lean` and `SetModel/NestedTreeList.lean` are
 additive at their ends.
+
+#### U.27 — integration 2, part 1: K.31, L-C, L-A and L-D merged — `nestedPinsStaged_of` over the ONE identity fact (session U-22, 2026-09-16)
+
+The lane branch takes the four READY provider branches in order, each
+merge commit carrying its review and its gates before the next builds
+on it — `agent/uniform-m5` a98010a2 (K.31, §K.31) at 71cb7453,
+`agent/uniform-pinfix` 95fd4218 (L-C, §U.24) at e41f0cf1,
+`agent/uniform-s10` d9dc80d5 (L-A, §U.22) at 1e76795f and
+`agent/uniform-m7rec` 1928124a (L-D, §U.25) at cce2ffc9.  After this
+session the nested consumer `declNested_of` closes over EXACTLY
+`NestedPinsIdent` (the copy-instantiation identities, lane L-B's),
+`NestedTailModeled` (M7, whose recursor kit L-D brought) and the premise
+`EnvBlockModels`:
+
+```lean
+theorem nestedPinsStaged_of {F : Nat} (hId : NestedPinsIdent V μ F) : NestedPinsStaged V μ F := by
+```
+
+`NestedPinsScoped` (U-20), `NestedPinsFix` (L-C) and `NestedPinsU` (L-A)
+are gone — no definition of any of the three names remains in the
+tree.  No checker code changed on the lane (K.31's is the kernel
+lane's, merged); no `sorry`, no axioms, no `maxHeartbeats`.
+
+##### (a) THE MERGES, AND THE CONFLICTS
+
+*K.31* (71cb7453).  DESIGN only conflicted (K.31 appended after §U.26).
+The run relation gained `pinsDistinct st.pins = true` between
+`nestedCopySrcOk` and `nestedGroupsOk`; `declNested_of` destructures the
+new conjunct (as `-`: it is named for L-B's discharge of the
+identities, §K.31, nothing on the lane consumes it yet), and
+`nestedContainersOk_group` (`Verify/Inductives/NestedAuxFormers.lean`)
+unfolds `pinsDistinct` where it read the `Nodup` off the `&&` chain.
+nested-shadow 27/27 on this commit.
+
+*L-C* (e41f0cf1).  `nestedPinsStaged_of` conflicted with U-20 (that
+session removed `hS`, L-C removed `hFix` → `hU hId`); DESIGN (§U.24
+appended after K.31); the FALLBACK hunk in `scripts/pub-import-plan.py`
+(U-20's two entries copied verbatim on the lane, §U.24 (e)) auto-merged
+to ONE copy.  One adaptation: U-20's `NestedPinsRun.pinNIdx` calls
+`ContainerModeled.crossEnv`, which L-C made take `hk : 0 < d.k`
+(`PinsTyped.crossEnv` needs a member to reach `pinsFound`) — the group's
+size, `by rw [CM₀.k, PD.baseLen]; omega`, exactly as L-C's own call in
+`groupSyn`.
+
+*L-A* (1e76795f) — the three-way point.  `NestedPins.lean`:
+`nestedPinsStaged_of` down to `(hId : NestedPinsIdent V μ F)` (the
+`S.ofParts` call two parts); `NestedPinGroupIds` = `idx` + `inst` (L-C
+took `noPins`, L-A took `u`); both named defs deleted; U-20's
+`pinψ`/`pinNIdx` at `pinOf … b.nP q` (L-A dropped `W` from `pinOf`,
+`groupPin`, `pinsOf`, so `pinsOf_getD` has one argument fewer).
+`NestedFit.lean`, the SHARED consumers: L-C's side kept wholesale
+(`fit_iff_at`/`fit_imp`/`hfit_at_of_inst`/`hfit_le_of_inst`/
+`ofNested_pin_block_of_inst`/`ofNested_pinLeaf_of`/`_one_pin`, with
+`hfT hPT`, the `pinF` arm, no `hnp`) and L-A's diff REPLAYED on it by
+hand: `hu` the EQUALITY `nestedU k W pins ψ (k + q₀ + i') = dJ.uM i' ψJ`
+at all six consumers (the one-pin twin's at `i' = 0`); `nestedU k W
+pins ψ (tgt)` at EVERY `slotSet` universe of the statements — the
+`FitsFrom`s of `fit_imp`/`hfit_le_of_inst` and BOTH universes of the
+`pinF` arm, which L-A never saw (it is verbatim `ordF`'s right arm,
+§U.24 (c), and `ordF` L-A had already moved); in the `recF` branches
+`rw [… hw, hu _ (hkJ ▸ htgt)]` then `slotSet_instTele Iff.rfl Iff.rfl`
+(L-A's shape) in place of `slotSet_instTele Iff.rfl (hu _ _)`; `hpu`
+gone from `ofNested_pinLeaf_of_one_pin`'s hypotheses and call (the
+general theorem's tail — `rw [← hu i hi, Nat.add_assoc, nestedU_pin]` —
+had auto-merged).  The `pinF` branches of `fit_iff_at`/`fit_imp`
+(`real_dom_eq` + `segJoin_out` + `← hent`) needed NO change: the entry
+identity and the `FitsFrom` universe move together.
+`BlockComposed.lean` auto-merged WRONG — `ofNested_pin_block_of_fit_at`
+got L-A's `nestedU` universe in `hfitLe` but kept `(W ψ)` in `hfitAt`
+(git aligned L-A's hunk on the deleted `ofNested_pin_block_of_fit`'s
+`hfit` with only one of L-C's two twins); the compiler caught it
+(`And.intro h3`), `hfitAt` fixed by hand.  `NestedCore.lean`:
+`NestedPinGroup`'s docstring (both sides' sentences), and
+`nestedPinLeaf_of`'s call = L-C's `(G.typed _) (G.pinsTyped _)` + L-A's
+`nestedPinBound_of m hgroups ψ _ hρp` and `nestedU_pin_group m G hi ψ`
+(where `G.u i hi ψ` was).  DESIGN (§U.22 after §U.24).
+`scripts/pub-import-plan.py`: L-A had recorded the same `NestedPins →
+NestedLoop` FALLBACK a second time (its §U.22 (f) finding) — one entry
+kept, L-A's order-dependence note folded into U-20's comment.
+
+*L-D* (cce2ffc9).  DESIGN only (§U.25 exists only on the lane's side:
+appended after §U.22); the Model root's three `public import`s
+(`NestedRec`, `NestedRecCand`, `NestedRecTyped`) auto-merged.  The
+demotable `public import` L-D saw in `NestedPins.lean` on its own base
+is the `NestedPins → NestedLoop` FALLBACK above; nothing to do.
+
+##### (b) THE IMPORT GATE ON THE UNION
+
+Unlike §U.26 (a), the union brought NO new demotion candidate: shake
+498 → 498 proposed, all allowlisted, at every merge commit (the
+allowlist is untouched — neither lane added a line, nothing to prune);
+pub-imports none demotable at each, 31 dot-notation fallbacks, 1212 of
+1847 in-tree edges public through L-A, 1220 of 1857 after L-D's three
+modules.  The order-dependence §U.26 records did show once more, in the
+small: the `NestedPins → NestedLoop` edge became a candidate on L-A's
+base for L-A's reason (`NestedPinsU`'s exposed `def` leaving the file)
+and on the lane's base for U-20's; it is one entry.
+
+##### (c) THE CHAIN, VERIFIED
+
+`nestedCoreModeled_of (nestedCtorsStaged_of (nestedPinsStaged_of hId)
+nestedReadLaw) : NestedCoreModeled V μ F` and `declNested_of hμ mp hE
+hpins (that) htail h : Nonempty (EnvModelM V μ envOut)` compile against
+the built tree with exactly `hId : NestedPinsIdent V μ F`, `htail :
+NestedTailModeled V μ F`, `hpins : EnvBlockModels mp.base2` free (plus
+the run `h : DeclNestedRun μ F env p envOut`, `hμ`, `mp`, `hE`) — probe
+outside the build, `#print axioms`: `[propext, Classical.choice,
+Quot.sound]`.  `#check` of the two signatures at the same tree:
+
+```
+@nestedPinsStaged_of : ∀ {V : Type u_1} [inst : SetTheory V] {μ : CheckMode} {F : Nat},
+  NestedPinsIdent V μ F → NestedPinsStaged V μ F
+@declNested_of : ∀ {V : Type u_1} [inst : SetTheory V] {μ : CheckMode},
+  μ.verifiedChecks = true → ∀ {F : Nat} {env envOut : Env} {p : NestedParts} (mp : EnvModelM V μ env),
+    EtaFamiliesClosed env → EnvBlockModels mp.base2 → NestedCoreModeled V μ F →
+      NestedTailModeled V μ F → DeclNestedRun μ F env p envOut → Nonempty (EnvModelM V μ envOut)
+```
+
+`nestedRecs`' three still-named facts (`hT`/`heq`/`hceq`, §U.25) are
+M7's — inside `NestedTailModeled`'s discharge, not on this chain.
+
+##### (d) THE RESIDUAL
+
+* **`NestedPinsIdent V μ F`** (§U.21 (e), the `CopyCtorInst` shape of
+  §U.24 (c): `recF` at a member target, `pinF` at a pin target, `ordF`)
+  — lane L-B (`agent/uniform-ident`, `NestedPinsInst` +
+  `nestedPinsIdent_of`); part 2 of this integration merges it.
+* **`NestedTailModeled V μ F`** (§U.15) — M7 (`nestedRecs` over
+  `hT`/`heq`/`hceq`, §U.25), then the tables.
+* `EnvBlockModels` stays the premise.
+
+##### (e) FILES AND GATES
+
+Adapted on the lane (beyond the merges' own files):
+`DeclNestedCore.lean` (the K.31 slot), `NestedAuxFormers.lean`
+(`pinsDistinct` unfolded), `NestedPins.lean` (the three-way signature,
+`NestedPinGroupIds`, `ofParts`, `pinNIdx`'s `hk`, `pinψ`/`pinNIdx`
+without `W`), `NestedFit.lean` (the replay), `BlockComposed.lean`
+(`hfitAt`), `NestedCore.lean` (`nestedPinLeaf_of`'s call, the
+docstring), `scripts/pub-import-plan.py` (one entry).  Gates at every
+merge commit: build warning-free (669 jobs through L-A, 672 with L-D),
+`lake test` warning-free, shake 498/498 + pub-imports none demotable,
+layering 337/249/3/1 (337/252/3/1 with L-D), trust surface 13 in 5 (601
+→ 604 scanned), no-local-paths, overview-links 112, quote-gate 2,
+proofdeps 4955 rows / 12 roots / 0 doors (unchanged at every commit);
+nested-shadow 27/27 on the K.31 merge and on the L-D merge (the final
+commit of part 1).
+
+Cost: one session (the L-A three-way ~⅔ — the `NestedFit` replay and
+two auto-merge traps, the `hfitAt` universe and `pinNIdx`'s `hk`; the
+rest ~⅓).  Next: part 2 = L-B's merge, then M7 (`NestedTailModeled`)
+and M8.
