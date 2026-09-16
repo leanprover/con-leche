@@ -30,12 +30,14 @@ two questions per stage, and this module answers both generically:
   reads `containerInfo?` at the block's OWN pre-block environment
   `d.env₀`, which no later extension touches.
 
-`EnvModelB.consNonInd` puts the two together at the shape every
-non-inductive stage of the fold installs: one fresh cons of a kind
-that is neither inductive nor a projection table, whose carrier is the
-old one extended at the new name (`acvalWith`) — the equation the
-cons-level steps already hand back
-(`declStep_preserves_of_cons`, `basisConsP`, `indConsP`).
+`EnvModelB.ofNonIndStep` puts the two together at the shape every
+VALUE kind of the fold installs (`NonIndStep`): nothing at all, or one
+fresh cons of a kind that is neither inductive nor a projection table.
+Its one model-facing input is `AcvalAgrees` — the new carrier values
+every old constant as the old one did — which the cons-level steps
+always proved (their `acvalWith` equation, `exists_agrees_of_cons`)
+and the stage theorems used to drop.  The lifts themselves are
+`EnvModelBStages.lean`.
 
 An INDUCTIVE extension keeps `EnvBlockModels` only modulo the new
 block's own containers, which is the installing route's obligation:
