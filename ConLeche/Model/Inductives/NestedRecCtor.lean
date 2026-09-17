@@ -7,6 +7,7 @@ import ConLeche.Verify.Inductives.NestedElimInv
 import ConLeche.Verify.Inductives.NestedGroupInv
 import ConLeche.Verify.Inductives.NestedCopyGlue
 import ConLeche.Model.Inductives.MutualFormersKit
+import ConLeche.Model.Inductives.BlockRecFrames
 import ConLeche.Model.Inductives.NestedTransfer
 public section
 
@@ -596,6 +597,74 @@ theorem NestedTailIn.ctorPinLookupNone {q jc : Nat} {t : AuxType} {c : Name × E
   refine lookup_eq_none_of fun x hx => ?_
   obtain ⟨q', hq', rfl⟩ := List.mem_map.mp hx
   exact I.ctorName_ne_aux ht hc q' hq'
+
+
+/-! ### The container's constructor at a `Prop`-valued block -/
+
+omit I in
+/-- **AT A `Prop`-VALUED BLOCK THE CONTAINER'S CONSTRUCTOR IS THE
+POINT**: its type reads to a Π-tower whose binders all carry bit `0`
+(`CtorDataI.bits` at `w = 0`), so the tower is a truth value
+(`interp_mkPisAV_mem_univZero`) — and at an EMPTY telescope its body is
+the member at the index readings, which the member's own typing
+(`FormersTyped` at the sort `0`, along the readings' fit) puts in
+`univ 0` all the same. -/
+theorem NestedTailIn.ctorPinPt {q₀ kJ i : Nat} {dJ : BlockModel V} (G : PG mp₂.base2 q₀ kJ dJ)
+    (hi : i < kJ) (ψ : Name → Nat)
+    (hw : dJ.w (((D).pinAt (q₀ + i)).ψJ ψ) = 0)
+    {jc : Nat} {cAJ : ConstantVal × Nat} (hjJ : (dJ.ctorsM i)[jc]? = some cAJ) (ρ : Nat → V) :
+    interp V ρ (mp₂.base2.acval cAJ.1.name (((D).pinAt (q₀ + i)).ψJ ψ)) = pt := by
+  have hi' : i < dJ.k := by rw [G.kEq]; exact hi
+  obtain ⟨cvT', cvR', mI', rP', rules', hIJ⟩ := G.rep i hi
+  have hcd := hIJ.ctorData hjJ
+  refine eq_pt_of_mem_univZero ?_
+    (IsBlockModels.ctorsTyped mp₂ G.reps (((D).pinAt (q₀ + i)).ψJ ψ) i hi' jc cAJ hjJ ρ)
+  refine interp_mkPisAV_mem_univZero
+    (fun d hd => (hcd.bits (((D).pinAt (q₀ + i)).ψJ ψ) d hd).mp hw) ?_
+  intro hnil
+  -- the telescope is empty: no parameters, no fields
+  have hlen := hcd.len (((D).pinAt (q₀ + i)).ψJ ψ)
+  rw [hnil, List.length_nil] at hlen
+  have hnP : dJ.nP = 0 := by omega
+  have hnF : cAJ.2 = 0 := by omega
+  -- the member's telescope is its indices alone, in the Π regime
+  have hfd := hIJ.former
+  have hppsLen : (dJ.ppsM i (((D).pinAt (q₀ + i)).ψJ ψ)).length = dJ.nIdxAt i := by
+    rw [hfd.len, hnP, Nat.zero_add]
+  have hEsLen : (dJ.esF i jc (((D).pinAt (q₀ + i)).ψJ ψ)).length = dJ.nIdxAt i :=
+    hcd.lenE (((D).pinAt (q₀ + i)).ψJ ψ)
+  -- the body is the member at the index readings
+  have hbody : ctorBodyAVI mp₂.base2 (dJ.memberName i) dJ.nP cAJ.2
+      (((D).pinAt (q₀ + i)).ψJ ψ) (dJ.esF i jc (((D).pinAt (q₀ + i)).ψJ ψ))
+      = AnnotTerm.mkAppN (mp₂.base2.acval (dJ.memberName i) (((D).pinAt (q₀ + i)).ψJ ψ))
+        (dJ.esF i jc (((D).pinAt (q₀ + i)).ψJ ψ)) := by
+    unfold ctorBodyAVI
+    rw [hnP, hnF]
+    rfl
+  have hok : WellDenoted V ρ (AnnotTerm.mkAppN
+      (mp₂.base2.acval (dJ.memberName i) (((D).pinAt (q₀ + i)).ψJ ψ))
+      (dJ.esF i jc (((D).pinAt (q₀ + i)).ψJ ψ))) := by
+    have := (hcd.okTy (((D).pinAt (q₀ + i)).ψJ ψ) ρ).1
+    rw [hnil] at this
+    show WellDenoted V ρ _
+    rw [← hbody]
+    exact this
+  have hmemT := G.typed (((D).pinAt (q₀ + i)).ψJ ψ) i hi' ρ
+  have hsp := spineFit_of_wellDenoted_mkAppN_pis
+    (C := AnnotTerm.sort (dJ.w (((D).pinAt (q₀ + i)).ψJ ψ)))
+    (hfd.bits (((D).pinAt (q₀ + i)).ψJ ψ)) (Nat.le_of_eq (hEsLen.trans hppsLen.symm)) hok rfl hmemT
+  rw [hEsLen, ← hppsLen, List.take_length] at hsp
+  have hfold := mkPisAV_fold_mem (m := 1) (C := AnnotTerm.sort
+      (dJ.w (((D).pinAt (q₀ + i)).ψJ ψ)))
+    (fun d hd => ⟨fun h => absurd h (by omega),
+      fun h => absurd h (hfd.bits (((D).pinAt (q₀ + i)).ψJ ψ) d hd)⟩)
+    (fun h => absurd h (by omega)) hmemT hsp
+  rw [hbody, interp_mkAppN_foldl]
+  have : interp V (consList ((dJ.esF i jc (((D).pinAt (q₀ + i)).ψJ ψ)).map (interp V ρ)) ρ)
+      (AnnotTerm.sort (dJ.w (((D).pinAt (q₀ + i)).ψJ ψ))) = (univZero : V) := by
+    rw [interp_sort, hw, univ_zero]
+  rw [this] at hfold
+  exact hfold
 
 end Run
 
