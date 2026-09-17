@@ -432,6 +432,113 @@ theorem NestedTailIn.recTyPrefix {c : Nat} (hc : c < b.k) (ψ : Name → Nat)
   · rw [List.getElem?_eq_none (by rw [List.length_take]; omega),
       List.getElem?_eq_none (by rw [List.length_take]; omega)]
 
+/-! ### C1 — the restored tower, opened -/
+
+/-- The restored tower is graded at every frame — `classRecTy`'s
+`okTy` at the reading the two premises pin (`mkPisAV_inj`). -/
+theorem NestedTailIn.recTyOkTy {c : Nat} (hc : c < b.k) (ψ : Name → Nat)
+    {rdsR : List (Nat × Nat × AnnotTerm)} {conc : AnnotTerm}
+    (hread : denoteMeta mp₂.base2.acval (ENV₂) ψ 0 (nestedRecCvAt p.k cvRms cvRns c).type
+      = some (mkPisAV rdsR conc))
+    (hlenR : rdsR.length = b.nP + (b.k + b.ctors.length + ((fms.getD c default).nIdx + 1)))
+    (ρ : Nat → V) : WellDenotedV V ρ (mkPisAV rdsR conc) := by
+  obtain ⟨-, u, rds, -, hspec⟩ := I.classRecTy hc
+  obtain ⟨hr, hl, -, -, hok⟩ := hspec ψ
+  obtain ⟨rfl, rfl⟩ := mkPisAV_inj (by rw [hlenR, hl]) (Option.some.inj (hread.symm.trans hr))
+  exact (hok ρ).1
+
+/-- **THE RESTORED RECURSOR TYPE, OPENED** (PLAN-M7 §1e C1): class
+`c`'s restored type and its auxiliary source strip the SAME number of
+binders over the same residual, the restored one opens at standard
+openers whose `i`-th binder domain reads to entry `i` of the tower, and
+above the parameter prefix binder `nP + d` is the restore WALK of the
+auxiliary's at depth `d` (`restoreNested_stripPis_doms`) — which carries
+the walk's shape precondition at that depth (K.35's model face through
+`AuxAppsOk_stripPis_dom`) and resolves at the restored environment. -/
+theorem NestedTailIn.recTyOpen {c : Nat} (hc : c < b.k) (ψ : Name → Nat)
+    {rdsR : List (Nat × Nat × AnnotTerm)} {conc : AnnotTerm}
+    (hread : denoteMeta mp₂.base2.acval (ENV₂) ψ 0 (nestedRecCvAt p.k cvRms cvRns c).type
+      = some (mkPisAV rdsR conc))
+    (hlenR : rdsR.length = b.nP + (b.k + b.ctors.length + ((fms.getD c default).nIdx + 1)))
+    (hK35 : NestedRecTysAuxOk p st b stored pinsS) :
+    ∃ (a : AuxStored) (cbsA cbsR : List (Expr × BinderMeta)) (resid : Expr) (fvs : List Expr),
+      stored[c]? = some a ∧
+      a.cvRa.type.stripPis (b.nP + (b.k + b.ctors.length + ((fms.getD c default).nIdx + 1)))
+        = some (cbsA, resid) ∧
+      (nestedRecCvAt p.k cvRms cvRns c).type.stripPis
+          (b.nP + (b.k + b.ctors.length + ((fms.getD c default).nIdx + 1)))
+        = some (cbsR, resid) ∧
+      OpenersFrom fvs 0 (b.nP + (b.k + b.ctors.length + ((fms.getD c default).nIdx + 1))) ∧
+      (∀ (i : Nat) (x : Expr × BinderMeta), cbsR[i]? = some x →
+        denoteMeta mp₂.base2.acval (ENV₂) ψ i (Expr.instSeq (fvs.take i) (i - 1) x.1)
+          = some (rdsR.getD i default).2.2) ∧
+      (∀ (d : Nat) (x : Expr × BinderMeta), cbsA[b.nP + d]? = some x →
+        ∃ y : Expr × BinderMeta, cbsR[b.nP + d]? = some y ∧
+          ConLeche.restoreWalk (ConLeche.restoreTbl p st) d x.1 = .ok y.1 ∧
+          AuxAppsOk (ConLeche.restoreTbl p st) b.lps (nestedArity p st pinsS) d x.1 ∧
+          y.1.constsResolve (ENV₂) = true) := by
+  obtain ⟨a, f, cbsA, ha, hf, -, hstripA, -, hfree, -, -⟩ := I.auxRecTy hc
+  have hfD : (fms.getD c default).nIdx = f.nIdx := by rw [List.getD_eq_getElem?_getD, hf]; rfl
+  rw [hfD] at hlenR ⊢
+  obtain ⟨a', ha', hres, hresolve⟩ := I.classRestore hc
+  rw [show a' = a from Option.some.inj (ha'.symm.trans ha)] at hres
+  obtain ⟨cbsR, hstripR, -, -, -, hwalk⟩ :=
+    ConLeche.restoreNested_stripPis_doms I.tblNP hstripA hres (fun n _ => hfree n)
+  obtain ⟨fvs, hopen, hbind, -⟩ := piTele_read_openers mp₂.base2 hstripR hlenR hread
+  -- the walk's shape, from K.35 at the block's own prefix
+  obtain ⟨pbs, body, hsPre, hAux⟩ := hK35 c a ha
+  obtain ⟨mid, hsA, hsBody⟩ := ConLeche.rk_stripPis_split b.nP _ hstripA
+  obtain rfl : mid = body := (Prod.mk.inj (Option.some.inj (hsA.symm.trans hsPre))).2
+  -- the restored binders resolve
+  have hresB := (ConLeche.Expr.constsResolve_stripPis _ hstripR hresolve).1
+  refine ⟨a, cbsA, cbsR, _, fvs, ha, hstripA, hstripR, hopen, hbind, fun d x hx => ?_⟩
+  obtain ⟨y, hy, hw⟩ := hwalk d x hx
+  refine ⟨y, hy, hw, ?_, hresB y (List.mem_of_getElem? hy)⟩
+  have hxd : (cbsA.drop b.nP)[d]? = some x := by rw [List.getElem?_drop]; exact hx
+  have := ConLeche.AuxAppsOk_stripPis_dom _ hAux hsBody d x hxd
+  rwa [Nat.zero_add] at this
+
+/-! ### C2 — the scratch tower, opened -/
+
+/-- **THE SCRATCH RECURSOR TYPE, OPENED** (PLAN-M7 §1e C2): the SAME
+auxiliary type, read at the scratch constructors' model, is the mutual
+block model's own Π-tower (`NestedScratchOut.recData`), opened at
+standard openers whose `i`-th binder domain reads to entry `i` of
+`blockRds`. -/
+theorem NestedTailIn.auxTyOpen {mpA : EnvModelM V μ ENVA} {cvRas : List ConstantVal}
+    (S : NestedScratchOut F env b fms f₀ ctorsA kinds mp₁ ppsF W idxF dsF esF srcsF fvsPF xFvsF
+      xrestF eissF tssF stored mpA cvRas)
+    {c : Nat} (hc : c < b.k) (ψ : Name → Nat) {a : AuxStored} (ha : stored[c]? = some a)
+    {cbsA : List (Expr × BinderMeta)} {resid : Expr}
+    (hstripA : a.cvRa.type.stripPis
+        (b.nP + (b.k + b.ctors.length + ((fms.getD c default).nIdx + 1)))
+      = some (cbsA, resid)) :
+    ∃ fvsA : List Expr,
+      OpenersFrom fvsA 0 (b.nP + (b.k + b.ctors.length + ((fms.getD c default).nIdx + 1))) ∧
+      ∀ (i : Nat) (x : Expr × BinderMeta), cbsA[i]? = some x →
+        denoteMeta mpA.base2.acval (ENVA) ψ i (Expr.instSeq (fvsA.take i) (i - 1) x.1)
+          = some (((DA).blockRds mpA.base2 b.elimLevel c ψ).getD i default).2.2 := by
+  obtain ⟨f, hf⟩ : ∃ f, fms[c]? = some f :=
+    ⟨_, List.getElem?_eq_getElem (by rw [I.out.facts.lenFms]; exact hc)⟩
+  have hfD : (fms.getD c default).nIdx = f.nIdx := by rw [List.getD_eq_getElem?_getD, hf]; rfl
+  have hcv : cvRas.getD c default = a.cvRa := by
+    rw [List.getD_eq_getElem?_getD, S.cvEq c a ha]; rfl
+  obtain ⟨hRD, -⟩ := S.recData c hc
+  have hr := hRD.read ψ
+  have hl := hRD.len ψ
+  rw [hcv] at hr
+  have hnC : (DA).nCtors = b.ctors.length := by
+    rw [S.record.nCtors_eq (ConLeche.checkMutualCore_inv I.haux).2.2.1 I.out.facts.lenA]
+    exact I.out.facts.lenA
+  have hnI : (DA).nIdxAt c = f.nIdx := mutualBlockModel_nIdxAt hf
+  have hlen' : ((DA).blockRds mpA.base2 b.elimLevel c ψ).length
+      = b.nP + (b.k + b.ctors.length + ((fms.getD c default).nIdx + 1)) := by
+    rw [hl, hnC, hnI, hfD]
+    show b.nP + b.k + b.ctors.length + f.nIdx + 1 = _
+    omega
+  obtain ⟨fvsA, hopen, hbind, -⟩ := piTele_read_openers mpA.base2 hstripA hlen' hr
+  exact ⟨fvsA, hopen, hbind⟩
+
 /-! ### The pin's reading at the restored model -/
 
 /-- **A PIN, RE-OPENED AT THE PARAMETER OPENERS, READS AS THE
