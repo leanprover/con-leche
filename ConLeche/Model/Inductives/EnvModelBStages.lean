@@ -2,7 +2,11 @@ module
 
 public import ConLeche.Model.Inductives.ContainerCross
 public import ConLeche.Model.Inductives.MutualTables
+import ConLeche.Verify.Inductives.ContainerFrame
+import ConLeche.Verify.Inductives.NestedGroupInv
+import ConLeche.Model.Inductives.MutualCore
 import ConLeche.Model.Inductives.MutualNoProj
+import ConLeche.Model.Inductives.MutualRecsStore
 import ConLeche.Model.Inductives.MutualRecsStage
 import ConLeche.Semantics.DeclRun
 import ConLeche.Model.Fold
@@ -214,6 +218,18 @@ theorem mutualReadBack_getD {b : MutualBlock} {fms : List MutualFormerA}
   have hz : fms.zipIdx[i]? = some (fms[i], i) := by
     rw [List.getElem?_zipIdx, List.getElem?_eq_getElem hi, Nat.zero_add]; rfl
   rw [List.getD_eq_getElem?_getD, List.getElem?_map, hz,
+    List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hi]
+  rfl
+
+/-- The read-back's member list, read at a member (the `getElem?` form
+`containerInfo?_of_readBack` takes). -/
+theorem mutualReadBack_getElem? {b : MutualBlock} {fms : List MutualFormerA}
+    {ctorsA : List (ConstantVal × Nat)} {i : Nat} (hi : i < fms.length) :
+    (fms.zipIdx.map fun (f, mIdx) =>
+        (f.cvTa, (b.ownCtors mIdx).filterMap fun (J, _) => ctorsA[J]?))[i]?
+      = some ((fms.getD i default).cvTa,
+        (b.ownCtors i).filterMap fun (J, _) => ctorsA[J]?) := by
+  rw [List.getElem?_map, List.getElem?_zipIdx, List.getElem?_eq_getElem hi, Nat.zero_add,
     List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hi]
   rfl
 
@@ -632,7 +648,12 @@ theorem mutualInstallExt {F : Nat} {env : Env} {b : MutualBlock}
         (ConLeche.consMutualCtors b.nP ctorsA (ConLeche.consMutualFormers fms env)) b fms
         rulesOf cvRas.zipIdx
         (ConLeche.consMutualCtors b.nP ctorsA (ConLeche.consMutualFormers fms env))) = .ok envOut) :
-    ∃ new : List ConstantInfo,
+    ∃ new newR : List ConstantInfo,
+      BlockInstallExt (fms.map (·.cvTa.name)) env
+        (ConLeche.storeMutualRecs
+          (ConLeche.consMutualCtors b.nP ctorsA (ConLeche.consMutualFormers fms env)) b fms
+          rulesOf cvRas.zipIdx
+          (ConLeche.consMutualCtors b.nP ctorsA (ConLeche.consMutualFormers fms env))) newR ∧
       BlockInstallExt (fms.map (·.cvTa.name)) env envOut new ∧
       ∀ n ∈ fms.map (·.cvTa.name), n ∈ new.map (·.name) := by
   have hmemFresh : ∀ f ∈ fms, env.find? f.cvTa.name = none := by
@@ -653,7 +674,10 @@ theorem mutualInstallExt {F : Nat} {env : Env} {b : MutualBlock}
     intro q hq
     exact List.mem_map_of_mem (List.mem_of_getElem? (List.mk_mem_zipIdx_iff_getElem?.mp hq))
   obtain ⟨newT, E4⟩ := mutualTables_installExt (Ms := fms.map (·.cvTa.name)) htbl hzipTs
-  refine ⟨_, ((((consMutualFormers_installExt hmemFresh).trans
+  refine ⟨_, _, (((consMutualFormers_installExt hmemFresh).trans
+    (consMutualCtors_installExt (nP := b.nP) (checkMutualCtors_fresh hctors))).trans
+    (storeMutualRecs_installExt hrecFresh hrecMs)),
+    ((((consMutualFormers_installExt hmemFresh).trans
     (consMutualCtors_installExt (nP := b.nP) (checkMutualCtors_fresh hctors))).trans
     (storeMutualRecs_installExt hrecFresh hrecMs)).trans E4), ?_⟩
   intro n hn
@@ -663,5 +687,193 @@ theorem mutualInstallExt {F : Nat} {env : Env} {b : MutualBlock}
   rw [List.map_append, List.mem_append]; right
   rw [List.map_reverse, List.mem_reverse, List.map_map]
   exact List.mem_map_of_mem hf
+
+/-- **The model WITH ITS BLOCKS survives a mutual block** (task #315
+M7-3 session 6, DESIGN §U.46 (c)): `declMutual`'s conclusion
+strengthened to `EnvModelB` — the block the route installed is read
+back as its own container group (`mutualContainerModeled` at the run's
+K.34 conjunct, crossed past the projection tables under the guard) and
+carries its group's obligation at no pins (`BlockAt.of_noPins`), while
+every OLD container's block crosses the whole install
+(`EnvBlocksOf.crossIndP` at `mutualInstallExt`).
+
+`hOrd` is the one hypothesis beyond the run — K.36's `MutualOrdFree`
+over the run's own data (DESIGN §U.46 (b)), quantified over the stage
+outputs the run determines, so that the integration replaces it by the
+run's new conjunct and deletes the argument.  `declMutual`'s statement
+is untouched. -/
+theorem declMutualB (hμ : μ.verifiedChecks = true) {F : Nat} {env envOut : Env}
+    {p : MutualParts} (mb : EnvModelB V μ env) (hE : ConLeche.EtaFamiliesClosed env)
+    (hpinOk : ConLeche.mutualRecPinOk p = true)
+    (hOrd : ∀ (env₁ : Env) (fms : List MutualFormerA) (f₀ : MutualFormerA)
+      (ctorsA : List (ConstantVal × Nat)) (sortss : List (List Level))
+      (kinds : List (List (RecFieldKind × Nat))),
+      ConLeche.mutualFormers (m := ConLeche.CheckM) (fueledOps μ F) p.toBlock.nP
+        p.toBlock.formers env = .ok (env₁, fms) →
+      fms[0]? = some f₀ →
+      ConLeche.checkMutualCtors (m := ConLeche.CheckM) (fueledOps μ F) env₁ p.toBlock fms
+        (Level.isEquiv f₀.s .zero == some true) false p.toBlock.ctors = .ok (ctorsA, sortss) →
+      ConLeche.classifyMutualKinds (m := ConLeche.CheckM) p.toBlock.members3 p.toBlock.lps
+        p.toBlock.nP ctorsA = .ok kinds →
+      MutualOrdFree p.toBlock fms ctorsA kinds)
+    (h : ConLeche.Semantics.DeclMutualRun μ F env p envOut) :
+    Nonempty (EnvModelB V μ envOut) := by
+  classical
+  obtain ⟨-, b, streamRecs, env₁, fms, f₀, tq₀, ctorsA, sortss, kinds, formers4, ctors4,
+    cvRas, rulesOf, rfl, rfl, h0, h1, h2, h3, hformers, hf₀, htq₀, hcross, hL, hctors, hkinds,
+    hfo, hgd, hrectys, hrules, htbl, hrb⟩ := h
+  have hOrd' := hOrd _ fms f₀ ctorsA sortss kinds hformers hf₀ hctors hkinds
+  obtain ⟨mp₃, hoff, d, hd, hks, hrepsAt, hT, hstored, htf⟩ :=
+    mutualCoreModeled hμ mb.toEnvModelM hE _ _ _ _ _ _ _ _ _ _ _ _ _ _
+      h0 h1 h2 h3 hformers hf₀ htq₀ hcross hL hctors hkinds hfo hgd hrectys hrules
+      (recNames_of hpinOk hrectys)
+  obtain ⟨hchecks, rfl⟩ := ConLeche.mutualFormers_inv hformers
+  obtain ⟨mpOut, hagT⟩ := mutualTablesModeled hμ mb.base2.wf mb.base2.proj_ok
+    _ _ _ _ _ _ _ _ _ _ _ _ _ _ h0 h1 h2 h3 hformers hf₀ htq₀ hcross hL hctors hkinds hfo hgd
+    hrectys hrules (recNames_of hpinOk hrectys) mp₃ d hd hrepsAt.toIsBlockModels hT hstored htf
+    htbl
+  -- the block's data
+  obtain ⟨hlenA, hnamesA⟩ := ctorsA_names_of hctors h1
+  have hlenF : fms.length = p.toBlock.k := (mutualFormerChecksG_pos hchecks).1
+  have hmemFresh : ∀ T ∈ fms.map (·.cvTa.name), env.find? T = none := by
+    intro T hT'
+    obtain ⟨f, hf, rfl⟩ := List.mem_map.mp hT'
+    obtain ⟨t, ht⟩ := List.getElem?_of_mem hf
+    exact (mutualMemberNames hformers t f ht).1
+  have hrecFresh := checkMutualRecTys_fresh hpinOk hrectys
+  -- the whole install, as the crossing sees it
+  obtain ⟨new, newR, ER, E, hMs⟩ := mutualInstallExt hformers hctors hrecFresh hrectys htbl
+  -- the tables' stage, as the block model's crossing sees it
+  have tcR : TableCross (fms.map (·.cvTa.name))
+      (ConLeche.storeMutualRecs
+        (ConLeche.consMutualCtors p.toBlock.nP ctorsA (ConLeche.consMutualFormers fms env))
+        p.toBlock fms rulesOf cvRas.zipIdx
+        (ConLeche.consMutualCtors p.toBlock.nP ctorsA (ConLeche.consMutualFormers fms env)))
+      envOut :=
+    mutualTables_cross fms.zipIdx htbl (fun q hq =>
+      List.mem_map_of_mem (List.mem_of_getElem? (List.mk_mem_zipIdx_iff_getElem?.mp hq)))
+  have hnpR := mutualNoProj mb.base2.wf mb.base2.proj_ok hformers hctors hgd hrectys hrules
+  have hnpT : ∀ T ∈ fms.map (·.cvTa.name), ∀ j : Nat,
+      NoProjEnv (ConLeche.storeMutualRecs
+        (ConLeche.consMutualCtors p.toBlock.nP ctorsA (ConLeche.consMutualFormers fms env))
+        p.toBlock fms rulesOf cvRas.zipIdx
+        (ConLeche.consMutualCtors p.toBlock.nP ctorsA (ConLeche.consMutualFormers fms env))) T j := by
+    intro T hT' j
+    obtain ⟨f, hf, rfl⟩ := List.mem_map.mp hT'
+    obtain ⟨t, ht⟩ := List.getElem?_of_mem hf
+    exact hnpR t f ht j
+  have hdeR : ∀ (ψ : Name → Nat) (dp : Nat) (e : Expr),
+      ProjFree (fms.map (·.cvTa.name)) e → ∀ {ea : AnnotTerm},
+      denoteMeta mp₃.base2.acval (ConLeche.storeMutualRecs
+        (ConLeche.consMutualCtors p.toBlock.nP ctorsA (ConLeche.consMutualFormers fms env))
+        p.toBlock fms rulesOf cvRas.zipIdx
+        (ConLeche.consMutualCtors p.toBlock.nP ctorsA (ConLeche.consMutualFormers fms env))) ψ dp e = some ea →
+      denoteMeta mpOut.base2.acval envOut ψ dp e = some ea := by
+    intro ψ dp e hpf ea hr
+    rw [denoteMeta_acval_congr (fun n hn => (hagT n hn).symm) dp e] at hr
+    exact denoteMeta_env_mono_projFree tcR.find tcR.lit tcR.proj dp e hpf hr
+  -- the block model at the OUTPUT model
+  have hrepsOut : IsBlockModelsAt mpOut.base2 d (fun mm => (fms.getD mm default).cvTa) := by
+    intro c hc
+    obtain ⟨cvR, mI, rP, rules, hI⟩ := hrepsAt c hc
+    have hclt : c < fms.length := by rw [hlenF, ← hd.k]; exact hc
+    have hft : fms[c]? = some fms[c] := List.getElem?_eq_getElem hclt
+    have hgd' : fms.getD c default = fms[c] := by rw [List.getD_eq_getElem?_getD, hft]; rfl
+    refine ⟨cvR, mI, rP, rules, hI.crossEnvG (fun n ci _ hf => tcR.find hf)
+      (constsResolve_of_findPreserved tcR.find) hagT hdeR ?_ ?_⟩
+    · show ProjFree (fms.map (·.cvTa.name)) (fms.getD c default).cvTa.type
+      rw [hgd']
+      exact ProjFree.of_noProjEnv hnpT
+        (ConLeche.Semantics.Env.find?_mem (hstored c fms[c] hft).find)
+    · intro mm' j cA hmm' hj
+      exact ProjFree.of_noProjEnv hnpT
+        (ConLeche.Semantics.Env.find?_mem (hI.ctors mm' j cA hmm' hj).1)
+  have hcm : ContainerModeled mpOut.base2
+      (ConLeche.blockContainerInfo p.toBlock.nP (fms.zipIdx.map fun (f, mIdx) =>
+        (f.cvTa, (p.toBlock.ownCtors mIdx).filterMap fun (J, _) => ctorsA[J]?))) d :=
+    mutualContainerModeled h3 hlenA hlenF hd hks hOrd' hrepsOut
+      (fun ψ => ⟨(hT ψ).1.crossEnv hagT hrepsAt.toIsBlockModels,
+        (hT ψ).2.crossEnv hagT hrepsAt.toIsBlockModels⟩) htf
+  -- the carriers agree at every stored name
+  have hbnFresh : ∀ n ∈ p.toBlock.blockNames, env.find? n = none := by
+    intro n hn
+    unfold ConLeche.MutualBlock.blockNames at hn
+    rcases List.mem_append.mp hn with hn' | hn'
+    · rcases List.mem_append.mp hn' with hn'' | hn''
+      · exact hmemFresh n (by rw [mutualMemberNames_eq hformers]; exact hn'')
+      · obtain ⟨ct, hct, rfl⟩ := List.mem_map.mp hn''
+        obtain ⟨J, hJ⟩ := List.getElem?_of_mem hct
+        have hJl : J < ctorsA.length := by
+          rw [hlenA]; exact (List.getElem?_eq_some_iff.mp hJ).1
+        have hcA : ctorsA[J]? = some ctorsA[J] := List.getElem?_eq_getElem hJl
+        obtain ⟨hnm, -, -⟩ := hnamesA J _ ct hcA hJ
+        rw [← hnm]
+        exact ConLeche.Semantics.find?_none_of_append consMutualFormers_consts
+          (checkMutualCtors_fresh hctors _ (List.mem_of_getElem? hcA))
+    · obtain ⟨t, ht, rfl⟩ := List.mem_map.mp hn'
+      exact ConLeche.Semantics.find?_none_of_append consMutualFormers_consts
+        (ConLeche.Semantics.find?_none_of_append consMutualCtors_consts
+          (recNames_of hpinOk hrectys t (List.mem_range.mp ht)).1)
+  have hagEnv : ∀ n : Name, (env.find? n).isSome = true →
+      mpOut.base2.acval n = mb.base2.acval n := by
+    intro n hn
+    obtain ⟨c, hc⟩ := Option.isSome_iff_exists.mp hn
+    have hnb : n ∉ p.toBlock.blockNames := by
+      intro hmem
+      rw [hbnFresh n hmem] at hc
+      exact nomatch hc
+    rw [hagT n (by rw [ER.ext n c hc]; rfl)]
+    funext ψ
+    exact hoff n hnb ψ
+  -- the old containers cross, the new block is its own group
+  obtain ⟨B, hB⟩ := mb.blocks
+  refine ⟨⟨mpOut, ⟨fun ci => if ci = ConLeche.blockContainerInfo p.toBlock.nP
+      (fms.zipIdx.map fun (f, mIdx) =>
+        (f.cvTa, (p.toBlock.ownCtors mIdx).filterMap fun (J, _) => ctorsA[J]?))
+      then d else B ci, ?_⟩⟩⟩
+  refine hB.crossIndP (Ts := fms.map (·.cvTa.name)) E.ext E.newN E.freshN (E.recN hMs)
+    mb.base2.wf mb.base2.rec_ctors (fun n c _ hf => E.ext n c hf)
+    (constsResolve_of_findPreserved (fun hf => E.ext _ _ hf)) hagEnv ?_ hmemFresh ?_ ?_
+  · -- the readings cross the whole install under the guard
+    intro ψ dp e hpf ea hr
+    rw [denoteMeta_acval_congr (fun n hn => (hagEnv n hn).symm) dp e] at hr
+    exact denoteMeta_env_mono_projFree E.tableCross.find E.tableCross.lit E.tableCross.proj
+      dp e hpf hr
+  · -- an OLD container's group is not the new block's
+    intro J ci hJ hci
+    have hne : ci ≠ ConLeche.blockContainerInfo p.toBlock.nP
+        (fms.zipIdx.map fun (f, mIdx) =>
+          (f.cvTa, (p.toBlock.ownCtors mIdx).filterMap fun (J, _) => ctorsA[J]?)) := by
+      intro heq
+      obtain ⟨M, hM⟩ : ∃ M, ci.members[0]? = some M :=
+        ⟨_, List.getElem?_eq_getElem (containerInfo?_members_pos hci)⟩
+      obtain ⟨cvT, caps, cvR, mI, rP, rules, H⟩ := ConLeche.containerInfo?_inv hci
+      obtain ⟨cvC, capsC, cvRc, mIc, rulesC, hfind, -, -, -, -⟩ :=
+        H.2.2.2.2 M (List.mem_of_getElem? hM)
+      have hMT : M.name ∈ fms.map (·.cvTa.name) := by
+        rw [heq] at hM
+        obtain ⟨q, hq, rfl⟩ := List.mem_map.mp (List.mem_of_getElem? hM)
+        obtain ⟨r, hr, rfl⟩ := List.mem_map.mp hq
+        obtain ⟨g, mIdx⟩ := r
+        exact List.mem_map_of_mem
+          (List.mem_of_getElem? (List.mk_mem_zipIdx_iff_getElem?.mp hr))
+      rw [hmemFresh M.name hMT] at hfind
+      exact nomatch hfind
+    exact if_neg hne
+  · -- the new block IS its own group
+    intro J hJ ci hci
+    obtain ⟨cv, caps, hf⟩ := containerInfo?_found hci
+    obtain ⟨f, hf', rfl⟩ := List.mem_map.mp (E.indMs hf hJ)
+    obtain ⟨i, hi⟩ := List.getElem?_of_mem hf'
+    have hclt : i < fms.length := (List.getElem?_eq_some_iff.mp hi).1
+    have hfD : fms.getD i default = f := by rw [List.getD_eq_getElem?_getD, hi]; rfl
+    have hread := containerInfo?_of_readBack (nP := p.toBlock.nP) hrb
+      (mutualReadBack_getElem? (b := p.toBlock) (ctorsA := ctorsA) hclt)
+    rw [hfD] at hread
+    rw [hread] at hci
+    have hcieq := (Option.some.inj hci).symm
+    refine BlockAt.of_noPins ?_ ?_
+    · rw [if_pos hcieq, hcieq]; exact hcm
+    · rw [if_pos hcieq]; exact hd.pins
 
 end ConLeche.Model
