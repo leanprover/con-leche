@@ -2501,8 +2501,8 @@ theorem mutualCoreModeled_of {F : Nat} (hrec : MutualRecsModeled V μ F) :
     sortss kinds formers4 ctors4 cvRas rulesOf h0 h1 h2 h3 hformers hf₀ htq₀ hcross hL hctors
     hkinds hfo hgd hrectys hrules mp₂ hE₂ hagree _ _ hd hreps htyped hrecNames hstored
     (fun mm j _ _ => ⟨rfl, fun _ => rfl⟩)
-  exact ⟨mp₃, fun n hn ψ => (hag₃ n hn ψ).trans (hagree n hn ψ), _, hd, hreps₃, htyped₃, hstored₃,
-    mutualTableFacts_of hμ h3 h⟩
+  exact ⟨mp₃, fun n hn ψ => (hag₃ n hn ψ).trans (hagree n hn ψ), _, hd, fun _ _ => rfl, hreps₃,
+    htyped₃, hstored₃, mutualTableFacts_of hμ h3 h⟩
 
 /-- **`declBlock` at the recursors' stage's fact**: the model survives
 a mutual block, given stage 4 (`MutualRecsModeled`) and stage 5

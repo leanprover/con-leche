@@ -742,6 +742,28 @@ theorem ContainerModeled.of_readBack {env : Env} {m : EnvModel V env} {nP : Nat}
         rw [hcD] at hI
         exact ⟨cvR, mI, rP, rules, hI⟩
 
+/-! ## A block with no pins -/
+
+/-- **A block with NO PINS carries its group's obligation as soon as
+its `ContainerModeled` holds** (task #315 M7-3 session 6): at
+`d.pins = []` every clause of `PinRecLaws` but `mkZero` is quantified
+`q < d.nPins` and so vacuous, `mkZero` is the `Inhabited (PinCtors V)`
+witness's own injection (`fun _ _ _ => pt`, which is `mkZero`), and
+`PinShapes` is vacuous.  The mutual and native routes' blocks are of
+this shape (`MutualBlockModelOf.pins`). -/
+theorem BlockAt.of_noPins {env : Env} {m : EnvModel V env} {B : ContainerInfo → BlockModel V}
+    {ci : ContainerInfo} (hc : ContainerModeled m ci (B ci)) (hp : (B ci).pins = []) :
+    BlockAt m B ci := by
+  have h0 : (B ci).nPins = 0 := by show (B ci).pins.length = 0; rw [hp]; rfl
+  refine ⟨hc, fun _ => default, ?_, fun q hq => absurd hq (by rw [h0]; omega)⟩
+  exact
+    { tgtsLt := fun _ q _ _ hq => absurd hq (by rw [h0]; omega)
+      idxOk := fun _ _ _ q hq => absurd hq (by rw [h0]; omega)
+      fibre := fun _ _ _ _ _ _ q hq => absurd hq (by rw [h0]; omega)
+      mkZero := fun _ _ _ _ _ => rfl
+      mkInj := fun _ _ q hq => absurd hq (by rw [h0]; omega)
+      ind := fun _ _ _ _ _ _ _ q hq => absurd hq (by rw [h0]; omega) }
+
 /-! ## The non-inductive stages of the fold -/
 
 /-- **A stage that installs NOTHING, or conses ONE fresh constant of a

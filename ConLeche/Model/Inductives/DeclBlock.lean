@@ -168,6 +168,12 @@ Consumer: `declBlock`. -/
           cvRas.zipIdx (ConLeche.consMutualCtors b.nP ctorsA env₁)),
       (∀ n, n ∉ b.blockNames → ∀ ψ : Name → Nat, mp₃.base2.acval n ψ = mp.base2.acval n ψ) ∧
       ∃ d : BlockModel V, MutualBlockModelOf env b fms ctorsA d ∧
+        -- the block model's field kinds are the run's classification, at
+        -- the block's own constructor positions (task #315 M7-3 session 6:
+        -- the tie `ContainerModeled.ordFree` is stated against —
+        -- `MutualRecsModeled` already takes it as an input and
+        -- `mutualCoreModeled_of` discharges it by `rfl`)
+        (∀ mm j, d.ksF mm j = (kinds.getD (b.ownOffset mm + j) []).map (·.1)) ∧
         IsBlockModelsAt mp₃.base2 d (fun mm => (fms.getD mm default).cvTa) ∧
         (∀ ψ : Name → Nat, FormersTyped mp₃.base2 d ψ ∧ CtorsTyped mp₃.base2 d ψ) ∧
         (∀ (t : Nat) (f : MutualFormerA), fms[t]? = some f →
@@ -297,7 +303,7 @@ theorem declBlock (hμ : μ.verifiedChecks = true) {F : Nat} {env envOut : Env}
   obtain ⟨-, b, streamRecs, env₁, fms, f₀, tq₀, ctorsA, sortss, kinds, formers4, ctors4,
     cvRas, rulesOf, rfl, rfl, h0, h1, h2, h3, hformers, hf₀, htq₀, hcross, hL, hctors, hkinds,
     hfo, hgd, hrectys, hrules, htbl, -⟩ := h
-  obtain ⟨mp₃, -, d, hd, hreps, hT, hstored, htf⟩ := hcore hμ mp hE _ _ _ _ _ _ _ _ _ _ _ _ _ _
+  obtain ⟨mp₃, -, d, hd, -, hreps, hT, hstored, htf⟩ := hcore hμ mp hE _ _ _ _ _ _ _ _ _ _ _ _ _ _
     h0 h1 h2 h3 hformers hf₀ htq₀ hcross hL hctors hkinds hfo hgd hrectys hrules
     (recNames_of hpinOk hrectys)
   obtain ⟨-, rfl⟩ := ConLeche.mutualFormers_inv hformers
