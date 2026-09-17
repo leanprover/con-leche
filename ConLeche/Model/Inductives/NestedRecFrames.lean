@@ -11,6 +11,8 @@ import ConLeche.Verify.Inductives.NestedGroupInv
 public import ConLeche.Verify.Inductives.NestedRestoreTbl
 import ConLeche.Verify.Inductives.NestedAuxInv
 import ConLeche.Verify.Inductives.NestedRecNames
+import ConLeche.Verify.Inductives.NestedRecCtorPin
+import ConLeche.Verify.Inductives.NestedCopyGlue
 import ConLeche.Verify.Inductives.NestedRestoreKit
 public section
 
@@ -748,6 +750,194 @@ theorem NestedTailIn.leafAcval {mpA : EnvModelM V μ ENVA} {cvRas : List Constan
         rcases List.mem_append.mp hm with h | h
         · exact hnM h
         · exact hnC h) ψ]
+
+/-! ### The recursor map's clauses -/
+
+omit I in
+/-- A key no entry carries is a `lookup` miss. -/
+private theorem lookupNone_of {β : Type} {a : Name} :
+    ∀ {l : List (Name × β)}, (∀ q ∈ l, q.1 ≠ a) → l.lookup a = none
+  | [], _ => rfl
+  | (k, v) :: l, h => by
+    rw [List.lookup_cons]
+    have hk : ¬ (a == k) = true := fun hb => h (k, v) List.mem_cons_self (beq_iff_eq.mp hb).symm
+    rw [Bool.not_eq_true] at hk
+    rw [hk]
+    exact lookupNone_of fun q hq => h q (List.mem_cons_of_mem _ hq)
+
+omit I in
+/-- **THE RECURSOR MAP DECLINES OFF THE COPIES' RECURSOR NAMES**: its
+keys are the auxiliary names with `rec` appended. -/
+theorem recMapNone_of {n : Name} (hshape : ∀ q' ∈ st.pins, n ≠ q'.aux.str "rec") :
+    (ConLeche.restoreTbl p st).recMap.lookup n = none := by
+  simp only [ConLeche.restoreTbl]
+  refine lookupNone_of ?_
+  intro pr hpr
+  obtain ⟨qj, hqj, rfl⟩ := List.mem_map.mp hpr
+  obtain ⟨q₀, j⟩ := qj
+  exact fun hc => hshape q₀ (List.fst_mem_of_mem_zipIdx hqj) hc.symm
+
+/-- A copy's constructor name is one of the auxiliary block's
+constructor names. -/
+theorem NestedTailIn.ctorKeyName {q jc : Nat} {t : AuxType} {c : Name × Expr × Nat}
+    (ht : st.types[p.k + q]? = some t) (hc : t.ctors[jc]? = some c) :
+    c.1 ∈ b.ctors.map (·.cv.name) :=
+  List.mem_map.mpr ⟨_, List.mem_of_getElem?
+    (ConLeche.auxBlock_ctors_getElem? I.hb I.out.grouped (p.k + q) jc t c ht hc), rfl⟩
+
+/-- **A TABLE KEY IS NO COPY'S RECURSOR** (`RestoreAgree.keyNotRec`): a
+pin's key is a member name of the auxiliary block, a constructor pin's
+one of its constructor names, and `blockNames.Nodup` keeps both off the
+recursor names. -/
+theorem NestedTailIn.keyNotRec : ∀ n, (ConLeche.restoreTbl p st).IsKey n →
+    (ConLeche.restoreTbl p st).recMap.lookup n = none := by
+  have hnd : b.blockNames.Nodup := I.out.nodup
+  rw [ConLeche.MutualBlock.blockNames] at hnd
+  intro n hkey
+  rcases hkey with hp | hc
+  · obtain ⟨pin, hpin⟩ := Option.isSome_iff_exists.mp hp
+    obtain ⟨qn, hqnm, rfl, -⟩ := ConLeche.rk_restoreTbl_pins_lookup_inv hpin
+    obtain ⟨q, hqn⟩ := List.getElem?_of_mem hqnm
+    exact ConLeche.restoreTbl_recMap_lookup_aux' I.hfA I.helim I.hb I.haux hqn
+  · obtain ⟨z, hz⟩ := Option.isSome_iff_exists.mp hc
+    obtain ⟨n', pin, newName⟩ := z
+    obtain rfl : n' = n := by
+      have := List.find?_some hz
+      simpa using this
+    obtain ⟨q, qn, t, jc, c, hqn, ht, hcj, hn, -, -⟩ := ConLeche.restoreTbl_ctorPins_find? hz
+    refine recMapNone_of fun q' hq' hce => ?_
+    obtain ⟨j, hj⟩ := List.mem_iff_getElem?.mp hq'
+    refine (List.nodup_append.mp hnd).2.2 _
+      (List.mem_append_right _ (hn ▸ I.ctorKeyName ht hcj)) _ (I.pinAuxMem hj).2 ?_
+    rw [← hce]
+
+/-- **A COPY'S RECURSOR NAME IS ABSENT FROM THE SCRATCH CONSTRUCTORS'
+ENVIRONMENT**: it is fresh before the block (`copiesFresh`) and is
+neither a member name nor a constructor name of the auxiliary block. -/
+theorem NestedTailIn.recKeyNone {n n' : Name}
+    (hr : (ConLeche.restoreTbl p st).recMap.lookup n = some n') : (ENVA).find? n = none := by
+  have hnd : b.blockNames.Nodup := I.out.nodup
+  rw [ConLeche.MutualBlock.blockNames] at hnd
+  -- the key is a copy's recursor name
+  have hkey : ∃ (q : Nat) (qn : NestedPin), st.pins[q]? = some qn ∧ n = qn.aux.str "rec" := by
+    rcases Classical.em (∃ (q : Nat) (qn : NestedPin),
+        st.pins[q]? = some qn ∧ n = qn.aux.str "rec") with h | h
+    · exact h
+    · exfalso
+      have hnone : (ConLeche.restoreTbl p st).recMap.lookup n = none :=
+        recMapNone_of (fun q' hq' hce => by
+          obtain ⟨j, hj⟩ := List.mem_iff_getElem?.mp hq'
+          exact h ⟨j, q', hj, hce⟩)
+      rw [hnone] at hr
+      exact nomatch hr
+  obtain ⟨q, qn, hqn, rfl⟩ := hkey
+  have hrecMem := (I.pinAuxMem hqn).2
+  have hnfms : ∀ g ∈ fms, g.cvTa.name ≠ qn.aux.str "rec" := by
+    intro g hg hge
+    obtain ⟨t, ht⟩ := List.getElem?_of_mem hg
+    have hmem : g.cvTa.name ∈ b.memberNames := by
+      rw [← I.out.facts.names]
+      exact List.mem_map_of_mem hg
+    exact (List.nodup_append.mp hnd).2.2 _ (List.mem_append_left _ hmem) _ hrecMem hge
+  have hnctors : ∀ cA ∈ ctorsA, cA.1.name ≠ qn.aux.str "rec" := by
+    intro cA hcA hce
+    obtain ⟨J, hJ⟩ := List.getElem?_of_mem hcA
+    obtain ⟨hlenA, hnamesA⟩ :=
+      ctorsA_names_of I.out.ctors (ConLeche.checkMutualCore_inv I.haux).2.1
+    obtain ⟨ct, hct⟩ : ∃ ct, b.ctors[J]? = some ct :=
+      ⟨_, List.getElem?_eq_getElem (by rw [← hlenA]; exact (List.getElem?_eq_some_iff.mp hJ).1)⟩
+    have hmem : cA.1.name ∈ b.ctors.map (·.cv.name) := by
+      rw [(hnamesA J cA ct hJ hct).1]
+      exact List.mem_map.mpr ⟨ct, List.mem_of_getElem? hct, rfl⟩
+    exact (List.nodup_append.mp hnd).2.2 _ (List.mem_append_right _ hmem) _ hrecMem hce
+  rw [ConLeche.consMutualCtors_find?_of_ne hnctors, consMutualFormers_find?_of_ne hnfms]
+  exact (ConLeche.rk_restoreTbl_auxNames_fresh I.out.nodup I.aligned I.hb I.hfresh _
+    (by
+      simp only [ConLeche.restoreTbl]
+      exact List.mem_append_right _
+        (List.mem_map.mpr ⟨qn, List.mem_of_getElem? hqn, rfl⟩))).1
+
+omit I in
+/-- An answered key is an entry. -/
+private theorem lookupMem_of {β : Type} {a : Name} {v : β} :
+    ∀ {l : List (Name × β)}, l.lookup a = some v → (a, v) ∈ l
+  | [], h => by simp [List.lookup] at h
+  | (k, w) :: l, h => by
+    rw [List.lookup_cons] at h
+    split at h
+    · rename_i he
+      rw [beq_iff_eq] at he
+      subst he
+      rw [Option.some.injEq] at h
+      subst h
+      exact List.mem_cons_self ..
+    · exact List.mem_cons_of_mem _ (lookupMem_of h)
+
+/-- **THE RESTORED MIMIC RECURSOR NAMES ARE FRESH** at the restored
+constructors' environment: the restore checked every one of them
+through the pre-annotated front door, whose first guard is freshness
+(`restoreRecTys_door`). -/
+theorem NestedTailIn.mimicRecFresh {j : Nat} (hj : j < pinsS.length) :
+    (ENV₂).find? (p.mimicRecName j) = none := by
+  have hnum : st.pins.length = p.numNested := I.hcount
+  have hjn : j < p.numNested := by rw [← hnum, ← I.out.stage.pinsLen]; exact hj
+  obtain ⟨o, ho⟩ : ∃ o, cvRns[j]? = some o :=
+    ⟨_, List.getElem?_eq_getElem (by rw [I.lenN]; exact hj)⟩
+  have hnm : ((List.range p.numNested).map p.mimicRecName)[j]? = some (p.mimicRecName j) := by
+    rw [List.getElem?_map, List.getElem?_range hjn]
+    rfl
+  have h := (ConLeche.restoreRecTys_door I.hrn j (p.mimicRecName j) o hnm ho).2.1
+  rw [I.henv] at h
+  exact h
+
+/-! ### B2 — `RestoreAgree` at the tail -/
+
+/-- **THE WALK'S LEAF AGREEMENTS AT THE TAIL** (PLAN-M7 §1e B2):
+`RestoreAgree` at the restore table of the elimination, the scratch
+install's model `mpA` and the restored one `mp₂` — the parameter count
+(`tblNP`), the leaves off the auxiliary names (`leafSome`, `leafNone`,
+`leafAcval`), the auxiliary names' absence from the restored
+environment (`auxFresh`), the recursor map's two clauses (its keys are
+absent from the scratch constructors' environment, its values fresh at
+the restored one), a key's distinctness from a recursor name
+(`keyNotRec`), THE PIN IDENTITY (`pinArm`, `nestedIdent_of`) and THE
+COPY CONSTRUCTOR'S AGREEMENT (`ctorArm`, T2). -/
+theorem NestedTailIn.restoreAgree {mpA : EnvModelM V μ ENVA} {cvRas : List ConstantVal}
+    (S : NestedScratchOut F env b fms f₀ ctorsA kinds mp₁ ppsF W idxF dsF esF srcsF fvsPF xFvsF
+      xrestF eissF tssF stored mpA cvRas)
+    (hdecl : NestedDeclCtorsInBlock p ctorsA)
+    (hnames : NestedCtorPinNames env p st)
+    (hctorsJ : ∀ (q₀ kJ i : Nat) (dJ : BlockModel V), PG mp₂.base2 q₀ kJ dJ → i < kJ →
+      ∀ (ci : ContainerInfo) (J : ContainerMember),
+        ConLeche.containerInfo? env ((D).pinAt (q₀ + i)).J = some ci → J ∈ ci.members →
+        J.name = ((D).pinAt (q₀ + i)).J → (dJ.ctorsM i).map (·.1.name) = J.ctors.map (·.name))
+    (ψ : Name → Nat) :
+    RestoreAgree (V := V) (ConLeche.restoreTbl p st) b.lps (nestedArity p st pinsS)
+      mpA.base2.acval mp₂.base2.acval (ENVA) (ENV₂) ψ b.nP ((D).params ψ) := by
+  refine
+    { nPEq := I.tblNP
+      leafSome := I.leafSome S
+      leafNone := I.leafNone S
+      leaf := I.leafAcval S hdecl
+      auxFresh := I.auxFresh
+      recKey := ?_
+      recNone := ?_
+      keyNotRec := I.keyNotRec
+      pin := I.pinArm S ψ
+      ctor := I.ctorArm S hnames hctorsJ ψ }
+  · intro n n' hr ci hfind
+    rw [I.recKeyNone hr] at hfind
+    exact nomatch hfind
+  · intro n n' hr _hfind
+    have hmem := lookupMem_of hr
+    simp only [ConLeche.restoreTbl, List.mem_map] at hmem
+    obtain ⟨⟨q', jq⟩, hqj, hpair⟩ := hmem
+    obtain ⟨-, hn'⟩ := Prod.mk.inj hpair
+    have hjl : jq < st.pins.length := by
+      have := List.mk_mem_zipIdx_iff_getElem?.mp hqj
+      exact (List.getElem?_eq_some_iff.mp this).1
+    rw [← hn']
+    exact I.mimicRecFresh (by rw [I.out.stage.pinsLen]; exact hjl)
 
 end Run
 
