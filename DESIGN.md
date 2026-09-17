@@ -83560,6 +83560,28 @@ the Bool (a decreasing rank on external edges), so step (iii) is
 strong induction on the rank with the blob transfer inside.  It is a
 recorded-and-checked Bool like K.28–K.35, not a decline.
 
+##### (e″) K.37's SPEC (what the model consumes)
+
+Recorded with the elimination state, per pin `q`: `blob q : Nat` and
+`rank q : Nat`.  Checked (`nestedPinRanksOk`, a Bool over the recorded
+pins, walked like K.32's `nestedCopyTargetsOk`): for every pin `q`, every
+constructor of its copy and every rewritten field with target pin `t`
+(K.32's target read-back, so the target is well defined),
+1. if the CONTAINER's stored field (the copy's field before
+   instantiation) mentions a member of the container's own group
+   (`mentionsMember` at the container's `containerInfo?` names) —
+   the container's own-pin field — then `blob t = blob q`;
+2. otherwise `rank t < rank q`;
+3. and `blob t = blob q → rank t = rank q` for all pins (rank is a
+   function of the blob), `blob (q₀ + i) = blob q₀` within a mint group.
+The checker computes `blob` as the strongly-connected components of the
+own-pin graph and `rank` as a topological order of the quotient (§U.39
+(e) says the quotient is acyclic, so the computation never fails on an
+accepted block; a failure is exit 3, never a decline).  The model uses
+ONLY: (1) own-pin edges stay in the blob, (2) other edges strictly
+decrease the rank, (3) blobs are rank-homogeneous — the strong
+induction on `rank` with the blob transfer inside a blob.
+
 ##### (f) PART B's pick
 
 The blob route with the pullback lemma inside, and the inter-blob order
