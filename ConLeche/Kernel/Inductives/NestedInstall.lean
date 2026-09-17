@@ -933,6 +933,30 @@ def nestedCopyTargetsOk (env : Env) (p : NestedParts) (b : MutualBlock)
               | _, _, _ => false
       | _, _, _ => false
 
+/-- Every argument of an application spine is a proper subterm: the
+measure that lets `auxAppsOk` recurse into `getAppArgs`. -/
+theorem sizeOf_mem_getAppArgs : ∀ {e a : Expr}, a ∈ e.getAppArgs → sizeOf a < sizeOf e
+  | .app f b, a, h => by
+    rw [Expr.getAppArgs] at h
+    rcases List.mem_append.mp h with h' | h'
+    · have := sizeOf_mem_getAppArgs h'
+      simp only [Expr.app.sizeOf_spec]; omega
+    · obtain rfl : a = b := by simpa using h'
+      simp only [Expr.app.sizeOf_spec]; omega
+  | .bvar _, _, h | .fvar _ _, _, h | .sort _, _, h | .const _ _, _, h
+  | .lam _ _ _, _, h | .forallE _ _ _, _, h | .letE _ _ _, _, h
+  | .proj _ _ _, _, h | .lit _, _, h => by
+    simp only [Expr.getAppArgs, List.not_mem_nil] at h
+
+/-- The head of an application spine is a subterm. -/
+theorem sizeOf_getAppFn : ∀ (e : Expr), sizeOf e.getAppFn ≤ sizeOf e
+  | .app f _ => by
+    have := sizeOf_getAppFn f
+    rw [Expr.getAppFn]; simp only [Expr.app.sizeOf_spec]; omega
+  | .bvar _ | .fvar _ _ | .sort _ | .const _ _
+  | .lam _ _ _ | .forallE _ _ _ | .letE _ _ _ | .proj _ _ _ | .lit _ => by
+    simp [Expr.getAppFn]
+
 /-- **Check and install a recognised NESTED block** (see the module
 docstring): official's two syntactic front guards, the elimination, the
 auxiliary mutual block checked in a scratch environment, the restore,
