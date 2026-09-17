@@ -85341,7 +85341,7 @@ of 1990, none demotable.  Standard axioms only on every new theorem
 restated `instSeq_abstractRange_fvs`, `normCtorValM_domHead`,
 `copyFields`, `copyResid`, `copyRecFDom`, `copyRecF`).
 
-#### U.54 — L-B session 12: `recF` CLOSED at BOTH field kinds, and `ordF`-left's residue found UNPROVABLE as stated (lane L-B, 2026-09-17)
+#### U.57 — L-B session 12: `recF` CLOSED at BOTH field kinds, and `ordF`-left's residue found UNPROVABLE as stated (lane L-B, 2026-09-17)
 
 **`CopyCtorShape.recF` is done.**  The finitary half landed in §U.49 /
 §U.53; this session added the REFLEXIVE half —
