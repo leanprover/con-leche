@@ -206,6 +206,26 @@ structure ClassPin (env : Env) (D dR : BlockModel V) (ψ ψR : Name → Nat) (ρ
   /-- ONE index set: the fibres are compared at the same tuples -/
   idx : dR.idxT ψR ρR c = D.pinIdx q ψ ρp
 
+/-- **A container instance is covered by its ROOT's classes** (task
+#315 L-E, DESIGN §U.58): every pin of the instance — K.37's
+`nestedPinInstOf` reads the partition — is `ClassPin`-related to a
+class of the root's container.  The root is a mint GROUP, not a pin:
+K.40's measurement over 152 container instances found the group the
+unit (152/152 with one entry group per instance; 151/152 with a single
+pin, `nested_p05`'s `P5Ev`/`P5Od` being a mutual group of size two
+minted together, with one parent and two parent-minimal pins), and the
+entry condition is that the group's parent lies OUTSIDE the instance,
+not that it is absent.
+
+This is the ONE thing the container instance transfer cannot derive
+from the models (DESIGN §U.55 (c)): the root container's own
+declaration minted the instance's other containers as ITS pins, which
+is a fact about that elimination.  K.40's mint parent carries it; the
+covering is the parent chain. -/
+@[expose] def InstanceCovered (env : Env) (D dR : BlockModel V) (ψ ψR : Name → Nat)
+    (ρp ρR : Nat → V) (inst : Nat → Nat) (r : Nat) : Prop :=
+  ∀ q, q < D.nPins → inst q = inst r → ∃ c, ClassPin env D dR ψ ψR ρp ρR c q
+
 /-! ## The pins' laws and shapes of a stored block -/
 
 instance : Nonempty (BlockModel V) :=
