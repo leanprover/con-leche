@@ -4476,18 +4476,31 @@ equation, is now `MutualFormersFacts.classify`.) -/
       ppsF W idxF dsF esF srcsF fvsPF xFvsF xrestF eissF tssF mp₁' →
     ConLeche.nestedCopyTargetsOk env p b st stored = true
 
-/-- **RESIDUAL 1 — the λ-pin case of `ordF`'s left arm** (DESIGN
-§U.53 (c), §U.57 (d)): at a field the auxiliary block classifies
-ORDINARY, the constructor type the block's stage was GIVEN does not
-mention a member — the case `copyOrdFLeft` carries as its second
-disjunct, where the positivity normalisation's `whnf` DROPPED a member
-mention (the λ-pin `(fun _ => Nat) (List T)`).  Stated on the block's
-own data, so its discharge is a fact about the elimination's rewrite,
-not a reading law. -/
+/-- **RESIDUAL 1 — the λ-pin case of `ordF`'s left arm, at a field the
+auxiliary block's classification calls ORDINARY** (DESIGN §U.53 (c),
+§U.62): the constructor type the block's stage was GIVEN mentions no
+member there — the case `copyOrdFLeft` carries as its second disjunct,
+where the positivity normalisation's `whnf` DROPPED the mention (the
+λ-pin `(fun _ : List T => Nat) z`).
+
+**The ORDINARY hypothesis is load-bearing** (DESIGN §U.62 (b)):
+without it the statement is FALSE at an ACCEPTED block.
+`tests/e2e/nested_lam_pin_prop.ndjson` nests through
+`Wrap (f : True → Type) | mk : (f trivial) → Wrap f` at
+`f := fun _ : True => T`, so the copy's second field domain is
+`(fun _ : True => T) trivial`, which mentions the member `T` — and
+whose normalisation KEEPS it, so the field is classified RECURSIVE and
+`ordF`'s left arm is never asked about it.  With the hypothesis the
+residual is a DECIDABLE predicate of the run's own data, which is why
+it is the kernel record this lane requests rather than a model-tier
+obligation: the only semantic route through the elimination's rewrite
+is the mimic's own reading law, and that law is what the shape is used
+to prove (DESIGN §U.62 (a)). -/
 @[expose] def NestedPinsShapeNoLam (V : Type w) [SetTheory V] (μ : CheckMode) (F : Nat) : Prop :=
-  NestedPinsIdsAt V μ F fun {_env} _ p _ b _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ q₀ kJ dJ =>
+  NestedPinsIdsAt V μ F fun {_env} _ p _ b _ _ _ kinds _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ q₀ kJ dJ =>
     ∀ i', i' < kJ → ∀ j, j < (dJ.ctorsM i').length → ∀ (cAJ : ConstantVal × Nat),
       (dJ.ctorsM i')[j]? = some cAJ → ∀ l, l < cAJ.2 →
+      kindAt (mutKsOf kinds (b.ownOffset (p.k + q₀ + i') + j)) l = .ordinary →
       ¬ ∃ (fvs xFvs : List Expr) (crest xrest x : Expr),
           ConLeche.openPisAtFvars b.nP
               (b.ctors.getD (b.ownOffset (p.k + q₀ + i') + j) default).cv.type 0
@@ -4712,7 +4725,7 @@ theorem nestedPinsShape_of {F : Nat} (hKR : NestedPinsKindsRun V μ F)
       · intro fs₁ hfs
         rw [hψ, hDs]
         exact congrArg (interp V (consList fs₁ ρp)) heq
-      · exact absurd hb6 (hres1 i' hi' j hj cAJ hj' l hlF)
+      · exact absurd hb6 (hres1 i' hi' j hj cAJ hj' l hlF hkA)
     · -- the copy's field is recursive: the RIGHT arm
       have hrsT : ((blkRss ctorsA kinds).getD (b.ownOffset (p.k + q₀ + i') + j) []).getD l false
           = true := by rw [hrsAt l hlF, hkA]; simp
