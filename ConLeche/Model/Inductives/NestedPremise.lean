@@ -323,7 +323,7 @@ theorem PinRecLaws.pinCar_empty_of_noFit {env : Env} {m : EnvModel V env} {d : B
 /-- `PinRecLaws` reads no model: it crosses any change of model. -/
 theorem PinRecLaws.cross {env₁ env₂ : Env} {m₁ : EnvModel V env₁} {m₂ : EnvModel V env₂}
     {d : BlockModel V} {pc : Nat → PinCtors V} (h : PinRecLaws m₁ d pc) : PinRecLaws m₂ d pc :=
-  ⟨h.tgtsLt, h.idxOk, h.fibre, h.mkZero, h.mkInj, h.ind⟩
+  ⟨h.tgtsLt, h.idxOk, h.fibre, h.mkZero, h.mkInj, h.injW, h.ind⟩
 
 /-! ## The model with its blocks -/
 
