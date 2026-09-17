@@ -81724,3 +81724,117 @@ theorems, and the module docstring's new paragraph); `DESIGN.md`.
 `EnvModelBStages.lean`, `MutualTables.lean`, `DeclNative.lean` and
 `DeclNestedCore.lean` are UNCHANGED — no route lift is stated, because
 none is provable before (c).
+
+#### U.41 — M7-3 session 3: THE GUARD — `hde` weakened to proj-free subjects, the crossing kit re-argumented, every old consumer untouched (lane M7-3, session 3, 2026-09-17)
+
+§U.40 (b) refuted the crossing's reading hypothesis at a projection
+table cons and §U.40 (c) named the fix.  This session builds it.  The
+shape of the change is the one that costs the consumers nothing: the
+GUARDED crossing is the primitive (`…crossEnvP`), the unguarded one its
+instance at `Ts := []`, and every call site in the tree keeps its
+signature.
+
+##### (a) The guard and the transport (`Model/Inductives/BlockRepCross.lean`)
+
+```lean
+@[expose] def ProjFree (Ts : List Name) (e : Expr) : Prop :=
+  ∀ T ∈ Ts, ∀ j : Nat, ConLeche.Expr.NoProjAt T j e
+```
+
+```lean
+theorem denoteMeta_env_mono_projFree {env₁ env₂ : Env} {Ts : List Name}
+    {acval : Name → (Name → Nat) → AnnotTerm} {φ : Name → Nat}
+    (hF : FindPreserved env₁ env₂) (hG : LitGuardsMono env₁ env₂)
+    (hproj : ∀ (sn : Name) (i : Nat) (entry : ConLeche.ProjEntry),
+      env₁.findProj? sn i = none → env₂.findProj? sn i = some entry → sn ∈ Ts) :
+    ∀ (d : Nat) (e : Expr), ProjFree Ts e → ∀ {ea : AnnotTerm},
+      denoteMeta acval env₁ φ d e = some ea →
+        denoteMeta acval env₂ φ d e = some ea
+```
+
+`denoteMeta_env_mono` is the case `Ts := []` in spirit (its `hproj`
+asks the slots never to appear), and the guard is consumed at exactly
+the clause that refuted the old hypothesis: the `.proj` case's
+TABLE-FREE branch, where the pair decoder answers differently from a
+stored entry.  It stays `ConstsBound`-FREE — the property that made
+§U-9's crossings side-condition-free is kept.
+
+##### (b) Why the guard reaches every subject — the records were there
+
+The `hde` sites are the stored types (`cvT.type`, `cvC.type`) and
+their OPENINGS, and `BlockCtorDataX.opens` ties the openings to the
+stored constructor type:
+
+* `ProjFree.getAppArgs` — the index/`eis` spines are `getAppArgs` of a
+  guarded subject (`idxEq`, `BlockOpened`'s `recF`/`nestF` shapes);
+* `ProjFree.openPisAtFvars` — the binders' fvar types and the body of
+  an opening are guarded when the telescope is (`NoProjAt.instantiate1`
+  at the opener's own domain), which serves `opens` (the constructor's
+  parameters and fields) and `reflOpen`/`nestReflOpen` (a reflexive
+  field's telescope);
+* `ProjFree.of_constsResolve` — `constsResolve` reads `find? s` at
+  every `.proj s _` node, so a structure the environment does not carry
+  appears in none of them: the source of every guard, since the block
+  being installed is FRESH at the environments its own subjects were
+  read at.
+
+So `BlockCtorData.crossEnvP` takes ONE new premise (`ProjFree Ts
+cvC.type`) and derives the opened pieces' guards itself, and
+`IsBlockModel.crossEnvP` takes `hfresh : ∀ T ∈ Ts, env₁.find? T = none`
+and `ProjFree Ts cvT.type` and derives its constructors' guards from
+`BlockCtorFacts`' own lookup and `EnvWF` (`m₁.wf`).
+
+##### (c) `IsBlockModels` has NO guarded twin — and does not need one
+
+`IsBlockModels` quantifies its `cvT` EXISTENTIALLY and ties it to
+nothing (§U.31 (e) 2), so no syntactic fact about the member's stored
+type — proj-freedom included — can be recovered from it.  Rather than
+strengthen the structure, `ContainerModeled.crossEnvP` crosses the
+`member` clause (which IS at the stored `ConstantVal`, guarded by
+`projFree_members`) and READS `reps` OFF the result: the strong clause
+produces the weak one.  Nothing in `BlockRep.lean` changed.
+
+##### (d) The consumers are untouched
+
+Old signatures kept, implemented at `Ts := []` (`ProjFree.nil`):
+`FormerData.crossEnv'`, `CtorDataI.crossEnv`, `BlockCtorData.crossEnv`,
+`IsBlockModel.crossEnv`, `IsBlockModels.crossEnv`,
+`ContainerModeled.crossEnv`, `BlockAt.crossEnv`,
+`EnvBlocksOf.crossInd`, `EnvBlockModels.crossInd`.  The consumer list
+(`git grep crossEnv`) — `MutualCore`, `MutualRecsStore`,
+`MutualFormersKit`, `NestedCore`, `NestedLoop`, `NestedPins`,
+`NestedStageCtor`, `TupleLfp` — compiles unchanged; no lane's file was
+edited.  The Lean trap: a wrapper's `fun ψ dp e _ {_ea} hr => …` must
+name the implicit `ea` binder, or `hr` is bound to it; and a wrapper
+must pass `(Ts := [])` explicitly, since `Ts` appears only inside the
+guard and is otherwise a metavariable.
+
+##### (e) The guarded chain, end to end (`ContainerCross.lean`)
+
+`ContainerModeled.crossEnvP` → `BlockAt.crossEnvP` →
+`EnvBlocksOf.crossIndP` → `EnvBlockModels.crossIndP`, each taking the
+guarded `hde` plus `hfresh`, and
+
+```lean
+theorem projFree_members {Ts : List Name} {env : Env} (m : EnvModel V env)
+    (hfresh : ∀ T ∈ Ts, env.find? T = none) {J : Name} {ci : ContainerInfo}
+    (hci : ConLeche.containerInfo? env J = some ci) :
+    ∀ M ∈ ci.members, ProjFree Ts M.type
+```
+
+discharges the OLD containers' guards inside `crossIndP` from the
+reading itself (`containerInfo?_inv` gives the members' STORED types,
+`EnvWF` that they resolve).  **So an installing route owes exactly two
+route facts** where it owed the false `hde`: `hfresh` — its block's
+names are fresh at the pre-block environment, which every route checks
+— and `hproj` — the projection slots its output adds are all at its own
+members, which is the table stage's shape.
+
+##### (f) GATES
+
+`lake build` 694 jobs warning-free; `lake test` warning-free; layering
+346 / 265 / 3 / 1, 0/0; trust 13/5 (626); overview-links 112;
+quote-gate 2; no-local-paths OK; proofdeps 4955 rows / 12 roots / 0
+doors; shake 509/509 allowlisted; pub-imports 1259 of 1977, none
+demotable (`ContainerCross`'s `BlockRepCross` edge became PUBLIC — its
+statements name `ProjFree`).  Standard axioms on all 14 new theorems.

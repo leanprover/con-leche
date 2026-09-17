@@ -162,6 +162,228 @@ theorem denoteMeta_env_mono {env₁ env₂ : Env}
       | natVal n => exact absurd rfl (hnat n)
       | strVal s => exact absurd rfl (hstr s)
 
+/-! ## The guarded crossing: a reading that survives a PROJECTION TABLE -/
+
+/-- **The subject has no projection at any of `Ts`** (task #315 M7-3
+session 3, DESIGN §U.41): the guard that makes a reading survive an
+extension whose NEW projection-table slots are all at the structures
+`Ts`.  Without it `hde` is refutable across a table cons
+(`hde_not_of_newTable`, `ContainerCross.lean`), which is why no
+install route could discharge it: every route ends by consing its
+structure-like members' tables. -/
+@[expose] def ProjFree (Ts : List Name) (e : Expr) : Prop :=
+  ∀ T ∈ Ts, ∀ j : Nat, ConLeche.Expr.NoProjAt T j e
+
+omit [SetTheory V] in
+/-- At no tabled structure the guard is vacuous — how the OLD,
+unguarded crossings are recovered (`Ts := []`). -/
+theorem ProjFree.nil (e : Expr) : ProjFree [] e := fun _ hT => nomatch hT
+
+omit [SetTheory V] in
+/-- **A RESOLVING expression is guarded at names that are not stored**:
+`constsResolve` reads `find? s` at every `.proj s _` node, so a
+structure the environment does not carry appears in none of them
+(`Expr.noProjAt_of_constsResolve`).  This is the source of every guard
+the block model's crossing needs: a block's own members are fresh at
+its pre-block environment, where its opened field data resolves
+(`BlockOpened`). -/
+theorem ProjFree.of_constsResolve {Ts : List Name} {env : Env} {e : Expr}
+    (hfresh : ∀ T ∈ Ts, env.find? T = none) (hres : e.constsResolve env = true) :
+    ProjFree Ts e :=
+  fun T hT _ => ConLeche.Expr.noProjAt_of_constsResolve (hfresh T hT) e hres
+
+omit [SetTheory V] in
+/-- The guard is hereditary through an `fvar`'s type annotation. -/
+theorem ProjFree.fvarTypeD {Ts : List Name} {e : Expr} (h : ProjFree Ts e) :
+    ProjFree Ts e.fvarTypeD := by
+  cases e with
+  | fvar idx ty => exact fun T hT j => (ConLeche.Expr.noProjAt_fvar).mp (h T hT j)
+  | _ => exact h
+
+omit [SetTheory V] in
+/-- The guard is hereditary through an application spine's arguments. -/
+theorem ProjFree.getAppArgs {Ts : List Name} :
+    ∀ {e : Expr}, ProjFree Ts e → ∀ a ∈ e.getAppArgs, ProjFree Ts a := by
+  intro e
+  induction e with
+  | app f a ihf =>
+    intro h b hb
+    rw [ConLeche.Expr.getAppArgs, List.mem_append] at hb
+    have hfa : ProjFree Ts f ∧ ProjFree Ts a :=
+      ⟨fun T hT j => (ConLeche.Expr.noProjAt_app.mp (h T hT j)).1,
+        fun T hT j => (ConLeche.Expr.noProjAt_app.mp (h T hT j)).2⟩
+    rcases hb with hb | hb
+    · exact ihf hfa.1 b hb
+    · rw [List.mem_singleton.mp hb]; exact hfa.2
+  | _ => intro _ b hb; simp [ConLeche.Expr.getAppArgs] at hb
+
+omit [SetTheory V] in
+/-- The guard is hereditary through an OPENING: the binders' fvar types
+and the body are nodes of the telescope. -/
+theorem ProjFree.openPisAtFvars {Ts : List Name} :
+    ∀ (n : Nat) (e : Expr) (dp : Nat) (fvs : List Expr) (rest : Expr),
+      ConLeche.openPisAtFvars n e dp = some (fvs, rest) → ProjFree Ts e →
+      (∀ x ∈ fvs, ProjFree Ts x.fvarTypeD) ∧ ProjFree Ts rest := by
+  intro n
+  induction n with
+  | zero =>
+    intro e dp fvs rest hop h
+    rw [ConLeche.openPisAtFvars] at hop
+    simp only [Option.some.injEq, Prod.mk.injEq] at hop
+    obtain ⟨rfl, rfl⟩ := hop
+    exact ⟨(fun _ hx => nomatch hx), h⟩
+  | succ n ih =>
+    intro e dp fvs rest hop h
+    cases e with
+    | forallE dom body m =>
+      have hdom : ProjFree Ts dom := fun T hT j =>
+        (ConLeche.Expr.noProjAt_forallE.mp (h T hT j)).1
+      have hbody : ProjFree Ts body := fun T hT j =>
+        (ConLeche.Expr.noProjAt_forallE.mp (h T hT j)).2
+      have hinst : ProjFree Ts (body.instantiate1 (.fvar dp dom)) := fun T hT j =>
+        ConLeche.Expr.NoProjAt.instantiate1 (v := .fvar dp dom)
+          (ConLeche.Expr.noProjAt_fvar.mpr (hdom T hT j)) body 0 (hbody T hT j)
+      rw [ConLeche.openPisAtFvars] at hop
+      cases hrec : ConLeche.openPisAtFvars n (body.instantiate1 (.fvar dp dom)) (dp + 1) with
+      | none => rw [hrec] at hop; exact nomatch hop
+      | some pr =>
+        obtain ⟨fvs', rest'⟩ := pr
+        rw [hrec] at hop
+        simp only [Option.some.injEq, Prod.mk.injEq] at hop
+        obtain ⟨rfl, rfl⟩ := hop
+        obtain ⟨hfvs, hrest⟩ := ih _ _ _ _ hrec hinst
+        refine ⟨fun x hx => ?_, hrest⟩
+        rcases List.mem_cons.mp hx with rfl | hx
+        · exact hdom
+        · exact hfvs x hx
+    | _ => simp [ConLeche.openPisAtFvars] at hop
+
+/-- **THE GUARDED TRANSPORT** (task #315 M7-3 session 3): a successful
+reading at `env₁` is the reading at `env₂` as soon as the subject is
+guarded at the structures whose projection slots the extension CREATES
+(`hproj`).  `denoteMeta_env_mono` is the case `Ts := []`; the guard is
+what the table conses at the end of every install route need, and it is
+consumed exactly where `denoteMeta_env_mono`'s proof consulted
+`hproj`: the `.proj` clause's TABLE-FREE branch, which the pair decoder
+answers differently from a stored entry. -/
+theorem denoteMeta_env_mono_projFree {env₁ env₂ : Env} {Ts : List Name}
+    {acval : Name → (Name → Nat) → AnnotTerm} {φ : Name → Nat}
+    (hF : FindPreserved env₁ env₂) (hG : LitGuardsMono env₁ env₂)
+    (hproj : ∀ (sn : Name) (i : Nat) (entry : ConLeche.ProjEntry),
+      env₁.findProj? sn i = none → env₂.findProj? sn i = some entry → sn ∈ Ts) :
+    ∀ (d : Nat) (e : Expr), ProjFree Ts e → ∀ {ea : AnnotTerm},
+      denoteMeta acval env₁ φ d e = some ea →
+        denoteMeta acval env₂ φ d e = some ea := by
+  have hmono : ∀ (sn : Name) (i : Nat) (entry : ConLeche.ProjEntry),
+      env₁.findProj? sn i = some entry →
+      env₂.findProj? sn i = some entry := by
+    intro sn i entry h
+    obtain ⟨tbl, hf0, hi, rfl⟩ := ConLeche.Env.findProj?_some h
+    exact ConLeche.Env.findProj?_of_table (hF hf0) hi
+  intro d e
+  induction d, e using denoteMeta.induct (env := env₁) with
+  | case1 d u => intro _ ea h; rw [denoteMeta] at h ⊢; exact h
+  | case2 d idx ty => intro _ ea h; rw [denoteMeta] at h ⊢; exact h
+  | case3 d n us ci hf hlen =>
+    intro _ ea h
+    rw [denoteMeta, hf] at h
+    rw [denoteMeta, hF hf]
+    exact h
+  | case4 d n us ci hf hlen =>
+    intro _ ea h
+    rw [denoteMeta, hf] at h
+    dsimp only at h
+    rw [if_neg hlen] at h
+    exact nomatch h
+  | case5 d n us hf =>
+    intro _ ea h
+    rw [denoteMeta, hf] at h
+    exact nomatch h
+  | case6 d ty body m ihty ihbody =>
+    intro hg ea h
+    obtain ⟨ta, ba, hta, hba, rfl⟩ := denoteMeta_forallE_inv h
+    have hty : ProjFree Ts ty := fun T hT j => (ConLeche.Expr.noProjAt_forallE.mp (hg T hT j)).1
+    have hbd : ProjFree Ts (body.instantiate1 (.fvar d ty)) := fun T hT j =>
+      ConLeche.Expr.NoProjAt.instantiate1 (v := .fvar d ty)
+        (ConLeche.Expr.noProjAt_fvar.mpr (hty T hT j)) body 0
+        (ConLeche.Expr.noProjAt_forallE.mp (hg T hT j)).2
+    rw [denoteMeta, ihty hty hta, ihbody hbd hba]
+    rfl
+  | case7 d ty body m ihty ihbody =>
+    intro hg ea h
+    obtain ⟨ta, ba, hta, hba, rfl⟩ := denoteMeta_lam_inv h
+    have hty : ProjFree Ts ty := fun T hT j => (ConLeche.Expr.noProjAt_lam.mp (hg T hT j)).1
+    have hbd : ProjFree Ts (body.instantiate1 (.fvar d ty)) := fun T hT j =>
+      ConLeche.Expr.NoProjAt.instantiate1 (v := .fvar d ty)
+        (ConLeche.Expr.noProjAt_fvar.mpr (hty T hT j)) body 0
+        (ConLeche.Expr.noProjAt_lam.mp (hg T hT j)).2
+    rw [denoteMeta, ihty hty hta, ihbody hbd hba]
+    rfl
+  | case8 d f a ihf iha =>
+    intro hg ea h
+    obtain ⟨fa, aa, hfa, haa, rfl⟩ := denoteMeta_app_inv h
+    have hf' : ProjFree Ts f := fun T hT j => (ConLeche.Expr.noProjAt_app.mp (hg T hT j)).1
+    have ha' : ProjFree Ts a := fun T hT j => (ConLeche.Expr.noProjAt_app.mp (hg T hT j)).2
+    rw [denoteMeta, ihf hf' hfa, iha ha' haa]
+    rfl
+  | case9 d ty val body =>
+    intro _ ea h
+    rw [denoteMeta] at h
+    exact nomatch h
+  | case10 d sn i e ihe =>
+    intro hg ea h
+    obtain ⟨ea', hea', hcase⟩ := denoteMeta_proj_inv h
+    have he : ProjFree Ts e := fun T hT j => (ConLeche.Expr.noProjAt_proj.mp (hg T hT j)).2
+    rcases hcase with ⟨entry, hfp0, rfl⟩ | ⟨hnt0, hdec⟩
+    · rw [denoteMeta, ihe he hea', hmono sn i entry hfp0]
+      rfl
+    · -- the TABLE-FREE branch: the guard says `sn` is not one of the
+      -- structures the extension tables, so the slot stays empty
+      have hnt2 : env₂.findProj? sn i = none := by
+        cases hf2 : env₂.findProj? sn i with
+        | none => rfl
+        | some entry =>
+          exact absurd ((ConLeche.Expr.noProjAt_proj.mp (hg sn (hproj sn i entry hnt0 hf2) i)).1)
+            (by simp)
+      rw [denoteMeta, ihe he hea', hnt2]
+      exact hdec
+  | case11 d n hsup =>
+    intro _ ea h
+    rw [denoteMeta, if_pos hsup] at h
+    rw [denoteMeta, if_pos (hG.1 hsup)]
+    exact h
+  | case12 d n hsup =>
+    intro _ ea h
+    rw [denoteMeta, if_neg hsup] at h
+    exact nomatch h
+  | case13 d s hsup =>
+    intro _ ea h
+    obtain ⟨hnil, hcons⟩ := strLitSupported_listNames hsup
+    rw [denoteMeta, if_pos hsup] at h
+    rw [denoteMeta, if_pos (hG.2 hsup),
+      ← levelParamsAt_congr hF hnil, ← levelParamsAt_congr hF hcons]
+    exact h
+  | case14 d s hsup =>
+    intro _ ea h
+    rw [denoteMeta, if_neg hsup] at h
+    exact nomatch h
+  | case15 d x hs hfv hc hpi hlam happ hlet hprj hnat hstr =>
+    intro _ ea h
+    cases x with
+    | bvar i => rw [denoteMeta.eq_def] at h; exact nomatch h
+    | sort u => exact absurd rfl (hs u)
+    | fvar i ty => exact absurd rfl (hfv i ty)
+    | const n us => exact absurd rfl (hc n us)
+    | forallE ty b m => exact absurd rfl (hpi ty b m)
+    | lam ty b m => exact absurd rfl (hlam ty b m)
+    | app f a => exact absurd rfl (happ f a)
+    | letE ty v b => exact absurd rfl (hlet ty v b)
+    | proj sn i e => exact absurd rfl (hprj sn i e)
+    | lit l =>
+      cases l with
+      | natVal n => exact absurd rfl (hnat n)
+      | strVal s => exact absurd rfl (hstr s)
+
 omit [SetTheory V] in
 /-- A read spine crosses whatever its entries' readings cross. -/
 theorem DenoteMetaSpine.crossEnv {acval₁ acval₂ : Name → (Name → Nat) → AnnotTerm}
@@ -173,35 +395,67 @@ theorem DenoteMetaSpine.crossEnv {acval₁ acval₂ : Name → (Name → Nat) �
   | [], _, .nil => .nil
   | _ :: _, _ :: _, .cons ha h => .cons (hde _ ha) (DenoteMetaSpine.crossEnv hde h)
 
+omit [SetTheory V] in
+/-- **A read spine crosses, entry by entry, under the guard** (task
+#315 M7-3 session 3): `DenoteMetaSpine.crossEnv` with the subjects
+guarded at the extension's newly tabled structures. -/
+theorem DenoteMetaSpine.crossEnvP {Ts : List Name}
+    {acval₁ acval₂ : Name → (Name → Nat) → AnnotTerm}
+    {env₁ env₂ : Env} {φ : Name → Nat} {d : Nat}
+    (hde : ∀ (e : Expr), ProjFree Ts e → ∀ {ea : AnnotTerm},
+      denoteMeta acval₁ env₁ φ d e = some ea → denoteMeta acval₂ env₂ φ d e = some ea) :
+    ∀ {as : List Expr} {vs : List AnnotTerm}, (∀ e ∈ as, ProjFree Ts e) →
+      DenoteMetaSpine acval₁ env₁ φ d as vs → DenoteMetaSpine acval₂ env₂ φ d as vs
+  | [], _, _, .nil => .nil
+  | _ :: _, _ :: _, hg, .cons ha h =>
+    .cons (hde _ (hg _ List.mem_cons_self) ha)
+      (DenoteMetaSpine.crossEnvP hde (fun e he => hg e (List.mem_cons_of_mem _ he)) h)
+
 /-! ## The block model's structures across the change -/
 
-/-- The former's data crosses any change the readings cross. -/
-theorem FormerData.crossEnv' {env₁ env₂ : Env} {m₁ : EnvModel V env₁} {m₂ : EnvModel V env₂}
+/-- **The former's data crosses under the guard**: its one subject is
+the member's stored type. -/
+theorem FormerData.crossEnvP {Ts : List Name} {env₁ env₂ : Env}
+    {m₁ : EnvModel V env₁} {m₂ : EnvModel V env₂}
     {cvT : ConstantVal} {nP : Nat} {resSort : Level}
     {pps : (Name → Nat) → List (Nat × Nat × AnnotTerm)}
-    (hde : ∀ (ψ : Name → Nat) (dp : Nat) (e : Expr) {ea : AnnotTerm},
+    (hde : ∀ (ψ : Name → Nat) (dp : Nat) (e : Expr), ProjFree Ts e → ∀ {ea : AnnotTerm},
       denoteMeta m₁.acval env₁ ψ dp e = some ea → denoteMeta m₂.acval env₂ ψ dp e = some ea)
+    (hnpT : ProjFree Ts cvT.type)
     (h : FormerData m₁ cvT nP resSort pps) :
     FormerData m₂ cvT nP resSort pps where
-  read ψ := hde ψ 0 cvT.type (h.read ψ)
+  read ψ := hde ψ 0 cvT.type hnpT (h.read ψ)
   len := h.len
   bits := h.bits
   okTy := h.okTy
   below := h.below
   params := h.params
 
+/-- The former's data crosses any change the readings cross (the
+unguarded crossing, `Ts := []`). -/
+theorem FormerData.crossEnv' {env₁ env₂ : Env} {m₁ : EnvModel V env₁} {m₂ : EnvModel V env₂}
+    {cvT : ConstantVal} {nP : Nat} {resSort : Level}
+    {pps : (Name → Nat) → List (Nat × Nat × AnnotTerm)}
+    (hde : ∀ (ψ : Name → Nat) (dp : Nat) (e : Expr) {ea : AnnotTerm},
+      denoteMeta m₁.acval env₁ ψ dp e = some ea → denoteMeta m₂.acval env₂ ψ dp e = some ea)
+    (h : FormerData m₁ cvT nP resSort pps) :
+    FormerData m₂ cvT nP resSort pps :=
+  h.crossEnvP (Ts := []) (fun ψ dp e _ {_ea} hr => hde ψ dp e hr) (ProjFree.nil _)
+
 /-- **A constructor's data at an indexed family crosses the change**:
 its type's reading and its index spine travel by `hde`, the family's
 leaf inside `ctorBodyAVI` by `hag` (the family is stored: `hT`). -/
-theorem CtorDataI.crossEnv {env₁ env₂ : Env} {m₁ : EnvModel V env₁} {m₂ : EnvModel V env₂}
+theorem CtorDataI.crossEnvP {Ts : List Name} {env₁ env₂ : Env}
+    {m₁ : EnvModel V env₁} {m₂ : EnvModel V env₂}
     {T : Name} {lps : List Name} {cvC : ConstantVal} {nP nF nIdx : Nat} {resSort : Level}
     {isProp large : Bool} {idxArgs : List Expr}
     {ds : (Name → Nat) → List (Nat × Nat × AnnotTerm)} {Es : (Name → Nat) → List AnnotTerm}
     {srcs : List (Option Nat)}
     (hag : ∀ n : Name, (env₁.find? n).isSome = true → m₂.acval n = m₁.acval n)
-    (hde : ∀ (ψ : Name → Nat) (dp : Nat) (e : Expr) {ea : AnnotTerm},
+    (hde : ∀ (ψ : Name → Nat) (dp : Nat) (e : Expr), ProjFree Ts e → ∀ {ea : AnnotTerm},
       denoteMeta m₁.acval env₁ ψ dp e = some ea → denoteMeta m₂.acval env₂ ψ dp e = some ea)
     (hT : (env₁.find? T).isSome = true)
+    (hnpC : ProjFree Ts cvC.type) (hnpIdx : ∀ e ∈ idxArgs, ProjFree Ts e)
     (h : CtorDataI m₁ T lps cvC nP nF nIdx resSort isProp large idxArgs ds Es srcs) :
     CtorDataI m₂ T lps cvC nP nF nIdx resSort isProp large idxArgs ds Es srcs := by
   have hbody : ∀ (ψ : Name → Nat) (Es' : List AnnotTerm),
@@ -212,16 +466,127 @@ theorem CtorDataI.crossEnv {env₁ env₂ : Env} {m₁ : EnvModel V env₁} {m�
   refine ⟨h.resid, fun ψ => ?_, h.len, h.lenE, h.idxLen, fun ψ => ?_, h.bits,
     fun ψ ρ => ?_, h.below, h.belowE, h.params, h.srcLen, h.srcBnd, h.srcIdx, h.srcProp⟩
   · rw [hbody]
-    exact hde ψ 0 cvC.type (h.read ψ)
-  · exact DenoteMetaSpine.crossEnv (fun e => hde ψ (nP + nF) e) (h.idxRead ψ)
+    exact hde ψ 0 cvC.type hnpC (h.read ψ)
+  · exact DenoteMetaSpine.crossEnvP (fun e => hde ψ (nP + nF) e) hnpIdx (h.idxRead ψ)
   · rw [hbody]
     exact h.okTy ψ ρ
+
+@[inherit_doc CtorDataI.crossEnvP]
+theorem CtorDataI.crossEnv {env₁ env₂ : Env} {m₁ : EnvModel V env₁} {m₂ : EnvModel V env₂}
+    {T : Name} {lps : List Name} {cvC : ConstantVal} {nP nF nIdx : Nat} {resSort : Level}
+    {isProp large : Bool} {idxArgs : List Expr}
+    {ds : (Name → Nat) → List (Nat × Nat × AnnotTerm)} {Es : (Name → Nat) → List AnnotTerm}
+    {srcs : List (Option Nat)}
+    (hag : ∀ n : Name, (env₁.find? n).isSome = true → m₂.acval n = m₁.acval n)
+    (hde : ∀ (ψ : Name → Nat) (dp : Nat) (e : Expr) {ea : AnnotTerm},
+      denoteMeta m₁.acval env₁ ψ dp e = some ea → denoteMeta m₂.acval env₂ ψ dp e = some ea)
+    (hT : (env₁.find? T).isSome = true)
+    (h : CtorDataI m₁ T lps cvC nP nF nIdx resSort isProp large idxArgs ds Es srcs) :
+    CtorDataI m₂ T lps cvC nP nF nIdx resSort isProp large idxArgs ds Es srcs :=
+  h.crossEnvP (Ts := []) hag (fun ψ dp e _ {_ea} hr => hde ψ dp e hr) hT (ProjFree.nil _)
+    (fun e _ => ProjFree.nil e)
 
 /-- **A block constructor's data crosses the change**: on top of
 `CtorDataI.crossEnv`, the opened readings (`domRead`, `eisRead`,
 `reflOpen`) travel by `hde` — no `ConstsBound` of the opened subterms
 is needed, since they are read — and the recursive and reflexive
 entries' target formers by `hag` (every target is stored: `hTof`). -/
+theorem BlockCtorData.crossEnvP {Ts : List Name} {env₁ env₂ : Env} {m₁ : EnvModel V env₁} {m₂ : EnvModel V env₂}
+    {env₀ : Env} {T : Name} {Tof : Nat → Name} {nIdxOf : Nat → Nat}
+    {nest : Nat → Option Nat} {pins : Nat → PinSyn} {lps : List Name}
+    {cvC : ConstantVal} {nP nF nIdx : Nat} {resSort : Level} {isProp large : Bool}
+    {idxArgs : List Expr} {ds : (Name → Nat) → List (Nat × Nat × AnnotTerm)}
+    {Es : (Name → Nat) → List AnnotTerm} {srcs : List (Option Nat)} {ks : List RecFieldKind}
+    {fvsP xFvs : List Expr} {xrest : Expr} {Eiss : (Name → Nat) → List (List AnnotTerm)}
+    {tss : (Name → Nat) → List (List (Nat × Nat × AnnotTerm))}
+    (hag : ∀ n : Name, (env₁.find? n).isSome = true → m₂.acval n = m₁.acval n)
+    (hde : ∀ (ψ : Name → Nat) (dp : Nat) (e : Expr), ProjFree Ts e → ∀ {ea : AnnotTerm},
+      denoteMeta m₁.acval env₁ ψ dp e = some ea → denoteMeta m₂.acval env₂ ψ dp e = some ea)
+    (hT : (env₁.find? T).isSome = true)
+    (hTof : ∀ i, i < nF → nest i = none → (env₁.find? (Tof i)).isSome = true)
+    (hJ : ∀ i q, i < nF → nest i = some q → (env₁.find? (pins q).J).isSome = true)
+    (hnpC : ProjFree Ts cvC.type)
+    (h : BlockCtorData m₁ env₀ T Tof nIdxOf nest pins lps cvC nP nF nIdx resSort isProp large idxArgs
+      ds Es srcs ks fvsP xFvs xrest Eiss tss) :
+    BlockCtorData m₂ env₀ T Tof nIdxOf nest pins lps cvC nP nF nIdx resSort isProp large idxArgs
+      ds Es srcs ks fvsP xFvs xrest Eiss tss :=
+  by
+  obtain ⟨crest, hop1, hop2⟩ := h.opens
+  have hcrest : ProjFree Ts crest := (ProjFree.openPisAtFvars _ _ _ _ _ hop1 hnpC).2
+  obtain ⟨hxF, hxrest⟩ := ProjFree.openPisAtFvars (Ts := Ts) _ _ _ _ _ hop2 hcrest
+  have hidx : ∀ e ∈ idxArgs, ProjFree Ts e := by
+    intro e he
+    rw [h.idxEq] at he
+    exact hxrest.getAppArgs e (List.mem_of_mem_drop he)
+  have hxG : ∀ (i : Nat) (x : Expr), xFvs[i]? = some x → ProjFree Ts x.fvarTypeD :=
+    fun _ x hx => hxF x (List.mem_of_getElem? hx)
+  exact
+  { toCtorDataI := h.toCtorDataI.crossEnvP hag hde hT hnpC hidx
+    opened := h.opened
+    opens := h.opens
+    ksLen := h.ksLen
+    xLen := h.xLen
+    pLen := h.pLen
+    xIdx := h.xIdx
+    pIdx := h.pIdx
+    idxEq := h.idxEq
+    domRead := fun ψ i x hx => hde ψ (nP + i) x.fvarTypeD (hxG i x hx) (h.domRead ψ i x hx)
+    eissLen := h.eissLen
+    eisRead := fun ψ i x hx hn hk =>
+      DenoteMetaSpine.crossEnvP (fun e => hde ψ (nP + i) e)
+        (fun e he => (hxG i x hx).getAppArgs e (List.mem_of_mem_drop he))
+        (h.eisRead ψ i x hx hn hk)
+    eisLen := h.eisLen
+    recEntry := fun ψ i hn hk hi => by
+      rw [hag (Tof i) (hTof i hi hn)]
+      exact h.recEntry ψ i hn hk hi
+    nestEisRead := fun ψ i x q hx hq hk =>
+      DenoteMetaSpine.crossEnvP (fun e => hde ψ (nP + i) e)
+        (fun e he => (hxG i x hx).getAppArgs e (List.mem_of_mem_drop he))
+        (h.nestEisRead ψ i x q hx hq hk)
+    nestEisLen := h.nestEisLen
+    nestEntry := fun ψ i q hq hk hi => by
+      rw [hag (pins q).J (hJ i q hi hq)]
+      exact h.nestEntry ψ i q hq hk hi
+    eissParams := h.eissParams
+    eissBelow := h.eissBelow
+    ordNone := h.ordNone
+    tssLen := h.tssLen
+    tssNone := h.tssNone
+    tssBits := h.tssBits
+    tssPiBits := h.tssPiBits
+    tssBelow := h.tssBelow
+    tssParams := h.tssParams
+    reflOpen := fun ψ i x hx hn hk => by
+      obtain ⟨afvs, body, hop, hlenTl, hdoms, hsp⟩ := h.reflOpen ψ i x hx hn hk
+      obtain ⟨hafvs, hbody⟩ := ProjFree.openPisAtFvars (Ts := Ts) _ _ _ _ _ hop (hxG i x hx)
+      exact ⟨afvs, body, hop, hlenTl,
+        fun k a hka =>
+          hde ψ (nP + i + k) a.fvarTypeD (hafvs a (List.mem_of_getElem? hka)) (hdoms k a hka),
+        DenoteMetaSpine.crossEnvP
+          (fun e => hde ψ (nP + i + ((tss ψ).getD i []).length) e)
+          (fun e he => hbody.getAppArgs e (List.mem_of_mem_drop he)) hsp⟩
+    eisLenRefl := h.eisLenRefl
+    reflEntry := fun ψ i hn hk hi => by
+      rw [hag (Tof i) (hTof i hi hn)]
+      exact h.reflEntry ψ i hn hk hi
+    nestReflOpen := fun ψ i x q hx hq hk => by
+      obtain ⟨afvs, body, hop, hlenTl, hdoms, hsp⟩ := h.nestReflOpen ψ i x q hx hq hk
+      obtain ⟨hafvs, hbody⟩ := ProjFree.openPisAtFvars (Ts := Ts) _ _ _ _ _ hop (hxG i x hx)
+      exact ⟨afvs, body, hop, hlenTl,
+        fun k a hka =>
+          hde ψ (nP + i + k) a.fvarTypeD (hafvs a (List.mem_of_getElem? hka)) (hdoms k a hka),
+        DenoteMetaSpine.crossEnvP
+          (fun e => hde ψ (nP + i + ((tss ψ).getD i []).length) e)
+          (fun e he => hbody.getAppArgs e (List.mem_of_mem_drop he)) hsp⟩
+    nestEisLenRefl := h.nestEisLenRefl
+    nestReflEntry := fun ψ i q hq hk hi => by
+      rw [hag (pins q).J (hJ i q hi hq)]
+      exact h.nestReflEntry ψ i q hq hk hi }
+
+
+/-- A block constructor's data crosses any change the readings cross
+(the unguarded crossing, `Ts := []`). -/
 theorem BlockCtorData.crossEnv {env₁ env₂ : Env} {m₁ : EnvModel V env₁} {m₂ : EnvModel V env₂}
     {env₀ : Env} {T : Name} {Tof : Nat → Name} {nIdxOf : Nat → Nat}
     {nest : Nat → Option Nat} {pins : Nat → PinSyn} {lps : List Name}
@@ -240,58 +605,7 @@ theorem BlockCtorData.crossEnv {env₁ env₂ : Env} {m₁ : EnvModel V env₁} 
       ds Es srcs ks fvsP xFvs xrest Eiss tss) :
     BlockCtorData m₂ env₀ T Tof nIdxOf nest pins lps cvC nP nF nIdx resSort isProp large idxArgs
       ds Es srcs ks fvsP xFvs xrest Eiss tss :=
-  { toCtorDataI := h.toCtorDataI.crossEnv hag hde hT
-    opened := h.opened
-    opens := h.opens
-    ksLen := h.ksLen
-    xLen := h.xLen
-    pLen := h.pLen
-    xIdx := h.xIdx
-    pIdx := h.pIdx
-    idxEq := h.idxEq
-    domRead := fun ψ i x hx => hde ψ (nP + i) x.fvarTypeD (h.domRead ψ i x hx)
-    eissLen := h.eissLen
-    eisRead := fun ψ i x hx hn hk =>
-      DenoteMetaSpine.crossEnv (fun e => hde ψ (nP + i) e) (h.eisRead ψ i x hx hn hk)
-    eisLen := h.eisLen
-    recEntry := fun ψ i hn hk hi => by
-      rw [hag (Tof i) (hTof i hi hn)]
-      exact h.recEntry ψ i hn hk hi
-    nestEisRead := fun ψ i x q hx hq hk =>
-      DenoteMetaSpine.crossEnv (fun e => hde ψ (nP + i) e) (h.nestEisRead ψ i x q hx hq hk)
-    nestEisLen := h.nestEisLen
-    nestEntry := fun ψ i q hq hk hi => by
-      rw [hag (pins q).J (hJ i q hi hq)]
-      exact h.nestEntry ψ i q hq hk hi
-    eissParams := h.eissParams
-    eissBelow := h.eissBelow
-    ordNone := h.ordNone
-    tssLen := h.tssLen
-    tssNone := h.tssNone
-    tssBits := h.tssBits
-    tssPiBits := h.tssPiBits
-    tssBelow := h.tssBelow
-    tssParams := h.tssParams
-    reflOpen := fun ψ i x hx hn hk => by
-      obtain ⟨afvs, body, hop, hlenTl, hdoms, hsp⟩ := h.reflOpen ψ i x hx hn hk
-      exact ⟨afvs, body, hop, hlenTl,
-        fun k a hka => hde ψ (nP + i + k) a.fvarTypeD (hdoms k a hka),
-        DenoteMetaSpine.crossEnv
-          (fun e => hde ψ (nP + i + ((tss ψ).getD i []).length) e) hsp⟩
-    eisLenRefl := h.eisLenRefl
-    reflEntry := fun ψ i hn hk hi => by
-      rw [hag (Tof i) (hTof i hi hn)]
-      exact h.reflEntry ψ i hn hk hi
-    nestReflOpen := fun ψ i x q hx hq hk => by
-      obtain ⟨afvs, body, hop, hlenTl, hdoms, hsp⟩ := h.nestReflOpen ψ i x q hx hq hk
-      exact ⟨afvs, body, hop, hlenTl,
-        fun k a hka => hde ψ (nP + i + k) a.fvarTypeD (hdoms k a hka),
-        DenoteMetaSpine.crossEnv
-          (fun e => hde ψ (nP + i + ((tss ψ).getD i []).length) e) hsp⟩
-    nestEisLenRefl := h.nestEisLenRefl
-    nestReflEntry := fun ψ i q hq hk hi => by
-      rw [hag (pins q).J (hJ i q hi hq)]
-      exact h.nestReflEntry ψ i q hq hk hi }
+  h.crossEnvP (Ts := []) hag (fun ψ dp e _ {_ea} hr => hde ψ dp e hr) hT hTof hJ (ProjFree.nil _)
 
 /-- **The block's representation crosses the change**: the stored
 types' readings by `hde`, the members' and constructors' lookups by
@@ -299,7 +613,7 @@ types' readings by `hde`, the members' and constructors' lookups by
 `hres`, and the leaf and constructor equations by `hag` — every name
 they value is stored (`memsFound`, the constructors' own lookups).
 Everything else is the block model's and moves unchanged. -/
-theorem IsBlockModel.crossEnv {env₁ env₂ : Env} {m₁ : EnvModel V env₁} {m₂ : EnvModel V env₂}
+theorem IsBlockModel.crossEnvP {Ts : List Name} {env₁ env₂ : Env} {m₁ : EnvModel V env₁} {m₂ : EnvModel V env₂}
     {T : Name} {cvT cvR : ConstantVal} {mI rP : Nat} {rules : List RecRule}
     {d : BlockModel V} {mm : Nat}
     (hF : ∀ (n : Name) (ci : ConstantInfo),
@@ -307,8 +621,9 @@ theorem IsBlockModel.crossEnv {env₁ env₂ : Env} {m₁ : EnvModel V env₁} {
       env₁.find? n = some ci → env₂.find? n = some ci)
     (hres : ∀ e : Expr, e.constsResolve env₁ = true → e.constsResolve env₂ = true)
     (hag : ∀ n : Name, (env₁.find? n).isSome = true → m₂.acval n = m₁.acval n)
-    (hde : ∀ (ψ : Name → Nat) (dp : Nat) (e : Expr) {ea : AnnotTerm},
+    (hde : ∀ (ψ : Name → Nat) (dp : Nat) (e : Expr), ProjFree Ts e → ∀ {ea : AnnotTerm},
       denoteMeta m₁.acval env₁ ψ dp e = some ea → denoteMeta m₂.acval env₂ ψ dp e = some ea)
+    (hfresh : ∀ T' ∈ Ts, env₁.find? T' = none) (hnpT : ProjFree Ts cvT.type)
     (h : IsBlockModel m₁ T cvT cvR mI rP rules d mm) :
     IsBlockModel m₂ T cvT cvR mI rP rules d mm := by
   have hmem : ∀ mm', mm' < d.k → (env₁.find? (d.memberName mm')).isSome = true := by
@@ -319,6 +634,14 @@ theorem IsBlockModel.crossEnv {env₁ env₂ : Env} {m₁ : EnvModel V env₁} {
   have hTs : (env₁.find? T).isSome = true := by
     have := hmem mm h.memberLt
     rwa [h.member] at this
+  -- the constructors are STORED, so their types resolve, and a
+  -- structure the environment does not carry is in none of their
+  -- `.proj` nodes (`ProjFree.of_constsResolve`)
+  have hnpCtor : ∀ (mm' j : Nat) (cA : ConstantVal × Nat), mm' < d.k →
+      (d.ctorsM mm')[j]? = some cA → ProjFree Ts cA.1.type := by
+    intro mm' j cA hmm' hj
+    exact ProjFree.of_constsResolve hfresh
+      (m₁.wf _ (ConLeche.Semantics.Env.find?_mem (h.ctors mm' j cA hmm' hj).1)).2.2.1
   exact
     { memberLt := h.memberLt
       member := h.member
@@ -327,14 +650,15 @@ theorem IsBlockModel.crossEnv {env₁ env₂ : Env} {m₁ : EnvModel V env₁} {
       mI := h.mI
       rP := h.rP
       rules := h.rules
-      former := h.former.crossEnv' hde
+      former := h.former.crossEnvP hde hnpT
       ctors := by
         intro mm' j cA hmm' hj
         obtain ⟨hfind, hlps, hdata⟩ := h.ctors mm' j cA hmm' hj
         refine ⟨hF _ _ (fun _ _ _ _ hcon => nomatch hcon) hfind, hlps, ?_⟩
         have hiK : ∀ i, i < cA.2 → i < (d.ksF mm' j).length := fun i hi => by
           rw [hdata.ksLen]; exact hi
-        refine hdata.crossEnv hag hde (hmem mm' hmm') (fun i hi hn => ?_) (fun i q hi hq => ?_)
+        refine hdata.crossEnvP hag hde (hmem mm' hmm') (fun i hi hn => ?_) (fun i q hi hq => ?_)
+          (hnpCtor mm' j cA hmm' hj)
         · rcases Nat.lt_or_ge (d.tgts mm' j i) d.k with hc | hc
           · exact hmem _ hc
           · rw [d.nestOf_some (Nat.not_lt.mpr hc)] at hn
@@ -385,6 +709,24 @@ theorem IsBlockModel.crossEnv {env₁ env₂ : Env} {m₁ : EnvModel V env₁} {
         exact h.ctor mm' j cA hmm' hj ψ ρ as fs hsp hfit
       mkZero := h.mkZero
       mkInj := h.mkInj }
+
+
+/-- The block's representation crosses any change the readings cross
+(the unguarded crossing, `Ts := []`). -/
+theorem IsBlockModel.crossEnv {env₁ env₂ : Env} {m₁ : EnvModel V env₁} {m₂ : EnvModel V env₂}
+    {T : Name} {cvT cvR : ConstantVal} {mI rP : Nat} {rules : List RecRule}
+    {d : BlockModel V} {mm : Nat}
+    (hF : ∀ (n : Name) (ci : ConstantInfo),
+      (∀ cv mI rP rules, ci ≠ .recInfo cv mI rP rules) →
+      env₁.find? n = some ci → env₂.find? n = some ci)
+    (hres : ∀ e : Expr, e.constsResolve env₁ = true → e.constsResolve env₂ = true)
+    (hag : ∀ n : Name, (env₁.find? n).isSome = true → m₂.acval n = m₁.acval n)
+    (hde : ∀ (ψ : Name → Nat) (dp : Nat) (e : Expr) {ea : AnnotTerm},
+      denoteMeta m₁.acval env₁ ψ dp e = some ea → denoteMeta m₂.acval env₂ ψ dp e = some ea)
+    (h : IsBlockModel m₁ T cvT cvR mI rP rules d mm) :
+    IsBlockModel m₂ T cvT cvR mI rP rules d mm :=
+  h.crossEnvP (Ts := []) hF hres hag (fun ψ dp e _ {_ea} hr => hde ψ dp e hr)
+    (fun _ hT' => nomatch hT') (ProjFree.nil _)
 
 /-- The block at every member crosses the change. -/
 theorem IsBlockModels.crossEnv {env₁ env₂ : Env} {m₁ : EnvModel V env₁} {m₂ : EnvModel V env₂}
