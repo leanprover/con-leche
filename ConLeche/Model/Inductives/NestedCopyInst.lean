@@ -758,6 +758,16 @@ theorem NestedPinsRun.copyFields {pbs : List (Expr × ConLeche.BinderMeta)}
           = .ok (resid', st₂) ∧ st₂.pins <+: st.pins ∧
         ((srcAtE st p (q₀ + i')).2.2.any fun a =>
           st₁.newNames.any fun T => a.mentionsConst T) = true) ∧
+      -- the MINTED constructor, stripped: its telescope and the
+      -- container's residual instantiated at the pin's components
+      (∃ (cI : Expr) (fcs' : List (Expr × ConLeche.BinderMeta)),
+        Expr.instPis (Expr.instantiateLevelParams J.lps (pinsS.getD (q₀ + i') default).lvls cc.type)
+            (srcAtE st p (q₀ + i')).2.2 = some cI ∧
+        cI.stripPis cc.nFields = some (fcs',
+          Expr.instSeq (srcAtE st p (q₀ + i')).2.2 (dJ.nP - 1 + cc.nFields)
+            (Expr.instantiateLevelParams J.lps (pinsS.getD (q₀ + i') default).lvls
+              (Expr.mkAppN (.const (dJ.memberName i') (lpsJ.map Level.param))
+                (ConLeche.structPsAt cc.nFields dJ.nP ++ esJ))))) ∧
       -- the block's entry, the rewritten telescope closed over `pbs₀`
       cbody'.stripPis cc.nFields = some (Fs', resid') ∧
       ctorsA[b.ownOffset (p.k + q₀ + i') + j]? = some cA ∧ cA.2 = cc.nFields ∧
@@ -819,10 +829,14 @@ theorem NestedPinsRun.copyFields {pbs : List (Expr × ConLeche.BinderMeta)}
             : ConLeche.BinderMeta)))).length = cc.nFields := by
     rw [ConLeche.instTeleSeq_length, List.length_map, hfl]
   have hlenF' : Fs'.length = cc.nFields := by rw [hlenF, hbsLen]
+  have hcut : (srcAtE st p (q₀ + i')).2.2.length - 1 + (cbs.drop dJ.nP).length
+      = dJ.nP - 1 + cc.nFields := by rw [hDsnP, List.length_drop]; omega
+  rw [hcut] at hinst
   refine ⟨cc, J, cvT.levelParams, cbs.take dJ.nP, cbs.drop dJ.nP, Fs', esJ, cbody', resid', o,
     params, pbs₀, cA, cname, hn, hty, hnf, hJname, hDsnP, by rw [hsplit]; exact hstripJ, hpl, hfl,
     hesJ, hopb, hDsB, hlenF', ?_,
-    ⟨stC, stD, ?_, hresP.trans hp2, ConLeche.elimMint_mono hresN hmint⟩, ?_, hcA, hnF, hbc⟩
+    ⟨stC, stD, ?_, hresP.trans hp2, ConLeche.elimMint_mono hresN hmint⟩,
+    ⟨_, _, hinst, by rw [← hbsLen]; exact ConLeche.stripPis_mkPisB_self _ _⟩, ?_, hcA, hnF, hbc⟩
   · intro l hl
     obtain ⟨-, st₁, st₂, hrun, -, hpre, hnm⟩ := hfields l (by rw [hbsLen]; exact hl)
     refine ⟨st₁, st₂, ?_, hpre.trans hp2, ConLeche.elimMint_mono hnm hmint⟩
@@ -887,6 +901,16 @@ theorem NestedPinsRun.copyResid {pbs : List (Expr × ConLeche.BinderMeta)}
       -- the pin the residual's occurrence resolved to
       qn ∈ st.pins ∧
       qn.pin = Expr.mkAppN (.const (dJ.memberName i') usJ) (srcAtE st p (q₀ + i')).2.2 ∧
+      -- the MINTED constructor, stripped: the container's own member at
+      -- the components followed by the SAME index arguments
+      (∃ (cI : Expr) (fcs' : List (Expr × ConLeche.BinderMeta)),
+        Expr.instPis (Expr.instantiateLevelParams J.lps (pinsS.getD (q₀ + i') default).lvls cc.type)
+            (srcAtE st p (q₀ + i')).2.2 = some cI ∧
+        cI.stripPis cc.nFields = some (fcs',
+          Expr.mkAppN (.const (dJ.memberName i') usJ)
+            ((srcAtE st p (q₀ + i')).2.2 ++
+              esJ.map fun e => Expr.instSeq (srcAtE st p (q₀ + i')).2.2 (dJ.nP - 1 + cc.nFields)
+                (Expr.instantiateLevelParams J.lps (pinsS.getD (q₀ + i') default).lvls e)))) ∧
       -- **the residual**: the mimic at the block's parameters, then the
       -- container's index arguments instantiated, verbatim
       cbody'.stripPis cc.nFields = some (Fs',
@@ -899,7 +923,8 @@ theorem NestedPinsRun.copyResid {pbs : List (Expr × ConLeche.BinderMeta)}
   classical
   obtain ⟨cc, J, lpsJ, pcs, fcs, Fs', esJ, cbody', resid', o, params, pbs₀, cA, cname,
     hn, hty, hnf, hJname, hDsnP, hstripJ, hpl, hfl, hesJ, hopb, hDsB, hlenF, hfields,
-    ⟨stC, stD, hres, hresP, hresM⟩, hcb, hcA, hnF, hbc⟩ := R.copyFields SF S hPD hi' hj
+    ⟨stC, stD, hres, hresP, hresM⟩, ⟨cI, fcs', hinstCI, hstripCI⟩, hcb, hcA, hnF, hbc⟩ :=
+    R.copyFields SF S hPD hi' hj
   obtain ⟨cvT, caps, cvR, mI, rP, rules, -, hI, -⟩ := S.stored i' hi'
   have hmemJ : dJ.memberName i' = J.name := by rw [hJname]; exact hI.member
   -- the pin's own container group, read at the member's name
@@ -944,7 +969,7 @@ theorem NestedPinsRun.copyResid {pbs : List (Expr × ConLeche.BinderMeta)}
         = cc.nFields + (srcAtE st p (q₀ + i')).2.2.length - 1 from by omega]
       exact ConLeche.instSeq_structPsAt _ cc.nFields hDsB
     · rw [List.map_map]; rfl
-  rw [hshape] at hres
+  rw [hshape] at hres hstripCI
   -- the occurrence: the root fires, and the index arguments come back verbatim
   have htake : ((srcAtE st p (q₀ + i')).2.2 ++
       esJ.map fun e => Expr.instSeq (srcAtE st p (q₀ + i')).2.2 (dJ.nP - 1 + cc.nFields)
@@ -965,7 +990,7 @@ theorem NestedPinsRun.copyResid {pbs : List (Expr × ConLeche.BinderMeta)}
   subst hqnEq
   exact ⟨cc, J, lpsJ, pcs, fcs, Fs', esJ, cbody', o, params, pbs₀, cA, cname, qn, _,
     hn, hty, hnf, hJname, hDsnP, hstripJ, hpl, hfl, hesJ, hopb, hDsB, hlenF, hfields,
-    hresP.subset hqnMem, hqnPin, hcb, hcA, hnF, hbc⟩
+    hresP.subset hqnMem, hqnPin, ⟨cI, fcs', hinstCI, hstripCI⟩, hcb, hcA, hnF, hbc⟩
 
 /-! ## The group-internal target, and the two shape arms (task #315 L-B)
 

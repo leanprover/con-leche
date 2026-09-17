@@ -198,4 +198,42 @@ theorem denoteMeta_openPisAtFvars {acval : Name → (Name → Nat) → AnnotTerm
         rw [show d + (k + 1) = d + 1 + k from by omega]
         exact ih hop' hba hst'
 
+/-! ## A read spine, up to erasure (task #315 L-B, DESIGN §U.38 (e) step 4)
+
+The copies' arms compare ONE residual read through two different
+openings.  What an interpretation reads of a spine is its head and its
+arguments one by one (`ErasedEq.getApp`), and erasure-equal
+expressions read equally (`denoteMeta_erasedEq`), so a read spine may
+be transported along a pointwise erasure equality. -/
+
+/-- A dropped suffix, positionally. -/
+theorem getD_drop {α : Type _} [Inhabited α] (as : List α) (n l : Nat) :
+    (as.drop n).getD l default = as.getD (n + l) default := by
+  rw [List.getD_eq_getElem?_getD, List.getD_eq_getElem?_getD, List.getElem?_drop]
+
+/-- **A read spine transports along a pointwise erasure equality.** -/
+theorem DenoteMetaSpine.erasedEq {acval : Name → (Name → Nat) → AnnotTerm} {φ : Name → Nat}
+    {d : Nat} :
+    ∀ {as bs : List Expr} {vs : List AnnotTerm},
+      DenoteMetaSpine acval env φ d as vs → as.length = bs.length →
+      (∀ l, l < as.length → Expr.ErasedEq (as.getD l default) (bs.getD l default)) →
+      DenoteMetaSpine acval env φ d bs vs := by
+  intro as bs vs h
+  induction h generalizing bs with
+  | nil =>
+    intro hlen _
+    obtain rfl : bs = [] := List.eq_nil_of_length_eq_zero hlen.symm
+    exact .nil
+  | @cons a v as vs ha _ ih =>
+    intro hlen hall
+    cases bs with
+    | nil => exact nomatch hlen
+    | cons b bs =>
+      have h0 : Expr.ErasedEq a b := by
+        have := hall 0 (by simp)
+        simpa using this
+      refine .cons ?_ (ih (by simpa using hlen) fun l hl => ?_)
+      · rw [← denoteMeta_erasedEq h0 d]; exact ha
+      · exact hall (l + 1) (by simpa using hl)
+
 end ConLeche.Model
