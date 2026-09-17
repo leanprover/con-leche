@@ -1299,6 +1299,87 @@ theorem nestedGroupLe_of_entries (hμ : μ.verifiedChecks = true)
   rw [hP_group i hi, hPinIdx i hi]
   exact hle
 
+/-! ## The container instance transfer at a PIN class: one constructor, two copies -/
+
+/-- **The container instance transfer's PIN half** (task #315 L-E,
+DESIGN §U.51 (c), §U.54 (b)): the container `J`'s own copy of one of its
+pins' constructors and the BLOCK's copy of the image pin are copies of
+ONE constructor of ONE container `dK`, at two level assignments that
+agree on the constructor's level parameters (`targetHead_corr`,
+`ContainerModeled.pinψ`) and two frames that agree on the components'
+values (`PinCorr`'s `Ds`, `interp_instAll`).  So a spine fitting the
+container-side copy — its slots reading the outer tuple `T` outside the
+group and the pullback `Y` inside — fits the block's copy at `Z`,
+whenever `Y`'s classes lie under `Z`'s targets (`hrel`, the relation's
+premise) and the block-side externals' domains lie under their slots
+(`hentR`).
+
+It is a COMPOSITION, not a new field-by-field argument: the
+container-side fit IS `dK.ChainFitT` at `Y` (`fit_iff_at_T_dom`), the
+congruence carries that across the two readings
+(`chainFitT_congr_mem`), and the block side reads it off
+(`fit_imp_T_le_dom`).  The `_dom` forms are what make the middle step
+possible — the container's tuple space and extended carrier do not
+travel, its slots' bound does. -/
+theorem copyTransfer_pin {env : Env} {m : EnvModel V env} {dK : BlockModel V}
+    {pcK : Nat → PinCtors V} {acval : Name → (Name → Nat) → AnnotTerm}
+    {TV₁ TV₂ : TargetView V} {ψ₁ ψ₂ : Name → Nat} {Ds₁ Ds₂ : List AnnotTerm}
+    {DsE₁ DsE₂ : List Expr} {lpsK : List Name} {lvls₁ lvls₂ : List Level}
+    {tg₁ tg₂ : Nat → Nat} {tls₁ tls₂ : List (List (Nat × Nat × AnnotTerm))}
+    {Eis₁ Eis₂ : List (List AnnotTerm)} {ρ₁ ρ₂ : Nat → V} {base₁ base₂ kK i j : Nat}
+    {Fs₁ Fs₂ Es₁ Es₂ : List AnnotTerm} {rs₁ rs₂ : List Bool} {Y T Z : Nat → V}
+    (hreps : IsBlockModels m dK) (hi : i < dK.k) (hkK : dK.k = kK)
+    {cA : ConstantVal × Nat} (hj : (dK.ctorsM i)[j]? = some cA)
+    (hψ : ∀ p ∈ cA.1.levelParams, ψ₁ p = ψ₂ p)
+    (hρ : ∀ v, v < dK.nP →
+      consList (Ds₁.map (interp V ρ₁)) ρ₁ v = consList (Ds₂.map (interp V ρ₂)) ρ₂ v)
+    (hwK : dK.w ψ₁ = dK.w ψ₂)
+    (huT : ∀ l, dK.uT (dK.tgts i j l) ψ₁ = dK.uT (dK.tgts i j l) ψ₂)
+    (hIdsLen : (dK.IdsM i ψ₁).length = (dK.IdsM i ψ₂).length)
+    (hw₁ : dK.w ψ₁ = TV₁.w) (hw₂ : dK.w ψ₂ = TV₂.w)
+    (hu₁ : ∀ i', i' < kK → TV₁.u (base₁ + i') = dK.uM i' ψ₁)
+    (hu₂ : ∀ i', i' < kK → TV₂.u (base₂ + i') = dK.uM i' ψ₂)
+    {nI₁ nI₂ : Nat} (hnI₁ : nI₁ = (dK.IdsM i ψ₁).length) (hnI₂ : nI₂ = (dK.IdsM i ψ₂).length)
+    (hdom₁ : ∀ l, l < ((dK.Fss i ψ₁).getD j []).length →
+      ((dK.rss i).getD j []).getD l false = true →
+      ∀ fs₁ : List V, fs₁.length = l →
+      SpineFit (consList (Ds₁.map (interp V ρ₁)) ρ₁) (((dK.Fss i ψ₁).getD j []).take l) fs₁ →
+      dK.slotAtT pcK ψ₁ Y i j l (consList fs₁ (consList (Ds₁.map (interp V ρ₁)) ρ₁))
+        ⊆ˢ interp V (consList fs₁ (consList (Ds₁.map (interp V ρ₁)) ρ₁))
+            (((dK.Fss i ψ₁).getD j []).getD l default))
+    (hdom₂ : ∀ l, l < ((dK.Fss i ψ₂).getD j []).length →
+      ((dK.rss i).getD j []).getD l false = true →
+      ∀ fs₁ : List V, fs₁.length = l →
+      SpineFit (consList (Ds₂.map (interp V ρ₂)) ρ₂) (((dK.Fss i ψ₂).getD j []).take l) fs₁ →
+      dK.slotAtT pcK ψ₂ Y i j l (consList fs₁ (consList (Ds₂.map (interp V ρ₂)) ρ₂))
+        ⊆ˢ interp V (consList fs₁ (consList (Ds₂.map (interp V ρ₂)) ρ₂))
+            (((dK.Fss i ψ₂).getD j []).getD l default))
+    (h₁ : CopyCtorShape TV₁ acval dK ψ₁ Ds₁ DsE₁ lpsK lvls₁ tg₁ tls₁ Eis₁ ρ₁ i j base₁ kK Fs₁ rs₁ Es₁)
+    (h₂ : CopyCtorShape TV₂ acval dK ψ₂ Ds₂ DsE₂ lpsK lvls₂ tg₂ tls₂ Eis₂ ρ₂ i j base₂ kK Fs₂ rs₂ Es₂)
+    (hent₁ : CopyEntryOut dK ψ₁ Ds₁ tg₁ tls₁ Eis₁ ρ₁ i j base₁ kK Fs₁ rs₁ TV₁.w TV₁.u T)
+    (hL₁ : ∀ l, l < Fs₁.length → ((dK.rss i).getD j []).getD l false = true →
+      ¬ dK.tgts i j l < dK.k → T (tg₁ l) = Y (dK.tgts i j l))
+    (hrel : ∀ l, l < Fs₂.length → ((dK.rss i).getD j []).getD l false = true →
+      ∀ t', SetTheory.app (Y (dK.tgts i j l)) t' ⊆ˢ SetTheory.app (Z (tg₂ l)) t')
+    (hentR : ∀ l, l < Fs₂.length → rs₂.getD l false = true →
+      ((dK.rss i).getD j []).getD l false = false → ¬ (base₂ ≤ tg₂ l ∧ tg₂ l < base₂ + kK) →
+      ∀ fs₁ : List V, fs₁.length = l →
+      SpineFit (consList (Ds₂.map (interp V ρ₂)) ρ₂) (((dK.Fss i ψ₂).getD j []).take l) fs₁ →
+        interp V (consList fs₁ (consList (Ds₂.map (interp V ρ₂)) ρ₂))
+            (((dK.Fss i ψ₂).getD j []).getD l default)
+          ⊆ˢ slotSet TV₂.w (TV₂.u (tg₂ l)) (consList fs₁ ρ₂) (tls₂.getD l []) (Eis₂.getD l [])
+              (Z (tg₂ l)))
+    (t : V) (fs : List V)
+    (hfit : FitsFrom rs₁ (fun i' ρ => slotSet TV₁.w (TV₁.u (tg₁ i')) ρ (tls₁.getD i' [])
+        (Eis₁.getD i' []) (segJoin base₁ kK T Y (tg₁ i'))) 0 ρ₁ Fs₁ fs)
+    (hidx : ∀ l, l < nI₁ → interp V (consList fs ρ₁) (Es₁.getD l default) = projS l t) :
+    FitsFrom rs₂ (fun i' ρ => slotSet TV₂.w (TV₂.u (tg₂ i')) ρ (tls₂.getD i' []) (Eis₂.getD i' [])
+        (Z (tg₂ i'))) 0 ρ₂ Fs₂ fs ∧
+    (∀ l, l < nI₂ → interp V (consList fs ρ₂) (Es₂.getD l default) = projS l t) :=
+  h₂.fit_imp_T_le_dom hreps hi hkK hw₂ hu₂ hnI₂ hj hdom₂ hrel hentR t fs
+    (BlockModel.chainFitT_congr_mem hreps hi hj hψ hwK huT hIdsLen hρ
+      ((h₁.fit_iff_at_T_dom hreps hi hkK hw₁ hu₁ hnI₁ hj hdom₁ hent₁ hL₁ t fs).mp ⟨hfit, hidx⟩))
+
 /-! ## Step (iii)'s INDUCTION: the rank orders the instances (K.37) -/
 
 /-- **The rank induction, over K.37's four clauses** (task #315 L-E,
