@@ -136,35 +136,6 @@ theorem containerInfo?_natA {env : Env}
     ConLeche.natZeroName, ConLeche.natSuccName, ConLeche.natName]
   rfl
 
-/-- **`PUnit`'s group, read back** — the one-member group with the
-single constructor. -/
-theorem containerInfo?_punitA {env : Env}
-    (hT : env.find? ConLeche.punitName = some ConLeche.punitA)
-    (hR : env.find? ConLeche.punitRecName = some ConLeche.punitRecA)
-    (hU : env.find? ConLeche.punitUnitName = some ConLeche.punitUnitA) :
-    ConLeche.containerInfo? env ConLeche.punitName
-      = some ⟨0, [⟨ConLeche.punitName, [ConLeche.uN], ConLeche.punitA.toConstantVal.type,
-        [⟨ConLeche.punitUnitName, ConLeche.punitUnitA.toConstantVal.type, 0⟩]⟩]⟩ := by
-  have hE : ConLeche.punitName = Name.anonymous.str "PUnit" := rfl
-  have hUE : ConLeche.punitUnitName = (Name.anonymous.str "PUnit").str "unit" := rfl
-  have hRE : ConLeche.punitRecName = (Name.anonymous.str "PUnit").str "rec" := rfl
-  rw [hE] at hT
-  rw [hRE] at hR
-  rw [hUE] at hU
-  have hmot : ConLeche.containerMotiveMember? env 0 0
-      (Expr.forallE (.const (Name.anonymous.str "PUnit") [.param (Name.anonymous.str "u")])
-        (.sort (.param (Name.anonymous.str "u_1"))) { pw := .never })
-      = some (Name.anonymous.str "PUnit") := by
-    simp +decide [ConLeche.containerMotiveMember?, Expr.piBinders, Expr.getAppFn,
-      Expr.getAppArgs, hT]
-  have hmot2 : ConLeche.containerMotiveMember? env 0 1
-      (Expr.app (.bvar 0) (.const ((Name.anonymous.str "PUnit").str "unit")
-        [.param (Name.anonymous.str "u")])) = none := by
-    simp [ConLeche.containerMotiveMember?, Expr.piBinders]
-  simp +decide [ConLeche.containerInfo?, hT, hR, hU, ConLeche.punitA, ConLeche.punitRecA,
-    ConLeche.punitUnitA, Expr.stripPis, ConLeche.containerMembersGo, hmot, hmot2, Option.bind,
-    ConLeche.punitUnitName, ConLeche.punitName, ConLeche.uN]
-
 /-! ## The counter-instances: the UNGUARDED clause, refuted -/
 
 /-- **`Nat` admits no block model with the TAGGED injections**: its
