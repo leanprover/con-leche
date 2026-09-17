@@ -781,6 +781,98 @@ theorem NestedTailIn.ihPi_eq {mpA : EnvModelM V μ ENVA} {cvRas : List ConstantV
     S.reps.eis_fit (S.typed ψ).1 hc hjA hρpA hi'A htgt hr hfs' hbs
   rw [hID.isOfW_tupT I.out.reps I.pinLaws hρp htgtT ((I.idsT_iff ψ ρ as htgt _).mpr hEis)]
 
+
+/-! ### The minors -/
+
+/-- **THE FRAME'S MINORS ARE TYPED AT THE COMPOSED CLASSES** (PLAN-M7
+§1e clause 7): a class's index tuple, field spine and inductive
+hypotheses transfer to the copy's (`idxT_elim`, `fitsFrom_iff` +
+`spineFit_of_fitsFrom`, `ihPi_eq`), where the mutual kit folds the
+minor (`IsBlockModels.minor_fold_mem` at the frame's
+`PrefixFrame.minors`); the conclusion comes back by the minor index
+(`minorIdxT_eq`), the injection (`nestedInjT_eq`) and the index
+readings (`esMap_eq`, `isOfW_tupT`). -/
+theorem NestedTailIn.minorsAt {mpA : EnvModelM V μ ENVA} {cvRas : List ConstantVal}
+    (S : NestedScratchOut F env b fms f₀ ctorsA kinds mp₁ ppsF W idxF dsF esF srcsF fvsPF xFvsF
+      xrestF eissF tssF stored mpA cvRas)
+    (ψ : Name → Nat) (ρ : Nat → V) {ps Msl msl : List V}
+    (hsp : SpineFit ρ ((D).params ψ) ps) (hMsl : Msl.length = (DA).k)
+    (hmsl : msl.length = (DA).nCtors)
+    (hmot : ∀ c', c' < (DA).k → Msl.getD c' pt ∈ˢ interp V (consList ps ρ)
+      (motiveAVIL (mpA.base2.acval ((DA).memberName c') ψ) ψ (DA).nP ((DA).nIdxAt c') b.elimLevel
+        (((DA).ppsM c' ψ).drop (DA).nP)))
+    (hmin : ∀ c j cA, c < (DA).k → ((DA).ctorsM c)[j]? = some cA →
+      msl.getD ((DA).minorIdx c j) pt ∈ˢ interp V
+        (consList (msl.take ((DA).minorIdx c j)) (consList Msl (consList ps ρ)))
+        (minorAVAtRM c ((DA).tgts c j) mpA.base2 cA.1.name ψ (DA).nP cA.2
+          (pwBit ψ (Level.zeronessOf b.elimLevel)) ((DA).k + (DA).minorIdx c j)
+          ((DA).dsF c j ψ) ((DA).esF c j ψ) (ConLeche.recIdxOf ((DA).ksF c j))
+          ((DA).tssF c j ψ) ((DA).eissF c j ψ))) :
+    (D).MinorsTypedT PC ψ (consList ps ρ) (b.elimLevel.eval ψ)
+      (fun c' => if c' < (D).kT then Msl.getD c' pt else pt)
+      (fun J => if J < (D).nCtorsT PC then msl.getD J pt else pt) := by
+  have hρp : Sat V ((D).params ψ).reverse (consList ps ρ) := (D).satOfSpine hsp
+  have hρpA : Sat V ((DA).params ψ).reverse (consList ps ρ) := hρp
+  intro c' hc' j hj t' ht' fs hfit vs hvslen hvs
+  have hcb : c' < b.k := by rw [← I.kT]; exact hc'
+  obtain ⟨cA, hjA⟩ : ∃ cA, ((DA).ctorsM c')[j]? = some cA :=
+    ⟨_, List.getElem?_eq_getElem (by rw [← I.ctorsT_length c']; exact hj)⟩
+  have hjl : j < ((DA).ctorsM c').length := (List.getElem?_eq_some_iff.mp hjA).1
+  obtain ⟨cvT, cvR, mI, rP, rules, hIA⟩ := S.reps c' hcb
+  obtain ⟨cvT0, cvR0, mI0, rP0, rules0, hID⟩ := I.out.reps 0 I.kpos
+  obtain ⟨is', hisT, rfl⟩ := nestedIdxT_elim ψ (consList ps ρ) ht'
+  have hisA : SpineFit (consList ps ρ) ((DA).IdsM c' ψ) is' :=
+    (I.idsT_iff ψ ρ ps hcb is').mp hisT
+  have hfitA := (I.fitsFrom_iff S ψ ρ ps hsp hcb hjA fs).mpr hfit.1
+  have hspFs : SpineFit (consList ps ρ) (((DA).Fss c' ψ).getD j []) fs :=
+    S.reps.spineFit_of_fitsFrom (S.typed ψ).1 (PinsTyped.of_noPins rfl ψ) hcb hjA hρpA
+      (lfpTuple_mem _ _ _ _) (TupleLe.refl _ _ _) hfitA
+  have hEs : ((DA).esF c' j ψ).map (interp V (consList fs (consList ps ρ))) = is' :=
+    I.esMap_eq S ψ ρ ps hsp hcb hjA hisT hfit.2
+  have hrecIdx : recIdx (((D).rssT PC c').getD j []) ((((D).FssT PC ψ c').getD j []).length)
+      = ConLeche.recIdxOf ((DA).ksF c' j) := by
+    rw [I.rssT_eq hjA, I.FssT_len_eq S ψ hcb hjA, ← hIA.Fss_length hjA ψ]
+    exact hIA.recIdx_eq hjA ψ
+  have hvslenA : vs.length = (ConLeche.recIdxOf ((DA).ksF c' j)).length := by
+    rw [hvslen, hrecIdx]
+  have ho : Msl.length + (msl.take ((DA).minorIdx c' j)).length
+      = (DA).k + (DA).minorIdx c' j := by
+    rw [hMsl, List.length_take, hmsl,
+      Nat.min_eq_left (Nat.le_of_lt ((DA).minorIdx_lt hcb hjl))]
+  have hvsA : ∀ l, l < vs.length →
+      vs.getD l pt ∈ˢ piTele (b.elimLevel.eval ψ)
+        (teleOfFields
+          (consList (fs.take ((ConLeche.recIdxOf ((DA).ksF c' j)).getD l 0)) (consList ps ρ))
+          ((((DA).tssF c' j ψ).getD ((ConLeche.recIdxOf ((DA).ksF c' j)).getD l 0) []).map
+            (·.2.2)))
+        (fun bs => SetTheory.app
+          (((((DA).eissF c' j ψ).getD ((ConLeche.recIdxOf ((DA).ksF c' j)).getD l 0) []).map
+            (interp V (consList bs
+              (consList (fs.take ((ConLeche.recIdxOf ((DA).ksF c' j)).getD l 0))
+                (consList ps ρ))))).foldl SetTheory.app
+            (Msl.getD ((DA).tgts c' j ((ConLeche.recIdxOf ((DA).ksF c' j)).getD l 0)) pt))
+          (bs.foldl SetTheory.app
+            (fs.getD ((ConLeche.recIdxOf ((DA).ksF c' j)).getD l 0) pt))) [] := by
+    intro l hlv
+    have h0 := hvs l hlv
+    simp only [] at h0
+    rw [hrecIdx] at h0
+    have hmem : (ConLeche.recIdxOf ((DA).ksF c' j)).getD l 0
+        ∈ ConLeche.recIdxOf ((DA).ksF c' j) := by
+      rw [List.getD_eq_getElem?_getD,
+        List.getElem?_eq_getElem (by rw [← hvslenA]; exact hlv), Option.getD_some]
+      exact List.getElem_mem _
+    obtain ⟨hi'K, hkind⟩ := mem_recIdxOf.mp hmem
+    rw [I.ihPi_eq S ψ ρ ps hsp hcb hjA hspFs hi'K ((rsOf_getD_iff hi'K).mpr hkind) Msl] at h0
+    exact h0
+  have hres := S.reps.minor_fold_mem rfl (S.typed ψ).1 hcb hjA hρpA ho hMsl hmot
+    (pwBit_zeronessOf ψ b.elimLevel) (hmin c' j cA hcb hjA) hspFs hvslenA hvsA
+  simp only []
+  rw [I.minorIdxT_eq c' j,
+    if_pos (by rw [I.nCtorsT_eq S]; exact (DA).minorIdx_lt hcb hjl), if_pos hc',
+    hID.isOfW_tupT I.out.reps I.pinLaws hρp hc' hisT, ← hEs, nestedInjT_eq]
+  exact hres
+
 end Run
 
 end ConLeche.Model
