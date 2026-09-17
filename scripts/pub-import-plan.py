@@ -186,6 +186,17 @@ FALLBACK = {
     # `def … : Prop` BODIES, task #253's class), and demoting it makes the
     # file's own `variable [SetTheory V]` fail to resolve.
     ('ConLeche.Model.Inductives.BlockRecWD','ConLeche.Model.Inductives.BlockRecTyped'),
+    # task #315 M7-2: `NestedRecFrames`'s three re-exports became demotion
+    # candidates when §1e's own theorems changed the graph around them (the
+    # fixpoint is order-dependent).  Each is refused by the compiler, the
+    # `MutualIdxUniv`/`NestedPins` class: without `NestedRecCtor` the file's
+    # `variable [SetTheory V]` and `OpenersFrom` are unknown in the public
+    # view, without `NestedRecTypes` its statements lose `nestedRecCvAt`,
+    # and without `NestedRestoreTbl` they lose `PinsAligned` — probed one at
+    # a time, each demotion alone fails to build.
+    ('ConLeche.Model.Inductives.NestedRecFrames','ConLeche.Model.Inductives.NestedRecCtor'),
+    ('ConLeche.Model.Inductives.NestedRecFrames','ConLeche.Model.Inductives.NestedRecTypes'),
+    ('ConLeche.Model.Inductives.NestedRecFrames','ConLeche.Verify.Inductives.NestedRestoreTbl'),
 }
 
 files=[f for f in subprocess.check_output(['git','ls-files','*.lean']).decode().split()
