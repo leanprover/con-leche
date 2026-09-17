@@ -87693,7 +87693,15 @@ gates are the battery's (`tests/arena.sh` EXIT 0, nested-shadow 27/27,
 proofdeps 4955 rows / 12 roots / 0 doors, pub-imports 1309 of 2117,
 none demotable).
 
-#### K.43 — the field kinds, computed ONCE: the accumulation the ledger exists to catch (2026-09-17, task #315, the coordinator's quality item)
+#### K.46 — the field kinds, computed ONCE: the accumulation the ledger exists to catch (2026-09-17, task #315, the coordinator's quality item)
+
+**NUMBERING.** This record landed as `K.43` in commit `9b94bc1e` and is
+renumbered **K.46** here: while it was in flight the coordinator
+assigned K.43 and K.44 to lane M7-3's two requests (§U.66 (a)'s
+pins-free own-pin table and §U.66 (b)'s `nestedPinMentionOk`) and K.45
+to lane M7-2's (the auxiliary and restored recursor names' disjointness).
+Nothing else about the record changed; the code comments that said
+`K.43` now say `K.46`.
 
 **The finding this record answers is an ACCUMULATION, not a bug.**  K.26
 (`nestedPinKindsOk`), K.32 (`nestedCopyTargetsOk`), K.37
@@ -87762,11 +87770,21 @@ own message and its own `.internal`.  Two deliberate shapes:
   not on the dispatch — is **539 227 250 289 against K.41's
   539 216 286 634**, i.e. unchanged (+0.002 %, this stream's noise),
   which is the regression check.  Under `--nested-shadow`, where it does
-  run, **539 295 348 499 against 539 310 854 061**.  The interesting
-  figure is the DIFFERENCE of the two, which is the nested route's whole
-  cost on this stream: **68.1 M instructions against 94.6 M, −28 %** —
-  the same share of it the cone gives back, on a corpus of 53 093
-  declarations instead of 4 926;
+  run, **539 295 348 499 against 539 310 854 061**.
+  **CORRECTION — the difference of those two is NOT a measurement.**
+  The tempting reading is to subtract them and call the result the
+  nested route's own cost (this record first did, at −28 %).  It does
+  not survive its own noise: three init-full runs whose plain-mode
+  behaviour is identical — K.41's, this record's and K.42's binaries,
+  none of which runs the nested route without the flag — came out at
+  539 216 286 634 / 539 227 250 289 / 539 231 661 135, a spread of
+  **15.4 M instructions**, and the three shadow runs spread **44.5 M**,
+  while the differences being compared are 35–95 M.  So at 539 G the
+  nested route's cost sits at or below this stream's run-to-run noise
+  and the difference method cannot resolve it.  **The cone is the
+  measurement that can** — 4 926 declarations, 41 nested blocks, a
+  1.2 M spread on 181 G — and init-full's role here is the regression
+  check only;
 * `tests/arena.sh` **EXIT 0**; nested-shadow **27/27**.
 
 **NEGATIVE CONTROLS — the refactor's own risk is that a clause got
