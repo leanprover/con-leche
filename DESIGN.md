@@ -86272,3 +86272,154 @@ repointed on a pure line shift — the citing paragraph re-read, the
 claim unchanged); quote-gate; no-local-paths; proofdeps; shake;
 pub-imports.  `tests/arena.sh` green.  Standard axioms on every new
 theorem.
+
+#### U.56 — M7-3 session 10: `declNestedB` — the NESTED route at `EnvModelB`, and the tail's supply list, named (lane M7-3, session 10, 2026-09-17)
+
+§U.55 (c)'s census left the three install routes: native and mutual
+lifted, nested owing §U.40 (f)'s four items.  This session lifts it.
+`declNested_of` now concludes `Nonempty (EnvModelB V μ envOut)` — the
+same statement change §U.52 and §U.55 (a) made on the other two —
+and the four items are either PROVED here or named as the exact
+conclusions the tail must hand back.
+
+##### (a) `NestedInstallExt` — the `Quot` finding, at an install that TABLES
+
+`BlockInstallExt` (§U.55 (b)) is unprovable for the nested route at
+every `Ms`, and for the reason the `Quot` install failed it: the route
+conses `k + n` recursors, the members' own `I.rec` and the MIMIC
+recursors `T₁.rec_1`, `T₁.rec_2`, … (official's `mk_aux_rec_name_map`,
+`NestedParts.mimicRecName`), and a mimic's name is no member's
+`I.rec` — `Name.str` injectivity again.  The `Quot` split does not
+help here, because `ConsExt` alone drops the table clause and the
+nested route DOES install projection tables, so the crossing's guard
+`TableCross` would go with it.
+
+`NestedInstallExt` (`EnvModelBStages.lean`) is therefore
+`BlockInstallExt` with the RECURSOR clause made CONDITIONAL:
+
+```lean
+  (∀ c ∈ new, ∀ (cv : ConstantVal) (mI rP : Nat) (rules : List RecRule),
+    c = .recInfo cv mI rP rules → ∀ n : Name, c.name = n.str "rec" → n ∈ Ms)
+```
+
+— vacuous at a mimic (`"rec_1" ≠ "rec"`), and exactly what
+`EnvBlocksOf.crossIndP` reads: `recN`, `indMs` and `tableCross` all
+carry over verbatim, `of_blockInstallExt` says the old record implies
+the new one, and the kind clauses that ARE needed (a new `indInfo` is a
+member, a new `projInfo` tables a member) are unweakened.
+
+##### (b) `nestedContainerModeled` — nine of fourteen clauses are the route's own
+
+`ContainerModeled.of_readBack` at the run's K.34 conjunct
+(`blockReadBackOk envOut p.nP (((stored.take p.k).zip ctorsR).map …)`,
+read under `certOnly_elim hμ`), with the audit's split:
+
+| clause | source |
+|---|---|
+| `hk` | `NestedBlockModelOf.k` and the zip's length: `auxStoredAll_get` gives `stored.length = b.k`, `mapM_except_inv` gives `ctorsR.length = (stored.take p.k).length` |
+| `hnP` | `NestedBlockModelOf.nP` (`auxBlock_fields`) |
+| `hnamesLen`, `hnames` | `NestedStageFacts.names` and `consNestedFormers_take_eq`'s SECOND component (`a.cvTa = f.cvTa`): the read-back's members are the auxiliary records' own constants |
+| `hctorNames` | `NestedBlockModelOf.ctors` (`rfl`) — the block model's constructors ARE the restored list |
+| `inj` | definitional at `BlockModel.ofNested` (`ofNested_inj`) |
+| `frame` | `MutualFormersFacts.frame`, the scratch block's cross-member identification (there is no nested `MutualTableFacts`, and none is needed) |
+| `ordFree` | the constructors' OWN opened guard: `BlockCtorFacts …` → `BlockCtorData.opened.ord` at `d.env₀ = env`, where every member is fresh (`nestedMembersFresh` off the run's capability record), closed by `rk_mentionsConst_false_of_constsResolve`.  This is the NATIVE route's argument (§U.52 (a)), **not** `MutualOrdFree`: no fact about the RESTORED opened data `xFvsR`/`dsR` is needed, so lane L-B is not on this path at all |
+| `pinsNotMembers` | `nestedContainersOk_group` (the pins' containers are stored) against that same freshness |
+
+The plumbing lemmas are `nestedReadBack_getElem?`/`_getD` (the zip-map
+read at a member), `nestedStoredFresh`, `nestedMemberStored` and
+`nestedMembersFresh`.
+
+##### (c) THE TAIL'S SUPPLY LIST — `NestedTailOut`, and where each field comes from
+
+The five remaining clauses name the OUTPUT model or the output
+environment, and §U.36 (d)'s groups name the assignment; they are the
+new conclusions of `NestedTailModeled` (`DeclNestedCore.lean`,
+`NestedTailOut`).  `NestedRecsStored`'s conclusion in
+`Model/Inductives/NestedRecsStage.lean` (lane M7-2) was threaded
+through in the same shape — ONE line, an undischarged named fact, no
+proof moved:
+
+1. `install` — `∃ new, NestedInstallExt p.memberNames env envOut new`
+   with the members among the new names.  The whole install's conses,
+   as `crossIndP` reads them.  **The tail's own**: it is the stage that
+   knows the recursors' and the tables' conses, and the core's two are
+   `consMutualFormers`/`consNestedCtors`.
+2. `agree₀`, `agree` — the carriers agree at every name `env` stores
+   and at every name `ENV₂` stores.  **The tail's own** (`declMutualB`
+   and `declNativeB` compute the same two internally, §U.52 (b)).
+3. `findR` — lookups from `ENV₂` survive to `envOut` EXCEPT at
+   recursors (the route swaps a provisioned recursor for its ruled
+   one, so the `recInfo` exclusion is the same one every crossing
+   carries).  **The tail's own.**
+4. `repsAt` — `IsBlockModelsAt mpOut.base2 D (fun mm => (stored.getD mm default).cvTa)`,
+   the representation at the OUTPUT model AT THE MEMBERS' STORED
+   CONSTANTS.  `ContainerModeled.member` demands the named form and
+   `nestedBlockReps_of` publishes only the existential one — **a CORE
+   plumbing request**: that theorem already instantiates the
+   existential at `(fms.getD mm default).cvTa` (`NestedCore.lean`), so
+   exposing `IsBlockModelsAt` in its conclusion and in
+   `NestedCoreOut.reps` is a signature-only change, after which the
+   tail only CROSSES it.
+5. `pinNP`, `pinψ` — the two pin records `ContainerModeled` asks for
+   and the core's chain does not expose.  Both are PROVED upstream —
+   `NestedPinFacts.pinψ` (`NestedLoop.lean`, from
+   `NestedPinsRun.pinψ`) and `NestedPinGroupSyn.modeled`/`.ctorsOf`
+   (`NestedPins.lean`, which `ofParts` drops) — and both are lost at
+   the `NestedCtorsStaged` boundary, so `nestedStageFacts_of` cannot
+   recover them.  **A CORE plumbing request**: add the two fields to
+   `NestedLoopFacts`/`NestedStageFacts` and fill them inside
+   `nestedLoopFacts_of`, where they are free.
+6. `groups`, `conts` — the pins' groups at the constructors' model with
+   their container's block model NAMED by `blockOf mp.base2`, and the
+   pins' containers read alike at `ENV₂`, at `envOut` and at `env`.
+   This is §U.36 (d)'s strengthening of `NestedStageFacts.groups` from
+   `∃ dJ` to the environment model's own assignment, and it cannot be
+   stated as a `NestedCoreOut` field without a new named hypothesis
+   (`nestedCoreModeled_of` could not discharge it), so it is stated at
+   the tail, where `mp₂` and the core's output are both in scope.
+
+##### (d) The pins' half, and why the tables cost nothing there
+
+`PinRecLaws` is M7-1's `nestedPinRecLaws_of` at the WEAK groups
+(`NestedStageFacts.groups` unchanged) and reads no model at all, so
+`PinRecLaws.cross` moves it to the output model for nothing.
+
+`PinShapes` is L-E's `nestedPinShapes_of` at (c) 6's named groups,
+proved at the CONSTRUCTORS' model and then crossed by
+`PinShapes.crossEnv` — which takes `hF`, `hag` and the pins'
+containers' readings and **no reading hypothesis at all** (the shapes
+read the carrier only at the block's members, its pins' containers and
+those containers' own pins).  That is what makes the projection tables
+harmless on this route: the one crossing that would have been refuted
+by them (§U.40 (b), `hde_not_of_newTable`) is the one nothing here
+performs.  In particular the pin GROUPS are never crossed —
+`NestedPinGroup.crossEnv` (`NestedLoop.lean`) takes the UNGUARDED
+`hde` and there is no guarded variant, so the groups stay at `ENV₂`
+and only their consequence travels.
+
+`nestedBlockAt_of` then packages the three at
+`B' := fun ci => if ci = ci_new then D else blockOf mp.base2 ci`, whose
+`PinShapes` is `PinShapes.congrB` at the pins' containers (each read at
+`env`, hence not the new group — the members are fresh there).  The old
+containers cross by `EnvBlocksOf.crossIndP` at `NestedInstallExt`, with
+`hold` the same `if_neg` and `hnew` K.34's reading at a new name that
+`indMs` identifies as a member.
+
+##### (e) The census after this session
+
+All three install routes conclude at `EnvModelB`:
+`declNativeB` (§U.52), `declMutualB` (§U.55 (a)) and `declNested_of`
+itself — the nested route keeps its name because it is the route's only
+statement and it has no `EnvModelM` consumer to preserve.  §U.55 (c)'s
+order is unchanged: step 2 (the kernel's nested dispatch arm and the
+DELETION of the modeled arm) is still the scheduling fact, and nothing
+above it can land first.  `Model/Fold.lean` is untouched.
+
+##### (f) GATES
+
+`lake build` 702 jobs warning-free; `lake test` warning-free; layering
+347 / 272 / 3 / 1, 0/0; trust 13/5 (634); overview-links 112;
+quote-gate 2; no-local-paths OK; proofdeps 4955 rows / 12 roots /
+0 doors; shake 510/510 allowlisted; pub-imports 1284 of 2030, none
+demotable; `tests/arena.sh` green.  Standard axioms on every new
+theorem.
