@@ -82987,6 +82987,125 @@ no-local-paths OK; overview-links 112; quote-gate 2; proofdeps 4955
 rows / 12 roots / **0 doors**.
 
 
+##### (ccc) CONTINUATION 17 (lane session 17) — THE RULE LAW, GENERALISED ONCE
+
+Base: this lane's 650d8563.  No checker code changed; no `sorry`, no
+axioms, no `maxHeartbeats`; `#print axioms` of every new and every
+restated theorem is `[propext, Classical.choice, Quot.sound]`.
+
+The maintainer's instruction was to take (zz) 2's own recommendation
+FIRST: generalise `blockRecRuleLaw` once rather than copy its 450
+lines for the mimic arm.  That is done, and the mutual route is its
+first instantiation — `blockRecRuleLaw` keeps its signature and its
+only consumer (`MutualRecsStore.lean`) is untouched.
+
+*The enabling step* (d753bd1e).  `ruleFold` becomes
+`NestedTailIn.ruleVal`: the restored right-hand side's reading and the
+auxiliary tower interpret alike at EVERY frame, not merely along
+fitting spines.  The upgrade is free — `interp_mkLamsAV_congr`
+(`BlockRecBridge.lean`, already in the tree) closes the two towers
+layer by layer, each layer's fit being exactly "the argument is in the
+domain", which is what `ruleAgree` asks for anyway.  *It matters
+because `RecRuleLaw`'s grading conjunct goes through
+`mkAppN_wellDenotedV_of_lam`, whose `Or.inr` branch wants the two
+VALUES equal, not their folds.*  With the value in hand the `Prop`
+regime, the β-fold and the application's grading all rewrite through
+ONE equation, and the generalisation needs no fold law and no
+`Prop`-regime escape hatch.  `foldl_mkLamsAV_congr` is deleted with
+its only consumer.
+
+*The generalisation, in three rounds* — each round is one thing the
+two routes do not share, and after them `blockRecRuleLawG` fixes only
+what they DO share (the block model, its readings, its typings, its
+fibre):
+
+1. **the right-hand side** (723c1dba).  `Ra : (Name → Nat) → AnnotTerm`
+   with `hreadRa` (it is the stored rhs's reading), `hwdRa` (it is
+   graded — the door's, on the nested route) and `hRaVal` (it has the
+   auxiliary tower's value).  `hlpsRhs`/`denoteMeta_params_ext` leave
+   the law entirely.  The rule's ROW goes abstract with it: only
+   `rl.nfields = cA.2` is asked, `rl.ctorParams` stays free (the
+   mimic's is the CONTAINER's parameter count), and the outer
+   `.nested` conjunct becomes the hypothesis `hvpa`, vacuous at a
+   `.plain` fire.
+2. **the major** (723c1dba).  `hmajor` takes exactly what
+   `RecRuleLaw`'s equality clause supplies — the stored constructor,
+   its levels' comparand, the `.nested` comparands, `IotaIndexPin`,
+   the two readings and the constructor's own `TeleFitPA` — plus the
+   decomposed parameter spine, and returns the field spine, its length
+   and the major's value as the block's injection.  Everything the
+   mutual arm derived from `hfC`/`hCread`/`hagC`/`hlpsSub` moves
+   inside it; the fibre's converse stays in the core and RECOVERS the
+   fields' fit from the decode, so `hmajor` need not supply it.
+3. **the leaf and the spine** (828dd736, 94b0d76e).  The leaf was
+   `d.recLeaf` — the scratch block model's; the nested one is
+   `nestedRecLeaf`, `blockLeafAV` at the RESTORED readings.  It is a
+   black box in the proof (closedness, typing, the equations it
+   satisfies, the recursor's stored value), so it becomes a parameter
+   `Leaf`.  And `hRD` fixed the stored recursor TYPE's reading to the
+   scratch tower — false on the nested route, where the two towers are
+   only ONE SET at every frame (`towerAgree`), never equal.  It splits
+   into `hrdsLen`, `hrdsBits` and `hspine`.
+
+**What each arm now supplies is exactly four things: the leaf, the
+spine, the major and the right-hand side.**  Three of the four are in
+the tree on the nested route — the leaf is `towerAgree` + `ruleIota` +
+the provision's leaf report, the spine is `recSpine` (session 16), the
+right-hand side is `ruleVal`.  Only `hmajor` (and the mimic's `hvpa`)
+is left.
+
+##### (ddd) WHAT THE FIRED EQUALITY STILL OWES
+
+1. **`hmajor` at a MEMBER**: `o.ctor = rl.ctor = cA.1.name`, the value
+   crosses `mpP → mp₂ → mpA` by the restore record's `leafSome` (a
+   member's own constructor is no `ctorPins` key) and `hagA`, and the
+   telescope split is `NestedStageFacts.ctorFacts`' `BlockCtorFacts` —
+   **½–¾**;
+2. **`hmajor` at a MIMIC**: `o.ctor` is the CONTAINER's constructor and
+   `ctorArm`'s last clause IS the identification, its `Ds` pinned by
+   the comparands clause `hmajor` already receives; `hvpa` is
+   `nestedFireShape_inv` + `nt_denoteMeta_restoredPin` — **¾–1**;
+3. **the instantiation**: `blockRecRuleLawG` at the nested data, then
+   `RecRules` over the stored rules (`restoreRules_at` for the row,
+   `recArgSums` for `rP ≤ mI`) — **½**.
+
+##### (eee) K.43, and the residue of item 5
+
+**K.43 unchanged**: `restoreAgreeP`'s `hauxNe`, passed straight through
+by `ruleVal`; ONE rewrite at ONE site.
+
+Left of item 5, in order:
+
+1. the fired equality's two `hmajor`s, `hvpa` and the instantiation
+   ((ddd)) — **1¾–2¼**;
+2. the store swap, its five missing Verify twins and the free
+   `PinRecLaws.crossEnv` — **1½**;
+3. the tables' twin and §U.36 (d)'s `EnvModelB` supply — **1–1½**.
+
+**Item 5 from here: 4¼–5¼ sessions** (session 16 said 4–5 with the
+equality at 1½–2 and the generalisation not yet paid for).  The
+generalisation cost a session and bought the mimic arm: without it the
+arm was a second copy of 450 lines.
+
+##### (fff) FILES AND GATES (session 17's HEAD)
+
+Touched: `ConLeche/Model/Inductives/MutualRecsLaw.lean` (917 → 1070,
+`blockRecRuleLawG` plus the mutual wrapper),
+`ConLeche/Model/Inductives/NestedRecRule.lean` (1987 → 1933,
+`ruleFold` → `ruleVal`, `foldl_mkLamsAV_congr` deleted).  No other
+file, no allowlist line, no `scripts/pub-import-plan.py` entry, no new
+import.
+
+`lake build` 715 jobs warning-free EXIT 0; `lake test` warning-free
+EXIT 0; shake 512 removals all allowlisted / pub-imports 1314 of 2137
+public, none demotable (45 dot-notation fallbacks); layering base 351 /
+model 281 / caps 3 / umbrella 1, 0 base→lane, 0 impl→theory (the base
+clause is vacuous, §U.29 (mm), and a separate lane off master owns the
+fix); trust surface 13 escapes in 5 allowlisted files (647 scanned);
+no-local-paths OK; overview-links 112; quote-gate 2; proofdeps 4955
+rows / 12 roots / **0 doors**.
+
+
 #### U.30 — L-B session 2: `CopyCtorInst.ordF` at the READING, the normalisation's reading law PROVED, `ContainerModeled`'s three clauses (lane L-B, 2026-09-16)
 
 Three maintainer rulings opened this session; the first two are landed,
