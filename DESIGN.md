@@ -83556,3 +83556,157 @@ OK; proofdeps 4955 rows / 12 roots / 0 doors; shake 508/508
 allowlisted; pub-imports 1261 of 1990, none demotable.  `tests/arena.sh`
 green.  Standard axioms on every new theorem (26 of them, beside the two
 new definitions `MutualOrdFree` and `BlockInstallExt`).
+
+#### U.50 — M7-3 session 7: the native route's facts exported, and `IsBlockModel` at `BlockModel.ofNative` ASSEMBLED (lane M7-3, session 7, 2026-09-17)
+
+§U.47 (h) reported the native export as "not a prefix of `declNative`'s
+proof" and sized it at a session.  It is a session, and the split is
+not where §U.47 guessed.
+
+##### (a) The split is at the CONCLUSION, not "before the model work"
+
+`declNative`'s facts are interleaved with its model stage chain
+(`stageSumFormer` → `stageFixFormer` → `ctorsLoopGen` → `stageFixRec`)
+and speak of both the run's existentials and the data the assembly
+itself builds, so there is no prefix to cut.  What there is, is the
+shape this lane has now used five times: **state what the proof already
+built**.
+
+```lean
+structure NativeSyntaxFacts {env env₁ envC env₂ : Env} (m : EnvModel V envC) (F : Nat)
+    (p : NativeParts) (cvTa cvRa : ConstantVal) (ctorsA : List (ConstantVal × Nat))
+    (sortss : List (List Level)) (rhss : List Expr) (bsT : List (Expr × BinderMeta))
+    (ppsAll : (Name → Nat) → List (Nat × Nat × AnnotTerm)) (uAV : (Name → Nat) → Nat)
+    (idxF …) (dsF …) (esF …) (srcsF …) (ksF …) (fvsPF xFvsF …) (xrestF …) (eissF …) (tssF …)
+    (fssZ : (Name → Nat) → List (List AnnotTerm)) : Prop
+```
+
+— the `declNativeTable` bundle VERBATIM (the two environment
+equations, the arities and names, the constructors' runs, the former's
+data, the constructors' data and frames, the leaf readings, the
+chains, the sorts, the recursor's run) with the facts `IsBlockModel`
+needs beside it: `strip`, `Tname`, `mI`, `rP`, `ndA`, `lenK`, `ks`,
+`ksLen`, `idxRes`, `uParams`, `idxOk`, `fssAgree` and the table's run.
+`declNative_syntax` is the old theorem with
+
+    Nonempty (EnvModelM V μ env₂) ∧ ∃ …, NativeSyntaxFacts …
+
+as its conclusion — its proof unchanged but for the last three lines —
+and **`declNative` is its FIRST PROJECTION**, statement byte-for-byte
+unchanged.
+
+##### (b) THE FINDING: the native route carries TWO constructor-data families
+
+`BlockModel.ofNative` has ONE data slot, and the route has two:
+
+* the **DUMMY** data `dsF₀/esF₀/eissF₀/tssF₀`, read at the empty-chain
+  former, from which the fixpoint operator's X-chain fields `Fss₀` are
+  built and at which every `XChainsOk` / `fixFunVI` / leaf fact is
+  proved;
+* the **REAL** data `dsF/esF/eissF/tssF`, read at the fixpoint former,
+  at which `BlockCtorData` and the constructors' leaf readings hold.
+
+`hident` (`fixCtorDataI_ident`) says they agree EXCEPT at the
+recursive and reflexive fields, whose domains mention the family.  So
+instantiating `ofNative` with the real data makes `functor`/`fibre`/
+`leaf` speak of chains the route never proved, and with the dummy data
+makes `ctors`/`ctor` speak of readings that are false.  `tlss`, `Eiss`
+and `Ess` are NOT affected — `hEiss`/`hTlss`/`hEss` prove the real ones
+equal the dummy; only the FIELDS differ.
+
+**The bridge is syntactic, not semantic.**  `xEntry` returns the SLOT
+at a position the recursive flags mark and DISCARDS the domain, so
+agreeing-off-the-flags field lists give the same X-chain:
+
+```lean
+@[expose] def FsAgree (rs : List Bool) (Fs Fs' : List AnnotTerm) : Prop :=
+  Fs.length = Fs'.length ∧
+    ∀ l, l < Fs.length → rs.getD l false = false → Fs.getD l default = Fs'.getD l default
+```
+
+with `FssAgree`, `chainXIGo_congr`, `chainXI_congr`, `chainsXI_congr`,
+`slotsFitX_congr`, `xChainsOk_congr` and `nativeTyAVI_congr`
+(`BlockRepOne.lean`).  `FixChainsOkI`, `fixStepI`, `famFI`,
+`fixFunVI`, `fixFamI`, `fixFunAVI`, `fixBodyAVI` and the leaf read the
+fields ONLY through `chainsXI`, and `SlotsFitX` only through `xEntry`,
+so the whole premise transfers.  `NativeSyntaxFacts.fssAgree` is the
+route's instance of it (`hident` + `rsOf_getD`, `rsOf` marking exactly
+the recursive and reflexive positions).
+
+##### (c) `IsBlockModel` at `BlockModel.ofNative`, assembled
+
+`nativeIsBlockModel` (`DeclNative.lean`).  §U.40 (e) recorded that this
+had never been built, and `BlockRepOne.lean`'s own docstring left the
+syntactic clauses to "the `declBlock` assembly's job".  All 26 clauses:
+
+* `memberLt`/`member`/`tgtsLt` and the four PIN clauses trivial or
+  vacuous at `k = 1`, `pins = []`, `tgts = 0`;
+* `strip`/`isProp`/`mI`/`rP`/`former`/`memsFound`/`idxRes`/`uParams`/
+  `paramsIff`/`idxOk` straight off the record (`rules` is the one
+  argument beside it: the recursor's stored rules are the
+  constructors' names);
+* `ctors` = `BlockCtorData.ofFix` at the record's `FixCtorDataI`, the
+  block form's `nest` being `none` everywhere because every target is
+  member `0`;
+* `functor`/`fibre` = `ofNative_functor`/`ofNative_fibre` at
+  `xChainsOk_congr (fssAgree ψ) (XR ψ ρp hρ).1`;
+* `leaf` = `ofNative_leaf`, whose `FixBaseI` is the record's `idxOk`
+  and `XR` at the opened frame (`shiftE_consList`, `frameIdx_consList'`);
+* `ctor` = `ofNative_ctor'`, `mkZero`/`mkInj` = `ofNative_mkZero`/`_mkInj`.
+
+Three gaps in `BlockRepOne.lean` were closed on the way:
+
+1. **`ofNative_ctor` was proved only at `w ≠ 0`** while
+   `IsBlockModel.ctor` carries no such premise; `ofNative_ctor'` adds
+   the `Prop` branch (`sumMkAV_zero`, `injW_zero` — the mutual route's
+   own).
+2. **`ofNative_ctor`'s `hds` premise was a LIST EQUALITY** of the
+   constructor's parameter telescope with the former's.  The native
+   route proves only the frames' `Sat`-EQUIVALENCE and never the list
+   equality, so the premise is now the fitting spine itself and the
+   caller derives it with `spineFit_of_frames`.
+3. `spineFit_of_frames` lived in `MutualCore.lean`; it moved down to
+   `StructCtorData.lean` (which needed `Semantics.Tower.FixSquashI`
+   for `consList_getD_lt`), where the native route sees it too.
+
+##### (d) What `declNativeB` still owes — the session's item (3), NOT started
+
+The recipe is `declMutualB`'s (§U.47) and the kit carries over
+unchanged (`BlockInstallExt` at `Ms := [p.cvT.name]`,
+`BlockAt.of_noPins`, `ContainerModeled.of_readBack` at
+`DeclNativeRun`'s K.34 conjunct `blockReadBackOk env₂ p.nP [(cvTa, ctorsA)]`,
+`EnvBlocksOf.crossIndP`).  What is missing, exactly:
+
+1. **the table stage's agreement.**  `declNativeTable` ends at
+   `Nonempty (EnvModelM V μ env₂)` and drops `AcvalAgrees mp₃.base2
+   mpOut.base2` — the same "proved and dropped" as
+   `MutualTablesModeled` before §U.43 (a).  `declNative_syntax`'s
+   conclusion must carry `mp₃` and the agreement beside the record.
+2. **two crossings, not one.**  The record is at the CONSTRUCTORS'
+   model `mpC`; the block model must cross the recursor's cons (a
+   fresh non-inductive cons, `hac₃` gives the agreement) and then the
+   table cons under the guard — a `TableCross [p.cvT.name] envR env₂`
+   from `checkNativeTable`'s inversion, and `ProjFree` guards from the
+   native route's own `NoProjEnv` bookkeeping in `FixStageTable.lean`
+   (`IsBlockModel.crossEnvG`, §U.47 (e)).
+3. **`BlockInstallExt` for the native install** — four stages (the
+   former's cons, `consSumCtors`, the recursor's cons, the table's),
+   the same four lemmas as the mutual route's with `Ms := [p.cvT.name]`.
+4. **`hOrd`, the native twin of `MutualOrdFree`.**  K.36 has NOT landed
+   on the kernel lane (`agent/uniform-m5` is at K.35), so neither
+   `DeclMutualRun` nor `DeclNativeRun` carries it; the native lift
+   states it verbatim in `MutualOrdFree`'s shape at `[cvTa]`'s single
+   member list.
+
+Sized **1 session**.
+
+##### (e) GATES
+
+`lake build` 694 jobs warning-free; `lake test` warning-free; layering
+346 / 265 / 3 / 1, 0/0; trust 13/5 (626); overview-links 112 (the
+`declNative` anchor repointed twice as the theorem moved — the citing
+paragraph re-read, the claim unchanged: it is still the model-tier
+theorem for the whole install); quote-gate 2; no-local-paths OK;
+proofdeps 4955 rows / 12 roots / 0 doors; shake 508/508 allowlisted;
+pub-imports 1262 of 1992, none demotable; `tests/arena.sh` green.
+Standard axioms on every new theorem.
