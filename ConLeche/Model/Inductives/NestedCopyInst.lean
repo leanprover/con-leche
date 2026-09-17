@@ -2126,6 +2126,135 @@ private theorem mutualCtorKinds_memberHead {members : List (Name × Nat × Nat)}
       rw [hneg]; simp)
 
 
+omit [SetTheory V] R SF S in
+/-- **The positivity walk descends a `∀`-telescope**: its Π arm peels
+one binder and counts it, and the only other answer it can give on the
+way is `.negative` — the guard it applies at each binder is that the
+domain mentions no member. -/
+private theorem mutualPositivity_piTower (members : List (Name × Nat × Nat)) (lps : List Name)
+    (nP o : Nat) :
+    ∀ (bs : List (Expr × ConLeche.BinderMeta)) (body : Expr) (k : Nat),
+      ConLeche.mutualPositivity members lps nP o (ConLeche.mkPisB bs body) k
+          = (.negative, 0) ∨
+        ConLeche.mutualPositivity members lps nP o (ConLeche.mkPisB bs body) k
+          = ConLeche.mutualPositivity members lps nP o body (k + bs.length)
+  | [], body, k => Or.inr (by rw [ConLeche.mkPisB_nil, List.length_nil, Nat.add_zero])
+  | bd :: bs, body, k => by
+    by_cases hd : ConLeche.mentionsMember (members.map (·.1)) bd.1 = true
+    · refine Or.inl ?_
+      rw [ConLeche.mkPisB_cons]
+      show (if ConLeche.mentionsMember (members.map (·.1)) bd.1 then (RecFieldKind.negative, 0)
+          else ConLeche.mutualPositivity members lps nP o (ConLeche.mkPisB bs body) (k + 1))
+          = (RecFieldKind.negative, 0)
+      rw [if_pos hd]
+    · have hstep : ConLeche.mutualPositivity members lps nP o
+            (ConLeche.mkPisB (bd :: bs) body) k
+          = ConLeche.mutualPositivity members lps nP o (ConLeche.mkPisB bs body) (k + 1) := by
+        rw [ConLeche.mkPisB_cons]
+        show (if ConLeche.mentionsMember (members.map (·.1)) bd.1 then (RecFieldKind.negative, 0)
+            else ConLeche.mutualPositivity members lps nP o (ConLeche.mkPisB bs body) (k + 1)) = _
+        rw [if_neg hd]
+      rcases mutualPositivity_piTower members lps nP o bs body (k + 1) with h | h
+      · exact Or.inl (by rw [hstep, h])
+      · refine Or.inr ?_
+        rw [hstep, h, List.length_cons]
+        congr 1
+        omega
+
+omit [SetTheory V] R SF S in
+/-- **A `∀`-TOWER OVER A BLOCK MEMBER IS CLASSIFIED `.reflexive` AT
+THAT MEMBER** (task #315 L-B): `mutualCtorKinds_memberHead` under the
+field's own binders.  The walk peels the tower, lands on the member
+application with a NON-ZERO peel count and answers `.reflexive` at the
+member's own index — unless a binder domain mentions a member or one of
+the four guards fails, and every such failure answers `.negative`, or
+the later-use test answers `.unsupported`; the classification's own run
+rules both out. -/
+private theorem mutualCtorKinds_memberHeadPi {members : List (Name × Nat × Nat)}
+    {lps : List Name} {nP : Nat} {c : ConstantVal × Nat} {ks : List (RecFieldKind × Nat)}
+    (h : ConLeche.mutualCtorKinds members lps nP c = some ks)
+    (hneg : ks.any (·.1 == .negative) = false)
+    (huns : ks.any (·.1 == .unsupported) = false)
+    {cbs : List (Expr × ConLeche.BinderMeta)} {cbody : Expr}
+    (hstrip : c.1.type.stripPis (nP + c.2) = some (cbs, cbody))
+    {l : Nat} (hl : l < c.2)
+    {tbs : List (Expr × ConLeche.BinderMeta)} {T : Name} {us : List Level} {args : List Expr}
+    (hdom : (cbs.getD (nP + l) default).1
+      = ConLeche.mkPisB tbs (Expr.mkAppN (.const T us) args))
+    (hne : tbs.length ≠ 0)
+    (hT : T ∈ members.map (·.1))
+    {e₀ : Name × Nat × Nat} (hfind : members.find? (·.1 == T) = some e₀) :
+    ks.getD l (.ordinary, 0) = (.reflexive, e₀.2.1) := by
+  classical
+  unfold ConLeche.mutualCtorKinds at h
+  rw [hstrip] at h
+  simp only at h
+  have hment : ConLeche.mentionsMember (members.map (·.1)) (cbs.getD (nP + l) default).1
+      = true := by
+    rw [hdom]
+    refine List.any_eq_true.mpr ?_
+    obtain ⟨T', hT', hT'eq⟩ :=
+      List.any_eq_true.mp (ConLeche.mentionsMember_mkAppN_const hT us args)
+    exact ⟨T', hT', ConLeche.mentionsConst_mkPisB tbs _ hT'eq⟩
+  have hpos : ConLeche.mutualPositivity members lps nP l (cbs.getD (nP + l) default).1 0
+        = (.reflexive, e₀.2.1) ∨
+      ConLeche.mutualPositivity members lps nP l (cbs.getD (nP + l) default).1 0
+        = (.negative, 0) := by
+    rw [hdom]
+    rcases mutualPositivity_piTower members lps nP l tbs
+      (Expr.mkAppN (.const T us) args) 0 with hw | hw
+    · exact Or.inr hw
+    rw [hw, mutualPositivity_notPi members lps nP l (0 + tbs.length)
+        (fun d bo bm hE => ConLeche.mkAppN_const_ne_forallE T us args d bo bm hE),
+      if_neg (by
+        rw [ConLeche.mentionsMember_mkAppN_const hT us args]; exact fun h => nomatch h)]
+    simp only [Expr.getAppFn_mkAppN, Expr.getAppFn, hfind]
+    split
+    · rw [show ((0 + tbs.length) == 0) = false from by
+        simp only [beq_eq_false_iff_ne, ne_eq, Nat.zero_add]; exact hne]
+      exact Or.inl rfl
+    · exact Or.inr rfl
+  split at h
+  · simp only [Option.some.injEq] at h
+    have hlen : ks.length = c.2 := by rw [← h]; simp
+    have hget : ks.getD l (.ordinary, 0)
+        = (if !ConLeche.mentionsMember (members.map (·.1)) (cbs.getD (nP + l) default).1 then
+              (RecFieldKind.ordinary, 0)
+            else
+              match ConLeche.mutualPositivity members lps nP l (cbs.getD (nP + l) default).1 0 with
+              | (.recursive, m') =>
+                if ConLeche.structUsedLater c.1.type nP l then (.unsupported, 0)
+                else (.recursive, m')
+              | (.reflexive, m') =>
+                if ConLeche.structUsedLater c.1.type nP l then (.unsupported, 0)
+                else (.reflexive, m')
+              | kk => kk) := by
+      rw [← h, List.getD_eq_getElem?_getD, List.getElem?_map, List.getElem?_range hl]
+      rfl
+    rw [if_neg (by rw [hment]; simp)] at hget
+    rcases hpos with hp | hp
+    · rw [hp] at hget
+      dsimp only at hget
+      by_cases hsu : ConLeche.structUsedLater c.1.type nP l = true
+      · rw [if_pos hsu] at hget
+        exact absurd (kinds_any_of_getD (by rw [hlen]; exact hl) (by rw [hget])) (by
+          rw [huns]; simp)
+      · rw [if_neg hsu] at hget
+        exact hget
+    · rw [hp] at hget
+      dsimp only at hget
+      exact absurd (kinds_any_of_getD (by rw [hlen]; exact hl) (by rw [hget])) (by
+        rw [hneg]; simp)
+  · exfalso
+    simp only [Option.some.injEq] at h
+    have hlen : ks.length = c.2 := by rw [← h]; simp
+    have hget : ks.getD l (.ordinary, 0) = (RecFieldKind.negative, 0) := by
+      rw [← h, List.getD_eq_getElem?_getD, List.getElem?_map, List.getElem?_map,
+        List.getElem?_range hl]
+      rfl
+    exact absurd (kinds_any_of_getD (by rw [hlen]; exact hl) (by rw [hget])) (by
+      rw [hneg]; simp)
+
 omit SF S in
 /-- **THE GROUP'S COPY, AS A BLOCK MEMBER** (task #315 L-B): pin
 `q₀ + m`'s copy is the auxiliary block's member `p.k + (q₀ + m)` — its
