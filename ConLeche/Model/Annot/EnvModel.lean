@@ -188,4 +188,14 @@ transport follows from it (`denoteMeta_acval_congr`). -/
 theorem AcvalAgrees.rfl' {env : Env} (m : EnvModel V env) : AcvalAgrees m m :=
   fun _ _ => Eq.refl _
 
+/-- Agreement composes along a chain of conses, provided the middle
+environment's lookups extend the first's — which every cons chain gives
+(task #315 M7-3 session 9: the basis blocks install three to five
+constants in a row). -/
+theorem AcvalAgrees.trans {env env₁ env₂ : Env} {m : EnvModel V env} {m₁ : EnvModel V env₁}
+    {m₂ : EnvModel V env₂} (hext : ∀ n : Name, (env.find? n).isSome = true →
+      (env₁.find? n).isSome = true)
+    (h₁ : AcvalAgrees m m₁) (h₂ : AcvalAgrees m₁ m₂) : AcvalAgrees m m₂ :=
+  fun n hn => (h₂ n (hext n hn)).trans (h₁ n hn)
+
 end ConLeche.Model

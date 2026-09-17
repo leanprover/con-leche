@@ -56,13 +56,6 @@ universe w
 variable {V : Type w} [SetTheory V]
 variable {μ : CheckMode} {env : Env}
 
-/-- The install lemmas below expose the extended carrier's leaf (the
-`Eq` block's chain reads it: its constants' types mention each other
-and none of them is `pinnedStructT`).  Consumers that do not need the
-leaf drop it here. -/
-theorem nonempty_of_exists {α : Sort u} {p : α → Prop} (h : ∃ x, p x) :
-    Nonempty α := h.elim fun x _ => ⟨x⟩
-
 /-- **`WellDenotedV` is `BitAgree`-invariant** — both halves are
 (`AnnotTerm.BitAgree.wellDenoted`/`.validV`), so the P currency crosses the
 bridge between a `denoteMeta` reading and the `BConst.typeAV` tower it

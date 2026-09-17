@@ -1110,8 +1110,10 @@ members' FRESHNESS there. -/
 over the run's own data (the model lane's DESIGN §U.46 (b)).  The block
 model's representation ties its field variables to exactly these two
 openings (`BlockCtorDataX.opens`) and its kinds to `kinds`, so the
-bridge from here to `ContainerModeled.ordFree` is a rewrite. -/
-def MutualOrdFree (memberNames : List Name) (nP : Nat)
+bridge from here to `ContainerModeled.ordFree` is a rewrite — which is
+why the model tier UNFOLDS it (`mutualContainerModeled`), hence
+`@[expose]`. -/
+@[expose] def MutualOrdFree (memberNames : List Name) (nP : Nat)
     (ctorsA : List (ConstantVal × Nat)) (kinds : List (List (RecFieldKind × Nat))) : Prop :=
   ∀ (J : Nat) (cA : ConstantVal × Nat), ctorsA[J]? = some cA →
     ∀ (fvsP xFvs : List Expr) (crest xrest : Expr),

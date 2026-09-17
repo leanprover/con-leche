@@ -112,13 +112,20 @@ def BasisStepPB (V : Type w) [SetTheory V] (μ : CheckMode) : Prop :=
       DeclBasisRun env kind env₂ →
       Nonempty (EnvModelM V μ env₂)
 
-/-- **`BasisStepPB`, discharged** (task #161, ENDGAME H; the `False` block
-at task #181): all pinned basis blocks install at the P tier.  Exactly `declBasisS`'s
-dispatch shape, and — as there — `quotK` is the one branch whose
-`DeclBasisRun` guard is not vacuous: it needs `Eq` in the prefix, which
-is what the block's `Eq` bridge consumes. -/
-theorem basisStepPB_of : BasisStepPB V μ := by
-  intro env mp kind env₂ h
+/-- **The basis kind's step, WITH THE CARRIER AGREEMENT** (task #315
+M7-3 session 9, DESIGN §U.55 (b)): every pinned block is a chain of
+three to five fresh conses, so the model it produces values every OLD
+constant as the prefix model did — the fact the block-model field
+`EnvModelB.blocks` is maintained by, and the one the basis blocks'
+`EnvBlocksOf.extendBasisOf` cannot state about an anonymous model.
+`basisStepPB_of` is its `Nonempty` projection.
+
+`quotK` is the one branch whose `DeclBasisRun` guard is not vacuous: it
+needs `Eq` in the prefix, which is what the block's `Eq` bridge
+consumes. -/
+theorem basisStepAgree_of {env : Env} (mp : EnvModelM V μ env)
+    {kind : ConLeche.BasisKind} {env₂ : Env} (h : DeclBasisRun env kind env₂) :
+    ∃ mp' : EnvModelM V μ env₂, AcvalAgrees mp.base2 mp'.base2 := by
   obtain ⟨hEq, hchain⟩ := h
   cases kind with
   | eqK => exact declBasisPB_eqK mp hchain
@@ -127,6 +134,13 @@ theorem basisStepPB_of : BasisStepPB V μ := by
   | emptyK => exact declBasisPB_emptyK mp hchain
   | falseK => exact declBasisPB_falseK mp hchain
   | quotK => exact declBasisPB_quotK mp (hEq rfl) hchain
+
+/-- **`BasisStepPB`, discharged** (task #161, ENDGAME H; the `False` block
+at task #181): all pinned basis blocks install at the P tier —
+`basisStepAgree_of` forgetting its agreement. -/
+theorem basisStepPB_of : BasisStepPB V μ := by
+  intro env mp kind env₂ h
+  exact ⟨(basisStepAgree_of mp h).choose⟩
 
 /-- The inductive kind's whole step — **no longer routed** (task #161,
 IND TIER part 10): `indStepPB_of` below discharges it.  The definition

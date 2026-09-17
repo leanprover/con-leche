@@ -461,8 +461,11 @@ theorem punitRecLaw {m : EnvModel V env}
 theorem extendPUnit (mp : EnvModelM V μ env)
     (hfresh : env.find? punitName = none)
     (hwf : EnvWF ⟨punitA :: env.consts⟩) :
-    Nonempty (EnvModelM V μ ⟨punitA :: env.consts⟩) := by
-  refine nonempty_of_exists (declStep_preserves_of_basis_cons mp
+    ∃ mp' : EnvModelM V μ ⟨punitA :: env.consts⟩,
+      mp'.base2.acval
+        = acvalWith mp.base2.acval punitA.name
+            (fun ψ => AnnotTerm.const .punit [ψ uN]) := by
+  refine declStep_preserves_of_basis_cons mp
     (A := fun ψ => AnnotTerm.const .punit [ψ uN]) hfresh
     (fun _ _ _ h => nomatch h)
     (by decide) (by decide) (by decide) (by decide)
@@ -477,7 +480,7 @@ theorem extendPUnit (mp : EnvModelM V μ env)
       (fun _ h => nomatch h) (fun _ _ _ _ h => nomatch h))
     (fun _ _ => rfl) ?_
     (fun _ _ => trivial) (fun _ _ => trivial)
-    (fun ψ => ⟨_, denoteMeta_punitA_type ψ⟩) ?_ ?_)
+    (fun ψ => ⟨_, denoteMeta_punitA_type ψ⟩) ?_ ?_
   · intro ψ₁ ψ₂ hp
     rw [hp uN (by show uN ∈ [uN]; exact List.mem_cons_self)]
   · intro ψ ta h ρ
@@ -494,11 +497,14 @@ theorem extendPUnitUnit (mp : EnvModelM V μ env)
     (hP : env.find? punitName = some punitA)
     (hfresh : env.find? punitUnitName = none)
     (hwf : EnvWF ⟨punitUnitA :: env.consts⟩) :
-    Nonempty (EnvModelM V μ ⟨punitUnitA :: env.consts⟩) := by
+    ∃ mp' : EnvModelM V μ ⟨punitUnitA :: env.consts⟩,
+      mp'.base2.acval
+        = acvalWith mp.base2.acval punitUnitA.name
+            (fun ψ => AnnotTerm.const .punitUnit [ψ uN]) := by
   have hty := fun ψ =>
     denoteMeta_punitUnitA_type (m := mp.base2)
       (A := fun ψ => AnnotTerm.const .punitUnit [ψ uN]) ψ hP
-  refine nonempty_of_exists (declStep_preserves_of_basis_cons mp
+  refine declStep_preserves_of_basis_cons mp
     (A := fun ψ => AnnotTerm.const .punitUnit [ψ uN]) hfresh
     (fun _ _ _ h => nomatch h)
     (by decide) (by decide) (by decide) (by decide)
@@ -513,7 +519,7 @@ theorem extendPUnitUnit (mp : EnvModelM V μ env)
       (fun _ h => nomatch h) (fun _ _ _ _ h => nomatch h))
     (fun _ _ => rfl) ?_
     (fun _ _ => trivial) (fun _ _ => trivial)
-    (fun ψ => ⟨_, hty ψ⟩) ?_ ?_)
+    (fun ψ => ⟨_, hty ψ⟩) ?_ ?_
   · intro ψ₁ ψ₂ hp
     rw [hp uN (by show uN ∈ [uN]; exact List.mem_cons_self)]
   · intro ψ ta h ρ
@@ -532,11 +538,14 @@ theorem extendPUnitRec (mp : EnvModelM V μ env)
     (hU : env.find? punitUnitName = some punitUnitA)
     (hfresh : env.find? punitRecA.name = none)
     (hwf : EnvWF ⟨punitRecA :: env.consts⟩) :
-    Nonempty (EnvModelM V μ ⟨punitRecA :: env.consts⟩) := by
+    ∃ mp' : EnvModelM V μ ⟨punitRecA :: env.consts⟩,
+      mp'.base2.acval
+        = acvalWith mp.base2.acval punitRecA.name
+            (fun ψ => AnnotTerm.const .punitRec [ψ uN, ψ u1N]) := by
   have hty := fun ψ =>
     denoteMeta_punitRecA_type (m := mp.base2)
       (A := fun ψ => AnnotTerm.const .punitRec [ψ uN, ψ u1N]) ψ hP hU
-  refine nonempty_of_exists (declStep_preserves_of_basis_rec_cons mp
+  refine declStep_preserves_of_basis_rec_cons mp
     (A := fun ψ => AnnotTerm.const .punitRec [ψ uN, ψ u1N]) hfresh
     (fun _ _ _ h => nomatch h)
     (by decide) (by decide) (by decide) (by decide)
@@ -557,7 +566,7 @@ theorem extendPUnitRec (mp : EnvModelM V μ env)
         · exact nomatch hr'))
     (fun _ _ => rfl) ?_
     (fun _ _ => trivial) (fun _ _ => trivial)
-    (fun ψ => ⟨_, hty ψ⟩) ?_ ?_ ?_)
+    (fun ψ => ⟨_, hty ψ⟩) ?_ ?_ ?_
   · intro ψ₁ ψ₂ hp
     rw [hp uN (by
         show uN ∈ [u1N, uN]
@@ -586,7 +595,7 @@ theorem extendPUnitRec (mp : EnvModelM V μ env)
 theorem declBasisPB_punitK {env₂ : Env} (mp : EnvModelM V μ env)
     (h : ConLeche.Semantics.BasisInstallRun env
       ConLeche.BasisKind.punitK.declsA env₂) :
-    Nonempty (EnvModelM V μ env₂) := by
+    ∃ mp' : EnvModelM V μ env₂, AcvalAgrees mp.base2 mp'.base2 := by
   rw [show ConLeche.BasisKind.punitK.declsA
     = [punitA, punitUnitA, punitRecA] from rfl] at h
   obtain ⟨h1, h2, h3, hnil⟩ := h
@@ -601,7 +610,7 @@ theorem declBasisPB_punitK {env₂ : Env} (mp : EnvModelM V μ env)
         | (refine ConLeche.IndCapsWF.of_caps ?_ ?_ <;> intro h <;>
             first | exact absurd h (by decide) | rfl)
         | exact fun _ _ heq => ConstantInfo.noConfusion heq)⟩
-  obtain ⟨mp1⟩ := extendPUnit mp hf1  hwf1
+  obtain ⟨mp1, hac1⟩ := extendPUnit mp hf1  hwf1
   have hP1 : (⟨punitA :: env.consts⟩ : Env).find? punitName
       = some punitA := by
     rw [ConLeche.Env.find?_cons]; exact if_pos rfl
@@ -623,7 +632,7 @@ theorem declBasisPB_punitK {env₂ : Env} (mp : EnvModelM V μ env)
         = Expr.const punitName [.param uN] from rfl,
       Expr.constsResolve, hf]
     rfl
-  obtain ⟨mp2⟩ := extendPUnitUnit mp1 hP1 hf2  hwf2
+  obtain ⟨mp2, hac2⟩ := extendPUnitUnit mp1 hP1 hf2  hwf2
   have hP2 : (⟨punitUnitA :: punitA :: env.consts⟩ : Env).find?
       punitName = some punitA := by
     rw [ConLeche.Env.find?_cons, if_neg (by decide)]; exact hP1
@@ -683,7 +692,10 @@ theorem declBasisPB_punitK {env₂ : Env} (mp : EnvModelM V μ env)
           simp only [Expr.constsResolve, hfP, hfU, Option.isSome_some,
             Bool.and_self]
       · exact nomatch hr'
-  exact extendPUnitRec mp2 hP2 hU2 hf3  hwf3
+  obtain ⟨mp3, hac3⟩ := extendPUnitRec mp2 hP2 hU2 hf3  hwf3
+  exact ⟨mp3, AcvalAgrees.transCons hf1 (acvalAgrees_of_acvalWith hf1 hac1)
+    (AcvalAgrees.transCons hf2 (acvalAgrees_of_acvalWith hf2 hac2)
+      (acvalAgrees_of_acvalWith hf3 hac3))⟩
 
 end PUnit
 
@@ -872,8 +884,9 @@ theorem extendNat (mp : EnvModelM V μ env)
     (hfresh : env.find? natName = none)
     (hguard : ConLeche.natLitSupported ⟨natA :: env.consts⟩ = false)
     (hwf : EnvWF ⟨natA :: env.consts⟩) :
-    Nonempty (EnvModelM V μ ⟨natA :: env.consts⟩) := by
-  refine nonempty_of_exists (declStep_preserves_of_basis_cons_gen mp
+    ∃ mp' : EnvModelM V μ ⟨natA :: env.consts⟩,
+      mp'.base2.acval = acvalWith mp.base2.acval natA.name (fun _ => AnnotTerm.const .nat []) := by
+  refine declStep_preserves_of_basis_cons_gen mp
     (A := fun _ => AnnotTerm.const .nat []) hfresh
     (fun _ _ _ h => nomatch h)
     (by decide) (by decide) (Or.inl (fun _ h => nomatch h))
@@ -886,7 +899,7 @@ theorem extendNat (mp : EnvModelM V μ env)
       (fun _ h => nomatch h) (fun _ _ _ _ h => nomatch h))
     (fun _ _ => rfl) (fun _ _ _ => rfl)
     (fun _ _ => trivial) (fun _ _ => trivial)
-    (fun ψ => ⟨_, denoteMeta_natA_type ψ⟩) ?_ ?_ ?_ ?_)
+    (fun ψ => ⟨_, denoteMeta_natA_type ψ⟩) ?_ ?_ ?_ ?_
   · intro ψ ta h ρ
     rw [denoteMeta_natA_type ψ] at h
     obtain rfl := (Option.some.inj h).symm
@@ -908,11 +921,14 @@ theorem extendNatZero (mp : EnvModelM V μ env)
     (hfresh : env.find? natZeroName = none)
     (hguard : ConLeche.natLitSupported ⟨natZeroA :: env.consts⟩ = false)
     (hwf : EnvWF ⟨natZeroA :: env.consts⟩) :
-    Nonempty (EnvModelM V μ ⟨natZeroA :: env.consts⟩) := by
+    ∃ mp' : EnvModelM V μ ⟨natZeroA :: env.consts⟩,
+      mp'.base2.acval
+        = acvalWith mp.base2.acval natZeroA.name
+            (fun _ => AnnotTerm.const .natZero []) := by
   have hty := fun ψ =>
     denoteMeta_natZeroA_type (m := mp.base2)
       (A := fun _ => AnnotTerm.const .natZero []) ψ hN
-  refine nonempty_of_exists (declStep_preserves_of_basis_cons_gen mp
+  refine declStep_preserves_of_basis_cons_gen mp
     (A := fun _ => AnnotTerm.const .natZero []) hfresh
     (fun _ _ _ h => nomatch h)
     (by decide) (by decide) (Or.inl (fun _ h => nomatch h))
@@ -925,7 +941,7 @@ theorem extendNatZero (mp : EnvModelM V μ env)
       (fun _ h => nomatch h) (fun _ _ _ _ h => nomatch h))
     (fun _ _ => rfl) (fun _ _ _ => rfl)
     (fun _ _ => trivial) (fun _ _ => trivial)
-    (fun ψ => ⟨_, hty ψ⟩) ?_ ?_ ?_ ?_)
+    (fun ψ => ⟨_, hty ψ⟩) ?_ ?_ ?_ ?_
   · intro ψ ta h ρ
     rw [hty ψ] at h
     obtain rfl := (Option.some.inj h).symm
@@ -949,11 +965,14 @@ theorem extendNatSucc (mp : EnvModelM V μ env)
     (hZ : env.find? natZeroName = some natZeroA)
     (hfresh : env.find? natSuccName = none)
     (hwf : EnvWF ⟨natSuccA :: env.consts⟩) :
-    Nonempty (EnvModelM V μ ⟨natSuccA :: env.consts⟩) := by
+    ∃ mp' : EnvModelM V μ ⟨natSuccA :: env.consts⟩,
+      mp'.base2.acval
+        = acvalWith mp.base2.acval natSuccA.name
+            (fun _ => AnnotTerm.const .natSucc []) := by
   have hty := fun ψ =>
     denoteMeta_natSuccA_type (m := mp.base2)
       (A := fun _ => AnnotTerm.const .natSucc []) ψ hN
-  refine nonempty_of_exists (declStep_preserves_of_basis_cons_gen mp
+  refine declStep_preserves_of_basis_cons_gen mp
     (A := fun _ => AnnotTerm.const .natSucc []) hfresh
     (fun _ _ _ h => nomatch h)
     (by decide) (by decide) (Or.inl (fun _ h => nomatch h))
@@ -966,7 +985,7 @@ theorem extendNatSucc (mp : EnvModelM V μ env)
       (fun _ h => nomatch h) (fun _ _ _ _ h => nomatch h))
     (fun _ _ => rfl) (fun _ _ _ => rfl)
     (fun _ _ => trivial) (fun _ _ => trivial)
-    (fun ψ => ⟨_, hty ψ⟩) ?_ ?_ ?_ ?_)
+    (fun ψ => ⟨_, hty ψ⟩) ?_ ?_ ?_ ?_
   · intro ψ ta h ρ
     rw [hty ψ] at h
     obtain rfl := (Option.some.inj h).symm
@@ -1847,11 +1866,14 @@ theorem extendNatRec (mp : EnvModelM V μ env)
     (hS : env.find? natSuccName = some natSuccA)
     (hfresh : env.find? natRecA.name = none)
     (hwf : EnvWF ⟨natRecA :: env.consts⟩) :
-    Nonempty (EnvModelM V μ ⟨natRecA :: env.consts⟩) := by
+    ∃ mp' : EnvModelM V μ ⟨natRecA :: env.consts⟩,
+      mp'.base2.acval
+        = acvalWith mp.base2.acval natRecA.name
+            (fun ψ => AnnotTerm.const .natRec [ψ uN]) := by
   have hty := fun ψ =>
     denoteMeta_natRecA_type (m := mp.base2)
       (A := fun ψ => AnnotTerm.const .natRec [ψ uN]) ψ hN hZ hS
-  refine nonempty_of_exists (declStep_preserves_of_basis_rec_cons mp
+  refine declStep_preserves_of_basis_rec_cons mp
     (A := fun ψ => AnnotTerm.const .natRec [ψ uN]) hfresh
     (fun _ _ _ h => nomatch h)
     (by decide) (by decide) (by decide) (by decide)
@@ -1875,7 +1897,7 @@ theorem extendNatRec (mp : EnvModelM V μ env)
         · exact nomatch hr''))
     (fun _ _ => rfl) ?_
     (fun _ _ => trivial) (fun _ _ => trivial)
-    (fun ψ => ⟨_, hty ψ⟩) ?_ ?_ ?_)
+    (fun ψ => ⟨_, hty ψ⟩) ?_ ?_ ?_
   · intro ψ₁ ψ₂ hp
     rw [hp uN (by show uN ∈ [uN]; exact List.mem_cons_self)]
   · intro ψ ta h ρ
@@ -1902,7 +1924,7 @@ theorem extendNatRec (mp : EnvModelM V μ env)
 theorem declBasisPB_natK {env₁ : Env} (mp : EnvModelM V μ env)
     (h : ConLeche.Semantics.BasisInstallRun env
       ConLeche.BasisKind.natK.declsA env₁) :
-    Nonempty (EnvModelM V μ env₁) := by
+    ∃ mp' : EnvModelM V μ env₁, AcvalAgrees mp.base2 mp'.base2 := by
   rw [show ConLeche.BasisKind.natK.declsA
     = [natA, natZeroA, natSuccA, natRecA] from rfl] at h
   obtain ⟨h1, h2, h3, h4, hnil⟩ := h
@@ -1919,7 +1941,7 @@ theorem declBasisPB_natK {env₁ : Env} (mp : EnvModelM V μ env)
         | exact fun _ _ heq => ConstantInfo.noConfusion heq)⟩
   have hf2 : (⟨natA :: env.consts⟩ : Env).find? natZeroA.name = none :=
     Option.isNone_iff_eq_none.mp h2
-  obtain ⟨mp1⟩ := extendNat mp hf1
+  obtain ⟨mp1, hac1⟩ := extendNat mp hf1
     (by simp [ConLeche.natLitSupported, ConLeche.natZeroOk,
       show (⟨natA :: env.consts⟩ : Env).find? natZeroName = none
         from hf2]) hwf1
@@ -1943,7 +1965,7 @@ theorem declBasisPB_natK {env₁ : Env} (mp : EnvModelM V μ env)
     simp [Expr.constsResolve, hf]
   have hf3 : (⟨natZeroA :: natA :: env.consts⟩ : Env).find?
       natSuccA.name = none := Option.isNone_iff_eq_none.mp h3
-  obtain ⟨mp2⟩ := extendNatZero mp1 hN1 hf2
+  obtain ⟨mp2, hac2⟩ := extendNatZero mp1 hN1 hf2
     (by simp [ConLeche.natLitSupported, ConLeche.natSuccOk,
       show (⟨natZeroA :: natA :: env.consts⟩ : Env).find? natSuccName
         = none from hf3]) hwf2
@@ -1969,7 +1991,7 @@ theorem declBasisPB_natK {env₁ : Env} (mp : EnvModelM V μ env)
       = Expr.forallE (.const natName [])
         (.const natName []) { pw := .never } from rfl]
     simp [Expr.constsResolve, hf]
-  obtain ⟨mp3⟩ := extendNatSucc mp2 hN2 hZ2 hf3  hwf3
+  obtain ⟨mp3, hac3⟩ := extendNatSucc mp2 hN2 hZ2 hf3  hwf3
   have hN3 : (⟨natSuccA :: natZeroA :: natA :: env.consts⟩
       : Env).find? natName = some natA := by
     rw [ConLeche.Env.find?_cons, if_neg (by decide)]; exact hN2
@@ -2047,7 +2069,11 @@ theorem declBasisPB_natK {env₁ : Env} (mp : EnvModelM V μ env)
             simp only [natRecSuccRule, Expr.constsResolve, hfN, hfZ,
               hfS, hfR, Option.isSome_some, Bool.and_self]
         · exact nomatch hr''
-  exact extendNatRec mp3 hN3 hZ3 hS3 hf4  hwf4
+  obtain ⟨mp4, hac4⟩ := extendNatRec mp3 hN3 hZ3 hS3 hf4  hwf4
+  exact ⟨mp4, AcvalAgrees.transCons hf1 (acvalAgrees_of_acvalWith hf1 hac1)
+    (AcvalAgrees.transCons hf2 (acvalAgrees_of_acvalWith hf2 hac2)
+      (AcvalAgrees.transCons hf3 (acvalAgrees_of_acvalWith hf3 hac3)
+        (acvalAgrees_of_acvalWith hf4 hac4)))⟩
 
 end Nat
 
