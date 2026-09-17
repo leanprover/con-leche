@@ -1,6 +1,7 @@
 module
 
 public import ConLeche.Model.Inductives.NestedPremise
+import ConLeche.Model.Inductives.BasisBlocksNat
 public section
 
 /-!
@@ -96,44 +97,6 @@ theorem ContainerModeled.mem_carrier_kpair {env : Env} {m : EnvModel V env} {ci 
   refine ⟨vnat j, mkTower (fs ++ [pt]), ?_⟩
   rw [Cinj ψ i j fs, injW_pos (by rw [show d.w ψ = s.eval ψ from (hsEq ψ).symm]; exact hw)]
   unfold SetTheory.Tower.inj SetTheory.spair
-  rfl
-
-/-! ## The two read-backs -/
-
-/-- **`Nat`'s group, read back**: the one-member group with the two
-constructors, at the environment that stores the pinned block.  Four
-`Env.find?` results are the reading's only environment inputs — the
-former, the recursor (the parameter count comes off `Nat.zero`'s
-record, the motive walk off the recursor's type) and the two rules'
-constructors. -/
-theorem containerInfo?_natA {env : Env}
-    (hT : env.find? ConLeche.natName = some ConLeche.natA)
-    (hR : env.find? (ConLeche.natName.str "rec") = some ConLeche.natRecA)
-    (hZ : env.find? ConLeche.natZeroName = some ConLeche.natZeroA)
-    (hS : env.find? ConLeche.natSuccName = some ConLeche.natSuccA) :
-    ConLeche.containerInfo? env ConLeche.natName
-      = some ⟨0, [⟨ConLeche.natName, [], ConLeche.natA.toConstantVal.type,
-        [⟨ConLeche.natZeroName, ConLeche.natZeroA.toConstantVal.type, 0⟩,
-         ⟨ConLeche.natSuccName, ConLeche.natSuccA.toConstantVal.type, 1⟩]⟩]⟩ := by
-  have hE : ConLeche.natName = Name.anonymous.str "Nat" := rfl
-  have hZE : ConLeche.natZeroName = (Name.anonymous.str "Nat").str "zero" := rfl
-  have hSE : ConLeche.natSuccName = (Name.anonymous.str "Nat").str "succ" := rfl
-  rw [hE] at hT hR
-  rw [hZE] at hZ
-  rw [hSE] at hS
-  have hmot : ConLeche.containerMotiveMember? env 0 0
-      (Expr.forallE (.const (Name.anonymous.str "Nat") [])
-        (.sort (.param (Name.anonymous.str "u"))) { pw := .never })
-      = some (Name.anonymous.str "Nat") := by
-    simp +decide [ConLeche.containerMotiveMember?, Expr.piBinders, Expr.getAppFn,
-      Expr.getAppArgs, hT]
-  have hmot2 : ConLeche.containerMotiveMember? env 0 1
-      (Expr.app (.bvar 0) (.const ((Name.anonymous.str "Nat").str "zero") [])) = none := by
-    simp [ConLeche.containerMotiveMember?, Expr.piBinders]
-  simp +decide [ConLeche.containerInfo?, hT, hR, hZ, hS, ConLeche.natA, ConLeche.natRecA,
-    ConLeche.natZeroA, ConLeche.natSuccA, Expr.stripPis,
-    ConLeche.containerMembersGo, hmot, hmot2, Option.bind,
-    ConLeche.natZeroName, ConLeche.natSuccName, ConLeche.natName]
   rfl
 
 /-! ## The counter-instances: the UNGUARDED clause, refuted -/
