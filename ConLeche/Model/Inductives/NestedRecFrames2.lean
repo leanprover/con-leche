@@ -382,6 +382,138 @@ theorem NestedTailIn.slotT_eq {mpA : EnvModelM V μ ENVA} {cvRas : List Constant
     | cons _ _ => exact hbs.elim
   · exact S.reps.refl_eis_fit (S.typed ψ).1 hc hjA hρpA hl htgt hk hfs' hbs
 
+
+/-! ### The field lists -/
+
+/-- **A CLASS'S RECURSIVE FLAGS ARE ITS COPY'S** — the auxiliary
+block's kind table at the constructor's global position, at a member
+and at a pin alike. -/
+theorem NestedTailIn.rssT_eq {c : Nat} {j : Nat} {cA : ConstantVal × Nat}
+    (hjA : ((DA).ctorsM c)[j]? = some cA) :
+    ((D).rssT PC c).getD j [] = ((DA).rss c).getD j [] := by
+  have hjl : j < ((DA).ctorsM c).length := (List.getElem?_eq_some_iff.mp hjA).1
+  obtain ⟨hJl, -, -⟩ := mutualBlockModel_ctorsM_get I.out.grouped I.out.facts.lenA hjA
+  rw [IsBlockModel.rss_getD (d := (DA)) (mm := c) hjl]
+  have hkk : (D).k = p.k := rfl
+  by_cases hck : c < (D).k
+  · obtain ⟨cR, hjD⟩ := I.ctorsD_get (by rw [hkk] at hck; exact hck) hjl
+    rw [BlockModel.rssT_of_mem hck,
+      IsBlockModel.rss_getD (d := (D)) (mm := c) (List.getElem?_eq_some_iff.mp hjD).1]
+    rfl
+  · rw [hkk] at hck
+    rw [BlockModel.rssT_of_pin (d := (D)) (by rw [hkk]; exact hck)]
+    show ((blkRss ctorsA kinds).drop (b.ownOffset (p.k + (c - (D).k)))).getD j [] = _
+    rw [hkk, Nat.add_sub_cancel' (Nat.le_of_not_lt hck), getD_drop, blkRss_getD hJl]
+    rfl
+
+/-- A class's constructor at the COMPOSED model has the copy's field
+count (`NestedStageFacts.domFacts`: the restore keeps the telescope's
+length). -/
+theorem NestedTailIn.nFR_eq {mpA : EnvModelM V μ ENVA} {cvRas : List ConstantVal}
+    (S : NestedScratchOut F env b fms f₀ ctorsA kinds mp₁ ppsF W idxF dsF esF srcsF fvsPF xFvsF
+      xrestF eissF tssF stored mpA cvRas)
+    {c : Nat} (hc : c < p.k) (hcb : c < b.k) {j : Nat} {cR : ConstantVal × Nat}
+    (hjD : ((D).ctorsM c)[j]? = some cR) {cA : ConstantVal × Nat}
+    (hjA : ((DA).ctorsM c)[j]? = some cA) : cR.2 = cA.2 := by
+  obtain ⟨cvT, cvR, mI, rP, rules, hID⟩ := I.out.reps c hc
+  obtain ⟨cvT', cvR', mI', rP', rules', hIA⟩ := S.reps c hcb
+  have hjl : j < (ctorsR.getD c []).length := by
+    have hh : j < ((ctorsR.getD c []).map fun cc => (cc.1, cc.2.2)).length :=
+      (List.getElem?_eq_some_iff.mp hjD).1
+    rwa [List.length_map] at hh
+  obtain ⟨hlenEq, -, -⟩ := I.out.stage.domFacts c j (fun _ => 0) hc hjl
+  have h1 : ((D).dsF c j (fun _ => 0)).length = (D).nP + cR.2 := (hID.ctorData hjD).len _
+  have h2 : ((DA).dsF c j (fun _ => 0)).length = (DA).nP + cA.2 := (hIA.ctorData hjA).len _
+  have h3 : ((D).dsF c j (fun _ => 0)).length = ((DA).dsF c j (fun _ => 0)).length := hlenEq
+  have h4 : (D).nP = b.nP := rfl
+  have h5 : (DA).nP = b.nP := rfl
+  omega
+
+
+/-- **A CLASS'S FIELD COUNT IS ITS COPY'S**: at a member the restore
+keeps the telescope's length (`nFR_eq`), at a pin the shadow list is
+the copy's field count long. -/
+theorem NestedTailIn.FssT_len_eq {mpA : EnvModelM V μ ENVA} {cvRas : List ConstantVal}
+    (S : NestedScratchOut F env b fms f₀ ctorsA kinds mp₁ ppsF W idxF dsF esF srcsF fvsPF xFvsF
+      xrestF eissF tssF stored mpA cvRas)
+    (ψ : Name → Nat) {c : Nat} (hc : c < b.k) {j : Nat} {cA : ConstantVal × Nat}
+    (hjA : ((DA).ctorsM c)[j]? = some cA) :
+    (((D).FssT PC ψ c).getD j []).length = cA.2 := by
+  have hjl : j < ((DA).ctorsM c).length := (List.getElem?_eq_some_iff.mp hjA).1
+  obtain ⟨hJl, hcAg, -⟩ := mutualBlockModel_ctorsM_get I.out.grouped I.out.facts.lenA hjA
+  have hnf : mutNFOf ctorsA (b.ownOffset c + j) = cA.2 := by
+    show (ctorsA.getD (b.ownOffset c + j) default).2 = cA.2
+    rw [List.getD_eq_getElem?_getD, hcAg]
+    rfl
+  have hkk : (D).k = p.k := rfl
+  by_cases hck : c < (D).k
+  · have hck' : c < p.k := by rw [hkk] at hck; exact hck
+    obtain ⟨cR, hjD⟩ := I.ctorsD_get hck' hjl
+    obtain ⟨cvT, cvR, mI, rP, rules, hID⟩ := I.out.reps c hck'
+    rw [BlockModel.FssT_of_mem hck, hID.Fss_length hjD ψ]
+    exact I.nFR_eq S hck' hc hjD hjA
+  · rw [hkk] at hck
+    rw [BlockModel.FssT_of_pin (d := (D)) (by rw [hkk]; exact hck)]
+    show (((blkFss0 b ctorsA kinds dsF ψ).drop (b.ownOffset (p.k + (c - (D).k)))).getD j
+      []).length = _
+    rw [hkk, Nat.add_sub_cancel' (Nat.le_of_not_lt hck), getD_drop, blkFss0_getD hJl,
+      shadowFs_length, hnf]
+
+/-- **A CLASS'S ORDINARY FIELD DOMAINS ARE ITS COPY'S**: the restore
+touches only the NESTED (hence recursive) field domains
+(`NestedStageFacts.domFacts`), and a pin's shadow list is the copy's
+domains off the recursive positions. -/
+theorem NestedTailIn.FssT_getD_eq {mpA : EnvModelM V μ ENVA} {cvRas : List ConstantVal}
+    (S : NestedScratchOut F env b fms f₀ ctorsA kinds mp₁ ppsF W idxF dsF esF srcsF fvsPF xFvsF
+      xrestF eissF tssF stored mpA cvRas)
+    (ψ : Name → Nat) {c : Nat} (hc : c < b.k) {j : Nat} {cA : ConstantVal × Nat}
+    (hjA : ((DA).ctorsM c)[j]? = some cA) {l : Nat} (hl : l < cA.2)
+    (hnr : (rsOf ((DA).ksF c j)).getD l false = false) :
+    (((D).FssT PC ψ c).getD j []).getD l default
+      = (((DA).Fss c ψ).getD j []).getD l default := by
+  have hjl : j < ((DA).ctorsM c).length := (List.getElem?_eq_some_iff.mp hjA).1
+  obtain ⟨hJl, hcAg, -⟩ := mutualBlockModel_ctorsM_get I.out.grouped I.out.facts.lenA hjA
+  have hnf : mutNFOf ctorsA (b.ownOffset c + j) = cA.2 := by
+    show (ctorsA.getD (b.ownOffset c + j) default).2 = cA.2
+    rw [List.getD_eq_getElem?_getD, hcAg]
+    rfl
+  obtain ⟨cvT', cvR', mI', rP', rules', hIA⟩ := S.reps c hc
+  have hlenA : ((DA).dsF c j ψ).length = b.nP + cA.2 := (hIA.ctorData hjA).len ψ
+  have hDA : (((DA).Fss c ψ).getD j []).getD l default
+      = (((dsF (b.ownOffset c + j) ψ).drop b.nP).map (·.2.2)).getD l default := by
+    rw [IsBlockModel.Fss_getD (d := (DA)) (mm := c) hjA ψ]
+    rfl
+  have hkk : (D).k = p.k := rfl
+  rw [hDA]
+  by_cases hck : c < (D).k
+  · have hck' : c < p.k := by rw [hkk] at hck; exact hck
+    obtain ⟨cR, hjD⟩ := I.ctorsD_get hck' hjl
+    have hjlR : j < (ctorsR.getD c []).length := by
+      have hh : j < ((ctorsR.getD c []).map fun cc => (cc.1, cc.2.2)).length :=
+        (List.getElem?_eq_some_iff.mp hjD).1
+      rwa [List.length_map] at hh
+    obtain ⟨hlenEq, -, hdom⟩ := I.out.stage.domFacts c j ψ hck' hjlR
+    have hlenR : (dsR c j ψ).length = b.nP + cA.2 := by rw [hlenEq]; exact hlenA
+    rw [BlockModel.FssT_of_mem hck, IsBlockModel.Fss_getD (d := (D)) (mm := c) hjD ψ]
+    show (((dsR c j ψ).drop b.nP).map (·.2.2)).getD l default = _
+    rw [fields_getD (by rw [List.length_drop, hlenR]; omega),
+      fields_getD (by rw [List.length_drop]; omega), getD_drop, getD_drop]
+    have := hdom l (Or.inr hnr)
+    rw [this]
+  · rw [hkk] at hck
+    rw [BlockModel.FssT_of_pin (d := (D)) (by rw [hkk]; exact hck)]
+    show (((blkFss0 b ctorsA kinds dsF ψ).drop
+      (b.ownOffset (p.k + (c - (D).k)))).getD j []).getD l default = _
+    rw [hkk, Nat.add_sub_cancel' (Nat.le_of_not_lt hck), getD_drop, blkFss0_getD hJl,
+      List.getD_eq_getElem?_getD, shadowFs_getElem? (by rw [hnf]; exact hl), Option.getD_some,
+      if_neg]
+    rintro ⟨-, hd⟩
+    rw [Nat.add_sub_cancel_left] at hd
+    have hiK : l < ((DA).ksF c j).length := by rw [(hIA.ctorData hjA).ksLen]; exact hl
+    have h := (rsOf_getD_iff (ks := (DA).ksF c j) hiK).mpr hd
+    rw [hnr] at h
+    exact Bool.false_ne_true h
+
 end Run
 
 end ConLeche.Model
