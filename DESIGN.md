@@ -82567,6 +82567,85 @@ assembly 1 session; (iv) (`P = L⁺` ⇒ `pinLeaf` for all `q` ⇒
 `CopyEntryA` for every group ⇒ `nestedPinsEntry_of`, probe over `hSh`
 + `htail`) ½ session.
 
+##### (e) SESSION 3 FINDING: step (iii)'s induction measure is NOT the pin's expression size — two counter-instances (both accepted by Lean 4.33)
+
+The plan's (iii) inducts on the pin EXPRESSION's size, the non-cyclic
+edges of the pins' dependency graph (a copy's rewritten field targets
+another pin) being "strictly smaller".  FALSE.  A container's ORDINARY
+field that mentions its parameter inside a container application is
+not rewritten in the container's own elimination (no member of the
+container occurs), but IS rewritten in the block's copy, where the
+parameter is the pin's component — and the target is BIGGER:
+
+* `inductive J (α) | mk : List (α × α) → J α`, `inductive P4 | mk : J P4 → P4`
+  (`_tmp` probe `Dup.lean`; `P4.rec` shows the pins): pin `J P4` (size 2)
+  → its copy's field `List (P4 × P4)` → pin of size 4 → `P4 × P4` → `P4`.
+* `inductive K' (β) | mk : J β → K' β`, `inductive P5 | mk : J (K' P5) → P5`:
+  `J (K' P5)` → `List (K' P5 × K' P5)` (the component `K' P5`
+  DUPLICATED) → `K' P5 × K' P5` → `K' P5` → `J P5` → `List (P5 × P5)`
+  → `P5 × P5`.  Any additive measure and the Dershowitz–Manna
+  multiset of container indices fail on the duplication.
+
+What DOES decrease along every non-self-nesting edge (A: the target is a
+proper subterm of the components; B: the target is `C (args[Ds])` with
+`C (args)` a subterm of the container's STORED field, so every container
+in `args` is declared BEFORE the container): for each block-member
+occurrence in the pin expression, the sequence of container heads from
+the member UP to the root, ordered lexicographically by declaration
+index with a proper prefix smaller; the pin's measure is the
+Dershowitz–Manna multiset of these paths.  A-edges truncate paths and
+drop occurrences; B-edges replace the root segment by earlier
+containers (each new path smaller at the first difference).  The
+self-nesting edge (`pinF`: `J Ds → K (Ds_K[Ds])` with `J` in `Ds_K`)
+EXTENDS the path (bigger) — the cycle, as intended.  Formalising this
+measure needs the pins' derivations as Expr paths through
+`replaceAllNested`'s occurrences and the stored fields — lane L-B's
+kind of syntax, 2–3 sessions on its own — and it is only the ORDER; the
+transfer through `PinShapes` ∘ `CopyCtorShape` (the level clauses of
+§U.39 (b)) is still on top.
+
+##### (f) THE ALTERNATIVE ROUTE for (iii): `∈`-induction on the VALUE (no pin order, no transfer, no `PinRecLaws.ind`) — complete at `w ≠ 0`, open at `w = 0`
+
+At `w ≠ 0` every element of a real carrier is a tagged tuple `injW w j
+(mkTower (fs ++ [pt]))` (the container's `fibre` at its least tuple:
+`ChainFit`), and every field value `fs_l` is `∈`-below it; a recursive
+or pin field's value lies in the target family's fibre (`fs_l ∈ app
+(LJ m) t'`, or in `dJ.pinCar … LJ qK`'s fibre = the pin's container's
+real carrier by `pinLeaf`), and an `ordF`-right or reflexive field's
+value is a FUNCTION whose values at fitting tuples lie in the target's
+real carrier and are `∈`-below the function.  So `∀ x, (∀ q t, x ∈ app
+(P q) t → x ∈ app (L⁺ (k+q)) t)` by well-founded `∈`-induction (all
+pins at once): unfold `x` by the container's fibre at `LJ`, apply the
+hypothesis to the components/values, and refit the copy at `L⁺`
+pointwise — `fit_imp_le`'s inclusions become POINTWISE memberships (a
+pointwise twin of `fit_imp_le`; `mem_slotSet` through `piTele`'s graph
+membership, `projS_mem`/`mkTower_mem`).  Cycles are harmless: the
+descent is on the set, not on the pin.  Needed and absent:
+`WellFounded (Mem : V → V → Prop)` — derivable from `regularity`
+(`SetTheory.Core`) through the transitive closure (an ω-union over
+`Nat`-indexed iterated unions by Lean-level replacement), ½ session;
+the pointwise refit ~1 session; the assembly ½.
+
+At `w = 0` (a Prop-valued block: Lean 4 ACCEPTS `inductive Foo : Prop |
+mk : (∃ x : Nat, Foo) → Foo` and `… | mk : Nonempty Bar → Bar`, probe
+`PropNest.lean`; by `PinGroupView.w` every pin's container is then
+Prop-valued too) the fibres are truth values and the descent has
+nothing to descend on; there (iii) needs the pin ORDER of (e) or
+another idea (the real carriers are separate least fixed points reading
+each other as FIXED sets, so joint leastness is exactly the acyclicity
+of the non-self-nesting dependency, (e)'s measure).  A kernel-side
+DECLINE of Prop-valued nested blocks with pins would close it (a
+feature, positively detected; corpus frequency unmeasured) — the
+maintainer's call, not this lane's.
+
+##### (g) STATUS
+
+Steps (i), (ii), `fit_imp_le`, `nestedGroupLe_of_entries` stand.  (iii)
+is NOT started beyond them: the plan's measure is refuted ((e)); the
+route is the maintainer's choice between (e) [order + transfer, 3–5
+sessions] and (f) [`∈`-induction, 2 sessions at `w ≠ 0`, plus `w = 0`
+by (e) or a decline].  (iv) is ½ session after either.
+
 ##### (d) GATES at the session's commits (last: `nestedGroupLe_of_entries`)
 
 `lake build` 694 jobs warning-free; `lake test` warning-free; shake
