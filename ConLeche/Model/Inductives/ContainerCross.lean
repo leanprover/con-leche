@@ -696,9 +696,8 @@ theorem ContainerModeled.of_readBack {env : Env} {m : EnvModel V env} {nP : Nat}
     (hordFree : ∀ (i j l : Nat) (x : Expr), i < d.k → j < (d.ctorsM i).length →
       (d.xFvsF i j)[l]? = some x → (d.ksF i j).getD l .ordinary = .ordinary →
       ConLeche.mentionsMember d.memberNames x.fvarTypeD = false)
-    (hnestMention : ∀ (i j l q : Nat) (x : Expr), i < d.k → j < (d.ctorsM i).length →
-      q < d.nPins → (d.xFvsF i j)[l]? = some x → d.nestOf i j l = some q →
-      ∃ e ∈ x.fvarTypeD.getAppArgs.take (d.pinAt q).nPJ,
+    (hnestMention : ∀ q, q < d.nPins →
+      ∃ e ∈ (d.pinAt q).DsE.take (d.pinAt q).nPJ,
         ConLeche.mentionsMember d.memberNames e = true)
     (hpinsNotMembers : ∀ q, q < d.nPins → (d.pinAt q).J ∉ d.memberNames)
     (hpinNP : ∀ q, q < d.nPins → ∃ ci' : ContainerInfo,

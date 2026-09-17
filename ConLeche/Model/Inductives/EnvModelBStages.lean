@@ -10,7 +10,7 @@ import ConLeche.Model.Inductives.MutualNoProj
 import ConLeche.Model.Inductives.MutualRecsStore
 import ConLeche.Model.Inductives.MutualRecsStage
 import ConLeche.Semantics.DeclRun
-import ConLeche.Model.Fold
+import ConLeche.Model.StepAgree
 import ConLeche.Model.Harvest
 public section
 
@@ -280,7 +280,7 @@ theorem mutualContainerModeled {env envR : Env} {m : EnvModel V envR}
     hrepsAt.toIsBlockModels
     (fun ψ => ⟨(htyped ψ).1, (htyped ψ).2, PinsTyped.of_noPins hd.pins ψ⟩)
     htf.inj (fun i hi ψ ρ => (htf.frame i hi ψ ρ).symm) (fun i j l x hi hj hx hk => ?_)
-    (fun _ _ _ q _ _ _ hq _ _ => absurd hq (by rw [hnoPins]; omega))
+    (fun q hq => absurd hq (by rw [hnoPins]; omega))
     (fun q hq => absurd hq (by rw [hnoPins]; omega))
     (fun q hq => absurd hq (by rw [hnoPins]; omega))
     (fun q hq => absurd hq (by rw [hnoPins]; omega)) (fun i hi => ?_)
@@ -583,6 +583,93 @@ theorem BlockInstallExt.tableCross {Ms : List Name} {env envOut : Env}
         exact (ConLeche.Name.str.inj (ConLeche.Name.num.inj hstruct).1).1
       exact h.2.2.2.2 _ hc tbl rfl
 
+/-! ### The NESTED install's conses — the recursor clause, relaxed
+
+(task #315 M7-3 session 10, DESIGN §U.67 (a).) -/
+
+/-- **The nested install's conses, as the crossing reads them**:
+`BlockInstallExt` with its RECURSOR clause weakened to a CONDITIONAL
+one.  The nested route conses `k + n` recursors — the members' own
+`I.rec` and the MIMIC recursors `T₁.rec_1`, `T₁.rec_2`, … (official's
+`mk_aux_rec_name_map`, `ConLeche.NestedParts.mimicRecName`) — and a
+mimic's name is no member's `I.rec`, so `BlockInstallExt` is unprovable
+for this route at every `Ms`: the `Quot` finding of DESIGN §U.66 (b)
+again, at an install that DOES install projection tables.  What the
+crossing reads of the recursors is only `hrecN`, and that needs the
+conditional form — a new recursor whose name IS `n.str "rec"` has
+`n ∈ Ms`, vacuous at a mimic (`"rec_1" ≠ "rec"`). -/
+@[expose] def NestedInstallExt (Ms : List Name) (env envOut : Env) (new : List ConstantInfo) :
+    Prop :=
+  ConsExt env envOut new ∧
+  (∀ c ∈ new, ∀ (cv : ConstantVal) (caps : IndCaps), c = .indInfo cv caps → c.name ∈ Ms) ∧
+  (∀ c ∈ new, ∀ (cv : ConstantVal) (mI rP : Nat) (rules : List RecRule),
+    c = .recInfo cv mI rP rules → ∀ n : Name, c.name = n.str "rec" → n ∈ Ms) ∧
+  (∀ c ∈ new, ∀ tbl : ConLeche.ProjTable, c = .projInfo tbl → tbl.structName ∈ Ms)
+
+namespace NestedInstallExt
+
+variable {Ms : List Name} {env envOut : Env} {new : List ConstantInfo}
+
+omit [SetTheory V] in
+/-- The lookup half (`ConsExt`). -/
+theorem toConsExt (h : NestedInstallExt Ms env envOut new) : ConsExt env envOut new := h.1
+
+omit [SetTheory V] in
+/-- An install whose recursors are all members' own is one of these. -/
+theorem of_blockInstallExt (h : BlockInstallExt Ms env envOut new) :
+    NestedInstallExt Ms env envOut new := by
+  refine ⟨h.toConsExt, h.2.2.1, fun c hc cv mI rP rules hr n hn => ?_, h.2.2.2.2⟩
+  obtain ⟨n', hn', heq⟩ := h.2.2.2.1 c hc cv mI rP rules hr
+  rw [hn] at heq
+  obtain rfl : n = n' := (ConLeche.Name.str.inj heq).1
+  exact hn'
+
+omit [SetTheory V] in
+/-- **A new recursor's MEMBER is new too** (`BlockInstallExt.recN` at
+the conditional clause). -/
+theorem recN (h : NestedInstallExt Ms env envOut new)
+    (hMs : ∀ n ∈ Ms, n ∈ new.map (·.name)) :
+    ∀ (n : Name) (cv : ConstantVal) (mI rP : Nat) (rules : List RecRule),
+      envOut.find? (n.str "rec") = some (.recInfo cv mI rP rules) →
+      n.str "rec" ∈ new.map (·.name) → n ∈ new.map (·.name) := by
+  intro n cv mI rP rules hf hmem
+  obtain ⟨hc, hname⟩ := h.toConsExt.newOf hf (h.toConsExt.freshN _ hmem)
+  exact hMs _ (h.2.2.1 _ hc cv mI rP rules rfl n hname)
+
+omit [SetTheory V] in
+/-- **A new container is a member** (`BlockInstallExt.indMs`). -/
+theorem indMs (h : NestedInstallExt Ms env envOut new) {J : Name} {cv : ConstantVal}
+    {caps : IndCaps} (hf : envOut.find? J = some (.indInfo cv caps))
+    (hJ : J ∈ new.map (·.name)) : J ∈ Ms := by
+  obtain ⟨hc, hname⟩ := h.toConsExt.newOf hf (h.toConsExt.freshN _ hJ)
+  rw [← hname]
+  exact h.2.1 _ hc cv caps rfl
+
+omit [SetTheory V] in
+/-- **The guard** (`BlockInstallExt.tableCross`): the only projection
+slots the install creates are at the block's own members. -/
+theorem tableCross (h : NestedInstallExt Ms env envOut new) : TableCross Ms env envOut where
+  find := fun hf => h.toConsExt.ext _ _ hf
+  lit := litGuardsMono_of_findPreserved (fun hf => h.toConsExt.ext _ _ hf)
+  proj := fun sn i entry h0 h1 => by
+    obtain ⟨tbl, hf0, hi, -⟩ := ConLeche.Env.findProj?_some h1
+    cases hf : env.find? (ConLeche.projTableName sn) with
+    | some c =>
+      have hpres := h.toConsExt.ext _ _ hf
+      rw [hf0] at hpres
+      obtain rfl : c = .projInfo tbl := Option.some.inj hpres.symm
+      rw [ConLeche.Env.findProj?_of_table hf hi] at h0
+      exact nomatch h0
+    | none =>
+      obtain ⟨hc, hname⟩ := h.toConsExt.newOf hf0 hf
+      have hstruct : ConLeche.projTableName tbl.structName = ConLeche.projTableName sn := hname
+      obtain rfl : tbl.structName = sn := by
+        unfold ConLeche.projTableName at hstruct
+        exact (ConLeche.Name.str.inj (ConLeche.Name.num.inj hstruct).1).1
+      exact h.2.2.2 _ hc tbl rfl
+
+end NestedInstallExt
+
 /-! ### The mutual install's four stages -/
 
 omit [SetTheory V] in
@@ -865,7 +952,7 @@ theorem nativeContainerModeled {envO : Env} {m : EnvModel V envO} {mC : EnvModel
   refine ContainerModeled.of_readBack rfl rfl rfl (fun i hi => ?_) (fun i hi => ?_)
     (fun c hc => ?_) (fun ψ => ⟨(htyped ψ).1, (htyped ψ).2, PinsTyped.of_noPins rfl ψ⟩)
     (fun _ _ _ _ => rfl) (fun _ _ _ _ => Iff.rfl) (fun i j l x hi hj hx hk => ?_)
-    (fun _ _ _ q _ _ _ hq _ _ => absurd hq (Nat.not_lt_zero q))
+    (fun q hq => absurd hq (Nat.not_lt_zero q))
     (fun q hq => absurd hq (Nat.not_lt_zero q)) (fun q hq => absurd hq (Nat.not_lt_zero q))
     (fun q hq => absurd hq (Nat.not_lt_zero q)) (fun i hi => ?_)
   · obtain rfl : i = 0 := Nat.lt_one_iff.mp hi

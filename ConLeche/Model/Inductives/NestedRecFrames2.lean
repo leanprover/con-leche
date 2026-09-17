@@ -420,7 +420,7 @@ theorem NestedTailIn.nFR_eq {mpA : EnvModelM V μ ENVA} {cvRas : List ConstantVa
     {c : Nat} (hc : c < p.k) (hcb : c < b.k) {j : Nat} {cR : ConstantVal × Nat}
     (hjD : ((D).ctorsM c)[j]? = some cR) {cA : ConstantVal × Nat}
     (hjA : ((DA).ctorsM c)[j]? = some cA) : cR.2 = cA.2 := by
-  obtain ⟨cvT, cvR, mI, rP, rules, hID⟩ := I.out.reps c hc
+  obtain ⟨cvT, cvR, mI, rP, rules, hID⟩ := I.out.reps.toIsBlockModels c hc
   obtain ⟨cvT', cvR', mI', rP', rules', hIA⟩ := S.reps c hcb
   have hjl : j < (ctorsR.getD c []).length := by
     have hh : j < ((ctorsR.getD c []).map fun cc => (cc.1, cc.2.2)).length :=
@@ -454,7 +454,7 @@ theorem NestedTailIn.FssT_len_eq {mpA : EnvModelM V μ ENVA} {cvRas : List Const
   by_cases hck : c < (D).k
   · have hck' : c < p.k := by rw [hkk] at hck; exact hck
     obtain ⟨cR, hjD⟩ := I.ctorsD_get hck' hjl
-    obtain ⟨cvT, cvR, mI, rP, rules, hID⟩ := I.out.reps c hck'
+    obtain ⟨cvT, cvR, mI, rP, rules, hID⟩ := I.out.reps.toIsBlockModels c hck'
     rw [BlockModel.FssT_of_mem hck, hID.Fss_length hjD ψ]
     exact I.nFR_eq S hck' hc hjD hjA
   · rw [hkk] at hck
@@ -635,7 +635,7 @@ theorem NestedTailIn.idxOkT (ψ : Name → Nat) (ρp : Nat → V)
     (hρp : Sat V ((D).params ψ).reverse ρp) {c : Nat} (hc : c < (D).kT) :
     IdxOk ((D).uT c ψ) ((D).frameT c ψ ρp) ((D).IdsT c ψ) := by
   by_cases hck : c < (D).k
-  · obtain ⟨cvT, cvR, mI, rP, rules, hID⟩ := I.out.reps c hck
+  · obtain ⟨cvT, cvR, mI, rP, rules, hID⟩ := I.out.reps.toIsBlockModels c hck
     rw [BlockModel.uT_of_mem hck, BlockModel.frameT_of_mem hck, BlockModel.IdsT_of_mem hck]
     exact hID.idxOk ψ ρp hρp c hck
   · have hq : c - (D).k < (D).nPins := by unfold BlockModel.kT at hc; omega
@@ -767,7 +767,7 @@ theorem NestedTailIn.ihPi_eq {mpA : EnvModelM V μ ENVA} {cvRas : List ConstantV
   have hρp : Sat V ((D).params ψ).reverse (consList as ρ) := (D).satOfSpine hsp
   have hρpA : Sat V ((DA).params ψ).reverse (consList as ρ) := hρp
   obtain ⟨cvT, cvR, mI, rP, rules, hIA⟩ := S.reps c hc
-  obtain ⟨cvT0, cvR0, mI0, rP0, rules0, hID⟩ := I.out.reps 0 I.kpos
+  obtain ⟨cvT0, cvR0, mI0, rP0, rules0, hID⟩ := I.out.reps.toIsBlockModels 0 I.kpos
   have hjl : j < ((DA).ctorsM c).length := (List.getElem?_eq_some_iff.mp hjA).1
   have hcd := hIA.ctorData hjA
   have hi'A : i' < cA.2 := by rw [← hcd.ksLen]; exact hi'K
@@ -783,7 +783,8 @@ theorem NestedTailIn.ihPi_eq {mpA : EnvModelM V μ ENVA} {cvRas : List ConstantV
       ((((DA).eissF c j ψ).getD i' []).map
         (interp V (consList bs (consList (fs.take i') (consList as ρ))))) :=
     S.reps.eis_fit (S.typed ψ).1 hc hjA hρpA hi'A htgt hr hfs' hbs
-  rw [hID.isOfW_tupT I.out.reps I.pinLaws hρp htgtT ((I.idsT_iff ψ ρ as htgt _).mpr hEis)]
+  rw [hID.isOfW_tupT I.out.reps.toIsBlockModels I.pinLaws hρp htgtT
+    ((I.idsT_iff ψ ρ as htgt _).mpr hEis)]
 
 
 /-! ### The minors -/
@@ -823,7 +824,7 @@ theorem NestedTailIn.minorsAt {mpA : EnvModelM V μ ENVA} {cvRas : List Constant
     ⟨_, List.getElem?_eq_getElem (by rw [← I.ctorsT_length c']; exact hj)⟩
   have hjl : j < ((DA).ctorsM c').length := (List.getElem?_eq_some_iff.mp hjA).1
   obtain ⟨cvT, cvR, mI, rP, rules, hIA⟩ := S.reps c' hcb
-  obtain ⟨cvT0, cvR0, mI0, rP0, rules0, hID⟩ := I.out.reps 0 I.kpos
+  obtain ⟨cvT0, cvR0, mI0, rP0, rules0, hID⟩ := I.out.reps.toIsBlockModels 0 I.kpos
   obtain ⟨is', hisT, rfl⟩ := nestedIdxT_elim ψ (consList ps ρ) ht'
   have hisA : SpineFit (consList ps ρ) ((DA).IdsM c' ψ) is' :=
     (I.idsT_iff ψ ρ ps hcb is').mp hisT
@@ -874,7 +875,7 @@ theorem NestedTailIn.minorsAt {mpA : EnvModelM V μ ENVA} {cvRas : List Constant
   simp only []
   rw [I.minorIdxT_eq c' j,
     if_pos (by rw [I.nCtorsT_eq S]; exact (DA).minorIdx_lt hcb hjl), if_pos hc',
-    hID.isOfW_tupT I.out.reps I.pinLaws hρp hc' hisT, ← hEs, nestedInjT_eq]
+    hID.isOfW_tupT I.out.reps.toIsBlockModels I.pinLaws hρp hc' hisT, ← hEs, nestedInjT_eq]
   exact hres
 
 

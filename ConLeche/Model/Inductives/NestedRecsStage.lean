@@ -202,6 +202,9 @@ structure NestedTailIn {env : Env} (F : Nat) (mp : EnvModelM V μ env) (p : Nest
   hsrc : ConLeche.nestedCopySrcOk env p st = true
   hgrp : ConLeche.nestedGroupsOk env p st = true
   hkinds : ConLeche.nestedPinKindsOk p b st stored = true
+  /-- K.35's conjunct (session 10): the read-back's auxiliary applications,
+  the restore's `args.drop nP` precondition -/
+  hauxApps : ConLeche.nestedAuxAppsOk p st stored = true
   hctors : (stored.take p.k).mapM (fun a =>
       ConLeche.restoreCtors (m := ConLeche.CheckM) (fueledOps μ F)
         (ConLeche.consNestedFormers (stored.take p.k) env) (ConLeche.restoreTbl p st) p.lps
@@ -424,7 +427,18 @@ post-block environment.  Consumer: `nestedTailModeled_of`. -/
       NestedRecTuple
         (nestedBlockModel (V := V) p b fms f₀ ctorsA kinds env ppsF W idxF dsF esF srcsF fvsPF
           xrestF eissF tssF ctorsR dsR xFvsR pinsS) s rdsM concM eqs →
-      Nonempty (EnvModelM V μ envOut)
+      -- task #315 M7-3 session 10 (DESIGN §U.67 (c)): the conclusion is
+      -- `NestedTailModeled`'s, which now carries the install's conses, the
+      -- agreements, the block's representation at the OUTPUT model and the
+      -- pins' groups with their containers' models NAMED — what the route's
+      -- lift to `EnvModelB` reads (`declNested_of`).  This lane's proof
+      -- obligation grew with it; nothing else in the skeleton moved.
+      ∃ mpOut : EnvModelM V μ envOut,
+        NestedTailOut (V := V) (p := p) (b := b) (fms := fms) (f₀ := f₀) (ctorsA := ctorsA)
+          (kinds := kinds) (env := env) (ppsF := ppsF) (W := W) (idxF := idxF) (dsF := dsF)
+          (esF := esF) (srcsF := srcsF) (fvsPF := fvsPF) (xrestF := xrestF) (eissF := eissF)
+          (tssF := tssF) (ctorsR := ctorsR) (dsR := dsR) (xFvsR := xFvsR) (pinsS := pinsS)
+          mp stored mp₂ envOut mpOut
 
 /-! ## The skeleton -/
 
@@ -439,14 +453,14 @@ theorem nestedTailModeled_of {F : Nat}
     (hst : NestedRecsStored V μ F) : NestedTailModeled V μ F := by
   intro hμ env mp hE p envOut st b envAux stored ctorsR cvRms cvRns rulesM rulesN fmsA ctorsA₀
     hPM h0 h1 hfA hcA helim hcount hfresh hcont hb haux hstored hclosed hpinsAux hcaps hsrc hgrp hkinds
-    hctors hrm hrn hrulesM hrulesN htbl hpinsOut hcnt hrecs fms f₀ ctorsA sortss kinds mp₁ ppsF W idxF
-    dsF esF srcsF fvsPF xFvsF xrestF eissF tssF dsR xFvsR pinsS mp₂ henv O
+    hauxApps hctors hrm hrn hrulesM hrulesN htbl hpinsOut hcnt hrecs fms f₀ ctorsA sortss kinds mp₁
+    ppsF W idxF dsF esF srcsF fvsPF xFvsF xrestF eissF tssF dsR xFvsR pinsS mp₂ henv O
   have I : NestedTailIn F mp p envOut st b envAux stored ctorsR cvRms cvRns rulesM rulesN fmsA
       ctorsA₀ fms f₀ ctorsA sortss kinds mp₁ ppsF W idxF dsF esF srcsF fvsPF xFvsF xrestF eissF tssF
       dsR xFvsR pinsS mp₂ :=
     ⟨hμ, hE, hPM, h0, h1, hfA, hcA, helim, hcount, hfresh, hcont, hb, haux, hstored, hclosed,
-      hpinsAux, hcaps, hsrc, hgrp, hkinds, hctors, hrm, hrn, hrulesM, hrulesN, htbl, hpinsOut, hcnt,
-      hrecs, henv, O⟩
+      hpinsAux, hcaps, hsrc, hgrp, hkinds, hauxApps, hctors, hrm, hrn, hrulesM, hrulesN, htbl,
+      hpinsOut, hcnt, hrecs, henv, O⟩
   have hp := nestedPinRecLaws_of hμ O.facts O.grouped O.bk mp₂.base2 O.stage.groups
   obtain ⟨s, rdsM, concM, R⟩ := hrd mp p envOut st b envAux stored ctorsR cvRms cvRns rulesM rulesN
     fmsA ctorsA₀ fms f₀ ctorsA sortss kinds mp₁ ppsF W idxF dsF esF srcsF fvsPF xFvsF xrestF eissF
@@ -458,6 +472,6 @@ theorem nestedTailModeled_of {F : Nat}
       fvsPF xrestF eissF tssF ctorsR dsR xFvsR pinsS).k := I.kpos
   exact hst mp p envOut st b envAux stored ctorsR cvRms cvRns rulesM rulesN fmsA ctorsA₀ fms f₀
     ctorsA sortss kinds mp₁ ppsF W idxF dsF esF srcsF fvsPF xFvsF xrestF eissF tssF dsR xFvsR pinsS
-    mp₂ I s rdsM concM eqs R E (nestedRecsTuple_of O.reps hp hk R E)
+    mp₂ I s rdsM concM eqs R E (nestedRecsTuple_of O.reps.toIsBlockModels hp hk R E)
 
 end ConLeche.Model

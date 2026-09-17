@@ -89044,6 +89044,140 @@ and the assembly's one extra argument), `DESIGN.md`.  The measurement's
 patch to `Kernel/Inductives/MutualInstall.lean` was reverted before the
 gates and is in no commit.
 
+#### U.63 — M7-3 session 11: the core's two plumbing requests, and M8's FIRST STEP — the fold flips (lane M7-3, session 11, 2026-09-17)
+
+§U.67 left three items: the two plumbing requests the nested core owed
+its tail, and M8's first step, which §U.67 (g) 1 had identified as the
+one thing standing between the flip's mechanical half and a home.  All
+three are in the tree, and with them **the `EnvModelB` fold is in
+`Model/Fold.lean`, modulo the modeled arm alone.**
+
+##### (a) `repsAt` — the core publishes the representation NAMED
+
+`nestedBlockReps_of` instantiates its existential at the members' own
+auxiliary constants (`hrep`'s `refine`, `(fms.getD mm default).cvTa`)
+and then forgets them, while `ContainerModeled.member` — a clause of
+the read-back's record — demands the representation AT the stored
+constant.  So the conclusion and `NestedCoreOut.reps` now read
+
+```lean
+    IsBlockModelsAt mp₂.base2 (D) (fun mm => (fms.getD mm default).cvTa)
+```
+
+— a signature-only change (the proof lost one existential from a
+`refine`).  Three consumers project with `.toIsBlockModels`, where the
+existential form is all they read: the two crossings in
+`DeclNestedCore.lean` and `nestedRecsTuple_of`'s call in
+`nestedTailModeled_of` (`NestedRecsStage.lean`, one token in lane
+M7-2's file).  `NestedTailOut.repsAt` keeps its statement and becomes
+that field CROSSED, which is what the tail could not do before.
+
+##### (b) `pinNP`/`pinψ` — and the request went ONE LEVEL further up
+
+Both records are proved upstream and dropped at the
+`NestedCtorsStaged` boundary, but they are NOT both free in
+`nestedLoopFacts_of`:
+
+* `pinψ` is `NestedPinFacts.pinψ` verbatim, at the members' PREFIX
+  environment — one field forwarded twice
+  (`NestedLoopFacts`, `NestedStageFacts`), free;
+* `pinNP` is the composite of `NestedPinGroupSyn.pinNP` (the pin's
+  count is its container's block model's) and `.modeled` (that block
+  model represents the container's `containerInfo?` group), and
+  `NestedPinGroupSyn.ofParts` drops BOTH halves on the way to the weak
+  group `NestedPinGroup` that `NestedPinFacts.groups` carries.  The
+  weak group has no clause that mentions `containerInfo?` at all, so
+  the loop CANNOT recover it: the field has to go onto
+  `NestedPinFacts` as well, filled in `nestedPinsStaged_of`
+  (`NestedPins.lean`) where the syntactic group is still in hand —
+  five lines, no new hypothesis.
+
+Both fields read the PRE-BLOCK environment's own data, which is what
+makes them crossable for nothing.  `nestedContainerModeled` now
+discharges the read-back's two clauses itself: `pinNP` at
+`d.env₀ = env` directly, and `pinψ` by moving the pin's container's
+record from `env` to the prefix environment
+(`consMutualFormers_find?_of_ne` against the members' freshness —
+`hfreshMem`, already in that proof for `pinsNotMembers`) and
+identifying it with `envOut`'s by the install's conses
+(`ConsExt.ext`, off `NestedTailOut.install`).
+
+So `NestedTailOut` is **seven** fields, not nine: `install`,
+`agree₀`, `agree`, `findR`, `repsAt`, `groups`, `conts` — and
+`NestedTailModeled`'s obligation shrank with it (lane M7-2's skeleton
+did not move).
+
+##### (c) M8's FIRST STEP — `Model/StepAgree.lean`
+
+`axiomStepAgree_of` and `basisStepAgree_of` (§U.66 (b) 1) moved out of
+`Model/Fold.lean` into `ConLeche/Model/StepAgree.lean`, verbatim and
+with their docstrings, beside the harvests they are assembled from.
+`Model/Fold.lean` keeps `axiomStepPB_of` and `basisStepPB_of`
+byte-identical as their `Nonempty` projections.
+
+The new module's public interface is exactly what its two statements
+name — `Model/Annot/EnvModelM` and `Semantics/DeclRun` public, the
+harvests plain; that is `scripts/pub-import-plan.py`'s own shape for
+it, and shake proposes nothing about it.  `Model/Fold.lean`'s two
+now-redundant imports (`Model.AxiomReduce`, `Model.BasisFalse`) give
+way to the one module the harvests were actually reached through
+(`Model.Harvest`) — shake's own compensating addition, so the
+allowlist shrank by two lines rather than growing.
+
+**The measured payoff**: with `Model/Inductives/EnvModelBStages.lean`
+and `Model/Inductives/BasisBlocksFold.lean` importing `StepAgree`
+instead of `Fold`, NEITHER they nor `DeclNestedCore` reach
+`Model/Fold` any more — the import-graph fact §U.67 (g) 1 asked for.
+
+##### (d) THE FLIP'S MECHANICAL HALF, LANDED — in `Model/Fold.lean`
+
+§U.66 (c)'s steps 3–4, written and reverted in session 10 for want of
+a home, are now in the module where the `A` fold lives and inherit its
+consumers: `ModeledStepB` (the modeled arm, AS A HYPOTHESIS — not to
+be proved but deleted with the arm), `declInductiveB` (the dispatch's
+three arms: `declNativeB`, `declMutualB`, the hypothesis),
+`EnvModelOkB`, `declStepB_preserves` (eight arms, seven a name swap),
+`foldPMB` (base case `EnvModelB.empty`) and `checkDeclsPure_soundB_of`.
+`Model/Fold.lean` gains `public import Model.Inductives.NestedPremise`
+(the statements name `EnvModelB`) and `import
+Model.Inductives.BasisBlocksFold`.
+
+**`MainTheorem.lean` and the capstones are untouched**, and that is
+the design: `EnvModelB` EXTENDS `EnvModelM`, so
+`checkDeclsPure_sound_of` keeps its statement and `checkDeclsPure_soundB_of`
+is the parallel theorem; step 5 (making the capstones read the B fold
+through `.toEnvModelM`) is still deliberately last, and nothing
+forces it.
+
+Two `public import`s became demotable at the new import set and were
+demoted, as the plan directs: `Model/Fold.lean`'s
+`Model.Inductives.DeclNative` and `Model/Inductives/DeclNative.lean`'s
+`Model.Inductives.FixZeroField` (the two matching allowlist lines went
+stale and are deleted).
+
+##### (e) WHAT M8 STILL OWES
+
+Only step 2 and step 5, in that order: the kernel's `.indDecl` nested
+dispatch arm (`checkNestedS_run`/`_skels`) with the DELETION of the
+modeled arm — after which `ModeledStepB` and `declInductiveB`'s third
+case go with it — and then the capstones' side.  `declNested_of`'s
+own residual is unchanged by this session: `NestedTailModeled` (seven
+conclusions), `NestedCoreModeled` and the chain's named facts.
+
+##### (f) GATES
+
+`lake build` 703 jobs warning-free; `lake test` warning-free; layering
+347 / 273 / 3 / 1, 0/0; trust 13/5 (635); overview-links 112 (the two
+`Model/Fold.lean` anchors repointed twice on pure line shifts — the
+cited text character-identical, both citing paragraphs re-read);
+quote-gate 2; no-local-paths OK; proofdeps 4965 rows / 12 roots /
+0 doors (`ConLeche.Model.StepAgree` ENTERS the ten capstone closures:
+the relocation itself, the two theorems were already on every
+capstone's path from `Model/Fold.lean`, which stays — the diff is
+exactly ten added lines); shake 508/508 allowlisted; pub-imports 1286
+of 2038, none demotable; `tests/arena.sh` green.  Standard axioms on
+every new theorem.
+
 #### U.64 — L-E session 13: the copy-to-copy transfer (no `ordF`-right correspondence), `htrans_of_walk`, and what `InstanceCovered` still needs at the ROOT (lane L-E, 2026-09-17)
 
 ##### (a) The transfer, re-cut: three chains, not two
@@ -89523,6 +89657,213 @@ trust surface; overview-links (the `declStep_preserves` anchor
 repointed on a pure line shift — the citing paragraph re-read, the
 claim unchanged); quote-gate; no-local-paths; proofdeps; shake;
 pub-imports.  `tests/arena.sh` green.  Standard axioms on every new
+theorem.
+
+#### U.67 — M7-3 session 10: `declNestedB` — the NESTED route at `EnvModelB`, and the tail's supply list, named (lane M7-3, session 10, 2026-09-17)
+
+§U.66 (c)'s census left the three install routes: native and mutual
+lifted, nested owing §U.40 (f)'s four items.  This session lifts it.
+`declNested_of` now concludes `Nonempty (EnvModelB V μ envOut)` — the
+same statement change §U.52 and §U.66 (a) made on the other two —
+and the four items are either PROVED here or named as the exact
+conclusions the tail must hand back.
+
+##### (a) `NestedInstallExt` — the `Quot` finding, at an install that TABLES
+
+`BlockInstallExt` (§U.66 (b)) is unprovable for the nested route at
+every `Ms`, and for the reason the `Quot` install failed it: the route
+conses `k + n` recursors, the members' own `I.rec` and the MIMIC
+recursors `T₁.rec_1`, `T₁.rec_2`, … (official's `mk_aux_rec_name_map`,
+`NestedParts.mimicRecName`), and a mimic's name is no member's
+`I.rec` — `Name.str` injectivity again.  The `Quot` split does not
+help here, because `ConsExt` alone drops the table clause and the
+nested route DOES install projection tables, so the crossing's guard
+`TableCross` would go with it.
+
+`NestedInstallExt` (`EnvModelBStages.lean`) is therefore
+`BlockInstallExt` with the RECURSOR clause made CONDITIONAL:
+
+```lean
+  (∀ c ∈ new, ∀ (cv : ConstantVal) (mI rP : Nat) (rules : List RecRule),
+    c = .recInfo cv mI rP rules → ∀ n : Name, c.name = n.str "rec" → n ∈ Ms)
+```
+
+— vacuous at a mimic (`"rec_1" ≠ "rec"`), and exactly what
+`EnvBlocksOf.crossIndP` reads: `recN`, `indMs` and `tableCross` all
+carry over verbatim, `of_blockInstallExt` says the old record implies
+the new one, and the kind clauses that ARE needed (a new `indInfo` is a
+member, a new `projInfo` tables a member) are unweakened.
+
+##### (b) `nestedContainerModeled` — nine of fourteen clauses are the route's own
+
+`ContainerModeled.of_readBack` at the run's K.34 conjunct
+(`blockReadBackOk envOut p.nP (((stored.take p.k).zip ctorsR).map …)`,
+read under `certOnly_elim hμ`), with the audit's split:
+
+| clause | source |
+|---|---|
+| `hk` | `NestedBlockModelOf.k` and the zip's length: `auxStoredAll_get` gives `stored.length = b.k`, `mapM_except_inv` gives `ctorsR.length = (stored.take p.k).length` |
+| `hnP` | `NestedBlockModelOf.nP` (`auxBlock_fields`) |
+| `hnamesLen`, `hnames` | `NestedStageFacts.names` and `consNestedFormers_take_eq`'s SECOND component (`a.cvTa = f.cvTa`): the read-back's members are the auxiliary records' own constants |
+| `hctorNames` | `NestedBlockModelOf.ctors` (`rfl`) — the block model's constructors ARE the restored list |
+| `inj` | definitional at `BlockModel.ofNested` (`ofNested_inj`) |
+| `frame` | `MutualFormersFacts.frame`, the scratch block's cross-member identification (there is no nested `MutualTableFacts`, and none is needed) |
+| `ordFree` | the constructors' OWN opened guard: `BlockCtorFacts …` → `BlockCtorData.opened.ord` at `d.env₀ = env`, where every member is fresh (`nestedMembersFresh` off the run's capability record), closed by `rk_mentionsConst_false_of_constsResolve`.  This is the NATIVE route's argument (§U.52 (a)), **not** `MutualOrdFree`: no fact about the RESTORED opened data `xFvsR`/`dsR` is needed, so lane L-B is not on this path at all |
+| `pinsNotMembers` | `nestedContainersOk_group` (the pins' containers are stored) against that same freshness |
+
+The plumbing lemmas are `nestedReadBack_getElem?`/`_getD` (the zip-map
+read at a member), `nestedStoredFresh`, `nestedMemberStored` and
+`nestedMembersFresh`.
+
+##### (c) THE TAIL'S SUPPLY LIST — `NestedTailOut`, and where each field comes from
+
+The five remaining clauses name the OUTPUT model or the output
+environment, and §U.36 (d)'s groups name the assignment; they are the
+new conclusions of `NestedTailModeled` (`DeclNestedCore.lean`,
+`NestedTailOut`).  `NestedRecsStored`'s conclusion in
+`Model/Inductives/NestedRecsStage.lean` (lane M7-2) was threaded
+through in the same shape — ONE line, an undischarged named fact, no
+proof moved:
+
+1. `install` — `∃ new, NestedInstallExt p.memberNames env envOut new`
+   with the members among the new names.  The whole install's conses,
+   as `crossIndP` reads them.  **The tail's own**: it is the stage that
+   knows the recursors' and the tables' conses, and the core's two are
+   `consMutualFormers`/`consNestedCtors`.
+2. `agree₀`, `agree` — the carriers agree at every name `env` stores
+   and at every name `ENV₂` stores.  **The tail's own** (`declMutualB`
+   and `declNativeB` compute the same two internally, §U.52 (b)).
+3. `findR` — lookups from `ENV₂` survive to `envOut` EXCEPT at
+   recursors (the route swaps a provisioned recursor for its ruled
+   one, so the `recInfo` exclusion is the same one every crossing
+   carries).  **The tail's own.**
+4. `repsAt` — `IsBlockModelsAt mpOut.base2 D (fun mm => (stored.getD mm default).cvTa)`,
+   the representation at the OUTPUT model AT THE MEMBERS' STORED
+   CONSTANTS.  `ContainerModeled.member` demands the named form and
+   `nestedBlockReps_of` publishes only the existential one — **a CORE
+   plumbing request**: that theorem already instantiates the
+   existential at `(fms.getD mm default).cvTa` (`NestedCore.lean`), so
+   exposing `IsBlockModelsAt` in its conclusion and in
+   `NestedCoreOut.reps` is a signature-only change, after which the
+   tail only CROSSES it.
+5. `pinNP`, `pinψ` — the two pin records `ContainerModeled` asks for
+   and the core's chain does not expose.  Both are PROVED upstream —
+   `NestedPinFacts.pinψ` (`NestedLoop.lean`, from
+   `NestedPinsRun.pinψ`) and `NestedPinGroupSyn.modeled`/`.ctorsOf`
+   (`NestedPins.lean`, which `ofParts` drops) — and both are lost at
+   the `NestedCtorsStaged` boundary, so `nestedStageFacts_of` cannot
+   recover them.  **A CORE plumbing request**: add the two fields to
+   `NestedLoopFacts`/`NestedStageFacts` and fill them inside
+   `nestedLoopFacts_of`, where they are free.
+6. `groups`, `conts` — the pins' groups at the constructors' model with
+   their container's block model NAMED by `blockOf mp.base2`, and the
+   pins' containers read alike at `ENV₂`, at `envOut` and at `env`.
+   This is §U.36 (d)'s strengthening of `NestedStageFacts.groups` from
+   `∃ dJ` to the environment model's own assignment, and it cannot be
+   stated as a `NestedCoreOut` field without a new named hypothesis
+   (`nestedCoreModeled_of` could not discharge it), so it is stated at
+   the tail, where `mp₂` and the core's output are both in scope.
+
+##### (d) The pins' half, and why the tables cost nothing there
+
+`PinRecLaws` is M7-1's `nestedPinRecLaws_of` at the WEAK groups
+(`NestedStageFacts.groups` unchanged) and reads no model at all, so
+`PinRecLaws.cross` moves it to the output model for nothing.
+
+`PinShapes` is L-E's `nestedPinShapes_of` at (c) 6's named groups,
+proved at the CONSTRUCTORS' model and then crossed by
+`PinShapes.crossEnv` — which takes `hF`, `hag` and the pins'
+containers' readings and **no reading hypothesis at all** (the shapes
+read the carrier only at the block's members, its pins' containers and
+those containers' own pins).  That is what makes the projection tables
+harmless on this route: the one crossing that would have been refuted
+by them (§U.40 (b), `hde_not_of_newTable`) is the one nothing here
+performs.  In particular the pin GROUPS are never crossed —
+`NestedPinGroup.crossEnv` (`NestedLoop.lean`) takes the UNGUARDED
+`hde` and there is no guarded variant, so the groups stay at `ENV₂`
+and only their consequence travels.
+
+`nestedBlockAt_of` then packages the three at
+`B' := fun ci => if ci = ci_new then D else blockOf mp.base2 ci`, whose
+`PinShapes` is `PinShapes.congrB` at the pins' containers (each read at
+`env`, hence not the new group — the members are fresh there).  The old
+containers cross by `EnvBlocksOf.crossIndP` at `NestedInstallExt`, with
+`hold` the same `if_neg` and `hnew` K.34's reading at a new name that
+`indMs` identifies as a member.
+
+##### (e) The census after this session
+
+All three install routes conclude at `EnvModelB`:
+`declNativeB` (§U.52), `declMutualB` (§U.66 (a)) and `declNested_of`
+itself — the nested route keeps its name because it is the route's only
+statement and it has no `EnvModelM` consumer to preserve.  §U.66 (c)'s
+order is unchanged: step 2 (the kernel's nested dispatch arm and the
+DELETION of the modeled arm) is still the scheduling fact, and nothing
+above it can land first.  `Model/Fold.lean` is untouched.
+
+##### (g) THE FLIP'S MECHANICAL HALF — PROBED, AND WHERE IT CANNOT LIVE YET
+
+§U.66 (c)'s steps 3–4 were written and they PROVE: `declInductiveB`
+(`declInductive`'s twin over the dispatch's three arms — `declNativeB`,
+`declMutualB` and one hypothesis `ModeledStepB` for the MODELED arm,
+which is to be deleted and not proved), `EnvModelOkB`,
+`declStepB_preserves` (eight arms, seven of them a name swap),
+`foldPMB` and `checkDeclsPure_soundB_of` — all six compiled, with
+standard axioms, the η half untouched.  They are NOT in the tree,
+because none of the three possible homes is gate-clean, and that is
+the finding M8 needs:
+
+1. **`Model/Fold.lean` is impossible.**  The value kinds' carrier
+   agreements (`axiomStepAgree_of`, `basisStepAgree_of`, §U.66 (b) 1)
+   live there, and BOTH `EnvModelBStages.lean` and
+   `BasisBlocksFold.lean` import that module for them — so every
+   theorem of the flip sits ABOVE `Model/Fold.lean`.  **M8's first
+   step is to move those two agreements down** (their natural home is
+   beside the harvests); then the B fold goes where the A fold is, and
+   inherits its consumers.
+2. **`BasisBlocksFold.lean` compiles but moves
+   `scripts/pub-import-plan.py`'s fixpoint**: that module's five
+   `public import`s each become individually demotable, and demoting
+   them takes the `[SetTheory V]` binder's own public path with them
+   (the build then says `unknown identifier SetTheory`).
+3. **A new leaf module** (`Model/Inductives/FoldB.lean`, probed) is
+   gate-clean at the import set shake's own criterion names — until the
+   K.35 wiring below changed the tree elsewhere, after which the plan
+   called its two remaining `public import`s demotable too.  The reason
+   is the same as 2 and it is structural: a module NOTHING imports has
+   no public interface to justify a `public import`, while the build
+   still needs `SetTheory` publicly for the `variable` binder.  **The
+   flip's fold must have a consumer**, and the only consumer is the
+   capstones' side — which is step 5, and is deliberately last.
+
+So the mechanical half is written and known to close; it lands with
+step 1, not before.
+
+##### (h) K.35's CONJUNCT, WIRED (lane M7-2's request, this session)
+
+`nestedAuxAppsOk` is a conjunct of `DeclNestedRun` and, with M7-2's
+`auxAppsOk_reflect`, it is what the recursors' readings stand on
+(`NestedRecTysAuxOf` is deleted in exchange).  So the tail takes it by
+name: one hypothesis on `NestedTailModeled`, one field on
+`NestedTailIn`, both in the run's own position (after K.26's kinds),
+and in `declNested_of` the destructuring `-` becomes `hauxApps` with
+`certOnly_elim` under `hμ` beside the other five certification-only
+records.  K.37's `nestedPinRankOk` stays anonymous.
+
+K.39 — `(cvRms.map (·.name) ++ cvRns.map (·.name)).Nodup`, the
+recursors' names distinct — is NOT wired here: this lane's base
+predates the conjunct (it is on `agent/uniform-315`, between the
+recursors' count and `nestedRecsOk`), so `declNested_of` has nothing to
+name.  The three edits are the same at that position; the integration
+is the place.
+
+##### (i) GATES
+
+`lake build` 702 jobs warning-free; `lake test` warning-free; layering
+347 / 272 / 3 / 1, 0/0; trust 13/5 (634); overview-links 112;
+quote-gate 2; no-local-paths OK; proofdeps 4955 rows / 12 roots /
+0 doors; shake 510/510 allowlisted; pub-imports 1284 of 2030, none
+demotable; `tests/arena.sh` green.  Standard axioms on every new
 theorem.
 
 #### K.35 — the auxiliary applications sit at the parameters (2026-09-17, task #315 M7, the model lane's spec §1a)

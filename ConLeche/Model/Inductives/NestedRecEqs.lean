@@ -311,7 +311,7 @@ theorem NestedTailIn.eqsCand {mpA : EnvModelM V μ ENVA} {cvRas : List ConstantV
   have hfT := (S.typed ψ).1
   have hR := S.readings ψ
   obtain ⟨cvT, cvR, mI, rP, rules, h⟩ := hreps c hc
-  obtain ⟨cvT0, cvR0, mI0, rP0, rules0, hD0⟩ := I.out.reps 0 I.kpos
+  obtain ⟨cvT0, cvR0, mI0, rP0, rules0, hD0⟩ := I.out.reps.toIsBlockModels 0 I.kpos
   have hcd := h.ctorData hj
   have hj' : j < ((DA).ctorsM c).length := (List.getElem?_eq_some_iff.mp hj).1
   have hpl := hreps.params_length (by omega) ψ
@@ -508,7 +508,7 @@ theorem NestedTailIn.eqsCand {mpA : EnvModelM V μ ENVA} {cvRas : List ConstantV
         List.getElem?_eq_getElem (by rw [List.length_map] at hl'; exact hl'), Option.map_some,
         Option.getD_some, Option.getD_some]
     rw [← nestedInjT_eq ψ c j fs,
-      hD0.blockRecAtT_iota I.out.reps I.pinLaws hρpD hwD hMs hms hcT hidxT hjT hfitT]
+      hD0.blockRecAtT_iota I.out.reps.toIsBlockModels I.pinLaws hρpD hwD hMs hms hcT hidxT hjT hfitT]
     -- the minor and the inductive hypotheses
     have hrecIdx : recIdx (((D).rssT PC c).getD j []) ((((D).FssT PC ψ c).getD j []).length)
         = ConLeche.recIdxOf ((DA).ksF c j) := by

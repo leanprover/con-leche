@@ -114,23 +114,31 @@ structure ContainerModeled {env : Env} (m : EnvModel V env) (ci : ContainerInfo)
   ordFree : ∀ (i j l : Nat) (x : Expr), i < d.k → j < (d.ctorsM i).length →
     (d.xFvsF i j)[l]? = some x → (d.ksF i j).getD l .ordinary = .ordinary →
     ConLeche.mentionsMember d.memberNames x.fvarTypeD = false
-  /-- **a NESTED field mentions a member AT THE PARAMETER PART** (task
-  #315 L-B's request, DESIGN §U.62 (e), §U.64): `ordFree`'s twin — the
-  other half of `mutualCtorKinds`' `iff`.  The classification calls a
-  field nested at `q` exactly when its spine's head is `(pinAt q).J`
-  and one of the first `(pinAt q).nPJ` arguments mentions a member of
-  the block's own group; `BlockOpened.nestF` records the head, the
-  argument count and `constsResolve env₀` for the arguments PAST
-  `nPJ`, and says nothing about the parameter part, so the copies'
-  `pinF` arm cannot see the mention it needs.  It costs no kernel
-  check — the mention IS the classification's first test.
+  /-- **a PIN'S COMPONENTS mention a member** (task #315 L-B's request,
+  DESIGN §U.62 (e), §U.64): `ordFree`'s twin — the other half of
+  `mutualCtorKinds`' `iff`.  The classification calls a field nested at
+  `q` exactly when its spine's head is `(pinAt q).J` and one of the
+  first `(pinAt q).nPJ` arguments mentions a member of the block's own
+  group; `BlockOpened.nestF` records the head, the argument count and
+  `constsResolve env₀` for the arguments PAST `nPJ`, and says nothing
+  about the parameter part, so the copies' `pinF` arm cannot see the
+  mention it needs.
+
+  Spelled on the PIN'S OWN COMPONENTS (`DsE`, DESIGN §U.67 (b) B1) and
+  not on the field's opened domain: at the nested block's own read-back
+  the two are the same list — the restored domain is the pin re-opened
+  at the parameter openers — but only the components' form has a
+  source, the kernel's K.44 `nestedPinMentionOk`; the opened-domain
+  spelling dies at the `NestedCtorsStaged` boundary, where
+  `BlockOpened.nestF` is all that survives.  A stored container's block
+  model carries `DsE` as a `PinSyn` field, so the consumer loses
+  nothing.
 
   Stated with `q < d.nPins`, which the consumer has for free
   (`IsBlockModels.tgt_pin_lt` at the field) and which lets a pins-free
   block discharge the clause in the `pinNP`/`pinψ` idiom. -/
-  nestMention : ∀ (i j l q : Nat) (x : Expr), i < d.k → j < (d.ctorsM i).length →
-    q < d.nPins → (d.xFvsF i j)[l]? = some x → d.nestOf i j l = some q →
-    ∃ e ∈ x.fvarTypeD.getAppArgs.take (d.pinAt q).nPJ,
+  nestMention : ∀ q, q < d.nPins →
+    ∃ e ∈ (d.pinAt q).DsE.take (d.pinAt q).nPJ,
       ConLeche.mentionsMember d.memberNames e = true
   /-- **a pin's container is not a member** of the block: the opened
   form of a nested field (`BlockOpened.nestF`) is shape-compatible with

@@ -3,7 +3,7 @@ module
 public import ConLeche.Model.Inductives.BlockRepOne
 import ConLeche.Model.Inductives.FixAssemblyKit
 import ConLeche.Model.Inductives.FixStageTable
-public import ConLeche.Model.Inductives.FixZeroField
+import ConLeche.Model.Inductives.FixZeroField
 public import ConLeche.Semantics.Inductives.DeclNative
 import ConLeche.Verify.Inductives.FixParts
 public section

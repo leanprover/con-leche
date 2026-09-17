@@ -188,6 +188,10 @@ structure NestedPinGroup (m : EnvModel V env₂) (q₀ kJ : Nat) (dJ : BlockMode
     ((D).pinAt (q₀ + i)).ψJ ψ = ((D).pinAt q₀).ψJ ψ ∧ ((D).pinAt (q₀ + i)).Ds ψ = ((D).pinAt q₀).Ds ψ
   /-- the group's pins share their level arguments (task #315 L-E) -/
   lvls : ∀ i, i < kJ → ((D).pinAt (q₀ + i)).lvls = ((D).pinAt q₀).lvls
+  /-- the group's pins share their components SYNTACTICALLY (task #315
+  L-E: `NestedPinGroupSyn.same`'s second half, which `ofParts` used to
+  drop — `nestedPinShapes_of` reads it at the tail's groups) -/
+  sameE : ∀ i, i < kJ → ((D).pinAt (q₀ + i)).DsE = ((D).pinAt q₀).DsE
   /-- the pin's container is stored, and the pin's level assignment is
   the substitution at its level parameters (task #315 L-E, step (iii)) -/
   stored : ∀ i, i < kJ → ∃ (cvT : ConstantVal) (caps : IndCaps),
@@ -575,7 +579,15 @@ every member** (`blockReps_of`'s nested twin): from the auxiliary
 block's formers' facts, the constructors' stage's outputs at the model
 `mp₂` of the restored environment (the members' records and leaves,
 the restored constructors' records, leaves and readings through the
-nested arm), and the pins' groups. -/
+nested arm), and the pins' groups.
+
+The representation is published in the NAMED form
+(`IsBlockModelsAt`, task #315 M7-3 session 11): the assembly builds it
+at the members' OWN auxiliary constants `(fms.getD mm default).cvTa`,
+and `ContainerModeled.member` — the read-back's record — demands it
+there, so the existential form would lose exactly what the install's
+tail has to cross.  `IsBlockModelsAt.toIsBlockModels` is the
+projection where the weaker form is enough. -/
 theorem nestedBlockReps_of (hμ : μ.verifiedChecks = true)
     (h : MutualFormersFacts V F g mp b fms f₀ ctorsA sortss kinds mp₁ ppsF W idxF dsF esF srcsF
       fvsPF xFvsF xrestF eissF tssF)
@@ -606,7 +618,7 @@ theorem nestedBlockReps_of (hμ : μ.verifiedChecks = true)
         (dsR mm j ψ).getD (b.nP + i) default = (dsF (b.ownOffset mm + j) ψ).getD (b.nP + i) default)
     (hgroups : ∀ q, q < pinsS.length → ∃ (q₀ kJ i : Nat) (dJ : BlockModel V),
       q = q₀ + i ∧ i < kJ ∧ PG mp₂.base2 q₀ kJ dJ) :
-    IsBlockModels mp₂.base2 (D) ∧
+    IsBlockModelsAt mp₂.base2 (D) (fun mm => (fms.getD mm default).cvTa) ∧
     ∀ ψ : Name → Nat,
       FormersTyped mp₂.base2 (D) ψ ∧ CtorsTyped mp₂.base2 (D) ψ ∧ PinsTyped mp₂.base2 (D) ψ := by
   -- the readers
@@ -776,13 +788,12 @@ theorem nestedBlockReps_of (hμ : μ.verifiedChecks = true)
       List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hi]
     rfl
   -- the per-member facts
-  have hrep : ∀ mm, mm < (D).k → ∃ (cvT cvR : ConstantVal) (mI rP : Nat) (rules : List RecRule),
-      IsBlockModel mp₂.base2 ((D).memberName mm) cvT cvR mI rP rules (D) mm := by
+  have hrep : IsBlockModelsAt mp₂.base2 (D) (fun mm => (fms.getD mm default).cvTa) := by
     intro mm hmm
     have hmmF : mm < fms.length := Nat.lt_of_lt_of_le hmm hkle
     have hft := fms_get hmmF
     have hlpsT : (fms.getD mm default).cvTa.levelParams = b.lps := h.lps _ _ hft
-    refine ⟨(fms.getD mm default).cvTa, default, (D).nP + (D).k + (D).nCtors + (D).nIdxAt mm,
+    refine ⟨default, (D).nP + (D).k + (D).nCtors + (D).nIdxAt mm,
       (D).nP + (D).k + (D).nCtors, [], ?_⟩
     refine
       { memberLt := hmm, member := rfl, strip := ?_, isProp := rfl, mI := rfl, rP := rfl
@@ -1208,6 +1219,16 @@ structure NestedStageFacts (st : ElimState) (mp₂ : EnvModelM V μ ENV₂) : Pr
   pinRec : ∀ (q : Nat) (pin : NestedPin), st.pins[q]? = some pin →
     ((D).pinAt q).J = pin.container ∧
     pin.pin = Expr.mkAppN (.const pin.container ((D).pinAt q).lvls) ((D).pinAt q).DsE
+  /-- **a pin's parameter count is the one `containerInfo?` reads of
+  its container**, at the PRE-BLOCK environment (task #315 M7-3
+  session 11, DESIGN §U.67 (c) 5): the pins' own record's
+  (`NestedPinFacts.pinNP`, off the group's `pinNP` and `modeled`),
+  carried across the `NestedCtorsStaged` boundary because
+  `ContainerModeled.pinNP` — a clause of the nested block's OWN
+  read-back — demands it at `d.env₀ = env`, and nothing below the
+  boundary can recover it. -/
+  pinNP : ∀ q, q < pinsS.length → ∀ ci : ConLeche.ContainerInfo,
+    ConLeche.containerInfo? env ((D).pinAt q).J = some ci → ((D).pinAt q).nPJ = ci.nP
   /-- the pins' components read at the block's parameter depth, at the
   restored model (task #315 M7-2: the recursors' readings' walk needs
   the components' syntactic form `DsE` tied to their readings `Ds`) -/
@@ -1278,6 +1299,16 @@ structure NestedLoopFacts (st : ElimState) (mp₁ : EnvModelM V μ ENV₁) (mp�
   pinRec : ∀ (q : Nat) (pin : NestedPin), st.pins[q]? = some pin →
     ((D).pinAt q).J = pin.container ∧
     pin.pin = Expr.mkAppN (.const pin.container ((D).pinAt q).lvls) ((D).pinAt q).DsE
+  /-- **a pin's parameter count is the one `containerInfo?` reads of
+  its container**, at the PRE-BLOCK environment (task #315 M7-3
+  session 11, DESIGN §U.67 (c) 5): the pins' own record's
+  (`NestedPinFacts.pinNP`, off the group's `pinNP` and `modeled`),
+  carried across the `NestedCtorsStaged` boundary because
+  `ContainerModeled.pinNP` — a clause of the nested block's OWN
+  read-back — demands it at `d.env₀ = env`, and nothing below the
+  boundary can recover it. -/
+  pinNP : ∀ q, q < pinsS.length → ∀ ci : ConLeche.ContainerInfo,
+    ConLeche.containerInfo? env ((D).pinAt q).J = some ci → ((D).pinAt q).nPJ = ci.nP
   /-- the pins' components read at the restored model (M7-2) -/
   pinDs : ∀ q, q < pinsS.length → ∀ ψ : Name → Nat,
     DenoteMetaSpine mp₂.base2.acval ENV₂ ψ b.nP (pinsS.getD q default).DsE
@@ -1608,7 +1639,8 @@ theorem nestedStageFacts_of (hst : NestedCtorsStaged V μ F) (hμ : μ.verifiedC
     rw [hmemc]
     exact hmmk
   refine ⟨mp₂, dsR, xFvsR, pinsS,
-    { pinsLen := L.pinsLen, pinRec := L.pinRec, pinDs := L.pinDs, find := L.find, pinψ := L.pinψ
+    { pinsLen := L.pinsLen, pinRec := L.pinRec, pinDs := L.pinDs, pinNP := L.pinNP
+      find := L.find, pinψ := L.pinψ
       pinNIdx := L.pinNIdx
       names := hnames, agree := ?_
       agreeR := fun n hnC hnM => (L.agreeC n hnC).trans (hoff' n hnM)
