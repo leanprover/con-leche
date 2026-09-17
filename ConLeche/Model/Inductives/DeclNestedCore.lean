@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Model.Inductives.NestedCore
-public import ConLeche.Model.Inductives.NestedPinLeafAll
+import ConLeche.Model.Inductives.NestedPinLeafAll
 public import ConLeche.Model.Inductives.EnvModelBStages
 import ConLeche.Verify.Inductives.NestedAuxFormers
 import ConLeche.Verify.Inductives.NestedGroupInv
