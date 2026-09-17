@@ -83653,6 +83653,44 @@ below them (`lfpTuple_le`), and the pins follow by `pinMono`.  So
 at every `R`-related block pin, into `L⁺` (the transfer, container →
 block, at `L⁺`) — hence `famAt LJ ≤ relMeet ≤ L⁺` at related pairs.
 
+##### (i) SESSION 5's remainder: the pin half needs the targets' NAMES at `ordF`-right fields too
+
+`CopyCtorShape.fit_imp_T_le` (`NestedFit.lean`) is the member half in
+the relational form: a container fit at an extended tuple `T ≤ famAt LJ`
+is a copy fit at a block tuple `Z` under which the container's target
+classes lie at every recursive field (the relation's premise, `hrel`)
+and whose slots the externals' domains lie under (`hentR`).  Its twin
+at a PIN class — `pc qK`'s constructor (K's at `Ds_K`, `PinShapes`)
+against the block's copy of the image pin `t` (K's at `Ds_K[Ds]`) — is
+field-by-field the same argument through `K`'s data at level
+assignments agreeing on `K`'s parameters (`CtorDataI.params`,
+`eissParams`/`tssParams`/`uParams`) and frames agreeing below the
+parameters (`Ds_K` read at `J`'s frame IS `Ds_K[Ds]` read at the
+block's, `interp_instAll`; a `slotSet_congr_below` is still to write),
+EXCEPT at `K`'s ordinary fields the two eliminations both rewrote
+(`ordF`-right on both sides): the container's fit reads the tuple at
+`J`'s target `τ`, the block's at its target `t'`, and `R τ t'` must
+hold — the two targets' READINGS agree fibre-wise (the body-form
+`EntryRead`s and `interp_instAll`), but the slots compare the two
+families at index TUPLES `tupW u is`, whose universe `u` is the
+target CONTAINER's (`pinU`), and nothing at the reading level says the
+two targets have the same container (`acval C ψ = acval C' ψ'` for
+distinct `C, C'` is possible).  `tupW_zero_agree` needs only `u = 0 ↔
+u' = 0`, but even that is a datum of the container, not of the reading.
+So `EntryRead` must carry, like `PinCorr`, the target's NAME and LEVELS
+— and for a `K`-field that is a bare PARAMETER (`β := J_m α` at `J`'s
+level, `J_m Ds` at the block's) the head is the pin's COMPONENT's head,
+which `PinSyn.Ds` (readings) does not carry: the pins' components must
+be recorded as `Expr`s (`PinSyn.DsE`, the block's pins have them —
+`pin = mkAppN (const J lvls) DsE`; a stored container's pins are in
+the environment's inductive info, `EnvWF`'s `pin` clause) with the
+reading law `Ds ψ = DsE.map (reading)`, and `EntryRead`'s conjunct
+`TV.J (tg l) = head (instantiated field's body)` / `TV.lvls (tg l) = …`
+stated on the Expr instantiation.  Sizing: PinSyn.DsE + the
+container-side clause (`ContainerModeled`) + `EntryRead`'s two
+conjuncts (L-B's `copyGroupTargetHead` gives them) ½ session; the pin
+half ~1 session; `blobLe` ½; the rank induction + (iv) 1.
+
 ##### (g) WHAT REMAINS on the blob route
 
 1. The pin half of the transfer: the block's copy of a kind-2 pin `t`
