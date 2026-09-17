@@ -493,6 +493,12 @@ section Construction
 /-- The elimination's `q`-th pin (total). -/
 def pinAtE (st : ElimState) (q : Nat) : NestedPin := st.pins.getD q default
 
+/-- The reader, spelled out: the group records (`NestedPinGroupSyn.grp`)
+name the pin by the list, the arms of the copies' identities by the
+reader (task #315 L-B — the definition is private to this module, so
+the identity travels as a lemma). -/
+theorem pinAtE_eq (st : ElimState) (q : Nat) : pinAtE st q = st.pins.getD q default := by rfl
+
 /-- The copy minted for pin `q` (total). -/
 def copyAtE (st : ElimState) (p : NestedParts) (q : Nat) : ConLeche.AuxType :=
   st.types.getD (p.k + q) default
