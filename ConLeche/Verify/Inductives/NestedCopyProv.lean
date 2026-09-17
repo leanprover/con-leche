@@ -121,7 +121,16 @@ private def CopyHead (env : Env) (pbs₀ : List (Expr × BinderMeta)) (names : L
 /-- **The worklist's record at one type**: every stored constructor is
 the `mkCopy` constructor at the same position, its parameter prefix
 opened at the block's parameters, its residual replaced at states whose
-pins and type names sit inside `stF`'s. -/
+pins and type names sit inside `stF`'s.
+
+The last clause is the one the copies' reading needs (task #315 L-B):
+the occurrence test's mint verdict holds already **at the state the
+constructor's own rewrite starts from** — the copy was minted before
+the worklist reached it, so its components mention a type of the
+growing list already there, and `replaceAllNested_occurrence` may be
+applied to the run this record hands over.  It is keyed on `t.src`,
+which no step of the worklist changes, so no two mint records have to
+be matched up. -/
 private def CtorsDone (env : Env) (blvls : List Level) (nP : Nat) (params : List Expr)
     (pbs₀ : List (Expr × BinderMeta)) (stF : ElimState) (t c : AuxType) : Prop :=
   ∀ (j : Nat) (cj : Name × Expr × Nat), t.ctors[j]? = some cj →
@@ -132,7 +141,9 @@ private def CtorsDone (env : Env) (blvls : List Level) (nP : Nat) (params : List
       replaceAllNested env blvls params pbs₀ st₁ cbody = .ok (cbody', st₂) ∧
       cj = (c₀.1, closeTelescope pbs 0 cbody', c₀.2.2) ∧
       st₁.pins <+: st₂.pins ∧ st₂.pins <+: stF.pins ∧
-      st₁.types.map (·.name) <+: stF.types.map (·.name)
+      st₁.types.map (·.name) <+: stF.types.map (·.name) ∧
+      ∀ (Jn : Name) (lvls : List Level) (Ds : List Expr), t.src = some (Jn, lvls, Ds) →
+        (Ds.any fun a => st₁.newNames.any fun T => a.mentionsConst T) = true
 
 /-- **What a step of the elimination does to the state**: the pins and
 the type names only grow, every type stays where it was, and everything
@@ -164,9 +175,10 @@ private theorem cpDone_mono {env : Env} {blvls : List Level} {nP : Nat} {params 
     (h : CtorsDone env blvls nP params pbs₀ stF t c) :
     CtorsDone env blvls nP params pbs₀ stF' t c := by
   intro j cj hj
-  obtain ⟨c₀, pbs, rest, cbody, cbody', st₁, st₂, h₁, h₂, h₃, h₄, h₅, h₆, h₇, h₈⟩ := h j cj hj
+  obtain ⟨c₀, pbs, rest, cbody, cbody', st₁, st₂, h₁, h₂, h₃, h₄, h₅, h₆, h₇, h₈, h₉⟩ :=
+    h j cj hj
   exact ⟨c₀, pbs, rest, cbody, cbody', st₁, st₂, h₁, h₂, h₃, h₄, h₅, h₆,
-    h₇.trans hp, h₈.trans hn⟩
+    h₇.trans hp, h₈.trans hn, h₉⟩
 
 /-- A state is a step of itself. -/
 private theorem cpStep_refl {env : Env} {pbs₀ : List (Expr × BinderMeta)} (st : ElimState) :
@@ -517,7 +529,8 @@ private theorem cpElimCtors_ctor {env : Env} {blvls : List Level} {nP : Nat}
           replaceAllNested env blvls params pbs₀ stA cbody = .ok (cbody', stB) ∧
           cj = (c₀.1, closeTelescope pbs 0 cbody', c₀.2.2) ∧
           stA.pins <+: stB.pins ∧ stB.pins <+: st'.pins ∧
-          stA.types.map (·.name) <+: st'.types.map (·.name)
+          stA.types.map (·.name) <+: st'.types.map (·.name) ∧
+          st.types.map (·.name) <+: stA.types.map (·.name)
   | [], st, st', cs', h, j, cj, hj => by
     simp only [elimCtors, pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
     obtain ⟨rfl, -⟩ := h
@@ -540,10 +553,14 @@ private theorem cpElimCtors_ctor {env : Env} {blvls : List Level} {nP : Nat}
           subst hj
           refine ⟨(c, cty, nF), pbs, restT, cbody, cbody', st, st₁, rfl, hstrip, hinst,
             h₁, rfl, (cpReplaceAllNested_step _ h₁).1, (cpElimCtors_step h₂).1,
-            ((cpReplaceAllNested_step _ h₁).2.1).trans (cpElimCtors_step h₂).2.1⟩
+            ((cpReplaceAllNested_step _ h₁).2.1).trans (cpElimCtors_step h₂).2.1,
+            List.prefix_refl _⟩
         | succ j' =>
           simp only [List.getElem?_cons_succ] at hj
-          exact cpElimCtors_ctor h₂ j' cj hj
+          obtain ⟨c₀, pbs', rest', cbody₂, cbody₂', stA, stB, e₁, e₂, e₃, e₄, e₅, e₆, e₇, e₈,
+            e₉⟩ := cpElimCtors_ctor h₂ j' cj hj
+          exact ⟨c₀, pbs', rest', cbody₂, cbody₂', stA, stB, e₁, e₂, e₃, e₄, e₅, e₆, e₇, e₈,
+            ((cpReplaceAllNested_step _ h₁).2.1).trans e₉⟩
       · close_throw
     · close_throw
 
@@ -652,12 +669,22 @@ private theorem cpElimLoop_inv {env : Env} {blvls : List Level} {nP : Nat}
             simp only [ElimState.newNames, hnames]
             exact hc
           · intro _hlt j cj hj
-            obtain ⟨c₀, pbs, rest, cbody, cbody', stA, stB, h₁, h₂, h₃, h₄, h₅, h₆, h₇, h₈⟩ :=
-              cpElimCtors_ctor heq j cj hj
-            refine ⟨c₀, pbs, rest, cbody, cbody', stA, stB, ?_, h₂, h₃, h₄, h₅, h₆, h₇, ?_⟩
+            obtain ⟨c₀, pbs, rest, cbody, cbody', stA, stB, h₁, h₂, h₃, h₄, h₅, h₆, h₇, h₈,
+              h₉⟩ := cpElimCtors_ctor heq j cj hj
+            -- the mint verdict at the state the rewrite STARTS from: the
+            -- copy was minted before the worklist reached it
+            obtain ⟨c', hc', -, -⟩ := hinv q tq (by rw [hqe]; exact htq)
+            obtain ⟨I', ci', m', J', lvls', Ds', -, -, hsrc', -, -, -, hany', -⟩ := hc'
+            refine ⟨c₀, pbs, rest, cbody, cbody', stA, stB, ?_, h₂, h₃, h₄, h₅, h₆, h₇, ?_, ?_⟩
             · rw [← hcc]; exact h₁
             · simp only [ElimState.newNames, hnames] at *
               exact h₈
+            · intro Jn lvls Ds hsrc
+              have : (J'.name, lvls', Ds') = (Jn, lvls, Ds) :=
+                Option.some.inj (hsrc'.symm.trans hsrc)
+              obtain ⟨-, -, rfl⟩ : J'.name = Jn ∧ lvls' = lvls ∧ Ds' = Ds := by
+                simpa using this
+              exact cpAny_mono h₉ hany'
         · rw [List.getElem?_set_ne (fun hc => hqe hc.symm)] at hqt
           obtain ⟨c, hc, hdone, hunp⟩ := hinv₁ q t hqt
           refine ⟨c, ?_, ?_, fun hle => hunp (by omega)⟩
@@ -672,6 +699,17 @@ private theorem cpElimLoop_inv {env : Env} {blvls : List Level} {nP : Nat}
 
 /-! ## The elimination -/
 
+/-- **The mint verdict survives a longer name list** — the public twin
+of `cpAny_mono`, for a consumer that carries `elimNested_copyCtors`'
+mint condition to a later state of the same rewrite (the states a
+telescope's per-domain runs start at, `replaceAllNested_mkPisB`). -/
+theorem elimMint_mono {Ds : List Expr} {names names' : List Name}
+    (hn : names <+: names')
+    (h : (Ds.any fun a => names.any fun T => a.mentionsConst T) = true) :
+    (Ds.any fun a => names'.any fun T => a.mentionsConst T) = true :=
+  cpAny_mono hn h
+
+
 /-- **THE PROVENANCE OF A COPY'S STORED CONSTRUCTORS** (task #315):
 every type the elimination appended behind the block's own members is
 the copy of a container member `J` of `I`'s group at the pin `J D⃗` —
@@ -683,7 +721,9 @@ rewritten: the parameter prefix stripped (`pbs`), the residual opened
 at the block's parameters (`instPis … params`), replaced
 (`replaceAllNested`) at a state whose pins and type names sit inside
 the elimination's, and closed again with the constructor's OWN binder
-data. -/
+data.  The run's own state satisfies the mint verdict too (the copy is
+minted before the worklist reaches it), which is what lets a consumer
+apply `replaceAllNested_occurrence` to the run. -/
 theorem elimNested_copyCtors {env : Env} {nP : Nat} {lps : List Name} {types : List AuxType}
     {st : ElimState} (h : elimNested env nP lps types = .ok st) :
     ∃ (t₀ : AuxType) (params : List Expr) (o : Expr) (pbs₀ : List (Expr × BinderMeta))
@@ -707,7 +747,8 @@ theorem elimNested_copyCtors {env : Env} {nP : Nat} {lps : List Name} {types : L
                 = .ok (cbody', st₂) ∧
               cj = (c₀.1, closeTelescope pbs 0 cbody', c₀.2.2) ∧
               st₁.pins <+: st₂.pins ∧ st₂.pins <+: st.pins ∧
-              st₁.types.map (·.name) <+: st.types.map (·.name) := by
+              st₁.types.map (·.name) <+: st.types.map (·.name) ∧
+              (Ds.any fun a => st₁.newNames.any fun T => a.mentionsConst T) = true := by
   unfold elimNested at h
   split at h
   · rename_i t₀ hhead
@@ -726,7 +767,12 @@ theorem elimNested_copyCtors {env : Env} {nP : Nat} {lps : List Name} {types : L
         obtain ⟨c, hhd, hdone⟩ :=
           cpElimLoop_inv (k := types.length) nestedElimFuel 0 h (Nat.zero_le _) hinit q t hqt
         obtain ⟨I, ci, m, J, lvls, Ds, hci, hJ, hsrc, hmk, hty, hlen, hany, hloose⟩ := hhd
-        exact ⟨I, ci, m, J, lvls, Ds, c, hci, hJ, hsrc, hmk, hty, hlen, hany, hloose, hdone⟩
+        refine ⟨I, ci, m, J, lvls, Ds, c, hci, hJ, hsrc, hmk, hty, hlen, hany, hloose, ?_⟩
+        intro j cj hj
+        obtain ⟨c₀, pbs, rest, cbody, cbody', st₁, st₂, h₁, h₂, h₃, h₄, h₅, h₆, h₇, h₈, h₉⟩ :=
+          hdone j cj hj
+        exact ⟨c₀, pbs, rest, cbody, cbody', st₁, st₂, h₁, h₂, h₃, h₄, h₅, h₆, h₇, h₈,
+          h₉ J.name lvls Ds hsrc⟩
       · close_throw
     · close_throw
   · close_throw

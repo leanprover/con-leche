@@ -333,6 +333,34 @@ theorem normFieldDomsM_inv {env : Env} {memberNames : List Name} {F i n : Nat} {
     | close_throw
     | (intro _ _ _ hx; exact Expr.noConfusion hx)
 
+/-- **THE FIELD NORMALISATION OPENS THE TELESCOPE AND LEAVES THE
+RESIDUAL ALONE** (task #315 L-B): `normFieldDomsM` peels exactly `n`
+`∀` binders, opening each at `.fvar i dom` with the binder's OWN
+domain — which is `openPisAtFvars`' opener — so the residual it hands
+back IS the one the opening hands back, untouched, and it returns one
+binder per peel.  This is the fact DESIGN asserts wherever a copy's
+index arguments are read ("the residual is not normalised"): the walk
+descends into field DOMAINS only. -/
+theorem normFieldDomsM_open {env : Env} {memberNames : List Name} {F : Nat} :
+    ∀ {n i : Nat} {e : Expr} {bs : List (Expr × BinderMeta)} {r : Expr},
+      normFieldDomsM (fueledOps mode F) env memberNames i n e = .ok (bs, r) →
+      ∃ fvs : List Expr, openPisAtFvars n e i = some (fvs, r) ∧ bs.length = n := by
+  intro n
+  induction n with
+  | zero =>
+    intro i e bs r h
+    obtain ⟨rfl, rfl⟩ := normFieldDomsM_zero_inv h
+    exact ⟨[], rfl, rfl⟩
+  | succ n ih =>
+    intro i e bs r h
+    obtain ⟨dom, body, bm, dom', bs', rfl, -, hrec, rfl⟩ := normFieldDomsM_inv h
+    obtain ⟨fvs, hop, hlen⟩ := ih hrec
+    refine ⟨Expr.fvar i dom :: fvs, ?_, by simp [hlen]⟩
+    show (match openPisAtFvars n (body.instantiate1 (.fvar i dom)) (i + 1) with
+      | some (fvs, e) => some (Expr.fvar i dom :: fvs, e)
+      | none => none) = _
+    rw [hop]
+
 /-- The normalisation stage stores either the constructor as checked
 or a from-scratch check of the rebuilt constant — in both cases some
 constant with the declared name and level parameters (the fixpoint
