@@ -574,6 +574,28 @@ the B fold, which is not this lane's to spend. -/
       DenoteMetaSpine m.acval env ψ dp es
         (((d.pinAt qK).Ds (Level.substFn ψ cvC.levelParams lvls)).map (AnnotTerm.instAll Ds 0))
 
+/-- **THE CLAUSE AT A PINS-FREE BLOCK, AGAINST K.43's `_inv`** (task
+#315 M7-3 session 13, DESIGN §U.69 (b)): a block model with no pins
+carries `ContainerOwnPins` as soon as the container's own-pin table is
+EMPTY at the environment the record is stated over — which is exactly
+what the queued kernel record `blockOwnMimicsOk` (K.43, `n := 0` at the
+native and mutual routes) certifies, through the Verify bridge its plan
+names ("`containerOwnPinsAt envOut C lvls Ds = some []`").
+
+§U.66 (a) found the emptiness NOT derivable in the model tier:
+`containerOwnPinsAtGo` looks up `Name.appendIndexAfter (C.str "rec") 1`
+and only a nested block whose FIRST former is `C` can put a `.recInfo`
+there, so excluding it is an environment-history invariant no record
+carries.  This theorem is the whole model-side consequence, so the
+wiring when K.43 lands is one line per route. -/
+theorem ContainerOwnPins.of_noOwn {env : Env} {m : EnvModel V env} {d : BlockModel V}
+    (hempty : ∀ (i : Nat) (lvls : List Level) (DsE ps : List Expr), i < d.k →
+      ConLeche.containerOwnPinsAt env (d.memberName i) lvls DsE = some ps → ps = []) :
+    ContainerOwnPins m d := by
+  intro i _cvC _caps lvls DsE ps _Ds _ψ _dp hi _ hps _ e he
+  rw [hempty i lvls DsE ps hi hps] at he
+  exact nomatch he
+
 /-- **THE BRIDGE, CONSUMED** (task #315 M7-3 session 13, DESIGN §U.69
 (c)): the block's pin `q`, whose recorded TERM K.41 puts among the root
 container's own pins at the root pin's level arguments and components,
