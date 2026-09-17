@@ -83106,6 +83106,110 @@ no-local-paths OK; overview-links 112; quote-gate 2; proofdeps 4955
 rows / 12 roots / **0 doors**.
 
 
+##### (ggg) CONTINUATION 18 (lane session 18) — the generalisation VALIDATED at the nested data: `RecRuleLaw` modulo the major alone
+
+Base: this lane's a36c9a28.  No checker code changed; no `sorry`, no
+axioms, no `maxHeartbeats`; `#print axioms` of every new theorem is
+`[propext, Classical.choice, Quot.sound]`.
+
+*The arm's `hspine`, split off* (3d80056d).  `blockRecRuleLawG` asks an
+arm for the recursor's spine as a `SpineFit` and inverts it ITSELF
+(`spineFit_recData_inv` is inside the core), but session 16's
+`recSpine` returned the inversion — so the arm could not hand it over.
+`NestedTailIn.recSpineFit` is the fit (the restored reading crossed to
+the scratch tower by the transfer) and is `hspine` verbatim;
+`recSpine` stays as its one-line corollary.  *A generalisation's
+hypothesis and its arm's existing lemma must be cut at the same
+place; ours were one inversion apart.*
+
+*The instantiation* (4d48008d).  `NestedTailIn.recRuleLawOf`:
+`blockRecRuleLawG` at the nested data, discharging THREE of the four
+obligations from what is in the tree —
+
+* the LEAF is `nestedRecLeaf`: closed (`nestedRecLeaf_below`), typed at
+  the SCRATCH readings (the two Π-towers are ONE SET, `towerAgree`),
+  and its tuple satisfies the scratch equations (`NestedRecTuple` —
+  which is exactly why (yy) had to NAME them);
+* the SPINE is `recSpineFit`;
+* the RIGHT-HAND SIDE is `ruleVal`,
+
+together with the block's readings, typings, validity and fibre
+(`NestedScratchOut`), the readings' level invariance
+(`MutualRecData.params` at the recursors' own level parameters) and
+the argument sums (`recArgSums`, which IS `rP ≤ mI`).
+
+**So the generalisation is validated against the nested data**: what is
+left of the fired equality is the fourth obligation — the MAJOR — as
+the hypothesis `hmajor`, with the mimic's outer `vpa` conjunct `hvpa`,
+and no plumbing.
+
+##### (hhh) FINDING — the member arm's major needs a CONSTRUCTOR-telescope transfer
+
+The member's major was sized ½–¾ on the assumption that its decode is
+`IsBlockModel.ctor` at a crossed value.  It is not quite: `ctor`
+(`BlockRep.lean:700`) asks for the fields at the SCRATCH telescope,
+`SpineFit (consList as ρ) ((d.Fss mm' ψ).getD j []) fs`, while the
+restored constructor's `ys` fits the RESTORED one (`dsR mm j`).  Those
+two telescopes agree on the parameter prefix and at every NON-nested
+field (`NestedStageFacts.domFacts`) and differ exactly where a field
+mentions a container: there the restored domain is the CONTAINER's
+type and the copy's is the COPY's, one set at every graded frame by
+the pin identity.
+
+The position-by-position agreement is already proved — the big lemma
+in `NestedCtorRead.lean` whose conclusion is
+`interp (consList fs₁ ρ) ((dsF …).getD (b.nP + l) default).2.2
+= interp (consList fs₁ ρ) ((dsR mm j ψ).getD (b.nP + l) default).2.2`
+— so what the arm needs is that agreement fed to `spineFit_iff_agree`,
+i.e. the CONSTRUCTOR analogue of `spineFit_transfer`.  *Session 17's
+note that the fibre's converse recovers the fields' fit is about the
+CORE not needing `hmajor` to return it; `hmajor` still needs a fit
+internally to reach the injection.*  **Re-size: the member's major is
+¾–1, not ½–¾**, the extra being that transfer.
+
+##### (iii) WHAT THE FIRED EQUALITY STILL OWES
+
+1. `hmajor` at a MEMBER: the value crossing `mpP → mp₂ → mpA`
+   (`RestoreAgree.leafSome` — a member's own constructor is no
+   `ctorPins` key — and `hagA`) and the constructor-telescope transfer
+   of (hhh) — **¾–1**;
+2. `hmajor` at a MIMIC and `hvpa`: `ctorArm`'s last clause IS the
+   identification, its `Ds` pinned by the comparands clause `hmajor`
+   already receives; `hvpa` is `nestedFireShape_inv` +
+   `nt_denoteMeta_restoredPin` — **¾–1**;
+3. `RecRules` over the stored rules (`restoreRules_at` for the row,
+   `recRuleLawOf` per rule) — **¼**.
+
+##### (jjj) K.43, and the residue of item 5
+
+**K.43 unchanged**: `restoreAgreeP`'s `hauxNe`, ONE rewrite at ONE site.
+
+Left of item 5, in order:
+
+1. the two `hmajor`s, `hvpa` and `RecRules` ((iii)) — **1¾–2¼**;
+2. the store swap, its five missing Verify twins and the free
+   `PinRecLaws.crossEnv` — **1½**;
+3. the tables' twin and §U.36 (d)'s `EnvModelB` supply — **1–1½**.
+
+**Item 5 from here: 4¼–5¼ sessions** — unchanged from session 17: the
+instantiation came in under its ½ and paid for (hhh)'s quarter.
+
+##### (kkk) FILES AND GATES (session 18's HEAD)
+
+Touched: `ConLeche/Model/Inductives/NestedRecRule.lean` (1933 → 2138).
+No other file, no allowlist line, no `scripts/pub-import-plan.py`
+entry, no new import.
+
+`lake build` 715 jobs warning-free EXIT 0; `lake test` warning-free
+EXIT 0; shake 512 removals all allowlisted / pub-imports 1314 of 2137
+public, none demotable (45 dot-notation fallbacks); layering base 351 /
+model 281 / caps 3 / umbrella 1, 0 base→lane, 0 impl→theory (the base
+clause is vacuous, §U.29 (mm), and a separate lane off master owns the
+fix); trust surface 13 escapes in 5 allowlisted files (647 scanned);
+no-local-paths OK; overview-links 112; quote-gate 2; proofdeps 4955
+rows / 12 roots / **0 doors**.
+
+
 #### U.30 — L-B session 2: `CopyCtorInst.ordF` at the READING, the normalisation's reading law PROVED, `ContainerModeled`'s three clauses (lane L-B, 2026-09-16)
 
 Three maintainer rulings opened this session; the first two are landed,
