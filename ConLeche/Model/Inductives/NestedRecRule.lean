@@ -1950,6 +1950,202 @@ theorem NestedTailIn.ruleIota {mpA : EnvModelM V μ ENVA} {cvRas : List Constant
       (heqs _ ((DA).mem_specEqs_of (m := mpA.base2) (ψ := restrictΨ b.rlps ψ) hc hj)) xs hsp
 
 
+/-! ## The major at a MEMBER arm (item 5 step 2e, `hmajor`'s first instance) -/
+
+/-- **THE MAJOR AT A MEMBER ARM** — `blockRecRuleLawG`'s fourth
+obligation at a rule of a MEMBER's recursor, whose constructor is the
+declaration's own.  The decode is the NESTED block model's
+`IsBlockModel.ctor`, not the scratch one's: `(D)`'s constructor
+telescope is the RESTORED domain list (`IsBlockModel.Fss_getD` at
+`(D).dsF = dsR`), which is exactly what the major's arguments fit,
+while the two block models' injections are ONE function —
+`BlockModel.ofNested` and `BlockModel.ofMutual` both inject at the
+block's own sort, so `(D).inj ψ c i fs` and `(DA).inj ψ c i fs` are the
+same term.  *This is why §U.29 (hhh)'s constructor-telescope transfer
+is NOT needed: the position-by-position agreement it would have fed to
+`spineFit_iff_agree` is already inside `(D)`'s own representation
+(`nestedCoreModeled_of` spent it there).*
+
+Everything else is `blockRecRuleLaw`'s own argument at the nested
+data: the value crosses `mpP → mp₂` off the restored recursors' names
+(`hagR` at `recCvDoor` — a constructor of the block is stored where a
+restored recursor is fresh), the two level assignments agree on the
+constructor's parameters (`substFn_agree_of_comparand` at the
+comparands clause, `b.lps ⊆ b.rlps`), and the constructor type's
+reading crosses the provision (`provCross`). -/
+theorem NestedTailIn.memberMajor
+    {mpP : EnvModelM V μ
+      (ConLeche.provisionNestedRecs (nestedProvList p stored cvRms cvRns) ENV2)}
+    (hndR : (cvRms.map (·.name) ++ cvRns.map (·.name)).Nodup)
+    (hagR : ∀ nm : Name, (∀ c, c < (D).kT → nm ≠ (nestedRecCvAt p.k cvRms cvRns c).name) →
+      mpP.base2.acval nm = mp₂.base2.acval nm)
+    {c : Nat} (hc : c < p.k) {i : Nat} {cA : ConstantVal × Nat}
+    (hi : ((DA).ctorsM c)[i]? = some cA)
+    {o : RecRule} (hfire : o.fire = .plain) (hctor : o.ctor = cA.1.name)
+    (hnf : o.nfields = cA.2)
+    (hcp : ∃ (cv : ConstantVal) (cnF : Nat),
+      (ConLeche.provisionNestedRecs (nestedProvList p stored cvRms cvRns) (ENV2)).find? o.ctor
+        = some (.ctorInfo cv o.ctorParams cnF))
+    {mI rP : Nat} (φ : Name → Nat) :
+    ∀ (us : List Level), us.length = (nestedRecCvAt p.k cvRms cvRns c).levelParams.length →
+      ∀ (cvj : ConstantVal) (cnP cnF : Nat),
+        (ConLeche.provisionNestedRecs (nestedProvList p stored cvRms cvRns) (ENV2)).find?
+          (RecRule.ctor o) = some (.ctorInfo cvj cnP cnF) →
+      ∀ (usj : List Level) (ρ : Nat → V) (xs ys : List AnnotTerm)
+        (TVa TVja restC : AnnotTerm),
+        xs.length = mI →
+        ys.length = RecRule.ctorParams o + RecRule.nfields o →
+        usj.length = cvj.levelParams.length →
+        Level.substFn φ cvj.levelParams usj
+          = Level.substFn φ cvj.levelParams
+              (ConLeche.recFireComparands o (nestedRecCvAt p.k cvRms cvRns c).levelParams us
+                cvj.levelParams [] rP).1 →
+        (∀ lvls pins, RecRule.fire o = .nested lvls pins →
+          ∀ ii, ii < RecRule.ctorParams o →
+          ∀ vpa : AnnotTerm,
+            denoteMeta mpP.base2.acval
+              (ConLeche.provisionNestedRecs (nestedProvList p stored cvRms cvRns) (ENV2)) φ rP
+              (ConLeche.Verify.openRev 0 rP
+                ((pins.getD ii default).instantiateLevelParams
+                  (nestedRecCvAt p.k cvRms cvRns c).levelParams us)) = some vpa →
+            interp V ρ (ys.getD ii default)
+              = interp V ρ (ConLeche.Model.AnnotTerm.instRevChain (xs.take rP) vpa)) →
+        IotaIndexPin (V := V) ρ restC (RecRule.ctorParams o) mI rP xs →
+        denoteMeta mpP.base2.acval
+          (ConLeche.provisionNestedRecs (nestedProvList p stored cvRms cvRns) (ENV2)) φ 0
+          ((nestedRecCvAt p.k cvRms cvRns c).type.instantiateLevelParams
+            (nestedRecCvAt p.k cvRms cvRns c).levelParams us) = some TVa →
+        denoteMeta mpP.base2.acval
+          (ConLeche.provisionNestedRecs (nestedProvList p stored cvRms cvRns) (ENV2)) φ 0
+          (cvj.type.instantiateLevelParams cvj.levelParams usj) = some TVja →
+        TeleFitPA V ρ TVja ys restC →
+        ∀ ps : List V,
+          SpineFit ρ ((DA).params (restrictΨ b.rlps
+            (Level.substFn φ (nestedRecCvAt p.k cvRms cvRns c).levelParams us))) ps →
+          ∃ fsY : List V, fsY.length = cA.2 ∧
+            (ys.map (interp V ρ)).drop (RecRule.ctorParams o) = fsY ∧
+            interp V ρ (AnnotTerm.mkAppN (mpP.base2.acval (RecRule.ctor o)
+                (Level.substFn φ cvj.levelParams usj)) ys)
+              = (DA).inj (restrictΨ b.rlps
+                  (Level.substFn φ (nestedRecCvAt p.k cvRms cvRns c).levelParams us)) c i fsY := by
+  intro us hus cvj cnP cnF hfcj usj ρ xs ys TVa TVja restC _ hyl husjl hψ _ _ _ hTVja hfitC ps _
+  -- **the restored constructor** at member `c`, position `i`
+  have hcD : c < (D).k := hc
+  have hgrouped := I.out.grouped
+  have hlenA := I.out.facts.lenA
+  obtain ⟨-, hiA, -⟩ := mutualBlockModel_ctorsM_get hgrouped hlenA hi
+  have hlenOwn : ((DA).ctorsM c).length = (b.ownCtors c).length := by
+    show ((b.ownCtors c).map fun q => ctorsA.getD q.1 default).length = _
+    simp
+  have hiOwn : i < (b.ownCtors c).length := by
+    rw [← hlenOwn]; exact (List.getElem?_eq_some_iff.mp hi).1
+  have hjR : i < (ctorsR.getD c []).length := by
+    rw [I.out.stage.ctorsLen c hc]
+    exact hiOwn
+  obtain ⟨c₀, hc₀⟩ : ∃ c₀, (ctorsR.getD c [])[i]? = some c₀ := ⟨_, List.getElem?_eq_getElem hjR⟩
+  obtain ⟨cA', hcA', hnF', -, -, hBF⟩ := I.out.stage.ctorFacts c i c₀ hc hc₀
+  have hcAeq : cA' = cA := Option.some.inj (hcA'.symm.trans hiA)
+  have hnF₀ : c₀.2.2 = cA.2 := by rw [hnF', hcAeq]
+  obtain ⟨cA'', hcA'', hnmR⟩ := I.ctorsRName (I.ctorsRget hc) hc₀
+  have hnmC : c₀.1.name = cA.1.name := by
+    rw [hnmR, Option.some.inj (hcA''.symm.trans hiA)]
+  have hjD : ((D).ctorsM c)[i]? = some (c₀.1, c₀.2.2) := by
+    show ((ctorsR.getD c []).map fun cc => (cc.1, cc.2.2))[i]? = _
+    rw [List.getElem?_map, hc₀]
+    rfl
+  have hfC₀ : (ENV2).find? c₀.1.name = some (.ctorInfo c₀.1 b.nP c₀.2.2) := hBF.1
+  have hlpsC : c₀.1.levelParams = b.lps := hBF.2.1
+  have hname : RecRule.ctor o = c₀.1.name := by rw [hctor, hnmC]
+  -- **the constructor is found across the provision**, and fixes `cvj`, `cnP` and `o.ctorParams`
+  have hfindP : (ConLeche.provisionNestedRecs (nestedProvList p stored cvRms cvRns) (ENV2)).find?
+      c₀.1.name = some (.ctorInfo c₀.1 b.nP c₀.2.2) := by
+    refine (ConLeche.provisionNestedRecs_find?_of_ne (fun x hx hxn => ?_)).trans hfC₀
+    have hfresh := I.provListFresh x hx
+    rw [← hxn, hfC₀] at hfresh
+    exact nomatch hfresh
+  rw [hname, hfindP] at hfcj
+  obtain ⟨rfl, rfl, rfl⟩ := ConstantInfo.ctorInfo.inj (Option.some.inj hfcj.symm)
+  obtain ⟨cv', cnF', hcp'⟩ := hcp
+  rw [hname, hfindP] at hcp'
+  obtain ⟨-, hnP', -⟩ := ConstantInfo.ctorInfo.inj (Option.some.inj hcp'.symm)
+  -- **the block model's representation** at member `c`
+  obtain ⟨cvT, cvR, mI', rP', rules, h⟩ := I.out.reps c hcD
+  have hcd := h.ctorData hjD
+  have hk : 0 < (D).k := by omega
+  -- the level assignments agree on the constructor's parameters
+  have hagree : ∀ q ∈ c₀.1.levelParams,
+      Level.substFn φ c₀.1.levelParams usj q
+        = Level.substFn φ (nestedRecCvAt p.k cvRms cvRns c).levelParams us q := by
+    have h' := hψ
+    simp only [ConLeche.recFireComparands, hfire] at h'
+    exact substFn_agree_of_comparand h'
+  have hCψ : ∀ q ∈ c₀.1.levelParams, Level.substFn φ c₀.1.levelParams usj q
+      = restrictΨ b.rlps
+        (Level.substFn φ (nestedRecCvAt p.k cvRms cvRns c).levelParams us) q := fun q hq =>
+    (hagree q hq).trans (restrictΨ_agree b.rlps _ q
+      (MutualBlock.mem_rlps_of_mem_lps b (by rw [← hlpsC]; exact hq))).symm
+  have hpl := I.out.reps.params_length hk (restrictΨ b.rlps
+    (Level.substFn φ (nestedRecCvAt p.k cvRms cvRns c).levelParams us))
+  generalize hψ'0 : restrictΨ b.rlps
+    (Level.substFn φ (nestedRecCvAt p.k cvRms cvRns c).levelParams us) = ψ' at hCψ hpl ⊢
+  generalize hψC : Level.substFn φ c₀.1.levelParams usj = ψC at hCψ hTVja hfitC ⊢
+  have hdsEq : (D).dsF c i ψC = (D).dsF c i ψ' := (hcd.params ψC ψ' hCψ).1
+  have hesEq : (D).esF c i ψC = (D).esF c i ψ' := (hcd.params ψC ψ' hCψ).2
+  -- **the value crosses** `mpP → mp₂`, then the level assignments
+  have hoff : ∀ c' : Nat, c' < (D).kT → c₀.1.name ≠ (nestedRecCvAt p.k cvRms cvRns c').name := by
+    intro c' hc' he
+    have hd := (I.recCvDoor (by rw [← I.kT]; exact hc')).1
+    rw [← he, hfC₀] at hd
+    exact nomatch hd
+  have hCac : mpP.base2.acval c₀.1.name ψC = mp₂.base2.acval c₀.1.name ψ' := by
+    rw [congrFun (hagR c₀.1.name hoff) ψC]
+    exact mp₂.base2.acval_params _ _ hfC₀ ψC ψ' hCψ
+  -- **the constructor type's reading**, and the spine it fits
+  have hTVja' : TVja = mkPisAV ((D).dsF c i ψ')
+      (ctorBodyAVI mp₂.base2 ((D).memberName c) (D).nP c₀.2.2 ψC ((D).esF c i ψ')) := by
+    have h' := hTVja
+    rw [denoteMeta_instLevels (acvalParamsAt_of_core mpP.base2) φ 0 c₀.1.type, hψC] at h'
+    rw [Option.some.inj (h'.symm.trans (I.provCross hndR hagR ψC 0 c₀.1.type (hcd.read ψC))),
+      hdsEq, hesEq]
+  have hstC := stripPisAV_mkPisAV ((D).dsF c i ψ')
+    (ctorBodyAVI mp₂.base2 ((D).memberName c) (D).nP c₀.2.2 ψC ((D).esF c i ψ'))
+  rw [hcd.len ψ'] at hstC
+  have hteleC := piTeleAV_of_stripPisAV hstC
+  have hylD : ys.length = (D).nP + c₀.2.2 := by
+    rw [hyl, hnf, hnF₀, hnP', nestedBlockModel_nP]
+  have hspC : SpineFit ρ (((D).dsF c i ψ').map (·.2.2)) (ys.map (interp V ρ)) := by
+    have hfit := hfitC
+    rw [hTVja'] at hfit
+    have hchain := teleFitPA_to_chain ((D).nP + c₀.2.2) hteleC (by simpa using hylD) hfit
+    refine spineFit_of_chain (by simp [hylD, hcd.len ψ']) ?_
+    intro q hq
+    have := hchain q (by simpa [hcd.len ψ'] using hq)
+    simpa [hcd.len ψ'] using this
+  have hdsSplit : ((D).dsF c i ψ').map (·.2.2)
+      = (((D).dsF c i ψ').take (D).nP).map (·.2.2) ++ (((D).dsF c i ψ').drop (D).nP).map (·.2.2) := by
+    rw [← List.map_append, List.take_append_drop]
+  rw [hdsSplit] at hspC
+  obtain ⟨psY, fsY, hys, hspY₁, hspY₂⟩ := spineFit_append_inv hspC
+  have hlenPY : psY.length = (D).nP := by
+    rw [hspY₁.length_eq, List.length_map, List.length_take, hcd.len ψ']
+    exact Nat.min_eq_left (Nat.le_add_right _ _)
+  have hlenFY : fsY.length = cA.2 := by
+    rw [hspY₂.length_eq, List.length_map, List.length_drop, hcd.len ψ', ← hnF₀]
+    omega
+  have hpsY : SpineFit ρ ((D).params ψ') psY := by
+    have hsat := sat_of_spineFit (Sat_nil V ρ) hspY₁
+    rw [List.append_nil] at hsat
+    exact spineFit_of_sat_len (by rw [hlenPY, hpl])
+      ((h.paramsIff c i (c₀.1, c₀.2.2) hcD hjD ψ' _).mpr hsat)
+  have hfsY : SpineFit (consList psY ρ) (((D).Fss c ψ').getD i []) fsY := by
+    rw [IsBlockModel.Fss_getD hjD]; exact hspY₂
+  refine ⟨fsY, hlenFY, ?_, ?_⟩
+  · rw [hys, hnP']
+    exact List.drop_left' (by rw [hlenPY]; exact nestedBlockModel_nP)
+  · rw [interp_mkAppN, ← List.foldl_map (f := interp V ρ) (g := SetTheory.app), hys, hname, hCac]
+    exact h.ctor c i (c₀.1, c₀.2.2) hcD hjD ψ' ρ psY fsY hpsY hfsY
+
+
 /-! ## The rule law at the nested block (item 5 step 2e, the instantiation) -/
 
 /-- **THE RULE LAW AT A RESTORED RULE** — `blockRecRuleLawG` at the
