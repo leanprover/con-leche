@@ -101,9 +101,12 @@ theorem AuxAppsOk.forallE_inv {R : RestoreTbl} {lps : List Name} {arityOf : Name
   | forallE h1 h2 =>
     obtain ⟨rfl, rfl, rfl⟩ := Expr.forallE.inj hE
     exact ⟨h1, h2⟩
-  | const _ _ => exact nomatch hE
+  | letE _ _ _ => exact nomatch hE
+  | proj _ => exact nomatch hE
+  | const _ => exact nomatch hE
   | bvar => exact nomatch hE
   | sort => exact nomatch hE
+  | lit => exact nomatch hE
   | fvar => exact nomatch hE
 
 /-- **The shape at a binder of a `∀`-telescope**: the body's shape at

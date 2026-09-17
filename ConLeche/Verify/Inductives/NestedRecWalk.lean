@@ -56,6 +56,20 @@ theorem Expr.mentionsConst_lam_false {n : Name} {ty b : Expr} {bm : BinderMeta}
     ty.mentionsConst n = false ∧ b.mentionsConst n = false := by
   simpa only [Expr.mentionsConst, Bool.or_eq_false_iff] using h
 
+/-- A `let` mentions a constant exactly when one of its three parts
+does. -/
+theorem Expr.mentionsConst_letE_false {n : Name} {ty v b : Expr}
+    (h : (Expr.letE ty v b).mentionsConst n = false) :
+    ty.mentionsConst n = false ∧ v.mentionsConst n = false ∧ b.mentionsConst n = false := by
+  simpa only [Expr.mentionsConst, Bool.or_eq_false_iff, and_assoc] using h
+
+/-- A projection mentions a constant exactly when its subject does (the
+structure name is not a constant occurrence the walk follows). -/
+theorem Expr.mentionsConst_proj_false {n : Name} {sn : Name} {i : Nat} {x : Expr}
+    (h : (Expr.proj sn i x).mentionsConst n = false) : x.mentionsConst n = false :=
+  (by simpa only [Expr.mentionsConst, Bool.or_eq_false_iff] using h :
+    _ = false ∧ x.mentionsConst n = false).2
+
 /-- An application mentions a constant exactly when one of its two
 parts does. -/
 theorem Expr.mentionsConst_app_false {n : Name} {f a : Expr}
@@ -77,9 +91,18 @@ parameter prefix, every application headed by a key `n` has exactly
 `R.nP + ar` arguments (`arityOf n = some ar`), its first `R.nP` the
 parameter variables `structPsAt d R.nP`, its level arguments
 `lps.map .param`, and the remaining arguments satisfy the shape; every
-other node is structural (`d + 1` under a binder), a constant is not a
-key unless applied (a `recMap` key or a non-auxiliary name), and there is
-no `letE`, `proj` or literal (the generators produce none). -/
+other node is structural (`d + 1` under a binder, and `letE`/`proj`
+descend exactly as the walk does), a constant is not a key unless
+applied, and a literal is inert.
+
+**Weakened to the kernel's own Bool** (task #315, DESIGN §U.29 (q)):
+`nestedAuxAppsOk`'s `auxAppsOk` descends into a `.letE`/`.proj` and
+passes a `.lit`, and imposes nothing at a non-key constant, so those
+three cases are HERE and the `const` case carries the key test alone —
+otherwise the record could not discharge its own model face.  The
+readings' congruences pay for them with `RestoreAgree.projEq`/`.litEq`
+(the two environments answer alike at a projection table entry and at a
+literal) and with `denoteMeta`'s own `none` at a `letE`. -/
 inductive AuxAppsOk (R : RestoreTbl) (lps : List Name) (arityOf : Name → Option Nat) :
     Nat → Expr → Prop
   | key {d : Nat} {n : Name} {args : List Expr} {ar : Nat} :
@@ -97,11 +120,17 @@ inductive AuxAppsOk (R : RestoreTbl) (lps : List Name) (arityOf : Name → Optio
   | forallE {d : Nat} {ty b : Expr} {bm : BinderMeta} :
       AuxAppsOk R lps arityOf d ty → AuxAppsOk R lps arityOf (d + 1) b →
       AuxAppsOk R lps arityOf d (.forallE ty b bm)
+  | letE {d : Nat} {ty v b : Expr} :
+      AuxAppsOk R lps arityOf d ty → AuxAppsOk R lps arityOf d v →
+      AuxAppsOk R lps arityOf (d + 1) b →
+      AuxAppsOk R lps arityOf d (.letE ty v b)
+  | proj {d : Nat} {sn : Name} {i : Nat} {x : Expr} :
+      AuxAppsOk R lps arityOf d x → AuxAppsOk R lps arityOf d (.proj sn i x)
   | const {d : Nat} {n : Name} {us : List Level} :
-      ¬ R.IsKey n → (n ∉ R.auxNames ∨ (R.recMap.lookup n).isSome = true) →
-      AuxAppsOk R lps arityOf d (.const n us)
+      ¬ R.IsKey n → AuxAppsOk R lps arityOf d (.const n us)
   | bvar {d i : Nat} : AuxAppsOk R lps arityOf d (.bvar i)
   | sort {d : Nat} {u : Level} : AuxAppsOk R lps arityOf d (.sort u)
+  | lit {d : Nat} {l : Literal} : AuxAppsOk R lps arityOf d (.lit l)
   | fvar {d i : Nat} {ty : Expr} : AuxAppsOk R lps arityOf d (.fvar i ty)
 
 /-! ## The walk's inversions -/
@@ -229,6 +258,85 @@ theorem restoreWalk_ctorPin {R : RestoreTbl} {d : Nat} {n : Name} {us : List Lev
       simp only [restoreNode, hfn, hargs, hp, hc, if_neg (Nat.not_lt.mpr hlen), hhead]
   rw [restoreWalk.eq_def]
   simp only [hment, Bool.not_true, Bool.false_eq_true, if_false, hnode]
+
+/-! ## The walk at the three nodes the shape now admits -/
+
+/-- The node step declines at a `let`. -/
+theorem restoreNode_letE {R : RestoreTbl} {d : Nat} {ty v b : Expr} :
+    restoreNode R d (.letE ty v b) = .ok none := rfl
+
+/-- The node step declines at a projection. -/
+theorem restoreNode_proj {R : RestoreTbl} {d : Nat} {sn : Name} {i : Nat} {x : Expr} :
+    restoreNode R d (.proj sn i x) = .ok none := rfl
+
+/-- **The walk at a bare constant that is no key and no `recMap`
+entry**: it is its own restoration.  (`restoreWalk_const_free` is the
+case outside `auxNames`; this is the remaining one, where the node step
+declines at both pin maps and the recursor map and the fallthrough
+returns the term.) -/
+theorem restoreWalk_const_nonkey {R : RestoreTbl} {d : Nat} {n : Name} {us : List Level}
+    (hkey : ¬ R.IsKey n) (hrec : R.recMap.lookup n = none) :
+    restoreWalk R d (.const n us) = .ok (.const n us) := by
+  have hp : R.pins.lookup n = none := by
+    cases hl : R.pins.lookup n with
+    | none => rfl
+    | some pin => exact absurd (Or.inl (by rw [hl]; rfl)) hkey
+  have hc : R.ctorPins.find? (fun q => q.1 == n) = none := by
+    cases hl : R.ctorPins.find? (fun q => q.1 == n) with
+    | none => rfl
+    | some q => exact absurd (Or.inr (by rw [hl]; rfl)) hkey
+  have hnode : restoreNode R d (.const n us) = .ok none := by
+    simp only [restoreNode, hrec, Expr.getAppFn, hp, hc]
+  rcases Bool.eq_false_or_eq_true
+      (R.auxNames.any fun m => (Expr.const n us).mentionsConst m) with hm | hm
+  · rw [restoreWalk.eq_def]
+    simp only [hm, Bool.not_true, Bool.false_eq_true, if_false, hnode]
+  · exact restoreWalk_of_no_aux _ _ (fun m hmm => auxNames_mention_false hm m hmm)
+
+/-- **The `let` node, inverted**: the walk is componentwise, the body at
+`d + 1` (`restoreWalk_lam_inv`'s twin). -/
+theorem restoreWalk_letE_inv {R : RestoreTbl} {d : Nat} {ty v b e' : Expr}
+    (h : restoreWalk R d (.letE ty v b) = .ok e') :
+    ∃ ty' v' b', restoreWalk R d ty = .ok ty' ∧ restoreWalk R d v = .ok v' ∧
+      restoreWalk R (d + 1) b = .ok b' ∧ e' = .letE ty' v' b' := by
+  rcases Bool.eq_false_or_eq_true
+      (R.auxNames.any fun n => (Expr.letE ty v b).mentionsConst n) with hp | hp
+  · simp only [restoreWalk, hp, Bool.not_true, Bool.false_eq_true, if_false,
+      restoreNode_letE] at h
+    cases hty : restoreWalk R d ty with
+    | error err => rw [hty] at h; simp at h
+    | ok ty' =>
+      rw [hty] at h
+      cases hv : restoreWalk R d v with
+      | error err => rw [hv] at h; simp at h
+      | ok v' =>
+        rw [hv] at h
+        cases hb : restoreWalk R (d + 1) b with
+        | error err => rw [hb] at h; simp at h
+        | ok b' =>
+          rw [hb] at h
+          exact ⟨ty', v', b', rfl, rfl, rfl, (Except.ok.inj h).symm⟩
+  · simp only [restoreWalk, hp, Bool.not_false, if_pos] at h
+    have hp' := fun n hn => Expr.mentionsConst_letE_false (auxNames_mention_false hp n hn)
+    exact ⟨ty, v, b, restoreWalk_of_no_aux _ _ (fun n hn => (hp' n hn).1),
+      restoreWalk_of_no_aux _ _ (fun n hn => (hp' n hn).2.1),
+      restoreWalk_of_no_aux _ _ (fun n hn => (hp' n hn).2.2), (Except.ok.inj h).symm⟩
+
+/-- **The projection node, inverted**: the walk descends into the
+subject at the same depth. -/
+theorem restoreWalk_proj_inv {R : RestoreTbl} {d : Nat} {sn : Name} {i : Nat} {x e' : Expr}
+    (h : restoreWalk R d (.proj sn i x) = .ok e') :
+    ∃ x', restoreWalk R d x = .ok x' ∧ e' = .proj sn i x' := by
+  rcases Bool.eq_false_or_eq_true
+      (R.auxNames.any fun n => (Expr.proj sn i x).mentionsConst n) with hp | hp
+  · simp only [restoreWalk, hp, Bool.not_true, Bool.false_eq_true, if_false,
+      restoreNode_proj] at h
+    cases hx : restoreWalk R d x with
+    | error err => rw [hx] at h; simp at h
+    | ok x' => rw [hx] at h; exact ⟨x', rfl, (Except.ok.inj h).symm⟩
+  · simp only [restoreWalk, hp, Bool.not_false, if_pos] at h
+    have hp' := fun n hn => Expr.mentionsConst_proj_false (auxNames_mention_false hp n hn)
+    exact ⟨x, restoreWalk_of_no_aux _ _ hp', (Except.ok.inj h).symm⟩
 
 /-! ## The rebuild for a λ-prefix -/
 
