@@ -86996,3 +86996,18 @@ for being the tail's.  Discharging the first two would leave the field
 standing with one conjunct, so it is not worth a round of record churn
 on its own; the honest reduction is **seven fields to six**, and the
 six are `install`, `agree₀`, `agree`, `findR`, `repsAt` and `conts`.
+
+##### (e) GATES
+
+`lake build` 703 jobs warning-free; `lake test` warning-free; layering
+347 / 273 / 3 / 1, 0/0; trust 13/5 (635); overview-links 112 with NO
+anchor moved (the gate passes without `--update`: the four files this
+session touched are not cited by line); quote-gate 2; no-local-paths
+OK; **proofdeps 4965 rows / 12 roots / 0 doors — §U.63's baseline
+unchanged**, as it must be for a session that relocates nothing; shake
+508/508 allowlisted; pub-imports 1286 of 2038, none demotable;
+`tests/arena.sh` EXIT 0 (nested-shadow 27/27, e2e 196/196, the arena's
+90/92, all four sweeps, axiom pin 20 theorems).  Standard axioms on
+every theorem the record change touched (`groupSyn`,
+`nestedPinsStaged_of`, `nestedCtorsStaged_of`, `nestedStageFacts_of`,
+`nestedContainerModeled`, `declNested_of`).
