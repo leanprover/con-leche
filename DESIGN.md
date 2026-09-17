@@ -86670,3 +86670,24 @@ consumes `EntryRead`, not `ordF`; `CopyCtorShape.of_EA` transports the
 arm verbatim; and `NestedPinLeafAll`'s use discards the left arm's
 content.  Build and `lake test` warning-free at the change, chain probe
 unchanged.
+
+##### (b) THE PIN HALF, LANDED — `copyTransfer_pin`
+
+With the interface change in, session 7's decomposition was executed
+and it is three lines: `CopyCtorShape.fit_iff_at_T_dom.mp` (the
+container-side copy's fit IS `dK.ChainFitT` at the pullback `Y`) then
+`BlockModel.chainFitT_congr_mem` (across the two level assignments and
+the two frames) then `CopyCtorShape.fit_imp_T_le_dom` (the block side
+reads it off).  No field-by-field argument at a pin class was needed
+after all; what made the middle step possible is §U.54 (b)'s re-cut —
+the container's tuple space and extended carrier do not travel between
+the frames, its slots' BOUND does.
+
+The hypotheses are what the two `PinShapes` group views supply at the
+use site: the level agreement (`targetHead_corr` +
+`ContainerModeled.pinψ`), the frames' agreement on the components'
+values (`PinCorr`'s `Ds` + `interp_instAll`), the sort and index
+universes (`PinGroupView.w`/`pinU`, `IsBlockModel.uParams`), the two
+`hdom`s, the entries on the container side and the relation premise on
+the block side.  **What remains for `instanceLe` is the choice of the
+ROOT (§U.55 (c)) and the relation `R`'s definition — not the transfer.**
