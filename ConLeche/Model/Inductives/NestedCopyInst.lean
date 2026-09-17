@@ -12,6 +12,7 @@ import ConLeche.Verify.Inductives.NestedCopyNorm
 import ConLeche.Verify.Inductives.NestedOpenSpine
 import ConLeche.Verify.Inductives.NestedCopyKinds
 import ConLeche.Verify.Inductives.NestedAuxInv
+import ConLeche.Verify.Inductives.NestedAuxFormers
 import ConLeche.Verify.Inductives.NestedRestoreKit
 import ConLeche.Model.Inductives.BlockRepCross
 public section
@@ -111,6 +112,56 @@ theorem blockCtorFieldMentions {m : EnvModel V env} {env₀ : Env} {T : Name}
   exact ConLeche.os_field_domain_mentions nP nF l
     (openPisAtFvars_add nP hopP (by rw [Nat.zero_add]; exact hopX))
     hstrip hD.pLen hpcs hx hb hm
+
+/-- **B1's HEAD corollary at a container's field**: the closed field
+domain has the head the OPENED one shows — the substitution puts
+`fvar`s where the `bvar`s stood and can never manufacture a `const`
+head (`os_field_domain_head`). -/
+theorem blockCtorFieldHead {m : EnvModel V env} {env₀ : Env} {T : Name}
+    {Tof : Nat → Name} {nIdxOf : Nat → Nat} {nest : Nat → Option Nat} {pins : Nat → PinSyn}
+    {lps : List Name} {cvC : ConstantVal} {nP nF nIdx : Nat} {resSort : Level}
+    {isProp large : Bool} {idxArgs : List Expr}
+    {ds : (Name → Nat) → List (Nat × Nat × AnnotTerm)} {Es : (Name → Nat) → List AnnotTerm}
+    {srcs : List (Option Nat)} {ks : List RecFieldKind} {fvsP xFvs : List Expr} {xrest : Expr}
+    {Eiss : (Name → Nat) → List (List AnnotTerm)}
+    {tss : (Name → Nat) → List (List (Nat × Nat × AnnotTerm))}
+    (hD : BlockCtorData m env₀ T Tof nIdxOf nest pins lps cvC nP nF nIdx resSort isProp large
+      idxArgs ds Es srcs ks fvsP xFvs xrest Eiss tss)
+    {pcs fcs : List (Expr × ConLeche.BinderMeta)} {resid : Expr}
+    (hstrip : cvC.type.stripPis (nP + nF) = some (pcs ++ fcs, resid))
+    (hpcs : pcs.length = nP)
+    {l : Nat} {x : Expr} {bd : Expr × ConLeche.BinderMeta} {n : Name} {us : List Level}
+    (hx : xFvs[l]? = some x) (hb : fcs[l]? = some bd)
+    (hhead : x.fvarTypeD.getAppFn = Expr.const n us) :
+    bd.1.getAppFn = Expr.const n us := by
+  obtain ⟨crest, hopP, hopX⟩ := hD.opens
+  exact ConLeche.os_field_domain_head nP nF l
+    (openPisAtFvars_add nP hopP (by rw [Nat.zero_add]; exact hopX))
+    hstrip hD.pLen hpcs hx hb hhead
+
+/-- **B1's SPINE corollary at a container's field**: the opened
+domain's arguments are the closed one's, instantiated one for one, so
+the two spines have the same length (`os_field_domain_args`). -/
+theorem blockCtorFieldArgs {m : EnvModel V env} {env₀ : Env} {T : Name}
+    {Tof : Nat → Name} {nIdxOf : Nat → Nat} {nest : Nat → Option Nat} {pins : Nat → PinSyn}
+    {lps : List Name} {cvC : ConstantVal} {nP nF nIdx : Nat} {resSort : Level}
+    {isProp large : Bool} {idxArgs : List Expr}
+    {ds : (Name → Nat) → List (Nat × Nat × AnnotTerm)} {Es : (Name → Nat) → List AnnotTerm}
+    {srcs : List (Option Nat)} {ks : List RecFieldKind} {fvsP xFvs : List Expr} {xrest : Expr}
+    {Eiss : (Name → Nat) → List (List AnnotTerm)}
+    {tss : (Name → Nat) → List (List (Nat × Nat × AnnotTerm))}
+    (hD : BlockCtorData m env₀ T Tof nIdxOf nest pins lps cvC nP nF nIdx resSort isProp large
+      idxArgs ds Es srcs ks fvsP xFvs xrest Eiss tss)
+    {pcs fcs : List (Expr × ConLeche.BinderMeta)} {resid : Expr}
+    (hstrip : cvC.type.stripPis (nP + nF) = some (pcs ++ fcs, resid))
+    (hpcs : pcs.length = nP)
+    {l : Nat} {x : Expr} {bd : Expr × ConLeche.BinderMeta}
+    (hx : xFvs[l]? = some x) (hb : fcs[l]? = some bd) :
+    x.fvarTypeD.getAppArgs.length = bd.1.getAppArgs.length := by
+  obtain ⟨crest, hopP, hopX⟩ := hD.opens
+  rw [ConLeche.os_field_domain_args nP nF l
+    (openPisAtFvars_add nP hopP (by rw [Nat.zero_add]; exact hopX))
+    hstrip hD.pLen hpcs hx hb, List.length_map]
 
 /-- An instantiation sequence keeps a constant head. -/
 theorem os_instSeq_head {e : Expr} {n : Name} {us : List Level}
@@ -1593,6 +1644,248 @@ theorem NestedPinsRun.copyEs {pbs : List (Expr × ConLeche.BinderMeta)}
   obtain ⟨-, rfl⟩ := List.append_inj happ hlenPB
   rw [hnf]
   exact DenoteMetaSpine.unique hsp1 hspE
+
+/-! ## The recursive field at a member target (task #315 L-B)
+
+`CopyCtorShape.recF` claims that a container field recursive at one of
+the container's OWN members becomes, in the copy, a field recursive at
+the group's copy of that member.  The syntactic half of that claim is
+the elimination's occurrence chain, and this is it: the container's
+field domain, level-substituted and instantiated at the pin's
+components, IS the targeted member applied to the components and to the
+field's index arguments — a nested occurrence at the group's own pin,
+which `replaceAllNested_occurrence` rewrites to that pin's MIMIC.
+
+Three facts beyond `copyFields`' package carry it:
+
+* the closed domain's head and spine (B1, `blockCtorFieldHead` and
+  `blockCtorFieldArgs` over `NestedOpenSpine`'s inversions);
+* K.14's UNIFORMITY (`nestedContainersOk_memberSpine`): a stored
+  container constructor's field headed by a member of its own block
+  carries the block's parameters at the field's own depth, so the
+  instantiation puts the pin's components exactly there — the
+  `containerFieldOk` trichotomy does NOT give this (its nested arm
+  accepts any stored inductive head, a member included), the uniform
+  occurrence walk does;
+* K.29 through `PinData.grp`: the group's pin `q₀ + m` records the
+  SAME level arguments and components as the pin `q₀ + i'` being
+  copied, so its pin expression is exactly the occurrence's, and
+  `pinsDistinct` identifies the two. -/
+
+omit [SetTheory V] R SF S in
+/-- `Name.nodup`'s `Bool` is the list's `Nodup`. -/
+private theorem nodup_of_nameNodup : ∀ {l : List Name}, ConLeche.Name.nodup l = true → l.Nodup
+  | [], _ => List.nodup_nil
+  | n :: ns, h => by
+    simp only [ConLeche.Name.nodup, Bool.and_eq_true, Bool.not_eq_eq_eq_not,
+      Bool.not_true] at h
+    exact List.nodup_cons.mpr ⟨by simpa using h.1, nodup_of_nameNodup h.2⟩
+
+/-- **THE COPY'S RECURSIVE FIELD, REWRITTEN** (task #315 L-B): at a
+container field `l` of member `i'` constructor `j` that is FINITARY
+RECURSIVE at one of the container's own members, the elimination's
+rewrite turns the instantiated domain into the MIMIC of the group's
+pin at that member, applied to the block's parameter openers and to
+the field's own index arguments, level-substituted and instantiated at
+the pin's components.  Stated at `copyFields`' frame: the caller hands
+the one `replaceAllNested` run at field `l` and the container's
+telescope, both of which `copyResid` returns. -/
+theorem NestedPinsRun.copyRecFDom {pbs : List (Expr × ConLeche.BinderMeta)}
+    (hPD : ∀ q, q < st.pins.length → PinData env st p pbs q)
+    {i' : Nat} (hi' : i' < kJ)
+    (hgb : (pinAtE st (q₀ + i')).grpBase = q₀)
+    (hgs : (pinAtE st (q₀ + i')).grpSize = kJ)
+    (CM : ∀ ciJ : ContainerInfo,
+      ConLeche.containerInfo? env (pinsS.getD (q₀ + i') default).J = some ciJ →
+      ContainerModeled mp₁'.base2 ciJ dJ)
+    {j : Nat} {cAJ : ConstantVal × Nat} (hj : (dJ.ctorsM i')[j]? = some cAJ)
+    {ci : ContainerInfo} {J : ContainerMember} {cc : ContainerCtor}
+    (hciP : ConLeche.containerInfo? env (pinsS.getD (q₀ + i') default).J = some ci)
+    (hJmem : J ∈ ci.members) (hJcc : J.ctors[j]? = some cc)
+    (hJname : J.name = (pinsS.getD (q₀ + i') default).J)
+    (hty : cAJ.1.type = cc.type) (hnf : cAJ.2 = cc.nFields)
+    {pcs fcs : List (Expr × ConLeche.BinderMeta)} {residJ : Expr}
+    (hstripJ : cc.type.stripPis (dJ.nP + cc.nFields) = some (pcs ++ fcs, residJ))
+    (hpl : pcs.length = dJ.nP) (hfl : fcs.length = cc.nFields)
+    (hDsnP : (srcAtE st p (q₀ + i')).2.2.length = dJ.nP)
+    (hDsB : ∀ a ∈ (srcAtE st p (q₀ + i')).2.2, a.looseBVarsBounded 0 = true)
+    {params : List Expr} {pbs₀ : List (Expr × ConLeche.BinderMeta)}
+    {l : Nat} (hlF : l < cc.nFields)
+    (hmem : dJ.tgts i' j l < dJ.k)
+    (hrec : (dJ.ksF i' j).getD l .ordinary = .recursive)
+    {Fl : Expr} {st₁ st₂ : ElimState}
+    (hrun : ConLeche.replaceAllNested env (p.lps.map Level.param) params pbs₀ st₁
+        (Expr.instSeq (srcAtE st p (q₀ + i')).2.2 (dJ.nP - 1 + l)
+          (Expr.instantiateLevelParams J.lps (pinsS.getD (q₀ + i') default).lvls
+            (fcs.getD l default).1))
+      = .ok (Fl, st₂))
+    (hpre : st₂.pins <+: st.pins)
+    (hmint : ((srcAtE st p (q₀ + i')).2.2.any fun a =>
+      st₁.newNames.any fun T => a.mentionsConst T) = true) :
+    Fl = Expr.mkAppN (Expr.mkAppN
+        (.const (pinAtE st (q₀ + dJ.tgts i' j l)).aux (p.lps.map Level.param)) params)
+      ((((fcs.getD l default).1.getAppArgs.drop dJ.nP).map
+          (Expr.instantiateLevelParams J.lps (pinsS.getD (q₀ + i') default).lvls)).map
+        (Expr.instSeq (srcAtE st p (q₀ + i')).2.2 (dJ.nP - 1 + l))) := by
+  classical
+  have hq : q₀ + i' < st.pins.length := by
+    rw [← SF.pinsLen]; have := S.seg; omega
+  have PD := hPD _ hq
+  have CMci : ContainerModeled mp₁'.base2 ci dJ := CM ci hciP
+  have hnPci : ci.nP = dJ.nP := CMci.nP.symm
+  have hpinMem : pinAtE st (q₀ + i') ∈ st.pins := List.mem_of_getElem? PD.pin
+  obtain ⟨hJc, hpinEq⟩ := SF.pinRec _ _ PD.pin
+  have hciC : ConLeche.containerInfo? env (pinAtE st (q₀ + i')).container = some ci := by
+    rw [← hJc]; exact hciP
+  have hlv : (pinsS.getD (q₀ + i') default).lvls = (srcAtE st p (q₀ + i')).2.1 := by
+    have hfn := congrArg Expr.getAppFn (hpinEq.symm.trans PD.pinEq)
+    simp only [Expr.getAppFn_mkAppN, Expr.getAppFn] at hfn
+    exact (ConLeche.Expr.const.inj hfn).2
+  obtain ⟨ciP, hciPown, -, -, -, hnamesP, J', hJ'find, hJ'n, cCopy, hmk, -, -⟩ := PD.own
+  have hciEq : ciP = ci := Option.some.inj (hciPown.symm.trans hciC)
+  have hJ'mem : J' ∈ ci.members := by
+    rw [← hciEq]; exact List.mem_of_find?_eq_some hJ'find
+  rw [hciEq] at hnamesP
+  obtain rfl : J = J' :=
+    ConLeche.containerInfo?_member_det hciP hciP rfl hJmem hJ'mem (by rw [hJname, hJc, hJ'n])
+  -- the container's constructor data at member `i'`, constructor `j`
+  obtain ⟨cvT, capsT, cvR, mI, rP, rules, hfindT, hI, -⟩ := S.stored i' hi'
+  obtain ⟨-, -, hCD⟩ := hI.ctors i' j cAJ hI.memberLt hj
+  have hnest : dJ.nestOf i' j l = none := dJ.nestOf_none hmem
+  -- the member's level parameters ARE the stored constant's
+  obtain ⟨cvT₀, caps₀, cvR₀, mI₀, rP₀, rules₀, hfT₀, -, -, -, hallM⟩ :=
+    ConLeche.containerInfo?_inv hciP
+  obtain ⟨cvC, capsC, cvRc, mIc, rulesC, -, -, hlpsJ, -, hlpsEq, -, -⟩ := hallM _ hJmem
+  have hlpsJEq : J.lps = cvT.levelParams := by
+    obtain ⟨hFc, -, -, -⟩ := R.cross
+    have h₁ := hFc _ (.indInfo cvT₀ caps₀) (fun _ _ _ _ h => nomatch h) hfT₀
+    obtain rfl : cvT₀ = cvT :=
+      (ConstantInfo.indInfo.inj (Option.some.inj (h₁.symm.trans hfindT))).1
+    rw [hlpsJ, hlpsEq]
+  -- the field's opener, and the OPENED domain's head and spine
+  obtain ⟨x, hx⟩ : ∃ x, (dJ.xFvsF i' j)[l]? = some x :=
+    ⟨_, List.getElem?_eq_getElem (by rw [hCD.xLen, hnf]; exact hlF)⟩
+  obtain ⟨hhead, -, hlenO, -, -, -⟩ := hCD.opened.recF l x hx hnest hrec
+  have hfcsl : fcs[l]? = some (fcs.getD l default) := by
+    rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem (by rw [hfl]; exact hlF)]; rfl
+  have hstripA : cAJ.1.type.stripPis (dJ.nP + cAJ.2) = some (pcs ++ fcs, residJ) := by
+    rw [hty, hnf]; exact hstripJ
+  have hcHead : (fcs.getD l default).1.getAppFn
+      = Expr.const (dJ.memberName (dJ.tgts i' j l)) (cvT.levelParams.map Level.param) :=
+    blockCtorFieldHead hCD hstripA hpl hx hfcsl hhead
+  have hcLen : (fcs.getD l default).1.getAppArgs.length
+      = dJ.nP + dJ.nIdxAt (dJ.tgts i' j l) := by
+    rw [← blockCtorFieldArgs hCD hstripA hpl hx hfcsl]; exact hlenO
+  -- the target IS a member of the container's group
+  have hmLt : dJ.tgts i' j l < ci.members.length := by rw [← CMci.k]; exact hmem
+  obtain ⟨Mt, hMt⟩ : ∃ Mt, ci.members[dJ.tgts i' j l]? = some Mt :=
+    ⟨_, List.getElem?_eq_getElem hmLt⟩
+  have hMtName : dJ.memberName (dJ.tgts i' j l) = Mt.name := (CMci.member _ Mt hMt).1
+  have hMtMem : Mt ∈ ci.members := List.mem_of_getElem? hMt
+  -- K.14's UNIFORMITY: the field's parameter arguments are the block's own
+  have hbdIdx : (pcs ++ fcs)[ci.nP + l]? = some (fcs.getD l default) := by
+    have hidx : ci.nP + l - pcs.length = l := by rw [hpl, hnPci]; omega
+    rw [List.getElem?_append_right (by rw [hpl, hnPci]; omega), hidx]
+    exact hfcsl
+  have hstripCi : cc.type.stripPis (ci.nP + cc.nFields) = some (pcs ++ fcs, residJ) := by
+    rw [hnPci]; exact hstripJ
+  obtain ⟨-, hTake⟩ := ConLeche.nestedContainersOk_memberSpine R.hcont hpinMem hciC hJmem hJcc
+    hstripCi hbdIdx hcHead (by rw [hMtName]; exact List.mem_map_of_mem hMtMem)
+    (by rw [hcLen, hnPci]; omega)
+  rw [hnPci] at hTake
+  obtain ⟨hNodupJ, -⟩ := ConLeche.nestedContainersOk_uniform R.hcont hpinMem hciC hJmem
+  -- the components: non-empty, and as many as the member's level parameters
+  have hDsNe : 0 < (srcAtE st p (q₀ + i')).2.2.length := by
+    rcases hDsE : (srcAtE st p (q₀ + i')).2.2 with _ | ⟨d, ds⟩
+    · rw [hDsE] at hmint; simp at hmint
+    · simp
+  have hLvlLen : J.lps.length = (pinsS.getD (q₀ + i') default).lvls.length := by
+    obtain ⟨hlen, -, -, -, -, -⟩ := ConLeche.mkCopy_inv hmk
+    rw [hlv]; exact hlen.symm
+  -- the instantiated domain, as a spine at the components
+  have hshape : Expr.instSeq (srcAtE st p (q₀ + i')).2.2 (dJ.nP - 1 + l)
+      (Expr.instantiateLevelParams J.lps (pinsS.getD (q₀ + i') default).lvls
+        (fcs.getD l default).1)
+      = Expr.mkAppN (.const Mt.name (pinsS.getD (q₀ + i') default).lvls)
+          ((srcAtE st p (q₀ + i')).2.2 ++
+            (((fcs.getD l default).1.getAppArgs.drop dJ.nP).map
+              (Expr.instantiateLevelParams J.lps (pinsS.getD (q₀ + i') default).lvls)).map
+              (Expr.instSeq (srcAtE st p (q₀ + i')).2.2 (dJ.nP - 1 + l))) := by
+    have hsplit : (fcs.getD l default).1
+        = Expr.mkAppN (.const Mt.name (J.lps.map Level.param))
+            (ConLeche.structPsAt l dJ.nP ++ (fcs.getD l default).1.getAppArgs.drop dJ.nP) := by
+      have hargs : ConLeche.structPsAt l dJ.nP ++ (fcs.getD l default).1.getAppArgs.drop dJ.nP
+          = (fcs.getD l default).1.getAppArgs := by rw [← hTake, List.take_append_drop]
+      rw [hargs, hlpsJEq, ← hMtName, ← hcHead]
+      exact (Expr.mkAppN_getApp _).symm
+    rw [hsplit, ConLeche.ilp_mkAppN,
+      ConLeche.ilp_const_params J.lps _ Mt.name (nodup_of_nameNodup hNodupJ) hLvlLen,
+      List.map_append, ConLeche.ilp_structPsAt, ConLeche.instSeq_mkAppN_const, List.map_append,
+      List.map_map]
+    congr 2
+    · rw [← hDsnP,
+        show (srcAtE st p (q₀ + i')).2.2.length - 1 + l
+          = l + (srcAtE st p (q₀ + i')).2.2.length - 1 from by omega]
+      exact ConLeche.instSeq_structPsAt _ l hDsB
+    · simp only [Expr.getAppArgs_mkAppN, Expr.getAppArgs, List.nil_append]
+      rw [List.drop_left' (ConLeche.structPsAt_length l dJ.nP), List.map_map]
+  rw [hshape] at hrun
+  -- the target member's own container record
+  obtain ⟨hndPins, hgrpAll⟩ := ConLeche.nestedContainersOk_group R.hcont
+  obtain ⟨ci₁, hci₁, hmem₁⟩ := hgrpAll _ hpinMem
+  have hci₁Eq : ci₁ = ci := Option.some.inj (hci₁.symm.trans hciC)
+  obtain ⟨ciM, hciM, hciMnP, -⟩ := hmem₁ Mt (by rw [hci₁Eq]; exact hMtMem)
+  obtain ⟨cvM, capsM, -, -, -, -, hfindM, -, -, -, -⟩ := ConLeche.containerInfo?_inv hciM
+  have hnPM : ciM.nP = dJ.nP := by rw [hciMnP, hci₁Eq, hnPci]
+  have htakeD : ((srcAtE st p (q₀ + i')).2.2 ++
+      (((fcs.getD l default).1.getAppArgs.drop dJ.nP).map
+        (Expr.instantiateLevelParams J.lps (pinsS.getD (q₀ + i') default).lvls)).map
+        (Expr.instSeq (srcAtE st p (q₀ + i')).2.2 (dJ.nP - 1 + l))).take ciM.nP
+      = (srcAtE st p (q₀ + i')).2.2 := List.take_left' (by rw [hnPM, hDsnP])
+  have hdropD : ((srcAtE st p (q₀ + i')).2.2 ++
+      (((fcs.getD l default).1.getAppArgs.drop dJ.nP).map
+        (Expr.instantiateLevelParams J.lps (pinsS.getD (q₀ + i') default).lvls)).map
+        (Expr.instSeq (srcAtE st p (q₀ + i')).2.2 (dJ.nP - 1 + l))).drop ciM.nP
+      = (((fcs.getD l default).1.getAppArgs.drop dJ.nP).map
+          (Expr.instantiateLevelParams J.lps (pinsS.getD (q₀ + i') default).lvls)).map
+          (Expr.instSeq (srcAtE st p (q₀ + i')).2.2 (dJ.nP - 1 + l)) :=
+    List.drop_left' (by rw [hnPM, hDsnP])
+  obtain ⟨qn, hqnMem, hqnPin, hqnEq⟩ :=
+    ConLeche.replaceAllNested_occurrence rfl hfindM hciM
+      (by rw [List.length_append, hnPM, hDsnP]; omega)
+      (by rw [htakeD]; exact hmint) (by rw [htakeD]; exact hDsB) hrun
+  rw [htakeD] at hqnPin
+  rw [hdropD] at hqnEq
+  -- the group's pin at the target member carries the same source
+  have hmkJ : dJ.tgts i' j l < kJ := by rw [← S.kEq]; exact hmem
+  have hplen : q₀ + dJ.tgts i' j l < st.pins.length := by
+    obtain ⟨-, -, h3⟩ := PD.seg
+    rw [hgb, hgs] at h3; omega
+  have PDm := hPD _ hplen
+  obtain ⟨hcontm, -, -, hsrcm, hmemm⟩ := PD.grp (dJ.tgts i' j l) (by rw [hgs]; exact hmkJ)
+  rw [hgb] at hcontm hsrcm
+  have hsrcPair := Option.some.inj (PDm.src.symm.trans hsrcm)
+  have hsrc1 : (srcAtE st p (q₀ + dJ.tgts i' j l)).2.1 = (srcAtE st p (q₀ + i')).2.1 :=
+    (Prod.mk.inj (Prod.mk.inj hsrcPair).2).1
+  have hsrc2 : (srcAtE st p (q₀ + dJ.tgts i' j l)).2.2 = (srcAtE st p (q₀ + i')).2.2 :=
+    (Prod.mk.inj (Prod.mk.inj hsrcPair).2).2
+  have hmemName : (memberOf env st (q₀ + i') (dJ.tgts i' j l)).name = Mt.name := by
+    have h1 : (ci.members.map (·.name))[dJ.tgts i' j l]? = some Mt.name := by
+      rw [List.getElem?_map, hMt]; rfl
+    have h2 : ((baseInfo env st (q₀ + i')).members.map (·.name))[dJ.tgts i' j l]?
+        = some (memberOf env st (q₀ + i') (dJ.tgts i' j l)).name := by
+      rw [List.getElem?_map, hmemm]; rfl
+    rw [hnamesP] at h1
+    exact Option.some.inj (h2.symm.trans h1)
+  have hpinm : (pinAtE st (q₀ + dJ.tgts i' j l)).pin
+      = Expr.mkAppN (.const Mt.name (pinsS.getD (q₀ + i') default).lvls)
+          (srcAtE st p (q₀ + i')).2.2 := by
+    rw [PDm.pinEq, hcontm, hsrc1, hsrc2, hmemName, hlv]
+  obtain rfl : qn = pinAtE st (q₀ + dJ.tgts i' j l) := by
+    have h1 := ConLeche.find?_pin_of_nodup hndPins (hpre.subset hqnMem) hqnPin
+    have h2 := ConLeche.find?_pin_of_nodup hndPins (List.mem_of_getElem? PDm.pin) hpinm
+    exact Option.some.inj (h1.symm.trans h2)
+  exact hqnEq
 
 end Assembly
 
