@@ -254,6 +254,79 @@ theorem NestedTailIn.idsT_iff (ψ : Name → Nat) (ρ : Nat → V) (as : List V)
     rw [List.length_nil] at h
     exact h.symm
 
+
+/-! ### The constructors' tables -/
+
+/-- A class's constructor at the COMPOSED model, from its copy's. -/
+theorem NestedTailIn.ctorsD_get {c : Nat} (hc : c < p.k) {j : Nat}
+    (hj : j < ((DA).ctorsM c).length) : ∃ cR, ((D).ctorsM c)[j]? = some cR := by
+  have hlen : ((D).ctorsM c).length = ((DA).ctorsM c).length := by
+    rw [← I.ctorsT_length c, BlockModel.ctorsT_of_mem (pc := PC) hc]
+  exact ⟨_, List.getElem?_eq_getElem (by rw [hlen]; exact hj)⟩
+
+/-- **A FIELD'S TARGET IS ITS COPY'S**: both the auxiliary block's
+kind table at the constructor's global position. -/
+theorem NestedTailIn.tgtsT_eq {c : Nat} {j : Nat} {cA : ConstantVal × Nat}
+    (hjA : ((DA).ctorsM c)[j]? = some cA) {l : Nat} (hl : l < cA.2) :
+    (D).tgtsT PC c j l = (DA).tgts c j l := by
+  obtain ⟨hJl, hcAg, -⟩ := mutualBlockModel_ctorsM_get I.out.grouped I.out.facts.lenA hjA
+  have hnf : mutNFOf ctorsA (b.ownOffset c + j) = cA.2 := by
+    show (ctorsA.getD (b.ownOffset c + j) default).2 = cA.2
+    rw [List.getD_eq_getElem?_getD, hcAg]
+    rfl
+  have hkk : (D).k = p.k := rfl
+  by_cases hck : c < (D).k
+  · rw [BlockModel.tgtsT_of_mem hck]
+    rfl
+  · rw [hkk] at hck
+    rw [BlockModel.tgtsT_of_pin (d := (D)) (by rw [hkk]; exact hck)]
+    show ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+      (b.ownOffset (p.k + (c - p.k)) + j) []).getD l 0 = _
+    rw [Nat.add_sub_cancel' (Nat.le_of_not_lt hck)]
+    exact mutTgts_getD hJl (by rw [hnf]; exact hl)
+
+/-- **A FIELD'S REFLEXIVE TELESCOPE IS ITS COPY'S**. -/
+theorem NestedTailIn.teleAtT_eq (ψ : Name → Nat) {c : Nat} {j : Nat}
+    {cA : ConstantVal × Nat} (hjA : ((DA).ctorsM c)[j]? = some cA) (l : Nat) :
+    (D).teleAtT PC ψ c j l = ((DA).tssF c j ψ).getD l [] := by
+  obtain ⟨hJl, -, -⟩ := mutualBlockModel_ctorsM_get I.out.grouped I.out.facts.lenA hjA
+  have hkk : (D).k = p.k := rfl
+  by_cases hck : c < (D).k
+  · obtain ⟨cR, hjD⟩ := I.ctorsD_get (by rw [hkk] at hck; exact hck)
+      (List.getElem?_eq_some_iff.mp hjA).1
+    rw [BlockModel.teleAtT_of_mem hck]
+    show (((D).tlss c ψ).getD j []).getD l [] = _
+    rw [IsBlockModel.tlss_getD hjD]
+    rfl
+  · rw [hkk] at hck
+    show (((D).tlssT PC ψ c).getD j []).getD l [] = _
+    rw [BlockModel.tlssT_of_pin (d := (D)) (by rw [hkk]; exact hck)]
+    show (((mutTlss ctorsA.length tssF ψ).drop (b.ownOffset (p.k + (c - (D).k)))).getD j
+      []).getD l [] = _
+    rw [hkk, Nat.add_sub_cancel' (Nat.le_of_not_lt hck), getD_drop, mutTlss_getD hJl]
+    rfl
+
+/-- **A FIELD'S INDEX EXPRESSIONS ARE ITS COPY'S**. -/
+theorem NestedTailIn.eisAtT_eq (ψ : Name → Nat) {c : Nat} {j : Nat}
+    {cA : ConstantVal × Nat} (hjA : ((DA).ctorsM c)[j]? = some cA) (l : Nat) :
+    (D).eisAtT PC ψ c j l = ((DA).eissF c j ψ).getD l [] := by
+  obtain ⟨hJl, -, -⟩ := mutualBlockModel_ctorsM_get I.out.grouped I.out.facts.lenA hjA
+  have hkk : (D).k = p.k := rfl
+  by_cases hck : c < (D).k
+  · obtain ⟨cR, hjD⟩ := I.ctorsD_get (by rw [hkk] at hck; exact hck)
+      (List.getElem?_eq_some_iff.mp hjA).1
+    rw [BlockModel.eisAtT_of_mem hck]
+    show (((D).Eiss c ψ).getD j []).getD l [] = _
+    rw [IsBlockModel.Eiss_getD hjD]
+    rfl
+  · rw [hkk] at hck
+    show (((D).EissT PC ψ c).getD j []).getD l [] = _
+    rw [BlockModel.EissT_of_pin (d := (D)) (by rw [hkk]; exact hck)]
+    show (((mutEiss0 ctorsA.length eissF ψ).drop (b.ownOffset (p.k + (c - (D).k)))).getD j
+      []).getD l [] = _
+    rw [hkk, Nat.add_sub_cancel' (Nat.le_of_not_lt hck), getD_drop, mutEiss0_getD hJl]
+    rfl
+
 end Run
 
 end ConLeche.Model
