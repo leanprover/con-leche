@@ -1411,6 +1411,46 @@ theorem NestedPinsRun.copyGroupTargetHead {pbs : List (Expr × ConLeche.BinderMe
   · rw [hx2, ← hTlLen]
     exact ConLeche.stripPis_mkPisB_self _ _
 
+/-- **A COPY FIELD'S TARGET IS A TARGET OF THE AUXILIARY BLOCK** (task
+#315 L-B): the block's members are its own `p.k` formers followed by
+one mimic per pin, and the classification's targets are members
+(`MutualFormersFacts.ksJ`), so a copy's field targets below
+`p.k + pinsS.length` — the bound `CopyCtorShape`'s two rewritten arms
+ask for (`TargetView.k + TargetView.n` at `nestedTV`). -/
+theorem NestedPinsRun.copyTgtLt {pbs : List (Expr × ConLeche.BinderMeta)}
+    (hPD : ∀ q, q < st.pins.length → PinData env st p pbs q)
+    {i' : Nat} (hi' : i' < kJ) {j : Nat} {cAJ : ConstantVal × Nat}
+    (hj : (dJ.ctorsM i')[j]? = some cAJ) (l : Nat) :
+    ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+        (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0 < p.k + pinsS.length := by
+  classical
+  obtain ⟨cc, J, ci, cI, cA, cname, hciP, hJmem, hJcc, hn, hty, hnf, hJname, hinst, hcj, hcA,
+    hbc, hnF⟩ := R.ctorPair SF S hPD hi' hj
+  have hGlt : b.ownOffset (p.k + q₀ + i') + j < ctorsA.length :=
+    (List.getElem?_eq_some_iff.mp hcA).1
+  have hfmsLen : fms.length = p.k + pinsS.length := by
+    rw [R.h.lenFms, R.hbk, SF.pinsLen]
+  rcases Nat.lt_or_ge l (mutNFOf ctorsA (b.ownOffset (p.k + q₀ + i') + j)) with hlt | hge
+  · rw [mutTgts_getD hGlt hlt]
+    have := (R.h.ksJ _ _ hcA).2.2 l
+    rw [hfmsLen] at this
+    exact this
+  · have hz : ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+        (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0 = 0 := by
+      have hlen : ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+          (b.ownOffset (p.k + q₀ + i') + j) []).length
+          = mutNFOf ctorsA (b.ownOffset (p.k + q₀ + i') + j) := by
+        simp [mutTgts, List.getD_eq_getElem?_getD, List.getElem?_map,
+          List.getElem?_range hGlt]
+      rw [List.getD_eq_getElem?_getD, List.getElem?_eq_none (by omega)]
+      rfl
+    rw [hz]
+    have hkpos : 0 < pinsS.length := by
+      have := S.seg
+      have := S.kpos
+      omega
+    omega
+
 /-- **`CopyCtorInst.ordF`'s right arm, the target conjunct**: a copy
 field that the auxiliary block classified recursive or reflexive while
 the CONTAINER's field `l` is ORDINARY targets a member outside the
@@ -4477,8 +4517,6 @@ conjunct (outside the group) is `copyOrdFRight_shape`. -/
       ∀ l, l < ((dJ.Fss i' ((pinsS.getD (q₀ + i) default).ψJ ψ)).getD j []).length →
       ((dJ.rss i').getD j []).getD l false = false →
       ((blkRss ctorsA kinds).getD (b.ownOffset (p.k + q₀ + i') + j) []).getD l false = true →
-      ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
-          (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0 < p.k + pinsS.length ∧
       EntryRead
         (nestedTV b.nP p.k f₀.s ppsF W pinsS mp₁'.base2.acval
           ((fms.take p.k).map (·.cvTa.name)) ψ)
@@ -4509,8 +4547,6 @@ group) is `copyPinF_shape`. -/
       ((blkRss ctorsA kinds).getD (b.ownOffset (p.k + q₀ + i') + j) []).getD l false = true ∧
       p.k ≤ ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
           (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0 ∧
-      ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
-          (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0 < p.k + pinsS.length ∧
       PinCorr
         (nestedTV b.nP p.k f₀.s ppsF W pinsS mp₁'.base2.acval
           ((fms.take p.k).map (·.cvTa.name)) ψ)
@@ -4682,24 +4718,20 @@ theorem nestedPinsShape_of {F : Nat} (hKR : NestedPinsKindsRun V μ F)
     · -- the copy's field is recursive: the RIGHT arm
       have hrsT : ((blkRss ctorsA kinds).getD (b.ownOffset (p.k + q₀ + i') + j) []).getD l false
           = true := by rw [hrsAt l hlF, hkA]; simp
-      refine Or.inr ⟨hrsT, R.copyOrdFRight_shape SF S hPD hkindsRun hK32 hi' hgb hgs CM hmn hj'
-          hl hord hrsT, ?_, ?_⟩
-      · exact (hres2 l hl hord hrsT).1
-      · exact (hres2 l hl hord hrsT).2
+      exact Or.inr ⟨hrsT, R.copyOrdFRight_shape SF S hPD hkindsRun hK32 hi' hgb hgs CM hmn hj'
+          hl hord hrsT, R.copyTgtLt SF S hPD hi' hj' l, hres2 l hl hord hrsT⟩
     · -- the copy's field is reflexive: the RIGHT arm
       have hrsT : ((blkRss ctorsA kinds).getD (b.ownOffset (p.k + q₀ + i') + j) []).getD l false
           = true := by rw [hrsAt l hlF, hkA]; simp
-      refine Or.inr ⟨hrsT, R.copyOrdFRight_shape SF S hPD hkindsRun hK32 hi' hgb hgs CM hmn hj'
-          hl hord hrsT, ?_, ?_⟩
-      · exact (hres2 l hl hord hrsT).1
-      · exact (hres2 l hl hord hrsT).2
+      exact Or.inr ⟨hrsT, R.copyOrdFRight_shape SF S hPD hkindsRun hK32 hi' hgb hgs CM hmn hj'
+          hl hord hrsT, R.copyTgtLt SF S hPD hi' hj' l, hres2 l hl hord hrsT⟩
     · exact absurd hkA (kindAt_ne_of hkindsRun hGlt l).1
     · exact absurd hkA (kindAt_ne_of hkindsRun hGlt l).2
   · -- `pinF`
     intro l hl hrs hnest
-    obtain ⟨h1, h2, h3, h4, h5, h6⟩ := hres3 l hl hrs hnest
+    obtain ⟨h1, h2, h4, h5, h6⟩ := hres3 l hl hrs hnest
     exact ⟨h1, R.copyPinF_shape SF S hPD hkindsRun hK32 hi' hgb hgs CM hmn hj' hl hrs hnest h1,
-      h2, h3, h4, h5, h6⟩
+      h2, R.copyTgtLt SF S hPD hi' hj' l, h4, h5, h6⟩
   · -- `es`
     intro l hl
     have hmapGetD : ∀ (f : AnnotTerm → AnnotTerm) (L : List AnnotTerm) (n : Nat), n < L.length →
