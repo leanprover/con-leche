@@ -1511,6 +1511,36 @@ def nestedPinRankOf (env : Env) (p : NestedParts) (b : MutualBlock) (st : ElimSt
   | none => (List.range st.pins.length).map fun _ => 0
   | some edges => nestedPinRankFrom st edges (nestedPinInstFrom st edges)
 
+/-- **THE MINT PARENTS ARE WELL FOUNDED** (task #315 K.40, lane L-E's
+DESIGN §U.55): every recorded parent is an EARLIER pin.
+
+The model's transfer needs each container instance to be ONE container's
+system, with a ROOT it can walk the instance from — and the covering
+walk is not reconstructible from the block's edges alone.  `nested_p04`
+is the case: from `Array`'s copy the walk reaches the block's `List` pin
+through a field (`List α`) that mentions no member of `Array`'s group,
+so there is nothing on the edge to relate them; from `P4C` the same
+field is the container's own nesting and `List` IS one of `P4C`'s own
+pins.  The missing fact is SYNTACTIC — the container's own pin list —
+and the checker cannot read it, because a nested declaration RESTORES
+and the environment keeps no copy.
+
+The elimination knows it at mint time, so it records it
+(`NestedPin.parent`), and this is the clause that makes it usable: a
+parent is always an earlier pin, so the parent chain terminates, the
+instance's ROOT is its parent-minimal member, and the covering is the
+chain.  It holds by construction — the worklist mints at
+`types[qhead]` and the new pins take indices at or past the current pin
+count, which is greater than `qhead - k`.  CERTIFICATION-ONLY, gated; a
+failure is `.internal`. -/
+def nestedPinParent (p : NestedParts) (st : ElimState) : List (Option Nat) :=
+  st.pins.map fun q => if q.mintedAt < p.k then none else some (q.mintedAt - p.k)
+
+/-- The Bool: the derived parent of every pin is an EARLIER pin. -/
+def nestedPinParentOk (p : NestedParts) (st : ElimState) : Bool :=
+  st.pins.zipIdx.all fun (q, i) =>
+    if q.mintedAt < p.k then true else decide (q.mintedAt - p.k < i)
+
 /-- **THE PINS' INSTANCES AND RANK, CERTIFIED** (task #315 K.37, the
 model lane's DESIGN §U.48 (e″)): every OWN reference stays inside the
 instance, every OTHER reference goes to a STRICTLY SMALLER rank, the
@@ -1695,6 +1725,12 @@ def checkNested (ops : CheckerOps m) (env : Env) (p : NestedParts) : m Env := do
   -- CERTIFICATION-ONLY, gated.  A failure is `.internal`.
   unless certOnly ops.mode (nestedPinRankOk env p b st stored) do
     throw (.internal "nested: the pins' container instances are not well-founded")
+  -- **THE MINT PARENTS** (K.40): every recorded parent is an EARLIER
+  -- pin, so an instance's root is its parent-minimal member and the
+  -- covering walk the model needs is the parent chain.
+  -- CERTIFICATION-ONLY, gated.  A failure is `.internal`.
+  unless certOnly ops.mode (nestedPinParentOk p st) do
+    throw (.internal "nested: a pin's mint parent is not an earlier pin")
   let env₁ := consNestedFormers members env
   -- **POST-CHECK (a), A THIRD TIME** (K.30): the pins typed at the
   -- environment holding the RESTORED FORMERS — the one `restoreCtors`

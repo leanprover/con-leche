@@ -329,6 +329,12 @@ theorem elimLoop_lengths {env : Env} {blvls : List Level} {nP : Nat} {params : L
       · close_throw
       · rename_i cs' st₁ heq
         have a₁ := elimCtors_lengths heq
+        -- K.40 threads the worklist position through `ElimState.curType`;
+        -- that update changes no length, and `omega` needs it said
+        have hT : ({ st with curType := qhead } : ElimState).types.length
+            = st.types.length := rfl
+        have hP : ({ st with curType := qhead } : ElimState).pins.length
+            = st.pins.length := rfl
         have a₂ := ih (qhead + 1) h
         simp only [List.length_set] at a₂
         omega

@@ -337,7 +337,10 @@ private theorem elimLoop_grows {nP : Nat} :
       split at h
       · close_throw
       · rename_i cs' st₁ heq
-        have hg₁ : Grows st st₁ := elimCtors_pins_prefix heq
+        -- K.40 threads the worklist position through `ElimState.curType`;
+        -- the update changes neither list, so `Grows` is the same Prop
+        have hg₁ : Grows st st₁ :=
+          elimCtors_pins_prefix (st := { st with curType := qhead }) heq
         have h₁ : st₁.types[qhead]? = some tq := elimCtors_types_prefix heq qhead tq htq
         have hname : (st₁.types.map (·.name))[qhead]? = some tq.name := by
           rw [List.getElem?_map, h₁]; rfl
@@ -541,7 +544,7 @@ theorem mkCopies_got {pbs : List (Expr × BinderMeta)} {lvls : List Level}
       simp only [Option.some.injEq] at hgot
       subst hgot
       simp only [beq_iff_eq] at hJI
-      refine ⟨⟨auxName, J.name, Expr.mkAppN (.const J.name lvls) Ds, base, size⟩, ?_,
+      refine ⟨⟨auxName, J.name, Expr.mkAppN (.const J.name lvls) Ds, base, size, st.curType⟩, ?_,
         rfl, hJI, by rw [hJI]⟩
       refine (mkCopies_pins_prefix hrec).1.subset ?_
       simp
