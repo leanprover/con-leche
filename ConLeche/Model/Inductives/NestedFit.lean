@@ -652,6 +652,110 @@ theorem CopyCtorShape.fit_iff_at {env : Env} {m : EnvModel V env}
   refine forall_congr' fun l => imp_congr_right fun hl => ?_
   rw [h.es l hl, ← hlen, interp_instAll]
 
+/-- **The slot's value is monotone in the family at every point.** -/
+theorem slotSet_mono_app {w u : Nat} {ρ : Nat → V} {tl : List (Nat × Nat × AnnotTerm)}
+    {Eis : List AnnotTerm} {X Y : V} (h : ∀ t, SetTheory.app X t ⊆ˢ SetTheory.app Y t) :
+    slotSet w u ρ tl Eis X ⊆ˢ slotSet w u ρ tl Eis Y := by
+  unfold slotSet
+  exact piTele_mono fun bs _ => h _
+
+/-- **`hfit` at one constructor, at a VARIABLE extended tuple, one
+direction, the targets RELATED** (task #315 L-E, DESIGN §U.48 (h): the
+blob transfer's member half): a spine fitting the container's
+constructor at an extended tuple `T` below the extended carrier fits
+the copy at a block tuple `Z` whenever, at every recursive field, the
+container's target class at `T` lies under the copy's target at `Z`
+(`hrel`, the relation's premise) and, at every `ordF`-right field, the
+container's domain lies under the copy's slot at `Z` (`hentR`, the
+externals).  The container's slots at `T` are within its real domains
+(`slotAtT_mono` to the extended carrier), which the frames' kit
+carries. -/
+theorem CopyCtorShape.fit_imp_T_le {env : Env} {m : EnvModel V env} {pc : Nat → PinCtors V}
+    {T : Nat → V}
+    (hreps : IsBlockModels m dJ) (hfT : FormersTyped m dJ ψJ) (hPT : PinsTyped m dJ ψJ)
+    (hi : i < dJ.k) (hkJ : dJ.k = kJ)
+    (hw : dJ.w ψJ = TV.w)
+    (hu : ∀ i', i' < kJ → TV.u (base + i') = dJ.uM i' ψJ)
+    (hρJ : Sat V (dJ.params ψJ).reverse ρJ)
+    {nI : Nat} (hnI : nI = (dJ.IdsM i ψJ).length)
+    {cA : ConstantVal × Nat} (hj : (dJ.ctorsM i)[j]? = some cA)
+    (hTs : InTupleSpace (dJ.w ψJ) (dJ.kT) (dJ.idxT ψJ ρJ) T)
+    (hTle : TupleLe (dJ.kT) (dJ.idxT ψJ ρJ) T (dJ.famAt ψJ ρJ LJ))
+    (h : CopyCtorShape TV acval dJ ψJ Ds lpsJ lvlsJ tg tls Eis ρp i j base kJ Fs rs Es)
+    {Z : Nat → V}
+    (hrel : ∀ l, l < Fs.length → ((dJ.rss i).getD j []).getD l false = true →
+      ∀ t', SetTheory.app (T (dJ.tgts i j l)) t' ⊆ˢ SetTheory.app (Z (tg l)) t')
+    (hentR : ∀ l, l < Fs.length → rs.getD l false = true →
+      ((dJ.rss i).getD j []).getD l false = false → ¬ (base ≤ tg l ∧ tg l < base + kJ) →
+      ∀ fs₁ : List V, fs₁.length = l → SpineFit ρJ (((dJ.Fss i ψJ).getD j []).take l) fs₁ →
+        interp V (consList fs₁ ρJ) (((dJ.Fss i ψJ).getD j []).getD l default)
+          ⊆ˢ slotSet TV.w (TV.u (tg l)) (consList fs₁ ρp) (tls.getD l []) (Eis.getD l []) (Z (tg l)))
+    (t : V) (fs : List V) (hC : dJ.ChainFitT pc ψJ ρJ T t i j fs) :
+    FitsFrom rs (fun i' ρ => slotSet TV.w (TV.u (tg i')) ρ (tls.getD i' []) (Eis.getD i' [])
+        (Z (tg i'))) 0 ρp Fs fs ∧
+    (∀ l, l < nI → interp V (consList fs ρp) (Es.getD l default) = projS l t) := by
+  obtain ⟨cvT, cvR, mI, rP, rules, hI⟩ := hreps i hi
+  have hjl : j < (dJ.ctorsM i).length := (List.getElem?_eq_some_iff.mp hj).1
+  have hlenF := hI.Fss_length hj ψJ
+  have hks : (dJ.ksF i j).length = ((dJ.Fss i ψJ).getD j []).length := by
+    rw [(hI.ctorData hj).ksLen, hlenF]
+  have hTle' : ∀ c, c < dJ.kT → ∀ t', SetTheory.app (T c) t' ⊆ˢ SetTheory.app (dJ.famAt ψJ ρJ LJ c) t' :=
+    fun c hc t' => app_subset_of_famLe (hTs c hc) (hTle c hc) t'
+  unfold BlockModel.ChainFitT at hC
+  rw [BlockModel.rssT_of_mem hi, BlockModel.FssT_of_mem hi, BlockModel.IdsT_of_mem hi,
+    BlockModel.EssT_of_mem hi] at hC
+  obtain ⟨hfC, hiC⟩ := hC
+  have hlen : fs.length = ((dJ.Fss i ψJ).getD j []).length := hfC.length_eq
+  refine ⟨fitsFrom_imp_frames_spine h.len.symm (fun l hl fs₁ hl₁ hsp hf hf' => ?_) hfC, ?_⟩
+  · subst hl₁
+    have hlt : fs₁.length < cA.2 := by rw [← hlenF]; exact hl
+    have hkl : fs₁.length < (dJ.ksF i j).length := by rw [hks]; exact hl
+    simp only [Nat.zero_add]
+    by_cases hr : ((dJ.rss i).getD j []).getD fs₁.length false = true
+    · have hr' : (rsOf (dJ.ksF i j)).getD fs₁.length false = true := by
+        rwa [IsBlockModel.rss_getD hjl] at hr
+      have hreal := hreps.real_dom_eq hfT hPT hi hj hρJ hlt hr' hsp
+      rw [hw] at hreal
+      rw [if_pos hr]
+      have htgtLt : dJ.tgts i j fs₁.length < dJ.kT := by
+        rcases hI.tgt_cases hjl hkl with h1 | ⟨-, h2⟩
+        · show _ < dJ.k + dJ.nPins; omega
+        · show _ < dJ.k + dJ.nPins; omega
+      refine ⟨?_, ?_⟩
+      · refine Subset.trans (dJ.slotAtT_mono pc (Y' := dJ.famAt ψJ ρJ LJ) ?_) ?_
+        · rw [BlockModel.tgtsT_of_mem hi]
+          exact hTle' _ htgtLt
+        · rw [BlockModel.slotAtT_of_mem hi ψJ ρJ LJ j fs₁.length rfl, hreal]
+          exact Subset.refl _
+      rcases hI.tgt_cases hjl hkl with htgt | ⟨hnt, -⟩
+      · obtain ⟨hrC, htg, htl, hEis⟩ := h.recF _ hl hr htgt
+        simp only [BlockModel.slotAtT, BlockModel.teleAtT_of_mem hi, BlockModel.eisAtT_of_mem hi,
+          BlockModel.tgtsT_of_mem hi, BlockModel.teleAt, BlockModel.eisAt,
+          BlockModel.uT_of_mem htgt]
+        rw [if_pos hrC, htg, hEis, hw, hu _ (hkJ ▸ htgt),
+          slotSet_instTele Iff.rfl Iff.rfl Ds ρp fs₁ htl _ _]
+        refine slotSet_mono_app fun t' => ?_
+        have := hrel _ (h.len ▸ hl) hr t'
+        rwa [htg] at this
+      · obtain ⟨hrC, hout, -, -, ⟨-, -, hu', -, -, -⟩, htl, hEis⟩ := h.pinF _ hl hr hnt
+        simp only [BlockModel.slotAtT, BlockModel.teleAtT_of_mem hi, BlockModel.eisAtT_of_mem hi,
+          BlockModel.tgtsT_of_mem hi, BlockModel.teleAt, BlockModel.eisAt,
+          BlockModel.uT_of_pin hnt]
+        rw [if_pos hrC, hEis, hw, hu', slotSet_instTele Iff.rfl Iff.rfl Ds ρp fs₁ htl _ _]
+        exact slotSet_mono_app (hrel _ (h.len ▸ hl) hr)
+    · have hr' : ((dJ.rss i).getD j []).getD fs₁.length false = false := by simpa using hr
+      rw [if_neg (by rw [hr']; exact Bool.false_ne_true)]
+      refine ⟨Subset.refl _, ?_⟩
+      rcases h.ordF _ hl hr' with ⟨hrC, hF⟩ | ⟨hrC, hout, -, -⟩
+      · rw [if_neg (by rw [hrC]; exact Bool.false_ne_true), hF fs₁ rfl, interp_instAll]
+        exact Subset.refl _
+      · rw [if_pos hrC]
+        exact hentR _ (h.len ▸ hl) hrC hr' hout fs₁ rfl hsp
+  · intro l hl
+    rw [hnI] at hl
+    rw [h.es l hl, ← hlen, interp_instAll]
+    exact hiC l hl
+
 /-- **`hfit` at one constructor, at a VARIABLE extended tuple** (task
 #315 L-E, DESIGN §U.48: the blob transfer's member half): a spine fits
 the copy at the joined tuple — the group segment read at `Y`'s member
