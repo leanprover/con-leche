@@ -82335,6 +82335,226 @@ quote-gate 2; proofdeps 4955 rows / 12 roots / **0 doors**.
 `[propext, Classical.choice, Quot.sound]`.
 
 
+##### (jj) CONTINUATION 13 (lane session 13) — `RestoreAgree` AT THE TWO PROVISIONED MODELS, and the tools that cut item 5's sizing
+
+Base: this lane's 602dc676.  No checker code changed; no `sorry`, no
+axioms, no `maxHeartbeats`; `#print axioms` of every new theorem is
+`[propext, Classical.choice, Quot.sound]`.
+
+*The tools this session's reading found — all PRE-EXISTING, and they
+cut the remaining sizing*:
+
+* **`provision_hde`** (`BlockRepCross.lean:929`) with
+  **`provisionMutualRecs_extend`** (:882): the AUXILIARY side of the
+  provisioned pair needs no new plumbing at all — with the entries
+  fresh, their names `Nodup` and the two models agreeing at every
+  STORED name, every `denoteMeta` crossing is theirs, and
+  `FindPreserved`/`LitGuardsMono`/"no projection table appears" come
+  with it.  Only the RESTORED side's twins over `provisionNestedRecs`'
+  TRIPLE list had to be written (`provisionNestedRecs_extend`/`_hde`,
+  landed this session).
+* **`ruleRhs_read_of`** (`MutualRecsStore.lean:228`) is ALREADY stated
+  at an ARBITRARY `mP : EnvModel V envP` with `IsBlockModels mP d`,
+  `MemberStored mP …` and the recursor names stored at `b.rlps`.  So
+  the auxiliary rule's reading AT OUR LEAVES (step 2d) is an ASSEMBLY,
+  not new mathematics: cross `S.reps`/`S.memberStored` by
+  `IsBlockModels.crossEnv`/`MemberStored.crossEnv`, whose four
+  hypotheses are exactly what the extension,
+  `constsResolve_of_findPreserved`, `scratchProv`'s `hag` and
+  `provision_hde` supply.
+* **`acceptedReads_of`** (`Model/Steps/Accepted.lean:212`) gives the
+  RESTORED rule's rhs its reading straight from `restoreRules_at`'s
+  `inferTypeCore` run and its two syntactic guards.
+* `NestedRecFrames2.lean`'s named pieces (`nestedInjT_eq`,
+  `fitsFrom_iff`, `motivesAt`, `minorsAt`, `idxOkT`, `majorAt`,
+  `idsT_iff`) are the fired equality's frame kit, already proved for
+  `eqsCand`.
+
+*Landed*: `provisionNestedRecs_extend`/`_hde` (Model, beside their only
+consumer), the Verify kit's own lookup facts
+(`provisionNestedRecs_find?_of_ne`/`_find?_mem`/`_findPreserved`/
+`_findProj?_none`/`_findProj?_eq`), and
+**`NestedTailIn.restoreAgreeP`** — all ten clauses of the walk's leaf
+agreements at the two provisioned models, modulo three named
+hypotheses.
+
+`litEq` is PROVED rather than assumed, and the reason is the session's
+second finding worth keeping: a literal's reading is guarded by
+`natLitSupported`/`strLitSupported`, whose `some ci` a `recInfo` can
+satisfy, so "this name is not a recursor" is NOT readable off ONE
+guard — but the law compares the two readings only where BOTH succeed,
+and then each guard speaks about its OWN environment.  The agreement
+then splits into the member-recursor case (one name, one leaf on both
+sides) and a drop to `(ENVA, ENV₂)`, where the tail's own record moves
+it.  *§U.29 (v)'s literal finding weakened the interface to
+both-read-implies-equal; this is the first place that weakening PAYS.*
+
+*The three residues*: `hauxNe` is K.43's face ((ll) below);
+`hpinJ`/`hctorJ` say the container the pin arm's reading names and the
+constructor the ctor arm names are STORED at `ENV₂`, and they are
+LANE-INTERNAL — one conjunct of `NestedTailIn.pinArm`/`ctorArm`'s own
+statements, which package `J`/`newName` inside an existential so
+storedness cannot be read back off the record.  Without them the
+transport is FALSE, not merely unproven: at a provisioned name the old
+equation names `mp₂`'s value there and the new one ours.  Strengthening
+those two statements (both already carry the block model / the table
+inversion) is the whole fix, ¼ session, next.
+
+##### (kk) THE FINDING — TWO of `RestoreAgree`'s ten fields are FALSE at the provisioned pair, and both were dead
+
+The walk's leaf agreements were stated at the CONSTRUCTORS'
+environments (`ENVA` against `ENV₂`), where no recursor is stored, and
+two of their ten fields do not survive the move:
+
+* `leafNone` (`n ∉ R.auxNames → envA.find? n = none → envR.find? n =
+  none`) is **REFUTED** at `n := p.mimicRecName j`: the restored
+  provision stores it and the scratch provision stores the mimic under
+  the SCRATCH name `q.aux.str "rec"` instead — which is exactly why
+  `recKey` exists — and `p.mimicRecName j` is NOT in `R.auxNames`,
+  whose third component is `st.pins.map (·.aux.str "rec")`, the
+  `recMap`'s KEYS and never its VALUES.  (§U.29's session-12 note said
+  the side condition already excluded the mimics' recursors; that is
+  true of the KEYS and false of the VALUES — the correction is here.)
+* `leaf` (`n ∉ R.auxNames → acvalA n = acvalR n`) is false at the same
+  name: the restored side's value there is OUR leaf and the auxiliary
+  side's is its model's value at a name it does not store.
+
+Both were also DEAD: `leafNone` and `recNone` were populated
+(`NestedRecFrames.lean:1605/1609`) and consumed nowhere, and `leaf` was
+consumed at exactly two sites, each immediately after `leafSome` INSIDE
+the `envA.find? n = some ci` branch.  So the repair is an interface
+NARROWING, not a proof: `leafSome` gains the conjunct
+`acvalA n = acvalR n`, `leaf` and `leafNone` are deleted, `recNone`
+stays (vacuous at the pair, one fewer diff line for the integrator).
+*The rule worth keeping: a leaf agreement belongs UNDER the lookup that
+witnesses it — an unconditional `acvalA n = acvalR n` claims something
+about two models at a name neither is obliged to share.*
+
+##### (ll) K.43 (request) — the auxiliary names and the restored recursors' names are DISJOINT
+
+`RestoreAgree.auxFresh` at the restored PROVISIONED environment needs
+every auxiliary name absent there, and the provision adds exactly the
+`k + nPins` restored recursor names — so it needs the two lists
+disjoint, and that is not derivable.  The mint is
+`mkUniqueName env (Name.appendName nestedPrefixName J.name) 1024 idx`,
+so a copy's name is `.str X (s ++ "_" ++ toString idx)`, while
+`p.mimicRecName j` is `.str T₁ ("rec" ++ "_" ++ toString (j + 1))` —
+the SAME shape, so separating them needs `toString`/`Nat.repr`
+injectivity, which core does not have.  That is precisely why K.39 is a
+recorded check rather than a syntactic proof (§U.29 (s)).
+
+**The request, exact** — one `certOnly`-gated conjunct beside K.39's,
+`.internal` on failure, cannot fire:
+
+```lean
+unless certOnly ops.mode
+    (decide ((restoreTbl p st).auxNames.all fun n =>
+      !((cvRms.map (·.name) ++ cvRns.map (·.name)).contains n))) do
+  throw (.internal "nested: an auxiliary name collides with a restored recursor")
+```
+
+placed after `restoreRecTys` in `checkNested` and mirrored in
+`checkNestedS`, with the conjunct in `DeclNestedRun`, `checkNested_inv`,
+`NestedTailModeled` and `NestedTailIn`.  **¼ kernel session.**  Until it
+lands `restoreAgreeP` takes `hauxNe`, phrased exactly as that Bool's
+content.
+
+##### (mm) FINDING — `tests/layering.sh`'s BASE PURITY clause has been VACUOUS since the SetR removal
+
+Caught while placing `provisionNestedRecs_extend`: its mutual twin
+lives in a MODEL file (`BlockRepCross.lean`) because it mentions
+`Model.LitGuardsMono` (`Model/Annot/BitExtend.lean:168`), so the nested
+twin must live in Model too — putting it in the Verify kit grows a
+`ConLeche/Verify/*` → `ConLeche/Model/*` edge, which the gate's own
+header calls a BASE PURITY violation.
+
+**The gate would not have caught it.**  `tests/layering.sh` computes
+`basev` with `LANE[b] == 'P'`, and `lane()` has not returned `'P'`
+since the 2026-09-05 SetR removal retired the R/P split — it returns
+only `caps`, `umbrella`, `model`, `base`.  So `basev` is ALWAYS empty,
+every gate record's "0 base→lane edges" is vacuously true, and the
+clause the header calls "the load-bearing half" has been untested since.
+
+**Measured.**  Restoring the clause (`LANE[b] == 'model'`) and
+re-running it reports TWO PRE-EXISTING edges and nothing else in the
+tree:
+
+```
+ConLeche.Verify.Cached.InstalledC   -> ConLeche.Model.Fold
+ConLeche.Verify.Cached.StreamConsts -> ConLeche.Model.Fold
+```
+
+(`Kernel`, `SetTheory`, `Term`, `SetModel`, `Semantics` are clean; the
+only other Verify→Model edge was the one this session was about to
+introduce, now moved.)
+
+**So the repair carries a DECISION and was NOT taken here.**  The
+header says "`ConLeche/Verify/Cached{,/*}` is the capstone assembly",
+i.e. the PREFIX, while the script's `CAPS` is three exact module names
+(`MainC`, `Verify.Cached`, `MainTheorem`) — so those two edges classify
+`base` and would fail.  Either (a) restore `LANE[b] == 'model'` AND
+widen `caps` to the documented `ConLeche/Verify/Cached/*` prefix (the
+tree then passes, at the cost of re-baselining the module counts every
+lane's gate record quotes), or (b) restore the clause and move
+`Model.Fold` out of those two files.  The change was probed and
+REVERTED; the gate is at its usual numbers.  **Maintainer's call** — a
+shared gate's classification is not a lane's to re-baseline mid-flight.
+
+##### (nn) REMAINING of item 5, and the sizing
+
+Done: the leaf and its three laws, the cons step, the loop, the
+list-level `nestedRecsProvision`, the run-level provision (s11), the
+scratch provision at our leaves and the restored rules' run inversion
+(s12), **and the provisioned pair's leaf agreements** (s13).  Left:
+
+1. `pinArm`/`ctorArm` restated with their storedness conjunct, closing
+   `hpinJ`/`hctorJ` — **¼**;
+2. the rule's READING (`auxRuleGen` → `ruleRhs_read_of` at
+   `scratchProv`'s model → `restRuleRead` by `acceptedReads_of` →
+   `ruleAgree` by `denoteMeta_restoreWalk` at `restoreAgreeP`, spec
+   `_tmp/uniform-m7read/spec-rulread.md`) — **1**;
+3. the FIRED EQUALITY, member arm then mimic arm (spec
+   `_tmp/uniform-m7read/spec-fired.md`; take the COMPOSED route —
+   `blockLeafVT_at` then `blockRecAtT_iota` — which is what `eqsCand`
+   walks) — **1–1½**;
+4. the store swap, its five missing Verify twins and the free
+   `PinRecLaws.crossEnv` — **1½**;
+5. the tables' twin and §U.36 (d)'s `EnvModelB` supply — **1–1½**.
+
+**Item 5 from here: 4¼–5¾ sessions** (session 12 said 5¼–6½; step 2c
+is spent and (jj)'s tools make step 2d an assembly).  Off the lane:
+K.43 (¼) beside K.39's, and K.36 still unexamined.
+
+*A correction to §U.29 (gg) 2*: T2 (`ctorArm`) is dispensable for the
+fired equality only on the COMPOSED route; routed through the SCRATCH
+equation (`blockRecs_iota` at `(DA).recEqs`) it IS needed, because that
+equation's left-hand side names the COPY's constructor.  (gg) 2's claim
+holds of the composed route and not of the other.
+
+
+##### (oo) FILES AND GATES (session 13's HEAD)
+
+Touched: `ConLeche/Model/Inductives/NestedRecRule.lean` (263 → 939),
+`ConLeche/Verify/Inductives/NestedRecRuleKit.lean` (211 → 298),
+`ConLeche/Model/Inductives/NestedRecWalk.lean` (±33, the interface
+narrowing), `ConLeche/Model/Inductives/NestedRecFrames.lean` (±18, the
+record's construction), `scripts/pub-import-plan.py` (+3 FALLBACK, each
+demotion probed alone and refused by the compiler),
+`tests/shake-allowlist.txt` (−1, the build-membership line its own
+comment said goes once the rule law imports the kit — it now does).
+
+`lake build` 715 jobs warning-free EXIT 0; `lake test` warning-free
+EXIT 0; shake 512 removals all allowlisted / pub-imports 1313 of 2133
+public, none demotable (44 dot-notation fallbacks); layering base 351 /
+model 281 / caps 3 / umbrella 1, 0 base→lane, 0 impl→theory (but see
+(mm): that clause is vacuous); trust surface 13 escapes in 5
+allowlisted files (647 scanned); no-local-paths OK; overview-links 112;
+quote-gate 2; proofdeps 4955 rows / 12 roots / **0 doors**.
+`#print axioms` of every new theorem — and of the restated
+`NestedTailIn.restoreAgree` and `denoteMeta_restoreWalk` — is
+`[propext, Classical.choice, Quot.sound]`.
+
+
 #### U.30 — L-B session 2: `CopyCtorInst.ordF` at the READING, the normalisation's reading law PROVED, `ContainerModeled`'s three clauses (lane L-B, 2026-09-16)
 
 Three maintainer rulings opened this session; the first two are landed,
