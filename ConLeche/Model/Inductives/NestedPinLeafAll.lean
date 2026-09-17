@@ -81,6 +81,141 @@ theorem slotSet_congr_app {w u : Nat} {ρ : Nat → V} {tl : List (Nat × Nat ×
   rw [List.nil_append]
   exact h bs (fitsS_teleOfFields.mp hbs)
 
+/-! ## Kit: the readings' frames — a congruence below a depth -/
+
+/-- **The telescope of a field chain reads only the frame below the
+chain's bound** (task #315 L-E, DESIGN §U.51): the container instance
+transfer reads ONE container's constructor at TWO frames — the
+container's own pin frame and the block's — which agree exactly on the
+components' values. -/
+theorem teleOfFields_congr_below : ∀ {Fs : List AnnotTerm} {k : Nat} {ρ ρ' : Nat → V},
+    FieldsBelow k Fs → (∀ v, v < k → ρ v = ρ' v) →
+    teleOfFields ρ Fs = teleOfFields ρ' Fs
+  | [], _, _, _, _, _ => rfl
+  | F :: Fs, k, ρ, ρ', hb, hρ => by
+    simp only [teleOfFields_cons]
+    rw [interp_congr_below V F k ρ ρ' hb.1 hρ]
+    refine congrArg _ (funext fun a => ?_)
+    refine teleOfFields_congr_below (k := k + 1) hb.2 fun v hv => ?_
+    match v with
+    | 0 => rfl
+    | v + 1 => exact hρ v (by omega)
+
+/-- **Two frames agreeing below a depth agree below that depth under a
+common prefix** (task #315 L-E: `consList_agree_below` at a bound
+BEYOND the prefix — the parameters are what the two frames share). -/
+theorem consList_agree_above {k : Nat} {ρ ρ' : Nat → V} (hρ : ∀ v, v < k → ρ v = ρ' v)
+    (as : List V) : ∀ v, v < as.length + k → consList as ρ v = consList as ρ' v := by
+  intro v hv
+  rcases Nat.lt_or_ge v as.length with hv' | hv'
+  · rw [consList_getD_lt as ρ v hv', consList_getD_lt as ρ' v hv']
+  · rw [show v = (v - as.length) + as.length from by omega,
+      consList_apply_add as ρ, consList_apply_add as ρ']
+    exact hρ _ (by omega)
+
+/-- **A recursive slot reads only the frame below its telescope's
+bound** (task #315 L-E, DESIGN §U.48 (i)'s `slotSet_congr_below`): the
+telescope's domains are bounded at their own depths and the index
+expressions under the telescope, so two frames agreeing below the bound
+give one slot. -/
+theorem slotSet_congr_below {w u k : Nat} {ρ ρ' : Nat → V}
+    {tl : List (Nat × Nat × AnnotTerm)} {Eis : List AnnotTerm} {X : V}
+    (htl : DomsBelow k tl)
+    (hEis : ∀ e ∈ Eis, ConLeche.Term.Term.bvarsBelow (k + tl.length) e.erase)
+    (hρ : ∀ v, v < k → ρ v = ρ' v) :
+    slotSet w u ρ tl Eis X = slotSet w u ρ' tl Eis X := by
+  unfold slotSet
+  rw [teleOfFields_congr_below (k := k) htl.fields hρ]
+  refine piTele_congr fun bs hbs => ?_
+  have hlen : bs.length = tl.length := by
+    have := FitsS.length_eq hbs
+    rw [List.length_map] at this
+    exact this
+  rw [List.nil_append]
+  refine congrArg _ (congrArg _ (List.map_congr_left fun e he => ?_))
+  refine interp_congr_below V e (k + tl.length) _ _ (hEis e he) fun v hv => ?_
+  exact consList_agree_above hρ bs v (by omega)
+
+/-- **A container's constructor fit at TWO level assignments and TWO
+frames** (task #315 L-E, DESIGN §U.51: the gap between the container
+instance transfer's two halves): the container instance transfer reads
+one container `dK`'s member `i`, constructor `j` twice — once as the
+outer container's own copy of a pin, at its pin frame and level
+assignment, once as the BLOCK's copy of the image pin, at the block's —
+and the two agree because the level assignments agree on the
+constructor's level parameters (`targetHead_corr`, `ContainerModeled.pinψ`)
+and the frames on the components' values (`PinCorr`'s `Ds`,
+`interp_instAll`).  The class data are then one datum
+(`IsBlockModel.ctor_params`) and every reading is below the parameter
+depth (`CtorDataI.below`/`belowE`, `tssBelow`/`eissBelow`), so
+`slotSet_congr_below` and `interp_congr_below` carry the fit across. -/
+theorem BlockModel.chainFitT_congr_mem {m : EnvModel V env} {dK : BlockModel V}
+    {pc : Nat → PinCtors V} {ψ₁ ψ₂ : Name → Nat} {ρ₁ ρ₂ : Nat → V} {Y : Nat → V} {t : V}
+    {i j : Nat} {fs : List V}
+    (hreps : IsBlockModels m dK) (hi : i < dK.k)
+    {cA : ConstantVal × Nat} (hj : (dK.ctorsM i)[j]? = some cA)
+    (hψ : ∀ p ∈ cA.1.levelParams, ψ₁ p = ψ₂ p)
+    (hw : dK.w ψ₁ = dK.w ψ₂)
+    (hu : ∀ l, dK.uT (dK.tgts i j l) ψ₁ = dK.uT (dK.tgts i j l) ψ₂)
+    (hIds : (dK.IdsM i ψ₁).length = (dK.IdsM i ψ₂).length)
+    (hρ : ∀ v, v < dK.nP → ρ₁ v = ρ₂ v)
+    (h : dK.ChainFitT pc ψ₁ ρ₁ Y t i j fs) : dK.ChainFitT pc ψ₂ ρ₂ Y t i j fs := by
+  obtain ⟨cvT, cvR, mI, rP, rules, hI⟩ := hreps i hi
+  obtain ⟨hF, hE, htl, hEs⟩ := hI.ctor_params hj hψ
+  have hcd := hI.ctorData hj
+  have hlenF := hI.Fss_length hj ψ₁
+  unfold BlockModel.ChainFitT at h ⊢
+  rw [BlockModel.rssT_of_mem hi, BlockModel.FssT_of_mem hi, BlockModel.IdsT_of_mem hi,
+    BlockModel.EssT_of_mem hi] at h ⊢
+  obtain ⟨hfit, hidx⟩ := h
+  constructor
+  · refine (fitsFrom_iff_frames (by rw [hF]) fun l hl fs₁ hl₁ _ _ => ?_).mp hfit
+    subst hl₁
+    have hlt : fs₁.length < cA.2 := by rw [← hlenF]; exact hl
+    have hidx : dK.nP + fs₁.length < (dK.dsF i j ψ₂).length := by rw [hcd.len]; omega
+    simp only [Nat.zero_add]
+    by_cases hr : ((dK.rss i).getD j []).getD fs₁.length false = true
+    · rw [if_pos hr, if_pos hr]
+      simp only [BlockModel.slotAtT, BlockModel.tgtsT_of_mem hi, BlockModel.teleAtT_of_mem hi,
+        BlockModel.eisAtT_of_mem hi, BlockModel.teleAt, BlockModel.eisAt]
+      rw [hw, hu, htl, hE]
+      refine slotSet_congr_below (k := dK.nP + fs₁.length) ?_ (fun e he => ?_)
+        (fun v hv => consList_agree_above hρ fs₁ v (by omega))
+      · rw [IsBlockModel.tlss_getD hj]
+        exact hcd.tssBelow ψ₂ fs₁.length
+      · have hmem : e ∈ (dK.eissF i j ψ₂).getD fs₁.length [] := by
+          rwa [IsBlockModel.Eiss_getD hj] at he
+        rw [IsBlockModel.tlss_getD hj]
+        exact hcd.eissBelow ψ₂ fs₁.length e hmem
+    · have hr' : ((dK.rss i).getD j []).getD fs₁.length false = false := by simpa using hr
+      rw [if_neg (by rw [hr']; exact Bool.false_ne_true),
+        if_neg (by rw [hr']; exact Bool.false_ne_true), hF]
+      refine interp_congr_below V _ (dK.nP + fs₁.length) _ _ ?_
+        (fun v hv => consList_agree_above hρ fs₁ v (by omega))
+      have hbelow := (hcd.below ψ₂).getD_below (dK.nP + fs₁.length) hidx
+      rw [Nat.zero_add, List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hidx] at hbelow
+      rw [IsBlockModel.Fss_getD hj, List.getD_eq_getElem?_getD, List.getElem?_map,
+        List.getElem?_drop, List.getElem?_eq_getElem hidx]
+      simpa using hbelow
+  · intro l hl
+    have hlenE : ((dK.Ess i ψ₁).getD j []).length = (dK.IdsM i ψ₁).length := by
+      rw [IsBlockModel.Ess_getD hj, hcd.lenE, hI.IdsM_length ψ₁]
+    have hlt' : l < ((dK.Ess i ψ₁).getD j []).length := by
+      rw [hlenE, ← hIds] at *
+      exact hl
+    have hgetD_mem : ∀ (L : List AnnotTerm), l < L.length → L.getD l default ∈ L := by
+      intro L hL
+      rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hL]
+      simp
+    have hmemE := hgetD_mem ((dK.Ess i ψ₁).getD j []) hlt'
+    have hlen : fs.length = cA.2 := by rw [hfit.length_eq, hlenF]
+    rw [← hEs, ← hidx l (by rw [hIds]; exact hl)]
+    refine interp_congr_below V _ (dK.nP + fs.length) _ _ ?_
+      (fun v hv => (consList_agree_above hρ fs v (by omega)).symm)
+    have hbE := hcd.belowE ψ₁ _ (by rwa [IsBlockModel.Ess_getD hj] at hmemE)
+    rw [hlen, IsBlockModel.Ess_getD hj]
+    exact hbE
+
 /-! ## The extended carrier is least among the tuples closed under the classes' constructors -/
 
 /-- **A tuple over the classes closed under the classes' constructors**
