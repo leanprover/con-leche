@@ -82676,6 +82676,85 @@ assembly 1 session; (iv) (`P = L⁺` ⇒ `pinLeaf` for all `q` ⇒
 `CopyEntryA` for every group ⇒ `nestedPinsEntry_of`, probe over `hSh`
 + `htail`) ½ session.
 
+##### (e) SESSION 3 FINDING: step (iii)'s induction measure is NOT the pin's expression size — two counter-instances (both accepted by Lean 4.33)
+
+The plan's (iii) inducts on the pin EXPRESSION's size, the non-cyclic
+edges of the pins' dependency graph (a copy's rewritten field targets
+another pin) being "strictly smaller".  FALSE.  A container's ORDINARY
+field that mentions its parameter inside a container application is
+not rewritten in the container's own elimination (no member of the
+container occurs), but IS rewritten in the block's copy, where the
+parameter is the pin's component — and the target is BIGGER:
+
+* `inductive J (α) | mk : List (α × α) → J α`, `inductive P4 | mk : J P4 → P4`
+  (`_tmp` probe `Dup.lean`; `P4.rec` shows the pins): pin `J P4` (size 2)
+  → its copy's field `List (P4 × P4)` → pin of size 4 → `P4 × P4` → `P4`.
+* `inductive K' (β) | mk : J β → K' β`, `inductive P5 | mk : J (K' P5) → P5`:
+  `J (K' P5)` → `List (K' P5 × K' P5)` (the component `K' P5`
+  DUPLICATED) → `K' P5 × K' P5` → `K' P5` → `J P5` → `List (P5 × P5)`
+  → `P5 × P5`.  Any additive measure and the Dershowitz–Manna
+  multiset of container indices fail on the duplication.
+
+What DOES decrease along every non-self-nesting edge (A: the target is a
+proper subterm of the components; B: the target is `C (args[Ds])` with
+`C (args)` a subterm of the container's STORED field, so every container
+in `args` is declared BEFORE the container): for each block-member
+occurrence in the pin expression, the sequence of container heads from
+the member UP to the root, ordered lexicographically by declaration
+index with a proper prefix smaller; the pin's measure is the
+Dershowitz–Manna multiset of these paths.  A-edges truncate paths and
+drop occurrences; B-edges replace the root segment by earlier
+containers (each new path smaller at the first difference).  The
+self-nesting edge (`pinF`: `J Ds → K (Ds_K[Ds])` with `J` in `Ds_K`)
+EXTENDS the path (bigger) — the cycle, as intended.  Formalising this
+measure needs the pins' derivations as Expr paths through
+`replaceAllNested`'s occurrences and the stored fields — lane L-B's
+kind of syntax, 2–3 sessions on its own — and it is only the ORDER; the
+transfer through `PinShapes` ∘ `CopyCtorShape` (the level clauses of
+§U.39 (b)) is still on top.
+
+##### (f) THE ALTERNATIVE ROUTE for (iii): `∈`-induction on the VALUE (no pin order, no transfer, no `PinRecLaws.ind`) — complete at `w ≠ 0`, open at `w = 0`
+
+At `w ≠ 0` every element of a real carrier is a tagged tuple `injW w j
+(mkTower (fs ++ [pt]))` (the container's `fibre` at its least tuple:
+`ChainFit`), and every field value `fs_l` is `∈`-below it; a recursive
+or pin field's value lies in the target family's fibre (`fs_l ∈ app
+(LJ m) t'`, or in `dJ.pinCar … LJ qK`'s fibre = the pin's container's
+real carrier by `pinLeaf`), and an `ordF`-right or reflexive field's
+value is a FUNCTION whose values at fitting tuples lie in the target's
+real carrier and are `∈`-below the function.  So `∀ x, (∀ q t, x ∈ app
+(P q) t → x ∈ app (L⁺ (k+q)) t)` by well-founded `∈`-induction (all
+pins at once): unfold `x` by the container's fibre at `LJ`, apply the
+hypothesis to the components/values, and refit the copy at `L⁺`
+pointwise — `fit_imp_le`'s inclusions become POINTWISE memberships (a
+pointwise twin of `fit_imp_le`; `mem_slotSet` through `piTele`'s graph
+membership, `projS_mem`/`mkTower_mem`).  Cycles are harmless: the
+descent is on the set, not on the pin.  Needed and absent:
+`WellFounded (Mem : V → V → Prop)` — derivable from `regularity`
+(`SetTheory.Core`) through the transitive closure (an ω-union over
+`Nat`-indexed iterated unions by Lean-level replacement), ½ session;
+the pointwise refit ~1 session; the assembly ½.
+
+At `w = 0` (a Prop-valued block: Lean 4 ACCEPTS `inductive Foo : Prop |
+mk : (∃ x : Nat, Foo) → Foo` and `… | mk : Nonempty Bar → Bar`, probe
+`PropNest.lean`; by `PinGroupView.w` every pin's container is then
+Prop-valued too) the fibres are truth values and the descent has
+nothing to descend on; there (iii) needs the pin ORDER of (e) or
+another idea (the real carriers are separate least fixed points reading
+each other as FIXED sets, so joint leastness is exactly the acyclicity
+of the non-self-nesting dependency, (e)'s measure).  A kernel-side
+DECLINE of Prop-valued nested blocks with pins would close it (a
+feature, positively detected; corpus frequency unmeasured) — the
+maintainer's call, not this lane's.
+
+##### (g) STATUS
+
+Steps (i), (ii), `fit_imp_le`, `nestedGroupLe_of_entries` stand.  (iii)
+is NOT started beyond them: the plan's measure is refuted ((e)); the
+route is the maintainer's choice between (e) [order + transfer, 3–5
+sessions] and (f) [`∈`-induction, 2 sessions at `w ≠ 0`, plus `w = 0`
+by (e) or a decline].  (iv) is ½ session after either.
+
 ##### (d) GATES at the session's commits (last: `nestedGroupLe_of_entries`)
 
 `lake build` 694 jobs warning-free; `lake test` warning-free; shake
@@ -83249,7 +83328,6 @@ did not move); quote-gate 2; no-local-paths OK; proofdeps 4955 rows /
 12 roots / 0 doors; shake 509/509 allowlisted; pub-imports 1259 of
 1977, none demotable.  Standard axioms on every theorem touched,
 `declMutual` included.
-
 #### U.46 — M7-3 session 5: the members' constants carried (blocker 1 CLOSED), and K.36's spec written against what the lift consumes (lane M7-3, session 5, 2026-09-17)
 
 §U.43 (c) found the mutual lift blocked on a fact the tree proves and
@@ -83355,3 +83433,187 @@ paragraph re-read, the claim unchanged); quote-gate 2; no-local-paths
 OK; proofdeps 4955 rows / 12 roots / 0 doors; shake 509/509
 allowlisted; pub-imports 1259 of 1977, none demotable.  Standard axioms
 throughout.
+
+#### U.48 — L-E session 4, PART A: the ONE-SYSTEM route evaluated — right INSIDE a blob, and no escape from an order BETWEEN blobs (lane L-E, 2026-09-17)
+
+The question (coordinator): can step (iii) — `P q ≤ L⁺ (k+q)`, the
+containers' least tuples at the pins below the auxiliary carrier — be
+fixed-point ALGEBRA (the block's pin system restricted to the pins
+reachable from a group IS the container's own pin system at `Ds` up to
+renaming/duplication; `lfpTuple_le` both ways through the map), with no
+order on pins, at every `w`?
+
+##### (a) What the block's pin system reachable from a group contains
+
+Take group `A` = the pins of container `J` at components `Ds`.  The
+block's pins reachable from `A` are of three kinds:
+
+1. `A` itself (`J`'s members at `Ds`) — `J`'s MEMBER variables;
+2. the images of `J`'s OWN pins (`K (Ds_K[Ds])` for `J`'s pin `K Ds_K`,
+   `Ds_K` mentioning `J`), reached through the copies' `pinF` fields,
+   closed under `K`'s own `pinF` fields — `J`'s PIN variables; together
+   with 1 the BLOB of `A`: exactly `J`'s full system (members + pins,
+   `NestedRecCand`'s extended tuple, M7-1's `PinRecLaws`) at `Ds`;
+3. the pins reached through the copies' `ordF`-right fields — a
+   container's ORDINARY field mentioning its parameter inside a
+   container application `C (args)`, rewritten in the block to the pin
+   `C (args[Ds])` (`C` declared before `J`, §U.39 (e)'s B-edges) — and
+   the pins inside `Ds` (A-edges).  In `J`'s OWN system these are NOT
+   variables: `J`'s operator reads them as FIXED sets, the stored
+   readings (the real carriers `P q'` of OTHER blobs).
+
+So "the block's system reachable from `A` = `J`'s system at `Ds`" holds
+for kinds 1–2 (the blob) and FAILS for kind 3: the block has variables
+where the container has constants.  The one-system identification is
+therefore an identification of the block's BLOB system (externals held
+fixed) with `J`'s full system at `Ds` — which needs the externals'
+values to agree first: `P q' = L⁺ (k+q')` at the blobs referenced —
+the claim at other blobs.
+
+##### (b) Componentwise-least is not jointly-least: the two-variable counterexample
+
+Could algebra still bypass the order?  `P` IS a fixed point of the
+block's pin section (step (i)), and each blob of `P` is the LEAST
+solution of its container's system with the externals fixed at `P`.
+That does not make `P` the least fixed point of the joint system:
+over `{0,1}`, `Θ (x, y) := (y, x)` has `P := (1,1)` with each
+component the least fixed point of its section at `P` (`x ↦ 1`, `y ↦
+1`), while the joint least fixed point is `(0,0)`.  A mutual external
+reference between two blobs is exactly this; joint leastness follows
+from componentwise leastness ONLY when the external-reference graph
+between blobs is well-founded — the induction over blobs.  The order
+between blobs cannot be dispensed with by algebra at any `w`.  (That the
+graph IS acyclic is §U.39 (e)'s path-multiset argument: A-edges
+descend into components, B-edges go to earlier-declared containers,
+and only the blob's own `pinF` edges return.)
+
+##### (c) The evaluation's five points
+
+1. **Pins → pins a function?**  Block pin → container variable: a
+   group pin `q₀+i` ↦ `J`'s member `i` (`grp`, names); a kind-2 pin `t`
+   ↦ the `J`-pin `qK` with `(dJ.pinAt qK).J = TV.J t`, levels and
+   component READINGS matching (`PinCorr`).  Not injective: `J`'s pins
+   `K α`, `K β` at `Ds = [P4, P4]` both map to the block's `K P4`; two
+   `J`-pins can also share readings at `ρJ` with distinct syntax.  Both
+   are the "duplication" the route allows, handled by fibre MEETS in the
+   pullback lemma ((d) below), not by uniqueness.  Surjective onto
+   `J`'s variables: every `J`-pin is reached from `J`'s members through
+   `pinF` fields in `J`'s own elimination, and the block copies every
+   constructor — plausible, a syntactic fact to state (§U.39 (b)'s
+   clauses give the correspondence per field, not the reachability).
+2. **The operators agree under the map?**  At the operator level — the
+   block's copy fit at a pulled-back tuple ↔ the container's
+   `ChainFitT` at the extended tuple — this is `fit_iff_at`'s argument
+   with the `pinF` slot reading a VARIABLE (`ChainFitT pc … Y` at
+   `tgtsT`) instead of `dJ.pinCar … LJ` (`slotAt_of_pin`), plus the
+   same at the container's own pins' constructors (`PinShapes` ∘ the
+   block's copy shape through `K`'s readings, the level clauses).  No
+   order inside — but the externals (kind 3) enter as `L⁺ (k+q') =
+   P q'` (the induction hypothesis) on the block side and as the stored
+   reading (`= P q'`, `pinTarget_reads`) on the container side.
+3. **The cycle case**: correct — a self-nested container's own pin is a
+   kind-2 variable of the blob; the identification of the blob's least
+   tuple with `(LJ, pinCar LJ)` (Bekić; from `PinRecLaws`: the pins are
+   the least section at the members, `ind`) is fixed-point algebra
+   with no special step.  This REPLACES the plan's "`PinRecLaws.ind`
+   with `Q := ⋂ …`" by the pullback lemma — the cleaner form.
+4. **Cost**: the blob transfer (2) is the transfer (e) needs anyway,
+   stated once at the operator level: ~1.5 sessions.  The pullback
+   lemma (d): ¼ session (this session).  The order between blobs: EITHER
+   §U.39 (e)'s path multiset (2–3 sessions of syntax) OR a kernel-recorded
+   and CHECKED blob rank ((e′) below, 1 kernel session, ½ model session
+   to consume).  (f) is out (`w = 0`).
+5. **What could make it false**: `P4`/`P5` (§U.39 (e)): the maps exist
+   (each blob is a single non-self-nested group; kinds 3 only), the
+   blobs are ordered `J P4 > List (P4 × P4) > P4 × P4`, resp. the
+   7-blob chain — fine.  `nested_p04`'s 3-cycle (a self-nested
+   container through two containers) is one blob of three groups —
+   the pullback lemma's fibre meets are exactly what a duplicated pin
+   needs.  A failure would be a NON-well-founded external-reference
+   graph — excluded by (e)'s structural argument — or a blob whose
+   copies do not reach some `J`-pin (surjectivity, point 1).
+
+##### (d) The pullback lemma (proved this session, `LfpCompose.lean`)
+
+`lfpTuple_pullback`: systems `Φ` over `k` variables and `Φ'` over
+`k'`, a map `σ : [0,k') → [0,k)` surjective, `Is' j = Is (σ j)`, and
+`Φ' (X ∘ σ) j = Φ X (σ j)` at every `X` in the space (the operator
+transfer); then `lfpTuple w k' Is' Φ' j = lfpTuple w k Is Φ (σ j)`.
+Proof: `(lfp Φ) ∘ σ` is `Φ'`-closed (`lfpTuple_le`); conversely the
+tuple `T i := lfp Φ i ∩ ⋂ {lfp Φ' j | σ j = i}` (a `sep` of the least
+tuple's fibres, the finite fibre meet) is `Φ`-closed (`hpull` + `Φ'`
+monotone + `lfp Φ'` fixed), so `lfp Φ ≤ T ≤ (lfp Φ') ∘ σ⁻¹`.  Pure
+algebra, every `w`.
+
+##### (e′) PROPOSAL: a kernel-recorded blob rank (K.37, the kernel lane's call)
+
+The elimination's pins are already walked by K.32 (`nestedCopyTargetsOk`).
+Record with each pin a rank (a `Nat`), and CHECK: for every copy's
+rewritten field, the target's rank is `<` the copy's pin's rank, unless
+the field is one the CONTAINER classifies as nested at ITS OWN pin (the
+stored field mentions a member of the container's own group —
+`mentionsMember` on the stored constructor type, K.32's reading), in
+which case ranks are equal (the blob).  True of every accepted block by
+(e)'s measure — the checker computes the rank by a topological sort of
+the blob graph and never fails on the corpus; the model consumes ONLY
+the Bool (a decreasing rank on external edges), so step (iii) is
+strong induction on the rank with the blob transfer inside.  It is a
+recorded-and-checked Bool like K.28–K.35, not a decline.
+
+##### (e″) K.37's SPEC (what the model consumes)
+
+Recorded with the elimination state, per pin `q`: `blob q : Nat` and
+`rank q : Nat`.  Checked (`nestedPinRanksOk`, a Bool over the recorded
+pins, walked like K.32's `nestedCopyTargetsOk`): for every pin `q`, every
+constructor of its copy and every rewritten field with target pin `t`
+(K.32's target read-back, so the target is well defined),
+1. if the CONTAINER's stored field (the copy's field before
+   instantiation) mentions a member of the container's own group
+   (`mentionsMember` at the container's `containerInfo?` names) —
+   the container's own-pin field — then `blob t = blob q`;
+2. otherwise `rank t < rank q`;
+3. and `blob t = blob q → rank t = rank q` for all pins (rank is a
+   function of the blob), `blob (q₀ + i) = blob q₀` within a mint group.
+The checker computes `blob` as the strongly-connected components of the
+own-pin graph and `rank` as a topological order of the quotient (§U.39
+(e) says the quotient is acyclic, so the computation never fails on an
+accepted block; a failure is exit 3, never a decline).  The model uses
+ONLY: (1) own-pin edges stay in the blob, (2) other edges strictly
+decrease the rank, (3) blobs are rank-homogeneous — the strong
+induction on `rank` with the blob transfer inside a blob.
+
+##### (f) PART B's pick
+
+The blob route with the pullback lemma inside, and the inter-blob order
+by K.37 if the kernel lane takes it (else (e)'s measure).  Session 4
+executes what needs no order: the pullback lemma (done; its operator
+hypothesis `hpull` is needed only at tuples BELOW the base least tuple,
+all the argument visits — which is what the frames' kit can supply),
+and the blob transfer's member half: `CopyCtorShape.fit_iff_at_T`
+(`NestedFit.lean`) — the copy's fit at the joined tuple, with the group
+segment read at `Y`'s member part, a `pinF` target at `Y`'s pin part
+through the pullback `hL : L (tg l) = Y (dJ.tgts i j l)` and an
+`ordF`-right target at the outer tuple (the externals, the induction
+hypothesis), iff the container's `ChainFitT` at the extended tuple `Y`
+(the container's own pins as VARIABLES, `NestedRecCand`), for `Y`
+below the extended carrier `famAt LJ` (`app_subset_of_famLe` +
+`slotAtT_mono` put the container's slots within its real domains,
+which the frames' kit carries).  `fit_iff_at` is its instance at
+`Y := famAt LJ`.
+
+##### (g) WHAT REMAINS on the blob route
+
+1. The pin half of the transfer: the block's copy of a kind-2 pin `t`
+   (container `K`'s constructors at `Ds_K[Ds]`, the block's shape
+   against `B ciK`) against `J`'s pin constructors `pc qK` (`K`'s at
+   `Ds_K`, `PinShapes` of `B ciJ` against `B ciK`) — through `K`'s
+   readings at level assignments agreeing on `K`'s parameters
+   (§U.39 (b)), a `ChainFitT`-level twin of `fit_iff_at_T` at a pin
+   class, ~1 session.
+2. The blob's operators as `Ψ`-restricted and `ΦT`-restricted
+   operators, the pullback `σ` from `PinCorr`'s data, and
+   `lfpTuple_pullback` at them; `(LJ, pinCar LJ)` as `ΦT`'s least tuple
+   from `PinRecLaws` (Bekić, `LfpCompose`), ~1 session.
+3. The rank induction (K.37) with the externals' hypothesis discharged
+   by the induction hypothesis and `pinTarget_reads`; then (iv), ~1
+   session.

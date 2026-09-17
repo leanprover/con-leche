@@ -39,6 +39,18 @@ def FamLe (I X Y : V) : Prop := ∀ i, i ∈ˢ I → app X i ⊆ˢ app Y i
 
 theorem FamLe.refl (I X : V) : FamLe I X X := fun _ _ => Subset.refl _
 
+/-- **The pointwise order holds at EVERY point** for a family in the
+space: off the index set a family's fibre is empty. -/
+theorem app_subset_of_famLe {w : Nat} {I X Y : V} (hX : X ∈ˢ famSpace w I) (h : FamLe I X Y)
+    (t : V) : app X t ⊆ˢ app Y t := by
+  by_cases ht : t ∈ˢ I
+  · exact h t ht
+  · rw [app_eq_empty_of_not_mem (ne_pt_of_mem_piSet hX) fun y hy => ?_]
+    · exact empty_subset _
+    · obtain ⟨x, hx, y', -, hp⟩ := mem_sigmaPairs.mp ((mem_piSet.mp hX).1 _ hy)
+      obtain ⟨rfl, -⟩ := kpair_inj hp
+      exact ht hx
+
 theorem FamLe.trans {I X Y Z : V} (h₁ : FamLe I X Y) (h₂ : FamLe I Y Z) : FamLe I X Z :=
   fun i hi => Subset.trans (h₁ i hi) (h₂ i hi)
 
