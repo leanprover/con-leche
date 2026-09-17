@@ -140,6 +140,7 @@ theorem ContainerModeled.crossEnvP {Ts : List Name} {env₁ env₂ : Env}
       nestMention := C.nestMention
       pinsNotMembers := C.pinsNotMembers
       pinNP := C.pinNP
+      pinParams := C.pinParams
       pinψ := fun q hq cvT caps hf => by
         obtain ⟨cvT', cvR', mI', rP', rules', h0⟩ := C.reps 0 hk
         obtain ⟨cv, caps', hf₁⟩ := h0.pinsFound q hq
@@ -706,6 +707,11 @@ theorem ContainerModeled.of_readBack {env : Env} {m : EnvModel V env} {nP : Nat}
       env.find? (d.pinAt q).J = some (.indInfo cvT caps) →
       (d.pinAt q).lvls.length = cvT.levelParams.length ∧
       ∀ ψ : Name → Nat, (d.pinAt q).ψJ ψ = Level.substFn ψ cvT.levelParams (d.pinAt q).lvls)
+    (hpinParams : ∀ (i : Nat), i < members.length → ∀ q, q < d.nPins → ∀ ψ₁ ψ₂ : Name → Nat,
+      (∀ pp ∈ (members.getD i default).1.levelParams, ψ₁ pp = ψ₂ pp) →
+      (d.pinAt q).u ψ₁ = (d.pinAt q).u ψ₂ ∧
+      (d.pinAt q).Ds ψ₁ = (d.pinAt q).Ds ψ₂ ∧
+      (d.pinAt q).Ids ψ₁ = (d.pinAt q).Ids ψ₂)
     (hmember : ∀ i, i < d.k → ∃ (cvR : ConstantVal) (mI rP : Nat) (rules : List RecRule),
       IsBlockModel m (members.getD i default).1.name (members.getD i default).1 cvR mI rP rules
         d i) :
@@ -722,6 +728,26 @@ theorem ContainerModeled.of_readBack {env : Env} {m : EnvModel V env} {nP : Nat}
   pinsNotMembers := hpinsNotMembers
   pinNP := hpinNP
   pinψ := hpinψ
+  pinParams := by
+    -- the group's member `i` IS the route's `i`-th member
+    -- (`blockContainerInfo` copies the stored `ConstantVal` field by
+    -- field), so its level parameters are that member's
+    intro i M hM q hq ψ₁ ψ₂ hag
+    have hMl : (members.map fun (cvT, cs) =>
+        (⟨cvT.name, cvT.levelParams, cvT.type,
+          cs.map fun (cv, nF) => ⟨cv.name, cv.type, nF⟩⟩ : ConLeche.ContainerMember))[i]?
+        = some M := hM
+    rw [List.getElem?_map] at hMl
+    cases hc : members[i]? with
+    | none => rw [hc] at hMl; exact nomatch hMl
+    | some c =>
+      rw [hc] at hMl
+      obtain rfl : M = ⟨c.1.name, c.1.levelParams, c.1.type,
+          c.2.map fun (cv, nF) => ⟨cv.name, cv.type, nF⟩⟩ := (Option.some.inj hMl).symm
+      have hcD : members.getD i default = c := by
+        rw [List.getD_eq_getElem?_getD, hc]; rfl
+      exact hpinParams i (List.getElem?_eq_some_iff.mp hc).1 q hq ψ₁ ψ₂
+        (by rw [hcD]; exact hag)
   member := fun i M hM => by
     -- the `i`-th entry is the `i`-th member of the route's list
     have hMl : (members.map fun (cvT, cs) =>

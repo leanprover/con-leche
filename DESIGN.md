@@ -92037,10 +92037,14 @@ reading form, which the syntactic field plus that law produce.
   `NestedPinsShapePinF`.
 
 Gates at the session's commits: `lake build` 716 jobs warning-free;
-`lake test` warning-free; layering 347 / 273 / 3 / 1, 0/0; trust 13/5;
-overview-links 112 with no anchor moved; quote-gate 2; no-local-paths
-OK; proofdeps 4965 rows / 12 roots / 0 doors (nothing relocated);
-shake 508/508 allowlisted; pub-imports none demotable;
-`tests/arena.sh` not re-run (nothing capstone-consumed changed; the
-three new objects are consumed by nothing in the chain).  Standard
-axioms on `ContainerOwnPins`' two theorems and on `DenoteMetaSpine.det`.
+`lake test` warning-free; layering 351 / 282 / 3 / 1, 0 base->lane and
+0 impl->theory; trust 13/5 (648 scanned); overview-links 112 with no
+anchor moved; quote-gate 2; no-local-paths OK; **proofdeps 4965 rows /
+12 roots / 0 doors** — the baseline, as it must be for a session that
+relocates nothing and whose three new objects are consumed by nothing
+in the chain; shake 511 removals, all allowlisted; pub-imports 1315 of
+2143, none demotable; `tests/arena.sh` EXIT 0 (re-run because the
+merge carries the kernel lane's K.41/K.42/K.44/K.45/K.46; this
+session's own commits touch no checker code).  Standard axioms on
+`pinCorr_of_ownPins`, `ContainerOwnPins.of_noOwn` and
+`DenoteMetaSpine.det`.

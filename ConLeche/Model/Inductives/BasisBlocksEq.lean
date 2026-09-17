@@ -555,6 +555,7 @@ theorem eqBlock_containerModeled {env : Env} {m : EnvModel V env}
   pinsNotMembers := fun _ h => (nomatch h)
   pinNP := fun _ h => (nomatch h)
   pinψ := fun _ h => (nomatch h)
+  pinParams := fun _ _ _ _ h => (nomatch h)
 
 /-- **`Eq`'s pins' laws**: no pins. -/
 theorem eqBlock_pinRecLaws {env : Env} {m : EnvModel V env} :

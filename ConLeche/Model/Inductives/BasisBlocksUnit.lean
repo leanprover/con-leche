@@ -404,6 +404,7 @@ theorem punitBlock_containerModeled {env : Env} {m : EnvModel V env}
   pinsNotMembers := fun _ h => nomatch h
   pinNP := fun _ h => nomatch h
   pinψ := fun _ h => nomatch h
+  pinParams := fun _ _ _ _ h => nomatch h
 
 /-- **`PUnit` carries its block's model** at any assignment that sends
 its group to `punitBlock`. -/

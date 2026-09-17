@@ -165,6 +165,33 @@ structure ContainerModeled {env : Env} (m : EnvModel V env) (ci : ContainerInfo)
     env.find? (d.pinAt q).J = some (.indInfo cvT caps) →
     (d.pinAt q).lvls.length = cvT.levelParams.length ∧
     ∀ ψ : Name → Nat, (d.pinAt q).ψJ ψ = Level.substFn ψ cvT.levelParams (d.pinAt q).lvls
+  /-- **A PIN'S DATA DEPEND ON THE ASSIGNMENT ONLY THROUGH THE
+  CONTAINER'S OWN LEVEL PARAMETERS** (task #315 lane L-E session 17's
+  request, DESIGN §U.69 (e)): two assignments agreeing on the group's
+  level parameters give one index universe, one component reading and
+  one index telescope at every pin.
+
+  A record and not a derivation, and lane L-E checked before asking:
+  `IsBlockModel.uParams` and `FormerData.params` are the MEMBERS'
+  congruences; the `u` and `Ids` halves reduce (through the container's
+  own `PinShapes` view, `ContainerModeled.params_congr` and `pinψ`) to
+  "the pins' level ARGUMENTS are `allParamsDefined` in the group's
+  level parameters", which `targetPin_corr` already takes as an
+  unsourced premise and which no record carries; and the `Ds` half does
+  not reduce at all — a `PinSyn`'s components are an abstract
+  `(Name → Nat) → List AnnotTerm`.  Consumers: `huT`'s pin branch
+  inside `copyTransfer_via`, and the `pinF` arm of the walk.
+
+  Stated over the GROUP's member record (`ci.members[i]?`), not over an
+  `env.find?` as `pinψ` is: the clause then mentions the environment
+  nowhere and crosses an extension for free.  Vacuous at a pins-free
+  container, like its neighbours. -/
+  pinParams : ∀ (i : Nat) (M : ConLeche.ContainerMember), ci.members[i]? = some M →
+    ∀ q, q < d.nPins → ∀ ψ₁ ψ₂ : Name → Nat,
+      (∀ pp ∈ M.lps, ψ₁ pp = ψ₂ pp) →
+      (d.pinAt q).u ψ₁ = (d.pinAt q).u ψ₂ ∧
+      (d.pinAt q).Ds ψ₁ = (d.pinAt q).Ds ψ₂ ∧
+      (d.pinAt q).Ids ψ₁ = (d.pinAt q).Ids ψ₂
 
 /-! ## The correspondence a container instance is compared along -/
 

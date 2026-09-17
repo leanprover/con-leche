@@ -283,7 +283,8 @@ theorem mutualContainerModeled {env envR : Env} {m : EnvModel V envR}
     (fun q hq => absurd hq (by rw [hnoPins]; omega))
     (fun q hq => absurd hq (by rw [hnoPins]; omega))
     (fun q hq => absurd hq (by rw [hnoPins]; omega))
-    (fun q hq => absurd hq (by rw [hnoPins]; omega)) (fun i hi => ?_)
+    (fun q hq => absurd hq (by rw [hnoPins]; omega))
+    (fun _ _ q hq => absurd hq (by rw [hnoPins]; omega)) (fun i hi => ?_)
   · rw [List.length_map, List.length_zipIdx, hkF]
   · rw [mutualReadBack_getD (by rw [← hkF]; exact hi), hnames i hi]
   · rw [mutualReadBack_getD (by rw [← hkF]; exact hi)]
@@ -954,7 +955,8 @@ theorem nativeContainerModeled {envO : Env} {m : EnvModel V envO} {mC : EnvModel
     (fun _ _ _ _ => rfl) (fun _ _ _ _ => Iff.rfl) (fun i j l x hi hj hx hk => ?_)
     (fun q hq => absurd hq (Nat.not_lt_zero q))
     (fun q hq => absurd hq (Nat.not_lt_zero q)) (fun q hq => absurd hq (Nat.not_lt_zero q))
-    (fun q hq => absurd hq (Nat.not_lt_zero q)) (fun i hi => ?_)
+    (fun q hq => absurd hq (Nat.not_lt_zero q))
+    (fun _ _ q hq => absurd hq (Nat.not_lt_zero q)) (fun i hi => ?_)
   · obtain rfl : i = 0 := Nat.lt_one_iff.mp hi
     exact hf.Tname.symm
   · obtain rfl : i = 0 := Nat.lt_one_iff.mp hi
