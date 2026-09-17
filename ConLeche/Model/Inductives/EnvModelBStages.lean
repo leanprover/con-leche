@@ -47,7 +47,7 @@ open ConLeche.Term ConLeche.Verify SetTheory
 open ConLeche.Semantics (AnnotTerm)
 open ConLeche (Env Expr Name Level CheckMode ConstantInfo ConstantVal ReducibilityHint
   RecFieldKind RecRule MutualParts MutualBlock MutualFormerA MutualFormer MutualCtor MutualCtor4
-  ContainerInfo IndCaps fueledOps)
+  ContainerInfo IndCaps NativeParts fueledOps)
 
 universe w
 
@@ -619,6 +619,70 @@ theorem checkMutualRecTys_names {env : Env} {b : MutualBlock} {F : Nat}
   obtain rfl := Option.some.inj (hget.symm.trans hget')
   obtain ⟨recTy, sty, u, -, -, -, -, -, -, -, -, rfl⟩ := ConLeche.checkMutualRecTy_shape hrec
   exact ⟨hlt, rfl⟩
+
+/-! ### The native install's four stages -/
+
+omit [SetTheory V] in
+/-- The constructors' conses, listed (the first constructor deepest). -/
+theorem consSumCtors_consts {nP : Nat} :
+    ∀ {ctorsA : List (ConstantVal × Nat)} {env : Env},
+      (ConLeche.consSumCtors nP ctorsA env).consts
+        = (ctorsA.map (fun c => ConstantInfo.ctorInfo c.1 nP c.2)).reverse ++ env.consts
+  | [], env => by simp [ConLeche.consSumCtors]
+  | c :: cs, env => by
+    simp only [ConLeche.consSumCtors, List.map_cons, List.reverse_cons]
+    rw [consSumCtors_consts]
+    simp
+
+omit [SetTheory V] in
+/-- Native stage 1: the former, consed as the block's single member. -/
+theorem consNativeFormer_installExt {p : NativeParts} {cvTa : ConstantVal} {env : Env}
+    (hTname : cvTa.name = p.cvT.name) (hfresh : env.find? p.cvT.name = none) :
+    BlockInstallExt [p.cvT.name] env ⟨.indInfo cvTa (ConLeche.nativeCaps p) :: env.consts⟩
+      [.indInfo cvTa (ConLeche.nativeCaps p)] :=
+  BlockInstallExt.cons (by show env.find? cvTa.name = none; rw [hTname]; exact hfresh)
+    (fun _ _ _ => by show cvTa.name ∈ _; rw [hTname]; exact List.mem_singleton_self _)
+    (fun _ _ _ _ heq => nomatch heq) (fun _ heq => nomatch heq)
+
+omit [SetTheory V] in
+/-- Native stage 2: the constructors' conses — no container, no recursor, no table. -/
+theorem consSumCtors_installExt {Ms : List Name} {nP : Nat}
+    {ctorsA : List (ConstantVal × Nat)} {env : Env}
+    (hfresh : ∀ c ∈ ctorsA, env.find? c.1.name = none) :
+    BlockInstallExt Ms env (ConLeche.consSumCtors nP ctorsA env)
+      ((ctorsA.map fun c => ConstantInfo.ctorInfo c.1 nP c.2).reverse) := by
+  refine ⟨consSumCtors_consts, fun c hc => ?_, fun c hc => ?_, fun c hc => ?_,
+    fun c hc => ?_⟩ <;>
+    (simp only [List.mem_reverse, List.mem_map] at hc; obtain ⟨cA, hcA, rfl⟩ := hc)
+  · exact hfresh cA hcA
+  · exact fun _ _ heq => nomatch heq
+  · exact fun _ _ _ _ heq => nomatch heq
+  · exact fun _ heq => nomatch heq
+
+omit [SetTheory V] in
+/-- Native stage 4: the projection table at a structure-like block —
+the only table the stage conses is the MEMBER's; at any other block it
+conses nothing. -/
+theorem nativeTable_installExt {p : NativeParts} {ctorsA : List (ConstantVal × Nat)}
+    {sortss : List (List Level)} {env envOut : Env}
+    (h : ConLeche.checkNativeTable (m := ConLeche.CheckM) p ctorsA sortss env = .ok envOut) :
+    ∃ new : List ConstantInfo, BlockInstallExt [p.cvT.name] env envOut new := by
+  unfold ConLeche.checkNativeTable at h
+  split at h
+  · next cA sorts =>
+    split at h
+    · next =>
+      obtain ⟨bodies, -, -, -, hfreshTbl, rfl⟩ := ConLeche.checkStructProjTable_inv h
+      refine ⟨_, BlockInstallExt.cons hfreshTbl (fun _ _ heq => nomatch heq)
+        (fun _ _ _ _ heq => nomatch heq) (fun tbl heq => ?_)⟩
+      obtain rfl := ConstantInfo.projInfo.inj heq
+      exact List.mem_singleton_self _
+    · next =>
+      obtain rfl := Except.ok.inj h
+      exact ⟨[], BlockInstallExt.rfl' _ _⟩
+  · next =>
+    obtain rfl := Except.ok.inj h
+    exact ⟨[], BlockInstallExt.rfl' _ _⟩
 
 /-! ### `declMutualB` — the model WITH ITS BLOCKS survives a mutual block -/
 
