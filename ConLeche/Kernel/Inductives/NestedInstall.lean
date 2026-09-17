@@ -1511,6 +1511,76 @@ def nestedPinRankOf (env : Env) (p : NestedParts) (b : MutualBlock) (st : ElimSt
   | none => (List.range st.pins.length).map fun _ => 0
   | some edges => nestedPinRankFrom st edges (nestedPinInstFrom st edges)
 
+/-! ## A stored container's OWN pins (task #315 K.41)
+
+A container installed by the nested route carries its own elimination's
+pins in the environment after all: the restore re-spells each MIMIC
+recursor `C₁.rec_j`'s major premise at the pin, so `C₁.rec_j`'s type,
+with its `mI` binders stripped, has as its next domain the container's
+own pin `K lvls Ds` applied to that copy's indices — which is exactly
+what `nestedFireShape` already reads on the fire path.  A container
+whose own declaration was NOT nested has no mimic and so no own pin,
+which is the honest answer for e.g. `Array` (a structure over
+`List α`). -/
+
+/-- **A stored container's own pins, AT A GIVEN INSTANTIATION**: read
+off its mimic recursors and already instantiated at `lvls`/`Ds` — the
+level arguments and components of the pin that names this container in
+the block.
+
+**There is no index arithmetic here, and that is deliberate.**  The
+naive reading — take the major premise's component arguments,
+`lowerBVars` them out of the recursor's motives, minors and indices,
+then re-instantiate at `Ds` — is exactly the arithmetic a
+twelve-instance corpus cannot validate.  It is avoided instead: a pin's
+components mention only the container's own PARAMETERS
+(`nestedFireShape`'s `looseBVarsBounded rP`; `pinsClosed` says the same
+of the block's), so instantiating ALL `mI` binders — the parameters at
+`Ds`, the motives, minors and indices at PADDING — leaves the
+components exactly `Ds`-substituted, with nothing lifted and nothing to
+lower.  `Expr.instPis` is a plain substitution, so the padding needs no
+type; and the level arguments come from `instantiateLevelParams` at the
+container FORMER's level parameters, which is where a pin's levels are
+scoped. -/
+def containerOwnPinsAtGo (env : Env) (base : Name) (lps : List Name)
+    (lvls : List Level) (Ds : List Expr) (nPr : Nat) : Nat → Nat → List Expr
+  | 0, _ => []
+  | fuel + 1, j =>
+    match env.find? (Name.appendIndexAfter base (j + 1)) with
+    | some (.recInfo cvR mI _rP _rules) =>
+      let here : List Expr :=
+        if nPr ≤ mI && Ds.length == nPr then
+          let ty := cvR.type.instantiateLevelParams lps lvls
+          let pad := (List.range (mI - nPr)).map fun _ => Expr.sort Level.zero
+          match Expr.instPis ty (Ds ++ pad) with
+          | some (.forallE dom _ _) =>
+            match dom.getAppFn with
+            | .const K _ =>
+              match containerInfo? env K with
+              | some ciK => [Expr.mkAppN dom.getAppFn (dom.getAppArgs.take ciK.nP)]
+              | none => []
+            | _ => []
+          | _ => []
+        else []
+      here ++ containerOwnPinsAtGo env base lps lvls Ds nPr fuel (j + 1)
+    | _ => []
+
+/-- The container's own pins at the instantiation the block's pin
+records: `none` if the container is not a recorded group. -/
+def containerOwnPinsAt (env : Env) (C : Name) (lvls : List Level) (Ds : List Expr) :
+    Option (List Expr) := do
+  let .indInfo cvT _ := (← env.find? C) | none
+  let ci ← containerInfo? env C
+  let first ← ci.members.head?
+  pure (containerOwnPinsAtGo env (first.name.str "rec") cvT.levelParams lvls Ds ci.nP 64 0)
+
+/-- A recorded pin's own level arguments and components, off the pin
+term the mint wrote (`replaceIfNested`: `pin = I lvls (args.take nP)`). -/
+def nestedPinLvlsDs (env : Env) (q : NestedPin) : Option (List Level × List Expr) := do
+  let .const _ lvls := q.pin.getAppFn | none
+  let ci ← containerInfo? env q.container
+  pure (lvls, q.pin.getAppArgs.take ci.nP)
+
 /-- **THE MINT PARENTS ARE WELL FOUNDED** (task #315 K.40, lane L-E's
 DESIGN §U.55): every recorded parent is an EARLIER pin.
 
@@ -1580,6 +1650,100 @@ def nestedPinRankOk (env : Env) (p : NestedParts) (b : MutualBlock) (st : ElimSt
         if e.2.2 then inst.getD e.1 0 == inst.getD e.2.1 0
         else inst.getD e.1 0 == inst.getD e.2.1 0 ||
           decide (rank.getD e.2.1 0 < rank.getD e.1 0))
+
+/-! ## THE PIN PAIRING AT A NOT-OWN EDGE (task #315 K.41)
+
+Lane L-E's transfer compares a container instance with the block's pins
+through ONE container — the instance's ROOT — and needs, at every pin of
+the instance, the four data of its `ClassPin`: one container (`name`),
+one level assignment on that container's own level parameters (`psi`),
+one frame on its parameters (`frame`) and one index set (`idx`).  At an
+OWN edge both sides name the same own pin of one container and
+`targetPin_corr` gives the pair; at a NOT-OWN edge there is nothing on
+the shape to relate them — and the syntactic route is REFUTED at an
+accepted fixture (`nested_lam_pin_prop`, where the positivity `whnf`
+turns `(fun _ => T) trivial` into a member, so the component's head is a
+λ).
+
+**What the checker can compare instead.**  A container installed by the
+nested route carries its own elimination's pins in the ENVIRONMENT after
+all: the restore re-spells each MIMIC recursor `C₁.rec_j`'s major
+premise at the pin, so that type with its `mI` binders stripped has as
+its next domain the container's own pin `K lvls Ds` applied to the
+copy's indices — which is what `nestedFireShape` already reads on the
+fire path.  So the pairing is a comparison of TWO RECORDED TABLES, with
+no head reading anywhere.
+
+**THE CORRECTION the measurement forced** (DESIGN `#### K.41`): the
+pairing is against the INSTANCE'S ROOT container, NOT the immediate mint
+parent.  In `nested_p04` the pins are `P4C`, `Array`, `List` in ONE
+instance with `P4C` the root, and the parent chain is
+`P4C → Array → List`; `containerOwnPinsAt` of the PARENT of the third
+pin — `Array`, a structure over `List α` — is `some []`, because
+`Array`'s own declaration is not nested and mints nothing.  It is
+`P4C`'s own pin list that is `[Array, List]`.  A pairing stated at the
+parent is therefore false at an accepted block; stated at the root it
+holds. -/
+
+/-- Each pin's instance ENTRY GROUP: the mint-group base of the unique
+group of its container instance whose parent lies OUTSIDE the instance.
+`none` at a pin whose instance has no unique entry group — which K.40's
+measurement found of no instance in either corpus, and which this Bool's
+first clause refuses. -/
+def nestedPinRootGroup (env : Env) (p : NestedParts) (b : MutualBlock) (st : ElimState)
+    (stored : List AuxStored) : List (Option Nat) :=
+  let inst := nestedPinInstOf env p b st stored
+  let par := nestedPinParent p st
+  (List.range st.pins.length).map fun q =>
+    let cls := (List.range st.pins.length).filter fun i =>
+      inst.getD i 0 == inst.getD q 0
+    let entries := (cls.filterMap fun i =>
+      match par.getD i none with
+      | none => some (st.pins.getD i default).grpBase
+      | some r => if inst.getD r 0 == inst.getD i 0 then none
+                  else some (st.pins.getD i default).grpBase).eraseDups
+    match entries with
+    | [g] => some g
+    | _ => none
+
+/-- **THE PIN PAIRING AT A NOT-OWN EDGE** (task #315 K.41, lane L-E's
+DESIGN §U.61 finding 4): every pin of a container instance that is not
+one of the ROOT group's own members IS a pin the root container's own
+elimination minted, at the root pin's own level arguments and
+components.
+
+ONE equality of pin TERMS gives all four data of L-E's `ClassPin` at the
+pair — `name` (the head), `psi` (the level arguments), `frame` (the
+components) and `idx` (the index set, a function of the other three) —
+off the two RECORDED tables, with no term head read anywhere.  That is
+what the refutation requires: the syntactic route is false at the
+accepted fixture `nested_lam_pin_prop`, where the positivity `whnf`
+turns `(fun _ => T) trivial` into a member and the component's head is
+a λ.
+
+**It cannot fire**, and a failure is `.internal`: the block's
+elimination mints a pin only while rewriting a copy, and the copy is the
+root container's — whose own elimination pinned the same occurrence, at
+the components the copy was made at.  CERTIFICATION-ONLY: gated. -/
+def nestedPinRootPairOk (env : Env) (p : NestedParts) (b : MutualBlock) (st : ElimState)
+    (stored : List AuxStored) : Bool :=
+  let roots := nestedPinRootGroup env p b st stored
+  (List.range st.pins.length).all fun q =>
+    match roots.getD q none with
+    | none => false
+    | some g =>
+      let qn := st.pins.getD q default
+      if qn.grpBase == g then true
+      else
+        -- the root GROUP's own pins, pooled: a mutual group is minted at
+        -- once and its members' eliminations share the occurrence list
+        let pool := ((List.range st.pins.length).filterMap fun i =>
+          let rn := st.pins.getD i default
+          if rn.grpBase == g then
+            (nestedPinLvlsDs env rn).bind fun ld =>
+              containerOwnPinsAt env rn.container ld.1 ld.2
+          else none).flatten
+        pool.contains qn.pin
 
 /-- **Check and install a recognised NESTED block** (see the module
 docstring): official's two syntactic front guards, the elimination, the
@@ -1731,6 +1895,14 @@ def checkNested (ops : CheckerOps m) (env : Env) (p : NestedParts) : m Env := do
   -- CERTIFICATION-ONLY, gated.  A failure is `.internal`.
   unless certOnly ops.mode (nestedPinParentOk p st) do
     throw (.internal "nested: a pin's mint parent is not an earlier pin")
+  -- **THE PIN PAIRING AT A NOT-OWN EDGE** (K.41): every pin of a
+  -- container instance that is not one of the root group's own members
+  -- IS a pin the ROOT CONTAINER's own elimination minted, at the root
+  -- pin's own levels and components — all four of `ClassPin`'s data in
+  -- ONE equality, off the two recorded tables.  CERTIFICATION-ONLY,
+  -- gated.  A failure is `.internal`.
+  unless certOnly ops.mode (nestedPinRootPairOk env p b st stored) do
+    throw (.internal "nested: a pin is not one the instance's root container pinned")
   let env₁ := consNestedFormers members env
   -- **POST-CHECK (a), A THIRD TIME** (K.30): the pins typed at the
   -- environment holding the RESTORED FORMERS — the one `restoreCtors`

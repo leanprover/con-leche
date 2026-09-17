@@ -309,7 +309,7 @@ theorem declNested_of (hμ : μ.verifiedChecks = true) {F : Nat} {env envOut : E
     Nonempty (EnvModelM V μ envOut) := by
   obtain ⟨h0, h1, st, b, envAux, stored, ctorsR, cvRms, cvRns, rulesM, rulesN, fmsA, ctorsA,
     hfA, hcA, helim, hcount, hfresh, hcont, hb, haux, hstored, hclosed, hpinsAux, hcaps, hsrc,
-    -, hgrp, hsc, -, hkinds, -, hrank, -, hpins₁, hctors, hrm, hrn, -, hrulesM, hrulesN, htbl,
+    -, hgrp, hsc, -, hkinds, -, hrank, -, -, hpins₁, hctors, hrm, hrn, -, hrulesM, hrulesN, htbl,
     hpinsOut, hcnt, hrecs, -⟩ := h
   -- the `-` after `hsrc` is K.31's `pinsDistinct` conjunct: named for the
   -- identities' discharge (`NestedPinsIdent`, lane L-B), not consumed here;
@@ -317,9 +317,10 @@ theorem declNested_of (hμ : μ.verifiedChecks = true) {F : Nat} {env envOut : E
   -- discharge's `ordF` arm, not consumed here either; the `-` after
   -- `hkinds` is K.35's `nestedAuxAppsOk`, `hrank` after it is K.37's
   -- `nestedPinRankOk` — the global entry theorem's induction measure,
-  -- carried down to `NestedPinsRun` (task #315 L-E, DESIGN §U.55) — and
-  -- the `-` after THAT is K.40's `nestedPinParentOk`, not consumed on
-  -- this path; the LAST `-` is K.34's
+  -- carried down to `NestedPinsRun` (task #315 L-E, DESIGN §U.55) — the
+  -- `-` after THAT is K.40's `nestedPinParentOk` and the one after THAT
+  -- K.41's `nestedPinRootPairOk`, neither consumed on this path; the
+  -- LAST `-` is K.34's
   -- `blockReadBackOk` — the route's own read-back, which `mp.blocks` already
   -- carries for the environments the fold has stored, so nothing here uses it;
   -- the `-` after `hrn` is K.39's `Nodup` of the restored recursors' names,
