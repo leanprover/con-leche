@@ -372,50 +372,60 @@ theorem BlockInstallExt.trans {Ms : List Name} {env env₁ env₂ : Env}
     · exact hp₂ c hc'
     · exact hp₁ c hc'
 
-namespace BlockInstallExt
+/-- **THE LOOKUP HALF of an install's conses**: the new constants in
+front of the old environment, their names fresh there.
+`BlockInstallExt`'s first two clauses, named on their own because the
+crossing's lookup lemmas read ONLY these — and because a block can meet
+them without meeting the KIND clauses: the `Quot` install
+(`BasisBlocksFold.lean`) conses two recursors whose names are not
+`I.rec`, so no `Ms` makes `BlockInstallExt` true of it. -/
+@[expose] def ConsExt (env envOut : Env) (new : List ConstantInfo) : Prop :=
+  envOut.consts = new ++ env.consts ∧ (∀ c ∈ new, env.find? c.name = none)
 
-variable {Ms : List Name} {env envOut : Env} {new : List ConstantInfo}
+namespace ConsExt
+
+variable {env envOut : Env} {new : List ConstantInfo}
 
 omit [SetTheory V] in
 /-- A stored lookup survives: a new constant of that name would have to
 be fresh at the environment that answers it. -/
-theorem ext (h : BlockInstallExt Ms env envOut new) :
+theorem ext (h : ConsExt env envOut new) :
     ∀ (n : Name) (c : ConstantInfo), env.find? n = some c → envOut.find? n = some c := by
   intro n c hf
   cases hn : List.find? (fun c => c.name == n) new with
   | none => rw [ConLeche.Semantics.find?_append_of_new_none h.1 hn]; exact hf
   | some c' =>
     obtain ⟨hmem, rfl⟩ := find?_name_mem hn
-    rw [h.2.1 c' hmem] at hf
+    rw [h.2 c' hmem] at hf
     exact nomatch hf
 
 omit [SetTheory V] in
 /-- A lookup the extension answers is the base's or one of the new
 constants'. -/
-theorem newOf (h : BlockInstallExt Ms env envOut new) {n : Name} {c : ConstantInfo}
+theorem newOf (h : ConsExt env envOut new) {n : Name} {c : ConstantInfo}
     (hf : envOut.find? n = some c) (hn : env.find? n = none) : c ∈ new ∧ c.name = n := by
   cases hfn : List.find? (fun c => c.name == n) new with
   | none =>
     rw [ConLeche.Semantics.find?_append_of_new_none h.1 hfn, hn] at hf
     exact nomatch hf
   | some c' =>
-    have : envOut.find? n = some c' := by
+    have h₂ : envOut.find? n = some c' := by
       rw [ConLeche.Env.find?, h.1, List.find?_append, hfn]; rfl
-    rw [hf] at this
-    obtain rfl : c = c' := Option.some.inj this
+    rw [hf] at h₂
+    obtain rfl : c = c' := Option.some.inj h₂
     exact find?_name_mem hfn
 
 omit [SetTheory V] in
 /-- The new names are fresh at the base. -/
-theorem freshN (h : BlockInstallExt Ms env envOut new) :
+theorem freshN (h : ConsExt env envOut new) :
     ∀ n ∈ new.map (·.name), env.find? n = none := by
   intro n hn
   obtain ⟨c, hc, rfl⟩ := List.mem_map.mp hn
-  exact h.2.1 c hc
+  exact h.2 c hc
 
 omit [SetTheory V] in
 /-- A lookup the extension answers is the base's or at a new name. -/
-theorem newN (h : BlockInstallExt Ms env envOut new) :
+theorem newN (h : ConsExt env envOut new) :
     ∀ (n : Name) (c : ConstantInfo), envOut.find? n = some c →
       env.find? n = some c ∨ n ∈ new.map (·.name) := by
   intro n c hf
@@ -427,6 +437,70 @@ theorem newN (h : BlockInstallExt Ms env envOut new) :
     right
     obtain ⟨hmem, rfl⟩ := newOf h hf hn
     exact List.mem_map_of_mem hmem
+
+omit [SetTheory V] in
+/-- **A cons chain that adds no projection table creates no projection
+slot**: a slot the extension answers is either the base's own (the same
+stored constant, by `ext`) or one of the new constants', and a new
+constant is not a `projInfo`. -/
+theorem noNewTables (h : ConsExt env envOut new)
+    (hnoTbl : ∀ c ∈ new, ∀ tbl : ConLeche.ProjTable, c ≠ .projInfo tbl) :
+    ∀ (sn : Name) (i : Nat), env.findProj? sn i = none → envOut.findProj? sn i = none := by
+  intro sn i h0
+  rw [ConLeche.Env.findProj?] at h0 ⊢
+  cases hf₂ : envOut.find? (ConLeche.projTableName sn) with
+  | none => rfl
+  | some c =>
+    cases hf₁ : env.find? (ConLeche.projTableName sn) with
+    | some c' =>
+      rw [h.ext _ _ hf₁] at hf₂
+      obtain rfl : c = c' := (Option.some.inj hf₂).symm
+      rw [hf₁] at h0
+      exact h0
+    | none =>
+      obtain ⟨hc, -⟩ := h.newOf hf₂ hf₁
+      cases c with
+      | projInfo tbl => exact absurd rfl (hnoTbl _ hc tbl)
+      | _ => rfl
+
+end ConsExt
+
+namespace BlockInstallExt
+
+variable {Ms : List Name} {env envOut : Env} {new : List ConstantInfo}
+
+omit [SetTheory V] in
+/-- An install's conses are a cons chain: `BlockInstallExt`'s first two
+clauses, which is everything the crossing's LOOKUP half reads. -/
+theorem toConsExt (h : BlockInstallExt Ms env envOut new) : ConsExt env envOut new :=
+  ⟨h.1, h.2.1⟩
+
+omit [SetTheory V] in
+/-- A stored lookup survives (`ConsExt.ext`). -/
+theorem ext (h : BlockInstallExt Ms env envOut new) :
+    ∀ (n : Name) (c : ConstantInfo), env.find? n = some c → envOut.find? n = some c :=
+  h.toConsExt.ext
+
+omit [SetTheory V] in
+/-- A lookup the extension answers is the base's or one of the new
+constants' (`ConsExt.newOf`). -/
+theorem newOf (h : BlockInstallExt Ms env envOut new) {n : Name} {c : ConstantInfo}
+    (hf : envOut.find? n = some c) (hn : env.find? n = none) : c ∈ new ∧ c.name = n :=
+  h.toConsExt.newOf hf hn
+
+omit [SetTheory V] in
+/-- The new names are fresh at the base (`ConsExt.freshN`). -/
+theorem freshN (h : BlockInstallExt Ms env envOut new) :
+    ∀ n ∈ new.map (·.name), env.find? n = none :=
+  h.toConsExt.freshN
+
+omit [SetTheory V] in
+/-- A lookup the extension answers is the base's or at a new name
+(`ConsExt.newN`). -/
+theorem newN (h : BlockInstallExt Ms env envOut new) :
+    ∀ (n : Name) (c : ConstantInfo), envOut.find? n = some c →
+      env.find? n = some c ∨ n ∈ new.map (·.name) :=
+  h.toConsExt.newN
 
 omit [SetTheory V] in
 /-- **A new recursor's MEMBER is new too** — the clause

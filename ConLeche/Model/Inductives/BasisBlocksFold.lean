@@ -40,35 +40,6 @@ universe w
 variable {V : Type w} [SetTheory V]
 variable {μ : CheckMode}
 
-/-! ## An install that tables nothing -/
-
-omit [SetTheory V] in
-
-/-- **A block that conses no projection table creates no projection
-slot**: a slot the extension answers is either the base's own (the same
-stored constant, by `ext`) or one of the new constants', and a new
-constant is not a `projInfo`. -/
-theorem BlockInstallExt.noNewTables {Ms : List Name} {env envOut : Env}
-    {new : List ConstantInfo} (h : BlockInstallExt Ms env envOut new)
-    (hnoTbl : ∀ c ∈ new, ∀ tbl : ConLeche.ProjTable, c ≠ .projInfo tbl) :
-    ∀ (sn : Name) (i : Nat), env.findProj? sn i = none → envOut.findProj? sn i = none := by
-  intro sn i h0
-  rw [ConLeche.Env.findProj?] at h0 ⊢
-  cases hf₂ : envOut.find? (ConLeche.projTableName sn) with
-  | none => rfl
-  | some c =>
-    cases hf₁ : env.find? (ConLeche.projTableName sn) with
-    | some c' =>
-      rw [h.ext _ _ hf₁] at hf₂
-      obtain rfl : c = c' := (Option.some.inj hf₂).symm
-      rw [hf₁] at h0
-      exact h0
-    | none =>
-      obtain ⟨hc, -⟩ := h.newOf hf₂ hf₁
-      cases c with
-      | projInfo tbl => exact absurd rfl (hnoTbl _ hc tbl)
-      | _ => rfl
-
 /-! ## The step, off one install record -/
 
 /-- **THE BASIS STEP, off one install record** (task #315 M7-3 session
@@ -95,7 +66,7 @@ theorem EnvBlocksOf.extendBasisExt {env₁ env₂ : Env} {m₁ : EnvModel V env�
     (fun ψ dp e ea hr => ?_) hfreshM hb hread hother hAt
   rw [denoteMeta_acval_congr (fun n hn => (hag n hn).symm) dp e] at hr
   exact denoteMeta_env_mono hF (litGuardsMono_of_findPreserved hF)
-    (hI.noNewTables hnoTbl) dp e hr
+    (hI.toConsExt.noNewTables hnoTbl) dp e hr
 
 /-! ## The five blocks -/
 
@@ -577,20 +548,18 @@ theorem eqBlocksStepOf {env env₂ : Env} {m₁ : EnvModel V env} (mp₂ : EnvMo
 session 9): `extendBasisExt` without the new group — the assignment
 does not move, because no new name reads a container back.
 
-`Quot`'s block is the pinned instance, and it is also why the
-crossing's two install clauses are spelled out here instead of read
-off `BlockInstallExt`: that record asks every `recInfo` the block
-conses to be named `I.rec` for a member `I`, and `Quot.lift` and
-`Quot.ind` are recursors named otherwise, so no `Ms` makes the record
-true of the `Quot` install.  The two clauses the crossing actually
-uses — the cons shape and the new names' freshness — are exactly
-`BlockInstallExt`'s first two, and `hrecN` (vacuous at a block whose
-names are no `_.rec`) replaces what `recN` would have given. -/
+`Quot`'s block is the pinned instance, and it is also why this one
+takes `ConsExt` rather than `BlockInstallExt`: that record asks every
+`recInfo` the block conses to be named `I.rec` for a member `I`, and
+`Quot.lift` and `Quot.ind` are recursors named otherwise, so no `Ms`
+makes it true of the `Quot` install.  `ConsExt` is exactly the lookup
+half the crossing reads, and `hrecN` — vacuous at a block none of whose
+names is an `_.rec` — replaces what `BlockInstallExt.recN` would have
+given. -/
 theorem EnvBlocksOf.extendNoGroup {env₁ env₂ : Env} {m₁ : EnvModel V env₁}
     {m₂ : EnvModel V env₂} {new : List ConstantInfo}
     {B : ContainerInfo → BlockModel V}
-    (hcons : env₂.consts = new ++ env₁.consts)
-    (hfresh : ∀ c ∈ new, env₁.find? c.name = none)
+    (hE : ConsExt env₁ env₂ new)
     (hrecN : ∀ (n : Name) (cv : ConstantVal) (mI rP : Nat) (rules : List RecRule),
       env₂.find? (n.str "rec") = some (.recInfo cv mI rP rules) →
       n.str "rec" ∈ new.map (·.name) → n ∈ new.map (·.name))
@@ -599,67 +568,13 @@ theorem EnvBlocksOf.extendNoGroup {env₁ env₂ : Env} {m₁ : EnvModel V env�
     (hb : EnvBlocksOf m₁ B)
     (hnone : ∀ J ∈ new.map (·.name), ConLeche.containerInfo? env₂ J = none) :
     EnvBlocksOf m₂ B := by
-  have hext : ∀ (n : Name) (c : ConstantInfo), env₁.find? n = some c →
-      env₂.find? n = some c := by
-    intro n c hf
-    cases hn : List.find? (fun c => c.name == n) new with
-    | none => rw [ConLeche.Semantics.find?_append_of_new_none hcons hn]; exact hf
-    | some c' =>
-      obtain ⟨hmem, rfl⟩ := find?_name_mem hn
-      rw [hfresh c' hmem] at hf
-      exact nomatch hf
-  have hnewOf : ∀ {n : Name} {c : ConstantInfo}, env₂.find? n = some c →
-      env₁.find? n = none → c ∈ new ∧ c.name = n := by
-    intro n c hf hn
-    cases hfn : List.find? (fun c => c.name == n) new with
-    | none =>
-      rw [ConLeche.Semantics.find?_append_of_new_none hcons hfn, hn] at hf
-      exact nomatch hf
-    | some c' =>
-      have h₂ : env₂.find? n = some c' := by
-        rw [ConLeche.Env.find?, hcons, List.find?_append, hfn]; rfl
-      rw [hf] at h₂
-      obtain rfl : c = c' := Option.some.inj h₂
-      exact find?_name_mem hfn
-  have hfreshN : ∀ n ∈ new.map (·.name), env₁.find? n = none := by
-    intro n hn
-    obtain ⟨c, hc, rfl⟩ := List.mem_map.mp hn
-    exact hfresh c hc
-  have hnewN : ∀ (n : Name) (c : ConstantInfo), env₂.find? n = some c →
-      env₁.find? n = some c ∨ n ∈ new.map (·.name) := by
-    intro n c hf
-    cases hn : env₁.find? n with
-    | some c' =>
-      left
-      rw [← hf, hext n c' hn]
-    | none =>
-      right
-      obtain ⟨hmem, rfl⟩ := hnewOf hf hn
-      exact List.mem_map_of_mem hmem
-  have hF : FindPreserved env₁ env₂ := fun hf => hext _ _ hf
-  have hnoT : ∀ (sn : Name) (i : Nat), env₁.findProj? sn i = none →
-      env₂.findProj? sn i = none := by
-    intro sn i h0
-    rw [ConLeche.Env.findProj?] at h0 ⊢
-    cases hf₂ : env₂.find? (ConLeche.projTableName sn) with
-    | none => rfl
-    | some c =>
-      cases hf₁ : env₁.find? (ConLeche.projTableName sn) with
-      | some c' =>
-        rw [hext _ _ hf₁] at hf₂
-        obtain rfl : c = c' := (Option.some.inj hf₂).symm
-        rw [hf₁] at h0
-        exact h0
-      | none =>
-        obtain ⟨hc, -⟩ := hnewOf hf₂ hf₁
-        cases c with
-        | projInfo tbl => exact absurd rfl (hnoTbl _ hc tbl)
-        | _ => rfl
-  refine EnvBlocksOf.crossInd hext hnewN hfreshN hrecN m₁.wf m₁.rec_ctors
-    (fun n c _ hf => hext n c hf) (constsResolve_of_findPreserved hF) hag
+  have hF : FindPreserved env₁ env₂ := fun hf => hE.ext _ _ hf
+  refine EnvBlocksOf.crossInd hE.ext hE.newN hE.freshN hrecN m₁.wf m₁.rec_ctors
+    (fun n c _ hf => hE.ext n c hf) (constsResolve_of_findPreserved hF) hag
     (fun ψ dp e ea hr => ?_) (fun _ _ _ _ => rfl) hb (fun J hJ ci hci => ?_)
   · rw [denoteMeta_acval_congr (fun n hn => (hag n hn).symm) dp e] at hr
-    exact denoteMeta_env_mono hF (litGuardsMono_of_findPreserved hF) hnoT dp e hr
+    exact denoteMeta_env_mono hF (litGuardsMono_of_findPreserved hF)
+      (hE.noNewTables hnoTbl) dp e hr
   · rw [hnone J hJ] at hci
     exact nomatch hci
 
@@ -725,7 +640,7 @@ theorem quotBlocksStepOf {env env₂ : Env} {m₁ : EnvModel V env} {m₂ : EnvM
     rw [ConLeche.Env.find?_cons]
     exact if_pos rfl
   refine EnvBlocksOf.extendNoGroup (new := [quotSoundA, quotIndA, quotLiftA, quotMkA, quotA])
-    rfl ?_ ?_ ?_ hag hb ?_
+    ⟨rfl, ?_⟩ ?_ ?_ hag hb ?_
   · intro c hc
     rcases List.mem_cons.mp hc with rfl | hc1
     · exact hf5
