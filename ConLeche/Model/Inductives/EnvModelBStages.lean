@@ -2,7 +2,6 @@ module
 
 public import ConLeche.Model.Inductives.ContainerCross
 public import ConLeche.Model.Inductives.MutualTables
-import ConLeche.Verify.Inductives.ContainerFrame
 import ConLeche.Verify.Inductives.NestedGroupInv
 import ConLeche.Model.Inductives.MutualCore
 import ConLeche.Model.Inductives.MutualNoProj
