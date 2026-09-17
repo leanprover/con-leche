@@ -206,8 +206,9 @@ arguments one by one (`ErasedEq.getApp`), and erasure-equal
 expressions read equally (`denoteMeta_erasedEq`), so a read spine may
 be transported along a pointwise erasure equality. -/
 
-/-- A dropped suffix, positionally. -/
-theorem getD_drop {α : Type _} [Inhabited α] (as : List α) (n l : Nat) :
+/-- A dropped suffix, positionally (the twin of `NestedPinLaws`'
+`getD_drop`, which this module does not see). -/
+theorem getD_dropD {α : Type _} [Inhabited α] (as : List α) (n l : Nat) :
     (as.drop n).getD l default = as.getD (n + l) default := by
   rw [List.getD_eq_getElem?_getD, List.getD_eq_getElem?_getD, List.getElem?_drop]
 

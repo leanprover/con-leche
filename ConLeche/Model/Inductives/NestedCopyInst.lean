@@ -1571,7 +1571,7 @@ theorem NestedPinsRun.copyEs {pbs : List (Expr × ConLeche.BinderMeta)}
       omega
     have hlt : b.nP + l < (xrestF (b.ownOffset (p.k + q₀ + i') + j)).getAppArgs.length := by
       rw [List.length_drop] at hl; omega
-    rw [getD_drop]
+    rw [getD_dropD]
     refine Expr.ErasedEq.trans (hargsEq (b.nP + l) hlt) ?_
     rw [List.getD_eq_getElem?_getD, List.getElem?_append_right (by rw [hlenPm]; omega), hlenPm,
       Nat.add_sub_cancel_left, ← List.getD_eq_getElem?_getD, hmapGetD _ _ l hlES,
