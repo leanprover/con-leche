@@ -467,7 +467,7 @@ block model says (`hRD`, `hCread`, `hread`), rule `(t, j)` fires: the
 equation of the chosen tuple (`hiota`) at the recursor's own parameter
 spine — the major decoded by the fibre's converse — and the rule's
 right-hand side β-reduced along the fitting spine. -/
-theorem blockRecRuleLaw {env₀ env₃ : Env} {m₀ : EnvModel V env₀} (m₃ : EnvModel V env₃)
+theorem blockRecRuleLawG {env₀ env₃ : Env} {m₀ : EnvModel V env₀} (m₃ : EnvModel V env₃)
     {d : BlockModel V} (hreps : IsBlockModels m₀ d) (hnp : d.pins = [])
     (hfT : ∀ ψ, FormersTyped m₀ d ψ) (hcT : ∀ ψ, CtorsTyped m₀ d ψ)
     (hval : ∀ (n : Name) (ψ : Name → Nat) (ρ : Nat → V), AnnotValid V ρ (m₀.acval n ψ))
@@ -488,24 +488,68 @@ theorem blockRecRuleLaw {env₀ env₃ : Env} {m₀ : EnvModel V env₀} (m₃ :
       ∀ e ∈ d.recEqs m₀ elimL (restrictΨ rlps ψ),
         (pt : V) ∈ˢ interp V
           (consList ((List.range d.k).map fun t => interp V ρ (d.recLeaf m₀ elimL s rlps t ψ)) ρ) e)
-    (hagC : ∀ (c j : Nat) (cA : ConstantVal × Nat), c < d.k → (d.ctorsM c)[j]? = some cA →
-      ∀ ψ, m₃.acval cA.1.name ψ = m₀.acval cA.1.name ψ)
     {t : Nat} (ht : t < d.k) {j : Nat} {cA : ConstantVal × Nat} (hj : (d.ctorsM t)[j]? = some cA)
-    {cvRa : ConstantVal} (hlpsSub : ∀ q ∈ cA.1.levelParams, q ∈ rlps)
+    {cvRa : ConstantVal}
     (hRD : MutualRecData m₃ cvRa d.nP d.k d.nCtors (d.nIdxAt t) t elimL (d.blockRds m₀ elimL t))
     (hleafR : ∀ ψ, m₃.acval cvRa.name ψ = d.recLeaf m₀ elimL s rlps t ψ)
-    (hfC : env₃.find? cA.1.name = some (.ctorInfo cA.1 d.nP cA.2))
-    (hCread : ∀ ψ, denoteMeta m₃.acval env₃ ψ 0 cA.1.type
-      = some (mkPisAV (d.dsF t j ψ) (ctorBodyAVI m₃ (d.memberName t) d.nP cA.2 ψ (d.esF t j ψ))))
-    {rhs : Expr} (hlpsRhs : rhs.allLevelParamsDefined rlps = true)
-    (hread : ∀ ψ, denoteMeta m₃.acval env₃ ψ 0 rhs
-      = some (d.ruleRhsAV m₀ elimL (fun t' => d.recLeaf m₀ elimL s rlps t' ψ) t j cA.2 ψ))
     {mI rP : Nat} (hmI : mI = d.nP + d.k + d.nCtors + d.nIdxAt t) (hrP : rP = d.nP + d.k + d.nCtors)
-    {rl : RecRule} {kb eb : Bool} (hrule : rl = ⟨cA.1.name, cA.2, d.nP, .plain, rhs, kb, eb, true⟩)
-    (φ : Name → Nat) : RecRuleLaw m₃ φ cvRa.name cvRa mI rP rl := by
-  subst hrule hmI hrP
+    {rl : RecRule} {Ra : (Name → Nat) → AnnotTerm}
+    (hnf : RecRule.nfields rl = cA.2)
+    (hreadRa : ∀ ψ : Name → Nat,
+      denoteMeta m₃.acval env₃ ψ 0 (RecRule.rhs rl) = some (Ra ψ))
+    (hwdRa : ∀ (ψ : Name → Nat) (ρ : Nat → V), WellDenotedV V ρ (Ra ψ))
+    (hRaVal : ∀ (ψ : Name → Nat) (ρ : Nat → V), interp V ρ (Ra ψ)
+      = interp V ρ (d.ruleRhsAV m₀ elimL (fun t' => d.recLeaf m₀ elimL s rlps t' ψ) t j cA.2
+          (restrictΨ rlps ψ)))
+    (φ : Name → Nat)
+    (hvpa : ∀ us : List Level, us.length = cvRa.levelParams.length →
+      ∀ lvls pins, RecRule.fire rl = .nested lvls pins →
+      ∀ i, i < RecRule.ctorParams rl →
+      ∃ vpa : AnnotTerm,
+        denoteMeta m₃.acval env₃ φ rP
+          (ConLeche.Verify.openRev 0 rP
+            ((pins.getD i default).instantiateLevelParams cvRa.levelParams us)) = some vpa ∧
+        ∀ (ρ : Nat → V) (zs : List AnnotTerm) (TVa restR : AnnotTerm),
+          zs.length = rP → (∀ z ∈ zs, WellDenotedV V ρ z) →
+          denoteMeta m₃.acval env₃ φ 0
+            (cvRa.type.instantiateLevelParams cvRa.levelParams us) = some TVa →
+          TeleFitPA V ρ TVa zs restR →
+          WellDenotedV V ρ (ConLeche.Model.AnnotTerm.instRevChain zs vpa))
+    (hmajor : ∀ (us : List Level), us.length = cvRa.levelParams.length →
+      ∀ (cvj : ConstantVal) (cnP cnF : Nat),
+        env₃.find? (RecRule.ctor rl) = some (.ctorInfo cvj cnP cnF) →
+      ∀ (usj : List Level) (ρ : Nat → V) (xs ys : List AnnotTerm)
+        (TVa TVja restC : AnnotTerm),
+        xs.length = mI →
+        ys.length = RecRule.ctorParams rl + RecRule.nfields rl →
+        usj.length = cvj.levelParams.length →
+        Level.substFn φ cvj.levelParams usj
+          = Level.substFn φ cvj.levelParams
+              (ConLeche.recFireComparands rl cvRa.levelParams us cvj.levelParams [] rP).1 →
+        (∀ lvls pins, RecRule.fire rl = .nested lvls pins →
+          ∀ i, i < RecRule.ctorParams rl →
+          ∀ vpa : AnnotTerm,
+            denoteMeta m₃.acval env₃ φ rP
+              (ConLeche.Verify.openRev 0 rP
+                ((pins.getD i default).instantiateLevelParams cvRa.levelParams us)) = some vpa →
+            interp V ρ (ys.getD i default)
+              = interp V ρ (ConLeche.Model.AnnotTerm.instRevChain (xs.take rP) vpa)) →
+        IotaIndexPin (V := V) ρ restC (RecRule.ctorParams rl) mI rP xs →
+        denoteMeta m₃.acval env₃ φ 0
+          (cvRa.type.instantiateLevelParams cvRa.levelParams us) = some TVa →
+        denoteMeta m₃.acval env₃ φ 0
+          (cvj.type.instantiateLevelParams cvj.levelParams usj) = some TVja →
+        TeleFitPA V ρ TVja ys restC →
+        ∀ ps : List V,
+          SpineFit ρ (d.params (restrictΨ rlps (Level.substFn φ cvRa.levelParams us))) ps →
+          ∃ fsY : List V, fsY.length = cA.2 ∧
+            (ys.map (interp V ρ)).drop (RecRule.ctorParams rl) = fsY ∧
+            interp V ρ (AnnotTerm.mkAppN (m₃.acval (RecRule.ctor rl)
+                (Level.substFn φ cvj.levelParams usj)) ys)
+              = d.inj (restrictΨ rlps (Level.substFn φ cvRa.levelParams us)) t j fsY) :
+    RecRuleLaw m₃ φ cvRa.name cvRa mI rP rl := by
+  subst hmI hrP
   refine ⟨by omega, fun us hus => ?_⟩
-  dsimp only
   have hinstR : ∀ (dp : Nat) (e : Expr),
       denoteMeta m₃.acval env₃ φ dp (e.instantiateLevelParams cvRa.levelParams us)
         = denoteMeta m₃.acval env₃ (Level.substFn φ cvRa.levelParams us) dp e :=
@@ -518,17 +562,12 @@ theorem blockRecRuleLaw {env₀ env₃ : Env} {m₀ : EnvModel V env₀} (m₃ :
     intro t'
     unfold BlockModel.recLeaf
     rw [restrictΨ_congr (lps := rlps) (fun q hq => restrictΨ_agree rlps ψR q hq)]
-  have hreadR : denoteMeta m₃.acval env₃ ψR 0 rhs
-      = some (d.ruleRhsAV m₀ elimL (fun t' => d.recLeaf m₀ elimL s rlps t' ψR) t j cA.2
-          (restrictΨ rlps ψR)) := by
-    rw [denoteMeta_params_ext m₃ hφ 0 rhs hlpsRhs, hread,
-      show (fun t' => d.recLeaf m₀ elimL s rlps t' (restrictΨ rlps ψR))
-        = fun t' => d.recLeaf m₀ elimL s rlps t' ψR from funext hleafRes]
+  have hRaValR := hRaVal ψR
   have hrdsR' : ∀ t', t' < d.k →
       d.blockRds m₀ elimL t' (restrictΨ rlps ψR) = d.blockRds m₀ elimL t' ψR :=
     fun t' ht' => hrdsR t' ht' ψR
   have hiotaR := hiota ψR
-  generalize restrictΨ rlps ψR = ψ' at hφ hreadR hrdsR' hiotaR
+  generalize hψ' : restrictΨ rlps ψR = ψ' at hφ hrdsR' hiotaR hRaValR
   -- the leaves, their values
   have hRcl : ∀ t', t' < d.k → Term.bvarsBelow 0 (d.recLeaf m₀ elimL s rlps t' ψR).erase :=
     fun t' ht' => hleafCl t' ht' ψR
@@ -548,46 +587,26 @@ theorem blockRecRuleLaw {env₀ env₃ : Env} {m₀ : EnvModel V env₀} (m₃ :
       exact hm
     · rw [getD_range_map' _ _ _ ht']
       exact interp_closed V (hRcl t' ht') σ ρ
-  refine ⟨_, by rw [hinstR, hreadR], hokRa, fun _ _ h => absurd h (by simp), ?_⟩
-  intro cvj cnP cnF hfcj usj ρ xs ys TVa TVja restR restC hxl hyl husjl hψ _ _ _ hTVa hTVja
+  refine ⟨_, by rw [hinstR]; exact hreadRa ψR, fun ρ => hwdRa ψR ρ, hvpa us hus, ?_⟩
+  intro cvj cnP cnF hfcj usj ρ xs ys TVa TVja restR restC hxl hyl husjl hψ _ hnest hidx hTVa hTVja
     hfitR hfitC
-  -- the constructor found is the block's
-  obtain ⟨rfl, rfl, rfl⟩ := ConstantInfo.ctorInfo.inj (Option.some.inj (hfC.symm.trans hfcj))
-  -- the constructor's level assignment agrees with the restriction on its level parameters
-  have hagree : ∀ q ∈ cA.1.levelParams, Level.substFn φ cA.1.levelParams usj q = ψR q := by
-    have h := hψ
-    simp only [ConLeche.recFireComparands] at h
-    rw [← hψR]
-    exact substFn_agree_of_comparand h
-  generalize hψC : Level.substFn φ cA.1.levelParams usj = ψC at hagree hTVja hfitR hfitC ⊢
-  have hCψ : ∀ q ∈ cA.1.levelParams, ψC q = ψ' q :=
-    fun q hq => (hagree q hq).trans (hφ q (hlpsSub q hq))
   obtain ⟨cvT, cvR, mI', rP', rules, h⟩ := hreps t ht
   have hcd := h.ctorData hj
   obtain ⟨hfC₀, -, -⟩ := h.ctors t j cA ht hj
   have hj' : j < (d.ctorsM t).length := (List.getElem?_eq_some_iff.mp hj).1
   have hk : 0 < d.k := by omega
   have hpl := hreps.params_length hk ψ'
-  have hdsEq : d.dsF t j ψC = d.dsF t j ψ' := (hcd.params ψC ψ' hCψ).1
-  have hesEq : d.esF t j ψC = d.esF t j ψ' := (hcd.params ψC ψ' hCψ).2
-  have hCac : m₃.acval cA.1.name ψC = m₀.acval cA.1.name ψ' := by
-    rw [hagC t j cA ht hj ψC]
-    exact m₀.acval_params _ _ hfC₀ ψC ψ' hCψ
-  -- the recursor type's and the constructor type's readings
+  -- the recursor type's reading
   have hTVa' : TVa = mkPisAV (d.blockRds m₀ elimL t ψ') (d.blockConc t) := by
     have h' := hTVa
     rw [hinstR] at h'
     rw [Option.some.inj (h'.symm.trans (hRD.read ψR)), hrdsR' t ht]
     rfl
-  have hTVja' : TVja = mkPisAV (d.dsF t j ψ')
-      (ctorBodyAVI m₃ (d.memberName t) d.nP cA.2 ψC (d.esF t j ψ')) := by
-    have h' := hTVja
-    rw [denoteMeta_instLevels (acvalParamsAt_of_core m₃) φ 0 cA.1.type, hψC] at h'
-    rw [Option.some.inj (h'.symm.trans (hCread ψC)), hdsEq, hesEq]
   -- the fits, as spines
   have hlenRds' := hRD.len ψ'
   have hspR : SpineFit ρ ((d.blockRds m₀ elimL t ψ').map (·.2.2))
-      ((xs ++ [AnnotTerm.mkAppN (m₃.acval cA.1.name ψC) ys]).map (interp V ρ)) := by
+      ((xs ++ [AnnotTerm.mkAppN (m₃.acval (RecRule.ctor rl)
+        (Level.substFn φ cvj.levelParams usj)) ys]).map (interp V ρ)) := by
     have hst := stripPisAV_mkPisAV (d.blockRds m₀ elimL t ψ') (d.blockConc t)
     rw [hlenRds'] at hst
     have htele := piTeleAV_of_stripPisAV hst
@@ -600,21 +619,11 @@ theorem blockRecRuleLaw {env₀ env₃ : Env} {m₀ : EnvModel V env₀} (m₃ :
     intro q hq
     have := hchain q (by simpa [hlenRds'] using hq)
     simpa [hlenRds'] using this
-  have hstC := stripPisAV_mkPisAV (d.dsF t j ψ')
-    (ctorBodyAVI m₃ (d.memberName t) d.nP cA.2 ψC (d.esF t j ψ'))
-  rw [hcd.len ψ'] at hstC
-  have hteleC := piTeleAV_of_stripPisAV hstC
-  have hspC : SpineFit ρ ((d.dsF t j ψ').map (·.2.2)) (ys.map (interp V ρ)) := by
-    have hfit := hfitC
-    rw [hTVja'] at hfit
-    have hchain := teleFitPA_to_chain (d.nP + cA.2) hteleC (by simpa using hyl) hfit
-    refine spineFit_of_chain (by simp [hyl, hcd.len ψ']) ?_
-    intro q hq
-    have := hchain q (by simpa [hcd.len ψ'] using hq)
-    simpa [hcd.len ψ'] using this
   -- the arguments' values
-  have hargsEq : (xs.take (d.nP + d.k + d.nCtors) ++ ys.drop d.nP).map (interp V ρ)
-      = (xs.map (interp V ρ)).take (d.nP + d.k + d.nCtors) ++ (ys.map (interp V ρ)).drop d.nP := by
+  have hargsEq : (xs.take (d.nP + d.k + d.nCtors) ++ ys.drop (RecRule.ctorParams rl)).map
+        (interp V ρ)
+      = (xs.map (interp V ρ)).take (d.nP + d.k + d.nCtors)
+        ++ (ys.map (interp V ρ)).drop (RecRule.ctorParams rl) := by
     rw [List.map_append, List.map_take, List.map_drop]
   -- the rule's binder data: bits, length, the prefix
   have hppsLen : (d.recPps ψ').length = d.nP := by
@@ -652,10 +661,11 @@ theorem blockRecRuleLaw {env₀ env₃ : Env} {m₀ : EnvModel V env₀} (m₃ :
           rw [hbits q (by rw [hlds]; exact List.mem_cons_self)]
           exact hb.mpr hℓ0
         rw [mkLamsAV, interp_lam, hq, lamR_zero]
+    have hRaPt' : interp V ρ (Ra ψR) = pt := by rw [hRaValR ρ]; exact hRaPt
     refine ⟨?_, ?_⟩
-    · rw [interp_mkAppN_pt hRpt, interp_mkAppN_pt hRaPt]
+    · rw [interp_mkAppN_pt hRpt, interp_mkAppN_pt hRaPt']
     · intro hxs_ok hys_ok
-      refine mkAppN_wellDenotedV_of_pt (hokRa ρ) hRaPt fun a ha => ?_
+      refine mkAppN_wellDenotedV_of_pt (hwdRa ψR ρ) hRaPt' fun a ha => ?_
       rcases List.mem_append.mp ha with h' | h'
       · exact hxs_ok a (List.mem_of_mem_take h')
       · exact hys_ok a (List.mem_of_mem_drop h')
@@ -668,41 +678,24 @@ theorem blockRecRuleLaw {env₀ env₃ : Env} {m₀ : EnvModel V env₀} (m₃ :
     -- the recursor's spine, decomposed
     have hspR' : SpineFit ρ ((mutualRecDataAV m₀ ψ' (d.recLs m₀ ψ') d.nP d.recNIdxs elimL
         (d.recPps ψ') (d.recIpss ψ') (d.recCds ψ') d.recMots d.recTgts t).map (·.2.2))
-        (xs.map (interp V ρ) ++ [interp V ρ (AnnotTerm.mkAppN (m₃.acval cA.1.name ψC) ys)]) := by
+        (xs.map (interp V ρ) ++ [interp V ρ (AnnotTerm.mkAppN (m₃.acval (RecRule.ctor rl)
+          (Level.substFn φ cvj.levelParams usj)) ys)]) := by
       rw [List.map_append, List.map_cons, List.map_nil] at hspR
       exact hspR
     obtain ⟨ps, Msl, msl, is, tv, heq, hF, his, htv⟩ :=
       hreps.spineFit_recData_inv (hR ψ') ht hspR'
     have hxsv : xs.map (interp V ρ) = ps ++ Msl ++ msl ++ is :=
       List.append_inj_left' heq rfl
-    have hCv : interp V ρ (AnnotTerm.mkAppN (m₃.acval cA.1.name ψC) ys) = tv :=
+    have hCv : interp V ρ (AnnotTerm.mkAppN (m₃.acval (RecRule.ctor rl)
+        (Level.substFn φ cvj.levelParams usj)) ys) = tv :=
       List.singleton_inj.mp (List.append_inj_right' heq rfl)
     have hlenps : ps.length = d.nP := by rw [hF.params.length_eq, hpl]
     have hρp : Sat V (d.params ψ').reverse (consList ps ρ) := d.satOfSpine hF.params
-    -- the constructor's spine, decomposed at the parameters
-    have hdsSplit : (d.dsF t j ψ').map (·.2.2)
-        = ((d.dsF t j ψ').take d.nP).map (·.2.2) ++ ((d.dsF t j ψ').drop d.nP).map (·.2.2) := by
-      rw [← List.map_append, List.take_append_drop]
-    rw [hdsSplit] at hspC
-    obtain ⟨psY, fsY, hys, hspY₁, hspY₂⟩ := spineFit_append_inv hspC
-    have hlenPY : psY.length = d.nP := by
-      rw [hspY₁.length_eq, List.length_map, List.length_take, hcd.len ψ']
-      exact Nat.min_eq_left (Nat.le_add_right _ _)
-    have hlenFY : fsY.length = cA.2 := by
-      rw [hspY₂.length_eq, List.length_map, List.length_drop, hcd.len ψ']
-      omega
-    -- the constructor's parameters fit the former's telescope
-    have hpsY : SpineFit ρ (d.params ψ') psY := by
-      have hsat := sat_of_spineFit (Sat_nil V ρ) hspY₁
-      rw [List.append_nil] at hsat
-      exact spineFit_of_sat_len (by rw [hlenPY, hpl])
-        ((h.paramsIff t j cA ht hj ψ' _).mpr hsat)
-    have hfsY : SpineFit (consList psY ρ) ((d.Fss t ψ').getD j []) fsY := by
-      rw [IsBlockModel.Fss_getD hj]; exact hspY₂
-    -- the constructor's value is its injection
-    have hCinj : tv = d.inj ψ' t j fsY := by
-      rw [← hCv, interp_mkAppN, ← List.foldl_map (f := interp V ρ) (g := SetTheory.app), hys, hCac]
-      exact h.ctor t j cA ht hj ψ' ρ psY fsY hpsY hfsY
+    -- **the major, decoded** (the arms' only difference)
+    obtain ⟨fsY, hlenFY, hdropY, hCmaj⟩ :=
+      hmajor us hus cvj cnP cnF hfcj usj ρ xs ys TVa TVja restC hxl hyl husjl hψ hnest hidx
+        hTVa hTVja hfitC ps (by rw [hψR, hψ']; exact hF.params)
+    have hCinj : tv = d.inj ψ' t j fsY := by rw [← hCv, hCmaj, hψR, hψ']
     -- **the fibre's converse**: the fields fit at the recursor's parameters, the
     -- index arguments are the constructor's index readings
     have hidxMem : d.tup ψ' t is ∈ˢ d.idx ψ' (consList ps ρ) t := d.tupMem his
@@ -896,22 +889,161 @@ theorem blockRecRuleLaw {env₀ env₃ : Env} {m₀ : EnvModel V env₀} (m₃ :
     · -- **the law**
       rw [interp_mkAppN, ← List.foldl_map (f := interp V ρ) (g := SetTheory.app), List.map_append,
         List.map_cons, List.map_nil, hxsv, hCv, ← hlhs, hEq, hrhs, interp_mkAppN,
-        ← List.foldl_map (f := interp V ρ) (g := SetTheory.app), hargsEq, hxsv, hys,
+        ← List.foldl_map (f := interp V ρ) (g := SetTheory.app), hargsEq, hxsv, hdropY,
         List.take_left' (by rw [List.length_append, List.length_append, hlenps, hF.mslLen, hF.minsLen]),
-        List.drop_left' hlenPY]
+        hRaValR ρ]
       unfold BlockModel.ruleRhsAV
       exact (mkLamsAV_fold hnz hfitρ).symm
     · -- **the application is graded**
       intro hxs_ok hys_ok
-      have hargs : ∀ a ∈ xs.take (d.nP + d.k + d.nCtors) ++ ys.drop d.nP, WellDenotedV V ρ a := by
+      have hargs : ∀ a ∈ xs.take (d.nP + d.k + d.nCtors) ++ ys.drop (RecRule.ctorParams rl),
+          WellDenotedV V ρ a := by
         intro a ha
         rcases List.mem_append.mp ha with h' | h'
         · exact hxs_ok a (List.mem_of_mem_take h')
         · exact hys_ok a (List.mem_of_mem_drop h')
-      refine mkAppN_wellDenotedV_of_lam (hokRa ρ) hargs (hokRa ρ).1 (Or.inr rfl) ?_
-      rw [hargsEq, hxsv, hys,
-        List.take_left' (by rw [List.length_append, List.length_append, hlenps, hF.mslLen, hF.minsLen]),
-        List.drop_left' hlenPY]
+      refine mkAppN_wellDenotedV_of_lam (hwdRa ψR ρ) hargs (hokRa ρ).1 (Or.inr (hRaValR ρ)) ?_
+      rw [hargsEq, hxsv, hdropY,
+        List.take_left' (by rw [List.length_append, List.length_append, hlenps, hF.mslLen, hF.minsLen])]
       exact hfitρ
+
+
+/-- **The rule law at the block model** — the MUTUAL instantiation of
+`blockRecRuleLawG`.  At the mutual route the stored right-hand side
+reads to the auxiliary tower itself, so `Ra := d.ruleRhsAV …` and
+`hRaVal` is `rfl`; the rule fires `.plain`, so the two `.nested`
+clauses are vacuous; and the major is the block's OWN constructor —
+`IsBlockModel.ctor` at the constructor type's reading, which is the
+whole content of `hmajor` here. -/
+theorem blockRecRuleLaw {env₀ env₃ : Env} {m₀ : EnvModel V env₀} (m₃ : EnvModel V env₃)
+    {d : BlockModel V} (hreps : IsBlockModels m₀ d) (hnp : d.pins = [])
+    (hfT : ∀ ψ, FormersTyped m₀ d ψ) (hcT : ∀ ψ, CtorsTyped m₀ d ψ)
+    (hval : ∀ (n : Name) (ψ : Name → Nat) (ρ : Nat → V), AnnotValid V ρ (m₀.acval n ψ))
+    {elimL : Level} (hwℓ : ∀ ψ, d.w ψ = 0 → elimL.eval ψ = 0)
+    (hR : ∀ ψ, BlockReadings m₀ d ψ elimL (d.recLs m₀ ψ) d.recNIdxs (d.recPps ψ) (d.recIpss ψ)
+      (d.recCds ψ) d.recMots d.recTgts)
+    (hokT : ∀ (ψ : Name → Nat) (mm : Nat), mm < d.k → ∀ ρ : Nat → V,
+      WellDenotedV V ρ (mkPisAV (d.blockRds m₀ elimL mm ψ) (d.blockConc mm)))
+    {rlps : List Name} {s : (Name → Nat) → Nat}
+    (hrdsR : ∀ t, t < d.k → ∀ ψ,
+      d.blockRds m₀ elimL t (restrictΨ rlps ψ) = d.blockRds m₀ elimL t ψ)
+    (hleafCl : ∀ t, t < d.k → ∀ ψ, Term.bvarsBelow 0 (d.recLeaf m₀ elimL s rlps t ψ).erase)
+    (hleaf : ∀ t, t < d.k → ∀ (ψ : Name → Nat) (ρ : Nat → V),
+      WellDenotedV V ρ (d.recLeaf m₀ elimL s rlps t ψ) ∧
+      interp V ρ (d.recLeaf m₀ elimL s rlps t ψ)
+        ∈ˢ interp V ρ (mkPisAV (d.blockRds m₀ elimL t ψ) (d.blockConc t)))
+    (hiota : ∀ (ψ : Name → Nat) (ρ : Nat → V),
+      ∀ e ∈ d.recEqs m₀ elimL (restrictΨ rlps ψ),
+        (pt : V) ∈ˢ interp V
+          (consList ((List.range d.k).map fun t => interp V ρ (d.recLeaf m₀ elimL s rlps t ψ)) ρ) e)
+    (hagC : ∀ (c j : Nat) (cA : ConstantVal × Nat), c < d.k → (d.ctorsM c)[j]? = some cA →
+      ∀ ψ, m₃.acval cA.1.name ψ = m₀.acval cA.1.name ψ)
+    {t : Nat} (ht : t < d.k) {j : Nat} {cA : ConstantVal × Nat} (hj : (d.ctorsM t)[j]? = some cA)
+    {cvRa : ConstantVal} (hlpsSub : ∀ q ∈ cA.1.levelParams, q ∈ rlps)
+    (hRD : MutualRecData m₃ cvRa d.nP d.k d.nCtors (d.nIdxAt t) t elimL (d.blockRds m₀ elimL t))
+    (hleafR : ∀ ψ, m₃.acval cvRa.name ψ = d.recLeaf m₀ elimL s rlps t ψ)
+    (hfC : env₃.find? cA.1.name = some (.ctorInfo cA.1 d.nP cA.2))
+    (hCread : ∀ ψ, denoteMeta m₃.acval env₃ ψ 0 cA.1.type
+      = some (mkPisAV (d.dsF t j ψ) (ctorBodyAVI m₃ (d.memberName t) d.nP cA.2 ψ (d.esF t j ψ))))
+    {rhs : Expr} (hlpsRhs : rhs.allLevelParamsDefined rlps = true)
+    (hread : ∀ ψ, denoteMeta m₃.acval env₃ ψ 0 rhs
+      = some (d.ruleRhsAV m₀ elimL (fun t' => d.recLeaf m₀ elimL s rlps t' ψ) t j cA.2 ψ))
+    {mI rP : Nat} (hmI : mI = d.nP + d.k + d.nCtors + d.nIdxAt t) (hrP : rP = d.nP + d.k + d.nCtors)
+    {rl : RecRule} {kb eb : Bool} (hrule : rl = ⟨cA.1.name, cA.2, d.nP, .plain, rhs, kb, eb, true⟩)
+    (φ : Name → Nat) : RecRuleLaw m₃ φ cvRa.name cvRa mI rP rl := by
+  subst hrule hmI hrP
+  -- the leaves depend on the recursors' level parameters alone
+  have hleafRes : ∀ (ψ : Name → Nat) (t' : Nat),
+      d.recLeaf m₀ elimL s rlps t' (restrictΨ rlps ψ) = d.recLeaf m₀ elimL s rlps t' ψ := by
+    intro ψ t'
+    unfold BlockModel.recLeaf
+    rw [restrictΨ_congr (lps := rlps) (fun q hq => restrictΨ_agree rlps ψ q hq)]
+  refine blockRecRuleLawG m₃ hreps hnp hfT hcT hval hwℓ hR hokT hrdsR hleafCl hleaf hiota ht hj
+    hRD hleafR rfl rfl
+    (Ra := fun ψ => d.ruleRhsAV m₀ elimL (fun t' => d.recLeaf m₀ elimL s rlps t' ψ) t j cA.2
+      (restrictΨ rlps ψ)) rfl ?_ ?_ (fun _ _ => rfl) φ (fun _ _ _ _ h => nomatch h) ?_
+  · -- **the reading**, at the restricted assignment
+    intro ψ
+    show denoteMeta m₃.acval env₃ ψ 0 rhs = _
+    rw [denoteMeta_params_ext m₃ (fun q hq => (restrictΨ_agree rlps ψ q hq).symm) 0 rhs hlpsRhs,
+      hread, show (fun t' => d.recLeaf m₀ elimL s rlps t' (restrictΨ rlps ψ))
+        = fun t' => d.recLeaf m₀ elimL s rlps t' ψ from funext (hleafRes ψ)]
+  · -- **the grading** of the auxiliary tower
+    intro ψ ρ
+    have hRcl : ∀ t', t' < d.k → Term.bvarsBelow 0 (d.recLeaf m₀ elimL s rlps t' ψ).erase :=
+      fun t' ht' => hleafCl t' ht' ψ
+    refine hreps.ruleRhs_wdV hnp (hfT _) (hcT _) (fun n ρ' => hval n _ ρ') (hR _) (hokT _) ρ
+      (rs := (List.range d.k).map fun t' => interp V ρ (d.recLeaf m₀ elimL s rlps t' ψ))
+      (by simp) (fun mm hmm => ?_) hRcl (fun t' ht' σ => (hleaf t' ht' ψ σ).1)
+      (fun t' ht' σ => ?_) ht hj
+    · rw [getD_range_map' _ _ _ hmm, hrdsR mm hmm ψ]
+      exact (hleaf mm hmm ψ ρ).2
+    · rw [getD_range_map' _ _ _ ht']
+      exact interp_closed V (hRcl t' ht') σ ρ
+  · -- **the major**: the block's own constructor
+    intro us hus cvj cnP cnF hfcj usj ρ xs ys TVa TVja restC hxl hyl husjl hψ _ _ hTVa
+      hTVja hfitC ps _
+    obtain ⟨rfl, rfl, rfl⟩ := ConstantInfo.ctorInfo.inj (Option.some.inj (hfC.symm.trans hfcj))
+    obtain ⟨cvT, cvR, mI', rP', rules, h⟩ := hreps t ht
+    have hcd := h.ctorData hj
+    obtain ⟨hfC₀, -, -⟩ := h.ctors t j cA ht hj
+    have hk : 0 < d.k := by omega
+    have hpl := hreps.params_length hk (restrictΨ rlps (Level.substFn φ cvRa.levelParams us))
+    -- the constructor's level assignment agrees with the restriction
+    have hagree : ∀ q ∈ cA.1.levelParams,
+        Level.substFn φ cA.1.levelParams usj q = Level.substFn φ cvRa.levelParams us q := by
+      have h' := hψ
+      simp only [ConLeche.recFireComparands] at h'
+      exact substFn_agree_of_comparand h'
+    have hCψ : ∀ q ∈ cA.1.levelParams, Level.substFn φ cA.1.levelParams usj q
+        = restrictΨ rlps (Level.substFn φ cvRa.levelParams us) q :=
+      fun q hq => (hagree q hq).trans (restrictΨ_agree rlps _ q (hlpsSub q hq)).symm
+    generalize hψ'0 : restrictΨ rlps (Level.substFn φ cvRa.levelParams us) = ψ' at hCψ hpl ⊢
+    generalize hψC : Level.substFn φ cA.1.levelParams usj = ψC at hCψ hTVja hfitC ⊢
+    have hdsEq : d.dsF t j ψC = d.dsF t j ψ' := (hcd.params ψC ψ' hCψ).1
+    have hesEq : d.esF t j ψC = d.esF t j ψ' := (hcd.params ψC ψ' hCψ).2
+    have hCac : m₃.acval cA.1.name ψC = m₀.acval cA.1.name ψ' := by
+      rw [hagC t j cA ht hj ψC]
+      exact m₀.acval_params _ _ hfC₀ ψC ψ' hCψ
+    -- the constructor type's reading, and the spine it fits
+    have hTVja' : TVja = mkPisAV (d.dsF t j ψ')
+        (ctorBodyAVI m₃ (d.memberName t) d.nP cA.2 ψC (d.esF t j ψ')) := by
+      have h' := hTVja
+      rw [denoteMeta_instLevels (acvalParamsAt_of_core m₃) φ 0 cA.1.type, hψC] at h'
+      rw [Option.some.inj (h'.symm.trans (hCread ψC)), hdsEq, hesEq]
+    have hstC := stripPisAV_mkPisAV (d.dsF t j ψ')
+      (ctorBodyAVI m₃ (d.memberName t) d.nP cA.2 ψC (d.esF t j ψ'))
+    rw [hcd.len ψ'] at hstC
+    have hteleC := piTeleAV_of_stripPisAV hstC
+    have hspC : SpineFit ρ ((d.dsF t j ψ').map (·.2.2)) (ys.map (interp V ρ)) := by
+      have hfit := hfitC
+      rw [hTVja'] at hfit
+      have hchain := teleFitPA_to_chain (d.nP + cA.2) hteleC (by simpa using hyl) hfit
+      refine spineFit_of_chain (by simp [hyl, hcd.len ψ']) ?_
+      intro q hq
+      have := hchain q (by simpa [hcd.len ψ'] using hq)
+      simpa [hcd.len ψ'] using this
+    have hdsSplit : (d.dsF t j ψ').map (·.2.2)
+        = ((d.dsF t j ψ').take d.nP).map (·.2.2) ++ ((d.dsF t j ψ').drop d.nP).map (·.2.2) := by
+      rw [← List.map_append, List.take_append_drop]
+    rw [hdsSplit] at hspC
+    obtain ⟨psY, fsY, hys, hspY₁, hspY₂⟩ := spineFit_append_inv hspC
+    have hlenPY : psY.length = d.nP := by
+      rw [hspY₁.length_eq, List.length_map, List.length_take, hcd.len ψ']
+      exact Nat.min_eq_left (Nat.le_add_right _ _)
+    have hlenFY : fsY.length = cA.2 := by
+      rw [hspY₂.length_eq, List.length_map, List.length_drop, hcd.len ψ']
+      omega
+    have hpsY : SpineFit ρ (d.params ψ') psY := by
+      have hsat := sat_of_spineFit (Sat_nil V ρ) hspY₁
+      rw [List.append_nil] at hsat
+      exact spineFit_of_sat_len (by rw [hlenPY, hpl])
+        ((h.paramsIff t j cA ht hj ψ' _).mpr hsat)
+    have hfsY : SpineFit (consList psY ρ) ((d.Fss t ψ').getD j []) fsY := by
+      rw [IsBlockModel.Fss_getD hj]; exact hspY₂
+    refine ⟨fsY, hlenFY, by rw [hys]; exact List.drop_left' hlenPY, ?_⟩
+    rw [interp_mkAppN, ← List.foldl_map (f := interp V ρ) (g := SetTheory.app), hys, hCac]
+    exact h.ctor t j cA ht hj ψ' ρ psY fsY hpsY hfsY
+
 
 end ConLeche.Model
