@@ -767,4 +767,75 @@ theorem nestedContainersOk_memberSpine {env : Env} {pins : List NestedPin}
   congr 1
   omega
 
+/-- **The walk at the BODY of a peel** (task #315 L-B):
+`uniformIndOccsE_stripPis`' twin at the residual — peeling `n` `Π`s
+lands the walk `n` binders deeper on what is left.  This is what a
+REFLEXIVE field's own telescope asks for: the member application sits
+under the field's binders, not at the field's own depth. -/
+theorem uniformIndOccsE_stripPis_res {names : List Name} {lvls : List Level} {nP : Nat} :
+    ∀ (n : Nat) {e : Expr} {bs : List (Expr × BinderMeta)} {res : Expr} {o : Nat},
+      e.stripPis n = some (bs, res) →
+      uniformIndOccsE names lvls nP o e = true →
+      uniformIndOccsE names lvls nP (o + n) res = true
+  | 0, e, bs, res, o, h, hw => by
+    simp only [Expr.stripPis, Option.some.injEq, Prod.mk.injEq] at h
+    obtain ⟨-, rfl⟩ := h
+    simpa using hw
+  | n + 1, e, bs, res, o, h, hw => by
+    match e, h, hw with
+    | .forallE ty b m, h, hw =>
+      simp only [Expr.stripPis] at h
+      cases hb : b.stripPis n with
+      | none => rw [hb] at h; exact nomatch h
+      | some r =>
+        obtain ⟨bs₀, body₀⟩ := r
+        rw [hb] at h
+        simp only [Option.map_some, Option.some.injEq, Prod.mk.injEq] at h
+        obtain ⟨-, rfl⟩ := h
+        obtain ⟨-, hbody⟩ := uniformIndOccsE_forallE_inv hw
+        rw [show o + (n + 1) = o + 1 + n by omega]
+        exact uniformIndOccsE_stripPis_res n hb hbody
+
+/-- **A CONTAINER'S STORED REFLEXIVE FIELD SITS AT THE PARAMETER SPINE
+UNDER ITS OWN BINDERS** (task #315 L-B): `nestedContainersOk_memberSpine`
+at a field whose member application stands under `d` binders of the
+field's own telescope — the walk is carried through the field's peel by
+`uniformIndOccsE_stripPis_res`, so the parameter variables it finds are
+`structPsAt (l + d) ci.nP`, the group's levels unchanged. -/
+theorem nestedContainersOk_memberSpineRefl {env : Env} {pins : List NestedPin}
+    (h : nestedContainersOk env pins = true)
+    {q : NestedPin} (hq : q ∈ pins) {ci : ContainerInfo}
+    (hci : containerInfo? env q.container = some ci)
+    {M : ContainerMember} (hM : M ∈ ci.members)
+    {j : Nat} {cc : ContainerCtor} (hcc : M.ctors[j]? = some cc)
+    {bs : List (Expr × BinderMeta)} {res : Expr}
+    (hstrip : cc.type.stripPis (ci.nP + cc.nFields) = some (bs, res))
+    {l : Nat} {bd : Expr × BinderMeta} (hbd : bs[ci.nP + l]? = some bd)
+    {d : Nat} {tbs : List (Expr × BinderMeta)} {body : Expr}
+    (hpeel : bd.1.stripPis d = some (tbs, body))
+    {T : Name} {us : List Level}
+    (hhead : body.getAppFn = Expr.const T us)
+    (hT : T ∈ ci.members.map (·.name))
+    (hlen : ci.nP ≤ body.getAppArgs.length) :
+    us = M.lps.map Level.param ∧
+      body.getAppArgs.take ci.nP = ConLeche.structPsAt (l + d) ci.nP := by
+  obtain ⟨-, hun⟩ := nestedContainersOk_uniform h hq hci hM
+  have hcty : uniformIndOccsE (ci.members.map (·.name)) (M.lps.map Level.param) ci.nP 0
+      cc.type = true :=
+    hun cc.type (List.mem_map_of_mem (List.mem_of_getElem? hcc))
+  have hfield := uniformIndOccsE_stripPis (names := ci.members.map (·.name))
+    (lvls := M.lps.map Level.param) (nP := ci.nP) (ci.nP + cc.nFields) hstrip hbd hcty
+  rw [Nat.zero_add] at hfield
+  have hbody := uniformIndOccsE_stripPis_res (names := ci.members.map (·.name))
+    (lvls := M.lps.map Level.param) (nP := ci.nP) d hpeel hfield
+  rw [← Expr.mkAppN_getApp body, hhead] at hbody
+  obtain ⟨hus, -, hsp⟩ := uniformIndOccsE_spine
+    (List.elem_eq_true_of_mem hT) hlen hbody
+  refine ⟨hus, ?_⟩
+  rw [hsp]
+  simp only [structPsAt]
+  refine List.map_congr_left fun i _ => ?_
+  congr 1
+  omega
+
 end ConLeche
