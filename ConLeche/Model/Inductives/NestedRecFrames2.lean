@@ -566,6 +566,57 @@ theorem NestedTailIn.fitsFrom_iff {mpA : EnvModelM V μ ENVA} {cvRas : List Cons
       I.FssT_getD_eq S ψ hc hjA hl hr0']
     exact ⟨Subset.refl _, rfl⟩
 
+
+/-! ### The major and the motives -/
+
+/-- **THE MAJOR'S FIBRE**: the scratch block's fibre at a class and a
+fitting index spine IS the composed class's — F3, with the family
+read as the composed least tuple's component (`famAt_lfp`) and the
+index tuple at the class's OWN index universe. -/
+theorem NestedTailIn.majorAt (ψ : Name → Nat) (ρ : Nat → V) (as : List V)
+    (hsp : SpineFit ρ ((D).params ψ) as) {c : Nat} (hc : c < b.k) {is : List V}
+    (hi : SpineFit (consList as ρ) ((DA).IdsM c ψ) is) (t : V) :
+    t ∈ˢ SetTheory.app ((Laux ψ (consList as ρ)) c) ((DA).tup ψ c is)
+      ↔ t ∈ˢ SetTheory.app ((D).famAt ψ (consList as ρ)
+          (lfpTuple ((D).w ψ) (D).k ((D).idx ψ (consList as ρ)) ((D).Φ ψ (consList as ρ))) c)
+          ((D).tupT ψ c is) := by
+  have htup : (D).tupT ψ c is = tupW (nestedU p.k W pinsS ψ c) is := by
+    show tupW ((D).uT c ψ) is = _
+    rw [ofNested_uT]
+  rw [I.famAt_lfp ψ ρ as hsp hc, htup,
+    show (DA).tup ψ c is = tupW (W ψ) is from rfl, I.fibreAt ψ ρ as hsp hc is hi]
+
+/-- **THE FRAME'S MOTIVES ARE TYPED AT THE COMPOSED CLASSES**: a
+class's index spine and major transfer back to the copy's
+(`idsT_iff`, `majorAt`), where the mutual kit types the motive
+(`IsBlockModel.motive_app_mem` at the frame's `PrefixFrame.motives`). -/
+theorem NestedTailIn.motivesAt {mpA : EnvModelM V μ ENVA} {cvRas : List ConstantVal}
+    (S : NestedScratchOut F env b fms f₀ ctorsA kinds mp₁ ppsF W idxF dsF esF srcsF fvsPF xFvsF
+      xrestF eissF tssF stored mpA cvRas)
+    (ψ : Name → Nat) (ρ : Nat → V) {ps Msl : List V} (hsp : SpineFit ρ ((D).params ψ) ps)
+    (hmot : ∀ c', c' < (DA).k → Msl.getD c' pt ∈ˢ interp V (consList ps ρ)
+      (motiveAVIL (mpA.base2.acval ((DA).memberName c') ψ) ψ (DA).nP ((DA).nIdxAt c') b.elimLevel
+        (((DA).ppsM c' ψ).drop (DA).nP))) :
+    (D).MotivesTypedT ψ (consList ps ρ) (b.elimLevel.eval ψ)
+      (fun c' => if c' < (D).kT then Msl.getD c' pt else pt) := by
+  have hρp : Sat V ((D).params ψ).reverse (consList ps ρ) := (D).satOfSpine hsp
+  have hρpA : Sat V ((DA).params ψ).reverse (consList ps ρ) := hρp
+  intro c' hc' is' hfit x hx
+  have hcb : c' < b.k := by rw [← I.kT]; exact hc'
+  simp only []
+  rw [if_pos hc']
+  have hfitA : SpineFit (consList ps ρ) ((DA).IdsM c' ψ) is' :=
+    (I.idsT_iff ψ ρ ps hcb is').mp hfit
+  have hxA : x ∈ˢ SetTheory.app ((Laux ψ (consList ps ρ)) c') ((DA).tup ψ c' is') :=
+    (I.majorAt ψ ρ ps hsp hcb hfitA x).mpr hx
+  obtain ⟨cvT, cvR, mI, rP, rules, hIA⟩ := S.reps c' hcb
+  have hk0 : (0 : Nat) < (DA).k := by
+    show 0 < b.k
+    have := I.kpos
+    have := I.out.bk
+    omega
+  exact hIA.motive_app_mem (S.reps.params_length hk0 ψ) hρpA (hmot c' hcb) hfitA hxA
+
 end Run
 
 end ConLeche.Model
