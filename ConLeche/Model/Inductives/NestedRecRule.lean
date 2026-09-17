@@ -1950,6 +1950,189 @@ theorem NestedTailIn.ruleIota {mpA : EnvModelM V μ ENVA} {cvRas : List Constant
       (heqs _ ((DA).mem_specEqs_of (m := mpA.base2) (ψ := restrictΨ b.rlps ψ) hc hj)) xs hsp
 
 
+/-! ## The rule law at the nested block (item 5 step 2e, the instantiation) -/
+
+/-- **THE RULE LAW AT A RESTORED RULE** — `blockRecRuleLawG` at the
+nested data.  Of the four things the generalised law asks of an arm,
+THREE are in the tree: the LEAF is `nestedRecLeaf`, closed
+(`nestedRecLeaf_below`), typed at the SCRATCH readings (the two
+Π-towers are one set, `towerAgree`) and satisfying the scratch
+equations (`NestedRecTuple`, the equations NAMED — §U.29 (yy)); the
+SPINE is `recSpineFit`; the RIGHT-HAND SIDE is `ruleVal`.  The
+fourth — the MAJOR — is the two arms' own, and is the hypothesis
+`hmajor` here, with the mimic's outer `vpa` conjunct `hvpa`. -/
+theorem NestedTailIn.recRuleLawOf {mpA : EnvModelM V μ ENVA} {cvRas : List ConstantVal}
+    (S : NestedScratchOut F env b fms f₀ ctorsA kinds mp₁ ppsF W idxF dsF esF srcsF fvsPF xFvsF
+      xrestF eissF tssF stored mpA cvRas)
+    (hnames : NestedCtorPinNames env p st)
+    (hctorsJ : ∀ (q₀ kJ i : Nat) (dJ : BlockModel V), PG mp₂.base2 q₀ kJ dJ → i < kJ →
+      ∀ (ci : ContainerInfo) (J : ContainerMember),
+        ConLeche.containerInfo? env ((D).pinAt (q₀ + i)).J = some ci → J ∈ ci.members →
+        J.name = ((D).pinAt (q₀ + i)).J → (dJ.ctorsM i).map (·.1.name) = J.ctors.map (·.name))
+    (hK35 : NestedRecTysAuxOk p st b stored)
+    {s : (Name → Nat) → Nat} {rdsM : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)}
+    {concM : Nat → AnnotTerm}
+    (R : NestedRecReadings mp₂.base2 (D) PC cvRms cvRns b.rlps b.elimLevel s rdsM concM)
+    (E : NestedRecEqs (D) PC (fun ψ => b.elimLevel.eval ψ) rdsM concM
+      (fun φ' => (DA).recEqs mpA.base2 b.elimLevel φ'))
+    (Tu : NestedRecTuple (D) s rdsM concM (fun φ' => (DA).recEqs mpA.base2 b.elimLevel φ'))
+    {mpP : EnvModelM V μ
+      (ConLeche.provisionNestedRecs (nestedProvList p stored cvRms cvRns) ENV2)}
+    (hndR : (cvRms.map (·.name) ++ cvRns.map (·.name)).Nodup)
+    (hagR : ∀ nm : Name, (∀ c, c < (D).kT → nm ≠ (nestedRecCvAt p.k cvRms cvRns c).name) →
+      mpP.base2.acval nm = mp₂.base2.acval nm)
+    (hleafR : ∀ c, c < (D).kT → ∀ φ' : Name → Nat,
+      mpP.base2.acval (nestedRecCvAt p.k cvRms cvRns c).name φ'
+        = nestedRecLeaf (D).kT s rdsM concM
+            (fun φ'' => (DA).recEqs mpA.base2 b.elimLevel φ'') b.rlps c φ')
+    (hshapeA : ∀ c, c < b.k → (cvRas.getD c default).name = b.recName c ∧
+      (cvRas.getD c default).levelParams = b.rlps)
+    {c : Nat} (hc : c < b.k) {i : Nat} {cA : ConstantVal × Nat}
+    (hi : ((DA).ctorsM c)[i]? = some cA)
+    {a : AuxStored} (ha : stored[c]? = some a)
+    {o : RecRule} (hnf : o.nfields = cA.2)
+    {Ra : (Name → Nat) → AnnotTerm}
+    (hreadRa : ∀ ψ : Name → Nat,
+      denoteMeta mpP.base2.acval
+        (ConLeche.provisionNestedRecs (nestedProvList p stored cvRms cvRns) (ENV2)) ψ 0 o.rhs
+        = some (Ra ψ))
+    (hwdRa : ∀ (ψ : Name → Nat) (ρ : Nat → V), WellDenotedV V ρ (Ra ψ))
+    (hRaVal : ∀ (ψ : Name → Nat) (ρ : Nat → V), interp V ρ (Ra ψ)
+      = interp V ρ ((DA).ruleRhsAV mpA.base2 b.elimLevel
+          (fun t' => nestedRecLeaf (D).kT s rdsM concM
+            (fun φ'' => (DA).recEqs mpA.base2 b.elimLevel φ'') b.rlps t' ψ) c i cA.2
+          (restrictΨ b.rlps ψ)))
+    (φ : Name → Nat)
+    (hvpa : ∀ us : List Level, us.length = (nestedRecCvAt p.k cvRms cvRns c).levelParams.length →
+      ∀ lvls pins, RecRule.fire o = .nested lvls pins →
+      ∀ ii, ii < RecRule.ctorParams o →
+      ∃ vpa : AnnotTerm,
+        denoteMeta mpP.base2.acval (ConLeche.provisionNestedRecs (nestedProvList p stored cvRms cvRns) (ENV2)) φ a.rP
+          (ConLeche.Verify.openRev 0 a.rP
+            ((pins.getD ii default).instantiateLevelParams (nestedRecCvAt p.k cvRms cvRns c).levelParams us)) = some vpa ∧
+        ∀ (ρ : Nat → V) (zs : List AnnotTerm) (TVa restR : AnnotTerm),
+          zs.length = a.rP → (∀ z ∈ zs, WellDenotedV V ρ z) →
+          denoteMeta mpP.base2.acval (ConLeche.provisionNestedRecs (nestedProvList p stored cvRms cvRns) (ENV2)) φ 0
+            ((nestedRecCvAt p.k cvRms cvRns c).type.instantiateLevelParams (nestedRecCvAt p.k cvRms cvRns c).levelParams us) = some TVa →
+          TeleFitPA V ρ TVa zs restR →
+          WellDenotedV V ρ (ConLeche.Model.AnnotTerm.instRevChain zs vpa))
+    (hmajor : ∀ (us : List Level), us.length = (nestedRecCvAt p.k cvRms cvRns c).levelParams.length →
+      ∀ (cvj : ConstantVal) (cnP cnF : Nat),
+        (ConLeche.provisionNestedRecs (nestedProvList p stored cvRms cvRns) (ENV2)).find? (RecRule.ctor o) = some (.ctorInfo cvj cnP cnF) →
+      ∀ (usj : List Level) (ρ : Nat → V) (xs ys : List AnnotTerm)
+        (TVa TVja restC : AnnotTerm),
+        xs.length = a.mI →
+        ys.length = RecRule.ctorParams o + RecRule.nfields o →
+        usj.length = cvj.levelParams.length →
+        Level.substFn φ cvj.levelParams usj
+          = Level.substFn φ cvj.levelParams
+              (ConLeche.recFireComparands o (nestedRecCvAt p.k cvRms cvRns c).levelParams us cvj.levelParams [] a.rP).1 →
+        (∀ lvls pins, RecRule.fire o = .nested lvls pins →
+          ∀ ii, ii < RecRule.ctorParams o →
+          ∀ vpa : AnnotTerm,
+            denoteMeta mpP.base2.acval (ConLeche.provisionNestedRecs (nestedProvList p stored cvRms cvRns) (ENV2)) φ a.rP
+              (ConLeche.Verify.openRev 0 a.rP
+                ((pins.getD ii default).instantiateLevelParams (nestedRecCvAt p.k cvRms cvRns c).levelParams us)) = some vpa →
+            interp V ρ (ys.getD ii default)
+              = interp V ρ (ConLeche.Model.AnnotTerm.instRevChain (xs.take a.rP) vpa)) →
+        IotaIndexPin (V := V) ρ restC (RecRule.ctorParams o) a.mI a.rP xs →
+        denoteMeta mpP.base2.acval (ConLeche.provisionNestedRecs (nestedProvList p stored cvRms cvRns) (ENV2)) φ 0
+          ((nestedRecCvAt p.k cvRms cvRns c).type.instantiateLevelParams (nestedRecCvAt p.k cvRms cvRns c).levelParams us) = some TVa →
+        denoteMeta mpP.base2.acval (ConLeche.provisionNestedRecs (nestedProvList p stored cvRms cvRns) (ENV2)) φ 0
+          (cvj.type.instantiateLevelParams cvj.levelParams usj) = some TVja →
+        TeleFitPA V ρ TVja ys restC →
+        ∀ ps : List V,
+          SpineFit ρ ((DA).params (restrictΨ b.rlps
+            (Level.substFn φ (nestedRecCvAt p.k cvRms cvRns c).levelParams us))) ps →
+          ∃ fsY : List V, fsY.length = cA.2 ∧
+            (ys.map (interp V ρ)).drop (RecRule.ctorParams o) = fsY ∧
+            interp V ρ (AnnotTerm.mkAppN (mpP.base2.acval (RecRule.ctor o)
+                (Level.substFn φ cvj.levelParams usj)) ys)
+              = (DA).inj (restrictΨ b.rlps (Level.substFn φ (nestedRecCvAt p.k cvRms cvRns c).levelParams us)) c i fsY) :
+    RecRuleLaw mpP.base2 φ (nestedRecCvAt p.k cvRms cvRns c).name (nestedRecCvAt p.k cvRms cvRns c) a.mI a.rP o := by
+  have hkT : (D).kT = b.k := I.kT
+  have hdk : (DA).k = b.k := S.record.k
+  have hcT : c < (D).kT := by rw [hkT]; exact hc
+  have hcA : c < (DA).k := by rw [hdk]; exact hc
+  have hnP : (DA).nP = b.nP := rfl
+  have hnC : (DA).nCtors = b.ctors.length := I.nCtorsA_eq S
+  have hnI : (DA).nIdxAt c = (fms.getD c default).nIdx := by
+    obtain ⟨f, hf⟩ : ∃ f, fms[c]? = some f :=
+      ⟨_, List.getElem?_eq_getElem (by rw [I.out.facts.lenFms]; exact hc)⟩
+    rw [mutualBlockModel_nIdxAt hf, List.getD_eq_getElem?_getD, hf]
+    rfl
+  have hrdsR : ∀ t, t < (DA).k → ∀ ψ : Name → Nat,
+      (DA).blockRds mpA.base2 b.elimLevel t (restrictΨ b.rlps ψ)
+        = (DA).blockRds mpA.base2 b.elimLevel t ψ := by
+    intro t ht ψ
+    refine (S.recData t (by rw [← hdk]; exact ht)).1.params _ _ fun q hq => ?_
+    rw [(hshapeA t (by rw [← hdk]; exact ht)).2] at hq
+    exact restrictΨ_agree b.rlps ψ q hq
+  obtain ⟨hrPa, hmIa⟩ := I.recArgSums ha
+  refine blockRecRuleLawG mpP.base2 S.reps S.record.pins (fun ψ => (S.typed ψ).1)
+    (fun ψ => (S.typed ψ).2) (fun n ψ ρ => mpA.acval_validV n ψ ρ)
+    (fun ψ hw => ConLeche.Model.elimLevel_zero_of_w_zero I.large ψ hw) (fun ψ => S.readings ψ)
+    (fun ψ mm hmm ρ => (S.recData mm (by rw [← hdk]; exact hmm)).1.okTy ψ ρ) hrdsR
+    (Leaf := fun t' ψ => nestedRecLeaf (D).kT s rdsM concM
+      (fun φ'' => (DA).recEqs mpA.base2 b.elimLevel φ'') b.rlps t' ψ)
+    (fun t' _ ψ => nestedRecLeaf_below R E t' ψ) ?_ ?_ hcA hi ((S.recData c hcA).1.len)
+    (fun ψ q hq h0 => ((S.recData c hcA).1.bits ψ q hq).mp h0)
+    (fun ψ => hleafR c hcT ψ) ?_ ?_ hnf hreadRa hwdRa hRaVal φ ?_ hvpa hmajor
+  · -- **the leaf is typed at the SCRATCH readings** (`towerAgree`)
+    intro t' ht' ψ ρ
+    have ht'b : t' < b.k := by rw [← hdk]; exact ht'
+    have ht'T : t' < (D).kT := by rw [hkT]; exact ht'b
+    have h := nestedRecLeaf_typed R E Tu t' ht'T ψ ρ
+    refine ⟨h.1, ?_⟩
+    have h2 := h.2
+    rw [I.towerAgree S hnames hctorsJ hK35 ht'b ψ ρ (NestedTailIn.readAtOf R ht'T ψ)
+      (I.lenAtOf R ht'b ψ)] at h2
+    exact h2
+  · -- **the equations hold at the tuple of leaves**
+    intro ψ ρ e he
+    obtain ⟨A, hA, heqs⟩ := Tu (restrictΨ b.rlps ψ) ρ
+    have hlist : (List.range (DA).k).map (fun t' => interp V ρ (nestedRecLeaf (D).kT s rdsM concM
+          (fun φ'' => (DA).recEqs mpA.base2 b.elimLevel φ'') b.rlps t' ψ))
+        = (List.range (D).kT).map A := by
+      rw [hkT, ← hdk]
+      refine List.map_congr_left fun t' ht' => ?_
+      have ht'T : t' < (D).kT := by rw [hkT, ← hdk]; exact List.mem_range.mp ht'
+      unfold nestedRecLeaf
+      rw [hdk, ← hkT]
+      exact (hA t' ht'T).2.1
+    rw [hlist]
+    exact heqs e he
+  · -- **the major index**
+    rw [hmIa, hnP, hdk, hnC, hnI]
+    unfold ConLeche.MutualBlock.rulePrefix ConLeche.MutualBlock.n
+    rfl
+  · -- **the rule prefix**
+    rw [hrPa, hnP, hdk, hnC]
+    unfold ConLeche.MutualBlock.rulePrefix ConLeche.MutualBlock.n
+    rfl
+  · -- **the recursor's spine** (`recSpineFit`, through the transfer)
+    intro us hus cvj usj ρ xs ys TVa restR hxl hTVa hfitR
+    have hinstR : ∀ (dp : Nat) (e : Expr),
+        denoteMeta mpP.base2.acval (ConLeche.provisionNestedRecs (nestedProvList p stored cvRms cvRns) (ENV2)) φ dp
+            (e.instantiateLevelParams (nestedRecCvAt p.k cvRms cvRns c).levelParams us)
+          = denoteMeta mpP.base2.acval (ConLeche.provisionNestedRecs (nestedProvList p stored cvRms cvRns) (ENV2))
+            (Level.substFn φ (nestedRecCvAt p.k cvRms cvRns c).levelParams us) dp e :=
+      fun dp e => denoteMeta_instLevels (acvalParamsAt_of_core mpP.base2) φ dp e
+    generalize hψR : Level.substFn φ (nestedRecCvAt p.k cvRms cvRns c).levelParams us = ψR at hinstR ⊢
+    have hTVa' : TVa = mkPisAV (rdsM c ψR) (concM c) := by
+      have h' := hTVa
+      rw [hinstR] at h'
+      exact Option.some.inj (h'.symm.trans (I.recTyReadP hndR hagR R hcT ψR))
+    have hwl : (xs ++ [AnnotTerm.mkAppN (mpP.base2.acval (RecRule.ctor o)
+        (Level.substFn φ cvj.levelParams usj)) ys]).length = (rdsM c ψR).length := by
+      rw [List.length_append, List.length_singleton, hxl, I.lenAtOf R hc ψR, hmIa]
+      unfold ConLeche.MutualBlock.rulePrefix ConLeche.MutualBlock.n
+      omega
+    have hfit := I.recSpineFit S hnames hctorsJ hK35 R hc ψR ρ hwl (by rw [← hTVa']; exact hfitR)
+    rw [← hrdsR c hcA ψR] at hfit
+    exact hfit
+
+
 end Run
 
 end ConLeche.Model
