@@ -47,6 +47,143 @@ universe w
 
 variable {V : Type w} [SetTheory V] {μ : CheckMode} {env : Env}
 
+/-! ## Kit: the slot's value reads its family at the fitting tuples only -/
+
+/-- The nested product is a congruence in its body over the fitting
+spines (`piTele_mono`'s equality twin). -/
+theorem piTele_congr {v : Nat} {B B' : List V → V} :
+    ∀ {k : Nat} {T : TeleS V k} {acc : List V},
+      (∀ as, FitsS T as → B (acc ++ as) = B' (acc ++ as)) →
+      piTele v T B acc = piTele v T B' acc
+  | _, .nil, acc, h => by
+    simp only [piTele]
+    have := h [] trivial
+    simpa using this
+  | _, .cons A T, acc, h => by
+    simp only [piTele]
+    refine piR_congr fun a ha => ?_
+    refine piTele_congr fun as has => ?_
+    have := h (a :: as) ⟨ha, has⟩
+    simpa [List.append_assoc] using this
+
+/-- **The slot's value is a congruence in the family at the fitting
+tuples**: two families agreeing at every index tuple the telescope's
+fitting spines produce give one slot. -/
+theorem slotSet_congr_app {w u : Nat} {ρ : Nat → V} {tl : List (Nat × Nat × AnnotTerm)}
+    {Eis : List AnnotTerm} {X Y : V}
+    (h : ∀ bs : List V, SpineFit ρ (tl.map (·.2.2)) bs →
+      SetTheory.app X (tupW u (Eis.map (interp V (consList bs ρ))))
+        = SetTheory.app Y (tupW u (Eis.map (interp V (consList bs ρ))))) :
+    slotSet w u ρ tl Eis X = slotSet w u ρ tl Eis Y := by
+  unfold slotSet
+  refine piTele_congr fun bs hbs => ?_
+  rw [List.nil_append]
+  exact h bs (fitsS_teleOfFields.mp hbs)
+
+/-! ## The entry at a container's OWN pin, from the pin correspondence -/
+
+/-- **The `pinF` entry at a tuple whose target family reads the stored
+reading** (task #315 L-E, step (i)): at a container-recursive field at
+one of the container's OWN pins `qK`, the container's domain read at the
+pin's frame is (`real_dom_eq`) the container's slot at its carrier —
+its pin's carrier at `LJ` — which `pinLeaf` reads as the container `K`
+at the pin's components applied to the index spine; the copy's slot at
+`Z` at the corresponding block pin reads (`hZ`) the SAME stored reading
+(`PinCorr`), so the two slots agree at every fitting tuple
+(`slotSet_congr_app`, `slotSet_instTele`).  `hfr` transports a fit at
+the container's pin frame to the block pin's frame (the two differ in
+their base only, below the components). -/
+theorem copyEntryAt_of_pinCorr {env : Env} {m : EnvModel V env} {TV : TargetView V}
+    {dJ : BlockModel V} {ψJ : Name → Nat} {Ds : List AnnotTerm} {tg : Nat → Nat}
+    {tls : List (List (Nat × Nat × AnnotTerm))} {Eis : List (List AnnotTerm)} {ρp : Nat → V}
+    {i j l : Nat}
+    (hreps : IsBlockModels m dJ) (hfT : FormersTyped m dJ ψJ) (hPT : PinsTyped m dJ ψJ)
+    (hi : i < dJ.k) {cA : ConstantVal × Nat} (hj : (dJ.ctorsM i)[j]? = some cA)
+    (hρJ : Sat V (dJ.params ψJ).reverse (consList (Ds.map (interp V ρp)) ρp))
+    (hw : dJ.w ψJ = TV.w) (hl : l < ((dJ.Fss i ψJ).getD j []).length)
+    (hr : ((dJ.rss i).getD j []).getD l false = true) (hnt : ¬ dJ.tgts i j l < dJ.k)
+    (hcorr : PinCorr TV m.acval dJ ψJ Ds (tg l) (dJ.tgts i j l - dJ.k))
+    (htl : (tls.getD l []).map (·.2.2)
+      = instTele Ds l ((((dJ.tlss i ψJ).getD j []).getD l []).map (·.2.2)))
+    (hEis : Eis.getD l [] = (((dJ.Eiss i ψJ).getD j []).getD l []).map
+      (AnnotTerm.instAll Ds (l + (((dJ.tlss i ψJ).getD j []).getD l []).length)))
+    (hfr : ∀ is : List V,
+      SpineFit (dJ.pinFrame (dJ.tgts i j l - dJ.k) ψJ (consList (Ds.map (interp V ρp)) ρp))
+        ((dJ.pinAt (dJ.tgts i j l - dJ.k)).Ids ψJ) is →
+      SpineFit (TV.frame ρp (tg l)) (TV.Ids (tg l)) is)
+    {Z : Nat → V}
+    (hZ : ∀ is : List V, SpineFit (TV.frame ρp (tg l)) (TV.Ids (tg l)) is →
+      SetTheory.app (Z (tg l)) (tupW (TV.u (tg l)) is)
+        = is.foldl SetTheory.app (interp V ρp (TV.EA (tg l)))) :
+    CopyEntryAt dJ ψJ Ds tg tls Eis ρp i j TV.w TV.u Z l := by
+  intro fs₁ hl₁ hsp
+  obtain ⟨cvT, cvR, mI, rP, rules, hI⟩ := hreps i hi
+  have hjl : j < (dJ.ctorsM i).length := (List.getElem?_eq_some_iff.mp hj).1
+  have hlenF := hI.Fss_length hj ψJ
+  have hlt : l < cA.2 := by rw [← hlenF]; exact hl
+  have hks : (dJ.ksF i j).length = ((dJ.Fss i ψJ).getD j []).length := by
+    rw [(hI.ctorData hj).ksLen, hlenF]
+  have hr' : (rsOf (dJ.ksF i j)).getD l false = true := by
+    rwa [IsBlockModel.rss_getD hjl] at hr
+  subst hl₁
+  obtain ⟨qK, hqK⟩ : ∃ qK, qK = dJ.tgts i j fs₁.length - dJ.k := ⟨_, rfl⟩
+  have hqlt : qK < dJ.nPins := hqK ▸ hreps.tgt_pin_lt hi hj _ hl hnt
+  rw [← hqK] at hcorr hfr
+  obtain ⟨hEA, hDs, hu, hIds⟩ := hcorr
+  -- the container's domain is its slot at the carrier: its own pin's carrier
+  rw [hreps.real_dom_eq hfT hPT hi hj hρJ hlt hr' hsp, dJ.slotAt_of_pin hnt, ← hqK]
+  have hρ : (fun n => consList fs₁ (consList (Ds.map (interp V ρp)) ρp) (n + fs₁.length))
+      = consList (Ds.map (interp V ρp)) ρp :=
+    funext fun n => consList_apply_add fs₁ _ n
+  rw [hρ]
+  -- the copy's slot, at the container's frame
+  rw [← hu, ← hw, hEis]
+  rw [slotSet_instTele (w := dJ.w ψJ) (w' := dJ.w ψJ) (u := TV.u (tg fs₁.length))
+    (u' := TV.u (tg fs₁.length)) Iff.rfl Iff.rfl Ds ρp fs₁ htl
+    (((dJ.Eiss i ψJ).getD j []).getD fs₁.length []) (Z (tg fs₁.length))]
+  -- the two families agree at every fitting tuple
+  refine slotSet_congr_app fun bs hbs => ?_
+  -- the index readings fit the container's pin
+  have hfit : SpineFit (dJ.pinFrame qK ψJ (consList (Ds.map (interp V ρp)) ρp))
+      ((dJ.pinAt qK).Ids ψJ)
+      ((((dJ.Eiss i ψJ).getD j []).getD fs₁.length []).map
+        (interp V (consList bs (consList fs₁ (consList (Ds.map (interp V ρp)) ρp))))) := by
+    have hcd := hI.ctorData hj
+    have hiK : fs₁.length < (dJ.ksF i j).length := by rw [hks]; exact hl
+    have hk : (dJ.ksF i j).getD fs₁.length .ordinary = .recursive ∨
+        (dJ.ksF i j).getD fs₁.length .ordinary = .reflexive := by
+      unfold rsOf at hr'
+      rw [List.getD_eq_getElem?_getD, List.getElem?_map, List.getElem?_eq_getElem hiK,
+        Option.map_some, Option.getD_some, decide_eq_true_iff] at hr'
+      rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hiK]
+      exact hr'
+    have hnest : dJ.nestOf i j fs₁.length = some qK := hqK ▸ dJ.nestOf_some hnt
+    rw [IsBlockModel.Eiss_getD hj]
+    rw [IsBlockModel.tlss_getD hj] at hbs
+    rcases hk with hk | hk
+    · rw [hcd.tssNone ψJ _ (by rw [hk]; decide)] at hbs
+      cases bs with
+      | nil =>
+        simpa using hreps.nest_eis_fit hPT hi hj hρJ hlt hnest hqlt hk hsp
+      | cons _ _ => exact hbs.elim
+    · exact hreps.nest_refl_eis_fit hPT hi hj hρJ hlt hnest hqlt hk hsp hbs
+  -- the container's pin at the carrier: `pinLeaf`
+  obtain ⟨ρ, as, hρJas, hspJ⟩ := spineOfSat_params dJ hρJ
+  rw [hρJas] at hfit ⊢
+  have hleaf := hI.pinLeaf qK hqlt ψJ ρ as _ hspJ hfit
+  rw [← hρJas] at hfit
+  -- the block's pin at `Z`: the same stored reading
+  have hZ' := hZ _ (hfr _ hfit)
+  rw [hρJas] at hZ'
+  rw [hZ', hEA, hu, ← hleaf, interp_mkAppN_foldl, List.map_map, ← List.foldl_append,
+    interp_closed (V := V) (m.cval_closedL _ _) ρp ρ]
+  congr 2
+  refine List.map_congr_left fun D _ => ?_
+  show interp V (consList as ρ) D = interp V ρp (AnnotTerm.instAll Ds 0 D)
+  have := interp_instAll Ds [] ρp D
+  rw [hρJas] at this
+  simpa using this.symm
+
 section Assembly
 
 variable {F : Nat} {g : Bool} {mp : EnvModelM V μ env} {p : NestedParts} {b : MutualBlock}
