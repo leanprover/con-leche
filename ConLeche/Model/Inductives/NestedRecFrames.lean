@@ -5,6 +5,7 @@ public import ConLeche.Model.Inductives.NestedRecTypes
 import ConLeche.Model.Inductives.NestedRecFibre
 import ConLeche.Model.Inductives.MutualFormersKit
 import ConLeche.Model.Inductives.NestedTransfer
+import ConLeche.Model.Inductives.MutualRecsStage
 import ConLeche.Verify.Inductives.NestedElimInv
 import ConLeche.Verify.Inductives.NestedGroupInv
 public import ConLeche.Verify.Inductives.NestedRestoreTbl
@@ -385,6 +386,203 @@ theorem NestedTailIn.ctorsRName {mm j : Nat} {l : List (ConstantVal × Nat × Na
   rw [hceq]
   show c₀.1.name = cA.1.name
   exact congrArg ConstantVal.name e1
+
+/-! ### The name classification -/
+
+/-- **A NAME OFF THE AUXILIARY NAMES IS THE BLOCK'S OWN, OR OFF THE
+BLOCK**: it is one of the `k` declared members, one of their
+constructors, or neither (the copies and their constructors carry
+auxiliary names). -/
+theorem NestedTailIn.nameCases (n : Name) (hn : n ∉ (ConLeche.restoreTbl p st).auxNames) :
+    (∃ (t : Nat) (f : MutualFormerA), t < p.k ∧ fms[t]? = some f ∧ f.cvTa.name = n) ∨
+    (∃ (mm j : Nat) (cA : ConstantVal × Nat), mm < p.k ∧ j < (b.ownCtors mm).length ∧
+      ctorsA[b.ownOffset mm + j]? = some cA ∧ cA.1.name = n) ∨
+    ((∀ (t : Nat) (f : MutualFormerA), fms[t]? = some f → f.cvTa.name ≠ n) ∧
+      ∀ cA ∈ ctorsA, cA.1.name ≠ n) := by
+  by_cases hm : ∃ (t : Nat) (f : MutualFormerA), fms[t]? = some f ∧ f.cvTa.name = n
+  · obtain ⟨t, f, hf, rfl⟩ := hm
+    refine Or.inl ⟨t, f, ?_, hf, rfl⟩
+    rcases Nat.lt_or_ge t p.k with hlt | hlt
+    · exact hlt
+    · exact absurd (I.memberName_aux hf hlt) hn
+  · by_cases hc : ∃ (J : Nat) (cA : ConstantVal × Nat), ctorsA[J]? = some cA ∧ cA.1.name = n
+    · obtain ⟨J, cA, hJ, rfl⟩ := hc
+      obtain ⟨hlenA, hnamesA⟩ :=
+        ctorsA_names_of I.out.ctors (ConLeche.checkMutualCore_inv I.haux).2.1
+      obtain ⟨ct, hct⟩ : ∃ ct, b.ctors[J]? = some ct :=
+        ⟨_, List.getElem?_eq_getElem (by rw [← hlenA]; exact (List.getElem?_eq_some_iff.mp hJ).1)⟩
+      have hname : cA.1.name = ct.cv.name := (hnamesA J cA ct hJ hct).1
+      have hmem : ct.member < p.k := by
+        rcases Nat.lt_or_ge ct.member p.k with hlt | hlt
+        · exact hlt
+        · exact absurd (hname ▸ I.copyCtorName_aux hct hlt) hn
+      obtain ⟨hle, hown⟩ := ConLeche.ownCtors_of_ctors I.out.grouped hct
+      refine Or.inr (Or.inl ⟨ct.member, J - b.ownOffset ct.member, cA, hmem,
+        (List.getElem?_eq_some_iff.mp hown).1, ?_, rfl⟩)
+      rw [show b.ownOffset ct.member + (J - b.ownOffset ct.member) = J from by omega]
+      exact hJ
+    · refine Or.inr (Or.inr ⟨fun t f hf hne => hm ⟨t, f, hf, hne⟩, fun cA hcA hne => ?_⟩)
+      obtain ⟨J, hJ⟩ := List.getElem?_of_mem hcA
+      exact hc ⟨J, cA, hJ, hne⟩
+
+/-! ### The auxiliary names against the block's own constructors -/
+
+/-- A pin's key is a member name of the auxiliary block, and its
+recursor's name a recursor name of it. -/
+theorem NestedTailIn.pinAuxMem {q : Nat} {qn : NestedPin} (hqn : st.pins[q]? = some qn) :
+    qn.aux ∈ b.memberNames ∧ qn.aux.str "rec" ∈ (List.range b.k).map b.recName := by
+  have hal := I.aligned
+  have hk : b.k = st.types.length := ConLeche.auxBlock_k I.hb
+  obtain ⟨-, hform⟩ := ConLeche.auxBlock_former I.hb
+  obtain ⟨t, ht, htn⟩ := hal.2 q qn hqn
+  obtain ⟨nIdx, hfo, -⟩ := hform (p.k + q) t ht
+  have hq : q < st.pins.length := (List.getElem?_eq_some_iff.mp hqn).1
+  constructor
+  · refine List.mem_of_getElem? (i := p.k + q) ?_
+    simp only [ConLeche.MutualBlock.memberNames, List.getElem?_map, hfo, Option.map_some, htn]
+  · refine List.mem_map.mpr ⟨p.k + q, List.mem_range.mpr ?_, ?_⟩
+    · rw [hk, hal.1]; omega
+    · simp only [ConLeche.MutualBlock.recName, List.getD_eq_getElem?_getD, hfo, Option.getD_some,
+        htn]
+
+/-- **A DECLARED MEMBER'S CONSTRUCTOR NAME IS ONE OF THE BLOCK'S OWN
+TYPES' CONSTRUCTORS** (`copyCtorName_aux`'s twin below `p.k`). -/
+theorem NestedTailIn.memberCtorName {J : Nat} {c : ConLeche.MutualCtor}
+    (hJ : b.ctors[J]? = some c) (hmem : c.member < p.k) :
+    c.cv.name ∈ (st.types.take p.k).flatMap (fun t => t.ctors.map (·.1)) := by
+  obtain ⟨-, -, -, hct⟩ := ConLeche.auxBlock_fields I.hb
+  rw [hct] at hJ
+  have hcmem := List.mem_of_getElem? hJ
+  rw [List.mem_flatten] at hcmem
+  obtain ⟨l, hl, hcl⟩ := hcmem
+  obtain ⟨tm, htm, rfl⟩ := List.mem_map.mp hl
+  obtain ⟨t, mIdx⟩ := tm
+  simp only [List.mem_map] at hcl
+  obtain ⟨cc, hcc, rfl⟩ := hcl
+  have hmIdx : mIdx < p.k := hmem
+  have hst : st.types[mIdx]? = some t := List.mk_mem_zipIdx_iff_getElem?.mp htm
+  have htd : t ∈ st.types.take p.k := by
+    refine List.mem_of_getElem? (i := mIdx) ?_
+    rw [List.getElem?_take_of_lt hmIdx]
+    exact hst
+  exact List.mem_flatMap.mpr ⟨t, htd, List.mem_map.mpr ⟨cc, hcc, rfl⟩⟩
+
+
+omit I in
+/-- The constructors of a list of types, flattened, by name. -/
+theorem map_flatMap_ctors (ts : List AuxType) :
+    (ts.flatMap (·.ctors)).map (·.1) = ts.flatMap (fun t => t.ctors.map (·.1)) := by
+  induction ts with
+  | nil => rfl
+  | cons t ts ih => rw [List.flatMap_cons, List.map_append, ih, List.flatMap_cons]
+
+/-- The restored constructors' lists are the block's own members'. -/
+theorem NestedTailIn.ctorsRlt {mm : Nat} {l : List (ConstantVal × Nat × Nat)}
+    (hl : ctorsR[mm]? = some l) : mm < p.k := by
+  obtain ⟨hlenR, -⟩ := ConLeche.mapM_except_inv I.hctors
+  have h2 := (List.getElem?_eq_some_iff.mp hl).1
+  rw [hlenR, List.length_take] at h2
+  omega
+
+/-- **THE RESTORED CONSTRUCTOR IS ITS MEMBER'S**: at member `mm` and
+position `j` the auxiliary block's constructor `ownOffset mm + j` is
+member `mm`'s, and carries the restored one's name. -/
+theorem NestedTailIn.ctorsRMember {mm j : Nat} {l : List (ConstantVal × Nat × Nat)}
+    {c : ConstantVal × Nat × Nat} (hl : ctorsR[mm]? = some l) (hc : l[j]? = some c) :
+    ∃ ct : ConLeche.MutualCtor, b.ctors[b.ownOffset mm + j]? = some ct ∧ ct.member = mm ∧
+      c.1.name = ct.cv.name := by
+  have hmm : mm < p.k := I.ctorsRlt hl
+  have hlD : ctorsR.getD mm [] = l := by rw [List.getD_eq_getElem?_getD, hl]; rfl
+  have hj : j < (b.ownCtors mm).length := by
+    rw [← I.out.stage.ctorsLen mm hmm, hlD]
+    exact (List.getElem?_eq_some_iff.mp hc).1
+  obtain ⟨x, hx⟩ : ∃ x, (b.ownCtors mm)[j]? = some x := ⟨_, List.getElem?_eq_getElem hj⟩
+  obtain ⟨J, ct⟩ := x
+  have hJ : J = b.ownOffset mm + j := ConLeche.ownCtors_getElem?_idx I.out.grouped hx
+  obtain ⟨hct, hmember⟩ := ConLeche.ownCtors_getElem?_ctors hx
+  rw [hJ] at hct
+  refine ⟨ct, hct, hmember, ?_⟩
+  obtain ⟨cA, hcA, hname⟩ := I.ctorsRName hl hc
+  obtain ⟨hlenA, hnamesA⟩ :=
+    ctorsA_names_of I.out.ctors (ConLeche.checkMutualCore_inv I.haux).2.1
+  rw [hname]
+  exact (hnamesA _ cA ct hcA hct).1
+
+/-- **NO DECLARED MEMBER'S CONSTRUCTOR CARRIES AN AUXILIARY NAME**: the
+copies' member names and their recursors' are not constructor names at
+all (`blockNames.Nodup`), and the copies' own constructors are the
+other half of one list without repetitions. -/
+theorem NestedTailIn.memberCtor_ne_aux {J : Nat} {c : ConLeche.MutualCtor}
+    (hJ : b.ctors[J]? = some c) (hmem : c.member < p.k) :
+    c.cv.name ∉ (ConLeche.restoreTbl p st).auxNames := by
+  have hnd : b.blockNames.Nodup := I.out.nodup
+  rw [ConLeche.MutualBlock.blockNames] at hnd
+  have hcn : (b.ctors.map (·.cv.name)).Nodup :=
+    (List.nodup_append.mp (List.nodup_append.mp hnd).1).2.1
+  have hmemC : c.cv.name ∈ b.ctors.map (·.cv.name) :=
+    List.mem_map.mpr ⟨c, List.mem_of_getElem? hJ, rfl⟩
+  obtain ⟨-, -, -, hct⟩ := ConLeche.auxBlock_fields I.hb
+  have hsplit : ((st.types.take p.k).flatMap (fun t => t.ctors.map (·.1))
+      ++ (st.types.drop p.k).flatMap (fun t => t.ctors.map (·.1))).Nodup := by
+    have h := hcn
+    rw [hct, auxCtorNames_flat p.lps st.types 0] at h
+    rw [← List.take_append_drop p.k st.types, List.flatMap_append, List.map_append,
+      map_flatMap_ctors, map_flatMap_ctors] at h
+    exact h
+  have hdisj := (List.nodup_append.mp hsplit).2.2
+  intro hin
+  simp only [ConLeche.restoreTbl, List.mem_append] at hin
+  rcases hin with (hin | hin) | hin
+  · -- a copy's member name
+    obtain ⟨qn, hqnm, hqe⟩ := List.mem_map.mp hin
+    obtain ⟨q, hqn⟩ := List.getElem?_of_mem hqnm
+    exact (List.nodup_append.mp (List.nodup_append.mp hnd).1).2.2 _ (I.pinAuxMem hqn).1 _ hmemC
+      hqe
+  · -- a copy's constructor name
+    exact hdisj _ (I.memberCtorName hJ hmem) _ hin rfl
+  · -- a copy's recursor name
+    obtain ⟨qn, hqnm, hqe⟩ := List.mem_map.mp hin
+    obtain ⟨q, hqn⟩ := List.getElem?_of_mem hqnm
+    exact (List.nodup_append.mp hnd).2.2 _ (List.mem_append_right _ hmemC) _
+      (I.pinAuxMem hqn).2 hqe.symm
+
+/-! ### `RestoreAgree`'s freshness clause -/
+
+/-- **THE AUXILIARY NAMES ARE ABSENT FROM THE RESTORED ENVIRONMENT**
+(`RestoreAgree.auxFresh`): they are fresh before the block
+(`copiesFresh`), they are none of the `k` declared members, and none of
+the restored constructors (whose names are the declared members'
+constructors'). -/
+theorem NestedTailIn.auxFresh : ∀ n ∈ (ConLeche.restoreTbl p st).auxNames,
+    (ENV₂).find? n = none := by
+  intro n hn
+  obtain ⟨hfresh0, hnotmem⟩ :=
+    ConLeche.rk_restoreTbl_auxNames_fresh I.out.nodup I.aligned I.hb I.hfresh n hn
+  have hmn : b.memberNames = fms.map (·.cvTa.name) := I.out.facts.names.symm
+  rw [ConLeche.consNestedCtors_find?_of_ne ?_, consMutualFormers_find?_of_ne ?_]
+  · exact hfresh0
+  · -- no declared member carries an auxiliary name
+    intro g hg hge
+    refine hnotmem ?_
+    obtain ⟨t, ht⟩ := List.getElem?_of_mem hg
+    have htk : t < p.k := by
+      have h2 := (List.getElem?_eq_some_iff.mp ht).1
+      rw [List.length_take] at h2
+      omega
+    have ht' : fms[t]? = some g := by
+      rw [← List.getElem?_take_of_lt htk]; exact ht
+    refine List.mem_of_getElem? (i := t) ?_
+    rw [List.getElem?_take_of_lt htk, hmn, List.getElem?_map, ht']
+    exact congrArg some hge
+  · -- no restored constructor carries an auxiliary name
+    intro c hc hce
+    obtain ⟨l, hl, hcl⟩ := List.mem_flatten.mp hc
+    obtain ⟨mm, hmm⟩ := List.getElem?_of_mem hl
+    obtain ⟨j, hj⟩ := List.getElem?_of_mem hcl
+    obtain ⟨ct, hct, hmember, hname⟩ := I.ctorsRMember hmm hj
+    refine I.memberCtor_ne_aux hct ?_ ?_
+    · rw [hmember]; exact I.ctorsRlt hmm
+    · rw [← hname, hce]; exact hn
 
 end Run
 
