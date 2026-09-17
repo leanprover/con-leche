@@ -242,6 +242,11 @@ def DeclNestedRun (μ : CheckMode) (F : Nat) (env : Env)
         (restoreTbl p st) p.lps
         ((List.range p.numNested).map p.mimicRecName)
         (stored.drop p.k) = .ok cvRns ∧
+    -- THE RESTORED RECURSORS' NAMES ARE PAIRWISE DISTINCT (K.39): what
+    -- the provision loop's conses need and `restoreRecTys_door`'s
+    -- freshness at ONE environment cannot give
+    ConLeche.certOnly μ
+      (decide ((cvRms.map (·.name) ++ cvRns.map (·.name)).Nodup)) = true ∧
     -- the restored rules, at the rule-less provision
     (cvRms.zip (stored.take p.k)).mapM (fun (cvRa, a) =>
         restoreRules (m := CheckM) (fueledOps μ F)
@@ -437,7 +442,7 @@ theorem declNestedRun_etaClosed {μ : CheckMode} {F : Nat} {env envOut : Env}
     {p : NestedParts} (hE : EtaFamiliesClosed env)
     (h : DeclNestedRun μ F env p envOut) : EtaFamiliesClosed envOut := by
   obtain ⟨-, -, st, b, envAux, stored, ctorsR, cvRms, cvRns, rulesM, rulesN, fmsA, ctorsA,
-    -, -, -, -, -, -, -, -, -, -, -, hcaps, -, -, -, -, -, -, -, -, -, hctors, hrm, hrn, -, -, htbl,
+    -, -, -, -, -, -, -, -, -, -, -, hcaps, -, -, -, -, -, -, -, -, -, hctors, hrm, hrn, -, -, -, htbl,
     -, -, -, -⟩ := h
   refine EtaFamiliesClosed.ofFreshExt hE ?_
   -- the formers

@@ -86,8 +86,11 @@ theorem denoteMeta_emptyA_type
 theorem extendEmpty (mp : EnvModelM V μ env)
     (hfresh : env.find? emptyName = none)
     (hwf : EnvWF ⟨emptyA :: env.consts⟩) :
-    Nonempty (EnvModelM V μ ⟨emptyA :: env.consts⟩) := by
-  refine nonempty_of_exists (declStep_preserves_of_basis_cons mp
+    ∃ mp' : EnvModelM V μ ⟨emptyA :: env.consts⟩,
+      mp'.base2.acval
+        = acvalWith mp.base2.acval emptyA.name
+            (fun _ => AnnotTerm.const .empty [1]) := by
+  refine declStep_preserves_of_basis_cons mp
     (A := fun _ => AnnotTerm.const .empty [1]) hfresh
     (fun _ _ _ h => nomatch h)
     (by decide) (by decide) (by decide) (by decide)
@@ -102,7 +105,7 @@ theorem extendEmpty (mp : EnvModelM V μ env)
       (fun _ h => nomatch h) (fun _ _ _ _ h => nomatch h))
     (fun _ _ => rfl) (fun _ _ _ => rfl)
     (fun _ _ => trivial) (fun _ _ => trivial)
-    (fun ψ => ⟨_, denoteMeta_emptyA_type ψ⟩) ?_ ?_)
+    (fun ψ => ⟨_, denoteMeta_emptyA_type ψ⟩) ?_ ?_
   · intro ψ ta h ρ
     rw [denoteMeta_emptyA_type ψ] at h
     obtain rfl := (Option.some.inj h).symm
@@ -227,11 +230,14 @@ theorem extendEmptyRec (mp : EnvModelM V μ env)
     (hE : env.find? emptyName = some emptyA)
     (hfresh : env.find? emptyRecA.name = none)
     (hwf : EnvWF ⟨emptyRecA :: env.consts⟩) :
-    Nonempty (EnvModelM V μ ⟨emptyRecA :: env.consts⟩) := by
+    ∃ mp' : EnvModelM V μ ⟨emptyRecA :: env.consts⟩,
+      mp'.base2.acval
+        = acvalWith mp.base2.acval emptyRecA.name
+            (fun ψ => AnnotTerm.const .emptyRec [1, ψ uN]) := by
   have hty := fun ψ =>
     denoteMeta_emptyRecA_type (m := mp.base2)
       (A := fun ψ => AnnotTerm.const .emptyRec [1, ψ uN]) ψ hE
-  refine nonempty_of_exists (declStep_preserves_of_basis_cons mp
+  refine declStep_preserves_of_basis_cons mp
     (A := fun ψ => AnnotTerm.const .emptyRec [1, ψ uN]) hfresh
     (fun _ _ _ h => nomatch h)
     (by decide) (by decide) (by decide) (by decide)
@@ -248,7 +254,7 @@ theorem extendEmptyRec (mp : EnvModelM V μ env)
                            intro r hr; rw [← h4] at hr; exact nomatch hr))
     (fun _ _ => rfl) ?_
     (fun _ _ => trivial) (fun _ _ => trivial)
-    (fun ψ => ⟨_, hty ψ⟩) ?_ ?_)
+    (fun ψ => ⟨_, hty ψ⟩) ?_ ?_
   · intro ψ₁ ψ₂ hp
     rw [hp uN (by show uN ∈ [uN]; exact List.mem_cons_self)]
   · intro ψ ta h ρ
@@ -274,7 +280,7 @@ it.  `BasisInstallRun` is a right-nested `∧` chain, so the walk is an
 `emptyK` branch. -/
 theorem declBasisPB_emptyK {env₂ : Env} (mp : EnvModelM V μ env)
     (h : ConLeche.Semantics.BasisInstallRun env ConLeche.BasisKind.emptyK.declsA env₂) :
-    Nonempty (EnvModelM V μ env₂) := by
+    ∃ mp' : EnvModelM V μ env₂, AcvalAgrees mp.base2 mp'.base2 := by
   rw [show ConLeche.BasisKind.emptyK.declsA = [emptyA, emptyRecA] from rfl]
     at h
   obtain ⟨h1, h2, hnil⟩ := h
@@ -289,7 +295,7 @@ theorem declBasisPB_emptyK {env₂ : Env} (mp : EnvModelM V μ env)
         | (refine ConLeche.IndCapsWF.of_caps ?_ ?_ <;> intro h <;>
             first | exact absurd h (by decide) | rfl)
         | exact fun _ _ heq => ConstantInfo.noConfusion heq)⟩
-  obtain ⟨mp1⟩ := extendEmpty mp hf1 hwf1
+  obtain ⟨mp1, hac1⟩ := extendEmpty mp hf1 hwf1
   have hE : (⟨emptyA :: env.consts⟩ : Env).find? emptyName
       = some emptyA := by
     rw [ConLeche.Env.find?_cons]; exact if_pos rfl
@@ -323,7 +329,9 @@ theorem declBasisPB_emptyK {env₂ : Env} (mp : EnvModelM V μ env)
       exact hE
     rw [hf]
     simp
-  exact extendEmptyRec mp1 hE hf2 hwf2
+  obtain ⟨mp2, hac2⟩ := extendEmptyRec mp1 hE hf2 hwf2
+  exact ⟨mp2, AcvalAgrees.transCons hf1 (acvalAgrees_of_acvalWith hf1 hac1)
+    (acvalAgrees_of_acvalWith hf2 hac2)⟩
 
 /-! ## STOP-AND-NAME: no basis `rec_rules` row is vacuous by `fire`
 

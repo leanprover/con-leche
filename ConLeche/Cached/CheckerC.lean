@@ -402,6 +402,10 @@ def checkNestedS (fe : FEnv) (p : NestedParts) : CheckCM FEnv := do
   let mimicNames := (List.range p.numNested).map p.mimicRecName
   let cvRms ← restoreRecTysF (sharedOpsC mode fe₂) fe₂ R p.lps memberNames members
   let cvRns ← restoreRecTysF (sharedOpsC mode fe₂) fe₂ R p.lps mimicNames mimics
+  -- the restored recursors' names are pairwise distinct (K.39), as in
+  -- the pure route
+  unless certOnly mode (decide ((cvRms.map (·.name) ++ cvRns.map (·.name)).Nodup)) do
+    throw (.internal "nested: two restored recursors carry one name")
   let provisions := (cvRms.zip (members.map fun a => (a.mI, a.rP)))
     ++ (cvRns.zip (mimics.map fun a => (a.mI, a.rP)))
   let feR := provisionNestedRecsF provisions fe₂

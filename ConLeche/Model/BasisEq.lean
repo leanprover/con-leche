@@ -1230,7 +1230,7 @@ so the one that consumes the install's exposed `acval`. -/
 theorem declBasisPB_eqK {env₁ : Env} (mp : EnvModelM V μ env)
     (h : ConLeche.Semantics.BasisInstallRun env
       ConLeche.BasisKind.eqK.declsA env₁) :
-    Nonempty (EnvModelM V μ env₁) := by
+    ∃ mp' : EnvModelM V μ env₁, AcvalAgrees mp.base2 mp'.base2 := by
   rw [show ConLeche.BasisKind.eqK.declsA = [eqA, eqReflA, eqRecA]
     from rfl] at h
   obtain ⟨h1, h2, h3, hnil⟩ := h
@@ -1343,8 +1343,11 @@ theorem declBasisPB_eqK {env₁ : Env} (mp : EnvModelM V μ env)
           simp [Expr.constsResolve, eqRecRule, hfE, hfR], rfl,
           fun lvls pins heqf => nomatch heqf⟩
       · exact nomatch hr'
-  obtain ⟨mp3, -⟩ := extendEqRec mp2 hE2 hR2 hEv2 hRv2 hf3 hwf3
-  exact ⟨mp3⟩
+  obtain ⟨mp3, hac3⟩ := extendEqRec mp2 hE2 hR2 hEv2 hRv2 hf3 hwf3
+  exact ⟨mp3, AcvalAgrees.transCons (c₀ := eqA) hf1
+    (acvalAgrees_of_acvalWith (c₀ := eqA) hf1 hac1)
+    (AcvalAgrees.transCons hf2 (acvalAgrees_of_acvalWith hf2 hac2)
+      (acvalAgrees_of_acvalWith hf3 hac3))⟩
 
 end Eq
 
