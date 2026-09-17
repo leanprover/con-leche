@@ -83209,6 +83209,169 @@ fix); trust surface 13 escapes in 5 allowlisted files (647 scanned);
 no-local-paths OK; overview-links 112; quote-gate 2; proofdeps 4955
 rows / 12 roots / **0 doors**.
 
+##### (lll) CONTINUATION 19 (lane session 19) — BOTH ARMS' MAJOR PROVED, unconditionally
+
+Base: this lane's b239f712.  No checker code changed; no `sorry`, no
+axioms, no `maxHeartbeats`; `#print axioms` of every new theorem is
+`[propext, Classical.choice, Quot.sound]`.
+
+*The member arm* (7c56639e).  `NestedTailIn.memberMajor`:
+`blockRecRuleLawG`'s fourth obligation at a rule of a member's own
+recursor.  The value crosses `mpP → mp₂` off the restored recursors'
+names (`hagR` at `recCvDoor` — a constructor of the block is stored
+where a restored recursor is fresh), the level assignments agree on the
+constructor's parameters (`substFn_agree_of_comparand` at the
+comparands clause, `b.lps ⊆ b.rlps`), the constructor type's reading
+crosses the provision (`provCross`), and the rest is
+`blockRecRuleLaw`'s own argument at the nested data.
+
+*The mimic arm* (4ed96394, closed at 0abfedb0).
+`NestedTailIn.mimicMajor`: the decode is the PIN GROUP's block model
+`dJ` (`NestedPinGroup.rep`) — the major's arguments fit the container
+constructor's telescope, so `IsBlockModel.ctor` at `dJ` turns the fold
+into `dJ.inj`, and a pin group's injection is the tagged tower
+(`NestedPinGroup.inj`).  The rule's class and constructor index are
+identified with the pin's by the constructor's NAME: the scratch
+block's constructor names are pairwise distinct, so a name fixes its
+position and the position fixes the member
+(`mutualBlockModel_ctorsM_get`).
+
+##### (mmm) FINDING — (hhh) WAS WRONG: NEITHER ARM NEEDS A TELESCOPE TRANSFER, AND THE MIMIC NEEDS NO `ctorArm`
+
+Both halves verified against the tree, and together they are why item
+5's biggest piece came in at about half its sizing.
+
+1. **The member's major is `IsBlockModel.ctor` at the NESTED block
+   model, not the scratch one.**  (hhh) read `ctor` at `(DA)`, whose
+   `Fss` is the SCRATCH telescope, and concluded that a
+   constructor-telescope transfer was missing.  But `(D)`'s own
+   representation (`I.out.reps`, `IsBlockModels mp₂.base2 (D)`) has the
+   same clause with `(D).Fss` = `fssOfR` of `(D).dsF` = **`dsR`**, the
+   RESTORED domains — exactly what the major's arguments fit — and the
+   two models' injections are ONE function: `BlockModel.ofNested` and
+   `BlockModel.ofMutual` both set
+   `inj := fun ψ _ j fs => injW (resSort.eval ψ) j (mkTower (fs ++ [pt]))`
+   at the same `resSort`, so `(D).inj ψ c i fs` and `(DA).inj ψ c i fs`
+   are the same term.  *The position-by-position agreement (hhh) wanted
+   to feed to `spineFit_iff_agree` is already spent INSIDE `(D)`'s
+   representation — `nestedCoreModeled_of` paid for it there.*  The
+   member's major is ½, not ¾–1.
+2. **The mimic's major needs neither `ctorArm` nor the CRUX.**  §U.29
+   (zz) 1 said the mimic decode is `ctorArm`'s last clause.  It is not:
+   `ctorArm` identifies the CONTAINER's constructor with the COPY's,
+   and that identification is stated at a PARAMETER FRAME
+   (`consList xs (consList as ρ₀)`) with the container's parameters
+   FORCED to be the pin's components — which is why it drags in
+   `ctorPinFitJ`, `ctorPinFieldsFit` and the pin identification.
+   `hmajor` asks for none of that: it asks for the VALUE, and
+   `IsBlockModel.ctor` holds at EVERY parameter spine and EVERY level
+   assignment, so the rule's own `ψC` and the major's own first `cnP`
+   arguments serve.  The value is the tag and the fields, and that is
+   all `(DA).inj` is.
+
+   **The one thing the levels are needed for is the TAG's universe**:
+   `dJ.inj ψC i j fs = injW (dJ.w ψC) j (mkTower (fs ++ [pt]))` and the
+   goal wants `injW (f₀.s.eval ψ')`, while the group's `w` clause pins
+   `dJ.w` at the PIN's assignment.  That, and nothing else, is what
+   (nnn) closes.
+
+##### (nnn) THE MIMIC RULE'S FIRE LEVELS ARE ITS PIN'S — three named steps (0abfedb0)
+
+The residue of (mmm) 2 is a syntactic fact about the restore, and the
+route through it is short because two of its three steps were already
+in the tree:
+
+* `mutualRecTy_major` (NEW, `Verify/Inductives/NestedRecDoor.lean`) —
+  `mutualRecTy_stripPis` with the LAST binder named: the generated
+  recursor type's binder `nP + k + n + nIdx_m`, the major premise's,
+  carries the domain `structFamI`, member `m`'s own former at the
+  block's parameters and its index binders.  `NestedTailIn.auxRecMajor`
+  is it at the tail's data (`auxRecTy`'s bookkeeping, re-run);
+* `restoreNested_stripPis_doms` (already there) — binder `nP + i` of
+  the RESTORED type is `restoreWalk R i` of the source's;
+* `restoreWalk_pin` (already there, `Verify/Inductives/NestedInv.lean`)
+  — at a `pins` key the walk replaces the node by the LIFTED PIN at the
+  arguments past the parameters, and the pin is headed by the
+  container at the pin's own levels (`pinRec`, `abstractRange_mkAppN`).
+
+`NestedTailIn.restRecTyMajorHead` chains the three (the lookups are
+`restoreTbl_pins_lookup_run` and `restoreTbl_recMap_lookup_aux'`, both
+off the run; the copy's former name IS the pin's auxiliary name by
+`MutualFormersFacts.names` and `auxBlock_former`), and
+`NestedTailIn.mimicFireLvls` matches it with `nestedFireShape_inv`'s
+own read of that head.  `mimicMajor` now takes the run's fire shape
+and derives both the levels and their scoping from it; no hypothesis
+is left open.
+
+##### (ooo) LEAN TRAPS (continuation 19)
+
+* `obtain rfl : x = y` eliminates whichever side Lean picks — and it
+  picked the THEOREM'S binder twice, so later references to it broke
+  with "unknown identifier".  Use a named `have` and `rw` where the
+  equation is between a local and a binder.
+* `List.getElem?_inj` is an `Iff` in this toolchain; `.mp` it.
+* `rw [hlen]` on a `≤` goal leaves the goal open (`rw` closes only
+  `rfl`-goals) — `Nat.le_of_eq hlen` is the one-liner.
+* `refine ⟨f, _, _, hf, ?_, ?_⟩` cannot postpone a witness that only a
+  LATER goal determines; either supply every witness explicitly or
+  order the ∃-body so the determining conjunct comes first.
+* a projection of a substituted record (`⟨…, nIdx := f.nIdx, …⟩.nIdx`)
+  is defeq to `f.nIdx` but `omega` does not see through it; a `have`
+  at the wanted type re-types it by defeq.
+* `simp only [ConLeche.recFireComparands, hfire]` reduces the fire
+  matcher and opens NO proofdeps door (0 doors after, verified) — the
+  mutual law does the same at `MutualRecsLaw.lean`.
+
+##### (ppp) WHAT THE FIRED EQUALITY STILL OWES
+
+1. **`hvpa` at a MIMIC** — the outer `vpa` conjunct: each of the fire's
+   `pins` READS at depth `rP` (`openRev`) and its chain is graded at
+   every `TeleFitPA` frame.  The syntax is now in hand
+   (`restRecTyMajorHead`'s decomposition gives the major domain as the
+   lifted pin at the index binders, and `nestedFireShape_inv` splits
+   its arguments), what is left is the READING — `nt_denoteMeta_restoredPin`'s
+   shape at `openRev` rather than `instSeq`, and the grading peeled off
+   the restored type's own `WellDenoted` — **¾–1**;
+2. **`RecRules` over the stored rules**: `restRulesRun` + `restoreRules_at`
+   for the row, `recRuleLawOf` per rule with the two arms dispatched on
+   `paramsBlind`.  **Re-sized ¼ → ½–¾**: `recRuleLawOf` wants
+   `hreadRa`/`hwdRa`, and `ruleVal`'s `hRa`/`hwdR` come from the rule's
+   DOOR (`restoreRules_at`'s own `inferTypeCore` run), for which no
+   lemma exists yet — `Verify/Inductives/NestedRecDoor.lean` has the
+   TYPE door (`restoreRecTys_at`) and not the RULE's.
+
+##### (qqq) K.43, and the residue of item 5
+
+**K.43 unchanged**: `restoreAgreeP`'s `hauxNe`, ONE rewrite at ONE site.
+
+Left of item 5, in order:
+
+1. `hvpa` and `RecRules` ((ppp)) — **1¼–1¾**;
+2. the store swap, its five missing Verify twins and the free
+   `PinRecLaws.crossEnv` — **1½**;
+3. the tables' twin and §U.36 (d)'s `EnvModelB` supply — **1–1½**.
+
+**Item 5 from here: 3¾–4¾ sessions** (session 18 said 4¼–5¼ with the
+two majors sized 1½–2).  The majors came in at about half that, for
+(mmm)'s reason, and paid for (ppp) 2's re-sizing.
+
+##### (rrr) FILES AND GATES (session 19's HEAD)
+
+Touched: `ConLeche/Model/Inductives/NestedRecRule.lean` (2138 → 2804,
+four new imports: `NestedCopyGlue`, `NestedGroupInv`, `NestedCopyKinds`,
+`NestedRecCtorPin`), `ConLeche/Verify/Inductives/NestedRecDoor.lean`
+(698 → 763, `mutualRecTy_major`).  No allowlist line, no
+`scripts/pub-import-plan.py` entry.
+
+`lake build` 715 jobs warning-free EXIT 0; `lake test` warning-free
+EXIT 0; shake 512 removals all allowlisted / pub-imports 1314 of 2141
+public, none demotable (45 dot-notation fallbacks); layering base 351 /
+model 281 / caps 3 / umbrella 1, 0 base→lane, 0 impl→theory (the base
+clause is vacuous, §U.29 (mm), and a separate lane off master owns the
+fix); trust surface 13 escapes in 5 allowlisted files (647 scanned);
+no-local-paths OK; overview-links 112; quote-gate 2; proofdeps 4955
+rows / 12 roots / **0 doors**.
+
 
 #### U.30 — L-B session 2: `CopyCtorInst.ordF` at the READING, the normalisation's reading law PROVED, `ContainerModeled`'s three clauses (lane L-B, 2026-09-16)
 
