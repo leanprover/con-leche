@@ -351,4 +351,44 @@ theorem ErasedEq.mkAppN_inv :
       | zero => exact hab
       | succ l => exact hargs l (by simpa using hl)
 
+/-- **`ErasedEq` reads a spine's head and arguments**: two
+erasure-equal terms have erasure-equal application heads and equally
+many, pointwise erasure-equal, arguments.  The copies' arms compare
+one residual read through two different openings; only the arguments
+past the parameters have to agree, and this is what lets them be
+compared at all. -/
+theorem ErasedEq.getApp : ∀ {e e' : Expr}, Expr.ErasedEq e e' →
+    Expr.ErasedEq e.getAppFn e'.getAppFn ∧
+      e.getAppArgs.length = e'.getAppArgs.length ∧
+      ∀ l, l < e.getAppArgs.length →
+        Expr.ErasedEq (e.getAppArgs.getD l default) (e'.getAppArgs.getD l default) := by
+  intro e
+  induction e with
+  | app f a ihf _ =>
+    intro e' he
+    match e', he with
+    | .app g b, he =>
+      obtain ⟨hfg, hab⟩ : Expr.ErasedEq f g ∧ Expr.ErasedEq a b := he
+      obtain ⟨hfn, hlen, hargs⟩ := ihf hfg
+      refine ⟨hfn, by simp [Expr.getAppArgs, hlen], fun l hl => ?_⟩
+      simp only [Expr.getAppArgs, List.length_append, List.length_singleton] at hl ⊢
+      simp only [List.getD_eq_getElem?_getD]
+      rcases Nat.lt_or_ge l f.getAppArgs.length with h | h
+      · rw [List.getElem?_append_left h, List.getElem?_append_left (by omega)]
+        simpa only [List.getD_eq_getElem?_getD] using hargs l h
+      · obtain rfl : l = f.getAppArgs.length := by omega
+        rw [List.getElem?_append_right (by omega), List.getElem?_append_right (by omega), hlen]
+        simpa using hab
+  | _ =>
+    intro e' he
+    refine ⟨?_, ?_, ?_⟩ <;>
+      first
+        | (match e', he with
+           | .bvar _, he | .fvar _ _, he | .sort _, he | .const _ _, he | .lam _ _ _, he
+           | .forallE _ _ _, he | .letE _ _ _, he | .lit _, he | .proj _ _ _, he =>
+             first
+               | exact he
+               | simp [Expr.getAppArgs]
+               | (intro l hl; simp [Expr.getAppArgs] at hl))
+
 end ConLeche
