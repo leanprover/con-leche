@@ -254,13 +254,15 @@ theorem mutualContainerModeled {env envR : Env} {m : EnvModel V envR}
     rw [hlenA]
     exact (List.getElem?_eq_some_iff.mp hc).1
   have hnoPins : d.nPins = 0 := by show d.pins.length = 0; rw [hd.pins]; rfl
-  refine ContainerModeled.of_readBack (by rw [hkF]; simp) hd.nP
+  refine ContainerModeled.of_readBack ?_ hd.nP
     (by rw [hd.memberNames, List.length_map, hkF]) (fun i hi => ?_) (fun i hi => ?_)
     hrepsAt.toIsBlockModels
     (fun ψ => ⟨(htyped ψ).1, (htyped ψ).2, PinsTyped.of_noPins hd.pins ψ⟩)
     htf.inj (fun i hi ψ ρ => (htf.frame i hi ψ ρ).symm) (fun i j l x hi hj hx hk => ?_)
     (fun q hq => absurd hq (by rw [hnoPins]; omega))
+    (fun q hq => absurd hq (by rw [hnoPins]; omega))
     (fun q hq => absurd hq (by rw [hnoPins]; omega)) (fun i hi => ?_)
+  · rw [List.length_map, List.length_zipIdx, hkF]
   · rw [mutualReadBack_getD (by rw [← hkF]; exact hi), hnames i hi]
   · rw [mutualReadBack_getD (by rw [← hkF]; exact hi)]
     show _ = ((b.ownCtors i).filterMap fun (J, _) => ctorsA[J]?).map (·.1.name)
