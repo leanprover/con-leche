@@ -436,9 +436,12 @@ identities (`len`, `recF`, `ordF` at the reading, `pinF`'s pin
 correspondence, `es`), K.28's pre-image computed through
 `replaceAllNested`'s action. -/
 @[expose] def NestedPinsShape (V : Type w) [SetTheory V] (μ : CheckMode) (F : Nat) : Prop :=
-  NestedPinsIdsAt V μ F fun _ p _ b fms f₀ ctorsA kinds ppsF W _ dsF esF _ _ _ eissF tssF _
+  NestedPinsIdsAt V μ F fun {env} _ p _ b fms f₀ ctorsA kinds ppsF W _ dsF esF _ _ _ eissF tssF _
       _ _ pinsS mp₁' q₀ kJ dJ =>
-    ∀ i, i < kJ → ∀ (ψ : Name → Nat) (ρp : Nat → V),
+    ∀ i, i < kJ → ∀ (cvT : ConstantVal) (caps : IndCaps),
+      (ConLeche.consMutualFormers (fms.take p.k) env).find? (pinsS.getD (q₀ + i) default).J
+        = some (.indInfo cvT caps) →
+      ∀ (ψ : Name → Nat) (ρp : Nat → V),
       Sat V (((ppsF 0 ψ).take b.nP).map (·.2.2)).reverse ρp →
       ∀ i', i' < kJ → ∀ j, j < (dJ.ctorsM i').length →
       CopyShapeA (V := V) (nP := b.nP) (k := p.k) (resSort := f₀.s) (ppsA := ppsF) (W := W)
@@ -449,7 +452,7 @@ correspondence, `es`), K.28's pre-image computed through
         (Fss₀ := fun ψ => blkFss0 b ctorsA kinds dsF ψ)
         (Ess₀ := fun ψ => mutEss0 ctorsA.length esF ψ) (ψ := ψ) (ρp := ρp)
         mp₁'.base2.acval dJ ((pinsS.getD (q₀ + i) default).ψJ ψ) ((pinsS.getD (q₀ + i) default).Ds ψ)
-        q₀ kJ i' j
+        cvT.levelParams (pinsS.getD (q₀ + i) default).lvls q₀ kJ i' j
 
 /-- **The copies' ENTRIES at the auxiliary carrier** (NAMED — lane L-E's
 global entry theorem `nestedPinLeaf_all`, DESIGN §U.36; consumer

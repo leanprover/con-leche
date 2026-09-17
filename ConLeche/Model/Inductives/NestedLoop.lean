@@ -109,15 +109,23 @@ theorem NestedPinGroup.crossEnv {env₁ env₂ : Env} {m₁ : EnvModel V env₁}
     pinDsLen := G.pinDsLen
     w := G.w
     same := G.same
+    lvls := G.lvls
+    stored := fun i hi => by
+      obtain ⟨cvT, caps, hf, hψ⟩ := G.stored i hi
+      exact ⟨cvT, caps, hF _ _ (fun _ _ _ _ h => nomatch h) hf, hψ⟩
     idx := G.idx
     ctorCount := G.ctorCount
     DsFit := G.DsFit
-    shape := fun i hi ψ ρp hρp i' hi' j hj => by
+    shape := fun i hi cvT caps hf ψ ρp hρp i' hi' j hj => by
       have hk : (D).k = p.k := rfl
+      obtain ⟨cvT₁, caps₁, hf₁, -⟩ := G.stored i hi
+      have hf₂ := hF _ (.indInfo cvT₁ caps₁) (fun _ _ _ _ h => nomatch h) hf₁
+      have he := ConLeche.ConstantInfo.indInfo.inj (Option.some.inj (hf.symm.trans hf₂))
+      rw [he.1]
       refine CopyShapeA.of_acval m₁.acval (fun t ht => congrFun (hag _ (hmem t ht)) ψ)
         (fun q hq => congrFun (hag _ (hpin q hq)) _)
         (fun qK hqK => ?_) (G.reps.tgt_pin_lt (G.kEq ▸ hi') (List.getElem?_eq_getElem hj))
-        (G.shape i hi ψ ρp hρp i' hi' j hj)
+        (G.shape i hi cvT₁ caps₁ hf₁ ψ ρp hρp i' hi' j hj)
       obtain ⟨cvT, cvR, mI, rP, rules, hI⟩ := G.rep i hi
       obtain ⟨cv, caps, hf⟩ := hI.pinsFound qK hqK
       exact congrFun (hag _ (by rw [hf]; rfl)) _

@@ -507,4 +507,264 @@ theorem containerInfo?_member_ctor_det {env : Env} {I₁ I₂ : Name} {ci₁ ci�
   simp only at hn₁ hn₂ htc₁ htc₂ hnf ⊢
   rw [hn₁, hn₂, htc₁, htc₂, hnf]
 
+/-! ## (E) The uniformity walk (task #315)
+
+`uniformIndOccsOk` is `check_uniform_ind_occs`, the syntactic walk
+K.14's `containerFactsOk` records at every pinned container: every
+occurrence of a member of the container's group, anywhere in a stored
+constructor type, is that member applied to the group's own parameter
+variables and its own universe levels.  The model tier consumes it at
+ONE place — a constructor field whose head is a group member — and
+needs it there as a statement about the field's OWN binder depth, so
+the three steps below take the walk from the constructor type down to
+the field and read the spine off it. -/
+
+/-- **The walk's prune, as an introduction rule** (task #315): a
+subterm mentioning no member of the block carries no occurrence to
+check, so the walk answers `true` at every offset. -/
+private theorem uniformIndOccsE_of_no_mention {names : List Name} {lvls : List Level}
+    {nP o : Nat} {e : Expr} (h : names.any (fun T => e.mentionsConst T) = false) :
+    uniformIndOccsE names lvls nP o e = true := by
+  rw [uniformIndOccsE.eq_def]
+  simp [h]
+
+/-- The walk at a node the prune does not dismiss and whose
+`uniformOccNode` rejects: the walk rejects too. -/
+private theorem uniformIndOccsE_of_node_none {names : List Name} {lvls : List Level}
+    {nP o : Nat} {e : Expr} (hm : names.any (fun T => e.mentionsConst T) = true)
+    (hn : uniformOccNode names lvls nP o e = none) :
+    uniformIndOccsE names lvls nP o e = false := by
+  rw [uniformIndOccsE.eq_def]
+  simp [hm, hn]
+
+/-- The walk at an application the prune does not dismiss and whose
+`uniformOccNode` says "descend": both halves are walked at the SAME
+offset. -/
+private theorem uniformIndOccsE_app_inv {names : List Name} {lvls : List Level}
+    {nP o : Nat} {f a : Expr}
+    (hm : names.any (fun T => (Expr.app f a).mentionsConst T) = true)
+    (hn : uniformOccNode names lvls nP o (Expr.app f a) = some false)
+    (h : uniformIndOccsE names lvls nP o (Expr.app f a) = true) :
+    uniformIndOccsE names lvls nP o f = true ∧ uniformIndOccsE names lvls nP o a = true := by
+  have hb : uniformIndOccsE names lvls nP o (Expr.app f a) =
+      (uniformIndOccsE names lvls nP o f && uniformIndOccsE names lvls nP o a) := by
+    rw [uniformIndOccsE.eq_def]
+    simp [hm, hn]
+  rw [hb] at h
+  simpa using h
+
+/-- **The Π node of the walk, inverted** (task #315): the walk of a `∀`
+is the walk of its domain at the same offset and of its body one binder
+deeper — in the pruned case both by the prune on the two parts. -/
+private theorem uniformIndOccsE_forallE_inv {names : List Name} {lvls : List Level}
+    {nP o : Nat} {ty b : Expr} {bm : BinderMeta}
+    (h : uniformIndOccsE names lvls nP o (.forallE ty b bm) = true) :
+    uniformIndOccsE names lvls nP o ty = true ∧
+      uniformIndOccsE names lvls nP (o + 1) b = true := by
+  cases hm : names.any (fun T => (Expr.forallE ty b bm).mentionsConst T) with
+  | false =>
+    have hsplit : ∀ T ∈ names, Expr.mentionsConst T ty = false ∧ Expr.mentionsConst T b = false := by
+      intro T hT
+      have hT' : (Expr.mentionsConst T ty || Expr.mentionsConst T b) = false := by
+        have h0 := List.any_eq_false.mp hm T hT
+        simpa [Expr.mentionsConst] using h0
+      exact Bool.or_eq_false_iff.mp hT'
+    exact ⟨uniformIndOccsE_of_no_mention
+        (List.any_eq_false.mpr fun T hT => by simp [(hsplit T hT).1]),
+      uniformIndOccsE_of_no_mention
+        (List.any_eq_false.mpr fun T hT => by simp [(hsplit T hT).2])⟩
+  | true =>
+    have hb : uniformIndOccsE names lvls nP o (.forallE ty b bm) =
+        (uniformIndOccsE names lvls nP o ty && uniformIndOccsE names lvls nP (o + 1) b) := by
+      have hn : uniformOccNode names lvls nP o (Expr.forallE ty b bm) = some false := rfl
+      rw [uniformIndOccsE.eq_def]
+      simp [hm, hn]
+    rw [hb] at h
+    simpa using h
+
+/-- **THE WALK AT ONE BINDER OF A TELESCOPE** (task #315): the walk of
+a `∀`-telescope visits the `i`-th binder's domain at the offset the
+telescope's start had, raised by `i` — the binder depth that domain
+actually sits at.  The prune is no obstacle: a type mentioning no
+member has no part that mentions one. -/
+theorem uniformIndOccsE_stripPis {names : List Name} {lvls : List Level} {nP : Nat} :
+    ∀ (n : Nat) {e : Expr} {bs : List (Expr × BinderMeta)} {res : Expr} {o i : Nat}
+      {bd : Expr × BinderMeta},
+      e.stripPis n = some (bs, res) → bs[i]? = some bd →
+      uniformIndOccsE names lvls nP o e = true →
+      uniformIndOccsE names lvls nP (o + i) bd.1 = true
+  | 0, e, bs, res, o, i, bd, h, hi, _ => by
+    simp only [Expr.stripPis, Option.some.injEq, Prod.mk.injEq] at h
+    obtain ⟨rfl, rfl⟩ := h
+    exact absurd hi (by simp)
+  | n + 1, e, bs, res, o, i, bd, h, hi, hw => by
+    match e, h, hw with
+    | .forallE ty b m, h, hw =>
+      simp only [Expr.stripPis] at h
+      cases hb : b.stripPis n with
+      | none => rw [hb] at h; exact nomatch h
+      | some r =>
+        obtain ⟨bs₀, body₀⟩ := r
+        rw [hb] at h
+        simp only [Option.map_some, Option.some.injEq, Prod.mk.injEq] at h
+        obtain ⟨rfl, rfl⟩ := h
+        obtain ⟨hty, hbody⟩ := uniformIndOccsE_forallE_inv hw
+        cases i with
+        | zero =>
+          simp only [List.getElem?_cons_zero, Option.some.injEq] at hi
+          subst hi
+          simpa using hty
+        | succ i =>
+          simp only [List.getElem?_cons_succ] at hi
+          have := uniformIndOccsE_stripPis n hb hi hbody
+          rw [show o + (i + 1) = o + 1 + i by omega]
+          exact this
+
+/-- `uniformOccNode` at a constant-headed spine, with the head one of
+the block's names: the node's three answers, spelled out. -/
+private theorem uniformOccNode_spine {names : List Name} {lvls : List Level} {nP o : Nat}
+    {T : Name} {us : List Level} {args : List Expr} (hT : names.contains T = true) :
+    uniformOccNode names lvls nP o (Expr.mkAppN (.const T us) args) =
+      (if args.length > nP then some false
+       else if args.length == nP && decide (o ≥ nP) && us == lvls &&
+           (List.range nP).all (fun i => args[i]? == some (Expr.bvar (o - 1 - i))) then
+         some true
+       else none) := by
+  have hfn : (Expr.mkAppN (Expr.const T us) args).getAppFn = .const T us := by
+    rw [Expr.getAppFn_mkAppN]; rfl
+  have hargs : (Expr.mkAppN (Expr.const T us) args).getAppArgs = args := by
+    rw [Expr.getAppArgs_mkAppN]; rfl
+  simp only [uniformOccNode, hfn, hargs, hT, if_true]
+
+/-- A constant-headed spine mentions its head. -/
+private theorem mentionsConst_spine_any {names : List Name} {T : Name} {us : List Level}
+    {args : List Expr} (hT : names.contains T = true) :
+    names.any (fun T' => (Expr.mkAppN (Expr.const T us) args).mentionsConst T') = true :=
+  List.any_eq_true.mpr ⟨T, List.mem_of_elem_eq_true hT,
+    Expr.mentionsConst_mkAppN_head args (.const T us) (by simp [Expr.mentionsConst])⟩
+
+private theorem uniformIndOccsE_spine_aux {names : List Name} {lvls : List Level} {nP : Nat}
+    {T : Name} {us : List Level} (hT : names.contains T = true) :
+    ∀ (k : Nat) {args : List Expr} {o : Nat}, args.length = nP + k →
+      uniformIndOccsE names lvls nP o (Expr.mkAppN (.const T us) args) = true →
+      us = lvls ∧ nP ≤ o ∧
+        args.take nP = (List.range nP).map (fun i => Expr.bvar (o - 1 - i)) := by
+  intro k
+  induction k with
+  | zero =>
+    intro args o hlen h
+    by_cases hc : (args.length == nP && decide (o ≥ nP) && us == lvls &&
+        (List.range nP).all (fun i => args[i]? == some (Expr.bvar (o - 1 - i)))) = true
+    · simp only [Bool.and_eq_true, beq_iff_eq, decide_eq_true_eq] at hc
+      obtain ⟨⟨⟨-, ho⟩, hus⟩, hall⟩ := hc
+      refine ⟨hus, ho, ?_⟩
+      rw [List.take_of_length_le (by omega)]
+      refine List.ext_getElem? fun i => ?_
+      by_cases hi : i < nP
+      · rw [beq_iff_eq.mp (List.all_eq_true.mp hall i (List.mem_range.mpr hi)),
+          List.getElem?_map, List.getElem?_range hi]
+        rfl
+      · rw [List.getElem?_eq_none (by omega), List.getElem?_eq_none (by simp; omega)]
+    · exfalso
+      have hn : uniformOccNode names lvls nP o (Expr.mkAppN (.const T us) args) = none := by
+        rw [uniformOccNode_spine hT, if_neg (by omega), if_neg hc]
+      rw [uniformIndOccsE_of_node_none (mentionsConst_spine_any hT) hn] at h
+      exact absurd h (by simp)
+  | succ k ih =>
+    intro args o hlen h
+    obtain ⟨args', a, rfl⟩ : ∃ args' a, args = args' ++ [a] := by
+      rcases List.eq_nil_or_concat args with rfl | ⟨L, b, hLb⟩
+      · simp only [List.length_nil] at hlen; omega
+      · exact ⟨L, b, by simpa using hLb⟩
+    have hlen' : args'.length = nP + k := by
+      simp only [List.length_append, List.length_cons, List.length_nil] at hlen; omega
+    rw [Expr.mkAppN_append_one] at h
+    have hn : uniformOccNode names lvls nP o
+        (Expr.app (Expr.mkAppN (.const T us) args') a) = some false := by
+      rw [← Expr.mkAppN_append_one, uniformOccNode_spine hT,
+        if_pos (by simp only [List.length_append, List.length_cons, List.length_nil]; omega)]
+    have hm : names.any (fun T' =>
+        (Expr.app (Expr.mkAppN (.const T us) args') a).mentionsConst T') = true := by
+      rw [← Expr.mkAppN_append_one]; exact mentionsConst_spine_any hT
+    obtain ⟨hf, -⟩ := uniformIndOccsE_app_inv hm hn h
+    obtain ⟨h1, h2, h3⟩ := ih hlen' hf
+    refine ⟨h1, h2, ?_⟩
+    rw [List.take_append_of_le_length (by omega)]
+    exact h3
+
+/-- **A MEMBER-HEADED SPINE IS AT THE PARAMETERS** (task #315): if the
+walk accepts an expression whose head is one of the block's names and
+which carries at least the block's parameters, then the occurrence is
+uniform — the head's universe levels are the block's, the offset is
+past the parameters, and the first `nP` arguments are exactly the
+parameter variables as seen from that offset. -/
+theorem uniformIndOccsE_spine {names : List Name} {lvls : List Level} {nP o : Nat}
+    {T : Name} {us : List Level} {args : List Expr}
+    (hT : names.contains T = true) (hlen : nP ≤ args.length)
+    (h : uniformIndOccsE names lvls nP o (Expr.mkAppN (.const T us) args) = true) :
+    us = lvls ∧ nP ≤ o ∧ args.take nP = (List.range nP).map (fun i => Expr.bvar (o - 1 - i)) :=
+  uniformIndOccsE_spine_aux hT (args.length - nP) (by omega) h
+
+/-- **K.14's UNIFORMITY CLAUSE, READ BACK** (task #315): at every
+pinned container and every member of its group, the member's declared
+level parameters are distinct and the walk accepts every one of its
+stored constructor types at offset `0`. -/
+theorem nestedContainersOk_uniform {env : Env} {pins : List NestedPin}
+    (h : nestedContainersOk env pins = true)
+    {q : NestedPin} (hq : q ∈ pins) {ci : ContainerInfo}
+    (hci : containerInfo? env q.container = some ci)
+    {M : ContainerMember} (hM : M ∈ ci.members) :
+    Name.nodup M.lps = true ∧
+    ∀ cty ∈ M.ctors.map (·.type),
+      uniformIndOccsE (ci.members.map (·.name)) (M.lps.map Level.param) ci.nP 0 cty = true := by
+  simp only [nestedContainersOk, Bool.and_eq_true] at h
+  have hq' := List.all_eq_true.mp h.2 q hq
+  rw [hci] at hq'
+  simp only [containerFactsOk, Bool.and_eq_true] at hq'
+  have hM' := List.all_eq_true.mp hq'.2 M hM
+  simp only [Bool.and_eq_true] at hM'
+  obtain ⟨⟨⟨hnd, hun⟩, -⟩, -⟩ := hM'
+  refine ⟨hnd, fun cty hcty => ?_⟩
+  simpa only [uniformIndOccsOk] using List.all_eq_true.mp hun cty hcty
+
+/-- **A CONTAINER'S STORED CONSTRUCTOR FIELD HEADED BY A MEMBER SITS AT
+THE PARAMETER SPINE** (task #315): the consumer of K.14's uniformity.
+The `l`-th field of the `j`-th constructor of a pinned container's
+member `M`, read off the stored type's telescope, is a spine whose head
+is a group member applied — at its own binder depth `ci.nP + l` — to
+the group's universe levels and to the parameter variables
+`structPsAt l ci.nP`.  This is what lets the model tier read a nested
+field as the container at the block's own parameters. -/
+theorem nestedContainersOk_memberSpine {env : Env} {pins : List NestedPin}
+    (h : nestedContainersOk env pins = true)
+    {q : NestedPin} (hq : q ∈ pins) {ci : ContainerInfo}
+    (hci : containerInfo? env q.container = some ci)
+    {M : ContainerMember} (hM : M ∈ ci.members)
+    {j : Nat} {cc : ContainerCtor} (hcc : M.ctors[j]? = some cc)
+    {bs : List (Expr × BinderMeta)} {res : Expr}
+    (hstrip : cc.type.stripPis (ci.nP + cc.nFields) = some (bs, res))
+    {l : Nat} {bd : Expr × BinderMeta} (hbd : bs[ci.nP + l]? = some bd)
+    {T : Name} {us : List Level}
+    (hhead : bd.1.getAppFn = Expr.const T us)
+    (hT : T ∈ ci.members.map (·.name))
+    (hlen : ci.nP ≤ bd.1.getAppArgs.length) :
+    us = M.lps.map Level.param ∧
+      bd.1.getAppArgs.take ci.nP = ConLeche.structPsAt l ci.nP := by
+  obtain ⟨-, hun⟩ := nestedContainersOk_uniform h hq hci hM
+  have hcty : uniformIndOccsE (ci.members.map (·.name)) (M.lps.map Level.param) ci.nP 0
+      cc.type = true :=
+    hun cc.type (List.mem_map_of_mem (List.mem_of_getElem? hcc))
+  have hfield := uniformIndOccsE_stripPis (names := ci.members.map (·.name))
+    (lvls := M.lps.map Level.param) (nP := ci.nP) (ci.nP + cc.nFields) hstrip hbd hcty
+  rw [Nat.zero_add] at hfield
+  rw [← Expr.mkAppN_getApp bd.1, hhead] at hfield
+  obtain ⟨hus, -, hsp⟩ := uniformIndOccsE_spine
+    (List.elem_eq_true_of_mem hT) hlen hfield
+  refine ⟨hus, ?_⟩
+  rw [hsp]
+  simp only [structPsAt]
+  refine List.map_congr_left fun i _ => ?_
+  congr 1
+  omega
+
 end ConLeche

@@ -126,6 +126,14 @@ FALLBACK = {
     ('ConLeche.Verify.Inductives.NestedCopyKinds','ConLeche.Verify.Inductives.NestedRestoreOpen'),
     ('ConLeche.Verify.Inductives.NestedCopyProv','ConLeche.Verify.Inductives.NestedElimInv'),
     ('ConLeche.Verify.Inductives.NestedCopyRewrite','ConLeche.Verify.Inductives.NestedCopyTele'),
+    # task #315 L-B (§U.44): the same class at the normalisation's frame —
+    # `NestedCopyNorm`'s public statements name `Env`, `Name`, `EnvWF`,
+    # `openPisAtFvars`, `closeTelescope`, `Expr.ErasedEq` and the three
+    # `norm*` functions, all of which reach it only through these two
+    # re-exports; the checker calls both demotable, the compiler refuses
+    # (`unknown identifier Env`).
+    ('ConLeche.Verify.Inductives.NestedCopyNorm','ConLeche.Verify.Inductives.NestedCopyTele'),
+    ('ConLeche.Verify.Inductives.NestedCopyNorm','ConLeche.Verify.Inductives.MutualNormPres'),
     # task #315 L-B (§U.34): the assembly's one public import is its whole
     # public view — `SetTheory`, `EnvModelM`, `NestedPinsRun`,
     # `NestedPinGroupSyn`, `PinData` and the block lists reach its
