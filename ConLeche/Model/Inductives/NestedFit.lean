@@ -251,6 +251,74 @@ theorem fitsFrom_imp_frames_spine {rs rs' : List Bool} {slot slot' : Nat → (Na
     simpa only [consList_cons, List.getD_cons_succ, show i + (l + 1) = i + 1 + l from by omega]
       using this
 
+/-- **`FitsFrom` implication across two frames THROUGH a third chain**
+(task #315 L-E, DESIGN §U.64): the container instance transfer compares
+the ROOT's copy of a constructor with the BLOCK's copy of it, and the
+two copies' entry sets are related not to each other directly but each
+to the CONTAINER's own field domains — the chain `G`, read at a frame
+`ρV`, which both `CopyCtorShape`s describe (`ctor_params` makes it ONE
+list).  So the per-field obligation is a pair of inclusions: the first
+copy's entry sits inside the container's real domain — which is what
+carries the container's fitting prefix along the recursion, and what
+the entries and the slot laws are stated at — and inside the second
+copy's entry.
+
+This is the shape `fitsFrom_imp_frames_spine` cannot take: there the
+carried spine is the FIRST chain's own, so a copy-to-copy transfer
+would need the copy's slots inside the COPY's domains, a fact about the
+auxiliary block rather than about the container. -/
+theorem fitsFrom_imp_frames_via {rs₁ rs₂ : List Bool} {slot₁ slot₂ : Nat → (Nat → V) → V} :
+    ∀ (G : List AnnotTerm) {i : Nat} {ρ₁ ρ₂ ρV : Nat → V} {Fs₁ Fs₂ : List AnnotTerm}
+      {fs : List V},
+      Fs₁.length = G.length → Fs₂.length = G.length →
+      (∀ l, l < G.length → ∀ fs₁ : List V, fs₁.length = l →
+        SpineFit ρV (G.take l) fs₁ →
+        (if rs₁.getD (i + l) false then slot₁ (i + l) (consList fs₁ ρ₁)
+            else interp V (consList fs₁ ρ₁) (Fs₁.getD l default))
+          ⊆ˢ interp V (consList fs₁ ρV) (G.getD l default) ∧
+        (if rs₁.getD (i + l) false then slot₁ (i + l) (consList fs₁ ρ₁)
+            else interp V (consList fs₁ ρ₁) (Fs₁.getD l default))
+          ⊆ˢ (if rs₂.getD (i + l) false then slot₂ (i + l) (consList fs₁ ρ₂)
+            else interp V (consList fs₁ ρ₂) (Fs₂.getD l default))) →
+      FitsFrom rs₁ slot₁ i ρ₁ Fs₁ fs → FitsFrom rs₂ slot₂ i ρ₂ Fs₂ fs := by
+  intro G
+  induction G with
+  | nil =>
+    intro i ρ₁ ρ₂ ρV Fs₁ Fs₂ fs h1 h2 _ h
+    cases Fs₂ with
+    | cons F₂ Fs₂ => simp at h2
+    | nil =>
+      cases Fs₁ with
+      | cons F₁ Fs₁ => simp at h1
+      | nil =>
+        cases fs with
+        | nil => trivial
+        | cons a fs => exact h.elim
+  | cons Gh G ih =>
+    intro i ρ₁ ρ₂ ρV Fs₁ Fs₂ fs h1 h2 hent h
+    cases Fs₁ with
+    | nil => simp at h1
+    | cons F₁ Fs₁ =>
+      cases Fs₂ with
+      | nil => simp at h2
+      | cons F₂ Fs₂ =>
+        cases fs with
+        | nil => exact h.elim
+        | cons a fs =>
+          obtain ⟨ha, hf⟩ : a ∈ˢ (if rs₁.getD i false then slot₁ i ρ₁ else interp V ρ₁ F₁) ∧
+              FitsFrom rs₁ slot₁ (i + 1) (cons a ρ₁) Fs₁ fs := h
+          have h0 := hent 0 (by simp) [] rfl trivial
+          simp only [Nat.add_zero, consList_nil, List.getD_cons_zero] at h0
+          refine ⟨h0.2 a ha, ?_⟩
+          refine ih (i := i + 1) (ρ₁ := cons a ρ₁) (ρ₂ := cons a ρ₂) (ρV := cons a ρV)
+            (by simpa using h1) (by simpa using h2) (fun l hl fs₁ hl₁ hsp => ?_) hf
+          have := hent (l + 1) (by simp; omega) (a :: fs₁) (by simp [hl₁])
+            (by
+              show a ∈ˢ interp V ρV Gh ∧ SpineFit (cons a ρV) (G.take l) fs₁
+              exact ⟨h0.1 a ha, hsp⟩)
+          simpa only [consList_cons, List.getD_cons_succ,
+            show i + (l + 1) = i + 1 + l from by omega] using this
+
 /-! ## The slot and the index set under instantiation -/
 
 /-- `tupW` reads its universe only through `= 0`. -/
