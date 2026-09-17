@@ -84179,30 +84179,40 @@ frame and `ψ₂`/`ρ₂` the block's,
    t i j fs` into the block's copy fit at `Z`, under `hrel` (the
    relation at `K`'s recursive fields) and `hentR` (the externals).
 
-The gap between 1 and 2 is the ONE lemma to write:
+The gap between 1 and 2 is a CONGRUENCE, and it is now in the tree
+(`NestedPinLeafAll.lean`):
 
 ```lean
-theorem BlockModel.chainFitT_congr (hreps : IsBlockModels m dK) (hi : i < dK.k)
-    (hj : (dK.ctorsM i)[j]? = some cA)
-    (hψ : ∀ p ∈ cA.1.levelParams, ψ₁ p = ψ₂ p)      -- targetHead_corr / PinCorr
-    (hpinψ : …ContainerModeled.pinψ at dK…)          -- K's own pins' assignments follow
-    (hρ : ∀ v, v < dK.nP → ρ₁ v = ρ₂ v)              -- the components' VALUES agree
-    : dK.ChainFitT pc ψ₁ ρ₁ Y t i j fs ↔ dK.ChainFitT pc ψ₂ ρ₂ Y t i j fs
+theorem BlockModel.chainFitT_congr_mem {m : EnvModel V env} {dK : BlockModel V}
+    {pc : Nat → PinCtors V} {ψ₁ ψ₂ : Name → Nat} {ρ₁ ρ₂ : Nat → V} {Y : Nat → V} {t : V}
+    {i j : Nat} {fs : List V}
+    (hreps : IsBlockModels m dK) (hi : i < dK.k)
+    {cA : ConstantVal × Nat} (hj : (dK.ctorsM i)[j]? = some cA)
+    (hψ : ∀ p ∈ cA.1.levelParams, ψ₁ p = ψ₂ p)
+    (hw : dK.w ψ₁ = dK.w ψ₂)
+    (hu : ∀ l, dK.uT (dK.tgts i j l) ψ₁ = dK.uT (dK.tgts i j l) ψ₂)
+    (hIds : (dK.IdsM i ψ₁).length = (dK.IdsM i ψ₂).length)
+    (hρ : ∀ v, v < dK.nP → ρ₁ v = ρ₂ v)
+    (h : dK.ChainFitT pc ψ₁ ρ₁ Y t i j fs) : dK.ChainFitT pc ψ₂ ρ₂ Y t i j fs
 ```
 
-— the container's constructor read at two assignments and two frames that
-agree where it looks.  `ctor_params` (b) gives the data; what is left is
-the FRAME half: every reading in sight is below the parameter depth
-(`CtorDataI.below`/`belowE`, `BlockCtorData.tssBelow`/`eissBelow`), so a
-`slotSet`/`interp` congruence below the parameters transports it — the
-`slotSet_congr_below` §U.48 (i) already listed.  `K`'s own pins' data
-(`(dK.pinAt q).u`, `.Ids`) follow from `ContainerModeled.pinψ` at `dK`:
-the pins' assignments are `substFn ψ lpsK lvls`, equal under `hψ`.
+— the container's constructor read at two assignments and two frames
+that agree where it looks: `ctor_params` (b) for the class data, and
+the FRAME half by `slotSet_congr_below` (§U.48 (i)'s named hole:
+a recursive slot reads only the frame below its telescope's bound,
+through `teleOfFields_congr_below` and `piTele_congr`) and
+`interp_congr_below`, the bounds being `CtorDataI.below`/`belowE` and
+`BlockCtorData.tssBelow`/`eissBelow`.  The sort, the targets' index
+universes and the index count stay HYPOTHESES: `IsBlockModel.uParams`
+discharges a member target's, `ContainerModeled.pinψ` at `dK` a pin
+target's (a pin's assignment is `substFn ψ lpsK lvls`, equal under
+`hψ`), and both are at hand where the transfer is assembled, not here.
 
-Sized: `chainFitT_congr` ~1 session (the below-congruence is the bulk);
-the composition and `instanceLe` (`relMeet (famAt LJ) R (L⁺ pins)` is
-`TClosed` — the member half `fit_imp_T_le` and the pin half above at
-every class) ~1; the rank induction + (iv) ~1.
+Sized from here: the composition (1)+(congruence)+(2), with the
+hypotheses discharged from `PinShapes`' two group views, ~1 session;
+`instanceLe` (`relMeet (famAt LJ) R (L⁺ pins)` is `TClosed` — the member
+half `fit_imp_T_le` and the pin half above at every class) ~1; the rank
+induction + (iv) ~1.
 
 ##### (d) K.37 READ BACK, and the induction hypothesis's shape
 
@@ -84239,6 +84249,7 @@ layering base 347 / model 265 / caps 3 / umbrella 1, 0 base→lane, 0
 impl→theory; trust surface 13 escapes in 5 allowlisted files (627
 scanned); no-local-paths OK; overview-links 112; quote-gate 2;
 proofdeps 4955 rows / 12 roots / 0 doors; shake 510/510 allowlisted,
-pub-imports 1262 of 1988 public, none demotable.  `#print axioms` of
-`targetHead_corr` and `IsBlockModel.ctor_params`: standard
-(`_tmp/uniform-entry/chain-probe.lean`).
+pub-imports 1262 of 1988 public, none demotable.  `#print axioms` of `targetHead_corr`,
+`IsBlockModel.ctor_params`, `teleOfFields_congr_below`,
+`slotSet_congr_below`, `consList_agree_above` and
+`chainFitT_congr_mem`: standard (`_tmp/uniform-entry/chain-probe.lean`).
