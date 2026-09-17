@@ -252,6 +252,90 @@ theorem NestedPinsRun.crossUp :
     exact he
   exact key _ hag
 
+omit SF S in
+/-- **A pin is scoped at the block's parameters**: its free variables
+are the first former's openers, whose own annotations are scoped at
+their own depth (`openPisAtFvars_typeWScoped`), so `WScoped_of_leaves`
+applies.  `pinRead_of_inferAt` derives this internally; the copies'
+readings need it as a fact, because `instPisILP_read` asks it of the
+pin's COMPONENTS. -/
+theorem NestedPinsRun.pinWScoped {pbs : List (Expr × ConLeche.BinderMeta)}
+    (hPD : ∀ q, q < st.pins.length → PinData env st p pbs q)
+    {q : Nat} (hq : q < st.pins.length) :
+    Expr.WScoped b.nP (pinAtE st q).pin ∧ (pinAtE st q).pin.looseBVarsBounded 0 = true := by
+  classical
+  obtain ⟨-, hcl, -, -⟩ := R.former0
+  obtain ⟨-, params, o, hop, hsc⟩ := R.scoped
+  have hmem : pinAtE st q ∈ st.pins := List.mem_of_getElem? (hPD q hq).pin
+  obtain ⟨hb, hleaf⟩ := hsc _ hmem
+  refine ⟨?_, hb⟩
+  have hlen : params.length = b.nP := openPisAtFvars_length _ hop
+  have hwT : Expr.WScoped 0 f₀.cvTa.type := Expr.WScoped.of_not_hasFvar hcl
+  refine WScoped_of_leaves _ fun l hl => ?_
+  obtain ⟨pos, hpos⟩ := List.getElem?_of_mem (hleaf l hl)
+  obtain ⟨ty', hx⟩ := ConLeche.openPisAtFvars_index b.nP f₀.cvTa.type 0 hop pos _ hpos
+  rw [Nat.zero_add] at hx
+  have hl1 : l.1 = pos := by
+    have hx' := hx
+    simp only [Expr.fvar.injEq] at hx'
+    exact hx'.1
+  have hws := openPisAtFvars_typeWScoped b.nP hop hwT pos _ hpos
+  refine ⟨by rw [hl1, ← hlen]; exact (List.getElem?_eq_some_iff.mp hpos).1, ?_⟩
+  rw [hl1]
+  simpa [Expr.fvarTypeD] using hws
+
+omit R SF in
+/-- **THE MINTED CONSTRUCTOR, READ** (task #315 L-B, DESIGN §U.38 (e)):
+the container's constructor type level-substituted at the pin's levels
+and instantiated at its components reads, at the block's parameter
+depth, as the CONTAINER's own reading with its parameters peeled at the
+components' readings — the fields' telescope instantiated from cut `0`
+and the body instantiated at the fields' depth.  Its body is
+`ctorBodyAVI` instantiated, whose index arguments are
+`CopyCtorInst.es`' right-hand side.
+
+`instPisILP_read` (§U.23) does the work; what this adds is its side
+conditions at a container's constructor: the tower's closedness comes
+from the reading of a closed type at depth `0`
+(`bvarsBelow_of_reading` + `bvarsBelow_mkPisAV_inv`), and the
+components' length is the group's (`NestedPinGroupSyn.pinDsLen`). -/
+theorem mintRead
+    {i' : Nat} (hi' : i' < kJ) {j : Nat} {cAJ : ConstantVal × Nat}
+    (hj : (dJ.ctorsM i')[j]? = some cAJ)
+    {ks : List Name}
+    (hks : ∀ ψ : Name → Nat, (pinsS.getD (q₀ + i') default).ψJ ψ
+      = Level.substFn ψ ks (pinsS.getD (q₀ + i') default).lvls)
+    (hcl : cAJ.1.type.hasFvar = false) (hbcl : cAJ.1.type.looseBVarsBounded 0 = true)
+    {Ds : List Expr}
+    (hDsSc : ∀ a ∈ Ds, Expr.WScoped b.nP a ∧ a.looseBVarsBounded 0 = true)
+    (ψ : Name → Nat)
+    (hspine : DenoteMetaSpine mp₁'.base2.acval (ConLeche.consMutualFormers (fms.take p.k) env)
+      ψ b.nP Ds ((pinsS.getD (q₀ + i') default).Ds ψ))
+    {cI : Expr}
+    (hinst : Expr.instPis (Expr.instantiateLevelParams ks
+      (pinsS.getD (q₀ + i') default).lvls cAJ.1.type) Ds = some cI) :
+    denoteMeta mp₁'.base2.acval (ConLeche.consMutualFormers (fms.take p.k) env) ψ b.nP cI
+      = some (mkPisAV
+          (instTeleP ((pinsS.getD (q₀ + i') default).Ds ψ) 0
+            ((dJ.dsF i' j ((pinsS.getD (q₀ + i') default).ψJ ψ)).drop dJ.nP))
+          (AnnotTerm.instAll ((pinsS.getD (q₀ + i') default).Ds ψ) cAJ.2
+            (ctorBodyAVI mp₁'.base2 (dJ.memberName i') dJ.nP cAJ.2
+              ((pinsS.getD (q₀ + i') default).ψJ ψ)
+              (dJ.esF i' j ((pinsS.getD (q₀ + i') default).ψJ ψ))))) := by
+  classical
+  obtain ⟨cvT, caps, cvR, mI, rP, rules, -, hI, -⟩ := S.stored i' hi'
+  obtain ⟨-, -, hCD⟩ := hI.ctors i' j cAJ hI.memberLt hj
+  have hlenD : ((pinsS.getD (q₀ + i') default).Ds ψ).length = dJ.nP := S.pinDsLen i' hi' ψ
+  have hlenP := hCD.len ((pinsS.getD (q₀ + i') default).ψJ ψ)
+  obtain ⟨hbelow, hC⟩ := bvarsBelow_mkPisAV_inv
+    (bvarsBelow_of_reading (Expr.WScoped.of_not_hasFvar hcl) hbcl
+      (hCD.read ((pinsS.getD (q₀ + i') default).ψJ ψ)))
+  rw [Nat.zero_add] at hC
+  have hread := instPisILP_read mp₁'.base2 hcl (hks ψ)
+    (hCD.read ((pinsS.getD (q₀ + i') default).ψJ ψ)) hbelow hC
+    (by rw [hlenD, hlenP]; omega) hDsSc hspine hinst
+  rw [hread, hlenD, hlenP, Nat.add_sub_cancel_left]
+
 omit SF in
 /-- **The container's constructor record, at the block model**: the
 block model's constructor `j` of member `i'` is the pin's own

@@ -122,6 +122,37 @@ bridge the copies' index readings cross: `instPisILP_read` gives the
 reading of the whole instantiated constructor type, and the arms read
 its RESIDUAL. -/
 
+/-- Parameter instantiation distributes over an application node. -/
+theorem AnnotTerm.instAll_app : ∀ (ds : List AnnotTerm) (k : Nat) (f a : AnnotTerm),
+    AnnotTerm.instAll ds k (.app f a)
+      = .app (AnnotTerm.instAll ds k f) (AnnotTerm.instAll ds k a)
+  | [], _, _, _ => rfl
+  | d :: ds, k, f, a => by
+    show AnnotTerm.instAll ds k ((AnnotTerm.app f a).inst d (k + ds.length)) = _
+    rw [ConLeche.Semantics.AnnotTerm.inst_app, instAll_app ds k]
+    rfl
+
+/-- Parameter instantiation distributes over an application spine. -/
+theorem AnnotTerm.instAll_mkAppN (ds : List AnnotTerm) (k : Nat) :
+    ∀ (f : AnnotTerm) (args : List AnnotTerm),
+      AnnotTerm.instAll ds k (AnnotTerm.mkAppN f args)
+        = AnnotTerm.mkAppN (AnnotTerm.instAll ds k f) (args.map (AnnotTerm.instAll ds k))
+  | _, [] => rfl
+  | f, a :: args => by
+    rw [ConLeche.Semantics.AnnotTerm.mkAppN_cons, AnnotTerm.instAll_mkAppN ds k _ args,
+      AnnotTerm.instAll_app]
+    rfl
+
+/-- A term no substitution touches is untouched by a whole parameter
+list — the shape a constant's value has (`EnvModel.acval_inst_self`). -/
+theorem AnnotTerm.instAll_eq_self {e : AnnotTerm}
+    (h : ∀ (y : AnnotTerm) (k : Nat), e.inst y k = e) :
+    ∀ (ds : List AnnotTerm) (k : Nat), AnnotTerm.instAll ds k e = e
+  | [], _ => rfl
+  | d :: ds, k => by
+    show AnnotTerm.instAll ds k (e.inst d (k + ds.length)) = e
+    rw [h, AnnotTerm.instAll_eq_self h ds]
+
 /-- **The tower's opened body reads as the tower reading's body.** -/
 theorem denoteMeta_openPisAtFvars {acval : Name → (Name → Nat) → AnnotTerm} {φ : Name → Nat} :
     ∀ (k : Nat) {d : Nat} {e o : Expr} {fvs : List Expr} {ea : AnnotTerm}
