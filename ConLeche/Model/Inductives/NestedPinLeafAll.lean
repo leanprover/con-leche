@@ -766,6 +766,69 @@ theorem BlockModel.pinGroupFam_mem {env : Env} {m : EnvModel V env} {d dJ : Bloc
     rw [← hleaf, List.foldl_append,
       interp_closed (V := V) (m.cval_closedL _ _) (consList as ρ₀) ρ₀]
 
+/-- **A fit at a container's own pin's frame is a fit at the block
+pin's frame, GENERICALLY** (task #315 L-E, DESIGN §U.67 (c)):
+`nestedPinFrame_transport`'s form over a `PinGroupView`, which is what
+a STORED block's own pins carry (`PinShapes`) — the concrete one is
+stated at the block being installed and at the run's `GroupFacts`, so
+the container instance transfer at a PIN class of the ROOT cannot use
+it.
+
+The two frames carry the SAME components' values — the container's
+pin's components read at the pin's frame, the class's at the block's
+frame (`PinCorr`'s `Ds` clause, `interp_instAll`) — over different
+bases, and the index telescope (the class's container member's,
+`pinPps`/`pinNP`) has its variables below the parameters
+(`FormerData.below`), so the base is invisible
+(`spineFit_congr_below`). -/
+theorem BlockModel.pinFrame_transport {env : Env} {m : EnvModel V env}
+    {d dJ dK : BlockModel V} {q₀ kK : Nat}
+    (S : PinGroupView d dJ q₀ kK) (hreps : IsBlockModels m dJ)
+    {ψ ψK : Name → Nat} {ρ : Nat → V} {DsK : List AnnotTerm} {i qK TG : Nat}
+    (hi : i < kK) (hTG : TG = d.k + (q₀ + i))
+    (hDs : (d.targetView m.acval ψ).Ds TG
+      = ((dK.pinAt qK).Ds ψK).map (AnnotTerm.instAll DsK 0))
+    (hIds : (d.targetView m.acval ψ).Ids TG = (dK.pinAt qK).Ids ψK) :
+    ∀ is : List V,
+      SpineFit (dK.pinFrame qK ψK (consList (DsK.map (interp V ρ)) ρ))
+          ((dK.pinAt qK).Ids ψK) is →
+      SpineFit ((d.targetView m.acval ψ).frame ρ TG)
+        ((d.targetView m.acval ψ).Ids TG) is := by
+  intro is hfit
+  have hk : ¬ TG < d.k := by omega
+  have hsub : TG - d.k = q₀ + i := by omega
+  obtain ⟨cvT, cvR, mI, rP, rules, hI⟩ := hreps i (S.kEq ▸ hi)
+  -- the components read the same values, over the two bases
+  have hDsT : ((d.targetView m.acval ψ).Ds TG).map (interp V ρ)
+      = ((dK.pinAt qK).Ds ψK).map (interp V (consList (DsK.map (interp V ρ)) ρ)) := by
+    rw [hDs, List.map_map]
+    refine List.map_congr_left fun Dc _ => ?_
+    show interp V ρ (AnnotTerm.instAll _ 0 Dc) = _
+    have := interp_instAll DsK [] ρ Dc
+    simpa using this
+  -- the class's index telescope is its container member's
+  have hIdsT : (d.targetView m.acval ψ).Ids TG
+      = ((dJ.ppsM i ((d.pinAt (q₀ + i)).ψJ ψ)).drop dJ.nP).map (·.2.2) := by
+    show d.IdsT TG ψ = _
+    rw [BlockModel.IdsT_of_pin hk ψ, hsub]
+    unfold PinSyn.Ids
+    rw [S.pinPps i hi, S.pinNP i hi]
+  have hlenT : (((d.targetView m.acval ψ).Ds TG).map (interp V ρ)).length = dJ.nP := by
+    show (((d.pinAt (TG - d.k)).Ds ψ).map (interp V ρ)).length = _
+    rw [List.length_map, hsub, (S.same i hi ψ).2, S.pinDsLen ψ]
+  have hXlen : (((dK.pinAt qK).Ds ψK).map
+      (interp V (consList (DsK.map (interp V ρ)) ρ))).length = dJ.nP := by
+    rw [← hDsT]; exact hlenT
+  have hbelow : DomsBelow dJ.nP ((dJ.ppsM i ((d.pinAt (q₀ + i)).ψJ ψ)).drop dJ.nP) := by
+    have := DomsBelow.drop dJ.nP (hI.former.below ((d.pinAt (q₀ + i)).ψJ ψ))
+    simpa using this
+  rw [TargetView.frame_of_pin _ _ hk, hIdsT, hDsT]
+  rw [← hIds, hIdsT] at hfit
+  unfold BlockModel.pinFrame at hfit
+  refine spineFit_congr_below hbelow (fun n hn => ?_) hfit
+  rw [consList_getD_lt _ _ n (by rw [hXlen]; exact hn),
+    consList_getD_lt _ _ n (by rw [hXlen]; exact hn)]
+
 /-! ## The extended carrier is least among the tuples closed under the classes' constructors -/
 
 /-- **A tuple over the classes closed under the classes' constructors**
