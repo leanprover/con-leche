@@ -2849,8 +2849,8 @@ theorem nestedPinPair_mem (m : EnvModel V env₂) {st : ElimState} {dJf : Nat �
       rwa [hψeq] at this)
     hnI hdom₁ hsh hrel hentR t fs hfit
 
-/-- **THE EXTERNALS at a MEMBER class** (task #315 L-E, DESIGN §U.69):
-`nestedPinPair_mem`'s `hentR` — at a container-ORDINARY field the
+/-- **THE EXTERNALS** (task #315 L-E, DESIGN §U.69): the `hentR`/`hent₂`
+the transfer takes at EITHER class kind — at a container-ORDINARY field the
 elimination rewrote, the container's domain read at the pin's frame is
 the copy's slot at the AUXILIARY CARRIER (`copyEntryAt_of_read` at
 `nestedTargetReads_L`, an equality, read as an inclusion).
@@ -2860,7 +2860,7 @@ is a PIN, that pin must satisfy the induction's predicate — i.e. it
 must LEAVE the instance (`nestedPinRankOk`'s clause (2)).  At a MEMBER
 target nothing is needed, the carrier's member segment being the
 block's own least tuple. -/
-theorem nestedPinEntryOut_mem (hμ : μ.verifiedChecks = true)
+theorem nestedPinEntryOut (hμ : μ.verifiedChecks = true)
     (h : MutualFormersFacts V F g mp b fms f₀ ctorsA sortss kinds mp₁ ppsF W idxF dsF esF srcsF
       fvsPF xFvsF xrestF eissF tssF)
     (hbk : b.k = p.k + pinsS.length)
@@ -3047,7 +3047,7 @@ theorem nestedPinPair_pin (m : EnvModel V env₂) {st : ElimState} {dJf : Nat �
 `hdom₁` by `slotDomT_relMeet` (the relational meet is in the
 container's tuple space and below its extended carrier), `hrel` by
 `nestedPinWalk_mem` through `app_relMeet_le_rel`, and `hentR` by
-`nestedPinEntryOut_mem` — together with the pair's other data: the
+`nestedPinEntryOut` — together with the pair's other data: the
 block's group of the pin IS the root group (`ClassPinAt`'s own
 conjunct, spent here), the index membership (`nestedIdx_of_group`) and
 the injections' identity (the two sides' level assignments being
@@ -3118,7 +3118,7 @@ theorem nestedPinPairAt_mem (hμ : μ.verifiedChecks = true)
     exact app_relMeet_le_rel (by omega) ⟨q', rfl, hcp⟩ t'
   refine ⟨hjl, ?_, ?_, nestedPinPair_mem m hρp GR hc hj
     ((dJf r).slotDomT_relMeet GR.syn.reps (GR.syn.typed _) (GR.syn.pinsTyped _) hck hj hρR hkpos)
-    hrel (nestedPinEntryOut_mem hμ h hbk m hleafM dJf hgroups hρp GR hIH hc hj hout) t fs hfit⟩
+    hrel (nestedPinEntryOut hμ h hbk m hleafM dJf hgroups hρp GR hIH hc hj hout) t fs hfit⟩
   · rw [nestedIdx_of_group GR hc, hψeq, hDseq]
     rw [(dJf r).idxT_of_mem hck (((D).pinAt r).ψJ ψ) ((D).pinFrame r ψ ρp)] at ht
     exact ht
