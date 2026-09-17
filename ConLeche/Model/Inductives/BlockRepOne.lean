@@ -102,6 +102,149 @@ theorem spineFit_chainXIGo_iff (hI : IdxOk u ρp Ids) {X t : V} {rs : List Bool}
 
 end Fit
 
+
+/-! ## The X-chains ignore a recursive field's domain (task #315 M7-3 s7)
+
+The native route carries TWO constructor-data families — the DUMMY
+one, read at the empty-chain former, from which the fixpoint operator's
+X-chain fields are built, and the REAL one, read at the fixpoint
+former, at which the constructors' data and readings hold — and they
+differ exactly at the RECURSIVE and REFLEXIVE fields, whose domains
+mention the family.  `xEntry` DISCARDS the domain at such a position
+(it returns the slot), so the two give the SAME X-chain, and every
+fact the route proves at the dummy fields holds at the real ones.
+This is what lets `BlockModel.ofNative` be instantiated at the REAL
+data — its `Φ` reads `Fss` only through `chainsXI`. -/
+
+/-- Two constructors' field lists agree where the X-chain reads them:
+same length, and equal at every position the recursive flags leave
+`false`. -/
+@[expose] def FsAgree (rs : List Bool) (Fs Fs' : List AnnotTerm) : Prop :=
+  Fs.length = Fs'.length ∧
+    ∀ l, l < Fs.length → rs.getD l false = false → Fs.getD l default = Fs'.getD l default
+
+/-- The same, for a whole block's field lists. -/
+@[expose] def FssAgree (rss : List (List Bool)) (Fss Fss' : List (List AnnotTerm)) : Prop :=
+  Fss.length = Fss'.length ∧
+    ∀ j, j < Fss.length → FsAgree (rss.getD j []) (Fss.getD j []) (Fss'.getD j [])
+
+/-- **A recursive entry discards its domain**, so agreeing field lists
+give the same X-chain. -/
+theorem chainXIGo_congr {u : Nat} {Ids : List AnnotTerm} {rs : List Bool}
+    {tls : List (List (Nat × Nat × AnnotTerm))} {Eis : List (List AnnotTerm)} :
+    ∀ (Fs Fs' : List AnnotTerm) (i : Nat), Fs.length = Fs'.length →
+      (∀ l, l < Fs.length → rs.getD (i + l) false = false →
+        Fs.getD l default = Fs'.getD l default) →
+      chainXIGo u Ids rs tls Eis Fs i = chainXIGo u Ids rs tls Eis Fs' i
+  | [], [], _, _, _ => rfl
+  | [], _ :: _, _, hlen, _ => by simp at hlen
+  | _ :: _, [], _, hlen, _ => by simp at hlen
+  | F :: Fs, F' :: Fs', i, hlen, hag => by
+    show (if rs.getD i false then _ else F.liftN 2 i) :: chainXIGo u Ids rs tls Eis Fs (i + 1)
+      = (if rs.getD i false then _ else F'.liftN 2 i) :: chainXIGo u Ids rs tls Eis Fs' (i + 1)
+    have hhead : (if rs.getD i false then slotXI u Ids (tls.getD i []) (Eis.getD i []) i
+        else F.liftN 2 i)
+        = (if rs.getD i false then slotXI u Ids (tls.getD i []) (Eis.getD i []) i
+          else F'.liftN 2 i) := by
+      by_cases hr : rs.getD i false = true
+      · simp only [if_pos hr]
+      · simp only [if_neg hr]
+        have h0 := hag 0 (Nat.succ_pos _)
+          (by rw [Nat.add_zero]; exact Bool.not_eq_true _ ▸ hr)
+        simp only [List.getD_cons_zero] at h0
+        rw [h0]
+    rw [hhead, chainXIGo_congr Fs Fs' (i + 1) (by simpa using hlen) (fun l hl hrl => by
+      have := hag (l + 1) (by simpa using hl)
+        (by rw [show i + (l + 1) = i + 1 + l from by omega]; exact hrl)
+      simpa using this)]
+
+/-- One constructor's X-chain is the same at agreeing field lists. -/
+theorem chainXI_congr {u : Nat} {Ids : List AnnotTerm} {nIdx : Nat} {rs : List Bool}
+    {tls : List (List (Nat × Nat × AnnotTerm))} {Eis : List (List AnnotTerm)}
+    {Fs Fs' Es : List AnnotTerm} (h : FsAgree rs Fs Fs') :
+    chainXI u Ids nIdx rs tls Eis Fs Es = chainXI u Ids nIdx rs tls Eis Fs' Es := by
+  unfold chainXI
+  rw [chainXIGo_congr Fs Fs' 0 h.1 (fun l hl hrl => h.2 l hl (by rwa [Nat.zero_add] at hrl)), h.1]
+
+/-- The whole block's X-chains are the same at agreeing field lists. -/
+theorem chainsXI_congr {u : Nat} {Ids : List AnnotTerm} {nIdx : Nat} {rss : List (List Bool)}
+    {tlss : List (List (List (Nat × Nat × AnnotTerm)))} {Eiss : List (List (List AnnotTerm))}
+    {Fss Fss' Ess : List (List AnnotTerm)} (h : FssAgree rss Fss Fss') :
+    chainsXI u Ids nIdx rss tlss Eiss Fss Ess = chainsXI u Ids nIdx rss tlss Eiss Fss' Ess := by
+  unfold chainsXI
+  rw [h.1]
+  refine List.map_congr_left fun j hj => ?_
+  exact chainXI_congr (h.2 j (by rw [h.1]; exact List.mem_range.mp hj))
+
+/-- **The recursive slots fit alike at agreeing field lists**: the fit
+reads a field only through `xEntry`, which discards the domain at a
+recursive position. -/
+theorem slotsFitX_congr {u w : Nat} {ρp : Nat → V} {Ids : List AnnotTerm} {rs : List Bool}
+    {tls : List (List (Nat × Nat × AnnotTerm))} {Eis : List (List AnnotTerm)} {X t : V} :
+    ∀ (Fs Fs' : List AnnotTerm) (i : Nat) (as : List V), Fs.length = Fs'.length →
+      (∀ l, l < Fs.length → rs.getD (i + l) false = false →
+        Fs.getD l default = Fs'.getD l default) →
+      SlotsFitX (V := V) u w ρp Ids rs tls Eis X t i as Fs →
+      SlotsFitX (V := V) u w ρp Ids rs tls Eis X t i as Fs'
+  | [], [], _, _, _, _, h => h
+  | [], _ :: _, _, _, hlen, _, _ => by simp at hlen
+  | _ :: _, [], _, _, hlen, _, _ => by simp at hlen
+  | F :: Fs, F' :: Fs', i, as, hlen, hag, h => by
+    have hhead : xEntry u Ids rs tls Eis F i = xEntry u Ids rs tls Eis F' i := by
+      unfold xEntry
+      by_cases hr : rs.getD i false = true
+      · simp only [if_pos hr]
+      · simp only [if_neg hr]
+        have h0 := hag 0 (Nat.succ_pos _)
+          (by rw [Nat.add_zero]; exact Bool.not_eq_true _ ▸ hr)
+        simp only [List.getD_cons_zero] at h0
+        rw [h0]
+    refine ⟨h.1, fun a ha => ?_⟩
+    rw [← hhead] at ha
+    exact slotsFitX_congr Fs Fs' (i + 1) (as ++ [a]) (by simpa using hlen)
+      (fun l hl hrl => by
+        have := hag (l + 1) (by simpa using hl)
+          (by rw [show i + (l + 1) = i + 1 + l from by omega]; exact hrl)
+        simpa using this)
+      (h.2 a ha)
+
+/-- **The functor's premise survives the exchange**: every clause reads
+the fields through `chainsXI` or `xEntry`. -/
+theorem xChainsOk_congr {u w : Nat} {ρp : Nat → V} {Ids : List AnnotTerm}
+    {rss : List (List Bool)} {tlss : List (List (List (Nat × Nat × AnnotTerm)))}
+    {Eiss : List (List (List AnnotTerm))} {Fss Fss' Ess : List (List AnnotTerm)}
+    (hag : FssAgree rss Fss Fss') (h : XChainsOk (V := V) u w ρp Ids rss tlss Eiss Fss Ess) :
+    XChainsOk (V := V) u w ρp Ids rss tlss Eiss Fss' Ess where
+  hI := h.hI
+  hok := by
+    intro X hX t ht
+    have := h.hok X hX t ht
+    rwa [chainsXI_congr hag] at this
+  hfit := by
+    intro X hX t ht j hj
+    rw [← hag.1] at hj
+    exact slotsFitX_congr _ _ 0 [] (hag.2 j hj).1
+      (fun l hl hrl => (hag.2 j hj).2 l hl (by rwa [Nat.zero_add] at hrl))
+      (h.hfit X hX t ht j hj)
+  hclosed := by
+    obtain ⟨L, hL⟩ := h.hclosed
+    refine ⟨L, ?_⟩
+    show IsClosedFam w (idxSet u ρp Ids) (fixFunVI u w ρp Ids Ids.length rss tlss Eiss Fss' Ess) L
+    unfold fixFunVI famFI fixStepI
+    rw [← chainsXI_congr (u := u) (Ids := Ids) (nIdx := Ids.length) (tlss := tlss) (Eiss := Eiss)
+      (Ess := Ess) hag]
+    exact hL
+
+/-- The leaf term is the same at agreeing field lists. -/
+theorem nativeTyAVI_congr {u w : Nat} {pps : List (Nat × Nat × AnnotTerm)} {Ids : List AnnotTerm}
+    {rss : List (List Bool)} {tlss : List (List (List (Nat × Nat × AnnotTerm)))}
+    {Eiss : List (List (List AnnotTerm))} {Fss Fss' Ess : List (List AnnotTerm)}
+    (h : FssAgree rss Fss Fss') :
+    nativeTyAVI u w pps Ids rss tlss Eiss Fss Ess = nativeTyAVI u w pps Ids rss tlss Eiss Fss' Ess := by
+  unfold nativeTyAVI fixBodyAVI fixFunAVI
+  rw [chainsXI_congr (u := u) (Ids := Ids) (nIdx := Ids.length) (tlss := tlss) (Eiss := Eiss)
+    (Ess := Ess) h]
+
 /-! ## The one-member block model -/
 
 /-- **The uniform block model of a native block**: one member, every field
