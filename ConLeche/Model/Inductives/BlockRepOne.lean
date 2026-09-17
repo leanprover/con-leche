@@ -431,17 +431,16 @@ theorem ofNative_leaf {ψ : Name → Nat} {ρ : Nat → V} {as is : List V}
 
 /-- **`ctor` at `k = 1`**: the constructor's fold. -/
 theorem ofNative_ctor {ψ : Name → Nat} {ρ : Nat → V} {j : Nat} {as fs : List V} (hw : (D).w ψ ≠ 0)
-    (hsp : SpineFit ρ ((D).params ψ) as) (hsp₂ : SpineFit (consList as ρ) (((D).Fss 0 ψ).getD j []) fs)
+    (hsp₂ : SpineFit (consList as ρ) (((D).Fss 0 ψ).getD j []) fs)
     (hok : SumFieldsOkB ((D).w ψ) (consList as ρ) (uChains ((D).Fss 0 ψ)))
     (hjF : ((D).Fss 0 ψ)[j]? = some (((dsF j ψ).drop nP).map (·.2.2)))
-    (hds : ((dsF j ψ).take nP).map (·.2.2) = (D).params ψ) :
+    (hsp₁ : SpineFit ρ (((dsF j ψ).take nP).map (·.2.2)) as) :
     (as ++ fs).foldl SetTheory.app (interp V ρ
         (sumMkAV ((D).w ψ) j (dsF j ψ) (((dsF j ψ).drop nP).map (·.2.2)) (uChains ((D).Fss 0 ψ))))
       = (D).inj ψ 0 j fs := by
   have hjD : ((D).Fss 0 ψ).getD j [] = ((dsF j ψ).drop nP).map (·.2.2) := by
     rw [List.getD_eq_getElem?_getD, hjF]; rfl
   rw [hjD] at hsp₂
-  have hsp₁ : SpineFit ρ (((dsF j ψ).take nP).map (·.2.2)) as := by rw [hds]; exact hsp
   have hsplit : dsF j ψ = (dsF j ψ).take nP ++ (dsF j ψ).drop nP := (List.take_append_drop _ _).symm
   have := sumMkAV_fold (V := V) (j := j) hw (pds := (dsF j ψ).take nP) (fds := (dsF j ψ).drop nP)
     (Fss := uChains ((D).Fss 0 ψ)) hsp₁ hsp₂ hok (by rw [uChains_getElem?, hjF]; rfl)
@@ -450,6 +449,27 @@ theorem ofNative_ctor {ψ : Name → Nat} {ρ : Nat → V} {j : Nat} {as fs : Li
   have hw' : resSort.eval ψ ≠ 0 := hw
   show inj j (mkTower (fs ++ [pt])) = injW (resSort.eval ψ) j (mkTower (fs ++ [pt]))
   rw [injW_pos hw']
+
+/-- **`ctor` at `k = 1`, at a `Prop`-valued block too** (task #315
+M7-3 session 7): `IsBlockModel.ctor` carries no `w ≠ 0` premise, and
+at `w = 0` the constructor's tower is the point (`sumMkAV_zero`) and so
+is the injection (`injW_zero`) — the mutual route's own branch. -/
+theorem ofNative_ctor' {ψ : Name → Nat} {ρ : Nat → V} {j : Nat} {as fs : List V}
+    (hsp₂ : SpineFit (consList as ρ) (((D).Fss 0 ψ).getD j []) fs)
+    (hok : (D).w ψ ≠ 0 → SumFieldsOkB ((D).w ψ) (consList as ρ) (uChains ((D).Fss 0 ψ)))
+    (hjF : ((D).Fss 0 ψ)[j]? = some (((dsF j ψ).drop nP).map (·.2.2)))
+    (hsp₁ : SpineFit ρ (((dsF j ψ).take nP).map (·.2.2)) as) :
+    (as ++ fs).foldl SetTheory.app (interp V ρ
+        (sumMkAV ((D).w ψ) j (dsF j ψ) (((dsF j ψ).drop nP).map (·.2.2)) (uChains ((D).Fss 0 ψ))))
+      = (D).inj ψ 0 j fs := by
+  by_cases hw : (D).w ψ = 0
+  · have hw' : resSort.eval ψ = 0 := hw
+    show (as ++ fs).foldl SetTheory.app (interp V ρ
+        (sumMkAV (resSort.eval ψ) j (dsF j ψ) (((dsF j ψ).drop nP).map (·.2.2))
+          (uChains ((D).Fss 0 ψ))))
+      = injW (resSort.eval ψ) j (mkTower (fs ++ [pt]))
+    rw [hw', sumMkAV_zero, foldl_app_pt, injW_zero]
+  · exact ofNative_ctor hw hsp₂ (hok hw) hjF hsp₁
 
 /-- **`mkZero` at `k = 1`**. -/
 theorem ofNative_mkZero (ψ : Name → Nat) (hw : (D).w ψ = 0) (mm j : Nat) (fs : List V) :
