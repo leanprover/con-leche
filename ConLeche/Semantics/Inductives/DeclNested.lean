@@ -215,6 +215,11 @@ def DeclNestedRun (μ : CheckMode) (F : Nat) (env : Env)
     -- to `nP + arity` arguments whose first `nP` are the block's
     -- parameter variables — the restore's `args.drop nP` precondition
     ConLeche.certOnly μ (ConLeche.nestedAuxAppsOk p st stored) = true ∧
+    -- THE PINS' CONTAINER INSTANCES AND RANK (K.37): every own
+    -- reference stays inside the instance, every other reference goes
+    -- to a STRICTLY SMALLER rank, and the rank is a function of the
+    -- instance — the model's induction measure for step (iii)
+    ConLeche.certOnly μ (ConLeche.nestedPinRankOk env p b st stored) = true ∧
     -- POST-CHECK (a) A THIRD TIME (K.30): the pins typed at the
     -- environment holding the RESTORED formers — the model tier's own
     ConLeche.nestedPinsOk (m := CheckM) (fueledOps μ F)
@@ -432,7 +437,7 @@ theorem declNestedRun_etaClosed {μ : CheckMode} {F : Nat} {env envOut : Env}
     {p : NestedParts} (hE : EtaFamiliesClosed env)
     (h : DeclNestedRun μ F env p envOut) : EtaFamiliesClosed envOut := by
   obtain ⟨-, -, st, b, envAux, stored, ctorsR, cvRms, cvRns, rulesM, rulesN, fmsA, ctorsA,
-    -, -, -, -, -, -, -, -, -, -, -, hcaps, -, -, -, -, -, -, -, -, hctors, hrm, hrn, -, -, htbl,
+    -, -, -, -, -, -, -, -, -, -, -, hcaps, -, -, -, -, -, -, -, -, -, hctors, hrm, hrn, -, -, htbl,
     -, -, -, -⟩ := h
   refine EtaFamiliesClosed.ofFreshExt hE ?_
   -- the formers

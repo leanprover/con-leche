@@ -75184,6 +75184,7 @@ and whether a violating input could ever be an OFFICIAL-ACCEPTED STREAM.
 | `nestedCopyTargetsOk` (K.32) | CERT-ONLY | (S). A copy field classified recursive into its own group comes from a container field that WAS that occurrence — a property of `mkCopy` + `replaceAllNested`, our code. |
 | `blockReadBackOk` (K.34) | CERT-ONLY | (S). `containerInfo?` of the environment THIS ROUTE just built, at the block it just installed; the route stored the very records the walk reads. |
 | `nestedAuxAppsOk` (K.35) | CERT-ONLY | (S). See below. |
+| `nestedPinRankOk` (K.37) | CERT-ONLY | (S). The pins' container instances and their rank — computed by the checker from its own elimination's output and validated.  Official computes no rank; no stream can violate it.  See `#### K.37`. |
 | K.36's fact | **NO CHECK** | (A). The route already establishes it — `mutualOpenedOk`'s `.ordinary` clause plus the members' freshness.  See `#### K.36`: a Bool was written, measured, and then DELETED in favour of the derivation. |
 
 **(A) = official checks it; (S) = SELF-CHECK on the checker's own
@@ -75403,3 +75404,114 @@ differed only in which predicate (`constsResolve` versus
 `mentionsConst`) the two facts were spelled in — both of which descend
 into the same fvar annotations.  The ledger's third column is what
 surfaces that.
+
+#### K.37 — the pins' CONTAINER INSTANCES and their rank (2026-09-17, task #315, the model lane's DESIGN §U.48 (e″))
+
+A **container instance** is one container's whole instantiation at a set
+of components, as embedded in the block's scratch mutual group: the
+copies of the container's members at those components PLUS the copies of
+the container's OWN auxiliary types — its own pins — at them.  (The
+model lane's working name for it was "blob"; the maintainer's ruling is
+that the unit is a container instance and the prose says so.)
+
+**Why the kernel is asked for a RANK.**  The model's step (iii) needs
+the containers' least tuples at the pins below the auxiliary carrier,
+and its lane proved that componentwise leastness gives joint leastness
+ONLY over a well-founded external-reference graph: over `{0,1}`,
+`Θ (x, y) := (y, x)` has `(1,1)` with each component least at its own
+section while the joint least fixed point is `(0,0)`.  There is no
+order-free route, so the induction measure has to be produced — and the
+cheapest place to produce it is where the elimination's own data lives.
+
+**What is computed** (`Kernel/Inductives/NestedInstall.lean`):
+
+* `nestedPinEdges` — per copy, per constructor, per field the auxiliary
+  block classified `.recursive`/`.reflexive` into another COPY, the edge
+  `(q, t, own)`, with `own` saying whether the CONTAINER's stored field
+  at that position already mentioned a member of the container's own
+  group.  Targets inside the block's own members are not edges.  It
+  reuses K.32's reading of the container's stored constructor, and
+  `mentionsMember` is the memoized `mentionsConst`;
+* `nestedPinArcs` — the same edges as arcs, an OWN edge additionally
+  reversed, and every pin joined to its mint group's base both ways;
+* `nestedPinInstFrom` — the strongly connected components of those arcs
+  (mutual reachability by `nPins + 1` relaxation rounds, each class
+  named by its smallest member);
+* `nestedPinRankFrom` — the longest chain of references LEAVING the
+  instance, by `nPins + 1` relaxation passes, homogenised per instance.
+  The condensation is acyclic by construction, so the passes converge.
+
+**`nestedPinRankOk`** checks the four clauses the model consumes: (1) an
+OWN reference stays inside its instance, (2) a reference that LEAVES the
+instance goes to a strictly smaller rank, (3) the rank is a function of
+the instance, (4) a mint group is one instance.  `.internal` on failure,
+CERTIFICATION-ONLY and `certOnly`-gated, one conjunct of
+`DeclNestedRun` and of `checkNested_inv`; `nestedPinInstOf` and
+`nestedPinRankOf` are the same functions off the run's data, which is
+how the model reads the measure.
+
+**A FINDING: the spec's clause 2 is refuted by an accepted fixture.**
+§U.48 (e″) asked for "own-pin field → same blob, OTHERWISE
+`rank t < rank q`", with `own` decided at the edge's SOURCE container.
+`tests/e2e/nested_p04.ndjson` refutes it.  Its pins are
+
+```
+0 = _nested.P4C_1 (P4C)   1 = _nested.Array_2 (Array)   2 = _nested.List_3 (List)
+edges = [(0→1, own), (1→2, not own), (2→0, not own), (2→2, own)]
+```
+
+— `P4C` is self-nested through `Array` and through `List`, and the three
+copies form a CYCLE in which only one edge is own at its source:
+`Array`'s stored field `List α` does not mention `Array`, and `List`'s
+element field does not mention `List`.  Under the spec's reading the two
+remaining edges are external and must both strictly decrease the rank
+around a cycle — impossible — and the first implementation DECLINED the
+fixture (nested-shadow 26/27, `P4=error`).
+
+§U.48 (c) 5 already says what the answer is — "`nested_p04`'s 3-cycle is
+ONE blob of three groups" — so the unit is not the own-edge closure but
+the STRONGLY CONNECTED COMPONENT, and clause 2 is about references that
+leave the instance.  With `nestedPinArcs` symmetrising the own edges and
+joining the mint groups before the SCC, clauses (1), (3) and (4) hold of
+the computation by construction and the condensation is acyclic; what
+the Bool then certifies is that the COMPUTATION did what it claims — the
+`recorded-and-checked` pattern of K.28–K.35, where an untrusted
+computation is validated by a Bool the proof tier can read, rather than
+an algorithm the proof tier has to verify.
+
+**MEASURED, K.25-style** (zero fires everywhere):
+
+* `tests/e2e/tower_nested.ndjson` **FIRST**, as required: **516 745 949
+  / 516 919 491 instructions:u against K.35's 516 655 217 / 516 822 063
+  / 516 878 873 — +0.2 M, +0.04 %**, wall unchanged at 0.031–0.037 s.
+  The graph work is `nPins²`-bounded and `nPins` is 3 here;
+* nested-shadow **27/27**; `tests/arena.sh` **EXIT 0**;
+* the 41-block Mathlib nested cone: exit 0, **4 926 accepted**, 41/41
+  shadow lines `accept`, at **180 080 320 774 against 179 460 999 648
+  instructions:u — +0.345 %**.  The cost is one extra
+  `nestedPinKinds` recomputation, not the graph: computing the edge list
+  four times (once per `nestedPinInstOf`/`nestedPinRankOf` call inside
+  the Bool) cost **+1.39 %**, and walking it ONCE — the `…From` split —
+  brought it to +0.345 %.  The remaining lever, if anyone wants it, is
+  to thread the kinds K.26 and K.32 already computed into K.37 instead
+  of recomputing them a third time.
+
+**NEGATIVE CONTROLS**, one per clause group, and both fire:
+
+* **no SCC merging** (`inst := List.range n`, every pin its own
+  instance): nested-shadow **25/27**, with `nested_p04` reporting
+  `nested: the pins' container instances are not well-founded` — clauses
+  (1) and (2) are reached;
+* **rank ≡ 0**: nested-shadow **20/27** and **35 of the 41 Mathlib cone
+  blocks** fail.  This is the important number: clause 2 is NOT vacuous
+  — 7 of the 27 fixtures and 35 of the 41 cone blocks have genuine
+  references LEAVING a container instance, and it is exactly those the
+  rank orders.
+
+**The ledger row.**  CERT-ONLY, category **(S)** — a self-check on the
+checker's own generated artefacts.  Official's kernel computes no rank
+and asks no such question: the invariant lives in OUR elimination's
+output (the pins and the copies' fields), a stream cannot supply it, and
+a fire would report a bug in the computation above rather than anything
+about the stream.  It is NOT category (B): there is no official-accepted
+violating stream to describe, because the fact is not about a stream.

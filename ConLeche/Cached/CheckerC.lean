@@ -383,6 +383,9 @@ def checkNestedS (fe : FEnv) (p : NestedParts) : CheckCM FEnv := do
   unless certOnly mode (nestedAuxAppsOk p st stored) do
     throw (.internal "nested: an auxiliary application in the block's read-back is not \
       at the block's parameters")
+  -- the pins' container instances and rank (K.37), as in the pure route
+  unless certOnly mode (nestedPinRankOk fe.env p b st stored) do
+    throw (.internal "nested: the pins' container instances are not well-founded")
   -- the RESTORED block is built on the PRE-BLOCK index, not the scratch
   -- one: only the restored constants are stored
   let fe₁ := consNestedFormersF members fe

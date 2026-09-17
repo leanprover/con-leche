@@ -904,6 +904,9 @@ theorem checkNested_inv {env envOut : Env} {p : NestedParts} {F : Nat}
       -- `args.drop nP` precondition, at the read-back recursor types
       -- and rules
       certOnly mode (nestedAuxAppsOk p st stored) = true ∧
+      -- THE PINS' CONTAINER INSTANCES AND RANK (K.37): the model's
+      -- induction measure for step (iii)
+      certOnly mode (nestedPinRankOk env p b st stored) = true ∧
       -- POST-CHECK (a) A THIRD TIME (K.30): the pins typed at the
       -- environment holding the RESTORED formers
       nestedPinsOk (m := CheckM) (fueledOps mode F)
@@ -1051,6 +1054,10 @@ theorem checkNested_inv {env envOut : Env} {p : NestedParts} {F : Nat}
   case neg => rw [if_neg haa] at h; close_throw
   rw [if_pos haa] at h
   try simp only [bind, Except.bind] at h
+  by_cases hrk : certOnly (fueledOps mode F).mode (nestedPinRankOk env p b st stored) = true
+  case neg => rw [if_neg hrk] at h; close_throw
+  rw [if_pos hrk] at h
+  try simp only [bind, Except.bind] at h
   obtain ⟨uP₁, hpins₁, h⟩ := exceptBind_ok h
   try simp only at h
   obtain ⟨ctorsR, hctors, h⟩ := exceptBind_ok h
@@ -1085,7 +1092,7 @@ theorem checkNested_inv {env envOut : Env} {p : NestedParts} {F : Nat}
   exact ⟨st, b, envAux, stored, ctorsR, cvRms, cvRns, rulesM, rulesN, fmsA, ctorsA,
     hfmsA, hctorsA, helim', beq_iff_eq.mp hcnt, hfresh, hcont, hb', haux, hst', hpc,
     (by cases uA; exact hpinsAux), hcaps, hsrc,
-    certOnly_and_left hcont, hgrp, hsc, htg, hkd, haa,
+    certOnly_and_left hcont, hgrp, hsc, htg, hkd, haa, hrk,
     (by cases uP₁; exact hpins₁), hctors, hrm, hrn, hrlm, hrln, htbl,
     (by cases u₀; exact hpins), hlen, (by cases u₁; exact hrecs), hrb⟩
 

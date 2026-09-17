@@ -1350,6 +1350,192 @@ def nestedAuxAppsOk (p : NestedParts) (st : ElimState) (stored : List AuxStored)
         | some (_, body) => auxAppsOk R arityOf 0 body
         | none => false
 
+/-! ## THE PINS' CONTAINER INSTANCES AND THEIR RANK (task #315 K.37)
+
+A **container instance** is one container's whole instantiation at a set
+of components, as it is embedded in the block's scratch mutual group:
+the copies of the container's members at those components PLUS the
+copies of the container's OWN auxiliary types — its own pins — at them.
+It is the unit the model's step (iii) reasons about: inside an instance
+the block's pin system IS the container's own system at `Ds` (up to the
+duplication a relational meet absorbs), and the externals — the pins an
+instance refers to that are not its own — are held fixed.
+
+The model needs those externals' references to be WELL FOUNDED.  Its
+lane proved that componentwise leastness gives joint leastness only over
+a well-founded external-reference graph — over `{0,1}`, `Θ (x, y) :=
+(y, x)` has `(1,1)` with each component least at its own section while
+the joint least fixed point is `(0,0)` — so there is no order-free
+route, and the induction measure has to come from somewhere.  Here it
+is: a RANK per instance, computed by the checker and CHECKED, so the
+model's step (iii) is strong induction on it.
+
+`nestedPinInstOf` is the connected-component label of the OWN-reference
+graph (with a mint group one component by construction), and
+`nestedPinRankOf` the longest external chain out of an instance.  Both
+are computed by bounded relaxation over the edge list, `nPins + 1`
+passes, no term traversal of their own. -/
+
+/-- **The reference edges between the elimination's pins**: per copy
+`p.k + q`, per constructor and per field the auxiliary block classified
+`.recursive` or `.reflexive` INTO another copy, the edge `(q, t, own)`
+— `t` the target PIN (a target inside the block's own members is not an
+edge) and `own` saying whether the CONTAINER's stored field at that
+position already mentioned a member of the container's own group.
+
+`own` is what separates the two kinds of reference the model treats
+differently: an own-group field (the container's own recursion, and the
+container's own nesting, which its own elimination pinned) stays INSIDE
+the instance; anything else — the container's ordinary field through
+another container, or a component — leaves it, and must go to a
+strictly smaller rank. -/
+def nestedPinEdges (env : Env) (p : NestedParts) (b : MutualBlock) (st : ElimState)
+    (stored : List AuxStored) : Option (List (Nat × Nat × Bool)) := do
+  let kinds ← nestedPinKinds p b stored
+  let rows ← (List.range st.pins.length).mapM fun q => do
+    let qn ← st.pins[q]?
+    let ks ← kinds[q]?
+    let a ← stored[p.k + q]?
+    let ci ← containerInfo? env qn.container
+    let J ← ci.members[q - qn.grpBase]?
+    let names := ci.members.map (·.name)
+    let perCtor ← (List.range ks.length).mapM fun j => do
+      let kf ← ks[j]?
+      let _c ← a.ctors[j]?
+      let cJ ← J.ctors[j]?
+      let (jbs, _) ← cJ.type.stripPis (ci.nP + cJ.nFields)
+      let perField ← (List.range kf.length).mapM fun l => do
+        let (r, t) ← kf[l]?
+        if (r == .recursive || r == .reflexive) && p.k ≤ t then
+          let domJ ← jbs[ci.nP + l]?
+          pure [(q, t - p.k, mentionsMember names domJ.1)]
+        else pure ([] : List (Nat × Nat × Bool))
+      pure perField.flatten
+    pure perCtor.flatten
+  pure rows.flatten
+
+/-- **The augmented reference digraph**: every edge as an arc, an OWN
+edge additionally as its reverse, and every pin joined to its mint
+group's base in both directions.  Its strongly connected components are
+the container instances: symmetrising the own edges is what makes an
+instance closed under the container's own nesting, and joining the group
+is what keeps a mint group in one instance — so those two clauses hold
+of the computation, and its condensation is acyclic. -/
+def nestedPinArcs (st : ElimState) (edges : List (Nat × Nat × Bool)) : List (Nat × Nat) :=
+  edges.flatMap (fun e => if e.2.2 then [(e.1, e.2.1), (e.2.1, e.1)] else [(e.1, e.2.1)])
+    ++ (List.range st.pins.length).flatMap fun q =>
+        let g := (st.pins.getD q default).grpBase
+        [(q, g), (g, q)]
+
+/-- The reachable set, grown one arc-relaxation at a time and stopped
+when it stops growing (at most `nPins + 1` rounds). -/
+def nestedReachGo (arcs : List (Nat × Nat)) : Nat → List Nat → List Nat
+  | 0, acc => acc
+  | k + 1, acc =>
+    let acc' := (acc ++ arcs.filterMap fun a =>
+      if acc.contains a.1 then some a.2 else none).eraseDups
+    if acc'.length == acc.length then acc else nestedReachGo arcs k acc'
+
+def nestedReach (n : Nat) (arcs : List (Nat × Nat)) (q : Nat) : List Nat :=
+  nestedReachGo arcs (n + 1) [q]
+
+/-- One relaxation pass of the rank along the EXTERNAL references — the
+ones that leave the instance. -/
+def nestedRankPass (inst : List Nat) (edges : List (Nat × Nat × Bool)) (rank : List Nat) :
+    List Nat :=
+  edges.foldl (fun cur e =>
+    if inst.getD e.1 0 == inst.getD e.2.1 0 then cur else
+      match cur[e.1]?, cur[e.2.1]? with
+      | some rq, some rt => if rq ≤ rt then cur.set e.1 (rt + 1) else cur
+      | _, _ => cur) rank
+
+/-- The rank is a function of the INSTANCE: every pin takes its
+instance's maximum. -/
+def nestedRankHomog (inst rank : List Nat) : List Nat :=
+  (List.range rank.length).map fun q =>
+    ((List.range rank.length).filter fun q' => inst.getD q' 0 == inst.getD q 0).foldl
+      (fun m q' => Nat.max m (rank.getD q' 0)) 0
+
+def nestedRankIter (inst : List Nat) :
+    Nat → List (Nat × Nat × Bool) → List Nat → List Nat
+  | 0, _, rank => rank
+  | n + 1, edges, rank =>
+    nestedRankIter inst n edges (nestedRankHomog inst (nestedRankPass inst edges rank))
+
+/-- **The pins' container instances, off the edge list**: the strongly
+connected components of `nestedPinArcs` — mutual reachability, computed
+by `nPins + 1` relaxation rounds and represented by each class's
+smallest member. -/
+def nestedPinInstFrom (st : ElimState) (edges : List (Nat × Nat × Bool)) : List Nat :=
+  let n := st.pins.length
+  let arcs := nestedPinArcs st edges
+  let reach := (List.range n).map (nestedReach n arcs)
+  (List.range n).map fun q =>
+    ((List.range n).filter fun m =>
+      (reach.getD q []).contains m && (reach.getD m []).contains q).headD q
+
+/-- **The instances' rank, off the edge list**: the longest chain of
+references LEAVING the instance, by `nPins + 1` relaxation passes.  The
+condensation is acyclic by construction, so the passes converge. -/
+def nestedPinRankFrom (st : ElimState) (edges : List (Nat × Nat × Bool))
+    (inst : List Nat) : List Nat :=
+  nestedRankIter inst (st.pins.length + 1) edges
+    ((List.range st.pins.length).map fun _ => 0)
+
+/-- The instances, as the model reads them off the run. -/
+def nestedPinInstOf (env : Env) (p : NestedParts) (b : MutualBlock) (st : ElimState)
+    (stored : List AuxStored) : List Nat :=
+  match nestedPinEdges env p b st stored with
+  | none => (List.range st.pins.length).map fun _ => 0
+  | some edges => nestedPinInstFrom st edges
+
+/-- The rank, as the model reads it off the run. -/
+def nestedPinRankOf (env : Env) (p : NestedParts) (b : MutualBlock) (st : ElimState)
+    (stored : List AuxStored) : List Nat :=
+  match nestedPinEdges env p b st stored with
+  | none => (List.range st.pins.length).map fun _ => 0
+  | some edges => nestedPinRankFrom st edges (nestedPinInstFrom st edges)
+
+/-- **THE PINS' INSTANCES AND RANK, CERTIFIED** (task #315 K.37, the
+model lane's DESIGN §U.48 (e″)): every OWN reference stays inside the
+instance, every OTHER reference goes to a STRICTLY SMALLER rank, the
+rank is a function of the instance, and a mint group is one instance.
+
+The first, third and fourth hold of `nestedPinInstOf`/`nestedPinRankOf`
+by construction — they are what the propagation computes.  **The second
+is the real content**: it says the external-reference graph between
+container instances is ACYCLIC, which is the model's induction measure
+and the one thing a relaxation cannot arrange for itself.
+
+**It cannot fire**, and a failure is `.internal`: an external reference
+either descends into a pin's own components or goes to a container
+declared EARLIER than this one, and the path multiset of the block's
+own elimination decreases along both.  CERTIFICATION-ONLY: gated. -/
+def nestedPinRankOk (env : Env) (p : NestedParts) (b : MutualBlock) (st : ElimState)
+    (stored : List AuxStored) : Bool :=
+  match nestedPinEdges env p b st stored with
+  | none => false
+  | some edges =>
+    let n := st.pins.length
+    -- the edge list is walked ONCE: `nestedPinEdges` recomputes
+    -- `nestedPinKinds`, which is the expensive part
+    let inst := nestedPinInstFrom st edges
+    let rank := nestedPinRankFrom st edges inst
+    inst.length == n && rank.length == n &&
+      -- (3) the rank is a function of the instance
+      (List.range n).all (fun q => (List.range n).all fun t =>
+        !(inst.getD q 0 == inst.getD t 0) || rank.getD q 0 == rank.getD t 0) &&
+      -- (4) a mint group is one instance
+      (List.range n).all (fun q =>
+        inst.getD q 0 == inst.getD (st.pins.getD q default).grpBase 0) &&
+      -- (1) an OWN reference stays inside the instance, and
+      -- (2) a reference that LEAVES the instance goes to a strictly
+      -- smaller rank
+      edges.all (fun e =>
+        if e.2.2 then inst.getD e.1 0 == inst.getD e.2.1 0
+        else inst.getD e.1 0 == inst.getD e.2.1 0 ||
+          decide (rank.getD e.2.1 0 < rank.getD e.1 0))
+
 /-- **Check and install a recognised NESTED block** (see the module
 docstring): official's two syntactic front guards, the elimination, the
 auxiliary mutual block checked in a scratch environment, the restore,
@@ -1488,6 +1674,12 @@ def checkNested (ops : CheckerOps m) (env : Env) (p : NestedParts) : m Env := do
   unless certOnly ops.mode (nestedAuxAppsOk p st stored) do
     throw (.internal "nested: an auxiliary application in the block's read-back is not \
       at the block's parameters")
+  -- **THE PINS' CONTAINER INSTANCES AND RANK** (K.37): every own
+  -- reference stays in the instance, every other one goes to a strictly
+  -- smaller rank — the model's induction measure for step (iii).
+  -- CERTIFICATION-ONLY, gated.  A failure is `.internal`.
+  unless certOnly ops.mode (nestedPinRankOk env p b st stored) do
+    throw (.internal "nested: the pins' container instances are not well-founded")
   let env₁ := consNestedFormers members env
   -- **POST-CHECK (a), A THIRD TIME** (K.30): the pins typed at the
   -- environment holding the RESTORED FORMERS — the one `restoreCtors`
