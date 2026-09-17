@@ -80027,6 +80027,117 @@ Next: L-B's session 9 (the three arms), L-E's step (iii) (the `ordF`
 -right and `pinF` entries its callers owe), M7's three stage facts, and
 M7-3's mutual lift steps 3–5 with K.36.
 
+##### (p) INTEGRATION 3h — L-E sessions 3–4 and L-B session 9 merged: the size measure refuted, the one-system route evaluated, and the `es` arm proved (session U-30)
+
+Two merges into the lane, `--no-ff` at the pinned shas —
+`agent/uniform-entry` **2e47c715** (L-E s3+s4) at 335bb679 and
+`agent/uniform-ident` **1af79ea5** (L-B s9) at 45b7a02a.  **The nested
+chain does not move**: after this session `declNested_of` still takes
+`mp : EnvModelB` and closes over exactly `hSh : NestedPinsShape`, `hEn
+: NestedPinsEntry` and `htail : NestedTailModeled` (plus `hE` and the
+run) — `copyEs` discharges one CLAUSE of `NestedPinsShape`, which stays
+named.  Neither branch touched checker code.
+
+*Merge 1 — L-E sessions 3 and 4.*  The branch is a DESCENDANT of the
+lane's HEAD (it had merged 2a63e12b itself), so the merge is over the
+lane and **nothing conflicted at all**, DESIGN.md included: §U.39
+(e)–(g) append inside the lane's own §U.39 and §U.48 after §U.46.
+What it brings, all theory tier: §U.39 (e)–(g) — step (iii)'s
+induction measure is NOT the pin's expression size, with two
+counter-instances both accepted by Lean 4.33 (a container's ordinary
+field mentioning its parameter inside a container application makes
+the block's target BIGGER, with duplication), the true order
+(member-occurrence container-head paths, Dershowitz–Manna) and the
+`∈`-induction alternative (complete at `w ≠ 0`, open at `w = 0`);
+§U.48 — the ONE-SYSTEM evaluation (inside a blob the pullback lemma
+replaces `PinRecLaws.ind` with `Q`; between blobs the two-variable
+counterexample shows componentwise-least is not jointly-least, so
+there is no escape from an order) with K.37's proposal and spec;
+`lfpTuple_pullback` and the `fibreMeet` kit at the end of
+`SetTheory/Derive/LfpCompose.lean`; `app_subset_of_famLe`
+(`LfpFam.lean`); and `CopyCtorShape.fit_iff_at_T` (`NestedFit.lean`),
+the blob transfer's member half — the copy's fit at the joined tuple
+iff the container's `ChainFitT` at a VARIABLE extended tuple below the
+extended carrier.  `NestedFit` gains a `public import` of
+`NestedRecCand` (its new statement names `ChainFitT`/`PinCtors`) and
+`NestedPremise` DROPS the now-redundant edge to the same module — the
+import gate's demotion, then its removal; `NestedPremise`'s public
+import is still `Semantics.Inductives.DeclNested`.
+
+*Merge 2 — L-B session 9.*  Branched from 68ab17a9 (integration 3e),
+so it has neither L-E session 2's interface (3g) nor M7-3 session 5.
+What it brings: `NestedPinsRun.copyEs`
+(`Model/Inductives/NestedCopyInst.lean`) — `CopyCtorShape.es` at the
+copy's own position, unconditional at the run, one of the three
+remaining SHAPE arms; `replaceIfNested_shape` and
+`replaceAllNested_frame` (`NestedCopyRewrite.lean`); the new
+`Verify/Inductives/NestedCopyNorm.lean`
+(`normPosDomM_bounded`, `normFieldDomsM_bounded`, `normCtorValM_frame`,
+`normCtorValM_openResid`); `ErasedEq.getApp`,
+`DenoteMetaSpine.erasedEq`, `getD_dropD`; `checkMutualCtor_true_norm`
+strengthened with the input type's bvar-closedness; and
+`copyBody`/`copyFields`/`copyResid` carrying the container
+constructor's closedness, the pin's level substitution at `J.lps`, the
+copy body's frame and the minted constructor's strip.  DESIGN §U.44.
+
+*The conflicts, and the one that did not happen.*  DESIGN.md was the
+ONLY conflict of either merge: §U.44 against the lane's
+§U.43/§U.46/§U.48 and §U.39 (which L-B has never seen), resolved BY
+NUMBER — §U.39, §U.40, §U.41, §U.43, §U.44, §U.46, §U.48 — and
+verified a pure union, zero lines dropped against EITHER parent (226
+added over HEAD, 864 over 1af79ea5).  The collision this integration
+EXPECTED — `NestedCopyInst.lean` and `NestedCopyIdx.lean`, L-B s9's
+`copyBody`/`copyFields`/`copyResid` against L-E's `{env}`/`cvT`/`lpsJ
+lvlsJ` binders — did not happen for the SECOND integration running:
+the two sides edit disjoint regions of `NestedCopyInst.lean`, git took
+both, the compiler accepted the result unchanged, and
+`NestedCopyIdx.lean` is untouched by the branch.  **No L-B theorem
+statement needed adapting.**
+
+**The import gate**, for once, did have something to take: L-B's two
+`NestedCopyNorm` lines in `tests/shake-allowlist.txt` and its two
+FALLBACK entries in `scripts/pub-import-plan.py` (the one-import-view
+class of §U.21 (f)) — both auto-merged to ONE copy each, and the
+FALLBACKs were RE-VERIFIED here by a failing demotion: demoting both
+of `NestedCopyNorm`'s `public import`s gives `Unknown identifier Env`
+/ `EnvWF` / `Name` / `Expr` at its own statements.  Otherwise nothing
+new: shake 508 proposed / all 508 allowlisted at merge 1 and 510/510
+at merge 2 (exactly the two new lines), pub-imports none demotable at
+both — 1260 of 1984 in-tree edges public with 36 dot-notation
+fallbacks after merge 1, 1262 of 1988 with 38 after merge 2.
+`Model.lean` conflicted on neither merge: neither branch adds a module
+to it (`NestedCopyNorm` is imported by `NestedCopyInst` alone).
+
+Gates at BOTH merge commits: `lake build` warning-free (694 jobs at
+merge 1, 695 with `NestedCopyNorm`), `lake test` warning-free (no test
+job re-ran at merge 2: both branches are model/verify tier, outside
+the test library's import closure), shake and pub-imports as above,
+layering base 346 / model 265 / caps 3 / umbrella 1 at merge 1 and
+347 / 265 / 3 / 1 at merge 2, with 0 base→lane and 0 impl→theory;
+trust surface 13 escapes in 5 allowlisted files (626 then 627
+scanned); no-local-paths OK; overview-links 112; quote-gate 2;
+proofdeps 4955 rows / 12 roots / 0 doors; nested-shadow 27/27 on the
+final commit.  No `sorry`, no axioms, no `maxHeartbeats`, no checker
+code changed.
+
+**The chain, re-verified** (`_tmp/uniform-315/chain-probe-u30.lean`,
+outside the build): `declNested_of` over `mp : EnvModelB` composes
+with exactly `hSh`, `hEn` and `htail` free, `nestedTailModeled_of hrd
+heqs hst` still typechecks at the same tree, and `nestedPinsFixed`,
+`CopyCtorShape.fit_iff_at_T` and `NestedPinsRun.copyEs` typecheck at
+the merged interface.  `#print axioms` of both chain theorems:
+`[propext, Classical.choice, Quot.sound]`.
+
+The residual after 3h is (n)'s, unchanged — `NestedPinsShape`
+(L-B/L-E, now one clause lighter), `NestedPinsEntry` (L-E) and
+`NestedTailModeled` (M7-2's three stage facts).
+
+Cost: well under a session — one merge over the lane's own head, one
+DESIGN conflict resolved by number, one FALLBACK union re-verified.
+Next: L-B's `recF` and `ordF`-left arms, L-E's blob route (§U.48 (g)'s
+three steps, K.37 on the kernel lane), M7's three stage facts, and
+M7-3's mutual lift steps 3–5 with K.36.
+
 #### K.32 — the copies' recursive targets come from the container's own recursion (2026-09-16, task #315, lane L-B's DESIGN §U.23 (e))
 
 The model's `ordF` arm needs to know that a container-ORDINARY field
