@@ -453,8 +453,7 @@ the scratch key on one side and `p.mimicRecName j` on the other and
 goes through `recKey` (`recCvNameN`), and both carry OUR leaf at the
 class, so the two leaf reports close them.
 
-Four residues are hypotheses, each one line of somebody else's
-statement away:
+Two residues are hypotheses:
 
 * `hauxNe` — no auxiliary name is a restored recursor name.  This is
   the KERNEL's to check (K.43, beside K.39): the mint's copy names and
@@ -469,12 +468,13 @@ statement away:
   needs the basis constants separated from the provisioned recursor
   names, which is the guards' own business (a recursor never satisfies
   `natIndOk`/`listConsTyOk`/…).
-* `hpinJ`, `hctorJ` — the container the pin arm's reading names, and
-  the restored constructor the constructor arm's does, are STORED at
-  the restored constructors' environment.  Both are facts the arms
-  know and do not report (`NestedTailIn.pinArm`/`ctorArm` package
-  `J`/`newName` inside an existential), so they belong as one extra
-  conjunct in those two statements; here they are assumed. -/
+The pin arm's container and the constructor arm's restored
+constructor are STORED at the restored constructors' environment —
+a fact the arms know and, since they package `J`/`newName` inside an
+existential, could not be asked for from outside: it is now ONE EXTRA
+CONJUNCT of `NestedTailIn.pinArm`/`ctorArm` (the record's own field
+drops it), which is why those two arms are consumed here directly
+rather than through `hOld`. -/
 theorem NestedTailIn.restoreAgreeP {mpA : EnvModelM V μ ENVA} {cvRas : List ConstantVal}
     (S : NestedScratchOut F env b fms f₀ ctorsA kinds mp₁ ppsF W idxF dsF esF srcsF fvsPF xFvsF
       xrestF eissF tssF stored mpA cvRas)
@@ -503,16 +503,7 @@ theorem NestedTailIn.restoreAgreeP {mpA : EnvModelM V μ ENVA} {cvRas : List Con
       mpP.base2.acval nm = mp₂.base2.acval nm)
     (hauxNe : ∀ n ∈ (ConLeche.restoreTbl p st).auxNames, ∀ c, c < b.k →
       n ≠ (nestedRecCvAt p.k cvRms cvRns c).name)
-    (ψ : Name → Nat)
-    (hpinJ : ∀ (n : Name) (pin : Expr), (ConLeche.restoreTbl p st).pins.lookup n = some pin →
-      ∀ (J : Name) (ψJ : Name → Nat) (Ds : List AnnotTerm),
-        (∀ (fvsP : List Expr) (d : Nat), OpenersFrom fvsP 0 b.nP →
-          denoteMeta mp₂.base2.acval (ENV2) ψ (b.nP + d) (Expr.instSeq fvsP (b.nP - 1) pin)
-            = some (AnnotTerm.mkAppN (mp₂.base2.acval J ψJ) (Ds.map (·.liftN d 0)))) →
-        ((ENV2).find? J).isSome = true)
-    (hctorJ : ∀ (n : Name) (pin : Expr) (newName : Name),
-      (ConLeche.restoreTbl p st).ctorPins.find? (fun q => q.1 == n) = some (n, pin, newName) →
-      ((ENV2).find? newName).isSome = true) :
+    (ψ : Name → Nat) :
     RestoreAgree (V := V) (ConLeche.restoreTbl p st) b.lps (nestedArityK p st)
       mpAP.base2.acval mpP.base2.acval
       (ConLeche.provisionMutualRecs b fms cvRas.zipIdx ENVA)
@@ -521,7 +512,9 @@ theorem NestedTailIn.restoreAgreeP {mpA : EnvModelM V μ ENVA} {cvRas : List Con
   have hkT : (D).kT = b.k := I.kT
   have hbk : b.k = p.k + pinsS.length := I.out.bk
   have hOld := I.restoreAgree S hnames hctorsJ ψ
-  rw [I.arityK] at hOld
+  have hpinArm := I.pinArm S ψ
+  have hctorArm := I.ctorArm S hnames hctorsJ ψ
+  rw [I.arityK] at hOld hpinArm hctorArm
   -- **the scratch recursor names are FREE** at the scratch constructors' environment
   have hrecNames := ConLeche.nestedRecNames_of I.hfA I.helim I.hfresh I.hb I.haux I.hstored I.hrm
     I.out.formers I.out.ctors
@@ -856,9 +849,9 @@ theorem NestedTailIn.restoreAgreeP {mpA : EnvModelM V μ ENVA} {cvRas : List Con
     exact hOld.projEq sn i
   · -- **`pin`**: the tail's arm, crossed to the two provisioned environments
     intro n pin hlook
-    obtain ⟨hbnd, ci, J, ψJ, Ds, nIdx, hfA, hlpsA, harity, hread, hident⟩ := hOld.pin n pin hlook
-    have hJ : mpP.base2.acval J = mp₂.base2.acval J :=
-      hagR2 J (hpinJ n pin hlook J ψJ Ds hread)
+    obtain ⟨hbnd, ci, J, ψJ, Ds, nIdx, hstJ, hfA, hlpsA, harity, hread, hident⟩ :=
+      hpinArm n pin hlook
+    have hJ : mpP.base2.acval J = mp₂.base2.acval J := hagR2 J hstJ
     have hnA : mpAP.base2.acval n = mpA.base2.acval n := hagA2 n (by rw [hfA]; rfl)
     refine ⟨hbnd, ci, J, ψJ, Ds, nIdx,
       provisionMutualRecs_findPreserved hfreshA n ci hfA, hlpsA, harity, ?_, ?_⟩
@@ -871,10 +864,9 @@ theorem NestedTailIn.restoreAgreeP {mpA : EnvModelM V μ ENVA} {cvRas : List Con
       exact hident d as xs ρ₀ Es hsp hxs hEs hwd
   · -- **`ctor`**: likewise, at the restored constructor's name
     intro n pin newName hfindc
-    obtain ⟨hbnd, hpinNone, ci, J, ilvls, ψJ, Ds, nF, hfA, hlpsA, harity, hhead, hread, hident⟩ :=
-      hOld.ctor n pin newName hfindc
-    have hJ : mpP.base2.acval newName = mp₂.base2.acval newName :=
-      hagR2 newName (hctorJ n pin newName hfindc)
+    obtain ⟨hbnd, hpinNone, ci, J, ilvls, ψJ, Ds, nF, hstN, hfA, hlpsA, harity, hhead, hread,
+      hident⟩ := hctorArm n pin newName hfindc
+    have hJ : mpP.base2.acval newName = mp₂.base2.acval newName := hagR2 newName hstN
     have hnA : mpAP.base2.acval n = mpA.base2.acval n := hagA2 n (by rw [hfA]; rfl)
     refine ⟨hbnd, hpinNone, ci, J, ilvls, ψJ, Ds, nF,
       provisionMutualRecs_findPreserved hfreshA n ci hfA, hlpsA, harity, hhead, ?_, ?_⟩

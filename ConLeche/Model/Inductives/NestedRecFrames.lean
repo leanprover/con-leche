@@ -798,7 +798,9 @@ hit is a recorded pin, abstracted at the block's parameters and so
 bounded there; its copy is a member of the scratch block, stored with
 the block's level parameters, and the key's arity is the container's
 index count (`nestedArity_pin`); the restored pin reads as the
-container at the lifted components (`pinRead`); and the two readings
+container at the lifted components (`pinRead`), the container itself
+being STORED there (the conjunct the provisioned crossing needs, which
+the record's own field drops); and the two readings
 interpret alike — THE PIN IDENTITY `nestedIdent_of`, the copy's leaf
 being the scratch model's own (`NestedScratchOut.leafM` through
 `MutualFormersFacts.leaf`). -/
@@ -808,6 +810,7 @@ theorem NestedTailIn.pinArm {mpA : EnvModelM V μ ENVA} {cvRas : List ConstantVa
     ∀ (n : Name) (pin : Expr), (ConLeche.restoreTbl p st).pins.lookup n = some pin →
       pin.looseBVarsBounded b.nP = true ∧
       ∃ (ci : ConstantInfo) (J : Name) (ψJ : Name → Nat) (Ds : List AnnotTerm) (nIdx : Nat),
+        ((ENV₂).find? J).isSome = true ∧
         (ENVA).find? n = some ci ∧ ci.toConstantVal.levelParams = b.lps ∧
         nestedArity p st pinsS n = some nIdx ∧
         (∀ (fvsP : List Expr) (d : Nat), OpenersFrom fvsP 0 b.nP →
@@ -833,10 +836,15 @@ theorem NestedTailIn.pinArm {mpA : EnvModelM V μ ENVA} {cvRas : List ConstantVa
   obtain ⟨t₂, Jn, lvls, Ds₀, ci, J, cpy, ht₂, -, hJn, -, hci, -, -, -, -, -, -⟩ := hsrc q qn hqn
   rw [hJn] at hci
   refine ⟨?_, .indInfo f.cvTa {}, ((D).pinAt q).J, ((D).pinAt q).ψJ ψ, ((D).pinAt q).Ds ψ,
-    ((D).pinAt q).nIdx, ?_, ?_, ?_, I.pinRead hqn hq hci ψ, ?_⟩
+    ((D).pinAt q).nIdx, ?_, ?_, ?_, ?_, I.pinRead hqn hq hci ψ, ?_⟩
   · -- the abstracted pin is bounded at the block's parameters
     rw [hnP]
     exact (ConLeche.rk_pinsClosed_of I.hclosed qn hqnm).2
+  · -- the container is STORED at the restored constructors' environment
+    obtain ⟨hPJ, -⟩ := I.out.stage.pinRec q qn hqn
+    obtain ⟨cvT, caps, cvR, mI, rP, rules, hfindI, -, -, -, -⟩ := ConLeche.containerInfo?_inv hci
+    rw [hPJ, I.out.stage.find (I.findPre1 hfindI)]
+    rfl
   · rw [← hfn]
     exact (S.memberStored (p.k + q) f hf).find
   · show f.cvTa.levelParams = b.lps
@@ -1614,8 +1622,13 @@ theorem NestedTailIn.restoreAgree {mpA : EnvModelM V μ ENVA} {cvRas : List Cons
       keyNotRec := I.keyNotRec
       projEq := I.projAgree S
       litEq := fun dpt l => I.litAgree S ψ dpt l
-      pin := I.pinArm S ψ
-      ctor := I.ctorArm S hnames hctorsJ ψ }
+      pin := fun n pin h => by
+        obtain ⟨hbnd, ci, J, ψJ, Ds, nIdx, -, hrest⟩ := I.pinArm S ψ n pin h
+        exact ⟨hbnd, ci, J, ψJ, Ds, nIdx, hrest⟩
+      ctor := fun n pin newName h => by
+        obtain ⟨hbnd, hnone, ci, J, ilvls, ψJ, Ds, nF, -, hrest⟩ :=
+          I.ctorArm S hnames hctorsJ ψ n pin newName h
+        exact ⟨hbnd, hnone, ci, J, ilvls, ψJ, Ds, nF, hrest⟩ }
   · intro n n' hr ci hfind
     rw [I.recKeyNone hr] at hfind
     exact nomatch hfind

@@ -757,7 +757,9 @@ parameters (bounded, headed by the container, absent from the pin
 map); the copy's constructor is stored at the scratch environment with
 the block's level parameters and its field count is the key's arity;
 the restored head reads as the container's constructor at the pin's
-components (`ctorPinRead`); and the two readings interpret alike —
+components (`ctorPinRead`), that constructor being STORED there
+(`ctorPinFind2` — the conjunct the provisioned crossing needs, which
+the record's own field drops); and the two readings interpret alike —
 both sides are the SAME tagged tower, the container's constructor
 through `IsBlockModel.ctor` at the pin's components (whose fields fit
 by `ctorPinFitJ`) and the copy's through the scratch block's, the two
@@ -782,6 +784,7 @@ theorem NestedTailIn.ctorArm {mpA : EnvModelM V μ ENVA} {cvRas : List ConstantV
       pin.looseBVarsBounded b.nP = true ∧ (ConLeche.restoreTbl p st).pins.lookup n = none ∧
       ∃ (ci : ConstantInfo) (J : Name) (ilvls : List Level) (ψJ : Name → Nat)
         (Ds : List AnnotTerm) (nF : Nat),
+        ((ENV₂).find? newName).isSome = true ∧
         (ENVA).find? n = some ci ∧ ci.toConstantVal.levelParams = b.lps ∧
         nestedArity p st pinsS n = some nF ∧
         (∀ d, (pin.liftLooseBVars d 0).getAppFn = .const J ilvls) ∧
@@ -829,6 +832,9 @@ theorem NestedTailIn.ctorArm {mpA : EnvModelM V μ ENVA} {cvRas : List ConstantV
   refine ⟨?_, I.ctorPinLookupNone ht hc, .ctorInfo cA.1 b.nP cA.2,
     ((D).pinAt (q₀ + i)).J, ((D).pinAt (q₀ + i)).lvls,
     ((D).pinAt (q₀ + i)).ψJ ψ, ((D).pinAt (q₀ + i)).Ds ψ, c.2.2,
+    by
+      obtain ⟨cvc, hfindc2⟩ := I.ctorPinFind2 hci hJmem hccj
+      rw [hfindc2]; rfl,
     by rw [← hcAname]; exact hfactsA.1, by show cA.1.levelParams = b.lps; exact hcAlps,
     nestedArity_ctor (I.ctorName_ne_aux ht hc) ht hc I.ctorNames_nodup, ?_,
     I.ctorPinRead hqn hq hci hJmem hccj ψ, ?_⟩
