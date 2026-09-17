@@ -86613,3 +86613,337 @@ capstone's path from `Model/Fold.lean`, which stays — the diff is
 exactly ten added lines); shake 508/508 allowlisted; pub-imports 1286
 of 2038, none demotable; `tests/arena.sh` green.  Standard axioms on
 every new theorem.
+
+#### U.66 — M7-3 session 12: the audit M8 EXECUTES, `ownPins` deferred with one finding, and the tail's `groups` found to be the core's (lane M7-3, session 12, 2026-09-17)
+
+Three items were briefed and a fourth was withdrawn mid-session by the
+coordinator (integration 3n is the gating action for it): the
+`ContainerModeled` bridge lane L-E asks for, `nestMention` at the
+install routes, **the M8 audit's second part** — the one deliverable
+that needed no other lane — and the tail's remaining plumbing fields.
+
+##### (a) `ownPins` DEFERRED (integration 3n gates it) — and the one finding that survives
+
+The clause cannot be STATED in this worktree: `containerOwnPinsAt`,
+`nestedPinRootPairOk` and `nestedPinRootGroup` live on
+`agent/uniform-m5` only, and the integration `agent/uniform-315`
+(410b3836) carries K.40 and not K.41 — lane L-E's own §U.65 (d)
+finding, and the reason it revised the bridge from the heads-only
+`ownHeads` to `ownPins` over whole pin TERMS.  This lane did not
+merge the kernel branch either (the criss-cross §U.57 (d) 1 aborts).
+So `ownPins` and `nestMention` at the routes are session 13's first
+item, at the integration's sha, in §U.65 (d)'s text verbatim.
+
+**THE FINDING, which is about the half L-E calls vacuous.**  §U.65 (d)
+says the clause "is vacuous at a pins-free block
+(`containerOwnPinsAt` is `some []` there)".  That is TRUE of the
+corpora and it is NOT derivable at the native, mutual or basis route
+from anything the tree carries, because `some []` is a statement about
+what is ABSENT from the output environment:
+
+* the reader walks the MIMIC names, `Name.appendIndexAfter (first.name.str
+  "rec") (j + 1)`, and `appendIndexAfter` appends to the LAST STRING
+  COMPONENT (`Kernel/Inductives/NestedParts.lean:64`), so the name it
+  looks up is `Name.str C "rec_1"` for the block's first member `C`,
+  and the walk stops at the first lookup that is not a `.recInfo`;
+* a `.recInfo` can be named `C.rec_1` only as the MIMIC of a nested
+  block whose FIRST FORMER IS `C` itself (`p.mimicRecName`,
+  `NestedParts.lean:477`; the native, mutual and basis routes name
+  every recursor `T.str "rec"`, whose last component is `"rec"`, and
+  `Quot`'s four are named otherwise).  Such a block installs `.indInfo
+  C`, so the native route's own front door — `C` fresh at the
+  pre-block environment — excludes it;
+* but that exclusion is an ENVIRONMENT-HISTORY invariant ("a `.recInfo`
+  at `N.rec_j` implies an `.indInfo` at `N`"), and **no record in the
+  tree carries it**: `EnvModel`'s `wf`/`rec_ctors` do not, and they
+  cannot carry the naive strengthening ("every `.recInfo` is `I.rec`
+  for a stored `I`") because the nested route's own mimics refute it.
+
+So the pins-free half needs one of two things, and session 13 should
+ask for the first: **(i) a cert-only Bool per route, in K.34's
+pattern** — at each member of the installed block,
+`containerOwnPinsAt envOut` is the block's OWN pin list (`[]` at
+native, mutual and the five basis blocks), one `find?` per member,
+`.internal` on failure, a conjunct of the three runs and their
+inversions; or **(ii) a new clause on `EnvModelB`**, established at
+every route from K.34's single `want` and preserved under a fresh
+cons.  (i) is the cheaper by the same argument K.34 itself made: the
+route knows its own mimic list, and the model then reads the clause
+off the run instead of re-deriving an invariant about the past.
+
+##### (b) `nestMention` — the clause is TRUE, and its cheap half is NOT where L-E placed it
+
+`ContainerModeled.nestMention` (lane L-E, §U.62 (e)) is `ordFree`'s
+twin: a field the classification calls NESTED at pin `q` mentions a
+member of the block's own group among the first `(d.pinAt q).nPJ`
+arguments of its spine.  The field itself is on `agent/uniform-entry`
+and not in the integration, so what this lane can do is settle its
+PROOF at the nested route, which is where the content is (the field is
+vacuous everywhere else, see below).  It was read end to end — the
+elimination, the restore, `NestedCtorRead`, `NestedStageFacts`,
+`nestedContainerModeled` — and the two findings are:
+
+**1. THE WITNESS.  "It costs no kernel check — the mention IS the
+classification's first test" is right about the MOMENT and wrong about
+the WITNESS.**  `nestedOccOk` (`Kernel/Inductives/NestedElim.lean`)
+tests `args.take nPI` against `ElimState.newNames`, which is
+`st.types.map (·.name)` — the block's members **and every copy minted
+so far**.  So the fact the elimination establishes (and it IS recorded,
+as `CopyHead`'s conjunct `(Ds.any fun a => names.any fun T =>
+a.mentionsConst T) = true`, `Verify/Inductives/NestedCopyProv.lean`,
+exported at `elimNested_copyCtors`) permits the witness to be a
+`_nested`-prefixed COPY name — at which point `nestMention`, which
+asks for a member of `d.memberNames`, does not follow.  The clause is
+nonetheless TRUE, because every term the walk sees is copy-free (the
+block's own annotated constructors are guarded by
+`mentionsNestedAux` — the `h0` hypothesis the chain already carries —
+and `mkCopy`'s output is the CONTAINER's stored constructor types with
+the original components substituted), but that is an argument, not a
+theorem in this tree.  A second gap compounds it: `CopyInv` is stated
+at the positions BEHIND the block's `k` members, so the members' own
+rewrites — which is where this clause lives — have no provenance
+theorem at all.
+
+**2. THE RESTORE SIDE IS THERE, one boundary too low.**  The syntactic
+identity the clause needs at the members' constructors exists and is
+proved: `restoreOpen_pin_domain`
+(`Verify/Inductives/NestedRestoreOpen.lean`) with its telescope lift,
+packaged model-side as `RestoredField`'s pin disjunct
+(`Model/Inductives/NestedCtorRead.lean`) — the restored opened domain
+IS `Expr.mkAppN (Expr.instSeq fvsP (b.nP - 1) (Expr.abstractRange
+qn.pin 0 p.nP 0)) (args.drop b.nP)`, with the arity already read off
+(`rk_restoredPin_getAppArgs_length`).  But nothing of it survives the
+`NestedCtorsStaged` boundary: `NestedStageFacts.ctorFacts` yields
+`BlockOpened.nestF`, which records the head, the argument count and
+`constsResolve env₀` PAST `nPJ` and says nothing about the parameter
+prefix.  `NestedOpenSpine`'s closed/opened kit
+(`os_field_domain_args`/`os_field_domain_mentions`) is sufficient and
+its four hypotheses are free at this route (`NestedCopyInst`'s
+`blockCtorField*` wrappers are the precedent), so the bridge is not
+the difficulty either.
+
+**THE SIZING, and the request it implies.**  (A) the mention fact:
+either **A1**, a kernel-recorded Bool `nestedPinMentionOk p st` in
+`nestedCopySrcOk`/`nestedGroupsOk`'s exact shape — per pin,
+`(q.pin.getAppArgs.take ci.nP).any (mentionsMember p.memberNames ·)`,
+`certOnly`-gated, one conjunct of `DeclNestedRun` and
+`checkNested_inv`, cost of the order of K.37's own `mentionsMember`
+walks — **½–1 kernel session**; or **A2**, proved, which strengthens
+`NestedCopyProv`'s invariant to a member witness (≈11 of its 17 lemmas
+gain a conjunct), adds a "the walked terms are copy-free" induction
+through the same six functions, and extends `CopyInv` to the member
+positions: **4–6 sessions**.  (B) the delivery: **B1**, if the clause
+is spelled on the pin's own components
+(`∃ e ∈ (d.pinAt q).DsE.take (d.pinAt q).nPJ`), it is **3–5 lines** in
+`nestedContainerModeled` off `NestedBlockModelOf.pin` and A1 —
+`DsE.length = nPJ` comes from `nestedGroupsOk` and
+`NestedStageFacts.pinNP`, and a stored container's block model carries
+`DsE` as a `PinSyn` field, so the consumer loses nothing; **B2**, the
+spelling as written (the OPENED field domain) costs one clause on
+`NestedCtorRead` → `NestedLoopFacts` → `NestedStageFacts`, discharged
+at `ReadCtx.nestClauses` where `RestoredField`, `pinRec` and the arity
+are all in hand, **+1–1.5 sessions**.  NOT recommended: the conjunct on
+`BlockOpened.nestF`, which still needs (A), is discharged at the same
+site as B2, and widens a structure five routes construct.
+
+**So the two requests this session sends the kernel lane are one
+K-record each**: A1 above, and (a)'s pins-free Bool.  With A1 in the
+tree, `nestMention` at ALL EIGHT sites is under half a session: the
+four basis blocks close it `nomatch hq` definitionally (`pins := []` in
+the literal, `nPins` exposed), `nativeContainerModeled` with
+`absurd hq (Nat.not_lt_zero q)` as its three pin clauses already do,
+`mutualContainerModeled` through the `hnoPins` rewrite it already
+has, and the two crossings (`crossEnvP`, `of_readBack`) take one
+hypothesis and one field each.  **Until then the field cannot be added
+to `ContainerModeled` at all**: the record has no un-discharged clause
+anywhere in the tree, and adding one with a hole in the nested route
+would put a hypothesis on `declNested_of` that is neither
+`ModeledStepB` nor part of the chain's residual.
+
+##### (c) THE M8 AUDIT, PART 2 — every step that remains, in dependency order
+
+§U.55 (c) numbered the flip's five steps and §U.63 (d) landed 3 and 4
+with `ModeledStepB` standing in for 2.  So the fold is flipped except
+for one hypothesis, and what remains is **step 2, step 5, and a sixth
+step no plan had scheduled: the retirement of the shadow flag and the
+tier behind it.**  The sizings are this lane's estimates; the kernel
+lane owns 2a–2e and should re-size them.
+
+###### 2a — the pure dispatch (kernel, ¼ session)
+
+`Kernel/Checker.lean`'s `.indDecl` arm gets a third recogniser between
+`mutualParts?` and `checkModeled`:
+
+```lean
+        match nestedParts? nP block with
+        | some q => checkNested ops env q
+        | none => …
+```
+
+Nothing has to be proved about the recognisers' disjointness: the arms
+are a `match`, so the ORDER is the statement, exactly as it has been
+since task #219.  `indParamsOk` stays above the dispatch (task #228).
+
+###### 2b — the cached dispatch (kernel, ¼ session)
+
+`Cached/ParsedC.lean`'s twin arm, to `Cached.checkNestedS`
+(`Cached/CheckerC.lean`, in the tree since #279 K.20 and exercised by
+the shadow harness at every nested block of every fixture — the flip
+changes WHO calls it, not what it does).
+
+###### 2c — the run-level dispatch (kernel, ¼ session)
+
+`Semantics/Inductives/DeclNative.lean`'s `DeclIndRunDispatch` gains the
+`nestedParts?` arm at `DeclNestedRun`
+(`Semantics/Inductives/DeclNested.lean`), whose two consumers are in
+the tree: `declNestedRun_of` for the inversion
+(`checkDeclRun_ofEnvFactsE`'s new branch) and the η closure for
+`declIndRunDispatchEtaClosed`'s third case.
+
+###### 2d — THE CACHED MIRROR'S THREE OBLIGATIONS (kernel, 2–4 sessions)
+
+Every route carries three, and this is the flip's real cost:
+
+* `checkNestedS_skels` with a `nestedSkels` list and the `indDeclSkels`
+  arm (`Verify/Cached/AgreeFloor.lean`; the mutual core's is 88 lines
+  for a 41-line function);
+* `checkNestedS_push` with the dispatch arm
+  (`Verify/Cached/PushChain.lean`; mutual 65 lines);
+* `checkNestedS_run` with the arms in `checkModeledOrNativeSF_run`
+  (`Verify/Cached/BridgeCSDecl.lean`) and `BridgeC.lean`'s dispatch
+  (mutual 176 lines).
+
+`checkNestedS` is 115 lines against the mutual core's 41 and carries a
+dozen stages the mutual route has none of (the two annotation passes,
+the elimination, the restore's four passes, `provisionNestedRecsF`,
+`storeNestedRecsF`, `nestedTablesF`, three `nestedPinsOk` calls,
+`nestedRecsOkF`), so the three come to 700–900 lines of Verify-tier
+mirror work.  **It is not the model tier's, and nothing in the model
+tier can substitute for it**: the capstones run the CACHED driver.
+
+###### 2e — the modeled ARM leaves the dispatch, and the CENSUS that licenses it (kernel, ½–1 session)
+
+The four `| none => checkModeled …` / `checkIndDeclSF` / `DeclIndRun`
+branches become a positive decline naming the block, and
+`DeclIndRunDispatch` loses its third arm.  What licenses the deletion
+is a MEASUREMENT, not a proof: instrument the modeled arm (a
+`dbg_trace` at `checkIndDeclSF`) and run `tests/arena.sh`, init-full
+and the Mathlib stream — the deletion is safe exactly if every block
+that reaches the arm is one `nestedParts?` takes.  Two things must be
+read before it lands:
+
+* the shapes that are neither native, mutual nor nested decline TODAY
+  through `checkModeled`'s missing-model path; after the deletion they
+  decline at the dispatch with a different message, so **every arena
+  and e2e row whose expectation is exit 2 must be re-read**.  Arena
+  047's REJECT does not move: `indParamsOk` catches it above the
+  dispatch;
+* the verdict line's count does not move either (see 6 (iii) below), so
+  the corpora's accept counts are the retirement's own check.
+
+###### 2f — `Model/Fold.lean`: the hypothesis goes (model, ¼ session)
+
+`declInductiveB`'s third case becomes `declNestedB` (§U.56), and
+`ModeledStepB` with its four occurrences —
+`declInductiveB`/`declStepB_preserves`/`foldPMB`/`checkDeclsPure_soundB_of`
+— is deleted.  This is THE FLIP, and it is four lines: everything else
+was landed in §U.63 (d) precisely so that this step could be.
+
+###### 5 — the capstones' step: what it actually buys (model, 1 session)
+
+Nothing forces it and no capstone statement changes — `EnvModelB`
+EXTENDS `EnvModelM`.  What it buys is the DELETION of the A fold: with
+`checkDeclsPure_soundB_of` unconditional, `checkDeclsPure_sound_of`
+becomes its `.toEnvModelM` projection and the A-side chain above the
+routes is unreachable —
+
+* `Model/Fold.lean`'s `EnvModelOk`, `declStep_preserves`, `foldPM` and
+  `checkDeclsPure_sound_of`'s proof body;
+* `Model/Inductives/DeclInductive.lean`'s `declInductive` (a 25-line
+  dispatch) and, with it, the `declNative`/`declMutual` wrappers —
+  their ONLY consumer (the `_syntax` companions the B lifts actually
+  read do not move);
+* `declInd` and `Model/DeclInd.lean` (295 lines) with its interp
+  module, which is also (b) 2e's casualty.
+
+`MainTheorem.lean`, `no_proof_of_False_pure`, `no_constant_of_False`
+and the twelve capstone closures keep their statements; `proofdeps`
+rows move (the B fold's modules enter where the A fold's leave), and
+the diff is to be justified row by row as in §U.63 (f).
+
+###### 6 — THE SHADOW FLAG AND THE TIER (kernel + model, 1–2 sessions)
+
+**(i) `--nested-shadow` goes with the flip, in the same commit.**  Its
+harness is `Main.lean`'s `installLoop` (the `shadow` parameter and the
+`nestedParts?` call that runs `Cached.checkNestedS` beside the install
+and discards its state), the `--help` row, `Args.nestedShadow`, the
+argument parse and the `checkMain` call.  After 2b the shadow's verdict
+IS the run's verdict, so there is nothing left to observe — and the
+gate must not be left running both.
+
+**(ii) the 27 fixtures move into the main arena, and 21 of them are in
+NO other gate.**  `tests/nested-shadow-expected.txt` has 27 rows and
+`tests/e2e-expected.txt` lists SIX of their fixtures (`nested_rec`,
+`nested_struct_proj`, `ind_proj_mutual_nested`, `inmodel_nested`,
+`tower_nested`, `nested_prop_idx`).  The other 21 — the sixteen probes
+`nested_p01`…`nested_p31`, plus `nested_unused_param`,
+`nested_nonuniform_param`, `nested_aux_clash`, `nested_lam_pin_prop`
+and `nested_pin_prop_cod` — are reached ONLY through
+`--nested-shadow`, so retiring the flag without moving them would
+silently drop 21 fixtures from the battery.  Each becomes an ordinary
+e2e row at the verdict the dispatch gives, which the shadow's
+block-level verdict PREDICTS but does not settle (a row's exit code is
+the whole stream's): 18 of the 21 have an accepting nested block and
+three a rejecting one (`nested_unused_param`,
+`nested_nonuniform_param`, `nested_aux_clash`).  Every row's comment
+carries over from the shadow expectation.  Two details:
+
+* five rows run today with the modeller OFF (`CON_LECHE_INMODEL=0`)
+  because it declines them at parse time; that column disappears with
+  the modeller (iii), and those five are exactly the coverage the
+  native route ADDS;
+* `ind_proj_mutual_nested.ndjson` is an exit-2 e2e row whose nested
+  block the shadow ACCEPTS.  Its post-flip verdict must be MEASURED,
+  not assumed: the decline may be the projection artifact and not the
+  block, in which case the row stays at 2 and its comment is re-read.
+
+**(iii) the in-process modeller retires with the arm.**  It is the only
+model source (#207) and since #278 it generates for NESTED blocks
+alone, so the flip leaves it with nothing to do:
+`ConLeche/Frontend/InModel.lean`, `InModel/{Block,Kit,Nested}.lean`
+and `InModelDump.lean` (2 015 lines); the three env vars
+`CON_LECHE_INMODEL`, `_DUMP`, `_CENSUS` with the census's exit-2 path,
+the receipt line and the `--help` paragraphs; the `ParseResultD`
+fields the receipt reads (`inModelled`, `genRecords`, `genOwner`,
+`inModelGen`, `inModelDeclined`); `tests/inmodel.sh` and the arena's
+call to it.  The four `inmodel_*` fixtures STAY — they are streams,
+not modeller artifacts, and after the flip they are ordinary nested
+fixtures.  **The verdict line's count is invariant**:
+`streamRecords = parsed.size - genRecords` already excludes generated
+records, so init-full's 53 093 and Mathlib's 654 504 must come out
+unchanged — the number to check, not to update.
+
+**(iv) the modeled TIER's modules are deleted LAST, and by
+computation.**  `Kernel/Inductives/Modeled.lean` (837 lines),
+`checkIndDeclSF` with its helpers in `Cached/CheckerC.lean`,
+`Semantics/DeclIndRun.lean` and `Semantics/Bridge/DeclIndRun.lean`,
+`Model/DeclInd.lean`, and the modeled halves of
+`Verify/Cached/{AgreeFloor,BridgeC,BridgeCS4,BridgeCSDecl,PushChain}`
+are the candidates — but several modules on that list are SHARED with
+the basis and install routes (`Semantics/IndBlockRun`,
+`Semantics/ProjFnFacts`, `Verify/Extend/{Block,Ind,Proj}`), so the
+deletion set is computed the way the module system's is:
+`tests/shake.sh`'s criterion and `tests/proofdeps.sh`'s reachability,
+after 2e, with a build after each file.  This is the only step that
+can be deferred indefinitely: an unreachable tier costs build time and
+gate rows, never soundness.
+
+###### The order, and the total
+
+2a → 2b → 2c → 2d → 2e (kernel; the census with 2e) → **2f + 6 (i) +
+6 (ii) in ONE commit** (the flip: the dispatch takes the route, the
+fold loses its hypothesis, the shadow gate becomes the arena's rows) →
+5 → 6 (iii) → 6 (iv).  **Kernel 3–5 sessions, model 1¼, the
+retirement 1–2: 5–8 sessions**, all of it downstream of the nested
+chain's own residual (`NestedTailModeled`, `NestedCoreModeled` and the
+named facts), which is what step 1 still owes and what 2f consumes.
