@@ -748,7 +748,17 @@ post-block environment.  Consumer: `nestedTailModeled_of`. -/
             xrestF eissF tssF ctorsR dsR xFvsR pinsS) s rdsM concM
         (fun ψ => (mutualBlockModel (V := V) b fms f₀ ctorsA kinds env ppsF W idxF dsF esF
           srcsF fvsPF xFvsF xrestF eissF tssF).recEqs mpA.base2 b.elimLevel ψ) →
-        Nonempty (EnvModelM V μ envOut)
+        -- task #315 M7-3 session 10 (DESIGN §U.67 (c)): the conclusion is
+        -- `NestedTailModeled`'s, which now carries the install's conses, the
+        -- agreements, the block's representation at the OUTPUT model and the
+        -- pins' groups with their containers' models NAMED — what the route's
+        -- lift to `EnvModelB` reads (`declNested_of`).
+        ∃ mpOut : EnvModelM V μ envOut,
+          NestedTailOut (V := V) (p := p) (b := b) (fms := fms) (f₀ := f₀) (ctorsA := ctorsA)
+            (kinds := kinds) (env := env) (ppsF := ppsF) (W := W) (idxF := idxF) (dsF := dsF)
+            (esF := esF) (srcsF := srcsF) (fvsPF := fvsPF) (xrestF := xrestF) (eissF := eissF)
+            (tssF := tssF) (ctorsR := ctorsR) (dsR := dsR) (xFvsR := xFvsR) (pinsS := pinsS)
+            mp stored mp₂ envOut mpOut
 
 /-! ## The skeleton -/
 
@@ -763,14 +773,14 @@ theorem nestedTailModeled_of {F : Nat}
     (hst : NestedRecsStored V μ F) : NestedTailModeled V μ F := by
   intro hμ env mp hE p envOut st b envAux stored ctorsR cvRms cvRns rulesM rulesN fmsA ctorsA₀
     hPM h0 h1 hfA hcA helim hcount hfresh hcont hb haux hstored hclosed hpinsAux hcaps hsrc hgrp hkinds
-    hctors hrm hrn hrulesM hrulesN htbl hpinsOut hcnt hrecs fms f₀ ctorsA sortss kinds mp₁ ppsF W idxF
+    hauxApps hctors hrm hrn hrulesM hrulesN htbl hpinsOut hcnt hrecs fms f₀ ctorsA sortss kinds mp₁ ppsF W idxF
     dsF esF srcsF fvsPF xFvsF xrestF eissF tssF dsR xFvsR pinsS mp₂ henv O
   have I : NestedTailIn F mp p envOut st b envAux stored ctorsR cvRms cvRns rulesM rulesN fmsA
       ctorsA₀ fms f₀ ctorsA sortss kinds mp₁ ppsF W idxF dsF esF srcsF fvsPF xFvsF xrestF eissF tssF
       dsR xFvsR pinsS mp₂ :=
     ⟨hμ, hE, hPM, h0, h1, hfA, hcA, helim, hcount, hfresh, hcont, hb, haux, hstored, hclosed,
-      hpinsAux, hcaps, hsrc, hgrp, hkinds, hctors, hrm, hrn, hrulesM, hrulesN, htbl, hpinsOut, hcnt,
-      hrecs, henv, O⟩
+      hpinsAux, hcaps, hsrc, hgrp, hkinds, hauxApps, hctors, hrm, hrn, hrulesM, hrulesN, htbl,
+      hpinsOut, hcnt, hrecs, henv, O⟩
   have hp := nestedPinRecLaws_of hμ O.facts O.grouped O.bk mp₂.base2 O.stage.groups
   obtain ⟨mpA, cvRas, S⟩ := I.scratch
   obtain ⟨s, rdsM, concM, R⟩ := hrd mp p envOut st b envAux stored ctorsR cvRms cvRns rulesM rulesN
@@ -783,7 +793,7 @@ theorem nestedTailModeled_of {F : Nat}
       fvsPF xrestF eissF tssF ctorsR dsR xFvsR pinsS).k := I.kpos
   exact hst mp p envOut st b envAux stored ctorsR cvRms cvRns rulesM rulesN fmsA ctorsA₀ fms f₀
     ctorsA sortss kinds mp₁ ppsF W idxF dsF esF srcsF fvsPF xFvsF xrestF eissF tssF dsR xFvsR pinsS
-    mp₂ I s rdsM concM R mpA cvRas S E (nestedRecsTuple_of O.reps hp hk R E)
+    mp₂ I s rdsM concM R mpA cvRas S E (nestedRecsTuple_of O.reps.toIsBlockModels hp hk R E)
 
 /-- **THE EQUATIONS AT THE RUN** — `NestedRecEqsOf`, the second of
 `nestedTailModeled_of`'s three named facts, at every tail input and
@@ -808,12 +818,12 @@ theorem nestedTailModeled_of_frames {F : Nat} (hfr : NestedRecFramesOf V μ F)
   nestedTailModeled_of (nestedRecReadingsOf_of hfr) heqs hst
 
 /-- **THE CONSUMER** (consumer-first): the recursors' stage at the run
-needs the readings, and this lane supplies them from the three model
-faces alone. -/
-theorem nestedTailModeled_of_faces {F : Nat} (hK35 : NestedRecTysAuxOf μ F)
+needs the readings, and this lane supplies them from the ONE model
+face alone. -/
+theorem nestedTailModeled_of_faces {F : Nat}
     (hK36 : NestedCtorPinNamesOf μ F)
     (heqs : NestedRecEqsOf V μ F) (hst : NestedRecsStored V μ F) : NestedTailModeled V μ F :=
-  nestedTailModeled_of_frames (nestedRecFramesOf_of hK35 hK36) heqs hst
+  nestedTailModeled_of_frames (nestedRecFramesOf_of hK36) heqs hst
 
 /-- **THE CONSUMER** (consumer-first): with the readings and the
 equations both discharged from the ONE model face, the recursors'

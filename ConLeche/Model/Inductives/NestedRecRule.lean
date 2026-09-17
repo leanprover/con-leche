@@ -2110,7 +2110,7 @@ theorem NestedTailIn.memberMajor
   rw [hname, hfindP] at hcp'
   obtain ⟨-, hnP', -⟩ := ConstantInfo.ctorInfo.inj (Option.some.inj hcp'.symm)
   -- **the block model's representation** at member `c`
-  obtain ⟨cvT, cvR, mI', rP', rules, h⟩ := I.out.reps c hcD
+  obtain ⟨cvT, cvR, mI', rP', rules, h⟩ := I.out.reps.toIsBlockModels c hcD
   have hcd := h.ctorData hjD
   have hk : 0 < (D).k := by omega
   -- the level assignments agree on the constructor's parameters
@@ -2125,7 +2125,7 @@ theorem NestedTailIn.memberMajor
         (Level.substFn φ (nestedRecCvAt p.k cvRms cvRns c).levelParams us) q := fun q hq =>
     (hagree q hq).trans (restrictΨ_agree b.rlps _ q
       (MutualBlock.mem_rlps_of_mem_lps b (by rw [← hlpsC]; exact hq))).symm
-  have hpl := I.out.reps.params_length hk (restrictΨ b.rlps
+  have hpl := I.out.reps.toIsBlockModels.params_length hk (restrictΨ b.rlps
     (Level.substFn φ (nestedRecCvAt p.k cvRms cvRns c).levelParams us))
   generalize hψ'0 : restrictΨ b.rlps
     (Level.substFn φ (nestedRecCvAt p.k cvRms cvRns c).levelParams us) = ψ' at hCψ hpl ⊢
