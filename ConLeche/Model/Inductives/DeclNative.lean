@@ -1,5 +1,6 @@
 module
 
+public import ConLeche.Model.Inductives.BlockRepOne
 import ConLeche.Model.Inductives.FixAssemblyKit
 import ConLeche.Model.Inductives.FixStageTable
 public import ConLeche.Model.Inductives.FixZeroField
@@ -103,6 +104,13 @@ structure NativeSyntaxFacts {env env₁ envC env₂ : Env} (m : EnvModel V envC)
       Sat V (((ppsAll ψ).take p.nP).map (·.2.2)).reverse ρp →
       IdxOk (uAV ψ) ρp (((ppsAll ψ).drop p.nP).map (·.2.2)) ∧
         FieldsValid ρp (((ppsAll ψ).drop p.nP).map (·.2.2))
+  /-- **the operator's fields and the constructors' agree off the
+  recursive positions** (task #315 M7-3 session 7): the X-chains are
+  built from the DUMMY former's domains and the constructors' data
+  from the REAL one, and they differ only where `xEntry` discards the
+  domain (`FssAgree`, `BlockRepOne.lean`) -/
+  fssAgree : ∀ ψ : Name → Nat, FssAgree (rssOfK ksF ctorsA.length) (fssZ ψ)
+      (fssOfR p.nP (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0))
   table : ConLeche.checkNativeTable (m := ConLeche.CheckM) p ctorsA sortss
       ⟨.recInfo cvRa p.majorIdx p.rulePrefix
         (ConLeche.sumRules envC.find? cvRa.name p.nP p.majorIdx p.rulePrefix cvRa.type ctorsA rhss)
@@ -1227,6 +1235,20 @@ theorem declNative_syntax (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂
       idxRes := hidxRes_C
       uParams := hUparams
       idxOk := hIdx
+      fssAgree := fun ψ => by
+        refine ⟨by rw [hlenFss₀ ψ, hlenFss ψ], fun j hj => ?_⟩
+        rw [hlenFss₀ ψ] at hj
+        obtain ⟨cA, hjA⟩ : ∃ cA, ctorsA[j]? = some cA := ⟨_, List.getElem?_eq_getElem hj⟩
+        have hksl : (ksF j).length = cA.2 := hksLen j cA hjA
+        refine ⟨by rw [hlenFs₀ ψ j cA hjA, hlenFs ψ j cA hjA], fun l hl hrl => ?_⟩
+        rw [hlenFs₀ ψ j cA hjA] at hl
+        rw [hrss j hj, rsOf_getD (by rw [hksl]; exact hl)] at hrl
+        have hne : ¬((ksF j).getD l .ordinary = .recursive ∨
+            (ksF j).getD l .ordinary = .reflexive) := of_decide_eq_false hrl
+        rw [hFss₀D ψ j cA hjA, hFssD ψ j cA hjA,
+          drop_map_getD ((hcf₀ j cA hjA).len ψ) hl, drop_map_getD ((hcf j cA hjA).len ψ) hl]
+        exact ((hident j cA hjA).2.2.2.2 ψ l hl (fun h => hne (Or.inl h))
+          (fun h => hne (Or.inr h))).symm
       table := hTbl
       isProp := hProp
       Rname := hRname
