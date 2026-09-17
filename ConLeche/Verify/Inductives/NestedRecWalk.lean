@@ -133,6 +133,130 @@ inductive AuxAppsOk (R : RestoreTbl) (lps : List Name) (arityOf : Name → Optio
   | lit {d : Nat} {l : Literal} : AuxAppsOk R lps arityOf d (.lit l)
   | fvar {d i : Nat} {ty : Expr} : AuxAppsOk R lps arityOf d (.fvar i ty)
 
+/-! ## The Bool decides the shape (task #315, K.38 landed) -/
+
+/-- `find?`'s definedness is `any`. -/
+theorem List.isSome_find?_eq_any {α : Type} (q : α → Bool) :
+    ∀ l : List α, (l.find? q).isSome = l.any q
+  | [] => rfl
+  | a :: l => by
+    rw [List.find?_cons, List.any_cons]
+    cases hp : q a with
+    | false => simpa using List.isSome_find?_eq_any q l
+    | true => simp
+
+/-- **`isAuxAppKey` DECIDES `RestoreTbl.IsKey`** — the kernel's Bool and
+the model's Prop are the same key test. -/
+theorem isAuxAppKey_iff {R : RestoreTbl} {n : Name} :
+    isAuxAppKey R n = true ↔ R.IsKey n := by
+  unfold isAuxAppKey RestoreTbl.IsKey
+  rw [Bool.or_eq_true, List.isSome_find?_eq_any (fun q => q.1 == n) R.ctorPins]
+
+/-- **THE REFLECTION** (task #315, DESIGN §U.29 (w)): the kernel's walk
+`auxAppsOk` — K.35's Bool with K.38's level conjunct — DECIDES the
+model's shape `AuxAppsOk`.  The recursion is `auxAppsOk`'s own, on
+`sizeOf`: a key-headed spine is presented by the spine identity
+(`Expr.mkAppN_getApp`) and its head's level arguments are K.38's
+conjunct; every other node is structural, and the `attach` of the
+children is bookkeeping (`auxAppsOk_attach_all`). -/
+theorem auxAppsOk_reflect {R : RestoreTbl} {lps : List Name} {arityOf : Name → Option Nat} :
+    ∀ (e : Expr) (d : Nat), auxAppsOk R lps arityOf d e = true → AuxAppsOk R lps arityOf d e
+  | .bvar _, _, _ => .bvar
+  | .sort _, _, _ => .sort
+  | .lit _, _, _ => .lit
+  | .fvar _ _, _, _ => .fvar
+  | .const n us, d, h => by
+    rw [auxAppsOk] at h
+    by_cases hk : isAuxAppKey R n = true
+    · rw [if_pos hk] at h
+      simp only [Bool.and_eq_true] at h
+      obtain ⟨hus, har⟩ := h
+      obtain rfl : us = lps.map Level.param := by simpa using hus
+      cases hA : arityOf n with
+      | none => rw [hA] at har; exact nomatch har
+      | some ar =>
+        rw [hA] at har
+        have h0 : R.nP + ar = 0 := by simpa using har
+        refine AuxAppsOk.key (args := []) (ar := ar) (isAuxAppKey_iff.mp hk) hA
+          (by simp only [List.length_nil]; omega) ?_ (fun a ha => absurd ha (by simp))
+        have hnP : R.nP = 0 := by omega
+        rw [hnP]
+        rfl
+    · exact AuxAppsOk.const (fun hc => hk (isAuxAppKey_iff.mpr hc))
+  | .lam ty b bm, d, h => by
+    rw [auxAppsOk] at h
+    simp only [Bool.and_eq_true] at h
+    exact .lam (auxAppsOk_reflect ty d h.1) (auxAppsOk_reflect b (d + 1) h.2)
+  | .forallE ty b bm, d, h => by
+    rw [auxAppsOk] at h
+    simp only [Bool.and_eq_true] at h
+    exact .forallE (auxAppsOk_reflect ty d h.1) (auxAppsOk_reflect b (d + 1) h.2)
+  | .letE ty v b, d, h => by
+    rw [auxAppsOk] at h
+    simp only [Bool.and_eq_true] at h
+    exact .letE (auxAppsOk_reflect ty d h.1.1) (auxAppsOk_reflect v d h.1.2)
+      (auxAppsOk_reflect b (d + 1) h.2)
+  | .proj sn i x, d, h => by
+    rw [auxAppsOk] at h
+    exact .proj (auxAppsOk_reflect x d h)
+  | .app f a, d, h => by
+    rw [auxAppsOk] at h
+    simp only [Bool.and_eq_true] at h
+    obtain ⟨hnode, hkids⟩ := h
+    rw [auxAppsOk_attach_all] at hkids
+    rw [List.all_eq_true] at hkids
+    unfold auxAppsNodeKids at hkids
+    by_cases hhead : auxAppsHeadIsKey R (Expr.app f a) = true
+    · -- a key-headed spine: the shape is the node's own test
+      rw [if_pos hhead] at hkids
+      unfold auxAppsHeadIsKey at hhead
+      unfold auxAppsNodeOk at hnode
+      cases hfn : (Expr.app f a).getAppFn with
+      | const n us =>
+        rw [hfn] at hhead hnode
+        simp only at hhead hnode
+        rw [if_pos hhead] at hnode
+        simp only [Bool.and_eq_true] at hnode
+        obtain ⟨hus, har⟩ := hnode
+        obtain rfl : us = lps.map Level.param := by simpa using hus
+        cases hA : arityOf n with
+        | none => rw [hA] at har; exact nomatch har
+        | some ar =>
+          rw [hA] at har
+          simp only [Bool.and_eq_true, beq_iff_eq] at har
+          have hsp := Expr.mkAppN_getApp (Expr.app f a)
+          rw [hfn] at hsp
+          rw [← hsp]
+          refine AuxAppsOk.key (isAuxAppKey_iff.mp hhead) hA har.1 har.2 (fun x hx => ?_)
+          have hlt : sizeOf x < sizeOf (Expr.app f a) :=
+            sizeOf_mem_getAppArgs (List.mem_of_mem_drop hx)
+          exact auxAppsOk_reflect x d (hkids x hx)
+      | _ => rw [hfn] at hhead; exact nomatch hhead
+    · -- no key at the head: the two halves
+      rw [if_neg hhead] at hkids
+      have hf : f ∈ auxAppsKids (Expr.app f a) := by
+        show f ∈ [f, a]
+        simp
+      have ha : a ∈ auxAppsKids (Expr.app f a) := by
+        show a ∈ [f, a]
+        simp
+      refine AuxAppsOk.app (fun n us hfn hkey => ?_)
+        (auxAppsOk_reflect f d (hkids f hf)) (auxAppsOk_reflect a d (hkids a ha))
+      refine hhead ?_
+      unfold auxAppsHeadIsKey
+      rw [Expr.getAppFn_app, hfn]
+      exact isAuxAppKey_iff.mpr hkey
+  termination_by e => sizeOf e
+  decreasing_by
+    all_goals
+      first
+        | exact hlt
+        | (simp only [Expr.app.sizeOf_spec]; omega)
+        | (simp only [Expr.lam.sizeOf_spec]; omega)
+        | (simp only [Expr.forallE.sizeOf_spec]; omega)
+        | (simp only [Expr.letE.sizeOf_spec]; omega)
+        | (simp only [Expr.proj.sizeOf_spec]; omega)
+
 /-! ## The walk's inversions -/
 
 /-- **The λ node, inverted** (`restoreWalk_forallE_inv`'s twin). -/

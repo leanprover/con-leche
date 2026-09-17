@@ -278,6 +278,39 @@ parameter variables in its first `nP` arguments and the key's arity
       a.cvRa.type.stripPis b.nP = some (pbs, body) ∧
       AuxAppsOk (ConLeche.restoreTbl p st) b.lps (nestedArityK p st) 0 body
 
+/-- **K.35'S FACE, FROM THE RUN'S OWN BOOL** (DESIGN §U.29 (w)): the
+kernel's `nestedAuxAppsOk` — K.35's walk with K.38's level conjunct —
+IS the model face.  Its `arityOf` is `nestedArityK` on the nose, its
+`lps` and its parameter prefix are the block's (`auxBlock_fields`), and
+the reflection `auxAppsOk_reflect` turns its Bool into the shape. -/
+theorem nestedRecTysAuxOk_of_bool {p : NestedParts} {st : ElimState} {b : MutualBlock}
+    {stored : List AuxStored} (hb : ConLeche.auxBlock p st = some b)
+    (h : ConLeche.nestedAuxAppsOk p st stored = true) :
+    NestedRecTysAuxOk p st b stored := by
+  obtain ⟨hnP, hlps, -, -⟩ := ConLeche.auxBlock_fields hb
+  intro c a ha
+  have hmem : a ∈ stored := List.mem_of_getElem? ha
+  have hall : ((match a.cvRa.type.stripPis p.nP with
+      | some (_, body) => ConLeche.auxAppsOk (ConLeche.restoreTbl p st) p.lps
+          (nestedArityK p st) 0 body
+      | none => false) &&
+      a.rules.all fun rl =>
+        match rl.rhs.stripLams p.nP with
+        | some (_, body) => ConLeche.auxAppsOk (ConLeche.restoreTbl p st) p.lps
+            (nestedArityK p st) 0 body
+        | none => false) = true := by
+    have := List.all_eq_true.mp h a hmem
+    exact this
+  simp only [Bool.and_eq_true] at hall
+  cases hs : a.cvRa.type.stripPis p.nP with
+  | none => rw [hs] at hall; exact nomatch hall.1
+  | some pr =>
+    obtain ⟨pbs, body⟩ := pr
+    rw [hs] at hall
+    refine ⟨pbs, body, by rw [hnP]; exact hs, ?_⟩
+    rw [hlps]
+    exact ConLeche.auxAppsOk_reflect body 0 hall.1
+
 /-! ## The arity at a pin key -/
 
 /-- With the keys pairwise distinct, the element with the sought key IS
