@@ -723,6 +723,64 @@ theorem NestedTailIn.esMap_eq {mpA : EnvModelM V μ ENVA} {cvRas : List Constant
   rw [← getD_eq_projS_tupW (I.idxOkT ψ (consList as ρ) hρp hcT) hisT hl',
     ← getD_eq_projS_tupW (hIA.idxOk ψ (consList as ρ) hρpA c hc) hisA hl']
 
+
+/-! ### The inductive hypotheses' domains -/
+
+/-- **AN INDUCTIVE HYPOTHESIS' DOMAIN IS ITS COPY'S**: the field's
+telescope and index expressions are the copy's (`teleAtT_eq`,
+`eisAtT_eq`), its target is (`tgtsT_eq`), and the target class's index
+tuple reads back its fitting spine (`isOfW_tupT` at the index
+readings' fit `IsBlockModels.eis_fit`) — the bodies agree at the
+FITTING telescope spines only, whence `piTele_congr`. -/
+theorem NestedTailIn.ihPi_eq {mpA : EnvModelM V μ ENVA} {cvRas : List ConstantVal}
+    (S : NestedScratchOut F env b fms f₀ ctorsA kinds mp₁ ppsF W idxF dsF esF srcsF fvsPF xFvsF
+      xrestF eissF tssF stored mpA cvRas)
+    (ψ : Name → Nat) (ρ : Nat → V) (as : List V) (hsp : SpineFit ρ ((D).params ψ) as)
+    {c : Nat} (hc : c < b.k) {j : Nat} {cA : ConstantVal × Nat}
+    (hjA : ((DA).ctorsM c)[j]? = some cA)
+    {fs : List V} (hfs : SpineFit (consList as ρ) (((DA).Fss c ψ).getD j []) fs)
+    {i' : Nat} (hi'K : i' < ((DA).ksF c j).length)
+    (hr : (rsOf ((DA).ksF c j)).getD i' false = true) (Msl : List V) :
+    piTele (b.elimLevel.eval ψ)
+        (teleOfFields (consList (fs.take i') (consList as ρ))
+          (((D).teleAtT PC ψ c j i').map (·.2.2)))
+        (fun bs => SetTheory.app
+          ((isOfW ((D).uT ((D).tgtsT PC c j i') ψ) ((D).nIdxT ((D).tgtsT PC c j i'))
+            ((D).tupT ψ ((D).tgtsT PC c j i')
+              (((D).eisAtT PC ψ c j i').map
+                (interp V (consList bs (consList (fs.take i') (consList as ρ))))))).foldl
+            SetTheory.app
+            (if (D).tgtsT PC c j i' < (D).kT then Msl.getD ((D).tgtsT PC c j i') pt else pt))
+          (bs.foldl SetTheory.app (fs.getD i' pt))) []
+      = piTele (b.elimLevel.eval ψ)
+        (teleOfFields (consList (fs.take i') (consList as ρ))
+          ((((DA).tssF c j ψ).getD i' []).map (·.2.2)))
+        (fun bs => SetTheory.app
+          (((((DA).eissF c j ψ).getD i' []).map
+            (interp V (consList bs (consList (fs.take i') (consList as ρ))))).foldl
+            SetTheory.app (Msl.getD ((DA).tgts c j i') pt))
+          (bs.foldl SetTheory.app (fs.getD i' pt))) [] := by
+  have hρp : Sat V ((D).params ψ).reverse (consList as ρ) := (D).satOfSpine hsp
+  have hρpA : Sat V ((DA).params ψ).reverse (consList as ρ) := hρp
+  obtain ⟨cvT, cvR, mI, rP, rules, hIA⟩ := S.reps c hc
+  obtain ⟨cvT0, cvR0, mI0, rP0, rules0, hID⟩ := I.out.reps 0 I.kpos
+  have hjl : j < ((DA).ctorsM c).length := (List.getElem?_eq_some_iff.mp hjA).1
+  have hcd := hIA.ctorData hjA
+  have hi'A : i' < cA.2 := by rw [← hcd.ksLen]; exact hi'K
+  have htgt : (DA).tgts c j i' < b.k := hIA.tgt_lt hjl hi'K rfl
+  have htgtT : (DA).tgts c j i' < (D).kT := by rw [I.kT]; exact htgt
+  have hfs' : SpineFit (consList as ρ) ((((DA).Fss c ψ).getD j []).take i') (fs.take i') :=
+    spineFit_take' hfs (by rw [hIA.Fss_length hjA]; omega)
+  rw [I.teleAtT_eq ψ hjA i', I.eisAtT_eq ψ hjA i', I.tgtsT_eq hjA hi'A, if_pos htgtT]
+  refine piTele_congr _ [] fun bs hbs => ?_
+  rw [fitsS_teleOfFields] at hbs
+  rw [List.nil_append]
+  have hEis : SpineFit (consList as ρ) ((DA).IdsM ((DA).tgts c j i') ψ)
+      ((((DA).eissF c j ψ).getD i' []).map
+        (interp V (consList bs (consList (fs.take i') (consList as ρ))))) :=
+    S.reps.eis_fit (S.typed ψ).1 hc hjA hρpA hi'A htgt hr hfs' hbs
+  rw [hID.isOfW_tupT I.out.reps I.pinLaws hρp htgtT ((I.idsT_iff ψ ρ as htgt _).mpr hEis)]
+
 end Run
 
 end ConLeche.Model
