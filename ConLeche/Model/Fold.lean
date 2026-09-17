@@ -113,7 +113,7 @@ def BasisStepPB (V : Type w) [SetTheory V] (μ : CheckMode) : Prop :=
       Nonempty (EnvModelM V μ env₂)
 
 /-- **The basis kind's step, WITH THE CARRIER AGREEMENT** (task #315
-M7-3 session 9, DESIGN §U.61 (b)): every pinned block is a chain of
+M7-3 session 9, DESIGN §U.66 (b)): every pinned block is a chain of
 three to five fresh conses, so the model it produces values every OLD
 constant as the prefix model did — the fact the block-model field
 `EnvModelB.blocks` is maintained by, and the one the basis blocks'

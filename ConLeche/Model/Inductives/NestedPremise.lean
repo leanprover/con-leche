@@ -114,6 +114,24 @@ structure ContainerModeled {env : Env} (m : EnvModel V env) (ci : ContainerInfo)
   ordFree : ∀ (i j l : Nat) (x : Expr), i < d.k → j < (d.ctorsM i).length →
     (d.xFvsF i j)[l]? = some x → (d.ksF i j).getD l .ordinary = .ordinary →
     ConLeche.mentionsMember d.memberNames x.fvarTypeD = false
+  /-- **a NESTED field mentions a member AT THE PARAMETER PART** (task
+  #315 L-B's request, DESIGN §U.62 (e), §U.64): `ordFree`'s twin — the
+  other half of `mutualCtorKinds`' `iff`.  The classification calls a
+  field nested at `q` exactly when its spine's head is `(pinAt q).J`
+  and one of the first `(pinAt q).nPJ` arguments mentions a member of
+  the block's own group; `BlockOpened.nestF` records the head, the
+  argument count and `constsResolve env₀` for the arguments PAST
+  `nPJ`, and says nothing about the parameter part, so the copies'
+  `pinF` arm cannot see the mention it needs.  It costs no kernel
+  check — the mention IS the classification's first test.
+
+  Stated with `q < d.nPins`, which the consumer has for free
+  (`IsBlockModels.tgt_pin_lt` at the field) and which lets a pins-free
+  block discharge the clause in the `pinNP`/`pinψ` idiom. -/
+  nestMention : ∀ (i j l q : Nat) (x : Expr), i < d.k → j < (d.ctorsM i).length →
+    q < d.nPins → (d.xFvsF i j)[l]? = some x → d.nestOf i j l = some q →
+    ∃ e ∈ x.fvarTypeD.getAppArgs.take (d.pinAt q).nPJ,
+      ConLeche.mentionsMember d.memberNames e = true
   /-- **a pin's container is not a member** of the block: the opened
   form of a nested field (`BlockOpened.nestF`) is shape-compatible with
   a member occurrence at the parameters, which the copies' kind reading
@@ -139,6 +157,92 @@ structure ContainerModeled {env : Env} (m : EnvModel V env) (ci : ContainerInfo)
     env.find? (d.pinAt q).J = some (.indInfo cvT caps) →
     (d.pinAt q).lvls.length = cvT.levelParams.length ∧
     ∀ ψ : Name → Nat, (d.pinAt q).ψJ ψ = Level.substFn ψ cvT.levelParams (d.pinAt q).lvls
+
+/-! ## The correspondence a container instance is compared along -/
+
+/-- A class's LEVEL ASSIGNMENT: the block's own at a member, the pin's
+at a pin (`BlockModel.frameT`'s twin — task #315 L-E, DESIGN §U.57). -/
+@[expose] def BlockModel.psiT (d : BlockModel V) (ψ : Name → Nat) (c : Nat) : Name → Nat :=
+  if c < d.k then ψ else (d.pinAt (c - d.k)).ψJ ψ
+
+/-- A class's CONTAINER's name: the member's own at a member (its group
+is the block's), the pin's container at a pin. -/
+@[expose] def BlockModel.nameT (d : BlockModel V) (c : Nat) : Name :=
+  if c < d.k then d.memberName c else (d.pinAt (c - d.k)).J
+
+omit [SetTheory V] in
+theorem BlockModel.psiT_of_mem (d : BlockModel V) (ψ : Name → Nat) {c : Nat} (hc : c < d.k) :
+    d.psiT ψ c = ψ := by simp only [psiT, if_pos hc]
+
+omit [SetTheory V] in
+theorem BlockModel.psiT_of_pin (d : BlockModel V) (ψ : Name → Nat) {c : Nat} (hc : ¬ c < d.k) :
+    d.psiT ψ c = (d.pinAt (c - d.k)).ψJ ψ := by simp only [psiT, if_neg hc]
+
+omit [SetTheory V] in
+theorem BlockModel.nameT_of_mem (d : BlockModel V) {c : Nat} (hc : c < d.k) :
+    d.nameT c = d.memberName c := by simp only [nameT, if_pos hc]
+
+omit [SetTheory V] in
+theorem BlockModel.nameT_of_pin (d : BlockModel V) {c : Nat} (hc : ¬ c < d.k) :
+    d.nameT c = (d.pinAt (c - d.k)).J := by simp only [nameT, if_neg hc]
+
+/-- **The ROOT's class `c` and the block's pin `q` are ONE family**
+(task #315 L-E, DESIGN §U.57): the relation the container instance
+transfer runs along, and `relMeet`'s `R`.
+
+A container instance is compared with the block's pins through ONE
+container — its ROOT (DESIGN §U.55 (c)) — whose classes are its members
+and its OWN pins (`BlockModel.kT`); `dR`, `ψR`, `ρR` are the root's
+model, level assignment and parameter frame, `D`, `ψ`, `ρp` the block's.
+The clauses are exactly what the transfer consumes at the pair: ONE
+container (`name` — which `targetPin_corr` supplies at a rewritten
+field and the group views at a member), ONE level assignment on that
+container's own level parameters (`psi` — `ContainerModeled.pinψ` and
+`Level.substFn_map_subst`), ONE frame on its parameters (`frame` —
+`PinCorr`'s components at their values, `interp_instAll`), and ONE
+index set (`idx`), which is what makes the two families comparable
+fibre by fibre.
+
+It is a RELATION and not a map, in both directions: two of the root's
+pins may instantiate to one block pin (`K (J α)`, `K (J β)` at
+`Ds = [P4, P4]`), and two block pins may read alike; `relMeet` and
+`lfpTuple_le_of_rel` absorb both. -/
+structure ClassPin (env : Env) (D dR : BlockModel V) (ψ ψR : Name → Nat) (ρp ρR : Nat → V)
+    (c q : Nat) : Prop where
+  /-- `c` is one of the root's classes -/
+  cLt : c < dR.kT
+  /-- `q` is one of the block's pins -/
+  qLt : q < D.nPins
+  /-- ONE container -/
+  name : dR.nameT c = (D.pinAt q).J
+  /-- ONE level assignment, at that container's own level parameters -/
+  psi : ∀ (cvT : ConstantVal) (caps : IndCaps),
+    env.find? (D.pinAt q).J = some (.indInfo cvT caps) →
+    ∀ p ∈ cvT.levelParams, dR.psiT ψR c p = (D.pinAt q).ψJ ψ p
+  /-- ONE frame, at that container's parameters -/
+  frame : ∀ v, v < (D.pinAt q).nPJ → dR.frameT c ψR ρR v = D.pinFrame q ψ ρp v
+  /-- ONE index set: the fibres are compared at the same tuples -/
+  idx : dR.idxT ψR ρR c = D.pinIdx q ψ ρp
+
+/-- **A container instance is covered by its ROOT's classes** (task
+#315 L-E, DESIGN §U.58): every pin of the instance — K.37's
+`nestedPinInstOf` reads the partition — is `ClassPin`-related to a
+class of the root's container.  The root is a mint GROUP, not a pin:
+K.40's measurement over 152 container instances found the group the
+unit (152/152 with one entry group per instance; 151/152 with a single
+pin, `nested_p05`'s `P5Ev`/`P5Od` being a mutual group of size two
+minted together, with one parent and two parent-minimal pins), and the
+entry condition is that the group's parent lies OUTSIDE the instance,
+not that it is absent.
+
+This is the ONE thing the container instance transfer cannot derive
+from the models (DESIGN §U.55 (c)): the root container's own
+declaration minted the instance's other containers as ITS pins, which
+is a fact about that elimination.  K.40's mint parent carries it; the
+covering is the parent chain. -/
+@[expose] def InstanceCovered (env : Env) (D dR : BlockModel V) (ψ ψR : Name → Nat)
+    (ρp ρR : Nat → V) (inst : Nat → Nat) (r : Nat) : Prop :=
+  ∀ q, q < D.nPins → inst q = inst r → ∃ c, ClassPin env D dR ψ ψR ρp ρR c q
 
 /-! ## The pins' laws and shapes of a stored block -/
 
@@ -166,7 +270,7 @@ the carrier `acval`. -/
   DsE := fun t => (d.pinAt (t - d.k)).DsE
   EA := targetRead acval d.memberNames d.pins d.nP d.k ψ
   J := fun t => if t < d.k then d.memberName t else (d.pinAt (t - d.k)).J
-  lvls := fun t => (d.pinAt (t - d.k)).lvls
+  lvls := fun t => if t < d.k then [] else (d.pinAt (t - d.k)).lvls
 
 /-- **A pin group of a stored block, viewed** (task #315 L-E; the
 run's `NestedPinGroupSyn` made abstract): the pins `[q₀, q₀ + kJ)` of
@@ -198,6 +302,54 @@ structure PinGroupView (d dJ : BlockModel V) (q₀ kJ : Nat) : Prop where
     SpineFit (consList as ρ) (dJ.params ((d.pinAt q₀).ψJ ψ))
       (((d.pinAt q₀).Ds ψ).map (interp V (consList as ρ)))
 
+/-- **A pin group's own members are their own partners** (task #315
+L-E, DESIGN §U.65 — `InstanceCovered`'s first case, §U.55 (b)'s Base):
+at the ROOT group `[r, r + kR)` of a container instance, read at the
+root pin's level assignment and frame, the container's MEMBER class `i`
+and the block's pin `r + i` are `ClassPin`-related, and every clause is
+a field of the group's view: the container by `name`, the level
+assignment and the components by `same`, and the index set by `pinU`
+with the pin's index telescope being its container member's
+(`pinPps`/`pinNP`).
+
+**No record is needed for this case** — it is the covering's base, and
+K.41's pairing is for the instance's OTHER groups. -/
+theorem classPin_of_rootMember {env : Env} {D dR : BlockModel V} {r kR : Nat}
+    (S : PinGroupView D dR r kR) {ψ : Name → Nat} {ρp : Nat → V} {i : Nat} (hi : i < kR) :
+    ClassPin env D dR ψ ((D.pinAt r).ψJ ψ) ρp (D.pinFrame r ψ ρp) i (r + i) where
+  cLt := by
+    show i < dR.k + dR.nPins
+    rw [S.kEq]
+    omega
+  qLt := by have := S.seg; omega
+  name := by
+    rw [dR.nameT_of_mem (by rw [S.kEq]; exact hi)]
+    exact (S.name i hi).symm
+  psi := by
+    intro cvT caps _ q _
+    rw [dR.psiT_of_mem ((D.pinAt r).ψJ ψ) (show i < dR.k by rw [S.kEq]; exact hi),
+      (S.same i hi ψ).1]
+  frame := by
+    intro v _
+    show (if i < dR.k then D.pinFrame r ψ ρp else _) v = _
+    rw [if_pos (by rw [S.kEq]; exact hi)]
+    unfold BlockModel.pinFrame
+    rw [(S.same i hi ψ).2]
+  idx := by
+    show (if i < dR.k then dR.idx ((D.pinAt r).ψJ ψ) (D.pinFrame r ψ ρp) i else _) = _
+    rw [if_pos (by rw [S.kEq]; exact hi)]
+    show idxSet (dR.uM i ((D.pinAt r).ψJ ψ)) (D.pinFrame r ψ ρp)
+        (dR.IdsM i ((D.pinAt r).ψJ ψ))
+      = idxSet ((D.pinAt (r + i)).u ψ) (D.pinFrame (r + i) ψ ρp) ((D.pinAt (r + i)).Ids ψ)
+    have hIds : (D.pinAt (r + i)).Ids ψ = dR.IdsM i ((D.pinAt (r + i)).ψJ ψ) := by
+      unfold PinSyn.Ids
+      rw [S.pinPps i hi, S.pinNP i hi]
+      rfl
+    have hfr : D.pinFrame (r + i) ψ ρp = D.pinFrame r ψ ρp := by
+      unfold BlockModel.pinFrame
+      rw [(S.same i hi ψ).2]
+    rw [hIds, hfr, (S.same i hi ψ).1, S.pinU i hi ψ]
+
 /-- **The pins' shapes of a stored block** against a global assignment
 `B` of block models to container groups (task #315 L-E, DESIGN §U.36):
 every pin `q` of `d` sits in a group `(q₀, kJ)` whose container is
@@ -219,7 +371,7 @@ composes (`nestedPinLeaf_all`). -/
       ∀ (cvT : ConstantVal) (caps : IndCaps),
         env.find? (d.pinAt (q₀ + i')).J = some (.indInfo cvT caps) →
       CopyCtorShape (d.targetView m.acval ψ) m.acval (B ci) ((d.pinAt q₀).ψJ ψ) ((d.pinAt q₀).Ds ψ)
-        (d.pinAt q₀).DsE cvT.levelParams (d.pinAt q₀).lvls (fun l => (pc (q₀ + i')).tgts j l)
+        cvT.levelParams (d.pinAt q₀).lvls (fun l => (pc (q₀ + i')).tgts j l)
         (((pc (q₀ + i')).tlss ψ).getD j [])
         (((pc (q₀ + i')).Eiss ψ).getD j []) ρp i' j (d.k + q₀) kJ
         (((pc (q₀ + i')).Fss ψ).getD j []) ((pc (q₀ + i')).rss.getD j [])

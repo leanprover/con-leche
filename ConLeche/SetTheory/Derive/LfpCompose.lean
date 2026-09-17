@@ -976,6 +976,18 @@ theorem relMeet_mem {w : Nat} {Is X : Nat → V} {R : Nat → Nat → Prop} {k' 
     (hX : X a ∈ˢ famSpace w (Is a)) : relMeet Is X R k' Y a ∈ˢ famSpace w (Is a) :=
   graph_mem_famSpace fun _ ht => univ_sep_mem (famSpace_app hX ht)
 
+/-- The relational meet lies under the base at EVERY point — off the
+index set it is empty (task #315 L-E: `ChainFitT_mono` compares the
+tuples at every point, not only inside the index sets). -/
+theorem app_relMeet_subset (Is X : Nat → V) (R : Nat → Nat → Prop) (k' : Nat) (Y : Nat → V)
+    (a : Nat) (t : V) : app (relMeet Is X R k' Y a) t ⊆ˢ app (X a) t := by
+  by_cases ht : t ∈ˢ Is a
+  · rw [app_relMeet ht]
+    exact sep_subset
+  · unfold relMeet
+    rw [app_graph_of_not_mem ht]
+    exact fun x hx => absurd hx (not_mem_empty x)
+
 theorem relMeet_le_base (Is X : Nat → V) (R : Nat → Nat → Prop) (k' : Nat) (Y : Nat → V) (a : Nat) :
     FamLe (Is a) (relMeet Is X R k' Y a) (X a) := by
   intro t ht

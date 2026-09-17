@@ -163,7 +163,7 @@ noncomputable def EnvModelB.empty (V : Type w) [SetTheory V] (μ : CheckMode) :
 
 /-- **An ORDINARY field of a mutual constructor mentions no member, at
 the OPENED domain, off the run** (task #315 M7-3 session 9, DESIGN
-§U.61 (a)).  The Prop is `ConLeche.MutualOrdFree`
+§U.66 (a)).  The Prop is `ConLeche.MutualOrdFree`
 (`Verify/Inductives/MutualInv.lean`) at this block's member names and
 parameter count.
 
@@ -280,6 +280,7 @@ theorem mutualContainerModeled {env envR : Env} {m : EnvModel V envR}
     hrepsAt.toIsBlockModels
     (fun ψ => ⟨(htyped ψ).1, (htyped ψ).2, PinsTyped.of_noPins hd.pins ψ⟩)
     htf.inj (fun i hi ψ ρ => (htf.frame i hi ψ ρ).symm) (fun i j l x hi hj hx hk => ?_)
+    (fun _ _ _ q _ _ _ hq _ _ => absurd hq (by rw [hnoPins]; omega))
     (fun q hq => absurd hq (by rw [hnoPins]; omega))
     (fun q hq => absurd hq (by rw [hnoPins]; omega))
     (fun q hq => absurd hq (by rw [hnoPins]; omega)) (fun i hi => ?_)
@@ -864,6 +865,7 @@ theorem nativeContainerModeled {envO : Env} {m : EnvModel V envO} {mC : EnvModel
   refine ContainerModeled.of_readBack rfl rfl rfl (fun i hi => ?_) (fun i hi => ?_)
     (fun c hc => ?_) (fun ψ => ⟨(htyped ψ).1, (htyped ψ).2, PinsTyped.of_noPins rfl ψ⟩)
     (fun _ _ _ _ => rfl) (fun _ _ _ _ => Iff.rfl) (fun i j l x hi hj hx hk => ?_)
+    (fun _ _ _ q _ _ _ hq _ _ => absurd hq (Nat.not_lt_zero q))
     (fun q hq => absurd hq (Nat.not_lt_zero q)) (fun q hq => absurd hq (Nat.not_lt_zero q))
     (fun q hq => absurd hq (Nat.not_lt_zero q)) (fun i hi => ?_)
   · obtain rfl : i = 0 := Nat.lt_one_iff.mp hi
@@ -1040,7 +1042,7 @@ every OLD container's block crosses the whole install
 (`EnvBlocksOf.crossIndP` at `mutualInstallExt`).
 
 **No hypothesis beyond the run** (task #315 M7-3 session 9, DESIGN
-§U.61 (a)): `MutualOrdFree` is `mutualOrdFree_of_run`, off the run's own
+§U.66 (a)): `MutualOrdFree` is `mutualOrdFree_of_run`, off the run's own
 `mutualFieldsOk` conjunct and the members' freshness, so the mutual
 route now matches `declNativeB`.  `declMutual`'s statement is untouched. -/
 theorem declMutualB (hμ : μ.verifiedChecks = true) {F : Nat} {env envOut : Env}

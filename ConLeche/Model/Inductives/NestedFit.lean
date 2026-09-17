@@ -251,6 +251,74 @@ theorem fitsFrom_imp_frames_spine {rs rs' : List Bool} {slot slot' : Nat → (Na
     simpa only [consList_cons, List.getD_cons_succ, show i + (l + 1) = i + 1 + l from by omega]
       using this
 
+/-- **`FitsFrom` implication across two frames THROUGH a third chain**
+(task #315 L-E, DESIGN §U.64): the container instance transfer compares
+the ROOT's copy of a constructor with the BLOCK's copy of it, and the
+two copies' entry sets are related not to each other directly but each
+to the CONTAINER's own field domains — the chain `G`, read at a frame
+`ρV`, which both `CopyCtorShape`s describe (`ctor_params` makes it ONE
+list).  So the per-field obligation is a pair of inclusions: the first
+copy's entry sits inside the container's real domain — which is what
+carries the container's fitting prefix along the recursion, and what
+the entries and the slot laws are stated at — and inside the second
+copy's entry.
+
+This is the shape `fitsFrom_imp_frames_spine` cannot take: there the
+carried spine is the FIRST chain's own, so a copy-to-copy transfer
+would need the copy's slots inside the COPY's domains, a fact about the
+auxiliary block rather than about the container. -/
+theorem fitsFrom_imp_frames_via {rs₁ rs₂ : List Bool} {slot₁ slot₂ : Nat → (Nat → V) → V} :
+    ∀ (G : List AnnotTerm) {i : Nat} {ρ₁ ρ₂ ρV : Nat → V} {Fs₁ Fs₂ : List AnnotTerm}
+      {fs : List V},
+      Fs₁.length = G.length → Fs₂.length = G.length →
+      (∀ l, l < G.length → ∀ fs₁ : List V, fs₁.length = l →
+        SpineFit ρV (G.take l) fs₁ →
+        (if rs₁.getD (i + l) false then slot₁ (i + l) (consList fs₁ ρ₁)
+            else interp V (consList fs₁ ρ₁) (Fs₁.getD l default))
+          ⊆ˢ interp V (consList fs₁ ρV) (G.getD l default) ∧
+        (if rs₁.getD (i + l) false then slot₁ (i + l) (consList fs₁ ρ₁)
+            else interp V (consList fs₁ ρ₁) (Fs₁.getD l default))
+          ⊆ˢ (if rs₂.getD (i + l) false then slot₂ (i + l) (consList fs₁ ρ₂)
+            else interp V (consList fs₁ ρ₂) (Fs₂.getD l default))) →
+      FitsFrom rs₁ slot₁ i ρ₁ Fs₁ fs → FitsFrom rs₂ slot₂ i ρ₂ Fs₂ fs := by
+  intro G
+  induction G with
+  | nil =>
+    intro i ρ₁ ρ₂ ρV Fs₁ Fs₂ fs h1 h2 _ h
+    cases Fs₂ with
+    | cons F₂ Fs₂ => simp at h2
+    | nil =>
+      cases Fs₁ with
+      | cons F₁ Fs₁ => simp at h1
+      | nil =>
+        cases fs with
+        | nil => trivial
+        | cons a fs => exact h.elim
+  | cons Gh G ih =>
+    intro i ρ₁ ρ₂ ρV Fs₁ Fs₂ fs h1 h2 hent h
+    cases Fs₁ with
+    | nil => simp at h1
+    | cons F₁ Fs₁ =>
+      cases Fs₂ with
+      | nil => simp at h2
+      | cons F₂ Fs₂ =>
+        cases fs with
+        | nil => exact h.elim
+        | cons a fs =>
+          obtain ⟨ha, hf⟩ : a ∈ˢ (if rs₁.getD i false then slot₁ i ρ₁ else interp V ρ₁ F₁) ∧
+              FitsFrom rs₁ slot₁ (i + 1) (cons a ρ₁) Fs₁ fs := h
+          have h0 := hent 0 (by simp) [] rfl trivial
+          simp only [Nat.add_zero, consList_nil, List.getD_cons_zero] at h0
+          refine ⟨h0.2 a ha, ?_⟩
+          refine ih (i := i + 1) (ρ₁ := cons a ρ₁) (ρ₂ := cons a ρ₂) (ρV := cons a ρV)
+            (by simpa using h1) (by simpa using h2) (fun l hl fs₁ hl₁ hsp => ?_) hf
+          have := hent (l + 1) (by simp; omega) (a :: fs₁) (by simp [hl₁])
+            (by
+              show a ∈ˢ interp V ρV Gh ∧ SpineFit (cons a ρV) (G.take l) fs₁
+              exact ⟨h0.1 a ha, hsp⟩)
+          simpa only [consList_cons, List.getD_cons_succ,
+            show i + (l + 1) = i + 1 + l from by omega] using this
+
 /-! ## The slot and the index set under instantiation -/
 
 /-- `tupW` reads its universe only through `= 0`. -/
@@ -321,17 +389,24 @@ structure TargetView (V : Type w) where
   Ids : Nat → List AnnotTerm
   /-- a pin target's components at the block's parameter depth -/
   Ds : Nat → List AnnotTerm
-  /-- a pin target's components as EXPRESSIONS (task #315 L-E, DESIGN
-  §U.48 (i): a container field that is a bare PARAMETER takes its head
-  — the target's container — from the pin's component, which the
-  components' READINGS do not carry) -/
+  /-- a pin target's components as EXPRESSIONS.  **Read by nothing in
+  the shape** since DESIGN §U.61: §U.48 (i) had the target's container
+  taken from the pin's component's head, and lane L-B refuted that at
+  an accepted block (`tests/e2e/nested_lam_pin_prop.ndjson`, whose
+  component is a λ-redex the positivity `whnf` reduces); a target's
+  identity is now read off the target's POSITION in the pin table
+  (`PinCorr`, `targetPin_corr`).  The field stays so that the views'
+  data are the pin table's. -/
   DsE : Nat → List Expr
   /-- a target's stored reading at the block's parameter depth -/
   EA : Nat → AnnotTerm
   /-- a target's NAME: the member's, a pin's container's (task #315 L-E,
   step (iii): the correspondence of pins is structural) -/
   J : Nat → Name
-  /-- a pin target's level arguments -/
+  /-- a pin target's level arguments (read at PIN targets only: a
+  member target has none, and both views give `[]` there — DESIGN
+  §U.61, where reading pin `0`'s arguments at a member was a latent
+  trap) -/
   lvls : Nat → List Level
 
 namespace TargetView
@@ -394,7 +469,14 @@ the container's pin's instantiated at the outer pin's (`lpsJ`, the
 container's level parameters, `:= lvlsJ`, the outer pin's level
 arguments): what the entry theorem's step (iii) transfers a spine
 through (DESIGN §U.39 — the readings alone do not determine the
-constructors' readings at the target). -/
+constructors' readings at the target).
+
+These six clauses are exactly the TARGET's recorded pin data, which is
+where a target's identity is read since DESIGN §U.61.  The seventh —
+the components as `Expr`s — is gone: a stored container's record gives
+its pins' components SEMANTICALLY (`BlockOpened.nestF` records the
+head and the count), so the clause had no source, and nothing reads it
+now that `targetPin_corr` replaces the refuted `targetHead_corr`. -/
 @[expose] def PinCorr (t qK : Nat) : Prop :=
   TV.EA t = AnnotTerm.mkAppN (acval (dJ.pinAt qK).J ((dJ.pinAt qK).ψJ ψJ))
       (((dJ.pinAt qK).Ds ψJ).map (AnnotTerm.instAll Ds 0)) ∧
@@ -402,38 +484,7 @@ constructors' readings at the target). -/
   TV.u t = (dJ.pinAt qK).u ψJ ∧
   TV.Ids t = (dJ.pinAt qK).Ids ψJ ∧
   TV.J t = (dJ.pinAt qK).J ∧
-  TV.lvls t = ((dJ.pinAt qK).lvls).map (Level.subst lpsJ lvlsJ) ∧
-  ∃ off : Nat, TV.DsE t = ((dJ.pinAt qK).DsE).map
-    (fun e => Expr.instSeq DsE off (Expr.instantiateLevelParams lpsJ lvlsJ e))
-
-/-- **The target's CONTAINER, read off the CONTAINER'S OWN field**
-(task #315 L-E, DESIGN §U.48 (i)): the copy's field `l` is the
-container `dJ`'s field `l` with the pin's components substituted, so
-the block target it acquired is headed either by the constant that
-heads the container's field (its level arguments substituted at the
-pin's, `lvlsJ` for the container's level parameters `lpsJ`) or — when
-the container's field is a bare PARAMETER, `Box α` at `α := List P` —
-by the head of the pin's COMPONENT at that parameter's position
-(`DsE`, the components as expressions: the readings do not carry a
-head).  A parameter's opened variable carries its POSITION as its
-index (`BlockCtorData.pIdx`), so the datum is a function of the
-container's field — which is what the entry theorem's container
-instance transfer needs: the container's own copy of a pin's
-constructor and the BLOCK's copy of the same constructor read the same
-field, hence name the same container at their targets
-(`targetHead_corr`).  The level arguments of the head are over the
-container's level parameters (`allParamsDefined`, so that the two
-targets' level assignments agree on the target container's own
-parameters — `targetHead_corr`). -/
-@[expose] def TargetHead (i j l : Nat) (nm : Name) (us : List Level) : Prop :=
-  ∃ (x : Expr) (Tl : List (Expr × ConLeche.BinderMeta)) (bodyE : Expr),
-    (dJ.xFvsF i j)[l]? = some x ∧
-    x.fvarTypeD.stripPis (x.fvarTypeD.piBinders).1.length = some (Tl, bodyE) ∧
-    ((∃ vs : List Level, bodyE.getAppFn = .const nm vs ∧
-        us = vs.map (Level.subst lpsJ lvlsJ) ∧
-        ∀ v ∈ vs, v.allParamsDefined lpsJ = true) ∨
-      (∃ (p : Nat) (ty : Expr), bodyE.getAppFn = .fvar p ty ∧ p < DsE.length ∧
-        (DsE.getD p default).getAppFn = .const nm us))
+  TV.lvls t = ((dJ.pinAt qK).lvls).map (Level.subst lpsJ lvlsJ)
 
 variable (tg : Nat → Nat) (tls : List (List (Nat × Nat × AnnotTerm))) (Eis : List (List AnnotTerm))
   (ρp : Nat → V) (i j : Nat)
@@ -455,9 +506,18 @@ readings fit the target's index telescope at the target's frame.  The
 facts turn the reading into the copy's SLOT at any tuple whose target
 families read as the stored readings (`copyEntryAt_of_read`) — the
 entry at the auxiliary carrier is then a theorem of the WHOLE block,
-not a per-group obligation. -/
+not a per-group obligation.
+
+Since DESIGN §U.61 the arm carries the reading and NOTHING about the
+target's head: the `TargetHead` conjunct — the target's container read
+off the container's own field — is refuted at an accepted block (lane
+L-B; `tests/e2e/nested_lam_pin_prop.ndjson`), and an `ordF`-right
+field's target has no recorded pin on the CONTAINER's side to be keyed
+to, so the arm relates the two sides' targets no longer.  Each side's
+entry is its own reading law, which is all the transfer's fit needs;
+what the WALK loses is the correspondence at such a field (DESIGN
+§U.61 (c)). -/
 @[expose] def EntryRead (l : Nat) : Prop :=
-  TargetHead dJ DsE lpsJ lvlsJ i j l (TV.J (tg l)) (TV.lvls (tg l)) ∧
   ∃ (tlsJ : List (Nat × Nat × AnnotTerm)) (body : AnnotTerm),
     ((dJ.Fss i ψJ).getD j []).getD l default = mkPisAV tlsJ body ∧
     (tls.getD l []).map (·.2.2) = instTele Ds l (tlsJ.map (·.2.2)) ∧
@@ -537,11 +597,12 @@ structure CopyCtorShape : Prop where
     ((dJ.rss i).getD j []).getD l false = false →
     (rs.getD l false = false ∧
       ∀ fs₁ : List V, fs₁.length = l →
+        SpineFit (consList (Ds.map (interp V ρp)) ρp) (((dJ.Fss i ψJ).getD j []).take l) fs₁ →
         interp V (consList fs₁ ρp) (Fs.getD l default)
           = interp V (consList fs₁ ρp)
               (AnnotTerm.instAll Ds l (((dJ.Fss i ψJ).getD j []).getD l default))) ∨
     (rs.getD l false = true ∧ ¬ (base ≤ tg l ∧ tg l < base + kJ) ∧ tg l < TV.k + TV.n ∧
-      EntryRead TV dJ ψJ Ds DsE lpsJ lvlsJ tg tls Eis ρp i j l)
+      EntryRead TV dJ ψJ Ds tg tls Eis ρp i j l)
   /-- a container-recursive field at one of the container's OWN pins:
   copy-recursive at the block's corresponding pin, outside the group,
   telescope and index expressions instantiated -/
@@ -549,7 +610,7 @@ structure CopyCtorShape : Prop where
     ((dJ.rss i).getD j []).getD l false = true → ¬ dJ.tgts i j l < dJ.k →
     rs.getD l false = true ∧ ¬ (base ≤ tg l ∧ tg l < base + kJ) ∧
     TV.k ≤ tg l ∧ tg l < TV.k + TV.n ∧
-    PinCorr TV acval dJ ψJ Ds DsE lpsJ lvlsJ (tg l) (dJ.tgts i j l - dJ.k) ∧
+    PinCorr TV acval dJ ψJ Ds lpsJ lvlsJ (tg l) (dJ.tgts i j l - dJ.k) ∧
     (tls.getD l []).map (·.2.2) = instTele Ds l ((((dJ.tlss i ψJ).getD j []).getD l []).map (·.2.2)) ∧
     Eis.getD l [] = (((dJ.Eiss i ψJ).getD j []).getD l []).map
       (AnnotTerm.instAll Ds (l + (((dJ.tlss i ψJ).getD j []).getD l []).length))
@@ -562,76 +623,113 @@ end Shape
 
 /-! ## The two copies of ONE container field name ONE target container -/
 
+/-- **A copy's recursive slot at a container-RECURSIVE field is the
+container's own slot at the pin's frame** (task #315 L-E, DESIGN
+§U.64): `recF` and `pinF` instantiate the telescope and the index
+expressions by the same two clauses, so ONE reading serves both arms —
+`slotSet_instTele` moves the components out of the frame and into the
+base.  What the container instance transfer compares on the two sides. -/
+theorem CopyCtorShape.slot_container {TV : TargetView V}
+    {acval : Name → (Name → Nat) → AnnotTerm} {dJ : BlockModel V}
+    {ψJ : Name → Nat} {Ds : List AnnotTerm} {lpsJ : List Name} {lvlsJ : List Level}
+    {tg : Nat → Nat} {tls : List (List (Nat × Nat × AnnotTerm))} {Eis : List (List AnnotTerm)}
+    {ρp : Nat → V} {i j base kJ : Nat} {Fs : List AnnotTerm} {rs : List Bool}
+    {Es : List AnnotTerm}
+    (h : CopyCtorShape TV acval dJ ψJ Ds lpsJ lvlsJ tg tls Eis ρp i j base kJ Fs rs Es)
+    {l : Nat} (hl : l < ((dJ.Fss i ψJ).getD j []).length)
+    (hr : ((dJ.rss i).getD j []).getD l false = true)
+    (fs₁ : List V) (hl₁ : fs₁.length = l) (X : V) :
+    slotSet TV.w (TV.u (tg l)) (consList fs₁ ρp) (tls.getD l []) (Eis.getD l []) X
+      = slotSet TV.w (TV.u (tg l)) (consList fs₁ (consList (Ds.map (interp V ρp)) ρp))
+          (((dJ.tlss i ψJ).getD j []).getD l []) (((dJ.Eiss i ψJ).getD j []).getD l []) X := by
+  subst hl₁
+  have hdata : (tls.getD fs₁.length []).map (·.2.2)
+        = instTele Ds fs₁.length
+            ((((dJ.tlss i ψJ).getD j []).getD fs₁.length []).map (·.2.2)) ∧
+      Eis.getD fs₁.length []
+        = ((((dJ.Eiss i ψJ).getD j []).getD fs₁.length []).map
+            (AnnotTerm.instAll Ds
+              (fs₁.length + (((dJ.tlss i ψJ).getD j []).getD fs₁.length []).length))) := by
+    by_cases hnt : dJ.tgts i j fs₁.length < dJ.k
+    · obtain ⟨-, -, ha, hb⟩ := h.recF _ hl hr hnt
+      exact ⟨ha, hb⟩
+    · obtain ⟨-, -, -, -, -, ha, hb⟩ := h.pinF _ hl hr hnt
+      exact ⟨ha, hb⟩
+  rw [hdata.2]
+  exact slotSet_instTele Iff.rfl Iff.rfl Ds ρp fs₁ hdata.1 _ X
+
+/-- **The two copies' targets have ONE index universe at a
+container-recursive field** (task #315 L-E, DESIGN §U.64): a member
+target through `recF`'s position and `hu`, a container's own pin
+through `PinCorr`'s `u` clause — in both cases the container's own
+datum `dJ.uT (dJ.tgts i j l)` at the two level assignments. -/
+theorem copyTarget_u {TV₁ TV₂ : TargetView V} {acval : Name → (Name → Nat) → AnnotTerm}
+    {dJ : BlockModel V} {ψ₁ ψ₂ : Name → Nat} {Ds₁ Ds₂ : List AnnotTerm} {lpsJ : List Name}
+    {lvls₁ lvls₂ : List Level} {tg₁ tg₂ : Nat → Nat}
+    {tls₁ tls₂ : List (List (Nat × Nat × AnnotTerm))} {Eis₁ Eis₂ : List (List AnnotTerm)}
+    {ρ₁ ρ₂ : Nat → V} {i j base₁ base₂ kJ : Nat} {Fs₁ Fs₂ : List AnnotTerm}
+    {rs₁ rs₂ : List Bool} {Es₁ Es₂ : List AnnotTerm}
+    (h₁ : CopyCtorShape TV₁ acval dJ ψ₁ Ds₁ lpsJ lvls₁ tg₁ tls₁ Eis₁ ρ₁ i j base₁ kJ Fs₁ rs₁ Es₁)
+    (h₂ : CopyCtorShape TV₂ acval dJ ψ₂ Ds₂ lpsJ lvls₂ tg₂ tls₂ Eis₂ ρ₂ i j base₂ kJ Fs₂ rs₂ Es₂)
+    (hkJ : dJ.k = kJ)
+    (hu₁ : ∀ i', i' < kJ → TV₁.u (base₁ + i') = dJ.uM i' ψ₁)
+    (hu₂ : ∀ i', i' < kJ → TV₂.u (base₂ + i') = dJ.uM i' ψ₂)
+    {l : Nat} (hl₁ : l < ((dJ.Fss i ψ₁).getD j []).length)
+    (hl₂ : l < ((dJ.Fss i ψ₂).getD j []).length)
+    (hr : ((dJ.rss i).getD j []).getD l false = true)
+    (hu : dJ.uT (dJ.tgts i j l) ψ₁ = dJ.uT (dJ.tgts i j l) ψ₂) :
+    TV₁.u (tg₁ l) = TV₂.u (tg₂ l) := by
+  by_cases hnt : dJ.tgts i j l < dJ.k
+  · obtain ⟨-, htg₁, -, -⟩ := h₁.recF l hl₁ hr hnt
+    obtain ⟨-, htg₂, -, -⟩ := h₂.recF l hl₂ hr hnt
+    rw [BlockModel.uT_of_mem hnt ψ₁, BlockModel.uT_of_mem hnt ψ₂] at hu
+    rw [htg₁, htg₂, hu₁ _ (hkJ ▸ hnt), hu₂ _ (hkJ ▸ hnt)]
+    exact hu
+  · obtain ⟨-, -, -, -, ⟨-, -, hv₁, -, -, -⟩, -, -⟩ := h₁.pinF l hl₁ hr hnt
+    obtain ⟨-, -, -, -, ⟨-, -, hv₂, -, -, -⟩, -, -⟩ := h₂.pinF l hl₂ hr hnt
+    rw [BlockModel.uT_of_pin hnt ψ₁, BlockModel.uT_of_pin hnt ψ₂] at hu
+    rw [hv₁, hv₂]
+    exact hu
+
 omit [SetTheory V] in
-/-- **The container instance transfer's head correspondence** (task
-#315 L-E, DESIGN §U.51): a container's own copy of one of its pins'
+/-- **The container instance transfer's PIN correspondence, off the
+recorded pin TABLES** (task #315 L-E, DESIGN §U.61; replaces the
+refuted `targetHead_corr`): a container's own copy of one of its pins'
 constructors and the BLOCK's copy of the image pin are copies of the
-SAME field of the SAME container `dJ`, at components related by the
-outer instantiation (`hDsE`) and at level arguments related by the
-outer substitution (`h₂`'s third argument).  Then the two targets name
-the same CONTAINER, and their level arguments are one assignment at
-that container's own level parameters — which identifies the two
-targets' index universes (`PinGroupView.pinU`) and so their fibres,
-the comparison the relational meet makes. -/
-theorem targetHead_corr {dJ : BlockModel V} {DsE₁ DsE₂ DsO : List Expr}
-    {lpsK lpsJ : List Name} {lvlsK lvlsJ : List Level} {i j l off : Nat}
-    {nm₁ nm₂ : Name} {us₁ us₂ : List Level}
-    (h₁ : TargetHead dJ DsE₁ lpsK lvlsK i j l nm₁ us₁)
-    (h₂ : TargetHead dJ DsE₂ lpsK (lvlsK.map (Level.subst lpsJ lvlsJ)) i j l nm₂ us₂)
+same container-recursive field of the same container `dJ`, so
+`CopyCtorShape.pinF` gives a `PinCorr` on each side at the SAME own pin
+`qK` of `dJ`.  Then the two targets' RECORDED containers are one —
+`dJ.pinAt qK`'s — and their recorded level arguments are that pin's,
+substituted at each side's outer level arguments, which identifies the
+two targets' index universes (`PinCorr`'s `u`) and so their fibres.
+
+Nothing is read off the container's FIELD: the identity is the
+target's position in the two pin tables.  The premise `hpd` is the
+syntactic scope of a recorded pin's level arguments — they mention only
+the container's own level parameters — which is what makes the two
+substitutions compose. -/
+theorem targetPin_corr {TV₁ TV₂ : TargetView V} {acval : Name → (Name → Nat) → AnnotTerm}
+    {dJ : BlockModel V} {ψ₁ ψ₂ : Name → Nat} {Ds₁ Ds₂ : List AnnotTerm}
+    {lpsK lpsJ : List Name} {lvlsK lvlsJ : List Level}
+    {t₁ t₂ qK : Nat}
+    (h₁ : PinCorr TV₁ acval dJ ψ₁ Ds₁ lpsK lvlsK t₁ qK)
+    (h₂ : PinCorr TV₂ acval dJ ψ₂ Ds₂ lpsK (lvlsK.map (Level.subst lpsJ lvlsJ)) t₂ qK)
     (hlenK : lvlsK.length = lpsK.length)
-    (hDsE : DsE₂ = DsE₁.map fun e =>
-      Expr.instSeq DsO off (Expr.instantiateLevelParams lpsJ lvlsJ e)) :
-    nm₂ = nm₁ ∧
-    ∀ (lpsC : List Name) (φ : Name → Nat), us₁.length = lpsC.length →
-      ∀ p ∈ lpsC, Level.substFn φ lpsC us₂ p
-        = Level.substFn (Level.substFn φ lpsJ lvlsJ) lpsC us₁ p := by
-  obtain ⟨x₁, Tl₁, b₁, hx₁, hs₁, hc₁⟩ := h₁
-  obtain ⟨x₂, Tl₂, b₂, hx₂, hs₂, hc₂⟩ := h₂
-  obtain rfl : x₂ = x₁ := Option.some.inj (hx₂.symm.trans hx₁)
-  have hb : b₂ = b₁ := congrArg Prod.snd (Option.some.inj (hs₂.symm.trans hs₁))
-  rcases hc₁ with ⟨vs₁, hfn₁, hus₁, hpd₁⟩ | ⟨p₁, ty₁, hfn₁, hlt₁, hhd₁⟩
-  · rcases hc₂ with ⟨vs₂, hfn₂, hus₂, -⟩ | ⟨p₂, ty₂, hfn₂, -, -⟩
-    · rw [hb, hfn₁, Expr.const.injEq] at hfn₂
-      refine ⟨hfn₂.1.symm, fun lpsC φ hlen p hp => ?_⟩
-      have hvlen : vs₁.length = lpsC.length := by
-        rw [← hlen, hus₁, List.length_map]
-      have hφ : ∀ q ∈ lpsK, Level.substFn φ lpsK (lvlsK.map (Level.subst lpsJ lvlsJ)) q
-          = Level.substFn (Level.substFn φ lpsJ lvlsJ) lpsK lvlsK q :=
-        fun q hq => Level.substFn_map_subst hlenK hq
-      have he₂ : us₂ = vs₁.map (Level.subst lpsK (lvlsK.map (Level.subst lpsJ lvlsJ))) := by
-        rw [hus₂, ← hfn₂.2]
-      rw [he₂, hus₁, Level.substFn_map_subst hvlen hp, Level.substFn_map_subst hvlen hp]
-      exact Level.substFn_ext hφ hpd₁ hvlen p hp
-    · rw [hb, hfn₁] at hfn₂
-      exact nomatch hfn₂
-  · rcases hc₂ with ⟨vs₂, hfn₂, -, -⟩ | ⟨p₂, ty₂, hfn₂, -, hhd₂⟩
-    · rw [hb, hfn₁] at hfn₂
-      exact nomatch hfn₂
-    · rw [hb, hfn₁, Expr.fvar.injEq] at hfn₂
-      rw [← hfn₂.1] at hhd₂
-      -- the image component is the component instantiated: the head stays
-      have hget : DsE₂.getD p₁ default
-          = Expr.instSeq DsO off
-              (Expr.instantiateLevelParams lpsJ lvlsJ (DsE₁.getD p₁ default)) := by
-        rw [hDsE, List.getD_eq_getElem?_getD, List.getElem?_map, List.getD_eq_getElem?_getD,
-          List.getElem?_eq_getElem hlt₁]
-        rfl
-      have hilp : (Expr.instantiateLevelParams lpsJ lvlsJ (DsE₁.getD p₁ default)).getAppFn
-          = .const nm₁ (us₁.map (Level.subst lpsJ lvlsJ)) := by
-        rw [Expr.getAppFn_instantiateLevelParams, hhd₁]
-        rfl
-      have hdec := (Expr.mkAppN_getApp
-        (Expr.instantiateLevelParams lpsJ lvlsJ (DsE₁.getD p₁ default))).symm
-      rw [hilp] at hdec
-      have hhead : (DsE₂.getD p₁ default).getAppFn
-          = .const nm₁ (us₁.map (Level.subst lpsJ lvlsJ)) := by
-        rw [hget, hdec, Expr.instSeq_mkAppN, Expr.instSeq_eq_self _ _ rfl,
-          Expr.getAppFn_mkAppN]
-        rfl
-      rw [hhead, Expr.const.injEq] at hhd₂
-      refine ⟨hhd₂.1.symm, fun lpsC φ hlen p hp => ?_⟩
-      rw [← hhd₂.2]
-      exact Level.substFn_map_subst hlen hp
+    (hpd : ∀ v ∈ (dJ.pinAt qK).lvls, v.allParamsDefined lpsK = true) :
+    TV₂.J t₂ = TV₁.J t₁ ∧
+    ∀ (lpsC : List Name) (φ : Name → Nat), (TV₁.lvls t₁).length = lpsC.length →
+      ∀ p ∈ lpsC, Level.substFn φ lpsC (TV₂.lvls t₂) p
+        = Level.substFn (Level.substFn φ lpsJ lvlsJ) lpsC (TV₁.lvls t₁) p := by
+  obtain ⟨-, -, -, -, hJ₁, hus₁⟩ := h₁
+  obtain ⟨-, -, -, -, hJ₂, hus₂⟩ := h₂
+  refine ⟨hJ₂.trans hJ₁.symm, fun lpsC φ hlen p hp => ?_⟩
+  have hvlen : (dJ.pinAt qK).lvls.length = lpsC.length := by
+    rw [← hlen, hus₁, List.length_map]
+  have hφ : ∀ q ∈ lpsK, Level.substFn φ lpsK (lvlsK.map (Level.subst lpsJ lvlsJ)) q
+      = Level.substFn (Level.substFn φ lpsJ lvlsJ) lpsK lvlsK q :=
+    fun q hq => Level.substFn_map_subst hlenK hq
+  rw [hus₂, hus₁, Level.substFn_map_subst hvlen hp, Level.substFn_map_subst hvlen hp]
+  exact Level.substFn_ext hφ hpd hvlen p hp
 
 /-- **A container's constructor data at two level assignments** that
 agree on the constructor's level parameters is ONE datum (task #315
@@ -639,7 +737,7 @@ L-E, DESIGN §U.51): the field domains, the recursive fields' index
 expressions, the reflexive telescopes and the result's index readings.
 The container instance transfer compares the container's OWN copy of a
 pin's constructor with the BLOCK's copy of the image pin — two copies
-of one constructor at two assignments, which `targetHead_corr` makes
+of one constructor at two assignments, which `targetPin_corr` makes
 agree on that constructor's container's level parameters. -/
 theorem IsBlockModel.ctor_params {env : Env} {m : EnvModel V env} {d : BlockModel V}
     {T : Name} {cvT cvR : ConstantVal} {mI rP : Nat} {rules : List RecRule} {mm : Nat}
@@ -669,16 +767,16 @@ the container's domain read at the pin's frame IS the copy's slot at
 that tuple (`interp_mkPisAV_piTele` over the copy's telescope, the
 reading identity, the lift law and the index fit). -/
 theorem copyEntryAt_of_read {TV : TargetView V} {dJ : BlockModel V} {ψJ : Name → Nat}
-    {Ds : List AnnotTerm} {DsE : List Expr} {lpsJ : List Name} {lvlsJ : List Level}
+    {Ds : List AnnotTerm}
     {tg : Nat → Nat} {tls : List (List (Nat × Nat × AnnotTerm))}
     {Eis : List (List AnnotTerm)} {ρp : Nat → V} {i j l : Nat}
-    (hread : EntryRead TV dJ ψJ Ds DsE lpsJ lvlsJ tg tls Eis ρp i j l) {Z : Nat → V}
+    (hread : EntryRead TV dJ ψJ Ds tg tls Eis ρp i j l) {Z : Nat → V}
     (hZ : ∀ is : List V, SpineFit (TV.frame ρp (tg l)) (TV.Ids (tg l)) is →
       SetTheory.app (Z (tg l)) (tupW (TV.u (tg l)) is)
         = is.foldl SetTheory.app (interp V ρp (TV.EA (tg l)))) :
     CopyEntryAt dJ ψJ Ds tg tls Eis ρp i j TV.w TV.u Z l := by
   intro fs₁ hl₁ hsp
-  obtain ⟨-, tlsJ, body, hF, htl, hbits, hbitsJ, hbody⟩ := hread
+  obtain ⟨tlsJ, body, hF, htl, hbits, hbitsJ, hbody⟩ := hread
   subst hl₁
   rw [hF]
   unfold slotSet
@@ -740,7 +838,7 @@ theorem CopyCtorShape.fit_iff_at {env : Env} {m : EnvModel V env}
     (hρJ : Sat V (dJ.params ψJ).reverse ρJ)
     {nI : Nat} (hnI : nI = (dJ.IdsM i ψJ).length)
     {cA : ConstantVal × Nat} (hj : (dJ.ctorsM i)[j]? = some cA)
-    (h : CopyCtorShape TV acval dJ ψJ Ds DsE lpsJ lvlsJ tg tls Eis ρp i j base kJ Fs rs Es)
+    (h : CopyCtorShape TV acval dJ ψJ Ds lpsJ lvlsJ tg tls Eis ρp i j base kJ Fs rs Es)
     {L : Nat → V} (hent : CopyEntryOut dJ ψJ Ds tg tls Eis ρp i j base kJ Fs rs TV.w TV.u L)
     (t : V) (fs : List V) :
     (FitsFrom rs (fun i' ρ => slotSet TV.w (TV.u (tg i')) ρ (tls.getD i' []) (Eis.getD i' [])
@@ -779,7 +877,7 @@ theorem CopyCtorShape.fit_iff_at {env : Env} {m : EnvModel V env}
       rw [if_neg (by rw [hr']; exact Bool.false_ne_true)]
       refine ⟨Subset.refl _, ?_⟩
       rcases h.ordF _ hl hr' with ⟨hrC, hF⟩ | ⟨hrC, hout, -, -⟩
-      · rw [if_neg (by rw [hrC]; exact Bool.false_ne_true), hF fs₁ rfl, interp_instAll]
+      · rw [if_neg (by rw [hrC]; exact Bool.false_ne_true), hF fs₁ rfl hsp, interp_instAll]
       · rw [if_pos hrC, segJoin_out _ _ hout]
         exact hent _ (h.len ▸ hl) hrC hout fs₁ rfl hsp
   -- the index equations
@@ -811,7 +909,7 @@ theorem CopyCtorShape.fit_imp_T_le_dom {env : Env} {m : EnvModel V env} {pc : Na
       ∀ fs₁ : List V, fs₁.length = l → SpineFit ρJ (((dJ.Fss i ψJ).getD j []).take l) fs₁ →
       dJ.slotAtT pc ψJ T i j l (consList fs₁ ρJ)
         ⊆ˢ interp V (consList fs₁ ρJ) (((dJ.Fss i ψJ).getD j []).getD l default))
-    (h : CopyCtorShape TV acval dJ ψJ Ds DsE lpsJ lvlsJ tg tls Eis ρp i j base kJ Fs rs Es)
+    (h : CopyCtorShape TV acval dJ ψJ Ds lpsJ lvlsJ tg tls Eis ρp i j base kJ Fs rs Es)
     {Z : Nat → V}
     (hrel : ∀ l, l < Fs.length → ((dJ.rss i).getD j []).getD l false = true →
       ∀ t', SetTheory.app (T (dJ.tgts i j l)) t' ⊆ˢ SetTheory.app (Z (tg l)) t')
@@ -864,7 +962,7 @@ theorem CopyCtorShape.fit_imp_T_le_dom {env : Env} {m : EnvModel V env} {pc : Na
       rw [if_neg (by rw [hr']; exact Bool.false_ne_true)]
       refine ⟨Subset.refl _, ?_⟩
       rcases h.ordF _ hl hr' with ⟨hrC, hF⟩ | ⟨hrC, hout, -, -⟩
-      · rw [if_neg (by rw [hrC]; exact Bool.false_ne_true), hF fs₁ rfl, interp_instAll]
+      · rw [if_neg (by rw [hrC]; exact Bool.false_ne_true), hF fs₁ rfl hsp, interp_instAll]
         exact Subset.refl _
       · rw [if_pos hrC]
         exact hentR _ (h.len ▸ hl) hrC hr' hout fs₁ rfl hsp
@@ -895,7 +993,7 @@ theorem CopyCtorShape.fit_imp_T_le {env : Env} {m : EnvModel V env} {pc : Nat �
     {cA : ConstantVal × Nat} (hj : (dJ.ctorsM i)[j]? = some cA)
     (hTs : InTupleSpace (dJ.w ψJ) (dJ.kT) (dJ.idxT ψJ ρJ) T)
     (hTle : TupleLe (dJ.kT) (dJ.idxT ψJ ρJ) T (dJ.famAt ψJ ρJ LJ))
-    (h : CopyCtorShape TV acval dJ ψJ Ds DsE lpsJ lvlsJ tg tls Eis ρp i j base kJ Fs rs Es)
+    (h : CopyCtorShape TV acval dJ ψJ Ds lpsJ lvlsJ tg tls Eis ρp i j base kJ Fs rs Es)
     {Z : Nat → V}
     (hrel : ∀ l, l < Fs.length → ((dJ.rss i).getD j []).getD l false = true →
       ∀ t', SetTheory.app (T (dJ.tgts i j l)) t' ⊆ˢ SetTheory.app (Z (tg l)) t')
@@ -961,7 +1059,7 @@ theorem CopyCtorShape.fit_iff_at_T_dom {env : Env} {m : EnvModel V env} {pc : Na
       ∀ fs₁ : List V, fs₁.length = l → SpineFit ρJ (((dJ.Fss i ψJ).getD j []).take l) fs₁ →
       dJ.slotAtT pc ψJ Y i j l (consList fs₁ ρJ)
         ⊆ˢ interp V (consList fs₁ ρJ) (((dJ.Fss i ψJ).getD j []).getD l default))
-    (h : CopyCtorShape TV acval dJ ψJ Ds DsE lpsJ lvlsJ tg tls Eis ρp i j base kJ Fs rs Es)
+    (h : CopyCtorShape TV acval dJ ψJ Ds lpsJ lvlsJ tg tls Eis ρp i j base kJ Fs rs Es)
     {L : Nat → V} (hent : CopyEntryOut dJ ψJ Ds tg tls Eis ρp i j base kJ Fs rs TV.w TV.u L)
     (hL : ∀ l, l < Fs.length → ((dJ.rss i).getD j []).getD l false = true →
       ¬ dJ.tgts i j l < dJ.k → L (tg l) = Y (dJ.tgts i j l))
@@ -1007,7 +1105,7 @@ theorem CopyCtorShape.fit_iff_at_T_dom {env : Env} {m : EnvModel V env} {pc : Na
       rw [if_neg (by rw [hr']; exact Bool.false_ne_true)]
       refine ⟨Subset.refl _, ?_⟩
       rcases h.ordF _ hl hr' with ⟨hrC, hF⟩ | ⟨hrC, hout, -, -⟩
-      · rw [if_neg (by rw [hrC]; exact Bool.false_ne_true), hF fs₁ rfl, interp_instAll]
+      · rw [if_neg (by rw [hrC]; exact Bool.false_ne_true), hF fs₁ rfl hsp, interp_instAll]
       · rw [if_pos hrC, segJoin_out _ _ hout]
         exact hent _ (h.len ▸ hl) hrC hout fs₁ rfl hsp
   -- the index equations
@@ -1034,7 +1132,7 @@ theorem CopyCtorShape.fit_iff_at_T {env : Env} {m : EnvModel V env} {pc : Nat �
     {cA : ConstantVal × Nat} (hj : (dJ.ctorsM i)[j]? = some cA)
     (hYs : InTupleSpace (dJ.w ψJ) (dJ.kT) (dJ.idxT ψJ ρJ) Y)
     (hYle : TupleLe (dJ.kT) (dJ.idxT ψJ ρJ) Y (dJ.famAt ψJ ρJ LJ))
-    (h : CopyCtorShape TV acval dJ ψJ Ds DsE lpsJ lvlsJ tg tls Eis ρp i j base kJ Fs rs Es)
+    (h : CopyCtorShape TV acval dJ ψJ Ds lpsJ lvlsJ tg tls Eis ρp i j base kJ Fs rs Es)
     {L : Nat → V} (hent : CopyEntryOut dJ ψJ Ds tg tls Eis ρp i j base kJ Fs rs TV.w TV.u L)
     (hL : ∀ l, l < Fs.length → ((dJ.rss i).getD j []).getD l false = true →
       ¬ dJ.tgts i j l < dJ.k → L (tg l) = Y (dJ.tgts i j l))
@@ -1084,7 +1182,7 @@ theorem CopyCtorShape.fit_imp {env : Env} {m : EnvModel V env} {Y : Nat → V}
     (hYs : InTupleSpace TV.w dJ.k (dJ.idx ψJ ρJ) Y)
     (hY : TupleLe dJ.k (dJ.idx ψJ ρJ) Y LJ)
     {cA : ConstantVal × Nat} (hj : (dJ.ctorsM i)[j]? = some cA)
-    (h : CopyCtorShape TV acval dJ ψJ Ds DsE lpsJ lvlsJ tg tls Eis ρp i j base kJ Fs rs Es)
+    (h : CopyCtorShape TV acval dJ ψJ Ds lpsJ lvlsJ tg tls Eis ρp i j base kJ Fs rs Es)
     {L : Nat → V} (hent : CopyEntryOut dJ ψJ Ds tg tls Eis ρp i j base kJ Fs rs TV.w TV.u L)
     (t : V) (fs : List V) (hC : dJ.ChainFit ψJ ρJ Y t i j fs) :
     FitsFrom rs (fun i' ρ => slotSet TV.w (TV.u (tg i')) ρ (tls.getD i' []) (Eis.getD i' [])
@@ -1125,7 +1223,7 @@ theorem CopyCtorShape.fit_imp {env : Env} {m : EnvModel V env} {Y : Nat → V}
       rw [if_neg (by rw [hr']; exact Bool.false_ne_true)]
       refine ⟨Subset.refl _, ?_⟩
       rcases h.ordF _ hl hr' with ⟨hrC, hF⟩ | ⟨hrC, hout, -, -⟩
-      · rw [if_neg (by rw [hrC]; exact Bool.false_ne_true), hF fs₁ rfl, interp_instAll]
+      · rw [if_neg (by rw [hrC]; exact Bool.false_ne_true), hF fs₁ rfl hsp, interp_instAll]
         exact Subset.refl _
       · rw [if_pos hrC, segJoin_out _ _ hout, hent _ (h.len ▸ hl) hrC hout fs₁ rfl hsp]
         exact Subset.refl _
@@ -1152,7 +1250,7 @@ theorem CopyCtorShape.fit_imp_le {env : Env} {m : EnvModel V env} {Y : Nat → V
     (hYs : InTupleSpace TV.w dJ.k (dJ.idx ψJ ρJ) Y)
     (hY : TupleLe dJ.k (dJ.idx ψJ ρJ) Y LJ)
     {cA : ConstantVal × Nat} (hj : (dJ.ctorsM i)[j]? = some cA)
-    (h : CopyCtorShape TV acval dJ ψJ Ds DsE lpsJ lvlsJ tg tls Eis ρp i j base kJ Fs rs Es)
+    (h : CopyCtorShape TV acval dJ ψJ Ds lpsJ lvlsJ tg tls Eis ρp i j base kJ Fs rs Es)
     {L : Nat → V}
     (hentR : ∀ l, l < Fs.length → rs.getD l false = true →
       ((dJ.rss i).getD j []).getD l false = false → ¬ (base ≤ tg l ∧ tg l < base + kJ) →
@@ -1203,7 +1301,7 @@ theorem CopyCtorShape.fit_imp_le {env : Env} {m : EnvModel V env} {Y : Nat → V
       rw [if_neg (by rw [hr']; exact Bool.false_ne_true)]
       refine ⟨Subset.refl _, ?_⟩
       rcases h.ordF _ hl hr' with ⟨hrC, hF⟩ | ⟨hrC, hout, -, -⟩
-      · rw [if_neg (by rw [hrC]; exact Bool.false_ne_true), hF fs₁ rfl, interp_instAll]
+      · rw [if_neg (by rw [hrC]; exact Bool.false_ne_true), hF fs₁ rfl hsp, interp_instAll]
         exact Subset.refl _
       · rw [if_pos hrC, segJoin_out _ _ hout]
         exact hentR _ (h.len ▸ hl) hrC hr' hout fs₁ rfl hsp
@@ -1223,7 +1321,7 @@ the container's own pins' containers (`PinCorr`); a view with the same
 data and agreeing readings there, at a carrier agreeing at the
 container's pins, carries the shape. -/
 theorem CopyCtorShape.of_EA {TV : TargetView V} {acval acval' : Name → (Name → Nat) → AnnotTerm}
-    {dJ : BlockModel V} {ψJ : Name → Nat} {Ds : List AnnotTerm} {DsE : List Expr}
+    {dJ : BlockModel V} {ψJ : Name → Nat} {Ds : List AnnotTerm}
     {lpsJ : List Name} {lvlsJ : List Level} {tg : Nat → Nat}
     {tls : List (List (Nat × Nat × AnnotTerm))} {Eis : List (List AnnotTerm)} {ρp : Nat → V}
     {i j base kJ : Nat} {Fs : List AnnotTerm} {rs : List Bool} {Es : List AnnotTerm}
@@ -1232,23 +1330,23 @@ theorem CopyCtorShape.of_EA {TV : TargetView V} {acval acval' : Name → (Name �
       acval' (dJ.pinAt qK).J ((dJ.pinAt qK).ψJ ψJ) = acval (dJ.pinAt qK).J ((dJ.pinAt qK).ψJ ψJ))
     (htgt : ∀ l, l < ((dJ.Fss i ψJ).getD j []).length → ¬ dJ.tgts i j l < dJ.k →
       dJ.tgts i j l - dJ.k < dJ.nPins)
-    (h : CopyCtorShape TV acval dJ ψJ Ds DsE lpsJ lvlsJ tg tls Eis ρp i j base kJ Fs rs Es) :
-    CopyCtorShape { TV with EA := EA' } acval' dJ ψJ Ds DsE lpsJ lvlsJ tg tls Eis ρp i j base kJ
+    (h : CopyCtorShape TV acval dJ ψJ Ds lpsJ lvlsJ tg tls Eis ρp i j base kJ Fs rs Es) :
+    CopyCtorShape { TV with EA := EA' } acval' dJ ψJ Ds lpsJ lvlsJ tg tls Eis ρp i j base kJ
       Fs rs Es where
   len := h.len
   recF := h.recF
   ordF := fun l hl hr => by
-    rcases h.ordF l hl hr with hL | ⟨h1, h2, h3, hHd, tlsJ, body, hF, htl, hb, hbJ, hr⟩
+    rcases h.ordF l hl hr with hL | ⟨h1, h2, h3, tlsJ, body, hF, htl, hb, hbJ, hr⟩
     · exact Or.inl hL
-    · refine Or.inr ⟨h1, h2, h3, hHd, tlsJ, body, hF, htl, hb, hbJ, fun fs₁ bs hl₁ hsp hbs => ?_⟩
+    · refine Or.inr ⟨h1, h2, h3, tlsJ, body, hF, htl, hb, hbJ, fun fs₁ bs hl₁ hsp hbs => ?_⟩
       obtain ⟨hr1, hr2⟩ := hr fs₁ bs hl₁ hsp hbs
       refine ⟨?_, hr2⟩
       rw [hr1]
       show _ = List.foldl _ (interp V ρp (EA' (tg l))) _
       rw [hEA _ h3]
   pinF := fun l hl hr hnt => by
-    obtain ⟨h1, h2, h3, h4, ⟨hp1, hp2, hp3, hp4, hp5, hp6, hp7⟩, h5, h6⟩ := h.pinF l hl hr hnt
-    refine ⟨h1, h2, h3, h4, ⟨?_, hp2, hp3, hp4, hp5, hp6, hp7⟩, h5, h6⟩
+    obtain ⟨h1, h2, h3, h4, ⟨hp1, hp2, hp3, hp4, hp5, hp6⟩, h5, h6⟩ := h.pinF l hl hr hnt
+    refine ⟨h1, h2, h3, h4, ⟨?_, hp2, hp3, hp4, hp5, hp6⟩, h5, h6⟩
     show EA' (tg l) = _
     rw [hEA _ h4, hp1, hac _ (htgt l hl hnt)]
   es := h.es
@@ -1335,7 +1433,7 @@ and the stored readings at a carrier `acval`. -/
   DsE := fun t => (pins.getD (t - k) default).DsE
   EA := targetRead acval memberNames pins nP k ψ
   J := fun t => if t < k then memberNames.getD t .anonymous else (pins.getD (t - k) default).J
-  lvls := fun t => (pins.getD (t - k) default).lvls
+  lvls := fun t => if t < k then [] else (pins.getD (t - k) default).lvls
 
 variable (acval : Name → (Name → Nat) → AnnotTerm)
 
@@ -1345,8 +1443,8 @@ local notation "TVA" => nestedTV (V := V) nP k resSort ppsA W pins acval memberN
 `offs (k + q₀ + i) + j` of the container `dJ`'s member `i`, constructor
 `j`, of the pin group `[q₀, q₀ + kJ)`. -/
 @[expose] def CopyShapeA (dJ : BlockModel V) (ψJ : Name → Nat) (Ds : List AnnotTerm)
-    (DsE : List Expr) (lpsJ : List Name) (lvlsJ : List Level) (q₀ kJ i j : Nat) : Prop :=
-  CopyCtorShape (TVA) acval dJ ψJ Ds DsE lpsJ lvlsJ
+    (_DsE : List Expr) (lpsJ : List Name) (lvlsJ : List Level) (q₀ kJ i j : Nat) : Prop :=
+  CopyCtorShape (TVA) acval dJ ψJ Ds lpsJ lvlsJ
     (fun l => (tgtsG.getD (offs (k + q₀ + i) + j) []).getD l 0)
     ((tlss ψ).getD (offs (k + q₀ + i) + j) []) ((Eiss₀ ψ).getD (offs (k + q₀ + i) + j) []) ρp i j
     (k + q₀) kJ ((Fss₀ ψ).getD (offs (k + q₀ + i) + j) []) (rss.getD (offs (k + q₀ + i) + j) [])

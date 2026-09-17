@@ -1372,6 +1372,11 @@ Consumer: `nestedStageFacts_of` → `nestedCoreModeled_of`. -/
     -- THE PINS' SCOPE (K.30): every pin's free variables are the first
     -- former's openers, annotation included, and no loose bvar
     ConLeche.pinsScoped p.nP st = true →
+    -- **THE COPIES' TARGETS** (K.32, task #315 L-E, DESIGN §U.64): a
+    -- copy's group-internal recursive field points at the copy of the
+    -- container member its own field points at, which the copies'
+    -- identities read on the `ordF` arm (lane L-B's `NestedPinsShape`)
+    ConLeche.nestedCopyTargetsOk env p b st stored = true →
     ConLeche.nestedPinKindsOk p b st stored = true →
     ConLeche.nestedPinRankOk env p b st stored = true →
     -- POST-CHECK (a) A THIRD TIME (K.30): the pins typed at the prefix
@@ -1462,6 +1467,7 @@ theorem nestedStageFacts_of (hst : NestedCtorsStaged V μ F) (hμ : μ.verifiedC
     (hsrc : ConLeche.nestedCopySrcOk env p st = true)
     (hgrp : ConLeche.nestedGroupsOk env p st = true)
     (hsc : ConLeche.pinsScoped p.nP st = true)
+    (hK32 : ConLeche.nestedCopyTargetsOk env p b st stored = true)
     (hkinds : ConLeche.nestedPinKindsOk p b st stored = true)
     (hrank : ConLeche.nestedPinRankOk env p b st stored = true)
     (hpins₁ : ConLeche.nestedPinsOk (m := ConLeche.CheckM) (fueledOps μ F)
@@ -1534,8 +1540,8 @@ theorem nestedStageFacts_of (hst : NestedCtorsStaged V μ F) (hμ : μ.verifiedC
   -- the loop
   obtain ⟨mp₂, dsR, xFvsR, pinsS, L⟩ := hst hμ mp hE p st b envAux stored ctorsR fmsA ctorsA₀ fms f₀
     ctorsA sortss kinds mp₁ ppsF W idxF dsF esF srcsF fvsPF xFvsF xrestF eissF tssF mp₁' hPM h0 h1
-    hfA hcA helim hcount hfresh hcont hb haux hstored hclosed hpinsAux hcaps hsrc hgrp hsc hkinds hrank
-    hpins₁ hformers h hbk h3 hnd hctorsA hleafM' hoff' hfind' hctors
+    hfA hcA helim hcount hfresh hcont hb haux hstored hclosed hpinsAux hcaps hsrc hgrp hsc hK32
+    hkinds hrank hpins₁ hformers h hbk h3 hnd hctorsA hleafM' hoff' hfind' hctors
   -- the names
   have hnames : (fms.take p.k).map (·.cvTa.name) = p.memberNames := by
     rw [List.map_take, h.names]

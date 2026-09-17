@@ -4499,9 +4499,10 @@ not a reading law. -/
 /-- **RESIDUAL 2 — `ordF`'s right arm at the READING** (lane L-E's
 `EntryRead`, DESIGN §U.36/§U.51): at a container-ORDINARY field the
 auxiliary block classified recursive, the copy's entry is the target's
-STORED reading — the target's head (`TargetHead`) and the container's
-domain read fibre-wise under its own telescope.  The arm's TARGET
-conjunct (outside the group) is `copyOrdFRight_shape`. -/
+STORED reading — the container's domain read fibre-wise under its own
+telescope, and NOTHING about the target's head since the `TargetHead`
+conjunct was refuted at an accepted block (DESIGN §U.61).  The arm's
+TARGET conjunct (outside the group) is `copyOrdFRight_shape`. -/
 @[expose] def NestedPinsShapeOrdRight (V : Type w) [SetTheory V] (μ : CheckMode) (F : Nat) : Prop :=
   NestedPinsIdsAt V μ F fun {env} _ p _ b fms f₀ ctorsA kinds ppsF W _ _ _ _ _ _ eissF tssF _
       _ _ pinsS mp₁' q₀ kJ dJ =>
@@ -4518,7 +4519,6 @@ conjunct (outside the group) is `copyOrdFRight_shape`. -/
         (nestedTV b.nP p.k f₀.s ppsF W pinsS mp₁'.base2.acval
           ((fms.take p.k).map (·.cvTa.name)) ψ)
         dJ ((pinsS.getD (q₀ + i) default).ψJ ψ) ((pinsS.getD (q₀ + i) default).Ds ψ)
-        (pinsS.getD (q₀ + i) default).DsE cvT.levelParams (pinsS.getD (q₀ + i) default).lvls
         (fun l => ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
           (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0)
         ((mutTlss ctorsA.length tssF ψ).getD (b.ownOffset (p.k + q₀ + i') + j) [])
@@ -4548,7 +4548,7 @@ group) is `copyPinF_shape`. -/
         (nestedTV b.nP p.k f₀.s ppsF W pinsS mp₁'.base2.acval
           ((fms.take p.k).map (·.cvTa.name)) ψ)
         mp₁'.base2.acval dJ ((pinsS.getD (q₀ + i) default).ψJ ψ)
-        ((pinsS.getD (q₀ + i) default).Ds ψ) (pinsS.getD (q₀ + i) default).DsE
+        ((pinsS.getD (q₀ + i) default).Ds ψ)
         cvT.levelParams (pinsS.getD (q₀ + i) default).lvls
         (((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
           (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0) (dJ.tgts i' j l - dJ.k) ∧
@@ -4709,7 +4709,9 @@ theorem nestedPinsShape_of {F : Nat} (hKR : NestedPinsKindsRun V μ F)
       obtain ⟨hrsF, hcase⟩ := R.copyOrdFLeft SF S hPD hi' hj' hlF hkA ψ
       refine Or.inl ⟨hrsF, ?_⟩
       rcases hcase with heq | hb6
-      · intro fs₁ hfs
+      · -- the arm's fitting prefix (lane L-E, DESIGN §U.56) is not read: the
+        -- copy's domain reads as the container's instantiated unconditionally
+        intro fs₁ hfs _
         rw [hψ, hDs]
         exact congrArg (interp V (consList fs₁ ρp)) heq
       · exact absurd hb6 (hres1 i' hi' j hj cAJ hj' l hlF)
