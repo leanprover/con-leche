@@ -330,7 +330,7 @@ theorem nestedPinKindsOk_inv {p : NestedParts} {b : MutualBlock} {st : ElimState
     {stored : List AuxStored} (h : nestedPinKindsOk p b st stored = true) :
     ∃ kinds : List (List (List (RecFieldKind × Nat))),
       nestedPinKinds p b stored = some kinds ∧ kinds.length = st.pins.length := by
-  unfold nestedPinKindsOk at h
+  unfold nestedPinKindsOk nestedPinKindsAt at h
   cases hk : nestedPinKinds p b stored with
   | none => rw [hk] at h; exact nomatch h
   | some kinds =>
@@ -368,7 +368,7 @@ theorem nestedCopyTargetsOk_head {env : Env} {p : NestedParts} {b : MutualBlock}
       ci.members[t - p.k - qn.grpBase]? = some Jt ∧
       domJ.1.stripPis d = some (tbs, jres) ∧
       jres.getAppFn = .const Jt.name us := by
-  unfold nestedCopyTargetsOk at h
+  unfold nestedCopyTargetsOk nestedCopyTargetsAt at h
   rw [hk] at h
   simp only [_root_.List.all_eq_true, _root_.List.mem_range] at h
   have hqv := h q hq

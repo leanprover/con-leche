@@ -311,7 +311,7 @@ theorem NestedTailIn.eqsCand {mpA : EnvModelM V μ ENVA} {cvRas : List ConstantV
   have hfT := (S.typed ψ).1
   have hR := S.readings ψ
   obtain ⟨cvT, cvR, mI, rP, rules, h⟩ := hreps c hc
-  obtain ⟨cvT0, cvR0, mI0, rP0, rules0, hD0⟩ := I.out.reps 0 I.kpos
+  obtain ⟨cvT0, cvR0, mI0, rP0, rules0, hD0⟩ := I.out.reps.toIsBlockModels 0 I.kpos
   have hcd := h.ctorData hj
   have hj' : j < ((DA).ctorsM c).length := (List.getElem?_eq_some_iff.mp hj).1
   have hpl := hreps.params_length (by omega) ψ
@@ -508,7 +508,7 @@ theorem NestedTailIn.eqsCand {mpA : EnvModelM V μ ENVA} {cvRas : List ConstantV
         List.getElem?_eq_getElem (by rw [List.length_map] at hl'; exact hl'), Option.map_some,
         Option.getD_some, Option.getD_some]
     rw [← nestedInjT_eq ψ c j fs,
-      hD0.blockRecAtT_iota I.out.reps I.pinLaws hρpD hwD hMs hms hcT hidxT hjT hfitT]
+      hD0.blockRecAtT_iota I.out.reps.toIsBlockModels I.pinLaws hρpD hwD hMs hms hcT hidxT hjT hfitT]
     -- the minor and the inductive hypotheses
     have hrecIdx : recIdx (((D).rssT PC c).getD j []) ((((D).FssT PC ψ c).getD j []).length)
         = ConLeche.recIdxOf ((DA).ksF c j) := by
@@ -787,17 +787,18 @@ theorem nestedTailModeled_of {F : Nat}
 
 /-- **THE EQUATIONS AT THE RUN** — `NestedRecEqsOf`, the second of
 `nestedTailModeled_of`'s three named facts, at every tail input and
-every readings record, modulo the same TWO model faces the readings
-take: K.35 (`NestedRecTysAuxOf`) and K.36 (`NestedCtorPinNamesOf`);
+every readings record, modulo the same ONE model face the readings
+take: K.36 (`NestedCtorPinNamesOf`) — K.35's face is the run's own Bool
+(`nestedRecTysAuxOk_of_bool` at `NestedTailIn.hauxApps`);
 `hctorsJ` is the pin group's own `NestedPinGroup.ctorsOf`. -/
-theorem nestedRecEqsOf_of_faces {F : Nat} (hK35 : NestedRecTysAuxOf μ F)
+theorem nestedRecEqsOf_of_faces {F : Nat}
     (hK36 : NestedCtorPinNamesOf μ F) : NestedRecEqsOf V μ F := by
   intro env mp p envOut st b envAux stored ctorsR cvRms cvRns rulesM rulesN fmsA ctorsA₀ fms f₀
     ctorsA sortss kinds mp₁ ppsF W idxF dsF esF srcsF fvsPF xFvsF xrestF eissF tssF dsR xFvsR
     pinsS mp₂ I s rdsM concM R mpA cvRas S
   exact I.recEqsOf S (hK36 env p st fmsA ctorsA₀ I.hfA I.hcA I.helim I.hcont)
     (fun _q₀ _kJ i _dJ G hi ci J h1 h2 h3 => (G.ctorsOf i hi ci J h1 h2 h3).1)
-    (hK35 env p st b envAux stored I.hb I.haux I.hstored) R
+    (nestedRecTysAuxOk_of_bool I.hb I.hauxApps) R
 
 /-- **THE CONSUMER** (consumer-first): the frames feed the recursors'
 stage verbatim — `nestedTailModeled_of` at `nestedRecReadingsOf_of`'s
@@ -815,12 +816,12 @@ theorem nestedTailModeled_of_faces {F : Nat} (hK35 : NestedRecTysAuxOf μ F)
   nestedTailModeled_of_frames (nestedRecFramesOf_of hK35 hK36) heqs hst
 
 /-- **THE CONSUMER** (consumer-first): with the readings and the
-equations both discharged from the two model faces, the recursors'
+equations both discharged from the ONE model face, the recursors'
 stage of a nested block needs only the stage proper
 (`NestedRecsStored`, item 5). -/
-theorem nestedTailModeled_of_stage {F : Nat} (hK35 : NestedRecTysAuxOf μ F)
+theorem nestedTailModeled_of_stage {F : Nat}
     (hK36 : NestedCtorPinNamesOf μ F) (hst : NestedRecsStored V μ F) :
     NestedTailModeled V μ F :=
-  nestedTailModeled_of_faces hK35 hK36 (nestedRecEqsOf_of_faces hK35 hK36) hst
+  nestedTailModeled_of_faces hK36 (nestedRecEqsOf_of_faces hK36) hst
 
 end ConLeche.Model

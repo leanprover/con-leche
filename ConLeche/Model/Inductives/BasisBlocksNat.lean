@@ -684,6 +684,7 @@ theorem natBlock_pinRecLaws {env : Env} {m : EnvModel V env} :
   fibre := fun _ _ _ _ _ _ _ h => nomatch h
   mkZero := fun _ _ _ _ _ => rfl
   mkInj := fun _ _ _ h => nomatch h
+  injW := fun _ _ h => nomatch h
   ind := fun _ _ _ _ _ _ _ _ h => nomatch h
 
 /-- **`Nat`'s group carries its block model**.  The `inj` clause is
@@ -749,6 +750,7 @@ theorem natBlock_containerModeled {env : Env} {m : EnvModel V env}
     | 1, _ =>
       match l, hx with
       | 0, _ => exact nomatch hk
+  nestMention := fun _ h => nomatch h
   pinsNotMembers := fun _ h => nomatch h
   pinNP := fun _ h => nomatch h
   pinψ := fun _ h => nomatch h

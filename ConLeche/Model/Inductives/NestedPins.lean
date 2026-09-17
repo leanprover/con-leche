@@ -409,7 +409,7 @@ structure NestedPinGroupIds (m : EnvModel V env₂) (q₀ kJ : Nat) (dJ : BlockM
         (Fss₀ := fun ψ => blkFss0 b ctorsA kinds dsF ψ)
         (Ess₀ := fun ψ => mutEss0 ctorsA.length esF ψ) (ψ := ψ) (ρp := ρp)
         m.acval dJ (((D).pinAt (q₀ + i)).ψJ ψ) (((D).pinAt (q₀ + i)).Ds ψ)
-        cvT.levelParams ((D).pinAt (q₀ + i)).lvls q₀ kJ i' j
+        ((D).pinAt (q₀ + i)).DsE cvT.levelParams ((D).pinAt (q₀ + i)).lvls q₀ kJ i' j
   /-- the copies' ENTRIES at the auxiliary carrier (`nestedPinLeaf_all`) -/
   entry :
     ∀ i, i < kJ → ∀ (ψ : Name → Nat) (ρp : Nat → V),
@@ -446,6 +446,7 @@ theorem NestedPinGroupSyn.ofParts {st : ElimState} {m : EnvModel V env₂} {q₀
     pinPps := S.pinPps, pinDsLen := S.pinDsLen, w := S.w, idx := I.idx
     same := fun i hi ψ => ⟨S.ψJEq i 0 hi S.kpos ψ, S.sameDs i hi ψ⟩
     lvls := fun i hi => (S.same i hi).1
+    sameE := fun i hi => (S.same i hi).2
     stored := fun i hi => by
       obtain ⟨cvT, caps, cvR, mI, rP, rules, hf, -, hψ⟩ := S.stored i hi
       exact ⟨cvT, caps, hf, hψ⟩
@@ -503,6 +504,12 @@ section Construction
 
 /-- The elimination's `q`-th pin (total). -/
 def pinAtE (st : ElimState) (q : Nat) : NestedPin := st.pins.getD q default
+
+/-- The reader, spelled out: the group records (`NestedPinGroupSyn.grp`)
+name the pin by the list, the arms of the copies' identities by the
+reader (task #315 L-B — the definition is private to this module, so
+the identity travels as a lemma). -/
+theorem pinAtE_eq (st : ElimState) (q : Nat) : pinAtE st q = st.pins.getD q default := by rfl
 
 /-- The copy minted for pin `q` (total). -/
 def copyAtE (st : ElimState) (p : NestedParts) (q : Nat) : ConLeche.AuxType :=
@@ -710,7 +717,18 @@ structure NestedPinsRun (V : Type w) [SetTheory V] (μ : CheckMode) (F : Nat) {e
   hsrc : ConLeche.nestedCopySrcOk env p st = true
   hgrp : ConLeche.nestedGroupsOk env p st = true
   hscoped : ConLeche.pinsScoped p.nP st = true
+  /-- **THE COPIES' TARGETS** (K.32, task #315 L-E, DESIGN §U.64): a
+  copy's group-internal recursive field points at the copy of the
+  container member its own field points at — what the copies'
+  identities read on the `ordF` arm -/
+  hK32 : ConLeche.nestedCopyTargetsOk env p b st stored = true
   hkinds : ConLeche.nestedPinKindsOk p b st stored = true
+  /-- **THE PINS' CONTAINER INSTANCES AND RANK** (K.37, task #315 L-E,
+  DESIGN §U.55): the model's induction measure for the global entry
+  theorem's step (iii) — an OWN reference stays inside the instance, a
+  reference that LEAVES it goes to a strictly smaller rank, the rank is
+  a function of the instance, and a mint group is one instance -/
+  hrank : ConLeche.nestedPinRankOk env p b st stored = true
   hpinsE : ConLeche.nestedPinsOk (m := ConLeche.CheckM) (fueledOps μ F)
       (ConLeche.consMutualFormers (fms.take p.k) env) p.nP st.pins = .ok ()
   hformers : ConLeche.mutualFormers (m := ConLeche.CheckM) (fueledOps μ F) b.nP b.formers env true
@@ -811,6 +829,7 @@ action (the shape, lane L-B) and the entries at the auxiliary carrier
         (Fss₀ := fun ψ => blkFss0 b ctorsA kinds dsF ψ)
         (Ess₀ := fun ψ => mutEss0 ctorsA.length esF ψ) (ψ := ψ) (ρp := ρp)
         mp₁'.base2.acval dJ ((pinsS.getD (q₀ + i) default).ψJ ψ) ((pinsS.getD (q₀ + i) default).Ds ψ)
+        (pinsS.getD (q₀ + i) default).DsE
         cvT.levelParams (pinsS.getD (q₀ + i) default).lvls q₀ kJ i' j) ∧
     (∀ i, i < kJ → ∀ (ψ : Name → Nat) (ρp : Nat → V),
       Sat V (((ppsF 0 ψ).take b.nP).map (·.2.2)).reverse ρp →
@@ -1569,22 +1588,32 @@ DESIGN §U.22.) -/
 theorem nestedPinsStaged_of {F : Nat} (hId : NestedPinsIdent V μ F) : NestedPinsStaged V μ F := by
   intro hμ env mp hE p st b envAux stored ctorsR fmsA ctorsA₀ fms f₀ ctorsA sortss kinds mp₁ ppsF W
     idxF dsF esF srcsF fvsPF xFvsF xrestF eissF tssF mp₁' hPM h0 h1 hfA hcA helim hcount hfresh hcont
-    hb haux hstored hclosed hpinsAux hcaps hsrc hgrp hscoped hkinds hpinsE hformers h hbk h3 hnd hctorsA
-    hleafM' hoff' hfind' hctors
+    hb haux hstored hclosed hpinsAux hcaps hsrc hgrp hscoped hK32 hkinds hrank hpinsE hformers h hbk
+    h3 hnd hctorsA hleafM' hoff' hfind' hctors
   have R : NestedPinsRun V μ F mp p st b envAux stored ctorsR fmsA ctorsA₀ fms f₀ ctorsA sortss kinds
       mp₁ ppsF W idxF dsF esF srcsF fvsPF xFvsF xrestF eissF tssF mp₁' :=
     ⟨hμ, hE, hPM, h0, h1, hfA, hcA, helim, hcount, hfresh, hcont, hb, haux, hstored, hclosed, hpinsAux,
-      hcaps, hsrc, hgrp, hscoped, hkinds, hpinsE, hformers, h, hbk, h3, hnd, hctorsA, hleafM', hoff',
-      hfind', hctors⟩
+      hcaps, hsrc, hgrp, hscoped, hK32, hkinds, hrank, hpinsE, hformers, h, hbk, h3, hnd, hctorsA,
+      hleafM',
+      hoff', hfind', hctors⟩
   obtain ⟨hpinsE, fvs, o, hop, hsc⟩ := R.scoped
   obtain ⟨pbs, hpbs, hPD⟩ := R.pinData
   have SF := R.synFacts hpinsE hop hsc
-  refine ⟨_, SF.pinsLen, SF.pinRec, SF.pinDs, SF.pinWd, ?_, ?_, ?_⟩
+  refine ⟨_, SF.pinsLen, SF.pinRec, SF.pinDs, SF.pinWd, ?_, ?_, ?_, ?_⟩
   · -- pinψ: the level assignment at the prefix environment's record
     intro q hq cvT caps hfind
     rw [pinsOf_length] at hq
     rw [pinsOf_getD _ _ _ _ _ _ hq] at hfind ⊢
     exact R.pinψ hPD hq cvT caps hfind
+  · -- pinNP: the pin's parameter count is its container's (task #315
+    -- M7-3 session 11): the group's own `pinNP` against the block
+    -- model that `modeled` says represents the container's group —
+    -- both `NestedPinGroupSyn`'s, which `ofParts` drops
+    intro q hq ci hci
+    obtain ⟨q₀, kJ, i, dJ, hqe, hi, S⟩ :=
+      SF.groups (fun _ _ _ => []) (fun _ _ => []) q hq
+    subst hqe
+    exact (S.pinNP i hi).trans (S.modeled i hi ci hci).nP
   · -- pinNIdx: the copy's index count
     intro q hq
     rw [pinsOf_length] at hq

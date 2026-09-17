@@ -359,11 +359,11 @@ Read from the outside in:
    on exhaustion every operation throws
    ([the fuel knot's base case in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Core.lean#L2908-L2917)).
    Its declaration fold is what the model tier proves things about
-   ([theorem `no_proof_of_False_pure` in `ConLeche/Model/Fold.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Fold.lean#L330-L337)).
+   ([theorem `no_proof_of_False_pure` in `ConLeche/Model/Fold.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Fold.lean#L296-L303)).
 5. **The model tier** (`ConLeche/Model/*`, the graded set model)
    shows that each declaration step preserves an invariant on the
    environment
-   ([theorem `declStep_preserves` in `ConLeche/Model/Fold.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Fold.lean#L192)),
+   ([theorem `declStep_preserves` in `ConLeche/Model/Fold.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Fold.lean#L158)),
    and that the invariant forbids a constant of type `False`, whose
    pinned denotation is the empty set
    ([theorem `no_constant_of_False` in `ConLeche/Model/Capstone.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Capstone.lean#L151-L157)).
@@ -541,7 +541,7 @@ Inductive blocks are not trusted from the stream. Three cases:
   index occurrence — generates the recursor and its rules, and compares
   the generated recursor with the stream's, rejecting a record that is
   not it; the whole install is one entry
-  ([function `checkNative` in `ConLeche/Kernel/Inductives/NativeInstall.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/NativeInstall.lean#L627)).
+  ([function `checkNative` in `ConLeche/Kernel/Inductives/NativeInstall.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/NativeInstall.lean#L634)).
   The two halves are deliberately independent: a block whose
   recursor record is a stub is still rejected by its own type and
   constructors, as official rejects it, instead of being declined for a
@@ -558,7 +558,7 @@ Inductive blocks are not trusted from the stream. Three cases:
   ([theorem `container_closed_exists` in `ConLeche/SetModel/Container.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/SetModel/Container.lean#L598)),
   which covers finitary and reflexive fields alike. The model-tier
   theorem for the whole install is
-  [theorem `declNative` in `ConLeche/Model/Inductives/DeclNative.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Inductives/DeclNative.lean#L1326).
+  [theorem `declNative` in `ConLeche/Model/Inductives/DeclNative.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Inductives/DeclNative.lean#L1328).
   Structure-like blocks additionally get first-class projections, η,
   unit-likeness and K exactly under official's conditions.
 * **Mutual blocks** — several type formers, one recursor each — take

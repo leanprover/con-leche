@@ -91,6 +91,22 @@ structure NestedPin where
   it. -/
   grpBase : Nat
   grpSize : Nat
+  /-- **WHERE THE MINT HAPPENED** (task #315 K.40, lane L-E's DESIGN
+  §U.55): the WORKLIST POSITION — the index into the growing type list —
+  whose constructors were being rewritten when this pin was minted.  A
+  position below the block's own member count `k` means the pin came
+  straight out of the block's own constructors; at `k + j` it was minted
+  by the expansion of pin `j`, which is that pin's PARENT.
+
+  Nothing downstream can recover it: a container's own pin list is not in
+  the environment, because a nested declaration RESTORES.  And it is what
+  makes a container instance usable — the instance's ROOT is its
+  parent-minimal member and the covering walk the model's transfer needs
+  is the parent chain.  A worklist POSITION rather than a pin index is
+  what lets the elimination record it with no new parameter of its own:
+  `k` is the caller's, and the Bool that reads the parent off it has `p.k`
+  (`nestedPinParentOk`, `Kernel/Inductives/NestedInstall.lean`). -/
+  mintedAt : Nat := 0
   deriving Repr, Inhabited
 
 /-- The elimination's state: the growing type list, the pins in
@@ -99,6 +115,13 @@ structure ElimState where
   types : List AuxType
   pins : List NestedPin
   nextIdx : Nat
+  /-- **The worklist's current POSITION** (task #315 K.40): the index of
+  the type whose constructors are being rewritten.  `elimLoop` sets it
+  before each type's turn and `mkCopies` stamps it onto every pin it
+  appends — which is why the record costs the elimination no new
+  parameter, and every statement about `replaceAllNested`,
+  `replaceIfNested`, `elimCtors` and `mkCopies` keeps its shape. -/
+  curType : Nat := 0
   deriving Repr, Inhabited
 
 /-- The names the occurrence test looks for: every type of the growing
@@ -182,7 +205,7 @@ def mkCopies (env : Env) (pbs : List (Expr × BinderMeta)) (lvls : List Level)
     let st' : ElimState :=
       { types := st.types ++ [copy]
         pins := st.pins ++
-          [⟨auxName, J.name, Expr.mkAppN (.const J.name lvls) Ds, base, size⟩]
+          [⟨auxName, J.name, Expr.mkAppN (.const J.name lvls) Ds, base, size, st.curType⟩]
         nextIdx := nextIdx }
     let (st'', got) ← mkCopies env pbs lvls Ds I base size rest st'
     pure (st'', if J.name == I then some auxName else got)
@@ -323,7 +346,9 @@ def elimLoop (env : Env) (blvls : List Level) (nP : Nat) (params : List Expr)
     match st.types[qhead]? with
     | none => .ok st
     | some t =>
-      match elimCtors env blvls nP params pbs₀ t.ctors st with
+      -- **WHERE THE MINT HAPPENS** (K.40): every pin minted while this
+      -- type's constructors are rewritten records this position
+      match elimCtors env blvls nP params pbs₀ t.ctors { st with curType := qhead } with
       | .error err => .error err
       | .ok (cs', st₁) =>
         elimLoop env blvls nP params pbs₀ fuel (qhead + 1)
@@ -386,6 +411,6 @@ def elimNested (env : Env) (nP : Nat) (lps : List Name)
   let some (pbs₀, _) := t₀.type.stripPis nP
     | .error (.invalid "invalid inductive datatype declaration, incorrect number of \
         parameters")
-  elimLoop env (lps.map Level.param) nP params pbs₀ nestedElimFuel 0 ⟨types, [], 1⟩
+  elimLoop env (lps.map Level.param) nP params pbs₀ nestedElimFuel 0 ⟨types, [], 1, 0⟩
 
 end ConLeche

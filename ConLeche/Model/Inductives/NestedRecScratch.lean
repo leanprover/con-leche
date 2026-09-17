@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Model.Inductives.NestedRecsStage
-public import ConLeche.Model.Inductives.MutualRecData
+import ConLeche.Model.Inductives.MutualRecData
 import ConLeche.Model.Inductives.NestedRecTypes
 import ConLeche.Model.Inductives.MutualRecsStage
 import ConLeche.Verify.Inductives.NestedRecDoor

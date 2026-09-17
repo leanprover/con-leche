@@ -420,7 +420,7 @@ theorem NestedTailIn.nFR_eq {mpA : EnvModelM V μ ENVA} {cvRas : List ConstantVa
     {c : Nat} (hc : c < p.k) (hcb : c < b.k) {j : Nat} {cR : ConstantVal × Nat}
     (hjD : ((D).ctorsM c)[j]? = some cR) {cA : ConstantVal × Nat}
     (hjA : ((DA).ctorsM c)[j]? = some cA) : cR.2 = cA.2 := by
-  obtain ⟨cvT, cvR, mI, rP, rules, hID⟩ := I.out.reps c hc
+  obtain ⟨cvT, cvR, mI, rP, rules, hID⟩ := I.out.reps.toIsBlockModels c hc
   obtain ⟨cvT', cvR', mI', rP', rules', hIA⟩ := S.reps c hcb
   have hjl : j < (ctorsR.getD c []).length := by
     have hh : j < ((ctorsR.getD c []).map fun cc => (cc.1, cc.2.2)).length :=
@@ -454,7 +454,7 @@ theorem NestedTailIn.FssT_len_eq {mpA : EnvModelM V μ ENVA} {cvRas : List Const
   by_cases hck : c < (D).k
   · have hck' : c < p.k := by rw [hkk] at hck; exact hck
     obtain ⟨cR, hjD⟩ := I.ctorsD_get hck' hjl
-    obtain ⟨cvT, cvR, mI, rP, rules, hID⟩ := I.out.reps c hck'
+    obtain ⟨cvT, cvR, mI, rP, rules, hID⟩ := I.out.reps.toIsBlockModels c hck'
     rw [BlockModel.FssT_of_mem hck, hID.Fss_length hjD ψ]
     exact I.nFR_eq S hck' hc hjD hjA
   · rw [hkk] at hck
@@ -635,7 +635,7 @@ theorem NestedTailIn.idxOkT (ψ : Name → Nat) (ρp : Nat → V)
     (hρp : Sat V ((D).params ψ).reverse ρp) {c : Nat} (hc : c < (D).kT) :
     IdxOk ((D).uT c ψ) ((D).frameT c ψ ρp) ((D).IdsT c ψ) := by
   by_cases hck : c < (D).k
-  · obtain ⟨cvT, cvR, mI, rP, rules, hID⟩ := I.out.reps c hck
+  · obtain ⟨cvT, cvR, mI, rP, rules, hID⟩ := I.out.reps.toIsBlockModels c hck
     rw [BlockModel.uT_of_mem hck, BlockModel.frameT_of_mem hck, BlockModel.IdsT_of_mem hck]
     exact hID.idxOk ψ ρp hρp c hck
   · have hq : c - (D).k < (D).nPins := by unfold BlockModel.kT at hc; omega
@@ -767,7 +767,7 @@ theorem NestedTailIn.ihPi_eq {mpA : EnvModelM V μ ENVA} {cvRas : List ConstantV
   have hρp : Sat V ((D).params ψ).reverse (consList as ρ) := (D).satOfSpine hsp
   have hρpA : Sat V ((DA).params ψ).reverse (consList as ρ) := hρp
   obtain ⟨cvT, cvR, mI, rP, rules, hIA⟩ := S.reps c hc
-  obtain ⟨cvT0, cvR0, mI0, rP0, rules0, hID⟩ := I.out.reps 0 I.kpos
+  obtain ⟨cvT0, cvR0, mI0, rP0, rules0, hID⟩ := I.out.reps.toIsBlockModels 0 I.kpos
   have hjl : j < ((DA).ctorsM c).length := (List.getElem?_eq_some_iff.mp hjA).1
   have hcd := hIA.ctorData hjA
   have hi'A : i' < cA.2 := by rw [← hcd.ksLen]; exact hi'K
@@ -783,7 +783,8 @@ theorem NestedTailIn.ihPi_eq {mpA : EnvModelM V μ ENVA} {cvRas : List ConstantV
       ((((DA).eissF c j ψ).getD i' []).map
         (interp V (consList bs (consList (fs.take i') (consList as ρ))))) :=
     S.reps.eis_fit (S.typed ψ).1 hc hjA hρpA hi'A htgt hr hfs' hbs
-  rw [hID.isOfW_tupT I.out.reps I.pinLaws hρp htgtT ((I.idsT_iff ψ ρ as htgt _).mpr hEis)]
+  rw [hID.isOfW_tupT I.out.reps.toIsBlockModels I.pinLaws hρp htgtT
+    ((I.idsT_iff ψ ρ as htgt _).mpr hEis)]
 
 
 /-! ### The minors -/
@@ -823,7 +824,7 @@ theorem NestedTailIn.minorsAt {mpA : EnvModelM V μ ENVA} {cvRas : List Constant
     ⟨_, List.getElem?_eq_getElem (by rw [← I.ctorsT_length c']; exact hj)⟩
   have hjl : j < ((DA).ctorsM c').length := (List.getElem?_eq_some_iff.mp hjA).1
   obtain ⟨cvT, cvR, mI, rP, rules, hIA⟩ := S.reps c' hcb
-  obtain ⟨cvT0, cvR0, mI0, rP0, rules0, hID⟩ := I.out.reps 0 I.kpos
+  obtain ⟨cvT0, cvR0, mI0, rP0, rules0, hID⟩ := I.out.reps.toIsBlockModels 0 I.kpos
   obtain ⟨is', hisT, rfl⟩ := nestedIdxT_elim ψ (consList ps ρ) ht'
   have hisA : SpineFit (consList ps ρ) ((DA).IdsM c' ψ) is' :=
     (I.idsT_iff ψ ρ ps hcb is').mp hisT
@@ -874,7 +875,7 @@ theorem NestedTailIn.minorsAt {mpA : EnvModelM V μ ENVA} {cvRas : List Constant
   simp only []
   rw [I.minorIdxT_eq c' j,
     if_pos (by rw [I.nCtorsT_eq S]; exact (DA).minorIdx_lt hcb hjl), if_pos hc',
-    hID.isOfW_tupT I.out.reps I.pinLaws hρp hc' hisT, ← hEs, nestedInjT_eq]
+    hID.isOfW_tupT I.out.reps.toIsBlockModels I.pinLaws hρp hc' hisT, ← hEs, nestedInjT_eq]
   exact hres
 
 
@@ -962,18 +963,6 @@ end Run
 
 /-! ## The named fact -/
 
-/-- **K.35 AT THE RUN**: every read-back recursor type of a scratch
-install of the auxiliary block has, below its parameter prefix, the
-restore walk's shape (`NestedRecTysAuxOk`, `NestedRecFrames.lean`).
-A KERNEL-SIDE model face (PLAN-M7 §1a). -/
-@[expose] def NestedRecTysAuxOf (μ : CheckMode) (F : Nat) : Prop :=
-  ∀ (env : Env) (p : NestedParts) (st : ElimState) (b : MutualBlock) (envAux : Env)
-    (stored : List AuxStored),
-    ConLeche.auxBlock p st = some b →
-    ConLeche.checkMutualCore (m := ConLeche.CheckM) (fueledOps μ F) env b none true = .ok envAux →
-    ConLeche.auxStoredAll envAux b b.k = some stored →
-    NestedRecTysAuxOk p st b stored
-
 /-- **K.36 AT THE RUN**: a copy's constructor names round-trip through
 the container's (`NestedCtorPinNames`, `NestedRecCtor.lean`, T2).  A
 KERNEL-SIDE model face. -/
@@ -989,10 +978,12 @@ KERNEL-SIDE model face. -/
 
 /-- **THE FRAMES AT THE RUN** (PLAN-M7 §1e): `NestedRecFramesOf` —
 the named fact `nestedRecReadingsOf_of` consumes — discharged at every
-tail input, modulo the two model faces K.35 (`NestedRecTysAuxOf`) and
-K.36 (`NestedCtorPinNamesOf`); `hctorsJ` is the pin group's own
-`NestedPinGroup.ctorsOf` (task #315 L-B, exported at `NestedCore.lean`). -/
-theorem nestedRecFramesOf_of {F : Nat} (hK35 : NestedRecTysAuxOf μ F)
+tail input, modulo the ONE model face K.36 (`NestedCtorPinNamesOf`) —
+K.35's is the run's own Bool now (`nestedRecTysAuxOk_of_bool` at
+`NestedTailIn.hauxApps`, task #315 M7-3's wiring, DESIGN §U.29 (dd));
+`hctorsJ` is the pin group's own `NestedPinGroup.ctorsOf` (task #315
+L-B, exported at `NestedCore.lean`). -/
+theorem nestedRecFramesOf_of {F : Nat}
     (hK36 : NestedCtorPinNamesOf μ F) : NestedRecFramesOf V μ F := by
   intro env mp p envOut st b envAux stored ctorsR cvRms cvRns rulesM rulesN fmsA ctorsA₀ fms f₀
     ctorsA sortss kinds mp₁ ppsF W idxF dsF esF srcsF fvsPF xFvsF xrestF eissF tssF dsR xFvsR
@@ -1001,16 +992,24 @@ theorem nestedRecFramesOf_of {F : Nat} (hK35 : NestedRecTysAuxOf μ F)
   have hcb : c < b.k := by rw [← I.kT]; exact hc
   refine I.framesAt S (hK36 env p st fmsA ctorsA₀ I.hfA I.hcA I.helim I.hcont)
     (fun _q₀ _kJ i _dJ G hi ci J h1 h2 h3 => (G.ctorsOf i hi ci J h1 h2 h3).1)
-    (hK35 env p st b envAux stored I.hb I.haux I.hstored)
+    (nestedRecTysAuxOk_of_bool I.hb I.hauxApps)
     hcb ψ ρ (hread c ψ hc) ?_
   have hlc := hlen c ψ hc
   rw [nestedBlockModel_nP, I.kT, I.nCtorsT, I.nIdxT hcb] at hlc
   omega
 
-/-- **THE READINGS AT THE RUN, FROM THE THREE FACES**: the first of
+/-- **THE READINGS AT THE RUN, FROM THE ONE FACE**: the first of
 `nestedTailModeled_of`'s three named facts. -/
-theorem nestedRecReadingsOf_of_faces {F : Nat} (hK35 : NestedRecTysAuxOf μ F)
+theorem nestedRecReadingsOf_of_faces {F : Nat}
     (hK36 : NestedCtorPinNamesOf μ F) : NestedRecReadingsOf V μ F :=
-  nestedRecReadingsOf_of (nestedRecFramesOf_of hK35 hK36)
+  nestedRecReadingsOf_of (nestedRecFramesOf_of hK36)
+
+/-- **THE CONSUMER** (consumer-first): the recursors' stage at the run
+needs the readings, and this lane supplies them from the ONE model
+face alone. -/
+theorem nestedTailModeled_of_faces {F : Nat}
+    (hK36 : NestedCtorPinNamesOf μ F)
+    (heqs : NestedRecEqsOf V μ F) (hst : NestedRecsStored V μ F) : NestedTailModeled V μ F :=
+  nestedTailModeled_of_frames (nestedRecFramesOf_of hK36) heqs hst
 
 end ConLeche.Model

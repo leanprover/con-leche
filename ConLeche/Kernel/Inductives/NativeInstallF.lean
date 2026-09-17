@@ -125,6 +125,29 @@ def checkNativeTableF (w : StructWalkers) (p : NativeParts) (ctorsA : List (Cons
     else pure fe
   | _, _ => pure fe
 
+/-- **K.43's Bool through the INDEX.**  `blockOwnMimicsOk` asks whether
+`first.rec_(n+1)` is a stored recursor, and at a well-formed block the
+answer is NO — which on the pure `Env` means `List.find?` scans the
+WHOLE constant list.  That is once per installed block on every stream:
+measured at **+0.128 % on init-full and +0.18 % on the Mathlib nested
+cone** before this twin existed, and it grows with the environment.
+`FEnv.find?` is the driver's `Std.HashMap` index, so the twin is O(1)
+and the cost goes back to noise.
+
+The two agree by construction — the index is built from the same pushes
+that build `fe.env` — and the NESTED route's use tests the `some` side of
+that agreement on every run: it asserts that the `numNested` mimic
+recursors the route just stored ARE found, so a divergence would turn
+the shadow gate red rather than passing silently. -/
+def isRecInfoAtF (fe : FEnv) (n : Name) : Bool :=
+  match fe.find? n with
+  | some (.recInfo _ _ _ _) => true
+  | _ => false
+
+def blockOwnMimicsOkF (fe : FEnv) (first : Name) (n : Nat) : Bool :=
+  (List.range n).all (fun j => isRecInfoAtF fe (Name.appendIndexAfter (first.str "rec") (j + 1)))
+    && !isRecInfoAtF fe (Name.appendIndexAfter (first.str "rec") (n + 1))
+
 end Mirrors
 
 end ConLeche

@@ -290,7 +290,7 @@ private theorem cpMkCopies_step {env : Env} {pbs₀ : List (Expr × BinderMeta)}
     have hmid : CopyStep env pbs₀ st
         { types := st.types ++ [copy]
           pins := st.pins ++
-            [⟨auxName, J.name, Expr.mkAppN (.const J.name lvls) Ds, base, size⟩]
+            [⟨auxName, J.name, Expr.mkAppN (.const J.name lvls) Ds, base, size, st.curType⟩]
           nextIdx := nextIdx } :=
       cpStep_append hci hm hsrc (by rw [hname]; exact hcopy) hany hloose
     exact cpStep_trans hmid (cpMkCopies_step hci hloose
@@ -759,7 +759,7 @@ theorem elimNested_copyCtors {env : Env} {nP : Nat} {lps : List Name} {types : L
         refine ⟨t₀, params, o, pbs₀, o', hhead, hopen, hstrip, ?_⟩
         intro q t hqt
         have hinit : CopyInv env (lps.map Level.param) nP params pbs₀ types.length 0
-            ⟨types, [], 1⟩ := by
+            ⟨types, [], 1, 0⟩ := by
           intro q' t' hq'
           exfalso
           have hlt : types.length + q' < types.length := (List.getElem?_eq_some_iff.mp hq').1

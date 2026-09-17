@@ -210,8 +210,8 @@ def CopiesNamed (k : Nat) (st : ElimState) : Prop :=
 
 /-- One appended copy keeps the invariant. -/
 private theorem copiesNamed_append {k : Nat} {st : ElimState} {c : AuxType}
-    {pins : List NestedPin} {idx : Nat} (h : CopiesNamed k st) (hc : NestedCopyName c.name) :
-    CopiesNamed k ⟨st.types ++ [c], pins, idx⟩ := by
+    {pins : List NestedPin} {idx cur : Nat} (h : CopiesNamed k st) (hc : NestedCopyName c.name) :
+    CopiesNamed k ⟨st.types ++ [c], pins, idx, cur⟩ := by
   intro i t hk hi
   by_cases hlt : i < st.types.length
   · exact h i t hk (by rwa [List.getElem?_append_left hlt] at hi)
