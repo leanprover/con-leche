@@ -694,6 +694,84 @@ theorem CopyCtorShape.fit_imp {env : Env} {m : EnvModel V env} {Y : Nat → V}
     rw [h.es l hl, ← hlen, interp_instAll]
     exact hiC l hl
 
+/-- **`fit_imp` with the outside targets' entries as INCLUSIONS** (task
+#315 L-E, step (iii)): at an `ordF`-right field the container's domain
+reading lies in the copy's slot at the outer tuple (`hentR`); at a
+`pinF` field the container's slot at its OWN PIN's carrier at `Y` — not
+at the least tuple — lies in the copy's slot at the outer tuple
+(`hentP`): the cycle's closure supplies it from the container's own
+`PinRecLaws.ind` at `Y`, where the least tuple's reading would beg the
+question. -/
+theorem CopyCtorShape.fit_imp_le {env : Env} {m : EnvModel V env} {Y : Nat → V}
+    (hreps : IsBlockModels m dJ) (hfT : FormersTyped m dJ ψJ) (hPT : PinsTyped m dJ ψJ)
+    (hi : i < dJ.k) (hkJ : dJ.k = kJ)
+    (hw : dJ.w ψJ = TV.w)
+    (hu : ∀ i', i' < kJ → TV.u (base + i') = dJ.uM i' ψJ)
+    (hρJ : Sat V (dJ.params ψJ).reverse ρJ)
+    {nI : Nat} (hnI : nI = (dJ.IdsM i ψJ).length)
+    (hYs : InTupleSpace TV.w dJ.k (dJ.idx ψJ ρJ) Y)
+    (hY : TupleLe dJ.k (dJ.idx ψJ ρJ) Y LJ)
+    {cA : ConstantVal × Nat} (hj : (dJ.ctorsM i)[j]? = some cA)
+    (h : CopyCtorShape TV acval dJ ψJ Ds lpsJ lvlsJ tg tls Eis ρp i j base kJ Fs rs Es)
+    {L : Nat → V}
+    (hentR : ∀ l, l < Fs.length → rs.getD l false = true →
+      ((dJ.rss i).getD j []).getD l false = false → ¬ (base ≤ tg l ∧ tg l < base + kJ) →
+      ∀ fs₁ : List V, fs₁.length = l → SpineFit ρJ (((dJ.Fss i ψJ).getD j []).take l) fs₁ →
+        interp V (consList fs₁ ρJ) (((dJ.Fss i ψJ).getD j []).getD l default)
+          ⊆ˢ slotSet TV.w (TV.u (tg l)) (consList fs₁ ρp) (tls.getD l []) (Eis.getD l []) (L (tg l)))
+    (hentP : ∀ l, l < Fs.length → ((dJ.rss i).getD j []).getD l false = true →
+      ¬ dJ.tgts i j l < dJ.k → ¬ (base ≤ tg l ∧ tg l < base + kJ) →
+      ∀ fs₁ : List V, fs₁.length = l → SpineFit ρJ (((dJ.Fss i ψJ).getD j []).take l) fs₁ →
+        dJ.slotAt ψJ Y i j l (consList fs₁ ρJ)
+          ⊆ˢ slotSet TV.w (TV.u (tg l)) (consList fs₁ ρp) (tls.getD l []) (Eis.getD l []) (L (tg l)))
+    (t : V) (fs : List V) (hC : dJ.ChainFit ψJ ρJ Y t i j fs) :
+    FitsFrom rs (fun i' ρ => slotSet TV.w (TV.u (tg i')) ρ (tls.getD i' []) (Eis.getD i' [])
+        (segJoin base kJ L Y (tg i'))) 0 ρp Fs fs ∧
+    (∀ l, l < nI → interp V (consList fs ρp) (Es.getD l default) = projS l t) := by
+  obtain ⟨cvT, cvR, mI, rP, rules, hI⟩ := hreps i hi
+  have hjl : j < (dJ.ctorsM i).length := (List.getElem?_eq_some_iff.mp hj).1
+  have hlenF := hI.Fss_length hj ψJ
+  have hks : (dJ.ksF i j).length = ((dJ.Fss i ψJ).getD j []).length := by
+    rw [(hI.ctorData hj).ksLen, hlenF]
+  have hYs' : InTupleSpace (dJ.w ψJ) dJ.k (dJ.idx ψJ ρJ) Y := by rw [hw]; exact hYs
+  have hY' : TupleLe dJ.k (dJ.idx ψJ ρJ) Y
+      (lfpTuple (dJ.w ψJ) dJ.k (dJ.idx ψJ ρJ) (dJ.Φ ψJ ρJ)) := by rw [hw]; exact hY
+  unfold BlockModel.ChainFit at hC
+  obtain ⟨hfC, hiC⟩ := hC
+  have hlen : fs.length = ((dJ.Fss i ψJ).getD j []).length := hfC.length_eq
+  refine ⟨fitsFrom_imp_frames_spine h.len.symm (fun l hl fs₁ hl₁ hsp hf hf' => ?_) hfC, ?_⟩
+  · subst hl₁
+    have hlt : fs₁.length < cA.2 := by rw [← hlenF]; exact hl
+    simp only [Nat.zero_add]
+    by_cases hr : ((dJ.rss i).getD j []).getD fs₁.length false = true
+    · have hr' : (rsOf (dJ.ksF i j)).getD fs₁.length false = true := by
+        rwa [IsBlockModel.rss_getD hjl] at hr
+      have hreal := hreps.real_dom_eq hfT hPT hi hj hρJ hlt hr' hsp
+      have hmono := hreps.slotAt_mono hfT hPT hi hj hρJ hlt hr' hsp hYs' hY'
+      rw [hw] at hreal hmono
+      rw [if_pos hr]
+      refine ⟨by rw [hreal]; exact hmono, ?_⟩
+      rcases hI.tgt_cases hjl (hks ▸ hl) with htgt | ⟨hnt, -⟩
+      · obtain ⟨hrC, htg, htl, hEis⟩ := h.recF _ hl hr htgt
+        rw [if_pos hrC, htg, segJoin_add _ _ (hkJ ▸ htgt), dJ.slotAt_of_mem htgt, hEis, hw,
+          hu _ (hkJ ▸ htgt), slotSet_instTele Iff.rfl Iff.rfl Ds ρp fs₁ htl _ _]
+        exact Subset.refl _
+      · obtain ⟨hrC, hout, -, -, -, -, -⟩ := h.pinF _ hl hr hnt
+        rw [if_pos hrC, segJoin_out _ _ hout]
+        exact hentP _ (h.len ▸ hl) hr hnt hout fs₁ rfl hsp
+    · have hr' : ((dJ.rss i).getD j []).getD fs₁.length false = false := by simpa using hr
+      rw [if_neg (by rw [hr']; exact Bool.false_ne_true)]
+      refine ⟨Subset.refl _, ?_⟩
+      rcases h.ordF _ hl hr' with ⟨hrC, hF⟩ | ⟨hrC, hout, -, -⟩
+      · rw [if_neg (by rw [hrC]; exact Bool.false_ne_true), hF fs₁ rfl, interp_instAll]
+        exact Subset.refl _
+      · rw [if_pos hrC, segJoin_out _ _ hout]
+        exact hentR _ (h.len ▸ hl) hrC hr' hout fs₁ rfl hsp
+  · intro l hl
+    rw [hnI] at hl
+    rw [h.es l hl, ← hlen, interp_instAll]
+    exact hiC l hl
+
 end Fit
 
 
