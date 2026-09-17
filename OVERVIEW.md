@@ -593,7 +593,7 @@ Inductive blocks are not trusted from the stream. Three cases:
   What every member carries in the model is the block model
   ([structure `IsBlockModel` in `ConLeche/Model/Inductives/BlockRep.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Inductives/BlockRep.lean#L591));
   the model-tier theorem for the whole install is
-  [theorem `declBlock` in `ConLeche/Model/Inductives/DeclBlock.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Inductives/DeclBlock.lean#L290),
+  [theorem `declBlock` in `ConLeche/Model/Inductives/DeclBlock.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Inductives/DeclBlock.lean#L291),
   whose two named facts — the stages up to the recursors keep the
   model and leave the block model, the projection tables keep it from
   there — are proved

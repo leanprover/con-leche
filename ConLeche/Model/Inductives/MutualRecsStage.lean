@@ -636,7 +636,8 @@ facts are `MutualRecsModeled`'s, verbatim.  Consumer:
       ConLeche.EtaFamiliesClosed
         (ConLeche.consMutualCtors b.nP ctorsA (ConLeche.consMutualFormers fms env)) →
       (∀ n, n ∉ b.blockNames → ∀ ψ : Name → Nat, mp₂.base2.acval n ψ = mp.base2.acval n ψ) →
-      ∀ d : BlockModel V, MutualBlockModelOf env b fms ctorsA d → IsBlockModels mp₂.base2 d →
+      ∀ (d : BlockModel V) (cvTs : Nat → ConstantVal),
+        MutualBlockModelOf env b fms ctorsA d → IsBlockModelsAt mp₂.base2 d cvTs →
         (∀ ψ : Name → Nat, FormersTyped mp₂.base2 d ψ ∧ CtorsTyped mp₂.base2 d ψ) →
         (∀ t, t < b.k →
           (ConLeche.consMutualCtors b.nP ctorsA (ConLeche.consMutualFormers fms env)).find?
@@ -658,7 +659,7 @@ facts are `MutualRecsModeled`'s, verbatim.  Consumer:
                 rulesOf cvRas.zipIdx
                 (ConLeche.consMutualCtors b.nP ctorsA (ConLeche.consMutualFormers fms env))),
             (∀ n, n ∉ b.blockNames → ∀ ψ : Name → Nat, mp₃.base2.acval n ψ = mp₂.base2.acval n ψ) ∧
-            IsBlockModels mp₃.base2 d ∧
+            IsBlockModelsAt mp₃.base2 d cvTs ∧
             (∀ ψ : Name → Nat, FormersTyped mp₃.base2 d ψ ∧ CtorsTyped mp₃.base2 d ψ) ∧
             ∀ (t : Nat) (f : MutualFormerA), fms[t]? = some f →
               MemberStored mp₃.base2 b.lps b.nP f d.resSort (d.ppsM t)
@@ -669,15 +670,15 @@ theorem mutualRecsModeled_of {F : Nat} (hst : MutualRecsStored V μ F) :
     MutualRecsModeled V μ F := by
   intro hμ env mp hE b streamRecs g fms f₀ tq₀ ctorsA sortss kinds formers4 ctors4 cvRas rulesOf
     h0 h1 h2 h3 hformers hf₀ htq₀ hcross hL hctors hkindsC hfo hgd hrectys hrules mp₂ hE₂ hagree
-    d hd hreps htyped hrecNames hstored hkinds
+    d cvTs hd hreps htyped hrecNames hstored hkinds
   obtain ⟨hchecks, -⟩ := ConLeche.mutualFormers_inv hformers
   have hlenF : fms.length = b.k := (mutualFormerChecksG_pos hchecks).1
   obtain ⟨-, -, -, hlenK⟩ := ConLeche.classifyMutualKinds_inv hkindsC
   obtain ⟨s, mpP, hP⟩ := mutualRecsProvision hμ mp₂ hE₂ h0 h1 h2 h3 hf₀ hlenF hL hctors hlenK hgd
-    hrectys hd hreps htyped hrecNames hstored hkinds
+    hrectys hd hreps.toIsBlockModels htyped hrecNames hstored hkinds
   exact hst hμ mp hE b streamRecs g fms f₀ tq₀ ctorsA sortss kinds formers4 ctors4 cvRas rulesOf
     h0 h1 h2 h3 hformers hf₀ htq₀ hcross hL hctors hkindsC hfo hgd hrectys hrules mp₂ hE₂ hagree
-    d hd hreps htyped hrecNames hstored hkinds s mpP hP
+    d cvTs hd hreps htyped hrecNames hstored hkinds s mpP hP
 
 /-- **`declBlock` at the store's fact**: the model survives a mutual
 block, given the store's stage (`MutualRecsStored`) and the tables'

@@ -2021,7 +2021,7 @@ theorem blockReps_of (hμ : μ.verifiedChecks = true) (h0 : b.blockNames.Nodup)
     (hleafM : ∀ (t : Nat) (f : MutualFormerA), fms[t]? = some f →
       mp₂.base2.acval f.cvTa.name = mp₁.base2.acval f.cvTa.name)
     (hag₂ : ∀ n : Name, (∀ cA ∈ ctorsA, n ≠ cA.1.name) → mp₂.base2.acval n = mp₁.base2.acval n) :
-    IsBlockModels mp₂.base2 (D) ∧
+    IsBlockModelsAt mp₂.base2 (D) (fun mm => (fms.getD mm default).cvTa) ∧
     (∀ ψ : Name → Nat, FormersTyped mp₂.base2 (D) ψ ∧ CtorsTyped mp₂.base2 (D) ψ) ∧
     ∀ (t : Nat) (f : MutualFormerA), fms[t]? = some f →
       MemberStored mp₂.base2 b.lps b.nP f (D).resSort ((D).ppsM t) := by
@@ -2092,12 +2092,13 @@ theorem blockReps_of (hμ : μ.verifiedChecks = true) (h0 : b.blockNames.Nodup)
         (mutEiss0 ctorsA.length eissF ψ) (blkFss0 b ctorsA kinds dsF ψ)
         (mutEss0 ctorsA.length esF ψ) := fun ψ => h.shape ψ
   -- the per-member facts
-  have hrep : ∀ mm : Nat, mm < b.k → ∃ (cvT cvR : ConstantVal) (mI rP : Nat) (rules : List RecRule),
-      IsBlockModel mp₂.base2 ((D).memberName mm) cvT cvR mI rP rules (D) mm := by
+  have hrep : ∀ mm : Nat, mm < b.k → ∃ (cvR : ConstantVal) (mI rP : Nat) (rules : List RecRule),
+      IsBlockModel mp₂.base2 ((D).memberName mm) ((fms.getD mm default).cvTa)
+        cvR mI rP rules (D) mm := by
     intro mm hmm
     have hmmF : mm < fms.length := by rw [← hkT]; exact hmm
     have hft := fms_get hmmF
-    refine ⟨(fms.getD mm default).cvTa, default, (D).nP + (D).k + (D).nCtors + (D).nIdxAt mm,
+    refine ⟨default, (D).nP + (D).k + (D).nCtors + (D).nIdxAt mm,
       (D).nP + (D).k + (D).nCtors, [], ?_⟩
     have hlpsT : (fms.getD mm default).cvTa.levelParams = b.lps := h.lps _ _ hft
     refine
@@ -2436,7 +2437,8 @@ modulo its store half `MutualRecsStored` by `mutualRecsModeled_of`
       ConLeche.EtaFamiliesClosed
         (ConLeche.consMutualCtors b.nP ctorsA (ConLeche.consMutualFormers fms env)) →
       (∀ n, n ∉ b.blockNames → ∀ ψ : Name → Nat, mp₂.base2.acval n ψ = mp.base2.acval n ψ) →
-      ∀ d : BlockModel V, MutualBlockModelOf env b fms ctorsA d → IsBlockModels mp₂.base2 d →
+      ∀ (d : BlockModel V) (cvTs : Nat → ConstantVal),
+        MutualBlockModelOf env b fms ctorsA d → IsBlockModelsAt mp₂.base2 d cvTs →
         (∀ ψ : Name → Nat, FormersTyped mp₂.base2 d ψ ∧ CtorsTyped mp₂.base2 d ψ) →
         -- the recursors' names are fresh, unreserved and no projection's
         (∀ t, t < b.k →
@@ -2457,7 +2459,7 @@ modulo its store half `MutualRecsStored` by `mutualRecsModeled_of`
               rulesOf cvRas.zipIdx
               (ConLeche.consMutualCtors b.nP ctorsA (ConLeche.consMutualFormers fms env))),
           (∀ n, n ∉ b.blockNames → ∀ ψ : Name → Nat, mp₃.base2.acval n ψ = mp₂.base2.acval n ψ) ∧
-          IsBlockModels mp₃.base2 d ∧
+          IsBlockModelsAt mp₃.base2 d cvTs ∧
           (∀ ψ : Name → Nat, FormersTyped mp₃.base2 d ψ ∧ CtorsTyped mp₃.base2 d ψ) ∧
           ∀ (t : Nat) (f : MutualFormerA), fms[t]? = some f →
             MemberStored mp₃.base2 b.lps b.nP f d.resSort (d.ppsM t)
@@ -2497,7 +2499,7 @@ theorem mutualCoreModeled_of {F : Nat} (hrec : MutualRecsModeled V μ F) :
     mutualBlockModelOf_ofMutual env b fms ctorsA hf₀ _ ppsF W _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
   obtain ⟨mp₃, hag₃, hreps₃, htyped₃, hstored₃⟩ := hrec hμ mp hE b streamRecs g fms f₀ tq₀ ctorsA
     sortss kinds formers4 ctors4 cvRas rulesOf h0 h1 h2 h3 hformers hf₀ htq₀ hcross hL hctors
-    hkinds hfo hgd hrectys hrules mp₂ hE₂ hagree _ hd hreps htyped hrecNames hstored
+    hkinds hfo hgd hrectys hrules mp₂ hE₂ hagree _ _ hd hreps htyped hrecNames hstored
     (fun mm j _ _ => ⟨rfl, fun _ => rfl⟩)
   exact ⟨mp₃, fun n hn ψ => (hag₃ n hn ψ).trans (hagree n hn ψ), _, hd, hreps₃, htyped₃, hstored₃,
     mutualTableFacts_of hμ h3 h⟩

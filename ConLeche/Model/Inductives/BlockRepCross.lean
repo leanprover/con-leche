@@ -742,6 +742,24 @@ theorem IsBlockModel.crossEnv {env₁ env₂ : Env} {m₁ : EnvModel V env₁} {
   h.crossEnvP (Ts := []) hF hres hag (fun ψ dp e _ {_ea} hr => hde ψ dp e hr)
     (fun _ hT' => nomatch hT') (ProjFree.nil _)
 
+/-- **The block at every member, at the members' own constants,
+crosses the change** (task #315 M7-3 session 5): `IsBlockModels.crossEnv`
+keeping the `ConstantVal`s named. -/
+theorem IsBlockModelsAt.crossEnv {env₁ env₂ : Env} {m₁ : EnvModel V env₁} {m₂ : EnvModel V env₂}
+    {d : BlockModel V} {cvTs : Nat → ConstantVal}
+    (hF : ∀ (n : Name) (ci : ConstantInfo),
+      (∀ cv mI rP rules, ci ≠ .recInfo cv mI rP rules) →
+      env₁.find? n = some ci → env₂.find? n = some ci)
+    (hres : ∀ e : Expr, e.constsResolve env₁ = true → e.constsResolve env₂ = true)
+    (hag : ∀ n : Name, (env₁.find? n).isSome = true → m₂.acval n = m₁.acval n)
+    (hde : ∀ (ψ : Name → Nat) (dp : Nat) (e : Expr) {ea : AnnotTerm},
+      denoteMeta m₁.acval env₁ ψ dp e = some ea → denoteMeta m₂.acval env₂ ψ dp e = some ea)
+    (h : IsBlockModelsAt m₁ d cvTs) :
+    IsBlockModelsAt m₂ d cvTs := by
+  intro c hc
+  obtain ⟨cvR, mI, rP, rules, hb⟩ := h c hc
+  exact ⟨cvR, mI, rP, rules, hb.crossEnv hF hres hag hde⟩
+
 /-- The block at every member crosses the change. -/
 theorem IsBlockModels.crossEnv {env₁ env₂ : Env} {m₁ : EnvModel V env₁} {m₂ : EnvModel V env₂}
     {d : BlockModel V}
