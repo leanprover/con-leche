@@ -84771,6 +84771,96 @@ strengthened from `∃ dJ` to the value `groupSyn` already constructs
 (`blockOf mp.base2 (baseInfo env st q)`), a `pinWd`-shaped change with
 one ripple — `mimicMajor`'s destructuring of `stage.groups`.
 
+##### (aaaa) CONTINUATION 22 (lane session 22) — the integration, K.39/K.45 at the tail, and the groups' model NAMED
+
+Base: this lane's 1e87b380, merged with `agent/uniform-315` 651413ab
+(integration 3p: K.42/K.43/K.47/K.48 and lane L-E's per-pair
+transfer).  No checker code changed; no `sorry`, no axioms, no
+`maxHeartbeats`; `#print axioms` of every new theorem is
+`[propext, Classical.choice, Quot.sound]`.
+
+*The merge, and its four adaptations* (306c0a47, 0c320aed).  Three of
+the four conflicts were one line each; the fourth is worth recording,
+because it is the shape a long-running lane meets whenever a branch
+MOVES what the lane RESHAPED.
+
+`NestedRecEqsOf`, `NestedRecsStored` and `nestedTailModeled_of` exist
+on both sides: the branch RELOCATED them from `NestedRecEqs.lean` to
+`NestedRecsStage.lean`, this lane RESHAPED them in place (§U.29 (yy) —
+the equations NAMED, not existential, because the recursors' leaves are
+a `schoice` over them, so the rule law can only fire at equations it
+can point to).  A textual merge keeps BOTH, and the duplicate
+declarations are what the build reports; neither `git` nor the
+compiler can say which location is canonical.  **The union keeps the
+lane's location and shape and takes the branch's STRONGER conclusion**
+— `∃ mpOut, NestedTailOut …` in place of `Nonempty (EnvModelM V μ
+envOut)`, which M7-3's §U.67 (c) needs for the lift to `EnvModelB`.
+The same reading settles `nestedTailModeled_of_faces` (the branch's
+one-face version against the lane's two-face one: K.35's face is the
+run's own Bool now, so `NestedRecTysAuxOf` is gone and the one-face
+signature stands — session 12's F1, applied at last), `NestedTailIn`'s
+new `hauxApps` field, and `NestedCoreOut.reps`, which is
+`IsBlockModelsAt` now and wants `.toIsBlockModels` at two sites in
+`NestedRecRule.lean`.
+
+*K.39 and K.45, taken at the tail* (4d1973bb).  The kernel lane's two
+recorded name checks were in the run relation and nowhere else; they
+are now `NestedTailIn.hndR`/`hdisj` (premises of `NestedTailModeled`,
+named at `declNested_of`'s destructuring — they were the two `-` after
+`hrn`), and two theorems derive what the rule law asked for:
+
+* `NestedTailIn.recNodup` — K.39, one `of_decide_eq_true`;
+* `NestedTailIn.auxNe` — K.45, §U.29 (ll)'s request, through
+  `nestedProvList_names`/`nestedProvList_fst`, which put class `c`'s
+  restored recursor at position `c` of exactly the concatenation the
+  Bool scans.
+
+`recRuleLawsAt` no longer takes `hndR` or `hauxNe`.  **Neither is
+derivable syntactically** — the mint's copy names and the mimics'
+`T₁.rec_j` are both `.str X (s ++ "_" ++ toString i)` — which is why
+they are checks and not proofs, and why K.39 is a `decide`.
+
+##### (bbbb) `groupsAt` — §U.36 (d)'s supply, and why it went BESIDE `groups`
+
+(93c7b39b.)  `NestedTailOut.groups` — the branch's, and the shape the
+route's lift to `EnvModelB` reads — asks for the group's block model
+by NAME: at the container record `ci` the pin's own name reads, the
+group's model is `blockOf mp.base2 ci`.  The lane's `groups` clause
+gives only `∃ dJ`.
+
+The supply is `groupsAt`, a clause beside `groups` in the same four
+structures `pinWd` went into, and it is DISCHARGED, not assumed:
+`NestedPinsRun.groupSyn` already CONSTRUCTS
+`blockOf mp.base2 (baseInfo env st q)` — its conclusion now says so
+instead of existentially quantifying it — and **the two container
+records are ONE**.  That is not an assumption either: `PinData.own`
+gives the pin's own `containerInfo?` together with K.14's two
+projections against the base's (the parameter count and the member
+NAMES), `PinData.base` gives the base's, and
+`containerInfo?_eq_of_names` (`Verify/Inductives/NestedGroupInv.lean`,
+lane L-B's) turns exactly those two agreements into record equality —
+every member record being a function of the environment at its name
+and the parameter count.  So `ci = baseInfo env st q`, and the two
+`blockOf`s are the same term.
+
+**BESIDE `groups` and not in place of it.**  §U.36 (d) sized the
+change as "one ripple (`mimicMajor`'s destructuring)"; the tree says
+FIFTEEN — `NestedCtorOpened`, `NestedCtorRead` (three), `NestedReadLaw`,
+`NestedRecTypes`, `NestedRecCtor`, `NestedRecFibre` (four),
+`NestedPins`, `NestedLoop`, `NestedCore` and `DeclNestedCore` all
+destructure `groups`' existential, and strengthening it in place
+rewrites every one of them for no gain.  The union costs a dozen lines
+and the two clauses share their proof (`nestedPinsStaged_of`'s three
+`hId` spends are factored into one `hparts`).
+
+*The one real ripple is elsewhere*: the four structures now MENTION the
+pre-block model `mp`, so every use site needs `(mp := mp)` — six files.
+A structure's implicit arguments are its fields' free variables, and
+adding a field that names a section variable the structure did not
+previously mention changes its signature.  That is the same trap
+`pinWd` met from the other side in (xxx): there the fix was to AVOID
+naming `dsR`, here the model genuinely has to be named.
+
 
 #### U.30 — L-B session 2: `CopyCtorInst.ordF` at the READING, the normalisation's reading law PROVED, `ContainerModeled`'s three clauses (lane L-B, 2026-09-16)
 
