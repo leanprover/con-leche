@@ -80272,6 +80272,140 @@ interleaved), one four-line adaptation, and the arena run.  Next: L-B's
 `recF` and `ordF`-left arms, L-E's blob route, M7's three stage facts,
 M7-3's native export, and K.36.
 
+##### (r) INTEGRATION 3j — M7-3 session 7 and L-B session 10 merged: the native route's facts exported, and `recF`'s classification half (session U-32)
+
+Two merges into the lane, `--no-ff` at the pinned shas —
+`agent/uniform-m7env` **852f2aa1** (M7-3 s7) at 7e80325a and
+`agent/uniform-ident` **dbe1f87c** (L-B s10) at 626e0344.  **The
+nested chain does not move**: `declNested_of` over `mp : EnvModelB`
+still closes over exactly `hSh : NestedPinsShape`, `hEn :
+NestedPinsEntry` and `htail : NestedTailModeled` (plus `hE` and the
+run).  What moves is on both sides of it — the NATIVE route now has
+its facts as an exported record and its block model assembled, and
+`recF`'s syntactic half is in the tree.  Neither branch touched
+checker code, and **no theorem statement had to be adapted on either
+merge** — the session's only edits were the two DESIGN resolutions.
+
+*Merge 1 — M7-3 session 7* (7e80325a).  The branch contains 587c79ac
+(merged at 43eab441 in 3i), so the delta is session 7 alone.  It
+brings `NativeSyntaxFacts` (`Model/Inductives/DeclNative.lean:80`) —
+the `declNativeTable` bundle VERBATIM plus the thirteen facts
+`IsBlockModel` needs beside it — with `declNative_syntax` (`:206`) the
+old theorem carrying `Nonempty (EnvModelM V μ env₂) ∧ ∃ …,
+NativeSyntaxFacts …`, and **`declNative` (`:1278`) its FIRST
+PROJECTION**.  The statement is byte-for-byte unchanged, verified on
+the diff against 587c79ac: the four signature lines are identical, and
+the probe's `#check` confirms it at the merged tree.  THE FINDING
+(§U.50 (b)) is that the route carries TWO constructor-data families —
+the DUMMY data at the empty-chain former, at which every
+`XChainsOk`/`fixFunVI`/leaf fact is proved, and the REAL data at the
+fixpoint former, at which `BlockCtorData` holds — and that the bridge
+between them is SYNTACTIC, because `xEntry` returns the slot at a
+recursive position and DISCARDS the domain: hence `FsAgree`/`FssAgree`
+(`BlockRepOne.lean:122`) and the seven `*_congr` lemmas, with
+`NativeSyntaxFacts.fssAgree` the route's instance.  On that,
+`nativeIsBlockModel` (`DeclNative.lean:1291`) assembles all 26 clauses
+of `IsBlockModel` at `BlockModel.ofNative`, never built before
+(§U.40 (e)), closing three `BlockRepOne` gaps on the way —
+`ofNative_ctor'` (`:457`) with the `Prop` branch `IsBlockModel.ctor`
+needs, its `hds` premise weakened from a list equality to the fitting
+spine, and `spineFit_of_frames` moved `MutualCore.lean` →
+`StructCtorData.lean` (verbatim, verified on the diff).  DESIGN.md was
+the only conflict — §U.50 against the lane's §U.48 (L-E s4, which the
+branch has never seen), both appended after §U.47 — resolved by number
+and verified a pure union, zero lines dropped against either parent
+(154 over HEAD, 1111 over 852f2aa1).  OVERVIEW's `declNative` anchor
+came in repointed L63 → L1278, a pure line shift as the theorem moved
+to the end of its file; the citing paragraph was re-read here and its
+claim, "the model-tier theorem for the whole install", is unchanged.
+
+*Merge 2 — L-B session 10* (626e0344).  The merge base is 1af79ea5
+(L-B s9, merged at 3h), so the branch has never seen 2a63e12b's L-E
+interface, 3i's `ContainerModeled.inj` guard, or M7-3 sessions 5–7.
+It brings TWO of `CopyCtorShape.recF`'s four conjuncts, unconditional
+at the run and the group: `NestedPinsRun.copyRecFDom` (the
+elimination's occurrence chain at a container field recursive at one
+of the container's own members, rewritten to the group's mimic) and
+`NestedPinsRun.copyRecF` (the auxiliary block's CLASSIFICATION of what
+it leaves — `rss … = true` and `tgts … = p.k + q₀ + dJ.tgts i' j l`),
+both in `NestedCopyInst.lean`.  §U.49 (a)'s FINDING is that
+`containerFieldOk`'s trichotomy does NOT pin the parameter spine (its
+nested arm accepts any stored inductive head, a group member
+included); the fact is one conjunct over, in `containerFactsOk`'s
+`uniformIndOccsOk`, read back by `uniformIndOccsE_stripPis`/`_spine`
+and `nestedContainersOk_uniform`/`_memberSpine`
+(`Verify/Inductives/NestedGroupInv.lean`).  Beside them the
+normalisation is crossed at a DOMAIN (`normCtorValM_domHead` over
+`normPosDomM_indApp`, `openPisAtFvars_closeTelescope_doms`,
+`normFieldDomsM_getD`, `NestedCopyNorm.lean`), the positivity walk
+needs only its constant arm reached (`mutualPositivity_notPi`,
+`mutualCtorKinds_memberHead`), and `copyBody`/`copyFields`/`copyResid`
+now hand over the pin's container group `ci`, `J ∈ ci.members` and
+`J.ctors[j]?` — data `ctorPair` had and threw away.
+
+*The conflicts of merge 2.*  DESIGN.md was again the only one, and
+this time the section had to be INTERLEAVED: §U.49 belongs between the
+lane's §U.48 and §U.50 (merged an hour earlier in the same session),
+neither of which the branch has seen.  Resolved by number and verified
+a pure union — zero lines dropped against either parent (201 over
+HEAD, 1842 over dbe1f87c).  **Every forecast source conflict failed to
+materialise.**  `NestedCopyInst.lean`, `NestedCopyNorm.lean` and
+`NestedGroupInv.lean` came out byte-identical to the branch's, because
+the lane has not touched any of the three since the merge base: L-E's
+interface change lives in `NestedPins.lean`/`NestedPremise.lean`, and
+L-B mentions `CopyShapeA`/`CopyCtorShape` only in docstrings, never in
+a statement, so the two land beside each other rather than inside each
+other.  `NestedPins.lean` was untouched on the branch, so there was no
+union to take there, and `NestedPremise`'s public import is still
+`Semantics.Inductives.DeclNested`.  No binder had to be threaded and
+no proof content was needed.
+
+**The import gate had nothing to take**, as in §U.27 (b), (g), (h),
+(k), (m) and (q): neither branch touched `tests/shake-allowlist.txt`
+or `scripts/pub-import-plan.py`, so there was no union and no new
+FALLBACK to verify.  Shake 510 proposed / all 510 allowlisted at both
+merge commits; pub-imports none demotable at both — 1276 of 2012
+in-tree edges public with 38 dot-notation fallbacks after merge 1,
+1276 of 2015 after merge 2's three files' new imports.
+
+Gates at BOTH merge commits: `lake build` warning-free (701 jobs at
+each — merge 2 adds no module), `lake test` warning-free, shake and
+pub-imports as above, layering base 347 / model 271 / caps 3 /
+umbrella 1 with 0 base→lane and 0 impl→theory at both; trust surface
+13 escapes in 5 allowlisted files (633 scanned); no-local-paths OK;
+overview-links 112; quote-gate 2; proofdeps 4955 rows / 12 roots / 0
+doors; nested-shadow 27/27 on the final commit.  **And `tests/arena.sh`
+on merge 1: EXIT 0** — `declNative`'s proof changed, so that was the
+run that had to be made.  No `sorry`, no axioms, no `maxHeartbeats`,
+no checker code changed.
+
+**The chain, re-verified** (`_tmp/uniform-315/chain-probe-u32.lean`,
+outside the build): `declNested_of hμ mp hE (nestedCoreModeled_of
+(nestedCtorsStaged_of (nestedPinsStaged_of (nestedPinsIdent_of hSh
+hEn)) nestedReadLaw)) htail h : Nonempty (EnvModelM V μ envOut)` still
+closes over exactly `hSh`, `hEn` and `htail` (plus `mp : EnvModelB V μ
+env`, `hE` and the run); `nestedTailModeled_of hrd heqs hst` and
+`declMutualB hμ mb hE hpinOk hOrd h` still typecheck, as do
+`natBlockAt` and `eqBlockAt` at the guarded `ContainerModeled`.  New
+probes, all green: `declNative`, `declNative_syntax`,
+`NativeSyntaxFacts`, `nativeIsBlockModel`, `FsAgree`/`FssAgree`,
+`ofNative_ctor'`, `spineFit_of_frames`, `NestedPinsRun.copyRecF` and
+`copyRecFDom`, `nestedContainersOk_uniform`/`_memberSpine`.  `#print
+axioms` of `probe_decl`, `probe_tail` and `probe_mutual`: `[propext,
+Classical.choice, Quot.sound]`.
+
+The nested residual after 3j is (n)'s, unchanged — `NestedPinsShape`
+(L-B/L-E), `NestedPinsEntry` (L-E) and `NestedTailModeled` (M7-2's
+three stage facts).  `recF` now owes only its reflexive telescope and
+its index expressions (one session, §U.49 (e)); the MUTUAL route's
+residual is still `MutualOrdFree` (K.36), and `declNativeB` owes the
+four items §U.50 (d) names.
+
+Cost: well under a session — two DESIGN conflicts (one appended, one
+interleaved), zero source adaptations, and the arena run.  Next:
+`recF`'s remaining half and `ordF`-left, L-E's blob route, M7's three
+stage facts, `declNativeB`, and K.36.
+
 #### K.32 — the copies' recursive targets come from the container's own recursion (2026-09-16, task #315, lane L-B's DESIGN §U.23 (e))
 
 The model's `ordF` arm needs to know that a container-ORDINARY field
