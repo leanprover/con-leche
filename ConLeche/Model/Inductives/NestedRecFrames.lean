@@ -152,6 +152,15 @@ theorem OpenersFrom.take {fvs : List Expr} {k₀ n : Nat} (h : OpenersFrom fvs k
   rw [List.getElem?_take_of_lt hj] at hx
   exact h.2 j x hx
 
+/-- A suffix of the standard openers is the standard openers from its
+own base. -/
+theorem OpenersFrom.drop {fvs : List Expr} {k₀ n : Nat} (h : OpenersFrom fvs k₀ n) (i : Nat) :
+    OpenersFrom (fvs.drop i) (k₀ + i) (n - i) := by
+  refine ⟨by rw [List.length_drop, h.1], fun j x hx => ?_⟩
+  rw [List.getElem?_drop] at hx
+  obtain ⟨ty, rfl⟩ := h.2 (i + j) x hx
+  exact ⟨ty, by congr 1; omega⟩
+
 /-- **A BLOCK MODEL'S RECURSOR READING STARTS WITH THE BLOCK'S
 PARAMETERS**: the reading's prefix is `rebit`-reset member `0`'s
 parameter data (`mutualRecDataAV_eq_prefix`), whose domains ARE
@@ -1293,6 +1302,149 @@ theorem NestedTailIn.restoreAgree {mpA : EnvModelM V μ ENVA} {cvRas : List Cons
       exact (List.getElem?_eq_some_iff.mp this).1
     rw [← hn']
     exact I.mimicRecFresh (by rw [I.out.stage.pinsLen]; exact hjl)
+
+/-! ### D — THE TRANSFER -/
+
+/-- **THE TRANSFER** (PLAN-M7 §1e D): a spine fits the RESTORED
+recursor type's reading exactly when it fits the SCRATCH one's.
+
+Position by position (`spineFit_iff_agree`).  Below the parameter
+prefix both domains are the block's parameters — the restored tower's
+by B (`recTyPrefix`), the scratch tower's by the mutual readings'
+`ppsDom` (`blockRds_take_params`) — and the two block models' `params`
+are one list.  Above it, at depth `d`, the restored binder is the
+restore WALK of the auxiliary's (C1), both are opened at the SAME
+standard openers (C1/C2 modulo the openers' annotations), the walk's
+shape holds at that depth (K.35) and the restored domain is graded at
+the fitting frame (the tower's `okTy` peeled along the fit), so the
+walk's READING LAW (`denoteMeta_restoreWalk` at `restoreAgree`, B2)
+makes the two domains interpret alike. -/
+theorem NestedTailIn.spineFit_transfer {mpA : EnvModelM V μ ENVA} {cvRas : List ConstantVal}
+    (S : NestedScratchOut F env b fms f₀ ctorsA kinds mp₁ ppsF W idxF dsF esF srcsF fvsPF xFvsF
+      xrestF eissF tssF stored mpA cvRas)
+    (hnames : NestedCtorPinNames env p st)
+    (hctorsJ : ∀ (q₀ kJ i : Nat) (dJ : BlockModel V), PG mp₂.base2 q₀ kJ dJ → i < kJ →
+      ∀ (ci : ContainerInfo) (J : ContainerMember),
+        ConLeche.containerInfo? env ((D).pinAt (q₀ + i)).J = some ci → J ∈ ci.members →
+        J.name = ((D).pinAt (q₀ + i)).J → (dJ.ctorsM i).map (·.1.name) = J.ctors.map (·.name))
+    (hK35 : NestedRecTysAuxOk p st b stored pinsS)
+    {c : Nat} (hc : c < b.k) (ψ : Name → Nat) (ρ : Nat → V)
+    {rdsR : List (Nat × Nat × AnnotTerm)} {conc : AnnotTerm}
+    (hread : denoteMeta mp₂.base2.acval (ENV₂) ψ 0 (nestedRecCvAt p.k cvRms cvRns c).type
+      = some (mkPisAV rdsR conc))
+    (hlenR : rdsR.length = b.nP + (b.k + b.ctors.length + ((fms.getD c default).nIdx + 1)))
+    (xs : List V) :
+    SpineFit ρ (rdsR.map (·.2.2)) xs
+      ↔ SpineFit ρ (((DA).blockRds mpA.base2 b.elimLevel c ψ).map (·.2.2)) xs := by
+  obtain ⟨a, cbsA, cbsR, resid, fvs, ha, hstripA, hstripR, hopen, hbind, hwalk⟩ :=
+    I.recTyOpen hc ψ hread hlenR hK35
+  obtain ⟨fvsA, hopenA, hbindA⟩ := I.auxTyOpen S hc ψ ha hstripA
+  have hppsLen : (ppsF 0 ψ).length = b.nP + f₀.nIdx :=
+    (I.out.stage.FD 0 f₀ I.kpos I.out.facts.first).len ψ
+  -- the two towers have the auxiliary telescope's length
+  have hlenCbsR : cbsR.length = b.nP + (b.k + b.ctors.length + ((fms.getD c default).nIdx + 1)) :=
+    ConLeche.Expr.stripPis_length _ hstripR
+  have hlenCbsA : cbsA.length = b.nP + (b.k + b.ctors.length + ((fms.getD c default).nIdx + 1)) :=
+    ConLeche.Expr.stripPis_length _ hstripA
+  have hlenA : ((DA).blockRds mpA.base2 b.elimLevel c ψ).length
+      = b.nP + (b.k + b.ctors.length + ((fms.getD c default).nIdx + 1)) := by
+    obtain ⟨f, hf⟩ : ∃ f, fms[c]? = some f :=
+      ⟨_, List.getElem?_eq_getElem (by rw [I.out.facts.lenFms]; exact hc)⟩
+    have hfD : (fms.getD c default).nIdx = f.nIdx := by rw [List.getD_eq_getElem?_getD, hf]; rfl
+    have hnC : (DA).nCtors = b.ctors.length := by
+      rw [S.record.nCtors_eq (ConLeche.checkMutualCore_inv I.haux).2.2.1 I.out.facts.lenA]
+      exact I.out.facts.lenA
+    rw [(S.recData c hc).1.len ψ, hnC, mutualBlockModel_nIdxAt hf, hfD]
+    show b.nP + b.k + b.ctors.length + f.nIdx + 1 = _
+    omega
+  -- the parameter prefixes
+  have hprefR : (rdsR.take b.nP).map (·.2.2) = (D).params ψ := I.recTyPrefix hc ψ hread hlenR
+  have hprefA : (((DA).blockRds mpA.base2 b.elimLevel c ψ).take b.nP).map (·.2.2)
+      = (DA).params ψ :=
+    blockRds_take_params mpA.base2 (DA) b.elimLevel c ψ
+      (by show b.nP ≤ (ppsF 0 ψ).length; rw [hppsLen]; omega)
+  refine spineFit_iff_agree (by rw [List.length_map, List.length_map, hlenR, hlenA]) ?_ xs
+  intro l hl fs₁ hlf hf _
+  rw [List.length_map, hlenR] at hl
+  rcases Nat.lt_or_ge l b.nP with hlt | hge
+  · -- **the parameters**: both domains are the block's own
+    have hgetR : (rdsR.map (·.2.2)).getD l default = ((D).params ψ).getD l default := by
+      rw [← hprefR, List.map_take, List.getD_eq_getElem?_getD, List.getD_eq_getElem?_getD,
+        List.getElem?_take_of_lt hlt]
+    have hgetA : (((DA).blockRds mpA.base2 b.elimLevel c ψ).map (·.2.2)).getD l default
+        = ((DA).params ψ).getD l default := by
+      rw [← hprefA, List.map_take, List.getD_eq_getElem?_getD, List.getD_eq_getElem?_getD,
+        List.getElem?_take_of_lt hlt]
+    -- the two block models' parameter telescopes are ONE list (the same `ppsF 0`)
+    rw [hgetR, hgetA]
+    rfl
+  · -- **above the prefix**: the walk's reading law
+    obtain ⟨d, rfl⟩ : ∃ d, l = b.nP + d := ⟨l - b.nP, by omega⟩
+    obtain ⟨x, hx⟩ : ∃ x, cbsA[b.nP + d]? = some x :=
+      ⟨_, List.getElem?_eq_getElem (by rw [hlenCbsA]; omega)⟩
+    obtain ⟨y, hy, hw, hAuxOk, hresY⟩ := hwalk d x hx
+    -- the openers, split at the parameter prefix
+    have htt : (fvs.take (b.nP + d)).take b.nP = fvs.take b.nP := by
+      rw [List.take_take, show min b.nP (b.nP + d) = b.nP from by omega]
+    have hP : OpenersFrom (fvs.take b.nP) 0 b.nP := hopen.take (by omega)
+    have hF : OpenersFrom ((fvs.take (b.nP + d)).drop b.nP) b.nP d := by
+      have h := (hopen.take (i := b.nP + d) (by omega)).drop b.nP
+      rwa [Nat.zero_add, show b.nP + d - b.nP = d from by omega] at h
+    have hcat : fvs.take b.nP ++ (fvs.take (b.nP + d)).drop b.nP = fvs.take (b.nP + d) := by
+      rw [← htt]
+      exact List.take_append_drop b.nP (fvs.take (b.nP + d))
+    -- the two readings, at the SAME openers
+    have hAread : denoteMeta mpA.base2.acval (ENVA) ψ (b.nP + d)
+        (Expr.instSeq (fvs.take b.nP ++ (fvs.take (b.nP + d)).drop b.nP) (b.nP + d - 1) x.1)
+        = some (((DA).blockRds mpA.base2 b.elimLevel c ψ).getD (b.nP + d) default).2.2 := by
+      rw [hcat, denoteMeta_instSeq_openers_congr (hopen.take (i := b.nP + d) (by omega))
+        (hopenA.take (i := b.nP + d) (by omega)) (b.nP + d - 1) (b.nP + d) x.1]
+      exact hbindA (b.nP + d) x hx
+    have hRread : denoteMeta mp₂.base2.acval (ENV₂) ψ (b.nP + d)
+        (Expr.instSeq (fvs.take b.nP ++ (fvs.take (b.nP + d)).drop b.nP) (b.nP + d - 1) y.1)
+        = some (rdsR.getD (b.nP + d) default).2.2 := by
+      rw [hcat]; exact hbind (b.nP + d) y hy
+    -- the fitting prefix splits into parameters and the middle segment
+    have htt2 : ((rdsR.map (·.2.2)).take (b.nP + d)).take b.nP
+        = (rdsR.map (·.2.2)).take b.nP := by
+      rw [List.take_take, show min b.nP (b.nP + d) = b.nP from by omega]
+    have hsplit := (List.take_append_drop b.nP ((rdsR.map (·.2.2)).take (b.nP + d))).symm
+    rw [htt2] at hsplit
+    rw [hsplit] at hf
+    obtain ⟨as, ws, rfl, hasFit, hwsFit⟩ := spineFit_append_inv hf
+    have hasLen : as.length = b.nP := by
+      rw [hasFit.length_eq, List.length_take, List.length_map]
+      omega
+    have hwsLen : ws.length = d := by
+      rw [List.length_append] at hlf
+      omega
+    have hsp : SpineFit ρ ((D).params ψ) as := by
+      rw [← hprefR, List.map_take]
+      exact hasFit
+    -- the two towers' entries at `nP + d`
+    have hRget : rdsR[b.nP + d]? = some (rdsR.getD (b.nP + d) default) := by
+      rw [List.getD_eq_getElem?_getD,
+        List.getElem?_eq_getElem (show b.nP + d < rdsR.length from by omega)]
+      rfl
+    have hAget : ((DA).blockRds mpA.base2 b.elimLevel c ψ)[b.nP + d]?
+        = some (((DA).blockRds mpA.base2 b.elimLevel c ψ).getD (b.nP + d) default) := by
+      rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem
+        (show b.nP + d < ((DA).blockRds mpA.base2 b.elimLevel c ψ).length from by omega)]
+      rfl
+    -- the restored domain is graded at the fitting frame
+    have hwd : WellDenoted V (consList ws (consList as ρ))
+        ((rdsR.getD (b.nP + d) default).2.2) := by
+      have hok := (I.recTyOkTy hc ψ hread hlenR ρ).1
+      have hfields := (WellDenoted_mkPisAV_inv hok).1
+      have h := fieldsOkB_getD hfields (j := b.nP + d)
+        (by rw [List.length_map]; omega) (bs := as ++ ws)
+        (by rw [hsplit]; exact hf)
+      rw [consList_append, map_dom_getD hRget] at h
+      exact h
+    rw [consList_append, map_dom_getD hRget, map_dom_getD hAget]
+    exact denoteMeta_restoreWalk (ConLeche.restoreTbl_keysInAux p st)
+      (I.restoreAgree S hnames hctorsJ ψ) hAuxOk hw hresY hP hF hAread hRread as ws ρ hsp hwsLen
+      hwd
 
 /-! ### The readings, from the frames -/
 
