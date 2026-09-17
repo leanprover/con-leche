@@ -115,27 +115,6 @@ theorem spineFit_iff_agree {Fs Fs' : List AnnotTerm} {ρ : Nat → V} (hlen : Fs
   simp only [List.getD_nil, Bool.false_eq_true, if_false]
   exact hag l hl fs₁ hl₁ (fitsFrom_nil_iff.mp hf) (fitsFrom_nil_iff.mp hf')
 
-/-- **A spine fits an instantiated telescope at the block's frame iff it
-fits the telescope at the pin's frame** (`interp_instAll` along the
-telescope). -/
-theorem spineFit_instTele (Ds : List AnnotTerm) (ρ' : Nat → V) :
-    ∀ (Ids : List AnnotTerm) (fs₁ is : List V),
-      SpineFit (consList fs₁ ρ') (instTele Ds fs₁.length Ids) is ↔
-        SpineFit (consList fs₁ (consList (Ds.map (interp V ρ')) ρ')) Ids is
-  | [], _, [] => Iff.rfl
-  | [], _, _ :: _ => Iff.rfl
-  | _ :: _, _, [] => Iff.rfl
-  | T :: Ids, fs₁, a :: is => by
-    show (a ∈ˢ interp V (consList fs₁ ρ') (AnnotTerm.instAll Ds fs₁.length T) ∧
-        SpineFit (cons a (consList fs₁ ρ')) (instTele Ds (fs₁.length + 1) Ids) is) ↔
-      (a ∈ˢ interp V (consList fs₁ (consList (Ds.map (interp V ρ')) ρ')) T ∧
-        SpineFit (cons a (consList fs₁ (consList (Ds.map (interp V ρ')) ρ'))) Ids is)
-    rw [interp_instAll]
-    have h := spineFit_instTele Ds ρ' Ids (fs₁ ++ [a]) is
-    rw [List.length_append, List.length_singleton, consList_append, consList_append] at h
-    exact and_congr Iff.rfl h
-
-
 /-- Two frames from spines of one length over one base agree only on
 equal spines. -/
 private theorem consList_inj_len {as bs : List V} {ρ : Nat → V} (hl : as.length = bs.length)

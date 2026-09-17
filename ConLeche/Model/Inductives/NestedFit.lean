@@ -405,27 +405,35 @@ variable (tg : Nat → Nat) (tls : List (List (Nat × Nat × AnnotTerm))) (Eis :
 /-- **The entry at the STORED READING** (task #315 L-E, DESIGN §U.36):
 the shape of a container-ordinary field the elimination rewrote — the
 copy's field is recursive at a target `tg l` outside the group — reads
-the container's domain at the pin's frame as the Π-tower over the
-copy's telescope of the TARGET's stored reading (`TargetView.EA`,
-lifted past the fields and the telescope) at the copy's index
-expressions; the telescope's bits are the block's regime; and at a
-prefix fitting the container's real domains the index expressions'
+the container's domain as a Π-tower (`mkPisAV tlsJ body`, the field's
+own telescope) whose BODY, under the telescope at a prefix fitting the
+container's real domains, reads as the TARGET's stored reading
+(`TargetView.EA`) applied to the copy's index expressions' readings —
+stated at the body, FIBRE-wise, not at the tower: equal towers do not
+give equal fibres (an empty fibre empties the tower), and the transfer
+between a container's pin constructors and the block's copies
+(DESIGN §U.48) identifies the two targets' readings fibre-wise; the
+copy's telescope is the container's instantiated (`instTele`), the
+telescopes' bits are the block's regime, and the index expressions'
 readings fit the target's index telescope at the target's frame.  The
-three facts are what turns the reading into the copy's SLOT at any
-tuple whose target families read as the stored readings
-(`copyEntryAt_of_read`) — the entry at the auxiliary carrier is then a
-theorem of the WHOLE block, not a per-group obligation. -/
+facts turn the reading into the copy's SLOT at any tuple whose target
+families read as the stored readings (`copyEntryAt_of_read`) — the
+entry at the auxiliary carrier is then a theorem of the WHOLE block,
+not a per-group obligation. -/
 @[expose] def EntryRead (l : Nat) : Prop :=
-  (∀ fs₁ : List V, fs₁.length = l →
-    interp V (consList fs₁ (consList (Ds.map (interp V ρp)) ρp)) (((dJ.Fss i ψJ).getD j []).getD l default)
-      = interp V (consList fs₁ ρp) (mkPisAV (tls.getD l [])
-          (AnnotTerm.mkAppN ((TV.EA (tg l)).liftN (l + (tls.getD l []).length) 0) (Eis.getD l [])))) ∧
-  (∀ e ∈ tls.getD l [], (e.2.1 = 0 ↔ TV.w = 0)) ∧
-  (∀ fs₁ bs : List V, fs₁.length = l →
-    SpineFit (consList (Ds.map (interp V ρp)) ρp) (((dJ.Fss i ψJ).getD j []).take l) fs₁ →
-    SpineFit (consList fs₁ ρp) ((tls.getD l []).map (·.2.2)) bs →
-    SpineFit (TV.frame ρp (tg l)) (TV.Ids (tg l))
-      ((Eis.getD l []).map (interp V (consList bs (consList fs₁ ρp)))))
+  ∃ (tlsJ : List (Nat × Nat × AnnotTerm)) (body : AnnotTerm),
+    ((dJ.Fss i ψJ).getD j []).getD l default = mkPisAV tlsJ body ∧
+    (tls.getD l []).map (·.2.2) = instTele Ds l (tlsJ.map (·.2.2)) ∧
+    (∀ e ∈ tls.getD l [], (e.2.1 = 0 ↔ TV.w = 0)) ∧
+    (∀ e ∈ tlsJ, (e.2.1 = 0 ↔ TV.w = 0)) ∧
+    (∀ fs₁ bs : List V, fs₁.length = l →
+      SpineFit (consList (Ds.map (interp V ρp)) ρp) (((dJ.Fss i ψJ).getD j []).take l) fs₁ →
+      SpineFit (consList fs₁ ρp) ((tls.getD l []).map (·.2.2)) bs →
+      interp V (consList bs (consList fs₁ (consList (Ds.map (interp V ρp)) ρp))) body
+          = ((Eis.getD l []).map (interp V (consList bs (consList fs₁ ρp)))).foldl SetTheory.app
+              (interp V ρp (TV.EA (tg l))) ∧
+        SpineFit (TV.frame ρp (tg l)) (TV.Ids (tg l))
+          ((Eis.getD l []).map (interp V (consList bs (consList fs₁ ρp)))))
 
 /-- **The entry identity at a tuple `Z`**, at one field: at a prefix
 fitting the container's real domains, the CONTAINER's domain read at
@@ -532,15 +540,30 @@ theorem copyEntryAt_of_read {TV : TargetView V} {dJ : BlockModel V} {ψJ : Name 
         = is.foldl SetTheory.app (interp V ρp (TV.EA (tg l)))) :
     CopyEntryAt dJ ψJ Ds tg tls Eis ρp i j TV.w TV.u Z l := by
   intro fs₁ hl₁ hsp
-  rw [(hread.1 fs₁ hl₁)]
+  obtain ⟨tlsJ, body, hF, htl, hbits, hbitsJ, hbody⟩ := hread
+  subst hl₁
+  rw [hF]
   unfold slotSet
-  refine ConLeche.Semantics.interp_mkPisAV_piTele (v := TV.w) (acc := [])
-    (fun d' hd' => hread.2.1 d' hd') fun bs hbs => ?_
-  rw [List.nil_append, interp_mkAppN_foldl, hZ _ (hread.2.2 fs₁ bs hl₁ hsp hbs)]
-  congr 1
-  have hlen : l + (tls.getD l []).length = (fs₁ ++ bs).length := by
-    rw [List.length_append, hl₁, hbs.length_eq, List.length_map]
-  rw [← consList_append, hlen, interp_liftN_consList]
+  rw [htl]
+  rw [ConLeche.Semantics.interp_mkPisAV_piTele (v := TV.w) (acc := []) (fun d' hd' => hbitsJ d' hd')]
+  have key : ∀ bs : List V,
+      SpineFit (consList fs₁ (consList (Ds.map (interp V ρp)) ρp)) (tlsJ.map (·.2.2)) bs →
+      SetTheory.app (Z (tg fs₁.length)) (tupW (TV.u (tg fs₁.length))
+          ((Eis.getD fs₁.length []).map (interp V (consList ([] ++ bs) (consList fs₁ ρp)))))
+        = interp V (consList ([] ++ bs) (consList fs₁ (consList (Ds.map (interp V ρp)) ρp))) body := by
+    intro bs hbs
+    rw [List.nil_append]
+    have hbs' : SpineFit (consList fs₁ ρp) ((tls.getD fs₁.length []).map (·.2.2)) bs := by
+      rw [htl]; exact (spineFit_instTele Ds ρp (tlsJ.map (·.2.2)) fs₁ bs).mpr hbs
+    obtain ⟨hb, hfit⟩ := hbody fs₁ bs rfl hsp hbs'
+    rw [hZ _ hfit, hb]
+  exact (piTele_instTele
+    (B := fun bs => SetTheory.app (Z (tg fs₁.length)) (tupW (TV.u (tg fs₁.length))
+      ((Eis.getD fs₁.length []).map (interp V (consList bs (consList fs₁ ρp))))))
+    (B' := fun bs => interp V (consList bs (consList fs₁ (consList (Ds.map (interp V ρp)) ρp))) body)
+    Iff.rfl Ds ρp (tlsJ.map (·.2.2)) fs₁ [] key).symm
+  intro as _
+  rw [List.nil_append]
 
 /-! ## The fits at one constructor -/
 
@@ -895,11 +918,13 @@ theorem CopyCtorShape.of_EA {TV : TargetView V} {acval acval' : Name → (Name �
   len := h.len
   recF := h.recF
   ordF := fun l hl hr => by
-    rcases h.ordF l hl hr with hL | ⟨h1, h2, h3, hr1, hr2, hr3⟩
+    rcases h.ordF l hl hr with hL | ⟨h1, h2, h3, tlsJ, body, hF, htl, hb, hbJ, hr⟩
     · exact Or.inl hL
-    · refine Or.inr ⟨h1, h2, h3, fun fs₁ hl₁ => ?_, hr2, hr3⟩
-      rw [hr1 fs₁ hl₁]
-      show _ = interp V _ (mkPisAV _ (AnnotTerm.mkAppN ((EA' (tg l)).liftN _ 0) _))
+    · refine Or.inr ⟨h1, h2, h3, tlsJ, body, hF, htl, hb, hbJ, fun fs₁ bs hl₁ hsp hbs => ?_⟩
+      obtain ⟨hr1, hr2⟩ := hr fs₁ bs hl₁ hsp hbs
+      refine ⟨?_, hr2⟩
+      rw [hr1]
+      show _ = List.foldl _ (interp V ρp (EA' (tg l))) _
       rw [hEA _ h3]
   pinF := fun l hl hr hnt => by
     obtain ⟨h1, h2, h3, h4, ⟨hp1, hp2, hp3, hp4, hp5, hp6⟩, h5, h6⟩ := h.pinF l hl hr hnt
