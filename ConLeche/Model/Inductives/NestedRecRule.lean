@@ -17,6 +17,12 @@ import ConLeche.Verify.Inductives.NestedRecNames
 import ConLeche.Verify.Inductives.NestedRecRuleKit
 import ConLeche.Verify.Inductives.NestedRecFramesKit
 import ConLeche.Verify.Inductives.NestedElimInv
+import ConLeche.Model.Inductives.NestedTransfer
+import ConLeche.Model.Inductives.NestedPins
+import ConLeche.Model.IndOpenRev
+import ConLeche.Model.IndPinGrade
+import ConLeche.Model.Steps.IotaRows
+import ConLeche.Verify.Subst
 public section
 
 /-!
@@ -2376,6 +2382,329 @@ theorem NestedTailIn.mimicFireLvls {c : Nat} (hc : c < b.k) {q : Nat} {qn : Nest
   exact (Expr.const.inj (hhead.symm.trans h)).2
 
 
+/-! ## The mimic rule's pin conjunct (item 5 step 2e, `hvpa`) -/
+
+omit I in
+/-- A `fvar`-free application spine's head and arguments are each
+`fvar`-free — `hasFvar_mkAppN`'s inverse, which the pin's components
+need one at a time. -/
+theorem hasFvar_mkAppN_args : ∀ (args : List Expr) (g : Expr),
+    (Expr.mkAppN g args).hasFvar = false →
+      g.hasFvar = false ∧ ∀ x ∈ args, x.hasFvar = false
+  | [], g, h => ⟨h, fun x hx => absurd hx (by simp)⟩
+  | a :: as, g, h => by
+    obtain ⟨hg, has⟩ := hasFvar_mkAppN_args as _ h
+    simp only [Expr.hasFvar, Bool.or_eq_false_iff] at hg
+    exact ⟨hg.1, fun x hx => by
+      rcases List.mem_cons.mp hx with rfl | hx'
+      · exact hg.2
+      · exact has x hx'⟩
+
+/-- **THE MIMIC RULE'S PIN CONJUNCT** (`RecRuleLaw`'s outer `vpa`,
+task #315 M7-2): at a restored MIMIC rule the fired pin at index `ii`
+READS at the rule prefix, and its reading is GRADED along every fit of
+the recursor's own telescope.
+
+Both halves are the direct route's generic producers — `pinOpenRevReads`
+for the reading, `nestedPinGrade` for the grading — and the whole of
+the work is supplying them at the NESTED route's own data, which is
+one syntactic identification: the restored major domain is the pin's
+container applied to the pin's components (abstracted over the block's
+parameters, lifted past the motives, the minor premises and the index
+binders) and then to the index binders themselves
+(`restRecTyMajorSpine`), while the kernel's fire certificate says that
+same argument prefix is the stored `pins` lifted past the index
+binders (`nestedFireShape_inv`).  Cancelling the two lifts against one
+instantiation spine (`instSeq_liftLooseBVars_prefix`, twice at the
+same openers) identifies the fired pin's reading with the COMPONENT's
+own reading lifted (`nt_denoteMeta_restoredTerm` at the stage's
+`pinDs`), and the component is graded at the block's parameters by the
+stage's `pinWd` — whose frame is the recursor tower's last `nP`
+entries (`recTyPrefix`), i.e. exactly what `Sat_drop` leaves of the
+certificate's padded context. -/
+theorem NestedTailIn.mimicPin
+    {mpP : EnvModelM V μ
+      (ConLeche.provisionNestedRecs (nestedProvList p stored cvRms cvRns) ENV2)}
+    (hndR : (cvRms.map (·.name) ++ cvRns.map (·.name)).Nodup)
+    (hagR : ∀ nm : Name, (∀ c, c < (D).kT → nm ≠ (nestedRecCvAt p.k cvRms cvRns c).name) →
+      mpP.base2.acval nm = mp₂.base2.acval nm)
+    {s : (Name → Nat) → Nat} {rdsM : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)}
+    {concM : Nat → AnnotTerm}
+    (R : NestedRecReadings mp₂.base2 (D) PC cvRms cvRns b.rlps b.elimLevel s rdsM concM)
+    {c : Nat} (hc : c < b.k) {q : Nat} {qn : NestedPin}
+    (hqn : st.pins[q]? = some qn) (hcq : c = p.k + q)
+    {a : AuxStored} (ha : stored[c]? = some a) (φ : Name → Nat) {us : List Level}
+    {lvls : List Level} {pins : List Expr} {cnP : Nat}
+    (hsh : ConLeche.nestedFireShape
+        (ConLeche.provisionNestedRecs (nestedProvList p stored cvRms cvRns) (ENV2))
+        (nestedRecCvAt p.k cvRms cvRns c).levelParams
+        (nestedRecCvAt p.k cvRms cvRns c).type a.mI a.rP cnP = some (lvls, pins))
+    {ii : Nat} (hii : ii < cnP) :
+    ∃ vpa : AnnotTerm,
+      denoteMeta mpP.base2.acval
+          (ConLeche.provisionNestedRecs (nestedProvList p stored cvRms cvRns) (ENV2)) φ a.rP
+          (ConLeche.Verify.openRev 0 a.rP
+            ((pins.getD ii default).instantiateLevelParams
+              (nestedRecCvAt p.k cvRms cvRns c).levelParams us)) = some vpa ∧
+      ∀ (ρ : Nat → V) (zs : List AnnotTerm) (TVa restR : AnnotTerm),
+        zs.length = a.rP → (∀ z ∈ zs, WellDenotedV V ρ z) →
+        denoteMeta mpP.base2.acval
+            (ConLeche.provisionNestedRecs (nestedProvList p stored cvRms cvRns) (ENV2)) φ 0
+            ((nestedRecCvAt p.k cvRms cvRns c).type.instantiateLevelParams
+              (nestedRecCvAt p.k cvRms cvRns c).levelParams us) = some TVa →
+        TeleFitPA V ρ TVa zs restR →
+        WellDenotedV V ρ (ConLeche.Model.AnnotTerm.instRevChain zs vpa) := by
+  have hcT : c < (D).kT := by rw [I.kT]; exact hc
+  obtain ⟨hrPa, hmIa⟩ := I.recArgSums ha
+  have hrP : a.rP = b.nP + (b.k + b.ctors.length) := by
+    rw [hrPa]
+    unfold ConLeche.MutualBlock.rulePrefix ConLeche.MutualBlock.n
+    omega
+  have hmI : a.mI = a.rP + (fms.getD c default).nIdx := by rw [hmIa, hrPa]
+  have hq : q < pinsS.length := by have := I.out.bk; omega
+  -- the level assignment, named
+  obtain ⟨ψR, hψR⟩ : ∃ ψ : Name → Nat,
+    ψ = Level.substFn φ (nestedRecCvAt p.k cvRms cvRns c).levelParams us := ⟨_, rfl⟩
+  have hinstR : ∀ (dp : Nat) (e : Expr),
+      denoteMeta mpP.base2.acval
+          (ConLeche.provisionNestedRecs (nestedProvList p stored cvRms cvRns) (ENV2)) φ dp
+          (e.instantiateLevelParams (nestedRecCvAt p.k cvRms cvRns c).levelParams us)
+        = denoteMeta mpP.base2.acval
+          (ConLeche.provisionNestedRecs (nestedProvList p stored cvRms cvRns) (ENV2)) ψR dp e := by
+    intro dp e
+    rw [hψR]
+    exact denoteMeta_instLevels (acvalParamsAt_of_core mpP.base2) φ dp e
+  -- ===== the syntax: the major domain against the fire certificate =====
+  obtain ⟨-, bs, dom, body, bm, Dn, hstrip, -, hargsLen, -, hpinsLift, -, hpinsWf, -⟩ :=
+    ConLeche.nestedFireShape_inv hsh
+  have hspine := I.restRecTyMajorSpine hc hqn hcq (by omega) hstrip
+  have hstructLen : (ConLeche.structPsAt 0 (fms.getD c default).nIdx).length
+      = (fms.getD c default).nIdx := by
+    simp only [ConLeche.structPsAt, List.length_map, List.length_range]
+  have hargs : dom.getAppArgs
+      = ((D).pinAt q).DsE.map (fun e => (Expr.abstractRange e 0 b.nP 0).liftLooseBVars
+            (b.k + b.ctors.length + (fms.getD c default).nIdx) 0)
+        ++ ConLeche.structPsAt 0 (fms.getD c default).nIdx := by
+    rw [hspine, Expr.getAppArgs_mkAppN, Expr.getAppArgs_mkAppN]
+    simp only [show ∀ (n : Name) (vs : List Level), (Expr.const n vs).getAppArgs = [] from
+      fun _ _ => rfl, List.nil_append]
+  have hmIrP : a.mI - a.rP = (fms.getD c default).nIdx := by omega
+  have hcnP : cnP = ((D).pinAt q).DsE.length := by
+    rw [hargs, List.length_append, List.length_map, hstructLen, hmIrP] at hargsLen
+    omega
+  have hpinsLen : pins.length = cnP := by
+    have h := congrArg List.length hpinsLift
+    rw [List.length_take, List.length_map, hargs, List.length_append, List.length_map,
+      hstructLen] at h
+    omega
+  have htake : dom.getAppArgs.take cnP
+      = ((D).pinAt q).DsE.map (fun e => (Expr.abstractRange e 0 b.nP 0).liftLooseBVars
+          (b.k + b.ctors.length + (fms.getD c default).nIdx) 0) := by
+    rw [hargs]
+    exact List.take_left' (by rw [List.length_map, ← hcnP])
+  have hDsGet : ((D).pinAt q).DsE[ii]? = some (((D).pinAt q).DsE.getD ii default) := by
+    rw [List.getD]
+    rcases hx : ((D).pinAt q).DsE[ii]? with _ | x
+    · rw [List.getElem?_eq_none_iff] at hx; omega
+    · rfl
+  have hpinGet : pins[ii]? = some (pins.getD ii default) := by
+    rw [List.getD]
+    rcases hx : pins[ii]? with _ | x
+    · rw [List.getElem?_eq_none_iff] at hx; omega
+    · rfl
+  obtain ⟨hpw, hpb, -⟩ := hpinsWf _ (List.mem_of_getElem? hpinGet)
+  have hkey : (Expr.abstractRange (((D).pinAt q).DsE.getD ii default) 0 b.nP 0).liftLooseBVars
+        (b.k + b.ctors.length + (fms.getD c default).nIdx) 0
+      = (pins.getD ii default).liftLooseBVars (fms.getD c default).nIdx 0 := by
+    have h := hpinsLift
+    rw [htake, hmIrP] at h
+    have h2 := congrArg (fun l => l[ii]?) h
+    simp only [List.getElem?_map, hDsGet, hpinGet, Option.map_some, Option.some.injEq] at h2
+    exact h2
+  -- ===== the openers =====
+  have hfvsLen : ((List.range a.mI).map (fun i => Expr.fvar i (.sort .zero))).length = a.mI := by
+    rw [List.length_map, List.length_range]
+  have hfvsGet : ∀ i, i < a.mI →
+      ((List.range a.mI).map (fun i => Expr.fvar i (.sort .zero)))[i]?
+        = some (Expr.fvar i (.sort .zero)) := by
+    intro i hi
+    rw [List.getElem?_map, List.getElem?_range hi]
+    rfl
+  have hbFvs : ∀ x ∈ (List.range a.mI).map (fun i => Expr.fvar i (.sort .zero)),
+      x.looseBVarsBounded 0 = true := by
+    intro x hx
+    obtain ⟨i, -, rfl⟩ := List.mem_map.mp hx
+    rfl
+  have hTakeLen : ∀ n, n ≤ a.mI →
+      (((List.range a.mI).map (fun i => Expr.fvar i (.sort .zero))).take n).length = n := by
+    intro n hn
+    rw [List.length_take, hfvsLen]
+    omega
+  have hSplit : ∀ n m, n + m = a.mI →
+      ((List.range a.mI).map (fun i => Expr.fvar i (.sort .zero))).take n
+          ++ (((List.range a.mI).map (fun i => Expr.fvar i (.sort .zero))).drop n).take m
+        = (List.range a.mI).map (fun i => Expr.fvar i (.sort .zero)) := by
+    intro n m hnm
+    rw [← List.take_add, hnm, List.take_of_length_le (Nat.le_of_eq hfvsLen)]
+  have hShape : ∀ n, ∀ (i : Nat) (x : Expr),
+      (((List.range a.mI).map (fun i => Expr.fvar i (.sort .zero))).take n)[i]? = some x →
+        ∃ ty, x = Expr.fvar i ty := by
+    intro n i x hx
+    have hi : i < n := by
+      rcases Nat.lt_or_ge i n with h' | h'
+      · exact h'
+      · rw [List.getElem?_eq_none (by rw [List.length_take]; omega)] at hx
+        exact nomatch hx
+    rw [List.getElem?_take_of_lt hi, List.getElem?_map] at hx
+    rcases hr : (List.range a.mI)[i]? with _ | j
+    · rw [hr] at hx; exact nomatch hx
+    · rw [hr] at hx
+      obtain rfl : j = i := by
+        have hji : i = j := by
+          have := List.getElem?_eq_some_iff.mp hr
+          simpa using this.2
+        omega
+      exact ⟨_, (Option.some.inj hx).symm⟩
+  -- ===== the component's reading, and the two `instSeq` collapses =====
+  have hiiDsE : ii < ((D).pinAt q).DsE.length := by omega
+  have hcomp : denoteMeta mp₂.base2.acval (ENV2) ψR b.nP (((D).pinAt q).DsE.getD ii default)
+      = some ((((D).pinAt q).Ds ψR).getD ii default) :=
+    (I.out.stage.pinDs q hq ψR).getD default ii hiiDsE
+  have hcompB : (((D).pinAt q).DsE.getD ii default).looseBVarsBounded 0 = true :=
+    nt_looseBVarsBounded_of_denoteMeta b.nP _ hcomp
+  have habsB : (Expr.abstractRange (((D).pinAt q).DsE.getD ii default) 0 b.nP 0).looseBVarsBounded
+      b.nP = true := by
+    have h := ConLeche.looseBVarsBounded_abstractRange _ 0 b.nP 0 hcompB
+    rwa [Nat.zero_add] at h
+  obtain ⟨hnPb, -, -, -⟩ := ConLeche.auxBlock_fields I.hb
+  have hfvAbs : (Expr.abstractRange (((D).pinAt q).DsE.getD ii default) 0 b.nP 0).hasFvar
+      = false := by
+    have hfv0 := (ConLeche.pinsClosed_inv I.hclosed qn (List.mem_of_getElem? hqn)).1
+    rw [(I.out.stage.pinRec q qn hqn).2, ConLeche.abstractRange_mkAppN,
+      ConLeche.abstractRange_const] at hfv0
+    rw [hnPb]
+    exact (hasFvar_mkAppN_args _ _ hfv0).2 _
+      (List.mem_map_of_mem (List.mem_of_getElem? hDsGet))
+  have hread0 := nt_denoteMeta_restoredTerm
+    (i := b.k + b.ctors.length + (fms.getD c default).nIdx) mp₂.base2
+    (hTakeLen b.nP (by omega)) (fun k hk => by
+      have hget := List.getElem?_eq_getElem
+        (l := ((List.range a.mI).map (fun i => Expr.fvar i (.sort .zero))).take b.nP)
+        (by rw [hTakeLen b.nP (by omega)]; exact hk)
+      obtain ⟨ty, hty⟩ := hShape b.nP k _ hget
+      exact ⟨ty, by rw [hget, hty]⟩)
+    hfvAbs hcomp
+  have hcollapse : Expr.instSeq
+        (((List.range a.mI).map (fun i => Expr.fvar i (.sort .zero))).take a.rP) (a.rP - 1)
+        (pins.getD ii default)
+      = Expr.instSeq
+        (((List.range a.mI).map (fun i => Expr.fvar i (.sort .zero))).take b.nP) (b.nP - 1)
+        (Expr.abstractRange (((D).pinAt q).DsE.getD ii default) 0 b.nP 0) := by
+    have h1 := ConLeche.Expr.instSeq_liftLooseBVars_prefix
+      (((List.range a.mI).map (fun i => Expr.fvar i (.sort .zero))).take a.rP)
+      ((((List.range a.mI).map (fun i => Expr.fvar i (.sort .zero))).drop a.rP).take
+        (fms.getD c default).nIdx)
+      (q := pins.getD ii default)
+      (fun x hx => hbFvs x (List.mem_of_mem_take hx))
+      (by rw [hTakeLen a.rP (by omega)]; exact hpb)
+    have h2 := ConLeche.Expr.instSeq_liftLooseBVars_prefix
+      (((List.range a.mI).map (fun i => Expr.fvar i (.sort .zero))).take b.nP)
+      ((((List.range a.mI).map (fun i => Expr.fvar i (.sort .zero))).drop b.nP).take
+        (b.k + b.ctors.length + (fms.getD c default).nIdx))
+      (q := Expr.abstractRange (((D).pinAt q).DsE.getD ii default) 0 b.nP 0)
+      (fun x hx => hbFvs x (List.mem_of_mem_take hx))
+      (by rw [hTakeLen b.nP (by omega)]; exact habsB)
+    rw [hTakeLen a.rP (by omega), List.length_take, List.length_drop, hfvsLen,
+      show min (fms.getD c default).nIdx (a.mI - a.rP) = (fms.getD c default).nIdx from by omega,
+      hSplit a.rP _ (by omega), show a.rP + (fms.getD c default).nIdx - 1 = a.mI - 1 from by
+        omega] at h1
+    rw [hTakeLen b.nP (by omega), List.length_take, List.length_drop, hfvsLen,
+      show min (b.k + b.ctors.length + (fms.getD c default).nIdx) (a.mI - b.nP)
+        = b.k + b.ctors.length + (fms.getD c default).nIdx from by omega,
+      hSplit b.nP _ (by omega),
+      show b.nP + (b.k + b.ctors.length + (fms.getD c default).nIdx) - 1 = a.mI - 1 from by
+        omega] at h2
+    rw [← h1, ← h2, hkey]
+  have hw0 : denoteMeta mp₂.base2.acval (ENV2) ψR (a.rP + (fms.getD c default).nIdx)
+      (Expr.instSpine (((List.range a.mI).map (fun i => Expr.fvar i (.sort .zero))).take a.rP)
+        (a.rP - 1) (pins.getD ii default))
+      = some (((((D).pinAt q).Ds ψR).getD ii default).liftN
+          (b.k + b.ctors.length + (fms.getD c default).nIdx) 0) := by
+    rw [Expr.instSpine_eq_instSeq, hcollapse,
+      show a.rP + (fms.getD c default).nIdx
+        = b.nP + (b.k + b.ctors.length + (fms.getD c default).nIdx) from by omega]
+    exact hread0
+  -- ===== the reading half =====
+  have hosWs : ∀ x ∈ ((List.range a.mI).map (fun i => Expr.fvar i (.sort .zero))).take a.rP,
+      Expr.WScoped (a.rP + (fms.getD c default).nIdx) x := by
+    intro x hx
+    obtain ⟨i, hi, rfl⟩ := List.mem_map.mp (List.mem_of_mem_take hx)
+    refine Expr.WScoped.of_wscopedB ?_
+    have hilt : i < a.mI := List.mem_range.mp hi
+    simp only [Expr.wscopedB, Bool.and_eq_true, decide_eq_true_eq]
+    exact ⟨by omega, trivial⟩
+  obtain ⟨vpa, hvpden⟩ := pinOpenRevReads (acval := mp₂.base2.acval) (cval := mp₂.base2.cvalE)
+    (env := ENV2) (φ := ψR) mp₂.base2.acval_closed
+    (fun n ψ y k => AVExprSubst.inst_eq_self_of_closed (mp₂.base2.acval_closed n ψ) y k)
+    mp₂.base2.acval_erase mp₂.base2.cval_closed (hTakeLen a.rP (by omega)) (hShape a.rP) hosWs
+    (fun x hx => hbFvs x (List.mem_of_mem_take hx)) hpw hpb hw0
+  refine ⟨vpa, ?_, ?_⟩
+  · rw [ConLeche.Verify.openRev_instantiateLevelParams, hinstR]
+    exact I.provCross hndR hagR ψR a.rP _ hvpden
+  -- ===== the grading half =====
+  intro ρ zs TVa restR hzslen hzsOk hTVa hfit
+  have hTVa' : TVa = mkPisAV (rdsM c ψR) (concM c) := by
+    rw [hinstR] at hTVa
+    exact Option.some.inj (hTVa.symm.trans (I.recTyReadP hndR hagR R hcT ψR))
+  subst hTVa'
+  have hlenRds : (rdsM c ψR).length = a.rP + ((fms.getD c default).nIdx + 1) := by
+    rw [I.lenAtOf R hc ψR]; omega
+  refine nestedPinGrade (acval := mp₂.base2.acval) (cval := mp₂.base2.cvalE)
+    (env := ENV2) (φ := ψR) mp₂.base2.acval_closed
+    (fun n ψ y k => AVExprSubst.inst_eq_self_of_closed (mp₂.base2.acval_closed n ψ) y k)
+    mp₂.base2.acval_erase mp₂.base2.cval_closed (hTakeLen a.rP (by omega)) (hShape a.rP) hosWs
+    (fun x hx => hbFvs x (List.mem_of_mem_take hx)) hpw hpb hvpden
+    (piTeleAV_mkPisAV_take (rdsM c ψR) hlenRds (concM c)) ?_ hzslen hzsOk hfit
+  intro w1 hw1 σ hσ
+  obtain rfl : w1 = ((((D).pinAt q).Ds ψR).getD ii default).liftN
+      (b.k + b.ctors.length + (fms.getD c default).nIdx) 0 :=
+    Option.some.inj (hw1.symm.trans hw0)
+  rw [WellDenotedV_liftN,
+    show ConLeche.Semantics.shiftE (b.k + b.ctors.length + (fms.getD c default).nIdx) 0 σ
+      = fun j => σ (j + (b.k + b.ctors.length + (fms.getD c default).nIdx)) from by
+    funext j; simp only [ConLeche.Semantics.shiftE]; rw [if_neg (by omega)]]
+  refine I.out.stage.pinWd q hq ψR _ ?_ _ ?_
+  · -- the dropped frame IS the block's parameters, reversed
+    have hdrop : (List.replicate (fms.getD c default).nIdx (AnnotTerm.sort 0)
+          ++ (((rdsM c ψR).take a.rP).map (·.2.2)).reverse).drop
+            (b.k + b.ctors.length + (fms.getD c default).nIdx)
+        = ((D).params ψR).reverse := by
+      rw [show b.k + b.ctors.length + (fms.getD c default).nIdx
+          = (fms.getD c default).nIdx + (b.k + b.ctors.length) from by omega,
+        ← List.drop_drop,
+        List.drop_left' (by rw [List.length_replicate]),
+        show (((rdsM c ψR).take a.rP).map (·.2.2)).reverse
+          = ((((rdsM c ψR).take a.rP).map (·.2.2)).drop b.nP).reverse
+            ++ ((((rdsM c ψR).take a.rP).map (·.2.2)).take b.nP).reverse from by
+          rw [← List.reverse_append, List.take_append_drop],
+        List.drop_left' (by
+          rw [List.length_reverse, List.length_drop, List.length_map, List.length_take,
+            hlenRds, Nat.min_eq_left (by omega)]
+          omega)]
+      congr 1
+      rw [← List.map_take, List.take_take, Nat.min_eq_left (by omega)]
+      exact I.recTyPrefix hc ψR (NestedTailIn.readAtOf R hcT ψR) (I.lenAtOf R hc ψR)
+    have h := Sat_drop hσ (b.k + b.ctors.length + (fms.getD c default).nIdx)
+    rwa [hdrop] at h
+  · have hDsLen : ((D).pinAt q).DsE.length = (((D).pinAt q).Ds ψR).length :=
+      (I.out.stage.pinDs q hq ψR).length
+    refine List.mem_of_getElem? (show (((D).pinAt q).Ds ψR)[ii]? = some _ from ?_)
+    rw [List.getD]
+    rcases hx : (((D).pinAt q).Ds ψR)[ii]? with _ | x
+    · rw [List.getElem?_eq_none_iff] at hx; omega
+    · rfl
+
+
 /-! ## The major at a MIMIC arm (item 5 step 2e, `hmajor`'s second instance) -/
 
 omit I in
@@ -2873,9 +3202,8 @@ container's (`mimicMajor`, at the fire shape the same inversion hands
 over).  `ruleVal` supplies the right-hand side's value and
 `recRuleLawOf` does the rest.
 
-`hvpa` — the mimic's outer `vpa` conjunct — is the ONE thing left open
-(§U.29 (ppp) 1); a member rule never needs it (`RecRuleLaw` guards it
-by `fire = .nested`), and it is passed straight through. -/
+The outer `vpa` conjunct is the mimic's own (`mimicPin`); a member
+rule never needs it, its fire being `.plain`-or-`.inert`. -/
 theorem NestedTailIn.recRuleLawsAt {mpA : EnvModelM V μ ENVA} {cvRas : List ConstantVal}
     (S : NestedScratchOut F env b fms f₀ ctorsA kinds mp₁ ppsF W idxF dsF esF srcsF fvsPF xFvsF
       xrestF eissF tssF stored mpA cvRas)
@@ -2913,24 +3241,7 @@ theorem NestedTailIn.recRuleLawsAt {mpA : EnvModelM V μ ENVA} {cvRas : List Con
       n ≠ (nestedRecCvAt p.k cvRms cvRns c).name)
     (hK35r : NestedRulesAuxOk p st b stored)
     (φ : Name → Nat) {c : Nat} (hc : c < b.k) {a : AuxStored} (ha : stored[c]? = some a)
-    (hvpa : ∀ o ∈ nestedRulesAt p.k rulesM rulesN c,
-      ∀ us : List Level, us.length = (nestedRecCvAt p.k cvRms cvRns c).levelParams.length →
-      ∀ lvls pins, RecRule.fire o = .nested lvls pins →
-      ∀ ii, ii < RecRule.ctorParams o →
-      ∃ vpa : AnnotTerm,
-        denoteMeta mpP.base2.acval
-            (ConLeche.provisionNestedRecs (nestedProvList p stored cvRms cvRns) (ENV2)) φ a.rP
-            (ConLeche.Verify.openRev 0 a.rP
-              ((pins.getD ii default).instantiateLevelParams
-                (nestedRecCvAt p.k cvRms cvRns c).levelParams us)) = some vpa ∧
-        ∀ (ρ : Nat → V) (zs : List AnnotTerm) (TVa restR : AnnotTerm),
-          zs.length = a.rP → (∀ z ∈ zs, WellDenotedV V ρ z) →
-          denoteMeta mpP.base2.acval
-              (ConLeche.provisionNestedRecs (nestedProvList p stored cvRms cvRns) (ENV2)) φ 0
-              ((nestedRecCvAt p.k cvRms cvRns c).type.instantiateLevelParams
-                (nestedRecCvAt p.k cvRms cvRns c).levelParams us) = some TVa →
-          TeleFitPA V ρ TVa zs restR →
-          WellDenotedV V ρ (ConLeche.Model.AnnotTerm.instRevChain zs vpa)) :
+    :
     ∀ o ∈ nestedRulesAt p.k rulesM rulesN c, RecRule.fire o ≠ .inert →
       RecRuleLaw mpP.base2 φ (nestedRecCvAt p.k cvRms cvRns c).name
         (nestedRecCvAt p.k cvRms cvRns c) a.mI a.rP o := by
@@ -2962,6 +3273,55 @@ theorem NestedTailIn.recRuleLawsAt {mpA : EnvModelM V μ ENVA} {cvRas : List Con
     funext t'
     unfold nestedRecLeaf
     rw [restrictΨ_congr (lps := b.rlps) (fun q hq => restrictΨ_agree b.rlps ψ q hq)]
+  -- **the pin conjunct**: vacuous at a member (its fire is never `.nested`),
+  -- and the mimic's own at a mimic (`mimicPin`)
+  have hvpaO : ∀ us : List Level,
+      us.length = (nestedRecCvAt p.k cvRms cvRns c).levelParams.length →
+      ∀ lvls pins, RecRule.fire o = .nested lvls pins →
+      ∀ ii, ii < RecRule.ctorParams o →
+      ∃ vpa : AnnotTerm,
+        denoteMeta mpP.base2.acval
+            (ConLeche.provisionNestedRecs (nestedProvList p stored cvRms cvRns) (ENV2)) φ a.rP
+            (ConLeche.Verify.openRev 0 a.rP
+              ((pins.getD ii default).instantiateLevelParams
+                (nestedRecCvAt p.k cvRms cvRns c).levelParams us)) = some vpa ∧
+        ∀ (ρ : Nat → V) (zs : List AnnotTerm) (TVa restR : AnnotTerm),
+          zs.length = a.rP → (∀ z ∈ zs, WellDenotedV V ρ z) →
+          denoteMeta mpP.base2.acval
+              (ConLeche.provisionNestedRecs (nestedProvList p stored cvRms cvRns) (ENV2)) φ 0
+              ((nestedRecCvAt p.k cvRms cvRns c).type.instantiateLevelParams
+                (nestedRecCvAt p.k cvRms cvRns c).levelParams us) = some TVa →
+          TeleFitPA V ρ TVa zs restR →
+          WellDenotedV V ρ (ConLeche.Model.AnnotTerm.instRevChain zs vpa) := by
+    clear hfire
+    intro us hus lvls pins hfireN ii hii
+    by_cases hck : p.k ≤ c
+    · obtain ⟨-, hfireM⟩ := hMim (by simp only [decide_eq_true_eq]; exact hck)
+      obtain ⟨q, rfl⟩ : ∃ q, c = p.k + q := ⟨c - p.k, by omega⟩
+      have hqlt : q < st.pins.length := by
+        rw [← I.out.stage.pinsLen]
+        have := I.out.bk
+        omega
+      obtain ⟨qn, hqn⟩ : ∃ qn, st.pins[q]? = some qn := ⟨_, List.getElem?_eq_getElem hqlt⟩
+      rcases hsh : ConLeche.nestedFireShape
+          (ConLeche.provisionNestedRecs (nestedProvList p stored cvRms cvRns) (ENV2))
+          (nestedRecCvAt p.k cvRms cvRns (p.k + q)).levelParams
+          (nestedRecCvAt p.k cvRms cvRns (p.k + q)).type a.mI a.rP (RecRule.ctorParams o)
+          with _ | lp
+      · rw [hsh] at hfireM
+        rw [hfireM] at hfireN
+        exact nomatch hfireN
+      · rw [hsh] at hfireM
+        obtain ⟨rfl, rfl⟩ : lvls = lp.1 ∧ pins = lp.2 := by
+          rw [hfireM] at hfireN
+          injection hfireN with h1 h2
+          exact ⟨h1.symm, h2.symm⟩
+        exact I.mimicPin hndR hagR R hc hqn rfl ha φ (by rw [hsh]) hii
+    · obtain ⟨-, hfireP⟩ := hMem (by simp only [decide_eq_false_iff_not]; exact hck)
+      by_cases hrp : Expr.recRulePlain (nestedRecCvAt p.k cvRms cvRns c).type a.mI a.rP
+          (RecRule.ctorParams o)
+      · rw [hfireP, if_pos hrp] at hfireN; exact nomatch hfireN
+      · rw [hfireP, if_neg hrp] at hfireN; exact nomatch hfireN
   refine I.recRuleLawOf S hnames hctorsJ hK35 R E Tu hndR hagR hleafR hshapeA hc hi ha hnf
     (Ra := fun ψ => Classical.choose (hdoor (restrictΨ b.rlps ψ)))
     (fun ψ => by
@@ -2976,7 +3336,7 @@ theorem NestedTailIn.recRuleLawsAt {mpA : EnvModelM V μ ENVA} {cvRas : List Con
         (fun ρ' => (Classical.choose_spec (hdoor (restrictΨ b.rlps ψ))).2 ρ') ρ
       rw [hleafRes ψ] at h
       exact h)
-    φ (hvpa o ho) ?_
+    φ hvpaO ?_
   -- **the major**, on the arm the mimic flag names
   by_cases hck : p.k ≤ c
   · -- a MIMIC: the fire shape is the run's, and `mimicMajor` decodes at the container

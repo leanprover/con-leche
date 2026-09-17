@@ -83597,6 +83597,69 @@ obligation is, conjunct for conjunct, `nestedFireShape_inv`'s output,
 so `nested_recs_wf` takes it as a per-entry premise and the caller
 reads it off the rule's own certificate.
 
+*`hvpa`, DISCHARGED — `recRuleLawsAt` is unconditional.*  The rule
+law's outer `vpa` conjunct — a fired pin READS at the rule prefix, and
+its reading is GRADED along every fit of the recursor's telescope — is
+no longer a hypothesis of `NestedTailIn.recRuleLawsAt`.  A MEMBER rule
+never needed it (`restoreRules_at`'s member clause fires
+`.plain`-or-`.inert`, so the `.nested` premise is vacuous); the MIMIC's
+is `NestedTailIn.mimicPin`.
+
+Both halves are the DIRECT route's generic producers spent at the
+nested route's own suppliers — `pinOpenRevReads` for the reading,
+`nestedPinGrade` for the grading — and all of the work is ONE
+syntactic identification.  The kernel's fire certificate
+(`nestedFireShape_inv`) says the restored major domain's argument
+prefix is the stored `pins` lifted past the index binders; the walk
+inversion says that same domain is the pin's container applied to the
+pin's COMPONENTS, each abstracted over the block's parameters and
+lifted past the motives, the minor premises and the index binders.
+So the two sides are equal argument by argument, and the two lifts
+cancel against ONE instantiation spine:
+`instSeq_liftLooseBVars_prefix` twice, at the same openers, split
+`nP + (k + n + nIdx)` on the left and `rP + nIdx` on the right —
+whence `instSeq (fvs.take rP) (rP-1) pin
+= instSeq (fvs.take nP) (nP-1) (abstractRange Dsᵢ 0 nP 0)`, and the
+right-hand side READS, at the major's own depth, as the component's
+own reading LIFTED (`nt_denoteMeta_restoredTerm` at the stage's
+`pinDs`).  The grading is then the stage's `pinWd` at the block's
+parameter frame, which `Sat_drop` is exactly what leaves of the
+certificate's padded context (`recTyPrefix` names the tower's first
+`nP` entries as `(D).params`).
+
+*Three Lean notes.*
+
+* The openers need not be the recursor type's.  `denoteMeta` does not
+  look at an `fvar`'s annotation (`denoteMeta_fvar`, and
+  `denoteMeta_instSeq_openers_congr` says so in general), and the pin
+  conjunct never reads the major binder itself — only the argument at
+  index `ii`.  So `mimicPin` opens at
+  `(List.range a.mI).map (fun i => Expr.fvar i (.sort .zero))`, whose
+  `WScoped`/`looseBVarsBounded` side conditions are `rfl` and `omega`,
+  instead of routing `recTyOpen`'s openers and hunting their
+  annotations' scope.
+* `nt_denoteMeta_restoredPin` was stated for a whole container
+  application; its proof is term-generic, so it is cut at
+  `nt_denoteMeta_restoredTerm` and the pin's version is that at
+  `denoteMeta_mkAppN`.  Same for `restRecTyMajorHead`, which is now
+  `restRecTyMajorSpine`'s first projection — a generalisation and its
+  arm's existing lemma cut at the SAME place.
+* `omega` does not see through `(D).pinAt q` to `pinsS.getD q default`,
+  so a bound taken from `hcnP` must be re-stated at the spelling the
+  consumer asks for (`hiiDsE`, `hDsLen`) and passed by `exact`, where
+  defeq does the work.
+
+Item 5's residue is now (vvv) 2 and 3 only.
+
+*FILES AND GATES (session 21's `hvpa`).*  Touched:
+`ConLeche/Model/Inductives/NestedRecRule.lean` (2977 → 3363) and
+`ConLeche/Model/Inductives/NestedTransfer.lean` (the cut).  Six new
+imports on `NestedRecRule.lean` (`NestedTransfer`, `NestedPins`,
+`IndOpenRev`, `IndPinGrade`, `Steps.IotaRows`, `Verify.Subst`); no
+checker code, no `sorry`, no axioms, no `maxHeartbeats`.  `lake build`
+warning-free EXIT 0; `lake test` warning-free EXIT 0; overview-links
+112; quote-gate 2.
+
 
 #### U.30 — L-B session 2: `CopyCtorInst.ordF` at the READING, the normalisation's reading law PROVED, `ContainerModeled`'s three clauses (lane L-B, 2026-09-16)
 
