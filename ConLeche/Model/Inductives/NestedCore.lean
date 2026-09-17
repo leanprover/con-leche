@@ -1217,6 +1217,13 @@ structure NestedStageFacts (st : ElimState) (mp₂ : EnvModelM V μ ENV₂) : Pr
   names : (fms.take p.k).map (·.cvTa.name) = p.memberNames
   agree : ∀ n, n ∉ p.memberNames ++ p.ctors.map (·.cv.name) →
     ∀ ψ : Name → Nat, mp₂.base2.acval n ψ = mp.base2.acval n ψ
+  /-- the agreement off the RESTORED constructors' names and the
+  block's own members' (task #315 M7-2: the restore walk's leaf clause
+  classifies a name by the AUXILIARY block's lists, which the
+  declaration's own `memberNames`/`ctors` need not cover) -/
+  agreeR : ∀ n : Name, (∀ c ∈ ctorsR.flatten, n ≠ c.1.name) →
+    (∀ (t : Nat) (f : MutualFormerA), t < p.k → fms[t]? = some f → n ≠ f.cvTa.name) →
+    mp₂.base2.acval n = mp.base2.acval n
   findM : ∀ (t : Nat) (f : MutualFormerA), t < p.k → fms[t]? = some f →
     (ENV₂).find? f.cvTa.name = some (ConstantInfo.indInfo f.cvTa {})
   leafM : ∀ (t : Nat) (f : MutualFormerA), t < p.k → fms[t]? = some f →
@@ -1577,6 +1584,7 @@ theorem nestedStageFacts_of (hst : NestedCtorsStaged V μ F) (hμ : μ.verifiedC
   refine ⟨mp₂, dsR, xFvsR, pinsS,
     { pinsLen := L.pinsLen, pinRec := L.pinRec, pinDs := L.pinDs, find := L.find, pinψ := L.pinψ
       names := hnames, agree := ?_
+      agreeR := fun n hnC hnM => (L.agreeC n hnC).trans (hoff' n hnM)
       findM := fun t f ht hft => L.find (hfind' t f ht hft).1
       leafM := fun t f ht hft => (L.leafKeep t f ht hft).trans (hleafM' t f ht hft)
       FD := fun t f ht hft => FormerData.crossEnv' L.hde (hfind' t f ht hft).2

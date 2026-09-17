@@ -623,16 +623,6 @@ theorem NestedTailIn.ctorsANodup : (ctorsA.map (·.1.name)).Nodup := by
   rw [hmap]
   exact hcn
 
-/-- **THE DECLARED CONSTRUCTORS ARE THE AUXILIARY BLOCK'S OWN** — the
-elimination files every declared constructor under its member
-(`nestedTypes0`) and keeps the block's own types in place
-(`elimNested_types_prefix`), so every declared constructor's name is
-one of the auxiliary block's.  It needs every declared constructor to
-name a member of the block, which nothing in the run's data records;
-stated as a model face of the readings until it does. -/
-@[expose] def NestedDeclCtorsInBlock (p : NestedParts) (ctorsA : List (ConstantVal × Nat)) : Prop :=
-  ∀ n ∈ p.ctors.map (·.cv.name), n ∈ ctorsA.map (·.1.name)
-
 /-- **A NAME OFF THE AUXILIARY NAMES IS FOUND ALIKE** at the scratch
 constructors' environment and at the restored one (`RestoreAgree.leafSome`):
 a declared member is stored at both with its own constant, a declared
@@ -713,7 +703,7 @@ the pre-block model's. -/
 theorem NestedTailIn.leafAcval {mpA : EnvModelM V μ ENVA} {cvRas : List ConstantVal}
     (S : NestedScratchOut F env b fms f₀ ctorsA kinds mp₁ ppsF W idxF dsF esF srcsF fvsPF xFvsF
       xrestF eissF tssF stored mpA cvRas)
-    (hdecl : NestedDeclCtorsInBlock p ctorsA) :
+    :
     ∀ n, n ∉ (ConLeche.restoreTbl p st).auxNames →
       mpA.base2.acval n = mp₂.base2.acval n := by
   intro n hn
@@ -734,23 +724,16 @@ theorem NestedTailIn.leafAcval {mpA : EnvModelM V μ ENVA} {cvRas : List Constan
       exact hmember
     funext ψ
     rw [hleafA ψ, ← hname, hleafR ψ, hmemF, Nat.add_sub_cancel_left]
-  · have hnM : n ∉ p.memberNames := by
-      rw [← I.out.stage.names]
-      intro hm
-      obtain ⟨g, hg, hge⟩ := List.mem_map.mp hm
-      obtain ⟨t, ht⟩ := List.getElem?_of_mem (List.mem_of_mem_take hg)
-      exact hnf t g ht hge
-    have hnC : n ∉ p.ctors.map (·.cv.name) := by
-      intro hm
-      obtain ⟨cA, hcA, hce⟩ := List.mem_map.mp (hdecl n hm)
-      exact hnc cA hcA hce
-    funext ψ
-    rw [S.agree n (fun cA hcA hne => hnc cA hcA hne.symm),
+  · rw [S.agree n (fun cA hcA hne => hnc cA hcA hne.symm),
       I.out.facts.off n (fun t g ht hne => hnf t g ht hne.symm),
-      I.out.stage.agree n (fun hm => by
-        rcases List.mem_append.mp hm with h | h
-        · exact hnM h
-        · exact hnC h) ψ]
+      I.out.stage.agreeR n
+        (fun c hc heq => by
+          obtain ⟨l, hl, hcl⟩ := List.mem_flatten.mp hc
+          obtain ⟨mm, hmm⟩ := List.getElem?_of_mem hl
+          obtain ⟨j, hj⟩ := List.getElem?_of_mem hcl
+          obtain ⟨cA, hcA, hname⟩ := I.ctorsRName hmm hj
+          exact hnc cA (List.mem_of_getElem? hcA) (by rw [← hname, ← heq]))
+        (fun t g ht hg heq => hnf t g hg heq.symm)]
 
 /-! ### The recursor map's clauses -/
 
@@ -906,7 +889,6 @@ COPY CONSTRUCTOR'S AGREEMENT (`ctorArm`, T2). -/
 theorem NestedTailIn.restoreAgree {mpA : EnvModelM V μ ENVA} {cvRas : List ConstantVal}
     (S : NestedScratchOut F env b fms f₀ ctorsA kinds mp₁ ppsF W idxF dsF esF srcsF fvsPF xFvsF
       xrestF eissF tssF stored mpA cvRas)
-    (hdecl : NestedDeclCtorsInBlock p ctorsA)
     (hnames : NestedCtorPinNames env p st)
     (hctorsJ : ∀ (q₀ kJ i : Nat) (dJ : BlockModel V), PG mp₂.base2 q₀ kJ dJ → i < kJ →
       ∀ (ci : ContainerInfo) (J : ContainerMember),
@@ -919,7 +901,7 @@ theorem NestedTailIn.restoreAgree {mpA : EnvModelM V μ ENVA} {cvRas : List Cons
     { nPEq := I.tblNP
       leafSome := I.leafSome S
       leafNone := I.leafNone S
-      leaf := I.leafAcval S hdecl
+      leaf := I.leafAcval S
       auxFresh := I.auxFresh
       recKey := ?_
       recNone := ?_
