@@ -532,6 +532,71 @@ theorem NestedTailIn.ctorPinFieldsFit {mpA : EnvModelM V μ ENVA} {cvRas : List 
     (lfpTuple_mem _ _ _ _) (TupleLe.refl _ _ _) hfitsA
 
 
+
+/-! ### The copy constructors' names, against the pins' -/
+
+omit I in
+/-- A key absent from an association list is not answered. -/
+private theorem lookup_eq_none_of {β : Type} {a : Name} :
+    ∀ {l : List (Name × β)}, (∀ q ∈ l, q.1 ≠ a) → l.lookup a = none
+  | [], _ => rfl
+  | (k, v) :: l, h => by
+    rw [List.lookup_cons]
+    have hk : ¬ (a == k) = true := fun hb => h (k, v) List.mem_cons_self (beq_iff_eq.mp hb).symm
+    rw [Bool.not_eq_true] at hk
+    rw [hk]
+    exact lookup_eq_none_of fun q hq => h q (List.mem_cons_of_mem _ hq)
+
+/-- **A COPY'S CONSTRUCTOR NAME IS NO COPY'S TYPE NAME**: the former
+is one of the auxiliary block's constructor names, the latter one of
+its member names, and `b.blockNames.Nodup` keeps the two lists
+apart. -/
+theorem NestedTailIn.ctorName_ne_aux {q jc : Nat} {t : AuxType} {c : Name × Expr × Nat}
+    (ht : st.types[p.k + q]? = some t) (hc : t.ctors[jc]? = some c) :
+    ∀ q' ∈ st.pins, q'.aux ≠ c.1 := by
+  have hlen0 : (ConLeche.nestedTypes0 p fmsA ctorsA₀).length = p.k := by
+    rw [ConLeche.nestedTypes0_length, ConLeche.nestedAnnotFormers_length I.hfA]
+    rfl
+  have hal := ConLeche.elimNested_aligned hlen0 I.helim
+  obtain ⟨-, hform⟩ := ConLeche.auxBlock_former I.hb
+  have hnd : b.blockNames.Nodup := I.out.nodup
+  rw [ConLeche.MutualBlock.blockNames] at hnd
+  have hdisj := (List.nodup_append.mp (List.nodup_append.mp hnd).1).2.2
+  have hcmem : c.1 ∈ b.ctors.map (·.cv.name) :=
+    List.mem_map.mpr ⟨_, List.mem_of_getElem?
+      (ConLeche.auxBlock_ctors_getElem? I.hb I.out.grouped (p.k + q) jc t c ht hc), rfl⟩
+  intro q' hq' hce
+  obtain ⟨j, hj⟩ := List.mem_iff_getElem?.mp hq'
+  obtain ⟨t', ht', htn'⟩ := hal.2 j q' hj
+  obtain ⟨nIdx', hfo', -⟩ := hform (p.k + j) t' ht'
+  have hmem : q'.aux ∈ b.memberNames := by
+    refine List.mem_of_getElem? (i := p.k + j) ?_
+    simp only [ConLeche.MutualBlock.memberNames, List.getElem?_map, hfo', Option.map_some, htn']
+  exact hdisj _ hmem _ hcmem hce
+
+/-- **THE COPIES' CONSTRUCTOR NAMES ARE PAIRWISE DISTINCT**: they are
+the auxiliary block's constructor names past the block's own members,
+and `b.blockNames.Nodup` lists them once each. -/
+theorem NestedTailIn.ctorNames_nodup :
+    (((st.types.drop p.k).flatMap (·.ctors)).map (·.1)).Nodup := by
+  have hnd : b.blockNames.Nodup := I.out.nodup
+  rw [ConLeche.MutualBlock.blockNames] at hnd
+  have hcn : (b.ctors.map (·.cv.name)).Nodup :=
+    (List.nodup_append.mp (List.nodup_append.mp hnd).1).2.1
+  obtain ⟨-, -, -, hct⟩ := ConLeche.auxBlock_fields I.hb
+  rw [hct, auxCtorNames_flat p.lps st.types 0] at hcn
+  rw [← List.take_append_drop p.k st.types, List.flatMap_append, List.map_append] at hcn
+  exact (List.nodup_append.mp hcn).2.1
+
+/-- **THE PIN MAP DECLINES AT A COPY'S CONSTRUCTOR**: its keys are the
+copies' TYPE names. -/
+theorem NestedTailIn.ctorPinLookupNone {q jc : Nat} {t : AuxType} {c : Name × Expr × Nat}
+    (ht : st.types[p.k + q]? = some t) (hc : t.ctors[jc]? = some c) :
+    (ConLeche.restoreTbl p st).pins.lookup c.1 = none := by
+  refine lookup_eq_none_of fun x hx => ?_
+  obtain ⟨q', hq', rfl⟩ := List.mem_map.mp hx
+  exact I.ctorName_ne_aux ht hc q' hq'
+
 end Run
 
 end ConLeche.Model
