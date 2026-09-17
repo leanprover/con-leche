@@ -86910,26 +86910,25 @@ reads `0`, which is below the bound because a group exists (`S.seg`,
 ##### (d) FINDING — the run record does not carry what the KIND arms read
 
 `NestedPinsShape` is stated over `NestedPinsRun`, and `NestedPinsRun`
-carries neither
+carried neither of the two records every kind arm this lane proved
+takes as a hypothesis (`copyRecF`, `copyRecFKind`,
+`copyOrdFRight_shape`, `copyPinF_shape`):
 
-* K.32 (`nestedCopyTargetsOk env p b st stored = true`) — a `certOnly`
-  conjunct of `DeclNestedRun`, destructured and DROPPED at
-  `declNested_of` (`DeclNestedCore.lean`, the `-` after `hsc`), nor
 * the block's own classification equation
   `classifyMutualKinds b.members3 b.lps b.nP ctorsA = .ok kinds` —
-  `MutualFormersFacts` records `lenK`, `ksJ` and `CD` about `kinds` and
-  never the equation that produced it.
-
-Both are hypotheses of every kind arm this lane proved (`copyRecF`,
-`copyRecFKind`, `copyOrdFRight_shape`, `copyPinF_shape`), so the
-assembly takes them as `NestedPinsKindsRun` — the same binder list as
-`NestedPinsIdsAt`, concluding the two records at every run.  **The fix
-is one field each** (`MutualFormersFacts` gains the equation, its
-producer already has it; `NestedCoreModeled`'s signature and
-`NestedPinsRun` gain K.32, which `declNested_of` already destructures),
-after which `NestedPinsKindsRun` and its hypothesis disappear.  The
-producer sites are lane L-E's file, so this session did not make the
-change.
+  `MutualFormersFacts` recorded `lenK`, `ksJ` and `CD` about `kinds`
+  and threw the equation that produced it away.  **Fixed here**:
+  `MutualFormersFacts.classify`, one field, and the producer
+  (`mutualFormersFacts_of`) already takes it as a hypothesis, so the
+  construction gains one line and nothing else in the tree changes;
+* K.32 (`nestedCopyTargetsOk env p b st stored = true`) — a `certOnly`
+  conjunct of `DeclNestedRun`, destructured and DROPPED at
+  `declNested_of` (`DeclNestedCore.lean`, the `-` after `hsc`).  It is
+  the assembly's one bookkeeping hypothesis, `NestedPinsKindsRun` (the
+  binder list of `NestedPinsIdsAt`, concluding the record at every
+  run).  **The fix is one field on `NestedCoreModeled`'s signature and
+  one on `NestedPinsRun`**, at which the predicate disappears; both
+  sites are lane L-E's file, so this session did not make the change.
 
 ##### (e) FINDING — `EntryRead`'s `TargetHead` is FALSE, and the corpus refutes it
 
@@ -87016,4 +87015,7 @@ layering base 347 / model 271 / caps 3 / umbrella 1, 0/0; trust surface
 proofdeps 4955 rows / 12 roots / 0 doors; shake 510/510 allowlisted;
 pub-imports 1277 of 2019, none demotable (38 dot-notation fallbacks).
 Standard axioms only on `pinAtE_eq`, `NestedPinsRun.copyTgtLt`,
-`nestedPinsShape_of` and the chain probe.
+`nestedPinsShape_of` and the chain probe.  Files: `NestedCopyInst.lean`
+(the assembly, `copyTgtLt`, `kindAt_ne_of`, the three residuals),
+`NestedPins.lean` (`pinAtE_eq`), `MutualCore.lean` (`classify`),
+`DESIGN.md`.
