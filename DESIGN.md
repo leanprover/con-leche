@@ -86641,8 +86641,8 @@ corpora and it is NOT derivable at the native, mutual or basis route
 from anything the tree carries, because `some []` is a statement about
 what is ABSENT from the output environment:
 
-* the reader walks the MIMIC names, `Name.appendIndexAfter (first.name.str
-  "rec") (j + 1)`, and `appendIndexAfter` appends to the LAST STRING
+* `containerOwnPinsAtGo` walks the MIMIC names,
+  `Name.appendIndexAfter (first.name.str "rec") (j + 1)`, and `appendIndexAfter` appends to the LAST STRING
   COMPONENT (`Kernel/Inductives/NestedParts.lean:64`), so the name it
   looks up is `Name.str C "rec_1"` for the block's first member `C`,
   and the walk stops at the first lookup that is not a `.recInfo`;
