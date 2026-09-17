@@ -368,6 +368,9 @@ def checkNestedS (fe : FEnv) (p : NestedParts) : CheckCM FEnv := do
   -- the pins' mint groups (K.29), as in the pure route
   unless certOnly mode (nestedGroupsOk fe.env p st) do
     throw (.internal "nested: a pin's mint group is not the container's group as minted")
+  -- a pin's components mention a member (K.44), as in the pure route
+  unless certOnly mode (nestedPinMentionOk p st) do
+    throw (.internal "nested: a pin's components mention no member of the block")
   -- the pins' scope (K.30), as in the pure route
   unless certOnly mode (pinsScoped p.nP st) do
     throw (.internal "nested: a pin's free variables are not the block's parameter openers")
@@ -405,6 +408,12 @@ def checkNestedS (fe : FEnv) (p : NestedParts) : CheckCM FEnv := do
   -- the pure route
   unless certOnly mode (decide ((cvRms.map (·.name) ++ cvRns.map (·.name)).Nodup)) do
     throw (.internal "nested: two restored recursors carry one name")
+  -- the auxiliary names and the restored recursors' are disjoint (K.45),
+  -- as in the pure route
+  unless certOnly mode
+      (R.auxNames.all fun n =>
+        !((cvRms.map (·.name) ++ cvRns.map (·.name)).contains n)) do
+    throw (.internal "nested: an auxiliary name collides with a restored recursor")
   let provisions := (cvRms.zip (members.map fun a => (a.mI, a.rP)))
     ++ (cvRns.zip (mimics.map fun a => (a.mI, a.rP)))
   let feR := provisionNestedRecsF provisions fe₂

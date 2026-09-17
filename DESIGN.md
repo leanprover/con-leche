@@ -87959,3 +87959,158 @@ the closed-form comparison (abstract the opened fvars back to bvars
 before the `==`, which drops the annotations from the comparison
 entirely) and NOT a narrowing of the accept set.
 
+#### K.45 — the auxiliary names and the restored recursors' are disjoint (2026-09-17, task #315, lane M7-2's DESIGN §U.29 (ll))
+
+`RestoreAgree.auxFresh` at the restored PROVISIONED environment needs
+every auxiliary name absent there, and the provision adds exactly the
+`k + nPins` restored recursor names — so it needs the two lists
+DISJOINT, and that is not derivable.  The mint is
+`mkUniqueName env (Name.appendName nestedPrefixName J.name) …`, so a
+copy's name is `.str X (s ++ "_" ++ toString idx)`, while
+`p.mimicRecName j` is `.str T₁ ("rec" ++ "_" ++ toString (j + 1))` — the
+SAME shape, so separating them syntactically needs `toString`/`Nat.repr`
+injectivity, which core does not carry.  That is exactly why K.39 beside
+it is a recorded check rather than a proof.
+
+One `certOnly`-gated conjunct after `restoreRecTys` in `checkNested`,
+mirrored in `checkNestedS`, `.internal` on failure, and a conjunct of
+`DeclNestedRun` and of `checkNested_inv`:
+
+```lean
+unless certOnly ops.mode
+    (R.auxNames.all fun n =>
+      !((cvRms.map (·.name) ++ cvRns.map (·.name)).contains n)) do
+  throw (.internal "nested: an auxiliary name collides with a restored recursor")
+```
+
+(`decide` is dropped from §U.29 (ll)'s spelling: `List.all` is already a
+`Bool`.)  **It cannot fire**: `mkUniqueName` skips every name the
+PRE-BLOCK environment holds, and the restored recursors are named after
+the block's own formers, which `copiesFresh` keeps out of the minted
+set.  The tail's own plumbing — the conjunct in `NestedTailModeled` and
+`NestedTailIn` — is lane M7-2's, not this record's.
+
+**MEASURED** (zero fires everywhere):
+
+* `tests/e2e/tower_nested.ndjson`: within the band (see K.44, which
+  landed with it);
+* nested-shadow **27/27**; the Mathlib nested cone exit 0, **4 926
+  accepted**, 41/41 `accept`;
+* **cost: NONE.**  Attributed separately by stubbing K.44's Bool to
+  `true`: the cone comes out at **180 914 086 806 / 180 925 567 283
+  against K.42's 180 916 365 713** — the same number.  It is one
+  `contains` per auxiliary name over `k + nPins` names, with no term
+  walk in it.
+
+**Negative control**: the clause inverted (the `!` dropped) gives
+nested-shadow **3/27** — 24 fixtures — and **41 of the 41** cone blocks,
+every one reporting `nested: an auxiliary name collides with a restored
+recursor`.
+
+**A PROCESS FINDING, worth one line for the next lane.**  The control
+had to be applied in the CACHED mirror (`Cached/CheckerC.lean`), not in
+`checkNested`: the shadow harness runs `Cached.checkNestedS`, so a
+poison applied to the pure route alone does NOT fire and reads as a
+vacuous check.  Only a poison in a definition the two SHARE (a Bool)
+fires from either side.
+
+**Ledger row**: CERT-ONLY, category **(S)** — both name families are
+OURS (`mkUniqueName`'s copies and `p.mimicRecName`'s mimics); official
+mints the same way and compares nothing, and no stream can supply either
+name.
+
+#### K.44 — a pin's components mention a member (2026-09-17, task #315, lane M7-3's DESIGN §U.66 (b))
+
+Lane L-E's `ContainerModeled.nestMention` — `ordFree`'s nested twin —
+asks, at a field the classification calls NESTED at pin `q`, for a
+member of the block's own group among the first `nPJ` arguments of the
+field's spine.  At the nested route's own read-back that is the pin's
+components, and §U.66 (b) found it has **no source in the tree**:
+
+* the moment is right but the WITNESS is not.  `nestedOccOk` — the
+  elimination's own first test — compares `args.take nPI` against
+  `ElimState.newNames`, which is the block's members **and every copy
+  minted so far**.  So the fact the elimination records (`CopyHead`'s
+  mention conjunct, exported at `elimNested_copyCtors`) permits a
+  `_nested`-prefixed COPY as the witness, at which point a clause asking
+  for a MEMBER does not follow;
+* `CopyInv` is stated at the positions BEHIND the block's `k` members,
+  so the members' own rewrites — which is where the clause lives — have
+  no provenance theorem at all.
+
+The clause is nonetheless true (every term the walk sees is copy-free),
+but proving it is §U.66 (b)'s A2: eleven of `NestedCopyProv`'s seventeen
+lemmas gain a conjunct, a copy-freeness induction runs through six
+functions and `CopyInv` extends to the member positions — **4–6
+sessions**.  Recording it is one Bool, and this is it.  It is the
+integration's blocking item: `ContainerModeled.of_readBack` demands the
+clause at the nested block's own read-back, so M7-3's whole branch was
+out of integration 3n without it.
+
+**THE SPELLING CHANGED, and the change is the measurement's**:
+
+```lean
+def nestedPinMentionOk (p : NestedParts) (st : ElimState) : Bool :=
+  st.pins.all fun q => q.pin.getAppArgs.any fun a => mentionsMember p.memberNames a
+```
+
+The request was `(q.pin.getAppArgs.take ci.nP).any …` with `ci` from
+`containerInfo? env q.container`.  **That cost +0.336 % on the Mathlib
+cone, and the `take` was a no-op.**  A pin term is
+`Expr.mkAppN (.const J lvls) Ds` with `Ds = args.take ci.nP`
+(`replaceIfNested`/`mkCopies`, certified by K.28's
+`qn.pin == Expr.mkAppN (.const Jn lvls) Ds`), so its `getAppArgs` IS the
+component list and `take ci.nP` removes nothing — while the
+`containerInfo?` lookup it needs runs per pin at the pre-block
+environment.  Attributed by stubbing: with the mention walk removed and
+only `containerInfo?` left, the cone still cost **181 532 998 351**,
+i.e. **the whole +0.336 % was the lookup, not the walk**.  Dropping it
+brings the cone back to **180 908 684 576 / 180 910 157 013 /
+180 907 283 967 against K.42's 180 916 365 713 — −0.004 %, free.**
+
+**What the model loses: nothing, but it gains one step.**  The clause
+the model wants is over `getAppArgs.take nPJ`; what it gets is over
+`getAppArgs`.  The two agree because `Ds.length = nPJ`, which §U.66 (b)
+B1 already names as available (`nestedGroupsOk` +
+`NestedStageFacts.pinNP`) — so the 3–5 lines become 3–6.  **The model
+lane must know this**: a witness among `getAppArgs` is a witness among
+`take nPJ` only once the length is in hand, and the length fact is the
+one to cite.
+
+`certOnly`-gated, `.internal` on failure, one conjunct of
+`DeclNestedRun` and of `checkNested_inv`, beside K.29's
+`nestedGroupsOk`.
+
+**MEASURED** (zero fires everywhere):
+
+* `tests/e2e/tower_nested.ndjson` **FIRST**: **517 492 655 / 517 489 181
+  / 517 493 583 instructions:u against K.42's 517 492 260 / 517 495 333
+  / 517 486 212 — the same number**;
+* nested-shadow **27/27**; the Mathlib nested cone exit 0, **4 926
+  accepted**, 41/41 `accept`, at the figures above (**free**);
+* `tests/arena.sh` **EXIT 0**.
+
+**NEGATIVE CONTROL — and it is the one that matters, because it tests
+the WITNESS.**  The witness set replaced by the COPIES' names
+(`st.pins.map (·.aux)` instead of `p.memberNames`): nested-shadow
+**3/27** — 24 fixtures — and **41 of the 41** cone blocks.  So no pin's
+components mention a copy in either corpus, and the MEMBER witness is
+load-bearing at every block: the record says exactly the thing §U.66
+(b) found the elimination's own record could not.
+
+**Ledger row**: CERT-ONLY, category **(B)** — and it is the first (B)
+row on this lane, so it is worth being precise.  Official's
+`elim_nested_inductive_fn` makes the same test at the same moment
+(`is_nested_inductive_app` against its `m_new_types`) but against the
+SAME weaker set, members and copies together, and never records which
+kind of name matched.  So a stream that official accepts and whose pin
+components mention only a copy would make this Bool fire.  The argument
+that none exists — the walk's terms are copy-free, because the block's
+own annotated constructors are guarded by `mentionsNestedAux` and
+`mkCopy`'s output is the container's stored constructors with the
+original components substituted — is exactly §U.66 (b)'s, and it is an
+argument, not a theorem.  The corpus says 27 fixtures and 41 cone blocks
+with zero fires and the control says the question is not vacuous.  **A
+fire here would be a finding about the elimination, and the fix is A2
+(the proof), never a narrowing of the accept set.**
+

@@ -731,6 +731,40 @@ def nestedCopySrcOk (env : Env) (p : NestedParts) (st : ElimState) : Bool :=
       | _, _ => false
   | none => false
 
+/-- **A PIN'S COMPONENTS MENTION A MEMBER OF THE BLOCK** (task #315
+K.44, lane M7-3's DESIGN §U.66 (b)).
+
+Lane L-E's `ContainerModeled.nestMention` — `ordFree`'s nested twin —
+asks, at a field the classification calls NESTED at pin `q`, for a
+member of the block's own group among the first `nPJ` arguments of the
+field's spine.  At the nested route's own read-back that is the pin's
+components, and **it has no source in the tree**.  The two gaps M7-3
+found:
+
+* the moment is right but the WITNESS is not.  `nestedOccOk` — the
+  elimination's own first test — compares `args.take nPI` against
+  `ElimState.newNames`, which is `st.types.map (·.name)`: the block's
+  members AND every copy minted so far.  So the fact the elimination
+  records (`CopyHead`'s mention conjunct, exported at
+  `elimNested_copyCtors`) permits a `_nested`-prefixed COPY as the
+  witness, at which point a clause asking for a MEMBER does not follow.
+  The clause is nonetheless true — every term the walk sees is copy-free,
+  since the block's own annotated constructors are guarded by
+  `mentionsNestedAux` and `mkCopy`'s output is the container's stored
+  constructors with the original components substituted — but that is an
+  argument, not a theorem here;
+* `CopyInv` is stated at the positions BEHIND the block's `k` members,
+  so the members' own rewrites, which is where the clause lives, have no
+  provenance theorem at all.
+
+Proving it (M7-3's A2) strengthens `NestedCopyProv`'s invariant to a
+member witness across eleven of its seventeen lemmas, adds a
+copy-freeness induction through six functions and extends `CopyInv`:
+4–6 sessions.  Recording it is this Bool.  CERTIFICATION-ONLY, gated;
+`.internal` on failure, and it cannot fire for the reason above. -/
+def nestedPinMentionOk (p : NestedParts) (st : ElimState) : Bool :=
+  st.pins.all fun q => q.pin.getAppArgs.any fun a => mentionsMember p.memberNames a
+
 /-- **THE PINS' SCOPE, EXACTLY** (task #315 K.30, the model lane's
 DESIGN §U.21 (d) 2).
 
@@ -2043,6 +2077,12 @@ def checkNested (ops : CheckerOps m) (env : Env) (p : NestedParts) : m Env := do
   -- level instantiation and components.  A failure is `.internal`.
   unless certOnly ops.mode (nestedGroupsOk env p st) do
     throw (.internal "nested: a pin's mint group is not the container's group as minted")
+  -- **A PIN'S COMPONENTS MENTION A MEMBER** (K.44): the parameter part
+  -- of every pin's spine carries a member of the block's own group —
+  -- lane L-E's `nestMention`, whose witness the elimination's own record
+  -- does not pin down (it permits a COPY).  A failure is `.internal`.
+  unless certOnly ops.mode (nestedPinMentionOk p st) do
+    throw (.internal "nested: a pin's components mention no member of the block")
   -- **THE PINS' SCOPE** (K.30): every pin's free variables are the
   -- first former's openers, annotation included, and no loose bvar.
   unless certOnly ops.mode (pinsScoped p.nP st) do
@@ -2099,6 +2139,26 @@ def checkNested (ops : CheckerOps m) (env : Env) (p : NestedParts) : m Env := do
   unless certOnly ops.mode
       (decide ((cvRms.map (·.name) ++ cvRns.map (·.name)).Nodup)) do
     throw (.internal "nested: two restored recursors carry one name")
+  -- **THE AUXILIARY NAMES AND THE RESTORED RECURSORS' ARE DISJOINT**
+  -- (task #315 K.45, lane M7-2's DESIGN §U.29 (ll)).
+  -- `RestoreAgree.auxFresh` at the restored PROVISIONED environment
+  -- needs every auxiliary name absent there, and the provision below
+  -- adds exactly these `k + nPins` recursor names — so it needs the two
+  -- lists disjoint, and that is NOT derivable.  The mint is
+  -- `mkUniqueName env (Name.appendName nestedPrefixName J.name) …`, so a
+  -- copy's name is `.str X (s ++ "_" ++ toString idx)`, while
+  -- `p.mimicRecName j` is `.str T₁ ("rec" ++ "_" ++ toString (j + 1))` —
+  -- the SAME shape, so separating them syntactically needs
+  -- `toString`/`Nat.repr` injectivity, which core does not have.  That
+  -- is exactly why K.39 above is a recorded check and not a proof.
+  -- CERTIFICATION-ONLY, gated; a failure is `.internal` and cannot
+  -- happen — `mkUniqueName` skips every name the PRE-BLOCK environment
+  -- holds and the restored recursors are named after the block's own
+  -- formers, which `copiesFresh` keeps out of the minted set.
+  unless certOnly ops.mode
+      (R.auxNames.all fun n =>
+        !((cvRms.map (·.name) ++ cvRns.map (·.name)).contains n)) do
+    throw (.internal "nested: an auxiliary name collides with a restored recursor")
   let provisions := (cvRms.zip (members.map fun a => (a.mI, a.rP)))
     ++ (cvRns.zip (mimics.map fun a => (a.mI, a.rP)))
   let envR := provisionNestedRecs provisions env₂

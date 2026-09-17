@@ -1098,6 +1098,9 @@ theorem checkNested_inv {env envOut : Env} {p : NestedParts} {F : Nat}
       -- THE PINS' MINT GROUPS (K.29): the segment, its size, the
       -- member order, and the group's shared `lvls`/`Ds`
       certOnly mode (nestedGroupsOk env p st) = true ∧
+      -- A PIN'S COMPONENTS MENTION A MEMBER (K.44): lane L-E's
+      -- `nestMention`, whose witness the elimination's record does not pin
+      certOnly mode (nestedPinMentionOk p st) = true ∧
       -- THE PINS' SCOPE (K.30): the pins' free variables are the first
       -- former's openers, annotation included, and no loose bvar
       certOnly mode (pinsScoped p.nP st) = true ∧
@@ -1152,6 +1155,10 @@ theorem checkNested_inv {env envOut : Env} {p : NestedParts} {F : Nat}
           (stored.drop p.k) = .ok cvRns ∧
       -- THE RESTORED RECURSORS' NAMES ARE PAIRWISE DISTINCT (K.39)
       certOnly mode (decide ((cvRms.map (·.name) ++ cvRns.map (·.name)).Nodup)) = true ∧
+      -- THE AUXILIARY NAMES AND THE RESTORED RECURSORS' ARE DISJOINT
+      -- (K.45): `RestoreAgree.auxFresh` at the provisioned environment
+      certOnly mode ((restoreTbl p st).auxNames.all fun n =>
+        !((cvRms.map (·.name) ++ cvRns.map (·.name)).contains n)) = true ∧
       -- the restored rules, at the rule-less provision
       (cvRms.zip (stored.take p.k)).mapM (fun (cvRa, a) =>
           restoreRules (m := CheckM) (fueledOps mode F)
@@ -1261,6 +1268,10 @@ theorem checkNested_inv {env envOut : Env} {p : NestedParts} {F : Nat}
   case neg => rw [if_neg hgrp] at h; close_throw
   rw [if_pos hgrp] at h
   try simp only [bind, Except.bind] at h
+  by_cases hmn : certOnly (fueledOps mode F).mode (nestedPinMentionOk p st) = true
+  case neg => rw [if_neg hmn] at h; close_throw
+  rw [if_pos hmn] at h
+  try simp only [bind, Except.bind] at h
   by_cases hsc : certOnly (fueledOps mode F).mode (pinsScoped p.nP st) = true
   case neg => rw [if_neg hsc] at h; close_throw
   rw [if_pos hsc] at h
@@ -1290,6 +1301,12 @@ theorem checkNested_inv {env envOut : Env} {p : NestedParts} {F : Nat}
   case neg => rw [if_neg hnd] at h; close_throw
   rw [if_pos hnd] at h
   try simp only [bind, Except.bind] at h
+  by_cases hdj : certOnly (fueledOps mode F).mode
+      ((restoreTbl p st).auxNames.all fun n =>
+        !((cvRms.map (·.name) ++ cvRns.map (·.name)).contains n)) = true
+  case neg => rw [if_neg hdj] at h; close_throw
+  rw [if_pos hdj] at h
+  try simp only [bind, Except.bind] at h
   obtain ⟨rulesM, hrlm, h⟩ := exceptBind_ok h
   try simp only at h
   obtain ⟨rulesN, hrln, h⟩ := exceptBind_ok h
@@ -1316,8 +1333,8 @@ theorem checkNested_inv {env envOut : Env} {p : NestedParts} {F : Nat}
   exact ⟨st, b, envAux, stored, ctorsR, cvRms, cvRns, rulesM, rulesN, fmsA, ctorsA,
     hfmsA, hctorsA, helim', beq_iff_eq.mp hcnt, hfresh, hcont, hb', haux, hst', hpc,
     (by cases uA; exact hpinsAux), hcaps, hsrc,
-    certOnly_and_left hcont, hgrp, hsc, htg, hkd, haa, hrk, hpa, hrh, hord,
-    (by cases uP₁; exact hpins₁), hctors, hrm, hrn, hnd, hrlm, hrln, htbl,
+    certOnly_and_left hcont, hgrp, hmn, hsc, htg, hkd, haa, hrk, hpa, hrh, hord,
+    (by cases uP₁; exact hpins₁), hctors, hrm, hrn, hnd, hdj, hrlm, hrln, htbl,
     (by cases u₀; exact hpins), hlen, (by cases u₁; exact hrecs), hrb⟩
 
 /-! ## The restore, syntactically (task #315)
