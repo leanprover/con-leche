@@ -86381,3 +86381,131 @@ pub-imports 1262 of 1988 public, none demotable.  `#print axioms` of `targetHead
 `IsBlockModel.ctor_params`, `teleOfFields_congr_below`,
 `slotSet_congr_below`, `consList_agree_above` and
 `chainFitT_congr_mem`: standard (`_tmp/uniform-entry/chain-probe.lean`).
+
+#### U.54 — L-E session 7: the merge, the halves re-cut for the transfer, and TWO GAPS between K.37's instances and the model's argument (lane L-E, 2026-09-17)
+
+##### (a) THE MERGE (integration 3k, `agent/uniform-315` d0271fc0)
+
+Two semantic adaptations, both this lane's own interface meeting the new
+files:
+
+* `PinRecLaws.injW` (§U.48 (h), this lane's field) was stated for ALL
+  `q`; the merge's `BlockAt.of_noPins` and the five `BasisBlocks*`
+  blocks build `PinRecLaws` at `pc := fun _ => default`, whose injection
+  is `pt` — FALSE at `q ≥ nPins` and vacuous below it.  The field is now
+  guarded by `q < d.nPins` like `mkInj`, and the six sites discharge it
+  by `absurd`;
+* `nestedPinLaws_of`'s anonymous constructor grew the clause's binder.
+
+The chain probe is unchanged: `declNested_of … (nestedCoreModeled_of …)`
+closes over `hSh`/`hEn`/`htail` and standard axioms.
+
+##### (b) THE TRANSFER'S TWO HALVES, RE-CUT (`fit_imp_T_le_dom`, `fit_iff_at_T_dom`)
+
+Composing the halves at TWO level assignments and TWO frames — which is
+what the container instance transfer is (§U.51 (c)) — hits a hypothesis
+that does not travel: both halves take `hTs`/`hTle`, the tuple's place
+in the CONTAINER's tuple space and below its extended carrier
+(`famAt ψ ρ LJ`), and `BlockModel.pinCar` is an abstract FIELD — no
+clause says its value at two frames agreeing on the components is the
+same, so neither the index sets nor the extended carrier is a
+congruence.  What the halves USE of those hypotheses is one bound per
+recursive field — the container's slot at the tuple lies within its real
+domain — and a bound between READINGS is exactly what the frames' kit
+carries (`slotSet_congr_below`, `IsBlockModel.ctor_params`).  So both
+are re-cut with
+
+```lean
+    (hdom : ∀ l, l < ((dJ.Fss i ψJ).getD j []).length →
+      ((dJ.rss i).getD j []).getD l false = true →
+      ∀ fs₁ : List V, fs₁.length = l → SpineFit ρJ (((dJ.Fss i ψJ).getD j []).take l) fs₁ →
+      dJ.slotAtT pc ψJ T i j l (consList fs₁ ρJ)
+        ⊆ˢ interp V (consList fs₁ ρJ) (((dJ.Fss i ψJ).getD j []).getD l default))
+```
+
+as a premise, and `fit_imp_T_le`/`fit_iff_at_T` are their corollaries at
+`slotAtT_mono` to the extended carrier, where the slot IS the real
+domain (`real_dom_eq`).  `hfT`/`hPT`/`hρJ` leave the `_dom` forms —
+they were needed only for that step.
+
+##### (c) GAP 1: K.37's Bool has no inversion at the model's targets
+
+The model consumes `nestedPinRankOk` as four facts about
+`nestedPinInstOf`/`nestedPinRankOf` at the EDGES
+`nestedPinEdges env p b st stored`, and to use clause (2) at a copy's
+field it must know that its own target — the one `CopyCtorShape` names
+through `tg`/`tgts` — IS an edge of that list.  No such lemma exists
+(K.32's `nestedCopyTargetsOk_head` is the pattern: `nestedPinEdges`
+recomputes `nestedPinKinds` and reads the copies' fields, so the
+inversion is the same kind of walk).  Until it exists the rank induction
+cannot be started; it is kernel-lane syntax, ~1 session, and it is the
+FIRST thing step (3) needs.
+
+Threading: `NestedPinsRun` does not carry the conjunct either (nor
+K.32's).  The chain `DeclNestedRun` → `NestedCoreModeled` →
+`NestedCtorsStaged` → `NestedPinsStaged` → `NestedPinsIdent` →
+`NestedPinsRun` has the run's Bools as an explicit hypothesis list at
+every step, so consuming K.37 inside `nestedPinsEntry_of` means one more
+hypothesis in each (five files, mechanical) and naming the `-` in
+`declNested_of`'s destructuring.
+
+##### (d) GAP 2 (the design one): an INSTANCE is not, of itself, one container's system
+
+§U.48 (a) defined the container instance as "`J`'s full system at `Ds`"
+— `J`'s members plus `J`'s OWN pins — and `instanceLe` is the relational
+meet over `J`'s `kT` classes (`relMeet (famAt LJ) R (L⁺ pins)` is
+`TClosed`, §U.48 (h)).  That argument closes the whole instance ONLY
+when every pin of the instance is `R`-related to a class of `J`:
+`famAt LJ` covers `J`'s members and, through `J`'s own `pinLeaf`, its
+pins' containers' least tuples — which is `P` at the images.
+
+K.37's instance is the SCC of the recorded reference graph with the own
+edges symmetrised.  On `nested_p04` the two notions agree, but NOT along
+the own edges: the SCC is `{P4C, Array, List}` and the recorded own
+edges are only `P4C → Array` and `List → List` — `Array`'s stored field
+`List α` mentions no member of `Array`'s own group, so `Array → List` is
+recorded NOT own, and the own-edge closure of `P4C` is `{P4C, Array}`.
+The instance is `P4C`'s system because `P4C`'s OWN elimination minted
+`List` as one of its pins (its nesting is transitive), which is a fact
+about `P4C`'s declaration, not about this block's edges.
+
+So the model needs, per instance, a ROOT: a pin `r` whose container's
+extended system covers the instance (`∀ q in the instance, ∃ c a class
+of `B ci_r`, R c q`).  Two routes, the maintainer's/kernel lane's call:
+
+1. **kernel-recorded (a K.38)**: record the root per instance and check
+   the covering.  The check cannot read the root's own pin list from the
+   environment (a nested declaration RESTORES, so its auxiliary types
+   are not stored) — it would have to re-run the root's elimination, or
+   check the weaker "the instance's groups are the containers the root's
+   copies mention, transitively", which is what the block's own
+   elimination already computed;
+2. **model-side**: derive the covering from the shapes.  At an
+   `ordF`-right field of the root's copies the container-side target is
+   a class of the root's system and the block-side target is the pin,
+   and `targetHead_corr` (§U.51) says they name one container — so the
+   correspondence is exactly the `R` the transfer establishes anyway.
+   What is missing is the INDUCTION that walks it: every pin of the
+   instance is reached from the root's group by such fields.
+
+A third possibility to rule out first: is the SCC ALWAYS one container's
+system?  It need not be a priori — an external reference out of the
+root's system into an earlier container `C` whose own components mention
+the block's members closes a cycle through `C`, and `C` is then in the
+SCC without being a class of the root — so the kernel lane's corpus
+measurement (does any accepted block have an instance that is not one
+container's system?) decides whether route 1 can be a CHECK rather than
+a computation.
+
+##### (e) STATUS AND GATES
+
+Steps (1)–(3) of the coordinator's list are NOT landed: the composition
+is blocked on nothing but work (its enabling re-cut is (b)), `instanceLe`
+is blocked on (d), and the rank induction on (c).  What landed this
+session: the merge, the `_dom` re-cuts, and the two gaps as findings.
+
+Gates at the session's commits: `lake build` 701 jobs warning-free;
+`lake test` warning-free; layering, trust surface, no-local-paths,
+overview-links, quote-gate, proofdeps and the import gate as the
+integration's (unchanged by this lane's files); `#print axioms` of
+`fit_imp_T_le_dom` and `fit_iff_at_T_dom`: standard.
