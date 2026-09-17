@@ -79827,6 +79827,97 @@ Cost: well under a session — one recursive merge with one DESIGN
 conflict resolved by number.  Next: L-E's session 2 (the shape
 assembly), M7's three stage facts, and M7-3's mutual lift.
 
+##### (n) INTEGRATION 3f — L-B session 8 and M7-3 session 4 merged: the copy's residual and the round trip, the tables' agreement handed back (session U-28)
+
+Two merges into the lane, `--no-ff` at the pinned shas —
+`agent/uniform-ident` **69521dd4** (L-B s8, branched from ab07ff64) and
+`agent/uniform-m7env` **1f3ccc75** (M7-3 s4, branched from b7d1042e),
+both bases already in.  **The nested chain does not move**: after this
+session `declNested_of` still takes `mp : EnvModelB` and closes over
+exactly `hSh : NestedPinsShape`, `hEn : NestedPinsEntry` and `htail :
+NestedTailModeled` (plus `hE` and the run).  Neither branch touched a
+statement the other consumes, and neither touched checker code.
+
+*Merge 1 — L-B session 8.*  Six model/verify files plus DESIGN, and
+**DESIGN.md was the only conflict**: §U.38 against the lane's
+§U.40/§U.41, all appended at the same end.  Resolved by number (§U.37,
+§U.38, §U.40, §U.41) and verified a pure union — zero lines dropped
+against EITHER parent (320 lines added over HEAD, 1332 over 69521dd4).
+The collision the integration expected did not happen:
+`Model/Inductives/NestedCopyInst.lean` auto-merged with L-E's binder
+edit (2aab2a7a, in the lane since 3d), and no lane file needed
+adaptation.  What it brings: §U.37 (e)'s obstacle (1) CLOSED — the mint
+verdict read at the run's own state, `CtorsDone`'s `t.src` clause and
+`elimMint_mono` (`Verify/Inductives/NestedCopyProv.lean`); the
+syntactic half of `es`, `NestedPinsRun.copyResid`, with `mintRead`,
+`mintResidRead` and `crossUp`
+(`Model/Inductives/NestedCopyInst.lean`); the two copy-side
+normalisation facts `normFieldDomsM_open` and `normCtorValM_resid`
+(`Verify/Inductives/NestedInv.lean`); the open/close round trip, which
+holds only up to `ErasedEq`
+(`Verify/Inductives/NestedCopyTele.lean`); `denoteMeta_openPisAtFvars`
+(`Model/Inductives/NestedCopyRead.lean`); and
+`consMutualFormers_append`, `ErasedEq.mkAppN_inv`,
+`AnnotTerm.instAll_*`, `instTeleP_length`.  No arm of `CopyCtorInst`
+beyond `len` and the two shape conjuncts is proved — §U.38 (c) says
+where the session stopped.
+
+*Merge 2 — M7-3 session 4.*  **Nothing conflicted at all**: DESIGN.md,
+OVERVIEW.md and `tests/overview-links-expected.txt` all auto-merged,
+and DESIGN is again a pure union in number order (§U.38, §U.40, §U.41,
+§U.43) with zero lines dropped against either parent (139 over HEAD,
+867 over 1f3ccc75).  What it brings: `stageBlockTablesGo` /
+`stageBlockTables` concluding `∃ mp', AcvalAgrees mp.base2 mp'.base2`
+in place of `Nonempty` — each table's name is fresh where it is consed,
+so the agreement composes along the fold — `MutualTablesModeled`'s
+conclusion given the same strengthening with `declBlock` projecting it
+(`.choose`), and `TableCross` with `mutualTables_cross`, the three
+inputs `denoteMeta_env_mono_projFree` (§U.41 (a)) takes, at the block's
+own members.  **`declBlock`'s and `declMutual`'s statements are
+unchanged** — checked on the diff, only the two proofs and the named
+fact's conclusion moved — so the OVERVIEW anchors were a PURE LINE
+SHIFT (`DeclBlock.lean` L288 → L290, `MutualTables.lean` L231 → L305);
+both target lines were read back by hand as the named `theorem`, both
+citing paragraphs re-read and still accurate, and no `--update` was
+taken.  Steps 3–5 of the mutual lift are blocked by the two records
+§U.43 names (the members' AT-form `ConstantVal`s, and `ordFree` on the
+opened domains — K.36 recommended).
+
+**The import gate on the union brought nothing new**, as at every
+integration since §U.27 (b): shake 508 proposed, all 508 allowlisted
+(the lane's count, unchanged — neither branch retires anything);
+pub-imports 1259 of 1983 in-tree edges public, none demotable, 36
+dot-notation fallbacks.  `scripts/pub-import-plan.py` is untouched on
+both sides, so there was no FALLBACK union to take, and
+`NestedPremise`'s public import is still
+`Semantics.Inductives.DeclNested`.  `Model.lean` conflicted on neither
+merge — L-B adds no module and M7-3 adds none.
+
+Gates at BOTH merge commits: `lake build` 694 jobs warning-free, `lake
+test` warning-free, shake and pub-imports as above, layering base 346 /
+model 265 / caps 3 / umbrella 1 with 0 base→lane and 0 impl→theory,
+trust surface 13 escapes in 5 allowlisted files (626 scanned),
+no-local-paths OK, overview-links 112, quote-gate 2, proofdeps 4955
+rows / 12 roots / 0 doors; nested-shadow 27/27 on the final commit.  No
+`sorry`, no axioms, no `maxHeartbeats`, no checker code changed (both
+branches are model/verify tier only).
+
+**The chain, re-verified** (`_tmp/uniform-315/chain-probe-u28.lean`,
+outside the build): `declNested_of` over `mp : EnvModelB` composes with
+exactly `hSh`, `hEn` and `htail` free, and `nestedTailModeled_of hrd
+heqs hst` still typechecks at the same tree.  `#print axioms` of both:
+`[propext, Classical.choice, Quot.sound]`.
+
+The residual after 3f is (m)'s, unchanged — `NestedPinsShape`
+(L-B/L-E), `NestedPinsEntry` (L-E) and `NestedTailModeled` (M7-2's
+three stage facts) — with M7-3's remaining list now at §U.43 rather
+than §U.41 (g).
+
+Cost: well under a session — two merges, one DESIGN conflict resolved
+by number.  Next: L-B's session 9 (the three arms on top of the closed
+obstacle), L-E's session 2 (the shape assembly), M7's three stage
+facts, and M7-3's mutual lift steps 3–5.
+
 #### K.32 — the copies' recursive targets come from the container's own recursion (2026-09-16, task #315, lane L-B's DESIGN §U.23 (e))
 
 The model's `ordF` arm needs to know that a container-ORDINARY field
