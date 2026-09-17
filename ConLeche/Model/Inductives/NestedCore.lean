@@ -246,6 +246,47 @@ structure NestedPinGroup (m : EnvModel V env₂) (q₀ kJ : Nat) (dJ : BlockMode
 
 /-! ### The pin groups' consequences -/
 
+/-- **The grouping of a copy's constructors, at any member count**: the
+auxiliary block's constructor `offs mm + j` is member `mm`'s iff `j` is
+below the member's own constructor count (`mutualCtorsGrouped`). -/
+theorem ownCtors_grp (h3 : ConLeche.mutualCtorsGrouped b.ctors = true)
+    (hlenA : ctorsA.length = b.ctors.length) (ψ : Name → Nat) {mm nC : Nat}
+    (hcount : nC = (b.ownCtors mm).length) (j : Nat) :
+    (b.ownOffset mm + j < (blkFss0 b ctorsA kinds dsF ψ).length ∧
+      (mutMems ctorsA.length (mutMemF b)).getD (b.ownOffset mm + j) 0 = mm) ↔ j < nC := by
+  rw [hcount]
+  have hlenF : (blkFss0 b ctorsA kinds dsF ψ).length = ctorsA.length := by
+    show ((List.range ctorsA.length).map _).length = _; simp
+  rw [hlenF]
+  constructor
+  · rintro ⟨hJl, hmem⟩
+    rw [mutMems_getD hJl] at hmem
+    have hJb : b.ownOffset (mm) + j < b.ctors.length := by rw [← hlenA]; exact hJl
+    have hc : b.ctors[b.ownOffset (mm) + j]?
+        = some (b.ctors.getD (b.ownOffset (mm) + j) default) := by
+      rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hJb]; rfl
+    obtain ⟨-, hown⟩ := ownCtors_of_ctors h3 hc
+    have hmem' : (b.ctors.getD (b.ownOffset (mm) + j) default).member = mm :=
+      hmem
+    rw [hmem', Nat.add_sub_cancel_left] at hown
+    exact (List.getElem?_eq_some_iff.mp hown).1
+  · intro hj
+    have hj' : (b.ownCtors (mm))[j]? = some ((b.ownCtors (mm))[j]) :=
+      List.getElem?_eq_getElem hj
+    rcases hx : (b.ownCtors (mm))[j] with ⟨J', c⟩
+    rw [hx] at hj'
+    have hJ' := ownCtors_getElem?_idx h3 hj'
+    obtain ⟨hc, hmemc⟩ := ownCtors_getElem?_ctors hj'
+    subst hJ'
+    have hJl : b.ownOffset (mm) + j < ctorsA.length := by
+      rw [hlenA]; exact (List.getElem?_eq_some_iff.mp hc).1
+    refine ⟨hJl, ?_⟩
+    rw [mutMems_getD hJl]
+    show (b.ctors.getD (b.ownOffset (mm) + j) default).member = _
+    rw [List.getD_eq_getElem?_getD, hc]
+    exact hmemc
+
+
 section Groups
 
 variable {m : EnvModel V env₂} {q₀ kJ : Nat} {dJ : BlockModel V}
@@ -278,38 +319,8 @@ theorem NestedPinGroup.grp (h3 : ConLeche.mutualCtorsGrouped b.ctors = true)
     (hlenA : ctorsA.length = b.ctors.length) (ψ : Name → Nat) {i' : Nat} (hi' : i' < kJ) (j : Nat) :
     (b.ownOffset (p.k + q₀ + i') + j < (blkFss0 b ctorsA kinds dsF ψ).length ∧
       (mutMems ctorsA.length (mutMemF b)).getD (b.ownOffset (p.k + q₀ + i') + j) 0
-        = p.k + q₀ + i') ↔ j < (dJ.ctorsM i').length := by
-  rw [G.ctorCount i' hi']
-  have hlenF : (blkFss0 b ctorsA kinds dsF ψ).length = ctorsA.length := by
-    show ((List.range ctorsA.length).map _).length = _; simp
-  rw [hlenF]
-  constructor
-  · rintro ⟨hJl, hmem⟩
-    rw [mutMems_getD hJl] at hmem
-    have hJb : b.ownOffset (p.k + q₀ + i') + j < b.ctors.length := by rw [← hlenA]; exact hJl
-    have hc : b.ctors[b.ownOffset (p.k + q₀ + i') + j]?
-        = some (b.ctors.getD (b.ownOffset (p.k + q₀ + i') + j) default) := by
-      rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hJb]; rfl
-    obtain ⟨-, hown⟩ := ownCtors_of_ctors h3 hc
-    have hmem' : (b.ctors.getD (b.ownOffset (p.k + q₀ + i') + j) default).member = p.k + q₀ + i' :=
-      hmem
-    rw [hmem', Nat.add_sub_cancel_left] at hown
-    exact (List.getElem?_eq_some_iff.mp hown).1
-  · intro hj
-    have hj' : (b.ownCtors (p.k + q₀ + i'))[j]? = some ((b.ownCtors (p.k + q₀ + i'))[j]) :=
-      List.getElem?_eq_getElem hj
-    rcases hx : (b.ownCtors (p.k + q₀ + i'))[j] with ⟨J', c⟩
-    rw [hx] at hj'
-    have hJ' := ownCtors_getElem?_idx h3 hj'
-    obtain ⟨hc, hmemc⟩ := ownCtors_getElem?_ctors hj'
-    subst hJ'
-    have hJl : b.ownOffset (p.k + q₀ + i') + j < ctorsA.length := by
-      rw [hlenA]; exact (List.getElem?_eq_some_iff.mp hc).1
-    refine ⟨hJl, ?_⟩
-    rw [mutMems_getD hJl]
-    show (b.ctors.getD (b.ownOffset (p.k + q₀ + i') + j) default).member = _
-    rw [List.getD_eq_getElem?_getD, hc]
-    exact hmemc
+        = p.k + q₀ + i') ↔ j < (dJ.ctorsM i').length :=
+  ownCtors_grp h3 hlenA ψ (G.ctorCount i' hi') j
 
 end Groups
 
