@@ -86614,12 +86614,25 @@ lane is running (is an accepted block's instance always one container's
 system?) is then the same question as "does every instance have a
 `parent`-ancestor inside it".
 
-##### (d) STATUS
+##### (d) STEP (iii)'s INDUCTION, landed over the two clauses it reads
+
+`pins_le_of_instanceLe` (`NestedPinLeafAll.lean`) is the whole of step
+(iii) that does not depend on what the pins are: with `hedge` (a
+reference LEAVING an instance goes to a strictly smaller rank —
+`nestedPinRankOk`'s clause (2)) and `hhom` (the rank is a function of
+the instance — clause (3)), strong induction on the rank turns
+`instanceLe` into `∀ q, P q ≤ L⁺ (k + q)`.  The edge relation is
+abstract — it is what the inversion of (a) will identify with the
+copies' field targets — and clauses (1) and (4) are consumed inside
+`instanceLe`, where the container's own pins and the mint group are.
+
+##### (e) STATUS
 
 (1) is in the tree; (2) is answered — the walk is model-side and needs
 no record, the root's existence is not derivable and wants K.38's
-parent link (or another verdict from the measurement); (3) stays
-blocked on (2) and on the `nestedPinEdges` inversion (a).
+parent link (or another verdict from the measurement); (3) is in the
+tree as far as (d) — its remaining two pieces are `instanceLe`, blocked
+on (2), and the `nestedPinEdges` inversion of (a).
 
 Gates at the session's commits: `lake build` 701 jobs warning-free,
 `lake test` warning-free, layering / trust surface / no-local-paths /
