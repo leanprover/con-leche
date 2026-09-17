@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Model.Inductives.BasisBlocksZero
+public import ConLeche.Model.Inductives.NestedPremise
 public section
 
 /-!

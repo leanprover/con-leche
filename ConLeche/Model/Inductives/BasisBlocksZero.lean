@@ -1,7 +1,6 @@
 module
 
 public import ConLeche.Model.Inductives.NestedPremise
-public import ConLeche.Model.BasisCons
 public section
 
 /-!
