@@ -81,6 +81,119 @@ theorem slotSet_congr_app {w u : Nat} {ρ : Nat → V} {tl : List (Nat × Nat ×
   rw [List.nil_append]
   exact h bs (fitsS_teleOfFields.mp hbs)
 
+/-! ## The extended carrier is least among the tuples closed under the classes' constructors -/
+
+/-- **A tuple over the classes closed under the classes' constructors**
+(task #315 L-E, DESIGN §U.48 (h)): in the extended space, and every
+constructor fit at it (`ChainFitT`: the members' constructors and the
+pins' `pc`, all reading the tuple) injects into it. -/
+@[expose] def BlockModel.TClosed (d : BlockModel V) (pc : Nat → PinCtors V) (ψ : Name → Nat)
+    (ρp : Nat → V) (T : Nat → V) : Prop :=
+  InTupleSpace (d.w ψ) d.kT (d.idxT ψ ρp) T ∧
+  ∀ c, c < d.kT → ∀ t, t ∈ˢ d.idxT ψ ρp c → ∀ j fs, j < (d.ctorsT pc c).length →
+    d.ChainFitT pc ψ ρp T t c j fs → d.injT pc ψ c j fs ∈ˢ SetTheory.app (T c) t
+
+/-- The separated pins lie under the property at every point. -/
+theorem BlockModel.app_sepPins_subset_P (d : BlockModel V) {ψ : Name → Nat} {ρp : Nat → V}
+    {X : Nat → V} (P : Nat → V → V → Prop) {q : Nat} (t : V) :
+    ∀ x, x ∈ˢ SetTheory.app (d.sepPins ψ ρp X P q) t → P q t x := by
+  intro x hx
+  by_cases ht : t ∈ˢ d.pinIdx q ψ ρp
+  · unfold BlockModel.sepPins at hx
+    rw [app_graph ht] at hx
+    exact (mem_sep.mp hx).2
+  · unfold BlockModel.sepPins at hx
+    rw [app_graph_of_not_mem ht] at hx
+    exact absurd hx (not_mem_empty x)
+
+/-- **The extended carrier lies below every closed tuple** (task #315
+L-E, DESIGN §U.48 (h)): the members' least tuple with the pins'
+carriers at it (`famAt LJ`) is below any `TClosed` tuple `T` — the pins'
+carriers at `T`'s members are below `T`'s pins (`PinRecLaws.ind` at
+the property "in `T`", the separated pins being under it), so `T`'s
+members are closed under the members' operator (its fits read the
+pins' carriers, `chainFitT_of_chainFit` + `ChainFitT_mono`), so the
+least tuple is below them (`lfpTuple_le`), and the pins follow by
+`pinMono`.  No set operator over the classes is needed. -/
+theorem BlockModel.famAt_le_of_TClosed {env : Env} {m : EnvModel V env} {d : BlockModel V}
+    {pc : Nat → PinCtors V} (hreps : IsBlockModels m d) (hp : PinRecLaws m d pc) (hk : 0 < d.k)
+    {ψ : Name → Nat} {ρp : Nat → V} (hρp : Sat V (d.params ψ).reverse ρp) {T : Nat → V}
+    (hT : d.TClosed pc ψ ρp T) :
+    TupleLe d.kT (d.idxT ψ ρp)
+      (d.famAt ψ ρp (lfpTuple (d.w ψ) d.k (d.idx ψ ρp) (d.Φ ψ ρp))) T := by
+  obtain ⟨cvT, cvR, mI, rP, rules, hI0⟩ := hreps 0 hk
+  have hTm : InTupleSpace (d.w ψ) d.k (d.idx ψ ρp) T := by
+    intro mm hmm
+    have := hT.1 mm (by show mm < d.k + d.nPins; omega)
+    rwa [BlockModel.idxT_of_mem hmm] at this
+  -- (1) the pins' carriers at `T`'s members are below `T`'s pins
+  have h1 : ∀ q, q < d.nPins → ∀ t, t ∈ˢ d.pinIdx q ψ ρp → ∀ x,
+      x ∈ˢ SetTheory.app (d.pinCar ψ ρp T q) t → x ∈ˢ SetTheory.app (T (d.k + q)) t := by
+    intro q hq t ht x hx
+    refine hp.ind ψ ρp hρp T hTm (fun q' t' x' => x' ∈ˢ SetTheory.app (T (d.k + q')) t')
+      (fun q' hq' t' ht' j fs hj hfit => ?_) q hq t ht x hx
+    have hnk : ¬ d.k + q' < d.k := by omega
+    have hfit' : d.ChainFitT pc ψ ρp T t' (d.k + q') j fs := by
+      refine d.ChainFitT_mono pc (fun c' hc' t'' => ?_) (fun i hi hr => ?_) hfit
+      · have hc'k : c' < d.k + d.nPins := hc'
+        by_cases hc'' : c' < d.k
+        · rw [segJoin_lt _ _ hc'', d.famAt_of_mem hc'']
+          exact Subset.refl _
+        · rw [show c' = d.k + (c' - d.k) by omega, segJoin_add _ _ (by omega : c' - d.k < d.nPins)]
+          intro x' hx'
+          exact d.app_sepPins_subset_P _ t'' x' hx'
+      · rw [BlockModel.FssT_of_pin hnk, Nat.add_sub_cancel_left] at hi
+        rw [BlockModel.rssT_of_pin hnk] at hr
+        rw [BlockModel.tgtsT_of_pin hnk, Nat.add_sub_cancel_left]
+        exact hp.tgtsLt ψ q' j i hq' hj hi
+    have := hT.2 (d.k + q') (by show d.k + q' < d.k + d.nPins; omega) t'
+      (by rw [BlockModel.idxT_of_pin hnk, Nat.add_sub_cancel_left]; exact ht') j fs
+      (by rw [BlockModel.ctorsT_of_pin hnk, Nat.add_sub_cancel_left]; exact hj) hfit'
+    rw [BlockModel.injT_of_pin hnk, Nat.add_sub_cancel_left] at this
+    exact this
+  -- (2) `T`'s members are closed under the members' operator
+  have h2 : IsClosedTuple (d.w ψ) d.k (d.idx ψ ρp) (d.Φ ψ ρp) T := by
+    refine ⟨hTm, fun i hi t ht x hx => ?_⟩
+    obtain ⟨cvT', cvR', mI', rP', rules', hI'⟩ := hreps i hi
+    obtain ⟨j, fs, hj, hC, rfl⟩ := (hI'.fibre ψ ρp hρp T hTm i hi t ht x).mp hx
+    have hCT := d.chainFitT_of_chainFit pc hi hC
+    have hCT' : d.ChainFitT pc ψ ρp T t i j fs := by
+      refine d.ChainFitT_mono pc (fun c' hc' t'' => ?_) (fun i' hi' hr => ?_) hCT
+      · have hc'k : c' < d.k + d.nPins := hc'
+        by_cases hc'' : c' < d.k
+        · rw [d.famAt_of_mem hc'']
+          exact Subset.refl _
+        · rw [d.famAt_of_pin hc'']
+          have hq' : c' - d.k < d.nPins := by omega
+          refine app_subset_of_famLe (hI0.pinMem ψ ρp hρp T hTm _ hq') (fun t₀ ht₀ x' hx' => ?_) t''
+          have := h1 _ hq' t₀ ht₀ x' hx'
+          rwa [show d.k + (c' - d.k) = c' by omega] at this
+      · rw [BlockModel.FssT_of_mem hi] at hi'
+        rw [BlockModel.rssT_of_mem hi] at hr
+        rw [BlockModel.tgtsT_of_mem hi]
+        have hks : (d.ksF i j).length = ((d.Fss i ψ).getD j []).length := by
+          rw [(hI'.ctorData (List.getElem?_eq_getElem hj)).ksLen,
+            hI'.Fss_length (List.getElem?_eq_getElem hj) ψ]
+        exact hI'.tgtsLt i j i' hi hj (by rw [hks]; exact hi')
+    have := hT.2 i (by show i < d.k + d.nPins; omega) t
+      (by rw [BlockModel.idxT_of_mem hi]; exact ht) j fs
+      (by rw [BlockModel.ctorsT_of_mem hi]; exact hj) hCT'
+    rw [BlockModel.injT_of_mem hi] at this
+    exact this
+  -- assemble
+  intro c hc
+  by_cases hcm : c < d.k
+  · rw [d.famAt_of_mem hcm, BlockModel.idxT_of_mem hcm]
+    exact lfpTuple_le h2 c hcm
+  · rw [d.famAt_of_pin hcm, BlockModel.idxT_of_pin hcm]
+    have hq : c - d.k < d.nPins := by
+      have : c < d.k + d.nPins := hc
+      omega
+    have hmono := hI0.pinMono ψ ρp hρp _ T (lfpTuple_mem _ _ _ _) hTm (lfpTuple_le h2) _ hq
+    refine hmono.trans fun t ht x hx => ?_
+    have := h1 _ hq t ht x hx
+    rwa [show d.k + (c - d.k) = c by omega] at this
+
 /-! ## The entry at a container's OWN pin, from the pin correspondence -/
 
 /-- **The `pinF` entry at a tuple whose target family reads the stored
