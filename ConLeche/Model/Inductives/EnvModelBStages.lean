@@ -162,7 +162,10 @@ noncomputable def EnvModelB.empty (V : Type w) [SetTheory V] (μ : CheckMode) :
 (task #315 M7-3 session 6, DESIGN §U.46 (c)). -/
 
 /-- **An ORDINARY field of a mutual constructor mentions no member, at
-the OPENED domain** (task #315 K.36's Prop, DESIGN §U.46 (b)).
+the OPENED domain, off the run** (task #315 M7-3 session 9, DESIGN
+§U.55 (a)).  The Prop is `ConLeche.MutualOrdFree`
+(`Verify/Inductives/MutualInv.lean`) at this block's member names and
+parameter count.
 
 `ContainerModeled.ordFree` is stated at the block model's opened field
 data, while `mutualCtorKinds` decides ordinariness on the RAW
@@ -171,21 +174,20 @@ statement: `openPisAtFvars` annotates each binder's fvar with its own
 domain and `mentionsConst` descends into an fvar's type annotation, so
 an opened ordinary domain referring to an earlier field carries that
 field's type (DESIGN §U.43 (d)).  This is the OPENED form, the one the
-lift consumes; the kernel lane is landing the Bool that decides it, at
-which point the integration swaps this hypothesis for the run's
-conjunct.  It cannot fire: a recursive or reflexive field used later is
-`.unsupported` (`structUsedLater`), which `classifyMutualKinds` throws
-on, so the fvars an opened ordinary domain can refer to are themselves
-ordinary and their domains mention no member. -/
-@[expose] def MutualOrdFree (b : MutualBlock) (fms : List MutualFormerA)
-    (ctorsA : List (ConstantVal × Nat)) (kinds : List (List (RecFieldKind × Nat))) : Prop :=
-  ∀ (J : Nat) (cA : ConstantVal × Nat), ctorsA[J]? = some cA →
-    ∀ (fvsP xFvs : List Expr) (crest xrest : Expr),
-      ConLeche.openPisAtFvars b.nP cA.1.type 0 = some (fvsP, crest) →
-      ConLeche.openPisAtFvars cA.2 crest b.nP = some (xFvs, xrest) →
-      ∀ (l : Nat) (x : Expr), xFvs[l]? = some x →
-        ((kinds.getD J []).getD l (.ordinary, 0)).1 = .ordinary →
-        ConLeche.mentionsMember (fms.map (·.cvTa.name)) x.fvarTypeD = false
+lift consumes, and it is DERIVED: `mutualFieldsOk`'s `.ordinary` cell is
+`x.fvarTypeD.constsResolve env` at the PRE-BLOCK environment, where
+every member is fresh (`mutualFormers_membersFresh`, read off the
+formers' stage).  This is what makes `declMutualB` hypothesis-free —
+K.36 was retired as a CHECK because the fact is a consequence of one the
+route already runs. -/
+theorem mutualOrdFree_of_run {env env₁ : Env} {F : Nat} {b : MutualBlock}
+    {fms : List MutualFormerA} {ctorsA : List (ConstantVal × Nat)}
+    {kinds : List (List (RecFieldKind × Nat))}
+    (hformers : ConLeche.mutualFormers (m := ConLeche.CheckM) (fueledOps μ F) b.nP b.formers env
+      = .ok (env₁, fms))
+    (hfo : ConLeche.mutualFieldsOk env b.members3 b.lps b.nP ctorsA kinds = true) :
+    ConLeche.MutualOrdFree (fms.map (·.cvTa.name)) b.nP ctorsA kinds :=
+  ConLeche.mutualOrdFree_of (ConLeche.Semantics.mutualFormers_membersFresh hformers) hfo
 
 /-- The kinds without their targets, read at any position. -/
 theorem map_fst_getD_ordinary (ks : List (RecFieldKind × Nat)) (l : Nat) :
@@ -250,7 +252,7 @@ theorem mutualContainerModeled {env envR : Env} {m : EnvModel V envR}
     (hlenA : ctorsA.length = b.ctors.length) (hlenF : fms.length = b.k)
     (hd : MutualBlockModelOf env b fms ctorsA d)
     (hks : ∀ mm j, d.ksF mm j = (kinds.getD (b.ownOffset mm + j) []).map (·.1))
-    (hOrd : MutualOrdFree b fms ctorsA kinds)
+    (hOrd : ConLeche.MutualOrdFree (fms.map (·.cvTa.name)) b.nP ctorsA kinds)
     (hrepsAt : IsBlockModelsAt m d (fun mm => (fms.getD mm default).cvTa))
     (htyped : ∀ ψ : Name → Nat, FormersTyped m d ψ ∧ CtorsTyped m d ψ)
     (htf : MutualTableFacts b fms sortss d) :
@@ -962,25 +964,13 @@ carries its group's obligation at no pins (`BlockAt.of_noPins`), while
 every OLD container's block crosses the whole install
 (`EnvBlocksOf.crossIndP` at `mutualInstallExt`).
 
-`hOrd` is the one hypothesis beyond the run — K.36's `MutualOrdFree`
-over the run's own data (DESIGN §U.46 (b)), quantified over the stage
-outputs the run determines, so that the integration replaces it by the
-run's new conjunct and deletes the argument.  `declMutual`'s statement
-is untouched. -/
+**No hypothesis beyond the run** (task #315 M7-3 session 9, DESIGN
+§U.55 (a)): `MutualOrdFree` is `mutualOrdFree_of_run`, off the run's own
+`mutualFieldsOk` conjunct and the members' freshness, so the mutual
+route now matches `declNativeB`.  `declMutual`'s statement is untouched. -/
 theorem declMutualB (hμ : μ.verifiedChecks = true) {F : Nat} {env envOut : Env}
     {p : MutualParts} (mb : EnvModelB V μ env) (hE : ConLeche.EtaFamiliesClosed env)
     (hpinOk : ConLeche.mutualRecPinOk p = true)
-    (hOrd : ∀ (env₁ : Env) (fms : List MutualFormerA) (f₀ : MutualFormerA)
-      (ctorsA : List (ConstantVal × Nat)) (sortss : List (List Level))
-      (kinds : List (List (RecFieldKind × Nat))),
-      ConLeche.mutualFormers (m := ConLeche.CheckM) (fueledOps μ F) p.toBlock.nP
-        p.toBlock.formers env = .ok (env₁, fms) →
-      fms[0]? = some f₀ →
-      ConLeche.checkMutualCtors (m := ConLeche.CheckM) (fueledOps μ F) env₁ p.toBlock fms
-        (Level.isEquiv f₀.s .zero == some true) false p.toBlock.ctors = .ok (ctorsA, sortss) →
-      ConLeche.classifyMutualKinds (m := ConLeche.CheckM) p.toBlock.members3 p.toBlock.lps
-        p.toBlock.nP ctorsA = .ok kinds →
-      MutualOrdFree p.toBlock fms ctorsA kinds)
     (h : ConLeche.Semantics.DeclMutualRun μ F env p envOut) :
     Nonempty (EnvModelB V μ envOut) := by
   classical
@@ -991,7 +981,7 @@ theorem declMutualB (hμ : μ.verifiedChecks = true) {F : Nat} {env envOut : Env
   -- so the run carries `certOnly μ …`; this theorem is stated under
   -- `hμ : μ.verifiedChecks = true`, at which the gate is the Bool
   replace hrb := ConLeche.certOnly_elim hrb hμ
-  have hOrd' := hOrd _ fms f₀ ctorsA sortss kinds hformers hf₀ hctors hkinds
+  have hOrd' := mutualOrdFree_of_run hformers hfo
   obtain ⟨mp₃, hoff, d, hd, hks, hrepsAt, hT, hstored, htf⟩ :=
     mutualCoreModeled hμ mb.toEnvModelM hE _ _ _ _ _ _ _ _ _ _ _ _ _ _
       h0 h1 h2 h3 hformers hf₀ htq₀ hcross hL hctors hkinds hfo hgd hrectys hrules
