@@ -122,6 +122,20 @@ FALLBACK = {
     # files' PUBLIC statements through these re-exports; the checker calls
     # the edges demotable after integration 2 changed the graph, the
     # compiler refuses ("unknown identifier" / "invalid field notation").
+    # task #315 M7-2 (item 5 step 2c): the rule's reading law added PLAIN
+    # imports to both of its files (`BlockRepCross`/`MutualRecsSwap`/
+    # `MutualRecsStore` for the provision crossings, `Verify.Denote.Install`
+    # for the `findProj?` API), and the coverage model then attributes the
+    # vocabulary to those private edges and calls the one re-export each
+    # file lives on demotable — the one-import-view class again, seen from
+    # the graph change.  Probed one at a time: the kit loses
+    # `Env`/`Name`/`Expr`/`Level`, `NestedRecRule` loses
+    # `NestedScratchOut`/`NestedCtorPinNames`/`NestedRecTysAuxOk` without
+    # `NestedRecEqs` and `nestedRecLeaf`/`nestedProvList`/`NestedTailIn`'s
+    # projections without `NestedRecsStore`.
+    ('ConLeche.Verify.Inductives.NestedRecRuleKit','ConLeche.Verify.Inductives.NestedInv'),
+    ('ConLeche.Model.Inductives.NestedRecRule','ConLeche.Model.Inductives.NestedRecEqs'),
+    ('ConLeche.Model.Inductives.NestedRecRule','ConLeche.Model.Inductives.NestedRecsStore'),
     ('ConLeche.Verify.Inductives.NestedCopyInstU','ConLeche.Verify.Inductives.NestedRestoreOpen'),
     ('ConLeche.Verify.Inductives.NestedCopyKinds','ConLeche.Verify.Inductives.NestedRestoreOpen'),
     ('ConLeche.Verify.Inductives.NestedCopyProv','ConLeche.Verify.Inductives.NestedElimInv'),

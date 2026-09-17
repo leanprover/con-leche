@@ -1216,7 +1216,10 @@ theorem NestedTailIn.leafSome {mpA : EnvModelM V μ ENVA} {cvRas : List Constant
       exact hnf t g ht
 
 /-- **A NAME ABSENT FROM THE SCRATCH ENVIRONMENT IS ABSENT FROM THE
-RESTORED ONE** (`RestoreAgree.leafNone`), off the auxiliary names. -/
+RESTORED ONE**, off the auxiliary names.  No field of `RestoreAgree` any
+more (its `leafNone` is FALSE one environment later, see
+`NestedRecWalk.lean`'s note): a lemma, read here by `litAgree` and by the
+rule law's crossing (`NestedRecRule.lean`). -/
 theorem NestedTailIn.leafNone {mpA : EnvModelM V μ ENVA} {cvRas : List ConstantVal}
     (S : NestedScratchOut F env b fms f₀ ctorsA kinds mp₁ ppsF W idxF dsF esF srcsF fvsPF xFvsF
       xrestF eissF tssF stored mpA cvRas) :
@@ -1581,9 +1584,9 @@ theorem NestedTailIn.litAgree {mpA : EnvModelM V μ ENVA} {cvRas : List Constant
 /-- **THE WALK'S LEAF AGREEMENTS AT THE TAIL** (PLAN-M7 §1e B2):
 `RestoreAgree` at the restore table of the elimination, the scratch
 install's model `mpA` and the restored one `mp₂` — the parameter count
-(`tblNP`), the leaves off the auxiliary names (`leafSome`, `leafNone`,
-`leafAcval`), the auxiliary names' absence from the restored
-environment (`auxFresh`), the recursor map's two clauses (its keys are
+(`tblNP`), the leaves at a name the scratch environment FINDS
+(`leafSome` with `leafAcval`), the auxiliary names' absence from the
+restored environment (`auxFresh`), the recursor map's two clauses (its keys are
 absent from the scratch constructors' environment, its values fresh at
 the restored one), a key's distinctness from a recursor name
 (`keyNotRec`), THE PIN IDENTITY (`pinArm`, `nestedIdent_of`) and THE
@@ -1601,9 +1604,10 @@ theorem NestedTailIn.restoreAgree {mpA : EnvModelM V μ ENVA} {cvRas : List Cons
       mpA.base2.acval mp₂.base2.acval (ENVA) (ENV₂) ψ b.nP ((D).params ψ) := by
   refine
     { nPEq := I.tblNP
-      leafSome := I.leafSome S
-      leafNone := I.leafNone S
-      leaf := I.leafAcval S
+      leafSome := by
+        intro n hn ci hf
+        obtain ⟨ci', hfR, hlps⟩ := I.leafSome S n hn ci hf
+        exact ⟨ci', hfR, hlps, I.leafAcval S n hn⟩
       auxFresh := I.auxFresh
       recKey := ?_
       recNone := ?_
