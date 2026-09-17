@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Model.Inductives.NestedPinLaws
-public import ConLeche.Model.Inductives.NestedCopyIdx
+public import ConLeche.Model.Inductives.NestedPins
 import ConLeche.Model.Inductives.NestedAux
 public section
 
