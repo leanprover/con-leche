@@ -413,6 +413,37 @@ theorem instanceLe_of_transfer {env : Env} {m : EnvModel V env} {d : BlockModel 
   intro c b hc hb hR
   exact (hle c hc).trans (relMeet_le_rel hb hR)
 
+/-- **`instanceLe` at the correspondence** (task #315 L-E, DESIGN
+§U.57): `instanceLe_of_transfer` with `R` the `ClassPin` relation at
+the block's pins, its conclusion read at the PIN's index set (`ClassPin.idx`)
+— which is the form the run consumes: at a member class of the root the
+left-hand side is the root's container's least tuple at that member,
+i.e. `P` at the root's group, and at a pin class it is the root's pin's
+carrier at its carrier, which the root's own `pinLeaf` reads as `P` at
+the image pin. -/
+theorem instanceLe_of_classPin {env : Env} {m : EnvModel V env} {D dR : BlockModel V}
+    {pc : Nat → PinCtors V} (hreps : IsBlockModels m dR) (hp : PinRecLaws m dR pc) (hk : 0 < dR.k)
+    {ψ ψR : Name → Nat} {ρp ρR : Nat → V} (hρR : Sat V (dR.params ψR).reverse ρR)
+    {k kB : Nat} {LB : Nat → V}
+    (htrans : ∀ c, c < dR.kT → ∀ t, t ∈ˢ dR.idxT ψR ρR c → ∀ j fs, j < (dR.ctorsT pc c).length →
+      dR.ChainFitT pc ψR ρR
+        (relMeet (dR.idxT ψR ρR)
+          (dR.famAt ψR ρR (lfpTuple (dR.w ψR) dR.k (dR.idx ψR ρR) (dR.Φ ψR ρR)))
+          (fun c' b => ∃ q, b = k + q ∧ ClassPin env D dR ψ ψR ρp ρR c' q) kB LB) t c j fs →
+      ∀ q, k + q < kB → ClassPin env D dR ψ ψR ρp ρR c q →
+        dR.injT pc ψR c j fs ∈ˢ SetTheory.app (LB (k + q)) t) :
+    ∀ c q, k + q < kB → ClassPin env D dR ψ ψR ρp ρR c q →
+      FamLe (D.pinIdx q ψ ρp)
+        (dR.famAt ψR ρR (lfpTuple (dR.w ψR) dR.k (dR.idx ψR ρR) (dR.Φ ψR ρR)) c) (LB (k + q)) := by
+  intro c q hqk hcp
+  rw [← hcp.idx]
+  refine instanceLe_of_transfer hreps hp hk hρR
+    (R := fun c' b => ∃ q', b = k + q' ∧ ClassPin env D dR ψ ψR ρp ρR c' q') ?_ c (k + q) hcp.cLt hqk
+    ⟨q, rfl, hcp⟩
+  intro c' hc' t ht j fs hj hfit b hb hR
+  obtain ⟨q', rfl, hcp'⟩ := hR
+  exact htrans c' hc' t ht j fs hj hfit q' hb hcp'
+
 /-! ## The entry at a container's OWN pin, from the pin correspondence -/
 
 /-- **The `pinF` entry at a tuple whose target family reads the stored

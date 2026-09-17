@@ -140,6 +140,72 @@ structure ContainerModeled {env : Env} (m : EnvModel V env) (ci : ContainerInfo)
     (d.pinAt q).lvls.length = cvT.levelParams.length ∧
     ∀ ψ : Name → Nat, (d.pinAt q).ψJ ψ = Level.substFn ψ cvT.levelParams (d.pinAt q).lvls
 
+/-! ## The correspondence a container instance is compared along -/
+
+/-- A class's LEVEL ASSIGNMENT: the block's own at a member, the pin's
+at a pin (`BlockModel.frameT`'s twin — task #315 L-E, DESIGN §U.57). -/
+@[expose] def BlockModel.psiT (d : BlockModel V) (ψ : Name → Nat) (c : Nat) : Name → Nat :=
+  if c < d.k then ψ else (d.pinAt (c - d.k)).ψJ ψ
+
+/-- A class's CONTAINER's name: the member's own at a member (its group
+is the block's), the pin's container at a pin. -/
+@[expose] def BlockModel.nameT (d : BlockModel V) (c : Nat) : Name :=
+  if c < d.k then d.memberName c else (d.pinAt (c - d.k)).J
+
+omit [SetTheory V] in
+theorem BlockModel.psiT_of_mem (d : BlockModel V) (ψ : Name → Nat) {c : Nat} (hc : c < d.k) :
+    d.psiT ψ c = ψ := by simp only [psiT, if_pos hc]
+
+omit [SetTheory V] in
+theorem BlockModel.psiT_of_pin (d : BlockModel V) (ψ : Name → Nat) {c : Nat} (hc : ¬ c < d.k) :
+    d.psiT ψ c = (d.pinAt (c - d.k)).ψJ ψ := by simp only [psiT, if_neg hc]
+
+omit [SetTheory V] in
+theorem BlockModel.nameT_of_mem (d : BlockModel V) {c : Nat} (hc : c < d.k) :
+    d.nameT c = d.memberName c := by simp only [nameT, if_pos hc]
+
+omit [SetTheory V] in
+theorem BlockModel.nameT_of_pin (d : BlockModel V) {c : Nat} (hc : ¬ c < d.k) :
+    d.nameT c = (d.pinAt (c - d.k)).J := by simp only [nameT, if_neg hc]
+
+/-- **The ROOT's class `c` and the block's pin `q` are ONE family**
+(task #315 L-E, DESIGN §U.57): the relation the container instance
+transfer runs along, and `relMeet`'s `R`.
+
+A container instance is compared with the block's pins through ONE
+container — its ROOT (DESIGN §U.55 (c)) — whose classes are its members
+and its OWN pins (`BlockModel.kT`); `dR`, `ψR`, `ρR` are the root's
+model, level assignment and parameter frame, `D`, `ψ`, `ρp` the block's.
+The clauses are exactly what the transfer consumes at the pair: ONE
+container (`name` — which `targetHead_corr` supplies at a rewritten
+field and the group views at a member), ONE level assignment on that
+container's own level parameters (`psi` — `ContainerModeled.pinψ` and
+`Level.substFn_map_subst`), ONE frame on its parameters (`frame` —
+`PinCorr`'s components at their values, `interp_instAll`), and ONE
+index set (`idx`), which is what makes the two families comparable
+fibre by fibre.
+
+It is a RELATION and not a map, in both directions: two of the root's
+pins may instantiate to one block pin (`K (J α)`, `K (J β)` at
+`Ds = [P4, P4]`), and two block pins may read alike; `relMeet` and
+`lfpTuple_le_of_rel` absorb both. -/
+structure ClassPin (env : Env) (D dR : BlockModel V) (ψ ψR : Name → Nat) (ρp ρR : Nat → V)
+    (c q : Nat) : Prop where
+  /-- `c` is one of the root's classes -/
+  cLt : c < dR.kT
+  /-- `q` is one of the block's pins -/
+  qLt : q < D.nPins
+  /-- ONE container -/
+  name : dR.nameT c = (D.pinAt q).J
+  /-- ONE level assignment, at that container's own level parameters -/
+  psi : ∀ (cvT : ConstantVal) (caps : IndCaps),
+    env.find? (D.pinAt q).J = some (.indInfo cvT caps) →
+    ∀ p ∈ cvT.levelParams, dR.psiT ψR c p = (D.pinAt q).ψJ ψ p
+  /-- ONE frame, at that container's parameters -/
+  frame : ∀ v, v < (D.pinAt q).nPJ → dR.frameT c ψR ρR v = D.pinFrame q ψ ρp v
+  /-- ONE index set: the fibres are compared at the same tuples -/
+  idx : dR.idxT ψR ρR c = D.pinIdx q ψ ρp
+
 /-! ## The pins' laws and shapes of a stored block -/
 
 instance : Nonempty (BlockModel V) :=
