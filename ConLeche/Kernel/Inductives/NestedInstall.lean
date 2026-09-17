@@ -957,6 +957,104 @@ theorem sizeOf_getAppFn : ∀ (e : Expr), sizeOf e.getAppFn ≤ sizeOf e
   | .lam _ _ _ | .forallE _ _ _ | .letE _ _ _ | .proj _ _ _ | .lit _ => by
     simp [Expr.getAppFn]
 
+/-! ## THE AUXILIARY APPLICATIONS SIT AT THE PARAMETERS (task #315 K.35)
+
+`restoreNode` REPLACES a key-headed application `aux_q args` by the pin
+lifted to the depth and applied to `args.drop nP` — it DROPS the first
+`nP` arguments, exactly as official's `restore_nested` does, and the
+components it substitutes refer to the BLOCK's parameters.  Both rely on
+the elimination's invariant that an auxiliary type or constructor is
+only ever applied to the block's own parameter variables: at a pin
+occurrence the restored reading says "the container at `Ds[p⃗]`" and the
+auxiliary reading says "the copy at whatever the first `nP` arguments
+are", and the two agree only when those arguments are `p⃗`.
+
+The invariant is IN THE TREE for the constructors' FIELDS
+(`MutualOpened.recF`/`.reflF`, recorded by `mutualOpenedOk`), and it is
+true by construction for the recursor TYPES (`mutualRecTy`'s `structFamI`
+and `structCtorSpineAt` are generated at the parameters) and for the
+RULES (`mutualIhApp`'s `mutualRecPrefixAt`) — but nothing recorded it.
+This is the record.
+
+**The walk is well-founded, not fuelled.**  `auxAppsOk` has to look at a
+spine as a whole (`getAppFn`/`getAppArgs`), which Lean cannot see as
+structural subterms, and the first attempt used `fuel := e.sizeF` — a
+TREE walk, so computing the fuel was itself exponential on a DAG-shared
+read-back rule (`tests/e2e/tower_nested.ndjson` went from 0.046 s to
+over 600 s).  The measure here is `sizeOf`, Lean's own auto-generated
+one, used only in `termination_by`/`decreasing_by` and therefore erased
+at runtime; the executed walk is the memoized twin below, swapped in by
+`@[csimp]` as `projTablesOk`'s is (the task #215 discipline). -/
+
+/-- A key of the restore's REPLACE whose ARGUMENT SHAPE the restore
+relies on: an auxiliary type (a `pins` key) or an auxiliary constructor
+(a `ctorPins` key).  A `recMap` key is NOT one — `restoreNode` renames a
+bare constant there and the walk descends into its arguments. -/
+def isAuxAppKey (R : RestoreTbl) (n : Name) : Bool :=
+  (R.pins.lookup n).isSome || R.ctorPins.any (fun q => q.1 == n)
+
+/-- The head of a spine is a PROPER subterm of the application: the
+strict form of `sizeOf_getAppFn` at an `.app` node. -/
+theorem sizeOf_getAppFn_app {f a : Expr} :
+    sizeOf (Expr.app f a).getAppFn < sizeOf (Expr.app f a) := by
+  have h := sizeOf_getAppFn f
+  rw [Expr.getAppFn]
+  simp only [Expr.app.sizeOf_spec]
+  omega
+
+/-- **Every auxiliary application is at the parameters** — `d` binders
+below the block's parameter prefix.
+
+At a node whose head is a `pins` or `ctorPins` key the spine must have
+exactly `nP + arity` arguments (the copy's index count for a type, the
+constructor's field count for a constructor), the first `nP` of them the
+parameter variables `structPsAt d nP`, and the walk continues into the
+remaining ones.  Everywhere else the walk is structural, counting
+binders in `d`; an `.fvar`'s annotation is not visited, which is
+`restoreWalk`'s own convention. -/
+def auxAppsOk (R : RestoreTbl) (arityOf : Name → Option Nat) (d : Nat) (e : Expr) : Bool :=
+  match e with
+  | .bvar _ => true
+  | .sort _ => true
+  | .lit _ => true
+  | .fvar _ _ => true
+  | .const n _ =>
+    -- the zero-argument instance of the spine rule: `[].length == nP + ar`
+    if isAuxAppKey R n then
+      match arityOf n with
+      | some ar => R.nP + ar == 0
+      | none => false
+    else true
+  | .lam ty b _ => auxAppsOk R arityOf d ty && auxAppsOk R arityOf (d + 1) b
+  | .forallE ty b _ => auxAppsOk R arityOf d ty && auxAppsOk R arityOf (d + 1) b
+  | .letE ty v b =>
+    auxAppsOk R arityOf d ty && auxAppsOk R arityOf d v && auxAppsOk R arityOf (d + 1) b
+  | .proj _ _ x => auxAppsOk R arityOf d x
+  | .app f a =>
+    match (Expr.app f a).getAppFn with
+    | .const n _ =>
+      if isAuxAppKey R n then
+        match arityOf n with
+        | some ar =>
+          ((Expr.app f a).getAppArgs.length == R.nP + ar) &&
+            ((Expr.app f a).getAppArgs.take R.nP == structPsAt d R.nP) &&
+            ((Expr.app f a).getAppArgs.drop R.nP).attach.all
+              (fun x => auxAppsOk R arityOf d x.1)
+        | none => false
+      else
+        -- no key anywhere on this spine's head: the walk is the ordinary
+        -- structural one, which visits the head and every argument
+        auxAppsOk R arityOf d f && auxAppsOk R arityOf d a
+    | _ => auxAppsOk R arityOf d f && auxAppsOk R arityOf d a
+termination_by sizeOf e
+decreasing_by
+  all_goals
+    first
+      | exact sizeOf_mem_getAppArgs (List.mem_of_mem_drop (by exact x.2))
+      | (simp only [Expr.app.sizeOf_spec, Expr.lam.sizeOf_spec,
+            Expr.forallE.sizeOf_spec, Expr.letE.sizeOf_spec,
+            Expr.proj.sizeOf_spec]; omega)
+
 /-- **Check and install a recognised NESTED block** (see the module
 docstring): official's two syntactic front guards, the elimination, the
 auxiliary mutual block checked in a scratch environment, the restore,
