@@ -541,6 +541,71 @@ theorem DenoteMetaSpine.det {acval : Name → (Name → Nat) → AnnotTerm} {env
     cases h' with
     | cons ha' h'' => rw [Option.some.inj (ha.symm.trans ha'), DenoteMetaSpine.det h h'']
 
+/-- **A PIN, SPELLED AT ANOTHER INSTANTIATION** (task #315 M7-3
+session 14, DESIGN §U.70 (a)): the recorded pin `q` — its container
+applied to components that stand at the BLOCK's own parameter
+openers — written out at the level arguments `lvls` and components
+`DsE` a reader was asked for.
+
+The components are CLOSED first (`Expr.abstractRange x 0 nP 0`, which
+is the restore table's own closing of a pin, `restoreTbl`), then level
+-instantiated, then re-opened at `DsE`; so the whole form is a
+FUNCTION of the recorded OPENED components and needs no new `PinSyn`
+field.  The level arguments are substituted syntactically, at the
+container's own level parameters.
+
+This is the shape `containerOwnPinsAt` produces: it instantiates the
+mimic recursor's binders with `Expr.instPis ty (Ds ++ pad)` AFTER
+`instantiateLevelParams`, and the restore wrote each mimic recursor's
+major premise FROM the recorded pin (`restoreNode`), so the pin comes
+back closed, level-instantiated and re-opened exactly here. -/
+@[expose] def PinSyn.ownAt (q : PinSyn) (nP : Nat) (lps : List Name) (lvls : List Level)
+    (DsE : List Expr) : Expr :=
+  Expr.mkAppN (.const q.J (q.lvls.map (Level.subst lps lvls)))
+    (q.DsE.map fun x =>
+      Expr.instSeq DsE (DsE.length - 1)
+        ((Expr.abstractRange x 0 nP 0).instantiateLevelParams lps lvls))
+
+/-- **THE FIELD SHAPE: EVERY OWN PIN THE MIMICS SPELL IS ONE OF THE
+BLOCK MODEL'S RECORDED PINS, SPELLED AT THAT INSTANTIATION** (task
+#315 M7-3 session 14, DESIGN §U.70 (a)) — the form
+`ContainerModeled.ownPins` must take, and the reason is the CROSSING.
+
+`ContainerModeled` is proved where a container is INSTALLED and
+consumed where a LATER block is checked, so every clause crosses
+`ContainerModeled.crossEnvP`.  The reading form below does NOT cross:
+its `DenoteMetaSpine` premise is CONTRAVARIANT (reading monotonicity
+runs `env₁ → env₂`, and the clause would have to pull a reading at
+`env₂` back to `env₁`).  This one mentions no model at all — only the
+environment the table is read at and the block model's own recorded
+pins — so it crosses as soon as the TABLE does, which is the one thing
+`crossEnvP`'s `hF` does not give (it deliberately does not preserve
+`.recInfo`s, and the own-pin table is read off exactly those).  That
+residue is the queued kernel record K.43: a per-install Bool pinning
+the number of mimics under a container is what makes the table
+invariant under a later install.
+
+`ContainerOwnPinsSyn.toRead` is the bridge to the reading form the
+consumer (`pinCorr_of_ownPins`) wants. -/
+@[expose] def ContainerOwnPinsSyn (env : Env) (d : BlockModel V) : Prop :=
+  ∀ (i : Nat) (cvC : ConstantVal) (caps : IndCaps) (lvls : List Level) (DsE ps : List Expr),
+    i < d.k → env.find? (d.memberName i) = some (.indInfo cvC caps) →
+    ConLeche.containerOwnPinsAt env (d.memberName i) lvls DsE = some ps →
+    ∀ e ∈ ps, ∃ qK, qK < d.nPins ∧ e = (d.pinAt qK).ownAt d.nP cvC.levelParams lvls DsE
+
+omit [SetTheory V] in
+/-- **THE SYNTACTIC CLAUSE AT A PINS-FREE BLOCK, AGAINST K.43's
+`_inv`** (task #315 M7-3 session 14): `ContainerOwnPins.of_noOwn`'s
+twin at the field's own shape.  The wiring at the native, mutual and
+five pinned basis sites is one line each once K.43 lands. -/
+theorem ContainerOwnPinsSyn.of_noOwn {env : Env} {d : BlockModel V}
+    (hempty : ∀ (i : Nat) (lvls : List Level) (DsE ps : List Expr), i < d.k →
+      ConLeche.containerOwnPinsAt env (d.memberName i) lvls DsE = some ps → ps = []) :
+    ContainerOwnPinsSyn (V := V) env d := by
+  intro i _cvC _caps lvls DsE ps hi _ hps e he
+  rw [hempty i lvls DsE ps hi hps] at he
+  exact nomatch he
+
 /-- **EVERY OWN PIN THE MIMICS SPELL IS ONE OF THE BLOCK MODEL'S
 RECORDED PINS, AT THAT INSTANTIATION** (task #315, lane L-E's request,
 DESIGN §U.65 (d) — the bridge §U.68 (e) withdrew the "not needed"
@@ -578,17 +643,14 @@ tree (DESIGN §U.69 (a)):
    the assignments through `ContainerModeled.pinψ` on both sides
    (`Level.substFn_map_subst`).
 
-**Why it is not a `ContainerModeled` field yet** (DESIGN §U.69 (b)):
-no construction site can prove it today.  The NESTED route needs the
-mimic recursors' stored types related to the recorded pins — the
-arithmetic `containerOwnPinsAt`'s own docstring refuses to do by hand,
-so it wants a kernel record in K.34/K.41's pattern; the pins-free
-routes (native, mutual, the five pinned basis blocks) need
-`containerOwnPinsAt env C lvls Ds = some []`, which is the queued
-K.43's `_inv`; and the CROSSING (`ContainerModeled.crossEnvP`) reads
-`.recInfo`s, which its `hF` deliberately does not preserve.  Landing
-the clause as a field before those exist would put a new hypothesis in
-the B fold, which is not this lane's to spend. -/
+**This is NOT the field** (task #315 M7-3 session 14, DESIGN §U.70
+(a)): `ContainerModeled.ownPins` must be the SYNTACTIC clause
+`ContainerOwnPinsSyn` above, because this one cannot cross
+`ContainerModeled.crossEnvP` — its `DenoteMetaSpine` premise is
+CONTRAVARIANT (reading monotonicity runs `env₁ → env₂`, and the clause
+would have to pull a reading at `env₂` back to `env₁`).  This is the
+form the CONSUMER wants, and `ContainerOwnPinsSyn.toRead` is the
+bridge, modulo the substitution law (DESIGN §U.70 (b), (d)). -/
 @[expose] def ContainerOwnPins {env : Env} (m : EnvModel V env) (d : BlockModel V) : Prop :=
   ∀ (i : Nat) (cvC : ConstantVal) (caps : IndCaps) (lvls : List Level)
     (DsE ps : List Expr) (Ds : List AnnotTerm) (ψ : Name → Nat) (dp : Nat),
@@ -622,6 +684,37 @@ theorem ContainerOwnPins.of_noOwn {env : Env} {m : EnvModel V env} {d : BlockMod
   intro i _cvC _caps lvls DsE ps _Ds _ψ _dp hi _ hps _ e he
   rw [hempty i lvls DsE ps hi hps] at he
   exact nomatch he
+
+/-- **THE SYNTACTIC CLAUSE GIVES THE READING ONE** (task #315 M7-3
+session 14, DESIGN §U.70 (b)): the field's form plus the SUBSTITUTION
+LAW is the form `pinCorr_of_ownPins` consumes — session 13's claim
+that the half is "unaffected by the switch", made good.
+
+`hsub` is that law, stated here as an explicit hypothesis because it
+is not this file's to prove: "the reading of a recorded component,
+closed, level-instantiated and re-opened at the outer components, is
+`AnnotTerm.instAll` of the recorded reading at the substituted level
+assignment".  Its pieces are `denoteMeta_instLevels` (the level half,
+which the tree HAS) and the `instSeq`/`abstractRange` round trip
+(`instSeq_abstractRange_fvs`) under `denoteMeta` — the same algebra
+lane L-B is proving for `NestedPinsShapePinF`, the copies' own
+`PinCorr` at an OWN edge.  A theorem with an undischarged hypothesis
+is not a close: it is the shape the two halves meet in, and the law is
+what this lane and lane L-B still owe. -/
+theorem ContainerOwnPinsSyn.toRead {env : Env} {m : EnvModel V env} {d : BlockModel V}
+    (hsyn : ContainerOwnPinsSyn (V := V) env d)
+    (hsub : ∀ qK, qK < d.nPins → ∀ (lps : List Name) (lvls : List Level) (DsE : List Expr)
+      (Ds : List AnnotTerm) (ψ : Name → Nat) (dp : Nat),
+      DenoteMetaSpine m.acval env ψ dp DsE Ds →
+      DenoteMetaSpine m.acval env ψ dp
+        ((d.pinAt qK).DsE.map fun x =>
+          Expr.instSeq DsE (DsE.length - 1)
+            ((Expr.abstractRange x 0 d.nP 0).instantiateLevelParams lps lvls))
+        (((d.pinAt qK).Ds (Level.substFn ψ lps lvls)).map (AnnotTerm.instAll Ds 0))) :
+    ContainerOwnPins m d := by
+  intro i cvC caps lvls DsE ps Ds ψ dp hi hfind hps hspine e he
+  obtain ⟨qK, hqK, rfl⟩ := hsyn i cvC caps lvls DsE ps hi hfind hps e he
+  exact ⟨qK, _, hqK, rfl, hsub qK hqK cvC.levelParams lvls DsE Ds ψ dp hspine⟩
 
 /-- **THE BRIDGE, CONSUMED** (task #315 M7-3 session 13, DESIGN §U.69
 (c)): the block's pin `q`, whose recorded TERM K.41 puts among the root
