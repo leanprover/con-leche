@@ -9,6 +9,7 @@ import ConLeche.Model.Inductives.BlockComposed
 import ConLeche.Model.Inductives.BlockRecKit
 import ConLeche.Model.Inductives.BlockRecTyped
 import ConLeche.Model.Inductives.NestedAux
+import ConLeche.Model.Inductives.MutualRecsStage
 public section
 
 /-!
@@ -674,6 +675,53 @@ theorem NestedTailIn.EssT_eq (ψ : Name → Nat) {c : Nat} {j : Nat} {cA : Const
     show ((mutEss0 ctorsA.length esF ψ).drop (b.ownOffset (p.k + (c - (D).k)))).getD j [] = _
     rw [hkk, Nat.add_sub_cancel' (Nat.le_of_not_lt hck), getD_drop, mutEss0_getD hJl]
     rfl
+
+
+/-- The scratch block's minor count is the auxiliary block's
+constructor count. -/
+theorem NestedTailIn.nCtorsA_eq {mpA : EnvModelM V μ ENVA} {cvRas : List ConstantVal}
+    (S : NestedScratchOut F env b fms f₀ ctorsA kinds mp₁ ppsF W idxF dsF esF srcsF fvsPF xFvsF
+      xrestF eissF tssF stored mpA cvRas) : (DA).nCtors = b.ctors.length := by
+  rw [S.record.nCtors_eq (ConLeche.checkMutualCore_inv I.haux).2.2.1 I.out.facts.lenA]
+  exact I.out.facts.lenA
+
+/-- The minors of the composed classes are the copies'. -/
+theorem NestedTailIn.nCtorsT_eq {mpA : EnvModelM V μ ENVA} {cvRas : List ConstantVal}
+    (S : NestedScratchOut F env b fms f₀ ctorsA kinds mp₁ ppsF W idxF dsF esF srcsF fvsPF xFvsF
+      xrestF eissF tssF stored mpA cvRas) : (D).nCtorsT PC = (DA).nCtors := by
+  rw [I.nCtorsT, I.nCtorsA_eq S]
+
+/-- **THE RESULT INDEX READINGS ARE THE INDEX SPINE**: a `ChainFitT`'s
+index equations say the constructor's result index readings ARE the
+class's fitting index spine — read at the class's OWN index universe
+(`getD_eq_projS_tupW` on both sides) and then at the copy's
+(`IsBlockModel.es_eq_is`). -/
+theorem NestedTailIn.esMap_eq {mpA : EnvModelM V μ ENVA} {cvRas : List ConstantVal}
+    (S : NestedScratchOut F env b fms f₀ ctorsA kinds mp₁ ppsF W idxF dsF esF srcsF fvsPF xFvsF
+      xrestF eissF tssF stored mpA cvRas)
+    (ψ : Name → Nat) (ρ : Nat → V) (as : List V) (hsp : SpineFit ρ ((D).params ψ) as)
+    {c : Nat} (hc : c < b.k) {j : Nat} {cA : ConstantVal × Nat}
+    (hjA : ((DA).ctorsM c)[j]? = some cA) {is fs : List V}
+    (hisT : SpineFit ((D).frameT c ψ (consList as ρ)) ((D).IdsT c ψ) is)
+    (hidx : ∀ l, l < ((D).IdsT c ψ).length →
+      interp V (consList fs (consList as ρ)) ((((D).EssT PC ψ c).getD j []).getD l default)
+        = Tower.projS l ((D).tupT ψ c is)) :
+    ((DA).esF c j ψ).map (interp V (consList fs (consList as ρ))) = is := by
+  have hρp : Sat V ((D).params ψ).reverse (consList as ρ) := (D).satOfSpine hsp
+  have hρpA : Sat V ((DA).params ψ).reverse (consList as ρ) := hρp
+  obtain ⟨cvT, cvR, mI, rP, rules, hIA⟩ := S.reps c hc
+  have hcT : c < (D).kT := by rw [I.kT]; exact hc
+  have hisA : SpineFit (consList as ρ) ((DA).IdsM c ψ) is := (I.idsT_iff ψ ρ as hc is).mp hisT
+  have hlenI : ((D).IdsT c ψ).length = ((DA).IdsM c ψ).length := by
+    have h1 := hisT.length_eq
+    have h2 := hisA.length_eq
+    omega
+  refine IsBlockModel.es_eq_is hIA hρpA hjA hisA fun l hl => ?_
+  have hl' : l < is.length := by rw [hisA.length_eq]; exact hl
+  rw [← I.EssT_eq ψ hjA, hidx l (by rw [hlenI]; exact hl)]
+  show Tower.projS l (tupW ((D).uT c ψ) is) = Tower.projS l (tupW ((DA).uM c ψ) is)
+  rw [← getD_eq_projS_tupW (I.idxOkT ψ (consList as ρ) hρp hcT) hisT hl',
+    ← getD_eq_projS_tupW (hIA.idxOk ψ (consList as ρ) hρpA c hc) hisA hl']
 
 end Run
 
