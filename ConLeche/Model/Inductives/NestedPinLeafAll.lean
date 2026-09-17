@@ -3042,6 +3042,89 @@ theorem nestedPinPair_pin (m : EnvModel V env₂) {st : ElimState} {dJf : Nat �
     rfl hnI h₁ hsh hdom₁ hent₂ hrel t fs hfit hidx
 
 
+/-- **`hpair` at a MEMBER class of the root** (task #315 L-E, DESIGN
+§U.69): `nestedPinPair_mem` with its three premises discharged —
+`hdom₁` by `slotDomT_relMeet` (the relational meet is in the
+container's tuple space and below its extended carrier), `hrel` by
+`nestedPinWalk_mem` through `app_relMeet_le_rel`, and `hentR` by
+`nestedPinEntryOut_mem` — together with the pair's other data: the
+block's group of the pin IS the root group (`ClassPinAt`'s own
+conjunct, spent here), the index membership (`nestedIdx_of_group`) and
+the injections' identity (the two sides' level assignments being
+literally equal, `ψJEq`).
+
+The remaining premises are the two the induction owns: `hIH` (the rank
+induction's hypothesis at the pins it has already closed) and `hout`
+(`nestedPinRankOk`'s clause (2): an `ordF`-right target leaves the
+instance). -/
+theorem nestedPinPairAt_mem (hμ : μ.verifiedChecks = true)
+    (h : MutualFormersFacts V F g mp b fms f₀ ctorsA sortss kinds mp₁ ppsF W idxF dsF esF srcsF
+      fvsPF xFvsF xrestF eissF tssF)
+    (hbk : b.k = p.k + pinsS.length)
+    (m : EnvModel V env₂)
+    (hleafM : ∀ (t : Nat) (f : MutualFormerA), t < p.k → fms[t]? = some f →
+      m.acval f.cvTa.name = mutMemberLeaf b fms f₀ ctorsA kinds ppsF W dsF esF eissF tssF t)
+    {st : ElimState} (dJf : Nat → BlockModel V)
+    (hgroups : ∀ q, q < pinsS.length → ∃ (q₀ kJ i : Nat),
+      q = q₀ + i ∧ i < kJ ∧ GF st m q₀ kJ (dJf q₀))
+    {ψ : Name → Nat} {ρp : Nat → V} (hρp : Sat V ((D).params ψ).reverse ρp)
+    {r kR : Nat} (GR : GF st m r kR (dJf r))
+    {ciR : ContainerInfo} (CR : ContainerModeled m ciR (dJf r))
+    {B : ContainerInfo → BlockModel V} (hB : EnvBlocksOf m B)
+    {pcR : Nat → PinCtors V} (hshR : PinShapes m B (dJf r) pcR)
+    {S : Nat → Prop}
+    (hIH : ∀ q', q' < pinsS.length → S q' →
+      pinLfp st pinsS dJf (f₀.s.eval ψ) ψ ρp q' = (lfpTuple ((D).w ψ) (p.k + pinsS.length) ((D).idx ψ ρp) (ΨA ψ ρp)) (p.k + q'))
+    {c j : Nat} (hc : c < kR) (hjl : j < ((dJf r).ctorsM c).length)
+    (hout : ∀ l, l < ((blkFss0 b ctorsA kinds dsF ψ).getD (b.ownOffset (p.k + r + c) + j) []).length →
+      ((blkRss ctorsA kinds).getD (b.ownOffset (p.k + r + c) + j) []).getD l false = true →
+      (((dJf r).rss c).getD j []).getD l false = false → ¬ (((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD (b.ownOffset (p.k + r + c) + j) []).getD l 0) < p.k → S ((((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD (b.ownOffset (p.k + r + c) + j) []).getD l 0) - p.k))
+    (t : V) (fs : List V)
+    (hfit : (dJf r).ChainFitT pcR (((D).pinAt r).ψJ ψ) ((D).pinFrame r ψ ρp) (relMeet ((dJf r).idxT (((D).pinAt r).ψJ ψ) ((D).pinFrame r ψ ρp)) ((dJf r).famAt (((D).pinAt r).ψJ ψ) ((D).pinFrame r ψ ρp) (lfpTuple ((dJf r).w (((D).pinAt r).ψJ ψ)) (dJf r).k ((dJf r).idx (((D).pinAt r).ψJ ψ) ((D).pinFrame r ψ ρp)) ((dJf r).Φ (((D).pinAt r).ψJ ψ) ((D).pinFrame r ψ ρp)))) (fun c' bb => ∃ q', bb = p.k + q' ∧ ClassPinAt env₂ (D) (dJf r) ψ (((D).pinAt r).ψJ ψ) ρp ((D).pinFrame r ψ ρp) r c' q') (p.k + pinsS.length) (lfpTuple ((D).w ψ) (p.k + pinsS.length) ((D).idx ψ ρp) (ΨA ψ ρp))) t c j fs)
+    (ht : t ∈ˢ (dJf r).idxT (((D).pinAt r).ψJ ψ) ((D).pinFrame r ψ ρp) c) :
+    j < ((dJf r).ctorsM c).length ∧
+    t ∈ˢ (D).idx ψ ρp (p.k + r + c) ∧
+    (dJf r).injT pcR (((D).pinAt r).ψJ ψ) c j fs = (dJf r).inj (((D).pinAt (r + c)).ψJ ψ) c j fs ∧
+    FitsFrom ((blkRss ctorsA kinds).getD (b.ownOffset (p.k + r + c) + j) [])
+      (fun l ρ => slotSet (f₀.s.eval ψ) (nestedU p.k W pinsS ψ (((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD (b.ownOffset (p.k + r + c) + j) []).getD l 0)) ρ
+        (((mutTlss ctorsA.length tssF ψ).getD (b.ownOffset (p.k + r + c) + j) []).getD l [])
+        (((mutEiss0 ctorsA.length eissF ψ).getD (b.ownOffset (p.k + r + c) + j) []).getD l []) ((lfpTuple ((D).w ψ) (p.k + pinsS.length) ((D).idx ψ ρp) (ΨA ψ ρp)) (((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD (b.ownOffset (p.k + r + c) + j) []).getD l 0)))
+      0 ρp ((blkFss0 b ctorsA kinds dsF ψ).getD (b.ownOffset (p.k + r + c) + j) []) fs ∧
+    (∀ l, l < (blockIds b.nP ppsF ψ (p.k + r + c)).length →
+      interp V (consList fs ρp)
+          (((mutEss0 ctorsA.length esF ψ).getD (b.ownOffset (p.k + r + c) + j) []).getD l default) = projS l t) := by
+  have hck : c < (dJf r).k := GR.syn.kEq ▸ hc
+  have hkpos : 0 < (dJf r).k := GR.syn.kEq ▸ GR.syn.kpos
+  have hj : ((dJf r).ctorsM c)[j]? = some (((dJf r).ctorsM c).getD j default) := by
+    rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hjl]; rfl
+  have hψeq : ((D).pinAt (r + c)).ψJ ψ = (((D).pinAt r).ψJ ψ) :=
+    (GR.syn.ψJEq c 0 hc GR.syn.kpos ψ).trans (by rw [Nat.add_zero])
+  have hDseq : ((D).pinAt (r + c)).Ds ψ = ((D).pinAt r).Ds ψ := GR.syn.sameDs c hc ψ
+  have hρR : Sat V ((dJf r).params (((D).pinAt r).ψJ ψ)).reverse ((D).pinFrame r ψ ρp) := by
+    obtain ⟨ρ, as, hρe, hsp⟩ := spineOfSat_params (D) hρp
+    subst hρe
+    have := (dJf r).satOfSpine (GR.syn.DsFit 0 GR.syn.kpos ψ ρ as hsp)
+    rw [Nat.add_zero] at this
+    exact this
+  -- the walk, as the transfer wants it
+  have hwalk := nestedPinWalk_mem m hgroups hρp GR CR hB hshR hc hj
+  have hrel : ∀ l, l < ((blkFss0 b ctorsA kinds dsF ψ).getD (b.ownOffset (p.k + r + c) + j) []).length →
+      (((dJf r).rss c).getD j []).getD l false = true →
+      ∀ t', SetTheory.app ((relMeet ((dJf r).idxT (((D).pinAt r).ψJ ψ) ((D).pinFrame r ψ ρp)) ((dJf r).famAt (((D).pinAt r).ψJ ψ) ((D).pinFrame r ψ ρp) (lfpTuple ((dJf r).w (((D).pinAt r).ψJ ψ)) (dJf r).k ((dJf r).idx (((D).pinAt r).ψJ ψ) ((D).pinFrame r ψ ρp)) ((dJf r).Φ (((D).pinAt r).ψJ ψ) ((D).pinFrame r ψ ρp)))) (fun c' bb => ∃ q', bb = p.k + q' ∧ ClassPinAt env₂ (D) (dJf r) ψ (((D).pinAt r).ψJ ψ) ρp ((D).pinFrame r ψ ρp) r c' q') (p.k + pinsS.length) (lfpTuple ((D).w ψ) (p.k + pinsS.length) ((D).idx ψ ρp) (ΨA ψ ρp))) ((dJf r).tgts c j l)) t' ⊆ˢ SetTheory.app ((lfpTuple ((D).w ψ) (p.k + pinsS.length) ((D).idx ψ ρp) (ΨA ψ ρp)) (((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD (b.ownOffset (p.k + r + c) + j) []).getD l 0)) t' := by
+    intro l hl hr t'
+    obtain ⟨q', hq'e, hcp⟩ := hwalk l hl hr
+    have hq'lt : q' < pinsS.length := hcp.1.qLt
+    rw [hq'e]
+    exact app_relMeet_le_rel (by omega) ⟨q', rfl, hcp⟩ t'
+  refine ⟨hjl, ?_, ?_, nestedPinPair_mem m hρp GR hc hj
+    ((dJf r).slotDomT_relMeet GR.syn.reps (GR.syn.typed _) (GR.syn.pinsTyped _) hck hj hρR hkpos)
+    hrel (nestedPinEntryOut_mem hμ h hbk m hleafM dJf hgroups hρp GR hIH hc hj hout) t fs hfit⟩
+  · rw [nestedIdx_of_group GR hc, hψeq, hDseq]
+    rw [(dJf r).idxT_of_mem hck (((D).pinAt r).ψJ ψ) ((D).pinFrame r ψ ρp)] at ht
+    exact ht
+  · rw [(dJf r).injT_of_mem hck (((D).pinAt r).ψJ ψ), hψeq]
+
+
 /-- **`htrans`, from the pair's transfer** (task #315 L-E, DESIGN §U.64
 — the plumbing §U.58 (b) named): the transfer premise of
 `instanceLe_of_classPin`, discharged from ONE per-pair fact — at a
