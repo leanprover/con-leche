@@ -449,7 +449,8 @@ theorem NestedPinGroupSyn.ofParts {st : ElimState} {m : EnvModel V env₂} {q₀
     stored := fun i hi => by
       obtain ⟨cvT, caps, cvR, mI, rP, rules, hf, -, hψ⟩ := S.stored i hi
       exact ⟨cvT, caps, hf, hψ⟩
-    ctorCount := S.ctorCount, DsFit := S.DsFit, shape := I.shape, entry := I.entry }
+    ctorCount := S.ctorCount, ctorsOf := S.ctorsOf, DsFit := S.DsFit, shape := I.shape
+    entry := I.entry }
 
 local notation "ENV₁" => (ConLeche.consMutualFormers (fms.take p.k) env)
 

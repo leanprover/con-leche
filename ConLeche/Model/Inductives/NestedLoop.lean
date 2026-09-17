@@ -115,6 +115,7 @@ theorem NestedPinGroup.crossEnv {env₁ env₂ : Env} {m₁ : EnvModel V env₁}
       exact ⟨cvT, caps, hF _ _ (fun _ _ _ _ h => nomatch h) hf, hψ⟩
     idx := G.idx
     ctorCount := G.ctorCount
+    ctorsOf := G.ctorsOf
     DsFit := G.DsFit
     shape := fun i hi cvT caps hf ψ ρp hρp i' hi' j hj => by
       have hk : (D).k = p.k := rfl

@@ -652,30 +652,26 @@ end Run
 
 /-- **THE EQUATIONS AT THE RUN** — `NestedRecEqsOf`, the second of
 `nestedTailModeled_of`'s three named facts, at every tail input and
-every readings record, modulo the same three model faces the readings
-take: K.35 (`NestedRecTysAuxOf`), K.36 (`NestedCtorPinNamesOf`) and
-the groups' constructor names (`NestedGroupCtorNamesOf`). -/
+every readings record, modulo the same TWO model faces the readings
+take: K.35 (`NestedRecTysAuxOf`) and K.36 (`NestedCtorPinNamesOf`);
+`hctorsJ` is the pin group's own `NestedPinGroup.ctorsOf`. -/
 theorem nestedRecEqsOf_of_faces {F : Nat} (hK35 : NestedRecTysAuxOf μ F)
-    (hK36 : NestedCtorPinNamesOf μ F) (hctorsJ : NestedGroupCtorNamesOf V μ F) :
-    NestedRecEqsOf V μ F := by
+    (hK36 : NestedCtorPinNamesOf μ F) : NestedRecEqsOf V μ F := by
   intro env mp p envOut st b envAux stored ctorsR cvRms cvRns rulesM rulesN fmsA ctorsA₀ fms f₀
     ctorsA sortss kinds mp₁ ppsF W idxF dsF esF srcsF fvsPF xFvsF xrestF eissF tssF dsR xFvsR
     pinsS mp₂ I s rdsM concM R
   obtain ⟨mpA, cvRas, S⟩ := I.scratch
   exact I.recEqsOf S (hK36 env p st fmsA ctorsA₀ I.hfA I.hcA I.helim I.hcont)
-    (fun q₀ kJ i dJ G hi ci J h1 h2 h3 =>
-      hctorsJ mp p envOut st b envAux stored ctorsR cvRms cvRns rulesM rulesN fmsA ctorsA₀ fms f₀
-        ctorsA sortss kinds mp₁ ppsF W idxF dsF esF srcsF fvsPF xFvsF xrestF eissF tssF dsR xFvsR
-        pinsS mp₂ I q₀ kJ i dJ G hi ci J h1 h2 h3)
+    (fun _q₀ _kJ i _dJ G hi ci J h1 h2 h3 => (G.ctorsOf i hi ci J h1 h2 h3).1)
     (hK35 env p st b envAux stored pinsS I.hb I.haux I.hstored I.out.stage.pinsLen) R
 
 /-- **THE CONSUMER** (consumer-first): with the readings and the
-equations both discharged from the three model faces, the recursors'
+equations both discharged from the two model faces, the recursors'
 stage of a nested block needs only the stage proper
 (`NestedRecsStored`, item 5). -/
 theorem nestedTailModeled_of_stage {F : Nat} (hK35 : NestedRecTysAuxOf μ F)
-    (hK36 : NestedCtorPinNamesOf μ F) (hctorsJ : NestedGroupCtorNamesOf V μ F)
-    (hst : NestedRecsStored V μ F) : NestedTailModeled V μ F :=
-  nestedTailModeled_of_faces hK35 hK36 hctorsJ (nestedRecEqsOf_of_faces hK35 hK36 hctorsJ) hst
+    (hK36 : NestedCtorPinNamesOf μ F) (hst : NestedRecsStored V μ F) :
+    NestedTailModeled V μ F :=
+  nestedTailModeled_of_faces hK35 hK36 (nestedRecEqsOf_of_faces hK35 hK36) hst
 
 end ConLeche.Model

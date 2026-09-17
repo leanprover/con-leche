@@ -219,6 +219,15 @@ structure NestedPinGroup (m : EnvModel V env₂) (q₀ kJ : Nat) (dJ : BlockMode
     blockIds b.nP ppsF ψ (p.k + q₀ + i')
       = instTele (((D).pinAt (q₀ + i)).Ds ψ) 0 (dJ.IdsM i' (((D).pinAt (q₀ + i)).ψJ ψ))
   ctorCount : ∀ i', i' < kJ → (dJ.ctorsM i').length = (b.ownCtors (p.k + q₀ + i')).length
+  /-- **the group's model names the container member's own constructors**,
+  by name and in order, and the parameter counts agree (task #315 L-B's
+  `NestedPinGroupSyn.ctorsOf`, exported here): the face `hctorsJ` of the
+  recursors' stage (DESIGN §U.36 (d)) is this field, and the readings and
+  the equations need no model face for it. -/
+  ctorsOf : ∀ i', i' < kJ → ∀ (ciJ : ContainerInfo) (J : ContainerMember),
+    ConLeche.containerInfo? env ((D).pinAt (q₀ + i')).J = some ciJ →
+    J ∈ ciJ.members → J.name = ((D).pinAt (q₀ + i')).J →
+    (dJ.ctorsM i').map (·.1.name) = J.ctors.map (·.name) ∧ dJ.nP = ciJ.nP
   DsFit : ∀ i, i < kJ → ∀ (ψ : Name → Nat) (ρ : Nat → V) (as : List V),
     SpineFit ρ ((D).params ψ) as →
     SpineFit (consList as ρ) (dJ.params (((D).pinAt (q₀ + i)).ψJ ψ))
