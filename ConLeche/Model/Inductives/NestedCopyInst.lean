@@ -4451,15 +4451,13 @@ of a pin group.  Its five fields are the arms proved above — `len`
 `es` (`copyEs`) — with three residuals, each named below at exactly
 the conjunct that is open. -/
 
-/-- **The two run records the copies' KIND arms read** and
-`NestedPinsRun` does not carry: K.32 (`nestedCopyTargetsOk`, the
-copies' targets) and the auxiliary block's own CLASSIFICATION
-equation.  Both are at hand where the run is destructured
-(`declNested_of`) — K.32 as a `certOnly` conjunct of `DeclNestedRun`,
-the classification inside `checkMutualCore` — and both are dropped on
-the way down to the identities.  Named here so the assembly can
-consume them; the fix is one field each on `NestedCoreModeled`'s
-signature and on `NestedPinsRun`, at which this predicate disappears. -/
+/-- **K.32, which the copies' TARGET arms read and `NestedPinsRun` does
+not carry**: `nestedCopyTargetsOk` is a `certOnly` conjunct of
+`DeclNestedRun`, destructured at `declNested_of` and DROPPED there.
+Named here so the assembly can consume it; the fix is one field on
+`NestedCoreModeled`'s signature and one on `NestedPinsRun`, at which
+this predicate disappears.  (Its twin, the block's classification
+equation, is now `MutualFormersFacts.classify`.) -/
 @[expose] def NestedPinsKindsRun (V : Type w) [SetTheory V] (μ : CheckMode) (F : Nat) : Prop :=
   ∀ {env : Env} (mp : EnvModelM V μ env) (p : NestedParts) (st : ElimState) (b : MutualBlock)
     (envAux : Env) (stored : List AuxStored) (ctorsR : List (List (ConstantVal × Nat × Nat)))
@@ -4476,8 +4474,7 @@ signature and on `NestedPinsRun`, at which this predicate disappears. -/
     (mp₁' : EnvModelM V μ (ConLeche.consMutualFormers (fms.take p.k) env)),
     NestedPinsRun V μ F mp p st b envAux stored ctorsR fmsA ctorsA₀ fms f₀ ctorsA sortss kinds mp₁
       ppsF W idxF dsF esF srcsF fvsPF xFvsF xrestF eissF tssF mp₁' →
-    ConLeche.nestedCopyTargetsOk env p b st stored = true ∧
-    ConLeche.classifyMutualKinds (m := ConLeche.CheckM) b.members3 b.lps b.nP ctorsA = .ok kinds
+    ConLeche.nestedCopyTargetsOk env p b st stored = true
 
 /-- **RESIDUAL 1 — the λ-pin case of `ordF`'s left arm** (DESIGN
 §U.53 (c), §U.57 (d)): at a field the auxiliary block classifies
@@ -4625,8 +4622,9 @@ theorem nestedPinsShape_of {F : Nat} (hKR : NestedPinsKindsRun V μ F)
   intro env mp p st b envAux stored ctorsR fmsA ctorsA₀ fms f₀ ctorsA sortss kinds mp₁ ppsF W idxF
     dsF esF srcsF fvsPF xFvsF xrestF eissF tssF mp₁' R pinsS SF dsR xFvsR q₀ kJ dJ S
   intro i hi cvT caps hfind ψ ρp hsat i' hi' j hj
-  obtain ⟨hK32, hkindsRun⟩ := hKR mp p st b envAux stored ctorsR fmsA ctorsA₀ fms f₀ ctorsA sortss
+  have hK32 := hKR mp p st b envAux stored ctorsR fmsA ctorsA₀ fms f₀ ctorsA sortss
     kinds mp₁ ppsF W idxF dsF esF srcsF fvsPF xFvsF xrestF eissF tssF mp₁' R
+  have hkindsRun := R.h.classify
   have hres1 := hLam mp p st b envAux stored ctorsR fmsA ctorsA₀ fms f₀ ctorsA sortss kinds mp₁
     ppsF W idxF dsF esF srcsF fvsPF xFvsF xrestF eissF tssF mp₁' R pinsS SF dsR xFvsR q₀ kJ dJ S
   have hres2 := hOrd mp p st b envAux stored ctorsR fmsA ctorsA₀ fms f₀ ctorsA sortss kinds mp₁
