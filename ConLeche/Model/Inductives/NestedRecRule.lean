@@ -9,6 +9,8 @@ import ConLeche.Model.Inductives.MutualRecsSwap
 import ConLeche.Model.Inductives.MutualRecsStore
 import ConLeche.Model.Inductives.BlockRecBridge
 import ConLeche.Verify.Inductives.NestedRecDoor
+import ConLeche.Verify.Inductives.NestedCopyGlue
+import ConLeche.Verify.Inductives.NestedGroupInv
 import ConLeche.Verify.Inductives.NestedRecNames
 import ConLeche.Verify.Inductives.NestedRecRuleKit
 import ConLeche.Verify.Inductives.NestedRecFramesKit
@@ -2144,6 +2146,299 @@ theorem NestedTailIn.memberMajor
     exact List.drop_left' (by rw [hlenPY]; exact nestedBlockModel_nP)
   · rw [interp_mkAppN, ← List.foldl_map (f := interp V ρ) (g := SetTheory.app), hys, hname, hCac]
     exact h.ctor c i (c₀.1, c₀.2.2) hcD hjD ψ' ρ psY fsY hpsY hfsY
+
+
+/-! ## The major at a MIMIC arm (item 5 step 2e, `hmajor`'s second instance) -/
+
+omit I in
+/-- Two entries of a nodup list sit at one index. -/
+theorem nodup_getElem?_inj {α : Type} {l : List α} (hnd : l.Nodup) {i j : Nat} {x : α}
+    (hi : l[i]? = some x) (hj : l[j]? = some x) : i = j :=
+  (List.getElem?_inj (List.getElem?_eq_some_iff.mp hi).1 hnd).mp (hi.trans hj.symm)
+
+/-- **THE MAJOR AT A MIMIC ARM** — `blockRecRuleLawG`'s fourth
+obligation at a rule of a MIMIC recursor, whose constructor is the
+CONTAINER's.  The decode is the pin group's own block model `dJ`
+(`NestedPinGroup.rep`): the major's arguments fit the container
+constructor's telescope, so `IsBlockModel.ctor` at `dJ` — AT THE
+RULE'S OWN LEVEL ASSIGNMENT, the clause holding at every one — turns
+the fold into `dJ.inj`, and a pin group's injection is the tagged
+tower (`NestedPinGroup.inj`), which is the scratch block's own
+(`BlockModel.ofMutual` injects alike).  *So the copy-constructor
+identification `ctorArm` carries is NOT needed here: `hmajor` asks for
+the VALUE, and the value is the tag and the fields.*
+
+The levels are needed for one thing only, the tag's universe: the
+group's `w` clause pins `dJ.w` at the PIN's assignment, and
+`hfireLvls` — the mimic rule's fire levels ARE its pin's, the restore
+having rewritten the copy's former application into the container's —
+moves it to the rule's (`substFn_map_subst`, `substFn_ext`, and the
+former's own level stability `FormerData.params`).
+
+The rule's class and constructor index are identified with the pin's
+by the constructor's NAME: the scratch block's constructor names are
+pairwise distinct, so a name fixes its position, and the position
+fixes the member (`mutualBlockModel_ctorsM_get`). -/
+theorem NestedTailIn.mimicMajor
+    (hnames : NestedCtorPinNames env p st)
+    {mpP : EnvModelM V μ
+      (ConLeche.provisionNestedRecs (nestedProvList p stored cvRms cvRns) ENV2)}
+    (hndR : (cvRms.map (·.name) ++ cvRns.map (·.name)).Nodup)
+    (hagR : ∀ nm : Name, (∀ c, c < (D).kT → nm ≠ (nestedRecCvAt p.k cvRms cvRns c).name) →
+      mpP.base2.acval nm = mp₂.base2.acval nm)
+    {c : Nat} {jc : Nat} {cA : ConstantVal × Nat}
+    (hi : ((DA).ctorsM c)[jc]? = some cA)
+    {o : RecRule} {lvls : List Level} {pins : List Expr}
+    (hfire : RecRule.fire o = .nested lvls pins)
+    (hnf : RecRule.nfields o = cA.2)
+    (hlvlsScoped : ∀ u ∈ lvls, Level.allParamsDefined b.rlps u = true)
+    (hpin : ∃ pn : Expr, (ConLeche.restoreTbl p st).ctorPins.find? (fun z => z.1 == cA.1.name)
+      = some (cA.1.name, pn, RecRule.ctor o))
+    (hcp : ∃ (cv : ConstantVal) (cnF : Nat),
+      (ConLeche.provisionNestedRecs (nestedProvList p stored cvRms cvRns) (ENV2)).find?
+        (RecRule.ctor o) = some (.ctorInfo cv (RecRule.ctorParams o) cnF))
+    (hfireLvls : ∀ (q : Nat) (qn : NestedPin), q < pinsS.length → st.pins[q]? = some qn →
+      (ConLeche.restoreTbl p st).ctorPins.find? (fun z => z.1 == cA.1.name)
+        = some (cA.1.name, Expr.abstractRange qn.pin 0 p.nP 0, RecRule.ctor o) →
+      lvls = ((D).pinAt q).lvls)
+    {mI rP : Nat} (φ : Name → Nat) :
+    ∀ (us : List Level), us.length = (nestedRecCvAt p.k cvRms cvRns c).levelParams.length →
+      ∀ (cvj : ConstantVal) (cnP cnF : Nat),
+        (ConLeche.provisionNestedRecs (nestedProvList p stored cvRms cvRns) (ENV2)).find?
+          (RecRule.ctor o) = some (.ctorInfo cvj cnP cnF) →
+      ∀ (usj : List Level) (ρ : Nat → V) (xs ys : List AnnotTerm)
+        (TVa TVja restC : AnnotTerm),
+        xs.length = mI →
+        ys.length = RecRule.ctorParams o + RecRule.nfields o →
+        usj.length = cvj.levelParams.length →
+        Level.substFn φ cvj.levelParams usj
+          = Level.substFn φ cvj.levelParams
+              (ConLeche.recFireComparands o (nestedRecCvAt p.k cvRms cvRns c).levelParams us
+                cvj.levelParams [] rP).1 →
+        (∀ lvls' pins', RecRule.fire o = .nested lvls' pins' →
+          ∀ ii, ii < RecRule.ctorParams o →
+          ∀ vpa : AnnotTerm,
+            denoteMeta mpP.base2.acval
+              (ConLeche.provisionNestedRecs (nestedProvList p stored cvRms cvRns) (ENV2)) φ rP
+              (ConLeche.Verify.openRev 0 rP
+                ((pins'.getD ii default).instantiateLevelParams
+                  (nestedRecCvAt p.k cvRms cvRns c).levelParams us)) = some vpa →
+            interp V ρ (ys.getD ii default)
+              = interp V ρ (ConLeche.Model.AnnotTerm.instRevChain (xs.take rP) vpa)) →
+        IotaIndexPin (V := V) ρ restC (RecRule.ctorParams o) mI rP xs →
+        denoteMeta mpP.base2.acval
+          (ConLeche.provisionNestedRecs (nestedProvList p stored cvRms cvRns) (ENV2)) φ 0
+          ((nestedRecCvAt p.k cvRms cvRns c).type.instantiateLevelParams
+            (nestedRecCvAt p.k cvRms cvRns c).levelParams us) = some TVa →
+        denoteMeta mpP.base2.acval
+          (ConLeche.provisionNestedRecs (nestedProvList p stored cvRms cvRns) (ENV2)) φ 0
+          (cvj.type.instantiateLevelParams cvj.levelParams usj) = some TVja →
+        TeleFitPA V ρ TVja ys restC →
+        ∀ ps : List V,
+          SpineFit ρ ((DA).params (restrictΨ b.rlps
+            (Level.substFn φ (nestedRecCvAt p.k cvRms cvRns c).levelParams us))) ps →
+          ∃ fsY : List V, fsY.length = cA.2 ∧
+            (ys.map (interp V ρ)).drop (RecRule.ctorParams o) = fsY ∧
+            interp V ρ (AnnotTerm.mkAppN (mpP.base2.acval (RecRule.ctor o)
+                (Level.substFn φ cvj.levelParams usj)) ys)
+              = (DA).inj (restrictΨ b.rlps
+                  (Level.substFn φ (nestedRecCvAt p.k cvRms cvRns c).levelParams us)) c jc fsY := by
+  intro us hus cvj cnP cnF hfcj usj ρ xs ys TVa TVja restC _ hyl husjl hψ _ _ _ hTVja hfitC ps _
+  -- **the constructor pin, inverted**: the copy, its container and its group
+  obtain ⟨pn, hfindc⟩ := hpin
+  obtain ⟨q, qn, t, jcI, cnm, ci, J, cc, hqn, ht, hcnm, htn, hn1, hpn, hq, hci, hJmem, hJname,
+    hccj, hccn, hnFc⟩ := I.ctorPinInv hnames hfindc
+  obtain ⟨q₀, kJ, i, dJ, rfl, hiJ, G⟩ := I.out.stage.groups q hq
+  obtain ⟨hnP, -, -, -⟩ := ConLeche.auxBlock_fields I.hb
+  have hassoc : p.k + (q₀ + i) = p.k + q₀ + i := (Nat.add_assoc _ _ _).symm
+  have hct := ConLeche.auxBlock_ctors_getElem? I.hb I.out.grouped (p.k + (q₀ + i)) jcI t cnm
+    ht hcnm
+  rw [hassoc] at hct
+  obtain ⟨hlenA, hnamesA⟩ := ctorsA_names_of I.out.ctors (ConLeche.checkMutualCore_inv I.haux).2.1
+  have hJlt : b.ownOffset (p.k + q₀ + i) + jcI < ctorsA.length := by
+    rw [hlenA]; exact (List.getElem?_eq_some_iff.mp hct).1
+  obtain ⟨cAx, hcAget⟩ : ∃ cAx, ctorsA[b.ownOffset (p.k + q₀ + i) + jcI]? = some cAx :=
+    ⟨_, List.getElem?_eq_getElem hJlt⟩
+  have hcAname : cAx.1.name = cnm.1 := (hnamesA _ _ _ hcAget hct).1
+  have hcAnF : cAx.2 = cnm.2.2 := (hnamesA _ _ _ hcAget hct).2.1
+  -- **the rule's class and index ARE the copy's**: a name fixes its position
+  obtain ⟨-, hiA, hmemC⟩ := mutualBlockModel_ctorsM_get I.out.grouped I.out.facts.lenA hi
+  have hposEq : b.ownOffset (p.k + q₀ + i) + jcI = b.ownOffset c + jc := by
+    refine nodup_getElem?_inj I.ctorsANodup (x := cA.1.name) ?_ ?_
+    · simp only [List.getElem?_map, hcAget, Option.map_some, hcAname, hn1]
+    · simp only [List.getElem?_map, hiA, Option.map_some]
+  have hmemA : mutMemF b (b.ownOffset (p.k + q₀ + i) + jcI) = p.k + q₀ + i := by
+    show (b.ctors.getD (b.ownOffset (p.k + q₀ + i) + jcI) default).member = _
+    rw [List.getD_eq_getElem?_getD, hct]
+    rfl
+  have hcEq : c = p.k + q₀ + i := by
+    rw [← hposEq, hmemA] at hmemC
+    exact hmemC.symm
+  have hjcEq : jcI = jc := by rw [hcEq] at hposEq; omega
+  subst hjcEq
+  have hcAeq : cAx = cA := by
+    rw [← hposEq] at hiA
+    exact Option.some.inj (hcAget.symm.trans hiA)
+  -- **the container member's constructor**, at the group's block model
+  have hi' : i < dJ.k := by rw [G.kEq]; exact hiJ
+  obtain ⟨cvT', cvR', mI', rP', rules', hIJ⟩ := G.rep i hiJ
+  have hPJ := (I.out.stage.pinRec (q₀ + i) qn hqn).1
+  have hmapJ := (G.ctorsOf i hiJ ci J (by rw [hPJ]; exact hci) hJmem
+    (by rw [hPJ]; exact hJname)).1
+  have hjcJ : jcI < (dJ.ctorsM i).length := by
+    have hl := congrArg List.length hmapJ
+    simp only [List.length_map] at hl
+    rw [hl]
+    exact (List.getElem?_eq_some_iff.mp hccj).1
+  obtain ⟨cAJ, hjJ⟩ : ∃ cAJ, (dJ.ctorsM i)[jcI]? = some cAJ :=
+    ⟨_, List.getElem?_eq_getElem hjcJ⟩
+  have hnameJ : cAJ.1.name = cc.name := by
+    have h1 : ((dJ.ctorsM i).map (·.1.name))[jcI]? = some cAJ.1.name := by
+      rw [List.getElem?_map, hjJ]; rfl
+    have h2 : ((J.ctors).map (·.name))[jcI]? = some cc.name := by
+      rw [List.getElem?_map, hccj]; rfl
+    rw [hmapJ] at h1
+    exact Option.some.inj (h1.symm.trans h2)
+  -- **the container's own records**: the level parameters and the pin's assignment
+  have hndNames : (fms.map (·.cvTa.name)).Nodup := by
+    rw [I.out.facts.names]
+    have h0 := I.out.nodup
+    unfold ConLeche.MutualBlock.blockNames at h0
+    exact (List.nodup_append.mp (List.nodup_append.mp h0).1).1
+  have hFE1 : FindPreserved env (ConLeche.consMutualFormers (fms.take p.k) env) :=
+    (consMutualFormers_extend (fms := fms.take p.k) (env := env)
+      (fun f hf => by
+        obtain ⟨t', ht'⟩ := List.getElem?_of_mem (List.mem_of_mem_take hf)
+        exact I.out.facts.fresh t' f ht')
+      (by
+        have h := hndNames
+        rw [← List.take_append_drop p.k fms, List.map_append] at h
+        exact (List.nodup_append.mp h).1)).1
+  obtain ⟨cvTci, capsci, cvRci, mIci, rPci, rulesci, hfindIci, -, -, -, hmembers⟩ :=
+    ConLeche.containerInfo?_inv hci
+  obtain ⟨cvC, capsC, cvRc, mIc, rulesC, -, -, hJlps, -, hlpsEq, -, hccs⟩ := hmembers J hJmem
+  obtain ⟨r, cvc, -, hccr, hfindcc, -⟩ := hccs jcI cc hccj
+  rw [← hccr] at hfindcc
+  have hcvcT : cvc.levelParams = cvTci.levelParams := by
+    rw [I.ctorPinLps hqn hci hJmem hccj hfindcc, hJlps, hlpsEq]
+  have hfind2 : (ENV2).find? cc.name = some (.ctorInfo cvc ci.nP cc.nFields) :=
+    I.out.stage.find (hFE1 hfindcc)
+  have hfindI1 : (ConLeche.consMutualFormers (fms.take p.k) env).find? ((D).pinAt (q₀ + i)).J
+      = some (.indInfo cvTci capsci) := by
+    rw [hPJ]; exact hFE1 hfindIci
+  obtain ⟨hlvlsLen0, hψJ00⟩ := I.out.stage.pinψ (q₀ + i) hq cvTci capsci hfindI1
+  have hlvlsLen : ((D).pinAt (q₀ + i)).lvls.length = cvTci.levelParams.length := hlvlsLen0
+  have hψJ0 : ∀ ψ : Name → Nat, ((D).pinAt (q₀ + i)).ψJ ψ
+      = Level.substFn ψ cvTci.levelParams ((D).pinAt (q₀ + i)).lvls := hψJ00
+  obtain ⟨hfindJ2, hlpsJ, hcdJ⟩ := hIJ.ctors i jcI cAJ hi' hjJ
+  have hcvcJ : cAJ.1 = cvc ∧ dJ.nP = ci.nP ∧ cAJ.2 = cc.nFields := by
+    have h := hfindJ2
+    rw [hnameJ, hfind2] at h
+    exact ConstantInfo.ctorInfo.inj (Option.some.inj h.symm)
+  have hnFJ : cAJ.2 = cA.2 := by rw [hcvcJ.2.2, hnFc, ← hcAnF, hcAeq]
+  -- **the container's constructor is found across the provision**
+  have hctorName : RecRule.ctor o = cAJ.1.name := by rw [hnameJ, hccn]
+  have hfindP : (ConLeche.provisionNestedRecs (nestedProvList p stored cvRms cvRns) (ENV2)).find?
+      cAJ.1.name = some (.ctorInfo cAJ.1 dJ.nP cAJ.2) := by
+    refine (ConLeche.provisionNestedRecs_find?_of_ne (fun x hx hxn => ?_)).trans hfindJ2
+    have hfresh := I.provListFresh x hx
+    rw [← hxn, hfindJ2] at hfresh
+    exact nomatch hfresh
+  rw [hctorName, hfindP] at hfcj
+  obtain ⟨rfl, rfl, rfl⟩ := ConstantInfo.ctorInfo.inj (Option.some.inj hfcj.symm)
+  obtain ⟨cv', cnF', hcp'⟩ := hcp
+  rw [hctorName, hfindP] at hcp'
+  obtain ⟨-, hnP', -⟩ := ConstantInfo.ctorInfo.inj (Option.some.inj hcp'.symm)
+  -- **the rule's level assignment is the pin's**, at the container's parameters
+  have hlvlsEq : lvls = ((D).pinAt (q₀ + i)).lvls := by
+    refine hfireLvls (q₀ + i) qn hq hqn ?_
+    rw [← hpn]; exact hfindc
+  have hlpsCT : cAJ.1.levelParams = cvTci.levelParams := by rw [hcvcJ.1]; exact hcvcT
+  have hagreeLvl : ∀ qq ∈ cvT'.levelParams,
+      Level.substFn φ cAJ.1.levelParams usj qq
+        = ((D).pinAt (q₀ + i)).ψJ (restrictΨ b.rlps
+            (Level.substFn φ (nestedRecCvAt p.k cvRms cvRns c).levelParams us)) qq := by
+    intro qq hqq
+    have hqq' : qq ∈ cAJ.1.levelParams := by rw [hlpsJ]; exact hqq
+    have hlen : lvls.length = cAJ.1.levelParams.length := by
+      rw [hlvlsEq, hlpsCT]; exact hlvlsLen
+    have h1 : Level.substFn φ cAJ.1.levelParams usj qq
+        = Level.substFn φ cAJ.1.levelParams
+            (lvls.map (Level.subst (nestedRecCvAt p.k cvRms cvRns c).levelParams us)) qq := by
+      have h' := hψ
+      simp only [ConLeche.recFireComparands, hfire] at h'
+      exact congrFun h' qq
+    rw [h1, Level.substFn_map_subst hlen hqq',
+      Level.substFn_ext (ps := b.rlps)
+        (fun pp hpp => (restrictΨ_agree b.rlps
+          (Level.substFn φ (nestedRecCvAt p.k cvRms cvRns c).levelParams us) pp hpp).symm)
+        hlvlsScoped hlen qq hqq',
+      hψJ0, hlvlsEq, hlpsCT]
+  have hwJ : dJ.w (Level.substFn φ cAJ.1.levelParams usj)
+      = f₀.s.eval (restrictΨ b.rlps
+        (Level.substFn φ (nestedRecCvAt p.k cvRms cvRns c).levelParams us)) := by
+    have hpar := (hIJ.former.params (Level.substFn φ cAJ.1.levelParams usj)
+      (((D).pinAt (q₀ + i)).ψJ (restrictΨ b.rlps
+        (Level.substFn φ (nestedRecCvAt p.k cvRms cvRns c).levelParams us))) hagreeLvl).2
+    show dJ.resSort.eval _ = _
+    rw [hpar]
+    exact G.w i hiJ _
+  -- **the major's arguments fit the container constructor's telescope**
+  have hTVja' : TVja = mkPisAV (dJ.dsF i jcI (Level.substFn φ cAJ.1.levelParams usj))
+      (ctorBodyAVI mp₂.base2 (dJ.memberName i) dJ.nP cAJ.2
+        (Level.substFn φ cAJ.1.levelParams usj)
+        (dJ.esF i jcI (Level.substFn φ cAJ.1.levelParams usj))) := by
+    have h' := hTVja
+    rw [denoteMeta_instLevels (acvalParamsAt_of_core mpP.base2) φ 0 cAJ.1.type] at h'
+    exact Option.some.inj (h'.symm.trans (I.provCross hndR hagR _ 0 cAJ.1.type
+      (hcdJ.read (Level.substFn φ cAJ.1.levelParams usj))))
+  have hstC := stripPisAV_mkPisAV (dJ.dsF i jcI (Level.substFn φ cAJ.1.levelParams usj))
+    (ctorBodyAVI mp₂.base2 (dJ.memberName i) dJ.nP cAJ.2
+      (Level.substFn φ cAJ.1.levelParams usj)
+      (dJ.esF i jcI (Level.substFn φ cAJ.1.levelParams usj)))
+  rw [hcdJ.len _] at hstC
+  have hteleC := piTeleAV_of_stripPisAV hstC
+  have hylD : ys.length = dJ.nP + cAJ.2 := by rw [hyl, hnf, hnFJ, hnP']
+  have hspC : SpineFit ρ ((dJ.dsF i jcI (Level.substFn φ cAJ.1.levelParams usj)).map (·.2.2))
+      (ys.map (interp V ρ)) := by
+    have hfit := hfitC
+    rw [hTVja'] at hfit
+    have hchain := teleFitPA_to_chain (dJ.nP + cAJ.2) hteleC (by simpa using hylD) hfit
+    refine spineFit_of_chain (by simp [hylD, hcdJ.len]) ?_
+    intro z hz
+    have := hchain z (by simpa [hcdJ.len] using hz)
+    simpa [hcdJ.len] using this
+  have hdsSplit : (dJ.dsF i jcI (Level.substFn φ cAJ.1.levelParams usj)).map (·.2.2)
+      = ((dJ.dsF i jcI (Level.substFn φ cAJ.1.levelParams usj)).take dJ.nP).map (·.2.2)
+        ++ ((dJ.dsF i jcI (Level.substFn φ cAJ.1.levelParams usj)).drop dJ.nP).map (·.2.2) := by
+    rw [← List.map_append, List.take_append_drop]
+  rw [hdsSplit] at hspC
+  obtain ⟨psJ, fsJ, hys, hspY₁, hspY₂⟩ := spineFit_append_inv hspC
+  have hlenPY : psJ.length = dJ.nP := by
+    rw [hspY₁.length_eq, List.length_map, List.length_take, hcdJ.len]
+    exact Nat.min_eq_left (Nat.le_add_right _ _)
+  have hlenFY : fsJ.length = cA.2 := by
+    rw [hspY₂.length_eq, List.length_map, List.length_drop, hcdJ.len, ← hnFJ]
+    omega
+  have hkJ : 0 < dJ.k := by omega
+  have hpsJ : SpineFit ρ (dJ.params (Level.substFn φ cAJ.1.levelParams usj)) psJ := by
+    have hsat := sat_of_spineFit (Sat_nil V ρ) hspY₁
+    rw [List.append_nil] at hsat
+    exact spineFit_of_sat_len (by rw [hlenPY, G.reps.params_length hkJ _])
+      ((hIJ.paramsIff i jcI cAJ hi' hjJ _ _).mpr hsat)
+  have hfsJ : SpineFit (consList psJ ρ)
+      ((dJ.Fss i (Level.substFn φ cAJ.1.levelParams usj)).getD jcI []) fsJ := by
+    rw [IsBlockModel.Fss_getD hjJ]; exact hspY₂
+  refine ⟨fsJ, hlenFY, ?_, ?_⟩
+  · rw [hys, hnP']
+    exact List.drop_left' hlenPY
+  · rw [interp_mkAppN, ← List.foldl_map (f := interp V ρ) (g := SetTheory.app), hys, hctorName,
+      congrFun (hagR cAJ.1.name (fun c' hc' he => by
+        have hd := (I.recCvDoor (by rw [← I.kT]; exact hc')).1
+        rw [← he, hfindJ2] at hd
+        exact nomatch hd)) _,
+      hIJ.ctor i jcI cAJ hi' hjJ _ ρ psJ fsJ hpsJ hfsJ, G.inj, hwJ]
+    rfl
 
 
 /-! ## The rule law at the nested block (item 5 step 2e, the instantiation) -/
