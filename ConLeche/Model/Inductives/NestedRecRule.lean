@@ -4,7 +4,7 @@ public import ConLeche.Model.Inductives.NestedRecsStore
 public import ConLeche.Model.Inductives.NestedRecEqs
 import ConLeche.Model.Inductives.MutualRecsProvision
 import ConLeche.Verify.Inductives.NestedRecNames
-public import ConLeche.Verify.Inductives.NestedRecRuleKit
+import ConLeche.Verify.Inductives.NestedRecRuleKit
 import ConLeche.Verify.Inductives.NestedElimInv
 public section
 
