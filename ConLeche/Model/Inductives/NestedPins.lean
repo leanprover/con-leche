@@ -408,7 +408,7 @@ structure NestedPinGroupIds (m : EnvModel V env₂) (q₀ kJ : Nat) (dJ : BlockM
         (Fss₀ := fun ψ => blkFss0 b ctorsA kinds dsF ψ)
         (Ess₀ := fun ψ => mutEss0 ctorsA.length esF ψ) (ψ := ψ) (ρp := ρp)
         m.acval dJ (((D).pinAt (q₀ + i)).ψJ ψ) (((D).pinAt (q₀ + i)).Ds ψ)
-        cvT.levelParams ((D).pinAt (q₀ + i)).lvls q₀ kJ i' j
+        ((D).pinAt (q₀ + i)).DsE cvT.levelParams ((D).pinAt (q₀ + i)).lvls q₀ kJ i' j
   /-- the copies' ENTRIES at the auxiliary carrier (`nestedPinLeaf_all`) -/
   entry :
     ∀ i, i < kJ → ∀ (ψ : Name → Nat) (ρp : Nat → V),
@@ -799,6 +799,7 @@ action (the shape, lane L-B) and the entries at the auxiliary carrier
         (Fss₀ := fun ψ => blkFss0 b ctorsA kinds dsF ψ)
         (Ess₀ := fun ψ => mutEss0 ctorsA.length esF ψ) (ψ := ψ) (ρp := ρp)
         mp₁'.base2.acval dJ ((pinsS.getD (q₀ + i) default).ψJ ψ) ((pinsS.getD (q₀ + i) default).Ds ψ)
+        (pinsS.getD (q₀ + i) default).DsE
         cvT.levelParams (pinsS.getD (q₀ + i) default).lvls q₀ kJ i' j) ∧
     (∀ i, i < kJ → ∀ (ψ : Name → Nat) (ρp : Nat → V),
       Sat V (((ppsF 0 ψ).take b.nP).map (·.2.2)).reverse ρp →

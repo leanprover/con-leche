@@ -208,7 +208,8 @@ at the pin's components applied to the index spine; the copy's slot at
 the container's pin frame to the block pin's frame (the two differ in
 their base only, below the components). -/
 theorem copyEntryAt_of_pinCorr {env : Env} {m : EnvModel V env} {TV : TargetView V}
-    {dJ : BlockModel V} {ψJ : Name → Nat} {Ds : List AnnotTerm} {tg : Nat → Nat}
+    {dJ : BlockModel V} {ψJ : Name → Nat} {Ds : List AnnotTerm} {DsE : List Expr}
+    {tg : Nat → Nat}
     {tls : List (List (Nat × Nat × AnnotTerm))} {Eis : List (List AnnotTerm)} {ρp : Nat → V}
     {i j l : Nat}
     (hreps : IsBlockModels m dJ) (hfT : FormersTyped m dJ ψJ) (hPT : PinsTyped m dJ ψJ)
@@ -217,7 +218,7 @@ theorem copyEntryAt_of_pinCorr {env : Env} {m : EnvModel V env} {TV : TargetView
     (hw : dJ.w ψJ = TV.w) (hl : l < ((dJ.Fss i ψJ).getD j []).length)
     (hr : ((dJ.rss i).getD j []).getD l false = true) (hnt : ¬ dJ.tgts i j l < dJ.k)
     {lpsJ : List Name} {lvlsJ : List Level}
-    (hcorr : PinCorr TV m.acval dJ ψJ Ds lpsJ lvlsJ (tg l) (dJ.tgts i j l - dJ.k))
+    (hcorr : PinCorr TV m.acval dJ ψJ Ds DsE lpsJ lvlsJ (tg l) (dJ.tgts i j l - dJ.k))
     (htl : (tls.getD l []).map (·.2.2)
       = instTele Ds l ((((dJ.tlss i ψJ).getD j []).getD l []).map (·.2.2)))
     (hEis : Eis.getD l [] = (((dJ.Eiss i ψJ).getD j []).getD l []).map
@@ -352,18 +353,19 @@ identity. -/
 theorem nestedPinShapes_of (m : EnvModel V env₂) {B : ContainerInfo → BlockModel V}
     (hgroupsB : ∀ q, q < pinsS.length → ∀ ci : ContainerInfo,
       ConLeche.containerInfo? env₂ ((D).pinAt q).J = some ci →
-      ∃ (q₀ kJ i : Nat), q = q₀ + i ∧ i < kJ ∧ PG m q₀ kJ (B ci))
+      ∃ (q₀ kJ i : Nat), q = q₀ + i ∧ i < kJ ∧ PG m q₀ kJ (B ci) ∧
+        ∀ i', i' < kJ → ((D).pinAt (q₀ + i')).DsE = ((D).pinAt q₀).DsE)
     (hcont : ∀ q, q < pinsS.length →
       ∃ ci : ContainerInfo, ConLeche.containerInfo? env₂ ((D).pinAt q).J = some ci) :
     PinShapes m B (D) PC := by
   intro q hq
   obtain ⟨ci, hci⟩ := hcont q hq
-  obtain ⟨q₀, kJ, i, hqe, hi, G⟩ := hgroupsB q hq ci hci
+  obtain ⟨q₀, kJ, i, hqe, hi, G, hDsE⟩ := hgroupsB q hq ci hci
   refine ⟨q₀, kJ, i, ci, hqe, hi, hci, ?_, ?_⟩
   · -- the group, viewed
     have h0 : q₀ + 0 = q₀ := Nat.add_zero q₀
-    refine ⟨G.seg, G.kpos, G.kEq, fun i' hi' => ?_, G.same, G.lvls, fun i' hi' ψ => ?_, G.pinNP,
-      G.pinNIdx, G.pinPps, fun ψ => ?_, fun ψ => ?_, fun ψ ρ as hsp => ?_⟩
+    refine ⟨G.seg, G.kpos, G.kEq, fun i' hi' => ?_, G.same, hDsE, G.lvls, fun i' hi' ψ => ?_,
+      G.pinNP, G.pinNIdx, G.pinPps, fun ψ => ?_, fun ψ => ?_, fun ψ ρ as hsp => ?_⟩
     · obtain ⟨cvT, cvR, mI, rP, rules, hI⟩ := G.rep i' hi'
       exact hI.member.symm
     · have := G.pinU 0 G.kpos ψ i' hi'
@@ -377,7 +379,7 @@ theorem nestedPinShapes_of (m : EnvModel V env₂) {B : ContainerInfo → BlockM
   · -- the shape, at the base pin's record and the dropped lists
     intro ψ ρp hρp i' j hi' hj cvT caps hf
     have hsh := G.shape i' hi' cvT caps hf ψ ρp hρp i' hi' j hj
-    rw [(G.same i' hi' ψ).1, (G.same i' hi' ψ).2, G.lvls i' hi'] at hsh
+    rw [(G.same i' hi' ψ).1, (G.same i' hi' ψ).2, hDsE i' hi', G.lvls i' hi'] at hsh
     unfold CopyShapeA at hsh
     rw [nestedBlockModel_targetView m ψ]
     simp only [nestedPc, getD_drop, ← Nat.add_assoc]
@@ -539,7 +541,7 @@ structure GroupFacts (st : ElimState) (m : EnvModel V env₂) (q₀ kJ : Nat) (d
       (Fss₀ := fun ψ => blkFss0 b ctorsA kinds dsF ψ)
       (Ess₀ := fun ψ => mutEss0 ctorsA.length esF ψ) (ψ := ψ) (ρp := ρp)
       m.acval dJ (((D).pinAt (q₀ + i)).ψJ ψ) (((D).pinAt (q₀ + i)).Ds ψ)
-      cvT.levelParams ((D).pinAt (q₀ + i)).lvls q₀ kJ i' j
+      ((D).pinAt (q₀ + i)).DsE cvT.levelParams ((D).pinAt (q₀ + i)).lvls q₀ kJ i' j
 
 /-- **The containers' least tuples at the pins**, `P` (task #315 L-E,
 DESIGN §U.36 (c)): pin `q`'s container's least tuple at the pin's

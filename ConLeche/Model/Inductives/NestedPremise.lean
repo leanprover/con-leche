@@ -156,6 +156,7 @@ the carrier `acval`. -/
   u := fun t => d.uT t ψ
   Ids := fun t => d.IdsT t ψ
   Ds := fun t => (d.pinAt (t - d.k)).Ds ψ
+  DsE := fun t => (d.pinAt (t - d.k)).DsE
   EA := targetRead acval d.memberNames d.pins d.nP d.k ψ
   J := fun t => if t < d.k then d.memberName t else (d.pinAt (t - d.k)).J
   lvls := fun t => (d.pinAt (t - d.k)).lvls
@@ -174,6 +175,11 @@ structure PinGroupView (d dJ : BlockModel V) (q₀ kJ : Nat) : Prop where
   name : ∀ i, i < kJ → (d.pinAt (q₀ + i)).J = dJ.memberName i
   same : ∀ i, i < kJ → ∀ ψ : Name → Nat,
     (d.pinAt (q₀ + i)).ψJ ψ = (d.pinAt q₀).ψJ ψ ∧ (d.pinAt (q₀ + i)).Ds ψ = (d.pinAt q₀).Ds ψ
+  /-- the group's pins share their components' EXPRESSIONS (task #315
+  L-E, DESIGN §U.51: the container instance transfer reads a target's
+  head off a component, and the group's shape is stated at the base
+  pin's) -/
+  sameDsE : ∀ i, i < kJ → (d.pinAt (q₀ + i)).DsE = (d.pinAt q₀).DsE
   lvls : ∀ i, i < kJ → (d.pinAt (q₀ + i)).lvls = (d.pinAt q₀).lvls
   pinU : ∀ i, i < kJ → ∀ ψ : Name → Nat, (d.pinAt (q₀ + i)).u ψ = dJ.uM i ((d.pinAt q₀).ψJ ψ)
   pinNP : ∀ i, i < kJ → (d.pinAt (q₀ + i)).nPJ = dJ.nP
@@ -206,7 +212,8 @@ composes (`nestedPinLeaf_all`). -/
       ∀ (cvT : ConstantVal) (caps : IndCaps),
         env.find? (d.pinAt (q₀ + i')).J = some (.indInfo cvT caps) →
       CopyCtorShape (d.targetView m.acval ψ) m.acval (B ci) ((d.pinAt q₀).ψJ ψ) ((d.pinAt q₀).Ds ψ)
-        cvT.levelParams (d.pinAt q₀).lvls (fun l => (pc (q₀ + i')).tgts j l) (((pc (q₀ + i')).tlss ψ).getD j [])
+        (d.pinAt q₀).DsE cvT.levelParams (d.pinAt q₀).lvls (fun l => (pc (q₀ + i')).tgts j l)
+        (((pc (q₀ + i')).tlss ψ).getD j [])
         (((pc (q₀ + i')).Eiss ψ).getD j []) ρp i' j (d.k + q₀) kJ
         (((pc (q₀ + i')).Fss ψ).getD j []) ((pc (q₀ + i')).rss.getD j [])
         (((pc (q₀ + i')).Ess ψ).getD j [])

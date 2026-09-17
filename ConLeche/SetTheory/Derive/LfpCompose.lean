@@ -1006,7 +1006,7 @@ theorem lfpTuple_le_of_rel {w k k' : Nat} {Is Is' : Nat → V} {Φ Φ' : (Nat �
     {R : Nat → Nat → Prop} {F' : Nat → V}
     (hmono : MonoTuple w k Is Φ) (hmaps : MapsTuple w k Is Φ)
     (hcl : ∃ L, IsClosedTuple w k Is Φ L)
-    (hF' : InTupleSpace w k' Is' F') (hfix : ∀ b, b < k' → Φ' F' b = F' b)
+    (_hF' : InTupleSpace w k' Is' F') (hfix : ∀ b, b < k' → Φ' F' b = F' b)
     (hrel : ∀ X, InTupleSpace w k Is X → TupleLe k Is X (lfpTuple w k Is Φ) →
       (∀ a b, a < k → b < k' → R a b → FamLe (Is a) (X a) (F' b)) →
       ∀ a b, a < k → b < k' → R a b → FamLe (Is a) (Φ X a) (Φ' F' b)) :
