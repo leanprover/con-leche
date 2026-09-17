@@ -327,6 +327,61 @@ theorem NestedTailIn.eisAtT_eq (ψ : Name → Nat) {c : Nat} {j : Nat}
     rw [hkk, Nat.add_sub_cancel' (Nat.le_of_not_lt hck), getD_drop, mutEiss0_getD hJl]
     rfl
 
+
+/-! ### The recursive slots -/
+
+/-- **THE SCRATCH BLOCK'S RECURSIVE SLOTS ARE THE COMPOSED CLASS'S**:
+at every class and every recursive field, the auxiliary block's slot
+at ITS least tuple is the extended slot of the nested block model at
+the COMPOSED carrier — the two tables are one (`tgtsT_eq`,
+`teleAtT_eq`, `eisAtT_eq`) and the two families agree at every index
+spine the slot ever reads (`slotSet_congr_app` at the fibre identity
+F3, the readings' fits `rec_eis_fit`/`refl_eis_fit` at the scratch
+block). -/
+theorem NestedTailIn.slotT_eq {mpA : EnvModelM V μ ENVA} {cvRas : List ConstantVal}
+    (S : NestedScratchOut F env b fms f₀ ctorsA kinds mp₁ ppsF W idxF dsF esF srcsF fvsPF xFvsF
+      xrestF eissF tssF stored mpA cvRas)
+    (ψ : Name → Nat) (ρ : Nat → V) (as : List V) (hsp : SpineFit ρ ((D).params ψ) as)
+    {c : Nat} (hc : c < b.k) {j : Nat} {cA : ConstantVal × Nat}
+    (hjA : ((DA).ctorsM c)[j]? = some cA) {l : Nat} (hl : l < cA.2)
+    (hr : (rsOf ((DA).ksF c j)).getD l false = true)
+    {fs' : List V} (hfs' : SpineFit (consList as ρ) ((((DA).Fss c ψ).getD j []).take l) fs') :
+    (DA).slotAt ψ (Laux ψ (consList as ρ)) c j l (consList fs' (consList as ρ))
+      = (D).slotAtT PC ψ ((D).famAt ψ (consList as ρ)
+            (lfpTuple ((D).w ψ) (D).k ((D).idx ψ (consList as ρ)) ((D).Φ ψ (consList as ρ))))
+          c j l (consList fs' (consList as ρ)) := by
+  have hρp : Sat V ((D).params ψ).reverse (consList as ρ) := (D).satOfSpine hsp
+  have hρpA : Sat V ((DA).params ψ).reverse (consList as ρ) := hρp
+  obtain ⟨cvT, cvR, mI, rP, rules, hIA⟩ := S.reps c hc
+  have hjl : j < ((DA).ctorsM c).length := (List.getElem?_eq_some_iff.mp hjA).1
+  have hcd := hIA.ctorData hjA
+  have hiK : l < ((DA).ksF c j).length := by rw [hcd.ksLen]; exact hl
+  have htgt : (DA).tgts c j l < b.k := hIA.tgt_lt hjl hiK rfl
+  have hk : ((DA).ksF c j).getD l .ordinary = .recursive ∨
+      ((DA).ksF c j).getD l .ordinary = .reflexive := by
+    unfold rsOf at hr
+    rw [List.getD_eq_getElem?_getD, List.getElem?_map, List.getElem?_eq_getElem hiK,
+      Option.map_some, Option.getD_some, decide_eq_true_iff] at hr
+    rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hiK]
+    exact hr
+  rw [(DA).slotAt_of_mem htgt, IsBlockModel.tlss_getD hjA, IsBlockModel.Eiss_getD hjA]
+  show _ = slotSet ((D).w ψ) ((D).uT ((D).tgtsT PC c j l) ψ)
+      (consList fs' (consList as ρ)) ((D).teleAtT PC ψ c j l) ((D).eisAtT PC ψ c j l)
+      ((D).famAt ψ (consList as ρ) (lfpTuple ((D).w ψ) (D).k ((D).idx ψ (consList as ρ))
+        ((D).Φ ψ (consList as ρ))) ((D).tgtsT PC c j l))
+  rw [I.tgtsT_eq hjA hl, I.teleAtT_eq ψ hjA l, I.eisAtT_eq ψ hjA l,
+    I.famAt_lfp ψ ρ as hsp htgt, ofNested_uT]
+  refine slotSet_congr_app fun bs hbs => ?_
+  refine I.fibreAt ψ ρ as hsp htgt _ ?_
+  rcases hk with hk | hk
+  · have htn : ((DA).tssF c j ψ).getD l [] = [] :=
+      hcd.tssNone ψ l (by rw [hk]; exact fun hh => nomatch hh)
+    rw [htn] at hbs
+    cases bs with
+    | nil => exact S.reps.rec_eis_fit (S.typed ψ).1 hc hjA hρpA hl htgt hk hfs'
+    | cons _ _ => exact hbs.elim
+  · exact S.reps.refl_eis_fit (S.typed ψ).1 hc hjA hρpA hl htgt hk hfs' hbs
+
 end Run
 
 end ConLeche.Model
