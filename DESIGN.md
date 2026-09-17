@@ -85177,6 +85177,130 @@ proofdeps 4955 rows / 12 roots / 0 doors; shake 508/508 allowlisted;
 pub-imports 1262 of 1992, none demotable; `tests/arena.sh` green.
 Standard axioms on every new theorem.
 
+#### U.52 — M7-3 session 8: `declNativeB` — the native route hands back the environment model WITH ITS BLOCKS, over NOTHING (lane M7-3, session 8, 2026-09-17)
+
+§U.50 (d) listed four items and sized them at a session.  All four are
+done, and the lift is stated:
+
+```lean
+theorem declNativeB (hμ : μ.verifiedChecks = true) {F : Nat} {env envOut : Env}
+    {block : List ConstantInfo} {nPd : Nat} {p₀ : NativeParts} (mb : EnvModelB V μ env)
+    (hE : ConLeche.EtaFamiliesClosed env) (hdp : ConLeche.nativeParts? nPd block = some p₀)
+    (h : ConLeche.Semantics.DeclNativeRun μ F env p₀ envOut) :
+    Nonempty (EnvModelB V μ envOut)
+```
+
+**No hypothesis beyond the run** — `declMutualB`'s `hOrd` has no native
+counterpart to take.  `declNative`, `declNativeTable` and every other
+capstone-consumed statement are unchanged.
+
+##### (a) THE FINDING: `NativeOrdFree` needs no kernel conjunct
+
+§U.50 (d) 4 expected the native lift to state `MutualOrdFree`'s twin as
+an argument, to be swapped for K.36's Bool at the integration.  It does
+not have to.  `ContainerModeled.ordFree` asks that an ORDINARY field's
+OPENED domain mention no member, and the native install's own
+opened-form guard says exactly that:
+
+    nativeOpenedOk env₀ T lps nP nIdx cty nF ks   -- the `.ordinary` arm
+      | some x, .ordinary => x.fvarTypeD.constsResolve env₀
+
+at `env₀` the PRE-BLOCK environment, where the member is fresh
+(`DeclNativeRun`'s `nativeFieldsOk env …`).  A resolving expression
+mentions no unstored name (`rk_mentionsConst_false_of_constsResolve`),
+so the clause follows.  The model tier already reads that guard
+positionally — `FixOpened.ord`, a field of the constructor data
+`NativeSyntaxFacts` carries — so `nativeOrdFree_of` is fifteen lines off
+the record, with no kernel involvement and no Verify addition.  (The
+same argument is the kernel lane's `mutualOrdFree_of` on the mutual
+side, which is why K.36 is being retired rather than landed.)
+
+`NativeOrdFree` is kept as a named Prop: it is what
+`nativeContainerModeled` consumes, in `MutualOrdFree`'s shape at the
+single-member list, so the two routes' `ordFree` bridges read alike.
+
+##### (b) Three more agreements that were proved and dropped
+
+The lift needs the carriers to agree at the stored names all the way
+from the pre-block environment to the output, and every stage proves
+its own `acvalWith` equation and throws it away (§U.31 (c), §U.43 (a)
+again, three times):
+
+* `stageFixTable` → `exists_agrees_of_cons` at the table's fresh cons,
+  and `declNativeTable` hands `AcvalAgrees mp₃.base2 mpOut.base2` back
+  at BOTH branches (`AcvalAgrees.rfl'` where the stage conses nothing);
+* `ctorsLoopGen` composes its per-constructor equation along the loop
+  (one conjunct, `AcvalAgrees mp.base2 mp'.base2`);
+* the former's stage already returned its equation, so
+  `declNative_syntax` assembles `AcvalAgrees mp.base2 mpC.base2`
+  internally and hands back that, the recursor cons's and the table's.
+
+`declNative` is still `declNative_syntax`'s first projection.
+`NativeSyntaxFacts` also carries the run's K.34 read-back (`readBack`),
+so the lift never re-destructures the run — a second `obtain` on
+`DeclNativeRun` would give FRESH existential witnesses, tied to the
+record's by nothing.
+
+##### (c) The crossings, and the guard's second source on this route
+
+`nativeInstallExt` gives three `BlockInstallExt [p.cvT.name]` pieces:
+the former's cons and the constructors' conses composed (base →
+constructors' environment), the recursor's cons, and the table's
+(`nativeTable_installExt`: the only table a structure-like block conses
+is the MEMBER's; at any other block it conses nothing).  The block
+model crosses the last two at once — `IsBlockModel.crossEnvG` at
+`Ts := [p.cvT.name]`, `hde` from `denoteMeta_env_mono_projFree` at the
+composite's `TableCross` — and the field `EnvBlocksOf` crosses all
+three (`EnvBlocksOf.crossIndP`).
+
+The two `ProjFree` guards `crossEnvG` takes:
+
+* the MEMBER's type resolves at the pre-block environment, where the
+  member is fresh — `ProjFree.of_constsResolve` (§U.41 (f)'s first
+  source, available here because `NativeSyntaxFacts.Tres` is stated at
+  `env`, not at the install's own environment);
+* a CONSTRUCTOR's type is the annotation pass's output, and the pass
+  creates a `.proj T j` node only at a slot that RESOLVES, while the
+  member's slots are empty at the formers' environment (`ProjOkT` at
+  the pre-block environment + `findProj?_none_of_indFresh`) —
+  `nativeCtorProjFree`.  The mutual route reads this off its whole
+  `NoProjEnv` bookkeeping (`mutualNoProj`); the native route needs only
+  the two types, so no environment-wide bookkeeping is required and
+  `declNativeTable`'s internal `hnp₃` stays internal.
+
+##### (d) The assembly
+
+`nativeContainerModeled` is `ContainerModeled.of_readBack` at the
+single-member list `[(cvTa, ctorsA)]` the run's K.34 Bool certifies.
+At `k = 1` every DATA clause is the one-member block model's own shape
+(`memberNames = [T]`, `ctorsM _ = ctorsA`, `ppsM _ = ppsAll`, `pins = []`):
+`hk`, `hnP`, `hnamesLen`, `hctorNames`, `inj` and `frame` are `rfl` or
+`Iff.rfl`, `hnames`/`hmember` are `NativeSyntaxFacts.Tname`, the three
+PIN clauses are vacuous, `ordFree` is (a), `typed` is the model's own
+`mem_type` at the two stored constants (`nativeTyped`, crossed by
+`FormersTyped.crossEnv`/`CtorsTyped.crossEnv`) and `reps` is
+§U.50 (c)'s `nativeIsBlockModel`, crossed.  `BlockAt.of_noPins` then
+gives the group's obligation, `B'` is `B` updated at the new group, and
+`hold`/`hnew` are `declMutualB`'s (§U.47 (g)) at one member.
+
+##### (e) What the routes still owe
+
+* **native**: nothing — `declNativeB` closes §U.47 (i)'s native item.
+* **mutual**: `hOrd` only, until the kernel lane's `mutualOrdFree_of`
+  lands (the integration deletes the argument).
+* **nested** and **the basis blocks** and **the fold's flip**:
+  unchanged (§U.40 (d), (e), (f)).
+
+##### (f) GATES
+
+`lake build` 694 jobs warning-free; `lake test` warning-free; layering
+346 / 265 / 3 / 1, 0/0; trust 13/5 (626); overview-links 112 (the
+`declNative` anchor repointed on a pure line shift — the citing
+paragraph re-read, the claim unchanged); quote-gate 2; no-local-paths
+OK; proofdeps 4955 rows / 12 roots / 0 doors; shake 508/508
+allowlisted; pub-imports 1263 of 1994, none demotable;
+`tests/arena.sh` green.  Standard axioms on every new theorem.
+
 #### K.35 — the auxiliary applications sit at the parameters (2026-09-17, task #315 M7, the model lane's spec §1a)
 
 `restoreNode` REPLACES a key-headed application `aux_q args` by the pin
@@ -85614,3 +85738,4 @@ output (the pins and the copies' fields), a stream cannot supply it, and
 a fire would report a bug in the computation above rather than anything
 about the stream.  It is NOT category (B): there is no official-accepted
 violating stream to describe, because the fact is not about a stream.
+

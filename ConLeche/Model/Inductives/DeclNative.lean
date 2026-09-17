@@ -58,6 +58,21 @@ theorem spineFit_take {Fs : List AnnotTerm} {ρ : Nat → V} {as : List V}
   exact h1
 
 
+/-- **The recursor's name is fresh at the constructors' environment**:
+the recursor stage's own `checkConstantVal`, read off the run
+(`checkNativeRec_shape`).  Consumer: the carriers' agreement across the
+recursor's cons (`declNative_syntax`, `declNativeB`). -/
+theorem nativeRec_fresh {F : Nat} {env : Env} {p : NativeParts} {cvTa cvRa : ConstantVal}
+    {ctorsA : List (ConstantVal × Nat)} {rhss : List Expr}
+    (hRec : ConLeche.checkNativeRec (ConLeche.fueledOps μ F) env p cvTa ctorsA
+      = .ok (cvRa, rhss)) :
+    env.find? cvRa.name = none := by
+  obtain ⟨cvRi, recTy, sty, u, hccvR, -, -, -, -, -, -, -, -, -, hcvRa⟩ :=
+    ConLeche.checkNativeRec_shape hRec
+  obtain ⟨hfresh, -, -, -, -, -, -, -, -, -, -, -, -, -, -⟩ := ConLeche.checkConstantVal_inv hccvR
+  rw [show cvRa.name = p.cvR.name from by rw [hcvRa]]
+  exact hfresh
+
 /-! ## What the install establishes about the block (task #315 M7-3 s7) -/
 
 /-- **The facts `declNative` establishes about the block it installs**
@@ -189,6 +204,10 @@ structure NativeSyntaxFacts {env env₁ envC env₂ : Env} (m : EnvModel V envC)
         (fssOfR p.nP (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0))
         (essOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0))
   recRun : ConLeche.checkNativeRec (ConLeche.fueledOps μ F) envC p cvTa ctorsA = .ok (cvRa, rhss)
+  /-- **THE READ-BACK** (task #315 K.34): `containerInfo?` of the
+  environment the route produced reads, at the member it installed,
+  exactly the block's own data -/
+  readBack : ConLeche.blockReadBackOk env₂ p.nP [(cvTa, ctorsA)] = true
 
 /-! ## The assembly -/
 
@@ -217,12 +236,20 @@ theorem declNative_syntax (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂
       (ksF : Nat → List RecFieldKind) (fvsPF xFvsF : Nat → List Expr) (xrestF : Nat → Expr)
       (eissF : Nat → (Name → Nat) → List (List AnnotTerm))
       (tssF : Nat → (Name → Nat) → List (List (Nat × Nat × AnnotTerm)))
-      (fssZ : (Name → Nat) → List (List AnnotTerm)) (mpC : EnvModelM V μ envC),
+      (fssZ : (Name → Nat) → List (List AnnotTerm)) (mpC : EnvModelM V μ envC)
+      (mp₃ : EnvModelM V μ ⟨.recInfo cvRa p.majorIdx p.rulePrefix
+        (ConLeche.sumRules envC.find? cvRa.name p.nP p.majorIdx p.rulePrefix cvRa.type ctorsA rhss)
+        :: envC.consts⟩) (mpOut : EnvModelM V μ env₂),
+      AcvalAgrees mp.base2 mpC.base2 ∧
+      AcvalAgrees mpC.base2 mp₃.base2 ∧ AcvalAgrees mp₃.base2 mpOut.base2 ∧
       NativeSyntaxFacts (μ := μ) (env := env) (env₁ := env₁) (env₂ := env₂) mpC.base2 F p cvTa cvRa
         ctorsA sortss rhss bsT ppsAll uAV idxF dsF esF srcsF ksF fvsPF xFvsF xrestF eissF tssF
         fssZ := by
   obtain ⟨hnd₀, isRec, env₁, cvTa, p₁, p, ctorsA, sortss, kinds, cvRa, rhss, tfvs, trest, isorts,
-    hInd, rfl, hCtors, hK, hcaps, hwl, hopT2, hsorts, hFOk, -, hRec, hTbl, -⟩ := h
+    hInd, rfl, hCtors, hK, hcaps, hwl, hopT2, hsorts, hFOk, -, hRec, hTbl, hrb⟩ := h
+  -- K.34's read-back is CERTIFICATION-ONLY (K.35's follow-up), so the run
+  -- records it `certOnly μ …`; this theorem is stated under `hμ`
+  replace hrb := ConLeche.certOnly_elim hrb hμ
   obtain ⟨hshape, -⟩ := ConLeche.nativeParts?_inv hdp
   obtain ⟨-, hClps₀, hresT₀, hresR₀⟩ := ConLeche.nativeShape?_inv hshape
   -- the former: its run completed the record with the sort it read
@@ -260,7 +287,7 @@ theorem declNative_syntax (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂
   have hpProp : ((p₀.complete (p₀.toInductiveShape.withSort s)).withKinds kinds).isProp
       = (Level.isEquiv ((p₀.complete (p₀.toInductiveShape.withSort s)).withKinds kinds).resSort
           .zero == some true) := by simp [ConLeche.NativeParts.withKinds]
-  generalize hp : (p₀.complete (p₀.toInductiveShape.withSort s)).withKinds kinds = p at hCtors hRec hTbl hFOk hsorts hopT2 hwl hpT hpC hpK hpP hpI hpR hpE hpL hpS hpProp
+  generalize hp : (p₀.complete (p₀.toInductiveShape.withSort s)).withKinds kinds = p at hCtors hRec hTbl hFOk hsorts hopT2 hwl hpT hpC hpK hpP hpI hpR hpE hpL hpS hpProp hrb
   have hProp : p.isProp = (Level.isEquiv p.resSort .zero == some true) := hpProp
   have hnd : (p.ctors.map (·.1.name)).Nodup := by rw [hpC]; exact hnd₀
   have hlenK : p.kinds.length = p.ctors.length := by rw [hpK, hpC]; exact hlenK₀
@@ -1067,7 +1094,7 @@ theorem declNative_syntax (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂
     exact ⟨constsBound_of_constsResolve _ htr,
       fun e he => constsBound_of_constsResolve _ (Expr.constsResolve_mono (hidxRes₀ j cA hj e he)),
       hcf j cA hj⟩
-  obtain ⟨mpC, hE_C, hfT_C, hFD_C, hleafT_C, hconsAll, hinvC⟩ := ctorsLoopGen hμ hCtors hndA hlpsT
+  obtain ⟨mpC, hE_C, hfT_C, hFD_C, hleafT_C, hconsAll, hinvC, hagIC⟩ := ctorsLoopGen hμ hCtors hndA hlpsT
     hlpsA hFssParams hFssBelow (fun j cA hj => (hframes j cA hj).1) hFssOkP
     (fun j cA hj ψ ρ hρ bs hsp => ((hframes j cA hj).2 ψ ρ hρ).2.2 bs hsp |>.2)
     Inv hInv (ConLeche.nativeCaps p) leafT
@@ -1087,6 +1114,22 @@ theorem declNative_syntax (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂
       exact ⟨hfresh, htr, fun e he => Expr.constsResolve_mono (hidxRes₀ i cA hi e he),
         (hcf i cA hi).toCtorDataI⟩)
     hinv₀
+  -- the carriers agree from the pre-block environment to the
+  -- constructors' (the former's cons and the constructors' loop)
+  have hagEnvC : AcvalAgrees mp.base2 mpC.base2 := by
+    intro n hn
+    have hne : n ≠ cvTa.name := by
+      intro heq
+      rw [heq, hTfresh] at hn
+      exact nomatch hn
+    have hn₁ : ((⟨.indInfo cvTa (ConLeche.nativeCaps p) :: env.consts⟩ : Env).find? n).isSome
+        = true := by
+      rw [ConLeche.Env.find?_cons]
+      split
+      · rfl
+      · exact hn
+    rw [hagIC n hn₁, hacI]
+    exact acvalWith_ne hne
   -- the recursor
   have hcf_C : ∀ (j : Nat) (cA : ConstantVal × Nat), ctorsA[j]? = some cA →
       FixCtorFactsAt mpC.base2 env p.cvT.name p.cvT.levelParams p.nP p.nIdx p.resSort p.isProp
@@ -1211,7 +1254,10 @@ theorem declNative_syntax (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂
     (fun j cA hj => (hframes j cA hj).1) hframesR
     (fun hl => (hwl hl).imp_right fun h => by rw [hlenA]; exact h)
   -- the projection table at a structure-like block (task #210 Parts A, B)
-  have hN : Nonempty (EnvModelM V μ env₂) :=
+  have hagC3 : AcvalAgrees mpC.base2 mp₃.base2 := by
+    intro n hn
+    rw [hac₃, acvalWith_ne (fun h => by rw [h, nativeRec_fresh hRec] at hn; exact nomatch hn)]
+  obtain ⟨mpOut, hagOut⟩ :=
     declNativeTable rfl rfl hTbl mpC mp₃ hac₃ hProp hRname hClps hresT hresR
       (by rw [← hTname₀]; exact hpshapeT)
       mp.base2.wf hlenA hnFc hrunOf hfT_C hlpsT hTfresh'
@@ -1270,9 +1316,11 @@ theorem declNative_syntax (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂
       frames := hframes
       sortsOf := hsortsOf
       XR := fun ψ ρp hρ => ⟨(hframesR ψ ρp hρ).1, (hframesR ψ ρp hρ).2.1⟩
-      recRun := hRec }
-  exact ⟨hN, _, _, p, cvTa, cvRa, ctorsA, sortss, rhss, bsT, ppsAll, uAV, idxF, dsF, esF, srcsF,
-    ksF, fvsPF, xFvsF, xrestF, eissF, tssF, Fss₀, mpC, hfacts⟩
+      recRun := hRec
+      readBack := hrb }
+  exact ⟨⟨mpOut⟩, _, _, p, cvTa, cvRa, ctorsA, sortss, rhss, bsT, ppsAll, uAV, idxF, dsF, esF,
+    srcsF, ksF, fvsPF, xFvsF, xrestF, eissF, tssF, Fss₀, mpC, mp₃, mpOut, hagEnvC, hagC3, hagOut,
+    hfacts⟩
 
 /-- **The P carrier survives a direct recursive install.** -/
 theorem declNative (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
