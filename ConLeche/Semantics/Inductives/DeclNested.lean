@@ -220,6 +220,10 @@ def DeclNestedRun (μ : CheckMode) (F : Nat) (env : Env)
     -- to a STRICTLY SMALLER rank, and the rank is a function of the
     -- instance — the model's induction measure for step (iii)
     ConLeche.certOnly μ (ConLeche.nestedPinRankOk env p b st stored) = true ∧
+    -- THE MINT PARENTS (K.40): every recorded parent is an EARLIER pin,
+    -- so the chain terminates and an instance's root is its
+    -- parent-minimal member — the covering walk the transfer needs
+    ConLeche.certOnly μ (ConLeche.nestedPinParentOk st) = true ∧
     -- POST-CHECK (a) A THIRD TIME (K.30): the pins typed at the
     -- environment holding the RESTORED formers — the model tier's own
     ConLeche.nestedPinsOk (m := CheckM) (fueledOps μ F)
@@ -442,7 +446,7 @@ theorem declNestedRun_etaClosed {μ : CheckMode} {F : Nat} {env envOut : Env}
     {p : NestedParts} (hE : EtaFamiliesClosed env)
     (h : DeclNestedRun μ F env p envOut) : EtaFamiliesClosed envOut := by
   obtain ⟨-, -, st, b, envAux, stored, ctorsR, cvRms, cvRns, rulesM, rulesN, fmsA, ctorsA,
-    -, -, -, -, -, -, -, -, -, -, -, hcaps, -, -, -, -, -, -, -, -, -, hctors, hrm, hrn, -, -, -, htbl,
+    -, -, -, -, -, -, -, -, -, -, -, hcaps, -, -, -, -, -, -, -, -, -, -, hctors, hrm, hrn, -, -, -, htbl,
     -, -, -, -⟩ := h
   refine EtaFamiliesClosed.ofFreshExt hE ?_
   -- the formers
