@@ -148,6 +148,14 @@ structure NestedPinFacts (st : ElimState) (mp₁ : EnvModelM V μ ENV₁) : Prop
   pinDs : ∀ q, q < pinsS.length → ∀ ψ : Name → Nat,
     DenoteMetaSpine mp₁.base2.acval ENV₁ ψ b.nP (pinsS.getD q default).DsE
       ((pinsS.getD q default).Ds ψ)
+  /-- **the pins' components are GRADED at the block's parameter frame**
+  (task #315 M7-2): `nestedPinsOk`'s own `inferType` runs at the
+  block's PARAMETER context, which is the guard a grading needs; the
+  nested rule's pin conjunct spends the clause at the recursor's
+  padded frame -/
+  pinWd : ∀ q, q < pinsS.length → ∀ (ψ : Name → Nat) (ρ : Nat → V),
+    Sat V ((((ppsF 0 ψ).take b.nP).map (·.2.2)).reverse) ρ →
+    ∀ A ∈ (pinsS.getD q default).Ds ψ, WellDenotedV V ρ A
   /-- the container's level assignment at the pin is the pin's level
   arguments substituted for the container's parameters, and the two
   lists have one length (what `denoteMeta_const` reads at the head
@@ -569,6 +577,7 @@ theorem nestedLoopFacts_of (hpins : NestedPinsStaged V μ F) (hread : NestedRead
   refine ⟨mp₂, dsR, xFvsR, pinsS,
     { pinsLen := PF.pinsLen, pinRec := PF.pinRec
       pinDs := fun q hq ψ => DenoteMetaSpine.transfer (fun e _ h => hde₂ ψ b.nP e h) (PF.pinDs q hq ψ)
+      pinWd := PF.pinWd
       find := hF₂, pinψ := PF.pinψ, pinNIdx := PF.pinNIdx, hde := hde₂
       leafKeep := ?_, agreeC := hag₂, ctorFacts := ?_, domFacts := ?_, groups := ?_ }⟩
   · -- the members' leaves

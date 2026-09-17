@@ -466,6 +466,16 @@ structure NestedPinSynFacts (st : ElimState) (mp₁ : EnvModelM V μ ENV₁) : P
   pinDs : ∀ q, q < pinsS.length → ∀ ψ : Name → Nat,
     DenoteMetaSpine mp₁.base2.acval ENV₁ ψ b.nP (pinsS.getD q default).DsE
       ((pinsS.getD q default).Ds ψ)
+  /-- **the pins' components are GRADED at the block's parameter frame**
+  (task #315 M7-2): the tail carries `nestedPinsOk` only at `envAux`
+  and at `envOut`, while the pin's own type-check — `nestedPinsOk`'s
+  `inferType` at the block's PARAMETER context, which is the guard a
+  grading needs — is packaged at `NestedPinsRun.pinRead`; this clause
+  is the bridge, and the nested rule's pin conjunct spends it at the
+  recursor's padded frame. -/
+  pinWd : ∀ q, q < pinsS.length → ∀ (ψ : Name → Nat) (ρ : Nat → V),
+    Sat V ((((ppsF 0 ψ).take b.nP).map (·.2.2)).reverse) ρ →
+    ∀ A ∈ (pinsS.getD q default).Ds ψ, WellDenotedV V ρ A
   groups : ∀ (dsR' : Nat → Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm))
     (xFvsR' : Nat → Nat → List Expr) (q : Nat), q < pinsS.length →
     ∃ (q₀ kJ i : Nat) (dJ : BlockModel V), q = q₀ + i ∧ i < kJ ∧
@@ -1505,7 +1515,7 @@ theorem NestedPinsRun.synFacts
   have hlenS : (PINS).length = st.pins.length := pinsOf_length _ _ _ _ _ _
   have hget : ∀ n, n < st.pins.length → (PINS).getD n default
       = pinOf mp.base2 st p mp₁'.base2.acval (ENV₁) b.nP n := fun n hn => pinsOf_getD _ _ _ _ _ _ hn
-  refine ⟨hlenS, ?_, ?_, ?_⟩
+  refine ⟨hlenS, ?_, ?_, ?_, ?_⟩
   · -- the records
     intro q pin hpin
     have hq : q < st.pins.length := (List.getElem?_eq_some_iff.mp hpin).1
@@ -1525,6 +1535,20 @@ theorem NestedPinsRun.synFacts
     show DenoteMetaSpine _ _ _ _ (srcAtE st p q).2.2 ((srcAtE st p q).2.2.map _)
     rw [← hvs]
     exact hspine
+  · -- the components' GRADING, off the pin's own `inferType`
+    intro q hq ψ ρ hsat A hA
+    rw [hlenS] at hq
+    rw [hget q hq] at hA
+    have PD := hPD q hq
+    obtain ⟨ea, hea, hok⟩ := R.pinRead hpinsE hop hsc hq ψ
+    rw [PD.pinEq] at hea
+    obtain ⟨fa, vs, -, hspine, rfl⟩ := denoteMeta_mkAppN_inv hea
+    have hvs := hspine.eq_map
+    have hA' : A ∈ vs := by
+      rw [hvs]
+      exact hA
+    obtain ⟨hw, hv⟩ := hok ρ hsat
+    exact ⟨(WellDenoted.mkAppN_inv hw).2 A hA', (AnnotValid.mkAppN_inv hv).2 A hA'⟩
   · -- the groups
     intro dsR' xFvsR' q hq
     rw [hlenS] at hq
@@ -1555,7 +1579,7 @@ theorem nestedPinsStaged_of {F : Nat} (hId : NestedPinsIdent V μ F) : NestedPin
   obtain ⟨hpinsE, fvs, o, hop, hsc⟩ := R.scoped
   obtain ⟨pbs, hpbs, hPD⟩ := R.pinData
   have SF := R.synFacts hpinsE hop hsc
-  refine ⟨_, SF.pinsLen, SF.pinRec, SF.pinDs, ?_, ?_, ?_⟩
+  refine ⟨_, SF.pinsLen, SF.pinRec, SF.pinDs, SF.pinWd, ?_, ?_, ?_⟩
   · -- pinψ: the level assignment at the prefix environment's record
     intro q hq cvT caps hfind
     rw [pinsOf_length] at hq

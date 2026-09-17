@@ -1235,6 +1235,14 @@ structure NestedStageFacts (st : ElimState) (mp₂ : EnvModelM V μ ENV₂) : Pr
   pinDs : ∀ q, q < pinsS.length → ∀ ψ : Name → Nat,
     DenoteMetaSpine mp₂.base2.acval ENV₂ ψ b.nP (pinsS.getD q default).DsE
       ((pinsS.getD q default).Ds ψ)
+  /-- **the pins' components are GRADED at the block's parameter frame**
+  (task #315 M7-2): `nestedPinsOk`'s own `inferType` runs at the
+  block's PARAMETER context, which is the guard a grading needs; the
+  nested rule's pin conjunct spends the clause at the recursor's
+  padded frame -/
+  pinWd : ∀ q, q < pinsS.length → ∀ (ψ : Name → Nat) (ρ : Nat → V),
+    Sat V ((D).params ψ).reverse ρ →
+    ∀ A ∈ (pinsS.getD q default).Ds ψ, WellDenotedV V ρ A
   /-- the restored environment extends the prefix environment (M7-2) -/
   find : FindPreserved ENV₁ ENV₂
   /-- the pins' level assignment is the container's level parameters
@@ -1303,6 +1311,14 @@ structure NestedLoopFacts (st : ElimState) (mp₁ : EnvModelM V μ ENV₁) (mp�
   pinDs : ∀ q, q < pinsS.length → ∀ ψ : Name → Nat,
     DenoteMetaSpine mp₂.base2.acval ENV₂ ψ b.nP (pinsS.getD q default).DsE
       ((pinsS.getD q default).Ds ψ)
+  /-- **the pins' components are GRADED at the block's parameter frame**
+  (task #315 M7-2): `nestedPinsOk`'s own `inferType` runs at the
+  block's PARAMETER context, which is the guard a grading needs; the
+  nested rule's pin conjunct spends the clause at the recursor's
+  padded frame -/
+  pinWd : ∀ q, q < pinsS.length → ∀ (ψ : Name → Nat) (ρ : Nat → V),
+    Sat V ((D).params ψ).reverse ρ →
+    ∀ A ∈ (pinsS.getD q default).Ds ψ, WellDenotedV V ρ A
   find : FindPreserved ENV₁ ENV₂
   /-- the pins' level assignment is the container's level parameters
   instantiated at the pin's levels (task #315 M7-2: the constructor
@@ -1621,7 +1637,8 @@ theorem nestedStageFacts_of (hst : NestedCtorsStaged V μ F) (hμ : μ.verifiedC
     rw [hmemc]
     exact hmmk
   refine ⟨mp₂, dsR, xFvsR, pinsS,
-    { pinsLen := L.pinsLen, pinRec := L.pinRec, pinDs := L.pinDs, find := L.find, pinψ := L.pinψ
+    { pinsLen := L.pinsLen, pinRec := L.pinRec, pinDs := L.pinDs, pinWd := L.pinWd
+      find := L.find, pinψ := L.pinψ
       pinNIdx := L.pinNIdx
       names := hnames, agree := ?_
       agreeR := fun n hnC hnM => (L.agreeC n hnC).trans (hoff' n hnM)
