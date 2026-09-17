@@ -1,8 +1,8 @@
 module
 
-public import ConLeche.Verify.Inductives.NestedRestoreTbl
-public import ConLeche.Verify.Inductives.NestedCopyKinds
-import ConLeche.Verify.Subst
+public import ConLeche.Kernel.Inductives.NestedInstall
+public import ConLeche.Verify.Subst
+import ConLeche.Verify.Inductives.NestedCopyKinds
 import ConLeche.Verify.InferLeaves
 
 public section

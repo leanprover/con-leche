@@ -1,8 +1,11 @@
 module
 
-public import ConLeche.Model.Inductives.NestedRecFibre
+public import ConLeche.Model.Inductives.NestedRecScratch
 public import ConLeche.Model.Inductives.NestedRecWalk
-public import ConLeche.Verify.Inductives.NestedRecCtorPin
+import ConLeche.Model.Inductives.NestedRecFibre
+import ConLeche.Verify.Inductives.NestedRecCtorPin
+import ConLeche.Verify.Inductives.NestedCopyKinds
+import ConLeche.Verify.Inductives.NestedRestoreTbl
 import ConLeche.Verify.Inductives.NestedElimInv
 import ConLeche.Verify.Inductives.NestedGroupInv
 import ConLeche.Verify.Inductives.NestedCopyGlue
