@@ -633,6 +633,33 @@ theorem targetHead_corr {dJ : BlockModel V} {DsE₁ DsE₂ DsO : List Expr}
       rw [← hhd₂.2]
       exact Level.substFn_map_subst hlen hp
 
+/-- **A container's constructor data at two level assignments** that
+agree on the constructor's level parameters is ONE datum (task #315
+L-E, DESIGN §U.51): the field domains, the recursive fields' index
+expressions, the reflexive telescopes and the result's index readings.
+The container instance transfer compares the container's OWN copy of a
+pin's constructor with the BLOCK's copy of the image pin — two copies
+of one constructor at two assignments, which `targetHead_corr` makes
+agree on that constructor's container's level parameters. -/
+theorem IsBlockModel.ctor_params {env : Env} {m : EnvModel V env} {d : BlockModel V}
+    {T : Name} {cvT cvR : ConstantVal} {mI rP : Nat} {rules : List RecRule} {mm : Nat}
+    (h : IsBlockModel m T cvT cvR mI rP rules d mm) {j : Nat} {cA : ConstantVal × Nat}
+    (hj : (d.ctorsM mm)[j]? = some cA) {ψ₁ ψ₂ : Name → Nat}
+    (hψ : ∀ p ∈ cA.1.levelParams, ψ₁ p = ψ₂ p) :
+    (d.Fss mm ψ₁).getD j [] = (d.Fss mm ψ₂).getD j [] ∧
+    (d.Eiss mm ψ₁).getD j [] = (d.Eiss mm ψ₂).getD j [] ∧
+    (d.tlss mm ψ₁).getD j [] = (d.tlss mm ψ₂).getD j [] ∧
+    (d.Ess mm ψ₁).getD j [] = (d.Ess mm ψ₂).getD j [] := by
+  have hcd := h.ctorData hj
+  obtain ⟨hds, hes⟩ := hcd.params ψ₁ ψ₂ hψ
+  refine ⟨?_, ?_, ?_, ?_⟩
+  · rw [IsBlockModel.Fss_getD hj, IsBlockModel.Fss_getD hj, hds]
+  · rw [IsBlockModel.Eiss_getD hj, IsBlockModel.Eiss_getD hj,
+      hcd.eissParams ψ₁ ψ₂ hψ]
+  · rw [IsBlockModel.tlss_getD hj, IsBlockModel.tlss_getD hj,
+      hcd.tssParams ψ₁ ψ₂ hψ]
+  · rw [IsBlockModel.Ess_getD hj, IsBlockModel.Ess_getD hj, hes]
+
 /-! ## The entry at a tuple, from the reading -/
 
 /-- **The entry at a tuple whose target family reads the stored
