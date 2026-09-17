@@ -746,11 +746,11 @@
 == ConLeche/Model/Inductives/BlockRep.lean#L591
    591  structure IsBlockModel (m : EnvModel V env) (T : Name) (cvT cvR : ConstantVal) (mI rP : Nat)
 
-== ConLeche/Model/Inductives/DeclBlock.lean#L288
-   288  theorem declBlock (hμ : μ.verifiedChecks = true) {F : Nat} {env envOut : Env}
+== ConLeche/Model/Inductives/DeclBlock.lean#L290
+   290  theorem declBlock (hμ : μ.verifiedChecks = true) {F : Nat} {env envOut : Env}
 
-== ConLeche/Model/Inductives/MutualTables.lean#L231
-   231  theorem declMutual (hμ : μ.verifiedChecks = true) {F : Nat} {env envOut : Env}
+== ConLeche/Model/Inductives/MutualTables.lean#L305
+   305  theorem declMutual (hμ : μ.verifiedChecks = true) {F : Nat} {env envOut : Env}
 
 == ConLeche/Kernel/Inductives/Modeled.lean#L68-L79
     68  def checkIotaThm (ops : CheckerOps m) (env' envSelf : Env)

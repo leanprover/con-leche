@@ -190,6 +190,79 @@ theorem memberTableOk_of {env env₀ : Env} {m : EnvModel V env} {b : MutualBloc
   rw [hsD, ← hnF, ← hd.nP]
   exact htm
 
+/-! ## The tables' stage, as the crossing sees it (task #315 M7-3 s4) -/
+
+/-- **What a stage of PROJECTION-TABLE conses gives the crossing**
+(task #315 M7-3 session 4, DESIGN §U.43): every lookup is preserved,
+the literal guards are monotone, and the only projection slots it
+CREATES are at the structures `Ts` — the three inputs
+`denoteMeta_env_mono_projFree` takes, and with them the guarded
+crossing of the block model past its own tables. -/
+structure TableCross (Ts : List Name) (env env' : Env) : Prop where
+  find : FindPreserved env env'
+  lit : LitGuardsMono env env'
+  proj : ∀ (sn : Name) (i : Nat) (entry : ConLeche.ProjEntry),
+    env.findProj? sn i = none → env'.findProj? sn i = some entry → sn ∈ Ts
+
+omit [SetTheory V] in
+/-- A stage that conses nothing. -/
+theorem TableCross.rfl' (Ts : List Name) (env : Env) : TableCross Ts env env where
+  find := fun h => h
+  lit := ⟨fun h => h, fun h => h⟩
+  proj := fun _ _ _ h0 h1 => by rw [h0] at h1; exact nomatch h1
+
+omit [SetTheory V] in
+/-- Two such stages compose: a slot created by the pair is created by
+one of them. -/
+theorem TableCross.trans {Ts : List Name} {env₁ env₂ env₃ : Env}
+    (h₁ : TableCross Ts env₁ env₂) (h₂ : TableCross Ts env₂ env₃) :
+    TableCross Ts env₁ env₃ where
+  find := fun h => h₂.find (h₁.find h)
+  lit := ⟨fun h => h₂.lit.1 (h₁.lit.1 h), fun h => h₂.lit.2 (h₁.lit.2 h)⟩
+  proj := fun sn i entry h0 h1 => by
+    cases hm : env₂.findProj? sn i with
+    | none => exact h₂.proj sn i entry hm h1
+    | some e' => exact h₁.proj sn i e' h0 hm
+
+omit [SetTheory V] in
+/-- One table's cons: its slots are its own structure's
+(`findProj?_cons_tower`). -/
+theorem TableCross.of_table {Ts : List Name} {env : Env} {tbl : ConLeche.ProjTable}
+    (hmem : tbl.structName ∈ Ts)
+    (hfresh : env.find? (ConstantInfo.projInfo tbl).name = none) :
+    TableCross Ts env ⟨.projInfo tbl :: env.consts⟩ where
+  find := findPreserved_cons hfresh
+  lit := litGuardsMono_cons hfresh
+  proj := fun sn i entry h0 h1 => by
+    rw [findProj?_cons_tower sn i entry h0 h1]
+    exact hmem
+
+/-- **The tables' stage crosses**: each member conses nothing or its
+own table, whose structure is that member. -/
+theorem mutualTables_cross {Ts : List Name} {b : MutualBlock}
+    {ctorsA : List (ConstantVal × Nat)} {sortss : List (List Level)} :
+    ∀ (l : List (MutualFormerA × Nat)) {env env' : Env},
+      ConLeche.mutualTables (m := ConLeche.CheckM) b ctorsA sortss l env = .ok env' →
+      (∀ p ∈ l, p.1.cvTa.name ∈ Ts) → TableCross Ts env env' := by
+  intro l
+  induction l with
+  | nil =>
+    intro env env' h _
+    obtain rfl := ConLeche.mutualTables_nil_inv h
+    exact TableCross.rfl' Ts _
+  | cons p rest ih =>
+    intro env env' h hTs
+    obtain ⟨f, mIdx⟩ := p
+    obtain ⟨envI, hI, hrest⟩ := ConLeche.mutualTables_inv h
+    have hrestTs : ∀ q ∈ rest, q.1.cvTa.name ∈ Ts :=
+      fun q hq => hTs q (List.mem_cons_of_mem _ hq)
+    rcases ConLeche.mutualMemberTable_inv hI with rfl | ⟨J, c, hown, hnIdx, htbl⟩
+    · exact ih hrest hrestTs
+    · obtain ⟨bodies, -, -, -, hfreshTbl, rfl⟩ := ConLeche.checkStructProjTable_inv htbl
+      refine TableCross.trans (TableCross.of_table (Ts := Ts) ?_ ?_) (ih hrest hrestTs)
+      · exact hTs (f, mIdx) List.mem_cons_self
+      · exact hfreshTbl
+
 /-! ## The named fact, discharged -/
 
 /-- **Stage 5 keeps the model** — `MutualTablesModeled`, proved: the
@@ -212,7 +285,8 @@ theorem mutualTablesModeled {F : Nat} : MutualTablesModeled V μ F := by
     have h0' := h0
     unfold ConLeche.MutualBlock.blockNames at h0'
     exact (List.nodup_append.mp (List.nodup_append.mp h0').1).1
-  refine stageBlockTables (isProp := d.isProp) (S := fun t => d.tableCarrier t) blockTableStep mp₃ htbl hnd ?_
+  refine stageBlockTables (isProp := d.isProp) (S := fun t => d.tableCarrier t) blockTableStep
+    mp₃ htbl hnd ?_
   intro q hq
   have hft : fms[q.2]? = some q.1 := List.mk_mem_zipIdx_iff_getElem?.mp (by simpa using hq)
   have hmm : q.2 < b.k := by rw [← hlenF]; exact (List.getElem?_eq_some_iff.mp hft).1

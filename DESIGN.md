@@ -82753,3 +82753,142 @@ quote-gate 2; no-local-paths OK; proofdeps 4955 rows / 12 roots / 0
 doors; shake 509/509 allowlisted; pub-imports 1259 of 1977, none
 demotable (`ContainerCross`'s `BlockRepCross` edge became PUBLIC — its
 statements name `ProjFree`).  Standard axioms on all 15 new theorems.
+
+#### U.43 — M7-3 session 4: the mutual lift's first two steps LANDED, and the two records that block the rest (lane M7-3, session 4, 2026-09-17)
+
+§U.41 (g) listed five steps for `declMutual`'s lift to `EnvModelB`.
+Steps 1 and 2 are done; steps 3–5 are blocked, each by a fact the tree
+proves and then FORGETS.  `declMutual` and `declBlock` keep their
+statements (the capstones consume them); what changed is one named
+fact's conclusion.
+
+##### (a) Step 1 — the tables' stage hands back the agreement
+
+`stageBlockTablesGo`/`stageBlockTables` (`BlockStageTables.lean`) now
+conclude
+
+```
+  ∃ mp' : EnvModelM V μ env', AcvalAgrees mp.base2 mp'.base2
+```
+
+instead of `Nonempty`.  The proof needed no new input: each member's
+table name is FRESH at the environment it is consed at
+(`checkStructProjTable_inv`), so `acvalWith_ne` moves no stored name,
+and the agreement composes along the fold — the same "always proved,
+always thrown away" shape §U.31 (c) found at the value kinds.
+`MutualTablesModeled`'s conclusion (`DeclBlock.lean`) is the same
+strengthening, and `declBlock` projects it (`.choose`); its statement,
+and `declMutual`'s, are unchanged.
+
+##### (b) Step 2 — the tables' stage, as the crossing sees it
+
+```lean
+structure TableCross (Ts : List Name) (env env' : Env) : Prop where
+  find : FindPreserved env env'
+  lit : LitGuardsMono env env'
+  proj : ∀ (sn : Name) (i : Nat) (entry : ConLeche.ProjEntry),
+    env.findProj? sn i = none → env'.findProj? sn i = some entry → sn ∈ Ts
+```
+
+with `TableCross.rfl'`, `.trans` (a slot the pair creates is created by
+one of them), `.of_table` (`findPreserved_cons`, `litGuardsMono_cons`,
+`findProj?_cons_tower`) and
+
+```lean
+theorem mutualTables_cross {Ts : List Name} {b : MutualBlock}
+    {ctorsA : List (ConstantVal × Nat)} {sortss : List (List Level)} :
+    ∀ (l : List (MutualFormerA × Nat)) {env env' : Env},
+      ConLeche.mutualTables (m := ConLeche.CheckM) b ctorsA sortss l env = .ok env' →
+      (∀ p ∈ l, p.1.cvTa.name ∈ Ts) → TableCross Ts env env'
+```
+
+— exactly the three inputs `denoteMeta_env_mono_projFree` takes
+(§U.41 (a)), at `Ts` the block's own members.
+
+##### (c) THE FIRST RECORD MISSING: the members' `ConstantVal`s (model tier, no kernel involvement)
+
+`ContainerModeled.member` — and with it `ContainerModeled.of_readBack`'s
+`hmember` — demands `IsBlockModel` at the STORED constant
+`⟨M.name, M.lps, M.type⟩`, which for the block just installed IS the
+route's own `f.cvTa` (the read-back's member list is built from it).
+What the mutual core hands back is `IsBlockModels`, which quantifies
+its `cvT` EXISTENTIALLY (`BlockRecKit.lean`) and ties it to nothing —
+the gap §U.31 (e) 2 named and §U.41 (c) worked around for a STORED
+container (read `reps` off `member`).  Here there is nothing to read it
+off: the route is the producer.
+
+**The fact is proved and dropped**, at one line: `blockReps_of`
+(`MutualCore.lean`) builds its per-member witness as
+`⟨(fms.getD mm default).cvTa, …⟩` — the member's own `ConstantVal` —
+and states the result as `IsBlockModels`.  The fix is to carry the
+AT-form beside it:
+
+    ∀ mm, mm < b.k → ∃ cvR mI rP rules,
+      IsBlockModel mp₂.base2 ((D).memberName mm) (fms.getD mm default).cvTa cvR mI rP rules (D) mm
+
+through the three statements that pass the representation along —
+`blockReps_of`, `MutualRecsStore`'s store theorem (its two internal
+crossings become per-member `IsBlockModel.crossEnv`) and
+`MutualCoreModeled`'s conclusion — after which `IsBlockModels` is one
+line from it.  **Sized 1 session**; it is also what the guard needs
+(`ProjFree Ts cvT.type` is `ProjFree.of_noProjEnv` at the stored
+member, and "stored" is exactly what the AT-form says).
+
+##### (d) THE SECOND RECORD MISSING: `ordFree` at the OPENED domains — a K.36 candidate, cannot-fire
+
+`ContainerModeled.ordFree` is stated at the block model's OPENED field
+data: `(d.xFvsF i j)[l]? = some x → (d.ksF i j).getD l .ordinary =
+.ordinary → mentionsMember d.memberNames x.fvarTypeD = false`.  The
+kernel decides ordinariness on the RAW telescope instead
+(`mutualCtorKinds`: `if !mentionsMember (members.map (·.1)) dom` at
+`dom = (cbs.getD (nP + i) default).1`, the `stripPis` domain with its
+loose bvars), and `classifyMutualKinds_inv` exposes only
+`ctorsA.mapM (mutualCtorKinds …) = some kinds` with the two rejection
+flags.  **The two are not the same statement**: `openPisAtFvars`
+annotates each binder's fvar with its own domain, and `mentionsConst`
+DESCENDS into an `fvar`'s type annotation, so an opened domain that
+refers to an earlier field carries that field's type — a later
+ordinary field of `mk : (t : T) → (f : P t) → T` opens as `P (fvar 0 T)`
+and MENTIONS `T`, while the kernel's raw domain `P #0` does not.
+
+The clause is nevertheless TRUE at every accepted mutual block, and
+for a reason the kernel already enforces: a recursive or reflexive
+field used later is `.unsupported` (`structUsedLater`), which
+`classifyMutualKinds` throws on, so the fvars an opened ordinary domain
+can refer to are themselves ordinary, and their domains mention no
+member — an induction over the opening, with that guard.  So:
+
+* **either** a Verify bridge — `mutualCtorKinds`' verdict transported
+  to `openPisAtFvars`' output, by that induction (**~1 session**);
+* **or K.36** — one Bool per block recomputing `mentionsMember` on the
+  OPENED ordinary domains (the form the model states), `.internal` on
+  failure, a conjunct of `DeclMutualRun` beside K.34's read-back.  It
+  **cannot fire** (the argument above), and it is one telescope walk
+  per constructor, the K.34 precedent exactly.
+
+The lane recommends K.36: the model-side induction has to re-derive a
+property of the very walk the kernel just did, and the walk is cheap.
+
+##### (e) What is left of the lift once (c) and (d) land
+
+Steps 3–5 are then mechanical: `IsBlockModel.crossEnvP` per member
+(`hde` from `denoteMeta_env_mono_projFree` at `mutualTables_cross`'s
+`TableCross`, the `ProjFree` guards from `ProjFree.of_noProjEnv` at
+`mutualNoProj`, the agreement from step 1);
+`ContainerModeled.of_readBack` at the run's K.34 conjunct with the
+remaining clauses off `MutualBlockModelOf`/`MutualTableFacts`/
+`MutualFormersFacts.frame` and the two pin clauses vacuous
+(`MutualBlockModelOf.pins`); `BlockAt` at zero pins; and
+`EnvBlockModels.crossIndP` for the old containers, whose `hfresh` is
+the block's own freshness check.  1 session after (c) and (d).
+
+##### (f) GATES
+
+`lake build` 694 jobs warning-free; `lake test` warning-free; layering
+346 / 265 / 3 / 1, 0/0; trust 13/5 (626); overview-links 112 (the
+`declBlock` and `declMutual` anchors REPOINTED on the pure line shift —
+both citing paragraphs re-read, both claims unchanged: the statements
+did not move); quote-gate 2; no-local-paths OK; proofdeps 4955 rows /
+12 roots / 0 doors; shake 509/509 allowlisted; pub-imports 1259 of
+1977, none demotable.  Standard axioms on every theorem touched,
+`declMutual` included.
