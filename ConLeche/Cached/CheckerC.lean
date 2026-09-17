@@ -378,13 +378,16 @@ def checkNestedS (fe : FEnv) (p : NestedParts) : CheckCM FEnv := do
   -- the mint parents (K.40), as in the pure route
   unless certOnly mode (nestedPinParentOk p st) do
     throw (.internal "nested: a pin's mint parent is not an earlier pin")
-  -- the pins' four certification-only checks (K.26, K.32, K.37, K.41)
-  -- on ONE computation of the field kinds and the edge list (K.43), as
-  -- in the pure route
-  nestedPinChecks mode fe.env p b st stored
   -- the RESTORED block is built on the PRE-BLOCK index, not the scratch
   -- one: only the restored constants are stored
   let fe₁ := consNestedFormersF members fe
+  flushC
+  -- the pins' five certification-only checks (K.26, K.32, K.37, K.41 and
+  -- K.42) on ONE computation of the field kinds and the edge list
+  -- (K.46), as in the pure route; K.42's second run of the positivity
+  -- normalisation is at the RESTORED FORMERS' index, which is where the
+  -- model's readings are taken
+  nestedPinChecks (sharedOpsC mode fe₁) fe.env fe₁.env p b st stored
   -- post-check (a) a third time (K.30), at the restored formers' index
   flushC
   nestedPinsOk (sharedOpsC mode fe₁) fe₁.env p.nP st.pins

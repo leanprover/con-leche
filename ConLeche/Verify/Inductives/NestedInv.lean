@@ -985,21 +985,26 @@ theorem nestedBlockNames_nodup {env envAux : Env} {b : MutualBlock} {F : Nat}
     (haux : checkMutualCore (m := CheckM) (fueledOps mode F) env b none true = .ok envAux) :
     b.blockNames.Nodup := (checkMutualCore_inv haux).1
 
-/-- **K.43's grouped gate, inverted**: `nestedPinChecks` bundles K.26,
+/-- **K.46's grouped gate, inverted**: `nestedPinChecks` bundles K.26,
 K.32, K.37 and K.41 so that the field kinds and the reference edge list
 are computed ONCE, and this reads the four conjuncts back in the shape
 `DeclNestedRun` records them.  At `.trusted` the group does not run and
 every `certOnly` is `true`; at `.verified` each `unless` is its own
 clause, as before. -/
-theorem nestedPinChecks_inv {env : Env} {p : NestedParts} {b : MutualBlock}
-    {st : ElimState} {stored : List AuxStored} {u : Unit}
-    (h : nestedPinChecks (m := CheckM) mode env p b st stored = .ok u) :
-    certOnly mode (nestedCopyTargetsOk env p b st stored) = true ∧
-      certOnly mode (nestedPinKindsOk p b st stored) = true ∧
-      certOnly mode (nestedPinRankOk env p b st stored) = true ∧
-      certOnly mode (nestedPinRootPairOk env p b st stored) = true := by
+theorem nestedPinChecks_inv {ops : CheckerOps CheckM} {env envN : Env} {p : NestedParts}
+    {b : MutualBlock} {st : ElimState} {stored : List AuxStored} {u : Unit}
+    (h : nestedPinChecks ops env envN p b st stored = .ok u) :
+    certOnly ops.mode (nestedCopyTargetsOk env p b st stored) = true ∧
+      certOnly ops.mode (nestedPinKindsOk p b st stored) = true ∧
+      certOnly ops.mode (nestedPinRankOk env p b st stored) = true ∧
+      certOnly ops.mode (nestedPinRootPairOk env p b st stored) = true ∧
+      (ops.mode.verifiedChecks = true →
+        ∃ (jobs : List (Nat × Expr × Expr)) (ws : List Expr),
+          nestedOrdDomPairs env p st stored (nestedPinKinds p b stored) = some jobs ∧
+          nestedOrdNorms ops envN b.memberNames jobs = .ok ws ∧
+          ws = jobs.map (·.2.2)) := by
   unfold nestedPinChecks at h
-  rcases Bool.eq_false_or_eq_true mode.verifiedChecks with hv | hv
+  rcases Bool.eq_false_or_eq_true ops.mode.verifiedChecks with hv | hv
   · -- `.verified`: each `unless` is its own clause, as before
     simp only [hv, Bool.not_true, Bool.false_eq_true, if_false] at h
     split at h
@@ -1025,14 +1030,19 @@ theorem nestedPinChecks_inv {env : Env} {p : NestedParts} {b : MutualBlock}
                 (nestedPinRootGroupAt p st (nestedPinInstAt st
                   (nestedPinEdgesAt env p st stored (nestedPinKinds p b stored)))) = true := by
               simpa using hrh
+            obtain ⟨jobs, hjobs, h⟩ := exceptBind_ok h
+            obtain ⟨ws, hws, h⟩ := exceptBind_ok h
+            by_cases hcmp : (ws == jobs.map (·.2.2)) = true
+            case neg => rw [if_neg hcmp] at h; close_throw
             exact ⟨by simp [certOnly, nestedCopyTargetsOk, htg'],
               by simp [certOnly, nestedPinKindsOk, hkd'],
               by simp [certOnly, nestedPinRankOk, nestedPinEdges, hrk'],
               by simp [certOnly, nestedPinRootPairOk, nestedPinRootGroup, nestedPinInstOf,
-                nestedPinEdges, hrh']⟩
+                nestedPinEdges, hrh'],
+              fun _ => ⟨jobs, ws, unwrapOr_ok hjobs, hws, by simpa using hcmp⟩⟩
   · -- `.trusted`: the group does not run, and every `certOnly` is `true`
     exact ⟨by simp [certOnly, hv], by simp [certOnly, hv], by simp [certOnly, hv],
-      by simp [certOnly, hv]⟩
+      by simp [certOnly, hv], fun hv' => absurd hv' (by simp [hv])⟩
 
 /-- **The whole nested chain**, as the install ran it. -/
 theorem checkNested_inv {env envOut : Env} {p : NestedParts} {F : Nat}
@@ -1109,6 +1119,15 @@ theorem checkNested_inv {env envOut : Env} {p : NestedParts} {F : Nat}
       certOnly mode (nestedPinParentOk p st) = true ∧
       -- THE PIN PAIRING AT A NOT-OWN EDGE (K.41): all four of `ClassPin`'s
       certOnly mode (nestedPinRootPairOk env p b st stored) = true ∧
+      -- THE POSITIVITY NORMALISATION ON THE MINTED COPY (K.42): at every
+      -- ORDINARY field of every copy's constructor, the stored domain IS
+      -- the normalisation of the MINTED one — lane L-B's `ordF`-left arm
+      (mode.verifiedChecks = true →
+        ∃ (jobs : List (Nat × Expr × Expr)) (ws : List Expr),
+          nestedOrdDomPairs env p st stored (nestedPinKinds p b stored) = some jobs ∧
+          nestedOrdNorms (m := CheckM) (fueledOps mode F)
+              (consNestedFormers (stored.take p.k) env) b.memberNames jobs = .ok ws ∧
+          ws = jobs.map (·.2.2)) ∧
       -- POST-CHECK (a) A THIRD TIME (K.30): the pins typed at the
       -- environment holding the RESTORED formers
       nestedPinsOk (m := CheckM) (fueledOps mode F)
@@ -1255,7 +1274,7 @@ theorem checkNested_inv {env envOut : Env} {p : NestedParts} {F : Nat}
   rw [if_pos hpa] at h
   try simp only [bind, Except.bind] at h
   obtain ⟨uPC, hpc4, h⟩ := exceptBind_ok h
-  obtain ⟨htg, hkd, hrk, hrh⟩ := nestedPinChecks_inv hpc4
+  obtain ⟨htg, hkd, hrk, hrh, hord⟩ := nestedPinChecks_inv hpc4
   try simp only at h
   obtain ⟨uP₁, hpins₁, h⟩ := exceptBind_ok h
   try simp only at h
@@ -1297,7 +1316,7 @@ theorem checkNested_inv {env envOut : Env} {p : NestedParts} {F : Nat}
   exact ⟨st, b, envAux, stored, ctorsR, cvRms, cvRns, rulesM, rulesN, fmsA, ctorsA,
     hfmsA, hctorsA, helim', beq_iff_eq.mp hcnt, hfresh, hcont, hb', haux, hst', hpc,
     (by cases uA; exact hpinsAux), hcaps, hsrc,
-    certOnly_and_left hcont, hgrp, hsc, htg, hkd, haa, hrk, hpa, hrh,
+    certOnly_and_left hcont, hgrp, hsc, htg, hkd, haa, hrk, hpa, hrh, hord,
     (by cases uP₁; exact hpins₁), hctors, hrm, hrn, hnd, hrlm, hrln, htbl,
     (by cases u₀; exact hpins), hlen, (by cases u₁; exact hrecs), hrb⟩
 

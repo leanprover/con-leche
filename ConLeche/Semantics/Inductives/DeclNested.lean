@@ -230,6 +230,19 @@ def DeclNestedRun (μ : CheckMode) (F : Nat) (env : Env)
     -- levels and components — all four of `ClassPin`'s data in ONE
     -- equality, off the two recorded tables and no term head
     ConLeche.certOnly μ (ConLeche.nestedPinRootPairOk env p b st stored) = true ∧
+    -- THE POSITIVITY NORMALISATION ON THE MINTED COPY (K.42): at every
+    -- ORDINARY field of every copy's constructor, `normPosDomM` on the
+    -- MINTED domain — the container's field at the pin's components,
+    -- before `replaceAllNested` — returns the STORED one.  Lane L-B's
+    -- `ordF`-left arm reads its reading identity off this, with the
+    -- rewrite's own leg (which needs `pinLeaf`, and is circular) gone
+    (μ.verifiedChecks = true →
+      ∃ (jobs : List (Nat × Expr × Expr)) (ws : List Expr),
+        ConLeche.nestedOrdDomPairs env p st stored
+            (ConLeche.nestedPinKinds p b stored) = some jobs ∧
+        ConLeche.nestedOrdNorms (m := CheckM) (fueledOps μ F)
+            (consNestedFormers (stored.take p.k) env) b.memberNames jobs = .ok ws ∧
+        ws = jobs.map (·.2.2)) ∧
     -- POST-CHECK (a) A THIRD TIME (K.30): the pins typed at the
     -- environment holding the RESTORED formers — the model tier's own
     ConLeche.nestedPinsOk (m := CheckM) (fueledOps μ F)
@@ -452,7 +465,7 @@ theorem declNestedRun_etaClosed {μ : CheckMode} {F : Nat} {env envOut : Env}
     {p : NestedParts} (hE : EtaFamiliesClosed env)
     (h : DeclNestedRun μ F env p envOut) : EtaFamiliesClosed envOut := by
   obtain ⟨-, -, st, b, envAux, stored, ctorsR, cvRms, cvRns, rulesM, rulesN, fmsA, ctorsA,
-    -, -, -, -, -, -, -, -, -, -, -, hcaps, -, -, -, -, -, -, -, -, -, -, -, hctors, hrm, hrn, -, -, -, htbl,
+    -, -, -, -, -, -, -, -, -, -, -, hcaps, -, -, -, -, -, -, -, -, -, -, -, -, hctors, hrm, hrn, -, -, -, htbl,
     -, -, -, -⟩ := h
   refine EtaFamiliesClosed.ofFreshExt hE ?_
   -- the formers

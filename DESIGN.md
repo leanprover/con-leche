@@ -87808,3 +87808,154 @@ added, removed or weakened.  What the row records is the TAX: the four
 certification-only questions now cost **one** classification walk and
 **one** reference graph per nested block instead of four and two.
 
+#### K.42 — the positivity normalisation on the PRE-REWRITE copy (2026-09-17, task #315, lane L-B's DESIGN §U.62 (c))
+
+Lane L-B's `ordF`-LEFT arm needs, at an ORDINARY field of a copy's
+constructor, that the STORED domain and the MINTED one — the container's
+field instantiated at the pin's components, `mkCopy`'s output BEFORE
+`replaceAllNested` — have the same reading.  §U.62 (a) shows the
+model-side law is **provably unavailable**: the induction over the
+rewrite closes every node but the firing occurrence, and that node needs
+`pinLeaf`, which is downstream of the very shape being proved; at a
+self-nested container the circle is real, not an ordering
+inconvenience.  And the decline-shaped alternative — "a domain that
+mentions a member is never classified ordinary" — is OUT by the
+maintainer's standing rule: §U.62 (d) measures it non-vacuous, so it
+would narrow the accept set on a shape official takes, at the cost of
+the accepted fixture `tests/e2e/nested_p20.ndjson`.
+
+**What lands instead is a SECOND RUN of the walk the kernel already
+has.**  `normPosDomM` is official's positivity normalisation; the
+install ran it on the REWRITTEN domain and stored the result.  Run it on
+the MINTED domain as well and compare.  The model then gets
+`interp (reading minted) = interp (reading w) = interp (reading stored)`
+straight out of `normPosDomM_read_of`, with the rewrite's own leg gone,
+and `mintFieldRead` (§U.44, already proved) supplies the left-hand
+reading.
+
+**WHY THE COMPARISON HOLDS.**  At an ordinary field the two domains
+differ only at replaced occurrences; neither a mimic nor a container
+application heads a redex (both are stored inductives — no δ, no ι);
+and an ordinary field's stored domain mentions NO member at all.  The
+fvar annotations agree for the same reason and it is worth spelling
+out, since `Expr.mentionsConst` descends into them
+(`Kernel/Inductives/StructParts.lean`): a surviving fvar of an ordinary
+domain has a member-free annotation, a member-free domain is untouched
+by the rewrite, and `normPosDomM` returns a member-free term unchanged —
+so the minted and the stored opening annotate the same variable with the
+same type.
+
+**THE ADDRESSING IS PURE, THE RUN IS ONE FLAT `mapM`.**  That split is
+what keeps the record consumable.
+
+* **`nestedOrdDomPairs env p st stored kinds?`** (`Option`) returns, per
+  pin, per constructor, per ordinary field, the triple `(p.nP + l, the
+  MINTED domain, the STORED domain)` — all of it off the run's own
+  records, in exactly `nestedPinEdges`' three-layer shape, so the model
+  addresses a field with the established `mapM_option_inv` idiom.  The
+  minted constructor is recomputed the way K.28 certifies it
+  (`Expr.instPis` of the container's stored constructor at the pin's own
+  `lvls`/`Ds`) and opened at its FIELD binders from `p.nP` — which is
+  the spelling `mintFieldRead` reads, `openPisAtFvars nF cI nP` with
+  `x.fvarTypeD` at depth `nP + l`.  The stored constructor is opened
+  twice, the parameters then the fields, as `normCtorValM` does;
+* **`nestedOrdNorms ops envN memberNames jobs`** is a single
+  `List.mapM`, whose positional inversion is `mapM_except_inv`.
+
+**IT RUNS INSIDE K.46's GROUPED GATE**, on the SHARED field kinds, so it
+adds no fifth classification walk; and `envN` is the environment holding
+the block's own restored FORMERS (`consNestedFormers (stored.take p.k)
+env`) — the one the model's readings are taken in — which is why
+`env₁`'s `let` moved above the gate in both the pure route and the
+cached mirror.
+
+**A CERTIFICATION-ONLY RECORD MUST NEVER REJECT, so the inner walk's
+errors are RECLASSIFIED.**  `normPosDomM` throws `.invalid` at a
+non-positive occurrence and `.notImplemented` on fuel; letting either
+escape would turn an accepted stream into a reject or a decline.  So the
+call sits under `tryCatchThe CheckError … (fun _ => throw (.internal …))`
+— the one `tryCatch` in the kernel tree, and its reason is this
+sentence.  (It cannot fire either way: the rewrite replaces a group
+occurrence by a mimic, which is a member of the auxiliary block too, so
+the minted and the rewritten walk meet a member at exactly the same
+nodes.)
+
+**THE RUN CONJUNCT is guarded, not `certOnly`-wrapped**, because it
+records a monadic RUN rather than a Bool:
+
+```lean
+    (μ.verifiedChecks = true →
+      ∃ (jobs : List (Nat × Expr × Expr)) (ws : List Expr),
+        ConLeche.nestedOrdDomPairs env p st stored
+            (ConLeche.nestedPinKinds p b stored) = some jobs ∧
+        ConLeche.nestedOrdNorms (m := CheckM) (fueledOps μ F)
+            (consNestedFormers (stored.take p.k) env) b.memberNames jobs = .ok ws ∧
+        ws = jobs.map (·.2.2)) ∧
+```
+
+one conjunct of `DeclNestedRun` and of `checkNested_inv`, delivered by
+`nestedPinChecks_inv`'s fifth component; at `.trusted` the whole group
+does not run and the implication is vacuous.
+
+**MEASURED, K.25-style:**
+
+* `tests/e2e/tower_nested.ndjson` **FIRST**, as required: **517 492 260 /
+  517 495 333 / 517 486 212 instructions:u against K.46's 517 440 952 /
+  517 438 933 / 517 435 499 — +51 k, +0.010 %**;
+* nested-shadow **27/27**, with **zero fires** — including
+  `nested_p20`, the one fixture §U.62 (d) found to exhibit the residue,
+  and `nested_lam_pin_prop`, where the positivity `whnf` turns
+  `(fun _ => T) trivial` into a member;
+* the 41-block Mathlib nested cone: exit 0, **4 926 accepted**, **41/41
+  `accept`**, at **180 916 365 713 / 180 909 871 426 / 180 900 266 039
+  instructions:u against K.46's 180 286 486 631 / 180 290 608 509 /
+  180 282 276 954 — +0.347 %**.  **This one adds a real pass and the
+  number says so**: it is the same order as K.46 gave back, so the cone
+  stands where K.41 left it (+0.46 % over K.40's baseline).  The cost is
+  one extra `normPosDomM` per ordinary copy field, i.e. one `whnf` at
+  the fields where the minted domain mentions a member and a
+  `mentionsMember` test at the rest;
+* **init-full** (`--jobs=4`): exit 0, **53 093 accepted**, plain
+  `--verified` **539 231 661 135** against K.46's 539 227 250 289 — the
+  regression check, unchanged.  (Per K.46's correction, the
+  shadow-minus-plain difference at this scale is noise, so no cost
+  figure is read off init-full.)
+* `tests/arena.sh` **EXIT 0**.
+
+**NEGATIVE CONTROLS — two, and the first is the interesting one:**
+
+* **compared against the MINTED domain** instead of the stored one
+  (`jobs.map (·.2.1)`): nested-shadow **26/27** and **0 of the 41 cone
+  blocks** — and the single fixture that fires is **`nested_p20`**,
+  exactly the one §U.62 (d)'s measurement found.  So the NORMALISATION
+  is load-bearing at precisely one place in the whole corpus, which both
+  confirms the residue is real and confirms §U.62 (d)'s finding that it
+  is a crafted shape rather than a corpus shape;
+* **the stored side blanked** in the reader (`xS.fvarTypeD ↦ sort 0`):
+  nested-shadow **19/27** and **18 of the 41 cone blocks**.  That is the
+  REACHABILITY figure: 8 of the 27 fixtures and 18 of the 41 cone blocks
+  have at least one ORDINARY copy field; at the others every copy field
+  is recursive or reflexive and the check is vacuous.
+
+The patched binary was reverted by inverse string replacement both
+times, and the rebuilt binary is byte-identical to the pre-control one.
+
+**Ledger row.**  CERT-ONLY (`normPosDomM` is official's positivity
+normalisation, run a second time on an input official never forms).
+Category **(S)** — a self-check on the checker's own generated
+artefacts: the minted copy and the stored copy are both OUR
+elimination's output, official mints the same way and compares nothing.
+**But this row is the first whose "cannot fire" is an ARGUMENT about
+`whnf` rather than a construction**, and the record says so: the
+agreement above is a proof sketch, not a theorem, so a stream could in
+principle make it fail.  Three things bound the consequence: a fire is
+`.internal`, i.e. exit 3, never a reject or a decline (that is what the
+`tryCatch` is for); the route is not on the dispatch, so nothing is
+affected until M8; and the corpus evidence is 27 fixtures and 41 cone
+blocks with zero fires, plus a control that locates the one place the
+normalisation matters at all.  **Whoever lands M8 should re-run the two
+controls**: if this check ever fires on a stream, the honest answer is
+the closed-form comparison (abstract the opened fvars back to bvars
+before the `==`, which drops the annotations from the comparison
+entirely) and NOT a narrowing of the accept set.
+

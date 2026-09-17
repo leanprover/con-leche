@@ -1656,7 +1656,7 @@ def nestedPinRankAt (st : ElimState) (edges? : Option (List (Nat × Nat × Bool)
   | some edges =>
     let n := st.pins.length
     -- the edge list is walked ONCE, and computed once: `nestedPinChecks`
-    -- binds it, and `nestedPinKinds` under it, for all four checks
+    -- binds it, and `nestedPinKinds` under it, for all four checks (K.46)
     let inst := nestedPinInstFrom st edges
     let rank := nestedPinRankFrom st edges inst
     inst.length == n && rank.length == n &&
@@ -1777,8 +1777,103 @@ def nestedPinRootPairAt (env : Env) (st : ElimState) (roots : List (Option Nat))
     (st : ElimState) (stored : List AuxStored) : Bool :=
   nestedPinRootPairAt env st (nestedPinRootGroup env p b st stored)
 
+/-! ## THE POSITIVITY NORMALISATION ON THE MINTED COPY (task #315 K.42)
+
+Lane L-B's `ordF`-LEFT arm (DESIGN §U.62) needs, at an ORDINARY field of
+a copy's constructor, that the stored domain and the MINTED one — the
+container's field instantiated at the pin's components, `mkCopy`'s
+output BEFORE `replaceAllNested` — have the same reading.  The
+model-side law for that is provably unavailable: the induction over the
+rewrite closes every node but the firing occurrence, and the firing
+occurrence needs `pinLeaf`, which is downstream of the very shape being
+proved (at a self-nested container the circle is real).
+
+The cheap route is a SECOND RUN of the walk the kernel already has.
+`normPosDomM` is official's positivity normalisation; the install ran it
+on the REWRITTEN domain and stored the result.  Run it on the MINTED
+domain too and compare: at an ordinary field the two differ only at
+replaced occurrences, neither a mimic nor a container application heads
+a redex, and an ordinary field's stored domain mentions no member at all
+— so the surviving term is the same on both sides, and the model gets
+`interp (reading minted) = interp (reading w) = interp (reading stored)`
+out of `normPosDomM_read_of` with the rewrite's own leg GONE.
+
+The decline-shaped alternative — "a domain that mentions a member is
+never classified ordinary" — is REFUSED: §U.62 (d) measures it
+non-vacuous (`tests/e2e/nested_p20.ndjson`, accepted today), so it would
+narrow the accept set on a shape official takes, which the maintainer's
+standing rule forbids.  This form costs no accept set at all.
+
+**The addressing is PURE and the run is ONE FLAT `mapM`.**
+`nestedOrdDomPairs` is an `Option` walk that returns, per pin, per
+constructor, per ordinary field, the triple (the field's depth, the
+MINTED domain, the STORED domain) — all of it off the run's own records,
+in exactly `nestedPinEdges`' three-layer shape, so the model addresses a
+field with the established `mapM_option_inv` idiom.  `nestedOrdNorms` is
+then a single `List.mapM` whose positional inversion is
+`mapM_except_inv`. -/
+
+/-- The ordinary fields' two domains, per pin, per constructor, per
+field: `(p.nP + l, the MINTED domain, the STORED domain)`.
+
+The minted constructor is recomputed the way K.28 certifies it —
+`Expr.instPis` of the container's stored constructor at the pin's own
+`lvls`/`Ds` — and opened at its FIELD binders from `p.nP`, which is the
+spelling the model's `mintFieldRead` reads (`openPisAtFvars nF cI nP`,
+`x.fvarTypeD` at depth `nP + l`).  The stored constructor is opened
+twice, the parameters then the fields, as `normCtorValM` itself does. -/
+def nestedOrdDomPairs (env : Env) (p : NestedParts) (st : ElimState)
+    (stored : List AuxStored)
+    (kinds? : Option (List (List (List (RecFieldKind × Nat))))) :
+    Option (List (Nat × Expr × Expr)) := do
+  let kinds ← kinds?
+  let rows ← (List.range st.pins.length).mapM fun q => do
+    let t ← st.types[p.k + q]?
+    let (Jn, lvls, Ds) ← t.src
+    let a ← stored[p.k + q]?
+    let ks ← kinds[q]?
+    let ci ← containerInfo? env Jn
+    let J ← ci.members.find? (fun J => J.name == Jn)
+    if lvls.length != J.lps.length then none else
+    let perCtor ← (List.range ks.length).mapM fun j => do
+      let kf ← ks[j]?
+      let cJ ← J.ctors[j]?
+      let (cvS, _, nF) ← a.ctors[j]?
+      let cI ← Expr.instPis (Expr.instantiateLevelParams J.lps lvls cJ.type) Ds
+      let (xsM, _) ← openPisAtFvars nF cI p.nP
+      let (_, crestS) ← openPisAtFvars p.nP cvS.type 0
+      let (xsS, _) ← openPisAtFvars nF crestS p.nP
+      let perField ← (List.range kf.length).mapM fun l => do
+        let (r, _) ← kf[l]?
+        if r == RecFieldKind.ordinary then
+          let xM ← xsM[l]?
+          let xS ← xsS[l]?
+          pure [(p.nP + l, xM.fvarTypeD, xS.fvarTypeD)]
+        else pure ([] : List (Nat × Expr × Expr))
+      pure perField.flatten
+    pure perCtor.flatten
+  pure rows.flatten
+
+/-- The second run: the positivity normalisation of every minted
+ordinary domain, at the environment holding the block's own FORMERS —
+the one the model's readings are taken in.
+
+**Any error of the inner walk becomes `.internal`.**  `normPosDomM`
+throws `.invalid` at a non-positive occurrence and `.notImplemented` on
+fuel; a certification-only record must never turn an accepted stream
+into a REJECT or a DECLINE, so the handler reclassifies.  (It cannot
+fire either way: the rewrite replaces a group occurrence by a mimic,
+which is a member of the auxiliary block too, so the minted and the
+rewritten walk see a member at exactly the same nodes.) -/
+def nestedOrdNorms (ops : CheckerOps m) (env : Env) (memberNames : List Name)
+    (jobs : List (Nat × Expr × Expr)) : m (List Expr) :=
+  jobs.mapM fun je =>
+    tryCatchThe CheckError (normPosDomM ops env memberNames je.1 1024 je.2.1)
+      (fun _ => throw (.internal "nested: the positivity normalisation of a minted copy \
+        field does not run"))
+
 /-- **THE PINS' CERTIFICATION-ONLY CHECKS, ON ONE WALK** (task #315
-K.43).  K.26, K.32, K.37 and K.41 each ask a question about the copies'
+K.46).  K.26, K.32, K.37 and K.41 each ask a question about the copies.
 field kinds, and each used to recompute them: `nestedPinKinds` ran FOUR
 times per nested block (twice directly, and twice more under
 `nestedPinEdges`, which K.37 calls and K.41 reaches through
@@ -1793,9 +1888,9 @@ evidence, not the kernel's (`certOnly`'s docstring) — which is why the
 shared computation sits INSIDE the mode test rather than in a `let`
 above it: a `let` would be strict, and `certOnly`'s `||` short-circuit
 would no longer keep the walk from running. -/
-def nestedPinChecks (mode : CheckMode) (env : Env) (p : NestedParts) (b : MutualBlock)
+def nestedPinChecks (ops : CheckerOps m) (env envN : Env) (p : NestedParts) (b : MutualBlock)
     (st : ElimState) (stored : List AuxStored) : m Unit :=
-  if !mode.verifiedChecks then pure () else
+  if !ops.mode.verifiedChecks then pure () else
   -- ONE classification of the copies' fields, and ONE reference graph
   let kinds? := nestedPinKinds p b stored
   let edges? := nestedPinEdgesAt env p st stored kinds?
@@ -1826,7 +1921,17 @@ def nestedPinChecks (mode : CheckMode) (env : Env) (p : NestedParts) (b : Mutual
   -- ONE equality, off the two recorded tables
   else if !nestedPinRootPairAt env st roots then
     throw (.internal "nested: a pin is not one the instance's root container pinned")
-  else pure ()
+  -- **THE POSITIVITY NORMALISATION ON THE MINTED COPY** (K.42): at every
+  -- ORDINARY field of every copy's constructor, the stored domain IS the
+  -- normalisation of the MINTED one, so the model's `ordF`-left arm gets
+  -- its reading identity with the rewrite's own leg gone.  The walk is
+  -- the install's, run a second time, on the shared field kinds.
+  else do
+    let jobs ← unwrapOr (nestedOrdDomPairs env p st stored kinds?)
+      (.internal "nested: the minted copies' ordinary field domains are not readable")
+    let ws ← nestedOrdNorms ops envN b.memberNames jobs
+    unless ws == jobs.map (·.2.2) do
+      throw (.internal "nested: an ordinary copy field's stored domain is not the         positivity normalisation of the minted one")
 
 /-- **Check and install a recognised NESTED block** (see the module
 docstring): official's two syntactic front guards, the elimination, the
@@ -1958,10 +2063,10 @@ def checkNested (ops : CheckerOps m) (env : Env) (p : NestedParts) : m Env := do
     throw (.internal "nested: a pin's mint parent is not an earlier pin")
   -- **THE PINS' FOUR CERTIFICATION-ONLY CHECKS** (K.26, K.32, K.37 and
   -- K.41), on ONE computation of the field kinds and the reference edge
-  -- list (K.43).  Gated as a group; each check keeps its own clause, its
+  -- list (K.46).  Gated as a group; each check keeps its own clause, its
   -- own message and its own conjunct of the run relation.
-  nestedPinChecks ops.mode env p b st stored
   let env₁ := consNestedFormers members env
+  nestedPinChecks ops env env₁ p b st stored
   -- **POST-CHECK (a), A THIRD TIME** (K.30): the pins typed at the
   -- environment holding the RESTORED FORMERS — the one `restoreCtors`
   -- runs at, and the one the model tier reads the block's own prefix
