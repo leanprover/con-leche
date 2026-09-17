@@ -160,7 +160,7 @@ theorem NestedTailIn.ctorsT_length (c : Nat) :
 /-- **THE MINOR INDEX IS THE AUXILIARY BLOCK'S** — both the sum of the
 earlier classes' constructor counts, which `ctorsT_length` identifies
 position by position. -/
-theorem NestedTailIn.minorIdxT_eq {c : Nat} (hc : c < b.k) (j : Nat) :
+theorem NestedTailIn.minorIdxT_eq (c j : Nat) :
     (D).minorIdxT PC c j = (DA).minorIdx c j := by
   rw [mutualBlockModel_minorIdx]
   show ((List.range c).map fun t => ((D).ctorsT PC t).length).sum + j = _
