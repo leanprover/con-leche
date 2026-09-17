@@ -854,4 +854,35 @@ theorem ContainerModeled.params_congr {env : Env} {m : EnvModel V env} {ci : Con
   exact ⟨hI.uParams a ha ψ₁ ψ₂ hψ', (hI.former.params ψ₁ ψ₂ hψ').1⟩
 
 
+/-- **A group's members share their level parameters** (task #315 L-E,
+DESIGN §U.73): `containerInfo?_inv` records every member's as the
+group's own constant's, and `ContainerModeled.member` asserts the
+member's `IsBlockModel` at that record — so a level agreement taken at
+ONE member's constant is an agreement at EVERY member's.  What the WALK
+needs when it steps from the pair's member to the field's target
+member. -/
+theorem ContainerModeled.memberLps {env : Env} {m : EnvModel V env} {ci : ContainerInfo}
+    {dK : BlockModel V} (h : ContainerModeled m ci dK) {I : Name}
+    (hci : ConLeche.containerInfo? env I = some ci)
+    {a b : Nat} (ha : a < dK.k) (hb : b < dK.k)
+    {cvA cvB : ConstantVal} {capsA capsB : IndCaps}
+    (hA : env.find? (dK.memberName a) = some (.indInfo cvA capsA))
+    (hB : env.find? (dK.memberName b) = some (.indInfo cvB capsB)) :
+    cvA.levelParams = cvB.levelParams := by
+  obtain ⟨cvT, _caps, _cvR0, _mI0, _rP0, _rules0, _hfind, _hfr0, _hmem0, _hnd0, hall⟩ :=
+    ConLeche.containerInfo?_inv hci
+  have key : ∀ (x : Nat), x < dK.k → ∀ (cvX : ConstantVal) (capsX : IndCaps),
+      env.find? (dK.memberName x) = some (.indInfo cvX capsX) → cvX.levelParams = cvT.levelParams := by
+    intro x hx cvX capsX hX
+    have hx' : x < ci.members.length := by rw [← h.k]; exact hx
+    have hmem : ci.members[x]? = some ci.members[x] := by rw [List.getElem?_eq_getElem hx']
+    have hname := (h.member x ci.members[x] hmem).1
+    obtain ⟨cvC, _capsC, _cvRc, _mIc, _rulesC, hf1, _hf2, _hlps, _hf4, hshare, _hf6, _hf7⟩ :=
+      hall ci.members[x] (List.getElem_mem hx')
+    rw [hname] at hX
+    obtain rfl : cvX = cvC := (ConstantInfo.indInfo.inj (Option.some.inj (hX.symm.trans hf1))).1
+    exact hshare
+  rw [key a ha cvA capsA hA, key b hb cvB capsB hB]
+
+
 end ConLeche.Model

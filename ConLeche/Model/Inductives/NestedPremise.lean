@@ -166,6 +166,51 @@ structure ContainerModeled {env : Env} (m : EnvModel V env) (ci : ContainerInfo)
     (d.pinAt q).lvls.length = cvT.levelParams.length ∧
     ∀ ψ : Name → Nat, (d.pinAt q).ψJ ψ = Level.substFn ψ cvT.levelParams (d.pinAt q).lvls
 
+/-- **A stored container's PIN data are a congruence in the level
+assignment** (task #315 L-E, DESIGN §U.72 (e) — REQUESTED of M7-3 as a
+`ContainerModeled` clause, and carried as a premise until it lands):
+two assignments agreeing on the group's own constant's level parameters
+give ONE index universe, ONE component list and ONE index telescope at
+every pin of the block.
+
+`IsBlockModel.uParams` and `FormerData.params` are the same fact at the
+MEMBERS; nothing in the tier says it at the pins, and the PIN class of
+the container instance transfer needs it twice — at `copyTransfer_via`'s
+`huT` (the two copies' targets' index universes, `copyTarget_u`, when
+the target is one of the container's OWN pins) and at the `pinF` arm of
+the WALK (the two sides' `PinCorr` are at the same own pin, so
+`ClassPin`'s `frame` and `idx` come down to that pin's `Ds`/`Ids` at the
+two assignments).
+
+It is true of every pin this checker records — a pin's level arguments
+and components are read off the block's own opened constructor, so they
+mention only the block's level parameters — and vacuous at a pins-free
+container. -/
+@[expose] def ContainerPinParams (cvI : ConstantVal) (d : BlockModel V) : Prop :=
+  ∀ q, q < d.nPins → ∀ ψ₁ ψ₂ : Name → Nat,
+    (∀ pp ∈ cvI.levelParams, ψ₁ pp = ψ₂ pp) →
+    (d.pinAt q).u ψ₁ = (d.pinAt q).u ψ₂ ∧
+    (d.pinAt q).Ds ψ₁ = (d.pinAt q).Ds ψ₂ ∧
+    (d.pinAt q).Ids ψ₁ = (d.pinAt q).Ids ψ₂
+
+omit [SetTheory V] in
+/-- At a pins-free container the clause is vacuous. -/
+theorem ContainerPinParams.of_noPins {cvI : ConstantVal} {d : BlockModel V} (hnp : d.pins = []) :
+    ContainerPinParams (V := V) cvI d := by
+  intro q hq
+  simp only [BlockModel.nPins, hnp, List.length_nil] at hq
+  exact absurd hq (Nat.not_lt_zero _)
+
+/-- **A member's index telescope is bounded at the parameters** — the
+MEMBER twin of `pinIds_below` (task #315 L-E, DESIGN §U.73). -/
+theorem memberIds_below {env : Env} {m : EnvModel V env} {dJ : BlockModel V}
+    (hreps : IsBlockModels m dJ) {i : Nat} (hi : i < dJ.k) (ψ : Name → Nat) :
+    FieldsBelow dJ.nP (dJ.IdsM i ψ) := by
+  obtain ⟨cvT, cvR, mI, rP, rules, hI⟩ := hreps i hi
+  refine DomsBelow.fields ?_
+  have := DomsBelow.drop dJ.nP (hI.former.below ψ)
+  simpa using this
+
 /-! ## The correspondence a container instance is compared along -/
 
 /-- A class's LEVEL ASSIGNMENT: the block's own at a member, the pin's
