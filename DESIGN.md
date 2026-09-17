@@ -86415,39 +86415,66 @@ order is unchanged: step 2 (the kernel's nested dispatch arm and the
 DELETION of the modeled arm) is still the scheduling fact, and nothing
 above it can land first.  `Model/Fold.lean` is untouched.
 
-##### (g) THE FLIP'S MECHANICAL HALF — `Model/Inductives/FoldB.lean`
+##### (g) THE FLIP'S MECHANICAL HALF — PROBED, AND WHERE IT CANNOT LIVE YET
 
-§U.55 (c)'s steps 3–4 are now written, with the modeled arm the single
-hypothesis: `declInductiveB` (`declInductive`'s twin over the
-dispatch's three arms — `declNativeB`, `declMutualB` and
-`ModeledStepB`), `EnvModelOkB`, `declStepB_preserves` (eight arms,
-seven of them a name swap), `foldPMB` and `checkDeclsPure_soundB_of`.
-`ModeledStepB` is stated, never discharged: it IS the arm the deletion
-removes, and with it the third case of `declInductiveB`.  The η half
-did not move, and `Model/Fold.lean`, `MainTheorem.lean` and the
-capstones are untouched.
+§U.55 (c)'s steps 3–4 were written and they PROVE: `declInductiveB`
+(`declInductive`'s twin over the dispatch's three arms — `declNativeB`,
+`declMutualB` and one hypothesis `ModeledStepB` for the MODELED arm,
+which is to be deleted and not proved), `EnvModelOkB`,
+`declStepB_preserves` (eight arms, seven of them a name swap),
+`foldPMB` and `checkDeclsPure_soundB_of` — all six compiled, with
+standard axioms, the η half untouched.  They are NOT in the tree,
+because none of the three possible homes is gate-clean, and that is
+the finding M8 needs:
 
-**A MODULE OF ITS OWN, and that is a finding.**  The B fold cannot
-live in `Model/Fold.lean`: the value kinds' carrier agreements
-(`axiomStepAgree_of`, `basisStepAgree_of`, §U.55 (b) 1) live there, and
-BOTH `EnvModelBStages.lean` and `BasisBlocksFold.lean` import that
-module for them — so every theorem of the flip sits ABOVE
-`Model/Fold.lean`, and M8 must either move those two agreements down or
-keep a separate module.  Hosting the fold in `BasisBlocksFold.lean`
-compiles, but moves `scripts/pub-import-plan.py`'s fixpoint: that
-module's five `public import`s become individually demotable, and
-demoting them takes the `[SetTheory V]` binder's own public path with
-them (the build says `unknown identifier SetTheory`), so the gate's
-"none demotable" and the build disagree there.  `FoldB.lean` is
-gate-clean at the import set shake's criterion itself names —
-`public import` of `NestedPremise` and `Semantics/Inductives/DeclNative`
-(the statements' `EnvModelB` and `DeclIndRunDispatch`), everything else
-private.
+1. **`Model/Fold.lean` is impossible.**  The value kinds' carrier
+   agreements (`axiomStepAgree_of`, `basisStepAgree_of`, §U.55 (b) 1)
+   live there, and BOTH `EnvModelBStages.lean` and
+   `BasisBlocksFold.lean` import that module for them — so every
+   theorem of the flip sits ABOVE `Model/Fold.lean`.  **M8's first
+   step is to move those two agreements down** (their natural home is
+   beside the harvests); then the B fold goes where the A fold is, and
+   inherits its consumers.
+2. **`BasisBlocksFold.lean` compiles but moves
+   `scripts/pub-import-plan.py`'s fixpoint**: that module's five
+   `public import`s each become individually demotable, and demoting
+   them takes the `[SetTheory V]` binder's own public path with them
+   (the build then says `unknown identifier SetTheory`).
+3. **A new leaf module** (`Model/Inductives/FoldB.lean`, probed) is
+   gate-clean at the import set shake's own criterion names — until the
+   K.35 wiring below changed the tree elsewhere, after which the plan
+   called its two remaining `public import`s demotable too.  The reason
+   is the same as 2 and it is structural: a module NOTHING imports has
+   no public interface to justify a `public import`, while the build
+   still needs `SetTheory` publicly for the `variable` binder.  **The
+   flip's fold must have a consumer**, and the only consumer is the
+   capstones' side — which is step 5, and is deliberately last.
 
-##### (h) GATES
+So the mechanical half is written and known to close; it lands with
+step 1, not before.
 
-`lake build` 703 jobs warning-free; `lake test` warning-free; layering
-347 / 273 / 3 / 1, 0/0; trust 13/5 (635); overview-links 112;
+##### (h) K.35's CONJUNCT, WIRED (lane M7-2's request, this session)
+
+`nestedAuxAppsOk` is a conjunct of `DeclNestedRun` and, with M7-2's
+`auxAppsOk_reflect`, it is what the recursors' readings stand on
+(`NestedRecTysAuxOf` is deleted in exchange).  So the tail takes it by
+name: one hypothesis on `NestedTailModeled`, one field on
+`NestedTailIn`, both in the run's own position (after K.26's kinds),
+and in `declNested_of` the destructuring `-` becomes `hauxApps` with
+`certOnly_elim` under `hμ` beside the other five certification-only
+records.  K.37's `nestedPinRankOk` stays anonymous.
+
+K.39 — `(cvRms.map (·.name) ++ cvRns.map (·.name)).Nodup`, the
+recursors' names distinct — is NOT wired here: this lane's base
+predates the conjunct (it is on `agent/uniform-315`, between the
+recursors' count and `nestedRecsOk`), so `declNested_of` has nothing to
+name.  The three edits are the same at that position; the integration
+is the place.
+
+##### (i) GATES
+
+`lake build` 702 jobs warning-free; `lake test` warning-free; layering
+347 / 272 / 3 / 1, 0/0; trust 13/5 (634); overview-links 112;
 quote-gate 2; no-local-paths OK; proofdeps 4955 rows / 12 roots /
 0 doors; shake 510/510 allowlisted; pub-imports 1284 of 2030, none
 demotable; `tests/arena.sh` green.  Standard axioms on every new
