@@ -82659,3 +82659,153 @@ axioms only on every new theorem (`zeroCtorBlock.maps`, `.mono`,
 `containerInfo?_punitA`, `no_containerModeled_nat`,
 `no_containerModeled_punit`, `not_envBlockModels_of_nat`).
 
+
+#### U.45 — M7-4 session 2: the guard on `ContainerModeled.inj`, and ALL FIVE pinned basis blocks carrying their block models (lane M7-4, session 2, 2026-09-17)
+
+§U.42 (c) refuted the premise at two of the five blocks and (d)
+proposed the minimal change.  The orchestrator ruled: apply it.  This
+session applies it, discharges it at its one consumer, and then lands
+the five blocks — `PUnit`, `Nat` and `Eq` on top of session 1's
+`Empty`/`False` — plus the shape the fold's basis step will read at
+M8's flip.
+
+##### (a) THE CLAUSE, guarded (`Model/Inductives/NestedPremise.lean`)
+
+```lean
+  inj : 0 < d.nP → ∀ (ψ : Name → Nat) (mm' j : Nat) (fs : List V),
+    d.inj ψ mm' j fs = injW (d.w ψ) j (mkTower (fs ++ [pt]))
+```
+
+The guard is the clause's own scope, not a dodge.  `inj` has exactly
+one consumer — the pin group's `inj := CM.inj` (`NestedPins.lean`,
+`NestedPinGroupSyn.inj`, read by the copies' identification) — and **a
+container with no parameters can never BE a pin's container**:
+`replaceIfNested` mints a pin only where `nestedOccOk` reports a member
+of the growing list mentioned among `args.take ci.nP`, and at
+`ci.nP = 0` that list is empty, so the verdict is `false` and no pin is
+minted.
+
+##### (b) DISCHARGED from the records already there — no new named fact, no kernel request
+
+```lean
+theorem NestedPinsRun.pinDsPos {pbs : List (Expr × ConLeche.BinderMeta)}
+    (hPD : ∀ q, q < st.pins.length → PinData env st p pbs q)
+    {q : Nat} (hq : q < st.pins.length) : 0 < (srcAtE st p q).2.2.length
+```
+
+— the elimination's own provenance record (`elimNested_copyCtors`,
+`Verify/Inductives/NestedCopyProv.lean`, whose `(Ds.any fun a =>
+st.newNames.any fun T => a.mentionsConst T) = true` IS `nestedOccOk`'s
+verdict at every copy it appended) against `PinData`'s `ty` and `src`.
+`R.helim` is a field of `NestedPinsRun`, so the record is in scope at
+`groupSyn`; `PinData.own`'s `Ds.length = ci.nP` and
+`ContainerModeled.nP` then carry it to `0 < dJ.nP` at the group's
+construction site, where the clause is consumed:
+
+```lean
+      inj := CM.inj (by rw [CM.nP, ← hnPci, ← hDl]; exact R.pinDsPos hPD hq)
+```
+
+`ContainerModeled.of_readBack` (`ContainerCross.lean`) keeps its strong
+`hinj` argument — the three install routes do build tagged towers — and
+only the field it fills weakens (`inj := fun _ => hinj`).  The two
+counter-instances stay in the tree as `no_containerModeled_nat_unguarded`
+/ `_punit_unguarded`, with the tag shape as their HYPOTHESIS: they now
+say exactly why the guard is there.  `not_envBlockModels_of_nat` is
+gone with the premise it refuted.
+
+##### (c) THE FIVE BLOCKS
+
+| block | file | `k`/`nP`/`nIdx` | operator | injections |
+|---|---|---|---|---|
+| `Empty`, `False` | `BasisBlocksZero.lean` | 1/0/0, no ctors | constant EMPTY family | (vacuous) |
+| `PUnit` | `BasisBlocksUnit.lean` | 1/0/0, one ctor, no fields | constant ONE-POINT family | `pt` |
+| `Nat` | `BasisBlocksNat.lean` | 1/0/0, two ctors, one recursive field | the SUCCESSOR step | `natzero`, `vsucc` |
+| `Eq` | `BasisBlocksEq.lean` | 1/2/1, one ctor, no fields | constant TRUTH-SET family | `pt` |
+
+Three things are worth keeping.
+
+1. **`Nat`'s `leaf` is "ω is the least pre-fixed family"**, and it is
+   four lines: `⊆` is `lfpTuple_le` against the closed tuple `ω`
+   (`omega_inductive`), `⊇` is `omega_subset_inductive` at a carrier
+   that `lfpTuple_closed` makes inductive.  The step set
+   `natStepSet S = {∅} ∪ {n ∪ {n} | n ∈ S}` needs one universe fact —
+   closure of `univ 1` under the replacement image (`IsTGUniverse.image_mem`)
+   — and `mkInj` needs `vsucc_inj`, which is regularity through
+   `no_two_cycle`.
+2. **`Eq`'s `leaf` is the environment's own `EqLaw`** — the pinned
+   spine's value IS `eqv a b` — and its `fibre` is the constructor's
+   index equation read through the index tuple's first projection
+   (`projS_tup`: the pair's first component above `Sort 0`, the proof
+   point at `Sort 0`, where the index's type is a proposition and
+   everything in it is `pt`).  `Eq.refl`'s value is NOT pinned (it is a
+   proof), so `ctor` reads it off `EnvModelM.mem_type` plus the type's
+   reading being a proposition (`eq_pt_of_mem_univZero`) — the one
+   clause a `Prop`-valued pinned block cannot get from its own data.
+3. **`Eq` KEEPS the tag shape**: it has parameters, so `nestedOccOk`
+   can pin it, and being `Prop`-valued `injW 0 j _ = pt`, which IS
+   `Eq.refl`'s value.  The guard costs it nothing.
+
+Every block's READ-BACK is computed, never assumed
+(`containerInfo?_emptyA`/`_falseA`/`_punitA`/`_natA`/`_eqA`): rewrite
+the `Env.find?`s, NAME `containerMotiveMember?` at the motive binder
+(the one step that reads the environment) and at the binder that stops
+the walk, then closed computation.  `Eq`'s walk runs past two
+parameters and is no harder.
+
+##### (d) The five traps, for whoever writes the sixth block
+
+* the generated pins carry FULLY EVALUATED names, so the `Env.find?`
+  rewrites go into the HYPOTHESES first (`rw [hE] at hT hR`), else
+  `simp` unfolds the name in the goal and the rewrite misses;
+* `nomatch h` inside an anonymous constructor swallows the following
+  commas — `⟨fun _ h => (nomatch h), …⟩` needs the parentheses;
+* a clause indexed by a field/constructor position needs the position
+  CASED before its `getD` reduces (`match j, hj with | 0, _ => …`);
+  `by decide` refuses a goal mentioning the section's `V`, so
+  `Nat.zero_lt_two` and friends go in by `exact`;
+* `natzero = empty` is NOT closed by `rfl` outside `SetTheory/Basic`
+  (the unifier will not unfold it at that transparency) — `by unfold
+  natzero; rfl` is the bridge, and one such lemma per opaque alias is
+  cheaper than fighting it at each site;
+* `Expr.mentionsFvar`/`Expr.fvarLeaves` do not reduce by `rfl` at a
+  constant: `simp [Expr.mentionsFvar, Expr.fvarLeaves]`.
+
+##### (e) THE BASIS STEP'S SHAPE (`Model/Inductives/BasisBlocksStep.lean`)
+
+```
+EnvBlocksOf m₁ B → <the block's run> → EnvBlocksOf m₂ (extendAt B ci₀ d₀)
+```
+
+`extendAt B ci₀ d₀` is the assignment with one more group;
+`EnvBlocksOf.extendBasis` is the step, `EnvBlocksOf.crossInd` for the
+old containers and the block's own `BlockAt` for the new group.  The
+`hold` half — the extended assignment agrees with the old one at every
+OLD group — is discharged once and for all from FRESHNESS
+(`containerInfo?_ne_of_fresh`: an old group's members are all stored,
+`containerInfo?_inv`), and `extendBasisOf` puts `hnewG` in the form
+every pinned block meets: the FORMER reads the group back, and every
+other constant of the block is not an `indInfo`, so `containerInfo?`
+reads nothing at it.  `emptyBlocksStep` is the instantiation; the other
+four are the same three lines against their own read-back and
+`BlockAt`.
+
+**What M8 still owes, and it is not proof work**: `declBasisPB_*`
+returns `Nonempty (EnvModelM V μ env₂)` — an anonymous model — so the
+run's crossing facts (`hF`/`hres`/`hag`/`hde`, and `EnvWF`/
+`RecCtorsStored` at the old environment) cannot be stated about it.
+The fix is the plumbing the value kinds got at §U.31 (c): each basis
+branch hands back a NAMED model with its agreement.  Then the five
+instantiations of `extendBasisOf` close the basis tier of the flip.
+
+##### (f) GATES
+
+`lake build` 697 jobs warning-free; `lake test` warning-free; layering
+base 346 / model 271 / caps 3 / umbrella 1, 0/0; trust surface 13/5
+(632 scanned); overview-links 112; quote-gate 2; no-local-paths OK;
+proofdeps 4955 rows / 12 roots / 0 doors; shake 508/508 allowlisted
+(two proposals answered by the criterion, both COMPENSATED and applied
+— `BasisBlocksTag`'s and `BasisBlocksStep`'s imports narrowed to the
+form the `--only` run asked for), pub-imports 1269 of 1994, none
+demotable (36 dot-notation fallbacks).  Standard axioms only on every
+new theorem.
