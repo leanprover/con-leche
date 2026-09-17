@@ -83372,6 +83372,160 @@ fix); trust surface 13 escapes in 5 allowlisted files (647 scanned);
 no-local-paths OK; overview-links 112; quote-gate 2; proofdeps 4955
 rows / 12 roots / **0 doors**.
 
+##### (sss) CONTINUATION 20 (lane session 20) — the rule's DOOR, and the fired equality ASSEMBLED modulo `hvpa`
+
+Base: this lane's ead11420.  No checker code changed; no `sorry`, no
+axioms, no `maxHeartbeats`; `#print axioms` of every new theorem is
+`[propext, Classical.choice, Quot.sound]`.
+
+*The rule's door* (912ecec9).  `NestedTailIn.ruleRhsDoor` —
+`restoreRecTys_at`'s twin at the RULES, and (ppp) 2's blocker.
+`restoreRules` runs `inferTypeCore` on every restored right-hand side
+and keeps it closed and fvar-free, so the claims layer
+(`ClaimsAt.inferRow` at the EMPTY context, `CtxOk.nil`) hands over the
+reading AND its grading at every frame — `recRuleLawOf`'s
+`hreadRa`/`hwdRa` and `ruleVal`'s `hRa`/`hwdR`.  Thirty lines, first
+try; the idiom is `pinRead_of_inferAt`'s
+(`acceptedReads_of` then `inferRow`), which is worth remembering as
+THE way a kernel `inferType` run becomes a graded reading.
+
+*The assembly* (4f838028).  `NestedTailIn.recRuleLawsAt`: at class `c`
+every rule of the stored row satisfies `RecRuleLaw`.  The row is the
+run's (`restRulesRun`), its inversion is `restoreRules_at`, and the
+FIRE decides the arm — a member's is `.plain` (the `.inert` case is
+excluded by `RecRules`' own guard, which is why the law is stated
+under `fire ≠ .inert`), a mimic's is the `nestedFireShape` the kernel
+computed, which is exactly the datum `mimicMajor` takes.  So the two
+majors dispatch on `decide (p.k ≤ c)`; `ruleRhsDoor` supplies the
+reading, `ruleVal` its value and `recRuleLawOf` the rest.
+
+**`hvpa` is the ONE thing the fired equality is now missing.**  A
+member rule never needs it (`RecRuleLaw` guards it by
+`fire = .nested`), and `recRuleLawsAt` passes it straight through.
+
+##### (ttt) THE BRIEF FOR `hvpa` — the route, traced
+
+This session spent its remaining budget tracing `hvpa` rather than
+writing it; the trace is the deliverable, and it splits the clause
+cleanly in two.  What `RecRuleLaw` asks, per pin index `ii < cnP`: the
+pin READS at depth `rP` through `openRev 0 rP`, and the chain
+`instRevChain zs vpa` is GRADED at every `TeleFitPA` frame.
+
+**Both halves have a generic producer already in the tree**, from the
+DIRECT route's part-9 work (task #161): `pinOpenRevReads`
+(`Model/IndOpenRev.lean`) for the reading and `nestedPinGrade`
+(`Model/IndPinGrade.lean`) for the grading — `nestedPinRow`
+(`Model/IndPinRow.lean`) is the two of them composed at the DIRECT
+route's own suppliers (`TypedListOk`, which the nested route has not
+got).  So the nested route wants the two producers separately, at its
+own suppliers.
+
+*The reading half is designed and cheap.*  Its one obligation is
+`pinOpenRevReads`' `hw0`: the pin INSTANTIATED at the recursor frame's
+openers reads at depth `rP + cnF`.  Take `cnF := nIdx`, so
+`rP + cnF = a.mI`, and `os := fvs.take a.rP` from
+`NestedTailIn.recTyOpen`'s openers.  Then
+
+1. `recTyOpen`'s binder clause at `i = a.mI` reads
+   `instSeq (fvs.take mI) (mI-1) dom` — `dom` being the major binder,
+   which `restRecTyMajorHead`'s own `stripPis_append` step already
+   identifies with `cbsR[mI]`;
+2. `dom.getAppFn = .const J lvls` and
+   `dom.getAppArgs.take cnP = pins.map (Expr.liftLooseBVars (mI - rP) 0)`
+   — `nestedFireShape_inv`, and `mI - rP = nIdx`;
+3. `instSeq_mkAppN` distributes the instantiation over the spine and
+   `denoteMeta_mkAppN_inv` turns the whole reading's success into the
+   arguments';
+4. **`instSeq_liftLooseBVars_prefix`** (`Verify/Subst.lean:798`) is the
+   syntactic bridge, and its docstring was written FOR this: "a nested
+   rule's stored pin (rule-prefix context, lifted past the index
+   binders into the major-domain context) evaluates at the recursor's
+   full argument spine to its evaluation at the leading arguments" —
+   `instSeq (pre ++ rest) (…) (q.lift rest.length 0) = instSeq pre (…) q`
+   at `pre := fvs.take rP`, `rest := (fvs.drop rP).take nIdx`;
+5. `Expr.instSpine_eq_instSeq`, then `pinOpenRevReads`, then
+   `I.provCross` to move the reading to the provisioned model and
+   `openRev_instantiateLevelParams` + `denoteMeta_instLevels` for the
+   `instantiateLevelParams` wrapper (the wiring at the use site is
+   `IotaRuleNested.lean:450`'s fifteen lines, verbatim).
+
+*The grading half needs a supplier the tail has not got.*
+`nestedPinGrade`'s `hcert` asks for the instantiated pin's reading to
+be graded at the PADDED recursor context
+(`Sat (replicate cnF (.sort 0) ++ ΓP) σ`, from `sat_padded_chain`),
+whose index slots are DUMMY sorts — so the restored recursor type's own
+`WellDenotedV` is NOT the supplier: `WellDenoted_mkPisAV_inv`'s
+`fieldsOkB_getD` grades binder `mI` only at a spine FITTING the first
+`mI` real domains, and the clause hands over a spine of length `rP`
+only.  Two candidate suppliers, both outside this lane's files:
+
+* `pinRead_of_inferAt` (`Model/Inductives/NestedPins.lean:216`) at
+  `nestedPinsOk`'s own `inferType` run — the pin is TYPE-CHECKED at the
+  block's parameter context (`NestedInstall.lean:614`), which is
+  exactly the guard `hcert` needs, the recursor tower's outermost `nP`
+  binders BEING the block's parameters
+  (`NestedRecFramesKit.lean:46`).  `NestedPinsRun.pinRead`
+  (`NestedPins.lean:1059`) is that lemma already packaged — but at
+  `NestedPinsRun`, and `NestedTailIn` carries `nestedPinsOk` only at
+  `envAux` and `envOut`, not at `ENV₁`/`ENV₂`;
+* the constructor route: a nested field's domain in a restored
+  constructor's type is the pin's application
+  (`BlockCtorData.nestEntry`) and the constructor type's reading is
+  `WellDenotedV` at every `ρ` (`CtorDataI.okTy`), guarded by the
+  constructor's parameter prefix — the same `nP` parameters.
+
+**The cheapest fix is a clause**: `NestedStageFacts`/`NestedPinGroup`
+(`Model/Inductives/NestedCore.lean`, NOT this lane's file) gaining a
+`pinWd`-style field — "the pin's application is graded at every frame
+satisfying the block's parameters" — which `nestedStageFacts_of`
+discharges from `NestedPinsRun.pinRead`, which already exists.  Whoever
+owns `NestedCore.lean` should be asked; the tail then spends it in ten
+lines.  *Sizing with the clause supplied: `hvpa` is ½–¾.  Without it,
+add ½ for re-deriving the pin's typing at the tail.*
+
+##### (uuu) LEAN NOTES (continuation 20)
+
+* `recRuleLawOf`'s `hRaVal` is stated at the RESTRICTED assignment, so
+  the door must be spent at `restrictΨ b.rlps ψ` and the reading moved
+  there by `denoteMeta_params_ext` — and `nestedRecLeaf` is
+  `restrictΨ`-idempotent (`restrictΨ_congr` at `restrictΨ_agree`),
+  which is what makes `ruleVal`'s leaf argument line up.
+* `restoreRules_at`'s mimic clause gives `o.fire` as a `match` on
+  `nestedFireShape`; `rcases hsh : nestedFireShape … with _ | lp` and
+  rewriting by `hsh` splits it, the `none` branch contradicting
+  `RecRules`' `fire ≠ .inert` guard.
+
+##### (vvv) K.43, and the residue of item 5
+
+**K.43 unchanged**: `restoreAgreeP`'s `hauxNe`, ONE rewrite at ONE site.
+
+Left of item 5, in order:
+
+1. `hvpa` ((ttt)) — **½–¾ with the pin-grading clause supplied, 1–1¼
+   without**;
+2. the store swap, its five missing Verify twins and the free
+   `PinRecLaws.crossEnv` — **1½**;
+3. the tables' twin and §U.36 (d)'s `EnvModelB` supply — **1–1½**.
+
+**Item 5 from here: 3–4¼ sessions** (session 19 said 3¾–4¾): the door
+and the assembly came in at half of (ppp) 2's re-sizing and `hvpa` is
+all that is left of the fired equality.
+
+##### (www) FILES AND GATES (session 20's HEAD)
+
+Touched: `ConLeche/Model/Inductives/NestedRecRule.lean` (2804 → 2977).
+No other file, no allowlist line, no `scripts/pub-import-plan.py`
+entry, no new import.
+
+`lake build` 715 jobs warning-free EXIT 0; `lake test` warning-free
+EXIT 0; shake 512 removals all allowlisted / pub-imports 1314 of 2141
+public, none demotable (45 dot-notation fallbacks); layering base 351 /
+model 281 / caps 3 / umbrella 1, 0 base→lane, 0 impl→theory (the base
+clause is vacuous, §U.29 (mm), and a separate lane off master owns the
+fix); trust surface 13 escapes in 5 allowlisted files (647 scanned);
+no-local-paths OK; overview-links 112; quote-gate 2; proofdeps 4955
+rows / 12 roots / **0 doors**.
+
 
 #### U.30 — L-B session 2: `CopyCtorInst.ordF` at the READING, the normalisation's reading law PROVED, `ContainerModeled`'s three clauses (lane L-B, 2026-09-16)
 
