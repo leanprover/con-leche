@@ -83638,7 +83638,20 @@ either side absorbed by relational meets:
 
 With these the blob transfer needs NO `σ`, no `ΦT` as a set operator
 on the container side beyond what `PinRecLaws.fibre`/`ind` state, and
-no names in `R`.
+no names in `R`.  The container-side leastness is
+`BlockModel.famAt_le_of_TClosed` (`NestedPinLeafAll.lean`): the
+extended carrier `famAt LJ` (the members' least tuple with the pins'
+carriers at it) lies below every `TClosed` tuple — one in the extended
+space closed under every class's constructors (`ChainFitT`, the pins'
+`pc` included) — because the pins' carriers at `T`'s members are below
+`T`'s pins (`PinRecLaws.ind` at "in `T`", the separated pins under it),
+so `T`'s members are closed under the members' operator
+(`chainFitT_of_chainFit` + `ChainFitT_mono`), so the least tuple is
+below them (`lfpTuple_le`), and the pins follow by `pinMono`.  So
+`blobLe` is: the relational meet `relMeet (famAt LJ) R (L⁺ pins)` is
+`TClosed` — a fit at it injects into `famAt LJ` (a fixed point) and,
+at every `R`-related block pin, into `L⁺` (the transfer, container →
+block, at `L⁺`) — hence `famAt LJ ≤ relMeet ≤ L⁺` at related pairs.
 
 ##### (g) WHAT REMAINS on the blob route
 
