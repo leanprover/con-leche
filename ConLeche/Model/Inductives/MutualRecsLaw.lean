@@ -476,22 +476,22 @@ theorem blockRecRuleLawG {env₀ env₃ : Env} {m₀ : EnvModel V env₀} (m₃ 
       (d.recCds ψ) d.recMots d.recTgts)
     (hokT : ∀ (ψ : Name → Nat) (mm : Nat), mm < d.k → ∀ ρ : Nat → V,
       WellDenotedV V ρ (mkPisAV (d.blockRds m₀ elimL mm ψ) (d.blockConc mm)))
-    {rlps : List Name} {s : (Name → Nat) → Nat}
+    {rlps : List Name} {Leaf : Nat → (Name → Nat) → AnnotTerm}
     (hrdsR : ∀ t, t < d.k → ∀ ψ,
       d.blockRds m₀ elimL t (restrictΨ rlps ψ) = d.blockRds m₀ elimL t ψ)
-    (hleafCl : ∀ t, t < d.k → ∀ ψ, Term.bvarsBelow 0 (d.recLeaf m₀ elimL s rlps t ψ).erase)
+    (hleafCl : ∀ t, t < d.k → ∀ ψ, Term.bvarsBelow 0 (Leaf t ψ).erase)
     (hleaf : ∀ t, t < d.k → ∀ (ψ : Name → Nat) (ρ : Nat → V),
-      WellDenotedV V ρ (d.recLeaf m₀ elimL s rlps t ψ) ∧
-      interp V ρ (d.recLeaf m₀ elimL s rlps t ψ)
+      WellDenotedV V ρ (Leaf t ψ) ∧
+      interp V ρ (Leaf t ψ)
         ∈ˢ interp V ρ (mkPisAV (d.blockRds m₀ elimL t ψ) (d.blockConc t)))
     (hiota : ∀ (ψ : Name → Nat) (ρ : Nat → V),
       ∀ e ∈ d.recEqs m₀ elimL (restrictΨ rlps ψ),
         (pt : V) ∈ˢ interp V
-          (consList ((List.range d.k).map fun t => interp V ρ (d.recLeaf m₀ elimL s rlps t ψ)) ρ) e)
+          (consList ((List.range d.k).map fun t => interp V ρ (Leaf t ψ)) ρ) e)
     {t : Nat} (ht : t < d.k) {j : Nat} {cA : ConstantVal × Nat} (hj : (d.ctorsM t)[j]? = some cA)
     {cvRa : ConstantVal}
     (hRD : MutualRecData m₃ cvRa d.nP d.k d.nCtors (d.nIdxAt t) t elimL (d.blockRds m₀ elimL t))
-    (hleafR : ∀ ψ, m₃.acval cvRa.name ψ = d.recLeaf m₀ elimL s rlps t ψ)
+    (hleafR : ∀ ψ, m₃.acval cvRa.name ψ = Leaf t ψ)
     {mI rP : Nat} (hmI : mI = d.nP + d.k + d.nCtors + d.nIdxAt t) (hrP : rP = d.nP + d.k + d.nCtors)
     {rl : RecRule} {Ra : (Name → Nat) → AnnotTerm}
     (hnf : RecRule.nfields rl = cA.2)
@@ -499,7 +499,7 @@ theorem blockRecRuleLawG {env₀ env₃ : Env} {m₀ : EnvModel V env₀} (m₃ 
       denoteMeta m₃.acval env₃ ψ 0 (RecRule.rhs rl) = some (Ra ψ))
     (hwdRa : ∀ (ψ : Name → Nat) (ρ : Nat → V), WellDenotedV V ρ (Ra ψ))
     (hRaVal : ∀ (ψ : Name → Nat) (ρ : Nat → V), interp V ρ (Ra ψ)
-      = interp V ρ (d.ruleRhsAV m₀ elimL (fun t' => d.recLeaf m₀ elimL s rlps t' ψ) t j cA.2
+      = interp V ρ (d.ruleRhsAV m₀ elimL (fun t' => Leaf t' ψ) t j cA.2
           (restrictΨ rlps ψ)))
     (φ : Name → Nat)
     (hvpa : ∀ us : List Level, us.length = cvRa.levelParams.length →
@@ -557,11 +557,6 @@ theorem blockRecRuleLawG {env₀ env₃ : Env} {m₀ : EnvModel V env₀} (m₃ 
   generalize hψR : Level.substFn φ cvRa.levelParams us = ψR at hinstR ⊢
   -- the assignment and its restriction agree on the recursors' level parameters
   have hφ : ∀ q ∈ rlps, ψR q = restrictΨ rlps ψR q := fun q hq => (restrictΨ_agree rlps ψR q hq).symm
-  have hleafRes : ∀ t', d.recLeaf m₀ elimL s rlps t' (restrictΨ rlps ψR)
-      = d.recLeaf m₀ elimL s rlps t' ψR := by
-    intro t'
-    unfold BlockModel.recLeaf
-    rw [restrictΨ_congr (lps := rlps) (fun q hq => restrictΨ_agree rlps ψR q hq)]
   have hRaValR := hRaVal ψR
   have hrdsR' : ∀ t', t' < d.k →
       d.blockRds m₀ elimL t' (restrictΨ rlps ψR) = d.blockRds m₀ elimL t' ψR :=
@@ -569,17 +564,17 @@ theorem blockRecRuleLawG {env₀ env₃ : Env} {m₀ : EnvModel V env₀} (m₃ 
   have hiotaR := hiota ψR
   generalize hψ' : restrictΨ rlps ψR = ψ' at hφ hrdsR' hiotaR hRaValR
   -- the leaves, their values
-  have hRcl : ∀ t', t' < d.k → Term.bvarsBelow 0 (d.recLeaf m₀ elimL s rlps t' ψR).erase :=
+  have hRcl : ∀ t', t' < d.k → Term.bvarsBelow 0 (Leaf t' ψR).erase :=
     fun t' ht' => hleafCl t' ht' ψR
   have hRok : ∀ t', t' < d.k → ∀ σ : Nat → V,
-      WellDenotedV V σ (d.recLeaf m₀ elimL s rlps t' ψR) :=
+      WellDenotedV V σ (Leaf t' ψR) :=
     fun t' ht' σ => (hleaf t' ht' ψR σ).1
   -- **the right-hand side is graded**
   have hokRa : ∀ ρ : Nat → V, WellDenotedV V ρ
-      (d.ruleRhsAV m₀ elimL (fun t' => d.recLeaf m₀ elimL s rlps t' ψR) t j cA.2 ψ') := by
+      (d.ruleRhsAV m₀ elimL (fun t' => Leaf t' ψR) t j cA.2 ψ') := by
     intro ρ
     refine hreps.ruleRhs_wdV hnp (hfT ψ') (hcT ψ') (fun n ρ' => hval n ψ' ρ') (hR ψ') (hokT ψ') ρ
-      (rs := (List.range d.k).map fun t' => interp V ρ (d.recLeaf m₀ elimL s rlps t' ψR))
+      (rs := (List.range d.k).map fun t' => interp V ρ (Leaf t' ψR))
       (by simp) (fun mm hmm => ?_) hRcl hRok (fun t' ht' σ => ?_) ht hj
     · rw [getD_range_map' _ _ _ hmm]
       have hm := (hleaf mm hmm ψR ρ).2
@@ -636,12 +631,12 @@ theorem blockRecRuleLawG {env₀ env₃ : Env} {m₀ : EnvModel V env₀} (m₃ 
   have hbits : ∀ q ∈ d.ruleData m₀ elimL t j ψ', q.1 = pwBit ψ' (Level.zeronessOf elimL) :=
     fun q hq => mem_mutualRuleDataAV hq
   have hb : pwBit ψ' (Level.zeronessOf elimL) = 0 ↔ elimL.eval ψ' = 0 := pwBit_zeronessOf ψ' elimL
-  have hleafR' : m₃.acval cvRa.name ψR = d.recLeaf m₀ elimL s rlps t ψR := hleafR ψR
+  have hleafR' : m₃.acval cvRa.name ψR = Leaf t ψR := hleafR ψR
   try simp only [RecRule.ctor, RecRule.ctorParams] at hyl ⊢
   rw [hleafR']
   by_cases hℓ0 : elimL.eval ψ' = 0
   · -- **the `Prop` regime**: both sides are the point
-    have hRpt : interp V ρ (d.recLeaf m₀ elimL s rlps t ψR) = pt := by
+    have hRpt : interp V ρ (Leaf t ψR) = pt := by
       have hmem := (hleaf t ht ψR ρ).2
       rw [← hrdsR' t ht] at hmem
       refine eq_pt_of_mem_univZero ?_ hmem
@@ -652,7 +647,7 @@ theorem blockRecRuleLawG {env₀ env₃ : Env} {m₀ : EnvModel V env₀} (m₃ 
         rw [(hRD.bits ψ' q (by rw [hrds]; exact List.mem_cons_self)).mp hℓ0]
         exact piR_zero_mem_univZero
     have hRaPt : interp V ρ
-        (d.ruleRhsAV m₀ elimL (fun t' => d.recLeaf m₀ elimL s rlps t' ψR) t j cA.2 ψ') = pt := by
+        (d.ruleRhsAV m₀ elimL (fun t' => Leaf t' ψR) t j cA.2 ψ') = pt := by
       unfold BlockModel.ruleRhsAV
       cases hlds : d.ruleData m₀ elimL t j ψ' with
       | nil => rw [hlds] at hrdLen; simp at hrdLen; omega
@@ -710,11 +705,11 @@ theorem blockRecRuleLawG {env₀ env₃ : Env} {m₀ : EnvModel V env₀} (m₃ 
     have hisEq : (d.esF t j ψ').map (interp V (consList fsY (consList ps ρ))) = is :=
       h.es_eq_is hρp hj his hchain.2
     -- the tuple of the leaves' values
-    have hlenrs : ((List.range d.k).map fun t' => interp V ρ (d.recLeaf m₀ elimL s rlps t' ψR)).length
+    have hlenrs : ((List.range d.k).map fun t' => interp V ρ (Leaf t' ψR)).length
         = d.k := by simp
     have hρcD : ∀ t', t' < d.k →
-        consList ((List.range d.k).map fun t' => interp V ρ (d.recLeaf m₀ elimL s rlps t' ψR)) ρ
-          (d.k - 1 - t') = interp V ρ (d.recLeaf m₀ elimL s rlps t' ψR) := by
+        consList ((List.range d.k).map fun t' => interp V ρ (Leaf t' ψR)) ρ
+          (d.k - 1 - t') = interp V ρ (Leaf t' ψR) := by
       intro t' ht'
       rw [consList_apply_lt' _ _ (by rw [hlenrs]; omega), hlenrs,
         show d.k - 1 - (d.k - 1 - t') = t' from by omega, getD_range_map' _ _ _ ht']
@@ -767,7 +762,7 @@ theorem blockRecRuleLawG {env₀ env₃ : Env} {m₀ : EnvModel V env₀} (m₃ 
       have hlift := domsBelow_liftDoms (n := (d.recLs m₀ ψ').length + (d.recCds ψ').length) (kk := 0) hdrop
       exact domsBelow_rebit (domsBelow_mono (by rw [(hR ψ').lsLen, (hR ψ').cdsLen]; omega) hlift)
     have hfitσ : SpineFit (consList ((List.range d.k).map fun t' =>
-        interp V ρ (d.recLeaf m₀ elimL s rlps t' ψR)) ρ)
+        interp V ρ (Leaf t' ψR)) ρ)
         ((d.ruleData m₀ elimL t j ψ').map (·.2)) (ps ++ Msl ++ msl ++ fsY) := by
       have hfitρ' := hfitρ
       unfold BlockModel.ruleData at hfitρ' ⊢
@@ -775,42 +770,42 @@ theorem blockRecRuleLawG {env₀ env₃ : Env} {m₀ : EnvModel V env₀} (m₃ 
       exact spineFit_transport₀ hL0 hfitρ'
     -- **the equation** at the recursor's own parameter spine
     have hEq := blockRecs_iota (k := d.k)
-      (a := fun t' => interp V ρ (d.recLeaf m₀ elimL s rlps t' ψR))
+      (a := fun t' => interp V ρ (Leaf t' ψR))
       (hiotaR ρ _ (d.mem_specEqs_of ht hj)) _ hfitσ
     -- the frames
     have hfrσ : consList (ps ++ Msl ++ msl ++ fsY)
-        (consList ((List.range d.k).map fun t' => interp V ρ (d.recLeaf m₀ elimL s rlps t' ψR)) ρ)
+        (consList ((List.range d.k).map fun t' => interp V ρ (Leaf t' ψR)) ρ)
         = consList fsY (consList msl (consList Msl (consList ps
-          (consList ((List.range d.k).map fun t' => interp V ρ (d.recLeaf m₀ elimL s rlps t' ψR)) ρ)))) := by
+          (consList ((List.range d.k).map fun t' => interp V ρ (Leaf t' ψR)) ρ)))) := by
       simp only [consList_append]
     have hfrρ : consList (ps ++ Msl ++ msl ++ fsY) ρ
         = consList fsY (consList msl (consList Msl (consList ps ρ))) := by
       simp only [consList_append]
     -- the left-hand side of the equation is the recursor's value at the spine
     have hpsC : SpineFit (consList ((List.range d.k).map fun t' =>
-        interp V ρ (d.recLeaf m₀ elimL s rlps t' ψR)) ρ) (d.params ψ') ps := by
+        interp V ρ (Leaf t' ψR)) ρ) (d.params ψ') ps := by
       have hbP : DomsBelow 0 (rebit (pwBit ψ' (Level.zeronessOf elimL)) (d.recPps ψ')) :=
         DomsBelow.append_left (DomsBelow.append_left hbelowPre)
       have := spineFit_transport₀ hbP (ρ₁ := ρ)
         (ρ₂ := consList ((List.range d.k).map fun t' =>
-          interp V ρ (d.recLeaf m₀ elimL s rlps t' ψR)) ρ)
+          interp V ρ (Leaf t' ψR)) ρ)
         (by rw [rebit_map_dom, (hR ψ').ppsDom]; exact hF.params)
       rw [rebit_map_dom, (hR ψ').ppsDom] at this
       exact this
     have hfs' : SpineFit (consList ps (consList ((List.range d.k).map fun t' =>
-        interp V ρ (d.recLeaf m₀ elimL s rlps t' ψR)) ρ)) ((d.Fss t ψ').getD j []) fsY := by
+        interp V ρ (Leaf t' ψR)) ρ)) ((d.Fss t ψ').getD j []) fsY := by
       rw [IsBlockModel.Fss_getD hj] at hfs ⊢
       exact spineFit_transport (DomsBelow.drop d.nP (hcd.below ψ')) (by rw [hlenps, Nat.zero_add]) hfs
     have hlhs : interp V (consList (ps ++ Msl ++ msl ++ fsY)
-        (consList ((List.range d.k).map fun t' => interp V ρ (d.recLeaf m₀ elimL s rlps t' ψR)) ρ))
+        (consList ((List.range d.k).map fun t' => interp V ρ (Leaf t' ψR)) ρ))
         (specLhsAV d.k d.nP d.nCtors cA.2 t (d.esF t j ψ') (m₀.acval cA.1.name ψ'))
         = (ps ++ Msl ++ msl ++ is ++ [tv]).foldl SetTheory.app
-          (interp V ρ (d.recLeaf m₀ elimL s rlps t ψR)) := by
+          (interp V ρ (Leaf t ψR)) := by
       rw [hfrσ, interp_specLhsAV_at hlenps hF.mslLen hF.minsLen hlenFY, hρcD t ht]
       congr 1
       -- the index readings and the constructor's application
       have hEsρ : (d.esF t j ψ').map (interp V (consList fsY (consList ps
-          (consList ((List.range d.k).map fun t' => interp V ρ (d.recLeaf m₀ elimL s rlps t' ψR)) ρ))))
+          (consList ((List.range d.k).map fun t' => interp V ρ (Leaf t' ψR)) ρ))))
           = (d.esF t j ψ').map (interp V (consList fsY (consList ps ρ))) := by
         apply List.map_congr_left
         intro E hE
@@ -820,34 +815,34 @@ theorem blockRecRuleLawG {env₀ env₃ : Env} {m₀ : EnvModel V env₀} (m₃ 
           interp V σ (m₀.acval cA.1.name ψ') = interp V σ' (m₀.acval cA.1.name ψ') :=
         fun σ σ' => interp_closed (V := V) (m₀.cval_closedL _ ψ') σ σ'
       have hrng : (List.range d.nP).reverse.map (consList ps
-          (consList ((List.range d.k).map fun t' => interp V ρ (d.recLeaf m₀ elimL s rlps t' ψR)) ρ)) = ps := by
+          (consList ((List.range d.k).map fun t' => interp V ρ (Leaf t' ψR)) ρ)) = ps := by
         rw [← hlenps]; exact range_reverse_map_consList ps _
       have hargsC : (paramBvarsAt d.nP (d.nP + d.k + d.nCtors + cA.2) ++ fieldBvars cA.2).map
           (interp V (consList fsY (consList msl (consList Msl (consList ps
-            (consList ((List.range d.k).map fun t' => interp V ρ (d.recLeaf m₀ elimL s rlps t' ψR)) ρ))))))
+            (consList ((List.range d.k).map fun t' => interp V ρ (Leaf t' ψR)) ρ))))))
           = ps ++ fsY := by
         rw [List.map_append, show d.nP + d.k + d.nCtors + cA.2 = d.nP + (d.k + d.nCtors + cA.2) from by omega,
           map_paramBvarsAt_interp (ρp := consList ps (consList ((List.range d.k).map fun t' =>
-            interp V ρ (d.recLeaf m₀ elimL s rlps t' ψR)) ρ)) (fun j' => by
+            interp V ρ (Leaf t' ψR)) ρ)) (fun j' => by
             rw [show j' + (d.k + d.nCtors + cA.2) = ((j' + Msl.length) + msl.length) + fsY.length from by
                 rw [hF.mslLen, hF.minsLen, hlenFY]; omega,
               consList_apply_add, consList_apply_add, consList_apply_add]),
           show fieldBvars cA.2 = (List.range cA.2).map (fun k => AnnotTerm.bvar (cA.2 - 1 - k)) from rfl,
           map_fieldBvars_interp hlenFY, hrng]
       have hC : interp V (consList fsY (consList msl (consList Msl (consList ps
-          (consList ((List.range d.k).map fun t' => interp V ρ (d.recLeaf m₀ elimL s rlps t' ψR)) ρ)))))
+          (consList ((List.range d.k).map fun t' => interp V ρ (Leaf t' ψR)) ρ)))))
           (AnnotTerm.mkAppN (m₀.acval cA.1.name ψ')
             (paramBvarsAt d.nP (d.nP + d.k + d.nCtors + cA.2) ++ fieldBvars cA.2)) = d.inj ψ' t j fsY := by
         rw [interp_mkAppN, ← List.foldl_map (f := interp V (consList fsY (consList msl (consList Msl
           (consList ps (consList ((List.range d.k).map fun t' =>
-            interp V ρ (d.recLeaf m₀ elimL s rlps t' ψR)) ρ)))))) (g := SetTheory.app), hargsC,
-          hCval _ (consList ((List.range d.k).map fun t' => interp V ρ (d.recLeaf m₀ elimL s rlps t' ψR)) ρ)]
+            interp V ρ (Leaf t' ψR)) ρ)))))) (g := SetTheory.app), hargsC,
+          hCval _ (consList ((List.range d.k).map fun t' => interp V ρ (Leaf t' ψR)) ρ)]
         exact h.ctor t j cA ht hj ψ' _ ps fsY hpsC hfs'
       rw [hEsρ, hisEq, hC, ← hCinj]
     -- the right-hand side of the equation is the rule's core with the leaves, at the frame
     have hcl : Term.bvarsBelow (ps ++ Msl ++ msl ++ fsY).length
         (mutualRuleCoreAV (pwBit ψ' (Level.zeronessOf elimL))
-          (fun t' => d.recLeaf m₀ elimL s rlps t' ψR) (d.tgts t j) d.nP d.k d.nCtors cA.2
+          (fun t' => Leaf t' ψR) (d.tgts t j) d.nP d.k d.nCtors cA.2
           (d.minorIdx t j) (ConLeche.recIdxOf (d.ksF t j)) (d.tssF t j ψ') (d.eissF t j ψ')).erase := by
       refine mutualRuleCoreAV_below
         (fun i hi => hRcl _ (h.tgt_lt hj' (mem_recIdxOf.mp hi).1 hnp)) hk (fun i hi => ?_)
@@ -858,32 +853,32 @@ theorem blockRecRuleLawG {env₀ env₃ : Env} {m₀ : EnvModel V env₀} (m₃ 
     have hagreeF : ∀ i, i < (ps ++ Msl ++ msl ++ fsY).length →
         consList fsY (consList msl (consList Msl (consList ps ρ))) i
           = consList fsY (consList msl (consList Msl (consList ps
-            (consList ((List.range d.k).map fun t' => interp V ρ (d.recLeaf m₀ elimL s rlps t' ψR)) ρ)))) i := by
+            (consList ((List.range d.k).map fun t' => interp V ρ (Leaf t' ψR)) ρ)))) i := by
       rw [← hfrσ, ← hfrρ]
       exact consList_agree_below _ _ _
     have hbr : ∀ i ∈ ConLeche.recIdxOf (d.ksF t j), ∀ bs : List V,
         bs.length = ((d.tssF t j ψ').getD i []).length →
         interp V (consList bs (consList fsY (consList msl (consList Msl (consList ps
-          (consList ((List.range d.k).map fun t' => interp V ρ (d.recLeaf m₀ elimL s rlps t' ψR)) ρ))))))
+          (consList ((List.range d.k).map fun t' => interp V ρ (Leaf t' ψR)) ρ))))))
             (tupleVarAV d.k (d.nP + d.k + d.nCtors + cA.2 + ((d.tssF t j ψ').getD i []).length)
               (d.tgts t j i))
           = interp V (consList bs (consList fsY (consList msl (consList Msl (consList ps
-            (consList ((List.range d.k).map fun t' => interp V ρ (d.recLeaf m₀ elimL s rlps t' ψR)) ρ))))))
-            (d.recLeaf m₀ elimL s rlps (d.tgts t j i) ψR) := by
+            (consList ((List.range d.k).map fun t' => interp V ρ (Leaf t' ψR)) ρ))))))
+            (Leaf (d.tgts t j i) ψR) := by
       intro i hiI bs hbs
       have htgt : d.tgts t j i < d.k := h.tgt_lt hj' (mem_recIdxOf.mp hiI).1 hnp
       rw [← hbs, interp_tupleVarAV_at hlenps hF.mslLen hF.minsLen hlenFY, hρcD _ htgt]
       exact (interp_closed V (hRcl _ htgt) _ _).symm
     have hrhs : interp V (consList (ps ++ Msl ++ msl ++ fsY)
-        (consList ((List.range d.k).map fun t' => interp V ρ (d.recLeaf m₀ elimL s rlps t' ψR)) ρ))
+        (consList ((List.range d.k).map fun t' => interp V ρ (Leaf t' ψR)) ρ))
         (specRuleCoreAV (pwBit ψ' (Level.zeronessOf elimL)) d.k (d.tgts t j) d.nP d.nCtors cA.2
           (d.minorIdx t j) (ConLeche.recIdxOf (d.ksF t j)) (d.tssF t j ψ') (d.eissF t j ψ'))
         = interp V (consList (ps ++ Msl ++ msl ++ fsY) ρ)
           (mutualRuleCoreAV (pwBit ψ' (Level.zeronessOf elimL))
-            (fun t' => d.recLeaf m₀ elimL s rlps t' ψR) (d.tgts t j) d.nP d.k d.nCtors cA.2
+            (fun t' => Leaf t' ψR) (d.tgts t j) d.nP d.k d.nCtors cA.2
             (d.minorIdx t j) (ConLeche.recIdxOf (d.ksF t j)) (d.tssF t j ψ') (d.eissF t j ψ')) := by
       rw [hfrσ, interp_specRuleCoreAV_leaf (b := pwBit ψ' (Level.zeronessOf elimL))
-        (J := d.minorIdx t j) (Eiss := d.eissF t j ψ') hbr, hfrρ]
+        (J := d.minorIdx t j) (Eiss := d.eissF t j ψ') (Rof := fun t' => Leaf t' ψR) hbr, hfrρ]
       exact (interp_congr_below V _ _ _ _ hcl hagreeF).symm
     refine ⟨?_, ?_⟩
     · -- **the law**
