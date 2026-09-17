@@ -463,6 +463,144 @@ theorem BlockModel.slotDomT_relMeet {env : Env} {m : EnvModel V env} {dK : Block
     (fun c hc => relMeet_mem (hI0.famAt_mem hρ (lfpTuple_mem _ _ _ _) hc))
     (fun c _ => relMeet_le_base _ _ _ _ _ _)
 
+/-- **A block pin that is the image of one of the ROOT's OWN pins is
+its partner** (task #315 L-E, DESIGN §U.65 — `InstanceCovered`'s
+second case): `PinCorr` at the block's target `D.k + q` and the root
+container's own pin `qK` — the target's recorded container, level
+arguments, components, index universe and index telescope are that own
+pin's, instantiated at the root pin's components — gives `ClassPin` at
+the PIN class `dR.k + qK`.
+
+This is the MODEL FACE of K.41's record: the kernel's
+`nestedPinRootPairOk` certifies ONE equality of recorded pin TERMS
+(`containerOwnPinsAt` instantiates the mimic recursor's binders at the
+root pin's components, so an own pin comes out `Ds`-substituted), and
+an equality of pin terms is exactly a `PinCorr` at the data the term
+spells — the container (`J`), the level arguments (`lvls`) and the
+components (`Ds`/`DsE`), with `u` and `Ids` following from the
+container.  The same datum is what the copies' `pinF` arm already
+produces at an OWN edge, so the two cases of the covering speak one
+language.
+
+The auxiliary premises are all available where the covering is used:
+`hψR` is the root pin's own `pinψ` (its level assignment IS the
+substitution of its level arguments), `hψD`/`hψK` are the two sides'
+`pinψ`, and `hIdsBelow` is the container member's index telescope over
+its parameters (`FormerData.below`).  Note that the `allParamsDefined`
+scope `targetPin_corr` needs is NOT needed here: both sides' level
+assignments come from `pinψ`, so the algebra is
+`Level.substFn_map_subst` alone.
+
+**The level half is unexercised by the corpus** (K.41's own caveat:
+blanking the levels fires on no cone block), so `psi` below leans on a
+conjunct nothing measures; `frame` and `idx` lean on the components,
+which are load-bearing at every instance. -/
+theorem classPin_of_pinCorr {env : Env} {m : EnvModel V env} {D dR : BlockModel V}
+    {ψ ψR : Name → Nat} {ρp ρR : Nat → V} {Ds₀ : List AnnotTerm}
+    {lpsK : List Name} {lvlsK : List Level} {q qK : Nat}
+    (hq : q < D.nPins) (hqK : qK < dR.nPins)
+    (hcorr : PinCorr (D.targetView m.acval ψ) m.acval dR ψR Ds₀ lpsK lvlsK (D.k + q) qK)
+    (hρR : ρR = consList (Ds₀.map (interp V ρp)) ρp)
+    (hψR : ψR = Level.substFn ψ lpsK lvlsK)
+    (hψD : ∀ (cvT : ConstantVal) (caps : IndCaps),
+      env.find? (D.pinAt q).J = some (.indInfo cvT caps) →
+      ∀ ψ' : Name → Nat, (D.pinAt q).ψJ ψ' = Level.substFn ψ' cvT.levelParams (D.pinAt q).lvls)
+    (hψK : ∀ (cvT : ConstantVal) (caps : IndCaps),
+      env.find? (dR.pinAt qK).J = some (.indInfo cvT caps) →
+      (dR.pinAt qK).lvls.length = cvT.levelParams.length ∧
+      ∀ ψ' : Name → Nat,
+        (dR.pinAt qK).ψJ ψ' = Level.substFn ψ' cvT.levelParams (dR.pinAt qK).lvls)
+    (hDsLen : (D.pinAt q).nPJ ≤ ((D.pinAt q).Ds ψ).length)
+    (hIdsBelow : FieldsBelow (((dR.pinAt qK).Ds ψR).map (interp V ρR)).length
+      ((dR.pinAt qK).Ids ψR)) :
+    ClassPin env D dR ψ ψR ρp ρR (dR.k + qK) q := by
+  obtain ⟨hEA, hDs, hu, hIds, hJ, hlvls⟩ := hcorr
+  have hnk : ¬ D.k + q < D.k := by omega
+  have hsub : D.k + q - D.k = q := by omega
+  -- the target view's data at the pin
+  have hJ' : (D.pinAt q).J = (dR.pinAt qK).J := by
+    have : (D.targetView m.acval ψ).J (D.k + q) = (D.pinAt q).J := by
+      show (if D.k + q < D.k then _ else (D.pinAt (D.k + q - D.k)).J) = _
+      rw [if_neg hnk, hsub]
+    rw [← this]; exact hJ
+  have hlvls' : (D.pinAt q).lvls = ((dR.pinAt qK).lvls).map (Level.subst lpsK lvlsK) := by
+    have : (D.targetView m.acval ψ).lvls (D.k + q) = (D.pinAt q).lvls := by
+      show (if D.k + q < D.k then _ else (D.pinAt (D.k + q - D.k)).lvls) = _
+      rw [if_neg hnk, hsub]
+    rw [← this]; exact hlvls
+  have hu' : (D.pinAt q).u ψ = (dR.pinAt qK).u ψR := by
+    have : (D.targetView m.acval ψ).u (D.k + q) = (D.pinAt q).u ψ := by
+      show D.uT (D.k + q) ψ = _
+      rw [BlockModel.uT_of_pin hnk ψ, hsub]
+    rw [← this]; exact hu
+  have hIds' : (D.pinAt q).Ids ψ = (dR.pinAt qK).Ids ψR := by
+    have : (D.targetView m.acval ψ).Ids (D.k + q) = (D.pinAt q).Ids ψ := by
+      show D.IdsT (D.k + q) ψ = _
+      rw [BlockModel.IdsT_of_pin hnk ψ, hsub]
+    rw [← this]; exact hIds
+  have hDs' : (D.pinAt q).Ds ψ = ((dR.pinAt qK).Ds ψR).map (AnnotTerm.instAll Ds₀ 0) := by
+    have : (D.targetView m.acval ψ).Ds (D.k + q) = (D.pinAt q).Ds ψ := by
+      show (D.pinAt (D.k + q - D.k)).Ds ψ = _
+      rw [hsub]
+    rw [← this]; exact hDs
+  -- the components' VALUES are one list
+  have hvals : ((D.pinAt q).Ds ψ).map (interp V ρp)
+      = ((dR.pinAt qK).Ds ψR).map (interp V ρR) := by
+    rw [hDs', List.map_map, hρR]
+    refine List.map_congr_left fun Dc _ => ?_
+    show interp V ρp (AnnotTerm.instAll Ds₀ 0 Dc) = _
+    have := interp_instAll Ds₀ [] ρp Dc
+    simpa using this
+  refine ⟨(by show dR.k + qK < dR.k + dR.nPins; omega), hq, ?_, ?_, ?_, ?_⟩
+  · rw [dR.nameT_of_pin (by omega), Nat.add_sub_cancel_left]
+    exact hJ'.symm
+  · intro cvT caps hfind r hr
+    rw [dR.psiT_of_pin ψR (by omega), Nat.add_sub_cancel_left]
+    rw [hJ'] at hfind
+    obtain ⟨hvlen, hlaw⟩ := hψK cvT caps hfind
+    rw [hψD cvT caps (by rw [hJ']; exact hfind) ψ, hlvls',
+      Level.substFn_map_subst hvlen hr, hψR, hlaw]
+  · intro v hv
+    rw [dR.frameT_of_pin (show ¬ dR.k + qK < dR.k by omega) ψR ρR, Nat.add_sub_cancel_left]
+    unfold BlockModel.pinFrame
+    rw [← hvals]
+    have hvl : v < (((D.pinAt q).Ds ψ).map (interp V ρp)).length := by
+      rw [List.length_map]; omega
+    rw [consList_getD_lt _ _ v hvl, consList_getD_lt _ _ v hvl]
+  · rw [dR.idxT_of_pin (show ¬ dR.k + qK < dR.k by omega) ψR ρR, Nat.add_sub_cancel_left]
+    unfold BlockModel.pinIdx BlockModel.pinFrame
+    rw [hu', hIds', ← hvals]
+    unfold idxSet
+    refine congrArg _ (teleOfFields_congr_below (k := (((D.pinAt q).Ds ψ).map (interp V ρp)).length)
+      ?_ (fun v hv => ?_))
+    · rw [hvals]; exact hIdsBelow
+    · rw [consList_getD_lt _ _ v hv, consList_getD_lt _ _ v hv]
+
+/-- **The covering, split at the root GROUP** (task #315 L-E, DESIGN
+§U.65): `InstanceCovered` at the root pin `r` from its two cases — a
+pin of the ROOT group is its own container member's partner
+(`classPin_of_rootMember`, no record), and every OTHER pin of the
+instance is the record's (`hothers`, which K.41's
+`nestedPinRootPairOk` discharges through `classPin_of_pinCorr`).
+
+`hgrp` — a pin whose mint group is the root's is one of `[r, r + kR)`
+— is the pin table's own bookkeeping (`NestedPinGroupSyn.grp` gives
+the other direction) and is cheap wherever the groups are in hand; the
+group base is a PARAMETER here, since the model's `PinSyn` does not
+carry it (it is `NestedPin.grpBase`, off the run). -/
+theorem instanceCovered_of_others {env : Env} {D dR : BlockModel V}
+    {ψ : Name → Nat} {ρp : Nat → V} {r kR : Nat} {inst grp : Nat → Nat}
+    (S : PinGroupView D dR r kR)
+    (hgrp : ∀ q, q < D.nPins → grp q = r → ∃ i, i < kR ∧ q = r + i)
+    (hothers : ∀ q, q < D.nPins → inst q = inst r → grp q ≠ r →
+      ∃ c, ClassPin env D dR ψ ((D.pinAt r).ψJ ψ) ρp (D.pinFrame r ψ ρp) c q) :
+    InstanceCovered env D dR ψ ((D.pinAt r).ψJ ψ) ρp (D.pinFrame r ψ ρp) inst r := by
+  intro q hq hinst
+  by_cases hb : grp q = r
+  · obtain ⟨i, hi, rfl⟩ := hgrp q hq hb
+    exact ⟨i, classPin_of_rootMember S hi⟩
+  · exact hothers q hq hinst hb
+
 /-! ## The extended carrier is least among the tuples closed under the classes' constructors -/
 
 /-- **A tuple over the classes closed under the classes' constructors**
