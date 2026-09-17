@@ -934,6 +934,57 @@ theorem NestedTailIn.framesAt {mpA : EnvModelM V μ ENVA} {cvRas : List Constant
     rw [I.nCtorsA_eq S, hnI] at hcon
     exact hcon
 
+/-! ### The readings at the tail -/
+
+/-- **THE READINGS AT THE TAIL, FRAMES AND ALL** (PLAN-M7 §1e): the
+fourteen clauses of `NestedRecReadings` at a tail input —
+`NestedTailIn.readings`' thirteen, its fourteenth (`ReadingFramesT`)
+`framesAt` at the scratch reading `NestedTailIn.scratch` supplies. -/
+theorem NestedTailIn.framesOf (hnames : NestedCtorPinNames env p st)
+    (hctorsJ : ∀ (q₀ kJ i : Nat) (dJ : BlockModel V), PG mp₂.base2 q₀ kJ dJ → i < kJ →
+      ∀ (ci : ContainerInfo) (J : ContainerMember),
+        ConLeche.containerInfo? env ((D).pinAt (q₀ + i)).J = some ci → J ∈ ci.members →
+        J.name = ((D).pinAt (q₀ + i)).J → (dJ.ctorsM i).map (·.1.name) = J.ctors.map (·.name))
+    (hK35 : NestedRecTysAuxOk p st b stored pinsS) :
+    ∃ (s : (Name → Nat) → Nat) (rdsM : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm))
+      (concM : Nat → AnnotTerm),
+      NestedRecReadings mp₂.base2 (D) PC cvRms cvRns b.rlps b.elimLevel s rdsM concM := by
+  obtain ⟨mpA, cvRas, S⟩ := I.scratch
+  refine I.readingsOf fun rdsM concM hread hlen ψ ρ c hc => ?_
+  have hcb : c < b.k := by rw [← I.kT]; exact hc
+  refine I.framesAt S hnames hctorsJ hK35 hcb ψ ρ (hread c ψ hc) ?_
+  have hlc := hlen c ψ hc
+  rw [nestedBlockModel_nP, I.kT, I.nCtorsT, I.nIdxT hcb] at hlc
+  omega
+
 end Run
+
+/-! ## The named fact -/
+
+/-- **K.35 AT THE RUN**: every read-back recursor type of a scratch
+install of the auxiliary block has, below its parameter prefix, the
+restore walk's shape (`NestedRecTysAuxOk`, `NestedRecFrames.lean`).
+A KERNEL-SIDE model face (PLAN-M7 §1a). -/
+@[expose] def NestedRecTysAuxOf (μ : CheckMode) (F : Nat) : Prop :=
+  ∀ (env : Env) (p : NestedParts) (st : ElimState) (b : MutualBlock) (envAux : Env)
+    (stored : List AuxStored) (pinsS : List PinSyn),
+    ConLeche.auxBlock p st = some b →
+    ConLeche.checkMutualCore (m := ConLeche.CheckM) (fueledOps μ F) env b none true = .ok envAux →
+    ConLeche.auxStoredAll envAux b b.k = some stored →
+    pinsS.length = st.pins.length →
+    NestedRecTysAuxOk p st b stored pinsS
+
+/-- **K.36 AT THE RUN**: a copy's constructor names round-trip through
+the container's (`NestedCtorPinNames`, `NestedRecCtor.lean`, T2).  A
+KERNEL-SIDE model face. -/
+@[expose] def NestedCtorPinNamesOf (μ : CheckMode) (F : Nat) : Prop :=
+  ∀ (env : Env) (p : NestedParts) (st : ElimState) (fmsA ctorsA₀ : List ConstantVal),
+    ConLeche.nestedAnnotFormers (m := ConLeche.CheckM) (fueledOps μ F) env p.nP p.formers
+      = .ok fmsA →
+    ConLeche.nestedAnnotCtors (m := ConLeche.CheckM) (fueledOps μ F)
+      (ConLeche.nestedFormerEnv fmsA env) p.ctors = .ok ctorsA₀ →
+    ConLeche.elimNested env p.nP p.lps (ConLeche.nestedTypes0 p fmsA ctorsA₀) = .ok st →
+    ConLeche.nestedContainersOk env st.pins = true →
+    NestedCtorPinNames env p st
 
 end ConLeche.Model
