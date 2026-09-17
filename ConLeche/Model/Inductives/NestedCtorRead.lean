@@ -390,7 +390,7 @@ structure ReadCtx (st : ElimState) (envAux : Env) (stored : List AuxStored)
         p.lps a.ctors)
     = .ok ctorsR
   PF : NestedPinFacts (V := V) (p := p) (b := b) (fms := fms) (f₀ := f₀) (ctorsA := ctorsA)
-    (kinds := kinds) (env := env) (ppsF := ppsF) (W := W) (idxF := idxF) (dsF := dsF)
+    (kinds := kinds) (env := env) (mp := mp) (ppsF := ppsF) (W := W) (idxF := idxF) (dsF := dsF)
     (esF := esF) (srcsF := srcsF) (fvsPF := fvsPF) (xrestF := xrestF) (eissF := eissF)
     (tssF := tssF) (ctorsR := ctorsR) (pinsS := pinsS) st mp₁'
 

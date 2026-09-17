@@ -191,6 +191,20 @@ structure NestedPinFacts (st : ElimState) (mp₁ : EnvModelM V μ ENV₁) : Prop
         (esF := esF) (srcsF := srcsF) (fvsPF := fvsPF) (xrestF := xrestF) (eissF := eissF)
         (tssF := tssF) (ctorsR := ctorsR) (dsR := dsR') (xFvsR := xFvsR') (pinsS := pinsS)
         mp₁.base2 q₀ kJ dJ
+  /-- **the same groups with their container's block model NAMED**
+  (task #315 M7-2, DESIGN §U.36 (d)): `NestedTailOut.groups` is the
+  consumer — the route's lift to `EnvModelB` needs the ASSIGNMENT
+  `blockOf mp.base2 ci`, not merely the existence of a model. -/
+  groupsAt : ∀ (dsR' : Nat → Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm))
+    (xFvsR' : Nat → Nat → List Expr) (q : Nat), q < pinsS.length →
+    ∀ ci : ConLeche.ContainerInfo,
+      ConLeche.containerInfo? env (pinsS.getD q default).J = some ci →
+      ∃ q₀ kJ i : Nat, q = q₀ + i ∧ i < kJ ∧
+        NestedPinGroup (V := V) (p := p) (b := b) (fms := fms) (f₀ := f₀) (ctorsA := ctorsA)
+          (kinds := kinds) (env := env) (ppsF := ppsF) (W := W) (idxF := idxF) (dsF := dsF)
+          (esF := esF) (srcsF := srcsF) (fvsPF := fvsPF) (xrestF := xrestF) (eissF := eissF)
+          (tssF := tssF) (ctorsR := ctorsR) (dsR := dsR') (xFvsR := xFvsR') (pinsS := pinsS)
+          mp₁.base2 q₀ kJ (blockOf mp.base2 ci)
 
 /-- **THE RESTORE READING LAW at one constructor** (`NestedReadLaw`'s
 conclusion, per restored constructor `(ctorsR.getD mm [])[j]? = some c`
@@ -317,7 +331,7 @@ container block model per group. -/
       = .ok ctorsR →
     ∃ pinsS : List PinSyn,
       NestedPinFacts (V := V) (p := p) (b := b) (fms := fms) (f₀ := f₀) (ctorsA := ctorsA)
-        (kinds := kinds) (env := env) (ppsF := ppsF) (W := W) (idxF := idxF) (dsF := dsF)
+        (kinds := kinds) (env := env) (mp := mp) (ppsF := ppsF) (W := W) (idxF := idxF) (dsF := dsF)
         (esF := esF) (srcsF := srcsF) (fvsPF := fvsPF) (xrestF := xrestF) (eissF := eissF)
         (tssF := tssF) (ctorsR := ctorsR) (pinsS := pinsS) st mp₁'
 
@@ -399,7 +413,7 @@ annotation erasure). -/
       = .ok ctorsR →
     ∀ pinsS : List PinSyn,
       NestedPinFacts (V := V) (p := p) (b := b) (fms := fms) (f₀ := f₀) (ctorsA := ctorsA)
-        (kinds := kinds) (env := env) (ppsF := ppsF) (W := W) (idxF := idxF) (dsF := dsF)
+        (kinds := kinds) (env := env) (mp := mp) (ppsF := ppsF) (W := W) (idxF := idxF) (dsF := dsF)
         (esF := esF) (srcsF := srcsF) (fvsPF := fvsPF) (xrestF := xrestF) (eissF := eissF)
         (tssF := tssF) (ctorsR := ctorsR) (pinsS := pinsS) st mp₁' →
       ∃ (dsR : Nat → Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm))
@@ -492,7 +506,7 @@ theorem nestedLoopFacts_of (hpins : NestedPinsStaged V μ F) (hread : NestedRead
       (dsR : Nat → Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm))
       (xFvsR : Nat → Nat → List Expr) (pinsS : List PinSyn),
       NestedLoopFacts (V := V) (p := p) (b := b) (fms := fms) (f₀ := f₀) (ctorsA := ctorsA)
-        (kinds := kinds) (env := env) (ppsF := ppsF) (W := W) (idxF := idxF) (dsF := dsF)
+        (kinds := kinds) (env := env) (mp := mp) (ppsF := ppsF) (W := W) (idxF := idxF) (dsF := dsF)
         (esF := esF) (srcsF := srcsF) (fvsPF := fvsPF) (xrestF := xrestF) (eissF := eissF)
         (tssF := tssF) (ctorsR := ctorsR) (dsR := dsR) (xFvsR := xFvsR) (pinsS := pinsS) st mp₁' mp₂ := by
   obtain ⟨pinsS, PF⟩ := hpins hμ mp hE p st b envAux stored ctorsR fmsA ctorsA₀ fms f₀ ctorsA sortss kinds mp₁ ppsF W idxF dsF
@@ -595,12 +609,21 @@ theorem nestedLoopFacts_of (hpins : NestedPinsStaged V μ F) (hread : NestedRead
     intro t ht
     rw [hName t ht, (hfind' t _ ht (fms_get (Nat.lt_of_lt_of_le ht hkle))).1]
     rfl
+  have hpinFound : ∀ q', q' < pinsS.length →
+      ((ENV₁).find? ((nestedBlockModel (V := V) p b fms f₀ ctorsA kinds env ppsF W idxF dsF esF
+        srcsF fvsPF xrestF eissF tssF ctorsR dsR xFvsR pinsS).pinAt q').J).isSome = true := by
+    intro q' hq'
+    obtain ⟨q₀', kJ', i', dJ', hqe', hi', G'⟩ := PF.groups dsR xFvsR q' hq'
+    obtain ⟨cv, caps, hf⟩ := G'.found hi'
+    rw [hqe', hf]
+    rfl
   refine ⟨mp₂, dsR, xFvsR, pinsS,
     { pinsLen := PF.pinsLen, pinRec := PF.pinRec, pinNP := PF.pinNP
       pinDs := fun q hq ψ => DenoteMetaSpine.transfer (fun e _ h => hde₂ ψ b.nP e h) (PF.pinDs q hq ψ)
       pinWd := PF.pinWd
       find := hF₂, pinψ := PF.pinψ, pinNIdx := PF.pinNIdx, hde := hde₂
-      leafKeep := ?_, agreeC := hag₂, ctorFacts := ?_, domFacts := ?_, groups := ?_ }⟩
+      leafKeep := ?_, agreeC := hag₂, ctorFacts := ?_, domFacts := ?_, groups := ?_
+      groupsAt := ?_ }⟩
   · -- the members' leaves
     intro t f ht hft
     exact hag₂ f.cvTa.name (hneR _ (by rw [(hfind' t f ht hft).1]; rfl))
@@ -648,11 +671,11 @@ theorem nestedLoopFacts_of (hpins : NestedPinsStaged V μ F) (hread : NestedRead
   · -- the groups, crossed
     intro q hq
     obtain ⟨q₀, kJ, i, dJ, hqe, hi, G⟩ := PF.groups dsR xFvsR q hq
-    refine ⟨q₀, kJ, i, dJ, hqe, hi, G.crossEnv hFne hres hagE hde₂ hfoundM (fun q' hq' => ?_)⟩
-    obtain ⟨q₀', kJ', i', dJ', hqe', hi', G'⟩ := PF.groups dsR xFvsR q' hq'
-    obtain ⟨cv, caps, hf⟩ := G'.found hi'
-    rw [hqe', hf]
-    rfl
+    exact ⟨q₀, kJ, i, dJ, hqe, hi, G.crossEnv hFne hres hagE hde₂ hfoundM hpinFound⟩
+  · -- the groups with the container's model NAMED, crossed the same way
+    intro q hq ci hci
+    obtain ⟨q₀, kJ, i, hqe, hi, G⟩ := PF.groupsAt dsR xFvsR q hq ci hci
+    exact ⟨q₀, kJ, i, hqe, hi, G.crossEnv hFne hres hagE hde₂ hfoundM hpinFound⟩
 
 end Consumer
 
