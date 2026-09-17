@@ -92253,3 +92253,218 @@ warning-free, layering / trust surface / no-local-paths /
 overview-links / quote-gate / proofdeps (0 doors) / shake and
 pub-imports / nested-shadow all green; standard axioms on every new
 theorem.
+
+#### U.73 — L-B session 15: the substitution law M7-3 is blocked on, and `NestedPinsShapeNoLam`'s obligations located in EXISTING kit (lane L-B, 2026-09-17)
+
+The brief was one law for another lane and then this lane's three
+residuals.  **The law is landed** (b).  `NestedPinsShapeNoLam` is NOT
+discharged, and the session's finding is why: K.42 does take the
+CIRCULAR leg out of the arm (§U.62 (a)'s leg 2), and what it leaves is
+a `normPosDomM_read_of` at a term the kernel NEVER checks — so the
+reading law's `WellDenoted` obligation had to be located somewhere
+else.  It is located, in the tree, at the CONTAINER's own record, and
+(d) names the whole chain lemma by lemma; K.42's own addressing is
+inverted here (c) so that what is left is exactly that chain.
+`NestedPinsShapeOrdRight` and `NestedPinsShapePinF` were not reached.
+
+##### (a) The merge
+
+`agent/uniform-315` 651413ab is a FAST-FORWARD onto this lane: the
+integration had already taken session 14's commits, so lane L-E's
+interface (the `TargetHead`-free `EntryRead`, `PinCorr`'s six recorded
+clauses, `CopyCtorShape` without `DsE`, `ordF`-left's fitting prefix)
+and the kernel's eight records arrived with no conflict to resolve and
+nothing in `NestedCopyInst.lean` to adapt.  Two of this lane's own
+requests are in that merge: **K.42** (§U.62 (c)) and
+**`ContainerModeled.nestMention`** (§U.62 (e)).
+
+##### (b) THE LAW, LANDED — `instPis_openers_subst`
+
+§U.70 (d) (C), at the spelling M7-3 asked for
+(`ConLeche/Verify/Inductives/NestedCopyInstU.lean`):
+
+```lean
+theorem instPis_openers_subst {T : Expr} {nP : Nat} {params pad Ds : List Expr} {R₀ : Expr}
+    (hf : T.hasFvar = false) (hb : T.looseBVarsBounded 0 = true)
+    (hplen : params.length = nP)
+    (hidx : ∀ j, j < nP → ∃ ty, params[j]? = some (Expr.fvar j ty))
+    (hDlen : Ds.length = nP) (hDcl : ∀ a ∈ Ds, a.looseBVarsBounded 0 = true)
+    (hpadb : ∀ a ∈ pad, a.looseBVarsBounded 0 = true)
+    (hpadf : ∀ a ∈ pad, a.hasFvar = false)
+    (h0 : Expr.instPis T (params ++ pad) = some R₀) :
+    Expr.instPis T (Ds ++ pad)
+      = some (Expr.instSeq Ds (nP - 1) (R₀.abstractRange 0 nP 0))
+```
+
+**Lane M7-3's `ContainerOwnPinsSyn.toRead` consumes it**, and
+`NestedPremise.lean` needs one plain `import
+ConLeche.Verify.Inductives.NestedCopyInstU` line to see it (the module
+is reachable from `NestedCopyInst.lean` but not from the premise; a
+non-`public` import re-exports nothing).  The hypotheses are the ones
+that lane already discharges for `instPisILP_frame`: `hf`/`hb` is
+K.47's stored mimic type, `hidx`/`hplen` the restore table's openers,
+`hDcl` the components (the elimination rejects a loose bound variable
+in one), `hpadb`/`hpadf` the sorts `containerOwnPinsAtGo` pads with.
+
+The bridge is a SIMULTANEOUS `fvar` SUBSTITUTION, `substFvarList`
+(`@[expose]`, because the consumer reads a pin off the instantiated
+recursor type node by node), with three laws — each of which the
+consumer may want in its own right, since
+`containerOwnPinsAtGo` extracts the pin from the instantiated
+telescope's major-premise DOMAIN rather than from the run as a whole:
+
+* `instSeq_abstractRange_substFvarList` — **the round trip at another
+  argument list**: `instSeq as (nP + c - 1) (e.abstractRange 0 nP c)`
+  IS the substitution, at any cursor `c` the term's loose bound
+  variables stay below.  `instSeq_abstractRange_fvs` (§U.33's exact
+  roundtrip) is its special case at the openers themselves, where the
+  substitution is the identity — which is the sense in which
+  `PinSyn.ownAt`'s per-component formula and the whole-run law are the
+  same algebra;
+* `instPis_substFvarList` — it commutes with a telescope
+  instantiation (the `∀`-binders peel on both sides);
+* `substFvarList_mkAppN` — it distributes over an application spine,
+  so the head and the first `nPJ` arguments of the domain travel
+  separately.
+
+The level half (§U.70 (d) (A)) is NOT in this law: it stays where M7-3
+put it, at the reading (`denoteMeta_instLevels`).  A SYNTACTIC
+`ilp`-commutation at the openers is not to be had for nothing —
+`instantiate1` does not descend into a `fvar`'s type annotation while
+`instantiateLevelParams` DOES, so the identity run's planted openers
+keep annotations the level substitution would rewrite, and the two
+runs agree only if those annotations are closed at the container's
+level parameters, which nothing records.
+
+##### (c) K.42, ADDRESSED — the record at one ordinary field
+
+K.42's own inversion is in the tree (`nestedPinChecks_inv`, the run
+record's conjunct); what the model needed on top is the ADDRESSING —
+the record is one flat `mapM` over a three-times-flattened job list,
+and the arm consumes it at ONE field of ONE constructor of ONE pin.
+Two theorems, `ConLeche/Verify/Inductives/NestedCopyNorm.lean`:
+
+* **`nestedOrdDomPairs_mem`** — the job list HOLDS the triple
+  `(p.nP + l, the MINTED domain, the STORED one)` at every ordinary
+  field.  It is the forward run of the kernel walk, and every
+  hypothesis is one of the walk's own lookups in the walk's own order
+  (the pin's type and its `src`, its stored record, the field kinds,
+  the container's `containerInfo?` and member, the level-arity guard,
+  the constructor pair, `mkCopy`'s `instPis`, and the three
+  `openPisAtFvars`) — so a consumer supplies them from reads it
+  already has.  Proved in `nestedPinEdges_mem`'s idiom
+  (`mapM_option_inv` + `List.mem_flatten`, three layers);
+* **`nestedOrdNorms_job`** — the recorded run at a job of the list IS
+  `normPosDomM`'s, the handler's `.internal` reclassification seen
+  through (`tryCatchThrow_ok`, the `tryCatchThe` inversion the tree
+  lacked).  The record's own comparison `ws = jobs.map (·.2.2)` is
+  load-bearing: without it the run gives SOME result at the job, not
+  the stored domain.
+
+**The walk's addressing does what its docstring claims** — nothing in
+K.42's shape had to be revisited, which is worth recording, since a
+flattened job list is exactly where a per-field record can turn out to
+be unusable.
+
+##### (d) FINDING — K.42 leaves ONE obligation that is not where §U.62 (c) put it, and the whole chain is in the tree
+
+§U.62 (c) sized the arm as "`normPosDomM_read_of` at the recorded run
+gives `interp (reading Fl₀) = interp (reading stored)`, and
+`mintFieldRead` is the other half".  That is right about the equality
+and wrong about what it costs, because `normPosDomM_read_of` has FOUR
+inputs besides the run, and the one that matters is
+
+```
+  hok : ∀ ρ, Sat V Δa ρ → WellDenotedV V ρ ea
+```
+
+**at the MINTED domain's reading — the one term in the block the
+kernel never type-checks.**  The install checks the REWRITTEN
+constructor (that is what `checkMutualCtors` runs on), so §U.62 (a)'s
+leg 1 had its `hok` for free from the block's own check; K.42 removes
+the circular leg 2 and, in the same move, asks for well-denotedness of
+a term no check ever saw.  Well-denotedness is never structural — it
+is `interp f ∈ˢ piR …` at every application — so it comes either from
+a kernel check (through `InferClaim`, the way `mutualCtorFrames` gets
+its `WellDenoted`s out of `checkMutualCtor`) or from a record.
+
+**It comes from a record, and the record is the CONTAINER's**, which
+is the good news of this session: the obligations are all reachable
+from kit that is already in the tree, and the arm needs no new kernel
+record after K.42.  The chain, lemma by lemma:
+
+1. `IsBlockModel.ctor_okB` (`Model/Inductives/BlockRecKit.lean`) — the
+   container's constructor's own fields are graded at a fitting
+   parameter frame: `FieldsOkB 0 ρp ((dJ.Fss i' ψJ).getD j [])`, out of
+   `CtorDataI.okTy` (`SumData.lean`, "the constructor's stored type's
+   `WellDenoted`") through `WellDenoted_mkPisAV_inv`.  `S.stored`
+   already hands this lane the container's `IsBlockModel`;
+2. `fieldsOkB_getD` (`Model/Inductives/StructEntryKit2.lean`) — the
+   `l`-th field's `WellDenoted` at a fitting PREFIX, and its fit
+   premise is **verbatim** lane L-E's fitting-prefix premise on
+   `ordF`'s left arm (§U.59 (d),
+   `SpineFit (consList (Ds.map (interp V ρp)) ρp) (((dJ.Fss i ψJ).getD j []).take l) fs₁`);
+3. the transport across the instantiation — the `WellDenoted` twin of
+   `interp_instAll` (`Semantics/Tower/InstAll.lean`), one induction
+   over `WellDenoted_inst` (`Semantics/WellDenoted.lean`), whose own
+   premise is that the COMPONENTS' readings are well-denoted (the
+   pins' typing at the prefix environment, K.30's third
+   `nestedPinsOk`).  This is the one lemma the chain adds, and it
+   belongs next to `interp_instAll`;
+4. `CtxOk` at the copy's context — `CtxOk.open` / `CtxOk.openS`
+   (`Model/CtxOkKit.lean`) once per opener, exactly as
+   `FixTeleBound.lean` builds a context under a telescope; the openers'
+   annotations ARE the minted domains, so each step's premise is the
+   previous field's reading, i.e. `mintFieldRead` at `l' < l`;
+5. `Sat V Δa (consList fs₁ ρp)` — the block's parameter frame (the
+   arm's own `hsat`) plus (2)'s fit, moved across the instantiation by
+   `interp_instAll`;
+6. the environments line up with NOTHING to prove:
+   `nestedOrdNorms` runs at `consNestedFormers (stored.take p.k) env`,
+   which `consNestedFormers_take_eq` identifies with
+   `consMutualFormers (fms.take p.k) env` — the environment `mp₁'` and
+   `mintFieldRead` already read in.  The arm's own readings are at
+   `mp₁`, and `R.crossUp` moves the finished equation up.
+
+So the residual is one session's plumbing and not a new record: the
+data-matching between the walk's `let`s and `copyOrdFLeft`'s
+(a dozen equalities, all named in (c)'s hypotheses), the `CtxOk` tower
+and the one `instAll` lemma.  What this session did NOT do is add the
+K.42 conjunct to `NestedPinsRun`: a record field with no consumer is
+worth nothing, and the field plus `nestedPinChecks_inv`'s existing
+clause is five lines once the arm exists.
+
+##### (e) The three residuals, after this session
+
+* `NestedPinsShapeNoLam` — OPEN, unblocked, chain in (d), ONE session.
+  K.42 is exactly the record §U.62 (c) asked for and nothing about it
+  needs revisiting;
+* `NestedPinsShapeOrdRight` — OPEN, not started.  L-E's `EntryRead` is
+  now reading-only (§U.61), so the arm is the container's ordinary
+  field domain read as a Π-tower whose body is the TARGET's stored
+  reading — `copyRecFRead`'s chain with the mimic's target in place of
+  a member;
+* `NestedPinsShapePinF` — OPEN, not started, and its missing clause
+  ARRIVED: `ContainerModeled.nestMention` (§U.62 (e)'s request) is in
+  the merge, so the occurrence chain of §U.62 (e) can be run.
+
+##### (f) GATES
+
+`lake build` 716 jobs warning-free; `lake test` 571 jobs warning-free;
+layering base 351 / model 282 / caps 3 / umbrella 1, 0 base->lane and
+0 impl->theory; trust surface 13 escapes in 5 allowlisted files (648
+scanned); no-local-paths OK; overview-links 112 links, no anchor
+moved; quote-gate 2; **proofdeps 4965 rows / 12 roots / 0 doors** —
+the baseline after the merge, unmoved (the session relocates nothing
+and its new objects reach no capstone); shake 511 removals, all
+allowlisted; pub-imports 1315 of 2144, none demotable;
+nested-shadow 27/27.  `tests/arena.sh` was not re-run: the session
+touches no checker code and the binary is byte-for-byte the merge's.
+Standard axioms on every new theorem — `instPis_openers_subst`,
+`instSeq_abstractRange_substFvarList`, `instPis_substFvarList`,
+`substFvarList_instantiate1`, `substFvarList_eq_self`,
+`substFvarList_mkAppN`, `nestedOrdDomPairs_mem`, `nestedOrdNorms_job`.
+Files: `Verify/Inductives/NestedCopyInstU.lean` (the law and
+`substFvarList`, one new plain `import ConLeche.Verify.AbstractRange`),
+`Verify/Inductives/NestedCopyNorm.lean` (K.42's addressing),
+`DESIGN.md`.
