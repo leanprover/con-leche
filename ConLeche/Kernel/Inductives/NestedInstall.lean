@@ -1511,42 +1511,75 @@ def nestedPinRankOf (env : Env) (p : NestedParts) (b : MutualBlock) (st : ElimSt
   | none => (List.range st.pins.length).map fun _ => 0
   | some edges => nestedPinRankFrom st edges (nestedPinInstFrom st edges)
 
-/-! ## A stored container's OWN pins (task #315 K.41, probe stage)
+/-! ## A stored container's OWN pins (task #315 K.41)
 
 A container installed by the nested route carries its own elimination's
 pins in the environment after all: the restore re-spells each MIMIC
 recursor `C₁.rec_j`'s major premise at the pin, so `C₁.rec_j`'s type,
 with its `mI` binders stripped, has as its next domain the container's
 own pin `K lvls Ds` applied to that copy's indices — which is exactly
-what `nestedFireShape` already reads on the fire path.  A container whose
-own declaration was NOT nested has no mimic and so no own pin, which is
-the honest answer for e.g. `Array` (a structure over `List α`).
+what `nestedFireShape` already reads on the fire path.  A container
+whose own declaration was NOT nested has no mimic and so no own pin,
+which is the honest answer for e.g. `Array` (a structure over
+`List α`). -/
 
-This reads the HEADS only, which is what the K.41 measurement needs. -/
+/-- **A stored container's own pins, AT A GIVEN INSTANTIATION**: read
+off its mimic recursors and already instantiated at `lvls`/`Ds` — the
+level arguments and components of the pin that names this container in
+the block.
 
-/-- The heads of a stored container's own pins, in mimic order: `none`
-if the container is not a recorded group, `some []` if its own
-declaration minted nothing. -/
-def containerOwnPinHeadsGo (env : Env) (base : Name) : Nat → Nat → List Name
+**There is no index arithmetic here, and that is deliberate.**  The
+naive reading — take the major premise's component arguments,
+`lowerBVars` them out of the recursor's motives, minors and indices,
+then re-instantiate at `Ds` — is exactly the arithmetic a
+twelve-instance corpus cannot validate.  It is avoided instead: a pin's
+components mention only the container's own PARAMETERS
+(`nestedFireShape`'s `looseBVarsBounded rP`; `pinsClosed` says the same
+of the block's), so instantiating ALL `mI` binders — the parameters at
+`Ds`, the motives, minors and indices at PADDING — leaves the
+components exactly `Ds`-substituted, with nothing lifted and nothing to
+lower.  `Expr.instPis` is a plain substitution, so the padding needs no
+type; and the level arguments come from `instantiateLevelParams` at the
+container FORMER's level parameters, which is where a pin's levels are
+scoped. -/
+def containerOwnPinsAtGo (env : Env) (base : Name) (lps : List Name)
+    (lvls : List Level) (Ds : List Expr) (nPr : Nat) : Nat → Nat → List Expr
   | 0, _ => []
   | fuel + 1, j =>
-    let nm := Name.appendIndexAfter base (j + 1)
-    match env.find? nm with
+    match env.find? (Name.appendIndexAfter base (j + 1)) with
     | some (.recInfo cvR mI _rP _rules) =>
-      let head : List Name :=
-        match cvR.type.stripPis mI with
-        | some (_, .forallE dom _ _) =>
-          match dom.getAppFn with
-          | .const K _ => [K]
+      let here : List Expr :=
+        if nPr ≤ mI && Ds.length == nPr then
+          let ty := cvR.type.instantiateLevelParams lps lvls
+          let pad := (List.range (mI - nPr)).map fun _ => Expr.sort Level.zero
+          match Expr.instPis ty (Ds ++ pad) with
+          | some (.forallE dom _ _) =>
+            match dom.getAppFn with
+            | .const K _ =>
+              match containerInfo? env K with
+              | some ciK => [Expr.mkAppN dom.getAppFn (dom.getAppArgs.take ciK.nP)]
+              | none => []
+            | _ => []
           | _ => []
-        | _ => []
-      head ++ containerOwnPinHeadsGo env base fuel (j + 1)
+        else []
+      here ++ containerOwnPinsAtGo env base lps lvls Ds nPr fuel (j + 1)
     | _ => []
 
-def containerOwnPinHeads (env : Env) (C : Name) : Option (List Name) := do
+/-- The container's own pins at the instantiation the block's pin
+records: `none` if the container is not a recorded group. -/
+def containerOwnPinsAt (env : Env) (C : Name) (lvls : List Level) (Ds : List Expr) :
+    Option (List Expr) := do
+  let .indInfo cvT _ := (← env.find? C) | none
   let ci ← containerInfo? env C
   let first ← ci.members.head?
-  pure (containerOwnPinHeadsGo env (first.name.str "rec") 64 0)
+  pure (containerOwnPinsAtGo env (first.name.str "rec") cvT.levelParams lvls Ds ci.nP 64 0)
+
+/-- A recorded pin's own level arguments and components, off the pin
+term the mint wrote (`replaceIfNested`: `pin = I lvls (args.take nP)`). -/
+def nestedPinLvlsDs (env : Env) (q : NestedPin) : Option (List Level × List Expr) := do
+  let .const _ lvls := q.pin.getAppFn | none
+  let ci ← containerInfo? env q.container
+  pure (lvls, q.pin.getAppArgs.take ci.nP)
 
 /-- **THE MINT PARENTS ARE WELL FOUNDED** (task #315 K.40, lane L-E's
 DESIGN §U.55): every recorded parent is an EARLIER pin.
@@ -1645,7 +1678,7 @@ no head reading anywhere.
 pairing is against the INSTANCE'S ROOT container, NOT the immediate mint
 parent.  In `nested_p04` the pins are `P4C`, `Array`, `List` in ONE
 instance with `P4C` the root, and the parent chain is
-`P4C → Array → List`; `containerOwnPinHeads` of the PARENT of the third
+`P4C → Array → List`; `containerOwnPinsAt` of the PARENT of the third
 pin — `Array`, a structure over `List α` — is `some []`, because
 `Array`'s own declaration is not nested and mints nothing.  It is
 `P4C`'s own pin list that is `[Array, List]`.  A pairing stated at the
@@ -1673,42 +1706,44 @@ def nestedPinRootGroup (env : Env) (p : NestedParts) (b : MutualBlock) (st : Eli
     | [g] => some g
     | _ => none
 
-/-- **THE PIN PAIRING AT A NOT-OWN EDGE, the `name` clause** (task #315
-K.41, lane L-E's DESIGN §U.61 finding 4): every pin of a container
-instance that is not one of the ROOT group's own members is a pin the
-ROOT CONTAINER's own elimination minted — its container is one of the
-root container's own pins' heads, read off the root's mimic recursors.
+/-- **THE PIN PAIRING AT A NOT-OWN EDGE** (task #315 K.41, lane L-E's
+DESIGN §U.61 finding 4): every pin of a container instance that is not
+one of the ROOT group's own members IS a pin the root container's own
+elimination minted, at the root pin's own level arguments and
+components.
 
-That is `ClassPin.name` at the pair, off the two RECORDED tables and
-with no term head read anywhere, which is what the refutation requires.
-The remaining three clauses (`psi`, `frame`, `idx`) are the same
-comparison carried to the own pin's LEVEL ARGUMENTS and COMPONENTS, and
-are stated in DESIGN `#### K.41`; they need the own pin's components
-lowered out of the recursor's binders (`nestedFireShape`'s
-`lowerBVars`) and instantiated at the root pin's own components, which
-is the next step.
+ONE equality of pin TERMS gives all four data of L-E's `ClassPin` at the
+pair — `name` (the head), `psi` (the level arguments), `frame` (the
+components) and `idx` (the index set, a function of the other three) —
+off the two RECORDED tables, with no term head read anywhere.  That is
+what the refutation requires: the syntactic route is false at the
+accepted fixture `nested_lam_pin_prop`, where the positivity `whnf`
+turns `(fun _ => T) trivial` into a member and the component's head is
+a λ.
 
 **It cannot fire**, and a failure is `.internal`: the block's
-elimination mints a pin only while rewriting a copy, and the copy it is
-rewriting is the root container's — whose own elimination pinned the
-same occurrence.  CERTIFICATION-ONLY: gated. -/
-def nestedPinRootHeadOk (env : Env) (p : NestedParts) (b : MutualBlock) (st : ElimState)
+elimination mints a pin only while rewriting a copy, and the copy is the
+root container's — whose own elimination pinned the same occurrence, at
+the components the copy was made at.  CERTIFICATION-ONLY: gated. -/
+def nestedPinRootPairOk (env : Env) (p : NestedParts) (b : MutualBlock) (st : ElimState)
     (stored : List AuxStored) : Bool :=
   let roots := nestedPinRootGroup env p b st stored
   (List.range st.pins.length).all fun q =>
     match roots.getD q none with
     | none => false
     | some g =>
-      if (st.pins.getD q default).grpBase == g then true
+      let qn := st.pins.getD q default
+      if qn.grpBase == g then true
       else
-        -- the root GROUP's containers' own pins, pooled: a mutual group
-        -- is minted at once and its members' eliminations share the
-        -- occurrence list
-        let rootHeads := ((List.range st.pins.length).filterMap fun i =>
-          if (st.pins.getD i default).grpBase == g then
-            containerOwnPinHeads env (st.pins.getD i default).container
+        -- the root GROUP's own pins, pooled: a mutual group is minted at
+        -- once and its members' eliminations share the occurrence list
+        let pool := ((List.range st.pins.length).filterMap fun i =>
+          let rn := st.pins.getD i default
+          if rn.grpBase == g then
+            (nestedPinLvlsDs env rn).bind fun ld =>
+              containerOwnPinsAt env rn.container ld.1 ld.2
           else none).flatten
-        rootHeads.contains (st.pins.getD q default).container
+        pool.contains qn.pin
 
 /-- **Check and install a recognised NESTED block** (see the module
 docstring): official's two syntactic front guards, the elimination, the
@@ -1862,10 +1897,11 @@ def checkNested (ops : CheckerOps m) (env : Env) (p : NestedParts) : m Env := do
     throw (.internal "nested: a pin's mint parent is not an earlier pin")
   -- **THE PIN PAIRING AT A NOT-OWN EDGE** (K.41): every pin of a
   -- container instance that is not one of the root group's own members
-  -- is a pin the ROOT CONTAINER's own elimination minted — `ClassPin`'s
-  -- `name` clause, off the two recorded tables.  CERTIFICATION-ONLY,
+  -- IS a pin the ROOT CONTAINER's own elimination minted, at the root
+  -- pin's own levels and components — all four of `ClassPin`'s data in
+  -- ONE equality, off the two recorded tables.  CERTIFICATION-ONLY,
   -- gated.  A failure is `.internal`.
-  unless certOnly ops.mode (nestedPinRootHeadOk env p b st stored) do
+  unless certOnly ops.mode (nestedPinRootPairOk env p b st stored) do
     throw (.internal "nested: a pin is not one the instance's root container pinned")
   let env₁ := consNestedFormers members env
   -- **POST-CHECK (a), A THIRD TIME** (K.30): the pins typed at the

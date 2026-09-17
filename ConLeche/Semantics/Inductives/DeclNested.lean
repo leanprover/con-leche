@@ -226,9 +226,10 @@ def DeclNestedRun (μ : CheckMode) (F : Nat) (env : Env)
     ConLeche.certOnly μ (ConLeche.nestedPinParentOk p st) = true ∧
     -- THE PIN PAIRING AT A NOT-OWN EDGE (K.41): every pin of a container
     -- instance that is not one of the root group's own members is a pin
-    -- the ROOT CONTAINER's own elimination minted — `ClassPin`'s `name`
-    -- clause, off the two recorded tables and no term head
-    ConLeche.certOnly μ (ConLeche.nestedPinRootHeadOk env p b st stored) = true ∧
+    -- the ROOT CONTAINER's own elimination minted, at the root pin's own
+    -- levels and components — all four of `ClassPin`'s data in ONE
+    -- equality, off the two recorded tables and no term head
+    ConLeche.certOnly μ (ConLeche.nestedPinRootPairOk env p b st stored) = true ∧
     -- POST-CHECK (a) A THIRD TIME (K.30): the pins typed at the
     -- environment holding the RESTORED formers — the model tier's own
     ConLeche.nestedPinsOk (m := CheckM) (fueledOps μ F)

@@ -1058,8 +1058,8 @@ theorem checkNested_inv {env envOut : Env} {p : NestedParts} {F : Nat}
       certOnly mode (nestedPinRankOk env p b st stored) = true ∧
       -- THE MINT PARENTS (K.40)
       certOnly mode (nestedPinParentOk p st) = true ∧
-      -- THE PIN PAIRING AT A NOT-OWN EDGE (K.41): `ClassPin`'s `name`
-      certOnly mode (nestedPinRootHeadOk env p b st stored) = true ∧
+      -- THE PIN PAIRING AT A NOT-OWN EDGE (K.41): all four of `ClassPin`'s
+      certOnly mode (nestedPinRootPairOk env p b st stored) = true ∧
       -- POST-CHECK (a) A THIRD TIME (K.30): the pins typed at the
       -- environment holding the RESTORED formers
       nestedPinsOk (m := CheckM) (fueledOps mode F)
@@ -1218,7 +1218,7 @@ theorem checkNested_inv {env envOut : Env} {p : NestedParts} {F : Nat}
   rw [if_pos hpa] at h
   try simp only [bind, Except.bind] at h
   by_cases hrh : certOnly (fueledOps mode F).mode
-      (nestedPinRootHeadOk env p b st stored) = true
+      (nestedPinRootPairOk env p b st stored) = true
   case neg => rw [if_neg hrh] at h; close_throw
   rw [if_pos hrh] at h
   try simp only [bind, Except.bind] at h
