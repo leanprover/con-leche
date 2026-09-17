@@ -87602,6 +87602,19 @@ boundary the ledger row names.  The source is kept at
 a declining fixture would need an expectation row for a decline that is
 not this route's.
 
+**IT IS A READY-MADE ACCEPTANCE TEST FOR THE M8 FLIP.**  The decline is
+the MODELLED route's, not the nested route's: the fold never reaches the
+install, because the in-process modeller cannot model a container whose
+own pins are themselves nested at these shapes.  When M8 deletes the
+modelled route and the dispatch takes the nested one, that decline is
+expected to DISAPPEAR and the block to be accepted — at which point the
+level half of K.41's instantiation becomes exercised and the third
+negative control below should start firing.  So whoever lands M8 should
+run `_tmp/uniform-m5/nested_poly_pin.lean` through `lean4export` and the
+fold as one of the flip's acceptance tests, and move it into
+`tests/e2e` with an `accept` row then (not before: today it would need
+an expectation row for a decline that is not this route's).
+
 **Ledger row**: CERT-ONLY, and this one is the closest to category
 **(B)** so far — official's `elim_nested_inductive_fn` mints exactly the
 same way and never checks it.  **Can an official-accepted violating
@@ -87620,3 +87633,62 @@ component rather than plain (S) — **and it closes by construction when
 M8 deletes the modelled route**, at which point the row becomes plain
 (S).  Recorded here so the boundary is not forgotten when the route
 goes.
+
+#### K.41's pairing, INVERTED (2026-09-17, task #315, lane L-E's DESIGN §U.64 (d) 2)
+
+K.41's Bool is stated over `List.range st.pins.length` and reads the
+root group off `nestedPinRootGroup`; lane L-E's `InstanceCovered`
+consumes it at ONE pin of ONE container instance.  Two theorems in
+`Verify/Inductives/NestedInv.lean` are that shape, and — like
+`nestedPinEdges_mem`, the precedent — they need NO new Bool: everything
+they hand over is one of `nestedPinRootPairOk`'s own lookups.
+
+**`nestedPinRootGroup_congr`** — the root group is a function of the
+INSTANCE, so that §U.64 (d) 2's "the instance rooted at `r`" and "the
+root group of `q`" are one quantifier:
+
+```lean
+theorem nestedPinRootGroup_congr (hq : q < st.pins.length) (hr : r < st.pins.length)
+    (h : (nestedPinInstOf env p b st stored).getD q 0
+        = (nestedPinInstOf env p b st stored).getD r 0) :
+    (nestedPinRootGroup env p b st stored).getD q none
+      = (nestedPinRootGroup env p b st stored).getD r none
+```
+
+(`nestedPinRootGroup` reads nothing of a pin but its instance label, so
+this is `getD_map_range_lt` twice and one rewrite.)
+
+**`nestedPinRootPairOk_inv`** — the pairing itself:
+
+```lean
+theorem nestedPinRootPairOk_inv
+    (h : nestedPinRootPairOk env p b st stored = true) {q : Nat} (hq : q < st.pins.length) :
+    ∃ g : Nat, (nestedPinRootGroup env p b st stored).getD q none = some g ∧
+      ((st.pins.getD q default).grpBase = g ∨
+        ∃ (i : Nat) (lvls : List Level) (Ds own : List Expr),
+          i < st.pins.length ∧
+          (st.pins.getD i default).grpBase = g ∧
+          nestedPinLvlsDs env (st.pins.getD i default) = some (lvls, Ds) ∧
+          containerOwnPinsAt env (st.pins.getD i default).container lvls Ds = some own ∧
+          (st.pins.getD q default).pin ∈ own)
+```
+
+**It is stronger than §U.64 (d) 2 asked for, and the difference is the
+`ownHeads` bridge.**  The request was written against `5cb6c0bd`'s
+heads-only `nestedPinRootHeadOk`, so its conclusion landed the pin's
+container in `containerOwnPinHeads env C` — a list of NAMES — and (d)
+then needed one more read-back clause (`ContainerModeled.ownHeads`) to
+turn a name into a pin index of the root's block model.  The Bool that
+landed compares pin TERMS, so the inversion hands over
+`(st.pins.getD q default).pin ∈ own` with `own` the root container's
+own pins ALREADY INSTANTIATED at the root pin's levels and components:
+`name` is the term's head, `psi` its level arguments, `frame` its
+components and `idx` a function of the three.  Whether `ownHeads` is
+still wanted is the model lanes' call — it is L-E's field and M7-3's
+proof obligation, and this lane does not build it.
+
+Both theorems' `#print axioms` is `[propext, Classical.choice,
+Quot.sound]`.  No checker code changed, so no measurement is due; the
+gates are the battery's (`tests/arena.sh` EXIT 0, nested-shadow 27/27,
+proofdeps 4955 rows / 12 roots / 0 doors, pub-imports 1309 of 2117,
+none demotable).

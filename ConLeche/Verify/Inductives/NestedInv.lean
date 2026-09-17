@@ -2295,4 +2295,69 @@ theorem nestedPinEdges_mem {env : Env} {p : NestedParts} {b : MutualBlock}
   subst hHl
   simp
 
+/-! ## K.41's PIN PAIRING, INVERTED (task #315, lane L-E's DESIGN §U.64 (d) 2)
+
+K.41's Bool is stated over `List.range st.pins.length` and reads the
+root group off `nestedPinRootGroup`; the model consumes it at ONE pin of
+ONE container instance.  These two theorems are that shape.
+
+The first says the root group is a function of the INSTANCE, so that
+"the instance rooted at `r`" and "the root group of `q`" are one
+quantifier — `nestedPinRootGroup` reads nothing of a pin but its
+instance label.  The second is the pairing: at a pin of the instance,
+either the pin is one of the root GROUP's own members, or its pin TERM
+is one the root container's own elimination minted, at the root pin's
+own level arguments and components — all four of `ClassPin`'s data
+(`name` the head, `psi` the levels, `frame` the components, `idx` a
+function of the three) in that ONE membership.  Every datum is one of
+`nestedPinRootPairOk`'s own lookups, so this costs no new check. -/
+
+theorem getD_map_range_lt {α : Type _} {n i : Nat} (f : Nat → α) (d : α) (hi : i < n) :
+    ((List.range n).map f).getD i d = f i := by
+  simp [List.getD_eq_getElem?_getD, hi]
+
+theorem nestedPinRootGroup_congr {env : Env} {p : NestedParts} {b : MutualBlock}
+    {st : ElimState} {stored : List AuxStored} {q r : Nat}
+    (hq : q < st.pins.length) (hr : r < st.pins.length)
+    (h : (nestedPinInstOf env p b st stored).getD q 0
+        = (nestedPinInstOf env p b st stored).getD r 0) :
+    (nestedPinRootGroup env p b st stored).getD q none
+      = (nestedPinRootGroup env p b st stored).getD r none := by
+  rw [nestedPinRootGroup]
+  simp only [getD_map_range_lt _ _ hq, getD_map_range_lt _ _ hr, h]
+
+theorem nestedPinRootPairOk_inv {env : Env} {p : NestedParts} {b : MutualBlock}
+    {st : ElimState} {stored : List AuxStored}
+    (h : nestedPinRootPairOk env p b st stored = true) {q : Nat} (hq : q < st.pins.length) :
+    ∃ g : Nat, (nestedPinRootGroup env p b st stored).getD q none = some g ∧
+      ((st.pins.getD q default).grpBase = g ∨
+        ∃ (i : Nat) (lvls : List Level) (Ds own : List Expr),
+          i < st.pins.length ∧
+          (st.pins.getD i default).grpBase = g ∧
+          nestedPinLvlsDs env (st.pins.getD i default) = some (lvls, Ds) ∧
+          containerOwnPinsAt env (st.pins.getD i default).container lvls Ds = some own ∧
+          (st.pins.getD q default).pin ∈ own) := by
+  rw [nestedPinRootPairOk] at h
+  simp only [List.all_eq_true] at h
+  have hb := h q (List.mem_range.mpr hq)
+  split at hb
+  · simp at hb
+  · rename_i g hg
+    refine ⟨g, hg, ?_⟩
+    by_cases hgb : ((st.pins.getD q default).grpBase == g) = true
+    · exact Or.inl (by simpa using hgb)
+    · rw [if_neg hgb] at hb
+      obtain ⟨pool, hpool, hin⟩ := List.mem_flatten.mp (List.contains_iff_mem.mp hb)
+      obtain ⟨i, hi, hfi⟩ := List.mem_filterMap.mp hpool
+      split at hfi
+      · rename_i hig
+        cases hld : nestedPinLvlsDs env (st.pins.getD i default) with
+        | none => rw [hld] at hfi; simp at hfi
+        | some ld =>
+          rw [hld] at hfi
+          simp only [Option.bind_some] at hfi
+          exact Or.inr ⟨i, ld.1, ld.2, pool, List.mem_range.mp hi, by simpa using hig,
+            hld, hfi, hin⟩
+      · simp at hfi
+
 end ConLeche
