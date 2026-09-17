@@ -731,6 +731,40 @@ def nestedCopySrcOk (env : Env) (p : NestedParts) (st : ElimState) : Bool :=
       | _, _ => false
   | none => false
 
+/-- **A PIN'S COMPONENTS MENTION A MEMBER OF THE BLOCK** (task #315
+K.44, lane M7-3's DESIGN §U.66 (b)).
+
+Lane L-E's `ContainerModeled.nestMention` — `ordFree`'s nested twin —
+asks, at a field the classification calls NESTED at pin `q`, for a
+member of the block's own group among the first `nPJ` arguments of the
+field's spine.  At the nested route's own read-back that is the pin's
+components, and **it has no source in the tree**.  The two gaps M7-3
+found:
+
+* the moment is right but the WITNESS is not.  `nestedOccOk` — the
+  elimination's own first test — compares `args.take nPI` against
+  `ElimState.newNames`, which is `st.types.map (·.name)`: the block's
+  members AND every copy minted so far.  So the fact the elimination
+  records (`CopyHead`'s mention conjunct, exported at
+  `elimNested_copyCtors`) permits a `_nested`-prefixed COPY as the
+  witness, at which point a clause asking for a MEMBER does not follow.
+  The clause is nonetheless true — every term the walk sees is copy-free,
+  since the block's own annotated constructors are guarded by
+  `mentionsNestedAux` and `mkCopy`'s output is the container's stored
+  constructors with the original components substituted — but that is an
+  argument, not a theorem here;
+* `CopyInv` is stated at the positions BEHIND the block's `k` members,
+  so the members' own rewrites, which is where the clause lives, have no
+  provenance theorem at all.
+
+Proving it (M7-3's A2) strengthens `NestedCopyProv`'s invariant to a
+member witness across eleven of its seventeen lemmas, adds a
+copy-freeness induction through six functions and extends `CopyInv`:
+4–6 sessions.  Recording it is this Bool.  CERTIFICATION-ONLY, gated;
+`.internal` on failure, and it cannot fire for the reason above. -/
+def nestedPinMentionOk (p : NestedParts) (st : ElimState) : Bool :=
+  st.pins.all fun q => q.pin.getAppArgs.any fun a => mentionsMember p.memberNames a
+
 /-- **THE PINS' SCOPE, EXACTLY** (task #315 K.30, the model lane's
 DESIGN §U.21 (d) 2).
 
@@ -852,15 +886,19 @@ def nestedPinKinds (p : NestedParts) (b : MutualBlock) (stored : List AuxStored)
 /-- The kinds exist at every pin, every field is `.ordinary`,
 `.recursive` or `.reflexive`, and every target is a position of
 `members ++ pins` (§U.1 (c) fact 6). -/
-def nestedPinKindsOk (p : NestedParts) (b : MutualBlock) (st : ElimState)
-    (stored : List AuxStored) : Bool :=
-  match nestedPinKinds p b stored with
+def nestedPinKindsAt (p : NestedParts) (st : ElimState)
+    (kinds? : Option (List (List (List (RecFieldKind × Nat))))) : Bool :=
+  match kinds? with
   | some kinds =>
     kinds.length == st.pins.length &&
       kinds.all fun ks => ks.all fun k => k.all fun (r, t) =>
         (r == .ordinary || r == .recursive || r == .reflexive) &&
           decide (t < p.k + st.pins.length)
   | none => false
+
+@[inline] def nestedPinKindsOk (p : NestedParts) (b : MutualBlock) (st : ElimState)
+    (stored : List AuxStored) : Bool :=
+  nestedPinKindsAt p st (nestedPinKinds p b stored)
 
 /-- **THE COPIES' RECURSIVE TARGETS COME FROM THE CONTAINER'S OWN
 RECURSION** (task #315 K.32, the model lane's DESIGN §U.23 (e)).
@@ -887,9 +925,10 @@ so a copy field classified recursive into the group comes from a
 container field that WAS that occurrence.
 
 **It cannot fire**, and a failure is `.internal`. -/
-def nestedCopyTargetsOk (env : Env) (p : NestedParts) (b : MutualBlock)
-    (st : ElimState) (stored : List AuxStored) : Bool :=
-  match nestedPinKinds p b stored with
+def nestedCopyTargetsAt (env : Env) (p : NestedParts) (st : ElimState)
+    (stored : List AuxStored)
+    (kinds? : Option (List (List (List (RecFieldKind × Nat))))) : Bool :=
+  match kinds? with
   | none => false
   | some kinds =>
     (List.range st.pins.length).all fun q =>
@@ -932,6 +971,10 @@ def nestedCopyTargetsOk (env : Env) (p : NestedParts) (b : MutualBlock)
                     else true
               | _, _, _ => false
       | _, _, _ => false
+
+@[inline] def nestedCopyTargetsOk (env : Env) (p : NestedParts) (b : MutualBlock)
+    (st : ElimState) (stored : List AuxStored) : Bool :=
+  nestedCopyTargetsAt env p st stored (nestedPinKinds p b stored)
 
 /-- Every argument of an application spine is a proper subterm: the
 measure that lets `auxAppsOk` recurse into `getAppArgs`. -/
@@ -1404,9 +1447,11 @@ container's own nesting, which its own elimination pinned) stays INSIDE
 the instance; anything else — the container's ordinary field through
 another container, or a component — leaves it, and must go to a
 strictly smaller rank. -/
-def nestedPinEdges (env : Env) (p : NestedParts) (b : MutualBlock) (st : ElimState)
-    (stored : List AuxStored) : Option (List (Nat × Nat × Bool)) := do
-  let kinds ← nestedPinKinds p b stored
+def nestedPinEdgesAt (env : Env) (p : NestedParts) (st : ElimState)
+    (stored : List AuxStored)
+    (kinds? : Option (List (List (List (RecFieldKind × Nat))))) :
+    Option (List (Nat × Nat × Bool)) := do
+  let kinds ← kinds?
   let rows ← (List.range st.pins.length).mapM fun q => do
     let qn ← st.pins[q]?
     let ks ← kinds[q]?
@@ -1428,6 +1473,10 @@ def nestedPinEdges (env : Env) (p : NestedParts) (b : MutualBlock) (st : ElimSta
       pure perField.flatten
     pure perCtor.flatten
   pure rows.flatten
+
+@[inline] def nestedPinEdges (env : Env) (p : NestedParts) (b : MutualBlock) (st : ElimState)
+    (stored : List AuxStored) : Option (List (Nat × Nat × Bool)) :=
+  nestedPinEdgesAt env p st stored (nestedPinKinds p b stored)
 
 /-- **The augmented reference digraph**: every edge as an arc, an OWN
 edge additionally as its reverse, and every pin joined to its mint
@@ -1497,19 +1546,28 @@ def nestedPinRankFrom (st : ElimState) (edges : List (Nat × Nat × Bool))
   nestedRankIter inst (st.pins.length + 1) edges
     ((List.range st.pins.length).map fun _ => 0)
 
-/-- The instances, as the model reads them off the run. -/
-def nestedPinInstOf (env : Env) (p : NestedParts) (b : MutualBlock) (st : ElimState)
-    (stored : List AuxStored) : List Nat :=
-  match nestedPinEdges env p b st stored with
+/-- The instances, at a computed edge list. -/
+def nestedPinInstAt (st : ElimState) (edges? : Option (List (Nat × Nat × Bool))) : List Nat :=
+  match edges? with
   | none => (List.range st.pins.length).map fun _ => 0
   | some edges => nestedPinInstFrom st edges
 
-/-- The rank, as the model reads it off the run. -/
-def nestedPinRankOf (env : Env) (p : NestedParts) (b : MutualBlock) (st : ElimState)
-    (stored : List AuxStored) : List Nat :=
-  match nestedPinEdges env p b st stored with
+/-- The rank, at a computed edge list. -/
+def nestedPinRankListAt (st : ElimState) (edges? : Option (List (Nat × Nat × Bool))) :
+    List Nat :=
+  match edges? with
   | none => (List.range st.pins.length).map fun _ => 0
   | some edges => nestedPinRankFrom st edges (nestedPinInstFrom st edges)
+
+/-- The instances, as the model reads them off the run. -/
+@[inline] def nestedPinInstOf (env : Env) (p : NestedParts) (b : MutualBlock) (st : ElimState)
+    (stored : List AuxStored) : List Nat :=
+  nestedPinInstAt st (nestedPinEdges env p b st stored)
+
+/-- The rank, as the model reads it off the run. -/
+@[inline] def nestedPinRankOf (env : Env) (p : NestedParts) (b : MutualBlock) (st : ElimState)
+    (stored : List AuxStored) : List Nat :=
+  nestedPinRankListAt st (nestedPinEdges env p b st stored)
 
 /-! ## A stored container's OWN pins (task #315 K.41)
 
@@ -1626,14 +1684,13 @@ and the one thing a relaxation cannot arrange for itself.
 either descends into a pin's own components or goes to a container
 declared EARLIER than this one, and the path multiset of the block's
 own elimination decreases along both.  CERTIFICATION-ONLY: gated. -/
-def nestedPinRankOk (env : Env) (p : NestedParts) (b : MutualBlock) (st : ElimState)
-    (stored : List AuxStored) : Bool :=
-  match nestedPinEdges env p b st stored with
+def nestedPinRankAt (st : ElimState) (edges? : Option (List (Nat × Nat × Bool))) : Bool :=
+  match edges? with
   | none => false
   | some edges =>
     let n := st.pins.length
-    -- the edge list is walked ONCE: `nestedPinEdges` recomputes
-    -- `nestedPinKinds`, which is the expensive part
+    -- the edge list is walked ONCE, and computed once: `nestedPinChecks`
+    -- binds it, and `nestedPinKinds` under it, for all four checks (K.46)
     let inst := nestedPinInstFrom st edges
     let rank := nestedPinRankFrom st edges inst
     inst.length == n && rank.length == n &&
@@ -1650,6 +1707,10 @@ def nestedPinRankOk (env : Env) (p : NestedParts) (b : MutualBlock) (st : ElimSt
         if e.2.2 then inst.getD e.1 0 == inst.getD e.2.1 0
         else inst.getD e.1 0 == inst.getD e.2.1 0 ||
           decide (rank.getD e.2.1 0 < rank.getD e.1 0))
+
+@[inline] def nestedPinRankOk (env : Env) (p : NestedParts) (b : MutualBlock) (st : ElimState)
+    (stored : List AuxStored) : Bool :=
+  nestedPinRankAt st (nestedPinEdges env p b st stored)
 
 /-! ## THE PIN PAIRING AT A NOT-OWN EDGE (task #315 K.41)
 
@@ -1690,9 +1751,8 @@ group of its container instance whose parent lies OUTSIDE the instance.
 `none` at a pin whose instance has no unique entry group — which K.40's
 measurement found of no instance in either corpus, and which this Bool's
 first clause refuses. -/
-def nestedPinRootGroup (env : Env) (p : NestedParts) (b : MutualBlock) (st : ElimState)
-    (stored : List AuxStored) : List (Option Nat) :=
-  let inst := nestedPinInstOf env p b st stored
+def nestedPinRootGroupAt (p : NestedParts) (st : ElimState) (inst : List Nat) :
+    List (Option Nat) :=
   let par := nestedPinParent p st
   (List.range st.pins.length).map fun q =>
     let cls := (List.range st.pins.length).filter fun i =>
@@ -1705,6 +1765,10 @@ def nestedPinRootGroup (env : Env) (p : NestedParts) (b : MutualBlock) (st : Eli
     match entries with
     | [g] => some g
     | _ => none
+
+@[inline] def nestedPinRootGroup (env : Env) (p : NestedParts) (b : MutualBlock)
+    (st : ElimState) (stored : List AuxStored) : List (Option Nat) :=
+  nestedPinRootGroupAt p st (nestedPinInstOf env p b st stored)
 
 /-- **THE PIN PAIRING AT A NOT-OWN EDGE** (task #315 K.41, lane L-E's
 DESIGN §U.61 finding 4): every pin of a container instance that is not
@@ -1725,9 +1789,7 @@ a λ.
 elimination mints a pin only while rewriting a copy, and the copy is the
 root container's — whose own elimination pinned the same occurrence, at
 the components the copy was made at.  CERTIFICATION-ONLY: gated. -/
-def nestedPinRootPairOk (env : Env) (p : NestedParts) (b : MutualBlock) (st : ElimState)
-    (stored : List AuxStored) : Bool :=
-  let roots := nestedPinRootGroup env p b st stored
+def nestedPinRootPairAt (env : Env) (st : ElimState) (roots : List (Option Nat)) : Bool :=
   (List.range st.pins.length).all fun q =>
     match roots.getD q none with
     | none => false
@@ -1744,6 +1806,166 @@ def nestedPinRootPairOk (env : Env) (p : NestedParts) (b : MutualBlock) (st : El
               containerOwnPinsAt env rn.container ld.1 ld.2
           else none).flatten
         pool.contains qn.pin
+
+@[inline] def nestedPinRootPairOk (env : Env) (p : NestedParts) (b : MutualBlock)
+    (st : ElimState) (stored : List AuxStored) : Bool :=
+  nestedPinRootPairAt env st (nestedPinRootGroup env p b st stored)
+
+/-! ## THE POSITIVITY NORMALISATION ON THE MINTED COPY (task #315 K.42)
+
+Lane L-B's `ordF`-LEFT arm (DESIGN §U.62) needs, at an ORDINARY field of
+a copy's constructor, that the stored domain and the MINTED one — the
+container's field instantiated at the pin's components, `mkCopy`'s
+output BEFORE `replaceAllNested` — have the same reading.  The
+model-side law for that is provably unavailable: the induction over the
+rewrite closes every node but the firing occurrence, and the firing
+occurrence needs `pinLeaf`, which is downstream of the very shape being
+proved (at a self-nested container the circle is real).
+
+The cheap route is a SECOND RUN of the walk the kernel already has.
+`normPosDomM` is official's positivity normalisation; the install ran it
+on the REWRITTEN domain and stored the result.  Run it on the MINTED
+domain too and compare: at an ordinary field the two differ only at
+replaced occurrences, neither a mimic nor a container application heads
+a redex, and an ordinary field's stored domain mentions no member at all
+— so the surviving term is the same on both sides, and the model gets
+`interp (reading minted) = interp (reading w) = interp (reading stored)`
+out of `normPosDomM_read_of` with the rewrite's own leg GONE.
+
+The decline-shaped alternative — "a domain that mentions a member is
+never classified ordinary" — is REFUSED: §U.62 (d) measures it
+non-vacuous (`tests/e2e/nested_p20.ndjson`, accepted today), so it would
+narrow the accept set on a shape official takes, which the maintainer's
+standing rule forbids.  This form costs no accept set at all.
+
+**The addressing is PURE and the run is ONE FLAT `mapM`.**
+`nestedOrdDomPairs` is an `Option` walk that returns, per pin, per
+constructor, per ordinary field, the triple (the field's depth, the
+MINTED domain, the STORED domain) — all of it off the run's own records,
+in exactly `nestedPinEdges`' three-layer shape, so the model addresses a
+field with the established `mapM_option_inv` idiom.  `nestedOrdNorms` is
+then a single `List.mapM` whose positional inversion is
+`mapM_except_inv`. -/
+
+/-- The ordinary fields' two domains, per pin, per constructor, per
+field: `(p.nP + l, the MINTED domain, the STORED domain)`.
+
+The minted constructor is recomputed the way K.28 certifies it —
+`Expr.instPis` of the container's stored constructor at the pin's own
+`lvls`/`Ds` — and opened at its FIELD binders from `p.nP`, which is the
+spelling the model's `mintFieldRead` reads (`openPisAtFvars nF cI nP`,
+`x.fvarTypeD` at depth `nP + l`).  The stored constructor is opened
+twice, the parameters then the fields, as `normCtorValM` itself does. -/
+def nestedOrdDomPairs (env : Env) (p : NestedParts) (st : ElimState)
+    (stored : List AuxStored)
+    (kinds? : Option (List (List (List (RecFieldKind × Nat))))) :
+    Option (List (Nat × Expr × Expr)) := do
+  let kinds ← kinds?
+  let rows ← (List.range st.pins.length).mapM fun q => do
+    let t ← st.types[p.k + q]?
+    let (Jn, lvls, Ds) ← t.src
+    let a ← stored[p.k + q]?
+    let ks ← kinds[q]?
+    let ci ← containerInfo? env Jn
+    let J ← ci.members.find? (fun J => J.name == Jn)
+    if lvls.length != J.lps.length then none else
+    let perCtor ← (List.range ks.length).mapM fun j => do
+      let kf ← ks[j]?
+      let cJ ← J.ctors[j]?
+      let (cvS, _, nF) ← a.ctors[j]?
+      let cI ← Expr.instPis (Expr.instantiateLevelParams J.lps lvls cJ.type) Ds
+      let (xsM, _) ← openPisAtFvars nF cI p.nP
+      let (_, crestS) ← openPisAtFvars p.nP cvS.type 0
+      let (xsS, _) ← openPisAtFvars nF crestS p.nP
+      let perField ← (List.range kf.length).mapM fun l => do
+        let (r, _) ← kf[l]?
+        if r == RecFieldKind.ordinary then
+          let xM ← xsM[l]?
+          let xS ← xsS[l]?
+          pure [(p.nP + l, xM.fvarTypeD, xS.fvarTypeD)]
+        else pure ([] : List (Nat × Expr × Expr))
+      pure perField.flatten
+    pure perCtor.flatten
+  pure rows.flatten
+
+/-- The second run: the positivity normalisation of every minted
+ordinary domain, at the environment holding the block's own FORMERS —
+the one the model's readings are taken in.
+
+**Any error of the inner walk becomes `.internal`.**  `normPosDomM`
+throws `.invalid` at a non-positive occurrence and `.notImplemented` on
+fuel; a certification-only record must never turn an accepted stream
+into a REJECT or a DECLINE, so the handler reclassifies.  (It cannot
+fire either way: the rewrite replaces a group occurrence by a mimic,
+which is a member of the auxiliary block too, so the minted and the
+rewritten walk see a member at exactly the same nodes.) -/
+def nestedOrdNorms (ops : CheckerOps m) (env : Env) (memberNames : List Name)
+    (jobs : List (Nat × Expr × Expr)) : m (List Expr) :=
+  jobs.mapM fun je =>
+    tryCatchThe CheckError (normPosDomM ops env memberNames je.1 1024 je.2.1)
+      (fun _ => throw (.internal "nested: the positivity normalisation of a minted copy \
+        field does not run"))
+
+/-- **THE PINS' CERTIFICATION-ONLY CHECKS, ON ONE WALK** (task #315
+K.46).  K.26, K.32, K.37 and K.41 each ask a question about the copies.
+field kinds, and each used to recompute them: `nestedPinKinds` ran FOUR
+times per nested block (twice directly, and twice more under
+`nestedPinEdges`, which K.37 calls and K.41 reaches through
+`nestedPinRootGroup`), and the edge list TWICE.  Here the kinds and the
+edges are computed ONCE and threaded, and each check keeps its own
+clause, its own message and its own conjunct of the run relation:
+`nestedPinKindsAt p st kinds? = nestedPinKindsOk p b st stored` and its
+three twins hold by definition, so nothing the model consumes moves.
+
+The whole group is skipped at `.trusted` — these are the model tier's
+evidence, not the kernel's (`certOnly`'s docstring) — which is why the
+shared computation sits INSIDE the mode test rather than in a `let`
+above it: a `let` would be strict, and `certOnly`'s `||` short-circuit
+would no longer keep the walk from running. -/
+def nestedPinChecks (ops : CheckerOps m) (env envN : Env) (p : NestedParts) (b : MutualBlock)
+    (st : ElimState) (stored : List AuxStored) : m Unit :=
+  if !ops.mode.verifiedChecks then pure () else
+  -- ONE classification of the copies' fields, and ONE reference graph
+  let kinds? := nestedPinKinds p b stored
+  let edges? := nestedPinEdgesAt env p st stored kinds?
+  let roots := nestedPinRootGroupAt p st (nestedPinInstAt st edges?)
+  -- **THE COPIES' RECURSIVE TARGETS** (K.32): a copy field the aux
+  -- block classified recursive into its own group comes from a
+  -- container field that was a group occurrence at the parameter spine
+  if !nestedCopyTargetsAt env p st stored kinds? then
+    throw (.internal "nested: a copy's group-recursive field does not come from the \
+      container's own recursion")
+  -- **THE FIELD KINDS AT THE PINS** (K.26, §U.1 (c) fact 6): the
+  -- classification the scratch install decided, recomputed on the
+  -- constructors it stored — the container's, at the pin's components —
+  -- so that the model tier reads a pin's field kinds off the run instead
+  -- of re-deciding positivity at the container
+  else if !nestedPinKindsAt p st kinds? then
+    throw (.internal "nested: a stored field at a pin is not classified ordinary, \
+      recursive or reflexive into the block")
+  -- **THE PINS' CONTAINER INSTANCES AND RANK** (K.37): every own
+  -- reference stays in the instance, every other one goes to a strictly
+  -- smaller rank — the model's induction measure for step (iii)
+  else if !nestedPinRankAt st edges? then
+    throw (.internal "nested: the pins' container instances are not well-founded")
+  -- **THE PIN PAIRING AT A NOT-OWN EDGE** (K.41): every pin of a
+  -- container instance that is not one of the root group's own members
+  -- IS a pin the ROOT CONTAINER's own elimination minted, at the root
+  -- pin's own levels and components — all four of `ClassPin`'s data in
+  -- ONE equality, off the two recorded tables
+  else if !nestedPinRootPairAt env st roots then
+    throw (.internal "nested: a pin is not one the instance's root container pinned")
+  -- **THE POSITIVITY NORMALISATION ON THE MINTED COPY** (K.42): at every
+  -- ORDINARY field of every copy's constructor, the stored domain IS the
+  -- normalisation of the MINTED one, so the model's `ordF`-left arm gets
+  -- its reading identity with the rewrite's own leg gone.  The walk is
+  -- the install's, run a second time, on the shared field kinds.
+  else do
+    let jobs ← unwrapOr (nestedOrdDomPairs env p st stored kinds?)
+      (.internal "nested: the minted copies' ordinary field domains are not readable")
+    let ws ← nestedOrdNorms ops envN b.memberNames jobs
+    unless ws == jobs.map (·.2.2) do
+      throw (.internal "nested: an ordinary copy field's stored domain is not the         positivity normalisation of the minted one")
 
 /-- **Check and install a recognised NESTED block** (see the module
 docstring): official's two syntactic front guards, the elimination, the
@@ -1843,12 +2065,6 @@ def checkNested (ops : CheckerOps m) (env : Env) (p : NestedParts) : m Env := do
   -- is `.internal`.
   unless members.all (fun a => !a.caps.eta && (env.find? a.cvTa.name).isNone) do
     throw (.internal "nested: a restored former is not a fresh non-eta family")
-  -- **THE FIELD KINDS AT THE PINS** (§U.1 (c) fact 6): the
-  -- classification the scratch install decided, recomputed on the
-  -- constructors it stored — the container's, at the pin's components —
-  -- so that the model tier reads a pin's field kinds off the run instead
-  -- of re-deciding positivity at the container.  A failure is
-  -- `.internal`.
   -- **THE COPIES' SOURCES** (K.28): every minted type is `mkCopy`'s
   -- output at the source it records, so the model reads the
   -- copy-instantiation identities off the record instead of inverting
@@ -1861,20 +2077,16 @@ def checkNested (ops : CheckerOps m) (env : Env) (p : NestedParts) : m Env := do
   -- level instantiation and components.  A failure is `.internal`.
   unless certOnly ops.mode (nestedGroupsOk env p st) do
     throw (.internal "nested: a pin's mint group is not the container's group as minted")
+  -- **A PIN'S COMPONENTS MENTION A MEMBER** (K.44): the parameter part
+  -- of every pin's spine carries a member of the block's own group —
+  -- lane L-E's `nestMention`, whose witness the elimination's own record
+  -- does not pin down (it permits a COPY).  A failure is `.internal`.
+  unless certOnly ops.mode (nestedPinMentionOk p st) do
+    throw (.internal "nested: a pin's components mention no member of the block")
   -- **THE PINS' SCOPE** (K.30): every pin's free variables are the
   -- first former's openers, annotation included, and no loose bvar.
   unless certOnly ops.mode (pinsScoped p.nP st) do
     throw (.internal "nested: a pin's free variables are not the block's parameter openers")
-  -- **THE COPIES' RECURSIVE TARGETS** (K.32): a copy field the aux
-  -- block classified recursive into its own group comes from a
-  -- container field that was a group occurrence at the parameter spine.
-  -- A failure is `.internal`.
-  unless certOnly ops.mode (nestedCopyTargetsOk env p b st stored) do
-    throw (.internal "nested: a copy's group-recursive field does not come from the \
-      container's own recursion")
-  unless certOnly ops.mode (nestedPinKindsOk p b st stored) do
-    throw (.internal "nested: a stored field at a pin is not classified ordinary, \
-      recursive or reflexive into the block")
   -- **THE AUXILIARY APPLICATIONS** (K.35): every copy and copy
   -- constructor in the scratch block's read-back recursor types and
   -- rules is applied to `nP + arity` arguments whose first `nP` are the
@@ -1883,27 +2095,18 @@ def checkNested (ops : CheckerOps m) (env : Env) (p : NestedParts) : m Env := do
   unless certOnly ops.mode (nestedAuxAppsOk p st stored) do
     throw (.internal "nested: an auxiliary application in the block's read-back is not \
       at the block's parameters")
-  -- **THE PINS' CONTAINER INSTANCES AND RANK** (K.37): every own
-  -- reference stays in the instance, every other one goes to a strictly
-  -- smaller rank — the model's induction measure for step (iii).
-  -- CERTIFICATION-ONLY, gated.  A failure is `.internal`.
-  unless certOnly ops.mode (nestedPinRankOk env p b st stored) do
-    throw (.internal "nested: the pins' container instances are not well-founded")
   -- **THE MINT PARENTS** (K.40): every recorded parent is an EARLIER
   -- pin, so an instance's root is its parent-minimal member and the
   -- covering walk the model needs is the parent chain.
   -- CERTIFICATION-ONLY, gated.  A failure is `.internal`.
   unless certOnly ops.mode (nestedPinParentOk p st) do
     throw (.internal "nested: a pin's mint parent is not an earlier pin")
-  -- **THE PIN PAIRING AT A NOT-OWN EDGE** (K.41): every pin of a
-  -- container instance that is not one of the root group's own members
-  -- IS a pin the ROOT CONTAINER's own elimination minted, at the root
-  -- pin's own levels and components — all four of `ClassPin`'s data in
-  -- ONE equality, off the two recorded tables.  CERTIFICATION-ONLY,
-  -- gated.  A failure is `.internal`.
-  unless certOnly ops.mode (nestedPinRootPairOk env p b st stored) do
-    throw (.internal "nested: a pin is not one the instance's root container pinned")
+  -- **THE PINS' FOUR CERTIFICATION-ONLY CHECKS** (K.26, K.32, K.37 and
+  -- K.41), on ONE computation of the field kinds and the reference edge
+  -- list (K.46).  Gated as a group; each check keeps its own clause, its
+  -- own message and its own conjunct of the run relation.
   let env₁ := consNestedFormers members env
+  nestedPinChecks ops env env₁ p b st stored
   -- **POST-CHECK (a), A THIRD TIME** (K.30): the pins typed at the
   -- environment holding the RESTORED FORMERS — the one `restoreCtors`
   -- runs at, and the one the model tier reads the block's own prefix
@@ -1936,6 +2139,26 @@ def checkNested (ops : CheckerOps m) (env : Env) (p : NestedParts) : m Env := do
   unless certOnly ops.mode
       (decide ((cvRms.map (·.name) ++ cvRns.map (·.name)).Nodup)) do
     throw (.internal "nested: two restored recursors carry one name")
+  -- **THE AUXILIARY NAMES AND THE RESTORED RECURSORS' ARE DISJOINT**
+  -- (task #315 K.45, lane M7-2's DESIGN §U.29 (ll)).
+  -- `RestoreAgree.auxFresh` at the restored PROVISIONED environment
+  -- needs every auxiliary name absent there, and the provision below
+  -- adds exactly these `k + nPins` recursor names — so it needs the two
+  -- lists disjoint, and that is NOT derivable.  The mint is
+  -- `mkUniqueName env (Name.appendName nestedPrefixName J.name) …`, so a
+  -- copy's name is `.str X (s ++ "_" ++ toString idx)`, while
+  -- `p.mimicRecName j` is `.str T₁ ("rec" ++ "_" ++ toString (j + 1))` —
+  -- the SAME shape, so separating them syntactically needs
+  -- `toString`/`Nat.repr` injectivity, which core does not have.  That
+  -- is exactly why K.39 above is a recorded check and not a proof.
+  -- CERTIFICATION-ONLY, gated; a failure is `.internal` and cannot
+  -- happen — `mkUniqueName` skips every name the PRE-BLOCK environment
+  -- holds and the restored recursors are named after the block's own
+  -- formers, which `copiesFresh` keeps out of the minted set.
+  unless certOnly ops.mode
+      (R.auxNames.all fun n =>
+        !((cvRms.map (·.name) ++ cvRns.map (·.name)).contains n)) do
+    throw (.internal "nested: an auxiliary name collides with a restored recursor")
   let provisions := (cvRms.zip (members.map fun a => (a.mI, a.rP)))
     ++ (cvRns.zip (mimics.map fun a => (a.mI, a.rP)))
   let envR := provisionNestedRecs provisions env₂

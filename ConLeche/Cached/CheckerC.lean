@@ -368,33 +368,29 @@ def checkNestedS (fe : FEnv) (p : NestedParts) : CheckCM FEnv := do
   -- the pins' mint groups (K.29), as in the pure route
   unless certOnly mode (nestedGroupsOk fe.env p st) do
     throw (.internal "nested: a pin's mint group is not the container's group as minted")
+  -- a pin's components mention a member (K.44), as in the pure route
+  unless certOnly mode (nestedPinMentionOk p st) do
+    throw (.internal "nested: a pin's components mention no member of the block")
   -- the pins' scope (K.30), as in the pure route
   unless certOnly mode (pinsScoped p.nP st) do
     throw (.internal "nested: a pin's free variables are not the block's parameter openers")
-  -- the copies' recursive targets (K.32), as in the pure route
-  unless certOnly mode (nestedCopyTargetsOk fe.env p b st stored) do
-    throw (.internal "nested: a copy's group-recursive field does not come from the \
-      container's own recursion")
-  -- the field kinds at the pins (§U.1 (c) fact 6), as in the pure route
-  unless certOnly mode (nestedPinKindsOk p b st stored) do
-    throw (.internal "nested: a stored field at a pin is not classified ordinary, \
-      recursive or reflexive into the block")
   -- the auxiliary applications (K.35), as in the pure route
   unless certOnly mode (nestedAuxAppsOk p st stored) do
     throw (.internal "nested: an auxiliary application in the block's read-back is not \
       at the block's parameters")
-  -- the pins' container instances and rank (K.37), as in the pure route
-  unless certOnly mode (nestedPinRankOk fe.env p b st stored) do
-    throw (.internal "nested: the pins' container instances are not well-founded")
   -- the mint parents (K.40), as in the pure route
   unless certOnly mode (nestedPinParentOk p st) do
     throw (.internal "nested: a pin's mint parent is not an earlier pin")
-  -- the pin pairing at a not-own edge (K.41), as in the pure route
-  unless certOnly mode (nestedPinRootPairOk fe.env p b st stored) do
-    throw (.internal "nested: a pin is not one the instance's root container pinned")
   -- the RESTORED block is built on the PRE-BLOCK index, not the scratch
   -- one: only the restored constants are stored
   let fe₁ := consNestedFormersF members fe
+  flushC
+  -- the pins' five certification-only checks (K.26, K.32, K.37, K.41 and
+  -- K.42) on ONE computation of the field kinds and the edge list
+  -- (K.46), as in the pure route; K.42's second run of the positivity
+  -- normalisation is at the RESTORED FORMERS' index, which is where the
+  -- model's readings are taken
+  nestedPinChecks (sharedOpsC mode fe₁) fe.env fe₁.env p b st stored
   -- post-check (a) a third time (K.30), at the restored formers' index
   flushC
   nestedPinsOk (sharedOpsC mode fe₁) fe₁.env p.nP st.pins
@@ -412,6 +408,12 @@ def checkNestedS (fe : FEnv) (p : NestedParts) : CheckCM FEnv := do
   -- the pure route
   unless certOnly mode (decide ((cvRms.map (·.name) ++ cvRns.map (·.name)).Nodup)) do
     throw (.internal "nested: two restored recursors carry one name")
+  -- the auxiliary names and the restored recursors' are disjoint (K.45),
+  -- as in the pure route
+  unless certOnly mode
+      (R.auxNames.all fun n =>
+        !((cvRms.map (·.name) ++ cvRns.map (·.name)).contains n)) do
+    throw (.internal "nested: an auxiliary name collides with a restored recursor")
   let provisions := (cvRms.zip (members.map fun a => (a.mI, a.rP)))
     ++ (cvRns.zip (mimics.map fun a => (a.mI, a.rP)))
   let feR := provisionNestedRecsF provisions fe₂
