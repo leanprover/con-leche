@@ -83553,5 +83553,6 @@ assembling `IsBlockModel` at `BlockModel.ofNative`, never alongside it.
 `declBlock` anchor repointed on a pure line shift — the citing
 paragraph re-read, the claim unchanged); quote-gate 2; no-local-paths
 OK; proofdeps 4955 rows / 12 roots / 0 doors; shake 508/508
-allowlisted; pub-imports 1261 of 1990, none demotable.  Standard axioms
-on all 23 new theorems.
+allowlisted; pub-imports 1261 of 1990, none demotable.  `tests/arena.sh`
+green.  Standard axioms on every new theorem (26 of them, beside the two
+new definitions `MutualOrdFree` and `BlockInstallExt`).
