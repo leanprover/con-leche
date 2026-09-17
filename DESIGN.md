@@ -81906,7 +81906,26 @@ With these, the level-assignment agreement is
 since `ψJ = substFn ψ lpsJ lvlsJ` (`NestedPinGroupSyn.rep`) and `ψK₁ =
 substFn ψJ lpsK lvlsK` (`ContainerModeled.pinψ` at `B ci`).
 
-##### (c) STEP (iii)'s PLAN, revised (not started)
+##### (b′) STEP (iii)'s FIRST TWO PIECES (proved, same session)
+
+* `CopyCtorShape.fit_imp_le` (`NestedFit.lean`): `fit_imp` with the
+  outside targets' entries as INCLUSIONS — at an `ordF`-right field the
+  container's domain reading lies in the copy's slot at the outer tuple
+  (`hentR`); at a `pinF` field the container's slot at its OWN pin's
+  carrier AT `Y` (not at the least tuple) lies in the copy's slot at the
+  outer tuple (`hentP`).
+* `nestedGroupLe_of_entries` (`NestedPinLeafAll.lean`): per group, with
+  `X` the auxiliary carrier's group segment (in the container's tuple
+  space; below its least tuple by (ii)), `X` is closed under the
+  container's operator when `hentR`/`hentP` hold at `X` and `L⁺`
+  (`fit_imp_le`, the slots at `segJoin base kJ L⁺ X` are `L⁺`'s,
+  `tupleLfpΦ_fibre`, `lfpTuple_closed`), so `P (q₀+i) ≤ L⁺ (k+q₀+i)`
+  (`lfpTuple_le`).  What (iii) still owes: `hentR` — at a member
+  target an equality (`memberTarget_reads`), at a pin target inside
+  `Ds` the induction hypothesis through `pinTarget_reads` +
+  `slotSet_mono`; `hentP` — the cycle, (c) below.
+
+##### (c) STEP (iii)'s PLAN, revised (the cycle not started)
 
 Per group `(q₀, kJ, dJ := dJf q₀)`, with `X i' := L⁺ (k+q₀+i')`: by (ii)
 `X ≤ LJ`, and `LJ ≤ X` is `lfpTuple_le` at the CLOSURE of `X` under
@@ -81941,7 +81960,7 @@ assembly 1 session; (iv) (`P = L⁺` ⇒ `pinLeaf` for all `q` ⇒
 `CopyEntryA` for every group ⇒ `nestedPinsEntry_of`, probe over `hSh`
 + `htail`) ½ session.
 
-##### (d) GATES at the session's commits
+##### (d) GATES at the session's commits (last: `nestedGroupLe_of_entries`)
 
 `lake build` 694 jobs warning-free; `lake test` warning-free; shake
 509/509 allowlisted (the one new edge, `NestedPinLeafAll → NestedPins`,
