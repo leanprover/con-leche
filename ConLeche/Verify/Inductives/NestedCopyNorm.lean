@@ -276,6 +276,232 @@ theorem normPosDomM_indApp {env : Env} {memberNames : List Name} {F fuel d : Nat
   · exact hwe
   · exact absurd (hwe.symm.trans hforall) (mkAppN_const_ne_forallE J lvls args dom body bm)
 
+/-! ## The walk under a reflexive field's own binders (task #315 L-B)
+
+`normPosDomM_indApp` is the finitary half: a field domain that IS a
+stuck inductive application survives the positivity normalisation
+verbatim.  A REFLEXIVE field's domain is a `∀`-tower over such an
+application, and there the walk does move: it peels each binder, opens
+it at the binder's own `.fvar`, recurses, and closes it again
+(`abstract1`).  That round trip is the identity on a term whose free
+variables all sit BELOW the binder's depth — which is what
+`fvarsBelow` records and what the openers of a constructor's telescope
+satisfy by construction.  So the tower, too, comes back unchanged, up
+to the `fvar` annotations an interpretation does not read
+(`normPosDomM_piIndApp`). -/
+
+/-- Every reachable `fvar` index below `d`, read off the leaves
+(`fvarsBelow` does not descend into an annotation, so the leaf list is
+more than enough). -/
+theorem fvarsBelow_of_leaves {d : Nat} :
+    ∀ {e : Expr}, (∀ lf ∈ e.fvarLeaves, lf.1 < d) → Expr.fvarsBelow d e := by
+  intro e
+  induction e <;> intro h <;>
+    simp_all [Expr.fvarLeaves, Expr.fvarsBelow]
+
+/-- **THE OPENERS KEEP THE TERM'S OWN FVAR BOUND**, one depth per
+binder: `openPisAtFvars` plants `.fvar (d + i)` carrying the `i`-th
+binder's domain, and that domain's free variables are the term's own
+plus the openers before it. -/
+theorem openPisAtFvars_fvarsBelow :
+    ∀ (k : Nat) {e : Expr} {d : Nat} {fvs : List Expr} {body : Expr},
+      openPisAtFvars k e d = some (fvs, body) → Expr.fvarsBelow d e →
+      (∀ (i : Nat) (x : Expr), fvs[i]? = some x → Expr.fvarsBelow (d + i) x.fvarTypeD) ∧
+        Expr.fvarsBelow (d + k) body := by
+  intro k
+  induction k with
+  | zero =>
+    intro e d fvs body hop hfb
+    simp only [openPisAtFvars, Option.some.injEq, Prod.mk.injEq] at hop
+    obtain ⟨rfl, rfl⟩ := hop
+    exact ⟨fun i x hx => by simp at hx, hfb⟩
+  | succ k ih =>
+    intro e d fvs body hop hfb
+    match e, hop with
+    | .forallE ty rest bm, hop =>
+      simp only [openPisAtFvars] at hop
+      cases hq : openPisAtFvars k (rest.instantiate1 (.fvar d ty) 0) (d + 1) with
+      | none => rw [hq] at hop; exact nomatch hop
+      | some q =>
+        obtain ⟨afvs, bodyq⟩ := q
+        rw [hq] at hop
+        simp only [Option.some.injEq, Prod.mk.injEq] at hop
+        obtain ⟨rfl, rfl⟩ := hop
+        obtain ⟨hty, hrest⟩ : Expr.fvarsBelow d ty ∧ Expr.fvarsBelow d rest := hfb
+        obtain ⟨hdoms, hbody⟩ := ih hq (Expr.fvarsBelow_instantiate1 0 hrest)
+        refine ⟨fun i x hx => ?_, by rw [show d + (k + 1) = d + 1 + k from by omega]; exact hbody⟩
+        cases i with
+        | zero =>
+          simp only [List.getElem?_cons_zero, Option.some.injEq] at hx
+          subst hx
+          simpa [Expr.fvarTypeD] using hty
+        | succ i =>
+          simp only [List.getElem?_cons_succ] at hx
+          rw [show d + (i + 1) = d + 1 + i from by omega]
+          exact hdoms i x hx
+
+/-- Opening a binder with a fresh variable and closing it again is the
+identity (`Verify/Cached/StreamConsts`' `instantiate1_abstract1_self`,
+reproved here: that module is the cached checker's and this one must
+not depend on it). -/
+private theorem instantiate1_abstract1_selfD {d : Nat} {T : Expr} :
+    ∀ (e : Expr) (k : Nat), Expr.fvarsBelow d e → e.looseBVarsBounded (k + 1) = true →
+      (e.instantiate1 (.fvar d T) k).abstract1 d k = e := by
+  intro e
+  induction e with
+  | bvar i =>
+    intro k hf hb
+    simp only [Expr.looseBVarsBounded, decide_eq_true_eq] at hb
+    simp only [Expr.instantiate1]
+    by_cases h1 : i = k
+    · simp [h1, Expr.abstract1]
+    · rw [if_neg h1, if_neg (by omega)]
+      simp [Expr.abstract1]
+  | fvar idx ty ih =>
+    intro k hf hb
+    simp only [Expr.fvarsBelow] at hf
+    simp only [Expr.instantiate1, Expr.abstract1]
+    rw [if_neg (by omega)]
+  | app f a ihf iha =>
+    intro k hf hb
+    simp only [Expr.fvarsBelow] at hf
+    simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
+    simp only [Expr.instantiate1, Expr.abstract1, ihf k hf.1 hb.1, iha k hf.2 hb.2]
+  | lam ty b m ihty ihb =>
+    intro k hf hb
+    simp only [Expr.fvarsBelow] at hf
+    simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
+    simp only [Expr.instantiate1, Expr.abstract1, ihty k hf.1 hb.1, ihb (k + 1) hf.2 hb.2]
+  | forallE ty b m ihty ihb =>
+    intro k hf hb
+    simp only [Expr.fvarsBelow] at hf
+    simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
+    simp only [Expr.instantiate1, Expr.abstract1, ihty k hf.1 hb.1, ihb (k + 1) hf.2 hb.2]
+  | letE ty v b ihty ihv ihb =>
+    intro k hf hb
+    simp only [Expr.fvarsBelow] at hf
+    simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
+    simp only [Expr.instantiate1, Expr.abstract1, ihty k hf.1 hb.1.1, ihv k hf.2.1 hb.1.2,
+      ihb (k + 1) hf.2.2 hb.2]
+  | proj s i e ih =>
+    intro k hf hb
+    simp only [Expr.fvarsBelow] at hf
+    simp only [Expr.looseBVarsBounded] at hb
+    simp only [Expr.instantiate1, Expr.abstract1, ih k hf hb]
+  | sort u => intro k _ _; rfl
+  | const n us => intro k _ _; rfl
+  | lit l => intro k _ _; rfl
+
+/-- `ErasedEq` is a congruence for `abstract1`: the closing reads an
+`fvar`'s INDEX and nothing else, which is exactly what an erasure
+equality keeps. -/
+private theorem erasedEq_abstract1 {d : Nat} :
+    ∀ {e e' : Expr} (k : Nat), Expr.ErasedEq e e' →
+      Expr.ErasedEq (e.abstract1 d k) (e'.abstract1 d k) := by
+  intro e
+  induction e with
+  | bvar i =>
+    intro e' k he
+    match e', he with
+    | .bvar j, he => exact he
+  | fvar idx ty ih =>
+    intro e' k he
+    match e', he with
+    | .fvar j ty', he =>
+      obtain rfl : idx = j := he
+      simp only [Expr.abstract1]
+      split
+      · exact Expr.ErasedEq.rfl _
+      · exact rfl
+  | sort u =>
+    intro e' k he
+    match e', he with
+    | .sort v, he => exact he
+  | const n us =>
+    intro e' k he
+    match e', he with
+    | .const n' us', he => exact he
+  | lit l =>
+    intro e' k he
+    match e', he with
+    | .lit l', he => exact he
+  | app f a ihf iha =>
+    intro e' k he
+    match e', he with
+    | .app g b, he => exact ⟨ihf k he.1, iha k he.2⟩
+  | lam ty b m ihty ihb =>
+    intro e' k he
+    match e', he with
+    | .lam ty' b' m', he => exact ⟨he.1, ihty k he.2.1, ihb (k + 1) he.2.2⟩
+  | forallE ty b m ihty ihb =>
+    intro e' k he
+    match e', he with
+    | .forallE ty' b' m', he => exact ⟨he.1, ihty k he.2.1, ihb (k + 1) he.2.2⟩
+  | letE ty v b ihty ihv ihb =>
+    intro e' k he
+    match e', he with
+    | .letE ty' v' b', he => exact ⟨ihty k he.1, ihv k he.2.1, ihb (k + 1) he.2.2⟩
+  | proj s i e ih =>
+    intro e' k he
+    match e', he with
+    | .proj s' i' e₂, he => exact ⟨he.1, he.2.1, ih k he.2.2⟩
+
+/-- **THE POSITIVITY WALK IS THE IDENTITY ON A Π-TOWER OVER A STUCK
+INDUCTIVE APPLICATION** (task #315 L-B): `normPosDomM_indApp` under
+binders.  A REFLEXIVE field's domain is `n` `∀`s over an inductive
+application; the walk peels them one by one — each binder's domain is
+handed back verbatim (the walk only recurses into the BODY, and
+rejects a domain that mentions a member), the tower's leaf is the
+stuck application `normPosDomM_indApp` leaves alone — and the
+`instantiate1`/`abstract1` round trip each peel performs is the
+identity on a term whose free variables sit below the binder's depth.
+The conclusion is an `ErasedEq` because the openers the walk plants
+carry their own annotations. -/
+theorem normPosDomM_piIndApp {env : Env} {memberNames : List Name} {F : Nat}
+    {J : Name} {lvls : List Level} {cv : ConstantVal} {caps : IndCaps}
+    (hJ : env.find? J = some (.indInfo cv caps)) :
+    ∀ (n : Nat) {d fuel : Nat} {e e' : Expr} {fvs : List Expr} {args : List Expr},
+      openPisAtFvars n e d = some (fvs, Expr.mkAppN (.const J lvls) args) →
+      Expr.fvarsBelow d e → e.looseBVarsBounded 0 = true →
+      normPosDomM (m := CheckM) (fueledOps mode F) env memberNames d fuel e = .ok e' →
+      Expr.ErasedEq e' e := by
+  intro n
+  induction n with
+  | zero =>
+    intro d fuel e e' fvs args hop _ _ h
+    simp only [openPisAtFvars, Option.some.injEq, Prod.mk.injEq] at hop
+    obtain ⟨-, rfl⟩ := hop
+    exact Expr.ErasedEq.of_eq (normPosDomM_indApp hJ h)
+  | succ n ih =>
+    intro d fuel e e' fvs args hop hfb hb h
+    match e, hop with
+    | .forallE ty rest bm, hop =>
+      simp only [openPisAtFvars] at hop
+      cases hq : openPisAtFvars n (rest.instantiate1 (.fvar d ty) 0) (d + 1) with
+      | none => rw [hq] at hop; exact nomatch hop
+      | some q =>
+        obtain ⟨afvs, bodyq⟩ := q
+        rw [hq] at hop
+        simp only [Option.some.injEq, Prod.mk.injEq] at hop
+        obtain ⟨rfl, rfl⟩ := hop
+        obtain ⟨hty, hrest⟩ : Expr.fvarsBelow d ty ∧ Expr.fvarsBelow d rest := hfb
+        obtain ⟨hbty, hbrest⟩ : ty.looseBVarsBounded 0 = true ∧ rest.looseBVarsBounded 1 = true := by
+          simpa [Expr.looseBVarsBounded, Bool.and_eq_true] using hb
+        rcases normPosDomM_inv h with ⟨-, rfl⟩ | ⟨w, hw, hcase⟩
+        · exact Expr.ErasedEq.rfl _
+        have hwe : w = Expr.forallE ty rest bm := whnf_forallE_eq hw
+        rcases hcase with rfl | ⟨dom, body, bm', body', fuel', -, hforall, -, hrec, rfl⟩
+        · exact Expr.ErasedEq.of_eq hwe
+        rw [hwe] at hforall
+        obtain ⟨rfl, rfl, rfl⟩ : ty = dom ∧ rest = body ∧ bm = bm' := by
+          simpa using hforall
+        have hIH := ih hq (Expr.fvarsBelow_instantiate1 0 hrest)
+          (looseBVarsBounded_instantiate1 rest 0 hbrest) hrec
+        refine ⟨rfl, Expr.ErasedEq.rfl _, ?_⟩
+        have h1 := erasedEq_abstract1 (d := d) 0 hIH
+        rwa [instantiate1_abstract1_selfD rest 0 hrest hbrest] at h1
+
+
 /-- `openPisAtFvars_erasedEq` with the OPENERS: the two runs plant
 `.fvar` leaves at the same depths, and the annotation each carries is
 the binder domain it came from — erasure-equal because the two terms
@@ -502,6 +728,75 @@ theorem normCtorValM_domErased {env : Env} (henv : EnvWF env) {memberNames : Lis
   have her : Expr.ErasedEq x'.fvarTypeD d' := hdoms₃ (nP + l) x' (d', bm') hidx hbb
   rw [normPosDomM_indApp hT hd', ← hhead] at her
   exact her
+
+/-- **THE STORED CONSTRUCTOR'S REFLEXIVE FIELD DOMAIN IS THE GIVEN
+ONE** (task #315 L-B): `normCtorValM_domErased` at a field whose given
+domain is a `∀`-TOWER over a stored inductive application — a
+REFLEXIVE field.  Same frame, same round trip; only the walk's own
+identity changes (`normPosDomM_piIndApp` in place of
+`normPosDomM_indApp`), and it asks for the given domain's free
+variables to sit below the field's depth, which
+`openPisAtFvars_fvarsBelow` reads off the constructor body's. -/
+theorem normCtorValM_domErasedPi {env : Env} (henv : EnvWF env) {memberNames : List Name}
+    {nP nF F : Nat} {cvC cvCa cvCa' : ConstantVal}
+    (h : normCtorValM (m := CheckM) (fueledOps mode F) env memberNames nP nF cvC cvCa true
+      = .ok cvCa')
+    (hb : cvCa.type.looseBVarsBounded 0 = true)
+    {fvs xFvs : List Expr} {crest xrest : Expr}
+    (hop1 : openPisAtFvars nP cvCa.type 0 = some (fvs, crest))
+    (hop2 : openPisAtFvars nF crest nP = some (xFvs, xrest))
+    (hfb : Expr.fvarsBelow nP crest)
+    {fvs' xFvs' : List Expr} {crest' xrest' : Expr}
+    (hop1' : openPisAtFvars nP cvCa'.type 0 = some (fvs', crest'))
+    (hop2' : openPisAtFvars nF crest' nP = some (xFvs', xrest'))
+    {l : Nat} {x x' : Expr} (hx : xFvs[l]? = some x) (hx' : xFvs'[l]? = some x')
+    {n : Nat} {afvs targs : List Expr} {J : Name} {lvls : List Level}
+    {cv : ConstantVal} {caps : IndCaps}
+    (hJ : env.find? J = some (.indInfo cv caps))
+    (hopA : openPisAtFvars n x.fvarTypeD (nP + l)
+      = some (afvs, Expr.mkAppN (.const J lvls) targs)) :
+    Expr.ErasedEq x'.fvarTypeD x.fvarTypeD := by
+  have hxfb : Expr.fvarsBelow (nP + l) x.fvarTypeD :=
+    (openPisAtFvars_fvarsBelow nF hop2 hfb).1 l x hx
+  have hxb : x.fvarTypeD.looseBVarsBounded 0 = true :=
+    (Verify.openPisAtFvars_bounded nF hop2
+      (Verify.openPisAtFvars_bounded nP hop1 hb).1).2 x (List.mem_of_getElem? hx)
+  rcases normCtorValM_frame henv h hb with rfl |
+    ⟨bs, fbs, pbs, fvs₀, xFvs₀, crest₀, xrest₀, hA, hB, hlen, hdoms, hty, hfields, hpl, hbseq⟩
+  · rw [hop1] at hop1'
+    simp only [Option.some.injEq, Prod.mk.injEq] at hop1'
+    obtain ⟨rfl, rfl⟩ := hop1'
+    rw [hop2] at hop2'
+    simp only [Option.some.injEq, Prod.mk.injEq] at hop2'
+    obtain ⟨rfl, rfl⟩ := hop2'
+    obtain rfl : x = x' := Option.some.inj (hx.symm.trans hx')
+    exact Expr.ErasedEq.rfl _
+  rw [hop1] at hA
+  simp only [Option.some.injEq, Prod.mk.injEq] at hA
+  obtain ⟨rfl, rfl⟩ := hA
+  rw [hop2] at hB
+  simp only [Option.some.injEq, Prod.mk.injEq] at hB
+  obtain ⟨rfl, rfl⟩ := hB
+  have hxb₀ : xrest.looseBVarsBounded 0 = true :=
+    (Verify.openPisAtFvars_bounded nF hop2 (Verify.openPisAtFvars_bounded nP hop1 hb).1).1
+  obtain ⟨fvs₃, r₃, hop₃, -, -, hdoms₃⟩ :=
+    openPisAtFvars_closeTelescope_doms bs 0 xrest hdoms hxb₀
+  rw [hlen] at hop₃
+  have hadd : openPisAtFvars (nP + nF) cvCa'.type 0 = some (fvs' ++ xFvs', xrest') :=
+    openPisAtFvars_addD nP hop1' (by simpa using hop2')
+  rw [hty, hop₃] at hadd
+  simp only [Option.some.injEq, Prod.mk.injEq] at hadd
+  obtain ⟨rfl, -⟩ := hadd
+  have hfvs' : fvs'.length = nP := Verify.openPisAtFvars_length nP hop1'
+  have hidx : (fvs' ++ xFvs')[nP + l]? = some x' := by
+    rw [List.getElem?_append_right (by omega), hfvs', show nP + l - nP = l from by omega]
+    exact hx'
+  obtain ⟨d', bm', hd', hfbsl⟩ := normFieldDomsM_getD hfields hop2 l x hx
+  have hbb : bs[nP + l]? = some (d', bm') := by
+    rw [hbseq, List.getElem?_append_right (by omega), hpl, show nP + l - nP = l from by omega]
+    exact hfbsl
+  have her : Expr.ErasedEq x'.fvarTypeD d' := hdoms₃ (nP + l) x' (d', bm') hidx hbb
+  exact her.trans (normPosDomM_piIndApp hJ n hopA hxfb hxb hd')
 
 /-- **A MEMBER-FREE FIELD DOMAIN SURVIVES THE NORMALISATION** (task
 #315 L-B): `normCtorValM_domErased`'s twin at the walk's own guard —
