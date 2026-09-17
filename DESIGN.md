@@ -80665,6 +80665,46 @@ binders of the body.  Sized **1½–2 sessions** (spec
 `_tmp/uniform-m7read/spec-transfer.md`, running), then the nine frame
 clauses **1½–2**: §1e = 3–4 from here (PLAN said 2).
 
+##### (n) CONTINUATION 6 — THE TRANSFER proved (`NestedTailIn.spineFit_transfer`), `NestedDeclCtorsInBlock` gone
+
+*`NestedRecFrames.lean`* (now ~1400 lines) + new `Verify/Inductives/NestedRecFramesKit.lean`
+(Opus; standard axioms; gates green — build/test warning-free, shake 508/508, pub-imports
+none demotable, layering, proofdeps 4955/12/0, overview-links 112, quote-gate, no-local-paths):
+
+* E — `NestedStageFacts.agreeR` (the restored model agrees with the
+  pre-block one off the restored constructors' and the members' names;
+  `NestedLoopFacts.agreeC ∘ hoff'` — `agreeC` itself mentions the loop's
+  internal prefix model and cannot be exported verbatim); `leafAcval`
+  re-proved from it, **`NestedDeclCtorsInBlock` deleted**.
+* A — `mutualRecTy_paramPrefix`: a generated recursor type's first `nP`
+  binders are the first former's DOMAINS (`Expr.replacePisPw` resets
+  the binder metas to `⟨pw⟩`, so only `pbsR.map (·.1) = pbsA.map (·.1)`
+  holds — the spec's "same binders" was false as written); `AuxAppsOk.forallE_inv`,
+  `AuxAppsOk_stripPis_dom` (K.35's shape inverted along the body's binders).
+* B — `NestedTailIn.recTyPrefix`: the restored reading's first `nP`
+  domains are `(D).params ψ` (`NestedStageFacts.FD 0 f₀ |>.read` opened
+  binder by binder against the recursor tower — `piTele_read_openers`,
+  the generalised middle of `restoredRecTy_reading`).
+* C1/C2 — `recTyOpen` (the restored tower opened: openers, per-binder
+  readings, and per binder above `nP` the walk pairing `restoreWalk R d
+  x = .ok y`, `AuxAppsOk … d x` from K.35, `y.constsResolve ENV₂`),
+  `auxTyOpen` (the scratch tower opened at `mpA`, per-binder readings
+  = `(DA).blockRds`'s entries); the opener annotations switched by
+  `denoteMeta_instSeq_openers_congr`.
+* **D — `NestedTailIn.spineFit_transfer S hnames hctorsJ hK35 hc ψ ρ hread hlenR xs :
+  SpineFit ρ (rdsR.map dom) xs ↔ SpineFit ρ (((DA).blockRds mpA.base2 b.elimLevel c ψ).map dom) xs`**
+  — `spineFit_iff_agree`'s skeleton: below `nP` the same domains (B +
+  `BlockReadings.ppsDom`), above it `denoteMeta_restoreWalk` at
+  `restoreAgree` with the two openings, the restored tower's
+  `WellDenotedV` peeled at the fitting prefix (`fieldsOkB_getD`).
+  `rdsR` is pinned by `hread`/`hlenR` — exactly what `readings`' `hfr`
+  quantifies, so the frames consume it without a `mkPisAV_inj` detour.
+* `scripts/pub-import-plan.py`: three `FALLBACK` entries for
+  `NestedRecFrames`' re-exports (each demotion refused by the compiler,
+  probed one at a time — the `MutualIdxUniv`/`NestedPins` class).
+
+Remaining of §1e: the nine frame clauses (B3), 1½–2 sessions.
+
 #### U.30 — L-B session 2: `CopyCtorInst.ordF` at the READING, the normalisation's reading law PROVED, `ContainerModeled`'s three clauses (lane L-B, 2026-09-16)
 
 Three maintainer rulings opened this session; the first two are landed,
