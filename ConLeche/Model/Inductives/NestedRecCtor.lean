@@ -61,6 +61,22 @@ field count. -/
       | some c => some c.2.2
       | none => none
 
+/-- **The key arities AS THE KERNEL COMPUTES THEM** (`nestedAuxAppsOk`'s
+own `arityOf`, `Kernel/Inductives/NestedInstall.lean`): at a pin key the
+COPY's stored type says how many indices it takes, at a constructor pin
+key the stored field count does.  The model face of K.35 is stated at
+THIS function — it mentions the run's data alone — and
+`NestedTailIn.arityK` identifies it with `nestedArity`, the spelling the
+walk's leaf agreements use. -/
+@[expose] def nestedArityK (p : NestedParts) (st : ElimState) : Name → Option Nat :=
+  fun n =>
+    match (st.pins.zipIdx.find? fun (q, _) => q.aux == n) with
+    | some (_, j) => (st.types[p.k + j]?).bind fun t => ConLeche.auxIdxCount p.nP t.type
+    | none =>
+      match ((st.types.drop p.k).flatMap (·.ctors)).find? fun c => c.1 == n with
+      | some c => some c.2.2
+      | none => none
+
 /-- **K.35 (requested)**: the restore's constructor names round-trip —
 the copy's constructor `replacePrefix J aux cc.name` restored by
 `replacePrefix aux J` is the container's `cc.name` again.  True

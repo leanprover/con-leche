@@ -569,7 +569,7 @@ theorem nestedLoopFacts_of (hpins : NestedPinsStaged V μ F) (hread : NestedRead
   refine ⟨mp₂, dsR, xFvsR, pinsS,
     { pinsLen := PF.pinsLen, pinRec := PF.pinRec
       pinDs := fun q hq ψ => DenoteMetaSpine.transfer (fun e _ h => hde₂ ψ b.nP e h) (PF.pinDs q hq ψ)
-      find := hF₂, pinψ := PF.pinψ, hde := hde₂
+      find := hF₂, pinψ := PF.pinψ, pinNIdx := PF.pinNIdx, hde := hde₂
       leafKeep := ?_, agreeC := hag₂, ctorFacts := ?_, domFacts := ?_, groups := ?_ }⟩
   · -- the members' leaves
     intro t f ht hft

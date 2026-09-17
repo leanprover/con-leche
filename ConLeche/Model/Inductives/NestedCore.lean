@@ -1245,6 +1245,10 @@ structure NestedStageFacts (st : ElimState) (mp₂ : EnvModelM V μ ENV₂) : Pr
     (pinsS.getD q default).lvls.length = cvT.levelParams.length ∧
     ∀ ψ : Name → Nat, (pinsS.getD q default).ψJ ψ
       = Level.substFn ψ cvT.levelParams (pinsS.getD q default).lvls
+  /-- the copy's index count is the pin's (task #315 M7-2: the model's
+  arity function at a restore key, `nestedArityK`) -/
+  pinNIdx : ∀ q, q < pinsS.length →
+    (fms.getD (p.k + q) default).nIdx = (pinsS.getD q default).nIdx
   names : (fms.take p.k).map (·.cvTa.name) = p.memberNames
   agree : ∀ n, n ∉ p.memberNames ++ p.ctors.map (·.cv.name) →
     ∀ ψ : Name → Nat, mp₂.base2.acval n ψ = mp.base2.acval n ψ
@@ -1308,6 +1312,10 @@ structure NestedLoopFacts (st : ElimState) (mp₁ : EnvModelM V μ ENV₁) (mp�
     (pinsS.getD q default).lvls.length = cvT.levelParams.length ∧
     ∀ ψ : Name → Nat, (pinsS.getD q default).ψJ ψ
       = Level.substFn ψ cvT.levelParams (pinsS.getD q default).lvls
+  /-- the copy's index count is the pin's (task #315 M7-2: the model's
+  arity function at a restore key, `nestedArityK`) -/
+  pinNIdx : ∀ q, q < pinsS.length →
+    (fms.getD (p.k + q) default).nIdx = (pinsS.getD q default).nIdx
   hde : ∀ (ψ : Name → Nat) (dp : Nat) (e : Expr) {ea : AnnotTerm},
     denoteMeta mp₁.base2.acval ENV₁ ψ dp e = some ea →
     denoteMeta mp₂.base2.acval ENV₂ ψ dp e = some ea
@@ -1614,6 +1622,7 @@ theorem nestedStageFacts_of (hst : NestedCtorsStaged V μ F) (hμ : μ.verifiedC
     exact hmmk
   refine ⟨mp₂, dsR, xFvsR, pinsS,
     { pinsLen := L.pinsLen, pinRec := L.pinRec, pinDs := L.pinDs, find := L.find, pinψ := L.pinψ
+      pinNIdx := L.pinNIdx
       names := hnames, agree := ?_
       agreeR := fun n hnC hnM => (L.agreeC n hnC).trans (hoff' n hnM)
       findM := fun t f ht hft => L.find (hfind' t f ht hft).1

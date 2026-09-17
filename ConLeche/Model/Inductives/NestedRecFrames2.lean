@@ -899,7 +899,7 @@ theorem NestedTailIn.framesAt {mpA : EnvModelM V μ ENVA} {cvRas : List Constant
       ∀ (ci : ContainerInfo) (J : ContainerMember),
         ConLeche.containerInfo? env ((D).pinAt (q₀ + i)).J = some ci → J ∈ ci.members →
         J.name = ((D).pinAt (q₀ + i)).J → (dJ.ctorsM i).map (·.1.name) = J.ctors.map (·.name))
-    (hK35 : NestedRecTysAuxOk p st b stored pinsS)
+    (hK35 : NestedRecTysAuxOk p st b stored)
     {c : Nat} (hc : c < b.k) (ψ : Name → Nat) (ρ : Nat → V)
     {rdsR : List (Nat × Nat × AnnotTerm)} {conc : AnnotTerm}
     (hread : denoteMeta mp₂.base2.acval (ENV2) ψ 0 (nestedRecCvAt p.k cvRms cvRns c).type
@@ -946,7 +946,7 @@ theorem NestedTailIn.framesOf (hnames : NestedCtorPinNames env p st)
       ∀ (ci : ContainerInfo) (J : ContainerMember),
         ConLeche.containerInfo? env ((D).pinAt (q₀ + i)).J = some ci → J ∈ ci.members →
         J.name = ((D).pinAt (q₀ + i)).J → (dJ.ctorsM i).map (·.1.name) = J.ctors.map (·.name))
-    (hK35 : NestedRecTysAuxOk p st b stored pinsS) :
+    (hK35 : NestedRecTysAuxOk p st b stored) :
     ∃ (s : (Name → Nat) → Nat) (rdsM : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm))
       (concM : Nat → AnnotTerm),
       NestedRecReadings mp₂.base2 (D) PC cvRms cvRns b.rlps b.elimLevel s rdsM concM := by
@@ -968,12 +968,11 @@ restore walk's shape (`NestedRecTysAuxOk`, `NestedRecFrames.lean`).
 A KERNEL-SIDE model face (PLAN-M7 §1a). -/
 @[expose] def NestedRecTysAuxOf (μ : CheckMode) (F : Nat) : Prop :=
   ∀ (env : Env) (p : NestedParts) (st : ElimState) (b : MutualBlock) (envAux : Env)
-    (stored : List AuxStored) (pinsS : List PinSyn),
+    (stored : List AuxStored),
     ConLeche.auxBlock p st = some b →
     ConLeche.checkMutualCore (m := ConLeche.CheckM) (fueledOps μ F) env b none true = .ok envAux →
     ConLeche.auxStoredAll envAux b b.k = some stored →
-    pinsS.length = st.pins.length →
-    NestedRecTysAuxOk p st b stored pinsS
+    NestedRecTysAuxOk p st b stored
 
 /-- **K.36 AT THE RUN**: a copy's constructor names round-trip through
 the container's (`NestedCtorPinNames`, `NestedRecCtor.lean`, T2).  A
@@ -1002,7 +1001,7 @@ theorem nestedRecFramesOf_of {F : Nat} (hK35 : NestedRecTysAuxOf μ F)
   have hcb : c < b.k := by rw [← I.kT]; exact hc
   refine I.framesAt S (hK36 env p st fmsA ctorsA₀ I.hfA I.hcA I.helim I.hcont)
     (fun _q₀ _kJ i _dJ G hi ci J h1 h2 h3 => (G.ctorsOf i hi ci J h1 h2 h3).1)
-    (hK35 env p st b envAux stored pinsS I.hb I.haux I.hstored I.out.stage.pinsLen)
+    (hK35 env p st b envAux stored I.hb I.haux I.hstored)
     hcb ψ ρ (hread c ψ hc) ?_
   have hlc := hlen c ψ hc
   rw [nestedBlockModel_nP, I.kT, I.nCtorsT, I.nIdxT hcb] at hlc
