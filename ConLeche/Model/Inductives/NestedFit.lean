@@ -422,15 +422,16 @@ instance transfer needs: the container's own copy of a pin's
 constructor and the BLOCK's copy of the same constructor read the same
 field, hence name the same container at their targets
 (`targetHead_corr`).  The level arguments of the head are over the
-container's level parameters (`lvlsIn`, so that the two targets'
-level assignments agree on the target container's parameters). -/
+container's level parameters (`allParamsDefined`, so that the two
+targets' level assignments agree on the target container's own
+parameters — `targetHead_corr`). -/
 @[expose] def TargetHead (i j l : Nat) (nm : Name) (us : List Level) : Prop :=
   ∃ (x : Expr) (Tl : List (Expr × ConLeche.BinderMeta)) (bodyE : Expr),
     (dJ.xFvsF i j)[l]? = some x ∧
     x.fvarTypeD.stripPis (x.fvarTypeD.piBinders).1.length = some (Tl, bodyE) ∧
     ((∃ vs : List Level, bodyE.getAppFn = .const nm vs ∧
         us = vs.map (Level.subst lpsJ lvlsJ) ∧
-        ∀ v ∈ vs, ∀ φ₁ φ₂ : Name → Nat, (∀ q ∈ lpsJ, φ₁ q = φ₂ q) → v.eval φ₁ = v.eval φ₂) ∨
+        ∀ v ∈ vs, v.allParamsDefined lpsJ = true) ∨
       (∃ (p : Nat) (ty : Expr), bodyE.getAppFn = .fvar p ty ∧ p < DsE.length ∧
         (DsE.getD p default).getAppFn = .const nm us))
 
@@ -558,6 +559,79 @@ structure CopyCtorShape : Prop where
       = AnnotTerm.instAll Ds ((dJ.Fss i ψJ).getD j []).length (((dJ.Ess i ψJ).getD j []).getD l default)
 
 end Shape
+
+/-! ## The two copies of ONE container field name ONE target container -/
+
+omit [SetTheory V] in
+/-- **The container instance transfer's head correspondence** (task
+#315 L-E, DESIGN §U.51): a container's own copy of one of its pins'
+constructors and the BLOCK's copy of the image pin are copies of the
+SAME field of the SAME container `dJ`, at components related by the
+outer instantiation (`hDsE`) and at level arguments related by the
+outer substitution (`h₂`'s third argument).  Then the two targets name
+the same CONTAINER, and their level arguments are one assignment at
+that container's own level parameters — which identifies the two
+targets' index universes (`PinGroupView.pinU`) and so their fibres,
+the comparison the relational meet makes. -/
+theorem targetHead_corr {dJ : BlockModel V} {DsE₁ DsE₂ DsO : List Expr}
+    {lpsK lpsJ : List Name} {lvlsK lvlsJ : List Level} {i j l off : Nat}
+    {nm₁ nm₂ : Name} {us₁ us₂ : List Level}
+    (h₁ : TargetHead dJ DsE₁ lpsK lvlsK i j l nm₁ us₁)
+    (h₂ : TargetHead dJ DsE₂ lpsK (lvlsK.map (Level.subst lpsJ lvlsJ)) i j l nm₂ us₂)
+    (hlenK : lvlsK.length = lpsK.length)
+    (hDsE : DsE₂ = DsE₁.map fun e =>
+      Expr.instSeq DsO off (Expr.instantiateLevelParams lpsJ lvlsJ e)) :
+    nm₂ = nm₁ ∧
+    ∀ (lpsC : List Name) (φ : Name → Nat), us₁.length = lpsC.length →
+      ∀ p ∈ lpsC, Level.substFn φ lpsC us₂ p
+        = Level.substFn (Level.substFn φ lpsJ lvlsJ) lpsC us₁ p := by
+  obtain ⟨x₁, Tl₁, b₁, hx₁, hs₁, hc₁⟩ := h₁
+  obtain ⟨x₂, Tl₂, b₂, hx₂, hs₂, hc₂⟩ := h₂
+  obtain rfl : x₂ = x₁ := Option.some.inj (hx₂.symm.trans hx₁)
+  have hb : b₂ = b₁ := congrArg Prod.snd (Option.some.inj (hs₂.symm.trans hs₁))
+  rcases hc₁ with ⟨vs₁, hfn₁, hus₁, hpd₁⟩ | ⟨p₁, ty₁, hfn₁, hlt₁, hhd₁⟩
+  · rcases hc₂ with ⟨vs₂, hfn₂, hus₂, -⟩ | ⟨p₂, ty₂, hfn₂, -, -⟩
+    · rw [hb, hfn₁, Expr.const.injEq] at hfn₂
+      refine ⟨hfn₂.1.symm, fun lpsC φ hlen p hp => ?_⟩
+      have hvlen : vs₁.length = lpsC.length := by
+        rw [← hlen, hus₁, List.length_map]
+      have hφ : ∀ q ∈ lpsK, Level.substFn φ lpsK (lvlsK.map (Level.subst lpsJ lvlsJ)) q
+          = Level.substFn (Level.substFn φ lpsJ lvlsJ) lpsK lvlsK q :=
+        fun q hq => Level.substFn_map_subst hlenK hq
+      have he₂ : us₂ = vs₁.map (Level.subst lpsK (lvlsK.map (Level.subst lpsJ lvlsJ))) := by
+        rw [hus₂, ← hfn₂.2]
+      rw [he₂, hus₁, Level.substFn_map_subst hvlen hp, Level.substFn_map_subst hvlen hp]
+      exact Level.substFn_ext hφ hpd₁ hvlen p hp
+    · rw [hb, hfn₁] at hfn₂
+      exact nomatch hfn₂
+  · rcases hc₂ with ⟨vs₂, hfn₂, -, -⟩ | ⟨p₂, ty₂, hfn₂, -, hhd₂⟩
+    · rw [hb, hfn₁] at hfn₂
+      exact nomatch hfn₂
+    · rw [hb, hfn₁, Expr.fvar.injEq] at hfn₂
+      rw [← hfn₂.1] at hhd₂
+      -- the image component is the component instantiated: the head stays
+      have hget : DsE₂.getD p₁ default
+          = Expr.instSeq DsO off
+              (Expr.instantiateLevelParams lpsJ lvlsJ (DsE₁.getD p₁ default)) := by
+        rw [hDsE, List.getD_eq_getElem?_getD, List.getElem?_map, List.getD_eq_getElem?_getD,
+          List.getElem?_eq_getElem hlt₁]
+        rfl
+      have hilp : (Expr.instantiateLevelParams lpsJ lvlsJ (DsE₁.getD p₁ default)).getAppFn
+          = .const nm₁ (us₁.map (Level.subst lpsJ lvlsJ)) := by
+        rw [Expr.getAppFn_instantiateLevelParams, hhd₁]
+        rfl
+      have hdec := (Expr.mkAppN_getApp
+        (Expr.instantiateLevelParams lpsJ lvlsJ (DsE₁.getD p₁ default))).symm
+      rw [hilp] at hdec
+      have hhead : (DsE₂.getD p₁ default).getAppFn
+          = .const nm₁ (us₁.map (Level.subst lpsJ lvlsJ)) := by
+        rw [hget, hdec, Expr.instSeq_mkAppN, Expr.instSeq_eq_self _ _ rfl,
+          Expr.getAppFn_mkAppN]
+        rfl
+      rw [hhead, Expr.const.injEq] at hhd₂
+      refine ⟨hhd₂.1.symm, fun lpsC φ hlen p hp => ?_⟩
+      rw [← hhd₂.2]
+      exact Level.substFn_map_subst hlen hp
 
 /-! ## The entry at a tuple, from the reading -/
 
