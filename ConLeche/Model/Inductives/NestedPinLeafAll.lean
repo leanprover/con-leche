@@ -136,6 +136,61 @@ theorem slotSet_congr_below {w u k : Nat} {ρ ρ' : Nat → V}
   refine interp_congr_below V e (k + tl.length) _ _ (hEis e he) fun v hv => ?_
   exact consList_agree_above hρ bs v (by omega)
 
+/-- **A spine fits at two frames agreeing below the chain's bound**
+(task #315 L-E, DESIGN §U.61): `teleOfFields_congr_below`'s `SpineFit`
+twin — a field chain whose domains are bounded at their own depths
+reads only the frame below the chain's bound, so a prefix fitting it at
+one of the container instance transfer's two frames fits it at the
+other. -/
+theorem spineFit_congr_fields :
+    ∀ {Fs : List AnnotTerm} {k : Nat} {ρ ρ' : Nat → V} {fs : List V},
+      FieldsBelow k Fs → (∀ v, v < k → ρ v = ρ' v) → SpineFit ρ Fs fs → SpineFit ρ' Fs fs
+  | [], _, _, _, [], _, _, h => h
+  | [], _, _, _, _ :: _, _, _, h => h.elim
+  | _ :: _, _, _, _, [], _, _, h => h.elim
+  | F :: Fs, k, ρ, ρ', a :: fs, hb, hρ, h => by
+    simp only [SpineFit] at h ⊢
+    refine ⟨?_, ?_⟩
+    · rw [← interp_congr_below V F k ρ ρ' hb.1 hρ]
+      exact h.1
+    · refine spineFit_congr_fields (k := k + 1) hb.2 (fun v hv => ?_) h.2
+      match v with
+      | 0 => rfl
+      | v + 1 => exact hρ v (by omega)
+
+/-- A field chain's entries are bounded at their own depths (the
+`FieldsBelow` reader; `MutualFormersKit`'s twin is not re-exported to
+this file). -/
+theorem fieldsBelow_getD : ∀ {Fs : List AnnotTerm} {k : Nat} (l : Nat),
+    FieldsBelow k Fs → l < Fs.length →
+    ConLeche.Term.Term.bvarsBelow (k + l) (Fs.getD l default).erase
+  | [], _, _, _, hl => by simp at hl
+  | F :: Fs, k, 0, hb, _ => by simpa using hb.1
+  | F :: Fs, k, l + 1, hb, hl => by
+    have := fieldsBelow_getD (Fs := Fs) (k := k + 1) l hb.2 (by simp at hl ⊢; omega)
+    simpa [show k + 1 + l = k + (l + 1) from by omega] using this
+
+/-- A field chain's PREFIX is bounded where the chain is. -/
+theorem fieldsBelow_take : ∀ {Fs : List AnnotTerm} {k : Nat} (l : Nat),
+    FieldsBelow k Fs → FieldsBelow k (Fs.take l)
+  | [], _, l, _ => by rw [List.take_nil]; trivial
+  | _ :: _, _, 0, _ => by rw [List.take_zero]; trivial
+  | F :: Fs, k, l + 1, hb => by
+    rw [List.take_succ_cons]
+    exact ⟨hb.1, fieldsBelow_take l hb.2⟩
+
+/-- **A container's constructor's field domains are bounded at their own
+depths over the parameters** (`CtorDataI.below` at the dropped
+telescope). -/
+theorem IsBlockModel.Fss_below {m : EnvModel V env} {d : BlockModel V}
+    {T : Name} {cvT cvR : ConstantVal} {mI rP : Nat} {rules : List RecRule} {mm : Nat}
+    (h : IsBlockModel m T cvT cvR mI rP rules d mm) {j : Nat} {cA : ConstantVal × Nat}
+    (hj : (d.ctorsM mm)[j]? = some cA) (ψ : Name → Nat) :
+    FieldsBelow d.nP ((d.Fss mm ψ).getD j []) := by
+  rw [IsBlockModel.Fss_getD hj]
+  have := (DomsBelow.drop (k := 0) d.nP ((h.ctorData hj).below ψ)).fields
+  simpa using this
+
 /-- **A container's constructor fit at TWO level assignments and TWO
 frames** (task #315 L-E, DESIGN §U.51: the gap between the container
 instance transfer's two halves): the container instance transfer reads
@@ -215,6 +270,97 @@ theorem BlockModel.chainFitT_congr_mem {m : EnvModel V env} {dK : BlockModel V}
     have hbE := hcd.belowE ψ₁ _ (by rwa [IsBlockModel.Ess_getD hj] at hmemE)
     rw [hlen, IsBlockModel.Ess_getD hj]
     exact hbE
+
+/-- **A container's recursive SLOT at one field, at TWO level
+assignments and TWO frames** (task #315 L-E, DESIGN §U.61):
+`chainFitT_congr_mem`'s recursive branch, extracted — the constructor's
+data are one datum (`IsBlockModel.ctor_params`), the telescope's
+domains and the index expressions read only below the field's depth
+(`CtorDataI.tssBelow`/`eissBelow`), so `slotSet_congr_below` carries
+the slot across. -/
+theorem BlockModel.slotAtT_congr_mem {m : EnvModel V env} {dK : BlockModel V}
+    {pc : Nat → PinCtors V} {ψ₁ ψ₂ : Name → Nat} {ρ₁ ρ₂ : Nat → V} {Y : Nat → V} {i j : Nat}
+    (hreps : IsBlockModels m dK) (hi : i < dK.k)
+    {cA : ConstantVal × Nat} (hj : (dK.ctorsM i)[j]? = some cA)
+    (hψ : ∀ p ∈ cA.1.levelParams, ψ₁ p = ψ₂ p)
+    (hw : dK.w ψ₁ = dK.w ψ₂)
+    (hu : ∀ l, dK.uT (dK.tgts i j l) ψ₁ = dK.uT (dK.tgts i j l) ψ₂)
+    (hρ : ∀ v, v < dK.nP → ρ₁ v = ρ₂ v) (fs₁ : List V) :
+    dK.slotAtT pc ψ₁ Y i j fs₁.length (consList fs₁ ρ₁)
+      = dK.slotAtT pc ψ₂ Y i j fs₁.length (consList fs₁ ρ₂) := by
+  obtain ⟨cvT, cvR, mI, rP, rules, hI⟩ := hreps i hi
+  obtain ⟨-, hE, htl, -⟩ := hI.ctor_params hj hψ
+  have hcd := hI.ctorData hj
+  simp only [BlockModel.slotAtT, BlockModel.tgtsT_of_mem hi, BlockModel.teleAtT_of_mem hi,
+    BlockModel.eisAtT_of_mem hi, BlockModel.teleAt, BlockModel.eisAt]
+  rw [hw, hu, htl, hE]
+  refine slotSet_congr_below (k := dK.nP + fs₁.length) ?_ (fun e he => ?_)
+    (fun v hv => consList_agree_above hρ fs₁ v (by omega))
+  · rw [IsBlockModel.tlss_getD hj]
+    exact hcd.tssBelow ψ₂ fs₁.length
+  · have hmem : e ∈ (dK.eissF i j ψ₂).getD fs₁.length [] := by
+      rwa [IsBlockModel.Eiss_getD hj] at he
+    rw [IsBlockModel.tlss_getD hj]
+    exact hcd.eissBelow ψ₂ fs₁.length e hmem
+
+/-- **A container's field DOMAIN at TWO level assignments and TWO
+frames** (task #315 L-E, DESIGN §U.61): the domain lists are one
+(`ctor_params`) and each domain reads only below its own depth
+(`Fss_below`). -/
+theorem IsBlockModel.dom_congr_mem {m : EnvModel V env} {dK : BlockModel V}
+    {ψ₁ ψ₂ : Name → Nat} {ρ₁ ρ₂ : Nat → V} {i j : Nat}
+    (hreps : IsBlockModels m dK) (hi : i < dK.k)
+    {cA : ConstantVal × Nat} (hj : (dK.ctorsM i)[j]? = some cA)
+    (hψ : ∀ p ∈ cA.1.levelParams, ψ₁ p = ψ₂ p)
+    (hρ : ∀ v, v < dK.nP → ρ₁ v = ρ₂ v) (fs₁ : List V)
+    (hl : fs₁.length < ((dK.Fss i ψ₂).getD j []).length) :
+    interp V (consList fs₁ ρ₁) (((dK.Fss i ψ₁).getD j []).getD fs₁.length default)
+      = interp V (consList fs₁ ρ₂) (((dK.Fss i ψ₂).getD j []).getD fs₁.length default) := by
+  obtain ⟨cvT, cvR, mI, rP, rules, hI⟩ := hreps i hi
+  obtain ⟨hF, -, -, -⟩ := hI.ctor_params hj hψ
+  rw [hF]
+  exact interp_congr_below V _ (dK.nP + fs₁.length) _ _
+    (fieldsBelow_getD _ (hI.Fss_below hj ψ₂) hl)
+    (fun v hv => consList_agree_above hρ fs₁ v (by omega))
+
+/-- **The container's slots' BOUND travels between the frames** (task
+#315 L-E, DESIGN §U.54 (b), §U.61): the `_dom` premise of
+`fit_iff_at_T_dom`/`fit_imp_T_le_dom` — the container's recursive slot
+at a field is within the field's real domain — at one level assignment
+and frame gives it at the other, over the SAME tuple `Y`.  This is what
+makes the container instance transfer's two halves composable: the
+container's tuple space and extended carrier do NOT travel (they are
+stated at one frame), its slots' bound does. -/
+theorem BlockModel.slotDom_congr_mem {m : EnvModel V env} {dK : BlockModel V}
+    {pc : Nat → PinCtors V} {ψ₁ ψ₂ : Name → Nat} {ρ₁ ρ₂ : Nat → V} {Y : Nat → V} {i j : Nat}
+    (hreps : IsBlockModels m dK) (hi : i < dK.k)
+    {cA : ConstantVal × Nat} (hj : (dK.ctorsM i)[j]? = some cA)
+    (hψ : ∀ p ∈ cA.1.levelParams, ψ₁ p = ψ₂ p)
+    (hw : dK.w ψ₁ = dK.w ψ₂)
+    (hu : ∀ l, dK.uT (dK.tgts i j l) ψ₁ = dK.uT (dK.tgts i j l) ψ₂)
+    (hρ : ∀ v, v < dK.nP → ρ₁ v = ρ₂ v)
+    (hdom : ∀ l, l < ((dK.Fss i ψ₁).getD j []).length →
+      ((dK.rss i).getD j []).getD l false = true →
+      ∀ fs₁ : List V, fs₁.length = l → SpineFit ρ₁ (((dK.Fss i ψ₁).getD j []).take l) fs₁ →
+      dK.slotAtT pc ψ₁ Y i j l (consList fs₁ ρ₁)
+        ⊆ˢ interp V (consList fs₁ ρ₁) (((dK.Fss i ψ₁).getD j []).getD l default)) :
+    ∀ l, l < ((dK.Fss i ψ₂).getD j []).length →
+      ((dK.rss i).getD j []).getD l false = true →
+      ∀ fs₁ : List V, fs₁.length = l → SpineFit ρ₂ (((dK.Fss i ψ₂).getD j []).take l) fs₁ →
+      dK.slotAtT pc ψ₂ Y i j l (consList fs₁ ρ₂)
+        ⊆ˢ interp V (consList fs₁ ρ₂) (((dK.Fss i ψ₂).getD j []).getD l default) := by
+  obtain ⟨cvT, cvR, mI, rP, rules, hI⟩ := hreps i hi
+  obtain ⟨hF, -, -, -⟩ := hI.ctor_params hj hψ
+  intro l hl hr fs₁ hlen hsp
+  subst hlen
+  have hsp₁ : SpineFit ρ₁ (((dK.Fss i ψ₁).getD j []).take fs₁.length) fs₁ := by
+    rw [hF]
+    exact spineFit_congr_fields (fieldsBelow_take _ (hI.Fss_below hj ψ₂))
+      (fun v hv => (hρ v hv).symm) hsp
+  have hkey := hdom fs₁.length (by rw [hF]; exact hl) hr fs₁ rfl hsp₁
+  rw [BlockModel.slotAtT_congr_mem hreps hi hj hψ hw hu hρ fs₁,
+    IsBlockModel.dom_congr_mem hreps hi hj hψ hρ fs₁ hl] at hkey
+  exact hkey
 
 /-! ## A family is determined by its LEAF -/
 
