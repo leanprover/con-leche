@@ -617,6 +617,64 @@ theorem NestedTailIn.motivesAt {mpA : EnvModelM V μ ENVA} {cvRas : List Constan
     omega
   exact hIA.motive_app_mem (S.reps.params_length hk0 ψ) hρpA (hmot c' hcb) hfitA hxA
 
+
+/-! ### The index tuples -/
+
+/-- The pins' recursion laws at the nested block model (lane M7-1). -/
+theorem NestedTailIn.pinLaws : PinRecLaws mp₂.base2 (D) PC :=
+  nestedPinRecLaws_of I.hμ I.out.facts I.out.grouped I.out.bk mp₂.base2 I.out.stage.groups
+
+/-- Every class's index telescope is graded at its frame — a member's
+by its own `idxOk`, a pin's by `PinRecLaws.idxOk`. -/
+theorem NestedTailIn.idxOkT (ψ : Name → Nat) (ρp : Nat → V)
+    (hρp : Sat V ((D).params ψ).reverse ρp) {c : Nat} (hc : c < (D).kT) :
+    IdxOk ((D).uT c ψ) ((D).frameT c ψ ρp) ((D).IdsT c ψ) := by
+  by_cases hck : c < (D).k
+  · obtain ⟨cvT, cvR, mI, rP, rules, hID⟩ := I.out.reps c hck
+    rw [BlockModel.uT_of_mem hck, BlockModel.frameT_of_mem hck, BlockModel.IdsT_of_mem hck]
+    exact hID.idxOk ψ ρp hρp c hck
+  · have hq : c - (D).k < (D).nPins := by unfold BlockModel.kT at hc; omega
+    rw [BlockModel.uT_of_pin hck, BlockModel.frameT_of_pin hck, BlockModel.IdsT_of_pin hck]
+    exact I.pinLaws.idxOk ψ ρp hρp _ hq
+
+omit I in
+/-- A class's index tuple is the tuple of a fitting index spine. -/
+theorem nestedIdxT_elim (ψ : Name → Nat) (ρp : Nat → V) {c : Nat} {t : V}
+    (ht : t ∈ˢ (D).idxT ψ ρp c) :
+    ∃ is, SpineFit ((D).frameT c ψ ρp) ((D).IdsT c ψ) is ∧ t = (D).tupT ψ c is := by
+  by_cases hck : c < (D).k
+  · rw [BlockModel.idxT_of_mem hck] at ht
+    obtain ⟨is, hsp, rfl⟩ :=
+      mem_idxSet_elim (show t ∈ˢ idxSet ((D).uM c ψ) ρp ((D).IdsM c ψ) from ht)
+    refine ⟨is, ?_, ?_⟩
+    · rw [BlockModel.frameT_of_mem hck, BlockModel.IdsT_of_mem hck]; exact hsp
+    · rw [BlockModel.tupT, BlockModel.uT_of_mem hck]
+  · rw [BlockModel.idxT_of_pin hck] at ht
+    obtain ⟨is, hsp, rfl⟩ := mem_idxSet_elim
+      (show t ∈ˢ idxSet (((D).pinAt (c - (D).k)).u ψ) ((D).pinFrame (c - (D).k) ψ ρp)
+        (((D).pinAt (c - (D).k)).Ids ψ) from ht)
+    refine ⟨is, ?_, ?_⟩
+    · rw [BlockModel.frameT_of_pin hck, BlockModel.IdsT_of_pin hck]; exact hsp
+    · rw [BlockModel.tupT, BlockModel.uT_of_pin hck]
+
+/-- **A CLASS'S RESULT INDEX READINGS ARE ITS COPY'S**. -/
+theorem NestedTailIn.EssT_eq (ψ : Name → Nat) {c : Nat} {j : Nat} {cA : ConstantVal × Nat}
+    (hjA : ((DA).ctorsM c)[j]? = some cA) :
+    ((D).EssT PC ψ c).getD j [] = ((DA).Ess c ψ).getD j [] := by
+  have hjl : j < ((DA).ctorsM c).length := (List.getElem?_eq_some_iff.mp hjA).1
+  obtain ⟨hJl, -, -⟩ := mutualBlockModel_ctorsM_get I.out.grouped I.out.facts.lenA hjA
+  rw [IsBlockModel.Ess_getD (d := (DA)) (mm := c) hjA ψ]
+  have hkk : (D).k = p.k := rfl
+  by_cases hck : c < (D).k
+  · obtain ⟨cR, hjD⟩ := I.ctorsD_get (by rw [hkk] at hck; exact hck) hjl
+    rw [BlockModel.EssT_of_mem hck, IsBlockModel.Ess_getD (d := (D)) (mm := c) hjD ψ]
+    rfl
+  · rw [hkk] at hck
+    rw [BlockModel.EssT_of_pin (d := (D)) (by rw [hkk]; exact hck)]
+    show ((mutEss0 ctorsA.length esF ψ).drop (b.ownOffset (p.k + (c - (D).k)))).getD j [] = _
+    rw [hkk, Nat.add_sub_cancel' (Nat.le_of_not_lt hck), getD_drop, mutEss0_getD hJl]
+    rfl
+
 end Run
 
 end ConLeche.Model
