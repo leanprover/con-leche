@@ -8,6 +8,7 @@ import ConLeche.Verify.Inductives.NestedGroupInv
 import ConLeche.Verify.Inductives.NestedCopyGlue
 import ConLeche.Model.Inductives.MutualFormersKit
 import ConLeche.Model.Inductives.BlockRecFrames
+import ConLeche.Model.Inductives.MutualRecsStage
 import ConLeche.Model.Inductives.NestedTransfer
 public section
 
@@ -723,6 +724,181 @@ theorem NestedTailIn.ctorPinFitJ {q₀ kJ i : Nat} {dJ : BlockModel V} (G : PG m
   obtain ⟨rfl, rfl⟩ := List.append_inj hcat (by rw [hl1, List.length_map, hDsLen])
   rw [IsBlockModel.Fss_getD hjJ]
   exact h2
+
+
+/-! ### B1 — the constructor pin's agreement -/
+
+/-- **THE COPY CONSTRUCTOR'S AGREEMENT AT THE TAIL** (task #315 M7-2,
+PLAN-M7 §1c): `RestoreAgree.ctor` at the restore table of the
+elimination, the scratch install's model `mpA` and the restored one
+`mp₂`.  A `ctorPins` hit is a copy's constructor (`ctorPinInv`); its
+pin is the container's own application, closed at the block's
+parameters (bounded, headed by the container, absent from the pin
+map); the copy's constructor is stored at the scratch environment with
+the block's level parameters and its field count is the key's arity;
+the restored head reads as the container's constructor at the pin's
+components (`ctorPinRead`); and the two readings interpret alike —
+both sides are the SAME tagged tower, the container's constructor
+through `IsBlockModel.ctor` at the pin's components (whose fields fit
+by `ctorPinFitJ`) and the copy's through the scratch block's, the two
+field spines identified by THE CRUX (`ctorPinFieldsFit`); at a
+`Prop`-valued block both sides are the point (`ctorPinPt`,
+`sumMkAV_zero`).
+
+`hctorsJ` is the second named model face of T2 (with `NestedCtorPinNames`
+= K.35): the pin group's constructors are the container member's, by
+name and in order. -/
+theorem NestedTailIn.ctorArm {mpA : EnvModelM V μ ENVA} {cvRas : List ConstantVal}
+    (S : NestedScratchOut F env b fms f₀ ctorsA kinds mp₁ ppsF W idxF dsF esF srcsF fvsPF xFvsF
+      xrestF eissF tssF stored mpA cvRas)
+    (hnames : NestedCtorPinNames env p st)
+    (hctorsJ : ∀ (q₀ kJ i : Nat) (dJ : BlockModel V), PG mp₂.base2 q₀ kJ dJ → i < kJ →
+      ∀ (ci : ContainerInfo) (J : ContainerMember),
+        ConLeche.containerInfo? env ((D).pinAt (q₀ + i)).J = some ci → J ∈ ci.members →
+        J.name = ((D).pinAt (q₀ + i)).J → (dJ.ctorsM i).map (·.1.name) = J.ctors.map (·.name))
+    (ψ : Name → Nat) :
+    ∀ (n : Name) (pin : Expr) (newName : Name),
+      (ConLeche.restoreTbl p st).ctorPins.find? (fun q => q.1 == n) = some (n, pin, newName) →
+      pin.looseBVarsBounded b.nP = true ∧ (ConLeche.restoreTbl p st).pins.lookup n = none ∧
+      ∃ (ci : ConstantInfo) (J : Name) (ilvls : List Level) (ψJ : Name → Nat)
+        (Ds : List AnnotTerm) (nF : Nat),
+        (ENVA).find? n = some ci ∧ ci.toConstantVal.levelParams = b.lps ∧
+        nestedArity p st pinsS n = some nF ∧
+        (∀ d, (pin.liftLooseBVars d 0).getAppFn = .const J ilvls) ∧
+        (∀ (fvsP fvs : List Expr) (d : Nat), OpenersFrom fvsP 0 b.nP → OpenersFrom fvs b.nP d →
+          denoteMeta mp₂.base2.acval (ENV₂) ψ (b.nP + d) (Expr.instSeq (fvsP ++ fvs) (b.nP + d - 1)
+              (Expr.mkAppN (.const newName ilvls) (pin.liftLooseBVars d 0).getAppArgs))
+            = some (AnnotTerm.mkAppN (mp₂.base2.acval newName ψJ) (Ds.map (·.liftN d 0)))) ∧
+        ∀ (d : Nat) (as xs : List V) (ρ₀ : Nat → V) (Fs : List AnnotTerm),
+          SpineFit ρ₀ ((D).params ψ) as → xs.length = d → Fs.length = nF →
+          WellDenoted V (consList xs (consList as ρ₀))
+            (AnnotTerm.mkAppN (mp₂.base2.acval newName ψJ) (Ds.map (·.liftN d 0) ++ Fs)) →
+          interp V (consList xs (consList as ρ₀))
+              (AnnotTerm.mkAppN (mp₂.base2.acval newName ψJ) (Ds.map (·.liftN d 0) ++ Fs))
+            = interp V (consList xs (consList as ρ₀))
+              (AnnotTerm.mkAppN (mpA.base2.acval n ψ) (paramBvarsAt b.nP (b.nP + d) ++ Fs)) := by
+  intro n pin newName hfind
+  obtain ⟨q, qn, t, jc, c, ci, J, cc, hqn, ht, hc, htn, rfl, rfl, hq, hci, hJmem, hJname,
+    hccj, rfl, hnFc⟩ := I.ctorPinInv hnames hfind
+  obtain ⟨q₀, kJ, i, dJ, rfl, hi, G⟩ := I.out.stage.groups q hq
+  obtain ⟨hnP, -, -, -⟩ := ConLeche.auxBlock_fields I.hb
+  obtain ⟨hPJ, hpinEq⟩ := I.out.stage.pinRec (q₀ + i) qn hqn
+  have hpinDs := I.out.stage.pinDs (q₀ + i) hq ψ
+  -- the block position of the copy and of its constructor
+  have hck : p.k + q₀ + i < b.k := by
+    rw [I.out.bk]; have := G.seg; omega
+  have hassoc : p.k + (q₀ + i) = p.k + q₀ + i := (Nat.add_assoc _ _ _).symm
+  have hown := ConLeche.auxBlock_ownCtors_getElem? I.hb I.out.grouped (p.k + (q₀ + i)) jc t c ht hc
+  have hct := ConLeche.auxBlock_ctors_getElem? I.hb I.out.grouped (p.k + (q₀ + i)) jc t c ht hc
+  rw [hassoc] at hown hct
+  obtain ⟨hlenA, hnamesA⟩ := ctorsA_names_of I.out.ctors (ConLeche.checkMutualCore_inv I.haux).2.1
+  have hJlt : b.ownOffset (p.k + q₀ + i) + jc < ctorsA.length := by
+    rw [hlenA]; exact (List.getElem?_eq_some_iff.mp hct).1
+  obtain ⟨cA, hcAget⟩ : ∃ cA, ctorsA[b.ownOffset (p.k + q₀ + i) + jc]? = some cA :=
+    ⟨_, List.getElem?_eq_getElem hJlt⟩
+  have hcAgetD : ctorsA.getD (b.ownOffset (p.k + q₀ + i) + jc) default = cA := by
+    rw [List.getD_eq_getElem?_getD, hcAget]; rfl
+  have hcAname : cA.1.name = c.1 := (hnamesA _ _ _ hcAget hct).1
+  have hcAlps : cA.1.levelParams = b.lps := (hnamesA _ _ _ hcAget hct).2.2
+  have hjA : ((DA).ctorsM (p.k + q₀ + i))[jc]? = some cA := by
+    show ((b.ownCtors (p.k + q₀ + i)).map fun z => ctorsA.getD z.1 default)[jc]? = _
+    rw [List.getElem?_map, hown]
+    show some (ctorsA.getD (b.ownOffset (p.k + q₀ + i) + jc) default) = _
+    rw [hcAgetD]
+  obtain ⟨hfactsA, -, hleafA⟩ := S.cons _ _ hcAget
+  refine ⟨?_, I.ctorPinLookupNone ht hc, .ctorInfo cA.1 b.nP cA.2,
+    ((D).pinAt (q₀ + i)).J, ((D).pinAt (q₀ + i)).lvls,
+    ((D).pinAt (q₀ + i)).ψJ ψ, ((D).pinAt (q₀ + i)).Ds ψ, c.2.2,
+    by rw [← hcAname]; exact hfactsA.1, by show cA.1.levelParams = b.lps; exact hcAlps,
+    nestedArity_ctor (I.ctorName_ne_aux ht hc) ht hc I.ctorNames_nodup, ?_,
+    I.ctorPinRead hqn hq hci hJmem hccj ψ, ?_⟩
+  · -- (1) the abstracted pin is bounded at the block's parameters
+    have h := ConLeche.looseBVarsBounded_abstractRange qn.pin 0 p.nP 0
+      (by rw [hpinEq]; exact nt_pin_bounded hpinDs)
+    rw [Nat.zero_add] at h
+    rw [hnP]; exact h
+  · -- (4) the pin is headed by the container
+    intro d
+    rw [hpinEq, ConLeche.abstractRange_mkAppN, ConLeche.abstractRange_const,
+      ConLeche.liftLooseBVars_mkAppN, Expr.getAppFn_mkAppN, hPJ]
+    rfl
+  -- (6) the two readings interpret alike
+  intro d as xs ρ₀ Fs hsp hxs hFs hwd
+  have hi' : i < dJ.k := by rw [G.kEq]; exact hi
+  obtain ⟨cvT', cvR', mI', rP', rules', hIJ⟩ := G.rep i hi
+  have hwJ : dJ.w (((D).pinAt (q₀ + i)).ψJ ψ) = f₀.s.eval ψ := G.w i hi ψ
+  -- the container member's constructor at the group's block model
+  have hmapJ := hctorsJ q₀ kJ i dJ G hi ci J (by rw [hPJ]; exact hci) hJmem (by rw [hPJ]; exact hJname)
+  have hjcJ : jc < (dJ.ctorsM i).length := by
+    have hl := congrArg List.length hmapJ
+    simp only [List.length_map] at hl
+    rw [hl]
+    exact (List.getElem?_eq_some_iff.mp hccj).1
+  obtain ⟨cAJ, hjJ⟩ : ∃ cAJ, (dJ.ctorsM i)[jc]? = some cAJ :=
+    ⟨_, List.getElem?_eq_getElem hjcJ⟩
+  have hnameJ : cAJ.1.name = cc.name := by
+    have h1 : ((dJ.ctorsM i).map (·.1.name))[jc]? = some cAJ.1.name := by
+      rw [List.getElem?_map, hjJ]; rfl
+    have h2 : ((J.ctors).map (·.name))[jc]? = some cc.name := by
+      rw [List.getElem?_map, hccj]; rfl
+    rw [hmapJ] at h1
+    exact Option.some.inj (h1.symm.trans h2)
+  obtain ⟨cvc, hfind2⟩ := I.ctorPinFind2 hci hJmem hccj
+  have hnFJ : cAJ.2 = c.2.2 := by
+    obtain ⟨hfindJ, -, -⟩ := hIJ.ctors i jc cAJ hi' hjJ
+    rw [hnameJ, hfind2] at hfindJ
+    obtain ⟨-, -, hnf2⟩ := ConstantInfo.ctorInfo.inj (Option.some.inj hfindJ)
+    rw [← hnf2]; exact hnFc
+  have hwd' : WellDenoted V (consList xs (consList as ρ₀))
+      (AnnotTerm.mkAppN (mp₂.base2.acval cAJ.1.name (((D).pinAt (q₀ + i)).ψJ ψ))
+        ((((D).pinAt (q₀ + i)).Ds ψ).map (·.liftN d 0) ++ Fs)) := by rw [hnameJ]; exact hwd
+  -- the common rewriting of the two folds
+  have hplen : ((D).params ψ).length = b.nP := by
+    show (((ppsF 0 ψ).take b.nP).map (·.2.2)).length = b.nP
+    rw [List.length_map, List.length_take, (I.out.facts.FD 0 f₀ I.out.facts.first).len ψ]
+    omega
+  have hlenAs : as.length = b.nP := by rw [hsp.length_eq, hplen]
+  have hrng : (List.range b.nP).reverse.map (consList as ρ₀) = as := by
+    have h1 := consList_range_reverse b.nP (consList as ρ₀)
+    have h2 : (fun j' => consList as ρ₀ (j' + b.nP)) = ρ₀ := by
+      funext j'; rw [← hlenAs]; exact consList_apply_add as ρ₀ j'
+    rw [h2] at h1
+    exact consListInjLen (by simp [hlenAs]) h1
+  have hlift : ((((D).pinAt (q₀ + i)).Ds ψ).map (·.liftN d 0)).map
+      (interp V (consList xs (consList as ρ₀)))
+      = (((D).pinAt (q₀ + i)).Ds ψ).map (interp V (consList as ρ₀)) := by
+    rw [List.map_map]
+    refine List.map_congr_left fun Dc _ => ?_
+    show interp V (consList xs (consList as ρ₀)) (Dc.liftN d 0) = _
+    rw [← hxs]
+    exact interp_liftN_consList Dc xs (consList as ρ₀)
+  rw [interp_mkAppN_foldl, interp_mkAppN_foldl, List.map_append, List.map_append, hlift,
+    interp_closed (V := V) (mp₂.base2.cval_closedL _ _) _ (consList as ρ₀),
+    interp_closed (V := V) (mpA.base2.cval_closedL _ _) _ ρ₀,
+    map_paramBvarsAt_interp (ρp := consList as ρ₀)
+      (fun j' => by rw [← hxs]; exact consList_apply_add xs _ j'), hrng]
+  by_cases hw0 : f₀.s.eval ψ = 0
+  · -- the `Prop` regime: both folds are the point
+    rw [← hnameJ, NestedTailIn.ctorPinPt G hi ψ (by rw [hwJ]; exact hw0) hjJ (consList as ρ₀),
+      ← hcAname, hleafA ψ, hw0, sumMkAV_zero, foldl_app_pt, foldl_app_pt]
+  · -- the `Type` regime: both folds are the same tagged tower
+    have hwJ' : dJ.w (((D).pinAt (q₀ + i)).ψJ ψ) ≠ 0 := by rw [hwJ]; exact hw0
+    have hfsJ := NestedTailIn.ctorPinFitJ G hi ψ hwJ' hjJ d as xs ρ₀ Fs hxs
+      (by rw [hFs, hnFJ]) hwd'
+    have hfsA := I.ctorPinFieldsFit S G hi ψ ρ₀ as hsp hjA hjJ hfsJ
+    have hleft := hIJ.ctor i jc cAJ hi' hjJ (((D).pinAt (q₀ + i)).ψJ ψ) (consList as ρ₀)
+      ((((D).pinAt (q₀ + i)).Ds ψ).map (interp V (consList as ρ₀)))
+      (Fs.map (interp V (consList xs (consList as ρ₀))))
+      (G.DsFit i hi ψ ρ₀ as hsp) hfsJ
+    rw [G.inj, hwJ] at hleft
+    obtain ⟨cvTA, cvRA, mIA, rPA, rulesA, hIA⟩ := S.reps (p.k + q₀ + i) hck
+    have hright := hIA.ctor (p.k + q₀ + i) jc cA hck hjA ψ ρ₀ as
+      (Fs.map (interp V (consList xs (consList as ρ₀)))) hsp hfsA
+    have hrinj : (DA).inj ψ (p.k + q₀ + i) jc (Fs.map (interp V (consList xs (consList as ρ₀))))
+        = injW (f₀.s.eval ψ) jc
+          (mkTower (Fs.map (interp V (consList xs (consList as ρ₀))) ++ [pt])) := by rfl
+    rw [hrinj] at hright
+    rw [← hnameJ, hleft, ← hcAname, hright]
 
 end Run
 
