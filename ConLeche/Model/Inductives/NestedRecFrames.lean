@@ -2,7 +2,6 @@ module
 
 public import ConLeche.Model.Inductives.NestedRecCtor
 public import ConLeche.Model.Inductives.NestedRecTypes
-import ConLeche.Model.Inductives.NestedRecFibre
 import ConLeche.Model.Inductives.MutualFormersKit
 import ConLeche.Model.Inductives.NestedTransfer
 import ConLeche.Model.Inductives.MutualRecsStage
