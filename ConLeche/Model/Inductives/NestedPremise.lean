@@ -338,6 +338,28 @@ theorem BlockModel.pinIdx_of_view {d dJ : BlockModel V} {q₀ kK : Nat}
   unfold BlockModel.pinIdx BlockModel.idx
   rw [hfr, hIds, S.pinU i hi ψ]
 
+/-- **A pin's index telescope is bounded at its components** (task #315
+L-E, DESIGN §U.69): the pin's container member's telescope over the
+container's parameters (`pinPps`/`pinNP`, `FormerData.below`,
+`DomsBelow.drop`/`.fields`) — `classPin_of_pinCorr`'s `hIdsBelow` at
+the root's own pin. -/
+theorem pinIds_below {env : Env} {m : EnvModel V env} {d dJ : BlockModel V} {q₀ kK : Nat}
+    (S : PinGroupView d dJ q₀ kK) (hreps : IsBlockModels m dJ) {i : Nat} (hi : i < kK)
+    (ψ : Name → Nat) (ρ : Nat → V) :
+    FieldsBelow (((d.pinAt (q₀ + i)).Ds ψ).map (interp V ρ)).length
+      ((d.pinAt (q₀ + i)).Ids ψ) := by
+  obtain ⟨cvT, cvR, mI, rP, rules, hI⟩ := hreps i (S.kEq ▸ hi)
+  have hlen : (((d.pinAt (q₀ + i)).Ds ψ).map (interp V ρ)).length = dJ.nP := by
+    rw [List.length_map, (S.same i hi ψ).2, S.pinDsLen ψ]
+  have hIds : (d.pinAt (q₀ + i)).Ids ψ
+      = ((dJ.ppsM i ((d.pinAt (q₀ + i)).ψJ ψ)).drop dJ.nP).map (·.2.2) := by
+    unfold PinSyn.Ids
+    rw [S.pinPps i hi, S.pinNP i hi]
+  rw [hlen, hIds]
+  refine DomsBelow.fields ?_
+  have := DomsBelow.drop dJ.nP (hI.former.below ((d.pinAt (q₀ + i)).ψJ ψ))
+  simpa using this
+
 /-- **A pin group's own members are their own partners** (task #315
 L-E, DESIGN §U.65 — `InstanceCovered`'s first case, §U.55 (b)'s Base):
 at the ROOT group `[r, r + kR)` of a container instance, read at the

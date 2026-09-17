@@ -2661,6 +2661,39 @@ theorem copyTransfer_mem {env : Env} {m : EnvModel V env} {dK : BlockModel V}
     (BlockModel.slotDom_congr_mem hreps hi hj hψ hwK huT hρ hdom₁) hrel hentR t fs
     (BlockModel.chainFitT_congr_mem hreps hi hj hψ hwK huT hIdsLen hρ hfit)
 
+/-- **`classPin_of_pinCorr` at the BLOCK's pin table** (task #315 L-E,
+DESIGN §U.69): the premises read off the pin groups and the root
+container's own record — `hψD` is the image pin's group's `stored`,
+`hDsLen` is `pinNP`/`pinDsLen` at that group, `hψK` is the root's
+`ContainerModeled.pinψ`, and `hIdsBelow` is `pinIds_below` at the
+root's own pin group.  What the WALK produces at a `pinF` field of a
+MEMBER class. -/
+theorem classPin_of_blockPinCorr (m : EnvModel V env₂) {st : ElimState}
+    {dJf : Nat → BlockModel V}
+    (hgroups : ∀ q, q < pinsS.length → ∃ (q₀ kJ i : Nat),
+      q = q₀ + i ∧ i < kJ ∧ GF st m q₀ kJ (dJf q₀))
+    {dR dK : BlockModel V} {ciR : ContainerInfo} (CR : ContainerModeled m ciR dR)
+    {q₀' kK' i'' : Nat} (S' : PinGroupView dR dK q₀' kK') (hrepsK : IsBlockModels m dK)
+    (hi'' : i'' < kK')
+    {ψ ψR : Name → Nat} {ρp ρR : Nat → V} {Ds₀ : List AnnotTerm}
+    {lpsK : List Name} {lvlsK : List Level} {q : Nat}
+    (hq : q < pinsS.length) (hqK : q₀' + i'' < dR.nPins)
+    (hcorr : PinCorr ((D).targetView m.acval ψ) m.acval dR ψR Ds₀ lpsK lvlsK
+      (p.k + q) (q₀' + i''))
+    (hρR : ρR = consList (Ds₀.map (interp V ρp)) ρp)
+    (hψR : ψR = Level.substFn ψ lpsK lvlsK) :
+    ClassPin env₂ (D) dR ψ ψR ρp ρR (dR.k + (q₀' + i'')) q := by
+  obtain ⟨q₀, kJ, i, rfl, hi, G⟩ := hgroups q hq
+  obtain ⟨cvT, caps, cvR, mI, rP, rules, hfind, hI, hψJ⟩ := G.syn.stored i hi
+  refine classPin_of_pinCorr hq hqK hcorr hρR hψR (fun cvT' caps' hf' ψ' => ?_)
+    (fun cvT' caps' hf' => CR.pinψ (q₀' + i'') hqK cvT' caps' hf') ?_
+    (pinIds_below S' hrepsK hi'' ψR ρR)
+  · obtain rfl : cvT' = cvT :=
+      (ConstantInfo.indInfo.inj (Option.some.inj (hf'.symm.trans hfind))).1
+    exact hψJ ψ'
+  · rw [G.syn.pinNP i hi, ← G.syn.pinDsLen i hi ψ]
+    exact Nat.le_refl _
+
 /-- **The per-pair transfer at a MEMBER class of the root** (task #315
 L-E, DESIGN §U.69): the root container's own constructor `(c, j)` and
 the BLOCK's copy of it at the root GROUP's member `c` are the two sides
@@ -2749,6 +2782,68 @@ theorem nestedPinPair_mem (m : EnvModel V env₂) {st : ElimState} {dJf : Nat �
       have := GR.syn.pinU c hc ψ i' hi'
       rwa [hψeq] at this)
     hnI hdom₁ hsh hrel hentR t fs hfit
+
+/-- **THE WALK at a MEMBER class of the root** (task #315 L-E, DESIGN
+§U.69): at every container-recursive field of the root container's own
+constructor, the field's target class and the block's copy's target pin
+are `ClassPinAt`-related — a MEMBER target by `classPin_of_rootMember`
+at the root GROUP's view (the copy's target is `p.k + r + tgt`, so the
+relation's root-group conjunct holds by `rfl`), one of the container's
+OWN pins by `classPin_of_blockPinCorr` at the copy's `PinCorr` (a PIN
+class, where the conjunct is vacuous).
+
+This is `nestedPinPair_mem`'s `hrel` modulo `app_relMeet_le_rel`. -/
+theorem nestedPinWalk_mem (m : EnvModel V env₂) {st : ElimState} {dJf : Nat → BlockModel V}
+    (hgroups : ∀ q, q < pinsS.length → ∃ (q₀ kJ i : Nat),
+      q = q₀ + i ∧ i < kJ ∧ GF st m q₀ kJ (dJf q₀))
+    {ψ : Name → Nat} {ρp : Nat → V} (hρp : Sat V ((D).params ψ).reverse ρp)
+    {r kR : Nat} (GR : GF st m r kR (dJf r))
+    {ciR : ContainerInfo} (CR : ContainerModeled m ciR (dJf r))
+    {B : ContainerInfo → BlockModel V} (hB : EnvBlocksOf m B)
+    {pcR : Nat → PinCtors V} (hshR : PinShapes m B (dJf r) pcR)
+    {c j : Nat} (hc : c < kR) {cA : ConstantVal × Nat} (hj : ((dJf r).ctorsM c)[j]? = some cA) :
+    ∀ l, l < ((blkFss0 b ctorsA kinds dsF ψ).getD (b.ownOffset (p.k + r + c) + j) []).length →
+      (((dJf r).rss c).getD j []).getD l false = true →
+      ∃ q', (((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD (b.ownOffset (p.k + r + c) + j) []).getD l 0) = p.k + q' ∧
+        ClassPinAt env₂ (D) (dJf r) ψ (((D).pinAt r).ψJ ψ) ρp ((D).pinFrame r ψ ρp) r
+          ((dJf r).tgts c j l) q' := by
+  intro l hl hr
+  have hck : c < (dJf r).k := GR.syn.kEq ▸ hc
+  obtain ⟨cvT, caps, cvR, mI, rP, rules, hfind, hI, hψJ⟩ := GR.syn.stored c hc
+  have hψeq : ((D).pinAt (r + c)).ψJ ψ = ((D).pinAt r).ψJ ψ :=
+    (GR.syn.ψJEq c 0 hc GR.syn.kpos ψ).trans (by rw [Nat.add_zero])
+  have hDseq : ((D).pinAt (r + c)).Ds ψ = ((D).pinAt r).Ds ψ := GR.syn.sameDs c hc ψ
+  have hlveq : ((D).pinAt (r + c)).lvls = ((D).pinAt r).lvls := (GR.syn.same c hc).1
+  have hsh := GR.shape c hc cvT caps hfind ψ ρp hρp c j hc (List.getElem?_eq_some_iff.mp hj).1
+  unfold CopyShapeA at hsh
+  rw [hψeq, hDseq, hlveq] at hsh
+  have hlF : l < (((dJf r).Fss c (((D).pinAt r).ψJ ψ)).getD j []).length := by
+    rw [← hsh.len]; exact hl
+  by_cases hnt : (dJf r).tgts c j l < (dJf r).k
+  · -- a MEMBER target: the root group's own partner
+    obtain ⟨-, htg, -, -⟩ := hsh.recF l hlF hr hnt
+    refine ⟨r + (dJf r).tgts c j l, by rw [htg, Nat.add_assoc], ?_,
+      fun _ => rfl⟩
+    exact classPin_of_rootMember (pinGroupView_of_syn GR.syn) (GR.syn.kEq ▸ hnt)
+  · -- one of the container's OWN pins: the copy's `PinCorr`
+    obtain ⟨-, -, hkle, hklt, hcorr, -, -⟩ := hsh.pinF l hlF hr hnt
+    have hkle' : p.k ≤ (((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD (b.ownOffset (p.k + r + c) + j) []).getD l 0) := hkle
+    have hklt' : (((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD (b.ownOffset (p.k + r + c) + j) []).getD l 0) < p.k + pinsS.length := hklt
+    have hqK : (dJf r).tgts c j l - (dJf r).k < (dJf r).nPins :=
+      GR.syn.reps.tgt_pin_lt hck hj l hlF hnt
+    obtain ⟨q₀', kK', i'', ci', hqKe, hi'', hci', S', -⟩ := hshR _ hqK
+    refine ⟨(((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD (b.ownOffset (p.k + r + c) + j) []).getD l 0) - p.k, by omega, ?_, fun hlt => absurd hlt (by omega)⟩
+    have hcp := classPin_of_blockPinCorr m hgroups CR S'
+      ((hB _ ci' hci').1.reps) hi'' (q := (((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD (b.ownOffset (p.k + r + c) + j) []).getD l 0) - p.k) (by omega) (hqKe ▸ hqK)
+      (ρp := ρp) (ρR := (D).pinFrame r ψ ρp)
+      (Ds₀ := ((D).pinAt r).Ds ψ) (lpsK := cvT.levelParams) (lvlsK := ((D).pinAt r).lvls)
+      (by rw [nestedBlockModel_targetView m ψ, ← hqKe, show p.k + ((((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD (b.ownOffset (p.k + r + c) + j) []).getD l 0) - p.k) = (((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD (b.ownOffset (p.k + r + c) + j) []).getD l 0) from by omega]
+          exact hcorr)
+      rfl (by rw [← hψeq, ← hlveq]; exact hψJ ψ)
+    rw [← hqKe] at hcp
+    rw [show (dJf r).k + ((dJf r).tgts c j l - (dJf r).k) = (dJf r).tgts c j l from by omega] at hcp
+    exact hcp
+
 
 /-- **The per-pair transfer at a PIN class of the root** (task #315
 L-E, DESIGN §U.69): the root's own copy of its pin's container's
