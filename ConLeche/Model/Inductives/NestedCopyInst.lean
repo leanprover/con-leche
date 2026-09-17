@@ -2914,6 +2914,7 @@ theorem NestedPinsRun.copyRecFDomRefl {pbs : List (Expr × ConLeche.BinderMeta)}
           = some (tbs, Expr.mkAppN
               (.const (dJ.memberName (dJ.tgts i' j l)) (J.lps.map Level.param))
               (ConLeche.structPsAt (l + tbs.length) dJ.nP ++ idxs)) ∧
+      tbs.length ≠ 0 ∧
       idxs.length = dJ.nIdxAt (dJ.tgts i' j l) ∧
       (∀ ψJ : Name → Nat, (((dJ.tlss i' ψJ).getD j []).getD l []).length = tbs.length) ∧
       IDXS = (idxs.map (Expr.instantiateLevelParams J.lps
@@ -2973,7 +2974,7 @@ theorem NestedPinsRun.copyRecFDomRefl {pbs : List (Expr × ConLeche.BinderMeta)}
   -- the field's opener and the container's OPENED domain
   obtain ⟨x, hx⟩ : ∃ x, (dJ.xFvsF i' j)[l]? = some x :=
     ⟨_, List.getElem?_eq_getElem (by rw [hCD.xLen, hnf]; exact hlF)⟩
-  obtain ⟨afvs, bodyO, hopA, -, -, hheadO, htakeO, hlenO, -, -⟩ :=
+  obtain ⟨afvs, bodyO, hopA, hafne, -, hheadO, htakeO, hlenO, -, -⟩ :=
     hCD.opened.reflF l x hx hnest hrefl
   have hfcsl : fcs[l]? = some (fcs.getD l default) := by
     rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem (by rw [hfl]; exact hlF)]; rfl
@@ -3025,7 +3026,7 @@ theorem NestedPinsRun.copyRecFDomRefl {pbs : List (Expr × ConLeche.BinderMeta)}
             (dJ.nP + l - 1 + tbs.length) cbody)) := by
     rw [hxMk]; exact hlaw2 _
   rw [hopen, hpbLen, ← hopen] at hopA
-  obtain ⟨-, hbodyO⟩ := Prod.mk.inj (Option.some.inj (hopA.symm.trans hopen2))
+  obtain ⟨hafvsEq, hbodyO⟩ := Prod.mk.inj (Option.some.inj (hopA.symm.trans hopen2))
   -- the body's head and spine, reflected through the two instantiations
   have hfv2 : ∀ a ∈ fvs2, ∃ (i : Nat) (ty : Expr), a = Expr.fvar i ty := by
     intro a ha
@@ -3228,8 +3229,10 @@ theorem NestedPinsRun.copyRecFDomRefl {pbs : List (Expr × ConLeche.BinderMeta)}
         (Expr.instantiateLevelParams J.lps (pinsS.getD (q₀ + i') default).lvls bd.1,
           (⟨Level.substPW J.lps (pinsS.getD (q₀ + i') default).lvls bd.2.pw⟩ :
             ConLeche.BinderMeta))),
-    cbody.getAppArgs.drop dJ.nP, _, ?_, ?_, htlsLen, rfl, ?_, ?_⟩
+    cbody.getAppArgs.drop dJ.nP, _, ?_, ?_, ?_, htlsLen, rfl, ?_, ?_⟩
   · rw [hFclPis, ← hcbodySplit]
+  · rw [← hfvs2len, ← hafvsEq]
+    exact hafne
   · rw [List.length_drop, hcbodyArgs]; omega
   · rw [hGmk, hBody,
       show tbs.length = (ConLeche.instTeleSeq (srcAtE st p (q₀ + i')).2.2 (dJ.nP - 1 + l)
