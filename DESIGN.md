@@ -90417,3 +90417,83 @@ component rather than plain (S) — **and it closes by construction when
 M8 deletes the modelled route**, at which point the row becomes plain
 (S).  Recorded here so the boundary is not forgotten when the route
 goes.
+
+#### U.67 — L-E session 15: the integration merged, and the two foundations of `hdom₁` at a PIN class (lane L-E, 2026-09-17)
+
+##### (a) The merge, and two items that DISAPPEARED
+
+`agent/uniform-315` 8504b37b (integration 3n) merged into this lane as
+a FAST-FORWARD — the integration had already taken the lane's
+session-14 work — so K.41's kernel side (`containerOwnPinsAt`,
+`nestedPinRootPairOk`, `nestedPinRootGroup`) is now in the tree, build
+and `lake test` green with no adaptation.  Two consequences:
+
+* **`ContainerModeled.ownHeads`/`ownPins` is RETIRED**, never built.
+  §U.64 (d) and §U.65 (d) asked for it because the heads-only Bool
+  landed a membership and the model needed a bridge to `d.pins`.  The
+  completed Bool compares pin TERMS, and K.41's inversion
+  (`nestedPinRootPairOk_inv`, kernel 62ccd290, not yet in the
+  integration) hands the term with `own` already instantiated at the
+  root pin's levels and components — all four `ClassPin` data at once.
+  `classPin_of_pinCorr` (§U.65) consumes exactly that, so no
+  `ContainerModeled` clause is needed on this path at all;
+* **K.44's spelling**, for whoever consumes `ContainerModeled.nestMention`:
+  the clause is over `getAppArgs.take (pinAt q).nPJ`, the record gives
+  it over `getAppArgs`, and the two agree by `Ds.length = nPJ` — the
+  arguments past `nPJ` are the indices, which `BlockOpened.nestF`
+  already makes member-free.
+
+##### (b) `hdom₁` at a PIN class: the two foundations, landed
+
+The premise is the root's copy's entries inside the CONTAINER's real
+domains, at the root's own reading.  Two facts carry it, and both are
+now in the tree:
+
+* `BlockModel.famAt_reads` — a stored block model's extended carrier
+  reads as its target view's stored readings: `leaf` at a member (the
+  former at the parameter bvars, which read back as the parameter
+  spine — `map_paramBvarsAt_interp` with the new
+  `map_range_reverse_consList`), `pinLeaf` at one of its own pins.
+  Both readings are of stored constants, hence closed, so the
+  parameter frame does not enter (`EnvModel.cval_closedL`).  **This is
+  the `hZ` of `copyEntryAt_of_read`/`copyEntryAt_of_pinCorr` at the
+  ROOT's own carrier**;
+* `BlockModel.pinGroupFam_mem` — the family identity (‡): at a pin
+  group of a stored block model, the block's own pin carrier at member
+  `i` of the group and the container's least tuple at member `i`, read
+  at the pin's frame, are ONE family.  `fam_eq_of_leaf` (§U.58) at two
+  literally equal frames, the leaves being one reading by
+  `PinGroupView.name`/`same` and closedness.  **This is what a `recF`
+  field needs**: the root's class at the copy's target IS the
+  container's class at the corresponding member, so `real_dom_eq`'s
+  carrier and the copy's slot's family are the same object.
+
+##### (c) The assembly that remains, spelled out
+
+`hdom₁` at a PIN class is now mechanical, in this order:
+
+1. `slotSet_mono_app` with `app_relMeet_subset` reduces the meet to the
+   root's extended carrier `Z := dR.famAt ψR ρR LJR`;
+2. per field kind, against `Z`:
+   * `pinF` — `copyEntryAt_of_pinCorr` gives the EQUALITY outright,
+     with `hZ := famAt_reads` and `hfr` a GENERIC
+     `nestedPinFrame_transport` (the existing one is concrete to the
+     block; the generic form is `spineFit_congr_below` over a
+     `PinGroupView`, ~20 lines, the one piece not yet written);
+   * `recF` — `real_dom_eq` for the container's domain, `slot_container`
+     for the copy's slot, and `pinGroupFam_mem` to identify the two
+     families;
+   * `ordF`-right — `copyEntryAt_of_read` with `hZ := famAt_reads`.
+
+Then §U.64 (c)'s table is complete and `hpair` follows from
+`copyTransfer_via`/`copyTransfer_mem`; the ALIGNMENT (`ClassPin.name`
++ `containerInfo?`'s determinism + `ci.members`' `Nodup`) and
+`InstanceCovered`'s `hothers` (K.41's inversion, once the integration
+carries it) are the last two, and then `pins_le_of_instanceLe` +
+`instanceLe_of_pair` + step (ii) give `nestedPinsLe` and step (iv)
+`NestedPinsEntry`.
+
+Gates at the session's commits: `lake build` warning-free, `lake test`
+warning-free, layering / trust surface / no-local-paths /
+overview-links / quote-gate / proofdeps / shake and pub-imports as the
+integration's, nested-shadow as the integration's.
