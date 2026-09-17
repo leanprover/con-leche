@@ -86824,3 +86824,153 @@ Its two premises, which no lemma in the tree yet discharges:
 So the remaining work is ONE lemma (`htrans_of_walk`, the plumbing of
 (1)–(3) under those two premises) and then the walk itself, which is
 where K.40's readers enter.
+
+#### U.61 — L-E session 12: a target's identity comes off the TARGET's pin table (`TargetHead` refuted), the transfer's member half, and the `_dom` premise made portable (lane L-E, 2026-09-17)
+
+##### (a) The refutation, re-verified in this worktree
+
+Lane L-B refuted `CopyCtorShape`'s head conjunct at an **accepted**
+block.  `tests/e2e/nested_lam_pin_prop.ndjson` is `T=accept` in
+`tests/nested-shadow-expected.txt`, and the binary accepts it here
+(exit 0, "1 inductive blocks modelled in-process: T").  It nests
+`Wrap (fun _ : True => T)` with
+
+```
+Wrap.mk : ∀ (f : True → Type) (_ : f trivial), Wrap f
+T.mk    : Wrap (fun _ : True => T) → T
+```
+
+`Wrap`'s field is container-ORDINARY; the copy's domain is the redex
+`(fun _ => T) trivial`, which the positivity `whnf` turns into the
+member `T` — so it is an `ordF`-RIGHT field, and `TargetHead`'s
+parameter disjunct asks for `(DsE.getD p default).getAppFn = .const nm us`
+while the component's head is the **λ**.  The conjunct is therefore
+false of a stream this checker accepts, and `targetHead_corr` — which
+took BOTH sides' `TargetHead` as hypotheses — can carry nothing.
+
+Two further structural gaps in the same conjunct, from L-B's session:
+`nestedTV.lvls` had no `t < k` branch (at a member target it read pin
+`0`'s level arguments), and `PinCorr`'s components-as-`Expr` clause has
+no syntactic source at a STORED container (`BlockOpened.nestF` records
+the head and the count; the record's own comment says the components
+are semantic).
+
+##### (b) THE RULING, executed: the identity is the target's POSITION
+
+* `TargetHead` and `targetHead_corr` **deleted**.  `EntryRead` keeps
+  its reading conjunct and says nothing about the target's head;
+  `PinCorr` loses the components-as-`Expr` clause, and its six
+  remaining clauses (`EA`/`Ds`/`u`/`Ids`/`J`/`lvls`) **are** the
+  target's recorded pin data.  `CopyCtorShape` loses its `DsE`
+  argument (`CopyShapeA` keeps the parameter, unread, so the lanes'
+  signatures do not move), and `TargetView.DsE` is now read by
+  nothing.
+* `nestedTV.lvls` and `BlockModel.targetView.lvls` gained the member
+  branch (`[]`), documented as pin-only.  `Ds`/`DsE` have the same
+  shape and are read at pin targets only — `pinF` carries
+  `TV.k ≤ tg l` — so they are left as they are, with the reason in the
+  field docs.
+* `targetPin_corr` (`NestedFit.lean`) is the replacement, and it is
+  three lines: two `PinCorr`s at the SAME own pin `qK` of one
+  container give ONE recorded container (`J`) and ONE level assignment
+  at that container's level parameters (`lvls`, through
+  `Level.substFn_map_subst`/`substFn_ext`).  Its premise `hpd` — a
+  recorded pin's level arguments mention only its container's own
+  level parameters — is the syntactic scope that makes the two
+  substitutions compose; it is a `ContainerModeled`/`PinsTyped` clause
+  waiting for its consumer, provable off `nestedOccOk`.
+
+##### (c) WHICH ARMS ARE NOW SYNTAX-FREE, AND WHICH IS EMPTY
+
+Re-walking DESIGN §U.55 (b)'s step with the new conjuncts:
+
+* **`recF`** (container-recursive at a member of `dK`'s group): both
+  sides' clause gives `tg l = base + dK.tgts i j l`, so the two
+  targets are the two group segments' entries at ONE index — the
+  correspondence is the two `PinGroupView`s, no syntax;
+* **`pinF`** (container-recursive at one of `dK`'s OWN pins): both
+  sides carry `PinCorr` at the SAME `qK`, so `targetPin_corr` gives
+  the pair.  **This was the only consumer `targetHead_corr` really
+  had** — §U.51's worry was the index universes, and `PinCorr`'s `u`
+  clause supplies them directly;
+* **`ordF`-right** (a container-ORDINARY field the elimination
+  rewrote): the two targets are now **unrelated by the shape**.  There
+  is nothing to relate them to: an ordinary field has no recorded pin
+  on the CONTAINER's side, so neither pin table is keyed to the
+  container's field, and the only shared object is the field itself —
+  whose syntax (a) refutes.
+
+##### (d) WHAT THE EMPTY ARM COSTS — and what it does NOT
+
+1. **`htrans` does not need it.**  At an `ordF`-right field each side's
+   entry is its OWN reading law: the block side reads its slot at `L⁺`
+   (`copyEntryAt_of_read` at `hZ`), the root side reads its slot at
+   `famAt`.  What the pin half currently asks for is the entry at the
+   relational MEET (`fit_iff_at_T_dom`'s `hent` is an equality at the
+   tuple `T`), and the meet is strictly smaller than `famAt` at a
+   related class — but only the ⊆ direction is used, and it is free by
+   monotonicity (`slotSet_mono_app`: the meet is below `famAt`, at
+   which the entry IS an equality).  So the next lemma is
+   `fit_imp_at_T_dom` — `fit_iff_at_T_dom`'s `mp` with the
+   `ordF`-right entries as INCLUSIONS, exactly as `fit_imp_le` stands
+   to `fit_iff_at` in `nestedGroupLe_of_entries`.  With it, `htrans`'s
+   walk premise is needed at the container-RECURSIVE fields only,
+   i.e. exactly where (c) now supplies it.
+2. **The WALK does need it, and the fact is the KERNEL's.**  The
+   covering (`InstanceCovered`) must reach every pin of a container
+   instance, and K.37's instance is the SCC of ALL the edges: in
+   `nested_p04` the arcs are `(0→1, own), (1→2, not own), (2→0, not
+   own), (2→2, own)`, one instance of three groups.  The `own` bit is
+   `true` exactly at the `pinF` arm, so the shape's syntax-free arms
+   walk the OWN edges only — and the own-edge closure is NOT the
+   instance, which is K.37's own finding (with `inst` the own closure,
+   clause (2) asks two not-own edges to strictly decrease the rank
+   around a cycle and the fixture declines).  So the pairing of a
+   block pin with a class of the parent container's system at a
+   not-own edge cannot be derived, and it is what **K.40's `parent`
+   record must CHECK**: a Bool comparing the two pin tables — the
+   block's `(d.pinAt q).J`/`.lvls`/components against the parent
+   container's own pin at the recorded position — is the
+   recorded-and-checked pattern of K.28–K.37 and gives `ClassPin` at
+   the pair outright, with no head reading anywhere.  That is this
+   session's request to the kernel lane, and it replaces §U.55 (c)'s
+   "the missing fact is SYNTACTIC".
+
+##### (e) LANDED BESIDE IT
+
+* `BlockModel.slotDom_congr_mem` — the `_dom` premise of
+  `fit_iff_at_T_dom`/`fit_imp_T_le_dom` carried between the two
+  readings, over the SAME tuple, with `BlockModel.slotAtT_congr_mem`
+  and `IsBlockModel.dom_congr_mem` (`chainFitT_congr_mem`'s two
+  branches extracted) and the kit `spineFit_congr_fields`,
+  `fieldsBelow_getD`, `fieldsBelow_take`, `IsBlockModel.Fss_below`.
+  §U.54 (b)'s re-cut left the bound at one frame; this is what makes
+  the halves composable at a MEMBER class, where the container's tuple
+  space is stated at the ROOT's reading.
+* `copyTransfer_mem` — the transfer's MEMBER half, two lines:
+  `slotDom_congr_mem` + `chainFitT_congr_mem` + `fit_imp_T_le_dom`.
+  `copyTransfer_pin` and it are now step (2) of §U.58 (b)'s three, in
+  full.
+
+##### (f) LANE L-B's OBLIGATIONS, RESTATED
+
+`NestedPinsShape` is WEAKER than it was: `ordF`'s right arm no longer
+asks for `TargetHead` (so the λ-pin fixture is no longer a
+counterexample to it), and `pinF`'s `PinCorr` no longer asks for the
+components as `Expr`s.  Nothing else moved: `recF`, `ordF`'s left arm
+(with §U.56's fitting prefix), `pinF`'s telescope/index conjuncts and
+`es` are unchanged, and `CopyShapeA`'s parameter list is unchanged.
+
+##### (g) STATUS
+
+Step (iii) of the global entry theorem: `pins_le_of_instanceLe` and
+`instanceLe_of_classPin` in the tree, `copyTransfer_pin` and
+`copyTransfer_mem` both landed, `fam_eq_of_leaf` landed.  What is left
+is `fit_imp_at_T_dom` (d) 1, then `htrans_of_walk` over the two
+syntax-free arms, then `InstanceCovered` from K.40's checked pairing
+(d) 2.
+
+Gates at the session's commits: `lake build` 701 jobs warning-free,
+`lake test` warning-free, layering / trust surface / no-local-paths /
+overview-links / quote-gate / proofdeps / shake and pub-imports as the
+integration's.
