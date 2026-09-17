@@ -2,6 +2,8 @@ module
 
 public import ConLeche.Model.Inductives.NestedRecFrames2
 import ConLeche.Model.Inductives.BlockRecWD
+import ConLeche.Model.Inductives.BlockRecValid
+import ConLeche.Model.Inductives.BlockRecLeaf
 import ConLeche.Model.Inductives.BlockRecEq
 import ConLeche.Model.Inductives.BlockRecFrames
 public import ConLeche.Model.Inductives.MutualRecsStage
@@ -240,7 +242,8 @@ theorem NestedTailIn.eqsWD {mpA : EnvModelM V μ ENVA} {cvRas : List ConstantVal
     (hrs : ∀ c, c < (D).kT →
       rs.getD c pt ∈ˢ interp V ρ (mkPisAV (rdsM c ψ) (concM c)))
     {e : AnnotTerm} (he : e ∈ (DA).recEqs mpA.base2 b.elimLevel ψ) :
-    interp V (consList rs ρ) e ∈ˢ (univZero : V) ∧ WellDenoted V (consList rs ρ) e := by
+    interp V (consList rs ρ) e ∈ˢ (univZero : V) ∧ WellDenoted V (consList rs ρ) e ∧
+      AnnotValid V (consList rs ρ) e := by
   -- the tuple, at the SCRATCH readings
   have hkA : (DA).k = b.k := S.record.k
   have hlenA : rs.length = (DA).k := by rw [hkA, ← I.kT]; exact hlen
@@ -257,7 +260,10 @@ theorem NestedTailIn.eqsWD {mpA : EnvModelM V μ ENVA} {cvRas : List ConstantVal
     fun mm hmm ρ' => ((S.recData mm (by rw [← hkA]; exact hmm)).1.okTy ψ ρ').1
   obtain ⟨c, j, cA, hc, hj, rfl⟩ := (DA).mem_specEqs he
   exact ⟨specEqAV_univZero _ _ _ _,
-    S.reps.blockEq_wd rfl (S.typed ψ).1 (S.typed ψ).2 (S.readings ψ) hokT ρ hlenA hrsA hc hj⟩
+    S.reps.blockEq_wd rfl (S.typed ψ).1 (S.typed ψ).2 (S.readings ψ) hokT ρ hlenA hrsA hc hj,
+    S.reps.blockEq_valid rfl (S.typed ψ).1 (S.typed ψ).2 (fun n ρ' => mpA.acval_validV n _ ρ')
+      (S.readings ψ) (fun mm hmm ρ' => (S.recData mm (by rw [← hkA]; exact hmm)).1.okTy ψ ρ')
+      ρ hlenA hrsA hc hj⟩
 
 /-! ### `hceq` — the equations at the candidate -/
 
@@ -629,8 +635,16 @@ theorem NestedTailIn.recEqsOf {mpA : EnvModelM V μ ENVA} {cvRas : List Constant
     ∃ eqs : (Name → Nat) → List AnnotTerm,
       NestedRecEqs (D) PC (fun ψ => b.elimLevel.eval ψ) rdsM concM eqs :=
   ⟨fun ψ => (DA).recEqs mpA.base2 b.elimLevel ψ,
-    { heq := fun ψ ρ _rs hlen hrs _e he => I.eqsWD S hnames hctorsJ hK35 R ψ ρ hlen hrs he
-      hceq := fun ψ ρ _e he => I.eqsCand S hnames hctorsJ hK35 R ψ ρ he }⟩
+    { heq := fun ψ ρ _rs hlen hrs _e he =>
+        ⟨(I.eqsWD S hnames hctorsJ hK35 R ψ ρ hlen hrs he).1,
+          (I.eqsWD S hnames hctorsJ hK35 R ψ ρ hlen hrs he).2.1⟩
+      hceq := fun ψ ρ _e he => I.eqsCand S hnames hctorsJ hK35 R ψ ρ he
+      valid := fun ψ ρ _rs hlen hrs _e he =>
+        (I.eqsWD S hnames hctorsJ hK35 R ψ ρ hlen hrs he).2.2
+      below := fun ψ _e he => by
+        have h := S.reps.specEqs_below (S.readings ψ) _ he
+        rw [S.record.k, ← I.kT] at h
+        exact h }⟩
 
 end Run
 
