@@ -155,7 +155,7 @@ theorem NestedTailIn.towerAgree {mpA : EnvModelM V μ ENVA} {cvRas : List Consta
       ∀ (ci : ContainerInfo) (J : ContainerMember),
         ConLeche.containerInfo? env ((D).pinAt (q₀ + i)).J = some ci → J ∈ ci.members →
         J.name = ((D).pinAt (q₀ + i)).J → (dJ.ctorsM i).map (·.1.name) = J.ctors.map (·.name))
-    (hK35 : NestedRecTysAuxOk p st b stored pinsS)
+    (hK35 : NestedRecTysAuxOk p st b stored)
     {c : Nat} (hc : c < b.k) (ψ : Name → Nat) (ρ : Nat → V)
     {rdsR : List (Nat × Nat × AnnotTerm)} {conc : AnnotTerm}
     (hread : denoteMeta mp₂.base2.acval (ENV2) ψ 0 (nestedRecCvAt p.k cvRms cvRns c).type
@@ -234,7 +234,7 @@ theorem NestedTailIn.eqsWD {mpA : EnvModelM V μ ENVA} {cvRas : List ConstantVal
       ∀ (ci : ContainerInfo) (J : ContainerMember),
         ConLeche.containerInfo? env ((D).pinAt (q₀ + i)).J = some ci → J ∈ ci.members →
         J.name = ((D).pinAt (q₀ + i)).J → (dJ.ctorsM i).map (·.1.name) = J.ctors.map (·.name))
-    (hK35 : NestedRecTysAuxOk p st b stored pinsS)
+    (hK35 : NestedRecTysAuxOk p st b stored)
     {s : (Name → Nat) → Nat} {rdsM : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)}
     {concM : Nat → AnnotTerm}
     (R : NestedRecReadings mp₂.base2 (D) PC cvRms cvRns b.rlps b.elimLevel s rdsM concM)
@@ -297,7 +297,7 @@ theorem NestedTailIn.eqsCand {mpA : EnvModelM V μ ENVA} {cvRas : List ConstantV
       ∀ (ci : ContainerInfo) (J : ContainerMember),
         ConLeche.containerInfo? env ((D).pinAt (q₀ + i)).J = some ci → J ∈ ci.members →
         J.name = ((D).pinAt (q₀ + i)).J → (dJ.ctorsM i).map (·.1.name) = J.ctors.map (·.name))
-    (hK35 : NestedRecTysAuxOk p st b stored pinsS)
+    (hK35 : NestedRecTysAuxOk p st b stored)
     {s : (Name → Nat) → Nat} {rdsM : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)}
     {concM : Nat → AnnotTerm}
     (R : NestedRecReadings mp₂.base2 (D) PC cvRms cvRns b.rlps b.elimLevel s rdsM concM)
@@ -628,7 +628,7 @@ theorem NestedTailIn.recEqsOf {mpA : EnvModelM V μ ENVA} {cvRas : List Constant
       ∀ (ci : ContainerInfo) (J : ContainerMember),
         ConLeche.containerInfo? env ((D).pinAt (q₀ + i)).J = some ci → J ∈ ci.members →
         J.name = ((D).pinAt (q₀ + i)).J → (dJ.ctorsM i).map (·.1.name) = J.ctors.map (·.name))
-    (hK35 : NestedRecTysAuxOk p st b stored pinsS)
+    (hK35 : NestedRecTysAuxOk p st b stored)
     {s : (Name → Nat) → Nat} {rdsM : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)}
     {concM : Nat → AnnotTerm}
     (R : NestedRecReadings mp₂.base2 (D) PC cvRms cvRns b.rlps b.elimLevel s rdsM concM) :
@@ -663,7 +663,7 @@ theorem nestedRecEqsOf_of_faces {F : Nat} (hK35 : NestedRecTysAuxOf μ F)
   obtain ⟨mpA, cvRas, S⟩ := I.scratch
   exact I.recEqsOf S (hK36 env p st fmsA ctorsA₀ I.hfA I.hcA I.helim I.hcont)
     (fun _q₀ _kJ i _dJ G hi ci J h1 h2 h3 => (G.ctorsOf i hi ci J h1 h2 h3).1)
-    (hK35 env p st b envAux stored pinsS I.hb I.haux I.hstored I.out.stage.pinsLen) R
+    (hK35 env p st b envAux stored I.hb I.haux I.hstored) R
 
 /-- **THE CONSUMER** (consumer-first): with the readings and the
 equations both discharged from the two model faces, the recursors'

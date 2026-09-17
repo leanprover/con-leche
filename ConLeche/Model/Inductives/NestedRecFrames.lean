@@ -52,6 +52,87 @@ open ConLeche (Env Expr Name Level CheckMode ConstantInfo ConstantVal RecFieldKi
   NestedParts MutualBlock MutualFormer MutualCtor4 AuxStored ElimState NestedPin IndCaps
   AuxType ContainerInfo ContainerMember ContainerCtor fueledOps BinderMeta PropWhen RestoreTbl)
 
+/-! ### B2a — the two environment agreements the weakened shape needs -/
+
+/-- At a name that answers with anything but a projection table, the
+table lookup is absent. -/
+theorem findProj?_eq_none_of_notProj {env₀ : Env} {sn : Name} (i : Nat)
+    (h : ∀ tbl, env₀.find? (ConLeche.projTableName sn) ≠ some (.projInfo tbl)) :
+    env₀.findProj? sn i = none := by
+  unfold ConLeche.Env.findProj?
+  cases hf : env₀.find? (ConLeche.projTableName sn) with
+  | none => rfl
+  | some c =>
+    cases c with
+    | projInfo tbl => exact absurd hf (h tbl)
+    | _ => rfl
+
+/-- The table lookup depends on the environment only through the table
+name's entry. -/
+theorem findProj?_congr_find {env₁ env₂ : Env} {sn : Name}
+    (h : env₁.find? (ConLeche.projTableName sn) = env₂.find? (ConLeche.projTableName sn))
+    (i : Nat) : env₁.findProj? sn i = env₂.findProj? sn i := by
+  unfold ConLeche.Env.findProj?
+  rw [h]
+
+/-- The formers' conses leave a table lookup alone when none of them
+carries the table's name. -/
+theorem consMutualFormers_findProj?_ne : ∀ {fmsL : List MutualFormerA} {env₀ : Env} {sn : Name},
+    (∀ f ∈ fmsL, f.cvTa.name ≠ ConLeche.projTableName sn) → ∀ i : Nat,
+      (ConLeche.consMutualFormers fmsL env₀).findProj? sn i = env₀.findProj? sn i
+  | [], _, _, _, _ => rfl
+  | f :: fs, env₀, sn, hne, i => by
+    have h := consMutualFormers_findProj?_ne
+      (fmsL := fs) (env₀ := ⟨.indInfo f.cvTa {} :: env₀.consts⟩) (sn := sn)
+      (fun g hg => hne g (List.mem_cons_of_mem _ hg)) i
+    rw [show ConLeche.consMutualFormers (f :: fs) env₀
+        = ConLeche.consMutualFormers fs ⟨.indInfo f.cvTa {} :: env₀.consts⟩ from rfl, h]
+    exact ConLeche.Env.findProj?_cons_ne (c₀ := .indInfo f.cvTa {})
+      (hne f List.mem_cons_self) i
+
+/-- The scratch constructors' conses, likewise. -/
+theorem consMutualCtors_findProj?_ne {nP : Nat} :
+    ∀ {cs : List (ConstantVal × Nat)} {env₀ : Env} {sn : Name},
+      (∀ c ∈ cs, c.1.name ≠ ConLeche.projTableName sn) → ∀ i : Nat,
+        (ConLeche.consMutualCtors nP cs env₀).findProj? sn i = env₀.findProj? sn i
+  | [], _, _, _, _ => rfl
+  | c :: cs, env₀, sn, hne, i => by
+    have h := consMutualCtors_findProj?_ne (nP := nP)
+      (cs := cs) (env₀ := ⟨.ctorInfo c.1 nP c.2 :: env₀.consts⟩) (sn := sn)
+      (fun g hg => hne g (List.mem_cons_of_mem _ hg)) i
+    rw [show ConLeche.consMutualCtors nP (c :: cs) env₀
+        = ConLeche.consMutualCtors nP cs ⟨.ctorInfo c.1 nP c.2 :: env₀.consts⟩ from rfl, h]
+    exact ConLeche.Env.findProj?_cons_ne (c₀ := .ctorInfo c.1 nP c.2)
+      (hne c List.mem_cons_self) i
+
+/-- The restored constructors' conses, likewise. -/
+theorem consNestedCtors_findProj?_ne :
+    ∀ {cs : List (ConstantVal × Nat × Nat)} {env₀ : Env} {sn : Name},
+      (∀ c ∈ cs, c.1.name ≠ ConLeche.projTableName sn) → ∀ i : Nat,
+        (ConLeche.consNestedCtors cs env₀).findProj? sn i = env₀.findProj? sn i
+  | [], _, _, _, _ => rfl
+  | c :: cs, env₀, sn, hne, i => by
+    have h := consNestedCtors_findProj?_ne
+      (cs := cs) (env₀ := ⟨.ctorInfo c.1 c.2.1 c.2.2 :: env₀.consts⟩) (sn := sn)
+      (fun g hg => hne g (List.mem_cons_of_mem _ hg)) i
+    rw [show ConLeche.consNestedCtors (c :: cs) env₀
+        = ConLeche.consNestedCtors cs ⟨.ctorInfo c.1 c.2.1 c.2.2 :: env₀.consts⟩ from rfl, h]
+    exact ConLeche.Env.findProj?_cons_ne (c₀ := .ctorInfo c.1 c.2.1 c.2.2)
+      (hne c List.mem_cons_self) i
+
+/-- …and they add none where the base has none. -/
+theorem consNestedCtors_findProj?_none :
+    ∀ {cs : List (ConstantVal × Nat × Nat)} {env₀ : Env} (sn : Name) (i : Nat),
+      env₀.findProj? sn i = none → (ConLeche.consNestedCtors cs env₀).findProj? sn i = none
+  | [], _, _, _, h => h
+  | c :: cs, env₀, sn, i, h => by
+    rw [show ConLeche.consNestedCtors (c :: cs) env₀
+        = ConLeche.consNestedCtors cs ⟨.ctorInfo c.1 c.2.1 c.2.2 :: env₀.consts⟩ from rfl]
+    exact consNestedCtors_findProj?_none sn i
+      (ConLeche.Verify.findProj?_cons_of_base_none (c₀ := .ctorInfo c.1 c.2.1 c.2.2)
+        (fun _ hh => nomatch hh) sn i h)
+
+
 universe w
 
 variable {V : Type w} [SetTheory V]
@@ -191,11 +272,44 @@ every application headed by a restore-table key carries the block's
 parameter variables in its first `nP` arguments and the key's arity
 (`nestedArity`) in all — stated at depth `0` below the prefix. -/
 @[expose] def NestedRecTysAuxOk (p : NestedParts) (st : ElimState) (b : MutualBlock)
-    (stored : List AuxStored) (pinsS : List PinSyn) : Prop :=
+    (stored : List AuxStored) : Prop :=
   ∀ (c : Nat) (a : AuxStored), stored[c]? = some a →
     ∃ (pbs : List (Expr × BinderMeta)) (body : Expr),
       a.cvRa.type.stripPis b.nP = some (pbs, body) ∧
-      AuxAppsOk (ConLeche.restoreTbl p st) b.lps (nestedArity p st pinsS) 0 body
+      AuxAppsOk (ConLeche.restoreTbl p st) b.lps (nestedArityK p st) 0 body
+
+/-- **K.35'S FACE, FROM THE RUN'S OWN BOOL** (DESIGN §U.29 (w)): the
+kernel's `nestedAuxAppsOk` — K.35's walk with K.38's level conjunct —
+IS the model face.  Its `arityOf` is `nestedArityK` on the nose, its
+`lps` and its parameter prefix are the block's (`auxBlock_fields`), and
+the reflection `auxAppsOk_reflect` turns its Bool into the shape. -/
+theorem nestedRecTysAuxOk_of_bool {p : NestedParts} {st : ElimState} {b : MutualBlock}
+    {stored : List AuxStored} (hb : ConLeche.auxBlock p st = some b)
+    (h : ConLeche.nestedAuxAppsOk p st stored = true) :
+    NestedRecTysAuxOk p st b stored := by
+  obtain ⟨hnP, hlps, -, -⟩ := ConLeche.auxBlock_fields hb
+  intro c a ha
+  have hmem : a ∈ stored := List.mem_of_getElem? ha
+  have hall : ((match a.cvRa.type.stripPis p.nP with
+      | some (_, body) => ConLeche.auxAppsOk (ConLeche.restoreTbl p st) p.lps
+          (nestedArityK p st) 0 body
+      | none => false) &&
+      a.rules.all fun rl =>
+        match rl.rhs.stripLams p.nP with
+        | some (_, body) => ConLeche.auxAppsOk (ConLeche.restoreTbl p st) p.lps
+            (nestedArityK p st) 0 body
+        | none => false) = true := by
+    have := List.all_eq_true.mp h a hmem
+    exact this
+  simp only [Bool.and_eq_true] at hall
+  cases hs : a.cvRa.type.stripPis p.nP with
+  | none => rw [hs] at hall; exact nomatch hall.1
+  | some pr =>
+    obtain ⟨pbs, body⟩ := pr
+    rw [hs] at hall
+    refine ⟨pbs, body, by rw [hnP]; exact hs, ?_⟩
+    rw [hlps]
+    exact ConLeche.auxAppsOk_reflect body 0 hall.1
 
 /-! ## The arity at a pin key -/
 
@@ -456,6 +570,61 @@ theorem NestedTailIn.recTyOkTy {c : Nat} (hc : c < b.k) (ψ : Name → Nat)
   obtain ⟨rfl, rfl⟩ := mkPisAV_inj (by rw [hlenR, hl]) (Option.some.inj (hread.symm.trans hr))
   exact (hok ρ).1
 
+/-- **THE TWO ARITY FUNCTIONS ARE ONE** (DESIGN §U.29 (q) delta 4): the
+model's `nestedArity`, which reads a pin's index count off the SYNTACTIC
+pin list `pinsS`, is the kernel's own `nestedArityK`, which reads it off
+the copy's stored type (`auxIdxCount`).  At a pin the chain is
+`NestedStageFacts.pinNIdx` (the copy's index count is the pin's), the
+formers' `memT` (the member table reads the block's own count) and
+`auxBlock_former` (the block's count IS `auxIdxCount` of the copy's
+type); at a constructor key the two functions are the same expression. -/
+theorem NestedTailIn.arityK : nestedArity p st pinsS = nestedArityK p st := by
+  have key : ∀ x : NestedPin × Nat, (st.pins.zipIdx.find? fun (q, _) => q.aux == x.1.aux) = some x →
+      some (pinsS.getD x.2 default).nIdx
+        = (st.types[p.k + x.2]?).bind fun t => ConLeche.auxIdxCount p.nP t.type := by
+    intro x hf
+    -- the entry the `find?` returned is the pin at its own index
+    have hmem : x ∈ st.pins.zipIdx := List.mem_of_find?_eq_some hf
+    have hq : st.pins[x.2]? = some x.1 :=
+      List.mk_mem_zipIdx_iff_getElem?.mp (by simpa using hmem)
+    have hql : x.2 < st.pins.length := (List.getElem?_eq_some_iff.mp hq).1
+    have hqlS : x.2 < pinsS.length := by rw [I.out.stage.pinsLen]; exact hql
+    have hbk : b.k = p.k + pinsS.length := I.out.bk
+    have hkT : st.types.length = b.k := (ConLeche.auxBlock_k I.hb).symm
+    have hlt : p.k + x.2 < st.types.length := by rw [hkT, hbk]; omega
+    obtain ⟨t, ht⟩ : ∃ t, st.types[p.k + x.2]? = some t :=
+      ⟨_, List.getElem?_eq_getElem hlt⟩
+    obtain ⟨nIdx, hform, hcount⟩ := (ConLeche.auxBlock_former I.hb).2 _ _ ht
+    obtain ⟨f, hfm⟩ : ∃ f, fms[p.k + x.2]? = some f :=
+      ⟨_, List.getElem?_eq_getElem (by rw [I.out.facts.lenFms, hbk]; omega)⟩
+    have hmemT := (I.out.facts.memT _ f hfm).2
+    rw [mutualNIdxOf_members3 (b := b) (t := p.k + x.2) (by rw [hbk]; omega)] at hmemT
+    have h1 : (b.formers.getD (p.k + x.2) default).2 = nIdx := by
+      rw [List.getD_eq_getElem?_getD, hform]; rfl
+    have h2 : (fms.getD (p.k + x.2) default).nIdx = f.nIdx := by
+      rw [List.getD_eq_getElem?_getD, hfm]; rfl
+    have hpn := I.out.stage.pinNIdx x.2 hqlS
+    rw [h2] at hpn
+    rw [ht, Option.bind_some, hcount, ← h1, hmemT, hpn]
+  funext n
+  unfold nestedArity nestedArityK
+  cases hf : (st.pins.zipIdx.find? fun (q, _) => q.aux == n) with
+  | none => rfl
+  | some x =>
+    have hn : x.1.aux = n := by
+      have := List.find?_some hf
+      simpa using this
+    exact key x (by rw [hn]; exact hf)
+
+/-- K.35's face, at the spelling the walk's leaf agreements use. -/
+theorem NestedTailIn.auxOkAt (hK35 : NestedRecTysAuxOk p st b stored) :
+    ∀ (c : Nat) (a : AuxStored), stored[c]? = some a →
+      ∃ (pbs : List (Expr × BinderMeta)) (body : Expr),
+        a.cvRa.type.stripPis b.nP = some (pbs, body) ∧
+        AuxAppsOk (ConLeche.restoreTbl p st) b.lps (nestedArity p st pinsS) 0 body := by
+  rw [I.arityK]
+  exact hK35
+
 /-- **THE RESTORED RECURSOR TYPE, OPENED** (PLAN-M7 §1e C1): class
 `c`'s restored type and its auxiliary source strip the SAME number of
 binders over the same residual, the restored one opens at standard
@@ -469,7 +638,7 @@ theorem NestedTailIn.recTyOpen {c : Nat} (hc : c < b.k) (ψ : Name → Nat)
     (hread : denoteMeta mp₂.base2.acval (ENV₂) ψ 0 (nestedRecCvAt p.k cvRms cvRns c).type
       = some (mkPisAV rdsR conc))
     (hlenR : rdsR.length = b.nP + (b.k + b.ctors.length + ((fms.getD c default).nIdx + 1)))
-    (hK35 : NestedRecTysAuxOk p st b stored pinsS) :
+    (hK35 : NestedRecTysAuxOk p st b stored) :
     ∃ (a : AuxStored) (cbsA cbsR : List (Expr × BinderMeta)) (resid : Expr) (fvs : List Expr),
       stored[c]? = some a ∧
       a.cvRa.type.stripPis (b.nP + (b.k + b.ctors.length + ((fms.getD c default).nIdx + 1)))
@@ -495,7 +664,7 @@ theorem NestedTailIn.recTyOpen {c : Nat} (hc : c < b.k) (ψ : Name → Nat)
     ConLeche.restoreNested_stripPis_doms I.tblNP hstripA hres (fun n _ => hfree n)
   obtain ⟨fvs, hopen, hbind, -⟩ := piTele_read_openers mp₂.base2 hstripR hlenR hread
   -- the walk's shape, from K.35 at the block's own prefix
-  obtain ⟨pbs, body, hsPre, hAux⟩ := hK35 c a ha
+  obtain ⟨pbs, body, hsPre, hAux⟩ := I.auxOkAt hK35 c a ha
   obtain ⟨mid, hsA, hsBody⟩ := ConLeche.rk_stripPis_split b.nP _ hstripA
   obtain rfl : mid = body := (Prod.mk.inj (Option.some.inj (hsA.symm.trans hsPre))).2
   -- the restored binders resolve
@@ -1255,6 +1424,158 @@ theorem NestedTailIn.mimicRecFresh {j : Nat} (hj : j < pinsS.length) :
   rw [I.henv] at h
   exact h
 
+/-! ### B2a — the two environment agreements the weakened shape needs -/
+
+/-- **NO PROJECTION TABLE MOVES**: the scratch environment and the
+restored one answer the same at every projection-table lookup.  The
+block's own constants — the scratch members, the scratch constructors
+and the restored constructors — are all FRESH at the pre-block
+environment, so none of them can carry a table's reserved name while
+that name holds a table; where the pre-block environment has no table
+neither cons chain invents one. -/
+theorem NestedTailIn.projAgree {mpA : EnvModelM V μ ENVA} {cvRas : List ConstantVal}
+    (_S : NestedScratchOut F env b fms f₀ ctorsA kinds mp₁ ppsF W idxF dsF esF srcsF fvsPF xFvsF
+      xrestF eissF tssF stored mpA cvRas) :
+    ∀ (sn : Name) (i : Nat), (ENVA).findProj? sn i = (ENV₂).findProj? sn i := by
+  intro sn i
+  obtain ⟨hlenR, hallR⟩ := ConLeche.mapM_except_inv I.hctors
+  cases hbase : env.find? (ConLeche.projTableName sn) with
+  | none =>
+    -- no table at the base, and neither chain invents one
+    have h0 : env.findProj? sn i = none := by unfold ConLeche.Env.findProj?; rw [hbase]
+    have hA : (ENVA).findProj? sn i = none := by
+      obtain ⟨-, -, hP₁⟩ := consMutualFormers_extend (fms := fms) (env := env)
+        (fun f hf => by obtain ⟨t, ht⟩ := List.getElem?_of_mem hf; exact I.out.facts.fresh t f ht)
+        I.fmsNodup
+      obtain ⟨-, -, hP₂⟩ := consMutualCtors_extend (nP := b.nP)
+        (ctorsA := ctorsA) (env := ConLeche.consMutualFormers fms env) I.out.facts.freshC
+        I.ctorsANodup
+      exact hP₂ sn i (hP₁ sn i h0)
+    have h₂ : (ENV₂).findProj? sn i = none := by
+      obtain ⟨-, -, hP₁⟩ := consMutualFormers_extend (fms := fms.take p.k)
+        (env := env)
+        (fun f hf => by
+          obtain ⟨t, ht⟩ := List.getElem?_of_mem (List.mem_of_mem_take hf)
+          exact I.out.facts.fresh t f ht)
+        (by
+          have hsub : List.Sublist ((fms.take p.k).map (·.cvTa.name)) (fms.map (·.cvTa.name)) :=
+            List.Sublist.map _ (List.take_sublist _ _)
+          exact I.fmsNodup.sublist hsub)
+      exact consNestedCtors_findProj?_none sn i (hP₁ sn i h0)
+    rw [hA, h₂]
+  | some c =>
+    -- a table at the base: no block constant carries its name
+    have hneF : ∀ f ∈ fms, f.cvTa.name ≠ ConLeche.projTableName sn := by
+      intro f hf hh
+      obtain ⟨t, ht⟩ := List.getElem?_of_mem hf
+      have hfr := I.out.facts.fresh t f ht
+      rw [hh, hbase] at hfr
+      exact nomatch hfr
+    have hneC : ∀ cA ∈ ctorsA, cA.1.name ≠ ConLeche.projTableName sn := by
+      intro cA hcA hh
+      obtain ⟨hF₁, -, -⟩ := consMutualFormers_extend (fms := fms) (env := env)
+        (fun f hf => by obtain ⟨t, ht⟩ := List.getElem?_of_mem hf; exact I.out.facts.fresh t f ht)
+        I.fmsNodup
+      have := I.out.facts.freshC cA hcA
+      rw [hh, hF₁ hbase] at this
+      exact nomatch this
+    have hneR : ∀ cR ∈ ctorsR.flatten, cR.1.name ≠ ConLeche.projTableName sn := by
+      intro cR hcR hh
+      obtain ⟨l, hl, hcl⟩ := List.mem_flatten.mp hcR
+      obtain ⟨mm, hmm⟩ := List.getElem?_of_mem hl
+      obtain ⟨a, cs', ha, hcs', hrun⟩ := hallR mm (by
+        have := (List.getElem?_eq_some_iff.mp hmm).1; omega)
+      rw [hmm] at hcs'
+      obtain rfl : l = cs' := by simpa using hcs'
+      have hfr := ConLeche.restoreCtors_fresh hrun cR hcl
+      rw [I.henv] at hfr
+      rw [hh, I.findPre1 hbase] at hfr
+      exact nomatch hfr
+    have hA : (ENVA).findProj? sn i = env.findProj? sn i := by
+      rw [consMutualCtors_findProj?_ne hneC i, consMutualFormers_findProj?_ne hneF i]
+    have h₂ : (ENV₂).findProj? sn i = env.findProj? sn i := by
+      rw [consNestedCtors_findProj?_ne hneR i,
+        consMutualFormers_findProj?_ne (fun f hf => hneF f (List.mem_of_mem_take hf)) i]
+    rw [hA, h₂]
+
+/-- **A LITERAL READS ALIKE WHEREVER BOTH READ**: a reading of a literal
+names the basis constants, which the RESTORED environment must then
+carry — so they are not auxiliary names (`auxFresh`), and off those the
+two carriers' leaves and level-parameter lists agree (`leafAcval`,
+`leafSome`/`leafNone`).  Whether a literal reads AT ALL may differ: the
+scratch environment carries the block's copies and the restored one does
+not, which is why `RestoreAgree.litEq` compares the two readings only
+where both are `some`. -/
+theorem NestedTailIn.litAgree {mpA : EnvModelM V μ ENVA} {cvRas : List ConstantVal}
+    (S : NestedScratchOut F env b fms f₀ ctorsA kinds mp₁ ppsF W idxF dsF esF srcsF fvsPF xFvsF
+      xrestF eissF tssF stored mpA cvRas) (ψ : Name → Nat) :
+    ∀ (dpt : Nat) (l : ConLeche.Literal) {A A' : AnnotTerm},
+      denoteMeta mpA.base2.acval (ENVA) ψ dpt (.lit l) = some A →
+      denoteMeta mp₂.base2.acval (ENV₂) ψ dpt (.lit l) = some A' → A = A' := by
+  have hnonaux : ∀ (m : Name) (o : ConstantInfo), (ENV₂).find? m = some o →
+      m ∉ (ConLeche.restoreTbl p st).auxNames := by
+    intro m o hm hmem
+    rw [I.auxFresh m hmem] at hm
+    exact nomatch hm
+  have hacv : ∀ m : Name, ((ENV₂).find? m).isSome = true →
+      mpA.base2.acval m = mp₂.base2.acval m := by
+    intro m hm
+    obtain ⟨o, ho⟩ := Option.isSome_iff_exists.mp hm
+    exact I.leafAcval S m (hnonaux m o ho)
+  have hlpv : ∀ m : Name, ((ENV₂).find? m).isSome = true →
+      ConLeche.Verify.levelParamsAt (ENVA) m = ConLeche.Verify.levelParamsAt (ENV₂) m := by
+    intro m hm
+    obtain ⟨o, ho⟩ := Option.isSome_iff_exists.mp hm
+    have hna := hnonaux m o ho
+    cases hfA : (ENVA).find? m with
+    | none => rw [I.leafNone S m hna hfA] at ho; exact nomatch ho
+    | some ci =>
+      obtain ⟨ci', hfR, hlps⟩ := I.leafSome S m hna ci hfA
+      show (match (ENVA).find? m with
+          | some ci => ci.toConstantVal.levelParams | none => [])
+        = (match (ENV₂).find? m with
+          | some ci => ci.toConstantVal.levelParams | none => [])
+      rw [hfA, hfR]
+      exact hlps.symm
+  have hsome : ∀ (f : Option ConstantInfo → Bool), f none = false →
+      ∀ m : Name, f ((ENV₂).find? m) = true → ((ENV₂).find? m).isSome = true := by
+    intro f hf m h
+    cases hm : (ENV₂).find? m with
+    | none => rw [hm, hf] at h; exact nomatch h
+    | some _ => rfl
+  intro dpt l A A' hA hA'
+  cases l with
+  | natVal n =>
+    rw [denoteMeta] at hA hA'
+    split at hA'
+    · next hsupp =>
+      split at hA
+      · next =>
+        obtain rfl := Option.some.inj hA
+        obtain rfl := Option.some.inj hA'
+        simp only [ConLeche.natLitSupported, Bool.and_eq_true] at hsupp
+        rw [hacv _ (hsome _ rfl _ hsupp.1.2), hacv _ (hsome _ rfl _ hsupp.2)]
+      · exact nomatch hA
+    · exact nomatch hA'
+  | strVal str =>
+    rw [denoteMeta] at hA hA'
+    split at hA'
+    · next hsupp =>
+      split at hA
+      · next =>
+        obtain rfl := Option.some.inj hA
+        obtain rfl := Option.some.inj hA'
+        simp only [ConLeche.strLitSupported, ConLeche.natLitSupported,
+          Bool.and_eq_true] at hsupp
+        obtain ⟨⟨⟨⟨⟨⟨⟨hnat, hstr⟩, hsol⟩, hlist⟩, hnil⟩, hcons⟩, hchar⟩, hcon⟩ := hsupp
+        rw [hacv _ (hsome _ rfl _ hsol), hacv _ (hsome _ rfl _ hnil),
+          hacv _ (hsome _ rfl _ hcons), hacv _ (hsome _ rfl _ hchar),
+          hacv _ (hsome _ rfl _ hcon), hacv _ (hsome _ rfl _ hnat.1.2),
+          hacv _ (hsome _ rfl _ hnat.2), hlpv _ (hsome _ rfl _ hnil),
+          hlpv _ (hsome _ rfl _ hcons)]
+      · exact nomatch hA
+    · exact nomatch hA'
+
 /-! ### B2 — `RestoreAgree` at the tail -/
 
 /-- **THE WALK'S LEAF AGREEMENTS AT THE TAIL** (PLAN-M7 §1e B2):
@@ -1287,6 +1608,8 @@ theorem NestedTailIn.restoreAgree {mpA : EnvModelM V μ ENVA} {cvRas : List Cons
       recKey := ?_
       recNone := ?_
       keyNotRec := I.keyNotRec
+      projEq := I.projAgree S
+      litEq := fun dpt l => I.litAgree S ψ dpt l
       pin := I.pinArm S ψ
       ctor := I.ctorArm S hnames hctorsJ ψ }
   · intro n n' hr ci hfind
@@ -1348,7 +1671,7 @@ theorem NestedTailIn.domAgree_transfer {mpA : EnvModelM V μ ENVA} {cvRas : List
       ∀ (ci : ContainerInfo) (J : ContainerMember),
         ConLeche.containerInfo? env ((D).pinAt (q₀ + i)).J = some ci → J ∈ ci.members →
         J.name = ((D).pinAt (q₀ + i)).J → (dJ.ctorsM i).map (·.1.name) = J.ctors.map (·.name))
-    (hK35 : NestedRecTysAuxOk p st b stored pinsS)
+    (hK35 : NestedRecTysAuxOk p st b stored)
     {c : Nat} (hc : c < b.k) (ψ : Name → Nat) (ρ : Nat → V)
     {rdsR : List (Nat × Nat × AnnotTerm)} {conc : AnnotTerm}
     (hread : denoteMeta mp₂.base2.acval (ENV₂) ψ 0 (nestedRecCvAt p.k cvRms cvRns c).type
@@ -1471,7 +1794,7 @@ theorem NestedTailIn.spineFit_transfer {mpA : EnvModelM V μ ENVA} {cvRas : List
       ∀ (ci : ContainerInfo) (J : ContainerMember),
         ConLeche.containerInfo? env ((D).pinAt (q₀ + i)).J = some ci → J ∈ ci.members →
         J.name = ((D).pinAt (q₀ + i)).J → (dJ.ctorsM i).map (·.1.name) = J.ctors.map (·.name))
-    (hK35 : NestedRecTysAuxOk p st b stored pinsS)
+    (hK35 : NestedRecTysAuxOk p st b stored)
     {c : Nat} (hc : c < b.k) (ψ : Name → Nat) (ρ : Nat → V)
     {rdsR : List (Nat × Nat × AnnotTerm)} {conc : AnnotTerm}
     (hread : denoteMeta mp₂.base2.acval (ENV₂) ψ 0 (nestedRecCvAt p.k cvRms cvRns c).type

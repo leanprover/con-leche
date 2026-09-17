@@ -1,11 +1,15 @@
 module
 
-public import ConLeche.Model.Inductives.NestedRecsStage
+import ConLeche.Model.Inductives.NestedRecsStage
+public import ConLeche.Model.Inductives.NestedRecTypes
+import ConLeche.Model.Inductives.NestedRecEqs
 import ConLeche.Semantics.Tower.SigChainWire
 import ConLeche.Model.Inductives.BlockRecLeaf
 import ConLeche.Model.IndCons
 import ConLeche.Model.RecRulesCons
 import ConLeche.Verify.Inductives.StructWF
+import ConLeche.Verify.Inductives.NestedRecNames
+import ConLeche.Verify.Inductives.NestedRecDoor
 public section
 
 /-!
@@ -348,5 +352,280 @@ theorem nestedRecsProvision {kT : Nat} {T A : Nat → (Name → Nat) → AnnotTe
     exact this
   · intro nm hn
     exact hag nm fun x hx => by rw [(hzip x hx).2]; exact hn x.2 (hzip x hx).1
+
+/-! ## The provision at the run -/
+
+section Run
+
+variable {env : Env} {F : Nat} {mp : EnvModelM V μ env} {p : NestedParts} {envOut : Env}
+  {st : ElimState} {b : MutualBlock} {envAux : Env} {stored : List AuxStored}
+  {ctorsR : List (List (ConstantVal × Nat × Nat))} {cvRms cvRns : List ConstantVal}
+  {rulesM rulesN : List (List RecRule)} {fmsA ctorsA₀ : List ConstantVal}
+  {fms : List MutualFormerA} {f₀ : MutualFormerA} {ctorsA : List (ConstantVal × Nat)}
+  {sortss : List (List Level)} {kinds : List (List (RecFieldKind × Nat))}
+  {mp₁ : EnvModelM V μ (ConLeche.consMutualFormers fms env)}
+  {ppsF : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)} {W : (Name → Nat) → Nat}
+  {idxF : Nat → List Expr} {dsF : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)}
+  {esF : Nat → (Name → Nat) → List AnnotTerm} {srcsF : Nat → List (Option Nat)}
+  {fvsPF xFvsF : Nat → List Expr} {xrestF : Nat → Expr}
+  {eissF : Nat → (Name → Nat) → List (List AnnotTerm)}
+  {tssF : Nat → (Name → Nat) → List (List (Nat × Nat × AnnotTerm))}
+  {dsR : Nat → Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)} {xFvsR : Nat → Nat → List Expr}
+  {pinsS : List PinSyn}
+  {mp₂ : EnvModelM V μ (ConLeche.consNestedCtors ctorsR.flatten
+    (ConLeche.consMutualFormers (fms.take p.k) env))}
+  (I : NestedTailIn F mp p envOut st b envAux stored ctorsR cvRms cvRns rulesM rulesN fmsA ctorsA₀
+    fms f₀ ctorsA sortss kinds mp₁ ppsF W idxF dsF esF srcsF fvsPF xFvsF xrestF eissF tssF dsR
+    xFvsR pinsS mp₂)
+include I
+
+local notation "ENV₂" => (ConLeche.consNestedCtors ctorsR.flatten
+  (ConLeche.consMutualFormers (fms.take p.k) env))
+
+local notation "D" => (nestedBlockModel (V := V) p b fms f₀ ctorsA kinds env ppsF W idxF dsF esF
+  srcsF fvsPF xrestF eissF tssF ctorsR dsR xFvsR pinsS)
+
+local notation "PC" => (nestedPc (V := V) b ctorsA kinds p.k f₀.s dsF esF eissF tssF)
+
+/-- **The kernel's provision list**: the restored member recursors with
+their stored argument sums, then the auxiliary ones with theirs — the
+list `checkNested` hands to `provisionNestedRecs`. -/
+@[expose] def nestedProvList (p : NestedParts) (stored : List AuxStored)
+    (cvRms cvRns : List ConstantVal) : List (ConstantVal × Nat × Nat) :=
+  (cvRms.zip ((stored.take p.k).map fun a => (a.mI, a.rP)))
+    ++ (cvRns.zip ((stored.drop p.k).map fun a => (a.mI, a.rP)))
+
+omit I in
+/-- The provision list's length is the class count. -/
+theorem nestedProvList_length (hm : cvRms.length = p.k) (hn : cvRns.length = pinsS.length)
+    (hs : stored.length = b.k) (hbk : b.k = p.k + pinsS.length) :
+    (nestedProvList p stored cvRms cvRns).length = p.k + pinsS.length := by
+  unfold nestedProvList
+  rw [List.length_append, List.length_zip, List.length_zip, List.length_map, List.length_map,
+    List.length_take, List.length_drop, hm, hn, hs, hbk]
+  omega
+
+omit I in
+/-- A zipped list's entry carries the left list's. -/
+theorem zip_getElem?_fst {α β : Type} :
+    ∀ (l₁ : List α) (l₂ : List β) (i : Nat) (x : α × β),
+      (l₁.zip l₂)[i]? = some x → l₁[i]? = some x.1
+  | [], _, _, _, h => by simp [List.zip] at h
+  | _ :: _, [], _, _, h => by simp [List.zip] at h
+  | _ :: _, _ :: _, 0, _, h => by
+    simp only [List.zip_cons_cons, List.getElem?_cons_zero, Option.some.injEq] at h
+    rw [← h]
+    rfl
+  | _ :: l₁, _ :: l₂, i + 1, x, h => by
+    simp only [List.zip_cons_cons, List.getElem?_cons_succ] at h
+    exact zip_getElem?_fst l₁ l₂ i x h
+
+omit I in
+/-- Class `c`'s entry of the provision list carries class `c`'s restored
+recursor (`nestedRecCvAt`). -/
+theorem nestedProvList_fst (hm : cvRms.length = p.k) (hn : cvRns.length = pinsS.length)
+    (hs : stored.length = b.k) (hbk : b.k = p.k + pinsS.length)
+    (c : Nat) (x : ConstantVal × Nat × Nat)
+    (hx : (nestedProvList p stored cvRms cvRns)[c]? = some x) :
+    x.1 = nestedRecCvAt p.k cvRms cvRns c := by
+  have hlenM : (cvRms.zip ((stored.take p.k).map fun a => (a.mI, a.rP))).length = p.k := by
+    rw [List.length_zip, List.length_map, List.length_take, hm, hs, hbk]
+    omega
+  unfold nestedProvList at hx
+  by_cases hc : c < p.k
+  · rw [List.getElem?_append_left (by omega)] at hx
+    have h1 := zip_getElem?_fst _ _ _ _ hx
+    unfold nestedRecCvAt
+    rw [if_pos hc, List.getD_eq_getElem?_getD, h1]
+    rfl
+  · rw [List.getElem?_append_right (by omega), hlenM] at hx
+    have h1 := zip_getElem?_fst _ _ _ _ hx
+    unfold nestedRecCvAt
+    rw [if_neg hc, List.getD_eq_getElem?_getD, h1]
+    rfl
+
+/-- **CLASS `c`'s RESTORED RECURSOR CONSTANT, AT THE FRONT DOOR**: its
+name is free at the restored environment and is neither reserved nor
+projection-shaped, and its type is closed, fvar-free, level-complete and
+resolves there (`restoreRecTys_door` and `restoreRecTys_at`, at the
+member list below `k` and the auxiliary list above). -/
+theorem NestedTailIn.recCvDoor {c : Nat} (hc : c < b.k) :
+    (ENV₂).find? (nestedRecCvAt p.k cvRms cvRns c).name = none ∧
+    ConLeche.reservedBasisNames.contains (nestedRecCvAt p.k cvRms cvRns c).name = false ∧
+    (nestedRecCvAt p.k cvRms cvRns c).name.isProjFnShape = false ∧
+    (nestedRecCvAt p.k cvRms cvRns c).type.hasFvar = false ∧
+    (nestedRecCvAt p.k cvRms cvRns c).type.allLevelParamsDefined
+      (nestedRecCvAt p.k cvRms cvRns c).levelParams = true ∧
+    (nestedRecCvAt p.k cvRms cvRns c).type.looseBVarsBounded 0 = true ∧
+    (nestedRecCvAt p.k cvRms cvRns c).type.constsResolve (ENV₂) = true := by
+  have hst := I.storedLen
+  obtain ⟨a, ha⟩ : ∃ a, stored[c]? = some a :=
+    ⟨_, List.getElem?_eq_getElem (by rw [hst]; exact hc)⟩
+  by_cases hck : c < p.k
+  · have hasa : (stored.take p.k)[c]? = some a := by
+      rw [List.getElem?_take_of_lt hck]; exact ha
+    obtain ⟨o, ho⟩ : ∃ o, cvRms[c]? = some o :=
+      ⟨_, List.getElem?_eq_getElem (by rw [I.lenM]; exact hck)⟩
+    have hcv : nestedRecCvAt p.k cvRms cvRns c = o := by
+      unfold nestedRecCvAt
+      rw [if_pos hck, List.getD_eq_getElem?_getD, ho]
+      rfl
+    have hnm : ((List.range p.k).map fun mIdx =>
+        ((p.formers.getD mIdx default).1.name.str "rec"))[c]?
+        = some ((p.formers.getD c default).1.name.str "rec") := by
+      rw [List.getElem?_map, List.getElem?_range hck]
+      rfl
+    obtain ⟨hname, hfr, hnres, hpsh⟩ := ConLeche.restoreRecTys_door I.hrm c _ o hnm ho
+    obtain ⟨-, -, hbv, hfv, hlp, hres, -⟩ := ConLeche.restoreRecTys_at I.hrm c a o hasa ho
+    rw [I.henv] at hfr hres
+    rw [hcv]
+    exact ⟨by rw [hname]; exact hfr, by rw [hname]; exact hnres, by rw [hname]; exact hpsh,
+      hfv, hlp, hbv, hres⟩
+  · have hq : c - p.k < pinsS.length := by
+      have := I.out.bk
+      omega
+    have hasa : (stored.drop p.k)[c - p.k]? = some a := by
+      rw [List.getElem?_drop, show p.k + (c - p.k) = c from by omega]; exact ha
+    obtain ⟨o, ho⟩ : ∃ o, cvRns[c - p.k]? = some o :=
+      ⟨_, List.getElem?_eq_getElem (by rw [I.lenN]; exact hq)⟩
+    have hcv : nestedRecCvAt p.k cvRms cvRns c = o := by
+      unfold nestedRecCvAt
+      rw [if_neg hck, List.getD_eq_getElem?_getD, ho]
+      rfl
+    have hqn : c - p.k < p.numNested := by rw [← I.hcount, ← I.out.stage.pinsLen]; exact hq
+    have hnm : ((List.range p.numNested).map p.mimicRecName)[c - p.k]?
+        = some (p.mimicRecName (c - p.k)) := by
+      rw [List.getElem?_map, List.getElem?_range hqn]
+      rfl
+    obtain ⟨hname, hfr, hnres, hpsh⟩ := ConLeche.restoreRecTys_door I.hrn (c - p.k) _ o hnm ho
+    obtain ⟨-, -, hbv, hfv, hlp, hres, -⟩ :=
+      ConLeche.restoreRecTys_at I.hrn (c - p.k) a o hasa ho
+    rw [I.henv] at hfr hres
+    rw [hcv]
+    exact ⟨by rw [hname]; exact hfr, by rw [hname]; exact hnres, by rw [hname]; exact hpsh,
+      hfv, hlp, hbv, hres⟩
+
+omit I in
+/-- A zip against a long enough list keeps the left list. -/
+theorem zip_map_fst_of_le {α β : Type} :
+    ∀ (l₁ : List α) (l₂ : List β), l₁.length ≤ l₂.length → (l₁.zip l₂).map Prod.fst = l₁
+  | [], _, _ => rfl
+  | _ :: _, [], h => by simp at h
+  | a :: l₁, _ :: l₂, h => by
+    rw [List.zip_cons_cons, List.map_cons, zip_map_fst_of_le l₁ l₂ (by simpa using h)]
+
+omit I in
+/-- The provision list's names are the restored recursors' names, in
+order — so K.39's Bool is the loop's `Nodup`. -/
+theorem nestedProvList_names (hm : cvRms.length = p.k) (hn : cvRns.length = pinsS.length)
+    (hs : stored.length = b.k) (hbk : b.k = p.k + pinsS.length) :
+    (nestedProvList p stored cvRms cvRns).map (fun x => x.1.name)
+      = cvRms.map (·.name) ++ cvRns.map (·.name) := by
+  unfold nestedProvList
+  rw [List.map_append]
+  congr 1
+  · rw [show (fun x : ConstantVal × Nat × Nat => x.1.name)
+        = (fun c : ConstantVal => c.name) ∘ Prod.fst from rfl, ← List.map_map,
+      zip_map_fst_of_le _ _ (by rw [hm, List.length_map, List.length_take, hs, hbk]; omega)]
+  · rw [show (fun x : ConstantVal × Nat × Nat => x.1.name)
+        = (fun c : ConstantVal => c.name) ∘ Prod.fst from rfl, ← List.map_map,
+      zip_map_fst_of_le _ _ (by rw [hn, List.length_map, List.length_drop, hs, hbk]; omega)]
+
+/-- The restored environment is η-closed (the formers and the
+constructors are fresh non-η families, as `declNested`'s own η lemma
+argues for the whole route). -/
+theorem NestedTailIn.etaEnv₂ : ConLeche.EtaFamiliesClosed (ENV₂) := by
+  have hx1 : ConLeche.Semantics.FreshEtaExt env
+      (ConLeche.consNestedFormers (stored.take p.k) env) :=
+    ConLeche.Semantics.consNestedFormers_freshExt I.hcaps
+  have hfC : ∀ c ∈ ctorsR.flatten,
+      (ConLeche.consNestedFormers (stored.take p.k) env).find? c.1.name = none := by
+    intro c hc
+    obtain ⟨cs, hcs, hcin⟩ := List.mem_flatten.mp hc
+    obtain ⟨j, hj⟩ := List.getElem?_of_mem hcs
+    obtain ⟨hlen, hall⟩ := ConLeche.mapM_except_inv I.hctors
+    obtain ⟨a, cs', ha, hcs', hrun⟩ := hall j (by
+      have := (List.getElem?_eq_some_iff.mp hj).1
+      omega)
+    rw [hj] at hcs'
+    obtain rfl : cs = cs' := by simpa using hcs'
+    exact ConLeche.restoreCtors_fresh hrun c hcin
+  have hx2 : ConLeche.Semantics.FreshEtaExt (ConLeche.consNestedFormers (stored.take p.k) env)
+      (ConLeche.consNestedCtors ctorsR.flatten
+        (ConLeche.consNestedFormers (stored.take p.k) env)) :=
+    ConLeche.Semantics.consNestedCtors_freshExt hfC
+  have h := ConLeche.Semantics.EtaFamiliesClosed.ofFreshExt I.hE (hx1.trans hx2)
+  rw [I.henv] at h
+  exact h
+
+/-- **THE PROVISION AT THE RUN** (PLAN-M7 §4a, item 5 step 1): the
+`k + nPins` restored recursors consed RULE-LESS onto the restored
+constructors' environment, class `c` with the chosen tuple's `c`-th
+projection as its leaf.  Every front-door fact is `recCvDoor`'s, the
+names' distinctness is K.39's Bool, and the leaf's three laws are
+`nestedRecLeaf_typed`/`_below`/`_params`. -/
+theorem NestedTailIn.provisioned
+    (hnd : (cvRms.map (·.name) ++ cvRns.map (·.name)).Nodup)
+    {s : (Name → Nat) → Nat} {rdsM : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)}
+    {concM : Nat → AnnotTerm} {eqs : (Name → Nat) → List AnnotTerm}
+    (R : NestedRecReadings mp₂.base2 (D) PC cvRms cvRns b.rlps b.elimLevel s rdsM concM)
+    (E : NestedRecEqs (D) PC (fun ψ => b.elimLevel.eval ψ) rdsM concM eqs)
+    (Tu : NestedRecTuple (D) s rdsM concM eqs) :
+    ∃ mpP : EnvModelM V μ
+        (ConLeche.provisionNestedRecs (nestedProvList p stored cvRms cvRns) (ENV₂)),
+      ConLeche.EtaFamiliesClosed
+        (ConLeche.provisionNestedRecs (nestedProvList p stored cvRms cvRns) (ENV₂)) ∧
+      (∀ c, c < (D).kT → ∀ ψ : Name → Nat,
+        denoteMeta mpP.base2.acval
+            (ConLeche.provisionNestedRecs (nestedProvList p stored cvRms cvRns) (ENV₂)) ψ 0
+            (nestedRecCvAt p.k cvRms cvRns c).type
+          = some (mkPisAV (rdsM c ψ) (concM c))) ∧
+      (∀ c, c < (D).kT → ∀ ψ : Name → Nat,
+        mpP.base2.acval (nestedRecCvAt p.k cvRms cvRns c).name ψ
+          = nestedRecLeaf (D).kT s rdsM concM eqs b.rlps c ψ) ∧
+      (∀ nm : Name, (∀ c, c < (D).kT → nm ≠ (nestedRecCvAt p.k cvRms cvRns c).name) →
+        mpP.base2.acval nm = mp₂.base2.acval nm) := by
+  have hkT : (D).kT = b.k := I.kT
+  have hbk : b.k = p.k + pinsS.length := I.out.bk
+  have hlt : ∀ c, c < (D).kT → c < b.k := fun c hc => by rw [← hkT]; exact hc
+  have hlps : ∀ c, c < (D).kT → (nestedRecCvAt p.k cvRms cvRns c).levelParams = b.rlps := by
+    intro c hc
+    have hkD : (D).k = p.k := rfl
+    by_cases hck : c < p.k
+    · have hcv : nestedRecCvAt p.k cvRms cvRns c = cvRms.getD c default := by
+        unfold nestedRecCvAt; rw [if_pos hck]
+      rw [hcv]
+      exact R.lpsM c (by rw [hkD]; exact hck)
+    · have hq : c - p.k < (D).nPins := by
+        have := hlt c hc
+        show c - p.k < pinsS.length
+        omega
+      have hcv : nestedRecCvAt p.k cvRms cvRns c = cvRns.getD (c - p.k) default := by
+        unfold nestedRecCvAt; rw [if_neg hck]
+      rw [hcv]
+      exact R.lpsN (c - p.k) hq
+  obtain ⟨mpP, hE, -, hreads, hleafP, hag⟩ :=
+    nestedRecsProvision (kT := (D).kT) (T := fun c ψ => mkPisAV (rdsM c ψ) (concM c))
+      (A := nestedRecLeaf (D).kT s rdsM concM eqs b.rlps)
+      (cvOf := nestedRecCvAt p.k cvRms cvRns) (L := nestedProvList p stored cvRms cvRns)
+      mp₂
+      (by rw [hkT, hbk]; exact nestedProvList_length I.lenM I.lenN I.storedLen hbk)
+      (fun c x hx => nestedProvList_fst I.lenM I.lenN I.storedLen hbk c x hx)
+      (fun c hc ψ ρ => R.okTy c ψ ρ hc)
+      (fun c hc ψ ρ => nestedRecLeaf_typed R E Tu c hc ψ ρ)
+      (fun c _ ψ => nestedRecLeaf_below R E c ψ)
+      (fun c hc ψ₁ ψ₂ hφ => nestedRecLeaf_params (by rw [← hlps c hc]; exact hφ))
+      (fun c hc => (I.recCvDoor (hlt c hc)).2.1)
+      (fun c hc => (I.recCvDoor (hlt c hc)).2.2.1)
+      (fun c hc => ⟨(I.recCvDoor (hlt c hc)).2.2.2.1, (I.recCvDoor (hlt c hc)).2.2.2.2.1,
+        (I.recCvDoor (hlt c hc)).2.2.2.2.2.1⟩)
+      (by rw [nestedProvList_names I.lenM I.lenN I.storedLen hbk]; exact hnd)
+      (fun c hc => (I.recCvDoor (hlt c hc)).1)
+      (fun c hc => (I.recCvDoor (hlt c hc)).2.2.2.2.2.2)
+      I.etaEnv₂
+      (fun c hc ψ => NestedTailIn.readAtOf R hc ψ)
+  exact ⟨mpP, hE, hreads, hleafP, hag⟩
+
+end Run
 
 end ConLeche.Model
