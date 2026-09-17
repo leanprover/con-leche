@@ -82848,6 +82848,145 @@ allowlisted files (647 scanned); no-local-paths OK; overview-links 112;
 quote-gate 2; proofdeps 4955 rows / 12 roots / **0 doors**.
 
 
+##### (xx) CONTINUATION 16 (lane session 16) — TWO FINDINGS that re-route the fired equality, the interface fixed, and the ι step
+
+Base: this lane's a4964caf.  No checker code changed; no `sorry`, no
+axioms, no `maxHeartbeats`; `#print axioms` of every new theorem is
+`[propext, Classical.choice, Quot.sound]`.
+
+*(uu) 1, the spine* (3a92c24a).  `NestedTailIn.recSpine`: a
+`TeleFitPA` fit of the RESTORED recursor type's reading — the form
+`RecRuleLaw` hands the arm, identified by `recTyReadP` — is a
+`SpineFit` of it (`teleFitPA_to_chain`, `spineFit_of_chain`), hence by
+the transfer of the SCRATCH tower, whose inversion
+(`IsBlockModels.spineFit_recData_inv`) splits it into the block's
+parameters, motives and minors (a `PrefixFrame`), class `c`'s index
+spine and a major in the carrier's fibre at its tuple.  Same on both
+arms, first try, ten lines.
+
+##### (yy) FINDING 1 — the COMPOSED route is NOT available for the LEFT side; and FINDING 2 — the stage's equations must be NAMED
+
+Both verified against the tree before a line was written, and the
+second is what actually blocked the equality.
+
+1. **`spec-fired.md`'s R2 is wrong.**  It says "the leaf IS
+   `blockLeafAV` of the chosen tuple, so `blockLeafVT_at` turns its
+   fold at the decomposed spine into `blockRecAtT …`".  It does not:
+   `blockLeafVT_at`/`blockRecAtT_iota` characterise the CANDIDATE
+   `d.blockCandT`, while the recursor's leaf is
+   `blockLeafAV = projChainAV mm (selChainAV s (blockTsAV k T)
+   (andChainAV eqs))` and `selChainAV` is `choice` —
+   `interp ρ (selChainAV …) = schoice (sigChainV …)`
+   (`SigChainI.lean:440`).  The candidate only witnesses that the
+   choice's domain is non-empty (`nestedRecs`' `hcand`/`hceq`); nothing
+   identifies the chosen tuple with it, and nothing could — the
+   equations need not determine the tuple.  **So the left side goes
+   through the equations, exactly as `blockRecRuleLaw` does at the
+   mutual block** — R1 — and therefore DOES need T2 (`ctorArm`) for the
+   major, as §U.29 (jj)'s correction to (gg) 2 already said of that
+   route.  (gg) 2's own claim — that the comparands and the index pin
+   spare the mimic arm T2 — survives only for the major's CONTAINER
+   decode, which is still what `ctorArm`'s last clause delivers.
+2. **The stage's `eqs` was existential, and at an abstract `eqs` the
+   rule law is UNPROVABLE.**  `NestedRecEqs` records that the equations
+   are graded (`heq`), hold at the candidate (`hceq`), are valid and
+   below `kT` — and nothing more; in particular NOT that they CONTAIN
+   rule `(c, j)`'s equation.  But by finding 1 the leaf's only property
+   is that its tuple satisfies THOSE equations, so an equation one
+   cannot point at is an ι step one cannot fire.  The mutual route
+   never met this: `d.recEqs` is a function of the block model, so
+   `blockRecRuleLaw` names `d.mem_specEqs_of`.  The nested route's
+   equations are the SCRATCH block's — a DIFFERENT block model, not
+   reachable from the nested one — which is why they had been handed
+   over existentially.
+
+*The fix, landed* (c6d06ec6), mechanical and contained, no proof
+changed: `NestedRecEqsOf`, `NestedRecsStored` and
+`nestedTailModeled_of` (with `nestedTailModeled_of_frames` and
+`_of_faces`) MOVE from `NestedRecsStage.lean` to `NestedRecEqs.lean` —
+the first module in which `NestedScratchOut` is visible,
+`NestedRecScratch` importing `NestedRecsStage` — and thread the scratch
+out-record `mpA`/`cvRas`/`S`, the equations becoming the NAMED
+`fun ψ => (mutualBlockModel …).recEqs mpA.base2 b.elimLevel ψ`.
+`NestedTailIn.recEqsOf` drops its existential (it already produced that
+very witness); the skeleton obtains `I.scratch` ONCE and passes it to
+both named facts.  *The rule: a named fact that hands a datum over
+existentially hands over nothing a later stage can point at — if a
+consumer must NAME it, the producer must too.*
+
+*The ι step* (0bbc51b3).  `NestedTailIn.ruleIota`, the first consumer
+of the named equations: `NestedRecTuple` at `restrictΨ b.rlps ψ` gives
+the tuple `a` with `interp ρ (nestedRecLeaf … t ψ) = a t` and the
+equations satisfied at it; `BlockModel.mem_specEqs_of` names rule
+`(c, j)`'s equation among them; `blockRecs_iota` fires.  That is
+`blockRecRuleLaw`'s `hEq` at the nested block's leaves.
+
+##### (zz) WHAT THE FIRED EQUALITY STILL OWES
+
+With the right half (`ruleFold`), the arithmetic (`recArgSums`), the
+reading (`recTyReadP`), the spine (`recSpine`) and the ι step
+(`ruleIota`) in the tree, what is left is the assembly and the major:
+
+1. **the major's decode**, the two arms' only real difference.  At a
+   MEMBER `o.ctor = rl.ctor = cA.1.name` and the value crosses
+   `mpP → mp₂ → mpA` by the restore record's `leafSome` (the member's
+   own constructor is no `ctorPins` key) and `hagA`, landing on
+   `IsBlockModel.ctor`'s injection.  At a MIMIC `o.ctor` is the
+   CONTAINER's constructor and `ctorArm`'s last clause is exactly the
+   identification, its `Ds` supplied by `RecRuleLaw`'s own comparands
+   clause — **¾–1**;
+2. **the assembly**: `blockRecRuleLaw`'s graph-regime bookkeeping
+   (`hspR`/`hspC`, `hargsEq`, the two frames, `interp_specLhsAV_at`,
+   `interp_specRuleCoreAV_leaf`, `mkLamsAV_fold`) re-run at the nested
+   leaves, plus the `Prop` regime and the mimic arm's `vpa` conjunct
+   (`nestedFireShape_inv` + `nt_denoteMeta_restoredPin`) — **¾–1**.
+   *Recommended shape*: generalise `blockRecRuleLaw` ONCE over an
+   abstract `Ra` (reading + grading + `ruleFold`'s fold agreement) and
+   an abstract major decode, and instantiate it twice; the mutual
+   consumer passes `Ra := ruleRhsAV`, `hfold := fun _ _ _ => rfl`.
+   That is the only way the 450 lines are not copied.
+
+##### (aaa) K.43, and the residue of item 5
+
+**K.43 is still owed**, unchanged: it is `restoreAgreeP`'s `hauxNe`,
+`ruleFold` passes it straight through, and the wiring stays ONE
+rewrite at ONE site.
+
+Left of item 5, in order:
+
+1. the fired equality's major and assembly ((zz)) — **1½–2**;
+2. the store swap, its five missing Verify twins and the free
+   `PinRecLaws.crossEnv` — **1½**;
+3. the tables' twin and §U.36 (d)'s `EnvModelB` supply — **1–1½**.
+
+**Item 5 from here: 4–5 sessions** (session 15 said 3½–4¼ with the
+equality's left side sized 1–1¼).  The re-sizing is finding 1's:
+the composed route would have been the cheap one and it is not
+available; the equality is `blockRecRuleLaw`'s argument, which is 450
+lines, and the mimic arm is a second instance of it.
+
+##### (bbb) FILES AND GATES (session 16's HEAD)
+
+Touched: `ConLeche/Model/Inductives/NestedRecRule.lean` (1886 → 1987),
+`ConLeche/Model/Inductives/NestedRecEqs.lean` (677 → 826, the three
+named facts moved in and `recEqsOf` de-existentialised),
+`ConLeche/Model/Inductives/NestedRecsStage.lean` (463 → 347, the same
+three moved out), `ConLeche/Model/Inductives/NestedRecFrames.lean`
+(−7, `nestedTailModeled_of_frames` moved),
+`ConLeche/Model/Inductives/NestedRecFrames2.lean` (−9,
+`nestedTailModeled_of_faces` moved).  No allowlist line, no
+`scripts/pub-import-plan.py` entry, no new import.
+
+`lake build` 715 jobs warning-free EXIT 0; `lake test` warning-free
+EXIT 0; shake 512 removals all allowlisted / pub-imports 1314 of 2137
+public, none demotable (45 dot-notation fallbacks); layering base 351 /
+model 281 / caps 3 / umbrella 1, 0 base→lane, 0 impl→theory (the base
+clause is vacuous, §U.29 (mm), and a separate lane off master owns the
+fix); trust surface 13 escapes in 5 allowlisted files (647 scanned);
+no-local-paths OK; overview-links 112; quote-gate 2; proofdeps 4955
+rows / 12 roots / **0 doors**.
+
+
 #### U.30 — L-B session 2: `CopyCtorInst.ordF` at the READING, the normalisation's reading law PROVED, `ContainerModeled`'s three clauses (lane L-B, 2026-09-16)
 
 Three maintainer rulings opened this session; the first two are landed,
