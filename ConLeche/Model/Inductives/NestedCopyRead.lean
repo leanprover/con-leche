@@ -122,6 +122,14 @@ bridge the copies' index readings cross: `instPisILP_read` gives the
 reading of the whole instantiated constructor type, and the arms read
 its RESIDUAL. -/
 
+/-- The instantiated telescope has the original's length (off
+`instTeleP_map`, since the walk's body is not exposed here). -/
+theorem instTeleP_length (ds : List AnnotTerm) (c : Nat)
+    (pps : List (Nat × Nat × AnnotTerm)) : (instTeleP ds c pps).length = pps.length := by
+  have h := congrArg List.length (instTeleP_map ds c pps)
+  simp only [List.length_map, instTele_length] at h
+  simpa using h
+
 /-- Parameter instantiation distributes over an application node. -/
 theorem AnnotTerm.instAll_app : ∀ (ds : List AnnotTerm) (k : Nat) (f a : AnnotTerm),
     AnnotTerm.instAll ds k (.app f a)
