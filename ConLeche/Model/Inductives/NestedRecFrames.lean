@@ -13,6 +13,13 @@ import ConLeche.Verify.Inductives.NestedRecNames
 import ConLeche.Verify.Inductives.NestedRecCtorPin
 import ConLeche.Verify.Inductives.NestedCopyGlue
 import ConLeche.Verify.Inductives.NestedRestoreKit
+import ConLeche.Verify.Inductives.NestedRecDoor
+import ConLeche.Verify.Inductives.NestedRecFramesKit
+import ConLeche.Verify.Denote.TeleOpen
+import ConLeche.Verify.EraseAnnots
+import ConLeche.Model.Annot.BitErase
+import ConLeche.Model.IndTowerRead
+import ConLeche.Model.Inductives.StructData
 public section
 
 /-!
@@ -49,6 +56,122 @@ universe w
 
 variable {V : Type w} [SetTheory V]
 variable {μ : CheckMode}
+
+/-! ## Kit: an opened `∀`-telescope's per-binder readings -/
+
+/-- Two opener lists of the same shape differ only in the variables'
+type annotations. -/
+private theorem openersFrom_eraseAnnots {fvs₁ fvs₂ : List Expr} {k₀ n : Nat}
+    (h₁ : OpenersFrom fvs₁ k₀ n) (h₂ : OpenersFrom fvs₂ k₀ n) :
+    fvs₁.map ConLeche.Expr.eraseAnnots = fvs₂.map ConLeche.Expr.eraseAnnots := by
+  refine List.ext_getElem? fun i => ?_
+  rw [List.getElem?_map, List.getElem?_map]
+  rcases Nat.lt_or_ge i n with hi | hi
+  · obtain ⟨x, hx⟩ : ∃ x, fvs₁[i]? = some x :=
+      ⟨_, List.getElem?_eq_getElem (by rw [h₁.1]; exact hi)⟩
+    obtain ⟨y, hy⟩ : ∃ y, fvs₂[i]? = some y :=
+      ⟨_, List.getElem?_eq_getElem (by rw [h₂.1]; exact hi)⟩
+    obtain ⟨t₁, rfl⟩ := h₁.2 i x hx
+    obtain ⟨t₂, rfl⟩ := h₂.2 i y hy
+    rw [hx, hy]
+    rfl
+  · rw [List.getElem?_eq_none (by rw [h₁.1]; exact hi),
+      List.getElem?_eq_none (by rw [h₂.1]; exact hi)]
+
+/-- **THE OPENERS' ANNOTATIONS ARE INVISIBLE TO THE READING**: a term
+opened at one standard opener list reads exactly as at another
+(`denoteMeta_congr_eraseAnnots`).  The transfer needs it because the
+restored and the scratch telescope open at openers carrying their OWN
+domains. -/
+theorem denoteMeta_instSeq_openers_congr {acval : Name → (Name → Nat) → AnnotTerm} {env : Env}
+    {φ : Name → Nat} {fvs₁ fvs₂ : List Expr} {k₀ n : Nat}
+    (h₁ : OpenersFrom fvs₁ k₀ n) (h₂ : OpenersFrom fvs₂ k₀ n)
+    (t d : Nat) (e : Expr) :
+    denoteMeta acval env φ d (Expr.instSeq fvs₁ t e)
+      = denoteMeta acval env φ d (Expr.instSeq fvs₂ t e) :=
+  denoteMeta_congr_eraseAnnots d _ _ (by
+    rw [ConLeche.Expr.eraseAnnots_instSeq, ConLeche.Expr.eraseAnnots_instSeq,
+      openersFrom_eraseAnnots h₁ h₂])
+
+/-- **A CLOSED Π-TOWER'S READING, OPENED**: a type that strips `N`
+`∀`-binders and reads to a Π-tower of `N` entries opens at standard
+openers, and then binder `i`'s domain — instantiated at the earlier
+openers — reads at depth `i` to entry `i` of the tower, the residual at
+depth `N` to the tower's conclusion.  (`restoredRecTy_reading`'s middle
+without the restore, so that BOTH sides of the transfer can use it.) -/
+theorem piTele_read_openers {env : Env} (m : EnvModel V env) {φ : Name → Nat}
+    {N : Nat} {ty : Expr} {cbs : List (Expr × BinderMeta)} {resid : Expr}
+    (hstrip : ty.stripPis N = some (cbs, resid))
+    {rds : List (Nat × Nat × AnnotTerm)} {conc : AnnotTerm} (hlen : rds.length = N)
+    (hea : denoteMeta m.acval env φ 0 ty = some (mkPisAV rds conc)) :
+    ∃ fvs : List Expr, OpenersFrom fvs 0 N ∧
+      (∀ (i : Nat) (x : Expr × BinderMeta), cbs[i]? = some x →
+        denoteMeta m.acval env φ i (Expr.instSeq (fvs.take i) (i - 1) x.1)
+          = some (rds.getD i default).2.2) ∧
+      denoteMeta m.acval env φ N (Expr.instSeq fvs (N - 1) resid) = some conc := by
+  have hcl : cbs.length = N := ConLeche.Expr.stripPis_length _ hstrip
+  have hty : ty = ConLeche.mkPisB cbs resid := ConLeche.stripPis_mkPisB _ hstrip
+  obtain ⟨fvs, hlenF, -, hopB⟩ := ConLeche.openPisAtFvars_mkPisB N cbs hcl 0
+  have hop : ConLeche.openPisAtFvars N ty 0 = some (fvs, Expr.instSeq fvs (N - 1) resid) := by
+    rw [hty]; exact hopB resid
+  obtain ⟨Γ, Rr, hpi, hR, hdom⟩ := openPisAtFvars_denotePTele N hop hea
+  obtain ⟨rds', hst, hΓ⟩ := stripPisAV_of_piTeleAV hpi
+  obtain ⟨heq, hlen'⟩ := stripPisAV_eq_mkPis hst
+  obtain ⟨rfl, rfl⟩ := mkPisAV_inj (by rw [hlen, hlen']) heq
+  have hidx := ConLeche.openPisAtFvars_index N ty 0 hop
+  have hopen : OpenersFrom fvs 0 N :=
+    ⟨hlenF, fun i x hx => by
+      obtain ⟨t, ht⟩ := hidx i x hx
+      exact ⟨t, by rw [ht, Nat.zero_add]⟩⟩
+  refine ⟨fvs, hopen, fun i x hx => ?_, by rw [Nat.zero_add] at hR; exact hR⟩
+  have hi : i < N := by
+    have := (List.getElem?_eq_some_iff.mp hx).1
+    omega
+  obtain ⟨xv, hxv⟩ : ∃ xv, fvs[i]? = some xv :=
+    ⟨_, List.getElem?_eq_getElem (by rw [hlenF]; exact hi)⟩
+  have hann := ConLeche.Verify.openPisAtFvars_domain N hop hstrip i xv x hxv hx
+  have h := hdom i xv hxv
+  rw [Nat.zero_add, hann] at h
+  rw [h, ← hΓ]
+  congr 1
+  rw [List.getD_eq_getElem?_getD, List.getD_eq_getElem?_getD,
+    List.getElem?_reverse (by rw [List.length_map, hlen]; omega), List.getElem?_map,
+    List.length_map, hlen, show N - 1 - (N - 1 - i) = i from by omega]
+  cases hr : rds[i]? with
+  | none => exact absurd (List.getElem?_eq_none_iff.mp hr) (by rw [hlen]; omega)
+  | some e => rfl
+
+/-- A prefix of the standard openers is the standard openers. -/
+theorem OpenersFrom.take {fvs : List Expr} {k₀ n : Nat} (h : OpenersFrom fvs k₀ n) {i : Nat}
+    (hi : i ≤ n) : OpenersFrom (fvs.take i) k₀ i := by
+  refine ⟨by rw [List.length_take, h.1]; omega, fun j x hx => ?_⟩
+  have hj : j < i := by
+    have := (List.getElem?_eq_some_iff.mp hx).1
+    rw [List.length_take, h.1] at this
+    omega
+  rw [List.getElem?_take_of_lt hj] at hx
+  exact h.2 j x hx
+
+/-- **A BLOCK MODEL'S RECURSOR READING STARTS WITH THE BLOCK'S
+PARAMETERS**: the reading's prefix is `rebit`-reset member `0`'s
+parameter data (`mutualRecDataAV_eq_prefix`), whose domains ARE
+`BlockModel.params`. -/
+theorem blockRds_take_params {env : Env} (m : EnvModel V env) (d : BlockModel V)
+    (elimL : Level) (c : Nat) (ψ : Name → Nat) (hlen : d.nP ≤ (d.ppsM 0 ψ).length) :
+    ((d.blockRds m elimL c ψ).take d.nP).map (·.2.2) = d.params ψ := by
+  have hlenP : (rebit (pwBit ψ (Level.zeronessOf elimL)) (d.recPps ψ)).length = d.nP := by
+    show ((d.recPps ψ).map _).length = d.nP
+    rw [List.length_map]
+    show ((d.ppsM 0 ψ).take d.nP).length = d.nP
+    rw [List.length_take]
+    omega
+  show ((mutualRecDataAV m ψ (d.recLs m ψ) d.nP d.recNIdxs elimL (d.recPps ψ) (d.recIpss ψ)
+    (d.recCds ψ) d.recMots d.recTgts c).take d.nP).map (·.2.2) = _
+  rw [mutualRecDataAV_eq_prefix]
+  unfold recPrefixAV
+  rw [List.append_assoc, List.append_assoc, List.take_append_of_le_length (by omega),
+    List.take_of_length_le (by omega), rebit_map_dom]
+  rfl
 
 /-! ## B1 — the walk's precondition at the run -/
 
@@ -166,6 +289,148 @@ theorem NestedTailIn.findPre1 : FindPreserved env (ENV₁) :=
       have := I.fmsNodup
       rw [← List.take_append_drop p.k fms, List.map_append] at this
       exact (List.nodup_append.mp this).1)).1
+
+/-! ### B — the restored tower's parameter prefix -/
+
+/-- **Class `c`'s restored recursor type IS the restore of the
+auxiliary's** (`restoreRecTys_at` at the member list below `k` and the
+auxiliary list above), and it resolves at the restored environment. -/
+theorem NestedTailIn.classRestore {c : Nat} (hc : c < b.k) :
+    ∃ a : AuxStored, stored[c]? = some a ∧
+      ConLeche.restoreNested (ConLeche.restoreTbl p st) a.cvRa.type
+        = .ok (nestedRecCvAt p.k cvRms cvRns c).type ∧
+      (nestedRecCvAt p.k cvRms cvRns c).type.constsResolve (ENV₂) = true := by
+  have hst := I.storedLen
+  obtain ⟨a, ha⟩ : ∃ a, stored[c]? = some a :=
+    ⟨_, List.getElem?_eq_getElem (by rw [hst]; exact hc)⟩
+  refine ⟨a, ha, ?_⟩
+  by_cases hck : c < p.k
+  · have hasa : (stored.take p.k)[c]? = some a := by
+      rw [List.getElem?_take_of_lt hck]; exact ha
+    obtain ⟨o, ho⟩ : ∃ o, cvRms[c]? = some o :=
+      ⟨_, List.getElem?_eq_getElem (by rw [I.lenM]; exact hck)⟩
+    have hcv : nestedRecCvAt p.k cvRms cvRns c = o := by
+      unfold nestedRecCvAt
+      rw [if_pos hck, List.getD_eq_getElem?_getD, ho]
+      rfl
+    rw [hcv]
+    obtain ⟨-, hres, -, -, -, hrs, -⟩ := ConLeche.restoreRecTys_at I.hrm c a o hasa ho
+    rw [I.henv] at hrs
+    exact ⟨hres, hrs⟩
+  · obtain ⟨q, rfl⟩ : ∃ q, c = p.k + q := ⟨c - p.k, by omega⟩
+    have hq : q < pinsS.length := by have := I.out.bk; omega
+    have hasa : (stored.drop p.k)[q]? = some a := by rw [List.getElem?_drop]; exact ha
+    obtain ⟨o, ho⟩ : ∃ o, cvRns[q]? = some o :=
+      ⟨_, List.getElem?_eq_getElem (by rw [I.lenN]; exact hq)⟩
+    have hcv : nestedRecCvAt p.k cvRms cvRns (p.k + q) = o := by
+      unfold nestedRecCvAt
+      rw [if_neg hck, show p.k + q - p.k = q from by omega, List.getD_eq_getElem?_getD, ho]
+      rfl
+    rw [hcv]
+    obtain ⟨-, hres, -, -, -, hrs, -⟩ := ConLeche.restoreRecTys_at I.hrn q a o hasa ho
+    rw [I.henv] at hrs
+    exact ⟨hres, hrs⟩
+
+/-- **THE AUXILIARY RECURSOR TYPE'S PARAMETER BINDERS ARE THE FIRST
+FORMER'S** — `mutualRecTy_paramPrefix` (PLAN-M7 §1e A) at the tail's own
+generated data: the scratch install's recursor at class `c` is
+`mutualRecTy` over `mutualGenData`, whose first former is
+`⟨f₀.cvTa.name, f₀.nIdx, f₀.cvTa.type⟩`. -/
+theorem NestedTailIn.auxRecParamDoms {c : Nat} {a : AuxStored} (ha : stored[c]? = some a)
+    {pbs : List (Expr × BinderMeta)} {mid : Expr}
+    (hs : a.cvRa.type.stripPis b.nP = some (pbs, mid)) :
+    ∃ (qbs : List (Expr × BinderMeta)) (bodyF : Expr),
+      f₀.cvTa.type.stripPis b.nP = some (qbs, bodyF) ∧ pbs.map (·.1) = qbs.map (·.1) := by
+  obtain ⟨-, -, fms', f₀', ctorsA', sortss', kinds', hformers', hf₀', hctors', hkinds',
+    hgen, -, -, -, -⟩ := ConLeche.auxStored_rec_eq I.haux I.hstored ha
+  have hfms : fms = fms' := congrArg Prod.snd (Except.ok.inj (I.out.formers.symm.trans hformers'))
+  subst hfms
+  have hf0 : f₀ = f₀' := Option.some.inj (I.out.facts.first.symm.trans hf₀')
+  subst hf0
+  have hcA : ctorsA = ctorsA' :=
+    congrArg Prod.fst (Except.ok.inj (I.out.ctors.symm.trans hctors'))
+  subst hcA
+  have hkd : kinds = kinds' := Except.ok.inj (I.out.kindsRun.symm.trans hkinds')
+  subst hkd
+  have hfirst : (ConLeche.mutualGenData b fms ctorsA kinds).1[0]?
+      = some ⟨f₀.cvTa.name, f₀.nIdx, f₀.cvTa.type⟩ := by
+    show (fms.map _)[0]? = _
+    rw [List.getElem?_map, I.out.facts.first]
+    rfl
+  obtain ⟨qbs, pbs', bodyF, rest, hq, hp, hmap⟩ := ConLeche.mutualRecTy_paramPrefix hgen hfirst
+  obtain rfl : pbs' = pbs := (Prod.mk.inj (Option.some.inj (hp.symm.trans hs))).1
+  exact ⟨qbs, bodyF, hq, hmap⟩
+
+/-- **THE RESTORED TOWER'S PARAMETER PREFIX IS THE BLOCK'S PARAMETERS**
+(PLAN-M7 §1e B): the restored type's first `nP` binders are the
+auxiliary's verbatim (`restoreNested_stripPis_doms`), the auxiliary's are
+the FIRST former's (`auxRecParamDoms`, A), and the first former's type
+reads at the SAME model `mp₂` to `ppsF 0` (`NestedStageFacts.FD`) — whose
+parameter half IS `(D).params ψ`.  Both towers are opened by standard
+openers, which differ only in their variables' annotations
+(`denoteMeta_instSeq_openers_congr`).  No model is crossed. -/
+theorem NestedTailIn.recTyPrefix {c : Nat} (hc : c < b.k) (ψ : Name → Nat)
+    {rdsR : List (Nat × Nat × AnnotTerm)} {conc : AnnotTerm}
+    (hread : denoteMeta mp₂.base2.acval (ENV₂) ψ 0 (nestedRecCvAt p.k cvRms cvRns c).type
+      = some (mkPisAV rdsR conc))
+    (hlenR : rdsR.length = b.nP + (b.k + b.ctors.length + ((fms.getD c default).nIdx + 1))) :
+    (rdsR.take b.nP).map (·.2.2) = (D).params ψ := by
+  obtain ⟨a, f, cbs, ha, hf, -, hstripA, -, hfree, -, -⟩ := I.auxRecTy hc
+  have hfD : (fms.getD c default).nIdx = f.nIdx := by rw [List.getD_eq_getElem?_getD, hf]; rfl
+  rw [hfD] at hlenR
+  obtain ⟨a', ha', hres, -⟩ := I.classRestore hc
+  obtain rfl : a' = a := Option.some.inj (ha'.symm.trans ha)
+  -- the restored telescope: below the prefix the auxiliary's verbatim
+  obtain ⟨cbsR, hstripR, hlenEq, -, hpre, -⟩ :=
+    ConLeche.restoreNested_stripPis_doms I.tblNP hstripA hres (fun n _ => hfree n)
+  have hlenCbs : cbs.length = b.nP + (b.k + b.ctors.length + (f.nIdx + 1)) :=
+    ConLeche.Expr.stripPis_length _ hstripA
+  -- the auxiliary's prefix is the first former's
+  obtain ⟨mid, hsA, -⟩ := ConLeche.rk_stripPis_split b.nP _ hstripA
+  obtain ⟨qbs, bodyF, hqs, hmap⟩ := I.auxRecParamDoms ha hsA
+  have hlenQ : qbs.length = b.nP := ConLeche.Expr.stripPis_length _ hqs
+  -- the two readings, opened
+  obtain ⟨fvsR, hopenR, hbindR, -⟩ := piTele_read_openers mp₂.base2 hstripR hlenR hread
+  have hFD := I.out.stage.FD 0 f₀ I.kpos I.out.facts.first
+  have hlenPP : (ppsF 0 ψ).length = b.nP + f₀.nIdx := hFD.len ψ
+  have hreadF : denoteMeta mp₂.base2.acval (ENV₂) ψ 0 f₀.cvTa.type
+      = some (mkPisAV ((ppsF 0 ψ).take b.nP)
+          (mkPisAV ((ppsF 0 ψ).drop b.nP) (.sort (f₀.s.eval ψ)))) := by
+    rw [← mkPisAV_append, List.take_append_drop]
+    exact hFD.read ψ
+  obtain ⟨fvsP, hopenP, hbindP, -⟩ :=
+    piTele_read_openers mp₂.base2 hqs (by rw [List.length_take]; omega) hreadF
+  -- entrywise
+  show (rdsR.take b.nP).map (·.2.2) = ((ppsF 0 ψ).take b.nP).map (·.2.2)
+  refine List.ext_getElem? fun i => ?_
+  rw [List.getElem?_map, List.getElem?_map]
+  rcases Nat.lt_or_ge i b.nP with hi | hi
+  · -- the binders at `i`
+    obtain ⟨x, hx⟩ : ∃ x, qbs[i]? = some x :=
+      ⟨_, List.getElem?_eq_getElem (by rw [hlenQ]; exact hi)⟩
+    obtain ⟨y, hy⟩ : ∃ y, cbsR[i]? = some y :=
+      ⟨_, List.getElem?_eq_getElem (by rw [hlenEq, hlenCbs]; omega)⟩
+    have hcbsI : cbs[i]? = some y := by rw [← hpre i hi]; exact hy
+    have hdom : y.1 = x.1 := by
+      have h1 := congrArg (fun l => l[i]?) hmap
+      simp only [List.getElem?_map, List.getElem?_take_of_lt hi, hcbsI, hx,
+        Option.map_some, Option.some.injEq] at h1
+      exact h1
+    have hiR : i < rdsR.length := by omega
+    have hiP : i < (ppsF 0 ψ).length := by omega
+    have hentry : (rdsR.getD i default).2.2 = (((ppsF 0 ψ).take b.nP).getD i default).2.2 := by
+      have hR := hbindR i y hy
+      rw [denoteMeta_instSeq_openers_congr (acval := mp₂.base2.acval) (env := ENV₂) (φ := ψ)
+          (hopenR.take (i := i) (by omega)) (hopenP.take (i := i) (by omega)) (i - 1) i y.1,
+        hdom, hbindP i x hx] at hR
+      exact (Option.some.inj hR).symm
+    simp only [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hiR,
+      List.getElem?_take_of_lt hi, List.getElem?_eq_getElem hiP, Option.getD_some] at hentry
+    simp only [List.getElem?_take_of_lt hi, List.getElem?_eq_getElem hiR,
+      List.getElem?_eq_getElem hiP, Option.map_some, Option.some.injEq]
+    exact hentry
+  · rw [List.getElem?_eq_none (by rw [List.length_take]; omega),
+      List.getElem?_eq_none (by rw [List.length_take]; omega)]
 
 /-! ### The pin's reading at the restored model -/
 
