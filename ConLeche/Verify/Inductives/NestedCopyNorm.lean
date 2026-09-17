@@ -729,6 +729,174 @@ theorem normCtorValM_domErased {env : Env} (henv : EnvWF env) {memberNames : Lis
   rw [normPosDomM_indApp hT hd', ← hhead] at her
   exact her
 
+/-- A substitution of a member-free value into a member-free term is
+member-free (`Expr.mentionsConst_instantiate1` with both sides). -/
+private theorem mentionsConst_instantiate1_false {v : Expr} {m : Name}
+    (hv : v.mentionsConst m = false) :
+    ∀ {e : Expr} {j : Nat}, e.mentionsConst m = false →
+      (e.instantiate1 v j).mentionsConst m = false := by
+  intro e
+  induction e with
+  | bvar i =>
+    intro j _
+    simp only [Expr.instantiate1]
+    split
+    · exact hv
+    · split <;> rfl
+  | fvar idx ty ih => intro j h; simpa [Expr.instantiate1] using h
+  | sort u => intro j h; exact h
+  | const n us => intro j h; exact h
+  | lit l => intro j h; exact h
+  | app f a ihf iha =>
+    intro j h
+    simp only [Expr.mentionsConst, Bool.or_eq_false_iff] at h
+    simp only [Expr.instantiate1, Expr.mentionsConst, Bool.or_eq_false_iff]
+    exact ⟨ihf h.1, iha h.2⟩
+  | lam ty b bm ihty ihb =>
+    intro j h
+    simp only [Expr.mentionsConst, Bool.or_eq_false_iff] at h
+    simp only [Expr.instantiate1, Expr.mentionsConst, Bool.or_eq_false_iff]
+    exact ⟨ihty h.1, ihb h.2⟩
+  | forallE ty b bm ihty ihb =>
+    intro j h
+    simp only [Expr.mentionsConst, Bool.or_eq_false_iff] at h
+    simp only [Expr.instantiate1, Expr.mentionsConst, Bool.or_eq_false_iff]
+    exact ⟨ihty h.1, ihb h.2⟩
+  | letE ty v' b ihty ihv ihb =>
+    intro j h
+    simp only [Expr.mentionsConst, Bool.or_eq_false_iff] at h
+    simp only [Expr.instantiate1, Expr.mentionsConst, Bool.or_eq_false_iff]
+    exact ⟨⟨ihty h.1.1, ihv h.1.2⟩, ihb h.2⟩
+  | proj s i e ih =>
+    intro j h
+    simp only [Expr.mentionsConst, Bool.or_eq_false_iff] at h
+    simp only [Expr.instantiate1, Expr.mentionsConst, Bool.or_eq_false_iff]
+    exact ⟨h.1, ih h.2⟩
+
+/-- The openers of a member-free `∀`-tower are member-free. -/
+private theorem mentionsMember_openPisAtFvars_false {memberNames : List Name} :
+    ∀ (n : Nat) {e : Expr} {d : Nat} {fvs : List Expr} {leaf : Expr},
+      openPisAtFvars n e d = some (fvs, leaf) →
+      mentionsMember memberNames e = false →
+      ∀ x ∈ fvs, mentionsMember memberNames x.fvarTypeD = false := by
+  intro n
+  induction n with
+  | zero =>
+    intro e d fvs leaf hop _
+    simp only [openPisAtFvars, Option.some.injEq, Prod.mk.injEq] at hop
+    obtain ⟨rfl, -⟩ := hop
+    exact fun x hx => nomatch hx
+  | succ n ih =>
+    intro e d fvs leaf hop hm
+    match e, hop with
+    | .forallE ty rest bm, hop =>
+      simp only [openPisAtFvars] at hop
+      cases hq : openPisAtFvars n (rest.instantiate1 (.fvar d ty) 0) (d + 1) with
+      | none => rw [hq] at hop; exact nomatch hop
+      | some q =>
+        obtain ⟨afvs, bodyq⟩ := q
+        rw [hq] at hop
+        simp only [Option.some.injEq, Prod.mk.injEq] at hop
+        obtain ⟨rfl, rfl⟩ := hop
+        have hsplit : ∀ T ∈ memberNames,
+            Expr.mentionsConst T ty = false ∧ Expr.mentionsConst T rest = false := by
+          intro T hT
+          have hT' : (Expr.mentionsConst T ty || Expr.mentionsConst T rest) = false := by
+            have h0 := List.any_eq_false.mp hm T hT
+            simpa [Expr.mentionsConst] using h0
+          exact Bool.or_eq_false_iff.mp hT'
+        have hrest : mentionsMember memberNames (rest.instantiate1 (.fvar d ty) 0) = false :=
+          List.any_eq_false.mpr fun T hT => by
+            simp [mentionsConst_instantiate1_false (v := .fvar d ty)
+              (by simpa [Expr.mentionsConst] using (hsplit T hT).1) (hsplit T hT).2]
+        intro x hx
+        rcases List.mem_cons.mp hx with rfl | hx
+        · exact List.any_eq_false.mpr fun T hT => by
+            simp [Expr.fvarTypeD, (hsplit T hT).1]
+        · exact ih hq hrest x hx
+
+/-- **THE WALK AT A `∀`, INVERTED** (task #315 L-B): `normPosDomM_inv`
+at a term that IS a `∀` — the `whnf` is then the identity
+(`whnf_forallE_eq`), so the walk either handed the tower back because
+it mentions no member, or took its Π arm, whose guard is that the
+BINDER DOMAIN mentions none.  The general inversion keeps the middle
+case's mention test to itself, and this is the case distinction a
+reflexive field's telescope needs. -/
+theorem normPosDomM_forallE_inv {env : Env} {memberNames : List Name} {F : Nat}
+    {d fuel : Nat} {ty rest e' : Expr} {bm : BinderMeta}
+    (h : normPosDomM (m := CheckM) (fueledOps mode F) env memberNames d fuel
+      (.forallE ty rest bm) = .ok e') :
+    (mentionsMember memberNames (Expr.forallE ty rest bm) = false ∧
+        e' = Expr.forallE ty rest bm) ∨
+      (mentionsMember memberNames ty = false ∧ ∃ (body' : Expr) (fuel' : Nat),
+        normPosDomM (m := CheckM) (fueledOps mode F) env memberNames (d + 1) fuel'
+            (rest.instantiate1 (.fvar d ty) 0) = .ok body' ∧
+          e' = Expr.forallE ty (body'.abstract1 d 0) bm) := by
+  cases fuel with
+  | zero => simp only [normPosDomM] at h; exact nomatch h
+  | succ fuel =>
+    unfold normPosDomM at h
+    by_cases hm : mentionsMember memberNames (Expr.forallE ty rest bm) = true
+    case neg =>
+      rw [if_pos (by simpa using hm)] at h
+      simp only [pure, Except.pure, Except.ok.injEq] at h
+      exact Or.inl ⟨by simpa using hm, h.symm⟩
+    rw [if_neg (by simpa using hm)] at h
+    try simp only [bind, Except.bind] at h
+    obtain ⟨w, hw, h⟩ := exceptBind_ok h
+    have hwe : w = Expr.forallE ty rest bm := whnf_forallE_eq hw
+    subst hwe
+    rw [if_neg (by simpa using hm)] at h
+    simp only at h
+    by_cases hd : mentionsMember memberNames ty = true
+    · rw [if_pos hd] at h; exact nomatch h
+    rw [if_neg hd] at h
+    try simp only [bind, Except.bind] at h
+    obtain ⟨body', hbody, h⟩ := exceptBind_ok h
+    simp only [pure, Except.pure, Except.ok.injEq] at h
+    exact Or.inr ⟨by simpa using hd, body', fuel, hbody, h.symm⟩
+
+/-- **A REFLEXIVE FIELD'S TELESCOPE DOMAINS ARE MEMBER-FREE** (task
+#315 L-B): whatever the positivity walk accepted, every binder domain
+of the field's own `∀`-tower mentions no member of the block — the walk
+either handed the tower back untouched (and then the whole tower, its
+binder domains included, mentions no member) or took its Π arm at every
+binder, whose guard is that very test.  This is what lets the rewrite's
+PRUNE apply to a reflexive field's telescope one binder at a time. -/
+theorem normPosDomM_piDomsFree {env : Env} {memberNames : List Name} {F : Nat} :
+    ∀ (n : Nat) {d fuel : Nat} {e e' : Expr} {fvs : List Expr} {leaf : Expr},
+      normPosDomM (m := CheckM) (fueledOps mode F) env memberNames d fuel e = .ok e' →
+      openPisAtFvars n e d = some (fvs, leaf) →
+      ∀ x ∈ fvs, mentionsMember memberNames x.fvarTypeD = false := by
+  intro n
+  induction n with
+  | zero =>
+    intro d fuel e e' fvs leaf _ hop
+    simp only [openPisAtFvars, Option.some.injEq, Prod.mk.injEq] at hop
+    obtain ⟨rfl, -⟩ := hop
+    exact fun x hx => nomatch hx
+  | succ n ih =>
+    intro d fuel e e' fvs leaf h hop
+    match e, hop, h with
+    | .forallE ty rest bm, hop, h =>
+      simp only [openPisAtFvars] at hop
+      cases hq : openPisAtFvars n (rest.instantiate1 (.fvar d ty) 0) (d + 1) with
+      | none => rw [hq] at hop; exact nomatch hop
+      | some q =>
+        obtain ⟨afvs, bodyq⟩ := q
+        rw [hq] at hop
+        simp only [Option.some.injEq, Prod.mk.injEq] at hop
+        obtain ⟨rfl, rfl⟩ := hop
+        have hop' : openPisAtFvars (n + 1) (Expr.forallE ty rest bm) d
+            = some (Expr.fvar d ty :: afvs, bodyq) := by
+          simp only [openPisAtFvars, hq]
+        rcases normPosDomM_forallE_inv h with ⟨hmf, -⟩ | ⟨hdomf, body', fuel', hrec, -⟩
+        · exact mentionsMember_openPisAtFvars_false (n + 1) hop' hmf
+        intro x hx
+        rcases List.mem_cons.mp hx with rfl | hx
+        · simpa [Expr.fvarTypeD] using hdomf
+        · exact ih hrec hq x hx
+
 /-- **THE STORED CONSTRUCTOR'S REFLEXIVE FIELD DOMAIN IS THE GIVEN
 ONE** (task #315 L-B): `normCtorValM_domErased` at a field whose given
 domain is a `∀`-TOWER over a stored inductive application — a
