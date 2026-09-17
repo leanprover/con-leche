@@ -750,6 +750,7 @@ theorem natBlock_containerModeled {env : Env} {m : EnvModel V env}
     | 1, _ =>
       match l, hx with
       | 0, _ => exact nomatch hk
+  nestMention := fun _ _ _ _ _ _ _ h _ _ => nomatch h
   pinsNotMembers := fun _ h => nomatch h
   pinNP := fun _ h => nomatch h
   pinψ := fun _ h => nomatch h

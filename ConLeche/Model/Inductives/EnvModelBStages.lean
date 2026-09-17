@@ -278,6 +278,7 @@ theorem mutualContainerModeled {env envR : Env} {m : EnvModel V envR}
     hrepsAt.toIsBlockModels
     (fun ψ => ⟨(htyped ψ).1, (htyped ψ).2, PinsTyped.of_noPins hd.pins ψ⟩)
     htf.inj (fun i hi ψ ρ => (htf.frame i hi ψ ρ).symm) (fun i j l x hi hj hx hk => ?_)
+    (fun _ _ _ q _ _ _ hq _ _ => absurd hq (by rw [hnoPins]; omega))
     (fun q hq => absurd hq (by rw [hnoPins]; omega))
     (fun q hq => absurd hq (by rw [hnoPins]; omega))
     (fun q hq => absurd hq (by rw [hnoPins]; omega)) (fun i hi => ?_)
@@ -787,6 +788,7 @@ theorem nativeContainerModeled {envO : Env} {m : EnvModel V envO} {mC : EnvModel
   refine ContainerModeled.of_readBack rfl rfl rfl (fun i hi => ?_) (fun i hi => ?_)
     (fun c hc => ?_) (fun ψ => ⟨(htyped ψ).1, (htyped ψ).2, PinsTyped.of_noPins rfl ψ⟩)
     (fun _ _ _ _ => rfl) (fun _ _ _ _ => Iff.rfl) (fun i j l x hi hj hx hk => ?_)
+    (fun _ _ _ q _ _ _ hq _ _ => absurd hq (Nat.not_lt_zero q))
     (fun q hq => absurd hq (Nat.not_lt_zero q)) (fun q hq => absurd hq (Nat.not_lt_zero q))
     (fun q hq => absurd hq (Nat.not_lt_zero q)) (fun i hi => ?_)
   · obtain rfl : i = 0 := Nat.lt_one_iff.mp hi

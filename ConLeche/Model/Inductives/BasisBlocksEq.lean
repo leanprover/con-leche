@@ -551,6 +551,7 @@ theorem eqBlock_containerModeled {env : Env} {m : EnvModel V env}
       eqBlock_isBlockModel hE hR heq hctorTy (fun h => absurd rfl h)⟩
   frame := fun _ _ _ _ => Iff.rfl
   ordFree := fun _ _ _ _ _ _ h => (nomatch h)
+  nestMention := fun _ _ _ _ _ _ _ h _ _ => (nomatch h)
   pinsNotMembers := fun _ h => (nomatch h)
   pinNP := fun _ h => (nomatch h)
   pinψ := fun _ h => (nomatch h)
