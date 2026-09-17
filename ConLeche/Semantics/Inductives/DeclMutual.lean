@@ -89,9 +89,11 @@ def DeclMutualRun (μ : CheckMode) (F : Nat) (env : Env)
       (ConLeche.storeMutualRecs (ConLeche.consMutualCtors b.nP ctorsA env₁) b fms rulesOf
         cvRas.zipIdx (ConLeche.consMutualCtors b.nP ctorsA env₁)) = .ok env₂ ∧
     -- THE READ-BACK (K.34): `containerInfo?` of the environment this
-    -- route produced, at every member, is the block's own data
-    ConLeche.blockReadBackOk env₂ b.nP (fms.zipIdx.map fun (f, mIdx) =>
-      (f.cvTa, (b.ownCtors mIdx).filterMap fun (J, _) => ctorsA[J]?)) = true
+    -- route produced, at every member, is the block's own data.
+    -- CERTIFICATION-ONLY, hence `certOnly`-gated (K.35's follow-up):
+    -- the model tier reads the Bool off it under `μ.verifiedChecks`
+    ConLeche.certOnly μ (ConLeche.blockReadBackOk env₂ b.nP (fms.zipIdx.map fun (f, mIdx) =>
+      (f.cvTa, (b.ownCtors mIdx).filterMap fun (J, _) => ctorsA[J]?))) = true
 
 /-- The bridge inversion: a successful mutual install is a run. -/
 theorem declMutualRun_of {μ : CheckMode} {F : Nat} {env env₂ : Env} {p : MutualParts}

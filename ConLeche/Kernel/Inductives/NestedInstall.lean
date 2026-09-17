@@ -1389,7 +1389,7 @@ def checkNested (ops : CheckerOps m) (env : Env) (p : NestedParts) : m Env := do
   -- parameters (large) or eliminates into `Prop` (small).  All three
   -- hold of any container this checker installed — a failure is a
   -- broken environment, not a stream's fault.
-  unless nestedContainersOk env st.pins do
+  unless certOnly ops.mode (nestedContainersOk env st.pins) do
     throw (.internal "nested: a container the elimination pinned fails a fact its own \
       install established")
   -- 2. the auxiliary mutual block, checked in a SCRATCH environment
@@ -1458,26 +1458,26 @@ def checkNested (ops : CheckerOps m) (env : Env) (p : NestedParts) : m Env := do
   -- output at the source it records, so the model reads the
   -- copy-instantiation identities off the record instead of inverting
   -- the elimination.  A failure is `.internal`.
-  unless nestedCopySrcOk env p st do
+  unless certOnly ops.mode (nestedCopySrcOk env p st) do
     throw (.internal "nested: a minted auxiliary type is not the copy of the container \
       it records")
   -- **THE PINS' MINT GROUPS** (K.29): the group fields the mint wrote,
   -- certified — the segment, its size, the member order, the shared
   -- level instantiation and components.  A failure is `.internal`.
-  unless nestedGroupsOk env p st do
+  unless certOnly ops.mode (nestedGroupsOk env p st) do
     throw (.internal "nested: a pin's mint group is not the container's group as minted")
   -- **THE PINS' SCOPE** (K.30): every pin's free variables are the
   -- first former's openers, annotation included, and no loose bvar.
-  unless pinsScoped p.nP st do
+  unless certOnly ops.mode (pinsScoped p.nP st) do
     throw (.internal "nested: a pin's free variables are not the block's parameter openers")
   -- **THE COPIES' RECURSIVE TARGETS** (K.32): a copy field the aux
   -- block classified recursive into its own group comes from a
   -- container field that was a group occurrence at the parameter spine.
   -- A failure is `.internal`.
-  unless nestedCopyTargetsOk env p b st stored do
+  unless certOnly ops.mode (nestedCopyTargetsOk env p b st stored) do
     throw (.internal "nested: a copy's group-recursive field does not come from the \
       container's own recursion")
-  unless nestedPinKindsOk p b st stored do
+  unless certOnly ops.mode (nestedPinKindsOk p b st stored) do
     throw (.internal "nested: a stored field at a pin is not classified ordinary, \
       recursive or reflexive into the block")
   -- **THE AUXILIARY APPLICATIONS** (K.35): every copy and copy
@@ -1485,7 +1485,7 @@ def checkNested (ops : CheckerOps m) (env : Env) (p : NestedParts) : m Env := do
   -- rules is applied to `nP + arity` arguments whose first `nP` are the
   -- block's parameter variables — the precondition the restore's
   -- `args.drop nP` relies on.  A failure is `.internal`.
-  unless nestedAuxAppsOk p st stored do
+  unless certOnly ops.mode (nestedAuxAppsOk p st stored) do
     throw (.internal "nested: an auxiliary application in the block's read-back is not \
       at the block's parameters")
   let env₁ := consNestedFormers members env
@@ -1545,8 +1545,8 @@ def checkNested (ops : CheckerOps m) (env : Env) (p : NestedParts) : m Env := do
   -- environment field is quantified over.  The mimics are NOT members:
   -- the motive walk stops at the first motive that is not a real
   -- member's, which is the first mimic's.  It cannot fire.
-  unless blockReadBackOk env₄ p.nP ((members.zip ctorsR).map fun (a, cs) =>
-      (a.cvTa, cs.map fun (cv, _, nF) => (cv, nF))) do
+  unless certOnly ops.mode (blockReadBackOk env₄ p.nP ((members.zip ctorsR).map fun (a, cs) =>
+      (a.cvTa, cs.map fun (cv, _, nF) => (cv, nF)))) do
     throw (.internal "nested: the installed block does not read back as its own")
   pure env₄
 

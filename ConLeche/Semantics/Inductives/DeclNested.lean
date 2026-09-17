@@ -173,7 +173,7 @@ def DeclNestedRun (μ : CheckMode) (F : Nat) (env : Env)
     ConLeche.copiesFresh env p.k st = true ∧
     -- the CONTAINERS' facts (K.14): uniform occurrences of the group in
     -- the stored constructors, and the two recursor facts at every member
-    ConLeche.nestedContainersOk env st.pins = true ∧
+    ConLeche.certOnly μ (ConLeche.nestedContainersOk env st.pins) = true ∧
     -- the auxiliary mutual block, checked in a SCRATCH environment
     auxBlock p st = some b ∧
     checkMutualCore (m := CheckM) (fueledOps μ F) env b none true = .ok envAux ∧
@@ -191,30 +191,30 @@ def DeclNestedRun (μ : CheckMode) (F : Nat) (env : Env)
     -- THE COPIES' SOURCES (K.28): every minted auxiliary type is
     -- `mkCopy`'s output at the `(J, lvls, Ds)` it records — the
     -- copy-instantiation identities, as a field read
-    ConLeche.nestedCopySrcOk env p st = true ∧
+    ConLeche.certOnly μ (ConLeche.nestedCopySrcOk env p st) = true ∧
     -- THE PINS ARE STRUCTURALLY DISTINCT (K.15 (2), named at K.31):
     -- what `replaceAllNested`'s `find?` rewrite of a container-recursive
     -- field needs, read off `nestedContainersOk`'s first conjunct
-    ConLeche.pinsDistinct st.pins = true ∧
+    ConLeche.certOnly μ (ConLeche.pinsDistinct st.pins) = true ∧
     -- THE PINS' MINT GROUPS (K.29): the segment, its size, the member
     -- order, and the group's shared level instantiation and components
-    ConLeche.nestedGroupsOk env p st = true ∧
+    ConLeche.certOnly μ (ConLeche.nestedGroupsOk env p st) = true ∧
     -- THE PINS' SCOPE (K.30): every pin's free variables are the first
     -- former's openers, annotation included, and no loose bvar
-    ConLeche.pinsScoped p.nP st = true ∧
+    ConLeche.certOnly μ (ConLeche.pinsScoped p.nP st) = true ∧
     -- THE COPIES' RECURSIVE TARGETS (K.32): a group-recursive copy
     -- field comes from the container's own recursion at the spine
-    ConLeche.nestedCopyTargetsOk env p b st stored = true ∧
+    ConLeche.certOnly μ (ConLeche.nestedCopyTargetsOk env p b st stored) = true ∧
     -- THE FIELD KINDS (K.26): every stored field of the auxiliary block
     -- is classified `.ordinary`, `.recursive` or `.reflexive`, and
     -- `nestedPinKinds p b stored` is that classification — the kinds the
     -- direct route's monotonicity reads at the copies
-    ConLeche.nestedPinKindsOk p b st stored = true ∧
+    ConLeche.certOnly μ (ConLeche.nestedPinKindsOk p b st stored) = true ∧
     -- THE AUXILIARY APPLICATIONS (K.35): every copy and copy
     -- constructor in the read-back recursor types and rules is applied
     -- to `nP + arity` arguments whose first `nP` are the block's
     -- parameter variables — the restore's `args.drop nP` precondition
-    ConLeche.nestedAuxAppsOk p st stored = true ∧
+    ConLeche.certOnly μ (ConLeche.nestedAuxAppsOk p st stored) = true ∧
     -- POST-CHECK (a) A THIRD TIME (K.30): the pins typed at the
     -- environment holding the RESTORED formers — the model tier's own
     ConLeche.nestedPinsOk (m := CheckM) (fueledOps μ F)
@@ -285,8 +285,9 @@ def DeclNestedRun (μ : CheckMode) (F : Nat) (env : Env)
     -- THE READ-BACK (K.34): `containerInfo?` of the environment this
     -- route produced, at every member, is the block's own data — the
     -- reading the model's environment field is quantified over
-    ConLeche.blockReadBackOk envOut p.nP (((stored.take p.k).zip ctorsR).map fun (a, cs) =>
-      (a.cvTa, cs.map fun (cv, _, nF) => (cv, nF))) = true
+    ConLeche.certOnly μ (ConLeche.blockReadBackOk envOut p.nP
+      (((stored.take p.k).zip ctorsR).map fun (a, cs) =>
+        (a.cvTa, cs.map fun (cv, _, nF) => (cv, nF)))) = true
 
 /-- The bridge inversion: a successful nested install is a run. -/
 theorem declNestedRun_of {μ : CheckMode} {F : Nat} {env envOut : Env} {p : NestedParts}

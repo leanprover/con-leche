@@ -801,9 +801,10 @@ theorem checkMutualCore_inv {env envOut : Env} {b : MutualBlock} {F : Nat}
         (storeMutualRecs (consMutualCtors b.nP ctorsA env₁) b fms rulesOf cvRas.zipIdx
           (consMutualCtors b.nP ctorsA env₁)) = .ok envOut ∧
       -- THE READ-BACK (K.34): `containerInfo?` of the environment this
-      -- route produced, at every member, is the block's own data
-      blockReadBackOk envOut b.nP (fms.zipIdx.map fun (f, mIdx) =>
-        (f.cvTa, (b.ownCtors mIdx).filterMap fun (J, _) => ctorsA[J]?)) = true := by
+      -- route produced, at every member, is the block's own data.
+      -- CERTIFICATION-ONLY, hence `certOnly`-gated (K.35's follow-up)
+      certOnly mode (blockReadBackOk envOut b.nP (fms.zipIdx.map fun (f, mIdx) =>
+        (f.cvTa, (b.ownCtors mIdx).filterMap fun (J, _) => ctorsA[J]?))) = true := by
   unfold checkMutualCore at h
   simp only at h
   obtain ⟨u₀, hshape, h⟩ := exceptBind_ok h
@@ -842,8 +843,9 @@ theorem checkMutualCore_inv {env envOut : Env} {b : MutualBlock} {F : Nat}
   try simp only at h
   obtain ⟨envT, htbl, h⟩ := exceptBind_ok h
   try simp only at h
-  by_cases hrb : blockReadBackOk envT b.nP (fms.zipIdx.map fun (f, mIdx) =>
-      (f.cvTa, (b.ownCtors mIdx).filterMap fun (J, _) => ctorsA[J]?)) = true
+  by_cases hrb : certOnly (fueledOps mode F).mode
+      (blockReadBackOk envT b.nP (fms.zipIdx.map fun (f, mIdx) =>
+        (f.cvTa, (b.ownCtors mIdx).filterMap fun (J, _) => ctorsA[J]?))) = true
   case neg => rw [if_neg hrb] at h; close_throw
   rw [if_pos hrb] at h
   obtain rfl : envT = envOut := by simpa [pure, Except.pure] using h
