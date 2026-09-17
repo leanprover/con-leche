@@ -1305,12 +1305,33 @@ theorem NestedTailIn.restoreAgree {mpA : EnvModelM V μ ENVA} {cvRas : List Cons
 
 /-! ### D — THE TRANSFER -/
 
-/-- **THE TRANSFER** (PLAN-M7 §1e D): a spine fits the RESTORED
-recursor type's reading exactly when it fits the SCRATCH one's.
+/-- The SCRATCH recursor type's reading has the auxiliary telescope's
+length: the parameters, the `k` motives, the `n` minors, the class's
+index telescope and the major. -/
+theorem NestedTailIn.auxRdsLen {mpA : EnvModelM V μ ENVA} {cvRas : List ConstantVal}
+    (S : NestedScratchOut F env b fms f₀ ctorsA kinds mp₁ ppsF W idxF dsF esF srcsF fvsPF xFvsF
+      xrestF eissF tssF stored mpA cvRas)
+    {c : Nat} (hc : c < b.k) (ψ : Name → Nat) :
+    ((DA).blockRds mpA.base2 b.elimLevel c ψ).length
+      = b.nP + (b.k + b.ctors.length + ((fms.getD c default).nIdx + 1)) := by
+  obtain ⟨f, hf⟩ : ∃ f, fms[c]? = some f :=
+    ⟨_, List.getElem?_eq_getElem (by rw [I.out.facts.lenFms]; exact hc)⟩
+  have hfD : (fms.getD c default).nIdx = f.nIdx := by rw [List.getD_eq_getElem?_getD, hf]; rfl
+  have hnC : (DA).nCtors = b.ctors.length := by
+    rw [S.record.nCtors_eq (ConLeche.checkMutualCore_inv I.haux).2.2.1 I.out.facts.lenA]
+    exact I.out.facts.lenA
+  rw [(S.recData c hc).1.len ψ, hnC, mutualBlockModel_nIdxAt hf, hfD]
+  show b.nP + b.k + b.ctors.length + f.nIdx + 1 = _
+  omega
 
-Position by position (`spineFit_iff_agree`).  Below the parameter
-prefix both domains are the block's parameters — the restored tower's
-by B (`recTyPrefix`), the scratch tower's by the mutual readings'
+/-- **THE TRANSFER, POSITION BY POSITION** (PLAN-M7 §1e D): at every
+position of the RESTORED recursor type's reading, at every spine
+fitting the reading's prefix there, the restored domain and the
+SCRATCH one interpret alike.
+
+Below the parameter prefix both domains are the block's parameters —
+the restored tower's by B (`recTyPrefix`), the scratch tower's by the
+mutual readings'
 `ppsDom` (`blockRds_take_params`) — and the two block models' `params`
 are one list.  Above it, at depth `d`, the restored binder is the
 restore WALK of the auxiliary's (C1), both are opened at the SAME
@@ -1319,7 +1340,7 @@ shape holds at that depth (K.35) and the restored domain is graded at
 the fitting frame (the tower's `okTy` peeled along the fit), so the
 walk's READING LAW (`denoteMeta_restoreWalk` at `restoreAgree`, B2)
 makes the two domains interpret alike. -/
-theorem NestedTailIn.spineFit_transfer {mpA : EnvModelM V μ ENVA} {cvRas : List ConstantVal}
+theorem NestedTailIn.domAgree_transfer {mpA : EnvModelM V μ ENVA} {cvRas : List ConstantVal}
     (S : NestedScratchOut F env b fms f₀ ctorsA kinds mp₁ ppsF W idxF dsF esF srcsF fvsPF xFvsF
       xrestF eissF tssF stored mpA cvRas)
     (hnames : NestedCtorPinNames env p st)
@@ -1333,9 +1354,11 @@ theorem NestedTailIn.spineFit_transfer {mpA : EnvModelM V μ ENVA} {cvRas : List
     (hread : denoteMeta mp₂.base2.acval (ENV₂) ψ 0 (nestedRecCvAt p.k cvRms cvRns c).type
       = some (mkPisAV rdsR conc))
     (hlenR : rdsR.length = b.nP + (b.k + b.ctors.length + ((fms.getD c default).nIdx + 1)))
-    (xs : List V) :
-    SpineFit ρ (rdsR.map (·.2.2)) xs
-      ↔ SpineFit ρ (((DA).blockRds mpA.base2 b.elimLevel c ψ).map (·.2.2)) xs := by
+    (l : Nat) (hl : l < (rdsR.map (·.2.2)).length) (fs₁ : List V) (hlf : fs₁.length = l)
+    (hf : SpineFit ρ ((rdsR.map (·.2.2)).take l) fs₁) :
+    interp V (consList fs₁ ρ) ((rdsR.map (·.2.2)).getD l default)
+      = interp V (consList fs₁ ρ)
+          ((((DA).blockRds mpA.base2 b.elimLevel c ψ).map (·.2.2)).getD l default) := by
   obtain ⟨a, cbsA, cbsR, resid, fvs, ha, hstripA, hstripR, hopen, hbind, hwalk⟩ :=
     I.recTyOpen hc ψ hread hlenR hK35
   obtain ⟨fvsA, hopenA, hbindA⟩ := I.auxTyOpen S hc ψ ha hstripA
@@ -1347,24 +1370,13 @@ theorem NestedTailIn.spineFit_transfer {mpA : EnvModelM V μ ENVA} {cvRas : List
   have hlenCbsA : cbsA.length = b.nP + (b.k + b.ctors.length + ((fms.getD c default).nIdx + 1)) :=
     ConLeche.Expr.stripPis_length _ hstripA
   have hlenA : ((DA).blockRds mpA.base2 b.elimLevel c ψ).length
-      = b.nP + (b.k + b.ctors.length + ((fms.getD c default).nIdx + 1)) := by
-    obtain ⟨f, hf⟩ : ∃ f, fms[c]? = some f :=
-      ⟨_, List.getElem?_eq_getElem (by rw [I.out.facts.lenFms]; exact hc)⟩
-    have hfD : (fms.getD c default).nIdx = f.nIdx := by rw [List.getD_eq_getElem?_getD, hf]; rfl
-    have hnC : (DA).nCtors = b.ctors.length := by
-      rw [S.record.nCtors_eq (ConLeche.checkMutualCore_inv I.haux).2.2.1 I.out.facts.lenA]
-      exact I.out.facts.lenA
-    rw [(S.recData c hc).1.len ψ, hnC, mutualBlockModel_nIdxAt hf, hfD]
-    show b.nP + b.k + b.ctors.length + f.nIdx + 1 = _
-    omega
+      = b.nP + (b.k + b.ctors.length + ((fms.getD c default).nIdx + 1)) := I.auxRdsLen S hc ψ
   -- the parameter prefixes
   have hprefR : (rdsR.take b.nP).map (·.2.2) = (D).params ψ := I.recTyPrefix hc ψ hread hlenR
   have hprefA : (((DA).blockRds mpA.base2 b.elimLevel c ψ).take b.nP).map (·.2.2)
       = (DA).params ψ :=
     blockRds_take_params mpA.base2 (DA) b.elimLevel c ψ
       (by show b.nP ≤ (ppsF 0 ψ).length; rw [hppsLen]; omega)
-  refine spineFit_iff_agree (by rw [List.length_map, List.length_map, hlenR, hlenA]) ?_ xs
-  intro l hl fs₁ hlf hf _
   rw [List.length_map, hlenR] at hl
   rcases Nat.lt_or_ge l b.nP with hlt | hge
   · -- **the parameters**: both domains are the block's own
@@ -1445,6 +1457,34 @@ theorem NestedTailIn.spineFit_transfer {mpA : EnvModelM V μ ENVA} {cvRas : List
     exact denoteMeta_restoreWalk (ConLeche.restoreTbl_keysInAux p st)
       (I.restoreAgree S hnames hctorsJ ψ) hAuxOk hw hresY hP hF hAread hRread as ws ρ hsp hwsLen
       hwd
+
+/-- **THE TRANSFER** (PLAN-M7 §1e D): a spine fits the RESTORED
+recursor type's reading exactly when it fits the SCRATCH one's —
+`spineFit_iff_agree` at the position-by-position agreement
+(`domAgree_transfer`), the two towers being of one length
+(`auxRdsLen`). -/
+theorem NestedTailIn.spineFit_transfer {mpA : EnvModelM V μ ENVA} {cvRas : List ConstantVal}
+    (S : NestedScratchOut F env b fms f₀ ctorsA kinds mp₁ ppsF W idxF dsF esF srcsF fvsPF xFvsF
+      xrestF eissF tssF stored mpA cvRas)
+    (hnames : NestedCtorPinNames env p st)
+    (hctorsJ : ∀ (q₀ kJ i : Nat) (dJ : BlockModel V), PG mp₂.base2 q₀ kJ dJ → i < kJ →
+      ∀ (ci : ContainerInfo) (J : ContainerMember),
+        ConLeche.containerInfo? env ((D).pinAt (q₀ + i)).J = some ci → J ∈ ci.members →
+        J.name = ((D).pinAt (q₀ + i)).J → (dJ.ctorsM i).map (·.1.name) = J.ctors.map (·.name))
+    (hK35 : NestedRecTysAuxOk p st b stored pinsS)
+    {c : Nat} (hc : c < b.k) (ψ : Name → Nat) (ρ : Nat → V)
+    {rdsR : List (Nat × Nat × AnnotTerm)} {conc : AnnotTerm}
+    (hread : denoteMeta mp₂.base2.acval (ENV₂) ψ 0 (nestedRecCvAt p.k cvRms cvRns c).type
+      = some (mkPisAV rdsR conc))
+    (hlenR : rdsR.length = b.nP + (b.k + b.ctors.length + ((fms.getD c default).nIdx + 1)))
+    (xs : List V) :
+    SpineFit ρ (rdsR.map (·.2.2)) xs
+      ↔ SpineFit ρ (((DA).blockRds mpA.base2 b.elimLevel c ψ).map (·.2.2)) xs :=
+  spineFit_iff_agree
+    (by rw [List.length_map, List.length_map, hlenR, I.auxRdsLen S hc ψ])
+    (fun l hl fs₁ hlf hf _ => I.domAgree_transfer S hnames hctorsJ hK35 hc ψ ρ hread hlenR l hl
+      fs₁ hlf hf)
+    xs
 
 /-! ### The readings, from the frames -/
 
