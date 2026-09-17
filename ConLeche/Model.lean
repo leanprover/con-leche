@@ -126,6 +126,12 @@ public import ConLeche.Model.Inductives.NestedFit
 public import ConLeche.Model.Inductives.NestedAux
 public import ConLeche.Model.Inductives.NestedPremise
 public import ConLeche.Model.Inductives.ContainerCross
+public import ConLeche.Model.Inductives.BasisBlocksZero
+public import ConLeche.Model.Inductives.BasisBlocksUnit
+public import ConLeche.Model.Inductives.BasisBlocksNat
+public import ConLeche.Model.Inductives.BasisBlocksEq
+public import ConLeche.Model.Inductives.BasisBlocksStep
+public import ConLeche.Model.Inductives.BasisBlocksTag
 public import ConLeche.Model.Inductives.EnvModelBStages
 public import ConLeche.Model.Inductives.NestedCore
 public import ConLeche.Model.Inductives.DeclNestedCore

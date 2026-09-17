@@ -20,6 +20,7 @@ import ConLeche.Verify.Inductives.NestedAuxFormers
 import ConLeche.Verify.Inductives.NestedElimInv
 import ConLeche.Verify.Inductives.NestedInv
 import ConLeche.Verify.Inductives.NestedCopySort
+import ConLeche.Verify.Inductives.NestedCopyProv
 import ConLeche.Verify.Denote.Install
 public section
 
@@ -940,6 +941,32 @@ theorem NestedPinsRun.pinData : ∃ pbs : List (Expr × ConLeche.BinderMeta), pb
   obtain ⟨t₀, pbs, body, -, hstrip₀, hK28⟩ := ConLeche.nestedCopySrcOk_inv R.hsrc
   exact ⟨pbs, Expr.stripPis_length _ hstrip₀, pinData_of hK28 R.hgrp R.hcont⟩
 
+/-- **A PIN'S COMPONENTS ARE NONEMPTY, so its container has a
+parameter** (task #315 M7-4, DESIGN §U.45): `replaceIfNested` mints a
+pin only where `nestedOccOk` finds a member of the growing list
+mentioned among `args.take ci.nP`, and the elimination's provenance
+record carries that verdict at every copy it appended
+(`elimNested_copyCtors`).  At `ci.nP = 0` the tested list is empty, so
+the verdict is `false` and no pin is minted.  This is what discharges
+`ContainerModeled.inj`'s guard at the one place that reads the
+clause. -/
+theorem NestedPinsRun.pinDsPos {pbs : List (Expr × ConLeche.BinderMeta)}
+    (hPD : ∀ q, q < st.pins.length → PinData env st p pbs q)
+    {q : Nat} (hq : q < st.pins.length) : 0 < (srcAtE st p q).2.2.length := by
+  have hlen0 : (ConLeche.nestedTypes0 p fmsA ctorsA₀).length = p.k := by
+    rw [ConLeche.nestedTypes0_length, ConLeche.nestedAnnotFormers_length R.hfA,
+      ConLeche.NestedParts.k]
+  obtain ⟨t₀, params, o, pbs₀, o', h1, h2, h3, hcopy⟩ := ConLeche.elimNested_copyCtors R.helim
+  have hty : st.types[(ConLeche.nestedTypes0 p fmsA ctorsA₀).length + q]?
+      = some (copyAtE st p q) := by
+    rw [hlen0]; exact (hPD q hq).ty
+  obtain ⟨-, -, -, J, lvls, Ds, -, -, -, hsrc, -, -, -, hany, -, -⟩ := hcopy q _ hty
+  have hDs : Ds = (srcAtE st p q).2.2 :=
+    (Prod.mk.inj (Prod.mk.inj (Option.some.inj (hsrc.symm.trans (hPD q hq).src))).2).2
+  obtain ⟨a, ha, -⟩ := List.any_eq_true.mp hany
+  rw [← hDs]
+  exact List.length_pos_of_mem ha
+
 /-- The crossing from the pre-block model to the prefix model. -/
 theorem NestedPinsRun.cross :
     (∀ (n : Name) (c : ConstantInfo), (∀ cv mI rP rules, c ≠ .recInfo cv mI rP rules) →
@@ -1189,7 +1216,7 @@ theorem NestedPinsRun.groupSyn
       rep := ?_
       typed := fun ψ => (CM.typed ψ).1
       pinsTyped := fun ψ => (CM.typed ψ).2.2
-      inj := CM.inj
+      inj := CM.inj (by rw [CM.nP, ← hnPci, ← hDl]; exact R.pinDsPos hPD hq)
       pinU := fun i hi ψ i' hi' => by
         rw [hpinAt, hpinAt, hgp i' hi', hgp i hi]
         show (blockOf mp.base2 (baseInfo env st q)).uM i'
@@ -1550,3 +1577,4 @@ theorem nestedPinsStaged_of {F : Nat} (hId : NestedPinsIdent V μ F) : NestedPin
 
 
 end ConLeche.Model
+
