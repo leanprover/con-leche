@@ -1933,6 +1933,55 @@ theorem NestedTailIn.recSpine {mpA : EnvModelM V μ ENVA} {cvRas : List Constant
   exact S.reps.spineFit_recData_inv (S.readings ψ) (by rw [S.record.k]; exact hc) hspT
 
 
+/-! ## The ι step at the chosen tuple (item 5 step 2e, the LEFT side) -/
+
+/-- **THE ι STEP AT THE CHOSEN TUPLE**: the recursors' leaves are a
+`schoice` over the equations, so the ONLY handle on a leaf's value is
+that its tuple satisfies THEM (`NestedRecTuple`) — which is why the
+stage's equations are NAMED rather than existential (DESIGN §U.29
+(yy)).  Named, they are the SCRATCH block's, and rule `(c, j)`'s
+equation is one of them (`BlockModel.mem_specEqs_of`), so
+`nestedRecs_iota` fires: at every spine fitting the rule's binder data
+at the tuple frame the equation's two sides interpret alike.
+
+This is `blockRecRuleLaw`'s `hEq` at the nested block's leaves, and
+the fired equality's left half rests on it. -/
+theorem NestedTailIn.ruleIota {mpA : EnvModelM V μ ENVA} {cvRas : List ConstantVal}
+    (S : NestedScratchOut F env b fms f₀ ctorsA kinds mp₁ ppsF W idxF dsF esF srcsF fvsPF xFvsF
+      xrestF eissF tssF stored mpA cvRas)
+    {s : (Name → Nat) → Nat} {rdsM : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)}
+    {concM : Nat → AnnotTerm}
+    (Tu : NestedRecTuple (D) s rdsM concM (fun φ => (DA).recEqs mpA.base2 b.elimLevel φ))
+    (ψ : Name → Nat) (ρ : Nat → V) :
+    ∃ a : Nat → V,
+      (∀ t, t < (DA).k →
+        interp V ρ (nestedRecLeaf (D).kT s rdsM concM
+            (fun φ => (DA).recEqs mpA.base2 b.elimLevel φ) b.rlps t ψ) = a t ∧
+        a t ∈ˢ interp V ρ (mkPisAV (rdsM t (restrictΨ b.rlps ψ)) (concM t))) ∧
+      ∀ (c j : Nat) (cA : ConstantVal × Nat), c < (DA).k → ((DA).ctorsM c)[j]? = some cA →
+        ∀ xs : List V,
+          SpineFit (consList ((List.range (DA).k).map a) ρ)
+              (((DA).ruleData mpA.base2 b.elimLevel c j (restrictΨ b.rlps ψ)).map (·.2)) xs →
+          interp V (consList xs (consList ((List.range (DA).k).map a) ρ))
+              (specLhsAV (DA).k (DA).nP (DA).nCtors cA.2 c
+                ((DA).esF c j (restrictΨ b.rlps ψ))
+                (mpA.base2.acval cA.1.name (restrictΨ b.rlps ψ)))
+            = interp V (consList xs (consList ((List.range (DA).k).map a) ρ))
+              (specRuleCoreAV (pwBit (restrictΨ b.rlps ψ) (Level.zeronessOf b.elimLevel)) (DA).k
+                ((DA).tgts c j) (DA).nP (DA).nCtors cA.2 ((DA).minorIdx c j)
+                (ConLeche.recIdxOf ((DA).ksF c j)) ((DA).tssF c j (restrictΨ b.rlps ψ))
+                ((DA).eissF c j (restrictΨ b.rlps ψ))) := by
+  have hkT : (D).kT = (DA).k := by rw [I.kT, S.record.k]
+  obtain ⟨a, ha, heqs⟩ := Tu (restrictΨ b.rlps ψ) ρ
+  rw [hkT] at ha heqs
+  refine ⟨a, fun t ht => ⟨?_, (ha t ht).1⟩, fun c j cA hc hj xs hsp => ?_⟩
+  · unfold nestedRecLeaf
+    rw [hkT]
+    exact (ha t ht).2.1
+  · exact blockRecs_iota (k := (DA).k)
+      (heqs _ ((DA).mem_specEqs_of (m := mpA.base2) (ψ := restrictΨ b.rlps ψ) hc hj)) xs hsp
+
+
 end Run
 
 end ConLeche.Model
