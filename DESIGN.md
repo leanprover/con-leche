@@ -83526,6 +83526,77 @@ fix); trust surface 13 escapes in 5 allowlisted files (647 scanned);
 no-local-paths OK; overview-links 112; quote-gate 2; proofdeps 4955
 rows / 12 roots / **0 doors**.
 
+##### (xxx) CONTINUATION 21 (lane session 21) — the pin-grading clause, `hvpa`, and the store swap
+
+Base: this lane's 6556ea73.  No checker code changed; no `sorry`, no
+axioms, no `maxHeartbeats`; `#print axioms` of every new theorem is
+`[propext, Classical.choice, Quot.sound]`.
+
+*The pin-grading clause* (0db304d6).  (ttt) asked "whoever owns
+`NestedCore.lean`"; the answer was THIS lane, and the clause is
+`pinWd` — the components' readings `Ds` are `WellDenotedV` at every
+frame satisfying the block's parameter telescope — added beside
+`pinDs` in all four structures that carry the pins' records
+(`NestedPinSynFacts`, `NestedPinFacts`, `NestedLoopFacts`,
+`NestedStageFacts`) and threaded through their four assemblies.  It is
+DISCHARGED, not assumed: at `NestedPinsRun.synFacts` the pin's own
+reading `mkAppN (acval J ψJ) Ds` is graded by `NestedPinsRun.pinRead`
+— `nestedPinsOk`'s `inferType` AT THE BLOCK'S PARAMETER CONTEXT, which
+is exactly the guard a grading needs — and
+`WellDenoted.mkAppN_inv`/`AnnotValid.mkAppN_inv` hand over the
+components.  Six lines.
+
+*One Lean note on the shape.*  The two "syn" structures state the
+frame as the parameter telescope itself
+(`((ppsF 0 ψ).take b.nP).map (·.2.2)`) and NOT as `(D).params ψ`: their
+`groups` field quantifies `dsR'`/`xFvsR'` precisely so the structure
+does not mention the restored data, and `(D)` does — writing `(D)`
+there silently adds `dsR`/`xFvsR` to the structure's signature and
+`NestedPinsStaged` stops applying.  The two `NestedCore.lean`
+structures, whose `dsR`/`xFvsR` are genuine parameters, say
+`(D).params ψ`, and the threading is by `rfl` (`BlockModel.ofNested`'s
+`ppsM` IS `ppsF`).
+
+*The store swap* (ca136be8).  Item 5 step 3, and session 12's F5 said
+the nested route had NONE of the five twins `MutualRecsSwap.lean`
+rests on.  All five are now there, in two new files:
+
+* `ConLeche/Verify/Inductives/NestedRecsWF.lean` —
+  `storeNestedRecs_le`, `provisionNestedRecs_store_le`,
+  `storeNestedRecs_mem` and **`nested_recs_wf`**.  The argument is
+  `mutual_recs_wf`'s verbatim: a restored rule's right-hand side is
+  scoped at the PROVISION, not at the prefix its own cons sits on,
+  which is no obstacle because `EnvWF` asks `ConstWF` at the WHOLE
+  environment, and the two conses cons the same names in the same
+  order (`provisionNestedRecs_store_le`), so resolution crosses.  One
+  `envWF_of_le`, not a chain of `EnvWF.cons`.
+* `ConLeche/Model/Inductives/NestedRecsSwap.lean` — the shape-level
+  swap, the reserved-name side condition, the two lookup inversions,
+  the provision's `findPreserved`, and the stage **`nestedRecsStore`**:
+  the carrier at the provisioned environment crosses to the stored one
+  by `EnvModelM.swapP`.
+
+**The one structural difference from the mutual pair, and it made the
+port cheaper rather than dearer.**  `provisionMutualRecs`/
+`storeMutualRecs` take the BLOCK and compute each entry's arities and
+its rule list (`mutualRules env₂.find? …`); `provisionNestedRecs`/
+`storeNestedRecs` take the entries as DATA — a list of triples and the
+same list of quadruples.  So both new files are generic in ONE list
+`l`, with `nestedProvOf l` its projection, and the run's own list
+(`nestedProvList`, and the store's `(cvRms.zip …) ++ (cvRns.zip …)`)
+is the caller's business: no `zip`/`take`/`drop` algebra enters the
+swap at all.  `swapFacts_of_shList` is already generic in its two
+environments and is reused verbatim; `PinRecLaws.crossEnv` is free
+(F4: not one of its six clauses mentions the model).
+
+The `.nested` fire is where the two routes genuinely differ —
+`mutual_recs_wf` discharges `ConstWF`'s nested clause by
+CONTRADICTION (a generated mutual rule never fires nested), and the
+nested route cannot.  It does not have to: `structConstWF`'s nested
+obligation is, conjunct for conjunct, `nestedFireShape_inv`'s output,
+so `nested_recs_wf` takes it as a per-entry premise and the caller
+reads it off the rule's own certificate.
+
 
 #### U.30 — L-B session 2: `CopyCtorInst.ordF` at the READING, the normalisation's reading law PROVED, `ContainerModeled`'s three clauses (lane L-B, 2026-09-16)
 
