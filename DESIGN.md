@@ -92036,6 +92036,55 @@ reading form, which the syntactic field plus that law produce.
 * lane L-B / this lane: the substitution law of (c), shared with
   `NestedPinsShapePinF`.
 
+##### (e) THE SECOND CLAUSE, LANDED: `ContainerModeled.pinParams`
+
+Lane L-E session 17's request, added mid-session and landed AS A FIELD
+— unlike `ownPins`, every site can carry it:
+
+```lean
+  pinParams : ∀ (i : Nat) (M : ConLeche.ContainerMember), ci.members[i]? = some M →
+    ∀ q, q < d.nPins → ∀ ψ₁ ψ₂ : Name → Nat,
+      (∀ pp ∈ M.lps, ψ₁ pp = ψ₂ pp) →
+      (d.pinAt q).u ψ₁ = (d.pinAt q).u ψ₂ ∧
+      (d.pinAt q).Ds ψ₁ = (d.pinAt q).Ds ψ₂ ∧
+      (d.pinAt q).Ids ψ₁ = (d.pinAt q).Ids ψ₂
+```
+
+One deviation from the requested spelling, and it is what makes the
+clause free to carry: the level parameters are read off the GROUP's own
+member record (`ci.members[i]?`), not off an `env.find?` as `pinψ` does.
+The clause then mentions the environment NOWHERE, so
+`ContainerModeled.crossEnvP` takes it verbatim (`pinParams :=
+C.pinParams`) instead of replaying `pinψ`'s lookup dance.
+
+The sites:
+
+* native, mutual and the five pinned basis blocks: VACUOUS, in the
+  neighbours' idiom (`fun _ _ _ _ h => nomatch h`), since `d.nPins`
+  reduces to `0` — no K.43 needed here, unlike `ownPins`;
+* `ContainerModeled.of_readBack`: one more premise, indexed by the
+  route's own member list, and the field's proof is
+  `blockContainerInfo`'s field-by-field copy (`nestedReadBack_getD`);
+* the NESTED route: NOT derivable, and the reason is worth recording.
+  `pinOf` builds a pin's `u`/`Ids` from the container's block model at
+  `Level.substFn ψ M.lps lvls` and its `Ds` as the components'
+  `denoteMeta` readings at `ψ`, so BOTH halves reduce to *the pins'
+  level arguments and components being `allParamsDefined` in the
+  block's own level parameters*.  That is true of every pin this kernel
+  mints (a pin is a sub-term of constructor types `checkConstantVal`
+  checked at `p.lps`) and is recorded NOWHERE: `nestedPinsOk` checks a
+  pin's SCOPE (`pinsClosed`) and type-checks it, and neither test looks
+  at a level.  **The kernel record to state it against is that Bool at
+  the same site** — `pins.all fun q => q.pin.allLevelParamsDefined
+  p.lps`, `pinsClosed`'s twin, with its `_inv` read per pin — and the
+  model step from the Bool is a `denoteMeta` ψ-congruence lemma (the
+  `Ds` half; the tree has none) plus `IsBlockModel.uParams` and
+  `FormerData.params` at the container (the `u`/`Ids` halves).  Until
+  both exist the nested site stands on the NAMED premise
+  `NestedPinParams` (`DeclNestedCore.lean`), a premise of
+  `declNested_of` — which has no consumer yet (the nested route is
+  unwired), so it reaches no fold and adds nothing to the B chain.
+
 Gates at the session's commits: `lake build` 716 jobs warning-free;
 `lake test` warning-free; layering 351 / 282 / 3 / 1, 0 base->lane and
 0 impl->theory; trust 13/5 (648 scanned); overview-links 112 with no
@@ -92046,5 +92095,7 @@ in the chain; shake 511 removals, all allowlisted; pub-imports 1315 of
 2143, none demotable; `tests/arena.sh` EXIT 0 (re-run because the
 merge carries the kernel lane's K.41/K.42/K.44/K.45/K.46; this
 session's own commits touch no checker code).  Standard axioms on
-`pinCorr_of_ownPins`, `ContainerOwnPins.of_noOwn` and
-`DenoteMetaSpine.det`.
+`pinCorr_of_ownPins`, `ContainerOwnPins.of_noOwn`,
+`DenoteMetaSpine.det` and on the six theorems the `pinParams` field
+touched (`of_readBack`, `crossEnvP`, `nativeContainerModeled`,
+`mutualContainerModeled`, `nestedContainerModeled`, `declNested_of`).
