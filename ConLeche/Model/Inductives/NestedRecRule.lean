@@ -1197,6 +1197,117 @@ theorem NestedTailIn.restRulesRun {c : Nat} (hc : c < b.k) {a : AuxStored}
     rw [I.henv] at hrun
     exact hrun
 
+/-! ## The transfer at the rule's body (item 5 step 2d (D)) -/
+
+omit I in
+/-- A λ-tower resolves exactly when its body and domains do. -/
+private theorem constsResolve_lamTower {envR : Env} :
+    ∀ (bs : List (Expr × BinderMeta)) {body : Expr},
+      (bs.foldr (fun (b : Expr × BinderMeta) acc => Expr.lam b.1 acc b.2) body).constsResolve envR
+        = true → body.constsResolve envR = true
+  | [], _, h => h
+  | x :: rest, body, h => by
+    have h' : (Expr.lam x.1
+        (rest.foldr (fun (b : Expr × BinderMeta) acc => Expr.lam b.1 acc b.2) body) x.2).constsResolve
+          envR = true := h
+    simp only [Expr.constsResolve, Bool.and_eq_true] at h'
+    exact constsResolve_lamTower rest h'.2
+
+/-- **THE RULE'S TRANSFER** (item 5 step 2d (D), the step's only new
+mathematics): the restored rule's right-hand side is the auxiliary
+one's λ prefix put back over the WALK of its body
+(`restoreNested_lams`, the prefix untouched), and the two bodies —
+read at the two PROVISIONED models under any parameter openers —
+interpret alike at every frame fitting the block's parameters at which
+the restored body is graded.  That is `denoteMeta_restoreWalk` at
+`restoreAgreeP` and K.35's rules face (`NestedRulesAuxOk`), with
+`d := 0` and no openers below the parameters.
+
+The two readings are the consumer's to supply, exactly as
+`domAgree_transfer`'s `hread` is at the recursor type: the λ prefix's
+own tower is the fired equality's business (step 2e), which folds it. -/
+theorem NestedTailIn.ruleAgree {mpA : EnvModelM V μ ENVA} {cvRas : List ConstantVal}
+    (S : NestedScratchOut F env b fms f₀ ctorsA kinds mp₁ ppsF W idxF dsF esF srcsF fvsPF xFvsF
+      xrestF eissF tssF stored mpA cvRas)
+    (hnames : NestedCtorPinNames env p st)
+    (hctorsJ : ∀ (q₀ kJ i : Nat) (dJ : BlockModel V), PG mp₂.base2 q₀ kJ dJ → i < kJ →
+      ∀ (ci : ContainerInfo) (J : ContainerMember),
+        ConLeche.containerInfo? env ((D).pinAt (q₀ + i)).J = some ci → J ∈ ci.members →
+        J.name = ((D).pinAt (q₀ + i)).J → (dJ.ctorsM i).map (·.1.name) = J.ctors.map (·.name))
+    (hndR : (cvRms.map (·.name) ++ cvRns.map (·.name)).Nodup)
+    {s : (Name → Nat) → Nat} {rdsM : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)}
+    {concM : Nat → AnnotTerm} {eqs : (Name → Nat) → List AnnotTerm}
+    {mpAP : EnvModelM V μ (ConLeche.provisionMutualRecs b fms cvRas.zipIdx ENVA)}
+    {mpP : EnvModelM V μ
+      (ConLeche.provisionNestedRecs (nestedProvList p stored cvRms cvRns) ENV2)}
+    (hshapeA : ∀ c, c < b.k → (cvRas.getD c default).name = b.recName c ∧
+      (cvRas.getD c default).levelParams = b.rlps)
+    (hleafA : ∀ c, c < b.k → ∀ φ : Name → Nat,
+      mpAP.base2.acval (cvRas.getD c default).name φ
+        = nestedRecLeaf (D).kT s rdsM concM eqs b.rlps c φ)
+    (hagA : ∀ nm : Name, (∀ c, c < b.k → nm ≠ (cvRas.getD c default).name) →
+      mpAP.base2.acval nm = mpA.base2.acval nm)
+    (hleafR : ∀ c, c < (D).kT → ∀ φ : Name → Nat,
+      mpP.base2.acval (nestedRecCvAt p.k cvRms cvRns c).name φ
+        = nestedRecLeaf (D).kT s rdsM concM eqs b.rlps c φ)
+    (hagR : ∀ nm : Name, (∀ c, c < (D).kT → nm ≠ (nestedRecCvAt p.k cvRms cvRns c).name) →
+      mpP.base2.acval nm = mp₂.base2.acval nm)
+    (hauxNe : ∀ n ∈ (ConLeche.restoreTbl p st).auxNames, ∀ c, c < b.k →
+      n ≠ (nestedRecCvAt p.k cvRms cvRns c).name)
+    (hK35r : NestedRulesAuxOk p st b stored)
+    (ψ : Name → Nat)
+    {c : Nat} {a : AuxStored} (ha : stored[c]? = some a)
+    {rl o : RecRule} (hrl : rl ∈ a.rules)
+    (hres : ConLeche.restoreNested (ConLeche.restoreTbl p st) rl.rhs = .ok o.rhs)
+    (hresolve : o.rhs.constsResolve
+      (ConLeche.provisionNestedRecs (nestedProvList p stored cvRms cvRns) (ENV2)) = true) :
+    ∃ (bs : List (Expr × BinderMeta)) (bodyA bodyR : Expr),
+      rl.rhs.stripLams b.nP = some (bs, bodyA) ∧
+      o.rhs = bs.foldr (fun (x : Expr × BinderMeta) acc => Expr.lam x.1 acc x.2) bodyR ∧
+      ∀ (fvsP : List Expr), OpenersFrom fvsP 0 b.nP →
+      ∀ {A A' : AnnotTerm},
+        denoteMeta mpAP.base2.acval (ConLeche.provisionMutualRecs b fms cvRas.zipIdx (ENVA)) ψ
+            b.nP (Expr.instSeq fvsP (b.nP - 1) bodyA) = some A →
+        denoteMeta mpP.base2.acval
+            (ConLeche.provisionNestedRecs (nestedProvList p stored cvRms cvRns) (ENV2)) ψ
+            b.nP (Expr.instSeq fvsP (b.nP - 1) bodyR) = some A' →
+        ∀ (as : List V) (ρ₀ : Nat → V), SpineFit ρ₀ ((D).params ψ) as →
+          WellDenoted V (consList as ρ₀) A' →
+          interp V (consList as ρ₀) A' = interp V (consList as ρ₀) A := by
+  have hnP : (ConLeche.restoreTbl p st).nP = b.nP := I.tblNP
+  obtain ⟨bs, bodyA, hstrip, hshape⟩ := hK35r c a ha rl hrl
+  -- the rule's own λ prefix, at a positive parameter count
+  have hlam : 0 < (ConLeche.restoreTbl p st).nP → ∃ ty bb bm, rl.rhs = .lam ty bb bm := by
+    intro hpos
+    rw [hnP] at hpos
+    obtain ⟨n', hn'⟩ : ∃ n', b.nP = n' + 1 := ⟨b.nP - 1, by omega⟩
+    rw [hn'] at hstrip
+    cases hrhs : rl.rhs <;> rw [hrhs] at hstrip <;>
+      first
+        | exact ⟨_, _, _, rfl⟩
+        | simp [Expr.stripLams] at hstrip
+  obtain ⟨bodyR, hw, hfold⟩ :=
+    ConLeche.restoreNested_lams (by rw [hnP]; exact hstrip) hlam hres
+  refine ⟨bs, bodyA, bodyR, hstrip, hfold, ?_⟩
+  intro fvsP hP A A' hA hA' as ρ₀ hsp hwd
+  have hresBody : bodyR.constsResolve
+      (ConLeche.provisionNestedRecs (nestedProvList p stored cvRms cvRns) (ENV2)) = true := by
+    rw [hfold] at hresolve
+    exact constsResolve_lamTower bs hresolve
+  have hag := I.restoreAgreeP S hnames hctorsJ hndR hshapeA hleafA hagA hleafR hagR hauxNe ψ
+  have hF : OpenersFrom ([] : List Expr) b.nP 0 := ⟨rfl, fun i x hx => nomatch hx⟩
+  have hA2 : denoteMeta mpAP.base2.acval (ConLeche.provisionMutualRecs b fms cvRas.zipIdx (ENVA)) ψ
+      (b.nP + 0) (Expr.instSeq (fvsP ++ []) (b.nP + 0 - 1) bodyA) = some A := by
+    rw [List.append_nil, Nat.add_zero]; exact hA
+  have hA2' : denoteMeta mpP.base2.acval
+      (ConLeche.provisionNestedRecs (nestedProvList p stored cvRms cvRns) (ENV2)) ψ
+      (b.nP + 0) (Expr.instSeq (fvsP ++ []) (b.nP + 0 - 1) bodyR) = some A' := by
+    rw [List.append_nil, Nat.add_zero]; exact hA'
+  have h := denoteMeta_restoreWalk (ConLeche.restoreTbl_keysInAux p st) hag hshape hw hresBody
+    hP hF hA2 hA2' as [] ρ₀ hsp rfl (by rw [consList_nil]; exact hwd)
+  rw [consList_nil] at h
+  exact h
+
 end Run
 
 end ConLeche.Model
