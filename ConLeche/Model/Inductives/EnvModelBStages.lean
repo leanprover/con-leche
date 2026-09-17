@@ -292,4 +292,198 @@ theorem mutualContainerModeled {env envR : Env} {m : EnvModel V envR}
     rw [← hnames i hi]
     exact hI
 
+/-! ### The install's conses, as the crossing and the field see them
+
+(task #315 M7-3 session 6, DESIGN §U.46 (c) 4.) -/
+
+/-- **What one stage of an install route's conses gives the crossing**:
+the new constants sit in front of the old environment, their names are
+fresh there, and their KINDS are the route's own — an `indInfo` is a
+MEMBER of the block (`Ms`), a `recInfo` is a member's recursor, and a
+`projInfo` tables a member.  These are what `EnvBlocksOf.crossIndP`
+reads off an extension: `hext`/`hnewN`/`hfreshN` (the first two
+clauses), `hrecN` (the recursor clause, with `Name.str` injective), the
+new containers' identification (the `indInfo` clause) and the guard
+`TableCross` (the table clause). -/
+@[expose] def BlockInstallExt (Ms : List Name) (env envOut : Env) (new : List ConstantInfo) :
+    Prop :=
+  envOut.consts = new ++ env.consts ∧
+  (∀ c ∈ new, env.find? c.name = none) ∧
+  (∀ c ∈ new, ∀ (cv : ConstantVal) (caps : IndCaps), c = .indInfo cv caps → c.name ∈ Ms) ∧
+  (∀ c ∈ new, ∀ (cv : ConstantVal) (mI rP : Nat) (rules : List RecRule),
+    c = .recInfo cv mI rP rules → ∃ n' ∈ Ms, c.name = n'.str "rec") ∧
+  (∀ c ∈ new, ∀ tbl : ConLeche.ProjTable, c = .projInfo tbl → tbl.structName ∈ Ms)
+
+omit [SetTheory V] in
+/-- A constant the name lookup finds in a list is in it, under that name. -/
+theorem find?_name_mem {new : List ConstantInfo} {n : Name} {c : ConstantInfo}
+    (h : List.find? (fun c => c.name == n) new = some c) : c ∈ new ∧ c.name = n := by
+  refine ⟨List.mem_of_find?_eq_some h, ?_⟩
+  have hh := List.find?_eq_some_iff_getElem.mp h
+  simpa using hh.1
+
+omit [SetTheory V] in
+/-- A stage that conses nothing. -/
+theorem BlockInstallExt.rfl' (Ms : List Name) (env : Env) : BlockInstallExt Ms env env [] :=
+  ⟨rfl, by simp, by simp, by simp, by simp⟩
+
+omit [SetTheory V] in
+/-- Two such stages compose: the later stage's names are fresh at the
+earlier environment, so they are fresh at the base too. -/
+theorem BlockInstallExt.trans {Ms : List Name} {env env₁ env₂ : Env}
+    {new₁ new₂ : List ConstantInfo}
+    (h₁ : BlockInstallExt Ms env env₁ new₁) (h₂ : BlockInstallExt Ms env₁ env₂ new₂) :
+    BlockInstallExt Ms env env₂ (new₂ ++ new₁) := by
+  obtain ⟨hc₁, hf₁, hi₁, hr₁, hp₁⟩ := h₁
+  obtain ⟨hc₂, hf₂, hi₂, hr₂, hp₂⟩ := h₂
+  refine ⟨by rw [hc₂, hc₁, List.append_assoc], fun c hc => ?_, fun c hc => ?_, fun c hc => ?_,
+    fun c hc => ?_⟩
+  · rcases List.mem_append.mp hc with hc' | hc'
+    · exact ConLeche.Semantics.find?_none_of_append hc₁ (hf₂ c hc')
+    · exact hf₁ c hc'
+  · rcases List.mem_append.mp hc with hc' | hc'
+    · exact hi₂ c hc'
+    · exact hi₁ c hc'
+  · rcases List.mem_append.mp hc with hc' | hc'
+    · exact hr₂ c hc'
+    · exact hr₁ c hc'
+  · rcases List.mem_append.mp hc with hc' | hc'
+    · exact hp₂ c hc'
+    · exact hp₁ c hc'
+
+namespace BlockInstallExt
+
+variable {Ms : List Name} {env envOut : Env} {new : List ConstantInfo}
+
+omit [SetTheory V] in
+/-- A stored lookup survives: a new constant of that name would have to
+be fresh at the environment that answers it. -/
+theorem ext (h : BlockInstallExt Ms env envOut new) :
+    ∀ (n : Name) (c : ConstantInfo), env.find? n = some c → envOut.find? n = some c := by
+  intro n c hf
+  cases hn : List.find? (fun c => c.name == n) new with
+  | none => rw [ConLeche.Semantics.find?_append_of_new_none h.1 hn]; exact hf
+  | some c' =>
+    obtain ⟨hmem, rfl⟩ := find?_name_mem hn
+    rw [h.2.1 c' hmem] at hf
+    exact nomatch hf
+
+omit [SetTheory V] in
+/-- A lookup the extension answers is the base's or one of the new
+constants'. -/
+theorem newOf (h : BlockInstallExt Ms env envOut new) {n : Name} {c : ConstantInfo}
+    (hf : envOut.find? n = some c) (hn : env.find? n = none) : c ∈ new ∧ c.name = n := by
+  cases hfn : List.find? (fun c => c.name == n) new with
+  | none =>
+    rw [ConLeche.Semantics.find?_append_of_new_none h.1 hfn, hn] at hf
+    exact nomatch hf
+  | some c' =>
+    have : envOut.find? n = some c' := by
+      rw [ConLeche.Env.find?, h.1, List.find?_append, hfn]; rfl
+    rw [hf] at this
+    obtain rfl : c = c' := Option.some.inj this
+    exact find?_name_mem hfn
+
+omit [SetTheory V] in
+/-- The new names are fresh at the base. -/
+theorem freshN (h : BlockInstallExt Ms env envOut new) :
+    ∀ n ∈ new.map (·.name), env.find? n = none := by
+  intro n hn
+  obtain ⟨c, hc, rfl⟩ := List.mem_map.mp hn
+  exact h.2.1 c hc
+
+omit [SetTheory V] in
+/-- A lookup the extension answers is the base's or at a new name. -/
+theorem newN (h : BlockInstallExt Ms env envOut new) :
+    ∀ (n : Name) (c : ConstantInfo), envOut.find? n = some c →
+      env.find? n = some c ∨ n ∈ new.map (·.name) := by
+  intro n c hf
+  cases hn : env.find? n with
+  | some c' =>
+    left
+    rw [← hf, ext h n c' hn]
+  | none =>
+    right
+    obtain ⟨hmem, rfl⟩ := newOf h hf hn
+    exact List.mem_map_of_mem hmem
+
+omit [SetTheory V] in
+/-- **A new recursor's MEMBER is new too** — the clause
+`containerInfo?_ext_ind` needs of an inductive extension: a `recInfo`
+the extension conses is a member's recursor (`Name.str` injective), and
+the members are among the extension's own constants. -/
+theorem recN (h : BlockInstallExt Ms env envOut new)
+    (hMs : ∀ n ∈ Ms, n ∈ new.map (·.name)) :
+    ∀ (n : Name) (cv : ConstantVal) (mI rP : Nat) (rules : List RecRule),
+      envOut.find? (n.str "rec") = some (.recInfo cv mI rP rules) →
+      n.str "rec" ∈ new.map (·.name) → n ∈ new.map (·.name) := by
+  intro n cv mI rP rules hf hmem
+  obtain ⟨hc, hname⟩ := newOf h hf (freshN h _ hmem)
+  obtain ⟨n', hn', heq⟩ := h.2.2.2.1 _ hc cv mI rP rules rfl
+  rw [hname] at heq
+  obtain rfl : n = n' := (ConLeche.Name.str.inj heq).1
+  exact hMs _ hn'
+
+omit [SetTheory V] in
+/-- **A new container is a member**: the only `indInfo` the extension
+conses are the block's own members. -/
+theorem indMs (h : BlockInstallExt Ms env envOut new) {J : Name} {cv : ConstantVal}
+    {caps : IndCaps} (hf : envOut.find? J = some (.indInfo cv caps))
+    (hJ : J ∈ new.map (·.name)) : J ∈ Ms := by
+  obtain ⟨hc, hname⟩ := newOf h hf (freshN h _ hJ)
+  rw [← hname]
+  exact h.2.2.1 _ hc cv caps rfl
+
+end BlockInstallExt
+
+omit [SetTheory V] in
+/-- **The literal guards are monotone under any lookup-preserving
+extension**: each guard is a predicate on ONE lookup that is `false` at
+`none`, so a guard that holds reads a STORED constant and the extension
+answers it alike. -/
+theorem litGuardsMono_of_findPreserved {env env' : Env} (hF : FindPreserved env env') :
+    LitGuardsMono env env' := by
+  have hp : ∀ (n : Name) (f : Option ConstantInfo → Bool), f none = false →
+      f (env.find? n) = true → f (env'.find? n) = true := by
+    intro n f hn hg
+    cases hf : env.find? n with
+    | none => rw [hf, hn] at hg; exact nomatch hg
+    | some c => rw [hF hf]; rw [hf] at hg; exact hg
+  have hnat : ConLeche.natLitSupported env = true → ConLeche.natLitSupported env' = true := by
+    intro hg
+    simp only [ConLeche.natLitSupported, Bool.and_eq_true] at hg ⊢
+    exact ⟨⟨hp _ _ rfl hg.1.1, hp _ _ rfl hg.1.2⟩, hp _ _ rfl hg.2⟩
+  refine ⟨hnat, fun hg => ?_⟩
+  simp only [ConLeche.strLitSupported, Bool.and_eq_true] at hg ⊢
+  exact ⟨⟨⟨⟨⟨⟨⟨hnat hg.1.1.1.1.1.1.1, hp _ _ rfl hg.1.1.1.1.1.1.2⟩, hp _ _ rfl hg.1.1.1.1.1.2⟩,
+    hp _ _ rfl hg.1.1.1.1.2⟩, hp _ _ rfl hg.1.1.1.2⟩, hp _ _ rfl hg.1.1.2⟩,
+    hp _ _ rfl hg.1.2⟩, hp _ _ rfl hg.2⟩
+
+omit [SetTheory V] in
+/-- **An install's conses, as the guarded crossing sees them**: the
+lookups are preserved, the literal guards monotone, and the only
+projection slots created are at the block's own members (the table
+clause, with `projTableName` injective). -/
+theorem BlockInstallExt.tableCross {Ms : List Name} {env envOut : Env}
+    {new : List ConstantInfo} (h : BlockInstallExt Ms env envOut new) :
+    TableCross Ms env envOut where
+  find := fun hf => h.ext _ _ hf
+  lit := litGuardsMono_of_findPreserved (fun hf => h.ext _ _ hf)
+  proj := fun sn i entry h0 h1 => by
+    obtain ⟨tbl, hf0, hi, -⟩ := ConLeche.Env.findProj?_some h1
+    cases hf : env.find? (ConLeche.projTableName sn) with
+    | some c =>
+      have hpres := h.ext _ _ hf
+      rw [hf0] at hpres
+      obtain rfl : c = .projInfo tbl := Option.some.inj hpres.symm
+      rw [ConLeche.Env.findProj?_of_table hf hi] at h0
+      exact nomatch h0
+    | none =>
+      obtain ⟨hc, hname⟩ := h.newOf hf0 hf
+      have hstruct : ConLeche.projTableName tbl.structName = ConLeche.projTableName sn := hname
+      obtain rfl : tbl.structName = sn := by
+        unfold ConLeche.projTableName at hstruct
+        exact (ConLeche.Name.str.inj (ConLeche.Name.num.inj hstruct).1).1
+      exact h.2.2.2.2 _ hc tbl rfl
+
 end ConLeche.Model
