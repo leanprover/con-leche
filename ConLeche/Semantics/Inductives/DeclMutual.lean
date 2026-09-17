@@ -93,7 +93,13 @@ def DeclMutualRun (μ : CheckMode) (F : Nat) (env : Env)
     -- CERTIFICATION-ONLY, hence `certOnly`-gated (K.35's follow-up):
     -- the model tier reads the Bool off it under `μ.verifiedChecks`
     ConLeche.certOnly μ (ConLeche.blockReadBackOk env₂ b.nP (fms.zipIdx.map fun (f, mIdx) =>
-      (f.cvTa, (b.ownCtors mIdx).filterMap fun (J, _) => ctorsA[J]?))) = true
+      (f.cvTa, (b.ownCtors mIdx).filterMap fun (J, _) => ctorsA[J]?))) = true ∧
+    -- THE OWN-PIN TABLE IS EMPTY (K.43, lane M7-3's §U.68 (a)): this
+    -- route installs no mimic recursor, so `containerOwnPinsAt` of the
+    -- block it produced is `some []` at every instantiation — which
+    -- `ContainerModeled.ownPins` needs and cannot derive, since it is a
+    -- statement about what is ABSENT from the output environment
+    ConLeche.certOnly μ (ConLeche.blockOwnMimicsOk env₂ f₀.cvTa.name 0) = true
 
 /-- The bridge inversion: a successful mutual install is a run. -/
 theorem declMutualRun_of {μ : CheckMode} {F : Nat} {env env₂ : Env} {p : MutualParts}
@@ -102,10 +108,10 @@ theorem declMutualRun_of {μ : CheckMode} {F : Nat} {env env₂ : Env} {p : Mutu
   obtain ⟨hpin, hcore⟩ := ConLeche.checkMutual_inv h
   obtain ⟨h0, h1, h2, h3, env₁, fms, f₀, tq₀, ctorsA, sortss, kinds, formers4, ctors4,
     cvRas, rulesOf, hformers, hf₀, htq₀, hcross, hL, hctors, hkinds, hfo, hgd, hrectys,
-    hrules, htbl, hrb⟩ := ConLeche.checkMutualCore_inv hcore
+    hrules, htbl, hrb, hom⟩ := ConLeche.checkMutualCore_inv hcore
   exact ⟨hpin, p.toBlock, _, env₁, fms, f₀, tq₀, ctorsA, sortss, kinds, formers4, ctors4,
     cvRas, rulesOf, rfl, rfl, h0, h1, h2, h3, hformers, hf₀, htq₀, hcross, hL, hctors,
-    hkinds, hfo, hgd, hrectys, hrules, htbl, hrb⟩
+    hkinds, hfo, hgd, hrectys, hrules, htbl, hrb, hom⟩
 
 /-! ## The η half: a fresh extension by non-formers -/
 

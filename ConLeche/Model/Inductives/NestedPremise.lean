@@ -259,6 +259,24 @@ structure ClassPin (env : Env) (D dR : BlockModel V) (ψ ψR : Name → Nat) (ρ
   /-- ONE index set: the fibres are compared at the same tuples -/
   idx : dR.idxT ψR ρR c = D.pinIdx q ψ ρp
 
+/-- **`ClassPin`, at the covering's ROOT GROUP** (task #315 L-E,
+DESIGN §U.71): the relation the container instance transfer actually
+runs along — `ClassPin` plus the record of WHERE a MEMBER class comes
+from, namely the root group itself, class `c` at pin `r + c`.
+
+The conjunct costs the covering nothing (`classPin_of_rootMember` is
+stated at exactly that pair, and `classPin_of_pinCorr` produces a PIN
+class, where it is vacuous) and it is what aligns the two sides at a
+member class: the block's group of `r + c` is the ROOT group, whose
+block model IS `dR`.  Without it the alignment would need
+`containerInfo?` to agree ACROSS the members of a group, which is not
+an environment fact — it holds only under the run's own
+`nestedContainersOk` (K.14) or a just-installed block's read-back
+(K.34), neither of which the abstract transfer has. -/
+@[expose] def ClassPinAt (env : Env) (D dR : BlockModel V) (ψ ψR : Name → Nat)
+    (ρp ρR : Nat → V) (r c q : Nat) : Prop :=
+  ClassPin env D dR ψ ψR ρp ρR c q ∧ (c < dR.k → q = r + c)
+
 /-- **A container instance is covered by its ROOT's classes** (task
 #315 L-E, DESIGN §U.58): every pin of the instance — K.37's
 `nestedPinInstOf` reads the partition — is `ClassPin`-related to a
@@ -277,7 +295,7 @@ is a fact about that elimination.  K.40's mint parent carries it; the
 covering is the parent chain. -/
 @[expose] def InstanceCovered (env : Env) (D dR : BlockModel V) (ψ ψR : Name → Nat)
     (ρp ρR : Nat → V) (inst : Nat → Nat) (r : Nat) : Prop :=
-  ∀ q, q < D.nPins → inst q = inst r → ∃ c, ClassPin env D dR ψ ψR ρp ρR c q
+  ∀ q, q < D.nPins → inst q = inst r → ∃ c, ClassPinAt env D dR ψ ψR ρp ρR r c q
 
 /-! ## The pins' laws and shapes of a stored block -/
 
@@ -336,6 +354,46 @@ structure PinGroupView (d dJ : BlockModel V) (q₀ kJ : Nat) : Prop where
   DsFit : ∀ (ψ : Name → Nat) (ρ : Nat → V) (as : List V), SpineFit ρ (d.params ψ) as →
     SpineFit (consList as ρ) (dJ.params ((d.pinAt q₀).ψJ ψ))
       (((d.pinAt q₀).Ds ψ).map (interp V (consList as ρ)))
+
+/-- **A pin group's index set IS its container's** (task #315 L-E,
+DESIGN §U.71): at a group `[q₀, q₀ + kK)` of `d` with container `dJ`,
+pin `q₀ + i`'s index-tuple set is `dJ`'s member `i`'s at the pin's
+frame — the sort by `pinU`, the telescope by `pinPps`/`pinNP`, the
+frame by `same`.  What turns a `ClassPin`'s index clause into the
+block's own `idx` at the pin's class, on either side of the pair. -/
+theorem BlockModel.pinIdx_of_view {d dJ : BlockModel V} {q₀ kK : Nat}
+    (S : PinGroupView d dJ q₀ kK) (ψ : Name → Nat) (ρ : Nat → V) {i : Nat} (hi : i < kK) :
+    d.pinIdx (q₀ + i) ψ ρ = dJ.idx ((d.pinAt q₀).ψJ ψ) (d.pinFrame q₀ ψ ρ) i := by
+  have hfr : d.pinFrame (q₀ + i) ψ ρ = d.pinFrame q₀ ψ ρ := by
+    unfold BlockModel.pinFrame; rw [(S.same i hi ψ).2]
+  have hIds : (d.pinAt (q₀ + i)).Ids ψ = dJ.IdsM i ((d.pinAt q₀).ψJ ψ) := by
+    unfold PinSyn.Ids
+    rw [S.pinPps i hi, S.pinNP i hi, (S.same i hi ψ).1]
+    rfl
+  unfold BlockModel.pinIdx BlockModel.idx
+  rw [hfr, hIds, S.pinU i hi ψ]
+
+/-- **A pin's index telescope is bounded at its components** (task #315
+L-E, DESIGN §U.72): the pin's container member's telescope over the
+container's parameters (`pinPps`/`pinNP`, `FormerData.below`,
+`DomsBelow.drop`/`.fields`) — `classPin_of_pinCorr`'s `hIdsBelow` at
+the root's own pin. -/
+theorem pinIds_below {env : Env} {m : EnvModel V env} {d dJ : BlockModel V} {q₀ kK : Nat}
+    (S : PinGroupView d dJ q₀ kK) (hreps : IsBlockModels m dJ) {i : Nat} (hi : i < kK)
+    (ψ : Name → Nat) (ρ : Nat → V) :
+    FieldsBelow (((d.pinAt (q₀ + i)).Ds ψ).map (interp V ρ)).length
+      ((d.pinAt (q₀ + i)).Ids ψ) := by
+  obtain ⟨cvT, cvR, mI, rP, rules, hI⟩ := hreps i (S.kEq ▸ hi)
+  have hlen : (((d.pinAt (q₀ + i)).Ds ψ).map (interp V ρ)).length = dJ.nP := by
+    rw [List.length_map, (S.same i hi ψ).2, S.pinDsLen ψ]
+  have hIds : (d.pinAt (q₀ + i)).Ids ψ
+      = ((dJ.ppsM i ((d.pinAt (q₀ + i)).ψJ ψ)).drop dJ.nP).map (·.2.2) := by
+    unfold PinSyn.Ids
+    rw [S.pinPps i hi, S.pinNP i hi]
+  rw [hlen, hIds]
+  refine DomsBelow.fields ?_
+  have := DomsBelow.drop dJ.nP (hI.former.below ((d.pinAt (q₀ + i)).ψJ ψ))
+  simpa using this
 
 /-- **A pin group's own members are their own partners** (task #315
 L-E, DESIGN §U.65 — `InstanceCovered`'s first case, §U.55 (b)'s Base):
@@ -542,7 +600,7 @@ theorem DenoteMetaSpine.det {acval : Name → (Name → Nat) → AnnotTerm} {env
     | cons ha' h'' => rw [Option.some.inj (ha.symm.trans ha'), DenoteMetaSpine.det h h'']
 
 /-- **A PIN, SPELLED AT ANOTHER INSTANTIATION** (task #315 M7-3
-session 14, DESIGN §U.70 (a)): the recorded pin `q` — its container
+session 14, DESIGN §U.73 (a)): the recorded pin `q` — its container
 applied to components that stand at the BLOCK's own parameter
 openers — written out at the level arguments `lvls` and components
 `DsE` a reader was asked for.
@@ -568,7 +626,7 @@ back closed, level-instantiated and re-opened exactly here. -/
 
 /-- **THE FIELD SHAPE: EVERY OWN PIN THE MIMICS SPELL IS ONE OF THE
 BLOCK MODEL'S RECORDED PINS, SPELLED AT THAT INSTANTIATION** (task
-#315 M7-3 session 14, DESIGN §U.70 (a)) — the form
+#315 M7-3 session 14, DESIGN §U.73 (a)) — the form
 `ContainerModeled.ownPins` must take, and the reason is the CROSSING.
 
 `ContainerModeled` is proved where a container is INSTALLED and
@@ -608,7 +666,7 @@ theorem ContainerOwnPinsSyn.of_noOwn {env : Env} {d : BlockModel V}
 
 /-- **EVERY OWN PIN THE MIMICS SPELL IS ONE OF THE BLOCK MODEL'S
 RECORDED PINS, AT THAT INSTANTIATION** (task #315, lane L-E's request,
-DESIGN §U.65 (d) — the bridge §U.68 (e) withdrew the "not needed"
+DESIGN §U.65 (d) — the bridge §U.71 (e) withdrew the "not needed"
 claim for): `containerOwnPinsAt` reads a stored container's own pins
 off its MIMIC RECURSORS, already instantiated at the level arguments
 and components of the pin that names the container, and hands back
@@ -643,14 +701,14 @@ tree (DESIGN §U.69 (a)):
    the assignments through `ContainerModeled.pinψ` on both sides
    (`Level.substFn_map_subst`).
 
-**This is NOT the field** (task #315 M7-3 session 14, DESIGN §U.70
+**This is NOT the field** (task #315 M7-3 session 14, DESIGN §U.73
 (a)): `ContainerModeled.ownPins` must be the SYNTACTIC clause
 `ContainerOwnPinsSyn` above, because this one cannot cross
 `ContainerModeled.crossEnvP` — its `DenoteMetaSpine` premise is
 CONTRAVARIANT (reading monotonicity runs `env₁ → env₂`, and the clause
 would have to pull a reading at `env₂` back to `env₁`).  This is the
 form the CONSUMER wants, and `ContainerOwnPinsSyn.toRead` is the
-bridge, modulo the substitution law (DESIGN §U.70 (b), (d)). -/
+bridge, modulo the substitution law (DESIGN §U.73 (b), (d)). -/
 @[expose] def ContainerOwnPins {env : Env} (m : EnvModel V env) (d : BlockModel V) : Prop :=
   ∀ (i : Nat) (cvC : ConstantVal) (caps : IndCaps) (lvls : List Level)
     (DsE ps : List Expr) (Ds : List AnnotTerm) (ψ : Name → Nat) (dp : Nat),
@@ -671,7 +729,7 @@ what the queued kernel record `blockOwnMimicsOk` (K.43, `n := 0` at the
 native and mutual routes) certifies, through the Verify bridge its plan
 names ("`containerOwnPinsAt envOut C lvls Ds = some []`").
 
-§U.66 (a) found the emptiness NOT derivable in the model tier:
+§U.68 (a) found the emptiness NOT derivable in the model tier:
 `containerOwnPinsAtGo` looks up `Name.appendIndexAfter (C.str "rec") 1`
 and only a nested block whose FIRST former is `C` can put a `.recInfo`
 there, so excluding it is an environment-history invariant no record
@@ -686,7 +744,7 @@ theorem ContainerOwnPins.of_noOwn {env : Env} {m : EnvModel V env} {d : BlockMod
   exact nomatch he
 
 /-- **THE SYNTACTIC CLAUSE GIVES THE READING ONE** (task #315 M7-3
-session 14, DESIGN §U.70 (b)): the field's form plus the SUBSTITUTION
+session 14, DESIGN §U.73 (b)): the field's form plus the SUBSTITUTION
 LAW is the form `pinCorr_of_ownPins` consumes — session 13's claim
 that the half is "unaffected by the switch", made good.
 

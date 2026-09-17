@@ -920,7 +920,7 @@ theorem declNested_of (hμ : μ.verifiedChecks = true) {F : Nat} {env envOut : E
   obtain ⟨h0, h1, st, b, envAux, stored, ctorsR, cvRms, cvRns, rulesM, rulesN, fmsA, ctorsA,
     hfA, hcA, helim, hcount, hfresh, hcont, hb, haux, hstored, hclosed, hpinsAux, hcaps, hsrc,
     -, hgrp, hmn, hsc, hlv, hK32, hkinds, hauxApps, hrank, -, -, -, hpins₁, hctors, hrm, hrn, -, -,
-    hrulesM, hrulesN, htbl, hpinsOut, hcnt, hrecs, hrb, -⟩ := h
+    hrulesM, hrulesN, htbl, hpinsOut, hcnt, hrecs, hrb, -, -⟩ := h
   -- the `-` after `hsrc` is K.31's `pinsDistinct` conjunct: named for the
   -- identities' discharge (`NestedPinsIdent`, lane L-B), not consumed here;
   -- `hmn` after `hgrp` is K.44's `nestedPinMentionOk`, which lane L-E's
@@ -940,8 +940,11 @@ theorem declNested_of (hμ : μ.verifiedChecks = true) {F : Nat} {env envOut : E
   -- second positivity run on the minted copies, none consumed on this
   -- path; then K.34's `blockReadBackOk` (`hrb`) — the route's own
   -- read-back, which the block this route stores needs and `mp.blocks`
-  -- carries for the rest — and LAST K.47's `nestedOwnPinsOk`, which
-  -- `ContainerModeled.ownPins` reads at the nested site;
+  -- carries for the rest — and the LAST two `-` are K.47's
+  -- `nestedOwnPinsOk` (the mimics' stored types ARE the recorded pins, at
+  -- the route's own instantiation) and K.43's `blockOwnMimicsOk` (the
+  -- walk's LENGTH), which `ContainerModeled.ownPins` reads at the nested
+  -- site and nothing on this path does;
   -- the two `-` after `hrn` are K.39's `Nodup` of the restored recursors'
   -- names and K.45's disjointness of those names from the auxiliary ones,
   -- which the provision loop's conses and the restore's agreement need,

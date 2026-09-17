@@ -82,7 +82,13 @@ def DeclNativeRun (μ : CheckMode) (F : Nat) (env : Env)
     -- data.  CERTIFICATION-ONLY, so the record is `certOnly`-gated: the
     -- model tier, stated under `hμ : μ.verifiedChecks = true`, reads the
     -- Bool off it with `certOnly_elim`
-    ConLeche.certOnly μ (ConLeche.blockReadBackOk env₂ p.nP [(cvTa, ctorsA)]) = true
+    ConLeche.certOnly μ (ConLeche.blockReadBackOk env₂ p.nP [(cvTa, ctorsA)]) = true ∧
+    -- THE OWN-PIN TABLE IS EMPTY (K.43, lane M7-3's §U.68 (a)): this
+    -- route installs no mimic recursor, so `containerOwnPinsAt` of the
+    -- block it produced is `some []` at every instantiation — which
+    -- `ContainerModeled.ownPins` needs and cannot derive, since it is a
+    -- statement about what is ABSENT from the output environment
+    ConLeche.certOnly μ (ConLeche.blockOwnMimicsOk env₂ cvTa.name 0) = true
 
 /-- The install after the pass, inverted: the monad-shape argument,
 one `cases` per bind, the guards by cases. -/
@@ -106,7 +112,9 @@ theorem checkNativeTail_inv {μ : CheckMode} {F : Nat} {env env₂ : Env}
           (sumRules (consSumCtors q.p.nP q.ctorsA q.env₁).find? cvRa.name q.p.nP q.p.majorIdx
             q.p.rulePrefix cvRa.type q.ctorsA rhss)
           :: (consSumCtors q.p.nP q.ctorsA q.env₁).consts⟩ = .ok env₂ ∧
-      ConLeche.certOnly μ (ConLeche.blockReadBackOk env₂ q.p.nP [(q.cvTa, q.ctorsA)]) = true := by
+      ConLeche.certOnly μ (ConLeche.blockReadBackOk env₂ q.p.nP [(q.cvTa, q.ctorsA)]) = true ∧
+      -- THE OWN-PIN TABLE IS EMPTY (K.43)
+      ConLeche.certOnly μ (ConLeche.blockOwnMimicsOk env₂ q.cvTa.name 0) = true := by
   rw [checkNativeTail] at h
   simp only [bind, Except.bind] at h
   -- the elimination guard
@@ -167,8 +175,13 @@ theorem checkNativeTail_inv {μ : CheckMode} {F : Nat} {env env₂ : Env}
       (ConLeche.blockReadBackOk envT q.p.nP [(q.cvTa, q.ctorsA)]) = true
   case neg => rw [if_neg hrb] at h; exact nomatch h
   rw [if_pos hrb] at h
+  try simp only [bind, Except.bind] at h
+  by_cases hom : ConLeche.certOnly (fueledOps μ F).mode
+      (ConLeche.blockOwnMimicsOk envT q.cvTa.name 0) = true
+  case neg => rw [if_neg hom] at h; exact nomatch h
+  rw [if_pos hom] at h
   obtain rfl : envT = env₂ := by simpa [pure, Except.pure] using h
-  exact ⟨cvRa, rhss, tfvs, trest, isorts, helim, rfl, hsorts, hk, hr, rfl, htbl, hrb⟩
+  exact ⟨cvRa, rhss, tfvs, trest, isorts, helim, rfl, hsorts, hk, hr, rfl, htbl, hrb, hom⟩
 
 /-- A settled pass with the install after it is a run. -/
 theorem declNativeRun_of_pass {μ : CheckMode} {F : Nat} {env env₂ : Env}

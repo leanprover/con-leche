@@ -1075,4 +1075,19 @@ theorem lfpTuple_eq_of_rel {w k k' : Nat} {Is Is' : Nat → V} {Φ Φ' : (Nat �
   have ht' : t ∈ˢ Is' b := by rw [← hIs a b ha hb hab]; exact ht
   exact Subset.antisymm (h1 t ht) (h2 t ht')
 
+/-- **The relational meet lies under a related family at EVERY point**
+(task #315 L-E, DESIGN §U.72): `relMeet_le_rel` off the index set too,
+where the meet is empty — the container instance transfer's walk
+compares the two tuples at every point, not only inside the index sets
+(`app_relMeet_subset`'s twin at a related pair). -/
+theorem app_relMeet_le_rel {Is X : Nat → V} {R : Nat → Nat → Prop} {k' : Nat} {Y : Nat → V}
+    {a b : Nat} (hb : b < k') (hR : R a b) (t : V) :
+    app (relMeet Is X R k' Y a) t ⊆ˢ app (Y b) t := by
+  by_cases ht : t ∈ˢ Is a
+  · exact relMeet_le_rel hb hR t ht
+  · unfold relMeet
+    rw [app_graph_of_not_mem ht]
+    exact fun x hx => absurd hx (not_mem_empty x)
+
+
 end ConLeche.SetTheory

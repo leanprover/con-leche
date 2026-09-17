@@ -618,6 +618,13 @@ def checkNativeTail (ops : CheckerOps m) (env : Env) (q : NativePass Env) : m En
   -- trusted lane does not pay for the model tier's evidence
   unless certOnly ops.mode (blockReadBackOk envOut p.nP [(q.cvTa, q.ctorsA)]) do
     throw (.internal "direct rec: the installed block does not read back as its own")
+  -- **THE OWN-PIN TABLE IS EMPTY** (task #315 K.43): this route installs
+  -- no mimic recursor, so `containerOwnPinsAt` of the block it produced
+  -- is `some []` at every instantiation — which the model needs and
+  -- cannot derive, since it is a statement about what is ABSENT.
+  -- CERTIFICATION-ONLY, gated; a failure is `.internal`.
+  unless certOnly ops.mode (blockOwnMimicsOk envOut q.cvTa.name 0) do
+    throw (.internal "direct rec: the installed block carries a mimic recursor")
   pure envOut
 
 /-- Check and install a **direct recursive block**: the distinct
