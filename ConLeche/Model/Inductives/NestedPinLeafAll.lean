@@ -1670,6 +1670,185 @@ theorem copyTransfer_pin {env : Env} {m : EnvModel V env} {dK : BlockModel V}
     (BlockModel.chainFitT_congr_mem hreps hi hj hψ hwK huT hIdsLen hρ
       ((h₁.fit_iff_at_T_dom hreps hi hkK hw₁ hu₁ hnI₁ hj hdom₁ hent₁ hL₁ t fs).mp ⟨hfit, hidx⟩))
 
+/-- **The container instance transfer, COPY TO COPY** (task #315 L-E,
+DESIGN §U.64): two copies of ONE constructor of ONE container `dK`, at
+level assignments agreeing on the constructor's own level parameters
+and at frames agreeing on the components' values, carry a fit from the
+first to the second — the first copy's fit at a tuple `X₁` over its
+block's targets to the second's at `X₂` — under three premises, one per
+field kind:
+
+* `hdom₁`: the FIRST copy's entries sit inside the container's real
+  domains.  At a container-RECURSIVE field this is the `_dom` bound of
+  §U.54 (b); at an `ordF`-right field it is that side's entry law read
+  as an INCLUSION, which is all the transfer needs (DESIGN §U.61
+  (d) 1) — the root's tuple is below its extended carrier, at which
+  the entry is an equality;
+* `hent₂`: at the SECOND copy's `ordF`-right fields, the container's
+  domain sits inside that copy's slot — its own entry law, again as an
+  inclusion;
+* `hrel`: at every container-recursive field, the first copy's target
+  family is below the second's — THE WALK, and the only place a
+  correspondence of targets is needed (`recF` by the two group views,
+  `pinF` by `targetPin_corr`).
+
+No `ordF`-right correspondence appears: each side's entry is its own
+reading law, and the two are glued through the container's domain
+chain, which `IsBlockModel.ctor_params` makes ONE list
+(`fitsFrom_imp_frames_via`). -/
+theorem copyTransfer_via {env : Env} {m : EnvModel V env} {dK : BlockModel V}
+    {acval : Name → (Name → Nat) → AnnotTerm}
+    {TV₁ TV₂ : TargetView V} {ψ₁ ψ₂ : Name → Nat} {Ds₁ Ds₂ : List AnnotTerm}
+    {lpsK : List Name} {lvls₁ lvls₂ : List Level}
+    {tg₁ tg₂ : Nat → Nat} {tls₁ tls₂ : List (List (Nat × Nat × AnnotTerm))}
+    {Eis₁ Eis₂ : List (List AnnotTerm)} {ρ₁ ρ₂ : Nat → V} {base₁ base₂ kK i j : Nat}
+    {Fs₁ Fs₂ Es₁ Es₂ : List AnnotTerm} {rs₁ rs₂ : List Bool} {X₁ X₂ : Nat → V}
+    (hreps : IsBlockModels m dK) (hi : i < dK.k) (hkK : dK.k = kK)
+    {cA : ConstantVal × Nat} (hj : (dK.ctorsM i)[j]? = some cA)
+    (hψ : ∀ p ∈ cA.1.levelParams, ψ₁ p = ψ₂ p)
+    (hρ : ∀ v, v < dK.nP →
+      consList (Ds₁.map (interp V ρ₁)) ρ₁ v = consList (Ds₂.map (interp V ρ₂)) ρ₂ v)
+    (hwK : dK.w ψ₁ = dK.w ψ₂)
+    (huT : ∀ l, dK.uT (dK.tgts i j l) ψ₁ = dK.uT (dK.tgts i j l) ψ₂)
+    (hIdsLen : (dK.IdsM i ψ₁).length = (dK.IdsM i ψ₂).length)
+    (hw₁ : dK.w ψ₁ = TV₁.w) (hw₂ : dK.w ψ₂ = TV₂.w)
+    (hu₁ : ∀ i', i' < kK → TV₁.u (base₁ + i') = dK.uM i' ψ₁)
+    (hu₂ : ∀ i', i' < kK → TV₂.u (base₂ + i') = dK.uM i' ψ₂)
+    {nI₁ nI₂ : Nat} (hnI₁ : nI₁ = (dK.IdsM i ψ₁).length) (hnI₂ : nI₂ = (dK.IdsM i ψ₂).length)
+    (h₁ : CopyCtorShape TV₁ acval dK ψ₁ Ds₁ lpsK lvls₁ tg₁ tls₁ Eis₁ ρ₁ i j base₁ kK Fs₁ rs₁ Es₁)
+    (h₂ : CopyCtorShape TV₂ acval dK ψ₂ Ds₂ lpsK lvls₂ tg₂ tls₂ Eis₂ ρ₂ i j base₂ kK Fs₂ rs₂ Es₂)
+    (hdom₁ : ∀ l, l < ((dK.Fss i ψ₁).getD j []).length → rs₁.getD l false = true →
+      ∀ fs₁ : List V, fs₁.length = l →
+      SpineFit (consList (Ds₁.map (interp V ρ₁)) ρ₁) (((dK.Fss i ψ₁).getD j []).take l) fs₁ →
+      slotSet TV₁.w (TV₁.u (tg₁ l)) (consList fs₁ ρ₁) (tls₁.getD l []) (Eis₁.getD l [])
+          (X₁ (tg₁ l))
+        ⊆ˢ interp V (consList fs₁ (consList (Ds₁.map (interp V ρ₁)) ρ₁))
+            (((dK.Fss i ψ₁).getD j []).getD l default))
+    (hent₂ : ∀ l, l < ((dK.Fss i ψ₂).getD j []).length →
+      ((dK.rss i).getD j []).getD l false = false → rs₂.getD l false = true →
+      ∀ fs₁ : List V, fs₁.length = l →
+      SpineFit (consList (Ds₂.map (interp V ρ₂)) ρ₂) (((dK.Fss i ψ₂).getD j []).take l) fs₁ →
+      interp V (consList fs₁ (consList (Ds₂.map (interp V ρ₂)) ρ₂))
+          (((dK.Fss i ψ₂).getD j []).getD l default)
+        ⊆ˢ slotSet TV₂.w (TV₂.u (tg₂ l)) (consList fs₁ ρ₂) (tls₂.getD l []) (Eis₂.getD l [])
+            (X₂ (tg₂ l)))
+    (hrel : ∀ l, l < ((dK.Fss i ψ₁).getD j []).length →
+      ((dK.rss i).getD j []).getD l false = true →
+      ∀ t', SetTheory.app (X₁ (tg₁ l)) t' ⊆ˢ SetTheory.app (X₂ (tg₂ l)) t')
+    (t : V) (fs : List V)
+    (hfit : FitsFrom rs₁ (fun i' ρ => slotSet TV₁.w (TV₁.u (tg₁ i')) ρ (tls₁.getD i' [])
+        (Eis₁.getD i' []) (X₁ (tg₁ i'))) 0 ρ₁ Fs₁ fs)
+    (hidx : ∀ l, l < nI₁ → interp V (consList fs ρ₁) (Es₁.getD l default) = projS l t) :
+    FitsFrom rs₂ (fun i' ρ => slotSet TV₂.w (TV₂.u (tg₂ i')) ρ (tls₂.getD i' []) (Eis₂.getD i' [])
+        (X₂ (tg₂ i'))) 0 ρ₂ Fs₂ fs ∧
+    (∀ l, l < nI₂ → interp V (consList fs ρ₂) (Es₂.getD l default) = projS l t) := by
+  obtain ⟨cvT, cvR, mI, rP, rules, hI⟩ := hreps i hi
+  obtain ⟨hF, hE, htl, hEs⟩ := hI.ctor_params hj hψ
+  have hcd := hI.ctorData hj
+  have hjl : j < (dK.ctorsM i).length := (List.getElem?_eq_some_iff.mp hj).1
+  have hwT : TV₁.w = TV₂.w := by rw [← hw₁, ← hw₂, hwK]
+  -- the two frames agree below the parameter depth, under any prefix
+  have hfrm : ∀ (as : List V) v, v < dK.nP + as.length →
+      consList as (consList (Ds₁.map (interp V ρ₁)) ρ₁) v
+        = consList as (consList (Ds₂.map (interp V ρ₂)) ρ₂) v :=
+    fun as v hv => consList_agree_above hρ as v (by omega)
+  -- a container-recursive field is copy-recursive on both sides
+  have hrs₁ : ∀ l, l < ((dK.Fss i ψ₁).getD j []).length →
+      ((dK.rss i).getD j []).getD l false = true → rs₁.getD l false = true := by
+    intro l hl hr
+    by_cases hnt : dK.tgts i j l < dK.k
+    · exact (h₁.recF l hl hr hnt).1
+    · exact (h₁.pinF l hl hr hnt).1
+  have hrs₂ : ∀ l, l < ((dK.Fss i ψ₂).getD j []).length →
+      ((dK.rss i).getD j []).getD l false = true → rs₂.getD l false = true := by
+    intro l hl hr
+    by_cases hnt : dK.tgts i j l < dK.k
+    · exact (h₂.recF l hl hr hnt).1
+    · exact (h₂.pinF l hl hr hnt).1
+  refine ⟨fitsFrom_imp_frames_via ((dK.Fss i ψ₁).getD j [])
+    (ρV := consList (Ds₁.map (interp V ρ₁)) ρ₁) h₁.len
+    (by rw [h₂.len, hF]) (fun l hl fs₁ hl₁ hsp => ?_) hfit, ?_⟩
+  · subst hl₁
+    have hl₂ : fs₁.length < ((dK.Fss i ψ₂).getD j []).length := by rw [← hF]; exact hl
+    -- the container's prefix fit at the SECOND frame
+    have hsp₂ : SpineFit (consList (Ds₂.map (interp V ρ₂)) ρ₂)
+        (((dK.Fss i ψ₂).getD j []).take fs₁.length) fs₁ := by
+      rw [← hF]
+      exact spineFit_congr_fields (fieldsBelow_take _ (hI.Fss_below hj ψ₁)) hρ hsp
+    -- the container's domain at the two frames
+    have hcdom : interp V (consList fs₁ (consList (Ds₁.map (interp V ρ₁)) ρ₁))
+          (((dK.Fss i ψ₁).getD j []).getD fs₁.length default)
+        = interp V (consList fs₁ (consList (Ds₂.map (interp V ρ₂)) ρ₂))
+          (((dK.Fss i ψ₂).getD j []).getD fs₁.length default) := by
+      rw [hF]
+      exact interp_congr_below V _ (dK.nP + fs₁.length) _ _
+        (fieldsBelow_getD _ (hI.Fss_below hj ψ₂) hl₂) (hfrm fs₁)
+    simp only [Nat.zero_add]
+    by_cases hr : ((dK.rss i).getD j []).getD fs₁.length false = true
+    · -- container-RECURSIVE: both sides recursive, the walk closes it
+      rw [if_pos (hrs₁ _ hl hr), if_pos (hrs₂ _ hl₂ hr)]
+      refine ⟨hdom₁ _ hl (hrs₁ _ hl hr) fs₁ rfl hsp, ?_⟩
+      rw [h₁.slot_container hl hr fs₁ rfl, h₂.slot_container hl₂ hr fs₁ rfl,
+        hwT, copyTarget_u h₁ h₂ hkK hu₁ hu₂ hl hl₂ hr (huT fs₁.length), htl, hE]
+      have hcongr : slotSet TV₂.w (TV₂.u (tg₂ fs₁.length))
+            (consList fs₁ (consList (Ds₁.map (interp V ρ₁)) ρ₁))
+            (((dK.tlss i ψ₂).getD j []).getD fs₁.length [])
+            (((dK.Eiss i ψ₂).getD j []).getD fs₁.length []) (X₁ (tg₁ fs₁.length))
+          = slotSet TV₂.w (TV₂.u (tg₂ fs₁.length))
+            (consList fs₁ (consList (Ds₂.map (interp V ρ₂)) ρ₂))
+            (((dK.tlss i ψ₂).getD j []).getD fs₁.length [])
+            (((dK.Eiss i ψ₂).getD j []).getD fs₁.length []) (X₁ (tg₁ fs₁.length)) := by
+        refine slotSet_congr_below (k := dK.nP + fs₁.length) ?_ (fun e he => ?_) (hfrm fs₁)
+        · rw [IsBlockModel.tlss_getD hj]
+          exact hcd.tssBelow ψ₂ fs₁.length
+        · have hmem : e ∈ (dK.eissF i j ψ₂).getD fs₁.length [] := by
+            rwa [IsBlockModel.Eiss_getD hj] at he
+          rw [IsBlockModel.tlss_getD hj]
+          exact hcd.eissBelow ψ₂ fs₁.length e hmem
+      rw [hcongr]
+      exact slotSet_mono_app (hrel _ hl hr)
+    · -- container-ORDINARY: the two entries are glued through its domain
+      have hr' : ((dK.rss i).getD j []).getD fs₁.length false = false := by simpa using hr
+      have hto₂ : interp V (consList fs₁ (consList (Ds₁.map (interp V ρ₁)) ρ₁))
+            (((dK.Fss i ψ₁).getD j []).getD fs₁.length default)
+          ⊆ˢ (if rs₂.getD fs₁.length false then
+                slotSet TV₂.w (TV₂.u (tg₂ fs₁.length)) (consList fs₁ ρ₂)
+                  (tls₂.getD fs₁.length []) (Eis₂.getD fs₁.length []) (X₂ (tg₂ fs₁.length))
+              else interp V (consList fs₁ ρ₂) (Fs₂.getD fs₁.length default)) := by
+        rcases h₂.ordF _ hl₂ hr' with ⟨hrC₂, hFeq₂⟩ | ⟨hrC₂, -, -, -⟩
+        · rw [if_neg (by rw [hrC₂]; exact Bool.false_ne_true), hFeq₂ fs₁ rfl hsp₂,
+            interp_instAll, ← hcdom]
+          exact Subset.refl _
+        · rw [if_pos hrC₂, hcdom]
+          exact hent₂ _ hl₂ hr' hrC₂ fs₁ rfl hsp₂
+      rcases h₁.ordF _ hl hr' with ⟨hrC₁, hFeq₁⟩ | ⟨hrC₁, -, -, -⟩
+      · rw [if_neg (by rw [hrC₁]; exact Bool.false_ne_true), hFeq₁ fs₁ rfl hsp,
+          interp_instAll]
+        exact ⟨Subset.refl _, hto₂⟩
+      · rw [if_pos hrC₁]
+        exact ⟨hdom₁ _ hl hrC₁ fs₁ rfl hsp, Subset.trans (hdom₁ _ hl hrC₁ fs₁ rfl hsp) hto₂⟩
+  · -- the index equations
+    intro l hl
+    rw [hnI₂] at hl
+    have hlenFs : fs.length = ((dK.Fss i ψ₁).getD j []).length := hfit.length_eq.trans h₁.len
+    have hlenE : ((dK.Ess i ψ₁).getD j []).length = (dK.IdsM i ψ₁).length := by
+      rw [IsBlockModel.Ess_getD hj, hcd.lenE, hI.IdsM_length ψ₁]
+    have hltE : l < ((dK.Ess i ψ₁).getD j []).length := by rw [hlenE, hIdsLen]; exact hl
+    have hgetD_mem : ∀ (L : List AnnotTerm), l < L.length → L.getD l default ∈ L := by
+      intro L hL
+      rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hL]
+      simp
+    have hmemE := hgetD_mem ((dK.Ess i ψ₁).getD j []) hltE
+    rw [h₂.es l hl, ← hF, ← hlenFs, interp_instAll]
+    rw [← hidx l (by rw [hnI₁, hIdsLen]; exact hl), h₁.es l (by rw [hIdsLen]; exact hl),
+      ← hlenFs, interp_instAll]
+    have hbE := hcd.belowE ψ₁ _ (by rwa [IsBlockModel.Ess_getD hj] at hmemE)
+    have hlencA : fs.length = cA.2 := by rw [hlenFs, hI.Fss_length hj ψ₁]
+    rw [← hEs]
+    refine (interp_congr_below V _ (dK.nP + fs.length) _ _ ?_ (hfrm fs)).symm
+    rw [hlencA, IsBlockModel.Ess_getD hj]
+    exact hbE
+
 /-- **The container instance transfer's MEMBER half** (task #315 L-E,
 DESIGN §U.61): at a MEMBER class of the root, the container-side fit is
 ALREADY the container's `ChainFitT` — the root's container IS `dK` and

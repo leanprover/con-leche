@@ -623,6 +623,74 @@ end Shape
 
 /-! ## The two copies of ONE container field name ONE target container -/
 
+/-- **A copy's recursive slot at a container-RECURSIVE field is the
+container's own slot at the pin's frame** (task #315 L-E, DESIGN
+§U.64): `recF` and `pinF` instantiate the telescope and the index
+expressions by the same two clauses, so ONE reading serves both arms —
+`slotSet_instTele` moves the components out of the frame and into the
+base.  What the container instance transfer compares on the two sides. -/
+theorem CopyCtorShape.slot_container {TV : TargetView V}
+    {acval : Name → (Name → Nat) → AnnotTerm} {dJ : BlockModel V}
+    {ψJ : Name → Nat} {Ds : List AnnotTerm} {lpsJ : List Name} {lvlsJ : List Level}
+    {tg : Nat → Nat} {tls : List (List (Nat × Nat × AnnotTerm))} {Eis : List (List AnnotTerm)}
+    {ρp : Nat → V} {i j base kJ : Nat} {Fs : List AnnotTerm} {rs : List Bool}
+    {Es : List AnnotTerm}
+    (h : CopyCtorShape TV acval dJ ψJ Ds lpsJ lvlsJ tg tls Eis ρp i j base kJ Fs rs Es)
+    {l : Nat} (hl : l < ((dJ.Fss i ψJ).getD j []).length)
+    (hr : ((dJ.rss i).getD j []).getD l false = true)
+    (fs₁ : List V) (hl₁ : fs₁.length = l) (X : V) :
+    slotSet TV.w (TV.u (tg l)) (consList fs₁ ρp) (tls.getD l []) (Eis.getD l []) X
+      = slotSet TV.w (TV.u (tg l)) (consList fs₁ (consList (Ds.map (interp V ρp)) ρp))
+          (((dJ.tlss i ψJ).getD j []).getD l []) (((dJ.Eiss i ψJ).getD j []).getD l []) X := by
+  subst hl₁
+  have hdata : (tls.getD fs₁.length []).map (·.2.2)
+        = instTele Ds fs₁.length
+            ((((dJ.tlss i ψJ).getD j []).getD fs₁.length []).map (·.2.2)) ∧
+      Eis.getD fs₁.length []
+        = ((((dJ.Eiss i ψJ).getD j []).getD fs₁.length []).map
+            (AnnotTerm.instAll Ds
+              (fs₁.length + (((dJ.tlss i ψJ).getD j []).getD fs₁.length []).length))) := by
+    by_cases hnt : dJ.tgts i j fs₁.length < dJ.k
+    · obtain ⟨-, -, ha, hb⟩ := h.recF _ hl hr hnt
+      exact ⟨ha, hb⟩
+    · obtain ⟨-, -, -, -, -, ha, hb⟩ := h.pinF _ hl hr hnt
+      exact ⟨ha, hb⟩
+  rw [hdata.2]
+  exact slotSet_instTele Iff.rfl Iff.rfl Ds ρp fs₁ hdata.1 _ X
+
+/-- **The two copies' targets have ONE index universe at a
+container-recursive field** (task #315 L-E, DESIGN §U.64): a member
+target through `recF`'s position and `hu`, a container's own pin
+through `PinCorr`'s `u` clause — in both cases the container's own
+datum `dJ.uT (dJ.tgts i j l)` at the two level assignments. -/
+theorem copyTarget_u {TV₁ TV₂ : TargetView V} {acval : Name → (Name → Nat) → AnnotTerm}
+    {dJ : BlockModel V} {ψ₁ ψ₂ : Name → Nat} {Ds₁ Ds₂ : List AnnotTerm} {lpsJ : List Name}
+    {lvls₁ lvls₂ : List Level} {tg₁ tg₂ : Nat → Nat}
+    {tls₁ tls₂ : List (List (Nat × Nat × AnnotTerm))} {Eis₁ Eis₂ : List (List AnnotTerm)}
+    {ρ₁ ρ₂ : Nat → V} {i j base₁ base₂ kJ : Nat} {Fs₁ Fs₂ : List AnnotTerm}
+    {rs₁ rs₂ : List Bool} {Es₁ Es₂ : List AnnotTerm}
+    (h₁ : CopyCtorShape TV₁ acval dJ ψ₁ Ds₁ lpsJ lvls₁ tg₁ tls₁ Eis₁ ρ₁ i j base₁ kJ Fs₁ rs₁ Es₁)
+    (h₂ : CopyCtorShape TV₂ acval dJ ψ₂ Ds₂ lpsJ lvls₂ tg₂ tls₂ Eis₂ ρ₂ i j base₂ kJ Fs₂ rs₂ Es₂)
+    (hkJ : dJ.k = kJ)
+    (hu₁ : ∀ i', i' < kJ → TV₁.u (base₁ + i') = dJ.uM i' ψ₁)
+    (hu₂ : ∀ i', i' < kJ → TV₂.u (base₂ + i') = dJ.uM i' ψ₂)
+    {l : Nat} (hl₁ : l < ((dJ.Fss i ψ₁).getD j []).length)
+    (hl₂ : l < ((dJ.Fss i ψ₂).getD j []).length)
+    (hr : ((dJ.rss i).getD j []).getD l false = true)
+    (hu : dJ.uT (dJ.tgts i j l) ψ₁ = dJ.uT (dJ.tgts i j l) ψ₂) :
+    TV₁.u (tg₁ l) = TV₂.u (tg₂ l) := by
+  by_cases hnt : dJ.tgts i j l < dJ.k
+  · obtain ⟨-, htg₁, -, -⟩ := h₁.recF l hl₁ hr hnt
+    obtain ⟨-, htg₂, -, -⟩ := h₂.recF l hl₂ hr hnt
+    rw [BlockModel.uT_of_mem hnt ψ₁, BlockModel.uT_of_mem hnt ψ₂] at hu
+    rw [htg₁, htg₂, hu₁ _ (hkJ ▸ hnt), hu₂ _ (hkJ ▸ hnt)]
+    exact hu
+  · obtain ⟨-, -, -, -, ⟨-, -, hv₁, -, -, -⟩, -, -⟩ := h₁.pinF l hl₁ hr hnt
+    obtain ⟨-, -, -, -, ⟨-, -, hv₂, -, -, -⟩, -, -⟩ := h₂.pinF l hl₂ hr hnt
+    rw [BlockModel.uT_of_pin hnt ψ₁, BlockModel.uT_of_pin hnt ψ₂] at hu
+    rw [hv₁, hv₂]
+    exact hu
+
 omit [SetTheory V] in
 /-- **The container instance transfer's PIN correspondence, off the
 recorded pin TABLES** (task #315 L-E, DESIGN §U.61; replaces the
