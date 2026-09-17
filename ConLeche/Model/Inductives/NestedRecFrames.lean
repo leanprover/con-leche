@@ -1928,12 +1928,4 @@ theorem nestedRecReadingsOf_of {F : Nat} (hfr : NestedRecFramesOf V μ F) :
     fms f₀ ctorsA sortss kinds mp₁ ppsF W idxF dsF esF srcsF fvsPF xFvsF xrestF eissF tssF dsR
     xFvsR pinsS mp₂ I)
 
-/-- **THE CONSUMER** (consumer-first): the frames feed the recursors'
-stage verbatim — `nestedTailModeled_of` at `nestedRecReadingsOf_of`'s
-output and the stage's other two named facts. -/
-theorem nestedTailModeled_of_frames {F : Nat} (hfr : NestedRecFramesOf V μ F)
-    (heqs : NestedRecEqsOf V μ F) (hst : NestedRecsStored V μ F) : NestedTailModeled V μ F :=
-  nestedTailModeled_of (nestedRecReadingsOf_of hfr) heqs hst
-
-
 end ConLeche.Model
