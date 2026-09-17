@@ -12,6 +12,8 @@ import ConLeche.Verify.Inductives.NestedOpenSpine
 import ConLeche.Verify.Inductives.NestedCopyKinds
 import ConLeche.Verify.Inductives.NestedAuxInv
 import ConLeche.Verify.Inductives.NestedRestoreKit
+import ConLeche.Model.Inductives.BlockRepCross
+import ConLeche.Model.Inductives.MutualFormersKit
 public section
 
 /-!
@@ -119,6 +121,18 @@ theorem os_instSeq_head {e : Expr} {n : Name} {us : List Level}
   rw [← he, ConLeche.instSeq_mkAppN_const, Expr.getAppFn_mkAppN]
   rfl
 
+/-- The formers are consed in order, so a prefix's environment is a
+stage of the whole list's. -/
+theorem consMutualFormers_append :
+    ∀ (l₁ l₂ : List MutualFormerA) (env : Env),
+      ConLeche.consMutualFormers (l₁ ++ l₂) env
+        = ConLeche.consMutualFormers l₂ (ConLeche.consMutualFormers l₁ env)
+  | [], _, _ => rfl
+  | g :: gs, l₂, env => by
+    show ConLeche.consMutualFormers (gs ++ l₂) ⟨.indInfo g.cvTa {} :: env.consts⟩ = _
+    rw [consMutualFormers_append gs l₂]
+    rfl
+
 section Assembly
 
 variable {F : Nat} {mp : EnvModelM V μ env} {p : NestedParts} {st : ElimState} {b : MutualBlock}
@@ -153,6 +167,91 @@ variable {pinsS : List PinSyn}
     (tssF := tssF) (ctorsR := ctorsR) (dsR := dsR) (xFvsR := xFvsR) (pinsS := pinsS)
     mp₁'.base2 q₀ kJ dJ)
 include SF S
+
+omit SF S in
+/-- **THE PREFIX MODEL'S READINGS, AT THE WHOLE BLOCK'S** (task #315
+L-B): everything the group's syntactic facts read — the container's
+constructor types, the pins' components — is read at the model of the
+environment holding the block's OWN `p.k` formers, while the copies'
+constructors are read at the model holding all of them.  The two agree
+wherever the first reads: the extra constants are the copies' formers,
+which are fresh in the prefix environment, and the two models carry
+the SAME value at every constant the prefix environment holds — the
+block's members by `mutMemberLeaf` (`MutualFormersFacts.leaf` against
+`NestedPinsRun.hleafM'`), everything else by both agreeing with the
+pre-block model. -/
+theorem NestedPinsRun.crossUp :
+    ∀ (ψ : Name → Nat) (dp : Nat) (e : Expr) {ea : AnnotTerm},
+      denoteMeta mp₁'.base2.acval (ConLeche.consMutualFormers (fms.take p.k) env) ψ dp e = some ea →
+      denoteMeta mp₁.base2.acval (ConLeche.consMutualFormers fms env) ψ dp e = some ea := by
+  classical
+  have hndAll : (fms.map (·.cvTa.name)).Nodup := by
+    have h0 := R.hnd
+    unfold ConLeche.MutualBlock.blockNames at h0
+    rw [R.h.names]
+    exact (List.nodup_append.mp (List.nodup_append.mp h0).1).1
+  -- the names of the two halves are disjoint
+  have hsplitNd : ((fms.take p.k).map (·.cvTa.name)
+      ++ (fms.drop p.k).map (·.cvTa.name)).Nodup := by
+    rw [← List.map_append, List.take_append_drop]; exact hndAll
+  have hne : ∀ g ∈ fms.drop p.k, ∀ f ∈ fms.take p.k, f.cvTa.name ≠ g.cvTa.name := by
+    intro g hg f hf heq
+    exact (List.nodup_append.mp hsplitNd).2.2 f.cvTa.name (List.mem_map_of_mem hf)
+      g.cvTa.name (List.mem_map_of_mem hg) heq
+  have hfresh : ∀ g ∈ fms.drop p.k,
+      (ConLeche.consMutualFormers (fms.take p.k) env).find? g.cvTa.name = none := by
+    intro g hg
+    rw [ConLeche.consMutualFormers_find?_of_ne (fun f hf => hne g hg f hf)]
+    obtain ⟨t, ht⟩ := List.getElem?_of_mem (List.mem_of_mem_drop hg)
+    exact R.h.fresh t g ht
+  have hndDrop : ((fms.drop p.k).map (·.cvTa.name)).Nodup := by
+    refine List.Nodup.sublist ?_ hndAll
+    exact List.Sublist.map _ (List.drop_sublist _ _)
+  obtain ⟨hF, hG, hP⟩ := consMutualFormers_ext hfresh hndDrop
+  -- the two models' values agree at every constant the prefix holds
+  have hag : ∀ n, ((ConLeche.consMutualFormers (fms.take p.k) env).find? n).isSome = true →
+      mp₁.base2.acval n = mp₁'.base2.acval n := by
+    intro n hn
+    by_cases hmem : ∃ (t : Nat) (f : MutualFormerA), t < p.k ∧ fms[t]? = some f ∧
+        n = f.cvTa.name
+    · obtain ⟨t, f, ht, hft, rfl⟩ := hmem
+      rw [R.h.leaf t f hft, R.hleafM' t f ht hft]
+    · have hmem' : ∀ (t : Nat) (f : MutualFormerA), t < p.k → fms[t]? = some f →
+          n ≠ f.cvTa.name := fun t f ht hft heq => hmem ⟨t, f, ht, hft, heq⟩
+      have hne' : ∀ f ∈ fms.take p.k, f.cvTa.name ≠ n := by
+        intro f hf heq
+        obtain ⟨t, ht⟩ := List.getElem?_of_mem hf
+        have htlt : t < p.k := by
+          have := (List.getElem?_eq_some_iff.mp ht).1
+          simp only [List.length_take] at this
+          omega
+        exact hmem' t f htlt (by rw [List.getElem?_take_of_lt htlt] at ht; exact ht) heq.symm
+      rw [ConLeche.consMutualFormers_find?_of_ne hne'] at hn
+      have hoff : mp₁.base2.acval n = mp.base2.acval n := by
+        refine R.h.off n (fun t f hft heq => ?_)
+        rcases Nat.lt_or_ge t p.k with hlt | hge
+        · exact hmem' t f hlt hft heq
+        · -- a copy's former is fresh in the pre-block environment
+          rw [heq, R.h.fresh t f hft] at hn
+          exact nomatch hn
+      obtain ⟨-, -, hac, -⟩ := R.cross
+      rw [hoff, hac n hn]
+  intro ψ dp e ea he
+  -- the model's valuation as a plain function, so the environment may be rewritten
+  have key : ∀ A : Name → (Name → Nat) → AnnotTerm,
+      (∀ n, ((ConLeche.consMutualFormers (fms.take p.k) env).find? n).isSome = true →
+        A n = mp₁'.base2.acval n) →
+      denoteMeta A (ConLeche.consMutualFormers fms env) ψ dp e = some ea := by
+    intro A hA
+    rw [show ConLeche.consMutualFormers fms env
+        = ConLeche.consMutualFormers (fms.drop p.k)
+            (ConLeche.consMutualFormers (fms.take p.k) env) from by
+      rw [← consMutualFormers_append, List.take_append_drop]]
+    refine denoteMeta_env_mono hF hG hP dp e ?_
+    rw [denoteMeta_acval_congr
+      (env := ConLeche.consMutualFormers (fms.take p.k) env) (φ := ψ) hA]
+    exact he
+  exact key _ hag
 
 omit SF in
 /-- **The container's constructor record, at the block model**: the

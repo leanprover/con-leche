@@ -322,4 +322,33 @@ theorem openPisAtFvars_closeTelescope :
       | none => none) = _
     rw [hop₂]
 
+/-- **`ErasedEq` at an application spine**: what the interpretation
+reads of a spine is its head and its arguments, one by one.  The arms
+compare a copy's residual with the container's through two different
+openings, and only the ARGUMENTS past the parameters have to agree. -/
+theorem ErasedEq.mkAppN_inv :
+    ∀ {as bs : List Expr} {f g : Expr},
+      Expr.ErasedEq (Expr.mkAppN f as) (Expr.mkAppN g bs) → as.length = bs.length →
+      Expr.ErasedEq f g ∧
+        ∀ l, l < as.length → Expr.ErasedEq (as.getD l default) (bs.getD l default) := by
+  intro as
+  induction as with
+  | nil =>
+    intro bs f g h hlen
+    obtain rfl : bs = [] := List.eq_nil_of_length_eq_zero hlen.symm
+    exact ⟨h, fun l hl => absurd hl (by simp)⟩
+  | cons a as ih =>
+    intro bs f g h hlen
+    cases bs with
+    | nil => exact nomatch hlen
+    | cons b bs =>
+      obtain ⟨hfg, hargs⟩ := ih (f := .app f a) (g := .app g b)
+        (show Expr.ErasedEq (Expr.mkAppN (.app f a) as) (Expr.mkAppN (.app g b) bs) from h)
+        (by simpa using hlen)
+      obtain ⟨hf, hab⟩ : Expr.ErasedEq f g ∧ Expr.ErasedEq a b := hfg
+      refine ⟨hf, fun l hl => ?_⟩
+      cases l with
+      | zero => exact hab
+      | succ l => exact hargs l (by simpa using hl)
+
 end ConLeche
