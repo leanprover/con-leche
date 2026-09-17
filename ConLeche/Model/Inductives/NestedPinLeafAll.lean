@@ -216,6 +216,35 @@ theorem BlockModel.chainFitT_congr_mem {m : EnvModel V env} {dK : BlockModel V}
     rw [hlen, IsBlockModel.Ess_getD hj]
     exact hbE
 
+/-! ## A family is determined by its LEAF -/
+
+/-- **Two families with ONE leaf are one family** (task #315 L-E, DESIGN
+§U.58): over one index set, if each family's fibre at every fitting
+index spine is one stored reading applied to that spine, the families
+are equal.  Every index tuple IS such a spine's (`mem_idxSet_elim`),
+so the leaf laws determine the family.
+
+This is what identifies a container instance's ROOT class with the
+block pin it corresponds to (`ClassPin`): the root's member class has
+`IsBlockModel.leaf`, its pin class has `IsBlockModel.pinLeaf`, the
+block's pin has the leaf of ITS container's model, and all three are
+the SAME stored reading at the same values — `acval` at agreeing level
+assignments (`EnvModel.acval_params`), applied to the components'
+values, which `ClassPin.frame` makes one.  No congruence of the
+abstract `Φ` or `pinCar` in the frame is needed. -/
+theorem fam_eq_of_leaf {w' u : Nat} {ρ₁ ρ₂ : Nat → V} {Ids : List AnnotTerm} {A F₁ F₂ : V}
+    (hsp : ∀ is : List V, SpineFit ρ₁ Ids is → SpineFit ρ₂ Ids is)
+    (hidx : idxSet u ρ₁ Ids = idxSet u ρ₂ Ids)
+    (h₁ : F₁ ∈ˢ famSpace w' (idxSet u ρ₁ Ids)) (h₂ : F₂ ∈ˢ famSpace w' (idxSet u ρ₂ Ids))
+    (hl₁ : ∀ is : List V, SpineFit ρ₁ Ids is →
+      SetTheory.app F₁ (tupW u is) = is.foldl SetTheory.app A)
+    (hl₂ : ∀ is : List V, SpineFit ρ₂ Ids is →
+      SetTheory.app F₂ (tupW u is) = is.foldl SetTheory.app A) :
+    F₁ = F₂ := by
+  refine famSpace_ext h₁ (hidx ▸ h₂) fun t ht => ?_
+  obtain ⟨is, hfit, rfl⟩ := mem_idxSet_elim ht
+  rw [hl₁ is hfit, hl₂ is (hsp is hfit)]
+
 /-! ## The extended carrier is least among the tuples closed under the classes' constructors -/
 
 /-- **A tuple over the classes closed under the classes' constructors**
