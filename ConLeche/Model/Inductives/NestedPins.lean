@@ -314,9 +314,20 @@ the injection shape, the pin's shape fields (the recorded index
 universe `pinU` among them — each pin's is its container's, §U.22),
 the same-universe fact `w`, the constructor counts and the components'
 fit. -/
-structure NestedPinGroupSyn (m : EnvModel V env₂) (q₀ kJ : Nat) (dJ : BlockModel V) : Prop where
+structure NestedPinGroupSyn (st : ElimState) (m : EnvModel V env₂) (q₀ kJ : Nat) (dJ : BlockModel V) :
+    Prop where
   seg : q₀ + kJ ≤ pinsS.length
   kpos : 0 < kJ
+  /-- the group IS the elimination's mint group (task #315 L-E, at lane
+  L-B's request: every group-indexed run Bool — K.32 among them — is
+  keyed by the pin's recorded `grpBase`/`grpSize`) -/
+  grp : ∀ i, i < kJ →
+    (st.pins.getD (q₀ + i) default).grpBase = q₀ ∧ (st.pins.getD (q₀ + i) default).grpSize = kJ
+  /-- the container's block model in the container's own terms, at the
+  pin's OWN `containerInfo?` group (task #315 L-E, at lane L-B's
+  request: `ordFree`/`pinsNotMembers` live here, not in `IsBlockModel`) -/
+  modeled : ∀ i, i < kJ → ∀ ci : ContainerInfo,
+    ConLeche.containerInfo? env ((D).pinAt (q₀ + i)).J = some ci → ContainerModeled m ci dJ
   reps : IsBlockModels m dJ
   kEq : dJ.k = kJ
   rep : ∀ i, i < kJ → ∃ (cvT cvR : ConstantVal) (mI rP : Nat) (rules : List RecRule),
@@ -337,6 +348,9 @@ structure NestedPinGroupSyn (m : EnvModel V env₂) (q₀ kJ : Nat) (dJ : BlockM
   same : ∀ i, i < kJ →
     ((D).pinAt (q₀ + i)).lvls = ((D).pinAt q₀).lvls ∧
     ((D).pinAt (q₀ + i)).DsE = ((D).pinAt q₀).DsE
+  /-- the group's pins share the components' READINGS (task #315 L-E:
+  `PinGroupView.same`'s second half) -/
+  sameDs : ∀ i, i < kJ → ∀ ψ : Name → Nat, ((D).pinAt (q₀ + i)).Ds ψ = ((D).pinAt q₀).Ds ψ
   w : ∀ i, i < kJ → ∀ ψ : Name → Nat, dJ.w (((D).pinAt (q₀ + i)).ψJ ψ) = f₀.s.eval ψ
   ctorCount : ∀ i', i' < kJ → (dJ.ctorsM i').length = (b.ownCtors (p.k + q₀ + i')).length
   DsFit : ∀ i, i < kJ → ∀ (ψ : Name → Nat) (ρ : Nat → V) (as : List V),
@@ -379,12 +393,26 @@ structure NestedPinGroupIds (m : EnvModel V env₂) (q₀ kJ : Nat) (dJ : BlockM
   idx : ∀ i, i < kJ → ∀ (ψ : Name → Nat) (i' : Nat), i' < kJ →
     blockIds b.nP ppsF ψ (p.k + q₀ + i')
       = instTele (((D).pinAt (q₀ + i)).Ds ψ) 0 (dJ.IdsM i' (((D).pinAt (q₀ + i)).ψJ ψ))
-  inst : ∀ i, i < kJ → ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V ((D).params ψ).reverse ρp →
-    ∀ Y, InTupleSpace (f₀.s.eval ψ) kJ
-        (dJ.idx (((D).pinAt (q₀ + i)).ψJ ψ)
-          (consList ((((D).pinAt (q₀ + i)).Ds ψ).map (interp V ρp)) ρp)) Y →
+  /-- the copies' constructor SHAPES (lane L-B) -/
+  shape :
+    ∀ i, i < kJ → ∀ (ψ : Name → Nat) (ρp : Nat → V),
+      Sat V ((D).params ψ).reverse ρp →
       ∀ i', i' < kJ → ∀ j, j < (dJ.ctorsM i').length →
-      CopyCtorInst (V := V) (nP := b.nP) (k := p.k) (resSort := f₀.s) (ppsA := ppsF) (W := W)
+      CopyShapeA (V := V) (nP := b.nP) (k := p.k) (resSort := f₀.s) (ppsA := ppsF) (W := W)
+        (pins := pinsS) (offs := b.ownOffset) (memberNames := (D).memberNames)
+        (tgtsG := mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA))
+        (rss := blkRss ctorsA kinds) (tlss := fun ψ => mutTlss ctorsA.length tssF ψ)
+        (Eiss₀ := fun ψ => mutEiss0 ctorsA.length eissF ψ)
+        (Fss₀ := fun ψ => blkFss0 b ctorsA kinds dsF ψ)
+        (Ess₀ := fun ψ => mutEss0 ctorsA.length esF ψ) (ψ := ψ) (ρp := ρp)
+        m.acval dJ (((D).pinAt (q₀ + i)).ψJ ψ) (((D).pinAt (q₀ + i)).Ds ψ)
+        q₀ kJ i' j
+  /-- the copies' ENTRIES at the auxiliary carrier (`nestedPinLeaf_all`) -/
+  entry :
+    ∀ i, i < kJ → ∀ (ψ : Name → Nat) (ρp : Nat → V),
+      Sat V ((D).params ψ).reverse ρp →
+      ∀ i', i' < kJ → ∀ j, j < (dJ.ctorsM i').length →
+      CopyEntryA (V := V) (nP := b.nP) (k := p.k) (resSort := f₀.s) (ppsA := ppsF) (W := W)
         (pins := pinsS) (offs := b.ownOffset) (mems := mutMems ctorsA.length (mutMemF b))
         (nFs := mutNFs ctorsA.length (mutNFOf ctorsA))
         (tgtsG := mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA))
@@ -392,7 +420,7 @@ structure NestedPinGroupIds (m : EnvModel V env₂) (q₀ kJ : Nat) (dJ : BlockM
         (Eiss₀ := fun ψ => mutEiss0 ctorsA.length eissF ψ)
         (Fss₀ := fun ψ => blkFss0 b ctorsA kinds dsF ψ)
         (Ess₀ := fun ψ => mutEss0 ctorsA.length esF ψ) (ψ := ψ) (ρp := ρp)
-        dJ (((D).pinAt (q₀ + i)).ψJ ψ) (((D).pinAt (q₀ + i)).Ds ψ) q₀ kJ Y i' j
+        dJ (((D).pinAt (q₀ + i)).ψJ ψ) (((D).pinAt (q₀ + i)).Ds ψ) q₀ kJ i' j
 
 local notation "PGS" => NestedPinGroupSyn (V := V) (p := p) (b := b) (fms := fms) (f₀ := f₀)
   (ctorsA := ctorsA) (kinds := kinds) (env := env) (ppsF := ppsF) (W := W) (idxF := idxF)
@@ -405,15 +433,16 @@ local notation "PGI" => NestedPinGroupIds (V := V) (p := p) (b := b) (fms := fms
   (tssF := tssF) (ctorsR := ctorsR) (dsR := dsR) (xFvsR := xFvsR) (pinsS := pinsS)
 
 /-- The group from its two halves. -/
-theorem NestedPinGroupSyn.ofParts {m : EnvModel V env₂} {q₀ kJ : Nat} {dJ : BlockModel V}
-    (S : PGS m q₀ kJ dJ) (I : PGI m q₀ kJ dJ) : PG m q₀ kJ dJ :=
+theorem NestedPinGroupSyn.ofParts {st : ElimState} {m : EnvModel V env₂} {q₀ kJ : Nat}
+    {dJ : BlockModel V} (S : PGS st m q₀ kJ dJ) (I : PGI m q₀ kJ dJ) : PG m q₀ kJ dJ :=
   { seg := S.seg, kpos := S.kpos, reps := S.reps, kEq := S.kEq
     rep := fun i hi => by
       obtain ⟨cvT, cvR, mI, rP, rules, hI, -⟩ := S.rep i hi
       exact ⟨cvT, cvR, mI, rP, rules, hI⟩
     typed := S.typed, pinsTyped := S.pinsTyped, inj := S.inj, pinU := S.pinU, pinNP := S.pinNP, pinNIdx := S.pinNIdx
     pinPps := S.pinPps, pinDsLen := S.pinDsLen, w := S.w, idx := I.idx
-    ctorCount := S.ctorCount, DsFit := S.DsFit, inst := I.inst }
+    same := fun i hi ψ => ⟨S.ψJEq i 0 hi S.kpos ψ, S.sameDs i hi ψ⟩
+    ctorCount := S.ctorCount, DsFit := S.DsFit, shape := I.shape, entry := I.entry }
 
 local notation "ENV₁" => (ConLeche.consMutualFormers (fms.take p.k) env)
 
@@ -436,7 +465,7 @@ structure NestedPinSynFacts (st : ElimState) (mp₁ : EnvModelM V μ ENV₁) : P
         (kinds := kinds) (env := env) (ppsF := ppsF) (W := W) (idxF := idxF) (dsF := dsF)
         (esF := esF) (srcsF := srcsF) (fvsPF := fvsPF) (xrestF := xrestF) (eissF := eissF)
         (tssF := tssF) (ctorsR := ctorsR) (dsR := dsR') (xFvsR := xFvsR') (pinsS := pinsS)
-        mp₁.base2 q₀ kJ dJ
+        st mp₁.base2 q₀ kJ dJ
 
 end Assembly
 
@@ -473,25 +502,6 @@ def baseInfo (env : Env) (st : ElimState) (q : Nat) : ContainerInfo :=
 /-- The `i`-th member of pin `q`'s group (total). -/
 def memberOf (env : Env) (st : ElimState) (q i : Nat) : ContainerMember :=
   (baseInfo env st q).members.getD i default
-
-instance : Nonempty (BlockModel V) :=
-  ⟨{ nP := 0, k := 0, resSort := .zero, isProp := false, large := false, env₀ := ⟨[]⟩
-     memberNames := [], nIdxs := [], ppsM := fun _ _ => [], uM := fun _ _ => 0
-     ctorsM := fun _ => [], idxF := fun _ _ => [], dsF := fun _ _ _ => [], esF := fun _ _ _ => []
-     srcsF := fun _ _ => [], ksF := fun _ _ => [], tgts := fun _ _ _ => 0, fvsPF := fun _ _ => []
-     xFvsF := fun _ _ => [], xrestF := fun _ _ => .sort .zero, eissF := fun _ _ _ => []
-     tssF := fun _ _ _ => [], pins := [], Φ := fun _ _ _ _ => pt, pinCar := fun _ _ _ _ => pt
-     inj := fun _ _ _ _ => pt }⟩
-
-/-- **The block model of a container group** — chosen once per group
-from the premise, so that every pin of a mint group reads the SAME
-block model. -/
-noncomputable def blockOf (m : EnvModel V env) (ci : ContainerInfo) : BlockModel V :=
-  Classical.epsilon fun d => ContainerModeled m ci d
-
-theorem blockOf_spec {m : EnvModel V env} {ci : ContainerInfo}
-    (h : ∃ d : BlockModel V, ContainerModeled m ci d) : ContainerModeled m ci (blockOf m ci) :=
-  Classical.epsilon_spec h
 
 /-- **The `PinSyn` of pin `q`**: the pin's container, K.28's level
 arguments and components, the container's level assignment as the
@@ -752,36 +762,47 @@ half holds has the identity `P`. -/
           (kinds := kinds) (env := env) (ppsF := ppsF) (W := W) (idxF := idxF) (dsF := dsF)
           (esF := esF) (srcsF := srcsF) (fvsPF := fvsPF) (xrestF := xrestF) (eissF := eissF)
           (tssF := tssF) (ctorsR := ctorsR) (dsR := dsR) (xFvsR := xFvsR) (pinsS := pinsS)
-          mp₁'.base2 q₀ kJ dJ →
+          st mp₁'.base2 q₀ kJ dJ →
         P mp p st b fms f₀ ctorsA kinds ppsF W idxF dsF esF srcsF fvsPF xrestF eissF tssF ctorsR
           dsR xFvsR pinsS mp₁' q₀ kJ dJ
 
 
 /-- **The copy-instantiation identities** (NAMED, the identities;
-consumer `nestedPinsStaged_of`): `NestedPinGroup.idx` and `.inst` —
-K.28's pre-image computed through `replaceAllNested`'s action. -/
+consumer `nestedPinsStaged_of`): `NestedPinGroup.idx`, `.shape` and
+`.entry` — K.28's pre-image computed through `replaceAllNested`'s
+action (the shape, lane L-B) and the entries at the auxiliary carrier
+(the whole block's theorem, lane L-E). -/
 @[expose] def NestedPinsIdent (V : Type w) [SetTheory V] (μ : CheckMode) (F : Nat) : Prop :=
-  NestedPinsIdsAt V μ F fun _ p _ b _ f₀ ctorsA kinds ppsF W _ dsF esF _ _ _ eissF tssF _
-      _ _ pinsS _ q₀ kJ dJ =>
+  NestedPinsIdsAt V μ F fun _ p _ b fms f₀ ctorsA kinds ppsF W _ dsF esF _ _ _ eissF tssF _
+      _ _ pinsS mp₁' q₀ kJ dJ =>
     (∀ i, i < kJ → ∀ (ψ : Name → Nat) (i' : Nat), i' < kJ →
       blockIds b.nP ppsF ψ (p.k + q₀ + i')
         = instTele ((pinsS.getD (q₀ + i) default).Ds ψ) 0
             (dJ.IdsM i' ((pinsS.getD (q₀ + i) default).ψJ ψ))) ∧
-    ∀ i, i < kJ → ∀ (ψ : Name → Nat) (ρp : Nat → V),
+    (∀ i, i < kJ → ∀ (ψ : Name → Nat) (ρp : Nat → V),
       Sat V (((ppsF 0 ψ).take b.nP).map (·.2.2)).reverse ρp →
-      ∀ Y, InTupleSpace (f₀.s.eval ψ) kJ
-          (dJ.idx ((pinsS.getD (q₀ + i) default).ψJ ψ)
-            (consList (((pinsS.getD (q₀ + i) default).Ds ψ).map (interp V ρp)) ρp)) Y →
-        ∀ i', i' < kJ → ∀ j, j < (dJ.ctorsM i').length →
-        CopyCtorInst (V := V) (nP := b.nP) (k := p.k) (resSort := f₀.s) (ppsA := ppsF) (W := W)
-          (pins := pinsS) (offs := b.ownOffset) (mems := mutMems ctorsA.length (mutMemF b))
-          (nFs := mutNFs ctorsA.length (mutNFOf ctorsA))
-          (tgtsG := mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA))
-          (rss := blkRss ctorsA kinds) (tlss := fun ψ => mutTlss ctorsA.length tssF ψ)
-          (Eiss₀ := fun ψ => mutEiss0 ctorsA.length eissF ψ)
-          (Fss₀ := fun ψ => blkFss0 b ctorsA kinds dsF ψ)
-          (Ess₀ := fun ψ => mutEss0 ctorsA.length esF ψ) (ψ := ψ) (ρp := ρp)
-          dJ ((pinsS.getD (q₀ + i) default).ψJ ψ) ((pinsS.getD (q₀ + i) default).Ds ψ) q₀ kJ Y i' j
+      ∀ i', i' < kJ → ∀ j, j < (dJ.ctorsM i').length →
+      CopyShapeA (V := V) (nP := b.nP) (k := p.k) (resSort := f₀.s) (ppsA := ppsF) (W := W)
+        (pins := pinsS) (offs := b.ownOffset) (memberNames := (fms.take p.k).map (·.cvTa.name))
+        (tgtsG := mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA))
+        (rss := blkRss ctorsA kinds) (tlss := fun ψ => mutTlss ctorsA.length tssF ψ)
+        (Eiss₀ := fun ψ => mutEiss0 ctorsA.length eissF ψ)
+        (Fss₀ := fun ψ => blkFss0 b ctorsA kinds dsF ψ)
+        (Ess₀ := fun ψ => mutEss0 ctorsA.length esF ψ) (ψ := ψ) (ρp := ρp)
+        mp₁'.base2.acval dJ ((pinsS.getD (q₀ + i) default).ψJ ψ) ((pinsS.getD (q₀ + i) default).Ds ψ)
+        q₀ kJ i' j) ∧
+    (∀ i, i < kJ → ∀ (ψ : Name → Nat) (ρp : Nat → V),
+      Sat V (((ppsF 0 ψ).take b.nP).map (·.2.2)).reverse ρp →
+      ∀ i', i' < kJ → ∀ j, j < (dJ.ctorsM i').length →
+      CopyEntryA (V := V) (nP := b.nP) (k := p.k) (resSort := f₀.s) (ppsA := ppsF) (W := W)
+        (pins := pinsS) (offs := b.ownOffset) (mems := mutMems ctorsA.length (mutMemF b))
+        (nFs := mutNFs ctorsA.length (mutNFOf ctorsA))
+        (tgtsG := mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA))
+        (rss := blkRss ctorsA kinds) (tlss := fun ψ => mutTlss ctorsA.length tssF ψ)
+        (Eiss₀ := fun ψ => mutEiss0 ctorsA.length eissF ψ)
+        (Fss₀ := fun ψ => blkFss0 b ctorsA kinds dsF ψ)
+        (Ess₀ := fun ψ => mutEss0 ctorsA.length esF ψ) (ψ := ψ) (ρp := ρp)
+        dJ ((pinsS.getD (q₀ + i) default).ψJ ψ) ((pinsS.getD (q₀ + i) default).Ds ψ) q₀ kJ i' j)
 
 /-! ## The group's pins, described uniformly -/
 
@@ -1040,7 +1061,7 @@ theorem NestedPinsRun.groupSyn
         (kinds := kinds) (env := env) (ppsF := ppsF) (W := W) (idxF := idxF) (dsF := dsF)
         (esF := esF) (srcsF := srcsF) (fvsPF := fvsPF) (xrestF := xrestF) (eissF := eissF)
         (tssF := tssF) (ctorsR := ctorsR) (dsR := dsR') (xFvsR := xFvsR') (pinsS := PINS)
-        mp₁'.base2 q₀ kJ dJ := by
+        st mp₁'.base2 q₀ kJ dJ := by
   obtain ⟨hF, hres, hag, hde⟩ := R.cross
   have hnP : b.nP = p.nP := (ConLeche.auxBlock_former R.hb).1
   have hlenS : (PINS).length = st.pins.length := pinsOf_length _ _ _ _ _ _
@@ -1143,6 +1164,17 @@ theorem NestedPinsRun.groupSyn
   refine
     { seg := by rw [hlenS]; exact hb3
       kpos := hkpos
+      grp := fun i hi => ⟨(PD.grp i hi).2.1, (PD.grp i hi).2.2.1⟩
+      modeled := fun i hi ci' hci' => by
+        rw [hpinAt, hgp i hi] at hci'
+        change ConLeche.containerInfo? env (memberOf env st q i).name = some ci' at hci'
+        have PDi := hPD ((pinAtE st q).grpBase + i) (by omega)
+        obtain ⟨cii, hcii, -, -, hnPi, hnamesi, -⟩ := PDi.own
+        rw [(PD.grp i hi).1] at hcii
+        rw [PD.baseInfo_group hi] at hnPi hnamesi
+        obtain rfl : ci' = cii := Option.some.inj (hci'.symm.trans hcii)
+        rw [ConLeche.containerInfo?_eq_of_names hci' PD.base hnPi hnamesi]
+        exact CM
       reps := CM.reps
       kEq := hkJ
       rep := ?_
@@ -1168,6 +1200,11 @@ theorem NestedPinsRun.groupSyn
         rw [Nat.add_zero] at h0
         rw [hpinAt, hpinAt, hgp i hi, h0]
         exact ⟨rfl, rfl⟩
+      sameDs := fun i hi ψ => by
+        have h0 := hgp 0 hkpos
+        rw [Nat.add_zero] at h0
+        rw [hpinAt, hpinAt, hgp i hi, h0]
+        rfl
       w := ?_
       ctorCount := ?_
       DsFit := ?_
@@ -1494,11 +1531,13 @@ theorem nestedPinsStaged_of {F : Nat} (hId : NestedPinsIdent V μ F) : NestedPin
     exact R.pinNIdx hpbs hPD hq
   intro dsR' xFvsR' q hq
   obtain ⟨q₀, kJ, i, dJ, hqe, hi, S⟩ := SF.groups dsR' xFvsR' q hq
-  refine ⟨q₀, kJ, i, dJ, hqe, hi, S.ofParts ⟨?_, ?_⟩⟩
+  refine ⟨q₀, kJ, i, dJ, hqe, hi, S.ofParts ⟨?_, ?_, ?_⟩⟩
   · exact (hId mp p st b envAux stored ctorsR fmsA ctorsA₀ fms f₀ ctorsA sortss kinds mp₁ ppsF W idxF
       dsF esF srcsF fvsPF xFvsF xrestF eissF tssF mp₁' R _ SF dsR' xFvsR' q₀ kJ dJ S).1
   · exact (hId mp p st b envAux stored ctorsR fmsA ctorsA₀ fms f₀ ctorsA sortss kinds mp₁ ppsF W idxF
-      dsF esF srcsF fvsPF xFvsF xrestF eissF tssF mp₁' R _ SF dsR' xFvsR' q₀ kJ dJ S).2
+      dsF esF srcsF fvsPF xFvsF xrestF eissF tssF mp₁' R _ SF dsR' xFvsR' q₀ kJ dJ S).2.1
+  · exact (hId mp p st b envAux stored ctorsR fmsA ctorsA₀ fms f₀ ctorsA sortss kinds mp₁ ppsF W idxF
+      dsF esF srcsF fvsPF xFvsF xrestF eissF tssF mp₁' R _ SF dsR' xFvsR' q₀ kJ dJ S).2.2
 
 
 end ConLeche.Model

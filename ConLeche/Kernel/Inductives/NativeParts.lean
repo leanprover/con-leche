@@ -651,4 +651,145 @@ type and constructors rather than declined. -/
 def nativeParts? (nPd : Nat) (block : List ConstantInfo) : Option NativeParts :=
   (nativeShape? nPd block).map fun p => ⟨p, [], nativeRecPinOk p block⟩
 
+/-- One constructor of a container: its name, its stored type and its
+field count. -/
+structure ContainerCtor where
+  name : Name
+  type : Expr
+  nFields : Nat
+  deriving Repr, Inhabited, BEq
+
+/-- One member of a container's `all`-group. -/
+structure ContainerMember where
+  name : Name
+  lps : List Name
+  type : Expr
+  ctors : List ContainerCtor
+  deriving Repr, Inhabited, BEq
+
+/-- A stored inductive's block, as the nested elimination needs it:
+the parameter count and the `all`-group in block order. -/
+structure ContainerInfo where
+  nP : Nat
+  members : List ContainerMember
+  deriving Repr, Inhabited, BEq
+
+/-- Is this motive binder's domain a REAL member's motive — `Π ı⃗ (t :
+C p⃗ ı⃗), Sort ℓ` with `C` a stored inductive applied to the block's
+parameters (the bound variables at the right offsets) and its own index
+variables in order?  `dom` sits at binder depth `nP + i` (the
+parameters and the `i` earlier motives).  A MIMIC's motive fails it:
+its major is the container at the pins, and a pin mentions a member, so
+it is never the bare parameter spine. -/
+def containerMotiveMember? (env : Env) (nP i : Nat) (dom : Expr) : Option Name :=
+  let (bs, res) := dom.piBinders
+  match res with
+  | .sort _ =>
+    match bs.getLast? with
+    | some (major, _) =>
+      let nIdx := bs.length - 1
+      match major.getAppFn with
+      | .const C _ =>
+        let args := major.getAppArgs
+        if args.length == nP + nIdx &&
+            (List.range nP).all
+              (fun j => args[j]? == some (Expr.bvar (nIdx + i + nP - 1 - j))) &&
+            (List.range nIdx).all
+              (fun l => args[nP + l]? == some (Expr.bvar (nIdx - 1 - l))) &&
+            (match env.find? C with | some (.indInfo _ _) => true | _ => false) then
+          some C
+        else none
+      | _ => none
+    | none => none
+  | _ => none
+
+/-- The maximal prefix of motive binders that are real members'
+(`containerMotiveMember?`), in `all` order.  `fuel` bounds the walk by
+the recursor's own motive-plus-minor count. -/
+def containerMembersGo (env : Env) (nP : Nat) : Nat → Nat → Expr → List Name
+  | 0, _, _ => []
+  | fuel + 1, i, .forallE dom body _ =>
+    match containerMotiveMember? env nP i dom with
+    | some C => C :: containerMembersGo env nP fuel (i + 1) body
+    | none => []
+  | _ + 1, _, _ => []
+
+/-- **The container's block** (official's `inductive_val`): `none` when
+the environment does not record enough to reconstruct it — no stored
+former, no `I.rec`, an unreadable parameter count, a group whose
+members disagree on the rule prefix or the level parameters, a
+constructor record missing.  `Quot` is excluded deliberately: official
+stores it as a `quotInfo`, not an inductive, so `is_nested_inductive_app`
+never fires on it and an occurrence of the block inside a `Quot`
+parameter is official's non-positive occurrence. -/
+def containerInfo? (env : Env) (I : Name) : Option ContainerInfo := do
+  if I == quotName then none else
+  let .indInfo cvT _ := (← env.find? I) | none
+  let .recInfo cvR mI rP rules := (← env.find? (I.str "rec")) | none
+  if rP ≤ mI then
+    -- the parameter count: official reads it off the `inductive_val`;
+    -- here off a constructor record (`ctorInfo`'s `numParams`), or —
+    -- at a zero-constructor container — off the former's telescope
+    -- minus the recursor's index count
+    let nP : Nat ← (match rules.head? with
+      | some r =>
+        match env.find? r.ctor with
+        | some (.ctorInfo _ n _) => some n
+        | _ => none
+      | none =>
+        if mI - rP ≤ cvT.type.piArity then some (cvT.type.piArity - (mI - rP))
+        else none)
+    let (_, recBody) ← cvR.type.stripPis nP
+    let names := containerMembersGo env nP (rP + 1) 0 recBody
+    if names.contains I && names.Nodup then
+      let members ← names.mapM fun C => do
+        let .indInfo cvC _ := (← env.find? C) | none
+        let .recInfo _ _ rPc rulesC := (← env.find? (C.str "rec")) | none
+        if rPc == rP && cvC.levelParams == cvT.levelParams then
+          let ctors ← rulesC.mapM fun r =>
+            match env.find? r.ctor with
+            | some (.ctorInfo cvc nPc nF) =>
+              if nPc == nP then some ⟨r.ctor, cvc.type, nF⟩ else none
+            | _ => none
+          some ⟨C, cvC.levelParams, cvC.type, ctors⟩
+        else none
+      some ⟨nP, members⟩
+    else none
+  else none
+
+
+/-! ## The block just installed, read back (task #315 K.34) -/
+
+/-- The block as `containerInfo?` must read it back: the `all`-group in
+block order, the parameter count, each member's level parameters and
+stored type, and each constructor by name with its stored type and
+field count. -/
+def blockContainerInfo (nP : Nat)
+    (members : List (ConstantVal × List (ConstantVal × Nat))) : ContainerInfo :=
+  ⟨nP, members.map fun (cvT, cs) =>
+    ⟨cvT.name, cvT.levelParams, cvT.type,
+      cs.map fun (cv, nF) => ⟨cv.name, cv.type, nF⟩⟩⟩
+
+/-- **THE READ-BACK** (task #315 K.34, the model lane's DESIGN §U.31
+(d)).  At the end of an install route, `containerInfo?` of the
+environment it produced, asked at EVERY member of the block it just
+installed, returns exactly the block's own data.
+
+The model's environment field (`EnvModelB.blocks : EnvBlockModels`) is
+quantified over that READING — `∀ J ci, containerInfo? env J = some ci
+→ ∃ d, ContainerModeled m ci d` — and `ContainerModeled` ties the block
+model to `ci` at its member names, constructor names, `k` and `nP`.  No
+route reads its own output back (`containerInfo?` occurs in the kernel
+only at PRE-block environments, at a pin's container), so the new
+block's `ContainerModeled` was not derivable from the run's stored
+facts.  This Bool makes it a recomputation the model tier can invert.
+
+**It cannot fire**: the route built, and stored, the very records the
+walk reads.  A failure is `.internal`. -/
+def blockReadBackOk (envOut : Env) (nP : Nat)
+    (members : List (ConstantVal × List (ConstantVal × Nat))) : Bool :=
+  let want := blockContainerInfo nP members
+  want.members.all fun M => containerInfo? envOut M.name == some want
+
+
 end ConLeche

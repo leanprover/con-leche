@@ -48,10 +48,11 @@ The algorithm is official's (`src/kernel/inductive.cpp`,
 **One divergence from official, recorded**: official reads the
 container's parameter count and `all`-group off its `inductive_val`;
 our environment stores neither, so both are recovered from the stored
-recursor (`containerInfo?`, `NestedParts.lean`).  When the recovery
-fails at an application that COULD be a nested occurrence the block is
-DECLINED — never treated as non-nested, which would be an accept the
-recovery does not license.
+recursor (`containerInfo?`, `NativeParts.lean` — it moved there with
+task #315 K.34, which reads it back at every install route).  When the
+recovery fails at an application that COULD be a nested occurrence the
+block is DECLINED — never treated as non-nested, which would be an
+accept the recovery does not license.
 -/
 
 namespace ConLeche

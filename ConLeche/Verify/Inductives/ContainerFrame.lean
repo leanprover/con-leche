@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Kernel.Inductives.NestedParts
+public import ConLeche.Kernel.Inductives.NativeParts
 import ConLeche.Verify.EnvWF
 public import ConLeche.Verify.EnvPreds
 import ConLeche.Verify.Inductives.NestedCopyGlue
@@ -10,7 +10,7 @@ public section
 /-!
 # The container's block under an environment extension (task #315)
 
-`containerInfo?` (`ConLeche/Kernel/Inductives/NestedParts.lean`) reads
+`containerInfo?` (`ConLeche/Kernel/Inductives/NativeParts.lean`) reads
 the stored block of an inductive `I` off the environment.  The nested
 route installs constants while it runs, so the model tier needs to know
 when that reading is STABLE: an old container's block must be the same
@@ -490,17 +490,18 @@ theorem containerInfo?_cons_nonInd {env : Env} {c₀ : ConstantInfo}
 an old container's block is read the same at the extended environment,
 provided the new constants are exactly the names `N`, fresh at `env₁`,
 every NEW recursor is named `T.rec` for a new `T`, and the old
-environment is well-formed with its recursors' rule constructors stored. -/
-theorem containerInfo?_ext_ind {env₁ env₂ : Env} {N : List Name}
+environment is well-formed with its recursors' rule constructors stored
+(the EQUALITY of the two readings; `containerInfo?_ext_ind` is its
+one direction). -/
+theorem containerInfo?_ext_ind_eq {env₁ env₂ : Env} {N : List Name}
     (hext : ∀ (n : Name) (c : ConstantInfo), env₁.find? n = some c → env₂.find? n = some c)
     (hnew : ∀ (n : Name) (c : ConstantInfo), env₂.find? n = some c → env₁.find? n = some c ∨ n ∈ N)
     (hfresh : ∀ n ∈ N, env₁.find? n = none)
     (hrecN : ∀ (n : Name) (cv : ConstantVal) (mI rP : Nat) (rules : List RecRule),
       env₂.find? (n.str "rec") = some (.recInfo cv mI rP rules) → n.str "rec" ∈ N → n ∈ N)
     (hwf : EnvWF env₁) (hrc : RecCtorsStored env₁)
-    {I : Name} (hI : I ∉ N) {ci : ContainerInfo} :
-    containerInfo? env₂ I = some ci → containerInfo? env₁ I = some ci := by
-  have hcongr : containerInfo? env₂ I = containerInfo? env₁ I := by
+    {I : Name} (hI : I ∉ N) :
+    containerInfo? env₂ I = containerInfo? env₁ I := by
     refine containerInfo?_congr hfresh (fun n hn => ?_)
       (fun n cv mI rP rules hn h2 hmem => hn (hrecN n cv mI rP rules h2 hmem)) (fun n cv mI rP
         rules h1 r hr hmem => ?_) (fun n cv mI rP rules h1 C hC hmem => ?_) hI
@@ -515,8 +516,20 @@ theorem containerInfo?_ext_ind {env₁ env₂ : Env} {N : List Name}
       have hsome := mentionsConst_of_constsResolve cv.type hres hC
       rw [hfresh _ hmem] at hsome
       simp at hsome
+
+/-- `containerInfo?_ext_ind_eq`, read from the extended environment
+back to the old one. -/
+theorem containerInfo?_ext_ind {env₁ env₂ : Env} {N : List Name}
+    (hext : ∀ (n : Name) (c : ConstantInfo), env₁.find? n = some c → env₂.find? n = some c)
+    (hnew : ∀ (n : Name) (c : ConstantInfo), env₂.find? n = some c → env₁.find? n = some c ∨ n ∈ N)
+    (hfresh : ∀ n ∈ N, env₁.find? n = none)
+    (hrecN : ∀ (n : Name) (cv : ConstantVal) (mI rP : Nat) (rules : List RecRule),
+      env₂.find? (n.str "rec") = some (.recInfo cv mI rP rules) → n.str "rec" ∈ N → n ∈ N)
+    (hwf : EnvWF env₁) (hrc : RecCtorsStored env₁)
+    {I : Name} (hI : I ∉ N) {ci : ContainerInfo} :
+    containerInfo? env₂ I = some ci → containerInfo? env₁ I = some ci := by
   intro h
-  rw [← hcongr]
+  rw [← containerInfo?_ext_ind_eq hext hnew hfresh hrecN hwf hrc hI]
   exact h
 
 end ConLeche

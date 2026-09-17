@@ -308,7 +308,7 @@ theorem checkMutualCore_find?_indInfo {env envOut : Env} {b : MutualBlock} {F : 
         = .ok (consMutualFormers fms env, fms) ∧
       (consMutualFormers fms env).find? n = some (.indInfo cv caps) := by
   obtain ⟨-, -, -, -, env₁, fms, -, -, ctorsA, _sortss, -, -, -, cvRas, rulesOf,
-    hformers, -, -, -, -, -, -, -, -, -, -, htables⟩ := checkMutualCore_inv h
+    hformers, -, -, -, -, -, -, -, -, -, -, htables, -⟩ := checkMutualCore_inv h
   obtain ⟨-, rfl⟩ := mutualFormers_inv hformers
   refine ⟨fms, hformers, ?_⟩
   exact consMutualCtors_find?_indInfo ctorsA
@@ -689,7 +689,7 @@ theorem checkMutualCore_ctor_record {env envOut : Env} {b : MutualBlock} {F : Na
     {J : Nat} {cA : ConstantVal × Nat} (hJ : ctorsA[J]? = some cA) :
     envOut.find? cA.1.name = some (.ctorInfo cA.1 b.nP cA.2) := by
   obtain ⟨hnd, -, -, -, env₁, fms', f₀, -, ctorsA', sortss', -, formers4, ctors4, cvRas,
-    rulesOf, hformers', -, -, -, -, hctors', -, -, -, hrectys, -, htables⟩ :=
+    rulesOf, hformers', -, -, -, -, hctors', -, -, -, hrectys, -, htables, -⟩ :=
     checkMutualCore_inv h
   obtain ⟨-, rfl⟩ := mutualFormers_inv hformers'
   obtain rfl : fms = fms' := congrArg Prod.snd (Except.ok.inj (hformers.symm.trans hformers'))

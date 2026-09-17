@@ -543,7 +543,9 @@ theorem checkNativeTailS_push (mode : CheckMode) {env : Env} {fe : FEnv}
       q.p.nP q.p.majorIdx q.p.rulePrefix cvRa.type q.ctorsA rhss))
     (by show (consSumCtorsF q.p.nP q.ctorsA q.env₁).find? cvRa.name = none
         rw [hnR]; exact hfrR)
-  exact checkNativeTableF_push hpush q.p q.ctorsA q.sortss
+  refine Yields.bind' (checkNativeTableF_push hpush q.p q.ctorsA q.sortss) fun fe' h' => ?_
+  yields
+  all_goals (apply Yields.pure; exact h')
 
 theorem checkNativeS_push (mode : CheckMode) {env : Env} {fe : FEnv}
     (h : PushChain env fe) (p : NativeParts) :
@@ -940,9 +942,9 @@ theorem checkMutualCoreS_push (mode : CheckMode) {env : Env} {fe : FEnv}
   obtain ⟨hfrR, hnR⟩ := hcvRas
   ybind
   ybind
-  refine Yields.mono (mutualTablesF_push structWalkersC b ctorsA sortss fms.zipIdx
+  refine Yields.bind' (mutualTablesF_push structWalkersC b ctorsA sortss fms.zipIdx
     (storeMutualRecsF_push (consMutualCtorsF b.nP ctorsA fe₁) b fms _ cvRas.zipIdx h₂ ⟨?_, ?_⟩))
-    (fun _ h' => h')
+    fun fe' h' => ?_
   · rw [show cvRas.zipIdx.map (fun c => c.1.name) = cvRas.map (·.name) from
       map_fst_zipIdx (·.name) cvRas 0, hnR]
     exact nodup_recs_of_blockNames hnd
@@ -950,6 +952,8 @@ theorem checkMutualCoreS_push (mode : CheckMode) {env : Env} {fe : FEnv}
     obtain ⟨c, hc, rfl⟩ := List.mem_map.mp hn
     rw [← h₂.find?]
     exact hfrR c.1 (fst_mem_of_mem_zipIdx hc)
+  · yields
+    all_goals (apply Yields.pure; exact h')
 
 /-- The recognised mutual block is a fresh chain. -/
 theorem checkMutualS_push (mode : CheckMode) {env : Env} {fe : FEnv}

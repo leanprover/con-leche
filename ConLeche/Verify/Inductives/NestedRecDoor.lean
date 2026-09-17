@@ -537,7 +537,7 @@ theorem auxStored_rec_eq {env envAux : Env} {b : MutualBlock} {F : Nat}
       a.cvRa.type.constsResolve (consMutualCtors b.nP ctorsA (consMutualFormers fms env)) = true ∧
       a.cvRa.type.looseBVarsBounded 0 = true ∧ a.cvRa.type.hasFvar = false := by
   obtain ⟨hnd0, -, -, -, env₁, fms, f₀, _tq₀, ctorsA, sortss, kinds, formers4, ctors4, cvRas,
-    rulesOf, hformers, hf₀, -, -, -, hctors, hkinds, -, hgd, hrectys, -, htables⟩ :=
+    rulesOf, hformers, hf₀, -, -, -, hctors, hkinds, -, hgd, hrectys, -, htables, -⟩ :=
     checkMutualCore_inv h
   obtain ⟨-, rfl⟩ := mutualFormers_inv hformers
   obtain ⟨hlenR, hallR⟩ := checkMutualRecTys_inv hrectys
