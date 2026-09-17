@@ -948,7 +948,11 @@ theorem NestedPinsRun.copyFields {pbs : List (Expr × ConLeche.BinderMeta)}
           Expr.instSeq (srcAtE st p (q₀ + i')).2.2 (dJ.nP - 1 + cc.nFields)
             (Expr.instantiateLevelParams J.lps (pinsS.getD (q₀ + i') default).lvls
               (Expr.mkAppN (.const (dJ.memberName i') (lpsJ.map Level.param))
-                (ConLeche.structPsAt cc.nFields dJ.nP ++ esJ))))) ∧
+                (ConLeche.structPsAt cc.nFields dJ.nP ++ esJ)))) ∧
+        ∀ l, l < cc.nFields → (fcs'.getD l default).1
+          = Expr.instSeq (srcAtE st p (q₀ + i')).2.2 (dJ.nP - 1 + l)
+              (Expr.instantiateLevelParams J.lps (pinsS.getD (q₀ + i') default).lvls
+                (fcs.getD l default).1)) ∧
       -- the block's entry, the rewritten telescope closed over `pbs₀`
       cbody'.stripPis cc.nFields = some (Fs', resid') ∧
       ctorsA[b.ownOffset (p.k + q₀ + i') + j]? = some cA ∧ cA.2 = cc.nFields ∧
@@ -1019,7 +1023,8 @@ theorem NestedPinsRun.copyFields {pbs : List (Expr × ConLeche.BinderMeta)}
     hesJ, hccf, hccb, hksJ, hopb, hplenB, hidxP, hpbs₀len, hpbs₀f, hstripF, hcbb, hcbl,
     hDsB, hlenF', ?_,
     ⟨stC, stD, ?_, hresP.trans hp2, ConLeche.elimMint_mono hresN hmint⟩,
-    ⟨_, _, hinst, by rw [← hbsLen]; exact ConLeche.stripPis_mkPisB_self _ _⟩, ?_, hcA, hnF, hbc⟩
+    ⟨_, _, hinst, by rw [← hbsLen]; exact ConLeche.stripPis_mkPisB_self _ _, ?_⟩,
+    ?_, hcA, hnF, hbc⟩
   · intro l hl
     obtain ⟨-, st₁, st₂, hrun, -, hpre, hnm⟩ := hfields l (by rw [hbsLen]; exact hl)
     refine ⟨st₁, st₂, ?_, hpre.trans hp2, ConLeche.elimMint_mono hnm hmint⟩
@@ -1028,6 +1033,9 @@ theorem NestedPinsRun.copyFields {pbs : List (Expr × ConLeche.BinderMeta)}
     exact hrun
   · rw [hDsnP, List.length_drop, show cbs.length - dJ.nP = cc.nFields from by omega] at hres
     exact hres
+  · intro l hl
+    rw [ConLeche.instTeleSeq_getD _ _ _ _ (by rw [List.length_map, hfl]; exact hl),
+      hmapGet _ l (by rw [hfl]; exact hl), hDsnP]
   · rw [hcb, ← hlenF']
     exact ConLeche.stripPis_mkPisB_self _ _
 
@@ -1104,7 +1112,11 @@ theorem NestedPinsRun.copyResid {pbs : List (Expr × ConLeche.BinderMeta)}
           Expr.mkAppN (.const (dJ.memberName i') usJ)
             ((srcAtE st p (q₀ + i')).2.2 ++
               esJ.map fun e => Expr.instSeq (srcAtE st p (q₀ + i')).2.2 (dJ.nP - 1 + cc.nFields)
-                (Expr.instantiateLevelParams J.lps (pinsS.getD (q₀ + i') default).lvls e)))) ∧
+                (Expr.instantiateLevelParams J.lps (pinsS.getD (q₀ + i') default).lvls e))) ∧
+        ∀ l, l < cc.nFields → (fcs'.getD l default).1
+          = Expr.instSeq (srcAtE st p (q₀ + i')).2.2 (dJ.nP - 1 + l)
+              (Expr.instantiateLevelParams J.lps (pinsS.getD (q₀ + i') default).lvls
+                (fcs.getD l default).1)) ∧
       -- **the residual**: the mimic at the block's parameters, then the
       -- container's index arguments instantiated, verbatim
       cbody'.stripPis cc.nFields = some (Fs',
@@ -1119,7 +1131,7 @@ theorem NestedPinsRun.copyResid {pbs : List (Expr × ConLeche.BinderMeta)}
     hciP, hJmem, hJcc,
     hn, hty, hnf, hJname, hDsnP, hstripJ, hpl, hfl, hesJ, hccf, hccb, hksJ, hopb, hplenB,
     hidxP, hpbs₀len, hpbs₀f, hstripF, hcbb, hcbl, hDsB, hlenF, hfields,
-    ⟨stC, stD, hres, hresP, hresM⟩, ⟨cI, fcs', hinstCI, hstripCI⟩, hcb, hcA, hnF, hbc⟩ :=
+    ⟨stC, stD, hres, hresP, hresM⟩, ⟨cI, fcs', hinstCI, hstripCI, hfcs'⟩, hcb, hcA, hnF, hbc⟩ :=
     R.copyFields SF S hPD hi' hj
   obtain ⟨cvT, caps, cvR, mI, rP, rules, -, hI, -⟩ := S.stored i' hi'
   have hmemJ : dJ.memberName i' = J.name := by rw [hJname]; exact hI.member
@@ -1186,7 +1198,7 @@ theorem NestedPinsRun.copyResid {pbs : List (Expr × ConLeche.BinderMeta)}
   exact ⟨cc, J, ci, lpsJ, pcs, fcs, Fs', esJ, cbody', o, params, pbs₀, cA, cname, qn, _,
     hciP, hJmem, hJcc, hn, hty, hnf, hJname, hDsnP, hstripJ, hpl, hfl, hesJ, hccf, hccb, hksJ, hopb, hplenB,
     hidxP, hpbs₀len, hpbs₀f, hstripF, hcbb, hcbl, hDsB, hlenF, hfields,
-    hresP.subset hqnMem, hqnPin, ⟨cI, fcs', hinstCI, hstripCI⟩, hcb, hcA, hnF, hbc⟩
+    hresP.subset hqnMem, hqnPin, ⟨cI, fcs', hinstCI, hstripCI, hfcs'⟩, hcb, hcA, hnF, hbc⟩
 
 /-! ## The group-internal target, and the two shape arms (task #315 L-B)
 
@@ -1565,7 +1577,7 @@ theorem NestedPinsRun.copyEs {pbs : List (Expr × ConLeche.BinderMeta)}
   obtain ⟨cc, J, ci, lpsJ, pcs, fcs, Fs', esJ, cbody', o, params, pbs₀, cA, cname, qn, usJ,
     -, -, -, hn, hty, hnf, hJname, hDsnP, hstripJ, hpl, hfl, hesJ, hccf, hccb, hksJ, hopb, hplenB,
     hidxP, hpbs₀len, hpbs₀f, ⟨o', hstripF⟩, hcbb, hcbl, hDsB, hlenF, hfields,
-    hqnMem, hqnPin, ⟨cI, fcs', hinstCI, hstripCI⟩, hcb, hcA, hnF, hbc⟩ :=
+    hqnMem, hqnPin, ⟨cI, fcs', hinstCI, hstripCI, -⟩, hcb, hcA, hnF, hbc⟩ :=
     R.copyResid SF S hPD hi' hj
   -- the copy's constructor data at the block
   have hGlt : b.ownOffset (p.k + q₀ + i') + j < ctorsA.length :=
@@ -1797,6 +1809,16 @@ theorem NestedPinsRun.copyRecFDom {pbs : List (Expr × ConLeche.BinderMeta)}
     (hpre : st₂.pins <+: st.pins)
     (hmint : ((srcAtE st p (q₀ + i')).2.2.any fun a =>
       st₁.newNames.any fun T => a.mentionsConst T) = true) :
+    Expr.instSeq (srcAtE st p (q₀ + i')).2.2 (dJ.nP - 1 + l)
+        (Expr.instantiateLevelParams J.lps (pinsS.getD (q₀ + i') default).lvls
+          (fcs.getD l default).1)
+      = Expr.mkAppN (.const (dJ.memberName (dJ.tgts i' j l))
+          (pinsS.getD (q₀ + i') default).lvls)
+        ((srcAtE st p (q₀ + i')).2.2 ++
+          (((fcs.getD l default).1.getAppArgs.drop dJ.nP).map
+              (Expr.instantiateLevelParams J.lps (pinsS.getD (q₀ + i') default).lvls)).map
+            (Expr.instSeq (srcAtE st p (q₀ + i')).2.2 (dJ.nP - 1 + l))) ∧
+    (fcs.getD l default).1.getAppArgs.length = dJ.nP + dJ.nIdxAt (dJ.tgts i' j l) ∧
     Fl = Expr.mkAppN (Expr.mkAppN
         (.const (pinAtE st (q₀ + dJ.tgts i' j l)).aux (p.lps.map Level.param)) params)
       ((((fcs.getD l default).1.getAppArgs.drop dJ.nP).map
@@ -1960,7 +1982,7 @@ theorem NestedPinsRun.copyRecFDom {pbs : List (Expr × ConLeche.BinderMeta)}
     have h1 := ConLeche.find?_pin_of_nodup hndPins (hpre.subset hqnMem) hqnPin
     have h2 := ConLeche.find?_pin_of_nodup hndPins (List.mem_of_getElem? PDm.pin) hpinm
     exact Option.some.inj (h1.symm.trans h2)
-  exact hqnEq
+  exact ⟨by rw [hMtName]; exact hshape, hcLen, hqnEq⟩
 
 /-! ## The auxiliary block's classification at a member-headed field
 (task #315 L-B)
@@ -2091,10 +2113,11 @@ private theorem mutualCtorKinds_memberHead {members : List (Name × Nat × Nat)}
       rw [hneg]; simp)
 
 
-/-- **`CopyCtorShape.recF`'s first two conjuncts** (task #315 L-B): a
-container field that is FINITARY RECURSIVE at one of the container's
-own members `m` is, in the copy, a RECURSIVE field targeting the
-group's copy of that member — the block member `p.k + q₀ + m`.
+/-- **THE AUXILIARY BLOCK'S KIND AT A COPY'S RECURSIVE FIELD** (task
+#315 L-B): a container field that is FINITARY RECURSIVE at one of the
+container's own members `m` is classified by the auxiliary block's
+install as RECURSIVE at the group's copy of that member — the block
+member `p.k + q₀ + m`.
 
 `copyRecFDom` gives the rewritten domain (the mimic of the group's pin
 at `m`, at the block's parameters); closing the telescope back up
@@ -2106,7 +2129,7 @@ CLOSED stored domain the classification reads, and
 `mutualCtorKinds_memberHead` answers `.recursive` at the member table's
 index for the copy's own name (`members3_find?_name` over
 `PinsAligned`, which names the copy after its pin's auxiliary). -/
-theorem NestedPinsRun.copyRecF {pbs : List (Expr × ConLeche.BinderMeta)}
+theorem NestedPinsRun.copyRecFKind {pbs : List (Expr × ConLeche.BinderMeta)}
     (hPD : ∀ q, q < st.pins.length → PinData env st p pbs q)
     (hkindsRun : ConLeche.classifyMutualKinds (m := ConLeche.CheckM) b.members3 b.lps b.nP ctorsA
       = .ok kinds)
@@ -2120,17 +2143,16 @@ theorem NestedPinsRun.copyRecF {pbs : List (Expr × ConLeche.BinderMeta)}
     {l : Nat} (hlF : l < cAJ.2)
     (hmem : dJ.tgts i' j l < dJ.k)
     (hrec : (dJ.ksF i' j).getD l .ordinary = .recursive) :
-    ((blkRss ctorsA kinds).getD (b.ownOffset (p.k + q₀ + i') + j) []).getD l false = true ∧
-      ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
-        (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0 = p.k + q₀ + dJ.tgts i' j l := by
+    (mutKsOf kinds (b.ownOffset (p.k + q₀ + i') + j)).getD l (.ordinary, 0)
+      = (.recursive, p.k + (q₀ + dJ.tgts i' j l)) := by
   classical
   obtain ⟨cc, J, ci, lpsJ, pcs, fcs, Fs', esJ, cbody', o, params, pbs₀, cA, cname, qn, usJ,
     hciP, hJmem, hJcc, hn, hty, hnf, hJname, hDsnP, hstripJ, hpl, hfl, hesJ, hccf, hccb, hksJ,
     hopb, hplenB, hidxP, hpbs₀len, hpbs₀f, ⟨o', hstripF⟩, hcbb, hcbl, hDsB, hlenF, hfields,
-    -, -, ⟨cI, fcs', hinstCI, hstripCI⟩, hcb, hcA, hnF, hbc⟩ := R.copyResid SF S hPD hi' hj
+    -, -, ⟨cI, fcs', hinstCI, hstripCI, -⟩, hcb, hcA, hnF, hbc⟩ := R.copyResid SF S hPD hi' hj
   have hlcc : l < cc.nFields := by rw [← hnf]; exact hlF
   obtain ⟨st₁, st₂, hrun, hpre, hmint⟩ := hfields l hlcc
-  have hFl := R.copyRecFDom SF S hPD hi' hgb hgs CM hj hciP hJmem hJcc hJname hty hnf
+  obtain ⟨-, -, hFl⟩ := R.copyRecFDom SF S hPD hi' hgb hgs CM hj hciP hJmem hJcc hJname hty hnf
     hstripJ hpl hfl hDsnP hDsB hlcc hmem hrec hrun hpre hmint
   -- the group's target pin, and the block former it minted
   have hq : q₀ + i' < st.pins.length := by
@@ -2280,21 +2302,53 @@ theorem NestedPinsRun.copyRecF {pbs : List (Expr × ConLeche.BinderMeta)}
     rw [hnF]; exact hstripAx
   have hkindEntry := mutualCtorKinds_memberHead hmk hksNeg hksUns hstripA2 hlA hdomA
     hauxMem hfind3
-  -- the two conjuncts, read off the table
-  have hlks : l < ksG.length := by
+  rw [hmutKs]
+  exact hkindEntry
+
+/-- **`CopyCtorShape.recF`'s first two conjuncts** (task #315 L-B): the
+kind table's entry (`copyRecFKind`) read back through the block's own
+accessors — the copy's field `l` is recursive, at the block member
+`p.k + q₀ + m`. -/
+theorem NestedPinsRun.copyRecF {pbs : List (Expr × ConLeche.BinderMeta)}
+    (hPD : ∀ q, q < st.pins.length → PinData env st p pbs q)
+    (hkindsRun : ConLeche.classifyMutualKinds (m := ConLeche.CheckM) b.members3 b.lps b.nP ctorsA
+      = .ok kinds)
+    {i' : Nat} (hi' : i' < kJ)
+    (hgb : (pinAtE st (q₀ + i')).grpBase = q₀)
+    (hgs : (pinAtE st (q₀ + i')).grpSize = kJ)
+    (CM : ∀ ciJ : ContainerInfo,
+      ConLeche.containerInfo? env (pinsS.getD (q₀ + i') default).J = some ciJ →
+      ContainerModeled mp₁'.base2 ciJ dJ)
+    {j : Nat} {cAJ : ConstantVal × Nat} (hj : (dJ.ctorsM i')[j]? = some cAJ)
+    {l : Nat} (hlF : l < cAJ.2)
+    (hmem : dJ.tgts i' j l < dJ.k)
+    (hrec : (dJ.ksF i' j).getD l .ordinary = .recursive) :
+    ((blkRss ctorsA kinds).getD (b.ownOffset (p.k + q₀ + i') + j) []).getD l false = true ∧
+      ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+        (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0 = p.k + q₀ + dJ.tgts i' j l := by
+  classical
+  obtain ⟨cc, -, -, -, -, -, -, -, -, -, -, -, cA, -, -, -,
+    -, -, -, -, -, hnf, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -,
+    -, -, -, -, hcA, hnF, -⟩ := R.copyResid SF S hPD hi' hj
+  have hlcc : l < cc.nFields := by rw [← hnf]; exact hlF
+  have hGlt : b.ownOffset (p.k + q₀ + i') + j < ctorsA.length :=
+    (List.getElem?_eq_some_iff.mp hcA).1
+  have hlA : l < cA.2 := by rw [hnF]; exact hlcc
+  have hkindEntry := R.copyRecFKind SF S hPD hkindsRun hi' hgb hgs CM hj hlF hmem hrec
+  have hlks : l < (mutKsOf kinds (b.ownOffset (p.k + q₀ + i') + j)).length := by
     obtain ⟨hksLen, -, -⟩ := R.h.ksJ _ _ hcA
-    rw [← hmutKs, hksLen]; exact hlA
+    rw [hksLen]; exact hlA
   refine ⟨?_, ?_⟩
-  · rw [blkRss_getD hGlt, rsOf_getD (by rw [kindsOf, List.length_map, hmutKs]; exact hlks),
-      decide_eq_true_eq, kindsOf_getD', hmutKs]
+  · rw [blkRss_getD hGlt, rsOf_getD (by rw [kindsOf, List.length_map]; exact hlks),
+      decide_eq_true_eq, kindsOf_getD']
     left
-    show (ksG.getD l (.ordinary, 0)).1 = _
+    show ((mutKsOf kinds (b.ownOffset (p.k + q₀ + i') + j)).getD l (.ordinary, 0)).1 = _
     rw [hkindEntry]
   · rw [mutTgts_getD hGlt (show l < mutNFOf ctorsA (b.ownOffset (p.k + q₀ + i') + j) from by
       show l < (ctorsA.getD _ default).2
       rw [List.getD_eq_getElem?_getD, hcA, Option.getD_some]; exact hlA)]
     show ((mutKsOf kinds (b.ownOffset (p.k + q₀ + i') + j)).getD l (.ordinary, 0)).2 = _
-    rw [hmutKs, hkindEntry]
+    rw [hkindEntry]
     show p.k + (q₀ + dJ.tgts i' j l) = _
     omega
 
