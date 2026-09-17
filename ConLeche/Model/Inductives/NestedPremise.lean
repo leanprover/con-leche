@@ -320,6 +320,24 @@ structure PinGroupView (d dJ : BlockModel V) (q₀ kJ : Nat) : Prop where
     SpineFit (consList as ρ) (dJ.params ((d.pinAt q₀).ψJ ψ))
       (((d.pinAt q₀).Ds ψ).map (interp V (consList as ρ)))
 
+/-- **A pin group's index set IS its container's** (task #315 L-E,
+DESIGN §U.68): at a group `[q₀, q₀ + kK)` of `d` with container `dJ`,
+pin `q₀ + i`'s index-tuple set is `dJ`'s member `i`'s at the pin's
+frame — the sort by `pinU`, the telescope by `pinPps`/`pinNP`, the
+frame by `same`.  What turns a `ClassPin`'s index clause into the
+block's own `idx` at the pin's class, on either side of the pair. -/
+theorem BlockModel.pinIdx_of_view {d dJ : BlockModel V} {q₀ kK : Nat}
+    (S : PinGroupView d dJ q₀ kK) (ψ : Name → Nat) (ρ : Nat → V) {i : Nat} (hi : i < kK) :
+    d.pinIdx (q₀ + i) ψ ρ = dJ.idx ((d.pinAt q₀).ψJ ψ) (d.pinFrame q₀ ψ ρ) i := by
+  have hfr : d.pinFrame (q₀ + i) ψ ρ = d.pinFrame q₀ ψ ρ := by
+    unfold BlockModel.pinFrame; rw [(S.same i hi ψ).2]
+  have hIds : (d.pinAt (q₀ + i)).Ids ψ = dJ.IdsM i ((d.pinAt q₀).ψJ ψ) := by
+    unfold PinSyn.Ids
+    rw [S.pinPps i hi, S.pinNP i hi, (S.same i hi ψ).1]
+    rfl
+  unfold BlockModel.pinIdx BlockModel.idx
+  rw [hfr, hIds, S.pinU i hi ψ]
+
 /-- **A pin group's own members are their own partners** (task #315
 L-E, DESIGN §U.65 — `InstanceCovered`'s first case, §U.55 (b)'s Base):
 at the ROOT group `[r, r + kR)` of a container instance, read at the
