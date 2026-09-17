@@ -80565,6 +80565,170 @@ adaptation across three files, and the arena run.  Next: L-E's blob
 route and `NestedPinsEntry`, M7's three stage facts, `ordF`-left's B6
 case, and `MutualOrdFree` at `declMutualB`.
 
+##### (t) INTEGRATION 3l — K.38/K.39, the MUTUAL and BASIS tiers lifted over NOTHING, and TWO of the tail's three named facts DISCHARGED (session U-34)
+
+Three merges into the lane, `--no-ff` at the pinned shas —
+`agent/uniform-m5` **e03d4843** (the kernel lane) at 576253b3,
+`agent/uniform-m7env` **704c4634** (M7-3 s9) at 8826c258 and
+`agent/uniform-m7read` **d534dd5e** (M7-2 s9) at ebc4a9f9.  **The
+nested chain does not move**: `declNested_of` over `mp : EnvModelB`
+still closes over exactly `hSh : NestedPinsShape`, `hEn :
+NestedPinsEntry` and `htail : NestedTailModeled` (plus `hE` and the
+run).  What moves is INSIDE `htail` — two of its three named facts are
+discharged — and beside it: the MUTUAL route and the BASIS tier now
+hand back the environment model WITH ITS BLOCKS over nothing beyond
+their runs, which is the whole of M8's input list except the nested
+one.
+
+*Merge 1 — the kernel lane* (576253b3).  d2347e27 (K.37) came in at 3k,
+so the delta is K.38 and K.39 alone.  K.38 threads the block's level
+parameters through `auxAppsOk`/`auxAppsNodeOk`/`auxAppsGoM` (with
+`AuxAppsMemoInv`, `auxAppsGoM_spec` and the `@[csimp]`) and
+`nestedAuxAppsOk` passes `p.lps`: a key-headed spine's head must carry
+`lps.map Level.param`, which is what the model's reading law needs to
+rewrite by `denoteMeta_const` to the leaf `acvalA n φ`.  K.39 is one
+`certOnly`-gated conjunct after `restoreRecTys` over `cvRms`/`cvRns`
+(the restored recursors' names pairwise distinct), mirrored in
+`checkNestedS`, `DeclNestedRun` and `checkNested_inv`.  DESIGN was the
+only conflict, a pure append (§K.38/§K.39 after §K.37; the two ledger
+rows auto-merged, K.38's replacing K.35's).  **ONE adaptation**, the
+shape §U.27 (s)'s rule predicts exactly: `declNested_of`
+(`Model/Inductives/DeclNestedCore.lean`) gains one `-` binder after
+`hrn` — K.39 adds a conjunct, so the one run-destructuring site on this
+route pays one binder; K.38 changes an existing Bool's ARGUMENTS, not
+the conjunct list, and costs nothing anywhere.
+
+*Merge 2 — M7-3 session 9* (8826c258).  `declMutualB` now matches
+`declNativeB`: `hμ`, the carrier, `hE`, `mutualRecPinOk` and the run,
+and **no hypothesis beyond the run** — the model tier's DUPLICATE
+`MutualOrdFree` is deleted (the Verify one is `@[expose]` and the
+single definition) and `mutualOrdFree_of_run` bridges off the run.  The
+basis tier is lifted the same way: the seventeen `extend*` installs
+return their carrier equations (`nonempty_of_exists` deleted),
+`declBasisPB_*` composes them, `basisStepAgree_of` (`Model/Fold.lean`)
+is the dispatch with `basisStepPB_of` its `Nonempty` projection, and
+the new `Model/Inductives/BasisBlocksFold.lean` holds the five
+instantiations and `basisStepB_of`.  `BlockInstallExt` is unprovable
+for `Quot` (its recursors are not named `I.rec`), so the record is
+SPLIT into `ConsExt` + `BlockInstallExt` with the old names kept as
+wrappers; the `Env.findProj?` door is avoided via
+`Env.findProj?_some`/`findProj?_of_table`.  DESIGN §U.55.  **DESIGN was
+the only conflict**, resolved BY NUMBER — §U.55 interleaved after §U.53
+and before the K sections, which the branch has never seen — and
+verified a pure union (zero lines dropped against either parent, the
+single exception being merge 1's own deliberate ledger-row
+replacement).  The forecast `EnvModelBStages.lean` collision against
+merge 1's `certOnly` lines **did not happen**: merge 1 touched no model
+file, and the branch's base already carried the gate.  **NO source
+adaptation.**  `Model/Fold.lean`'s capstone-consumed statement did not
+move — checked on the diff, `basisStepPB_of`'s signature is
+byte-identical and only its position and proof changed — and OVERVIEW's
+two `Model/Fold.lean` anchors came in repointed as pure line shifts
+(`no_proof_of_False_pure` L316 → L330, `declStep_preserves` L177 →
+L192, the latter having been landing on a COMMENT line rather than the
+theorem it names).  Both target lines were read back by hand and both
+citing paragraphs re-read; no `--update` was taken.
+
+*Merge 3 — M7-2 session 9* (ebc4a9f9).  Two of `nestedTailModeled_of`'s
+three named facts are GONE: `nestedRecReadingsOf_of_faces` and
+`nestedRecEqsOf_of_faces` discharge `NestedRecReadingsOf` and
+`NestedRecEqsOf` at every tail input modulo the TWO kernel-side model
+faces K.35 (`NestedRecTysAuxOf`) and K.36 (`NestedCtorPinNamesOf`), and
+
+```lean
+theorem nestedTailModeled_of_stage {F : Nat} (hK35 : NestedRecTysAuxOf μ F)
+    (hK36 : NestedCtorPinNamesOf μ F) (hst : NestedRecsStored V μ F) :
+    NestedTailModeled V μ F
+```
+
+is the consumer.  The THIRD model face is deleted outright: it is the
+pin group's own `NestedPinGroup.ctorsOf` (`NestedCore.lean`), forwarded
+by `ofParts` (`NestedPins.lean`) and `crossEnv` (`NestedLoop.lean`).
+Eight new `Model/Inductives/` modules (`NestedRecScratch`,
+`NestedRecFibre`, `NestedRecWalk`, `NestedRecCtor`, `NestedRecFrames`,
+`NestedRecFrames2`, `NestedRecEqs`, `NestedRecsStore` — the last with
+`nestedRecLeaf` and its laws, `nestedRecProvisionCons`,
+`nestedRecsProvisionGo`, `nestedRecsProvision`) and three Verify kits
+(`NestedRecCtorPin`, `NestedRecFramesKit`, `NestedRecWalk`); DESIGN
+§U.29 (p)–(u).
+
+**NOTHING CONFLICTED ON MERGE 3** — every forecast conflict failed to
+materialise.  `NestedCore.lean`, `NestedPins.lean` and `NestedLoop.lean`
+take the `ctorsOf` field and its two forwardings in regions merge 2
+never touched; `ConLeche/Model.lean` auto-merged the eight new
+`public import`s in dependency order beside merge 2's
+`BasisBlocksFold`; `scripts/pub-import-plan.py` had no counterpart on
+the lane; and DESIGN's §U.29 continuations append INSIDE the lane's own
+§U.29, which sits far above the K sections.  Pure union verified, zero
+source adaptations.
+
+**The import gate had one thing to take, and it was the branch's own.**
+Shake 510 proposed / all 510 allowlisted at all three merge commits (the
+allowlist untouched throughout); pub-imports none demotable at each —
+1277 of 2018 in-tree edges public with 38 dot-notation fallbacks after
+merge 1, 1283 of 2025 after merge 2, 1309 of 2117 after merge 3's eleven
+modules with 41.  M7-2's three FALLBACK entries (`NestedRecFrames` →
+`NestedRecCtor` / `NestedRecTypes` / `NestedRestoreTbl`, the
+one-import-view class of §U.21 (f)) were RE-VERIFIED here by a failing
+demotion, one at a time: `Unknown identifier OpenersFrom`, `Unknown
+identifier nestedRecCvAt`, `Unknown identifier ConLeche.PinsAligned`.
+
+Gates at ALL THREE merge commits: `lake build` warning-free (701 jobs at
+merge 1, 702 with `BasisBlocksFold`, 713 with M7-2's eleven), `lake
+test` warning-free, shake and pub-imports as above, layering base 347 /
+model 271 / caps 3 / umbrella 1 → 347/272/3/1 → 350/280/3/1 with 0
+base→lane and 0 impl→theory; trust surface 13 escapes in 5 allowlisted
+files (633, 634, 645 scanned); no-local-paths OK; overview-links 112;
+quote-gate 2; proofdeps 4955 rows / 12 roots / **0 doors** at each — the
+row count did not move; nested-shadow 27/27 at merges 1, 2 and 3.  **And
+`tests/arena.sh` EXIT 0 on merges 1 and 2** — checker code changed on
+merge 1 (all three routes' run relations), and merge 2 was run because
+the basis and mutual tiers' proofs moved under the capstones; merge 3
+touches no checker code and no capstone-consumed statement, so it owed
+none.  No `sorry`, no axioms, no `maxHeartbeats`, no checker code EDITED
+(the kernel lane's is merged, not changed).
+
+**The chain, re-verified** (`_tmp/uniform-315/chain-probe-u34.lean`,
+outside the build): `declNested_of hμ mp hE (nestedCoreModeled_of
+(nestedCtorsStaged_of (nestedPinsStaged_of (nestedPinsIdent_of hSh
+hEn)) nestedReadLaw)) htail h : Nonempty (EnvModelM V μ envOut)` still
+closes over exactly `hSh`, `hEn` and `htail` (plus `mp : EnvModelB V μ
+env`, `hE` and the run), and the same composition with
+`nestedTailModeled_of_stage hK35 hK36 hst` in `htail`'s place closes
+over `hSh`, `hEn`, `NestedRecTysAuxOf`, `NestedCtorPinNamesOf` and
+`NestedRecsStored`.  New probes, all green: `declMutualB hμ mb hE
+hpinOk h` and `basisStepB_of mb h`, both over NOTHING beyond their runs,
+beside `declNativeB`'s; `nestedRecReadingsOf_of_faces`,
+`nestedRecEqsOf_of_faces`, `nestedRecFramesOf_of`,
+`NestedPinGroup.ctorsOf`, the `NestedRecsStore` kit, `ConsExt`/
+`BlockInstallExt`, `Env.findProj?_some`/`_of_table`,
+`mutualOrdFree_of_run`, and the kernel's `auxAppsOk`/`auxAppsNodeOk`/
+`nestedAuxAppsOk`/`AuxAppsMemoInv`/`auxAppsGoM_spec` at their K.38
+signatures with `nestedPinRankOk`/`nestedPinInstOf`/`nestedPinRankOf`.
+`#print axioms` of all seven probe theorems: `[propext,
+Classical.choice, Quot.sound]`.
+
+**The residual after 3l.**
+
+* **`NestedPinsShape V μ F`** — lanes L-B/L-E, unchanged.
+* **`NestedPinsEntry V μ F`** — lane L-E, unchanged.
+* **`NestedTailModeled V μ F`** — now `nestedTailModeled_of_stage`
+  modulo **`NestedRecsStored`** (M7-2's item 5, the stage proper) and
+  the two KERNEL-SIDE model faces `NestedRecTysAuxOf` (K.35) and
+  `NestedCtorPinNamesOf` (K.36).  §U.29 (q) records that K.35 AS
+  LANDED does not discharge its face — K.38 closes one of the four gaps
+  it named, and the other three are the model's.
+
+Beside the chain, the MUTUAL route and the BASIS tier owe NOTHING —
+`declMutualB`'s `MutualOrdFree` argument, which 3k left as a lane item,
+is discharged — so M8's four inputs are `declNativeB`, `declMutualB`,
+`basisStepB_of` and the nested one.
+
+Cost: well under a session — one DESIGN append, one DESIGN interleave,
+one conflict-free merge, one `-` binder, and two arena runs.  Next:
+L-E's blob route and `NestedPinsEntry`, M7-2's item 5 and the three
+remaining K.35 gaps, `ordF`-left's B6 case, and M8.
+
 #### K.32 — the copies' recursive targets come from the container's own recursion (2026-09-16, task #315, lane L-B's DESIGN §U.23 (e))
 
 The model's `ordF` arm needs to know that a container-ORDINARY field
