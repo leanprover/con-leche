@@ -88515,6 +88515,236 @@ Gates at the session's commits: `lake build` 701 jobs warning-free,
 overview-links / quote-gate / proofdeps / shake and pub-imports as the
 integration's.
 
+#### U.62 — L-B session 14: the rewrite's reading law is the MIMIC's own (and circular), the λ-pin residue MEASURED at `nested_p20`, and the record that removes it (lane L-B, 2026-09-17)
+
+**There is no rewrite-level reading law to prove.**  §U.60 (f) sized
+`ordF`-left's λ-pin residue as "a rewrite-level reading law — the pins'
+leaf laws at an arbitrary subterm of a field domain".  That law is
+`pinLeaf` itself, and at the shape's tier it is circular (a).  What the
+residue does have is a CHEAP KERNEL ROUTE that closes it outright, with
+no accept-set change and no model machinery beyond the fit L-E already
+added (c) — and the residue is REAL: `tests/e2e/nested_p20.ndjson`
+(`P20 | mk : Subtype (List P20) (fun _ => True) → P20`, accepted)
+exhibits it, so nothing here is hypothetical (d).  The residual
+`NestedPinsShapeNoLam` was FALSE as §U.60 stated it; it is narrowed to
+the ORDINARY kind and landed so (b).
+
+##### (a) Why the induction over `replaceAllNested` stops at the occurrence
+
+The arm needs `interp (stored field reading) = interp (instAll Ds l
+(container's field reading))`.  The stored domain is the positivity
+normalisation of the elimination's REWRITE of the minted domain, and
+the minted domain's reading is `instAll Ds l` of the container's
+(`mintFieldRead`, §U.44).  So the two legs are
+
+* `interp (stored) = interp (rewritten)` — `normPosDomM_read_of`, at
+  `Sat` for the AUXILIARY constructor's context, and
+* `interp (rewritten) = interp (minted)` — the law §U.60 (f) asked for.
+
+The second leg's induction is `replaceAllNested_frame`'s, with
+`denoteMeta`/`interp` in place of the frame, and it goes through at
+every node but one.  The binder cases cost nothing: `denoteMeta` reads
+`.fvar idx _` as `.bvar (d - 1 - idx)` and ignores the annotation
+(`Model/Annot/Bit.lean`), so the two openings `body.instantiate1 (.fvar
+d ty)` and `body'.instantiate1 (.fvar d ty')` are compared at the SAME
+variable even though the rewrite changed the domain.  The planted term
+is `mkAppN (mkAppN (.const q.aux blvls) params) idxs`
+(`replaceIfNested_shape`) against the input's own
+`mkAppN (.const J lvls) (Ds ++ idxs)`: the indices are shared
+syntactically, the `params` are the block's openers, and a FIRING
+occurrence's components are loose-`bvar`-free (`nestedOccOk` REJECTS a
+parameter argument with a loose `bvar`), so the occurrence's reading
+does not depend on the binders the walk descended under.  What the case
+needs is therefore exactly
+
+```
+interp V ρ (reading of `aux.{blvls} params`) = interp V ρ (reading of `J.{lvls} Ds`)
+```
+
+which is **`pinLeaf`**.  At this tier that is circular: `acval` at a
+minted name is the SCRATCH mutual block's own carrier component (the
+readings are taken in `consMutualFormers fms env`), and identifying it
+with the container at the components is `ofNested_pinLeaf_of`, whose
+`hsh` hypothesis is the very shape being proved — and a self-nested
+container puts the group's own pins inside its own copies, so the
+circle is real and not an ordering inconvenience.
+
+The other reading of the residue — the occurrences the whnf DISCARDS,
+which in the ordinary case they must be, since the stored domain
+mentions no member — is a fact about the two terms' `whnf`s, and the
+model tier has a `whnf` run for ONE of them: the checker never
+normalises the container's instantiated domain.  So the law is not
+false, it is unavailable: true by `pinLeaf`, and `pinLeaf` is
+downstream of the shape.
+
+##### (b) `NestedPinsShapeNoLam` was FALSE, and is narrowed
+
+§U.60's residual quantified over EVERY copy field, and an accepted
+block refutes it: `tests/e2e/nested_lam_pin_prop.ndjson` (re-run here,
+`nested-shadow T accept`) copies `Wrap (f : True → Type) | mk :
+(f trivial) → Wrap f` at `f := fun _ : True => T`, so the copy's second
+field domain is `(fun _ : True => T) trivial` — it MENTIONS the member
+`T`, and its normalisation KEEPS the mention, so the field is
+classified recursive and `ordF`'s left arm never asks about it.  The
+kind equation is in scope at the assembly's only application of the
+residual (the `.ordinary` branch of the `kindAt` split), so the fix is
+one hypothesis on the definition and one argument at the call:
+
+```
+kindAt (mutKsOf kinds (b.ownOffset (p.k + q₀ + i') + j)) l = .ordinary →
+```
+
+With it the residual is a decidable predicate of the run's own data,
+and a refutable residual is strictly worse than an open one — which is
+why this landed before (c)'s record was designed.
+
+##### (c) K.42 (REQUESTED) — the positivity walk on the MINTED domain
+
+(K.41 is taken: the coordinator's record for `ordF`-right's
+correspondence.)  The cheap record is NOT the obvious one.  The obvious
+one — *"a given domain that mentions a member is never classified
+ordinary"*, i.e. exactly (b)'s residual as a Bool — is a DECLINE, and
+(d) measures it non-vacuous, so it is refused here.
+
+What the model needs instead is a second run of the walk the kernel
+already has:
+
+* **the record**: at every constructor field of every COPY whose kind
+  is `.ordinary`, `normPosDomM ops env memberNames d 1024 Fl₀ = .ok w`
+  with `w == stored`, where `Fl₀` is the field's MINTED domain (the
+  container's field instantiated at the pin's components — `mkCopy`'s
+  output, before `replaceAllNested`) and `stored` the installed one.
+  `certOnly`: nothing outside certification reads it, so trusted mode
+  pays nothing.  The restriction to ordinary fields is not cosmetic —
+  at a recursive field `stored` carries the MIMIC where `w` carries the
+  container application, and the Bool would fail.
+* **the model's proof, with leg 1 GONE**: `normPosDomM_read_of` at the
+  recorded run gives `interp (reading Fl₀) = interp (reading w) =
+  interp (reading stored)`, and `mintFieldRead` (§U.44, proved) is
+  `reading Fl₀ = instAll Ds l (container's field reading)`.  The
+  arm closes for EVERY field; `NestedPinsShapeNoLam` disappears; and
+  the `Sat`/`CtxOk` the law wants is at the CONTAINER's instantiated
+  constructor context, which is precisely L-E's fitting-prefix premise
+  (§U.59 (d), `agent/uniform-entry` ce12ee7d) plus the container's own
+  typing — never the auxiliary context, which is what made leg 1 (and
+  §U.59 (d)'s sizing) expensive.
+* **why `w == stored` holds** at an ordinary field: the minted and the
+  rewritten domain differ only at the replaced occurrences, neither a
+  mimic application nor a container application heads a redex (both
+  are stored inductives, no δ and no ι), and an ordinary field's
+  `stored` carries no member at all — so the surviving term is the same
+  on both sides.  It is a Bool, so a block where it fails DECLINES
+  rather than being mis-accepted.
+
+##### (d) The measurement
+
+A temporary throw inside `normFieldDomsM` (`mentionsMember dom &&
+!mentionsMember dom'` — the positivity normalisation DROPPED a member
+mention; reverted, it is not in the tree) turns every instance of the
+residue into a decline:
+
+* `tests/e2e/*.ndjson`, all 199 fixtures, each under `--nested-shadow`:
+  **one hit**, `tests/e2e/nested_p20.ndjson` —
+  `P20 | mk : Subtype (List P20) (fun _l : List P20 => True) → P20`.
+  The copy of `Subtype` at `Ds = [List P20, fun _l : List P20 => True]`
+  has `Subtype.mk`'s second field `p val` instantiated to
+  `(fun _l : List P20 => True) val`: the rewrite fires INSIDE the λ's
+  domain annotation (`List P20` mentions the member), `whnf` beta-drops
+  the annotation, and the stored domain is `True` — member-free, hence
+  ORDINARY, hence `ordF`'s left arm with a mimic planted in a discarded
+  position.  This is the residue, at the corpus's own `Subtype`
+  nesting;
+* `_tmp/init-exports/init-full.ndjson`: no hit (exit 0, 53 093
+  declarations);
+* Mathlib (`_tmp/mathlib-scoping/mathlib-full.ndjson`): **no hit** — exit 0, 654 504
+  declarations accepted, the 41 nested blocks the modeller generates
+  included (their aux records go through the fold as declarations, so
+  the walk ran over them too)
+
+So the residue is a CRAFTED shape, not a corpus shape: the
+decline-shaped record would be vacuous on both large streams, and
+would cost exactly one fixture — `nested_p20`, accepted today
+(`tests/nested-shadow-expected.txt`), whose expectation would have to
+become a decline.  That is an accept-set NARROWING on a shape official
+takes, so it is the maintainer's call and not a lane's; K.42's
+second-run form costs no accept set at all, which is why it is what
+this section requests.  (b)'s narrowed residual stays open until one of
+the two lands.
+
+##### (e) `pinF`'s occurrence chain: the uniformity is recorded, the MENTION is not
+
+§U.60 (f) sized `NestedPinsShapePinF` at "2–3 sessions: the container's
+own pin's components must be shown to mention a minted name, which
+needs K.14's uniformity INSIDE a pin's components".  Half of that is
+already in the tree, and the other half is a MISSING CONJUNCT, not a
+missing check:
+
+* **the uniformity is there.**  `containerFactsOk`
+  (`Kernel/Inductives/NestedParts.lean`) runs `uniformIndOccsOk` over
+  the container's WHOLE stored constructor types, and `uniformIndOccsE`
+  descends `.app`, `.lam`, `.forallE`, `.letE` and `.proj` — so a
+  member occurrence INSIDE a pin's components (`List (Bar α β)`'s
+  `Bar α β`) is already checked to carry the group's parameter spine and
+  level arguments, and `nestedContainersOk_uniform` +
+  `uniformIndOccsE_stripPis` are the readers.  What
+  `nestedContainersOk_memberSpine` adds is the HEAD case only (the
+  field headed by a member), so the pin case needs the same two
+  readers at an ARGUMENT instead of a new record;
+* **the mention is not.**  The fire wants a PARAMETER argument of the
+  field's spine to mention a new name, and after the instantiation that
+  reduces (uniformity, plus `copyRecFDom`'s own `hmint`) to: the
+  container's nested field domain mentions a member of the container's
+  group AT THE PARAMETER PART.  `BlockOpened.nestF` (`BlockRep.lean`)
+  gives the head `(pins q).J`, the argument count and
+  `constsResolve env₀` for the arguments PAST `nPJ` — i.e. the indices
+  are member-free — but says nothing about the first `nPJ`, and
+  `ContainerModeled`'s `pinNP`/`pinψ`/`pinsNotMembers` are semantic.
+  So the chain needs one more clause, and it is `ordFree`'s TWIN:
+  `ContainerModeled.ordFree` (`NestedPremise.lean`) already carries the
+  ordinary direction — "`mutualCtorKinds` calls a field ordinary
+  exactly when it mentions none of the block's members, but
+  `BlockOpened.ord` records only `constsResolve env₀`", its own comment
+  — and what `pinF` needs is the other half of that `iff` at a nested
+  field:
+
+```
+  nestMention : ∀ (i j l q : Nat) (x : Expr), i < d.k → j < (d.ctorsM i).length →
+    (d.xFvsF i j)[l]? = some x → d.nestOf i j l = some q →
+    ∃ e ∈ x.fvarTypeD.getAppArgs.take (d.pinAt q).nPJ,
+      ConLeche.mentionsMember d.memberNames e = true
+```
+
+  It costs no new kernel check (the classification's very first test IS
+  that mention, so every instance's proof has it) and the request is
+  one field beside `ordFree`, in the same file, for the same reason.
+  **Request to lane L-E / M7-3**, who own `NestedPremise.lean`.
+
+With that conjunct the chain is `copyRecFDom`'s at a pin's container in
+place of a member: the occurrence (`replaceAllNested_occurrence`), the
+mimic's identity (`pinsDistinct` through `find?_pin_of_nodup`), the
+kind (`mutualCtorKinds_memberHead` at the minted name — the copy's
+field IS headed by a mimic, which is a member of the AUXILIARY block),
+the target's `p.k ≤ tg l`, and the telescope/index conjuncts
+(`copyRecFRead`'s chain).  After L-E's §U.61 `PinCorr`'s remaining
+clauses are the target's recorded pin data (`targetPin_corr`), the
+components-as-`Expr` clause having been DELETED.
+
+##### (f) GATES
+
+`lake build` 701 jobs warning-free; `lake test` 546 jobs warning-free
+(the test library force-rebuilt, since the measurement's temporary
+patch had invalidated its closure); layering base 347 / model 271 /
+caps 3 / umbrella 1, 0/0; trust surface 13/5 (633); overview-links
+112; quote-gate 2; no-local-paths OK; proofdeps 4955 rows / 12 roots /
+0 doors; shake 510/510 allowlisted; pub-imports 1277 of 2019, none
+demotable (38 dot-notation fallbacks); nested-shadow 27/27.  The chain
+probe `nestedPinsStaged_of (nestedPinsIdent_of (nestedPinsShape_of …)
+hEn)` still typechecks over the narrowed residual, standard axioms
+only.  Files: `NestedCopyInst.lean` (the narrowed `NestedPinsShapeNoLam`
+and the assembly's one extra argument), `DESIGN.md`.  The measurement's
+patch to `Kernel/Inductives/MutualInstall.lean` was reverted before the
+gates and is in no commit.
+
 #### U.64 — L-E session 13: the copy-to-copy transfer (no `ordF`-right correspondence), `htrans_of_walk`, and what `InstanceCovered` still needs at the ROOT (lane L-E, 2026-09-17)
 
 ##### (a) The transfer, re-cut: three chains, not two
