@@ -112,4 +112,90 @@ theorem instPisILP_read (m : EnvModel V env) {ψ ψJ : Name → Nat} {nP : Nat}
     List.length_drop] at hpeel
   rw [hrest, ← Option.some.inj hpeel]
 
+/-! ## The opened body of a Π-tower, read (task #315 L-B, DESIGN §U.38)
+
+`denoteMeta` on a `∀` ALREADY reads its body OPENED at the binder's own
+variable, one depth up (`denoteMeta_forallE`), which is exactly what
+`openPisAtFvars` does — so a tower's opened body reads as the tower
+reading's own body, with no substitution lemma in between.  This is the
+bridge the copies' index readings cross: `instPisILP_read` gives the
+reading of the whole instantiated constructor type, and the arms read
+its RESIDUAL. -/
+
+/-- The instantiated telescope has the original's length (off
+`instTeleP_map`, since the walk's body is not exposed here). -/
+theorem instTeleP_length (ds : List AnnotTerm) (c : Nat)
+    (pps : List (Nat × Nat × AnnotTerm)) : (instTeleP ds c pps).length = pps.length := by
+  have h := congrArg List.length (instTeleP_map ds c pps)
+  simp only [List.length_map, instTele_length] at h
+  simpa using h
+
+/-- Parameter instantiation distributes over an application node. -/
+theorem AnnotTerm.instAll_app : ∀ (ds : List AnnotTerm) (k : Nat) (f a : AnnotTerm),
+    AnnotTerm.instAll ds k (.app f a)
+      = .app (AnnotTerm.instAll ds k f) (AnnotTerm.instAll ds k a)
+  | [], _, _, _ => rfl
+  | d :: ds, k, f, a => by
+    show AnnotTerm.instAll ds k ((AnnotTerm.app f a).inst d (k + ds.length)) = _
+    rw [ConLeche.Semantics.AnnotTerm.inst_app, instAll_app ds k]
+    rfl
+
+/-- Parameter instantiation distributes over an application spine. -/
+theorem AnnotTerm.instAll_mkAppN (ds : List AnnotTerm) (k : Nat) :
+    ∀ (f : AnnotTerm) (args : List AnnotTerm),
+      AnnotTerm.instAll ds k (AnnotTerm.mkAppN f args)
+        = AnnotTerm.mkAppN (AnnotTerm.instAll ds k f) (args.map (AnnotTerm.instAll ds k))
+  | _, [] => rfl
+  | f, a :: args => by
+    rw [ConLeche.Semantics.AnnotTerm.mkAppN_cons, AnnotTerm.instAll_mkAppN ds k _ args,
+      AnnotTerm.instAll_app]
+    rfl
+
+/-- A term no substitution touches is untouched by a whole parameter
+list — the shape a constant's value has (`EnvModel.acval_inst_self`). -/
+theorem AnnotTerm.instAll_eq_self {e : AnnotTerm}
+    (h : ∀ (y : AnnotTerm) (k : Nat), e.inst y k = e) :
+    ∀ (ds : List AnnotTerm) (k : Nat), AnnotTerm.instAll ds k e = e
+  | [], _ => rfl
+  | d :: ds, k => by
+    show AnnotTerm.instAll ds k (e.inst d (k + ds.length)) = e
+    rw [h, AnnotTerm.instAll_eq_self h ds]
+
+/-- **The tower's opened body reads as the tower reading's body.** -/
+theorem denoteMeta_openPisAtFvars {acval : Name → (Name → Nat) → AnnotTerm} {φ : Name → Nat} :
+    ∀ (k : Nat) {d : Nat} {e o : Expr} {fvs : List Expr} {ea : AnnotTerm}
+      {pds : List (Nat × Nat × AnnotTerm)} {R : AnnotTerm},
+      ConLeche.openPisAtFvars k e d = some (fvs, o) →
+      denoteMeta acval env φ d e = some ea →
+      stripPisAV k ea = some (pds, R) →
+      denoteMeta acval env φ (d + k) o = some R := by
+  intro k
+  induction k with
+  | zero =>
+    intro d e o fvs ea pds R hop hea hst
+    simp only [ConLeche.openPisAtFvars, Option.some.injEq, Prod.mk.injEq] at hop
+    simp only [stripPisAV, Option.some.injEq, Prod.mk.injEq] at hst
+    obtain ⟨-, rfl⟩ := hop
+    obtain ⟨-, rfl⟩ := hst
+    rw [Nat.add_zero]
+    exact hea
+  | succ k ih =>
+    intro d e o fvs ea pds R hop hea hst
+    match e, hop with
+    | .forallE ty rest mb, hop =>
+      simp only [ConLeche.openPisAtFvars] at hop
+      cases hop' : ConLeche.openPisAtFvars k (rest.instantiate1 (.fvar d ty)) (d + 1) with
+      | none => rw [hop'] at hop; exact nomatch hop
+      | some q =>
+        rw [hop'] at hop
+        simp only [Option.some.injEq, Prod.mk.injEq] at hop
+        obtain ⟨-, rfl⟩ := hop
+        obtain ⟨ta, ba, -, hba, rfl⟩ := denoteMeta_forallE_inv hea
+        simp only [stripPisAV, Option.map_eq_some_iff] at hst
+        obtain ⟨⟨pds', R'⟩, hst', heq⟩ := hst
+        simp only [Prod.mk.injEq] at heq
+        obtain ⟨-, rfl⟩ := heq
+        rw [show d + (k + 1) = d + 1 + k from by omega]
+        exact ih hop' hba hst'
+
 end ConLeche.Model

@@ -325,8 +325,11 @@ theorem MemberTableOk.cross {m : EnvModel V env} {b : MutualBlock}
 
 /-- **The table stage over the members**: each member either conses
 nothing or conses its projection table (`mutualMemberTable_inv`); the
-carrier survives every cons (the P step `BlockTableStep`), and the
-leaves off the block's table names are untouched. -/
+carrier survives every cons (the P step `BlockTableStep`), and the new
+carrier values every OLD constant as the old one did (`AcvalAgrees` —
+the table's name is fresh at the environment it is consed at, so no
+stored name is moved).  The agreement is what a block model needs to
+cross the stage (task #315 M7-3 session 4, DESIGN §U.43). -/
 theorem stageBlockTablesGo (step : BlockTableStep V μ) {b : MutualBlock}
     {ctorsA : List (ConstantVal × Nat)} {sortss : List (List Level)} {isProp : Bool}
     {S : Nat → (Name → Nat) → (Nat → V) → V} :
@@ -334,15 +337,13 @@ theorem stageBlockTablesGo (step : BlockTableStep V μ) {b : MutualBlock}
       ConLeche.mutualTables (m := ConLeche.CheckM) b ctorsA sortss l env = .ok env' →
       (l.map (·.1.cvTa.name)).Nodup →
       (∀ p ∈ l, MemberTableOk mp.base2 b ctorsA sortss isProp S p.1 p.2) →
-      ∃ mp' : EnvModelM V μ env',
-        ∀ n : Name, (∀ p ∈ l, n ≠ projTableName p.1.cvTa.name) →
-          mp'.base2.acval n = mp.base2.acval n := by
+      ∃ mp' : EnvModelM V μ env', AcvalAgrees mp.base2 mp'.base2 := by
   intro l
   induction l with
   | nil =>
     intro env mp env' h _ _
     obtain rfl := ConLeche.mutualTables_nil_inv h
-    exact ⟨mp, fun _ _ => rfl⟩
+    exact ⟨mp, AcvalAgrees.rfl' _⟩
   | cons p rest ih =>
     intro env mp env' h hnd hmem
     obtain ⟨f, mIdx⟩ := p
@@ -350,8 +351,7 @@ theorem stageBlockTablesGo (step : BlockTableStep V μ) {b : MutualBlock}
     rw [List.map_cons, List.nodup_cons] at hnd
     rcases ConLeche.mutualMemberTable_inv hI with rfl | ⟨J, c, hown, hnIdx, htbl⟩
     · -- the member conses nothing
-      obtain ⟨mp', hoff⟩ := ih mp hrestRun hnd.2 (fun q hq => hmem q (List.mem_cons_of_mem _ hq))
-      exact ⟨mp', fun n hn => hoff n (fun q hq => hn q (List.mem_cons_of_mem _ hq))⟩
+      exact ih mp hrestRun hnd.2 (fun q hq => hmem q (List.mem_cons_of_mem _ hq))
     · -- the member conses its table
       obtain ⟨pps, ds, Es, hCname, -, hTM⟩ := hmem (f, mIdx) List.mem_cons_self J c hown hnIdx
       rw [← hCname] at htbl
@@ -371,14 +371,24 @@ theorem stageBlockTablesGo (step : BlockTableStep V μ) {b : MutualBlock}
         show f.cvTa.name ∈ rest.map (·.1.cvTa.name)
         rw [show f.cvTa.name = q.1.cvTa.name from hh]
         exact List.mem_map_of_mem hq
-      obtain ⟨mp', hoff⟩ := ih mpI hrestRun hnd.2 hmemI
+      obtain ⟨mp', hag'⟩ := ih mpI hrestRun hnd.2 hmemI
       refine ⟨mp', fun n hn => ?_⟩
-      rw [hoff n (fun q hq => hn q (List.mem_cons_of_mem _ hq)), hacI,
-        acvalWith_ne (hn (f, mIdx) List.mem_cons_self)]
+      obtain ⟨cn, hcn⟩ := Option.isSome_iff_exists.mp hn
+      have hneT : n ≠ ConLeche.projTableName f.cvTa.name := by
+        intro hh
+        rw [hh, hfreshTbl] at hcn
+        exact nomatch hcn
+      have hfresh' : env.find? (ConstantInfo.projInfo (⟨f.cvTa.name, b.lps, b.nP,
+          (ctorsA.getD J default).1.name, c.nF, f.s, bodies,
+          ConLeche.structProjGuards (ctorsA.getD J default).1.type b.nP c.nF (sortss.getD J []),
+          1⟩ : ProjTable)).name = none := hfreshTbl
+      have hnI := ConLeche.Env.find?_cons_of_fresh hfresh' hcn
+      rw [hag' n (by rw [hnI]; rfl), hacI]
+      exact acvalWith_ne hneT
 
 /-- **The table stage**: the run's final environment carries an
-`EnvModelM` whose carrier agrees with the one it started from off the
-block's table names (`stageBlockTablesGo`). -/
+`EnvModelM` whose carrier agrees with the one it started from at every
+stored name (`stageBlockTablesGo`). -/
 theorem stageBlockTables (step : BlockTableStep V μ) {b : MutualBlock}
     {ctorsA : List (ConstantVal × Nat)} {sortss : List (List Level)} {isProp : Bool}
     {S : Nat → (Name → Nat) → (Nat → V) → V} {fms : List MutualFormerA} {env env' : Env}
@@ -386,14 +396,13 @@ theorem stageBlockTables (step : BlockTableStep V μ) {b : MutualBlock}
     (hrun : ConLeche.mutualTables (m := ConLeche.CheckM) b ctorsA sortss fms.zipIdx env = .ok env')
     (hnd : (fms.map (·.cvTa.name)).Nodup)
     (hmem : ∀ p ∈ fms.zipIdx, MemberTableOk mp.base2 b ctorsA sortss isProp S p.1 p.2) :
-    Nonempty (EnvModelM V μ env') := by
+    ∃ mp' : EnvModelM V μ env', AcvalAgrees mp.base2 mp'.base2 := by
   have hnd' : ((fms.zipIdx).map (·.1.cvTa.name)).Nodup := by
     rw [show fms.zipIdx.map (·.1.cvTa.name) = fms.map (·.cvTa.name) from by
       rw [show (fun x : MutualFormerA × Nat => x.1.cvTa.name)
         = (fun f : MutualFormerA => f.cvTa.name) ∘ Prod.fst from rfl, ← List.map_map,
         List.zipIdx_map_fst]]
     exact hnd
-  obtain ⟨mp', -⟩ := stageBlockTablesGo step fms.zipIdx mp hrun hnd' hmem
-  exact ⟨mp'⟩
+  exact stageBlockTablesGo step fms.zipIdx mp hrun hnd' hmem
 
 end ConLeche.Model

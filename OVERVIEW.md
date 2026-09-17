@@ -28,7 +28,7 @@ mark of the installed environment (below), which changes no verdict and
 is there to measure what the mark is worth;
 `--progress[=<stride>]` turns on a heartbeat on stderr
 (below); `--help` prints the usage text and exits 0
-([the driver's usage text in `Main.lean`](https://github.com/leanprover/con-leche/blob/master/Main.lean#L714)).
+([the driver's usage text in `Main.lean`](https://github.com/leanprover/con-leche/blob/master/Main.lean#L740)).
 Any other option is a usage error: the run reports it, prints the
 usage text and exits 3 without reading its input, so a verdict's
 provenance can be read off the invocation.
@@ -298,10 +298,10 @@ Read from the outside in:
    boundary on — is marked persistent once, so that no check pays
    reference counting on it, and the checks are then run on worker
    threads: at `--jobs=1` the check loop
-   ([function `checkLoop` in `Main.lean`](https://github.com/leanprover/con-leche/blob/master/Main.lean#L176))
+   ([function `checkLoop` in `Main.lean`](https://github.com/leanprover/con-leche/blob/master/Main.lean#L202))
    runs it on every record on one such thread and carries every fact;
    otherwise a pool of them
-   ([function `checkPool` in `Main.lean`](https://github.com/leanprover/con-leche/blob/master/Main.lean#L294))
+   ([function `checkPool` in `Main.lean`](https://github.com/leanprover/con-leche/blob/master/Main.lean#L320))
    claims records one at a time off a shared counter, and the results,
    merged by record index, are walked in record order
    ([definition `collectChecks` in `ConLeche/Cached/Installed.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Cached/Installed.lean#L399-L403))
@@ -313,7 +313,7 @@ Read from the outside in:
    it is the identity on the value, its result is discarded, and the
    environment the driver goes on to use is the one it already had. The heartbeat is
    printed between the steps and touches neither type. The driver
-   ([function `checkDeclsIO` in `Main.lean`](https://github.com/leanprover/con-leche/blob/master/Main.lean#L333-L336))
+   ([function `checkDeclsIO` in `Main.lean`](https://github.com/leanprover/con-leche/blob/master/Main.lean#L359-L362))
    turns the fully checked environment into its environment with the
    proof that `checkDecls` returns it
    ([theorem `fullyChecked_checkDecls` in `ConLeche/Cached/Installed.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Cached/Installed.lean#L534-L536)).
@@ -570,7 +570,7 @@ Inductive blocks are not trusted from the stream. Three cases:
   generates the block's recursors and their rules and compares them
   with the stream's, and conses the structure-like members' projection
   tables
-  ([function `checkMutualCore` in `ConLeche/Kernel/Inductives/MutualInstall.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/MutualInstall.lean#L585)).
+  ([function `checkMutualCore` in `ConLeche/Kernel/Inductives/MutualInstall.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/MutualInstall.lean#L616)).
   In the model a block is ONE block model: **inductives denote the least
   solution of their recursive system** — the members are the
   components of the least pre-fixed tuple of one monotone operator on
@@ -593,11 +593,11 @@ Inductive blocks are not trusted from the stream. Three cases:
   What every member carries in the model is the block model
   ([structure `IsBlockModel` in `ConLeche/Model/Inductives/BlockRep.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Inductives/BlockRep.lean#L591));
   the model-tier theorem for the whole install is
-  [theorem `declBlock` in `ConLeche/Model/Inductives/DeclBlock.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Inductives/DeclBlock.lean#L288),
+  [theorem `declBlock` in `ConLeche/Model/Inductives/DeclBlock.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Inductives/DeclBlock.lean#L290),
   whose two named facts — the stages up to the recursors keep the
   model and leave the block model, the projection tables keep it from
   there — are proved
-  ([theorem `declMutual` in `ConLeche/Model/Inductives/MutualTables.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Inductives/MutualTables.lean#L231)).
+  ([theorem `declMutual` in `ConLeche/Model/Inductives/MutualTables.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Inductives/MutualTables.lean#L305)).
 * **Nested blocks** are handled by an in-process modeller
   (`ConLeche/Frontend/InModel/*`): at parse time the checker generates,
   over its own `Expr`, a *model* of the block, an auxiliary family plus
