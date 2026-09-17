@@ -82314,6 +82314,27 @@ step 2 at 2–2½; steps 1–3 above are that step, unchanged in total, and
 (gg) 4 adds the swap's half).
 
 
+##### (ii) FILES AND GATES (at the session's HEAD)
+
+New: `ConLeche/Model/Inductives/NestedRecRule.lean` (263),
+`ConLeche/Verify/Inductives/NestedRecRuleKit.lean` (211).  Touched:
+`ConLeche/Model.lean` (+1), `tests/shake-allowlist.txt` (+3).  The kit
+is reached ONLY through `NestedRecRule.lean`'s plain `import` — the
+Verify tier has no root file — which is why that edge is allowlisted
+with its reason and goes the moment the rule law imports it directly.
+
+`lake build` 715 jobs warning-free EXIT 0; `lake test` warning-free
+EXIT 0; shake 513 removals all allowlisted / pub-imports 1313 of 2129
+public, none demotable (41 dot-notation fallbacks; the three new
+entries each probed one at a time — two refused by the compiler, one
+the build-membership edge); layering base 351 / model 281 / caps 3 /
+umbrella 1, 0 base→lane, 0 impl→theory; trust surface 13 escapes in 5
+allowlisted files (647 scanned); no-local-paths OK; overview-links 112;
+quote-gate 2; proofdeps 4955 rows / 12 roots / **0 doors**.
+`#print axioms` of every new theorem is
+`[propext, Classical.choice, Quot.sound]`.
+
+
 #### U.30 — L-B session 2: `CopyCtorInst.ordF` at the READING, the normalisation's reading law PROVED, `ContainerModeled`'s three clauses (lane L-B, 2026-09-16)
 
 Three maintainer rulings opened this session; the first two are landed,
