@@ -91174,3 +91174,141 @@ warning-free, layering 351/281/3/1 with 0 base→lane and 0 impl→theory,
 trust surface 13/5 allowlisted, no-local-paths, overview-links 112,
 quote-gate 2, proofdeps 4955 rows / 0 doors, shake 513 allowlisted /
 pub-imports none demotable, nested-shadow 27/27.
+
+#### U.69 — L-E session 17: `hpair` DISCHARGED at a MEMBER class, the externals' row corrected, and the pin data's congruence requested (lane L-E, 2026-09-17)
+
+##### (a) The per-pair transfer, both halves wrapped
+
+* **`nestedPinPair_mem`** — `copyTransfer_mem` at a MEMBER class of the
+  root.  Every numeric agreement comes off the root group's own facts,
+  and three of them are `rfl`: the root group's two sides have
+  LITERALLY equal level assignments (`NestedPinGroupSyn.ψJEq` at the
+  base pin) and frames (`sameDs`), so the sort, the index universes and
+  the telescope lengths need nothing.  The block's sort is the group's
+  (`w`), the copies' index universes the container's
+  (`nestedU_pin`/`pinU`), the index-telescope length the group's
+  identity (`GroupFacts.idx`, `instTele_length`);
+* **`nestedPinPair_pin`** — `copyTransfer_via` at a PIN class, the same
+  block-side discharge with the ROOT side and the four cross agreements
+  left as premises, which is what the `ClassPin` pair supplies.
+
+Beside them: `pinGroupView_of_syn` (the run's group as the abstract
+`PinGroupView`, extracted out of `nestedPinShapes_of`), and
+`nestedIdx_of_group`/`nestedIdx_eq_pinIdx` — a pin's class index set is
+its container member's, which `nestedPinsFixed` had inline.
+
+##### (b) THE WALK at a MEMBER class
+
+`nestedPinWalk_mem`: at every container-recursive field of the root
+container's own constructor, the field's target class and the block's
+copy's target pin are `ClassPinAt`-related.
+
+* a MEMBER target — `classPin_of_rootMember` at the root GROUP's view.
+  The copy's target is `p.k + r + tgt`, so `ClassPinAt`'s root-group
+  conjunct (§U.68 (c)) holds by `rfl`: this is where the refinement
+  pays for itself;
+* one of the container's OWN pins — `classPin_of_blockPinCorr`, the
+  packaging of `classPin_of_pinCorr` whose premises read off the pin
+  groups (`stored` for the image pin's level law, `pinNP`/`pinDsLen`
+  for its component count) and the root container's own record
+  (`ContainerModeled.pinψ`), with the new `pinIds_below` for the
+  container's index telescope.  A PIN class, where the conjunct is
+  vacuous.
+
+`app_relMeet_le_rel` (`LfpCompose.lean`) turns it into the `hrel` the
+transfer wants: the meet lies under a related family at EVERY point,
+being empty off the index set.
+
+##### (c) §U.64 (c)'s `hent₂` ROW WAS WRONG
+
+The table read the externals off "step (i)'s `hZ`", which is at `P` —
+the containers' least tuples — where the entry is an equality.  The
+transfer needs them at `L⁺`, and step (ii) gives only `L⁺ ≤ P`, i.e.
+the WRONG direction.  Both halves are available all the same, and the
+correction is that ONE of them carries a premise:
+
+* **at a MEMBER target of the block, unconditionally** — the carrier's
+  member segment IS the block's own least tuple (`ofNested_lfp`,
+  Bekić), so `memberTarget_reads` applies;
+* **at a PIN target, under `P q' = L⁺ (p.k + q')`** — the RANK
+  INDUCTION's hypothesis.  That is exactly why the `ordF`-right targets
+  must LEAVE the instance (`nestedPinRankOk`'s clause (2)): inside the
+  instance the induction has nothing yet.
+
+`nestedTargetReads_L` is the reading law with the scope as a predicate
+`S`, and `nestedPinEntryOut` is the transfer's `hentR`/`hent₂` from it
+(`copyEntryAt_of_read`, an equality read as an inclusion), with `hout`
+the rank clause made explicit.  The premise must be threaded into
+`hpair`, which the plan's table did not show.
+
+##### (d) `hpair` at a MEMBER class, DISCHARGED
+
+`nestedPinPairAt_mem` closes all three premises of `nestedPinPair_mem`
+— `hdom₁` by `slotDomT_relMeet`, `hrel` by (b), `hentR` by (c) — and
+supplies the pair's other data: the block's group of the pin IS the
+root group (`ClassPinAt`'s conjunct, spent here through
+`NestedPinGroupSyn.grp`'s arithmetic), the index membership
+(`nestedIdx_of_group`) and the injections' identity (the two sides'
+level assignments being literally equal).  What is left of it are the
+two premises the induction owns: `hIH` and `hout`.
+
+##### (e) THE PIN CLASS: one record missing, and what it is
+
+The PIN class does NOT close, and the obstruction is a single missing
+congruence.  Two of `nestedPinPair_pin`'s premises need it:
+
+1. `huT` — `copyTransfer_via` compares the two copies' targets' index
+   universes (`copyTarget_u`), and at a target that is one of `dK`'s
+   OWN pins that is `(dK.pinAt q').u ψ₁ = (dK.pinAt q').u ψ₂`;
+2. the `pinF` arm of the WALK at a pin class — the two sides' `PinCorr`
+   are at the SAME own pin `q'` of `dK`, so `ClassPin`'s `frame` and
+   `idx` come down to `(dK.pinAt q').Ds`/`.Ids` at the two assignments.
+
+**The model has no congruence for a stored container's PIN data in the
+level assignment**: `IsBlockModel.uParams` and `FormerData.params`
+cover the MEMBERS only, and `ContainerModeled`'s `pinψ`/`pinNP` say
+nothing about it.  So the request, in the `pinNP`/`pinψ` idiom, is one
+clause:
+
+```lean
+    pinParams : ∀ q, q < d.nPins → ∀ ψ₁ ψ₂ : Name → Nat,
+      (∀ pp ∈ cvI.levelParams, ψ₁ pp = ψ₂ pp) →
+      (d.pinAt q).u ψ₁ = (d.pinAt q).u ψ₂ ∧
+      (d.pinAt q).Ds ψ₁ = (d.pinAt q).Ds ψ₂ ∧
+      (d.pinAt q).Ids ψ₁ = (d.pinAt q).Ids ψ₂
+```
+
+with `cvI` the group's own constant (the one `containerInfo?` is taken
+at).  It is true of every pin this checker records — a pin's level
+arguments and components are read off the block's own opened
+constructor, so they mention only the block's level parameters — and it
+is vacuous at a pins-free container.  **Request to M7-3**, beside
+`ownPins`.
+
+It is also DERIVABLE rather than recorded, but only at a price: through
+`dK`'s own `PinShapes` view (`pinU`/`pinPps`) and `params_congr` at the
+pin's container, plus `ContainerModeled.pinψ`, the `u` and `Ids` halves
+reduce to "the pins' level ARGUMENTS are scoped in the container's own
+level parameters" (`allParamsDefined`, which `targetPin_corr` already
+takes as its `hpd` and which no record carries either) — and the `Ds`
+half does not reduce at all, the components being an abstract
+`(Name → Nat) → List AnnotTerm`.  Recording the congruence is the
+smaller ask.
+
+##### (f) WHAT REMAINS
+
+* M7-3: `ownPins` (§U.65 (d)) with its Expr-to-`AnnotTerm` half, and
+  `pinParams` of (e);
+* this lane: `hpair` at a PIN class (mechanical once `pinParams` lands
+  — `nestedPinPair_pin`'s other premises are the ROOT's `PinShapes`
+  shape, `copyEntryAt_pin` for `hdom₁`, `nestedPinEntryOut` for
+  `hent₂`, and `classPin_of_views` for the `recF` walk), then `hpair`,
+  then `instanceLe_of_pair` + `pins_le_of_instanceLe` + step (ii) give
+  `nestedPinsLe` and step (iv) `nestedPinsEntry_of` — modulo `hothers`,
+  which `ownPins` closes.
+
+Gates at the session's commits: `lake build` warning-free, `lake test`
+warning-free, layering / trust surface / no-local-paths /
+overview-links / quote-gate / proofdeps (0 doors) / shake and
+pub-imports / nested-shadow all green; standard axioms on every new
+theorem.
