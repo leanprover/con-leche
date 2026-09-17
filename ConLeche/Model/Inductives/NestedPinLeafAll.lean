@@ -677,7 +677,7 @@ theorem map_range_reverse_consList (as : List V) (ρ : Nat → V) :
   rfl
 
 /-- **The extended carrier reads as the target view's stored
-readings** (task #315 L-E, DESIGN §U.66): at a class of a stored
+readings** (task #315 L-E, DESIGN §U.70 (b)): at a class of a stored
 block model — a member or one of its own pins — the extended carrier
 at a fitting index spine IS the stored reading applied to the spine:
 `IsBlockModel.leaf` at a member (the former at the parameter bvars,
@@ -751,7 +751,7 @@ theorem BlockModel.famAt_reads {env : Env} {m : EnvModel V env} {d : BlockModel 
       ← hleaf]
 
 /-- **A pin group's carrier IS its container's least tuple** (task #315
-L-E, DESIGN §U.66 — the family identity (‡)): at a pin group
+L-E, DESIGN §U.70 (b) — the family identity (‡)): at a pin group
 `[q₀, q₀ + kK)` of a stored block model `d` whose container is `dJ`,
 the block's own pin carrier at member `i` of the group and `dJ`'s least
 tuple at member `i`, read at the pin's frame, are ONE family.
@@ -1286,7 +1286,7 @@ theorem nestedBlockModel_targetView (m : EnvModel V env₂) (ψ : Name → Nat) 
   funext t
   exact ofNested_uT t ψ
 
-/-- **A pin group of the run, VIEWED** (task #315 L-E, DESIGN §U.71):
+/-- **A pin group of the run, VIEWED** (task #315 L-E, DESIGN §U.72 (a)):
 `NestedPinGroup`'s facts as the abstract `PinGroupView` the container
 instance transfer speaks — the group's segment, its container's
 members by name, its pins' shared level assignment, level arguments and
@@ -1617,7 +1617,7 @@ structure GroupFacts (st : ElimState) (m : EnvModel V env₂) (q₀ kJ : Nat) (d
 
 /-- **A pin group's SYNTACTIC facts, VIEWED** — `pinGroupView_of_group`
 at `NestedPinGroupSyn`, which is what `GroupFacts` carries (task #315
-L-E, DESIGN §U.71 (d)): the container instance transfer needs the view
+L-E, DESIGN §U.72 (a)): the container instance transfer needs the view
 at the ROOT group and at the block's group of the pin, and both arrive
 as `GroupFacts`. -/
 theorem pinGroupView_of_syn {st : ElimState} {m : EnvModel V env₂} {q₀ kJ : Nat}
@@ -1666,7 +1666,7 @@ local notation "ΨA" => nestedΨ (V := V) b.nP p.k f₀.s ppsF W pinsS b.ownOffs
 local notation "TVA" => nestedTV (V := V) b.nP p.k f₀.s ppsF W pinsS
 
 /-- **A pin's class index set is its container member's** (task #315
-L-E, DESIGN §U.71 (e)): the block's own `idx` at the class `p.k + q₀ + i`
+L-E, DESIGN §U.72 (a)): the block's own `idx` at the class `p.k + q₀ + i`
 IS the container's `idx` at member `i` at the pin's frame — the sort by
 `nestedU_pin`/`pinU`, the telescope by the group's index identity
 (`GroupFacts.idx`, `idxSet_instTele`).  `nestedPinsFixed` had this
