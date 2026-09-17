@@ -83433,3 +83433,136 @@ paragraph re-read, the claim unchanged); quote-gate 2; no-local-paths
 OK; proofdeps 4955 rows / 12 roots / 0 doors; shake 509/509
 allowlisted; pub-imports 1259 of 1977, none demotable.  Standard axioms
 throughout.
+
+#### U.48 — L-E session 4, PART A: the ONE-SYSTEM route evaluated — right INSIDE a blob, and no escape from an order BETWEEN blobs (lane L-E, 2026-09-17)
+
+The question (coordinator): can step (iii) — `P q ≤ L⁺ (k+q)`, the
+containers' least tuples at the pins below the auxiliary carrier — be
+fixed-point ALGEBRA (the block's pin system restricted to the pins
+reachable from a group IS the container's own pin system at `Ds` up to
+renaming/duplication; `lfpTuple_le` both ways through the map), with no
+order on pins, at every `w`?
+
+##### (a) What the block's pin system reachable from a group contains
+
+Take group `A` = the pins of container `J` at components `Ds`.  The
+block's pins reachable from `A` are of three kinds:
+
+1. `A` itself (`J`'s members at `Ds`) — `J`'s MEMBER variables;
+2. the images of `J`'s OWN pins (`K (Ds_K[Ds])` for `J`'s pin `K Ds_K`,
+   `Ds_K` mentioning `J`), reached through the copies' `pinF` fields,
+   closed under `K`'s own `pinF` fields — `J`'s PIN variables; together
+   with 1 the BLOB of `A`: exactly `J`'s full system (members + pins,
+   `NestedRecCand`'s extended tuple, M7-1's `PinRecLaws`) at `Ds`;
+3. the pins reached through the copies' `ordF`-right fields — a
+   container's ORDINARY field mentioning its parameter inside a
+   container application `C (args)`, rewritten in the block to the pin
+   `C (args[Ds])` (`C` declared before `J`, §U.39 (e)'s B-edges) — and
+   the pins inside `Ds` (A-edges).  In `J`'s OWN system these are NOT
+   variables: `J`'s operator reads them as FIXED sets, the stored
+   readings (the real carriers `P q'` of OTHER blobs).
+
+So "the block's system reachable from `A` = `J`'s system at `Ds`" holds
+for kinds 1–2 (the blob) and FAILS for kind 3: the block has variables
+where the container has constants.  The one-system identification is
+therefore an identification of the block's BLOB system (externals held
+fixed) with `J`'s full system at `Ds` — which needs the externals'
+values to agree first: `P q' = L⁺ (k+q')` at the blobs referenced —
+the claim at other blobs.
+
+##### (b) Componentwise-least is not jointly-least: the two-variable counterexample
+
+Could algebra still bypass the order?  `P` IS a fixed point of the
+block's pin section (step (i)), and each blob of `P` is the LEAST
+solution of its container's system with the externals fixed at `P`.
+That does not make `P` the least fixed point of the joint system:
+over `{0,1}`, `Θ (x, y) := (y, x)` has `P := (1,1)` with each
+component the least fixed point of its section at `P` (`x ↦ 1`, `y ↦
+1`), while the joint least fixed point is `(0,0)`.  A mutual external
+reference between two blobs is exactly this; joint leastness follows
+from componentwise leastness ONLY when the external-reference graph
+between blobs is well-founded — the induction over blobs.  The order
+between blobs cannot be dispensed with by algebra at any `w`.  (That the
+graph IS acyclic is §U.39 (e)'s path-multiset argument: A-edges
+descend into components, B-edges go to earlier-declared containers,
+and only the blob's own `pinF` edges return.)
+
+##### (c) The evaluation's five points
+
+1. **Pins → pins a function?**  Block pin → container variable: a
+   group pin `q₀+i` ↦ `J`'s member `i` (`grp`, names); a kind-2 pin `t`
+   ↦ the `J`-pin `qK` with `(dJ.pinAt qK).J = TV.J t`, levels and
+   component READINGS matching (`PinCorr`).  Not injective: `J`'s pins
+   `K α`, `K β` at `Ds = [P4, P4]` both map to the block's `K P4`; two
+   `J`-pins can also share readings at `ρJ` with distinct syntax.  Both
+   are the "duplication" the route allows, handled by fibre MEETS in the
+   pullback lemma ((d) below), not by uniqueness.  Surjective onto
+   `J`'s variables: every `J`-pin is reached from `J`'s members through
+   `pinF` fields in `J`'s own elimination, and the block copies every
+   constructor — plausible, a syntactic fact to state (§U.39 (b)'s
+   clauses give the correspondence per field, not the reachability).
+2. **The operators agree under the map?**  At the operator level — the
+   block's copy fit at a pulled-back tuple ↔ the container's
+   `ChainFitT` at the extended tuple — this is `fit_iff_at`'s argument
+   with the `pinF` slot reading a VARIABLE (`ChainFitT pc … Y` at
+   `tgtsT`) instead of `dJ.pinCar … LJ` (`slotAt_of_pin`), plus the
+   same at the container's own pins' constructors (`PinShapes` ∘ the
+   block's copy shape through `K`'s readings, the level clauses).  No
+   order inside — but the externals (kind 3) enter as `L⁺ (k+q') =
+   P q'` (the induction hypothesis) on the block side and as the stored
+   reading (`= P q'`, `pinTarget_reads`) on the container side.
+3. **The cycle case**: correct — a self-nested container's own pin is a
+   kind-2 variable of the blob; the identification of the blob's least
+   tuple with `(LJ, pinCar LJ)` (Bekić; from `PinRecLaws`: the pins are
+   the least section at the members, `ind`) is fixed-point algebra
+   with no special step.  This REPLACES the plan's "`PinRecLaws.ind`
+   with `Q := ⋂ …`" by the pullback lemma — the cleaner form.
+4. **Cost**: the blob transfer (2) is the transfer (e) needs anyway,
+   stated once at the operator level: ~1.5 sessions.  The pullback
+   lemma (d): ¼ session (this session).  The order between blobs: EITHER
+   §U.39 (e)'s path multiset (2–3 sessions of syntax) OR a kernel-recorded
+   and CHECKED blob rank ((e′) below, 1 kernel session, ½ model session
+   to consume).  (f) is out (`w = 0`).
+5. **What could make it false**: `P4`/`P5` (§U.39 (e)): the maps exist
+   (each blob is a single non-self-nested group; kinds 3 only), the
+   blobs are ordered `J P4 > List (P4 × P4) > P4 × P4`, resp. the
+   7-blob chain — fine.  `nested_p04`'s 3-cycle (a self-nested
+   container through two containers) is one blob of three groups —
+   the pullback lemma's fibre meets are exactly what a duplicated pin
+   needs.  A failure would be a NON-well-founded external-reference
+   graph — excluded by (e)'s structural argument — or a blob whose
+   copies do not reach some `J`-pin (surjectivity, point 1).
+
+##### (d) The pullback lemma (proved this session, `LfpCompose.lean`)
+
+`lfpTuple_pullback`: systems `Φ` over `k` variables and `Φ'` over
+`k'`, a map `σ : [0,k') → [0,k)` surjective, `Is' j = Is (σ j)`, and
+`Φ' (X ∘ σ) j = Φ X (σ j)` at every `X` in the space (the operator
+transfer); then `lfpTuple w k' Is' Φ' j = lfpTuple w k Is Φ (σ j)`.
+Proof: `(lfp Φ) ∘ σ` is `Φ'`-closed (`lfpTuple_le`); conversely the
+tuple `T i := lfp Φ i ∩ ⋂ {lfp Φ' j | σ j = i}` (a `sep` of the least
+tuple's fibres, the finite fibre meet) is `Φ`-closed (`hpull` + `Φ'`
+monotone + `lfp Φ'` fixed), so `lfp Φ ≤ T ≤ (lfp Φ') ∘ σ⁻¹`.  Pure
+algebra, every `w`.
+
+##### (e′) PROPOSAL: a kernel-recorded blob rank (K.37, the kernel lane's call)
+
+The elimination's pins are already walked by K.32 (`nestedCopyTargetsOk`).
+Record with each pin a rank (a `Nat`), and CHECK: for every copy's
+rewritten field, the target's rank is `<` the copy's pin's rank, unless
+the field is one the CONTAINER classifies as nested at ITS OWN pin (the
+stored field mentions a member of the container's own group —
+`mentionsMember` on the stored constructor type, K.32's reading), in
+which case ranks are equal (the blob).  True of every accepted block by
+(e)'s measure — the checker computes the rank by a topological sort of
+the blob graph and never fails on the corpus; the model consumes ONLY
+the Bool (a decreasing rank on external edges), so step (iii) is
+strong induction on the rank with the blob transfer inside.  It is a
+recorded-and-checked Bool like K.28–K.35, not a decline.
+
+##### (f) PART B's pick
+
+The blob route with the pullback lemma inside, and the inter-blob order
+by K.37 if the kernel lane takes it (else (e)'s measure).  Session 4
+executes what needs no order: the pullback lemma (done), then the blob
+transfer's statement and its member-copy half.
