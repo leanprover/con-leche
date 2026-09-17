@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Model.Inductives.NestedPremise
-import ConLeche.Model.Inductives.BlockRepCross
+public import ConLeche.Model.Inductives.BlockRepCross
 import ConLeche.Model.Install
 import ConLeche.Verify.Inductives.ContainerFrame
 import ConLeche.Verify.Inductives.NestedGroupInv
@@ -42,13 +42,30 @@ and the stage theorems used to drop.  The lifts themselves are
 An INDUCTIVE extension keeps `EnvBlockModels` only modulo the new
 block's own containers, which is the installing route's obligation:
 `EnvBlockModels.crossInd` takes it as its last argument.
+
+**The reading hypothesis `hde` is too strong for the INDUCTIVE routes**
+(task #315 M7-3 session 2, DESIGN §U.40): every inductive route ends by
+consing the projection tables of its structure-like members, and a
+table cons MOVES a successful reading — `denoteMeta` reads `.proj sn i`
+through the table when there is one and through the pair decoder when
+there is none.  `denoteMeta_not_mono_of_newTable` and
+`hde_not_of_newTable` are that refutation, in the tree, with the shape
+of the weaker hypothesis that replaces it (the readings guarded by the
+subjects' proj-freedom at the newly tabled structures, which the block
+model's own `BlockOpened` clauses already record).  The VALUE kinds are
+unaffected: `crossCons` excludes a projection table by `hntc`.
+
+`ContainerModeled.of_readBack` is the other half the routes need —
+K.34's Bool, inverted: the block just installed reads back as its own
+`ContainerInfo`, so the record's four data clauses are the block's own
+data.
 -/
 
 namespace ConLeche.Model
 open ConLeche.Semantics
 open ConLeche.SetModel
 
-open ConLeche.Term ConLeche.Verify SetTheory
+open ConLeche.Term ConLeche.Verify SetTheory ConLeche.SetTheory.Tower
 open ConLeche.Semantics (AnnotTerm)
 open ConLeche (Env Expr Name Level CheckMode ConstantInfo ConstantVal RecRule ContainerInfo
   IndCaps)
@@ -78,6 +95,55 @@ representation (`IsBlockModels`), the per-member `IsBlockModel` of the
 `BlockRepCross.lean`'s four hypotheses; every other clause is
 model-free (`pinNP` reads `containerInfo?` at `d.env₀`, the block's own
 pre-block environment, not at the model's). -/
+theorem ContainerModeled.crossEnvP {Ts : List Name} {env₁ env₂ : Env}
+    {m₁ : EnvModel V env₁} {m₂ : EnvModel V env₂}
+    {ci : ContainerInfo} {d : BlockModel V}
+    (hF : ∀ (n : Name) (c : ConstantInfo),
+      (∀ cv mI rP rules, c ≠ .recInfo cv mI rP rules) →
+      env₁.find? n = some c → env₂.find? n = some c)
+    (hres : ∀ e : Expr, e.constsResolve env₁ = true → e.constsResolve env₂ = true)
+    (hag : ∀ n : Name, (env₁.find? n).isSome = true → m₂.acval n = m₁.acval n)
+    (hde : ∀ (ψ : Name → Nat) (dp : Nat) (e : Expr), ProjFree Ts e → ∀ {ea : AnnotTerm},
+      denoteMeta m₁.acval env₁ ψ dp e = some ea → denoteMeta m₂.acval env₂ ψ dp e = some ea)
+    (hfresh : ∀ T ∈ Ts, env₁.find? T = none)
+    (hnpMem : ∀ M ∈ ci.members, ProjFree Ts M.type)
+    (hk : 0 < d.k) (C : ContainerModeled m₁ ci d) : ContainerModeled m₂ ci d := by
+  -- the member clause crosses at the STORED constant, whose type is
+  -- guarded; `IsBlockModels` is then READ OFF it (the `member` clause
+  -- is the stronger one — DESIGN §U.31 (e) 2)
+  have hmemCross : ∀ (i : Nat) (M : ConLeche.ContainerMember), ci.members[i]? = some M →
+      d.memberName i = M.name ∧ (d.ctorsM i).map (·.1.name) = M.ctors.map (·.name) ∧
+      ∃ (cvR : ConstantVal) (mI rP : Nat) (rules : List RecRule),
+        IsBlockModel m₂ M.name ⟨M.name, M.lps, M.type⟩ cvR mI rP rules d i := by
+    intro i M hM
+    obtain ⟨hname, hctors, cvR, mI, rP, rules, hI⟩ := C.member i M hM
+    exact ⟨hname, hctors, cvR, mI, rP, rules,
+      hI.crossEnvP hF hres hag hde hfresh (hnpMem M (List.mem_of_getElem? hM))⟩
+  have hreps₂ : IsBlockModels m₂ d := by
+    intro mm hmm
+    obtain ⟨M, hM⟩ : ∃ M, ci.members[mm]? = some M :=
+      ⟨_, List.getElem?_eq_getElem (by rw [← C.k]; exact hmm)⟩
+    obtain ⟨hname, -, cvR, mI, rP, rules, hI⟩ := hmemCross mm M hM
+    exact ⟨⟨M.name, M.lps, M.type⟩, cvR, mI, rP, rules, by rw [hname]; exact hI⟩
+  exact
+    { k := C.k
+      namesLen := C.namesLen
+      nP := C.nP
+      reps := hreps₂
+      typed := fun ψ =>
+        ⟨(C.typed ψ).1.crossEnv hag C.reps, (C.typed ψ).2.1.crossEnv hag C.reps,
+          (C.typed ψ).2.2.crossEnv hag C.reps hk⟩
+      inj := C.inj
+      member := hmemCross
+      frame := C.frame
+      ordFree := C.ordFree
+      pinsNotMembers := C.pinsNotMembers
+      pinNP := C.pinNP }
+
+/-- **A container's block model crosses an environment change**: the
+unguarded crossing (`Ts := []`), for an extension that installs no
+projection table — the value kinds' shape.  An INDUCTIVE extension
+takes `crossEnvP`. -/
 theorem ContainerModeled.crossEnv {env₁ env₂ : Env} {m₁ : EnvModel V env₁} {m₂ : EnvModel V env₂}
     {ci : ContainerInfo} {d : BlockModel V}
     (hF : ∀ (n : Name) (c : ConstantInfo),
@@ -87,22 +153,28 @@ theorem ContainerModeled.crossEnv {env₁ env₂ : Env} {m₁ : EnvModel V env�
     (hag : ∀ n : Name, (env₁.find? n).isSome = true → m₂.acval n = m₁.acval n)
     (hde : ∀ (ψ : Name → Nat) (dp : Nat) (e : Expr) {ea : AnnotTerm},
       denoteMeta m₁.acval env₁ ψ dp e = some ea → denoteMeta m₂.acval env₂ ψ dp e = some ea)
-    (hk : 0 < d.k) (C : ContainerModeled m₁ ci d) : ContainerModeled m₂ ci d where
-  k := C.k
-  namesLen := C.namesLen
-  nP := C.nP
-  reps := C.reps.crossEnv hF hres hag hde
-  typed := fun ψ =>
-    ⟨(C.typed ψ).1.crossEnv hag C.reps, (C.typed ψ).2.1.crossEnv hag C.reps,
-      (C.typed ψ).2.2.crossEnv hag C.reps hk⟩
-  inj := C.inj
-  member := fun i M hM => by
-    obtain ⟨hname, hctors, cvR, mI, rP, rules, hI⟩ := C.member i M hM
-    exact ⟨hname, hctors, cvR, mI, rP, rules, hI.crossEnv hF hres hag hde⟩
-  frame := C.frame
-  ordFree := C.ordFree
-  pinsNotMembers := C.pinsNotMembers
-  pinNP := C.pinNP
+    (hk : 0 < d.k) (C : ContainerModeled m₁ ci d) : ContainerModeled m₂ ci d :=
+  C.crossEnvP (Ts := []) hF hres hag (fun ψ dp e _ {_ea} hr => hde ψ dp e hr)
+    (fun _ hT => nomatch hT) (fun M _ => ProjFree.nil M.type) hk
+
+/-- **A stored container's member types are guarded at names the
+environment does not carry**: `containerInfo?` returns the members'
+STORED types (`containerInfo?_inv`), those resolve (`EnvWF`), and a
+resolving expression has no projection at an unstored structure
+(`ProjFree.of_constsResolve`).  This is what lets an OLD container's
+block model cross an INDUCTIVE extension: the block being installed is
+fresh, so its projection tables are at structures no old subject
+mentions. -/
+theorem projFree_members {Ts : List Name} {env : Env} (m : EnvModel V env)
+    (hfresh : ∀ T ∈ Ts, env.find? T = none) {J : Name} {ci : ContainerInfo}
+    (hci : ConLeche.containerInfo? env J = some ci) :
+    ∀ M ∈ ci.members, ProjFree Ts M.type := by
+  intro M hM
+  obtain ⟨cvT, caps, cvR, mI, rP, rules, H⟩ := ConLeche.containerInfo?_inv hci
+  obtain ⟨cvC, capsC, cvRc, mIc, rulesC, hfind, -, -, htype, -⟩ := H.2.2.2.2 M hM
+  rw [htype]
+  exact ProjFree.of_constsResolve hfresh
+    (m.wf _ (ConLeche.Semantics.Env.find?_mem hfind)).2.2.1
 
 /-! ## The pins' laws and shapes across the change -/
 
@@ -149,6 +221,34 @@ theorem PinShapes.crossEnv {env₁ env₂ : Env} {m₁ : EnvModel V env₁} {m�
   exact CopyCtorShape.of_EA (TV := d.targetView m₁.acval ψ)
     (targetRead m₂.acval d.memberNames d.pins d.nP d.k ψ) (targetRead_congr hmem hpin) hac
     (hBci.tgt_pin_lt (hgv.kEq ▸ hi') (List.getElem?_eq_getElem hj)) (hsh ψ ρp hρp i' j hi' hj)
+
+/-- **A container group's obligation crosses an INDUCTIVE extension**
+(task #315 M7-3 session 3): `ContainerModeled.crossEnvP` for the block
+model, the pins' laws model-free, `PinShapes.crossEnv` for the shapes —
+with the readings guarded at the structures the extension tables
+(`hde`, `hfresh`) rather than asked of every expression. -/
+theorem BlockAt.crossEnvP {Ts : List Name} {env₁ env₂ : Env}
+    {m₁ : EnvModel V env₁} {m₂ : EnvModel V env₂}
+    {B : ContainerInfo → BlockModel V} {ci : ContainerInfo}
+    (hF : ∀ (n : Name) (c : ConstantInfo),
+      (∀ cv mI rP rules, c ≠ .recInfo cv mI rP rules) →
+      env₁.find? n = some c → env₂.find? n = some c)
+    (hres : ∀ e : Expr, e.constsResolve env₁ = true → e.constsResolve env₂ = true)
+    (hag : ∀ n : Name, (env₁.find? n).isSome = true → m₂.acval n = m₁.acval n)
+    (hde : ∀ (ψ : Name → Nat) (dp : Nat) (e : Expr), ProjFree Ts e → ∀ {ea : AnnotTerm},
+      denoteMeta m₁.acval env₁ ψ dp e = some ea → denoteMeta m₂.acval env₂ ψ dp e = some ea)
+    (hfresh : ∀ T ∈ Ts, env₁.find? T = none)
+    (hnpMem : ∀ M ∈ ci.members, ProjFree Ts M.type)
+    (hk : 0 < (B ci).k)
+    (hB : ∀ q, q < (B ci).nPins → ∀ ci' : ContainerInfo,
+      ConLeche.containerInfo? env₁ ((B ci).pinAt q).J = some ci' → IsBlockModels m₁ (B ci'))
+    (hci : ∀ q, q < (B ci).nPins → ∀ ci' : ContainerInfo,
+      ConLeche.containerInfo? env₁ ((B ci).pinAt q).J = some ci' →
+      ConLeche.containerInfo? env₂ ((B ci).pinAt q).J = some ci')
+    (h : BlockAt m₁ B ci) : BlockAt m₂ B ci := by
+  obtain ⟨C, pc, hL, hS⟩ := h
+  exact ⟨C.crossEnvP hF hres hag hde hfresh hnpMem hk, pc, hL.cross,
+    hS.crossEnv hag hk C.reps hB hci⟩
 
 /-- **A container group's obligation crosses an environment change**
 (the block model by `ContainerModeled.crossEnv`, the pins' laws
@@ -247,7 +347,69 @@ own containers**: an OLD container's block is read the same at the
 extended environment (`containerInfo?_ext_ind_eq`) and its obligation
 crosses at an assignment `B'` agreeing with the old one at the old
 groups (`hold`); the containers the extension itself creates are the
-installing route's obligation at `B'`, `hnew`. -/
+installing route's obligation at `B'`, `hnew`.  The readings cross
+under the GUARD (task #315 M7-3 session 3): the extension's new
+projection tables are at structures fresh in `env₁` (`hfresh`), and an
+old container's subjects are its members' STORED types, which resolve
+there (`projFree_members`). -/
+theorem EnvBlocksOf.crossIndP {Ts : List Name} {env₁ env₂ : Env} {m₁ : EnvModel V env₁} {m₂ : EnvModel V env₂}
+    {N : List Name} {B B' : ContainerInfo → BlockModel V}
+    (hext : ∀ (n : Name) (c : ConstantInfo), env₁.find? n = some c → env₂.find? n = some c)
+    (hnewN : ∀ (n : Name) (c : ConstantInfo), env₂.find? n = some c →
+      env₁.find? n = some c ∨ n ∈ N)
+    (hfreshN : ∀ n ∈ N, env₁.find? n = none)
+    (hrecN : ∀ (n : Name) (cv : ConstantVal) (mI rP : Nat) (rules : List RecRule),
+      env₂.find? (n.str "rec") = some (.recInfo cv mI rP rules) → n.str "rec" ∈ N → n ∈ N)
+    (hwf : ConLeche.EnvWF env₁) (hrc : ConLeche.RecCtorsStored env₁)
+    (hF : ∀ (n : Name) (c : ConstantInfo),
+      (∀ cv mI rP rules, c ≠ .recInfo cv mI rP rules) →
+      env₁.find? n = some c → env₂.find? n = some c)
+    (hres : ∀ e : Expr, e.constsResolve env₁ = true → e.constsResolve env₂ = true)
+    (hag : ∀ n : Name, (env₁.find? n).isSome = true → m₂.acval n = m₁.acval n)
+    (hde : ∀ (ψ : Name → Nat) (dp : Nat) (e : Expr), ProjFree Ts e → ∀ {ea : AnnotTerm},
+      denoteMeta m₁.acval env₁ ψ dp e = some ea → denoteMeta m₂.acval env₂ ψ dp e = some ea)
+    (hfresh : ∀ T ∈ Ts, env₁.find? T = none)
+    (hold : ∀ (J : Name) (ci : ContainerInfo), J ∉ N →
+      ConLeche.containerInfo? env₁ J = some ci → B' ci = B ci)
+    (hb : EnvBlocksOf m₁ B)
+    (hnew : ∀ J ∈ N, ∀ ci : ContainerInfo, ConLeche.containerInfo? env₂ J = some ci →
+      BlockAt m₂ B' ci) :
+    EnvBlocksOf m₂ B' := by
+  -- a name stored at the old environment is not a new one
+  have hstored : ∀ n : Name, (env₁.find? n).isSome = true → n ∉ N := by
+    intro n hn hmem
+    rw [hfreshN n hmem] at hn
+    exact nomatch hn
+  intro J ci hci
+  by_cases hJ : J ∈ N
+  · exact hnew J hJ ci hci
+  · have h₁ := ConLeche.containerInfo?_ext_ind hext hnewN hfreshN hrecN hwf hrc hJ hci
+    have hB := hb J ci h₁
+    -- the pins' containers of an old block are old, and read the same
+    have hpc : ∀ q, q < (B ci).nPins → ∀ ci' : ContainerInfo,
+        ConLeche.containerInfo? env₁ ((B ci).pinAt q).J = some ci' →
+        ((B ci).pinAt q).J ∉ N ∧ ConLeche.containerInfo? env₂ ((B ci).pinAt q).J = some ci' := by
+      intro q hq ci' hci'
+      obtain ⟨cv, caps, hf⟩ := containerInfo?_found hci'
+      have hnot : ((B ci).pinAt q).J ∉ N := hstored _ (by rw [hf]; rfl)
+      refine ⟨hnot, ?_⟩
+      rw [ConLeche.containerInfo?_ext_ind_eq hext hnewN hfreshN hrecN hwf hrc hnot]
+      exact hci'
+    obtain ⟨C, pc, hL, hS⟩ := hB.crossEnvP hF hres hag hde hfresh
+      (projFree_members m₁ hfresh h₁) (hB.1.k ▸ containerInfo?_members_pos h₁)
+      hb.pinGroups (fun q hq ci' hci' => (hpc q hq ci' hci').2)
+    have hBci : B' ci = B ci := hold J ci hJ h₁
+    refine ⟨by rw [hBci]; exact C, pc, by rw [hBci]; exact hL, ?_⟩
+    rw [hBci]
+    refine hS.congrB fun q hq ci' hci' => ?_
+    -- `ci'` is the old reading of the pin's container
+    obtain ⟨q₀, kJ, i, ci₁, -, -, hci₁, -, -⟩ := hB.2.choose_spec.2 q hq
+    obtain ⟨hnot, hci₂⟩ := hpc q hq ci₁ hci₁
+    obtain rfl : ci' = ci₁ := Option.some.inj (hci'.symm.trans hci₂)
+    exact hold _ ci' hnot hci₁
+
+/-- `EnvBlocksOf.crossIndP` at an extension that installs NO projection
+table (`Ts := []`), where the readings cross unguarded. -/
 theorem EnvBlocksOf.crossInd {env₁ env₂ : Env} {m₁ : EnvModel V env₁} {m₂ : EnvModel V env₂}
     {N : List Name} {B B' : ContainerInfo → BlockModel V}
     (hext : ∀ (n : Name) (c : ConstantInfo), env₁.find? n = some c → env₂.find? n = some c)
@@ -302,6 +464,38 @@ theorem EnvBlocksOf.crossInd {env₁ env₂ : Env} {m₁ : EnvModel V env₁} {m
     obtain rfl : ci' = ci₁ := Option.some.inj (hci'.symm.trans hci₂)
     exact hold _ ci' hnot hci₁
 
+/-- **The field survives an inductive extension** (the guarded form):
+`EnvBlocksOf.crossIndP` with the assignment quantified. -/
+theorem EnvBlockModels.crossIndP {Ts : List Name} {env₁ env₂ : Env} {m₁ : EnvModel V env₁} {m₂ : EnvModel V env₂}
+    {N : List Name}
+    (hext : ∀ (n : Name) (c : ConstantInfo), env₁.find? n = some c → env₂.find? n = some c)
+    (hnewN : ∀ (n : Name) (c : ConstantInfo), env₂.find? n = some c →
+      env₁.find? n = some c ∨ n ∈ N)
+    (hfreshN : ∀ n ∈ N, env₁.find? n = none)
+    (hrecN : ∀ (n : Name) (cv : ConstantVal) (mI rP : Nat) (rules : List RecRule),
+      env₂.find? (n.str "rec") = some (.recInfo cv mI rP rules) → n.str "rec" ∈ N → n ∈ N)
+    (hwf : ConLeche.EnvWF env₁) (hrc : ConLeche.RecCtorsStored env₁)
+    (hF : ∀ (n : Name) (c : ConstantInfo),
+      (∀ cv mI rP rules, c ≠ .recInfo cv mI rP rules) →
+      env₁.find? n = some c → env₂.find? n = some c)
+    (hres : ∀ e : Expr, e.constsResolve env₁ = true → e.constsResolve env₂ = true)
+    (hag : ∀ n : Name, (env₁.find? n).isSome = true → m₂.acval n = m₁.acval n)
+    (hde : ∀ (ψ : Name → Nat) (dp : Nat) (e : Expr), ProjFree Ts e → ∀ {ea : AnnotTerm},
+      denoteMeta m₁.acval env₁ ψ dp e = some ea → denoteMeta m₂.acval env₂ ψ dp e = some ea)
+    (hfresh : ∀ T ∈ Ts, env₁.find? T = none)
+    (hb : EnvBlockModels m₁)
+    (hnew : ∀ B : ContainerInfo → BlockModel V, EnvBlocksOf m₁ B →
+      ∃ B' : ContainerInfo → BlockModel V,
+        (∀ (J : Name) (ci : ContainerInfo), J ∉ N →
+          ConLeche.containerInfo? env₁ J = some ci → B' ci = B ci) ∧
+        ∀ J ∈ N, ∀ ci : ContainerInfo, ConLeche.containerInfo? env₂ J = some ci →
+          BlockAt m₂ B' ci) :
+    EnvBlockModels m₂ := by
+  obtain ⟨B, hB⟩ := hb
+  obtain ⟨B', hold, hnew'⟩ := hnew B hB
+  exact ⟨B', hB.crossIndP hext hnewN hfreshN hrecN hwf hrc hF hres hag hde hfresh hold hnew'⟩
+
+/-- `EnvBlockModels.crossIndP` at `Ts := []`. -/
 theorem EnvBlockModels.crossInd {env₁ env₂ : Env} {m₁ : EnvModel V env₁} {m₂ : EnvModel V env₂}
     {N : List Name}
     (hext : ∀ (n : Name) (c : ConstantInfo), env₁.find? n = some c → env₂.find? n = some c)
@@ -329,6 +523,202 @@ theorem EnvBlockModels.crossInd {env₁ env₂ : Env} {m₁ : EnvModel V env₁}
   obtain ⟨B, hB⟩ := hb
   obtain ⟨B', hold, hnew'⟩ := hnew B hB
   exact ⟨B', hB.crossInd hext hnewN hfreshN hrecN hwf hrc hF hres hag hde hold hnew'⟩
+
+/-! ## What the crossing cannot be asked across a projection table -/
+
+/-- Every TOWER reading of a field is headed by `fst`
+(`projAV k e = .fst (.snd^[k] e)`). -/
+theorem projAV_head_fst : ∀ (k : Nat) (e : AnnotTerm), ∃ x, projAV k e = .fst x
+  | 0, e => ⟨e, rfl⟩
+  | k + 1, e => projAV_head_fst k (.snd e)
+
+/-- **A NEW PROJECTION TABLE MOVES THE READING** (task #315 M7-3
+session 2, DESIGN §U.40).  `denoteMeta` reads `.proj sn i e` through
+the environment's table when there is one (`projAV`, headed by `fst`)
+and through the PAIR decoder when there is none (`projPair?`, which at
+`i = 1` is `snd`).  So an extension that adds a table at a structure
+whose slot `1` was untabled changes a SUCCESSFUL reading — the two
+readings of `.proj sn 1 (.sort .zero)` differ in their head former.
+
+This is the exact hypothesis `ContainerModeled.crossEnv` and
+`EnvBlocksOf.crossInd` take as `hde`, and it is why no install route
+can discharge it as it stands: every route ends by consing the
+projection tables of its structure-like members
+(`checkNativeTable`/`mutualTables`/`nestedTables`), and a structure
+with two or more fields has a slot `1`. -/
+theorem denoteMeta_not_mono_of_newTable {acval₁ acval₂ : Name → (Name → Nat) → AnnotTerm}
+    {env₁ env₂ : Env} {ψ : Name → Nat} {dp : Nat} {sn : Name} {entry : ConLeche.ProjEntry}
+    (h₁ : env₁.findProj? sn 1 = none) (h₂ : env₂.findProj? sn 1 = some entry) :
+    ∃ (e : Expr) (ea : AnnotTerm),
+      denoteMeta acval₁ env₁ ψ dp e = some ea ∧ denoteMeta acval₂ env₂ ψ dp e ≠ some ea := by
+  refine ⟨.proj sn 1 (.sort .zero), .snd (.sort (Level.zero.eval ψ)), ?_, ?_⟩
+  · simp only [denoteMeta, h₁, bind, Option.bind]
+    rfl
+  · simp only [denoteMeta, h₂, bind, Option.bind]
+    intro hh
+    obtain ⟨x, hx⟩ := projAV_head_fst (1 + entry.off) (.sort (Level.zero.eval ψ))
+    rw [hx] at hh
+    exact nomatch (Option.some.inj hh)
+
+/-- **The crossing's reading hypothesis is REFUTABLE across a table
+cons**: `ContainerModeled.crossEnv`'s `hde` (and with it
+`BlockAt.crossEnv`, `EnvBlocksOf.crossInd`) asks for EVERY expression's
+reading to survive, which an extension installing a projection table
+does not grant.  The fix is not a stronger route fact but a WEAKER
+hypothesis — the readings guarded by the subjects' resolution at the
+block's own pre-block environment (`BlockOpened`'s `ord`/`recF`/
+`reflF`/`nestF` clauses already record it, and a block's members are
+fresh there, so `noProjAt_of_constsResolve` applies) — DESIGN §U.40. -/
+theorem hde_not_of_newTable {env₁ env₂ : Env} {m₁ : EnvModel V env₁} {m₂ : EnvModel V env₂}
+    {sn : Name} {entry : ConLeche.ProjEntry}
+    (h₁ : env₁.findProj? sn 1 = none) (h₂ : env₂.findProj? sn 1 = some entry) :
+    ¬ (∀ (ψ : Name → Nat) (dp : Nat) (e : Expr) {ea : AnnotTerm},
+        denoteMeta m₁.acval env₁ ψ dp e = some ea →
+        denoteMeta m₂.acval env₂ ψ dp e = some ea) := by
+  intro h
+  obtain ⟨e, ea, h1, h2⟩ :=
+    denoteMeta_not_mono_of_newTable (acval₁ := m₁.acval) (acval₂ := m₂.acval)
+      (ψ := fun _ => 0) (dp := 0) h₁ h₂
+  exact h2 (h _ _ e h1)
+
+/-! ## The route's own read-back (task #315 K.34) -/
+
+/-- Structural equality on the container data is an equality: every
+field is a `Name`, an `Expr`, a `Nat` or a list of those, and all of
+those are `LawfulBEq`.  The three instances are what makes K.34's
+Bool — `containerInfo? envOut M.name == some want` — readable as the
+EQUATION `EnvBlocksOf` is quantified over. -/
+instance : LawfulBEq ConLeche.ContainerCtor where
+  eq_of_beq {a b} h := by
+    cases a; cases b
+    simp only [BEq.beq, ConLeche.instBEqContainerCtor.beq, Bool.and_eq_true] at h
+    obtain ⟨h1, h2, h3⟩ := h
+    simp only [ConLeche.ContainerCtor.mk.injEq]
+    exact ⟨eq_of_beq h1, eq_of_beq h2, of_decide_eq_true h3⟩
+  rfl {a} := by
+    cases a
+    simp only [BEq.beq, ConLeche.instBEqContainerCtor.beq, Bool.and_eq_true]
+    exact ⟨beq_self_eq_true (α := Name) _, beq_self_eq_true (α := Expr) _, by simp⟩
+
+@[inherit_doc instLawfulBEqContainerCtor]
+instance : LawfulBEq ConLeche.ContainerMember where
+  eq_of_beq {a b} h := by
+    cases a; cases b
+    simp only [BEq.beq, ConLeche.instBEqContainerMember.beq, Bool.and_eq_true] at h
+    obtain ⟨h1, h2, h3, h4⟩ := h
+    simp only [ConLeche.ContainerMember.mk.injEq]
+    exact ⟨eq_of_beq h1, eq_of_beq h2, eq_of_beq h3, eq_of_beq h4⟩
+  rfl {a} := by
+    cases a
+    simp only [BEq.beq, ConLeche.instBEqContainerMember.beq, Bool.and_eq_true]
+    exact ⟨beq_self_eq_true (α := Name) _, beq_self_eq_true (α := List Name) _,
+      beq_self_eq_true (α := Expr) _,
+      beq_self_eq_true (α := List ConLeche.ContainerCtor) _⟩
+
+@[inherit_doc instLawfulBEqContainerCtor]
+instance : LawfulBEq ContainerInfo where
+  eq_of_beq {a b} h := by
+    cases a; cases b
+    simp only [BEq.beq, ConLeche.instBEqContainerInfo.beq, Bool.and_eq_true] at h
+    obtain ⟨h1, h2⟩ := h
+    simp only [ConLeche.ContainerInfo.mk.injEq]
+    exact ⟨of_decide_eq_true h1, eq_of_beq h2⟩
+  rfl {a} := by
+    cases a
+    simp only [BEq.beq, ConLeche.instBEqContainerInfo.beq, Bool.and_eq_true]
+    exact ⟨by simp, beq_self_eq_true (α := List ConLeche.ContainerMember) _⟩
+
+/-- **THE READ-BACK, INVERTED** (task #315 K.34, DESIGN §U.31 (d)): the
+route's own Bool says that `containerInfo?` of the environment it
+produced reads, AT EVERY MEMBER of the block it installed, exactly the
+block's own data — so at member `i` the reading is
+`blockContainerInfo`, which is the `ContainerInfo` the field
+`EnvBlocksOf` is quantified over asks about. -/
+theorem containerInfo?_of_readBack {envOut : Env} {nP : Nat}
+    {members : List (ConstantVal × List (ConstantVal × Nat))}
+    (h : ConLeche.blockReadBackOk envOut nP members = true)
+    {i : Nat} {c : ConstantVal × List (ConstantVal × Nat)} (hi : members[i]? = some c) :
+    ConLeche.containerInfo? envOut c.1.name
+      = some (ConLeche.blockContainerInfo nP members) := by
+  unfold ConLeche.blockReadBackOk at h
+  rw [List.all_eq_true] at h
+  have hM : (⟨c.1.name, c.1.levelParams, c.1.type,
+      c.2.map fun (cv, nF) => ⟨cv.name, cv.type, nF⟩⟩ : ConLeche.ContainerMember)
+      ∈ (ConLeche.blockContainerInfo nP members).members :=
+    List.mem_map_of_mem (List.mem_of_getElem? hi)
+  exact eq_of_beq (h _ hM)
+
+/-- **The block just installed IS its own container group** (task #315
+K.34's inversion at the model tier): at the reading the route
+certifies, `ContainerModeled`'s four DATA clauses — the member count,
+the parameter count, the member names and the constructors' names —
+are the block's own, so the record is the block model's ties to the
+route's data (`hk`, `hnP`, `hnames`, `hctorNames`) together with the
+model-facing facts the route already proves.  The member clause's
+constant is the stored one on the nose: `blockContainerInfo` copies
+the member's `ConstantVal` field by field.
+
+What every route must still bring is the LAST argument, `hmember`:
+`IsBlockModel` at the OUTPUT model.  Every route builds it at the
+model of its RECURSORS' environment and then conses its projection
+tables, and the block model does not cross that cons — DESIGN §U.40. -/
+theorem ContainerModeled.of_readBack {env : Env} {m : EnvModel V env} {nP : Nat}
+    {members : List (ConstantVal × List (ConstantVal × Nat))} {d : BlockModel V}
+    (hk : d.k = members.length) (hnP : d.nP = nP)
+    (hnamesLen : d.memberNames.length = d.k)
+    (hnames : ∀ i, i < d.k → d.memberName i = (members.getD i default).1.name)
+    (hctorNames : ∀ i, i < d.k →
+      (d.ctorsM i).map (·.1.name) = (members.getD i default).2.map (·.1.name))
+    (hreps : IsBlockModels m d)
+    (htyped : ∀ ψ : Name → Nat, FormersTyped m d ψ ∧ CtorsTyped m d ψ ∧ PinsTyped m d ψ)
+    (hinj : ∀ (ψ : Name → Nat) (mm' j : Nat) (fs : List V),
+      d.inj ψ mm' j fs = injW (d.w ψ) j (mkTower (fs ++ [pt])))
+    (hframe : ∀ i, i < d.k → ∀ (ψ : Name → Nat) (ρ : Nat → V),
+      Sat V (d.params ψ).reverse ρ ↔ Sat V (((d.ppsM i ψ).take d.nP).map (·.2.2)).reverse ρ)
+    (hordFree : ∀ (i j l : Nat) (x : Expr), i < d.k → j < (d.ctorsM i).length →
+      (d.xFvsF i j)[l]? = some x → (d.ksF i j).getD l .ordinary = .ordinary →
+      ConLeche.mentionsMember d.memberNames x.fvarTypeD = false)
+    (hpinsNotMembers : ∀ q, q < d.nPins → (d.pinAt q).J ∉ d.memberNames)
+    (hpinNP : ∀ q, q < d.nPins → ∃ ci' : ContainerInfo,
+      ConLeche.containerInfo? d.env₀ (d.pinAt q).J = some ci' ∧ (d.pinAt q).nPJ = ci'.nP)
+    (hmember : ∀ i, i < d.k → ∃ (cvR : ConstantVal) (mI rP : Nat) (rules : List RecRule),
+      IsBlockModel m (members.getD i default).1.name (members.getD i default).1 cvR mI rP rules
+        d i) :
+    ContainerModeled m (ConLeche.blockContainerInfo nP members) d where
+  k := by rw [hk]; show _ = (members.map _).length; rw [List.length_map]
+  namesLen := hnamesLen
+  nP := hnP
+  reps := hreps
+  typed := htyped
+  inj := hinj
+  frame := hframe
+  ordFree := hordFree
+  pinsNotMembers := hpinsNotMembers
+  pinNP := hpinNP
+  member := fun i M hM => by
+    -- the `i`-th entry is the `i`-th member of the route's list
+    have hMl : (members.map fun (cvT, cs) =>
+        (⟨cvT.name, cvT.levelParams, cvT.type,
+          cs.map fun (cv, nF) => ⟨cv.name, cv.type, nF⟩⟩ : ConLeche.ContainerMember))[i]?
+        = some M := hM
+    rw [List.getElem?_map] at hMl
+    cases hc : members[i]? with
+    | none => rw [hc] at hMl; exact nomatch hMl
+    | some c =>
+      rw [hc] at hMl
+      obtain rfl : M = ⟨c.1.name, c.1.levelParams, c.1.type,
+          c.2.map fun (cv, nF) => ⟨cv.name, cv.type, nF⟩⟩ := (Option.some.inj hMl).symm
+      have hik : i < d.k := by
+        rw [hk]; exact (List.getElem?_eq_some_iff.mp hc).1
+      have hcD : members.getD i default = c := by
+        rw [List.getD_eq_getElem?_getD, hc]; rfl
+      refine ⟨by rw [hnames i hik, hcD], ?_, ?_⟩
+      · rw [hctorNames i hik, hcD]
+        show _ = (c.2.map _).map _
+        rw [List.map_map]; rfl
+      · obtain ⟨cvR, mI, rP, rules, hI⟩ := hmember i hik
+        rw [hcD] at hI
+        exact ⟨cvR, mI, rP, rules, hI⟩
 
 /-! ## The non-inductive stages of the fold -/
 
