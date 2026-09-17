@@ -389,7 +389,7 @@ structure ReadCtx (st : ElimState) (envAux : Env) (stored : List AuxStored)
       ConLeche.restoreCtors (m := ConLeche.CheckM) (fueledOps μ F) ENV₁ (ConLeche.restoreTbl p st)
         p.lps a.ctors)
     = .ok ctorsR
-  PF : NestedPinFacts (V := V) (p := p) (b := b) (fms := fms) (f₀ := f₀) (ctorsA := ctorsA)
+  PF : NestedPinFacts (V := V) (mp := mp) (p := p) (b := b) (fms := fms) (f₀ := f₀) (ctorsA := ctorsA)
     (kinds := kinds) (env := env) (ppsF := ppsF) (W := W) (idxF := idxF) (dsF := dsF)
     (esF := esF) (srcsF := srcsF) (fvsPF := fvsPF) (xrestF := xrestF) (eissF := eissF)
     (tssF := tssF) (ctorsR := ctorsR) (pinsS := pinsS) st mp₁'

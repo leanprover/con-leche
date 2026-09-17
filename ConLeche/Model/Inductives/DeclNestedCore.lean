@@ -166,11 +166,20 @@ it, which is what makes it the tail's and not the core's:
   restored recursor); the core publishes the same form at the
   CONSTRUCTORS' model (`NestedCoreOut.reps`, task #315 M7-3
   session 11), so this field is that one CROSSED;
-* `groups`/`conts`: the pins' groups at the constructors' model with
-  their container's block model NAMED by the environment model's own
-  assignment `blockOf mp.base2` (DESIGN §U.36 (d)'s strengthening) —
-  stated here, at the tail, because `NestedCoreOut` cannot be
-  strengthened without a new named hypothesis. -/
+* `conts`: the pin's container reads back the SAME group at the
+  constructors' environment, at the OUTPUT one and at the pre-block
+  one.  The last of the three is what makes it the tail's: the first
+  is the core's (`nestedContainersOk_group`) and the second is that
+  one crossed by the `containerInfo?` frame
+  (`Verify/Inductives/ContainerFrame.lean`).
+
+  (`groups` — the pins' groups at their container's block model NAMED
+  by `blockOf mp.base2`, DESIGN §U.36 (d)'s strengthening — was the
+  seventh field until task #315 M7-3 session 12 found it to be the
+  CORE's: `NestedPinsRun.groupSyn` builds the group at exactly that
+  assignment and the pin's own reading is its group's base's, so
+  `NestedStageFacts.groupsAt` publishes it and `conts` carries it to
+  the constructors' environment.) -/
 structure NestedTailOut (mp : EnvModelM V μ env) (stored : List AuxStored)
     (mp₂ : EnvModelM V μ ENV₂) (envOut : Env) (mpOut : EnvModelM V μ envOut) : Prop where
   install : ∃ new : List ConstantInfo, NestedInstallExt p.memberNames env envOut new ∧
@@ -181,9 +190,6 @@ structure NestedTailOut (mp : EnvModelM V μ env) (stored : List AuxStored)
     (∀ (cv : ConstantVal) (mI rP : Nat) (rules : List RecRule), c ≠ .recInfo cv mI rP rules) →
     (ENV₂).find? n = some c → envOut.find? n = some c
   repsAt : IsBlockModelsAt mpOut.base2 (D) (fun mm => (stored.getD mm default).cvTa)
-  groups : ∀ q, q < pinsS.length → ∀ ci : ContainerInfo,
-    ConLeche.containerInfo? (ENV₂) ((D).pinAt q).J = some ci →
-    ∃ q₀ kJ i, q = q₀ + i ∧ i < kJ ∧ PG mp₂.base2 q₀ kJ (blockOf mp.base2 ci)
   conts : ∀ q, q < pinsS.length → ∃ ci : ContainerInfo,
     ConLeche.containerInfo? (ENV₂) ((D).pinAt q).J = some ci ∧
     ConLeche.containerInfo? envOut ((D).pinAt q).J = some ci ∧
@@ -788,6 +794,26 @@ theorem declNested_of (hμ : μ.verifiedChecks = true) {F : Nat} {env envOut : E
   -- the pins' laws (model-free) and the pins' shapes, crossed to the output model
   have hLaws := (nestedPinRecLaws_of hμ O.facts O.grouped O.bk mp₂.base2 O.stage.groups).cross
     (m₂ := mpOut.base2)
+  -- the pins' groups at the CONSTRUCTORS' environment's reading: the
+  -- core's own keyed groups (`NestedStageFacts.groupsAt`, at the
+  -- pre-block reading) carried across by `conts`, which says the two
+  -- readings are ONE group (task #315 M7-3 session 12 — the field the
+  -- tail used to supply)
+  have hGroups : ∀ q, q < pinsS.length → ∀ ci : ContainerInfo,
+      ConLeche.containerInfo? (ConLeche.consNestedCtors ctorsR.flatten
+        (ConLeche.consMutualFormers (fms.take p.k) env))
+        ((nestedBlockModel (V := V) p b fms f₀ ctorsA' kinds env ppsF W idxF dsF esF srcsF fvsPF
+          xrestF eissF tssF ctorsR dsR xFvsR pinsS).pinAt q).J = some ci →
+      ∃ q₀ kJ i, q = q₀ + i ∧ i < kJ ∧
+        NestedPinGroup (V := V) (p := p) (b := b) (fms := fms) (f₀ := f₀) (ctorsA := ctorsA')
+          (kinds := kinds) (env := env) (ppsF := ppsF) (W := W) (idxF := idxF) (dsF := dsF)
+          (esF := esF) (srcsF := srcsF) (fvsPF := fvsPF) (xrestF := xrestF) (eissF := eissF)
+          (tssF := tssF) (ctorsR := ctorsR) (dsR := dsR) (xFvsR := xFvsR) (pinsS := pinsS)
+          mp₂.base2 q₀ kJ (blockOf mp.base2 ci) := by
+    intro q hq ci hci
+    obtain ⟨ci₀, h₂, -, hEnv⟩ := T.conts q hq
+    obtain rfl : ci = ci₀ := Option.some.inj (hci.symm.trans h₂)
+    exact O.stage.groupsAt q hq ci hEnv
   have hBreps : ∀ q, q < pinsS.length → ∀ ci : ContainerInfo,
       ConLeche.containerInfo? (ConLeche.consNestedCtors ctorsR.flatten
         (ConLeche.consMutualFormers (fms.take p.k) env))
@@ -795,9 +821,9 @@ theorem declNested_of (hμ : μ.verifiedChecks = true) {F : Nat} {env envOut : E
           xrestF eissF tssF ctorsR dsR xFvsR pinsS).pinAt q).J = some ci →
       IsBlockModels mp₂.base2 (blockOf mp.base2 ci) := by
     intro q hq ci hci
-    obtain ⟨q₀, kJ, i, -, -, G⟩ := T.groups q hq ci hci
+    obtain ⟨q₀, kJ, i, -, -, G⟩ := hGroups q hq ci hci
     exact G.reps
-  have hShapes := (nestedPinShapes_of (B := blockOf mp.base2) mp₂.base2 T.groups
+  have hShapes := (nestedPinShapes_of (B := blockOf mp.base2) mp₂.base2 hGroups
       (fun q hq => (T.conts q hq).imp fun _ hh => hh.1)).crossEnv T.findR T.agree hk0
     O.reps.toIsBlockModels
     hBreps (fun q hq ci hci => by

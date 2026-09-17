@@ -1263,6 +1263,17 @@ structure NestedStageFacts (st : ElimState) (mp₂ : EnvModelM V μ ENV₂) : Pr
       (dsR mm j ψ).getD (b.nP + i) default = (dsF (b.ownOffset mm + j) ψ).getD (b.nP + i) default
   groups : ∀ q, q < pinsS.length → ∃ (q₀ kJ i : Nat) (dJ : BlockModel V),
     q = q₀ + i ∧ i < kJ ∧ PG mp₂.base2 q₀ kJ dJ
+  /-- **the groups with their block model NAMED by the environment
+  model's own assignment** (task #315 M7-3 session 12): `groups` keyed
+  by the reading `containerInfo?` makes of the pin's container at the
+  PRE-BLOCK environment, which is where the core has it
+  (`NestedPinFacts.groupsAt`).  `NestedTailOut.groups` ASSUMED this
+  form until now; `declNested_of` reads it here instead, and carries
+  it to the output environment's reading through
+  `NestedTailOut.conts`. -/
+  groupsAt : ∀ q, q < pinsS.length → ∀ ci : ConLeche.ContainerInfo,
+    ConLeche.containerInfo? env ((D).pinAt q).J = some ci →
+    ∃ (q₀ kJ i : Nat), q = q₀ + i ∧ i < kJ ∧ PG mp₂.base2 q₀ kJ (blockOf mp.base2 ci)
 
 /-- **The restored constructors' LOOP's outputs** — what the named fact
 `NestedCtorsStaged` supplies, at a model `mp₁` of the members' prefix
@@ -1324,6 +1335,17 @@ structure NestedLoopFacts (st : ElimState) (mp₁ : EnvModelM V μ ENV₁) (mp�
       (dsR mm j ψ).getD (b.nP + i) default = (dsF (b.ownOffset mm + j) ψ).getD (b.nP + i) default
   groups : ∀ q, q < pinsS.length → ∃ (q₀ kJ i : Nat) (dJ : BlockModel V),
     q = q₀ + i ∧ i < kJ ∧ PG mp₂.base2 q₀ kJ dJ
+  /-- **the groups with their block model NAMED by the environment
+  model's own assignment** (task #315 M7-3 session 12): `groups` keyed
+  by the reading `containerInfo?` makes of the pin's container at the
+  PRE-BLOCK environment, which is where the core has it
+  (`NestedPinFacts.groupsAt`).  `NestedTailOut.groups` ASSUMED this
+  form until now; `declNested_of` reads it here instead, and carries
+  it to the output environment's reading through
+  `NestedTailOut.conts`. -/
+  groupsAt : ∀ q, q < pinsS.length → ∀ ci : ConLeche.ContainerInfo,
+    ConLeche.containerInfo? env ((D).pinAt q).J = some ci →
+    ∃ (q₀ kJ i : Nat), q = q₀ + i ∧ i < kJ ∧ PG mp₂.base2 q₀ kJ (blockOf mp.base2 ci)
 
 end Assembly
 
@@ -1413,7 +1435,7 @@ Consumer: `nestedStageFacts_of` → `nestedCoreModeled_of`. -/
           (ConLeche.consMutualFormers (fms.take p.k) env)))
       (dsR : Nat → Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm))
       (xFvsR : Nat → Nat → List Expr) (pinsS : List PinSyn),
-      NestedLoopFacts (V := V) (p := p) (b := b) (fms := fms) (f₀ := f₀) (ctorsA := ctorsA)
+      NestedLoopFacts (V := V) (mp := mp) (p := p) (b := b) (fms := fms) (f₀ := f₀) (ctorsA := ctorsA)
         (kinds := kinds) (env := env) (ppsF := ppsF) (W := W) (idxF := idxF) (dsF := dsF)
         (esF := esF) (srcsF := srcsF) (fvsPF := fvsPF) (xrestF := xrestF) (eissF := eissF)
         (tssF := tssF) (ctorsR := ctorsR) (dsR := dsR) (xFvsR := xFvsR) (pinsS := pinsS) st mp₁' mp₂
@@ -1611,7 +1633,7 @@ theorem nestedStageFacts_of (hst : NestedCtorsStaged V μ F) (hμ : μ.verifiedC
       leafM := fun t f ht hft => (L.leafKeep t f ht hft).trans (hleafM' t f ht hft)
       FD := fun t f ht hft => FormerData.crossEnv' L.hde (hfind' t f ht hft).2
       ctorsLen := hctorsLen, ctorFacts := L.ctorFacts, domFacts := L.domFacts
-      groups := L.groups }⟩
+      groups := L.groups, groupsAt := L.groupsAt }⟩
   intro n hn ψ
   have hnM : n ∉ p.memberNames := fun hm => hn (List.mem_append_left _ hm)
   have hnC : n ∉ p.ctors.map (·.cv.name) := fun hc => hn (List.mem_append_right _ hc)
