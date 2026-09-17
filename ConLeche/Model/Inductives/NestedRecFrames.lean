@@ -10,6 +10,7 @@ import ConLeche.Verify.Inductives.NestedElimInv
 import ConLeche.Verify.Inductives.NestedGroupInv
 public import ConLeche.Verify.Inductives.NestedRestoreTbl
 import ConLeche.Verify.Inductives.NestedAuxInv
+import ConLeche.Verify.Inductives.NestedRecNames
 import ConLeche.Verify.Inductives.NestedRestoreKit
 public section
 
@@ -583,6 +584,170 @@ theorem NestedTailIn.auxFresh : ∀ n ∈ (ConLeche.restoreTbl p st).auxNames,
     refine I.memberCtor_ne_aux hct ?_ ?_
     · rw [hmember]; exact I.ctorsRlt hmm
     · rw [← hname, hce]; exact hn
+
+/-! ### The leaves off the auxiliary names -/
+
+/-- The restored constructors' list at a member of the block. -/
+theorem NestedTailIn.ctorsRget {mm : Nat} (hmm : mm < p.k) :
+    ctorsR[mm]? = some (ctorsR.getD mm []) := by
+  obtain ⟨hlenR, -⟩ := ConLeche.mapM_except_inv I.hctors
+  have hlt : mm < ctorsR.length := by
+    rw [hlenR, List.length_take, I.storedLen, I.out.bk]
+    omega
+  rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hlt]
+  rfl
+
+/-- The auxiliary block's constructor names are pairwise distinct. -/
+theorem NestedTailIn.ctorsANodup : (ctorsA.map (·.1.name)).Nodup := by
+  have hnd : b.blockNames.Nodup := I.out.nodup
+  rw [ConLeche.MutualBlock.blockNames] at hnd
+  have hcn : (b.ctors.map (·.cv.name)).Nodup :=
+    (List.nodup_append.mp (List.nodup_append.mp hnd).1).2.1
+  obtain ⟨hlenA, hnamesA⟩ :=
+    ctorsA_names_of I.out.ctors (ConLeche.checkMutualCore_inv I.haux).2.1
+  have hmap : ctorsA.map (·.1.name) = b.ctors.map (·.cv.name) := by
+    refine List.ext_getElem? fun J => ?_
+    rw [List.getElem?_map, List.getElem?_map]
+    cases hJ : ctorsA[J]? with
+    | none =>
+      rw [List.getElem?_eq_none (by rw [← hlenA]; exact List.getElem?_eq_none_iff.mp hJ)]
+      rfl
+    | some cA =>
+      obtain ⟨ct, hct⟩ : ∃ ct, b.ctors[J]? = some ct :=
+        ⟨_, List.getElem?_eq_getElem (by rw [← hlenA]; exact (List.getElem?_eq_some_iff.mp hJ).1)⟩
+      rw [hct]
+      exact congrArg some (hnamesA J cA ct hJ hct).1
+  rw [hmap]
+  exact hcn
+
+/-- **THE DECLARED CONSTRUCTORS ARE THE AUXILIARY BLOCK'S OWN** — the
+elimination files every declared constructor under its member
+(`nestedTypes0`) and keeps the block's own types in place
+(`elimNested_types_prefix`), so every declared constructor's name is
+one of the auxiliary block's.  It needs every declared constructor to
+name a member of the block, which nothing in the run's data records;
+stated as a model face of the readings until it does. -/
+@[expose] def NestedDeclCtorsInBlock (p : NestedParts) (ctorsA : List (ConstantVal × Nat)) : Prop :=
+  ∀ n ∈ p.ctors.map (·.cv.name), n ∈ ctorsA.map (·.1.name)
+
+/-- **A NAME OFF THE AUXILIARY NAMES IS FOUND ALIKE** at the scratch
+constructors' environment and at the restored one (`RestoreAgree.leafSome`):
+a declared member is stored at both with its own constant, a declared
+member's constructor at both (the restore keeps the name and the level
+parameters), and everything else is the pre-block environment's. -/
+theorem NestedTailIn.leafSome {mpA : EnvModelM V μ ENVA} {cvRas : List ConstantVal}
+    (S : NestedScratchOut F env b fms f₀ ctorsA kinds mp₁ ppsF W idxF dsF esF srcsF fvsPF xFvsF
+      xrestF eissF tssF stored mpA cvRas) :
+    ∀ n, n ∉ (ConLeche.restoreTbl p st).auxNames → ∀ ci : ConstantInfo,
+      (ENVA).find? n = some ci → ∃ ci' : ConstantInfo, (ENV₂).find? n = some ci' ∧
+        ci'.toConstantVal.levelParams = ci.toConstantVal.levelParams := by
+  intro n hn ci hfind
+  rcases I.nameCases n hn with ⟨t, f, htk, hf, rfl⟩ | ⟨mm, j, cA, hmm, hj, hcA, rfl⟩ | ⟨hnf, hnc⟩
+  · obtain rfl : ci = .indInfo f.cvTa {} :=
+      Option.some.inj (hfind.symm.trans (S.memberStored t f hf).find)
+    exact ⟨_, I.out.stage.findM t f htk hf, rfl⟩
+  · obtain rfl : ci = .ctorInfo cA.1 b.nP cA.2 :=
+      Option.some.inj (hfind.symm.trans
+        (ConLeche.consMutualCtors_find?_self I.ctorsANodup hcA))
+    have hjR : j < (ctorsR.getD mm []).length := by rw [I.out.stage.ctorsLen mm hmm]; exact hj
+    obtain ⟨c, hc⟩ : ∃ c, (ctorsR.getD mm [])[j]? = some c :=
+      ⟨_, List.getElem?_eq_getElem hjR⟩
+    obtain ⟨cAx, hcAx, hname⟩ := I.ctorsRName (I.ctorsRget hmm) hc
+    have hxe : cAx = cA := Option.some.inj (hcAx.symm.trans hcA)
+    rw [hxe] at hname
+    obtain ⟨-, -, -, -, -, hBC⟩ := I.out.stage.ctorFacts mm j c hmm hc
+    obtain ⟨hfindR, hlpsR, -⟩ := hBC
+    rw [← hname]
+    refine ⟨_, hfindR, ?_⟩
+    show c.1.levelParams = cA.1.levelParams
+    obtain ⟨hlenA, hnamesA⟩ :=
+      ctorsA_names_of I.out.ctors (ConLeche.checkMutualCore_inv I.haux).2.1
+    obtain ⟨ct, hct⟩ : ∃ ct, b.ctors[b.ownOffset mm + j]? = some ct :=
+      ⟨_, List.getElem?_eq_getElem (by rw [← hlenA]; exact (List.getElem?_eq_some_iff.mp hcA).1)⟩
+    rw [hlpsR, (hnamesA _ cA ct hcA hct).2.2]
+  · rw [ConLeche.consMutualCtors_find?_of_ne (fun c hc => hnc c hc),
+      consMutualFormers_find?_of_ne ?_] at hfind
+    · exact ⟨ci, I.out.stage.find (I.findPre1 hfind), rfl⟩
+    · intro g hg
+      obtain ⟨t, ht⟩ := List.getElem?_of_mem hg
+      exact hnf t g ht
+
+/-- **A NAME ABSENT FROM THE SCRATCH ENVIRONMENT IS ABSENT FROM THE
+RESTORED ONE** (`RestoreAgree.leafNone`), off the auxiliary names. -/
+theorem NestedTailIn.leafNone {mpA : EnvModelM V μ ENVA} {cvRas : List ConstantVal}
+    (S : NestedScratchOut F env b fms f₀ ctorsA kinds mp₁ ppsF W idxF dsF esF srcsF fvsPF xFvsF
+      xrestF eissF tssF stored mpA cvRas) :
+    ∀ n, n ∉ (ConLeche.restoreTbl p st).auxNames → (ENVA).find? n = none →
+      (ENV₂).find? n = none := by
+  intro n hn hfind
+  rcases I.nameCases n hn with ⟨t, f, htk, hf, rfl⟩ | ⟨mm, j, cA, hmm, hj, hcA, rfl⟩ | ⟨hnf, hnc⟩
+  · rw [(S.memberStored t f hf).find] at hfind; exact nomatch hfind
+  · rw [ConLeche.consMutualCtors_find?_self I.ctorsANodup hcA] at hfind
+    exact nomatch hfind
+  · rw [ConLeche.consMutualCtors_find?_of_ne (fun c hc => hnc c hc),
+      consMutualFormers_find?_of_ne ?_] at hfind
+    · rw [ConLeche.consNestedCtors_find?_of_ne ?_, consMutualFormers_find?_of_ne ?_]
+      · exact hfind
+      · intro g hg
+        obtain ⟨t, ht⟩ := List.getElem?_of_mem (List.mem_of_mem_take hg)
+        exact hnf t g ht
+      · intro c hc
+        obtain ⟨l, hl, hcl⟩ := List.mem_flatten.mp hc
+        obtain ⟨mm, hmm⟩ := List.getElem?_of_mem hl
+        obtain ⟨j, hj⟩ := List.getElem?_of_mem hcl
+        obtain ⟨cA, hcA, hname⟩ := I.ctorsRName hmm hj
+        rw [hname]
+        exact hnc cA (List.mem_of_getElem? hcA)
+    · intro g hg
+      obtain ⟨t, ht⟩ := List.getElem?_of_mem hg
+      exact hnf t g ht
+
+/-- **THE LEAVES AGREE OFF THE AUXILIARY NAMES** (`RestoreAgree.leaf`):
+a declared member's leaf is the block's own `mutMemberLeaf` at both
+models, a declared member's constructor's the SAME tagged tower (the
+member-local tag `j` on both sides), and off the block both models are
+the pre-block model's. -/
+theorem NestedTailIn.leafAcval {mpA : EnvModelM V μ ENVA} {cvRas : List ConstantVal}
+    (S : NestedScratchOut F env b fms f₀ ctorsA kinds mp₁ ppsF W idxF dsF esF srcsF fvsPF xFvsF
+      xrestF eissF tssF stored mpA cvRas)
+    (hdecl : NestedDeclCtorsInBlock p ctorsA) :
+    ∀ n, n ∉ (ConLeche.restoreTbl p st).auxNames →
+      mpA.base2.acval n = mp₂.base2.acval n := by
+  intro n hn
+  rcases I.nameCases n hn with ⟨t, f, htk, hf, rfl⟩ | ⟨mm, j, cA, hmm, hj, hcA, rfl⟩ | ⟨hnf, hnc⟩
+  · rw [S.leafM t f hf, I.out.facts.leaf t f hf, I.out.stage.leafM t f htk hf]
+  · have hjR : j < (ctorsR.getD mm []).length := by rw [I.out.stage.ctorsLen mm hmm]; exact hj
+    obtain ⟨c, hc⟩ : ∃ c, (ctorsR.getD mm [])[j]? = some c :=
+      ⟨_, List.getElem?_eq_getElem hjR⟩
+    obtain ⟨cAx, hcAx, hname⟩ := I.ctorsRName (I.ctorsRget hmm) hc
+    have hxe : cAx = cA := Option.some.inj (hcAx.symm.trans hcA)
+    rw [hxe] at hname
+    obtain ⟨-, -, -, hleafR, -, -⟩ := I.out.stage.ctorFacts mm j c hmm hc
+    obtain ⟨-, -, hleafA⟩ := S.cons _ cA hcA
+    obtain ⟨ct, hct, hmember, -⟩ := I.ctorsRMember (I.ctorsRget hmm) hc
+    have hmemF : mutMemF b (b.ownOffset mm + j) = mm := by
+      show (b.ctors.getD (b.ownOffset mm + j) default).member = mm
+      rw [List.getD_eq_getElem?_getD, hct]
+      exact hmember
+    funext ψ
+    rw [hleafA ψ, ← hname, hleafR ψ, hmemF, Nat.add_sub_cancel_left]
+  · have hnM : n ∉ p.memberNames := by
+      rw [← I.out.stage.names]
+      intro hm
+      obtain ⟨g, hg, hge⟩ := List.mem_map.mp hm
+      obtain ⟨t, ht⟩ := List.getElem?_of_mem (List.mem_of_mem_take hg)
+      exact hnf t g ht hge
+    have hnC : n ∉ p.ctors.map (·.cv.name) := by
+      intro hm
+      obtain ⟨cA, hcA, hce⟩ := List.mem_map.mp (hdecl n hm)
+      exact hnc cA hcA hce
+    funext ψ
+    rw [S.agree n (fun cA hcA hne => hnc cA hcA hne.symm),
+      I.out.facts.off n (fun t g ht hne => hnf t g ht hne.symm),
+      I.out.stage.agree n (fun hm => by
+        rcases List.mem_append.mp hm with h | h
+        · exact hnM h
+        · exact hnC h) ψ]
 
 end Run
 
