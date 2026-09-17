@@ -88200,11 +88200,13 @@ divergence would turn the shadow gate red rather than passing silently.
 * **Mathlib** (`--jobs=8`, `ulimit -v 32000000`), which is where a
   whole-list scan would have shown worst: exit 0, **654 504 accepted —
   master's own count** — at **12 015 570 983 439 instructions:u against
-  K.34's recorded 12 015 482 741 002, +0.0007 %**.  That comparison is
-  the right one for this record even though many K-rows landed between:
-  K.35–K.48 are all NESTED-route-only and the nested route is not on the
-  dispatch, so nothing on the native/mutual path moved between K.34 and
-  here;
+  a SAME-SESSION baseline of 12 015 531 572 558 (K.47's binary on the
+  same stream): +39.4 M, +0.00033 %**, i.e. noise at 12 000 G.  (Against
+  K.34's recorded 12 015 482 741 002 it is +0.0007 %; that older figure
+  is also a fair comparison for this record, since K.35–K.48 are all
+  NESTED-route-only and the nested route is not on the dispatch, so
+  nothing on the native/mutual path moved between K.34 and here — but
+  the same-session pair is the one this record rests on);
 * nested-shadow **27/27**; `tests/arena.sh` **EXIT 0**.
 
 **Negative control**, K.34's own: `&& false` inside the executed twin
