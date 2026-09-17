@@ -190,6 +190,9 @@ structure NestedTailIn {env : Env} (F : Nat) (mp : EnvModelM V μ env) (p : Nest
   hsrc : ConLeche.nestedCopySrcOk env p st = true
   hgrp : ConLeche.nestedGroupsOk env p st = true
   hkinds : ConLeche.nestedPinKindsOk p b st stored = true
+  /-- K.35's conjunct (session 10): the read-back's auxiliary applications,
+  the restore's `args.drop nP` precondition -/
+  hauxApps : ConLeche.nestedAuxAppsOk p st stored = true
   hctors : (stored.take p.k).mapM (fun a =>
       ConLeche.restoreCtors (m := ConLeche.CheckM) (fueledOps μ F)
         (ConLeche.consNestedFormers (stored.take p.k) env) (ConLeche.restoreTbl p st) p.lps
@@ -438,14 +441,14 @@ theorem nestedTailModeled_of {F : Nat}
     (hst : NestedRecsStored V μ F) : NestedTailModeled V μ F := by
   intro hμ env mp hE p envOut st b envAux stored ctorsR cvRms cvRns rulesM rulesN fmsA ctorsA₀
     hPM h0 h1 hfA hcA helim hcount hfresh hcont hb haux hstored hclosed hpinsAux hcaps hsrc hgrp hkinds
-    hctors hrm hrn hrulesM hrulesN htbl hpinsOut hcnt hrecs fms f₀ ctorsA sortss kinds mp₁ ppsF W idxF
-    dsF esF srcsF fvsPF xFvsF xrestF eissF tssF dsR xFvsR pinsS mp₂ henv O
+    hauxApps hctors hrm hrn hrulesM hrulesN htbl hpinsOut hcnt hrecs fms f₀ ctorsA sortss kinds mp₁
+    ppsF W idxF dsF esF srcsF fvsPF xFvsF xrestF eissF tssF dsR xFvsR pinsS mp₂ henv O
   have I : NestedTailIn F mp p envOut st b envAux stored ctorsR cvRms cvRns rulesM rulesN fmsA
       ctorsA₀ fms f₀ ctorsA sortss kinds mp₁ ppsF W idxF dsF esF srcsF fvsPF xFvsF xrestF eissF tssF
       dsR xFvsR pinsS mp₂ :=
     ⟨hμ, hE, hPM, h0, h1, hfA, hcA, helim, hcount, hfresh, hcont, hb, haux, hstored, hclosed,
-      hpinsAux, hcaps, hsrc, hgrp, hkinds, hctors, hrm, hrn, hrulesM, hrulesN, htbl, hpinsOut, hcnt,
-      hrecs, henv, O⟩
+      hpinsAux, hcaps, hsrc, hgrp, hkinds, hauxApps, hctors, hrm, hrn, hrulesM, hrulesN, htbl,
+      hpinsOut, hcnt, hrecs, henv, O⟩
   have hp := nestedPinRecLaws_of hμ O.facts O.grouped O.bk mp₂.base2 O.stage.groups
   obtain ⟨s, rdsM, concM, R⟩ := hrd mp p envOut st b envAux stored ctorsR cvRms cvRns rulesM rulesN
     fmsA ctorsA₀ fms f₀ ctorsA sortss kinds mp₁ ppsF W idxF dsF esF srcsF fvsPF xFvsF xrestF eissF

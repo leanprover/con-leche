@@ -542,6 +542,13 @@ two post-checks — cons a model of the post-block environment —
     ConLeche.nestedCopySrcOk env p st = true →
     ConLeche.nestedGroupsOk env p st = true →
     ConLeche.nestedPinKindsOk p b st stored = true →
+    -- K.35's conjunct, the run's own (lane M7-2's request, session 10): every
+    -- copy and copy constructor in the read-back recursor types and rules is
+    -- applied to `nP + arity` arguments whose first `nP` are the block's
+    -- parameter variables — the restore's `args.drop nP` precondition, which
+    -- the recursors' readings stand on (`auxAppsOk_reflect`, and with it
+    -- `NestedRecTysAuxOf` is gone)
+    ConLeche.nestedAuxAppsOk p st stored = true →
     (stored.take p.k).mapM (fun a =>
         ConLeche.restoreCtors (m := ConLeche.CheckM) (fueledOps μ F)
           (ConLeche.consNestedFormers (stored.take p.k) env) (ConLeche.restoreTbl p st) p.lps
@@ -672,14 +679,14 @@ theorem declNested_of (hμ : μ.verifiedChecks = true) {F : Nat} {env envOut : E
   classical
   obtain ⟨h0, h1, st, b, envAux, stored, ctorsR, cvRms, cvRns, rulesM, rulesN, fmsA, ctorsA,
     hfA, hcA, helim, hcount, hfresh, hcont, hb, haux, hstored, hclosed, hpinsAux, hcaps, hsrc,
-    -, hgrp, hsc, -, hkinds, -, -, hpins₁, hctors, hrm, hrn, hrulesM, hrulesN, htbl, hpinsOut,
+    -, hgrp, hsc, -, hkinds, hauxApps, -, hpins₁, hctors, hrm, hrn, hrulesM, hrulesN, htbl, hpinsOut,
     hcnt, hrecs, hrb⟩ := h
   -- the `-` after `hsrc` is K.31's `pinsDistinct` conjunct: named for the
   -- identities' discharge (`NestedPinsIdent`, lane L-B), not consumed here;
   -- the `-` after `hsc` is K.32's `nestedCopyTargetsOk`, named for the same
   -- discharge's `ordF` arm, not consumed here either; the two `-` after
-  -- `hkinds` are K.35's `nestedAuxAppsOk` and K.37's `nestedPinRankOk`,
-  -- neither consumed on this path
+  -- `hkinds` the LAST `-` is K.37's `nestedPinRankOk`, not consumed on this
+  -- path (K.35's `nestedAuxAppsOk` is `hauxApps`, which the tail consumes)
   -- THE CERTIFICATION-ONLY RECORDS (K.35's follow-up): the run carries them
   -- as `certOnly μ …`; this theorem is stated under `hμ`, at which the gate
   -- is the Bool the consumers below expect — K.34's `blockReadBackOk`
@@ -689,6 +696,7 @@ theorem declNested_of (hμ : μ.verifiedChecks = true) {F : Nat} {env envOut : E
   replace hgrp := ConLeche.certOnly_elim hgrp hμ
   replace hsc := ConLeche.certOnly_elim hsc hμ
   replace hkinds := ConLeche.certOnly_elim hkinds hμ
+  replace hauxApps := ConLeche.certOnly_elim hauxApps hμ
   replace hrb := ConLeche.certOnly_elim hrb hμ
   have hPM : PinsModeled mp.base2 st.pins := pinsModeled_of_env mp.blocks hcont
   obtain ⟨fms, f₀, ctorsA', sortss, kinds, mp₁, ppsF, W, idxF, dsF, esF, srcsF, fvsPF, xFvsF, xrestF,
@@ -697,7 +705,8 @@ theorem declNested_of (hμ : μ.verifiedChecks = true) {F : Nat} {env envOut : E
     hcaps hsrc hgrp hsc hkinds hpins₁ hctors
   obtain ⟨mpOut, T⟩ := htail hμ mp.toEnvModelM hE p envOut st b envAux stored ctorsR cvRms cvRns
     rulesM rulesN fmsA ctorsA hPM h0 h1 hfA hcA helim hcount hfresh hcont hb haux hstored hclosed
-    hpinsAux hcaps hsrc hgrp hkinds hctors hrm hrn hrulesM hrulesN htbl hpinsOut hcnt hrecs fms f₀
+    hpinsAux hcaps hsrc hgrp hkinds hauxApps hctors hrm hrn hrulesM hrulesN htbl hpinsOut hcnt
+    hrecs fms f₀
     ctorsA' sortss kinds mp₁ ppsF W idxF dsF esF srcsF fvsPF xFvsF xrestF eissF tssF dsR xFvsR
     pinsS mp₂ henv O
   -- the lists' lengths, and the block's own reading
