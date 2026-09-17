@@ -1058,6 +1058,8 @@ theorem checkNested_inv {env envOut : Env} {p : NestedParts} {F : Nat}
       certOnly mode (nestedPinRankOk env p b st stored) = true ∧
       -- THE MINT PARENTS (K.40)
       certOnly mode (nestedPinParentOk p st) = true ∧
+      -- THE PIN PAIRING AT A NOT-OWN EDGE (K.41): `ClassPin`'s `name`
+      certOnly mode (nestedPinRootHeadOk env p b st stored) = true ∧
       -- POST-CHECK (a) A THIRD TIME (K.30): the pins typed at the
       -- environment holding the RESTORED formers
       nestedPinsOk (m := CheckM) (fueledOps mode F)
@@ -1215,6 +1217,11 @@ theorem checkNested_inv {env envOut : Env} {p : NestedParts} {F : Nat}
   case neg => rw [if_neg hpa] at h; close_throw
   rw [if_pos hpa] at h
   try simp only [bind, Except.bind] at h
+  by_cases hrh : certOnly (fueledOps mode F).mode
+      (nestedPinRootHeadOk env p b st stored) = true
+  case neg => rw [if_neg hrh] at h; close_throw
+  rw [if_pos hrh] at h
+  try simp only [bind, Except.bind] at h
   obtain ⟨uP₁, hpins₁, h⟩ := exceptBind_ok h
   try simp only at h
   obtain ⟨ctorsR, hctors, h⟩ := exceptBind_ok h
@@ -1255,7 +1262,7 @@ theorem checkNested_inv {env envOut : Env} {p : NestedParts} {F : Nat}
   exact ⟨st, b, envAux, stored, ctorsR, cvRms, cvRns, rulesM, rulesN, fmsA, ctorsA,
     hfmsA, hctorsA, helim', beq_iff_eq.mp hcnt, hfresh, hcont, hb', haux, hst', hpc,
     (by cases uA; exact hpinsAux), hcaps, hsrc,
-    certOnly_and_left hcont, hgrp, hsc, htg, hkd, haa, hrk, hpa,
+    certOnly_and_left hcont, hgrp, hsc, htg, hkd, haa, hrk, hpa, hrh,
     (by cases uP₁; exact hpins₁), hctors, hrm, hrn, hnd, hrlm, hrln, htbl,
     (by cases u₀; exact hpins), hlen, (by cases u₁; exact hrecs), hrb⟩
 

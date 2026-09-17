@@ -224,6 +224,11 @@ def DeclNestedRun (μ : CheckMode) (F : Nat) (env : Env)
     -- so the chain terminates and an instance's root is its
     -- parent-minimal member — the covering walk the transfer needs
     ConLeche.certOnly μ (ConLeche.nestedPinParentOk p st) = true ∧
+    -- THE PIN PAIRING AT A NOT-OWN EDGE (K.41): every pin of a container
+    -- instance that is not one of the root group's own members is a pin
+    -- the ROOT CONTAINER's own elimination minted — `ClassPin`'s `name`
+    -- clause, off the two recorded tables and no term head
+    ConLeche.certOnly μ (ConLeche.nestedPinRootHeadOk env p b st stored) = true ∧
     -- POST-CHECK (a) A THIRD TIME (K.30): the pins typed at the
     -- environment holding the RESTORED formers — the model tier's own
     ConLeche.nestedPinsOk (m := CheckM) (fueledOps μ F)
@@ -446,7 +451,7 @@ theorem declNestedRun_etaClosed {μ : CheckMode} {F : Nat} {env envOut : Env}
     {p : NestedParts} (hE : EtaFamiliesClosed env)
     (h : DeclNestedRun μ F env p envOut) : EtaFamiliesClosed envOut := by
   obtain ⟨-, -, st, b, envAux, stored, ctorsR, cvRms, cvRns, rulesM, rulesN, fmsA, ctorsA,
-    -, -, -, -, -, -, -, -, -, -, -, hcaps, -, -, -, -, -, -, -, -, -, -, hctors, hrm, hrn, -, -, -, htbl,
+    -, -, -, -, -, -, -, -, -, -, -, hcaps, -, -, -, -, -, -, -, -, -, -, -, hctors, hrm, hrn, -, -, -, htbl,
     -, -, -, -⟩ := h
   refine EtaFamiliesClosed.ofFreshExt hE ?_
   -- the formers
