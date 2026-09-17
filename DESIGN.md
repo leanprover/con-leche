@@ -92253,3 +92253,129 @@ theorems.  Standard axioms on
 `DenoteMetaSpine.det` and on the six theorems the `pinParams` field
 touched (`of_readBack`, `crossEnvP`, `nativeContainerModeled`,
 `mutualContainerModeled`, `nestedContainerModeled`, `declNested_of`).
+
+#### U.70 — M7-3 session 14: the `ownPins` FIELD SHAPE landed, `pinParams` discharged from K.48, and the field found DOUBLY blocked on K.43 (lane M7-3, session 14, 2026-09-17)
+
+The brief was to land `ContainerModeled.ownPins` in its syntactic form
+and prove it at the install routes.  The SHAPE is landed, one of the
+two remaining premises is gone, and the field is not — the reason is
+the session's main finding and it is sharper than §U.69 (c)'s.
+
+(The merge first: `agent/uniform-m5` at `686973f3` into this lane, two
+conflicts — `DESIGN.md` (append both) and `declNested_of`'s `obtain`,
+where this lane's NAMED binders and the kernel lane's two new
+conjuncts had to be interleaved: K.48's `pinsLevelsOk` goes between
+`hsc` and K.32's `nestedCopyTargetsOk`, K.47's `nestedOwnPinsOk` LAST,
+after K.34's `blockReadBackOk`.)
+
+##### (a) THE FIELD SHAPE, LANDED: `PinSyn.ownAt` and `ContainerOwnPinsSyn`
+
+`PinSyn.ownAt` (`Model/Inductives/NestedPremise.lean`) is §U.69 (c)'s
+formula made a definition — a recorded pin written out at another
+instantiation:
+
+```lean
+@[expose] def PinSyn.ownAt (q : PinSyn) (nP : Nat) (lps : List Name) (lvls : List Level)
+    (DsE : List Expr) : Expr :=
+  Expr.mkAppN (.const q.J (q.lvls.map (Level.subst lps lvls)))
+    (q.DsE.map fun x =>
+      Expr.instSeq DsE (DsE.length - 1)
+        ((Expr.abstractRange x 0 nP 0).instantiateLevelParams lps lvls))
+```
+
+`Expr.abstractRange x 0 nP 0` is the restore table's own closing of a
+pin (`restoreTbl`: `pins := st.pins.map fun q => (q.aux, Expr.abstractRange q.pin 0 p.nP 0)`),
+so the closed form is a FUNCTION of the recorded OPENED components and
+no new `PinSyn` field is needed — which was the one thing §U.69 (c)
+left to check.  The clause is then
+
+```lean
+@[expose] def ContainerOwnPinsSyn (env : Env) (d : BlockModel V) : Prop :=
+  ∀ (i : Nat) (cvC : ConstantVal) (caps : IndCaps) (lvls : List Level) (DsE ps : List Expr),
+    i < d.k → env.find? (d.memberName i) = some (.indInfo cvC caps) →
+    ConLeche.containerOwnPinsAt env (d.memberName i) lvls DsE = some ps →
+    ∀ e ∈ ps, ∃ qK, qK < d.nPins ∧ e = (d.pinAt qK).ownAt d.nP cvC.levelParams lvls DsE
+```
+
+and it mentions **no model at all** — only the environment the table
+is read at and the block model's own recorded pins.  That is the point
+of the switch: §U.69 (c)'s reading form could not cross `crossEnvP`
+because its `DenoteMetaSpine` premise is contravariant, and this one
+has no reading in it.
+
+##### (b) THE LINK, LANDED MODULO THE LAW: `ContainerOwnPinsSyn.toRead`
+
+`pinCorr_of_ownPins` consumes the READING form, and session 13 claimed
+it is "unaffected by the switch".  Verified, and the bridge is
+`ContainerOwnPinsSyn.toRead`: the syntactic clause plus ONE
+substitution law gives the reading clause on the nose (the `es`
+witness is the mapped component list, the term equality is `rfl`).
+The law is an explicit hypothesis of the theorem, spelled
+
+> the reading of a recorded component — closed, level-instantiated and
+> re-opened at the outer components — is `AnnotTerm.instAll` of the
+> recorded reading at the substituted level assignment
+
+and it is NOT discharged.  A theorem with an undischarged hypothesis
+is not a close (the standing ruling on conditional forms); it is
+recorded here as the shape the two halves meet in, and as the request
+below.
+
+##### (c) THE FIELD IS DOUBLY BLOCKED ON K.43, and the second block is new
+
+§U.69 (c) listed the pins-free routes as needing K.43.  They still do:
+the syntactic clause at `d.nPins = 0` says the table is EMPTY, which
+is exactly §U.66 (a)'s undecidable-in-the-model-tier fact.  What this
+session adds is that **the CROSSING needs K.43 too, and for the same
+Bool**: `ContainerModeled.crossEnvP`'s `hF` explicitly excludes
+`.recInfo`s (`∀ cv mI rP rules, c ≠ .recInfo cv mI rP rules`), and the
+own-pin table is read off nothing BUT `.recInfo`s
+(`containerOwnPinsAtGo` looks up `T₁.rec_1, T₁.rec_2, …`).  So the
+clause at `env₂` is not a consequence of the clause at `env₁` under
+any hypothesis `crossEnvP` currently carries; what makes it one is
+"the container's own-pin table does not GROW across an install", whose
+source is K.43's per-install Bool (`blockOwnMimicsOk env first n`: the
+mimics under `first` are exactly `n`) plus the install's own name
+freshness.
+
+So `ContainerModeled.ownPins` **cannot land as a field until K.43
+lands**, and then it lands at all eight sites at once.  Landing it
+earlier would either break the build (the pins-free sites have nothing
+to give) or put a new premise into the B fold, which is not this
+lane's to spend.
+
+##### (d) THE SUBSTITUTION LAW, DECOMPOSED — the request to lane L-B
+
+The law of (b) is the same algebra lane L-B is proving for
+`NestedPinsShapePinF`, and it is worth writing down what it reduces
+to, because the pieces are already in the tree.  Write `T` for the
+mimic recursor's stored type (`hasFvar = false`, `looseBVarsBounded 0`),
+`params` for the block's parameter openers, `pad` for
+`(List.range (mI - nP)).map fun _ => Expr.sort Level.zero`, and
+`R₀ := Expr.instPis T (params ++ pad)` for the IDENTITY run — the one
+K.47 records.  Then:
+
+* **(A) the level half is DONE**: `denoteMeta_instLevels`
+  (`Model/Levels.lean`) is exactly
+  `denoteMeta acval env φ d (e.instantiateLevelParams ks us)
+     = denoteMeta acval env (Level.substFn φ ks us) d e`,
+  and `Expr.abstractRange` is annotation-blind on an `fvar`
+  (`.fvar idx ty => if d ≤ idx ∧ idx < d + k then .bvar … else …`), so
+  it commutes with `instantiateLevelParams` for free;
+* **(B) the open/close roundtrip is DONE**:
+  `instSeq_abstractRange_fvs` (`Verify/Inductives/NestedCopyGlue.lean`)
+  gives `Expr.instSeq fvs (nP - 1) (e.abstractRange 0 nP 0) = e` at the
+  openers, under `looseBVarsBounded 0` and "every `fvar` leaf is one of
+  the openers" — which K.30's `pinsScoped` is;
+* **(C) what is MISSING is the commutation**:
+  `Expr.instPis T (Ds ++ pad) = Expr.instSeq Ds (nP - 1) (R₀.abstractRange 0 nP 0)`
+  — substituting the openers and then replacing them by `Ds` is
+  substituting `Ds` in the first place, at a closed `T` and with a
+  level-closed `pad`.  With (A) and (C) the general table entry is the
+  identity one transported, which is `PinSyn.ownAt`, and K.47 says the
+  identity one IS the recorded pin list.
+
+`instPisILP_read` (`Model/Inductives/NestedCopyRead.lean`) is the same
+statement one tier up — the READING of `instPis (instantiateLevelParams ks us T) Ds`
+at a closed `T` — and is the model-side half the link would consume
+directly if (C) existed.
