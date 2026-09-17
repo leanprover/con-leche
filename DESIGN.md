@@ -84044,3 +84044,201 @@ half ~1 session; `blobLe` ½; the rank induction + (iv) 1.
 3. The rank induction (K.37) with the externals' hypothesis discharged
    by the induction hypothesis and `pinTarget_reads`; then (iv), ~1
    session.
+
+#### U.51 — L-E session 6: the targets' HEADS in the shape, and the pin half's decomposition (lane L-E, 2026-09-17)
+
+**Naming** (maintainer's ruling, K.37): what §U.48 calls a "blob" is a
+CONTAINER INSTANCE — one container's whole instantiation at a set of
+components as embedded in the block's scratch group (its members' copies
+plus its own pins' copies there).  New identifiers say `instance`; the
+committed text of §U.48 keeps the old word.
+
+##### (a) THE STRUCTURE — what the shape now carries, and what lane L-B must prove
+
+§U.48 (i)'s obstacle: the container instance transfer compares the
+container's OWN copy of a pin's constructor with the BLOCK's copy of the
+image pin — two copies of ONE constructor of ONE container `K` — and at a
+field BOTH eliminations rewrote, the two targets' slots take their
+families at index tuples `tupW u is` whose universe `u` is a datum of the
+target's CONTAINER, which the readings do not determine.  So the shape
+carries the target's NAME and LEVEL ARGUMENTS at every rewritten field,
+read off the container's own field — a function of `dJ`, `i`, `j`, `l`,
+the same object on both sides:
+
+```lean
+@[expose] def TargetHead (i j l : Nat) (nm : Name) (us : List Level) : Prop :=
+  ∃ (x : Expr) (Tl : List (Expr × ConLeche.BinderMeta)) (bodyE : Expr),
+    (dJ.xFvsF i j)[l]? = some x ∧
+    x.fvarTypeD.stripPis (x.fvarTypeD.piBinders).1.length = some (Tl, bodyE) ∧
+    ((∃ vs : List Level, bodyE.getAppFn = .const nm vs ∧
+        us = vs.map (Level.subst lpsJ lvlsJ) ∧
+        ∀ v ∈ vs, v.allParamsDefined lpsJ = true) ∨
+      (∃ (p : Nat) (ty : Expr), bodyE.getAppFn = .fvar p ty ∧ p < DsE.length ∧
+        (DsE.getD p default).getAppFn = .const nm us))
+```
+
+`EntryRead` gains `TargetHead dJ DsE lpsJ lvlsJ i j l (TV.J (tg l))
+(TV.lvls (tg l))` as its FIRST conjunct (the body form of §U.48 (h) is
+unchanged after it).  The disjunction is the two ways a rewritten field
+can be headed: by a constant of the container's own field (the common
+case — `copyGroupTargetHead`'s `hstr`/`hhead` are exactly this, with the
+level arguments now named), or by a bare PARAMETER of the container
+(`inductive Box (α) | mk : α → Box α` at `α := List P`), where the head
+is the pin's COMPONENT's — which the components' READINGS cannot carry,
+so the components enter as EXPRESSIONS.  A parameter's opened variable
+carries its POSITION as its index (`BlockCtorData.pIdx`), so the second
+disjunct's `p` is the component's index and the datum is functional.
+
+For lane L-B (`NestedCopyInst.lean`, branch `agent/uniform-ident` —
+untouched here), the new obligations are:
+
+1. `EntryRead`'s `TargetHead` conjunct, at an `ordF`-right field.  Both
+   disjuncts come from the copy's construction: the container's field's
+   head is a constant (its levels instantiated by `mkCopy`'s
+   `instantiateLevelParams`, hence `us = vs.map (Level.subst lpsJ lvlsJ)`
+   with `vs` over the container's level parameters — `allParamsDefined`
+   is the environment's level-parameter invariant at the constructor's
+   type) or the pin's component's head at the parameter's position.
+2. `PinCorr`'s new conjunct — the components as expressions:
+   `∃ off, TV.DsE t = ((dJ.pinAt qK).DsE).map (fun e => Expr.instSeq DsE off
+   (Expr.instantiateLevelParams lpsJ lvlsJ e))`.  The offset is
+   EXISTENTIAL on purpose: the consumer reads only that the head survives
+   the instantiation, so `mkCopy`'s actual depth needs no bookkeeping.
+3. `CopyCtorShape`/`CopyShapeA` take `DsE` after `Ds`
+   (`(pinsS.getD (q₀ + i) default).DsE` at every call site, mechanical).
+
+`TargetView` gains `DsE : Nat → List Expr` (`nestedTV`,
+`BlockModel.targetView`: the pin's `PinSyn.DsE`, which the record already
+had), and `PinGroupView` gains `sameDsE` — a group's pins share their
+components' expressions.  For the TAIL lane: `nestedPinShapes_of`'s
+`hgroupsB` hypothesis gains the conjunct `∀ i' < kJ, ((D).pinAt (q₀ +
+i')).DsE = ((D).pinAt q₀).DsE` (the group record's; nothing else in
+`NestedPinGroup` changed).
+
+##### (b) THE TWO CONSUMABLES, proved
+
+```lean
+theorem targetHead_corr {dJ : BlockModel V} {DsE₁ DsE₂ DsO : List Expr}
+    {lpsK lpsJ : List Name} {lvlsK lvlsJ : List Level} {i j l off : Nat}
+    {nm₁ nm₂ : Name} {us₁ us₂ : List Level}
+    (h₁ : TargetHead dJ DsE₁ lpsK lvlsK i j l nm₁ us₁)
+    (h₂ : TargetHead dJ DsE₂ lpsK (lvlsK.map (Level.subst lpsJ lvlsJ)) i j l nm₂ us₂)
+    (hlenK : lvlsK.length = lpsK.length)
+    (hDsE : DsE₂ = DsE₁.map fun e =>
+      Expr.instSeq DsO off (Expr.instantiateLevelParams lpsJ lvlsJ e)) :
+    nm₂ = nm₁ ∧
+    ∀ (lpsC : List Name) (φ : Name → Nat), us₁.length = lpsC.length →
+      ∀ p ∈ lpsC, Level.substFn φ lpsC us₂ p
+        = Level.substFn (Level.substFn φ lpsJ lvlsJ) lpsC us₁ p
+```
+
+The two sides read ONE `bodyE` (`(dJ.xFvsF i j)[l]?` and `stripPis` are
+functional), so they take the SAME disjunct (`.const` ≠ `.fvar`): the
+constant case gives the name by `Expr.const.injEq` and the levels by
+`Level.substFn_map_subst` twice through `substFn_ext` (the head's level
+arguments being over the container's parameters); the parameter case
+gives both at once, the component's head surviving the instantiation
+(`getAppFn_instantiateLevelParams`, `Expr.instSeq_mkAppN` +
+`instSeq_eq_self` at a constant).  The conclusion is the EVALUATION form
+because the syntactic composition `subst lpsK (lvlsK.map (subst lpsJ
+lvlsJ)) = subst lpsJ lvlsJ ∘ subst lpsK lvlsK` needs the same
+`allParamsDefined` side condition anyway, and every consumer of the
+levels is a level ASSIGNMENT (`ContainerModeled.pinψ`,
+`PinGroupView.pinU`, `IsBlockModel.uParams`).
+
+```lean
+theorem IsBlockModel.ctor_params (h : IsBlockModel m T cvT cvR mI rP rules d mm)
+    (hj : (d.ctorsM mm)[j]? = some cA) (hψ : ∀ p ∈ cA.1.levelParams, ψ₁ p = ψ₂ p) :
+    (d.Fss mm ψ₁).getD j [] = (d.Fss mm ψ₂).getD j [] ∧ …
+```
+
+— the other half: with the assignments agreed, the container's
+constructor's field domains, index expressions, reflexive telescopes and
+result readings are ONE datum (`Fss_getD`/`Eiss_getD`/`tlss_getD`/
+`Ess_getD` over `CtorDataI.params`, `eissParams`, `tssParams`).
+
+##### (c) THE PIN HALF, decomposed — and the ONE kit lemma it still needs
+
+Session 5 planned the pin half as a `ChainFitT`-level twin of
+`fit_iff_at_T` at a pin class, written field by field.  It need not be
+written at all: the two existing theorems compose.  With `K` the pin's
+container, `dK := B ciK` its model, `ψ₁`/`ρ₁` the container `J`'s pin
+frame and `ψ₂`/`ρ₂` the block's,
+
+1. the container-side fit of `pc qK`'s constructor at `J`'s extended
+   tuple `T` IS the copy fit `fit_iff_at_T` speaks of (`ChainFitT` at a
+   PIN class unfolds to `FitsFrom ((pc q).rss.getD j []) (slotAtT …)`,
+   and `dJ.targetView`'s `u`/`w` are `uT`/`w ψ` by definition), so
+   `CopyCtorShape.fit_iff_at_T.mp` at the CONTAINER-side shape
+   (`PinShapes` of `B ciJ` against `B ciK`) turns it into
+   `dK.ChainFitT pcK ψ₁ ρ₁ Y t i j fs` at the pullback tuple `Y`
+   (`hL` is exactly "the container-side slots read `Y` through `K`'s
+   targets", which is how `Y` is chosen);
+2. `CopyCtorShape.fit_imp_T_le` at the BLOCK-side shape (the block's
+   `PinShapes` against the SAME `B ciK`) turns `dK.ChainFitT pcK ψ₂ ρ₂ Y
+   t i j fs` into the block's copy fit at `Z`, under `hrel` (the
+   relation at `K`'s recursive fields) and `hentR` (the externals).
+
+The gap between 1 and 2 is the ONE lemma to write:
+
+```lean
+theorem BlockModel.chainFitT_congr (hreps : IsBlockModels m dK) (hi : i < dK.k)
+    (hj : (dK.ctorsM i)[j]? = some cA)
+    (hψ : ∀ p ∈ cA.1.levelParams, ψ₁ p = ψ₂ p)      -- targetHead_corr / PinCorr
+    (hpinψ : …ContainerModeled.pinψ at dK…)          -- K's own pins' assignments follow
+    (hρ : ∀ v, v < dK.nP → ρ₁ v = ρ₂ v)              -- the components' VALUES agree
+    : dK.ChainFitT pc ψ₁ ρ₁ Y t i j fs ↔ dK.ChainFitT pc ψ₂ ρ₂ Y t i j fs
+```
+
+— the container's constructor read at two assignments and two frames that
+agree where it looks.  `ctor_params` (b) gives the data; what is left is
+the FRAME half: every reading in sight is below the parameter depth
+(`CtorDataI.below`/`belowE`, `BlockCtorData.tssBelow`/`eissBelow`), so a
+`slotSet`/`interp` congruence below the parameters transports it — the
+`slotSet_congr_below` §U.48 (i) already listed.  `K`'s own pins' data
+(`(dK.pinAt q).u`, `.Ids`) follow from `ContainerModeled.pinψ` at `dK`:
+the pins' assignments are `substFn ψ lpsK lvls`, equal under `hψ`.
+
+Sized: `chainFitT_congr` ~1 session (the below-congruence is the bulk);
+the composition and `instanceLe` (`relMeet (famAt LJ) R (L⁺ pins)` is
+`TClosed` — the member half `fit_imp_T_le` and the pin half above at
+every class) ~1; the rank induction + (iv) ~1.
+
+##### (d) K.37 READ BACK, and the induction hypothesis's shape
+
+K.37 is LANDED on `agent/uniform-m5` (d2347e27, `nestedPinRankOk`,
+`Kernel/Inductives/NestedInstall.lean`), a `DeclNestedRun` conjunct with
+readers `nestedPinInstOf`/`nestedPinRankOf : … → List Nat`.  Its unit is
+the SCC of the pins' reference graph with the own edges symmetrised and
+the mint groups joined — NOT §U.48 (c)'s naive own-edge closure, which
+`nested_p04` refutes (its `P4C`/`Array`/`List` cycle has only one edge
+own at its source).  The four clauses the Bool certifies, at edges
+`(q, t, own)` read off the copies' rewritten fields:
+
+1. `own = true` → `inst t = inst q`;
+2. `own = false` → `inst t = inst q ∨ rank t < rank q`;
+3. `inst q = inst t → rank q = rank t`;
+4. `inst q = inst (grpBase q)`.
+
+So step (iii) is strong induction on `rank q` with the whole INSTANCE
+closed at once: at rank `r`, `instanceLe` gives `P q ≤ L⁺ (k + q)` for
+every `q` of one instance from (a) the induction hypothesis at every
+target the instance's copies reference OUTSIDE it (rank `< r` by clause
+2, read through `pinTarget_reads` + `slotSet_mono`) and (b) the transfer
+of (c) inside it (clause 1 keeps a container's own-pin references in).
+The model consumes the readers only through these four facts, so the
+lane states them as a hypothesis in the `_inv`'s shape
+(`inst rank : Nat → Nat` abstract, the edge relation at the copies'
+targets) and the integration swaps in K.37's readers.
+
+##### (e) GATES at the session's commits (last: `IsBlockModel.ctor_params`)
+
+`lake build` 695 jobs warning-free (a stale `hF'` warning in
+`lfpTuple_le_of_rel` fixed in passing); `lake test` warning-free;
+layering base 347 / model 265 / caps 3 / umbrella 1, 0 base→lane, 0
+impl→theory; trust surface 13 escapes in 5 allowlisted files (627
+scanned); no-local-paths OK; overview-links 112; quote-gate 2;
+proofdeps 4955 rows / 12 roots / 0 doors; shake 510/510 allowlisted,
+pub-imports 1262 of 1988 public, none demotable.  `#print axioms` of
+`targetHead_corr` and `IsBlockModel.ctor_params`: standard
+(`_tmp/uniform-entry/chain-probe.lean`).
