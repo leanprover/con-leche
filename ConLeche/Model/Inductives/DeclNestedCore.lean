@@ -442,8 +442,8 @@ theorem nestedContainerModeled {F : Nat} {st : ElimState} {envAux : Env}
     have hpq : st.pins[q]? = some st.pins[q] := List.getElem?_eq_getElem hql
     obtain ⟨-, hpin⟩ := O.record.pin q _ hpq
     have hlen : ((D).pinAt q).DsE.length = ((D).pinAt q).nPJ := by
-      obtain ⟨ci, h₂, -, -⟩ := T.conts q hq
-      obtain ⟨q₀, kJ, i, rfl, hi, G⟩ := T.groups q hq ci h₂
+      obtain ⟨ci, -, -, hEnv⟩ := T.conts q hq
+      obtain ⟨q₀, kJ, i, rfl, hi, G⟩ := O.stage.groupsAt q hq ci hEnv
       exact ((O.stage.pinDs _ hq (fun _ => 0)).length.trans
         (G.pinDsLen i hi (fun _ => 0))).trans (G.pinNP i hi).symm
     have hnil : (Expr.const st.pins[q].container ((D).pinAt q).lvls).getAppArgs = [] := rfl
