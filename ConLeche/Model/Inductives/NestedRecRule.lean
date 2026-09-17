@@ -11,6 +11,8 @@ import ConLeche.Model.Inductives.BlockRecBridge
 import ConLeche.Verify.Inductives.NestedRecDoor
 import ConLeche.Verify.Inductives.NestedCopyGlue
 import ConLeche.Verify.Inductives.NestedGroupInv
+import ConLeche.Verify.Inductives.NestedCopyKinds
+import ConLeche.Verify.Inductives.NestedRecCtorPin
 import ConLeche.Verify.Inductives.NestedRecNames
 import ConLeche.Verify.Inductives.NestedRecRuleKit
 import ConLeche.Verify.Inductives.NestedRecFramesKit
@@ -2148,6 +2150,175 @@ theorem NestedTailIn.memberMajor
     exact h.ctor c i (c₀.1, c₀.2.2) hcD hjD ψ' ρ psY fsY hpsY hfsY
 
 
+/-! ## The mimic rule's fire levels (item 5 step 2e, `mimicMajor`'s open hypothesis) -/
+
+/-- **THE AUXILIARY RECURSOR TYPE'S MAJOR BINDER** — `auxRecTy` with
+the LAST binder named (`mutualRecTy_major`): class `c`'s scratch
+recursor type is a telescope whose binder `nP + k + n + nIdx_c` carries
+the domain `structFamI`, class `c`'s own former applied to the block's
+parameters and the index binders. -/
+theorem NestedTailIn.auxRecMajor {c : Nat} (hc : c < b.k) :
+    ∃ (a : AuxStored) (f : MutualFormerA) (cbs₀ : List (Expr × BinderMeta)) (conc : Expr),
+      stored[c]? = some a ∧ fms[c]? = some f ∧
+      cbs₀.length = b.nP + (b.k + b.ctors.length + f.nIdx) ∧
+      a.cvRa.type.stripPis (b.nP + (b.k + b.ctors.length + (f.nIdx + 1)))
+        = some (cbs₀ ++ [(ConLeche.structFamI f.cvTa.name b.lps b.nP f.nIdx
+            (b.k + b.ctors.length) 0,
+            (⟨Level.zeronessOf b.elimLevel⟩ : BinderMeta))], conc) ∧
+      (∀ n : Name, conc.mentionsConst n = false) := by
+  obtain ⟨hlenS, -⟩ := ConLeche.auxStoredAll_get I.hstored
+  obtain ⟨a, ha⟩ : ∃ a, stored[c]? = some a :=
+    ⟨_, List.getElem?_eq_getElem (by rw [hlenS]; exact hc)⟩
+  obtain ⟨-, -, fms', f₀', ctorsA', sortss', kinds', hformers', hf₀', hctors', hkinds',
+    hgen, -, -, -, -⟩ := ConLeche.auxStored_rec_eq I.haux I.hstored ha
+  have hfms : fms = fms' := congrArg Prod.snd (Except.ok.inj (I.out.formers.symm.trans hformers'))
+  subst hfms
+  have hf0 : f₀ = f₀' := Option.some.inj (I.out.facts.first.symm.trans hf₀')
+  subst hf0
+  have hctA : (ctorsA, sortss) = (ctorsA', sortss') := Except.ok.inj (I.out.ctors.symm.trans hctors')
+  have hcA : ctorsA = ctorsA' := congrArg Prod.fst hctA
+  subst hcA
+  have hkd : kinds = kinds' := Except.ok.inj (I.out.kindsRun.symm.trans hkinds')
+  subst hkd
+  obtain ⟨f4, cbs₀, conc, hf4, hstrip, hlen⟩ := ConLeche.mutualRecTy_major hgen
+  obtain ⟨f4', cbs', hf4', hstrip', -, hfree'⟩ := ConLeche.mutualRecTy_stripPis hgen
+  have hff : f4' = f4 := Option.some.inj (hf4'.symm.trans hf4)
+  rw [hff] at hstrip' hfree'
+  obtain ⟨f, hf⟩ : ∃ f, fms[c]? = some f :=
+    ⟨_, List.getElem?_eq_getElem (by rw [I.out.facts.lenFms]; exact hc)⟩
+  have hfl : (ConLeche.mutualGenData b fms ctorsA kinds).1.length = b.k := by
+    show (fms.map _).length = b.k
+    rw [List.length_map, I.out.facts.lenFms]
+  have hcl : (ConLeche.mutualGenData b fms ctorsA kinds).2.length = b.ctors.length := by
+    show (List.zipWith _ (b.ctors.zip ctorsA) kinds).length = b.ctors.length
+    rw [List.length_zipWith, List.length_zip, I.out.facts.lenA, I.out.facts.lenK,
+      I.out.facts.lenA]
+    omega
+  have hf4eq : f4 = ⟨f.cvTa.name, f.nIdx, f.cvTa.type⟩ := by
+    have h : (ConLeche.mutualGenData b fms ctorsA kinds).1[c]?
+        = some ⟨f.cvTa.name, f.nIdx, f.cvTa.type⟩ := by
+      show (fms.map _)[c]? = _
+      rw [List.getElem?_map, hf]
+      rfl
+    exact Option.some.inj (hf4.symm.trans h)
+  subst hf4eq
+  rw [hfl, hcl] at hstrip hlen hstrip' hfree'
+  rw [show b.nP + b.k + b.ctors.length + f.nIdx + 1
+    = b.nP + (b.k + b.ctors.length + (f.nIdx + 1)) from by omega] at hstrip hstrip'
+  have hconc : conc = Expr.mkAppN (.bvar (f.nIdx + b.ctors.length + b.k - c))
+      (ConLeche.structPsAt 1 f.nIdx ++ [.bvar 0]) :=
+    congrArg Prod.snd (Option.some.inj (hstrip.symm.trans hstrip'))
+  have hlen2 : cbs₀.length = b.nP + b.k + b.ctors.length + f.nIdx := hlen
+  refine ⟨a, f, cbs₀, conc, ha, hf, by rw [hlen2]; omega, hstrip, fun n => ?_⟩
+  rw [hconc]
+  exact hfree' n
+
+/-- **THE RESTORED RECURSOR TYPE'S MAJOR DOMAIN IS THE PIN'S CONTAINER
+APPLICATION** (the mimic arm's last syntactic step): at a MIMIC class
+`c = p.k + q` the scratch recursor's major domain is the COPY's former
+applied to the parameters and the index binders
+(`auxRecMajor`), the restore rewrites binder `nP + i` by the walk
+(`restoreNested_stripPis_doms`), and the walk fires the pin at a
+`pins` key (`restoreWalk_pin`) — so the restored domain is headed by
+the pin's CONTAINER at the pin's own level arguments.  This is what
+`nestedFireShape`'s `lvls` reads. -/
+theorem NestedTailIn.restRecTyMajorHead {c : Nat} (hc : c < b.k)
+    {q : Nat} {qn : NestedPin} (hqn : st.pins[q]? = some qn) (hcq : c = p.k + q)
+    {mI : Nat} (hmI : mI = b.nP + (b.k + b.ctors.length + (fms.getD c default).nIdx))
+    {bs : List (Expr × BinderMeta)} {dom body : Expr} {bm : BinderMeta}
+    (hstr : (nestedRecCvAt p.k cvRms cvRns c).type.stripPis mI
+      = some (bs, .forallE dom body bm)) :
+    dom.getAppFn = .const qn.container ((D).pinAt q).lvls := by
+  obtain ⟨a, f, cbs₀, conc, ha, hf, hlen, hstripA, hfree⟩ := I.auxRecMajor hc
+  have hfD : (fms.getD c default).nIdx = f.nIdx := by
+    rw [List.getD_eq_getElem?_getD, hf]; rfl
+  rw [hfD] at hmI
+  obtain ⟨a', ha', hres, -⟩ := I.classRestore hc
+  obtain rfl : a' = a := Option.some.inj (ha'.symm.trans ha)
+  obtain ⟨cbs', hstrR, -, -, -, hdomW⟩ :=
+    ConLeche.restoreNested_stripPis_doms I.tblNP hstripA hres (fun n _ => hfree n)
+  -- **the AUXILIARY major binder**, at its index
+  have hmaj : (cbs₀ ++ [(ConLeche.structFamI f.cvTa.name b.lps b.nP f.nIdx
+        (b.k + b.ctors.length) 0,
+        (⟨Level.zeronessOf b.elimLevel⟩ : BinderMeta))])[b.nP
+          + (b.k + b.ctors.length + f.nIdx)]?
+      = some (ConLeche.structFamI f.cvTa.name b.lps b.nP f.nIdx (b.k + b.ctors.length) 0,
+          (⟨Level.zeronessOf b.elimLevel⟩ : BinderMeta)) := by
+    rw [List.getElem?_append_right (Nat.le_of_eq hlen), hlen, Nat.sub_self]
+    rfl
+  obtain ⟨y, hy, hwy⟩ := hdomW (b.k + b.ctors.length + f.nIdx) _ hmaj
+  -- **the walk fires the pin**: the copy's name IS the pin's auxiliary name
+  have hname : f.cvTa.name = qn.aux := by
+    obtain ⟨t, ht, htn⟩ := I.aligned.2 q qn hqn
+    obtain ⟨nIdx, hfo, -⟩ := (ConLeche.auxBlock_former I.hb).2 (p.k + q) t ht
+    have h1 : (fms.map (·.cvTa.name))[c]? = some f.cvTa.name := by
+      rw [List.getElem?_map, hf]; rfl
+    rw [I.out.facts.names] at h1
+    have h2 : b.memberNames[c]? = some t.name := by
+      show (b.formers.map (·.1.name))[c]? = _
+      rw [List.getElem?_map, hcq, hfo]
+      rfl
+    rw [← htn]
+    exact Option.some.inj (h1.symm.trans h2)
+  have hauxMem : qn.aux ∈ (ConLeche.restoreTbl p st).auxNames := by
+    simp only [ConLeche.restoreTbl]
+    exact List.mem_append_left _ (List.mem_append_left _
+      (List.mem_map.mpr ⟨qn, List.mem_of_getElem? hqn, rfl⟩))
+  have hargsLen : (ConLeche.restoreTbl p st).nP
+      ≤ (ConLeche.structPsAt (0 + (b.k + b.ctors.length) + f.nIdx) b.nP
+          ++ ConLeche.structPsAt 0 f.nIdx).length := by
+    rw [I.tblNP, List.length_append]
+    simp only [ConLeche.structPsAt, List.length_map, List.length_range]
+    omega
+  rw [show ConLeche.structFamI f.cvTa.name b.lps b.nP f.nIdx (b.k + b.ctors.length) 0
+      = Expr.mkAppN (.const f.cvTa.name (b.lps.map .param))
+        (ConLeche.structPsAt (0 + (b.k + b.ctors.length) + f.nIdx) b.nP
+          ++ ConLeche.structPsAt 0 f.nIdx) from rfl, hname,
+    ConLeche.restoreWalk_pin (ConLeche.restoreTbl_pins_lookup_run I.hfA I.helim I.hb I.haux hqn)
+      (ConLeche.restoreTbl_recMap_lookup_aux' I.hfA I.helim I.hb I.haux hqn) hauxMem
+      hargsLen] at hwy
+  -- **the RESTORED major binder** is the residual's domain
+  have hstr1 := ConLeche.stripPis_append mI hstr (m := 1) rfl
+  rw [hmI, show b.nP + (b.k + b.ctors.length + f.nIdx) + 1
+    = b.nP + (b.k + b.ctors.length + (f.nIdx + 1)) from by omega] at hstr1
+  have hcbs : cbs' = bs ++ [(dom, bm)] :=
+    (congrArg Prod.fst (Option.some.inj (hstr1.symm.trans hstrR))).symm
+  have hbsLen : bs.length = b.nP + (b.k + b.ctors.length + f.nIdx) := by
+    rw [← hmI]; exact ConLeche.Expr.stripPis_length _ hstr
+  rw [hcbs, List.getElem?_append_right (Nat.le_of_eq hbsLen), hbsLen, Nat.sub_self] at hy
+  have hy1 : y = (dom, bm) := (Option.some.inj hy).symm
+  rw [← show y.1 = dom from by rw [hy1], ← Except.ok.inj hwy, Expr.getAppFn_mkAppN,
+    (I.out.stage.pinRec q qn hqn).2,
+    ConLeche.abstractRange_mkAppN, ConLeche.abstractRange_const,
+    ConLeche.liftLooseBVars_mkAppN, Expr.getAppFn_mkAppN]
+  rfl
+
+
+/-- **THE MIMIC RULE'S FIRE LEVELS ARE ITS PIN'S** — `mimicMajor`'s
+open hypothesis, discharged.  `nestedFireShape` reads the restored
+recursor type's major domain's head (`nestedFireShape_inv`), and that
+domain is the pin's container application
+(`restRecTyMajorHead`); a constant's levels are determined by its
+head. -/
+theorem NestedTailIn.mimicFireLvls {c : Nat} (hc : c < b.k) {q : Nat} {qn : NestedPin}
+    (hqn : st.pins[q]? = some qn) (hcq : c = p.k + q)
+    {a : AuxStored} (ha : stored[c]? = some a)
+    {lvls : List Level} {pins : List Expr} {cnP : Nat}
+    (hsh : ConLeche.nestedFireShape
+        (ConLeche.provisionNestedRecs (nestedProvList p stored cvRms cvRns) (ENV2))
+        (nestedRecCvAt p.k cvRms cvRns c).levelParams
+        (nestedRecCvAt p.k cvRms cvRns c).type a.mI a.rP cnP = some (lvls, pins)) :
+    lvls = ((D).pinAt q).lvls := by
+  obtain ⟨-, bs, dom, body, bm, Dn, hstrip, hhead, -, -, -, -, -, -⟩ :=
+    ConLeche.nestedFireShape_inv hsh
+  have hmI : a.mI = b.nP + (b.k + b.ctors.length + (fms.getD c default).nIdx) := by
+    rw [(I.recArgSums ha).2]
+    unfold ConLeche.MutualBlock.rulePrefix ConLeche.MutualBlock.n
+    omega
+  have h := I.restRecTyMajorHead hc hqn hcq hmI hstrip
+  exact (Expr.const.inj (hhead.symm.trans h)).2
+
+
 /-! ## The major at a MIMIC arm (item 5 step 2e, `hmajor`'s second instance) -/
 
 omit I in
@@ -2186,21 +2357,22 @@ theorem NestedTailIn.mimicMajor
     (hndR : (cvRms.map (·.name) ++ cvRns.map (·.name)).Nodup)
     (hagR : ∀ nm : Name, (∀ c, c < (D).kT → nm ≠ (nestedRecCvAt p.k cvRms cvRns c).name) →
       mpP.base2.acval nm = mp₂.base2.acval nm)
-    {c : Nat} {jc : Nat} {cA : ConstantVal × Nat}
+    {c : Nat} (hc : c < b.k) {jc : Nat} {cA : ConstantVal × Nat}
     (hi : ((DA).ctorsM c)[jc]? = some cA)
     {o : RecRule} {lvls : List Level} {pins : List Expr}
     (hfire : RecRule.fire o = .nested lvls pins)
     (hnf : RecRule.nfields o = cA.2)
-    (hlvlsScoped : ∀ u ∈ lvls, Level.allParamsDefined b.rlps u = true)
     (hpin : ∃ pn : Expr, (ConLeche.restoreTbl p st).ctorPins.find? (fun z => z.1 == cA.1.name)
       = some (cA.1.name, pn, RecRule.ctor o))
     (hcp : ∃ (cv : ConstantVal) (cnF : Nat),
       (ConLeche.provisionNestedRecs (nestedProvList p stored cvRms cvRns) (ENV2)).find?
         (RecRule.ctor o) = some (.ctorInfo cv (RecRule.ctorParams o) cnF))
-    (hfireLvls : ∀ (q : Nat) (qn : NestedPin), q < pinsS.length → st.pins[q]? = some qn →
-      (ConLeche.restoreTbl p st).ctorPins.find? (fun z => z.1 == cA.1.name)
-        = some (cA.1.name, Expr.abstractRange qn.pin 0 p.nP 0, RecRule.ctor o) →
-      lvls = ((D).pinAt q).lvls)
+    {a : AuxStored} (ha : stored[c]? = some a)
+    (hsh : ConLeche.nestedFireShape
+        (ConLeche.provisionNestedRecs (nestedProvList p stored cvRms cvRns) (ENV2))
+        (nestedRecCvAt p.k cvRms cvRns c).levelParams
+        (nestedRecCvAt p.k cvRms cvRns c).type a.mI a.rP (RecRule.ctorParams o)
+      = some (lvls, pins))
     {mI rP : Nat} (φ : Name → Nat) :
     ∀ (us : List Level), us.length = (nestedRecCvAt p.k cvRms cvRns c).levelParams.length →
       ∀ (cvj : ConstantVal) (cnP cnF : Nat),
@@ -2350,9 +2522,12 @@ theorem NestedTailIn.mimicMajor
   rw [hctorName, hfindP] at hcp'
   obtain ⟨-, hnP', -⟩ := ConstantInfo.ctorInfo.inj (Option.some.inj hcp'.symm)
   -- **the rule's level assignment is the pin's**, at the container's parameters
-  have hlvlsEq : lvls = ((D).pinAt (q₀ + i)).lvls := by
-    refine hfireLvls (q₀ + i) qn hq hqn ?_
-    rw [← hpn]; exact hfindc
+  have hlvlsEq : lvls = ((D).pinAt (q₀ + i)).lvls :=
+    I.mimicFireLvls hc hqn (by rw [hcEq]; omega) ha hsh
+  have hlvlsScoped : ∀ u ∈ lvls, Level.allParamsDefined b.rlps u = true := by
+    obtain ⟨-, -, -, -, -, -, -, -, -, -, -, -, -, hlv⟩ := ConLeche.nestedFireShape_inv hsh
+    rw [← (I.classRecTy hc).1]
+    exact hlv
   have hlpsCT : cAJ.1.levelParams = cvTci.levelParams := by rw [hcvcJ.1]; exact hcvcT
   have hagreeLvl : ∀ qq ∈ cvT'.levelParams,
       Level.substFn φ cAJ.1.levelParams usj qq
