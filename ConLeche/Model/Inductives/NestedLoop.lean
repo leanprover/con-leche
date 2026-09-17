@@ -89,6 +89,8 @@ theorem NestedPinGroup.crossEnv {env₁ env₂ : Env} {m₁ : EnvModel V env₁}
     (hag : ∀ n : Name, (env₁.find? n).isSome = true → m₂.acval n = m₁.acval n)
     (hde : ∀ (ψ : Name → Nat) (dp : Nat) (e : Expr) {ea : AnnotTerm},
       denoteMeta m₁.acval env₁ ψ dp e = some ea → denoteMeta m₂.acval env₂ ψ dp e = some ea)
+    (hmem : ∀ t, t < p.k → (env₁.find? ((D).memberName t)).isSome = true)
+    (hpin : ∀ q, q < pinsS.length → (env₁.find? ((D).pinAt q).J).isSome = true)
     (G : PG m₁ q₀ kJ dJ) : PG m₂ q₀ kJ dJ :=
   { seg := G.seg
     reps := G.reps.crossEnv hF hres hag hde
@@ -106,10 +108,20 @@ theorem NestedPinGroup.crossEnv {env₁ env₂ : Env} {m₁ : EnvModel V env₁}
     pinPps := G.pinPps
     pinDsLen := G.pinDsLen
     w := G.w
+    same := G.same
     idx := G.idx
     ctorCount := G.ctorCount
     DsFit := G.DsFit
-    inst := G.inst }
+    shape := fun i hi ψ ρp hρp i' hi' j hj => by
+      have hk : (D).k = p.k := rfl
+      refine CopyShapeA.of_acval m₁.acval (fun t ht => congrFun (hag _ (hmem t ht)) ψ)
+        (fun q hq => congrFun (hag _ (hpin q hq)) _)
+        (fun qK hqK => ?_) (G.reps.tgt_pin_lt (G.kEq ▸ hi') (List.getElem?_eq_getElem hj))
+        (G.shape i hi ψ ρp hρp i' hi' j hj)
+      obtain ⟨cvT, cvR, mI, rP, rules, hI⟩ := G.rep i hi
+      obtain ⟨cv, caps, hf⟩ := hI.pinsFound qK hqK
+      exact congrFun (hag _ (by rw [hf]; rfl)) _
+    entry := G.entry }
 
 /-! ## The two named facts' interfaces -/
 
@@ -597,7 +609,11 @@ theorem nestedLoopFacts_of (hpins : NestedPinsStaged V μ F) (hread : NestedRead
   · -- the groups, crossed
     intro q hq
     obtain ⟨q₀, kJ, i, dJ, hqe, hi, G⟩ := PF.groups dsR xFvsR q hq
-    exact ⟨q₀, kJ, i, dJ, hqe, hi, G.crossEnv hFne hres hagE hde₂⟩
+    refine ⟨q₀, kJ, i, dJ, hqe, hi, G.crossEnv hFne hres hagE hde₂ hfoundM (fun q' hq' => ?_)⟩
+    obtain ⟨q₀', kJ', i', dJ', hqe', hi', G'⟩ := PF.groups dsR xFvsR q' hq'
+    obtain ⟨cv, caps, hf⟩ := G'.found hi'
+    rw [hqe', hf]
+    rfl
 
 end Consumer
 

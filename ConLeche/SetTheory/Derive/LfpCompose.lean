@@ -824,6 +824,29 @@ theorem pinsCar_induction {X : Nat → V} (hX : InTupleSpace w k Is X) (P : Nat 
   exact hmono _ _ (inTupleSpace_pinsJoin hX hS) (inTupleSpace_join hX hS)
     (pinsJoin_le X _) (k + q) (by omega) t ht x hx
 
+omit hmaps in
+/-- **The pins' carriers at the block's carrier lie below any tuple of
+the pins' space closed under the pins' section at the carrier**
+(task #315 L-E, DESIGN §U.36 step (ii)): with `L` the composed least
+tuple and `P` a tuple of pin families with `Ψ (segJoin k n L P) (k + q)
+≤ P q` at every pin, the auxiliary least tuple's pin components lie
+below `P` — `P` closes the pins' operator at `L` (the clamp is the
+identity there, `L ≤ L⁺`), so `pinsCar L ≤ P` by leastness, and
+`pinsCar L` IS the auxiliary carrier's pin segment (`pinsCar_lfp`). -/
+theorem lfp_pins_le_of_section_closed {P : Nat → V}
+    (hP : InTupleSpace w n (fun q => Is (k + q)) P)
+    (hcl' : ∀ q, q < n →
+      FamLe (Is (k + q)) (Ψ (segJoin k n (lfpTuple w k Is (composeΦ w k n Is Ψ)) P) (k + q)) (P q)) :
+    ∀ q, q < n → FamLe (Is (k + q)) (lfpTuple w (k + n) Is Ψ (k + q)) (P q) := by
+  intro q hq
+  rw [← pinsCar_lfp hmono hcl hq]
+  refine lfpTuple_le ⟨hP, fun q' hq' => ?_⟩ q hq
+  rw [pinsOp, segSec_apply]
+  refine FamLe.trans ?_ (hcl' q' hq')
+  have hL := lfpTuple_mem w k Is (composeΦ w k n Is Ψ)
+  exact hmono _ _ (inTupleSpace_pinsJoin hL hP) (inTupleSpace_join hL hP) (pinsJoin_le _ _)
+    (k + q') (by omega)
+
 end PinLawsFacts
 
 end PinLaws

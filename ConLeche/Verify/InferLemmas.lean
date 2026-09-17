@@ -672,6 +672,342 @@ theorem Expr.getAppArgs_mkAppN : ∀ (args : List Expr) (f : Expr),
       Expr.getAppArgs_mkAppN as]
     simp [Expr.getAppArgs]
 
+/-! ## `whnf` at a constant-headed application (task #279 K.22)
+
+The nested route's model lane compares a RESTORED processed
+constructor field against the restored stored one through `whnf`, at
+the environment holding the pre-block constants and the block's own
+formers (DESIGN §K.17's witness).  At a container-recursive field the
+restored field is an application of a stored INDUCTIVE type former, and
+the lane needs the run to be the IDENTITY there.
+
+Nothing reduces at such a head: `whnfCore` walks the spine down to the
+`.const` (no β redex — a constant is not a λ), `iotaRec` declines (the
+head is not a stored recursor), the literal acceleration does not fire
+(the head's declaration is neither `Nat.succ`'s stored constructor nor
+a stored `Nat` operation) and `unfoldDefinition` declines (an `indInfo`
+carries no value).
+
+The entry points are stated in `whnf_forallE_eq`'s inversion shape —
+the RUN is the hypothesis, so no fuel side condition is owed and a run
+that would have failed leaves the conclusion vacuous.  `whnf_indApp_ok`
+is the positive form, for a caller that wants the equation without a
+run in hand; it owes the fuel bound and one more side condition (see
+there).  Nothing here is special to a particular environment: a
+consumer that reduces at the pre-block constants extended by the
+block's own formers supplies the `find?` of the extended environment
+and gets the statement at it.
+-/
+
+/-- A constant-headed application spine is never a λ — the β arm of
+`whnfCore` cannot fire at one. -/
+theorem Expr.mkAppN_const_ne_lam {c : Name} {us : List Level} {args : List Expr}
+    {ty body : Expr} {mb : BinderMeta} :
+    Expr.mkAppN (.const c us) args ≠ .lam ty body mb := by
+  intro h
+  have h2 : (Expr.mkAppN (.const c us) args).getAppFn
+      = (Expr.lam ty body mb).getAppFn := congrArg Expr.getAppFn h
+  rw [Expr.getAppFn_mkAppN] at h2
+  exact Expr.noConfusion h2
+
+/-- Reading a constant-headed spine's head off any expression it is
+equal to: the spine head is the constant, so the name and the level
+arguments are pinned. -/
+theorem Expr.const_eq_of_mkAppN {c c₀ : Name} {us us₀ : List Level}
+    {args : List Expr} {e : Expr}
+    (h : Expr.mkAppN (.const c us) args = e) (he : e.getAppFn = .const c₀ us₀) :
+    c = c₀ ∧ us = us₀ := by
+  have h2 := congrArg Expr.getAppFn h
+  rw [Expr.getAppFn_mkAppN, he] at h2
+  have h3 : Expr.const c us = Expr.const c₀ us₀ := h2
+  simp only [Expr.const.injEq] at h3
+  exact h3
+
+/-- **An iota step declines at every head that is not a stored
+recursor**: `iotaRec` reads the spine head's declaration, and every arm
+of that `find?` match but `recInfo` returns `none` without looking at
+the spine. -/
+theorem iotaRec_none_of_head {env : Env} {fuel d : Nat} {e : Expr}
+    {c : Name} {us : List Level}
+    (hfn : e.getAppFn = .const c us)
+    (hnr : ∀ cv mI rP rules, env.find? c ≠ some (.recInfo cv mI rP rules)) :
+    iotaRecFueled mode env fuel d e = .ok none := by
+  show iotaRec mode (pureFns mode env fuel) env d e = _
+  cases hfc : env.find? c with
+  | none => simp only [iotaRec, hfn, hfc]; rfl
+  | some ci =>
+    cases ci with
+    | recInfo cv mI rP rules => exact absurd hfc (hnr cv mI rP rules)
+    | axiomInfo _ => simp only [iotaRec, hfn, hfc]; rfl
+    | defnInfo _ _ _ => simp only [iotaRec, hfn, hfc]; rfl
+    | thmInfo _ _ => simp only [iotaRec, hfn, hfc]; rfl
+    | indInfo _ _ => simp only [iotaRec, hfn, hfc]; rfl
+    | ctorInfo _ _ _ => simp only [iotaRec, hfn, hfc]; rfl
+    | projInfo _ => simp only [iotaRec, hfn, hfc]; rfl
+
+/-- **`whnfCore` is the identity on a constant-headed application whose
+head is not a stored recursor.**  The spine recursion re-assembles the
+term argument by argument: the head returns itself (the `.const` arm),
+no prefix is a λ (`Expr.mkAppN_const_ne_lam`), so the β arm never fires,
+and `iotaRec` declines at every prefix (`iotaRec_none_of_head` — the
+head of `f a` is the head of `f`).  One fuel level per spine argument,
+plus one for the head. -/
+theorem whnfCore_constApp_eq {env : Env} {d : Nat} {c : Name} {us : List Level}
+    (hnr : ∀ cv mI rP rules, env.find? c ≠ some (.recInfo cv mI rP rules)) :
+    ∀ (fuel : Nat) (args : List Expr), args.length < fuel →
+      whnfCore mode env fuel d (Expr.mkAppN (.const c us) args)
+        = .ok (Expr.mkAppN (.const c us) args) := by
+  intro fuel
+  induction fuel with
+  | zero => intro args hlt; omega
+  | succ fuel ih =>
+    intro args hlt
+    rcases List.eq_nil_or_concat args with rfl | ⟨as, a, rfl⟩
+    · rw [whnfCore_succ]; rfl
+    · rw [List.concat_eq_append] at hlt ⊢
+      have has : as.length < fuel := by
+        simp only [List.length_append, List.length_cons,
+          List.length_nil] at hlt
+        omega
+      rw [Expr.mkAppN_append_one, whnfCore_succ]
+      simp only [whnfCoreBody, Bind.bind, Except.bind]
+      simp only [whnfCore_def, inferTypeIO_def, defeq_def, iotaRec_fold]
+      rw [ih as has]
+      dsimp only
+      split
+      · next heq => exact absurd heq Expr.mkAppN_const_ne_lam
+      · rw [iotaRec_none_of_head (c := c) (us := us) (by
+          rw [show (Expr.app (Expr.mkAppN (.const c us) as) a).getAppFn
+                = (Expr.mkAppN (.const c us) as).getAppFn from rfl,
+            Expr.getAppFn_mkAppN]; rfl) hnr]
+        rfl
+
+/-- **Literal acceleration declines at a constant-headed application**
+whose head is neither `Nat.succ`'s stored constructor (`hsucc`: at that
+name the `Nat` support capability is absent, so the packing arm's guard
+is false) nor a stored `Nat` operation (`hop`) nor one of the
+pin-certified WF-recursive operations (`hwf` — that arm's guard reads
+the NAME and the capability, not the head's declaration). -/
+theorem reduceNat_constApp_none {env : Env} {fuel d : Nat} {c : Name}
+    {us : List Level} {args : List Expr}
+    (hsucc : c = natSuccName → natLitSupported env = false)
+    (hop : natOpStored env c = false)
+    (hwf : natOpWfNames.contains c = false) :
+    reduceNatFueled mode env fuel d (Expr.mkAppN (.const c us) args)
+      = .ok none := by
+  show reduceNat (pureFns mode env fuel) env d _ = _
+  unfold reduceNat
+  split
+  · next c₀ a heq =>
+    obtain ⟨rfl, -⟩ := Expr.const_eq_of_mkAppN heq rfl
+    split
+    · next hc => exact absurd hc.2 (by rw [hsucc hc.1]; exact Bool.false_ne_true)
+    · rfl
+  · next c₀ a b heq =>
+    obtain ⟨rfl, -⟩ := Expr.const_eq_of_mkAppN heq rfl
+    split
+    · next hc => exact absurd hc.2 (by rw [hop]; exact Bool.false_ne_true)
+    · split
+      · next hc => exact absurd hc.1 (by rw [hwf]; exact Bool.false_ne_true)
+      · rfl
+  · rfl
+
+/-- **Literal acceleration never FIRES at a constant-headed
+application** whose head is neither `Nat.succ`'s stored constructor nor
+a stored `Nat` operation — the `natOpWfNames` hypothesis of
+`reduceNat_constApp_none` is not needed for this weaker conclusion,
+because that arm's only outcomes are `none` and a positive DECLINE
+(`.notImplemented`), never a reduct. -/
+theorem reduceNat_constApp_ne_some {env : Env} {fuel d : Nat} {c : Name}
+    {us : List Level} {args : List Expr} {r : Expr}
+    (hsucc : c = natSuccName → natLitSupported env = false)
+    (hop : natOpStored env c = false) :
+    reduceNatFueled mode env fuel d (Expr.mkAppN (.const c us) args)
+      ≠ .ok (some r) := by
+  show reduceNat (pureFns mode env fuel) env d _ ≠ _
+  unfold reduceNat
+  split
+  · next c₀ a heq =>
+    obtain ⟨rfl, -⟩ := Expr.const_eq_of_mkAppN heq rfl
+    split
+    · next hc => exact absurd hc.2 (by rw [hsucc hc.1]; exact Bool.false_ne_true)
+    · intro h; exact nomatch h
+  · next c₀ a b heq =>
+    obtain ⟨rfl, -⟩ := Expr.const_eq_of_mkAppN heq rfl
+    split
+    · next hc => exact absurd hc.2 (by rw [hop]; exact Bool.false_ne_true)
+    · split
+      · simp only [Bind.bind, Except.bind]
+        split
+        · intro h; exact nomatch h
+        · split
+          · split
+            · intro h; exact nomatch h
+            · split
+              · intro h; simp [throw, throwThe, MonadExceptOf.throw] at h
+              · intro h; exact nomatch h
+          · intro h; exact nomatch h
+      · intro h; exact nomatch h
+  · intro h; exact nomatch h
+
+/-- **The delta step declines at a constant-headed application whose
+head carries no value**: `unfoldDefinition` reads the spine head's
+declaration and unfolds a `defnInfo` only. -/
+theorem unfoldDefinition_constApp_none {env : Env} {c : Name} {us : List Level}
+    {args : List Expr} {ci : ConstantInfo}
+    (hc : env.find? c = some ci)
+    (hnd : ∀ cv v hint, ci ≠ .defnInfo cv v hint) :
+    unfoldDefinition env (Expr.mkAppN (.const c us) args) = none := by
+  simp only [unfoldDefinition, Expr.getAppFn_mkAppN]
+  show (match env.find? c with
+    | some (.defnInfo cv value _) =>
+      if us.length = cv.levelParams.length then
+        some (Expr.mkAppN (value.instantiateLevelParams cv.levelParams us)
+          (Expr.mkAppN (.const c us) args).getAppArgs)
+      else none
+    | _ => none) = none
+  rw [hc]
+  cases ci with
+  | defnInfo cv v hint => exact absurd rfl (hnd cv v hint)
+  | axiomInfo _ => rfl
+  | thmInfo _ _ => rfl
+  | indInfo _ _ => rfl
+  | ctorInfo _ _ _ => rfl
+  | recInfo _ _ _ _ => rfl
+  | projInfo _ => rfl
+
+/-- **One iteration of the reduction loop returns the subject itself**
+when `whnfCore` is the identity at it, literal acceleration does not
+fire and the head does not delta-unfold.  Inversion form: a run that
+errored (literal acceleration may DECLINE) makes the hypothesis, and
+the conclusion, vacuous. -/
+theorem whnf_eq_of_stuck {env : Env} {F d : Nat} {e e' : Expr}
+    (hcore : whnfCore mode env F d e = .ok e)
+    (hnat : ∀ r, reduceNatFueled mode env F d e ≠ .ok (some r))
+    (hunf : unfoldDefinition env e = none)
+    (h : whnf mode env (F + 1) d e = .ok e') : e' = e := by
+  obtain ⟨k, hk⟩ := whnfLoopFuel_succ
+  rw [whnf_succ] at h
+  replace h : whnfLoop (pureFns mode env F) env d whnfLoopFuel e = .ok e' := h
+  rw [hk] at h
+  replace h : whnfStep (pureFns mode env F) env d
+      (whnfLoop (pureFns mode env F) env d k) e = .ok e' := h
+  simp only [whnfStep, Bind.bind, Except.bind, whnfCore_def,
+    reduceNat_fold] at h
+  rw [hcore] at h
+  dsimp only at h
+  cases hnt : reduceNatFueled mode env F d e with
+  | error err => rw [hnt] at h; exact nomatch h
+  | ok o =>
+    cases o with
+    | some r => exact absurd hnt (hnat r)
+    | none =>
+      rw [hnt] at h
+      dsimp only at h
+      rw [hunf] at h
+      exact (Except.ok.inj h).symm
+
+@[inherit_doc whnf_eq_of_stuck]
+theorem whnf_stuck_ok {env : Env} {F d : Nat} {e : Expr}
+    (hcore : whnfCore mode env F d e = .ok e)
+    (hnat : reduceNatFueled mode env F d e = .ok none)
+    (hunf : unfoldDefinition env e = none) :
+    whnf mode env (F + 1) d e = .ok e := by
+  obtain ⟨k, hk⟩ := whnfLoopFuel_succ
+  rw [whnf_succ]
+  show whnfLoop (pureFns mode env F) env d whnfLoopFuel e = _
+  rw [hk]
+  show whnfStep (pureFns mode env F) env d
+    (whnfLoop (pureFns mode env F) env d k) e = _
+  simp only [whnfStep, Bind.bind, Except.bind, whnfCore_def, reduceNat_fold]
+  rw [hcore]
+  dsimp only
+  rw [hnat]
+  dsimp only
+  rw [hunf]
+  rfl
+
+/-- **THE LEMMA (task #279 K.22): `whnf` is the identity on an
+inductive-headed application.**  A stored inductive type FORMER is
+whnf-stuck at any spine: no arm of `whnfCore` applies, literal
+acceleration cannot fire (the former is not `Nat.succ`'s constructor —
+which is what makes `natLitSupported` fail at that name — and it is not
+a stored `Nat` operation) and there is no value to unfold.
+
+Stated in `whnf_forallE_eq`'s inversion shape: the RUN is the
+hypothesis, at an arbitrary fuel, so no fuel bound is owed. -/
+theorem whnf_indApp_eq {env : Env} {fuel d : Nat} {J : Name} {lvls : List Level}
+    {args : List Expr} {cv : ConstantVal} {caps : IndCaps} {e' : Expr}
+    (hJ : env.find? J = some (.indInfo cv caps))
+    (h : whnf mode env fuel d (Expr.mkAppN (.const J lvls) args) = .ok e') :
+    e' = Expr.mkAppN (.const J lvls) args := by
+  have hnr : ∀ cv' mI rP rules,
+      env.find? J ≠ some (.recInfo cv' mI rP rules) := by
+    intro cv' mI rP rules; simp [hJ]
+  have hsucc : J = natSuccName → natLitSupported env = false := by
+    rintro rfl; simp [natLitSupported, natSuccOk, hJ]
+  have hop : natOpStored env J = false := by simp [natOpStored, hJ]
+  have h1 : whnf mode env (fuel + args.length + 1 + 1) d
+      (Expr.mkAppN (.const J lvls) args) = .ok e' := whnf_mono (by omega) h
+  exact whnf_eq_of_stuck (whnfCore_constApp_eq hnr _ args (by omega))
+    (fun r => reduceNat_constApp_ne_some hsucc hop)
+    (unfoldDefinition_constApp_none hJ
+      (by intro cv' v hint hh; exact nomatch hh)) h1
+
+/-- **The constructor twin**: a stored CONSTRUCTOR is whnf-stuck the
+same way — with one genuine exception, which the hypothesis names.
+`Nat.succ` applied to one argument is exactly the literal-acceleration
+arm's redex (`reduceNat` packs `Nat.succ ⟨n⟩` back into `⟨n+1⟩`), so a
+constructor head is stuck only away from that name. -/
+theorem whnf_ctorApp_eq {env : Env} {fuel d : Nat} {C : Name} {lvls : List Level}
+    {args : List Expr} {cv : ConstantVal} {nP nF : Nat} {e' : Expr}
+    (hC : env.find? C = some (.ctorInfo cv nP nF))
+    (hne : C ≠ natSuccName)
+    (h : whnf mode env fuel d (Expr.mkAppN (.const C lvls) args) = .ok e') :
+    e' = Expr.mkAppN (.const C lvls) args := by
+  have hnr : ∀ cv' mI rP rules,
+      env.find? C ≠ some (.recInfo cv' mI rP rules) := by
+    intro cv' mI rP rules; simp [hC]
+  have hop : natOpStored env C = false := by simp [natOpStored, hC]
+  have h1 : whnf mode env (fuel + args.length + 1 + 1) d
+      (Expr.mkAppN (.const C lvls) args) = .ok e' := whnf_mono (by omega) h
+  exact whnf_eq_of_stuck (whnfCore_constApp_eq hnr _ args (by omega))
+    (fun r => reduceNat_constApp_ne_some (fun hc => absurd hc hne) hop)
+    (unfoldDefinition_constApp_none hC
+      (by intro cv' v hint hh; exact nomatch hh)) h1
+
+/-- **The positive form** of `whnf_indApp_eq`, for a caller with no run
+in hand.  It owes two things the inversion form does not:
+
+* the FUEL — one level per spine argument, one for the head and one for
+  the reduction loop's own step;
+* `natOpWfNames.contains J = false`.  That arm of `reduceNat` is the
+  *safety net* for the pin-certified WF-recursive `Nat` operations, and
+  its guard reads the NAME and the `Nat` capability, NOT the head's
+  stored declaration — so at an environment that stored, say, `Nat.div`
+  as an inductive former, a two-argument application of it whose
+  arguments reduce to literals is positively DECLINED rather than
+  returned.  The inversion form needs no such hypothesis precisely
+  because a decline is an error, and an errored run makes it vacuous.
+  A caller with a concrete `J` discharges the hypothesis by `decide`. -/
+theorem whnf_indApp_ok {env : Env} {F d : Nat} {J : Name} {lvls : List Level}
+    {args : List Expr} {cv : ConstantVal} {caps : IndCaps}
+    (hJ : env.find? J = some (.indInfo cv caps))
+    (hwf : natOpWfNames.contains J = false)
+    (hF : args.length + 1 < F) :
+    whnf mode env F d (Expr.mkAppN (.const J lvls) args)
+      = .ok (Expr.mkAppN (.const J lvls) args) := by
+  have hnr : ∀ cv' mI rP rules,
+      env.find? J ≠ some (.recInfo cv' mI rP rules) := by
+    intro cv' mI rP rules; simp [hJ]
+  have hsucc : J = natSuccName → natLitSupported env = false := by
+    rintro rfl; simp [natLitSupported, natSuccOk, hJ]
+  have hop : natOpStored env J = false := by simp [natOpStored, hJ]
+  obtain ⟨F', rfl⟩ : ∃ F', F = F' + 1 := ⟨F - 1, by omega⟩
+  exact whnf_stuck_ok (whnfCore_constApp_eq hnr _ args (by omega))
+    (reduceNat_constApp_none hsucc hop hwf)
+    (unfoldDefinition_constApp_none hJ (by intro cv' v hint hh; exact nomatch hh))
+
 /-- Inversion for `whnfCore` on projections: the scrutinee whnf, then
 the string-literal expansion step (`projLitToCtorFueled`), then either a
 stuck projection of the converted scrutinee or a firing table entry. -/
