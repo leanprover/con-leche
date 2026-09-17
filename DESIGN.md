@@ -79749,6 +79749,84 @@ conflict-free recursive merge, and one DESIGN conflict resolved by
 number.  Next: L-E's session 2 (the shape assembly) and M7's three
 stage facts.
 
+##### (m) INTEGRATION 3e — M7-3 sessions 2–3 merged: K.34 inverted, and the crossing's reading hypothesis WEAKENED (session U-27)
+
+One merge into the lane, `--no-ff` at the pinned sha —
+`agent/uniform-m7env` **b7d1042e**, which already contains the lane's
+own 83bc2d7b and L-E's 2aab2a7a, so the union is a recursive merge over
+2aab2a7a as its base.  **The nested chain does not move**: after this
+session `declNested_of` still closes over exactly `hSh :
+NestedPinsShape`, `hEn : NestedPinsEntry` and `htail :
+NestedTailModeled` (plus `mp : EnvModelB`, `hE` and the run) — M7-3's
+work is the ENVIRONMENT model's, one layer below the nested consumer,
+and it changed no statement any lane consumes.
+
+*The merge and the conflict.*  The branch touches three files against
+the base — `Model/Inductives/BlockRepCross.lean`,
+`Model/Inductives/ContainerCross.lean` and DESIGN.md — and neither
+model file was touched by the lane since 2aab2a7a, so **DESIGN.md was
+the only conflict**: §U.40/§U.41 against L-B's §U.37, both appended at
+the same end.  Resolved by number — §U.37, §U.40, §U.41 (there is no
+§U.38 or §U.39; the numbers are the lanes', not the lane branch's) —
+and verified a pure union: zero lines dropped against EITHER parent
+(427 lines added over HEAD, 469 over b7d1042e).  `Model.lean` did not
+conflict — the branch adds no module, only theorems to two existing
+ones — and `NestedPremise`'s public import is still
+`Semantics.Inductives.DeclNested`.  No adaptation was needed on the
+lane.
+
+*What it brings.*  §U.40: K.34 INVERTED — `containerInfo?_of_readBack`
+reads the route's own Bool as the equation `EnvBlocksOf` quantifies
+over (the three container records got `LawfulBEq` instances for it),
+and `ContainerModeled.of_readBack` discharges the record's four data
+clauses from the block's own data, leaving `hmember` as the whole of
+the remaining work; plus the refutation in the tree
+(`denoteMeta_not_mono_of_newTable`, `hde_not_of_newTable`) that a
+projection-table cons MOVES a successful reading, so the crossing's old
+`hde` is false at every route.  §U.41: THE GUARD — `ProjFree Ts e` and
+the `ConstsBound`-free transport `denoteMeta_env_mono_projFree`, its
+closure kit (`ProjFree.of_constsResolve`, `.of_noProjEnv`,
+`.getAppArgs`, `.openPisAtFvars`, `.fvarTypeD`), the guarded twins
+`DenoteMetaSpine/FormerData/CtorDataI/BlockCtorData/IsBlockModel.crossEnvP`,
+`ContainerModeled.crossEnvP`, `BlockAt.crossEnvP`,
+`EnvBlocksOf/EnvBlockModels.crossIndP` and `projFree_members`.  Every
+old signature survives as the instance at `Ts := []`, which is why the
+whole consumer list compiled on the union with no lane file edited.
+
+**The import gate on the union brought nothing new**, as at every
+integration since §U.27 (b): shake 508 proposed, all 508 allowlisted
+(the lane's count, unchanged — the branch retires nothing);
+pub-imports 1259 of 1982 in-tree edges public, none demotable, 36
+dot-notation fallbacks — the branch's own `ContainerCross` →
+`BlockRepCross` promotion (its statements name `ProjFree`) is in the
+1259, and the five edges above its own 1977 are L-B's and L-E's.
+`scripts/pub-import-plan.py` is untouched: no FALLBACK on either side,
+so there was no union to take.
+
+Gates at the merge commit: `lake build` 694 jobs warning-free, `lake
+test` warning-free, shake and pub-imports as above, layering base 346 /
+model 265 / caps 3 / umbrella 1 with 0 base→lane and 0 impl→theory,
+trust surface 13 escapes in 5 allowlisted files (626 scanned),
+no-local-paths OK, overview-links 112, quote-gate 2, proofdeps 4955
+rows / 12 roots / 0 doors, nested-shadow 27/27.  No `sorry`, no axioms,
+no `maxHeartbeats`, no checker code changed (the branch is model-tier
+only).
+
+**The chain, re-verified** (`_tmp/uniform-315/chain-probe-u27.lean`,
+outside the build): the composition of §U.27 (k) typechecks with
+exactly `hSh`, `hEn` and `htail` free, and `nestedTailModeled_of hrd
+heqs hst` still typechecks at the same tree.  `#print axioms` of both:
+`[propext, Classical.choice, Quot.sound]`.
+
+The residual after 3e is (l)'s, unchanged — `NestedPinsShape` (L-B/L-E),
+`NestedPinsEntry` (L-E) and `NestedTailModeled` (M7-2's three stage
+facts) — with M7-3's own remaining list, `declMutual`'s five-item lift,
+now written down at §U.41 (g).
+
+Cost: well under a session — one recursive merge with one DESIGN
+conflict resolved by number.  Next: L-E's session 2 (the shape
+assembly), M7's three stage facts, and M7-3's mutual lift.
+
 #### K.32 — the copies' recursive targets come from the container's own recursion (2026-09-16, task #315, lane L-B's DESIGN §U.23 (e))
 
 The model's `ordF` arm needs to know that a container-ORDINARY field
