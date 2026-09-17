@@ -116,6 +116,12 @@ theorem provisionNestedRecs_hde {l : List (ConstantVal × Nat × Nat)} {env : En
   rw [← denoteMeta_acval_congr (acval₂ := mP.acval) (fun n hn => (hag n hn).symm) dp e]
   exact hread
 
+/-- **Class `c`'s restored rule list**: the member run's below `k`, the
+mimic run's above (`nestedRecCvAt`'s twin at the rules). -/
+@[expose] def nestedRulesAt (k : Nat) (rulesM rulesN : List (List RecRule)) (c : Nat) :
+    List RecRule :=
+  if c < k then rulesM.getD c [] else rulesN.getD (c - k) []
+
 section Run
 
 variable {env : Env} {F : Nat} {mp : EnvModelM V μ env} {p : NestedParts} {envOut : Env}
@@ -1125,6 +1131,71 @@ theorem NestedTailIn.auxRuleRead {mpA : EnvModelM V μ ENVA} {cvRas : List Const
     rw [hdk] at htgt
     rw [← (hshapeA _ htgt).1]
     exact hleafA _ htgt ψ
+
+/-! ## The restored rule, at the run and read (item 5 step 2d (C)) -/
+
+/-- **THE RESTORED RULES OF CLASS `c` ARE THE RUN'S**: the two `mapM`s
+of `restoreRules` (`hrulesM` below `k`, `hrulesN` above) at class `c`,
+stated once through `nestedRecCvAt`/`nestedRulesAt` with the mimic flag
+`decide (p.k ≤ c)` and the environment the provision's
+(`I.henv` moving the formers' spelling). -/
+theorem NestedTailIn.restRulesRun {c : Nat} (hc : c < b.k) {a : AuxStored}
+    (ha : stored[c]? = some a) :
+    ConLeche.restoreRules (m := ConLeche.CheckM) (fueledOps μ F)
+        (ConLeche.provisionNestedRecs (nestedProvList p stored cvRms cvRns) (ENV2))
+        (ConLeche.restoreTbl p st) (nestedRecCvAt p.k cvRms cvRns c).levelParams
+        (nestedRecCvAt p.k cvRms cvRns c).name (decide (p.k ≤ c))
+        (nestedRecCvAt p.k cvRms cvRns c).type a.mI a.rP a.rules
+      = .ok (nestedRulesAt p.k rulesM rulesN c) := by
+  have hbk : b.k = p.k + pinsS.length := I.out.bk
+  by_cases hck : c < p.k
+  · -- a MEMBER's recursor
+    have hcvl : c < cvRms.length := by rw [I.lenM]; exact hck
+    have hcv : cvRms[c]? = some (nestedRecCvAt p.k cvRms cvRns c) := by
+      unfold nestedRecCvAt
+      rw [if_pos hck, List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hcvl]
+      rfl
+    have hst : (stored.take p.k)[c]? = some a := by
+      rw [List.getElem?_take_of_lt hck]; exact ha
+    have hzip : (cvRms.zip (stored.take p.k))[c]? = some (nestedRecCvAt p.k cvRms cvRns c, a) := by
+      rw [List.zip, List.getElem?_zipWith, hcv, hst]
+    obtain ⟨-, hall⟩ := ConLeche.mapM_except_inv I.hrulesM
+    obtain ⟨x, out, hx, hout, hrun⟩ := hall c (by
+      rw [List.length_zip, List.length_take, I.lenM, I.storedLen, hbk]
+      omega)
+    obtain rfl : x = (nestedRecCvAt p.k cvRms cvRns c, a) := Option.some.inj (hx.symm.trans hzip)
+    rw [show nestedRulesAt p.k rulesM rulesN c = out from by
+      unfold nestedRulesAt
+      rw [if_pos hck, List.getD_eq_getElem?_getD, hout]
+      rfl,
+      show (decide (p.k ≤ c)) = false from by simp only [decide_eq_false_iff_not]; omega]
+    rw [I.henv] at hrun
+    exact hrun
+  · -- a MIMIC's
+    have hq : c - p.k < pinsS.length := by omega
+    have hcvl : c - p.k < cvRns.length := by rw [I.lenN]; exact hq
+    have hcv : cvRns[c - p.k]? = some (nestedRecCvAt p.k cvRms cvRns c) := by
+      unfold nestedRecCvAt
+      rw [if_neg hck, List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hcvl]
+      rfl
+    have hst : (stored.drop p.k)[c - p.k]? = some a := by
+      rw [List.getElem?_drop, show p.k + (c - p.k) = c from by omega]
+      exact ha
+    have hzip : (cvRns.zip (stored.drop p.k))[c - p.k]?
+        = some (nestedRecCvAt p.k cvRms cvRns c, a) := by
+      rw [List.zip, List.getElem?_zipWith, hcv, hst]
+    obtain ⟨-, hall⟩ := ConLeche.mapM_except_inv I.hrulesN
+    obtain ⟨x, out, hx, hout, hrun⟩ := hall (c - p.k) (by
+      rw [List.length_zip, List.length_drop, I.lenN, I.storedLen, hbk]
+      omega)
+    obtain rfl : x = (nestedRecCvAt p.k cvRms cvRns c, a) := Option.some.inj (hx.symm.trans hzip)
+    rw [show nestedRulesAt p.k rulesM rulesN c = out from by
+      unfold nestedRulesAt
+      rw [if_neg hck, List.getD_eq_getElem?_getD, hout]
+      rfl,
+      show (decide (p.k ≤ c)) = true from by simp only [decide_eq_true_eq]; omega]
+    rw [I.henv] at hrun
+    exact hrun
 
 end Run
 
