@@ -638,6 +638,30 @@ def pinsClosed (nP : Nat) (pins : List NestedPin) : Bool :=
     let pinB := Expr.abstractRange q.pin 0 nP 0
     !pinB.hasFvar && pinB.looseBVarsBounded nP
 
+/-- **THE PINS' LEVELS ARE THE BLOCK'S** (task #315 K.48, lane M7-3's
+DESIGN §U.69 (e)).
+
+`pinsClosed`'s twin, one line below it: every level parameter a pin's
+term mentions — in the head's level arguments and in its components
+alike — is one of the block's own `lps`.
+
+**Why it is recorded and not derived.**  `ContainerModeled.pinParams`
+(lane L-E's clause, landed as a field) asks that a pin's `u`, `Ds` and
+`Ids` depend on the container's level parameters ALONE.  `pinOf` builds
+`u` and `Ids` from the container's block model at
+`Level.substFn ψ M.lps lvls` and `Ds` as the components' `denoteMeta`
+readings at `ψ`, so at the nested site BOTH halves reduce to exactly
+this Bool — and nothing records it: `nestedPinsOk` type-checks a pin and
+`pinsClosed`/`pinsScoped` constrain its VARIABLES, and no test of the
+three looks at a level.
+
+**It cannot fire**, and a failure is `.internal`: a pin is a sub-term of
+a constructor type that `checkConstantVal` checked at `p.lps`, and a
+level parameter outside that list would have been refused there.
+CERTIFICATION-ONLY: gated. -/
+def pinsLevelsOk (lps : List Name) (pins : List NestedPin) : Bool :=
+  pins.all fun q => q.pin.allLevelParamsDefined lps
+
 /-- The projection table of a restored structure-like member: the
 scratch block's table with its bodies recomputed from the RESTORED
 constructor type (the guards and the result sort are levels, which the
@@ -1639,6 +1663,45 @@ def nestedPinLvlsDs (env : Env) (q : NestedPin) : Option (List Level × List Exp
   let ci ← containerInfo? env q.container
   pure (lvls, q.pin.getAppArgs.take ci.nP)
 
+/-- **THE MIMICS' STORED TYPES ARE THE RECORDED PINS** (task #315 K.47,
+lane M7-3's DESIGN §U.69 (c) 1 and (d)).
+
+`ContainerModeled.ownPins` — lane L-E's clause, and the substantive half
+of it — needs the mimic recursors' STORED TYPES tied to the pins the
+elimination recorded: that instantiating `T₁.rec_j`'s `mI` binders
+leaves the `j`-th pin as its major premise's domain.  M7-3 judged that a
+KERNEL record rather than a model proof, and the reason is the one
+`containerOwnPinsAt`'s own docstring gives: it is index arithmetic over
+`restoreRecTys`/`mutualRecTy`, "the arithmetic a twelve-instance corpus
+cannot validate".  The route, on the other hand, has both tables in hand
+and can simply compare them.
+
+**The comparison is at the route's OWN instantiation**, which is the
+identity one: the container is this block's first member, the level
+arguments are its own `lps` as parameters, and the components are the
+block's parameter OPENERS — the very fvars `pinsScoped` (K.30) proves a
+pin's free variables to be.  At that instantiation
+`containerOwnPinsAt`'s output is the recorded pin list VERBATIM, in pin
+order (`containerOwnPinsAtGo` walks `T₁.rec_1, T₁.rec_2, …` and
+`p.mimicRecName j` is `T₁.rec_(j+1)`).  A consumer that wants the table
+at some OTHER `lvls`/`Ds` gets it from this identity by substitution —
+which is the law §U.69 (c) already asks lane L-B for, shared with
+`NestedPinsShapePinF`; recording the identity is what keeps the kernel
+out of the arithmetic.
+
+**It cannot fire**, and a failure is `.internal`: the restore writes
+each mimic recursor's major premise FROM the recorded pin
+(`restoreNode`'s key rewrite), so the two tables are two readings of one
+list.  CERTIFICATION-ONLY: gated. -/
+def nestedOwnPinsOk (env : Env) (p : NestedParts) (st : ElimState) : Bool :=
+  match st.types.head?.bind (fun t₀ => openPisAtFvars p.nP t₀.type 0) with
+  | some (params, _) =>
+    match containerOwnPinsAt env (p.formers.headD default).1.name
+        (p.lps.map Level.param) params with
+    | some ps => ps == st.pins.map (·.pin)
+    | none => false
+  | none => false
+
 /-- **THE MINT PARENTS ARE WELL FOUNDED** (task #315 K.40, lane L-E's
 DESIGN §U.55): every recorded parent is an EARLIER pin.
 
@@ -2087,6 +2150,11 @@ def checkNested (ops : CheckerOps m) (env : Env) (p : NestedParts) : m Env := do
   -- first former's openers, annotation included, and no loose bvar.
   unless certOnly ops.mode (pinsScoped p.nP st) do
     throw (.internal "nested: a pin's free variables are not the block's parameter openers")
+  -- **THE PINS' LEVELS** (K.48): every level parameter a pin mentions is
+  -- one of the block's own — `ContainerModeled.pinParams`' whole content
+  -- at this site.  A failure is `.internal`.
+  unless certOnly ops.mode (pinsLevelsOk p.lps st.pins) do
+    throw (.internal "nested: a pin mentions a level parameter that is not the block's")
   -- **THE AUXILIARY APPLICATIONS** (K.35): every copy and copy
   -- constructor in the scratch block's read-back recursor types and
   -- rules is applied to `nP + arity` arguments whose first `nP` are the
@@ -2201,6 +2269,13 @@ def checkNested (ops : CheckerOps m) (env : Env) (p : NestedParts) : m Env := do
   unless certOnly ops.mode (blockReadBackOk env₄ p.nP ((members.zip ctorsR).map fun (a, cs) =>
       (a.cvTa, cs.map fun (cv, _, nF) => (cv, nF)))) do
     throw (.internal "nested: the installed block does not read back as its own")
+  -- **THE MIMICS' STORED TYPES ARE THE RECORDED PINS** (K.47): the
+  -- own-pin reader, run on the block this route just installed at the
+  -- block's own levels and parameter openers, returns the recorded pin
+  -- list verbatim — the substantive half of
+  -- `ContainerModeled.ownPins`.  A failure is `.internal`.
+  unless certOnly ops.mode (nestedOwnPinsOk env₄ p st) do
+    throw (.internal "nested: the mimics' stored types are not the recorded pins")
   pure env₄
 
 end ConLeche

@@ -374,6 +374,9 @@ def checkNestedS (fe : FEnv) (p : NestedParts) : CheckCM FEnv := do
   -- the pins' scope (K.30), as in the pure route
   unless certOnly mode (pinsScoped p.nP st) do
     throw (.internal "nested: a pin's free variables are not the block's parameter openers")
+  -- the pins' levels (K.48), as in the pure route
+  unless certOnly mode (pinsLevelsOk p.lps st.pins) do
+    throw (.internal "nested: a pin mentions a level parameter that is not the block's")
   -- the auxiliary applications (K.35), as in the pure route
   unless certOnly mode (nestedAuxAppsOk p st stored) do
     throw (.internal "nested: an auxiliary application in the block's read-back is not \
@@ -446,6 +449,10 @@ def checkNestedS (fe : FEnv) (p : NestedParts) : CheckCM FEnv := do
   unless certOnly mode (blockReadBackOk fe₄.env p.nP ((members.zip ctorsR).map fun (a, cs) =>
       (a.cvTa, cs.map fun (cv, _, nF) => (cv, nF)))) do
     throw (.internal "nested: the installed block does not read back as its own")
+  -- the mimics' stored types are the recorded pins (K.47), as in the
+  -- pure route
+  unless certOnly mode (nestedOwnPinsOk fe₄.env p st) do
+    throw (.internal "nested: the mimics' stored types are not the recorded pins")
   pure fe₄
 
 /-- The modeled inductive block (mirrors `checkModeled`), returning
