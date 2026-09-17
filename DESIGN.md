@@ -75183,7 +75183,7 @@ and whether a violating input could ever be an OFFICIAL-ACCEPTED STREAM.
 | third `nestedPinsOk` run (K.30) | CERT-ONLY | (S). The SAME pins, type-checked a third time at the restored formers' environment; the first two runs already accepted them and the three environments agree on everything a pin can mention. |
 | `nestedCopyTargetsOk` (K.32) | CERT-ONLY | (S). A copy field classified recursive into its own group comes from a container field that WAS that occurrence — a property of `mkCopy` + `replaceAllNested`, our code. |
 | `blockReadBackOk` (K.34) | CERT-ONLY | (S). `containerInfo?` of the environment THIS ROUTE just built, at the block it just installed; the route stored the very records the walk reads. |
-| `nestedAuxAppsOk` (K.35) | CERT-ONLY | (S). See below. |
+| `nestedAuxAppsOk` (K.35, + K.38's level conjunct) | CERT-ONLY | (S). See below, and `#### K.38`. |
 | `nestedPinRankOk` (K.37) | CERT-ONLY | (S). The pins' container instances and their rank — computed by the checker from its own elimination's output and validated.  Official computes no rank; no stream can violate it.  See `#### K.37`. |
 | K.36's fact | **NO CHECK** | (A). The route already establishes it — `mutualOpenedOk`'s `.ordinary` clause plus the members' freshness.  See `#### K.36`: a Bool was written, measured, and then DELETED in favour of the derivation. |
 
@@ -75515,3 +75515,50 @@ output (the pins and the copies' fields), a stream cannot supply it, and
 a fire would report a bug in the computation above rather than anything
 about the stream.  It is NOT category (B): there is no official-accepted
 violating stream to describe, because the fact is not about a stream.
+
+#### K.38 — K.35's walk pins the key head's LEVEL ARGUMENTS too (2026-09-17, task #315, lane M7-2's DESIGN §U.29 (q) item 2)
+
+K.35 shipped `auxAppsNodeOk` matching `.const n _` — the head's LEVEL
+ARGUMENTS were ignored.  The model lane's reading law at a key-headed
+application rewrites by `denoteMeta_const` to the leaf `acvalA n φ`,
+which is the only leaf `RestoreAgree.pin`/`.ctor` speak about; at an
+arbitrary `us` the leaf is `acvalA n (Level.substFn φ lps us)` and the
+identity does not apply.  The lane checked the other three gaps it found
+and reports them as the MODEL's to close (the Bool descends into
+`letE`/`proj` and passes `lit` where the inductive `AuxAppsOk` has no
+case; the non-key `const` side condition is recoverable inside the
+reading law; the face's `pinsS` is unconstrained and must be restated at
+a kernel-shaped arity).  **This one is not derivable from anything the
+run records**, so it is a kernel conjunct.
+
+The block's level parameters are threaded through `auxAppsOk`,
+`auxAppsNodeOk`, the memoized `auxAppsGoM` (and `AuxAppsMemoInv`, the
+spec and the `@[csimp]`), and `nestedAuxAppsOk` passes `p.lps`
+(`b.lps = p.lps` by `auxBlock`).  A key-headed spine's head — and a bare
+key constant, the zero-argument instance — must carry exactly
+`lps.map Level.param`.  **No extra traversal**: it is one `==` at a node
+the walk already examines.
+
+**MEASURED** (zero fires everywhere):
+
+* `tests/e2e/tower_nested.ndjson`: **516 759 059 / 516 774 301 /
+  516 970 148 instructions:u against K.37's 516 745 949 / 516 919 491 —
+  the same band**, wall 0.031–0.039 s.  The memoized twin stays at
+  noise, which is what the conjunct's "no extra traversal" claim
+  predicts;
+* nested-shadow **27/27**; `tests/arena.sh` **EXIT 0**;
+* the Mathlib nested cone: exit 0, **4 926 accepted**, 41/41 shadow
+  lines `accept`, **180 085 779 827 against K.37's 180 080 320 774
+  instructions:u — +0.003 %**.
+
+**Negative control**: the head's levels compared against
+`Level.zero :: lps.map Level.param` instead — **nested-shadow 3/27**,
+i.e. 24 of the 27 fixtures name the check
+(`nested: an auxiliary application in the block's read-back is not at
+the block's parameters`).  Every block with a key-headed application
+reaches it.
+
+**Ledger row**: CERT-ONLY, category **(S)** — the level arguments of a
+copy's head are written by OUR mint (`mkCopy` at the block's own
+`lps`), so no stream can supply them and official tests nothing of the
+kind.  It joins K.35's row, of which it is one more conjunct.
