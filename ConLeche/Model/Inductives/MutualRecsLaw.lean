@@ -490,7 +490,10 @@ theorem blockRecRuleLawG {env₀ env₃ : Env} {m₀ : EnvModel V env₀} (m₃ 
           (consList ((List.range d.k).map fun t => interp V ρ (Leaf t ψ)) ρ) e)
     {t : Nat} (ht : t < d.k) {j : Nat} {cA : ConstantVal × Nat} (hj : (d.ctorsM t)[j]? = some cA)
     {cvRa : ConstantVal}
-    (hRD : MutualRecData m₃ cvRa d.nP d.k d.nCtors (d.nIdxAt t) t elimL (d.blockRds m₀ elimL t))
+    (hrdsLen : ∀ ψ, (d.blockRds m₀ elimL t ψ).length
+      = d.nP + d.k + d.nCtors + d.nIdxAt t + 1)
+    (hrdsBits : ∀ (ψ : Name → Nat) (q : Nat × Nat × AnnotTerm), q ∈ d.blockRds m₀ elimL t ψ →
+      elimL.eval ψ = 0 → q.2.1 = 0)
     (hleafR : ∀ ψ, m₃.acval cvRa.name ψ = Leaf t ψ)
     {mI rP : Nat} (hmI : mI = d.nP + d.k + d.nCtors + d.nIdxAt t) (hrP : rP = d.nP + d.k + d.nCtors)
     {rl : RecRule} {Ra : (Name → Nat) → AnnotTerm}
@@ -502,6 +505,18 @@ theorem blockRecRuleLawG {env₀ env₃ : Env} {m₀ : EnvModel V env₀} (m₃ 
       = interp V ρ (d.ruleRhsAV m₀ elimL (fun t' => Leaf t' ψ) t j cA.2
           (restrictΨ rlps ψ)))
     (φ : Name → Nat)
+    (hspine : ∀ us : List Level, us.length = cvRa.levelParams.length →
+      ∀ (cvj : ConstantVal) (usj : List Level) (ρ : Nat → V) (xs ys : List AnnotTerm)
+        (TVa restR : AnnotTerm),
+        xs.length = mI →
+        denoteMeta m₃.acval env₃ φ 0
+          (cvRa.type.instantiateLevelParams cvRa.levelParams us) = some TVa →
+        TeleFitPA V ρ TVa (xs ++ [AnnotTerm.mkAppN (m₃.acval (RecRule.ctor rl)
+          (Level.substFn φ cvj.levelParams usj)) ys]) restR →
+        SpineFit ρ ((d.blockRds m₀ elimL t
+            (restrictΨ rlps (Level.substFn φ cvRa.levelParams us))).map (·.2.2))
+          ((xs ++ [AnnotTerm.mkAppN (m₃.acval (RecRule.ctor rl)
+            (Level.substFn φ cvj.levelParams usj)) ys]).map (interp V ρ)))
     (hvpa : ∀ us : List Level, us.length = cvRa.levelParams.length →
       ∀ lvls pins, RecRule.fire rl = .nested lvls pins →
       ∀ i, i < RecRule.ctorParams rl →
@@ -591,29 +606,14 @@ theorem blockRecRuleLawG {env₀ env₃ : Env} {m₀ : EnvModel V env₀} (m₃ 
   have hj' : j < (d.ctorsM t).length := (List.getElem?_eq_some_iff.mp hj).1
   have hk : 0 < d.k := by omega
   have hpl := hreps.params_length hk ψ'
-  -- the recursor type's reading
-  have hTVa' : TVa = mkPisAV (d.blockRds m₀ elimL t ψ') (d.blockConc t) := by
-    have h' := hTVa
-    rw [hinstR] at h'
-    rw [Option.some.inj (h'.symm.trans (hRD.read ψR)), hrdsR' t ht]
-    rfl
-  -- the fits, as spines
-  have hlenRds' := hRD.len ψ'
+  -- the fits, as spines: the arm's own (the recursor type reads differently on each route)
+  have hlenRds' := hrdsLen ψ'
   have hspR : SpineFit ρ ((d.blockRds m₀ elimL t ψ').map (·.2.2))
       ((xs ++ [AnnotTerm.mkAppN (m₃.acval (RecRule.ctor rl)
         (Level.substFn φ cvj.levelParams usj)) ys]).map (interp V ρ)) := by
-    have hst := stripPisAV_mkPisAV (d.blockRds m₀ elimL t ψ') (d.blockConc t)
-    rw [hlenRds'] at hst
-    have htele := piTeleAV_of_stripPisAV hst
-    have hfit := hfitR
-    rw [hTVa'] at hfit
-    try simp only [RecRule.ctor] at hfit
-    have hchain := teleFitPA_to_chain (d.nP + d.k + d.nCtors + d.nIdxAt t + 1) htele
-      (by simp [hxl]) hfit
-    refine spineFit_of_chain (by simp [hxl, hlenRds']) ?_
-    intro q hq
-    have := hchain q (by simpa [hlenRds'] using hq)
-    simpa [hlenRds'] using this
+    have h := hspine us hus cvj usj ρ xs ys TVa restR hxl hTVa hfitR
+    rw [hψR, hψ'] at h
+    exact h
   -- the arguments' values
   have hargsEq : (xs.take (d.nP + d.k + d.nCtors) ++ ys.drop (RecRule.ctorParams rl)).map
         (interp V ρ)
@@ -644,7 +644,7 @@ theorem blockRecRuleLawG {env₀ env₃ : Env} {m₀ : EnvModel V env₀} (m₃ 
       | nil => rw [hrds] at hlenRds'; simp at hlenRds'
       | cons q rest =>
         show piR q.2.1 _ _ ∈ˢ _
-        rw [(hRD.bits ψ' q (by rw [hrds]; exact List.mem_cons_self)).mp hℓ0]
+        rw [hrdsBits ψ' q (by rw [hrds]; exact List.mem_cons_self) hℓ0]
         exact piR_zero_mem_univZero
     have hRaPt : interp V ρ
         (d.ruleRhsAV m₀ elimL (fun t' => Leaf t' ψR) t j cA.2 ψ') = pt := by
@@ -954,9 +954,9 @@ theorem blockRecRuleLaw {env₀ env₃ : Env} {m₀ : EnvModel V env₀} (m₃ :
     unfold BlockModel.recLeaf
     rw [restrictΨ_congr (lps := rlps) (fun q hq => restrictΨ_agree rlps ψ q hq)]
   refine blockRecRuleLawG m₃ hreps hnp hfT hcT hval hwℓ hR hokT hrdsR hleafCl hleaf hiota ht hj
-    hRD hleafR rfl rfl
+    hRD.len (fun ψ q hq h0 => (hRD.bits ψ q hq).mp h0) hleafR rfl rfl
     (Ra := fun ψ => d.ruleRhsAV m₀ elimL (fun t' => d.recLeaf m₀ elimL s rlps t' ψ) t j cA.2
-      (restrictΨ rlps ψ)) rfl ?_ ?_ (fun _ _ => rfl) φ (fun _ _ _ _ h => nomatch h) ?_
+      (restrictΨ rlps ψ)) rfl ?_ ?_ (fun _ _ => rfl) φ ?_ (fun _ _ _ _ h => nomatch h) ?_
   · -- **the reading**, at the restricted assignment
     intro ψ
     show denoteMeta m₃.acval env₃ ψ 0 rhs = _
@@ -975,6 +975,32 @@ theorem blockRecRuleLaw {env₀ env₃ : Env} {m₀ : EnvModel V env₀} (m₃ :
       exact (hleaf mm hmm ψ ρ).2
     · rw [getD_range_map' _ _ _ ht']
       exact interp_closed V (hRcl t' ht') σ ρ
+  · -- **the recursor's spine**: the type reads to the block's own tower
+    intro us hus cvj usj ρ xs ys TVa restR hxl hTVa hfitR
+    have hinstR : ∀ (dp : Nat) (e : Expr),
+        denoteMeta m₃.acval env₃ φ dp (e.instantiateLevelParams cvRa.levelParams us)
+          = denoteMeta m₃.acval env₃ (Level.substFn φ cvRa.levelParams us) dp e :=
+      fun dp e => denoteMeta_instLevels (acvalParamsAt_of_core m₃) φ dp e
+    have hTVa' : TVa = mkPisAV (d.blockRds m₀ elimL t
+        (restrictΨ rlps (Level.substFn φ cvRa.levelParams us))) (d.blockConc t) := by
+      have h' := hTVa
+      rw [hinstR] at h'
+      rw [Option.some.inj (h'.symm.trans (hRD.read (Level.substFn φ cvRa.levelParams us))),
+        hrdsR t ht (Level.substFn φ cvRa.levelParams us)]
+      rfl
+    have hlenRds' := hRD.len (restrictΨ rlps (Level.substFn φ cvRa.levelParams us))
+    have hst := stripPisAV_mkPisAV (d.blockRds m₀ elimL t
+      (restrictΨ rlps (Level.substFn φ cvRa.levelParams us))) (d.blockConc t)
+    rw [hlenRds'] at hst
+    have htele := piTeleAV_of_stripPisAV hst
+    have hfit := hfitR
+    rw [hTVa'] at hfit
+    have hchain := teleFitPA_to_chain (d.nP + d.k + d.nCtors + d.nIdxAt t + 1) htele
+      (by simp [hxl]) hfit
+    refine spineFit_of_chain (by simp [hxl, hlenRds']) ?_
+    intro q hq
+    have := hchain q (by simpa [hlenRds'] using hq)
+    simpa [hlenRds'] using this
   · -- **the major**: the block's own constructor
     intro us hus cvj cnP cnF hfcj usj ρ xs ys TVa TVja restC hxl hyl husjl hψ _ _ hTVa
       hTVja hfitC ps _
