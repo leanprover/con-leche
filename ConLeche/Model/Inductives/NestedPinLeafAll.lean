@@ -329,6 +329,90 @@ theorem BlockModel.famAt_le_of_TClosed {env : Env} {m : EnvModel V env} {d : Blo
     have := h1 _ hq t ht x hx
     rwa [show d.k + (c - d.k) = c by omega] at this
 
+/-- **The extended carrier is itself closed under the classes'
+constructors** (task #315 L-E, DESIGN §U.57): a member class by the
+container's own fibre law at its least tuple (which is a fixed point),
+a pin class by `PinRecLaws.fibre` at it.  The first half of the
+relational meet's closure — the other half is the transfer. -/
+theorem BlockModel.famAt_TClosed {env : Env} {m : EnvModel V env} {d : BlockModel V}
+    {pc : Nat → PinCtors V} (hreps : IsBlockModels m d) (hp : PinRecLaws m d pc) (hk : 0 < d.k)
+    {ψ : Name → Nat} {ρp : Nat → V} (hρp : Sat V (d.params ψ).reverse ρp) :
+    d.TClosed pc ψ ρp (d.famAt ψ ρp (lfpTuple (d.w ψ) d.k (d.idx ψ ρp) (d.Φ ψ ρp))) := by
+  obtain ⟨cvT, cvR, mI, rP, rules, hI0⟩ := hreps 0 hk
+  refine ⟨fun c hc => hI0.famAt_mem hρp (lfpTuple_mem _ _ _ _) hc, fun c hc t ht j fs hj hfit => ?_⟩
+  by_cases hcm : c < d.k
+  · rw [BlockModel.injT_of_mem hcm]
+    rw [BlockModel.idxT_of_mem hcm] at ht
+    rw [d.famAt_of_mem hcm]
+    obtain ⟨cvT', cvR', mI', rP', rules', hI'⟩ := hreps c hcm
+    have hC := d.chainFit_of_chainFitT pc hcm hfit
+    have := (hI'.fibre ψ ρp hρp _ (lfpTuple_mem _ _ _ _) c hcm t ht (d.inj ψ c j fs)).mpr
+      ⟨j, fs, by rw [BlockModel.ctorsT_of_mem hcm] at hj; exact hj, hC, rfl⟩
+    rwa [lfpTuple_eq (hI0.functor ψ ρp hρp).2.2 (hI0.functor ψ ρp hρp).1
+      (hI0.functor ψ ρp hρp).2.1 hcm] at this
+  · have hq : c - d.k < d.nPins := by have : c < d.k + d.nPins := hc; omega
+    rw [BlockModel.injT_of_pin hcm]
+    rw [BlockModel.idxT_of_pin hcm] at ht
+    rw [d.famAt_of_pin hcm]
+    refine (hp.fibre ψ ρp hρp _ (lfpTuple_mem _ _ _ _) (TupleLe.refl _ _ _) _ hq t ht _).mpr
+      ⟨j, fs, by rw [BlockModel.ctorsT_of_pin hcm] at hj; exact hj, ?_, rfl⟩
+    rwa [show d.k + (c - d.k) = c by omega]
+
+/-- **`instanceLe`, modulo the TRANSFER** (task #315 L-E, DESIGN §U.48
+(h), §U.57): the relational meet of the container's extended carrier
+with the block's carrier at the `R`-related pins is `TClosed` — its
+`famAt` half by `famAt_TClosed`, its `L⁺` half by `htrans`, the
+transfer of a fit at the meet to the block's copy — so the extended
+carrier lies below the meet (`famAt_le_of_TClosed`), hence below the
+block's carrier at every related pair.  This is the whole of
+`instanceLe` that does not depend on WHAT the classes are: a member
+class of the container instance's root gives `P (r₀ + i) ≤ L⁺ (k + r₀ +
+i)` and a pin class gives the same at the image pin, through the
+container's own `pinLeaf`. -/
+theorem instanceLe_of_transfer {env : Env} {m : EnvModel V env} {d : BlockModel V}
+    {pc : Nat → PinCtors V} (hreps : IsBlockModels m d) (hp : PinRecLaws m d pc) (hk : 0 < d.k)
+    {ψ : Name → Nat} {ρp : Nat → V} (hρp : Sat V (d.params ψ).reverse ρp)
+    {R : Nat → Nat → Prop} {kB : Nat} {LB : Nat → V}
+    (htrans : ∀ c, c < d.kT → ∀ t, t ∈ˢ d.idxT ψ ρp c → ∀ j fs, j < (d.ctorsT pc c).length →
+      d.ChainFitT pc ψ ρp
+        (relMeet (d.idxT ψ ρp) (d.famAt ψ ρp (lfpTuple (d.w ψ) d.k (d.idx ψ ρp) (d.Φ ψ ρp)))
+          R kB LB) t c j fs →
+      ∀ b, b < kB → R c b → d.injT pc ψ c j fs ∈ˢ SetTheory.app (LB b) t) :
+    ∀ c b, c < d.kT → b < kB → R c b →
+      FamLe (d.idxT ψ ρp c)
+        (d.famAt ψ ρp (lfpTuple (d.w ψ) d.k (d.idx ψ ρp) (d.Φ ψ ρp)) c) (LB b) := by
+  obtain ⟨cvT, cvR, mI, rP, rules, hI0⟩ := hreps 0 hk
+  have hTcl : d.TClosed pc ψ ρp
+      (relMeet (d.idxT ψ ρp) (d.famAt ψ ρp (lfpTuple (d.w ψ) d.k (d.idx ψ ρp) (d.Φ ψ ρp)))
+        R kB LB) := by
+    refine ⟨fun c hc => relMeet_mem (hI0.famAt_mem hρp (lfpTuple_mem _ _ _ _) hc), ?_⟩
+    intro c hc t ht j fs hj hfit
+    rw [app_relMeet ht]
+    refine mem_sep.mpr ⟨?_, fun b hb hR => htrans c hc t ht j fs hj hfit b hb hR⟩
+    refine (BlockModel.famAt_TClosed hreps hp hk hρp).2 c hc t ht j fs hj ?_
+    refine d.ChainFitT_mono pc (fun c' _ t' => app_relMeet_subset _ _ _ _ _ _ _) ?_ hfit
+    intro i hi hr
+    by_cases hcm : c < d.k
+    · obtain ⟨cvT', cvR', mI', rP', rules', hI'⟩ := hreps c hcm
+      rw [BlockModel.FssT_of_mem hcm] at hi
+      rw [BlockModel.rssT_of_mem hcm] at hr
+      rw [BlockModel.tgtsT_of_mem hcm]
+      have hjl : j < (d.ctorsM c).length := by rw [BlockModel.ctorsT_of_mem hcm] at hj; exact hj
+      have hks : (d.ksF c j).length = ((d.Fss c ψ).getD j []).length := by
+        rw [(hI'.ctorData (List.getElem?_eq_getElem hjl)).ksLen,
+          hI'.Fss_length (List.getElem?_eq_getElem hjl) ψ]
+      exact hI'.tgtsLt c j i hcm hjl (by rw [hks]; exact hi)
+    · have hq : c - d.k < d.nPins := by have : c < d.k + d.nPins := hc; omega
+      rw [BlockModel.FssT_of_pin hcm] at hi
+      rw [BlockModel.rssT_of_pin hcm] at hr
+      rw [BlockModel.tgtsT_of_pin hcm]
+      have hjl : j < (pc (c - d.k)).ctors.length := by
+        rw [BlockModel.ctorsT_of_pin hcm] at hj; exact hj
+      exact hp.tgtsLt ψ (c - d.k) j i hq hjl hi
+  have hle := d.famAt_le_of_TClosed hreps hp hk hρp hTcl
+  intro c b hc hb hR
+  exact (hle c hc).trans (relMeet_le_rel hb hR)
+
 /-! ## The entry at a container's OWN pin, from the pin correspondence -/
 
 /-- **The `pinF` entry at a tuple whose target family reads the stored
