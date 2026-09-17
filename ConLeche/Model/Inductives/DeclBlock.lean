@@ -167,7 +167,8 @@ Consumer: `declBlock`. -/
         (ConLeche.storeMutualRecs (ConLeche.consMutualCtors b.nP ctorsA env₁) b fms rulesOf
           cvRas.zipIdx (ConLeche.consMutualCtors b.nP ctorsA env₁)),
       (∀ n, n ∉ b.blockNames → ∀ ψ : Name → Nat, mp₃.base2.acval n ψ = mp.base2.acval n ψ) ∧
-      ∃ d : BlockModel V, MutualBlockModelOf env b fms ctorsA d ∧ IsBlockModels mp₃.base2 d ∧
+      ∃ d : BlockModel V, MutualBlockModelOf env b fms ctorsA d ∧
+        IsBlockModelsAt mp₃.base2 d (fun mm => (fms.getD mm default).cvTa) ∧
         (∀ ψ : Name → Nat, FormersTyped mp₃.base2 d ψ ∧ CtorsTyped mp₃.base2 d ψ) ∧
         (∀ (t : Nat) (f : MutualFormerA), fms[t]? = some f →
           MemberStored mp₃.base2 b.lps b.nP f d.resSort (d.ppsM t)) ∧
@@ -302,6 +303,6 @@ theorem declBlock (hμ : μ.verifiedChecks = true) {F : Nat} {env envOut : Env}
   obtain ⟨-, rfl⟩ := ConLeche.mutualFormers_inv hformers
   exact ⟨(htables hμ mp.base2.wf mp.base2.proj_ok _ _ _ _ _ _ _ _ _ _ _ _ _ _ h0 h1 h2 h3 hformers
     hf₀ htq₀ hcross hL hctors hkinds hfo hgd hrectys hrules (recNames_of hpinOk hrectys) mp₃ d hd
-    hreps hT hstored htf htbl).choose⟩
+    hreps.toIsBlockModels hT hstored htf htbl).choose⟩
 
 end ConLeche.Model
