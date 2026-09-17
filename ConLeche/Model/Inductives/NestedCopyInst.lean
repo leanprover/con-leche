@@ -4451,31 +4451,6 @@ of a pin group.  Its five fields are the arms proved above — `len`
 `es` (`copyEs`) — with three residuals, each named below at exactly
 the conjunct that is open. -/
 
-/-- **K.32, which the copies' TARGET arms read and `NestedPinsRun` does
-not carry**: `nestedCopyTargetsOk` is a `certOnly` conjunct of
-`DeclNestedRun`, destructured at `declNested_of` and DROPPED there.
-Named here so the assembly can consume it; the fix is one field on
-`NestedCoreModeled`'s signature and one on `NestedPinsRun`, at which
-this predicate disappears.  (Its twin, the block's classification
-equation, is now `MutualFormersFacts.classify`.) -/
-@[expose] def NestedPinsKindsRun (V : Type w) [SetTheory V] (μ : CheckMode) (F : Nat) : Prop :=
-  ∀ {env : Env} (mp : EnvModelM V μ env) (p : NestedParts) (st : ElimState) (b : MutualBlock)
-    (envAux : Env) (stored : List AuxStored) (ctorsR : List (List (ConstantVal × Nat × Nat)))
-    (fmsA ctorsA₀ : List ConstantVal)
-    (fms : List MutualFormerA) (f₀ : MutualFormerA) (ctorsA : List (ConstantVal × Nat))
-    (sortss : List (List Level)) (kinds : List (List (RecFieldKind × Nat)))
-    (mp₁ : EnvModelM V μ (ConLeche.consMutualFormers fms env))
-    (ppsF : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)) (W : (Name → Nat) → Nat)
-    (idxF : Nat → List Expr) (dsF : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm))
-    (esF : Nat → (Name → Nat) → List AnnotTerm) (srcsF : Nat → List (Option Nat))
-    (fvsPF xFvsF : Nat → List Expr) (xrestF : Nat → Expr)
-    (eissF : Nat → (Name → Nat) → List (List AnnotTerm))
-    (tssF : Nat → (Name → Nat) → List (List (Nat × Nat × AnnotTerm)))
-    (mp₁' : EnvModelM V μ (ConLeche.consMutualFormers (fms.take p.k) env)),
-    NestedPinsRun V μ F mp p st b envAux stored ctorsR fmsA ctorsA₀ fms f₀ ctorsA sortss kinds mp₁
-      ppsF W idxF dsF esF srcsF fvsPF xFvsF xrestF eissF tssF mp₁' →
-    ConLeche.nestedCopyTargetsOk env p b st stored = true
-
 /-- **RESIDUAL 1 — the λ-pin case of `ordF`'s left arm, at a field the
 auxiliary block's classification calls ORDINARY** (DESIGN §U.53 (c),
 §U.62): the constructor type the block's stage was GIVEN mentions no
@@ -4626,17 +4601,18 @@ AUXILIARY block's kind at the field (`kindAt_ne_of` excludes the two
 rejecting kinds) into `copyOrdFLeft` and `copyOrdFRight_shape`; `pinF`
 is `copyPinF_shape`; `es` is `copyEs`.  Three residuals remain, one per
 open conjunct (`NestedPinsShapeNoLam`, `NestedPinsShapeOrdRight`,
-`NestedPinsShapePinF`), and `NestedPinsKindsRun` is the bookkeeping the
-run record does not yet thread. -/
-theorem nestedPinsShape_of {F : Nat} (hKR : NestedPinsKindsRun V μ F)
+`NestedPinsShapePinF`).  K.32's `nestedCopyTargetsOk`, which the
+bookkeeping predicate `NestedPinsKindsRun` stood for until lane L-E
+threaded it (`NestedPinsRun.hK32`, DESIGN §U.64 (f)), is now read off
+the run record itself. -/
+theorem nestedPinsShape_of {F : Nat}
     (hLam : NestedPinsShapeNoLam V μ F) (hOrd : NestedPinsShapeOrdRight V μ F)
     (hPin : NestedPinsShapePinF V μ F) :
     NestedPinsShape V μ F := by
   intro env mp p st b envAux stored ctorsR fmsA ctorsA₀ fms f₀ ctorsA sortss kinds mp₁ ppsF W idxF
     dsF esF srcsF fvsPF xFvsF xrestF eissF tssF mp₁' R pinsS SF dsR xFvsR q₀ kJ dJ S
   intro i hi cvT caps hfind ψ ρp hsat i' hi' j hj
-  have hK32 := hKR mp p st b envAux stored ctorsR fmsA ctorsA₀ fms f₀ ctorsA sortss
-    kinds mp₁ ppsF W idxF dsF esF srcsF fvsPF xFvsF xrestF eissF tssF mp₁' R
+  have hK32 := R.hK32
   have hkindsRun := R.h.classify
   have hres1 := hLam mp p st b envAux stored ctorsR fmsA ctorsA₀ fms f₀ ctorsA sortss kinds mp₁
     ppsF W idxF dsF esF srcsF fvsPF xFvsF xrestF eissF tssF mp₁' R pinsS SF dsR xFvsR q₀ kJ dJ S

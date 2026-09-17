@@ -80942,6 +80942,305 @@ citations, and one arena run.  Next: `TargetHead` re-cut and
 (L-B/L-E), M7-2's item 5, M7-3's two-conjunct wiring of K.35's face,
 and M8.
 
+##### (v) INTEGRATION 3n — K.41 COMPLETE, lane L-E's INTERFACE, and the MERGE THAT STOPPED: `ContainerModeled.nestMention` has no source at the nested block's OWN read-back (session U-36)
+
+FOUR of the session's five planned merges landed, each `--no-ff` at the
+pinned sha with its gates run before it was committed —
+`agent/uniform-m5` **7d97adc3** (the kernel lane, K.40's redesign and
+K.41 COMPLETE) at 2de232f0, `agent/uniform-entry` **f37ee606** (L-E
+s12–s14, THE INTERFACE) at 4cc26ade, `agent/uniform-m7read`
+**602dc676** (M7-2 s12, the rule law's two foundations) at afc6601e and
+`agent/uniform-ident` **41b7c7a7** (L-B s14) at 983be862.  **The fifth,
+`agent/uniform-m7env` 576444f7 (M7-3 s10–s11, THE FLIP'S MECHANICAL
+HALF), was STOPPED and aborted** — for a reason that is a genuine
+cross-lane finding, not a merge accident, recorded in (v-4) below.
+
+**The nested chain does not move**: `declNested_of` over `mp :
+EnvModelB` still closes over exactly `hSh : NestedPinsShape`, `hEn :
+NestedPinsEntry` and `htail : NestedTailModeled` (plus `hE` and the
+run), and — M7-3 being out — it still concludes `Nonempty (EnvModelM V
+μ envOut)`.  What moved is UNDER `hSh`: K.32's bookkeeping predicate is
+RETIRED, so
+
+```lean
+theorem nestedPinsShape_of {F : Nat}
+    (hLam : NestedPinsShapeNoLam V μ F) (hOrd : NestedPinsShapeOrdRight V μ F)
+    (hPin : NestedPinsShapePinF V μ F) :
+    NestedPinsShape V μ F := by
+```
+
+stands over THREE residuals, one per open conjunct.
+
+##### (v-1) THE MERGES
+
+*Merge 1 — the kernel lane* (2de232f0).  The branch had merged the
+lane's 3l, so the delta is K.40's redesign (already recorded at §U.27
+(u), which merged the lane's 954e13bb), K.37's edge-list inversion
+`nestedPinEdges_mem` and **K.41 COMPLETE**: `containerOwnPinsAt` +
+`nestedPinRootGroup` + `nestedPinRootPairOk`, ONE equality of pin terms
+carrying the model's `name`/`psi`/`frame`/`idx` together, with the
+heads-only `nestedPinRootHeadOk` GONE.  ONE adaptation, exactly §U.27
+(s)'s rule: `declNested_of` (`Model/Inductives/DeclNestedCore.lean`)
+gains one `-` binder after K.40's, because K.41 adds one
+`certOnly`-gated conjunct to `DeclNestedRun` and this is the route's one
+run-destructuring site.  The branch's own comment there still named the
+retired `nestedPinRootHeadOk`; the merged comment names
+`nestedPinRootPairOk`, which is what the conjunct is (verified: the
+retired name occurs nowhere in the branch's source).  DESIGN auto-merged
+and was verified a pure line-multiset union against both parents.
+
+*Merge 2 — lane L-E, sessions 12–14* (4cc26ade).  **The interface
+session.**  `TargetHead`/`targetHead_corr` are DELETED (refuted at the
+accepted fixture `tests/e2e/nested_lam_pin_prop.ndjson`, §U.60 (e)) and
+a target's identity is read off the recorded pin TABLES
+(`targetPin_corr`); `EntryRead` is reduced to its reading conjunct;
+`PinCorr` loses the components-as-`Expr` clause; `CopyCtorShape` loses
+its `DsE` parameter; `ordF`'s LEFT arm takes the fitting prefix;
+`nestedTV.lvls`/`targetView.lvls` gain their member branch;
+`NestedPinsRun.hK32` carries K.32 down the run record (retiring
+`NestedPinsKindsRun`, see (v-3)); `ContainerModeled.nestMention` is
+`ordFree`'s NESTED twin; and the entry theorem's kit lands
+(`htrans_of_walk`, `copyTransfer_via`/`_mem`, `fitsFrom_imp_frames_via`,
+`slotDom_congr_mem`, `nestedPinInj_mem`, `instanceLe_of_pair`/
+`_of_transfer`/`_of_classPin`, `classPin_of_rootMember`/`_of_pinCorr`,
+`instanceCovered_of_others`, `ClassPin`, `InstanceCovered`,
+`fam_eq_of_leaf`, `slotDomT_of_le`/`_relMeet`,
+`BlockModel.famAt_TClosed`, `pins_le_of_instanceLe`,
+`lfpTuple_le_of_rel`/`_eq_of_rel`/`relMeet`/`lfpTuple_pullback`).
+
+TWO conflicts.  `DeclNestedCore.lean` was again the run-destructuring
+site: L-E NAMES K.32's conjunct `hK32` (threaded through
+`NestedCoreModeled` and consumed by the shape) where the lane had a
+`-`, and its base predates K.39, K.40 and K.41, so the union is one
+`obtain` pattern — `-, hgrp, hsc, hK32, hkinds, -, hrank, -, -,
+hpins₁, …, hrn, -, …` — plus the comment that names all six records.
+No proof content.  DESIGN was the second, and it was **a
+SECTION-NUMBER COLLISION for the second time on this task**: see
+(v-2).
+
+THREE adaptations in lane L-B's live file
+(`Model/Inductives/NestedCopyInst.lean`), all statement-level, all
+found by the compiler:
+
+1. `NestedPinsShapeOrdRight`'s `EntryRead` call drops
+   `(pinsS.getD (q₀ + i) default).DsE cvT.levelParams (pinsS.getD (q₀
+   + i) default).lvls` — the reduced arm takes none of the three;
+2. `NestedPinsShapePinF`'s `PinCorr` call drops
+   `(pinsS.getD (q₀ + i) default).DsE`;
+3. `nestedPinsShape_of`'s `ordF`-LEFT arm gains the fitting-prefix
+   binder (`intro fs₁ hfs _`): L-E's §U.56 premise is not read, because
+   `copyOrdFLeft`'s equation is unconditional.
+
+Plus one stale docstring: `NestedPinsShapeOrdRight`'s cited the deleted
+`TargetHead` conjunct and now says what the arm carries instead.
+**No proof content on any of the three.**  `NestedCopyIdx.lean` and
+`NestedCopyInst.lean`'s other arms auto-merged and compile; every L-B
+theorem is kept.
+
+*Merge 3 — M7-2 session 12* (afc6601e).  Two new files —
+`Model/Inductives/NestedRecRule.lean` (the scratch recursors AT OUR
+LEAVES, `NestedTailIn.scratchProv`) and
+`Verify/Inductives/NestedRecRuleKit.lean` (`restoreRules_at`,
+`nestedFireShape_inv`, `nestedRulesAuxOk_of_bool`) — plus the
+`Model.lean` import, three shake-allowlist lines and DESIGN §U.29
+(dd)–(ii).  **Only DESIGN conflicted**, resolved by number (§U.29's
+continuations append inside the lane's own §U.29), pure union verified.
+**§U.29 (dd)'s own follow-up item is NOT done**: deleting
+`NestedRecTysAuxOf` and re-argumenting `nestedRecReadingsOf_of_faces`,
+`nestedRecEqsOf_of_faces` and `nestedTailModeled_of_stage` at
+`NestedTailIn.hauxApps` needs `hauxApps`, which arrives with M7-3 — the
+merge that stopped.  M7-2's merge is otherwise independent of M7-3's
+(its two new files mention neither `hauxApps` nor
+`NestedRecTysAuxOf`), which is why it was taken out of the planned
+order rather than skipped.
+
+*Merge 4 — lane L-B session 14* (983be862).  The rewrite's reading law
+found to be the MIMIC's own and circular, the λ-pin residue MEASURED at
+`nested_p20`, `NestedPinsShapeNoLam` narrowed to the `.ordinary` kind
+(the hypothesis is load-bearing: without it the residual is FALSE at an
+accepted block), DESIGN §U.62.  **DESIGN was the only conflict**, a
+pure append of §U.62 placed in its numeric slot;
+`NestedCopyInst.lean` auto-merged against merge 2's interface and
+compiles with **no adaptation at all** — the interface change and L-B's
+session touched disjoint regions.
+
+##### (v-2) DESIGN's SECOND AND THIRD NUMBER COLLISIONS, and the rule applied twice
+
+Merge 2 brought §U.56, §U.57, §U.58, §U.61, §U.64, §U.65.  **§U.61
+collided** with M7-3 session 9's, itself renumbered from §U.55 at 3m
+for the same reason.  §U.27 (u)'s rule decides it outright: lane L-E's
+§U.61 is cited from CHECKER code
+(`Kernel/Inductives/NestedInstall.lean:1710`, K.41's comment), M7-3's
+only from `Model/*` — so **L-E's number stands and M7-3 session 9 is
+renumbered §U.66**, its five in-tree citations repointed
+(`Model/Fold.lean`, `Model/Inductives/BasisBlocksFold.lean` ×2,
+`Model/Inductives/EnvModelBStages.lean` ×2), all character-identical so
+no line moved, and §U.27 (t)/(u)'s own references updated.
+
+The STOPPED merge carried a third collision, and it is recorded here
+because the next integrator will meet it: M7-3 session 10 also writes
+**§U.56**, which is now lane L-E's session 9.  Neither side is cited
+from checker code, so the tie-break above does not apply; the rule this
+session used instead — **a number that has LANDED on the integration
+branch outranks an arriving one** — renumbers M7-3 session 10 to
+**§U.67** (13 in-tree citations plus 3 in its own §U.63, all
+`§U.56`→`§U.67` and, inside the same two sections, `§U.55`→`§U.66`;
+same character count, no line moves).
+
+Both unions were verified **line-multiset-wise against BOTH parents** —
+a numeric-order interleave defeats a line diff — and in each case the
+only differences were the renumbered header and its citations.
+
+##### (v-3) `NestedPinsKindsRun` RETIRED
+
+L-E's §U.64 (f) promised that `NestedPinsRun.hK32` would retire the
+integration's bookkeeping predicate, and with merge 2 in the tree the
+retirement is one line: `NestedPinsKindsRun` said exactly "given
+`NestedPinsRun`, `nestedCopyTargetsOk = true`", which is now the record's
+own field.  The definition is DELETED,
+`nestedPinsShape_of` loses its `hKR` hypothesis and reads `R.hK32`, and
+lane L-B's shape fact is down to its **three genuine residuals**
+(`NestedPinsShapeNoLam`, `NestedPinsShapeOrdRight`,
+`NestedPinsShapePinF`).  No other consumer existed.
+
+##### (v-4) THE FINDING THAT STOPPED M7-3's MERGE — `ContainerModeled.nestMention` has no source at the NESTED block's own read-back
+
+M7-3 session 10's `nestedContainerModeled`
+(`Model/Inductives/DeclNestedCore.lean`) builds the nested block's OWN
+`ContainerModeled` through `ContainerModeled.of_readBack`, so that the
+block the route just installed enters `EnvModelB.blocks` like any
+stored container.  Merge 2 added L-E's `nestMention` clause to
+`ContainerModeled` — and hence one more hypothesis to `of_readBack`,
+between `hordFree` and `hpinsNotMembers`:
+
+```
+∀ (i j l q : Nat) (x : Expr), i < d.k → j < (d.ctorsM i).length →
+  q < d.nPins → (d.xFvsF i j)[l]? = some x → d.nestOf i j l = some q →
+  ∃ e ∈ x.fvarTypeD.getAppArgs.take (d.pinAt q).nPJ,
+    ConLeche.mentionsMember d.memberNames e = true
+```
+
+**For the nested block this clause is TRUE but has no source in the
+tree.**  Its twin `ordFree` is discharged from the restored
+constructor's opened record (`hdata.2.2.opened.ord`), but
+`BlockOpened.nestF` records only the pin's head, the argument COUNT and
+`constsResolve env₀` for the arguments PAST `nPJ` — it says nothing
+about the parameter part, which is exactly what L-E's own docstring
+says.  `BlockCtorData`'s nested clauses (`nestEisRead`, `nestEisLen`,
+`nestEntry`) are semantic readings, and no Verify inversion of the
+classifier produces the mention; §U.65 (f) enumerated the read-backs
+expected to discharge the clause "in the established `pinNP`/`pinψ`
+idiom" — **the five basis blocks and the mutual and native ones** — and
+the NESTED read-back did not exist on L-E's branch, so it was never on
+that list.  Discharging it is model work (a new stage-fact field read
+off the restore, or a strengthened `BlockOpened.nestF`), not an
+integration adaptation, so the merge was aborted rather than carried
+half-resolved.
+
+**Everything else in that merge resolved.**  For the next integrator,
+the resolution reached before the stop, so it need not be re-derived:
+
+* DESIGN — §U.63 inserted before §U.64, M7-3 s10's §U.56 renumbered
+  §U.67 and inserted after §U.66, citations as (v-2); verified a pure
+  union but for the 13 intended renumberings;
+* `Model/Fold.lean` — take the branch side (the two agreement lemmas
+  MOVE to the new `Model/StepAgree.lean`); repoint the file's five new
+  `§U.55`→`§U.66` and one `§U.56`→`§U.67`, and `StepAgree.lean`'s two;
+* `Model/Inductives/DeclNestedCore.lean` — three conflicts.  The
+  `obtain` pattern is the union `-, hgrp, hsc, hK32, hkinds, hauxApps,
+  hrank, -, -, hpins₁, hctors, hrm, hrn, -, hrulesM, hrulesN, htbl,
+  hpinsOut, hcnt, hrecs, hrb` (M7-3 NAMES K.35's `hauxApps` — the
+  tail consumes it — and K.34's `hrb`); all three `certOnly_elim`
+  `replace`s are kept; the third conflict takes the branch's body
+  wholesale with `hK32` and `hrank` threaded into the `hcore` call;
+* `Model/Inductives/NestedCore.lean` — three conflicts, all field-list
+  unions on `NestedStageFacts`/`NestedLoopFacts`: M7-3's `pinNP` is
+  ADDED, and its `pinψ` is DROPPED as a duplicate of M7-2's — the two
+  differ only by `(D).pinAt q` versus `pinsS.getD q default`, which are
+  `rfl`-equal (`pinAtE_eq`'s idiom), and M7-2's form is kept because
+  its consumers `rw` with it, while M7-3's single consumer `refine`s;
+  the `NestedStageFacts` literal takes both sides' assignments;
+* `Model/Inductives/NestedLoop.lean` — one conflict, the same field-list
+  union;
+* then TWO compiler findings, of which only the first is mechanical:
+  1. `nestedPinShapes_of` on the lane wants `T.groups` to also give the
+     group's `DsE` agreement (`∀ i' < kJ, (pinAt (q₀+i')).DsE = (pinAt
+     q₀).DsE`), which `NestedPinGroup` carries as a field — wrap
+     `T.groups` and read it off `G`;
+  2. `of_readBack`'s `hnestMention`, above.  **That is the stop.**
+
+##### (v-5) THE RESIDUAL AFTER 3n
+
+* **`NestedPinsShape V μ F`** — `nestedPinsShape_of` modulo
+  `NestedPinsShapeNoLam` (narrowed to `.ordinary` at §U.62, and L-B
+  asks for the kernel record that removes it),
+  `NestedPinsShapeOrdRight` and `NestedPinsShapePinF`.
+* **`NestedPinsEntry V μ F`** — lane L-E: §U.65 (e)'s list, whose
+  kernel half is K.41's remaining `psi`/`frame`/`idx` clauses and whose
+  model half is `hdom₁` at a PIN class, the ALIGNMENT, then
+  `InstanceCovered`.
+* **`NestedTailModeled V μ F`** — `nestedTailModeled_of_stage` modulo
+  `NestedRecsStored` (M7-2's item 5) and the two kernel-side faces
+  `NestedRecTysAuxOf` (K.35, decidable from the run since §U.27 (u),
+  awaiting M7-3's two-conjunct wiring) and `NestedCtorPinNamesOf`
+  (K.36).
+* **M7-3's merge**, blocked on (v-4).  The MUTUAL route, the NATIVE
+  route and the BASIS tier still owe nothing beyond their runs, so M8's
+  four inputs are unchanged.
+
+##### (v-6) GATES
+
+The import gate had one thing to take and it was M7-2's own: shake 510
+proposed / all 510 allowlisted at merges 1 and 2, **513/513** at merges
+3 and 4 (M7-2's three new lines, all proposed); pub-imports none
+demotable at every commit — 1309 of 2122 in-tree edges public with 41
+dot-notation fallbacks after merges 1 and 2, 1313 of 2130 after merges
+3 and 4.  No FALLBACK was added, so `scripts/pub-import-plan.py` is
+untouched.
+
+Gates at ALL FOUR merge commits: `lake build` warning-free (713 jobs at
+merges 1 and 2, 715 with M7-2's two modules), `lake test`
+warning-free, shake and pub-imports as above, layering base 350 / model
+280 / caps 3 / umbrella 1 → 351/281/3/1 with 0 base→lane and 0
+impl→theory; trust surface 13 escapes in 5 allowlisted files (645 then
+647 scanned); no-local-paths OK; overview-links 112; quote-gate 2;
+proofdeps **4955 rows / 12 roots / 0 doors** at each — the row count did
+not move, and M7-3's forecast 4965 (which `Model.StepAgree`'s
+relocation would have brought) is not owed, the merge being out.
+Nested-shadow 27/27 on merge 1 and on the final commit.  **And
+`tests/arena.sh` EXIT 0 on merge 1** — checker code moved there and
+only there.  No `sorry`, no axioms, no `maxHeartbeats`, no checker code
+EDITED.
+
+**The chain, re-verified** (`_tmp/uniform-315/chain-probe-u36.lean`,
+outside the build): `declNested_of hμ mp hE (nestedCoreModeled_of
+(nestedCtorsStaged_of (nestedPinsStaged_of (nestedPinsIdent_of hSh
+hEn)) nestedReadLaw)) htail h : Nonempty (EnvModelM V μ envOut)` closes
+over exactly `hSh`, `hEn` and `htail` (plus `mp : EnvModelB V μ env`,
+`hE` and the run), and the same composition with `nestedPinsShape_of
+hLam hOrd hPin` in `hSh`'s place closes over the THREE residuals with
+`hEn` and `htail`.  `nestedTailModeled_of_stage hK35 hK36 hst` is
+unchanged, and `declMutualB hμ mb hE hpinOk h`, `declNativeB hμ mb hE
+hdp h` and `basisStepB_of mb h` still take NOTHING beyond their runs.
+Present and checked: the kernel's `containerOwnPinsAt`,
+`nestedPinRootGroup`, `nestedPinRootPairOk`, `nestedPinParent`/
+`nestedPinParentOk`, `NestedPin.mintedAt`, `ElimState.curType`,
+`nestedPinEdges_mem` and `checkNested_inv` at its K.41 conjunct; L-E's
+`PinCorr`/`EntryRead`/`CopyCtorShape` at their reduced signatures,
+`ClassPin`, `InstanceCovered`, `NestedPinsRun.hK32` and
+`ContainerModeled.nestMention`; M7-2's `auxAppsOk_reflect`,
+`nestedRecTysAuxOk_of_bool` and `NestedTailIn.scratchProv`; L-B's
+`copyTgtLt`, `MutualFormersFacts.classify`, `pinAtE_eq` and
+`NestedPinsShapeNoLam`.  `#print axioms` of all seven probe theorems:
+`[propext, Classical.choice, Quot.sound]`.
+
+Cost: one session, the bulk of it merge 2's interface sweep and the
+investigation behind (v-4).  Next: **`nestMention` at the nested
+block's own read-back** — the one thing between M7-3's flip and the
+integration branch — then M7-3's merge with (v-4)'s recipe, §U.29
+(dd)'s deletion, the three shape residuals, `NestedPinsEntry`, M7-2's
+item 5 and M8.
+
 #### K.32 — the copies' recursive targets come from the container's own recursion (2026-09-16, task #315, lane L-B's DESIGN §U.23 (e))
 
 The model's `ordF` arm needs to know that a container-ORDINARY field
