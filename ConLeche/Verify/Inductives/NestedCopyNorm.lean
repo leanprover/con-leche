@@ -1125,4 +1125,114 @@ theorem normCtorValM_domHead {env : Env} (henv : EnvWF env) {memberNames : List 
     erasedEq_const_inv (show Expr.ErasedEq _ (Expr.const T lvls) from hfn)
   exact ⟨(x'.fvarTypeD).getAppArgs, by rw [← hgf, Expr.mkAppN_getApp]⟩
 
+/-! ## THE MINTED COPY'S POSITIVITY RUN, INVERTED (task #315 L-B, DESIGN §U.73)
+
+K.42's record is two functions: `nestedOrdDomPairs` collects, per pin,
+per constructor, per ORDINARY field, the pair of domains (the MINTED
+one and the STORED one) at that field's depth, and `nestedOrdNorms`
+runs `normPosDomM` on every minted one.  The model consumes them at ONE
+field of ONE constructor of ONE pin, so these two theorems are the
+addressing: the first says the job list HOLDS that field's triple (the
+forward run of the three-layer `Option` walk, every `let ... ←`
+discharged by the caller's own read), the second says the recorded run
+at a job of the list IS `normPosDomM`'s, with the error handler's
+reclassification seen through. -/
+
+/-- **THE JOB AT AN ORDINARY FIELD.**  Every hypothesis is one of
+`nestedOrdDomPairs`' own lookups, in the order the walk makes them, so
+the model supplies them from the reads it already has; the conclusion
+is the walk's triple `(p.nP + l, the MINTED domain, the STORED one)`. -/
+theorem nestedOrdDomPairs_mem {env : Env} {p : NestedParts} {st : ElimState}
+    {stored : List AuxStored} {kinds : List (List (List (RecFieldKind × Nat)))}
+    {jobs : List (Nat × Expr × Expr)}
+    (h : nestedOrdDomPairs env p st stored (some kinds) = some jobs)
+    {q : Nat} (hq : q < st.pins.length)
+    {t : AuxType} (ht : st.types[p.k + q]? = some t)
+    {Jn : Name} {lvls : List Level} {Ds : List Expr} (hsrc : t.src = some (Jn, lvls, Ds))
+    {a : AuxStored} (ha : stored[p.k + q]? = some a)
+    {ks : List (List (RecFieldKind × Nat))} (hks : kinds[q]? = some ks)
+    {ci : ContainerInfo} (hci : containerInfo? env Jn = some ci)
+    {J : ContainerMember} (hJ : ci.members.find? (fun J => J.name == Jn) = some J)
+    (hlvls : lvls.length = J.lps.length)
+    {j : Nat} {kf : List (RecFieldKind × Nat)} (hkf : ks[j]? = some kf)
+    {cJ : ContainerCtor} (hcJ : J.ctors[j]? = some cJ)
+    {cvS : ConstantVal} {nI nF : Nat} (hcS : a.ctors[j]? = some (cvS, nI, nF))
+    {cI : Expr} (hcI : Expr.instPis (Expr.instantiateLevelParams J.lps lvls cJ.type) Ds = some cI)
+    {xsM : List Expr} {restM : Expr} (hopM : openPisAtFvars nF cI p.nP = some (xsM, restM))
+    {fvsS : List Expr} {crestS : Expr} (hopS : openPisAtFvars p.nP cvS.type 0 = some (fvsS, crestS))
+    {xsS : List Expr} {restS : Expr} (hopS2 : openPisAtFvars nF crestS p.nP = some (xsS, restS))
+    {l : Nat} {n : Nat} (hkfl : kf[l]? = some (RecFieldKind.ordinary, n))
+    {xM xS : Expr} (hxM : xsM[l]? = some xM) (hxS : xsS[l]? = some xS) :
+    (p.nP + l, xM.fvarTypeD, xS.fvarTypeD) ∈ jobs := by
+  have hrange : ∀ {n i : Nat}, i < n → (List.range n)[i]? = some i := by
+    intro n i hi; simp [hi]
+  obtain ⟨hjlt, -⟩ := List.getElem?_eq_some_iff.1 hkf
+  obtain ⟨hllt, -⟩ := List.getElem?_eq_some_iff.1 hkfl
+  rw [nestedOrdDomPairs] at h
+  simp only [bind, Option.bind] at h
+  split at h
+  case h_1 => exact absurd h (by simp)
+  rename_i rows hrows
+  simp only [pure, Option.some.injEq] at h
+  subst h
+  -- the row of pin `q`
+  obtain ⟨rowq, hrowq, hFq⟩ := mapM_option_inv hrows q q (hrange hq)
+  refine List.mem_flatten.mpr ⟨rowq, List.mem_of_getElem? hrowq, ?_⟩
+  simp only [ht, hsrc, ha, hks, hci, hJ, hlvls, bne_self_eq_false, Bool.false_eq_true,
+    if_false] at hFq
+  split at hFq
+  case h_1 => exact absurd hFq (by simp)
+  rename_i perCtor hperCtor
+  simp only [pure, Option.some.injEq] at hFq
+  subst hFq
+  -- the row of constructor `j`
+  obtain ⟨rowj, hrowj, hGj⟩ := mapM_option_inv hperCtor j j (hrange hjlt)
+  refine List.mem_flatten.mpr ⟨rowj, List.mem_of_getElem? hrowj, ?_⟩
+  simp only [hkf, hcJ, hcS, hcI, hopM, hopS, hopS2] at hGj
+  split at hGj
+  case h_1 => exact absurd hGj (by simp)
+  rename_i perField hperField
+  simp only [pure, Option.some.injEq] at hGj
+  subst hGj
+  -- the row of field `l`, a singleton at an ordinary kind
+  obtain ⟨rowl, hrowl, hHl⟩ := mapM_option_inv hperField l l (hrange hllt)
+  refine List.mem_flatten.mpr ⟨rowl, List.mem_of_getElem? hrowl, ?_⟩
+  simp only [hkfl, hxM, hxS, beq_self_eq_true, if_true, pure, Option.some.injEq] at hHl
+  subst hHl
+  simp
+
+/-- A handler that always throws never produces the `.ok`: a successful
+`tryCatchThe` in `Except` is a successful body. -/
+private theorem tryCatchThrow_ok {α : Type} {x : CheckM α} {e : CheckError} {w : α}
+    (h : tryCatchThe CheckError x (fun _ => throw e) = .ok w) : x = .ok w := by
+  cases x with
+  | ok v => simpa [tryCatchThe, throwThe, MonadExceptOf.tryCatch, Except.tryCatch] using h
+  | error err => simp [tryCatchThe, throwThe, MonadExceptOf.tryCatch, Except.tryCatch,
+      throw, MonadExceptOf.throw] at h
+
+/-- **THE RECORD AT ONE JOB.**  `nestedOrdNorms` ran the positivity
+normalisation on every job's MINTED domain; when its results are the
+jobs' STORED domains (`heq`, the check the record makes), the run at
+any job of the list is that job's own — the `.internal`
+reclassification of the handler seen through. -/
+theorem nestedOrdNorms_job {ops : CheckerOps CheckM} {envN : Env}
+    {memberNames : List Name} {jobs : List (Nat × Expr × Expr)} {ws : List Expr}
+    (h : nestedOrdNorms (m := CheckM) ops envN memberNames jobs = .ok ws)
+    (heq : ws = jobs.map (·.2.2))
+    {je : Nat × Expr × Expr} (hmem : je ∈ jobs) :
+    normPosDomM (m := CheckM) ops envN memberNames je.1 1024 je.2.1 = .ok je.2.2 := by
+  obtain ⟨i, hi⟩ := List.getElem?_of_mem hmem
+  obtain ⟨hilt, -⟩ := List.getElem?_eq_some_iff.1 hi
+  rw [nestedOrdNorms] at h
+  obtain ⟨-, hall⟩ := mapM_except_inv h
+  obtain ⟨je', w, hje', hw, hrun⟩ := hall i hilt
+  rw [hi] at hje'
+  obtain rfl := Option.some.inj hje'
+  have hww : w = je.2.2 := by
+    subst heq
+    rw [List.getElem?_map, hi] at hw
+    exact (Option.some.inj hw).symm
+  subst hww
+  exact tryCatchThrow_ok hrun
+
 end ConLeche
