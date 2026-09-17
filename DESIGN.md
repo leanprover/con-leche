@@ -83649,16 +83649,71 @@ certificate's padded context (`recTyPrefix` names the tower's first
   consumer asks for (`hiiDsE`, `hDsLen`) and passed by `exact`, where
   defeq does the work.
 
-Item 5's residue is now (vvv) 2 and 3 only.
+**Item 5's residue is now (vvv) 3 alone** — the tables' twin and
+§U.36 (d)'s `EnvModelB` supply.  The FIRED EQUALITY IS CLOSED AT BOTH
+ARMS.
 
-*FILES AND GATES (session 21's `hvpa`).*  Touched:
-`ConLeche/Model/Inductives/NestedRecRule.lean` (2977 → 3363) and
-`ConLeche/Model/Inductives/NestedTransfer.lean` (the cut).  Six new
-imports on `NestedRecRule.lean` (`NestedTransfer`, `NestedPins`,
-`IndOpenRev`, `IndPinGrade`, `Steps.IotaRows`, `Verify.Subst`); no
-checker code, no `sorry`, no axioms, no `maxHeartbeats`.  `lake build`
-warning-free EXIT 0; `lake test` warning-free EXIT 0; overview-links
-112; quote-gate 2.
+##### (yyy) THE STORE SWAP'S IMPORTS, and what the shake gate said
+
+The swap landed before its gate run, and the gate had something to say
+about both halves; the fix is 77f4ded0 and it is worth recording,
+because a file of THEOREMS ONLY is a shape this tree had not met.
+
+*Half (a)* proposed removing each new file's single public import —
+`NestedInv` from the WF file, `MutualRecsSwap` from the swap — each
+PAIRED with a compensating addition, so task #223's criterion says
+relocate, not allowlist.  Applied shake's own minimisation:
+`NestedRecsWF` takes `NestedInstall`/`EnvWF` publicly and
+`MutualWF`/`StructWF` privately; `NestedRecsSwap` takes
+`NestedRecsWF`/`IndBlockFacts`/`Annot.EnvModelM`/`Extend.Recs`
+publicly and `MutualFormersKit`/`Swap`/`MutualRecsSwap` privately.
+
+*Half (b)* then called all five of those re-exports demotable, and the
+compiler refused every one.  **The reason is the files' shape.**  Both
+hold only THEOREMS — bar the one `def nestedProvOf`, whose re-export
+the model DOES see and does not ask for.  A theorem's STATEMENT is
+public, but the census attributes its constants to the PROOF, so the
+model computes an empty public need for the file and proposes stripping
+it bare.  Probed one demotion at a time: without `Verify.EnvWF` the WF
+file's own `EnvWF env` is an unknown identifier; in the swap file
+`Annot.EnvModelM` is where `SetTheory` reaches the public view,
+`IndBlockFacts` where `SwapNResS` does, `Extend.Recs` where
+`SwapShList` does and `NestedRecsWF` where `storeNestedRecs` does.  All
+five go in `scripts/pub-import-plan.py`'s FALLBACK table with that
+reason — the same class as #253's `PushChain`, seen from a new side.
+
+##### (zzz) FILES AND GATES (session 21's HEAD)
+
+Touched: `ConLeche/Model/Inductives/NestedRecRule.lean` (2977 → 3363),
+`ConLeche/Model/Inductives/NestedTransfer.lean` (the cut),
+`ConLeche/Model/Inductives/NestedCore.lean`,
+`ConLeche/Model/Inductives/NestedLoop.lean` and
+`ConLeche/Model/Inductives/NestedPins.lean` (the `pinWd` clause), plus
+two NEW files — `ConLeche/Verify/Inductives/NestedRecsWF.lean` (148) and
+`ConLeche/Model/Inductives/NestedRecsSwap.lean` (242) — one line of
+`ConLeche/Model.lean` and five of `scripts/pub-import-plan.py`'s
+FALLBACK table.  No allowlist line, no checker code.
+
+`lake build` warning-free EXIT 0; `lake test` warning-free EXIT 0;
+shake 512 removals all allowlisted / pub-imports 1321 of 2159 public,
+none demotable (50 dot-notation fallbacks); layering base 352 / model
+282 / caps 3 / umbrella 1, 0 base→lane, 0 impl→theory (the base clause
+is vacuous, §U.29 (mm), and a separate lane off master owns the fix);
+trust surface 13 escapes in 5 allowlisted files (649 scanned), 0
+outside; no-local-paths OK; overview-links 112; quote-gate 2;
+proofdeps 4955 rows / 12 roots / **0 doors**.
+
+**Item 5 from here: 1–1½ sessions** (session 20 said 3–4¼, with `hvpa`
+at ½–¾, the swap at 1½ and the tables at 1–1½).  `hvpa` came in on the
+clause's budget and the swap under its own; what is left is the
+tables' twin — which needs its own run inversions
+(`nestedTables_inv`/`nestedMemberTable_inv` do not exist; the mutual
+side has them in `MutualInv.lean`) and `stageBlockTables`'
+`MutualBlock`-shaped go-loop retargeted — and §U.36 (d)'s `EnvModelB`
+supply, which is `NestedStageFacts.groups`/`NestedPinFacts.groups`
+strengthened from `∃ dJ` to the value `groupSyn` already constructs
+(`blockOf mp.base2 (baseInfo env st q)`), a `pinWd`-shaped change with
+one ripple — `mimicMajor`'s destructuring of `stage.groups`.
 
 
 #### U.30 — L-B session 2: `CopyCtorInst.ordF` at the READING, the normalisation's reading law PROVED, `ContainerModeled`'s three clauses (lane L-B, 2026-09-16)
