@@ -666,6 +666,64 @@ theorem NestedTailIn.ctorPinPt {q₀ kJ i : Nat} {dJ : BlockModel V} (G : PG mp�
   rw [this] at hfold
   exact hfold
 
+
+/-! ### The fields fit the container's telescope -/
+
+omit I in
+/-- **THE RESTORED READING'S FIELDS FIT THE CONTAINER'S CONSTRUCTOR
+TELESCOPE** at a `Type`-valued block: the application's grading puts
+every argument in its domain (`spineFit_of_wellDenoted_mkAppN_pis` at
+the constructor's own typing, F1), and the split at the parameter
+count leaves the pin's components on the left and the fields on the
+right. -/
+theorem NestedTailIn.ctorPinFitJ {q₀ kJ i : Nat} {dJ : BlockModel V} (G : PG mp₂.base2 q₀ kJ dJ)
+    (hi : i < kJ) (ψ : Name → Nat) (hw : dJ.w (((D).pinAt (q₀ + i)).ψJ ψ) ≠ 0)
+    {jc : Nat} {cAJ : ConstantVal × Nat} (hjJ : (dJ.ctorsM i)[jc]? = some cAJ)
+    (d : Nat) (as xs : List V) (ρ₀ : Nat → V) (Fs : List AnnotTerm)
+    (hxs : xs.length = d) (hFs : Fs.length = cAJ.2)
+    (hwd : WellDenoted V (consList xs (consList as ρ₀))
+      (AnnotTerm.mkAppN (mp₂.base2.acval cAJ.1.name (((D).pinAt (q₀ + i)).ψJ ψ))
+        ((((D).pinAt (q₀ + i)).Ds ψ).map (·.liftN d 0) ++ Fs))) :
+    SpineFit (consList ((((D).pinAt (q₀ + i)).Ds ψ).map (interp V (consList as ρ₀)))
+        (consList as ρ₀)) ((dJ.Fss i (((D).pinAt (q₀ + i)).ψJ ψ)).getD jc [])
+      (Fs.map (interp V (consList xs (consList as ρ₀)))) := by
+  have hi' : i < dJ.k := by rw [G.kEq]; exact hi
+  obtain ⟨cvT', cvR', mI', rP', rules', hIJ⟩ := G.rep i hi
+  have hcd := hIJ.ctorData hjJ
+  have hDsLen : ((((D).pinAt (q₀ + i)).Ds ψ)).length = dJ.nP := G.pinDsLen i hi ψ
+  have hdsLen := hcd.len (((D).pinAt (q₀ + i)).ψJ ψ)
+  -- the arguments read at the shifted frame
+  have hlift : ((((D).pinAt (q₀ + i)).Ds ψ).map (·.liftN d 0)).map
+      (interp V (consList xs (consList as ρ₀)))
+      = (((D).pinAt (q₀ + i)).Ds ψ).map (interp V (consList as ρ₀)) := by
+    rw [List.map_map]
+    refine List.map_congr_left fun Dc _ => ?_
+    show interp V (consList xs (consList as ρ₀)) (Dc.liftN d 0) = _
+    rw [← hxs]
+    exact interp_liftN_consList Dc xs (consList as ρ₀)
+  -- the whole spine fits the constructor's telescope
+  have hall := spineFit_of_wellDenoted_mkAppN_pis
+    (C := ctorBodyAVI mp₂.base2 (dJ.memberName i) dJ.nP cAJ.2 (((D).pinAt (q₀ + i)).ψJ ψ)
+      (dJ.esF i jc (((D).pinAt (q₀ + i)).ψJ ψ)))
+    (σ := consList as ρ₀)
+    (fun d' hd' => fun h0 => hw ((hcd.bits (((D).pinAt (q₀ + i)).ψJ ψ) d' hd').mpr h0))
+    (by rw [List.length_append, List.length_map, hDsLen, hFs, hdsLen]; exact Nat.le_refl _)
+    hwd (interp_closed (V := V) (mp₂.base2.cval_closedL _ _) _ (consList as ρ₀))
+    (IsBlockModels.ctorsTyped mp₂ G.reps (((D).pinAt (q₀ + i)).ψJ ψ) i hi' jc cAJ hjJ
+      (consList as ρ₀))
+  rw [List.length_append, List.length_map, hDsLen, hFs, ← hdsLen, List.take_length,
+    List.map_append, hlift] at hall
+  -- split it at the parameter count
+  rw [← List.take_append_drop dJ.nP (dJ.dsF i jc (((D).pinAt (q₀ + i)).ψJ ψ)),
+    List.map_append] at hall
+  obtain ⟨as₁, as₂, hcat, h1, h2⟩ := spineFit_append_inv hall
+  have hl1 : as₁.length = dJ.nP := by
+    rw [h1.length_eq, List.length_map, List.length_take, hdsLen]
+    omega
+  obtain ⟨rfl, rfl⟩ := List.append_inj hcat (by rw [hl1, List.length_map, hDsLen])
+  rw [IsBlockModel.Fss_getD hjJ]
+  exact h2
+
 end Run
 
 end ConLeche.Model
