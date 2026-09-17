@@ -232,6 +232,24 @@ structure ClassPin (env : Env) (D dR : BlockModel V) (ψ ψR : Name → Nat) (ρ
   /-- ONE index set: the fibres are compared at the same tuples -/
   idx : dR.idxT ψR ρR c = D.pinIdx q ψ ρp
 
+/-- **`ClassPin`, at the covering's ROOT GROUP** (task #315 L-E,
+DESIGN §U.71): the relation the container instance transfer actually
+runs along — `ClassPin` plus the record of WHERE a MEMBER class comes
+from, namely the root group itself, class `c` at pin `r + c`.
+
+The conjunct costs the covering nothing (`classPin_of_rootMember` is
+stated at exactly that pair, and `classPin_of_pinCorr` produces a PIN
+class, where it is vacuous) and it is what aligns the two sides at a
+member class: the block's group of `r + c` is the ROOT group, whose
+block model IS `dR`.  Without it the alignment would need
+`containerInfo?` to agree ACROSS the members of a group, which is not
+an environment fact — it holds only under the run's own
+`nestedContainersOk` (K.14) or a just-installed block's read-back
+(K.34), neither of which the abstract transfer has. -/
+@[expose] def ClassPinAt (env : Env) (D dR : BlockModel V) (ψ ψR : Name → Nat)
+    (ρp ρR : Nat → V) (r c q : Nat) : Prop :=
+  ClassPin env D dR ψ ψR ρp ρR c q ∧ (c < dR.k → q = r + c)
+
 /-- **A container instance is covered by its ROOT's classes** (task
 #315 L-E, DESIGN §U.58): every pin of the instance — K.37's
 `nestedPinInstOf` reads the partition — is `ClassPin`-related to a
@@ -250,7 +268,7 @@ is a fact about that elimination.  K.40's mint parent carries it; the
 covering is the parent chain. -/
 @[expose] def InstanceCovered (env : Env) (D dR : BlockModel V) (ψ ψR : Name → Nat)
     (ρp ρR : Nat → V) (inst : Nat → Nat) (r : Nat) : Prop :=
-  ∀ q, q < D.nPins → inst q = inst r → ∃ c, ClassPin env D dR ψ ψR ρp ρR c q
+  ∀ q, q < D.nPins → inst q = inst r → ∃ c, ClassPinAt env D dR ψ ψR ρp ρR r c q
 
 /-! ## The pins' laws and shapes of a stored block -/
 
@@ -309,6 +327,46 @@ structure PinGroupView (d dJ : BlockModel V) (q₀ kJ : Nat) : Prop where
   DsFit : ∀ (ψ : Name → Nat) (ρ : Nat → V) (as : List V), SpineFit ρ (d.params ψ) as →
     SpineFit (consList as ρ) (dJ.params ((d.pinAt q₀).ψJ ψ))
       (((d.pinAt q₀).Ds ψ).map (interp V (consList as ρ)))
+
+/-- **A pin group's index set IS its container's** (task #315 L-E,
+DESIGN §U.71): at a group `[q₀, q₀ + kK)` of `d` with container `dJ`,
+pin `q₀ + i`'s index-tuple set is `dJ`'s member `i`'s at the pin's
+frame — the sort by `pinU`, the telescope by `pinPps`/`pinNP`, the
+frame by `same`.  What turns a `ClassPin`'s index clause into the
+block's own `idx` at the pin's class, on either side of the pair. -/
+theorem BlockModel.pinIdx_of_view {d dJ : BlockModel V} {q₀ kK : Nat}
+    (S : PinGroupView d dJ q₀ kK) (ψ : Name → Nat) (ρ : Nat → V) {i : Nat} (hi : i < kK) :
+    d.pinIdx (q₀ + i) ψ ρ = dJ.idx ((d.pinAt q₀).ψJ ψ) (d.pinFrame q₀ ψ ρ) i := by
+  have hfr : d.pinFrame (q₀ + i) ψ ρ = d.pinFrame q₀ ψ ρ := by
+    unfold BlockModel.pinFrame; rw [(S.same i hi ψ).2]
+  have hIds : (d.pinAt (q₀ + i)).Ids ψ = dJ.IdsM i ((d.pinAt q₀).ψJ ψ) := by
+    unfold PinSyn.Ids
+    rw [S.pinPps i hi, S.pinNP i hi, (S.same i hi ψ).1]
+    rfl
+  unfold BlockModel.pinIdx BlockModel.idx
+  rw [hfr, hIds, S.pinU i hi ψ]
+
+/-- **A pin's index telescope is bounded at its components** (task #315
+L-E, DESIGN §U.72): the pin's container member's telescope over the
+container's parameters (`pinPps`/`pinNP`, `FormerData.below`,
+`DomsBelow.drop`/`.fields`) — `classPin_of_pinCorr`'s `hIdsBelow` at
+the root's own pin. -/
+theorem pinIds_below {env : Env} {m : EnvModel V env} {d dJ : BlockModel V} {q₀ kK : Nat}
+    (S : PinGroupView d dJ q₀ kK) (hreps : IsBlockModels m dJ) {i : Nat} (hi : i < kK)
+    (ψ : Name → Nat) (ρ : Nat → V) :
+    FieldsBelow (((d.pinAt (q₀ + i)).Ds ψ).map (interp V ρ)).length
+      ((d.pinAt (q₀ + i)).Ids ψ) := by
+  obtain ⟨cvT, cvR, mI, rP, rules, hI⟩ := hreps i (S.kEq ▸ hi)
+  have hlen : (((d.pinAt (q₀ + i)).Ds ψ).map (interp V ρ)).length = dJ.nP := by
+    rw [List.length_map, (S.same i hi ψ).2, S.pinDsLen ψ]
+  have hIds : (d.pinAt (q₀ + i)).Ids ψ
+      = ((dJ.ppsM i ((d.pinAt (q₀ + i)).ψJ ψ)).drop dJ.nP).map (·.2.2) := by
+    unfold PinSyn.Ids
+    rw [S.pinPps i hi, S.pinNP i hi]
+  rw [hlen, hIds]
+  refine DomsBelow.fields ?_
+  have := DomsBelow.drop dJ.nP (hI.former.below ((d.pinAt (q₀ + i)).ψJ ψ))
+  simpa using this
 
 /-- **A pin group's own members are their own partners** (task #315
 L-E, DESIGN §U.65 — `InstanceCovered`'s first case, §U.55 (b)'s Base):

@@ -801,4 +801,57 @@ noncomputable def EnvModelB.ofNonIndStep {env env₂ : Env}
     · exact EnvBlockModels.crossSame hag mb.blocks
     · exact EnvBlockModels.crossCons hfresh ⟨hi, hr, hc⟩ ht hag mb.blocks
 
+/-- **A block model's members are determined by their NAMES** (task
+#315 L-E, DESIGN §U.71 — the alignment's second half): a group's
+member-name list is `Nodup` (`containerInfo?_inv`) and
+`ContainerModeled.member` reads the block model's members off it
+positionally, so two classes of one block model with one name are one
+class.  What identifies the root's class with the block's pin group's
+member once the two sides' containers are known to be the same. -/
+theorem ContainerModeled.memberName_inj {env : Env} {m : EnvModel V env} {ci : ContainerInfo}
+    {d : BlockModel V} (h : ContainerModeled m ci d) {I : Name}
+    (hci : ConLeche.containerInfo? env I = some ci) {a b : Nat} (ha : a < d.k) (hb : b < d.k)
+    (hab : d.memberName a = d.memberName b) : a = b := by
+  obtain ⟨-, -, -, -, -, -, -, -, -, hnodup, -⟩ := ConLeche.containerInfo?_inv hci
+  have ha' : a < ci.members.length := by rw [← h.k]; exact ha
+  have hb' : b < ci.members.length := by rw [← h.k]; exact hb
+  have hA := (h.member a ci.members[a] (by rw [List.getElem?_eq_getElem ha'])).1
+  have hB := (h.member b ci.members[b] (by rw [List.getElem?_eq_getElem hb'])).1
+  have hlenA : a < (ci.members.map (·.name)).length := by rw [List.length_map]; exact ha'
+  have hlenB : b < (ci.members.map (·.name)).length := by rw [List.length_map]; exact hb'
+  refine (List.getElem_inj (h₀ := hlenA) (h₁ := hlenB) hnodup).mp ?_
+  rw [List.getElem_map, List.getElem_map, ← hA, ← hB]
+  exact hab
+
+
+/-- **A group's members share their level parameters, so its data are a
+congruence in the level assignment** (task #315 L-E, DESIGN §U.71 —
+`classPin_of_views`' `hparK`): at a stored group, two assignments
+agreeing on the group's OWN constant's level parameters give one index
+universe (`IsBlockModel.uParams`) and one parameter-and-index telescope
+(`FormerData.params`) at EVERY member — because `containerInfo?`
+records every member's level parameters as the group's
+(`containerInfo?_inv`) and `ContainerModeled.member` asserts the
+member's `IsBlockModel` at exactly that record. -/
+theorem ContainerModeled.params_congr {env : Env} {m : EnvModel V env} {ci : ContainerInfo}
+    {dK : BlockModel V} (h : ContainerModeled m ci dK) {I : Name}
+    (hci : ConLeche.containerInfo? env I = some ci)
+    {cvI : ConstantVal} {capsI : IndCaps} (hfI : env.find? I = some (.indInfo cvI capsI))
+    {ψ₁ ψ₂ : Name → Nat} (hψ : ∀ p ∈ cvI.levelParams, ψ₁ p = ψ₂ p) {a : Nat} (ha : a < dK.k) :
+    dK.uM a ψ₁ = dK.uM a ψ₂ ∧ dK.ppsM a ψ₁ = dK.ppsM a ψ₂ := by
+  obtain ⟨cvT, _caps, _cvR0, _mI0, _rP0, _rules0, hfind, _hfr0, _hmem0, _hnd0, hall⟩ :=
+    ConLeche.containerInfo?_inv hci
+  have hcvT : cvT = cvI := (ConstantInfo.indInfo.inj (Option.some.inj (hfind.symm.trans hfI))).1
+  have ha' : a < ci.members.length := by rw [← h.k]; exact ha
+  have hmem : ci.members[a]? = some ci.members[a] := by rw [List.getElem?_eq_getElem ha']
+  obtain ⟨-, -, cvR, mI, rP, rules, hI⟩ := h.member a ci.members[a] hmem
+  obtain ⟨_cvC, _capsC, _cvRc, _mIc, _rulesC, _hf1, _hf2, hlps, _hf4, hshare, _hf6, _hf7⟩ :=
+    hall ci.members[a] (List.getElem_mem ha')
+  have hψ' : ∀ p ∈ (⟨ci.members[a].name, ci.members[a].lps, ci.members[a].type⟩
+      : ConstantVal).levelParams, ψ₁ p = ψ₂ p := by
+    intro p hp
+    exact hψ p (by rw [← hcvT, ← hshare, ← hlps]; exact hp)
+  exact ⟨hI.uParams a ha ψ₁ ψ₂ hψ', (hI.former.params ψ₁ ψ₂ hψ').1⟩
+
+
 end ConLeche.Model
