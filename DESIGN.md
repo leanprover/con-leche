@@ -86691,3 +86691,74 @@ universes (`PinGroupView.w`/`pinU`, `IsBlockModel.uParams`), the two
 `hdom`s, the entries on the container side and the relation premise on
 the block side.  **What remains for `instanceLe` is the choice of the
 ROOT (§U.55 (c)) and the relation `R`'s definition — not the transfer.**
+
+#### U.57 — L-E session 10: the relation, the container instance bound modulo the transfer, and the root at the mint GROUP (lane L-E, 2026-09-17)
+
+##### (a) `ClassPin` — the relation the instance is compared along
+
+`relMeet`'s `R`, with the ROOT as a parameter (`dR`, `ψR`, `ρR` its
+model, level assignment and parameter frame): the root's class `c` — a
+member of its container or one of its OWN pins, `BlockModel.kT`, read
+by the new class readers `psiT`/`nameT` beside `frameT` — and the
+block's pin `q` are ONE family.  Four clauses, each what the transfer
+consumes at the pair: ONE container (`name`), ONE level assignment at
+that container's own level parameters (`psi`), ONE frame at its
+parameters (`frame`), ONE index set (`idx`).  It is a RELATION in both
+directions — two of the root's pins may instantiate to one block pin,
+two block pins may read alike — and `relMeet`/`lfpTuple_le_of_rel`
+absorb both.
+
+##### (b) `instanceLe`, modulo the transfer
+
+`famAt_TClosed` (NEW: the extended carrier is closed under the classes'
+constructors — a member class by the container's fibre law at its least
+tuple, which is a fixed point, a pin class by `PinRecLaws.fibre`) plus
+`htrans` (the transfer of a fit at the meet to the block's copy) make
+`relMeet (idxT) (famAt LJ) R kB L⁺` `TClosed`; `famAt_le_of_TClosed`
+puts the extended carrier below it and `relMeet_le_rel` below `L⁺` at
+every related pair (`instanceLe_of_transfer`, and
+`instanceLe_of_classPin` at the `ClassPin` relation with the conclusion
+read at the pin's index set).  `app_relMeet_subset` (`LfpCompose.lean`)
+is what lets `ChainFitT_mono` compare the meet with its base at every
+point: off the index set the meet is empty.
+
+##### (c) The ROOT is a mint GROUP — `InstanceCovered`
+
+K.40's measurement (152 container instances) settles the unit: the mint
+GROUP, 152/152 with exactly one entry group per instance; with a single
+PIN, 151/152 — `nested_p05`'s `P5Ev`/`P5Od` is a mutual container group
+of size two, minted together with one parent, so it has two
+parent-minimal pins and neither covers the other.  The entry condition
+is "the parent lies OUTSIDE the instance", not "the parent is absent"
+(`P4C`'s own block: `parents = [none, some 0]`, `inst = [0, 1]`).
+`InstanceCovered env D dR ψ ψR ρp ρR inst r` is the model-side form:
+every pin of `r`'s instance is `ClassPin`-related to a class of the
+root's container.
+
+##### (d) TWO FINDINGS for the integration and the next session
+
+1. **K.40's merge costs an adaptation the kernel branch does not
+   carry**: `elimCtors`/`replaceAllNested`/`replaceIfNested`/`mkCopies`
+   gained a `parent` argument and `elimLoop` a `k`, and
+   `ConLeche/Verify/Inductives/NestedElimInv.lean` — which is newer than
+   `agent/uniform-m5`'s base, so that branch never adapted it — states
+   nine length/prefix lemmas over those five functions (66 errors on a
+   direct merge).  The fix is mechanical (a `{parent : Option Nat}` /
+   `{k : Nat}` binder and the argument at each application), but it is
+   the integration's to make; this lane merged, measured the cost, and
+   ABORTED the merge rather than carry a criss-cross into a branch the
+   integration has not seen.
+2. **`famAt c = P q` at a related pair is NOT a consequence of
+   `ClassPin`** — and it is what turns `instanceLe_of_classPin`'s
+   conclusion into step (iii)'s `P q ≤ L⁺ (k + q)`.  At a member class
+   the two sides are ONE model's least tuple at two readings
+   (`lfpTuple (dR.w ψR) dR.k (dR.idx ψR ρR) (dR.Φ ψR ρR)` versus the
+   same at `q`'s assignment and frame), and `BlockModel.Φ` is an
+   abstract FIELD: nothing says its value at two agreeing readings is
+   the same.  It IS derivable — `IsBlockModel.fibre` characterises `Φ`
+   by `ChainFit`, which is congruent exactly as `chainFitT_congr_mem`
+   showed — so the next piece is that family: `Φ`, `pinCar` and hence
+   `idx`/`lfpTuple`/`famAt` at two agreeing readings are one, by
+   extensionality through the fibre laws.  ~1 session, and it is the
+   last piece between `instanceLe_of_classPin` and `nestedPinsLe`
+   besides `htrans` itself.
