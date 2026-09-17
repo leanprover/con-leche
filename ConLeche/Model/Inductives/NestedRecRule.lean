@@ -1,11 +1,14 @@
 module
 
 public import ConLeche.Model.Inductives.NestedRecsStore
+public import ConLeche.Model.Inductives.MutualRecsLaw
 public import ConLeche.Model.Inductives.NestedRecEqs
 import ConLeche.Model.Inductives.MutualRecsProvision
 import ConLeche.Model.Inductives.BlockRepCross
 import ConLeche.Model.Inductives.MutualRecsSwap
 import ConLeche.Model.Inductives.MutualRecsStore
+import ConLeche.Model.Inductives.BlockRecBridge
+import ConLeche.Verify.Inductives.NestedRecDoor
 import ConLeche.Verify.Inductives.NestedRecNames
 import ConLeche.Verify.Inductives.NestedRecRuleKit
 import ConLeche.Verify.Inductives.NestedElimInv
@@ -925,6 +928,203 @@ theorem nestedRulesAuxOk_of_bool (hb : ConLeche.auxBlock p st = some b)
     refine ⟨lbs, body, by rw [hnP]; exact hs, ?_⟩
     rw [hlps]
     exact ConLeche.auxAppsOk_reflect body 0 hrule
+
+/-! ## The auxiliary rule, generated and read (item 5 step 2d)
+
+The rule law runs between the TWO PROVISIONED models (§U.29 (ee)), and
+its right-hand side is the AUXILIARY rule's restored.  So the auxiliary
+rule has to be identified with the scratch install's generated one
+(`auxStored_rules_eq`, the door's twin at the rules) and read at the
+scratch provision AT OUR LEAVES (`ruleRhs_read_of`, which is already
+stated at an arbitrary `EnvModel`).
+-/
+
+/-- **THE READ-BACK'S RULE IS THE SCRATCH INSTALL'S GENERATED ONE**:
+a rule of the read-back's recursor at class `c` is one of class `c`'s
+constructors' — the block model's constructor at some position `i`,
+the rule's own six fields, and the generated right-hand side at the
+block position `minorIdx c i` (`auxStored_rules_eq` for the rule list,
+`mutualRules_mem_shape` for the fields, `memberRule_of` for the
+generator), with the formers'/constructors'/kinds' runs identified with
+the tail's by determinism. -/
+theorem NestedTailIn.auxRuleGen {mpA : EnvModelM V μ ENVA} {cvRas : List ConstantVal}
+    (S : NestedScratchOut F env b fms f₀ ctorsA kinds mp₁ ppsF W idxF dsF esF srcsF fvsPF xFvsF
+      xrestF eissF tssF stored mpA cvRas)
+    {c : Nat} (hc : c < b.k) {a : AuxStored} (ha : stored[c]? = some a)
+    {rl : RecRule} (hrl : rl ∈ a.rules) :
+    ∃ (i : Nat) (cA : ConstantVal × Nat), ((DA).ctorsM c)[i]? = some cA ∧
+      rl.ctor = cA.1.name ∧ rl.nfields = cA.2 ∧ rl.ctorParams = b.nP ∧
+      rl.paramsBlind = true ∧ cA.1.levelParams = b.lps ∧
+      ConLeche.mutualRecRhs b.lps b.elim b.large b.nP
+          (ConLeche.mutualGenData b fms ctorsA kinds).1
+          (ConLeche.mutualGenData b fms ctorsA kinds).2 b.recName
+          (b.rlps.map Level.param) ((DA).minorIdx c i) = some rl.rhs ∧
+      rl.rhs.allLevelParamsDefined b.rlps = true ∧
+      rl.rhs.looseBVarsBounded 0 = true ∧ rl.rhs.hasFvar = false := by
+  obtain ⟨fms', f₀', ctorsA', sortss', kinds', cvRas', rulesOf, hformers', hf₀', hctors', hkinds',
+    hrules, -, -, hrulesEq⟩ := ConLeche.auxStored_rules_eq I.haux I.hstored ha
+  -- the runs are the tail's own
+  have hfms : fms = fms' := congrArg Prod.snd (Except.ok.inj (I.out.formers.symm.trans hformers'))
+  subst hfms
+  have hf0 : f₀ = f₀' := Option.some.inj (I.out.facts.first.symm.trans hf₀')
+  subst hf0
+  have hctA : (ctorsA, sortss) = (ctorsA', sortss') :=
+    Except.ok.inj (I.out.ctors.symm.trans hctors')
+  have hcA : ctorsA = ctorsA' := congrArg Prod.fst hctA
+  subst hcA
+  have hkd : kinds = kinds' := Except.ok.inj (I.out.kindsRun.symm.trans hkinds')
+  subst hkd
+  -- the member's own stage of the rules' run
+  obtain ⟨-, hallU⟩ := ConLeche.checkMutualAllRules_inv hrules
+  obtain ⟨rules, hget, hrun⟩ := hallU c hc
+  have hrulesD : rulesOf.getD c [] = rules := by rw [List.getD_eq_getElem?_getD, hget]; rfl
+  rw [hrulesEq, hrulesD] at hrl
+  obtain ⟨cr, hcr, kb, eb, rfl⟩ := mutualRules_mem_shape hrl
+  -- the constructor and the generator
+  obtain ⟨hlenA, hnamesA⟩ := ctorsA_names_of I.out.ctors (ConLeche.checkMutualCore_inv I.haux).2.1
+  obtain ⟨i, cA, hi, hnm, hnF, hlps, hgen, hlpsRhs, -, hbv, hfv⟩ :=
+    memberRule_of S.record (ConLeche.checkMutualCore_inv I.haux).2.2.2.1 hlenA hnamesA hc hrun hcr
+  exact ⟨i, cA, hi, hnm.symm, hnF.symm, rfl, rfl, hlps, hgen, hlpsRhs, hbv, hfv⟩
+
+/-- **THE AUXILIARY RULE'S RIGHT-HAND SIDE READS AT OUR LEAVES**: at
+the SCRATCH provision (`scratchProv` — the scratch constructors'
+environment consed with the `k` scratch recursors carrying OUR chosen
+tuple's projections) the generated right-hand side reads to the
+λ-tower `ruleRhsAV` over the rule's binder data with `nestedRecLeaf`
+as the recursors.  Pure assembly: `ruleRhs_read_of` is stated at an
+arbitrary `EnvModel`, its three model hypotheses are the scratch
+ones crossed over the provision (`IsBlockModels.crossEnv`,
+`MemberStored.crossEnv`, whose four premises are
+`provisionMutualRecs_extend`, `constsResolve_of_findPreserved`,
+`scratchProv`'s own agreement and `provision_hde`), and the leaves are
+rewritten by `scratchProv`'s leaf report. -/
+theorem NestedTailIn.auxRuleRead {mpA : EnvModelM V μ ENVA} {cvRas : List ConstantVal}
+    (S : NestedScratchOut F env b fms f₀ ctorsA kinds mp₁ ppsF W idxF dsF esF srcsF fvsPF xFvsF
+      xrestF eissF tssF stored mpA cvRas)
+    {s : (Name → Nat) → Nat} {rdsM : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)}
+    {concM : Nat → AnnotTerm} {eqs : (Name → Nat) → List AnnotTerm}
+    {mpAP : EnvModelM V μ (ConLeche.provisionMutualRecs b fms cvRas.zipIdx ENVA)}
+    (hshapeA : ∀ c, c < b.k → (cvRas.getD c default).name = b.recName c ∧
+      (cvRas.getD c default).levelParams = b.rlps)
+    (hleafA : ∀ c, c < b.k → ∀ φ : Name → Nat,
+      mpAP.base2.acval (cvRas.getD c default).name φ
+        = nestedRecLeaf (D).kT s rdsM concM eqs b.rlps c φ)
+    (hagA : ∀ nm : Name, (∀ c, c < b.k → nm ≠ (cvRas.getD c default).name) →
+      mpAP.base2.acval nm = mpA.base2.acval nm)
+    {c : Nat} (hc : c < b.k) {i : Nat} {cA : ConstantVal × Nat}
+    (hi : ((DA).ctorsM c)[i]? = some cA) {rhs : Expr}
+    (hgen : ConLeche.mutualRecRhs b.lps b.elim b.large b.nP
+      (ConLeche.mutualGenData b fms ctorsA kinds).1
+      (ConLeche.mutualGenData b fms ctorsA kinds).2 b.recName
+      (b.rlps.map Level.param) ((DA).minorIdx c i) = some rhs)
+    (ψ : Name → Nat) :
+    denoteMeta mpAP.base2.acval (ConLeche.provisionMutualRecs b fms cvRas.zipIdx (ENVA)) ψ 0 rhs
+      = some ((DA).ruleRhsAV mpA.base2 b.elimLevel
+          (fun t' => nestedRecLeaf (D).kT s rdsM concM eqs b.rlps t' ψ) c i cA.2 ψ) := by
+  have hkT : (D).kT = b.k := I.kT
+  have hdk : (DA).k = b.k := S.record.k
+  have h0k : 0 < b.k := by
+    have := I.kpos
+    have := I.out.bk
+    omega
+  -- **the scratch provision's list**: its entries, their freshness, their distinctness
+  have hrecNames := ConLeche.nestedRecNames_of I.hfA I.helim I.hfresh I.hb I.haux I.hstored I.hrm
+    I.out.formers I.out.ctors
+  have hzipMem : ∀ x ∈ cvRas.zipIdx, x.2 < b.k ∧ x.1 = cvRas.getD x.2 default := by
+    intro x hx
+    have hget : cvRas[x.2]? = some x.1 := List.mk_mem_zipIdx_iff_getElem?.mp (by simpa using hx)
+    exact ⟨by rw [← S.cvLen]; exact (List.getElem?_eq_some_iff.mp hget).1,
+      by rw [List.getD_eq_getElem?_getD, hget]; rfl⟩
+  have hfreshA : ∀ x ∈ cvRas.zipIdx, (ENVA).find? x.1.name = none := by
+    intro x hx
+    rw [(hzipMem x hx).2, (hshapeA x.2 (hzipMem x hx).1).1]
+    exact (hrecNames x.2 (hzipMem x hx).1).1
+  have hndA : (cvRas.zipIdx.map (·.1.name)).Nodup := by
+    have hmapEq : cvRas.map (·.name) = (List.range b.k).map b.recName := by
+      refine List.ext_getElem? fun t => ?_
+      rw [List.getElem?_map, List.getElem?_map]
+      by_cases ht : t < b.k
+      · have htl : t < cvRas.length := by rw [S.cvLen]; exact ht
+        rw [List.getElem?_range ht, List.getElem?_eq_getElem htl]
+        have hn := (hshapeA t ht).1
+        rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem htl] at hn
+        simp only [Option.map_some, Option.some.injEq]
+        exact hn
+      · rw [List.getElem?_eq_none (by rw [S.cvLen]; omega),
+          List.getElem?_eq_none (by rw [List.length_range]; omega)]
+        rfl
+    rw [show cvRas.zipIdx.map (·.1.name) = cvRas.map (·.name) from by
+      rw [show (fun x : ConstantVal × Nat => x.1.name) = (fun c : ConstantVal => c.name) ∘ Prod.fst
+        from rfl, ← List.map_map, List.zipIdx_map_fst], hmapEq]
+    have h0' := I.out.nodup
+    unfold ConLeche.MutualBlock.blockNames at h0'
+    exact (List.nodup_append.mp h0').2.1
+  -- **the crossing** of the scratch model over the provision
+  obtain ⟨hFP, -, -⟩ := provisionMutualRecs_extend (b := b) (fms := fms) hfreshA hndA
+  have hF₁ : ∀ (n : Name) (ci : ConstantInfo), (∀ cv mI rP rules, ci ≠ .recInfo cv mI rP rules) →
+      (ENVA).find? n = some ci →
+      (ConLeche.provisionMutualRecs b fms cvRas.zipIdx (ENVA)).find? n = some ci :=
+    fun _ _ _ h => hFP h
+  have hagA2 : ∀ nm : Name, ((ENVA).find? nm).isSome = true →
+      mpAP.base2.acval nm = mpA.base2.acval nm := by
+    intro nm hnm
+    refine hagA nm (fun c' hc' he => ?_)
+    rw [he, (hshapeA c' hc').1, (hrecNames c' hc').1] at hnm
+    simp at hnm
+  have hdeA := provision_hde (m := mpA.base2) (mP := mpAP.base2) hfreshA hndA hagA2
+  have hrepsP : IsBlockModels mpAP.base2 (DA) :=
+    S.reps.crossEnv hF₁ (constsResolve_of_findPreserved hFP) hagA2 hdeA
+  have hstoredP : ∀ (t : Nat) (f : MutualFormerA), fms[t]? = some f →
+      MemberStored mpAP.base2 b.lps b.nP f (DA).resSort ((DA).ppsM t) :=
+    fun t f hf => (S.memberStored t f hf).crossEnv hF₁ hdeA
+  -- **the recursor table at the provision**, with OUR leaves
+  have hfR : ∀ t, t < (DA).k → ∃ ci : ConstantInfo,
+      (ConLeche.provisionMutualRecs b fms cvRas.zipIdx (ENVA)).find? (b.recName t) = some ci ∧
+      ci.toConstantVal.levelParams = b.rlps := by
+    intro t ht
+    rw [hdk] at ht
+    have hmem : (cvRas.getD t default, t) ∈ cvRas.zipIdx := by
+      refine List.mk_mem_zipIdx_iff_getElem?.mpr ?_
+      rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem (by rw [S.cvLen]; exact ht)]
+      rfl
+    refine ⟨.recInfo (cvRas.getD t default) (b.rulePrefix + (fms.getD t default).nIdx)
+      b.rulePrefix [], ?_, (hshapeA t ht).2⟩
+    rw [← (hshapeA t ht).1]
+    exact provisionMutualRecs_find?_mem hndA hmem
+  -- **the reading**, and then the leaves rewritten
+  rw [ruleRhs_read_of S.record rfl I.out.facts.lenFms h0k
+    (ConLeche.checkMutualCore_inv I.haux).2.2.1 (ConLeche.checkMutualCore_inv I.haux).2.2.2.1
+    I.out.facts.lenA I.out.facts.lenK
+    (ctorsA_names_of I.out.ctors (ConLeche.checkMutualCore_inv I.haux).2.1).2
+    (fun _ _ _ _ => ⟨rfl, fun _ => rfl⟩) hrepsP hstoredP hfR (by rw [hdk]; exact hc) hi hgen ψ]
+  unfold BlockModel.ruleRhsAV BlockModel.ruleData
+  congr 2
+  · -- the binder data: the members' and constructors' leaves are the scratch model's
+    rw [mutualRuleDataAV_congr (m₂ := mpA.base2) fun cd hcd => by
+      obtain ⟨c', j', cA', hc', hj', hname⟩ := (DA).mem_recCds hcd
+      obtain ⟨cvT, cvR, mI, rP, rules, hrep⟩ := S.reps c' hc'
+      rw [hname]
+      exact congrFun (hagA2 _ (by rw [(hrep.ctors c' j' cA' hc' hj').1]; rfl)) ψ]
+    congr 1
+    unfold BlockModel.recLs
+    refine List.map_congr_left fun t' ht' => ?_
+    have ht'' : t' < (DA).k := List.mem_range.mp ht'
+    rw [hdk] at ht''
+    have ht''' : t' < fms.length := by rw [I.out.facts.lenFms]; exact ht''
+    have hfind := (S.memberStored t' (fms.getD t' default)
+      (by rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem ht''']; rfl)).find
+    have hname : (DA).memberName t' = (fms.getD t' default).cvTa.name :=
+      mutualBlockModel_memberName
+        (by rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem ht''']; rfl)
+    exact congrFun (hagA2 _ (by rw [hname, hfind]; rfl)) ψ
+  · -- the core: the recursors are OUR leaves
+    refine mutualRuleCoreAV_congr_Rof fun i' hi'' => ?_
+    obtain ⟨cvT, cvR, mI, rP, rules, hrep⟩ := S.reps c (by rw [hdk]; exact hc)
+    have hj' : i < ((DA).ctorsM c).length := (List.getElem?_eq_some_iff.mp hi).1
+    have htgt := hrep.tgt_lt hj' (mem_recIdxOf.mp hi'').1 S.record.pins
+    rw [hdk] at htgt
+    rw [← (hshapeA _ htgt).1]
+    exact hleafA _ htgt ψ
 
 end Run
 

@@ -604,4 +604,95 @@ theorem auxStored_rec_eq {env envAux : Env} {b : MutualBlock} {F : Nat}
   rw [hgd]
   exact hrt
 
+/-- **AND ITS RULES ARE THE SCRATCH INSTALL'S GENERATED ONES**
+(`auxStored_rec_eq`'s twin at the RULES): the read-back's recursor
+record carries the rule list the recursors' store consed there, which
+is `mutualRules` of the member's own stage of `checkMutualAllRules`
+(`storeMutualRecs_find?_recInfo` again, the projection tables carrying
+the answer through, `mutualTables_find?_recInfo_inv`), together with
+the two argument sums the store computed (`a.mI`, `a.rP`) and the
+formers'/constructors'/kinds'/rules' runs, which the consumer
+identifies with its own by determinism. -/
+theorem auxStored_rules_eq {env envAux : Env} {b : MutualBlock} {F : Nat}
+    (h : checkMutualCore (fueledOps mode F) env b none true = .ok envAux)
+    {stored : List AuxStored} (hst : auxStoredAll envAux b b.k = some stored)
+    {mIdx : Nat} {a : AuxStored} (ha : stored[mIdx]? = some a) :
+    ∃ (fms : List MutualFormerA) (f₀ : MutualFormerA) (ctorsA : List (ConstantVal × Nat))
+      (sortss : List (List Level)) (kinds : List (List (RecFieldKind × Nat)))
+      (cvRas : List ConstantVal) (rulesOf : List (List (MutualCtor × Expr))),
+      mutualFormers (fueledOps mode F) b.nP b.formers env true
+        = .ok (consMutualFormers fms env, fms) ∧
+      fms[0]? = some f₀ ∧
+      checkMutualCtors (fueledOps mode F) (consMutualFormers fms env) b fms
+        (Level.isEquiv f₀.s .zero == some true) true b.ctors = .ok (ctorsA, sortss) ∧
+      classifyMutualKinds (m := CheckM) b.members3 b.lps b.nP ctorsA = .ok kinds ∧
+      checkMutualAllRules (m := CheckM)
+          (provisionMutualRecs b fms cvRas.zipIdx
+            (consMutualCtors b.nP ctorsA (consMutualFormers fms env)))
+          b (mutualGenData b fms ctorsA kinds).1 (mutualGenData b fms ctorsA kinds).2 none b.k
+        = .ok rulesOf ∧
+      a.mI = b.rulePrefix + (fms.getD mIdx default).nIdx ∧ a.rP = b.rulePrefix ∧
+      a.rules = mutualRules
+        (consMutualCtors b.nP ctorsA (consMutualFormers fms env)).find? a.cvRa.name b.nP
+          a.mI a.rP a.cvRa.type (rulesOf.getD mIdx []) := by
+  obtain ⟨hnd0, -, -, -, env₁, fms, f₀, _tq₀, ctorsA, sortss, kinds, formers4, ctors4, cvRas,
+    rulesOf, hformers, hf₀, -, -, -, hctors, hkinds, -, hgd, hrectys, hrules, htables, -⟩ :=
+    checkMutualCore_inv h
+  obtain ⟨-, rfl⟩ := mutualFormers_inv hformers
+  obtain ⟨hlenR, hallR⟩ := checkMutualRecTys_inv hrectys
+  -- the generated recursor constants' names, and their distinctness
+  have hnames : ∀ t, t < b.k → ∃ cvRa : ConstantVal, cvRas[t]? = some cvRa ∧
+      cvRa.name = b.recName t := by
+    intro t ht
+    obtain ⟨cvRa, hget, hrun⟩ := hallR t ht
+    obtain ⟨recTy, _sty, _u, -, -, -, -, -, -, -, -, hcv⟩ := checkMutualRecTy_shape hrun
+    exact ⟨cvRa, hget, by rw [hcv]⟩
+  have hmapEq : cvRas.map (·.name) = (List.range b.k).map b.recName := by
+    refine List.ext_getElem? fun t => ?_
+    rw [List.getElem?_map, List.getElem?_map]
+    by_cases ht : t < b.k
+    · obtain ⟨cvRa, hget, hcv⟩ := hnames t ht
+      rw [hget, List.getElem?_range ht]
+      simp only [Option.map_some, Option.some.injEq]
+      exact hcv
+    · rw [List.getElem?_eq_none (by rw [hlenR]; omega),
+        List.getElem?_eq_none (by rw [List.length_range]; omega)]
+      rfl
+  have hndZ : ((cvRas.zipIdx).map (·.1.name)).Nodup := by
+    rw [show (cvRas.zipIdx).map (fun x => x.1.name) = cvRas.map (·.name) from by
+      rw [show (fun x : ConstantVal × Nat => x.1.name)
+            = (fun c : ConstantVal => c.name) ∘ Prod.fst from rfl,
+        ← List.map_map, List.zipIdx_map_fst], hmapEq]
+    have h0' := hnd0
+    unfold MutualBlock.blockNames at h0'
+    exact (List.nodup_append.mp h0').2.1
+  -- the read-back at `mIdx`, and the record the store consed there
+  obtain ⟨hlenS, hgetS⟩ := auxStoredAll_get hst
+  have hmk : mIdx < b.k := by
+    have h1 := (List.getElem?_eq_some_iff.mp ha).1
+    rw [hlenS] at h1
+    exact h1
+  obtain ⟨cv, hfm, hrec⟩ := auxStored?_rec (hgetS mIdx a ha)
+  have hrn : b.recName mIdx = cv.name.str "rec" := by
+    unfold MutualBlock.recName
+    rw [List.getD_eq_getElem?_getD, hfm]
+    rfl
+  have hstore := mutualTables_find?_recInfo_inv fms.zipIdx htables hrec
+  obtain ⟨cvRa, hgetR, hcvn⟩ := hnames mIdx hmk
+  have hmem : (cvRa, mIdx) ∈ cvRas.zipIdx := by
+    refine List.mem_of_getElem? (i := mIdx) ?_
+    rw [List.getElem?_zipIdx, hgetR]
+    simp
+  have hfind := storeMutualRecs_find?_recInfo
+    (env₂ := consMutualCtors b.nP ctorsA (consMutualFormers fms env)) (b := b) (fms := fms)
+    (rulesOf := rulesOf) cvRas.zipIdx
+    (env := consMutualCtors b.nP ctorsA (consMutualFormers fms env)) hndZ cvRa mIdx hmem
+  rw [show cvRa.name = cv.name.str "rec" from by rw [hcvn, ← hrn], hstore,
+    Option.some.injEq] at hfind
+  obtain ⟨haq, hmI, hrP, hrules'⟩ := ConstantInfo.recInfo.inj hfind
+  refine ⟨fms, f₀, ctorsA, sortss, kinds, cvRas, rulesOf, hformers, hf₀, hctors, hkinds, ?_,
+    hmI, hrP, ?_⟩
+  · rw [hgd]; exact hrules
+  · rw [hrules', haq, hmI, hrP, show cvRa.name = cv.name.str "rec" from by rw [hcvn, ← hrn]]
+
 end ConLeche
