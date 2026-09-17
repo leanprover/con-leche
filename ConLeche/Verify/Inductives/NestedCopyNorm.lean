@@ -897,6 +897,78 @@ theorem normPosDomM_piDomsFree {env : Env} {memberNames : List Name} {F : Nat} :
         · simpa [Expr.fvarTypeD] using hdomf
         · exact ih hrec hq x hx
 
+/-- **The field walk ran** — whatever `normCtorValM` decided to store,
+it normalised the field telescope first (`normCtorValM_frame` keeps the
+walk only in the arm where the store changed something; a reader of the
+walk itself needs it in both). -/
+theorem normCtorValM_fieldWalk {env : Env} {memberNames : List Name}
+    {nP nF F : Nat} {cvC cvCa cvCa' : ConstantVal}
+    (h : normCtorValM (m := CheckM) (fueledOps mode F) env memberNames nP nF cvC cvCa true
+      = .ok cvCa')
+    {fvs : List Expr} {crest : Expr}
+    (hop1 : openPisAtFvars nP cvCa.type 0 = some (fvs, crest)) :
+    ∃ (fbs : List (Expr × BinderMeta)) (resid : Expr),
+      normFieldDomsM (m := CheckM) (fueledOps mode F) env memberNames nP nF crest
+        = .ok (fbs, resid) := by
+  unfold normCtorValM at h
+  obtain ⟨q, hq, h⟩ := exceptBind_ok h
+  obtain ⟨cbs, cres⟩ := q
+  try simp only at h
+  obtain ⟨rr, hr, h⟩ := exceptBind_ok h
+  obtain ⟨fvs₀, crest₀⟩ := rr
+  try simp only at h
+  obtain ⟨u, hu, h⟩ := exceptBind_ok h
+  obtain ⟨fbs, resid⟩ := u
+  have hop1' : openPisAtFvars nP cvCa.type 0 = some (fvs₀, crest₀) := unwrapOr_ok hr
+  rw [hop1] at hop1'
+  simp only [Option.some.injEq, Prod.mk.injEq] at hop1'
+  obtain ⟨-, rfl⟩ := hop1'
+  exact ⟨fbs, resid, hu⟩
+
+/-- **A REFLEXIVE FIELD'S TELESCOPE DOMAINS ARE MEMBER-FREE, AT THE
+CONSTRUCTOR** (task #315 L-B): `normPosDomM_piDomsFree` at the field
+the walk ran on — the `l`-th opened domain of the type the stage was
+GIVEN, peeled at its own `Π` binders.  What the caller does with it is
+the rewrite's PRUNE: a fired `replaceAllNested` plants a member of the
+block, and no binder domain of this tower mentions one. -/
+theorem normCtorValM_domPiFree {env : Env} {memberNames : List Name}
+    {nP nF F : Nat} {cvC cvCa cvCa' : ConstantVal}
+    (h : normCtorValM (m := CheckM) (fueledOps mode F) env memberNames nP nF cvC cvCa true
+      = .ok cvCa')
+    {fvs xFvs : List Expr} {crest xrest : Expr}
+    (hop1 : openPisAtFvars nP cvCa.type 0 = some (fvs, crest))
+    (hop2 : openPisAtFvars nF crest nP = some (xFvs, xrest))
+    {l : Nat} {x : Expr} (hx : xFvs[l]? = some x)
+    {n : Nat} {tbs : List (Expr × BinderMeta)} {body : Expr}
+    (hpeel : x.fvarTypeD.stripPis n = some (tbs, body)) :
+    ∀ k, k < n → mentionsMember memberNames (tbs.getD k default).1 = false := by
+  obtain ⟨fbs, resid, hfields⟩ := normCtorValM_fieldWalk h hop1
+  obtain ⟨xFvs₀, hopX, -⟩ := normFieldDomsM_open hfields
+  rw [hop2] at hopX
+  simp only [Option.some.injEq, Prod.mk.injEq] at hopX
+  obtain ⟨-, rfl⟩ := hopX
+  obtain ⟨d', bm', hd', -⟩ := normFieldDomsM_getD hfields hop2 l x hx
+  have htbsLen : tbs.length = n := Expr.stripPis_length _ hpeel
+  have hmk : x.fvarTypeD = mkPisB tbs body := stripPis_mkPisB _ hpeel
+  obtain ⟨afvs, hafvsLen, -, hlaw⟩ := openPisAtFvars_mkPisB n tbs htbsLen (nP + l)
+  have hopA : openPisAtFvars n x.fvarTypeD (nP + l)
+      = some (afvs, Expr.instSeq afvs (n - 1) body) := by rw [hmk]; exact hlaw _
+  have hfree := normPosDomM_piDomsFree n hd' hopA
+  intro k hk
+  obtain ⟨a, ha⟩ : ∃ a, afvs[k]? = some a :=
+    ⟨_, List.getElem?_eq_getElem (by rw [hafvsLen]; exact hk)⟩
+  have hbd : tbs[k]? = some (tbs.getD k default) := by
+    rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem (by rw [htbsLen]; exact hk)]
+    rfl
+  have hdom : a.fvarTypeD = Expr.instSeq (afvs.take k) (k - 1) (tbs.getD k default).1 :=
+    Verify.openPisAtFvars_domain n hopA hpeel k a (tbs.getD k default) ha hbd
+  have hma := hfree a (List.mem_of_getElem? ha)
+  rw [hdom] at hma
+  refine List.any_eq_false.mpr fun T hT => ?_
+  have := List.any_eq_false.mp hma T hT
+  simp only [Bool.not_eq_true] at this ⊢
+  exact mentionsConst_instSeq_false _ _ (by simpa using this)
+
 /-- **THE STORED CONSTRUCTOR'S REFLEXIVE FIELD DOMAIN IS THE GIVEN
 ONE** (task #315 L-B): `normCtorValM_domErased` at a field whose given
 domain is a `∀`-TOWER over a stored inductive application — a
