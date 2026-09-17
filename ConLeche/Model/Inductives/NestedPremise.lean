@@ -120,6 +120,19 @@ structure ContainerModeled {env : Env} (m : EnvModel V env) (ci : ContainerInfo)
   exactly that count. -/
   pinNP : ∀ q, q < d.nPins → ∃ ci' : ContainerInfo,
     ConLeche.containerInfo? d.env₀ (d.pinAt q).J = some ci' ∧ (d.pinAt q).nPJ = ci'.nP
+  /-- **a pin's level assignment is the substitution of its level
+  arguments for its container's level parameters** (task #315 L-E,
+  DESIGN §U.39): the syntactic form every pin this checker records has
+  (`pinOf`, `NestedPinGroupSyn.rep`), which the entry theorem's step
+  (iii) needs of a STORED container's pins — two level assignments
+  giving one READING of the container need not give one reading of its
+  constructors, so the correspondence of pins is carried on the level
+  ARGUMENTS (`PinCorr`) and reaches the assignments through this
+  clause. -/
+  pinψ : ∀ q, q < d.nPins → ∀ (cvT : ConstantVal) (caps : IndCaps),
+    env.find? (d.pinAt q).J = some (.indInfo cvT caps) →
+    (d.pinAt q).lvls.length = cvT.levelParams.length ∧
+    ∀ ψ : Name → Nat, (d.pinAt q).ψJ ψ = Level.substFn ψ cvT.levelParams (d.pinAt q).lvls
 
 /-! ## The pins' laws and shapes of a stored block -/
 
@@ -145,6 +158,8 @@ the carrier `acval`. -/
   Ids := fun t => d.IdsT t ψ
   Ds := fun t => (d.pinAt (t - d.k)).Ds ψ
   EA := targetRead acval d.memberNames d.pins d.nP d.k ψ
+  J := fun t => if t < d.k then d.memberName t else (d.pinAt (t - d.k)).J
+  lvls := fun t => (d.pinAt (t - d.k)).lvls
 
 /-- **A pin group of a stored block, viewed** (task #315 L-E; the
 run's `NestedPinGroupSyn` made abstract): the pins `[q₀, q₀ + kJ)` of
@@ -160,6 +175,7 @@ structure PinGroupView (d dJ : BlockModel V) (q₀ kJ : Nat) : Prop where
   name : ∀ i, i < kJ → (d.pinAt (q₀ + i)).J = dJ.memberName i
   same : ∀ i, i < kJ → ∀ ψ : Name → Nat,
     (d.pinAt (q₀ + i)).ψJ ψ = (d.pinAt q₀).ψJ ψ ∧ (d.pinAt (q₀ + i)).Ds ψ = (d.pinAt q₀).Ds ψ
+  lvls : ∀ i, i < kJ → (d.pinAt (q₀ + i)).lvls = (d.pinAt q₀).lvls
   pinU : ∀ i, i < kJ → ∀ ψ : Name → Nat, (d.pinAt (q₀ + i)).u ψ = dJ.uM i ((d.pinAt q₀).ψJ ψ)
   pinNP : ∀ i, i < kJ → (d.pinAt (q₀ + i)).nPJ = dJ.nP
   pinNIdx : ∀ i, i < kJ → (d.pinAt (q₀ + i)).nIdx = dJ.nIdxAt i
@@ -188,8 +204,10 @@ composes (`nestedPinLeaf_all`). -/
     PinGroupView d (B ci) q₀ kJ ∧
     ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (d.params ψ).reverse ρp →
       ∀ i' j, i' < kJ → j < ((B ci).ctorsM i').length →
+      ∀ (cvT : ConstantVal) (caps : IndCaps),
+        env.find? (d.pinAt (q₀ + i')).J = some (.indInfo cvT caps) →
       CopyCtorShape (d.targetView m.acval ψ) m.acval (B ci) ((d.pinAt q₀).ψJ ψ) ((d.pinAt q₀).Ds ψ)
-        (fun l => (pc (q₀ + i')).tgts j l) (((pc (q₀ + i')).tlss ψ).getD j [])
+        cvT.levelParams (d.pinAt q₀).lvls (fun l => (pc (q₀ + i')).tgts j l) (((pc (q₀ + i')).tlss ψ).getD j [])
         (((pc (q₀ + i')).Eiss ψ).getD j []) ρp i' j (d.k + q₀) kJ
         (((pc (q₀ + i')).Fss ψ).getD j []) ((pc (q₀ + i')).rss.getD j [])
         (((pc (q₀ + i')).Ess ψ).getD j [])

@@ -395,7 +395,9 @@ structure NestedPinGroupIds (m : EnvModel V env₂) (q₀ kJ : Nat) (dJ : BlockM
       = instTele (((D).pinAt (q₀ + i)).Ds ψ) 0 (dJ.IdsM i' (((D).pinAt (q₀ + i)).ψJ ψ))
   /-- the copies' constructor SHAPES (lane L-B) -/
   shape :
-    ∀ i, i < kJ → ∀ (ψ : Name → Nat) (ρp : Nat → V),
+    ∀ i, i < kJ → ∀ (cvT : ConstantVal) (caps : IndCaps),
+      env₂.find? ((D).pinAt (q₀ + i)).J = some (.indInfo cvT caps) →
+      ∀ (ψ : Name → Nat) (ρp : Nat → V),
       Sat V ((D).params ψ).reverse ρp →
       ∀ i', i' < kJ → ∀ j, j < (dJ.ctorsM i').length →
       CopyShapeA (V := V) (nP := b.nP) (k := p.k) (resSort := f₀.s) (ppsA := ppsF) (W := W)
@@ -406,7 +408,7 @@ structure NestedPinGroupIds (m : EnvModel V env₂) (q₀ kJ : Nat) (dJ : BlockM
         (Fss₀ := fun ψ => blkFss0 b ctorsA kinds dsF ψ)
         (Ess₀ := fun ψ => mutEss0 ctorsA.length esF ψ) (ψ := ψ) (ρp := ρp)
         m.acval dJ (((D).pinAt (q₀ + i)).ψJ ψ) (((D).pinAt (q₀ + i)).Ds ψ)
-        q₀ kJ i' j
+        cvT.levelParams ((D).pinAt (q₀ + i)).lvls q₀ kJ i' j
   /-- the copies' ENTRIES at the auxiliary carrier (`nestedPinLeaf_all`) -/
   entry :
     ∀ i, i < kJ → ∀ (ψ : Name → Nat) (ρp : Nat → V),
@@ -442,6 +444,10 @@ theorem NestedPinGroupSyn.ofParts {st : ElimState} {m : EnvModel V env₂} {q₀
     typed := S.typed, pinsTyped := S.pinsTyped, inj := S.inj, pinU := S.pinU, pinNP := S.pinNP, pinNIdx := S.pinNIdx
     pinPps := S.pinPps, pinDsLen := S.pinDsLen, w := S.w, idx := I.idx
     same := fun i hi ψ => ⟨S.ψJEq i 0 hi S.kpos ψ, S.sameDs i hi ψ⟩
+    lvls := fun i hi => (S.same i hi).1
+    stored := fun i hi => by
+      obtain ⟨cvT, caps, cvR, mI, rP, rules, hf, -, hψ⟩ := S.stored i hi
+      exact ⟨cvT, caps, hf, hψ⟩
     ctorCount := S.ctorCount, DsFit := S.DsFit, shape := I.shape, entry := I.entry }
 
 local notation "ENV₁" => (ConLeche.consMutualFormers (fms.take p.k) env)
@@ -773,13 +779,16 @@ consumer `nestedPinsStaged_of`): `NestedPinGroup.idx`, `.shape` and
 action (the shape, lane L-B) and the entries at the auxiliary carrier
 (the whole block's theorem, lane L-E). -/
 @[expose] def NestedPinsIdent (V : Type w) [SetTheory V] (μ : CheckMode) (F : Nat) : Prop :=
-  NestedPinsIdsAt V μ F fun _ p _ b fms f₀ ctorsA kinds ppsF W _ dsF esF _ _ _ eissF tssF _
+  NestedPinsIdsAt V μ F fun {env} _ p _ b fms f₀ ctorsA kinds ppsF W _ dsF esF _ _ _ eissF tssF _
       _ _ pinsS mp₁' q₀ kJ dJ =>
     (∀ i, i < kJ → ∀ (ψ : Name → Nat) (i' : Nat), i' < kJ →
       blockIds b.nP ppsF ψ (p.k + q₀ + i')
         = instTele ((pinsS.getD (q₀ + i) default).Ds ψ) 0
             (dJ.IdsM i' ((pinsS.getD (q₀ + i) default).ψJ ψ))) ∧
-    (∀ i, i < kJ → ∀ (ψ : Name → Nat) (ρp : Nat → V),
+    (∀ i, i < kJ → ∀ (cvT : ConstantVal) (caps : IndCaps),
+      (ConLeche.consMutualFormers (fms.take p.k) env).find? (pinsS.getD (q₀ + i) default).J
+        = some (.indInfo cvT caps) →
+      ∀ (ψ : Name → Nat) (ρp : Nat → V),
       Sat V (((ppsF 0 ψ).take b.nP).map (·.2.2)).reverse ρp →
       ∀ i', i' < kJ → ∀ j, j < (dJ.ctorsM i').length →
       CopyShapeA (V := V) (nP := b.nP) (k := p.k) (resSort := f₀.s) (ppsA := ppsF) (W := W)
@@ -790,7 +799,7 @@ action (the shape, lane L-B) and the entries at the auxiliary carrier
         (Fss₀ := fun ψ => blkFss0 b ctorsA kinds dsF ψ)
         (Ess₀ := fun ψ => mutEss0 ctorsA.length esF ψ) (ψ := ψ) (ρp := ρp)
         mp₁'.base2.acval dJ ((pinsS.getD (q₀ + i) default).ψJ ψ) ((pinsS.getD (q₀ + i) default).Ds ψ)
-        q₀ kJ i' j) ∧
+        cvT.levelParams (pinsS.getD (q₀ + i) default).lvls q₀ kJ i' j) ∧
     (∀ i, i < kJ → ∀ (ψ : Name → Nat) (ρp : Nat → V),
       Sat V (((ppsF 0 ψ).take b.nP).map (·.2.2)).reverse ρp →
       ∀ i', i' < kJ → ∀ j, j < (dJ.ctorsM i').length →

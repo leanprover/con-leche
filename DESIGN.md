@@ -79918,6 +79918,115 @@ by number.  Next: L-B's session 9 (the three arms on top of the closed
 obstacle), L-E's session 2 (the shape assembly), M7's three stage
 facts, and M7-3's mutual lift steps 3–5.
 
+##### (o) INTEGRATION 3g — M7-3 session 5 and L-E session 2 merged: the members' constants carried, and the pins' fixed point with the interface change it needed (session U-29)
+
+Two merges into the lane, `--no-ff` at the pinned shas —
+`agent/uniform-m7env` **34a2e9ce** (M7-3 s5, branched from 1f3ccc75)
+and `agent/uniform-entry` **329e43ba** (L-E s2, branched from 2aab2a7a
+with L-B's ab07ff64 merged in), both bases already in.  **The nested
+chain does not move**: after this session `declNested_of` still takes
+`mp : EnvModelB` and closes over exactly `hSh : NestedPinsShape`, `hEn
+: NestedPinsEntry` and `htail : NestedTailModeled` (plus `hE` and the
+run).  Neither branch touched checker code.
+
+*Merge 1 — M7-3 session 5.*  **Nothing conflicted at all**, DESIGN.md
+included: §U.46 appends after §U.43 in number order, zero lines dropped
+against either parent.  What it brings: `IsBlockModelsAt m d cvTs`
+(`BlockRecKit.lean`) — `IsBlockModels` with the members' constants
+NAMED — with `.toIsBlockModels`/`.congr` and
+`IsBlockModelsAt.crossEnv` (`BlockRepCross.lean`); `blockReps_of`
+STATING the witness it already built (`(fms.getD mm default).cvTa`);
+and the AT-form threaded through `MutualRecsModeled` (`MutualCore`),
+`MutualRecsStored`/`mutualRecsModeled_of` (`MutualRecsStage`), the
+store theorem (`MutualRecsStore`) and `MutualCoreModeled`
+(`DeclBlock`), `declBlock` projecting it through `.toIsBlockModels`.
+Blocker (1) of §U.43 is closed; §U.46 writes K.36's spec against the
+OPENED form the lift consumes.  **`declBlock`'s and `declMutual`'s
+statements are unchanged** — checked on the diff, only
+`MutualCoreModeled`'s body and the proofs moved — so the `declBlock`
+OVERVIEW anchor was a PURE LINE SHIFT (L290 → L291): the target line
+read back by hand as the named `theorem`, the citing paragraph re-read
+and still accurate, no `--update` taken; `MutualTables.lean` is
+untouched and `declMutual`'s L305 anchor stands.
+
+*Merge 2 — L-E session 2.*  What it brings: `nestedPinsFixed` and its
+kit (`NestedPinLeafAll.lean`) — steps (i) and (ii) of the global entry
+theorem, the containers' least tuples at the pins a fixed point of the
+pins' section of the auxiliary operator, with the auxiliary carrier's
+pin segment below them; `CopyCtorShape.fit_imp_le` (`NestedFit.lean`)
+and `nestedGroupLe_of_entries`, step (iii)'s per-group closure; and THE
+INTERFACE CHANGE (§U.39) — `TargetView.J/lvls`, `PinCorr` with the head
+name and level-argument conjuncts, `CopyCtorShape`/`CopyShapeA` taking
+`lpsJ lvlsJ` after `Ds`, the new `ContainerModeled.pinψ` clause
+(`NestedPremise.lean`), `PinGroupView.lvls`,
+`NestedPinGroup.lvls/.stored`, the shape clauses quantified over the
+pin's container's STORED record, and `{env}` bound in both
+`NestedPinsIdsAt` lambdas.
+
+*The conflicts, and the one that did not happen.*  DESIGN.md: §U.39
+against the lane's §U.38/§U.40/§U.41/§U.43/§U.46, resolved by number
+and verified a pure union — zero lines dropped against EITHER parent
+(157 added over HEAD, 1108 over 329e43ba).
+`Model/Inductives/ContainerCross.lean`: M7-3's
+`crossEnv`-as-`crossEnvP`-at-`Ts := []` plus `projFree_members`
+against L-E's `crossEnv` structure instance carrying the new `pinψ`
+field.  **Resolved keeping L-E's interface and ALL of M7-3's
+theorems**: the guarded `crossEnvP` gains `pinψ` with L-E's own proof
+(the pin's constant crossed by `hF`, the record read off `C.reps 0
+hk`), so the unguarded `crossEnv` stays the thin wrapper;
+`BlockAt.crossEnvP` passes `hF` to `PinShapes.crossEnv`, as
+`BlockAt.crossEnv` already did; and `ContainerModeled.of_readBack`
+takes `hpinψ` as an argument beside `hpinNP` — **threaded, not
+proved** (it has no consumer yet, and `hmember` is still its last
+argument and the whole of the remaining work).  The collision this
+integration EXPECTED — `NestedCopyInst.lean`/`NestedCopyIdx.lean`, L-B
+s8's `copyResid`/`mintRead`/`crossUp` against L-E's binders and
+parameters — did not happen: L-E's binder edit is 2aab2a7a's, in the
+lane since 3d, so both files auto-merged and **no L-B theorem statement
+needed adapting**.  `NestedPremise.lean` auto-merged (M7-3 touched
+other clauses) and its public import is still
+`Semantics.Inductives.DeclNested`.
+
+**The import gate on the union brought nothing new**, as at every
+integration since §U.27 (b): shake 508 proposed, all 508 allowlisted at
+both merges (the lane's count, unchanged); pub-imports 1259 of 1983
+after merge 1 and 1260 of 1984 after merge 2, none demotable, 36
+dot-notation fallbacks.  `scripts/pub-import-plan.py` is untouched on
+both sides, so there was no FALLBACK union to take, and
+`tests/shake-allowlist.txt` is L-E's compensated edge
+(`NestedPinLeafAll` importing `NestedPins`), already in the lane.
+`Model.lean` conflicted on neither merge — neither branch adds a
+module.
+
+Gates at BOTH merge commits: `lake build` 694 jobs warning-free, `lake
+test` warning-free (merge 2 re-ran no test job: both branches are model
+tier, outside the test library's import closure), shake and pub-imports
+as above, layering base 346 / model 265 / caps 3 / umbrella 1 with 0
+base→lane and 0 impl→theory, trust surface 13 escapes in 5 allowlisted
+files (626 scanned), no-local-paths OK, overview-links 112, quote-gate
+2, proofdeps 4955 rows / 12 roots / 0 doors; nested-shadow 27/27 on the
+final commit.  No `sorry`, no axioms, no `maxHeartbeats`, no checker
+code changed.
+
+**The chain, re-verified** (`_tmp/uniform-315/chain-probe-u29.lean`,
+outside the build): `declNested_of` over `mp : EnvModelB` composes with
+exactly `hSh`, `hEn` and `htail` free, `nestedTailModeled_of hrd heqs
+hst` still typechecks at the same tree, and `nestedPinsFixed`,
+`CopyCtorShape.fit_imp_le` and `nestedGroupLe_of_entries` typecheck at
+the merged interface.  `#print axioms` of both chain theorems:
+`[propext, Classical.choice, Quot.sound]`.
+
+The residual after 3g is (n)'s, unchanged — `NestedPinsShape`
+(L-B/L-E), `NestedPinsEntry` (L-E) and `NestedTailModeled` (M7-2's
+three stage facts).
+
+Cost: well under a session — two merges, one DESIGN conflict resolved
+by number and one source conflict resolved by keeping the interface
+owner's shape with the other side's theorems threaded through it.
+Next: L-B's session 9 (the three arms), L-E's step (iii) (the `ordF`
+-right and `pinF` entries its callers owe), M7's three stage facts, and
+M7-3's mutual lift steps 3–5 with K.36.
+
 #### K.32 — the copies' recursive targets come from the container's own recursion (2026-09-16, task #315, lane L-B's DESIGN §U.23 (e))
 
 The model's `ordF` arm needs to know that a container-ORDINARY field
@@ -82417,6 +82526,163 @@ demotable.  Standard axioms only on every new theorem
 `AnnotTerm.instAll_app`/`_mkAppN`/`_eq_self`, `instTeleP_length`,
 `mintRead`, `mintResidRead`, and the restated `elimNested_copyCtors`,
 `copyBody`, `copyFields`).
+#### U.39 — L-E session 2: steps (i) and (ii) of the global entry theorem PROVED; the correspondence of pins made structural for step (iii) (lane L-E, 2026-09-17)
+
+##### (a) WHAT IS PROVED (`ConLeche/Model/Inductives/NestedPinLeafAll.lean`)
+
+`nestedPinsFixed` — at the run's block `D` (the nested block model), at
+every parameter frame, with `P := pinLfp st pinsS dJf w ψ ρp` the
+containers' least tuples at the pins (pin `q`'s container's least tuple
+at the pin's frame, at the block model `dJf (grpBase q)` of its MINT
+GROUP's base pin, at member `q - grpBase q`, at the BLOCK's sort — one
+model per group, so `P` at a group IS that model's least tuple at every
+member: `pinLfp_group`, through `NestedPinGroupSyn.grp`) and `L` the
+block's carrier:
+
+* (i) `∀ q < n, ∀ t ∈ Is (k+q), app (Ψ (segJoin k n L P) (k+q)) t = app (P q) t`
+  — the auxiliary fibre at a copy (`tupleLfpΦ_fibre` at `segJoin k n L P`,
+  in the tuple space by `inTupleSpace_join`) is the container's fibre at
+  its least tuple (`CopyCtorShape.fit_iff_at` at the outer tuple
+  `segJoin k n L P`, whose group segment IS the least tuple — `hseg` —
+  and whose entries are the targets' stored readings: a member target by
+  `memberTarget_reads`, a pin target by `pinTarget_reads`, through
+  `copyEntryAt_of_read` at an `ordF`-right field and the NEW
+  `copyEntryAt_of_pinCorr` at a `pinF` field), and the container's fibre
+  at its least tuple is the least tuple (`app_lfpTuple_eq`).
+* (ii) `∀ q < n, FamLe (Is (k+q)) (L⁺ (k+q)) (P q)` —
+  `lfp_pins_le_of_section_closed` (§U.36 (c)) at (i).
+
+The kit: `piTele_congr`/`slotSet_congr_app` (the slot is a congruence
+in the family at the fitting tuples), `copyEntryAt_of_pinCorr` (the
+`pinF` entry at ANY tuple whose corresponding block pin reads the stored
+reading: `real_dom_eq` → `slotAt_of_pin` → the container's `pinLeaf` at
+its own pin, `slotSet_instTele` for the copy's instantiated telescope,
+`nest_eis_fit`/`nest_refl_eis_fit` for the index readings' fit),
+`nestedPinFrame_transport` (a fit at the container's pin frame is a fit
+at the block pin's frame: the two carry the same components' values
+over different bases, and the index telescope is below the parameters —
+`spineFit_congr_below` at `FormerData.below`), `GroupFacts` (the group
++ `nestedPinsIdx`'s identity + L-B's shape, the model named by the
+consumer), `ownCtors_grp` (`NestedPinGroup.grp` at any count),
+`NestedPinGroupSyn.pinIds`, `memberTarget_reads` (now at `NestedLfpOk`),
+`pinTarget_reads` (at the syntactic group, at the block's sort).
+`#print axioms`: standard.
+
+##### (b) THE FINDING FOR STEP (iii): readings do not carry a container's level assignment
+
+Step (iii) (`P ≤ L⁺`) closes a self-nested container `J`'s group by
+`J`'s own `PinRecLaws.ind` at the segment `X := L⁺[k+q₀, k+q₀+kJ)` and
+transfers a spine fitting `J`'s pin `qK`'s constructor (K's constructor
+at `Ds_K`, read at `J`'s frame, at the level assignment `ψK₁ :=
+(dJ.pinAt qK).ψJ ψJ`) to the block's copy of the corresponding pin (K's
+constructor at `Ds_K[Ds]`, read at the block's frame, at `ψK₂ :=
+(pinAt q').ψJ ψ`).  The two copies' fields agree only if `ψK₁` and
+`ψK₂` agree on K's level parameters (`CtorDataI.params`,
+`BlockCtorData.eissParams/tssParams`), and `PinCorr`'s reading equality
+`acval K ψK₂ = acval K ψK₁` does NOT give that (a reading may ignore a
+level parameter the constructors use).  Nor does it give the NAME `K`
+(two inductives may read alike).  So the correspondence of pins is now
+carried SYNTACTICALLY and reaches the assignments through the pins'
+recorded form:
+
+* `TargetView` gains `J : Nat → Name` and `lvls : Nat → List Level`
+  (`nestedTV`: the member's name / the pin's container and level
+  arguments; `BlockModel.targetView` alike).
+* `PinCorr TV acval dJ ψJ Ds lpsJ lvlsJ t qK` gains
+  `TV.J t = (dJ.pinAt qK).J` and
+  `TV.lvls t = (dJ.pinAt qK).lvls.map (Level.subst lpsJ lvlsJ)` —
+  `lpsJ`, `lvlsJ` the outer container's level parameters and the outer
+  pin's level arguments, now parameters of `CopyCtorShape`/`CopyShapeA`
+  (after `Ds`).  **For lane L-B**: the `pinF` arm's `PinCorr` half has
+  two more syntactic conjuncts — the rewritten field's head constant is
+  the container's field's head (`copyGroupTargetHead`), and its levels
+  are the container's field's levels instantiated at the copy's
+  (`mkCopy`'s `instantiateLevelParams`); the shape clauses
+  (`NestedPinsShape`, `NestedPinGroup.shape`, `NestedPinGroupIds.shape`,
+  `GroupFacts.shape`) now quantify `∀ cvT caps, ENV₁.find? (pin's
+  container) = some (.indInfo cvT caps) →` and pass `cvT.levelParams
+  (pinsS.getD (q₀ + i) default).lvls` — the record `NestedPinGroupSyn.stored`
+  already names.
+* `ContainerModeled.pinψ`: a stored container's pin's level assignment is
+  `substFn ψ cvT.levelParams lvls` (with `lvls.length =
+  cvT.levelParams.length`) at `env.find?` of the pin's container — true
+  of every pin this checker records (`pinOf`, `NestedPinsRun.pinψ`);
+  `crossEnv` carries it through `pinsFound` + determinism.
+  `PinGroupView.lvls` (a group shares its level arguments),
+  `NestedPinGroup.lvls`/`.stored` (from `NestedPinGroupSyn.same`/`.stored`;
+  crossed by `hF`).  `PinShapes` states the shape at `∀ cvT caps,
+  env.find? (d.pinAt (q₀+i')).J = some (.indInfo cvT caps) →` with
+  `cvT.levelParams` (`nestedPinShapes_of` passes the group's `stored`
+  record; `PinShapes.crossEnv` takes `hF`).
+
+With these, the level-assignment agreement is
+`Level.substFn_map_subst` (already in `Verify/Level.lean`): at
+`p ∈ cvT.levelParams`, `substFn ψ lpsK (lvlsK.map (subst lpsJ lvlsJ)) p
+= substFn (substFn ψ lpsJ lvlsJ) lpsK lvlsK p`, i.e. `ψK₂ p = ψK₁ p`
+since `ψJ = substFn ψ lpsJ lvlsJ` (`NestedPinGroupSyn.rep`) and `ψK₁ =
+substFn ψJ lpsK lvlsK` (`ContainerModeled.pinψ` at `B ci`).
+
+##### (b′) STEP (iii)'s FIRST TWO PIECES (proved, same session)
+
+* `CopyCtorShape.fit_imp_le` (`NestedFit.lean`): `fit_imp` with the
+  outside targets' entries as INCLUSIONS — at an `ordF`-right field the
+  container's domain reading lies in the copy's slot at the outer tuple
+  (`hentR`); at a `pinF` field the container's slot at its OWN pin's
+  carrier AT `Y` (not at the least tuple) lies in the copy's slot at the
+  outer tuple (`hentP`).
+* `nestedGroupLe_of_entries` (`NestedPinLeafAll.lean`): per group, with
+  `X` the auxiliary carrier's group segment (in the container's tuple
+  space; below its least tuple by (ii)), `X` is closed under the
+  container's operator when `hentR`/`hentP` hold at `X` and `L⁺`
+  (`fit_imp_le`, the slots at `segJoin base kJ L⁺ X` are `L⁺`'s,
+  `tupleLfpΦ_fibre`, `lfpTuple_closed`), so `P (q₀+i) ≤ L⁺ (k+q₀+i)`
+  (`lfpTuple_le`).  What (iii) still owes: `hentR` — at a member
+  target an equality (`memberTarget_reads`), at a pin target inside
+  `Ds` the induction hypothesis through `pinTarget_reads` +
+  `slotSet_mono`; `hentP` — the cycle, (c) below.
+
+##### (c) STEP (iii)'s PLAN, revised (the cycle not started)
+
+Per group `(q₀, kJ, dJ := dJf q₀)`, with `X i' := L⁺ (k+q₀+i')`: by (ii)
+`X ≤ LJ`, and `LJ ≤ X` is `lfpTuple_le` at the CLOSURE of `X` under
+`dJ.Φ`.  A spine fitting `dJ`'s constructor at `X` fits the block's copy
+at `L⁺` field by field: member targets read `X` (= the segment);
+`ordF`-left fields read alike (`interp_instAll`); `ordF`-right fields
+need `interp (dom) ⊆ slotSet (L⁺ t)` — at a member target an equality
+(`memberTarget_reads`), at a pin target `q''` INSIDE `Ds` the induction
+hypothesis `P q'' ≤ L⁺ (k+q'')` (a strictly smaller pin expression)
+through `pinTarget_reads` + `slotSet_mono`; `pinF` fields need
+`slotSet (dJ.pinCar X qK) ⊆ slotSet (L⁺ (k+q'))` with `q'` the block pin
+`PinCorr` names — a BIGGER expression (it contains `J Ds`), the cycle.
+The cycle is closed by `dJ`'s own `PinRecLaws.ind` at `X` with the
+property `Q qK := ⋂ {L⁺ (k+t) | t a block pin corresponding to qK}`
+(the intersection over ALL corresponding block pins — the block may
+mint two pins with one container, level arguments and component
+READINGS but distinct component EXPRESSIONS, and `L⁺` at the two is
+identified only through this theorem), whose closure under `pcJ` at
+`(famAt X; sepPins X Q)` is the transfer of `J`'s pin `qK`'s
+constructor (K's, at `Ds_K`, `PinShapes` of `B ci_J` against `B ci_K`)
+to the block's copy of `t` (K's, at `Ds_K[Ds]`, the block's shape
+against `B ci_K`), at the SAME `B ci_K` and — by (b) — at level
+assignments agreeing on K's parameters: K-member fields to K-group
+siblings (the names align the members: `containerInfo?_inv`'s `Nodup`),
+K-own-pin fields to corresponding pins (`Q`), K-ordinary fields alike
+or both rewritten at corresponding targets (the head NAME in `PinCorr`
+now makes "corresponding" structural).  Then `x = inj ∈ Ψ L⁺ (k+t) =
+L⁺ (k+t)`.  Sizing: the transfer lemma (`PinShapes` ∘ outer
+`CopyCtorShape` through K's constructor readings, `interp_instAll`
+twice, one composition lemma) 1 session; the induction and its
+assembly 1 session; (iv) (`P = L⁺` ⇒ `pinLeaf` for all `q` ⇒
+`CopyEntryA` for every group ⇒ `nestedPinsEntry_of`, probe over `hSh`
++ `htail`) ½ session.
+
+##### (d) GATES at the session's commits (last: `nestedGroupLe_of_entries`)
+
+`lake build` 694 jobs warning-free; `lake test` warning-free; shake
+509/509 allowlisted (the one new edge, `NestedPinLeafAll → NestedPins`,
+is the compensated form of the `NestedCopyIdx` edge it first carried);
+pub-imports none demotable; layering/trust/no-local-paths/
+overview-links/quote-gate unchanged; proofdeps 4955/12/0.
 #### U.40 — M7-3 session 2: the routes' lifts hit the PROJECTION TABLES — K.34 inverted, the crossing's reading hypothesis REFUTED, and the census the flip needs (lane M7-3, session 2, 2026-09-16)
 
 Session 1 (§U.31) built the field `EnvModelB.blocks` and its

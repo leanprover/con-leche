@@ -207,6 +207,14 @@ structure NestedPinGroup (m : EnvModel V env₂) (q₀ kJ : Nat) (dJ : BlockMode
   readings (task #315 L-E: `PinGroupView.same`) -/
   same : ∀ i, i < kJ → ∀ ψ : Name → Nat,
     ((D).pinAt (q₀ + i)).ψJ ψ = ((D).pinAt q₀).ψJ ψ ∧ ((D).pinAt (q₀ + i)).Ds ψ = ((D).pinAt q₀).Ds ψ
+  /-- the group's pins share their level arguments (task #315 L-E) -/
+  lvls : ∀ i, i < kJ → ((D).pinAt (q₀ + i)).lvls = ((D).pinAt q₀).lvls
+  /-- the pin's container is stored, and the pin's level assignment is
+  the substitution at its level parameters (task #315 L-E, step (iii)) -/
+  stored : ∀ i, i < kJ → ∃ (cvT : ConstantVal) (caps : IndCaps),
+    env₂.find? ((D).pinAt (q₀ + i)).J = some (.indInfo cvT caps) ∧
+    ∀ ψ : Name → Nat,
+      ((D).pinAt (q₀ + i)).ψJ ψ = Level.substFn ψ cvT.levelParams ((D).pinAt (q₀ + i)).lvls
   idx : ∀ i, i < kJ → ∀ (ψ : Name → Nat) (i' : Nat), i' < kJ →
     blockIds b.nP ppsF ψ (p.k + q₀ + i')
       = instTele (((D).pinAt (q₀ + i)).Ds ψ) 0 (dJ.IdsM i' (((D).pinAt (q₀ + i)).ψJ ψ))
@@ -217,7 +225,9 @@ structure NestedPinGroup (m : EnvModel V env₂) (q₀ kJ : Nat) (dJ : BlockMode
       ((((D).pinAt (q₀ + i)).Ds ψ).map (interp V (consList as ρ)))
   /-- the copies' constructor SHAPES (lane L-B) -/
   shape :
-    ∀ i, i < kJ → ∀ (ψ : Name → Nat) (ρp : Nat → V),
+    ∀ i, i < kJ → ∀ (cvT : ConstantVal) (caps : IndCaps),
+      env₂.find? ((D).pinAt (q₀ + i)).J = some (.indInfo cvT caps) →
+      ∀ (ψ : Name → Nat) (ρp : Nat → V),
       Sat V ((D).params ψ).reverse ρp →
       ∀ i', i' < kJ → ∀ j, j < (dJ.ctorsM i').length →
       CopyShapeA (V := V) (nP := b.nP) (k := p.k) (resSort := f₀.s) (ppsA := ppsF) (W := W)
@@ -228,7 +238,7 @@ structure NestedPinGroup (m : EnvModel V env₂) (q₀ kJ : Nat) (dJ : BlockMode
         (Fss₀ := fun ψ => blkFss0 b ctorsA kinds dsF ψ)
         (Ess₀ := fun ψ => mutEss0 ctorsA.length esF ψ) (ψ := ψ) (ρp := ρp)
         m.acval dJ (((D).pinAt (q₀ + i)).ψJ ψ) (((D).pinAt (q₀ + i)).Ds ψ)
-        q₀ kJ i' j
+        cvT.levelParams ((D).pinAt (q₀ + i)).lvls q₀ kJ i' j
   /-- the copies' ENTRIES at the auxiliary carrier (`nestedPinLeaf_all`) -/
   entry :
     ∀ i, i < kJ → ∀ (ψ : Name → Nat) (ρp : Nat → V),
@@ -245,6 +255,47 @@ structure NestedPinGroup (m : EnvModel V env₂) (q₀ kJ : Nat) (dJ : BlockMode
         dJ (((D).pinAt (q₀ + i)).ψJ ψ) (((D).pinAt (q₀ + i)).Ds ψ) q₀ kJ i' j
 
 /-! ### The pin groups' consequences -/
+
+/-- **The grouping of a copy's constructors, at any member count**: the
+auxiliary block's constructor `offs mm + j` is member `mm`'s iff `j` is
+below the member's own constructor count (`mutualCtorsGrouped`). -/
+theorem ownCtors_grp (h3 : ConLeche.mutualCtorsGrouped b.ctors = true)
+    (hlenA : ctorsA.length = b.ctors.length) (ψ : Name → Nat) {mm nC : Nat}
+    (hcount : nC = (b.ownCtors mm).length) (j : Nat) :
+    (b.ownOffset mm + j < (blkFss0 b ctorsA kinds dsF ψ).length ∧
+      (mutMems ctorsA.length (mutMemF b)).getD (b.ownOffset mm + j) 0 = mm) ↔ j < nC := by
+  rw [hcount]
+  have hlenF : (blkFss0 b ctorsA kinds dsF ψ).length = ctorsA.length := by
+    show ((List.range ctorsA.length).map _).length = _; simp
+  rw [hlenF]
+  constructor
+  · rintro ⟨hJl, hmem⟩
+    rw [mutMems_getD hJl] at hmem
+    have hJb : b.ownOffset (mm) + j < b.ctors.length := by rw [← hlenA]; exact hJl
+    have hc : b.ctors[b.ownOffset (mm) + j]?
+        = some (b.ctors.getD (b.ownOffset (mm) + j) default) := by
+      rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hJb]; rfl
+    obtain ⟨-, hown⟩ := ownCtors_of_ctors h3 hc
+    have hmem' : (b.ctors.getD (b.ownOffset (mm) + j) default).member = mm :=
+      hmem
+    rw [hmem', Nat.add_sub_cancel_left] at hown
+    exact (List.getElem?_eq_some_iff.mp hown).1
+  · intro hj
+    have hj' : (b.ownCtors (mm))[j]? = some ((b.ownCtors (mm))[j]) :=
+      List.getElem?_eq_getElem hj
+    rcases hx : (b.ownCtors (mm))[j] with ⟨J', c⟩
+    rw [hx] at hj'
+    have hJ' := ownCtors_getElem?_idx h3 hj'
+    obtain ⟨hc, hmemc⟩ := ownCtors_getElem?_ctors hj'
+    subst hJ'
+    have hJl : b.ownOffset (mm) + j < ctorsA.length := by
+      rw [hlenA]; exact (List.getElem?_eq_some_iff.mp hc).1
+    refine ⟨hJl, ?_⟩
+    rw [mutMems_getD hJl]
+    show (b.ctors.getD (b.ownOffset (mm) + j) default).member = _
+    rw [List.getD_eq_getElem?_getD, hc]
+    exact hmemc
+
 
 section Groups
 
@@ -278,38 +329,8 @@ theorem NestedPinGroup.grp (h3 : ConLeche.mutualCtorsGrouped b.ctors = true)
     (hlenA : ctorsA.length = b.ctors.length) (ψ : Name → Nat) {i' : Nat} (hi' : i' < kJ) (j : Nat) :
     (b.ownOffset (p.k + q₀ + i') + j < (blkFss0 b ctorsA kinds dsF ψ).length ∧
       (mutMems ctorsA.length (mutMemF b)).getD (b.ownOffset (p.k + q₀ + i') + j) 0
-        = p.k + q₀ + i') ↔ j < (dJ.ctorsM i').length := by
-  rw [G.ctorCount i' hi']
-  have hlenF : (blkFss0 b ctorsA kinds dsF ψ).length = ctorsA.length := by
-    show ((List.range ctorsA.length).map _).length = _; simp
-  rw [hlenF]
-  constructor
-  · rintro ⟨hJl, hmem⟩
-    rw [mutMems_getD hJl] at hmem
-    have hJb : b.ownOffset (p.k + q₀ + i') + j < b.ctors.length := by rw [← hlenA]; exact hJl
-    have hc : b.ctors[b.ownOffset (p.k + q₀ + i') + j]?
-        = some (b.ctors.getD (b.ownOffset (p.k + q₀ + i') + j) default) := by
-      rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hJb]; rfl
-    obtain ⟨-, hown⟩ := ownCtors_of_ctors h3 hc
-    have hmem' : (b.ctors.getD (b.ownOffset (p.k + q₀ + i') + j) default).member = p.k + q₀ + i' :=
-      hmem
-    rw [hmem', Nat.add_sub_cancel_left] at hown
-    exact (List.getElem?_eq_some_iff.mp hown).1
-  · intro hj
-    have hj' : (b.ownCtors (p.k + q₀ + i'))[j]? = some ((b.ownCtors (p.k + q₀ + i'))[j]) :=
-      List.getElem?_eq_getElem hj
-    rcases hx : (b.ownCtors (p.k + q₀ + i'))[j] with ⟨J', c⟩
-    rw [hx] at hj'
-    have hJ' := ownCtors_getElem?_idx h3 hj'
-    obtain ⟨hc, hmemc⟩ := ownCtors_getElem?_ctors hj'
-    subst hJ'
-    have hJl : b.ownOffset (p.k + q₀ + i') + j < ctorsA.length := by
-      rw [hlenA]; exact (List.getElem?_eq_some_iff.mp hc).1
-    refine ⟨hJl, ?_⟩
-    rw [mutMems_getD hJl]
-    show (b.ctors.getD (b.ownOffset (p.k + q₀ + i') + j) default).member = _
-    rw [List.getD_eq_getElem?_getD, hc]
-    exact hmemc
+        = p.k + q₀ + i') ↔ j < (dJ.ctorsM i').length :=
+  ownCtors_grp h3 hlenA ψ (G.ctorCount i' hi') j
 
 end Groups
 
@@ -431,12 +452,13 @@ theorem nestedPinLeaf_of (hμ : μ.verifiedChecks = true)
   obtain ⟨q₀, kJ, i, dJ, rfl, hi, G⟩ := hgroups q hq
   obtain ⟨cvT, cvR, mI, rP, rules, hI⟩ := G.rep i hi
   have hρp : Sat V ((D).params ψ).reverse (consList as ρ) := (D).satOfSpine hsp
+  obtain ⟨cvT', caps', hf', -⟩ := G.stored i hi
   exact ofNested_pinLeaf_of m.acval hI
     (nestedLfpOk_of_formers h hμ hbk ψ (consList as ρ) hρp (nestedPinBound_of m hgroups ψ _ hρp))
     (nestedShape_of_formers h hbk ψ) G.seg hi G.reps (G.typed _) (G.pinsTyped _)
     G.kEq (G.w i hi ψ) (nestedU_pin_group m G hi ψ) (G.inj _) (G.idx i hi ψ)
     (fun i' hi' j => G.grp h3 h.lenA ψ hi' j)
-    (G.shape i hi ψ _ hρp) (G.entry i hi ψ _ hρp) rfl rfl rfl (G.pinIds hi ψ)
+    (G.shape i hi cvT' caps' hf' ψ _ hρp) (G.entry i hi ψ _ hρp) rfl rfl rfl (G.pinIds hi ψ)
     (G.DsFit i hi ψ ρ as hsp) hisFit
 
 /-- **The nested-entry identity**, at ANY model carrying the groups: the
