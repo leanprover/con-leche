@@ -1,6 +1,7 @@
 module
 
-import ConLeche.Model.AxiomReduce
+import ConLeche.Model.StepAgree
+import ConLeche.Model.Harvest
 import ConLeche.Model.DeclInd
 import ConLeche.Model.Inductives.DeclStruct
 import ConLeche.Semantics.IndBlockFacts
@@ -9,7 +10,6 @@ import ConLeche.Semantics.Inductives.DeclSumEta
 import ConLeche.Model.Inductives.DeclSum
 public import ConLeche.Model.Inductives.DeclNative
 import ConLeche.Model.Inductives.DeclInductive
-import ConLeche.Model.BasisFalse
 public section
 
 /-!
@@ -43,6 +43,14 @@ The routed bundles, by tier:
   `BasisStepPB` (ENDGAME H, `basisStepPB_of`) and `IndStepPB`
   (IND TIER part 10, `indStepPB_of`) are all discharged; the census
   is `hμ` alone.
+
+The axiom and basis steps' CARRIER AGREEMENTS (`axiomStepAgree_of`,
+`basisStepAgree_of`) live in `Model/StepAgree.lean`, below this module
+(task #315 M8 step 1, DESIGN §U.56 (g) 1): the environment model's
+block field is maintained by them, so the modules that maintain it
+read them — and while they lived here, every theorem of the flip sat
+above this module.  The two bundles below are their `Nonempty`
+projections.
 -/
 
 namespace ConLeche.Model
@@ -74,27 +82,6 @@ def AxiomStepPB (V : Type w) [SetTheory V] (μ : CheckMode) : Prop :=
     DeclAxiomRun μ F env cv env₂ →
     Nonempty (EnvModelM V μ env₂)
 
-/-- **The axiom kind's step, WITH THE CARRIER AGREEMENT** (task #315
-M7-3): every `DeclAxiomR` branch conses one fresh `axiomInfo` (or, at
-the tolerated skip, nothing), so the model it produces values every OLD
-constant as the prefix model did — the fact the block-model field
-`EnvModelB.blocks` is maintained by (`EnvModelBStages.lean`).
-`axiomStepPB_of` is its `Nonempty` projection. -/
-theorem axiomStepAgree_of (hμ : μ.verifiedChecks = true) {F : Nat} {env : Env}
-    (mp : EnvModelM V μ env) {cv : ConstantVal} {env₂ : Env}
-    (hR : DeclAxiomRun μ F env cv env₂) :
-    ∃ mp' : EnvModelM V μ env₂, AcvalAgrees mp.base2 mp'.base2 := by
-  -- the `Quot.sound` arm (task #293) installs nothing
-  rcases hR with ⟨-, rfl⟩ | hR
-  · exact ⟨mp, AcvalAgrees.rfl' _⟩
-  obtain ⟨type', hcv, hbranch⟩ := hR
-  rcases hbranch with ⟨hok, rfl⟩ | ⟨hname, hok, rfl⟩ |
-    ⟨hor, hok, rfl⟩ | ⟨-, -, -, -, -, -, -, rfl⟩
-  · exact axiomStd hμ mp hcv hok
-  · exact axiomTrustCompiler hμ mp hcv hname hok
-  · exact axiomOfReduce hμ mp hcv hor hok
-  · exact axiomSkip mp
-
 /-- **`AxiomStepPB`, discharged — THE PIN BUNDLE IS CLOSED.**  All four
 `DeclAxiomR` branches: the two standard axioms (`axiomStd`, ENDGAME
 C), `Lean.trustCompiler` (`axiomTrustCompiler`, ENDGAME A part 2),
@@ -111,29 +98,6 @@ def BasisStepPB (V : Type w) [SetTheory V] (μ : CheckMode) : Prop :=
     ∀ {kind : ConLeche.BasisKind} {env₂ : Env},
       DeclBasisRun env kind env₂ →
       Nonempty (EnvModelM V μ env₂)
-
-/-- **The basis kind's step, WITH THE CARRIER AGREEMENT** (task #315
-M7-3 session 9, DESIGN §U.55 (b)): every pinned block is a chain of
-three to five fresh conses, so the model it produces values every OLD
-constant as the prefix model did — the fact the block-model field
-`EnvModelB.blocks` is maintained by, and the one the basis blocks'
-`EnvBlocksOf.extendBasisOf` cannot state about an anonymous model.
-`basisStepPB_of` is its `Nonempty` projection.
-
-`quotK` is the one branch whose `DeclBasisRun` guard is not vacuous: it
-needs `Eq` in the prefix, which is what the block's `Eq` bridge
-consumes. -/
-theorem basisStepAgree_of {env : Env} (mp : EnvModelM V μ env)
-    {kind : ConLeche.BasisKind} {env₂ : Env} (h : DeclBasisRun env kind env₂) :
-    ∃ mp' : EnvModelM V μ env₂, AcvalAgrees mp.base2 mp'.base2 := by
-  obtain ⟨hEq, hchain⟩ := h
-  cases kind with
-  | eqK => exact declBasisPB_eqK mp hchain
-  | natK => exact declBasisPB_natK mp hchain
-  | punitK => exact declBasisPB_punitK mp hchain
-  | emptyK => exact declBasisPB_emptyK mp hchain
-  | falseK => exact declBasisPB_falseK mp hchain
-  | quotK => exact declBasisPB_quotK mp (hEq rfl) hchain
 
 /-- **`BasisStepPB`, discharged** (task #161, ENDGAME H; the `False` block
 at task #181): all pinned basis blocks install at the P tier —

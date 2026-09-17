@@ -95,6 +95,7 @@ public import ConLeche.Model.DeclInd
 public import ConLeche.Model.IndPinProbe
 public import ConLeche.Model.AxiomPin
 public import ConLeche.Model.Harvest
+public import ConLeche.Model.StepAgree
 public import ConLeche.Model.Fold
 public import ConLeche.Model.Inductives.BlockRepOne
 public import ConLeche.Model.Inductives.BlockRecCand

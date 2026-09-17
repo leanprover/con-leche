@@ -10,7 +10,7 @@ import ConLeche.Model.Inductives.MutualNoProj
 import ConLeche.Model.Inductives.MutualRecsStore
 import ConLeche.Model.Inductives.MutualRecsStage
 import ConLeche.Semantics.DeclRun
-import ConLeche.Model.Fold
+import ConLeche.Model.StepAgree
 import ConLeche.Model.Harvest
 public section
 
