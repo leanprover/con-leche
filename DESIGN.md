@@ -92092,9 +92092,11 @@ anchor moved; quote-gate 2; no-local-paths OK; **proofdeps 4965 rows /
 12 roots / 0 doors** — the baseline, as it must be for a session that
 relocates nothing and whose three new objects are consumed by nothing
 in the chain; shake 511 removals, all allowlisted; pub-imports 1315 of
-2143, none demotable; `tests/arena.sh` EXIT 0 (re-run because the
-merge carries the kernel lane's K.41/K.42/K.44/K.45/K.46; this
-session's own commits touch no checker code).  Standard axioms on
+2143, none demotable; `tests/arena.sh` EXIT 0 at HEAD (re-run
+because the merge carries the kernel lane's K.41/K.42/K.44/K.45/K.46;
+this session's own commits touch no checker code) — nested-shadow
+27/27, e2e 196/196, the arena's 90/92, all four sweeps, axiom pin 20
+theorems.  Standard axioms on
 `pinCorr_of_ownPins`, `ContainerOwnPins.of_noOwn`,
 `DenoteMetaSpine.det` and on the six theorems the `pinParams` field
 touched (`of_readBack`, `crossEnvP`, `nativeContainerModeled`,
