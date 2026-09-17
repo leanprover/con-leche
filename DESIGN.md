@@ -83601,6 +83601,45 @@ below the extended carrier `famAt LJ` (`app_subset_of_famLe` +
 which the frames' kit carries).  `fit_iff_at` is its instance at
 `Y := famAt LJ`.
 
+##### (h) SESSION 5's re-cut of the blob transfer: a RELATION, not a map; the entries fibre-wise
+
+Working (1)–(2) of (g) through showed the pullback lemma's FUNCTION
+`σ` is the wrong shape twice over — `J`'s pins `K (J α)`, `K (J β)` at
+`Ds = [P4, P4]` both instantiate to the block's `K (J P4)`, and a
+block pin the block's copy names at one field is only determined by
+the field's syntactic instantiation, which the abstract container
+model does not carry — so the comparison is made along a RELATION `R`
+between `J`'s classes and the block's pins, defined by the targets'
+READINGS (a `J`-class and a block pin are related when their stored
+readings, applied to fitting index spines, agree), with duplicates on
+either side absorbed by relational meets:
+
+* `lfpTuple_le_of_rel` / `lfpTuple_eq_of_rel` (`LfpCompose.lean`):
+  `Φ`'s least tuple lies below a FIXED POINT `F'` of `Φ'` at every
+  `R`-related pair when `Φ'` is `R`-monotone over `Φ` at tuples below
+  `Φ`'s least tuple (`relMeet`, the relational fibre meet, is
+  `Φ`-closed); at two least tuples both ways gives equality.  Stated at
+  a fixed point so the CARRIER `L⁺` stands on the right with no
+  sub-system leastness to show, and only the container→block direction
+  is needed for (iii) (the other is step (ii)).
+* `PinRecLaws.injW`: a pin's injection is the tagged tower (`nestedPc`
+  by definition) — the fibres compared carry the same tags.
+* `EntryRead` restated at the BODY: the container's domain is
+  `mkPisAV tlsJ body` (its own telescope, the copy's is its
+  instantiation) whose body at a fitting prefix and telescope spine
+  reads as the target's stored reading applied to the copy's index
+  readings.  Equal Π-TOWERS do not give equal fibres (an empty fibre
+  empties a tower), and `R` between an `ordF`-right target of `J`'s
+  pin constructor and the corresponding target of the block's copy is
+  established fibre-wise from the two body identities through
+  `interp_instAll` (the same container field at two frames).  For lane
+  L-B: `copyOrdFRight_shape`'s reading half is now the body form —
+  what `copyGroupTargetHead`'s `hstr`/`hhead` give directly.
+
+With these the blob transfer needs NO `σ`, no `ΦT` as a set operator
+on the container side beyond what `PinRecLaws.fibre`/`ind` state, and
+no names in `R`.
+
 ##### (g) WHAT REMAINS on the blob route
 
 1. The pin half of the transfer: the block's copy of a kind-2 pin `t`
