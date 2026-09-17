@@ -1,6 +1,7 @@
 module
 
 public import ConLeche.Model.Inductives.BlockComposed
+public import ConLeche.Model.Inductives.NestedRecCand
 public import ConLeche.Semantics.Tower.InstAll
 public section
 
@@ -622,6 +623,102 @@ theorem CopyCtorShape.fit_iff_at {env : Env} {m : EnvModel V env}
   -- the index equations
   refine Iff.trans (and_congr hfits (Iff.rfl)) ?_
   unfold BlockModel.ChainFit
+  refine and_congr_right fun hf => ?_
+  have hlen : fs.length = ((dJ.Fss i ψJ).getD j []).length := hf.length_eq
+  rw [hnI]
+  refine forall_congr' fun l => imp_congr_right fun hl => ?_
+  rw [h.es l hl, ← hlen, interp_instAll]
+
+/-- **`hfit` at one constructor, at a VARIABLE extended tuple** (task
+#315 L-E, DESIGN §U.48: the blob transfer's member half): a spine fits
+the copy at the joined tuple — the group segment read at `Y`'s member
+part, a `pinF` target read at `Y`'s pin part through the pullback `hL`,
+an `ordF`-right target at the outer tuple `L` (the externals) — iff it
+fits the container's constructor at the extended tuple `Y`
+(`ChainFitT`: the container's own pins are VARIABLES, not the least
+section), for `Y` below the extended carrier (`famAt` at the least
+tuple: the container's slots at `Y` are within its real domains,
+`slotAtT_mono`, which the frames' kit carries). -/
+theorem CopyCtorShape.fit_iff_at_T {env : Env} {m : EnvModel V env} {pc : Nat → PinCtors V}
+    {Y : Nat → V}
+    (hreps : IsBlockModels m dJ) (hfT : FormersTyped m dJ ψJ) (hPT : PinsTyped m dJ ψJ)
+    (hi : i < dJ.k) (hkJ : dJ.k = kJ)
+    (hw : dJ.w ψJ = TV.w)
+    (hu : ∀ i', i' < kJ → TV.u (base + i') = dJ.uM i' ψJ)
+    (hρJ : Sat V (dJ.params ψJ).reverse ρJ)
+    {nI : Nat} (hnI : nI = (dJ.IdsM i ψJ).length)
+    {cA : ConstantVal × Nat} (hj : (dJ.ctorsM i)[j]? = some cA)
+    (hYs : InTupleSpace (dJ.w ψJ) (dJ.kT) (dJ.idxT ψJ ρJ) Y)
+    (hYle : TupleLe (dJ.kT) (dJ.idxT ψJ ρJ) Y (dJ.famAt ψJ ρJ LJ))
+    (h : CopyCtorShape TV acval dJ ψJ Ds lpsJ lvlsJ tg tls Eis ρp i j base kJ Fs rs Es)
+    {L : Nat → V} (hent : CopyEntryOut dJ ψJ Ds tg tls Eis ρp i j base kJ Fs rs TV.w TV.u L)
+    (hL : ∀ l, l < Fs.length → ((dJ.rss i).getD j []).getD l false = true →
+      ¬ dJ.tgts i j l < dJ.k → L (tg l) = Y (dJ.tgts i j l))
+    (t : V) (fs : List V) :
+    (FitsFrom rs (fun i' ρ => slotSet TV.w (TV.u (tg i')) ρ (tls.getD i' []) (Eis.getD i' [])
+        (segJoin base kJ L Y (tg i'))) 0 ρp Fs fs ∧
+      (∀ l, l < nI → interp V (consList fs ρp) (Es.getD l default) = projS l t))
+    ↔ dJ.ChainFitT pc ψJ ρJ Y t i j fs := by
+  obtain ⟨cvT, cvR, mI, rP, rules, hI⟩ := hreps i hi
+  have hjl : j < (dJ.ctorsM i).length := (List.getElem?_eq_some_iff.mp hj).1
+  have hlenF := hI.Fss_length hj ψJ
+  have hks : (dJ.ksF i j).length = ((dJ.Fss i ψJ).getD j []).length := by
+    rw [(hI.ctorData hj).ksLen, hlenF]
+  have hLJ : LJ = lfpTuple (dJ.w ψJ) dJ.k (dJ.idx ψJ ρJ) (dJ.Φ ψJ ρJ) := by rw [hw]
+  -- the container's slot at `Y` is within its slot at the carrier
+  have hYle' : ∀ c, c < dJ.kT → ∀ t', app (Y c) t' ⊆ˢ app (dJ.famAt ψJ ρJ LJ c) t' :=
+    fun c hc t' => app_subset_of_famLe (hYs c hc) (hYle c hc) t'
+  unfold BlockModel.ChainFitT
+  rw [BlockModel.rssT_of_mem hi, BlockModel.FssT_of_mem hi, BlockModel.IdsT_of_mem hi,
+    BlockModel.EssT_of_mem hi]
+  -- the fits
+  have hfits : FitsFrom rs (fun i' ρ => slotSet TV.w (TV.u (tg i')) ρ (tls.getD i' []) (Eis.getD i' [])
+        (segJoin base kJ L Y (tg i'))) 0 ρp Fs fs ↔
+      FitsFrom ((dJ.rss i).getD j []) (dJ.slotAtT pc ψJ Y i j) 0 ρJ ((dJ.Fss i ψJ).getD j []) fs := by
+    refine (fitsFrom_iff_frames_spine h.len.symm fun l hl fs₁ hl₁ hsp hf hf' => ?_).symm
+    subst hl₁
+    have hlt : fs₁.length < cA.2 := by rw [← hlenF]; exact hl
+    have hkl : fs₁.length < (dJ.ksF i j).length := by rw [hks]; exact hl
+    simp only [Nat.zero_add]
+    by_cases hr : ((dJ.rss i).getD j []).getD fs₁.length false = true
+    · have hr' : (rsOf (dJ.ksF i j)).getD fs₁.length false = true := by
+        rwa [IsBlockModel.rss_getD hjl] at hr
+      have hreal := hreps.real_dom_eq hfT hPT hi hj hρJ hlt hr' hsp
+      rw [hw] at hreal
+      rw [if_pos hr]
+      have htgtLt : dJ.tgts i j fs₁.length < dJ.kT := by
+        rcases hI.tgt_cases hjl hkl with h1 | ⟨-, h2⟩
+        · show _ < dJ.k + dJ.nPins; omega
+        · show _ < dJ.k + dJ.nPins; omega
+      refine ⟨?_, ?_⟩
+      · -- within the real domain: monotone to the carrier, where the slot is the real domain
+        refine Subset.trans (dJ.slotAtT_mono pc (Y' := dJ.famAt ψJ ρJ LJ) ?_) ?_
+        · rw [BlockModel.tgtsT_of_mem hi]
+          exact hYle' _ htgtLt
+        · rw [BlockModel.slotAtT_of_mem hi ψJ ρJ LJ j fs₁.length rfl, hreal]
+          exact Subset.refl _
+      rcases hI.tgt_cases hjl hkl with htgt | ⟨hnt, -⟩
+      · obtain ⟨hrC, htg, htl, hEis⟩ := h.recF _ hl hr htgt
+        simp only [BlockModel.slotAtT, BlockModel.teleAtT_of_mem hi, BlockModel.eisAtT_of_mem hi,
+          BlockModel.tgtsT_of_mem hi, BlockModel.teleAt, BlockModel.eisAt,
+          BlockModel.uT_of_mem htgt]
+        rw [if_pos hrC, htg, segJoin_add _ _ (hkJ ▸ htgt), hEis, hw, hu _ (hkJ ▸ htgt)]
+        exact (slotSet_instTele Iff.rfl Iff.rfl Ds ρp fs₁ htl _ _).symm
+      · obtain ⟨hrC, hout, -, -, ⟨-, -, hu', -, -, -⟩, htl, hEis⟩ := h.pinF _ hl hr hnt
+        simp only [BlockModel.slotAtT, BlockModel.teleAtT_of_mem hi, BlockModel.eisAtT_of_mem hi,
+          BlockModel.tgtsT_of_mem hi, BlockModel.teleAt, BlockModel.eisAt,
+          BlockModel.uT_of_pin hnt]
+        rw [if_pos hrC, segJoin_out _ _ hout, hL _ (h.len ▸ hl) hr hnt, hEis, hw, hu']
+        exact (slotSet_instTele Iff.rfl Iff.rfl Ds ρp fs₁ htl _ _).symm
+    · have hr' : ((dJ.rss i).getD j []).getD fs₁.length false = false := by simpa using hr
+      rw [if_neg (by rw [hr']; exact Bool.false_ne_true)]
+      refine ⟨Subset.refl _, ?_⟩
+      rcases h.ordF _ hl hr' with ⟨hrC, hF⟩ | ⟨hrC, hout, -, -⟩
+      · rw [if_neg (by rw [hrC]; exact Bool.false_ne_true), hF fs₁ rfl, interp_instAll]
+      · rw [if_pos hrC, segJoin_out _ _ hout]
+        exact hent _ (h.len ▸ hl) hrC hout fs₁ rfl hsp
+  -- the index equations
+  refine Iff.trans (and_congr hfits (Iff.rfl)) ?_
   refine and_congr_right fun hf => ?_
   have hlen : fs.length = ((dJ.Fss i ψJ).getD j []).length := hf.length_eq
   rw [hnI]

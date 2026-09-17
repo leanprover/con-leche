@@ -892,7 +892,8 @@ theorem famLe_fibreMeet {Is X : Nat → V} {σ : Nat → Nat} {k' : Nat} {Y : Na
 /-- **The least tuple of a system pulled back along a map of variables**
 (task #315 L-E, DESIGN §U.48 (d)): a system `Φ'` over `k'` variables
 whose operator at a tuple pulled back along `σ : [0,k') → [0,k)` is the
-pullback of `Φ`'s (`hpull`, at every tuple in the space), with the
+pullback of `Φ`'s (`hpull`, at every tuple in the space BELOW `Φ`'s
+least tuple — all the argument visits), with the
 index sets pulled back too, has as least tuple the pullback of `Φ`'s —
 variables renamed or DUPLICATED along `σ` change nothing.  `(lfp Φ) ∘ σ`
 is `Φ'`-closed; conversely `fibreMeet` (the base least tuple cut down
@@ -907,7 +908,8 @@ theorem lfpTuple_pullback {w k k' : Nat} {Is Is' : Nat → V} {Φ Φ' : (Nat →
     (hcl : ∃ L, IsClosedTuple w k Is Φ L)
     (hmono' : MonoTuple w k' Is' Φ') (hmaps' : MapsTuple w k' Is' Φ')
     (hcl' : ∃ L', IsClosedTuple w k' Is' Φ' L')
-    (hpull : ∀ X, InTupleSpace w k Is X → ∀ j, j < k' → Φ' (fun j' => X (σ j')) j = Φ X (σ j)) :
+    (hpull : ∀ X, InTupleSpace w k Is X → TupleLe k Is X (lfpTuple w k Is Φ) →
+      ∀ j, j < k' → Φ' (fun j' => X (σ j')) j = Φ X (σ j)) :
     ∀ j, j < k' → lfpTuple w k' Is' Φ' j = lfpTuple w k Is Φ (σ j) := by
   intro j hj
   -- the pullback of the base least tuple is closed
@@ -918,7 +920,8 @@ theorem lfpTuple_pullback {w k k' : Nat} {Is Is' : Nat → V} {Φ Φ' : (Nat →
   have hX'cl : IsClosedTuple w k' Is' Φ' (fun j' => lfpTuple w k Is Φ (σ j')) := by
     refine ⟨hX'mem, fun j' hj' => ?_⟩
     show FamLe (Is' j') (Φ' (fun j'' => lfpTuple w k Is Φ (σ j'')) j') (lfpTuple w k Is Φ (σ j'))
-    rw [hpull _ (lfpTuple_mem w k Is Φ) j' hj', lfpTuple_eq hcl hmono hmaps (hσ j' hj')]
+    rw [hpull _ (lfpTuple_mem w k Is Φ) (TupleLe.refl _ _ _) j' hj',
+      lfpTuple_eq hcl hmono hmaps (hσ j' hj')]
     exact FamLe.refl _ _
   have h1 := lfpTuple_le hX'cl j hj
   -- the fibre meet is closed under the base operator
@@ -941,7 +944,7 @@ theorem lfpTuple_pullback {w k k' : Nat} {Is Is' : Nat → V} {Φ Φ' : (Nat →
         (fun i' hi' => fibreMeet_le_base Is _ σ k' _ i') i hi
       rw [lfpTuple_eq hcl hmono hmaps hi] at this
       exact this
-    · have e := hpull _ hTmem j' hj'
+    · have e := hpull _ hTmem (fun i' hi' => fibreMeet_le_base Is _ σ k' _ i') j' hj'
       rw [hσj] at e
       rw [← e]
       have := hmono' _ _ hTσmem (lfpTuple_mem w k' Is' Φ') hTσ j' hj'
