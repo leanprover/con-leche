@@ -1713,6 +1713,21 @@ def checkNested (ops : CheckerOps m) (env : Env) (p : NestedParts) : m Env := do
   let mimicNames := (List.range p.numNested).map p.mimicRecName
   let cvRms ← restoreRecTys ops env₂ R p.lps memberNames members
   let cvRns ← restoreRecTys ops env₂ R p.lps mimicNames mimics
+  -- **THE RESTORED RECURSORS' NAMES ARE PAIRWISE DISTINCT** (task #315
+  -- K.39, lane M7-2's DESIGN §U.29 (s)).  The provision loop needs each
+  -- name FRESH at the environment its cons runs at, and nothing else
+  -- supplies it: `restoreRecTys_door` gives freshness at ONE
+  -- environment, the same for every entry, so it separates none of
+  -- them; and `b.blockNames.Nodup` covers the members' `T_m.rec` but
+  -- not a mimic's `T₁.rec_j`, which is no scratch block name at all.
+  -- Deriving it syntactically needs `Nat.repr` injectivity, which core
+  -- does not carry.  It is the nested twin of the mutual route's own
+  -- `blockNames.Nodup` check.  CERTIFICATION-ONLY, gated; a failure is
+  -- `.internal` and cannot happen — the members' names are the block's,
+  -- already `Nodup`, and the mimics' are `T₁.rec_1, T₁.rec_2, …`.
+  unless certOnly ops.mode
+      (decide ((cvRms.map (·.name) ++ cvRns.map (·.name)).Nodup)) do
+    throw (.internal "nested: two restored recursors carry one name")
   let provisions := (cvRms.zip (members.map fun a => (a.mI, a.rP)))
     ++ (cvRns.zip (mimics.map fun a => (a.mI, a.rP)))
   let envR := provisionNestedRecs provisions env₂

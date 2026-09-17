@@ -929,6 +929,8 @@ theorem checkNested_inv {env envOut : Env} {p : NestedParts} {F : Nat}
           (restoreTbl p st) p.lps
           ((List.range p.numNested).map p.mimicRecName)
           (stored.drop p.k) = .ok cvRns ∧
+      -- THE RESTORED RECURSORS' NAMES ARE PAIRWISE DISTINCT (K.39)
+      certOnly mode (decide ((cvRms.map (·.name) ++ cvRns.map (·.name)).Nodup)) = true ∧
       -- the restored rules, at the rule-less provision
       (cvRms.zip (stored.take p.k)).mapM (fun (cvRa, a) =>
           restoreRules (m := CheckM) (fueledOps mode F)
@@ -1066,6 +1068,12 @@ theorem checkNested_inv {env envOut : Env} {p : NestedParts} {F : Nat}
   try simp only at h
   obtain ⟨cvRns, hrn, h⟩ := exceptBind_ok h
   try simp only at h
+  try simp only [bind, Except.bind] at h
+  by_cases hnd : certOnly (fueledOps mode F).mode
+      (decide ((cvRms.map (·.name) ++ cvRns.map (·.name)).Nodup)) = true
+  case neg => rw [if_neg hnd] at h; close_throw
+  rw [if_pos hnd] at h
+  try simp only [bind, Except.bind] at h
   obtain ⟨rulesM, hrlm, h⟩ := exceptBind_ok h
   try simp only at h
   obtain ⟨rulesN, hrln, h⟩ := exceptBind_ok h
@@ -1093,7 +1101,7 @@ theorem checkNested_inv {env envOut : Env} {p : NestedParts} {F : Nat}
     hfmsA, hctorsA, helim', beq_iff_eq.mp hcnt, hfresh, hcont, hb', haux, hst', hpc,
     (by cases uA; exact hpinsAux), hcaps, hsrc,
     certOnly_and_left hcont, hgrp, hsc, htg, hkd, haa, hrk,
-    (by cases uP₁; exact hpins₁), hctors, hrm, hrn, hrlm, hrln, htbl,
+    (by cases uP₁; exact hpins₁), hctors, hrm, hrn, hnd, hrlm, hrln, htbl,
     (by cases u₀; exact hpins), hlen, (by cases u₁; exact hrecs), hrb⟩
 
 end ConLeche
