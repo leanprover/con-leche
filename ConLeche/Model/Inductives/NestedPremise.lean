@@ -81,8 +81,15 @@ structure ContainerModeled {env : Env} (m : EnvModel V env) (ci : ContainerInfo)
   reps : IsBlockModels m d
   /-- the members, constructors and pins typed -/
   typed : ∀ ψ : Name → Nat, FormersTyped m d ψ ∧ CtorsTyped m d ψ ∧ PinsTyped m d ψ
-  /-- the injections are the tagged towers at the member-local positions -/
-  inj : ∀ (ψ : Name → Nat) (mm' j : Nat) (fs : List V),
+  /-- the injections are the tagged towers at the member-local
+  positions, **at a container with parameters** (task #315 M7-4,
+  DESIGN §U.45): the clause is FALSE at the pinned `Nat` (whose carrier
+  `ω` holds `natzero = ∅`) and at the pinned `PUnit` (whose carrier
+  `{pt}` holds the proof point), and `0 < d.nP` is its own scope — the
+  only consumer is a pin's container (`NestedPinGroupSyn.inj`), and
+  `nestedOccOk` mints a pin only where a member is mentioned among
+  `args.take ci.nP`, which is empty at `ci.nP = 0`. -/
+  inj : 0 < d.nP → ∀ (ψ : Name → Nat) (mm' j : Nat) (fs : List V),
     d.inj ψ mm' j fs = injW (d.w ψ) j (mkTower (fs ++ [pt]))
   /-- member `i` is the `i`-th entry: its name, its CONSTRUCTORS BY
   NAME AND IN ORDER (task #315 L-B: the copies' identities read the

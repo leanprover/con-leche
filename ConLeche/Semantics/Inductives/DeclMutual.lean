@@ -89,9 +89,11 @@ def DeclMutualRun (μ : CheckMode) (F : Nat) (env : Env)
       (ConLeche.storeMutualRecs (ConLeche.consMutualCtors b.nP ctorsA env₁) b fms rulesOf
         cvRas.zipIdx (ConLeche.consMutualCtors b.nP ctorsA env₁)) = .ok env₂ ∧
     -- THE READ-BACK (K.34): `containerInfo?` of the environment this
-    -- route produced, at every member, is the block's own data
-    ConLeche.blockReadBackOk env₂ b.nP (fms.zipIdx.map fun (f, mIdx) =>
-      (f.cvTa, (b.ownCtors mIdx).filterMap fun (J, _) => ctorsA[J]?)) = true
+    -- route produced, at every member, is the block's own data.
+    -- CERTIFICATION-ONLY, hence `certOnly`-gated (K.35's follow-up):
+    -- the model tier reads the Bool off it under `μ.verifiedChecks`
+    ConLeche.certOnly μ (ConLeche.blockReadBackOk env₂ b.nP (fms.zipIdx.map fun (f, mIdx) =>
+      (f.cvTa, (b.ownCtors mIdx).filterMap fun (J, _) => ctorsA[J]?))) = true
 
 /-- The bridge inversion: a successful mutual install is a run. -/
 theorem declMutualRun_of {μ : CheckMode} {F : Nat} {env env₂ : Env} {p : MutualParts}
@@ -260,6 +262,26 @@ theorem mutualFormers_freshExt {F nP : Nat} {l : List (ConstantVal × Nat)}
     ConLeche.checkConstantVal_inv hccv'
   show env.find? f.cvTa.name = none
   rw [hTeq]; exact hfresh
+
+/-- **The block's members are FRESH in the pre-block environment** (task
+#315 K.36): the formers' front door (`checkConstantVal`) refuses a name
+the environment already carries.  Read off the formers' STAGE, which the
+run relation already exposes — which is why K.36's fact costs the run no
+conjunct of its own (`ConLeche.mutualOrdFree_of`). -/
+theorem mutualFormers_membersFresh {F nP : Nat} {l : List (ConstantVal × Nat)}
+    {env env' : Env} {fms : List MutualFormerA}
+    (h : ConLeche.mutualFormers (m := ConLeche.CheckM) (fueledOps μ F) nP l env
+      = .ok (env', fms)) :
+    ∀ T ∈ fms.map (·.cvTa.name), (env.find? T).isNone := by
+  intro T hT
+  obtain ⟨f, hf, rfl⟩ := List.mem_map.mp hT
+  obtain ⟨hchecks, -⟩ := ConLeche.mutualFormers_inv h
+  obtain ⟨cv', hccv'⟩ := ConLeche.mutualFormerChecks_checked hchecks f hf
+  obtain ⟨hfr, -, -, -, -, -, _, _, _, -, -, -, -, -, hTeq⟩ :=
+    ConLeche.checkConstantVal_inv hccv'
+  show (env.find? f.cvTa.name).isNone
+  rw [hTeq, hfr]
+  rfl
 
 /-- Stage 3: the constructors' conses. -/
 theorem consMutualCtors_consts {nP : Nat} :

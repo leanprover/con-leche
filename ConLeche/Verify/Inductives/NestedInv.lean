@@ -1013,7 +1013,7 @@ theorem checkNested_inv {env envOut : Env} {p : NestedParts} {F : Nat}
       copiesFresh env p.k st = true ∧
       -- the CONTAINERS' facts (K.14): uniform occurrences of the group in
       -- the stored constructors, and the two recursor facts at every member
-      nestedContainersOk env st.pins = true ∧
+      certOnly mode (nestedContainersOk env st.pins) = true ∧
       -- the auxiliary mutual block, checked in a SCRATCH environment
       auxBlock p st = some b ∧
       checkMutualCore (m := CheckM) (fueledOps mode F) env b none true = .ok envAux ∧
@@ -1031,24 +1031,31 @@ theorem checkNested_inv {env envOut : Env} {p : NestedParts} {F : Nat}
       -- THE COPIES' SOURCES (K.28): every minted auxiliary type is
       -- `mkCopy`'s output at the `(J, lvls, Ds)` it records, so the
       -- copy-instantiation identities are a field read
-      nestedCopySrcOk env p st = true ∧
+      certOnly mode (nestedCopySrcOk env p st) = true ∧
       -- THE PINS ARE STRUCTURALLY DISTINCT (K.15 (2), named at K.31):
       -- read off `nestedContainersOk`'s first conjunct, so this costs no
       -- second check — what `replaceAllNested`'s `find?` rewrite needs
-      pinsDistinct st.pins = true ∧
+      certOnly mode (pinsDistinct st.pins) = true ∧
       -- THE PINS' MINT GROUPS (K.29): the segment, its size, the
       -- member order, and the group's shared `lvls`/`Ds`
-      nestedGroupsOk env p st = true ∧
+      certOnly mode (nestedGroupsOk env p st) = true ∧
       -- THE PINS' SCOPE (K.30): the pins' free variables are the first
       -- former's openers, annotation included, and no loose bvar
-      pinsScoped p.nP st = true ∧
+      certOnly mode (pinsScoped p.nP st) = true ∧
       -- THE COPIES' RECURSIVE TARGETS (K.32): a group-recursive copy
       -- field comes from the container's own recursion at the spine
-      nestedCopyTargetsOk env p b st stored = true ∧
+      certOnly mode (nestedCopyTargetsOk env p b st stored) = true ∧
       -- THE FIELD KINDS (K.26): the auxiliary block's stored fields are
       -- classified `.ordinary`, `.recursive` or `.reflexive`, and
       -- `nestedPinKinds p b stored` is that classification
-      nestedPinKindsOk p b st stored = true ∧
+      certOnly mode (nestedPinKindsOk p b st stored) = true ∧
+      -- THE AUXILIARY APPLICATIONS (K.35): the restore's
+      -- `args.drop nP` precondition, at the read-back recursor types
+      -- and rules
+      certOnly mode (nestedAuxAppsOk p st stored) = true ∧
+      -- THE PINS' CONTAINER INSTANCES AND RANK (K.37): the model's
+      -- induction measure for step (iii)
+      certOnly mode (nestedPinRankOk env p b st stored) = true ∧
       -- POST-CHECK (a) A THIRD TIME (K.30): the pins typed at the
       -- environment holding the RESTORED formers
       nestedPinsOk (m := CheckM) (fueledOps mode F)
@@ -1118,8 +1125,9 @@ theorem checkNested_inv {env envOut : Env} {p : NestedParts} {F : Nat}
         = .ok () ∧
       -- THE READ-BACK (K.34): `containerInfo?` of the environment this
       -- route produced, at every member, is the block's own data
-      blockReadBackOk envOut p.nP (((stored.take p.k).zip ctorsR).map fun (a, cs) =>
-        (a.cvTa, cs.map fun (cv, _, nF) => (cv, nF))) = true := by
+      certOnly mode (blockReadBackOk envOut p.nP
+        (((stored.take p.k).zip ctorsR).map fun (a, cs) =>
+          (a.cvTa, cs.map fun (cv, _, nF) => (cv, nF)))) = true := by
   unfold checkNested at h
   simp only at h
   by_cases hg₀ : (p.formers.all (fun f => !f.1.type.mentionsNestedAux) &&
@@ -1148,7 +1156,7 @@ theorem checkNested_inv {env envOut : Env} {p : NestedParts} {F : Nat}
   case neg => rw [if_neg hfresh] at h; close_throw
   rw [if_pos hfresh] at h
   try simp only [bind, Except.bind] at h
-  by_cases hcont : nestedContainersOk env st.pins = true
+  by_cases hcont : certOnly (fueledOps mode F).mode (nestedContainersOk env st.pins) = true
   case neg => rw [if_neg hcont] at h; close_throw
   rw [if_pos hcont] at h
   try simp only [bind, Except.bind] at h
@@ -1171,25 +1179,33 @@ theorem checkNested_inv {env envOut : Env} {p : NestedParts} {F : Nat}
   case neg => rw [if_neg hcaps] at h; close_throw
   rw [if_pos hcaps] at h
   try simp only [bind, Except.bind] at h
-  by_cases hsrc : nestedCopySrcOk env p st = true
+  by_cases hsrc : certOnly (fueledOps mode F).mode (nestedCopySrcOk env p st) = true
   case neg => rw [if_neg hsrc] at h; close_throw
   rw [if_pos hsrc] at h
   try simp only [bind, Except.bind] at h
-  by_cases hgrp : nestedGroupsOk env p st = true
+  by_cases hgrp : certOnly (fueledOps mode F).mode (nestedGroupsOk env p st) = true
   case neg => rw [if_neg hgrp] at h; close_throw
   rw [if_pos hgrp] at h
   try simp only [bind, Except.bind] at h
-  by_cases hsc : pinsScoped p.nP st = true
+  by_cases hsc : certOnly (fueledOps mode F).mode (pinsScoped p.nP st) = true
   case neg => rw [if_neg hsc] at h; close_throw
   rw [if_pos hsc] at h
   try simp only [bind, Except.bind] at h
-  by_cases htg : nestedCopyTargetsOk env p b st stored = true
+  by_cases htg : certOnly (fueledOps mode F).mode (nestedCopyTargetsOk env p b st stored) = true
   case neg => rw [if_neg htg] at h; close_throw
   rw [if_pos htg] at h
   try simp only [bind, Except.bind] at h
-  by_cases hkd : nestedPinKindsOk p b st stored = true
+  by_cases hkd : certOnly (fueledOps mode F).mode (nestedPinKindsOk p b st stored) = true
   case neg => rw [if_neg hkd] at h; close_throw
   rw [if_pos hkd] at h
+  try simp only [bind, Except.bind] at h
+  by_cases haa : certOnly (fueledOps mode F).mode (nestedAuxAppsOk p st stored) = true
+  case neg => rw [if_neg haa] at h; close_throw
+  rw [if_pos haa] at h
+  try simp only [bind, Except.bind] at h
+  by_cases hrk : certOnly (fueledOps mode F).mode (nestedPinRankOk env p b st stored) = true
+  case neg => rw [if_neg hrk] at h; close_throw
+  rw [if_pos hrk] at h
   try simp only [bind, Except.bind] at h
   obtain ⟨uP₁, hpins₁, h⟩ := exceptBind_ok h
   try simp only at h
@@ -1214,8 +1230,9 @@ theorem checkNested_inv {env envOut : Env} {p : NestedParts} {F : Nat}
   try simp only [bind, Except.bind] at h
   obtain ⟨u₁, hrecs, h⟩ := exceptBind_ok h
   try simp only at h
-  by_cases hrb : blockReadBackOk env₄ p.nP (((stored.take p.k).zip ctorsR).map fun (a, cs) =>
-      (a.cvTa, cs.map fun (cv, _, nF) => (cv, nF))) = true
+  by_cases hrb : certOnly (fueledOps mode F).mode
+      (blockReadBackOk env₄ p.nP (((stored.take p.k).zip ctorsR).map fun (a, cs) =>
+        (a.cvTa, cs.map fun (cv, _, nF) => (cv, nF)))) = true
   case neg => rw [if_neg hrb] at h; close_throw
   rw [if_pos hrb] at h
   have henv : env₄ = envOut := by
@@ -1224,7 +1241,7 @@ theorem checkNested_inv {env envOut : Env} {p : NestedParts} {F : Nat}
   exact ⟨st, b, envAux, stored, ctorsR, cvRms, cvRns, rulesM, rulesN, fmsA, ctorsA,
     hfmsA, hctorsA, helim', beq_iff_eq.mp hcnt, hfresh, hcont, hb', haux, hst', hpc,
     (by cases uA; exact hpinsAux), hcaps, hsrc,
-    (Bool.and_eq_true _ _ |>.mp hcont).1, hgrp, hsc, htg, hkd,
+    certOnly_and_left hcont, hgrp, hsc, htg, hkd, haa, hrk,
     (by cases uP₁; exact hpins₁), hctors, hrm, hrn, hrlm, hrln, htbl,
     (by cases u₀; exact hpins), hlen, (by cases u₁; exact hrecs), hrb⟩
 

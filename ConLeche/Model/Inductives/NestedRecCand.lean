@@ -493,7 +493,7 @@ structure PinRecLaws {env : Env} (m : EnvModel V env) (d : BlockModel V) (pc : N
   block's copies compares FIBRES, whose elements must carry the same
   tags on both sides — `injW` at the block's sort, as every copy this
   checker models injects, `nestedPc`) -/
-  injW : ∀ (ψ : Name → Nat) (q j : Nat) (fs : List V),
+  injW : ∀ (ψ : Name → Nat) (q : Nat), q < d.nPins → ∀ (j : Nat) (fs : List V),
     (pc q).inj ψ j fs = injW (d.w ψ) j (mkTower (fs ++ [pt]))
   /-- **the pins' induction**: a property closed under the pins'
   constructors — the members read at `X`, the pins at the SEPARATED

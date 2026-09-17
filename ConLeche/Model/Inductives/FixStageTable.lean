@@ -143,7 +143,10 @@ theorem noProjEnv_consSumCtors {T : Name} {i nP : Nat} :
 
 set_option maxHeartbeats 3200000 in
 /-- **The P step at the fixpoint route's projection table** (task #210
-Part A): `stageTable` against the one-constructor fibre. -/
+Part A): `stageTable` against the one-constructor fibre.  The table's
+cons is fresh, so the new carrier values every OLD constant as the
+prefix did (task #315 M7-3 session 8, `AcvalAgrees`: the equation the
+cons step always proved and this stage used to drop). -/
 theorem stageFixTable (mp : EnvModelM V μ env)
     {p : NativeParts} {cvTa cvCa : ConstantVal} {nF : Nat} {sorts : List Level}
     {envOut : Env} {caps : IndCaps}
@@ -201,7 +204,7 @@ theorem stageFixTable (mp : EnvModelM V μ env)
           SpineFit ρ ((((ds ψ).drop p.nP).map (·.2.2)).take j) as →
           interp V (consList as ρ) ((((ds ψ).drop p.nP).map (·.2.2)).getD j default)
             ∈ˢ (univ ((sorts.getD j .zero).eval ψ) : V)) :
-    Nonempty (EnvModelM V μ envOut) := by
+    ∃ mp' : EnvModelM V μ envOut, AcvalAgrees mp.base2 mp'.base2 := by
   have hwf' : ConLeche.EnvWF envOut := ConLeche.direct_table_wf mp.base2.wf hTbl
   obtain ⟨bodies, hbodies, -, -, hfresh, rfl⟩ := ConLeche.checkStructProjTable_inv hTbl
   let tbl : ProjTable := ⟨p.cvT.name, p.cvT.levelParams, p.nP, cvCa.name, nF, p.resSort,
@@ -348,8 +351,8 @@ theorem stageFixTable (mp : EnvModelM V μ env)
       m₂.acval = acvalWith mp.base2.acval (ConstantInfo.projInfo tbl).name (fun _ => .sort 0) →
       ∀ (φ : Name → Nat) (i : Nat), i < tbl.numFields →
         TowerEntryLaw m₂ φ tbl.structName i (tbl.entry i) by
-    obtain ⟨mp', -⟩ := declStep_preserves_of_tower_cons mp (tbl := tbl) hfresh hnres hwf' hnp hhead hlaw
-    exact ⟨mp'⟩
+    exact exists_agrees_of_cons hfresh
+      (declStep_preserves_of_tower_cons mp (tbl := tbl) hfresh hnres hwf' hnp hhead hlaw)
   -- the fields' laws
   intro m₂ hac φ i hi
   replace hi : i < nF := hi
@@ -507,7 +510,11 @@ theorem stageFixTable (mp : EnvModelM V μ env)
 set_option maxHeartbeats 3200000 in
 /-- **The table stage of a direct recursive install** (task #210 Part
 A): at a structure-like block the P carrier survives the table's cons
-(`stageFixTable`); at any other block the stage conses nothing. -/
+(`stageFixTable`); at any other block the stage conses nothing.  Either
+way the new carrier AGREES with the recursor stage's at every name that
+stage stored (task #315 M7-3 session 8, DESIGN §U.50 (d) 1) — the one
+model-facing fact the block model's crossing needs of this stage, which
+the wrapper used to throw away. -/
 theorem declNativeTable {F : Nat} {env env₁ envC env₂ : Env} {p : NativeParts}
     {cvTa cvRa : ConstantVal} {ctorsA : List (ConstantVal × Nat)} {sortss : List (List Level)}
     {rhss : List Expr}
@@ -605,7 +612,7 @@ theorem declNativeTable {F : Nat} {env env₁ envC env₂ : Env} {p : NativePart
         (fssOfR p.nP (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0))
         (essOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)))
     (hRec : ConLeche.checkNativeRec (ConLeche.fueledOps μ F) envC p cvTa ctorsA = .ok (cvRa, rhss)) :
-    Nonempty (EnvModelM V μ env₂) := by
+    ∃ mpOut : EnvModelM V μ env₂, AcvalAgrees mp₃.base2 mpOut.base2 := by
   -- the case split: only a structure-like block conses a table
   unfold ConLeche.checkNativeTable at hTbl
   split at hTbl
@@ -827,9 +834,9 @@ theorem declNativeTable {F : Nat} {env env₁ envC env₂ : Env} {p : NativePart
         exact (hsortsAll ψ ρ hρ).2
     · next =>
       obtain rfl := Except.ok.inj hTbl
-      exact ⟨mp₃⟩
+      exact ⟨mp₃, AcvalAgrees.rfl' _⟩
   · next =>
     obtain rfl := Except.ok.inj hTbl
-    exact ⟨mp₃⟩
+    exact ⟨mp₃, AcvalAgrees.rfl' _⟩
 
 end ConLeche.Model

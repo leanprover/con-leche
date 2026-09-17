@@ -308,14 +308,24 @@ theorem declNested_of (hμ : μ.verifiedChecks = true) {F : Nat} {env envOut : E
     Nonempty (EnvModelM V μ envOut) := by
   obtain ⟨h0, h1, st, b, envAux, stored, ctorsR, cvRms, cvRns, rulesM, rulesN, fmsA, ctorsA,
     hfA, hcA, helim, hcount, hfresh, hcont, hb, haux, hstored, hclosed, hpinsAux, hcaps, hsrc,
-    -, hgrp, hsc, -, hkinds, hpins₁, hctors, hrm, hrn, hrulesM, hrulesN, htbl, hpinsOut, hcnt,
-    hrecs, -⟩ := h
+    -, hgrp, hsc, -, hkinds, -, -, hpins₁, hctors, hrm, hrn, hrulesM, hrulesN, htbl, hpinsOut,
+    hcnt, hrecs, -⟩ := h
   -- the `-` after `hsrc` is K.31's `pinsDistinct` conjunct: named for the
   -- identities' discharge (`NestedPinsIdent`, lane L-B), not consumed here;
   -- the `-` after `hsc` is K.32's `nestedCopyTargetsOk`, named for the same
-  -- discharge's `ordF` arm, not consumed here either; the LAST `-` is K.34's
+  -- discharge's `ordF` arm, not consumed here either; the two `-` after
+  -- `hkinds` are K.35's `nestedAuxAppsOk` and K.37's `nestedPinRankOk`,
+  -- neither consumed on this path; the LAST `-` is K.34's
   -- `blockReadBackOk` — the route's own read-back, which `mp.blocks` already
   -- carries for the environments the fold has stored, so nothing here uses it
+  -- THE CERTIFICATION-ONLY RECORDS (K.35's follow-up): the run carries them
+  -- as `certOnly μ …`; this theorem is stated under `hμ`, at which the gate
+  -- is the Bool the consumers below expect
+  replace hcont := ConLeche.certOnly_elim hcont hμ
+  replace hsrc := ConLeche.certOnly_elim hsrc hμ
+  replace hgrp := ConLeche.certOnly_elim hgrp hμ
+  replace hsc := ConLeche.certOnly_elim hsc hμ
+  replace hkinds := ConLeche.certOnly_elim hkinds hμ
   have hPM : PinsModeled mp.base2 st.pins := pinsModeled_of_env mp.blocks hcont
   obtain ⟨fms, f₀, ctorsA', sortss, kinds, mp₁, ppsF, W, idxF, dsF, esF, srcsF, fvsPF, xFvsF, xrestF,
     eissF, tssF, dsR, xFvsR, pinsS, mp₂, henv, O⟩ := hcore hμ mp.toEnvModelM hE p st b envAux stored

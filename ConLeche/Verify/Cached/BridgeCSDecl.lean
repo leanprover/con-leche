@@ -401,7 +401,7 @@ theorem checkNativeTailS_run (hμ : mode.verifiedChecks = true) {env env₁ : En
     mkFEnv_find?_fun _] at h
   obtain ⟨feT, sT, htblC, h⟩ := bindC_ok h
   obtain ⟨hwfO, hfeO, -, F₆, hF₆⟩ := checkNativeTableS_run _ henv₃ hs₃.residue htblC
-  by_cases hrb : blockReadBackOk feT.env p.nP [(cvTa, ctorsA)] = true
+  by_cases hrb : certOnly mode (blockReadBackOk feT.env p.nP [(cvTa, ctorsA)]) = true
   case neg => rw [if_neg hrb] at h; exact nomatch h
   rw [if_pos hrb] at h
   obtain ⟨rfl, rfl⟩ := pureC_ok h
@@ -433,7 +433,10 @@ theorem checkNativeTailS_run (hμ : mode.verifiedChecks = true) {env env₁ : En
   simp only [Except.bind]
   rw [g₆]
   simp only [Except.bind]
-  rw [if_pos hrb]
+  -- the PURE route spells the gate `(fueledOps mode G).mode`, the cached
+  -- one `mode`; they are defeq, and the `rw` needs the spelling in the goal
+  rw [if_pos (show certOnly (fueledOps mode G).mode
+    (blockReadBackOk feT.env p.nP [(cvTa, ctorsA)]) = true from hrb)]
 
 /-- The direct recursive install at the cached driver is reproduced by
 the pure fueled `checkNative` (task #188): the pass at the syntactic
@@ -1219,8 +1222,8 @@ theorem checkMutualCoreS_run (hμ : mode.verifiedChecks = true) {env : Env} (hen
   obtain ⟨feT, sT, htblC, h⟩ := bindC_ok h
   obtain ⟨hwfO, hfeO, -, hF₇⟩ :=
     mutualTablesS_run fms.zipIdx _ henv₃ hs₆.residue.flushed htblC
-  by_cases hrb : blockReadBackOk feT.env b.nP (fms.zipIdx.map fun (f, mIdx) =>
-      (f.cvTa, (b.ownCtors mIdx).filterMap fun (J, _) => ctorsA[J]?)) = true
+  by_cases hrb : certOnly mode (blockReadBackOk feT.env b.nP (fms.zipIdx.map fun (f, mIdx) =>
+      (f.cvTa, (b.ownCtors mIdx).filterMap fun (J, _) => ctorsA[J]?))) = true
   case neg => rw [if_neg hrb] at h; exact nomatch h
   rw [if_pos hrb] at h
   obtain ⟨rfl, rfl⟩ := pureC_ok h
@@ -1260,7 +1263,11 @@ theorem checkMutualCoreS_run (hμ : mode.verifiedChecks = true) {env : Env} (hen
   simp only [Except.bind, pure, Except.pure]
   rw [hF₇]
   simp only [Except.bind, pure, Except.pure]
-  rw [if_pos hrb]
+  -- the PURE route spells the gate `(fueledOps mode G).mode` (see the
+  -- direct-recursive twin above)
+  rw [if_pos (show certOnly (fueledOps mode G).mode
+    (blockReadBackOk feT.env b.nP (fms.zipIdx.map fun (f, mIdx) =>
+      (f.cvTa, (b.ownCtors mIdx).filterMap fun (J, _) => ctorsA[J]?))) = true from hrb)]
 
 /-- **The recognised mutual block at the cached driver is reproduced by
 the pure fueled `checkMutual`.** -/
