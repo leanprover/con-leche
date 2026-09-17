@@ -282,6 +282,102 @@ theorem denoteMeta_foldrLam {acval : Name → (Name → Nat) → AnnotTerm} {env
       rw [Nat.zero_add] at hbody
       exact hbody
 
+omit [SetTheory V] in
+/-- A `stripLams` run exhibits its subject as the rebuilt λ-tower
+(`stripPis_mkPisB`'s λ twin at the `foldr` form). -/
+theorem stripLams_foldr : ∀ (k : Nat) {e : Expr} {bs : List (Expr × BinderMeta)} {body : Expr},
+    e.stripLams k = some (bs, body) →
+      e = bs.foldr (fun (y : Expr × BinderMeta) acc => Expr.lam y.1 acc y.2) body
+  | 0, e, bs, body, h => by
+    simp only [ConLeche.Expr.stripLams, Option.some.injEq, Prod.mk.injEq] at h
+    rw [← h.1, ← h.2]
+    rfl
+  | k + 1, e, bs, body, h => by
+    match e, h with
+    | .lam ty bodyE bm, h =>
+      simp only [ConLeche.Expr.stripLams, Option.map_eq_some_iff] at h
+      obtain ⟨⟨bs', body'⟩, hs, heq⟩ := h
+      simp only [Prod.mk.injEq] at heq
+      obtain ⟨rfl, rfl⟩ := heq
+      rw [List.foldr_cons, ← stripLams_foldr k hs]
+
+omit [SetTheory V] in
+/-- Two λ-towers of one length are equal only entry by entry
+(`mkPisAV_inj`'s λ twin). -/
+theorem mkLamsAV_inj :
+    ∀ {l₁ l₂ : List (Nat × AnnotTerm)} {b₁ b₂ : AnnotTerm},
+      l₁.length = l₂.length → mkLamsAV l₁ b₁ = mkLamsAV l₂ b₂ → l₁ = l₂ ∧ b₁ = b₂
+  | [], [], _, _, _, h => ⟨rfl, h⟩
+  | [], _ :: _, _, _, hlen, _ => by simp at hlen
+  | _ :: _, [], _, _, hlen, _ => by simp at hlen
+  | d₁ :: l₁, d₂ :: l₂, b₁, b₂, hlen, h => by
+    simp only [mkLamsAV, AnnotTerm.lam.injEq] at h
+    obtain ⟨hv, hA, hB⟩ := h
+    obtain ⟨rfl, rfl⟩ := mkLamsAV_inj (by simpa using hlen) hB
+    exact ⟨by congr 1; exact Prod.ext hv hA, rfl⟩
+
+/-- **A λ-TOWER'S BODY IS GRADED** at every fitting spine's frame: the
+tower's own grading, peeled along the fit. -/
+theorem wellDenoted_mkLamsAV_body :
+    ∀ {ds : List (Nat × AnnotTerm)} {C : AnnotTerm} {ρ : Nat → V} {as : List V},
+      SpineFit ρ (ds.map (·.2)) as → WellDenoted V ρ (mkLamsAV ds C) →
+        WellDenoted V (consList as ρ) C
+  | [], _, _, [], _, h => h
+  | [], _, _, _ :: _, hsp, _ => hsp.elim
+  | _ :: _, _, _, [], hsp, _ => hsp.elim
+  | d :: ds, C, ρ, a :: as, hsp, h => by
+    have h' : WellDenoted V ρ (.lam d.1 d.2 (mkLamsAV ds C)) := h
+    exact wellDenoted_mkLamsAV_body (ρ := cons a ρ) hsp.2 (h'.2.1 a hsp.1)
+
+omit [SetTheory V] in
+/-- The first of four appended segments is what the prefix takes. -/
+theorem take_append₄ {α : Type} (l₁ l₂ l₃ l₄ : List α) (n : Nat) (h : l₁.length = n) :
+    (l₁ ++ l₂ ++ l₃ ++ l₄).take n = l₁ := by
+  rw [List.append_assoc, List.append_assoc, List.take_left' h]
+
+/-- **TWO λ-TOWERS OVER ONE PREFIX FOLD ALIKE**: at a constant bit,
+two towers over the SAME domains whose bodies interpret alike at the
+prefix's own frame have equal folds along any spine whose prefix fits
+those domains.  At a zero bit both towers are the proof point; above
+it `mkLamsAV_fold` β-reduces them. -/
+theorem foldl_mkLamsAV_congr (bt : Nat) {Γ : List AnnotTerm} {C₁ C₂ : AnnotTerm} {ρ : Nat → V}
+    {vs : List V} (hfit : SpineFit ρ Γ (vs.take Γ.length))
+    (hbody : interp V (consList (vs.take Γ.length) ρ) C₁
+      = interp V (consList (vs.take Γ.length) ρ) C₂) :
+    vs.foldl SetTheory.app (interp V ρ (mkLamsAV (Γ.map fun A => (bt, A)) C₁))
+      = vs.foldl SetTheory.app (interp V ρ (mkLamsAV (Γ.map fun A => (bt, A)) C₂)) := by
+  by_cases hbt : bt = 0
+  · subst hbt
+    cases Γ with
+    | nil =>
+      simp only [List.length_nil, List.take_zero, consList_nil] at hbody
+      show vs.foldl SetTheory.app (interp V ρ C₁) = vs.foldl SetTheory.app (interp V ρ C₂)
+      rw [hbody]
+    | cons A rest =>
+      rw [show (A :: rest).map (fun A' => ((0 : Nat), A'))
+          = (0, A) :: rest.map (fun A' => ((0 : Nat), A')) from rfl,
+        mkLamsAV_zero_head, mkLamsAV_zero_head]
+  · have hnz : ∀ d ∈ Γ.map fun A => (bt, A), d.1 ≠ 0 := by
+      intro d hd
+      obtain ⟨A, -, rfl⟩ := List.mem_map.mp hd
+      exact hbt
+    have hsp : SpineFit ρ ((Γ.map fun A => (bt, A)).map (·.2)) (vs.take Γ.length) := by
+      rw [show (Γ.map fun A => (bt, A)).map (·.2) = Γ from by simp [List.map_map, Function.comp_def]]
+      exact hfit
+    have key : ∀ C : AnnotTerm,
+        vs.foldl SetTheory.app (interp V ρ (mkLamsAV (Γ.map fun A => (bt, A)) C))
+          = (vs.drop Γ.length).foldl SetTheory.app
+              (interp V (consList (vs.take Γ.length) ρ) C) := by
+      intro C
+      have h1 : (vs.take Γ.length ++ vs.drop Γ.length).foldl SetTheory.app
+          (interp V ρ (mkLamsAV (Γ.map fun A => (bt, A)) C))
+          = (vs.drop Γ.length).foldl SetTheory.app
+              (interp V (consList (vs.take Γ.length) ρ) C) := by
+        rw [List.foldl_append, mkLamsAV_fold hnz hsp]
+      rw [List.take_append_drop] at h1
+      exact h1
+    rw [key C₁, key C₂, hbody]
+
 section Run
 
 variable {env : Env} {F : Nat} {mp : EnvModelM V μ env} {p : NestedParts} {envOut : Env}
@@ -1605,6 +1701,149 @@ theorem NestedTailIn.rulePrefix
     · rw [List.getElem?_eq_none (by rw [hΓlen]; exact hi),
         List.getElem?_eq_none (by rw [List.length_map, List.length_take]; omega)]
   rw [hshape, hΓeq]
+
+
+/-! ## The two towers' folds (item 5 step 2e, step 1 assembled) -/
+
+/-- **THE TWO RULE TOWERS FOLD ALIKE**: along any spine fitting the
+SCRATCH rule's binder data, the restored right-hand side's reading has
+the auxiliary tower's value.
+
+The two towers share their `λ p⃗` prefix — the restored one's is
+`(D).params ψ` at the elimination's bit (`rulePrefix`), the auxiliary
+one's is `mutualRuleDataAV`'s own `rebit pw (recPps ψ)`
+(`BlockReadings.ppsDom`), and `mkLamsAV_inj` identifies them — and
+below it the two bodies interpret alike at every frame fitting the
+block's parameters (`ruleAgree`).  The restored body's grading is
+peeled off `hwdR`, which is the DOOR's (`ClaimsAt.inferRow` at
+`restoreRules_at`'s own `inferTypeCore` run): `WellDenoted` is
+structural and the walk's reading law consumes it rather than carrying
+it. -/
+theorem NestedTailIn.ruleFold {mpA : EnvModelM V μ ENVA} {cvRas : List ConstantVal}
+    (S : NestedScratchOut F env b fms f₀ ctorsA kinds mp₁ ppsF W idxF dsF esF srcsF fvsPF xFvsF
+      xrestF eissF tssF stored mpA cvRas)
+    (hnames : NestedCtorPinNames env p st)
+    (hctorsJ : ∀ (q₀ kJ i : Nat) (dJ : BlockModel V), PG mp₂.base2 q₀ kJ dJ → i < kJ →
+      ∀ (ci : ContainerInfo) (J : ContainerMember),
+        ConLeche.containerInfo? env ((D).pinAt (q₀ + i)).J = some ci → J ∈ ci.members →
+        J.name = ((D).pinAt (q₀ + i)).J → (dJ.ctorsM i).map (·.1.name) = J.ctors.map (·.name))
+    (hndR : (cvRms.map (·.name) ++ cvRns.map (·.name)).Nodup)
+    {s : (Name → Nat) → Nat} {rdsM : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)}
+    {concM : Nat → AnnotTerm} {eqs : (Name → Nat) → List AnnotTerm}
+    {mpAP : EnvModelM V μ (ConLeche.provisionMutualRecs b fms cvRas.zipIdx ENVA)}
+    {mpP : EnvModelM V μ
+      (ConLeche.provisionNestedRecs (nestedProvList p stored cvRms cvRns) ENV2)}
+    (hshapeA : ∀ c, c < b.k → (cvRas.getD c default).name = b.recName c ∧
+      (cvRas.getD c default).levelParams = b.rlps)
+    (hleafA : ∀ c, c < b.k → ∀ φ : Name → Nat,
+      mpAP.base2.acval (cvRas.getD c default).name φ
+        = nestedRecLeaf (D).kT s rdsM concM eqs b.rlps c φ)
+    (hagA : ∀ nm : Name, (∀ c, c < b.k → nm ≠ (cvRas.getD c default).name) →
+      mpAP.base2.acval nm = mpA.base2.acval nm)
+    (hleafR : ∀ c, c < (D).kT → ∀ φ : Name → Nat,
+      mpP.base2.acval (nestedRecCvAt p.k cvRms cvRns c).name φ
+        = nestedRecLeaf (D).kT s rdsM concM eqs b.rlps c φ)
+    (hagR : ∀ nm : Name, (∀ c, c < (D).kT → nm ≠ (nestedRecCvAt p.k cvRms cvRns c).name) →
+      mpP.base2.acval nm = mp₂.base2.acval nm)
+    (hauxNe : ∀ n ∈ (ConLeche.restoreTbl p st).auxNames, ∀ c, c < b.k →
+      n ≠ (nestedRecCvAt p.k cvRms cvRns c).name)
+    (hK35r : NestedRulesAuxOk p st b stored)
+    (ψ : Name → Nat)
+    {c : Nat} (hc : c < b.k) {a : AuxStored} (ha : stored[c]? = some a)
+    {rl o : RecRule} (hrl : rl ∈ a.rules)
+    {i : Nat} {cA : ConstantVal × Nat} (hi : ((DA).ctorsM c)[i]? = some cA)
+    (hgen : ConLeche.mutualRecRhs b.lps b.elim b.large b.nP
+      (ConLeche.mutualGenData b fms ctorsA kinds).1
+      (ConLeche.mutualGenData b fms ctorsA kinds).2 b.recName
+      (b.rlps.map Level.param) ((DA).minorIdx c i) = some rl.rhs)
+    (hres : ConLeche.restoreNested (ConLeche.restoreTbl p st) rl.rhs = .ok o.rhs)
+    (hresolve : o.rhs.constsResolve
+      (ConLeche.provisionNestedRecs (nestedProvList p stored cvRms cvRns) (ENV2)) = true)
+    {Ra : AnnotTerm}
+    (hRa : denoteMeta mpP.base2.acval
+      (ConLeche.provisionNestedRecs (nestedProvList p stored cvRms cvRns) (ENV2)) ψ 0 o.rhs
+      = some Ra)
+    (hwdR : ∀ ρ' : Nat → V, WellDenotedV V ρ' Ra)
+    (ρ : Nat → V) (vs : List V)
+    (hfit : SpineFit ρ (((DA).ruleData mpA.base2 b.elimLevel c i ψ).map (·.2)) vs) :
+    vs.foldl SetTheory.app (interp V ρ Ra)
+      = vs.foldl SetTheory.app (interp V ρ ((DA).ruleRhsAV mpA.base2 b.elimLevel
+          (fun t' => nestedRecLeaf (D).kT s rdsM concM eqs b.rlps t' ψ) c i cA.2 ψ)) := by
+  have hk : 0 < (DA).k := by
+    rw [S.record.k]
+    have h1 := I.kpos
+    have h2 := I.out.bk
+    omega
+  have hR := S.readings ψ
+  have hppsLen : ((DA).recPps ψ).length = b.nP := by
+    have hl := congrArg List.length hR.ppsDom
+    rw [List.length_map, S.reps.params_length hk ψ] at hl
+    exact hl
+  have hparamsLen : ((D).params ψ).length = b.nP := by
+    have hl := congrArg List.length hR.ppsDom
+    rw [List.length_map, hppsLen] at hl
+    exact hl.symm
+  -- **the rule's λ prefix**, on both sides
+  obtain ⟨bs, bodyA, bodyR, hstrip, hfoldR, hagree⟩ :=
+    I.ruleAgree S hnames hctorsJ hndR hshapeA hleafA hagA hleafR hagR hauxNe hK35r ψ ha hrl hres
+      hresolve
+  obtain ⟨pbs, bodyF, hpbs, hdomE, hmeta⟩ := I.ruleParamDoms hgen hstrip
+  have hlenBs : bs.length = b.nP := ConLeche.Expr.stripLams_length b.nP hstrip
+  obtain ⟨CR, hRshape, hCR⟩ :=
+    I.rulePrefix hndR hagR hpbs hdomE hmeta ψ (by rw [← hfoldR]; exact hRa)
+  have hreadA := I.auxRuleRead S hshapeA hleafA hagA hc hi hgen ψ
+  rw [stripLams_foldr b.nP hstrip] at hreadA
+  obtain ⟨ΓA, CA, hΓAlen, hAshape, -, hCA⟩ :=
+    denoteMeta_foldrLam (pwBit ψ (Level.zeronessOf b.elimLevel)) b.nP bs hlenBs
+      (fun y hy => by rw [hmeta y hy]) hreadA
+  rw [hlenBs, Nat.zero_add] at hCA
+  rw [hlenBs] at hΓAlen
+  -- **the auxiliary tower's prefix IS the parameters'**
+  have hpref : ((DA).ruleData mpA.base2 b.elimLevel c i ψ).take b.nP
+      = ((D).params ψ).map fun A => (pwBit ψ (Level.zeronessOf b.elimLevel), A) := by
+    unfold BlockModel.ruleData mutualRuleDataAV
+    rw [← List.map_take, take_append₄ _ _ _ _ _ (by rw [rebit_length]; exact hppsLen),
+      rebit_map_lam, show (D).params ψ = (DA).params ψ from rfl, ← hR.ppsDom, List.map_map]
+    rfl
+  have hAA : ∀ CORE : AnnotTerm,
+      mkLamsAV ((DA).ruleData mpA.base2 b.elimLevel c i ψ) CORE
+        = mkLamsAV (((D).params ψ).map fun A => (pwBit ψ (Level.zeronessOf b.elimLevel), A))
+            (mkLamsAV (((DA).ruleData mpA.base2 b.elimLevel c i ψ).drop b.nP) CORE) := by
+    intro CORE
+    have h1 := mkLamsAV_append (((DA).ruleData mpA.base2 b.elimLevel c i ψ).take b.nP)
+      (((DA).ruleData mpA.base2 b.elimLevel c i ψ).drop b.nP) CORE
+    rw [List.take_append_drop, hpref] at h1
+    exact h1
+  have hAA2 : (DA).ruleRhsAV mpA.base2 b.elimLevel
+      (fun t' => nestedRecLeaf (D).kT s rdsM concM eqs b.rlps t' ψ) c i cA.2 ψ
+      = mkLamsAV (((D).params ψ).map fun A => (pwBit ψ (Level.zeronessOf b.elimLevel), A)) CA := by
+    have hinj := mkLamsAV_inj
+      (l₁ := ΓA.map fun A => (pwBit ψ (Level.zeronessOf b.elimLevel), A))
+      (l₂ := ((D).params ψ).map fun A => (pwBit ψ (Level.zeronessOf b.elimLevel), A))
+      (by rw [List.length_map, List.length_map, hΓAlen, hparamsLen])
+      (hAshape.symm.trans (by unfold BlockModel.ruleRhsAV; exact hAA _))
+    rw [hAshape, hinj.1]
+  -- **the spine's prefix fits the parameters**
+  have hnPle : b.nP ≤ ((DA).ruleData mpA.base2 b.elimLevel c i ψ).length := by
+    have h := congrArg List.length hpref
+    rw [List.length_take, List.length_map, hparamsLen] at h
+    omega
+  have hbitDoms : (((D).params ψ).map fun A =>
+      (pwBit ψ (Level.zeronessOf b.elimLevel), A)).map (·.2) = (D).params ψ := by
+    simp [List.map_map, Function.comp_def]
+  have hfitP : SpineFit ρ ((D).params ψ) (vs.take ((D).params ψ).length) := by
+    rw [hparamsLen]
+    have h := spineFit_take' hfit (i := b.nP) (by rw [List.length_map]; exact hnPle)
+    rw [← List.map_take, hpref, hbitDoms] at h
+    exact h
+  rw [hRshape, hAA2]
+  refine foldl_mkLamsAV_congr _ hfitP ?_
+  have hwd : WellDenoted V (consList (vs.take ((D).params ψ).length) ρ) CR := by
+    refine wellDenoted_mkLamsAV_body (ds := ((D).params ψ).map fun A =>
+      (pwBit ψ (Level.zeronessOf b.elimLevel), A)) ?_ (by rw [← hRshape]; exact (hwdR ρ).1)
+    rw [hbitDoms]
+    exact hfitP
+  exact hagree (openFvars 0 b.nP) (openersFrom_openFvars 0 b.nP) hCA hCR _ ρ hfitP hwd
 
 
 end Run
