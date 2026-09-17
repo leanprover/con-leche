@@ -1846,6 +1846,41 @@ theorem NestedTailIn.ruleFold {mpA : EnvModelM V μ ENVA} {cvRas : List Constant
   exact hagree (openFvars 0 b.nP) (openersFrom_openFvars 0 b.nP) hCA hCR _ ρ hfitP hwd
 
 
+/-! ## The restored recursor's row at the provision (item 5 step 2e) -/
+
+/-- **THE RESTORED RECURSOR'S ARGUMENT SUMS** — `RecRuleLaw`'s first
+conjunct and the fired equality's arithmetic: the read-back's stored
+major index and rule prefix are the SCRATCH install's
+(`auxStored_rules_eq`), i.e. the block's own `rulePrefix` and that
+plus class `c`'s index count. -/
+theorem NestedTailIn.recArgSums {c : Nat} {a : AuxStored} (ha : stored[c]? = some a) :
+    a.rP = b.rulePrefix ∧ a.mI = b.rulePrefix + (fms.getD c default).nIdx := by
+  obtain ⟨fms', -, -, -, -, -, -, hformers', -, -, -, -, hmI, hrP, -⟩ :=
+    ConLeche.auxStored_rules_eq I.haux I.hstored ha
+  have hfms : fms = fms' := congrArg Prod.snd (Except.ok.inj (I.out.formers.symm.trans hformers'))
+  subst hfms
+  exact ⟨hrP, hmI⟩
+
+/-- **THE RESTORED RECURSOR TYPE READS AT THE PROVISION**: the tail's
+own reading (`NestedRecReadings`' `readM`/`readN`, `readAtOf`) crossed
+by `provCross` — the form `RecRuleLaw`'s `TVa` hypothesis takes. -/
+theorem NestedTailIn.recTyReadP
+    {mpP : EnvModelM V μ
+      (ConLeche.provisionNestedRecs (nestedProvList p stored cvRms cvRns) ENV2)}
+    (hndR : (cvRms.map (·.name) ++ cvRns.map (·.name)).Nodup)
+    (hagR : ∀ nm : Name, (∀ c, c < (D).kT → nm ≠ (nestedRecCvAt p.k cvRms cvRns c).name) →
+      mpP.base2.acval nm = mp₂.base2.acval nm)
+    {s : (Name → Nat) → Nat} {rdsM : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)}
+    {concM : Nat → AnnotTerm}
+    (R : NestedRecReadings mp₂.base2 (D) PC cvRms cvRns b.rlps b.elimLevel s rdsM concM)
+    {c : Nat} (hc : c < (D).kT) (ψ : Name → Nat) :
+    denoteMeta mpP.base2.acval
+        (ConLeche.provisionNestedRecs (nestedProvList p stored cvRms cvRns) (ENV2)) ψ 0
+        (nestedRecCvAt p.k cvRms cvRns c).type
+      = some (mkPisAV (rdsM c ψ) (concM c)) :=
+  I.provCross hndR hagR ψ 0 _ (NestedTailIn.readAtOf R hc ψ)
+
+
 end Run
 
 end ConLeche.Model
