@@ -85301,6 +85301,191 @@ OK; proofdeps 4955 rows / 12 roots / 0 doors; shake 508/508
 allowlisted; pub-imports 1263 of 1994, none demotable;
 `tests/arena.sh` green.  Standard axioms on every new theorem.
 
+#### U.53 — L-B session 11: `recF` CLOSED at a finitary recursive field, `ordF`-left proved modulo B6's own case (lane L-B, 2026-09-17)
+
+**Two more arms are in the tree.**  `NestedPinsRun.copyRecFRead`
+(`ConLeche/Model/Inductives/NestedCopyInst.lean`) is
+`CopyCtorShape.recF`'s TELESCOPE and INDEX-EXPRESSION conjuncts at a
+FINITARY recursive field — with §U.49's `copyRecF` that arm is closed
+for `.recursive`; `NestedPinsRun.copyOrdFLeft` is `ordF`'s LEFT arm,
+unconditional at the run, with the one case PLAN §4 flagged as B6
+carried as an explicit second disjunct rather than as a hypothesis.
+The REFLEXIVE twin of `copyRecFDom` was NOT built; (e) says why it is
+the same question as B6 and what it costs.
+
+##### (a) The field-level kit `recF`'s readings needed
+
+Four small facts, none of which the tree had:
+
+* `instSeq_abstractRange_fvs_at` (`Verify/Inductives/NestedCopyGlue`) —
+  the EXACT open/close round trip at a CUT.  The private
+  `instSeq_abstractRange_consistent` was already stated at an arbitrary
+  `c`; only its wrapper was pinned to `c = 0`.  A FIELD domain stands
+  under the earlier fields, so `c = l` is the form the arms want, and
+  `instSeq_abstractRange_fvs` is now the `c = 0` instance.
+* `stripPis_binder_leaves` (same file) — a stripped binder domain's
+  `fvar` leaves are the whole type's (`Expr.stripPis` peels a `∀`
+  without instantiating).  Its twin `stripPis_binder_bounded` was in
+  tree; the leaves half is what the round trip's second side condition
+  asks for.
+* `normCtorValM_domErased` (`Verify/Inductives/NestedCopyNorm`) —
+  §U.49's `normCtorValM_domHead` STRENGTHENED: at an inductive-headed
+  given domain the STORED domain is that very domain up to `ErasedEq`.
+  The proof already went through `normPosDomM_indApp`, an identity, so
+  the head was all that was being read off it; the erasure equality is
+  what a READING needs.  `normCtorValM_domHead` keeps its name and its
+  consumer (`copyRecFKind`).
+* `denoteMeta_openPisAtFvars_dom` (`Model/Inductives/NestedCopyRead`) —
+  `denoteMeta_openPisAtFvars`' twin at the BINDERS: the `l`-th opener
+  of a tower's opening reads as the tower reading's `l`-th datum, one
+  depth per binder.  `mintFieldRead` is `mintRead` through it: **the
+  minted constructor's `l`-th opened field domain reads as the
+  CONTAINER's, instantiated at the pin's components at cut `l`**
+  (`instTeleP` at `l`, which is `instTele_getD` after `instTeleP_map`).
+
+##### (b) `NestedPinsRun.copyRecFRead`
+
+```lean
+theorem NestedPinsRun.copyRecFRead {pbs : List (Expr × ConLeche.BinderMeta)}
+    (hPD : ∀ q, q < st.pins.length → PinData env st p pbs q)
+    (hkindsRun : ConLeche.classifyMutualKinds … = .ok kinds) …
+    (hmem : dJ.tgts i' j l < dJ.k)
+    (hrec : (dJ.ksF i' j).getD l .ordinary = .recursive)
+    (ψ : Name → Nat) :
+    (((mutTlss ctorsA.length tssF ψ).getD (b.ownOffset (p.k + q₀ + i') + j) []).getD l []).map
+        (·.2.2)
+      = instTele ((pinsS.getD (q₀ + i') default).Ds ψ) l (…) ∧
+    ((mutEiss0 ctorsA.length eissF ψ).getD (b.ownOffset (p.k + q₀ + i') + j) []).getD l []
+      = (((dJ.Eiss i' …).getD j []).getD l []).map (AnnotTerm.instAll … (l + …))
+```
+
+The telescope conjunct is `tssNone` on both sides (a `.recursive`
+field has no telescope, so the cut is `l + 0`).  The index conjunct is
+the session's content, and it is `copyEs`' recipe at a FIELD:
+
+1. the MINTED side — `mintFieldRead` reads the domain, `copyRecFDom`'s
+   new first conjunct says it IS the targeted member applied to the
+   components and to the field's own index arguments, and
+   `denoteMeta_mkAppN_inv` + `AnnotTerm.mkAppN_inj` +
+   `DenoteMetaSpine.append_inv` + `List.append_inj` split that reading
+   at the parameters: **the index arguments read as the container's
+   index readings instantiated**.  The lengths meet by
+   `BlockCtorData.eisLen` against `copyRecFDom`'s new spine-length
+   conjunct;
+2. the COPY side — `os_field_domain` lands the two-stage opening on the
+   abstracted telescope entry, (a)'s round trip at cut `l` undoes the
+   closing (`instSeq_append` splits the opener list at the parameters),
+   `copyRecFDom` says what the rewrite left, and `normCtorValM_domErased`
+   carries it across the normalisation up to `ErasedEq`;
+3. the two index lists differ only in their OPENERS' annotations
+   (`instSeq_erasedEq_args` at `xfvs.take l` vs `xfvs'.take l`), so
+   `DenoteMetaSpine.erasedEq` moves the minted spine reading onto the
+   copy's own argument list — after `crossUpSpine`, `crossUp` along a
+   spine — and `DenoteMetaSpine.unique` against
+   `MutualCtorDataI.eisRead` identifies the two.
+
+Two refactors paid for themselves: `copyRecF` was split into
+`copyRecFKind` (the kind table's entry, which the readings need) and
+the ten-line table reads, and the block-member identity of a group's
+copy became `groupCopyFormer` (now at an arbitrary pin index, since
+`ordF`-left needs it at a pin it does not name).  `copyFields`/
+`copyResid` also hand over the MINTED constructor's own field domains.
+
+##### (c) `NestedPinsRun.copyOrdFLeft`, and where B6 actually sits
+
+```lean
+theorem NestedPinsRun.copyOrdFLeft …
+    (hordA : kindAt (mutKsOf kinds (b.ownOffset (p.k + q₀ + i') + j)) l = .ordinary)
+    (ψ : Name → Nat) :
+    ((blkRss ctorsA kinds).getD (b.ownOffset (p.k + q₀ + i') + j) []).getD l false = false ∧
+    (((mutFss0 b.nP ctorsA.length dsF (mutKsOf kinds) (mutNFOf ctorsA) ψ).getD … []).getD l default
+        = AnnotTerm.instAll ((pinsS.getD (q₀ + i') default).Ds ψ) l
+            (((dJ.Fss i' …).getD j []).getD l default)
+      ∨ ∃ (fvs xFvs : List Expr) (crest xrest x : Expr),
+          ConLeche.openPisAtFvars b.nP (b.ctors.getD … default).cv.type 0 = some (fvs, crest) ∧
+          ConLeche.openPisAtFvars cAJ.2 crest b.nP = some (xFvs, xrest) ∧
+          xFvs[l]? = some x ∧ ConLeche.mentionsMember b.memberNames x.fvarTypeD = true)
+```
+
+The left disjunct is an **AnnotTerm equality**, which is stronger than
+the interp identity `CopyCtorShape.ordF` asks for and needs no frame:
+the copy's stored field domain, the elimination's rewritten one and the
+minted one are the SAME expression up to the openers' annotations, and
+`denoteMeta_erasedEq` reads all three alike.  The two steps are §U.44
+(f)'s, in that order:
+
+* **the prune.**  `replaceAllNested_unchanged_or_aux` says the rewrite
+  either returned its input or left a pin's auxiliary behind, and
+  `groupCopyFormer` says a pin's auxiliary IS a member of the auxiliary
+  block — so at a field whose REWRITTEN domain mentions no member the
+  rewrite was the identity.  The mention test transfers from the opened
+  domain to the closed one by `mentionsConst_instSeq_false`.
+* **the normalisation.**  `normPosDomM`'s FIRST GUARD is that same
+  mention test (`if !mentionsMember memberNames e then pure e`), so at
+  such a field the positivity normalisation is the identity too —
+  `normPosDomM_no_mention` (the guard forwards, which
+  `normPosDomM_inv` only gives in the arm that took it) and
+  `normCtorValM_domUnchanged` (the frame's round trip around it).
+
+**FINDING — B6 is not a reading law, and not a hypothesis either.**
+§U.44 (f) offered `NormErasure` "at the interp" as the fallback.  It is
+not needed, and a hypothesis would have been the wrong shape: the case
+that does not close is exactly "the constructor type the stage was
+GIVEN mentions a member at field `l`, and the stored one does not" —
+`whnf` DROPPED the mention (the λ-pin `(fun _ => Nat) (List T)`).  That
+is a statement about the block's OWN data, so the arm carries it as a
+second disjunct and stays unconditional.  What it would take to close
+it is NOT the reading law `normPosDomM_read_of` (that relates the
+stored domain to the REWRITTEN one, and both are post-rewrite) but a
+law about the REWRITE: that replacing a nested occurrence by its mimic
+does not change what a discarded position interps to.  Two further
+observations for whoever closes it:
+
+* the reading law would not suffice even where it applies: it holds
+  only at `ρ` satisfying the constructor's own context (`Sat V Δa ρ`),
+  while `ordF`'s left arm quantifies over EVERY `fs₁` of the right
+  length.  The left disjunct proved here is at the syntax and has no
+  such premise, so the arm as L-E states it stays provable;
+* `mentionsMember` descends into `fvar` annotations, so the test is on
+  the opened domain the walk itself sees — the openers' annotations of
+  the EARLIER fields count.  The two mention tests (opened, closed) are
+  transferred explicitly rather than identified.
+
+##### (d) What the arms still owe
+
+* `recF` at a REFLEXIVE field — the reflexive twin of `copyRecFDom`
+  (the occurrence chain under the field's own `Π` binders) plus the
+  telescope conjunct.  The KIND half is the same argument as §U.49's
+  (the positivity walk's Π arm, the guards excluded by
+  `classifyMutualKinds_inv`).  The TELESCOPE conjunct is better off
+  than (c) feared: `normPosDomM` does not normalise a `Π` DOMAIN (it
+  recurses into the body only, and rejects a domain that mentions a
+  member), so a reflexive field's telescope domains are stored AS THE
+  REWRITE LEFT THEM, and the prune of (c) applies to each of them
+  unchanged.  **1–1.5 sessions**, and it needs no new machinery.
+* `ordF`-left's residue (B6's disjunct) — see (c).  Not sized; it is a
+  rewrite-level interp law, and the corpus may make it vacuous
+  (a measurement over the fixtures would say).
+* `ordF`-right's reading half and `pinF`'s remaining half — unchanged;
+  `pinF` shares `copyRecFDom`'s chain with the pin's own container in
+  place of a member, and now also `copyRecFRead`'s.
+
+##### (e) GATES
+
+`lake build` warning-free; `lake test` warning-free; layering base 347
+/ model 265 / caps 3 / umbrella 1, 0/0; trust surface 13/5 (627);
+overview-links 112; quote-gate 2; no-local-paths OK; proofdeps 4955
+rows / 12 roots / 0 doors; shake 510/510 allowlisted; pub-imports 1261
+of 1990, none demotable.  Standard axioms only on every new theorem
+(`instSeq_abstractRange_fvs_at`, `stripPis_binder_leaves`,
+`normPosDomM_no_mention`, `normCtorValM_domErased`,
+`normCtorValM_domUnchanged`, `denoteMeta_openPisAtFvars_dom`,
+`mintFieldRead`, `NestedPinsRun.crossUpSpine`,
+`NestedPinsRun.groupCopyFormer`, `NestedPinsRun.copyRecFKind`,
+`NestedPinsRun.copyRecFRead`, `NestedPinsRun.copyOrdFLeft`, and the
+restated `instSeq_abstractRange_fvs`, `normCtorValM_domHead`,
+`copyFields`, `copyResid`, `copyRecFDom`, `copyRecF`).
+
 #### K.35 — the auxiliary applications sit at the parameters (2026-09-17, task #315 M7, the model lane's spec §1a)
 
 `restoreNode` REPLACES a key-headed application `aux_q args` by the pin

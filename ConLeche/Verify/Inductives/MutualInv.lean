@@ -301,6 +301,24 @@ theorem normPosDomM_inv {env : Env} {memberNames : List Name} {F : Nat} :
       (simp only [pure, Except.pure, Except.ok.injEq] at h
        exact Or.inl h.symm)
 
+/-- **The positivity walk is the IDENTITY on a domain mentioning no
+member** — its first guard, forwards (task #315 L-B).  `normPosDomM_inv`
+gives the mention test only in the arm that took it; a consumer that
+KNOWS the domain is member-free needs the implication in this
+direction. -/
+theorem normPosDomM_no_mention {env : Env} {memberNames : List Name} {F : Nat} :
+    ∀ {d fuel : Nat} {e e' : Expr},
+      normPosDomM (fueledOps mode F) env memberNames d fuel e = .ok e' →
+      mentionsMember memberNames e = false → e' = e := by
+  intro d fuel e e' h hm
+  cases fuel with
+  | zero => simp only [normPosDomM] at h; close_throw
+  | succ fuel =>
+    unfold normPosDomM at h
+    rw [if_pos (by simp [hm])] at h
+    simp only [pure, Except.pure, Except.ok.injEq] at h
+    exact h.symm
+
 /-- `normFieldDoms` at a mutual block, at the end of the telescope. -/
 theorem normFieldDomsM_zero_inv {env : Env} {memberNames : List Name} {F i : Nat} {e : Expr}
     {bs : List (Expr × BinderMeta)} {r : Expr}

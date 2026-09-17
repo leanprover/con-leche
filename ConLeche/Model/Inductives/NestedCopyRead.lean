@@ -198,6 +198,55 @@ theorem denoteMeta_openPisAtFvars {acval : Name → (Name → Nat) → AnnotTerm
         rw [show d + (k + 1) = d + 1 + k from by omega]
         exact ih hop' hba hst'
 
+/-- **The tower's opened DOMAINS read as the tower reading's domains**
+(task #315 L-B): `denoteMeta_openPisAtFvars`' twin at the binders.
+`openPisAtFvars` plants `.fvar d dom` carrying the binder's own domain,
+and `denoteMeta` on a `∀` reads that domain at the binder's depth — so
+opener `l` reads as the tower's `l`-th binder datum, one depth per
+binder. -/
+theorem denoteMeta_openPisAtFvars_dom {acval : Name → (Name → Nat) → AnnotTerm}
+    {φ : Name → Nat} :
+    ∀ (k : Nat) {d : Nat} {e o : Expr} {fvs : List Expr} {ea : AnnotTerm}
+      {pds : List (Nat × Nat × AnnotTerm)} {R : AnnotTerm},
+      ConLeche.openPisAtFvars k e d = some (fvs, o) →
+      denoteMeta acval env φ d e = some ea →
+      stripPisAV k ea = some (pds, R) →
+      ∀ (l : Nat) (x : Expr), fvs[l]? = some x →
+        denoteMeta acval env φ (d + l) x.fvarTypeD = some ((pds.getD l default).2.2) := by
+  intro k
+  induction k with
+  | zero =>
+    intro d e o fvs ea pds R hop _ _ l x hx
+    simp only [ConLeche.openPisAtFvars, Option.some.injEq, Prod.mk.injEq] at hop
+    obtain ⟨rfl, -⟩ := hop
+    simp at hx
+  | succ k ih =>
+    intro d e o fvs ea pds R hop hea hst l x hx
+    match e, hop with
+    | .forallE ty rest mb, hop =>
+      simp only [ConLeche.openPisAtFvars] at hop
+      cases hop' : ConLeche.openPisAtFvars k (rest.instantiate1 (.fvar d ty)) (d + 1) with
+      | none => rw [hop'] at hop; exact nomatch hop
+      | some q =>
+        rw [hop'] at hop
+        simp only [Option.some.injEq, Prod.mk.injEq] at hop
+        obtain ⟨rfl, rfl⟩ := hop
+        obtain ⟨ta, ba, hta, hba, rfl⟩ := denoteMeta_forallE_inv hea
+        simp only [stripPisAV, Option.map_eq_some_iff] at hst
+        obtain ⟨⟨pds', R'⟩, hst', heq⟩ := hst
+        simp only [Prod.mk.injEq] at heq
+        obtain ⟨rfl, -⟩ := heq
+        cases l with
+        | zero =>
+          simp only [List.getElem?_cons_zero, Option.some.injEq] at hx
+          subst hx
+          rw [Nat.add_zero]
+          exact hta
+        | succ l =>
+          simp only [List.getElem?_cons_succ] at hx
+          rw [show d + (l + 1) = d + 1 + l from by omega, List.getD_cons_succ]
+          exact ih hop' hba hst' l x hx
+
 /-! ## A read spine, up to erasure (task #315 L-B, DESIGN §U.38 (e) step 4)
 
 The copies' arms compare ONE residual read through two different
