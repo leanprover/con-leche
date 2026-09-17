@@ -699,6 +699,11 @@ structure NestedPinsRun (V : Type w) [SetTheory V] (μ : CheckMode) (F : Nat) {e
   hsrc : ConLeche.nestedCopySrcOk env p st = true
   hgrp : ConLeche.nestedGroupsOk env p st = true
   hscoped : ConLeche.pinsScoped p.nP st = true
+  /-- **THE COPIES' TARGETS** (K.32, task #315 L-E, DESIGN §U.64): a
+  copy's group-internal recursive field points at the copy of the
+  container member its own field points at — what the copies'
+  identities read on the `ordF` arm -/
+  hK32 : ConLeche.nestedCopyTargetsOk env p b st stored = true
   hkinds : ConLeche.nestedPinKindsOk p b st stored = true
   /-- **THE PINS' CONTAINER INSTANCES AND RANK** (K.37, task #315 L-E,
   DESIGN §U.55): the model's induction measure for the global entry
@@ -1551,12 +1556,13 @@ DESIGN §U.22.) -/
 theorem nestedPinsStaged_of {F : Nat} (hId : NestedPinsIdent V μ F) : NestedPinsStaged V μ F := by
   intro hμ env mp hE p st b envAux stored ctorsR fmsA ctorsA₀ fms f₀ ctorsA sortss kinds mp₁ ppsF W
     idxF dsF esF srcsF fvsPF xFvsF xrestF eissF tssF mp₁' hPM h0 h1 hfA hcA helim hcount hfresh hcont
-    hb haux hstored hclosed hpinsAux hcaps hsrc hgrp hscoped hkinds hrank hpinsE hformers h hbk h3 hnd
-    hctorsA hleafM' hoff' hfind' hctors
+    hb haux hstored hclosed hpinsAux hcaps hsrc hgrp hscoped hK32 hkinds hrank hpinsE hformers h hbk
+    h3 hnd hctorsA hleafM' hoff' hfind' hctors
   have R : NestedPinsRun V μ F mp p st b envAux stored ctorsR fmsA ctorsA₀ fms f₀ ctorsA sortss kinds
       mp₁ ppsF W idxF dsF esF srcsF fvsPF xFvsF xrestF eissF tssF mp₁' :=
     ⟨hμ, hE, hPM, h0, h1, hfA, hcA, helim, hcount, hfresh, hcont, hb, haux, hstored, hclosed, hpinsAux,
-      hcaps, hsrc, hgrp, hscoped, hkinds, hrank, hpinsE, hformers, h, hbk, h3, hnd, hctorsA, hleafM',
+      hcaps, hsrc, hgrp, hscoped, hK32, hkinds, hrank, hpinsE, hformers, h, hbk, h3, hnd, hctorsA,
+      hleafM',
       hoff', hfind', hctors⟩
   obtain ⟨hpinsE, fvs, o, hop, hsc⟩ := R.scoped
   obtain ⟨pbs, hpbs, hPD⟩ := R.pinData
