@@ -1299,6 +1299,46 @@ theorem nestedGroupLe_of_entries (hμ : μ.verifiedChecks = true)
   rw [hP_group i hi, hPinIdx i hi]
   exact hle
 
+/-! ## Step (iii)'s INDUCTION: the rank orders the instances (K.37) -/
+
+/-- **The rank induction, over K.37's four clauses** (task #315 L-E,
+DESIGN §U.55): if every reference LEAVING a container instance goes to
+a strictly smaller rank (`hedge`), the rank is a function of the
+instance (`hhom`), and each instance is closed once the pins it
+references OUTSIDE itself are (`hinst` — `instanceLe`, the container
+instance transfer), then every pin's family lies below the auxiliary
+carrier's.
+
+This is the whole of step (iii) that does not depend on WHAT the pins
+are: `hedge`/`hhom` are `nestedPinRankOk`'s clauses (2) and (3) at the
+edge relation the kernel lane's inversion supplies — an edge is a
+copy's field target, which `CopyCtorShape` names — and `hinst` is the
+transfer.  Clause (1) (an own reference stays inside the instance) and
+clause (4) (a mint group is one instance) are consumed INSIDE `hinst`,
+which is where the container's own pins and the group are. -/
+theorem pins_le_of_instanceLe {n k : Nat} {Is P L : Nat → V}
+    {Edge : Nat → Nat → Prop} {inst rank : Nat → Nat}
+    (hedge : ∀ q q', q < n → q' < n → Edge q q' → inst q' = inst q ∨ rank q' < rank q)
+    (hhom : ∀ q q', q < n → q' < n → inst q = inst q' → rank q = rank q')
+    (hinst : ∀ q, q < n →
+      (∀ q₀ q', q₀ < n → q' < n → inst q₀ = inst q → Edge q₀ q' → inst q' ≠ inst q →
+        FamLe (Is (k + q')) (P q') (L (k + q'))) →
+      FamLe (Is (k + q)) (P q) (L (k + q))) :
+    ∀ q, q < n → FamLe (Is (k + q)) (P q) (L (k + q)) := by
+  have key : ∀ r q, rank q < r → q < n → FamLe (Is (k + q)) (P q) (L (k + q)) := by
+    intro r
+    induction r with
+    | zero => intro q hr; exact absurd hr (Nat.not_lt_zero _)
+    | succ r ih =>
+      intro q hr hq
+      refine hinst q hq fun q₀ q' hq₀ hq' hq₀i hE hne => ?_
+      refine ih q' ?_ hq'
+      rcases hedge q₀ q' hq₀ hq' hE with heq | hlt
+      · exact absurd (heq.trans hq₀i) hne
+      · have : rank q₀ = rank q := hhom q₀ q hq₀ hq hq₀i
+        omega
+  exact fun q hq => key (rank q + 1) q (Nat.lt_succ_self _) hq
+
 end Assembly
 
 end ConLeche.Model
