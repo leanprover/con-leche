@@ -175,8 +175,11 @@ theorem bitAgree_quotMkA (ψ : Name → Nat) :
 theorem extendQuot (mp : EnvModelM V μ env)
     (hfresh : env.find? quotName = none)
     (hwf : EnvWF ⟨quotA :: env.consts⟩) :
-    Nonempty (EnvModelM V μ ⟨quotA :: env.consts⟩) := by
-  refine nonempty_of_exists (declStep_preserves_of_basis_cons mp
+    ∃ mp' : EnvModelM V μ ⟨quotA :: env.consts⟩,
+      mp'.base2.acval
+        = acvalWith mp.base2.acval quotA.name
+            (fun ψ => AnnotTerm.const .quot [ψ uN]) := by
+  refine declStep_preserves_of_basis_cons mp
     (A := fun ψ => AnnotTerm.const .quot [ψ uN]) hfresh
     (fun _ _ _ h => nomatch h)
     (by decide) (by decide) (by decide) (by decide)
@@ -191,7 +194,7 @@ theorem extendQuot (mp : EnvModelM V μ env)
       (fun _ h => nomatch h) (fun _ _ _ _ h => nomatch h))
     (fun _ _ => rfl) ?_
     (fun _ _ => trivial) (fun _ _ => trivial)
-    (fun ψ => ⟨_, denoteMeta_quotA_type ψ⟩) ?_ ?_)
+    (fun ψ => ⟨_, denoteMeta_quotA_type ψ⟩) ?_ ?_
   · intro ψ₁ ψ₂ hp
     rw [hp uN (by show uN ∈ [uN]; exact List.mem_cons_self)]
   · intro ψ ta h ρ
@@ -210,11 +213,14 @@ theorem extendQuotMk (mp : EnvModelM V μ env)
     (hQ : env.find? quotName = some quotA)
     (hfresh : env.find? quotMkName = none)
     (hwf : EnvWF ⟨quotMkA :: env.consts⟩) :
-    Nonempty (EnvModelM V μ ⟨quotMkA :: env.consts⟩) := by
+    ∃ mp' : EnvModelM V μ ⟨quotMkA :: env.consts⟩,
+      mp'.base2.acval
+        = acvalWith mp.base2.acval quotMkA.name
+            (fun ψ => AnnotTerm.const .quotMk [ψ uN]) := by
   have hty := fun ψ =>
     denoteMeta_quotMkA_type (m := mp.base2)
       (A := fun ψ => AnnotTerm.const .quotMk [ψ uN]) ψ hQ
-  refine nonempty_of_exists (declStep_preserves_of_basis_cons mp
+  refine declStep_preserves_of_basis_cons mp
     (A := fun ψ => AnnotTerm.const .quotMk [ψ uN]) hfresh
     (fun _ _ _ h => nomatch h)
     (by decide) (by decide) (by decide) (by decide)
@@ -229,7 +235,7 @@ theorem extendQuotMk (mp : EnvModelM V μ env)
       (fun _ h => nomatch h) (fun _ _ _ _ h => nomatch h))
     (fun _ _ => rfl) ?_
     (fun _ _ => trivial) (fun _ _ => trivial)
-    (fun ψ => ⟨_, hty ψ⟩) ?_ ?_)
+    (fun ψ => ⟨_, hty ψ⟩) ?_ ?_
   · intro ψ₁ ψ₂ hp
     rw [hp uN (by show uN ∈ [uN]; exact List.mem_cons_self)]
   · intro ψ ta h ρ
@@ -764,11 +770,14 @@ theorem extendQuotInd (mp : EnvModelM V μ env)
     (hM : env.find? quotMkName = some quotMkA)
     (hfresh : env.find? quotIndA.name = none)
     (hwf : EnvWF ⟨quotIndA :: env.consts⟩) :
-    Nonempty (EnvModelM V μ ⟨quotIndA :: env.consts⟩) := by
+    ∃ mp' : EnvModelM V μ ⟨quotIndA :: env.consts⟩,
+      mp'.base2.acval
+        = acvalWith mp.base2.acval quotIndA.name
+            (fun ψ => AnnotTerm.const .quotInd [ψ uN]) := by
   have hty := fun ψ =>
     denoteMeta_quotIndA_type (m := mp.base2)
       (A := fun ψ => AnnotTerm.const .quotInd [ψ uN]) ψ hQ hM
-  refine nonempty_of_exists (declStep_preserves_of_basis_rec_cons mp
+  refine declStep_preserves_of_basis_rec_cons mp
     (A := fun ψ => AnnotTerm.const .quotInd [ψ uN]) hfresh
     (fun _ _ _ h => nomatch h)
     (by decide) (by decide) (by decide) (by decide)
@@ -789,7 +798,7 @@ theorem extendQuotInd (mp : EnvModelM V μ env)
         · exact nomatch hr'))
     (fun _ _ => rfl) ?_
     (fun _ _ => trivial) (fun _ _ => trivial)
-    (fun ψ => ⟨_, hty ψ⟩) ?_ ?_ ?_)
+    (fun ψ => ⟨_, hty ψ⟩) ?_ ?_ ?_
   · intro ψ₁ ψ₂ hp
     rw [hp uN (by show uN ∈ [uN]; exact List.mem_cons_self)]
   · intro ψ ta h ρ
@@ -1134,11 +1143,14 @@ theorem extendQuotSound (mp : EnvModelM V μ env)
     (hE : env.find? eqName = some eqA)
     (hfresh : env.find? quotSoundA.name = none)
     (hwf : EnvWF ⟨quotSoundA :: env.consts⟩) :
-    Nonempty (EnvModelM V μ ⟨quotSoundA :: env.consts⟩) := by
+    ∃ mp' : EnvModelM V μ ⟨quotSoundA :: env.consts⟩,
+      mp'.base2.acval
+        = acvalWith mp.base2.acval quotSoundA.name
+            (fun ψ => AnnotTerm.const .quotSound [ψ uN]) := by
   have hty := fun ψ =>
     denoteMeta_quotSoundA_type (m := mp.base2)
       (A := fun ψ => AnnotTerm.const .quotSound [ψ uN]) ψ hQ hM hE
-  refine nonempty_of_exists (declStep_preserves_of_basis_cons mp
+  refine declStep_preserves_of_basis_cons mp
     (A := fun ψ => AnnotTerm.const .quotSound [ψ uN]) hfresh
     (fun _ _ _ h => nomatch h)
     (by decide) (by decide) (by decide) (by decide)
@@ -1153,7 +1165,7 @@ theorem extendQuotSound (mp : EnvModelM V μ env)
       (fun _ h => nomatch h) (fun _ _ _ _ h => nomatch h))
     (fun _ _ => rfl) ?_
     (fun _ _ => trivial) (fun _ _ => trivial)
-    (fun ψ => ⟨_, hty ψ⟩) ?_ ?_)
+    (fun ψ => ⟨_, hty ψ⟩) ?_ ?_
   · intro ψ₁ ψ₂ hp
     rw [hp uN (by show uN ∈ [uN]; exact List.mem_cons_self)]
   · intro ψ ta h ρ
@@ -2227,14 +2239,17 @@ theorem extendQuotLift (mp : EnvModelM V μ env)
     (hE : env.find? eqName = some eqA)
     (hfresh : env.find? quotLiftA.name = none)
     (hwf : EnvWF ⟨quotLiftA :: env.consts⟩) :
-    Nonempty (EnvModelM V μ ⟨quotLiftA :: env.consts⟩) := by
+    ∃ mp' : EnvModelM V μ ⟨quotLiftA :: env.consts⟩,
+      mp'.base2.acval
+        = acvalWith mp.base2.acval quotLiftA.name
+            (fun ψ => AnnotTerm.const .quotLift [ψ uN, ψ vN]) := by
   have hty := fun ψ =>
     denoteMeta_quotLiftA_type (m := mp.base2)
       (A := fun ψ => AnnotTerm.const .quotLift [ψ uN, ψ vN]) ψ hQ hE
   have hz : ∀ ψ : Name → Nat,
       pwBit ψ (ConLeche.PropWhen.ifAllZero [vN]) = 0 ↔ ψ vN = 0 :=
     fun ψ => pwBit_ifAllZero_single ψ vN
-  refine nonempty_of_exists (declStep_preserves_of_basis_rec_cons mp
+  refine declStep_preserves_of_basis_rec_cons mp
     (A := fun ψ => AnnotTerm.const .quotLift [ψ uN, ψ vN]) hfresh
     (fun _ _ _ h => nomatch h)
     (by decide) (by decide) (by decide) (by decide)
@@ -2255,7 +2270,7 @@ theorem extendQuotLift (mp : EnvModelM V μ env)
         · exact nomatch hr'))
     (fun _ _ => rfl) ?_
     (fun _ _ => trivial) (fun _ _ => trivial)
-    (fun ψ => ⟨_, hty ψ⟩) ?_ ?_ ?_)
+    (fun ψ => ⟨_, hty ψ⟩) ?_ ?_ ?_
   · intro ψ₁ ψ₂ hp
     rw [hp uN (by
         show uN ∈ [uN, vN]
@@ -2289,7 +2304,7 @@ theorem declBasisPB_quotK {env₁ : Env} (mp : EnvModelM V μ env)
     (hEq : env.find? eqName = some eqA)
     (h : ConLeche.Semantics.BasisInstallRun env
       ConLeche.BasisKind.quotK.declsA env₁) :
-    Nonempty (EnvModelM V μ env₁) := by
+    ∃ mp' : EnvModelM V μ env₁, AcvalAgrees mp.base2 mp'.base2 := by
   rw [show ConLeche.BasisKind.quotK.declsA
     = [quotA, quotMkA, quotLiftA, quotIndA, quotSoundA] from rfl] at h
   obtain ⟨h1, h2, h3, h4, h5, hnil⟩ := h
@@ -2304,7 +2319,7 @@ theorem declBasisPB_quotK {env₁ : Env} (mp : EnvModelM V μ env)
         | (refine ConLeche.IndCapsWF.of_caps ?_ ?_ <;> intro h <;>
             first | exact absurd h (by decide) | rfl)
         | exact fun _ _ heq => ConstantInfo.noConfusion heq)⟩
-  obtain ⟨mp1⟩ := extendQuot mp hf1  hwf1
+  obtain ⟨mp1, hac1⟩ := extendQuot mp hf1  hwf1
   have hQ1 : (⟨quotA :: env.consts⟩ : Env).find? quotName
       = some quotA := by
     rw [ConLeche.Env.find?_cons]; exact if_pos rfl
@@ -2337,7 +2352,7 @@ theorem declBasisPB_quotK {env₁ : Env} (mp : EnvModelM V μ env)
             { pw := .ifAllZero [uN] })
           { pw := .ifAllZero [uN] } from rfl]
     simp [Expr.constsResolve, hf]
-  obtain ⟨mp2⟩ := extendQuotMk mp1 hQ1 hf2  hwf2
+  obtain ⟨mp2, hac2⟩ := extendQuotMk mp1 hQ1 hf2  hwf2
   have hQ2 : (⟨quotMkA :: quotA :: env.consts⟩ : Env).find? quotName
       = some quotA := by
     rw [ConLeche.Env.find?_cons, if_neg (by decide)]; exact hQ1
@@ -2410,7 +2425,7 @@ theorem declBasisPB_quotK {env₁ : Env} (mp : EnvModelM V μ env)
           simp [Expr.constsResolve, quotLiftRule, hfE], rfl,
           fun lvls pins heqf => nomatch heqf⟩
       · exact nomatch hr'
-  obtain ⟨mp3⟩ := extendQuotLift mp2 hQ2 hM2 hE2 hf3  hwf3
+  obtain ⟨mp3, hac3⟩ := extendQuotLift mp2 hQ2 hM2 hE2 hf3  hwf3
   have hQ3 : (⟨quotLiftA :: quotMkA :: quotA :: env.consts⟩
       : Env).find? quotName = some quotA := by
     rw [ConLeche.Env.find?_cons, if_neg (by decide)]; exact hQ2
@@ -2478,7 +2493,7 @@ theorem declBasisPB_quotK {env₁ : Env} (mp : EnvModelM V μ env)
           simp [Expr.constsResolve, quotIndRule, hfQ, hfM], rfl,
           fun lvls pins heqf => nomatch heqf⟩
       · exact nomatch hr'
-  obtain ⟨mp4⟩ := extendQuotInd mp3 hQ3 hM3 hf4  hwf4
+  obtain ⟨mp4, hac4⟩ := extendQuotInd mp3 hQ3 hM3 hf4  hwf4
   have hQ4 : (⟨quotIndA :: quotLiftA :: quotMkA :: quotA
       :: env.consts⟩ : Env).find? quotName = some quotA := by
     rw [ConLeche.Env.find?_cons, if_neg (by decide)]; exact hQ3
@@ -2538,7 +2553,12 @@ theorem declBasisPB_quotK {env₁ : Env} (mp : EnvModelM V μ env)
               { pw := .ifAllZero [] })
             { pw := .ifAllZero [] } from rfl]
     simp [Expr.constsResolve, hfQ, hfM, hfE]
-  exact extendQuotSound mp4 hQ4 hM4 hE4 hf5  hwf5
+  obtain ⟨mp5, hac5⟩ := extendQuotSound mp4 hQ4 hM4 hE4 hf5  hwf5
+  exact ⟨mp5, AcvalAgrees.transCons hf1 (acvalAgrees_of_acvalWith hf1 hac1)
+    (AcvalAgrees.transCons hf2 (acvalAgrees_of_acvalWith hf2 hac2)
+      (AcvalAgrees.transCons hf3 (acvalAgrees_of_acvalWith hf3 hac3)
+        (AcvalAgrees.transCons hf4 (acvalAgrees_of_acvalWith hf4 hac4)
+          (acvalAgrees_of_acvalWith hf5 hac5))))⟩
 
 end Quot
 
