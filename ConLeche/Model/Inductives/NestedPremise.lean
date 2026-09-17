@@ -471,12 +471,32 @@ and components, at every parameter frame.  The assignment is ONE
 function for the whole environment so that the shape a container's own
 pins carry and the shape the block being installed proves speak of the
 SAME model of the pins' container — what the global entry theorem
-composes (`nestedPinLeaf_all`). -/
+composes (`nestedPinLeaf_all`).
+
+The COUNT conjunct (task #315 L-E, DESIGN §U.73 (d), the maintainer's
+ruling): a pin's constructors are as many as its container member's.
+`ChainFitT` at a pin class reads `(pc q).ctors` (`ctorsT_of_pin`), so
+the container instance transfer's `j` ranges over that list, while the
+shape below is supplied only for `j < ((B ci).ctorsM i').length`;
+`PinCtors` is a bare record and `PinRecLaws` quantifies `j` over the
+former everywhere, so without this nothing forbids a pin carrying
+constructors its container does not have, and the transfer would have
+no shape at them.
+
+**Its three producer classes**, so that nobody rediscovers them: the
+five PINNED BASIS blocks, where it is vacuous (`d.pins = []`, so `q`
+does not exist); the NESTED route, where it is
+`NestedPinGroupSyn.ctorCount` composed with `nestedPc`'s own count; and
+M7-3's NATIVE and MUTUAL sites, whose blocks are pins-free for the same
+reason as the basis (`ContainerCross.lean`'s pins-free construction).
+The transports (`PinShapes.crossEnv`, `PinShapes.congrB`) carry it
+unchanged. -/
 @[expose] def PinShapes {env : Env} (m : EnvModel V env) (B : ContainerInfo → BlockModel V)
     (d : BlockModel V) (pc : Nat → PinCtors V) : Prop :=
   ∀ q, q < d.nPins → ∃ (q₀ kJ i : Nat) (ci : ContainerInfo), q = q₀ + i ∧ i < kJ ∧
     ConLeche.containerInfo? env (d.pinAt q).J = some ci ∧
     PinGroupView d (B ci) q₀ kJ ∧
+    (∀ i', i' < kJ → (pc (q₀ + i')).ctors.length = ((B ci).ctorsM i').length) ∧
     ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (d.params ψ).reverse ρp →
       ∀ i' j, i' < kJ → j < ((B ci).ctorsM i').length →
       ∀ (cvT : ConstantVal) (caps : IndCaps),

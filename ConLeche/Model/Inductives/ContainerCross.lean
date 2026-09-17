@@ -205,8 +205,9 @@ theorem PinShapes.crossEnv {env₁ env₂ : Env} {m₁ : EnvModel V env₁} {m�
       ConLeche.containerInfo? env₂ (d.pinAt q).J = some ci)
     (h : PinShapes m₁ B d pc) : PinShapes m₂ B d pc := by
   intro q hq
-  obtain ⟨q₀, kJ, i, ci, hqe, hi, hcont, hgv, hsh⟩ := h q hq
-  refine ⟨q₀, kJ, i, ci, hqe, hi, hci q hq ci hcont, hgv, fun ψ ρp hρp i' j hi' hj cvT₂ caps₂ hf₂ => ?_⟩
+  obtain ⟨q₀, kJ, i, ci, hqe, hi, hcont, hgv, hct, hsh⟩ := h q hq
+  refine ⟨q₀, kJ, i, ci, hqe, hi, hci q hq ci hcont, hgv, hct,
+    fun ψ ρp hρp i' j hi' hj cvT₂ caps₂ hf₂ => ?_⟩
   obtain ⟨cvT, cvR, mI, rP, rules, h0⟩ := hd 0 hk
   -- the pin's container at the new environment is the one at the old
   obtain ⟨cv₁, caps₁, hf₁⟩ := h0.pinsFound (q₀ + i') (by
