@@ -219,6 +219,15 @@ structure NestedPinGroup (m : EnvModel V env₂) (q₀ kJ : Nat) (dJ : BlockMode
     blockIds b.nP ppsF ψ (p.k + q₀ + i')
       = instTele (((D).pinAt (q₀ + i)).Ds ψ) 0 (dJ.IdsM i' (((D).pinAt (q₀ + i)).ψJ ψ))
   ctorCount : ∀ i', i' < kJ → (dJ.ctorsM i').length = (b.ownCtors (p.k + q₀ + i')).length
+  /-- **the group's model names the container member's own constructors**,
+  by name and in order, and the parameter counts agree (task #315 L-B's
+  `NestedPinGroupSyn.ctorsOf`, exported here): the face `hctorsJ` of the
+  recursors' stage (DESIGN §U.36 (d)) is this field, and the readings and
+  the equations need no model face for it. -/
+  ctorsOf : ∀ i', i' < kJ → ∀ (ciJ : ContainerInfo) (J : ContainerMember),
+    ConLeche.containerInfo? env ((D).pinAt (q₀ + i')).J = some ciJ →
+    J ∈ ciJ.members → J.name = ((D).pinAt (q₀ + i')).J →
+    (dJ.ctorsM i').map (·.1.name) = J.ctors.map (·.name) ∧ dJ.nP = ciJ.nP
   DsFit : ∀ i, i < kJ → ∀ (ψ : Name → Nat) (ρ : Nat → V) (as : List V),
     SpineFit ρ ((D).params ψ) as →
     SpineFit (consList as ρ) (dJ.params (((D).pinAt (q₀ + i)).ψJ ψ))
@@ -1194,6 +1203,17 @@ local notation "ENV₁" => (ConLeche.consMutualFormers (fms.take p.k) env)
 local notation "ENV₂" => (ConLeche.consNestedCtors ctorsR.flatten
   (ConLeche.consMutualFormers (fms.take p.k) env))
 
+/-- A read spine transfers along a per-term reading transfer (the loop's
+`hde`: a reading at the prefix model is one at the restored model). -/
+theorem DenoteMetaSpine.transfer {acval₁ acval₂ : Name → (Name → Nat) → AnnotTerm}
+    {env₁ env₂ : Env} {φ : Name → Nat} {dp : Nat}
+    (hde : ∀ (e : Expr) {ea : AnnotTerm}, denoteMeta acval₁ env₁ φ dp e = some ea →
+      denoteMeta acval₂ env₂ φ dp e = some ea) :
+    ∀ {as : List Expr} {vs : List AnnotTerm}, DenoteMetaSpine acval₁ env₁ φ dp as vs →
+      DenoteMetaSpine acval₂ env₂ φ dp as vs
+  | _, _, .nil => .nil
+  | _, _, .cons ha hrest => .cons (hde _ ha) (DenoteMetaSpine.transfer hde hrest)
+
 /-- **The restored constructors' stage's outputs** at a model `mp₂` of
 the restored environment (the members re-consed with the records the
 scratch install stored, the restored constructors after them) — the
@@ -1209,9 +1229,32 @@ structure NestedStageFacts (st : ElimState) (mp₂ : EnvModelM V μ ENV₂) : Pr
   pinRec : ∀ (q : Nat) (pin : NestedPin), st.pins[q]? = some pin →
     ((D).pinAt q).J = pin.container ∧
     pin.pin = Expr.mkAppN (.const pin.container ((D).pinAt q).lvls) ((D).pinAt q).DsE
+  /-- the pins' components read at the block's parameter depth, at the
+  restored model (task #315 M7-2: the recursors' readings' walk needs
+  the components' syntactic form `DsE` tied to their readings `Ds`) -/
+  pinDs : ∀ q, q < pinsS.length → ∀ ψ : Name → Nat,
+    DenoteMetaSpine mp₂.base2.acval ENV₂ ψ b.nP (pinsS.getD q default).DsE
+      ((pinsS.getD q default).Ds ψ)
+  /-- the restored environment extends the prefix environment (M7-2) -/
+  find : FindPreserved ENV₁ ENV₂
+  /-- the pins' level assignment is the container's level parameters
+  instantiated at the pin's levels (task #315 M7-2: the constructor
+  pins' readings at the restored model need it) -/
+  pinψ : ∀ q, q < pinsS.length → ∀ (cvT : ConstantVal) (caps : IndCaps),
+    (ENV₁).find? (pinsS.getD q default).J = some (.indInfo cvT caps) →
+    (pinsS.getD q default).lvls.length = cvT.levelParams.length ∧
+    ∀ ψ : Name → Nat, (pinsS.getD q default).ψJ ψ
+      = Level.substFn ψ cvT.levelParams (pinsS.getD q default).lvls
   names : (fms.take p.k).map (·.cvTa.name) = p.memberNames
   agree : ∀ n, n ∉ p.memberNames ++ p.ctors.map (·.cv.name) →
     ∀ ψ : Name → Nat, mp₂.base2.acval n ψ = mp.base2.acval n ψ
+  /-- the agreement off the RESTORED constructors' names and the
+  block's own members' (task #315 M7-2: the restore walk's leaf clause
+  classifies a name by the AUXILIARY block's lists, which the
+  declaration's own `memberNames`/`ctors` need not cover) -/
+  agreeR : ∀ n : Name, (∀ c ∈ ctorsR.flatten, n ≠ c.1.name) →
+    (∀ (t : Nat) (f : MutualFormerA), t < p.k → fms[t]? = some f → n ≠ f.cvTa.name) →
+    mp₂.base2.acval n = mp.base2.acval n
   findM : ∀ (t : Nat) (f : MutualFormerA), t < p.k → fms[t]? = some f →
     (ENV₂).find? f.cvTa.name = some (ConstantInfo.indInfo f.cvTa {})
   leafM : ∀ (t : Nat) (f : MutualFormerA), t < p.k → fms[t]? = some f →
@@ -1252,7 +1295,19 @@ structure NestedLoopFacts (st : ElimState) (mp₁ : EnvModelM V μ ENV₁) (mp�
   pinRec : ∀ (q : Nat) (pin : NestedPin), st.pins[q]? = some pin →
     ((D).pinAt q).J = pin.container ∧
     pin.pin = Expr.mkAppN (.const pin.container ((D).pinAt q).lvls) ((D).pinAt q).DsE
+  /-- the pins' components read at the restored model (M7-2) -/
+  pinDs : ∀ q, q < pinsS.length → ∀ ψ : Name → Nat,
+    DenoteMetaSpine mp₂.base2.acval ENV₂ ψ b.nP (pinsS.getD q default).DsE
+      ((pinsS.getD q default).Ds ψ)
   find : FindPreserved ENV₁ ENV₂
+  /-- the pins' level assignment is the container's level parameters
+  instantiated at the pin's levels (task #315 M7-2: the constructor
+  pins' readings at the restored model need it) -/
+  pinψ : ∀ q, q < pinsS.length → ∀ (cvT : ConstantVal) (caps : IndCaps),
+    (ENV₁).find? (pinsS.getD q default).J = some (.indInfo cvT caps) →
+    (pinsS.getD q default).lvls.length = cvT.levelParams.length ∧
+    ∀ ψ : Name → Nat, (pinsS.getD q default).ψJ ψ
+      = Level.substFn ψ cvT.levelParams (pinsS.getD q default).lvls
   hde : ∀ (ψ : Name → Nat) (dp : Nat) (e : Expr) {ea : AnnotTerm},
     denoteMeta mp₁.base2.acval ENV₁ ψ dp e = some ea →
     denoteMeta mp₂.base2.acval ENV₂ ψ dp e = some ea
@@ -1558,7 +1613,9 @@ theorem nestedStageFacts_of (hst : NestedCtorsStaged V μ F) (hμ : μ.verifiedC
     rw [hmemc]
     exact hmmk
   refine ⟨mp₂, dsR, xFvsR, pinsS,
-    { pinsLen := L.pinsLen, pinRec := L.pinRec, names := hnames, agree := ?_
+    { pinsLen := L.pinsLen, pinRec := L.pinRec, pinDs := L.pinDs, find := L.find, pinψ := L.pinψ
+      names := hnames, agree := ?_
+      agreeR := fun n hnC hnM => (L.agreeC n hnC).trans (hoff' n hnM)
       findM := fun t f ht hft => L.find (hfind' t f ht hft).1
       leafM := fun t f ht hft => (L.leafKeep t f ht hft).trans (hleafM' t f ht hft)
       FD := fun t f ht hft => FormerData.crossEnv' L.hde (hfind' t f ht hft).2

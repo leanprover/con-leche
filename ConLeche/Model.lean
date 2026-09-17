@@ -139,6 +139,14 @@ public import ConLeche.Model.Inductives.DeclNestedCore
 public import ConLeche.Model.Inductives.NestedRecsStage
 public import ConLeche.Model.Inductives.NestedRecRead
 public import ConLeche.Model.Inductives.NestedRecTypes
+public import ConLeche.Model.Inductives.NestedRecScratch
+public import ConLeche.Model.Inductives.NestedRecFibre
+public import ConLeche.Model.Inductives.NestedRecWalk
+public import ConLeche.Model.Inductives.NestedRecCtor
+public import ConLeche.Model.Inductives.NestedRecFrames
+public import ConLeche.Model.Inductives.NestedRecFrames2
+public import ConLeche.Model.Inductives.NestedRecEqs
+public import ConLeche.Model.Inductives.NestedRecsStore
 public import ConLeche.Model.Inductives.NestedRec
 public import ConLeche.Model.Inductives.NestedRecCand
 public import ConLeche.Model.Inductives.NestedRecTyped
