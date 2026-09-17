@@ -687,6 +687,85 @@ theorem BlockModel.famAt_reads {env : Env} {m : EnvModel V env} {d : BlockModel 
       interp_closed (V := V) (m.cval_closedL _ _) (consList as ρ₀) ρ₀, ← List.foldl_append,
       ← hleaf]
 
+/-- **A pin group's carrier IS its container's least tuple** (task #315
+L-E, DESIGN §U.66 — the family identity (‡)): at a pin group
+`[q₀, q₀ + kK)` of a stored block model `d` whose container is `dJ`,
+the block's own pin carrier at member `i` of the group and `dJ`'s least
+tuple at member `i`, read at the pin's frame, are ONE family.
+
+Both are determined by their leaves and the leaves are one reading —
+`IsBlockModel.pinLeaf` at `d` gives the container at the pin's
+components, `IsBlockModel.leaf` at `dJ` gives the same container
+member at the same components (`PinGroupView.name`/`same`), and a
+stored constant's reading is closed, so the base frame does not
+separate them (`EnvModel.cval_closedL`).  `fam_eq_of_leaf` (DESIGN
+§U.58) is the principle; here its two frames are literally equal, so
+its index-set and spine hypotheses are `rfl`.
+
+This is what the container instance transfer needs at a `recF` field
+of the root's copy: the root's class at the copy's target IS the
+container's class at the corresponding member, so `real_dom_eq`'s
+carrier and the copy's slot's family are the same object. -/
+theorem BlockModel.pinGroupFam_mem {env : Env} {m : EnvModel V env} {d dJ : BlockModel V}
+    {q₀ kK : Nat} (hreps : IsBlockModels m d) (hrepsJ : IsBlockModels m dJ) (hk : 0 < d.k)
+    (S : PinGroupView d dJ q₀ kK) {ψ : Name → Nat} {ρ : Nat → V}
+    (hρ : Sat V (d.params ψ).reverse ρ) {i : Nat} (hi : i < kK) :
+    d.pinCar ψ ρ (lfpTuple (d.w ψ) d.k (d.idx ψ ρ) (d.Φ ψ ρ)) (q₀ + i)
+      = lfpTuple (d.w ψ) dJ.k
+          (dJ.idx ((d.pinAt q₀).ψJ ψ) (d.pinFrame q₀ ψ ρ))
+          (dJ.Φ ((d.pinAt q₀).ψJ ψ) (d.pinFrame q₀ ψ ρ)) i := by
+  obtain ⟨cvT, cvR, mI, rP, rules, hI0⟩ := hreps 0 hk
+  obtain ⟨cvTJ, cvRJ, mIJ, rPJ, rulesJ, hIJ⟩ := hrepsJ i (S.kEq ▸ hi)
+  have hqlt : q₀ + i < d.nPins := by have := S.seg; omega
+  have hψJ : (d.pinAt (q₀ + i)).ψJ ψ = (d.pinAt q₀).ψJ ψ := (S.same i hi ψ).1
+  have hDs : (d.pinAt (q₀ + i)).Ds ψ = (d.pinAt q₀).Ds ψ := (S.same i hi ψ).2
+  have hfrm : d.pinFrame (q₀ + i) ψ ρ = d.pinFrame q₀ ψ ρ := by
+    unfold BlockModel.pinFrame; rw [hDs]
+  have hIds : (d.pinAt (q₀ + i)).Ids ψ = dJ.IdsM i ((d.pinAt q₀).ψJ ψ) := by
+    unfold PinSyn.Ids
+    rw [S.pinPps i hi, S.pinNP i hi, hψJ]
+    rfl
+  have hu : (d.pinAt (q₀ + i)).u ψ = dJ.uM i ((d.pinAt q₀).ψJ ψ) := S.pinU i hi ψ
+  have hidxEq : d.pinIdx (q₀ + i) ψ ρ
+      = dJ.idx ((d.pinAt q₀).ψJ ψ) (d.pinFrame q₀ ψ ρ) i := by
+    unfold BlockModel.pinIdx
+    rw [hu, hIds, hfrm]
+    rfl
+  obtain ⟨ρ₀, as, rfl, hsp⟩ := spineOfSat_params d hρ
+  have hDsFit := S.DsFit ψ ρ₀ as hsp
+  have hwJ : dJ.w ((d.pinAt q₀).ψJ ψ) = d.w ψ := S.w ψ
+  refine fam_eq_of_leaf (w' := d.w ψ) (ρ₁ := d.pinFrame q₀ ψ (consList as ρ₀))
+    (ρ₂ := d.pinFrame q₀ ψ (consList as ρ₀))
+    (u := dJ.uM i ((d.pinAt q₀).ψJ ψ)) (Ids := dJ.IdsM i ((d.pinAt q₀).ψJ ψ))
+    (A := ((((d.pinAt q₀).Ds ψ).map (interp V (consList as ρ₀)))).foldl SetTheory.app
+      (interp V ρ₀ (m.acval (dJ.memberName i) ((d.pinAt q₀).ψJ ψ))))
+    (fun _ h => h) rfl ?_ ?_ ?_ ?_
+  · have hmem := hI0.pinMem ψ (consList as ρ₀) hρ
+      (lfpTuple (d.w ψ) d.k (d.idx ψ (consList as ρ₀)) (d.Φ ψ (consList as ρ₀)))
+      (lfpTuple_mem _ _ _ _) (q₀ + i) hqlt
+    unfold BlockModel.pinIdx at hmem
+    rw [hu, hIds, hfrm] at hmem
+    exact hmem
+  · exact lfpTuple_mem (d.w ψ) dJ.k
+      (dJ.idx ((d.pinAt q₀).ψJ ψ) (d.pinFrame q₀ ψ (consList as ρ₀)))
+      (dJ.Φ ((d.pinAt q₀).ψJ ψ) (d.pinFrame q₀ ψ (consList as ρ₀))) i (S.kEq ▸ hi)
+  · intro is his
+    have his' : SpineFit (d.pinFrame (q₀ + i) ψ (consList as ρ₀))
+        ((d.pinAt (q₀ + i)).Ids ψ) is := by rw [hfrm, hIds]; exact his
+    have hleaf := hI0.pinLeaf (q₀ + i) hqlt ψ ρ₀ as is hsp his'
+    rw [hu] at hleaf
+    rw [← hleaf, hDs, List.foldl_append]
+    congr 2
+    rw [← S.name i hi, hψJ]
+  · intro is his
+    have hleaf := hIJ.leaf ((d.pinAt q₀).ψJ ψ) (consList as ρ₀)
+      (((d.pinAt q₀).Ds ψ).map (interp V (consList as ρ₀))) is hDsFit his
+    unfold BlockModel.tup at hleaf
+    rw [hwJ] at hleaf
+    unfold BlockModel.pinFrame
+    rw [← hleaf, List.foldl_append,
+      interp_closed (V := V) (m.cval_closedL _ _) (consList as ρ₀) ρ₀]
+
 /-! ## The extended carrier is least among the tuples closed under the classes' constructors -/
 
 /-- **A tuple over the classes closed under the classes' constructors**
