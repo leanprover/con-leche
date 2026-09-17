@@ -85,6 +85,8 @@ structure NestedRecReadings {env₂ : Env} (m : EnvModel V env₂) (d : BlockMod
     rdsM c ψ₁ = rdsM c ψ₂
   okTy : ∀ (c : Nat) (ψ : Name → Nat) (ρ : Nat → V), c < d.kT →
     WellDenotedV V ρ (mkPisAV (rdsM c ψ) (concM c))
+  tyBelow : ∀ (c : Nat) (ψ : Name → Nat), c < d.kT →
+    Term.bvarsBelow 0 (mkPisAV (rdsM c ψ) (concM c)).erase
   sort : ∀ (c : Nat) (ψ : Name → Nat) (ρ : Nat → V), c < d.kT →
     interp V ρ (mkPisAV (rdsM c ψ) (concM c)) ∈ˢ (univ (s ψ) : V)
   wℓ : ∀ ψ : Name → Nat, d.w ψ = 0 → elimL.eval ψ = 0

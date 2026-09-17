@@ -4,6 +4,7 @@ public import ConLeche.Model.Inductives.NestedRecRead
 import ConLeche.Verify.Inductives.NestedRecDoor
 import ConLeche.Verify.Inductives.NestedElimInv
 import ConLeche.Model.Inductives.MutualRecsStage
+import ConLeche.Model.Inductives.BlockRecLeaf
 public section
 
 /-!
@@ -427,6 +428,7 @@ theorem NestedTailIn.readings
            below := ?_
            params := ?_
            okTy := ?_
+           tyBelow := ?_
            sort := fun c ψ ρ hc => hsort c ψ ρ hc
            wℓ := fun ψ hw => ConLeche.Model.elimLevel_zero_of_w_zero I.large ψ hw
            frames := hfr rdsOf _ hread hlen }
@@ -473,6 +475,11 @@ theorem NestedTailIn.readings
   · intro c ψ ρ hc
     have hc' : c < b.k := by rw [← hkT]; exact hc
     exact (((hr c hc').2.2 ψ).2.2.2.2 ρ).1
+  · intro c ψ hc
+    have hc' : c < b.k := by rw [← hkT]; exact hc
+    exact blockRecTy_below (nP := b.nP) (k := b.k) (n := b.ctors.length)
+      (nIdx := (fms.getD c default).nIdx) (mm := c) ((hr c hc').2.2 ψ).2.2.2.1
+      (by have := ((hr c hc').2.2 ψ).2.1; omega)
 
 end Run
 

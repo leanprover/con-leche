@@ -1,6 +1,8 @@
 module
 
 public import ConLeche.Model.Inductives.NestedRecsStage
+import ConLeche.Semantics.Tower.SigChainWire
+import ConLeche.Model.Inductives.BlockRecLeaf
 import ConLeche.Model.IndCons
 import ConLeche.Model.RecRulesCons
 import ConLeche.Verify.Inductives.StructWF
@@ -111,6 +113,79 @@ theorem nestedRecProvisionCons (mp : EnvModelM V μ env) (hE : ConLeche.EtaFamil
     exact recRules_cons_fresh mp (c₀ := .recInfo cvRa mI rP []) (A := A) hfresh
       (ConsCrossEnv.ofNtc fun _ h => nomatch h)
       (fun _ _ _ rules heq => by injection heq with _ _ _ hrules; exact hrules.symm) m₂ hac φ
+
+/-! ## The leaf, and its three laws -/
+
+/-- **Class `c`'s restored recursor leaf** (the mutual `BlockModel.recLeaf`'s
+twin at `kT` classes): the chosen tuple's `c`-th projection
+(`blockLeafAV`) at the stage's readings, taken at the level assignment
+RESTRICTED to the recursors' level parameters — the leaf then depends
+on those parameters alone BY CONSTRUCTION, and the readings agree at
+the two assignments (`NestedRecReadings.params`). -/
+@[expose] def nestedRecLeaf (kT : Nat) (s : (Name → Nat) → Nat)
+    (rdsM : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)) (concM : Nat → AnnotTerm)
+    (eqs : (Name → Nat) → List AnnotTerm) (rlps : List Name) (c : Nat) (ψ : Name → Nat) :
+    AnnotTerm :=
+  blockLeafAV (s (restrictΨ rlps ψ)) kT (fun t => rdsM t (restrictΨ rlps ψ)) concM
+    (eqs (restrictΨ rlps ψ)) c
+
+section Leaf
+
+variable {env₂ : Env} {m : EnvModel V env₂} {d : BlockModel V} {pc : Nat → PinCtors V}
+  {cvRms cvRns : List ConstantVal} {rlps : List Name} {elimL : Level} {s : (Name → Nat) → Nat}
+  {rdsM : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)} {concM : Nat → AnnotTerm}
+  {eqs : (Name → Nat) → List AnnotTerm}
+
+/-- **The leaf depends on the recursors' level parameters alone** —
+`restrictΨ` being the leaf's own argument. -/
+theorem nestedRecLeaf_params {kT : Nat} {c : Nat} {ψ₁ ψ₂ : Name → Nat}
+    (hφ : ∀ q ∈ rlps, ψ₁ q = ψ₂ q) :
+    nestedRecLeaf kT s rdsM concM eqs rlps c ψ₁ = nestedRecLeaf kT s rdsM concM eqs rlps c ψ₂ := by
+  unfold nestedRecLeaf
+  rw [restrictΨ_congr hφ]
+
+/-- **The leaf is closed**: the readings' Π-towers are
+(`NestedRecReadings.tyBelow`) and the equations are closed under the
+`kT` tuple binders (`NestedRecEqs.below`), which is
+`blockRecAVI_below`'s hypothesis pair at `K = 0`. -/
+theorem nestedRecLeaf_below
+    (R : NestedRecReadings m d pc cvRms cvRns rlps elimL s rdsM concM)
+    (E : NestedRecEqs d pc (fun ψ => elimL.eval ψ) rdsM concM eqs)
+    (c : Nat) (ψ : Name → Nat) :
+    Term.bvarsBelow 0 (nestedRecLeaf d.kT s rdsM concM eqs rlps c ψ).erase := by
+  unfold nestedRecLeaf blockLeafAV
+  refine ConLeche.Semantics.blockRecAVI_below (K := 0) (fun t ht => R.tyBelow t _ ht)
+    (fun e he => ?_) c
+  rw [Nat.zero_add]
+  exact E.below _ e he
+
+/-- **The leaf is typed at its reading, graded and bit-valid**: the
+chosen tuple's `c`-th projection is a member of the reading at the
+RESTRICTED assignment (`NestedRecTuple`), which is the reading at `ψ`
+(`NestedRecReadings.params` at `restrictΨ_agree`); its bit validity is
+`blockRecAVI_validV` at the readings' and the equations' own. -/
+theorem nestedRecLeaf_typed
+    (R : NestedRecReadings m d pc cvRms cvRns rlps elimL s rdsM concM)
+    (E : NestedRecEqs d pc (fun ψ => elimL.eval ψ) rdsM concM eqs)
+    (Tu : NestedRecTuple d s rdsM concM eqs)
+    (c : Nat) (hc : c < d.kT) (ψ : Name → Nat) (ρ : Nat → V) :
+    WellDenotedV V ρ (nestedRecLeaf d.kT s rdsM concM eqs rlps c ψ) ∧
+      interp V ρ (nestedRecLeaf d.kT s rdsM concM eqs rlps c ψ)
+        ∈ˢ interp V ρ (mkPisAV (rdsM c ψ) (concM c)) := by
+  obtain ⟨a, ha, -⟩ := Tu (restrictΨ rlps ψ) ρ
+  obtain ⟨hmem, hval, hwd⟩ := ha c hc
+  -- the reading at `ψ` is the reading at the restricted assignment
+  have hrds : rdsM c ψ = rdsM c (restrictΨ rlps ψ) :=
+    R.params c ψ _ hc fun q hq => (restrictΨ_agree rlps ψ q hq).symm
+  unfold nestedRecLeaf
+  refine ⟨⟨hwd, ?_⟩, by rw [hrds, hval]; exact hmem⟩
+  unfold blockLeafAV
+  exact blockRecAVI_validV
+    (fun t ht => ⟨R.sort t _ ρ ht, (R.okTy t _ ρ ht).1, (R.okTy t _ ρ ht).2⟩)
+    (fun rs hlen hrs e he => ⟨(E.heq _ ρ rs hlen hrs e he).1, (E.heq _ ρ rs hlen hrs e he).2,
+      E.valid _ ρ rs hlen hrs e he⟩) c
+
+end Leaf
 
 /-! ## The loop, in class order -/
 
