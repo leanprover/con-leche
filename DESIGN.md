@@ -81928,3 +81928,227 @@ the landing note.  Standard axioms only on every new theorem
 `NestedPinsRun.copyGroupTargetHead`, `.copyOrdFRight_shape`,
 `.copyPinF_shape`).
 
+
+#### U.42 — M7-4: the pinned basis blocks' block models — `Empty` and `False` LANDED, `Nat` and `PUnit` REFUTED at `ContainerModeled.inj` (lane M7-4, 2026-09-17)
+
+§U.31 (e) 3's item, opened: `EnvBlockModels` quantifies over every
+group `containerInfo?` reads, the five pinned basis blocks are stored
+inductives, and none of them had a block model.  Two of the five now
+have one.  The other three split, and the split is a FINDING about the
+premise, not about the blocks: `Eq` is fine (`Prop`-valued), and `Nat`
+and `PUnit` are **unsatisfiable as `ContainerModeled` is written**.
+
+##### (a) The zero-constructor blocks, landed (`Model/Inductives/BasisBlocksZero.lean`)
+
+`Empty` and `False` are one object twice, one universe apart:
+
+```lean
+@[expose] noncomputable def zeroCtorBlock (T : Name) (resSort : Level) (env₀ : Env) :
+    BlockModel V where
+```
+
+— `k = 1`, `nP = 0`, `nIdxs = [0]`, `ctorsM = fun _ => []`, `pins =
+[]`, `inj = fun ψ _ j fs => injW (resSort.eval ψ) j (mkTower (fs ++
+[pt]))` (`ContainerModeled.inj` on the nose, vacuously — there is no
+constructor to inject), and
+
+```lean
+  Φ := fun _ _ _ _ => graph (fun _ => empty) unitSet
+```
+
+the CONSTANT everywhere-empty family.  With no indices the index-tuple
+set is `idxSet u ρp [] = unitSet` definitionally, so `Φ` is its own
+closed tuple (`zeroCtorBlock.closed`), monotone because constant, and
+maps the tuple space into itself by `graph_mem_famSpace`; the fixed
+point equation then reads the carrier off the operator:
+
+```lean
+theorem lfp_app (ψ : Name → Nat) (ρp : Nat → V) {t : V} (ht : t ∈ˢ (D).idx ψ ρp 0) :
+    app (lfpTuple ((D).w ψ) (D).k ((D).idx ψ ρp) ((D).Φ ψ ρp) 0) t = (empty : V)
+```
+
+which IS the pinned value at both blocks (`bval .empty [1] = empty` for
+`Empty : Type`, `bval .empty [0] = empty` for `False : Prop`, where the
+empty set is the false proposition).  `zeroCtorBlock_isBlockModel`
+takes the four facts a pinned block supplies — the stored record, the
+former's type being a bare sort, the pinned value, and the sort's
+level-parameter dependence — and discharges all twenty-six clauses:
+the syntactic ones off the pin's own record (`mI = rP = 1`, no rules,
+`FormerData` at the empty telescope), the constructor-indexed ones
+vacuously, the semantic three from the section above.
+`zeroCtorBlock_containerModeled` and `zeroCtorBlock_pinRecLaws` (every
+`PinRecLaws` clause but `mkZero` is guarded by `q < d.nPins`; `mkZero`
+holds of the default `PinCtors`, whose injection is the point) then
+give `emptyBlockAt` / `falseBlockAt`:
+
+```lean
+theorem emptyBlockAt {env : Env} {m : EnvModel V env}
+    (hT : env.find? ConLeche.emptyName = some ConLeche.emptyA)
+    {B : ContainerInfo → BlockModel V}
+    (hB : B ⟨0, [⟨ConLeche.emptyName, [], ConLeche.emptyA.toConstantVal.type, []⟩]⟩
+      = zeroCtorBlock (V := V) ConLeche.emptyName (.succ .zero) ⟨[]⟩) :
+    BlockAt m B ⟨0, [⟨ConLeche.emptyName, [], ConLeche.emptyA.toConstantVal.type, []⟩]⟩
+```
+
+The block model names NO environment (`env₀ := ⟨[]⟩`, a ghost witness
+only the ordinary fields' resolution clauses read, and there are no
+fields), so it never has to travel: `ContainerModeled.crossEnv` is not
+needed at these two.
+
+##### (b) THE READ-BACK is a computation, and it is cheap
+
+The lane was told to try a computation/frame argument before asking
+for a Bool.  It works, and no K request follows.  `containerInfo?`'s
+only environment inputs are `Env.find?` results, so rewriting those and
+NAMING the motive walk's two steps leaves closed computation:
+
+```lean
+theorem containerInfo?_emptyA {env : Env}
+    (hT : env.find? ConLeche.emptyName = some ConLeche.emptyA)
+    (hR : env.find? (ConLeche.emptyName.str "rec") = some ConLeche.emptyRecA) :
+    ConLeche.containerInfo? env ConLeche.emptyName
+      = some ⟨0, [⟨ConLeche.emptyName, [], ConLeche.emptyA.toConstantVal.type, []⟩]⟩
+```
+
+with `containerMotiveMember?` named at the motive binder (`= some
+emptyName`, the one step that reads the environment) and at the major's
+bare constant (`= none`, which stops the walk).  The recipe carries
+unchanged to blocks WITH constructors — `containerInfo?_natA` (four
+`find?`s: the former, the recursor, and the two rules' constructors)
+and `containerInfo?_punitA` are in the tree, and both are under a
+second of elaboration.  One practical note for whoever does `Eq`: the
+generated pins carry FULLY EVALUATED names, so the proof must rewrite
+`emptyName = Name.anonymous.str "Empty"` in the HYPOTHESES first —
+`simp` unfolds the name in the goal and the `find?` rewrite then misses.
+
+##### (c) THE FINDING: `ContainerModeled.inj` is FALSE at the pinned `Nat` and `PUnit`
+
+`ContainerModeled.inj` demands the tagged tower unconditionally:
+
+```lean
+  inj : ∀ (ψ : Name → Nat) (mm' j : Nat) (fs : List V),
+    d.inj ψ mm' j fs = injW (d.w ψ) j (mkTower (fs ++ [pt]))
+```
+
+At `d.w ψ ≠ 0` that value is `inj j … = spair (vnat j) … = kpair …`.
+Compose with `IsBlockModel`'s `leaf` (the pinned constant's reading IS
+the carrier) and `fibre` (the carrier's fibre is the set of the
+injections), and every element of the carrier is a Kuratowski pair
+(`Model/Inductives/BasisBlocksTag.lean`):
+
+```lean
+theorem ContainerModeled.mem_carrier_kpair {env : Env} {m : EnvModel V env} {ci : ContainerInfo}
+    {d : BlockModel V} (C : ContainerModeled m ci d) (hnP : ci.nP = 0)
+    {i : Nat} {M : ContainerMember} (hM : ci.members[i]? = some M) {s : Level}
+    (hty : M.type = .sort s) {ψ : Name → Nat} (hw : s.eval ψ ≠ 0) {ρ : Nat → V} {x : V}
+    (hx : x ∈ˢ interp V ρ (m.acval M.name ψ)) :
+    ∃ a b : V, x = kpair a b
+```
+
+**The user's pinned carriers are not built that way.**  `Nat` is `ω`,
+whose element `natzero = ∅` is no pair (`kpair_ne_empty`), and `PUnit`
+is `{pt}`, whose element is the proof point — chosen, in
+`Derive/Pt.lean`'s selection principle, precisely so that no data
+encoding produces it (`pt_ne_kpair`).  Hence, with the read-backs of
+(b) supplying the groups the field actually asks about:
+
+```lean
+theorem not_envBlockModels_of_nat {env : Env} {m : EnvModel V env}
+    (hT : env.find? ConLeche.natName = some ConLeche.natA)
+    (hR : env.find? (ConLeche.natName.str "rec") = some ConLeche.natRecA)
+    (hZ : env.find? ConLeche.natZeroName = some ConLeche.natZeroA)
+    (hS : env.find? ConLeche.natSuccName = some ConLeche.natSuccA) :
+    ¬ EnvBlockModels m
+```
+
+— **no environment that stores the pinned `Nat` block satisfies the
+`EnvModelB` field**, and every accepted environment stores it.  The
+same at `PUnit` (`no_containerModeled_punit`), at any `ψ` with `ψ u ≠
+0`.  `M8`'s flip is therefore BLOCKED until the premise changes; this
+is not a proof gap that more sessions close.
+
+The obstruction is that ONE clause.  `IsBlockModel` keeps `inj`
+abstract and the pinned carriers satisfy its clauses on their own
+terms — `Nat`'s `Φ` is the successor operator, whose least pre-fixed
+family is `ω`, its `inj` the two pinned constructor values, `mkInj`
+the von Neumann successor's injectivity.  `Empty`/`False` are immune
+(no constructor to inject) and so is `Eq`: it is `Prop`-valued, where
+`injW 0 j _ = pt` IS the pinned value and `mkZero` demands exactly
+that.
+
+##### (d) THE MINIMAL CHANGE the lane proposes (the maintainer decides)
+
+Guard the clause by the container's parameter count:
+
+```lean
+  inj : 0 < d.nP → ∀ (ψ : Name → Nat) (mm' j : Nat) (fs : List V), …
+```
+
+The guard is not a dodge, it is the clause's own scope.  `inj` has
+exactly one consumer — the pin group's `inj := CM.inj`
+(`NestedPins.lean`), read by the copies' identification — and **a
+container with no parameters can never be a pin's container**:
+`replaceIfNested` fires only when `nestedOccOk` reports a member
+mentioned inside `args.take ci.nP`, and at `ci.nP = 0` that list is
+empty, so `isNested` is `false` and no pin is minted.  `Nat` (`nP =
+0`) and `PUnit` (`nP = 0`) are exactly the blocks the guard releases;
+`Eq` has `nP = 2` and keeps the clause, which it satisfies.  The cost
+is one `0 < nPJ` fact at the consumer, which the elimination's firing
+condition yields.
+
+Two alternatives, for the record, both worse: restating the pinned
+`Nat`/`PUnit` models as tagged towers (the user's basis, the Nat
+literals, the GMP pin recurrences and `NatOpsOk` all move — a project,
+not a change), or splitting `BlockAt` into a full and a "pinned"
+disjunct and having the kernel DECLINE a nested block whose container
+is a pinned basis name (a new run Bool for a case the guard already
+excludes).
+
+##### (e) What `basisStepPB_of` will need, when the premise is settled
+
+The fold's basis step is `EnvModelM V μ env → DeclBasisRun env kind
+env₂ → Nonempty (EnvModelM V μ env₂)` and M8 flips it to `EnvModelB`.
+The shape each branch then owes is
+
+```
+EnvBlocksOf m B → <the block's run> → ∃ B', EnvBlocksOf m' B'
+```
+
+with `B' := fun ci => if ci = <the new group> then <the new block
+model> else B ci`: the OLD containers travel by
+`containerInfo?_ext_ind` plus `ContainerModeled.crossEnv`
+(`ContainerCross.lean`, M7-3), and the NEW group is this lane's
+`BlockAt` at the read-back of (b).  `PinShapes.congrB` is the lemma
+that keeps the old groups' shapes pointing at the same models when `B`
+grows.  Nothing of that can be assembled yet: `natK` and `punitK` are
+branches of the same step, and (c) refutes them.
+
+##### (f) SIZING, from here
+
+* `Empty`, `False`: **DONE**;
+* `Eq`: 1–2 sessions and NOT blocked — the block model is the
+  `refl`-fibre family at one index (`Φ` constant in the tuple, as here,
+  since `Eq` is not recursive), and the work is the constructor's
+  reading (`BlockCtorData` at two parameters and one index) plus the
+  leaf against the model's `eq_law`, not the fixpoint;
+* `Nat`, `PUnit`: BLOCKED on (d).  Under the guard, `PUnit` is ~1
+  session (one constructor, no fields) and `Nat` 2–3 (the operator is
+  the successor, and `leaf` is "ω is its least pre-fixed family");
+* the basis step's assembly (e): 1 session after the four blocks.
+
+##### (g) GATES
+
+`lake build` 695 jobs warning-free; `lake test` warning-free; layering
+base 346 / model 267 / caps 3 / umbrella 1, 0/0; trust surface 13/5
+(628 scanned); overview-links 112; quote-gate 2; no-local-paths OK;
+proofdeps 4955 rows / 12 roots / 0 doors; shake 508/508 allowlisted,
+pub-imports none demotable (36 dot-notation fallbacks — both new
+modules import `NestedPremise` only, as the gate computed).  Standard
+axioms only on every new theorem (`zeroCtorBlock.maps`, `.mono`,
+`.closed`, `.Phi_app`, `.lfp_app`, `.tup_mem`, `.idx_eq`, `.params_eq`,
+`.IdsM_eq`, `zeroCtorBlock_isBlockModel`, `zeroCtorBlock_pinRecLaws`,
+`zeroCtorBlock_containerModeled`, `containerInfo?_emptyA`,
+`containerInfo?_falseA`, `emptyBlockAt`, `falseBlockAt`,
+`ContainerModeled.mem_carrier_kpair`, `containerInfo?_natA`,
+`containerInfo?_punitA`, `no_containerModeled_nat`,
+`no_containerModeled_punit`, `not_envBlockModels_of_nat`).
