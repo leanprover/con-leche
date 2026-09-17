@@ -993,25 +993,62 @@ bare constant there and the walk descends into its arguments. -/
 def isAuxAppKey (R : RestoreTbl) (n : Name) : Bool :=
   (R.pins.lookup n).isSome || R.ctorPins.any (fun q => q.1 == n)
 
-/-- The head of a spine is a PROPER subterm of the application: the
-strict form of `sizeOf_getAppFn` at an `.app` node. -/
-theorem sizeOf_getAppFn_app {f a : Expr} :
-    sizeOf (Expr.app f a).getAppFn < sizeOf (Expr.app f a) := by
-  have h := sizeOf_getAppFn f
-  rw [Expr.getAppFn]
-  simp only [Expr.app.sizeOf_spec]
-  omega
+/-- The structural children of an application node: its two halves.
+Walking `f` and `a` visits the head and every argument, and no key
+constraint fires anywhere along a spine whose head is not a key. -/
+def auxAppsKids : Expr → List Expr
+  | .app f a => [f, a]
+  | _ => []
+
+/-- **The node's own test**: at a spine headed by a `pins` or `ctorPins`
+key the shape is exactly `nP + arity` arguments (the copy's index count
+for a type, the constructor's field count for a constructor) whose first
+`nP` are the parameter variables `structPsAt d nP`; at any other head
+there is nothing to test. -/
+def auxAppsNodeOk (R : RestoreTbl) (arityOf : Name → Option Nat) (d : Nat) (e : Expr) : Bool :=
+  match e.getAppFn with
+  | .const n _ =>
+    if isAuxAppKey R n then
+      match arityOf n with
+      | some ar =>
+        (e.getAppArgs.length == R.nP + ar) && (e.getAppArgs.take R.nP == structPsAt d R.nP)
+      | none => false
+    else true
+  | _ => true
+
+/-- **The children the walk continues into**, at the SAME binder depth:
+past a key-headed spine's parameter prefix, or — at any other head — the
+application's two halves. -/
+def auxAppsNodeKids (R : RestoreTbl) (e : Expr) : List Expr :=
+  match e.getAppFn with
+  | .const n _ => if isAuxAppKey R n then e.getAppArgs.drop R.nP else auxAppsKids e
+  | _ => auxAppsKids e
+
+theorem sizeOf_mem_auxAppsKids : ∀ {e x : Expr}, x ∈ auxAppsKids e → sizeOf x < sizeOf e
+  | .app f a, x, h => by
+    simp only [auxAppsKids, List.mem_cons, List.not_mem_nil, or_false] at h
+    rcases h with rfl | rfl <;> (simp only [Expr.app.sizeOf_spec]; omega)
+  | .bvar _, _, h | .fvar _ _, _, h | .sort _, _, h | .const _ _, _, h
+  | .lam _ _ _, _, h | .forallE _ _ _, _, h | .letE _ _ _, _, h
+  | .proj _ _ _, _, h | .lit _, _, h => by
+    simp only [auxAppsKids, List.not_mem_nil] at h
+
+/-- Every child of the node step is a PROPER subterm: the measure the
+walk recurses on.  It holds of every node, shape test or not, so the
+walk needs no equation to descend. -/
+theorem sizeOf_mem_auxAppsNodeKids {R : RestoreTbl} {e x : Expr}
+    (h : x ∈ auxAppsNodeKids R e) : sizeOf x < sizeOf e := by
+  rw [auxAppsNodeKids] at h
+  split at h
+  · split at h
+    · exact sizeOf_mem_getAppArgs (List.mem_of_mem_drop h)
+    · exact sizeOf_mem_auxAppsKids h
+  · exact sizeOf_mem_auxAppsKids h
 
 /-- **Every auxiliary application is at the parameters** — `d` binders
-below the block's parameter prefix.
-
-At a node whose head is a `pins` or `ctorPins` key the spine must have
-exactly `nP + arity` arguments (the copy's index count for a type, the
-constructor's field count for a constructor), the first `nP` of them the
-parameter variables `structPsAt d nP`, and the walk continues into the
-remaining ones.  Everywhere else the walk is structural, counting
-binders in `d`; an `.fvar`'s annotation is not visited, which is
-`restoreWalk`'s own convention. -/
+below the block's parameter prefix.  Outside an application the walk is
+structural, counting binders in `d`; an `.fvar`'s annotation is not
+visited, which is `restoreWalk`'s own convention. -/
 def auxAppsOk (R : RestoreTbl) (arityOf : Name → Option Nat) (d : Nat) (e : Expr) : Bool :=
   match e with
   | .bvar _ => true
@@ -1031,29 +1068,235 @@ def auxAppsOk (R : RestoreTbl) (arityOf : Name → Option Nat) (d : Nat) (e : Ex
     auxAppsOk R arityOf d ty && auxAppsOk R arityOf d v && auxAppsOk R arityOf (d + 1) b
   | .proj _ _ x => auxAppsOk R arityOf d x
   | .app f a =>
-    match (Expr.app f a).getAppFn with
-    | .const n _ =>
-      if isAuxAppKey R n then
-        match arityOf n with
-        | some ar =>
-          ((Expr.app f a).getAppArgs.length == R.nP + ar) &&
-            ((Expr.app f a).getAppArgs.take R.nP == structPsAt d R.nP) &&
-            ((Expr.app f a).getAppArgs.drop R.nP).attach.all
-              (fun x => auxAppsOk R arityOf d x.1)
-        | none => false
-      else
-        -- no key anywhere on this spine's head: the walk is the ordinary
-        -- structural one, which visits the head and every argument
-        auxAppsOk R arityOf d f && auxAppsOk R arityOf d a
-    | _ => auxAppsOk R arityOf d f && auxAppsOk R arityOf d a
+    auxAppsNodeOk R arityOf d (.app f a) &&
+      (auxAppsNodeKids R (.app f a)).attach.all fun x => auxAppsOk R arityOf d x.1
 termination_by sizeOf e
 decreasing_by
   all_goals
     first
-      | exact sizeOf_mem_getAppArgs (List.mem_of_mem_drop (by exact x.2))
-      | (simp only [Expr.app.sizeOf_spec, Expr.lam.sizeOf_spec,
-            Expr.forallE.sizeOf_spec, Expr.letE.sizeOf_spec,
-            Expr.proj.sizeOf_spec]; omega)
+      | exact sizeOf_mem_auxAppsNodeKids x.2
+      | (simp only [Expr.lam.sizeOf_spec, Expr.forallE.sizeOf_spec,
+            Expr.letE.sizeOf_spec, Expr.proj.sizeOf_spec]; omega)
+
+/-- The walk's `attach` is bookkeeping for the termination argument. -/
+theorem auxAppsOk_attach_all (R : RestoreTbl) (arityOf : Name → Option Nat) (d : Nat)
+    (cs : List Expr) :
+    (cs.attach.all fun x => auxAppsOk R arityOf d x.1) = cs.all (auxAppsOk R arityOf d) := by
+  simp
+
+/-! ### `auxAppsOk`, memoized (the task #215 discipline)
+
+A read-back recursor type or rule rhs is a DAG: the nested tower fixture
+`tests/e2e/tower_nested.ndjson` shares one subterm across sixty levels,
+so a TREE walk over it does not terminate in any practical time.  The
+memo is keyed by the pair `(node, binder depth)` — the walk's answer
+depends on both, since the parameter variables it compares against are
+`structPsAt d nP` — and the memoized twin is swapped in by `@[csimp]`,
+kernel-checked, exactly as `projTablesOk`'s is. -/
+
+/-- The memo's invariant: every recorded answer is the real one, at the
+depth it was recorded at. -/
+def AuxAppsMemoInv (R : RestoreTbl) (arityOf : Name → Option Nat)
+    (memo : Std.HashMap (Expr × Nat) Bool) : Prop :=
+  ∀ (k : Expr × Nat) (r : Bool), memo[k]? = some r → r = auxAppsOk R arityOf k.2 k.1
+
+theorem AuxAppsMemoInv.empty {R : RestoreTbl} {arityOf : Name → Option Nat} :
+    AuxAppsMemoInv R arityOf {} := by
+  intro k r h; simp at h
+
+theorem AuxAppsMemoInv.insert {R : RestoreTbl} {arityOf : Name → Option Nat}
+    {memo : Std.HashMap (Expr × Nat) Bool} (hm : AuxAppsMemoInv R arityOf memo)
+    {e : Expr} {d : Nat} {r : Bool} (heq : r = auxAppsOk R arityOf d e) :
+    AuxAppsMemoInv R arityOf (memo.insert (e, d) r) := by
+  intro k r' hk
+  rw [Std.HashMap.getElem?_insert] at hk
+  split at hk
+  · rename_i hbeq
+    cases hk
+    rw [← eq_of_beq hbeq]
+    exact heq
+  · exact hm k r' hk
+
+/-- Memoized `auxAppsOk`: one walk per `(node, binder depth)`. -/
+def auxAppsGoM (R : RestoreTbl) (arityOf : Name → Option Nat) (d : Nat)
+    (memo : Std.HashMap (Expr × Nat) Bool) (e : Expr) :
+    Bool × Std.HashMap (Expr × Nat) Bool :=
+  match e with
+  | .bvar _ => (true, memo)
+  | .sort _ => (true, memo)
+  | .lit _ => (true, memo)
+  | .fvar _ _ => (true, memo)
+  | .const n us => (auxAppsOk R arityOf d (.const n us), memo)
+  | .lam ty b bm =>
+    match memo[(Expr.lam ty b bm, d)]? with
+    | some r => (r, memo)
+    | none =>
+      let (r₁, memo) := auxAppsGoM R arityOf d memo ty
+      let (r₂, memo) := auxAppsGoM R arityOf (d + 1) memo b
+      (r₁ && r₂, memo.insert (Expr.lam ty b bm, d) (r₁ && r₂))
+  | .forallE ty b bm =>
+    match memo[(Expr.forallE ty b bm, d)]? with
+    | some r => (r, memo)
+    | none =>
+      let (r₁, memo) := auxAppsGoM R arityOf d memo ty
+      let (r₂, memo) := auxAppsGoM R arityOf (d + 1) memo b
+      (r₁ && r₂, memo.insert (Expr.forallE ty b bm, d) (r₁ && r₂))
+  | .letE ty v b =>
+    match memo[(Expr.letE ty v b, d)]? with
+    | some r => (r, memo)
+    | none =>
+      let (r₁, memo) := auxAppsGoM R arityOf d memo ty
+      let (r₂, memo) := auxAppsGoM R arityOf d memo v
+      let (r₃, memo) := auxAppsGoM R arityOf (d + 1) memo b
+      (r₁ && r₂ && r₃, memo.insert (Expr.letE ty v b, d) (r₁ && r₂ && r₃))
+  | .proj s i x =>
+    match memo[(Expr.proj s i x, d)]? with
+    | some r => (r, memo)
+    | none =>
+      let (r, memo) := auxAppsGoM R arityOf d memo x
+      (r, memo.insert (Expr.proj s i x, d) r)
+  | .app f a =>
+    match memo[(Expr.app f a, d)]? with
+    | some r => (r, memo)
+    | none =>
+      let res : Bool × Std.HashMap (Expr × Nat) Bool :=
+        if auxAppsNodeOk R arityOf d (Expr.app f a) then
+          (auxAppsNodeKids R (Expr.app f a)).attach.foldl
+            (fun p x =>
+              let q := auxAppsGoM R arityOf d p.2 x.1
+              (p.1 && q.1, q.2))
+            (true, memo)
+        else (false, memo)
+      (res.1, res.2.insert (Expr.app f a, d) res.1)
+termination_by sizeOf e
+decreasing_by
+  all_goals
+    first
+      | exact sizeOf_mem_auxAppsNodeKids x.2
+      | (simp only [Expr.lam.sizeOf_spec, Expr.forallE.sizeOf_spec,
+            Expr.letE.sizeOf_spec, Expr.proj.sizeOf_spec]; omega)
+
+/-- The argument fold, given the walk's specification at every element. -/
+theorem auxAppsGoM_fold_spec {R : RestoreTbl} {arityOf : Name → Option Nat} {d : Nat}
+    (l : List Expr)
+    (ih : ∀ x ∈ l, ∀ memo : Std.HashMap (Expr × Nat) Bool, AuxAppsMemoInv R arityOf memo →
+      ((auxAppsGoM R arityOf d memo x).1 = auxAppsOk R arityOf d x ∧
+        AuxAppsMemoInv R arityOf (auxAppsGoM R arityOf d memo x).2)) :
+    ∀ (acc : Bool) (memo : Std.HashMap (Expr × Nat) Bool), AuxAppsMemoInv R arityOf memo →
+      ((l.foldl (fun p x =>
+            ((p.1 && (auxAppsGoM R arityOf d p.2 x).1), (auxAppsGoM R arityOf d p.2 x).2))
+          (acc, memo)).1 = (acc && l.all (auxAppsOk R arityOf d)) ∧
+        AuxAppsMemoInv R arityOf (l.foldl (fun p x =>
+            ((p.1 && (auxAppsGoM R arityOf d p.2 x).1), (auxAppsGoM R arityOf d p.2 x).2))
+          (acc, memo)).2) := by
+  induction l with
+  | nil => intro acc memo hm; simpa using hm
+  | cons x xs ihl =>
+    intro acc memo hm
+    obtain ⟨h1, h2⟩ := ih x (by simp) memo hm
+    obtain ⟨h3, h4⟩ := ihl (fun y hy => ih y (by simp [hy]))
+      (acc && (auxAppsGoM R arityOf d memo x).1) (auxAppsGoM R arityOf d memo x).2 h2
+    refine ⟨?_, ?_⟩
+    · simp only [List.foldl_cons, List.all_cons]
+      rw [h3, h1, Bool.and_assoc]
+    · simpa only [List.foldl_cons] using h4
+
+/-- **The memoized walk is `auxAppsOk`.** -/
+theorem auxAppsGoM_spec (R : RestoreTbl) (arityOf : Name → Option Nat) :
+    ∀ (e : Expr) (d : Nat) (memo : Std.HashMap (Expr × Nat) Bool),
+      AuxAppsMemoInv R arityOf memo →
+      ((auxAppsGoM R arityOf d memo e).1 = auxAppsOk R arityOf d e ∧
+        AuxAppsMemoInv R arityOf (auxAppsGoM R arityOf d memo e).2)
+  | .bvar _, _, _, hm => by simp only [auxAppsGoM, auxAppsOk]; exact ⟨trivial, hm⟩
+  | .sort _, _, _, hm => by simp only [auxAppsGoM, auxAppsOk]; exact ⟨trivial, hm⟩
+  | .lit _, _, _, hm => by simp only [auxAppsGoM, auxAppsOk]; exact ⟨trivial, hm⟩
+  | .fvar _ _, _, _, hm => by simp only [auxAppsGoM, auxAppsOk]; exact ⟨trivial, hm⟩
+  | .const _ _, _, _, hm => by simp only [auxAppsGoM]; exact ⟨trivial, hm⟩
+  | .lam ty b bm, d, memo, hm => by
+    rw [auxAppsGoM]
+    split
+    · rename_i r hhit
+      exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
+    · obtain ⟨h1, h2⟩ := auxAppsGoM_spec R arityOf ty d memo hm
+      obtain ⟨h3, h4⟩ := auxAppsGoM_spec R arityOf b (d + 1) _ h2
+      refine ⟨by simp [auxAppsOk, h1, h3], ?_⟩
+      exact h4.insert (by simp [auxAppsOk, h1, h3])
+  | .forallE ty b bm, d, memo, hm => by
+    rw [auxAppsGoM]
+    split
+    · rename_i r hhit
+      exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
+    · obtain ⟨h1, h2⟩ := auxAppsGoM_spec R arityOf ty d memo hm
+      obtain ⟨h3, h4⟩ := auxAppsGoM_spec R arityOf b (d + 1) _ h2
+      refine ⟨by simp [auxAppsOk, h1, h3], ?_⟩
+      exact h4.insert (by simp [auxAppsOk, h1, h3])
+  | .letE ty v b, d, memo, hm => by
+    rw [auxAppsGoM]
+    split
+    · rename_i r hhit
+      exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
+    · obtain ⟨h1, h2⟩ := auxAppsGoM_spec R arityOf ty d memo hm
+      obtain ⟨h3, h4⟩ := auxAppsGoM_spec R arityOf v d _ h2
+      obtain ⟨h5, h6⟩ := auxAppsGoM_spec R arityOf b (d + 1) _ h4
+      refine ⟨by simp [auxAppsOk, h1, h3, h5], ?_⟩
+      exact h6.insert (by simp [auxAppsOk, h1, h3, h5])
+  | .proj s i x, d, memo, hm => by
+    rw [auxAppsGoM]
+    split
+    · rename_i r hhit
+      exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
+    · obtain ⟨h1, h2⟩ := auxAppsGoM_spec R arityOf x d memo hm
+      refine ⟨by simp [auxAppsOk, h1], ?_⟩
+      exact h2.insert (by simp [auxAppsOk, h1])
+  | .app f a, d, memo, hm => by
+    have hkey : ∀ (memo' : Std.HashMap (Expr × Nat) Bool), AuxAppsMemoInv R arityOf memo' →
+        (((auxAppsNodeKids R (Expr.app f a)).foldl (fun p x =>
+              ((p.1 && (auxAppsGoM R arityOf d p.2 x).1), (auxAppsGoM R arityOf d p.2 x).2))
+            (true, memo')).1
+              = (true && (auxAppsNodeKids R (Expr.app f a)).all (auxAppsOk R arityOf d)) ∧
+          AuxAppsMemoInv R arityOf ((auxAppsNodeKids R (Expr.app f a)).foldl (fun p x =>
+              ((p.1 && (auxAppsGoM R arityOf d p.2 x).1), (auxAppsGoM R arityOf d p.2 x).2))
+            (true, memo')).2) := by
+      intro memo' hm'
+      exact auxAppsGoM_fold_spec (auxAppsNodeKids R (Expr.app f a))
+        (fun x hx memo'' hm'' => auxAppsGoM_spec R arityOf x d memo'' hm'') true memo' hm'
+    rw [auxAppsGoM]
+    split
+    · rename_i r hhit
+      exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
+    · obtain ⟨hf1, hf2⟩ := hkey memo hm
+      rw [List.foldl_attach (l := auxAppsNodeKids R (Expr.app f a))
+        (f := fun (p : Bool × Std.HashMap (Expr × Nat) Bool) (x : Expr) =>
+          ((p.1 && (auxAppsGoM R arityOf d p.2 x).1), (auxAppsGoM R arityOf d p.2 x).2))
+        (b := (true, memo))]
+      by_cases hok : auxAppsNodeOk R arityOf d (Expr.app f a) = true
+      · have hval : ((auxAppsNodeKids R (Expr.app f a)).foldl (fun p x =>
+              ((p.1 && (auxAppsGoM R arityOf d p.2 x).1), (auxAppsGoM R arityOf d p.2 x).2))
+            (true, memo)).1 = auxAppsOk R arityOf d (Expr.app f a) := by
+          rw [hf1, auxAppsOk, auxAppsOk_attach_all, hok, Bool.true_and]
+        rw [if_pos hok]
+        exact ⟨hval, hf2.insert hval⟩
+      · simp only [Bool.not_eq_true] at hok
+        have hval : (false : Bool) = auxAppsOk R arityOf d (Expr.app f a) := by
+          rw [auxAppsOk, hok, Bool.false_and]
+        rw [if_neg (by simp [hok])]
+        exact ⟨hval, hm.insert hval⟩
+termination_by e => sizeOf e
+decreasing_by
+  all_goals
+    first
+      | exact sizeOf_mem_auxAppsNodeKids hx
+      | (simp only [Expr.lam.sizeOf_spec, Expr.forallE.sizeOf_spec,
+            Expr.letE.sizeOf_spec, Expr.proj.sizeOf_spec]; omega)
+
+/-- The executed `auxAppsOk` (one memoized DAG walk). -/
+def auxAppsOkFast (R : RestoreTbl) (arityOf : Name → Option Nat) (d : Nat) (e : Expr) : Bool :=
+  (auxAppsGoM R arityOf d {} e).1
+
+@[csimp] theorem auxAppsOk_eq_auxAppsOkFast : @auxAppsOk = @auxAppsOkFast := by
+  funext R arityOf d e
+  exact (auxAppsGoM_spec R arityOf e d {} AuxAppsMemoInv.empty).1.symm
+
 
 /-- **Check and install a recognised NESTED block** (see the module
 docstring): official's two syntactic front guards, the elimination, the
