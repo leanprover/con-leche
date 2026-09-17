@@ -2830,6 +2830,148 @@ theorem NestedTailIn.recRuleLawOf {mpA : EnvModelM V μ ENVA} {cvRas : List Cons
     exact hfit
 
 
+/-! ## `RecRuleLaw` at every stored rule (item 5 step 2e, the assembly) -/
+
+/-- **THE RULE LAW AT EVERY RULE OF CLASS `c`** — the fired equality,
+assembled.  The row's rules are the run's (`restRulesRun`) and their
+inversion is `restoreRules_at`: the right-hand side is the restore of
+the scratch rule's, closed, fvar-free and `inferType`-validated (so
+`ruleRhsDoor` reads it and grades it), the constructor is a STORED one
+with the rule's own parameter count, and the FIRE decides the arm — a
+member's is `.plain` (the `.inert` case is excluded by `RecRules`' own
+guard) and a mimic's is the `nestedFireShape` the kernel computed.
+
+So the two majors dispatch on `decide (p.k ≤ c)`: below `k` the value
+is the declaration's own constructor (`memberMajor`), above it the
+container's (`mimicMajor`, at the fire shape the same inversion hands
+over).  `ruleVal` supplies the right-hand side's value and
+`recRuleLawOf` does the rest.
+
+`hvpa` — the mimic's outer `vpa` conjunct — is the ONE thing left open
+(§U.29 (ppp) 1); a member rule never needs it (`RecRuleLaw` guards it
+by `fire = .nested`), and it is passed straight through. -/
+theorem NestedTailIn.recRuleLawsAt {mpA : EnvModelM V μ ENVA} {cvRas : List ConstantVal}
+    (S : NestedScratchOut F env b fms f₀ ctorsA kinds mp₁ ppsF W idxF dsF esF srcsF fvsPF xFvsF
+      xrestF eissF tssF stored mpA cvRas)
+    (hnames : NestedCtorPinNames env p st)
+    (hctorsJ : ∀ (q₀ kJ i : Nat) (dJ : BlockModel V), PG mp₂.base2 q₀ kJ dJ → i < kJ →
+      ∀ (ci : ContainerInfo) (J : ContainerMember),
+        ConLeche.containerInfo? env ((D).pinAt (q₀ + i)).J = some ci → J ∈ ci.members →
+        J.name = ((D).pinAt (q₀ + i)).J → (dJ.ctorsM i).map (·.1.name) = J.ctors.map (·.name))
+    (hK35 : NestedRecTysAuxOk p st b stored)
+    {s : (Name → Nat) → Nat} {rdsM : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)}
+    {concM : Nat → AnnotTerm}
+    (R : NestedRecReadings mp₂.base2 (D) PC cvRms cvRns b.rlps b.elimLevel s rdsM concM)
+    (E : NestedRecEqs (D) PC (fun ψ => b.elimLevel.eval ψ) rdsM concM
+      (fun φ' => (DA).recEqs mpA.base2 b.elimLevel φ'))
+    (Tu : NestedRecTuple (D) s rdsM concM (fun φ' => (DA).recEqs mpA.base2 b.elimLevel φ'))
+    {mpAP : EnvModelM V μ (ConLeche.provisionMutualRecs b fms cvRas.zipIdx ENVA)}
+    {mpP : EnvModelM V μ
+      (ConLeche.provisionNestedRecs (nestedProvList p stored cvRms cvRns) ENV2)}
+    (hndR : (cvRms.map (·.name) ++ cvRns.map (·.name)).Nodup)
+    (hshapeA : ∀ c, c < b.k → (cvRas.getD c default).name = b.recName c ∧
+      (cvRas.getD c default).levelParams = b.rlps)
+    (hleafA : ∀ c, c < b.k → ∀ φ' : Name → Nat,
+      mpAP.base2.acval (cvRas.getD c default).name φ'
+        = nestedRecLeaf (D).kT s rdsM concM
+            (fun φ'' => (DA).recEqs mpA.base2 b.elimLevel φ'') b.rlps c φ')
+    (hagA : ∀ nm : Name, (∀ c, c < b.k → nm ≠ (cvRas.getD c default).name) →
+      mpAP.base2.acval nm = mpA.base2.acval nm)
+    (hleafR : ∀ c, c < (D).kT → ∀ φ' : Name → Nat,
+      mpP.base2.acval (nestedRecCvAt p.k cvRms cvRns c).name φ'
+        = nestedRecLeaf (D).kT s rdsM concM
+            (fun φ'' => (DA).recEqs mpA.base2 b.elimLevel φ'') b.rlps c φ')
+    (hagR : ∀ nm : Name, (∀ c, c < (D).kT → nm ≠ (nestedRecCvAt p.k cvRms cvRns c).name) →
+      mpP.base2.acval nm = mp₂.base2.acval nm)
+    (hauxNe : ∀ n ∈ (ConLeche.restoreTbl p st).auxNames, ∀ c, c < b.k →
+      n ≠ (nestedRecCvAt p.k cvRms cvRns c).name)
+    (hK35r : NestedRulesAuxOk p st b stored)
+    (φ : Name → Nat) {c : Nat} (hc : c < b.k) {a : AuxStored} (ha : stored[c]? = some a)
+    (hvpa : ∀ o ∈ nestedRulesAt p.k rulesM rulesN c,
+      ∀ us : List Level, us.length = (nestedRecCvAt p.k cvRms cvRns c).levelParams.length →
+      ∀ lvls pins, RecRule.fire o = .nested lvls pins →
+      ∀ ii, ii < RecRule.ctorParams o →
+      ∃ vpa : AnnotTerm,
+        denoteMeta mpP.base2.acval
+            (ConLeche.provisionNestedRecs (nestedProvList p stored cvRms cvRns) (ENV2)) φ a.rP
+            (ConLeche.Verify.openRev 0 a.rP
+              ((pins.getD ii default).instantiateLevelParams
+                (nestedRecCvAt p.k cvRms cvRns c).levelParams us)) = some vpa ∧
+        ∀ (ρ : Nat → V) (zs : List AnnotTerm) (TVa restR : AnnotTerm),
+          zs.length = a.rP → (∀ z ∈ zs, WellDenotedV V ρ z) →
+          denoteMeta mpP.base2.acval
+              (ConLeche.provisionNestedRecs (nestedProvList p stored cvRms cvRns) (ENV2)) φ 0
+              ((nestedRecCvAt p.k cvRms cvRns c).type.instantiateLevelParams
+                (nestedRecCvAt p.k cvRms cvRns c).levelParams us) = some TVa →
+          TeleFitPA V ρ TVa zs restR →
+          WellDenotedV V ρ (ConLeche.Model.AnnotTerm.instRevChain zs vpa)) :
+    ∀ o ∈ nestedRulesAt p.k rulesM rulesN c, RecRule.fire o ≠ .inert →
+      RecRuleLaw mpP.base2 φ (nestedRecCvAt p.k cvRms cvRns c).name
+        (nestedRecCvAt p.k cvRms cvRns c) a.mI a.rP o := by
+  intro o ho hfire
+  obtain ⟨hlenR, hallR⟩ := ConLeche.restoreRules_at (I.restRulesRun hc ha)
+  obtain ⟨ii, hoAt⟩ := List.getElem?_of_mem ho
+  have hiiA : ii < a.rules.length := by
+    rw [← hlenR]; exact (List.getElem?_eq_some_iff.mp hoAt).1
+  obtain ⟨rl, hrlAt⟩ : ∃ rl, a.rules[ii]? = some rl := ⟨_, List.getElem?_eq_getElem hiiA⟩
+  obtain ⟨hres, hlpsRhs, hresolve, hbRhs, hfvRhs, -, hinf, hfindC, hnfEq, hpb, hMem, hMim⟩ :=
+    hallR ii rl o hrlAt hoAt
+  obtain ⟨i, cA, hi, hnm, hnF, hcpA, -, -, hgen, -, -, -⟩ :=
+    I.auxRuleGen S hc ha (List.mem_of_getElem? hrlAt)
+  have hnf : RecRule.nfields o = cA.2 := by rw [hnfEq, hnF]
+  -- **the right-hand side**: the door reads it and grades it
+  have hdoor : ∀ ψ : Name → Nat, ∃ Ra : AnnotTerm,
+      denoteMeta mpP.base2.acval
+          (ConLeche.provisionNestedRecs (nestedProvList p stored cvRms cvRns) (ENV2)) ψ 0 o.rhs
+        = some Ra ∧ ∀ ρ : Nat → V, WellDenotedV V ρ Ra :=
+    fun ψ => I.ruleRhsDoor hbRhs hfvRhs hinf ψ
+  have hlpsR : o.rhs.allLevelParamsDefined b.rlps = true := by
+    rw [← (I.classRecTy hc).1]; exact hlpsRhs
+  have hleafRes : ∀ ψ : Name → Nat,
+      (fun t' => nestedRecLeaf (D).kT s rdsM concM
+          (fun φ'' => (DA).recEqs mpA.base2 b.elimLevel φ'') b.rlps t' (restrictΨ b.rlps ψ))
+        = fun t' => nestedRecLeaf (D).kT s rdsM concM
+          (fun φ'' => (DA).recEqs mpA.base2 b.elimLevel φ'') b.rlps t' ψ := by
+    intro ψ
+    funext t'
+    unfold nestedRecLeaf
+    rw [restrictΨ_congr (lps := b.rlps) (fun q hq => restrictΨ_agree b.rlps ψ q hq)]
+  refine I.recRuleLawOf S hnames hctorsJ hK35 R E Tu hndR hagR hleafR hshapeA hc hi ha hnf
+    (Ra := fun ψ => Classical.choose (hdoor (restrictΨ b.rlps ψ)))
+    (fun ψ => by
+      rw [denoteMeta_params_ext mpP.base2
+        (fun q hq => (restrictΨ_agree b.rlps ψ q hq).symm) 0 o.rhs hlpsR]
+      exact (Classical.choose_spec (hdoor (restrictΨ b.rlps ψ))).1)
+    (fun ψ ρ => (Classical.choose_spec (hdoor (restrictΨ b.rlps ψ))).2 ρ)
+    (fun ψ ρ => by
+      have h := I.ruleVal S hnames hctorsJ hndR hshapeA hleafA hagA hleafR hagR hauxNe hK35r
+        (restrictΨ b.rlps ψ) hc ha (List.mem_of_getElem? hrlAt) hi hgen hres hresolve
+        (Classical.choose_spec (hdoor (restrictΨ b.rlps ψ))).1
+        (fun ρ' => (Classical.choose_spec (hdoor (restrictΨ b.rlps ψ))).2 ρ') ρ
+      rw [hleafRes ψ] at h
+      exact h)
+    φ (hvpa o ho) ?_
+  -- **the major**, on the arm the mimic flag names
+  by_cases hck : p.k ≤ c
+  · -- a MIMIC: the fire shape is the run's, and `mimicMajor` decodes at the container
+    obtain ⟨⟨pn, hpin⟩, hfireN⟩ := hMim (by simp only [decide_eq_true_eq]; exact hck)
+    rcases hsh : ConLeche.nestedFireShape
+        (ConLeche.provisionNestedRecs (nestedProvList p stored cvRms cvRns) (ENV2))
+        (nestedRecCvAt p.k cvRms cvRns c).levelParams
+        (nestedRecCvAt p.k cvRms cvRns c).type a.mI a.rP (RecRule.ctorParams o) with _ | lp
+    · rw [hsh] at hfireN; exact absurd hfireN hfire
+    · rw [hsh] at hfireN
+      exact I.mimicMajor hnames hndR hagR hc hi hfireN hnf ⟨pn, by rw [← hnm]; exact hpin⟩
+        hfindC ha (by rw [hsh]) φ
+  · -- a MEMBER: the fire is `.plain` and `memberMajor` decodes at the block model
+    obtain ⟨hctor, hfireP⟩ := hMem (by simp only [decide_eq_false_iff_not]; exact hck)
+    have hplain : RecRule.fire o = .plain := by
+      by_cases hrp : Expr.recRulePlain (nestedRecCvAt p.k cvRms cvRns c).type a.mI a.rP
+          (RecRule.ctorParams o)
+      · rw [hfireP, if_pos hrp]
+      · rw [hfireP, if_neg hrp] at hfire; exact absurd rfl hfire
+    exact I.memberMajor hndR hagR (by omega) hi hplain (by rw [hctor, hnm]) hnf hfindC φ
+
 end Run
 
 end ConLeche.Model
