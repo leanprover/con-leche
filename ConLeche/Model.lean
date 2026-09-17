@@ -134,6 +134,7 @@ public import ConLeche.Model.Inductives.BasisBlocksStep
 public import ConLeche.Model.Inductives.BasisBlocksTag
 public import ConLeche.Model.Inductives.EnvModelBStages
 public import ConLeche.Model.Inductives.BasisBlocksFold
+public import ConLeche.Model.Inductives.FoldB
 public import ConLeche.Model.Inductives.NestedCore
 public import ConLeche.Model.Inductives.DeclNestedCore
 public import ConLeche.Model.Inductives.NestedRecsStage
