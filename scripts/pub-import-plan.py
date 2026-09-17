@@ -227,6 +227,22 @@ FALLBACK = {
     ('ConLeche.Model.Inductives.NestedRecFrames','ConLeche.Model.Inductives.NestedRecCtor'),
     ('ConLeche.Model.Inductives.NestedRecFrames','ConLeche.Model.Inductives.NestedRecTypes'),
     ('ConLeche.Model.Inductives.NestedRecFrames','ConLeche.Verify.Inductives.NestedRestoreTbl'),
+    # task #315 M7-2 (§U.29 (yyy)): the store swap's two files hold ONLY
+    # theorems — bar the one `def nestedProvOf`, whose re-export the model
+    # DOES see and does not ask for.  A theorem's STATEMENT is public but
+    # its constants are attributed to the proof, so the model computes an
+    # empty public need for both files and proposes demoting every other
+    # re-export.  Each demotion is refused by the compiler, probed one at a
+    # time: without `Verify.EnvWF` the WF file's `EnvWF env` is an unknown
+    # identifier; in the swap file `Annot.EnvModelM` is where `SetTheory`
+    # reaches the public view, `IndBlockFacts` where `SwapNResS` does,
+    # `Extend.Recs` where `SwapShList` does and `NestedRecsWF` where
+    # `storeNestedRecs` does.
+    ('ConLeche.Verify.Inductives.NestedRecsWF','ConLeche.Verify.EnvWF'),
+    ('ConLeche.Model.Inductives.NestedRecsSwap','ConLeche.Verify.Inductives.NestedRecsWF'),
+    ('ConLeche.Model.Inductives.NestedRecsSwap','ConLeche.Semantics.IndBlockFacts'),
+    ('ConLeche.Model.Inductives.NestedRecsSwap','ConLeche.Model.Annot.EnvModelM'),
+    ('ConLeche.Model.Inductives.NestedRecsSwap','ConLeche.Verify.Extend.Recs'),
 }
 
 files=[f for f in subprocess.check_output(['git','ls-files','*.lean']).decode().split()
