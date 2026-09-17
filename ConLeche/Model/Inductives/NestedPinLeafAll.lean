@@ -593,13 +593,14 @@ theorem instanceCovered_of_others {env : Env} {D dR : BlockModel V}
     (S : PinGroupView D dR r kR)
     (hgrp : ∀ q, q < D.nPins → grp q = r → ∃ i, i < kR ∧ q = r + i)
     (hothers : ∀ q, q < D.nPins → inst q = inst r → grp q ≠ r →
-      ∃ c, ClassPin env D dR ψ ((D.pinAt r).ψJ ψ) ρp (D.pinFrame r ψ ρp) c q) :
+      ∃ qK, ClassPin env D dR ψ ((D.pinAt r).ψJ ψ) ρp (D.pinFrame r ψ ρp) (dR.k + qK) q) :
     InstanceCovered env D dR ψ ((D.pinAt r).ψJ ψ) ρp (D.pinFrame r ψ ρp) inst r := by
   intro q hq hinst
   by_cases hb : grp q = r
   · obtain ⟨i, hi, rfl⟩ := hgrp q hq hb
-    exact ⟨i, classPin_of_rootMember S hi⟩
-  · exact hothers q hq hinst hb
+    exact ⟨i, classPin_of_rootMember S hi, fun _ => rfl⟩
+  · obtain ⟨qK, hcp⟩ := hothers q hq hinst hb
+    exact ⟨dR.k + qK, hcp, fun hlt => absurd hlt (by omega)⟩
 
 /-- The parameter spine read back off its own frame. -/
 theorem map_range_reverse_consList (as : List V) (ρ : Nat → V) :
@@ -1034,6 +1035,31 @@ left-hand side is the root's container's least tuple at that member,
 i.e. `P` at the root's group, and at a pin class it is the root's pin's
 carrier at its carrier, which the root's own `pinLeaf` reads as `P` at
 the image pin. -/
+theorem instanceLe_of_rel {env : Env} {m : EnvModel V env} {D dR : BlockModel V}
+    {pc : Nat → PinCtors V} (hreps : IsBlockModels m dR) (hp : PinRecLaws m dR pc) (hk : 0 < dR.k)
+    {ψ ψR : Name → Nat} {ρp ρR : Nat → V} (hρR : Sat V (dR.params ψR).reverse ρR)
+    {k kB : Nat} {LB : Nat → V} {Rel : Nat → Nat → Prop}
+    (hsub : ∀ c q, Rel c q → ClassPin env D dR ψ ψR ρp ρR c q)
+    (htrans : ∀ c, c < dR.kT → ∀ t, t ∈ˢ dR.idxT ψR ρR c → ∀ j fs, j < (dR.ctorsT pc c).length →
+      dR.ChainFitT pc ψR ρR
+        (relMeet (dR.idxT ψR ρR)
+          (dR.famAt ψR ρR (lfpTuple (dR.w ψR) dR.k (dR.idx ψR ρR) (dR.Φ ψR ρR)))
+          (fun c' b => ∃ q, b = k + q ∧ Rel c' q) kB LB) t c j fs →
+      ∀ q, k + q < kB → Rel c q →
+        dR.injT pc ψR c j fs ∈ˢ SetTheory.app (LB (k + q)) t) :
+    ∀ c q, k + q < kB → Rel c q →
+      FamLe (D.pinIdx q ψ ρp)
+        (dR.famAt ψR ρR (lfpTuple (dR.w ψR) dR.k (dR.idx ψR ρR) (dR.Φ ψR ρR)) c) (LB (k + q)) := by
+  intro c q hqk hcp
+  rw [← (hsub c q hcp).idx]
+  refine instanceLe_of_transfer hreps hp hk hρR
+    (R := fun c' b => ∃ q', b = k + q' ∧ Rel c' q') ?_ c (k + q) (hsub c q hcp).cLt hqk
+    ⟨q, rfl, hcp⟩
+  intro c' hc' t ht j fs hj hfit b hb hR
+  obtain ⟨q', rfl, hcp'⟩ := hR
+  exact htrans c' hc' t ht j fs hj hfit q' hb hcp'
+
+/-- `instanceLe_of_rel` at the full `ClassPin` relation. -/
 theorem instanceLe_of_classPin {env : Env} {m : EnvModel V env} {D dR : BlockModel V}
     {pc : Nat → PinCtors V} (hreps : IsBlockModels m dR) (hp : PinRecLaws m dR pc) (hk : 0 < dR.k)
     {ψ ψR : Name → Nat} {ρp ρR : Nat → V} (hρR : Sat V (dR.params ψR).reverse ρR)
@@ -1047,15 +1073,8 @@ theorem instanceLe_of_classPin {env : Env} {m : EnvModel V env} {D dR : BlockMod
         dR.injT pc ψR c j fs ∈ˢ SetTheory.app (LB (k + q)) t) :
     ∀ c q, k + q < kB → ClassPin env D dR ψ ψR ρp ρR c q →
       FamLe (D.pinIdx q ψ ρp)
-        (dR.famAt ψR ρR (lfpTuple (dR.w ψR) dR.k (dR.idx ψR ρR) (dR.Φ ψR ρR)) c) (LB (k + q)) := by
-  intro c q hqk hcp
-  rw [← hcp.idx]
-  refine instanceLe_of_transfer hreps hp hk hρR
-    (R := fun c' b => ∃ q', b = k + q' ∧ ClassPin env D dR ψ ψR ρp ρR c' q') ?_ c (k + q) hcp.cLt hqk
-    ⟨q, rfl, hcp⟩
-  intro c' hc' t ht j fs hj hfit b hb hR
-  obtain ⟨q', rfl, hcp'⟩ := hR
-  exact htrans c' hc' t ht j fs hj hfit q' hb hcp'
+        (dR.famAt ψR ρR (lfpTuple (dR.w ψR) dR.k (dR.idx ψR ρR) (dR.Φ ψR ρR)) c) (LB (k + q)) :=
+  instanceLe_of_rel hreps hp hk hρR (fun _ _ h => h) htrans
 
 /-! ## The entry at a container's OWN pin, from the pin correspondence -/
 
@@ -2543,8 +2562,8 @@ theorem htrans_of_walk (hμ : μ.verifiedChecks = true)
       q = q₀ + i ∧ i < kJ ∧ GF st m q₀ kJ (dJf q₀))
     {ψ : Name → Nat} {ρp : Nat → V} (hρp : Sat V ((D).params ψ).reverse ρp)
     {dR : BlockModel V} {pcR : Nat → PinCtors V} {ψR : Name → Nat} {ρR : Nat → V}
-    {M : Nat → V}
-    (hpair : ∀ c q, c < dR.kT → ClassPin env₂ (D) dR ψ ψR ρp ρR c q →
+    {M : Nat → V} {Rel : Nat → Nat → Prop}
+    (hpair : ∀ c q, c < dR.kT → Rel c q →
       ∀ t, t ∈ˢ dR.idxT ψR ρR c → ∀ j fs, j < (dR.ctorsT pcR c).length →
       dR.ChainFitT pcR ψR ρR M t c j fs →
       ∃ q₀ kJ iq, q = q₀ + iq ∧ iq < kJ ∧ GF st m q₀ kJ (dJf q₀) ∧
@@ -2568,7 +2587,7 @@ theorem htrans_of_walk (hμ : μ.verifiedChecks = true)
             = projS l t)) :
     ∀ c, c < dR.kT → ∀ t, t ∈ˢ dR.idxT ψR ρR c → ∀ j fs, j < (dR.ctorsT pcR c).length →
       dR.ChainFitT pcR ψR ρR M t c j fs →
-      ∀ q, p.k + q < p.k + pinsS.length → ClassPin env₂ (D) dR ψ ψR ρp ρR c q →
+      ∀ q, p.k + q < p.k + pinsS.length → Rel c q →
         dR.injT pcR ψR c j fs
           ∈ˢ SetTheory.app (lfpTuple ((D).w ψ) (p.k + pinsS.length) ((D).idx ψ ρp) (ΨA ψ ρp)
               (p.k + q)) t := by
@@ -2604,12 +2623,14 @@ theorem instanceLe_of_pair (hμ : μ.verifiedChecks = true)
     {dR : BlockModel V} {pcR : Nat → PinCtors V} {ψR : Name → Nat} {ρR : Nat → V}
     (hreps : IsBlockModels m dR) (hp : PinRecLaws m dR pcR) (hk : 0 < dR.k)
     (hρR : Sat V (dR.params ψR).reverse ρR)
-    (hpair : ∀ c q, c < dR.kT → ClassPin env₂ (D) dR ψ ψR ρp ρR c q →
+    {Rel : Nat → Nat → Prop}
+    (hsub : ∀ c q, Rel c q → ClassPin env₂ (D) dR ψ ψR ρp ρR c q)
+    (hpair : ∀ c q, c < dR.kT → Rel c q →
       ∀ t, t ∈ˢ dR.idxT ψR ρR c → ∀ j fs, j < (dR.ctorsT pcR c).length →
       dR.ChainFitT pcR ψR ρR
         (relMeet (dR.idxT ψR ρR)
           (dR.famAt ψR ρR (lfpTuple (dR.w ψR) dR.k (dR.idx ψR ρR) (dR.Φ ψR ρR)))
-          (fun c' bb => ∃ q', bb = p.k + q' ∧ ClassPin env₂ (D) dR ψ ψR ρp ρR c' q')
+          (fun c' bb => ∃ q', bb = p.k + q' ∧ Rel c' q')
           (p.k + pinsS.length)
           (lfpTuple ((D).w ψ) (p.k + pinsS.length) ((D).idx ψ ρp) (ΨA ψ ρp))) t c j fs →
       ∃ q₀ kJ iq, q = q₀ + iq ∧ iq < kJ ∧ GF st m q₀ kJ (dJf q₀) ∧
@@ -2631,11 +2652,11 @@ theorem instanceLe_of_pair (hμ : μ.verifiedChecks = true)
               (((mutEss0 ctorsA.length esF ψ).getD
                 (b.ownOffset (p.k + q₀ + iq) + j) []).getD l default)
             = projS l t)) :
-    ∀ c q, p.k + q < p.k + pinsS.length → ClassPin env₂ (D) dR ψ ψR ρp ρR c q →
+    ∀ c q, p.k + q < p.k + pinsS.length → Rel c q →
       FamLe ((D).pinIdx q ψ ρp)
         (dR.famAt ψR ρR (lfpTuple (dR.w ψR) dR.k (dR.idx ψR ρR) (dR.Φ ψR ρR)) c)
         (lfpTuple ((D).w ψ) (p.k + pinsS.length) ((D).idx ψ ρp) (ΨA ψ ρp) (p.k + q)) :=
-  instanceLe_of_classPin hreps hp hk hρR
+  instanceLe_of_rel hreps hp hk hρR hsub
     (fun c hc t ht j fs hj hfit q hq hcp =>
       htrans_of_walk hμ h h3 hbk m dJf hgroups hρp hpair c hc t ht j fs hj hfit q
         (by omega) hcp)

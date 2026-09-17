@@ -224,6 +224,24 @@ structure ClassPin (env : Env) (D dR : BlockModel V) (ψ ψR : Name → Nat) (ρ
   /-- ONE index set: the fibres are compared at the same tuples -/
   idx : dR.idxT ψR ρR c = D.pinIdx q ψ ρp
 
+/-- **`ClassPin`, at the covering's ROOT GROUP** (task #315 L-E,
+DESIGN §U.68): the relation the container instance transfer actually
+runs along — `ClassPin` plus the record of WHERE a MEMBER class comes
+from, namely the root group itself, class `c` at pin `r + c`.
+
+The conjunct costs the covering nothing (`classPin_of_rootMember` is
+stated at exactly that pair, and `classPin_of_pinCorr` produces a PIN
+class, where it is vacuous) and it is what aligns the two sides at a
+member class: the block's group of `r + c` is the ROOT group, whose
+block model IS `dR`.  Without it the alignment would need
+`containerInfo?` to agree ACROSS the members of a group, which is not
+an environment fact — it holds only under the run's own
+`nestedContainersOk` (K.14) or a just-installed block's read-back
+(K.34), neither of which the abstract transfer has. -/
+@[expose] def ClassPinAt (env : Env) (D dR : BlockModel V) (ψ ψR : Name → Nat)
+    (ρp ρR : Nat → V) (r c q : Nat) : Prop :=
+  ClassPin env D dR ψ ψR ρp ρR c q ∧ (c < dR.k → q = r + c)
+
 /-- **A container instance is covered by its ROOT's classes** (task
 #315 L-E, DESIGN §U.58): every pin of the instance — K.37's
 `nestedPinInstOf` reads the partition — is `ClassPin`-related to a
@@ -242,7 +260,7 @@ is a fact about that elimination.  K.40's mint parent carries it; the
 covering is the parent chain. -/
 @[expose] def InstanceCovered (env : Env) (D dR : BlockModel V) (ψ ψR : Name → Nat)
     (ρp ρR : Nat → V) (inst : Nat → Nat) (r : Nat) : Prop :=
-  ∀ q, q < D.nPins → inst q = inst r → ∃ c, ClassPin env D dR ψ ψR ρp ρR c q
+  ∀ q, q < D.nPins → inst q = inst r → ∃ c, ClassPinAt env D dR ψ ψR ρp ρR r c q
 
 /-! ## The pins' laws and shapes of a stored block -/
 
