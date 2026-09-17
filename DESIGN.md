@@ -86638,7 +86638,7 @@ Gates at the session's commits: `lake build` 701 jobs warning-free,
 `lake test` warning-free, layering / trust surface / no-local-paths /
 overview-links / quote-gate / proofdeps / shake and pub-imports as the
 integration's.
-#### U.57 — L-B session 12: `recF` CLOSED at BOTH field kinds, and `ordF`-left's residue found UNPROVABLE as stated (lane L-B, 2026-09-17)
+#### U.59 — L-B session 12: `recF` CLOSED at BOTH field kinds, and `ordF`-left's residue found UNPROVABLE as stated (lane L-B, 2026-09-17)
 
 **`CopyCtorShape.recF` is done.**  The finitary half landed in §U.49 /
 §U.53; this session added the REFLEXIVE half —
