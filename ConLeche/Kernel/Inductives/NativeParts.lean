@@ -791,5 +791,45 @@ def blockReadBackOk (envOut : Env) (nP : Nat)
   let want := blockContainerInfo nP members
   want.members.all fun M => containerInfo? envOut M.name == some want
 
+/-- Is `n` a stored RECURSOR in `env`?  The one test
+`containerOwnPinsAtGo` makes on a mimic name, spelled here so the three
+install routes can certify their own answer to it. -/
+def isRecInfoAt (env : Env) (n : Name) : Bool :=
+  match env.find? n with
+  | some (.recInfo _ _ _ _) => true
+  | _ => false
+
+/-- **THE BLOCK'S OWN-PIN TABLE IS THE ROUTE'S OWN** (task #315 K.43,
+lane M7-3's DESIGN §U.66 (a)).
+
+`containerOwnPinsAt` reads a stored block's own pins off its MIMIC
+recursors, walking `T₁.rec_1, T₁.rec_2, …` and stopping at the first
+name that is not a `.recInfo`.  The model needs
+`ContainerModeled.ownPins` VACUOUS at a block with no mimics — the
+native route's, the mutual route's and the five basis blocks' — and
+M7-3 found that **not derivable**: `some []` is a statement about what
+is ABSENT from the output environment, only a nested block whose FIRST
+former is `T₁` can put a `.recInfo` at `T₁.rec_1`, and excluding that is
+an environment-history invariant no record carries (`EnvModel`'s `wf`
+and `rec_ctors` do not, and the naive strengthening "every `.recInfo` is
+`I.rec` for a stored `I`" is refuted by the nested route's own mimics).
+
+So each route certifies its own answer, in K.34's pattern: the mimic
+names `first.rec_1 … first.rec_n` ARE stored recursors and
+`first.rec_(n+1)` is not, so the reader's walk visits exactly `n`
+entries.  The native and mutual routes pass `n := 0`, which is the
+emptiness the model wants; the nested route passes its own mimic count,
+so ONE Bool serves all three and the nested row is not a special case.
+
+**It cannot fire.**  At `n := 0`: a `.recInfo` at `T₁.rec_1` is a mimic
+of a nested block whose first former is `T₁`, and such a block installs
+`.indInfo T₁`, which this route's own freshness check refused.  At the
+nested route: the route stored exactly `numNested` mimic recursors under
+exactly these names.  A failure is `.internal`; CERTIFICATION-ONLY,
+gated. -/
+def blockOwnMimicsOk (env : Env) (first : Name) (n : Nat) : Bool :=
+  (List.range n).all (fun j => isRecInfoAt env (Name.appendIndexAfter (first.str "rec") (j + 1)))
+    && !isRecInfoAt env (Name.appendIndexAfter (first.str "rec") (n + 1))
+
 
 end ConLeche

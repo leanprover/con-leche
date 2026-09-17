@@ -1104,6 +1104,9 @@ theorem checkNested_inv {env envOut : Env} {p : NestedParts} {F : Nat}
       -- THE PINS' SCOPE (K.30): the pins' free variables are the first
       -- former's openers, annotation included, and no loose bvar
       certOnly mode (pinsScoped p.nP st) = true ∧
+      -- THE PINS' LEVELS (K.48): every level parameter a pin mentions is
+      -- the block's own — `ContainerModeled.pinParams` at the nested site
+      certOnly mode (pinsLevelsOk p.lps st.pins) = true ∧
       -- THE COPIES' RECURSIVE TARGETS (K.32): a group-recursive copy
       -- field comes from the container's own recursion at the spine
       certOnly mode (nestedCopyTargetsOk env p b st stored) = true ∧
@@ -1208,7 +1211,15 @@ theorem checkNested_inv {env envOut : Env} {p : NestedParts} {F : Nat}
       -- route produced, at every member, is the block's own data
       certOnly mode (blockReadBackOk envOut p.nP
         (((stored.take p.k).zip ctorsR).map fun (a, cs) =>
-          (a.cvTa, cs.map fun (cv, _, nF) => (cv, nF)))) = true := by
+          (a.cvTa, cs.map fun (cv, _, nF) => (cv, nF)))) = true ∧
+      -- THE MIMICS' STORED TYPES ARE THE RECORDED PINS (K.47): the
+      -- own-pin reader at the block's own levels and parameter openers
+      -- returns the recorded pin list verbatim
+      certOnly mode (nestedOwnPinsOk envOut p st) = true ∧
+      -- THE OWN-PIN TABLE IS THE ROUTE'S OWN (K.43): the mimic recursors
+      -- this route stored are exactly `T₁.rec_1 … T₁.rec_numNested`
+      certOnly mode
+        (blockOwnMimicsOk envOut (p.formers.headD default).1.name p.numNested) = true := by
   unfold checkNested at h
   simp only at h
   by_cases hg₀ : (p.formers.all (fun f => !f.1.type.mentionsNestedAux) &&
@@ -1276,6 +1287,10 @@ theorem checkNested_inv {env envOut : Env} {p : NestedParts} {F : Nat}
   case neg => rw [if_neg hsc] at h; close_throw
   rw [if_pos hsc] at h
   try simp only [bind, Except.bind] at h
+  by_cases hpl : certOnly (fueledOps mode F).mode (pinsLevelsOk p.lps st.pins) = true
+  case neg => rw [if_neg hpl] at h; close_throw
+  rw [if_pos hpl] at h
+  try simp only [bind, Except.bind] at h
   by_cases haa : certOnly (fueledOps mode F).mode (nestedAuxAppsOk p st stored) = true
   case neg => rw [if_neg haa] at h; close_throw
   rw [if_pos haa] at h
@@ -1327,15 +1342,24 @@ theorem checkNested_inv {env envOut : Env} {p : NestedParts} {F : Nat}
         (a.cvTa, cs.map fun (cv, _, nF) => (cv, nF)))) = true
   case neg => rw [if_neg hrb] at h; close_throw
   rw [if_pos hrb] at h
+  try simp only [bind, Except.bind] at h
+  by_cases hop : certOnly (fueledOps mode F).mode (nestedOwnPinsOk env₄ p st) = true
+  case neg => rw [if_neg hop] at h; close_throw
+  rw [if_pos hop] at h
+  try simp only [bind, Except.bind] at h
+  by_cases hom : certOnly (fueledOps mode F).mode
+      (blockOwnMimicsOk env₄ (p.formers.headD default).1.name p.numNested) = true
+  case neg => rw [if_neg hom] at h; close_throw
+  rw [if_pos hom] at h
   have henv : env₄ = envOut := by
     simpa [pure, Except.pure] using h
   subst henv
   exact ⟨st, b, envAux, stored, ctorsR, cvRms, cvRns, rulesM, rulesN, fmsA, ctorsA,
     hfmsA, hctorsA, helim', beq_iff_eq.mp hcnt, hfresh, hcont, hb', haux, hst', hpc,
     (by cases uA; exact hpinsAux), hcaps, hsrc,
-    certOnly_and_left hcont, hgrp, hmn, hsc, htg, hkd, haa, hrk, hpa, hrh, hord,
+    certOnly_and_left hcont, hgrp, hmn, hsc, hpl, htg, hkd, haa, hrk, hpa, hrh, hord,
     (by cases uP₁; exact hpins₁), hctors, hrm, hrn, hnd, hdj, hrlm, hrln, htbl,
-    (by cases u₀; exact hpins), hlen, (by cases u₁; exact hrecs), hrb⟩
+    (by cases u₀; exact hpins), hlen, (by cases u₁; exact hrecs), hrb, hop, hom⟩
 
 /-! ## The restore, syntactically (task #315)
 

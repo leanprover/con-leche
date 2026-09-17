@@ -118,6 +118,18 @@ def hasPrefixOf (pre : Name) : Name → Bool
   | .str p s => (Name.str p s == pre) || Name.hasPrefixOf pre p
   | .num p k => (Name.num p k == pre) || Name.hasPrefixOf pre p
 
+/-- Official's `Name.appendIndexAfter`: the index appended to the last
+string component (`_nested.List` ↦ `_nested.List_1`).
+
+**Lives here, below every install** (moved from
+`Kernel/Inductives/NestedParts.lean` for task #315 K.43): the NATIVE and
+MUTUAL routes have to spell the mimic recursor names `T₁.rec_j` in order
+to certify that they installed NONE of them, and `NestedParts` is above
+both (StructParts ← SumParts ← NativeParts ← MutualParts ← NestedParts). -/
+def appendIndexAfter : Name → Nat → Name
+  | .str p s, i => .str p (s ++ "_" ++ toString i)
+  | n, i => .str n ("_" ++ toString i)
+
 end Name
 
 /-- Official's `g_nested`: the prefix the nested route's auxiliary mimic

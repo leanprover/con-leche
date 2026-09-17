@@ -178,6 +178,20 @@ theorem checkStructProjTableS_run {T C : Name} {lps : List Name} {nP nF : Nat}
   rw [checkStructProjTable_datF]
   exact hpure
 
+/-- **K.43's Bool, cached against pure.**  The cached routes ask
+`blockOwnMimicsOkF` of the INDEX (`Std.HashMap`, `O(1)`) where the pure
+routes ask `blockOwnMimicsOk` of the `Env` (`List.find?`, a full scan
+when the name is ABSENT, which is the answer these records certify).
+At every site the bridge already has `fe = mkFEnv fe.env`, so the two
+are one value. -/
+theorem blockOwnMimicsOkF_eq {fe : FEnv} {env : Env} (h : fe = mkFEnv env)
+    (first : Name) (n : Nat) :
+    blockOwnMimicsOkF fe first n = blockOwnMimicsOk env first n := by
+  subst h
+  simp only [blockOwnMimicsOkF, blockOwnMimicsOk, isRecInfoAtF, isRecInfoAt,
+    mkFEnv_find?]
+  rfl
+
 /-- The projection-table stage of the fixpoint route at the cached
 driver, run-level (task #210 Part A): at a structure-like block the
 direct structure's table stage (`checkStructProjTableS_run`), else the
@@ -404,6 +418,10 @@ theorem checkNativeTailS_run (hμ : mode.verifiedChecks = true) {env env₁ : En
   by_cases hrb : certOnly mode (blockReadBackOk feT.env p.nP [(cvTa, ctorsA)]) = true
   case neg => rw [if_neg hrb] at h; exact nomatch h
   rw [if_pos hrb] at h
+  rw [blockOwnMimicsOkF_eq hfeO] at h
+  by_cases hom : certOnly mode (blockOwnMimicsOk feT.env cvTa.name 0) = true
+  case neg => rw [if_neg hom] at h; exact nomatch h
+  rw [if_pos hom] at h
   obtain ⟨rfl, rfl⟩ := pureC_ok h
   obtain ⟨G, hle₀, hle₃, hle₆⟩ : ∃ G, F₀ ≤ G ∧ F₃ ≤ G ∧ F₆ ≤ G :=
     ⟨max F₀ (max F₃ F₆), by omega, by omega, by omega⟩
@@ -437,6 +455,8 @@ theorem checkNativeTailS_run (hμ : mode.verifiedChecks = true) {env env₁ : En
   -- one `mode`; they are defeq, and the `rw` needs the spelling in the goal
   rw [if_pos (show certOnly (fueledOps mode G).mode
     (blockReadBackOk feT.env p.nP [(cvTa, ctorsA)]) = true from hrb)]
+  rw [if_pos (show certOnly (fueledOps mode G).mode
+    (blockOwnMimicsOk feT.env cvTa.name 0) = true from hom)]
 
 /-- The direct recursive install at the cached driver is reproduced by
 the pure fueled `checkNative` (task #188): the pass at the syntactic
@@ -1226,6 +1246,10 @@ theorem checkMutualCoreS_run (hμ : mode.verifiedChecks = true) {env : Env} (hen
       (f.cvTa, (b.ownCtors mIdx).filterMap fun (J, _) => ctorsA[J]?))) = true
   case neg => rw [if_neg hrb] at h; exact nomatch h
   rw [if_pos hrb] at h
+  rw [blockOwnMimicsOkF_eq hfeO] at h
+  by_cases hom : certOnly mode (blockOwnMimicsOk feT.env f₀.cvTa.name 0) = true
+  case neg => rw [if_neg hom] at h; exact nomatch h
+  rw [if_pos hom] at h
   obtain ⟨rfl, rfl⟩ := pureC_ok h
   -- the pure run, at the joined fuel
   obtain ⟨G, hle₁, hle₂, hle₃, hle₅⟩ : ∃ G, F₁ ≤ G ∧ F₂ ≤ G ∧ F₃ ≤ G ∧ F₅ ≤ G :=
@@ -1268,6 +1292,8 @@ theorem checkMutualCoreS_run (hμ : mode.verifiedChecks = true) {env : Env} (hen
   rw [if_pos (show certOnly (fueledOps mode G).mode
     (blockReadBackOk feT.env b.nP (fms.zipIdx.map fun (f, mIdx) =>
       (f.cvTa, (b.ownCtors mIdx).filterMap fun (J, _) => ctorsA[J]?))) = true from hrb)]
+  rw [if_pos (show certOnly (fueledOps mode G).mode
+    (blockOwnMimicsOk feT.env f₀.cvTa.name 0) = true from hom)]
 
 /-- **The recognised mutual block at the cached driver is reproduced by
 the pure fueled `checkMutual`.** -/

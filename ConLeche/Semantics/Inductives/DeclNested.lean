@@ -208,6 +208,12 @@ def DeclNestedRun (μ : CheckMode) (F : Nat) (env : Env)
     -- THE PINS' SCOPE (K.30): every pin's free variables are the first
     -- former's openers, annotation included, and no loose bvar
     ConLeche.certOnly μ (ConLeche.pinsScoped p.nP st) = true ∧
+    -- THE PINS' LEVELS (K.48, lane M7-3's §U.69 (e)): every level
+    -- parameter a pin mentions is one of the block's own `lps`.  This is
+    -- `ContainerModeled.pinParams`' whole content at the nested site:
+    -- `pinOf` builds a pin's `u`/`Ids` at `Level.substFn ψ M.lps lvls`
+    -- and its `Ds` as readings at `ψ`, so both halves reduce to it
+    ConLeche.certOnly μ (ConLeche.pinsLevelsOk p.lps st.pins) = true ∧
     -- THE COPIES' RECURSIVE TARGETS (K.32): a group-recursive copy
     -- field comes from the container's own recursion at the spine
     ConLeche.certOnly μ (ConLeche.nestedCopyTargetsOk env p b st stored) = true ∧
@@ -335,7 +341,20 @@ def DeclNestedRun (μ : CheckMode) (F : Nat) (env : Env)
     -- reading the model's environment field is quantified over
     ConLeche.certOnly μ (ConLeche.blockReadBackOk envOut p.nP
       (((stored.take p.k).zip ctorsR).map fun (a, cs) =>
-        (a.cvTa, cs.map fun (cv, _, nF) => (cv, nF)))) = true
+        (a.cvTa, cs.map fun (cv, _, nF) => (cv, nF)))) = true ∧
+    -- THE MIMICS' STORED TYPES ARE THE RECORDED PINS (K.47, lane M7-3's
+    -- §U.69 (c) 1): the own-pin reader, run on the block this route just
+    -- installed at the block's own levels and parameter openers, returns
+    -- the recorded pin list verbatim.  `ContainerModeled.ownPins`' one
+    -- substantive half, recorded rather than proved because it is the
+    -- index arithmetic `containerOwnPinsAt`'s docstring refuses
+    ConLeche.certOnly μ (ConLeche.nestedOwnPinsOk envOut p st) = true ∧
+    -- THE OWN-PIN TABLE IS THE ROUTE'S OWN (K.43): the mimic recursors
+    -- this route stored are exactly `T₁.rec_1 … T₁.rec_numNested`, so the
+    -- own-pin reader's walk visits exactly that many entries at EVERY
+    -- instantiation — the length half of `ContainerModeled.ownPins`
+    ConLeche.certOnly μ
+      (ConLeche.blockOwnMimicsOk envOut (p.formers.headD default).1.name p.numNested) = true
 
 /-- The bridge inversion: a successful nested install is a run. -/
 theorem declNestedRun_of {μ : CheckMode} {F : Nat} {env envOut : Env} {p : NestedParts}
@@ -480,8 +499,8 @@ theorem declNestedRun_etaClosed {μ : CheckMode} {F : Nat} {env envOut : Env}
     {p : NestedParts} (hE : EtaFamiliesClosed env)
     (h : DeclNestedRun μ F env p envOut) : EtaFamiliesClosed envOut := by
   obtain ⟨-, -, st, b, envAux, stored, ctorsR, cvRms, cvRns, rulesM, rulesN, fmsA, ctorsA,
-    -, -, -, -, -, -, -, -, -, -, -, hcaps, -, -, -, -, -, -, -, -, -, -, -, -, -, hctors, hrm, hrn, -, -, -, -, htbl,
-    -, -, -, -⟩ := h
+    -, -, -, -, -, -, -, -, -, -, -, hcaps, -, -, -, -, -, -, -, -, -, -, -, -, -, -, hctors, hrm, hrn, -, -, -, -, htbl,
+    -, -, -, -, -, -⟩ := h
   refine EtaFamiliesClosed.ofFreshExt hE ?_
   -- the formers
   have hx1 : FreshEtaExt env (ConLeche.consNestedFormers (stored.take p.k) env) :=

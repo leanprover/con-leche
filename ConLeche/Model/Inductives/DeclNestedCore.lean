@@ -739,14 +739,16 @@ theorem declNested_of (hμ : μ.verifiedChecks = true) {F : Nat} {env envOut : E
   classical
   obtain ⟨h0, h1, st, b, envAux, stored, ctorsR, cvRms, cvRns, rulesM, rulesN, fmsA, ctorsA,
     hfA, hcA, helim, hcount, hfresh, hcont, hb, haux, hstored, hclosed, hpinsAux, hcaps, hsrc,
-    -, hgrp, hmn, hsc, hK32, hkinds, hauxApps, hrank, -, -, -, hpins₁, hctors, hrm, hrn, -, -,
-    hrulesM, hrulesN, htbl, hpinsOut, hcnt, hrecs, hrb⟩ := h
+    -, hgrp, hmn, hsc, -, hK32, hkinds, hauxApps, hrank, -, -, -, hpins₁, hctors, hrm, hrn, -, -,
+    hrulesM, hrulesN, htbl, hpinsOut, hcnt, hrecs, hrb, -, -⟩ := h
   -- the `-` after `hsrc` is K.31's `pinsDistinct` conjunct: named for the
   -- identities' discharge (`NestedPinsIdent`, lane L-B), not consumed here;
   -- `hmn` after `hgrp` is K.44's `nestedPinMentionOk`, which lane L-E's
   -- `ContainerModeled.nestMention` is discharged from at the block's own
-  -- read-back (`nestedContainerModeled`);
-  -- `hK32` after `hsc` is K.32's `nestedCopyTargetsOk`, carried down to
+  -- read-back (`nestedContainerModeled`); the `-` after `hsc` is K.48's
+  -- `pinsLevelsOk`, which `ContainerModeled.pinParams` reads at the nested
+  -- site and nothing here;
+  -- `hK32` after THAT is K.32's `nestedCopyTargetsOk`, carried down to
   -- `NestedPinsRun` for the same discharge's `ordF` arm (task #315 L-E,
   -- DESIGN §U.64) and not consumed here; `hauxApps` after `hkinds` is
   -- K.35's `nestedAuxAppsOk`, which the tail consumes, and `hrank` after
@@ -755,9 +757,11 @@ theorem declNested_of (hμ : μ.verifiedChecks = true) {F : Nat} {env envOut : E
   -- §U.55) — the `-` after THAT is K.40's `nestedPinParentOk`, the one
   -- after THAT K.41's `nestedPinRootPairOk` and the one after THAT K.42's
   -- second positivity run on the minted copies, none consumed on this
-  -- path; the LAST binder is K.34's
-  -- `blockReadBackOk` (`hrb`) — the route's own read-back, which the block
-  -- this route stores needs and `mp.blocks` carries for the rest;
+  -- path; then K.34's `blockReadBackOk` (`hrb`) — the route's own
+  -- read-back, which the block this route stores needs and `mp.blocks`
+  -- carries for the rest — and the LAST two `-` are K.47's
+  -- `nestedOwnPinsOk` and K.43's `blockOwnMimicsOk`, which
+  -- `ContainerModeled.ownPins` reads and nothing here does;
   -- the two `-` after `hrn` are K.39's `Nodup` of the restored recursors'
   -- names and K.45's disjointness of those names from the auxiliary ones,
   -- which the provision loop's conses and the restore's agreement need,
