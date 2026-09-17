@@ -4,6 +4,8 @@ public import ConLeche.Model.Inductives.NestedRecsStore
 public import ConLeche.Model.Inductives.NestedRecEqs
 import ConLeche.Model.Inductives.MutualRecsProvision
 import ConLeche.Verify.Inductives.NestedRecNames
+public import ConLeche.Verify.Inductives.NestedRecRuleKit
+import ConLeche.Verify.Inductives.NestedElimInv
 public section
 
 /-!
@@ -207,6 +209,54 @@ theorem NestedTailIn.scratchProv {mpA : EnvModelM V μ ENVA} {cvRas : List Const
     fun c hc ψ => hleafP c (by rw [hdk]; exact hc) ψ,
     fun c hc => ⟨(hshape c hc).1, (hshape c hc).2.1⟩,
     fun nm hn => hagP nm fun c hc => hn c (hlt c hc)⟩
+
+/-! ## K.35's face AT THE RULES -/
+
+omit I in
+/-- **K.35's model face at the RULES** (the type half is
+`NestedRecTysAuxOk`, `NestedRecFrames.lean`): every read-back rule's
+right-hand side, below its `λ p⃗` prefix, has the shape the restore
+walk relies on.  The restore strips exactly `R.nP` binders
+(`restoreNested_lams`), so the walk's depth-`0` shape and the Bool's
+`stripLams p.nP` agree on the nose. -/
+@[expose] def NestedRulesAuxOk (p : NestedParts) (st : ElimState) (b : MutualBlock)
+    (stored : List AuxStored) : Prop :=
+  ∀ (c : Nat) (a : AuxStored), stored[c]? = some a → ∀ rl ∈ a.rules,
+    ∃ (lbs : List (Expr × BinderMeta)) (body : Expr),
+      rl.rhs.stripLams b.nP = some (lbs, body) ∧
+      ConLeche.AuxAppsOk (ConLeche.restoreTbl p st) b.lps (nestedArityK p st) 0 body
+
+omit I in
+/-- **AND IT COMES FROM THE SAME BOOL**: K.35's `nestedAuxAppsOk` is a
+conjunction — the recursor type's shape AND every rule's
+(`Kernel/Inductives/NestedInstall.lean:1359`) — so the rules' half is
+`hall.2` where `nestedRecTysAuxOk_of_bool` reads `hall.1`.  No kernel
+work: the record already covers the rules. -/
+theorem nestedRulesAuxOk_of_bool (hb : ConLeche.auxBlock p st = some b)
+    (h : ConLeche.nestedAuxAppsOk p st stored = true) :
+    NestedRulesAuxOk p st b stored := by
+  obtain ⟨hnP, hlps, -, -⟩ := ConLeche.auxBlock_fields hb
+  intro c a ha rl hrl
+  have hmem : a ∈ stored := List.mem_of_getElem? ha
+  have hall : ((match a.cvRa.type.stripPis p.nP with
+      | some (_, body) => ConLeche.auxAppsOk (ConLeche.restoreTbl p st) p.lps
+          (nestedArityK p st) 0 body
+      | none => false) &&
+      a.rules.all fun rl =>
+        match rl.rhs.stripLams p.nP with
+        | some (_, body) => ConLeche.auxAppsOk (ConLeche.restoreTbl p st) p.lps
+            (nestedArityK p st) 0 body
+        | none => false) = true := List.all_eq_true.mp h a hmem
+  simp only [Bool.and_eq_true] at hall
+  have hrule := List.all_eq_true.mp hall.2 rl hrl
+  cases hs : rl.rhs.stripLams p.nP with
+  | none => rw [hs] at hrule; exact nomatch hrule
+  | some pr =>
+    obtain ⟨lbs, body⟩ := pr
+    rw [hs] at hrule
+    refine ⟨lbs, body, by rw [hnP]; exact hs, ?_⟩
+    rw [hlps]
+    exact ConLeche.auxAppsOk_reflect body 0 hrule
 
 end Run
 
