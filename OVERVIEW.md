@@ -558,7 +558,7 @@ Inductive blocks are not trusted from the stream. Three cases:
   ([theorem `container_closed_exists` in `ConLeche/SetModel/Container.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/SetModel/Container.lean#L598)),
   which covers finitary and reflexive fields alike. The model-tier
   theorem for the whole install is
-  [theorem `declNative` in `ConLeche/Model/Inductives/DeclNative.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Inductives/DeclNative.lean#L63).
+  [theorem `declNative` in `ConLeche/Model/Inductives/DeclNative.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Inductives/DeclNative.lean#L1278).
   Structure-like blocks additionally get first-class projections, η,
   unit-likeness and K exactly under official's conditions.
 * **Mutual blocks** — several type formers, one recursor each — take
