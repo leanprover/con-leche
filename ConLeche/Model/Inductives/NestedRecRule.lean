@@ -3222,7 +3222,6 @@ theorem NestedTailIn.recRuleLawsAt {mpA : EnvModelM V μ ENVA} {cvRas : List Con
     {mpAP : EnvModelM V μ (ConLeche.provisionMutualRecs b fms cvRas.zipIdx ENVA)}
     {mpP : EnvModelM V μ
       (ConLeche.provisionNestedRecs (nestedProvList p stored cvRms cvRns) ENV2)}
-    (hndR : (cvRms.map (·.name) ++ cvRns.map (·.name)).Nodup)
     (hshapeA : ∀ c, c < b.k → (cvRas.getD c default).name = b.recName c ∧
       (cvRas.getD c default).levelParams = b.rlps)
     (hleafA : ∀ c, c < b.k → ∀ φ' : Name → Nat,
@@ -3237,14 +3236,16 @@ theorem NestedTailIn.recRuleLawsAt {mpA : EnvModelM V μ ENVA} {cvRas : List Con
             (fun φ'' => (DA).recEqs mpA.base2 b.elimLevel φ'') b.rlps c φ')
     (hagR : ∀ nm : Name, (∀ c, c < (D).kT → nm ≠ (nestedRecCvAt p.k cvRms cvRns c).name) →
       mpP.base2.acval nm = mp₂.base2.acval nm)
-    (hauxNe : ∀ n ∈ (ConLeche.restoreTbl p st).auxNames, ∀ c, c < b.k →
-      n ≠ (nestedRecCvAt p.k cvRms cvRns c).name)
     (hK35r : NestedRulesAuxOk p st b stored)
     (φ : Name → Nat) {c : Nat} (hc : c < b.k) {a : AuxStored} (ha : stored[c]? = some a)
     :
     ∀ o ∈ nestedRulesAt p.k rulesM rulesN c, RecRule.fire o ≠ .inert →
       RecRuleLaw mpP.base2 φ (nestedRecCvAt p.k cvRms cvRns c).name
         (nestedRecCvAt p.k cvRms cvRns c) a.mI a.rP o := by
+  -- K.39 and K.45 are the RUN's own checks, read off `NestedTailIn`
+  have hndR : (cvRms.map (·.name) ++ cvRns.map (·.name)).Nodup := I.recNodup
+  have hauxNe : ∀ n ∈ (ConLeche.restoreTbl p st).auxNames, ∀ c, c < b.k →
+      n ≠ (nestedRecCvAt p.k cvRms cvRns c).name := I.auxNe
   intro o ho hfire
   obtain ⟨hlenR, hallR⟩ := ConLeche.restoreRules_at (I.restRulesRun hc ha)
   obtain ⟨ii, hoAt⟩ := List.getElem?_of_mem ho

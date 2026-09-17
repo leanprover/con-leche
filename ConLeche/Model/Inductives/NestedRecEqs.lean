@@ -773,14 +773,15 @@ theorem nestedTailModeled_of {F : Nat}
     (hst : NestedRecsStored V μ F) : NestedTailModeled V μ F := by
   intro hμ env mp hE p envOut st b envAux stored ctorsR cvRms cvRns rulesM rulesN fmsA ctorsA₀
     hPM h0 h1 hfA hcA helim hcount hfresh hcont hb haux hstored hclosed hpinsAux hcaps hsrc hgrp hkinds
-    hauxApps hctors hrm hrn hrulesM hrulesN htbl hpinsOut hcnt hrecs fms f₀ ctorsA sortss kinds mp₁ ppsF W idxF
+    hauxApps hctors hrm hrn hndR hdisj hrulesM hrulesN htbl hpinsOut hcnt hrecs fms f₀ ctorsA sortss
+    kinds mp₁ ppsF W idxF
     dsF esF srcsF fvsPF xFvsF xrestF eissF tssF dsR xFvsR pinsS mp₂ henv O
   have I : NestedTailIn F mp p envOut st b envAux stored ctorsR cvRms cvRns rulesM rulesN fmsA
       ctorsA₀ fms f₀ ctorsA sortss kinds mp₁ ppsF W idxF dsF esF srcsF fvsPF xFvsF xrestF eissF tssF
       dsR xFvsR pinsS mp₂ :=
     ⟨hμ, hE, hPM, h0, h1, hfA, hcA, helim, hcount, hfresh, hcont, hb, haux, hstored, hclosed,
-      hpinsAux, hcaps, hsrc, hgrp, hkinds, hauxApps, hctors, hrm, hrn, hrulesM, hrulesN, htbl,
-      hpinsOut, hcnt, hrecs, henv, O⟩
+      hpinsAux, hcaps, hsrc, hgrp, hkinds, hauxApps, hctors, hrm, hrn, hndR, hdisj, hrulesM,
+      hrulesN, htbl, hpinsOut, hcnt, hrecs, henv, O⟩
   have hp := nestedPinRecLaws_of hμ O.facts O.grouped O.bk mp₂.base2 O.stage.groups
   obtain ⟨mpA, cvRas, S⟩ := I.scratch
   obtain ⟨s, rdsM, concM, R⟩ := hrd mp p envOut st b envAux stored ctorsR cvRms cvRns rulesM rulesN

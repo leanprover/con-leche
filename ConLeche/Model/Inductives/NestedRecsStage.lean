@@ -222,6 +222,15 @@ structure NestedTailIn {env : Env} (F : Nat) (mp : EnvModelM V μ env) (p : Nest
       (ConLeche.restoreTbl p st) p.lps
       ((List.range p.numNested).map p.mimicRecName)
       (stored.drop p.k) = .ok cvRns
+  /-- **the restored recursors' names are pairwise distinct** (K.39) and
+  **no auxiliary name is one of them** (K.45, §U.29 (ll)) — the run's own
+  checks, `certOnly`-gated: the provision loop's conses need the first
+  and `RestoreAgree.auxFresh` the second, and neither is derivable
+  (both name families are `.str X (s ++ "_" ++ toString i)`). -/
+  hndR : ConLeche.certOnly μ
+    (decide ((cvRms.map (·.name) ++ cvRns.map (·.name)).Nodup)) = true
+  hdisj : ConLeche.certOnly μ ((ConLeche.restoreTbl p st).auxNames.all fun n =>
+    !((cvRms.map (·.name) ++ cvRns.map (·.name)).contains n)) = true
   hrulesM : (cvRms.zip (stored.take p.k)).mapM (fun (cvRa, a) =>
       ConLeche.restoreRules (m := ConLeche.CheckM) (fueledOps μ F)
         (ConLeche.provisionNestedRecs
