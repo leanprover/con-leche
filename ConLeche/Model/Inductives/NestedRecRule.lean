@@ -2250,16 +2250,23 @@ APPLICATION** (the mimic arm's last syntactic step): at a MIMIC class
 applied to the parameters and the index binders
 (`auxRecMajor`), the restore rewrites binder `nP + i` by the walk
 (`restoreNested_stripPis_doms`), and the walk fires the pin at a
-`pins` key (`restoreWalk_pin`) — so the restored domain is headed by
-the pin's CONTAINER at the pin's own level arguments.  This is what
-`nestedFireShape`'s `lvls` reads. -/
-theorem NestedTailIn.restRecTyMajorHead {c : Nat} (hc : c < b.k)
+`pins` key (`restoreWalk_pin`) — so the restored domain is the pin's
+CONTAINER at the pin's own level arguments, applied to the pin's
+COMPONENTS (each abstracted over the parameters and re-lifted past the
+motives, the minor premises and the index binders) and then to the
+index binders themselves.  `nestedFireShape` reads its head for the
+fire's levels and its argument prefix for the fire's pins. -/
+theorem NestedTailIn.restRecTyMajorSpine {c : Nat} (hc : c < b.k)
     {q : Nat} {qn : NestedPin} (hqn : st.pins[q]? = some qn) (hcq : c = p.k + q)
     {mI : Nat} (hmI : mI = b.nP + (b.k + b.ctors.length + (fms.getD c default).nIdx))
     {bs : List (Expr × BinderMeta)} {dom body : Expr} {bm : BinderMeta}
     (hstr : (nestedRecCvAt p.k cvRms cvRns c).type.stripPis mI
       = some (bs, .forallE dom body bm)) :
-    dom.getAppFn = .const qn.container ((D).pinAt q).lvls := by
+    dom = Expr.mkAppN (Expr.mkAppN (.const qn.container ((D).pinAt q).lvls)
+        (((D).pinAt q).DsE.map fun e =>
+          (Expr.abstractRange e 0 b.nP 0).liftLooseBVars
+            (b.k + b.ctors.length + (fms.getD c default).nIdx) 0))
+      (ConLeche.structPsAt 0 (fms.getD c default).nIdx) := by
   obtain ⟨a, f, cbs₀, conc, ha, hf, hlen, hstripA, hfree⟩ := I.auxRecMajor hc
   have hfD : (fms.getD c default).nIdx = f.nIdx := by
     rw [List.getD_eq_getElem?_getD, hf]; rfl
@@ -2318,10 +2325,29 @@ theorem NestedTailIn.restRecTyMajorHead {c : Nat} (hc : c < b.k)
     rw [← hmI]; exact ConLeche.Expr.stripPis_length _ hstr
   rw [hcbs, List.getElem?_append_right (Nat.le_of_eq hbsLen), hbsLen, Nat.sub_self] at hy
   have hy1 : y = (dom, bm) := (Option.some.inj hy).symm
-  rw [← show y.1 = dom from by rw [hy1], ← Except.ok.inj hwy, Expr.getAppFn_mkAppN,
+  obtain ⟨hnP, -, -, -⟩ := ConLeche.auxBlock_fields I.hb
+  have hdrop : (ConLeche.structPsAt (0 + (b.k + b.ctors.length) + f.nIdx) b.nP
+      ++ ConLeche.structPsAt 0 f.nIdx).drop (ConLeche.restoreTbl p st).nP
+      = ConLeche.structPsAt 0 f.nIdx := by
+    rw [I.tblNP]
+    refine List.drop_left' ?_
+    simp only [ConLeche.structPsAt, List.length_map, List.length_range]
+  rw [← show y.1 = dom from by rw [hy1], ← Except.ok.inj hwy,
     (I.out.stage.pinRec q qn hqn).2,
     ConLeche.abstractRange_mkAppN, ConLeche.abstractRange_const,
-    ConLeche.liftLooseBVars_mkAppN, Expr.getAppFn_mkAppN]
+    ConLeche.liftLooseBVars_mkAppN, hdrop, List.map_map, hfD, hnP]
+  rfl
+
+/-- **THE RESTORED MAJOR DOMAIN'S HEAD** — `restRecTyMajorSpine`'s
+first projection, which is what `nestedFireShape`'s `lvls` reads. -/
+theorem NestedTailIn.restRecTyMajorHead {c : Nat} (hc : c < b.k)
+    {q : Nat} {qn : NestedPin} (hqn : st.pins[q]? = some qn) (hcq : c = p.k + q)
+    {mI : Nat} (hmI : mI = b.nP + (b.k + b.ctors.length + (fms.getD c default).nIdx))
+    {bs : List (Expr × BinderMeta)} {dom body : Expr} {bm : BinderMeta}
+    (hstr : (nestedRecCvAt p.k cvRms cvRns c).type.stripPis mI
+      = some (bs, .forallE dom body bm)) :
+    dom.getAppFn = .const qn.container ((D).pinAt q).lvls := by
+  rw [I.restRecTyMajorSpine hc hqn hcq hmI hstr, Expr.getAppFn_mkAppN, Expr.getAppFn_mkAppN]
   rfl
 
 
