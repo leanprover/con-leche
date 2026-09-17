@@ -140,6 +140,13 @@ structure MutualFormersFacts (V : Type w) [SetTheory V] {μ : CheckMode} {env : 
   lenA : ctorsA.length = b.ctors.length
   /-- the kinds' count is the constructors' -/
   lenK : kinds.length = ctorsA.length
+  /-- **the kinds ARE the classification's** (task #315 L-B): the
+  equation that produced them.  `lenK`/`ksJ`/`CD` record what the
+  table says; the copies' kind arms read the table constructor by
+  constructor (`classifyMutualKinds_inv`, `mutualCtorKinds_memberHead`)
+  and no other clause carries the equation. -/
+  classify : ConLeche.classifyMutualKinds (m := ConLeche.CheckM) b.members3 b.lps b.nP ctorsA
+    = .ok kinds
   /-- every constructor's member is a member -/
   motLt : ∀ J : Nat, J < ctorsA.length → mutMemF b J < fms.length
   /-- every constructor's check, at the formers' environment -/
@@ -1009,7 +1016,8 @@ theorem mutualFormersStage (hμ : μ.verifiedChecks = true) {F : Nat} {g : Bool}
     { lenFms := hkF, first := hf0, sEq := hsEq, lps := hlpsF, fresh := hfreshF, strip := hstripF
       names := hnamesF, memT := hmemT, cbF := hcbF, find := fun t f hft => (hstored t f hft).1
       FD₀ := hFD, FD := fun t f hft => (hstored t f hft).2.1, leaf := ?_, off := hoff₁
-      lenA := hlenA', lenK := hlenAK.symm, motLt := hmotLt, runC := hrunC, ksJ := hksJ
+      lenA := hlenA', lenK := hlenAK.symm, classify := hkinds, motLt := hmotLt, runC := hrunC
+      ksJ := hksJ
       CD := hCD₁, lpsC := hlpsC, namesC := hnamesC
       freshC := hfreshC, resC := hresC
       frame := hframeM, idxAll := hIdxAll, CDpar := hCDpar₁, ppsPar := hppsPar

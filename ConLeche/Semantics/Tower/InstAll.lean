@@ -156,4 +156,25 @@ theorem piTele_instTele {w w' : Nat} (hz : w = 0 ↔ w' = 0) (ds : List AnnotTer
     rw [List.length_append, List.length_singleton] at this
     simpa only [consList_append, consList_cons, consList_nil] using this
 
+
+/-- **A spine fits an instantiated telescope at the block's frame iff it
+fits the telescope at the pin's frame** (`interp_instAll` along the
+telescope). -/
+theorem spineFit_instTele (Ds : List AnnotTerm) (ρ' : Nat → V) :
+    ∀ (Ids : List AnnotTerm) (fs₁ is : List V),
+      SpineFit (consList fs₁ ρ') (instTele Ds fs₁.length Ids) is ↔
+        SpineFit (consList fs₁ (consList (Ds.map (interp V ρ')) ρ')) Ids is
+  | [], _, [] => Iff.rfl
+  | [], _, _ :: _ => Iff.rfl
+  | _ :: _, _, [] => Iff.rfl
+  | T :: Ids, fs₁, a :: is => by
+    show (a ∈ˢ interp V (consList fs₁ ρ') (AnnotTerm.instAll Ds fs₁.length T) ∧
+        SpineFit (cons a (consList fs₁ ρ')) (instTele Ds (fs₁.length + 1) Ids) is) ↔
+      (a ∈ˢ interp V (consList fs₁ (consList (Ds.map (interp V ρ')) ρ')) T ∧
+        SpineFit (cons a (consList fs₁ (consList (Ds.map (interp V ρ')) ρ'))) Ids is)
+    rw [interp_instAll]
+    have h := spineFit_instTele Ds ρ' Ids (fs₁ ++ [a]) is
+    rw [List.length_append, List.length_singleton, consList_append, consList_append] at h
+    exact and_congr Iff.rfl h
+
 end ConLeche.Semantics

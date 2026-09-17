@@ -163,7 +163,7 @@ noncomputable def EnvModelB.empty (V : Type w) [SetTheory V] (μ : CheckMode) :
 
 /-- **An ORDINARY field of a mutual constructor mentions no member, at
 the OPENED domain, off the run** (task #315 M7-3 session 9, DESIGN
-§U.55 (a)).  The Prop is `ConLeche.MutualOrdFree`
+§U.61 (a)).  The Prop is `ConLeche.MutualOrdFree`
 (`Verify/Inductives/MutualInv.lean`) at this block's member names and
 parameter count.
 
@@ -1040,7 +1040,7 @@ every OLD container's block crosses the whole install
 (`EnvBlocksOf.crossIndP` at `mutualInstallExt`).
 
 **No hypothesis beyond the run** (task #315 M7-3 session 9, DESIGN
-§U.55 (a)): `MutualOrdFree` is `mutualOrdFree_of_run`, off the run's own
+§U.61 (a)): `MutualOrdFree` is `mutualOrdFree_of_run`, off the run's own
 `mutualFieldsOk` conjunct and the members' freshness, so the mutual
 route now matches `declNativeB`.  `declMutual`'s statement is untouched. -/
 theorem declMutualB (hμ : μ.verifiedChecks = true) {F : Nat} {env envOut : Env}

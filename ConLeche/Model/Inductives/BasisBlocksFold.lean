@@ -43,7 +43,7 @@ variable {μ : CheckMode}
 /-! ## The step, off one install record -/
 
 /-- **THE BASIS STEP, off one install record** (task #315 M7-3 session
-9, DESIGN §U.55 (b)): `EnvBlocksOf.extendBasisOf`'s ten lookup and
+9, DESIGN §U.61 (b)): `EnvBlocksOf.extendBasisOf`'s ten lookup and
 reading premises, all read off `BlockInstallExt` at a block that tables
 nothing, plus the carriers' agreement the run now hands back. -/
 theorem EnvBlocksOf.extendBasisExt {env₁ env₂ : Env} {m₁ : EnvModel V env₁} {m₂ : EnvModel V env₂}
@@ -682,7 +682,7 @@ theorem quotBlocksStepOf {env env₂ : Env} {m₁ : EnvModel V env} {m₂ : EnvM
 /-! ## The basis step at `EnvModelB` -/
 
 /-- **THE BASIS STEP AT `EnvModelB`** (task #315 M7-3 session 9,
-DESIGN §U.55 (b)): a pinned basis block carries the fold's invariant
+DESIGN §U.61 (b)): a pinned basis block carries the fold's invariant
 WITH ITS BLOCKS — the model the run hands back is
 `basisStepAgree_of`'s, and its blocks are the prefix's assignment
 grown by the block's own group (`Quot`'s block grows nothing).

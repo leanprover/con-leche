@@ -488,6 +488,13 @@ structure PinRecLaws {env : Env} (m : EnvModel V env) (d : BlockModel V) (pc : N
     j < (pc q).ctors.length → j' < (pc q).ctors.length →
     fs.length = (((pc q).Fss ψ).getD j []).length → fs'.length = (((pc q).Fss ψ).getD j' []).length →
     (pc q).inj ψ j fs = (pc q).inj ψ j' fs' → j = j' ∧ fs = fs'
+  /-- **a pin's injection is the tagged tower** (task #315 L-E, DESIGN
+  §U.48: the transfer between a container's pin constructors and the
+  block's copies compares FIBRES, whose elements must carry the same
+  tags on both sides — `injW` at the block's sort, as every copy this
+  checker models injects, `nestedPc`) -/
+  injW : ∀ (ψ : Name → Nat) (q : Nat), q < d.nPins → ∀ (j : Nat) (fs : List V),
+    (pc q).inj ψ j fs = injW (d.w ψ) j (mkTower (fs ++ [pt]))
   /-- **the pins' induction**: a property closed under the pins'
   constructors — the members read at `X`, the pins at the SEPARATED
   pins — holds on the pins' carriers at `X` -/

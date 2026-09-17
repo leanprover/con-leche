@@ -199,6 +199,7 @@ theorem zeroCtorBlock_pinRecLaws {env : Env} {m : EnvModel V env}
   fibre := fun _ _ _ _ _ _ _ h => nomatch h
   mkZero := fun _ _ _ _ _ => rfl
   mkInj := fun _ _ _ h => nomatch h
+  injW := fun _ _ h => nomatch h
   ind := fun _ _ _ _ _ _ _ _ h => nomatch h
 
 /-- **The container's block model, in the container's own terms**: the

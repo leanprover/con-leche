@@ -122,6 +122,25 @@ bridge the copies' index readings cross: `instPisILP_read` gives the
 reading of the whole instantiated constructor type, and the arms read
 its RESIDUAL. -/
 
+/-- **Parameter instantiation distributes over a Π-tower** (task #315
+L-B): the tower's binder data are instantiated entry by entry
+(`instTeleP`, each at its own cut) and the conclusion past them all.
+`inst_mkPisAV` is one substitution's form; `instTeleP_instDomsAt` is
+what puts the fold back together. -/
+theorem AnnotTerm.instAll_mkPisAV :
+    ∀ (ds : List AnnotTerm) (c : Nat) (pps : List (Nat × Nat × AnnotTerm)) (C : AnnotTerm),
+      AnnotTerm.instAll ds c (mkPisAV pps C)
+        = mkPisAV (instTeleP ds c pps) (AnnotTerm.instAll ds (c + pps.length) C)
+  | [], c, pps, C => by rw [instTeleP_nil]; rfl
+  | d :: ds, c, pps, C => by
+    show AnnotTerm.instAll ds c ((mkPisAV pps C).inst d (c + ds.length)) = _
+    rw [inst_mkPisAV, instAll_mkPisAV ds c (instDomsAt d (c + ds.length) pps) _,
+      instTeleP_instDomsAt, instDomsAt_length]
+    congr 1
+    show AnnotTerm.instAll ds (c + pps.length) (C.inst d (c + ds.length + pps.length)) = _
+    rw [show c + ds.length + pps.length = c + pps.length + ds.length from by omega]
+    rfl
+
 /-- The instantiated telescope has the original's length (off
 `instTeleP_map`, since the walk's body is not exposed here). -/
 theorem instTeleP_length (ds : List AnnotTerm) (c : Nat)

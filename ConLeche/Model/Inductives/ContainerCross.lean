@@ -762,6 +762,7 @@ theorem BlockAt.of_noPins {env : Env} {m : EnvModel V env} {B : ContainerInfo â†
       fibre := fun _ _ _ _ _ _ q hq => absurd hq (by rw [h0]; omega)
       mkZero := fun _ _ _ _ _ => rfl
       mkInj := fun _ _ q hq => absurd hq (by rw [h0]; omega)
+      injW := fun _ q hq => absurd hq (by rw [h0]; omega)
       ind := fun _ _ _ _ _ _ _ q hq => absurd hq (by rw [h0]; omega) }
 
 /-! ## The non-inductive stages of the fold -/

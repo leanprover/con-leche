@@ -563,6 +563,7 @@ theorem eqBlock_pinRecLaws {env : Env} {m : EnvModel V env} :
   fibre := fun _ _ _ _ _ _ _ h => (nomatch h)
   mkZero := fun _ _ _ _ _ => rfl
   mkInj := fun _ _ _ h => (nomatch h)
+  injW := fun _ _ h => (nomatch h)
   ind := fun _ _ _ _ _ _ _ _ h => (nomatch h)
 
 /-- **`Eq` carries its block's model** at any assignment that sends its
