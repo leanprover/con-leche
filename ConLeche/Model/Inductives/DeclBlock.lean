@@ -167,7 +167,14 @@ Consumer: `declBlock`. -/
         (ConLeche.storeMutualRecs (ConLeche.consMutualCtors b.nP ctorsA env₁) b fms rulesOf
           cvRas.zipIdx (ConLeche.consMutualCtors b.nP ctorsA env₁)),
       (∀ n, n ∉ b.blockNames → ∀ ψ : Name → Nat, mp₃.base2.acval n ψ = mp.base2.acval n ψ) ∧
-      ∃ d : BlockModel V, MutualBlockModelOf env b fms ctorsA d ∧ IsBlockModels mp₃.base2 d ∧
+      ∃ d : BlockModel V, MutualBlockModelOf env b fms ctorsA d ∧
+        -- the block model's field kinds are the run's classification, at
+        -- the block's own constructor positions (task #315 M7-3 session 6:
+        -- the tie `ContainerModeled.ordFree` is stated against —
+        -- `MutualRecsModeled` already takes it as an input and
+        -- `mutualCoreModeled_of` discharges it by `rfl`)
+        (∀ mm j, d.ksF mm j = (kinds.getD (b.ownOffset mm + j) []).map (·.1)) ∧
+        IsBlockModelsAt mp₃.base2 d (fun mm => (fms.getD mm default).cvTa) ∧
         (∀ ψ : Name → Nat, FormersTyped mp₃.base2 d ψ ∧ CtorsTyped mp₃.base2 d ψ) ∧
         (∀ (t : Nat) (f : MutualFormerA), fms[t]? = some f →
           MemberStored mp₃.base2 b.lps b.nP f d.resSort (d.ppsM t)) ∧
@@ -178,8 +185,10 @@ environment carrying the block model (the block at every member, the members
 and constructors typed, the members stored, the table facts), with the
 run of stages 0–4 (the `NoProjEnv` bookkeeping and the names' shapes
 are read off it), the structure-like members' projection tables cons a
-model of the post-block environment — `declBlock`'s second named fact
-(M4 session 5).  Consumer: `declBlock`. -/
+model of the post-block environment, WITH the carriers' agreement at
+the stored names (task #315 M7-3 session 4: the block model crosses the
+tables on it) — `declBlock`'s second named fact (M4 session 5).
+Consumers: `declBlock`, `declMutualB`. -/
 @[expose] def MutualTablesModeled (V : Type w) [SetTheory V] (μ : CheckMode) (F : Nat) : Prop :=
   μ.verifiedChecks = true →
   ∀ {env : Env}, ConLeche.EnvWF env → ConLeche.ProjOkT env →
@@ -239,7 +248,7 @@ model of the post-block environment — `declBlock`'s second named fact
           rulesOf cvRas.zipIdx
           (ConLeche.consMutualCtors b.nP ctorsA (ConLeche.consMutualFormers fms env)))
         = .ok envOut →
-      Nonempty (EnvModelM V μ envOut)
+      ∃ mpOut : EnvModelM V μ envOut, AcvalAgrees mp₃.base2 mpOut.base2
 
 /-! ## The consumer -/
 
@@ -294,12 +303,12 @@ theorem declBlock (hμ : μ.verifiedChecks = true) {F : Nat} {env envOut : Env}
   obtain ⟨-, b, streamRecs, env₁, fms, f₀, tq₀, ctorsA, sortss, kinds, formers4, ctors4,
     cvRas, rulesOf, rfl, rfl, h0, h1, h2, h3, hformers, hf₀, htq₀, hcross, hL, hctors, hkinds,
     hfo, hgd, hrectys, hrules, htbl, -⟩ := h
-  obtain ⟨mp₃, -, d, hd, hreps, hT, hstored, htf⟩ := hcore hμ mp hE _ _ _ _ _ _ _ _ _ _ _ _ _ _
+  obtain ⟨mp₃, -, d, hd, -, hreps, hT, hstored, htf⟩ := hcore hμ mp hE _ _ _ _ _ _ _ _ _ _ _ _ _ _
     h0 h1 h2 h3 hformers hf₀ htq₀ hcross hL hctors hkinds hfo hgd hrectys hrules
     (recNames_of hpinOk hrectys)
   obtain ⟨-, rfl⟩ := ConLeche.mutualFormers_inv hformers
-  exact htables hμ mp.base2.wf mp.base2.proj_ok _ _ _ _ _ _ _ _ _ _ _ _ _ _ h0 h1 h2 h3 hformers
+  exact ⟨(htables hμ mp.base2.wf mp.base2.proj_ok _ _ _ _ _ _ _ _ _ _ _ _ _ _ h0 h1 h2 h3 hformers
     hf₀ htq₀ hcross hL hctors hkinds hfo hgd hrectys hrules (recNames_of hpinOk hrectys) mp₃ d hd
-    hreps hT hstored htf htbl
+    hreps.toIsBlockModels hT hstored htf htbl).choose⟩
 
 end ConLeche.Model

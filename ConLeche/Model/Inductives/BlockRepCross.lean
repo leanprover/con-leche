@@ -627,7 +627,7 @@ types' readings by `hde`, the members' and constructors' lookups by
 `hres`, and the leaf and constructor equations by `hag` — every name
 they value is stored (`memsFound`, the constructors' own lookups).
 Everything else is the block model's and moves unchanged. -/
-theorem IsBlockModel.crossEnvP {Ts : List Name} {env₁ env₂ : Env} {m₁ : EnvModel V env₁} {m₂ : EnvModel V env₂}
+theorem IsBlockModel.crossEnvG {Ts : List Name} {env₁ env₂ : Env} {m₁ : EnvModel V env₁} {m₂ : EnvModel V env₂}
     {T : Name} {cvT cvR : ConstantVal} {mI rP : Nat} {rules : List RecRule}
     {d : BlockModel V} {mm : Nat}
     (hF : ∀ (n : Name) (ci : ConstantInfo),
@@ -637,7 +637,9 @@ theorem IsBlockModel.crossEnvP {Ts : List Name} {env₁ env₂ : Env} {m₁ : En
     (hag : ∀ n : Name, (env₁.find? n).isSome = true → m₂.acval n = m₁.acval n)
     (hde : ∀ (ψ : Name → Nat) (dp : Nat) (e : Expr), ProjFree Ts e → ∀ {ea : AnnotTerm},
       denoteMeta m₁.acval env₁ ψ dp e = some ea → denoteMeta m₂.acval env₂ ψ dp e = some ea)
-    (hfresh : ∀ T' ∈ Ts, env₁.find? T' = none) (hnpT : ProjFree Ts cvT.type)
+    (hnpT : ProjFree Ts cvT.type)
+    (hnpCtor : ∀ (mm' j : Nat) (cA : ConstantVal × Nat), mm' < d.k →
+      (d.ctorsM mm')[j]? = some cA → ProjFree Ts cA.1.type)
     (h : IsBlockModel m₁ T cvT cvR mI rP rules d mm) :
     IsBlockModel m₂ T cvT cvR mI rP rules d mm := by
   have hmem : ∀ mm', mm' < d.k → (env₁.find? (d.memberName mm')).isSome = true := by
@@ -648,14 +650,6 @@ theorem IsBlockModel.crossEnvP {Ts : List Name} {env₁ env₂ : Env} {m₁ : En
   have hTs : (env₁.find? T).isSome = true := by
     have := hmem mm h.memberLt
     rwa [h.member] at this
-  -- the constructors are STORED, so their types resolve, and a
-  -- structure the environment does not carry is in none of their
-  -- `.proj` nodes (`ProjFree.of_constsResolve`)
-  have hnpCtor : ∀ (mm' j : Nat) (cA : ConstantVal × Nat), mm' < d.k →
-      (d.ctorsM mm')[j]? = some cA → ProjFree Ts cA.1.type := by
-    intro mm' j cA hmm' hj
-    exact ProjFree.of_constsResolve hfresh
-      (m₁.wf _ (ConLeche.Semantics.Env.find?_mem (h.ctors mm' j cA hmm' hj).1)).2.2.1
   exact
     { memberLt := h.memberLt
       member := h.member
@@ -725,6 +719,30 @@ theorem IsBlockModel.crossEnvP {Ts : List Name} {env₁ env₂ : Env} {m₁ : En
       mkInj := h.mkInj }
 
 
+/-- **The block's representation crosses the change**: the guarded
+crossing at an environment where the tabled structures are FRESH — the
+OLD containers' half, where the constructors' guards come from their
+own types' resolution (`ProjFree.of_constsResolve`).  The block being
+INSTALLED takes `crossEnvG` instead: its members are stored at the
+environment its subjects are read at, and the guards come from the
+install's `NoProjEnv` bookkeeping (DESIGN §U.41 (f)). -/
+theorem IsBlockModel.crossEnvP {Ts : List Name} {env₁ env₂ : Env} {m₁ : EnvModel V env₁} {m₂ : EnvModel V env₂}
+    {T : Name} {cvT cvR : ConstantVal} {mI rP : Nat} {rules : List RecRule}
+    {d : BlockModel V} {mm : Nat}
+    (hF : ∀ (n : Name) (ci : ConstantInfo),
+      (∀ cv mI rP rules, ci ≠ .recInfo cv mI rP rules) →
+      env₁.find? n = some ci → env₂.find? n = some ci)
+    (hres : ∀ e : Expr, e.constsResolve env₁ = true → e.constsResolve env₂ = true)
+    (hag : ∀ n : Name, (env₁.find? n).isSome = true → m₂.acval n = m₁.acval n)
+    (hde : ∀ (ψ : Name → Nat) (dp : Nat) (e : Expr), ProjFree Ts e → ∀ {ea : AnnotTerm},
+      denoteMeta m₁.acval env₁ ψ dp e = some ea → denoteMeta m₂.acval env₂ ψ dp e = some ea)
+    (hfresh : ∀ T' ∈ Ts, env₁.find? T' = none) (hnpT : ProjFree Ts cvT.type)
+    (h : IsBlockModel m₁ T cvT cvR mI rP rules d mm) :
+    IsBlockModel m₂ T cvT cvR mI rP rules d mm :=
+  h.crossEnvG hF hres hag hde hnpT (fun mm' j cA hmm' hj =>
+    ProjFree.of_constsResolve hfresh
+      (m₁.wf _ (ConLeche.Semantics.Env.find?_mem (h.ctors mm' j cA hmm' hj).1)).2.2.1)
+
 /-- The block's representation crosses any change the readings cross
 (the unguarded crossing, `Ts := []`). -/
 theorem IsBlockModel.crossEnv {env₁ env₂ : Env} {m₁ : EnvModel V env₁} {m₂ : EnvModel V env₂}
@@ -741,6 +759,24 @@ theorem IsBlockModel.crossEnv {env₁ env₂ : Env} {m₁ : EnvModel V env₁} {
     IsBlockModel m₂ T cvT cvR mI rP rules d mm :=
   h.crossEnvP (Ts := []) hF hres hag (fun ψ dp e _ {_ea} hr => hde ψ dp e hr)
     (fun _ hT' => nomatch hT') (ProjFree.nil _)
+
+/-- **The block at every member, at the members' own constants,
+crosses the change** (task #315 M7-3 session 5): `IsBlockModels.crossEnv`
+keeping the `ConstantVal`s named. -/
+theorem IsBlockModelsAt.crossEnv {env₁ env₂ : Env} {m₁ : EnvModel V env₁} {m₂ : EnvModel V env₂}
+    {d : BlockModel V} {cvTs : Nat → ConstantVal}
+    (hF : ∀ (n : Name) (ci : ConstantInfo),
+      (∀ cv mI rP rules, ci ≠ .recInfo cv mI rP rules) →
+      env₁.find? n = some ci → env₂.find? n = some ci)
+    (hres : ∀ e : Expr, e.constsResolve env₁ = true → e.constsResolve env₂ = true)
+    (hag : ∀ n : Name, (env₁.find? n).isSome = true → m₂.acval n = m₁.acval n)
+    (hde : ∀ (ψ : Name → Nat) (dp : Nat) (e : Expr) {ea : AnnotTerm},
+      denoteMeta m₁.acval env₁ ψ dp e = some ea → denoteMeta m₂.acval env₂ ψ dp e = some ea)
+    (h : IsBlockModelsAt m₁ d cvTs) :
+    IsBlockModelsAt m₂ d cvTs := by
+  intro c hc
+  obtain ⟨cvR, mI, rP, rules, hb⟩ := h c hc
+  exact ⟨cvR, mI, rP, rules, hb.crossEnv hF hres hag hde⟩
 
 /-- The block at every member crosses the change. -/
 theorem IsBlockModels.crossEnv {env₁ env₂ : Env} {m₁ : EnvModel V env₁} {m₂ : EnvModel V env₂}

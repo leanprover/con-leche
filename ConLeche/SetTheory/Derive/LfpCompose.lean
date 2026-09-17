@@ -851,4 +851,112 @@ end PinLawsFacts
 
 end PinLaws
 
+/-! ## The least tuple pulled back along a map of variables (task #315 L-E, DESIGN §U.48 (d)) -/
+
+/-- **The fibre meet**: the base tuple's component `i` cut down to the
+elements every component of `Y` above `i` (under `σ`, below `k'`)
+carries — `famMeet` over a finite fibre, `sep`-shaped so it stays in
+the space. -/
+noncomputable def fibreMeet (Is X : Nat → V) (σ : Nat → Nat) (k' : Nat) (Y : Nat → V) (i : Nat) : V :=
+  graph (fun t => sep (app (X i) t) fun x => ∀ j, j < k' → σ j = i → x ∈ˢ app (Y j) t) (Is i)
+
+theorem app_fibreMeet {Is X : Nat → V} {σ : Nat → Nat} {k' : Nat} {Y : Nat → V} {i : Nat} {t : V}
+    (ht : t ∈ˢ Is i) :
+    app (fibreMeet Is X σ k' Y i) t
+      = sep (app (X i) t) fun x => ∀ j, j < k' → σ j = i → x ∈ˢ app (Y j) t :=
+  app_graph ht
+
+theorem fibreMeet_mem {w : Nat} {Is X : Nat → V} {σ : Nat → Nat} {k' : Nat} {Y : Nat → V} {i : Nat}
+    (hX : X i ∈ˢ famSpace w (Is i)) : fibreMeet Is X σ k' Y i ∈ˢ famSpace w (Is i) :=
+  graph_mem_famSpace fun _ ht => univ_sep_mem (famSpace_app hX ht)
+
+theorem fibreMeet_le_base (Is X : Nat → V) (σ : Nat → Nat) (k' : Nat) (Y : Nat → V) (i : Nat) :
+    FamLe (Is i) (fibreMeet Is X σ k' Y i) (X i) := by
+  intro t ht
+  rw [app_fibreMeet ht]
+  exact sep_subset
+
+theorem fibreMeet_le_fibre {Is X : Nat → V} {σ : Nat → Nat} {k' : Nat} {Y : Nat → V} {i j : Nat}
+    (hj : j < k') (hσ : σ j = i) : FamLe (Is i) (fibreMeet Is X σ k' Y i) (Y j) := by
+  intro t ht x hx
+  rw [app_fibreMeet ht] at hx
+  exact (mem_sep.mp hx).2 j hj hσ
+
+theorem famLe_fibreMeet {Is X : Nat → V} {σ : Nat → Nat} {k' : Nat} {Y : Nat → V} {i : Nat} {C : V}
+    (h₀ : FamLe (Is i) C (X i)) (h : ∀ j, j < k' → σ j = i → FamLe (Is i) C (Y j)) :
+    FamLe (Is i) C (fibreMeet Is X σ k' Y i) := by
+  intro t ht x hx
+  rw [app_fibreMeet ht]
+  exact mem_sep.mpr ⟨h₀ t ht x hx, fun j hj hσ => h j hj hσ t ht x hx⟩
+
+/-- **The least tuple of a system pulled back along a map of variables**
+(task #315 L-E, DESIGN §U.48 (d)): a system `Φ'` over `k'` variables
+whose operator at a tuple pulled back along `σ : [0,k') → [0,k)` is the
+pullback of `Φ`'s (`hpull`, at every tuple in the space BELOW `Φ`'s
+least tuple — all the argument visits), with the
+index sets pulled back too, has as least tuple the pullback of `Φ`'s —
+variables renamed or DUPLICATED along `σ` change nothing.  `(lfp Φ) ∘ σ`
+is `Φ'`-closed; conversely `fibreMeet` (the base least tuple cut down
+to every fibre's `lfp Φ'` components) is `Φ`-closed, so `lfp Φ` lies
+below it and hence below `lfp Φ'` at every variable of the fibre.  No
+surjectivity is needed: outside `σ`'s image the fibre meet is the base
+least tuple itself. -/
+theorem lfpTuple_pullback {w k k' : Nat} {Is Is' : Nat → V} {Φ Φ' : (Nat → V) → Nat → V}
+    {σ : Nat → Nat} (hσ : ∀ j, j < k' → σ j < k)
+    (hIs : ∀ j, j < k' → Is' j = Is (σ j))
+    (hmono : MonoTuple w k Is Φ) (hmaps : MapsTuple w k Is Φ)
+    (hcl : ∃ L, IsClosedTuple w k Is Φ L)
+    (hmono' : MonoTuple w k' Is' Φ') (hmaps' : MapsTuple w k' Is' Φ')
+    (hcl' : ∃ L', IsClosedTuple w k' Is' Φ' L')
+    (hpull : ∀ X, InTupleSpace w k Is X → TupleLe k Is X (lfpTuple w k Is Φ) →
+      ∀ j, j < k' → Φ' (fun j' => X (σ j')) j = Φ X (σ j)) :
+    ∀ j, j < k' → lfpTuple w k' Is' Φ' j = lfpTuple w k Is Φ (σ j) := by
+  intro j hj
+  -- the pullback of the base least tuple is closed
+  have hX'mem : InTupleSpace w k' Is' (fun j' => lfpTuple w k Is Φ (σ j')) := by
+    intro j' hj'
+    rw [hIs j' hj']
+    exact lfpTuple_mem w k Is Φ _ (hσ j' hj')
+  have hX'cl : IsClosedTuple w k' Is' Φ' (fun j' => lfpTuple w k Is Φ (σ j')) := by
+    refine ⟨hX'mem, fun j' hj' => ?_⟩
+    show FamLe (Is' j') (Φ' (fun j'' => lfpTuple w k Is Φ (σ j'')) j') (lfpTuple w k Is Φ (σ j'))
+    rw [hpull _ (lfpTuple_mem w k Is Φ) (TupleLe.refl _ _ _) j' hj',
+      lfpTuple_eq hcl hmono hmaps (hσ j' hj')]
+    exact FamLe.refl _ _
+  have h1 := lfpTuple_le hX'cl j hj
+  -- the fibre meet is closed under the base operator
+  have hTmem : InTupleSpace w k Is (fibreMeet Is (lfpTuple w k Is Φ) σ k' (lfpTuple w k' Is' Φ')) :=
+    fun i hi => fibreMeet_mem (lfpTuple_mem w k Is Φ i hi)
+  have hTσ : ∀ j', j' < k' →
+      FamLe (Is' j') (fibreMeet Is (lfpTuple w k Is Φ) σ k' (lfpTuple w k' Is' Φ') (σ j'))
+        (lfpTuple w k' Is' Φ' j') := by
+    intro j' hj'
+    rw [hIs j' hj']
+    exact fibreMeet_le_fibre hj' rfl
+  have hTσmem : InTupleSpace w k' Is'
+      (fun j' => fibreMeet Is (lfpTuple w k Is Φ) σ k' (lfpTuple w k' Is' Φ') (σ j')) := by
+    intro j' hj'
+    rw [hIs j' hj']
+    exact hTmem _ (hσ j' hj')
+  have hTcl : IsClosedTuple w k Is Φ (fibreMeet Is (lfpTuple w k Is Φ) σ k' (lfpTuple w k' Is' Φ')) := by
+    refine ⟨hTmem, fun i hi => famLe_fibreMeet ?_ fun j' hj' hσj => ?_⟩
+    · have := hmono _ _ hTmem (lfpTuple_mem w k Is Φ)
+        (fun i' hi' => fibreMeet_le_base Is _ σ k' _ i') i hi
+      rw [lfpTuple_eq hcl hmono hmaps hi] at this
+      exact this
+    · have e := hpull _ hTmem (fun i' hi' => fibreMeet_le_base Is _ σ k' _ i') j' hj'
+      rw [hσj] at e
+      rw [← e]
+      have := hmono' _ _ hTσmem (lfpTuple_mem w k' Is' Φ') hTσ j' hj'
+      rw [lfpTuple_eq hcl' hmono' hmaps' hj', hIs j' hj', hσj] at this
+      exact this
+  have h2 := lfpTuple_le hTcl (σ j) (hσ j hj)
+  have h3 := hTσ j hj
+  -- the two least tuples agree at `j`
+  refine famSpace_ext (lfpTuple_mem w k' Is' Φ' j hj)
+    (by rw [hIs j hj]; exact lfpTuple_mem w k Is Φ _ (hσ j hj)) fun t ht => ?_
+  refine Subset.antisymm (h1 t ht) ?_
+  have ht' : t ∈ˢ Is (σ j) := by rw [← hIs j hj]; exact ht
+  exact (h2 t ht').trans (h3 t ht)
+
 end ConLeche.SetTheory

@@ -1,6 +1,7 @@
 module
 
 public import ConLeche.Model.Inductives.StructStageFormer
+import ConLeche.Semantics.Tower.FixSquashI
 public section
 
 /-!
@@ -91,5 +92,44 @@ theorem reverse_map_take_drop (ds : List (Nat × Nat × AnnotTerm)) (nP : Nat) :
   rw [← List.reverse_append, ← List.map_append, List.take_append_drop]
 
 /-! ## The constructor's data -/
+
+
+/-! ## Kit: a spine against an equivalent telescope (task #315 M7-3 s7:
+moved down from `MutualCore.lean`, where the mutual route proved it —
+the native route's `ctor` clause needs it too) -/
+
+/-- A spine fitting one telescope fits another with the same frames
+and the same length. -/
+theorem spineFit_of_frames {Ds₁ Ds₂ : List AnnotTerm} (hlen : Ds₁.length = Ds₂.length)
+    (hiff : ∀ ρ : Nat → V, Sat V Ds₁.reverse ρ ↔ Sat V Ds₂.reverse ρ) {ρ : Nat → V} {as : List V}
+    (hsp : SpineFit ρ Ds₁ as) : SpineFit ρ Ds₂ as := by
+  have h1 := sat_of_spineFit (Δ₀ := []) (Sat_nil V ρ) hsp
+  rw [List.append_nil] at h1
+  have h2 := (hiff _).mp h1
+  have h3 := spineFit_of_sat (Δ₀ := []) (by rw [List.append_nil]; exact h2)
+  have hl : as.length = Ds₂.length := by rw [hsp.length_eq, hlen]
+  rw [← hl] at h3
+  have hfr : (fun j => consList as ρ (j + as.length)) = ρ := by
+    funext j; exact consList_apply_add as ρ j
+  rw [hfr] at h3
+  have hval : (List.range as.length).reverse.map (consList as ρ) = as := by
+    have := consList_range_reverse as.length (consList as ρ)
+    rw [hfr] at this
+    exact consList_inj_of_length (by simp) this
+  rw [hval] at h3
+  exact h3
+where
+  consList_inj_of_length {as bs : List V} {ρ : Nat → V} (hl : as.length = bs.length)
+      (h : consList as ρ = consList bs ρ) : as = bs := by
+    apply List.ext_getElem hl
+    intro i hi₁ hi₂
+    have hk : as.length - 1 - i < as.length := by omega
+    have := congrFun h (as.length - 1 - i)
+    rw [consList_getD_lt as ρ _ hk, consList_getD_lt bs ρ _ (by omega),
+      show as.length - 1 - (as.length - 1 - i) = i from by omega,
+      show bs.length - 1 - (as.length - 1 - i) = i from by omega,
+      List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hi₁, List.getD_eq_getElem?_getD,
+      List.getElem?_eq_getElem hi₂] at this
+    exact this
 
 end ConLeche.Model
