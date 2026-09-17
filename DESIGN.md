@@ -80406,6 +80406,165 @@ interleaved), zero source adaptations, and the arena run.  Next:
 `recF`'s remaining half and `ordF`-left, L-E's blob route, M7's three
 stage facts, `declNativeB`, and K.36.
 
+##### (s) INTEGRATION 3k — the kernel lane's CERTIFICATION-TAX GATE merged, `declNativeB`, and L-B's `recF`/`ordF`-left (session U-33)
+
+Three merges into the lane, `--no-ff` at the pinned shas —
+`agent/uniform-m5` **d2347e27** (the kernel lane) at ae218abe,
+`agent/uniform-m7env` **024e521a** (M7-3 s8) at 5e35dc9f and
+`agent/uniform-ident` **4d479e2a** (L-B s11) at 46874bda.  **The nested
+chain does not move**: `declNested_of` over `mp : EnvModelB` still
+closes over exactly `hSh : NestedPinsShape`, `hEn : NestedPinsEntry` and
+`htail : NestedTailModeled` (plus `hE` and the run).  What moves is the
+kernel underneath it — every certification-only record is now GATED on
+the mode — and the two routes beside it: the NATIVE route hands back
+`EnvModelB` over nothing beyond the run, and `recF` is closed at a
+finitary recursive field.
+
+*Merge 1 — the kernel lane* (ae218abe).  The branch contains 1a7d2541
+(merged at 3i), so the delta is K.35, the gate, K.36-as-derived and
+K.37.  **THE GATE is the session's one structural change.**
+`CheckerOps` gains a `mode` field (`Kernel/CheckerBase.lean`), every
+instantiation records the `CheckMode` it was built at, and
+`certOnly mode b = !mode.verifiedChecks || b` wraps each record that
+exists for the soundness PROOF rather than for soundness — the run
+relations now say `certOnly μ b = true`, and the model tier, stated
+under `hμ : μ.verifiedChecks = true`, reads `b = true` back with
+`certOnly_elim`.  `||` short-circuits, so at `--trusted` the Bool is not
+evaluated at all: this is the standing ruling (trusted = verified minus
+the certification-only steps) made mechanical.  Nine records are gated
+across the three routes — K.14's containers, K.28's copy sources, K.31's
+distinctness, K.29's groups, K.30's scope, K.32's targets, K.26's kinds,
+K.34's read-back on all three routes, and the two new ones.  Beside it:
+K.35's `nestedAuxAppsOk` with the memoized `auxAppsOk`/`auxAppsGoM`
+(`@[csimp]`, `AuxAppsMemoInv`, `auxAppsGoM_spec`), K.37's
+`nestedPinRankOk` with `nestedPinEdges`/`nestedPinArcs`/
+`nestedPinInstFrom`/`nestedPinRankFrom` and the readers
+`nestedPinInstOf`/`nestedPinRankOf` — both new `DeclNestedRun`
+conjuncts with their `_inv` — and K.36 WITHDRAWN as a check (a
+`git revert -n` of the Bool) but KEPT as `MutualOrdFree`/
+`mutualOrdFree_of` and `NativeOrdFree`/`nativeOrdFree_of`
+(`Verify/Inductives/MutualInv.lean`), derived from
+`mutualFormers_membersFresh` and `checkSumInd_freshName`.
+
+*The adaptation of merge 1, and how small it turned out.*  Two DESIGN
+and one source conflict were expected to be wide; the source side was
+**three files and eight lines**, and the reason is worth recording.
+The gate changes the run relations, so only a consumer that
+DESTRUCTURES a run relation sees it — everything downstream takes the
+Bools as hypotheses of its own theorems, stated un-gated, and is
+untouched.  There are exactly three such sites in the tree:
+`Model/Inductives/DeclNestedCore.lean` (`declNested_of`: two `-` binders
+for K.35's and K.37's new conjuncts after the field kinds, and five
+`replace … := certOnly_elim … hμ` for the records it forwards),
+`Model/Inductives/EnvModelBStages.lean` (`declMutualB`, one, for K.34's
+read-back) and — at merge 2, because it arrived with that branch —
+`Model/Inductives/DeclNative.lean` (`declNative_syntax`, one).  Every
+file the forecast named beside them (`NestedPins`, `NestedCopyIdx`,
+`NestedLoop`, `NestedCore`, `NestedCopyInst`, `DeclBlock`,
+`NestedAuxInv`, `NestedRecDoor`, `NestedRecTypes`, the
+`Bridge*`/`AgreeFloor`/`PushChain` mirrors) needed NOTHING.  **The rule:
+a mode gate on a recorded Bool costs exactly one `certOnly_elim` per
+run-destructuring site, not one per consumer.**  The two DESIGN
+conflicts were pure appends, resolved as a union with zero lines dropped
+against either parent; `MutualInv.lean`'s was the same shape (the lane's
+graded stages against the branch's K.36 block, both appended at the end
+of the file).
+
+*Merge 2 — M7-3 session 8* (5e35dc9f).  `declNativeB`
+(`EnvModelBStages.lean:1163`) takes `hμ`, the carrier, `hE`, the
+recogniser's reading and the run, and NOTHING else — §U.50 (d)'s four
+items are all done: `nativeOrdFree_of` (the native `ordFree` needs no
+kernel conjunct, §U.52's finding), `nativeContainerModeled`,
+the `installExt` chain (`nativeInstallExt`,
+`consNativeFormer_installExt`, `consSumCtors_installExt`,
+`nativeTable_installExt`), `nativeRec_fresh`, and `stageFixTable`/
+`declNativeTable` handing back `AcvalAgrees`.  DESIGN was the only
+conflict; §U.52 was interleaved BY NUMBER before the K sections (which
+the branch has never seen), a pure union.  **TWO `NativeOrdFree`s now
+stand, deliberately**: `ConLeche.NativeOrdFree T nP ctorsA kinds`
+(`Verify/Inductives/MutualInv.lean`, K.36's derived twin, off
+`nativeFieldsOk` plus freshness, stated with `Expr.mentionsConst`) and
+`ConLeche.Model.NativeOrdFree p ctorsA` (`EnvModelBStages.lean`, off
+`NativeSyntaxFacts`, stated with `mentionsMember [p.cvT.name]` and
+packaged over `NativeParts`).  They are not the same statement — the
+kernel's is an inversion of the install's own guard, the model's is
+phrased in the record the block model consumes — so both are kept;
+different namespaces, no ambiguity, and the model's site uses the
+model's.  `declNative_syntax`'s one-line adaptation shifted `declNative`
+by three lines, so OVERVIEW's anchor was repointed L1323 → L1326 (a pure
+line shift; the citing paragraph was re-read here and its claim, "the
+model-tier theorem for the whole install", is unchanged).
+
+*Merge 3 — L-B session 11* (46874bda).  `NestedPinsRun.copyRecFRead`,
+`copyRecFKind`, `copyOrdFLeft`, `groupCopyFormer` and `mintFieldRead`,
+with the normalisation lemmas they run on (`normCtorValM_domErased`,
+`normCtorValM_domUnchanged`, `normPosDomM_no_mention`,
+`instSeq_abstractRange_fvs_at`, `denoteMeta_openPisAtFvars_dom`,
+`stripPis_binder_leaves`, `crossUpSpine`).  DESIGN was again the only
+conflict and again had to be interleaved (§U.53 between §U.52 and the K
+sections), a pure union.  **ZERO source adaptations**: every forecast
+conflict failed to materialise — `NestedCopyInst`, `NestedCopyRead`,
+`NestedCopyGlue` and `NestedCopyNorm` came out byte-identical to the
+branch's, because merge 1's `certOnly` work touched only the three
+run-destructuring sites, none of which L-B has changed, and the branch's
+`normPosDomM_no_mention` lands at `MutualInv.lean:304`, far from the
+appended K.36 block.
+
+**The import gate had nothing to take**, as in §U.27 (b), (g), (h), (k),
+(m), (q) and (r): none of the three branches touched
+`tests/shake-allowlist.txt` or `scripts/pub-import-plan.py`, so there
+was no union and no new FALLBACK to verify.  Shake 510 proposed / all
+510 allowlisted at all three merge commits; pub-imports none demotable
+at all three — 1276 of 2016 in-tree edges public with 38 dot-notation
+fallbacks after merge 1, 1277 of 2018 after merges 2 and 3.
+
+Gates at ALL THREE merge commits: `lake build` warning-free (701 jobs at
+each — no merge adds a module), `lake test` warning-free, shake and
+pub-imports as above, layering base 347 / model 271 / caps 3 / umbrella
+1 with 0 base→lane and 0 impl→theory at each; trust surface 13 escapes
+in 5 allowlisted files (633 scanned); no-local-paths OK; overview-links
+112; quote-gate 2; proofdeps 4955 rows / 12 roots / **0 doors** at each
+— **the row count did NOT move** (the forecast 4915 did not
+materialise: the kernel lane changed no proofdeps expectation).
+Nested-shadow 27/27 on the final commit.  **And `tests/arena.sh` on
+merge 1: EXIT 0** — checker code changed on all three routes, so that
+was the run that had to be made, and it is the only one: merges 2 and 3
+touch no checker code.  No `sorry`, no axioms, no `maxHeartbeats`, no
+checker code EDITED (the kernel lane's code is merged, not changed).
+
+**The chain, re-verified** (`_tmp/uniform-315/chain-probe-u33.lean`,
+outside the build): `declNested_of hμ mp hE (nestedCoreModeled_of
+(nestedCtorsStaged_of (nestedPinsStaged_of (nestedPinsIdent_of hSh
+hEn)) nestedReadLaw)) htail h : Nonempty (EnvModelM V μ envOut)` still
+closes over exactly `hSh`, `hEn` and `htail` (plus `mp : EnvModelB V μ
+env`, `hE` and the run) — **the gate and its two new conjuncts cost the
+chain no hypothesis**.  `nestedTailModeled_of hrd heqs hst` and
+`declMutualB hμ mb hE hpinOk hOrd h` still typecheck, as do `natBlockAt`
+and `eqBlockAt` at the guarded `ContainerModeled`.  New probes, all
+green: `declNativeB hμ mb hE hdp h : Nonempty (EnvModelB V μ envOut)`
+with NO hypothesis beyond the run, `nativeIsBlockModel`, the native
+`installExt` chain, both `NativeOrdFree`s and their `_of`s, `certOnly`/
+`certOnly_elim`, `nestedAuxAppsOk`/`nestedPinRankOk` with
+`nestedPinInstOf`/`nestedPinRankOf`, and L-B's `copyEs`, `copyRecF`,
+`copyRecFRead`, `copyRecFKind`, `copyOrdFLeft`, `groupCopyFormer`,
+`mintFieldRead`.  `#print axioms` of `probe_decl`, `probe_tail`,
+`probe_mutual` and `probe_native`: `[propext, Classical.choice,
+Quot.sound]`.
+
+The nested residual after 3k is (n)'s, unchanged — `NestedPinsShape`
+(L-B/L-E), `NestedPinsEntry` (L-E) and `NestedTailModeled` (M7-2's three
+stage facts).  Beside it the MUTUAL route still owes `MutualOrdFree` as
+an ARGUMENT to `declMutualB` — K.36 landed as a derived theorem, not as
+a conjunct, so discharging that argument at the lift is now a lane
+item — and the NATIVE route owes nothing.  `recF` is closed at a
+finitary recursive field; `ordF`-left is proved modulo B6's own case.
+
+Cost: well under a session — three DESIGN conflicts (one appended, two
+interleaved), one `MutualInv` append, eight lines of `certOnly`
+adaptation across three files, and the arena run.  Next: L-E's blob
+route and `NestedPinsEntry`, M7's three stage facts, `ordF`-left's B6
+case, and `MutualOrdFree` at `declMutualB`.
+
 #### K.32 — the copies' recursive targets come from the container's own recursion (2026-09-16, task #315, lane L-B's DESIGN §U.23 (e))
 
 The model's `ordF` arm needs to know that a container-ORDINARY field
