@@ -86642,9 +86642,10 @@ from anything the tree carries, because `some []` is a statement about
 what is ABSENT from the output environment:
 
 * `containerOwnPinsAtGo` walks the MIMIC names,
-  `Name.appendIndexAfter (first.name.str "rec") (j + 1)`, and `appendIndexAfter` appends to the LAST STRING
-  COMPONENT (`Kernel/Inductives/NestedParts.lean:64`), so the name it
-  looks up is `Name.str C "rec_1"` for the block's first member `C`,
+  `Name.appendIndexAfter (first.name.str "rec") (j + 1)`, and
+  `appendIndexAfter` appends to the LAST STRING COMPONENT
+  (`Kernel/Inductives/NestedParts.lean:64`), so the name it looks up
+  is `Name.str C "rec_1"` for the block's first member `C`,
   and the walk stops at the first lookup that is not a `.recInfo`;
 * a `.recInfo` can be named `C.rec_1` only as the MIMIC of a nested
   block whose FIRST FORMER IS `C` itself (`p.mimicRecName`,
