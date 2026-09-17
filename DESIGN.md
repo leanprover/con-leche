@@ -82138,7 +82138,7 @@ branches of the same step, and (c) refutes them.
 
 ##### (g) GATES
 
-`lake build` 695 jobs warning-free; `lake test` warning-free; layering
+`lake build` 696 jobs warning-free; `lake test` warning-free; layering
 base 346 / model 267 / caps 3 / umbrella 1, 0/0; trust surface 13/5
 (628 scanned); overview-links 112; quote-gate 2; no-local-paths OK;
 proofdeps 4955 rows / 12 roots / 0 doors; shake 508/508 allowlisted,
