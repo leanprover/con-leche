@@ -248,7 +248,8 @@ theorem NestedTailIn.ctorPinLps
     (hccj : J.ctors[jc]? = some cc)
     (hfindcc : env.find? cc.name = some (.ctorInfo cvc ci.nP cc.nFields)) :
     cvc.levelParams = J.lps := by
-  obtain ⟨d₀, CM⟩ := I.hPM qn (List.mem_of_getElem? hqn) ci hci
+  obtain ⟨CM, -⟩ := I.hPM qn (List.mem_of_getElem? hqn) ci hci
+  generalize blockOf mp.base2 ci = d₀ at CM
   obtain ⟨i₀, hi₀⟩ := List.getElem?_of_mem hJmem
   obtain ⟨-, hnm, cvR', mI', rP', rules', hI'⟩ := CM.member i₀ J hi₀
   have hjlt : jc < (d₀.ctorsM i₀).length := by
@@ -464,21 +465,12 @@ theorem NestedTailIn.ctorPinFieldsFit {mpA : EnvModelM V μ ENVA} {cvRas : List 
         List.getD_eq_getElem?_getD, List.getElem?_eq_getElem (by rw [hlenE]; exact hl),
         Option.getD_some]
   -- (3) the composed fit at the copy's global tables
-  have hLJmem : InTupleSpace (f₀.s.eval ψ) kJ
-      (dJ.idx (((D).pinAt (q₀ + i)).ψJ ψ)
-        (consList ((((D).pinAt (q₀ + i)).Ds ψ).map (interp V (consList as ρ₀))) (consList as ρ₀)))
-      (lfpTuple (f₀.s.eval ψ) dJ.k
-        (dJ.idx (((D).pinAt (q₀ + i)).ψJ ψ)
-          (consList ((((D).pinAt (q₀ + i)).Ds ψ).map (interp V (consList as ρ₀)))
-            (consList as ρ₀)))
-        (dJ.Φ (((D).pinAt (q₀ + i)).ψJ ψ)
-          (consList ((((D).pinAt (q₀ + i)).Ds ψ).map (interp V (consList as ρ₀)))
-            (consList as ρ₀)))) := by
-    rw [← G.kEq]; exact lfpTuple_mem _ _ _ _
-  have hinst := G.inst i hi ψ (consList as ρ₀) hρp _ hLJmem i hi jc hjJlt
-  have hcomposed := ((CopyCtorInst.fit_iff_at G.reps (G.typed _) (G.pinsTyped _) hi' G.kEq hwJ
-      (nestedU_pin_group mp₂.base2 G hi ψ) hρJ (G.idx i hi ψ i hi) hjJ hinst _ fs).mpr
-      ⟨hfitsJ, hidxeq⟩).1
+  have ht := tupW_mem (u := dJ.uM i (((D).pinAt (q₀ + i)).ψJ ψ)) hEs
+  have hcomposed := ((hfit_at_of_inst mp₂.base2.acval G.reps (G.typed _) (G.pinsTyped _) G.kEq hwJ
+      (nestedU_pin_group mp₂.base2 G hi ψ) hρJ (G.idx i hi ψ)
+      (fun i' hi' j => G.grp I.out.grouped I.out.facts.lenA ψ hi' j)
+      (G.shape i hi ψ _ hρp) (G.entry i hi ψ _ hρp) i hi _ ht jc fs).mpr
+      ⟨hjJlt, hfitsJ, hidxeq⟩).2.2.1
   -- (4) the scratch block's own fit
   have hck : p.k + q₀ + i < b.k := by rw [I.out.bk]; have := G.seg; omega
   obtain ⟨cvTA, cvRA, mIA, rPA, rulesA, hIA⟩ := S.reps (p.k + q₀ + i) hck

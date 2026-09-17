@@ -295,10 +295,11 @@ theorem NestedTailIn.pinSegAt {q₀ kJ i : Nat} {dJ : BlockModel V}
           (dJ.Φ (((D).pinAt (q₀ + i)).ψJ ψ)
             (consList ((((D).pinAt (q₀ + i)).Ds ψ).map (interp V (consList as ρ)))
               (consList as ρ))) i'' :=
-    ofNested_pin_block_of_inst hOk' (nestedShape_of_formers h I.out.bk ψ) G.seg
+    ofNested_pin_block_of_inst mp₂.base2.acval hOk' (nestedShape_of_formers h I.out.bk ψ) G.seg
     G.reps (G.typed _) (G.pinsTyped _) G.kEq (G.w i hi ψ) (nestedU_pin_group mp₂.base2 G hi ψ)
     (G.inj _) (dJ.satOfSpine (G.DsFit i hi ψ ρ as hsp)) (G.idx i hi ψ)
-    (fun i' hi' j => G.grp I.out.grouped h.lenA ψ hi' j) (G.inst i hi ψ _ hρp) hi''
+    (fun i' hi' j => G.grp I.out.grouped h.lenA ψ hi' j) (G.shape i hi ψ _ hρp)
+    (G.entry i hi ψ _ hρp) hi''
   have hpc : (D).pinCar ψ (consList as ρ)
         (lfpTuple ((D).w ψ) (D).k ((D).idx ψ (consList as ρ)) ((D).Φ ψ (consList as ρ)))
         (q₀ + i'')
