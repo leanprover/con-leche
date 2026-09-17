@@ -86916,6 +86916,22 @@ Re-walking DESIGN §U.55 (b)'s step with the new conjuncts:
    to `fit_iff_at` in `nestedGroupLe_of_entries`.  With it, `htrans`'s
    walk premise is needed at the container-RECURSIVE fields only,
    i.e. exactly where (c) now supplies it.
+
+   Its cost, measured against the kit that exists: `fit_iff_at_T_dom`
+   runs `fitsFrom_iff_frames_spine` with the CONTAINER's chain first,
+   which is why its bound is the container's (`hdom`, and §(e)'s
+   `slotDom_congr_mem` is what carries it).  A one-directional twin
+   over `fitsFrom_imp_frames_spine` puts the COPY's chain first and so
+   asks for the COPY's entries within the COPY's domains — a fact
+   about the AUXILIARY block, which `nestedLfpOk` carries and which
+   therefore lands the lemma at the concrete block rather than in the
+   abstract `Fit` section.  The alternative — keeping the iff and
+   weakening the fit to a tuple that is `famAt` at the `ordF`-right
+   targets and the meet at the `pinF` ones (`FitsFrom` is monotone in
+   the slot) — is abstract but needs the two target sets DISJOINT per
+   constructor, which is plausible (an own pin's image and a rewritten
+   ordinary field's target are different expressions, hence different
+   pins) and is not proved.  The first route is the one to take.
 2. **The WALK does need it, and the fact is the KERNEL's.**  The
    covering (`InstanceCovered`) must reach every pin of a container
    instance, and K.37's instance is the SCC of ALL the edges: in
