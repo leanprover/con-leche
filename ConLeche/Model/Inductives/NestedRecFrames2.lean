@@ -987,4 +987,81 @@ KERNEL-SIDE model face. -/
     ConLeche.nestedContainersOk env st.pins = true →
     NestedCtorPinNames env p st
 
+/-- **THE GROUPS' CONSTRUCTOR NAMES AT THE RUN** (`hctorsJ`, DESIGN
+§U.36 (d)): the container block model of a pin group names, at every
+component, the container member's own declared constructors.  A model
+face until `NestedStageFacts.groups` names the groups' model
+`blockOf mp.base2 (baseInfo env st q)`. -/
+@[expose] def NestedGroupCtorNamesOf (V : Type w) [SetTheory V] (μ : CheckMode) (F : Nat) : Prop :=
+  ∀ {env : Env} (mp : EnvModelM V μ env) (p : NestedParts) (envOut : Env) (st : ElimState)
+    (b : MutualBlock) (envAux : Env) (stored : List AuxStored)
+    (ctorsR : List (List (ConstantVal × Nat × Nat))) (cvRms cvRns : List ConstantVal)
+    (rulesM rulesN : List (List RecRule)) (fmsA ctorsA₀ : List ConstantVal)
+    (fms : List MutualFormerA) (f₀ : MutualFormerA) (ctorsA : List (ConstantVal × Nat))
+    (sortss : List (List Level)) (kinds : List (List (RecFieldKind × Nat)))
+    (mp₁ : EnvModelM V μ (ConLeche.consMutualFormers fms env))
+    (ppsF : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)) (W : (Name → Nat) → Nat)
+    (idxF : Nat → List Expr) (dsF : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm))
+    (esF : Nat → (Name → Nat) → List AnnotTerm) (srcsF : Nat → List (Option Nat))
+    (fvsPF xFvsF : Nat → List Expr) (xrestF : Nat → Expr)
+    (eissF : Nat → (Name → Nat) → List (List AnnotTerm))
+    (tssF : Nat → (Name → Nat) → List (List (Nat × Nat × AnnotTerm)))
+    (dsR : Nat → Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)) (xFvsR : Nat → Nat → List Expr)
+    (pinsS : List PinSyn)
+    (mp₂ : EnvModelM V μ (ConLeche.consNestedCtors ctorsR.flatten
+      (ConLeche.consMutualFormers (fms.take p.k) env))),
+    NestedTailIn F mp p envOut st b envAux stored ctorsR cvRms cvRns rulesM rulesN fmsA ctorsA₀
+      fms f₀ ctorsA sortss kinds mp₁ ppsF W idxF dsF esF srcsF fvsPF xFvsF xrestF eissF tssF dsR
+      xFvsR pinsS mp₂ →
+    ∀ (q₀ kJ i : Nat) (dJ : BlockModel V),
+      NestedPinGroup (V := V) (p := p) (b := b) (fms := fms) (f₀ := f₀) (ctorsA := ctorsA)
+        (kinds := kinds) (env := env) (ppsF := ppsF) (W := W) (idxF := idxF) (dsF := dsF)
+        (esF := esF) (srcsF := srcsF) (fvsPF := fvsPF) (xrestF := xrestF) (eissF := eissF)
+        (tssF := tssF) (ctorsR := ctorsR) (dsR := dsR) (xFvsR := xFvsR) (pinsS := pinsS)
+        mp₂.base2 q₀ kJ dJ →
+      i < kJ →
+      ∀ (ci : ContainerInfo) (J : ContainerMember),
+        ConLeche.containerInfo? env (pinsS.getD (q₀ + i) default).J = some ci → J ∈ ci.members →
+        J.name = (pinsS.getD (q₀ + i) default).J →
+        (dJ.ctorsM i).map (·.1.name) = J.ctors.map (·.name)
+
+/-- **THE FRAMES AT THE RUN** (PLAN-M7 §1e): `NestedRecFramesOf` —
+the named fact `nestedRecReadingsOf_of` consumes — discharged at every
+tail input, modulo the three model faces K.35 (`NestedRecTysAuxOf`),
+K.36 (`NestedCtorPinNamesOf`) and the groups' constructor names
+(`NestedGroupCtorNamesOf`). -/
+theorem nestedRecFramesOf_of {F : Nat} (hK35 : NestedRecTysAuxOf μ F)
+    (hK36 : NestedCtorPinNamesOf μ F) (hctorsJ : NestedGroupCtorNamesOf V μ F) :
+    NestedRecFramesOf V μ F := by
+  intro env mp p envOut st b envAux stored ctorsR cvRms cvRns rulesM rulesN fmsA ctorsA₀ fms f₀
+    ctorsA sortss kinds mp₁ ppsF W idxF dsF esF srcsF fvsPF xFvsF xrestF eissF tssF dsR xFvsR
+    pinsS mp₂ I rdsM concM hread hlen ψ ρ c hc
+  obtain ⟨mpA, cvRas, S⟩ := I.scratch
+  have hcb : c < b.k := by rw [← I.kT]; exact hc
+  refine I.framesAt S (hK36 env p st fmsA ctorsA₀ I.hfA I.hcA I.helim I.hcont)
+    (fun q₀ kJ i dJ G hi ci J h1 h2 h3 =>
+      hctorsJ mp p envOut st b envAux stored ctorsR cvRms cvRns rulesM rulesN fmsA ctorsA₀ fms f₀
+        ctorsA sortss kinds mp₁ ppsF W idxF dsF esF srcsF fvsPF xFvsF xrestF eissF tssF dsR xFvsR
+        pinsS mp₂ I q₀ kJ i dJ G hi ci J h1 h2 h3)
+    (hK35 env p st b envAux stored pinsS I.hb I.haux I.hstored I.out.stage.pinsLen)
+    hcb ψ ρ (hread c ψ hc) ?_
+  have hlc := hlen c ψ hc
+  rw [nestedBlockModel_nP, I.kT, I.nCtorsT, I.nIdxT hcb] at hlc
+  omega
+
+/-- **THE READINGS AT THE RUN, FROM THE THREE FACES**: the first of
+`nestedTailModeled_of`'s three named facts. -/
+theorem nestedRecReadingsOf_of_faces {F : Nat} (hK35 : NestedRecTysAuxOf μ F)
+    (hK36 : NestedCtorPinNamesOf μ F) (hctorsJ : NestedGroupCtorNamesOf V μ F) :
+    NestedRecReadingsOf V μ F :=
+  nestedRecReadingsOf_of (nestedRecFramesOf_of hK35 hK36 hctorsJ)
+
+/-- **THE CONSUMER** (consumer-first): the recursors' stage at the run
+needs the readings, and this lane supplies them from the three model
+faces alone. -/
+theorem nestedTailModeled_of_faces {F : Nat} (hK35 : NestedRecTysAuxOf μ F)
+    (hK36 : NestedCtorPinNamesOf μ F) (hctorsJ : NestedGroupCtorNamesOf V μ F)
+    (heqs : NestedRecEqsOf V μ F) (hst : NestedRecsStored V μ F) : NestedTailModeled V μ F :=
+  nestedTailModeled_of_frames (nestedRecFramesOf_of hK35 hK36 hctorsJ) heqs hst
+
 end ConLeche.Model
