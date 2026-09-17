@@ -103,7 +103,8 @@ theorem copyEntryAt_of_pinCorr {env : Env} {m : EnvModel V env} {TV : TargetView
     (hρJ : Sat V (dJ.params ψJ).reverse (consList (Ds.map (interp V ρp)) ρp))
     (hw : dJ.w ψJ = TV.w) (hl : l < ((dJ.Fss i ψJ).getD j []).length)
     (hr : ((dJ.rss i).getD j []).getD l false = true) (hnt : ¬ dJ.tgts i j l < dJ.k)
-    (hcorr : PinCorr TV m.acval dJ ψJ Ds (tg l) (dJ.tgts i j l - dJ.k))
+    {lpsJ : List Name} {lvlsJ : List Level}
+    (hcorr : PinCorr TV m.acval dJ ψJ Ds lpsJ lvlsJ (tg l) (dJ.tgts i j l - dJ.k))
     (htl : (tls.getD l []).map (·.2.2)
       = instTele Ds l ((((dJ.tlss i ψJ).getD j []).getD l []).map (·.2.2)))
     (hEis : Eis.getD l [] = (((dJ.Eiss i ψJ).getD j []).getD l []).map
@@ -130,7 +131,7 @@ theorem copyEntryAt_of_pinCorr {env : Env} {m : EnvModel V env} {TV : TargetView
   obtain ⟨qK, hqK⟩ : ∃ qK, qK = dJ.tgts i j fs₁.length - dJ.k := ⟨_, rfl⟩
   have hqlt : qK < dJ.nPins := hqK ▸ hreps.tgt_pin_lt hi hj _ hl hnt
   rw [← hqK] at hcorr hfr
-  obtain ⟨hEA, hDs, hu, hIds⟩ := hcorr
+  obtain ⟨hEA, hDs, hu, hIds, -, -⟩ := hcorr
   -- the container's domain is its slot at the carrier: its own pin's carrier
   rw [hreps.real_dom_eq hfT hPT hi hj hρJ hlt hr' hsp, dJ.slotAt_of_pin hnt, ← hqK]
   have hρ : (fun n => consList fs₁ (consList (Ds.map (interp V ρp)) ρp) (n + fs₁.length))
@@ -248,7 +249,7 @@ theorem nestedPinShapes_of (m : EnvModel V env₂) {B : ContainerInfo → BlockM
   refine ⟨q₀, kJ, i, ci, hqe, hi, hci, ?_, ?_⟩
   · -- the group, viewed
     have h0 : q₀ + 0 = q₀ := Nat.add_zero q₀
-    refine ⟨G.seg, G.kpos, G.kEq, fun i' hi' => ?_, G.same, fun i' hi' ψ => ?_, G.pinNP,
+    refine ⟨G.seg, G.kpos, G.kEq, fun i' hi' => ?_, G.same, G.lvls, fun i' hi' ψ => ?_, G.pinNP,
       G.pinNIdx, G.pinPps, fun ψ => ?_, fun ψ => ?_, fun ψ ρ as hsp => ?_⟩
     · obtain ⟨cvT, cvR, mI, rP, rules, hI⟩ := G.rep i' hi'
       exact hI.member.symm
@@ -261,9 +262,9 @@ theorem nestedPinShapes_of (m : EnvModel V env₂) {B : ContainerInfo → BlockM
     · have := G.DsFit 0 G.kpos ψ ρ as hsp
       rwa [h0] at this
   · -- the shape, at the base pin's record and the dropped lists
-    intro ψ ρp hρp i' j hi' hj
-    have hsh := G.shape 0 G.kpos ψ ρp hρp i' hi' j hj
-    rw [Nat.add_zero] at hsh
+    intro ψ ρp hρp i' j hi' hj cvT caps hf
+    have hsh := G.shape i' hi' cvT caps hf ψ ρp hρp i' hi' j hj
+    rw [(G.same i' hi' ψ).1, (G.same i' hi' ψ).2, G.lvls i' hi'] at hsh
     unfold CopyShapeA at hsh
     rw [nestedBlockModel_targetView m ψ]
     simp only [nestedPc, getD_drop, ← Nat.add_assoc]
@@ -412,7 +413,9 @@ structure GroupFacts (st : ElimState) (m : EnvModel V env₂) (q₀ kJ : Nat) (d
   idx : ∀ i, i < kJ → ∀ (ψ : Name → Nat) (i' : Nat), i' < kJ →
     blockIds b.nP ppsF ψ (p.k + q₀ + i')
       = instTele (((D).pinAt (q₀ + i)).Ds ψ) 0 (dJ.IdsM i' (((D).pinAt (q₀ + i)).ψJ ψ))
-  shape : ∀ i, i < kJ → ∀ (ψ : Name → Nat) (ρp : Nat → V),
+  shape : ∀ i, i < kJ → ∀ (cvT : ConstantVal) (caps : IndCaps),
+    env₂.find? ((D).pinAt (q₀ + i)).J = some (.indInfo cvT caps) →
+    ∀ (ψ : Name → Nat) (ρp : Nat → V),
     Sat V (((ppsF 0 ψ).take b.nP).map (·.2.2)).reverse ρp →
     ∀ i' j, i' < kJ → j < (dJ.ctorsM i').length →
     CopyShapeA (V := V) (nP := b.nP) (k := p.k) (resSort := f₀.s) (ppsA := ppsF) (W := W)
@@ -422,7 +425,8 @@ structure GroupFacts (st : ElimState) (m : EnvModel V env₂) (q₀ kJ : Nat) (d
       (Eiss₀ := fun ψ => mutEiss0 ctorsA.length eissF ψ)
       (Fss₀ := fun ψ => blkFss0 b ctorsA kinds dsF ψ)
       (Ess₀ := fun ψ => mutEss0 ctorsA.length esF ψ) (ψ := ψ) (ρp := ρp)
-      m.acval dJ (((D).pinAt (q₀ + i)).ψJ ψ) (((D).pinAt (q₀ + i)).Ds ψ) q₀ kJ i' j
+      m.acval dJ (((D).pinAt (q₀ + i)).ψJ ψ) (((D).pinAt (q₀ + i)).Ds ψ)
+      cvT.levelParams ((D).pinAt (q₀ + i)).lvls q₀ kJ i' j
 
 /-- **The containers' least tuples at the pins**, `P` (task #315 L-E,
 DESIGN §U.36 (c)): pin `q`'s container's least tuple at the pin's
@@ -674,9 +678,9 @@ theorem nestedPinsFixed (hμ : μ.verifiedChecks = true)
         (segJoin p.k pinsS.length (lfpTuple ((D).w ψ) p.k ((D).idx ψ ρp) ((D).Φ ψ ρp))
           (pinLfp st pinsS dJf (f₀.s.eval ψ) ψ ρp)) := by
     intro q₀ kJ G i hi j hj l hl hrs hout
-    have hsh := G.shape i hi ψ ρp hρp i j hi hj
+    obtain ⟨cvT, caps, cvR, mI, rP, rules, hfind, hI, -⟩ := G.syn.stored i hi
+    have hsh := G.shape i hi cvT caps hfind ψ ρp hρp i j hi hj
     unfold CopyShapeA at hsh
-    obtain ⟨cvT, caps, cvR, mI, rP, rules, -, hI, -⟩ := G.syn.stored i hi
     have hjl : (((dJf q₀).ctorsM i))[j]? = some (((dJf q₀).ctorsM i).getD j default) := by
       rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hj]; rfl
     have hlenF := hI.Fss_length hjl (((D).pinAt (q₀ + i)).ψJ ψ)
@@ -699,7 +703,7 @@ theorem nestedPinsFixed (hμ : μ.verifiedChecks = true)
           (G.syn.typed _) (G.syn.pinsTyped _) (G.syn.kEq ▸ hi) hjl (hρJ q₀ kJ G i hi)
           (hw q₀ kJ G i hi) hlF hr hnt hcorr htl hEis ?_ (hZ _ hklt)
         -- the fit at the container's pin frame is a fit at the block pin's
-        exact nestedPinFrame_transport dJf hgroups hkle hklt hcorr.2.1 hcorr.2.2.2
+        exact nestedPinFrame_transport dJf hgroups hkle hklt hcorr.2.1 hcorr.2.2.2.1
     · have hr' : (((dJf q₀).rss i).getD j []).getD l false = false := by simpa using hr
       rcases hsh.ordF l hlF hr' with ⟨hrC, -⟩ | ⟨-, -, hklt, hread⟩
       · rw [hrC] at hrs; exact absurd hrs Bool.false_ne_true
@@ -713,7 +717,7 @@ theorem nestedPinsFixed (hμ : μ.verifiedChecks = true)
         = SetTheory.app (pinLfp st pinsS dJf (f₀.s.eval ψ) ψ ρp q) t := by
     intro q hq t ht
     obtain ⟨q₀, kJ, i, rfl, hi, G⟩ := hgroups q hq
-    obtain ⟨cvT, caps, cvR, mI, rP, rules, -, hI, -⟩ := G.syn.stored i hi
+    obtain ⟨cvT, caps, cvR, mI, rP, rules, hfind, hI, -⟩ := G.syn.stored i hi
     have hi' : i < (dJf q₀).k := G.syn.kEq ▸ hi
     rw [← Nat.add_assoc] at ht ⊢
     rw [hP_group q₀ kJ G i hi]
@@ -788,7 +792,7 @@ theorem nestedPinsFixed (hμ : μ.verifiedChecks = true)
       intro j hj fs
       have hj' : ((dJf q₀).ctorsM i)[j]? = some (((dJf q₀).ctorsM i).getD j default) := by
         rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hj]; rfl
-      have hsh := G.shape i hi ψ ρp hρp i j hi hj
+      have hsh := G.shape i hi cvT caps hfind ψ ρp hρp i j hi hj
       unfold CopyShapeA at hsh
       have hfit := CopyCtorShape.fit_iff_at (TV := TVA m.acval ((fms.take p.k).map (·.cvTa.name)) ψ)
         G.syn.reps (G.syn.typed _) (G.syn.pinsTyped _) hi' G.syn.kEq hw' hu hρJ' hnI hj'

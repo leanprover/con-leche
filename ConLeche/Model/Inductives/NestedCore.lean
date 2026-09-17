@@ -207,6 +207,14 @@ structure NestedPinGroup (m : EnvModel V env₂) (q₀ kJ : Nat) (dJ : BlockMode
   readings (task #315 L-E: `PinGroupView.same`) -/
   same : ∀ i, i < kJ → ∀ ψ : Name → Nat,
     ((D).pinAt (q₀ + i)).ψJ ψ = ((D).pinAt q₀).ψJ ψ ∧ ((D).pinAt (q₀ + i)).Ds ψ = ((D).pinAt q₀).Ds ψ
+  /-- the group's pins share their level arguments (task #315 L-E) -/
+  lvls : ∀ i, i < kJ → ((D).pinAt (q₀ + i)).lvls = ((D).pinAt q₀).lvls
+  /-- the pin's container is stored, and the pin's level assignment is
+  the substitution at its level parameters (task #315 L-E, step (iii)) -/
+  stored : ∀ i, i < kJ → ∃ (cvT : ConstantVal) (caps : IndCaps),
+    env₂.find? ((D).pinAt (q₀ + i)).J = some (.indInfo cvT caps) ∧
+    ∀ ψ : Name → Nat,
+      ((D).pinAt (q₀ + i)).ψJ ψ = Level.substFn ψ cvT.levelParams ((D).pinAt (q₀ + i)).lvls
   idx : ∀ i, i < kJ → ∀ (ψ : Name → Nat) (i' : Nat), i' < kJ →
     blockIds b.nP ppsF ψ (p.k + q₀ + i')
       = instTele (((D).pinAt (q₀ + i)).Ds ψ) 0 (dJ.IdsM i' (((D).pinAt (q₀ + i)).ψJ ψ))
@@ -217,7 +225,9 @@ structure NestedPinGroup (m : EnvModel V env₂) (q₀ kJ : Nat) (dJ : BlockMode
       ((((D).pinAt (q₀ + i)).Ds ψ).map (interp V (consList as ρ)))
   /-- the copies' constructor SHAPES (lane L-B) -/
   shape :
-    ∀ i, i < kJ → ∀ (ψ : Name → Nat) (ρp : Nat → V),
+    ∀ i, i < kJ → ∀ (cvT : ConstantVal) (caps : IndCaps),
+      env₂.find? ((D).pinAt (q₀ + i)).J = some (.indInfo cvT caps) →
+      ∀ (ψ : Name → Nat) (ρp : Nat → V),
       Sat V ((D).params ψ).reverse ρp →
       ∀ i', i' < kJ → ∀ j, j < (dJ.ctorsM i').length →
       CopyShapeA (V := V) (nP := b.nP) (k := p.k) (resSort := f₀.s) (ppsA := ppsF) (W := W)
@@ -228,7 +238,7 @@ structure NestedPinGroup (m : EnvModel V env₂) (q₀ kJ : Nat) (dJ : BlockMode
         (Fss₀ := fun ψ => blkFss0 b ctorsA kinds dsF ψ)
         (Ess₀ := fun ψ => mutEss0 ctorsA.length esF ψ) (ψ := ψ) (ρp := ρp)
         m.acval dJ (((D).pinAt (q₀ + i)).ψJ ψ) (((D).pinAt (q₀ + i)).Ds ψ)
-        q₀ kJ i' j
+        cvT.levelParams ((D).pinAt (q₀ + i)).lvls q₀ kJ i' j
   /-- the copies' ENTRIES at the auxiliary carrier (`nestedPinLeaf_all`) -/
   entry :
     ∀ i, i < kJ → ∀ (ψ : Name → Nat) (ρp : Nat → V),
@@ -442,12 +452,13 @@ theorem nestedPinLeaf_of (hμ : μ.verifiedChecks = true)
   obtain ⟨q₀, kJ, i, dJ, rfl, hi, G⟩ := hgroups q hq
   obtain ⟨cvT, cvR, mI, rP, rules, hI⟩ := G.rep i hi
   have hρp : Sat V ((D).params ψ).reverse (consList as ρ) := (D).satOfSpine hsp
+  obtain ⟨cvT', caps', hf', -⟩ := G.stored i hi
   exact ofNested_pinLeaf_of m.acval hI
     (nestedLfpOk_of_formers h hμ hbk ψ (consList as ρ) hρp (nestedPinBound_of m hgroups ψ _ hρp))
     (nestedShape_of_formers h hbk ψ) G.seg hi G.reps (G.typed _) (G.pinsTyped _)
     G.kEq (G.w i hi ψ) (nestedU_pin_group m G hi ψ) (G.inj _) (G.idx i hi ψ)
     (fun i' hi' j => G.grp h3 h.lenA ψ hi' j)
-    (G.shape i hi ψ _ hρp) (G.entry i hi ψ _ hρp) rfl rfl rfl (G.pinIds hi ψ)
+    (G.shape i hi cvT' caps' hf' ψ _ hρp) (G.entry i hi ψ _ hρp) rfl rfl rfl (G.pinIds hi ψ)
     (G.DsFit i hi ψ ρ as hsp) hisFit
 
 /-- **The nested-entry identity**, at ANY model carrying the groups: the
