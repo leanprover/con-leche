@@ -1,8 +1,10 @@
 module
 
-public import ConLeche.Model.Inductives.BlockStageTables
+public import ConLeche.Kernel.Inductives.NestedInstall
 public import ConLeche.Model.Inductives.MutualTables
-public import ConLeche.Verify.Inductives.NestedTablesInv
+import ConLeche.Model.Inductives.BlockStageTables
+import ConLeche.Verify.Inductives.NestedTablesInv
+import ConLeche.Verify.Inductives.StructWF
 
 public section
 

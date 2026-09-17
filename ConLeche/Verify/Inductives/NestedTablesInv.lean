@@ -1,7 +1,9 @@
 module
 
 public import ConLeche.Kernel.Inductives.NestedInstall
-public import ConLeche.Verify.Inductives.StructWF
+public import ConLeche.Verify.EnvWF
+import ConLeche.Verify.ExceptBind
+import ConLeche.Verify.Inductives.StructWF
 
 public section
 
