@@ -81995,6 +81995,133 @@ rows / 12 roots / **0 doors**.  `#print axioms` of every new theorem is
 `[propext, Classical.choice, Quot.sound]`.
 
 
+##### (z) CONTINUATION 10 (lane session 11) — K.35's face is a RUN FACT; the provision at the run; and the finding that K.40 is what breaks the lanes
+
+Base: `agent/uniform-315` 8826c258 (integration 3l) merged clean.
+**K.38 and K.39 were ALREADY IN IT** (`d0162653`, `e03d4843` are
+ancestors of 3l) — only K.40 (`645b7ce7`) and the edge-list inversion
+are not.  A direct merge of `agent/uniform-m5` e9aefc85 was attempted
+and REVERTED; (aa) records why and what it costs.
+
+*K.35's face, closed* (7119c850).  DESIGN §U.29 (w)'s one remaining step:
+
+* `ConLeche.auxAppsOk_reflect` (`Verify/Inductives/NestedRecWalk.lean`)
+  — **the kernel's walk DECIDES the model's shape**:
+  `auxAppsOk R lps arityOf d e = true → AuxAppsOk R lps arityOf d e`, a
+  well-founded recursion on `sizeOf` mirroring `auxAppsOk`'s own.  The
+  key-headed spine is presented by `Expr.mkAppN_getApp`, its head's
+  level arguments are **K.38's conjunct** (`us == lps.map .param`, the
+  one thing nothing else supplied), the children are
+  `auxAppsOk_attach_all` past the parameter prefix, and
+  `isAuxAppKey_iff` (with `List.isSome_find?_eq_any`) identifies the
+  Bool's key test with `RestoreTbl.IsKey`.
+* `nestedRecTysAuxOk_of_bool` (`Model/Inductives/NestedRecFrames.lean`):
+  `nestedAuxAppsOk p st stored = true` plus `auxBlock p st = some b`
+  gives `NestedRecTysAuxOk p st b stored`.  It compiled with no arity
+  bridge at all — the kernel's local `arityOf` IS `nestedArityK p st`
+  on the nose, which is what session 10's restatement was for.
+
+**What is left is WIRING, not mathematics**: two `DeclNestedRun`
+conjuncts have to reach `NestedTailIn`.  Both are `certOnly`-gated, so
+`certOnly_elim` under `hμ` turns each into the plain Bool.  The fields,
+exactly (M7-3's `DeclNestedCore.lean`: one hypothesis each on
+`NestedTailModeled`, one destructuring `-` each turned into a name in
+`declNested_of`, then one field each on `NestedTailIn`):
+
+```lean
+  hauxApps : ConLeche.nestedAuxAppsOk p st stored = true
+  hrecNd : (cvRms.map (·.name) ++ cvRns.map (·.name)).Nodup
+```
+
+With `hauxApps` the face `NestedRecTysAuxOf` is deleted and
+`nestedRecFramesOf_of`/`nestedRecEqsOf_of_faces` read
+`nestedRecTysAuxOk_of_bool I.hb I.hauxApps` — **the readings and the
+equations then stand on K.36 alone**.  `hrecNd` is what
+`NestedTailIn.provisioned` takes today.
+
+*Item 5 step 1 — the provision at the run* (5aa1f118).
+`NestedTailIn.provisioned`: the `k + nPins` restored recursors consed
+RULE-LESS onto the restored constructors' environment, class `c` with
+the chosen tuple's `c`-th projection (`nestedRecLeaf`) as its leaf,
+yielding the provisioned model with the readings crossed, the leaves
+assigned and every other leaf untouched.  Its parts:
+
+* `nestedProvList` and its three bookkeeping lemmas — `_length` (the
+  list is `kT` long), `_fst` (entry `c` carries `nestedRecCvAt … c`,
+  through `zip_getElem?_fst`) and `_names` (the list's names ARE
+  `cvRms.map (·.name) ++ cvRns.map (·.name)`, through
+  `zip_map_fst_of_le`) — **so K.39's Bool is literally the loop's
+  `Nodup` hypothesis**;
+* `NestedTailIn.recCvDoor`: class `c`'s restored recursor constant at
+  the front door — name free at the restored environment, not reserved,
+  not projection-shaped, type closed, fvar-free, level-complete and
+  resolving — `restoreRecTys_door` and `restoreRecTys_at` at the member
+  list below `k` and the auxiliary list above, with `I.henv` moving the
+  environment spelling;
+* `NestedTailIn.etaEnv₂`: the restored environment is η-closed
+  (`consNestedFormers_freshExt` at `hcaps`, `consNestedCtors_freshExt`
+  at `restoreCtors_fresh`, `EtaFamiliesClosed.ofFreshExt`) — the same
+  chain `declNested`'s own η lemma walks for `envOut`.
+
+##### (aa) FINDING — K.40 (the mint parent) is a BREAKING kernel change for every lane that reasons about the elimination
+
+Merging `agent/uniform-m5` e9aefc85 (K.40 + the edge-list inversion) is
+NOT a model-lane merge: K.40 adds a parameter to `mkCopies`,
+`replaceIfNested`, `replaceAllNested`, `elimCtors` (`parent : Option Nat`)
+and to `elimLoop` (`k : Nat`), and a SIXTH field to `NestedPin`.  Five
+Verify modules and one Model module mention those functions, and none of
+them is in the kernel lane's tree, so the kernel lane could not see the
+breakage.  The catalogue, for the integrator:
+
+1. **Signature threading** — `NestedElimInv.lean` (7 theorems),
+   `NestedRestoreTbl.lean`, `NestedCopyRewrite.lean`,
+   `NestedRecNames.lean`, `NestedCopyProv.lean`, `NestedCopyInst.lean`:
+   add `{parent : Option Nat}` / `{k : Nat}` and the argument.  Mechanical,
+   but a blunt textual insertion CORRUPTS DOC COMMENTS (`elimLoop` and
+   friends are named in prose) and must skip `unfold`/`rw [·]` sites —
+   do it comment-masked and application-only.
+2. **`NestedPin` literals** — two anonymous constructors
+   (`NestedCopyProv.lean`, `NestedCopyRewrite.lean`) need the sixth
+   field, `parent`.
+3. **The worklist proof splits once more** — `elimLoop`'s body now has
+   a `let parent := if qhead < k then …`, so `elimLoop_lengths` needs
+   `dsimp only at h` and an extra `split at h`.
+4. **The genuinely non-mechanical part**, in `NestedCopyProv.lean` and
+   `NestedCopyInst.lean`: `CtorsDone`/`CopyInv` and the four
+   `NestedPinsRun.copy*` statements quantify over the rewrite's state —
+   the parent must become EXISTENTIAL there (it is `some q` at the
+   worklist position `k + q`, `if_neg` + `omega`), and every
+   destructuring of those existentials gains a binder.  ~12 sites in
+   `NestedCopyInst.lean` alone, which is lane L-B's live file.
+
+**Verdict**: K.40's merge belongs to the integration lane, coordinated
+with L-B, not to a model lane in the middle of a proof.  This lane
+therefore sits on integration 3l, which already carries K.38 and K.39 —
+everything session 11 needed.
+
+##### (bb) REMAINING of item 5, and the sizing
+
+Done: the leaf and its three laws, the cons step, the loop, the
+list-level `nestedRecsProvision`, **and now the run-level provision**.
+Left, in order: the rule law (PLAN-M7 §4b — the member `.plain` twin at
+the class kit and the auxiliary `.nested` fire through
+`nestedFireShape_inv`, plus `restoreRules_at`) **2–2½**; the store swap
+and `PinRecLaws.crossEnv` **1**; the tables' twin and §U.36 (d)'s
+`EnvModelB` supply **1–1½**.  **Item 5 from here: 4–5 sessions.**
+
+##### (cc) GATES (at 5aa1f118 plus the import fix)
+
+`lake build` 713 jobs warning-free EXIT 0; `lake test` warning-free
+EXIT 0; shake 510 removals all allowlisted / pub-imports 1309 of 2121
+public, none demotable (41 dot-notation fallbacks — `NestedRecsStore`
+needs `NestedRecTypes` public for `nestedRecCvAt` and nothing else);
+layering base 350 / model 280 / caps 3 / umbrella 1, 0 base→lane,
+0 impl→theory; trust surface 13 escapes in 5 allowlisted files (645
+scanned); no-local-paths OK; overview-links 112; quote-gate 2;
+proofdeps 4955 rows / 12 roots / **0 doors**.  `#print axioms` of every
+new theorem is `[propext, Classical.choice, Quot.sound]`.
+
+
 #### U.30 — L-B session 2: `CopyCtorInst.ordF` at the READING, the normalisation's reading law PROVED, `ContainerModeled`'s three clauses (lane L-B, 2026-09-16)
 
 Three maintainer rulings opened this session; the first two are landed,

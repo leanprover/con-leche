@@ -1,7 +1,8 @@
 module
 
-public import ConLeche.Model.Inductives.NestedRecsStage
-public import ConLeche.Model.Inductives.NestedRecEqs
+import ConLeche.Model.Inductives.NestedRecsStage
+public import ConLeche.Model.Inductives.NestedRecTypes
+import ConLeche.Model.Inductives.NestedRecEqs
 import ConLeche.Semantics.Tower.SigChainWire
 import ConLeche.Model.Inductives.BlockRecLeaf
 import ConLeche.Model.IndCons
