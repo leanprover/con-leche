@@ -302,6 +302,54 @@ structure PinGroupView (d dJ : BlockModel V) (q₀ kJ : Nat) : Prop where
     SpineFit (consList as ρ) (dJ.params ((d.pinAt q₀).ψJ ψ))
       (((d.pinAt q₀).Ds ψ).map (interp V (consList as ρ)))
 
+/-- **A pin group's own members are their own partners** (task #315
+L-E, DESIGN §U.65 — `InstanceCovered`'s first case, §U.55 (b)'s Base):
+at the ROOT group `[r, r + kR)` of a container instance, read at the
+root pin's level assignment and frame, the container's MEMBER class `i`
+and the block's pin `r + i` are `ClassPin`-related, and every clause is
+a field of the group's view: the container by `name`, the level
+assignment and the components by `same`, and the index set by `pinU`
+with the pin's index telescope being its container member's
+(`pinPps`/`pinNP`).
+
+**No record is needed for this case** — it is the covering's base, and
+K.41's pairing is for the instance's OTHER groups. -/
+theorem classPin_of_rootMember {env : Env} {D dR : BlockModel V} {r kR : Nat}
+    (S : PinGroupView D dR r kR) {ψ : Name → Nat} {ρp : Nat → V} {i : Nat} (hi : i < kR) :
+    ClassPin env D dR ψ ((D.pinAt r).ψJ ψ) ρp (D.pinFrame r ψ ρp) i (r + i) where
+  cLt := by
+    show i < dR.k + dR.nPins
+    rw [S.kEq]
+    omega
+  qLt := by have := S.seg; omega
+  name := by
+    rw [dR.nameT_of_mem (by rw [S.kEq]; exact hi)]
+    exact (S.name i hi).symm
+  psi := by
+    intro cvT caps _ q _
+    rw [dR.psiT_of_mem ((D.pinAt r).ψJ ψ) (show i < dR.k by rw [S.kEq]; exact hi),
+      (S.same i hi ψ).1]
+  frame := by
+    intro v _
+    show (if i < dR.k then D.pinFrame r ψ ρp else _) v = _
+    rw [if_pos (by rw [S.kEq]; exact hi)]
+    unfold BlockModel.pinFrame
+    rw [(S.same i hi ψ).2]
+  idx := by
+    show (if i < dR.k then dR.idx ((D.pinAt r).ψJ ψ) (D.pinFrame r ψ ρp) i else _) = _
+    rw [if_pos (by rw [S.kEq]; exact hi)]
+    show idxSet (dR.uM i ((D.pinAt r).ψJ ψ)) (D.pinFrame r ψ ρp)
+        (dR.IdsM i ((D.pinAt r).ψJ ψ))
+      = idxSet ((D.pinAt (r + i)).u ψ) (D.pinFrame (r + i) ψ ρp) ((D.pinAt (r + i)).Ids ψ)
+    have hIds : (D.pinAt (r + i)).Ids ψ = dR.IdsM i ((D.pinAt (r + i)).ψJ ψ) := by
+      unfold PinSyn.Ids
+      rw [S.pinPps i hi, S.pinNP i hi]
+      rfl
+    have hfr : D.pinFrame (r + i) ψ ρp = D.pinFrame r ψ ρp := by
+      unfold BlockModel.pinFrame
+      rw [(S.same i hi ψ).2]
+    rw [hIds, hfr, (S.same i hi ψ).1, S.pinU i hi ψ]
+
 /-- **The pins' shapes of a stored block** against a global assignment
 `B` of block models to container groups (task #315 L-E, DESIGN §U.36):
 every pin `q` of `d` sits in a group `(q₀, kJ)` whose container is
