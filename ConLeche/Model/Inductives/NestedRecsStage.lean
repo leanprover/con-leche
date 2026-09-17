@@ -460,6 +460,6 @@ theorem nestedTailModeled_of {F : Nat}
       fvsPF xrestF eissF tssF ctorsR dsR xFvsR pinsS).k := I.kpos
   exact hst mp p envOut st b envAux stored ctorsR cvRms cvRns rulesM rulesN fmsA ctorsA₀ fms f₀
     ctorsA sortss kinds mp₁ ppsF W idxF dsF esF srcsF fvsPF xFvsF xrestF eissF tssF dsR xFvsR pinsS
-    mp₂ I s rdsM concM eqs R E (nestedRecsTuple_of O.reps hp hk R E)
+    mp₂ I s rdsM concM eqs R E (nestedRecsTuple_of O.reps.toIsBlockModels hp hk R E)
 
 end ConLeche.Model

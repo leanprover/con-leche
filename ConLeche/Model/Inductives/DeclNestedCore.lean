@@ -69,7 +69,10 @@ constructors' stage's outputs at the model `mp₂` of the restored
 environment (`NestedStageFacts`: the members' leaves, the restored
 constructors' leaves and readings, the pin groups, the agreement off
 the block), and the CONCRETE block model `nestedBlockModel` at every
-member, with the members, constructors and pins typed and its record. -/
+member — AT THE MEMBERS' OWN AUXILIARY CONSTANTS (`IsBlockModelsAt`,
+task #315 M7-3 session 11: the form the read-back's record demands, so
+that the install's tail crosses it instead of rebuilding it) — with the
+members, constructors and pins typed and its record. -/
 structure NestedCoreOut {env : Env} (F : Nat) (mp : EnvModelM V μ env) (p : NestedParts)
     (st : ElimState) (b : MutualBlock) (ctorsR : List (List (ConstantVal × Nat × Nat)))
     (fms : List MutualFormerA) (f₀ : MutualFormerA) (ctorsA : List (ConstantVal × Nat))
@@ -101,8 +104,9 @@ structure NestedCoreOut {env : Env} (F : Nat) (mp : EnvModelM V μ env) (p : Nes
     (kinds := kinds) (env := env) (ppsF := ppsF) (W := W) (idxF := idxF) (dsF := dsF) (esF := esF)
     (srcsF := srcsF) (fvsPF := fvsPF) (xrestF := xrestF) (eissF := eissF) (tssF := tssF)
     (ctorsR := ctorsR) (dsR := dsR) (xFvsR := xFvsR) (pinsS := pinsS) st mp₂
-  reps : IsBlockModels mp₂.base2 (nestedBlockModel (V := V) p b fms f₀ ctorsA kinds env ppsF W idxF
+  reps : IsBlockModelsAt mp₂.base2 (nestedBlockModel (V := V) p b fms f₀ ctorsA kinds env ppsF W idxF
     dsF esF srcsF fvsPF xrestF eissF tssF ctorsR dsR xFvsR pinsS)
+    (fun mm => (fms.getD mm default).cvTa)
   typed : ∀ ψ : Name → Nat,
     FormersTyped mp₂.base2 (nestedBlockModel (V := V) p b fms f₀ ctorsA kinds env ppsF W idxF
       dsF esF srcsF fvsPF xrestF eissF tssF ctorsR dsR xFvsR pinsS) ψ ∧
@@ -377,9 +381,9 @@ theorem nestedContainerModeled {F : Nat} {st : ElimState} {envAux : Env}
     obtain ⟨ci, hci, -⟩ := (ConLeche.nestedContainersOk_group hcont).2 _ (List.mem_of_getElem? hpq)
     exact ⟨ci, by rw [hJ]; exact hci⟩
   refine ContainerModeled.of_readBack ?_ O.record.nP ?_ ?_ ?_ T.repsAt.toIsBlockModels
-    (fun ψ => ⟨(O.typed ψ).1.crossEnv T.agree O.reps,
-      (O.typed ψ).2.1.crossEnv T.agree O.reps,
-      (O.typed ψ).2.2.crossEnv T.agree O.reps ?_⟩)
+    (fun ψ => ⟨(O.typed ψ).1.crossEnv T.agree O.reps.toIsBlockModels,
+      (O.typed ψ).2.1.crossEnv T.agree O.reps.toIsBlockModels,
+      (O.typed ψ).2.2.crossEnv T.agree O.reps.toIsBlockModels ?_⟩)
     (fun ψ mm' j fs => ofNested_inj ψ mm' j fs) ?_ ?_ ?_ T.pinNP T.pinψ ?_
   · -- `hk`
     rw [hdk, List.length_map, List.length_zip, List.length_take, hclen]
@@ -765,7 +769,8 @@ theorem declNested_of (hμ : μ.verifiedChecks = true) {F : Nat} {env envOut : E
     obtain ⟨q₀, kJ, i, -, -, G⟩ := T.groups q hq ci hci
     exact G.reps
   have hShapes := (nestedPinShapes_of (B := blockOf mp.base2) mp₂.base2 T.groups
-      (fun q hq => (T.conts q hq).imp fun _ hh => hh.1)).crossEnv T.findR T.agree hk0 O.reps
+      (fun q hq => (T.conts q hq).imp fun _ hh => hh.1)).crossEnv T.findR T.agree hk0
+    O.reps.toIsBlockModels
     hBreps (fun q hq ci hci => by
       obtain ⟨ci', h₂, hOut, -⟩ := T.conts q hq
       obtain rfl : ci = ci' := Option.some.inj (hci.symm.trans h₂)
