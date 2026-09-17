@@ -86509,3 +86509,119 @@ Gates at the session's commits: `lake build` 701 jobs warning-free;
 overview-links, quote-gate, proofdeps and the import gate as the
 integration's (unchanged by this lane's files); `#print axioms` of
 `fit_imp_T_le_dom` and `fit_iff_at_T_dom`: standard.
+
+#### U.55 — L-E session 8: K.37 threaded to the shapes, and the ROOT's walk — reconstructible, its EXISTENCE not (lane L-E, 2026-09-17)
+
+##### (a) K.37's conjunct is where the copies' targets are (landed)
+
+`nestedPinRankOk` was a `DeclNestedRun` conjunct nothing below
+`declNested_of` could see.  It is now one hypothesis in each of
+`NestedCoreModeled`, `NestedCtorsStaged`, `NestedPinsStaged` and the
+field `hrank` of `NestedPinsRun`, so `NestedPinsShape`/`NestedPinsEntry`
+— everything `NestedPinsIdsAt` quantifies — read it for free;
+`declNested_of` names the `-` and `certOnly_elim`s it beside the other
+five.  `NestedReadLaw` and `NestedTailModeled` are untouched (neither
+consumes it), and the chain probe is unchanged.
+
+**What the kernel lane's inversion must give**, stated against what the
+model now has: at a pin `q` of the block, a constructor `j` of `q`'s
+copy and a field `l` that `CopyCtorShape` (the block's `PinShapes`)
+classifies recursive or reflexive at a target `t` OUTSIDE the block's
+own members,
+
+    (q, t - p.k, own) ∈ nestedPinEdges env p b st stored
+
+with `own = true` exactly when the CONTAINER's stored field at that
+position mentions a member of the container's own group — i.e. exactly
+when the shape's `pinF` arm (not `ordF`-right) applies.  With that, the
+four clauses of `nestedPinRankOk` become facts about the shape's own
+targets, which is all the induction reads.
+
+##### (b) THE ROOT, tried from the shapes: the walk is reconstructible
+
+The container instance transfer needs, per instance `I`, a ROOT group
+`r` whose container's extended system covers it: `∀ q ∈ I, ∃ c <
+(B ci_r).kT, R c q` (§U.54 (d)).  Working it through the models: the
+covering is a WALK, and every step of it is already in the shapes.
+
+* **Base.** `r`'s members: `(B ci_r)`'s member `i` and the block pin
+  `r₀ + i` are `R`-related — `PinGroupView.name` and the two leaf laws
+  (`memberTarget_reads`, `pinTarget_reads`) give the readings.
+* **Step.** Let `R c q` with `c` a class of `dR := B ci_r` and `q` a
+  block pin.  `R` (readings, plus `targetHead_corr`'s name and level
+  assignment) makes `c`'s container and `q`'s container ONE container
+  `B ci_q`, so the two sides copy the SAME constructor `(i', j)` of the
+  SAME model and their fields correspond positionally.  At each field:
+  `recF` targets a sibling of the same group on both sides; `pinF`
+  targets, on both sides, the image of `B ci_q`'s own pin `qK'`
+  (`PinCorr` names the same `(B ci_q).pinAt qK'`); an `ordF`-RIGHT
+  field on BOTH sides has two targets that `targetHead_corr` gives one
+  container and one level assignment, and whose readings agree by the
+  body-form `EntryRead` at frames with equal component values
+  (`interp_instAll`) — so the targets are `R`-related again.  And the
+  container-side target is a class of `dR` by the shape itself
+  (`ordF`'s right arm has `tg l < TV.k + TV.n`, `pinF` has
+  `TV.k ≤ tg l < TV.k + TV.n`, `recF` a member), with `TV` the
+  container's own `targetView`.
+* **Reachability** costs nothing: an instance is a strongly connected
+  component of exactly these field edges, so every `q ∈ I` is reached
+  from `r`'s group.
+
+##### (c) WHERE IT FAILS, and what is missing
+
+The step needs the field to be `ordF`-RIGHT on the CONTAINER side too.
+It can be `ordF`-LEFT there while `ordF`-right in the block: a field
+that mentions only the container's PARAMETER is ordinary in the
+container's own system and rewritten in the block, where the parameter
+is a component mentioning the block's members.  That is exactly
+`nested_p04`'s `Array`: `List α` mentions no member of `Array`'s group,
+so from `Array` as root the walk reaches the block's `List` pin with NO
+class of `Array`'s system to relate it to — `Array`'s system has one
+member and no pins.  From `P4C` as root the same field IS `ordF`-right
+(inside `P4C`'s system `α := P4C`'s member), its target is `P4C`'s own
+pin `List`, and the walk closes.
+
+So the walk selects nothing: it VERIFIES a root, it does not find one,
+and a root's existence is a fact about the OTHER elimination — the root
+container's own declaration minted, as its pins, the containers the
+block's copies reach through such fields.  The two shapes of the same
+example show it is not vacuous:
+
+* `J α ::= mk : List α → J α` nested as `J X`: the block's pins are
+  `J X` and `List X`, the edge is not own, the ranks separate them, and
+  no root is needed;
+* `J α ::= mk : List (J α) → J α` nested as `J X`: `J` is self-nested,
+  `List (J α)` IS one of `J`'s own pins, the block's two pins cycle,
+  and `J` is the root — because `J`'s own elimination minted it.
+
+**Verdict: the missing fact is SYNTACTIC (kernel), not semantic.**  The
+model has the root's classes already — a stored container's block model
+carries its own pins (`(B ci).pins`, `EnvModelB.blocks`), which the
+CHECKER does not (a nested declaration restores, so its auxiliary types
+are not in the environment).  What no one has is the pairing of the
+block's pins with those classes.
+
+**Proposal (a K.38, the kernel lane's call): record the MINT PARENT.**
+`elimNested` mints pin `q` while copying the constructors of some pin
+`parent q` (or of the block's own members, for the outermost pins), and
+that parent is in hand at mint time — one `Option Nat` in `NestedPin`,
+no walk and no recomputation.  Then the root of an instance is the
+`parent`-minimal member of it, the covering is the parent chain, and
+the check that makes it consumable is the one the model's step (b)
+already proves field by field: `parent q = q'` implies `q` is the image
+of a class of `q'`'s container's system.  The measurement the kernel
+lane is running (is an accepted block's instance always one container's
+system?) is then the same question as "does every instance have a
+`parent`-ancestor inside it".
+
+##### (d) STATUS
+
+(1) is in the tree; (2) is answered — the walk is model-side and needs
+no record, the root's existence is not derivable and wants K.38's
+parent link (or another verdict from the measurement); (3) stays
+blocked on (2) and on the `nestedPinEdges` inversion (a).
+
+Gates at the session's commits: `lake build` 701 jobs warning-free,
+`lake test` warning-free, layering / trust surface / no-local-paths /
+overview-links / quote-gate / proofdeps / shake and pub-imports as the
+integration's.
