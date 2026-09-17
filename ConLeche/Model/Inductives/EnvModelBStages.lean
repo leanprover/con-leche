@@ -486,4 +486,121 @@ theorem BlockInstallExt.tableCross {Ms : List Name} {env envOut : Env}
         exact (ConLeche.Name.str.inj (ConLeche.Name.num.inj hstruct).1).1
       exact h.2.2.2.2 _ hc tbl rfl
 
+/-! ### The mutual install's four stages -/
+
+omit [SetTheory V] in
+/-- One fresh cons, as the crossing sees it. -/
+theorem BlockInstallExt.cons {Ms : List Name} {env : Env} {c₀ : ConstantInfo}
+    (hfresh : env.find? c₀.name = none)
+    (hi : ∀ (cv : ConstantVal) (caps : IndCaps), c₀ = .indInfo cv caps → c₀.name ∈ Ms)
+    (hr : ∀ (cv : ConstantVal) (mI rP : Nat) (rules : List RecRule),
+      c₀ = .recInfo cv mI rP rules → ∃ n' ∈ Ms, c₀.name = n'.str "rec")
+    (hp : ∀ tbl : ConLeche.ProjTable, c₀ = .projInfo tbl → tbl.structName ∈ Ms) :
+    BlockInstallExt Ms env ⟨c₀ :: env.consts⟩ [c₀] := by
+  refine ⟨rfl, ?_, ?_, ?_, ?_⟩ <;> intro c hc <;>
+    (obtain rfl := List.mem_singleton.mp hc)
+  · exact hfresh
+  · exact hi
+  · exact hr
+  · exact hp
+
+omit [SetTheory V] in
+/-- Stage 1: the formers, consed as the block's members. -/
+theorem consMutualFormers_installExt {fms : List MutualFormerA} {env : Env}
+    (hfresh : ∀ f ∈ fms, env.find? f.cvTa.name = none) :
+    BlockInstallExt (fms.map (·.cvTa.name)) env (ConLeche.consMutualFormers fms env)
+      ((fms.map fun f => ConstantInfo.indInfo f.cvTa {}).reverse) := by
+  refine ⟨consMutualFormers_consts, fun c hc => ?_, fun c hc => ?_, fun c hc => ?_,
+    fun c hc => ?_⟩ <;>
+    (simp only [List.mem_reverse, List.mem_map] at hc; obtain ⟨f, hf, rfl⟩ := hc)
+  · exact hfresh f hf
+  · exact fun _ _ _ => List.mem_map_of_mem hf
+  · exact fun _ _ _ _ heq => nomatch heq
+  · exact fun _ heq => nomatch heq
+
+omit [SetTheory V] in
+/-- Stage 3: the constructors' conses — no container, no recursor, no table. -/
+theorem consMutualCtors_installExt {Ms : List Name} {nP : Nat}
+    {ctorsA : List (ConstantVal × Nat)} {env : Env}
+    (hfresh : ∀ c ∈ ctorsA, env.find? c.1.name = none) :
+    BlockInstallExt Ms env (ConLeche.consMutualCtors nP ctorsA env)
+      ((ctorsA.map fun c => ConstantInfo.ctorInfo c.1 nP c.2).reverse) := by
+  refine ⟨consMutualCtors_consts, fun c hc => ?_, fun c hc => ?_, fun c hc => ?_,
+    fun c hc => ?_⟩ <;>
+    (simp only [List.mem_reverse, List.mem_map] at hc; obtain ⟨cA, hcA, rfl⟩ := hc)
+  · exact hfresh cA hcA
+  · exact fun _ _ heq => nomatch heq
+  · exact fun _ _ _ _ heq => nomatch heq
+  · exact fun _ heq => nomatch heq
+
+omit [SetTheory V] in
+/-- Stage 4: the recursors' group store — every entry a MEMBER's recursor. -/
+theorem storeMutualRecs_installExt {Ms : List Name} {env₂ : Env} {b : MutualBlock}
+    {fms : List MutualFormerA} {rulesOf : List (List (MutualCtor × Expr))}
+    {l : List (ConstantVal × Nat)} {env : Env}
+    (hfresh : ∀ q ∈ l, env.find? (Prod.fst q).name = none)
+    (hrec : ∀ q ∈ l, ∃ n' ∈ Ms, (Prod.fst q).name = n'.str "rec") :
+    BlockInstallExt Ms env (ConLeche.storeMutualRecs env₂ b fms rulesOf l env)
+      ((l.map fun q => ConstantInfo.recInfo q.1
+        (b.rulePrefix + (fms.getD q.2 default).nIdx) b.rulePrefix
+        (ConLeche.mutualRules env₂.find? q.1.name b.nP
+          (b.rulePrefix + (fms.getD q.2 default).nIdx) b.rulePrefix q.1.type
+          (rulesOf.getD q.2 []))).reverse) := by
+  refine ⟨storeMutualRecs_consts, fun c hc => ?_, fun c hc => ?_, fun c hc => ?_,
+    fun c hc => ?_⟩ <;>
+    (simp only [List.mem_reverse, List.mem_map] at hc; obtain ⟨q, hq, rfl⟩ := hc)
+  · exact hfresh q hq
+  · exact fun _ _ heq => nomatch heq
+  · exact fun _ _ _ _ _ => hrec q hq
+  · exact fun _ heq => nomatch heq
+
+omit [SetTheory V] in
+/-- Stage 5: the structure-like members' projection tables — every
+table is a MEMBER's. -/
+theorem mutualTables_installExt {Ms : List Name} {b : MutualBlock}
+    {ctorsA : List (ConstantVal × Nat)} {sortss : List (List Level)} :
+    ∀ {l : List (MutualFormerA × Nat)} {env env' : Env},
+      ConLeche.mutualTables (m := ConLeche.CheckM) b ctorsA sortss l env = .ok env' →
+      (∀ p ∈ l, p.1.cvTa.name ∈ Ms) →
+      ∃ new : List ConstantInfo, BlockInstallExt Ms env env' new
+  | [], env, env', h, _ => by
+    obtain rfl := ConLeche.mutualTables_nil_inv h
+    exact ⟨[], BlockInstallExt.rfl' Ms _⟩
+  | (f, mIdx) :: rest, env, env', h, hTs => by
+    obtain ⟨envI, hI, hrest⟩ := ConLeche.mutualTables_inv h
+    obtain ⟨new₂, h₂⟩ := mutualTables_installExt hrest
+      (fun q hq => hTs q (List.mem_cons_of_mem _ hq))
+    rcases ConLeche.mutualMemberTable_inv hI with rfl | ⟨J, c, -, -, htbl⟩
+    · exact ⟨new₂, h₂⟩
+    · obtain ⟨bodies, -, -, -, hfreshTbl, rfl⟩ := ConLeche.checkStructProjTable_inv htbl
+      refine ⟨_, BlockInstallExt.trans (BlockInstallExt.cons ?_ ?_ ?_ ?_) h₂⟩
+      · exact hfreshTbl
+      · exact fun _ _ heq => nomatch heq
+      · exact fun _ _ _ _ heq => nomatch heq
+      · intro tbl heq
+        obtain rfl := ConstantInfo.projInfo.inj heq
+        exact hTs (f, mIdx) List.mem_cons_self
+
+omit [SetTheory V] in
+/-- The generated recursors' names, read off the recursor-type stage
+(`checkMutualRecTy_shape`: the constant it hands back IS
+`⟨b.recName mIdx, b.rlps, recTy⟩`). -/
+theorem checkMutualRecTys_names {env : Env} {b : MutualBlock} {F : Nat}
+    {formers4 : List MutualFormer} {ctors4 : List MutualCtor4} {cvRas : List ConstantVal}
+    {streamRecs : Option (List (ConstantVal × List RecRule))}
+    (h : ConLeche.checkMutualRecTys (m := ConLeche.CheckM) (fueledOps μ F) env b formers4 ctors4
+      streamRecs b.k = .ok cvRas) :
+    ∀ q ∈ cvRas.zipIdx, q.2 < b.k ∧ (Prod.fst q).name = b.recName q.2 := by
+  obtain ⟨hlen, hall⟩ := ConLeche.checkMutualRecTys_inv h
+  intro q hq
+  obtain ⟨cvRa, mIdx⟩ := q
+  have hget : cvRas[mIdx]? = some cvRa := List.mk_mem_zipIdx_iff_getElem?.mp hq
+  have hlt : mIdx < b.k := by
+    have := (List.getElem?_eq_some_iff.mp hget).1
+    omega
+  obtain ⟨cvRa', hget', hrec⟩ := hall mIdx hlt
+  obtain rfl := Option.some.inj (hget.symm.trans hget')
+  obtain ⟨recTy, sty, u, -, -, -, -, -, -, -, -, rfl⟩ := ConLeche.checkMutualRecTy_shape hrec
+  exact ⟨hlt, rfl⟩
+
 end ConLeche.Model
