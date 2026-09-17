@@ -791,9 +791,6 @@ theorem checkMutualCore_inv {env envOut : Env} {b : MutualBlock} {F : Nat}
         (Level.isEquiv f₀.s .zero == some true) auxRoute b.ctors = .ok (ctorsA, sortss) ∧
       classifyMutualKinds (m := CheckM) b.members3 b.lps b.nP ctorsA = .ok kinds ∧
       mutualFieldsOk env b.members3 b.lps b.nP ctorsA kinds = true ∧
-      -- THE ORDINARY FIELDS' OPENED DOMAINS (K.36): member-free, in the
-      -- form the model reads them.  CERTIFICATION-ONLY, hence gated
-      certOnly mode (mutualOrdFreeOk (fms.map (·.cvTa.name)) b.nP ctorsA kinds) = true ∧
       mutualGenData b fms ctorsA kinds = (formers4, ctors4) ∧
       checkMutualRecTys (fueledOps mode F) (consMutualCtors b.nP ctorsA env₁) b formers4
         ctors4 streamRecs b.k = .ok cvRas ∧
@@ -837,11 +834,6 @@ theorem checkMutualCore_inv {env envOut : Env} {b : MutualBlock} {F : Nat}
   case neg => rw [if_neg hfo] at h; close_throw
   rw [if_pos hfo] at h
   try simp only [bind, Except.bind] at h
-  by_cases hof : certOnly (fueledOps mode F).mode
-      (mutualOrdFreeOk (fms.map (·.cvTa.name)) b.nP ctorsA kinds) = true
-  case neg => rw [if_neg hof] at h; close_throw
-  rw [if_pos hof] at h
-  try simp only [bind, Except.bind] at h
   generalize hgd : mutualGenData b fms ctorsA kinds = gd at h
   obtain ⟨formers4, ctors4⟩ := gd
   try simp only at h
@@ -859,7 +851,7 @@ theorem checkMutualCore_inv {env envOut : Env} {b : MutualBlock} {F : Nat}
   obtain rfl : envT = envOut := by simpa [pure, Except.pure] using h
   refine ⟨env₁, fms, f₀, tq₀, ctorsA, sortss, kinds, formers4, ctors4, cvRas, rulesOf,
     hformers, hf₀', htq₀', by cases u₁; exact hcross, beq_iff_eq.mp hL, hctors, hkinds,
-    hfo, hof, hgd, hrectys, hrules, htbl, hrb⟩
+    hfo, hgd, hrectys, hrules, htbl, hrb⟩
 
 /-- **The recognised block's install**: the recursor records' pin and
 the core. -/
@@ -874,7 +866,19 @@ theorem checkMutual_inv {env envOut : Env} {p : MutualParts} {F : Nat}
   rw [if_pos hp] at h
   exact ⟨hp, h⟩
 
-/-! ## K.36's Bool, as the model reads it -/
+/-! ## K.36 — the ordinary fields' opened domains, DERIVED
+
+The mutual lift's `ContainerModeled.ordFree` is stated at the block
+model's FIELD VARIABLES, and the raw statement about the stored
+constructor type does not transport to it (`mentionsConst` descends into
+an `.fvar`'s type annotation, so an opened field's domain carries the
+earlier fields' domains inside it).  The OPENED form it needs is
+already established by the route — no check was added for it (task #315
+K.36, DESIGN `#### K.36`).
+
+The two facts it comes from are `mutualOpenedOk`'s `.ordinary` clause,
+`x.fvarTypeD.constsResolve env₀` at the PRE-BLOCK environment, and the
+members' FRESHNESS there. -/
 
 /-- **The ordinary fields' opened domains are member-free**, as a Prop
 over the run's own data (the model lane's DESIGN §U.46 (b)).  The block
@@ -891,11 +895,11 @@ def MutualOrdFree (memberNames : List Name) (nP : Nat)
         ((kinds.getD J []).getD l (.ordinary, 0)).1 = .ordinary →
         mentionsMember memberNames x.fvarTypeD = false
 
-/-- **AND IT IS ALREADY CHECKED** (the finding of K.36): a term whose
-constants all RESOLVE in `env` mentions no constant `env` does not
-carry.  `constsResolve` descends into an `.fvar`'s type annotation
-exactly as `mentionsConst` does, which is what makes the two comparable
-at the OPENED form. -/
+/-- A term whose constants all RESOLVE in `env` mentions no constant
+`env` does not carry.  `constsResolve` descends into an `.fvar`'s type
+annotation exactly as `mentionsConst` does, which is what makes the two
+comparable at the OPENED form — and what makes K.36's fact a
+consequence of a check the route already runs. -/
 theorem mentionsConst_eq_false_of_constsResolve {env : Env} {T : Name}
     (hT : (env.find? T).isNone) :
     ∀ {e : Expr}, e.constsResolve env = true → e.mentionsConst T = false
@@ -926,28 +930,142 @@ theorem mentionsConst_eq_false_of_constsResolve {env : Env} {T : Name}
     simp only [Expr.constsResolve, Bool.and_eq_true] at h
     simp only [Expr.mentionsConst, Bool.or_eq_false_iff,
       mentionsConst_eq_false_of_constsResolve hT h.2, and_true, beq_eq_false_iff_ne, ne_eq]
+    obtain ⟨h₁, -⟩ := h
     rintro rfl
     simp only [Option.isNone_iff_eq_none] at hT
-    simp [hT] at h
+    simp [hT] at h₁
 
-/-- The Bool IS that Prop. -/
-theorem mutualOrdFree_of {memberNames : List Name} {nP : Nat}
-    {ctorsA : List (ConstantVal × Nat)} {kinds : List (List (RecFieldKind × Nat))}
-    (h : mutualOrdFreeOk memberNames nP ctorsA kinds = true) :
+/-- …and hence a member-free one, when the members are fresh. -/
+theorem mentionsMember_eq_false_of_constsResolve {env : Env} {memberNames : List Name}
+    (hfresh : ∀ T ∈ memberNames, (env.find? T).isNone) {e : Expr}
+    (h : e.constsResolve env = true) : mentionsMember memberNames e = false := by
+  simp only [mentionsMember, List.any_eq_false]
+  intro T hT
+  simp [mentionsConst_eq_false_of_constsResolve (hfresh T hT) h]
+
+/-- The opened telescope has exactly as many variables as binders
+opened. -/
+theorem openPisAtFvars_len : ∀ (n : Nat) {e : Expr} {i : Nat} {fvs : List Expr} {r : Expr},
+    openPisAtFvars n e i = some (fvs, r) → fvs.length = n := by
+  intro n
+  induction n with
+  | zero =>
+    intro e i fvs r h
+    simp only [openPisAtFvars, Option.some.injEq, Prod.mk.injEq] at h
+    simp [← h.1]
+  | succ n ih =>
+    intro e i fvs r h
+    match e with
+    | .forallE dom body bm =>
+      rw [openPisAtFvars] at h
+      split at h
+      · rename_i fvs' e' heq
+        simp only [Option.some.injEq, Prod.mk.injEq] at h
+        obtain ⟨rfl, -⟩ := h
+        simp [ih heq]
+      · simp at h
+    | .bvar _ | .fvar _ _ | .sort _ | .const _ _ | .app _ _ | .lam _ _ _
+    | .letE _ _ _ | .lit _ | .proj _ _ _ => simp [openPisAtFvars] at h
+
+/-- **K.36, DERIVED**: the ordinary fields' opened domains are
+member-free, off `mutualFieldsOk` (which the run relation already
+carries) and the members' freshness. -/
+theorem mutualOrdFree_of {env : Env} {members : List (Name × Nat × Nat)} {lps : List Name}
+    {nP : Nat} {ctorsA : List (ConstantVal × Nat)} {kinds : List (List (RecFieldKind × Nat))}
+    {memberNames : List Name}
+    (hfresh : ∀ T ∈ memberNames, (env.find? T).isNone)
+    (hfo : mutualFieldsOk env members lps nP ctorsA kinds = true) :
     MutualOrdFree memberNames nP ctorsA kinds := by
   intro J cA hJ fvsP xFvs crest xrest hop₁ hop₂ l x hx hord
   have hJlt : J < ctorsA.length := (List.getElem?_eq_some_iff.mp hJ).1
-  have hrow := (List.all_eq_true.mp h) J (by simpa using List.mem_range.mpr hJlt)
-  rw [hJ] at hrow
-  simp only at hrow
-  rw [hop₁] at hrow
-  simp only at hrow
-  rw [hop₂] at hrow
-  simp only at hrow
-  have hlt : l < xFvs.length := (List.getElem?_eq_some_iff.mp hx).1
-  have hcell := (List.all_eq_true.mp hrow) l (by simpa using List.mem_range.mpr hlt)
+  obtain ⟨-, hall⟩ := Bool.and_eq_true _ _ |>.mp hfo
+  have hrow := (List.all_eq_true.mp hall) J (by simpa using List.mem_range.mpr hJlt)
+  -- the kinds row exists, and `kinds.getD J []` is it
+  rcases hk : kinds[J]? with _ | ks
+  · rw [hJ, hk] at hrow; simp at hrow
+  rw [hJ, hk] at hrow
+  simp only [Bool.and_eq_true] at hrow
+  obtain ⟨-, hopen⟩ := hrow
+  have hkg : kinds.getD J [] = ks := by
+    simp [List.getD, hk]
+  rw [hkg] at hord
+  -- unpack `mutualOpenedOk`
+  rw [mutualOpenedOk] at hopen
+  simp only at hopen
+  rw [hop₁] at hopen
+  simp only at hopen
+  rw [hop₂] at hopen
+  simp only [Bool.and_eq_true] at hopen
+  obtain ⟨-, hfields⟩ := hopen
+  have hlt : l < cA.2 := by
+    have := openPisAtFvars_len _ hop₂
+    have := (List.getElem?_eq_some_iff.mp hx).1
+    omega
+  have hcell := (List.all_eq_true.mp hfields) l (by simpa using List.mem_range.mpr hlt)
   rw [hx] at hcell
-  simp only [hord, beq_self_eq_true, if_pos, Bool.not_eq_true'] at hcell
-  exact hcell
+  rcases hks : ks.getD l (.ordinary, 0) with ⟨r, t⟩
+  rw [hks] at hcell
+  rw [hks] at hord
+  simp only at hord
+  subst hord
+  simp only at hcell
+  exact mentionsMember_eq_false_of_constsResolve hfresh hcell
+
+/-! ### The NATIVE route's twin
+
+`nativeOpenedOk`'s `.ordinary` clause is the identical
+`x.fvarTypeD.constsResolve env₀` at the pre-block environment, and the
+single member is fresh there for the same reason, so the fixpoint
+route's ordinary fields are member-free by the same argument — and it
+too needs no check.  It lives here rather than beside `checkNativeTail`'s
+inversion because it shares `mentionsConst_eq_false_of_constsResolve`
+with its mutual sibling. -/
+
+/-- The fixpoint route's `MutualOrdFree`: at a single member `T`. -/
+def NativeOrdFree (T : Name) (nP : Nat) (ctorsA : List (ConstantVal × Nat))
+    (kinds : List (List RecFieldKind)) : Prop :=
+  ∀ (J : Nat) (cA : ConstantVal × Nat), ctorsA[J]? = some cA →
+    ∀ (fvsP xFvs : List Expr) (crest xrest : Expr),
+      openPisAtFvars nP cA.1.type 0 = some (fvsP, crest) →
+      openPisAtFvars cA.2 crest nP = some (xFvs, xrest) →
+      ∀ (l : Nat) (x : Expr), xFvs[l]? = some x →
+        (kinds.getD J []).getD l .ordinary = .ordinary →
+        x.fvarTypeD.mentionsConst T = false
+
+/-- **K.36's twin on the fixpoint route, DERIVED**, off `nativeFieldsOk`
+(which `checkNativeTail_inv` already exposes) and the member's
+freshness. -/
+theorem nativeOrdFree_of {env : Env} {T : Name} {lps : List Name} {nP nIdx : Nat}
+    {ctorsA : List (ConstantVal × Nat)} {kinds : List (List RecFieldKind)}
+    (hfresh : (env.find? T).isNone)
+    (hfo : nativeFieldsOk env T lps nP nIdx ctorsA kinds = true) :
+    NativeOrdFree T nP ctorsA kinds := by
+  intro J cA hJ fvsP xFvs crest xrest hop₁ hop₂ l x hx hord
+  have hJlt : J < ctorsA.length := (List.getElem?_eq_some_iff.mp hJ).1
+  obtain ⟨-, hall⟩ := Bool.and_eq_true _ _ |>.mp hfo
+  have hrow := (List.all_eq_true.mp hall) J (by simpa using List.mem_range.mpr hJlt)
+  rcases hk : kinds[J]? with _ | ks
+  · rw [hJ, hk] at hrow; simp at hrow
+  rw [hJ, hk] at hrow
+  simp only [Bool.and_eq_true] at hrow
+  obtain ⟨-, hopen⟩ := hrow
+  have hkg : kinds.getD J [] = ks := by simp [List.getD, hk]
+  rw [hkg] at hord
+  rw [nativeOpenedOk] at hopen
+  simp only at hopen
+  rw [hop₁] at hopen
+  simp only at hopen
+  rw [hop₂] at hopen
+  simp only [Bool.and_eq_true] at hopen
+  obtain ⟨-, hfields⟩ := hopen
+  have hlt : l < cA.2 := by
+    have := openPisAtFvars_len _ hop₂
+    have := (List.getElem?_eq_some_iff.mp hx).1
+    omega
+  have hcell := (List.all_eq_true.mp hfields) l (by simpa using List.mem_range.mpr hlt)
+  rw [hx] at hcell
+  rw [hord] at hcell
+  simp only at hcell
+  exact mentionsConst_eq_false_of_constsResolve hfresh hcell
 
 end ConLeche

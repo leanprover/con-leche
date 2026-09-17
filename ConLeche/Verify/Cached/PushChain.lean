@@ -934,10 +934,6 @@ theorem checkMutualCoreS_push (mode : CheckMode) {env : Env} {fe : FEnv}
       obtain ⟨c, hc, rfl⟩ := List.mem_map.mp hn
       rw [← h₁.find?]
       exact hfrs c hc
-  -- the ordinary fields' opened domains (K.36)
-  split
-  case isFalse => exact Yields.ofThrowBind
-  case isTrue =>
   ybind
   refine Yields.bind'
     (Yields.and (checkMutualRecTysF_fresh (sharedOpsC mode _) structWalkersC _ b _ _ rs hnm b.k

@@ -1,6 +1,7 @@
 module
 
 import ConLeche.Semantics.DeclIndRun
+import ConLeche.Verify.Extend.Inversions
 import ConLeche.Verify.Inductives.SumWF
 public import ConLeche.Verify.Inductives.FixWF
 public import ConLeche.Semantics.Inductives.DeclMutual
@@ -239,5 +240,23 @@ def DeclIndRunDispatch (μ : CheckMode) (F : Nat) (env : Env)
     match ConLeche.mutualParts? nP block with
     | some q => DeclMutualRun μ F env q env₂
     | none => DeclIndRun μ F env block env₂
+
+/-- **The fixpoint block's member is FRESH in the pre-block
+environment** (task #315 K.36): the former's front door
+(`checkConstantVal`, inside `checkSumInd`) refuses a name the
+environment already carries.  Read off the PASS, which the run relation
+already exposes — which is why K.36's twin costs the run no conjunct
+(`ConLeche.nativeOrdFree_of`). -/
+theorem checkSumInd_freshName {F : Nat} {env envI : Env} {p p' : ConLeche.InductiveShape}
+    {cvTa : ConstantVal} {capsOf : ConLeche.InductiveShape → ConLeche.IndCaps}
+    (h : ConLeche.checkSumInd (m := ConLeche.CheckM) (fueledOps μ F) env p capsOf
+      = .ok (envI, cvTa, p')) :
+    (env.find? cvTa.name).isNone := by
+  obtain ⟨cvT, s, -, -, hccv, -, -, -⟩ := ConLeche.checkSumInd_shape h
+  obtain ⟨hfr, -, -, -, -, -, _, _, _, -, -, -, -, -, hTeq⟩ :=
+    ConLeche.checkConstantVal_inv hccv
+  show (env.find? cvTa.name).isNone
+  rw [hTeq, hfr]
+  rfl
 
 end ConLeche.Semantics

@@ -570,7 +570,7 @@ Inductive blocks are not trusted from the stream. Three cases:
   generates the block's recursors and their rules and compares them
   with the stream's, and conses the structure-like members' projection
   tables
-  ([function `checkMutualCore` in `ConLeche/Kernel/Inductives/MutualInstall.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/MutualInstall.lean#L661)).
+  ([function `checkMutualCore` in `ConLeche/Kernel/Inductives/MutualInstall.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/MutualInstall.lean#L616)).
   In the model a block is ONE block model: **inductives denote the least
   solution of their recursive system** — the members are the
   components of the least pre-fixed tuple of one monotone operator on

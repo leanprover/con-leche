@@ -290,7 +290,7 @@ theorem declBlock (hμ : μ.verifiedChecks = true) {F : Nat} {env envOut : Env}
     Nonempty (EnvModelM V μ envOut) := by
   obtain ⟨-, b, streamRecs, env₁, fms, f₀, tq₀, ctorsA, sortss, kinds, formers4, ctors4,
     cvRas, rulesOf, rfl, rfl, h0, h1, h2, h3, hformers, hf₀, htq₀, hcross, hL, hctors, hkinds,
-    hfo, -, hgd, hrectys, hrules, htbl, -⟩ := h
+    hfo, hgd, hrectys, hrules, htbl, -⟩ := h
   obtain ⟨mp₃, -, d, hd, hreps, hT, hstored, htf⟩ := hcore hμ mp hE _ _ _ _ _ _ _ _ _ _ _ _ _
     h0 h1 h2 h3 hformers hf₀ htq₀ hcross hL hctors hkinds hfo hgd hrectys hrules
     (recNames_of hpinOk hrectys)

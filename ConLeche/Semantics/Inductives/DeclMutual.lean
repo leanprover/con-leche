@@ -74,12 +74,6 @@ def DeclMutualRun (μ : CheckMode) (F : Nat) (env : Env)
     ConLeche.classifyMutualKinds (m := ConLeche.CheckM) b.members3 b.lps b.nP ctorsA
       = .ok kinds ∧
     ConLeche.mutualFieldsOk env b.members3 b.lps b.nP ctorsA kinds = true ∧
-    -- THE ORDINARY FIELDS' OPENED DOMAINS (K.36): every field the
-    -- classification called `.ordinary` has an OPENED domain that
-    -- mentions no member of the block — the form the model's
-    -- `ContainerModeled.ordFree` reads.  CERTIFICATION-ONLY, gated
-    ConLeche.certOnly μ
-      (ConLeche.mutualOrdFreeOk (fms.map (·.cvTa.name)) b.nP ctorsA kinds) = true ∧
     -- stage 4: the recursor types, the rules at the rule-less
     -- provision, the group store
     ConLeche.mutualGenData b fms ctorsA kinds = (formers4, ctors4) ∧
@@ -107,11 +101,11 @@ theorem declMutualRun_of {μ : CheckMode} {F : Nat} {env env₂ : Env} {p : Mutu
     DeclMutualRun μ F env p env₂ := by
   obtain ⟨hpin, hcore⟩ := ConLeche.checkMutual_inv h
   obtain ⟨h0, h1, h2, h3, env₁, fms, f₀, tq₀, ctorsA, sortss, kinds, formers4, ctors4,
-    cvRas, rulesOf, hformers, hf₀, htq₀, hcross, hL, hctors, hkinds, hfo, hof, hgd, hrectys,
+    cvRas, rulesOf, hformers, hf₀, htq₀, hcross, hL, hctors, hkinds, hfo, hgd, hrectys,
     hrules, htbl, hrb⟩ := ConLeche.checkMutualCore_inv hcore
   exact ⟨hpin, p.toBlock, _, env₁, fms, f₀, tq₀, ctorsA, sortss, kinds, formers4, ctors4,
     cvRas, rulesOf, rfl, rfl, h0, h1, h2, h3, hformers, hf₀, htq₀, hcross, hL, hctors,
-    hkinds, hfo, hof, hgd, hrectys, hrules, htbl, hrb⟩
+    hkinds, hfo, hgd, hrectys, hrules, htbl, hrb⟩
 
 /-! ## The η half: a fresh extension by non-formers -/
 
@@ -269,6 +263,26 @@ theorem mutualFormers_freshExt {F nP : Nat} {l : List (ConstantVal × Nat)}
   show env.find? f.cvTa.name = none
   rw [hTeq]; exact hfresh
 
+/-- **The block's members are FRESH in the pre-block environment** (task
+#315 K.36): the formers' front door (`checkConstantVal`) refuses a name
+the environment already carries.  Read off the formers' STAGE, which the
+run relation already exposes — which is why K.36's fact costs the run no
+conjunct of its own (`ConLeche.mutualOrdFree_of`). -/
+theorem mutualFormers_membersFresh {F nP : Nat} {l : List (ConstantVal × Nat)}
+    {env env' : Env} {fms : List MutualFormerA}
+    (h : ConLeche.mutualFormers (m := ConLeche.CheckM) (fueledOps μ F) nP l env
+      = .ok (env', fms)) :
+    ∀ T ∈ fms.map (·.cvTa.name), (env.find? T).isNone := by
+  intro T hT
+  obtain ⟨f, hf, rfl⟩ := List.mem_map.mp hT
+  obtain ⟨hchecks, -⟩ := ConLeche.mutualFormers_inv h
+  obtain ⟨cv', hccv'⟩ := ConLeche.mutualFormerChecks_checked hchecks f hf
+  obtain ⟨hfr, -, -, -, -, -, _, _, _, -, -, -, -, -, hTeq⟩ :=
+    ConLeche.checkConstantVal_inv hccv'
+  show (env.find? f.cvTa.name).isNone
+  rw [hTeq, hfr]
+  rfl
+
 /-- Stage 3: the constructors' conses. -/
 theorem consMutualCtors_consts {nP : Nat} :
     ∀ {ctorsA : List (ConstantVal × Nat)} {env : Env},
@@ -424,7 +438,7 @@ theorem declMutualRun_etaClosed {μ : CheckMode} {F : Nat} {env env₂ : Env}
     (hE : EtaFamiliesClosed env)
     (h : DeclMutualRun μ F env p env₂) : EtaFamiliesClosed env₂ := by
   obtain ⟨-, b, streamRecs, env₁, fms, f₀, tq₀, ctorsA, sortss, kinds, formers4, ctors4,
-    cvRas, rulesOf, rfl, rfl, -, -, -, -, hformers, -, -, -, -, hctors, -, -, -, -, hrectys,
+    cvRas, rulesOf, rfl, rfl, -, -, -, -, hformers, -, -, -, -, hctors, -, -, -, hrectys,
     -, htbl, -⟩ := h
   have hx1 : FreshEtaExt env env₁ := mutualFormers_freshExt hformers
   have hx2 : FreshEtaExt env₁ (ConLeche.consMutualCtors p.toBlock.nP ctorsA env₁) :=
