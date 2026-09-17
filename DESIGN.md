@@ -81317,8 +81317,28 @@ the copy's `CtorDataI.idxRead`, and `copyResid` (b) says the two spines
 are THE SAME EXPRESSIONS — the rewrite never descends into the index
 arguments.  No substitution lemma stands between them.
 
-Two more pieces of that route landed this session:
+**The whole reading side landed** (`mintRead`, `mintResidRead`):
 
+* `mintRead` — the container's constructor type level-substituted at
+  the pin's levels and instantiated at its components reads, at the
+  block's parameter depth, as the container's own reading with its
+  parameters peeled at the components' readings.  `instPisILP_read`
+  (until now unconsumed) does the work; what this adds is its side
+  conditions at a container's constructor — the tower's closedness off
+  the reading of a closed type at depth `0` (`bvarsBelow_of_reading` +
+  `bvarsBelow_mkPisAV_inv`), the components' length off
+  `NestedPinGroupSyn.pinDsLen`, and their scope off the new
+  `NestedPinsRun.pinWScoped` (a pin's free variables are the first
+  former's openers, whose annotations are scoped at their own depth,
+  `openPisAtFvars_typeWScoped`).
+* `mintResidRead` — the same opened at its FIELD binders:
+  `denoteMeta_openPisAtFvars` carries `mintRead` across the opening,
+  `stripPisAV_mkPisAV` names the tower's body, and
+  `AnnotTerm.instAll_mkAppN` + `instAll_eq_self` open the instantiated
+  spine (the member's value is closed).  The result is the member's
+  value applied to the parameter variables and to
+  `(dJ.esF i' j ψJ).map (AnnotTerm.instAll Ds cAJ.2)` — **the arm's
+  right-hand side, on the nose**.
 * `NestedPinsRun.crossUp` — everything the group's syntactic facts read
   (the container's constructor types, the pins' components) is read at
   the model of `consMutualFormers (fms.take p.k) env`, while the
@@ -81333,28 +81353,38 @@ Two more pieces of that route landed this session:
   its head and its arguments one by one, so the two openings a copy's
   residual crosses may be compared argument by argument.
 
-**What `es` still owes**, in order — all of it plumbing with no missing
-idea, and the corrected sizing is ONE session:
+**What `es` still owes** is exactly ONE syntactic chain — the COPY's
+stored constructor back to `copyResid`'s `resid'` — and then the
+match, in this order:
 
-1. the copy's stored constructor back to `copyResid`'s `resid'`:
-   `normCtorValM_resid` (c) → `openPisAtFvars_closeTelescope` (d) →
-   `openPisAtFvars_erasedEq` (d) → `openPisAtFvars_stripPis` (in tree)
-   at `cbody' = mkPisB Fs' resid'`, ending at
-   `ErasedEq xrest (Expr.instSeq (openFvars b.nP nF) (nF - 1) resid')`;
-2. the same for `cI` (a `mkPisB` of its own fields over the residual
-   `copyResid`'s `hshape` computes), giving the other side's opened
-   residual;
-3. `ErasedEq.mkAppN_inv` on both, past `b.nP` resp. `dJ.nP`, landing
-   the two index spines on the same expressions;
-4. `instPisILP_read` at `cc.type` — its side conditions are
-   `CtorDataI.below` (`DomsBelow`), `belowE` (the body's `bvarsBelow`),
-   `SF.pinDs` (the spine) and `S.stored`'s `ψJ` clause — followed by
-   (e)'s `denoteMeta_openPisAtFvars` and `stripPisAV_mkPisAV`;
-5. `AnnotTerm.instAll` over `ctorBodyAVI`'s spine (an `instAll_mkAppN`
-   and `instAll` being the identity on a closed `acval`, both two-line
-   inductions) plus `AnnotTerm.mkAppN_inj`;
-6. `crossUp` where the two models meet, `denoteMeta_erasedEq` where the
-   two openings do.
+1. `normCtorValM_resid` (c) → `openPisAtFvars_closeTelescope` (d) →
+   `openPisAtFvars_erasedEq` (d) → `openPisAtFvars_add` +
+   `openPisAtFvars_stripPis` (in tree) + `closeTelescope_mkPisB_strip`
+   (§U.32), ending at
+   `ErasedEq xrest (Expr.instSeq (openFvars 0 (b.nP + nF)) (b.nP + nF - 1)
+   (resid'.abstractRange 0 b.nP nF))`;
+2. the same for `cI` — a `mkPisB` of its own fields over the residual
+   `copyResid`'s `hshape` computes — which needs only
+   `openPisAtFvars_stripPis`, ending at
+   `ErasedEq cIbody (Expr.instSeq (openFvars b.nP nF) (nF - 1) RESID_cI)`;
+3. **ONE missing `Verify` lemma** reconciling the two spellings:
+   `Expr.instSeq (openFvars 0 (n + k)) (n + k - 1) (e.abstractRange 0 n k)`
+   is `ErasedEq` to `Expr.instSeq (openFvars n k) (k - 1) e` for an `e`
+   whose `fvar`s are below `n` and whose loose `bvar`s are below `k` —
+   abstracting the parameters and re-opening ALL of them restores them
+   (canonically annotated) and does to the FIELD variables exactly what
+   the field-only opening does.  `instSeq_abstractRange_fvs`
+   (`NestedCopyInstU`, §U.34) is its parameter-only ancestor; the shape
+   is one structural induction with the two `bvar` arithmetic cases.
+   **This is the only piece of `es` with any content left.**
+4. `ErasedEq.mkAppN_inv` on both, past `b.nP` resp. `dJ.nP`, landing the
+   two index spines on the same expressions (they are literally
+   `esJ'.map …` on both sides — `copyResid`'s `hshape` and its
+   conclusion);
+5. `denoteMeta_mkAppN_inv` + `AnnotTerm.mkAppN_inj` to read
+   `mintResidRead`'s spine off `cIbody`, `crossUp` where the two models
+   meet, `denoteMeta_erasedEq` where the two openings do, and
+   `CtorDataI.idxRead` at the copy for the left-hand side.
 
 `recF` then adds B3 (in tree) and the kinds on top of the SAME chain at
 a FIELD instead of the residual, plus (c) item 4's level equation for
@@ -81375,5 +81405,7 @@ demotable.  Standard axioms only on every new theorem
 `openPisAtFvars_erasedEq`, `looseBVarsBounded_closeTelescope`,
 `openPisAtFvars_closeTelescope`, `denoteMeta_openPisAtFvars`,
 `ErasedEq.mkAppN_inv`, `consMutualFormers_append`,
-`NestedPinsRun.crossUp`, and the restated `elimNested_copyCtors`,
+`NestedPinsRun.crossUp`, `NestedPinsRun.pinWScoped`,
+`AnnotTerm.instAll_app`/`_mkAppN`/`_eq_self`, `instTeleP_length`,
+`mintRead`, `mintResidRead`, and the restated `elimNested_copyCtors`,
 `copyBody`, `copyFields`).
