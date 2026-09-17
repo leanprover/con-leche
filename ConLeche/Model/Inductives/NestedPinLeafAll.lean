@@ -391,6 +391,78 @@ theorem fam_eq_of_leaf {w' u : Nat} {ρ₁ ρ₂ : Nat → V} {Ids : List AnnotT
   obtain ⟨is, hfit, rfl⟩ := mem_idxSet_elim ht
   rw [hl₁ is hfit, hl₂ is (hsp is hfit)]
 
+/-- **The container's slots at a tuple BELOW its extended carrier are
+within its real domains** (task #315 L-E, DESIGN §U.65): the `_dom`
+premise of `fit_iff_at_T_dom`/`fit_imp_T_le_dom`, from the tuple's
+place in the container's tuple space — `slotAtT_mono` up to the
+extended carrier, at which the container's slot IS the field's real
+domain (`IsBlockModels.real_dom_eq`, DESIGN §U.18 (e)'s `pinFix`).
+`fit_imp_T_le` had this inline; the container instance transfer needs
+it on its own, because `copyTransfer_mem`/`copyTransfer_via` take the
+bound as a premise (the tuple space does not travel between the two
+readings, §U.54 (b)). -/
+theorem BlockModel.slotDomT_of_le {env : Env} {m : EnvModel V env} {dK : BlockModel V}
+    {pc : Nat → PinCtors V} {ψ : Name → Nat} {ρ : Nat → V} {T : Nat → V} {i j : Nat}
+    (hreps : IsBlockModels m dK) (hfT : FormersTyped m dK ψ) (hPT : PinsTyped m dK ψ)
+    (hi : i < dK.k) {cA : ConstantVal × Nat} (hj : (dK.ctorsM i)[j]? = some cA)
+    (hρ : Sat V (dK.params ψ).reverse ρ)
+    (hTs : InTupleSpace (dK.w ψ) dK.kT (dK.idxT ψ ρ) T)
+    (hTle : TupleLe dK.kT (dK.idxT ψ ρ) T
+      (dK.famAt ψ ρ (lfpTuple (dK.w ψ) dK.k (dK.idx ψ ρ) (dK.Φ ψ ρ)))) :
+    ∀ l, l < ((dK.Fss i ψ).getD j []).length → ((dK.rss i).getD j []).getD l false = true →
+      ∀ fs₁ : List V, fs₁.length = l → SpineFit ρ (((dK.Fss i ψ).getD j []).take l) fs₁ →
+      dK.slotAtT pc ψ T i j l (consList fs₁ ρ)
+        ⊆ˢ interp V (consList fs₁ ρ) (((dK.Fss i ψ).getD j []).getD l default) := by
+  obtain ⟨cvT, cvR, mI, rP, rules, hI⟩ := hreps i hi
+  have hjl : j < (dK.ctorsM i).length := (List.getElem?_eq_some_iff.mp hj).1
+  have hks : (dK.ksF i j).length = ((dK.Fss i ψ).getD j []).length := by
+    rw [(hI.ctorData hj).ksLen, hI.Fss_length hj]
+  have hTle' : ∀ c, c < dK.kT → ∀ t',
+      SetTheory.app (T c) t'
+        ⊆ˢ SetTheory.app (dK.famAt ψ ρ (lfpTuple (dK.w ψ) dK.k (dK.idx ψ ρ) (dK.Φ ψ ρ)) c) t' :=
+    fun c hc t' => app_subset_of_famLe (hTs c hc) (hTle c hc) t'
+  intro l hl hr fs₁ hl₁ hsp
+  subst hl₁
+  have hlt : fs₁.length < cA.2 := by rw [← hI.Fss_length hj ψ]; exact hl
+  have hkl : fs₁.length < (dK.ksF i j).length := by rw [hks]; exact hl
+  have hr' : (rsOf (dK.ksF i j)).getD fs₁.length false = true := by
+    rwa [IsBlockModel.rss_getD hjl] at hr
+  have hreal := hreps.real_dom_eq hfT hPT hi hj hρ hlt hr' hsp
+  have htgtLt : dK.tgts i j fs₁.length < dK.kT := by
+    rcases hI.tgt_cases hjl hkl with h1 | ⟨-, h2⟩
+    · show _ < dK.k + dK.nPins; omega
+    · show _ < dK.k + dK.nPins; omega
+  refine Subset.trans (dK.slotAtT_mono pc
+    (Y' := dK.famAt ψ ρ (lfpTuple (dK.w ψ) dK.k (dK.idx ψ ρ) (dK.Φ ψ ρ))) ?_) ?_
+  · rw [BlockModel.tgtsT_of_mem hi]
+    exact hTle' _ htgtLt
+  · rw [BlockModel.slotAtT_of_mem hi ψ ρ _ j fs₁.length rfl, hreal]
+    exact Subset.refl _
+
+/-- **`hdom₁` at a MEMBER class of the root** (task #315 L-E, DESIGN
+§U.65 — §U.64 (c)'s first row): the relational meet is in the
+container's tuple space and below its extended carrier
+(`relMeet_mem`/`relMeet_le_base`), so `slotDomT_of_le` applies.  This
+is `copyTransfer_mem`'s `_dom` premise at the root's own reading, where
+the transfer's member half starts. -/
+theorem BlockModel.slotDomT_relMeet {env : Env} {m : EnvModel V env} {dK : BlockModel V}
+    {pc : Nat → PinCtors V} {ψ : Name → Nat} {ρ : Nat → V} {i j : Nat}
+    {R : Nat → Nat → Prop} {kB : Nat} {LB : Nat → V}
+    (hreps : IsBlockModels m dK) (hfT : FormersTyped m dK ψ) (hPT : PinsTyped m dK ψ)
+    (hi : i < dK.k) {cA : ConstantVal × Nat} (hj : (dK.ctorsM i)[j]? = some cA)
+    (hρ : Sat V (dK.params ψ).reverse ρ) (hk : 0 < dK.k) :
+    ∀ l, l < ((dK.Fss i ψ).getD j []).length → ((dK.rss i).getD j []).getD l false = true →
+      ∀ fs₁ : List V, fs₁.length = l → SpineFit ρ (((dK.Fss i ψ).getD j []).take l) fs₁ →
+      dK.slotAtT pc ψ
+          (relMeet (dK.idxT ψ ρ)
+            (dK.famAt ψ ρ (lfpTuple (dK.w ψ) dK.k (dK.idx ψ ρ) (dK.Φ ψ ρ))) R kB LB)
+          i j l (consList fs₁ ρ)
+        ⊆ˢ interp V (consList fs₁ ρ) (((dK.Fss i ψ).getD j []).getD l default) := by
+  obtain ⟨cvT, cvR, mI, rP, rules, hI0⟩ := hreps 0 hk
+  refine dK.slotDomT_of_le hreps hfT hPT hi hj hρ
+    (fun c hc => relMeet_mem (hI0.famAt_mem hρ (lfpTuple_mem _ _ _ _) hc))
+    (fun c _ => relMeet_le_base _ _ _ _ _ _)
+
 /-! ## The extended carrier is least among the tuples closed under the classes' constructors -/
 
 /-- **A tuple over the classes closed under the classes' constructors**
