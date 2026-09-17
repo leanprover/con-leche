@@ -409,7 +409,7 @@ structure NestedPinGroupIds (m : EnvModel V env₂) (q₀ kJ : Nat) (dJ : BlockM
         (Fss₀ := fun ψ => blkFss0 b ctorsA kinds dsF ψ)
         (Ess₀ := fun ψ => mutEss0 ctorsA.length esF ψ) (ψ := ψ) (ρp := ρp)
         m.acval dJ (((D).pinAt (q₀ + i)).ψJ ψ) (((D).pinAt (q₀ + i)).Ds ψ)
-        cvT.levelParams ((D).pinAt (q₀ + i)).lvls q₀ kJ i' j
+        ((D).pinAt (q₀ + i)).DsE cvT.levelParams ((D).pinAt (q₀ + i)).lvls q₀ kJ i' j
   /-- the copies' ENTRIES at the auxiliary carrier (`nestedPinLeaf_all`) -/
   entry :
     ∀ i, i < kJ → ∀ (ψ : Name → Nat) (ρp : Nat → V),
@@ -700,6 +700,12 @@ structure NestedPinsRun (V : Type w) [SetTheory V] (μ : CheckMode) (F : Nat) {e
   hgrp : ConLeche.nestedGroupsOk env p st = true
   hscoped : ConLeche.pinsScoped p.nP st = true
   hkinds : ConLeche.nestedPinKindsOk p b st stored = true
+  /-- **THE PINS' CONTAINER INSTANCES AND RANK** (K.37, task #315 L-E,
+  DESIGN §U.55): the model's induction measure for the global entry
+  theorem's step (iii) — an OWN reference stays inside the instance, a
+  reference that LEAVES it goes to a strictly smaller rank, the rank is
+  a function of the instance, and a mint group is one instance -/
+  hrank : ConLeche.nestedPinRankOk env p b st stored = true
   hpinsE : ConLeche.nestedPinsOk (m := ConLeche.CheckM) (fueledOps μ F)
       (ConLeche.consMutualFormers (fms.take p.k) env) p.nP st.pins = .ok ()
   hformers : ConLeche.mutualFormers (m := ConLeche.CheckM) (fueledOps μ F) b.nP b.formers env true
@@ -800,6 +806,7 @@ action (the shape, lane L-B) and the entries at the auxiliary carrier
         (Fss₀ := fun ψ => blkFss0 b ctorsA kinds dsF ψ)
         (Ess₀ := fun ψ => mutEss0 ctorsA.length esF ψ) (ψ := ψ) (ρp := ρp)
         mp₁'.base2.acval dJ ((pinsS.getD (q₀ + i) default).ψJ ψ) ((pinsS.getD (q₀ + i) default).Ds ψ)
+        (pinsS.getD (q₀ + i) default).DsE
         cvT.levelParams (pinsS.getD (q₀ + i) default).lvls q₀ kJ i' j) ∧
     (∀ i, i < kJ → ∀ (ψ : Name → Nat) (ρp : Nat → V),
       Sat V (((ppsF 0 ψ).take b.nP).map (·.2.2)).reverse ρp →
@@ -1544,13 +1551,13 @@ DESIGN §U.22.) -/
 theorem nestedPinsStaged_of {F : Nat} (hId : NestedPinsIdent V μ F) : NestedPinsStaged V μ F := by
   intro hμ env mp hE p st b envAux stored ctorsR fmsA ctorsA₀ fms f₀ ctorsA sortss kinds mp₁ ppsF W
     idxF dsF esF srcsF fvsPF xFvsF xrestF eissF tssF mp₁' hPM h0 h1 hfA hcA helim hcount hfresh hcont
-    hb haux hstored hclosed hpinsAux hcaps hsrc hgrp hscoped hkinds hpinsE hformers h hbk h3 hnd hctorsA
-    hleafM' hoff' hfind' hctors
+    hb haux hstored hclosed hpinsAux hcaps hsrc hgrp hscoped hkinds hrank hpinsE hformers h hbk h3 hnd
+    hctorsA hleafM' hoff' hfind' hctors
   have R : NestedPinsRun V μ F mp p st b envAux stored ctorsR fmsA ctorsA₀ fms f₀ ctorsA sortss kinds
       mp₁ ppsF W idxF dsF esF srcsF fvsPF xFvsF xrestF eissF tssF mp₁' :=
     ⟨hμ, hE, hPM, h0, h1, hfA, hcA, helim, hcount, hfresh, hcont, hb, haux, hstored, hclosed, hpinsAux,
-      hcaps, hsrc, hgrp, hscoped, hkinds, hpinsE, hformers, h, hbk, h3, hnd, hctorsA, hleafM', hoff',
-      hfind', hctors⟩
+      hcaps, hsrc, hgrp, hscoped, hkinds, hrank, hpinsE, hformers, h, hbk, h3, hnd, hctorsA, hleafM',
+      hoff', hfind', hctors⟩
   obtain ⟨hpinsE, fvs, o, hop, hsc⟩ := R.scoped
   obtain ⟨pbs, hpbs, hPD⟩ := R.pinData
   have SF := R.synFacts hpinsE hop hsc

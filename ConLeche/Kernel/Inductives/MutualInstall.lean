@@ -650,8 +650,9 @@ def checkMutualCore (ops : CheckerOps m) (env : Env) (b : MutualBlock)
   -- installed, is the block's own data.  It cannot fire — the route
   -- stored the records the walk reads — and the model's environment
   -- field is quantified over exactly this reading.
-  unless blockReadBackOk envOut nP (fms.zipIdx.map fun (f, mIdx) =>
-      (f.cvTa, (b.ownCtors mIdx).filterMap fun (J, _) => ctorsA[J]?)) do
+  -- CERTIFICATION-ONLY (K.35's follow-up): gated on the mode
+  unless certOnly ops.mode (blockReadBackOk envOut nP (fms.zipIdx.map fun (f, mIdx) =>
+      (f.cvTa, (b.ownCtors mIdx).filterMap fun (J, _) => ctorsA[J]?))) do
     throw (.internal "mutual: the installed block does not read back as its own")
   pure envOut
 

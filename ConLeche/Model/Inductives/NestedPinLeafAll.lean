@@ -81,6 +81,254 @@ theorem slotSet_congr_app {w u : Nat} {ρ : Nat → V} {tl : List (Nat × Nat ×
   rw [List.nil_append]
   exact h bs (fitsS_teleOfFields.mp hbs)
 
+/-! ## Kit: the readings' frames — a congruence below a depth -/
+
+/-- **The telescope of a field chain reads only the frame below the
+chain's bound** (task #315 L-E, DESIGN §U.51): the container instance
+transfer reads ONE container's constructor at TWO frames — the
+container's own pin frame and the block's — which agree exactly on the
+components' values. -/
+theorem teleOfFields_congr_below : ∀ {Fs : List AnnotTerm} {k : Nat} {ρ ρ' : Nat → V},
+    FieldsBelow k Fs → (∀ v, v < k → ρ v = ρ' v) →
+    teleOfFields ρ Fs = teleOfFields ρ' Fs
+  | [], _, _, _, _, _ => rfl
+  | F :: Fs, k, ρ, ρ', hb, hρ => by
+    simp only [teleOfFields_cons]
+    rw [interp_congr_below V F k ρ ρ' hb.1 hρ]
+    refine congrArg _ (funext fun a => ?_)
+    refine teleOfFields_congr_below (k := k + 1) hb.2 fun v hv => ?_
+    match v with
+    | 0 => rfl
+    | v + 1 => exact hρ v (by omega)
+
+/-- **Two frames agreeing below a depth agree below that depth under a
+common prefix** (task #315 L-E: `consList_agree_below` at a bound
+BEYOND the prefix — the parameters are what the two frames share). -/
+theorem consList_agree_above {k : Nat} {ρ ρ' : Nat → V} (hρ : ∀ v, v < k → ρ v = ρ' v)
+    (as : List V) : ∀ v, v < as.length + k → consList as ρ v = consList as ρ' v := by
+  intro v hv
+  rcases Nat.lt_or_ge v as.length with hv' | hv'
+  · rw [consList_getD_lt as ρ v hv', consList_getD_lt as ρ' v hv']
+  · rw [show v = (v - as.length) + as.length from by omega,
+      consList_apply_add as ρ, consList_apply_add as ρ']
+    exact hρ _ (by omega)
+
+/-- **A recursive slot reads only the frame below its telescope's
+bound** (task #315 L-E, DESIGN §U.48 (i)'s `slotSet_congr_below`): the
+telescope's domains are bounded at their own depths and the index
+expressions under the telescope, so two frames agreeing below the bound
+give one slot. -/
+theorem slotSet_congr_below {w u k : Nat} {ρ ρ' : Nat → V}
+    {tl : List (Nat × Nat × AnnotTerm)} {Eis : List AnnotTerm} {X : V}
+    (htl : DomsBelow k tl)
+    (hEis : ∀ e ∈ Eis, ConLeche.Term.Term.bvarsBelow (k + tl.length) e.erase)
+    (hρ : ∀ v, v < k → ρ v = ρ' v) :
+    slotSet w u ρ tl Eis X = slotSet w u ρ' tl Eis X := by
+  unfold slotSet
+  rw [teleOfFields_congr_below (k := k) htl.fields hρ]
+  refine piTele_congr fun bs hbs => ?_
+  have hlen : bs.length = tl.length := by
+    have := FitsS.length_eq hbs
+    rw [List.length_map] at this
+    exact this
+  rw [List.nil_append]
+  refine congrArg _ (congrArg _ (List.map_congr_left fun e he => ?_))
+  refine interp_congr_below V e (k + tl.length) _ _ (hEis e he) fun v hv => ?_
+  exact consList_agree_above hρ bs v (by omega)
+
+/-- **A container's constructor fit at TWO level assignments and TWO
+frames** (task #315 L-E, DESIGN §U.51: the gap between the container
+instance transfer's two halves): the container instance transfer reads
+one container `dK`'s member `i`, constructor `j` twice — once as the
+outer container's own copy of a pin, at its pin frame and level
+assignment, once as the BLOCK's copy of the image pin, at the block's —
+and the two agree because the level assignments agree on the
+constructor's level parameters (`targetHead_corr`, `ContainerModeled.pinψ`)
+and the frames on the components' values (`PinCorr`'s `Ds`,
+`interp_instAll`).  The class data are then one datum
+(`IsBlockModel.ctor_params`) and every reading is below the parameter
+depth (`CtorDataI.below`/`belowE`, `tssBelow`/`eissBelow`), so
+`slotSet_congr_below` and `interp_congr_below` carry the fit across. -/
+theorem BlockModel.chainFitT_congr_mem {m : EnvModel V env} {dK : BlockModel V}
+    {pc : Nat → PinCtors V} {ψ₁ ψ₂ : Name → Nat} {ρ₁ ρ₂ : Nat → V} {Y : Nat → V} {t : V}
+    {i j : Nat} {fs : List V}
+    (hreps : IsBlockModels m dK) (hi : i < dK.k)
+    {cA : ConstantVal × Nat} (hj : (dK.ctorsM i)[j]? = some cA)
+    (hψ : ∀ p ∈ cA.1.levelParams, ψ₁ p = ψ₂ p)
+    (hw : dK.w ψ₁ = dK.w ψ₂)
+    (hu : ∀ l, dK.uT (dK.tgts i j l) ψ₁ = dK.uT (dK.tgts i j l) ψ₂)
+    (hIds : (dK.IdsM i ψ₁).length = (dK.IdsM i ψ₂).length)
+    (hρ : ∀ v, v < dK.nP → ρ₁ v = ρ₂ v)
+    (h : dK.ChainFitT pc ψ₁ ρ₁ Y t i j fs) : dK.ChainFitT pc ψ₂ ρ₂ Y t i j fs := by
+  obtain ⟨cvT, cvR, mI, rP, rules, hI⟩ := hreps i hi
+  obtain ⟨hF, hE, htl, hEs⟩ := hI.ctor_params hj hψ
+  have hcd := hI.ctorData hj
+  have hlenF := hI.Fss_length hj ψ₁
+  unfold BlockModel.ChainFitT at h ⊢
+  rw [BlockModel.rssT_of_mem hi, BlockModel.FssT_of_mem hi, BlockModel.IdsT_of_mem hi,
+    BlockModel.EssT_of_mem hi] at h ⊢
+  obtain ⟨hfit, hidx⟩ := h
+  constructor
+  · refine (fitsFrom_iff_frames (by rw [hF]) fun l hl fs₁ hl₁ _ _ => ?_).mp hfit
+    subst hl₁
+    have hlt : fs₁.length < cA.2 := by rw [← hlenF]; exact hl
+    have hidx : dK.nP + fs₁.length < (dK.dsF i j ψ₂).length := by rw [hcd.len]; omega
+    simp only [Nat.zero_add]
+    by_cases hr : ((dK.rss i).getD j []).getD fs₁.length false = true
+    · rw [if_pos hr, if_pos hr]
+      simp only [BlockModel.slotAtT, BlockModel.tgtsT_of_mem hi, BlockModel.teleAtT_of_mem hi,
+        BlockModel.eisAtT_of_mem hi, BlockModel.teleAt, BlockModel.eisAt]
+      rw [hw, hu, htl, hE]
+      refine slotSet_congr_below (k := dK.nP + fs₁.length) ?_ (fun e he => ?_)
+        (fun v hv => consList_agree_above hρ fs₁ v (by omega))
+      · rw [IsBlockModel.tlss_getD hj]
+        exact hcd.tssBelow ψ₂ fs₁.length
+      · have hmem : e ∈ (dK.eissF i j ψ₂).getD fs₁.length [] := by
+          rwa [IsBlockModel.Eiss_getD hj] at he
+        rw [IsBlockModel.tlss_getD hj]
+        exact hcd.eissBelow ψ₂ fs₁.length e hmem
+    · have hr' : ((dK.rss i).getD j []).getD fs₁.length false = false := by simpa using hr
+      rw [if_neg (by rw [hr']; exact Bool.false_ne_true),
+        if_neg (by rw [hr']; exact Bool.false_ne_true), hF]
+      refine interp_congr_below V _ (dK.nP + fs₁.length) _ _ ?_
+        (fun v hv => consList_agree_above hρ fs₁ v (by omega))
+      have hbelow := (hcd.below ψ₂).getD_below (dK.nP + fs₁.length) hidx
+      rw [Nat.zero_add, List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hidx] at hbelow
+      rw [IsBlockModel.Fss_getD hj, List.getD_eq_getElem?_getD, List.getElem?_map,
+        List.getElem?_drop, List.getElem?_eq_getElem hidx]
+      simpa using hbelow
+  · intro l hl
+    have hlenE : ((dK.Ess i ψ₁).getD j []).length = (dK.IdsM i ψ₁).length := by
+      rw [IsBlockModel.Ess_getD hj, hcd.lenE, hI.IdsM_length ψ₁]
+    have hlt' : l < ((dK.Ess i ψ₁).getD j []).length := by
+      rw [hlenE, ← hIds] at *
+      exact hl
+    have hgetD_mem : ∀ (L : List AnnotTerm), l < L.length → L.getD l default ∈ L := by
+      intro L hL
+      rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hL]
+      simp
+    have hmemE := hgetD_mem ((dK.Ess i ψ₁).getD j []) hlt'
+    have hlen : fs.length = cA.2 := by rw [hfit.length_eq, hlenF]
+    rw [← hEs, ← hidx l (by rw [hIds]; exact hl)]
+    refine interp_congr_below V _ (dK.nP + fs.length) _ _ ?_
+      (fun v hv => (consList_agree_above hρ fs v (by omega)).symm)
+    have hbE := hcd.belowE ψ₁ _ (by rwa [IsBlockModel.Ess_getD hj] at hmemE)
+    rw [hlen, IsBlockModel.Ess_getD hj]
+    exact hbE
+
+/-! ## The extended carrier is least among the tuples closed under the classes' constructors -/
+
+/-- **A tuple over the classes closed under the classes' constructors**
+(task #315 L-E, DESIGN §U.48 (h)): in the extended space, and every
+constructor fit at it (`ChainFitT`: the members' constructors and the
+pins' `pc`, all reading the tuple) injects into it. -/
+@[expose] def BlockModel.TClosed (d : BlockModel V) (pc : Nat → PinCtors V) (ψ : Name → Nat)
+    (ρp : Nat → V) (T : Nat → V) : Prop :=
+  InTupleSpace (d.w ψ) d.kT (d.idxT ψ ρp) T ∧
+  ∀ c, c < d.kT → ∀ t, t ∈ˢ d.idxT ψ ρp c → ∀ j fs, j < (d.ctorsT pc c).length →
+    d.ChainFitT pc ψ ρp T t c j fs → d.injT pc ψ c j fs ∈ˢ SetTheory.app (T c) t
+
+/-- The separated pins lie under the property at every point. -/
+theorem BlockModel.app_sepPins_subset_P (d : BlockModel V) {ψ : Name → Nat} {ρp : Nat → V}
+    {X : Nat → V} (P : Nat → V → V → Prop) {q : Nat} (t : V) :
+    ∀ x, x ∈ˢ SetTheory.app (d.sepPins ψ ρp X P q) t → P q t x := by
+  intro x hx
+  by_cases ht : t ∈ˢ d.pinIdx q ψ ρp
+  · unfold BlockModel.sepPins at hx
+    rw [app_graph ht] at hx
+    exact (mem_sep.mp hx).2
+  · unfold BlockModel.sepPins at hx
+    rw [app_graph_of_not_mem ht] at hx
+    exact absurd hx (not_mem_empty x)
+
+/-- **The extended carrier lies below every closed tuple** (task #315
+L-E, DESIGN §U.48 (h)): the members' least tuple with the pins'
+carriers at it (`famAt LJ`) is below any `TClosed` tuple `T` — the pins'
+carriers at `T`'s members are below `T`'s pins (`PinRecLaws.ind` at
+the property "in `T`", the separated pins being under it), so `T`'s
+members are closed under the members' operator (its fits read the
+pins' carriers, `chainFitT_of_chainFit` + `ChainFitT_mono`), so the
+least tuple is below them (`lfpTuple_le`), and the pins follow by
+`pinMono`.  No set operator over the classes is needed. -/
+theorem BlockModel.famAt_le_of_TClosed {env : Env} {m : EnvModel V env} {d : BlockModel V}
+    {pc : Nat → PinCtors V} (hreps : IsBlockModels m d) (hp : PinRecLaws m d pc) (hk : 0 < d.k)
+    {ψ : Name → Nat} {ρp : Nat → V} (hρp : Sat V (d.params ψ).reverse ρp) {T : Nat → V}
+    (hT : d.TClosed pc ψ ρp T) :
+    TupleLe d.kT (d.idxT ψ ρp)
+      (d.famAt ψ ρp (lfpTuple (d.w ψ) d.k (d.idx ψ ρp) (d.Φ ψ ρp))) T := by
+  obtain ⟨cvT, cvR, mI, rP, rules, hI0⟩ := hreps 0 hk
+  have hTm : InTupleSpace (d.w ψ) d.k (d.idx ψ ρp) T := by
+    intro mm hmm
+    have := hT.1 mm (by show mm < d.k + d.nPins; omega)
+    rwa [BlockModel.idxT_of_mem hmm] at this
+  -- (1) the pins' carriers at `T`'s members are below `T`'s pins
+  have h1 : ∀ q, q < d.nPins → ∀ t, t ∈ˢ d.pinIdx q ψ ρp → ∀ x,
+      x ∈ˢ SetTheory.app (d.pinCar ψ ρp T q) t → x ∈ˢ SetTheory.app (T (d.k + q)) t := by
+    intro q hq t ht x hx
+    refine hp.ind ψ ρp hρp T hTm (fun q' t' x' => x' ∈ˢ SetTheory.app (T (d.k + q')) t')
+      (fun q' hq' t' ht' j fs hj hfit => ?_) q hq t ht x hx
+    have hnk : ¬ d.k + q' < d.k := by omega
+    have hfit' : d.ChainFitT pc ψ ρp T t' (d.k + q') j fs := by
+      refine d.ChainFitT_mono pc (fun c' hc' t'' => ?_) (fun i hi hr => ?_) hfit
+      · have hc'k : c' < d.k + d.nPins := hc'
+        by_cases hc'' : c' < d.k
+        · rw [segJoin_lt _ _ hc'', d.famAt_of_mem hc'']
+          exact Subset.refl _
+        · rw [show c' = d.k + (c' - d.k) by omega, segJoin_add _ _ (by omega : c' - d.k < d.nPins)]
+          intro x' hx'
+          exact d.app_sepPins_subset_P _ t'' x' hx'
+      · rw [BlockModel.FssT_of_pin hnk, Nat.add_sub_cancel_left] at hi
+        rw [BlockModel.rssT_of_pin hnk] at hr
+        rw [BlockModel.tgtsT_of_pin hnk, Nat.add_sub_cancel_left]
+        exact hp.tgtsLt ψ q' j i hq' hj hi
+    have := hT.2 (d.k + q') (by show d.k + q' < d.k + d.nPins; omega) t'
+      (by rw [BlockModel.idxT_of_pin hnk, Nat.add_sub_cancel_left]; exact ht') j fs
+      (by rw [BlockModel.ctorsT_of_pin hnk, Nat.add_sub_cancel_left]; exact hj) hfit'
+    rw [BlockModel.injT_of_pin hnk, Nat.add_sub_cancel_left] at this
+    exact this
+  -- (2) `T`'s members are closed under the members' operator
+  have h2 : IsClosedTuple (d.w ψ) d.k (d.idx ψ ρp) (d.Φ ψ ρp) T := by
+    refine ⟨hTm, fun i hi t ht x hx => ?_⟩
+    obtain ⟨cvT', cvR', mI', rP', rules', hI'⟩ := hreps i hi
+    obtain ⟨j, fs, hj, hC, rfl⟩ := (hI'.fibre ψ ρp hρp T hTm i hi t ht x).mp hx
+    have hCT := d.chainFitT_of_chainFit pc hi hC
+    have hCT' : d.ChainFitT pc ψ ρp T t i j fs := by
+      refine d.ChainFitT_mono pc (fun c' hc' t'' => ?_) (fun i' hi' hr => ?_) hCT
+      · have hc'k : c' < d.k + d.nPins := hc'
+        by_cases hc'' : c' < d.k
+        · rw [d.famAt_of_mem hc'']
+          exact Subset.refl _
+        · rw [d.famAt_of_pin hc'']
+          have hq' : c' - d.k < d.nPins := by omega
+          refine app_subset_of_famLe (hI0.pinMem ψ ρp hρp T hTm _ hq') (fun t₀ ht₀ x' hx' => ?_) t''
+          have := h1 _ hq' t₀ ht₀ x' hx'
+          rwa [show d.k + (c' - d.k) = c' by omega] at this
+      · rw [BlockModel.FssT_of_mem hi] at hi'
+        rw [BlockModel.rssT_of_mem hi] at hr
+        rw [BlockModel.tgtsT_of_mem hi]
+        have hks : (d.ksF i j).length = ((d.Fss i ψ).getD j []).length := by
+          rw [(hI'.ctorData (List.getElem?_eq_getElem hj)).ksLen,
+            hI'.Fss_length (List.getElem?_eq_getElem hj) ψ]
+        exact hI'.tgtsLt i j i' hi hj (by rw [hks]; exact hi')
+    have := hT.2 i (by show i < d.k + d.nPins; omega) t
+      (by rw [BlockModel.idxT_of_mem hi]; exact ht) j fs
+      (by rw [BlockModel.ctorsT_of_mem hi]; exact hj) hCT'
+    rw [BlockModel.injT_of_mem hi] at this
+    exact this
+  -- assemble
+  intro c hc
+  by_cases hcm : c < d.k
+  · rw [d.famAt_of_mem hcm, BlockModel.idxT_of_mem hcm]
+    exact lfpTuple_le h2 c hcm
+  · rw [d.famAt_of_pin hcm, BlockModel.idxT_of_pin hcm]
+    have hq : c - d.k < d.nPins := by
+      have : c < d.k + d.nPins := hc
+      omega
+    have hmono := hI0.pinMono ψ ρp hρp _ T (lfpTuple_mem _ _ _ _) hTm (lfpTuple_le h2) _ hq
+    refine hmono.trans fun t ht x hx => ?_
+    have := h1 _ hq t ht x hx
+    rwa [show d.k + (c - d.k) = c by omega] at this
+
 /-! ## The entry at a container's OWN pin, from the pin correspondence -/
 
 /-- **The `pinF` entry at a tuple whose target family reads the stored
@@ -95,7 +343,8 @@ at the pin's components applied to the index spine; the copy's slot at
 the container's pin frame to the block pin's frame (the two differ in
 their base only, below the components). -/
 theorem copyEntryAt_of_pinCorr {env : Env} {m : EnvModel V env} {TV : TargetView V}
-    {dJ : BlockModel V} {ψJ : Name → Nat} {Ds : List AnnotTerm} {tg : Nat → Nat}
+    {dJ : BlockModel V} {ψJ : Name → Nat} {Ds : List AnnotTerm} {DsE : List Expr}
+    {tg : Nat → Nat}
     {tls : List (List (Nat × Nat × AnnotTerm))} {Eis : List (List AnnotTerm)} {ρp : Nat → V}
     {i j l : Nat}
     (hreps : IsBlockModels m dJ) (hfT : FormersTyped m dJ ψJ) (hPT : PinsTyped m dJ ψJ)
@@ -104,7 +353,7 @@ theorem copyEntryAt_of_pinCorr {env : Env} {m : EnvModel V env} {TV : TargetView
     (hw : dJ.w ψJ = TV.w) (hl : l < ((dJ.Fss i ψJ).getD j []).length)
     (hr : ((dJ.rss i).getD j []).getD l false = true) (hnt : ¬ dJ.tgts i j l < dJ.k)
     {lpsJ : List Name} {lvlsJ : List Level}
-    (hcorr : PinCorr TV m.acval dJ ψJ Ds lpsJ lvlsJ (tg l) (dJ.tgts i j l - dJ.k))
+    (hcorr : PinCorr TV m.acval dJ ψJ Ds DsE lpsJ lvlsJ (tg l) (dJ.tgts i j l - dJ.k))
     (htl : (tls.getD l []).map (·.2.2)
       = instTele Ds l ((((dJ.tlss i ψJ).getD j []).getD l []).map (·.2.2)))
     (hEis : Eis.getD l [] = (((dJ.Eiss i ψJ).getD j []).getD l []).map
@@ -239,18 +488,19 @@ identity. -/
 theorem nestedPinShapes_of (m : EnvModel V env₂) {B : ContainerInfo → BlockModel V}
     (hgroupsB : ∀ q, q < pinsS.length → ∀ ci : ContainerInfo,
       ConLeche.containerInfo? env₂ ((D).pinAt q).J = some ci →
-      ∃ (q₀ kJ i : Nat), q = q₀ + i ∧ i < kJ ∧ PG m q₀ kJ (B ci))
+      ∃ (q₀ kJ i : Nat), q = q₀ + i ∧ i < kJ ∧ PG m q₀ kJ (B ci) ∧
+        ∀ i', i' < kJ → ((D).pinAt (q₀ + i')).DsE = ((D).pinAt q₀).DsE)
     (hcont : ∀ q, q < pinsS.length →
       ∃ ci : ContainerInfo, ConLeche.containerInfo? env₂ ((D).pinAt q).J = some ci) :
     PinShapes m B (D) PC := by
   intro q hq
   obtain ⟨ci, hci⟩ := hcont q hq
-  obtain ⟨q₀, kJ, i, hqe, hi, G⟩ := hgroupsB q hq ci hci
+  obtain ⟨q₀, kJ, i, hqe, hi, G, hDsE⟩ := hgroupsB q hq ci hci
   refine ⟨q₀, kJ, i, ci, hqe, hi, hci, ?_, ?_⟩
   · -- the group, viewed
     have h0 : q₀ + 0 = q₀ := Nat.add_zero q₀
-    refine ⟨G.seg, G.kpos, G.kEq, fun i' hi' => ?_, G.same, G.lvls, fun i' hi' ψ => ?_, G.pinNP,
-      G.pinNIdx, G.pinPps, fun ψ => ?_, fun ψ => ?_, fun ψ ρ as hsp => ?_⟩
+    refine ⟨G.seg, G.kpos, G.kEq, fun i' hi' => ?_, G.same, hDsE, G.lvls, fun i' hi' ψ => ?_,
+      G.pinNP, G.pinNIdx, G.pinPps, fun ψ => ?_, fun ψ => ?_, fun ψ ρ as hsp => ?_⟩
     · obtain ⟨cvT, cvR, mI, rP, rules, hI⟩ := G.rep i' hi'
       exact hI.member.symm
     · have := G.pinU 0 G.kpos ψ i' hi'
@@ -264,7 +514,7 @@ theorem nestedPinShapes_of (m : EnvModel V env₂) {B : ContainerInfo → BlockM
   · -- the shape, at the base pin's record and the dropped lists
     intro ψ ρp hρp i' j hi' hj cvT caps hf
     have hsh := G.shape i' hi' cvT caps hf ψ ρp hρp i' hi' j hj
-    rw [(G.same i' hi' ψ).1, (G.same i' hi' ψ).2, G.lvls i' hi'] at hsh
+    rw [(G.same i' hi' ψ).1, (G.same i' hi' ψ).2, hDsE i' hi', G.lvls i' hi'] at hsh
     unfold CopyShapeA at hsh
     rw [nestedBlockModel_targetView m ψ]
     simp only [nestedPc, getD_drop, ← Nat.add_assoc]
@@ -426,7 +676,7 @@ structure GroupFacts (st : ElimState) (m : EnvModel V env₂) (q₀ kJ : Nat) (d
       (Fss₀ := fun ψ => blkFss0 b ctorsA kinds dsF ψ)
       (Ess₀ := fun ψ => mutEss0 ctorsA.length esF ψ) (ψ := ψ) (ρp := ρp)
       m.acval dJ (((D).pinAt (q₀ + i)).ψJ ψ) (((D).pinAt (q₀ + i)).Ds ψ)
-      cvT.levelParams ((D).pinAt (q₀ + i)).lvls q₀ kJ i' j
+      ((D).pinAt (q₀ + i)).DsE cvT.levelParams ((D).pinAt (q₀ + i)).lvls q₀ kJ i' j
 
 /-- **The containers' least tuples at the pins**, `P` (task #315 L-E,
 DESIGN §U.36 (c)): pin `q`'s container's least tuple at the pin's
@@ -1048,6 +1298,46 @@ theorem nestedGroupLe_of_entries (hμ : μ.verifiedChecks = true)
   have hle := lfpTuple_le hclosed i (G.syn.kEq ▸ hi)
   rw [hP_group i hi, hPinIdx i hi]
   exact hle
+
+/-! ## Step (iii)'s INDUCTION: the rank orders the instances (K.37) -/
+
+/-- **The rank induction, over K.37's four clauses** (task #315 L-E,
+DESIGN §U.55): if every reference LEAVING a container instance goes to
+a strictly smaller rank (`hedge`), the rank is a function of the
+instance (`hhom`), and each instance is closed once the pins it
+references OUTSIDE itself are (`hinst` — `instanceLe`, the container
+instance transfer), then every pin's family lies below the auxiliary
+carrier's.
+
+This is the whole of step (iii) that does not depend on WHAT the pins
+are: `hedge`/`hhom` are `nestedPinRankOk`'s clauses (2) and (3) at the
+edge relation the kernel lane's inversion supplies — an edge is a
+copy's field target, which `CopyCtorShape` names — and `hinst` is the
+transfer.  Clause (1) (an own reference stays inside the instance) and
+clause (4) (a mint group is one instance) are consumed INSIDE `hinst`,
+which is where the container's own pins and the group are. -/
+theorem pins_le_of_instanceLe {n k : Nat} {Is P L : Nat → V}
+    {Edge : Nat → Nat → Prop} {inst rank : Nat → Nat}
+    (hedge : ∀ q q', q < n → q' < n → Edge q q' → inst q' = inst q ∨ rank q' < rank q)
+    (hhom : ∀ q q', q < n → q' < n → inst q = inst q' → rank q = rank q')
+    (hinst : ∀ q, q < n →
+      (∀ q₀ q', q₀ < n → q' < n → inst q₀ = inst q → Edge q₀ q' → inst q' ≠ inst q →
+        FamLe (Is (k + q')) (P q') (L (k + q'))) →
+      FamLe (Is (k + q)) (P q) (L (k + q))) :
+    ∀ q, q < n → FamLe (Is (k + q)) (P q) (L (k + q)) := by
+  have key : ∀ r q, rank q < r → q < n → FamLe (Is (k + q)) (P q) (L (k + q)) := by
+    intro r
+    induction r with
+    | zero => intro q hr; exact absurd hr (Nat.not_lt_zero _)
+    | succ r ih =>
+      intro q hr hq
+      refine hinst q hq fun q₀ q' hq₀ hq' hq₀i hE hne => ?_
+      refine ih q' ?_ hq'
+      rcases hedge q₀ q' hq₀ hq' hE with heq | hlt
+      · exact absurd (heq.trans hq₀i) hne
+      · have : rank q₀ = rank q := hhom q₀ q hq₀ hq hq₀i
+        omega
+  exact fun q hq => key (rank q + 1) q (Nat.lt_succ_self _) hq
 
 end Assembly
 

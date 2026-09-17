@@ -452,6 +452,7 @@ correspondence, `es`), K.28's pre-image computed through
         (Fss₀ := fun ψ => blkFss0 b ctorsA kinds dsF ψ)
         (Ess₀ := fun ψ => mutEss0 ctorsA.length esF ψ) (ψ := ψ) (ρp := ρp)
         mp₁'.base2.acval dJ ((pinsS.getD (q₀ + i) default).ψJ ψ) ((pinsS.getD (q₀ + i) default).Ds ψ)
+        (pinsS.getD (q₀ + i) default).DsE
         cvT.levelParams (pinsS.getD (q₀ + i) default).lvls q₀ kJ i' j
 
 /-- **The copies' ENTRIES at the auxiliary carrier** (NAMED — lane L-E's

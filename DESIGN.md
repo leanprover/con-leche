@@ -80406,6 +80406,165 @@ interleaved), zero source adaptations, and the arena run.  Next:
 `recF`'s remaining half and `ordF`-left, L-E's blob route, M7's three
 stage facts, `declNativeB`, and K.36.
 
+##### (s) INTEGRATION 3k — the kernel lane's CERTIFICATION-TAX GATE merged, `declNativeB`, and L-B's `recF`/`ordF`-left (session U-33)
+
+Three merges into the lane, `--no-ff` at the pinned shas —
+`agent/uniform-m5` **d2347e27** (the kernel lane) at ae218abe,
+`agent/uniform-m7env` **024e521a** (M7-3 s8) at 5e35dc9f and
+`agent/uniform-ident` **4d479e2a** (L-B s11) at 46874bda.  **The nested
+chain does not move**: `declNested_of` over `mp : EnvModelB` still
+closes over exactly `hSh : NestedPinsShape`, `hEn : NestedPinsEntry` and
+`htail : NestedTailModeled` (plus `hE` and the run).  What moves is the
+kernel underneath it — every certification-only record is now GATED on
+the mode — and the two routes beside it: the NATIVE route hands back
+`EnvModelB` over nothing beyond the run, and `recF` is closed at a
+finitary recursive field.
+
+*Merge 1 — the kernel lane* (ae218abe).  The branch contains 1a7d2541
+(merged at 3i), so the delta is K.35, the gate, K.36-as-derived and
+K.37.  **THE GATE is the session's one structural change.**
+`CheckerOps` gains a `mode` field (`Kernel/CheckerBase.lean`), every
+instantiation records the `CheckMode` it was built at, and
+`certOnly mode b = !mode.verifiedChecks || b` wraps each record that
+exists for the soundness PROOF rather than for soundness — the run
+relations now say `certOnly μ b = true`, and the model tier, stated
+under `hμ : μ.verifiedChecks = true`, reads `b = true` back with
+`certOnly_elim`.  `||` short-circuits, so at `--trusted` the Bool is not
+evaluated at all: this is the standing ruling (trusted = verified minus
+the certification-only steps) made mechanical.  Nine records are gated
+across the three routes — K.14's containers, K.28's copy sources, K.31's
+distinctness, K.29's groups, K.30's scope, K.32's targets, K.26's kinds,
+K.34's read-back on all three routes, and the two new ones.  Beside it:
+K.35's `nestedAuxAppsOk` with the memoized `auxAppsOk`/`auxAppsGoM`
+(`@[csimp]`, `AuxAppsMemoInv`, `auxAppsGoM_spec`), K.37's
+`nestedPinRankOk` with `nestedPinEdges`/`nestedPinArcs`/
+`nestedPinInstFrom`/`nestedPinRankFrom` and the readers
+`nestedPinInstOf`/`nestedPinRankOf` — both new `DeclNestedRun`
+conjuncts with their `_inv` — and K.36 WITHDRAWN as a check (a
+`git revert -n` of the Bool) but KEPT as `MutualOrdFree`/
+`mutualOrdFree_of` and `NativeOrdFree`/`nativeOrdFree_of`
+(`Verify/Inductives/MutualInv.lean`), derived from
+`mutualFormers_membersFresh` and `checkSumInd_freshName`.
+
+*The adaptation of merge 1, and how small it turned out.*  Two DESIGN
+and one source conflict were expected to be wide; the source side was
+**three files and eight lines**, and the reason is worth recording.
+The gate changes the run relations, so only a consumer that
+DESTRUCTURES a run relation sees it — everything downstream takes the
+Bools as hypotheses of its own theorems, stated un-gated, and is
+untouched.  There are exactly three such sites in the tree:
+`Model/Inductives/DeclNestedCore.lean` (`declNested_of`: two `-` binders
+for K.35's and K.37's new conjuncts after the field kinds, and five
+`replace … := certOnly_elim … hμ` for the records it forwards),
+`Model/Inductives/EnvModelBStages.lean` (`declMutualB`, one, for K.34's
+read-back) and — at merge 2, because it arrived with that branch —
+`Model/Inductives/DeclNative.lean` (`declNative_syntax`, one).  Every
+file the forecast named beside them (`NestedPins`, `NestedCopyIdx`,
+`NestedLoop`, `NestedCore`, `NestedCopyInst`, `DeclBlock`,
+`NestedAuxInv`, `NestedRecDoor`, `NestedRecTypes`, the
+`Bridge*`/`AgreeFloor`/`PushChain` mirrors) needed NOTHING.  **The rule:
+a mode gate on a recorded Bool costs exactly one `certOnly_elim` per
+run-destructuring site, not one per consumer.**  The two DESIGN
+conflicts were pure appends, resolved as a union with zero lines dropped
+against either parent; `MutualInv.lean`'s was the same shape (the lane's
+graded stages against the branch's K.36 block, both appended at the end
+of the file).
+
+*Merge 2 — M7-3 session 8* (5e35dc9f).  `declNativeB`
+(`EnvModelBStages.lean:1163`) takes `hμ`, the carrier, `hE`, the
+recogniser's reading and the run, and NOTHING else — §U.50 (d)'s four
+items are all done: `nativeOrdFree_of` (the native `ordFree` needs no
+kernel conjunct, §U.52's finding), `nativeContainerModeled`,
+the `installExt` chain (`nativeInstallExt`,
+`consNativeFormer_installExt`, `consSumCtors_installExt`,
+`nativeTable_installExt`), `nativeRec_fresh`, and `stageFixTable`/
+`declNativeTable` handing back `AcvalAgrees`.  DESIGN was the only
+conflict; §U.52 was interleaved BY NUMBER before the K sections (which
+the branch has never seen), a pure union.  **TWO `NativeOrdFree`s now
+stand, deliberately**: `ConLeche.NativeOrdFree T nP ctorsA kinds`
+(`Verify/Inductives/MutualInv.lean`, K.36's derived twin, off
+`nativeFieldsOk` plus freshness, stated with `Expr.mentionsConst`) and
+`ConLeche.Model.NativeOrdFree p ctorsA` (`EnvModelBStages.lean`, off
+`NativeSyntaxFacts`, stated with `mentionsMember [p.cvT.name]` and
+packaged over `NativeParts`).  They are not the same statement — the
+kernel's is an inversion of the install's own guard, the model's is
+phrased in the record the block model consumes — so both are kept;
+different namespaces, no ambiguity, and the model's site uses the
+model's.  `declNative_syntax`'s one-line adaptation shifted `declNative`
+by three lines, so OVERVIEW's anchor was repointed L1323 → L1326 (a pure
+line shift; the citing paragraph was re-read here and its claim, "the
+model-tier theorem for the whole install", is unchanged).
+
+*Merge 3 — L-B session 11* (46874bda).  `NestedPinsRun.copyRecFRead`,
+`copyRecFKind`, `copyOrdFLeft`, `groupCopyFormer` and `mintFieldRead`,
+with the normalisation lemmas they run on (`normCtorValM_domErased`,
+`normCtorValM_domUnchanged`, `normPosDomM_no_mention`,
+`instSeq_abstractRange_fvs_at`, `denoteMeta_openPisAtFvars_dom`,
+`stripPis_binder_leaves`, `crossUpSpine`).  DESIGN was again the only
+conflict and again had to be interleaved (§U.53 between §U.52 and the K
+sections), a pure union.  **ZERO source adaptations**: every forecast
+conflict failed to materialise — `NestedCopyInst`, `NestedCopyRead`,
+`NestedCopyGlue` and `NestedCopyNorm` came out byte-identical to the
+branch's, because merge 1's `certOnly` work touched only the three
+run-destructuring sites, none of which L-B has changed, and the branch's
+`normPosDomM_no_mention` lands at `MutualInv.lean:304`, far from the
+appended K.36 block.
+
+**The import gate had nothing to take**, as in §U.27 (b), (g), (h), (k),
+(m), (q) and (r): none of the three branches touched
+`tests/shake-allowlist.txt` or `scripts/pub-import-plan.py`, so there
+was no union and no new FALLBACK to verify.  Shake 510 proposed / all
+510 allowlisted at all three merge commits; pub-imports none demotable
+at all three — 1276 of 2016 in-tree edges public with 38 dot-notation
+fallbacks after merge 1, 1277 of 2018 after merges 2 and 3.
+
+Gates at ALL THREE merge commits: `lake build` warning-free (701 jobs at
+each — no merge adds a module), `lake test` warning-free, shake and
+pub-imports as above, layering base 347 / model 271 / caps 3 / umbrella
+1 with 0 base→lane and 0 impl→theory at each; trust surface 13 escapes
+in 5 allowlisted files (633 scanned); no-local-paths OK; overview-links
+112; quote-gate 2; proofdeps 4955 rows / 12 roots / **0 doors** at each
+— **the row count did NOT move** (the forecast 4915 did not
+materialise: the kernel lane changed no proofdeps expectation).
+Nested-shadow 27/27 on the final commit.  **And `tests/arena.sh` on
+merge 1: EXIT 0** — checker code changed on all three routes, so that
+was the run that had to be made, and it is the only one: merges 2 and 3
+touch no checker code.  No `sorry`, no axioms, no `maxHeartbeats`, no
+checker code EDITED (the kernel lane's code is merged, not changed).
+
+**The chain, re-verified** (`_tmp/uniform-315/chain-probe-u33.lean`,
+outside the build): `declNested_of hμ mp hE (nestedCoreModeled_of
+(nestedCtorsStaged_of (nestedPinsStaged_of (nestedPinsIdent_of hSh
+hEn)) nestedReadLaw)) htail h : Nonempty (EnvModelM V μ envOut)` still
+closes over exactly `hSh`, `hEn` and `htail` (plus `mp : EnvModelB V μ
+env`, `hE` and the run) — **the gate and its two new conjuncts cost the
+chain no hypothesis**.  `nestedTailModeled_of hrd heqs hst` and
+`declMutualB hμ mb hE hpinOk hOrd h` still typecheck, as do `natBlockAt`
+and `eqBlockAt` at the guarded `ContainerModeled`.  New probes, all
+green: `declNativeB hμ mb hE hdp h : Nonempty (EnvModelB V μ envOut)`
+with NO hypothesis beyond the run, `nativeIsBlockModel`, the native
+`installExt` chain, both `NativeOrdFree`s and their `_of`s, `certOnly`/
+`certOnly_elim`, `nestedAuxAppsOk`/`nestedPinRankOk` with
+`nestedPinInstOf`/`nestedPinRankOf`, and L-B's `copyEs`, `copyRecF`,
+`copyRecFRead`, `copyRecFKind`, `copyOrdFLeft`, `groupCopyFormer`,
+`mintFieldRead`.  `#print axioms` of `probe_decl`, `probe_tail`,
+`probe_mutual` and `probe_native`: `[propext, Classical.choice,
+Quot.sound]`.
+
+The nested residual after 3k is (n)'s, unchanged — `NestedPinsShape`
+(L-B/L-E), `NestedPinsEntry` (L-E) and `NestedTailModeled` (M7-2's three
+stage facts).  Beside it the MUTUAL route still owes `MutualOrdFree` as
+an ARGUMENT to `declMutualB` — K.36 landed as a derived theorem, not as
+a conjunct, so discharging that argument at the lift is now a lane
+item — and the NATIVE route owes nothing.  `recF` is closed at a
+finitary recursive field; `ordF`-left is proved modulo B6's own case.
+
+Cost: well under a session — three DESIGN conflicts (one appended, two
+interleaved), one `MutualInv` append, eight lines of `certOnly`
+adaptation across three files, and the arena run.  Next: L-E's blob
+route and `NestedPinsEntry`, M7's three stage facts, `ordF`-left's B6
+case, and `MutualOrdFree` at `declMutualB`.
+
 #### K.32 — the copies' recursive targets come from the container's own recursion (2026-09-16, task #315, lane L-B's DESIGN §U.23 (e))
 
 The model's `ordF` arm needs to know that a container-ORDINARY field
@@ -80525,6 +80684,26 @@ the move is a cut and a paste; nothing else changed.
 walk reads.  A nested block's mimics are not members — the motive walk
 stops at the first motive that is not a real member's, which is the
 first mimic's — so the nested read-back is the block's own `k`.
+
+**A SECOND FINDING, from `tests/proofdeps.sh`.**  The first version of
+`sizeOf_mem_getAppArgs` unfolded `getAppArgs` with `rw`/`simp only`.
+Asking for a function's equation lemma MINTS the underlying matcher's
+splitter equations, and they are minted as constants PRIVATE TO THE
+MODULE THAT ASKS FIRST — here `Expr.getAppFn.match_1.eq_2`, private to
+`NestedInstall`.  Every later module that unfolds `getAppArgs` then
+reaches the nested route through that constant, and the proof-term gate
+read the consequence exactly: ten of its twelve capstones ENTERED a
+dependency on `ConLeche.Kernel.Inductives.NestedInstall`, along the path
+`model_exists → … → Model.prf_of_isProofFast →
+Expr.getAppArgs_instantiateLevelParams → Expr.getAppArgs.eq_2 →
+NestedInstall's private `Expr.getAppFn.match_1.eq_2`.  A gate-visible
+door out of a tactic choice.  The fix is to unfold by DEFEQ
+(`have h' : a ∈ f.getAppArgs ++ [b] := h`), which mints nothing, and to
+give `auxAppsNodeKids` an `if` rather than a `match` so that `unfold`
+needs no matcher equation of its own.  `proofdeps` is back at
+**4 915 module rows across 12 roots, doors: 0**.  The lesson generalises
+and belongs beside the module system's two traps: *a kernel module must
+not be the first to ask for a shared `Expr` function's equation lemma.*
 
 **MEASURED, K.25-style** (zero fires everywhere):
 
@@ -84785,6 +84964,96 @@ below the extended carrier `famAt LJ` (`app_subset_of_famLe` +
 which the frames' kit carries).  `fit_iff_at` is its instance at
 `Y := famAt LJ`.
 
+##### (h) SESSION 5's re-cut of the blob transfer: a RELATION, not a map; the entries fibre-wise
+
+Working (1)–(2) of (g) through showed the pullback lemma's FUNCTION
+`σ` is the wrong shape twice over — `J`'s pins `K (J α)`, `K (J β)` at
+`Ds = [P4, P4]` both instantiate to the block's `K (J P4)`, and a
+block pin the block's copy names at one field is only determined by
+the field's syntactic instantiation, which the abstract container
+model does not carry — so the comparison is made along a RELATION `R`
+between `J`'s classes and the block's pins, defined by the targets'
+READINGS (a `J`-class and a block pin are related when their stored
+readings, applied to fitting index spines, agree), with duplicates on
+either side absorbed by relational meets:
+
+* `lfpTuple_le_of_rel` / `lfpTuple_eq_of_rel` (`LfpCompose.lean`):
+  `Φ`'s least tuple lies below a FIXED POINT `F'` of `Φ'` at every
+  `R`-related pair when `Φ'` is `R`-monotone over `Φ` at tuples below
+  `Φ`'s least tuple (`relMeet`, the relational fibre meet, is
+  `Φ`-closed); at two least tuples both ways gives equality.  Stated at
+  a fixed point so the CARRIER `L⁺` stands on the right with no
+  sub-system leastness to show, and only the container→block direction
+  is needed for (iii) (the other is step (ii)).
+* `PinRecLaws.injW`: a pin's injection is the tagged tower (`nestedPc`
+  by definition) — the fibres compared carry the same tags.
+* `EntryRead` restated at the BODY: the container's domain is
+  `mkPisAV tlsJ body` (its own telescope, the copy's is its
+  instantiation) whose body at a fitting prefix and telescope spine
+  reads as the target's stored reading applied to the copy's index
+  readings.  Equal Π-TOWERS do not give equal fibres (an empty fibre
+  empties a tower), and `R` between an `ordF`-right target of `J`'s
+  pin constructor and the corresponding target of the block's copy is
+  established fibre-wise from the two body identities through
+  `interp_instAll` (the same container field at two frames).  For lane
+  L-B: `copyOrdFRight_shape`'s reading half is now the body form —
+  what `copyGroupTargetHead`'s `hstr`/`hhead` give directly.
+
+With these the blob transfer needs NO `σ`, no `ΦT` as a set operator
+on the container side beyond what `PinRecLaws.fibre`/`ind` state, and
+no names in `R`.  The container-side leastness is
+`BlockModel.famAt_le_of_TClosed` (`NestedPinLeafAll.lean`): the
+extended carrier `famAt LJ` (the members' least tuple with the pins'
+carriers at it) lies below every `TClosed` tuple — one in the extended
+space closed under every class's constructors (`ChainFitT`, the pins'
+`pc` included) — because the pins' carriers at `T`'s members are below
+`T`'s pins (`PinRecLaws.ind` at "in `T`", the separated pins under it),
+so `T`'s members are closed under the members' operator
+(`chainFitT_of_chainFit` + `ChainFitT_mono`), so the least tuple is
+below them (`lfpTuple_le`), and the pins follow by `pinMono`.  So
+`blobLe` is: the relational meet `relMeet (famAt LJ) R (L⁺ pins)` is
+`TClosed` — a fit at it injects into `famAt LJ` (a fixed point) and,
+at every `R`-related block pin, into `L⁺` (the transfer, container →
+block, at `L⁺`) — hence `famAt LJ ≤ relMeet ≤ L⁺` at related pairs.
+
+##### (i) SESSION 5's remainder: the pin half needs the targets' NAMES at `ordF`-right fields too
+
+`CopyCtorShape.fit_imp_T_le` (`NestedFit.lean`) is the member half in
+the relational form: a container fit at an extended tuple `T ≤ famAt LJ`
+is a copy fit at a block tuple `Z` under which the container's target
+classes lie at every recursive field (the relation's premise, `hrel`)
+and whose slots the externals' domains lie under (`hentR`).  Its twin
+at a PIN class — `pc qK`'s constructor (K's at `Ds_K`, `PinShapes`)
+against the block's copy of the image pin `t` (K's at `Ds_K[Ds]`) — is
+field-by-field the same argument through `K`'s data at level
+assignments agreeing on `K`'s parameters (`CtorDataI.params`,
+`eissParams`/`tssParams`/`uParams`) and frames agreeing below the
+parameters (`Ds_K` read at `J`'s frame IS `Ds_K[Ds]` read at the
+block's, `interp_instAll`; a `slotSet_congr_below` is still to write),
+EXCEPT at `K`'s ordinary fields the two eliminations both rewrote
+(`ordF`-right on both sides): the container's fit reads the tuple at
+`J`'s target `τ`, the block's at its target `t'`, and `R τ t'` must
+hold — the two targets' READINGS agree fibre-wise (the body-form
+`EntryRead`s and `interp_instAll`), but the slots compare the two
+families at index TUPLES `tupW u is`, whose universe `u` is the
+target CONTAINER's (`pinU`), and nothing at the reading level says the
+two targets have the same container (`acval C ψ = acval C' ψ'` for
+distinct `C, C'` is possible).  `tupW_zero_agree` needs only `u = 0 ↔
+u' = 0`, but even that is a datum of the container, not of the reading.
+So `EntryRead` must carry, like `PinCorr`, the target's NAME and LEVELS
+— and for a `K`-field that is a bare PARAMETER (`β := J_m α` at `J`'s
+level, `J_m Ds` at the block's) the head is the pin's COMPONENT's head,
+which `PinSyn.Ds` (readings) does not carry: the pins' components must
+be recorded as `Expr`s (`PinSyn.DsE`, the block's pins have them —
+`pin = mkAppN (const J lvls) DsE`; a stored container's pins are in
+the environment's inductive info, `EnvWF`'s `pin` clause) with the
+reading law `Ds ψ = DsE.map (reading)`, and `EntryRead`'s conjunct
+`TV.J (tg l) = head (instantiated field's body)` / `TV.lvls (tg l) = …`
+stated on the Expr instantiation.  Sizing: PinSyn.DsE + the
+container-side clause (`ContainerModeled`) + `EntryRead`'s two
+conjuncts (L-B's `copyGroupTargetHead` gives them) ½ session; the pin
+half ~1 session; `blobLe` ½; the rank induction + (iv) 1.
+
 ##### (g) WHAT REMAINS on the blob route
 
 1. The pin half of the transfer: the block's copy of a kind-2 pin `t`
@@ -85156,6 +85425,131 @@ theorem for the whole install); quote-gate 2; no-local-paths OK;
 proofdeps 4955 rows / 12 roots / 0 doors; shake 508/508 allowlisted;
 pub-imports 1262 of 1992, none demotable; `tests/arena.sh` green.
 Standard axioms on every new theorem.
+
+#### U.52 — M7-3 session 8: `declNativeB` — the native route hands back the environment model WITH ITS BLOCKS, over NOTHING (lane M7-3, session 8, 2026-09-17)
+
+§U.50 (d) listed four items and sized them at a session.  All four are
+done, and the lift is stated:
+
+```lean
+theorem declNativeB (hμ : μ.verifiedChecks = true) {F : Nat} {env envOut : Env}
+    {block : List ConstantInfo} {nPd : Nat} {p₀ : NativeParts} (mb : EnvModelB V μ env)
+    (hE : ConLeche.EtaFamiliesClosed env) (hdp : ConLeche.nativeParts? nPd block = some p₀)
+    (h : ConLeche.Semantics.DeclNativeRun μ F env p₀ envOut) :
+    Nonempty (EnvModelB V μ envOut)
+```
+
+**No hypothesis beyond the run** — `declMutualB`'s `hOrd` has no native
+counterpart to take.  `declNative`, `declNativeTable` and every other
+capstone-consumed statement are unchanged.
+
+##### (a) THE FINDING: `NativeOrdFree` needs no kernel conjunct
+
+§U.50 (d) 4 expected the native lift to state `MutualOrdFree`'s twin as
+an argument, to be swapped for K.36's Bool at the integration.  It does
+not have to.  `ContainerModeled.ordFree` asks that an ORDINARY field's
+OPENED domain mention no member, and the native install's own
+opened-form guard says exactly that:
+
+    nativeOpenedOk env₀ T lps nP nIdx cty nF ks   -- the `.ordinary` arm
+      | some x, .ordinary => x.fvarTypeD.constsResolve env₀
+
+at `env₀` the PRE-BLOCK environment, where the member is fresh
+(`DeclNativeRun`'s `nativeFieldsOk env …`).  A resolving expression
+mentions no unstored name (`rk_mentionsConst_false_of_constsResolve`),
+so the clause follows.  The model tier already reads that guard
+positionally — `FixOpened.ord`, a field of the constructor data
+`NativeSyntaxFacts` carries — so `nativeOrdFree_of` is fifteen lines off
+the record, with no kernel involvement and no Verify addition.  (The
+same argument is the kernel lane's `mutualOrdFree_of` on the mutual
+side, which is why K.36 is being retired rather than landed.)
+
+`NativeOrdFree` is kept as a named Prop: it is what
+`nativeContainerModeled` consumes, in `MutualOrdFree`'s shape at the
+single-member list, so the two routes' `ordFree` bridges read alike.
+
+##### (b) Three more agreements that were proved and dropped
+
+The lift needs the carriers to agree at the stored names all the way
+from the pre-block environment to the output, and every stage proves
+its own `acvalWith` equation and throws it away (§U.31 (c), §U.43 (a)
+again, three times):
+
+* `stageFixTable` → `exists_agrees_of_cons` at the table's fresh cons,
+  and `declNativeTable` hands `AcvalAgrees mp₃.base2 mpOut.base2` back
+  at BOTH branches (`AcvalAgrees.rfl'` where the stage conses nothing);
+* `ctorsLoopGen` composes its per-constructor equation along the loop
+  (one conjunct, `AcvalAgrees mp.base2 mp'.base2`);
+* the former's stage already returned its equation, so
+  `declNative_syntax` assembles `AcvalAgrees mp.base2 mpC.base2`
+  internally and hands back that, the recursor cons's and the table's.
+
+`declNative` is still `declNative_syntax`'s first projection.
+`NativeSyntaxFacts` also carries the run's K.34 read-back (`readBack`),
+so the lift never re-destructures the run — a second `obtain` on
+`DeclNativeRun` would give FRESH existential witnesses, tied to the
+record's by nothing.
+
+##### (c) The crossings, and the guard's second source on this route
+
+`nativeInstallExt` gives three `BlockInstallExt [p.cvT.name]` pieces:
+the former's cons and the constructors' conses composed (base →
+constructors' environment), the recursor's cons, and the table's
+(`nativeTable_installExt`: the only table a structure-like block conses
+is the MEMBER's; at any other block it conses nothing).  The block
+model crosses the last two at once — `IsBlockModel.crossEnvG` at
+`Ts := [p.cvT.name]`, `hde` from `denoteMeta_env_mono_projFree` at the
+composite's `TableCross` — and the field `EnvBlocksOf` crosses all
+three (`EnvBlocksOf.crossIndP`).
+
+The two `ProjFree` guards `crossEnvG` takes:
+
+* the MEMBER's type resolves at the pre-block environment, where the
+  member is fresh — `ProjFree.of_constsResolve` (§U.41 (f)'s first
+  source, available here because `NativeSyntaxFacts.Tres` is stated at
+  `env`, not at the install's own environment);
+* a CONSTRUCTOR's type is the annotation pass's output, and the pass
+  creates a `.proj T j` node only at a slot that RESOLVES, while the
+  member's slots are empty at the formers' environment (`ProjOkT` at
+  the pre-block environment + `findProj?_none_of_indFresh`) —
+  `nativeCtorProjFree`.  The mutual route reads this off its whole
+  `NoProjEnv` bookkeeping (`mutualNoProj`); the native route needs only
+  the two types, so no environment-wide bookkeeping is required and
+  `declNativeTable`'s internal `hnp₃` stays internal.
+
+##### (d) The assembly
+
+`nativeContainerModeled` is `ContainerModeled.of_readBack` at the
+single-member list `[(cvTa, ctorsA)]` the run's K.34 Bool certifies.
+At `k = 1` every DATA clause is the one-member block model's own shape
+(`memberNames = [T]`, `ctorsM _ = ctorsA`, `ppsM _ = ppsAll`, `pins = []`):
+`hk`, `hnP`, `hnamesLen`, `hctorNames`, `inj` and `frame` are `rfl` or
+`Iff.rfl`, `hnames`/`hmember` are `NativeSyntaxFacts.Tname`, the three
+PIN clauses are vacuous, `ordFree` is (a), `typed` is the model's own
+`mem_type` at the two stored constants (`nativeTyped`, crossed by
+`FormersTyped.crossEnv`/`CtorsTyped.crossEnv`) and `reps` is
+§U.50 (c)'s `nativeIsBlockModel`, crossed.  `BlockAt.of_noPins` then
+gives the group's obligation, `B'` is `B` updated at the new group, and
+`hold`/`hnew` are `declMutualB`'s (§U.47 (g)) at one member.
+
+##### (e) What the routes still owe
+
+* **native**: nothing — `declNativeB` closes §U.47 (i)'s native item.
+* **mutual**: `hOrd` only, until the kernel lane's `mutualOrdFree_of`
+  lands (the integration deletes the argument).
+* **nested** and **the basis blocks** and **the fold's flip**:
+  unchanged (§U.40 (d), (e), (f)).
+
+##### (f) GATES
+
+`lake build` 694 jobs warning-free; `lake test` warning-free; layering
+346 / 265 / 3 / 1, 0/0; trust 13/5 (626); overview-links 112 (the
+`declNative` anchor repointed on a pure line shift — the citing
+paragraph re-read, the claim unchanged); quote-gate 2; no-local-paths
+OK; proofdeps 4955 rows / 12 roots / 0 doors; shake 508/508
+allowlisted; pub-imports 1263 of 1994, none demotable;
+`tests/arena.sh` green.  Standard axioms on every new theorem.
+
 #### U.53 — L-B session 11: `recF` CLOSED at a finitary recursive field, `ordF`-left proved modulo B6's own case (lane L-B, 2026-09-17)
 
 **Two more arms are in the tree.**  `NestedPinsRun.copyRecFRead`
@@ -85341,6 +85735,909 @@ of 1990, none demotable.  Standard axioms only on every new theorem
 restated `instSeq_abstractRange_fvs`, `normCtorValM_domHead`,
 `copyFields`, `copyResid`, `copyRecFDom`, `copyRecF`).
 
+#### K.35 — the auxiliary applications sit at the parameters (2026-09-17, task #315 M7, the model lane's spec §1a)
+
+`restoreNode` REPLACES a key-headed application `aux_q args` by the pin
+lifted to the binder depth and applied to `args.drop nP`: it DROPS the
+first `nP` arguments unchecked and substitutes components that mention
+the BLOCK's parameters.  Official's `restore_nested` does exactly the
+same.  Both rely on an invariant of the elimination that neither of them
+tests — that an auxiliary type or constructor is only ever applied to
+the block's own parameter variables.  The model consumes the same
+invariant: at a pin occurrence the restored reading says "the container
+at `Ds[p⃗]`", the auxiliary reading says "the copy at whatever the first
+`nP` arguments are", and the two are the same object only when those
+arguments ARE `p⃗`.  It was in the tree for the constructors' FIELDS
+(`MutualOpened.recF`/`.reflF`, recorded by `mutualOpenedOk`) and nowhere
+for the recursor TYPES or the RULES.  This is the record.
+
+**`nestedAuxAppsOk p st stored`** (`Kernel/Inductives/NestedInstall.lean`):
+over every member of the scratch block, the read-back recursor type with
+its `Π p⃗` stripped (`stripPis nP`) and every read-back rule right-hand
+side with its `λ p⃗` stripped (`stripLams nP`) satisfies `auxAppsOk`,
+with a type key's arity the copy's index count (`auxIdxCount p.nP`) and
+a constructor key's arity its field count.  A `recMap` key needs no
+shape — `restoreNode` renames a bare constant there and walks its
+arguments.  One conjunct after `nestedPinKindsOk` in `checkNested` and
+in the cached mirror `checkNestedS`, `.internal` on failure, and one
+conjunct of `DeclNestedRun` and of `checkNested_inv`.
+
+**THE DAG FINDING, and the shape it forced.**  The first `auxAppsOk`
+collected the spine once per `.app`, hoisted the `auxNames` prune to the
+root, and used `fuel := e.sizeF`.  It took
+`tests/e2e/tower_nested.ndjson` — the depth-60 DAG tower — from 0.046 s
+to **over 600 s**.  Two independent faults: the walk was UNMEMOIZED over
+a DAG-shared read-back rule, and `e.sizeF` is itself a tree walk, so
+*computing the fuel* was already exponential.  The maintainer's ruling
+is the task #215 discipline in full:
+
+* the PURE definition is fuel-free and well-founded on `sizeOf` — Lean's
+  own auto-generated measure, which appears only in
+  `termination_by`/`decreasing_by` and is therefore ERASED at runtime.
+  The subterm lemma it needs is `sizeOf_mem_getAppArgs` — every argument
+  of a spine is a proper subterm of it;
+* the EXECUTED walk is a memoized twin swapped in by `@[csimp]`,
+  kernel-checked, no `implemented_by`: `auxAppsGoM` with
+  `Std.HashMap (Expr × Nat) Bool`, `AuxAppsMemoInv`, `auxAppsGoM_spec`,
+  `auxAppsOk_eq_auxAppsOkFast` — `projTablesOkGo`'s shape exactly, with
+  the BINDER DEPTH threaded into the key and the invariant, because the
+  walk's answer depends on it (the variables it compares against are
+  `structPsAt d nP`).
+
+The node step is split so that NEITHER walk needs a match equation to
+descend: `auxAppsNodeOk` is the node's own test (at a key head the
+`nP + arity` count and the parameter prefix; `true` at every other head)
+and `auxAppsNodeKids` the children, and the children are proper subterms
+UNCONDITIONALLY (`sizeOf_mem_auxAppsNodeKids`) — the key branch's
+`args.drop nP` through `sizeOf_mem_getAppArgs`, every other head's two
+halves structurally.  `auxAppsOk` is then
+`auxAppsNodeOk && kids.all …`, whose short-circuit makes a rejected
+node's kid list dead.
+
+**MEASURED, K.25-style** (zero fires everywhere):
+
+* `tests/e2e/tower_nested.ndjson`, the fixture the fuelled version hung
+  on: **0.032–0.035 s wall with the check against 0.042–0.076 s
+  without** — the same band, i.e. back at noise over the 0.046 s of the
+  pre-K.35 tree, against > 600 s for the fuelled attempt.  In
+  instructions:u, **516 655 217 / 516 822 063 / 516 878 873 with the
+  check against 515 073 046 / 515 069 633 / 515 000 114 without
+  (the same binary with the conjunct probed out): +1.7 M, +0.35 %**.
+* nested-shadow **27/27**.
+* the 41-block Mathlib nested cone: exit 0, **4 926 accepted** (the
+  branch's own count since K.26), its 41 shadow lines all `accept`.  Its
+  cost: **179 465 188 886 against 179 116 159 583 instructions:u,
+  +0.195 %** — the walk is one memoized DAG pass per recursor type and
+  rule of each scratch block.
+* `tests/arena.sh` **EXIT 0** (138 arena, 196 e2e, 15 annot, the trusted
+  and both `--jobs` sweeps, shake, the link and quote gates).
+
+**Negative controls**, one per half of the node test:
+
+* the parameter prefix (`structPsAt d nP` → `structPsAt (d + 1) nP`):
+  **5 of the 27 shadow fixtures** turn into `nested: an auxiliary
+  application in the block's read-back is not at the block's parameters`
+  (nested-shadow 22/27).  Only five, because a block with `nP = 0` has
+  no prefix to shift;
+* the arity (`nP + ar` → `nP + ar + 1`): **24 of the 27** fire
+  (nested-shadow 3/27).
+
+Both halves are reached, and both fire as `.internal`.
+
+**THE CERTIFICATION-TAX LEDGER** (the maintainer's question).  Every
+Bool the nested route has added since #315 M1, classified — and the
+third column is the interesting one: it says why the check cannot fire,
+and whether a violating input could ever be an OFFICIAL-ACCEPTED STREAM.
+
+| Bool (task) | kind | why it cannot fire |
+| --- | --- | --- |
+| `nestedContainersOk` (K.14) | CERT-ONLY | (A) + (S). The uniform-occurrence half is official's own test at the CONTAINER's install (`check_uniform_ind_occs` / `is_valid_ind_app`); the elimination-universe half is official's `elim_only_at_universe_zero` rule. A container reaching this point was installed by US from a stream those tests already passed. |
+| `pinsDistinct` (K.31) | CERT-ONLY | (S). The elimination DEDUPES — `replaceIfNested` mints only on a pin MISS and then mints the whole `all`-group — so two pins carrying the same term is a bug in OUR mint, not a stream. Read off `nestedContainersOk`'s first conjunct, so it costs no second evaluation. |
+| `nestedPinKindsOk` (K.26) | CERT-ONLY | (A) + (S). `.negative`/`.unsupported` is what official's `check_positivity` rejects and what OUR scratch `classifyMutualKinds` has already thrown on, at this block, on these types; "target inside `members ++ pins`" is a property of the aux block the same pass classified against. |
+| `nestedCopySrcOk` (K.28) | CERT-ONLY | (S). Every minted type IS `mkCopy`'s output at the source `mkCopy` was called with; the record is a field of our own mint. |
+| `nestedGroupsOk` (K.29) | CERT-ONLY | (S). The group segment, size, member order and shared `lvls`/`Ds` are what our own mint wrote into the pin. |
+| `pinsScoped` (K.30) | CERT-ONLY | (S). The pins' free variables are the first former's openers because the elimination built them in that context. |
+| third `nestedPinsOk` run (K.30) | CERT-ONLY | (S). The SAME pins, type-checked a third time at the restored formers' environment; the first two runs already accepted them and the three environments agree on everything a pin can mention. |
+| `nestedCopyTargetsOk` (K.32) | CERT-ONLY | (S). A copy field classified recursive into its own group comes from a container field that WAS that occurrence — a property of `mkCopy` + `replaceAllNested`, our code. |
+| `blockReadBackOk` (K.34) | CERT-ONLY | (S). `containerInfo?` of the environment THIS ROUTE just built, at the block it just installed; the route stored the very records the walk reads. |
+| `nestedAuxAppsOk` (K.35) | CERT-ONLY | (S). See below. |
+| `nestedPinRankOk` (K.37) | CERT-ONLY | (S). The pins' container instances and their rank — computed by the checker from its own elimination's output and validated.  Official computes no rank; no stream can violate it.  See `#### K.37`. |
+| K.36's fact | **NO CHECK** | (A). The route already establishes it — `mutualOpenedOk`'s `.ordinary` clause plus the members' freshness.  See `#### K.36`: a Bool was written, measured, and then DELETED in favour of the derivation. |
+
+**(A) = official checks it; (S) = SELF-CHECK on the checker's own
+construction.**  The maintainer's category (B) — "official never tests
+it, so a hand-crafted stream would be ACCEPTED by official and our check
+would fire" — has, on this route, NO member.  That is the finding, and
+it is worth stating plainly: every Bool the nested route added since M1
+is about artefacts the CHECKER generates (the elimination's pins and
+copies, the scratch block's stored records, the environment the route
+itself built), not about anything a stream supplies.  A stream cannot
+provoke any of them; what a fire would report is a bug in OUR
+elimination or in OUR mutual install, which is the "crash for unclear
+reasons" `.internal` is for.  None of them can therefore reveal a bug in
+official's kernel, and none is a restriction under "restrictions are
+findings" — the accept set is unchanged in every case, which is what the
+27/27 shadow and the 41/41 cone measure.
+
+K.35 is the closest thing on the list to a (B): official's
+`restore_nested` really does drop the first `nP` arguments with no test,
+so the invariant is load-bearing for official as much as for us.  But
+the terms it is tested on here are the SCRATCH BLOCK's read-back
+recursor types and rules, which `mutualRecTy`/`mutualRecRhs` GENERATE
+(`structFamI` at the parameters then the copy's own index variables,
+`structCtorSpineAt` at the parameters then the fields, a constructor's
+own field domain lifted by `o`, and `mutualIhApp`'s
+`mutualRecPrefixAt`) — a stream never supplies them.  The stream-facing
+half of the same invariant, the CONSTRUCTORS' fields, is where a
+hand-crafted stream could in principle reach, and that half is already
+certified by `mutualOpenedOk` (`take nP = fvsP` and the arity at the
+OPENED form).  So the honest reading is: K.35 closes the generator side
+of an invariant whose stream side was already closed, and neither side
+is a place official could be wrong about a stream — official's
+elimination mints these applications itself, exactly as ours does.
+
+**The consequence for the modes, and the gate that follows it.**
+Everything in the table is certification tax by the standing ruling
+(`CheckMode` in `Kernel/Env.lean`: trusted = verified minus the
+certification-only steps), and none of it WAS gated on
+`mode.verifiedChecks` — `git grep verifiedChecks ConLeche/Kernel/
+Inductives` was empty.  It is now.
+
+**The mechanism.**  `CheckerOps` gains a field `mode : CheckMode`.  That
+names something every instantiation already baked into its five core
+entry points (`fueledOps mode`, `sharedOpsC mode`, `fueledOpsM mode`,
+`wfOpsM mode`, `fueledOpsGated mode`), so NO route's signature changes
+and no statement in the proof tiers moves; threading `mode` through
+`checkNative`/`checkMutualCore`/`checkNested` instead would have been
+the `auxRoute` grade's 14-file blast radius for no gain.  `OpsRel` gains
+the matching `o₁.mode = o₂.mode` clause.  The gate itself is
+
+```lean
+@[inline] def certOnly (mode : CheckMode) (b : Bool) : Bool :=
+  !mode.verifiedChecks || b
+```
+
+— `true` at `.trusted` whatever `b` is, and `||` short-circuits, so `b`
+is not evaluated at all; `b` at `.verified`.  The run relations record
+`certOnly μ b = true` and the model tier, which is stated under
+`hμ : μ.verifiedChecks = true`, reads `b = true` off it with
+`certOnly_elim` (`certOnly_and_left` projects a conjunct, which is how
+`pinsDistinct` comes off `nestedContainersOk`).  This is the
+`_inv`-friendly shape: the inversions need no new hypothesis and no
+consumer of `declNativeRun_of`/`declMutualRun_of`/`declNestedRun_of`
+changes.
+
+**GATED**: `blockReadBackOk` on all three routes (K.34), and on the
+nested route `nestedContainersOk` (K.14), `nestedCopySrcOk` (K.28),
+`nestedGroupsOk` (K.29), `pinsScoped` (K.30), `nestedCopyTargetsOk`
+(K.32), `nestedPinKindsOk` (K.26), `nestedAuxAppsOk` (K.35) and
+`pinsDistinct` (K.31) — in the pure route, the cached mirror, the run
+relation and the inversion, each.
+
+**NOT gated, deliberately**, and the line is crisp: a check that throws
+`.invalid` is a STREAM-FACING VERDICT, never certification tax
+(`pinsClosed`, the recursor-record comparison), so it runs in both
+modes; the three `nestedPinsOk` runs TYPE the pins in the checker monad
+rather than reading a Bool, so gating them is a monadic-shape change and
+is left for whoever needs the saving; and the K.20 fresh-non-η record is
+`O(k)` and is the premise `declNestedRun_etaClosed` consumes
+unconditionally.
+
+**A SIMP TRAP, recorded beside the module system's two.**  Rewriting the
+gate's condition INSIDE an `ite` transports the `Decidable` instance,
+and `FueledM.atF_ite` then stops matching, so a `_datF` bridge lemma
+silently fails to push its `.val F` inward.  Do not rewrite it: the two
+operation records spell `ops.mode` differently but DEFINITIONALLY, so
+the `_datF` lemmas close with a trailing `rfl`, and an inversion phrases
+its `by_cases` in the route's own spelling (`(fueledOps μ F).mode`),
+which the run relation's `certOnly μ …` then accepts by defeq.
+
+**MEASURED on init-full** (53 093 declarations, `--jobs=4`, the same
+stream and binary pair, instructions:u):
+
+| | before the gate | after |
+| --- | --- | --- |
+| `--verified` | 539 209 653 493 | 539 255 446 213 (+0.0085 %) |
+| `--trusted` | 521 926 609 545 | 521 897 803 698 (−0.0055 %) |
+
+Both are under this run's noise, and that is the honest result: K.34
+measured the read-back itself at +0.00117 %, so there was never a
+measurable saving to win.  **The gate is the RULE, not the
+instructions** — what it buys is that the trusted lane stops carrying
+the model tier's evidence, which is the property the ruling is about,
+and the ledger above is what makes it reviewable.
+
+**BEHAVIOURAL CONTROL** (the `betaTest_of_gate_off` discipline): with
+`&& false` inside the gated Bool,
+
+* `blockReadBackOk` (cached native route): `--verified` gives
+  `internal error: direct rec: the installed block does not read back
+  as its own [at inductive And, fold position 10]`; `--trusted`
+  **accepts 12 declarations**;
+* `nestedAuxAppsOk` (cached nested route, `--nested-shadow` on
+  `nested_p07`): `--verified` gives `nested-shadow P7 error nested: an
+  auxiliary application in the block's read-back is not at the block's
+  parameters`; `--trusted` gives `nested-shadow P7 accept`.
+
+The gate is reached, and it is off at `.trusted`.
+
+**The gates, after it**: `tests/arena.sh` **EXIT 0** — including its own
+`--trusted` sweep (138 arena + 196 e2e + 15 annot, the 3 recorded
+divergences unchanged) and `proofdeps` at 4 915 rows, doors 0.
+nested-shadow **27/27**; the Mathlib nested cone exit 0, **4 926
+accepted**, 41/41 shadow lines `accept`, at 179 460 999 648
+instructions:u against K.35's own 179 465 188 886 — the same run.
+
+#### K.36 — the ordinary fields' opened domains: MEASURED, THEN DERIVED — no check (2026-09-17, task #315 M7-3, the model lane's DESIGN §U.46 (b))
+
+The mutual lift's second blocker: `ContainerModeled.ordFree` is stated
+at the block model's FIELD VARIABLES, and the raw statement about the
+stored constructor type does not transport to it — `mentionsConst`
+descends into an `.fvar`'s type annotation, so an opened field's domain
+carries the earlier fields' domains inside it.  The model lane asked the
+kernel for the OPENED form.
+
+**The answer is that the route already establishes it, and the kernel
+adds nothing.**  A Bool was written first (`mutualOrdFreeOk`: the two
+openings `mutualOpenedOk` performs, then one `mentionsMember` per
+ordinary field), wired into `checkMutualCore`/`checkMutualCoreS`,
+`DeclMutualRun` and `checkMutualCore_inv`, gated, measured and
+controlled — and then DELETED, because the measurement was taken in
+order to decide and the decision went the other way (`invariants over
+runtime gates`: never satisfy a proof hypothesis with a per-call Bool
+when an insertion-time invariant already gives it).  The measurements
+stay here as the record of the redundancy.
+
+**WHY IT IS ALREADY THERE.**  `mutualOpenedOk`'s `.ordinary` clause is
+
+```lean
+| some x, (.ordinary, _) => x.fvarTypeD.constsResolve env₀
+```
+
+with `env₀` the **pre-block** environment, and `Expr.constsResolve`
+descends into an `.fvar`'s type annotation *exactly as `mentionsConst`
+does* (`Kernel/Core.lean`: `| .fvar _ ty => ty.constsResolve env`).
+The block's members are FRESH in `env₀` — the formers' front door
+(`checkConstantVal`) refuses a name the environment carries.  A term
+that resolves in `env₀` therefore mentions no member.
+
+**WHAT IS IN THE TREE** (`Verify/Inductives/MutualInv.lean`):
+
+* `mentionsConst_eq_false_of_constsResolve` — a term whose constants all
+  resolve in `env` mentions no name `env` lacks (a nine-case induction),
+  and `mentionsMember_eq_false_of_constsResolve` over a member list;
+* `openPisAtFvars_len` — the opened telescope has as many variables as
+  binders opened;
+* **`MutualOrdFree memberNames nP ctorsA kinds`**, §U.46 (b)'s Prop
+  verbatim (the argument order follows the run's data), and
+  **`mutualOrdFree_of`**, which derives it from
+  `mutualFieldsOk env members lps nP ctorsA kinds = true` — a conjunct
+  `DeclMutualRun` and `checkMutualCore_inv` ALREADY carry — plus
+  `∀ T ∈ memberNames, (env.find? T).isNone`;
+* the freshness premise is itself read off the run:
+  **`mutualFormers_membersFresh`** (`Semantics/Inductives/DeclMutual.lean`)
+  takes the formers' stage — which the run relation exposes — through
+  `mutualFormerChecks_checked` and `checkConstantVal_inv`.
+
+So `declMutualB`'s `hOrd` is discharged from the run with **no new
+conjunct, no new Bool and no runtime cost**.
+
+**THE FIXPOINT ROUTE'S TWIN, likewise derived.**  `checkNativeTail_inv`
+exposes `nativeFieldsOk env q.p.cvT.name … q.ctorsA q.p.kinds = true`,
+whose `.ordinary` clause is the identical `constsResolve env₀`, and
+`checkNativePass_inv` exposes the `checkSumInd` run from which
+**`checkSumInd_freshName`** (`Semantics/Inductives/DeclNative.lean`)
+reads the member's freshness through `checkSumInd_shape` and
+`checkConstantVal_inv`.  **`NativeOrdFree`** and **`nativeOrdFree_of`**
+(beside their mutual siblings, which they share
+`mentionsConst_eq_false_of_constsResolve` with) are the result.
+`DeclNativeRun` is unchanged.
+
+**THE MEASUREMENTS THAT MADE THE CASE** (taken on the Bool before it was
+deleted, at `ee1867ea`; reproduce with `git show ee1867ea`):
+
+* `tests/e2e/tower_nested.ndjson` **first**, since the walk is
+  per-constructor over telescopes and had to be shown linear:
+  **517 206 992 / 517 433 514 / 517 429 874 instructions:u against
+  K.35's 516 655 217 / 516 822 063 / 516 878 873 — +0.6 M, +0.11 %**,
+  wall unchanged at 0.031–0.040 s;
+* init-full `--jobs=4`: `--verified` 539 217 441 875 against
+  539 255 446 213, `--trusted` 521 916 952 414 against
+  521 897 803 698 — both under the run's noise and of opposite sign;
+* the Mathlib nested cone 179 468 930 913 against 179 460 999 648
+  (+0.0044 %), 4 926 accepted, 41/41 `accept`; nested-shadow 27/27;
+  `tests/arena.sh` EXIT 0;
+* negative control: the member-free test inverted gave, on
+  `tests/e2e/ind_mutual_idxsort.ndjson`, `--verified: internal error:
+  mutual: an ordinary field's opened domain mentions a member [at
+  inductive IdxSort.MA, fold position 14]` and `--trusted: accepted 46
+  declarations` — the check was reached at a real mutual block, and the
+  `certOnly` gate was off at `.trusted`.
+
+**THE LESSON, for the ledger.**  A "certification-only" record is worth
+asking one more question of before it lands: *is it already implied by a
+check the route runs?*  Here the answer was yes, and the currency
+differed only in which predicate (`constsResolve` versus
+`mentionsConst`) the two facts were spelled in — both of which descend
+into the same fvar annotations.  The ledger's third column is what
+surfaces that.
+
+#### K.37 — the pins' CONTAINER INSTANCES and their rank (2026-09-17, task #315, the model lane's DESIGN §U.48 (e″))
+
+A **container instance** is one container's whole instantiation at a set
+of components, as embedded in the block's scratch mutual group: the
+copies of the container's members at those components PLUS the copies of
+the container's OWN auxiliary types — its own pins — at them.  (The
+model lane's working name for it was "blob"; the maintainer's ruling is
+that the unit is a container instance and the prose says so.)
+
+**Why the kernel is asked for a RANK.**  The model's step (iii) needs
+the containers' least tuples at the pins below the auxiliary carrier,
+and its lane proved that componentwise leastness gives joint leastness
+ONLY over a well-founded external-reference graph: over `{0,1}`,
+`Θ (x, y) := (y, x)` has `(1,1)` with each component least at its own
+section while the joint least fixed point is `(0,0)`.  There is no
+order-free route, so the induction measure has to be produced — and the
+cheapest place to produce it is where the elimination's own data lives.
+
+**What is computed** (`Kernel/Inductives/NestedInstall.lean`):
+
+* `nestedPinEdges` — per copy, per constructor, per field the auxiliary
+  block classified `.recursive`/`.reflexive` into another COPY, the edge
+  `(q, t, own)`, with `own` saying whether the CONTAINER's stored field
+  at that position already mentioned a member of the container's own
+  group.  Targets inside the block's own members are not edges.  It
+  reuses K.32's reading of the container's stored constructor, and
+  `mentionsMember` is the memoized `mentionsConst`;
+* `nestedPinArcs` — the same edges as arcs, an OWN edge additionally
+  reversed, and every pin joined to its mint group's base both ways;
+* `nestedPinInstFrom` — the strongly connected components of those arcs
+  (mutual reachability by `nPins + 1` relaxation rounds, each class
+  named by its smallest member);
+* `nestedPinRankFrom` — the longest chain of references LEAVING the
+  instance, by `nPins + 1` relaxation passes, homogenised per instance.
+  The condensation is acyclic by construction, so the passes converge.
+
+**`nestedPinRankOk`** checks the four clauses the model consumes: (1) an
+OWN reference stays inside its instance, (2) a reference that LEAVES the
+instance goes to a strictly smaller rank, (3) the rank is a function of
+the instance, (4) a mint group is one instance.  `.internal` on failure,
+CERTIFICATION-ONLY and `certOnly`-gated, one conjunct of
+`DeclNestedRun` and of `checkNested_inv`; `nestedPinInstOf` and
+`nestedPinRankOf` are the same functions off the run's data, which is
+how the model reads the measure.
+
+**A FINDING: the spec's clause 2 is refuted by an accepted fixture.**
+§U.48 (e″) asked for "own-pin field → same blob, OTHERWISE
+`rank t < rank q`", with `own` decided at the edge's SOURCE container.
+`tests/e2e/nested_p04.ndjson` refutes it.  Its pins are
+
+```
+0 = _nested.P4C_1 (P4C)   1 = _nested.Array_2 (Array)   2 = _nested.List_3 (List)
+edges = [(0→1, own), (1→2, not own), (2→0, not own), (2→2, own)]
+```
+
+— `P4C` is self-nested through `Array` and through `List`, and the three
+copies form a CYCLE in which only one edge is own at its source:
+`Array`'s stored field `List α` does not mention `Array`, and `List`'s
+element field does not mention `List`.  Under the spec's reading the two
+remaining edges are external and must both strictly decrease the rank
+around a cycle — impossible — and the first implementation DECLINED the
+fixture (nested-shadow 26/27, `P4=error`).
+
+§U.48 (c) 5 already says what the answer is — "`nested_p04`'s 3-cycle is
+ONE blob of three groups" — so the unit is not the own-edge closure but
+the STRONGLY CONNECTED COMPONENT, and clause 2 is about references that
+leave the instance.  With `nestedPinArcs` symmetrising the own edges and
+joining the mint groups before the SCC, clauses (1), (3) and (4) hold of
+the computation by construction and the condensation is acyclic; what
+the Bool then certifies is that the COMPUTATION did what it claims — the
+`recorded-and-checked` pattern of K.28–K.35, where an untrusted
+computation is validated by a Bool the proof tier can read, rather than
+an algorithm the proof tier has to verify.
+
+**MEASURED, K.25-style** (zero fires everywhere):
+
+* `tests/e2e/tower_nested.ndjson` **FIRST**, as required: **516 745 949
+  / 516 919 491 instructions:u against K.35's 516 655 217 / 516 822 063
+  / 516 878 873 — +0.2 M, +0.04 %**, wall unchanged at 0.031–0.037 s.
+  The graph work is `nPins²`-bounded and `nPins` is 3 here;
+* nested-shadow **27/27**; `tests/arena.sh` **EXIT 0**;
+* the 41-block Mathlib nested cone: exit 0, **4 926 accepted**, 41/41
+  shadow lines `accept`, at **180 080 320 774 against 179 460 999 648
+  instructions:u — +0.345 %**.  The cost is one extra
+  `nestedPinKinds` recomputation, not the graph: computing the edge list
+  four times (once per `nestedPinInstOf`/`nestedPinRankOf` call inside
+  the Bool) cost **+1.39 %**, and walking it ONCE — the `…From` split —
+  brought it to +0.345 %.  The remaining lever, if anyone wants it, is
+  to thread the kinds K.26 and K.32 already computed into K.37 instead
+  of recomputing them a third time.
+
+**NEGATIVE CONTROLS**, one per clause group, and both fire:
+
+* **no SCC merging** (`inst := List.range n`, every pin its own
+  instance): nested-shadow **25/27**, with `nested_p04` reporting
+  `nested: the pins' container instances are not well-founded` — clauses
+  (1) and (2) are reached;
+* **rank ≡ 0**: nested-shadow **20/27** and **35 of the 41 Mathlib cone
+  blocks** fail.  This is the important number: clause 2 is NOT vacuous
+  — 7 of the 27 fixtures and 35 of the 41 cone blocks have genuine
+  references LEAVING a container instance, and it is exactly those the
+  rank orders.
+
+**The ledger row.**  CERT-ONLY, category **(S)** — a self-check on the
+checker's own generated artefacts.  Official's kernel computes no rank
+and asks no such question: the invariant lives in OUR elimination's
+output (the pins and the copies' fields), a stream cannot supply it, and
+a fire would report a bug in the computation above rather than anything
+about the stream.  It is NOT category (B): there is no official-accepted
+violating stream to describe, because the fact is not about a stream.
+
+#### U.51 — L-E session 6: the targets' HEADS in the shape, and the pin half's decomposition (lane L-E, 2026-09-17)
+
+**Naming** (maintainer's ruling, K.37): what §U.48 calls a "blob" is a
+CONTAINER INSTANCE — one container's whole instantiation at a set of
+components as embedded in the block's scratch group (its members' copies
+plus its own pins' copies there).  New identifiers say `instance`; the
+committed text of §U.48 keeps the old word.
+
+##### (a) THE STRUCTURE — what the shape now carries, and what lane L-B must prove
+
+§U.48 (i)'s obstacle: the container instance transfer compares the
+container's OWN copy of a pin's constructor with the BLOCK's copy of the
+image pin — two copies of ONE constructor of ONE container `K` — and at a
+field BOTH eliminations rewrote, the two targets' slots take their
+families at index tuples `tupW u is` whose universe `u` is a datum of the
+target's CONTAINER, which the readings do not determine.  So the shape
+carries the target's NAME and LEVEL ARGUMENTS at every rewritten field,
+read off the container's own field — a function of `dJ`, `i`, `j`, `l`,
+the same object on both sides:
+
+```lean
+@[expose] def TargetHead (i j l : Nat) (nm : Name) (us : List Level) : Prop :=
+  ∃ (x : Expr) (Tl : List (Expr × ConLeche.BinderMeta)) (bodyE : Expr),
+    (dJ.xFvsF i j)[l]? = some x ∧
+    x.fvarTypeD.stripPis (x.fvarTypeD.piBinders).1.length = some (Tl, bodyE) ∧
+    ((∃ vs : List Level, bodyE.getAppFn = .const nm vs ∧
+        us = vs.map (Level.subst lpsJ lvlsJ) ∧
+        ∀ v ∈ vs, v.allParamsDefined lpsJ = true) ∨
+      (∃ (p : Nat) (ty : Expr), bodyE.getAppFn = .fvar p ty ∧ p < DsE.length ∧
+        (DsE.getD p default).getAppFn = .const nm us))
+```
+
+`EntryRead` gains `TargetHead dJ DsE lpsJ lvlsJ i j l (TV.J (tg l))
+(TV.lvls (tg l))` as its FIRST conjunct (the body form of §U.48 (h) is
+unchanged after it).  The disjunction is the two ways a rewritten field
+can be headed: by a constant of the container's own field (the common
+case — `copyGroupTargetHead`'s `hstr`/`hhead` are exactly this, with the
+level arguments now named), or by a bare PARAMETER of the container
+(`inductive Box (α) | mk : α → Box α` at `α := List P`), where the head
+is the pin's COMPONENT's — which the components' READINGS cannot carry,
+so the components enter as EXPRESSIONS.  A parameter's opened variable
+carries its POSITION as its index (`BlockCtorData.pIdx`), so the second
+disjunct's `p` is the component's index and the datum is functional.
+
+For lane L-B (`NestedCopyInst.lean`, branch `agent/uniform-ident` —
+untouched here), the new obligations are:
+
+1. `EntryRead`'s `TargetHead` conjunct, at an `ordF`-right field.  Both
+   disjuncts come from the copy's construction: the container's field's
+   head is a constant (its levels instantiated by `mkCopy`'s
+   `instantiateLevelParams`, hence `us = vs.map (Level.subst lpsJ lvlsJ)`
+   with `vs` over the container's level parameters — `allParamsDefined`
+   is the environment's level-parameter invariant at the constructor's
+   type) or the pin's component's head at the parameter's position.
+2. `PinCorr`'s new conjunct — the components as expressions:
+   `∃ off, TV.DsE t = ((dJ.pinAt qK).DsE).map (fun e => Expr.instSeq DsE off
+   (Expr.instantiateLevelParams lpsJ lvlsJ e))`.  The offset is
+   EXISTENTIAL on purpose: the consumer reads only that the head survives
+   the instantiation, so `mkCopy`'s actual depth needs no bookkeeping.
+3. `CopyCtorShape`/`CopyShapeA` take `DsE` after `Ds`
+   (`(pinsS.getD (q₀ + i) default).DsE` at every call site, mechanical).
+
+`TargetView` gains `DsE : Nat → List Expr` (`nestedTV`,
+`BlockModel.targetView`: the pin's `PinSyn.DsE`, which the record already
+had), and `PinGroupView` gains `sameDsE` — a group's pins share their
+components' expressions.  For the TAIL lane: `nestedPinShapes_of`'s
+`hgroupsB` hypothesis gains the conjunct `∀ i' < kJ, ((D).pinAt (q₀ +
+i')).DsE = ((D).pinAt q₀).DsE` (the group record's; nothing else in
+`NestedPinGroup` changed).
+
+##### (b) THE TWO CONSUMABLES, proved
+
+```lean
+theorem targetHead_corr {dJ : BlockModel V} {DsE₁ DsE₂ DsO : List Expr}
+    {lpsK lpsJ : List Name} {lvlsK lvlsJ : List Level} {i j l off : Nat}
+    {nm₁ nm₂ : Name} {us₁ us₂ : List Level}
+    (h₁ : TargetHead dJ DsE₁ lpsK lvlsK i j l nm₁ us₁)
+    (h₂ : TargetHead dJ DsE₂ lpsK (lvlsK.map (Level.subst lpsJ lvlsJ)) i j l nm₂ us₂)
+    (hlenK : lvlsK.length = lpsK.length)
+    (hDsE : DsE₂ = DsE₁.map fun e =>
+      Expr.instSeq DsO off (Expr.instantiateLevelParams lpsJ lvlsJ e)) :
+    nm₂ = nm₁ ∧
+    ∀ (lpsC : List Name) (φ : Name → Nat), us₁.length = lpsC.length →
+      ∀ p ∈ lpsC, Level.substFn φ lpsC us₂ p
+        = Level.substFn (Level.substFn φ lpsJ lvlsJ) lpsC us₁ p
+```
+
+The two sides read ONE `bodyE` (`(dJ.xFvsF i j)[l]?` and `stripPis` are
+functional), so they take the SAME disjunct (`.const` ≠ `.fvar`): the
+constant case gives the name by `Expr.const.injEq` and the levels by
+`Level.substFn_map_subst` twice through `substFn_ext` (the head's level
+arguments being over the container's parameters); the parameter case
+gives both at once, the component's head surviving the instantiation
+(`getAppFn_instantiateLevelParams`, `Expr.instSeq_mkAppN` +
+`instSeq_eq_self` at a constant).  The conclusion is the EVALUATION form
+because the syntactic composition `subst lpsK (lvlsK.map (subst lpsJ
+lvlsJ)) = subst lpsJ lvlsJ ∘ subst lpsK lvlsK` needs the same
+`allParamsDefined` side condition anyway, and every consumer of the
+levels is a level ASSIGNMENT (`ContainerModeled.pinψ`,
+`PinGroupView.pinU`, `IsBlockModel.uParams`).
+
+```lean
+theorem IsBlockModel.ctor_params (h : IsBlockModel m T cvT cvR mI rP rules d mm)
+    (hj : (d.ctorsM mm)[j]? = some cA) (hψ : ∀ p ∈ cA.1.levelParams, ψ₁ p = ψ₂ p) :
+    (d.Fss mm ψ₁).getD j [] = (d.Fss mm ψ₂).getD j [] ∧ …
+```
+
+— the other half: with the assignments agreed, the container's
+constructor's field domains, index expressions, reflexive telescopes and
+result readings are ONE datum (`Fss_getD`/`Eiss_getD`/`tlss_getD`/
+`Ess_getD` over `CtorDataI.params`, `eissParams`, `tssParams`).
+
+##### (c) THE PIN HALF, decomposed — and the ONE kit lemma it still needs
+
+Session 5 planned the pin half as a `ChainFitT`-level twin of
+`fit_iff_at_T` at a pin class, written field by field.  It need not be
+written at all: the two existing theorems compose.  With `K` the pin's
+container, `dK := B ciK` its model, `ψ₁`/`ρ₁` the container `J`'s pin
+frame and `ψ₂`/`ρ₂` the block's,
+
+1. the container-side fit of `pc qK`'s constructor at `J`'s extended
+   tuple `T` IS the copy fit `fit_iff_at_T` speaks of (`ChainFitT` at a
+   PIN class unfolds to `FitsFrom ((pc q).rss.getD j []) (slotAtT …)`,
+   and `dJ.targetView`'s `u`/`w` are `uT`/`w ψ` by definition), so
+   `CopyCtorShape.fit_iff_at_T.mp` at the CONTAINER-side shape
+   (`PinShapes` of `B ciJ` against `B ciK`) turns it into
+   `dK.ChainFitT pcK ψ₁ ρ₁ Y t i j fs` at the pullback tuple `Y`
+   (`hL` is exactly "the container-side slots read `Y` through `K`'s
+   targets", which is how `Y` is chosen);
+2. `CopyCtorShape.fit_imp_T_le` at the BLOCK-side shape (the block's
+   `PinShapes` against the SAME `B ciK`) turns `dK.ChainFitT pcK ψ₂ ρ₂ Y
+   t i j fs` into the block's copy fit at `Z`, under `hrel` (the
+   relation at `K`'s recursive fields) and `hentR` (the externals).
+
+The gap between 1 and 2 is a CONGRUENCE, and it is now in the tree
+(`NestedPinLeafAll.lean`):
+
+```lean
+theorem BlockModel.chainFitT_congr_mem {m : EnvModel V env} {dK : BlockModel V}
+    {pc : Nat → PinCtors V} {ψ₁ ψ₂ : Name → Nat} {ρ₁ ρ₂ : Nat → V} {Y : Nat → V} {t : V}
+    {i j : Nat} {fs : List V}
+    (hreps : IsBlockModels m dK) (hi : i < dK.k)
+    {cA : ConstantVal × Nat} (hj : (dK.ctorsM i)[j]? = some cA)
+    (hψ : ∀ p ∈ cA.1.levelParams, ψ₁ p = ψ₂ p)
+    (hw : dK.w ψ₁ = dK.w ψ₂)
+    (hu : ∀ l, dK.uT (dK.tgts i j l) ψ₁ = dK.uT (dK.tgts i j l) ψ₂)
+    (hIds : (dK.IdsM i ψ₁).length = (dK.IdsM i ψ₂).length)
+    (hρ : ∀ v, v < dK.nP → ρ₁ v = ρ₂ v)
+    (h : dK.ChainFitT pc ψ₁ ρ₁ Y t i j fs) : dK.ChainFitT pc ψ₂ ρ₂ Y t i j fs
+```
+
+— the container's constructor read at two assignments and two frames
+that agree where it looks: `ctor_params` (b) for the class data, and
+the FRAME half by `slotSet_congr_below` (§U.48 (i)'s named hole:
+a recursive slot reads only the frame below its telescope's bound,
+through `teleOfFields_congr_below` and `piTele_congr`) and
+`interp_congr_below`, the bounds being `CtorDataI.below`/`belowE` and
+`BlockCtorData.tssBelow`/`eissBelow`.  The sort, the targets' index
+universes and the index count stay HYPOTHESES: `IsBlockModel.uParams`
+discharges a member target's, `ContainerModeled.pinψ` at `dK` a pin
+target's (a pin's assignment is `substFn ψ lpsK lvls`, equal under
+`hψ`), and both are at hand where the transfer is assembled, not here.
+
+Sized from here: the composition (1)+(congruence)+(2), with the
+hypotheses discharged from `PinShapes`' two group views, ~1 session;
+`instanceLe` (`relMeet (famAt LJ) R (L⁺ pins)` is `TClosed` — the member
+half `fit_imp_T_le` and the pin half above at every class) ~1; the rank
+induction + (iv) ~1.
+
+##### (d) K.37 READ BACK, and the induction hypothesis's shape
+
+K.37 is LANDED on `agent/uniform-m5` (d2347e27, `nestedPinRankOk`,
+`Kernel/Inductives/NestedInstall.lean`), a `DeclNestedRun` conjunct with
+readers `nestedPinInstOf`/`nestedPinRankOf : … → List Nat`.  Its unit is
+the SCC of the pins' reference graph with the own edges symmetrised and
+the mint groups joined — NOT §U.48 (c)'s naive own-edge closure, which
+`nested_p04` refutes (its `P4C`/`Array`/`List` cycle has only one edge
+own at its source).  The four clauses the Bool certifies, at edges
+`(q, t, own)` read off the copies' rewritten fields:
+
+1. `own = true` → `inst t = inst q`;
+2. `own = false` → `inst t = inst q ∨ rank t < rank q`;
+3. `inst q = inst t → rank q = rank t`;
+4. `inst q = inst (grpBase q)`.
+
+So step (iii) is strong induction on `rank q` with the whole INSTANCE
+closed at once: at rank `r`, `instanceLe` gives `P q ≤ L⁺ (k + q)` for
+every `q` of one instance from (a) the induction hypothesis at every
+target the instance's copies reference OUTSIDE it (rank `< r` by clause
+2, read through `pinTarget_reads` + `slotSet_mono`) and (b) the transfer
+of (c) inside it (clause 1 keeps a container's own-pin references in).
+The model consumes the readers only through these four facts, so the
+lane states them as a hypothesis in the `_inv`'s shape
+(`inst rank : Nat → Nat` abstract, the edge relation at the copies'
+targets) and the integration swaps in K.37's readers.
+
+##### (e) GATES at the session's commits (last: `IsBlockModel.ctor_params`)
+
+`lake build` 695 jobs warning-free (a stale `hF'` warning in
+`lfpTuple_le_of_rel` fixed in passing); `lake test` warning-free;
+layering base 347 / model 265 / caps 3 / umbrella 1, 0 base→lane, 0
+impl→theory; trust surface 13 escapes in 5 allowlisted files (627
+scanned); no-local-paths OK; overview-links 112; quote-gate 2;
+proofdeps 4955 rows / 12 roots / 0 doors; shake 510/510 allowlisted,
+pub-imports 1262 of 1988 public, none demotable.  `#print axioms` of `targetHead_corr`,
+`IsBlockModel.ctor_params`, `teleOfFields_congr_below`,
+`slotSet_congr_below`, `consList_agree_above` and
+`chainFitT_congr_mem`: standard (`_tmp/uniform-entry/chain-probe.lean`).
+
+#### U.54 — L-E session 7: the merge, the halves re-cut for the transfer, and TWO GAPS between K.37's instances and the model's argument (lane L-E, 2026-09-17)
+
+##### (a) THE MERGE (integration 3k, `agent/uniform-315` d0271fc0)
+
+Two semantic adaptations, both this lane's own interface meeting the new
+files:
+
+* `PinRecLaws.injW` (§U.48 (h), this lane's field) was stated for ALL
+  `q`; the merge's `BlockAt.of_noPins` and the five `BasisBlocks*`
+  blocks build `PinRecLaws` at `pc := fun _ => default`, whose injection
+  is `pt` — FALSE at `q ≥ nPins` and vacuous below it.  The field is now
+  guarded by `q < d.nPins` like `mkInj`, and the six sites discharge it
+  by `absurd`;
+* `nestedPinLaws_of`'s anonymous constructor grew the clause's binder.
+
+The chain probe is unchanged: `declNested_of … (nestedCoreModeled_of …)`
+closes over `hSh`/`hEn`/`htail` and standard axioms.
+
+##### (b) THE TRANSFER'S TWO HALVES, RE-CUT (`fit_imp_T_le_dom`, `fit_iff_at_T_dom`)
+
+Composing the halves at TWO level assignments and TWO frames — which is
+what the container instance transfer is (§U.51 (c)) — hits a hypothesis
+that does not travel: both halves take `hTs`/`hTle`, the tuple's place
+in the CONTAINER's tuple space and below its extended carrier
+(`famAt ψ ρ LJ`), and `BlockModel.pinCar` is an abstract FIELD — no
+clause says its value at two frames agreeing on the components is the
+same, so neither the index sets nor the extended carrier is a
+congruence.  What the halves USE of those hypotheses is one bound per
+recursive field — the container's slot at the tuple lies within its real
+domain — and a bound between READINGS is exactly what the frames' kit
+carries (`slotSet_congr_below`, `IsBlockModel.ctor_params`).  So both
+are re-cut with
+
+```lean
+    (hdom : ∀ l, l < ((dJ.Fss i ψJ).getD j []).length →
+      ((dJ.rss i).getD j []).getD l false = true →
+      ∀ fs₁ : List V, fs₁.length = l → SpineFit ρJ (((dJ.Fss i ψJ).getD j []).take l) fs₁ →
+      dJ.slotAtT pc ψJ T i j l (consList fs₁ ρJ)
+        ⊆ˢ interp V (consList fs₁ ρJ) (((dJ.Fss i ψJ).getD j []).getD l default))
+```
+
+as a premise, and `fit_imp_T_le`/`fit_iff_at_T` are their corollaries at
+`slotAtT_mono` to the extended carrier, where the slot IS the real
+domain (`real_dom_eq`).  `hfT`/`hPT`/`hρJ` leave the `_dom` forms —
+they were needed only for that step.
+
+##### (c) GAP 1: K.37's Bool has no inversion at the model's targets
+
+The model consumes `nestedPinRankOk` as four facts about
+`nestedPinInstOf`/`nestedPinRankOf` at the EDGES
+`nestedPinEdges env p b st stored`, and to use clause (2) at a copy's
+field it must know that its own target — the one `CopyCtorShape` names
+through `tg`/`tgts` — IS an edge of that list.  No such lemma exists
+(K.32's `nestedCopyTargetsOk_head` is the pattern: `nestedPinEdges`
+recomputes `nestedPinKinds` and reads the copies' fields, so the
+inversion is the same kind of walk).  Until it exists the rank induction
+cannot be started; it is kernel-lane syntax, ~1 session, and it is the
+FIRST thing step (3) needs.
+
+Threading: `NestedPinsRun` does not carry the conjunct either (nor
+K.32's).  The chain `DeclNestedRun` → `NestedCoreModeled` →
+`NestedCtorsStaged` → `NestedPinsStaged` → `NestedPinsIdent` →
+`NestedPinsRun` has the run's Bools as an explicit hypothesis list at
+every step, so consuming K.37 inside `nestedPinsEntry_of` means one more
+hypothesis in each (five files, mechanical) and naming the `-` in
+`declNested_of`'s destructuring.
+
+##### (d) GAP 2 (the design one): an INSTANCE is not, of itself, one container's system
+
+§U.48 (a) defined the container instance as "`J`'s full system at `Ds`"
+— `J`'s members plus `J`'s OWN pins — and `instanceLe` is the relational
+meet over `J`'s `kT` classes (`relMeet (famAt LJ) R (L⁺ pins)` is
+`TClosed`, §U.48 (h)).  That argument closes the whole instance ONLY
+when every pin of the instance is `R`-related to a class of `J`:
+`famAt LJ` covers `J`'s members and, through `J`'s own `pinLeaf`, its
+pins' containers' least tuples — which is `P` at the images.
+
+K.37's instance is the SCC of the recorded reference graph with the own
+edges symmetrised.  On `nested_p04` the two notions agree, but NOT along
+the own edges: the SCC is `{P4C, Array, List}` and the recorded own
+edges are only `P4C → Array` and `List → List` — `Array`'s stored field
+`List α` mentions no member of `Array`'s own group, so `Array → List` is
+recorded NOT own, and the own-edge closure of `P4C` is `{P4C, Array}`.
+The instance is `P4C`'s system because `P4C`'s OWN elimination minted
+`List` as one of its pins (its nesting is transitive), which is a fact
+about `P4C`'s declaration, not about this block's edges.
+
+So the model needs, per instance, a ROOT: a pin `r` whose container's
+extended system covers the instance (`∀ q in the instance, ∃ c a class
+of `B ci_r`, R c q`).  Two routes, the maintainer's/kernel lane's call:
+
+1. **kernel-recorded (a K.38)**: record the root per instance and check
+   the covering.  The check cannot read the root's own pin list from the
+   environment (a nested declaration RESTORES, so its auxiliary types
+   are not stored) — it would have to re-run the root's elimination, or
+   check the weaker "the instance's groups are the containers the root's
+   copies mention, transitively", which is what the block's own
+   elimination already computed;
+2. **model-side**: derive the covering from the shapes.  At an
+   `ordF`-right field of the root's copies the container-side target is
+   a class of the root's system and the block-side target is the pin,
+   and `targetHead_corr` (§U.51) says they name one container — so the
+   correspondence is exactly the `R` the transfer establishes anyway.
+   What is missing is the INDUCTION that walks it: every pin of the
+   instance is reached from the root's group by such fields.
+
+A third possibility to rule out first: is the SCC ALWAYS one container's
+system?  It need not be a priori — an external reference out of the
+root's system into an earlier container `C` whose own components mention
+the block's members closes a cycle through `C`, and `C` is then in the
+SCC without being a class of the root — so the kernel lane's corpus
+measurement (does any accepted block have an instance that is not one
+container's system?) decides whether route 1 can be a CHECK rather than
+a computation.
+
+##### (e) STATUS AND GATES
+
+Steps (1)–(3) of the coordinator's list are NOT landed: the composition
+is blocked on nothing but work (its enabling re-cut is (b)), `instanceLe`
+is blocked on (d), and the rank induction on (c).  What landed this
+session: the merge, the `_dom` re-cuts, and the two gaps as findings.
+
+Gates at the session's commits: `lake build` 701 jobs warning-free;
+`lake test` warning-free; layering, trust surface, no-local-paths,
+overview-links, quote-gate, proofdeps and the import gate as the
+integration's (unchanged by this lane's files); `#print axioms` of
+`fit_imp_T_le_dom` and `fit_iff_at_T_dom`: standard.
+
+#### U.55 — L-E session 8: K.37 threaded to the shapes, and the ROOT's walk — reconstructible, its EXISTENCE not (lane L-E, 2026-09-17)
+
+##### (a) K.37's conjunct is where the copies' targets are (landed)
+
+`nestedPinRankOk` was a `DeclNestedRun` conjunct nothing below
+`declNested_of` could see.  It is now one hypothesis in each of
+`NestedCoreModeled`, `NestedCtorsStaged`, `NestedPinsStaged` and the
+field `hrank` of `NestedPinsRun`, so `NestedPinsShape`/`NestedPinsEntry`
+— everything `NestedPinsIdsAt` quantifies — read it for free;
+`declNested_of` names the `-` and `certOnly_elim`s it beside the other
+five.  `NestedReadLaw` and `NestedTailModeled` are untouched (neither
+consumes it), and the chain probe is unchanged.
+
+**What the kernel lane's inversion must give**, stated against what the
+model now has: at a pin `q` of the block, a constructor `j` of `q`'s
+copy and a field `l` that `CopyCtorShape` (the block's `PinShapes`)
+classifies recursive or reflexive at a target `t` OUTSIDE the block's
+own members,
+
+    (q, t - p.k, own) ∈ nestedPinEdges env p b st stored
+
+with `own = true` exactly when the CONTAINER's stored field at that
+position mentions a member of the container's own group — i.e. exactly
+when the shape's `pinF` arm (not `ordF`-right) applies.  With that, the
+four clauses of `nestedPinRankOk` become facts about the shape's own
+targets, which is all the induction reads.
+
+##### (b) THE ROOT, tried from the shapes: the walk is reconstructible
+
+The container instance transfer needs, per instance `I`, a ROOT group
+`r` whose container's extended system covers it: `∀ q ∈ I, ∃ c <
+(B ci_r).kT, R c q` (§U.54 (d)).  Working it through the models: the
+covering is a WALK, and every step of it is already in the shapes.
+
+* **Base.** `r`'s members: `(B ci_r)`'s member `i` and the block pin
+  `r₀ + i` are `R`-related — `PinGroupView.name` and the two leaf laws
+  (`memberTarget_reads`, `pinTarget_reads`) give the readings.
+* **Step.** Let `R c q` with `c` a class of `dR := B ci_r` and `q` a
+  block pin.  `R` (readings, plus `targetHead_corr`'s name and level
+  assignment) makes `c`'s container and `q`'s container ONE container
+  `B ci_q`, so the two sides copy the SAME constructor `(i', j)` of the
+  SAME model and their fields correspond positionally.  At each field:
+  `recF` targets a sibling of the same group on both sides; `pinF`
+  targets, on both sides, the image of `B ci_q`'s own pin `qK'`
+  (`PinCorr` names the same `(B ci_q).pinAt qK'`); an `ordF`-RIGHT
+  field on BOTH sides has two targets that `targetHead_corr` gives one
+  container and one level assignment, and whose readings agree by the
+  body-form `EntryRead` at frames with equal component values
+  (`interp_instAll`) — so the targets are `R`-related again.  And the
+  container-side target is a class of `dR` by the shape itself
+  (`ordF`'s right arm has `tg l < TV.k + TV.n`, `pinF` has
+  `TV.k ≤ tg l < TV.k + TV.n`, `recF` a member), with `TV` the
+  container's own `targetView`.
+* **Reachability** costs nothing: an instance is a strongly connected
+  component of exactly these field edges, so every `q ∈ I` is reached
+  from `r`'s group.
+
+##### (c) WHERE IT FAILS, and what is missing
+
+The step needs the field to be `ordF`-RIGHT on the CONTAINER side too.
+It can be `ordF`-LEFT there while `ordF`-right in the block: a field
+that mentions only the container's PARAMETER is ordinary in the
+container's own system and rewritten in the block, where the parameter
+is a component mentioning the block's members.  That is exactly
+`nested_p04`'s `Array`: `List α` mentions no member of `Array`'s group,
+so from `Array` as root the walk reaches the block's `List` pin with NO
+class of `Array`'s system to relate it to — `Array`'s system has one
+member and no pins.  From `P4C` as root the same field IS `ordF`-right
+(inside `P4C`'s system `α := P4C`'s member), its target is `P4C`'s own
+pin `List`, and the walk closes.
+
+So the walk selects nothing: it VERIFIES a root, it does not find one,
+and a root's existence is a fact about the OTHER elimination — the root
+container's own declaration minted, as its pins, the containers the
+block's copies reach through such fields.  The two shapes of the same
+example show it is not vacuous:
+
+* `J α ::= mk : List α → J α` nested as `J X`: the block's pins are
+  `J X` and `List X`, the edge is not own, the ranks separate them, and
+  no root is needed;
+* `J α ::= mk : List (J α) → J α` nested as `J X`: `J` is self-nested,
+  `List (J α)` IS one of `J`'s own pins, the block's two pins cycle,
+  and `J` is the root — because `J`'s own elimination minted it.
+
+**Verdict: the missing fact is SYNTACTIC (kernel), not semantic.**  The
+model has the root's classes already — a stored container's block model
+carries its own pins (`(B ci).pins`, `EnvModelB.blocks`), which the
+CHECKER does not (a nested declaration restores, so its auxiliary types
+are not in the environment).  What no one has is the pairing of the
+block's pins with those classes.
+
+**Proposal (a K.38, the kernel lane's call): record the MINT PARENT.**
+`elimNested` mints pin `q` while copying the constructors of some pin
+`parent q` (or of the block's own members, for the outermost pins), and
+that parent is in hand at mint time — one `Option Nat` in `NestedPin`,
+no walk and no recomputation.  Then the root of an instance is the
+`parent`-minimal member of it, the covering is the parent chain, and
+the check that makes it consumable is the one the model's step (b)
+already proves field by field: `parent q = q'` implies `q` is the image
+of a class of `q'`'s container's system.  The measurement the kernel
+lane is running (is an accepted block's instance always one container's
+system?) is then the same question as "does every instance have a
+`parent`-ancestor inside it".
+
+##### (d) STEP (iii)'s INDUCTION, landed over the two clauses it reads
+
+`pins_le_of_instanceLe` (`NestedPinLeafAll.lean`) is the whole of step
+(iii) that does not depend on what the pins are: with `hedge` (a
+reference LEAVING an instance goes to a strictly smaller rank —
+`nestedPinRankOk`'s clause (2)) and `hhom` (the rank is a function of
+the instance — clause (3)), strong induction on the rank turns
+`instanceLe` into `∀ q, P q ≤ L⁺ (k + q)`.  The edge relation is
+abstract — it is what the inversion of (a) will identify with the
+copies' field targets — and clauses (1) and (4) are consumed inside
+`instanceLe`, where the container's own pins and the mint group are.
+
+##### (e) STATUS
+
+(1) is in the tree; (2) is answered — the walk is model-side and needs
+no record, the root's existence is not derivable and wants K.38's
+parent link (or another verdict from the measurement); (3) is in the
+tree as far as (d) — its remaining two pieces are `instanceLe`, blocked
+on (2), and the `nestedPinEdges` inversion of (a).
+
+Gates at the session's commits: `lake build` 701 jobs warning-free,
+`lake test` warning-free, layering / trust surface / no-local-paths /
+overview-links / quote-gate / proofdeps / shake and pub-imports as the
+integration's.
 #### U.57 — L-B session 12: `recF` CLOSED at BOTH field kinds, and `ordF`-left's residue found UNPROVABLE as stated (lane L-B, 2026-09-17)
 
 **`CopyCtorShape.recF` is done.**  The finitary half landed in §U.49 /

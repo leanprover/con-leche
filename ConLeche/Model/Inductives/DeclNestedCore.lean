@@ -153,6 +153,7 @@ discharged modulo the loop by `nestedCoreModeled_of`. -/
     -- former's openers, annotation included, and no loose bvar
     ConLeche.pinsScoped p.nP st = true →
     ConLeche.nestedPinKindsOk p b st stored = true →
+    ConLeche.nestedPinRankOk env p b st stored = true →
     -- POST-CHECK (a) A THIRD TIME (K.30): the pins typed at the
     -- environment holding the RESTORED formers
     ConLeche.nestedPinsOk (m := ConLeche.CheckM) (fueledOps μ F)
@@ -308,19 +309,32 @@ theorem declNested_of (hμ : μ.verifiedChecks = true) {F : Nat} {env envOut : E
     Nonempty (EnvModelM V μ envOut) := by
   obtain ⟨h0, h1, st, b, envAux, stored, ctorsR, cvRms, cvRns, rulesM, rulesN, fmsA, ctorsA,
     hfA, hcA, helim, hcount, hfresh, hcont, hb, haux, hstored, hclosed, hpinsAux, hcaps, hsrc,
-    -, hgrp, hsc, -, hkinds, hpins₁, hctors, hrm, hrn, hrulesM, hrulesN, htbl, hpinsOut, hcnt,
-    hrecs, -⟩ := h
+    -, hgrp, hsc, -, hkinds, -, hrank, hpins₁, hctors, hrm, hrn, hrulesM, hrulesN, htbl, hpinsOut,
+    hcnt, hrecs, -⟩ := h
   -- the `-` after `hsrc` is K.31's `pinsDistinct` conjunct: named for the
   -- identities' discharge (`NestedPinsIdent`, lane L-B), not consumed here;
   -- the `-` after `hsc` is K.32's `nestedCopyTargetsOk`, named for the same
-  -- discharge's `ordF` arm, not consumed here either; the LAST `-` is K.34's
+  -- discharge's `ordF` arm, not consumed here either; the `-` after
+  -- `hkinds` is K.35's `nestedAuxAppsOk`, and `hrank` after it is K.37's
+  -- `nestedPinRankOk` — the global entry theorem's induction measure,
+  -- carried down to `NestedPinsRun` (task #315 L-E, DESIGN §U.55); the
+  -- LAST `-` is K.34's
   -- `blockReadBackOk` — the route's own read-back, which `mp.blocks` already
   -- carries for the environments the fold has stored, so nothing here uses it
+  -- THE CERTIFICATION-ONLY RECORDS (K.35's follow-up): the run carries them
+  -- as `certOnly μ …`; this theorem is stated under `hμ`, at which the gate
+  -- is the Bool the consumers below expect
+  replace hcont := ConLeche.certOnly_elim hcont hμ
+  replace hsrc := ConLeche.certOnly_elim hsrc hμ
+  replace hgrp := ConLeche.certOnly_elim hgrp hμ
+  replace hsc := ConLeche.certOnly_elim hsc hμ
+  replace hkinds := ConLeche.certOnly_elim hkinds hμ
+  replace hrank := ConLeche.certOnly_elim hrank hμ
   have hPM : PinsModeled mp.base2 st.pins := pinsModeled_of_env mp.blocks hcont
   obtain ⟨fms, f₀, ctorsA', sortss, kinds, mp₁, ppsF, W, idxF, dsF, esF, srcsF, fvsPF, xFvsF, xrestF,
     eissF, tssF, dsR, xFvsR, pinsS, mp₂, henv, O⟩ := hcore hμ mp.toEnvModelM hE p st b envAux stored
     ctorsR fmsA ctorsA hPM h0 h1 hfA hcA helim hcount hfresh hcont hb haux hstored hclosed hpinsAux
-    hcaps hsrc hgrp hsc hkinds hpins₁ hctors
+    hcaps hsrc hgrp hsc hkinds hrank hpins₁ hctors
   exact htail hμ mp.toEnvModelM hE p envOut st b envAux stored ctorsR cvRms cvRns rulesM rulesN fmsA
     ctorsA hPM h0 h1 hfA hcA helim hcount hfresh hcont hb haux hstored hclosed hpinsAux hcaps hsrc
     hgrp hkinds hctors hrm hrn hrulesM hrulesN htbl hpinsOut hcnt hrecs fms f₀ ctorsA' sortss kinds
@@ -338,7 +352,7 @@ CONCRETELY (`NestedCoreOut`). -/
 theorem nestedCoreModeled_of {F : Nat} (hst : NestedCtorsStaged V μ F) :
     NestedCoreModeled V μ F := by
   intro hμ env mp hE p st b envAux stored ctorsR fmsA ctorsA₀ hPM h0 h1 hfA hcA helim hcount hfresh
-    hcont hb haux hstored hclosed hpinsAux hcaps hsrc hgrp hsc hkinds hpins₁ hctors
+    hcont hb haux hstored hclosed hpinsAux hcaps hsrc hgrp hsc hkinds hrank hpins₁ hctors
   obtain ⟨hnd, hlp, hmem, h3, env₁, fms, f₀, tq₀, ctorsA, sortss, kinds, formers4, ctors4, cvRas,
     rulesOf, hformers, hf₀, htq₀, hcross, -, hctorsA, hkindsA, hfo, -, -, -, -⟩ :=
     ConLeche.checkMutualCore_inv haux
@@ -349,8 +363,8 @@ theorem nestedCoreModeled_of {F : Nat} (hst : NestedCtorsStaged V μ F) :
   obtain ⟨henv, -⟩ := ConLeche.consNestedFormers_take_eq haux hformers hstored p.k (by omega)
   rw [henv] at hctors hpins₁
   obtain ⟨mp₂, dsR, xFvsR, pinsS, S⟩ := nestedStageFacts_of hst hμ hE hPM h0 h1 hfA hcA helim hcount
-    hfresh hcont hb haux hstored hclosed hpinsAux hcaps hsrc hgrp hsc hkinds hpins₁ hnd h3 hformers hctorsA h
-    hbk hctors
+    hfresh hcont hb haux hstored hclosed hpinsAux hcaps hsrc hgrp hsc hkinds hrank hpins₁ hnd h3
+    hformers hctorsA h hbk hctors
   have hbk' : b.k = p.k + pinsS.length := by rw [hbk, S.pinsLen]
   obtain ⟨hreps, htyped⟩ := nestedBlockReps_of hμ h h3 hbk' mp₂ S.findM S.leafM S.FD S.ctorsLen
     S.ctorFacts S.domFacts S.groups

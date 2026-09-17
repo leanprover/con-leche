@@ -351,7 +351,7 @@ theorem nestedPinRecLaws_of (hμ : μ.verifiedChecks = true)
     rw [BlockModel.rssT_of_pin hnk, BlockModel.FssT_of_pin hnk, BlockModel.EssT_of_pin hnk,
       Nat.add_sub_cancel_left, ← hslot, hIds ψ q hq]
     simp only [nestedPc, getD_drop]
-  refine { tgtsLt := ?_, idxOk := ?_, fibre := ?_, mkZero := ?_, mkInj := ?_, ind := ?_ }
+  refine ⟨?_, ?_, ?_, ?_, ?_, fun _ _ _ _ _ => rfl, ?_⟩
   · -- tgtsLt: the auxiliary block's kinds target a class
     intro ψ q j i hq _ _
     exact htgtLt q _ _ hq

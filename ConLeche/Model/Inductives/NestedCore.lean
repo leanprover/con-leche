@@ -115,27 +115,6 @@ theorem spineFit_iff_agree {Fs Fs' : List AnnotTerm} {ρ : Nat → V} (hlen : Fs
   simp only [List.getD_nil, Bool.false_eq_true, if_false]
   exact hag l hl fs₁ hl₁ (fitsFrom_nil_iff.mp hf) (fitsFrom_nil_iff.mp hf')
 
-/-- **A spine fits an instantiated telescope at the block's frame iff it
-fits the telescope at the pin's frame** (`interp_instAll` along the
-telescope). -/
-theorem spineFit_instTele (Ds : List AnnotTerm) (ρ' : Nat → V) :
-    ∀ (Ids : List AnnotTerm) (fs₁ is : List V),
-      SpineFit (consList fs₁ ρ') (instTele Ds fs₁.length Ids) is ↔
-        SpineFit (consList fs₁ (consList (Ds.map (interp V ρ')) ρ')) Ids is
-  | [], _, [] => Iff.rfl
-  | [], _, _ :: _ => Iff.rfl
-  | _ :: _, _, [] => Iff.rfl
-  | T :: Ids, fs₁, a :: is => by
-    show (a ∈ˢ interp V (consList fs₁ ρ') (AnnotTerm.instAll Ds fs₁.length T) ∧
-        SpineFit (cons a (consList fs₁ ρ')) (instTele Ds (fs₁.length + 1) Ids) is) ↔
-      (a ∈ˢ interp V (consList fs₁ (consList (Ds.map (interp V ρ')) ρ')) T ∧
-        SpineFit (cons a (consList fs₁ (consList (Ds.map (interp V ρ')) ρ'))) Ids is)
-    rw [interp_instAll]
-    have h := spineFit_instTele Ds ρ' Ids (fs₁ ++ [a]) is
-    rw [List.length_append, List.length_singleton, consList_append, consList_append] at h
-    exact and_congr Iff.rfl h
-
-
 /-- Two frames from spines of one length over one base agree only on
 equal spines. -/
 private theorem consList_inj_len {as bs : List V} {ρ : Nat → V} (hl : as.length = bs.length)
@@ -238,7 +217,7 @@ structure NestedPinGroup (m : EnvModel V env₂) (q₀ kJ : Nat) (dJ : BlockMode
         (Fss₀ := fun ψ => blkFss0 b ctorsA kinds dsF ψ)
         (Ess₀ := fun ψ => mutEss0 ctorsA.length esF ψ) (ψ := ψ) (ρp := ρp)
         m.acval dJ (((D).pinAt (q₀ + i)).ψJ ψ) (((D).pinAt (q₀ + i)).Ds ψ)
-        cvT.levelParams ((D).pinAt (q₀ + i)).lvls q₀ kJ i' j
+        ((D).pinAt (q₀ + i)).DsE cvT.levelParams ((D).pinAt (q₀ + i)).lvls q₀ kJ i' j
   /-- the copies' ENTRIES at the auxiliary carrier (`nestedPinLeaf_all`) -/
   entry :
     ∀ i, i < kJ → ∀ (ψ : Name → Nat) (ρp : Nat → V),
@@ -1331,6 +1310,7 @@ Consumer: `nestedStageFacts_of` → `nestedCoreModeled_of`. -/
     -- former's openers, annotation included, and no loose bvar
     ConLeche.pinsScoped p.nP st = true →
     ConLeche.nestedPinKindsOk p b st stored = true →
+    ConLeche.nestedPinRankOk env p b st stored = true →
     -- POST-CHECK (a) A THIRD TIME (K.30): the pins typed at the prefix
     -- formers' environment (`consNestedFormers_take_eq`)
     ConLeche.nestedPinsOk (m := ConLeche.CheckM) (fueledOps μ F)
@@ -1420,6 +1400,7 @@ theorem nestedStageFacts_of (hst : NestedCtorsStaged V μ F) (hμ : μ.verifiedC
     (hgrp : ConLeche.nestedGroupsOk env p st = true)
     (hsc : ConLeche.pinsScoped p.nP st = true)
     (hkinds : ConLeche.nestedPinKindsOk p b st stored = true)
+    (hrank : ConLeche.nestedPinRankOk env p b st stored = true)
     (hpins₁ : ConLeche.nestedPinsOk (m := ConLeche.CheckM) (fueledOps μ F)
       (ConLeche.consMutualFormers (fms.take p.k) env) p.nP st.pins = .ok ())
     (hnd : b.blockNames.Nodup) (h3 : ConLeche.mutualCtorsGrouped b.ctors = true)
@@ -1490,8 +1471,8 @@ theorem nestedStageFacts_of (hst : NestedCtorsStaged V μ F) (hμ : μ.verifiedC
   -- the loop
   obtain ⟨mp₂, dsR, xFvsR, pinsS, L⟩ := hst hμ mp hE p st b envAux stored ctorsR fmsA ctorsA₀ fms f₀
     ctorsA sortss kinds mp₁ ppsF W idxF dsF esF srcsF fvsPF xFvsF xrestF eissF tssF mp₁' hPM h0 h1
-    hfA hcA helim hcount hfresh hcont hb haux hstored hclosed hpinsAux hcaps hsrc hgrp hsc hkinds hpins₁
-    hformers h hbk h3 hnd hctorsA hleafM' hoff' hfind' hctors
+    hfA hcA helim hcount hfresh hcont hb haux hstored hclosed hpinsAux hcaps hsrc hgrp hsc hkinds hrank
+    hpins₁ hformers h hbk h3 hnd hctorsA hleafM' hoff' hfind' hctors
   -- the names
   have hnames : (fms.take p.k).map (·.cvTa.name) = p.memberNames := by
     rw [List.map_take, h.names]
