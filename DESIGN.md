@@ -82980,15 +82980,17 @@ new theorem (`replaceIfNested_shape`, `replaceAllNested_frame`,
 `DenoteMetaSpine.erasedEq`, `NestedPinsRun.copyEs`, and the restated
 `checkMutualCtor_true_norm`, `copyBody`, `copyFields`, `copyResid`).
 
-#### U.49 — L-B session 10: `recF`'s OCCURRENCE CHAIN, and the uniformity walk it needed (lane L-B, 2026-09-17)
+#### U.49 — L-B session 10: `recF`'s `rss` AND TARGET PROVED, and the uniformity walk they needed (lane L-B, 2026-09-17)
 
-**The arm is half in the tree.**  `CopyCtorShape.recF`'s SYNTACTIC
-half — what the elimination's rewrite leaves at a container-recursive
-field targeting one of the container's own members — is
-`NestedPinsRun.copyRecFDom` (`ConLeche/Model/Inductives/NestedCopyInst.lean`).
-The arm's other half — what the AUXILIARY block's install then makes
-of that domain (`blkRss`, `mutTgts`) — is NOT proved; (d) says exactly
-what is left.  `ordF`-left was not started.
+**Two of `CopyCtorShape.recF`'s four conjuncts are in the tree.**  The
+elimination's occurrence chain at a container-recursive field targeting
+one of the container's own members is `NestedPinsRun.copyRecFDom`, and
+the auxiliary block's CLASSIFICATION of what it leaves is
+`NestedPinsRun.copyRecF` (both in
+`ConLeche/Model/Inductives/NestedCopyInst.lean`): the copy's field is
+recursive, at `p.k + q₀ + m`.  The arm's TELESCOPE and INDEX-EXPRESSION
+equalities are NOT proved; (e) says exactly what is left.  `ordF`-left
+was not started.
 
 ##### (a) FINDING — `containerFieldOk` does NOT pin the parameter spine
 
@@ -83089,42 +83091,92 @@ mention of it becomes an unknown identifier — use a named `have` and
 one-sided rewrite is done by proving the spine equation forwards
 (`rw [hargs, …]; exact (Expr.mkAppN_getApp _).symm`).
 
-##### (d) What `recF` still owes
+##### (d) `NestedPinsRun.copyRecF` — the arm's `rss` and TARGET conjuncts
 
-Only the auxiliary block's CLASSIFICATION of the domain (c) computes:
+```lean
+theorem NestedPinsRun.copyRecF … (hkindsRun : classifyMutualKinds … = .ok kinds) …
+    (hmem : dJ.tgts i' j l < dJ.k)
+    (hrec : (dJ.ksF i' j).getD l .ordinary = .recursive) :
+    ((blkRss ctorsA kinds).getD (b.ownOffset (p.k + q₀ + i') + j) []).getD l false = true ∧
+      ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+        (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0 = p.k + q₀ + dJ.tgts i' j l
+```
 
-* the positivity normalisation must be CROSSED at a DOMAIN, the way
-  §U.44 (b) crossed it at the residual — `normCtorValM` opens the
-  copy's type, `normPosDomM`s each field domain and re-closes, and a
-  stuck inductive-headed domain survives that untouched
-  (`whnf_indApp_eq` = B3, plus `mkAppN_const_ne_forallE` to rule out
-  the `Π` arm).  The domains' half of `openPisAtFvars_closeTelescope`
-  (it gives only the residual today) and a positional
-  `normFieldDomsM` reading are what that needs;
-* `mutualCtorKinds` at a member-headed closed domain answers
-  `(.recursive, t)` with `t` the member's index in `b.members3`: the
-  domain is not a `Π`, so `mutualPositivity` takes its constant arm,
-  and every OTHER answer is `.negative` or `.unsupported`, which
-  `classifyMutualKinds_inv`'s own two conjuncts rule out — so the
-  walk's four guards need not be proved, only its arm reached;
-* the copy's aux name is the block's former at `p.k + q₀ + m`
-  (`PinsAligned` + `auxBlock_former`), which `members3_find?_name`
-  turns into the target `t`;
-* `blkRss_getD`/`mutTgts_getD` then read the two conjuncts, exactly as
-  `copyGroupTargetHead` reads them.
+— unconditional at the run and the group.  (c)'s domain, closed back
+up (`closeTelescope_mkPisB_strip`, `abstractTele_getD`,
+`abstractRange_params`) and re-opened (`os_field_domain`), keeps its
+constant head; `normCtorValM_domHead` carries it across the
+positivity normalisation; `os_field_domain_head` brings it back to the
+CLOSED stored domain the classification reads; and
+`mutualCtorKinds_memberHead` answers `.recursive` at the member
+table's index for the copy's own name (`PinsAligned` names the copy
+after its pin's auxiliary, `members3_find?_name` finds it at
+`p.k + q₀ + m`).
 
-**Sizing, corrected**: `recF`'s remaining half is ONE session (the
-four items above are each small and none is a design question);
-`ordF`-left is unchanged at 1.5–2 (§U.44 (f)); `pinF`'s remaining half
-shares (c)'s chain with the pin's own container in place of a member,
-and its shape arm is already in the tree.
+Three things worth keeping:
 
-##### (e) GATES
+* **the positivity walk's four guards need not be proved.**
+  `mutualPositivity` at a member-headed domain answers either
+  `(.recursive, m)` or `.negative`, and the later-use test may turn
+  the first into `.unsupported`; `classifyMutualKinds_inv`'s own two
+  conjuncts exclude both of the bad answers, so only the walk's
+  CONSTANT ARM has to be reached (`mutualPositivity_notPi`, a
+  one-`cases` unfolding).  This is why the arm costs no re-derivation
+  of the block's parameter spine on the COPY side.
+* **the normalisation is crossed at a DOMAIN** by
+  `normCtorValM_domHead` (`Verify/Inductives/NestedCopyNorm.lean`),
+  §U.44 (b)'s move at a field instead of the residual:
+  `normPosDomM_indApp` (the walk is the identity on a stuck inductive
+  application — K.22 plus `mkAppN_const_ne_forallE`),
+  `openPisAtFvars_closeTelescope_doms` (the round trip's binder
+  DOMAINS, which `openPisAtFvars_closeTelescope` did not carry) and
+  `normFieldDomsM_getD` (the two walks are in lockstep).
+  `normCtorValM_frame` gained the field walk it ran and its telescope
+  split; nothing was weakened.
+* **PERF**: `checkMutualCtor_shape` at the copy's stage costs more
+  than the whole rest of the proof — it alone blows the heartbeat
+  budget.  `CtorDataI.resid` through `MutualFormersFacts.CD` is the
+  same strip for free.  Read a constructor's telescope off the DATA,
+  never off the stage's inversion.
 
-`lake build` 695 jobs warning-free; `lake test` warning-free; layering,
-trust surface, overview-links, quote-gate, no-local-paths, proofdeps,
-shake and the pub-import plan all as §U.44 recorded them.  Standard
-axioms only on every new theorem (`uniformIndOccsE_stripPis`,
-`uniformIndOccsE_spine`, `nestedContainersOk_uniform`,
-`nestedContainersOk_memberSpine`, `blockCtorFieldHead`,
-`blockCtorFieldArgs`, `NestedPinsRun.copyRecFDom`).
+`copyBody`/`copyFields`/`copyResid` now also hand over the pin's
+container group, the member's membership and its constructor record —
+`ctorPair` had them and they were thrown away, and without them the
+consumer cannot show that ITS `J` is the one `copyResid` speaks of.
+
+##### (e) What `recF` still owes
+
+Only the arm's last two conjuncts: the copy's reflexive TELESCOPE is
+the container's instantiated (`instTele Ds l`) and its INDEX
+EXPRESSIONS are the container's instantiated at depth
+`l + |tls|` (`AnnotTerm.instAll`).  Both are READINGS, not syntax, and
+both run off (c)'s domain: the copy's `MutualOpened.recF` +
+`eisRead`/`recEntry` at the stored domain read the index arguments
+`copyRecFDom` names, and B4 (`instPisILP_read`'s spine form) turns
+them into the container's readings instantiated; the telescope is the
+REFLEXIVE twin of (c) — the same chain under the field's own `Π`
+binders (`reflOpen`, `normPosDomM` walking under the binders), which
+(c) does not cover: `copyRecFDom` is stated at a FINITARY recursive
+field (`.recursive`, not `.reflexive`).
+
+**Sizing, corrected**: `recF`'s remaining half — the reflexive twin of
+(c) and the two readings — is ONE session; `ordF`-left is unchanged at
+1.5–2 (§U.44 (f)); `pinF`'s remaining half shares (c)'s chain with the
+pin's own container in place of a member, and its shape arm is already
+in the tree.
+
+##### (f) GATES
+
+`lake build` warning-free; `lake test` warning-free; layering base 347
+/ model 265 / caps 3 / umbrella 1, 0/0; trust surface 13/5 (627);
+overview-links 112; quote-gate 2; no-local-paths OK; proofdeps 4955
+rows / 12 roots / 0 doors; shake 510/510 allowlisted; pub-imports 1261
+of 1990, none demotable.  Standard axioms only on every new theorem
+(`uniformIndOccsE_stripPis`, `uniformIndOccsE_spine`,
+`nestedContainersOk_uniform`, `nestedContainersOk_memberSpine`,
+`blockCtorFieldHead`, `blockCtorFieldArgs`, `normPosDomM_indApp`,
+`openPisAtFvars_closeTelescope_doms`, `normFieldDomsM_getD`,
+`normCtorValM_domHead`, `mutualPositivity_notPi`,
+`mutualCtorKinds_memberHead`, `NestedPinsRun.copyRecFDom`,
+`NestedPinsRun.copyRecF`, and the restated `normCtorValM_frame`,
+`copyBody`, `copyFields`, `copyResid`).
