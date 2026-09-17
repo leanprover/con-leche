@@ -80138,6 +80138,140 @@ Next: L-B's `recF` and `ordF`-left arms, L-E's blob route (§U.48 (g)'s
 three steps, K.37 on the kernel lane), M7's three stage facts, and
 M7-3's mutual lift steps 3–5 with K.36.
 
+##### (q) INTEGRATION 3i — M7-3 session 6 and M7-4 sessions 1–2 merged: the MUTUAL route's lift, and the guard the pinned basis blocks forced (session U-31)
+
+Two merges into the lane, `--no-ff` at the pinned shas —
+`agent/uniform-m7env` **587c79ac** (M7-3 s6) at 43eab441 and
+`agent/uniform-basis` **44bedac8** (M7-4 s1+s2) at c3d44881.  **The
+nested chain does not move**: `declNested_of` over `mp : EnvModelB`
+still closes over exactly `hSh : NestedPinsShape`, `hEn :
+NestedPinsEntry` and `htail : NestedTailModeled` (plus `hE` and the
+run).  What moves is beside it — the MUTUAL route now has its own lift
+to `EnvModelB`, and the pinned basis blocks their block models.
+Neither branch touched checker code.
+
+*Merge 1 — M7-3 session 6* (43eab441).  The branch contains the lane's
+2a63e12b (integration 3g), so the delta is session 6 alone and the
+forecast `NestedCopyInst`/`NestedCopyIdx` collision could not happen
+(the branch touches neither file).  It brings `declMutualB`
+(`Model/Inductives/EnvModelBStages.lean:704`) — `Nonempty (EnvModelB V
+μ envOut)` from `mb : EnvModelB V μ env`, the run, and the ONE
+hypothesis `hOrd : MutualOrdFree` (K.36's Prop, stated over the run's
+own data so a later kernel conjunct can replace it) — with
+`mutualContainerModeled` (the mutual block read back as its own
+container group, the pins' three clauses vacuous at `d.pins = []`),
+`BlockAt.of_noPins` (`ContainerCross.lean:754`), `BlockInstallExt` and
+`mutualInstallExt` (an install stage's conses as the crossing sees
+them, the mutual install's four stages composed), and
+`IsBlockModel.crossEnvG` (`BlockRepCross.lean:630`) — the guarded
+crossing with the constructors' guards as an ARGUMENT, of which the old
+`crossEnvP` is now an instance at `ProjFree.of_constsResolve`, its
+signature and every call site unchanged.  `MutualCoreModeled`'s
+conclusion gains the kinds tie (`d.ksF mm j = (kinds.getD (b.ownOffset
+mm + j) []).map (·.1)`, discharged by `rfl` in `mutualCoreModeled_of`)
+and `declBlock` drops it by `-`.  **`declMutual`'s and `declBlock`'s
+statements are UNCHANGED**, verified on the diff: `MutualTables.lean`
+is untouched and `DeclBlock.lean`'s `declBlock` differs only in its
+`obtain` pattern.  DESIGN.md was the only conflict (§U.47 against the
+lane's §U.48, both appended after §U.46), resolved by number and
+verified a pure union — zero lines dropped against either parent (201
+over HEAD, 599 over 587c79ac).  OVERVIEW's `declBlock` anchor came in
+repointed L291 → L297, a pure line shift the branch had already
+re-read.  **No proof on the lane needed adapting.**
+
+*Merge 2 — M7-4 sessions 1 and 2* (c3d44881).  Branched from 68ab17a9
+(integration 3e), so it has neither 2a63e12b's L-E interface nor M7-3
+sessions 4–6.  Its structural change is a WEAKENING:
+`ContainerModeled.inj` is GUARDED by `0 < d.nP`
+(`NestedPremise.lean:93`), because the clause is FALSE at the pinned
+`Nat` (carrier `ω`, `natzero = ∅`) and at the pinned `PUnit` (carrier
+`{pt}`).  Its ONE consumer is a pin's container, and the premise is
+discharged at the run: `NestedPinGroupSyn.inj` becomes `CM.inj (by …
+R.pinDsPos …)` over the new `NestedPinsRun.pinDsPos`
+(`NestedPins.lean:944`) — `nestedOccOk` mints a pin only where a member
+is mentioned among `args.take ci.nP`, empty at `ci.nP = 0`, and the
+elimination's provenance record carries that verdict at every copy.
+`ContainerModeled.of_readBack` keeps its STRONG `hinj` and fills the
+weaker field (`inj := fun _ => hinj`), so every existing producer is
+untouched — `mutualContainerModeled` at `htf.inj` and `crossEnvP`'s
+propagation both compile unchanged, and the two adaptations the
+integration was warned about were not needed.  The branch also brings
+`BasisBlocksZero/Unit/Nat/Eq/Tag/Step.lean` (`emptyBlockAt`,
+`falseBlockAt`, `punitBlockAt`, `natBlockAt`, `eqBlockAt`;
+`no_containerModeled_nat_unguarded` and `_punit_unguarded`, the
+refutations that motivate the guard; `EnvBlocksOf.extendBasis`/
+`extendBasisOf` and `emptyBlocksStep`, the basis step's shape for the
+`EnvModelB` flip) with their `public import`s in `ConLeche/Model.lean`,
+and DESIGN §U.42/§U.45.
+
+*The conflicts of merge 2, and the ONE adaptation.*  DESIGN.md was
+again the only conflict, in two hunks, and this time the sections had
+to be INTERLEAVED rather than appended: the branch has neither
+§U.38/§U.39 nor §U.43/§U.44/§U.46/§U.47/§U.48, and its own §U.42 and
+§U.45 belong between §U.41 and §U.43 and between §U.44 and §U.46.
+Resolved by number, verified a pure union (378 lines added over HEAD,
+1724 over 44bedac8, zero dropped against either).  **Every forecast
+source conflict auto-merged CORRECTLY** and the compiler confirms it:
+`NestedPremise.lean` carries both the guarded `inj` and L-E's `pinψ`
+clause; `NestedPins.lean` carries `pinDsPos` and the `inj :=` discharge
+beside L-E's `grp`/`modeled`/`stored`/`lvls`; `ContainerCross.lean`,
+`ConLeche/Model.lean` and `NestedPins.lean`'s imports took the union.
+`NestedPremise`'s public import is still
+`Semantics.Inductives.DeclNested`.  The one adaptation the compiler
+asked for is the mirror image of the auto-merge: the four basis blocks
+that build `ContainerModeled` DIRECTLY (rather than through
+`of_readBack`) were missing L-E's `pinψ` field, which the branch never
+saw.  At `d.pins = []` the clause is vacuous, exactly as its neighbour
+`pinNP`, so each gets one line — `pinψ := fun _ h => nomatch h`
+(`BasisBlocksZero.lean:244`, `BasisBlocksUnit.lean:404`,
+`BasisBlocksEq.lean:556`, `BasisBlocksNat.lean:754`).  No theorem
+statement was adapted on either merge.
+
+**The import gate had nothing to take**, as in §U.27 (b), (g), (h),
+(k) and (m): neither branch touched `tests/shake-allowlist.txt` or
+`scripts/pub-import-plan.py` (M7-4's narrowings are inside the new
+modules' own import lists), so there was no union and no new FALLBACK
+to verify.  Shake 510 proposed / all 510 allowlisted at both merge
+commits; pub-imports none demotable at both — 1263 of 1994 in-tree
+edges public with 38 dot-notation fallbacks after merge 1, 1275 of 2010
+after merge 2's six modules.
+
+Gates at BOTH merge commits: `lake build` warning-free (695 jobs at
+merge 1, 701 with the six `BasisBlocks*`), `lake test` warning-free,
+shake and pub-imports as above, layering base 347 / model 265 / caps 3
+/ umbrella 1 at merge 1 and 347 / 271 / 3 / 1 at merge 2, with 0
+base→lane and 0 impl→theory; trust surface 13 escapes in 5 allowlisted
+files (627 then 633 scanned); no-local-paths OK; overview-links 112;
+quote-gate 2; proofdeps 4955 rows / 12 roots / 0 doors; nested-shadow
+27/27 on the final commit.  **And `tests/arena.sh` on merge 1: EXIT
+0** — `declMutual`'s proof changed, so that was the run that had to be
+made.  No `sorry`, no axioms, no `maxHeartbeats`, no checker code
+changed.
+
+**The chain, re-verified** (`_tmp/uniform-315/chain-probe-u31.lean`,
+outside the build): `declNested_of hμ mp hE (nestedCoreModeled_of
+(nestedCtorsStaged_of (nestedPinsStaged_of (nestedPinsIdent_of hSh
+hEn)) nestedReadLaw)) htail h : Nonempty (EnvModelM V μ envOut)` still
+closes over exactly `hSh`, `hEn` and `htail` (plus `mp : EnvModelB V μ
+env`, `hE` and the run), and `nestedTailModeled_of hrd heqs hst` still
+typechecks.  New probes, all green: `declMutualB hμ mb hE hpinOk hOrd
+h : Nonempty (EnvModelB V μ envOut)` with `hOrd` its only hypothesis
+beyond the run, and `natBlockAt`/`eqBlockAt` at the merged (guarded)
+`ContainerModeled`, whose `inj` now reads `0 < d.nP → …`.  `#print
+axioms` of `probe_decl`, `probe_tail` and `probe_mutual`: `[propext,
+Classical.choice, Quot.sound]`.
+
+The nested residual after 3i is (n)'s, unchanged — `NestedPinsShape`
+(L-B/L-E), `NestedPinsEntry` (L-E) and `NestedTailModeled` (M7-2's
+three stage facts).  Beside it, the MUTUAL route's residual is the one
+hypothesis `MutualOrdFree` (K.36 on the kernel lane), and the
+`EnvModelB` flip (M8) now has both the mutual lift and the basis step.
+
+Cost: well under a session — two DESIGN conflicts (one appended, one
+interleaved), one four-line adaptation, and the arena run.  Next: L-B's
+`recF` and `ordF`-left arms, L-E's blob route, M7's three stage facts,
+M7-3's native export, and K.36.
+
 #### K.32 — the copies' recursive targets come from the container's own recursion (2026-09-16, task #315, lane L-B's DESIGN §U.23 (e))
 
 The model's `ordF` arm needs to know that a container-ORDINARY field
