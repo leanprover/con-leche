@@ -537,6 +537,7 @@ structure CopyCtorShape : Prop where
     ((dJ.rss i).getD j []).getD l false = false →
     (rs.getD l false = false ∧
       ∀ fs₁ : List V, fs₁.length = l →
+        SpineFit (consList (Ds.map (interp V ρp)) ρp) (((dJ.Fss i ψJ).getD j []).take l) fs₁ →
         interp V (consList fs₁ ρp) (Fs.getD l default)
           = interp V (consList fs₁ ρp)
               (AnnotTerm.instAll Ds l (((dJ.Fss i ψJ).getD j []).getD l default))) ∨
@@ -779,7 +780,7 @@ theorem CopyCtorShape.fit_iff_at {env : Env} {m : EnvModel V env}
       rw [if_neg (by rw [hr']; exact Bool.false_ne_true)]
       refine ⟨Subset.refl _, ?_⟩
       rcases h.ordF _ hl hr' with ⟨hrC, hF⟩ | ⟨hrC, hout, -, -⟩
-      · rw [if_neg (by rw [hrC]; exact Bool.false_ne_true), hF fs₁ rfl, interp_instAll]
+      · rw [if_neg (by rw [hrC]; exact Bool.false_ne_true), hF fs₁ rfl hsp, interp_instAll]
       · rw [if_pos hrC, segJoin_out _ _ hout]
         exact hent _ (h.len ▸ hl) hrC hout fs₁ rfl hsp
   -- the index equations
@@ -864,7 +865,7 @@ theorem CopyCtorShape.fit_imp_T_le_dom {env : Env} {m : EnvModel V env} {pc : Na
       rw [if_neg (by rw [hr']; exact Bool.false_ne_true)]
       refine ⟨Subset.refl _, ?_⟩
       rcases h.ordF _ hl hr' with ⟨hrC, hF⟩ | ⟨hrC, hout, -, -⟩
-      · rw [if_neg (by rw [hrC]; exact Bool.false_ne_true), hF fs₁ rfl, interp_instAll]
+      · rw [if_neg (by rw [hrC]; exact Bool.false_ne_true), hF fs₁ rfl hsp, interp_instAll]
         exact Subset.refl _
       · rw [if_pos hrC]
         exact hentR _ (h.len ▸ hl) hrC hr' hout fs₁ rfl hsp
@@ -1007,7 +1008,7 @@ theorem CopyCtorShape.fit_iff_at_T_dom {env : Env} {m : EnvModel V env} {pc : Na
       rw [if_neg (by rw [hr']; exact Bool.false_ne_true)]
       refine ⟨Subset.refl _, ?_⟩
       rcases h.ordF _ hl hr' with ⟨hrC, hF⟩ | ⟨hrC, hout, -, -⟩
-      · rw [if_neg (by rw [hrC]; exact Bool.false_ne_true), hF fs₁ rfl, interp_instAll]
+      · rw [if_neg (by rw [hrC]; exact Bool.false_ne_true), hF fs₁ rfl hsp, interp_instAll]
       · rw [if_pos hrC, segJoin_out _ _ hout]
         exact hent _ (h.len ▸ hl) hrC hout fs₁ rfl hsp
   -- the index equations
@@ -1125,7 +1126,7 @@ theorem CopyCtorShape.fit_imp {env : Env} {m : EnvModel V env} {Y : Nat → V}
       rw [if_neg (by rw [hr']; exact Bool.false_ne_true)]
       refine ⟨Subset.refl _, ?_⟩
       rcases h.ordF _ hl hr' with ⟨hrC, hF⟩ | ⟨hrC, hout, -, -⟩
-      · rw [if_neg (by rw [hrC]; exact Bool.false_ne_true), hF fs₁ rfl, interp_instAll]
+      · rw [if_neg (by rw [hrC]; exact Bool.false_ne_true), hF fs₁ rfl hsp, interp_instAll]
         exact Subset.refl _
       · rw [if_pos hrC, segJoin_out _ _ hout, hent _ (h.len ▸ hl) hrC hout fs₁ rfl hsp]
         exact Subset.refl _
@@ -1203,7 +1204,7 @@ theorem CopyCtorShape.fit_imp_le {env : Env} {m : EnvModel V env} {Y : Nat → V
       rw [if_neg (by rw [hr']; exact Bool.false_ne_true)]
       refine ⟨Subset.refl _, ?_⟩
       rcases h.ordF _ hl hr' with ⟨hrC, hF⟩ | ⟨hrC, hout, -, -⟩
-      · rw [if_neg (by rw [hrC]; exact Bool.false_ne_true), hF fs₁ rfl, interp_instAll]
+      · rw [if_neg (by rw [hrC]; exact Bool.false_ne_true), hF fs₁ rfl hsp, interp_instAll]
         exact Subset.refl _
       · rw [if_pos hrC, segJoin_out _ _ hout]
         exact hentR _ (h.len ▸ hl) hrC hr' hout fs₁ rfl hsp

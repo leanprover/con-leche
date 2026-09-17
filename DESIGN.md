@@ -86638,3 +86638,35 @@ Gates at the session's commits: `lake build` 701 jobs warning-free,
 `lake test` warning-free, layering / trust surface / no-local-paths /
 overview-links / quote-gate / proofdeps / shake and pub-imports as the
 integration's.
+
+#### U.56 — L-E session 9: `ordF`'s LEFT arm takes the fitting prefix (lane L-B's λ-pin finding, applied) (lane L-E, 2026-09-17)
+
+Lane L-B (session 12) found `CopyCtorShape.ordF`'s LEFT arm FALSE at
+the INTERP in the λ-pin case: the arm quantified over EVERY `fs₁` of
+the right length, `interp` of an application is `app`, and beta is the
+identity only inside the domain (`app_lamR_of_not_mem` gives `∅` off
+it), so a normalised λ-pin mentioning an EARLIER field refutes the arm
+at a non-fitting `fs₁`.  The fix is the premise `CopyEntryAt` and
+`EntryRead` already carry — the CONTAINER's prefix fit at the pin's
+frame:
+
+```lean
+    (rs.getD l false = false ∧
+      ∀ fs₁ : List V, fs₁.length = l →
+        SpineFit (consList (Ds.map (interp V ρp)) ρp) (((dJ.Fss i ψJ).getD j []).take l) fs₁ →
+        interp V (consList fs₁ ρp) (Fs.getD l default)
+          = interp V (consList fs₁ ρp)
+              (AnnotTerm.instAll Ds l (((dJ.Fss i ψJ).getD j []).getD l default))) ∨
+```
+
+**Every consumer had the fit at hand**, so this is a one-line premise
+and not a design question: the five sites that read the arm
+(`fit_iff_at`, `fit_imp`, `fit_imp_le`, `fit_imp_T_le_dom`,
+`fit_iff_at_T_dom`) all read it inside
+`fitsFrom_iff_frames_spine`/`fitsFrom_imp_frames_spine`, whose
+per-field hypothesis IS that fit (it is the same `hsp` those proofs
+already pass to `IsBlockModels.real_dom_eq`); `copyEntryAt_of_read`
+consumes `EntryRead`, not `ordF`; `CopyCtorShape.of_EA` transports the
+arm verbatim; and `NestedPinLeafAll`'s use discards the left arm's
+content.  Build and `lake test` warning-free at the change, chain probe
+unchanged.
