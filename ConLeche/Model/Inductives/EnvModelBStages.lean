@@ -447,21 +447,22 @@ theorem noNewTables (h : ConsExt env envOut new)
     (hnoTbl : ∀ c ∈ new, ∀ tbl : ConLeche.ProjTable, c ≠ .projInfo tbl) :
     ∀ (sn : Name) (i : Nat), env.findProj? sn i = none → envOut.findProj? sn i = none := by
   intro sn i h0
-  rw [ConLeche.Env.findProj?] at h0 ⊢
-  cases hf₂ : envOut.find? (ConLeche.projTableName sn) with
+  -- through `findProj?`'s OWN lemmas, never its unfolding: forcing the
+  -- equation lemma here would declare it in this module and hand every
+  -- capstone that reads a projection table a dependency on it
+  cases h₂ : envOut.findProj? sn i with
   | none => rfl
-  | some c =>
+  | some entry =>
+    obtain ⟨tbl, hf₂, hi, -⟩ := ConLeche.Env.findProj?_some h₂
     cases hf₁ : env.find? (ConLeche.projTableName sn) with
-    | some c' =>
+    | some c =>
       rw [h.ext _ _ hf₁] at hf₂
-      obtain rfl : c = c' := (Option.some.inj hf₂).symm
-      rw [hf₁] at h0
-      exact h0
+      obtain rfl : c = .projInfo tbl := Option.some.inj hf₂
+      rw [ConLeche.Env.findProj?_of_table hf₁ hi] at h0
+      exact nomatch h0
     | none =>
       obtain ⟨hc, -⟩ := h.newOf hf₂ hf₁
-      cases c with
-      | projInfo tbl => exact absurd rfl (hnoTbl _ hc tbl)
-      | _ => rfl
+      exact absurd rfl (hnoTbl _ hc tbl)
 
 end ConsExt
 

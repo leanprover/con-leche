@@ -86083,3 +86083,192 @@ a fire would report a bug in the computation above rather than anything
 about the stream.  It is NOT category (B): there is no official-accepted
 violating stream to describe, because the fact is not about a stream.
 
+
+#### U.55 — M7-3 session 9: `declMutualB` over NOTHING, the basis tier lifted, and THE FLIP AUDIT (lane M7-3, session 9, 2026-09-17)
+
+Three items: the mutual route's last hypothesis, the basis tier, and
+the census M8 runs on.
+
+##### (a) `declMutualB`'s `hOrd` is GONE — K.36 was never a check
+
+§U.47 left `MutualOrdFree` as the mutual lift's one argument, to be
+swapped for a kernel Bool.  The kernel lane retired that Bool and
+proved the Prop instead (`mutualOrdFree_of`,
+`Verify/Inductives/MutualInv.lean`), exactly as §U.52 (a) found on the
+native side: `mutualFieldsOk`'s `.ordinary` cell IS
+`x.fvarTypeD.constsResolve env` at the PRE-BLOCK environment, where
+every member is fresh, and a resolving expression mentions no unstored
+name.  Both halves are conjuncts the run already carries — the Bool
+itself, and the formers' stage that `mutualFormers_membersFresh`
+(`Semantics/Inductives/DeclMutual.lean`) reads the freshness off.
+
+So the model tier's DUPLICATE `MutualOrdFree` is deleted: the Verify
+one at `fms.map (·.cvTa.name)` / `b.nP` is the single definition (it
+gained `@[expose]`, because `mutualContainerModeled` unfolds it — the
+module system's rule, not a preference), `mutualOrdFree_of_run` is the
+three-line bridge off `hformers` and `hfo`, and
+
+```lean
+theorem declMutualB (hμ : μ.verifiedChecks = true) {F : Nat} {env envOut : Env}
+    {p : MutualParts} (mb : EnvModelB V μ env) (hE : ConLeche.EtaFamiliesClosed env)
+    (hpinOk : ConLeche.mutualRecPinOk p = true)
+    (h : ConLeche.Semantics.DeclMutualRun μ F env p envOut) :
+    Nonempty (EnvModelB V μ envOut)
+```
+
+matches `declNativeB`: **no hypothesis beyond the run**, on either
+install route.  `declMutual`'s and `declBlock`'s statements did not
+move.
+
+##### (b) The basis tier, and the plumbing §U.45 (e) named
+
+§U.45 (e) left the basis tier with one gap, and called it plumbing:
+`declBasisPB_*` returned `Nonempty (EnvModelM V μ env₂)` — an ANONYMOUS
+model — so the run's crossing facts could not be stated about it.  Two
+steps close it.
+
+1. **The runs hand back a NAMED model with its agreement.**  Every
+   `extend*` install already PROVED its cons's carrier equation and
+   dropped it through `nonempty_of_exists` (the `Eq` block's three were
+   the exception: its chain reads its own leaves, so it kept them).
+   All seventeen now return
+   `∃ mp', mp'.base2.acval = acvalWith mp.base2.acval c₀.name A`, and
+   each `declBasisPB_*` composes the chain into
+   `∃ mp' : EnvModelM V μ env₂, AcvalAgrees mp.base2 mp'.base2`.
+   The composition kit: `acvalAgrees_of_acvalWith` (the pointwise
+   reading of one cons's equation — `exists_agrees_of_cons`, §U.31 (c)'s
+   primitive, is now its `∃`-wrapper), `AcvalAgrees.trans` and
+   `AcvalAgrees.transCons` at a fresh cons (`isSome_find?_cons`).
+   `basisStepAgree_of` is the dispatch; `basisStepPB_of`, which the
+   fold consumes, is its `Nonempty` projection and did not move.
+   `nonempty_of_exists` had no consumer left and is gone.
+
+2. **The five instantiations** (`Model/Inductives/BasisBlocksFold.lean`).
+   The crossing's ten lookup and reading premises come off ONE record
+   per block — `BlockInstallExt` (`EnvModelBStages.lean`), the same one
+   the mutual and native routes use, at `Ms := [J₀]` and `new` the
+   block's constants in cons order.  A pinned block tables nothing, so
+   the readings cross UNGUARDED (`denoteMeta_env_mono` at
+   `ConsExt.noNewTables`), which is what makes the basis tier cheaper
+   than the install routes: no `ProjFree` bookkeeping at all.
+   `EnvBlocksOf.extendBasisExt` is that wrapper over §U.45's
+   `extendBasisOf`, and `empty`/`false`/`punit`/`nat`/`eqBlocksStepOf`
+   are the five, each at its computed read-back
+   (`containerInfo?_*A`) and its own `BlockAt`.  `eqBlocksStepOf` is
+   the one stated at an `EnvModelM`, because `eqBlockAt` reads
+   `Eq.refl`'s value off `mem_type` (§U.45 (c) 2).
+
+**THE `Quot` FINDING**: `BlockInstallExt` is unprovable for the `Quot`
+install, at every `Ms`.  Its recursor clause asks that every `recInfo`
+the block conses be named `I.rec` for a member `I`, and `Quot.lift` and
+`Quot.ind` are recursors named otherwise; `Name.str` injectivity kills
+every other choice.  So the record is SPLIT: `ConsExt` is its first two
+clauses — the cons shape and the new names' freshness, which is
+everything the crossing's LOOKUP half reads — carrying
+`ext`/`newOf`/`freshN`/`newN`/`noNewTables`, and `BlockInstallExt` is
+`ConsExt` plus the three KIND clauses (`toConsExt`; the four old names
+stay as wrappers, so no install route's call site moved).
+`EnvBlocksOf.extendNoGroup` takes `ConsExt` and `hrecN` — vacuous at a
+block none of whose names is an `_.rec` — and `quotBlocksStepOf` is its
+one instance: `containerInfo?` declines `Quot` outright (`quotName` is
+its first line) and the block's other four constants are not stored
+inductives, so **the assignment does not move**.
+
+`basisStepB_of` is the tier's conclusion: `EnvModelB V μ env` and the
+basis run give `Nonempty (EnvModelB V μ env₂)`, at all six kinds.
+
+##### (c) THE FLIP AUDIT — what `declStep_preserves` needs, arm by arm
+
+`Model/Fold.lean`'s `declStep_preserves` has eight arms, and the fold's
+invariant is `EnvModelOk = Nonempty (EnvModelM …) ∧ EtaFamiliesClosed`.
+The flip replaces the first conjunct by `Nonempty (EnvModelB …)`; the
+η half does not move (it has been model-free since #161 S3).  Arm by
+arm, with what each already has:
+
+| arm | run | the `EnvModelB` lift | state |
+|---|---|---|---|
+| `defnDecl` | `DeclDefnRun` | `envModelB_defn` | LANDED §U.31 (c) |
+| `thmDecl` | `DeclThmRun` | `envModelB_thm` | LANDED |
+| `opaqueDecl` | `DeclOpaqueRun` | `envModelB_opaque` | LANDED |
+| `axiomDecl` | `DeclAxiomRun` | `envModelB_axiom` | LANDED |
+| `basisDecl kind` | `DeclBasisRun` | `basisStepB_of` | (b) |
+| `quotDecl .type` | `DeclBasisRun … quotK` | `basisStepB_of` | (b) |
+| `quotDecl` (other) | `env₂ = env` | the model itself | free |
+| `indDecl`, pin hit | `DeclBasisRun` | `basisStepB_of` | (b) |
+| `indDecl`, native | `DeclNativeRun` | `declNativeB` | LANDED §U.52 |
+| `indDecl`, mutual | `DeclMutualRun` | `declMutualB` | (a), hypothesis-free |
+| `indDecl`, MODELED | `DeclIndRun` | — | **THE BLOCKER** |
+
+The last three are the `.indDecl` dispatch's own arms
+(`DeclIndRunDispatch`, `declInductive`), and the first two of them are
+done.  So the census after this session reads: **one arm left, and it
+is not to be proved — it is to be deleted.**
+
+###### The modeled arm, exactly
+
+`declInd` (`Model/DeclInd.lean`) installs an arbitrary stream block
+through the model artifacts.  Two things are missing, and only one of
+them is a proof:
+
+1. **No block model.**  The block model is built by
+   `mutualBlockModelOf_ofMutual`, `BlockModel.ofNative` and
+   `nestedBlockModel` — the three ROUTES.  `declInd` builds none, and
+   building one for an arbitrary stream block IS the work task #315
+   exists to replace.
+2. **No read-back.**  `DeclIndRun` carries no `blockReadBackOk`
+   conjunct (K.34 is a conjunct of the three install routes' runs
+   only), so even a block model in hand would not be tied to the
+   reading `containerInfo?` makes of the OUTPUT environment, which is
+   what `EnvBlockModels` quantifies over.  Closing the arm would
+   therefore also cost a new kernel check, on a route being retired.
+
+One thing the arm does NOT cost: the crossing's guard.  The modeled
+route installs no projection table at all (task #175's tower-flag note
+on `DeclIndRun`), so its crossing would be the unguarded
+`EnvBlocksOf.crossInd` at `Ts := []` — the basis tier's shape
+(`extendBasisExt`), not the install routes'.
+
+**The retirement path is the nested route.**  When `checkNestedS` is
+wired into the kernel's `.indDecl` dispatch (M5) and `declNestedB`
+lands (M7-2's tail, §U.40 (f)), `DeclIndRunDispatch`'s third arm
+becomes `DeclNestedRun` and `DeclIndRun` leaves the dispatch with
+`declInd`.  `declNested_of` already TAKES `EnvModelB` (it reads the
+pins' block models off `mp.blocks`) and returns `EnvModelM`; the tail's
+four items turn that into `declNestedB`.
+
+###### The order M8 lands in
+
+1. **`declNestedB`** — the nested tail's four items (§U.40 (f)) at
+   `EnvModelB`; needs M7-2's tail and the pin groups' `BlockAt`
+   (`nestedPinRecLaws_of`, `nestedPinShapes_of`), not `of_noPins`.
+2. **the kernel's nested dispatch arm** (`checkNestedS_run`/`_skels`,
+   the kernel lane's outstanding item) and the DELETION of the modeled
+   arm from `DeclIndRunDispatch` — after which `declInd` and
+   `Model/DeclInd.lean` are off the fold's path.
+3. **`declInductiveB`** — `declInductive`'s statement at `EnvModelB`,
+   the three arms (a), §U.52 and 1.  `DeclInductive.lean` is a 25-line
+   dispatch and the B version is its twin.
+4. **`EnvModelOkB`, `declStepB_preserves`, `foldPMB`,
+   `checkDeclsPure_soundB_of`** — `Model/Fold.lean`, mechanical: the
+   base case is `EnvModelB.empty` (in the tree since §U.31) and every
+   arm is a name swap.
+5. **the capstones see nothing.**  `EnvModelB` EXTENDS `EnvModelM`, so
+   `checkDeclsPure_sound_of` stays stated at `EnvModelM` and becomes
+   the `.toEnvModelM` projection of the B fold.  `MainTheorem.lean`,
+   `no_proof_of_False_pure`, `no_constant_of_False` and the capstone
+   closures are untouched by the flip — which is the reason the field
+   was added as an EXTENSION rather than as a new record.
+
+Steps 3–5 are the "1–2 sessions" §U.40 (e) sized, and they are the only
+ones that touch `Model/Fold.lean`.  Step 2 is the scheduling fact:
+**nothing above it can land first**, because a fold that flips while
+the modeled arm is reachable has an arm with no proof.
+
+##### (d) GATES
+
+`lake build` 702 jobs warning-free; `lake test` warning-free; layering;
+trust surface; overview-links (the `declStep_preserves` anchor
+repointed on a pure line shift — the citing paragraph re-read, the
+claim unchanged); quote-gate; no-local-paths; proofdeps; shake;
+pub-imports.  `tests/arena.sh` green.  Standard axioms on every new
+theorem.
