@@ -11,6 +11,7 @@ import ConLeche.Model.Inductives.BlockRecBridge
 import ConLeche.Verify.Inductives.NestedRecDoor
 import ConLeche.Verify.Inductives.NestedRecNames
 import ConLeche.Verify.Inductives.NestedRecRuleKit
+import ConLeche.Verify.Inductives.NestedRecFramesKit
 import ConLeche.Verify.Inductives.NestedElimInv
 public section
 
@@ -121,6 +122,165 @@ mimic run's above (`nestedRecCvAt`'s twin at the rules). -/
 @[expose] def nestedRulesAt (k : Nat) (rulesM rulesN : List (List RecRule)) (c : Nat) :
     List RecRule :=
   if c < k then rulesM.getD c [] else rulesN.getD (c - k) []
+
+omit [SetTheory V] in
+/-- The anonymous openers ARE openers. -/
+theorem openersFrom_openFvars (k₀ n : Nat) : OpenersFrom (openFvars k₀ n) k₀ n :=
+  ⟨openFvars_length k₀ n, fun i x hx => by
+    rcases Nat.lt_or_ge i n with hi | hi
+    · rw [openFvars_getElem? hi] at hx
+      exact ⟨.sort .zero, (Option.some.inj hx).symm⟩
+    · rw [List.getElem?_eq_none (by rw [openFvars_length]; exact hi)] at hx
+      exact nomatch hx⟩
+
+/-! ## A λ-tower's reading, with its bits (item 5 step 2e, the tower glue)
+
+`stripLams_denotePTele` (`Model/IndProjKit.lean`) reads a λ-tower into
+a `LamTele`, whose bits are EXISTENTIAL — and the fired equality folds
+the tower, which needs them.  These two are the same move with the
+bits kept: the reading of `λ bs, body` is `mkLamsAV` over the binders'
+own codomain bits (one numeral, since the rule's parameter prefix
+carries ONE binder datum) and the domains' readings.
+-/
+
+omit [SetTheory V] in
+/-- **Instantiation distributes over a λ-tower's rebuild** (`stripLams_instantiate1_eq`
+at the REBUILT form, which keeps the binder data on the nose). -/
+theorem instantiate1_foldrLam (v : Expr) :
+    ∀ (bs : List (Expr × BinderMeta)) (body : Expr) (j : Nat),
+      ∃ bs' : List (Expr × BinderMeta),
+        bs'.length = bs.length ∧
+        (∀ (i : Nat) (x x' : Expr × BinderMeta), bs[i]? = some x → bs'[i]? = some x' →
+          x'.1 = x.1.instantiate1 v (j + i) ∧ x'.2 = x.2) ∧
+        (bs.foldr (fun (y : Expr × BinderMeta) acc => Expr.lam y.1 acc y.2) body).instantiate1 v j
+          = bs'.foldr (fun (y : Expr × BinderMeta) acc => Expr.lam y.1 acc y.2)
+              (body.instantiate1 v (j + bs.length))
+  | [], body, j => by
+    refine ⟨[], rfl, (fun i x x' hx _ => nomatch hx), ?_⟩
+    show body.instantiate1 v j = body.instantiate1 v (j + 0)
+    rw [Nat.add_zero]
+  | x :: rest, body, j => by
+    obtain ⟨bs'', hlen, hrel, heq⟩ := instantiate1_foldrLam v rest body (j + 1)
+    refine ⟨(x.1.instantiate1 v j, x.2) :: bs'', by simp [hlen], ?_, ?_⟩
+    · intro i y y' hy hy'
+      cases i with
+      | zero =>
+        simp only [List.getElem?_cons_zero, Option.some.injEq] at hy hy'
+        subst hy; subst hy'
+        exact ⟨by rw [Nat.add_zero], rfl⟩
+      | succ i =>
+        simp only [List.getElem?_cons_succ] at hy hy'
+        obtain ⟨h1, h2⟩ := hrel i y y' hy hy'
+        exact ⟨by rw [h1, show j + 1 + i = j + (i + 1) from by omega], h2⟩
+    · show Expr.lam _ _ _ = _
+      simp only [List.foldr_cons]
+      rw [heq, show j + 1 + rest.length = j + (x :: rest).length from by simp; omega]
+
+/-- **A λ-TOWER'S READING, WITH ITS BITS**: at a tower whose binders
+carry ONE codomain bit, the reading is the `mkLamsAV` tower over that
+bit and the domains' readings, each read at its own depth under the
+standard openers, with the body read at the tower's depth. -/
+theorem denoteMeta_foldrLam {acval : Name → (Name → Nat) → AnnotTerm} {env : Env}
+    {φ : Name → Nat} (bt : Nat) :
+    ∀ (n : Nat) (bs : List (Expr × BinderMeta)), bs.length = n →
+      ∀ {body : Expr} {j : Nat} {E : AnnotTerm},
+      (∀ y ∈ bs, pwBit φ y.2.pw = bt) →
+      denoteMeta acval env φ j
+          (bs.foldr (fun (y : Expr × BinderMeta) acc => Expr.lam y.1 acc y.2) body) = some E →
+      ∃ (Γ : List AnnotTerm) (C : AnnotTerm),
+        Γ.length = bs.length ∧
+        E = mkLamsAV (Γ.map fun A => (bt, A)) C ∧
+        (∀ (i : Nat) (y : Expr × BinderMeta), bs[i]? = some y →
+          denoteMeta acval env φ (j + i)
+            (Expr.instSeq (openFvars j i) (i - 1) y.1) = some (Γ.getD i default)) ∧
+        denoteMeta acval env φ (j + bs.length)
+          (Expr.instSeq (openFvars j bs.length) (bs.length - 1) body) = some C := by
+  intro n
+  induction n with
+  | zero =>
+    intro bs hlen body j E _ hE
+    obtain rfl : bs = [] := List.eq_nil_of_length_eq_zero hlen
+    exact ⟨[], E, rfl, rfl, (fun i y hy => nomatch hy), hE⟩
+  | succ n ih =>
+    intro bs hlen body j E hbt hE
+    obtain ⟨x, rest, rfl⟩ : ∃ x rest, bs = x :: rest := by
+      cases bs with
+      | nil => simp at hlen
+      | cons x rest => exact ⟨x, rest, rfl⟩
+    have hrestlen : rest.length = n := by simpa using hlen
+    rw [show (x :: rest).foldr (fun (y : Expr × BinderMeta) acc => Expr.lam y.1 acc y.2) body
+        = Expr.lam x.1 (rest.foldr (fun (y : Expr × BinderMeta) acc => Expr.lam y.1 acc y.2) body)
+          x.2 from rfl, denoteMeta_lam] at hE
+    cases hA : denoteMeta acval env φ j x.1 with
+    | none => rw [hA] at hE; exact nomatch hE
+    | some A => ?_
+    rw [hA] at hE
+    cases hB : denoteMeta acval env φ (j + 1)
+        ((rest.foldr (fun (y : Expr × BinderMeta) acc => Expr.lam y.1 acc y.2) body).instantiate1
+          (.fvar j x.1)) with
+    | none => rw [hB] at hE; exact nomatch hE
+    | some B => ?_
+    rw [hB] at hE
+    obtain rfl : E = .lam (pwBit φ x.2.pw) A B := by simpa using hE.symm
+    -- re-open at the anonymous opener (the reading is blind to it)
+    have hB' : denoteMeta acval env φ (j + 1)
+        ((rest.foldr (fun (y : Expr × BinderMeta) acc => Expr.lam y.1 acc y.2) body).instantiate1
+          (.fvar j (.sort .zero))) = some B := by
+      rw [denoteMeta_erasedEq (ConLeche.Expr.ErasedEq.instantiate1
+        (ConLeche.Expr.ErasedEq.rfl _) (show ConLeche.Expr.ErasedEq
+            (.fvar j (.sort .zero)) (.fvar j x.1) from by constructor)) (j + 1)]
+      exact hB
+    obtain ⟨bs', hlen', hrel', heq'⟩ :=
+      instantiate1_foldrLam (Expr.fvar j (.sort .zero)) rest body 0
+    rw [heq'] at hB'
+    have hbt' : ∀ y ∈ bs', pwBit φ y.2.pw = bt := by
+      intro y hy
+      obtain ⟨i, hi⟩ := List.getElem?_of_mem hy
+      obtain ⟨z, hz⟩ : ∃ z, rest[i]? = some z :=
+        ⟨_, List.getElem?_eq_getElem (by
+          have := (List.getElem?_eq_some_iff.mp hi).1
+          rw [hlen'] at this; exact this)⟩
+      rw [(hrel' i z y hz hi).2]
+      exact hbt z (List.mem_cons_of_mem _ (List.mem_of_getElem? hz))
+    obtain ⟨Γ', C, hΓlen, hshape, hdoms, hbody⟩ :=
+      ih bs' (by rw [hlen', hrestlen]) hbt' hB'
+    rw [hlen'] at hΓlen hbody
+    refine ⟨A :: Γ', C, by simp [hΓlen], ?_, ?_, ?_⟩
+    · rw [List.map_cons, mkLamsAV, hshape, hbt x List.mem_cons_self]
+    · intro i y hy
+      cases i with
+      | zero =>
+        obtain rfl : x = y := by simpa using hy
+        exact hA
+      | succ i =>
+        rw [List.getElem?_cons_succ] at hy
+        obtain ⟨y', hy'⟩ : ∃ y', bs'[i]? = some y' :=
+          ⟨_, List.getElem?_eq_getElem (by
+            have := (List.getElem?_eq_some_iff.mp hy).1
+            rw [hlen']; exact this)⟩
+        have h1 := hdoms i y' hy'
+        rw [(hrel' i y y' hy hy').1, Nat.zero_add] at h1
+        show denoteMeta acval env φ (j + (i + 1))
+          (Expr.instSeq (openFvars j (i + 1)) (i + 1 - 1) y.1)
+            = some ((A :: Γ').getD (i + 1) default)
+        rw [show openFvars j (i + 1) = Expr.fvar j (.sort .zero) :: openFvars (j + 1) i from rfl,
+          show Expr.instSeq (Expr.fvar j (.sort .zero) :: openFvars (j + 1) i) (i + 1 - 1) y.1
+            = Expr.instSeq (openFvars (j + 1) i) (i - 1)
+              (y.1.instantiate1 (Expr.fvar j (.sort .zero)) i) from rfl,
+          show j + (i + 1) = j + 1 + i from by omega,
+          show (A :: Γ').getD (i + 1) default = Γ'.getD i default from rfl]
+        exact h1
+    · show denoteMeta acval env φ (j + (rest.length + 1))
+        (Expr.instSeq (openFvars j (rest.length + 1)) (rest.length + 1 - 1) body) = some C
+      rw [show openFvars j (rest.length + 1)
+          = Expr.fvar j (.sort .zero) :: openFvars (j + 1) rest.length from rfl,
+        show Expr.instSeq (Expr.fvar j (.sort .zero) :: openFvars (j + 1) rest.length)
+            (rest.length + 1 - 1) body
+          = Expr.instSeq (openFvars (j + 1) rest.length) (rest.length - 1)
+            (body.instantiate1 (Expr.fvar j (.sort .zero)) rest.length) from rfl,
+        show j + (rest.length + 1) = j + 1 + rest.length from by omega]
+      rw [Nat.zero_add] at hbody
+      exact hbody
 
 section Run
 
@@ -1307,6 +1467,145 @@ theorem NestedTailIn.ruleAgree {mpA : EnvModelM V μ ENVA} {cvRas : List Constan
     hP hF hA2 hA2' as [] ρ₀ hsp rfl (by rw [consList_nil]; exact hwd)
   rw [consList_nil] at h
   exact h
+
+/-! ## The λ prefix, read (item 5 step 2e, step 1 — the tower glue) -/
+
+/-- **THE RESTORED PROVISION'S READING CROSSING**: `provisionNestedRecs_hde`
+at the tail's own freshness (`provListFresh`) and distinctness reports —
+`restoreAgreeP`'s own `hdeR`, named so that the tower glue can take it
+too. -/
+theorem NestedTailIn.provCross
+    {mpP : EnvModelM V μ
+      (ConLeche.provisionNestedRecs (nestedProvList p stored cvRms cvRns) ENV2)}
+    (hndR : (cvRms.map (·.name) ++ cvRns.map (·.name)).Nodup)
+    (hagR : ∀ nm : Name, (∀ c, c < (D).kT → nm ≠ (nestedRecCvAt p.k cvRms cvRns c).name) →
+      mpP.base2.acval nm = mp₂.base2.acval nm) :
+    ∀ (ψ : Name → Nat) (dp : Nat) (e : Expr) {ea : AnnotTerm},
+      denoteMeta mp₂.base2.acval (ENV2) ψ dp e = some ea →
+        denoteMeta mpP.base2.acval
+          (ConLeche.provisionNestedRecs (nestedProvList p stored cvRms cvRns) (ENV2)) ψ dp e
+          = some ea := by
+  have hnd3 : ((nestedProvList p stored cvRms cvRns).map (fun x => x.1.name)).Nodup := by
+    rw [nestedProvList_names I.lenM I.lenN I.storedLen I.out.bk]
+    exact hndR
+  refine provisionNestedRecs_hde (m := mp₂.base2) (mP := mpP.base2) I.provListFresh hnd3 ?_
+  intro nm hnm
+  refine hagR nm (fun c hc he => ?_)
+  rw [I.kT] at hc
+  rw [he, (I.recCvDoor hc).1] at hnm
+  simp at hnm
+
+/-- **THE GENERATED RULE'S λ PREFIX IS THE FIRST FORMER'S PARAMETER
+TELESCOPE** (`auxRecParamDoms`'s twin at the rules): the prefix's
+domains are `f₀.cvTa.type`'s (`mutualRecRhs_paramPrefix` at the tail's
+own generated data) and every one of its binders carries the
+elimination's datum. -/
+theorem NestedTailIn.ruleParamDoms {i : Nat} {rhs : Expr}
+    (hgen : ConLeche.mutualRecRhs b.lps b.elim b.large b.nP
+      (ConLeche.mutualGenData b fms ctorsA kinds).1
+      (ConLeche.mutualGenData b fms ctorsA kinds).2 b.recName
+      (b.rlps.map Level.param) i = some rhs)
+    {bs : List (Expr × BinderMeta)} {bodyA : Expr}
+    (hstrip : rhs.stripLams b.nP = some (bs, bodyA)) :
+    ∃ (pbs : List (Expr × BinderMeta)) (bodyF : Expr),
+      f₀.cvTa.type.stripPis b.nP = some (pbs, bodyF) ∧
+      bs.map (·.1) = pbs.map (·.1) ∧
+      ∀ y ∈ bs, y.2 = (⟨Level.zeronessOf b.elimLevel⟩ : BinderMeta) := by
+  have hfirst : (ConLeche.mutualGenData b fms ctorsA kinds).1[0]?
+      = some ⟨f₀.cvTa.name, f₀.nIdx, f₀.cvTa.type⟩ := by
+    show (fms.map _)[0]? = _
+    rw [List.getElem?_map, I.out.facts.first]
+    rfl
+  obtain ⟨pbs, bodyF, motives, hq, hl⟩ := ConLeche.mutualRecRhs_paramPrefix hgen hfirst
+  obtain rfl : bs = pbs.map fun x =>
+      (x.1, (⟨Level.zeronessOf (ConLeche.structElimLevel b.elim b.large)⟩ : BinderMeta)) :=
+    (Prod.mk.inj (Option.some.inj (hl.symm.trans hstrip))).1.symm
+  refine ⟨pbs, bodyF, hq, by rw [List.map_map]; rfl, fun y hy => ?_⟩
+  obtain ⟨z, -, rfl⟩ := List.mem_map.mp hy
+  rfl
+
+/-- **THE RESTORED RULE'S λ PREFIX READS TO THE BLOCK'S PARAMETERS**
+(`recTyPrefix`'s twin at the rules, item 5 step 2e's first step): the
+restore leaves the `λ p⃗` prefix VERBATIM (`restoreNested_lams`), its
+domains are the FIRST former's parameter telescope (`ruleParamDoms`),
+and that type reads at `mp₂` to `ppsF 0` (`NestedStageFacts.FD`),
+which crosses to the restored provision (`provCross`).  So the
+restored right-hand side reads as the `mkLamsAV` tower over
+`(D).params ψ` at the elimination's own bit — the shape the fired
+equality folds — with the walked body read at depth `nP` under the
+anonymous openers, which is what the transfer (`ruleAgree`) compares. -/
+theorem NestedTailIn.rulePrefix
+    {mpP : EnvModelM V μ
+      (ConLeche.provisionNestedRecs (nestedProvList p stored cvRms cvRns) ENV2)}
+    (hndR : (cvRms.map (·.name) ++ cvRns.map (·.name)).Nodup)
+    (hagR : ∀ nm : Name, (∀ c, c < (D).kT → nm ≠ (nestedRecCvAt p.k cvRms cvRns c).name) →
+      mpP.base2.acval nm = mp₂.base2.acval nm)
+    {pbs bs : List (Expr × BinderMeta)} {bodyF bodyR : Expr}
+    (hpbs : f₀.cvTa.type.stripPis b.nP = some (pbs, bodyF))
+    (hdom : bs.map (·.1) = pbs.map (·.1))
+    (hmeta : ∀ y ∈ bs, y.2 = (⟨Level.zeronessOf b.elimLevel⟩ : BinderMeta))
+    (ψ : Name → Nat) {E : AnnotTerm}
+    (hread : denoteMeta mpP.base2.acval
+      (ConLeche.provisionNestedRecs (nestedProvList p stored cvRms cvRns) (ENV2)) ψ 0
+      (bs.foldr (fun (x : Expr × BinderMeta) acc => Expr.lam x.1 acc x.2) bodyR) = some E) :
+    ∃ C : AnnotTerm,
+      E = mkLamsAV (((D).params ψ).map fun A =>
+        (pwBit ψ (Level.zeronessOf b.elimLevel), A)) C ∧
+      denoteMeta mpP.base2.acval
+        (ConLeche.provisionNestedRecs (nestedProvList p stored cvRms cvRns) (ENV2)) ψ b.nP
+        (Expr.instSeq (openFvars 0 b.nP) (b.nP - 1) bodyR) = some C := by
+  have hlenP : pbs.length = b.nP := ConLeche.Expr.stripPis_length _ hpbs
+  have hlenBs : bs.length = b.nP := by
+    have h := congrArg List.length hdom
+    simp only [List.length_map] at h
+    rw [h, hlenP]
+  obtain ⟨Γ, C, hΓlen, hshape, hdoms, hbody⟩ :=
+    denoteMeta_foldrLam (pwBit ψ (Level.zeronessOf b.elimLevel)) b.nP bs hlenBs
+      (fun y hy => by rw [hmeta y hy]) hread
+  rw [hlenBs, Nat.zero_add] at hbody
+  rw [hlenBs] at hΓlen
+  refine ⟨C, ?_, hbody⟩
+  -- **Γ IS the block's parameter telescope**
+  have hFD := I.out.stage.FD 0 f₀ I.kpos I.out.facts.first
+  have hlenPP : (ppsF 0 ψ).length = b.nP + f₀.nIdx := hFD.len ψ
+  have hreadF : denoteMeta mp₂.base2.acval (ENV2) ψ 0 f₀.cvTa.type
+      = some (mkPisAV ((ppsF 0 ψ).take b.nP)
+          (mkPisAV ((ppsF 0 ψ).drop b.nP) (.sort (f₀.s.eval ψ)))) := by
+    rw [← mkPisAV_append, List.take_append_drop]
+    exact hFD.read ψ
+  obtain ⟨fvsP, hopenP, hbindP, -⟩ :=
+    piTele_read_openers mpP.base2 hpbs (by rw [List.length_take]; omega)
+      (I.provCross hndR hagR ψ 0 f₀.cvTa.type hreadF)
+  have hΓeq : Γ = (D).params ψ := by
+    show Γ = ((ppsF 0 ψ).take b.nP).map (·.2.2)
+    refine List.ext_getElem? fun i => ?_
+    rcases Nat.lt_or_ge i b.nP with hi | hi
+    · obtain ⟨y, hy⟩ : ∃ y, bs[i]? = some y :=
+        ⟨_, List.getElem?_eq_getElem (by rw [hlenBs]; exact hi)⟩
+      obtain ⟨x, hx⟩ : ∃ x, pbs[i]? = some x :=
+        ⟨_, List.getElem?_eq_getElem (by rw [hlenP]; exact hi)⟩
+      have hdomI : y.1 = x.1 := by
+        have h1 := congrArg (fun l => l[i]?) hdom
+        simp only [List.getElem?_map, hy, hx, Option.map_some, Option.some.injEq] at h1
+        exact h1
+      have hR := hdoms i y hy
+      rw [Nat.zero_add, hdomI,
+        denoteMeta_instSeq_openers_congr (acval := mpP.base2.acval)
+          (env := ConLeche.provisionNestedRecs (nestedProvList p stored cvRms cvRns) (ENV2))
+          (φ := ψ) (openersFrom_openFvars 0 i) (hopenP.take (i := i) (by omega)) (i - 1) i x.1,
+        hbindP i x hx] at hR
+      have hiΓ : i < Γ.length := by rw [hΓlen]; exact hi
+      have hiP : i < ((ppsF 0 ψ).take b.nP).length := by
+        rw [List.length_take]; omega
+      rw [List.getElem?_map, List.getElem?_eq_getElem hiΓ, List.getElem?_eq_getElem hiP]
+      simp only [Option.map_some, Option.some.injEq]
+      have := (Option.some.inj hR).symm
+      simpa only [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hiΓ,
+        List.getElem?_eq_getElem hiP, Option.getD_some] using this
+    · rw [List.getElem?_eq_none (by rw [hΓlen]; exact hi),
+        List.getElem?_eq_none (by rw [List.length_map, List.length_take]; omega)]
+  rw [hshape, hΓeq]
+
 
 end Run
 
