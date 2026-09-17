@@ -335,49 +335,6 @@ theorem take_append₄ {α : Type} (l₁ l₂ l₃ l₄ : List α) (n : Nat) (h 
     (l₁ ++ l₂ ++ l₃ ++ l₄).take n = l₁ := by
   rw [List.append_assoc, List.append_assoc, List.take_left' h]
 
-/-- **TWO λ-TOWERS OVER ONE PREFIX FOLD ALIKE**: at a constant bit,
-two towers over the SAME domains whose bodies interpret alike at the
-prefix's own frame have equal folds along any spine whose prefix fits
-those domains.  At a zero bit both towers are the proof point; above
-it `mkLamsAV_fold` β-reduces them. -/
-theorem foldl_mkLamsAV_congr (bt : Nat) {Γ : List AnnotTerm} {C₁ C₂ : AnnotTerm} {ρ : Nat → V}
-    {vs : List V} (hfit : SpineFit ρ Γ (vs.take Γ.length))
-    (hbody : interp V (consList (vs.take Γ.length) ρ) C₁
-      = interp V (consList (vs.take Γ.length) ρ) C₂) :
-    vs.foldl SetTheory.app (interp V ρ (mkLamsAV (Γ.map fun A => (bt, A)) C₁))
-      = vs.foldl SetTheory.app (interp V ρ (mkLamsAV (Γ.map fun A => (bt, A)) C₂)) := by
-  by_cases hbt : bt = 0
-  · subst hbt
-    cases Γ with
-    | nil =>
-      simp only [List.length_nil, List.take_zero, consList_nil] at hbody
-      show vs.foldl SetTheory.app (interp V ρ C₁) = vs.foldl SetTheory.app (interp V ρ C₂)
-      rw [hbody]
-    | cons A rest =>
-      rw [show (A :: rest).map (fun A' => ((0 : Nat), A'))
-          = (0, A) :: rest.map (fun A' => ((0 : Nat), A')) from rfl,
-        mkLamsAV_zero_head, mkLamsAV_zero_head]
-  · have hnz : ∀ d ∈ Γ.map fun A => (bt, A), d.1 ≠ 0 := by
-      intro d hd
-      obtain ⟨A, -, rfl⟩ := List.mem_map.mp hd
-      exact hbt
-    have hsp : SpineFit ρ ((Γ.map fun A => (bt, A)).map (·.2)) (vs.take Γ.length) := by
-      rw [show (Γ.map fun A => (bt, A)).map (·.2) = Γ from by simp [List.map_map, Function.comp_def]]
-      exact hfit
-    have key : ∀ C : AnnotTerm,
-        vs.foldl SetTheory.app (interp V ρ (mkLamsAV (Γ.map fun A => (bt, A)) C))
-          = (vs.drop Γ.length).foldl SetTheory.app
-              (interp V (consList (vs.take Γ.length) ρ) C) := by
-      intro C
-      have h1 : (vs.take Γ.length ++ vs.drop Γ.length).foldl SetTheory.app
-          (interp V ρ (mkLamsAV (Γ.map fun A => (bt, A)) C))
-          = (vs.drop Γ.length).foldl SetTheory.app
-              (interp V (consList (vs.take Γ.length) ρ) C) := by
-        rw [List.foldl_append, mkLamsAV_fold hnz hsp]
-      rw [List.take_append_drop] at h1
-      exact h1
-    rw [key C₁, key C₂, hbody]
-
 section Run
 
 variable {env : Env} {F : Nat} {mp : EnvModelM V μ env} {p : NestedParts} {envOut : Env}
@@ -1705,9 +1662,9 @@ theorem NestedTailIn.rulePrefix
 
 /-! ## The two towers' folds (item 5 step 2e, step 1 assembled) -/
 
-/-- **THE TWO RULE TOWERS FOLD ALIKE**: along any spine fitting the
-SCRATCH rule's binder data, the restored right-hand side's reading has
-the auxiliary tower's value.
+/-- **THE TWO RULE TOWERS HAVE ONE VALUE**: the restored right-hand
+side's reading and the auxiliary tower interpret alike at EVERY frame
+— not merely along fitting spines.
 
 The two towers share their `λ p⃗` prefix — the restored one's is
 `(D).params ψ` at the elimination's bit (`rulePrefix`), the auxiliary
@@ -1719,7 +1676,7 @@ peeled off `hwdR`, which is the DOOR's (`ClaimsAt.inferRow` at
 `restoreRules_at`'s own `inferTypeCore` run): `WellDenoted` is
 structural and the walk's reading law consumes it rather than carrying
 it. -/
-theorem NestedTailIn.ruleFold {mpA : EnvModelM V μ ENVA} {cvRas : List ConstantVal}
+theorem NestedTailIn.ruleVal {mpA : EnvModelM V μ ENVA} {cvRas : List ConstantVal}
     (S : NestedScratchOut F env b fms f₀ ctorsA kinds mp₁ ppsF W idxF dsF esF srcsF fvsPF xFvsF
       xrestF eissF tssF stored mpA cvRas)
     (hnames : NestedCtorPinNames env p st)
@@ -1764,11 +1721,10 @@ theorem NestedTailIn.ruleFold {mpA : EnvModelM V μ ENVA} {cvRas : List Constant
       (ConLeche.provisionNestedRecs (nestedProvList p stored cvRms cvRns) (ENV2)) ψ 0 o.rhs
       = some Ra)
     (hwdR : ∀ ρ' : Nat → V, WellDenotedV V ρ' Ra)
-    (ρ : Nat → V) (vs : List V)
-    (hfit : SpineFit ρ (((DA).ruleData mpA.base2 b.elimLevel c i ψ).map (·.2)) vs) :
-    vs.foldl SetTheory.app (interp V ρ Ra)
-      = vs.foldl SetTheory.app (interp V ρ ((DA).ruleRhsAV mpA.base2 b.elimLevel
-          (fun t' => nestedRecLeaf (D).kT s rdsM concM eqs b.rlps t' ψ) c i cA.2 ψ)) := by
+    (ρ : Nat → V) :
+    interp V ρ Ra
+      = interp V ρ ((DA).ruleRhsAV mpA.base2 b.elimLevel
+          (fun t' => nestedRecLeaf (D).kT s rdsM concM eqs b.rlps t' ψ) c i cA.2 ψ) := by
   have hk : 0 < (DA).k := by
     rw [S.record.k]
     have h1 := I.kpos
@@ -1823,27 +1779,17 @@ theorem NestedTailIn.ruleFold {mpA : EnvModelM V μ ENVA} {cvRas : List Constant
       (by rw [List.length_map, List.length_map, hΓAlen, hparamsLen])
       (hAshape.symm.trans (by unfold BlockModel.ruleRhsAV; exact hAA _))
     rw [hAshape, hinj.1]
-  -- **the spine's prefix fits the parameters**
-  have hnPle : b.nP ≤ ((DA).ruleData mpA.base2 b.elimLevel c i ψ).length := by
-    have h := congrArg List.length hpref
-    rw [List.length_take, List.length_map, hparamsLen] at h
-    omega
+  -- **the two towers, layer by layer**
   have hbitDoms : (((D).params ψ).map fun A =>
       (pwBit ψ (Level.zeronessOf b.elimLevel), A)).map (·.2) = (D).params ψ := by
     simp [List.map_map, Function.comp_def]
-  have hfitP : SpineFit ρ ((D).params ψ) (vs.take ((D).params ψ).length) := by
-    rw [hparamsLen]
-    have h := spineFit_take' hfit (i := b.nP) (by rw [List.length_map]; exact hnPle)
-    rw [← List.map_take, hpref, hbitDoms] at h
-    exact h
   rw [hRshape, hAA2]
-  refine foldl_mkLamsAV_congr _ hfitP ?_
-  have hwd : WellDenoted V (consList (vs.take ((D).params ψ).length) ρ) CR := by
-    refine wellDenoted_mkLamsAV_body (ds := ((D).params ψ).map fun A =>
-      (pwBit ψ (Level.zeronessOf b.elimLevel), A)) ?_ (by rw [← hRshape]; exact (hwdR ρ).1)
-    rw [hbitDoms]
-    exact hfitP
-  exact hagree (openFvars 0 b.nP) (openersFrom_openFvars 0 b.nP) hCA hCR _ ρ hfitP hwd
+  refine interp_mkLamsAV_congr (ds := ((D).params ψ).map fun A =>
+    (pwBit ψ (Level.zeronessOf b.elimLevel), A)) fun bs _hlen hfit => ?_
+  have hfitP : SpineFit ρ ((D).params ψ) bs := by rw [hbitDoms] at hfit; exact hfit
+  have hwd : WellDenoted V (consList bs ρ) CR :=
+    wellDenoted_mkLamsAV_body hfit (by rw [← hRshape]; exact (hwdR ρ).1)
+  exact hagree (openFvars 0 b.nP) (openersFrom_openFvars 0 b.nP) hCA hCR bs ρ hfitP hwd
 
 
 /-! ## The restored recursor's row at the provision (item 5 step 2e) -/
