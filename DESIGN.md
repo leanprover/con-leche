@@ -87215,15 +87215,25 @@ missing check:
   `constsResolve env₀` for the arguments PAST `nPJ` — i.e. the indices
   are member-free — but says nothing about the first `nPJ`, and
   `ContainerModeled`'s `pinNP`/`pinψ`/`pinsNotMembers` are semantic.
-  So the chain needs one conjunct on `nestF` (and `nestReflF`):
-  **some argument of `x.fvarTypeD.getAppArgs.take (pins q).nPJ`
-  mentions a member of the group.**  It costs no new kernel check — a
-  field whose domain mentions no member is classified `.ordinary` by
-  the very first test of the classification (`mutualCtorKinds`'s
-  `if !mentionsMember`), so every instance's proof already has it, and
-  the basis blocks' `nestF := fun i x q h => nomatch h` is vacuous.
-  **Request to whoever owns `BlockRep.lean`/`ContainerModeled` (L-E,
-  M7-3).**
+  So the chain needs one more clause, and it is `ordFree`'s TWIN:
+  `ContainerModeled.ordFree` (`NestedPremise.lean`) already carries the
+  ordinary direction — "`mutualCtorKinds` calls a field ordinary
+  exactly when it mentions none of the block's members, but
+  `BlockOpened.ord` records only `constsResolve env₀`", its own comment
+  — and what `pinF` needs is the other half of that `iff` at a nested
+  field:
+
+```
+  nestMention : ∀ (i j l q : Nat) (x : Expr), i < d.k → j < (d.ctorsM i).length →
+    (d.xFvsF i j)[l]? = some x → d.nestOf i j l = some q →
+    ∃ e ∈ x.fvarTypeD.getAppArgs.take (d.pinAt q).nPJ,
+      ConLeche.mentionsMember d.memberNames e = true
+```
+
+  It costs no new kernel check (the classification's very first test IS
+  that mention, so every instance's proof has it) and the request is
+  one field beside `ordFree`, in the same file, for the same reason.
+  **Request to lane L-E / M7-3**, who own `NestedPremise.lean`.
 
 With that conjunct the chain is `copyRecFDom`'s at a pin's container in
 place of a member: the occurrence (`replaceAllNested_occurrence`), the
