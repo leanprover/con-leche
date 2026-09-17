@@ -81873,6 +81873,128 @@ no-local-paths OK; overview-links 112; quote-gate 2; proofdeps 4955
 rows / 12 roots / **0 doors**.
 
 
+##### (v) CONTINUATION 9 (lane session 10) — `NestedRecTysAuxOf` REDUCED TO K.38 ALONE
+
+The maintainer's ruling: of §U.29 (q)'s four gaps the kernel owns ONE
+(delta 2, the key head's level arguments — K.38); deltas 1, 3 and 4 are
+the MODEL's.  All three are now closed, in two commits, and the face is
+a one-line derivation from the run the moment K.38 lands.
+
+*Delta 1 and 3 — the Prop weakened to the Bool's admissible inputs*
+(95fc1404).  `AuxAppsOk` (`Verify/Inductives/NestedRecWalk.lean`) gains
+`letE`, `proj` and `lit` cases descending exactly as `auxAppsOk` does,
+and its `const` case loses the side condition `n ∉ auxNames ∨ recMap`.
+Three new walk facts pay for them — `restoreWalk_letE_inv`,
+`restoreWalk_proj_inv` (with `restoreNode_letE`/`restoreNode_proj`) and
+`restoreWalk_const_nonkey` (a name that is neither a key nor a renaming
+is its own restoration) — and the dropped condition is RECOVERED inside
+the reading law: at such a name the walk leaves `.const n us` standing,
+which contradicts the restored term's own `constsResolve` at `envR`
+together with `RestoreAgree.auxFresh`.
+
+*The two new leaf agreements, DISCHARGED at the tail*, not named:
+
+* `RestoreAgree.projEq` — the scratch and restored environments answer
+  alike at every projection-table lookup.  `NestedTailIn.projAgree`:
+  where the pre-block environment HAS a table at `projTableName sn`, no
+  block constant can carry that name (the scratch members by
+  `MutualFormersFacts.fresh`, the scratch constructors by its `freshC`
+  through `FindPreserved`, the restored constructors by
+  `restoreCtors_fresh` through `findPre1`), so both cons chains are
+  `Env.findProj?_cons_ne` all the way down; where it has none, neither
+  chain invents one (`findProj?_cons_of_base_none`).  Three small chain
+  lemmas (`consMutualFormers_findProj?_ne` and its two twins).
+* `RestoreAgree.litEq` — a literal reads alike **wherever both read**.
+
+**THE FINDING that shaped the interface**: whether a literal reads at
+all CANNOT be made to agree.  `denoteMeta` at a literal is gated by
+`natLitSupported`/`strLitSupported`, which test the basis constants'
+SHAPES; the scratch environment carries the block's copies and the
+restored one does not, so a copy could in principle supply a basis name
+the pre-block environment lacks, and the two supports then differ.  The
+string basis names (`String`, `List`, `List.cons`, `Char`, …) are not in
+`reservedBasisNames`, so the front door does not refute it either.  The
+interface therefore compares the two readings ONLY where both are
+`some` — and there the argument is immediate: a reading names the basis
+constants, they are then found in the RESTORED environment, hence are
+not auxiliary names (`auxFresh`), hence carry agreeing leaves and
+level-parameter lists (`leafAcval`, `leafSome`/`leafNone`).
+
+That forced `denoteMeta_congr_auxFree` from an EQUALITY of readings to
+**both-read-implies-equal**, and with it `DenoteMetaSpine.congr_envs`'s
+use at the key node: the restored spine's readings now come from the
+restored application's own inversion and are identified with the
+auxiliary ones pointwise (`DenoteMetaSpine.eq_of_pointwise`, new).  The
+law is no weaker where it is used — every consumer has both readings.
+
+*Delta 4 — the face restated at the kernel's own arity* (59f1e2e7).
+`nestedArityK p st` (`NestedRecCtor.lean`) is `nestedAuxAppsOk`'s local
+`arityOf`: a pin key's arity read off the COPY's stored type
+(`auxIdxCount p.nP`), a constructor pin key's its stored field count.
+`NestedRecTysAuxOk p st b stored` and `NestedRecTysAuxOf` no longer
+quantify over an arbitrary `pinsS` — they mention run data alone, which
+is what a kernel-side face must do — and `NestedTailIn.arityK` proves
+`nestedArity p st pinsS = nestedArityK p st` at the run:
+`NestedStageFacts.pinNIdx` (the copy's index count is the pin's — PROVED
+at `NestedPins.lean` and now EXPORTED through `NestedLoopFacts`), the
+formers' `memT` (`mutualNIdxOf_members3`) and `auxBlock_former`.  One
+consumer destructures the face (`NestedTailIn.recTyOpen`); it goes
+through `NestedTailIn.auxOkAt`.
+
+##### (w) WHAT REMAINS FOR `NestedRecTysAuxOf` — exactly one step
+
+With (v) landed the face needs nothing but the **Bool→Prop reflection**
+
+```lean
+theorem auxAppsOk_reflect {R : RestoreTbl} {lps : List Name} {arityOf : Name → Option Nat} :
+    ∀ (d : Nat) (e : Expr), auxAppsOk R lps arityOf d e = true → AuxAppsOk R lps arityOf d e
+```
+
+— a well-founded recursion on `sizeOf e` mirroring `auxAppsOk`'s own
+(`Expr.mkAppN_getApp` to present a key-headed node as a spine,
+`auxAppsOk_attach_all` to strip the `attach`), **at the Bool K.38
+produces**: the `key` constructor concludes at
+`.const n (lps.map .param)`, and only K.38's conjunct
+`us == lps.map Level.param` in `auxAppsNodeOk` supplies it.  Then
+
+```lean
+theorem nestedRecTysAuxOf_of_run : NestedRecTysAuxOf μ F
+```
+
+is `nestedAuxAppsOk p st stored = true` (the run's `certOnly` conjunct,
+`certOnly_elim` under `hμ`) → `stored.all`'s member at `c` →
+`stripPis p.nP` (`b.nP = p.nP` by `auxBlock_fields`) → `auxAppsOk_reflect`.
+**½–1 model session AFTER K.38, and nothing else.**  The run conjunct
+itself still has to be threaded from `DeclNestedRun` into
+`NestedTailModeled`/`NestedTailIn` (one `-` in `declNested_of`'s
+destructuring today) — that is M7-3's file, not this lane's.
+
+##### (x) ITEM 5 — not advanced this session
+
+The session went entirely into (v): the three model-side deltas were
+each larger than §U.29 (q) sized them, the literal finding above being
+the reason (it changed an interface, not just a proof).  Item 5 stands
+where continuation 8 left it — the leaf and its three laws, the cons
+step, the loop and the list-level `nestedRecsProvision` in the tree; the
+run-level provision, the rule law, the swap and the tables ahead
+(**4½–5½ sessions**, unchanged).  The run-level provision is in any case
+gated on **K.39** (the restored recursors' names are nowhere known
+distinct, §U.29 (s)): without it the provision loop cannot re-establish
+freshness at the growing environment, and stating it as a hypothesis
+would be a new face for a ¼-session kernel check.
+
+##### (y) GATES (at 59f1e2e7)
+
+`lake build` 712 jobs warning-free EXIT 0; `lake test` warning-free
+EXIT 0; shake 510 removals all allowlisted / pub-imports 1303 of 2110
+public, none demotable (41 dot-notation fallbacks); layering base 350 /
+model 279 / caps 3 / umbrella 1, 0 base→lane, 0 impl→theory; trust
+surface 13 escapes in 5 allowlisted files (644 scanned);
+no-local-paths OK; overview-links 112; quote-gate 2; proofdeps 4955
+rows / 12 roots / **0 doors**.  `#print axioms` of every new theorem is
+`[propext, Classical.choice, Quot.sound]`.
+
+
 #### U.30 — L-B session 2: `CopyCtorInst.ordF` at the READING, the normalisation's reading law PROVED, `ContainerModeled`'s three clauses (lane L-B, 2026-09-16)
 
 Three maintainer rulings opened this session; the first two are landed,
