@@ -315,6 +315,50 @@ theorem mutualContainerModeled {env envR : Env} {m : EnvModel V envR}
     rw [← hnames i hi]
     exact hI
 
+omit [SetTheory V] in
+/-- **THE MUTUAL ROUTE'S OWN-PIN TABLE IS EMPTY** (task #315 K.43,
+DESIGN §U.74 (c)): the clause `ContainerOwnPinsSyn` at the block this
+route installed, from the route's own two Bools and nothing else.
+
+K.43's Bool says the mutual route left no mimic recursor under its
+FIRST member (`f₀`, the head of `fms`), and K.34's read-back says every
+member of the block reads back the SAME group — whose `members.head?`
+is that first member's record.  So `containerOwnPinsAt` stops at its
+first step at every member and every instantiation
+(`containerOwnPinsAt_nil`), and the table is empty; the block model's
+recorded pins are never needed (a mutual block has none).
+
+This is the shape `ContainerModeled.ownPins` will take once the field
+lands; it is proved standalone here because the field is blocked on a
+separate record. -/
+theorem mutualOwnPins_of {envB envOut : Env} {b : MutualBlock} {fms : List MutualFormerA}
+    {f₀ : MutualFormerA} {ctorsA : List (ConstantVal × Nat)} {d : BlockModel V}
+    (hlenF : fms.length = b.k) (hd : MutualBlockModelOf (V := V) envB b fms ctorsA d)
+    (hf₀ : fms[0]? = some f₀)
+    (hrb : ConLeche.blockReadBackOk envOut b.nP (fms.zipIdx.map fun (f, mIdx) =>
+      (f.cvTa, (b.ownCtors mIdx).filterMap fun (J, _) => ctorsA[J]?)) = true)
+    (hmim : ConLeche.blockOwnMimicsOk envOut f₀.cvTa.name 0 = true) :
+    ContainerOwnPinsSyn (V := V) envOut d := by
+  refine ContainerOwnPinsSyn.of_noMimics hmim fun i hi => ?_
+  have hclt : i < fms.length := by rw [hlenF, ← hd.k]; exact hi
+  have hname : d.memberName i = (fms.getD i default).cvTa.name := by
+    show d.memberNames.getD i .anonymous = _
+    rw [hd.memberNames, List.getD_eq_getElem?_getD, List.getElem?_map,
+      List.getD_eq_getElem?_getD]
+    cases fms[i]? <;> rfl
+  -- the group's first member is the name K.43's Bool was certified at
+  obtain ⟨rest, rfl⟩ : ∃ rest, fms = f₀ :: rest := by
+    cases fms with
+    | nil => exact nomatch hf₀
+    | cons a as => exact ⟨as, by rw [Option.some.inj hf₀]⟩
+  refine ⟨ConLeche.blockContainerInfo b.nP ((f₀ :: rest).zipIdx.map fun (f, mIdx) =>
+      (f.cvTa, (b.ownCtors mIdx).filterMap fun (J, _) => ctorsA[J]?)),
+    ⟨f₀.cvTa.name, f₀.cvTa.levelParams, f₀.cvTa.type,
+      ((b.ownCtors 0).filterMap fun (J, _) => ctorsA[J]?).map
+        fun (cv, nF) => ⟨cv.name, cv.type, nF⟩⟩, ?_, rfl, rfl⟩
+  rw [hname]
+  exact containerInfo?_of_readBack (nP := b.nP) hrb (mutualReadBack_getElem? hclt)
+
 /-! ### The install's conses, as the crossing and the field see them
 
 (task #315 M7-3 session 6, DESIGN §U.46 (c) 4.) -/
@@ -976,6 +1020,35 @@ theorem nativeContainerModeled {envO : Env} {m : EnvModel V envO} {mC : EnvModel
     rw [hf.Tname]
     exact hI
 
+/-- **THE NATIVE ROUTE'S OWN-PIN TABLE IS EMPTY** (task #315 K.43,
+DESIGN §U.74 (c)): the clause `ContainerOwnPinsSyn` at the block this
+route installed, from the route's own two Bools and nothing else.
+
+K.43's Bool (`NativeSyntaxFacts.ownMimics`) says the route left no
+mimic recursor under its member, and K.34's read-back says that member
+reads back the block's own group — a ONE-member group, so its
+`members.head?` is that same member.  `containerOwnPinsAt` therefore
+stops at its first step at every instantiation
+(`containerOwnPinsAt_nil`) and the table is empty; the block model's
+recorded pins are never needed (a native block has none).
+
+This is the shape `ContainerModeled.ownPins` will take once the field
+lands; it is proved standalone here because the field is blocked on a
+separate record. -/
+theorem nativeOwnPins_of {mC : EnvModel V envC}
+    (hf : NativeSyntaxFacts (μ := μ) (env := env) (env₁ := env₁) (env₂ := env₂) mC F p cvTa cvRa
+      ctorsA sortss rhss bsT ppsAll uAV idxF dsF esF srcsF ksF fvsPF xFvsF xrestF eissF tssF
+      fssZ) :
+    ContainerOwnPinsSyn (V := V) env₂ DN := by
+  refine ContainerOwnPinsSyn.of_noMimics hf.ownMimics fun i hi => ?_
+  obtain rfl : i = 0 := Nat.lt_one_iff.mp hi
+  refine ⟨ConLeche.blockContainerInfo p.nP [(cvTa, ctorsA)],
+    ⟨cvTa.name, cvTa.levelParams, cvTa.type,
+      ctorsA.map fun (cv, nF) => ⟨cv.name, cv.type, nF⟩⟩, ?_, rfl, rfl⟩
+  show ConLeche.containerInfo? env₂ p.cvT.name = _
+  rw [← hf.Tname]
+  exact containerInfo?_of_readBack (nP := p.nP) hf.readBack (i := 0) (c := (cvTa, ctorsA)) rfl
+
 /-- **A constructor's stored type is guarded at the block's member**:
 the annotation pass creates a `.proj T j` node only at a slot that
 RESOLVES, and the member's slots are empty at the formers' environment
@@ -1142,13 +1215,14 @@ theorem declMutualB (hμ : μ.verifiedChecks = true) {F : Nat} {env envOut : Env
   classical
   obtain ⟨-, b, streamRecs, env₁, fms, f₀, tq₀, ctorsA, sortss, kinds, formers4, ctors4,
     cvRas, rulesOf, rfl, rfl, h0, h1, h2, h3, hformers, hf₀, htq₀, hcross, hL, hctors, hkinds,
-    hfo, hgd, hrectys, hrules, htbl, hrb, -⟩ := h
-  -- K.34's read-back is a CERTIFICATION-ONLY record (K.35's follow-up),
-  -- so the run carries `certOnly μ …`; this theorem is stated under
-  -- `hμ : μ.verifiedChecks = true`, at which the gate is the Bool.  The
-  -- LAST `-` is K.43's `blockOwnMimicsOk` — this route's own-pin table,
-  -- which `ContainerModeled.ownPins` reads and nothing here does
+    hfo, hgd, hrectys, hrules, htbl, hrb, hom⟩ := h
+  -- K.34's read-back and K.43's own-pin table are CERTIFICATION-ONLY
+  -- records (K.35's follow-up), so the run carries `certOnly μ …`; this
+  -- theorem is stated under `hμ : μ.verifiedChecks = true`, at which
+  -- the gate is the Bool.  `hom` is K.43's `blockOwnMimicsOk` — this
+  -- route's own-pin table, which `mutualOwnPins_of` empties below
   replace hrb := ConLeche.certOnly_elim hrb hμ
+  replace hom := ConLeche.certOnly_elim hom hμ
   have hOrd' := mutualOrdFree_of_run hformers hfo
   obtain ⟨mp₃, hoff, d, hd, hks, hrepsAt, hT, hstored, htf⟩ :=
     mutualCoreModeled hμ mb.toEnvModelM hE _ _ _ _ _ _ _ _ _ _ _ _ _ _
@@ -1162,6 +1236,10 @@ theorem declMutualB (hμ : μ.verifiedChecks = true) {F : Nat} {env envOut : Env
   -- the block's data
   obtain ⟨hlenA, hnamesA⟩ := ctorsA_names_of hctors h1
   have hlenF : fms.length = p.toBlock.k := (mutualFormerChecksG_pos hchecks).1
+  -- the block's own-pin table is empty (K.43, DESIGN §U.74 (c)): the
+  -- clause `ContainerModeled.ownPins` will take once its field lands
+  have _hown : ContainerOwnPinsSyn (V := V) envOut d :=
+    mutualOwnPins_of hlenF hd hf₀ hrb hom
   have hmemFresh : ∀ T ∈ fms.map (·.cvTa.name), env.find? T = none := by
     intro T hT'
     obtain ⟨f, hf, rfl⟩ := List.mem_map.mp hT'
@@ -1366,6 +1444,12 @@ theorem declNativeB (hμ : μ.verifiedChecks = true) {F : Nat} {env envOut : Env
     exact ⟨cvTa, cvRa, p.majorIdx, p.rulePrefix, [], hIC⟩
   have hcm := nativeContainerModeled hf hI (fun ψ =>
     ⟨(nativeTyped hf ψ).1.crossEnv hagCO hreps, (nativeTyped hf ψ).2.crossEnv hagCO hreps⟩)
+  -- the block's own-pin table is empty (K.43, DESIGN §U.74 (c)): the
+  -- clause `ContainerModeled.ownPins` will take once its field lands
+  have _hown : ContainerOwnPinsSyn (V := V) envOut
+      (BlockModel.ofNative (V := V) p.nP p.resSort p.isProp p.large env p.cvT.name p.nIdx
+        ppsAll uAV ctorsA idxF dsF esF srcsF ksF fvsPF xFvsF xrestF eissF tssF) :=
+    nativeOwnPins_of hf
   -- the old containers cross, the new block is its own group
   obtain ⟨B, hB⟩ := mb.blocks
   refine ⟨⟨mpOut, ⟨fun ci => if ci = ConLeche.blockContainerInfo p.nP [(cvTa, ctorsA)]
