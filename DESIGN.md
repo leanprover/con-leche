@@ -83586,5 +83586,34 @@ induction on `rank` with the blob transfer inside a blob.
 
 The blob route with the pullback lemma inside, and the inter-blob order
 by K.37 if the kernel lane takes it (else (e)'s measure).  Session 4
-executes what needs no order: the pullback lemma (done), then the blob
-transfer's statement and its member-copy half.
+executes what needs no order: the pullback lemma (done; its operator
+hypothesis `hpull` is needed only at tuples BELOW the base least tuple,
+all the argument visits — which is what the frames' kit can supply),
+and the blob transfer's member half: `CopyCtorShape.fit_iff_at_T`
+(`NestedFit.lean`) — the copy's fit at the joined tuple, with the group
+segment read at `Y`'s member part, a `pinF` target at `Y`'s pin part
+through the pullback `hL : L (tg l) = Y (dJ.tgts i j l)` and an
+`ordF`-right target at the outer tuple (the externals, the induction
+hypothesis), iff the container's `ChainFitT` at the extended tuple `Y`
+(the container's own pins as VARIABLES, `NestedRecCand`), for `Y`
+below the extended carrier `famAt LJ` (`app_subset_of_famLe` +
+`slotAtT_mono` put the container's slots within its real domains,
+which the frames' kit carries).  `fit_iff_at` is its instance at
+`Y := famAt LJ`.
+
+##### (g) WHAT REMAINS on the blob route
+
+1. The pin half of the transfer: the block's copy of a kind-2 pin `t`
+   (container `K`'s constructors at `Ds_K[Ds]`, the block's shape
+   against `B ciK`) against `J`'s pin constructors `pc qK` (`K`'s at
+   `Ds_K`, `PinShapes` of `B ciJ` against `B ciK`) — through `K`'s
+   readings at level assignments agreeing on `K`'s parameters
+   (§U.39 (b)), a `ChainFitT`-level twin of `fit_iff_at_T` at a pin
+   class, ~1 session.
+2. The blob's operators as `Ψ`-restricted and `ΦT`-restricted
+   operators, the pullback `σ` from `PinCorr`'s data, and
+   `lfpTuple_pullback` at them; `(LJ, pinCar LJ)` as `ΦT`'s least tuple
+   from `PinRecLaws` (Bekić, `LfpCompose`), ~1 session.
+3. The rank induction (K.37) with the externals' hypothesis discharged
+   by the induction hypothesis and `pinTarget_reads`; then (iv), ~1
+   session.
