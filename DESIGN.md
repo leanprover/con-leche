@@ -86860,12 +86860,14 @@ routes is unreachable —
 
 * `Model/Fold.lean`'s `EnvModelOk`, `declStep_preserves`, `foldPM` and
   `checkDeclsPure_sound_of`'s proof body;
-* `Model/Inductives/DeclInductive.lean`'s `declInductive` (a 25-line
-  dispatch) and, with it, the `declNative`/`declMutual` wrappers —
+* `Model/Inductives/DeclInductive.lean` (63 lines, a dispatch and
+  nothing else) and, with it, the `declNative`/`declMutual` wrappers —
   their ONLY consumer (the `_syntax` companions the B lifts actually
   read do not move);
-* `declInd` and `Model/DeclInd.lean` (295 lines) with its interp
-  module, which is also (b) 2e's casualty.
+* `declInd` and `Model/DeclInd.lean` (295 lines), which is also 2e's
+  casualty.  (`Model/Fold.lean`'s docstring cites it as
+  `Interp/DeclIndP.lean`, a name no file has carried for some time —
+  worth fixing when the arm goes.)
 
 `MainTheorem.lean`, `no_proof_of_False_pure`, `no_constant_of_False`
 and the twelve capstone closures keep their statements; `proofdeps`
