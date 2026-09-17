@@ -92379,3 +92379,70 @@ K.47 records.  Then:
 statement one tier up — the READING of `instPis (instantiateLevelParams ks us T) Ds`
 at a closed `T` — and is the model-side half the link would consume
 directly if (C) existed.
+
+##### (e) `pinParams` AT THE NESTED SITE, DISCHARGED FROM K.48 — and §U.69 (e)'s missing lemma FOUND
+
+The named premise `NestedPinParams` is GONE (`declNested_of` loses a
+premise; `nestedContainerModeled`'s signature is unchanged), and the
+step §U.69 (e) said was missing is not:
+
+> the model step from the Bool is a `denoteMeta` ψ-congruence lemma
+> (the `Ds` half; **the tree has none**)
+
+**The tree HAS one** — `denoteMeta_params_ext` (`Model/Steps/BitLevels.lean`),
+"the reading's φ-congruence at the expression's own parameters",
+already consumed by `Harvest.lean`, `MutualRecsLaw.lean` and the three
+`IndBottom*` files.  With it the three halves are:
+
+* `allLevelParamsDefined_mkAppN` turns K.48's Bool at the pin TERM
+  (`pin = mkAppN (.const J lvls) DsE`) into the scope of the pin's
+  level ARGUMENTS and of its COMPONENTS separately;
+* the `Ds` half is `denoteMetaSpine_params_ext` (the congruence over a
+  read spine) at `NestedStageFacts.pinDs`, closed by
+  `DenoteMetaSpine.det`;
+* the `u` and `Ids` halves are `IsBlockModel.uParams` and
+  `FormerData.params` at the container, reached through
+  `Level.substFn_ext`.
+
+**One deviation from the plan, and it is a finding about
+`NestedPinGroup`**: the `u`/`Ids` halves do NOT close from the group
+alone.  `NestedPinGroup.rep`'s `cvT` is existentially bound and
+nothing ties it to the environment (`memsFound` is itself
+existential), while `NestedPinGroup.stored`'s `cvT` carries the
+`ψJ = Level.substFn …` equation but no `IsBlockModel` —
+`NestedPinGroupSyn.ofParts` splits the pair — and `Level.substFn_ext`
+additionally wants the arity `lvls.length = cvT.levelParams.length`,
+which the group does not record either.  Both gaps close WITHOUT a
+structural change by going through `ContainerModeled` at the pin's
+CONTAINER, which `declNested_of` already holds as `PinsModeled`:
+`ContainerModeled.member` states `IsBlockModel` at the member's NAMED
+constant `⟨M.name, M.lps, M.type⟩`, `containerInfo?_inv` identifies
+`M.lps` with the container's stored `cvT.levelParams`, and the arity
+and the `substFn` form come from `NestedStageFacts.pinψ` — the same
+route `nestedContainerModeled`'s own `pinψ` clause takes.
+`NestedStageFacts.groupsAt` is what makes the two sides name ONE block
+model (`blockOf mp.base2 ci`).  A lane that wants this from the group
+should add the pair to `NestedPinGroupSyn` rather than re-derive it.
+
+##### (f) What the lane owes now, and the gates
+
+Owed, in order: **K.43** (kernel) — with it `ContainerModeled.ownPins`
+lands at all eight sites and `crossEnvP` at once; **the substitution
+law (C)** of (d) (lane L-B, shared with `NestedPinsShapePinF`) — with
+it `ContainerOwnPinsSyn.toRead` loses its hypothesis and
+`pinCorr_of_ownPins` is reachable from the field.  Nothing else.
+
+Gates at the session's commits: `lake build` 716 jobs warning-free;
+`lake test` warning-free; layering 351 / 282 / 3 / 1, 0 base->lane and
+0 impl->theory; trust 13/5 (648 scanned); overview-links 112, no
+anchor moved; quote-gate 2; no-local-paths OK; **proofdeps 4965 rows /
+12 roots / 0 doors** — the baseline (the session relocates nothing and
+its new objects reach no capstone); shake 511 removals, all
+allowlisted; pub-imports 1315 of 2143, none demotable;
+`tests/arena.sh` **EXIT 0** (the merge carries the kernel lane's K.47
+and K.48; this lane's own commits touch no checker code) —
+nested-shadow 27/27, e2e 196/196, the arena's 90/92, all four sweeps,
+axiom pin 20 theorems.  Standard axioms on `PinSyn.ownAt`'s three
+theorems (`ContainerOwnPinsSyn.of_noOwn`, `ContainerOwnPinsSyn.toRead`)
+and on `allLevelParamsDefined_mkAppN`, `denoteMetaSpine_params_ext`,
+`nestedPinParams_of`, `nestedContainerModeled` and `declNested_of`.
