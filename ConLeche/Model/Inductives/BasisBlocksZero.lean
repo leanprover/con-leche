@@ -199,6 +199,7 @@ theorem zeroCtorBlock_pinRecLaws {env : Env} {m : EnvModel V env}
   fibre := fun _ _ _ _ _ _ _ h => nomatch h
   mkZero := fun _ _ _ _ _ => rfl
   mkInj := fun _ _ _ h => nomatch h
+  injW := fun _ _ h => nomatch h
   ind := fun _ _ _ _ _ _ _ _ h => nomatch h
 
 /-- **The container's block model, in the container's own terms**: the
@@ -239,6 +240,7 @@ theorem zeroCtorBlock_containerModeled {env : Env} {m : EnvModel V env}
     exact zeroCtorBlock_isBlockModel hT hty hval hsort
   frame := fun _ _ _ _ => Iff.rfl
   ordFree := fun _ _ _ _ _ hj => nomatch hj
+  nestMention := fun _ h => nomatch h
   pinsNotMembers := fun _ h => nomatch h
   pinNP := fun _ h => nomatch h
   pinψ := fun _ h => nomatch h

@@ -48,7 +48,7 @@ The routed bundles, by tier:
 
 The axiom and basis steps' CARRIER AGREEMENTS (`axiomStepAgree_of`,
 `basisStepAgree_of`) live in `Model/StepAgree.lean`, below this module
-(task #315 M8 step 1, DESIGN §U.56 (g) 1): the environment model's
+(task #315 M8 step 1, DESIGN §U.67 (g) 1): the environment model's
 block field is maintained by them, so the modules that maintain it
 read them — and while they lived here, every theorem of the flip sat
 above this module.  The two bundles below are their `Nonempty`
@@ -305,7 +305,7 @@ theorem no_proof_of_False_pure (V : Type w) [SetTheory V]
 /-! ## THE SAME FOLD AT THE MODEL WITH ITS BLOCKS (task #315, M8)
 
 Every arm of `declStep_preserves` but one is a name swap at
-`EnvModelB` (DESIGN §U.55 (c)); the exception is the MODELED arm,
+`EnvModelB` (DESIGN §U.66 (c)); the exception is the MODELED arm,
 which is not to be proved but DELETED once the kernel's `.indDecl`
 dispatch takes the nested route.  Until then it stands as ONE
 hypothesis, `ModeledStepB`, and nothing else in the fold is open.
@@ -313,7 +313,7 @@ hypothesis, `ModeledStepB`, and nothing else in the fold is open.
 The B fold lives HERE, with the A fold, and inherits its consumers:
 `EnvModelB` EXTENDS `EnvModelM`, so `checkDeclsPure_sound_of` stays
 stated at `EnvModelM` and the capstones, `ConLeche/MainTheorem.lean`
-included, see nothing of the flip (DESIGN §U.55 (c) 5).  What kept it
+included, see nothing of the flip (DESIGN §U.66 (c) 5).  What kept it
 out of this module until now was the value kinds' carrier agreements,
 which the B route's own modules import — they are one module down
 since M8's first step (`Model/StepAgree.lean`). -/
@@ -322,7 +322,7 @@ since M8's first step (`Model/StepAgree.lean`). -/
 `declInd` installs an arbitrary stream block through the model
 artifacts and builds NO block model, and `DeclIndRun` carries no K.34
 read-back to tie one to the reading `containerInfo?` makes of its
-output — DESIGN §U.55 (c).  The arm is not to be discharged: when the
+output — DESIGN §U.66 (c).  The arm is not to be discharged: when the
 kernel's `.indDecl` dispatch takes the nested route, `DeclIndRun`
 leaves `DeclIndRunDispatch` with `declInd`, and this hypothesis and its
 consumer's third case go with it. -/
@@ -333,7 +333,7 @@ def ModeledStepB (V : Type w) [SetTheory V] (μ : CheckMode) : Prop :=
 
 /-- **The model WITH ITS BLOCKS survives an inductive block** —
 `declInductive`'s twin at `EnvModelB`, the same case split over the
-dispatch's three arms: `declNativeB` (§U.52), `declMutualB` (§U.55 (a))
+dispatch's three arms: `declNativeB` (§U.52), `declMutualB` (§U.66 (a))
 and the hypothesis. -/
 theorem declInductiveB (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
     {block : List ConstantInfo} {nP : Nat} (mb : EnvModelB V μ env)
@@ -422,7 +422,7 @@ theorem foldPMB (hμ : μ.verifiedChecks = true) (hmod : ModeledStepB V μ) {F :
 /-- **The acceptance theorem at the model WITH ITS BLOCKS**, modulo the
 modeled arm: `checkDeclsPure_sound_of`'s twin.  Its `.toEnvModelM`
 projection IS `checkDeclsPure_sound_of`, which is why the capstones see
-nothing of the flip (DESIGN §U.55 (c) 5). -/
+nothing of the flip (DESIGN §U.66 (c) 5). -/
 theorem checkDeclsPure_soundB_of (hμ : μ.verifiedChecks = true) (hmod : ModeledStepB V μ)
     {F : Nat} {ds : List ConLeche.Declaration} {env' : Env}
     (h : ConLeche.checkDeclsPure μ (ConLeche.fueledOps μ F) pins ds = .ok env') :

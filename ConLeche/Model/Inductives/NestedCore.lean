@@ -115,27 +115,6 @@ theorem spineFit_iff_agree {Fs Fs' : List AnnotTerm} {ρ : Nat → V} (hlen : Fs
   simp only [List.getD_nil, Bool.false_eq_true, if_false]
   exact hag l hl fs₁ hl₁ (fitsFrom_nil_iff.mp hf) (fitsFrom_nil_iff.mp hf')
 
-/-- **A spine fits an instantiated telescope at the block's frame iff it
-fits the telescope at the pin's frame** (`interp_instAll` along the
-telescope). -/
-theorem spineFit_instTele (Ds : List AnnotTerm) (ρ' : Nat → V) :
-    ∀ (Ids : List AnnotTerm) (fs₁ is : List V),
-      SpineFit (consList fs₁ ρ') (instTele Ds fs₁.length Ids) is ↔
-        SpineFit (consList fs₁ (consList (Ds.map (interp V ρ')) ρ')) Ids is
-  | [], _, [] => Iff.rfl
-  | [], _, _ :: _ => Iff.rfl
-  | _ :: _, _, [] => Iff.rfl
-  | T :: Ids, fs₁, a :: is => by
-    show (a ∈ˢ interp V (consList fs₁ ρ') (AnnotTerm.instAll Ds fs₁.length T) ∧
-        SpineFit (cons a (consList fs₁ ρ')) (instTele Ds (fs₁.length + 1) Ids) is) ↔
-      (a ∈ˢ interp V (consList fs₁ (consList (Ds.map (interp V ρ')) ρ')) T ∧
-        SpineFit (cons a (consList fs₁ (consList (Ds.map (interp V ρ')) ρ'))) Ids is)
-    rw [interp_instAll]
-    have h := spineFit_instTele Ds ρ' Ids (fs₁ ++ [a]) is
-    rw [List.length_append, List.length_singleton, consList_append, consList_append] at h
-    exact and_congr Iff.rfl h
-
-
 /-- Two frames from spines of one length over one base agree only on
 equal spines. -/
 private theorem consList_inj_len {as bs : List V} {ρ : Nat → V} (hl : as.length = bs.length)
@@ -209,6 +188,10 @@ structure NestedPinGroup (m : EnvModel V env₂) (q₀ kJ : Nat) (dJ : BlockMode
     ((D).pinAt (q₀ + i)).ψJ ψ = ((D).pinAt q₀).ψJ ψ ∧ ((D).pinAt (q₀ + i)).Ds ψ = ((D).pinAt q₀).Ds ψ
   /-- the group's pins share their level arguments (task #315 L-E) -/
   lvls : ∀ i, i < kJ → ((D).pinAt (q₀ + i)).lvls = ((D).pinAt q₀).lvls
+  /-- the group's pins share their components SYNTACTICALLY (task #315
+  L-E: `NestedPinGroupSyn.same`'s second half, which `ofParts` used to
+  drop — `nestedPinShapes_of` reads it at the tail's groups) -/
+  sameE : ∀ i, i < kJ → ((D).pinAt (q₀ + i)).DsE = ((D).pinAt q₀).DsE
   /-- the pin's container is stored, and the pin's level assignment is
   the substitution at its level parameters (task #315 L-E, step (iii)) -/
   stored : ∀ i, i < kJ → ∃ (cvT : ConstantVal) (caps : IndCaps),
@@ -219,6 +202,15 @@ structure NestedPinGroup (m : EnvModel V env₂) (q₀ kJ : Nat) (dJ : BlockMode
     blockIds b.nP ppsF ψ (p.k + q₀ + i')
       = instTele (((D).pinAt (q₀ + i)).Ds ψ) 0 (dJ.IdsM i' (((D).pinAt (q₀ + i)).ψJ ψ))
   ctorCount : ∀ i', i' < kJ → (dJ.ctorsM i').length = (b.ownCtors (p.k + q₀ + i')).length
+  /-- **the group's model names the container member's own constructors**,
+  by name and in order, and the parameter counts agree (task #315 L-B's
+  `NestedPinGroupSyn.ctorsOf`, exported here): the face `hctorsJ` of the
+  recursors' stage (DESIGN §U.36 (d)) is this field, and the readings and
+  the equations need no model face for it. -/
+  ctorsOf : ∀ i', i' < kJ → ∀ (ciJ : ContainerInfo) (J : ContainerMember),
+    ConLeche.containerInfo? env ((D).pinAt (q₀ + i')).J = some ciJ →
+    J ∈ ciJ.members → J.name = ((D).pinAt (q₀ + i')).J →
+    (dJ.ctorsM i').map (·.1.name) = J.ctors.map (·.name) ∧ dJ.nP = ciJ.nP
   DsFit : ∀ i, i < kJ → ∀ (ψ : Name → Nat) (ρ : Nat → V) (as : List V),
     SpineFit ρ ((D).params ψ) as →
     SpineFit (consList as ρ) (dJ.params (((D).pinAt (q₀ + i)).ψJ ψ))
@@ -238,7 +230,7 @@ structure NestedPinGroup (m : EnvModel V env₂) (q₀ kJ : Nat) (dJ : BlockMode
         (Fss₀ := fun ψ => blkFss0 b ctorsA kinds dsF ψ)
         (Ess₀ := fun ψ => mutEss0 ctorsA.length esF ψ) (ψ := ψ) (ρp := ρp)
         m.acval dJ (((D).pinAt (q₀ + i)).ψJ ψ) (((D).pinAt (q₀ + i)).Ds ψ)
-        cvT.levelParams ((D).pinAt (q₀ + i)).lvls q₀ kJ i' j
+        ((D).pinAt (q₀ + i)).DsE cvT.levelParams ((D).pinAt (q₀ + i)).lvls q₀ kJ i' j
   /-- the copies' ENTRIES at the auxiliary carrier (`nestedPinLeaf_all`) -/
   entry :
     ∀ i, i < kJ → ∀ (ψ : Name → Nat) (ρp : Nat → V),
@@ -1201,6 +1193,17 @@ local notation "ENV₁" => (ConLeche.consMutualFormers (fms.take p.k) env)
 local notation "ENV₂" => (ConLeche.consNestedCtors ctorsR.flatten
   (ConLeche.consMutualFormers (fms.take p.k) env))
 
+/-- A read spine transfers along a per-term reading transfer (the loop's
+`hde`: a reading at the prefix model is one at the restored model). -/
+theorem DenoteMetaSpine.transfer {acval₁ acval₂ : Name → (Name → Nat) → AnnotTerm}
+    {env₁ env₂ : Env} {φ : Name → Nat} {dp : Nat}
+    (hde : ∀ (e : Expr) {ea : AnnotTerm}, denoteMeta acval₁ env₁ φ dp e = some ea →
+      denoteMeta acval₂ env₂ φ dp e = some ea) :
+    ∀ {as : List Expr} {vs : List AnnotTerm}, DenoteMetaSpine acval₁ env₁ φ dp as vs →
+      DenoteMetaSpine acval₂ env₂ φ dp as vs
+  | _, _, .nil => .nil
+  | _, _, .cons ha hrest => .cons (hde _ ha) (DenoteMetaSpine.transfer hde hrest)
+
 /-- **The restored constructors' stage's outputs** at a model `mp₂` of
 the restored environment (the members re-consed with the records the
 scratch install stored, the restored constructors after them) — the
@@ -1218,7 +1221,7 @@ structure NestedStageFacts (st : ElimState) (mp₂ : EnvModelM V μ ENV₂) : Pr
     pin.pin = Expr.mkAppN (.const pin.container ((D).pinAt q).lvls) ((D).pinAt q).DsE
   /-- **a pin's parameter count is the one `containerInfo?` reads of
   its container**, at the PRE-BLOCK environment (task #315 M7-3
-  session 11, DESIGN §U.56 (c) 5): the pins' own record's
+  session 11, DESIGN §U.67 (c) 5): the pins' own record's
   (`NestedPinFacts.pinNP`, off the group's `pinNP` and `modeled`),
   carried across the `NestedCtorsStaged` boundary because
   `ContainerModeled.pinNP` — a clause of the nested block's OWN
@@ -1226,19 +1229,36 @@ structure NestedStageFacts (st : ElimState) (mp₂ : EnvModelM V μ ENV₂) : Pr
   boundary can recover it. -/
   pinNP : ∀ q, q < pinsS.length → ∀ ci : ConLeche.ContainerInfo,
     ConLeche.containerInfo? env ((D).pinAt q).J = some ci → ((D).pinAt q).nPJ = ci.nP
-  /-- **a pin's level assignment is the substitution of its level
-  arguments for its container's level parameters** (task #315 M7-3
-  session 11, DESIGN §U.56 (c) 5): `NestedPinFacts.pinψ` verbatim, at
-  the members' PREFIX environment — carried for the same reason and to
-  the same consumer (`ContainerModeled.pinψ`), which reads it at the
-  container's own stored record. -/
+  /-- the pins' components read at the block's parameter depth, at the
+  restored model (task #315 M7-2: the recursors' readings' walk needs
+  the components' syntactic form `DsE` tied to their readings `Ds`) -/
+  pinDs : ∀ q, q < pinsS.length → ∀ ψ : Name → Nat,
+    DenoteMetaSpine mp₂.base2.acval ENV₂ ψ b.nP (pinsS.getD q default).DsE
+      ((pinsS.getD q default).Ds ψ)
+  /-- the restored environment extends the prefix environment (M7-2) -/
+  find : FindPreserved ENV₁ ENV₂
+  /-- the pins' level assignment is the container's level parameters
+  instantiated at the pin's levels (task #315 M7-2: the constructor
+  pins' readings at the restored model need it) -/
   pinψ : ∀ q, q < pinsS.length → ∀ (cvT : ConstantVal) (caps : IndCaps),
-    (ENV₁).find? ((D).pinAt q).J = some (.indInfo cvT caps) →
-    ((D).pinAt q).lvls.length = cvT.levelParams.length ∧
-    ∀ ψ : Name → Nat, ((D).pinAt q).ψJ ψ = Level.substFn ψ cvT.levelParams ((D).pinAt q).lvls
+    (ENV₁).find? (pinsS.getD q default).J = some (.indInfo cvT caps) →
+    (pinsS.getD q default).lvls.length = cvT.levelParams.length ∧
+    ∀ ψ : Name → Nat, (pinsS.getD q default).ψJ ψ
+      = Level.substFn ψ cvT.levelParams (pinsS.getD q default).lvls
+  /-- the copy's index count is the pin's (task #315 M7-2: the model's
+  arity function at a restore key, `nestedArityK`) -/
+  pinNIdx : ∀ q, q < pinsS.length →
+    (fms.getD (p.k + q) default).nIdx = (pinsS.getD q default).nIdx
   names : (fms.take p.k).map (·.cvTa.name) = p.memberNames
   agree : ∀ n, n ∉ p.memberNames ++ p.ctors.map (·.cv.name) →
     ∀ ψ : Name → Nat, mp₂.base2.acval n ψ = mp.base2.acval n ψ
+  /-- the agreement off the RESTORED constructors' names and the
+  block's own members' (task #315 M7-2: the restore walk's leaf clause
+  classifies a name by the AUXILIARY block's lists, which the
+  declaration's own `memberNames`/`ctors` need not cover) -/
+  agreeR : ∀ n : Name, (∀ c ∈ ctorsR.flatten, n ≠ c.1.name) →
+    (∀ (t : Nat) (f : MutualFormerA), t < p.k → fms[t]? = some f → n ≠ f.cvTa.name) →
+    mp₂.base2.acval n = mp.base2.acval n
   findM : ∀ (t : Nat) (f : MutualFormerA), t < p.k → fms[t]? = some f →
     (ENV₂).find? f.cvTa.name = some (ConstantInfo.indInfo f.cvTa {})
   leafM : ∀ (t : Nat) (f : MutualFormerA), t < p.k → fms[t]? = some f →
@@ -1292,7 +1312,7 @@ structure NestedLoopFacts (st : ElimState) (mp₁ : EnvModelM V μ ENV₁) (mp�
     pin.pin = Expr.mkAppN (.const pin.container ((D).pinAt q).lvls) ((D).pinAt q).DsE
   /-- **a pin's parameter count is the one `containerInfo?` reads of
   its container**, at the PRE-BLOCK environment (task #315 M7-3
-  session 11, DESIGN §U.56 (c) 5): the pins' own record's
+  session 11, DESIGN §U.67 (c) 5): the pins' own record's
   (`NestedPinFacts.pinNP`, off the group's `pinNP` and `modeled`),
   carried across the `NestedCtorsStaged` boundary because
   `ContainerModeled.pinNP` — a clause of the nested block's OWN
@@ -1300,17 +1320,23 @@ structure NestedLoopFacts (st : ElimState) (mp₁ : EnvModelM V μ ENV₁) (mp�
   boundary can recover it. -/
   pinNP : ∀ q, q < pinsS.length → ∀ ci : ConLeche.ContainerInfo,
     ConLeche.containerInfo? env ((D).pinAt q).J = some ci → ((D).pinAt q).nPJ = ci.nP
-  /-- **a pin's level assignment is the substitution of its level
-  arguments for its container's level parameters** (task #315 M7-3
-  session 11, DESIGN §U.56 (c) 5): `NestedPinFacts.pinψ` verbatim, at
-  the members' PREFIX environment — carried for the same reason and to
-  the same consumer (`ContainerModeled.pinψ`), which reads it at the
-  container's own stored record. -/
-  pinψ : ∀ q, q < pinsS.length → ∀ (cvT : ConstantVal) (caps : IndCaps),
-    (ENV₁).find? ((D).pinAt q).J = some (.indInfo cvT caps) →
-    ((D).pinAt q).lvls.length = cvT.levelParams.length ∧
-    ∀ ψ : Name → Nat, ((D).pinAt q).ψJ ψ = Level.substFn ψ cvT.levelParams ((D).pinAt q).lvls
+  /-- the pins' components read at the restored model (M7-2) -/
+  pinDs : ∀ q, q < pinsS.length → ∀ ψ : Name → Nat,
+    DenoteMetaSpine mp₂.base2.acval ENV₂ ψ b.nP (pinsS.getD q default).DsE
+      ((pinsS.getD q default).Ds ψ)
   find : FindPreserved ENV₁ ENV₂
+  /-- the pins' level assignment is the container's level parameters
+  instantiated at the pin's levels (task #315 M7-2: the constructor
+  pins' readings at the restored model need it) -/
+  pinψ : ∀ q, q < pinsS.length → ∀ (cvT : ConstantVal) (caps : IndCaps),
+    (ENV₁).find? (pinsS.getD q default).J = some (.indInfo cvT caps) →
+    (pinsS.getD q default).lvls.length = cvT.levelParams.length ∧
+    ∀ ψ : Name → Nat, (pinsS.getD q default).ψJ ψ
+      = Level.substFn ψ cvT.levelParams (pinsS.getD q default).lvls
+  /-- the copy's index count is the pin's (task #315 M7-2: the model's
+  arity function at a restore key, `nestedArityK`) -/
+  pinNIdx : ∀ q, q < pinsS.length →
+    (fms.getD (p.k + q) default).nIdx = (pinsS.getD q default).nIdx
   hde : ∀ (ψ : Name → Nat) (dp : Nat) (e : Expr) {ea : AnnotTerm},
     denoteMeta mp₁.base2.acval ENV₁ ψ dp e = some ea →
     denoteMeta mp₂.base2.acval ENV₂ ψ dp e = some ea
@@ -1399,7 +1425,13 @@ Consumer: `nestedStageFacts_of` → `nestedCoreModeled_of`. -/
     -- THE PINS' SCOPE (K.30): every pin's free variables are the first
     -- former's openers, annotation included, and no loose bvar
     ConLeche.pinsScoped p.nP st = true →
+    -- **THE COPIES' TARGETS** (K.32, task #315 L-E, DESIGN §U.64): a
+    -- copy's group-internal recursive field points at the copy of the
+    -- container member its own field points at, which the copies'
+    -- identities read on the `ordF` arm (lane L-B's `NestedPinsShape`)
+    ConLeche.nestedCopyTargetsOk env p b st stored = true →
     ConLeche.nestedPinKindsOk p b st stored = true →
+    ConLeche.nestedPinRankOk env p b st stored = true →
     -- POST-CHECK (a) A THIRD TIME (K.30): the pins typed at the prefix
     -- formers' environment (`consNestedFormers_take_eq`)
     ConLeche.nestedPinsOk (m := ConLeche.CheckM) (fueledOps μ F)
@@ -1488,7 +1520,9 @@ theorem nestedStageFacts_of (hst : NestedCtorsStaged V μ F) (hμ : μ.verifiedC
     (hsrc : ConLeche.nestedCopySrcOk env p st = true)
     (hgrp : ConLeche.nestedGroupsOk env p st = true)
     (hsc : ConLeche.pinsScoped p.nP st = true)
+    (hK32 : ConLeche.nestedCopyTargetsOk env p b st stored = true)
     (hkinds : ConLeche.nestedPinKindsOk p b st stored = true)
+    (hrank : ConLeche.nestedPinRankOk env p b st stored = true)
     (hpins₁ : ConLeche.nestedPinsOk (m := ConLeche.CheckM) (fueledOps μ F)
       (ConLeche.consMutualFormers (fms.take p.k) env) p.nP st.pins = .ok ())
     (hnd : b.blockNames.Nodup) (h3 : ConLeche.mutualCtorsGrouped b.ctors = true)
@@ -1559,8 +1593,8 @@ theorem nestedStageFacts_of (hst : NestedCtorsStaged V μ F) (hμ : μ.verifiedC
   -- the loop
   obtain ⟨mp₂, dsR, xFvsR, pinsS, L⟩ := hst hμ mp hE p st b envAux stored ctorsR fmsA ctorsA₀ fms f₀
     ctorsA sortss kinds mp₁ ppsF W idxF dsF esF srcsF fvsPF xFvsF xrestF eissF tssF mp₁' hPM h0 h1
-    hfA hcA helim hcount hfresh hcont hb haux hstored hclosed hpinsAux hcaps hsrc hgrp hsc hkinds hpins₁
-    hformers h hbk h3 hnd hctorsA hleafM' hoff' hfind' hctors
+    hfA hcA helim hcount hfresh hcont hb haux hstored hclosed hpinsAux hcaps hsrc hgrp hsc hK32
+    hkinds hrank hpins₁ hformers h hbk h3 hnd hctorsA hleafM' hoff' hfind' hctors
   -- the names
   have hnames : (fms.take p.k).map (·.cvTa.name) = p.memberNames := by
     rw [List.map_take, h.names]
@@ -1627,8 +1661,11 @@ theorem nestedStageFacts_of (hst : NestedCtorsStaged V μ F) (hμ : μ.verifiedC
     rw [hmemc]
     exact hmmk
   refine ⟨mp₂, dsR, xFvsR, pinsS,
-    { pinsLen := L.pinsLen, pinRec := L.pinRec, pinNP := L.pinNP, pinψ := L.pinψ
+    { pinsLen := L.pinsLen, pinRec := L.pinRec, pinDs := L.pinDs, pinNP := L.pinNP
+      find := L.find, pinψ := L.pinψ
+      pinNIdx := L.pinNIdx
       names := hnames, agree := ?_
+      agreeR := fun n hnC hnM => (L.agreeC n hnC).trans (hoff' n hnM)
       findM := fun t f ht hft => L.find (hfind' t f ht hft).1
       leafM := fun t f ht hft => (L.leafKeep t f ht hft).trans (hleafM' t f ht hft)
       FD := fun t f ht hft => FormerData.crossEnv' L.hde (hfind' t f ht hft).2

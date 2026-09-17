@@ -119,7 +119,7 @@ structure NestedCoreOut {env : Env} (F : Nat) (mp : EnvModelM V μ env) (p : Nes
 
 /-! ## The tail's output: the model, the install and the block's reading
 
-(task #315 M7-3 session 10, DESIGN §U.56.) -/
+(task #315 M7-3 session 10, DESIGN §U.67.) -/
 
 section TailOut
 
@@ -302,7 +302,7 @@ theorem nestedMembersFresh {F : Nat} {st : ElimState} {envAux : Env}
   exact nestedStoredFresh hcaps (by omega) hi
 
 /-- **The block the NESTED route installs IS its own container group**
-(task #315 M7-3 session 10, DESIGN §U.56 (b)):
+(task #315 M7-3 session 10, DESIGN §U.67 (b)):
 `ContainerModeled.of_readBack` at the run's K.34 conjunct, the mutual
 and native routes' pattern at a block WITH PINS.
 
@@ -324,7 +324,7 @@ The three that remain name the OUTPUT model, and come from the tail
 (`repsAt`, which also carries `member`) and the typing crossed off it.
 
 `pinNP` and `pinψ` are the core's (task #315 M7-3 session 11, DESIGN
-§U.56 (c) 5): the two pin records now travel on `NestedStageFacts`, so
+§U.67 (c) 5): the two pin records now travel on `NestedStageFacts`, so
 the tail is not asked for them.  Both read an environment the install
 has left alone — `pinNP` the pin's container at `d.env₀ = env` and
 `pinψ` its record at the members' prefix environment, which is `env`'s
@@ -338,6 +338,7 @@ theorem nestedContainerModeled {F : Nat} {st : ElimState} {envAux : Env}
     (hcaps : ((stored.take p.k).all fun a =>
       !a.caps.eta && (env.find? a.cvTa.name).isNone) = true)
     (hcont : ConLeche.nestedContainersOk env st.pins = true) (hk0 : 0 < p.k)
+    (hmn : ConLeche.nestedPinMentionOk p st = true)
     (haux : ConLeche.checkMutualCore (m := ConLeche.CheckM) (fueledOps μ F) env b none true
       = .ok envAux)
     (hstored : ConLeche.auxStoredAll envAux b b.k = some stored)
@@ -394,7 +395,7 @@ theorem nestedContainerModeled {F : Nat} {st : ElimState} {envAux : Env}
     (fun ψ => ⟨(O.typed ψ).1.crossEnv T.agree O.reps.toIsBlockModels,
       (O.typed ψ).2.1.crossEnv T.agree O.reps.toIsBlockModels,
       (O.typed ψ).2.2.crossEnv T.agree O.reps.toIsBlockModels ?_⟩)
-    (fun ψ mm' j fs => ofNested_inj ψ mm' j fs) ?_ ?_ ?_ ?_ ?_ ?_
+    (fun ψ mm' j fs => ofNested_inj ψ mm' j fs) ?_ ?_ ?_ ?_ ?_ ?_ ?_
   · -- `hk`
     rw [hdk, List.length_map, List.length_zip, List.length_take, hclen]
     omega
@@ -431,6 +432,25 @@ theorem nestedContainerModeled {F : Nat} {st : ElimState} {envAux : Env}
     exact ConLeche.rk_mentionsConst_false_of_constsResolve
       (by have hord := hdata.2.2.opened.ord l x hx hk; rwa [O.record.env₀] at hord)
       (hfreshMem n hn)
+  · -- `nestMention`: K.44's record (`nestedPinMentionOk`) at the pin's
+    -- own components, which is where the clause is spelled (DESIGN
+    -- §U.67 (b) B1) — the pin term is its container applied to `DsE`,
+    -- and `DsE` IS the parameter part, its length the pin's `nPJ`
+    -- (the components' reading at the group, `pinDs`/`pinDsLen`/`pinNP`)
+    intro q hq
+    have hql : q < st.pins.length := by rw [← O.record.nPins]; exact hq
+    have hpq : st.pins[q]? = some st.pins[q] := List.getElem?_eq_getElem hql
+    obtain ⟨-, hpin⟩ := O.record.pin q _ hpq
+    have hlen : ((D).pinAt q).DsE.length = ((D).pinAt q).nPJ := by
+      obtain ⟨ci, h₂, -, -⟩ := T.conts q hq
+      obtain ⟨q₀, kJ, i, rfl, hi, G⟩ := T.groups q hq ci h₂
+      exact ((O.stage.pinDs _ hq (fun _ => 0)).length.trans
+        (G.pinDsLen i hi (fun _ => 0))).trans (G.pinNP i hi).symm
+    have hnil : (Expr.const st.pins[q].container ((D).pinAt q).lvls).getAppArgs = [] := rfl
+    simp only [ConLeche.nestedPinMentionOk, List.all_eq_true, List.any_eq_true] at hmn
+    obtain ⟨e, he, hme⟩ := hmn _ (List.mem_of_getElem? hpq)
+    rw [hpin, Expr.getAppArgs_mkAppN, hnil, List.nil_append] at he
+    exact ⟨e, by rw [← hlen, List.take_length]; exact he, by rw [O.record.memberNames]; exact hme⟩
   · -- `pinsNotMembers`
     intro q hq hmem
     obtain ⟨ci, hci⟩ := hpinStored q hq
@@ -460,6 +480,7 @@ theorem nestedContainerModeled {F : Nat} {st : ElimState} {envAux : Env}
       rw [hfreshMem _ (heq ▸ hmem)] at hfE
       exact nomatch hfE
     refine O.stage.pinψ q hq cvT caps ?_
+    show (ConLeche.consMutualFormers (fms.take p.k) env).find? ((D).pinAt q).J = _
     rw [ConLeche.consMutualFormers_find?_of_ne hne]
     exact hfE
   · -- `member`
@@ -516,7 +537,13 @@ discharged modulo the loop by `nestedCoreModeled_of`. -/
     -- THE PINS' SCOPE (K.30): every pin's free variables are the first
     -- former's openers, annotation included, and no loose bvar
     ConLeche.pinsScoped p.nP st = true →
+    -- **THE COPIES' TARGETS** (K.32, task #315 L-E, DESIGN §U.64): a
+    -- copy's group-internal recursive field points at the copy of the
+    -- container member its own field points at, which the copies'
+    -- identities read on the `ordF` arm (lane L-B's `NestedPinsShape`)
+    ConLeche.nestedCopyTargetsOk env p b st stored = true →
     ConLeche.nestedPinKindsOk p b st stored = true →
+    ConLeche.nestedPinRankOk env p b st stored = true →
     -- POST-CHECK (a) A THIRD TIME (K.30): the pins typed at the
     -- environment holding the RESTORED formers
     ConLeche.nestedPinsOk (m := ConLeche.CheckM) (fueledOps μ F)
@@ -696,7 +723,7 @@ half's run-level consumer): the run's stages through the restored
 constructors keep the model and leave the block model
 (`NestedCoreModeled`), the tail keeps it from there and hands back the
 install's conses, the agreements and the block's representation at the
-OUTPUT model (`NestedTailModeled`, DESIGN §U.56); the containers' block
+OUTPUT model (`NestedTailModeled`, DESIGN §U.67); the containers' block
 models are the pre-block carrier's own (`EnvModelB.blocks`, task #315
 M7-3).
 
@@ -718,14 +745,29 @@ theorem declNested_of (hμ : μ.verifiedChecks = true) {F : Nat} {env envOut : E
   classical
   obtain ⟨h0, h1, st, b, envAux, stored, ctorsR, cvRms, cvRns, rulesM, rulesN, fmsA, ctorsA,
     hfA, hcA, helim, hcount, hfresh, hcont, hb, haux, hstored, hclosed, hpinsAux, hcaps, hsrc,
-    -, hgrp, hsc, -, hkinds, hauxApps, -, hpins₁, hctors, hrm, hrn, hrulesM, hrulesN, htbl, hpinsOut,
-    hcnt, hrecs, hrb⟩ := h
+    -, hgrp, hmn, hsc, hK32, hkinds, hauxApps, hrank, -, -, -, hpins₁, hctors, hrm, hrn, -, -,
+    hrulesM, hrulesN, htbl, hpinsOut, hcnt, hrecs, hrb⟩ := h
   -- the `-` after `hsrc` is K.31's `pinsDistinct` conjunct: named for the
   -- identities' discharge (`NestedPinsIdent`, lane L-B), not consumed here;
-  -- the `-` after `hsc` is K.32's `nestedCopyTargetsOk`, named for the same
-  -- discharge's `ordF` arm, not consumed here either; the two `-` after
-  -- `hkinds` the LAST `-` is K.37's `nestedPinRankOk`, not consumed on this
-  -- path (K.35's `nestedAuxAppsOk` is `hauxApps`, which the tail consumes)
+  -- `hmn` after `hgrp` is K.44's `nestedPinMentionOk`, which lane L-E's
+  -- `ContainerModeled.nestMention` is discharged from at the block's own
+  -- read-back (`nestedContainerModeled`);
+  -- `hK32` after `hsc` is K.32's `nestedCopyTargetsOk`, carried down to
+  -- `NestedPinsRun` for the same discharge's `ordF` arm (task #315 L-E,
+  -- DESIGN §U.64) and not consumed here; `hauxApps` after `hkinds` is
+  -- K.35's `nestedAuxAppsOk`, which the tail consumes, and `hrank` after
+  -- it is K.37's `nestedPinRankOk` — the global entry theorem's induction
+  -- measure, carried down to `NestedPinsRun` (task #315 L-E, DESIGN
+  -- §U.55) — the `-` after THAT is K.40's `nestedPinParentOk`, the one
+  -- after THAT K.41's `nestedPinRootPairOk` and the one after THAT K.42's
+  -- second positivity run on the minted copies, none consumed on this
+  -- path; the LAST binder is K.34's
+  -- `blockReadBackOk` (`hrb`) — the route's own read-back, which the block
+  -- this route stores needs and `mp.blocks` carries for the rest;
+  -- the two `-` after `hrn` are K.39's `Nodup` of the restored recursors'
+  -- names and K.45's disjointness of those names from the auxiliary ones,
+  -- which the provision loop's conses and the restore's agreement need,
+  -- and nothing on this path reads
   -- THE CERTIFICATION-ONLY RECORDS (K.35's follow-up): the run carries them
   -- as `certOnly μ …`; this theorem is stated under `hμ`, at which the gate
   -- is the Bool the consumers below expect — K.34's `blockReadBackOk`
@@ -733,15 +775,18 @@ theorem declNested_of (hμ : μ.verifiedChecks = true) {F : Nat} {env envOut : E
   replace hcont := ConLeche.certOnly_elim hcont hμ
   replace hsrc := ConLeche.certOnly_elim hsrc hμ
   replace hgrp := ConLeche.certOnly_elim hgrp hμ
+  replace hmn := ConLeche.certOnly_elim hmn hμ
   replace hsc := ConLeche.certOnly_elim hsc hμ
+  replace hK32 := ConLeche.certOnly_elim hK32 hμ
   replace hkinds := ConLeche.certOnly_elim hkinds hμ
+  replace hrank := ConLeche.certOnly_elim hrank hμ
   replace hauxApps := ConLeche.certOnly_elim hauxApps hμ
   replace hrb := ConLeche.certOnly_elim hrb hμ
   have hPM : PinsModeled mp.base2 st.pins := pinsModeled_of_env mp.blocks hcont
   obtain ⟨fms, f₀, ctorsA', sortss, kinds, mp₁, ppsF, W, idxF, dsF, esF, srcsF, fvsPF, xFvsF, xrestF,
     eissF, tssF, dsR, xFvsR, pinsS, mp₂, henv, O⟩ := hcore hμ mp.toEnvModelM hE p st b envAux stored
     ctorsR fmsA ctorsA hPM h0 h1 hfA hcA helim hcount hfresh hcont hb haux hstored hclosed hpinsAux
-    hcaps hsrc hgrp hsc hkinds hpins₁ hctors
+    hcaps hsrc hgrp hsc hK32 hkinds hrank hpins₁ hctors
   obtain ⟨mpOut, T⟩ := htail hμ mp.toEnvModelM hE p envOut st b envAux stored ctorsR cvRms cvRns
     rulesM rulesN fmsA ctorsA hPM h0 h1 hfA hcA helim hcount hfresh hcont hb haux hstored hclosed
     hpinsAux hcaps hsrc hgrp hkinds hauxApps hctors hrm hrn hrulesM hrulesN htbl hpinsOut hcnt
@@ -755,7 +800,7 @@ theorem declNested_of (hμ : μ.verifiedChecks = true) {F : Nat} {env envOut : E
   have hclen : ctorsR.length = p.k := by
     rw [(ConLeche.mapM_except_inv hctors).1, List.length_take]
     omega
-  have hcm := nestedContainerModeled hcaps hcont hk0 haux hstored hctors O T
+  have hcm := nestedContainerModeled hcaps hcont hk0 hmn haux hstored hctors O T
   have hfreshMs : ∀ n ∈ p.memberNames, env.find? n = none := by
     rw [← O.record.memberNames]
     exact nestedMembersFresh hcaps haux hstored O
@@ -823,7 +868,10 @@ theorem declNested_of (hμ : μ.verifiedChecks = true) {F : Nat} {env envOut : E
     intro q hq ci hci
     obtain ⟨q₀, kJ, i, -, -, G⟩ := hGroups q hq ci hci
     exact G.reps
-  have hShapes := (nestedPinShapes_of (B := blockOf mp.base2) mp₂.base2 hGroups
+  have hShapes := (nestedPinShapes_of (B := blockOf mp.base2) mp₂.base2
+      (fun q hq ci hci => by
+        obtain ⟨q₀, kJ, i, hqe, hi, G⟩ := hGroups q hq ci hci
+        exact ⟨q₀, kJ, i, hqe, hi, G, G.sameE⟩)
       (fun q hq => (T.conts q hq).imp fun _ hh => hh.1)).crossEnv T.findR T.agree hk0
     O.reps.toIsBlockModels
     hBreps (fun q hq ci hci => by
@@ -876,7 +924,7 @@ CONCRETELY (`NestedCoreOut`). -/
 theorem nestedCoreModeled_of {F : Nat} (hst : NestedCtorsStaged V μ F) :
     NestedCoreModeled V μ F := by
   intro hμ env mp hE p st b envAux stored ctorsR fmsA ctorsA₀ hPM h0 h1 hfA hcA helim hcount hfresh
-    hcont hb haux hstored hclosed hpinsAux hcaps hsrc hgrp hsc hkinds hpins₁ hctors
+    hcont hb haux hstored hclosed hpinsAux hcaps hsrc hgrp hsc hK32 hkinds hrank hpins₁ hctors
   obtain ⟨hnd, hlp, hmem, h3, env₁, fms, f₀, tq₀, ctorsA, sortss, kinds, formers4, ctors4, cvRas,
     rulesOf, hformers, hf₀, htq₀, hcross, -, hctorsA, hkindsA, hfo, -, -, -, -⟩ :=
     ConLeche.checkMutualCore_inv haux
@@ -887,8 +935,8 @@ theorem nestedCoreModeled_of {F : Nat} (hst : NestedCtorsStaged V μ F) :
   obtain ⟨henv, -⟩ := ConLeche.consNestedFormers_take_eq haux hformers hstored p.k (by omega)
   rw [henv] at hctors hpins₁
   obtain ⟨mp₂, dsR, xFvsR, pinsS, S⟩ := nestedStageFacts_of hst hμ hE hPM h0 h1 hfA hcA helim hcount
-    hfresh hcont hb haux hstored hclosed hpinsAux hcaps hsrc hgrp hsc hkinds hpins₁ hnd h3 hformers hctorsA h
-    hbk hctors
+    hfresh hcont hb haux hstored hclosed hpinsAux hcaps hsrc hgrp hsc hK32 hkinds hrank hpins₁ hnd h3
+    hformers hctorsA h hbk hctors
   have hbk' : b.k = p.k + pinsS.length := by rw [hbk, S.pinsLen]
   obtain ⟨hreps, htyped⟩ := nestedBlockReps_of hμ h h3 hbk' mp₂ S.findM S.leafM S.FD S.ctorsLen
     S.ctorFacts S.domFacts S.groups

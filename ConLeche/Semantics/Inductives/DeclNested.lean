@@ -199,6 +199,12 @@ def DeclNestedRun (μ : CheckMode) (F : Nat) (env : Env)
     -- THE PINS' MINT GROUPS (K.29): the segment, its size, the member
     -- order, and the group's shared level instantiation and components
     ConLeche.certOnly μ (ConLeche.nestedGroupsOk env p st) = true ∧
+    -- A PIN'S COMPONENTS MENTION A MEMBER (K.44, lane M7-3's §U.66 (b)):
+    -- the parameter part of every pin's spine carries a member of the
+    -- block's own group.  Lane L-E's `ContainerModeled.nestMention` reads
+    -- it here; the elimination's own record permits a COPY as the witness,
+    -- so the fact is not derivable from it
+    ConLeche.certOnly μ (ConLeche.nestedPinMentionOk p st) = true ∧
     -- THE PINS' SCOPE (K.30): every pin's free variables are the first
     -- former's openers, annotation included, and no loose bvar
     ConLeche.certOnly μ (ConLeche.pinsScoped p.nP st) = true ∧
@@ -220,6 +226,29 @@ def DeclNestedRun (μ : CheckMode) (F : Nat) (env : Env)
     -- to a STRICTLY SMALLER rank, and the rank is a function of the
     -- instance — the model's induction measure for step (iii)
     ConLeche.certOnly μ (ConLeche.nestedPinRankOk env p b st stored) = true ∧
+    -- THE MINT PARENTS (K.40): every recorded parent is an EARLIER pin,
+    -- so the chain terminates and an instance's root is its
+    -- parent-minimal member — the covering walk the transfer needs
+    ConLeche.certOnly μ (ConLeche.nestedPinParentOk p st) = true ∧
+    -- THE PIN PAIRING AT A NOT-OWN EDGE (K.41): every pin of a container
+    -- instance that is not one of the root group's own members is a pin
+    -- the ROOT CONTAINER's own elimination minted, at the root pin's own
+    -- levels and components — all four of `ClassPin`'s data in ONE
+    -- equality, off the two recorded tables and no term head
+    ConLeche.certOnly μ (ConLeche.nestedPinRootPairOk env p b st stored) = true ∧
+    -- THE POSITIVITY NORMALISATION ON THE MINTED COPY (K.42): at every
+    -- ORDINARY field of every copy's constructor, `normPosDomM` on the
+    -- MINTED domain — the container's field at the pin's components,
+    -- before `replaceAllNested` — returns the STORED one.  Lane L-B's
+    -- `ordF`-left arm reads its reading identity off this, with the
+    -- rewrite's own leg (which needs `pinLeaf`, and is circular) gone
+    (μ.verifiedChecks = true →
+      ∃ (jobs : List (Nat × Expr × Expr)) (ws : List Expr),
+        ConLeche.nestedOrdDomPairs env p st stored
+            (ConLeche.nestedPinKinds p b stored) = some jobs ∧
+        ConLeche.nestedOrdNorms (m := CheckM) (fueledOps μ F)
+            (consNestedFormers (stored.take p.k) env) b.memberNames jobs = .ok ws ∧
+        ws = jobs.map (·.2.2)) ∧
     -- POST-CHECK (a) A THIRD TIME (K.30): the pins typed at the
     -- environment holding the RESTORED formers — the model tier's own
     ConLeche.nestedPinsOk (m := CheckM) (fueledOps μ F)
@@ -242,6 +271,20 @@ def DeclNestedRun (μ : CheckMode) (F : Nat) (env : Env)
         (restoreTbl p st) p.lps
         ((List.range p.numNested).map p.mimicRecName)
         (stored.drop p.k) = .ok cvRns ∧
+    -- THE RESTORED RECURSORS' NAMES ARE PAIRWISE DISTINCT (K.39): what
+    -- the provision loop's conses need and `restoreRecTys_door`'s
+    -- freshness at ONE environment cannot give
+    ConLeche.certOnly μ
+      (decide ((cvRms.map (·.name) ++ cvRns.map (·.name)).Nodup)) = true ∧
+    -- THE AUXILIARY NAMES AND THE RESTORED RECURSORS' ARE DISJOINT
+    -- (K.45, lane M7-2's §U.29 (ll)): the provision adds exactly these
+    -- `k + nPins` names, and `RestoreAgree.auxFresh` needs every
+    -- auxiliary name absent from the environment it runs at.  Both
+    -- families are `.str X (s ++ "_" ++ toString i)`, so separating
+    -- them syntactically needs `toString` injectivity — the same reason
+    -- K.39 above is a check
+    ConLeche.certOnly μ ((restoreTbl p st).auxNames.all fun n =>
+      !((cvRms.map (·.name) ++ cvRns.map (·.name)).contains n)) = true ∧
     -- the restored rules, at the rule-less provision
     (cvRms.zip (stored.take p.k)).mapM (fun (cvRa, a) =>
         restoreRules (m := CheckM) (fueledOps μ F)
@@ -437,7 +480,7 @@ theorem declNestedRun_etaClosed {μ : CheckMode} {F : Nat} {env envOut : Env}
     {p : NestedParts} (hE : EtaFamiliesClosed env)
     (h : DeclNestedRun μ F env p envOut) : EtaFamiliesClosed envOut := by
   obtain ⟨-, -, st, b, envAux, stored, ctorsR, cvRms, cvRns, rulesM, rulesN, fmsA, ctorsA,
-    -, -, -, -, -, -, -, -, -, -, -, hcaps, -, -, -, -, -, -, -, -, -, hctors, hrm, hrn, -, -, htbl,
+    -, -, -, -, -, -, -, -, -, -, -, hcaps, -, -, -, -, -, -, -, -, -, -, -, -, -, hctors, hrm, hrn, -, -, -, -, htbl,
     -, -, -, -⟩ := h
   refine EtaFamiliesClosed.ofFreshExt hE ?_
   -- the formers

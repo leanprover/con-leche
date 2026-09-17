@@ -959,4 +959,120 @@ theorem lfpTuple_pullback {w k k' : Nat} {Is Is' : Nat → V} {Φ Φ' : (Nat →
   have ht' : t ∈ˢ Is (σ j) := by rw [← hIs j hj]; exact ht
   exact (h2 t ht').trans (h3 t ht)
 
+/-! ## Two least tuples agreeing along a RELATION of variables (task #315 L-E, DESIGN §U.48 (h)) -/
+
+/-- **The relational fibre meet**: the base tuple's component `a` cut
+down to the elements every component `Y b` with `R a b` (`b < k'`)
+carries. -/
+noncomputable def relMeet (Is X : Nat → V) (R : Nat → Nat → Prop) (k' : Nat) (Y : Nat → V) (a : Nat) : V :=
+  graph (fun t => sep (app (X a) t) fun x => ∀ b, b < k' → R a b → x ∈ˢ app (Y b) t) (Is a)
+
+theorem app_relMeet {Is X : Nat → V} {R : Nat → Nat → Prop} {k' : Nat} {Y : Nat → V} {a : Nat} {t : V}
+    (ht : t ∈ˢ Is a) :
+    app (relMeet Is X R k' Y a) t = sep (app (X a) t) fun x => ∀ b, b < k' → R a b → x ∈ˢ app (Y b) t :=
+  app_graph ht
+
+theorem relMeet_mem {w : Nat} {Is X : Nat → V} {R : Nat → Nat → Prop} {k' : Nat} {Y : Nat → V} {a : Nat}
+    (hX : X a ∈ˢ famSpace w (Is a)) : relMeet Is X R k' Y a ∈ˢ famSpace w (Is a) :=
+  graph_mem_famSpace fun _ ht => univ_sep_mem (famSpace_app hX ht)
+
+/-- The relational meet lies under the base at EVERY point — off the
+index set it is empty (task #315 L-E: `ChainFitT_mono` compares the
+tuples at every point, not only inside the index sets). -/
+theorem app_relMeet_subset (Is X : Nat → V) (R : Nat → Nat → Prop) (k' : Nat) (Y : Nat → V)
+    (a : Nat) (t : V) : app (relMeet Is X R k' Y a) t ⊆ˢ app (X a) t := by
+  by_cases ht : t ∈ˢ Is a
+  · rw [app_relMeet ht]
+    exact sep_subset
+  · unfold relMeet
+    rw [app_graph_of_not_mem ht]
+    exact fun x hx => absurd hx (not_mem_empty x)
+
+theorem relMeet_le_base (Is X : Nat → V) (R : Nat → Nat → Prop) (k' : Nat) (Y : Nat → V) (a : Nat) :
+    FamLe (Is a) (relMeet Is X R k' Y a) (X a) := by
+  intro t ht
+  rw [app_relMeet ht]
+  exact sep_subset
+
+theorem relMeet_le_rel {Is X : Nat → V} {R : Nat → Nat → Prop} {k' : Nat} {Y : Nat → V} {a b : Nat}
+    (hb : b < k') (hR : R a b) : FamLe (Is a) (relMeet Is X R k' Y a) (Y b) := by
+  intro t ht x hx
+  rw [app_relMeet ht] at hx
+  exact (mem_sep.mp hx).2 b hb hR
+
+theorem famLe_relMeet {Is X : Nat → V} {R : Nat → Nat → Prop} {k' : Nat} {Y : Nat → V} {a : Nat} {C : V}
+    (h₀ : FamLe (Is a) C (X a)) (h : ∀ b, b < k' → R a b → FamLe (Is a) C (Y b)) :
+    FamLe (Is a) C (relMeet Is X R k' Y a) := by
+  intro t ht x hx
+  rw [app_relMeet ht]
+  exact mem_sep.mpr ⟨h₀ t ht x hx, fun b hb hR => h b hb hR t ht x hx⟩
+
+/-- **One direction of the bisimulation**: if `Φ'` is `R`-monotone over
+`Φ` at a FIXED POINT `F'` of `Φ'` — at tuples `X` below `Φ`'s least
+tuple, `X ≤_R F'` gives `Φ X a ≤ Φ' F' b` at every related pair — then
+`Φ`'s least tuple lies below `F'` at every related pair (`relMeet` is
+`Φ`-closed).  Stated at a fixed point rather than the least tuple so a
+CARRIER (a fixed point of the whole system) can stand on the right
+without its restriction being shown least. -/
+theorem lfpTuple_le_of_rel {w k k' : Nat} {Is Is' : Nat → V} {Φ Φ' : (Nat → V) → Nat → V}
+    {R : Nat → Nat → Prop} {F' : Nat → V}
+    (hmono : MonoTuple w k Is Φ) (hmaps : MapsTuple w k Is Φ)
+    (hcl : ∃ L, IsClosedTuple w k Is Φ L)
+    (_hF' : InTupleSpace w k' Is' F') (hfix : ∀ b, b < k' → Φ' F' b = F' b)
+    (hrel : ∀ X, InTupleSpace w k Is X → TupleLe k Is X (lfpTuple w k Is Φ) →
+      (∀ a b, a < k → b < k' → R a b → FamLe (Is a) (X a) (F' b)) →
+      ∀ a b, a < k → b < k' → R a b → FamLe (Is a) (Φ X a) (Φ' F' b)) :
+    ∀ a b, a < k → b < k' → R a b → FamLe (Is a) (lfpTuple w k Is Φ a) (F' b) := by
+  intro a b ha hb hab
+  have hTmem : InTupleSpace w k Is (relMeet Is (lfpTuple w k Is Φ) R k' F') :=
+    fun a' ha' => relMeet_mem (lfpTuple_mem w k Is Φ a' ha')
+  have hTle : TupleLe k Is (relMeet Is (lfpTuple w k Is Φ) R k' F') (lfpTuple w k Is Φ) :=
+    fun a' _ => relMeet_le_base Is _ R k' _ a'
+  have hTcl : IsClosedTuple w k Is Φ (relMeet Is (lfpTuple w k Is Φ) R k' F') := by
+    refine ⟨hTmem, fun a' ha' => famLe_relMeet ?_ fun b' hb' hab' => ?_⟩
+    · have := hmono _ _ hTmem (lfpTuple_mem w k Is Φ) hTle a' ha'
+      rw [lfpTuple_eq hcl hmono hmaps ha'] at this
+      exact this
+    · have := hrel _ hTmem hTle (fun a'' b'' _ hb'' hab'' => relMeet_le_rel hb'' hab'') a' b' ha' hb' hab'
+      rw [hfix b' hb'] at this
+      exact this
+  exact (lfpTuple_le hTcl a ha).trans (relMeet_le_rel hb hab)
+
+/-- **Two least tuples agree along a bisimulation of their variables**
+(task #315 L-E, DESIGN §U.48 (h)): related variables have related
+index sets, and each operator is `R`-monotone over the other at tuples
+below the least tuples; then the least tuples agree at every related
+pair.  Duplicated variables on EITHER side (several `b` related to one
+`a`, or several `a` to one `b`) are absorbed by the relational meets —
+no function between the variable sets is needed. -/
+theorem lfpTuple_eq_of_rel {w k k' : Nat} {Is Is' : Nat → V} {Φ Φ' : (Nat → V) → Nat → V}
+    {R : Nat → Nat → Prop}
+    (hIs : ∀ a b, a < k → b < k' → R a b → Is a = Is' b)
+    (hmono : MonoTuple w k Is Φ) (hmaps : MapsTuple w k Is Φ)
+    (hcl : ∃ L, IsClosedTuple w k Is Φ L)
+    (hmono' : MonoTuple w k' Is' Φ') (hmaps' : MapsTuple w k' Is' Φ')
+    (hcl' : ∃ L', IsClosedTuple w k' Is' Φ' L')
+    (hrel : ∀ X, InTupleSpace w k Is X → TupleLe k Is X (lfpTuple w k Is Φ) →
+      ∀ X', InTupleSpace w k' Is' X' → TupleLe k' Is' X' (lfpTuple w k' Is' Φ') →
+      (∀ a b, a < k → b < k' → R a b → FamLe (Is a) (X a) (X' b)) →
+      ∀ a b, a < k → b < k' → R a b → FamLe (Is a) (Φ X a) (Φ' X' b))
+    (hrel' : ∀ X', InTupleSpace w k' Is' X' → TupleLe k' Is' X' (lfpTuple w k' Is' Φ') →
+      ∀ X, InTupleSpace w k Is X → TupleLe k Is X (lfpTuple w k Is Φ) →
+      (∀ b a, b < k' → a < k → R a b → FamLe (Is' b) (X' b) (X a)) →
+      ∀ b a, b < k' → a < k → R a b → FamLe (Is' b) (Φ' X' b) (Φ X a)) :
+    ∀ a b, a < k → b < k' → R a b → lfpTuple w k Is Φ a = lfpTuple w k' Is' Φ' b := by
+  intro a b ha hb hab
+  have h1 := lfpTuple_le_of_rel hmono hmaps hcl (lfpTuple_mem w k' Is' Φ')
+    (fun b' hb' => lfpTuple_eq hcl' hmono' hmaps' hb')
+    (fun X hX hXle hle => hrel X hX hXle _ (lfpTuple_mem w k' Is' Φ') (TupleLe.refl _ _ _) hle)
+    a b ha hb hab
+  have h2 := lfpTuple_le_of_rel (R := fun b a => R a b) hmono' hmaps' hcl' (lfpTuple_mem w k Is Φ)
+    (fun a' ha' => lfpTuple_eq hcl hmono hmaps ha')
+    (fun X' hX' hX'le hle => hrel' X' hX' hX'le _ (lfpTuple_mem w k Is Φ) (TupleLe.refl _ _ _) hle)
+    b a hb ha hab
+  refine famSpace_ext (lfpTuple_mem w k Is Φ a ha)
+    (by rw [hIs a b ha hb hab]; exact lfpTuple_mem w k' Is' Φ' b hb) fun t ht => ?_
+  have ht' : t ∈ˢ Is' b := by rw [← hIs a b ha hb hab]; exact ht
+  exact Subset.antisymm (h1 t ht) (h2 t ht')
+
 end ConLeche.SetTheory

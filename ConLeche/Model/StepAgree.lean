@@ -19,7 +19,7 @@ carrier at the stored inductives, so an install that leaves the old
 carrier alone leaves the assignment alone
 (`EnvModelBStages.lean`, `BasisBlocksFold.lean`).
 
-They live HERE, below `Model/Fold.lean`, and not in it (DESIGN §U.56
+They live HERE, below `Model/Fold.lean`, and not in it (DESIGN §U.67
 (g) 1): the fold's own theorems at `EnvModelB` sit ABOVE the two
 modules that read these agreements, so as long as the agreements lived
 in `Model/Fold.lean` every theorem of the flip was above that module
@@ -63,7 +63,7 @@ theorem axiomStepAgree_of (hμ : μ.verifiedChecks = true) {F : Nat} {env : Env}
   · exact axiomSkip mp
 
 /-- **The basis kind's step, WITH THE CARRIER AGREEMENT** (task #315
-M7-3 session 9, DESIGN §U.55 (b)): every pinned block is a chain of
+M7-3 session 9, DESIGN §U.66 (b)): every pinned block is a chain of
 three to five fresh conses, so the model it produces values every OLD
 constant as the prefix model did — the fact the block-model field
 `EnvModelB.blocks` is maintained by, and the one the basis blocks'

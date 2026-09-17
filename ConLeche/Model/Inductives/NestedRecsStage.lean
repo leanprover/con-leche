@@ -85,6 +85,8 @@ structure NestedRecReadings {env₂ : Env} (m : EnvModel V env₂) (d : BlockMod
     rdsM c ψ₁ = rdsM c ψ₂
   okTy : ∀ (c : Nat) (ψ : Name → Nat) (ρ : Nat → V), c < d.kT →
     WellDenotedV V ρ (mkPisAV (rdsM c ψ) (concM c))
+  tyBelow : ∀ (c : Nat) (ψ : Name → Nat), c < d.kT →
+    Term.bvarsBelow 0 (mkPisAV (rdsM c ψ) (concM c)).erase
   sort : ∀ (c : Nat) (ψ : Name → Nat) (ρ : Nat → V), c < d.kT →
     interp V ρ (mkPisAV (rdsM c ψ) (concM c)) ∈ˢ (univ (s ψ) : V)
   wℓ : ∀ ψ : Name → Nat, d.w ψ = 0 → elimL.eval ψ = 0
@@ -96,7 +98,13 @@ structure NestedRecReadings {env₂ : Env} (m : EnvModel V env₂) (d : BlockMod
 rules' and the auxiliary rules') are truth values and graded at every
 tuple typed at the readings, and every equation holds at the CANDIDATE
 tuple `blockCandT` (the class recursor over the extended union at the
-frame's motives and minors). -/
+frame's motives and minors).
+
+`valid` and `below` are what the recursors' rule-less CONSES need of
+the chosen tuple's projections (item 5, `NestedRecsStore.lean`): the
+leaf `blockLeafAV` is `AnnotValid` exactly when the readings and the
+equations are (`blockRecAVI_validV`), and closed at the block's `kT`
+tuple variables exactly when they are (`blockRecAVI_below`). -/
 structure NestedRecEqs (d : BlockModel V) (pc : Nat → PinCtors V) (ℓ : (Name → Nat) → Nat)
     (rdsM : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)) (concM : Nat → AnnotTerm)
     (eqs : (Name → Nat) → List AnnotTerm) : Prop where
@@ -106,6 +114,10 @@ structure NestedRecEqs (d : BlockModel V) (pc : Nat → PinCtors V) (ℓ : (Name
   hceq : ∀ (ψ : Name → Nat) (ρ : Nat → V), ∀ e ∈ eqs ψ,
     (pt : V) ∈ˢ interp V
       (consList ((List.range d.kT).map fun c => d.blockCandT pc ψ (ℓ ψ) (rdsM c ψ) c ρ) ρ) e
+  valid : ∀ (ψ : Name → Nat) (ρ : Nat → V) (rs : List V), rs.length = d.kT →
+    (∀ c, c < d.kT → rs.getD c pt ∈ˢ interp V ρ (mkPisAV (rdsM c ψ) (concM c))) →
+    ∀ e ∈ eqs ψ, AnnotValid V (consList rs ρ) e
+  below : ∀ ψ : Name → Nat, ∀ e ∈ eqs ψ, Term.bvarsBelow d.kT e.erase
 
 /-- **The chosen tuple's facts** — `nestedRecs`'s conclusion: at every
 frame the `k + nPins` leaves `blockLeafAV` are typed at the readings,
@@ -415,7 +427,7 @@ post-block environment.  Consumer: `nestedTailModeled_of`. -/
       NestedRecTuple
         (nestedBlockModel (V := V) p b fms f₀ ctorsA kinds env ppsF W idxF dsF esF srcsF fvsPF
           xrestF eissF tssF ctorsR dsR xFvsR pinsS) s rdsM concM eqs →
-      -- task #315 M7-3 session 10 (DESIGN §U.56 (c)): the conclusion is
+      -- task #315 M7-3 session 10 (DESIGN §U.67 (c)): the conclusion is
       -- `NestedTailModeled`'s, which now carries the install's conses, the
       -- agreements, the block's representation at the OUTPUT model and the
       -- pins' groups with their containers' models NAMED — what the route's
