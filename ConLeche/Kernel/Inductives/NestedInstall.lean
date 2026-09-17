@@ -852,15 +852,19 @@ def nestedPinKinds (p : NestedParts) (b : MutualBlock) (stored : List AuxStored)
 /-- The kinds exist at every pin, every field is `.ordinary`,
 `.recursive` or `.reflexive`, and every target is a position of
 `members ++ pins` (§U.1 (c) fact 6). -/
-def nestedPinKindsOk (p : NestedParts) (b : MutualBlock) (st : ElimState)
-    (stored : List AuxStored) : Bool :=
-  match nestedPinKinds p b stored with
+def nestedPinKindsAt (p : NestedParts) (st : ElimState)
+    (kinds? : Option (List (List (List (RecFieldKind × Nat))))) : Bool :=
+  match kinds? with
   | some kinds =>
     kinds.length == st.pins.length &&
       kinds.all fun ks => ks.all fun k => k.all fun (r, t) =>
         (r == .ordinary || r == .recursive || r == .reflexive) &&
           decide (t < p.k + st.pins.length)
   | none => false
+
+@[inline] def nestedPinKindsOk (p : NestedParts) (b : MutualBlock) (st : ElimState)
+    (stored : List AuxStored) : Bool :=
+  nestedPinKindsAt p st (nestedPinKinds p b stored)
 
 /-- **THE COPIES' RECURSIVE TARGETS COME FROM THE CONTAINER'S OWN
 RECURSION** (task #315 K.32, the model lane's DESIGN §U.23 (e)).
@@ -887,9 +891,10 @@ so a copy field classified recursive into the group comes from a
 container field that WAS that occurrence.
 
 **It cannot fire**, and a failure is `.internal`. -/
-def nestedCopyTargetsOk (env : Env) (p : NestedParts) (b : MutualBlock)
-    (st : ElimState) (stored : List AuxStored) : Bool :=
-  match nestedPinKinds p b stored with
+def nestedCopyTargetsAt (env : Env) (p : NestedParts) (st : ElimState)
+    (stored : List AuxStored)
+    (kinds? : Option (List (List (List (RecFieldKind × Nat))))) : Bool :=
+  match kinds? with
   | none => false
   | some kinds =>
     (List.range st.pins.length).all fun q =>
@@ -932,6 +937,10 @@ def nestedCopyTargetsOk (env : Env) (p : NestedParts) (b : MutualBlock)
                     else true
               | _, _, _ => false
       | _, _, _ => false
+
+@[inline] def nestedCopyTargetsOk (env : Env) (p : NestedParts) (b : MutualBlock)
+    (st : ElimState) (stored : List AuxStored) : Bool :=
+  nestedCopyTargetsAt env p st stored (nestedPinKinds p b stored)
 
 /-- Every argument of an application spine is a proper subterm: the
 measure that lets `auxAppsOk` recurse into `getAppArgs`. -/
@@ -1404,9 +1413,11 @@ container's own nesting, which its own elimination pinned) stays INSIDE
 the instance; anything else — the container's ordinary field through
 another container, or a component — leaves it, and must go to a
 strictly smaller rank. -/
-def nestedPinEdges (env : Env) (p : NestedParts) (b : MutualBlock) (st : ElimState)
-    (stored : List AuxStored) : Option (List (Nat × Nat × Bool)) := do
-  let kinds ← nestedPinKinds p b stored
+def nestedPinEdgesAt (env : Env) (p : NestedParts) (st : ElimState)
+    (stored : List AuxStored)
+    (kinds? : Option (List (List (List (RecFieldKind × Nat))))) :
+    Option (List (Nat × Nat × Bool)) := do
+  let kinds ← kinds?
   let rows ← (List.range st.pins.length).mapM fun q => do
     let qn ← st.pins[q]?
     let ks ← kinds[q]?
@@ -1428,6 +1439,10 @@ def nestedPinEdges (env : Env) (p : NestedParts) (b : MutualBlock) (st : ElimSta
       pure perField.flatten
     pure perCtor.flatten
   pure rows.flatten
+
+@[inline] def nestedPinEdges (env : Env) (p : NestedParts) (b : MutualBlock) (st : ElimState)
+    (stored : List AuxStored) : Option (List (Nat × Nat × Bool)) :=
+  nestedPinEdgesAt env p st stored (nestedPinKinds p b stored)
 
 /-- **The augmented reference digraph**: every edge as an arc, an OWN
 edge additionally as its reverse, and every pin joined to its mint
@@ -1497,19 +1512,28 @@ def nestedPinRankFrom (st : ElimState) (edges : List (Nat × Nat × Bool))
   nestedRankIter inst (st.pins.length + 1) edges
     ((List.range st.pins.length).map fun _ => 0)
 
-/-- The instances, as the model reads them off the run. -/
-def nestedPinInstOf (env : Env) (p : NestedParts) (b : MutualBlock) (st : ElimState)
-    (stored : List AuxStored) : List Nat :=
-  match nestedPinEdges env p b st stored with
+/-- The instances, at a computed edge list. -/
+def nestedPinInstAt (st : ElimState) (edges? : Option (List (Nat × Nat × Bool))) : List Nat :=
+  match edges? with
   | none => (List.range st.pins.length).map fun _ => 0
   | some edges => nestedPinInstFrom st edges
 
-/-- The rank, as the model reads it off the run. -/
-def nestedPinRankOf (env : Env) (p : NestedParts) (b : MutualBlock) (st : ElimState)
-    (stored : List AuxStored) : List Nat :=
-  match nestedPinEdges env p b st stored with
+/-- The rank, at a computed edge list. -/
+def nestedPinRankListAt (st : ElimState) (edges? : Option (List (Nat × Nat × Bool))) :
+    List Nat :=
+  match edges? with
   | none => (List.range st.pins.length).map fun _ => 0
   | some edges => nestedPinRankFrom st edges (nestedPinInstFrom st edges)
+
+/-- The instances, as the model reads them off the run. -/
+@[inline] def nestedPinInstOf (env : Env) (p : NestedParts) (b : MutualBlock) (st : ElimState)
+    (stored : List AuxStored) : List Nat :=
+  nestedPinInstAt st (nestedPinEdges env p b st stored)
+
+/-- The rank, as the model reads it off the run. -/
+@[inline] def nestedPinRankOf (env : Env) (p : NestedParts) (b : MutualBlock) (st : ElimState)
+    (stored : List AuxStored) : List Nat :=
+  nestedPinRankListAt st (nestedPinEdges env p b st stored)
 
 /-! ## A stored container's OWN pins (task #315 K.41)
 
@@ -1626,14 +1650,13 @@ and the one thing a relaxation cannot arrange for itself.
 either descends into a pin's own components or goes to a container
 declared EARLIER than this one, and the path multiset of the block's
 own elimination decreases along both.  CERTIFICATION-ONLY: gated. -/
-def nestedPinRankOk (env : Env) (p : NestedParts) (b : MutualBlock) (st : ElimState)
-    (stored : List AuxStored) : Bool :=
-  match nestedPinEdges env p b st stored with
+def nestedPinRankAt (st : ElimState) (edges? : Option (List (Nat × Nat × Bool))) : Bool :=
+  match edges? with
   | none => false
   | some edges =>
     let n := st.pins.length
-    -- the edge list is walked ONCE: `nestedPinEdges` recomputes
-    -- `nestedPinKinds`, which is the expensive part
+    -- the edge list is walked ONCE, and computed once: `nestedPinChecks`
+    -- binds it, and `nestedPinKinds` under it, for all four checks
     let inst := nestedPinInstFrom st edges
     let rank := nestedPinRankFrom st edges inst
     inst.length == n && rank.length == n &&
@@ -1650,6 +1673,10 @@ def nestedPinRankOk (env : Env) (p : NestedParts) (b : MutualBlock) (st : ElimSt
         if e.2.2 then inst.getD e.1 0 == inst.getD e.2.1 0
         else inst.getD e.1 0 == inst.getD e.2.1 0 ||
           decide (rank.getD e.2.1 0 < rank.getD e.1 0))
+
+@[inline] def nestedPinRankOk (env : Env) (p : NestedParts) (b : MutualBlock) (st : ElimState)
+    (stored : List AuxStored) : Bool :=
+  nestedPinRankAt st (nestedPinEdges env p b st stored)
 
 /-! ## THE PIN PAIRING AT A NOT-OWN EDGE (task #315 K.41)
 
@@ -1690,9 +1717,8 @@ group of its container instance whose parent lies OUTSIDE the instance.
 `none` at a pin whose instance has no unique entry group — which K.40's
 measurement found of no instance in either corpus, and which this Bool's
 first clause refuses. -/
-def nestedPinRootGroup (env : Env) (p : NestedParts) (b : MutualBlock) (st : ElimState)
-    (stored : List AuxStored) : List (Option Nat) :=
-  let inst := nestedPinInstOf env p b st stored
+def nestedPinRootGroupAt (p : NestedParts) (st : ElimState) (inst : List Nat) :
+    List (Option Nat) :=
   let par := nestedPinParent p st
   (List.range st.pins.length).map fun q =>
     let cls := (List.range st.pins.length).filter fun i =>
@@ -1705,6 +1731,10 @@ def nestedPinRootGroup (env : Env) (p : NestedParts) (b : MutualBlock) (st : Eli
     match entries with
     | [g] => some g
     | _ => none
+
+@[inline] def nestedPinRootGroup (env : Env) (p : NestedParts) (b : MutualBlock)
+    (st : ElimState) (stored : List AuxStored) : List (Option Nat) :=
+  nestedPinRootGroupAt p st (nestedPinInstOf env p b st stored)
 
 /-- **THE PIN PAIRING AT A NOT-OWN EDGE** (task #315 K.41, lane L-E's
 DESIGN §U.61 finding 4): every pin of a container instance that is not
@@ -1725,9 +1755,7 @@ a λ.
 elimination mints a pin only while rewriting a copy, and the copy is the
 root container's — whose own elimination pinned the same occurrence, at
 the components the copy was made at.  CERTIFICATION-ONLY: gated. -/
-def nestedPinRootPairOk (env : Env) (p : NestedParts) (b : MutualBlock) (st : ElimState)
-    (stored : List AuxStored) : Bool :=
-  let roots := nestedPinRootGroup env p b st stored
+def nestedPinRootPairAt (env : Env) (st : ElimState) (roots : List (Option Nat)) : Bool :=
   (List.range st.pins.length).all fun q =>
     match roots.getD q none with
     | none => false
@@ -1744,6 +1772,61 @@ def nestedPinRootPairOk (env : Env) (p : NestedParts) (b : MutualBlock) (st : El
               containerOwnPinsAt env rn.container ld.1 ld.2
           else none).flatten
         pool.contains qn.pin
+
+@[inline] def nestedPinRootPairOk (env : Env) (p : NestedParts) (b : MutualBlock)
+    (st : ElimState) (stored : List AuxStored) : Bool :=
+  nestedPinRootPairAt env st (nestedPinRootGroup env p b st stored)
+
+/-- **THE PINS' CERTIFICATION-ONLY CHECKS, ON ONE WALK** (task #315
+K.43).  K.26, K.32, K.37 and K.41 each ask a question about the copies'
+field kinds, and each used to recompute them: `nestedPinKinds` ran FOUR
+times per nested block (twice directly, and twice more under
+`nestedPinEdges`, which K.37 calls and K.41 reaches through
+`nestedPinRootGroup`), and the edge list TWICE.  Here the kinds and the
+edges are computed ONCE and threaded, and each check keeps its own
+clause, its own message and its own conjunct of the run relation:
+`nestedPinKindsAt p st kinds? = nestedPinKindsOk p b st stored` and its
+three twins hold by definition, so nothing the model consumes moves.
+
+The whole group is skipped at `.trusted` — these are the model tier's
+evidence, not the kernel's (`certOnly`'s docstring) — which is why the
+shared computation sits INSIDE the mode test rather than in a `let`
+above it: a `let` would be strict, and `certOnly`'s `||` short-circuit
+would no longer keep the walk from running. -/
+def nestedPinChecks (mode : CheckMode) (env : Env) (p : NestedParts) (b : MutualBlock)
+    (st : ElimState) (stored : List AuxStored) : m Unit :=
+  if !mode.verifiedChecks then pure () else
+  -- ONE classification of the copies' fields, and ONE reference graph
+  let kinds? := nestedPinKinds p b stored
+  let edges? := nestedPinEdgesAt env p st stored kinds?
+  let roots := nestedPinRootGroupAt p st (nestedPinInstAt st edges?)
+  -- **THE COPIES' RECURSIVE TARGETS** (K.32): a copy field the aux
+  -- block classified recursive into its own group comes from a
+  -- container field that was a group occurrence at the parameter spine
+  if !nestedCopyTargetsAt env p st stored kinds? then
+    throw (.internal "nested: a copy's group-recursive field does not come from the \
+      container's own recursion")
+  -- **THE FIELD KINDS AT THE PINS** (K.26, §U.1 (c) fact 6): the
+  -- classification the scratch install decided, recomputed on the
+  -- constructors it stored — the container's, at the pin's components —
+  -- so that the model tier reads a pin's field kinds off the run instead
+  -- of re-deciding positivity at the container
+  else if !nestedPinKindsAt p st kinds? then
+    throw (.internal "nested: a stored field at a pin is not classified ordinary, \
+      recursive or reflexive into the block")
+  -- **THE PINS' CONTAINER INSTANCES AND RANK** (K.37): every own
+  -- reference stays in the instance, every other one goes to a strictly
+  -- smaller rank — the model's induction measure for step (iii)
+  else if !nestedPinRankAt st edges? then
+    throw (.internal "nested: the pins' container instances are not well-founded")
+  -- **THE PIN PAIRING AT A NOT-OWN EDGE** (K.41): every pin of a
+  -- container instance that is not one of the root group's own members
+  -- IS a pin the ROOT CONTAINER's own elimination minted, at the root
+  -- pin's own levels and components — all four of `ClassPin`'s data in
+  -- ONE equality, off the two recorded tables
+  else if !nestedPinRootPairAt env st roots then
+    throw (.internal "nested: a pin is not one the instance's root container pinned")
+  else pure ()
 
 /-- **Check and install a recognised NESTED block** (see the module
 docstring): official's two syntactic front guards, the elimination, the
@@ -1843,12 +1926,6 @@ def checkNested (ops : CheckerOps m) (env : Env) (p : NestedParts) : m Env := do
   -- is `.internal`.
   unless members.all (fun a => !a.caps.eta && (env.find? a.cvTa.name).isNone) do
     throw (.internal "nested: a restored former is not a fresh non-eta family")
-  -- **THE FIELD KINDS AT THE PINS** (§U.1 (c) fact 6): the
-  -- classification the scratch install decided, recomputed on the
-  -- constructors it stored — the container's, at the pin's components —
-  -- so that the model tier reads a pin's field kinds off the run instead
-  -- of re-deciding positivity at the container.  A failure is
-  -- `.internal`.
   -- **THE COPIES' SOURCES** (K.28): every minted type is `mkCopy`'s
   -- output at the source it records, so the model reads the
   -- copy-instantiation identities off the record instead of inverting
@@ -1865,16 +1942,6 @@ def checkNested (ops : CheckerOps m) (env : Env) (p : NestedParts) : m Env := do
   -- first former's openers, annotation included, and no loose bvar.
   unless certOnly ops.mode (pinsScoped p.nP st) do
     throw (.internal "nested: a pin's free variables are not the block's parameter openers")
-  -- **THE COPIES' RECURSIVE TARGETS** (K.32): a copy field the aux
-  -- block classified recursive into its own group comes from a
-  -- container field that was a group occurrence at the parameter spine.
-  -- A failure is `.internal`.
-  unless certOnly ops.mode (nestedCopyTargetsOk env p b st stored) do
-    throw (.internal "nested: a copy's group-recursive field does not come from the \
-      container's own recursion")
-  unless certOnly ops.mode (nestedPinKindsOk p b st stored) do
-    throw (.internal "nested: a stored field at a pin is not classified ordinary, \
-      recursive or reflexive into the block")
   -- **THE AUXILIARY APPLICATIONS** (K.35): every copy and copy
   -- constructor in the scratch block's read-back recursor types and
   -- rules is applied to `nP + arity` arguments whose first `nP` are the
@@ -1883,26 +1950,17 @@ def checkNested (ops : CheckerOps m) (env : Env) (p : NestedParts) : m Env := do
   unless certOnly ops.mode (nestedAuxAppsOk p st stored) do
     throw (.internal "nested: an auxiliary application in the block's read-back is not \
       at the block's parameters")
-  -- **THE PINS' CONTAINER INSTANCES AND RANK** (K.37): every own
-  -- reference stays in the instance, every other one goes to a strictly
-  -- smaller rank — the model's induction measure for step (iii).
-  -- CERTIFICATION-ONLY, gated.  A failure is `.internal`.
-  unless certOnly ops.mode (nestedPinRankOk env p b st stored) do
-    throw (.internal "nested: the pins' container instances are not well-founded")
   -- **THE MINT PARENTS** (K.40): every recorded parent is an EARLIER
   -- pin, so an instance's root is its parent-minimal member and the
   -- covering walk the model needs is the parent chain.
   -- CERTIFICATION-ONLY, gated.  A failure is `.internal`.
   unless certOnly ops.mode (nestedPinParentOk p st) do
     throw (.internal "nested: a pin's mint parent is not an earlier pin")
-  -- **THE PIN PAIRING AT A NOT-OWN EDGE** (K.41): every pin of a
-  -- container instance that is not one of the root group's own members
-  -- IS a pin the ROOT CONTAINER's own elimination minted, at the root
-  -- pin's own levels and components — all four of `ClassPin`'s data in
-  -- ONE equality, off the two recorded tables.  CERTIFICATION-ONLY,
-  -- gated.  A failure is `.internal`.
-  unless certOnly ops.mode (nestedPinRootPairOk env p b st stored) do
-    throw (.internal "nested: a pin is not one the instance's root container pinned")
+  -- **THE PINS' FOUR CERTIFICATION-ONLY CHECKS** (K.26, K.32, K.37 and
+  -- K.41), on ONE computation of the field kinds and the reference edge
+  -- list (K.43).  Gated as a group; each check keeps its own clause, its
+  -- own message and its own conjunct of the run relation.
+  nestedPinChecks ops.mode env p b st stored
   let env₁ := consNestedFormers members env
   -- **POST-CHECK (a), A THIRD TIME** (K.30): the pins typed at the
   -- environment holding the RESTORED FORMERS — the one `restoreCtors`

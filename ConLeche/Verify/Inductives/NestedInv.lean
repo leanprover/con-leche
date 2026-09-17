@@ -985,6 +985,55 @@ theorem nestedBlockNames_nodup {env envAux : Env} {b : MutualBlock} {F : Nat}
     (haux : checkMutualCore (m := CheckM) (fueledOps mode F) env b none true = .ok envAux) :
     b.blockNames.Nodup := (checkMutualCore_inv haux).1
 
+/-- **K.43's grouped gate, inverted**: `nestedPinChecks` bundles K.26,
+K.32, K.37 and K.41 so that the field kinds and the reference edge list
+are computed ONCE, and this reads the four conjuncts back in the shape
+`DeclNestedRun` records them.  At `.trusted` the group does not run and
+every `certOnly` is `true`; at `.verified` each `unless` is its own
+clause, as before. -/
+theorem nestedPinChecks_inv {env : Env} {p : NestedParts} {b : MutualBlock}
+    {st : ElimState} {stored : List AuxStored} {u : Unit}
+    (h : nestedPinChecks (m := CheckM) mode env p b st stored = .ok u) :
+    certOnly mode (nestedCopyTargetsOk env p b st stored) = true ∧
+      certOnly mode (nestedPinKindsOk p b st stored) = true ∧
+      certOnly mode (nestedPinRankOk env p b st stored) = true ∧
+      certOnly mode (nestedPinRootPairOk env p b st stored) = true := by
+  unfold nestedPinChecks at h
+  rcases Bool.eq_false_or_eq_true mode.verifiedChecks with hv | hv
+  · -- `.verified`: each `unless` is its own clause, as before
+    simp only [hv, Bool.not_true, Bool.false_eq_true, if_false] at h
+    split at h
+    · close_throw
+    · rename_i htg
+      have htg' : nestedCopyTargetsAt env p st stored (nestedPinKinds p b stored) = true := by
+        simpa using htg
+      split at h
+      · close_throw
+      · rename_i hkd
+        have hkd' : nestedPinKindsAt p st (nestedPinKinds p b stored) = true := by
+          simpa using hkd
+        split at h
+        · close_throw
+        · rename_i hrk
+          have hrk' : nestedPinRankAt st
+              (nestedPinEdgesAt env p st stored (nestedPinKinds p b stored)) = true := by
+            simpa using hrk
+          split at h
+          · close_throw
+          · rename_i hrh
+            have hrh' : nestedPinRootPairAt env st
+                (nestedPinRootGroupAt p st (nestedPinInstAt st
+                  (nestedPinEdgesAt env p st stored (nestedPinKinds p b stored)))) = true := by
+              simpa using hrh
+            exact ⟨by simp [certOnly, nestedCopyTargetsOk, htg'],
+              by simp [certOnly, nestedPinKindsOk, hkd'],
+              by simp [certOnly, nestedPinRankOk, nestedPinEdges, hrk'],
+              by simp [certOnly, nestedPinRootPairOk, nestedPinRootGroup, nestedPinInstOf,
+                nestedPinEdges, hrh']⟩
+  · -- `.trusted`: the group does not run, and every `certOnly` is `true`
+    exact ⟨by simp [certOnly, hv], by simp [certOnly, hv], by simp [certOnly, hv],
+      by simp [certOnly, hv]⟩
+
 /-- **The whole nested chain**, as the install ran it. -/
 theorem checkNested_inv {env envOut : Env} {p : NestedParts} {F : Nat}
     (h : checkNested (m := CheckM) (fueledOps mode F) env p = .ok envOut) :
@@ -1197,31 +1246,17 @@ theorem checkNested_inv {env envOut : Env} {p : NestedParts} {F : Nat}
   case neg => rw [if_neg hsc] at h; close_throw
   rw [if_pos hsc] at h
   try simp only [bind, Except.bind] at h
-  by_cases htg : certOnly (fueledOps mode F).mode (nestedCopyTargetsOk env p b st stored) = true
-  case neg => rw [if_neg htg] at h; close_throw
-  rw [if_pos htg] at h
-  try simp only [bind, Except.bind] at h
-  by_cases hkd : certOnly (fueledOps mode F).mode (nestedPinKindsOk p b st stored) = true
-  case neg => rw [if_neg hkd] at h; close_throw
-  rw [if_pos hkd] at h
-  try simp only [bind, Except.bind] at h
   by_cases haa : certOnly (fueledOps mode F).mode (nestedAuxAppsOk p st stored) = true
   case neg => rw [if_neg haa] at h; close_throw
   rw [if_pos haa] at h
-  try simp only [bind, Except.bind] at h
-  by_cases hrk : certOnly (fueledOps mode F).mode (nestedPinRankOk env p b st stored) = true
-  case neg => rw [if_neg hrk] at h; close_throw
-  rw [if_pos hrk] at h
   try simp only [bind, Except.bind] at h
   by_cases hpa : certOnly (fueledOps mode F).mode (nestedPinParentOk p st) = true
   case neg => rw [if_neg hpa] at h; close_throw
   rw [if_pos hpa] at h
   try simp only [bind, Except.bind] at h
-  by_cases hrh : certOnly (fueledOps mode F).mode
-      (nestedPinRootPairOk env p b st stored) = true
-  case neg => rw [if_neg hrh] at h; close_throw
-  rw [if_pos hrh] at h
-  try simp only [bind, Except.bind] at h
+  obtain ⟨uPC, hpc4, h⟩ := exceptBind_ok h
+  obtain ⟨htg, hkd, hrk, hrh⟩ := nestedPinChecks_inv hpc4
+  try simp only at h
   obtain ⟨uP₁, hpins₁, h⟩ := exceptBind_ok h
   try simp only at h
   obtain ⟨ctorsR, hctors, h⟩ := exceptBind_ok h
@@ -2262,7 +2297,7 @@ theorem nestedPinEdges_mem {env : Env} {p : NestedParts} {b : MutualBlock}
     (q, t - p.k, mentionsMember (ci.members.map (·.name)) domJ.1) ∈ edges := by
   have hrange : ∀ {n i : Nat}, i < n → (List.range n)[i]? = some i := by
     intro n i h; simp [h]
-  rw [nestedPinEdges] at hedges
+  rw [nestedPinEdges, nestedPinEdgesAt] at hedges
   simp only [hkinds, bind, Option.bind] at hedges
   split at hedges
   case h_1 => exact absurd hedges (by simp)
@@ -2316,20 +2351,26 @@ theorem getD_map_range_lt {α : Type _} {n i : Nat} (f : Nat → α) (d : α) (h
     ((List.range n).map f).getD i d = f i := by
   simp [List.getD_eq_getElem?_getD, hi]
 
+theorem nestedPinRootGroupAt_congr {p : NestedParts} {st : ElimState} {inst : List Nat}
+    {q r : Nat} (hq : q < st.pins.length) (hr : r < st.pins.length)
+    (h : inst.getD q 0 = inst.getD r 0) :
+    (nestedPinRootGroupAt p st inst).getD q none
+      = (nestedPinRootGroupAt p st inst).getD r none := by
+  rw [nestedPinRootGroupAt]
+  simp only [getD_map_range_lt _ _ hq, getD_map_range_lt _ _ hr, h]
+
 theorem nestedPinRootGroup_congr {env : Env} {p : NestedParts} {b : MutualBlock}
     {st : ElimState} {stored : List AuxStored} {q r : Nat}
     (hq : q < st.pins.length) (hr : r < st.pins.length)
     (h : (nestedPinInstOf env p b st stored).getD q 0
         = (nestedPinInstOf env p b st stored).getD r 0) :
     (nestedPinRootGroup env p b st stored).getD q none
-      = (nestedPinRootGroup env p b st stored).getD r none := by
-  rw [nestedPinRootGroup]
-  simp only [getD_map_range_lt _ _ hq, getD_map_range_lt _ _ hr, h]
+      = (nestedPinRootGroup env p b st stored).getD r none :=
+  nestedPinRootGroupAt_congr hq hr h
 
-theorem nestedPinRootPairOk_inv {env : Env} {p : NestedParts} {b : MutualBlock}
-    {st : ElimState} {stored : List AuxStored}
-    (h : nestedPinRootPairOk env p b st stored = true) {q : Nat} (hq : q < st.pins.length) :
-    ∃ g : Nat, (nestedPinRootGroup env p b st stored).getD q none = some g ∧
+theorem nestedPinRootPairAt_inv {env : Env} {st : ElimState} {roots : List (Option Nat)}
+    (h : nestedPinRootPairAt env st roots = true) {q : Nat} (hq : q < st.pins.length) :
+    ∃ g : Nat, roots.getD q none = some g ∧
       ((st.pins.getD q default).grpBase = g ∨
         ∃ (i : Nat) (lvls : List Level) (Ds own : List Expr),
           i < st.pins.length ∧
@@ -2337,7 +2378,7 @@ theorem nestedPinRootPairOk_inv {env : Env} {p : NestedParts} {b : MutualBlock}
           nestedPinLvlsDs env (st.pins.getD i default) = some (lvls, Ds) ∧
           containerOwnPinsAt env (st.pins.getD i default).container lvls Ds = some own ∧
           (st.pins.getD q default).pin ∈ own) := by
-  rw [nestedPinRootPairOk] at h
+  rw [nestedPinRootPairAt] at h
   simp only [List.all_eq_true] at h
   have hb := h q (List.mem_range.mpr hq)
   split at hb
@@ -2359,5 +2400,18 @@ theorem nestedPinRootPairOk_inv {env : Env} {p : NestedParts} {b : MutualBlock}
           exact Or.inr ⟨i, ld.1, ld.2, pool, List.mem_range.mp hi, by simpa using hig,
             hld, hfi, hin⟩
       · simp at hfi
+
+theorem nestedPinRootPairOk_inv {env : Env} {p : NestedParts} {b : MutualBlock}
+    {st : ElimState} {stored : List AuxStored}
+    (h : nestedPinRootPairOk env p b st stored = true) {q : Nat} (hq : q < st.pins.length) :
+    ∃ g : Nat, (nestedPinRootGroup env p b st stored).getD q none = some g ∧
+      ((st.pins.getD q default).grpBase = g ∨
+        ∃ (i : Nat) (lvls : List Level) (Ds own : List Expr),
+          i < st.pins.length ∧
+          (st.pins.getD i default).grpBase = g ∧
+          nestedPinLvlsDs env (st.pins.getD i default) = some (lvls, Ds) ∧
+          containerOwnPinsAt env (st.pins.getD i default).container lvls Ds = some own ∧
+          (st.pins.getD q default).pin ∈ own) :=
+  nestedPinRootPairAt_inv h hq
 
 end ConLeche

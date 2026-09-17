@@ -371,27 +371,17 @@ def checkNestedS (fe : FEnv) (p : NestedParts) : CheckCM FEnv := do
   -- the pins' scope (K.30), as in the pure route
   unless certOnly mode (pinsScoped p.nP st) do
     throw (.internal "nested: a pin's free variables are not the block's parameter openers")
-  -- the copies' recursive targets (K.32), as in the pure route
-  unless certOnly mode (nestedCopyTargetsOk fe.env p b st stored) do
-    throw (.internal "nested: a copy's group-recursive field does not come from the \
-      container's own recursion")
-  -- the field kinds at the pins (§U.1 (c) fact 6), as in the pure route
-  unless certOnly mode (nestedPinKindsOk p b st stored) do
-    throw (.internal "nested: a stored field at a pin is not classified ordinary, \
-      recursive or reflexive into the block")
   -- the auxiliary applications (K.35), as in the pure route
   unless certOnly mode (nestedAuxAppsOk p st stored) do
     throw (.internal "nested: an auxiliary application in the block's read-back is not \
       at the block's parameters")
-  -- the pins' container instances and rank (K.37), as in the pure route
-  unless certOnly mode (nestedPinRankOk fe.env p b st stored) do
-    throw (.internal "nested: the pins' container instances are not well-founded")
   -- the mint parents (K.40), as in the pure route
   unless certOnly mode (nestedPinParentOk p st) do
     throw (.internal "nested: a pin's mint parent is not an earlier pin")
-  -- the pin pairing at a not-own edge (K.41), as in the pure route
-  unless certOnly mode (nestedPinRootPairOk fe.env p b st stored) do
-    throw (.internal "nested: a pin is not one the instance's root container pinned")
+  -- the pins' four certification-only checks (K.26, K.32, K.37, K.41)
+  -- on ONE computation of the field kinds and the edge list (K.43), as
+  -- in the pure route
+  nestedPinChecks mode fe.env p b st stored
   -- the RESTORED block is built on the PRE-BLOCK index, not the scratch
   -- one: only the restored constants are stored
   let fe₁ := consNestedFormersF members fe

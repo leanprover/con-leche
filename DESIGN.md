@@ -87692,3 +87692,101 @@ Quot.sound]`.  No checker code changed, so no measurement is due; the
 gates are the battery's (`tests/arena.sh` EXIT 0, nested-shadow 27/27,
 proofdeps 4955 rows / 12 roots / 0 doors, pub-imports 1309 of 2117,
 none demotable).
+
+#### K.43 — the field kinds, computed ONCE: the accumulation the ledger exists to catch (2026-09-17, task #315, the coordinator's quality item)
+
+**The finding this record answers is an ACCUMULATION, not a bug.**  K.26
+(`nestedPinKindsOk`), K.32 (`nestedCopyTargetsOk`), K.37
+(`nestedPinRankOk`) and K.41 (`nestedPinRootPairOk`) each ask a question
+about the copies' field kinds, and each computed them for itself:
+`nestedPinKinds` ran **four times** per nested block — twice directly,
+once under `nestedPinEdges` (which K.37 calls) and once more under
+`nestedPinRootGroup → nestedPinInstOf → nestedPinEdges` (which K.41
+reaches) — and the edge list **twice**.  Each record's own measurement
+was honest and small (K.37 +0.345 %, K.38 +0.003 %, K.39 below noise,
+K.40 within noise, K.41 +0.46 %); the SUM over K.40's baseline was
+**+0.46 %** on the Mathlib nested cone, and every point of it was one
+walk computed again.  Four recomputations of one classification is
+exactly what a certification-tax ledger is for, so this is the row that
+pays it back.
+
+**THE SPLIT.**  Each Bool is cut into a `…At` form that TAKES the shared
+witness, with the old name kept as the composition:
+
+| old name | now | shared witness |
+| --- | --- | --- |
+| `nestedPinKindsOk p b st stored` | `nestedPinKindsAt p st (nestedPinKinds p b stored)` | the kinds |
+| `nestedCopyTargetsOk env p b st stored` | `nestedCopyTargetsAt env p st stored (nestedPinKinds p b stored)` | the kinds |
+| `nestedPinEdges env p b st stored` | `nestedPinEdgesAt env p st stored (nestedPinKinds p b stored)` | the kinds |
+| `nestedPinInstOf` / `nestedPinRankOf` | `nestedPinInstAt st …` / `nestedPinRankListAt st …` | the edges |
+| `nestedPinRankOk env p b st stored` | `nestedPinRankAt st (nestedPinEdges …)` | the edges |
+| `nestedPinRootGroup env p b st stored` | `nestedPinRootGroupAt p st (nestedPinInstOf …)` | the instances |
+| `nestedPinRootPairOk env p b st stored` | `nestedPinRootPairAt env st (nestedPinRootGroup …)` | the root groups |
+
+so every old name is DEFINITIONALLY what it was, every clause reads the
+same, and **no model consumer moves**: `DeclNestedRun` is untouched and
+`checkNested_inv` delivers the same four conjuncts in the same order.
+
+**THE GATE IS ONE CALL.**  `nestedPinChecks mode env p b st stored`
+(`Kernel/Inductives/NestedInstall.lean`) computes the kinds, the edges
+and the root groups once and then runs the four clauses, each with its
+own message and its own `.internal`.  Two deliberate shapes:
+
+* **the mode test is OUTSIDE the shared computation**, not a `certOnly`
+  per clause.  `certOnly`'s `||` short-circuits, so the four Bools cost
+  nothing at `.trusted` today; a `let` above four `certOnly` gates would
+  be STRICT and would have started paying for them there.  So the
+  function is `if !mode.verifiedChecks then pure () else let kinds? := …`
+  — the group is skipped whole, and `nestedPinChecks_inv`
+  (`Verify/Inductives/NestedInv.lean`) reads the four
+  `certOnly mode … = true` conjuncts back out of it, `true` by vacuity
+  on the trusted branch;
+* **a plain `ite` chain, not `unless` in `do`**.  The `do`-elaborated
+  version compiles to `have __do_jp := fun __r => …` join points around
+  each `throw`, which an inversion has to beta-reduce through; the `ite`
+  chain inverts with four `split at h`.
+
+**MEASURED** (zero fires everywhere; the same corpora as K.37–K.41):
+
+* the 41-block Mathlib nested cone, exit 0, **4 926 accepted**, 41/41
+  shadow lines `accept`: **180 286 486 631 / 180 290 608 509 /
+  180 282 276 954 instructions:u against K.41's 180 916 168 527 /
+  180 916 439 875 / 180 917 390 607 — −0.348 %** (both triples taken
+  this session, on the same stream, at `--jobs=8`).  That is
+  three-quarters of K.41's +0.46 % given back; what remains over K.40's
+  180 086 909 422 is **+0.111 %**, which is the graph work and the
+  container-own-pin reader — the walks that are genuinely new, now
+  counted once;
+* **init-full** (`--jobs=4`): exit 0, **53 093 accepted**.  Plain
+  `--verified` — where the nested route does not run at all, since it is
+  not on the dispatch — is **539 227 250 289 against K.41's
+  539 216 286 634**, i.e. unchanged (+0.002 %, this stream's noise),
+  which is the regression check.  Under `--nested-shadow`, where it does
+  run, **539 295 348 499 against 539 310 854 061**.  The interesting
+  figure is the DIFFERENCE of the two, which is the nested route's whole
+  cost on this stream: **68.1 M instructions against 94.6 M, −28 %** —
+  the same share of it the cone gives back, on a corpus of 53 093
+  declarations instead of 4 926;
+* `tests/arena.sh` **EXIT 0**; nested-shadow **27/27**.
+
+**NEGATIVE CONTROLS — the refactor's own risk is that a clause got
+WEAKER, so both controls are about strength, not reachability:**
+
+* **the shared binding poisoned** (`let kinds? := none`): nested-shadow
+  **3/27** — 24 of the 27 fixtures, and every block of the Mathlib cone,
+  reporting `nested: a copy's group-recursive field does not come from
+  the container's own recursion` (the three that still match expect a
+  verdict reached before the group).  The threaded witness is what all
+  four clauses read;
+* **K.37's clause 2 reversed through the THREADED edges** (the rank
+  comparison replaced by `false`, the `rank ≡ 0` control of K.37 in its
+  new spelling): nested-shadow **20/27** and **35 of the 41 cone
+  blocks** — K.37's own numbers, unchanged.  The clause did not lose
+  strength in the move.
+
+**Ledger row**: none of the four rows changes category — K.26 stays
+(A/B) as recorded, K.32, K.37 and K.41 stay (S) — and no check was
+added, removed or weakened.  What the row records is the TAX: the four
+certification-only questions now cost **one** classification walk and
+**one** reference graph per nested block instead of four and two.
+
