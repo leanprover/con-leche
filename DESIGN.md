@@ -86748,7 +86748,8 @@ are all in hand, **+1–1.5 sessions**.  NOT recommended: the conjunct on
 site as B2, and widens a structure five routes construct.
 
 **So the two requests this session sends the kernel lane are one
-K-record each**: A1 above, and (a)'s pins-free Bool.  With A1 in the
+K-record each**: A1 above, and (a)'s pins-free Bool (to be numbered
+there — K.42 is lane L-B's).  With A1 in the
 tree, `nestMention` at ALL EIGHT sites is under half a session: the
 four basis blocks close it `nomatch hq` definitionally (`pins := []` in
 the literal, `nPins` exposed), `nativeContainerModeled` with
@@ -86950,3 +86951,48 @@ fold loses its hypothesis, the shadow gate becomes the arena's rows) →
 retirement 1–2: 5–8 sessions**, all of it downstream of the nested
 chain's own residual (`NestedTailModeled`, `NestedCoreModeled` and the
 named facts), which is what step 1 still owes and what 2f consumes.
+
+##### (d) `NestedTailOut`: `groups` WAS THE CORE'S — six fields now, and `conts`' own boundary
+
+§U.63 (b) left seven fields and named `groups`/`conts` as §U.36 (d)'s
+naming by `blockOf mp.base2`.  `groups` is the core's, for the same
+reason `repsAt` was: **the construction already instantiates the
+existential and then forgets it.**
+
+* `NestedPinsRun.groupSyn` (`NestedPins.lean`) builds the group at
+  `blockOf mp.base2 (baseInfo env st q)` — the assignment's value at
+  the pin's GROUP BASE's reading;
+* the tail's field asks for it at the PIN's own container's reading,
+  and the bridge was already inside that very proof: K.14's two
+  agreements (`PinData.own` gives `ci.nP = (baseInfo …).nP` and the
+  member NAMES equal, `PinData.base` gives the base's reading) feed
+  `containerInfo?_eq_of_names`
+  (`Verify/Inductives/NestedGroupInv.lean`), which says two groups
+  agreeing on their parameter count and member names ARE one group.
+  `NestedPinGroupSyn.modeled` uses it already.
+
+So `groupSyn`'s conclusion now names both, and the keyed form travels
+the chain beside the existential one as `groupsAt` —
+`NestedPinFacts` → `NestedLoopFacts` → `NestedStageFacts` — crossed at
+the loop by the same `NestedPinGroup.crossEnv` the existential form
+uses.  `declNested_of` reads it at the PRE-BLOCK environment and
+carries it to the constructors' environment's reading through `conts`,
+whose three readings are one group.  The three records gain the `mp`
+parameter the new field names (five use sites take `(mp := mp)`, one of
+them a token in lane M7-2's `NestedCtorRead.lean`); nothing else moved,
+and `NestedRecsStored`'s conclusion — the named fact that CONSTRUCTS
+`NestedTailOut` — shrank with the record.
+
+**`conts` stays, and its boundary is exactly one of its three
+conjuncts.**  The `env` reading is the core's (`nestedContainersOk_group`,
+which `nestedContainerModeled` already reads as `hpinStored`) and the
+ENV₂ one is that reading crossed by the `containerInfo?` FRAME, which
+is in the tree (`Verify/Inductives/ContainerFrame.lean`:
+`containerInfo?_ext_ind_eq`, `containerInfo?_cons_nonInd`, whose
+hypotheses are the `ConsExt` data `declNested_of` already consumes at
+`EnvBlocksOf.crossIndP`).  The THIRD — the reading at `envOut` — is a
+fact about the OUTPUT environment, which is the record's own criterion
+for being the tail's.  Discharging the first two would leave the field
+standing with one conjunct, so it is not worth a round of record churn
+on its own; the honest reduction is **seven fields to six**, and the
+six are `install`, `agree₀`, `agree`, `findR`, `repsAt` and `conts`.
