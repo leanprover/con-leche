@@ -81212,7 +81212,8 @@ Two of the three steps are now theorems (`Verify/Inductives/`):
   ("the residual is not normalised") without a proof.
 
 The third step is the round trip `openPisAtFvars n (closeTelescope bs
-0 r) 0`, and **it is not an identity**: `closeTelescope` leaves each
+0 r) 0`, **which this session also landed** (d).  It is not an
+identity: `closeTelescope` leaves each
 binder's domain where it stands and the re-opening plants
 `.fvar i (bs.getD i).1`, so every `fvar` the body carries comes back
 with the CLOSING telescope's annotation.  At the parameters that is
@@ -81234,10 +81235,7 @@ Consequences for the next session, and the corrected sizing:
    mention`) and `ordF`-right's `ordFree` contradiction must be taken
    on the CLOSED side (where §U.37 (b) already puts them), never
    across this round trip.
-2. The round trip itself is one `Verify` induction over
-   `closeTelescope`/`openPisAtFvars` with `abstract1_instantiate1` at
-   each step, stated up to `ErasedEq` — **0.5–1 session**, and it is
-   the next item; every one of the three arms crosses it.
+2. The round trip itself is (d): LANDED.
 3. B4 at a spine (§U.37 (e)) is unchanged and still missing:
    `denoteMeta` of the container's index argument, instantiated at the
    components and re-opened at the BLOCK's openers, against its
@@ -81251,12 +81249,41 @@ Consequences for the next session, and the corrected sizing:
    only plausible source is `nestedPinsOk`'s `inferType` on the pin,
    an inversion into the inference tier.  **Flagged as a NEW gap**;
    `rss = true` alone does not need it.
-5. So: `es` = round trip + B4 = 1.5–2 sessions; `recF` = that plus B3
-   (in tree), the kinds, and (4) = 2 sessions; `ordF`-left = round
-   trip + B4 + B6/`NormErasure` + B7 = 1.5 sessions.  The five arms
-   are 5–6 sessions from here, not 3.
+5. So: `es` = B4 + the assembly of (a)/(b)/(d) = 1–1.5 sessions;
+   `recF` = that plus B3 (in tree), the kinds, and (4) = 2 sessions;
+   `ordF`-left = B4 + B6/`NormErasure` + B7 = 1–1.5 sessions.  The
+   five arms are 4–5 sessions from here, not 3.
 
-##### (d) GATES
+##### (d) The round trip, up to `ErasedEq` — `openPisAtFvars_closeTelescope`
+
+`Verify/Inductives/NestedCopyTele.lean`, four lemmas, no model:
+
+```lean
+theorem openPisAtFvars_closeTelescope :
+    ∀ (bs : List (Expr × BinderMeta)) (i : Nat) (r : Expr),
+      (∀ b ∈ bs, b.1.looseBVarsBounded 0 = true) → r.looseBVarsBounded 0 = true →
+      ∃ (fvs : List Expr) (r' : Expr),
+        openPisAtFvars bs.length (closeTelescope bs i r) i = some (fvs, r') ∧
+        fvs.length = bs.length ∧ Expr.ErasedEq r' r
+```
+
+over `abstract1_instantiate1_erasedEq` (the tree's
+`abstract1_instantiate1` with its `fvarConsistent` hypothesis dropped
+— the round trip changes nothing an interpretation reads),
+`openPisAtFvars_erasedEq` (the opener is determined by the shape the
+interpretation reads, so the induction may step through the erased
+body) and `looseBVarsBounded_closeTelescope` (the one side condition,
+`looseBVarsBounded_abstract1` at each binder).
+
+Its consumer is the next session's: `normCtorValM_resid` (c) hands
+`cvCa'.type = closeTelescope (pbs ++ fbs) 0 xrest` with `xrest` the
+MINTED type's own two-stage opened residual, and this turns that into
+`MutualCtorDataI.opens`' `xrest'` with `ErasedEq xrest' xrest`; the
+minted side is then `closeTelescope_mkPisB_strip` +
+`instSeq_abstractRange_fvs` (both in tree) down to `copyResid`'s
+`mkAppN (mkAppN (.const qn.aux blvls) params) esJ'`.
+
+##### (e) GATES
 
 `lake build` 693 jobs warning-free; `lake test` warning-free; layering
 base 346 / model 264 / caps 3 / umbrella 1, 0/0; trust surface 13/5
@@ -81266,5 +81293,7 @@ proposal: `NestedCopyProv`'s new public lemma gives `NestedCopyInst`'s
 import of it a second consumer); pub-imports 1256 of 1979 public, none
 demotable.  Standard axioms only on every new theorem
 (`elimMint_mono`, `normFieldDomsM_open`, `normCtorValM_resid`,
-`NestedPinsRun.copyResid`, and the restated `elimNested_copyCtors`,
-`copyBody`, `copyFields`).
+`NestedPinsRun.copyResid`, `abstract1_instantiate1_erasedEq`,
+`openPisAtFvars_erasedEq`, `looseBVarsBounded_closeTelescope`,
+`openPisAtFvars_closeTelescope`, and the restated
+`elimNested_copyCtors`, `copyBody`, `copyFields`).
