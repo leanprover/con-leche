@@ -289,6 +289,10 @@ def checkMutualCoreS (fe : FEnv) (b : MutualBlock)
   let kinds ← classifyMutualKinds (m := CheckCM) b.members3 b.lps nP ctorsA
   unless mutualFieldsOkF structWalkersC fe b.members3 b.lps nP ctorsA kinds do
     throw (.internal "mutual: field kinds")
+  -- the ordinary fields' opened domains (K.36), as in the pure route:
+  -- env-free, so the same function serves both
+  unless certOnly mode (mutualOrdFreeOk (fms.map (·.cvTa.name)) nP ctorsA kinds) do
+    throw (.internal "mutual: an ordinary field's opened domain mentions a member")
   let fe₂ := consMutualCtorsF nP ctorsA fe₁
   flushC
   let (formers4, ctors4) := mutualGenData b fms ctorsA kinds

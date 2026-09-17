@@ -75184,6 +75184,7 @@ and whether a violating input could ever be an OFFICIAL-ACCEPTED STREAM.
 | `nestedCopyTargetsOk` (K.32) | CERT-ONLY | (S). A copy field classified recursive into its own group comes from a container field that WAS that occurrence — a property of `mkCopy` + `replaceAllNested`, our code. |
 | `blockReadBackOk` (K.34) | CERT-ONLY | (S). `containerInfo?` of the environment THIS ROUTE just built, at the block it just installed; the route stored the very records the walk reads. |
 | `nestedAuxAppsOk` (K.35) | CERT-ONLY | (S). See below. |
+| `mutualOrdFreeOk` (K.36) | CERT-ONLY, and REDUNDANT | (S) — and the route already checks it: `mutualOpenedOk`'s `.ordinary` clause is `constsResolve env₀` at the PRE-BLOCK environment, `constsResolve` descends into an `.fvar`'s annotation exactly as `mentionsConst` does, and the members are fresh in `env₀`.  See `#### K.36`. |
 
 **(A) = official checks it; (S) = SELF-CHECK on the checker's own
 construction.**  The maintainer's category (B) — "official never tests
@@ -75308,3 +75309,102 @@ divergences unchanged) and `proofdeps` at 4 915 rows, doors 0.
 nested-shadow **27/27**; the Mathlib nested cone exit 0, **4 926
 accepted**, 41/41 shadow lines `accept`, at 179 460 999 648
 instructions:u against K.35's own 179 465 188 886 — the same run.
+
+#### K.36 — the ordinary fields' opened domains are member-free — AND ALREADY CHECKED (2026-09-17, task #315 M7-3, the model lane's DESIGN §U.46 (b))
+
+The mutual lift's second blocker: `ContainerModeled.ordFree` is stated
+at the block model's FIELD VARIABLES, and the raw statement about the
+stored constructor type does not transport to it, because `mentionsConst`
+descends into an `.fvar`'s type annotation and an opened field's domain
+therefore carries the earlier fields' domains inside it.  So the model
+lane asked the kernel for the OPENED form.
+
+**`mutualOrdFreeOk memberNames nP ctorsA kinds`**
+(`Kernel/Inductives/MutualInstall.lean`): per constructor, the same two
+openings `mutualOpenedOk` performs — `openPisAtFvars nP cA.1.type 0`
+then `openPisAtFvars cA.2 crest nP` — and, at every field the
+classification called `.ordinary`, `mentionsMember memberNames
+x.fvarTypeD = false`.  `.internal` on failure, CERTIFICATION-ONLY and so
+`certOnly`-gated, one conjunct of `DeclMutualRun` and of
+`checkMutualCore_inv`, in `checkMutualCore` and the cached mirror
+`checkMutualCoreS` — **so the NESTED route's scratch block inherits it**,
+which is what the nested lift will need.  It is env-free, so the pure
+and cached routes call the SAME function; there is no `F` twin.
+
+`MutualOrdFree` and `mutualOrdFree_of`
+(`Verify/Inductives/MutualInv.lean`) are the Prop the lift consumes and
+the Bool's inversion into it, verbatim in §U.46 (b)'s shape (the
+argument order follows the Bool: `memberNames nP ctorsA kinds`).
+
+**THE FINDING: the route already checks it.**  `mutualOpenedOk`'s
+`.ordinary` clause is `x.fvarTypeD.constsResolve env₀` with `env₀` the
+**pre-block** environment, and `Expr.constsResolve` descends into an
+`.fvar`'s type annotation *exactly as `mentionsConst` does*
+(`Kernel/Core.lean`: `| .fvar _ ty => ty.constsResolve env`).  The
+block's members are FRESH in `env₀` — the formers' front door
+(`checkConstantVal`) refuses a name the environment carries — so a term
+that resolves in `env₀` cannot mention one.  The step is
+
+```lean
+theorem mentionsConst_eq_false_of_constsResolve {env : Env} {T : Name}
+    (hT : (env.find? T).isNone) :
+    ∀ {e : Expr}, e.constsResolve env = true → e.mentionsConst T = false
+```
+
+(`Verify/Inductives/MutualInv.lean`), a nine-case induction, PROVED
+here.  With it and the members' freshness, `MutualOrdFree` follows from
+`mutualFieldsOk` alone and **the new Bool is redundant**.
+
+It is landed anyway — it is what the model lane asked for, it is gated,
+and it costs +0.11 % on the tower — but the ledger entry is honest about
+it, and the cheaper shape is on the table: **drop `mutualOrdFreeOk` and
+derive `MutualOrdFree` from `mutualFieldsOk` + the formers' freshness**,
+which is one Verify lemma over facts the run already carries and no
+runtime cost at all.  The maintainer's standing preference
+("invariants over runtime gates": never satisfy a proof hypothesis with
+a per-call Bool when an insertion-time invariant already gives it) says
+that is the right end state; the decision is the model lane's, because
+it owns the consumer.
+
+**`declNative`: the SAME gap and the SAME resolution, so no conjunct.**
+`nativeOpenedOk`'s `.ordinary` clause is the identical
+`x.fvarTypeD.constsResolve env₀` at the pre-block environment, and the
+single member is fresh there for the same reason.  The native route's
+ordinary fields are therefore member-free by the same one-line argument,
+and adding a second redundant Bool to a route that runs on every
+declaration of every stream would be pure tax.  `DeclNativeRun` is
+unchanged.
+
+**MEASURED, K.25-style** (zero fires everywhere):
+
+* `tests/e2e/tower_nested.ndjson` **FIRST**, as the walk is
+  per-constructor over telescopes and had to be shown linear:
+  **517 206 992 / 517 433 514 / 517 429 874 instructions:u against
+  K.35's 516 655 217 / 516 822 063 / 516 878 873 — +0.6 M, +0.11 %**,
+  wall unchanged at 0.031–0.040 s.  Linear, as predicted: two
+  `openPisAtFvars` per constructor and one memoized `mentionsConst` per
+  ordinary field.
+* `tests/arena.sh` **EXIT 0**; nested-shadow **27/27**; the Mathlib
+  nested cone exit 0, 4 926 accepted, 41/41 shadow lines `accept`.
+* **init-full**, `--jobs=4`, against the same binary without K.36:
+  `--verified` **539 217 441 875 against 539 255 446 213** and
+  `--trusted` **521 916 952 414 against 521 897 803 698** — both
+  differences are under this run's noise and of opposite sign, which is
+  what a per-constructor telescope pass on a stream of 53 093
+  declarations should look like (and at `--trusted` the check does not
+  run at all).
+* the Mathlib nested cone: **179 468 930 913 against 179 460 999 648
+  instructions:u, +0.0044 %**.
+
+**Negative control**, and the gate's half of it in the same run: the
+member-free test inverted (`!mentionsMember …` → `mentionsMember …`)
+gives, on `tests/e2e/ind_mutual_idxsort.ndjson`,
+
+```
+--verified: internal error: mutual: an ordinary field's opened domain
+            mentions a member [at inductive IdxSort.MA, fold position 14]
+--trusted:  accepted 46 declarations
+```
+
+— the check is reached at a real mutual block, and it is off at
+`.trusted`.

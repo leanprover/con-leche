@@ -1185,6 +1185,13 @@ theorem checkMutualCoreS_run (hμ : mode.verifiedChecks = true) {env : Env} (hen
     rw [if_neg hfk] at h
     exact absurd h throwC_bind_ok
   rw [if_pos hfk] at h
+  -- the ordinary fields' opened domains (K.36)
+  by_cases hof : certOnly mode
+      (mutualOrdFreeOk (fms.map (·.cvTa.name)) b.nP ctorsA kinds) = true
+  case neg =>
+    rw [if_neg hof] at h
+    exact absurd h throwC_bind_ok
+  rw [if_pos hof] at h
   -- 4. the recursors at the constructors' environment
   rw [consMutualCtorsF_mkFEnv] at h
   have henv₂ : EnvWF (consMutualCtors b.nP ctorsA fe₁.env) :=
@@ -1257,6 +1264,8 @@ theorem checkMutualCoreS_run (hμ : mode.verifiedChecks = true) {env : Env} (hen
   simp only [Except.bind, pure, Except.pure]
   rw [hkindsP]
   simp only [Except.bind, pure, Except.pure, if_pos hfk]
+  rw [if_pos (show certOnly (fueledOps mode G).mode
+    (mutualOrdFreeOk (fms.map (·.cvTa.name)) b.nP ctorsA kinds) = true from hof)]
   rw [g₅]
   simp only [Except.bind, pure, Except.pure]
   rw [hF₆p]

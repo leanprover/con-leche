@@ -726,8 +726,8 @@
 == ConLeche/Kernel/Inductives/MutualParts.lean#L185
    185  def mutualParts? (nPd : Nat) (block : List ConstantInfo) : Option MutualParts :=
 
-== ConLeche/Kernel/Inductives/MutualInstall.lean#L616
-   616  def checkMutualCore (ops : CheckerOps m) (env : Env) (b : MutualBlock)
+== ConLeche/Kernel/Inductives/MutualInstall.lean#L661
+   661  def checkMutualCore (ops : CheckerOps m) (env : Env) (b : MutualBlock)
 
 == ConLeche/SetTheory/Derive/LfpTuple.lean#L91
     91  noncomputable def lfpTuple (w k : Nat) (Is : Nat → V) (Φ : (Nat → V) → Nat → V) : Nat → V :=

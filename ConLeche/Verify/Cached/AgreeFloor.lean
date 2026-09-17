@@ -1639,6 +1639,10 @@ theorem checkMutualCoreS_skels (mode : CheckMode) {fe : FEnv} {sk : List Install
   split
   case isFalse => exact Yields.ofThrowBind
   case isTrue =>
+  -- the ordinary fields' opened domains (K.36)
+  split
+  case isFalse => exact Yields.ofThrowBind
+  case isTrue =>
   ybind
   refine Yields.bind' (checkMutualRecTysF_names (sharedOpsC mode _) structWalkersC _ b _ _
     streamRecs b.k) fun cvRas hcvRas => ?_

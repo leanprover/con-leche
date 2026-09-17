@@ -791,6 +791,9 @@ theorem checkMutualCore_inv {env envOut : Env} {b : MutualBlock} {F : Nat}
         (Level.isEquiv f₀.s .zero == some true) auxRoute b.ctors = .ok (ctorsA, sortss) ∧
       classifyMutualKinds (m := CheckM) b.members3 b.lps b.nP ctorsA = .ok kinds ∧
       mutualFieldsOk env b.members3 b.lps b.nP ctorsA kinds = true ∧
+      -- THE ORDINARY FIELDS' OPENED DOMAINS (K.36): member-free, in the
+      -- form the model reads them.  CERTIFICATION-ONLY, hence gated
+      certOnly mode (mutualOrdFreeOk (fms.map (·.cvTa.name)) b.nP ctorsA kinds) = true ∧
       mutualGenData b fms ctorsA kinds = (formers4, ctors4) ∧
       checkMutualRecTys (fueledOps mode F) (consMutualCtors b.nP ctorsA env₁) b formers4
         ctors4 streamRecs b.k = .ok cvRas ∧
@@ -834,6 +837,11 @@ theorem checkMutualCore_inv {env envOut : Env} {b : MutualBlock} {F : Nat}
   case neg => rw [if_neg hfo] at h; close_throw
   rw [if_pos hfo] at h
   try simp only [bind, Except.bind] at h
+  by_cases hof : certOnly (fueledOps mode F).mode
+      (mutualOrdFreeOk (fms.map (·.cvTa.name)) b.nP ctorsA kinds) = true
+  case neg => rw [if_neg hof] at h; close_throw
+  rw [if_pos hof] at h
+  try simp only [bind, Except.bind] at h
   generalize hgd : mutualGenData b fms ctorsA kinds = gd at h
   obtain ⟨formers4, ctors4⟩ := gd
   try simp only at h
@@ -851,7 +859,7 @@ theorem checkMutualCore_inv {env envOut : Env} {b : MutualBlock} {F : Nat}
   obtain rfl : envT = envOut := by simpa [pure, Except.pure] using h
   refine ⟨env₁, fms, f₀, tq₀, ctorsA, sortss, kinds, formers4, ctors4, cvRas, rulesOf,
     hformers, hf₀', htq₀', by cases u₁; exact hcross, beq_iff_eq.mp hL, hctors, hkinds,
-    hfo, hgd, hrectys, hrules, htbl, hrb⟩
+    hfo, hof, hgd, hrectys, hrules, htbl, hrb⟩
 
 /-- **The recognised block's install**: the recursor records' pin and
 the core. -/
@@ -865,5 +873,81 @@ theorem checkMutual_inv {env envOut : Env} {p : MutualParts} {F : Nat}
   case neg => rw [if_neg hp] at h; close_throw
   rw [if_pos hp] at h
   exact ⟨hp, h⟩
+
+/-! ## K.36's Bool, as the model reads it -/
+
+/-- **The ordinary fields' opened domains are member-free**, as a Prop
+over the run's own data (the model lane's DESIGN §U.46 (b)).  The block
+model's representation ties its field variables to exactly these two
+openings (`BlockCtorDataX.opens`) and its kinds to `kinds`, so the
+bridge from here to `ContainerModeled.ordFree` is a rewrite. -/
+def MutualOrdFree (memberNames : List Name) (nP : Nat)
+    (ctorsA : List (ConstantVal × Nat)) (kinds : List (List (RecFieldKind × Nat))) : Prop :=
+  ∀ (J : Nat) (cA : ConstantVal × Nat), ctorsA[J]? = some cA →
+    ∀ (fvsP xFvs : List Expr) (crest xrest : Expr),
+      openPisAtFvars nP cA.1.type 0 = some (fvsP, crest) →
+      openPisAtFvars cA.2 crest nP = some (xFvs, xrest) →
+      ∀ (l : Nat) (x : Expr), xFvs[l]? = some x →
+        ((kinds.getD J []).getD l (.ordinary, 0)).1 = .ordinary →
+        mentionsMember memberNames x.fvarTypeD = false
+
+/-- **AND IT IS ALREADY CHECKED** (the finding of K.36): a term whose
+constants all RESOLVE in `env` mentions no constant `env` does not
+carry.  `constsResolve` descends into an `.fvar`'s type annotation
+exactly as `mentionsConst` does, which is what makes the two comparable
+at the OPENED form. -/
+theorem mentionsConst_eq_false_of_constsResolve {env : Env} {T : Name}
+    (hT : (env.find? T).isNone) :
+    ∀ {e : Expr}, e.constsResolve env = true → e.mentionsConst T = false
+  | .bvar _, _ | .sort _, _ | .lit _, _ => rfl
+  | .const n _, h => by
+    simp only [Expr.constsResolve] at h
+    simp only [Expr.mentionsConst, beq_eq_false_iff_ne, ne_eq]
+    rintro rfl
+    simp only [Option.isNone_iff_eq_none] at hT
+    simp [hT] at h
+  | .fvar _ ty, h => by
+    simp only [Expr.constsResolve] at h
+    simpa [Expr.mentionsConst] using mentionsConst_eq_false_of_constsResolve hT h
+  | .app f a, h => by
+    simp only [Expr.constsResolve, Bool.and_eq_true] at h
+    simp [Expr.mentionsConst, mentionsConst_eq_false_of_constsResolve hT h.1,
+      mentionsConst_eq_false_of_constsResolve hT h.2]
+  | .lam ty b _, h | .forallE ty b _, h => by
+    simp only [Expr.constsResolve, Bool.and_eq_true] at h
+    simp [Expr.mentionsConst, mentionsConst_eq_false_of_constsResolve hT h.1,
+      mentionsConst_eq_false_of_constsResolve hT h.2]
+  | .letE ty v b, h => by
+    simp only [Expr.constsResolve, Bool.and_eq_true] at h
+    simp [Expr.mentionsConst, mentionsConst_eq_false_of_constsResolve hT h.1.1,
+      mentionsConst_eq_false_of_constsResolve hT h.1.2,
+      mentionsConst_eq_false_of_constsResolve hT h.2]
+  | .proj sn _ e, h => by
+    simp only [Expr.constsResolve, Bool.and_eq_true] at h
+    simp only [Expr.mentionsConst, Bool.or_eq_false_iff,
+      mentionsConst_eq_false_of_constsResolve hT h.2, and_true, beq_eq_false_iff_ne, ne_eq]
+    rintro rfl
+    simp only [Option.isNone_iff_eq_none] at hT
+    simp [hT] at h
+
+/-- The Bool IS that Prop. -/
+theorem mutualOrdFree_of {memberNames : List Name} {nP : Nat}
+    {ctorsA : List (ConstantVal × Nat)} {kinds : List (List (RecFieldKind × Nat))}
+    (h : mutualOrdFreeOk memberNames nP ctorsA kinds = true) :
+    MutualOrdFree memberNames nP ctorsA kinds := by
+  intro J cA hJ fvsP xFvs crest xrest hop₁ hop₂ l x hx hord
+  have hJlt : J < ctorsA.length := (List.getElem?_eq_some_iff.mp hJ).1
+  have hrow := (List.all_eq_true.mp h) J (by simpa using List.mem_range.mpr hJlt)
+  rw [hJ] at hrow
+  simp only at hrow
+  rw [hop₁] at hrow
+  simp only at hrow
+  rw [hop₂] at hrow
+  simp only at hrow
+  have hlt : l < xFvs.length := (List.getElem?_eq_some_iff.mp hx).1
+  have hcell := (List.all_eq_true.mp hrow) l (by simpa using List.mem_range.mpr hlt)
+  rw [hx] at hcell
+  simp only [hord, beq_self_eq_true, if_pos, Bool.not_eq_true'] at hcell
+  exact hcell
 
 end ConLeche

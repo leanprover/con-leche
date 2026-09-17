@@ -463,6 +463,51 @@ def mutualFieldsOk (env₀ : Env) (members : List (Name × Nat × Nat)) (lps : L
       ks.length == cA.2 && mutualOpenedOk env₀ members lps nP cA.1.type cA.2 ks
     | _, _ => false
 
+/-- **THE ORDINARY FIELDS' OPENED DOMAINS ARE MEMBER-FREE** (task #315
+K.36, the model lane's DESIGN §U.46 (b)).
+
+A constructor's type is opened twice — the block's `nP` parameters, then
+its own `nF` fields (`openPisAtFvars`, exactly as `mutualOpenedOk` opens
+it) — and every field the classification called `.ordinary` has a
+domain that mentions NO member of the block.
+
+**Why the OPENED form and not the raw one.**  The model's clause
+(`ContainerModeled.ordFree`) is stated at the block model's field
+variables, which the representation ties to these two openings; and the
+raw statement does not transport to the opened one, because
+`mentionsConst` descends into an fvar's TYPE ANNOTATION, so a later
+field's opened domain carries the earlier fields' domains inside it.
+Asking the kernel for the opened form is what turns the model's bridge
+into a rewrite.
+
+**It cannot fire.**  An opened ordinary domain can only refer to the
+parameters and to EARLIER fields' variables; a recursive or reflexive
+field used in a later field's domain (or in the residual) is
+`structUsedLater`, which `mutualOpenedOk`'s own
+`!(xFvs.drop (i + 1)).any …` rejects and `classifyMutualKinds` throws
+on — so a member can reach an ordinary domain only through an earlier
+ORDINARY field, whose domain is member-free by this same check.  A
+failure is `.internal`.  CERTIFICATION-ONLY: gated on the mode. -/
+def mutualOrdFreeOk (memberNames : List Name) (nP : Nat)
+    (ctorsA : List (ConstantVal × Nat)) (kinds : List (List (RecFieldKind × Nat))) : Bool :=
+  (List.range ctorsA.length).all fun J =>
+    match ctorsA[J]? with
+    | none => false
+    | some cA =>
+      match openPisAtFvars nP cA.1.type 0 with
+      | none => false
+      | some (_fvsP, crest) =>
+        match openPisAtFvars cA.2 crest nP with
+        | none => false
+        | some (xFvs, _xrest) =>
+          (List.range xFvs.length).all fun l =>
+            match xFvs[l]? with
+            | none => false
+            | some x =>
+              if ((kinds.getD J []).getD l (.ordinary, 0)).1 == .ordinary then
+                !mentionsMember memberNames x.fvarTypeD
+              else true
+
 /-! ## Stage 4: the recursors -/
 
 /-- The constructors' conses (`consSumCtors`). -/
@@ -635,6 +680,10 @@ def checkMutualCore (ops : CheckerOps m) (env : Env) (b : MutualBlock)
   let kinds ← classifyMutualKinds b.members3 b.lps nP ctorsA
   unless mutualFieldsOk env b.members3 b.lps nP ctorsA kinds do
     throw (.internal "mutual: field kinds")
+  -- **THE ORDINARY FIELDS' OPENED DOMAINS** (K.36): member-free, in
+  -- the form the model reads them.  CERTIFICATION-ONLY, gated.
+  unless certOnly ops.mode (mutualOrdFreeOk (fms.map (·.cvTa.name)) nP ctorsA kinds) do
+    throw (.internal "mutual: an ordinary field's opened domain mentions a member")
   let env₂ := consMutualCtors nP ctorsA env₁
   -- 4. the recursors: the types generated and compared, the rules
   -- generated at the rule-less provision and compared, the group stored
