@@ -449,6 +449,10 @@ def checkNestedS (fe : FEnv) (p : NestedParts) : CheckCM FEnv := do
   unless certOnly mode (blockReadBackOk fe₄.env p.nP ((members.zip ctorsR).map fun (a, cs) =>
       (a.cvTa, cs.map fun (cv, _, nF) => (cv, nF)))) do
     throw (.internal "nested: the installed block does not read back as its own")
+  -- the mimics' stored types are the recorded pins (K.47), as in the
+  -- pure route
+  unless certOnly mode (nestedOwnPinsOk fe₄.env p st) do
+    throw (.internal "nested: the mimics' stored types are not the recorded pins")
   pure fe₄
 
 /-- The modeled inductive block (mirrors `checkModeled`), returning

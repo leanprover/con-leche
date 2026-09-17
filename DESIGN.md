@@ -88219,3 +88219,97 @@ stream that made this Bool fire would already have been rejected
 upstream, and what the record adds is the SUB-TERM projection of a check
 that has already run, recorded where the model can read it per pin.
 
+#### K.47 — the mimics' stored types ARE the recorded pins (2026-09-17, task #315, lane M7-3's DESIGN §U.69 (c) 1 and (d))
+
+`ContainerModeled.ownPins` — lane L-E's clause, and the substantive half
+of it — needs the mimic recursors' STORED TYPES tied to the pins the
+elimination recorded: that instantiating `T₁.rec_j`'s `mI` binders
+leaves the `j`-th pin as its major premise's domain.  M7-3 judged that a
+KERNEL record rather than a model proof, and the reason is the one
+`containerOwnPinsAt`'s own docstring gives — it is index arithmetic over
+`restoreRecTys`/`mutualRecTy`, "the arithmetic a twelve-instance corpus
+cannot validate".  The route has both tables in hand and compares them.
+
+**THE COMPARISON IS AT THE ROUTE'S OWN INSTANTIATION, which is the
+IDENTITY one**, and that is what keeps the kernel out of the arithmetic:
+
+```lean
+def nestedOwnPinsOk (env : Env) (p : NestedParts) (st : ElimState) : Bool :=
+  match st.types.head?.bind (fun t₀ => openPisAtFvars p.nP t₀.type 0) with
+  | some (params, _) =>
+    match containerOwnPinsAt env (p.formers.headD default).1.name
+        (p.lps.map Level.param) params with
+    | some ps => ps == st.pins.map (·.pin)
+    | none => false
+  | none => false
+```
+
+The container is this block's first member, the level arguments are its
+own `lps` as parameters (so `instantiateLevelParams` is the identity),
+and the components are the block's parameter OPENERS — the very fvars
+K.30's `pinsScoped` proves a pin's free variables to be.  At that
+instantiation the reader's output is the recorded pin list VERBATIM and
+in pin order (`containerOwnPinsAtGo` walks `T₁.rec_1, T₁.rec_2, …` and
+`p.mimicRecName j` is `T₁.rec_(j+1)`).  A consumer that wants the table
+at some OTHER `lvls`/`Ds` gets it from this identity by substitution —
+the law §U.69 (c) already asks lane L-B for, shared with
+`NestedPinsShapePinF`.
+
+**It cannot fire**: the restore writes each mimic recursor's major
+premise FROM the recorded pin (`restoreNode`'s key rewrite), so the two
+tables are two readings of one list.  `certOnly`-gated, `.internal` on
+failure, one conjunct of `DeclNestedRun` and of `checkNested_inv`,
+beside K.34's read-back and mirrored in `checkNestedS`.
+
+**MEASURED** (zero fires everywhere):
+
+* `tests/e2e/tower_nested.ndjson` FIRST: **518 073 820 / 518 067 628 /
+  518 082 872 instructions:u against K.48's 517 498 536 / 517 488 750 /
+  517 491 533 — +0.111 %**;
+* nested-shadow **27/27**; the Mathlib nested cone exit 0, **4 926
+  accepted**, 41/41 `accept`;
+* **COST: +0.88 % on the cone** — **182 501 766 587 / 182 485 427 507 /
+  182 478 141 818 against K.48's 180 910 397 298**.  **This is the most
+  expensive record on the lane, and the ledger should say where it goes:
+  all of it is `containerOwnPinsAt`.**  The reader instantiates the
+  mimic recursor's type with `Expr.instPis ty (Ds ++ pad)` — `mI`
+  substitutions, each over the whole remaining recursor type — once per
+  mimic, and a Mathlib container's recursor type is large: ~39 M
+  instructions per block over the cone's 41 blocks, against ~575 k on
+  the tower's single block.
+* **THE LEVER, identified and NOT taken.**  Two rewrites would cut it,
+  and neither may be applied silently, because both change the VALUE of
+  a Bool K.41 already depends on: (i) skip `instantiateLevelParams` when
+  the substitution is the identity; (ii) substitute only the `nP`
+  parameters and then `stripPis` the remaining `mI - nP` binders instead
+  of substituting the `sort 0` padding through them — cheaper by a
+  factor of `mI`, but it leaves loose bvars exactly where the padding
+  would have gone, so the two computations differ precisely when
+  `containerOwnPinsAt`'s own design argument (a pin's components mention
+  only the container's PARAMETERS) fails, which is part of what these
+  records check.  **Recorded as a finding for the maintainer, not
+  applied.**
+
+**NEGATIVE CONTROLS — two, and they separate the two halves:**
+
+* **the last recorded pin dropped** from the expected list
+  (`(st.pins.map (·.pin)).dropLast`): nested-shadow **3/27** — 24
+  fixtures — and **41 of the 41** cone blocks.  The check is reached and
+  its LENGTH is load-bearing at every nested block of both corpora;
+* **the parameter openers blanked** (`params ↦ sort 0`): nested-shadow
+  **22/27** — 5 fixtures — and **11 of the 41** cone blocks.  So the
+  COMPONENT instantiation is load-bearing at 5 fixtures and 11 cone
+  blocks; at the rest the pins' components mention no parameter
+  (`List Nat` and its kind) and blanking changes nothing.  That is the
+  honest figure for the half that carries the content.
+
+Both patches were reverted by inverse string replacement and the rebuilt
+binary is byte-identical to the pre-control one.
+
+**Ledger row**: CERT-ONLY, category **(S)** — a self-check on the
+checker's own generated artefacts.  Both sides are OURS: the mimic
+recursor types the restore wrote and the pin list the elimination
+recorded.  Official mints the same way, keeps no pin list at all (a
+nested declaration RESTORES) and so cannot compare anything; a fire
+would be a finding about our restore, never about a stream.
+
