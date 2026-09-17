@@ -27,6 +27,7 @@ variable (mode : CheckMode)
 /-- The pure instantiation over the **gated** knot, at an arbitrary
 fuel — `fueledOps`' twin, clause for clause. -/
 def fueledOpsGated (F : Nat) : CheckerOps CheckM where
+  mode := mode
   annotate env d e := annotateCoreGated mode env F d e
   inferType env d e := inferTypeCoreGated mode env F d e
   isDefEq env d a b := isDefEqCoreGated mode env F d a b

@@ -721,6 +721,10 @@ theorem declMutualB (hμ : μ.verifiedChecks = true) {F : Nat} {env envOut : Env
   obtain ⟨-, b, streamRecs, env₁, fms, f₀, tq₀, ctorsA, sortss, kinds, formers4, ctors4,
     cvRas, rulesOf, rfl, rfl, h0, h1, h2, h3, hformers, hf₀, htq₀, hcross, hL, hctors, hkinds,
     hfo, hgd, hrectys, hrules, htbl, hrb⟩ := h
+  -- K.34's read-back is a CERTIFICATION-ONLY record (K.35's follow-up),
+  -- so the run carries `certOnly μ …`; this theorem is stated under
+  -- `hμ : μ.verifiedChecks = true`, at which the gate is the Bool
+  replace hrb := ConLeche.certOnly_elim hrb hμ
   have hOrd' := hOrd _ fms f₀ ctorsA sortss kinds hformers hf₀ hctors hkinds
   obtain ⟨mp₃, hoff, d, hd, hks, hrepsAt, hT, hstored, htf⟩ :=
     mutualCoreModeled hμ mb.toEnvModelM hE _ _ _ _ _ _ _ _ _ _ _ _ _ _

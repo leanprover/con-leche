@@ -74,6 +74,7 @@ def OpsRel {M₁ M₂ : Type → Type} [Monad M₁] [Monad M₂]
     [MonadExceptOf CheckError M₁] [MonadExceptOf CheckError M₂]
     (rel : MonadRel M₁ M₂) (o₁ : CheckerOps M₁) (o₂ : CheckerOps M₂) :
     Prop :=
+  o₁.mode = o₂.mode ∧
   (∀ env d e, rel.R (o₁.annotate env d e) (o₂.annotate env d e)) ∧
   (∀ env d e, rel.R (o₁.inferType env d e) (o₂.inferType env d e)) ∧
   (∀ env d a b, rel.R (o₁.isDefEq env d a b) (o₂.isDefEq env d a b)) ∧
@@ -89,21 +90,23 @@ def pairOps {M₁ M₂ : Type → Type} [Monad M₁] [Monad M₂]
     [MonadExceptOf CheckError M₁] [MonadExceptOf CheckError M₂]
     {rel : MonadRel M₁ M₂} (o₁ : CheckerOps M₁) (o₂ : CheckerOps M₂)
     (h : OpsRel rel o₁ o₂) : CheckerOps (PairM rel) where
-  annotate env d e := ⟨(o₁.annotate env d e, o₂.annotate env d e), h.1 env d e⟩
+  mode := o₁.mode
+  annotate env d e := ⟨(o₁.annotate env d e, o₂.annotate env d e), h.2.1 env d e⟩
   inferType env d e :=
-    ⟨(o₁.inferType env d e, o₂.inferType env d e), h.2.1 env d e⟩
+    ⟨(o₁.inferType env d e, o₂.inferType env d e), h.2.2.1 env d e⟩
   isDefEq env d a b :=
-    ⟨(o₁.isDefEq env d a b, o₂.isDefEq env d a b), h.2.2.1 env d a b⟩
+    ⟨(o₁.isDefEq env d a b, o₂.isDefEq env d a b), h.2.2.2.1 env d a b⟩
   ensureSort env d e :=
-    ⟨(o₁.ensureSort env d e, o₂.ensureSort env d e), h.2.2.2.1 env d e⟩
-  whnf env d e := ⟨(o₁.whnf env d e, o₂.whnf env d e), h.2.2.2.2.1 env d e⟩
+    ⟨(o₁.ensureSort env d e, o₂.ensureSort env d e), h.2.2.2.2.1 env d e⟩
+  whnf env d e := ⟨(o₁.whnf env d e, o₂.whnf env d e), h.2.2.2.2.2.1 env d e⟩
   orElse x k :=
     ⟨(o₁.orElse x.val.1 (fun r => (k r).val.1),
       o₂.orElse x.val.2 (fun r => (k r).val.2)),
-      h.2.2.2.2.2 _ _ _ _ x.property (fun r => (k r).property)⟩
+      h.2.2.2.2.2.2 _ _ _ _ x.property (fun r => (k r).property)⟩
 
 /-- The fueled operations as monotone families. -/
 @[expose] def fueledOpsM (mode : CheckMode) : CheckerOps FueledM where
+  mode := mode
   annotate env d e :=
     ⟨fun F => annotateCore mode env F d e, fun hle h => annotateCore_mono hle h⟩
   inferType env d e :=
@@ -184,6 +187,7 @@ the environment.  With that executable deleted the branch has no
 consumer — every surviving use of `wfOpsM` goes through the `if_pos`
 equations below — so it is a constant. -/
 noncomputable def wfOpsM (mode : CheckMode) : CheckerOps FueledM where
+  mode := mode
   annotate env d e :=
     if EnvWF env ∧ e.wscopedB d = true then
       ⟨fun F => annotateCore mode env F d e, fun hle h => annotateCore_mono hle h⟩
@@ -834,6 +838,8 @@ theorem checkNativePass_datF (env : Env) (p : NativeParts) (isRec : Bool) (F : N
   simp only [FueledM.atF_bind, FueledM.atF_pure, checkSumInd_datF, checkSumCtors_datF,
     classifyFixKinds_datF]
 
+@[simp] theorem fueledOpsM_mode : (fueledOpsM mode).mode = mode := rfl
+
 theorem checkNativeTail_datF (env : Env) (q : NativePass Env) (F : Nat) :
     (checkNativeTail (fueledOpsM mode) env q).val F =
       checkNativeTail (fueledOps mode F) env q := by
@@ -841,6 +847,11 @@ theorem checkNativeTail_datF (env : Env) (q : NativePass Env) (F : Nat) :
   simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw,
     FueledM.atF_ite, checkNativeTable_datF, checkNativeRec_datF, unwrapOr_atF,
     checkStructFieldSortsI_datF]
+  -- the `certOnly` gate reads `ops.mode`, which the two records spell
+  -- differently and simp must NOT rewrite inside the `ite` (the
+  -- transported `Decidable` instance then stops `atF_ite` matching);
+  -- the two projections are definitionally the mode, so `rfl` closes it
+  rfl
 
 theorem checkNative_datF (env : Env) (p : NativeParts) (F : Nat) :
     (checkNative (fueledOpsM mode) env p).val F =
@@ -1109,6 +1120,9 @@ theorem checkMutualCore_datF (env : Env) (b : MutualBlock)
     unwrapOr_atF, liftFueled_atF, mutualShapeOk_datF, mutualFormers_datF,
     mutualCrossChecks_datF, checkMutualCtors_datF, classifyMutualKinds_datF,
     checkMutualRecTys_datF, checkMutualAllRules_datF, mutualTables_datF]
+  -- the `certOnly` gate's two spellings of `ops.mode` (see
+  -- `checkNativeTail_datF`)
+  rfl
 
 theorem checkMutual_datF (env : Env) (p : MutualParts) (F : Nat) :
     (checkMutual (fueledOpsM mode) env p).val F =

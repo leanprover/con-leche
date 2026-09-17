@@ -1,6 +1,7 @@
 module
 
 import ConLeche.Semantics.DeclIndRun
+import ConLeche.Verify.Extend.Inversions
 import ConLeche.Verify.Inductives.SumWF
 public import ConLeche.Verify.Inductives.FixWF
 public import ConLeche.Semantics.Inductives.DeclMutual
@@ -77,8 +78,11 @@ def DeclNativeRun (μ : CheckMode) (F : Nat) (env : Env)
         (sumRules (consSumCtors p.nP ctorsA env₁).find? cvRa.name p.nP p.majorIdx p.rulePrefix cvRa.type ctorsA rhss)
         :: (consSumCtors p.nP ctorsA env₁).consts⟩ = .ok env₂ ∧
     -- THE READ-BACK (K.34): `containerInfo?` of the environment this
-    -- route produced, at the member it installed, is the block's own data
-    ConLeche.blockReadBackOk env₂ p.nP [(cvTa, ctorsA)] = true
+    -- route produced, at the member it installed, is the block's own
+    -- data.  CERTIFICATION-ONLY, so the record is `certOnly`-gated: the
+    -- model tier, stated under `hμ : μ.verifiedChecks = true`, reads the
+    -- Bool off it with `certOnly_elim`
+    ConLeche.certOnly μ (ConLeche.blockReadBackOk env₂ p.nP [(cvTa, ctorsA)]) = true
 
 /-- The install after the pass, inverted: the monad-shape argument,
 one `cases` per bind, the guards by cases. -/
@@ -102,7 +106,7 @@ theorem checkNativeTail_inv {μ : CheckMode} {F : Nat} {env env₂ : Env}
           (sumRules (consSumCtors q.p.nP q.ctorsA q.env₁).find? cvRa.name q.p.nP q.p.majorIdx
             q.p.rulePrefix cvRa.type q.ctorsA rhss)
           :: (consSumCtors q.p.nP q.ctorsA q.env₁).consts⟩ = .ok env₂ ∧
-      ConLeche.blockReadBackOk env₂ q.p.nP [(q.cvTa, q.ctorsA)] = true := by
+      ConLeche.certOnly μ (ConLeche.blockReadBackOk env₂ q.p.nP [(q.cvTa, q.ctorsA)]) = true := by
   rw [checkNativeTail] at h
   simp only [bind, Except.bind] at h
   -- the elimination guard
@@ -156,7 +160,11 @@ theorem checkNativeTail_inv {μ : CheckMode} {F : Nat} {env env₂ : Env}
   -- `cases … :` rewrote the opening and the recursor's run in the goal
   obtain ⟨envT, htbl, h⟩ := exceptBind_ok h
   try dsimp only at h
-  by_cases hrb : ConLeche.blockReadBackOk envT q.p.nP [(q.cvTa, q.ctorsA)] = true
+  -- the route reads the gate off `ops`, so the `ite`'s condition is
+  -- spelled `(fueledOps μ F).mode`; it is DEFEQ to `μ`, which is what
+  -- the run relation's conjunct says, so the same hypothesis serves both
+  by_cases hrb : ConLeche.certOnly (fueledOps μ F).mode
+      (ConLeche.blockReadBackOk envT q.p.nP [(q.cvTa, q.ctorsA)]) = true
   case neg => rw [if_neg hrb] at h; exact nomatch h
   rw [if_pos hrb] at h
   obtain rfl : envT = env₂ := by simpa [pure, Except.pure] using h
@@ -232,5 +240,23 @@ def DeclIndRunDispatch (μ : CheckMode) (F : Nat) (env : Env)
     match ConLeche.mutualParts? nP block with
     | some q => DeclMutualRun μ F env q env₂
     | none => DeclIndRun μ F env block env₂
+
+/-- **The fixpoint block's member is FRESH in the pre-block
+environment** (task #315 K.36): the former's front door
+(`checkConstantVal`, inside `checkSumInd`) refuses a name the
+environment already carries.  Read off the PASS, which the run relation
+already exposes — which is why K.36's twin costs the run no conjunct
+(`ConLeche.nativeOrdFree_of`). -/
+theorem checkSumInd_freshName {F : Nat} {env envI : Env} {p p' : ConLeche.InductiveShape}
+    {cvTa : ConstantVal} {capsOf : ConLeche.InductiveShape → ConLeche.IndCaps}
+    (h : ConLeche.checkSumInd (m := ConLeche.CheckM) (fueledOps μ F) env p capsOf
+      = .ok (envI, cvTa, p')) :
+    (env.find? cvTa.name).isNone := by
+  obtain ⟨cvT, s, -, -, hccv, -, -, -⟩ := ConLeche.checkSumInd_shape h
+  obtain ⟨hfr, -, -, -, -, -, _, _, _, -, -, -, -, -, hTeq⟩ :=
+    ConLeche.checkConstantVal_inv hccv
+  show (env.find? cvTa.name).isNone
+  rw [hTeq, hfr]
+  rfl
 
 end ConLeche.Semantics
