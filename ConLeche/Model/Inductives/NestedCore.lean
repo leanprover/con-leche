@@ -1216,6 +1216,26 @@ structure NestedStageFacts (st : ElimState) (mp₂ : EnvModelM V μ ENV₂) : Pr
   pinRec : ∀ (q : Nat) (pin : NestedPin), st.pins[q]? = some pin →
     ((D).pinAt q).J = pin.container ∧
     pin.pin = Expr.mkAppN (.const pin.container ((D).pinAt q).lvls) ((D).pinAt q).DsE
+  /-- **a pin's parameter count is the one `containerInfo?` reads of
+  its container**, at the PRE-BLOCK environment (task #315 M7-3
+  session 11, DESIGN §U.56 (c) 5): the pins' own record's
+  (`NestedPinFacts.pinNP`, off the group's `pinNP` and `modeled`),
+  carried across the `NestedCtorsStaged` boundary because
+  `ContainerModeled.pinNP` — a clause of the nested block's OWN
+  read-back — demands it at `d.env₀ = env`, and nothing below the
+  boundary can recover it. -/
+  pinNP : ∀ q, q < pinsS.length → ∀ ci : ConLeche.ContainerInfo,
+    ConLeche.containerInfo? env ((D).pinAt q).J = some ci → ((D).pinAt q).nPJ = ci.nP
+  /-- **a pin's level assignment is the substitution of its level
+  arguments for its container's level parameters** (task #315 M7-3
+  session 11, DESIGN §U.56 (c) 5): `NestedPinFacts.pinψ` verbatim, at
+  the members' PREFIX environment — carried for the same reason and to
+  the same consumer (`ContainerModeled.pinψ`), which reads it at the
+  container's own stored record. -/
+  pinψ : ∀ q, q < pinsS.length → ∀ (cvT : ConstantVal) (caps : IndCaps),
+    (ENV₁).find? ((D).pinAt q).J = some (.indInfo cvT caps) →
+    ((D).pinAt q).lvls.length = cvT.levelParams.length ∧
+    ∀ ψ : Name → Nat, ((D).pinAt q).ψJ ψ = Level.substFn ψ cvT.levelParams ((D).pinAt q).lvls
   names : (fms.take p.k).map (·.cvTa.name) = p.memberNames
   agree : ∀ n, n ∉ p.memberNames ++ p.ctors.map (·.cv.name) →
     ∀ ψ : Name → Nat, mp₂.base2.acval n ψ = mp.base2.acval n ψ
@@ -1259,6 +1279,26 @@ structure NestedLoopFacts (st : ElimState) (mp₁ : EnvModelM V μ ENV₁) (mp�
   pinRec : ∀ (q : Nat) (pin : NestedPin), st.pins[q]? = some pin →
     ((D).pinAt q).J = pin.container ∧
     pin.pin = Expr.mkAppN (.const pin.container ((D).pinAt q).lvls) ((D).pinAt q).DsE
+  /-- **a pin's parameter count is the one `containerInfo?` reads of
+  its container**, at the PRE-BLOCK environment (task #315 M7-3
+  session 11, DESIGN §U.56 (c) 5): the pins' own record's
+  (`NestedPinFacts.pinNP`, off the group's `pinNP` and `modeled`),
+  carried across the `NestedCtorsStaged` boundary because
+  `ContainerModeled.pinNP` — a clause of the nested block's OWN
+  read-back — demands it at `d.env₀ = env`, and nothing below the
+  boundary can recover it. -/
+  pinNP : ∀ q, q < pinsS.length → ∀ ci : ConLeche.ContainerInfo,
+    ConLeche.containerInfo? env ((D).pinAt q).J = some ci → ((D).pinAt q).nPJ = ci.nP
+  /-- **a pin's level assignment is the substitution of its level
+  arguments for its container's level parameters** (task #315 M7-3
+  session 11, DESIGN §U.56 (c) 5): `NestedPinFacts.pinψ` verbatim, at
+  the members' PREFIX environment — carried for the same reason and to
+  the same consumer (`ContainerModeled.pinψ`), which reads it at the
+  container's own stored record. -/
+  pinψ : ∀ q, q < pinsS.length → ∀ (cvT : ConstantVal) (caps : IndCaps),
+    (ENV₁).find? ((D).pinAt q).J = some (.indInfo cvT caps) →
+    ((D).pinAt q).lvls.length = cvT.levelParams.length ∧
+    ∀ ψ : Name → Nat, ((D).pinAt q).ψJ ψ = Level.substFn ψ cvT.levelParams ((D).pinAt q).lvls
   find : FindPreserved ENV₁ ENV₂
   hde : ∀ (ψ : Name → Nat) (dp : Nat) (e : Expr) {ea : AnnotTerm},
     denoteMeta mp₁.base2.acval ENV₁ ψ dp e = some ea →
@@ -1565,7 +1605,8 @@ theorem nestedStageFacts_of (hst : NestedCtorsStaged V μ F) (hμ : μ.verifiedC
     rw [hmemc]
     exact hmmk
   refine ⟨mp₂, dsR, xFvsR, pinsS,
-    { pinsLen := L.pinsLen, pinRec := L.pinRec, names := hnames, agree := ?_
+    { pinsLen := L.pinsLen, pinRec := L.pinRec, pinNP := L.pinNP, pinψ := L.pinψ
+      names := hnames, agree := ?_
       findM := fun t f ht hft => L.find (hfind' t f ht hft).1
       leafM := fun t f ht hft => (L.leafKeep t f ht hft).trans (hleafM' t f ht hft)
       FD := fun t f ht hft => FormerData.crossEnv' L.hde (hfind' t f ht hft).2

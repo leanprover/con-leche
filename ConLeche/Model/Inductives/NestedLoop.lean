@@ -156,6 +156,18 @@ structure NestedPinFacts (st : ElimState) (mp₁ : EnvModelM V μ ENV₁) : Prop
     (pinsS.getD q default).lvls.length = cvT.levelParams.length ∧
     ∀ ψ : Name → Nat, (pinsS.getD q default).ψJ ψ
       = Level.substFn ψ cvT.levelParams (pinsS.getD q default).lvls
+  /-- **a pin's parameter count is the one `containerInfo?` reads of
+  its container** at the PRE-BLOCK environment (task #315 M7-3
+  session 11, DESIGN §U.56 (c) 5): the group's own two facts —
+  `NestedPinGroupSyn.pinNP` (the pin's count is its container's block
+  model's) and `NestedPinGroupSyn.modeled` (that block model
+  represents the container's `containerInfo?` group) — which
+  `NestedPinGroupSyn.ofParts` drops, so the record carries the
+  composite.  `ContainerModeled.pinNP` is its consumer: the nested
+  block's own read-back demands it, at `d.env₀ = env`. -/
+  pinNP : ∀ q, q < pinsS.length → ∀ ci : ConLeche.ContainerInfo,
+    ConLeche.containerInfo? env (pinsS.getD q default).J = some ci →
+    (pinsS.getD q default).nPJ = ci.nP
   /-- the copy's index count is the pin's (the auxiliary block's member
   `p.k + q` is the container member instantiated at the pin; U-19b's
   reading law consumes it at `nestEisLen`) -/
@@ -566,7 +578,8 @@ theorem nestedLoopFacts_of (hpins : NestedPinsStaged V μ F) (hread : NestedRead
     rw [hName t ht, (hfind' t _ ht (fms_get (Nat.lt_of_lt_of_le ht hkle))).1]
     rfl
   refine ⟨mp₂, dsR, xFvsR, pinsS,
-    { pinsLen := PF.pinsLen, pinRec := PF.pinRec, find := hF₂, hde := hde₂
+    { pinsLen := PF.pinsLen, pinRec := PF.pinRec, pinNP := PF.pinNP, pinψ := PF.pinψ
+      find := hF₂, hde := hde₂
       leafKeep := ?_, agreeC := hag₂, ctorFacts := ?_, domFacts := ?_, groups := ?_ }⟩
   · -- the members' leaves
     intro t f ht hft

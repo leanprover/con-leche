@@ -1554,12 +1554,21 @@ theorem nestedPinsStaged_of {F : Nat} (hId : NestedPinsIdent V μ F) : NestedPin
   obtain ⟨hpinsE, fvs, o, hop, hsc⟩ := R.scoped
   obtain ⟨pbs, hpbs, hPD⟩ := R.pinData
   have SF := R.synFacts hpinsE hop hsc
-  refine ⟨_, SF.pinsLen, SF.pinRec, SF.pinDs, ?_, ?_, ?_⟩
+  refine ⟨_, SF.pinsLen, SF.pinRec, SF.pinDs, ?_, ?_, ?_, ?_⟩
   · -- pinψ: the level assignment at the prefix environment's record
     intro q hq cvT caps hfind
     rw [pinsOf_length] at hq
     rw [pinsOf_getD _ _ _ _ _ _ hq] at hfind ⊢
     exact R.pinψ hPD hq cvT caps hfind
+  · -- pinNP: the pin's parameter count is its container's (task #315
+    -- M7-3 session 11): the group's own `pinNP` against the block
+    -- model that `modeled` says represents the container's group —
+    -- both `NestedPinGroupSyn`'s, which `ofParts` drops
+    intro q hq ci hci
+    obtain ⟨q₀, kJ, i, dJ, hqe, hi, S⟩ :=
+      SF.groups (fun _ _ _ => []) (fun _ _ => []) q hq
+    subst hqe
+    exact (S.pinNP i hi).trans (S.modeled i hi ci hci).nP
   · -- pinNIdx: the copy's index count
     intro q hq
     rw [pinsOf_length] at hq

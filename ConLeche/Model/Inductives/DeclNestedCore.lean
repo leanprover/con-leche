@@ -163,7 +163,9 @@ it, which is what makes it the tail's and not the core's:
   STORED CONSTANTS (`IsBlockModelsAt`) — the form
   `ContainerModeled.member` demands, and the one the recursors' stage
   is the first to be able to state (the representation names the
-  restored recursor);
+  restored recursor); the core publishes the same form at the
+  CONSTRUCTORS' model (`NestedCoreOut.reps`, task #315 M7-3
+  session 11), so this field is that one CROSSED;
 * `groups`/`conts`: the pins' groups at the constructors' model with
   their container's block model NAMED by the environment model's own
   assignment `blockOf mp.base2` (DESIGN §U.36 (d)'s strengthening) —
@@ -179,12 +181,6 @@ structure NestedTailOut (mp : EnvModelM V μ env) (stored : List AuxStored)
     (∀ (cv : ConstantVal) (mI rP : Nat) (rules : List RecRule), c ≠ .recInfo cv mI rP rules) →
     (ENV₂).find? n = some c → envOut.find? n = some c
   repsAt : IsBlockModelsAt mpOut.base2 (D) (fun mm => (stored.getD mm default).cvTa)
-  pinNP : ∀ q, q < (D).nPins → ∃ ci : ContainerInfo,
-    ConLeche.containerInfo? env ((D).pinAt q).J = some ci ∧ ((D).pinAt q).nPJ = ci.nP
-  pinψ : ∀ q, q < (D).nPins → ∀ (cvT : ConstantVal) (caps : IndCaps),
-    envOut.find? ((D).pinAt q).J = some (.indInfo cvT caps) →
-    ((D).pinAt q).lvls.length = cvT.levelParams.length ∧
-    ∀ ψ : Name → Nat, ((D).pinAt q).ψJ ψ = Level.substFn ψ cvT.levelParams ((D).pinAt q).lvls
   groups : ∀ q, q < pinsS.length → ∀ ci : ContainerInfo,
     ConLeche.containerInfo? (ENV₂) ((D).pinAt q).J = some ci →
     ∃ q₀ kJ i, q = q₀ + i ∧ i < kJ ∧ PG mp₂.base2 q₀ kJ (blockOf mp.base2 ci)
@@ -304,8 +300,9 @@ theorem nestedMembersFresh {F : Nat} {st : ElimState} {envAux : Env}
 `ContainerModeled.of_readBack` at the run's K.34 conjunct, the mutual
 and native routes' pattern at a block WITH PINS.
 
-Nine of the fourteen clauses are the route's own, at the data the core
-hands back: `hk`/`hnP`/`hnamesLen`/`hnames`/`hctorNames` from
+Eleven of the fourteen clauses are the route's own, at the data the
+core hands back (task #315 M7-3 session 11 moved the last two of them
+there — see below): `hk`/`hnP`/`hnamesLen`/`hnames`/`hctorNames` from
 `NestedBlockModelOf` and the read-back list's plumbing (the members'
 `ConstantVal`s are the auxiliary records', `consNestedFormers_take_eq`),
 `inj` definitional at `BlockModel.ofNested` (`ofNested_inj`), `frame`
@@ -316,11 +313,18 @@ where every member is fresh — the native route's argument, DESIGN
 §U.52 (a), NOT `MutualOrdFree`), and `pinsNotMembers` the containers'
 check (`nestedContainersOk_group`) against that same freshness.
 
-The five that remain name the OUTPUT model or the output environment,
-and come from the tail (`NestedTailOut`): the representation at the
-members' stored constants (`repsAt`, which also carries `member`), the
-typing crossed off it, and the two pin records the core's chain does
-not expose (`pinNP`, `pinψ`). -/
+The three that remain name the OUTPUT model, and come from the tail
+(`NestedTailOut`): the representation at the members' stored constants
+(`repsAt`, which also carries `member`) and the typing crossed off it.
+
+`pinNP` and `pinψ` are the core's (task #315 M7-3 session 11, DESIGN
+§U.56 (c) 5): the two pin records now travel on `NestedStageFacts`, so
+the tail is not asked for them.  Both read an environment the install
+has left alone — `pinNP` the pin's container at `d.env₀ = env` and
+`pinψ` its record at the members' prefix environment, which is `env`'s
+at a name no member takes (`consMutualFormers_find?_of_ne` against the
+members' freshness) and `envOut`'s by the install's conses
+(`ConsExt.ext`). -/
 theorem nestedContainerModeled {F : Nat} {st : ElimState} {envAux : Env}
     {stored : List AuxStored} {sortss : List (List Level)} {xFvsF : Nat → List Expr}
     {mp : EnvModelM V μ env} {mp₁ : EnvModelM V μ (ConLeche.consMutualFormers fms env)}
@@ -384,7 +388,7 @@ theorem nestedContainerModeled {F : Nat} {st : ElimState} {envAux : Env}
     (fun ψ => ⟨(O.typed ψ).1.crossEnv T.agree O.reps.toIsBlockModels,
       (O.typed ψ).2.1.crossEnv T.agree O.reps.toIsBlockModels,
       (O.typed ψ).2.2.crossEnv T.agree O.reps.toIsBlockModels ?_⟩)
-    (fun ψ mm' j fs => ofNested_inj ψ mm' j fs) ?_ ?_ ?_ T.pinNP T.pinψ ?_
+    (fun ψ mm' j fs => ofNested_inj ψ mm' j fs) ?_ ?_ ?_ ?_ ?_ ?_
   · -- `hk`
     rw [hdk, List.length_map, List.length_zip, List.length_take, hclen]
     omega
@@ -427,6 +431,31 @@ theorem nestedContainerModeled {F : Nat} {st : ElimState} {envAux : Env}
     obtain ⟨cv, caps, hf⟩ := containerInfo?_found hci
     rw [hfreshMem _ hmem] at hf
     exact nomatch hf
+  · -- `pinNP`: the core's own (`NestedStageFacts.pinNP`) at the pin's
+    -- stored container, which is `d.env₀ = env`
+    intro q hq
+    obtain ⟨ci, hci⟩ := hpinStored q hq
+    exact ⟨ci, hci, O.stage.pinNP q hq ci hci⟩
+  · -- `pinψ`: the core's own (`NestedStageFacts.pinψ`) at the members'
+    -- PREFIX environment — the pin's container is stored at `env`, so
+    -- its record is the same one there (no member is found at `env`,
+    -- `consMutualFormers_find?_of_ne`) and at `envOut` (the install's
+    -- conses, `ConsExt.ext`)
+    intro q hq cvT caps hf
+    obtain ⟨ci, hci⟩ := hpinStored q hq
+    obtain ⟨cv, caps', hfE⟩ := containerInfo?_found hci
+    obtain ⟨new, E, -⟩ := T.install
+    have hOut := E.toConsExt.ext _ _ hfE
+    rw [hf] at hOut
+    rw [(Option.some.inj hOut).symm] at hfE
+    have hne : ∀ g ∈ fms.take p.k, g.cvTa.name ≠ ((D).pinAt q).J := by
+      intro g hg heq
+      have hmem : g.cvTa.name ∈ (D).memberNames := List.mem_map_of_mem hg
+      rw [hfreshMem _ (heq ▸ hmem)] at hfE
+      exact nomatch hfE
+    refine O.stage.pinψ q hq cvT caps ?_
+    rw [ConLeche.consMutualFormers_find?_of_ne hne]
+    exact hfE
   · -- `member`
     intro i hi
     obtain ⟨cvR, mI, rP, rules, hI⟩ := T.repsAt i hi
