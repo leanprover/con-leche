@@ -82555,6 +82555,163 @@ quote-gate 2; proofdeps 4955 rows / 12 roots / **0 doors**.
 `[propext, Classical.choice, Quot.sound]`.
 
 
+##### (pp) CONTINUATION 14 (lane session 14) — the arms' STOREDNESS, and the RULE'S READING end to end
+
+Base: this lane's 9f179e61.  No checker code changed; no `sorry`, no
+axioms, no `maxHeartbeats`; `#print axioms` of every new theorem — and
+of the restated `pinArm`/`ctorArm`/`restoreAgreeP` — is
+`[propext, Classical.choice, Quot.sound]`.
+
+*(nn) 1, closed* (f0bad67d).  `NestedTailIn.pinArm` and
+`NestedTailIn.ctorArm` gain ONE conjunct each: the container the pin
+arm's reading names, and the restored constructor the constructor
+arm's names, are STORED at the restored constructors' environment
+(`I.out.stage.pinRec` + `findPre1` + the stage's `find` at the pin;
+`ctorPinFind2` at the constructor — both were already inside the arms'
+own proofs).  `RestoreAgree`'s fields stay as they were: the record's
+construction WEAKENS both arms, and `restoreAgreeP` consumes the arms
+DIRECTLY, so its `hpinJ`/`hctorJ` hypotheses are gone.  *The rule
+(session 13's, seen from the other side): a leaf agreement's witness
+belongs to the statement that PRODUCES it — an existential's payload
+cannot be asked for from outside.*
+
+*(nn) 2, THE RULE'S READING, all four pieces* (08af0efb, 3c37c48a,
+91a2d6b4).  As session 13 predicted, it is an assembly; the only new
+mathematics is (D).
+
+* **(A) the auxiliary rule is the scratch install's generated one.**
+  `ConLeche.auxStored_rules_eq` (`Verify/Inductives/NestedRecDoor.lean`,
+  beside `auxStored_rec_eq`, whose proof already computed the fact and
+  threw it away): the read-back's recursor record carries the rule list
+  the recursors' STORE consed there, so `a.rules` is `mutualRules` of
+  the member's own stage of `checkMutualAllRules`, with the store's two
+  argument sums (`a.mI = b.rulePrefix + nIdx`, `a.rP = b.rulePrefix`).
+  Then `NestedTailIn.auxRuleGen`: a rule of class `c` IS class `c`'s
+  `i`-th constructor's — `mutualRules_mem_shape` for the six fields,
+  `memberRule_of` for the generator at `minorIdx c i`, the
+  formers'/constructors'/kinds' runs identified with the tail's by
+  determinism.  *Membership, not position, is what the law needs*: the
+  index `i` only locates the constructor and the minor, and
+  `memberRule_of` produces it from `rl ∈ a.rules` alone.
+* **(B) it reads AT OUR LEAVES.**  `NestedTailIn.auxRuleRead`:
+  `ruleRhs_read_of` at `mpAP := scratchProv`'s model gives the λ-tower
+  `(DA).ruleRhsAV mpA.base2 b.elimLevel (fun t' => nestedRecLeaf …) c i`
+  — the scratch `IsBlockModels`/`MemberStored` crossed by
+  `crossEnv` over `provisionMutualRecs_extend` + `provision_hde`, the
+  recursor table `provisionMutualRecs_find?_mem`, the binder data's
+  leaves moved back to `mpA` by `mutualRuleDataAV_congr` and the core's
+  recursors to OUR leaves by `mutualRuleCoreAV_congr_Rof`.  The
+  `hkinds` premise is `fun _ _ _ _ => ⟨rfl, fun _ => rfl⟩` at
+  `mutualBlockModel` — the block model IS `BlockModel.ofMutual` at the
+  run's classification.
+* **(C) the restored rules of a class, at the run.**  `nestedRulesAt`
+  (`nestedRecCvAt`'s twin) and `NestedTailIn.restRulesRun`: the two
+  `mapM`s (`hrulesM` below `k`, `hrulesN` above) stated ONCE, with the
+  mimic flag `decide (p.k ≤ c)` and the provision's environment
+  (`I.henv` moving the formers' spelling), so `restoreRules_at` applies
+  uniformly to both arms.  `nestedProvList` is the run's own `++` of
+  zips on the nose.
+* **(D) THE TRANSFER.**  `ConLeche.pisToLamsPw_stripLams` and
+  `ConLeche.mutualRecRhs_paramPrefix`
+  (`Verify/Inductives/NestedRecFramesKit.lean`, beside
+  `mutualRecTy_paramPrefix`): `mutualRecRhs` closes with
+  `Expr.pisToLamsPw pw nP f₀.tty motives`, so the generated rule's
+  outermost `nP` λs carry the FIRST FORMER's parameter domains and the
+  elimination's datum — the same domains the recursor type's prefix
+  carries.  Then `NestedTailIn.ruleAgree`: `restoreNested_lams` splits
+  the `λ p⃗` prefix (the restore leaves it VERBATIM and walks the rest
+  at depth 0), K.35's rules face (`NestedRulesAuxOk`) supplies the
+  walk's shape at that body, and `denoteMeta_restoreWalk` at
+  `restoreAgreeP` — `d := 0`, no openers below the parameters — makes
+  the two bodies, read at the two PROVISIONED models under any
+  parameter openers, interpret alike at every frame fitting the block's
+  parameters at which the restored body is graded.  The two readings
+  are the consumer's to supply, exactly as `domAgree_transfer`'s
+  `hread` is at the recursor type.
+
+##### (qq) TWO FINDINGS, both about what the FIRED EQUALITY inherits
+
+1. **The λ-PREFIX TOWER GLUE is the fired equality's, and it is
+   already scoped.**  `ruleAgree` compares the two BODIES; `RecRuleLaw`
+   applies the restored reading `Ra` to `xs.take rP ++ ys.drop cnP`, so
+   the equality needs the two λ-towers' FOLDS to agree, and a λ-tower's
+   fold is its body's value only at a spine fitting its DOMAINS.  The
+   two towers are over the SAME binder list (`restoreNested_lams`), so
+   what is missing is that their domains READ alike at the two
+   provisioned models — and (D)'s `mutualRecRhs_paramPrefix` is exactly
+   the fact that makes that `recTyPrefix`'s argument at the rule: the
+   prefix domains are `f₀.tty`'s Π-telescope, whose reading at `mp₂` is
+   `NestedStageFacts.FD 0 f₀` and crosses to the restored provision by
+   `provisionNestedRecs_hde`; the auxiliary side's prefix is
+   `mutualRuleDataAV`'s own `rebit pw (recPps ψ)`.  `piTele_read_openers`
+   against `stripLams_denotePTele`, the openers reconciled by
+   `denoteMeta_instSeq_openers_congr`.  **⅓–½ session**, and it is the
+   fired equality's first step.
+2. **The restored rule's GRADING is NOT a transfer.**  `RecRuleLaw`
+   asks `∀ ρ, WellDenotedV V ρ Ra` of the RESTORED reading, and
+   `WellDenoted` is a structural predicate, not an `interp` fact, so
+   the walk's reading law cannot carry it across (and the walk law
+   CONSUMES it: its `hwd` is the restored side's).  It comes from the
+   door instead: `ClaimsAt.inferRow` (`claimsAt_of I.hμ mpP ψ F`) at
+   `restoreRules_at`'s own `inferTypeCore` run, whose `WScoped`/
+   `LeavesBounded` are `of_not_hasFvar` at the run's `hasFvar = false`
+   and whose `looseBVarsBounded 0` the run checked.  The same row gives
+   `acceptedReads_of`'s reading — so the restored side's reading AND
+   its grading are ONE call.
+
+##### (rr) K.43, and the residue of item 5
+
+**K.43 is still owed** (§U.29 (ll), requested session 13, with the
+kernel lane): the auxiliary names and the restored recursors' names are
+DISJOINT.  It is taken, unchanged, as `restoreAgreeP`'s `hauxNe` —
+phrased exactly in the shape the check's `_inv` will have,
+
+```lean
+    (hauxNe : ∀ n ∈ (ConLeche.restoreTbl p st).auxNames, ∀ c, c < b.k →
+      n ≠ (nestedRecCvAt p.k cvRms cvRns c).name)
+```
+
+so the wiring is a rewrite of the Bool
+`(restoreTbl p st).auxNames.all fun n => !((cvRms.map (·.name) ++ cvRns.map (·.name)).contains n)`
+into it, at the site, and nothing else moves.
+
+Left of item 5, in order:
+
+1. the FIRED EQUALITY (spec `_tmp/uniform-m7read/spec-fired.md`), whose
+   first step is (qq) 1's tower glue and whose second is the composed
+   route (`blockLeafVT_at` then `blockRecAtT_iota`, `eqsCand`'s own
+   walk) with the mimic arm's comparands HANDED by `RecRuleLaw` —
+   **1–1½**;
+2. the store swap, its five missing Verify twins and the free
+   `PinRecLaws.crossEnv` — **1½**;
+3. the tables' twin and §U.36 (d)'s `EnvModelB` supply — **1–1½**.
+
+**Item 5 from here: 3½–4½ sessions** (session 13 said 4¼–5¾ with steps
+1 and 2 open; both are spent).
+
+##### (ss) FILES AND GATES (session 14's HEAD)
+
+Touched: `ConLeche/Model/Inductives/NestedRecFrames.lean` (±20, the pin
+arm's conjunct and the record's weakening),
+`ConLeche/Model/Inductives/NestedRecCtor.lean` (±10, the constructor
+arm's), `ConLeche/Model/Inductives/NestedRecRule.lean` (939 → 1332),
+`ConLeche/Verify/Inductives/NestedRecDoor.lean` (+90),
+`ConLeche/Verify/Inductives/NestedRecFramesKit.lean` (+60),
+`scripts/pub-import-plan.py` (+1 FALLBACK: `NestedRecRule`'s
+`public import MutualRecsLaw`, the dot-notation class — `auxRuleRead`'s
+PUBLIC statement projects `BlockModel.ruleRhsAV`; the demotion was
+probed alone and the compiler refused it).
+
+`lake build` 715 jobs warning-free EXIT 0; `lake test` warning-free
+EXIT 0; shake 512 removals all allowlisted / pub-imports 1314 of 2136
+public, none demotable (45 dot-notation fallbacks); layering base 351 /
+model 281 / caps 3 / umbrella 1, 0 base→lane, 0 impl→theory (the base
+clause is vacuous, §U.29 (mm) — still the maintainer's call); trust
+surface 13 escapes in 5 allowlisted files (647 scanned); no-local-paths
+OK; overview-links 112; quote-gate 2; proofdeps 4955 rows / 12 roots /
+**0 doors**.
+
+
 #### U.30 — L-B session 2: `CopyCtorInst.ordF` at the READING, the normalisation's reading law PROVED, `ContainerModeled`'s three clauses (lane L-B, 2026-09-16)
 
 Three maintainer rulings opened this session; the first two are landed,

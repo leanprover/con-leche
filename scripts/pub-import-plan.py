@@ -135,6 +135,14 @@ FALLBACK = {
     # projections without `NestedRecsStore`.
     ('ConLeche.Verify.Inductives.NestedRecRuleKit','ConLeche.Verify.Inductives.NestedInv'),
     ('ConLeche.Model.Inductives.NestedRecRule','ConLeche.Model.Inductives.NestedRecEqs'),
+    # task #315 M7-2 (item 5 step 2d): the auxiliary rule's reading is
+    # stated at `BlockModel.ruleRhsAV` (MutualRecsLaw), which the PUBLIC
+    # statement of `NestedTailIn.auxRuleRead` projects by dot-notation off
+    # the scratch block model — the `MutualBlock.ownOffset` class above: no
+    # census row attributes a field projection, so the checker asks for the
+    # demotion and the compiler refuses it ("environment does not contain
+    # `BlockModel.ruleRhsAV`").
+    ('ConLeche.Model.Inductives.NestedRecRule','ConLeche.Model.Inductives.MutualRecsLaw'),
     ('ConLeche.Model.Inductives.NestedRecRule','ConLeche.Model.Inductives.NestedRecsStore'),
     ('ConLeche.Verify.Inductives.NestedCopyInstU','ConLeche.Verify.Inductives.NestedRestoreOpen'),
     ('ConLeche.Verify.Inductives.NestedCopyKinds','ConLeche.Verify.Inductives.NestedRestoreOpen'),
