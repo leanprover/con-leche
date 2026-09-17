@@ -209,7 +209,7 @@ theorem IsBlockModels.spineFit_recData_of {m : EnvModel V env} {d : BlockModel V
 /-- At a zero bit a frame's minor is the point (its type is a
 `Prop`-regime Π-tower, or the truth value of its conclusion). -/
 theorem IsBlockModels.minor_eq_pt {m : EnvModel V env} {d : BlockModel V} (hreps : IsBlockModels m d)
-    {ψ : Name → Nat} (hfT : FormersTyped m d ψ) {c : Nat} (hc : c < d.k) {j : Nat}
+    (hnp : d.pins = []) {ψ : Name → Nat} (hfT : FormersTyped m d ψ) {c : Nat} (hc : c < d.k) {j : Nat}
     {cA : ConstantVal × Nat} (hj : (d.ctorsM c)[j]? = some cA) {ρp : Nat → V}
     (hρp : Sat V (d.params ψ).reverse ρp) {Msl msl' : List V} {o : Nat}
     (ho : Msl.length + msl'.length = o) (hMsl : Msl.length = d.k) {elimL : Level}
@@ -239,7 +239,7 @@ theorem IsBlockModels.minor_eq_pt {m : EnvModel V env} {d : BlockModel V} (hreps
       rw [interp_liftN, shiftE_zero_zero] at hmJ
       have hfs : SpineFit ρp ((d.Fss c ψ).getD j []) [] := by
         rw [IsBlockModel.Fss_getD hj, hds]; trivial
-      have hconc := hreps.minor_conc hfT hc hj hρp ho hMsl hMs hfs
+      have hconc := hreps.minor_conc hfT (PinsTyped.of_noPins hnp ψ) hc hj hρp ho hMsl hMs hfs
       rw [consList_nil] at hconc
       rw [hconc.1] at hmJ
       rw [hℓ, univ_zero] at hconc
@@ -380,7 +380,7 @@ readings and the constructor's injection) and the right-hand side
 read to the same value: at `ℓ ≠ 0` both are the union recursor's
 step at the decomposed value; at `ℓ = 0` both are the point. -/
 theorem IsBlockModels.blockCand_eq {m : EnvModel V env} {d : BlockModel V} (hreps : IsBlockModels m d)
-    {ψ : Name → Nat} (hfT : FormersTyped m d ψ) {elimL : Level}
+    (hnp : d.pins = []) {ψ : Name → Nat} (hfT : FormersTyped m d ψ) {elimL : Level}
     (hwℓ : d.w ψ = 0 → elimL.eval ψ = 0) {Ls : List AnnotTerm} {nIdxs : List Nat}
     {pps : List (Nat × Nat × AnnotTerm)} {ipss : List (List (Nat × Nat × AnnotTerm))}
     {cds : List CtorDatumR} {mots : Nat → Nat} {tgts : Nat → Nat → Nat}
@@ -517,7 +517,7 @@ theorem IsBlockModels.blockCand_eq {m : EnvModel V env} {d : BlockModel V} (hrep
     have hmpt : msl.getD (d.minorIdx c j) pt = pt := by
       have hmin := hF.minors c j cA hc hj
       rw [hb.mpr hℓ0] at hmin
-      exact hreps.minor_eq_pt hfT hc hj hρp (Msl := Msl) (msl' := msl.take (d.minorIdx c j))
+      exact hreps.minor_eq_pt hnp hfT hc hj hρp (Msl := Msl) (msl' := msl.take (d.minorIdx c j))
         (o := d.k + d.minorIdx c j)
         (by rw [hF.mslLen, List.length_take, hF.minsLen]; congr 1; exact Nat.min_eq_left (Nat.le_of_lt hJ))
         hF.mslLen hℓ0 hF.motives hmin
@@ -528,13 +528,13 @@ theorem IsBlockModels.blockCand_eq {m : EnvModel V env} {d : BlockModel V} (hrep
     have hEs : SpineFit (consList ps ρ) (d.IdsM c ψ)
         ((d.esF c j ψ).map (interp V (consList fs (consList ps ρ)))) :=
       hreps.res_es_fit hfT hc hj hρp hfs
-    have hinj := hreps.inj_mem hfT hc hj hρp hfs
+    have hinj := hreps.inj_mem hfT (PinsTyped.of_noPins hnp ψ) hc hj hρp hfs
     have hsp₁ := hreps.spineFit_recData_of hR hc hpreρ hF hEs hinj
     have hlenEs : ((d.esF c j ψ).map (interp V (consList fs (consList ps ρ)))).length = d.nIdxAt c := by
       rw [List.length_map, hcd.lenE]
     unfold BlockModel.blockCand
     rw [lamTower_fold hℓ hsp₁, d.blockLeafV_at ψ (elimL.eval ψ) c ρ _ hF.mslLen hF.minsLen hlenEs,
-      hreps.blockRecAt_eq hfT hρp hw hF.mslLen hMseq hMs hb hF.minsLen
+      hreps.blockRecAt_eq hnp hfT hρp hw hF.mslLen hMseq hMs hb hF.minsLen
         (ms := fun J => if J < d.nCtors then msl.getD J pt else pt) hms hc
         (i := d.tup ψ c ((d.esF c j ψ).map (interp V (consList fs (consList ps ρ))))) (tupW_mem hEs) hinj]
     -- the decode is the decomposition
@@ -557,12 +557,12 @@ theorem IsBlockModels.blockCand_eq {m : EnvModel V env} {d : BlockModel V} (hrep
       rw [rsOf_getD hiK, decide_eq_true_iff]; exact (mem_recIdxOf.mp hiI).2
     have hiR : i ∈ recIdx ((d.rss c).getD j []) ((d.Fss c ψ).getD j []).length := by
       rw [h.recIdx_eq hj]; exact hiI
-    have htgt : d.tgts c j i < d.k := h.tgtsLt c j i hc hj' hiK
+    have htgt : d.tgts c j i < d.k := h.tgt_lt hj' hiK hnp
     obtain ⟨cvT', cvR', mI', rP', rules', ht⟩ := hreps _ htgt
     have hfsI := spineFit_take' hfs (i := i) (by rw [h.Fss_length hj]; exact Nat.le_of_lt hiA)
     have hlenI : (fs.take i).length = i := by
       rw [List.length_take, hlenfs]; exact Nat.min_eq_left (Nat.le_of_lt hiA)
-    have hfitL := hreps.fitsFrom_of_spineFit_go hfT hc hj hρp _ 0 [] fs rfl trivial
+    have hfitL := hreps.fitsFrom_of_spineFit_go hfT (PinsTyped.of_noPins hnp ψ) hc hj hρp _ 0 [] fs rfl trivial
       (by rw [consList_nil]; exact hfs)
     rw [consList_nil] at hfitL
     -- the ih application, read and moved to the base frame
@@ -598,11 +598,11 @@ theorem IsBlockModels.blockCand_eq {m : EnvModel V env} {d : BlockModel V} (hrep
       consList_append ps (fs.take i) ρ]
     have hEis : SpineFit (consList ps ρ) (d.IdsM (d.tgts c j i) ψ)
         (((d.eissF c j ψ).getD i []).map (interp V (consList bs (consList (fs.take i) (consList ps ρ))))) :=
-      hreps.eis_fit hfT hc hj hρp hiA hr hfsI hbsρ
+      hreps.eis_fit hfT hc hj hρp hiA htgt hr hfsI hbsρ
     have hlenEis : (((d.eissF c j ψ).getD i []).map
         (interp V (consList bs (consList (fs.take i) (consList ps ρ))))).length = d.nIdxAt (d.tgts c j i) := by
       rw [hEis.length_eq, ht.IdsM_length]
-    have hv := hreps.kitPred_mem hc hj' hfitL hiR
+    have hv := hreps.kitPred_mem hnp hc hj' hfitL hiR
       (bs := bs) (by rw [BlockModel.teleAt, IsBlockModel.tlss_getD hj]; exact hbsρ)
       (d.tup ψ c ((d.esF c j ψ).map (interp V (consList fs (consList ps ρ)))))
     rw [BlockModel.eisAt, IsBlockModel.Eiss_getD hj] at hv

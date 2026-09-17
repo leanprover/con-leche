@@ -274,18 +274,18 @@
   2916            whnfCoreBody mode (coreKnot mode env wrap fuel) env d e
   2917          whnf := fun d e => whnfBody (coreKnot mode env wrap fuel) env d e
 
-== ConLeche/Model/Fold.lean#L304-L311
-   304  theorem no_proof_of_False_pure (V : Type w) [SetTheory V]
-   305      {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : Nat}
-   306      {ds : List Declaration} {env' : Env}
-   307      (h : checkDeclsPure μ (fueledOps μ F) pins ds = .ok env') :
-   308      ∀ c ∈ env'.consts,
-   309        c.toConstantVal.type = .const falseName [] → False := by
-   310    obtain ⟨mp⟩ := checkDeclsPure_sound_of (V := V) hμ h
-   311    exact fun c hc hty => no_constant_of_False mp c hc hty
+== ConLeche/Model/Fold.lean#L330-L337
+   330  theorem no_proof_of_False_pure (V : Type w) [SetTheory V]
+   331      {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : Nat}
+   332      {ds : List Declaration} {env' : Env}
+   333      (h : checkDeclsPure μ (fueledOps μ F) pins ds = .ok env') :
+   334      ∀ c ∈ env'.consts,
+   335        c.toConstantVal.type = .const falseName [] → False := by
+   336    obtain ⟨mp⟩ := checkDeclsPure_sound_of (V := V) hμ h
+   337    exact fun c hc hty => no_constant_of_False mp c hc hty
 
-== ConLeche/Model/Fold.lean#L165
-   165  reads, and no step below changed a line. -/
+== ConLeche/Model/Fold.lean#L192
+   192  theorem declStep_preserves (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env} {d : Declaration}
 
 == ConLeche/Model/Capstone.lean#L151-L157
    151  theorem no_constant_of_False (mp : EnvModelM V μ env)
@@ -720,8 +720,8 @@
 == ConLeche/SetModel/Container.lean#L598
    598  theorem container_closed_exists {w : Nat} (hw : w ≠ 0) {I : V} (Φ : V → V)
 
-== ConLeche/Model/Inductives/DeclNative.lean#L63
-    63  theorem declNative (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
+== ConLeche/Model/Inductives/DeclNative.lean#L1326
+  1326  theorem declNative (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
 
 == ConLeche/Kernel/Inductives/MutualParts.lean#L185
    185  def mutualParts? (nPd : Nat) (block : List ConstantInfo) : Option MutualParts :=
@@ -743,14 +743,14 @@
 == ConLeche/SetModel/UnionRec.lean#L208
    208  noncomputable def unionRec (ℓ w k : Nat) (Is : Nat → V) (Φ : (Nat → V) → Nat → V)
 
-== ConLeche/Model/Inductives/BlockRep.lean#L399
-   399  structure IsBlockModel (m : EnvModel V env) (T : Name) (cvT cvR : ConstantVal) (mI rP : Nat)
+== ConLeche/Model/Inductives/BlockRep.lean#L591
+   591  structure IsBlockModel (m : EnvModel V env) (T : Name) (cvT cvR : ConstantVal) (mI rP : Nat)
 
-== ConLeche/Model/Inductives/DeclBlock.lean#L285
-   285  theorem declBlock (hμ : μ.verifiedChecks = true) {F : Nat} {env envOut : Env}
+== ConLeche/Model/Inductives/DeclBlock.lean#L297
+   297  theorem declBlock (hμ : μ.verifiedChecks = true) {F : Nat} {env envOut : Env}
 
-== ConLeche/Model/Inductives/MutualTables.lean#L228
-   228  theorem declMutual (hμ : μ.verifiedChecks = true) {F : Nat} {env envOut : Env}
+== ConLeche/Model/Inductives/MutualTables.lean#L305
+   305  theorem declMutual (hμ : μ.verifiedChecks = true) {F : Nat} {env envOut : Env}
 
 == ConLeche/Kernel/Inductives/Modeled.lean#L68-L79
     68  def checkIotaThm (ops : CheckerOps m) (env' envSelf : Env)

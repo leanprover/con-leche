@@ -441,8 +441,8 @@ theorem mutualGenData_ctors {b : MutualBlock} {fms : List MutualFormerA}
 one's, it is fresh, unreserved and not a projection function's, and
 its checked type resolves at the PRE-BLOCK environment. -/
 theorem mutualFormers_nameFacts {μ : CheckMode} {F : Nat} {env : Env} {b : MutualBlock}
-    {fms : List MutualFormerA}
-    (hformers : ConLeche.mutualFormers (m := ConLeche.CheckM) (fueledOps μ F) b.nP b.formers env
+    {fms : List MutualFormerA} {g : Bool}
+    (hformers : ConLeche.mutualFormers (m := ConLeche.CheckM) (fueledOps μ F) b.nP b.formers env g
       = .ok (ConLeche.consMutualFormers fms env, fms)) :
     fms.length = b.formers.length ∧
     ∀ (t : Nat) (f : MutualFormerA), fms[t]? = some f →
@@ -451,28 +451,25 @@ theorem mutualFormers_nameFacts {μ : CheckMode} {F : Nat} {env : Env} {b : Mutu
       env.find? f.cvTa.name = none ∧ f.cvTa.name.isProjFnShape = false ∧
       ConLeche.reservedBasisNames.contains f.cvTa.name = false ∧
       f.cvTa.type.constsResolve env = true := by
-  obtain ⟨hlen, hpos⟩ := mutualFormerChecks_pos (ConLeche.mutualFormers_inv hformers).1
+  obtain ⟨hlen, hpos⟩ := mutualFormerChecksG_pos (ConLeche.mutualFormers_inv hformers).1
   refine ⟨hlen, ?_⟩
   intro t f hf
-  obtain ⟨cvD, cvC, -, hl, hccv, hnm, -, -⟩ := hpos t f hf
-  obtain ⟨hfind, hres, hproj, -, -, -, ty, -, -, -, -, htr, -, -, hty⟩ :=
-    ConLeche.checkConstantVal_inv hccv
-  have hname : f.cvTa.name = cvC.name := by rw [hty]
+  obtain ⟨cvD, cvC, -, hl, hdoor, hnm, -, -⟩ := hpos t f hf
+  have hname : f.cvTa.name = cvC.name := hdoor.name
   have hD : (b.formers.getD t default).1 = cvD := by
     rw [List.getD_eq_getElem?_getD, hl]; rfl
   have hnameD : (b.formers.getD t default).1.name = f.cvTa.name := by
     rw [hD, hname, hnm]
-  refine ⟨by rw [hD]; exact hl, hnameD, ?_, ?_, ?_, ?_⟩
-  · rw [hname]; exact hfind
-  · rw [hname]; exact hproj
-  · rw [hname]; exact hres
-  · rw [show f.cvTa.type = ty from by rw [hty]]; exact htr
+  refine ⟨by rw [hD]; exact hl, hnameD, ?_, ?_, ?_, hdoor.resolve⟩
+  · rw [hname]; exact hdoor.fresh
+  · rw [hname]; exact hdoor.pshape
+  · rw [hname]; exact hdoor.nres
 
 /-- The members' names: fresh before the block, not a projection function's, unreserved,
 and the block's recursor name at the member is the member's `.rec`. -/
 theorem mutualMemberNames {μ : CheckMode} {F : Nat} {env : Env} {b : MutualBlock}
-    {fms : List MutualFormerA}
-    (hformers : ConLeche.mutualFormers (m := ConLeche.CheckM) (fueledOps μ F) b.nP b.formers env
+    {fms : List MutualFormerA} {g : Bool}
+    (hformers : ConLeche.mutualFormers (m := ConLeche.CheckM) (fueledOps μ F) b.nP b.formers env g
       = .ok (ConLeche.consMutualFormers fms env, fms)) :
     ∀ (t : Nat) (f : MutualFormerA), fms[t]? = some f →
       env.find? f.cvTa.name = none ∧ f.cvTa.name.isProjFnShape = false ∧
@@ -486,8 +483,8 @@ theorem mutualMemberNames {μ : CheckMode} {F : Nat} {env : Env} {b : MutualBloc
 /-- **The members' names, as a list**: the checked formers' names are
 the block record's `memberNames`, positionally. -/
 theorem mutualMemberNames_eq {μ : CheckMode} {F : Nat} {env : Env} {b : MutualBlock}
-    {fms : List MutualFormerA}
-    (hformers : ConLeche.mutualFormers (m := ConLeche.CheckM) (fueledOps μ F) b.nP b.formers env
+    {fms : List MutualFormerA} {g : Bool}
+    (hformers : ConLeche.mutualFormers (m := ConLeche.CheckM) (fueledOps μ F) b.nP b.formers env g
       = .ok (ConLeche.consMutualFormers fms env, fms)) :
     fms.map (·.cvTa.name) = b.memberNames := by
   obtain ⟨hlen, hpos⟩ := mutualFormers_nameFacts hformers
@@ -507,10 +504,10 @@ theorem mutualMemberNames_eq {μ : CheckMode} {F : Nat} {env : Env} {b : MutualB
 
 /-- The constructors' names: not a projection function's, unreserved. -/
 theorem mutualCtorNames {μ : CheckMode} {F : Nat} {env : Env} {b : MutualBlock}
-    {fms : List MutualFormerA} {isProp : Bool} {ctorsA : List (ConstantVal × Nat)}
+    {fms : List MutualFormerA} {isProp g : Bool} {ctorsA : List (ConstantVal × Nat)}
     {sortss : List (List Level)}
     (hctors : ConLeche.checkMutualCtors (m := ConLeche.CheckM) (fueledOps μ F) env b fms isProp
-      false b.ctors = .ok (ctorsA, sortss)) :
+      g b.ctors = .ok (ctorsA, sortss)) :
     ∀ (J : Nat) (cA : ConstantVal × Nat), ctorsA[J]? = some cA →
       cA.1.name.isProjFnShape = false ∧ ConLeche.reservedBasisNames.contains cA.1.name = false := by
   intro J cA hJ
@@ -518,11 +515,9 @@ theorem mutualCtorNames {μ : CheckMode} {F : Nat} {env : Env} {b : MutualBlock}
   have hJlt : J < b.ctors.length := by
     rw [← hlen]; exact (List.getElem?_eq_some_iff.mp hJ).1
   obtain ⟨-, sorts, -, hrun⟩ := hall J _ cA (List.getElem?_eq_getElem hJlt) hJ
-  obtain ⟨⟨ty', hccv⟩, -, -⟩ := ConLeche.checkMutualCtor_shape hrun
-  obtain ⟨-, hres, hproj, -, -, -, ty, -, -, -, -, -, -, -, hty⟩ :=
-    ConLeche.checkConstantVal_inv hccv
-  have hname : cA.1.name = b.ctors[J].cv.name := by rw [hty]
-  exact ⟨by rw [hname]; exact hproj, by rw [hname]; exact hres⟩
+  obtain ⟨⟨ty', hdoor⟩, -, -⟩ := ConLeche.checkMutualCtorG_shape hrun
+  have hname : cA.1.name = b.ctors[J].cv.name := hdoor.name
+  exact ⟨by rw [hname]; exact hdoor.pshape, by rw [hname]; exact hdoor.nres⟩
 
 /-! ## The block's `.proj` bookkeeping -/
 
@@ -533,11 +528,11 @@ theorem mutualNoProj {μ : CheckMode} {F : Nat} {env : Env} (hwf : ConLeche.EnvW
     {f₀ : MutualFormerA} {ctorsA : List (ConstantVal × Nat)} {sortss : List (List Level)}
     {kinds : List (List (RecFieldKind × Nat))} {formers4 : List MutualFormer}
     {ctors4 : List MutualCtor4} {cvRas : List ConstantVal}
-    {rulesOf : List (List (MutualCtor × Expr))}
-    (hformers : ConLeche.mutualFormers (m := ConLeche.CheckM) (fueledOps μ F) b.nP b.formers env
+    {rulesOf : List (List (MutualCtor × Expr))} {g : Bool}
+    (hformers : ConLeche.mutualFormers (m := ConLeche.CheckM) (fueledOps μ F) b.nP b.formers env g
       = .ok (ConLeche.consMutualFormers fms env, fms))
     (hctors : ConLeche.checkMutualCtors (m := ConLeche.CheckM) (fueledOps μ F)
-      (ConLeche.consMutualFormers fms env) b fms (Level.isEquiv f₀.s .zero == some true) false b.ctors
+      (ConLeche.consMutualFormers fms env) b fms (Level.isEquiv f₀.s .zero == some true) g b.ctors
       = .ok (ctorsA, sortss))
     (hgd : ConLeche.mutualGenData b fms ctorsA kinds = (formers4, ctors4))
     (hrectys : ConLeche.checkMutualRecTys (m := ConLeche.CheckM) (fueledOps μ F)
@@ -574,11 +569,8 @@ theorem mutualNoProj {μ : CheckMode} {F : Nat} {env : Env} (hwf : ConLeche.EnvW
     have hJlt : J < b.ctors.length := by
       rw [← hlenC]; exact (List.getElem?_eq_some_iff.mp hJ).1
     obtain ⟨-, sorts, -, hrun⟩ := hallC J _ cA (List.getElem?_eq_getElem hJlt) hJ
-    obtain ⟨⟨ty', hccv⟩, -, -⟩ := ConLeche.checkMutualCtor_shape hrun
-    obtain ⟨-, -, -, -, -, hnfv, ty, -, -, hann, -, -, -, -, hty⟩ :=
-      ConLeche.checkConstantVal_inv hccv
-    rw [show cA.1.type = ty from by rw [hty]]
-    exact ConLeche.annotateCore_noProjAt μ hann hnfv hslot
+    obtain ⟨⟨ty', hdoor⟩, -, -⟩ := ConLeche.checkMutualCtorG_shape hrun
+    exact ConLeche.Expr.ProjSlotsOk.noProjAt hslot _ hdoor.slots
   have h2 : NoProjEnv (ConLeche.consMutualCtors b.nP ctorsA
       (ConLeche.consMutualFormers fms env)) f.cvTa.name j :=
     noProjEnv_consMutualCtors h1 hnpC

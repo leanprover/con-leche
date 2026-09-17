@@ -257,6 +257,76 @@ theorem openPisAtFvars_stripPis :
               (show Expr.ErasedEq (Expr.fvar d dom)
                 (Expr.fvar d (.sort .zero)) from rfl))
 
+/-- **The per-binder half of `openPisAtFvars_stripPis`, ON THE NOSE.**
+The `l`-th opened variable's type annotation IS the `l`-th closed
+domain instantiated at the earlier openers — an equality, not
+`ErasedEq`, because `openPisAtFvars` opens at `.fvar i dom` with the
+binder's *own* domain and that is exactly what the substitution puts
+back.
+
+The instantiating list is the opener list's own prefix `fvs.take l`
+and **not** `openFvars d l`: those two differ in the variables' type
+annotations, so only the former makes the statement exact.  Exactness
+is what the consumers need — they read a field domain's head and
+argument spine through `getAppFn`/`getAppArgs`, which `ErasedEq` does
+not preserve.  (The BODY half genuinely cannot be stated this way: it
+is `ErasedEq` to the canonical opening, which is the tolerance
+`denote` consumes.) -/
+theorem openPisAtFvars_domain :
+    ∀ (k : Nat) {e : Expr} {d : Nat} {fvs : List Expr} {body : Expr}
+      {bs : List (Expr × BinderMeta)} {body₀ : Expr},
+      openPisAtFvars k e d = some (fvs, body) →
+      e.stripPis k = some (bs, body₀) →
+      ∀ (l : Nat) (x : Expr) (b : Expr × BinderMeta),
+        fvs[l]? = some x → bs[l]? = some b →
+        x.fvarTypeD = Expr.instSeq (fvs.take l) (l - 1) b.1 := by
+  intro k
+  induction k with
+  | zero =>
+    intro e d fvs body bs body₀ hop _ l x b hx _
+    simp only [openPisAtFvars, Option.some.injEq, Prod.mk.injEq] at hop
+    obtain ⟨rfl, -⟩ := hop
+    simp at hx
+  | succ k ih =>
+    intro e d fvs body bs body₀ hop hstrip l x b hx hb
+    match e, hop with
+    | .forallE dom bodyE mb, hop =>
+      simp only [openPisAtFvars] at hop
+      cases hop' : openPisAtFvars k (bodyE.instantiate1 (.fvar d dom)) (d + 1) with
+      | none => rw [hop'] at hop; exact nomatch hop
+      | some p =>
+        rw [hop'] at hop
+        simp only [Option.some.injEq, Prod.mk.injEq] at hop
+        obtain ⟨rfl, rfl⟩ := hop
+        simp only [Expr.stripPis, Option.map_eq_some_iff] at hstrip
+        obtain ⟨⟨bsB, bodyS⟩, hstripB, hbs⟩ := hstrip
+        simp only [Prod.mk.injEq] at hbs
+        obtain ⟨rfl, rfl⟩ := hbs
+        obtain ⟨bs', bodyS', hstrip', -, -, -⟩ := openPisAtFvars_stripPis k hop'
+        cases l with
+        | zero =>
+          simp only [List.getElem?_cons_zero, Option.some.injEq] at hx hb
+          subst hx; subst hb
+          simp [Expr.fvarTypeD, Expr.instSeq]
+        | succ l =>
+          simp only [List.getElem?_cons_succ] at hx hb
+          have hlenB : bsB.length = k := Expr.stripPis_length k hstripB
+          have hlk : l < k := by
+            have hlt : l < bsB.length := by
+              rcases List.getElem?_eq_some_iff.mp hb with ⟨h, -⟩
+              exact h
+            omega
+          have hlen' : bs'.length = k := Expr.stripPis_length k hstrip'
+          have hb' : bs'[l]? = some bs'[l] := by
+            rw [List.getElem?_eq_getElem (by omega)]
+          have hstep := ih hop' hstrip' l x bs'[l] hx hb'
+          obtain ⟨-, hbin⟩ := Expr.stripPis_instantiate1_eq k 0 hstripB hstrip'
+          have hb1 : bs'[l].1 = b.1.instantiate1 (.fvar d dom) l := by
+            have := hbin l b bs'[l] hb hb'
+            simpa using this
+          rw [hstep, hb1]
+          simp only [List.take_succ_cons, Expr.instSeq, Nat.add_sub_cancel]
+
 /-! ## The opened statement -/
 
 /-- The opened body is the strip body instantiated at the collected

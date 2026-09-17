@@ -1533,11 +1533,13 @@ chain.  It holds by construction — the worklist mints at
 `types[qhead]` and the new pins take indices at or past the current pin
 count, which is greater than `qhead - k`.  CERTIFICATION-ONLY, gated; a
 failure is `.internal`. -/
-def nestedPinParentOk (st : ElimState) : Bool :=
+def nestedPinParent (p : NestedParts) (st : ElimState) : List (Option Nat) :=
+  st.pins.map fun q => if q.mintedAt < p.k then none else some (q.mintedAt - p.k)
+
+/-- The Bool: the derived parent of every pin is an EARLIER pin. -/
+def nestedPinParentOk (p : NestedParts) (st : ElimState) : Bool :=
   st.pins.zipIdx.all fun (q, i) =>
-    match q.parent with
-    | none => true
-    | some r => decide (r < i)
+    if q.mintedAt < p.k then true else decide (q.mintedAt - p.k < i)
 
 /-- **THE PINS' INSTANCES AND RANK, CERTIFIED** (task #315 K.37, the
 model lane's DESIGN §U.48 (e″)): every OWN reference stays inside the
@@ -1727,7 +1729,7 @@ def checkNested (ops : CheckerOps m) (env : Env) (p : NestedParts) : m Env := do
   -- pin, so an instance's root is its parent-minimal member and the
   -- covering walk the model needs is the parent chain.
   -- CERTIFICATION-ONLY, gated.  A failure is `.internal`.
-  unless certOnly ops.mode (nestedPinParentOk st) do
+  unless certOnly ops.mode (nestedPinParentOk p st) do
     throw (.internal "nested: a pin's mint parent is not an earlier pin")
   let env₁ := consNestedFormers members env
   -- **POST-CHECK (a), A THIRD TIME** (K.30): the pins typed at the

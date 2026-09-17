@@ -173,4 +173,29 @@ theorem acvalParams {env : Env} (m : EnvModel V env) :
     AcvalParams m :=
   m.acval_params
 
+/-- **Two carriers agree at the stored names** (task #315 M7-3): the
+one model-facing fact an environment EXTENSION has to hand back for
+the block-model field `EnvModelB.blocks` to be maintained — the new
+carrier values every OLD constant as the old one did.  It is what the
+cons-level steps already prove (their `acvalWith` equation) and what
+the stage theorems above them used to throw away.  `denoteMeta`
+consults the valuation only at names it found, so every reading
+transport follows from it (`denoteMeta_acval_congr`). -/
+@[expose] def AcvalAgrees {env env₂ : Env} (m : EnvModel V env) (m₂ : EnvModel V env₂) : Prop :=
+  ∀ n : Name, (env.find? n).isSome = true → m₂.acval n = m.acval n
+
+/-- Agreement is reflexive. -/
+theorem AcvalAgrees.rfl' {env : Env} (m : EnvModel V env) : AcvalAgrees m m :=
+  fun _ _ => Eq.refl _
+
+/-- Agreement composes along a chain of conses, provided the middle
+environment's lookups extend the first's — which every cons chain gives
+(task #315 M7-3 session 9: the basis blocks install three to five
+constants in a row). -/
+theorem AcvalAgrees.trans {env env₁ env₂ : Env} {m : EnvModel V env} {m₁ : EnvModel V env₁}
+    {m₂ : EnvModel V env₂} (hext : ∀ n : Name, (env.find? n).isSome = true →
+      (env₁.find? n).isSome = true)
+    (h₁ : AcvalAgrees m m₁) (h₂ : AcvalAgrees m₁ m₂) : AcvalAgrees m m₂ :=
+  fun n hn => (h₂ n (hext n hn)).trans (h₁ n hn)
+
 end ConLeche.Model

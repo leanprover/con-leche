@@ -91,20 +91,22 @@ structure NestedPin where
   it. -/
   grpBase : Nat
   grpSize : Nat
-  /-- **THE MINT PARENT** (task #315 K.40, lane L-E's DESIGN §U.55): the
-  PIN whose expansion minted this one — `none` at a pin minted while the
-  block's OWN constructors were being rewritten.  The elimination knows
-  it at mint time (the worklist is at `types[qhead]`, so the parent is
-  `qhead - k` once `qhead` is past the block's own members), and nothing
-  downstream can recover it: a container's own pin list is not in the
-  environment, because a nested declaration RESTORES.
+  /-- **WHERE THE MINT HAPPENED** (task #315 K.40, lane L-E's DESIGN
+  §U.55): the WORKLIST POSITION — the index into the growing type list —
+  whose constructors were being rewritten when this pin was minted.  A
+  position below the block's own member count `k` means the pin came
+  straight out of the block's own constructors; at `k + j` it was minted
+  by the expansion of pin `j`, which is that pin's PARENT.
 
-  It is what makes a container instance usable: the instance's ROOT is
-  its parent-minimal member, and the covering walk the model's transfer
-  needs is the parent chain.  Recorded rather than recomputed, and the
-  two clauses that make it well founded are checked (`nestedPinParentOk`,
-  `Kernel/Inductives/NestedInstall.lean`). -/
-  parent : Option Nat := none
+  Nothing downstream can recover it: a container's own pin list is not in
+  the environment, because a nested declaration RESTORES.  And it is what
+  makes a container instance usable — the instance's ROOT is its
+  parent-minimal member and the covering walk the model's transfer needs
+  is the parent chain.  A worklist POSITION rather than a pin index is
+  what lets the elimination record it with no new parameter of its own:
+  `k` is the caller's, and the Bool that reads the parent off it has `p.k`
+  (`nestedPinParentOk`, `Kernel/Inductives/NestedInstall.lean`). -/
+  mintedAt : Nat := 0
   deriving Repr, Inhabited
 
 /-- The elimination's state: the growing type list, the pins in
@@ -113,6 +115,13 @@ structure ElimState where
   types : List AuxType
   pins : List NestedPin
   nextIdx : Nat
+  /-- **The worklist's current POSITION** (task #315 K.40): the index of
+  the type whose constructors are being rewritten.  `elimLoop` sets it
+  before each type's turn and `mkCopies` stamps it onto every pin it
+  appends — which is why the record costs the elimination no new
+  parameter, and every statement about `replaceAllNested`,
+  `replaceIfNested`, `elimCtors` and `mkCopies` keeps its shape. -/
+  curType : Nat := 0
   deriving Repr, Inhabited
 
 /-- The names the occurrence test looks for: every type of the growing
@@ -186,8 +195,7 @@ def mkUniqueName (env : Env) (base : Name) : Nat → Nat → Name × Nat
 /-- The copies of a container's whole `all`-group, in block order, with
 the pin of the member `I` the occurrence names returned. -/
 def mkCopies (env : Env) (pbs : List (Expr × BinderMeta)) (lvls : List Level)
-    (Ds : List Expr) (I : Name) (base size : Nat) (parent : Option Nat) :
-    List ContainerMember → ElimState →
+    (Ds : List Expr) (I : Name) (base size : Nat) : List ContainerMember → ElimState →
     Except CheckError (ElimState × Option Name)
   | [], st => pure (st, none)
   | J :: rest, st => do
@@ -197,16 +205,16 @@ def mkCopies (env : Env) (pbs : List (Expr × BinderMeta)) (lvls : List Level)
     let st' : ElimState :=
       { types := st.types ++ [copy]
         pins := st.pins ++
-          [⟨auxName, J.name, Expr.mkAppN (.const J.name lvls) Ds, base, size, parent⟩]
+          [⟨auxName, J.name, Expr.mkAppN (.const J.name lvls) Ds, base, size, st.curType⟩]
         nextIdx := nextIdx }
-    let (st'', got) ← mkCopies env pbs lvls Ds I base size parent rest st'
+    let (st'', got) ← mkCopies env pbs lvls Ds I base size rest st'
     pure (st'', if J.name == I then some auxName else got)
 
 /-- Official's `replace_if_nested`: `I Ds is ↦ Iaux p⃗ is`, minting the
 whole `all`-group of `I` on a pin miss.  `none` — the subterm is not a
 nested occurrence, and its children are visited. -/
 def replaceIfNested (env : Env) (blvls : List Level) (params : List Expr)
-    (pbs₀ : List (Expr × BinderMeta)) (parent : Option Nat) (st : ElimState) (e : Expr) :
+    (pbs₀ : List (Expr × BinderMeta)) (st : ElimState) (e : Expr) :
     Except CheckError (Option (Expr × ElimState)) := do
   match e with
   | .app _ _ =>
@@ -237,7 +245,7 @@ def replaceIfNested (env : Env) (blvls : List Level) (params : List Expr)
               pure (some (Expr.mkAppN (Expr.mkAppN (.const q.aux blvls) params) idxs, st))
             | none => do
               let (st', got) ← mkCopies env pbs₀ lvls Ds I st.pins.length
-                ci.members.length parent ci.members st
+                ci.members.length ci.members st
               match got with
               | none =>
                 .error (.internal "nested: the container is not a member of its own group")
@@ -253,7 +261,7 @@ def replaceIfNested (env : Env) (blvls : List Level) (params : List Expr)
 subterm `replaceIfNested` first, and the children only when it
 declines. -/
 def replaceAllNested (env : Env) (blvls : List Level) (params : List Expr)
-    (pbs₀ : List (Expr × BinderMeta)) (parent : Option Nat) (st : ElimState) (e : Expr) :
+    (pbs₀ : List (Expr × BinderMeta)) (st : ElimState) (e : Expr) :
     Except CheckError (Expr × ElimState) :=
   -- **The prune** (the task #215 discipline, as a THEOREM about this
   -- walk rather than a memo): `replaceIfNested` fires only where a
@@ -264,44 +272,44 @@ def replaceAllNested (env : Env) (blvls : List Level) (params : List Expr)
   -- depth-60 doubling tower in a constructor's `Eq` field) is dismissed
   -- in one pass instead of being descended as a tree.
   if !st.newNames.any (fun T => e.mentionsConst T) then .ok (e, st) else
-  match replaceIfNested env blvls params pbs₀ parent st e with
+  match replaceIfNested env blvls params pbs₀ st e with
   | .error err => .error err
   | .ok (some r) => .ok r
   | .ok none =>
     match e with
     | .app f a =>
-      match replaceAllNested env blvls params pbs₀ parent st f with
+      match replaceAllNested env blvls params pbs₀ st f with
       | .error err => .error err
       | .ok (f', st₁) =>
-        match replaceAllNested env blvls params pbs₀ parent st₁ a with
+        match replaceAllNested env blvls params pbs₀ st₁ a with
         | .error err => .error err
         | .ok (a', st₂) => .ok (.app f' a', st₂)
     | .lam ty b bm =>
-      match replaceAllNested env blvls params pbs₀ parent st ty with
+      match replaceAllNested env blvls params pbs₀ st ty with
       | .error err => .error err
       | .ok (ty', st₁) =>
-        match replaceAllNested env blvls params pbs₀ parent st₁ b with
+        match replaceAllNested env blvls params pbs₀ st₁ b with
         | .error err => .error err
         | .ok (b', st₂) => .ok (.lam ty' b' bm, st₂)
     | .forallE ty b bm =>
-      match replaceAllNested env blvls params pbs₀ parent st ty with
+      match replaceAllNested env blvls params pbs₀ st ty with
       | .error err => .error err
       | .ok (ty', st₁) =>
-        match replaceAllNested env blvls params pbs₀ parent st₁ b with
+        match replaceAllNested env blvls params pbs₀ st₁ b with
         | .error err => .error err
         | .ok (b', st₂) => .ok (.forallE ty' b' bm, st₂)
     | .letE ty v b =>
-      match replaceAllNested env blvls params pbs₀ parent st ty with
+      match replaceAllNested env blvls params pbs₀ st ty with
       | .error err => .error err
       | .ok (ty', st₁) =>
-        match replaceAllNested env blvls params pbs₀ parent st₁ v with
+        match replaceAllNested env blvls params pbs₀ st₁ v with
         | .error err => .error err
         | .ok (v', st₂) =>
-          match replaceAllNested env blvls params pbs₀ parent st₂ b with
+          match replaceAllNested env blvls params pbs₀ st₂ b with
           | .error err => .error err
           | .ok (b', st₃) => .ok (.letE ty' v' b', st₃)
     | .proj s i x =>
-      match replaceAllNested env blvls params pbs₀ parent st x with
+      match replaceAllNested env blvls params pbs₀ st x with
       | .error err => .error err
       | .ok (x', st₁) => .ok (.proj s i x', st₁)
     | _ => .ok (e, st)
@@ -312,7 +320,7 @@ def replaceAllNested (env : Env) (blvls : List Level) (params : List Expr)
 prefix is opened at the block's variables, the residual replaced, and
 the prefix put back with the constructor's OWN binder data. -/
 def elimCtors (env : Env) (blvls : List Level) (nP : Nat) (params : List Expr)
-    (pbs₀ : List (Expr × BinderMeta)) (parent : Option Nat) :
+    (pbs₀ : List (Expr × BinderMeta)) :
     List (Name × Expr × Nat) → ElimState →
       Except CheckError (List (Name × Expr × Nat) × ElimState)
   | [], st' => pure ([], st')
@@ -321,8 +329,8 @@ def elimCtors (env : Env) (blvls : List Level) (nP : Nat) (params : List Expr)
       | .error (.invalid "invalid nested inductive datatype, ill-formed declaration")
     let some cbody := Expr.instPis cty params
       | .error (.invalid "invalid nested inductive datatype, ill-formed declaration")
-    let (cbody', st₁) ← replaceAllNested env blvls params pbs₀ parent st' cbody
-    let (rest', st₂) ← elimCtors env blvls nP params pbs₀ parent rest st₁
+    let (cbody', st₁) ← replaceAllNested env blvls params pbs₀ st' cbody
+    let (rest', st₂) ← elimCtors env blvls nP params pbs₀ rest st₁
     pure ((c, closeTelescope pbs 0 cbody', nF) :: rest', st₂)
 
 /-- The worklist: every type of the growing list has its constructors
@@ -331,22 +339,19 @@ The fuel bounds the number of worklist steps; exhausting it is a
 positive DECLINE (official's loop has no bound — a stream reaching this
 one is beyond anything the corpus contains). -/
 def elimLoop (env : Env) (blvls : List Level) (nP : Nat) (params : List Expr)
-    (pbs₀ : List (Expr × BinderMeta)) (k : Nat) :
+    (pbs₀ : List (Expr × BinderMeta)) :
     Nat → Nat → ElimState → Except CheckError ElimState
   | 0, _, _ => .error (.notImplemented "nested: the elimination worklist did not finish")
   | fuel + 1, qhead, st =>
     match st.types[qhead]? with
     | none => .ok st
     | some t =>
-      -- **THE MINT PARENT** (K.40): the worklist is rewriting
-      -- `types[qhead]`, so a pin minted here was minted by the expansion
-      -- of pin `qhead - k` — or by the block's OWN constructors, at
-      -- `qhead < k`, where there is no parent
-      let parent : Option Nat := if qhead < k then none else some (qhead - k)
-      match elimCtors env blvls nP params pbs₀ parent t.ctors st with
+      -- **WHERE THE MINT HAPPENS** (K.40): every pin minted while this
+      -- type's constructors are rewritten records this position
+      match elimCtors env blvls nP params pbs₀ t.ctors { st with curType := qhead } with
       | .error err => .error err
       | .ok (cs', st₁) =>
-        elimLoop env blvls nP params pbs₀ k fuel (qhead + 1)
+        elimLoop env blvls nP params pbs₀ fuel (qhead + 1)
           { st₁ with types := st₁.types.set qhead { t with ctors := cs' } }
 
 
@@ -406,7 +411,6 @@ def elimNested (env : Env) (nP : Nat) (lps : List Name)
   let some (pbs₀, _) := t₀.type.stripPis nP
     | .error (.invalid "invalid inductive datatype declaration, incorrect number of \
         parameters")
-  elimLoop env (lps.map Level.param) nP params pbs₀ types.length nestedElimFuel 0
-    ⟨types, [], 1⟩
+  elimLoop env (lps.map Level.param) nP params pbs₀ nestedElimFuel 0 ⟨types, [], 1, 0⟩
 
 end ConLeche

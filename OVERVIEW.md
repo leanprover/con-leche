@@ -359,11 +359,11 @@ Read from the outside in:
    on exhaustion every operation throws
    ([the fuel knot's base case in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Core.lean#L2908-L2917)).
    Its declaration fold is what the model tier proves things about
-   ([theorem `no_proof_of_False_pure` in `ConLeche/Model/Fold.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Fold.lean#L304-L311)).
+   ([theorem `no_proof_of_False_pure` in `ConLeche/Model/Fold.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Fold.lean#L330-L337)).
 5. **The model tier** (`ConLeche/Model/*`, the graded set model)
    shows that each declaration step preserves an invariant on the
    environment
-   ([theorem `declStep_preserves` in `ConLeche/Model/Fold.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Fold.lean#L165)),
+   ([theorem `declStep_preserves` in `ConLeche/Model/Fold.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Fold.lean#L192)),
    and that the invariant forbids a constant of type `False`, whose
    pinned denotation is the empty set
    ([theorem `no_constant_of_False` in `ConLeche/Model/Capstone.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Capstone.lean#L151-L157)).
@@ -558,7 +558,7 @@ Inductive blocks are not trusted from the stream. Three cases:
   ([theorem `container_closed_exists` in `ConLeche/SetModel/Container.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/SetModel/Container.lean#L598)),
   which covers finitary and reflexive fields alike. The model-tier
   theorem for the whole install is
-  [theorem `declNative` in `ConLeche/Model/Inductives/DeclNative.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Inductives/DeclNative.lean#L63).
+  [theorem `declNative` in `ConLeche/Model/Inductives/DeclNative.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Inductives/DeclNative.lean#L1326).
   Structure-like blocks additionally get first-class projections, η,
   unit-likeness and K exactly under official's conditions.
 * **Mutual blocks** — several type formers, one recursor each — take
@@ -591,13 +591,13 @@ Inductive blocks are not trusted from the stream. Three cases:
   disjoint union of the members' values
   ([the union recursor in `ConLeche/SetModel/UnionRec.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/SetModel/UnionRec.lean#L208)).
   What every member carries in the model is the block model
-  ([structure `IsBlockModel` in `ConLeche/Model/Inductives/BlockRep.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Inductives/BlockRep.lean#L399));
+  ([structure `IsBlockModel` in `ConLeche/Model/Inductives/BlockRep.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Inductives/BlockRep.lean#L591));
   the model-tier theorem for the whole install is
-  [theorem `declBlock` in `ConLeche/Model/Inductives/DeclBlock.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Inductives/DeclBlock.lean#L285),
+  [theorem `declBlock` in `ConLeche/Model/Inductives/DeclBlock.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Inductives/DeclBlock.lean#L297),
   whose two named facts — the stages up to the recursors keep the
   model and leave the block model, the projection tables keep it from
   there — are proved
-  ([theorem `declMutual` in `ConLeche/Model/Inductives/MutualTables.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Inductives/MutualTables.lean#L228)).
+  ([theorem `declMutual` in `ConLeche/Model/Inductives/MutualTables.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Inductives/MutualTables.lean#L305)).
 * **Nested blocks** are handled by an in-process modeller
   (`ConLeche/Frontend/InModel/*`): at parse time the checker generates,
   over its own `Expr`, a *model* of the block, an auxiliary family plus

@@ -387,7 +387,7 @@ def checkNestedS (fe : FEnv) (p : NestedParts) : CheckCM FEnv := do
   unless certOnly mode (nestedPinRankOk fe.env p b st stored) do
     throw (.internal "nested: the pins' container instances are not well-founded")
   -- the mint parents (K.40), as in the pure route
-  unless certOnly mode (nestedPinParentOk st) do
+  unless certOnly mode (nestedPinParentOk p st) do
     throw (.internal "nested: a pin's mint parent is not an earlier pin")
   -- the RESTORED block is built on the PRE-BLOCK index, not the scratch
   -- one: only the restored constants are stored

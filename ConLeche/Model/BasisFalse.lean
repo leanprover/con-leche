@@ -60,8 +60,11 @@ theorem denoteMeta_falseA_type
 theorem extendFalse (mp : EnvModelM V μ env)
     (hfresh : env.find? falseName = none)
     (hwf : EnvWF ⟨falseA :: env.consts⟩) :
-    Nonempty (EnvModelM V μ ⟨falseA :: env.consts⟩) := by
-  refine nonempty_of_exists (declStep_preserves_of_basis_cons mp
+    ∃ mp' : EnvModelM V μ ⟨falseA :: env.consts⟩,
+      mp'.base2.acval
+        = acvalWith mp.base2.acval falseA.name
+            (fun _ => AnnotTerm.const .empty [0]) := by
+  refine declStep_preserves_of_basis_cons mp
     (A := fun _ => AnnotTerm.const .empty [0]) hfresh
     (fun _ _ _ h => nomatch h)
     (by decide) (by decide) (by decide) (by decide)
@@ -76,7 +79,7 @@ theorem extendFalse (mp : EnvModelM V μ env)
       (fun _ h => nomatch h) (fun _ _ _ _ h => nomatch h))
     (fun _ _ => rfl) (fun _ _ _ => rfl)
     (fun _ _ => trivial) (fun _ _ => trivial)
-    (fun ψ => ⟨_, denoteMeta_falseA_type ψ⟩) ?_ ?_)
+    (fun ψ => ⟨_, denoteMeta_falseA_type ψ⟩) ?_ ?_
   · intro ψ ta h ρ
     rw [denoteMeta_falseA_type ψ] at h
     obtain rfl := (Option.some.inj h).symm
@@ -156,11 +159,14 @@ theorem extendFalseRec (mp : EnvModelM V μ env)
     (hE : env.find? falseName = some falseA)
     (hfresh : env.find? falseRecA.name = none)
     (hwf : EnvWF ⟨falseRecA :: env.consts⟩) :
-    Nonempty (EnvModelM V μ ⟨falseRecA :: env.consts⟩) := by
+    ∃ mp' : EnvModelM V μ ⟨falseRecA :: env.consts⟩,
+      mp'.base2.acval
+        = acvalWith mp.base2.acval falseRecA.name
+            (fun ψ => AnnotTerm.const .emptyRec [0, ψ uN]) := by
   have hty := fun ψ =>
     denoteMeta_falseRecA_type (m := mp.base2)
       (A := fun ψ => AnnotTerm.const .emptyRec [0, ψ uN]) ψ hE
-  refine nonempty_of_exists (declStep_preserves_of_basis_cons mp
+  refine declStep_preserves_of_basis_cons mp
     (A := fun ψ => AnnotTerm.const .emptyRec [0, ψ uN]) hfresh
     (fun _ _ _ h => nomatch h)
     (by decide) (by decide) (by decide) (by decide)
@@ -177,7 +183,7 @@ theorem extendFalseRec (mp : EnvModelM V μ env)
                            intro r hr; rw [← h4] at hr; exact nomatch hr))
     (fun _ _ => rfl) ?_
     (fun _ _ => trivial) (fun _ _ => trivial)
-    (fun ψ => ⟨_, hty ψ⟩) ?_ ?_)
+    (fun ψ => ⟨_, hty ψ⟩) ?_ ?_
   · intro ψ₁ ψ₂ hp
     rw [hp uN (by show uN ∈ [uN]; exact List.mem_cons_self)]
   · intro ψ ta h ρ
@@ -203,7 +209,7 @@ it.  `BasisInstallRun` is a right-nested `∧` chain, so the walk is an
 `falseK` branch. -/
 theorem declBasisPB_falseK {env₂ : Env} (mp : EnvModelM V μ env)
     (h : ConLeche.Semantics.BasisInstallRun env ConLeche.BasisKind.falseK.declsA env₂) :
-    Nonempty (EnvModelM V μ env₂) := by
+    ∃ mp' : EnvModelM V μ env₂, AcvalAgrees mp.base2 mp'.base2 := by
   rw [show ConLeche.BasisKind.falseK.declsA = [falseA, falseRecA] from rfl]
     at h
   obtain ⟨h1, h2, hnil⟩ := h
@@ -218,7 +224,7 @@ theorem declBasisPB_falseK {env₂ : Env} (mp : EnvModelM V μ env)
         | (refine ConLeche.IndCapsWF.of_caps ?_ ?_ <;> intro h <;>
             first | exact absurd h (by decide) | rfl)
         | exact fun _ _ heq => ConstantInfo.noConfusion heq)⟩
-  obtain ⟨mp1⟩ := extendFalse mp hf1 hwf1
+  obtain ⟨mp1, hac1⟩ := extendFalse mp hf1 hwf1
   have hE : (⟨falseA :: env.consts⟩ : Env).find? falseName
       = some falseA := by
     rw [ConLeche.Env.find?_cons]; exact if_pos rfl
@@ -252,6 +258,8 @@ theorem declBasisPB_falseK {env₂ : Env} (mp : EnvModelM V μ env)
       exact hE
     rw [hf]
     simp
-  exact extendFalseRec mp1 hE hf2 hwf2
+  obtain ⟨mp2, hac2⟩ := extendFalseRec mp1 hE hf2 hwf2
+  exact ⟨mp2, AcvalAgrees.transCons hf1 (acvalAgrees_of_acvalWith hf1 hac1)
+    (acvalAgrees_of_acvalWith hf2 hac2)⟩
 
 end ConLeche.Model

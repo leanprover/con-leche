@@ -47,9 +47,9 @@ theorem recAt_kindsOf {nP nF i : Nat} {ks : List (RecFieldKind × Nat)} (hks : k
 theorem mutualShadowGrading (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ env)
     {F : Nat} {T : Name} {lps : List Name} {nP nF nIdx : Nat} {resSort : Level}
     {isProp large : Bool} {cvC cvTa cvCa : ConstantVal} {env₀ : Env}
-    {sorts : List Level}
+    {sorts : List Level} {g : Bool}
     (hCtor : ConLeche.checkMutualCtor (ConLeche.fueledOps μ F) env memberNames T lps nP nIdx
-      resSort isProp large cvC nF cvTa = .ok (cvCa, sorts))
+      resSort isProp large cvC nF cvTa g = .ok (cvCa, sorts))
     (hProp : isProp = true → ∀ ψ : Name → Nat, Level.eval ψ resSort = Level.eval ψ Level.zero)
     {idxArgs : List Expr} {ds : (Name → Nat) → List (Nat × Nat × AnnotTerm)}
     {Es : (Name → Nat) → List AnnotTerm} {srcs : List (Option Nat)} {ks : List (RecFieldKind × Nat)}
@@ -68,16 +68,14 @@ theorem mutualShadowGrading (hμ : μ.verifiedChecks = true) (mp : EnvModelM V �
       WellDenotedV V ρ (ctorBodyAVI mp.base2 T nP nF ψ (Es ψ))) := by
   -- the run's pieces
   obtain ⟨⟨_, hccv⟩, -, fvsP', crest', tfvs, trest, xFvs', idxArgs', hopC, -, -, hopX, -, -, -,
-    hsorts⟩ := ConLeche.checkMutualCtor_shape hCtor
+    hsorts⟩ := ConLeche.checkMutualCtorG_shape hCtor
   obtain ⟨crest, hopP, hopXX⟩ := hD.opens
   obtain ⟨rfl, rfl⟩ := Prod.mk.inj (Option.some.inj (hopP.symm.trans hopC))
   obtain ⟨rfl, hxrest⟩ := Prod.mk.inj (Option.some.inj (hopXX.symm.trans hopX))
-  obtain ⟨-, -, -, -, hlbt, hitf, type', stype, u, hann', -, -, hst, hens, hcv⟩ :=
-    ConLeche.checkConstantVal_inv hccv
   obtain ⟨hlenS, hfields⟩ := ConLeche.checkStructFieldSortsI_inv hsorts
-  have htyEq : cvCa.type = type' := by rw [hcv]
-  obtain ⟨htf', hbt'⟩ := annotate_syntax hann' hitf hlbt
-  rw [← htyEq] at htf' hbt' hst
+  have htf' := hccv.noFvar
+  have hbt' := hccv.bounded
+  obtain ⟨stype, u, hst, hens⟩ := hccv.infer
   have hopAll : openPisAtFvars (nP + nF) cvCa.type 0 = some (fvsP ++ xFvs, xrest) :=
     openPisAtFvars_add nP hopP (by rw [Nat.zero_add]; exact hopXX)
   obtain ⟨F', tb, vb, hib, hensb, -, -⟩ := piBits_of_infer hμ (nP + nF) hopAll hst hens
@@ -164,9 +162,9 @@ theorem mutualShadowGrading (hμ : μ.verifiedChecks = true) (mp : EnvModelM V �
 theorem mutualTeleBound_of (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ env)
     {F : Nat} {T : Name} {lps : List Name} {nP nF nIdx : Nat} {resSort : Level}
     {isProp large : Bool} {cvC cvTa cvCa : ConstantVal} {env₀ : Env}
-    {sorts : List Level}
+    {sorts : List Level} {g : Bool}
     (hCtor : ConLeche.checkMutualCtor (ConLeche.fueledOps μ F) env memberNames T lps nP nIdx
-      resSort isProp large cvC nF cvTa = .ok (cvCa, sorts))
+      resSort isProp large cvC nF cvTa g = .ok (cvCa, sorts))
     (hProp : isProp = true → ∀ ψ : Name → Nat, Level.eval ψ resSort = Level.eval ψ Level.zero)
     {idxArgs : List Expr} {ds : (Name → Nat) → List (Nat × Nat × AnnotTerm)}
     {Es : (Name → Nat) → List AnnotTerm} {srcs : List (Option Nat)} {ks : List (RecFieldKind × Nat)}
@@ -185,12 +183,12 @@ theorem mutualTeleBound_of (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ
         ∈ˢ (univ (resSort.eval ψ) : V) := by
   -- the run's pieces
   obtain ⟨⟨_, hccv⟩, -, fvsP', crest', tfvs, trest, xFvs', idxArgs', hopC, -, -, hopX, -, -, -,
-    hsorts⟩ := ConLeche.checkMutualCtor_shape hCtor
+    hsorts⟩ := ConLeche.checkMutualCtorG_shape hCtor
   obtain ⟨crest, hopP, hopXX⟩ := hD.opens
   obtain ⟨rfl, rfl⟩ := Prod.mk.inj (Option.some.inj (hopP.symm.trans hopC))
   obtain ⟨rfl, hxrest⟩ := Prod.mk.inj (Option.some.inj (hopXX.symm.trans hopX))
   obtain ⟨-, hfields⟩ := ConLeche.checkStructFieldSortsI_inv hsorts
-  obtain ⟨hcf, -, -, hcb⟩ := ConLeche.mutual_ctor_typeWF hCtor
+  obtain ⟨hcf, -, -, hcb⟩ := ConLeche.mutual_ctorG_typeWF hCtor
   have hopAll : ConLeche.openPisAtFvars (nP + nF) cvCa.type 0 = some (fvsP ++ xFvs, xrest) :=
     openPisAtFvars_add nP hopP (by rw [Nat.zero_add]; exact hopXX)
   have hO : Opened mp.base2 ψ (nP + nF) cvCa.type (fvsP ++ xFvs) xrest
@@ -294,9 +292,9 @@ theorem mutualTeleBound_of (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ
 theorem mutualCtorFrames (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ env)
     {F : Nat} {T : Name} {lps : List Name} {nP nF nIdx : Nat} {resSort : Level}
     {isProp large : Bool} {cvC cvTa cvCa : ConstantVal} {caps : IndCaps}
-    {sorts : List Level}
+    {sorts : List Level} {g : Bool}
     (hCtor : ConLeche.checkMutualCtor (ConLeche.fueledOps μ F) env memberNames T lps nP nIdx
-      resSort isProp large cvC nF cvTa = .ok (cvCa, sorts))
+      resSort isProp large cvC nF cvTa g = .ok (cvCa, sorts))
     (hfT : env.find? T = some (.indInfo cvTa caps))
     (hProp : isProp = true → ∀ ψ : Name → Nat, Level.eval ψ resSort = Level.eval ψ Level.zero)
     {ppsAll : (Name → Nat) → List (Nat × Nat × AnnotTerm)}
@@ -331,11 +329,9 @@ theorem mutualCtorFrames (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ e
           interp V (consList as ρ) ((((ds ψ).drop nP).map (·.2.2)).getD j default)
             ∈ˢ (univ ((sorts.getD j .zero).eval ψ) : V)) := by
   obtain ⟨⟨_, hccv⟩, -, fvsP, crest, tfvs, trest, xFvs, idxArgs', hopC, hopT, hdoms, hopX,
-    -, -, -, hsorts⟩ := ConLeche.checkMutualCtor_shape hCtor
-  obtain ⟨-, -, -, -, hlbt, hitf, type', -, -, hann', -, -, -, -, rfl⟩ :=
-    ConLeche.checkConstantVal_inv hccv
-  obtain ⟨htf', hbt'⟩ := annotate_syntax hann' hitf hlbt
-  simp only at htf' hbt' hopC hsorts
+    -, -, -, hsorts⟩ := ConLeche.checkMutualCtorG_shape hCtor
+  have htf' := hccv.noFvar
+  have hbt' := hccv.bounded
   have hlenP : fvsP.length = nP := openPisAtFvars_length _ hopC
   have hopAll := openPisAtFvars_add nP hopC (by rw [Nat.zero_add]; exact hopX)
   obtain ⟨hTf, -, -, hTb, -⟩ := mp.base2.wf _ (ConLeche.Semantics.Env.find?_mem hfT)
@@ -368,7 +364,7 @@ theorem mutualCtorFrames (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ e
       (by rw [hFD.len ψ]; omega)
     obtain ⟨rfl, -⟩ := Prod.mk.injEq _ _ _ _ ▸ Option.some.inj (hst'.symm.trans hst'')
     subst hΓt
-    have hC : Opened mp.base2 ψ (nP + nF) type' (fvsP ++ xFvs)
+    have hC : Opened mp.base2 ψ (nP + nF) cvCa.type (fvsP ++ xFvs)
         (Expr.mkAppN (.const T (lps.map .param)) (fvsP ++ idxArgs'))
         ((ds ψ).map (·.2.2)).reverse (ctorBodyAVI mp.base2 T nP nF ψ (Es ψ)) :=
       opened_of_peel hopAll htf' hbt' (hCD.read ψ) (hCD.len ψ) (hCD.okTy ψ)

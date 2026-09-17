@@ -84,6 +84,23 @@ FALLBACK = {
     # their statements without `SetTheory`/`Name`/`Env`/`NoProjEnv`/
     # `consMutualFormers` in the public view ("Unknown identifier … imported
     # privately"); one re-export each stays.
+    # task #315 U-12: `NestedSlotRead`'s three re-exports became demotion
+    # candidates when the M5 merge changed the graph around them (the
+    # fixpoint is order-dependent).  Demoting all three empties the file's
+    # public view (`Name`/`Level`/`Expr` unknown); demoting `Verify.Subst`
+    # alone leaves the EXPOSED `def`s `Expr.absConstAt`/`absMembersGo`
+    # naming `fvarsBelow`/`substFvarAt` privately ("unknown identifier",
+    # task #253's class), and without `Annot.Bit` the proofs' `rfl`s stop
+    # closing.  U-11 applied the plan's own `--only` result; it stays.
+    ('ConLeche.Model.Inductives.NestedSlotRead','ConLeche.Model.Annot.EnvModel'),
+    ('ConLeche.Model.Inductives.NestedSlotRead','ConLeche.Model.Annot.Bit'),
+    ('ConLeche.Model.Inductives.NestedSlotRead','ConLeche.Verify.Subst'),
+    # task #315 U-17: `auxStored_ctor_eq`'s PUBLIC statement projects
+    # `b.ownOffset` (dot-notation on `MutualBlock.ownOffset`, MutualGrouped);
+    # the census cannot attribute a field projection, the checker asks for
+    # the demotion and the compiler refuses it ("environment does not
+    # contain `MutualBlock.ownOffset`").
+    ('ConLeche.Verify.Inductives.NestedAuxInv','ConLeche.Verify.Inductives.MutualGrouped'),
     ('ConLeche.Model.Inductives.BlockRecBridge','ConLeche.Model.Inductives.BlockRecWD'),
     ('ConLeche.Model.Inductives.MutualNoProj','ConLeche.Model.Inductives.TowerCons'),
     ('ConLeche.Model.Inductives.MutualNoProj','ConLeche.Verify.Inductives.MutualInv'),
@@ -93,6 +110,38 @@ FALLBACK = {
     # import is invisible to a public statement — the build says
     # `unknown identifier NRes`.
     ('ConLeche.Verify.Frontend.Local','ConLeche.Frontend.Scan.Naive'),
+    # task #315 L-B (§U.23): `NestedPins`' one public import is the file's
+    # whole public view — `NestedLoop` is where `SetTheory` reaches it, and
+    # the edge became a demotion candidate when `NestedCopyIdx` (a public
+    # importer of `NestedPins`) changed the graph around it (the fixpoint is
+    # order-dependent); demoting it: `unknown identifier SetTheory`.
+    ('ConLeche.Model.Inductives.NestedPins','ConLeche.Model.Inductives.NestedLoop'),
+    # task #315 L-B (§U.23 (e)/(g)): the `inst` kit's one-import views —
+    # `mkPisB` (NestedRestoreOpen), the elimination's records
+    # (NestedElimInv) and the telescope kit (NestedCopyTele) reach the
+    # files' PUBLIC statements through these re-exports; the checker calls
+    # the edges demotable after integration 2 changed the graph, the
+    # compiler refuses ("unknown identifier" / "invalid field notation").
+    ('ConLeche.Verify.Inductives.NestedCopyInstU','ConLeche.Verify.Inductives.NestedRestoreOpen'),
+    ('ConLeche.Verify.Inductives.NestedCopyKinds','ConLeche.Verify.Inductives.NestedRestoreOpen'),
+    ('ConLeche.Verify.Inductives.NestedCopyProv','ConLeche.Verify.Inductives.NestedElimInv'),
+    ('ConLeche.Verify.Inductives.NestedCopyRewrite','ConLeche.Verify.Inductives.NestedCopyTele'),
+    # task #315 L-B (§U.44): the same class at the normalisation's frame —
+    # `NestedCopyNorm`'s public statements name `Env`, `Name`, `EnvWF`,
+    # `openPisAtFvars`, `closeTelescope`, `Expr.ErasedEq` and the three
+    # `norm*` functions, all of which reach it only through these two
+    # re-exports; the checker calls both demotable, the compiler refuses
+    # (`unknown identifier Env`).
+    ('ConLeche.Verify.Inductives.NestedCopyNorm','ConLeche.Verify.Inductives.NestedCopyTele'),
+    ('ConLeche.Verify.Inductives.NestedCopyNorm','ConLeche.Verify.Inductives.MutualNormPres'),
+    # task #315 L-B (§U.34): the assembly's one public import is its whole
+    # public view — `SetTheory`, `EnvModelM`, `NestedPinsRun`,
+    # `NestedPinGroupSyn`, `PinData` and the block lists reach its
+    # statements only through this re-export; the edge became a demotion
+    # candidate when session 5's own theorems changed the graph around it
+    # (the fixpoint is order-dependent), and the compiler refuses it
+    # (`unknown identifier SetTheory`).
+    ('ConLeche.Model.Inductives.NestedCopyInst','ConLeche.Model.Inductives.NestedCopyRead'),
     # task #315 U-7: `MutualIdxUniv`'s one public import is likewise the
     # file's whole public view — demoting it kills its own
     # `variable [SetTheory V]` (`unknown identifier SetTheory`).
@@ -102,6 +151,42 @@ FALLBACK = {
     # only through `FixStageRec`'s closure — task #290's class: a private
     # import is invisible to a public statement (`unknown identifier`).
     ('ConLeche.Model.Inductives.MutualIdxUniv','ConLeche.Model.Inductives.FixStageRec'),
+    # task #315 U-16: `InstAll`'s one public import is the file's whole
+    # public view — demoting it kills its own `variable [SetTheory V]`
+    # (`unknown identifier SetTheory`), the `MutualIdxUniv` class.
+    ('ConLeche.Semantics.Tower.InstAll','ConLeche.Semantics.Tower.SumRecCase'),
+    # task #315 U-16: the two nested Verify modules' one public import is
+    # their whole public view (their statements name `Env`, `Expr`, the
+    # kernel's nested functions) — the same class.
+    ('ConLeche.Verify.Inductives.NestedAuxInv','ConLeche.Kernel.Inductives.NestedInstall'),
+    ('ConLeche.Verify.Inductives.NestedElimInv','ConLeche.Kernel.Inductives.NestedInstall'),
+    # task #315 U-18: `NestedRecNames`'s statements name `AuxStored`/`Env`
+    # — the same class (the demotion the gate proposed is refused by the
+    # compiler).
+    ('ConLeche.Verify.Inductives.NestedRecNames','ConLeche.Kernel.Inductives.NestedInstall'),
+    # task #315 U-19: the check called these five demotable and the
+    # compiler refused each — `NestedStageCtor`'s statements reach
+    # `SetTheory` only through `SumData`/`MutualTagI`'s public closure and
+    # the kernel's nested functions through `NestedInstall`;
+    # `NestedRestoreTbl`'s name `NestedParts`/`ElimState`/`restoreTbl`
+    # (`NestedInstall`) and the `restoreWalk` kit (`NestedInv`) — the
+    # same class.
+    ('ConLeche.Model.Inductives.NestedStageCtor','ConLeche.Kernel.Inductives.NestedInstall'),
+    ('ConLeche.Model.Inductives.NestedStageCtor','ConLeche.Model.Inductives.SumData'),
+    ('ConLeche.Model.Inductives.NestedStageCtor','ConLeche.Semantics.Tower.MutualTagI'),
+    ('ConLeche.Verify.Inductives.NestedRestoreTbl','ConLeche.Kernel.Inductives.NestedInstall'),
+    ('ConLeche.Verify.Inductives.NestedRestoreTbl','ConLeche.Verify.Inductives.NestedInv'),
+    # task #315 U-20: two of the eleven demotions the gate proposed when U-19
+    # and U-19b were merged, refused by the compiler — `NestedPins`'s
+    # `variable` binders reach `SetTheory` only through `NestedLoop`'s
+    # public closure (the same class), and `NestedTransfer`'s public
+    # statements name `Expr.eraseAnnots` (a public statement is elaborated
+    # in the public view, where a plain import is invisible).  Lane L-A
+    # met the first on its own base too (the edge became a candidate
+    # there when `NestedPinsU`'s exposed `def` left the file — the same
+    # order-dependence); one entry.
+    ('ConLeche.Model.Inductives.NestedPins','ConLeche.Model.Inductives.NestedLoop'),
+    ('ConLeche.Model.Inductives.NestedTransfer','ConLeche.Verify.EraseAnnots'),
     # task #315: `BlockRecWD`'s one public import is the file's whole
     # public view (`SetTheory`, `BlockReadings`, `BlockReps`, the datum);
     # the model calls it demotable (nothing downstream re-exports through
@@ -109,6 +194,17 @@ FALLBACK = {
     # `def … : Prop` BODIES, task #253's class), and demoting it makes the
     # file's own `variable [SetTheory V]` fail to resolve.
     ('ConLeche.Model.Inductives.BlockRecWD','ConLeche.Model.Inductives.BlockRecTyped'),
+    # task #315 M7-2: `NestedRecFrames`'s three re-exports became demotion
+    # candidates when §1e's own theorems changed the graph around them (the
+    # fixpoint is order-dependent).  Each is refused by the compiler, the
+    # `MutualIdxUniv`/`NestedPins` class: without `NestedRecCtor` the file's
+    # `variable [SetTheory V]` and `OpenersFrom` are unknown in the public
+    # view, without `NestedRecTypes` its statements lose `nestedRecCvAt`,
+    # and without `NestedRestoreTbl` they lose `PinsAligned` — probed one at
+    # a time, each demotion alone fails to build.
+    ('ConLeche.Model.Inductives.NestedRecFrames','ConLeche.Model.Inductives.NestedRecCtor'),
+    ('ConLeche.Model.Inductives.NestedRecFrames','ConLeche.Model.Inductives.NestedRecTypes'),
+    ('ConLeche.Model.Inductives.NestedRecFrames','ConLeche.Verify.Inductives.NestedRestoreTbl'),
 }
 
 files=[f for f in subprocess.check_output(['git','ls-files','*.lean']).decode().split()

@@ -223,7 +223,7 @@ def DeclNestedRun (μ : CheckMode) (F : Nat) (env : Env)
     -- THE MINT PARENTS (K.40): every recorded parent is an EARLIER pin,
     -- so the chain terminates and an instance's root is its
     -- parent-minimal member — the covering walk the transfer needs
-    ConLeche.certOnly μ (ConLeche.nestedPinParentOk st) = true ∧
+    ConLeche.certOnly μ (ConLeche.nestedPinParentOk p st) = true ∧
     -- POST-CHECK (a) A THIRD TIME (K.30): the pins typed at the
     -- environment holding the RESTORED formers — the model tier's own
     ConLeche.nestedPinsOk (m := CheckM) (fueledOps μ F)

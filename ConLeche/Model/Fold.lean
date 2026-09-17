@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Model.AxiomReduce
+import ConLeche.Model.AxiomReduce
 import ConLeche.Model.DeclInd
 import ConLeche.Model.Inductives.DeclStruct
 import ConLeche.Semantics.IndBlockFacts
@@ -74,17 +74,19 @@ def AxiomStepPB (V : Type w) [SetTheory V] (μ : CheckMode) : Prop :=
     DeclAxiomRun μ F env cv env₂ →
     Nonempty (EnvModelM V μ env₂)
 
-/-- **`AxiomStepPB`, discharged — THE PIN BUNDLE IS CLOSED.**  All four
-`DeclAxiomR` branches: the two standard axioms (`axiomStd`, ENDGAME
-C), `Lean.trustCompiler` (`axiomTrustCompiler`, ENDGAME A part 2),
-`ofReduceNat`/`ofReduceBool` (`axiomOfReduce`, ENDGAME D, on the new
-`ReduceOps` field), and the tolerated skip (`axiomSkip`, which stores
-nothing). -/
-theorem axiomStepPB_of (hμ : μ.verifiedChecks = true) : AxiomStepPB V μ := by
-  intro _F _env mp _cv _env₂ hR
+/-- **The axiom kind's step, WITH THE CARRIER AGREEMENT** (task #315
+M7-3): every `DeclAxiomR` branch conses one fresh `axiomInfo` (or, at
+the tolerated skip, nothing), so the model it produces values every OLD
+constant as the prefix model did — the fact the block-model field
+`EnvModelB.blocks` is maintained by (`EnvModelBStages.lean`).
+`axiomStepPB_of` is its `Nonempty` projection. -/
+theorem axiomStepAgree_of (hμ : μ.verifiedChecks = true) {F : Nat} {env : Env}
+    (mp : EnvModelM V μ env) {cv : ConstantVal} {env₂ : Env}
+    (hR : DeclAxiomRun μ F env cv env₂) :
+    ∃ mp' : EnvModelM V μ env₂, AcvalAgrees mp.base2 mp'.base2 := by
   -- the `Quot.sound` arm (task #293) installs nothing
   rcases hR with ⟨-, rfl⟩ | hR
-  · exact ⟨mp⟩
+  · exact ⟨mp, AcvalAgrees.rfl' _⟩
   obtain ⟨type', hcv, hbranch⟩ := hR
   rcases hbranch with ⟨hok, rfl⟩ | ⟨hname, hok, rfl⟩ |
     ⟨hor, hok, rfl⟩ | ⟨-, -, -, -, -, -, -, rfl⟩
@@ -93,6 +95,16 @@ theorem axiomStepPB_of (hμ : μ.verifiedChecks = true) : AxiomStepPB V μ := by
   · exact axiomOfReduce hμ mp hcv hor hok
   · exact axiomSkip mp
 
+/-- **`AxiomStepPB`, discharged — THE PIN BUNDLE IS CLOSED.**  All four
+`DeclAxiomR` branches: the two standard axioms (`axiomStd`, ENDGAME
+C), `Lean.trustCompiler` (`axiomTrustCompiler`, ENDGAME A part 2),
+`ofReduceNat`/`ofReduceBool` (`axiomOfReduce`, ENDGAME D, on the new
+`ReduceOps` field), and the tolerated skip (`axiomSkip`, which stores
+nothing). -/
+theorem axiomStepPB_of (hμ : μ.verifiedChecks = true) : AxiomStepPB V μ := by
+  intro _F _env mp _cv _env₂ hR
+  exact ⟨(axiomStepAgree_of hμ mp hR).choose⟩
+
 /-- The basis kind's whole step, routed (basis tier). -/
 def BasisStepPB (V : Type w) [SetTheory V] (μ : CheckMode) : Prop :=
   ∀ {env : Env}, EnvModelM V μ env →
@@ -100,13 +112,20 @@ def BasisStepPB (V : Type w) [SetTheory V] (μ : CheckMode) : Prop :=
       DeclBasisRun env kind env₂ →
       Nonempty (EnvModelM V μ env₂)
 
-/-- **`BasisStepPB`, discharged** (task #161, ENDGAME H; the `False` block
-at task #181): all pinned basis blocks install at the P tier.  Exactly `declBasisS`'s
-dispatch shape, and — as there — `quotK` is the one branch whose
-`DeclBasisRun` guard is not vacuous: it needs `Eq` in the prefix, which
-is what the block's `Eq` bridge consumes. -/
-theorem basisStepPB_of : BasisStepPB V μ := by
-  intro env mp kind env₂ h
+/-- **The basis kind's step, WITH THE CARRIER AGREEMENT** (task #315
+M7-3 session 9, DESIGN §U.55 (b)): every pinned block is a chain of
+three to five fresh conses, so the model it produces values every OLD
+constant as the prefix model did — the fact the block-model field
+`EnvModelB.blocks` is maintained by, and the one the basis blocks'
+`EnvBlocksOf.extendBasisOf` cannot state about an anonymous model.
+`basisStepPB_of` is its `Nonempty` projection.
+
+`quotK` is the one branch whose `DeclBasisRun` guard is not vacuous: it
+needs `Eq` in the prefix, which is what the block's `Eq` bridge
+consumes. -/
+theorem basisStepAgree_of {env : Env} (mp : EnvModelM V μ env)
+    {kind : ConLeche.BasisKind} {env₂ : Env} (h : DeclBasisRun env kind env₂) :
+    ∃ mp' : EnvModelM V μ env₂, AcvalAgrees mp.base2 mp'.base2 := by
   obtain ⟨hEq, hchain⟩ := h
   cases kind with
   | eqK => exact declBasisPB_eqK mp hchain
@@ -115,6 +134,13 @@ theorem basisStepPB_of : BasisStepPB V μ := by
   | emptyK => exact declBasisPB_emptyK mp hchain
   | falseK => exact declBasisPB_falseK mp hchain
   | quotK => exact declBasisPB_quotK mp (hEq rfl) hchain
+
+/-- **`BasisStepPB`, discharged** (task #161, ENDGAME H; the `False` block
+at task #181): all pinned basis blocks install at the P tier —
+`basisStepAgree_of` forgetting its agreement. -/
+theorem basisStepPB_of : BasisStepPB V μ := by
+  intro env mp kind env₂ h
+  exact ⟨(basisStepAgree_of mp h).choose⟩
 
 /-- The inductive kind's whole step — **no longer routed** (task #161,
 IND TIER part 10): `indStepPB_of` below discharges it.  The definition
@@ -182,19 +208,19 @@ theorem declStep_preserves (hμ : μ.verifiedChecks = true) {F : Nat} {env env�
     have hsh := hrun
     obtain ⟨type', value', hcv, -, henv2, -, -⟩ := hsh
     subst henv2
-    exact harvestDefn hμ mp hrun
+    exact ⟨(harvestDefn hμ mp hrun).choose⟩
   | thmDecl cv value =>
     have hsh := hrun
     -- one dash fewer than the `DeclR` pattern: the run record has no
     -- is-a-proposition derivation row (task #161 S11a)
     obtain ⟨type', value', hcv, -, -, henv2⟩ := hsh
     subst henv2
-    exact harvestThm hμ mp hrun
+    exact ⟨(harvestThm hμ mp hrun).choose⟩
   | opaqueDecl cv value =>
     have hsh := hrun
     obtain ⟨type', value', hcv, -, henv2, -⟩ := hsh
     subst henv2
-    exact harvestOpaque hμ mp hrun
+    exact ⟨(harvestOpaque hμ mp hrun).choose⟩
   | axiomDecl cv => exact axiomStepPB_of hμ mp hrun
   | basisDecl kind => exact basisStepPB_of mp hrun
   | quotDecl k cv =>

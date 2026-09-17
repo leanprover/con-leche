@@ -323,7 +323,7 @@ theorem ruleRhs_read_of (hd : MutualBlockModelOf env₀ b fms ctorsA d)
     simp only [hfields, List.mem_map] at him
     obtain ⟨i', hi'', rfl⟩ := him
     obtain ⟨cvT, cvR, mI, rP, rules, hrep⟩ := hrepsP c hc
-    exact hrep.tgtsLt c j i' hc hj' (mem_recIdxOf.mp hi'').1
+    exact hrep.tgt_lt hj' (mem_recIdxOf.mp hi'').1 hd.pins
   have hgen' : ConLeche.mutualRecRhs b.lps b.elim b.large b.nP formers4 ctors4
       (fun q => b.recName (if q < d.k then q else 0)) (b.rlps.map Level.param) (d.minorIdx t i)
       = some rhs := by
@@ -339,7 +339,7 @@ theorem ruleRhs_read_of (hd : MutualBlockModelOf env₀ b fms ctorsA d)
   congr 2
   refine mutualRuleCoreAV_congr_Rof fun i' hi'' => ?_
   obtain ⟨cvT, cvR, mI, rP, rules, hrep⟩ := hrepsP t ht
-  rw [if_pos (hrep.tgtsLt t i i' ht hi' (mem_recIdxOf.mp hi'').1)]
+  rw [if_pos (hrep.tgt_lt hi' (mem_recIdxOf.mp hi'').1 hd.pins)]
 
 end Reading
 
@@ -372,7 +372,8 @@ theorem mutualRecsStore_of (mp₂ : EnvModelM V μ env₂)
     (hrules : ConLeche.checkMutualAllRules (m := ConLeche.CheckM)
       (ConLeche.provisionMutualRecs b fms cvRas.zipIdx env₂) b formers4 ctors4 streamRecs b.k
       = .ok rulesOf)
-    (hd : MutualBlockModelOf env₀ b fms ctorsA d) (hreps : IsBlockModels mp₂.base2 d)
+    (hd : MutualBlockModelOf env₀ b fms ctorsA d) {cvTs : Nat → ConstantVal}
+    (hreps : IsBlockModelsAt mp₂.base2 d cvTs)
     (htyped : ∀ ψ : Name → Nat, FormersTyped mp₂.base2 d ψ ∧ CtorsTyped mp₂.base2 d ψ)
     (hrecNames : ∀ t, t < b.k → env₂.find? (b.recName t) = none ∧
       ConLeche.reservedBasisNames.contains (b.recName t) = false ∧
@@ -387,7 +388,7 @@ theorem mutualRecsStore_of (mp₂ : EnvModelM V μ env₂)
     (hP : ProvisionedRecs mp₂ b fms cvRas d s mpP) :
     ∃ mp₃ : EnvModelM V μ (ConLeche.storeMutualRecs env₂ b fms rulesOf cvRas.zipIdx env₂),
       (∀ n, n ∉ b.blockNames → ∀ ψ : Name → Nat, mp₃.base2.acval n ψ = mp₂.base2.acval n ψ) ∧
-      IsBlockModels mp₃.base2 d ∧
+      IsBlockModelsAt mp₃.base2 d cvTs ∧
       (∀ ψ : Name → Nat, FormersTyped mp₃.base2 d ψ ∧ CtorsTyped mp₃.base2 d ψ) ∧
       ∀ (t : Nat) (f : MutualFormerA), fms[t]? = some f →
         MemberStored mp₃.base2 b.lps b.nP f d.resSort (d.ppsM t) := by
@@ -450,9 +451,10 @@ theorem mutualRecsStore_of (mp₂ : EnvModelM V μ env₂)
     rw [heq, hfresh t ht] at hn
     exact nomatch hn
   have hde₁ := provision_hde (m := mp₂.base2) (mP := mpP.base2) hfreshZ hndZ hag₁
-  have hrepsP : IsBlockModels mpP.base2 d := hreps.crossEnv hF₁ hres₁ hag₁ hde₁
+  have hrepsP : IsBlockModelsAt mpP.base2 d cvTs := hreps.crossEnv hF₁ hres₁ hag₁ hde₁
   have htypedP : ∀ ψ : Name → Nat, FormersTyped mpP.base2 d ψ ∧ CtorsTyped mpP.base2 d ψ :=
-    fun ψ => ⟨(htyped ψ).1.crossEnv hag₁ hreps, (htyped ψ).2.crossEnv hag₁ hreps⟩
+    fun ψ => ⟨(htyped ψ).1.crossEnv hag₁ hreps.toIsBlockModels,
+      (htyped ψ).2.crossEnv hag₁ hreps.toIsBlockModels⟩
   have hstoredP : ∀ (t : Nat) (f : MutualFormerA), fms[t]? = some f →
       MemberStored mpP.base2 b.lps b.nP f d.resSort (d.ppsM t) :=
     fun t f hf => (hstored t f hf).crossEnv hF₁ hde₁
@@ -477,7 +479,7 @@ theorem mutualRecsStore_of (mp₂ : EnvModelM V μ env₂)
   have hagC : ∀ (c j : Nat) (cA : ConstantVal × Nat), c < d.k → (d.ctorsM c)[j]? = some cA →
       mpP.base2.acval cA.1.name = mp₂.base2.acval cA.1.name := by
     intro c j cA hc hj
-    obtain ⟨cvT, cvR, mI, rP, rules, hrep⟩ := hreps c hc
+    obtain ⟨cvR, mI, rP, rules, hrep⟩ := hreps c hc
     exact hag₁ _ (by rw [(hrep.ctors c j cA hc hj).1]; rfl)
   -- the recursor table at the provision
   have hfR : ∀ t, t < d.k → ∃ ci : ConstantInfo,
@@ -528,7 +530,7 @@ theorem mutualRecsStore_of (mp₂ : EnvModelM V μ env₂)
     rw [hrulesD] at hcr
     obtain ⟨i, cA, hi, hnm, -, -, -, -, -, -, -⟩ :=
       memberRule_of hd h3 hlenA hnames (by rw [← hkd]; exact ht) hrun hcr
-    obtain ⟨cvT, cvR, mI, rP, rules', hrep⟩ := hreps t ht
+    obtain ⟨cvR, mI, rP, rules', hrep⟩ := hreps t ht
     refine ⟨cA.1, d.nP, cA.2, ?_⟩
     show env₂.find? cr.1.cv.name = _
     rw [← hnm]
@@ -559,9 +561,9 @@ theorem mutualRecsStore_of (mp₂ : EnvModelM V μ env₂)
       rw [if_neg hplain]
     rw [if_pos hplain]
     -- the block model at the store's model
-    have hrepsS : IsBlockModels m₃ d :=
+    have hrepsS : IsBlockModelsAt m₃ d cvTs :=
       hrepsP.crossEnv hF₂ hres₂ (fun n _ => congrFun hac n) (swap_hde hcg hac)
-    obtain ⟨cvT₃, cvR₃, mI₃, rP₃, rules₃, hrep₃⟩ := hrepsS t ht
+    obtain ⟨cvR₃, mI₃, rP₃, rules₃, hrep₃⟩ := hrepsS t ht
     obtain ⟨hfC₃, -, hcd₃⟩ := hrep₃.ctors t i cA ht hi
     -- the arities
     have hmI : b.rulePrefix + (fms.getD t default).nIdx = d.nP + d.k + d.nCtors + d.nIdxAt t := by
@@ -584,7 +586,8 @@ theorem mutualRecsStore_of (mp₂ : EnvModelM V μ env₂)
               (fun t' => d.recLeaf mp₂.base2 b.elimLevel s b.rlps t' ψ) t i cA.2 ψ) := by
       intro ψ
       rw [hac, ← denoteMeta_swap hcg,
-        ruleRhs_read_of hd hgd hlenF h0k h2 h3 hlenA hlenK hnames hkinds hrepsP hstoredP hfR ht hi
+        ruleRhs_read_of hd hgd hlenF h0k h2 h3 hlenA hlenK hnames hkinds hrepsP.toIsBlockModels
+          hstoredP hfR ht hi
           hgen ψ]
       unfold BlockModel.ruleRhsAV BlockModel.ruleData
       congr 2
@@ -609,14 +612,14 @@ theorem mutualRecsStore_of (mp₂ : EnvModelM V μ env₂)
         exact congrFun (hag₁ _ (by rw [hname, hfind]; rfl)) ψ
       · -- the core: the recursors are the provisioned leaves
         refine mutualRuleCoreAV_congr_Rof fun i' hi'' => ?_
-        obtain ⟨cvT, cvR, mI, rP, rules', hrep⟩ := hreps t ht
-        have htgt := hrep.tgtsLt t i i' ht hi' (mem_recIdxOf.mp hi'').1
+        obtain ⟨cvR, mI, rP, rules', hrep⟩ := hreps t ht
+        have htgt := hrep.tgt_lt hi' (mem_recIdxOf.mp hi'').1 hd.pins
         rw [← (hP.names _ htgt).1]
         exact hP.leaves _ htgt ψ
     have hrule : (⟨cr.1.cv.name, cr.1.nF, b.nP, ConLeche.RecRuleFire.plain, cr.2, kb, eb, true⟩ : RecRule)
         = ⟨cA.1.name, cA.2, d.nP, .plain, cr.2, kb, eb, true⟩ := by
       rw [hnm, hnF, hd.nP]
-    refine blockRecRuleLaw m₃ hreps (fun ψ => (htyped ψ).1) (fun ψ => (htyped ψ).2)
+    refine blockRecRuleLaw m₃ hreps.toIsBlockModels hd.pins (fun ψ => (htyped ψ).1) (fun ψ => (htyped ψ).2)
       (fun n ψ ρ => mp₂.acval_validV n ψ ρ) hwℓ hR (fun ψ mm hmm ρ => (hP.recData mm hmm).okTy ψ ρ)
       hrdsR hleafCl (fun t' ht' ψ ρ => hP.leafTyped ψ ρ t' ht') hP.iota
       (fun c j cA' hc hj ψ => by rw [hac]; exact congrFun (hagC c j cA' hc hj) ψ) ht hi
@@ -634,8 +637,8 @@ theorem mutualRecsStore_of (mp₂ : EnvModelM V μ env₂)
     unfold ConLeche.MutualBlock.blockNames
     exact List.mem_append_right _ (List.mem_map_of_mem (List.mem_range.mpr (by rw [← hkd]; exact ht)))
   · exact hrepsP.crossEnv hF₂ hres₂ (fun n _ => congrFun hac n) (swap_hde hcg hac)
-  · exact ⟨(htypedP ψ).1.crossEnv (fun n _ => congrFun hac n) hrepsP,
-      (htypedP ψ).2.crossEnv (fun n _ => congrFun hac n) hrepsP⟩
+  · exact ⟨(htypedP ψ).1.crossEnv (fun n _ => congrFun hac n) hrepsP.toIsBlockModels,
+      (htypedP ψ).2.crossEnv (fun n _ => congrFun hac n) hrepsP.toIsBlockModels⟩
   · exact (hstoredP t f hf).crossEnv hF₂ (swap_hde hcg hac)
 
 end Store
@@ -645,11 +648,11 @@ end Store
 /-- **The store's stage, proved**: `mutualRecsStore_of` at the run
 facts of `MutualRecsStored`. -/
 theorem mutualRecsStored {F : Nat} : MutualRecsStored V μ F := by
-  intro hμ env mp hE b streamRecs fms f₀ tq₀ ctorsA sortss kinds formers4 ctors4 cvRas rulesOf
+  intro hμ env mp hE b streamRecs g fms f₀ tq₀ ctorsA sortss kinds formers4 ctors4 cvRas rulesOf
     h0 h1 h2 h3 hformers hf₀ htq₀ hcross hL hctors hkindsC hfo hgd hrectys hrules mp₂ hE₂ hagree
-    d hd hreps htyped hrecNames hstored hkinds s mpP hP
+    d cvTs hd hreps htyped hrecNames hstored hkinds s mpP hP
   obtain ⟨hchecks, -⟩ := ConLeche.mutualFormers_inv hformers
-  have hlenF : fms.length = b.k := (mutualFormerChecks_pos hchecks).1
+  have hlenF : fms.length = b.k := (mutualFormerChecksG_pos hchecks).1
   obtain ⟨-, -, -, hlenK⟩ := ConLeche.classifyMutualKinds_inv hkindsC
   obtain ⟨hlenA, hnames⟩ := ctorsA_names_of hctors h1
   exact mutualRecsStore_of mp₂ h0 h2 h3 hf₀ hlenF hL hlenA hlenK hnames hgd hrectys hrules hd hreps

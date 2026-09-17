@@ -2,7 +2,7 @@ module
 
 import ConLeche.Model.Capstone
 import ConLeche.Model.NatEqs
-public import ConLeche.Model.DivModCert
+import ConLeche.Model.DivModCert
 import ConLeche.Model.Caps
 import ConLeche.Model.RecRulesCons
 public import ConLeche.Model.ReduceOps
@@ -163,7 +163,7 @@ theorem harvestDefn (hμ : μ.verifiedChecks = true)
     {cv : ConstantVal} {value : Expr} {hint : ReducibilityHint}
     {env₂ : Env}
     (hR : DeclDefnRun μ F env cv value hint env₂) :
-    Nonempty (EnvModelM V μ env₂) := by
+    ∃ mp' : EnvModelM V μ env₂, AcvalAgrees mp.base2 mp'.base2 := by
   obtain ⟨type', value', hcv, hvfr, rfl, hnatc, hdmc⟩ := hR
   obtain ⟨hfind, hnres, hpshape, hnd, hlbt, hitf, hann, htp, htr,
     hrunT⟩ := hcv
@@ -311,7 +311,7 @@ theorem harvestDefn (hμ : μ.verifiedChecks = true)
         (A := A) hfresh (fun _ h => ConstantInfo.noConfusion h)
         ψ 0 e hcb h
   -- assemble
-  refine ⟨(declStep_preserves_of_cons mp
+  refine exists_agrees_of_cons hfresh (declStep_preserves_of_cons mp
     (c₀ := .defnInfo ⟨cv.name, cv.levelParams, type'⟩ value' hint)
     (A := A) hfresh
     (ConsHead.ofFresh
@@ -327,7 +327,7 @@ theorem harvestDefn (hμ : μ.verifiedChecks = true)
         (denoteMeta_erase mp.base2.acval_erase 0 value' (hA ψ)))
       hnres (fun _ heq => nomatch heq)
       (fun _ _ _ _ heq => nomatch heq)) hAclosed
-    hAparams hAok hAvalid ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_).choose⟩
+    hAparams hAok hAvalid ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_)
   · -- `htyReads`
     intro ψ
     show ∃ ta, denoteMeta (acvalWith mp.base2.acval cv.name A)
@@ -543,7 +543,7 @@ theorem harvestThm (hμ : μ.verifiedChecks = true)
     (mp : EnvModelM V μ env)
     {cv : ConstantVal} {value : Expr} {env₂ : Env}
     (hR : DeclThmRun μ F env cv value env₂) :
-    Nonempty (EnvModelM V μ env₂) := by
+    ∃ mp' : EnvModelM V μ env₂, AcvalAgrees mp.base2 mp'.base2 := by
   obtain ⟨type', value', hcv, -, hvfr, rfl⟩ := hR
   obtain ⟨hfind, hnres, hpshape, hnd, hlbt, hitf, hann, htp, htr,
     hrunT⟩ := hcv
@@ -689,7 +689,7 @@ theorem harvestThm (hμ : μ.verifiedChecks = true)
         (A := A) hfresh (fun _ h => ConstantInfo.noConfusion h)
         ψ 0 e hcb h
   -- assemble
-  refine ⟨(declStep_preserves_of_cons mp
+  refine exists_agrees_of_cons hfresh (declStep_preserves_of_cons mp
     (c₀ := .thmInfo ⟨cv.name, cv.levelParams, type'⟩ value)
     (A := A) hfresh
     (ConsHead.ofFresh
@@ -703,7 +703,7 @@ theorem harvestThm (hμ : μ.verifiedChecks = true)
         (denoteMeta_erase mp.base2.acval_erase 0 value' (hA ψ)))
       hnres (fun _ heq => nomatch heq)
       (fun _ _ _ _ heq => nomatch heq)) hAclosed
-    hAparams hAok hAvalid ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_).choose⟩
+    hAparams hAok hAvalid ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_)
   · -- `htyReads`
     intro ψ
     show ∃ ta, denoteMeta (acvalWith mp.base2.acval cv.name A)
@@ -883,8 +883,9 @@ theorem harvestAxiom (hμ : μ.verifiedChecks = true)
     -- the nose), and none of the pinned names is a reduce operation —
     -- the operations are installed as `opaque`s, never as axioms.
     (hnotreduce : cv.name ∉ ConLeche.reduceOpNames) :
-    Nonempty (EnvModelM V μ
-      ⟨.axiomInfo ⟨cv.name, cv.levelParams, type'⟩ :: env.consts⟩) := by
+    ∃ mp' : EnvModelM V μ
+      ⟨.axiomInfo ⟨cv.name, cv.levelParams, type'⟩ :: env.consts⟩,
+      AcvalAgrees mp.base2 mp'.base2 := by
   obtain ⟨hfind, hnres, hpshape, hnd, hlbt, hitf, hann, htp, htr,
     hrunT⟩ := hcv
   obtain ⟨htf', hbt'⟩ := annotate_syntax hann hitf hlbt
@@ -944,7 +945,7 @@ theorem harvestAxiom (hμ : μ.verifiedChecks = true)
         (A := A) hfresh (fun _ h => ConstantInfo.noConfusion h)
         ψ 0 e hcb h
   -- assemble
-  refine ⟨(declStep_preserves_of_cons mp
+  refine exists_agrees_of_cons hfresh (declStep_preserves_of_cons mp
     (c₀ := .axiomInfo ⟨cv.name, cv.levelParams, type'⟩)
     (A := A) hfresh
     (ConsHead.ofFresh
@@ -957,7 +958,7 @@ theorem harvestAxiom (hμ : μ.verifiedChecks = true)
       hAvclosed hnres (fun _ heq => nomatch heq)
       (fun _ _ _ _ heq => nomatch heq))
     hAclosed
-    hAparams hAok hAvalid ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_).choose⟩
+    hAparams hAok hAvalid ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_)
   · -- `htyReads`
     intro ψ
     show ∃ ta, denoteMeta (acvalWith mp.base2.acval cv.name A)
@@ -1048,7 +1049,7 @@ theorem harvestOpaque (hμ : μ.verifiedChecks = true)
     (mp : EnvModelM V μ env)
     {cv : ConstantVal} {value : Expr} {env₂ : Env}
     (hR : DeclOpaqueRun μ F env cv value env₂) :
-    Nonempty (EnvModelM V μ env₂) := by
+    ∃ mp' : EnvModelM V μ env₂, AcvalAgrees mp.base2 mp'.base2 := by
   obtain ⟨type', value', hcv, hvfr, rfl, hred⟩ := hR
   obtain ⟨hfind, hnres, hpshape, hnd, hlbt, hitf, hann, htp, htr,
     hrunT⟩ := hcv
@@ -1194,7 +1195,7 @@ theorem harvestOpaque (hμ : μ.verifiedChecks = true)
         (A := A) hfresh (fun _ h => ConstantInfo.noConfusion h)
         ψ 0 e hcb h
   -- assemble
-  refine ⟨(declStep_preserves_of_cons mp
+  refine exists_agrees_of_cons hfresh (declStep_preserves_of_cons mp
     (c₀ := .axiomInfo ⟨cv.name, cv.levelParams, type'⟩)
     (A := A) hfresh
     (ConsHead.ofFresh
@@ -1209,7 +1210,7 @@ theorem harvestOpaque (hμ : μ.verifiedChecks = true)
       hnres (fun _ heq => nomatch heq)
       (fun _ _ _ _ heq => nomatch heq))
     hAclosed
-    hAparams hAok hAvalid ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_).choose⟩
+    hAparams hAok hAvalid ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_)
   · -- `htyReads`
     intro ψ
     show ∃ ta, denoteMeta (acvalWith mp.base2.acval cv.name A)

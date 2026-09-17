@@ -5,6 +5,7 @@ public import ConLeche.Model.Inductives.MutualChains
 import ConLeche.Model.Inductives.MutualLeafBelow
 import ConLeche.Verify.Inductives.MutualInv
 import ConLeche.Verify.Inductives.MutualWF
+import ConLeche.Verify.Inductives.FrontDoor
 public section
 
 /-!
@@ -13,7 +14,12 @@ public section
 `stageMutualFormer`: the P step at ONE member's cons — the member's
 leaf `mutualTyAVI` (`Semantics/Tower/MutualLeafI.lean`) consed with the
 block's EMPTY capability record, `stageFixFormer` with the fibre leaf
-in place of the fixpoint one.  `mutualLeafWalks` is `fixLeafWalks` at
+in place of the fixpoint one.  That leaf is built on the CASED family
+functor (`Semantics/Tower/CaseFamI.lean`): at a tuple of member `m` the
+sum runs over member `m`'s own chain suffix from `offs m` on, so an
+element's tag is member-local (DESIGN §U.15 (c), task #315 M6 s4); the
+block's offsets `offs` are therefore threaded through the leaf, its
+walks and the formers' loop.  `mutualLeafWalks` is `fixLeafWalks` at
 that leaf: the member's hereditary premise (`ParamsOkMI`) and the
 tower's validity are walked from the former's binder data
 (`FormerData`) down to the frame below the parameters and the member's
@@ -87,14 +93,14 @@ omit [SetTheory V] in
 (closed at the parameters) applied to the auxiliary tupler at the
 member's tagged tuple of its own index variables. -/
 theorem mutualTyAVI_below {W w nP nIdx t : Nat} {pps : List (Nat × Nat × AnnotTerm)}
-    {Idss : List (List AnnotTerm)} {rss : List (List Bool)}
+    {Idss : List (List AnnotTerm)} {offs : Nat → Nat} {rss : List (List Bool)}
     {tlss : List (List (List (Nat × Nat × AnnotTerm)))} {Eiss' : List (List (List AnnotTerm))}
     {Fss₀ Ess' : List (List AnnotTerm)}
     (hp : DomsBelow 0 pps) (hlen : pps.length = nP + nIdx)
     (hIds : ∀ Ids ∈ Idss, FieldsBelow nP Ids)
     (hchains : ∀ chain ∈ chainsXI W (auxIds W Idss) 1 rss tlss Eiss' Fss₀ Ess',
       FieldsBelow (nP + 2) chain) :
-    Term.bvarsBelow 0 (mutualTyAVI W w pps nIdx Idss rss tlss Eiss' Fss₀ Ess' t).erase := by
+    Term.bvarsBelow 0 (mutualTyAVI W w pps nIdx Idss offs rss tlss Eiss' Fss₀ Ess' t).erase := by
   have hauxB : FieldsBelow nP (auxIds W Idss) := ⟨tagTyAV_below hIds, trivial⟩
   unfold mutualTyAVI
   refine mkLamsAV_below hp.mapC ?_
@@ -103,8 +109,8 @@ theorem mutualTyAVI_below {W w nP nIdx t : Nat} {pps : List (Nat × Nat × Annot
   refine ⟨?_, ?_⟩
   · rw [AnnotTerm.erase_liftN]
     have := VExprAux.bvarsBelow_liftN nIdx
-      (auxBodyAV W w Idss rss tlss Eiss' Fss₀ Ess').erase nP 0
-      (fixBodyAVI_below (w := w) (nIdx := 1) hauxB hchains)
+      (auxBodyAV W w Idss offs rss tlss Eiss' Fss₀ Ess').erase nP 0
+      (caseBodyAVI_below (w := w) (k := Idss.length) (offs := offs) hauxB hchains)
     exact this
   · rw [AnnotTerm.erase_mkAppN]
     refine VExprAux.bvarsBelow_mkAppN ?_ ?_
@@ -123,28 +129,48 @@ theorem mutualTyAVI_below {W w nP nIdx t : Nat} {pps : List (Nat × Nat × Annot
       omega
 
 /-- **The auxiliary family's functor is bit-valid** at the parameter
-frame — `fixBody_validV`'s function half at the tag telescope, read
-off a fitting one-element index spine. -/
+frame — the CASED family (`caseBodyAVI`) at the tag telescope: the
+index type and the functor's two binders are `fixBody_validV`'s, and
+the case split's branches are the members' sums over their own chain
+suffixes, each valid because the suffix's chains are among the block's
+global ones. -/
 theorem auxBodyAV_validV {W w : Nat} {ρp : Nat → V} {Idss : List (List AnnotTerm)}
-    {rss : List (List Bool)} {tlss : List (List (List (Nat × Nat × AnnotTerm)))}
+    {offs : Nat → Nat} {rss : List (List Bool)}
+    {tlss : List (List (List (Nat × Nat × AnnotTerm)))}
     {Eiss' : List (List (List AnnotTerm))} {Fss₀ Ess' : List (List AnnotTerm)}
     (hI : IdxOk W ρp (auxIds W Idss)) (hIV : FieldsValid ρp (auxIds W Idss))
     (hchains : ∀ X, X ∈ˢ lfpFamSpace V w (idxSet W ρp (auxIds W Idss)) →
       ∀ t, t ∈ˢ idxSet W ρp (auxIds W Idss) →
       SumFieldsValid (cons t (cons X ρp))
-        (chainsXI W (auxIds W Idss) 1 rss tlss Eiss' Fss₀ Ess'))
-    {z : V} (hsp : SpineFit ρp (auxIds W Idss) [z]) :
-    AnnotValid V ρp (auxBodyAV W w Idss rss tlss Eiss' Fss₀ Ess') := by
-  have h := fixBody_validV (u := W) (w := w) (Ids := auxIds W Idss) (rss := rss)
-    (tlss := tlss) (Eiss := Eiss') (Fss := Fss₀) (Ess := Ess') hI hIV hchains hsp
-  rw [AnnotValid_app] at h
-  have hf := h.1
-  rw [AnnotValid_liftN] at hf
-  have hsh : shiftE (auxIds W Idss).length 0 (consList [z] ρp) = ρp := by
-    rw [show (auxIds W Idss).length = [z].length from rfl]
-    exact shiftE_consList _ ρp
-  rw [hsh] at hf
-  exact hf
+        (chainsXI W (auxIds W Idss) 1 rss tlss Eiss' Fss₀ Ess')) :
+    AnnotValid V ρp (auxBodyAV W w Idss offs rss tlss Eiss' Fss₀ Ess') := by
+  show AnnotValid V ρp (caseBodyAVI W w Idss Idss.length offs rss tlss Eiss' Fss₀ Ess')
+  unfold caseBodyAVI
+  refine mkAppN_validV (by simp) ?_
+  intro a ha
+  simp only [List.mem_cons] at ha
+  rcases ha with rfl | rfl | h
+  · exact towerBodyAV_validV hIV
+  · unfold caseFunAVI
+    rw [AnnotValid_lam]
+    refine ⟨?_, fun X hX => ?_⟩
+    · unfold famTyAV
+      rw [AnnotValid_pi]
+      exact ⟨towerBodyAV_validV hIV, fun _ _ => trivial, fun h => absurd h (Nat.succ_ne_zero _)⟩
+    · rw [(famTyAV_facts hI).1] at hX
+      rw [AnnotValid_lam]
+      have hsh1 : shiftE 1 0 (cons X ρp) = ρp := by
+        rw [show (1 : Nat) = 0 + 1 from rfl, shiftE_succ_cons, shiftE_zero_zero]
+      refine ⟨?_, fun t ht => ?_⟩
+      · rw [AnnotValid_liftN, hsh1]; exact towerBodyAV_validV hIV
+      · rw [interp_liftN, hsh1, (idxTyAV_facts hI).1] at ht
+        refine caseAVAt_validV ?_ (by rw [AnnotValid_fst, AnnotValid_fst]; trivial)
+        intro T hT
+        obtain ⟨m', -, rfl⟩ := List.mem_map.mp hT
+        rw [shiftE_zero_zero]
+        exact sumBodyAV_validV fun Fs hFs =>
+          hchains X hX t ht Fs (List.mem_of_mem_drop hFs)
+  · exact nomatch h
 
 
 /-! ## The member leaf's walks -/
@@ -153,10 +179,11 @@ theorem auxBodyAV_validV {W w : Nat} {ρp : Nat → V} {Idss : List (List AnnotT
 member `t`'s index variables): the auxiliary family applied to the
 1-tuple of the member's tagged index tuple. -/
 @[expose] def mutualLeafBodyAV (W w nIdx : Nat) (Idss : List (List AnnotTerm))
+    (offs : Nat → Nat)
     (rss : List (List Bool)) (tlss : List (List (List (Nat × Nat × AnnotTerm))))
     (Eiss' : List (List (List AnnotTerm))) (Fss₀ Ess' : List (List AnnotTerm)) (t : Nat) :
     AnnotTerm :=
-  .app ((auxBodyAV W w Idss rss tlss Eiss' Fss₀ Ess').liftN nIdx 0)
+  .app ((auxBodyAV W w Idss offs rss tlss Eiss' Fss₀ Ess').liftN nIdx 0)
     (AnnotTerm.mkAppN ((tuplerAV W (auxIds W Idss)).liftN nIdx 0)
       [tagTupleAV W t nIdx Idss (teleVarsAV nIdx)])
 
@@ -164,22 +191,23 @@ omit [SetTheory V] in
 /-- The member's leaf is the constant-bit λ-tower over its binder data
 with that body. -/
 theorem mutualTyAVI_eq_mkLamsC (W w : Nat) (pps : List (Nat × Nat × AnnotTerm)) (nIdx : Nat)
-    (Idss : List (List AnnotTerm)) (rss : List (List Bool))
+    (Idss : List (List AnnotTerm)) (offs : Nat → Nat) (rss : List (List Bool))
     (tlss : List (List (List (Nat × Nat × AnnotTerm)))) (Eiss' : List (List (List AnnotTerm)))
     (Fss₀ Ess' : List (List AnnotTerm)) (t : Nat) :
-    mutualTyAVI W w pps nIdx Idss rss tlss Eiss' Fss₀ Ess' t
-      = mkLamsC (w + 1) pps (mutualLeafBodyAV W w nIdx Idss rss tlss Eiss' Fss₀ Ess' t) := by
+    mutualTyAVI W w pps nIdx Idss offs rss tlss Eiss' Fss₀ Ess' t
+      = mkLamsC (w + 1) pps (mutualLeafBodyAV W w nIdx Idss offs rss tlss Eiss' Fss₀ Ess' t) := by
   rfl
 
 /-- **The member leaf's P currency**: graded at the hereditary premise
 (`ParamsOkMI`), valid under the tower. -/
 theorem mutualTyAVI_wellDenotedV {W w nIdx t : Nat} {pps : List (Nat × Nat × AnnotTerm)}
-    {Idss : List (List AnnotTerm)} {rss : List (List Bool)}
+    {Idss : List (List AnnotTerm)} {offs : Nat → Nat} {rss : List (List Bool)}
     {tlss : List (List (List (Nat × Nat × AnnotTerm)))} {Eiss' : List (List (List AnnotTerm))}
     {Fss₀ Ess' : List (List AnnotTerm)} {ρ : Nat → V}
     (hok : ParamsOkMI W w ρ nIdx Idss rss tlss Eiss' Fss₀ Ess' t pps)
-    (hval : UnderTowerValid ρ (mutualLeafBodyAV W w nIdx Idss rss tlss Eiss' Fss₀ Ess' t) pps) :
-    WellDenotedV V ρ (mutualTyAVI W w pps nIdx Idss rss tlss Eiss' Fss₀ Ess' t) :=
+    (hval : UnderTowerValid ρ (mutualLeafBodyAV W w nIdx Idss offs rss tlss Eiss' Fss₀ Ess' t)
+      pps) :
+    WellDenotedV V ρ (mutualTyAVI W w pps nIdx Idss offs rss tlss Eiss' Fss₀ Ess' t) :=
   ⟨mutualTyAVI_wellDenoted hok,
     by rw [mutualTyAVI_eq_mkLamsC]; exact mkLamsC_validV (m := w + 1) hval⟩
 
@@ -214,6 +242,7 @@ theorem mutualLeafWalks {m : EnvModel V env} {cvT : ConstantVal} {nP nIdx t : Na
     {resSort : Level} {pps : (Name → Nat) → List (Nat × Nat × AnnotTerm)}
     (hFD : FormerData m cvT (nP + nIdx) resSort pps)
     {W : (Name → Nat) → Nat} {Idss : (Name → Nat) → List (List AnnotTerm)}
+    {offs : Nat → Nat}
     {rss : List (List Bool)} {tlss : (Name → Nat) → List (List (List (Nat × Nat × AnnotTerm)))}
     {Eiss' : (Name → Nat) → List (List (List AnnotTerm))}
     {Fss₀ Ess' : (Name → Nat) → List (List AnnotTerm)}
@@ -222,7 +251,7 @@ theorem mutualLeafWalks {m : EnvModel V env} {cvT : ConstantVal} {nP nIdx t : Na
     ParamsOkMI (W ψ) (resSort.eval ψ) ρ nIdx (Idss ψ) rss (tlss ψ) (Eiss' ψ) (Fss₀ ψ) (Ess' ψ) t
         (pps ψ) ∧
       UnderTowerValid ρ
-        (mutualLeafBodyAV (W ψ) (resSort.eval ψ) nIdx (Idss ψ) rss (tlss ψ) (Eiss' ψ) (Fss₀ ψ)
+        (mutualLeafBodyAV (W ψ) (resSort.eval ψ) nIdx (Idss ψ) offs rss (tlss ψ) (Eiss' ψ) (Fss₀ ψ)
           (Ess' ψ) t) (pps ψ) := by
   obtain ⟨hIdsT, hfacts⟩ := hC
   have hst := stripPisAV_mkPisAV (pps ψ) (.sort (resSort.eval ψ))
@@ -245,7 +274,7 @@ theorem mutualLeafWalks {m : EnvModel V env} {cvT : ConstantVal} {nP nIdx t : Na
       MutualBaseI (W ψ) (resSort.eval ψ) ρ nIdx (Idss ψ) rss (tlss ψ) (Eiss' ψ) (Fss₀ ψ)
         (Ess' ψ) t ∧
       AnnotValid V ρ
-        (mutualLeafBodyAV (W ψ) (resSort.eval ψ) nIdx (Idss ψ) rss (tlss ψ) (Eiss' ψ) (Fss₀ ψ)
+        (mutualLeafBodyAV (W ψ) (resSort.eval ψ) nIdx (Idss ψ) offs rss (tlss ψ) (Eiss' ψ) (Fss₀ ψ)
           (Ess' ψ) t) := by
     intro ρ hρ
     rw [reverse_map_take_drop (pps ψ) nP] at hρ
@@ -264,15 +293,10 @@ theorem mutualLeafWalks {m : EnvModel V env} {cvT : ConstantVal} {nP nIdx t : Na
       auxIds_fieldsValid hVρ
     refine ⟨⟨by rw [hsh]; exact hTagρ, by rw [hsh]; exact hFixρ,
       _, hIdsT ψ, hIdsLen, by rw [hsh]; exact hspI⟩, ?_⟩
-    have hsp1 : SpineFit (fun j => ρ (j + nIdx)) (auxIds (W ψ) (Idss ψ))
-        [inj t (mkTower (ConLeche.Semantics.frameIdx nIdx ρ ++ [pt]))] := by
-      refine ⟨?_, trivial⟩
-      rw [(tagTyAV_facts hTagρ).1]
-      exact tagTuple_mem hTagρ (hIdsT ψ) hspI
     rw [mutualLeafBodyAV, AnnotValid_app]
     refine ⟨?_, ?_⟩
     · rw [AnnotValid_liftN, hsh]
-      exact auxBodyAV_validV hI hIV hXVρ hsp1
+      exact auxBodyAV_validV hI hIV hXVρ
     · refine mkAppN_validV ?_ ?_
       · rw [AnnotValid_liftN, hsh]
         exact tuplerAV_validV hI hIV
@@ -294,7 +318,7 @@ theorem mutualLeafWalks {m : EnvModel V env} {cvT : ConstantVal} {nP nIdx t : Na
     simpa using hw
   · have hw := hereditaryWalk (V := V)
       (Q := fun ρ ds => UnderTowerValid ρ
-        (mutualLeafBodyAV (W ψ) (resSort.eval ψ) nIdx (Idss ψ) rss (tlss ψ) (Eiss' ψ) (Fss₀ ψ)
+        (mutualLeafBodyAV (W ψ) (resSort.eval ψ) nIdx (Idss ψ) offs rss (tlss ψ) (Eiss' ψ) (Fss₀ ψ)
           (Ess' ψ) t) ds)
       hlenΓ (hFD.len ψ) hent okΓ
       (fun ρ hρ => (hbase ρ hρ).2)
@@ -337,6 +361,12 @@ theorem MemberConsOk.ofCheck {F : Nat} {cvT cvTa : ConstantVal}
   exact ⟨by rw [hname]; exact hfind, by rw [hname]; exact hnres,
     by rw [hname]; exact hpshape, htf, htp, htr, htb⟩
 
+/-- Either front door establishes it (task #315 M6 s6). -/
+theorem MemberConsOk.ofDoor {F : Nat} {cvT cvTa : ConstantVal}
+    (h : ConLeche.FrontDoorFacts μ F env cvT cvTa) : MemberConsOk env cvTa :=
+  ⟨by rw [h.name]; exact h.fresh, by rw [h.name]; exact h.nres,
+    by rw [h.name]; exact h.pshape, h.noFvar, h.lpsOk, h.resolve, h.bounded⟩
+
 /-- … and it travels across a cons of a DIFFERENT name (freshness by
 the name, resolution by monotonicity). -/
 theorem MemberConsOk.cons {c₀ : ConstantInfo} {cvTa : ConstantVal}
@@ -367,14 +397,15 @@ theorem stageMutualFormer (mp : EnvModelM V μ env)
     (hParams : ∀ ψ₁ ψ₂ : Name → Nat, (∀ q ∈ cvTa.levelParams, ψ₁ q = ψ₂ q) →
       W ψ₁ = W ψ₂ ∧ Idss ψ₁ = Idss ψ₂ ∧ tlss ψ₁ = tlss ψ₂ ∧ Eiss' ψ₁ = Eiss' ψ₂ ∧
         Fss₀ ψ₁ = Fss₀ ψ₂ ∧ Ess' ψ₁ = Ess' ψ₂)
+    (offs : Nat → Nat)
     (hIdsBelow : ∀ ψ : Name → Nat, ∀ Ids ∈ Idss ψ, FieldsBelow nP Ids)
     (hbelow : ∀ ψ : Name → Nat, ∀ chain ∈ chainsXI (W ψ) (auxIds (W ψ) (Idss ψ)) 1 rss (tlss ψ)
       (Eiss' ψ) (Fss₀ ψ) (Ess' ψ), FieldsBelow (nP + 2) chain)
     (hC : MemberChainsOk V nP t resSort W Idss rss tlss Eiss' Fss₀ Ess' pps) :
     ∃ mp' : EnvModelM V μ ⟨.indInfo cvTa {} :: env.consts⟩,
       mp'.base2.acval = acvalWith mp.base2.acval cvTa.name
-        (fun ψ => mutualTyAVI (W ψ) (resSort.eval ψ) (pps ψ) nIdx (Idss ψ) rss (tlss ψ) (Eiss' ψ)
-          (Fss₀ ψ) (Ess' ψ) t) := by
+        (fun ψ => mutualTyAVI (W ψ) (resSort.eval ψ) (pps ψ) nIdx (Idss ψ) offs rss (tlss ψ)
+          (Eiss' ψ) (Fss₀ ψ) (Ess' ψ) t) := by
   have hfresh : env.find? cvTa.name = none := hok.fresh
   have hcb : ConstsBound env cvTa.type := constsBound_of_constsResolve _ hok.resolve
   have hicw : ConLeche.IndCapsWF (.indInfo cvTa {}) :=
@@ -385,11 +416,11 @@ theorem stageMutualFormer (mp : EnvModelM V μ env)
       (fun _ _ _ heq => nomatch heq) (fun _ _ _ _ heq => nomatch heq)
       (by intro tbl hh; exact ConstantInfo.noConfusion hh) hicw)
   let A : (Name → Nat) → AnnotTerm := fun ψ =>
-    mutualTyAVI (W ψ) (resSort.eval ψ) (pps ψ) nIdx (Idss ψ) rss (tlss ψ) (Eiss' ψ) (Fss₀ ψ)
+    mutualTyAVI (W ψ) (resSort.eval ψ) (pps ψ) nIdx (Idss ψ) offs rss (tlss ψ) (Eiss' ψ) (Fss₀ ψ)
       (Ess' ψ) t
   have hAbelow : ∀ ψ, Term.bvarsBelow 0 (A ψ).erase := fun ψ =>
     mutualTyAVI_below (hFD.below ψ) (hFD.len ψ) (hIdsBelow ψ) (hbelow ψ)
-  have hwalks := mutualLeafWalks hFD hC
+  have hwalks := mutualLeafWalks (offs := offs) hFD hC
   have hreadI : ∀ ψ : Name → Nat,
       denoteMeta (acvalWith mp.base2.acval cvTa.name A)
         ⟨.indInfo cvTa {} :: env.consts⟩ ψ 0 cvTa.type
@@ -410,7 +441,7 @@ theorem stageMutualFormer (mp : EnvModelM V μ env)
   · intro ψ₁ ψ₂ hφ
     obtain ⟨hp, hw⟩ := hFD.params ψ₁ ψ₂ hφ
     obtain ⟨hu, hIdss, htlss, hEiss, hFss, hEss⟩ := hParams ψ₁ ψ₂ hφ
-    show mutualTyAVI _ _ _ _ _ _ _ _ _ _ _ = mutualTyAVI _ _ _ _ _ _ _ _ _ _ _
+    show mutualTyAVI _ _ _ _ _ _ _ _ _ _ _ _ = mutualTyAVI _ _ _ _ _ _ _ _ _ _ _ _
     rw [hp, hw, hu, hIdss, htlss, hEiss, hFss, hEss]
   · exact fun ψ ρ => mutualTyAVI_wellDenoted (hwalks ψ ρ).1
   · exact fun ψ ρ => (mutualTyAVI_wellDenotedV (hwalks ψ ρ).1 (hwalks ψ ρ).2).2
@@ -450,6 +481,7 @@ theorem stageMutualFormersGo {nP : Nat} {resSort : Level} {lps : List Name}
     (hParams : ∀ ψ₁ ψ₂ : Name → Nat, (∀ q ∈ lps, ψ₁ q = ψ₂ q) →
       W ψ₁ = W ψ₂ ∧ Idss ψ₁ = Idss ψ₂ ∧ tlss ψ₁ = tlss ψ₂ ∧ Eiss' ψ₁ = Eiss' ψ₂ ∧
         Fss₀ ψ₁ = Fss₀ ψ₂ ∧ Ess' ψ₁ = Ess' ψ₂)
+    (offs : Nat → Nat)
     (hIdsBelow : ∀ ψ : Name → Nat, ∀ Ids ∈ Idss ψ, FieldsBelow nP Ids)
     (hchainBelow : ∀ ψ : Name → Nat, ∀ chain ∈ chainsXI (W ψ) (auxIds (W ψ) (Idss ψ)) 1 rss
       (tlss ψ) (Eiss' ψ) (Fss₀ ψ) (Ess' ψ), FieldsBelow (nP + 2) chain) :
@@ -465,8 +497,8 @@ theorem stageMutualFormersGo {nP : Nat} {resSort : Level} {lps : List Name}
       ∃ mp₁ : EnvModelM V μ (ConLeche.consMutualFormers fs env'),
         (∀ (i : Nat) (f : MutualFormerA), fs[i]? = some f →
           mp₁.base2.acval f.cvTa.name
-            = fun ψ => mutualTyAVI (W ψ) (resSort.eval ψ) (ppsF (idxs i) ψ) f.nIdx (Idss ψ) rss
-                (tlss ψ) (Eiss' ψ) (Fss₀ ψ) (Ess' ψ) (idxs i)) ∧
+            = fun ψ => mutualTyAVI (W ψ) (resSort.eval ψ) (ppsF (idxs i) ψ) f.nIdx (Idss ψ) offs
+                rss (tlss ψ) (Eiss' ψ) (Fss₀ ψ) (Ess' ψ) (idxs i)) ∧
         (∀ n : Name,
           (∀ (i : Nat) (f : MutualFormerA), fs[i]? = some f → n ≠ f.cvTa.name) →
           mp₁.base2.acval n = mp'.base2.acval n) := by
@@ -490,7 +522,7 @@ theorem stageMutualFormersGo {nP : Nat} {resSort : Level} {lps : List Name}
       intro i f hf hh
       exact hnd.1 (hh ▸ List.mem_map_of_mem (List.mem_of_getElem? hf))
     obtain ⟨mpI, hacI⟩ := stageMutualFormer mp' hE hok₀ hFD₀
-      (fun ψ₁ ψ₂ hφ => hParams ψ₁ ψ₂ (by rw [← hlps₀]; exact hφ)) hIdsBelow hchainBelow hC₀
+      (fun ψ₁ ψ₂ hφ => hParams ψ₁ ψ₂ (by rw [← hlps₀]; exact hφ)) offs hIdsBelow hchainBelow hC₀
     have hE' : ConLeche.EtaFamiliesClosed ⟨.indInfo cvTa {} :: env'.consts⟩ :=
       ConLeche.EtaFamiliesClosed.cons_nonind hE hfresh (fun cv'' caps heq he => by
         obtain ⟨-, rfl⟩ := ConstantInfo.indInfo.inj heq
@@ -537,7 +569,7 @@ check's own `constsResolve`), and the members' distinctness — the
 block's shape guard `b.blockNames.Nodup` — is what carries each
 member's freshness across the earlier members' conses.  The conclusion
 is the positional leaf equation plus the agreement off the block. -/
-theorem stageMutualFormers {F nP : Nat} {resSort : Level} {lps : List Name}
+theorem stageMutualFormers {F nP : Nat} {g : Bool} {resSort : Level} {lps : List Name}
     {W : (Name → Nat) → Nat} {Idss : (Name → Nat) → List (List AnnotTerm)}
     {rss : List (List Bool)} {tlss : (Name → Nat) → List (List (List (Nat × Nat × AnnotTerm)))}
     {Eiss' : (Name → Nat) → List (List (List AnnotTerm))}
@@ -546,12 +578,13 @@ theorem stageMutualFormers {F nP : Nat} {resSort : Level} {lps : List Name}
     (hParams : ∀ ψ₁ ψ₂ : Name → Nat, (∀ q ∈ lps, ψ₁ q = ψ₂ q) →
       W ψ₁ = W ψ₂ ∧ Idss ψ₁ = Idss ψ₂ ∧ tlss ψ₁ = tlss ψ₂ ∧ Eiss' ψ₁ = Eiss' ψ₂ ∧
         Fss₀ ψ₁ = Fss₀ ψ₂ ∧ Ess' ψ₁ = Ess' ψ₂)
+    (offs : Nat → Nat)
     (hIdsBelow : ∀ ψ : Name → Nat, ∀ Ids ∈ Idss ψ, FieldsBelow nP Ids)
     (hchainBelow : ∀ ψ : Name → Nat, ∀ chain ∈ chainsXI (W ψ) (auxIds (W ψ) (Idss ψ)) 1 rss
       (tlss ψ) (Eiss' ψ) (Fss₀ ψ) (Ess' ψ), FieldsBelow (nP + 2) chain)
     {formers : List (ConstantVal × Nat)} {env₁ : Env} {fms : List MutualFormerA}
     (mp : EnvModelM V μ env) (hE : ConLeche.EtaFamiliesClosed env)
-    (hrun : ConLeche.mutualFormers (m := ConLeche.CheckM) (ConLeche.fueledOps μ F) nP formers env
+    (hrun : ConLeche.mutualFormers (m := ConLeche.CheckM) (ConLeche.fueledOps μ F) nP formers env g
       = .ok (env₁, fms))
     (hnd : (fms.map (fun f => f.cvTa.name)).Nodup)
     (hmem : ∀ (t : Nat) (f : MutualFormerA), fms[t]? = some f →
@@ -561,13 +594,13 @@ theorem stageMutualFormers {F nP : Nat} {resSort : Level} {lps : List Name}
     ∃ mp₁ : EnvModelM V μ env₁,
       (∀ (t : Nat) (f : MutualFormerA), fms[t]? = some f →
         mp₁.base2.acval f.cvTa.name
-          = fun ψ => mutualTyAVI (W ψ) (resSort.eval ψ) (ppsF t ψ) f.nIdx (Idss ψ) rss (tlss ψ)
-              (Eiss' ψ) (Fss₀ ψ) (Ess' ψ) t) ∧
+          = fun ψ => mutualTyAVI (W ψ) (resSort.eval ψ) (ppsF t ψ) f.nIdx (Idss ψ) offs rss
+              (tlss ψ) (Eiss' ψ) (Fss₀ ψ) (Ess' ψ) t) ∧
       (∀ n : Name, (∀ (t : Nat) (f : MutualFormerA), fms[t]? = some f → n ≠ f.cvTa.name) →
         mp₁.base2.acval n = mp.base2.acval n) := by
   obtain ⟨hchecks, rfl⟩ := ConLeche.mutualFormers_inv hrun
-  exact stageMutualFormersGo hParams hIdsBelow hchainBelow fms (fun i => i) env mp hE
-    (fun f hf => MemberConsOk.ofCheck (ConLeche.mutualFormerChecks_checked hchecks f hf).choose_spec)
+  exact stageMutualFormersGo hParams offs hIdsBelow hchainBelow fms (fun i => i) env mp hE
+    (fun f hf => MemberConsOk.ofDoor (ConLeche.mutualFormerChecksG_checked hchecks f hf).choose_spec)
     hnd hmem
 
 end ConLeche.Model

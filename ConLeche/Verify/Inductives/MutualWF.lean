@@ -414,4 +414,49 @@ theorem checkMutual_wf {env envOut : Env} (henv : EnvWF env) {p : MutualParts} {
     (h : checkMutual (fueledOps mode F) env p = .ok envOut) : EnvWF envOut :=
   checkMutualCore_wf henv (checkMutual_inv h).2
 
+
+/-! ## The type-slot facts at a grade (task #315 M6 s6) -/
+
+/-- A constructor's run at a grade: its type is closed, level-defined,
+resolving and bounded (`mutual_ctor_typeWF`'s twin). -/
+theorem mutual_ctorG_typeWF {env : Env} {memberNames : List Name} {T : Name}
+    {lps : List Name} {nP nIdx : Nat} {resSort : Level} {isProp large : Bool}
+    {cvC cvTa cvCa : ConstantVal} {nF F : Nat} {g : Bool} {sorts : List Level}
+    (h : checkMutualCtor (fueledOps mode F) env memberNames T lps nP nIdx resSort isProp large
+      cvC nF cvTa g = .ok (cvCa, sorts)) :
+    cvCa.type.hasFvar = false ∧ cvCa.type.allLevelParamsDefined cvCa.levelParams = true ∧
+    cvCa.type.constsResolve env = true ∧ cvCa.type.looseBVarsBounded 0 = true := by
+  obtain ⟨⟨_, hdoor⟩, -, -⟩ := checkMutualCtorG_shape h
+  exact ⟨hdoor.noFvar, hdoor.lpsOk, hdoor.resolve, hdoor.bounded⟩
+
+/-- Every constructor of the block carries the four type-slot facts at
+the formers' environment, at a grade. -/
+theorem checkMutualCtorsG_typeWF {env : Env} {b : MutualBlock} {fms : List MutualFormerA}
+    {isProp g : Bool} {F : Nat} {cs : List MutualCtor} {ctorsA : List (ConstantVal × Nat)}
+    {sortss : List (List Level)}
+    (h : checkMutualCtors (fueledOps mode F) env b fms isProp g cs = .ok (ctorsA, sortss)) :
+    ∀ c ∈ ctorsA, c.1.type.hasFvar = false ∧
+      c.1.type.allLevelParamsDefined c.1.levelParams = true ∧
+      c.1.type.constsResolve env = true ∧ c.1.type.looseBVarsBounded 0 = true := by
+  obtain ⟨hlen, -, hall⟩ := checkMutualCtors_inv h
+  intro c hc
+  obtain ⟨j, hj⟩ := List.getElem?_of_mem hc
+  have hj' : j < cs.length := by
+    have := (List.getElem?_eq_some_iff.mp hj).1
+    omega
+  obtain ⟨-, _, -, hrun⟩ := hall j cs[j] c (List.getElem?_eq_getElem hj') hj
+  exact mutual_ctorG_typeWF hrun
+
+/-- The type-slot facts of every checked former at a grade. -/
+theorem mutualFormerChecksG_typeWF {nP F : Nat} {g : Bool} {l : List (ConstantVal × Nat)}
+    {env : Env} {fms : List MutualFormerA}
+    (h : mutualFormerChecks (fueledOps mode F) env nP g l = .ok fms) :
+    ∀ f ∈ fms, f.cvTa.type.hasFvar = false ∧
+      f.cvTa.type.allLevelParamsDefined f.cvTa.levelParams = true ∧
+      f.cvTa.type.constsResolve env = true ∧
+      f.cvTa.type.looseBVarsBounded 0 = true := by
+  intro f hf
+  obtain ⟨cv', hdoor⟩ := mutualFormerChecksG_checked h f hf
+  exact ⟨hdoor.noFvar, hdoor.lpsOk, hdoor.resolve, hdoor.bounded⟩
+
 end ConLeche

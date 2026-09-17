@@ -47,10 +47,13 @@ public import ConLeche.Semantics.Tower.TowerRec
 public import ConLeche.Semantics.Tower.TowerWire
 public import ConLeche.Semantics.Tower.FixTuple
 public import ConLeche.Semantics.Tower.SigChainI
+public import ConLeche.Semantics.Tower.InstAll
 public import ConLeche.Semantics.Tower.SigChainWire
 public import ConLeche.Semantics.Tower.BlockRecPair
+public import ConLeche.Semantics.Tower.MutualTagI
 public import ConLeche.Semantics.Tower.MutualLeafI
 public import ConLeche.Semantics.Tower.MutualLeafFacts
+public import ConLeche.Semantics.Tower.CaseFamI
 public import ConLeche.Semantics.ProjFnFacts
 public import ConLeche.Semantics.Bridge.Decl
 public import ConLeche.Semantics.Bridge.DeclRun

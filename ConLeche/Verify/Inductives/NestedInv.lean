@@ -2,6 +2,8 @@ module
 
 public import ConLeche.Verify.Inductives.MutualInv
 public import ConLeche.Kernel.Inductives.NestedInstall
+import ConLeche.Verify.Inductives.FrontDoor
+public import ConLeche.Semantics.ConstsBound
 
 public section
 
@@ -270,6 +272,39 @@ theorem normCtorValM_true_stores {env : Env} {memberNames : List Name} {nP nF F 
     rw [checkConstantValPre_ok h]
     simpa using hp
 
+/-- **THE STORED CONSTRUCTOR'S RESIDUAL IS THE MINTED ONE'S** (task
+#315 L-B): whatever `normCtorValM` stores, its type is either the
+constant it was given or that constant's telescope re-closed around
+**the very residual the two-stage opening of the given type hands
+back**.  Only the field domains differ. -/
+theorem normCtorValM_resid {env : Env} {memberNames : List Name} {nP nF F : Nat}
+    {cvC cvCa cvCa' : ConstantVal}
+    (h : normCtorValM (m := CheckM) (fueledOps mode F) env memberNames nP nF cvC cvCa true
+      = .ok cvCa') :
+    cvCa' = cvCa ∨
+      ∃ (pbs fbs : List (Expr × BinderMeta)) (fvs xFvs : List Expr) (crest xrest : Expr),
+        openPisAtFvars nP cvCa.type 0 = some (fvs, crest) ∧
+        openPisAtFvars nF crest nP = some (xFvs, xrest) ∧
+        fbs.length = nF ∧
+        cvCa'.type = closeTelescope (pbs ++ fbs) 0 xrest := by
+  unfold normCtorValM at h
+  obtain ⟨q, hq, h⟩ := exceptBind_ok h
+  obtain ⟨cbs, cres⟩ := q
+  try simp only at h
+  obtain ⟨rr, hr, h⟩ := exceptBind_ok h
+  obtain ⟨fvs, crest'⟩ := rr
+  try simp only at h
+  obtain ⟨u, hu, h⟩ := exceptBind_ok h
+  obtain ⟨fbs, resid⟩ := u
+  try simp only at h
+  obtain ⟨xFvs, hopX, hfbs⟩ := normFieldDomsM_open hu
+  split at h
+  · simp only [pure, Except.pure, Except.ok.injEq] at h
+    exact Or.inl h.symm
+  · refine Or.inr ⟨List.zipWith (fun (x : Expr) (bb : Expr × BinderMeta) => (x.fvarTypeD, bb.2))
+        fvs cbs, fbs, fvs, xFvs, crest', resid, unwrapOr_ok hr, hopX, hfbs, ?_⟩
+    rw [checkConstantValPre_ok h]
+
 /-- One constructor at the grade: the front door is
 `checkConstantValPre`, which returns its input, so what the stage
 stores is `normCtorValM`'s output ON THE MINTED CONSTANT — the
@@ -280,12 +315,16 @@ theorem checkMutualCtor_true_norm {env : Env} {memberNames : List Name} {T : Nam
     (h : checkMutualCtor (fueledOps mode F) env memberNames T lps nP nIdx resSort isProp large
       cvC nF cvTa true = .ok (cvCa, sorts)) :
     normCtorValM (m := CheckM) (fueledOps mode F) env memberNames nP nF cvC cvC true
-      = .ok cvCa ∧ cvC.type.projTablesOk env = true := by
+      = .ok cvCa ∧ cvC.type.projTablesOk env = true ∧
+    cvC.type.looseBVarsBounded 0 = true := by
   unfold checkMutualCtor at h
   simp only [if_true] at h
   obtain ⟨cvCa₀, hfront, h⟩ := exceptBind_ok h
   obtain ⟨c, hnorm, h⟩ := exceptBind_ok h
   have hproj := checkConstantValPre_projOk hfront
+  have hbnd : cvC.type.looseBVarsBounded 0 = true := by
+    have := (checkConstantValPre_typeWF hfront).2.2.2
+    rwa [checkConstantValPre_ok hfront] at this
   rw [checkConstantValPre_ok hfront] at hnorm
   obtain ⟨q, _hq, h⟩ := exceptBind_ok h
   obtain ⟨_cbs, cbody⟩ := q
@@ -315,7 +354,7 @@ theorem checkMutualCtor_true_norm {env : Env} {memberNames : List Name} {T : Nam
   obtain ⟨_sorts', _hsorts, h⟩ := exceptBind_ok h
   simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
   obtain ⟨rfl, -⟩ := h
-  exact ⟨hnorm, hproj⟩
+  exact ⟨hnorm, hproj, hbnd⟩
 
 /-! ### From the auxiliary block to the copy's stored former -/
 
@@ -478,7 +517,7 @@ theorem nestedCopyCtorType_eq {env envAux : Env} {b : MutualBlock} {F : Nat}
   · intro j c cA hc hcA
     obtain ⟨-, -, hall⟩ := checkMutualCtors_inv hctors
     obtain ⟨-, _sorts, -, hrun⟩ := hall j c cA hc hcA
-    obtain ⟨hnorm, hproj⟩ := checkMutualCtor_true_norm hrun
+    obtain ⟨hnorm, hproj, -⟩ := checkMutualCtor_true_norm hrun
     obtain ⟨hstores, hkeep⟩ := normCtorValM_true_stores hnorm
     exact ⟨hnorm, hstores, hkeep hproj⟩
 
@@ -525,6 +564,116 @@ theorem restoreCtors_id {env : Env} {R : RestoreTbl} {lps : List Name} {F : Nat}
     | succ k =>
       simp only [List.getElem?_cons_succ] at hc ho
       exact hall k c o hc ho
+
+/-- **The restored CONSTRUCTORS went through a FRONT DOOR**, positionally
+(task #315): each one is checked by `checkConstantValPre`, so the whole
+`FrontDoorFacts` interface holds of it — and, the pre-annotated door
+returning its input, the stored constant IS the restore of the
+auxiliary one. -/
+theorem restoreCtors_door {env : Env} {R : RestoreTbl} {lps : List Name} {F : Nat} :
+    ∀ {cs out : List (ConstantVal × Nat × Nat)},
+      restoreCtors (m := CheckM) (fueledOps mode F) env R lps cs = .ok out →
+      out.length = cs.length ∧
+      ∀ (i : Nat) (c o : ConstantVal × Nat × Nat), cs[i]? = some c → out[i]? = some o →
+        ∃ ty, restoreNested R c.1.type = .ok ty ∧
+          FrontDoorFacts mode F env { c.1 with levelParams := lps, type := ty } o.1 ∧
+          o.2 = c.2 ∧
+          o.1 = { c.1 with levelParams := lps, type := ty } := by
+  intro cs
+  induction cs with
+  | nil =>
+    intro out h
+    simp only [restoreCtors, pure, Except.pure, Except.ok.injEq] at h
+    exact ⟨by rw [← h], fun i c o hc _ => by simp at hc⟩
+  | cons hd rest ih =>
+    intro out h
+    obtain ⟨cvCa, nP, nF⟩ := hd
+    unfold restoreCtors at h
+    obtain ⟨ty, hty, h⟩ := exceptBind_ok h
+    have hty' := nestedLift_ok hty
+    obtain ⟨cvA, hpre, h⟩ := exceptBind_ok h
+    obtain ⟨rest', hrest, h⟩ := exceptBind_ok h
+    simp only [pure, Except.pure, Except.ok.injEq] at h
+    obtain rfl := h
+    obtain ⟨hlen, hall⟩ := ih hrest
+    refine ⟨by simp [hlen], ?_⟩
+    intro i c o hc ho
+    cases i with
+    | zero =>
+      simp only [List.getElem?_cons_zero, Option.some.injEq] at hc ho
+      obtain rfl := hc
+      obtain rfl := ho
+      exact ⟨ty, hty', FrontDoorFacts.ofPre hpre, rfl, checkConstantValPre_ok hpre⟩
+    | succ k =>
+      simp only [List.getElem?_cons_succ] at hc ho
+      exact hall k c o hc ho
+
+/-- The restored CONSTRUCTORS' names, positionally: the restore keeps
+every name. -/
+theorem restoreCtors_names {env : Env} {R : RestoreTbl} {lps : List Name} {F : Nat}
+    {cs out : List (ConstantVal × Nat × Nat)}
+    (h : restoreCtors (m := CheckM) (fueledOps mode F) env R lps cs = .ok out) :
+    out.map (·.1.name) = cs.map (·.1.name) := by
+  obtain ⟨hlen, hall⟩ := restoreCtors_id h
+  refine List.ext_getElem? fun i => ?_
+  rw [List.getElem?_map, List.getElem?_map]
+  cases hc : cs[i]? with
+  | none =>
+    rw [List.getElem?_eq_none (by
+      rw [hlen]; exact List.getElem?_eq_none_iff.mp hc)]
+  | some c =>
+    have hi : i < out.length := by
+      rw [hlen]; exact (List.getElem?_eq_some_iff.mp hc).1
+    obtain ⟨o, ho⟩ : ∃ o, out[i]? = some o := ⟨out[i], List.getElem?_eq_getElem hi⟩
+    obtain ⟨_ty, -, hoeq⟩ := hall i c o hc ho
+    rw [ho, hoeq]
+    rfl
+
+/-! ### The restored constructors' conses, as an environment extension
+(task #315) -/
+
+/-- A lookup past the restored constructors' conses of other names. -/
+theorem consNestedCtors_find?_of_ne :
+    ∀ {cs : List (ConstantVal × Nat × Nat)} {env : Env} {n : Name},
+      (∀ c ∈ cs, c.1.name ≠ n) →
+      (consNestedCtors cs env).find? n = env.find? n := by
+  intro cs
+  induction cs with
+  | nil => intro _ _ _; rfl
+  | cons hd rest ih =>
+    intro env n hne
+    obtain ⟨cv, nP, nF⟩ := hd
+    show (consNestedCtors rest ⟨.ctorInfo cv nP nF :: env.consts⟩).find? n = _
+    rw [ih (fun x hx => hne x (List.mem_cons_of_mem _ hx)), Env.find?_cons]
+    exact if_neg (hne _ List.mem_cons_self)
+
+/-- **The restored constructors' conses preserve every earlier
+lookup**: their names are free at the environment they are consed onto
+and pairwise distinct, so nothing is shadowed. -/
+theorem consNestedCtors_findPreserved :
+    ∀ {cs : List (ConstantVal × Nat × Nat)} {env : Env},
+      (∀ c ∈ cs, env.find? c.1.name = none) →
+      (cs.map (·.1.name)).Nodup →
+      Semantics.FindPreserved env (consNestedCtors cs env) := by
+  intro cs
+  induction cs with
+  | nil =>
+    intro _ _ _
+    exact fun h => h
+  | cons hd rest ih =>
+    intro env hfresh hnd
+    obtain ⟨cv, nP, nF⟩ := hd
+    rw [List.map_cons, List.nodup_cons] at hnd
+    have hc : env.find? cv.name = none := hfresh _ List.mem_cons_self
+    have hfresh' : ∀ g ∈ rest,
+        (Env.mk (ConstantInfo.ctorInfo cv nP nF :: env.consts)).find? g.1.name = none := by
+      intro g hg
+      rw [Env.find?_cons, if_neg (fun hh => hnd.1 (by
+        rw [show cv.name = g.1.name from hh]; exact List.mem_map_of_mem hg))]
+      exact hfresh g (List.mem_cons_of_mem _ hg)
+    intro n ci h
+    show (consNestedCtors rest ⟨.ctorInfo cv nP nF :: env.consts⟩).find? n = some ci
+    exact ih hfresh' hnd.2 (Env.find?_cons_of_fresh hc h)
 
 /-- The restored RECURSOR TYPES, positionally: the level parameters are
 the auxiliary recursor's and the type is the restore of its type. -/
@@ -908,7 +1057,7 @@ theorem checkNested_inv {env envOut : Env} {p : NestedParts} {F : Nat}
       -- induction measure for step (iii)
       certOnly mode (nestedPinRankOk env p b st stored) = true ∧
       -- THE MINT PARENTS (K.40)
-      certOnly mode (nestedPinParentOk st) = true ∧
+      certOnly mode (nestedPinParentOk p st) = true ∧
       -- POST-CHECK (a) A THIRD TIME (K.30): the pins typed at the
       -- environment holding the RESTORED formers
       nestedPinsOk (m := CheckM) (fueledOps mode F)
@@ -1062,7 +1211,7 @@ theorem checkNested_inv {env envOut : Env} {p : NestedParts} {F : Nat}
   case neg => rw [if_neg hrk] at h; close_throw
   rw [if_pos hrk] at h
   try simp only [bind, Except.bind] at h
-  by_cases hpa : certOnly (fueledOps mode F).mode (nestedPinParentOk st) = true
+  by_cases hpa : certOnly (fueledOps mode F).mode (nestedPinParentOk p st) = true
   case neg => rw [if_neg hpa] at h; close_throw
   rw [if_pos hpa] at h
   try simp only [bind, Except.bind] at h
@@ -1109,6 +1258,966 @@ theorem checkNested_inv {env envOut : Env} {p : NestedParts} {F : Nat}
     certOnly_and_left hcont, hgrp, hsc, htg, hkd, haa, hrk, hpa,
     (by cases uP₁; exact hpins₁), hctors, hrm, hrn, hnd, hrlm, hrln, htbl,
     (by cases u₀; exact hpins), hlen, (by cases u₁; exact hrecs), hrb⟩
+
+/-! ## The restore, syntactically (task #315)
+
+`restore_nested`'s replace (`ConLeche/Kernel/Inductives/NestedInstall.lean`)
+read as a syntactic walk: the prune, the node step's verdict at each shape
+of node, the Π node both ways, a pin's fire, the telescope prologue and the
+rebuild — and the commutation with opening a binder, which is what a reader
+that descends a restored telescope one binder at a time needs. -/
+
+/-- An application spine mentions its head constant. -/
+theorem Expr.mentionsConst_of_getAppFn {n : Name} : ∀ {e : Expr} {us : List Level},
+    e.getAppFn = .const n us → e.mentionsConst n = true := by
+  intro e
+  induction e with
+  | app f a ihf _ =>
+    intro us h
+    simp only [Expr.mentionsConst, ihf (by simpa only [Expr.getAppFn] using h), Bool.true_or]
+  | const m vs =>
+    intro us h
+    simp only [Expr.getAppFn, Expr.const.injEq] at h
+    simp [Expr.mentionsConst, h.1]
+  | _ => intro us h; simp [Expr.getAppFn] at h
+
+/-- Instantiation does not move a constant head. -/
+theorem Expr.getAppFn_instantiate1_const {v : Expr} {n : Name} {us : List Level} :
+    ∀ {e : Expr} {j : Nat}, e.getAppFn = .const n us →
+      (e.instantiate1 v j).getAppFn = .const n us := by
+  intro e
+  induction e with
+  | app f a ihf _ =>
+    intro j h
+    simp only [Expr.instantiate1, Expr.getAppFn]
+    exact ihf (by simpa only [Expr.getAppFn] using h)
+  | const m vs => intro j h; simpa only [Expr.instantiate1] using h
+  | _ => intro j h; simp [Expr.getAppFn] at h
+
+/-- ... and a constant head after instantiating a VARIABLE was one
+before: `instantiate1` puts an `fvar` — never a constant — where the
+`bvar` stood. -/
+theorem Expr.getAppFn_const_of_instantiate1 {k : Nat} {tyv : Expr} {n : Name} {us : List Level} :
+    ∀ {e : Expr} {j : Nat}, (e.instantiate1 (.fvar k tyv) j).getAppFn = .const n us →
+      e.getAppFn = .const n us := by
+  intro e
+  induction e with
+  | app f a ihf _ =>
+    intro j h
+    simp only [Expr.getAppFn]
+    exact ihf (by simpa only [Expr.instantiate1, Expr.getAppFn] using h)
+  | bvar i =>
+    intro j h
+    simp only [Expr.instantiate1] at h
+    split at h
+    · simp [Expr.getAppFn] at h
+    · split at h <;> simp [Expr.getAppFn] at h
+  | const m vs => intro j h; simpa only [Expr.instantiate1] using h
+  | _ => intro j h; simp [Expr.instantiate1, Expr.getAppFn] at h
+
+/-- Instantiating a variable maps the spine's arguments; in particular
+the argument count is unchanged, which is what the node step's
+`args.length < R.nP` guard reads. -/
+theorem Expr.getAppArgs_instantiate1_var {k : Nat} {tyv : Expr} :
+    ∀ {e : Expr} {j : Nat}, (e.instantiate1 (.fvar k tyv) j).getAppArgs
+      = e.getAppArgs.map (fun a => a.instantiate1 (.fvar k tyv) j) := by
+  intro e
+  induction e with
+  | app f a ihf _ =>
+    intro j
+    simp only [Expr.instantiate1, Expr.getAppArgs, ihf, List.map_append, List.map_cons,
+      List.map_nil]
+  | bvar i =>
+    intro j
+    simp only [Expr.instantiate1]
+    split
+    · simp [Expr.getAppArgs]
+    · split <;> simp [Expr.getAppArgs]
+  | _ => intro j; simp [Expr.instantiate1, Expr.getAppArgs]
+
+/-- A constant mentioned before a substitution is mentioned after it:
+`instantiate1` only replaces `bvar`s and keeps every other node. -/
+theorem Expr.mentionsConst_instantiate1 {v : Expr} {m : Name} :
+    ∀ {e : Expr} {j : Nat}, e.mentionsConst m = true →
+      (e.instantiate1 v j).mentionsConst m = true := by
+  intro e
+  induction e with
+  | app f a ihf iha =>
+    intro j h
+    simp only [Expr.mentionsConst, Bool.or_eq_true] at h ⊢
+    simp only [Expr.instantiate1, Expr.mentionsConst, Bool.or_eq_true]
+    exact h.imp (fun h1 => ihf h1) (fun h2 => iha h2)
+  | lam ty b bm ihty ihb =>
+    intro j h
+    simp only [Expr.mentionsConst, Bool.or_eq_true] at h
+    simp only [Expr.instantiate1, Expr.mentionsConst, Bool.or_eq_true]
+    exact h.imp (fun h1 => ihty h1) (fun h2 => ihb h2)
+  | forallE ty b bm ihty ihb =>
+    intro j h
+    simp only [Expr.mentionsConst, Bool.or_eq_true] at h
+    simp only [Expr.instantiate1, Expr.mentionsConst, Bool.or_eq_true]
+    exact h.imp (fun h1 => ihty h1) (fun h2 => ihb h2)
+  | letE ty vl b ihty ihv ihb =>
+    intro j h
+    simp only [Expr.mentionsConst, Bool.or_eq_true] at h
+    simp only [Expr.instantiate1, Expr.mentionsConst, Bool.or_eq_true]
+    exact h.imp (fun h1 => h1.imp (fun h2 => ihty h2) (fun h2 => ihv h2)) (fun h2 => ihb h2)
+  | proj s i pe ih =>
+    intro j h
+    simp only [Expr.mentionsConst, Bool.or_eq_true] at h ⊢
+    simp only [Expr.instantiate1, Expr.mentionsConst, Bool.or_eq_true]
+    exact h.imp id (fun h2 => ih h2)
+  | bvar i => intro j h; simp [Expr.mentionsConst] at h
+  | _ => intro j h; simpa only [Expr.instantiate1] using h
+
+/-! ### The prune, and the nodes the step declines at -/
+
+/-- **The prune**: a term mentioning none of `R.auxNames` is its own
+restoration. -/
+theorem restoreWalk_of_no_aux {R : RestoreTbl} : ∀ (d : Nat) (e : Expr),
+    (∀ n ∈ R.auxNames, e.mentionsConst n = false) → restoreWalk R d e = .ok e := by
+  intro d e h
+  have hp : (R.auxNames.any fun n => e.mentionsConst n) = false := by
+    simp only [List.any_eq_false]
+    intro n hn
+    simp [h n hn]
+  rw [restoreWalk.eq_def]
+  simp only [hp, Bool.not_false, if_pos]
+
+/-- **The node step declines at a Π** — a Π is not a `.const`, and the
+head of a non-application is the node itself. -/
+theorem restoreNode_forallE {R : RestoreTbl} {d : Nat} {ty b : Expr} {bm : BinderMeta} :
+    restoreNode R d (.forallE ty b bm) = .ok none := rfl
+
+/-- The node step declines at a λ. -/
+theorem restoreNode_lam {R : RestoreTbl} {d : Nat} {ty b : Expr} {bm : BinderMeta} :
+    restoreNode R d (.lam ty b bm) = .ok none := rfl
+
+/-- The node step declines at an `fvar`. -/
+theorem restoreNode_fvar {R : RestoreTbl} {d i : Nat} {ty : Expr} :
+    restoreNode R d (.fvar i ty) = .ok none := rfl
+
+/-- The node step declines at a `bvar`. -/
+theorem restoreNode_bvar {R : RestoreTbl} {d i : Nat} :
+    restoreNode R d (.bvar i) = .ok none := rfl
+
+/-- The node step declines at a sort. -/
+theorem restoreNode_sort {R : RestoreTbl} {d : Nat} {u : Level} :
+    restoreNode R d (.sort u) = .ok none := rfl
+
+/-- The prune's `any`, read as the per-name fact. -/
+theorem auxNames_mention_false {R : RestoreTbl} {e : Expr}
+    (hp : (R.auxNames.any fun n => e.mentionsConst n) = false) :
+    ∀ n ∈ R.auxNames, e.mentionsConst n = false := by
+  intro n hn
+  have h1 := List.any_eq_false.mp hp n hn
+  simpa using h1
+
+/-- A Π mentions a constant exactly when one of its two parts does. -/
+theorem Expr.mentionsConst_forallE_false {n : Name} {ty b : Expr} {bm : BinderMeta}
+    (h : (Expr.forallE ty b bm).mentionsConst n = false) :
+    ty.mentionsConst n = false ∧ b.mentionsConst n = false := by
+  simpa only [Expr.mentionsConst, Bool.or_eq_false_iff] using h
+
+/-! ### The Π node, both ways -/
+
+/-- **The Π node, inverted**: the walk of a Π is the walk of its domain
+and of its body one binder deeper — in the pruned case both are the
+identity, by the prune on the two parts. -/
+theorem restoreWalk_forallE_inv {R : RestoreTbl} {d : Nat} {ty b e' : Expr} {bm : BinderMeta}
+    (h : restoreWalk R d (.forallE ty b bm) = .ok e') :
+    ∃ ty' b', restoreWalk R d ty = .ok ty' ∧ restoreWalk R (d + 1) b = .ok b' ∧
+      e' = .forallE ty' b' bm := by
+  rcases Bool.eq_false_or_eq_true
+      (R.auxNames.any fun n => (Expr.forallE ty b bm).mentionsConst n) with hp | hp
+  · simp only [restoreWalk, hp, Bool.not_true, Bool.false_eq_true, if_false,
+      restoreNode_forallE] at h
+    cases hty : restoreWalk R d ty with
+    | error err => rw [hty] at h; simp at h
+    | ok ty' =>
+      rw [hty] at h
+      cases hb : restoreWalk R (d + 1) b with
+      | error err => rw [hb] at h; simp at h
+      | ok b' =>
+        rw [hb] at h
+        exact ⟨ty', b', rfl, rfl, (Except.ok.inj h).symm⟩
+  · simp only [restoreWalk, hp, Bool.not_false, if_pos] at h
+    have hp' := fun n hn => Expr.mentionsConst_forallE_false (auxNames_mention_false hp n hn)
+    exact ⟨ty, b, restoreWalk_of_no_aux _ _ (fun n hn => (hp' n hn).1),
+      restoreWalk_of_no_aux _ _ (fun n hn => (hp' n hn).2), (Except.ok.inj h).symm⟩
+
+/-- **The Π node, forward.** -/
+theorem restoreWalk_forallE {R : RestoreTbl} {d : Nat} {ty b ty' b' : Expr} {bm : BinderMeta}
+    (hty : restoreWalk R d ty = .ok ty') (hb : restoreWalk R (d + 1) b = .ok b') :
+    restoreWalk R d (.forallE ty b bm) = .ok (.forallE ty' b' bm) := by
+  rcases Bool.eq_false_or_eq_true
+      (R.auxNames.any fun n => (Expr.forallE ty b bm).mentionsConst n) with hp | hp
+  · simp only [restoreWalk, hp, Bool.not_true, Bool.false_eq_true, if_false,
+      restoreNode_forallE, hty, hb]
+  · have hp' := fun n hn => Expr.mentionsConst_forallE_false (auxNames_mention_false hp n hn)
+    rw [restoreWalk_of_no_aux d ty (fun n hn => (hp' n hn).1)] at hty
+    rw [restoreWalk_of_no_aux (d + 1) b (fun n hn => (hp' n hn).2)] at hb
+    obtain rfl := Except.ok.inj hty
+    obtain rfl := Except.ok.inj hb
+    simp only [restoreWalk, hp, Bool.not_false, if_pos]
+
+/-! ### A pin's fire -/
+
+/-- An application spine mentions whatever its head mentions. -/
+theorem Expr.mentionsConst_mkAppN_head {m : Name} : ∀ (args : List Expr) (f : Expr),
+    f.mentionsConst m = true → (Expr.mkAppN f args).mentionsConst m = true
+  | [], _, h => h
+  | a :: as, f, h =>
+    Expr.mentionsConst_mkAppN_head as (.app f a) (by
+      simp only [Expr.mentionsConst, h, Bool.true_or])
+
+/-- **A pin's fire**: at `auxJ p⃗ is` with `auxJ` a pin key (and an
+`auxNames` entry, so the prune does not fire) the walk replaces the node
+by the lifted pin applied to the arguments past the parameters, and the
+arguments are NOT visited.  `hrec` is what the bare-`.const` case needs:
+at `args = []` the outer match consults `recMap` first. -/
+theorem restoreWalk_pin {R : RestoreTbl} {d : Nat} {n : Name} {us : List Level}
+    {args : List Expr} {pin : Expr}
+    (hp : R.pins.lookup n = some pin) (hrec : R.recMap.lookup n = none)
+    (haux : n ∈ R.auxNames) (hlen : R.nP ≤ args.length) :
+    restoreWalk R d (Expr.mkAppN (.const n us) args) =
+      .ok (Expr.mkAppN (pin.liftLooseBVars d 0) (args.drop R.nP)) := by
+  have hment : (R.auxNames.any fun m =>
+      (Expr.mkAppN (.const n us) args).mentionsConst m) = true := by
+    simp only [List.any_eq_true]
+    exact ⟨n, haux, Expr.mentionsConst_mkAppN_head args _ (by simp [Expr.mentionsConst])⟩
+  have hnode : restoreNode R d (Expr.mkAppN (.const n us) args) =
+      .ok (some (Expr.mkAppN (pin.liftLooseBVars d 0) (args.drop R.nP))) := by
+    rcases List.eq_nil_or_concat args with rfl | ⟨as, a, rfl⟩
+    · have h0 : R.nP = 0 := Nat.le_zero.mp hlen
+      simp only [Expr.mkAppN, restoreNode, hrec, hp, Expr.getAppFn, Expr.getAppArgs, h0]
+      simp
+    · rw [List.concat_eq_append, Expr.mkAppN_append_one]
+      have hfn : (Expr.app (Expr.mkAppN (.const n us) as) a).getAppFn = .const n us := by
+        show (Expr.mkAppN (.const n us) as).getAppFn = _
+        rw [Expr.getAppFn_mkAppN]
+        rfl
+      have hargs : (Expr.app (Expr.mkAppN (.const n us) as) a).getAppArgs = as ++ [a] := by
+        show (Expr.mkAppN (.const n us) as).getAppArgs ++ [a] = _
+        rw [Expr.getAppArgs_mkAppN]
+        rfl
+      rw [List.concat_eq_append] at hlen
+      simp only [restoreNode, hfn, hargs, hp, if_neg (Nat.not_lt.mpr hlen)]
+  rw [restoreWalk.eq_def]
+  simp only [hment, Bool.not_true, Bool.false_eq_true, if_false, hnode]
+
+/-! ### The prologue and the rebuild -/
+
+/-- **The prologue**: `stripPisOrLams` peels the Πs a `stripPis` peels. -/
+theorem stripPisOrLams_of_stripPis {k : Nat} {e : Expr} {bs : List (Expr × BinderMeta)}
+    {body : Expr} (h : e.stripPis k = some (bs, body)) :
+    stripPisOrLams k e = some (bs, body) := by
+  induction k generalizing e bs body with
+  | zero => simpa only [Expr.stripPis, stripPisOrLams] using h
+  | succ k ih =>
+    cases e with
+    | forallE ty b bm =>
+      rw [Expr.stripPis] at h
+      cases hb : b.stripPis k with
+      | none => rw [hb] at h; simp at h
+      | some q =>
+        rw [hb] at h
+        simp only [Option.map_some, Option.some.injEq, Prod.mk.injEq] at h
+        obtain ⟨rfl, rfl⟩ := h
+        simp only [stripPisOrLams, ih hb, Option.map_some]
+    | _ => simp [Expr.stripPis] at h
+
+/-- **The rebuild, for a type**: on a Π-prefix `restoreNested` walks the
+body at depth 0 and puts the Πs back.  `hpi` is what decides the
+rebuild's binder; at `R.nP = 0` the telescope is empty and the flag does
+not matter. -/
+theorem restoreNested_pis {R : RestoreTbl} {e e' : Expr} {bs : List (Expr × BinderMeta)}
+    {body : Expr} (hs : e.stripPis R.nP = some (bs, body))
+    (hpi : 0 < R.nP → ∃ ty b bm, e = .forallE ty b bm)
+    (h : restoreNested R e = .ok e') :
+    ∃ body', restoreWalk R 0 body = .ok body' ∧
+      e' = bs.foldr (fun (b : Expr × BinderMeta) acc => Expr.forallE b.1 acc b.2) body' := by
+  have hso := stripPisOrLams_of_stripPis hs
+  simp only [restoreNested, hso] at h
+  cases hw : restoreWalk R 0 body with
+  | error err => rw [hw] at h; simp at h
+  | ok body' =>
+    rw [hw] at h
+    refine ⟨body', rfl, ?_⟩
+    cases hnP : R.nP with
+    | zero =>
+      rw [hnP] at hs
+      simp only [Expr.stripPis, Option.some.injEq, Prod.mk.injEq] at hs
+      obtain ⟨rfl, rfl⟩ := hs
+      simpa using h.symm
+    | succ k =>
+      obtain ⟨ty, b, bm, rfl⟩ := hpi (by omega)
+      simpa using h.symm
+
+/-! ### The node step's head half
+
+`restoreNode`'s `let head` restated, so that the `.const`/other split is
+made once; `restoreNode_eq_head` and `restoreNode_const` pin this copy to
+the kernel's by `rfl`. -/
+
+/-- The head half of `restoreNode`'s step (its `let head`), restated. -/
+def restoreHead (R : RestoreTbl) (d : Nat) (e : Expr) : Except CheckError (Option Expr) :=
+  match e.getAppFn with
+  | .const n _ =>
+    let args := e.getAppArgs
+    match R.pins.lookup n with
+    | some pin =>
+      if args.length < R.nP then
+        .error (.invalid "failed to restore nested inductive types, auxiliary type is \
+          not applied to all parameters")
+      else .ok (some (Expr.mkAppN (pin.liftLooseBVars d 0) (args.drop R.nP)))
+    | none =>
+      match R.ctorPins.find? (fun q => q.1 == n) with
+      | some (_, pin, newName) =>
+        if args.length < R.nP then
+          .error (.invalid "failed to restore nested inductive types, auxiliary \
+            constructor is not applied to all parameters")
+        else
+          let nested := pin.liftLooseBVars d 0
+          match nested.getAppFn with
+          | .const _ ilvls =>
+            .ok (some (Expr.mkAppN (Expr.mkAppN (.const newName ilvls) nested.getAppArgs)
+              (args.drop R.nP)))
+          | _ =>
+            .error (.invalid "failed to restore nested inductive types, nested \
+              occurrence is not an inductive type application")
+      | none => .ok none
+  | _ => .ok none
+
+/-- Off a `.const` node, the step IS its head half. -/
+theorem restoreNode_eq_head {R : RestoreTbl} {d : Nat} {e : Expr}
+    (h : ∀ n us, e ≠ .const n us) : restoreNode R d e = restoreHead R d e := by
+  cases e with
+  | const n us => exact absurd rfl (h n us)
+  | _ => rfl
+
+/-- At a `.const` node the recursor map is consulted first. -/
+theorem restoreNode_const {R : RestoreTbl} {d : Nat} {n : Name} {us : List Level} :
+    restoreNode R d (.const n us) =
+      match R.recMap.lookup n with
+      | some n' => .ok (some (.const n' us))
+      | none => restoreHead R d (.const n us) := by
+  rfl
+
+/-- The head half declines when the spine head is not a constant. -/
+theorem restoreHead_not_const {R : RestoreTbl} {d : Nat} {e : Expr}
+    (h : ∀ n us, e.getAppFn ≠ .const n us) : restoreHead R d e = .ok none := by
+  unfold restoreHead
+  split
+  · next n us heq => exact absurd heq (h n us)
+  · rfl
+
+/-- **The head half commutes with opening a binder**: the spine head and
+the argument count are untouched by `instantiate1` at an `fvar`, and a
+fired pin loses exactly one lift level
+(`Expr.instantiate1_liftLooseBVars`). -/
+theorem restoreHead_inst {R : RestoreTbl} {k : Nat} {tyv : Expr} {d j : Nat} {e : Expr}
+    {o : Option Expr} (h : restoreHead R (d + 1 + j) e = .ok o) :
+    restoreHead R (d + j) (e.instantiate1 (.fvar k tyv) j) =
+      .ok (o.map (fun x => x.instantiate1 (.fvar k tyv) j)) := by
+  by_cases hc : ∃ n us, e.getAppFn = .const n us
+  case neg =>
+    have hne : ∀ n us, e.getAppFn ≠ .const n us := fun n us hq => hc ⟨n, us, hq⟩
+    rw [restoreHead_not_const hne] at h
+    obtain rfl := (Except.ok.inj h).symm
+    rw [restoreHead_not_const
+      (fun n us hq => hne n us (Expr.getAppFn_const_of_instantiate1 hq))]
+    rfl
+  case pos =>
+    obtain ⟨n, us, hfn⟩ := hc
+    have hfn' : (e.instantiate1 (.fvar k tyv) j).getAppFn = .const n us :=
+      Expr.getAppFn_instantiate1_const hfn
+    have hargs : (e.instantiate1 (.fvar k tyv) j).getAppArgs
+        = e.getAppArgs.map (fun a => a.instantiate1 (.fvar k tyv) j) :=
+      Expr.getAppArgs_instantiate1_var
+    simp only [restoreHead, hfn] at h
+    simp only [restoreHead, hfn', hargs, List.length_map]
+    cases hp : R.pins.lookup n with
+    | some pin =>
+      simp only [hp] at h ⊢
+      by_cases hlen : e.getAppArgs.length < R.nP
+      · rw [if_pos hlen] at h; simp at h
+      · rw [if_neg hlen] at h ⊢
+        obtain rfl := (Except.ok.inj h).symm
+        have hlift : (pin.liftLooseBVars (d + 1 + j) 0).instantiate1 (.fvar k tyv) j
+            = pin.liftLooseBVars (d + j) 0 := by
+          rw [show d + 1 + j = (d + j) + 1 from by omega]
+          exact Expr.instantiate1_liftLooseBVars (Nat.zero_le _) (by omega)
+        simp only [Option.map_some, Expr.mkAppN_instantiate1, hlift, List.map_drop]
+    | none =>
+      simp only [hp] at h ⊢
+      cases hcp : R.ctorPins.find? (fun q => q.1 == n) with
+      | none =>
+        simp only [hcp] at h ⊢
+        obtain rfl := Except.ok.inj h
+        rfl
+      | some q =>
+        obtain ⟨cn, pin, newName⟩ := q
+        simp only [hcp] at h ⊢
+        by_cases hlen : e.getAppArgs.length < R.nP
+        · rw [if_pos hlen] at h; simp at h
+        · rw [if_neg hlen] at h ⊢
+          have hlift : (pin.liftLooseBVars (d + 1 + j) 0).instantiate1 (.fvar k tyv) j
+              = pin.liftLooseBVars (d + j) 0 := by
+            rw [show d + 1 + j = (d + j) + 1 from by omega]
+            exact Expr.instantiate1_liftLooseBVars (Nat.zero_le _) (by omega)
+          cases hnf : (pin.liftLooseBVars (d + 1 + j) 0).getAppFn with
+          | const n₀ ilvls =>
+            have hgf : (pin.liftLooseBVars (d + j) 0).getAppFn = .const n₀ ilvls := by
+              rw [← hlift]; exact Expr.getAppFn_instantiate1_const hnf
+            have hga : (pin.liftLooseBVars (d + j) 0).getAppArgs
+                = (pin.liftLooseBVars (d + 1 + j) 0).getAppArgs.map
+                    (fun a => a.instantiate1 (.fvar k tyv) j) := by
+              rw [← hlift]; exact Expr.getAppArgs_instantiate1_var
+            simp only [hnf] at h
+            simp only [hgf, hga]
+            obtain rfl := (Except.ok.inj h).symm
+            simp only [Option.map_some, Expr.mkAppN_instantiate1, Expr.instantiate1,
+              List.map_drop]
+          | _ => simp only [hnf] at h; simp at h
+
+
+/-- The step declines at a node that is neither a constant nor
+constant-headed. -/
+theorem restoreNode_none_of_not_const {R : RestoreTbl} {d : Nat} {e : Expr}
+    (h1 : ∀ n us, e ≠ .const n us) (h2 : ∀ n us, e.getAppFn ≠ .const n us) :
+    restoreNode R d e = .ok none := by
+  rw [restoreNode_eq_head h1, restoreHead_not_const h2]
+
+/-- **The node step commutes with opening a binder.** -/
+theorem restoreNode_inst {R : RestoreTbl} {k : Nat} {tyv : Expr} {d j : Nat} {e : Expr}
+    {o : Option Expr} (h : restoreNode R (d + 1 + j) e = .ok o) :
+    restoreNode R (d + j) (e.instantiate1 (.fvar k tyv) j) =
+      .ok (o.map (fun x => x.instantiate1 (.fvar k tyv) j)) := by
+  cases e with
+  | const n us =>
+    rw [restoreNode_const] at h
+    simp only [Expr.instantiate1, restoreNode_const]
+    cases hr : R.recMap.lookup n with
+    | some n' =>
+      rw [hr] at h
+      simp only at h
+      obtain rfl := Except.ok.inj h
+      rfl
+    | none =>
+      rw [hr] at h
+      simp only at h
+      exact restoreHead_inst h
+  | bvar i =>
+    rw [restoreNode_bvar] at h
+    obtain rfl := Except.ok.inj h
+    simp only [Expr.instantiate1]
+    split
+    · exact restoreNode_fvar
+    · split <;> exact restoreNode_bvar
+  | app f a =>
+    rw [restoreNode_eq_head (by intro n us hq; exact Expr.noConfusion hq)] at h
+    rw [restoreNode_eq_head (by intro n us hq; simp [Expr.instantiate1] at hq)]
+    exact restoreHead_inst h
+  | _ =>
+    rw [restoreNode_none_of_not_const (by intro n us hq; exact Expr.noConfusion hq)
+      (by intro n us hq; simp [Expr.getAppFn] at hq)] at h
+    obtain rfl := Except.ok.inj h
+    simp only [Expr.instantiate1]
+    exact restoreNode_none_of_not_const (by intro n us hq; exact Expr.noConfusion hq)
+      (by intro n us hq; simp [Expr.getAppFn] at hq)
+
+
+/-! ### The prune's side condition -/
+
+/-- **The prune's side condition**: every name the node step can fire on
+is an `auxNames` entry.  Without it the prune is not sound for the walk's
+descent — a subterm mentioning only, say, a `ctorPins` key would be
+dismissed — and the commutation below is refutable.  NOTE that
+`restoreTbl` (`ConLeche/Kernel/Inductives/NestedInstall.lean`) fills
+`auxNames` from the PINS alone, so this is a hypothesis about the table,
+not a fact of the structure. -/
+@[expose] def RestoreTbl.KeysInAux (R : RestoreTbl) : Prop :=
+  (∀ n pin, R.pins.lookup n = some pin → n ∈ R.auxNames) ∧
+  (∀ n q, R.ctorPins.find? (fun p => p.1 == n) = some q → n ∈ R.auxNames) ∧
+  (∀ n n', R.recMap.lookup n = some n' → n ∈ R.auxNames)
+
+/-- The head half declines when neither pin map answers at the head. -/
+theorem restoreHead_none {R : RestoreTbl} {d : Nat} {e : Expr}
+    (hpin : ∀ n us, e.getAppFn = .const n us → R.pins.lookup n = none)
+    (hctor : ∀ n us, e.getAppFn = .const n us →
+      R.ctorPins.find? (fun p => p.1 == n) = none) :
+    restoreHead R d e = .ok none := by
+  by_cases hc : ∃ n us, e.getAppFn = .const n us
+  · obtain ⟨n, us, hfn⟩ := hc
+    simp only [restoreHead, hfn, hpin n us hfn, hctor n us hfn]
+  · exact restoreHead_not_const (fun n us hq => hc ⟨n, us, hq⟩)
+
+/-- The step declines when no map answers at the head. -/
+theorem restoreNode_none_of_head {R : RestoreTbl} {d : Nat} {e : Expr}
+    (hpin : ∀ n us, e.getAppFn = .const n us → R.pins.lookup n = none)
+    (hctor : ∀ n us, e.getAppFn = .const n us →
+      R.ctorPins.find? (fun p => p.1 == n) = none)
+    (hrec : ∀ n us, e = .const n us → R.recMap.lookup n = none) :
+    restoreNode R d e = .ok none := by
+  cases e with
+  | const n us =>
+    simp only [restoreNode_const, hrec n us rfl]
+    exact restoreHead_none hpin hctor
+  | _ =>
+    rw [restoreNode_eq_head (by intro n us hq; exact Expr.noConfusion hq)]
+    exact restoreHead_none hpin hctor
+
+/-- The step declines at any node whose spine head is the spine head of
+an auxiliary-free term — in particular at that term and at its opening
+`e₀.instantiate1 (.fvar k ty) j`, whose `fvar` annotation may well mention
+an auxiliary name. -/
+theorem restoreNode_none_of_aux_free {R : RestoreTbl} (hk : R.KeysInAux) {d : Nat} {e₀ e : Expr}
+    (hfree : ∀ n ∈ R.auxNames, e₀.mentionsConst n = false)
+    (hhead : ∀ n us, e.getAppFn = .const n us → e₀.getAppFn = .const n us) :
+    restoreNode R d e = .ok none := by
+  have key : ∀ n us, e.getAppFn = .const n us → n ∉ R.auxNames := by
+    intro n us hq hn
+    have h1 : e₀.mentionsConst n = true := Expr.mentionsConst_of_getAppFn (hhead n us hq)
+    rw [hfree n hn] at h1
+    exact Bool.noConfusion h1
+  refine restoreNode_none_of_head ?_ ?_ ?_
+  · intro n us hq
+    cases hl : R.pins.lookup n with
+    | none => rfl
+    | some pin => exact absurd (hk.1 n pin hl) (key n us hq)
+  · intro n us hq
+    cases hl : R.ctorPins.find? (fun p => p.1 == n) with
+    | none => rfl
+    | some q => exact absurd (hk.2.1 n q hl) (key n us hq)
+  · intro n us hq
+    cases hl : R.recMap.lookup n with
+    | none => rfl
+    | some n' => exact absurd (hk.2.2 n n' hl) (key n us (by rw [hq]; rfl))
+
+/-! ### Walks that are the identity -/
+
+/-- The walk is the identity at an `fvar` (its type annotation is NOT
+visited). -/
+theorem restoreWalk_fvar {R : RestoreTbl} {d i : Nat} {ty : Expr} :
+    restoreWalk R d (.fvar i ty) = .ok (.fvar i ty) := by
+  rcases Bool.eq_false_or_eq_true (R.auxNames.any fun n => (Expr.fvar i ty).mentionsConst n)
+    with hp | hp
+  · simp only [restoreWalk, hp, Bool.not_true, Bool.false_eq_true, if_false, restoreNode_fvar]
+  · simp only [restoreWalk, hp, Bool.not_false, if_pos]
+
+/-- The walk is the identity at a `bvar`. -/
+theorem restoreWalk_bvar {R : RestoreTbl} {d i : Nat} :
+    restoreWalk R d (.bvar i) = .ok (.bvar i) :=
+  restoreWalk_of_no_aux _ _ (fun _ _ => rfl)
+
+/-- The walk is the identity at a sort. -/
+theorem restoreWalk_sort {R : RestoreTbl} {d : Nat} {u : Level} :
+    restoreWalk R d (.sort u) = .ok (.sort u) :=
+  restoreWalk_of_no_aux _ _ (fun _ _ => rfl)
+
+/-- The walk is the identity at a literal. -/
+theorem restoreWalk_lit {R : RestoreTbl} {d : Nat} {l : Literal} :
+    restoreWalk R d (.lit l) = .ok (.lit l) :=
+  restoreWalk_of_no_aux _ _ (fun _ _ => rfl)
+
+/-- **An auxiliary-free term opens to its own restoration**: the prune
+may well fail on `e.instantiate1 (.fvar k ty) j` (`mentionsConst`
+descends into an `fvar`'s type annotation), but every node step still
+declines, so the walk rebuilds the term unchanged. -/
+theorem restoreWalk_inst_id {R : RestoreTbl} (hk : R.KeysInAux) {k : Nat} {tyv : Expr} :
+    ∀ (e : Expr) (j d : Nat), (∀ n ∈ R.auxNames, e.mentionsConst n = false) →
+      restoreWalk R d (e.instantiate1 (.fvar k tyv) j)
+        = .ok (e.instantiate1 (.fvar k tyv) j) := by
+  intro e
+  induction e with
+  | bvar i =>
+    intro j d _
+    simp only [Expr.instantiate1]
+    split
+    · exact restoreWalk_fvar
+    · split <;> exact restoreWalk_bvar
+  | fvar i ty => intro j d _; exact restoreWalk_fvar
+  | sort u => intro j d _; exact restoreWalk_sort
+  | lit l => intro j d _; exact restoreWalk_lit
+  | const n us =>
+    intro j d hfree
+    have hnode : restoreNode R d ((Expr.const n us).instantiate1 (.fvar k tyv) j) = .ok none :=
+      restoreNode_none_of_aux_free hk hfree
+        (fun n us hq => Expr.getAppFn_const_of_instantiate1 hq)
+    rcases Bool.eq_false_or_eq_true
+        (R.auxNames.any fun m => ((Expr.const n us).instantiate1 (.fvar k tyv) j).mentionsConst m)
+      with hp | hp
+    · simp only [Expr.instantiate1] at hnode hp ⊢
+      simp only [restoreWalk, hp, Bool.not_true, Bool.false_eq_true, if_false, hnode]
+    · exact restoreWalk_of_no_aux _ _ (auxNames_mention_false hp)
+  | app f a ihf iha =>
+    intro j d hfree
+    have hf : ∀ n ∈ R.auxNames, f.mentionsConst n = false := fun n hn => by
+      have h1 := hfree n hn
+      simp only [Expr.mentionsConst, Bool.or_eq_false_iff] at h1
+      exact h1.1
+    have ha : ∀ n ∈ R.auxNames, a.mentionsConst n = false := fun n hn => by
+      have h1 := hfree n hn
+      simp only [Expr.mentionsConst, Bool.or_eq_false_iff] at h1
+      exact h1.2
+    have hnode : restoreNode R d ((Expr.app f a).instantiate1 (.fvar k tyv) j) = .ok none :=
+      restoreNode_none_of_aux_free hk hfree
+        (fun n us hq => Expr.getAppFn_const_of_instantiate1 hq)
+    rcases Bool.eq_false_or_eq_true
+        (R.auxNames.any fun m => ((Expr.app f a).instantiate1 (.fvar k tyv) j).mentionsConst m)
+      with hp | hp
+    · simp only [Expr.instantiate1] at hnode hp ⊢
+      simp only [restoreWalk, hp, Bool.not_true, Bool.false_eq_true, if_false, hnode,
+        ihf j d hf, iha j d ha]
+    · exact restoreWalk_of_no_aux _ _ (auxNames_mention_false hp)
+  | lam ty b bm ihty ihb =>
+    intro j d hfree
+    have hty : ∀ n ∈ R.auxNames, ty.mentionsConst n = false := fun n hn => by
+      have h1 := hfree n hn
+      simp only [Expr.mentionsConst, Bool.or_eq_false_iff] at h1
+      exact h1.1
+    have hb : ∀ n ∈ R.auxNames, b.mentionsConst n = false := fun n hn => by
+      have h1 := hfree n hn
+      simp only [Expr.mentionsConst, Bool.or_eq_false_iff] at h1
+      exact h1.2
+    have hnode : restoreNode R d ((Expr.lam ty b bm).instantiate1 (.fvar k tyv) j) = .ok none :=
+      restoreNode_none_of_aux_free hk hfree
+        (fun n us hq => Expr.getAppFn_const_of_instantiate1 hq)
+    rcases Bool.eq_false_or_eq_true
+        (R.auxNames.any fun m => ((Expr.lam ty b bm).instantiate1 (.fvar k tyv) j).mentionsConst m)
+      with hp | hp
+    · simp only [Expr.instantiate1] at hnode hp ⊢
+      simp only [restoreWalk, hp, Bool.not_true, Bool.false_eq_true, if_false, hnode,
+        ihty j d hty, ihb (j + 1) (d + 1) hb]
+    · exact restoreWalk_of_no_aux _ _ (auxNames_mention_false hp)
+  | forallE ty b bm ihty ihb =>
+    intro j d hfree
+    have hty : ∀ n ∈ R.auxNames, ty.mentionsConst n = false := fun n hn => by
+      have h1 := hfree n hn
+      simp only [Expr.mentionsConst, Bool.or_eq_false_iff] at h1
+      exact h1.1
+    have hb : ∀ n ∈ R.auxNames, b.mentionsConst n = false := fun n hn => by
+      have h1 := hfree n hn
+      simp only [Expr.mentionsConst, Bool.or_eq_false_iff] at h1
+      exact h1.2
+    have hnode : restoreNode R d ((Expr.forallE ty b bm).instantiate1 (.fvar k tyv) j)
+        = .ok none :=
+      restoreNode_none_of_aux_free hk hfree
+        (fun n us hq => Expr.getAppFn_const_of_instantiate1 hq)
+    rcases Bool.eq_false_or_eq_true
+        (R.auxNames.any fun m =>
+          ((Expr.forallE ty b bm).instantiate1 (.fvar k tyv) j).mentionsConst m)
+      with hp | hp
+    · simp only [Expr.instantiate1] at hnode hp ⊢
+      simp only [restoreWalk, hp, Bool.not_true, Bool.false_eq_true, if_false, hnode,
+        ihty j d hty, ihb (j + 1) (d + 1) hb]
+    · exact restoreWalk_of_no_aux _ _ (auxNames_mention_false hp)
+  | letE ty vl b ihty ihv ihb =>
+    intro j d hfree
+    have hty : ∀ n ∈ R.auxNames, ty.mentionsConst n = false := fun n hn => by
+      have h1 := hfree n hn
+      simp only [Expr.mentionsConst, Bool.or_eq_false_iff] at h1
+      exact h1.1.1
+    have hv : ∀ n ∈ R.auxNames, vl.mentionsConst n = false := fun n hn => by
+      have h1 := hfree n hn
+      simp only [Expr.mentionsConst, Bool.or_eq_false_iff] at h1
+      exact h1.1.2
+    have hb : ∀ n ∈ R.auxNames, b.mentionsConst n = false := fun n hn => by
+      have h1 := hfree n hn
+      simp only [Expr.mentionsConst, Bool.or_eq_false_iff] at h1
+      exact h1.2
+    have hnode : restoreNode R d ((Expr.letE ty vl b).instantiate1 (.fvar k tyv) j) = .ok none :=
+      restoreNode_none_of_aux_free hk hfree
+        (fun n us hq => Expr.getAppFn_const_of_instantiate1 hq)
+    rcases Bool.eq_false_or_eq_true
+        (R.auxNames.any fun m => ((Expr.letE ty vl b).instantiate1 (.fvar k tyv) j).mentionsConst m)
+      with hp | hp
+    · simp only [Expr.instantiate1] at hnode hp ⊢
+      simp only [restoreWalk, hp, Bool.not_true, Bool.false_eq_true, if_false, hnode,
+        ihty j d hty, ihv j d hv, ihb (j + 1) (d + 1) hb]
+    · exact restoreWalk_of_no_aux _ _ (auxNames_mention_false hp)
+  | proj sn i pe ih =>
+    intro j d hfree
+    have hpe : ∀ n ∈ R.auxNames, pe.mentionsConst n = false := fun n hn => by
+      have h1 := hfree n hn
+      simp only [Expr.mentionsConst, Bool.or_eq_false_iff] at h1
+      exact h1.2
+    have hnode : restoreNode R d ((Expr.proj sn i pe).instantiate1 (.fvar k tyv) j) = .ok none :=
+      restoreNode_none_of_aux_free hk hfree
+        (fun n us hq => Expr.getAppFn_const_of_instantiate1 hq)
+    rcases Bool.eq_false_or_eq_true
+        (R.auxNames.any fun m => ((Expr.proj sn i pe).instantiate1 (.fvar k tyv) j).mentionsConst m)
+      with hp | hp
+    · simp only [Expr.instantiate1] at hnode hp ⊢
+      simp only [restoreWalk, hp, Bool.not_true, Bool.false_eq_true, if_false, hnode, ih j d hpe]
+    · exact restoreWalk_of_no_aux _ _ (auxNames_mention_false hp)
+
+
+/-- Opening a binder does not silence the prune. -/
+theorem auxNames_any_instantiate1 {R : RestoreTbl} {e v : Expr} {j : Nat}
+    (hp : (R.auxNames.any fun n => e.mentionsConst n) = true) :
+    (R.auxNames.any fun n => (e.instantiate1 v j).mentionsConst n) = true := by
+  simp only [List.any_eq_true] at hp ⊢
+  obtain ⟨n, hn, hm⟩ := hp
+  exact ⟨n, hn, Expr.mentionsConst_instantiate1 hm⟩
+
+/-- **The commutation with opening a binder, at cursor `j`**: the walk's
+depth and the substitution's cursor move together, which is what lets a
+fired pin's lift lose exactly one level. -/
+theorem restoreWalk_instantiate1_fvar_at {R : RestoreTbl} (hk : R.KeysInAux) {k : Nat}
+    {tyv : Expr} (d : Nat) : ∀ (b : Expr) (j : Nat) (b' : Expr),
+      restoreWalk R (d + 1 + j) b = .ok b' →
+      restoreWalk R (d + j) (b.instantiate1 (.fvar k tyv) j)
+        = .ok (b'.instantiate1 (.fvar k tyv) j) := by
+  intro b
+  induction b with
+  | bvar i =>
+    intro j b' h
+    have hfree : ∀ n ∈ R.auxNames, (Expr.bvar i).mentionsConst n = false := fun _ _ => rfl
+    rw [restoreWalk_of_no_aux _ _ hfree] at h
+    obtain rfl := Except.ok.inj h
+    exact restoreWalk_inst_id hk _ j (d + j) hfree
+  | sort u =>
+    intro j b' h
+    have hfree : ∀ n ∈ R.auxNames, (Expr.sort u).mentionsConst n = false := fun _ _ => rfl
+    rw [restoreWalk_of_no_aux _ _ hfree] at h
+    obtain rfl := Except.ok.inj h
+    exact restoreWalk_inst_id hk _ j (d + j) hfree
+  | lit l =>
+    intro j b' h
+    have hfree : ∀ n ∈ R.auxNames, (Expr.lit l).mentionsConst n = false := fun _ _ => rfl
+    rw [restoreWalk_of_no_aux _ _ hfree] at h
+    obtain rfl := Except.ok.inj h
+    exact restoreWalk_inst_id hk _ j (d + j) hfree
+  | fvar i ty =>
+    intro j b' h
+    rw [restoreWalk_fvar] at h
+    obtain rfl := Except.ok.inj h
+    exact restoreWalk_fvar
+  | const n us =>
+    intro j b' h
+    rcases Bool.eq_false_or_eq_true (R.auxNames.any fun m => (Expr.const n us).mentionsConst m)
+      with hp | hp
+    · have hp' := auxNames_any_instantiate1 (v := .fvar k tyv) (j := j) hp
+      simp only [restoreWalk, hp, Bool.not_true, Bool.false_eq_true, if_false] at h
+      cases hn : restoreNode R (d + 1 + j) (Expr.const n us) with
+      | error err => rw [hn] at h; simp at h
+      | ok o =>
+        have hn' := restoreNode_inst (k := k) (tyv := tyv) hn
+        rw [hn] at h
+        cases o with
+        | some x =>
+          simp only at h
+          obtain rfl := Except.ok.inj h
+          simp only [Expr.instantiate1] at hp' hn' ⊢
+          simp only [restoreWalk, hp', Bool.not_true, Bool.false_eq_true, if_false, hn',
+            Option.map_some]
+        | none =>
+          simp only at h
+          obtain rfl := Except.ok.inj h
+          simp only [Expr.instantiate1] at hp' hn' ⊢
+          simp only [restoreWalk, hp', Bool.not_true, Bool.false_eq_true, if_false, hn',
+            Option.map_none]
+    · have hfree := auxNames_mention_false hp
+      rw [restoreWalk_of_no_aux _ _ hfree] at h
+      obtain rfl := Except.ok.inj h
+      exact restoreWalk_inst_id hk _ j (d + j) hfree
+  | app f a ihf iha =>
+    intro j b' h
+    rcases Bool.eq_false_or_eq_true (R.auxNames.any fun m => (Expr.app f a).mentionsConst m)
+      with hp | hp
+    · have hp' := auxNames_any_instantiate1 (v := .fvar k tyv) (j := j) hp
+      simp only [restoreWalk, hp, Bool.not_true, Bool.false_eq_true, if_false] at h
+      cases hn : restoreNode R (d + 1 + j) (Expr.app f a) with
+      | error err => rw [hn] at h; simp at h
+      | ok o =>
+        have hn' := restoreNode_inst (k := k) (tyv := tyv) hn
+        rw [hn] at h
+        cases o with
+        | some x =>
+          simp only at h
+          obtain rfl := Except.ok.inj h
+          simp only [Expr.instantiate1] at hp' hn' ⊢
+          simp only [restoreWalk, hp', Bool.not_true, Bool.false_eq_true, if_false, hn',
+            Option.map_some]
+        | none =>
+          simp only at h
+          cases hf : restoreWalk R (d + 1 + j) f with
+          | error err => rw [hf] at h; simp at h
+          | ok f' =>
+            rw [hf] at h
+            cases ha : restoreWalk R (d + 1 + j) a with
+            | error err => rw [ha] at h; simp at h
+            | ok a' =>
+              rw [ha] at h
+              obtain rfl := Except.ok.inj h
+              simp only [Expr.instantiate1] at hp' hn' ⊢
+              simp only [restoreWalk, hp', Bool.not_true, Bool.false_eq_true, if_false, hn',
+                ihf j f' hf, iha j a' ha, Option.map_none]
+    · have hfree := auxNames_mention_false hp
+      rw [restoreWalk_of_no_aux _ _ hfree] at h
+      obtain rfl := Except.ok.inj h
+      exact restoreWalk_inst_id hk _ j (d + j) hfree
+  | lam ty b bm ihty ihb =>
+    intro j b' h
+    rcases Bool.eq_false_or_eq_true (R.auxNames.any fun m => (Expr.lam ty b bm).mentionsConst m)
+      with hp | hp
+    · have hp' := auxNames_any_instantiate1 (v := .fvar k tyv) (j := j) hp
+      simp only [restoreWalk, hp, Bool.not_true, Bool.false_eq_true, if_false] at h
+      cases hn : restoreNode R (d + 1 + j) (Expr.lam ty b bm) with
+      | error err => rw [hn] at h; simp at h
+      | ok o =>
+        have hn' := restoreNode_inst (k := k) (tyv := tyv) hn
+        rw [hn] at h
+        cases o with
+        | some x =>
+          simp only at h
+          obtain rfl := Except.ok.inj h
+          simp only [Expr.instantiate1] at hp' hn' ⊢
+          simp only [restoreWalk, hp', Bool.not_true, Bool.false_eq_true, if_false, hn',
+            Option.map_some]
+        | none =>
+          simp only at h
+          cases hty : restoreWalk R (d + 1 + j) ty with
+          | error err => rw [hty] at h; simp at h
+          | ok ty' =>
+            rw [hty] at h
+            cases hb : restoreWalk R (d + 1 + j + 1) b with
+            | error err => rw [hb] at h; simp at h
+            | ok b₁ =>
+              rw [hb] at h
+              obtain rfl := Except.ok.inj h
+              have hbb : restoreWalk R (d + j + 1) (b.instantiate1 (.fvar k tyv) (j + 1))
+                  = .ok (b₁.instantiate1 (.fvar k tyv) (j + 1)) := ihb (j + 1) b₁ hb
+              simp only [Expr.instantiate1] at hp' hn' ⊢
+              simp only [restoreWalk, hp', Bool.not_true, Bool.false_eq_true, if_false, hn',
+                ihty j ty' hty, hbb, Option.map_none]
+    · have hfree := auxNames_mention_false hp
+      rw [restoreWalk_of_no_aux _ _ hfree] at h
+      obtain rfl := Except.ok.inj h
+      exact restoreWalk_inst_id hk _ j (d + j) hfree
+  | forallE ty b bm ihty ihb =>
+    intro j b' h
+    rcases Bool.eq_false_or_eq_true
+        (R.auxNames.any fun m => (Expr.forallE ty b bm).mentionsConst m) with hp | hp
+    · have hp' := auxNames_any_instantiate1 (v := .fvar k tyv) (j := j) hp
+      simp only [restoreWalk, hp, Bool.not_true, Bool.false_eq_true, if_false] at h
+      cases hn : restoreNode R (d + 1 + j) (Expr.forallE ty b bm) with
+      | error err => rw [hn] at h; simp at h
+      | ok o =>
+        have hn' := restoreNode_inst (k := k) (tyv := tyv) hn
+        rw [hn] at h
+        cases o with
+        | some x =>
+          simp only at h
+          obtain rfl := Except.ok.inj h
+          simp only [Expr.instantiate1] at hp' hn' ⊢
+          simp only [restoreWalk, hp', Bool.not_true, Bool.false_eq_true, if_false, hn',
+            Option.map_some]
+        | none =>
+          simp only at h
+          cases hty : restoreWalk R (d + 1 + j) ty with
+          | error err => rw [hty] at h; simp at h
+          | ok ty' =>
+            rw [hty] at h
+            cases hb : restoreWalk R (d + 1 + j + 1) b with
+            | error err => rw [hb] at h; simp at h
+            | ok b₁ =>
+              rw [hb] at h
+              obtain rfl := Except.ok.inj h
+              have hbb : restoreWalk R (d + j + 1) (b.instantiate1 (.fvar k tyv) (j + 1))
+                  = .ok (b₁.instantiate1 (.fvar k tyv) (j + 1)) := ihb (j + 1) b₁ hb
+              simp only [Expr.instantiate1] at hp' hn' ⊢
+              simp only [restoreWalk, hp', Bool.not_true, Bool.false_eq_true, if_false, hn',
+                ihty j ty' hty, hbb, Option.map_none]
+    · have hfree := auxNames_mention_false hp
+      rw [restoreWalk_of_no_aux _ _ hfree] at h
+      obtain rfl := Except.ok.inj h
+      exact restoreWalk_inst_id hk _ j (d + j) hfree
+  | letE ty vl b ihty ihv ihb =>
+    intro j b' h
+    rcases Bool.eq_false_or_eq_true (R.auxNames.any fun m => (Expr.letE ty vl b).mentionsConst m)
+      with hp | hp
+    · have hp' := auxNames_any_instantiate1 (v := .fvar k tyv) (j := j) hp
+      simp only [restoreWalk, hp, Bool.not_true, Bool.false_eq_true, if_false] at h
+      cases hn : restoreNode R (d + 1 + j) (Expr.letE ty vl b) with
+      | error err => rw [hn] at h; simp at h
+      | ok o =>
+        have hn' := restoreNode_inst (k := k) (tyv := tyv) hn
+        rw [hn] at h
+        cases o with
+        | some x =>
+          simp only at h
+          obtain rfl := Except.ok.inj h
+          simp only [Expr.instantiate1] at hp' hn' ⊢
+          simp only [restoreWalk, hp', Bool.not_true, Bool.false_eq_true, if_false, hn',
+            Option.map_some]
+        | none =>
+          simp only at h
+          cases hty : restoreWalk R (d + 1 + j) ty with
+          | error err => rw [hty] at h; simp at h
+          | ok ty' =>
+            rw [hty] at h
+            cases hv : restoreWalk R (d + 1 + j) vl with
+            | error err => rw [hv] at h; simp at h
+            | ok v' =>
+              rw [hv] at h
+              cases hb : restoreWalk R (d + 1 + j + 1) b with
+              | error err => rw [hb] at h; simp at h
+              | ok b₁ =>
+                rw [hb] at h
+                obtain rfl := Except.ok.inj h
+                have hbb : restoreWalk R (d + j + 1) (b.instantiate1 (.fvar k tyv) (j + 1))
+                    = .ok (b₁.instantiate1 (.fvar k tyv) (j + 1)) := ihb (j + 1) b₁ hb
+                simp only [Expr.instantiate1] at hp' hn' ⊢
+                simp only [restoreWalk, hp', Bool.not_true, Bool.false_eq_true, if_false, hn',
+                  ihty j ty' hty, ihv j v' hv, hbb, Option.map_none]
+    · have hfree := auxNames_mention_false hp
+      rw [restoreWalk_of_no_aux _ _ hfree] at h
+      obtain rfl := Except.ok.inj h
+      exact restoreWalk_inst_id hk _ j (d + j) hfree
+  | proj sn i pe ih =>
+    intro j b' h
+    rcases Bool.eq_false_or_eq_true (R.auxNames.any fun m => (Expr.proj sn i pe).mentionsConst m)
+      with hp | hp
+    · have hp' := auxNames_any_instantiate1 (v := .fvar k tyv) (j := j) hp
+      simp only [restoreWalk, hp, Bool.not_true, Bool.false_eq_true, if_false] at h
+      cases hn : restoreNode R (d + 1 + j) (Expr.proj sn i pe) with
+      | error err => rw [hn] at h; simp at h
+      | ok o =>
+        have hn' := restoreNode_inst (k := k) (tyv := tyv) hn
+        rw [hn] at h
+        cases o with
+        | some x =>
+          simp only at h
+          obtain rfl := Except.ok.inj h
+          simp only [Expr.instantiate1] at hp' hn' ⊢
+          simp only [restoreWalk, hp', Bool.not_true, Bool.false_eq_true, if_false, hn',
+            Option.map_some]
+        | none =>
+          simp only at h
+          cases hpe : restoreWalk R (d + 1 + j) pe with
+          | error err => rw [hpe] at h; simp at h
+          | ok pe' =>
+            rw [hpe] at h
+            obtain rfl := Except.ok.inj h
+            simp only [Expr.instantiate1] at hp' hn' ⊢
+            simp only [restoreWalk, hp', Bool.not_true, Bool.false_eq_true, if_false, hn',
+              ih j pe' hpe, Option.map_none]
+    · have hfree := auxNames_mention_false hp
+      rw [restoreWalk_of_no_aux _ _ hfree] at h
+      obtain rfl := Except.ok.inj h
+      exact restoreWalk_inst_id hk _ j (d + j) hfree
+
+/-- **The commutation with opening a binder**: walking a body one binder
+deep and then opening it is opening it and then walking. -/
+theorem restoreWalk_instantiate1_fvar {R : RestoreTbl} (hk : R.KeysInAux) :
+    ∀ (d : Nat) (b b' : Expr) (k : Nat) (ty : Expr),
+      restoreWalk R (d + 1) b = .ok b' →
+      restoreWalk R d (b.instantiate1 (.fvar k ty)) = .ok (b'.instantiate1 (.fvar k ty)) := by
+  intro d b b' k ty h
+  exact restoreWalk_instantiate1_fvar_at hk d b 0 b' h
 
 /-! ## K.37's edge list, inverted (task #315, lane L-E's DESIGN §U.55 (a))
 

@@ -47,7 +47,8 @@ the set-level clauses `BlockTableOf.lean`'s, the sorts the table
 facts', the names the run's. -/
 theorem tableMember_of {env : Env} {m : EnvModel V env} {b : MutualBlock}
     {fms : List MutualFormerA} {sortss : List (List Level)} {d : BlockModel V}
-    (hreps : IsBlockModels m d) (htyped : ∀ ψ : Name → Nat, FormersTyped m d ψ ∧ CtorsTyped m d ψ)
+    (hreps : IsBlockModels m d) (hpins : d.pins = [])
+    (htyped : ∀ ψ : Name → Nat, FormersTyped m d ψ ∧ CtorsTyped m d ψ)
     (htf : MutualTableFacts b fms sortss d)
     {mIdx : Nat} (hmm : mIdx < d.k) {f : MutualFormerA} (hft : fms[mIdx]? = some f)
     (hname : d.memberName mIdx = f.cvTa.name)
@@ -62,7 +63,7 @@ theorem tableMember_of {env : Env} {m : EnvModel V env} {b : MutualBlock}
     (hCshape : cA.1.name.isProjFnShape = false)
     (hresC : ConLeche.reservedBasisNames.contains cA.1.name = false)
     {sorts : List Level} (hsj : sortss[J]? = some sorts) :
-    TableMember m b.lps d.nP f.cvTa.name f.cvTa cA.1 cA.2 J f.s d.isProp sorts (d.ppsM mIdx)
+    TableMember m b.lps d.nP f.cvTa.name f.cvTa cA.1 cA.2 0 f.s d.isProp sorts (d.ppsM mIdx)
       (d.dsF mIdx 0) (d.esF mIdx 0) (d.tableCarrier mIdx) := by
   obtain ⟨cvT, cvR, mI, rP, rules, h⟩ := hreps mIdx hmm
   have hj : (d.ctorsM mIdx)[0]? = some cA := by rw [hone]; rfl
@@ -75,9 +76,9 @@ theorem tableMember_of {env : Env} {m : EnvModel V env} {b : MutualBlock}
   have hBC := h.ctors mIdx 0 cA hmm hj
   have hcd := hBC.2.2
   have hinj : ∀ (ψ : Name → Nat) (fs : List V),
-      d.inj ψ mIdx 0 fs = injW (d.w ψ) J (mkTower (fs ++ [pt])) := by
+      d.inj ψ mIdx 0 fs = injW (d.w ψ) 0 (mkTower (fs ++ [pt])) := by
     intro ψ fs
-    rw [htf.inj, Nat.add_zero, hJ]
+    rw [htf.inj]
   have hJ0 : b.ownOffset mIdx + 0 = J := by rw [Nat.add_zero, hJ]
   obtain ⟨sorts', hsj', hlenS, hleqS, hfieldsS⟩ := htf.sorts mIdx 0 cA hmm hj
   rw [hJ0] at hsj'
@@ -120,7 +121,8 @@ theorem tableMember_of {env : Env} {m : EnvModel V env} {b : MutualBlock}
         exact h.table_fold hreps (htf.frame mIdx hmm) hnI ψ ρ ts hsp
       fib := fun ψ ρ' hρ' => by
         rw [hsEq]
-        exact hreps.table_fibreAt (htyped ψ).1 hmm hone hnI (hinj ψ) hρ'
+        exact hreps.table_fibreAt (htyped ψ).1 (PinsTyped.of_noPins hpins ψ) hmm hone hnI
+          (hinj ψ) hρ'
       ctor := fun ψ ρ as fs hspP hspF => by
         rw [hsEq]
         exact h.table_ctor hreps hone (hinj ψ) ρ as fs hspP hspF
@@ -182,10 +184,84 @@ theorem memberTableOk_of {env env₀ : Env} {m : EnvModel V env} {b : MutualBloc
   have hsD : sortss.getD J [] = sorts := by rw [List.getD_eq_getElem?_getD, hsj]; rfl
   obtain ⟨hCshape, hresC⟩ := hcnames J _ hcA
   refine ⟨d.ppsM mIdx, d.dsF mIdx 0, d.esF mIdx 0, hnm, hnF, ?_⟩
-  have htm := tableMember_of hreps htyped htf hmmd hft hname hstored hd.nP hnIdx hone hJ hlpsC hnp
+  have htm := tableMember_of hreps hd.pins htyped htf hmmd hft hname hstored hd.nP hnIdx hone hJ
+    hlpsC hnp
     hTshape hresT hresR hCshape hresC hsj
   rw [hsD, ← hnF, ← hd.nP]
   exact htm
+
+/-! ## The tables' stage, as the crossing sees it (task #315 M7-3 s4) -/
+
+/-- **What a stage of PROJECTION-TABLE conses gives the crossing**
+(task #315 M7-3 session 4, DESIGN §U.43): every lookup is preserved,
+the literal guards are monotone, and the only projection slots it
+CREATES are at the structures `Ts` — the three inputs
+`denoteMeta_env_mono_projFree` takes, and with them the guarded
+crossing of the block model past its own tables. -/
+structure TableCross (Ts : List Name) (env env' : Env) : Prop where
+  find : FindPreserved env env'
+  lit : LitGuardsMono env env'
+  proj : ∀ (sn : Name) (i : Nat) (entry : ConLeche.ProjEntry),
+    env.findProj? sn i = none → env'.findProj? sn i = some entry → sn ∈ Ts
+
+omit [SetTheory V] in
+/-- A stage that conses nothing. -/
+theorem TableCross.rfl' (Ts : List Name) (env : Env) : TableCross Ts env env where
+  find := fun h => h
+  lit := ⟨fun h => h, fun h => h⟩
+  proj := fun _ _ _ h0 h1 => by rw [h0] at h1; exact nomatch h1
+
+omit [SetTheory V] in
+/-- Two such stages compose: a slot created by the pair is created by
+one of them. -/
+theorem TableCross.trans {Ts : List Name} {env₁ env₂ env₃ : Env}
+    (h₁ : TableCross Ts env₁ env₂) (h₂ : TableCross Ts env₂ env₃) :
+    TableCross Ts env₁ env₃ where
+  find := fun h => h₂.find (h₁.find h)
+  lit := ⟨fun h => h₂.lit.1 (h₁.lit.1 h), fun h => h₂.lit.2 (h₁.lit.2 h)⟩
+  proj := fun sn i entry h0 h1 => by
+    cases hm : env₂.findProj? sn i with
+    | none => exact h₂.proj sn i entry hm h1
+    | some e' => exact h₁.proj sn i e' h0 hm
+
+omit [SetTheory V] in
+/-- One table's cons: its slots are its own structure's
+(`findProj?_cons_tower`). -/
+theorem TableCross.of_table {Ts : List Name} {env : Env} {tbl : ConLeche.ProjTable}
+    (hmem : tbl.structName ∈ Ts)
+    (hfresh : env.find? (ConstantInfo.projInfo tbl).name = none) :
+    TableCross Ts env ⟨.projInfo tbl :: env.consts⟩ where
+  find := findPreserved_cons hfresh
+  lit := litGuardsMono_cons hfresh
+  proj := fun sn i entry h0 h1 => by
+    rw [findProj?_cons_tower sn i entry h0 h1]
+    exact hmem
+
+/-- **The tables' stage crosses**: each member conses nothing or its
+own table, whose structure is that member. -/
+theorem mutualTables_cross {Ts : List Name} {b : MutualBlock}
+    {ctorsA : List (ConstantVal × Nat)} {sortss : List (List Level)} :
+    ∀ (l : List (MutualFormerA × Nat)) {env env' : Env},
+      ConLeche.mutualTables (m := ConLeche.CheckM) b ctorsA sortss l env = .ok env' →
+      (∀ p ∈ l, p.1.cvTa.name ∈ Ts) → TableCross Ts env env' := by
+  intro l
+  induction l with
+  | nil =>
+    intro env env' h _
+    obtain rfl := ConLeche.mutualTables_nil_inv h
+    exact TableCross.rfl' Ts _
+  | cons p rest ih =>
+    intro env env' h hTs
+    obtain ⟨f, mIdx⟩ := p
+    obtain ⟨envI, hI, hrest⟩ := ConLeche.mutualTables_inv h
+    have hrestTs : ∀ q ∈ rest, q.1.cvTa.name ∈ Ts :=
+      fun q hq => hTs q (List.mem_cons_of_mem _ hq)
+    rcases ConLeche.mutualMemberTable_inv hI with rfl | ⟨J, c, hown, hnIdx, htbl⟩
+    · exact ih hrest hrestTs
+    · obtain ⟨bodies, -, -, -, hfreshTbl, rfl⟩ := ConLeche.checkStructProjTable_inv htbl
+      refine TableCross.trans (TableCross.of_table (Ts := Ts) ?_ ?_) (ih hrest hrestTs)
+      · exact hTs (f, mIdx) List.mem_cons_self
+      · exact hfreshTbl
 
 /-! ## The named fact, discharged -/
 
@@ -193,7 +269,7 @@ theorem memberTableOk_of {env env₀ : Env} {m : EnvModel V env} {b : MutualBloc
 bundle at every structure-like member from the block model, the fold over
 the members at the P step. -/
 theorem mutualTablesModeled {F : Nat} : MutualTablesModeled V μ F := by
-  intro hμ env hwf hproj b streamRecs fms f₀ tq₀ ctorsA sortss kinds formers4 ctors4 cvRas rulesOf
+  intro hμ env hwf hproj b streamRecs g fms f₀ tq₀ ctorsA sortss kinds formers4 ctors4 cvRas rulesOf
     envOut h0 h1 h2 h3 hformers hf₀ htq₀ hcross hL hctors hkinds hfo hgd hrectys hrules hrecNames
     mp₃ d hd hreps htyped hstored htf htbl
   have hnp := mutualNoProj hwf hproj hformers hctors hgd hrectys hrules
@@ -203,13 +279,14 @@ theorem mutualTablesModeled {F : Nat} : MutualTablesModeled V μ F := by
   obtain ⟨hlenA, hnamesA⟩ := ctorsA_names_of hctors h1
   obtain ⟨-, hsortsLen, -⟩ := ConLeche.checkMutualCtors_inv hctors
   obtain ⟨hchecks, -⟩ := ConLeche.mutualFormers_inv hformers
-  have hlenF : fms.length = b.k := (mutualFormerChecks_pos hchecks).1
+  have hlenF : fms.length = b.k := (mutualFormerChecksG_pos hchecks).1
   have hnd : (fms.map (·.cvTa.name)).Nodup := by
     rw [hnamesEq]
     have h0' := h0
     unfold ConLeche.MutualBlock.blockNames at h0'
     exact (List.nodup_append.mp (List.nodup_append.mp h0').1).1
-  refine stageBlockTables (isProp := d.isProp) (S := fun t => d.tableCarrier t) blockTableStep mp₃ htbl hnd ?_
+  refine stageBlockTables (isProp := d.isProp) (S := fun t => d.tableCarrier t) blockTableStep
+    mp₃ htbl hnd ?_
   intro q hq
   have hft : fms[q.2]? = some q.1 := List.mk_mem_zipIdx_iff_getElem?.mp (by simpa using hq)
   have hmm : q.2 < b.k := by rw [← hlenF]; exact (List.getElem?_eq_some_iff.mp hft).1

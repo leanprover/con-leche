@@ -324,7 +324,7 @@ bound (`blockRecAt_mem_B`); at `w = 0` (hence `ℓ = 0`, the run fact
 `hwℓ`) the candidate is the point and the type is inhabited at every
 fitting spine by the induction (`inhab_all`). -/
 theorem IsBlockModels.blockCand_mem {m : EnvModel V env} {d : BlockModel V} (hreps : IsBlockModels m d)
-    {ψ : Name → Nat} (hfT : FormersTyped m d ψ) {elimL : Level}
+    (hnp : d.pins = []) {ψ : Name → Nat} (hfT : FormersTyped m d ψ) {elimL : Level}
     (hwℓ : d.w ψ = 0 → elimL.eval ψ = 0) {Ls : List AnnotTerm} {nIdxs : List Nat}
     {pps : List (Nat × Nat × AnnotTerm)} {ipss : List (List (Nat × Nat × AnnotTerm))}
     {cds : List CtorDatumR} {mots : Nat → Nat} {tgts : Nat → Nat → Nat}
@@ -374,17 +374,17 @@ theorem IsBlockModels.blockCand_mem {m : EnvModel V env} {d : BlockModel V} (hre
     have huniv : SetTheory.app (is.foldl SetTheory.app (Msl.getD mm pt)) t ∈ˢ (univ (elimL.eval ψ) : V) :=
       h.motive_app_mem hpl hρp (hF.motives mm hmm) his ht
     refine ⟨fun hw => ?_, ?_, huniv⟩
-    · have := hreps.blockRecAt_mem_B hfT hρp hw hF.mslLen hMseq hMs hb hF.minsLen
+    · have := hreps.blockRecAt_mem_B hnp hfT hρp hw hF.mslLen hMseq hMs hb hF.minsLen
         (ms := fun J => if J < d.nCtors then msl.getD J pt else pt) hms hmm (tupW_mem his) ht
       rw [BlockModel.kitB_tagged, ← h.IdsM_length ψ, isOfW_tupW (h.idxOk ψ (consList ps ρ) hρp mm hmm) his,
         if_pos hmm] at this
       exact this
     · rcases Classical.em (d.w ψ = 0) with hw0 | hw
-      · have := hreps.inhab_all hfT hρp (hwℓ hw0) hF.mslLen hF.motives hb hF.minsLen
+      · have := hreps.inhab_all hnp hfT hρp (hwℓ hw0) hF.mslLen hF.motives hb hF.minsLen
           (ms := fun J => msl.getD J pt) hF.minors mm hmm _ (tupW_mem his) t ht
         rw [← h.IdsM_length ψ, isOfW_tupW (h.idxOk ψ (consList ps ρ) hρp mm hmm) his] at this
         exact this
-      · have := hreps.blockRecAt_mem_B hfT hρp hw hF.mslLen hMseq hMs hb hF.minsLen
+      · have := hreps.blockRecAt_mem_B hnp hfT hρp hw hF.mslLen hMseq hMs hb hF.minsLen
           (ms := fun J => if J < d.nCtors then msl.getD J pt else pt) hms hmm (tupW_mem his) ht
         rw [BlockModel.kitB_tagged, ← h.IdsM_length ψ, isOfW_tupW (h.idxOk ψ (consList ps ρ) hρp mm hmm) his,
           if_pos hmm] at this

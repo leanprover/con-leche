@@ -495,4 +495,51 @@ theorem declStep_preserves_of_cons (mp : EnvModelM V μ env)
     hmemNew hvalReads hnh hnat_ops hdiv_mod heq_law hcaps_ok hrec_rules hreduce_ops
     htower_ok
 
+/-- **The cons step's carrier equation, read as AGREEMENT** (task #315
+M7-3): a fresh cons values every OLD constant as the prefix did, which
+is the one model-facing fact the block-model field `EnvModelB.blocks`
+needs of a stage (`ContainerCross.lean`).  The stage theorems above
+this one used to drop the equation on the floor (`.choose`); they hand
+it back in this shape instead. -/
+theorem acvalAgrees_of_acvalWith {mp : EnvModelM V μ env} {c₀ : ConstantInfo}
+    {A : (Name → Nat) → AnnotTerm} {mp' : EnvModelM V μ ⟨c₀ :: env.consts⟩}
+    (hfresh : env.find? c₀.name = none)
+    (hacv : mp'.base2.acval = acvalWith mp.base2.acval c₀.name A) :
+    AcvalAgrees mp.base2 mp'.base2 := by
+  intro n hn
+  have hne : n ≠ c₀.name := by
+    intro hh
+    rw [hh, hfresh] at hn
+    exact nomatch hn
+  rw [hacv]
+  exact acvalWith_ne hne
+
+/-- A fresh cons keeps every stored lookup answered — the side
+condition `AcvalAgrees.trans` takes along a chain of conses. -/
+theorem isSome_find?_cons {c₀ : ConstantInfo} (hfresh : env.find? c₀.name = none) (n : Name)
+    (hn : (env.find? n).isSome = true) :
+    ((⟨c₀ :: env.consts⟩ : Env).find? n).isSome = true := by
+  obtain ⟨ci, hci⟩ := Option.isSome_iff_exists.mp hn
+  rw [findPreserved_cons hfresh hci]
+  rfl
+
+/-- Agreement along a chain whose first link is a fresh cons — the
+shape the pinned basis blocks compose (three to five conses in a row,
+task #315 M7-3 session 9). -/
+theorem AcvalAgrees.transCons {c₀ : ConstantInfo} {env₂ : Env} {mp : EnvModelM V μ env}
+    {mp₁ : EnvModelM V μ ⟨c₀ :: env.consts⟩} {m₂ : EnvModel V env₂}
+    (hfresh : env.find? c₀.name = none)
+    (h₁ : AcvalAgrees mp.base2 mp₁.base2) (h₂ : AcvalAgrees mp₁.base2 m₂) :
+    AcvalAgrees mp.base2 m₂ :=
+  AcvalAgrees.trans (isSome_find?_cons hfresh) h₁ h₂
+
+/-- The `∃`-wrapper of `acvalAgrees_of_acvalWith`, the shape the value
+kinds' stage theorems hand back. -/
+theorem exists_agrees_of_cons {mp : EnvModelM V μ env} {c₀ : ConstantInfo}
+    {A : (Name → Nat) → AnnotTerm} (hfresh : env.find? c₀.name = none)
+    (h : ∃ mp' : EnvModelM V μ ⟨c₀ :: env.consts⟩,
+      mp'.base2.acval = acvalWith mp.base2.acval c₀.name A) :
+    ∃ mp' : EnvModelM V μ ⟨c₀ :: env.consts⟩, AcvalAgrees mp.base2 mp'.base2 :=
+  h.elim fun mp' hacv => ⟨mp', acvalAgrees_of_acvalWith hfresh hacv⟩
+
 end ConLeche.Model

@@ -5,7 +5,7 @@ public import ConLeche.SetTheory.Derive.LfpTuple
 public section
 
 /-!
-# `IsBlockModel` — THE ONE DATUM of an inductive block (task #315, M2)
+# `IsBlockModel` — THE ONE DATUM of an inductive block (task #315, M2; the nested arm M6)
 
 Every stored inductive type is a MEMBER of a block of `k` families,
 and the block is represented as the simultaneous least pre-fixed point
@@ -69,9 +69,23 @@ injection is member-local by type), the syntactic X-chain grading
 `chains` (its semantic content is `functor`'s `MapsTuple` and `idxOk`;
 no uniform consumer reads syntax through the fibre), and the
 `ModeledLeaf` disjunct (the modeled route's, deleted with it at M8).
-The nested-slot arm of `ChainFit` (a field whose domain is a pin
-through a stored container, DESIGN §U.1 (a) (i)) is M6's; `slotAt`
-is where it goes.
+**The nested-slot arm** (task #315 M6, DESIGN §U.13): a TARGET is a
+member (`tgt < k`) or a PIN (`tgt = k + q`) — a stored container
+applied to components that mention the members (`List (Tree α)`).  A
+pin is a syntactic record (`PinSyn`: the container, its level
+assignment at the pin, the components at the block's parameter
+openers and their readings, the container's own telescope) and ONE
+abstract semantic field, `pinCar ψ ρp X q` — the pin's carrier as a
+FAMILY at the tuple `X` — so a nested field's slot is literally the
+recursive slot's `slotSet` at the target's family (`famAt`): no
+parallel kind, no change to `RecFieldKind`.  The clauses tie the
+abstract field down: `pinMem` (a family over the pin's index set),
+`pinMono` (monotone in the tuple — the container's map action, D-2b's
+(P)), `pinLeaf` (at the carrier the pin's stored reading IS `pinCar`
+at the least tuple — the reading law (X.1) and the level fit K.27 are
+consumed by the ASSEMBLY that supplies this clause, never by a
+consumer).  A mutual or single block has `pins = []` and every target
+a member.
 -/
 
 namespace ConLeche.Model
@@ -86,6 +100,44 @@ universe w
 
 variable {V : Type w} [SetTheory V] {env : Env}
 
+/-! ## A pin -/
+
+/-- **A pin's syntactic record**: a stored container `J` applied at
+the block's parameter openers to components `Ds` that mention the
+members (`nestedPinsOk`'s subject, K.3 `pinsClosed`: `DsE` are
+fvar-free below the openers).  `ψJ` is the container's level
+assignment at the pin's levels `lvls`; `Ds` the components' BAKED
+readings at depth `nP` (the members' leaves inside); `pps` the
+container's OWN telescope reading (closed, at its level assignment),
+`nPJ` its parameter count, `nIdx` its index count and `u` its
+index-tuple sort. -/
+structure PinSyn where
+  /-- the container -/
+  J : Name
+  /-- the pin's level arguments (over the block's level parameters) -/
+  lvls : List Level
+  /-- the container's level assignment at the pin -/
+  ψJ : (Name → Nat) → (Name → Nat)
+  /-- the container's parameter count -/
+  nPJ : Nat
+  /-- the pin's components at the block's parameter openers -/
+  DsE : List Expr
+  /-- the components' readings at depth `nP` -/
+  Ds : (Name → Nat) → List AnnotTerm
+  /-- the container's index count -/
+  nIdx : Nat
+  /-- the container's index-tuple sort, at the pin's level assignment -/
+  u : (Name → Nat) → Nat
+  /-- the container's parameter-and-index telescope reading, at ITS level assignment -/
+  pps : (Name → Nat) → List (Nat × Nat × AnnotTerm)
+
+instance : Inhabited PinSyn :=
+  ⟨⟨.anonymous, [], id, 0, [], fun _ => [], 0, fun _ => 0, fun _ => []⟩⟩
+
+/-- The container's index telescope at the pin (over ITS parameters). -/
+@[expose] def PinSyn.Ids (q : PinSyn) (ψ : Name → Nat) : List AnnotTerm :=
+  ((q.pps (q.ψJ ψ)).drop q.nPJ).map (·.2.2)
+
 /-! ## The constructor's reading with target members -/
 
 /-- **`nativeOpenedOk`, read positionally, with a TARGET MEMBER per
@@ -94,19 +146,20 @@ head is the former of the member it targets (`Tof i`) with that
 member's index count (`nIdxOf i`).  At a single family `Tof = fun _ =>
 T`, `nIdxOf = fun _ => nIdx` and this IS `FixOpened`
 (`BlockOpened.ofFix`). -/
-structure BlockOpened (env₀ : Env) (Tof : Nat → Name) (nIdxOf : Nat → Nat) (lps : List Name)
+structure BlockOpened (env₀ : Env) (Tof : Nat → Name) (nIdxOf : Nat → Nat)
+    (nest : Nat → Option Nat) (pins : Nat → PinSyn) (lps : List Name)
     (nP nF : Nat) (ks : List RecFieldKind) (fvsP xFvs : List Expr) (xrest : Expr) : Prop where
   residRes : ∀ e ∈ xrest.getAppArgs.drop nP, e.constsResolve env₀ = true
   ord : ∀ i x, xFvs[i]? = some x → ks.getD i .ordinary = .ordinary →
     x.fvarTypeD.constsResolve env₀ = true
-  recF : ∀ i x, xFvs[i]? = some x → ks.getD i .ordinary = .recursive →
+  recF : ∀ i x, xFvs[i]? = some x → nest i = none → ks.getD i .ordinary = .recursive →
     x.fvarTypeD.getAppFn = Expr.const (Tof i) (lps.map .param) ∧
     x.fvarTypeD.getAppArgs.take nP = fvsP ∧
     x.fvarTypeD.getAppArgs.length = nP + nIdxOf i ∧
     (∀ e ∈ x.fvarTypeD.getAppArgs.drop nP, e.constsResolve env₀ = true) ∧
     (∀ y ∈ xFvs.drop (i + 1), y.fvarTypeD.mentionsFvar (nP + i) = false) ∧
     xrest.mentionsFvar (nP + i) = false
-  reflF : ∀ i x, xFvs[i]? = some x → ks.getD i .ordinary = .reflexive →
+  reflF : ∀ i x, xFvs[i]? = some x → nest i = none → ks.getD i .ordinary = .reflexive →
     ∃ afvs body,
       openPisAtFvars (x.fvarTypeD.piBinders).1.length x.fvarTypeD (nP + i) = some (afvs, body) ∧
       afvs.length ≠ 0 ∧
@@ -117,6 +170,27 @@ structure BlockOpened (env₀ : Env) (Tof : Nat → Name) (nIdxOf : Nat → Nat)
       (∀ e ∈ body.getAppArgs.drop nP, e.constsResolve env₀ = true) ∧
       (∀ y ∈ xFvs.drop (i + 1), y.fvarTypeD.mentionsFvar (nP + i) = false) ∧
       xrest.mentionsFvar (nP + i) = false
+  /-- a NESTED finitary field: the pin's container (the components'
+  identity is SEMANTIC — `BlockCtorData.nestEntry` — since the opened
+  form re-annotates the parameter variables), then index arguments free
+  of the block -/
+  nestF : ∀ i x q, xFvs[i]? = some x → nest i = some q → ks.getD i .ordinary = .recursive →
+    x.fvarTypeD.getAppFn = Expr.const (pins q).J (pins q).lvls ∧
+    x.fvarTypeD.getAppArgs.length = (pins q).nPJ + (pins q).nIdx ∧
+    (∀ e ∈ x.fvarTypeD.getAppArgs.drop (pins q).nPJ, e.constsResolve env₀ = true) ∧
+    (∀ y ∈ xFvs.drop (i + 1), y.fvarTypeD.mentionsFvar (nP + i) = false) ∧
+    xrest.mentionsFvar (nP + i) = false
+  /-- a NESTED reflexive field -/
+  nestReflF : ∀ i x q, xFvs[i]? = some x → nest i = some q → ks.getD i .ordinary = .reflexive →
+    ∃ afvs body,
+      openPisAtFvars (x.fvarTypeD.piBinders).1.length x.fvarTypeD (nP + i) = some (afvs, body) ∧
+      afvs.length ≠ 0 ∧
+      (∀ a ∈ afvs, a.fvarTypeD.constsResolve env₀ = true) ∧
+      body.getAppFn = Expr.const (pins q).J (pins q).lvls ∧
+      body.getAppArgs.length = (pins q).nPJ + (pins q).nIdx ∧
+      (∀ e ∈ body.getAppArgs.drop (pins q).nPJ, e.constsResolve env₀ = true) ∧
+      (∀ y ∈ xFvs.drop (i + 1), y.fvarTypeD.mentionsFvar (nP + i) = false) ∧
+      xrest.mentionsFvar (nP + i) = false
   kinds : ∀ i, i < nF → ks.getD i .ordinary = .ordinary ∨ ks.getD i .ordinary = .recursive ∨
     ks.getD i .ordinary = .reflexive
 
@@ -124,9 +198,14 @@ structure BlockOpened (env₀ : Env) (Tof : Nat → Name) (nIdxOf : Nat → Nat)
 targeting the family. -/
 theorem BlockOpened.ofFix {env₀ : Env} {T : Name} {lps : List Name} {nP nIdx nF : Nat}
     {ks : List RecFieldKind} {fvsP xFvs : List Expr} {xrest : Expr}
+    (nest : Nat → Option Nat) (pins : Nat → PinSyn)
+    (hn : ∀ i x, xFvs[i]? = some x → nest i = none)
     (h : FixOpened env₀ T lps nP nIdx nF ks fvsP xFvs xrest) :
-    BlockOpened env₀ (fun _ => T) (fun _ => nIdx) lps nP nF ks fvsP xFvs xrest :=
-  ⟨h.residRes, h.ord, h.recF, h.reflF, h.kinds⟩
+    BlockOpened env₀ (fun _ => T) (fun _ => nIdx) nest pins lps nP nF ks fvsP xFvs xrest :=
+  ⟨h.residRes, h.ord, fun i x hx _ hk => h.recF i x hx hk, fun i x hx _ hk => h.reflF i x hx hk,
+    (fun i x q hx hq _ => by rw [hn i x hx] at hq; exact nomatch hq),
+    (fun i x q hx hq _ => by rw [hn i x hx] at hq; exact nomatch hq),
+    h.kinds⟩
 
 /-- **A constructor's data with target members** — `FixCtorDataI`'s
 twin: the sum's reading at the constructor's OWN member `T`, the opened
@@ -135,7 +214,7 @@ reflexive field yields at ITS target's former (`recEntry`,
 `reflEntry`) with that target's index count (`eisLen`,
 `eisLenRefl`). -/
 structure BlockCtorData {env : Env} (m : EnvModel V env) (env₀ : Env) (T : Name)
-    (Tof : Nat → Name) (nIdxOf : Nat → Nat)
+    (Tof : Nat → Name) (nIdxOf : Nat → Nat) (nest : Nat → Option Nat) (pins : Nat → PinSyn)
     (lps : List Name) (cvC : ConstantVal) (nP nF nIdx : Nat) (resSort : Level)
     (isProp large : Bool) (idxArgs : List Expr)
     (ds : (Name → Nat) → List (Nat × Nat × AnnotTerm)) (Es : (Name → Nat) → List AnnotTerm)
@@ -143,7 +222,7 @@ structure BlockCtorData {env : Env} (m : EnvModel V env) (env₀ : Env) (T : Nam
     (Eiss : (Name → Nat) → List (List AnnotTerm))
     (tss : (Name → Nat) → List (List (Nat × Nat × AnnotTerm))) : Prop
     extends CtorDataI m T lps cvC nP nF nIdx resSort isProp large idxArgs ds Es srcs where
-  opened : BlockOpened env₀ Tof nIdxOf lps nP nF ks fvsP xFvs xrest
+  opened : BlockOpened env₀ Tof nIdxOf nest pins lps nP nF ks fvsP xFvs xrest
   opens : ∃ crest, openPisAtFvars nP cvC.type 0 = some (fvsP, crest) ∧
     openPisAtFvars nF crest nP = some (xFvs, xrest)
   ksLen : ks.length = nF
@@ -155,13 +234,26 @@ structure BlockCtorData {env : Env} (m : EnvModel V env) (env₀ : Env) (T : Nam
   domRead : ∀ ψ i x, xFvs[i]? = some x →
     denoteMeta m.acval env ψ (nP + i) x.fvarTypeD = some ((ds ψ).getD (nP + i) default).2.2
   eissLen : ∀ ψ, (Eiss ψ).length = nF
-  eisRead : ∀ ψ i x, xFvs[i]? = some x → ks.getD i .ordinary = .recursive →
+  eisRead : ∀ ψ i x, xFvs[i]? = some x → nest i = none → ks.getD i .ordinary = .recursive →
     DenoteMetaSpine m.acval env ψ (nP + i) (x.fvarTypeD.getAppArgs.drop nP) ((Eiss ψ).getD i [])
-  eisLen : ∀ ψ i, ks.getD i .ordinary = .recursive → i < nF →
+  eisLen : ∀ ψ i, nest i = none → ks.getD i .ordinary = .recursive → i < nF →
     ((Eiss ψ).getD i []).length = nIdxOf i
-  recEntry : ∀ ψ i, ks.getD i .ordinary = .recursive → i < nF →
+  recEntry : ∀ ψ i, nest i = none → ks.getD i .ordinary = .recursive → i < nF →
     ((ds ψ).getD (nP + i) default).2.2
       = AnnotTerm.mkAppN (m.acval (Tof i) ψ) (paramBvarsAt nP (nP + i) ++ (Eiss ψ).getD i [])
+  /-- a NESTED finitary field's index arguments read -/
+  nestEisRead : ∀ ψ i x q, xFvs[i]? = some x → nest i = some q → ks.getD i .ordinary = .recursive →
+    DenoteMetaSpine m.acval env ψ (nP + i) (x.fvarTypeD.getAppArgs.drop (pins q).nPJ)
+      ((Eiss ψ).getD i [])
+  nestEisLen : ∀ ψ i q, nest i = some q → ks.getD i .ordinary = .recursive → i < nF →
+    ((Eiss ψ).getD i []).length = (pins q).nIdx
+  /-- **a NESTED finitary field's entry**: the container's leaf at the
+  pin's components (lifted past the earlier fields) and the field's
+  index readings -/
+  nestEntry : ∀ ψ i q, nest i = some q → ks.getD i .ordinary = .recursive → i < nF →
+    ((ds ψ).getD (nP + i) default).2.2
+      = AnnotTerm.mkAppN (m.acval (pins q).J ((pins q).ψJ ψ))
+          (((pins q).Ds ψ).map (·.liftN i 0) ++ (Eiss ψ).getD i [])
   eissParams : ∀ ψ₁ ψ₂ : Name → Nat, (∀ q ∈ cvC.levelParams, ψ₁ q = ψ₂ q) → Eiss ψ₁ = Eiss ψ₂
   eissBelow : ∀ ψ i, ∀ E ∈ (Eiss ψ).getD i [],
     Term.bvarsBelow (nP + i + ((tss ψ).getD i []).length) E.erase
@@ -173,7 +265,7 @@ structure BlockCtorData {env : Env} (m : EnvModel V env) (env₀ : Env) (T : Nam
   tssPiBits : ∀ ψ i, ∀ d ∈ (tss ψ).getD i [], d.1 = 0 ∧ d.2.1 ≤ 1
   tssBelow : ∀ ψ i, DomsBelow (nP + i) ((tss ψ).getD i [])
   tssParams : ∀ ψ₁ ψ₂ : Name → Nat, (∀ q ∈ cvC.levelParams, ψ₁ q = ψ₂ q) → tss ψ₁ = tss ψ₂
-  reflOpen : ∀ ψ i x, xFvs[i]? = some x → ks.getD i .ordinary = .reflexive →
+  reflOpen : ∀ ψ i x, xFvs[i]? = some x → nest i = none → ks.getD i .ordinary = .reflexive →
     ∃ afvs body,
       openPisAtFvars ((tss ψ).getD i []).length x.fvarTypeD (nP + i) = some (afvs, body) ∧
       ((tss ψ).getD i []).length = (x.fvarTypeD.piBinders).1.length ∧
@@ -182,13 +274,31 @@ structure BlockCtorData {env : Env} (m : EnvModel V env) (env₀ : Env) (T : Nam
           = some (((tss ψ).getD i []).getD k default).2.2) ∧
       DenoteMetaSpine m.acval env ψ (nP + i + ((tss ψ).getD i []).length)
         (body.getAppArgs.drop nP) ((Eiss ψ).getD i [])
-  eisLenRefl : ∀ ψ i, ks.getD i .ordinary = .reflexive → i < nF →
+  eisLenRefl : ∀ ψ i, nest i = none → ks.getD i .ordinary = .reflexive → i < nF →
     ((Eiss ψ).getD i []).length = nIdxOf i
-  reflEntry : ∀ ψ i, ks.getD i .ordinary = .reflexive → i < nF →
+  reflEntry : ∀ ψ i, nest i = none → ks.getD i .ordinary = .reflexive → i < nF →
     ((ds ψ).getD (nP + i) default).2.2
       = mkPisAV ((tss ψ).getD i [])
           (AnnotTerm.mkAppN (m.acval (Tof i) ψ)
             (paramBvarsAt nP (nP + i + ((tss ψ).getD i []).length) ++ (Eiss ψ).getD i []))
+  /-- a NESTED reflexive field opens under its telescope -/
+  nestReflOpen : ∀ ψ i x q, xFvs[i]? = some x → nest i = some q → ks.getD i .ordinary = .reflexive →
+    ∃ afvs body,
+      openPisAtFvars ((tss ψ).getD i []).length x.fvarTypeD (nP + i) = some (afvs, body) ∧
+      ((tss ψ).getD i []).length = (x.fvarTypeD.piBinders).1.length ∧
+      (∀ k a, afvs[k]? = some a →
+        denoteMeta m.acval env ψ (nP + i + k) a.fvarTypeD
+          = some (((tss ψ).getD i []).getD k default).2.2) ∧
+      DenoteMetaSpine m.acval env ψ (nP + i + ((tss ψ).getD i []).length)
+        (body.getAppArgs.drop (pins q).nPJ) ((Eiss ψ).getD i [])
+  nestEisLenRefl : ∀ ψ i q, nest i = some q → ks.getD i .ordinary = .reflexive → i < nF →
+    ((Eiss ψ).getD i []).length = (pins q).nIdx
+  /-- **a NESTED reflexive field's entry** -/
+  nestReflEntry : ∀ ψ i q, nest i = some q → ks.getD i .ordinary = .reflexive → i < nF →
+    ((ds ψ).getD (nP + i) default).2.2
+      = mkPisAV ((tss ψ).getD i [])
+          (AnnotTerm.mkAppN (m.acval (pins q).J ((pins q).ψJ ψ))
+            (((pins q).Ds ψ).map (·.liftN (i + ((tss ψ).getD i []).length) 0) ++ (Eiss ψ).getD i []))
 
 /-- A single family's constructor data is the block form with every
 field targeting the family. -/
@@ -198,18 +308,33 @@ theorem BlockCtorData.ofFix {m : EnvModel V env} {env₀ : Env} {T : Name} {lps 
     {Es : (Name → Nat) → List AnnotTerm} {srcs : List (Option Nat)} {ks : List RecFieldKind}
     {fvsP xFvs : List Expr} {xrest : Expr} {Eiss : (Name → Nat) → List (List AnnotTerm)}
     {tss : (Name → Nat) → List (List (Nat × Nat × AnnotTerm))}
+    (nest : Nat → Option Nat) (pins : Nat → PinSyn) (hn : ∀ i, i < nF → nest i = none)
     (h : FixCtorDataI m env₀ T lps cvC nP nF nIdx resSort isProp large idxArgs ds Es srcs ks
       fvsP xFvs xrest Eiss tss) :
-    BlockCtorData m env₀ T (fun _ => T) (fun _ => nIdx) lps cvC nP nF nIdx resSort isProp large
-      idxArgs ds Es srcs ks fvsP xFvs xrest Eiss tss :=
+    BlockCtorData m env₀ T (fun _ => T) (fun _ => nIdx) nest pins lps cvC nP nF nIdx resSort isProp
+      large idxArgs ds Es srcs ks fvsP xFvs xrest Eiss tss :=
+  have hnx : ∀ i x, xFvs[i]? = some x → nest i = none := fun i x hx =>
+    hn i (h.xLen ▸ (List.getElem?_eq_some_iff.mp hx).1)
   { h.toCtorDataI with
-    opened := BlockOpened.ofFix h.opened, opens := h.opens, ksLen := h.ksLen, xLen := h.xLen, pLen := h.pLen
+    opened := BlockOpened.ofFix nest pins hnx h.opened, opens := h.opens, ksLen := h.ksLen
+    xLen := h.xLen, pLen := h.pLen
     xIdx := h.xIdx, pIdx := h.pIdx, idxEq := h.idxEq, domRead := h.domRead, eissLen := h.eissLen
-    eisRead := h.eisRead, eisLen := h.eisLen, recEntry := h.recEntry, eissParams := h.eissParams
+    eisRead := fun ψ i x hx _ hk => h.eisRead ψ i x hx hk
+    eisLen := fun ψ i _ hk hi => h.eisLen ψ i hk hi
+    recEntry := fun ψ i _ hk hi => h.recEntry ψ i hk hi
+    nestEisRead := fun _ i x q hx hq _ => by rw [hnx i x hx] at hq; exact nomatch hq
+    nestEisLen := fun _ i q hq _ hi => by rw [hn i hi] at hq; exact nomatch hq
+    nestEntry := fun _ i q hq _ hi => by rw [hn i hi] at hq; exact nomatch hq
+    eissParams := h.eissParams
     eissBelow := h.eissBelow, ordNone := h.ordNone, tssLen := h.tssLen, tssNone := h.tssNone
     tssBits := h.tssBits, tssPiBits := h.tssPiBits, tssBelow := h.tssBelow
-    tssParams := h.tssParams, reflOpen := h.reflOpen, eisLenRefl := h.eisLenRefl
-    reflEntry := h.reflEntry }
+    tssParams := h.tssParams
+    reflOpen := fun ψ i x hx _ hk => h.reflOpen ψ i x hx hk
+    eisLenRefl := fun ψ i _ hk hi => h.eisLenRefl ψ i hk hi
+    reflEntry := fun ψ i _ hk hi => h.reflEntry ψ i hk hi
+    nestReflOpen := fun _ i x q hx hq _ => by rw [hnx i x hx] at hq; exact nomatch hq
+    nestEisLenRefl := fun _ i q hq _ hi => by rw [hn i hi] at hq; exact nomatch hq
+    nestReflEntry := fun _ i q hq _ hi => by rw [hn i hi] at hq; exact nomatch hq }
 
 /-! ## The block model -/
 
@@ -263,10 +388,18 @@ structure BlockModel (V : Type w) where
   eissF : Nat → Nat → (Name → Nat) → List (List AnnotTerm)
   /-- per member and constructor: the reflexive fields' telescopes -/
   tssF : Nat → Nat → (Name → Nat) → List (List (Nat × Nat × AnnotTerm))
+  /-- **the pins**, in order: a nested field's target `k + q` is pin `q`
+  (empty at a mutual or single block) -/
+  pins : List PinSyn
   /-- **the tuple operator**, at a level assignment and a parameter
   frame: a meta-level function on tuples of families, component `mm`
   a set-level family over member `mm`'s index-tuple set -/
   Φ : (Name → Nat) → (Nat → V) → (Nat → V) → Nat → V
+  /-- **the pins' carriers**: at a level assignment, a parameter frame
+  and a tuple `X`, pin `q`'s carrier as a family over the container's
+  index-tuple set at the pin — the container at the pin's components
+  with the members read as `X` (abstract, as `Φ` is) -/
+  pinCar : (Name → Nat) → (Nat → V) → (Nat → V) → Nat → V
   /-- **the constructor injections**: member `mm`'s constructor `j`
   (member-local) at a field spine -/
   inj : (Name → Nat) → Nat → Nat → List V → V
@@ -325,16 +458,74 @@ recursive entry is its target's former applied). -/
 @[expose] noncomputable def tup (ψ : Name → Nat) (mm : Nat) (is : List V) : V :=
   tupW (d.uM mm ψ) is
 
+/-- The number of pins. -/
+@[expose] def nPins : Nat := d.pins.length
+
+/-- Pin `q`'s record. -/
+@[expose] def pinAt (q : Nat) : PinSyn := d.pins.getD q default
+
+/-- **The nested arm's key**: field `i` of member `mm`'s constructor
+`j` targets pin `q` when its target is `k + q`, and no pin (a member)
+otherwise. -/
+@[expose] def nestOf (mm j i : Nat) : Option Nat :=
+  if d.tgts mm j i < d.k then none else some (d.tgts mm j i - d.k)
+
+/-- The container's frame at the pin: the components' readings over
+the block's parameter frame. -/
+@[expose] noncomputable def pinFrame (q : Nat) (ψ : Name → Nat) (ρp : Nat → V) : Nat → V :=
+  consList (((d.pinAt q).Ds ψ).map (interp V ρp)) ρp
+
+/-- **Pin `q`'s index-tuple set** at a parameter frame: the container's
+tower set over its own index telescope at the pin's frame. -/
+@[expose] noncomputable def pinIdx (q : Nat) (ψ : Name → Nat) (ρp : Nat → V) : V :=
+  idxSet ((d.pinAt q).u ψ) (d.pinFrame q ψ ρp) ((d.pinAt q).Ids ψ)
+
+/-- A target's index-tuple sort: the member's or the pin's container's. -/
+@[expose] def uT (tgt : Nat) (ψ : Name → Nat) : Nat :=
+  if tgt < d.k then d.uM tgt ψ else (d.pinAt (tgt - d.k)).u ψ
+
+/-- **A target's family at the tuple `X`**: a member's component of
+`X`, a pin's carrier at `X`. -/
+@[expose] noncomputable def famAt (ψ : Name → Nat) (ρp : Nat → V) (X : Nat → V) (tgt : Nat) : V :=
+  if tgt < d.k then X tgt else d.pinCar ψ ρp X (tgt - d.k)
+
 /-- **A recursive slot**, as a set, at the frame `ρ` (the parameters
-and the earlier fields) and the tuple `X`: field `i` of member `mm`'s
-constructor `j` reads the TARGET member's component of `X` at the
-tuple of its index expressions under its telescope (`slotSet`).  (M6
-adds the nested-slot arm here: a field whose domain is a pin through a
-stored container reads that container's leaf at the pin with the
-members abstracted to `X`.) -/
+and the `i` earlier fields) and the tuple `X`: field `i` of member
+`mm`'s constructor `j` reads its TARGET's family at `X` (`famAt`: the
+target member's component, or the target pin's carrier — the
+nested-slot arm, task #315 M6) at the tuple of its index expressions
+under its telescope (`slotSet`).  The parameter frame a pin's carrier
+is taken at is the slot's frame below the `i` fields. -/
 @[expose] noncomputable def slotAt (ψ : Name → Nat) (X : Nat → V) (mm j i : Nat) (ρ : Nat → V) : V :=
-  slotSet (d.w ψ) (d.uM (d.tgts mm j i) ψ) ρ (((d.tlss mm ψ).getD j []).getD i [])
-    (((d.Eiss mm ψ).getD j []).getD i []) (X (d.tgts mm j i))
+  slotSet (d.w ψ) (d.uT (d.tgts mm j i) ψ) ρ (((d.tlss mm ψ).getD j []).getD i [])
+    (((d.Eiss mm ψ).getD j []).getD i [])
+    (d.famAt ψ (fun n => ρ (n + i)) X (d.tgts mm j i))
+
+/-- At a member target the slot is the recursive slot of task #315 M2. -/
+theorem slotAt_of_mem {ψ : Name → Nat} {X : Nat → V} {mm j i : Nat} {ρ : Nat → V}
+    (h : d.tgts mm j i < d.k) :
+    d.slotAt ψ X mm j i ρ
+      = slotSet (d.w ψ) (d.uM (d.tgts mm j i) ψ) ρ (((d.tlss mm ψ).getD j []).getD i [])
+          (((d.Eiss mm ψ).getD j []).getD i []) (X (d.tgts mm j i)) := by
+  simp only [slotAt, famAt, uT, if_pos h]
+
+/-- At a pin target the slot is the pin's carrier at the tuple. -/
+theorem slotAt_of_pin {ψ : Name → Nat} {X : Nat → V} {mm j i : Nat} {ρ : Nat → V}
+    (h : ¬ d.tgts mm j i < d.k) :
+    d.slotAt ψ X mm j i ρ
+      = slotSet (d.w ψ) ((d.pinAt (d.tgts mm j i - d.k)).u ψ) ρ
+          (((d.tlss mm ψ).getD j []).getD i []) (((d.Eiss mm ψ).getD j []).getD i [])
+          (d.pinCar ψ (fun n => ρ (n + i)) X (d.tgts mm j i - d.k)) := by
+  simp only [slotAt, famAt, uT, if_neg h]
+
+omit [SetTheory V] in
+theorem nestOf_none {mm j i : Nat} (h : d.tgts mm j i < d.k) : d.nestOf mm j i = none := by
+  simp only [nestOf, if_pos h]
+
+omit [SetTheory V] in
+theorem nestOf_some {mm j i : Nat} (h : ¬ d.tgts mm j i < d.k) :
+    d.nestOf mm j i = some (d.tgts mm j i - d.k) := by
+  simp only [nestOf, if_neg h]
 
 end BlockModel
 
@@ -388,7 +579,8 @@ recursive field at the former of the member it targets. -/
   env.find? cA.1.name = some (.ctorInfo cA.1 d.nP cA.2) ∧
   cA.1.levelParams = lps ∧
   BlockCtorData m d.env₀ (d.memberName mm) (fun i => d.memberName (d.tgts mm j i))
-    (fun i => d.nIdxAt (d.tgts mm j i)) lps cA.1 d.nP cA.2 (d.nIdxAt mm) d.resSort d.isProp d.large
+    (fun i => d.nIdxAt (d.tgts mm j i)) (fun i => d.nestOf mm j i) d.pinAt
+    lps cA.1 d.nP cA.2 (d.nIdxAt mm) d.resSort d.isProp d.large
     (d.idxF mm j) (d.dsF mm j) (d.esF mm j) (d.srcsF mm j) (d.ksF mm j) (d.fvsPF mm j)
     (d.xFvsF mm j) (d.xrestF mm j) (d.eissF mm j) (d.tssF mm j)
 
@@ -431,9 +623,12 @@ structure IsBlockModel (m : EnvModel V env) (T : Name) (cvT cvR : ConstantVal) (
   constructors' readings to cross a fresh cons -/
   memsFound : ∀ mm', mm' < d.k →
     ∃ (cv : ConstantVal) (caps : IndCaps), env.find? (d.memberName mm') = some (.indInfo cv caps)
-  /-- every field's target is a member -/
+  /-- every pin's container is a stored inductive -/
+  pinsFound : ∀ q, q < d.nPins →
+    ∃ (cv : ConstantVal) (caps : IndCaps), env.find? (d.pinAt q).J = some (.indInfo cv caps)
+  /-- every field's target is a member or a pin -/
   tgtsLt : ∀ mm' j i, mm' < d.k → j < (d.ctorsM mm').length → i < ((d.ksF mm' j).length) →
-    d.tgts mm' j i < d.k
+    d.tgts mm' j i < d.k + d.nPins
   /-- the residuals' index arguments resolve -/
   idxRes : ∀ mm' j cA, mm' < d.k → (d.ctorsM mm')[j]? = some cA →
     ∀ e ∈ d.idxF mm' j, e.constsResolve env = true
@@ -463,6 +658,35 @@ structure IsBlockModel (m : EnvModel V env) (T : Name) (cvT cvR : ConstantVal) (
     ∀ t, t ∈ˢ d.idx ψ ρp mm' → ∀ x,
       x ∈ˢ app (d.Φ ψ ρp X mm') t ↔
         ∃ j fs, j < (d.ctorsM mm').length ∧ d.ChainFit ψ ρp X t mm' j fs ∧ x = d.inj ψ mm' j fs
+  /-- the pins' readings are shaped: the container's telescope is in
+  the Π regime (its bits nonzero), the components are its parameters,
+  the telescope its parameters and indices -/
+  pinShape : ∀ q, q < d.nPins → ∀ ψ : Name → Nat,
+    (∀ d' ∈ (d.pinAt q).pps ((d.pinAt q).ψJ ψ), d'.2.1 ≠ 0) ∧
+    ((d.pinAt q).Ds ψ).length = (d.pinAt q).nPJ ∧
+    ((d.pinAt q).pps ((d.pinAt q).ψJ ψ)).length = (d.pinAt q).nPJ + (d.pinAt q).nIdx
+  /-- **a pin's carrier is a family** over the pin's index-tuple set,
+  at every tuple of the tuple space -/
+  pinMem : ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (d.params ψ).reverse ρp →
+    ∀ X, InTupleSpace (d.w ψ) d.k (d.idx ψ ρp) X → ∀ q, q < d.nPins →
+      d.pinCar ψ ρp X q ∈ˢ famSpace (d.w ψ) (d.pinIdx q ψ ρp)
+  /-- **a pin's carrier is monotone in the tuple** — the container's
+  map action at the pin (DESIGN §DR.1 (P), D-2b) -/
+  pinMono : ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (d.params ψ).reverse ρp →
+    ∀ X Y, InTupleSpace (d.w ψ) d.k (d.idx ψ ρp) X → InTupleSpace (d.w ψ) d.k (d.idx ψ ρp) Y →
+      TupleLe d.k (d.idx ψ ρp) X Y → ∀ q, q < d.nPins →
+      FamLe (d.pinIdx q ψ ρp) (d.pinCar ψ ρp X q) (d.pinCar ψ ρp Y q)
+  /-- **a pin's leaf**: the container at the pin's components (read at
+  fitting parameters) and fitting indices is the pin's carrier at the
+  least tuple — the pin's stored reading IS `pinCar` at the carrier -/
+  pinLeaf : ∀ q, q < d.nPins → ∀ (ψ : Name → Nat) (ρ : Nat → V) (as is : List V),
+    SpineFit ρ (d.params ψ) as →
+    SpineFit (d.pinFrame q ψ (consList as ρ)) ((d.pinAt q).Ids ψ) is →
+    (((d.pinAt q).Ds ψ).map (interp V (consList as ρ)) ++ is).foldl app
+        (interp V ρ (m.acval (d.pinAt q).J ((d.pinAt q).ψJ ψ)))
+      = app (d.pinCar ψ (consList as ρ)
+            (lfpTuple (d.w ψ) d.k (d.idx ψ (consList as ρ)) (d.Φ ψ (consList as ρ))) q)
+          (tupW ((d.pinAt q).u ψ) is)
   /-- **the leaf**: the member's former at fitting parameters and its
   own indices is the least pre-fixed TUPLE's component `mm` at the
   index tuple -/
