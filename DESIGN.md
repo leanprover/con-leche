@@ -93074,3 +93074,200 @@ axiom pin 20 theorems.  Standard axioms on `PinSyn.ownAt`'s three
 theorems (`ContainerOwnPinsSyn.of_noOwn`, `ContainerOwnPinsSyn.toRead`)
 and on `allLevelParamsDefined_mkAppN`, `denoteMetaSpine_params_ext`,
 `nestedPinParams_of`, `nestedContainerModeled` and `declNested_of`.
+
+#### U.74 — M7-3 session 15: the integration merged and the numbering resolved, K.43's model bridge, and the field's LAST blocker found at the PINNED BASIS (lane M7-3, session 15, 2026-09-17)
+
+##### (a) THE MERGE, and the numbering this lane chose
+
+`agent/uniform-315` 651413ab (integration 3p) merged: K.43, K.47, K.48
+and lane L-E's sessions 15–17.  Two conflicts.
+`DeclNestedCore.lean`'s `declNested_of` `obtain` was rebuilt by hand —
+this lane's NAMED binders kept (`hlv` for K.48, which
+`nestedPinParams_of` reads) with the integration's extra conjunct
+appended, so the tail now reads `…, hrecs, hrb, -, -⟩`: K.34's
+read-back, then K.47's `nestedOwnPinsOk`, then K.43's
+`blockOwnMimicsOk`.  `DESIGN.md` was rebuilt from the two parents
+rather than hunk by hunk (the conflict cut through a shared code
+block): the integration's file, plus this lane's three sections
+appended.
+
+**The numbering, resolved exactly as the integrator reserved it**
+(§U.27 (x)): M7-3 session 12 was writing **§U.66**, which is session
+9's landed number, so it becomes **§U.68** — the number the integrator
+left free beside §U.69; session 13 stays **§U.69**, because
+`Kernel/Inductives/NestedInstall.lean`'s K.47 and K.48 docstrings cite
+it and checker code fixes a number; session 14 becomes **§U.73** (L-E
+took §U.70–§U.72) and this session is **§U.74**.  Six citations were
+repointed to §U.68 (`Kernel/Inductives/NativeParts.lean`,
+`Kernel/Inductives/NestedInstall.lean`, the three `Semantics/Inductives/Decl*.lean`
+and `Model/Inductives/NestedPremise.lean`), five to §U.73, and one
+more was found ROTTEN and fixed: `NestedPremise.lean`'s "§U.68 (e)"
+was written against lane L-E's OWN numbering before the integrator
+renumbered, and means what is now **§U.71 (e)**.  Session 11's gates
+paragraph, orphaned after K.47's section by session 14's merge, was
+put back at the end of §U.63.
+
+(Two citations in `Model/Inductives/NestedPinLeafAll.lean` — lines 680
+and 754, both "task #315 L-E, DESIGN §U.66" on L-E's own lemmas — look
+like the same rot on LANE L-E's side and were left alone: that file is
+L-E's.)
+
+##### (b) K.43's MODEL BRIDGE, LANDED
+
+`containerOwnPinsAt_nil` (`Model/Inductives/NestedPremise.lean`) is the
+Verify-tier lemma K.43's plan named, landed beside its only consumer:
+`blockOwnMimicsOk env first 0` says `first.rec_1` is not a stored
+recursor, `containerOwnPinsAtGo`'s first step looks exactly that name
+up and stops, so the reader returns `some []` at EVERY instantiation.
+`ContainerOwnPinsSyn.of_noMimics` packages it for a pins-free site: the
+Bool, plus "every member reads back a group whose FIRST member is the
+name the Bool was certified at" — which is K.34's read-back
+(`containerInfo?_of_readBack`).
+
+##### (c) THE SEVEN PINS-FREE SITES ARE NOT SEVEN: the pinned basis has NO source for K.43's Bool
+
+§U.69 (b) listed "native, mutual and the five pinned basis blocks" as
+the sites K.43 unblocks.  That is right for the first two and **WRONG
+for the five**, and the reason is where a pinned basis block is
+installed.
+
+K.43's Bool is a conjunct of `DeclNativeRun`, `DeclMutualRun` and
+`DeclNestedRun` — the three INSTALL ROUTES.  A pinned basis block goes
+through none of them: `DeclBasisRun`/`BasisInstallRun` is four (or
+five) freshness checks and four conses of FIXED `ConstantInfo`s
+(`declBasisPB_natK`, `Model/BasisBlocks.lean`), and `checkNative` is
+never called.  So at `natBlock_containerModeled` and its three
+siblings there is no Bool to read, and the fact they need —
+`env.find? Nat.rec_1` is not a `.recInfo` — is the SAME
+environment-history statement §U.68 (a) found underivable.  It is not
+recoverable from what is there: `ConstWF` constrains a stored
+constant's type, value and rule bodies and says nothing about NAMES,
+and `RecCtorsStored` ties a recursor's rules to stored constructors,
+not its own name to a stored inductive.
+
+It is of course TRUE — a `.recInfo` at `Nat.rec_1` is a mimic of a
+nested block whose first former is `Nat`, and such a block installs
+`.indInfo Nat`, which the basis install's own freshness check refused —
+and that is exactly the shape of argument K.43 exists to record.
+
+**KERNEL REQUEST K.49**, therefore, and it is small: the same Bool at
+the basis install, `blockOwnMimicsOk env₂ <the block's former> 0`, as a
+conjunct of `DeclBasisRun` (one per pinned kind; `Quot` needs none, it
+is no container).  `certOnly`-gated, `.internal`, cannot fire for the
+reason just given.  With it the four basis theorems take one extra
+hypothesis each and `basisStepB_of` reads it off the run — the same
+one-line wiring K.43 gives the native and mutual routes.  Without it
+the hypothesis would have to become a premise of `basisStepB_of`, which
+IS in the B fold, and that is a new chain hypothesis this lane may not
+spend.
+
+##### (d) THE CROSSING IS NOT BLOCKED ON K.43 — §U.73 (c) was imprecise
+
+§U.73 (c) said `ContainerModeled.crossEnvP` needs K.43 as well, "under
+a hypothesis that K.43's per-install Bool is the source of".  Re-read
+against `EnvBlocksOf.crossIndP`, that is not where it comes from, and
+the correction matters because it makes the crossing CHEAP.
+
+`crossIndP` already carries `hext : ∀ n c, env₁.find? n = some c → env₂.find? n = some c`
+— FULL preservation, `.recInfo`s included (it is `hF` that excludes
+them, and `hF` is a separate, weaker hypothesis for the block's own
+recursors).  So an old container's own-pin table can only GROW, never
+change; and growth is excluded by `hnewN`/`hfreshN` plus ONE new
+clause in `hrecN`'s exact pattern:
+
+```lean
+    (hmimN : ∀ (n : Name) (j : Nat) (cv : ConstantVal) (mI rP : Nat) (rules : List RecRule),
+      env₂.find? (Name.appendIndexAfter (n.str "rec") j) = some (.recInfo cv mI rP rules) →
+      Name.appendIndexAfter (n.str "rec") j ∈ N → n ∈ N)
+```
+
+Every route discharges it: the native and mutual routes install exactly
+one recursor per member, named `T.rec = .str T "rec"`, which can never
+be `Name.appendIndexAfter (n.str "rec") j = .str n ("rec_" ++ toString j)`;
+the nested route's mimics are `first.rec_j` with `first` its own first
+member, hence in `N`.  An old container is stored at `env₁`, hence not
+in `N` (`hfreshN`), so its table is unchanged and the clause crosses.
+
+This is DESIGN, not a proof — no theorem of this shape is in the tree —
+but it is the route, and it costs one hypothesis rather than a record.
+
+##### (e) WHAT THE FIELD STILL NEEDS, in order
+
+1. **K.49** (kernel) — the basis blocks' Bool.  Without it the field
+   cannot be a field;
+2. **the substitution law (C)** of §U.73 (d) — **LANDED by lane L-B**
+   at `agent/uniform-ident` 410185f6, `instPis_openers_subst`
+   (`Verify/Inductives/NestedCopyInstU.lean`), §U.73 (d) (C) verbatim:
+
+   ```lean
+   theorem instPis_openers_subst {T : Expr} {nP : Nat} {params pad Ds : List Expr} {R₀ : Expr}
+       (hf : T.hasFvar = false) (hb : T.looseBVarsBounded 0 = true)
+       (hplen : params.length = nP)
+       (hidx : ∀ j, j < nP → ∃ ty, params[j]? = some (Expr.fvar j ty))
+       (hDlen : Ds.length = nP) (hDcl : ∀ a ∈ Ds, a.looseBVarsBounded 0 = true)
+       (hpadb : ∀ a ∈ pad, a.looseBVarsBounded 0 = true)
+       (hpadf : ∀ a ∈ pad, a.hasFvar = false)
+       (h0 : Expr.instPis T (params ++ pad) = some R₀) :
+       Expr.instPis T (Ds ++ pad)
+         = some (Expr.instSeq Ds (nP - 1) (R₀.abstractRange 0 nP 0))
+   ```
+
+   NOT merged here — it comes through the integration, and this lane
+   read it off the branch rather than taking L-B's whole session.  Two
+   things to get right when it is used, and they are not the same
+   thing:
+
+   * **the NESTED SITE (item (2) of the brief) is what this law
+     closes**, and the match is exact: K.47 hands the identity run
+     (`containerOwnPinsAt env C (lps.map .param) params = some
+     (st.pins.map (·.pin))`), the law transports it to any `Ds`, and
+     `PinSyn.ownAt`'s component-level form is available too — L-B built
+     the bridge as a simultaneous `fvar` substitution (`substFvarList`,
+     `instSeq_abstractRange_substFvarList`, `instPis_substFvarList`,
+     `substFvarList_mkAppN`), so the spine splits.  What remains beside
+     it is the LEVEL half, which stays semantic: `instantiateLevelParams`
+     descends into an `fvar`'s annotation and `instantiate1` does not,
+     so there is no free syntactic commutation at the openers and
+     §U.73 (d) (A)'s route through `denoteMeta_instLevels` is the one
+     to take;
+   * **`ContainerOwnPinsSyn.toRead`'s hypothesis is NOT this law.**  It
+     is a READING-level statement ("`denoteMeta` of the transported
+     component is `AnnotTerm.instAll` of the recorded reading"), one
+     tier above; `instPis_openers_subst` is its Expr-level input, and
+     `instPisILP_read` (`Model/Inductives/NestedCopyRead.lean`) is the
+     reading machinery that has to meet it.  Session 16's job, and it
+     should not be reported as closed by the law alone.
+
+   (If the nested site is not finished when the field lands, it can
+   carry a named premise of `declNested_of` at no cost to the B chain —
+   the nested route is still unwired, `Model/Fold.lean` dispatches only
+   `declNativeB` and `declMutualB` — exactly as `NestedPinParams` did
+   until §U.73 (e) retired it.)
+3. then the field, at nine construction sites (`of_readBack`,
+   `crossEnvP`, the two routes, the four basis theorems and the nested
+   route) — mechanical, one line each.
+
+##### (f) WHAT LANDED, and the gates
+
+* `containerOwnPinsAt_nil` and `ContainerOwnPinsSyn.of_noMimics` — K.43's
+  model bridge (b);
+* `nativeOwnPins_of` and `mutualOwnPins_of`
+  (`Model/Inductives/EnvModelBStages.lean`) — the clause PROVED at two
+  of the nine construction sites, exercised in `declNativeB` and
+  `declMutualB` so the Bools are read;
+* one field on `NativeSyntaxFacts` (`ownMimics`, beside K.34's
+  `readBack`), because `declNativeB` cannot reach K.43's conjunct
+  itself: it takes its data from `declNative_syntax`, and
+  re-destructuring the run there yields a DIFFERENT existential witness
+  `cvTa'` with no derivable tie to the bundle's `cvTa` (the bundle
+  relates `cvTa.name` to `p.cvT.name`, and `p` is existentially bound
+  with no link back to `p₀`).  `declNative_syntax`'s and `declNative`'s
+  statements are unchanged and nothing else constructs the bundle.
+
+Gates at the session's commits: `lake build` 716 jobs warning-free;
+`lake test` warning-free; layering / trust surface / no-local-paths /
+overview-links / quote-gate / shake / pub-imports / proofdeps (0 doors)
+/ `tests/arena.sh` — see the figures at the landing commit.  Standard
+axioms on `containerOwnPinsAt_nil`, `ContainerOwnPinsSyn.of_noMimics`,
+`nativeOwnPins_of`, `mutualOwnPins_of`, `declNativeB` and
+`declMutualB`.
