@@ -720,8 +720,8 @@
 == ConLeche/SetModel/Container.lean#L598
    598  theorem container_closed_exists {w : Nat} (hw : w ≠ 0) {I : V} (Φ : V → V)
 
-== ConLeche/Model/Inductives/DeclNative.lean#L63
-    63  theorem declNative (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
+== ConLeche/Model/Inductives/DeclNative.lean#L1256
+  1256  theorem declNative (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
 
 == ConLeche/Kernel/Inductives/MutualParts.lean#L185
    185  def mutualParts? (nPd : Nat) (block : List ConstantInfo) : Option MutualParts :=

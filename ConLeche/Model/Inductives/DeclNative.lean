@@ -56,14 +56,163 @@ theorem spineFit_take {Fs : List AnnotTerm} {ρ : Nat → V} {as : List V}
   rw [this]
   exact h1
 
+
+/-! ## What the install establishes about the block (task #315 M7-3 s7) -/
+
+/-- **The facts `declNative` establishes about the block it installs**
+(task #315 M7-3 session 7, DESIGN §U.50): the record's arities and
+names, the constructors' runs and the block's kinds, the former's
+telescope and index universe, the constructors' data and frames, the
+leaf readings, the chains, the recursor's run and the table's — stated
+AT THE CONSTRUCTORS' environment `envC` and its model, which is where
+`declNative` has them, and VERBATIM as it establishes them (the
+`declNativeTable` bundle, with the arities, the kinds, the resolution
+of the residual index arguments, the index-universe congruence and the
+index telescope's grading beside it).
+
+It exists because `declNative` proved all of this and then dropped it:
+the lift to `EnvModelB` (`declNativeB`) needs `IsBlockModel` at
+`BlockModel.ofNative`, and the syntactic half of that record is
+exactly this bundle.  `declNative_syntax` hands it back;
+`declNative`'s statement is unchanged, it is that theorem's first
+projection. -/
+structure NativeSyntaxFacts {env env₁ envC env₂ : Env} (m : EnvModel V envC) (F : Nat)
+    (p : NativeParts) (cvTa cvRa : ConstantVal) (ctorsA : List (ConstantVal × Nat))
+    (sortss : List (List Level)) (rhss : List Expr) (bsT : List (Expr × BinderMeta))
+    (ppsAll : (Name → Nat) → List (Nat × Nat × AnnotTerm)) (uAV : (Name → Nat) → Nat)
+    (idxF : Nat → List Expr) (dsF : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm))
+    (esF : Nat → (Name → Nat) → List AnnotTerm) (srcsF : Nat → List (Option Nat))
+    (ksF : Nat → List RecFieldKind) (fvsPF xFvsF : Nat → List Expr) (xrestF : Nat → Expr)
+    (eissF : Nat → (Name → Nat) → List (List AnnotTerm))
+    (tssF : Nat → (Name → Nat) → List (List (Nat × Nat × AnnotTerm)))
+    (fssZ : (Name → Nat) → List (List AnnotTerm)) : Prop where
+  env₁eq : env₁ = ⟨.indInfo cvTa (ConLeche.nativeCaps p) :: env.consts⟩
+  envCeq : envC = ConLeche.consSumCtors p.nP ctorsA env₁
+  strip : cvTa.type.stripPis (p.nP + p.nIdx) = some (bsT, .sort p.resSort)
+  Tname : cvTa.name = p.cvT.name
+  mI : p.majorIdx = p.nP + 1 + ctorsA.length + p.nIdx
+  rP : p.rulePrefix = p.nP + 1 + ctorsA.length
+  ndA : (ctorsA.map (·.1.name)).Nodup
+  lenK : p.kinds.length = ctorsA.length
+  ks : ∀ i, i < ctorsA.length → p.kinds[i]? = some (ksF i)
+  ksLen : ∀ (j : Nat) (cA : ConstantVal × Nat), ctorsA[j]? = some cA → (ksF j).length = cA.2
+  idxRes : ∀ (j : Nat) (cA : ConstantVal × Nat), ctorsA[j]? = some cA →
+      ∀ e ∈ idxF j, e.constsResolve envC = true
+  uParams : ∀ ψ₁ ψ₂ : Name → Nat, (∀ q ∈ p.cvT.levelParams, ψ₁ q = ψ₂ q) → uAV ψ₁ = uAV ψ₂
+  idxOk : ∀ (ψ : Name → Nat) (ρp : Nat → V),
+      Sat V (((ppsAll ψ).take p.nP).map (·.2.2)).reverse ρp →
+      IdxOk (uAV ψ) ρp (((ppsAll ψ).drop p.nP).map (·.2.2)) ∧
+        FieldsValid ρp (((ppsAll ψ).drop p.nP).map (·.2.2))
+  table : ConLeche.checkNativeTable (m := ConLeche.CheckM) p ctorsA sortss
+      ⟨.recInfo cvRa p.majorIdx p.rulePrefix
+        (ConLeche.sumRules envC.find? cvRa.name p.nP p.majorIdx p.rulePrefix cvRa.type ctorsA rhss)
+        :: envC.consts⟩ = .ok env₂
+  isProp : p.isProp = (Level.isEquiv p.resSort .zero == some true)
+  Rname : p.cvR.name = p.cvT.name.str "rec"
+  Clps : ∀ c ∈ p.ctors, c.1.levelParams = p.cvT.levelParams ∧
+      ConLeche.reservedBasisNames.contains c.1.name = false
+  resT : ConLeche.reservedBasisNames.contains p.cvT.name = false
+  resR : ConLeche.reservedBasisNames.contains p.cvR.name = false
+  Tshape : p.cvT.name.isProjFnShape = false
+  lenA : ctorsA.length = p.ctors.length
+  nFc : ∀ (j : Nat) (cA c : ConstantVal × Nat), ctorsA[j]? = some cA → p.ctors[j]? = some c →
+      cA.2 = c.2
+  runOf : ∀ (j : Nat) (cA : ConstantVal × Nat), ctorsA[j]? = some cA →
+      ∃ c : ConstantVal × Nat, p.ctors[j]? = some c ∧
+      cA.1.name = c.1.name ∧ cA.1.levelParams = p.cvT.levelParams ∧
+      env₁.find? cA.1.name = none ∧
+      cA.1.type.constsResolve env₁ = true ∧
+      cA.1.name.isProjFnShape = false ∧
+      ∃ sorts : List Level, sortss[j]? = some sorts ∧
+      ConLeche.checkSumCtor (ConLeche.fueledOps μ F) env₁ env₁
+        p.cvT.name p.cvT.levelParams p.nP p.nIdx p.resSort p.isProp p.large c.1 cA.2 cvTa
+        = .ok (cA.1, sorts)
+  fT : envC.find? p.cvT.name = some (.indInfo cvTa (ConLeche.nativeCaps p))
+  lpsT : cvTa.levelParams = p.cvT.levelParams
+  Tfresh : env.find? p.cvT.name = none
+  Tres : cvTa.type.constsResolve env = true
+  former : FormerData m cvTa (p.nP + p.nIdx) p.resSort ppsAll
+  ctors : ∀ (j : Nat) (cA : ConstantVal × Nat), ctorsA[j]? = some cA →
+      FixCtorFactsAt m env p.cvT.name p.cvT.levelParams p.nP p.nIdx p.resSort p.isProp
+        p.large idxF dsF esF srcsF ksF fvsPF xFvsF xrestF eissF tssF j cA
+  leafT : ∀ ψ, m.acval p.cvT.name ψ
+      = nativeTyAVI (uAV ψ) (p.resSort.eval ψ) (ppsAll ψ) (((ppsAll ψ).drop p.nP).map (·.2.2))
+          (rssOfK ksF ctorsA.length) (tlssOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0))
+          (eissOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)) (fssZ ψ)
+          (essOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0))
+  leafC : ∀ j cA, ctorsA[j]? = some cA → ∀ ψ, m.acval cA.1.name ψ
+      = sumMkAV (p.resSort.eval ψ) j (dsF j ψ) (((dsF j ψ).drop p.nP).map (·.2.2))
+          (uChains (fssOfR p.nP (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)))
+  frames : ∀ (j : Nat) (cA : ConstantVal × Nat), ctorsA[j]? = some cA →
+      (∀ (ψ : Name → Nat) (ρ : Nat → V),
+        Sat V (((ppsAll ψ).take p.nP).map (·.2.2)).reverse ρ ↔
+          Sat V (((dsF j ψ).take p.nP).map (·.2.2)).reverse ρ) ∧
+      (∀ (ψ : Name → Nat) (ρ : Nat → V),
+        Sat V (((dsF j ψ).take p.nP).map (·.2.2)).reverse ρ →
+          FieldsOkB (p.resSort.eval ψ) ρ (((dsF j ψ).drop p.nP).map (·.2.2)) ∧
+          FieldsValid ρ (((dsF j ψ).drop p.nP).map (·.2.2)) ∧
+          (∀ bs : List V, SpineFit ρ (((dsF j ψ).drop p.nP).map (·.2.2)) bs →
+            (∀ E ∈ esF j ψ, WellDenotedV V (consList bs ρ) E) ∧
+            SpineFit ρ (((ppsAll ψ).drop p.nP).map (·.2.2)) (idxValsAt ρ (esF j ψ) bs)))
+  sortsOf : ∀ (j : Nat) (cA : ConstantVal × Nat), ctorsA[j]? = some cA →
+      ∃ sorts : List Level, sortss[j]? = some sorts ∧ sorts.length = cA.2 ∧
+      (∀ k, k < cA.2 → p.isProp = false → Level.leq (sorts.getD k .zero) p.resSort = some true) ∧
+      (∀ (ψ : Name → Nat) (ρ : Nat → V),
+        Sat V (((dsF j ψ).take p.nP).map (·.2.2)).reverse ρ →
+        (p.isProp = false →
+          FieldsBound (p.resSort.eval ψ) ρ (((dsF j ψ).drop p.nP).map (·.2.2))) ∧
+        ∀ k, k < cA.2 → ∀ as : List V,
+          SpineFit ρ ((((dsF j ψ).drop p.nP).map (·.2.2)).take k) as →
+          interp V (consList as ρ) ((((dsF j ψ).drop p.nP).map (·.2.2)).getD k default)
+            ∈ˢ (univ ((sorts.getD k .zero).eval ψ) : V))
+  XR : ∀ (ψ : Name → Nat) (ρp : Nat → V),
+      Sat V (((ppsAll ψ).take p.nP).map (·.2.2)).reverse ρp →
+      XChainsOk (uAV ψ) (p.resSort.eval ψ) ρp (((ppsAll ψ).drop p.nP).map (·.2.2))
+        (rssOfK ksF ctorsA.length) (tlssOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0))
+        (eissOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)) (fssZ ψ)
+        (essOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)) ∧
+      ChainsRealI (fixFamI (uAV ψ) (p.resSort.eval ψ) ρp (((ppsAll ψ).drop p.nP).map (·.2.2)) p.nIdx
+          (rssOfK ksF ctorsA.length) (tlssOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0))
+          (eissOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)) (fssZ ψ)
+          (essOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)))
+        (uAV ψ) (p.resSort.eval ψ) ρp (((ppsAll ψ).drop p.nP).map (·.2.2)) (rssOfK ksF ctorsA.length)
+        (tlssOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0))
+        (eissOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0)) (fssZ ψ)
+        (fssOfR p.nP (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0))
+        (essOfR (fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0))
+  recRun : ConLeche.checkNativeRec (ConLeche.fueledOps μ F) envC p cvTa ctorsA = .ok (cvRa, rhss)
+
 /-! ## The assembly -/
 
 set_option maxHeartbeats 25600000 in
-/-- **The P carrier survives a direct recursive install.** -/
-theorem declNative (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
+/-- **The P carrier survives a direct recursive install, and the
+install's facts are handed back** (task #315 M7-3 session 7): the
+theorem `declNative` is, with the block's own record beside its
+conclusion — `NativeSyntaxFacts`, the bundle `declNativeTable`
+consumes together with the arities, the kinds, the residuals'
+resolution, the index-universe congruence and the index telescope's
+grading, at the constructors' environment and its model.  Every one of
+those facts was proved here and dropped; the lift to `EnvModelB` needs
+them.  `declNative` is this theorem's first projection and its
+statement is unchanged. -/
+theorem declNative_syntax (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
     {block : List ConstantInfo} {nPd : Nat} {p₀ : NativeParts} (mp : EnvModelM V μ env)
     (hE : ConLeche.EtaFamiliesClosed env) (hdp : ConLeche.nativeParts? nPd block = some p₀)
-    (h : ConLeche.Semantics.DeclNativeRun μ F env p₀ env₂) : Nonempty (EnvModelM V μ env₂) := by
+    (h : ConLeche.Semantics.DeclNativeRun μ F env p₀ env₂) :
+    Nonempty (EnvModelM V μ env₂) ∧
+    ∃ (env₁ envC : Env) (p : NativeParts) (cvTa cvRa : ConstantVal)
+      (ctorsA : List (ConstantVal × Nat)) (sortss : List (List Level)) (rhss : List Expr)
+      (bsT : List (Expr × BinderMeta))
+      (ppsAll : (Name → Nat) → List (Nat × Nat × AnnotTerm)) (uAV : (Name → Nat) → Nat)
+      (idxF : Nat → List Expr) (dsF : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm))
+      (esF : Nat → (Name → Nat) → List AnnotTerm) (srcsF : Nat → List (Option Nat))
+      (ksF : Nat → List RecFieldKind) (fvsPF xFvsF : Nat → List Expr) (xrestF : Nat → Expr)
+      (eissF : Nat → (Name → Nat) → List (List AnnotTerm))
+      (tssF : Nat → (Name → Nat) → List (List (Nat × Nat × AnnotTerm)))
+      (fssZ : (Name → Nat) → List (List AnnotTerm)) (mpC : EnvModelM V μ envC),
+      NativeSyntaxFacts (μ := μ) (env := env) (env₁ := env₁) (env₂ := env₂) mpC.base2 F p cvTa cvRa
+        ctorsA sortss rhss bsT ppsAll uAV idxF dsF esF srcsF ksF fvsPF xFvsF xrestF eissF tssF
+        fssZ := by
   obtain ⟨hnd₀, isRec, env₁, cvTa, p₁, p, ctorsA, sortss, kinds, cvRa, rhss, tfvs, trest, isorts,
     hInd, rfl, hCtors, hK, hcaps, hwl, hopT2, hsorts, hFOk, -, hRec, hTbl, -⟩ := h
   obtain ⟨hshape, -⟩ := ConLeche.nativeParts?_inv hdp
@@ -1054,10 +1203,60 @@ theorem declNative (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
     (fun j cA hj => (hframes j cA hj).1) hframesR
     (fun hl => (hwl hl).imp_right fun h => by rw [hlenA]; exact h)
   -- the projection table at a structure-like block (task #210 Parts A, B)
-  exact declNativeTable rfl rfl hTbl mpC mp₃ hac₃ hProp hRname hClps hresT hresR
-    (by rw [← hTname₀]; exact hpshapeT)
-    mp.base2.wf hlenA hnFc hrunOf hfT_C hlpsT hTfresh'
-    (by rw [hTtype]; exact htrT) hFD_C hcf_C hleafT_C' hleafC_C hframes hsortsOf
-    (fun ψ ρp h => ⟨(hframesR ψ ρp h).1, (hframesR ψ ρp h).2.1⟩) hRec
+  have hN : Nonempty (EnvModelM V μ env₂) :=
+    declNativeTable rfl rfl hTbl mpC mp₃ hac₃ hProp hRname hClps hresT hresR
+      (by rw [← hTname₀]; exact hpshapeT)
+      mp.base2.wf hlenA hnFc hrunOf hfT_C hlpsT hTfresh'
+      (by rw [hTtype]; exact htrT) hFD_C hcf_C hleafT_C' hleafC_C hframes hsortsOf
+      (fun ψ ρp h => ⟨(hframesR ψ ρp h).1, (hframesR ψ ρp h).2.1⟩) hRec
+  -- and the install's own facts, which the assembly proved and dropped
+  have hfacts : NativeSyntaxFacts (μ := μ) (env := env)
+      (env₁ := ⟨.indInfo cvTa (ConLeche.nativeCaps p) :: env.consts⟩) (env₂ := env₂)
+      mpC.base2 F p cvTa cvRa ctorsA sortss rhss bsT ppsAll uAV idxF dsF esF srcsF ksF
+      fvsPF xFvsF xrestF eissF tssF Fss₀ :=
+    { env₁eq := rfl
+      envCeq := rfl
+      strip := hstripT
+      Tname := hTname
+      mI := hmI
+      rP := hrP
+      ndA := hndA
+      lenK := hlenK'
+      ks := hks
+      ksLen := hksLen
+      idxRes := hidxRes_C
+      uParams := hUparams
+      idxOk := hIdx
+      table := hTbl
+      isProp := hProp
+      Rname := hRname
+      Clps := hClps
+      resT := hresT
+      resR := hresR
+      Tshape := by rw [← hTname₀]; exact hpshapeT
+      lenA := hlenA
+      nFc := hnFc
+      runOf := hrunOf
+      fT := hfT_C
+      lpsT := hlpsT
+      Tfresh := hTfresh'
+      Tres := by rw [hTtype]; exact htrT
+      former := hFD_C
+      ctors := hcf_C
+      leafT := hleafT_C'
+      leafC := hleafC_C
+      frames := hframes
+      sortsOf := hsortsOf
+      XR := fun ψ ρp hρ => ⟨(hframesR ψ ρp hρ).1, (hframesR ψ ρp hρ).2.1⟩
+      recRun := hRec }
+  exact ⟨hN, _, _, p, cvTa, cvRa, ctorsA, sortss, rhss, bsT, ppsAll, uAV, idxF, dsF, esF, srcsF,
+    ksF, fvsPF, xFvsF, xrestF, eissF, tssF, Fss₀, mpC, hfacts⟩
+
+/-- **The P carrier survives a direct recursive install.** -/
+theorem declNative (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
+    {block : List ConstantInfo} {nPd : Nat} {p₀ : NativeParts} (mp : EnvModelM V μ env)
+    (hE : ConLeche.EtaFamiliesClosed env) (hdp : ConLeche.nativeParts? nPd block = some p₀)
+    (h : ConLeche.Semantics.DeclNativeRun μ F env p₀ env₂) : Nonempty (EnvModelM V μ env₂) :=
+  (declNative_syntax hμ mp hE hdp h).1
 
 end ConLeche.Model
