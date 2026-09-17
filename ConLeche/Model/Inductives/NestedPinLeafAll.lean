@@ -601,6 +601,92 @@ theorem instanceCovered_of_others {env : Env} {D dR : BlockModel V}
     exact ⟨i, classPin_of_rootMember S hi⟩
   · exact hothers q hq hinst hb
 
+/-- The parameter spine read back off its own frame. -/
+theorem map_range_reverse_consList (as : List V) (ρ : Nat → V) :
+    (List.range as.length).reverse.map (consList as ρ) = as := by
+  refine List.ext_getElem (by simp) fun i h1 h2 => ?_
+  have hi : i < as.length := h2
+  rw [List.getElem_map, List.getElem_reverse]
+  simp only [List.length_range, List.getElem_range]
+  rw [consList_getD_lt as ρ _ (by omega),
+    show as.length - 1 - (as.length - 1 - i) = i by omega,
+    List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hi]
+  rfl
+
+/-- **The extended carrier reads as the target view's stored
+readings** (task #315 L-E, DESIGN §U.66): at a class of a stored
+block model — a member or one of its own pins — the extended carrier
+at a fitting index spine IS the stored reading applied to the spine:
+`IsBlockModel.leaf` at a member (the former at the parameter bvars,
+which read back as the parameter spine, `map_paramBvarsAt_interp`) and
+`IsBlockModel.pinLeaf` at a pin (the container at the pin's
+components).  Both readings are of stored constants, hence closed, so
+the parameter frame does not enter (`EnvModel.cval_closedL`).
+
+This is the `hZ` of `copyEntryAt_of_read`/`copyEntryAt_of_pinCorr` at
+the ROOT's own carrier — what the container instance transfer needs to
+bound the root's copy's slots by the container's real domains. -/
+theorem BlockModel.famAt_reads {env : Env} {m : EnvModel V env} {d : BlockModel V}
+    (hreps : IsBlockModels m d) {ψ : Name → Nat} {ρ : Nat → V}
+    (hρ : Sat V (d.params ψ).reverse ρ) (hk : 0 < d.k) {t : Nat} (ht : t < d.k + d.nPins)
+    (is : List V)
+    (his : SpineFit ((d.targetView m.acval ψ).frame ρ t) ((d.targetView m.acval ψ).Ids t) is) :
+    SetTheory.app (d.famAt ψ ρ (lfpTuple (d.w ψ) d.k (d.idx ψ ρ) (d.Φ ψ ρ)) t)
+        (tupW ((d.targetView m.acval ψ).u t) is)
+      = is.foldl SetTheory.app (interp V ρ ((d.targetView m.acval ψ).EA t)) := by
+  obtain ⟨ρ₀, as, rfl, hsp⟩ := spineOfSat_params d hρ
+  have hlenAs : as.length = d.nP := by
+    have := hsp.length_eq
+    rwa [hreps.params_length hk ψ] at this
+  by_cases hm : t < d.k
+  · -- a MEMBER: the former at the parameter bvars
+    obtain ⟨cvT, cvR, mI, rP, rules, hI⟩ := hreps t hm
+    have hIds : (d.targetView m.acval ψ).Ids t = d.IdsM t ψ := by
+      show d.IdsT t ψ = _
+      rw [BlockModel.IdsT_of_mem hm ψ]
+    have hu : (d.targetView m.acval ψ).u t = d.uM t ψ := by
+      show d.uT t ψ = _
+      rw [BlockModel.uT_of_mem hm ψ]
+    have hfr : (d.targetView m.acval ψ).frame (consList as ρ₀) t = consList as ρ₀ :=
+      TargetView.frame_of_mem _ _ hm
+    rw [hfr, hIds] at his
+    have hleaf := hI.leaf ψ ρ₀ as is hsp his
+    unfold BlockModel.tup at hleaf
+    have hEA : (d.targetView m.acval ψ).EA t
+        = AnnotTerm.mkAppN (m.acval (d.memberName t) ψ) (paramBvarsAt d.nP d.nP) :=
+      targetRead_of_mem hm
+    have hpar : (paramBvarsAt d.nP d.nP).map (interp V (consList as ρ₀)) = as := by
+      have := map_paramBvarsAt_interp (V := V) (nP := d.nP) (e := 0)
+        (ρp := consList as ρ₀) (σ := consList as ρ₀) (fun j => by rw [Nat.add_zero])
+      rw [Nat.add_zero] at this
+      rw [this, ← hlenAs]
+      exact map_range_reverse_consList as ρ₀
+    rw [d.famAt_of_mem hm, hu, hEA, interp_mkAppN_foldl, hpar,
+      interp_closed (V := V) (m.cval_closedL _ _) (consList as ρ₀) ρ₀, ← List.foldl_append,
+      ← hleaf]
+  · -- a PIN: the container at the pin's components
+    obtain ⟨cvT, cvR, mI, rP, rules, hI⟩ := hreps 0 hk
+    have hq : t - d.k < d.nPins := by omega
+    have hIds : (d.targetView m.acval ψ).Ids t = (d.pinAt (t - d.k)).Ids ψ := by
+      show d.IdsT t ψ = _
+      rw [BlockModel.IdsT_of_pin hm ψ]
+    have hu : (d.targetView m.acval ψ).u t = (d.pinAt (t - d.k)).u ψ := by
+      show d.uT t ψ = _
+      rw [BlockModel.uT_of_pin hm ψ]
+    have hfr : (d.targetView m.acval ψ).frame (consList as ρ₀) t
+        = d.pinFrame (t - d.k) ψ (consList as ρ₀) := by
+      rw [TargetView.frame_of_pin _ _ hm]
+      rfl
+    rw [hfr, hIds] at his
+    have hleaf := hI.pinLeaf (t - d.k) hq ψ ρ₀ as is hsp his
+    have hEA : (d.targetView m.acval ψ).EA t
+        = AnnotTerm.mkAppN (m.acval (d.pinAt (t - d.k)).J ((d.pinAt (t - d.k)).ψJ ψ))
+            (((d.pinAt (t - d.k)).Ds ψ)) :=
+      targetRead_of_pin hm
+    rw [d.famAt_of_pin hm, hu, hEA, interp_mkAppN_foldl,
+      interp_closed (V := V) (m.cval_closedL _ _) (consList as ρ₀) ρ₀, ← List.foldl_append,
+      ← hleaf]
+
 /-! ## The extended carrier is least among the tuples closed under the classes' constructors -/
 
 /-- **A tuple over the classes closed under the classes' constructors**
