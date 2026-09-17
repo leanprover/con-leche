@@ -83355,3 +83355,203 @@ paragraph re-read, the claim unchanged); quote-gate 2; no-local-paths
 OK; proofdeps 4955 rows / 12 roots / 0 doors; shake 509/509
 allowlisted; pub-imports 1259 of 1977, none demotable.  Standard axioms
 throughout.
+
+#### U.47 — M7-3 session 6: `declMutualB` — the mutual route hands back the environment model WITH ITS BLOCKS (lane M7-3, session 6, 2026-09-17)
+
+§U.46 (c) listed what the mutual lift still owed, in order.  All four
+items are done, and the lift is stated:
+
+```lean
+theorem declMutualB (hμ : μ.verifiedChecks = true) {F : Nat} {env envOut : Env}
+    {p : MutualParts} (mb : EnvModelB V μ env) (hE : ConLeche.EtaFamiliesClosed env)
+    (hpinOk : ConLeche.mutualRecPinOk p = true)
+    (hOrd : … MutualOrdFree p.toBlock fms ctorsA kinds)
+    (h : ConLeche.Semantics.DeclMutualRun μ F env p envOut) :
+    Nonempty (EnvModelB V μ envOut)
+```
+
+`declMutual`'s and `declBlock`'s statements are UNCHANGED — what the
+capstones consume — and `hOrd` is the only hypothesis beyond the run.
+
+##### (a) `MutualOrdFree`, K.36's Prop (§U.46 (b), verbatim)
+
+`EnvModelBStages.lean`:
+
+```lean
+@[expose] def MutualOrdFree (b : MutualBlock) (fms : List MutualFormerA)
+    (ctorsA : List (ConstantVal × Nat)) (kinds : List (List (RecFieldKind × Nat))) : Prop :=
+  ∀ (J : Nat) (cA : ConstantVal × Nat), ctorsA[J]? = some cA →
+    ∀ (fvsP xFvs : List Expr) (crest xrest : Expr),
+      ConLeche.openPisAtFvars b.nP cA.1.type 0 = some (fvsP, crest) →
+      ConLeche.openPisAtFvars cA.2 crest b.nP = some (xFvs, xrest) →
+      ∀ (l : Nat) (x : Expr), xFvs[l]? = some x →
+        ((kinds.getD J []).getD l (.ordinary, 0)).1 = .ordinary →
+        ConLeche.mentionsMember (fms.map (·.cvTa.name)) x.fvarTypeD = false
+```
+
+`declMutualB` takes it quantified over the stage outputs the run
+DETERMINES (`mutualFormers`, `checkMutualCtors`, `classifyMutualKinds`
+are functions of `p`, `env`, `μ`, `F`), with those four equations as
+premises: one argument, applied once, at exactly the conjuncts the
+run's decomposition puts in scope.  When the Bool lands the integration
+deletes the argument and reads the run's new conjunct in its place.
+
+##### (b) THE THIRD RECORD, found and carried: the FIELD KINDS
+
+The bridge from `MutualOrdFree` (at the run's `kinds`) to
+`ContainerModeled.ordFree` (at the block model's `ksF`) needs the two
+to be tied, and §U.46 (b) expected `MutualBlockModelOf` to carry it.
+It does not — and, as at §U.43 (c) and §U.46 (a), the tree PROVES the
+tie and drops it: `MutualRecsModeled` already takes
+
+    ∀ mm j, mm < b.k → j < (d.ctorsM mm).length →
+      d.ksF mm j = kindsOf (mutKsOf kinds (b.ownOffset mm + j)) ∧ …
+
+as an INPUT and `mutualCoreModeled_of` discharges it with
+`fun mm j _ _ => ⟨rfl, fun _ => rfl⟩`.  So `MutualCoreModeled`'s
+conclusion now states it, unconditionally and unfolded
+(`MutualData` is not in `DeclBlock`'s import cone):
+
+    ∀ mm j, d.ksF mm j = (kinds.getD (b.ownOffset mm + j) []).map (·.1)
+
+`declBlock` drops it with one `-` in its `obtain`, so its statement,
+and `declMutual`'s, did not move.
+
+##### (c) The block IS its own container group
+
+`mutualContainerModeled` (`EnvModelBStages.lean`) is
+`ContainerModeled.of_readBack` at the reading the run's K.34 conjunct
+certifies.  Its arguments:
+
+* `hk`/`hnP`/`hnames`/`namesLen` from `MutualBlockModelOf`;
+* `hctorNames` from the list plumbing §U.46 (c) 2 —
+  `filterMap_getElem?_eq_map_getD` (at positions in range the
+  read-back's `filterMap` of the lookup IS the block model's `map` of
+  the defaulting read, the premise off `ownCtors_mem_iff`) and
+  `mutualReadBack_getD` / `mutualReadBack_getElem?` (the member list at
+  a member);
+* `reps` and `member` from the AT-form (§U.46 (a));
+* `inj` from `MutualTableFacts.inj`, `frame` from its `frame` by `.symm`;
+* the three PIN clauses (`pinsNotMembers`, `pinNP` and L-E's new
+  `pinψ`) VACUOUS at `d.pins = []`;
+* `ordFree` from `MutualOrdFree` by a REWRITE through
+  `BlockCtorData.opens` (the two `openPisAtFvars`), `MutualBlockModelOf.ctors`
+  with `ownCtors_getElem?_idx` (the global constructor position) and
+  (b)'s field kinds — no induction, which is the whole reason the
+  kernel was asked for the OPENED form.
+
+##### (d) The zero-pin `BlockAt`
+
+`BlockAt.of_noPins` (`ContainerCross.lean`): at `d.pins = []` the
+group's obligation is its `ContainerModeled` and nothing else — every
+`PinRecLaws` clause but `mkZero` is quantified `q < d.nPins`, `mkZero`
+is the `Inhabited (PinCtors V)` witness's own injection
+(`fun _ _ _ => pt`, which IS `mkZero`), and `PinShapes` is vacuous.
+The native route's block is of the same shape.
+
+##### (e) The crossing's SECOND guard source, at last used
+
+`IsBlockModel.crossEnvP` derived the CONSTRUCTORS' guards from
+`hfresh : ∀ T ∈ Ts, env₁.find? T = none` — the OLD containers' source
+(§U.41 (f)).  The block being INSTALLED has its members stored at the
+environment its subjects are read at, so that source is unavailable to
+it.  The primitive is now
+
+```lean
+theorem IsBlockModel.crossEnvG … (hnpT : ProjFree Ts cvT.type)
+    (hnpCtor : ∀ mm' j cA, mm' < d.k → (d.ctorsM mm')[j]? = some cA →
+      ProjFree Ts cA.1.type) …
+```
+
+and `crossEnvP` is its instance at `ProjFree.of_constsResolve hfresh`;
+every call site in the tree is unchanged.  The mutual route supplies
+both guards from `ProjFree.of_noProjEnv` at `mutualNoProj` — the
+install's own `NoProjEnv` bookkeeping, which §U.41 (f) named as the
+second source and nothing had consumed.
+
+##### (f) The install, as `EnvBlocksOf.crossIndP` reads it
+
+```lean
+@[expose] def BlockInstallExt (Ms : List Name) (env envOut : Env) (new : List ConstantInfo) :
+    Prop :=
+  envOut.consts = new ++ env.consts ∧
+  (∀ c ∈ new, env.find? c.name = none) ∧
+  (∀ c ∈ new, ∀ cv caps, c = .indInfo cv caps → c.name ∈ Ms) ∧
+  (∀ c ∈ new, ∀ cv mI rP rules, c = .recInfo cv mI rP rules →
+    ∃ n' ∈ Ms, c.name = n'.str "rec") ∧
+  (∀ c ∈ new, ∀ tbl, c = .projInfo tbl → tbl.structName ∈ Ms)
+```
+
+— the new constants in front, their names fresh at the base, and their
+KINDS the route's own.  With `rfl'`/`cons`/`trans` it gives every input
+`crossIndP` takes, at `N := new.map (·.name)`: `ext`, `newN`, `freshN`,
+`indMs` (a new container is a MEMBER — what `hnew` needs to know that
+the group it is asked about is the block's), `tableCross` (the guard —
+`find` from `ext`, `lit` from `litGuardsMono_of_findPreserved`: each
+literal guard is ONE lookup that is `false` at `none`, so a guard that
+holds reads a stored constant; `proj` from the table clause with
+`projTableName` injective), and
+
+* **`recN`** — §U.46 (c) 4's clause that needed its own argument:
+  a `recInfo` the extension conses is a member's recursor
+  (`Name.str` injective), and the members are among the extension's own
+  constants, so a NEW recursor's member is new.
+
+`mutualInstallExt` composes the four stages
+(`consMutualFormers_installExt`, `consMutualCtors_installExt`,
+`storeMutualRecs_installExt` — the entry names are `b.recName t` by
+`checkMutualRecTys_names`, read off `checkMutualRecTy_shape`'s
+`cvRa = ⟨b.recName mIdx, b.rlps, recTy⟩` — and `mutualTables_installExt`).
+
+##### (g) The assembly
+
+`B'` is `B` updated at the new group.  `hold` holds because an old
+group's members are STORED (`containerInfo?_inv`) while the block's are
+fresh; `hnew` because the only `indInfo` the install conses are its
+members and K.34 reads each of them back to the SAME group
+(`containerInfo?_of_readBack`); `hag` is `MutualCoreModeled`'s
+off-block clause composed with the tables' `AcvalAgrees`, the block's
+names being fresh at the pre-block environment (the members at their
+own constant checks, the constructors' and the recursors' one and two
+stages up); `hde` is `denoteMeta_acval_congr` then
+`denoteMeta_env_mono_projFree` at `BlockInstallExt.tableCross`.
+
+##### (h) The native route's syntactic export — NOT attempted, and why
+
+The session's second item was to export `declNative`'s local syntactic
+facts as one record.  They are **not a prefix of its proof**: `strip`,
+`former`, `idxRes`, `uParams`, `paramsIff` and `idxOk` are established
+across all 1000 lines, interleaved with the model-tier stage chain
+(`stageSumFormer` → `stageFixFormer` → `stageFixCtors` → `stageFixRec`),
+and they speak of locals the run introduces existentially (`p`, `cvTa`,
+`ctorsA`, `kinds`, `cvRa`, `rhss`, `isorts`) together with data
+`declNative` itself builds (`ppsAll`, `uAV`, `rss`, `Tlss₀`, `Eiss₀`,
+`Fss₀`, `Ess₀`, `idxF`).  A lemma over that record therefore has to
+either duplicate the front matter or split `declNative` at the point
+where the model work begins — a refactor of its own, on a
+capstone-consumed proof.  **Sized 1 session**, and the honest shape is:
+`∃ p cvTa ctorsA ppsAll …, NativeSyntaxFacts …` proved by the extracted
+front matter, with `declNative` re-obtaining from it — done BEFORE
+assembling `IsBlockModel` at `BlockModel.ofNative`, never alongside it.
+
+##### (i) What the native and nested lifts still owe
+
+* **native**: (h)'s export, then `IsBlockModel` at `BlockModel.ofNative`
+  (§U.40 (e): never assembled), then `declNativeB` — the kit of this
+  session carries over unchanged (`BlockInstallExt` at `Ms := [T]`,
+  `BlockAt.of_noPins`, `ContainerModeled.of_readBack` at the native
+  run's K.34 conjunct).  2–3 sessions.
+* **nested**: the tail's four items (§U.40 (f)) with M7-2; the pins are
+  NOT zero there, so `BlockAt` needs `nestedPinRecLaws_of` and
+  `nestedPinShapes_of` rather than `of_noPins`.
+* **the basis blocks** and **the fold's flip**: unchanged (§U.40 (d), (e)).
+
+##### (j) GATES
+
+`lake build` 694 jobs warning-free; `lake test` warning-free; layering
+346 / 265 / 3 / 1, 0/0; trust 13/5 (626); overview-links 112 (the
+`declBlock` anchor repointed on a pure line shift — the citing
+paragraph re-read, the claim unchanged); quote-gate 2; no-local-paths
+OK; proofdeps 4955 rows / 12 roots / 0 doors; shake 508/508
+allowlisted; pub-imports 1261 of 1990, none demotable.  Standard axioms
+on all 23 new theorems.
