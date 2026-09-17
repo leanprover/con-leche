@@ -82983,3 +82983,109 @@ did not move); quote-gate 2; no-local-paths OK; proofdeps 4955 rows /
 12 roots / 0 doors; shake 509/509 allowlisted; pub-imports 1259 of
 1977, none demotable.  Standard axioms on every theorem touched,
 `declMutual` included.
+
+#### U.46 — M7-3 session 5: the members' constants carried (blocker 1 CLOSED), and K.36's spec written against what the lift consumes (lane M7-3, session 5, 2026-09-17)
+
+§U.43 (c) found the mutual lift blocked on a fact the tree proves and
+drops: the block model's representation at the member's OWN
+`ConstantVal`.  This session carries it.
+
+##### (a) `IsBlockModelsAt` — `IsBlockModels` with the constants named
+
+```lean
+@[expose] def IsBlockModelsAt (m : EnvModel V env) (d : BlockModel V)
+    (cvTs : Nat → ConstantVal) : Prop :=
+  ∀ c, c < d.k → ∃ (cvR : ConstantVal) (mI rP : Nat) (rules : List RecRule),
+    IsBlockModel m (d.memberName c) (cvTs c) cvR mI rP rules d c
+```
+
+with `IsBlockModelsAt.toIsBlockModels`, `.congr` (`BlockRecKit.lean`)
+and `IsBlockModelsAt.crossEnv` (`BlockRepCross.lean`).  `blockReps_of`
+(`MutualCore.lean`) now STATES what its proof already built — its
+witness is literally `⟨(fms.getD mm default).cvTa, …⟩` — and the form is
+threaded, in and out, through
+
+* `MutualRecsModeled` (`MutualCore.lean`),
+* `MutualRecsStored` (`MutualRecsStage.lean`) and `mutualRecsModeled_of`,
+* the store theorem and `mutualRecsStored` (`MutualRecsStore.lean`),
+* `MutualCoreModeled` (`DeclBlock.lean`),
+
+each of them gaining one universally quantified `cvTs`.  Every internal
+consumer that needs only the existential form takes `.toIsBlockModels`
+(the provision, the rule law, the typed clauses' crossings), so no
+other statement moved; `declBlock` projects it for
+`MutualTablesModeled`, and **`declBlock`'s and `declMutual`'s
+statements are unchanged** — what the capstones consume.
+
+This is exactly what `ContainerModeled.member` — and with it
+`ContainerModeled.of_readBack`'s `hmember` — demands: the
+representation at the STORED constant, which for the block just
+installed is the route's own `f.cvTa`, the very constant the read-back
+(`blockReadBackOk`'s member list) is built from.
+
+##### (b) K.36, specified against what the lift consumes
+
+The second blocker (§U.43 (d)) stands, and this is the Prop the lift
+will consume — the inversion of the Bool requested on the kernel lane,
+stated over the run's own data so that the integration can swap the
+hypothesis for the new `DeclMutualRun` conjunct:
+
+```
+MutualOrdFree b fms ctorsA kinds :=
+  ∀ (J : Nat) (cA : ConstantVal × Nat), ctorsA[J]? = some cA →
+    ∀ (fvsP xFvs : List Expr) (crest xrest : Expr),
+      openPisAtFvars b.nP cA.1.type 0 = some (fvsP, crest) →
+      openPisAtFvars cA.2 crest b.nP = some (xFvs, xrest) →
+      ∀ (l : Nat) (x : Expr), xFvs[l]? = some x →
+        ((kinds.getD J []).getD l (.ordinary, 0)).1 = .ordinary →
+        mentionsMember (fms.map (·.cvTa.name)) x.fvarTypeD = false
+```
+
+**Why this shape.**  The model's clause (`ContainerModeled.ordFree`) is
+stated at the block model's `xFvsF`/`ksF`, and the block model's own
+representation ties those to the constructor's stored type through
+`BlockCtorDataX.opens` (the two `openPisAtFvars` above) and
+`MutualBlockModelOf`/`hkinds` (the kinds), so the bridge from this Prop
+to the clause is a rewrite, not an induction — which is the whole point
+of asking the kernel for the OPENED form rather than proving the raw
+one transports (§U.43 (d): it does not, `mentionsConst` descends into
+an fvar's type annotation).  The Bool is one `openPisAtFvars` plus one
+`mentionsMember` per constructor, `.internal` on failure, and it cannot
+fire: an opened ordinary domain can refer only to earlier fields'
+fvars, and a recursive or reflexive field used later is `.unsupported`
+(`structUsedLater`), which `classifyMutualKinds` throws on, while an
+earlier ORDINARY field's domain is member-free by the same check.
+
+##### (c) What `declMutualB` still needs, in order
+
+1. K.36 (or its Verify bridge) — §U.43 (d);
+2. the list plumbing between the read-back's member list
+   (`fms.zipIdx.map fun (f, mIdx) => (f.cvTa, (b.ownCtors mIdx).filterMap fun (J, _) => ctorsA[J]?)`)
+   and the block model's `d.ctorsM t = (b.ownCtors t).map (ctorsA.getD ·.1 default)`
+   — a `filterMap`/`map` correspondence under `J < ctorsA.length`;
+3. the new block's `BlockAt` at zero pins: `PinRecLaws` and
+   `PinShapes` are vacuous at `d.nPins = 0` with `pc := fun _ => default`
+   (`PinCtors`' `Inhabited` instance has `inj := fun _ _ _ => pt`, which
+   is `mkZero`), `PinsTyped.of_noPins hd.pins`, `inj` and `frame` from
+   `MutualTableFacts` (`frame` is the clause's converse, `.symm`);
+4. the OLD containers, `EnvBlocksOf.crossIndP`: its `hext`/`hnewN`/
+   `hfreshN` come from `FreshEtaExt env envOut` (the per-stage kit in
+   `Semantics/Inductives/DeclMutual.lean`, which `declMutualRun_etaClosed`
+   already assembles), `hwf`/`hrc` from the pre-block model, `hag` from
+   `MutualCoreModeled`'s off-block agreement composed with the tables'
+   `AcvalAgrees`, `hde` from `denoteMeta_env_mono_projFree` at the whole
+   extension, `hfresh` from the block's freshness — and `hrecN` (a new
+   recursor's name implies its member is new) is the one that needs an
+   argument about `storeMutualRecs`' entries.
+
+Sized 1 session after K.36.
+
+##### (d) GATES
+
+`lake build` 694 jobs warning-free; `lake test` warning-free; layering
+346 / 265 / 3 / 1, 0/0; trust 13/5 (626); overview-links 112 (the
+`declBlock` anchor repointed on a pure line shift — the citing
+paragraph re-read, the claim unchanged); quote-gate 2; no-local-paths
+OK; proofdeps 4955 rows / 12 roots / 0 doors; shake 509/509
+allowlisted; pub-imports 1259 of 1977, none demotable.  Standard axioms
+throughout.

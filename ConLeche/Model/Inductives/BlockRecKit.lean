@@ -57,6 +57,35 @@ represented at the block model — what `declBlock` installs (M4). -/
   ∀ c, c < d.k → ∃ (cvT cvR : ConstantVal) (mI rP : Nat) (rules : List RecRule),
     IsBlockModel m (d.memberName c) cvT cvR mI rP rules d c
 
+/-- **The block at every member, AT THE MEMBERS' OWN CONSTANTS** (task
+#315 M7-3 session 5, DESIGN §U.46): `IsBlockModels` with the members'
+`ConstantVal`s NAMED.  Every route builds its representation at those
+constants and then loses them to the existential — and
+`ContainerModeled.member` (and with it `ContainerModeled.of_readBack`,
+the read-back's record) demands the representation at the STORED
+constant, which is exactly the route's own.  So the install chain
+carries this form and projects to `IsBlockModels` where the weaker one
+is enough. -/
+@[expose] def IsBlockModelsAt (m : EnvModel V env) (d : BlockModel V)
+    (cvTs : Nat → ConstantVal) : Prop :=
+  ∀ c, c < d.k → ∃ (cvR : ConstantVal) (mI rP : Nat) (rules : List RecRule),
+    IsBlockModel m (d.memberName c) (cvTs c) cvR mI rP rules d c
+
+/-- The named form implies the existential one. -/
+theorem IsBlockModelsAt.toIsBlockModels {m : EnvModel V env} {d : BlockModel V}
+    {cvTs : Nat → ConstantVal} (h : IsBlockModelsAt m d cvTs) : IsBlockModels m d :=
+  fun c hc =>
+    let ⟨cvR, mI, rP, rules, hb⟩ := h c hc
+    ⟨cvTs c, cvR, mI, rP, rules, hb⟩
+
+/-- The named form reads the assignment only below `d.k`. -/
+theorem IsBlockModelsAt.congr {m : EnvModel V env} {d : BlockModel V}
+    {cvTs cvTs' : Nat → ConstantVal} (hEq : ∀ c, c < d.k → cvTs' c = cvTs c)
+    (h : IsBlockModelsAt m d cvTs) : IsBlockModelsAt m d cvTs' := by
+  intro c hc
+  rw [hEq c hc]
+  exact h c hc
+
 /-! ## Per-member facts -/
 
 namespace IsBlockModel

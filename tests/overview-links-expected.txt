@@ -746,8 +746,8 @@
 == ConLeche/Model/Inductives/BlockRep.lean#L591
    591  structure IsBlockModel (m : EnvModel V env) (T : Name) (cvT cvR : ConstantVal) (mI rP : Nat)
 
-== ConLeche/Model/Inductives/DeclBlock.lean#L290
-   290  theorem declBlock (hμ : μ.verifiedChecks = true) {F : Nat} {env envOut : Env}
+== ConLeche/Model/Inductives/DeclBlock.lean#L291
+   291  theorem declBlock (hμ : μ.verifiedChecks = true) {F : Nat} {env envOut : Env}
 
 == ConLeche/Model/Inductives/MutualTables.lean#L305
    305  theorem declMutual (hμ : μ.verifiedChecks = true) {F : Nat} {env envOut : Env}
