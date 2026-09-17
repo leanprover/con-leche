@@ -86479,3 +86479,137 @@ quote-gate 2; no-local-paths OK; proofdeps 4955 rows / 12 roots /
 0 doors; shake 510/510 allowlisted; pub-imports 1284 of 2030, none
 demotable; `tests/arena.sh` green.  Standard axioms on every new
 theorem.
+
+#### U.63 — M7-3 session 11: the core's two plumbing requests, and M8's FIRST STEP — the fold flips (lane M7-3, session 11, 2026-09-17)
+
+§U.56 left three items: the two plumbing requests the nested core owed
+its tail, and M8's first step, which §U.56 (g) 1 had identified as the
+one thing standing between the flip's mechanical half and a home.  All
+three are in the tree, and with them **the `EnvModelB` fold is in
+`Model/Fold.lean`, modulo the modeled arm alone.**
+
+##### (a) `repsAt` — the core publishes the representation NAMED
+
+`nestedBlockReps_of` instantiates its existential at the members' own
+auxiliary constants (`hrep`'s `refine`, `(fms.getD mm default).cvTa`)
+and then forgets them, while `ContainerModeled.member` — a clause of
+the read-back's record — demands the representation AT the stored
+constant.  So the conclusion and `NestedCoreOut.reps` now read
+
+```lean
+    IsBlockModelsAt mp₂.base2 (D) (fun mm => (fms.getD mm default).cvTa)
+```
+
+— a signature-only change (the proof lost one existential from a
+`refine`).  Three consumers project with `.toIsBlockModels`, where the
+existential form is all they read: the two crossings in
+`DeclNestedCore.lean` and `nestedRecsTuple_of`'s call in
+`nestedTailModeled_of` (`NestedRecsStage.lean`, one token in lane
+M7-2's file).  `NestedTailOut.repsAt` keeps its statement and becomes
+that field CROSSED, which is what the tail could not do before.
+
+##### (b) `pinNP`/`pinψ` — and the request went ONE LEVEL further up
+
+Both records are proved upstream and dropped at the
+`NestedCtorsStaged` boundary, but they are NOT both free in
+`nestedLoopFacts_of`:
+
+* `pinψ` is `NestedPinFacts.pinψ` verbatim, at the members' PREFIX
+  environment — one field forwarded twice
+  (`NestedLoopFacts`, `NestedStageFacts`), free;
+* `pinNP` is the composite of `NestedPinGroupSyn.pinNP` (the pin's
+  count is its container's block model's) and `.modeled` (that block
+  model represents the container's `containerInfo?` group), and
+  `NestedPinGroupSyn.ofParts` drops BOTH halves on the way to the weak
+  group `NestedPinGroup` that `NestedPinFacts.groups` carries.  The
+  weak group has no clause that mentions `containerInfo?` at all, so
+  the loop CANNOT recover it: the field has to go onto
+  `NestedPinFacts` as well, filled in `nestedPinsStaged_of`
+  (`NestedPins.lean`) where the syntactic group is still in hand —
+  five lines, no new hypothesis.
+
+Both fields read the PRE-BLOCK environment's own data, which is what
+makes them crossable for nothing.  `nestedContainerModeled` now
+discharges the read-back's two clauses itself: `pinNP` at
+`d.env₀ = env` directly, and `pinψ` by moving the pin's container's
+record from `env` to the prefix environment
+(`consMutualFormers_find?_of_ne` against the members' freshness —
+`hfreshMem`, already in that proof for `pinsNotMembers`) and
+identifying it with `envOut`'s by the install's conses
+(`ConsExt.ext`, off `NestedTailOut.install`).
+
+So `NestedTailOut` is **seven** fields, not nine: `install`,
+`agree₀`, `agree`, `findR`, `repsAt`, `groups`, `conts` — and
+`NestedTailModeled`'s obligation shrank with it (lane M7-2's skeleton
+did not move).
+
+##### (c) M8's FIRST STEP — `Model/StepAgree.lean`
+
+`axiomStepAgree_of` and `basisStepAgree_of` (§U.55 (b) 1) moved out of
+`Model/Fold.lean` into `ConLeche/Model/StepAgree.lean`, verbatim and
+with their docstrings, beside the harvests they are assembled from.
+`Model/Fold.lean` keeps `axiomStepPB_of` and `basisStepPB_of`
+byte-identical as their `Nonempty` projections.
+
+The new module's public interface is exactly what its two statements
+name — `Model/Annot/EnvModelM` and `Semantics/DeclRun` public, the
+harvests plain; that is `scripts/pub-import-plan.py`'s own shape for
+it, and shake proposes nothing about it.  `Model/Fold.lean`'s two
+now-redundant imports (`Model.AxiomReduce`, `Model.BasisFalse`) give
+way to the one module the harvests were actually reached through
+(`Model.Harvest`) — shake's own compensating addition, so the
+allowlist shrank by two lines rather than growing.
+
+**The measured payoff**: with `Model/Inductives/EnvModelBStages.lean`
+and `Model/Inductives/BasisBlocksFold.lean` importing `StepAgree`
+instead of `Fold`, NEITHER they nor `DeclNestedCore` reach
+`Model/Fold` any more — the import-graph fact §U.56 (g) 1 asked for.
+
+##### (d) THE FLIP'S MECHANICAL HALF, LANDED — in `Model/Fold.lean`
+
+§U.55 (c)'s steps 3–4, written and reverted in session 10 for want of
+a home, are now in the module where the `A` fold lives and inherit its
+consumers: `ModeledStepB` (the modeled arm, AS A HYPOTHESIS — not to
+be proved but deleted with the arm), `declInductiveB` (the dispatch's
+three arms: `declNativeB`, `declMutualB`, the hypothesis),
+`EnvModelOkB`, `declStepB_preserves` (eight arms, seven a name swap),
+`foldPMB` (base case `EnvModelB.empty`) and `checkDeclsPure_soundB_of`.
+`Model/Fold.lean` gains `public import Model.Inductives.NestedPremise`
+(the statements name `EnvModelB`) and `import
+Model.Inductives.BasisBlocksFold`.
+
+**`MainTheorem.lean` and the capstones are untouched**, and that is
+the design: `EnvModelB` EXTENDS `EnvModelM`, so
+`checkDeclsPure_sound_of` keeps its statement and `checkDeclsPure_soundB_of`
+is the parallel theorem; step 5 (making the capstones read the B fold
+through `.toEnvModelM`) is still deliberately last, and nothing
+forces it.
+
+Two `public import`s became demotable at the new import set and were
+demoted, as the plan directs: `Model/Fold.lean`'s
+`Model.Inductives.DeclNative` and `Model/Inductives/DeclNative.lean`'s
+`Model.Inductives.FixZeroField` (the two matching allowlist lines went
+stale and are deleted).
+
+##### (e) WHAT M8 STILL OWES
+
+Only step 2 and step 5, in that order: the kernel's `.indDecl` nested
+dispatch arm (`checkNestedS_run`/`_skels`) with the DELETION of the
+modeled arm — after which `ModeledStepB` and `declInductiveB`'s third
+case go with it — and then the capstones' side.  `declNested_of`'s
+own residual is unchanged by this session: `NestedTailModeled` (seven
+conclusions), `NestedCoreModeled` and the chain's named facts.
+
+##### (f) GATES
+
+`lake build` 703 jobs warning-free; `lake test` warning-free; layering
+347 / 273 / 3 / 1, 0/0; trust 13/5 (635); overview-links 112 (the two
+`Model/Fold.lean` anchors repointed twice on pure line shifts — the
+cited text character-identical, both citing paragraphs re-read);
+quote-gate 2; no-local-paths OK; proofdeps 4965 rows / 12 roots /
+0 doors (`ConLeche.Model.StepAgree` ENTERS the ten capstone closures:
+the relocation itself, the two theorems were already on every
+capstone's path from `Model/Fold.lean`, which stays — the diff is
+exactly ten added lines); shake 508/508 allowlisted; pub-imports 1286
+of 2038, none demotable; `tests/arena.sh` green.  Standard axioms on
+every new theorem.
