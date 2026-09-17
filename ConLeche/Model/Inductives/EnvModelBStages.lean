@@ -2,6 +2,8 @@ module
 
 public import ConLeche.Model.Inductives.ContainerCross
 public import ConLeche.Model.Inductives.MutualTables
+import ConLeche.Model.Inductives.MutualNoProj
+import ConLeche.Model.Inductives.MutualRecsStage
 import ConLeche.Semantics.DeclRun
 import ConLeche.Model.Fold
 import ConLeche.Model.Harvest
@@ -602,5 +604,64 @@ theorem checkMutualRecTys_names {env : Env} {b : MutualBlock} {F : Nat}
   obtain rfl := Option.some.inj (hget.symm.trans hget')
   obtain ⟨recTy, sty, u, -, -, -, -, -, -, -, -, rfl⟩ := ConLeche.checkMutualRecTy_shape hrec
   exact ⟨hlt, rfl⟩
+
+/-! ### `declMutualB` — the model WITH ITS BLOCKS survives a mutual block -/
+
+/-- **The mutual install's conses, as `EnvBlocksOf.crossIndP` reads
+them**: the formers, the constructors, the recursors' group store and
+the structure-like members' projection tables, composed
+(`BlockInstallExt.trans`) at the block's own members. -/
+theorem mutualInstallExt {F : Nat} {env : Env} {b : MutualBlock}
+    {streamRecs : Option (List (ConstantVal × List RecRule))} {fms : List MutualFormerA}
+    {f₀ : MutualFormerA} {ctorsA : List (ConstantVal × Nat)} {sortss : List (List Level)}
+    {formers4 : List MutualFormer} {ctors4 : List MutualCtor4} {cvRas : List ConstantVal}
+    {rulesOf : List (List (MutualCtor × Expr))} {envOut : Env} {g : Bool}
+    (hformers : ConLeche.mutualFormers (m := ConLeche.CheckM) (fueledOps μ F) b.nP b.formers env g
+      = .ok (ConLeche.consMutualFormers fms env, fms))
+    (hctors : ConLeche.checkMutualCtors (m := ConLeche.CheckM) (fueledOps μ F)
+      (ConLeche.consMutualFormers fms env) b fms (Level.isEquiv f₀.s .zero == some true) false
+      b.ctors = .ok (ctorsA, sortss))
+    (hrecFresh : ∀ q ∈ cvRas.zipIdx,
+      (ConLeche.consMutualCtors b.nP ctorsA (ConLeche.consMutualFormers fms env)).find?
+        (Prod.fst q).name = none)
+    (hrectys : ConLeche.checkMutualRecTys (m := ConLeche.CheckM) (fueledOps μ F)
+      (ConLeche.consMutualCtors b.nP ctorsA (ConLeche.consMutualFormers fms env)) b formers4
+      ctors4 streamRecs b.k = .ok cvRas)
+    (htbl : ConLeche.mutualTables (m := ConLeche.CheckM) b ctorsA sortss fms.zipIdx
+      (ConLeche.storeMutualRecs
+        (ConLeche.consMutualCtors b.nP ctorsA (ConLeche.consMutualFormers fms env)) b fms
+        rulesOf cvRas.zipIdx
+        (ConLeche.consMutualCtors b.nP ctorsA (ConLeche.consMutualFormers fms env))) = .ok envOut) :
+    ∃ new : List ConstantInfo,
+      BlockInstallExt (fms.map (·.cvTa.name)) env envOut new ∧
+      ∀ n ∈ fms.map (·.cvTa.name), n ∈ new.map (·.name) := by
+  have hmemFresh : ∀ f ∈ fms, env.find? f.cvTa.name = none := by
+    intro f hf
+    obtain ⟨t, ht⟩ := List.getElem?_of_mem hf
+    exact (mutualMemberNames hformers t f ht).1
+  have hrecMs : ∀ q ∈ cvRas.zipIdx,
+      ∃ n' ∈ fms.map (·.cvTa.name), (Prod.fst q).name = n'.str "rec" := by
+    intro q hq
+    obtain ⟨hlt, hname⟩ := checkMutualRecTys_names hrectys q hq
+    refine ⟨(b.formers.getD q.2 default).1.name, ?_, hname⟩
+    rw [mutualMemberNames_eq hformers]
+    show _ ∈ b.formers.map (·.1.name)
+    have hlt' : q.2 < b.formers.length := hlt
+    rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hlt']
+    exact List.mem_map_of_mem (List.getElem_mem hlt')
+  have hzipTs : ∀ q ∈ fms.zipIdx, q.1.cvTa.name ∈ fms.map (·.cvTa.name) := by
+    intro q hq
+    exact List.mem_map_of_mem (List.mem_of_getElem? (List.mk_mem_zipIdx_iff_getElem?.mp hq))
+  obtain ⟨newT, E4⟩ := mutualTables_installExt (Ms := fms.map (·.cvTa.name)) htbl hzipTs
+  refine ⟨_, ((((consMutualFormers_installExt hmemFresh).trans
+    (consMutualCtors_installExt (nP := b.nP) (checkMutualCtors_fresh hctors))).trans
+    (storeMutualRecs_installExt hrecFresh hrecMs)).trans E4), ?_⟩
+  intro n hn
+  obtain ⟨f, hf, rfl⟩ := List.mem_map.mp hn
+  rw [List.map_append, List.mem_append]; right
+  rw [List.map_append, List.mem_append]; right
+  rw [List.map_append, List.mem_append]; right
+  rw [List.map_reverse, List.mem_reverse, List.map_map]
+  exact List.mem_map_of_mem hf
 
 end ConLeche.Model
