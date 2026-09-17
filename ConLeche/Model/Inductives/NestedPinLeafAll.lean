@@ -576,6 +576,68 @@ theorem classPin_of_pinCorr {env : Env} {m : EnvModel V env} {D dR : BlockModel 
     · rw [hvals]; exact hIdsBelow
     · rw [consList_getD_lt _ _ v hv, consList_getD_lt _ _ v hv]
 
+/-- **Two group views of ONE container relate their members** (task
+#315 L-E, DESIGN §U.68 — the WALK at a container-recursive field with a
+MEMBER target): the root's pin group `[q₀', q₀' + kK)` and the block's
+pin group `[q₀, q₀ + kK)` have the same container `dK`, so the root's
+PIN class at member `i` of its group and the block's pin at member `i`
+of its group are `ClassPin`-related as soon as the two groups' BASE
+pins agree — one level assignment on the container's level parameters
+(`hparK`, which is where they are spent) and one frame on its
+parameters (`hfr0`).
+
+Both agreements travel from the pair the walk starts at: a group's
+pins share their level assignment and their components
+(`PinGroupView.same`), so the base pins' data ARE the pair's.  This is
+`classPin_of_rootMember`'s sibling at a PIN class of the root, and it
+is what §U.64 (c) listed as "the two group views". -/
+theorem classPin_of_views {env : Env} {D dR dK : BlockModel V}
+    {ψ ψR : Name → Nat} {ρp ρR : Nat → V} {q₀ q₀' kK i : Nat}
+    (S₁ : PinGroupView D dK q₀ kK) (S₂ : PinGroupView dR dK q₀' kK)
+    (hψ0 : ∀ (cvT : ConstantVal) (caps : IndCaps),
+      env.find? (dK.memberName i) = some (.indInfo cvT caps) →
+      ∀ p ∈ cvT.levelParams, (dR.pinAt q₀').ψJ ψR p = (D.pinAt q₀).ψJ ψ p)
+    (hfr0 : ∀ v, v < dK.nP → dR.pinFrame q₀' ψR ρR v = D.pinFrame q₀ ψ ρp v)
+    (hparK : dK.uM i ((dR.pinAt q₀').ψJ ψR) = dK.uM i ((D.pinAt q₀).ψJ ψ) ∧
+      dK.IdsM i ((dR.pinAt q₀').ψJ ψR) = dK.IdsM i ((D.pinAt q₀).ψJ ψ))
+    (hIdsBelow : FieldsBelow dK.nP (dK.IdsM i ((D.pinAt q₀).ψJ ψ)))
+    (hi : i < kK) :
+    ClassPin env D dR ψ ψR ρp ρR (dR.k + (q₀' + i)) (q₀ + i) := by
+  have hnlt : ¬ dR.k + (q₀' + i) < dR.k := by omega
+  have hsub : dR.k + (q₀' + i) - dR.k = q₀' + i := by omega
+  have hψ₂ := (S₂.same i hi ψR).1
+  have hDs₂ := (S₂.same i hi ψR).2
+  have hψ₁ := (S₁.same i hi ψ).1
+  have hDs₁ := (S₁.same i hi ψ).2
+  have hfr₂ : dR.pinFrame (q₀' + i) ψR ρR = dR.pinFrame q₀' ψR ρR := by
+    unfold BlockModel.pinFrame; rw [hDs₂]
+  have hfr₁ : D.pinFrame (q₀ + i) ψ ρp = D.pinFrame q₀ ψ ρp := by
+    unfold BlockModel.pinFrame; rw [hDs₁]
+  have hIds₂ : (dR.pinAt (q₀' + i)).Ids ψR = dK.IdsM i ((dR.pinAt q₀').ψJ ψR) := by
+    unfold PinSyn.Ids
+    rw [S₂.pinPps i hi, S₂.pinNP i hi, hψ₂]
+    rfl
+  have hIds₁ : (D.pinAt (q₀ + i)).Ids ψ = dK.IdsM i ((D.pinAt q₀).ψJ ψ) := by
+    unfold PinSyn.Ids
+    rw [S₁.pinPps i hi, S₁.pinNP i hi, hψ₁]
+    rfl
+  refine ⟨?_, ?_, ?_, ?_, ?_, ?_⟩
+  · show dR.k + (q₀' + i) < dR.k + dR.nPins
+    have := S₂.seg; omega
+  · have := S₁.seg; omega
+  · rw [dR.nameT_of_pin hnlt, hsub, S₂.name i hi, ← S₁.name i hi]
+  · intro cvT caps hfind p hp
+    rw [dR.psiT_of_pin ψR hnlt, hsub, hψ₂, hψ₁]
+    exact hψ0 cvT caps (by rw [← S₁.name i hi]; exact hfind) p hp
+  · intro v hv
+    rw [dR.frameT_of_pin hnlt ψR ρR, hsub, hfr₂, hfr₁]
+    exact hfr0 v (by rw [← S₁.pinNP i hi]; exact hv)
+  · rw [dR.idxT_of_pin hnlt ψR ρR, hsub]
+    unfold BlockModel.pinIdx
+    rw [hfr₂, hfr₁, hIds₂, hIds₁, S₂.pinU i hi ψR, S₁.pinU i hi ψ, hparK.1, hparK.2]
+    unfold idxSet
+    exact congrArg _ (teleOfFields_congr_below hIdsBelow hfr0)
+
 /-- **The covering, split at the root GROUP** (task #315 L-E, DESIGN
 §U.65): `InstanceCovered` at the root pin `r` from its two cases — a
 pin of the ROOT group is its own container member's partner
