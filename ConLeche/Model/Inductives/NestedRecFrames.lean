@@ -135,6 +135,8 @@ local notation "D" => (nestedBlockModel (V := V) p b fms f₀ ctorsA kinds env p
 local notation "DA" => (mutualBlockModel (V := V) b fms f₀ ctorsA kinds env ppsF W idxF dsF esF
   srcsF fvsPF xFvsF xrestF eissF tssF)
 
+local notation "PC" => (nestedPc (V := V) b ctorsA kinds p.k f₀.s dsF esF eissF tssF)
+
 local notation "PG" => NestedPinGroup (V := V) (p := p) (b := b) (fms := fms) (f₀ := f₀)
   (ctorsA := ctorsA) (kinds := kinds) (env := env) (ppsF := ppsF) (W := W) (idxF := idxF)
   (dsF := dsF) (esF := esF) (srcsF := srcsF) (fvsPF := fvsPF) (xrestF := xrestF) (eissF := eissF)
@@ -939,6 +941,114 @@ theorem NestedTailIn.restoreAgree {mpA : EnvModelM V μ ENVA} {cvRas : List Cons
     rw [← hn']
     exact I.mimicRecFresh (by rw [I.out.stage.pinsLen]; exact hjl)
 
+/-! ### The readings, from the frames -/
+
+/-- **THE READINGS AT THE TAIL** (PLAN-M7 §1e): `NestedTailIn.readings`
+with its one open premise supplied — the thirteen bookkeeping clauses
+of `NestedRecReadings` are the run's (`NestedRecTypes.lean`), the
+fourteenth is `hfr`, the readings' FRAMES.  Consumer:
+`nestedRecReadingsOf_of` → `nestedTailModeled_of`. -/
+theorem NestedTailIn.readingsOf
+    (hfr : ∀ (rdsM : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm))
+      (concM : Nat → AnnotTerm),
+      (∀ (c : Nat) (ψ : Name → Nat), c < (D).kT →
+        denoteMeta mp₂.base2.acval (ENV₂) ψ 0 (nestedRecCvAt p.k cvRms cvRns c).type
+          = some (mkPisAV (rdsM c ψ) (concM c))) →
+      (∀ (c : Nat) (ψ : Name → Nat), c < (D).kT →
+        (rdsM c ψ).length = (D).nP + (D).kT + (D).nCtorsT (PC) + (D).nIdxT c + 1) →
+      ∀ (ψ : Name → Nat) (ρ : Nat → V) (c : Nat), c < (D).kT →
+        (D).ReadingFramesT (PC) ψ (b.elimLevel.eval ψ) (rdsM c ψ) (concM c) c ρ) :
+    ∃ (s : (Name → Nat) → Nat) (rdsM : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm))
+      (concM : Nat → AnnotTerm),
+      NestedRecReadings mp₂.base2 (D) (PC) cvRms cvRns b.rlps b.elimLevel s rdsM concM :=
+  I.readings hfr
+
 end Run
+
+/-! ## The named fact and its consumer -/
+
+/-- **THE READINGS' FRAMES AT THE RUN** (DESIGN §U.25 (e) 2, second
+half; PLAN-M7 §1e): at every tail input and every reading of the
+`k + nPins` restored recursor types characterised by the two premises
+`NestedTailIn.readings` supplies (the type's reading and its length),
+every fitting spine decomposes into the block's frame with the frame's
+motives and minors typed semantically (`ReadingFramesT`).
+
+What remains of §1e: the transfer along the walk's reading law
+(`denoteMeta_restoreWalk` at `NestedTailIn.restoreAgree`, this file's
+B2) to the SCRATCH reading of the same recursor, whose frame inversion
+is the mutual `IsBlockModels.spineFit_recData_inv` at the auxiliary
+block's own block model, and the fibre kit (`NestedRecFibre.lean`) to
+carry the frame's semantic clauses back to the composed model. -/
+@[expose] def NestedRecFramesOf (V : Type w) [SetTheory V] (μ : CheckMode) (F : Nat) : Prop :=
+  ∀ {env : Env} (mp : EnvModelM V μ env) (p : NestedParts) (envOut : Env) (st : ElimState)
+    (b : MutualBlock) (envAux : Env) (stored : List AuxStored)
+    (ctorsR : List (List (ConstantVal × Nat × Nat))) (cvRms cvRns : List ConstantVal)
+    (rulesM rulesN : List (List RecRule)) (fmsA ctorsA₀ : List ConstantVal)
+    (fms : List MutualFormerA) (f₀ : MutualFormerA) (ctorsA : List (ConstantVal × Nat))
+    (sortss : List (List Level)) (kinds : List (List (RecFieldKind × Nat)))
+    (mp₁ : EnvModelM V μ (ConLeche.consMutualFormers fms env))
+    (ppsF : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)) (W : (Name → Nat) → Nat)
+    (idxF : Nat → List Expr) (dsF : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm))
+    (esF : Nat → (Name → Nat) → List AnnotTerm) (srcsF : Nat → List (Option Nat))
+    (fvsPF xFvsF : Nat → List Expr) (xrestF : Nat → Expr)
+    (eissF : Nat → (Name → Nat) → List (List AnnotTerm))
+    (tssF : Nat → (Name → Nat) → List (List (Nat × Nat × AnnotTerm)))
+    (dsR : Nat → Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)) (xFvsR : Nat → Nat → List Expr)
+    (pinsS : List PinSyn)
+    (mp₂ : EnvModelM V μ (ConLeche.consNestedCtors ctorsR.flatten
+      (ConLeche.consMutualFormers (fms.take p.k) env))),
+    NestedTailIn F mp p envOut st b envAux stored ctorsR cvRms cvRns rulesM rulesN fmsA ctorsA₀
+      fms f₀ ctorsA sortss kinds mp₁ ppsF W idxF dsF esF srcsF fvsPF xFvsF xrestF eissF tssF dsR
+      xFvsR pinsS mp₂ →
+    ∀ (rdsM : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)) (concM : Nat → AnnotTerm),
+      (∀ (c : Nat) (ψ : Name → Nat),
+        c < (nestedBlockModel (V := V) p b fms f₀ ctorsA kinds env ppsF W idxF dsF esF srcsF fvsPF
+          xrestF eissF tssF ctorsR dsR xFvsR pinsS).kT →
+        denoteMeta mp₂.base2.acval
+            (ConLeche.consNestedCtors ctorsR.flatten
+              (ConLeche.consMutualFormers (fms.take p.k) env)) ψ 0
+            (nestedRecCvAt p.k cvRms cvRns c).type
+          = some (mkPisAV (rdsM c ψ) (concM c))) →
+      (∀ (c : Nat) (ψ : Name → Nat),
+        c < (nestedBlockModel (V := V) p b fms f₀ ctorsA kinds env ppsF W idxF dsF esF srcsF fvsPF
+          xrestF eissF tssF ctorsR dsR xFvsR pinsS).kT →
+        (rdsM c ψ).length =
+          (nestedBlockModel (V := V) p b fms f₀ ctorsA kinds env ppsF W idxF dsF esF srcsF fvsPF
+            xrestF eissF tssF ctorsR dsR xFvsR pinsS).nP +
+          (nestedBlockModel (V := V) p b fms f₀ ctorsA kinds env ppsF W idxF dsF esF srcsF fvsPF
+            xrestF eissF tssF ctorsR dsR xFvsR pinsS).kT +
+          (nestedBlockModel (V := V) p b fms f₀ ctorsA kinds env ppsF W idxF dsF esF srcsF fvsPF
+            xrestF eissF tssF ctorsR dsR xFvsR pinsS).nCtorsT
+            (nestedPc (V := V) b ctorsA kinds p.k f₀.s dsF esF eissF tssF) +
+          (nestedBlockModel (V := V) p b fms f₀ ctorsA kinds env ppsF W idxF dsF esF srcsF fvsPF
+            xrestF eissF tssF ctorsR dsR xFvsR pinsS).nIdxT c + 1) →
+      ∀ (ψ : Name → Nat) (ρ : Nat → V) (c : Nat),
+        c < (nestedBlockModel (V := V) p b fms f₀ ctorsA kinds env ppsF W idxF dsF esF srcsF fvsPF
+          xrestF eissF tssF ctorsR dsR xFvsR pinsS).kT →
+        (nestedBlockModel (V := V) p b fms f₀ ctorsA kinds env ppsF W idxF dsF esF srcsF fvsPF
+          xrestF eissF tssF ctorsR dsR xFvsR pinsS).ReadingFramesT
+          (nestedPc (V := V) b ctorsA kinds p.k f₀.s dsF esF eissF tssF) ψ (b.elimLevel.eval ψ)
+          (rdsM c ψ) (concM c) c ρ
+
+/-- **THE READINGS AT THE RUN, FROM THE FRAMES**: `NestedRecReadingsOf`
+— the first of `nestedTailModeled_of`'s three named facts — is
+`NestedTailIn.readings` at every tail input, its one premise the
+frames. -/
+theorem nestedRecReadingsOf_of {F : Nat} (hfr : NestedRecFramesOf V μ F) :
+    NestedRecReadingsOf V μ F := fun mp p envOut st b envAux stored ctorsR cvRms cvRns rulesM
+    rulesN fmsA ctorsA₀ fms f₀ ctorsA sortss kinds mp₁ ppsF W idxF dsF esF srcsF fvsPF xFvsF
+    xrestF eissF tssF dsR xFvsR pinsS mp₂ I =>
+  I.readingsOf (hfr mp p envOut st b envAux stored ctorsR cvRms cvRns rulesM rulesN fmsA ctorsA₀
+    fms f₀ ctorsA sortss kinds mp₁ ppsF W idxF dsF esF srcsF fvsPF xFvsF xrestF eissF tssF dsR
+    xFvsR pinsS mp₂ I)
+
+/-- **THE CONSUMER** (consumer-first): the frames feed the recursors'
+stage verbatim — `nestedTailModeled_of` at `nestedRecReadingsOf_of`'s
+output and the stage's other two named facts. -/
+theorem nestedTailModeled_of_frames {F : Nat} (hfr : NestedRecFramesOf V μ F)
+    (heqs : NestedRecEqsOf V μ F) (hst : NestedRecsStored V μ F) : NestedTailModeled V μ F :=
+  nestedTailModeled_of (nestedRecReadingsOf_of hfr) heqs hst
+
 
 end ConLeche.Model
