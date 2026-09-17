@@ -690,7 +690,7 @@ theorem ContainerModeled.of_readBack {env : Env} {m : EnvModel V env} {nP : Nat}
   nP := hnP
   reps := hreps
   typed := htyped
-  inj := hinj
+  inj := fun _ => hinj
   frame := hframe
   ordFree := hordFree
   pinsNotMembers := hpinsNotMembers

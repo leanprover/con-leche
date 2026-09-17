@@ -52,7 +52,10 @@ no indices) and at a level assignment where that sort is nonzero: the
 leaf reads the carrier, the fibre decomposes it by the constructors,
 and `ContainerModeled.inj` makes every injection a tagged tower. -/
 theorem ContainerModeled.mem_carrier_kpair {env : Env} {m : EnvModel V env} {ci : ContainerInfo}
-    {d : BlockModel V} (C : ContainerModeled m ci d) (hnP : ci.nP = 0)
+    {d : BlockModel V} (C : ContainerModeled m ci d)
+    (Cinj : ∀ (ψ : Name → Nat) (mm' j : Nat) (fs : List V),
+      d.inj ψ mm' j fs = injW (d.w ψ) j (mkTower (fs ++ [pt])))
+    (hnP : ci.nP = 0)
     {i : Nat} {M : ContainerMember} (hM : ci.members[i]? = some M) {s : Level}
     (hty : M.type = .sort s) {ψ : Name → Nat} (hw : s.eval ψ ≠ 0) {ρ : Nat → V} {x : V}
     (hx : x ∈ˢ interp V ρ (m.acval M.name ψ)) :
@@ -91,7 +94,7 @@ theorem ContainerModeled.mem_carrier_kpair {env : Env} {m : EnvModel V env} {ci 
   obtain ⟨j, fs, -, -, rfl⟩ :=
     (hI.fibre ψ (consList [] ρ) hρp' _ (lfpTuple_mem _ _ _ _) i hI.memberLt _ ht _).mp hx
   refine ⟨vnat j, mkTower (fs ++ [pt]), ?_⟩
-  rw [C.inj ψ i j fs, injW_pos (by rw [show d.w ψ = s.eval ψ from (hsEq ψ).symm]; exact hw)]
+  rw [Cinj ψ i j fs, injW_pos (by rw [show d.w ψ = s.eval ψ from (hsEq ψ).symm]; exact hw)]
   unfold SetTheory.Tower.inj SetTheory.spair
   rfl
 
@@ -162,17 +165,24 @@ theorem containerInfo?_punitA {env : Env}
     ConLeche.punitUnitA, Expr.stripPis, ConLeche.containerMembersGo, hmot, hmot2, Option.bind,
     ConLeche.punitUnitName, ConLeche.punitName, ConLeche.uN]
 
-/-! ## The counter-instances -/
+/-! ## The counter-instances: the UNGUARDED clause, refuted -/
 
-/-- **`Nat` has NO block model**: its carrier `ω` holds `natzero = ∅`,
-which is no Kuratowski pair, while `ContainerModeled.inj` makes every
-element of a `Type`-valued block's carrier one. -/
-theorem no_containerModeled_nat {env : Env} {m : EnvModel V env} {d : BlockModel V}
-    (hT : env.find? ConLeche.natName = some ConLeche.natA) :
-    ¬ ContainerModeled m ⟨0, [⟨ConLeche.natName, [], ConLeche.natA.toConstantVal.type,
+/-- **`Nat` admits no block model with the TAGGED injections**: its
+carrier `ω` holds `natzero = ∅`, which is no Kuratowski pair, while the
+unguarded tag shape makes every element of a `Type`-valued block's
+carrier one.  The historical form of task #315 M7-4's refutation (DESIGN
+§U.42 (c)): before the guard, this hypothesis WAS
+`ContainerModeled.inj`, so `EnvBlockModels` was unsatisfiable at every
+environment storing the pinned block.  Kept as the reason the guard
+`0 < d.nP` is there. -/
+theorem no_containerModeled_nat_unguarded {env : Env} {m : EnvModel V env} {d : BlockModel V}
+    (hT : env.find? ConLeche.natName = some ConLeche.natA)
+    (C : ContainerModeled m ⟨0, [⟨ConLeche.natName, [], ConLeche.natA.toConstantVal.type,
         [⟨ConLeche.natZeroName, ConLeche.natZeroA.toConstantVal.type, 0⟩,
-         ⟨ConLeche.natSuccName, ConLeche.natSuccA.toConstantVal.type, 1⟩]⟩]⟩ d := by
-  intro C
+         ⟨ConLeche.natSuccName, ConLeche.natSuccA.toConstantVal.type, 1⟩]⟩]⟩ d) :
+    ¬ ∀ (ψ : Name → Nat) (mm' j : Nat) (fs : List V),
+        d.inj ψ mm' j fs = injW (d.w ψ) j (mkTower (fs ++ [pt])) := by
+  intro Cinj
   have hval : ∀ (ψ : Name → Nat) (ρ : Nat → V),
       interp V ρ (m.acval ConLeche.natName ψ) = (omega : V) := by
     intro ψ ρ
@@ -183,19 +193,23 @@ theorem no_containerModeled_nat {env : Env} {m : EnvModel V env} {d : BlockModel
     rfl
   have hmem : (empty : V) ∈ˢ interp V (fun _ => pt) (m.acval ConLeche.natName (fun _ => 0)) := by
     rw [hval]; exact empty_mem_omega
-  obtain ⟨a, b, hab⟩ := C.mem_carrier_kpair (i := 0) rfl rfl (s := .succ .zero) rfl
+  obtain ⟨a, b, hab⟩ := C.mem_carrier_kpair Cinj (i := 0) rfl rfl (s := .succ .zero) rfl
     (ψ := fun _ => 0) (by decide) (ρ := fun _ => pt) hmem
   exact kpair_ne_empty hab.symm
 
-/-- **`PUnit` has NO block model**: its carrier `{pt}` holds the proof
-point, chosen so that it is no Kuratowski pair (`Derive/Pt.lean`), at
-every level assignment where `PUnit` is not `Prop`-valued. -/
-theorem no_containerModeled_punit {env : Env} {m : EnvModel V env} {d : BlockModel V}
-    (hT : env.find? ConLeche.punitName = some ConLeche.punitA) :
-    ¬ ContainerModeled m ⟨0, [⟨ConLeche.punitName, [ConLeche.uN],
+/-- **`PUnit` admits no block model with the TAGGED injections**: its
+carrier `{pt}` holds the proof point, chosen so that it is no
+Kuratowski pair (`Derive/Pt.lean`), at every level assignment where
+`PUnit` is not `Prop`-valued.  The second half of the refutation the
+guard answers. -/
+theorem no_containerModeled_punit_unguarded {env : Env} {m : EnvModel V env} {d : BlockModel V}
+    (hT : env.find? ConLeche.punitName = some ConLeche.punitA)
+    (C : ContainerModeled m ⟨0, [⟨ConLeche.punitName, [ConLeche.uN],
         ConLeche.punitA.toConstantVal.type,
-        [⟨ConLeche.punitUnitName, ConLeche.punitUnitA.toConstantVal.type, 0⟩]⟩]⟩ d := by
-  intro C
+        [⟨ConLeche.punitUnitName, ConLeche.punitUnitA.toConstantVal.type, 0⟩]⟩]⟩ d) :
+    ¬ ∀ (ψ : Name → Nat) (mm' j : Nat) (fs : List V),
+        d.inj ψ mm' j fs = injW (d.w ψ) j (mkTower (fs ++ [pt])) := by
+  intro Cinj
   have hval : ∀ (ψ : Name → Nat) (ρ : Nat → V),
       interp V ρ (m.acval ConLeche.punitName ψ) = (unitSet : V) := by
     intro ψ ρ
@@ -206,26 +220,24 @@ theorem no_containerModeled_punit {env : Env} {m : EnvModel V env} {d : BlockMod
     rfl
   have hmem : (pt : V) ∈ˢ interp V (fun _ => pt) (m.acval ConLeche.punitName (fun _ => 1)) := by
     rw [hval]; exact pt_mem_unitSet
-  obtain ⟨a, b, hab⟩ := C.mem_carrier_kpair (i := 0) rfl rfl
+  obtain ⟨a, b, hab⟩ := C.mem_carrier_kpair Cinj (i := 0) rfl rfl
     (s := .param ConLeche.uN) rfl (ψ := fun _ => 1) (by decide) (ρ := fun _ => pt) hmem
   exact pt_ne_kpair a b hab
 
-/-- **THE FINDING** (task #315 M7-4): no environment that stores the
-pinned `Nat` block satisfies `EnvBlockModels` — the field `EnvModelB`
-carries.  `containerInfo?` reads `Nat`'s group, `EnvBlocksOf` demands
-a `BlockAt` there, and its `ContainerModeled` half is unsatisfiable.
-The same holds of `PUnit` (`no_containerModeled_punit`).  The
-obstruction is `ContainerModeled.inj`, and nothing else in the
-structure. -/
-theorem not_envBlockModels_of_nat {env : Env} {m : EnvModel V env}
+/-- **Neither block is a pin's container**, which is why the guard
+costs nothing: `containerInfo?` reads `nP = 0` at both (the parameter
+count comes off `Nat.zero`'s and `PUnit.unit`'s records), and
+`nestedOccOk` mints a pin only where a member is mentioned among
+`args.take ci.nP` — empty at `ci.nP = 0`. -/
+theorem containerInfo?_natA_nP {env : Env}
     (hT : env.find? ConLeche.natName = some ConLeche.natA)
     (hR : env.find? (ConLeche.natName.str "rec") = some ConLeche.natRecA)
     (hZ : env.find? ConLeche.natZeroName = some ConLeche.natZeroA)
-    (hS : env.find? ConLeche.natSuccName = some ConLeche.natSuccA) :
-    ¬ EnvBlockModels m := by
-  rintro ⟨B, hB⟩
-  exact no_containerModeled_nat hT
-    (hB ConLeche.natName _ (containerInfo?_natA hT hR hZ hS)).1
+    (hS : env.find? ConLeche.natSuccName = some ConLeche.natSuccA)
+    {ci : ContainerInfo} (hci : ConLeche.containerInfo? env ConLeche.natName = some ci) :
+    ci.nP = 0 := by
+  rw [containerInfo?_natA hT hR hZ hS] at hci
+  rw [← Option.some.inj hci]
 
 end ConLeche.Model
 

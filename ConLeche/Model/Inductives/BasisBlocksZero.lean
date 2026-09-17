@@ -227,7 +227,7 @@ theorem zeroCtorBlock_containerModeled {env : Env} {m : EnvModel V env}
       rw [show (zeroCtorBlock (V := V) T resSort env₀).memberName 0 = T from rfl, hval ψ ρ]
       exact empty_mem_univ _
     · exact absurd h (by simp [zeroCtorBlock])
-  inj := fun _ _ _ _ => rfl
+  inj := fun _ _ _ _ _ => rfl
   member := fun i M hM => by
     obtain ⟨rfl, rfl⟩ : i = 0 ∧ M = ⟨T, cvT.levelParams, cvT.type, []⟩ := by
       match i, hM with
