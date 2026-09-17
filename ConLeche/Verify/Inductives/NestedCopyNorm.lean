@@ -430,18 +430,19 @@ private theorem erasedEq_const_inv {T : Name} {lvls : List Level} {e : Expr}
     obtain ⟨rfl, rfl⟩ := h
     rfl
 
-/-- **THE STORED CONSTRUCTOR'S FIELD DOMAIN KEEPS ITS HEAD** (task
+/-- **THE STORED CONSTRUCTOR'S FIELD DOMAIN IS THE GIVEN ONE** (task
 #315 L-B): open the constructor type the normalisation STORED at its
 `nP` parameters and then at its `nF` fields; if the field `l` of the
 type the stage was GIVEN has a domain that is a stored INDUCTIVE type
-former applied to a spine, then so has the stored type's — the same
-former, at the same level arguments, applied to a spine of its own.
-Either the stage stored its input unchanged and the two openings
-coincide, or `normCtorValM_frame`'s re-closed telescope is re-opened
-by `openPisAtFvars_closeTelescope_doms`, whose binder at `nP + l` is
-`normFieldDomsM_getD`'s — the positivity normalisation of the given
-field's domain, which `normPosDomM_indApp` leaves alone. -/
-theorem normCtorValM_domHead {env : Env} (henv : EnvWF env) {memberNames : List Name}
+former applied to a spine, then the stored type's field `l` carries
+that very domain, up to the openers' annotations (`ErasedEq`, which is
+all a reading sees).  Either the stage stored its input unchanged and
+the two openings coincide, or `normCtorValM_frame`'s re-closed
+telescope is re-opened by `openPisAtFvars_closeTelescope_doms`, whose
+binder at `nP + l` is `normFieldDomsM_getD`'s — the positivity
+normalisation of the given field's domain, which `normPosDomM_indApp`
+leaves alone. -/
+theorem normCtorValM_domErased {env : Env} (henv : EnvWF env) {memberNames : List Name}
     {nP nF F : Nat} {cvC cvCa cvCa' : ConstantVal}
     (h : normCtorValM (m := CheckM) (fueledOps mode F) env memberNames nP nF cvC cvCa true
       = .ok cvCa')
@@ -456,7 +457,7 @@ theorem normCtorValM_domHead {env : Env} (henv : EnvWF env) {memberNames : List 
     {T : Name} {lvls : List Level} {args : List Expr} {cv : ConstantVal} {caps : IndCaps}
     (hT : env.find? T = some (.indInfo cv caps))
     (hhead : x.fvarTypeD = Expr.mkAppN (.const T lvls) args) :
-    ∃ args', x'.fvarTypeD = Expr.mkAppN (.const T lvls) args' := by
+    Expr.ErasedEq x'.fvarTypeD x.fvarTypeD := by
   rcases normCtorValM_frame henv h hb with rfl |
     ⟨bs, fbs, pbs, fvs₀, xFvs₀, crest₀, xrest₀, hA, hB, hlen, hdoms, hty, hfields, hpl, hbseq⟩
   · -- the stage stored its input: the two openings are the same calls
@@ -467,7 +468,7 @@ theorem normCtorValM_domHead {env : Env} (henv : EnvWF env) {memberNames : List 
     simp only [Option.some.injEq, Prod.mk.injEq] at hop2'
     obtain ⟨rfl, rfl⟩ := hop2'
     obtain rfl : x = x' := Option.some.inj (hx.symm.trans hx')
-    exact ⟨args, hhead⟩
+    exact Expr.ErasedEq.rfl _
   -- the given type's openings are the ones the frame hands back
   rw [hop1] at hA
   simp only [Option.some.injEq, Prod.mk.injEq] at hA
@@ -499,7 +500,32 @@ theorem normCtorValM_domHead {env : Env} (henv : EnvWF env) {memberNames : List 
       show nP + l - nP = l from by omega]
     exact hfbsl
   have her : Expr.ErasedEq x'.fvarTypeD d' := hdoms₃ (nP + l) x' (d', bm') hidx hbb
-  rw [normPosDomM_indApp hT hd'] at her
+  rw [normPosDomM_indApp hT hd', ← hhead] at her
+  exact her
+
+/-- **THE STORED FIELD DOMAIN'S HEAD** — `normCtorValM_domErased` read
+through `ErasedEq.getApp`: an erasure-equal partner of a constant IS
+that constant, so the stored domain is that former applied to a spine
+of its own.  (The head is all `CopyCtorShape.recF`'s classification
+half asks for; the arm's readings take the erasure equality itself.) -/
+theorem normCtorValM_domHead {env : Env} (henv : EnvWF env) {memberNames : List Name}
+    {nP nF F : Nat} {cvC cvCa cvCa' : ConstantVal}
+    (h : normCtorValM (m := CheckM) (fueledOps mode F) env memberNames nP nF cvC cvCa true
+      = .ok cvCa')
+    (hb : cvCa.type.looseBVarsBounded 0 = true)
+    {fvs xFvs : List Expr} {crest xrest : Expr}
+    (hop1 : openPisAtFvars nP cvCa.type 0 = some (fvs, crest))
+    (hop2 : openPisAtFvars nF crest nP = some (xFvs, xrest))
+    {fvs' xFvs' : List Expr} {crest' xrest' : Expr}
+    (hop1' : openPisAtFvars nP cvCa'.type 0 = some (fvs', crest'))
+    (hop2' : openPisAtFvars nF crest' nP = some (xFvs', xrest'))
+    {l : Nat} {x x' : Expr} (hx : xFvs[l]? = some x) (hx' : xFvs'[l]? = some x')
+    {T : Name} {lvls : List Level} {args : List Expr} {cv : ConstantVal} {caps : IndCaps}
+    (hT : env.find? T = some (.indInfo cv caps))
+    (hhead : x.fvarTypeD = Expr.mkAppN (.const T lvls) args) :
+    ∃ args', x'.fvarTypeD = Expr.mkAppN (.const T lvls) args' := by
+  have her := normCtorValM_domErased henv h hb hop1 hop2 hop1' hop2' hx hx' hT hhead
+  rw [hhead] at her
   obtain ⟨hfn, -, -⟩ := ErasedEq.getApp her
   rw [Expr.getAppFn_mkAppN] at hfn
   have hgf : (x'.fvarTypeD).getAppFn = Expr.const T lvls :=

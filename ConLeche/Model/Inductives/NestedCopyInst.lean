@@ -446,6 +446,73 @@ theorem mintResidRead
   rw [AnnotTerm.instAll_mkAppN, List.map_append,
     AnnotTerm.instAll_eq_self (fun y k => acval_inst_self mp₁'.base2 _ _ y k)]
 
+omit R SF in
+/-- **THE MINTED CONSTRUCTOR'S FIELD DOMAINS, READ** (task #315 L-B):
+the minted constructor opened at its FIELD binders reads its `l`-th
+domain as the CONTAINER's own `l`-th field domain reading, instantiated
+at the pin's components at the field's own cut.  `mintRead` names the
+whole tower, `denoteMeta_openPisAtFvars_dom` picks the binder out of
+it, and `instTeleP` at `l` is that instantiation. -/
+theorem mintFieldRead
+    {i' : Nat} (hi' : i' < kJ) {j : Nat} {cAJ : ConstantVal × Nat}
+    (hj : (dJ.ctorsM i')[j]? = some cAJ)
+    {ks : List Name}
+    (hks : ∀ ψ : Name → Nat, (pinsS.getD (q₀ + i') default).ψJ ψ
+      = Level.substFn ψ ks (pinsS.getD (q₀ + i') default).lvls)
+    (hcl : cAJ.1.type.hasFvar = false) (hbcl : cAJ.1.type.looseBVarsBounded 0 = true)
+    {Ds : List Expr}
+    (hDsSc : ∀ a ∈ Ds, Expr.WScoped b.nP a ∧ a.looseBVarsBounded 0 = true)
+    (ψ : Name → Nat)
+    (hspine : DenoteMetaSpine mp₁'.base2.acval (ConLeche.consMutualFormers (fms.take p.k) env)
+      ψ b.nP Ds ((pinsS.getD (q₀ + i') default).Ds ψ))
+    {cI : Expr}
+    (hinst : Expr.instPis (Expr.instantiateLevelParams ks
+      (pinsS.getD (q₀ + i') default).lvls cAJ.1.type) Ds = some cI)
+    {xf : List Expr} {cIbody : Expr}
+    (hop : ConLeche.openPisAtFvars cAJ.2 cI b.nP = some (xf, cIbody))
+    {l : Nat} (hl : l < cAJ.2) {x : Expr} (hx : xf[l]? = some x) :
+    denoteMeta mp₁'.base2.acval (ConLeche.consMutualFormers (fms.take p.k) env)
+        ψ (b.nP + l) x.fvarTypeD
+      = some (AnnotTerm.instAll ((pinsS.getD (q₀ + i') default).Ds ψ) l
+          ((dJ.dsF i' j ((pinsS.getD (q₀ + i') default).ψJ ψ)).getD (dJ.nP + l) default).2.2) := by
+  classical
+  obtain ⟨cvT, caps, cvR, mI, rP, rules, -, hI, -⟩ := S.stored i' hi'
+  obtain ⟨-, -, hCD⟩ := hI.ctors i' j cAJ hI.memberLt hj
+  have hlenDrop : ((dJ.dsF i' j ((pinsS.getD (q₀ + i') default).ψJ ψ)).drop dJ.nP).length
+      = cAJ.2 := by
+    rw [List.length_drop, hCD.len ((pinsS.getD (q₀ + i') default).ψJ ψ)]
+    omega
+  have hlenT : (instTeleP ((pinsS.getD (q₀ + i') default).Ds ψ) 0
+      ((dJ.dsF i' j ((pinsS.getD (q₀ + i') default).ψJ ψ)).drop dJ.nP)).length = cAJ.2 := by
+    rw [instTeleP_length, hlenDrop]
+  have hstrip := stripPisAV_mkPisAV
+    (instTeleP ((pinsS.getD (q₀ + i') default).Ds ψ) 0
+      ((dJ.dsF i' j ((pinsS.getD (q₀ + i') default).ψJ ψ)).drop dJ.nP))
+    (AnnotTerm.instAll ((pinsS.getD (q₀ + i') default).Ds ψ) cAJ.2
+      (ctorBodyAVI mp₁'.base2 (dJ.memberName i') dJ.nP cAJ.2
+        ((pinsS.getD (q₀ + i') default).ψJ ψ)
+        (dJ.esF i' j ((pinsS.getD (q₀ + i') default).ψJ ψ))))
+  rw [hlenT] at hstrip
+  have hdom := denoteMeta_openPisAtFvars_dom cAJ.2 hop
+    (mintRead S hi' hj hks hcl hbcl hDsSc ψ hspine hinst) hstrip l x hx
+  rw [hdom]
+  congr 1
+  -- the tower's `l`-th datum IS the container's, instantiated at cut `l`
+  have hmapGetD : ∀ (L : List (Nat × Nat × AnnotTerm)) (n : Nat), n < L.length →
+      (L.map (·.2.2)).getD n default = (L.getD n default).2.2 := by
+    intro L n hn
+    rw [List.getD_eq_getElem?_getD, List.getElem?_map, List.getElem?_eq_getElem hn,
+      List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hn]
+    rfl
+  have h1 : ((instTeleP ((pinsS.getD (q₀ + i') default).Ds ψ) 0
+        ((dJ.dsF i' j ((pinsS.getD (q₀ + i') default).ψJ ψ)).drop dJ.nP)).getD l default).2.2
+      = AnnotTerm.instAll ((pinsS.getD (q₀ + i') default).Ds ψ) l
+          (((dJ.dsF i' j ((pinsS.getD (q₀ + i') default).ψJ ψ)).drop dJ.nP).getD l default).2.2 := by
+    rw [← hmapGetD _ l (by rw [hlenT]; exact hl), instTeleP_map, instTele_getD _ 0 _ l
+      (by rw [List.length_map, hlenDrop]; exact hl), Nat.zero_add,
+      hmapGetD _ l (by rw [hlenDrop]; exact hl)]
+  rw [h1, getD_dropD]
+
 omit SF in
 /-- **The container's constructor record, at the block model**: the
 block model's constructor `j` of member `i'` is the pin's own

@@ -199,17 +199,18 @@ private theorem instSeq_abstractRange_consistent :
     exact ConLeche.abstract1_instantiate1 e c (hcons k tyk hlast) hb
 
 /-- **THE EXACT OPEN/CLOSE ROUNDTRIP** (task #315): closing the leading
-`nP` free variables of `e` and re-opening them at any variable list
+`nP` free variables of `e` ABOVE `c` loose binders and re-opening them
+at any variable list
 whose `j`-th entry is an `fvar` with index `j` returns `e` ON THE NOSE —
 not merely up to annotations — as soon as every `fvar` leaf of `e`
 occurs in that list: the occurrence pins each leaf's annotation to the
 opener's own, which is `abstract1_instantiate1`'s side condition. -/
-theorem instSeq_abstractRange_fvs : ∀ (nP : Nat) (fvs : List Expr) (e : Expr),
-    e.looseBVarsBounded 0 = true → fvs.length = nP →
+theorem instSeq_abstractRange_fvs_at : ∀ (nP c : Nat) (fvs : List Expr) (e : Expr),
+    e.looseBVarsBounded c = true → fvs.length = nP →
     (∀ j, j < nP → ∃ ty, fvs[j]? = some (Expr.fvar j ty)) →
     (∀ l ∈ e.fvarLeaves, Expr.fvar l.1 l.2 ∈ fvs) →
-    Expr.instSeq fvs (nP - 1) (e.abstractRange 0 nP 0) = e := by
-  intro nP fvs e hb hlen hidx hlv
+    Expr.instSeq fvs (nP + c - 1) (e.abstractRange 0 nP c) = e := by
+  intro nP c fvs e hb hlen hidx hlv
   have hcons : ∀ (j : Nat) (ty : Expr), fvs[j]? = some (Expr.fvar j ty) →
       Expr.fvarConsistent j ty e := by
     intro j ty hj
@@ -229,8 +230,50 @@ theorem instSeq_abstractRange_fvs : ∀ (nP : Nat) (fvs : List Expr) (e : Expr),
     rw [hj] at hi
     have hfin : Expr.fvar i ty = Expr.fvar l.1 l.2 := Option.some.inj hi
     exact (by simpa using hfin : i = l.1 ∧ ty = l.2).2.symm
-  have := instSeq_abstractRange_consistent nP fvs e 0 hlen hidx hcons hb
+  exact instSeq_abstractRange_consistent nP fvs e c hlen hidx hcons hb
+
+/-- The round trip at cut `0`: `instSeq_abstractRange_fvs_at`'s
+original spelling, which every earlier consumer calls. -/
+theorem instSeq_abstractRange_fvs (nP : Nat) (fvs : List Expr) (e : Expr)
+    (hb : e.looseBVarsBounded 0 = true) (hlen : fvs.length = nP)
+    (hidx : ∀ j, j < nP → ∃ ty, fvs[j]? = some (Expr.fvar j ty))
+    (hlv : ∀ l ∈ e.fvarLeaves, Expr.fvar l.1 l.2 ∈ fvs) :
+    Expr.instSeq fvs (nP - 1) (e.abstractRange 0 nP 0) = e := by
+  have := instSeq_abstractRange_fvs_at nP 0 fvs e hb hlen hidx hlv
   rwa [show nP + 0 - 1 = nP - 1 from by omega] at this
+
+/-- A stripped telescope's binder domain is a SUBTERM of the type: its
+`fvar` leaves are among the whole type's.  (`Expr.stripPis` peels a
+`∀` without instantiating, so each domain stands where it was.) -/
+theorem stripPis_binder_leaves :
+    ∀ (k : Nat) {e : Expr} {bs : List (Expr × BinderMeta)} {body : Expr},
+      e.stripPis k = some (bs, body) →
+      ∀ (i : Nat) (b : Expr × BinderMeta), bs[i]? = some b →
+        ∀ lf ∈ b.1.fvarLeaves, lf ∈ e.fvarLeaves := by
+  intro k
+  induction k with
+  | zero =>
+    intro e bs body h i b hb
+    simp only [Expr.stripPis, Option.some.injEq, Prod.mk.injEq] at h
+    rw [← h.1] at hb
+    simp at hb
+  | succ k ih =>
+    intro e bs body h i b hb
+    match e, h with
+    | .forallE ty bo m, h =>
+      simp only [Expr.stripPis, Option.map_eq_some_iff] at h
+      obtain ⟨⟨bs', body'⟩, hstrip, heq⟩ := h
+      obtain ⟨rfl, -⟩ : (ty, m) :: bs' = bs ∧ body' = body := by simpa using heq
+      intro lf hlf
+      rw [Expr.fvarLeaves]
+      cases i with
+      | zero =>
+        simp only [List.getElem?_cons_zero, Option.some.injEq] at hb
+        subst hb
+        exact List.mem_append_left _ hlf
+      | succ i =>
+        simp only [List.getElem?_cons_succ] at hb
+        exact List.mem_append_right _ (ih hstrip i b hb lf hlf)
 
 /-! ## (C) A member's own constructor run, positionally -/
 
