@@ -75026,6 +75026,26 @@ walk reads.  A nested block's mimics are not members — the motive walk
 stops at the first motive that is not a real member's, which is the
 first mimic's — so the nested read-back is the block's own `k`.
 
+**A SECOND FINDING, from `tests/proofdeps.sh`.**  The first version of
+`sizeOf_mem_getAppArgs` unfolded `getAppArgs` with `rw`/`simp only`.
+Asking for a function's equation lemma MINTS the underlying matcher's
+splitter equations, and they are minted as constants PRIVATE TO THE
+MODULE THAT ASKS FIRST — here `Expr.getAppFn.match_1.eq_2`, private to
+`NestedInstall`.  Every later module that unfolds `getAppArgs` then
+reaches the nested route through that constant, and the proof-term gate
+read the consequence exactly: ten of its twelve capstones ENTERED a
+dependency on `ConLeche.Kernel.Inductives.NestedInstall`, along the path
+`model_exists → … → Model.prf_of_isProofFast →
+Expr.getAppArgs_instantiateLevelParams → Expr.getAppArgs.eq_2 →
+NestedInstall's private `Expr.getAppFn.match_1.eq_2`.  A gate-visible
+door out of a tactic choice.  The fix is to unfold by DEFEQ
+(`have h' : a ∈ f.getAppArgs ++ [b] := h`), which mints nothing, and to
+give `auxAppsNodeKids` an `if` rather than a `match` so that `unfold`
+needs no matcher equation of its own.  `proofdeps` is back at
+**4 915 module rows across 12 roots, doors: 0**.  The lesson generalises
+and belongs beside the module system's two traps: *a kernel module must
+not be the first to ask for a shared `Expr` function's equation lemma.*
+
 **MEASURED, K.25-style** (zero fires everywhere):
 
 * `tests/arena.sh` **EXIT 0** — 138 arena tests, 196 e2e fixtures, 15
@@ -75057,3 +75077,152 @@ inductive block of every stream into `internal error: direct rec: the
 installed block does not read back as its own [at inductive And, fold
 position 10]`, and nested-shadow to 0/27 — the check is reached at
 every block of every route.
+
+#### K.35 — the auxiliary applications sit at the parameters (2026-09-17, task #315 M7, the model lane's spec §1a)
+
+`restoreNode` REPLACES a key-headed application `aux_q args` by the pin
+lifted to the binder depth and applied to `args.drop nP`: it DROPS the
+first `nP` arguments unchecked and substitutes components that mention
+the BLOCK's parameters.  Official's `restore_nested` does exactly the
+same.  Both rely on an invariant of the elimination that neither of them
+tests — that an auxiliary type or constructor is only ever applied to
+the block's own parameter variables.  The model consumes the same
+invariant: at a pin occurrence the restored reading says "the container
+at `Ds[p⃗]`", the auxiliary reading says "the copy at whatever the first
+`nP` arguments are", and the two are the same object only when those
+arguments ARE `p⃗`.  It was in the tree for the constructors' FIELDS
+(`MutualOpened.recF`/`.reflF`, recorded by `mutualOpenedOk`) and nowhere
+for the recursor TYPES or the RULES.  This is the record.
+
+**`nestedAuxAppsOk p st stored`** (`Kernel/Inductives/NestedInstall.lean`):
+over every member of the scratch block, the read-back recursor type with
+its `Π p⃗` stripped (`stripPis nP`) and every read-back rule right-hand
+side with its `λ p⃗` stripped (`stripLams nP`) satisfies `auxAppsOk`,
+with a type key's arity the copy's index count (`auxIdxCount p.nP`) and
+a constructor key's arity its field count.  A `recMap` key needs no
+shape — `restoreNode` renames a bare constant there and walks its
+arguments.  One conjunct after `nestedPinKindsOk` in `checkNested` and
+in the cached mirror `checkNestedS`, `.internal` on failure, and one
+conjunct of `DeclNestedRun` and of `checkNested_inv`.
+
+**THE DAG FINDING, and the shape it forced.**  The first `auxAppsOk`
+collected the spine once per `.app`, hoisted the `auxNames` prune to the
+root, and used `fuel := e.sizeF`.  It took
+`tests/e2e/tower_nested.ndjson` — the depth-60 DAG tower — from 0.046 s
+to **over 600 s**.  Two independent faults: the walk was UNMEMOIZED over
+a DAG-shared read-back rule, and `e.sizeF` is itself a tree walk, so
+*computing the fuel* was already exponential.  The maintainer's ruling
+is the task #215 discipline in full:
+
+* the PURE definition is fuel-free and well-founded on `sizeOf` — Lean's
+  own auto-generated measure, which appears only in
+  `termination_by`/`decreasing_by` and is therefore ERASED at runtime.
+  The subterm lemma it needs is `sizeOf_mem_getAppArgs` — every argument
+  of a spine is a proper subterm of it;
+* the EXECUTED walk is a memoized twin swapped in by `@[csimp]`,
+  kernel-checked, no `implemented_by`: `auxAppsGoM` with
+  `Std.HashMap (Expr × Nat) Bool`, `AuxAppsMemoInv`, `auxAppsGoM_spec`,
+  `auxAppsOk_eq_auxAppsOkFast` — `projTablesOkGo`'s shape exactly, with
+  the BINDER DEPTH threaded into the key and the invariant, because the
+  walk's answer depends on it (the variables it compares against are
+  `structPsAt d nP`).
+
+The node step is split so that NEITHER walk needs a match equation to
+descend: `auxAppsNodeOk` is the node's own test (at a key head the
+`nP + arity` count and the parameter prefix; `true` at every other head)
+and `auxAppsNodeKids` the children, and the children are proper subterms
+UNCONDITIONALLY (`sizeOf_mem_auxAppsNodeKids`) — the key branch's
+`args.drop nP` through `sizeOf_mem_getAppArgs`, every other head's two
+halves structurally.  `auxAppsOk` is then
+`auxAppsNodeOk && kids.all …`, whose short-circuit makes a rejected
+node's kid list dead.
+
+**MEASURED, K.25-style** (zero fires everywhere):
+
+* `tests/e2e/tower_nested.ndjson`, the fixture the fuelled version hung
+  on: **0.032–0.035 s wall with the check against 0.042–0.076 s
+  without** — the same band, i.e. back at noise over the 0.046 s of the
+  pre-K.35 tree, against > 600 s for the fuelled attempt.  In
+  instructions:u, **516 655 217 / 516 822 063 / 516 878 873 with the
+  check against 515 073 046 / 515 069 633 / 515 000 114 without
+  (the same binary with the conjunct probed out): +1.7 M, +0.35 %**.
+* nested-shadow **27/27**.
+* the 41-block Mathlib nested cone: exit 0, **4 926 accepted** (the
+  branch's own count since K.26), its 41 shadow lines all `accept`.  Its
+  cost: **179 465 188 886 against 179 116 159 583 instructions:u,
+  +0.195 %** — the walk is one memoized DAG pass per recursor type and
+  rule of each scratch block.
+* `tests/arena.sh` **EXIT 0** (138 arena, 196 e2e, 15 annot, the trusted
+  and both `--jobs` sweeps, shake, the link and quote gates).
+
+**Negative controls**, one per half of the node test:
+
+* the parameter prefix (`structPsAt d nP` → `structPsAt (d + 1) nP`):
+  **5 of the 27 shadow fixtures** turn into `nested: an auxiliary
+  application in the block's read-back is not at the block's parameters`
+  (nested-shadow 22/27).  Only five, because a block with `nP = 0` has
+  no prefix to shift;
+* the arity (`nP + ar` → `nP + ar + 1`): **24 of the 27** fire
+  (nested-shadow 3/27).
+
+Both halves are reached, and both fire as `.internal`.
+
+**THE CERTIFICATION-TAX LEDGER** (the maintainer's question).  Every
+Bool the nested route has added since #315 M1, classified — and the
+third column is the interesting one: it says why the check cannot fire,
+and whether a violating input could ever be an OFFICIAL-ACCEPTED STREAM.
+
+| Bool (task) | kind | why it cannot fire |
+| --- | --- | --- |
+| `nestedContainersOk` (K.14) | CERT-ONLY | (A) + (S). The uniform-occurrence half is official's own test at the CONTAINER's install (`check_uniform_ind_occs` / `is_valid_ind_app`); the elimination-universe half is official's `elim_only_at_universe_zero` rule. A container reaching this point was installed by US from a stream those tests already passed. |
+| `pinsDistinct` (K.31) | CERT-ONLY | (S). The elimination DEDUPES — `replaceIfNested` mints only on a pin MISS and then mints the whole `all`-group — so two pins carrying the same term is a bug in OUR mint, not a stream. Read off `nestedContainersOk`'s first conjunct, so it costs no second evaluation. |
+| `nestedPinKindsOk` (K.26) | CERT-ONLY | (A) + (S). `.negative`/`.unsupported` is what official's `check_positivity` rejects and what OUR scratch `classifyMutualKinds` has already thrown on, at this block, on these types; "target inside `members ++ pins`" is a property of the aux block the same pass classified against. |
+| `nestedCopySrcOk` (K.28) | CERT-ONLY | (S). Every minted type IS `mkCopy`'s output at the source `mkCopy` was called with; the record is a field of our own mint. |
+| `nestedGroupsOk` (K.29) | CERT-ONLY | (S). The group segment, size, member order and shared `lvls`/`Ds` are what our own mint wrote into the pin. |
+| `pinsScoped` (K.30) | CERT-ONLY | (S). The pins' free variables are the first former's openers because the elimination built them in that context. |
+| third `nestedPinsOk` run (K.30) | CERT-ONLY | (S). The SAME pins, type-checked a third time at the restored formers' environment; the first two runs already accepted them and the three environments agree on everything a pin can mention. |
+| `nestedCopyTargetsOk` (K.32) | CERT-ONLY | (S). A copy field classified recursive into its own group comes from a container field that WAS that occurrence — a property of `mkCopy` + `replaceAllNested`, our code. |
+| `blockReadBackOk` (K.34) | CERT-ONLY | (S). `containerInfo?` of the environment THIS ROUTE just built, at the block it just installed; the route stored the very records the walk reads. |
+| `nestedAuxAppsOk` (K.35) | CERT-ONLY | (S). See below. |
+
+**(A) = official checks it; (S) = SELF-CHECK on the checker's own
+construction.**  The maintainer's category (B) — "official never tests
+it, so a hand-crafted stream would be ACCEPTED by official and our check
+would fire" — has, on this route, NO member.  That is the finding, and
+it is worth stating plainly: every Bool the nested route added since M1
+is about artefacts the CHECKER generates (the elimination's pins and
+copies, the scratch block's stored records, the environment the route
+itself built), not about anything a stream supplies.  A stream cannot
+provoke any of them; what a fire would report is a bug in OUR
+elimination or in OUR mutual install, which is the "crash for unclear
+reasons" `.internal` is for.  None of them can therefore reveal a bug in
+official's kernel, and none is a restriction under "restrictions are
+findings" — the accept set is unchanged in every case, which is what the
+27/27 shadow and the 41/41 cone measure.
+
+K.35 is the closest thing on the list to a (B): official's
+`restore_nested` really does drop the first `nP` arguments with no test,
+so the invariant is load-bearing for official as much as for us.  But
+the terms it is tested on here are the SCRATCH BLOCK's read-back
+recursor types and rules, which `mutualRecTy`/`mutualRecRhs` GENERATE
+(`structFamI` at the parameters then the copy's own index variables,
+`structCtorSpineAt` at the parameters then the fields, a constructor's
+own field domain lifted by `o`, and `mutualIhApp`'s
+`mutualRecPrefixAt`) — a stream never supplies them.  The stream-facing
+half of the same invariant, the CONSTRUCTORS' fields, is where a
+hand-crafted stream could in principle reach, and that half is already
+certified by `mutualOpenedOk` (`take nP = fvsP` and the arity at the
+OPENED form).  So the honest reading is: K.35 closes the generator side
+of an invariant whose stream side was already closed, and neither side
+is a place official could be wrong about a stream — official's
+elimination mints these applications itself, exactly as ours does.
+
+**The consequence for the modes.**  Everything in the table is
+certification tax by the standing ruling (`CheckMode` in
+`Kernel/Env.lean`: trusted = verified minus the certification-only
+steps), and none of it is currently gated on `mode.verifiedChecks` —
+`git grep verifiedChecks ConLeche/Kernel/Inductives` is empty.  Gating
+them needs the mode threaded into `checkNative`/`checkMutualCore`/
+`checkNested`, which `CheckerOps` does not carry today (only
+`checkModeled` takes a `mode`); it is the same blast radius the
+`auxRoute` grade had.  Docketed as its own step.

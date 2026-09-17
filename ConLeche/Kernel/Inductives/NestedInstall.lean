@@ -937,25 +937,21 @@ def nestedCopyTargetsOk (env : Env) (p : NestedParts) (b : MutualBlock)
 measure that lets `auxAppsOk` recurse into `getAppArgs`. -/
 theorem sizeOf_mem_getAppArgs : ∀ {e a : Expr}, a ∈ e.getAppArgs → sizeOf a < sizeOf e
   | .app f b, a, h => by
-    rw [Expr.getAppArgs] at h
-    rcases List.mem_append.mp h with h' | h'
-    · have := sizeOf_mem_getAppArgs h'
+    -- `getAppArgs` is unfolded by DEFEQ, never by its equation lemma:
+    -- asking for that lemma here would mint `Expr.getAppFn.match_1`'s
+    -- splitter equations as constants PRIVATE TO THIS MODULE, and every
+    -- later module that unfolds `getAppArgs` would then reach the nested
+    -- route through them (`tests/proofdeps.sh` catches exactly that).
+    have h' : a ∈ f.getAppArgs ++ [b] := h
+    rcases List.mem_append.mp h' with h'' | h''
+    · have := sizeOf_mem_getAppArgs h''
       simp only [Expr.app.sizeOf_spec]; omega
-    · obtain rfl : a = b := by simpa using h'
+    · obtain rfl : a = b := by simpa using h''
       simp only [Expr.app.sizeOf_spec]; omega
   | .bvar _, _, h | .fvar _ _, _, h | .sort _, _, h | .const _ _, _, h
   | .lam _ _ _, _, h | .forallE _ _ _, _, h | .letE _ _ _, _, h
-  | .proj _ _ _, _, h | .lit _, _, h => by
-    simp only [Expr.getAppArgs, List.not_mem_nil] at h
-
-/-- The head of an application spine is a subterm. -/
-theorem sizeOf_getAppFn : ∀ (e : Expr), sizeOf e.getAppFn ≤ sizeOf e
-  | .app f _ => by
-    have := sizeOf_getAppFn f
-    rw [Expr.getAppFn]; simp only [Expr.app.sizeOf_spec]; omega
-  | .bvar _ | .fvar _ _ | .sort _ | .const _ _
-  | .lam _ _ _ | .forallE _ _ _ | .letE _ _ _ | .proj _ _ _ | .lit _ => by
-    simp [Expr.getAppFn]
+  | .proj _ _ _, _, h | .lit _, _, h =>
+    absurd (show _ ∈ ([] : List Expr) from h) (by simp)
 
 /-! ## THE AUXILIARY APPLICATIONS SIT AT THE PARAMETERS (task #315 K.35)
 
@@ -1000,6 +996,12 @@ def auxAppsKids : Expr → List Expr
   | .app f a => [f, a]
   | _ => []
 
+/-- Is this node's spine headed by a key the shape test applies to? -/
+def auxAppsHeadIsKey (R : RestoreTbl) (e : Expr) : Bool :=
+  match e.getAppFn with
+  | .const n _ => isAuxAppKey R n
+  | _ => false
+
 /-- **The node's own test**: at a spine headed by a `pins` or `ctorPins`
 key the shape is exactly `nP + arity` arguments (the copy's index count
 for a type, the constructor's field count for a constructor) whose first
@@ -1016,33 +1018,33 @@ def auxAppsNodeOk (R : RestoreTbl) (arityOf : Name → Option Nat) (d : Nat) (e 
     else true
   | _ => true
 
+
 /-- **The children the walk continues into**, at the SAME binder depth:
 past a key-headed spine's parameter prefix, or — at any other head — the
 application's two halves. -/
 def auxAppsNodeKids (R : RestoreTbl) (e : Expr) : List Expr :=
-  match e.getAppFn with
-  | .const n _ => if isAuxAppKey R n then e.getAppArgs.drop R.nP else auxAppsKids e
-  | _ => auxAppsKids e
+  if auxAppsHeadIsKey R e then e.getAppArgs.drop R.nP else auxAppsKids e
 
 theorem sizeOf_mem_auxAppsKids : ∀ {e x : Expr}, x ∈ auxAppsKids e → sizeOf x < sizeOf e
   | .app f a, x, h => by
-    simp only [auxAppsKids, List.mem_cons, List.not_mem_nil, or_false] at h
-    rcases h with rfl | rfl <;> (simp only [Expr.app.sizeOf_spec]; omega)
+    -- by DEFEQ, for the reason `sizeOf_mem_getAppArgs` records
+    have h' : x ∈ [f, a] := h
+    simp only [List.mem_cons, List.not_mem_nil, or_false] at h'
+    rcases h' with rfl | rfl <;> (simp only [Expr.app.sizeOf_spec]; omega)
   | .bvar _, _, h | .fvar _ _, _, h | .sort _, _, h | .const _ _, _, h
   | .lam _ _ _, _, h | .forallE _ _ _, _, h | .letE _ _ _, _, h
-  | .proj _ _ _, _, h | .lit _, _, h => by
-    simp only [auxAppsKids, List.not_mem_nil] at h
+  | .proj _ _ _, _, h | .lit _, _, h =>
+    absurd (show _ ∈ ([] : List Expr) from h) (by simp)
 
 /-- Every child of the node step is a PROPER subterm: the measure the
 walk recurses on.  It holds of every node, shape test or not, so the
 walk needs no equation to descend. -/
 theorem sizeOf_mem_auxAppsNodeKids {R : RestoreTbl} {e x : Expr}
     (h : x ∈ auxAppsNodeKids R e) : sizeOf x < sizeOf e := by
-  rw [auxAppsNodeKids] at h
+  -- `auxAppsNodeKids` is an `if`, so `unfold` needs no matcher equation
+  unfold auxAppsNodeKids at h
   split at h
-  · split at h
-    · exact sizeOf_mem_getAppArgs (List.mem_of_mem_drop h)
-    · exact sizeOf_mem_auxAppsKids h
+  · exact sizeOf_mem_getAppArgs (List.mem_of_mem_drop h)
   · exact sizeOf_mem_auxAppsKids h
 
 /-- **Every auxiliary application is at the parameters** — `d` binders
