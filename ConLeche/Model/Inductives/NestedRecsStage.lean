@@ -412,7 +412,18 @@ post-block environment.  Consumer: `nestedTailModeled_of`. -/
       NestedRecTuple
         (nestedBlockModel (V := V) p b fms f₀ ctorsA kinds env ppsF W idxF dsF esF srcsF fvsPF
           xrestF eissF tssF ctorsR dsR xFvsR pinsS) s rdsM concM eqs →
-      Nonempty (EnvModelM V μ envOut)
+      -- task #315 M7-3 session 10 (DESIGN §U.56 (c)): the conclusion is
+      -- `NestedTailModeled`'s, which now carries the install's conses, the
+      -- agreements, the block's representation at the OUTPUT model and the
+      -- pins' groups with their containers' models NAMED — what the route's
+      -- lift to `EnvModelB` reads (`declNested_of`).  This lane's proof
+      -- obligation grew with it; nothing else in the skeleton moved.
+      ∃ mpOut : EnvModelM V μ envOut,
+        NestedTailOut (V := V) (p := p) (b := b) (fms := fms) (f₀ := f₀) (ctorsA := ctorsA)
+          (kinds := kinds) (env := env) (ppsF := ppsF) (W := W) (idxF := idxF) (dsF := dsF)
+          (esF := esF) (srcsF := srcsF) (fvsPF := fvsPF) (xrestF := xrestF) (eissF := eissF)
+          (tssF := tssF) (ctorsR := ctorsR) (dsR := dsR) (xFvsR := xFvsR) (pinsS := pinsS)
+          mp stored mp₂ envOut mpOut
 
 /-! ## The skeleton -/
 
