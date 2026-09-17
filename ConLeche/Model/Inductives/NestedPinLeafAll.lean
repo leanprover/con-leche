@@ -828,6 +828,227 @@ theorem nestedPinsFixed (hμ : μ.verifiedChecks = true)
   rw [← hfix q' hq' t ht]
   exact hx
 
+/-! ## Step (iii), per group: the container's least tuple lies below the auxiliary carrier's segment, given the entries as inclusions -/
+
+/-- **A group's least tuple lies below the auxiliary carrier's segment,
+given the outside entries as INCLUSIONS** (task #315 L-E, step (iii)'s
+per-group closure, DESIGN §U.39 (c)): with `X` the auxiliary carrier's
+group segment — in the container's tuple space, below its least tuple
+by (ii) — `X` is CLOSED under the container's operator when every
+container fit at `X` is a copy fit at the auxiliary carrier
+(`CopyCtorShape.fit_imp_le`: member targets read the segment, the
+`ordF`-right entries `hentR` and the `pinF` entries at the container's
+own pins' carriers AT `X` `hentP` are the callers' — the induction
+hypothesis at a smaller pin, the container's own `PinRecLaws.ind` at
+the cycle), so the least tuple lies below it (`lfpTuple_le`). -/
+theorem nestedGroupLe_of_entries (hμ : μ.verifiedChecks = true)
+    (h : MutualFormersFacts V F g mp b fms f₀ ctorsA sortss kinds mp₁ ppsF W idxF dsF esF srcsF
+      fvsPF xFvsF xrestF eissF tssF)
+    (h3 : ConLeche.mutualCtorsGrouped b.ctors = true)
+    (hbk : b.k = p.k + pinsS.length)
+    (m : EnvModel V env₂)
+    (hleafM : ∀ (t : Nat) (f : MutualFormerA), t < p.k → fms[t]? = some f →
+      m.acval f.cvTa.name = mutMemberLeaf b fms f₀ ctorsA kinds ppsF W dsF esF eissF tssF t)
+    {st : ElimState} (dJf : Nat → BlockModel V)
+    (hgroups : ∀ q, q < pinsS.length → ∃ (q₀ kJ i : Nat),
+      q = q₀ + i ∧ i < kJ ∧ GF st m q₀ kJ (dJf q₀))
+    {ψ : Name → Nat} {ρp : Nat → V} (hρp : Sat V ((D).params ψ).reverse ρp)
+    {q₀ kJ : Nat} (G : GF st m q₀ kJ (dJf q₀)) {i : Nat} (hi : i < kJ)
+    (hentR : ∀ i', i' < kJ → ∀ j, j < ((dJf q₀).ctorsM i').length →
+      ∀ l, l < ((blkFss0 b ctorsA kinds dsF ψ).getD (b.ownOffset (p.k + q₀ + i') + j) []).length →
+      ((blkRss ctorsA kinds).getD (b.ownOffset (p.k + q₀ + i') + j) []).getD l false = true →
+      (((dJf q₀).rss i').getD j []).getD l false = false →
+      ¬ (p.k + q₀ ≤ ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+            (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0 ∧
+          ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+            (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0 < p.k + q₀ + kJ) →
+      ∀ fs₁ : List V, fs₁.length = l →
+        SpineFit (consList ((((D).pinAt (q₀ + i)).Ds ψ).map (interp V ρp)) ρp)
+          ((((dJf q₀).Fss i' (((D).pinAt (q₀ + i)).ψJ ψ)).getD j []).take l) fs₁ →
+        interp V (consList fs₁ (consList ((((D).pinAt (q₀ + i)).Ds ψ).map (interp V ρp)) ρp))
+            ((((dJf q₀).Fss i' (((D).pinAt (q₀ + i)).ψJ ψ)).getD j []).getD l default)
+          ⊆ˢ slotSet (f₀.s.eval ψ)
+              (nestedU p.k W pinsS ψ (((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+                (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0))
+              (consList fs₁ ρp)
+              (((mutTlss ctorsA.length tssF ψ).getD (b.ownOffset (p.k + q₀ + i') + j) []).getD l [])
+              (((mutEiss0 ctorsA.length eissF ψ).getD (b.ownOffset (p.k + q₀ + i') + j) []).getD l [])
+              (lfpTuple ((D).w ψ) (p.k + pinsS.length) ((D).idx ψ ρp) (ΨA ψ ρp)
+                (((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+                  (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0)))
+    (hentP : ∀ i', i' < kJ → ∀ j, j < ((dJf q₀).ctorsM i').length →
+      ∀ l, l < ((blkFss0 b ctorsA kinds dsF ψ).getD (b.ownOffset (p.k + q₀ + i') + j) []).length →
+      (((dJf q₀).rss i').getD j []).getD l false = true →
+      ¬ (dJf q₀).tgts i' j l < (dJf q₀).k →
+      ¬ (p.k + q₀ ≤ ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+            (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0 ∧
+          ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+            (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0 < p.k + q₀ + kJ) →
+      ∀ fs₁ : List V, fs₁.length = l →
+        SpineFit (consList ((((D).pinAt (q₀ + i)).Ds ψ).map (interp V ρp)) ρp)
+          ((((dJf q₀).Fss i' (((D).pinAt (q₀ + i)).ψJ ψ)).getD j []).take l) fs₁ →
+        (dJf q₀).slotAt (((D).pinAt (q₀ + i)).ψJ ψ)
+            (fun i'' => lfpTuple ((D).w ψ) (p.k + pinsS.length) ((D).idx ψ ρp) (ΨA ψ ρp)
+              (p.k + q₀ + i''))
+            i' j l (consList fs₁ (consList ((((D).pinAt (q₀ + i)).Ds ψ).map (interp V ρp)) ρp))
+          ⊆ˢ slotSet (f₀.s.eval ψ)
+              (nestedU p.k W pinsS ψ (((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+                (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0))
+              (consList fs₁ ρp)
+              (((mutTlss ctorsA.length tssF ψ).getD (b.ownOffset (p.k + q₀ + i') + j) []).getD l [])
+              (((mutEiss0 ctorsA.length eissF ψ).getD (b.ownOffset (p.k + q₀ + i') + j) []).getD l [])
+              (lfpTuple ((D).w ψ) (p.k + pinsS.length) ((D).idx ψ ρp) (ΨA ψ ρp)
+                (((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+                  (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0))) :
+    FamLe ((D).idx ψ ρp (p.k + q₀ + i)) (pinLfp st pinsS dJf (f₀.s.eval ψ) ψ ρp (q₀ + i))
+      (lfpTuple ((D).w ψ) (p.k + pinsS.length) ((D).idx ψ ρp) (ΨA ψ ρp) (p.k + q₀ + i)) := by
+  have hlenA : ctorsA.length = b.ctors.length := h.lenA
+  -- (ii), the segment below the least tuples
+  have hfix := (nestedPinsFixed hμ h h3 hbk m hleafM dJf hgroups hρp).2
+  -- the block's fixed point
+  have hbound : ∀ q, q < pinsS.length → ((D).pinAt q).u ψ = 0 →
+      FieldsBound 0 ρp (blockIds b.nP ppsF ψ (p.k + q)) := by
+    intro q hq hz
+    obtain ⟨q₀', kJ', i', rfl, hi', G'⟩ := hgroups q hq
+    obtain ⟨cvT, caps, cvR, mI, rP, rules, -, hI, -⟩ := G'.syn.stored i' hi'
+    obtain ⟨ρ, as, rfl, hsp⟩ := spineOfSat_params (D) hρp
+    have hDsFit := G'.syn.DsFit i' hi' ψ ρ as hsp
+    have hJ := (hI.idxOk _ _ ((dJf q₀').satOfSpine hDsFit) i' (G'.syn.kEq ▸ hi')).2
+    rw [← G'.syn.pinU i' hi' ψ i' hi', hz] at hJ
+    rw [← Nat.add_assoc, G'.idx i' hi' ψ i' hi']
+    have := (fieldsBound_instTele 0 (((D).pinAt (q₀' + i')).Ds ψ) (consList as ρ)
+      ((dJf q₀').IdsM i' (((D).pinAt (q₀' + i')).ψJ ψ)) []).mpr (by simpa only [consList_nil] using hJ)
+    simpa only [consList_nil, List.length_nil] using this
+  have hOk := nestedLfpOk_of_formers h hμ hbk ψ ρp hρp hbound
+  have hS := nestedShape_of_formers h hbk ψ
+  have hΨ := nestedΨ_functor hOk
+  have hLmem : InTupleSpace (f₀.s.eval ψ) (p.k + pinsS.length) ((D).idx ψ ρp)
+      (lfpTuple ((D).w ψ) (p.k + pinsS.length) ((D).idx ψ ρp) (ΨA ψ ρp)) := lfpTuple_mem _ _ _ _
+  -- the group's data at pin `q₀ + i`
+  obtain ⟨cvT, caps, cvR, mI, rP, rules, hfind, hI, -⟩ := G.syn.stored i hi
+  have hw' : (dJf q₀).w (((D).pinAt (q₀ + i)).ψJ ψ) = f₀.s.eval ψ := G.syn.w i hi ψ
+  have hρJ' : Sat V ((dJf q₀).params (((D).pinAt (q₀ + i)).ψJ ψ)).reverse
+      (consList ((((D).pinAt (q₀ + i)).Ds ψ).map (interp V ρp)) ρp) := by
+    obtain ⟨ρ, as, rfl, hsp⟩ := spineOfSat_params (D) hρp
+    exact (dJf q₀).satOfSpine (G.syn.DsFit i hi ψ ρ as hsp)
+  have hPinIdx : ∀ i', i' < kJ →
+      (D).idx ψ ρp (p.k + q₀ + i')
+        = (dJf q₀).idx (((D).pinAt (q₀ + i)).ψJ ψ)
+            (consList ((((D).pinAt (q₀ + i)).Ds ψ).map (interp V ρp)) ρp) i' := by
+    intro i' hi'
+    show idxSet (nestedU p.k W pinsS ψ (p.k + q₀ + i')) ρp (blockIds b.nP ppsF ψ (p.k + q₀ + i')) = _
+    rw [Nat.add_assoc, nestedU_pin]
+    change idxSet (((D).pinAt (q₀ + i')).u ψ) ρp (blockIds b.nP ppsF ψ (p.k + (q₀ + i'))) = _
+    rw [G.syn.pinU i hi ψ i' hi', ← Nat.add_assoc, G.idx i hi ψ i' hi', idxSet_instTele Iff.rfl]
+    rfl
+  have hP_group : ∀ i', i' < kJ →
+      pinLfp st pinsS dJf (f₀.s.eval ψ) ψ ρp (q₀ + i')
+        = lfpTuple (f₀.s.eval ψ) (dJf q₀).k
+            ((dJf q₀).idx (((D).pinAt (q₀ + i)).ψJ ψ)
+              (consList ((((D).pinAt (q₀ + i)).Ds ψ).map (interp V ρp)) ρp))
+            ((dJf q₀).Φ (((D).pinAt (q₀ + i)).ψJ ψ)
+              (consList ((((D).pinAt (q₀ + i)).Ds ψ).map (interp V ρp)) ρp)) i' := by
+    intro i' hi'
+    unfold pinLfp
+    rw [(G.syn.grp i' hi').1, Nat.add_sub_cancel_left]
+    change lfpTuple (f₀.s.eval ψ) (dJf q₀).k
+      ((dJf q₀).idx (((D).pinAt (q₀ + i')).ψJ ψ)
+        (consList ((((D).pinAt (q₀ + i')).Ds ψ).map (interp V ρp)) ρp))
+      ((dJf q₀).Φ (((D).pinAt (q₀ + i')).ψJ ψ)
+        (consList ((((D).pinAt (q₀ + i')).Ds ψ).map (interp V ρp)) ρp)) i' = _
+    rw [G.syn.ψJEq i' i hi' hi ψ, G.syn.sameDs i' hi' ψ, ← G.syn.sameDs i hi ψ]
+  have hseg0 := G.syn.seg
+  have hk := G.syn.kEq
+  -- the segment, in the container's tuple space and below its least tuple
+  have hXs : InTupleSpace (f₀.s.eval ψ) (dJf q₀).k
+      ((dJf q₀).idx (((D).pinAt (q₀ + i)).ψJ ψ)
+        (consList ((((D).pinAt (q₀ + i)).Ds ψ).map (interp V ρp)) ρp))
+      (fun i'' => lfpTuple ((D).w ψ) (p.k + pinsS.length) ((D).idx ψ ρp) (ΨA ψ ρp)
+        (p.k + q₀ + i'')) := by
+    intro i' hi'
+    rw [← hPinIdx i' (G.syn.kEq ▸ hi')]
+    exact hLmem _ (by omega)
+  have hXle : TupleLe (dJf q₀).k
+      ((dJf q₀).idx (((D).pinAt (q₀ + i)).ψJ ψ)
+        (consList ((((D).pinAt (q₀ + i)).Ds ψ).map (interp V ρp)) ρp))
+      (fun i'' => lfpTuple ((D).w ψ) (p.k + pinsS.length) ((D).idx ψ ρp) (ΨA ψ ρp)
+        (p.k + q₀ + i''))
+      (lfpTuple (f₀.s.eval ψ) (dJf q₀).k
+        ((dJf q₀).idx (((D).pinAt (q₀ + i)).ψJ ψ)
+          (consList ((((D).pinAt (q₀ + i)).Ds ψ).map (interp V ρp)) ρp))
+        ((dJf q₀).Φ (((D).pinAt (q₀ + i)).ψJ ψ)
+          (consList ((((D).pinAt (q₀ + i)).Ds ψ).map (interp V ρp)) ρp))) := by
+    intro i' hi'
+    have := hfix (q₀ + i') (by omega)
+    rw [hP_group i' (G.syn.kEq ▸ hi'), ← Nat.add_assoc, hPinIdx i' (G.syn.kEq ▸ hi')] at this
+    exact this
+  have hnI : ∀ i', i' < kJ → (blockIds b.nP ppsF ψ (p.k + q₀ + i')).length
+      = ((dJf q₀).IdsM i' (((D).pinAt (q₀ + i)).ψJ ψ)).length := by
+    intro i' hi'
+    rw [G.idx i hi ψ i' hi', instTele_length]
+  have hu : ∀ i', i' < kJ →
+      (TVA m.acval ((fms.take p.k).map (·.cvTa.name)) ψ).u (p.k + q₀ + i')
+        = (dJf q₀).uM i' (((D).pinAt (q₀ + i)).ψJ ψ) := by
+    intro i' hi'
+    show nestedU p.k W pinsS ψ (p.k + q₀ + i') = _
+    rw [Nat.add_assoc, nestedU_pin]
+    exact G.syn.pinU i hi ψ i' hi'
+  -- the segment is closed under the container's operator
+  have hclosed : IsClosedTuple (f₀.s.eval ψ) (dJf q₀).k
+      ((dJf q₀).idx (((D).pinAt (q₀ + i)).ψJ ψ)
+        (consList ((((D).pinAt (q₀ + i)).Ds ψ).map (interp V ρp)) ρp))
+      ((dJf q₀).Φ (((D).pinAt (q₀ + i)).ψJ ψ)
+        (consList ((((D).pinAt (q₀ + i)).Ds ψ).map (interp V ρp)) ρp))
+      (fun i'' => lfpTuple ((D).w ψ) (p.k + pinsS.length) ((D).idx ψ ρp) (ΨA ψ ρp)
+        (p.k + q₀ + i'')) := by
+    refine ⟨hXs, fun i' hi' t ht x hx => ?_⟩
+    have hi'' : i' < kJ := G.syn.kEq ▸ hi'
+    obtain ⟨cvT', caps', cvR', mI', rP', rules', -, hI', -⟩ := G.syn.stored i' hi''
+    have hXs' : InTupleSpace ((dJf q₀).w (((D).pinAt (q₀ + i)).ψJ ψ)) (dJf q₀).k
+        ((dJf q₀).idx (((D).pinAt (q₀ + i)).ψJ ψ)
+          (consList ((((D).pinAt (q₀ + i)).Ds ψ).map (interp V ρp)) ρp))
+        (fun i'' => lfpTuple ((D).w ψ) (p.k + pinsS.length) ((D).idx ψ ρp) (ΨA ψ ρp)
+          (p.k + q₀ + i'')) := by rw [hw']; exact hXs
+    have ht' : t ∈ˢ (D).idx ψ ρp (p.k + q₀ + i') := by rw [hPinIdx i' hi'']; exact ht
+    obtain ⟨j, fs, hj, hC, rfl⟩ := (hI'.fibre _ _ hρJ' _ hXs' i' hi' t ht x).mp hx
+    have hj' : ((dJf q₀).ctorsM i')[j]? = some (((dJf q₀).ctorsM i').getD j default) := by
+      rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hj]; rfl
+    have hsh := G.shape i hi cvT caps hfind ψ ρp hρp i' j hi'' hj
+    unfold CopyShapeA at hsh
+    obtain ⟨hf, heq⟩ := CopyCtorShape.fit_imp_le
+      (TV := TVA m.acval ((fms.take p.k).map (·.cvTa.name)) ψ) G.syn.reps (G.syn.typed _)
+      (G.syn.pinsTyped _) hi' G.syn.kEq hw' hu hρJ' (hnI i' hi'') hXs hXle hj' hsh
+      (hentR i' hi'' j hj) (hentP i' hi'' j hj) t fs hC
+    -- the slots at the joined tuple are the auxiliary carrier's
+    have hslot := (FitsFrom.congr_slot (rs := (blkRss ctorsA kinds).getD (b.ownOffset (p.k + q₀ + i') + j) [])
+      (slot' := fun i'' ρ => slotSet (f₀.s.eval ψ)
+        (nestedU p.k W pinsS ψ (((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+          (b.ownOffset (p.k + q₀ + i') + j) []).getD i'' 0)) ρ
+        (((mutTlss ctorsA.length tssF ψ).getD (b.ownOffset (p.k + q₀ + i') + j) []).getD i'' [])
+        (((mutEiss0 ctorsA.length eissF ψ).getD (b.ownOffset (p.k + q₀ + i') + j) []).getD i'' [])
+        (lfpTuple ((D).w ψ) (p.k + pinsS.length) ((D).idx ψ ρp) (ΨA ψ ρp)
+          (((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+            (b.ownOffset (p.k + q₀ + i') + j) []).getD i'' 0)))
+      (fun l hl => ?_)).mp hf
+    · have hgrp := (ownCtors_grp (kinds := kinds) (dsF := dsF) h3 hlenA ψ (G.syn.ctorCount i' hi'') j).mpr hj
+      have hmem := (tupleLfpΦ_fibre hOk hS hLmem (by omega) ht'
+          ((dJf q₀).inj (((D).pinAt (q₀ + i)).ψJ ψ) i' j fs)).mpr
+        ⟨j, fs, hgrp.1, hgrp.2, hslot, heq, by rw [G.syn.inj, hw']⟩
+      exact lfpTuple_closed hΨ.2.2 hΨ.1 _ (by omega) t ht' _ hmem
+    · simp only [Nat.zero_add]
+      by_cases hin : p.k + q₀ ≤ ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+            (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0 ∧
+          ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+            (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0 < p.k + q₀ + kJ
+      · rw [segJoin_in _ _ hin, Nat.add_sub_cancel' hin.1]
+        rfl
+      · rw [segJoin_out _ _ hin]
+        rfl
+  -- leastness
+  have hle := lfpTuple_le hclosed i (G.syn.kEq ▸ hi)
+  rw [hP_group i hi, hPinIdx i hi]
+  exact hle
+
 end Assembly
 
 end ConLeche.Model
