@@ -86415,10 +86415,39 @@ order is unchanged: step 2 (the kernel's nested dispatch arm and the
 DELETION of the modeled arm) is still the scheduling fact, and nothing
 above it can land first.  `Model/Fold.lean` is untouched.
 
-##### (f) GATES
+##### (g) THE FLIP'S MECHANICAL HALF — `Model/Inductives/FoldB.lean`
 
-`lake build` 702 jobs warning-free; `lake test` warning-free; layering
-347 / 272 / 3 / 1, 0/0; trust 13/5 (634); overview-links 112;
+§U.55 (c)'s steps 3–4 are now written, with the modeled arm the single
+hypothesis: `declInductiveB` (`declInductive`'s twin over the
+dispatch's three arms — `declNativeB`, `declMutualB` and
+`ModeledStepB`), `EnvModelOkB`, `declStepB_preserves` (eight arms,
+seven of them a name swap), `foldPMB` and `checkDeclsPure_soundB_of`.
+`ModeledStepB` is stated, never discharged: it IS the arm the deletion
+removes, and with it the third case of `declInductiveB`.  The η half
+did not move, and `Model/Fold.lean`, `MainTheorem.lean` and the
+capstones are untouched.
+
+**A MODULE OF ITS OWN, and that is a finding.**  The B fold cannot
+live in `Model/Fold.lean`: the value kinds' carrier agreements
+(`axiomStepAgree_of`, `basisStepAgree_of`, §U.55 (b) 1) live there, and
+BOTH `EnvModelBStages.lean` and `BasisBlocksFold.lean` import that
+module for them — so every theorem of the flip sits ABOVE
+`Model/Fold.lean`, and M8 must either move those two agreements down or
+keep a separate module.  Hosting the fold in `BasisBlocksFold.lean`
+compiles, but moves `scripts/pub-import-plan.py`'s fixpoint: that
+module's five `public import`s become individually demotable, and
+demoting them takes the `[SetTheory V]` binder's own public path with
+them (the build says `unknown identifier SetTheory`), so the gate's
+"none demotable" and the build disagree there.  `FoldB.lean` is
+gate-clean at the import set shake's criterion itself names —
+`public import` of `NestedPremise` and `Semantics/Inductives/DeclNative`
+(the statements' `EnvModelB` and `DeclIndRunDispatch`), everything else
+private.
+
+##### (h) GATES
+
+`lake build` 703 jobs warning-free; `lake test` warning-free; layering
+347 / 273 / 3 / 1, 0/0; trust 13/5 (635); overview-links 112;
 quote-gate 2; no-local-paths OK; proofdeps 4955 rows / 12 roots /
 0 doors; shake 510/510 allowlisted; pub-imports 1284 of 2030, none
 demotable; `tests/arena.sh` green.  Standard axioms on every new
