@@ -86762,3 +86762,65 @@ root's container.
    extensionality through the fibre laws.  ~1 session, and it is the
    last piece between `instanceLe_of_classPin` and `nestedPinsLe`
    besides `htrans` itself.
+
+#### U.58 — L-E session 11: the readings' extensionality is a LEAF law, and what `htrans` still needs (lane L-E, 2026-09-17)
+
+##### (a) The correction to §U.57 (d) 2: no `Φ` congruence
+
+`famAt c = P q` at a `ClassPin`-related pair — what turns
+`instanceLe_of_classPin`'s conclusion into step (iii)'s `P q ≤ L⁺ (k +
+q)` — does NOT need `BlockModel.Φ`/`pinCar` to be congruent in the
+frame, which would have been a new clause on every block model.  Both
+sides' FIBRES are stored READINGS:
+
+* the root's MEMBER class: `IsBlockModel.leaf` — the member's former at
+  fitting parameters and indices IS the least tuple's fibre;
+* the root's PIN class: `IsBlockModel.pinLeaf` — the container at the
+  pin's components and fitting indices IS `pinCar` at the carrier;
+* the block's pin: the leaf of ITS container's model, at ITS components.
+
+and a family over an index set is determined by its fibres at the
+fitting index spines, every index tuple being one (`mem_idxSet_elim`).
+`fam_eq_of_leaf` (`NestedPinLeafAll.lean`) is that principle.  The three
+readings are one because `ClassPin`'s `name` gives one constant, `psi`
+one level assignment at its level parameters (`EnvModel.acval_params`),
+and `frame` one list of component values.
+
+What the instantiation still walks through, and it is bookkeeping only:
+the index sets and the fitting spines (`PinGroupView.pinU`/`pinIds` on
+each side), the `as` of the leaf laws (both frames are `consList as ρ`
+and agree below `nP`, so the two lists are one — `consList_getD_lt`),
+and the closedness of a stored constant's reading (so the two base
+frames do not matter).
+
+##### (b) `htrans` — the two halves are in the tree, the two premises are not
+
+The per-class transfer at a class `c` of the root and an `R`-related
+block pin `q` is:
+
+1. the block's copy of `q` against `B ci_q` (the block's `PinShapes`)
+   and the container-side constructors of `c` (`IsBlockModel` at a
+   member class, `PinShapes` of the root at a pin class) are copies of
+   ONE constructor, by `ClassPin`;
+2. `CopyCtorShape.fit_imp_T_le_dom` (member class) or `copyTransfer_pin`
+   (pin class) turns the fit at the meet into the block's copy's fit at
+   `L⁺`;
+3. the block's own fibre law at `L⁺` (`tupleLfpΦ_fibre`, as step (i)'s
+   `nestedPinsFixed` uses it) plus `L⁺`'s fixed-point law turn that into
+   membership.
+
+Its two premises, which no lemma in the tree yet discharges:
+
+* **the walk**: at every recursive field, `R` again at the two targets —
+  `recF` and `pinF` by the group views and `PinCorr`, an `ordF`-right
+  field by `targetHead_corr` and the body-form `EntryRead` (DESIGN §U.55
+  (b) states the step; it is what `InstanceCovered` will be built from
+  once K.40's parent chain is in the tree);
+* **the externals**: at an `ordF`-right field whose target leaves the
+  instance, `P q' = L⁺ (k + q')` — the rank induction's hypothesis,
+  which `pins_le_of_instanceLe` already threads, through
+  `pinTarget_reads` and `slotSet_mono`.
+
+So the remaining work is ONE lemma (`htrans_of_walk`, the plumbing of
+(1)–(3) under those two premises) and then the walk itself, which is
+where K.40's readers enter.
