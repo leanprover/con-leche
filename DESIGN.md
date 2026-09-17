@@ -88114,3 +88114,50 @@ with zero fires and the control says the question is not vacuous.  **A
 fire here would be a finding about the elimination, and the fix is A2
 (the proof), never a narrowing of the accept set.**
 
+#### K.43 — NOT STARTED: the pins-free own-pin table, and the plan for it (2026-09-17, task #315, lane M7-3's DESIGN §U.66 (a))
+
+The one queue item this lane did not reach.  §U.66 (a) found that
+`ContainerModeled.ownPins`' "vacuous at a pins-free block" half is NOT
+derivable: `containerOwnPinsAtGo` looks up `Name.str C "rec_1"`, only a
+nested block whose FIRST former is `C` can put a `.recInfo` there,
+excluding that is an ENVIRONMENT-HISTORY invariant no record carries,
+and the naive strengthening ("every `.recInfo` is `I.rec` for a stored
+`I`") is refuted by the nested route's own mimics.  So it wants a
+certification-only Bool per install route, in K.34's pattern.
+
+**THE PLAN, worked out here so the next session does not re-derive it:**
+
+* the Bool goes in `Kernel/Inductives/NativeParts.lean` — K.34's home
+  for the shared cluster, which the native, mutual AND nested routes all
+  import (that move is why K.34 exists in that file at all):
+
+```lean
+  def blockOwnMimicsOk (env : Env) (first : Name) (n : Nat) : Bool
+    -- `first.rec_1 … first.rec_n` are `.recInfo` and `first.rec_(n+1)`
+    -- is not, so `containerOwnPinsAtGo`'s walk visits exactly `n`
+```
+
+  The native and mutual routes pass `n := 0`, which IS §U.66 (a)'s
+  emptiness; the nested route passes `n := p.numNested`, so ONE Bool
+  serves all three and the nested row is not a special case.  Cost is
+  `n + 1` `find?`s per block and no term walk;
+* **`containerOwnPinsAt` does NOT have to move**, which is what makes
+  this cheap.  The Bool does not mention it: it is phrased over the
+  mimic NAMES, and the bridge from it to `containerOwnPinsAt envOut C
+  lvls Ds = some []` is a VERIFY lemma, and the Verify tier sees
+  `NestedInstall`.  Phrasing the Bool over the reader's own output would
+  have forced the whole own-pin cluster down into `NativeParts`;
+* one prerequisite: `Name.appendIndexAfter` sits in
+  `Kernel/Inductives/NestedParts.lean`, which is ABOVE `NativeParts`
+  (StructParts ← SumParts ← NativeParts ← MutualParts ← NestedParts).
+  Move that one four-line function down to `ConLeche/Kernel/Name.lean`;
+* sites: beside K.34's `blockReadBackOk` gate in `NativeInstall.lean`,
+  `MutualInstall.lean` and `checkNested`, mirrored in
+  `Cached/CheckerC.lean` at its three; conjuncts of `DeclNativeRun`,
+  `DeclMutualRun` and `DeclNestedRun` and of the three `_inv`s, with one
+  `-` added to each consumer's destructuring;
+* **measurement**: unlike every other record on this lane, the native
+  and mutual routes run on EVERY block of every stream, so this one owes
+  init-full AND Mathlib as well as the cone — K.34's own battery, with
+  K.34's `&& false` negative control beside it.
+
