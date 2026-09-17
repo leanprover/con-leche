@@ -664,6 +664,75 @@ theorem ContainerOwnPinsSyn.of_noOwn {env : Env} {d : BlockModel V}
   rw [hempty i lvls DsE ps hi hps] at he
   exact nomatch he
 
+/-- **K.43's BRIDGE: A BLOCK WITH NO MIMICS HAS AN EMPTY OWN-PIN
+TABLE** (task #315 M7-3 session 15, DESIGN §U.74 (b)).
+
+`blockOwnMimicsOk env first 0` says `first.rec_1` is not a stored
+recursor, and `containerOwnPinsAtGo`'s very first step looks that name
+up and stops; so the reader returns the empty table at EVERY
+instantiation.  `first` is the group's own first member, which is where
+the walk starts (`containerOwnPinsAt` reads `ci.members.head?`), and
+that is why each route certifies the Bool at exactly its block's first
+former.
+
+This is the model-side consequence K.43's plan named ("the bridge from
+it to `containerOwnPinsAt envOut C lvls Ds = some []` is a VERIFY
+lemma"); it is stated here rather than in `Verify/*` because
+`ContainerOwnPinsSyn` — its only consumer — is stated here. -/
+theorem containerOwnPinsAt_nil {env : Env} {C : Name} {ci : ContainerInfo}
+    {M : ConLeche.ContainerMember}
+    (hci : ConLeche.containerInfo? env C = some ci) (hM : ci.members.head? = some M)
+    (h : ConLeche.blockOwnMimicsOk env M.name 0 = true)
+    (lvls : List Level) (Ds : List Expr) :
+    ConLeche.containerOwnPinsAt env C lvls Ds = some [] := by
+  obtain ⟨cv, caps, hf⟩ := containerInfo?_found hci
+  show (do
+    let c ← env.find? C
+    let .indInfo cvT _ := c | none
+    let ci' ← ConLeche.containerInfo? env C
+    let first ← ci'.members.head?
+    pure (ConLeche.containerOwnPinsAtGo env (first.name.str "rec") cvT.levelParams lvls Ds
+      ci'.nP 64 0)) = some []
+  rw [hf, hci]
+  show (do
+    let first ← ci.members.head?
+    pure (ConLeche.containerOwnPinsAtGo env (first.name.str "rec") cv.levelParams lvls Ds
+      ci.nP 64 0)) = some []
+  rw [hM]
+  show some (ConLeche.containerOwnPinsAtGo env (M.name.str "rec") cv.levelParams lvls Ds
+      ci.nP 64 0) = some []
+  refine congrArg some ?_
+  simp only [ConLeche.blockOwnMimicsOk, List.range_zero, List.all_nil, Bool.true_and,
+    Bool.not_eq_true'] at h
+  unfold ConLeche.isRecInfoAt at h
+  unfold ConLeche.containerOwnPinsAtGo
+  split
+  · rename_i cvR mI rP rules hfind
+    rw [hfind] at h
+    exact nomatch h
+  · rfl
+
+omit [SetTheory V] in
+/-- **THE PINS-FREE ROUTES' CLAUSE, FROM K.43** (task #315 M7-3
+session 15): the native route, the mutual route and the five pinned
+basis blocks install no mimic recursor and certify it
+(`blockOwnMimicsOk … 0`), and their block model's members all read back
+the SAME group — whose first member is the name the Bool was certified
+at.  `containerOwnPinsAt_nil` then empties the table at every member
+and every instantiation, and `of_noOwn` finishes.
+
+One line per site, as DESIGN §U.69 (b) promised. -/
+theorem ContainerOwnPinsSyn.of_noMimics {env : Env} {d : BlockModel V} {first : Name}
+    (hmim : ConLeche.blockOwnMimicsOk env first 0 = true)
+    (hgrp : ∀ i, i < d.k → ∃ (ci : ContainerInfo) (M : ConLeche.ContainerMember),
+      ConLeche.containerInfo? env (d.memberName i) = some ci ∧
+      ci.members.head? = some M ∧ M.name = first) :
+    ContainerOwnPinsSyn (V := V) env d := by
+  refine ContainerOwnPinsSyn.of_noOwn fun i lvls DsE ps hi hps => ?_
+  obtain ⟨ci, M, hci, hM, hname⟩ := hgrp i hi
+  rw [containerOwnPinsAt_nil hci hM (by rw [hname]; exact hmim) lvls DsE] at hps
+  exact (Option.some.inj hps).symm
+
 /-- **EVERY OWN PIN THE MIMICS SPELL IS ONE OF THE BLOCK MODEL'S
 RECORDED PINS, AT THAT INSTANTIATION** (task #315, lane L-E's request,
 DESIGN §U.65 (d) — the bridge §U.71 (e) withdrew the "not needed"
