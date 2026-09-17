@@ -374,6 +374,9 @@ def checkNestedS (fe : FEnv) (p : NestedParts) : CheckCM FEnv := do
   -- the pins' scope (K.30), as in the pure route
   unless certOnly mode (pinsScoped p.nP st) do
     throw (.internal "nested: a pin's free variables are not the block's parameter openers")
+  -- the pins' levels (K.48), as in the pure route
+  unless certOnly mode (pinsLevelsOk p.lps st.pins) do
+    throw (.internal "nested: a pin mentions a level parameter that is not the block's")
   -- the auxiliary applications (K.35), as in the pure route
   unless certOnly mode (nestedAuxAppsOk p st stored) do
     throw (.internal "nested: an auxiliary application in the block's read-back is not \

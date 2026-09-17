@@ -308,12 +308,14 @@ theorem declNested_of (hμ : μ.verifiedChecks = true) {F : Nat} {env envOut : E
     Nonempty (EnvModelM V μ envOut) := by
   obtain ⟨h0, h1, st, b, envAux, stored, ctorsR, cvRms, cvRns, rulesM, rulesN, fmsA, ctorsA,
     hfA, hcA, helim, hcount, hfresh, hcont, hb, haux, hstored, hclosed, hpinsAux, hcaps, hsrc,
-    -, hgrp, -, hsc, -, hkinds, -, -, -, -, -, hpins₁, hctors, hrm, hrn, -, -, hrulesM, hrulesN, htbl,
+    -, hgrp, -, hsc, -, -, hkinds, -, -, -, -, -, hpins₁, hctors, hrm, hrn, -, -, hrulesM, hrulesN, htbl,
     hpinsOut, hcnt, hrecs, -⟩ := h
   -- the `-` after `hsrc` is K.31's `pinsDistinct` conjunct: named for the
   -- identities' discharge (`NestedPinsIdent`, lane L-B), not consumed here;
   -- the `-` after `hgrp` is K.44's `nestedPinMentionOk`, which lane L-E's
   -- `ContainerModeled.nestMention` reads and nothing on this path does;
+  -- the first `-` after `hsc` is K.48's `pinsLevelsOk`, which
+  -- `ContainerModeled.pinParams` reads at the nested site and nothing here;
   -- the `-` after `hsc` is K.32's `nestedCopyTargetsOk`, named for the same
   -- discharge's `ordF` arm, not consumed here either; the five `-` after
   -- `hkinds` are K.35's `nestedAuxAppsOk`, K.37's `nestedPinRankOk`,

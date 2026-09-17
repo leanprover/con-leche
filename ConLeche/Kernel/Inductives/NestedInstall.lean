@@ -638,6 +638,30 @@ def pinsClosed (nP : Nat) (pins : List NestedPin) : Bool :=
     let pinB := Expr.abstractRange q.pin 0 nP 0
     !pinB.hasFvar && pinB.looseBVarsBounded nP
 
+/-- **THE PINS' LEVELS ARE THE BLOCK'S** (task #315 K.48, lane M7-3's
+DESIGN §U.69 (e)).
+
+`pinsClosed`'s twin, one line below it: every level parameter a pin's
+term mentions — in the head's level arguments and in its components
+alike — is one of the block's own `lps`.
+
+**Why it is recorded and not derived.**  `ContainerModeled.pinParams`
+(lane L-E's clause, landed as a field) asks that a pin's `u`, `Ds` and
+`Ids` depend on the container's level parameters ALONE.  `pinOf` builds
+`u` and `Ids` from the container's block model at
+`Level.substFn ψ M.lps lvls` and `Ds` as the components' `denoteMeta`
+readings at `ψ`, so at the nested site BOTH halves reduce to exactly
+this Bool — and nothing records it: `nestedPinsOk` type-checks a pin and
+`pinsClosed`/`pinsScoped` constrain its VARIABLES, and no test of the
+three looks at a level.
+
+**It cannot fire**, and a failure is `.internal`: a pin is a sub-term of
+a constructor type that `checkConstantVal` checked at `p.lps`, and a
+level parameter outside that list would have been refused there.
+CERTIFICATION-ONLY: gated. -/
+def pinsLevelsOk (lps : List Name) (pins : List NestedPin) : Bool :=
+  pins.all fun q => q.pin.allLevelParamsDefined lps
+
 /-- The projection table of a restored structure-like member: the
 scratch block's table with its bodies recomputed from the RESTORED
 constructor type (the guards and the result sort are levels, which the
@@ -2087,6 +2111,11 @@ def checkNested (ops : CheckerOps m) (env : Env) (p : NestedParts) : m Env := do
   -- first former's openers, annotation included, and no loose bvar.
   unless certOnly ops.mode (pinsScoped p.nP st) do
     throw (.internal "nested: a pin's free variables are not the block's parameter openers")
+  -- **THE PINS' LEVELS** (K.48): every level parameter a pin mentions is
+  -- one of the block's own — `ContainerModeled.pinParams`' whole content
+  -- at this site.  A failure is `.internal`.
+  unless certOnly ops.mode (pinsLevelsOk p.lps st.pins) do
+    throw (.internal "nested: a pin mentions a level parameter that is not the block's")
   -- **THE AUXILIARY APPLICATIONS** (K.35): every copy and copy
   -- constructor in the scratch block's read-back recursor types and
   -- rules is applied to `nP + arity` arguments whose first `nP` are the

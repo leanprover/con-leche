@@ -88161,3 +88161,61 @@ certification-only Bool per install route, in K.34's pattern.
   init-full AND Mathlib as well as the cone — K.34's own battery, with
   K.34's `&& false` negative control beside it.
 
+#### K.48 — the pins' levels are the block's (2026-09-17, task #315, lane M7-3's DESIGN §U.69 (e))
+
+`pinsClosed`'s twin, one gate below it:
+
+```lean
+def pinsLevelsOk (lps : List Name) (pins : List NestedPin) : Bool :=
+  pins.all fun q => q.pin.allLevelParamsDefined lps
+```
+
+**Why it is not derivable.**  Lane L-E's `ContainerModeled.pinParams`
+— landed as a FIELD, spelled over the group's own member record so it
+crosses `crossEnvP` verbatim — asks that a pin's `u`, `Ds` and `Ids`
+depend on the container's level parameters alone.  `pinOf` builds `u`
+and `Ids` from the container's block model at
+`Level.substFn ψ M.lps lvls` and `Ds` as the components' `denoteMeta`
+readings at `ψ`, so at the NESTED site both halves reduce to exactly
+this Bool — and the run records nothing of the kind: `nestedPinsOk`
+type-checks a pin, `pinsClosed` and `pinsScoped` constrain its
+VARIABLES, and no test of the three looks at a level.  Until it landed
+the nested site stood on `NestedPinParams`, a named premise of
+`declNested_of` with no consumer (the route is unwired); this is what
+retires it.
+
+**It cannot fire**: a pin is a sub-term of a constructor type
+`checkConstantVal` checked at `p.lps`, and a level parameter outside
+that list would have been refused there.  `certOnly`-gated, `.internal`
+on failure, one conjunct of `DeclNestedRun` and of `checkNested_inv`,
+beside K.30's `pinsScoped`.
+
+**MEASURED** (zero fires everywhere):
+
+* `tests/e2e/tower_nested.ndjson` FIRST: **517 498 536 / 517 488 750 /
+  517 491 533 instructions:u against K.44's 517 492 655 / 517 489 181 /
+  517 493 583 — the same band**;
+* nested-shadow **27/27**; the Mathlib nested cone exit 0, **4 926
+  accepted**, 41/41 `accept`, **180 910 397 298 / 180 907 113 455
+  against K.44's 180 908 684 576 — free**.  It is one
+  `allLevelParamsDefined` per pin, a walk the pin's own type check
+  already makes;
+* `tests/arena.sh` **EXIT 0**.
+
+**Negative control**: the admitted set emptied
+(`allLevelParamsDefined (lps.drop lps.length)`) gives nested-shadow
+**26/27** — the one fixture is `nested_p30` — and **8 of the 41** cone
+blocks.  **That is the honest reachability figure and it is small**: one
+fixture and eight cone blocks have a pin that mentions a level parameter
+AT ALL; at the rest the pins are monomorphic and the clause holds
+vacuously.  It is the same thinness K.41's own control reported, and for
+the same reason — the corpus's nested blocks are mostly monomorphic.
+
+**Ledger row**: CERT-ONLY, category **(A)** — the fact is one official
+checks, just not at this granularity: official's `check_constant_val`
+refuses a constructor type mentioning a level parameter outside the
+declaration's own list, and a pin is a sub-term of such a type.  So a
+stream that made this Bool fire would already have been rejected
+upstream, and what the record adds is the SUB-TERM projection of a check
+that has already run, recorded where the model can read it per pin.
+

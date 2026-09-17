@@ -1104,6 +1104,9 @@ theorem checkNested_inv {env envOut : Env} {p : NestedParts} {F : Nat}
       -- THE PINS' SCOPE (K.30): the pins' free variables are the first
       -- former's openers, annotation included, and no loose bvar
       certOnly mode (pinsScoped p.nP st) = true ∧
+      -- THE PINS' LEVELS (K.48): every level parameter a pin mentions is
+      -- the block's own — `ContainerModeled.pinParams` at the nested site
+      certOnly mode (pinsLevelsOk p.lps st.pins) = true ∧
       -- THE COPIES' RECURSIVE TARGETS (K.32): a group-recursive copy
       -- field comes from the container's own recursion at the spine
       certOnly mode (nestedCopyTargetsOk env p b st stored) = true ∧
@@ -1276,6 +1279,10 @@ theorem checkNested_inv {env envOut : Env} {p : NestedParts} {F : Nat}
   case neg => rw [if_neg hsc] at h; close_throw
   rw [if_pos hsc] at h
   try simp only [bind, Except.bind] at h
+  by_cases hpl : certOnly (fueledOps mode F).mode (pinsLevelsOk p.lps st.pins) = true
+  case neg => rw [if_neg hpl] at h; close_throw
+  rw [if_pos hpl] at h
+  try simp only [bind, Except.bind] at h
   by_cases haa : certOnly (fueledOps mode F).mode (nestedAuxAppsOk p st stored) = true
   case neg => rw [if_neg haa] at h; close_throw
   rw [if_pos haa] at h
@@ -1333,7 +1340,7 @@ theorem checkNested_inv {env envOut : Env} {p : NestedParts} {F : Nat}
   exact ⟨st, b, envAux, stored, ctorsR, cvRms, cvRns, rulesM, rulesN, fmsA, ctorsA,
     hfmsA, hctorsA, helim', beq_iff_eq.mp hcnt, hfresh, hcont, hb', haux, hst', hpc,
     (by cases uA; exact hpinsAux), hcaps, hsrc,
-    certOnly_and_left hcont, hgrp, hmn, hsc, htg, hkd, haa, hrk, hpa, hrh, hord,
+    certOnly_and_left hcont, hgrp, hmn, hsc, hpl, htg, hkd, haa, hrk, hpa, hrh, hord,
     (by cases uP₁; exact hpins₁), hctors, hrm, hrn, hnd, hdj, hrlm, hrln, htbl,
     (by cases u₀; exact hpins), hlen, (by cases u₁; exact hrecs), hrb⟩
 
