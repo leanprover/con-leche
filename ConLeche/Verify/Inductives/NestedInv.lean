@@ -900,6 +900,10 @@ theorem checkNested_inv {env envOut : Env} {p : NestedParts} {F : Nat}
       -- classified `.ordinary`, `.recursive` or `.reflexive`, and
       -- `nestedPinKinds p b stored` is that classification
       nestedPinKindsOk p b st stored = true ∧
+      -- THE AUXILIARY APPLICATIONS (K.35): the restore's
+      -- `args.drop nP` precondition, at the read-back recursor types
+      -- and rules
+      nestedAuxAppsOk p st stored = true ∧
       -- POST-CHECK (a) A THIRD TIME (K.30): the pins typed at the
       -- environment holding the RESTORED formers
       nestedPinsOk (m := CheckM) (fueledOps mode F)
@@ -1042,6 +1046,10 @@ theorem checkNested_inv {env envOut : Env} {p : NestedParts} {F : Nat}
   case neg => rw [if_neg hkd] at h; close_throw
   rw [if_pos hkd] at h
   try simp only [bind, Except.bind] at h
+  by_cases haa : nestedAuxAppsOk p st stored = true
+  case neg => rw [if_neg haa] at h; close_throw
+  rw [if_pos haa] at h
+  try simp only [bind, Except.bind] at h
   obtain ⟨uP₁, hpins₁, h⟩ := exceptBind_ok h
   try simp only at h
   obtain ⟨ctorsR, hctors, h⟩ := exceptBind_ok h
@@ -1075,7 +1083,7 @@ theorem checkNested_inv {env envOut : Env} {p : NestedParts} {F : Nat}
   exact ⟨st, b, envAux, stored, ctorsR, cvRms, cvRns, rulesM, rulesN, fmsA, ctorsA,
     hfmsA, hctorsA, helim', beq_iff_eq.mp hcnt, hfresh, hcont, hb', haux, hst', hpc,
     (by cases uA; exact hpinsAux), hcaps, hsrc,
-    (Bool.and_eq_true _ _ |>.mp hcont).1, hgrp, hsc, htg, hkd,
+    (Bool.and_eq_true _ _ |>.mp hcont).1, hgrp, hsc, htg, hkd, haa,
     (by cases uP₁; exact hpins₁), hctors, hrm, hrn, hrlm, hrln, htbl,
     (by cases u₀; exact hpins), hlen, (by cases u₁; exact hrecs), hrb⟩
 

@@ -378,6 +378,10 @@ def checkNestedS (fe : FEnv) (p : NestedParts) : CheckCM FEnv := do
   unless nestedPinKindsOk p b st stored do
     throw (.internal "nested: a stored field at a pin is not classified ordinary, \
       recursive or reflexive into the block")
+  -- the auxiliary applications (K.35), as in the pure route
+  unless nestedAuxAppsOk p st stored do
+    throw (.internal "nested: an auxiliary application in the block's read-back is not \
+      at the block's parameters")
   -- the RESTORED block is built on the PRE-BLOCK index, not the scratch
   -- one: only the restored constants are stored
   let fe₁ := consNestedFormersF members fe

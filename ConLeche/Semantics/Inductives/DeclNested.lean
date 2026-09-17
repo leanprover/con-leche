@@ -210,6 +210,11 @@ def DeclNestedRun (μ : CheckMode) (F : Nat) (env : Env)
     -- `nestedPinKinds p b stored` is that classification — the kinds the
     -- direct route's monotonicity reads at the copies
     ConLeche.nestedPinKindsOk p b st stored = true ∧
+    -- THE AUXILIARY APPLICATIONS (K.35): every copy and copy
+    -- constructor in the read-back recursor types and rules is applied
+    -- to `nP + arity` arguments whose first `nP` are the block's
+    -- parameter variables — the restore's `args.drop nP` precondition
+    ConLeche.nestedAuxAppsOk p st stored = true ∧
     -- POST-CHECK (a) A THIRD TIME (K.30): the pins typed at the
     -- environment holding the RESTORED formers — the model tier's own
     ConLeche.nestedPinsOk (m := CheckM) (fueledOps μ F)
@@ -426,7 +431,7 @@ theorem declNestedRun_etaClosed {μ : CheckMode} {F : Nat} {env envOut : Env}
     {p : NestedParts} (hE : EtaFamiliesClosed env)
     (h : DeclNestedRun μ F env p envOut) : EtaFamiliesClosed envOut := by
   obtain ⟨-, -, st, b, envAux, stored, ctorsR, cvRms, cvRns, rulesM, rulesN, fmsA, ctorsA,
-    -, -, -, -, -, -, -, -, -, -, -, hcaps, -, -, -, -, -, -, -, hctors, hrm, hrn, -, -, htbl,
+    -, -, -, -, -, -, -, -, -, -, -, hcaps, -, -, -, -, -, -, -, -, hctors, hrm, hrn, -, -, htbl,
     -, -, -, -⟩ := h
   refine EtaFamiliesClosed.ofFreshExt hE ?_
   -- the formers

@@ -1298,6 +1298,56 @@ def auxAppsOkFast (R : RestoreTbl) (arityOf : Name → Option Nat) (d : Nat) (e 
   exact (auxAppsGoM_spec R arityOf e d {} AuxAppsMemoInv.empty).1.symm
 
 
+/-- **THE AUXILIARY APPLICATIONS SIT AT THE PARAMETERS** (task #315
+K.35, the model lane's spec §1a): in every read-back RECURSOR TYPE and
+every read-back RULE right-hand side of the scratch block, every
+application headed by an auxiliary type (a `pins` key) or an auxiliary
+constructor (a `ctorPins` key) has exactly `nP + arity` arguments — the
+copy's index count for a type, the constructor's field count for a
+constructor — whose first `nP` are the block's parameter variables at
+that binder depth.
+
+The recursor's own `Π p⃗` prefix and a rule's own `λ p⃗` are stripped
+first, which is what `restoreNested` does before it walks, so the walk
+starts at depth `0` below the parameters exactly as `restoreWalk` does.
+
+**Why it is recorded.**  `restoreNode` DROPS those first `nP` arguments
+and puts the pin — whose components mention the block's parameters — in
+their place.  If a copy were ever applied to something else, the
+restored term would silently claim the container at `Ds[p⃗]` where the
+auxiliary term said the copy at other arguments, and the two readings
+the model identifies would not be the same object.  Official's
+`restore_nested` drops them unchecked for the same reason: its
+elimination only ever mints applications at the parameters.
+
+**It cannot fire**: every auxiliary occurrence in the scratch block's
+generated recursor types and rules comes from `structFamI` (the
+parameters `structPsAt (o + e + nIdx) nP`, then the copy's own index
+variables), `structCtorSpineAt` (the parameters, then the fields), a
+constructor's own field domain lifted by `o` (`mutualOpenedOk` already
+certifies `take nP = fvsP` and the arity at the OPENED form, and the
+lift keeps the parameters the parameters), or `mutualIhApp`'s
+`mutualRecPrefixAt`.  A failure is `.internal`. -/
+def nestedAuxAppsOk (p : NestedParts) (st : ElimState) (stored : List AuxStored) : Bool :=
+  let R := restoreTbl p st
+  -- a key's argument count PAST the parameters: a copy's index count,
+  -- a copy constructor's field count
+  let arityOf : Name → Option Nat := fun n =>
+    match st.pins.zipIdx.find? (fun q => q.1.aux == n) with
+    | some (_, j) => (st.types[p.k + j]?).bind fun t => auxIdxCount p.nP t.type
+    | none =>
+      match ((st.types.drop p.k).flatMap (·.ctors)).find? (fun c => c.1 == n) with
+      | some c => some c.2.2
+      | none => none
+  stored.all fun a =>
+    (match a.cvRa.type.stripPis p.nP with
+     | some (_, body) => auxAppsOk R arityOf 0 body
+     | none => false) &&
+      a.rules.all fun rl =>
+        match rl.rhs.stripLams p.nP with
+        | some (_, body) => auxAppsOk R arityOf 0 body
+        | none => false
+
 /-- **Check and install a recognised NESTED block** (see the module
 docstring): official's two syntactic front guards, the elimination, the
 auxiliary mutual block checked in a scratch environment, the restore,
@@ -1428,6 +1478,14 @@ def checkNested (ops : CheckerOps m) (env : Env) (p : NestedParts) : m Env := do
   unless nestedPinKindsOk p b st stored do
     throw (.internal "nested: a stored field at a pin is not classified ordinary, \
       recursive or reflexive into the block")
+  -- **THE AUXILIARY APPLICATIONS** (K.35): every copy and copy
+  -- constructor in the scratch block's read-back recursor types and
+  -- rules is applied to `nP + arity` arguments whose first `nP` are the
+  -- block's parameter variables — the precondition the restore's
+  -- `args.drop nP` relies on.  A failure is `.internal`.
+  unless nestedAuxAppsOk p st stored do
+    throw (.internal "nested: an auxiliary application in the block's read-back is not \
+      at the block's parameters")
   let env₁ := consNestedFormers members env
   -- **POST-CHECK (a), A THIRD TIME** (K.30): the pins typed at the
   -- environment holding the RESTORED FORMERS — the one `restoreCtors`
