@@ -80610,6 +80610,61 @@ with the field confirmed by a probe; hypotheses exactly K.36's face and
 `hctorsJ`, no third.  Trap: `ofMutual_inj` does not `rw` under the
 `mutualBlockModel` notation — `have … := by rfl` (not `:= rfl`).
 
+##### (m) CONTINUATION 5 — 1e's precondition (K.35's face) and `RestoreAgree` AT THE TAIL proved; the transfer found to be its own session
+
+*`Model/Inductives/NestedRecFrames.lean`* (1053, Opus; standard axioms;
+gates green — build 701 jobs, test, shake 508/508, pub-imports none
+demotable, layering/proofdeps/overview-links/quote-gate/trust/no-local-paths):
+
+* **`NestedRecTysAuxOk p st b stored pinsS`** — K.35's model face: every
+  read-back recursor type, below its `nP` prefix, has the shape
+  `AuxAppsOk (restoreTbl p st) b.lps (nestedArity p st pinsS) 0 body`.
+* **`NestedTailIn.restoreAgree S hdecl hnames hctorsJ ψ : RestoreAgree
+  (restoreTbl p st) b.lps (nestedArity …) mpA.base2.acval mp₂.base2.acval
+  ENVA ENV₂ ψ b.nP ((D).params ψ)`** — all ten leaf agreements at the
+  tail: `nPEq`; `leafSome`/`leafNone`/`leaf` (a non-auxiliary name is a
+  real member — the same `mutMemberLeaf` at both models —, a real
+  constructor — the same `sumMkAV` at `J - ownOffset (mutMemF b J) = j`
+  —, or off the block — both `mp.base2.acval`); `auxFresh` (the aux
+  names are the copies' formers/constructors/recursors, none stored at
+  `ENV₂`: `nameCases`, `memberCtor_ne_aux`, `ctorsRName` — the restored
+  constructor's name is the auxiliary's, re-proved because
+  `restoredCtors_at` is private); `recKey`/`recNone` (`ENVA` is the
+  constructors' environment: no recursor stored, `mimicRecFresh`);
+  `keyNotRec`; `pin` (`pinArm`, through `nestedIdent_of` with the reading
+  by `pinRead` at `pinψ`/`pinDs`/`find`); `ctor` (T2's `ctorArm`, verbatim).
+* `NestedTailIn.readingsOf` (= `readings` at the frames) and the named
+  fact `NestedRecFramesOf V μ F` (the frames clause at every tail),
+  with `nestedRecReadingsOf_of : NestedRecFramesOf → NestedRecReadingsOf`
+  and `nestedTailModeled_of_frames` — the stage now closes over
+  `NestedRecFramesOf`, `NestedRecEqsOf`, `NestedRecsStored`.
+
+*One more model face*, to be deleted: `NestedDeclCtorsInBlock p ctorsA`
+(every declared constructor's name is among `ctorsA`'s) — needed only
+because `NestedStageFacts.agree` is stated off `p.memberNames ++
+p.ctors.map name` while the name classification yields "no `ctorsA`
+name"; exporting `NestedLoopFacts.agreeC` through `NestedStageFacts`
+(as `find`/`pinψ` were) removes it — queued into the next unit.
+
+*THE FINDING — `spineFit_transfer` is not "~60 lines" (PLAN §1e 1)*:
+(i) the parameter prefix is the same EXPRESSION read at TWO models, and
+`denoteMeta_congr_auxFree` inducts on `AuxAppsOk`, which has no
+`lit`/`proj`/`letE` case — a block parameter's type may contain all
+three, so K.35 must NOT be extended to the prefix; the identification
+goes through the readings instead: the restored recursor's first `nP`
+binders are the first former's (a `mutualRecTy` prefix lemma, Verify),
+whose reading at `mp₂` is `NestedStageFacts.FD 0 f₀ |>.read` =
+`(D).params ψ`, and the scratch tower's prefix is `(DA).params ψ` by
+`BlockReadings.ppsDom` — the same list; (ii) `MutualRecData` has no
+opener clause and `nestedRecTy_read_of` DISCARDS `restoredRecTy_reading`'s,
+so both towers need a reading theorem that keeps the openers and the
+per-binder readings (the aux side at the RESTORED openers, annotations
+invisible by `denoteMeta_congr_eraseAnnots`); (iii) K.35's shape sits
+below the prefix at depth 0 and must be inverted along the first `d`
+binders of the body.  Sized **1½–2 sessions** (spec
+`_tmp/uniform-m7read/spec-transfer.md`, running), then the nine frame
+clauses **1½–2**: §1e = 3–4 from here (PLAN said 2).
+
 #### U.30 — L-B session 2: `CopyCtorInst.ordF` at the READING, the normalisation's reading law PROVED, `ContainerModeled`'s three clauses (lane L-B, 2026-09-16)
 
 Three maintainer rulings opened this session; the first two are landed,
