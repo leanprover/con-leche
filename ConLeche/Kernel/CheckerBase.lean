@@ -28,6 +28,15 @@ instantiated with the pure knot (`fueledOps`/`pureOps`, the
 verification's subject) and, in `ConLeche/Cached/CheckerC.lean`, with the
 memoized cached knot the binary executes. -/
 structure CheckerOps (m : Type → Type) where
+  /-- **The mode the record was built at** (task #315 K.35's follow-up).
+  Every instantiation already bakes a `CheckMode` into its five core
+  entry points (`fueledOps mode`, `sharedOpsC mode`, …); naming it makes
+  the install routes able to read it, which is what lets a
+  CERTIFICATION-ONLY record — a Bool that cannot fire, recorded for the
+  model tier — be skipped at `.trusted`.  The standing ruling
+  (`CheckMode.verifiedChecks`): trusted = verified minus the
+  certification-only steps. -/
+  mode : CheckMode
   annotate : Env → Nat → Expr → m Expr
   inferType : Env → Nat → Expr → m Expr
   isDefEq : Env → Nat → Expr → Expr → m Bool
@@ -54,8 +63,48 @@ structure CheckerOps (m : Type → Type) where
 
 variable (mode : CheckMode)
 
+/-! ## Certification-only records (task #315 K.35's follow-up)
+
+The standing ruling (`CheckMode.verifiedChecks`, `Kernel/Env.lean`):
+`--trusted` is `--verified` MINUS the checks that exist for the
+soundness PROOF rather than for soundness.  The install routes record a
+number of Bools of exactly that kind — facts about artefacts the ROUTE
+ITSELF generated (the elimination's pins and copies, the scratch block's
+stored records, the environment the route just built), measured to fire
+on no stream and thrown as `.internal` when they do.  They are the model
+tier's evidence, not the kernel's, so they must not run at `.trusted`. -/
+
+/-- **A certification-only record, gated on the mode.**  At `.trusted`
+this is `true` whatever `b` is — and `||` short-circuits, so `b` is not
+evaluated at all; at `.verified` it is `b`.  A run relation records
+`certOnly μ b = true`, and the model tier, which is stated under
+`hμ : μ.verifiedChecks = true`, reads `b = true` off it with
+`certOnly_elim`. -/
+@[inline] def certOnly (mode : CheckMode) (b : Bool) : Bool :=
+  !mode.verifiedChecks || b
+
+@[simp] theorem certOnly_verified (b : Bool) : certOnly .verified b = b := rfl
+
+@[simp] theorem certOnly_trusted (b : Bool) : certOnly .trusted b = true := rfl
+
+/-- At the verified mode a recorded certification IS its Bool. -/
+theorem certOnly_elim {mode : CheckMode} {b : Bool} (h : certOnly mode b = true)
+    (hmu : mode.verifiedChecks = true) : b = true := by
+  simpa [certOnly, hmu] using h
+
+/-- A conjunct of a recorded certification is one. -/
+theorem certOnly_and_left {mode : CheckMode} {b c : Bool}
+    (h : certOnly mode (b && c) = true) : certOnly mode b = true := by
+  cases mode <;> simp_all [certOnly, CheckMode.verifiedChecks]
+
+/-- …and back. -/
+theorem certOnly_intro {mode : CheckMode} {b : Bool} (h : b = true) :
+    certOnly mode b = true := by
+  simp [certOnly, h]
+
 /-- The pure instantiation, at an arbitrary fuel. -/
 def fueledOps (F : Nat) : CheckerOps CheckM where
+  mode := mode
   annotate env d e := annotateCore mode env F d e
   inferType env d e := inferTypeCore mode env F d e
   isDefEq env d a b := isDefEqCore mode env F d a b
@@ -65,8 +114,12 @@ def fueledOps (F : Nat) : CheckerOps CheckM where
     | .ok true => pure ()
     | _ => k none
 
+@[simp] theorem fueledOps_mode (F : Nat) : (fueledOps mode F).mode = mode := rfl
+
 /-- The pure instantiation, at the standard fuel. -/
 def pureOps : CheckerOps CheckM := fueledOps mode checkFuel
+
+@[simp] theorem pureOps_mode : (pureOps mode).mode = mode := rfl
 
 /-- **The verdict at a term whose constants do not all resolve.**
 

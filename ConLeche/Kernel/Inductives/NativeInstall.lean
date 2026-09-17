@@ -614,7 +614,9 @@ def checkNativeTail (ops : CheckerOps m) (env : Env) (q : NativePass Env) : m En
   -- block's own data.  It cannot fire — the route stored the records the
   -- walk reads — and the model's environment field is quantified over
   -- exactly this reading.
-  unless blockReadBackOk envOut p.nP [(q.cvTa, q.ctorsA)] do
+  -- CERTIFICATION-ONLY (K.35's follow-up): gated on the mode, so the
+  -- trusted lane does not pay for the model tier's evidence
+  unless certOnly ops.mode (blockReadBackOk envOut p.nP [(q.cvTa, q.ctorsA)]) do
     throw (.internal "direct rec: the installed block does not read back as its own")
   pure envOut
 

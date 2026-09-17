@@ -102,11 +102,12 @@ theorem ctorsLoopGen (hμ : μ.verifiedChecks = true)
         (∀ ψ, mp'.base2.acval p.cvT.name ψ = leafT ψ) ∧
         ConsedAt mp'.base2 p.cvT.name p.cvT.levelParams p.nP p.nIdx p.resSort p.isProp p.large
           idxF dsF esF srcsF ctorsA ctorsA.length ∧
-        Inv mp'.base2
+        Inv mp'.base2 ∧
+        AcvalAgrees mp.base2 mp'.base2
   | [], k, env, mp, _, hk, hE, hfT, hFD, hleafT, hcons, _, hinv => by
     simp only [List.length_nil, Nat.add_zero] at hk
     subst hk
-    exact ⟨mp, hE, hfT, hFD, hleafT, hcons, hinv⟩
+    exact ⟨mp, hE, hfT, hFD, hleafT, hcons, hinv, AcvalAgrees.rfl' _⟩
   | cA :: rest, k, env, mp, hrest, hk, hE, hfT, hFD, hleafT, hcons, hpend, hinv => by
     have hcAk : ctorsA[k]? = some cA := by
       have := hrest 0; simpa using this.symm
@@ -221,9 +222,20 @@ theorem ctorsLoopGen (hμ : μ.verifiedChecks = true)
       rwa [show k + (i + 1) = k + 1 + i from by omega] at this
     have hinv' : Inv mpC.base2 :=
       hInv mp.base2 cA _ mpC.base2 (List.mem_of_getElem? hcAk) hfresh hacC hinv
-    exact ctorsLoopGen hμ hCtors hnd hlpsT hlpsA hFssParams hFssBelow hiff hFssOkP hIdx Inv hInv
-      caps leafT hTlawsOf hfold rest (k + 1) _ mpC hrest' (by simp at hk; omega) hE' hfT' hFD'
-      hleafT' hcons' hpend' hinv'
+    obtain ⟨mp', hE'', hfT'', hFD'', hleafT'', hcons'', hinv'', hag''⟩ :=
+      ctorsLoopGen hμ hCtors hnd hlpsT hlpsA hFssParams hFssBelow hiff hFssOkP hIdx Inv hInv
+        caps leafT hTlawsOf hfold rest (k + 1) _ mpC hrest' (by simp at hk; omega) hE' hfT' hFD'
+        hleafT' hcons' hpend' hinv'
+    refine ⟨mp', hE'', hfT'', hFD'', hleafT'', hcons'', hinv'', fun n hn => ?_⟩
+    have hne : n ≠ cA.1.name := by
+      intro heq; rw [heq, hfresh] at hn; exact nomatch hn
+    have hn' : ((⟨.ctorInfo cA.1 p.nP cA.2 :: env.consts⟩ : Env).find? n).isSome = true := by
+      rw [ConLeche.Env.find?_cons]
+      split
+      · rfl
+      · exact hn
+    rw [hag'' n hn', hacC]
+    exact acvalWith_ne hne
 
 
 end ConLeche.Model
