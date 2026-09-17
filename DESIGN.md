@@ -86993,9 +86993,20 @@ runs on.
 ##### (f) What is left
 
 * `NestedPinsShapeNoLam` — §U.59 (d)'s λ-pin residue at `ordF`-LEFT.
-  L-E has since added the fitting-prefix premise to that arm, which
-  closes the READING half; the residue named here is the SYNTACTIC one
-  (`copyOrdFLeft`'s second disjunct) and survives it.  Not sized;
+  L-E has since added the fitting-prefix premise to that arm
+  (`agent/uniform-entry` ce12ee7d, not merged here — it arrived after
+  91448887), which is what §U.59 (d) asked for; when it is merged the
+  assembly's `ordF`-left branch gains one `intro` and nothing else.
+  **§U.59 (d)'s sizing of the residue is CORRECTED here**: the fit does
+  not close it through `normPosDomM_read_of` alone.  That law relates
+  the STORED domain's reading to the NORMALISATION'S INPUT — the
+  elimination's REWRITTEN domain — while the arm asks for the CONTAINER's
+  instantiated one, and in the residue case the rewrite is not the
+  identity (that is what makes the case residual).  The missing link is
+  a rewrite-level reading law ("replacing a container occurrence by its
+  mimic preserves the reading", the pins' leaf laws at an arbitrary
+  subterm of a field domain, under binders, at a satisfying
+  environment), so the residue costs that machine and not one lemma.
   `nested_lam_pin_prop` is its instance too.
 * `NestedPinsShapeOrdRight` — `EntryRead` at an `ordF`-right field.
   BLOCKED on (e): the statement must change before it can be proved.
