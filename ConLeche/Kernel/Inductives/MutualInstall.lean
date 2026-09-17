@@ -654,6 +654,12 @@ def checkMutualCore (ops : CheckerOps m) (env : Env) (b : MutualBlock)
   unless certOnly ops.mode (blockReadBackOk envOut nP (fms.zipIdx.map fun (f, mIdx) =>
       (f.cvTa, (b.ownCtors mIdx).filterMap fun (J, _) => ctorsA[J]?))) do
     throw (.internal "mutual: the installed block does not read back as its own")
+  -- **THE OWN-PIN TABLE IS EMPTY** (task #315 K.43): this route installs
+  -- no mimic recursor, so `containerOwnPinsAt` of the block it produced
+  -- is `some []` at every instantiation.  CERTIFICATION-ONLY, gated; a
+  -- failure is `.internal`.
+  unless certOnly ops.mode (blockOwnMimicsOk envOut (f₀.cvTa.name) 0) do
+    throw (.internal "mutual: the installed block carries a mimic recursor")
   pure envOut
 
 /-- Check and install a **recognised mutual block**: the recursor

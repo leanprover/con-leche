@@ -348,7 +348,13 @@ def DeclNestedRun (μ : CheckMode) (F : Nat) (env : Env)
     -- the recorded pin list verbatim.  `ContainerModeled.ownPins`' one
     -- substantive half, recorded rather than proved because it is the
     -- index arithmetic `containerOwnPinsAt`'s docstring refuses
-    ConLeche.certOnly μ (ConLeche.nestedOwnPinsOk envOut p st) = true
+    ConLeche.certOnly μ (ConLeche.nestedOwnPinsOk envOut p st) = true ∧
+    -- THE OWN-PIN TABLE IS THE ROUTE'S OWN (K.43): the mimic recursors
+    -- this route stored are exactly `T₁.rec_1 … T₁.rec_numNested`, so the
+    -- own-pin reader's walk visits exactly that many entries at EVERY
+    -- instantiation — the length half of `ContainerModeled.ownPins`
+    ConLeche.certOnly μ
+      (ConLeche.blockOwnMimicsOk envOut (p.formers.headD default).1.name p.numNested) = true
 
 /-- The bridge inversion: a successful nested install is a run. -/
 theorem declNestedRun_of {μ : CheckMode} {F : Nat} {env envOut : Env} {p : NestedParts}
@@ -494,7 +500,7 @@ theorem declNestedRun_etaClosed {μ : CheckMode} {F : Nat} {env envOut : Env}
     (h : DeclNestedRun μ F env p envOut) : EtaFamiliesClosed envOut := by
   obtain ⟨-, -, st, b, envAux, stored, ctorsR, cvRms, cvRns, rulesM, rulesN, fmsA, ctorsA,
     -, -, -, -, -, -, -, -, -, -, -, hcaps, -, -, -, -, -, -, -, -, -, -, -, -, -, -, hctors, hrm, hrn, -, -, -, -, htbl,
-    -, -, -, -, -⟩ := h
+    -, -, -, -, -, -⟩ := h
   refine EtaFamiliesClosed.ofFreshExt hE ?_
   -- the formers
   have hx1 : FreshEtaExt env (ConLeche.consNestedFormers (stored.take p.k) env) :=

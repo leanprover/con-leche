@@ -2276,6 +2276,13 @@ def checkNested (ops : CheckerOps m) (env : Env) (p : NestedParts) : m Env := do
   -- `ContainerModeled.ownPins`.  A failure is `.internal`.
   unless certOnly ops.mode (nestedOwnPinsOk env₄ p st) do
     throw (.internal "nested: the mimics' stored types are not the recorded pins")
+  -- **THE OWN-PIN TABLE IS THE ROUTE'S OWN** (K.43): the mimic recursors
+  -- this route stored are exactly `T₁.rec_1 … T₁.rec_numNested`, so the
+  -- own-pin reader's walk visits exactly that many entries at EVERY
+  -- instantiation.  CERTIFICATION-ONLY, gated; a failure is `.internal`.
+  unless certOnly ops.mode
+      (blockOwnMimicsOk env₄ (p.formers.headD default).1.name p.numNested) do
+    throw (.internal "nested: the installed block's mimic recursors are not the route's")
   pure env₄
 
 end ConLeche

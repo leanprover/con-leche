@@ -851,7 +851,11 @@ theorem checkMutualCore_inv {env envOut : Env} {b : MutualBlock} {F : Nat}
       -- route produced, at every member, is the block's own data.
       -- CERTIFICATION-ONLY, hence `certOnly`-gated (K.35's follow-up)
       certOnly mode (blockReadBackOk envOut b.nP (fms.zipIdx.map fun (f, mIdx) =>
-        (f.cvTa, (b.ownCtors mIdx).filterMap fun (J, _) => ctorsA[J]?))) = true := by
+        (f.cvTa, (b.ownCtors mIdx).filterMap fun (J, _) => ctorsA[J]?))) = true ∧
+      -- THE OWN-PIN TABLE IS EMPTY (K.43): this route installs no mimic
+      -- recursor, so `containerOwnPinsAt` of the block it produced is
+      -- `some []` at every instantiation
+      certOnly mode (blockOwnMimicsOk envOut f₀.cvTa.name 0) = true := by
   unfold checkMutualCore at h
   simp only at h
   obtain ⟨u₀, hshape, h⟩ := exceptBind_ok h
@@ -895,10 +899,15 @@ theorem checkMutualCore_inv {env envOut : Env} {b : MutualBlock} {F : Nat}
         (f.cvTa, (b.ownCtors mIdx).filterMap fun (J, _) => ctorsA[J]?))) = true
   case neg => rw [if_neg hrb] at h; close_throw
   rw [if_pos hrb] at h
+  try simp only [bind, Except.bind] at h
+  by_cases hom : certOnly (fueledOps mode F).mode
+      (blockOwnMimicsOk envT f₀.cvTa.name 0) = true
+  case neg => rw [if_neg hom] at h; close_throw
+  rw [if_pos hom] at h
   obtain rfl : envT = envOut := by simpa [pure, Except.pure] using h
   refine ⟨env₁, fms, f₀, tq₀, ctorsA, sortss, kinds, formers4, ctors4, cvRas, rulesOf,
     hformers, hf₀', htq₀', by cases u₁; exact hcross, beq_iff_eq.mp hL, hctors, hkinds,
-    hfo, hgd, hrectys, hrules, htbl, hrb⟩
+    hfo, hgd, hrectys, hrules, htbl, hrb, hom⟩
 
 /-- **The recognised block's install**: the recursor records' pin and
 the core. -/

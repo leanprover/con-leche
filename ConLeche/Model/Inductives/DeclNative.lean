@@ -246,9 +246,11 @@ theorem declNative_syntax (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂
         ctorsA sortss rhss bsT ppsAll uAV idxF dsF esF srcsF ksF fvsPF xFvsF xrestF eissF tssF
         fssZ := by
   obtain ⟨hnd₀, isRec, env₁, cvTa, p₁, p, ctorsA, sortss, kinds, cvRa, rhss, tfvs, trest, isorts,
-    hInd, rfl, hCtors, hK, hcaps, hwl, hopT2, hsorts, hFOk, -, hRec, hTbl, hrb⟩ := h
+    hInd, rfl, hCtors, hK, hcaps, hwl, hopT2, hsorts, hFOk, -, hRec, hTbl, hrb, -⟩ := h
   -- K.34's read-back is CERTIFICATION-ONLY (K.35's follow-up), so the run
-  -- records it `certOnly μ …`; this theorem is stated under `hμ`
+  -- records it `certOnly μ …`; this theorem is stated under `hμ`.  The
+  -- LAST `-` is K.43's `blockOwnMimicsOk` — the route's own-pin table,
+  -- which `ContainerModeled.ownPins` reads and nothing here does
   replace hrb := ConLeche.certOnly_elim hrb hμ
   obtain ⟨hshape, -⟩ := ConLeche.nativeParts?_inv hdp
   obtain ⟨-, hClps₀, hresT₀, hresR₀⟩ := ConLeche.nativeShape?_inv hshape

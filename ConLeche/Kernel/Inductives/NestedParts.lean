@@ -59,12 +59,6 @@ def Name.appendName (pre : Name) : Name → Name
   | .str p s => .str (Name.appendName pre p) s
   | .num p k => .num (Name.appendName pre p) k
 
-/-- Official's `Name.appendIndexAfter`: the index appended to the last
-string component (`_nested.List` ↦ `_nested.List_1`). -/
-def Name.appendIndexAfter : Name → Nat → Name
-  | .str p s, i => .str p (s ++ "_" ++ toString i)
-  | n, i => .str n ("_" ++ toString i)
-
 /-- Official's `name::replace_prefix`: `old` replaced by `new` where it
 is a prefix, the name itself otherwise. -/
 def Name.replacePrefix (old new : Name) : Name → Name

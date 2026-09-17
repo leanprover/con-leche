@@ -88114,52 +88114,118 @@ with zero fires and the control says the question is not vacuous.  **A
 fire here would be a finding about the elimination, and the fix is A2
 (the proof), never a narrowing of the accept set.**
 
-#### K.43 — NOT STARTED: the pins-free own-pin table, and the plan for it (2026-09-17, task #315, lane M7-3's DESIGN §U.66 (a))
+#### K.43 — the own-pin table is the route's own (2026-09-17, task #315, lane M7-3's DESIGN §U.66 (a))
 
-The one queue item this lane did not reach.  §U.66 (a) found that
-`ContainerModeled.ownPins`' "vacuous at a pins-free block" half is NOT
-derivable: `containerOwnPinsAtGo` looks up `Name.str C "rec_1"`, only a
-nested block whose FIRST former is `C` can put a `.recInfo` there,
-excluding that is an ENVIRONMENT-HISTORY invariant no record carries,
-and the naive strengthening ("every `.recInfo` is `I.rec` for a stored
-`I`") is refuted by the nested route's own mimics.  So it wants a
-certification-only Bool per install route, in K.34's pattern.
+**(This section replaces the "NOT STARTED, and the plan for it" note
+that stood here; the plan it recorded is what landed, with one
+correction — the Bool's LOOKUP had to move to the index, §(c).)**
 
-**THE PLAN, worked out here so the next session does not re-derive it:**
+##### (a) Why it is not derivable
 
-* the Bool goes in `Kernel/Inductives/NativeParts.lean` — K.34's home
-  for the shared cluster, which the native, mutual AND nested routes all
-  import (that move is why K.34 exists in that file at all):
+`containerOwnPinsAt` reads a stored block's own pins off its MIMIC
+recursors, walking `T₁.rec_1, T₁.rec_2, …` and stopping at the first
+name that is not a `.recInfo`.  `ContainerModeled.ownPins` must be
+VACUOUS at a block with no mimics — the native route's, the mutual
+route's and the five basis blocks' — and M7-3 found that **not
+derivable**: `some []` is a statement about what is ABSENT from the
+output environment; only a nested block whose FIRST former is `T₁` can
+put a `.recInfo` at `T₁.rec_1`; and excluding that is an
+environment-history invariant no record carries (`EnvModel`'s `wf` and
+`rec_ctors` do not, and the naive strengthening "every `.recInfo` is
+`I.rec` for a stored `I`" is refuted by the nested route's own mimics).
+
+##### (b) ONE Bool for all three routes
 
 ```lean
-  def blockOwnMimicsOk (env : Env) (first : Name) (n : Nat) : Bool
-    -- `first.rec_1 … first.rec_n` are `.recInfo` and `first.rec_(n+1)`
-    -- is not, so `containerOwnPinsAtGo`'s walk visits exactly `n`
+def blockOwnMimicsOk (env : Env) (first : Name) (n : Nat) : Bool :=
+  (List.range n).all (fun j => isRecInfoAt env (Name.appendIndexAfter (first.str "rec") (j + 1)))
+    && !isRecInfoAt env (Name.appendIndexAfter (first.str "rec") (n + 1))
 ```
 
-  The native and mutual routes pass `n := 0`, which IS §U.66 (a)'s
-  emptiness; the nested route passes `n := p.numNested`, so ONE Bool
-  serves all three and the nested row is not a special case.  Cost is
-  `n + 1` `find?`s per block and no term walk;
-* **`containerOwnPinsAt` does NOT have to move**, which is what makes
-  this cheap.  The Bool does not mention it: it is phrased over the
-  mimic NAMES, and the bridge from it to `containerOwnPinsAt envOut C
-  lvls Ds = some []` is a VERIFY lemma, and the Verify tier sees
-  `NestedInstall`.  Phrasing the Bool over the reader's own output would
-  have forced the whole own-pin cluster down into `NativeParts`;
-* one prerequisite: `Name.appendIndexAfter` sits in
-  `Kernel/Inductives/NestedParts.lean`, which is ABOVE `NativeParts`
-  (StructParts ← SumParts ← NativeParts ← MutualParts ← NestedParts).
-  Move that one four-line function down to `ConLeche/Kernel/Name.lean`;
-* sites: beside K.34's `blockReadBackOk` gate in `NativeInstall.lean`,
-  `MutualInstall.lean` and `checkNested`, mirrored in
-  `Cached/CheckerC.lean` at its three; conjuncts of `DeclNativeRun`,
-  `DeclMutualRun` and `DeclNestedRun` and of the three `_inv`s, with one
-  `-` added to each consumer's destructuring;
-* **measurement**: unlike every other record on this lane, the native
-  and mutual routes run on EVERY block of every stream, so this one owes
-  init-full AND Mathlib as well as the cone — K.34's own battery, with
-  K.34's `&& false` negative control beside it.
+The native and mutual routes pass `n := 0`, which IS §U.66 (a)'s
+emptiness; the nested route passes `p.numNested`, so the nested row is
+not a special case and the model gets the walk's LENGTH at every route.
+`certOnly`-gated, `.internal` on failure, one conjunct of
+`DeclNativeRun`, `DeclMutualRun` and `DeclNestedRun` and of the three
+inversions, beside K.34's read-back at each.
+
+Two things the plan predicted and that held:
+
+* **`containerOwnPinsAt` did NOT have to move.**  The Bool is phrased
+  over the mimic NAMES, so the bridge from it to
+  `containerOwnPinsAt envOut C lvls Ds = some []` is a Verify-tier
+  lemma and the Verify tier sees `NestedInstall`.  Phrasing it over the
+  reader's own output would have forced the whole own-pin cluster down
+  into `NativeParts`;
+* **`Name.appendIndexAfter` moved** from
+  `Kernel/Inductives/NestedParts.lean` to `ConLeche/Kernel/Name.lean`,
+  four lines, because the native and mutual routes have to spell the
+  mimic names and `NestedParts` is above both.
+
+##### (c) THE CORRECTION THE MEASUREMENT FORCED: `Env.find?` is a LIST scan, and this is the first record whose lookup MISSES
+
+Every earlier read-back record looks up a name the route has JUST
+consed, which `Env.find?` — `env.consts.find? (·.name == n)` over a
+newest-first cons list — answers in a few steps.  **K.43 asks about a
+name that is ABSENT, which is a scan of the WHOLE constant list, once
+per installed block, on every stream.**  Measured, before the fix:
+
+* **init-full: 539 923 677 913 against K.42/K.48's 539 231 661 135 —
+  +0.128 %**, far outside this stream's ±15 M noise;
+* the Mathlib nested cone: **182 834 229 218 against K.47's
+  182 501 766 587 — +0.18 %**, and it grows with the environment.
+
+The fix is the driver's own index.  `FEnv.find?` is an `Std.HashMap`
+lookup, so `blockOwnMimicsOkF` (`Kernel/Inductives/NativeInstallF.lean`)
+is `O(1)`, and the cached mirrors use it while the pure routes — which
+the binary never runs, and which the run relations record — keep the
+`Env` form.  The cached↔pure bridge already has `fe = mkFEnv fe.env` at
+both sites (`checkNativeTableS_run`, `mutualTablesS_run`), so
+`blockOwnMimicsOkF_eq` (`Verify/Cached/BridgeCSDecl.lean`) is four
+lines and the two are one value.  **The nested route's use tests the
+`some` side of that agreement on every run**: it asserts that the
+`numNested` mimic recursors the route just stored ARE found, so a
+divergence would turn the shadow gate red rather than passing silently.
+
+**MEASURED after the fix** (zero fires everywhere):
+
+* `tests/e2e/tower_nested.ndjson`: **518 081 759 / 518 077 934 /
+  518 089 153 instructions:u against K.47's 518 073 820 / 518 067 628 /
+  518 082 872 — the same band**;
+* the Mathlib nested cone, exit 0, **4 926 accepted**, 41/41 `accept`:
+  **182 482 301 755 / 182 471 507 029 / 182 486 643 775 against K.47's
+  182 501 766 587 — −0.011 %, free**;
+* **init-full**, exit 0, **53 093 accepted**: **539 234 113 937 against
+  539 231 661 135 — +2.5 M, inside the noise**;
+* **Mathlib** (`--jobs=8`, `ulimit -v 32000000`), which is where a
+  whole-list scan would have shown worst: exit 0, **654 504 accepted —
+  master's own count** — at **12 015 570 983 439 instructions:u against
+  K.34's recorded 12 015 482 741 002, +0.0007 %**.  That comparison is
+  the right one for this record even though many K-rows landed between:
+  K.35–K.48 are all NESTED-route-only and the nested route is not on the
+  dispatch, so nothing on the native/mutual path moved between K.34 and
+  here;
+* nested-shadow **27/27**; `tests/arena.sh` **EXIT 0**.
+
+**Negative control**, K.34's own: `&& false` inside the executed twin
+turns the FIRST inductive block of every stream into
+`internal error: direct rec: the installed block carries a mimic
+recursor [at inductive And, fold position 10]`, and nested-shadow to
+**0/27**.  The check is reached at every block of every route.  (Note
+the twin: poisoning the PURE Bool alone fires nothing, because the
+binary runs the cached mirror — the same trap K.45's control hit.)  The
+patch was reverted by inverse string replacement and the rebuilt binary
+is byte-identical to the pre-control one.
+
+**Ledger row**: CERT-ONLY, category **(S)** — a self-check on the
+checker's own generated artefacts.  The question is whether OUR output
+environment carries a mimic recursor under a name OUR route would have
+had to mint, and official records nothing of the kind.  The exclusion
+rests on the routes' own freshness check (a block whose first member is
+`T₁` cannot install if `T₁` is already there) together with the
+recursor-naming checks that keep a stream from naming a recursor
+`T₁.rec_1`, so a fire would be a finding about the environment's
+history rather than about the stream.
 
 #### K.48 — the pins' levels are the block's (2026-09-17, task #315, lane M7-3's DESIGN §U.69 (e))
 

@@ -219,6 +219,9 @@ def checkNativeTailS (fe : FEnv) (q : NativePass FEnv) : CheckCM FEnv := do
   -- the read-back (K.34), as in the pure route
   unless certOnly mode (blockReadBackOk feOut.env p.nP [(q.cvTa, q.ctorsA)]) do
     throw (.internal "direct rec: the installed block does not read back as its own")
+  -- the own-pin table is empty (K.43), as in the pure route
+  unless certOnly mode (blockOwnMimicsOkF feOut q.cvTa.name 0) do
+    throw (.internal "direct rec: the installed block carries a mimic recursor")
   pure feOut
 
 /-- `checkNative` through the index (task #188): the pass at the
@@ -304,6 +307,9 @@ def checkMutualCoreS (fe : FEnv) (b : MutualBlock)
   unless certOnly mode (blockReadBackOk feOut.env nP (fms.zipIdx.map fun (f, mIdx) =>
       (f.cvTa, (b.ownCtors mIdx).filterMap fun (J, _) => ctorsA[J]?))) do
     throw (.internal "mutual: the installed block does not read back as its own")
+  -- the own-pin table is empty (K.43), as in the pure route
+  unless certOnly mode (blockOwnMimicsOkF feOut (f₀.cvTa.name) 0) do
+    throw (.internal "mutual: the installed block carries a mimic recursor")
   pure feOut
 
 /-- `checkMutual` through the index. -/
@@ -453,6 +459,10 @@ def checkNestedS (fe : FEnv) (p : NestedParts) : CheckCM FEnv := do
   -- pure route
   unless certOnly mode (nestedOwnPinsOk fe₄.env p st) do
     throw (.internal "nested: the mimics' stored types are not the recorded pins")
+  -- the own-pin table is the route's own (K.43), as in the pure route
+  unless certOnly mode
+      (blockOwnMimicsOkF fe₄ (p.formers.headD default).1.name p.numNested) do
+    throw (.internal "nested: the installed block's mimic recursors are not the route's")
   pure fe₄
 
 /-- The modeled inductive block (mirrors `checkModeled`), returning
