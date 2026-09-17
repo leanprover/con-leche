@@ -1286,6 +1286,30 @@ theorem nestedBlockModel_targetView (m : EnvModel V env₂) (ψ : Name → Nat) 
   funext t
   exact ofNested_uT t ψ
 
+/-- **A pin group of the run, VIEWED** (task #315 L-E, DESIGN §U.68):
+`NestedPinGroup`'s facts as the abstract `PinGroupView` the container
+instance transfer speaks — the group's segment, its container's
+members by name, its pins' shared level assignment, level arguments and
+components, and the container's arities and parameter fit, all read at
+the group's BASE pin. -/
+theorem pinGroupView_of_group {m : EnvModel V env₂} {q₀ kJ : Nat} {dJ : BlockModel V}
+    (G : PG m q₀ kJ dJ)
+    (hDsE : ∀ i', i' < kJ → ((D).pinAt (q₀ + i')).DsE = ((D).pinAt q₀).DsE) :
+    PinGroupView (D) dJ q₀ kJ := by
+  have h0 : q₀ + 0 = q₀ := Nat.add_zero q₀
+  refine ⟨G.seg, G.kpos, G.kEq, fun i' hi' => ?_, G.same, hDsE, G.lvls, fun i' hi' ψ => ?_,
+    G.pinNP, G.pinNIdx, G.pinPps, fun ψ => ?_, fun ψ => ?_, fun ψ ρ as hsp => ?_⟩
+  · obtain ⟨cvT, cvR, mI, rP, rules, hI⟩ := G.rep i' hi'
+    exact hI.member.symm
+  · have := G.pinU 0 G.kpos ψ i' hi'
+    rwa [h0] at this
+  · have := G.pinDsLen 0 G.kpos ψ
+    rwa [h0] at this
+  · have := G.w 0 G.kpos ψ
+    rwa [h0] at this
+  · have := G.DsFit 0 G.kpos ψ ρ as hsp
+    rwa [h0] at this
+
 /-- **The pins' shapes of the block being installed**, at an assignment
 `B` whose value at every pin's container's group is the group's block
 model (`hgroupsB`: the groups, with their model NAMED by `B`): pin `q`'s
@@ -1305,21 +1329,7 @@ theorem nestedPinShapes_of (m : EnvModel V env₂) {B : ContainerInfo → BlockM
   intro q hq
   obtain ⟨ci, hci⟩ := hcont q hq
   obtain ⟨q₀, kJ, i, hqe, hi, G, hDsE⟩ := hgroupsB q hq ci hci
-  refine ⟨q₀, kJ, i, ci, hqe, hi, hci, ?_, ?_⟩
-  · -- the group, viewed
-    have h0 : q₀ + 0 = q₀ := Nat.add_zero q₀
-    refine ⟨G.seg, G.kpos, G.kEq, fun i' hi' => ?_, G.same, hDsE, G.lvls, fun i' hi' ψ => ?_,
-      G.pinNP, G.pinNIdx, G.pinPps, fun ψ => ?_, fun ψ => ?_, fun ψ ρ as hsp => ?_⟩
-    · obtain ⟨cvT, cvR, mI, rP, rules, hI⟩ := G.rep i' hi'
-      exact hI.member.symm
-    · have := G.pinU 0 G.kpos ψ i' hi'
-      rwa [h0] at this
-    · have := G.pinDsLen 0 G.kpos ψ
-      rwa [h0] at this
-    · have := G.w 0 G.kpos ψ
-      rwa [h0] at this
-    · have := G.DsFit 0 G.kpos ψ ρ as hsp
-      rwa [h0] at this
+  refine ⟨q₀, kJ, i, ci, hqe, hi, hci, pinGroupView_of_group G hDsE, ?_⟩
   · -- the shape, at the base pin's record and the dropped lists
     intro ψ ρp hρp i' j hi' hj cvT caps hf
     have hsh := G.shape i' hi' cvT caps hf ψ ρp hρp i' hi' j hj
