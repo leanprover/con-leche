@@ -339,7 +339,7 @@ at every class and every recursive field, the auxiliary block's slot
 at ITS least tuple is the extended slot of the nested block model at
 the COMPOSED carrier — the two tables are one (`tgtsT_eq`,
 `teleAtT_eq`, `eisAtT_eq`) and the two families agree at every index
-spine the slot ever reads (`slotSet_congr_app` at the fibre identity
+spine the slot ever reads (`slotSet_congr_appU` at the fibre identity
 F3, the readings' fits `rec_eis_fit`/`refl_eis_fit` at the scratch
 block). -/
 theorem NestedTailIn.slotT_eq {mpA : EnvModelM V μ ENVA} {cvRas : List ConstantVal}
@@ -375,7 +375,7 @@ theorem NestedTailIn.slotT_eq {mpA : EnvModelM V μ ENVA} {cvRas : List Constant
         ((D).Φ ψ (consList as ρ))) ((D).tgtsT PC c j l))
   rw [I.tgtsT_eq hjA hl, I.teleAtT_eq ψ hjA l, I.eisAtT_eq ψ hjA l,
     I.famAt_lfp ψ ρ as hsp htgt, ofNested_uT]
-  refine slotSet_congr_app fun bs hbs => ?_
+  refine slotSet_congr_appU fun bs hbs => ?_
   refine I.fibreAt ψ ρ as hsp htgt _ ?_
   rcases hk with hk | hk
   · have htn : ((DA).tssF c j ψ).getD l [] = [] :=
@@ -734,7 +734,7 @@ telescope and index expressions are the copy's (`teleAtT_eq`,
 `eisAtT_eq`), its target is (`tgtsT_eq`), and the target class's index
 tuple reads back its fitting spine (`isOfW_tupT` at the index
 readings' fit `IsBlockModels.eis_fit`) — the bodies agree at the
-FITTING telescope spines only, whence `piTele_congr`. -/
+FITTING telescope spines only, whence `piTele_congr_acc`. -/
 theorem NestedTailIn.ihPi_eq {mpA : EnvModelM V μ ENVA} {cvRas : List ConstantVal}
     (S : NestedScratchOut F env b fms f₀ ctorsA kinds mp₁ ppsF W idxF dsF esF srcsF fvsPF xFvsF
       xrestF eissF tssF stored mpA cvRas)
@@ -775,7 +775,7 @@ theorem NestedTailIn.ihPi_eq {mpA : EnvModelM V μ ENVA} {cvRas : List ConstantV
   have hfs' : SpineFit (consList as ρ) ((((DA).Fss c ψ).getD j []).take i') (fs.take i') :=
     spineFit_take' hfs (by rw [hIA.Fss_length hjA]; omega)
   rw [I.teleAtT_eq ψ hjA i', I.eisAtT_eq ψ hjA i', I.tgtsT_eq hjA hi'A, if_pos htgtT]
-  refine piTele_congr _ [] fun bs hbs => ?_
+  refine piTele_congr_acc _ [] fun bs hbs => ?_
   rw [fitsS_teleOfFields] at hbs
   rw [List.nil_append]
   have hEis : SpineFit (consList as ρ) ((DA).IdsM ((DA).tgts c j i') ψ)

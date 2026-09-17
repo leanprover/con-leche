@@ -14,7 +14,7 @@ at one and the same stored leaf.
 * `IsBlockModels.ctorsTyped` — the constructors of ANY block model of
   an `EnvModelM` are typed at their types' readings (the run's
   `mem_type` at each stored constructor);
-* `slotSet_congr_app` (with `piTele_congr`) — a recursive slot only
+* `slotSet_congr_appU` (with `piTele_congr_acc`) — a recursive slot only
   sees its family through the applications at FITTING spines;
 * `NestedTailIn.fibreAt` — **the fibre identity**: the scratch block's
   least tuple and the composed block's agree pointwise at fitting index
@@ -58,7 +58,7 @@ theorem IsBlockModels.ctorsTyped {env : Env} (mp : EnvModelM V μ env) {d : Bloc
 
 /-- The nested product over a telescope only sees its body at FITTING
 spines. -/
-theorem piTele_congr {v : Nat} {B B' : List V → V} :
+theorem piTele_congr_acc {v : Nat} {B B' : List V → V} :
     ∀ {n : Nat} (T : TeleS V n) (acc : List V),
       (∀ bs, FitsS T bs → B (acc ++ bs) = B' (acc ++ bs)) →
       piTele v T B acc = piTele v T B' acc
@@ -67,21 +67,21 @@ theorem piTele_congr {v : Nat} {B B' : List V → V} :
     rw [List.append_nil] at this
     exact this
   | _, .cons A T, acc, h => by
-    refine piR_congr fun x hx => piTele_congr (T x) (acc ++ [x]) fun bs hfit => ?_
+    refine piR_congr fun x hx => piTele_congr_acc (T x) (acc ++ [x]) fun bs hfit => ?_
     rw [List.append_assoc, List.singleton_append]
     exact h (x :: bs) ⟨hx, hfit⟩
 
 /-- **The recursive slot's congruence**: two families whose
 applications agree at every spine FITTING the field's telescope give
 the same slot. -/
-theorem slotSet_congr_app {w u u' : Nat} {ρ : Nat → V} {tl : List (Nat × Nat × AnnotTerm)}
+theorem slotSet_congr_appU {w u u' : Nat} {ρ : Nat → V} {tl : List (Nat × Nat × AnnotTerm)}
     {Eis : List AnnotTerm} {X X' : V}
     (h : ∀ bs : List V, SpineFit ρ (tl.map (·.2.2)) bs →
       SetTheory.app X (tupW u (Eis.map (interp V (consList bs ρ))))
         = SetTheory.app X' (tupW u' (Eis.map (interp V (consList bs ρ))))) :
     slotSet w u ρ tl Eis X = slotSet w u' ρ tl Eis X' := by
   unfold slotSet
-  refine piTele_congr _ [] fun bs hfit => ?_
+  refine piTele_congr_acc _ [] fun bs hfit => ?_
   rw [List.nil_append]
   exact h bs (fitsS_teleOfFields.mp hfit)
 
@@ -285,6 +285,7 @@ theorem NestedTailIn.pinSegAt {q₀ kJ i : Nat} {dJ : BlockModel V}
   have hρp' : Sat V (((ppsF 0 ψ).take b.nP).map (·.2.2)).reverse (consList as ρ) := hρp
   have hOk' := nestedLfpOk_of_formers h I.hμ I.out.bk ψ (consList as ρ) hρp'
     (nestedPinBound_of mp₂.base2 I.out.stage.groups ψ _ hρp)
+  obtain ⟨cvTJ, capsJ, hfindJ, -⟩ := G.stored i hi
   have hpb : (D).pinCar ψ (consList as ρ)
         (lfpTuple ((D).w ψ) (D).k ((D).idx ψ (consList as ρ)) ((D).Φ ψ (consList as ρ)))
         (q₀ + i'')
@@ -298,7 +299,8 @@ theorem NestedTailIn.pinSegAt {q₀ kJ i : Nat} {dJ : BlockModel V}
     ofNested_pin_block_of_inst mp₂.base2.acval hOk' (nestedShape_of_formers h I.out.bk ψ) G.seg
     G.reps (G.typed _) (G.pinsTyped _) G.kEq (G.w i hi ψ) (nestedU_pin_group mp₂.base2 G hi ψ)
     (G.inj _) (dJ.satOfSpine (G.DsFit i hi ψ ρ as hsp)) (G.idx i hi ψ)
-    (fun i' hi' j => G.grp I.out.grouped h.lenA ψ hi' j) (G.shape i hi ψ _ hρp)
+    (fun i' hi' j => G.grp I.out.grouped h.lenA ψ hi' j)
+    (G.shape i hi cvTJ capsJ hfindJ ψ _ hρp)
     (G.entry i hi ψ _ hρp) hi''
   have hpc : (D).pinCar ψ (consList as ρ)
         (lfpTuple ((D).w ψ) (D).k ((D).idx ψ (consList as ρ)) ((D).Φ ψ (consList as ρ)))
@@ -313,7 +315,7 @@ theorem NestedTailIn.pinSegAt {q₀ kJ i : Nat} {dJ : BlockModel V}
 `CopyCtorInst.fit_iff_at`: the auxiliary block's slot at ITS least
 tuple is the copy's slot at the tuple `segJoin`ed from the composed
 least tuple and the container's own — the two families agree at every
-index spine the slot ever reads (`slotSet_congr_app`, the index
+index spine the slot ever reads (`slotSet_congr_appU`, the index
 readings' fits `IsBlockModels.rec_eis_fit`/`refl_eis_fit` at the
 scratch block), by the fibre identity `fibreAt` at a target outside
 the group and by `pinSegAt` at a target inside it. -/
@@ -406,7 +408,7 @@ theorem NestedTailIn.slotAt_aux {mpA : EnvModelM V μ
     · rw [segJoin_out _ _ hin]
   -- the slot, at a MEMBER target of the scratch block
   rw [hTG, hTL, hEI, (DA).slotAt_of_mem htgt]
-  refine slotSet_congr_app fun bs hbs => ?_
+  refine slotSet_congr_appU fun bs hbs => ?_
   refine key ((DA).tgts (p.k + q₀ + i) j i') htgt _ ?_
   rcases hk with hk | hk
   · -- a finitary recursive field: the telescope is empty, the spine is

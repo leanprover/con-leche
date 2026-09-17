@@ -470,11 +470,12 @@ theorem NestedTailIn.ctorPinFieldsFit {mpA : EnvModelM V μ ENVA} {cvRas : List 
         List.getD_eq_getElem?_getD, List.getElem?_eq_getElem (by rw [hlenE]; exact hl),
         Option.getD_some]
   -- (3) the composed fit at the copy's global tables
+  obtain ⟨cvTJ, capsJ, hfindJ, -⟩ := G.stored i hi
   have ht := tupW_mem (u := dJ.uM i (((D).pinAt (q₀ + i)).ψJ ψ)) hEs
   have hcomposed := ((hfit_at_of_inst mp₂.base2.acval G.reps (G.typed _) (G.pinsTyped _) G.kEq hwJ
       (nestedU_pin_group mp₂.base2 G hi ψ) hρJ (G.idx i hi ψ)
       (fun i' hi' j => G.grp I.out.grouped I.out.facts.lenA ψ hi' j)
-      (G.shape i hi ψ _ hρp) (G.entry i hi ψ _ hρp) i hi _ ht jc fs).mpr
+      (G.shape i hi cvTJ capsJ hfindJ ψ _ hρp) (G.entry i hi ψ _ hρp) i hi _ ht jc fs).mpr
       ⟨hjJlt, hfitsJ, hidxeq⟩).2.2.1
   -- (4) the scratch block's own fit
   have hck : p.k + q₀ + i < b.k := by rw [I.out.bk]; have := G.seg; omega

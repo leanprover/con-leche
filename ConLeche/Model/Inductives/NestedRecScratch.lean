@@ -190,8 +190,9 @@ theorem NestedTailIn.scratch :
   -- the constructors' stage and the block model at it
   obtain ⟨mpA, hEA, hcons, hleafM, hag⟩ :=
     mutualCtorsStage I.out.facts I.hμ I.hE I.out.nodup I.out.grouped
-  obtain ⟨hreps, htyped, hstored⟩ :=
+  obtain ⟨hrepsAt, htyped, hstored⟩ :=
     blockReps_of I.hμ I.out.nodup h2 I.out.grouped I.out.facts mpA hcons hleafM hag
+  have hreps : IsBlockModels mpA.base2 (DA) := hrepsAt.toIsBlockModels
   have hd : MutualBlockModelOf env b fms ctorsA (DA) :=
     mutualBlockModelOf_ofMutual env b fms ctorsA I.out.facts.first _ ppsF W _ _ _ _ _ _ _ _ _ _
       _ _ _ _ _ _ _ _ _ _
