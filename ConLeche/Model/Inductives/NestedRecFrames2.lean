@@ -99,6 +99,9 @@ variable {env : Env} {F : Nat} {mp : EnvModelM V μ env} {p : NestedParts} {envO
 local notation "ENVA" =>
   (ConLeche.consMutualCtors b.nP ctorsA (ConLeche.consMutualFormers fms env))
 
+local notation "ENV2" => (ConLeche.consNestedCtors ctorsR.flatten
+  (ConLeche.consMutualFormers (fms.take p.k) env))
+
 /-- the COMPOSED nested block's block model -/
 local notation "D" => (nestedBlockModel (V := V) p b fms f₀ ctorsA kinds env ppsF W idxF dsF esF
   srcsF fvsPF xrestF eissF tssF ctorsR dsR xFvsR pinsS)
@@ -872,6 +875,64 @@ theorem NestedTailIn.minorsAt {mpA : EnvModelM V μ ENVA} {cvRas : List Constant
     if_pos (by rw [I.nCtorsT_eq S]; exact (DA).minorIdx_lt hcb hjl), if_pos hc',
     hID.isOfW_tupT I.out.reps I.pinLaws hρp hc' hisT, ← hEs, nestedInjT_eq]
   exact hres
+
+
+/-! ### The nine clauses -/
+
+/-- **THE READING'S FRAMES AT ONE CLASS** (PLAN-M7 §1e step 2): every
+spine fitting class `c`'s RESTORED recursor type's reading decomposes
+into the block's frame, with the frame's motives and minors typed
+semantically at the COMPOSED classes and the conclusion read off.
+
+By the TRANSFER (`spineFit_transfer`) the spine fits the SCRATCH
+reading of the same recursor, whose frame inversion is the mutual
+`IsBlockModels.spineFit_recData_inv` at the auxiliary block's own
+block model; the frame's clauses then move to the composed model
+through `idsT_iff`, `majorAt`, `motivesAt` and `minorsAt`, and the
+conclusion by `interp_mutualConcAV_at`. -/
+theorem NestedTailIn.framesAt {mpA : EnvModelM V μ ENVA} {cvRas : List ConstantVal}
+    (S : NestedScratchOut F env b fms f₀ ctorsA kinds mp₁ ppsF W idxF dsF esF srcsF fvsPF xFvsF
+      xrestF eissF tssF stored mpA cvRas)
+    (hnames : NestedCtorPinNames env p st)
+    (hctorsJ : ∀ (q₀ kJ i : Nat) (dJ : BlockModel V), PG mp₂.base2 q₀ kJ dJ → i < kJ →
+      ∀ (ci : ContainerInfo) (J : ContainerMember),
+        ConLeche.containerInfo? env ((D).pinAt (q₀ + i)).J = some ci → J ∈ ci.members →
+        J.name = ((D).pinAt (q₀ + i)).J → (dJ.ctorsM i).map (·.1.name) = J.ctors.map (·.name))
+    (hK35 : NestedRecTysAuxOk p st b stored pinsS)
+    {c : Nat} (hc : c < b.k) (ψ : Name → Nat) (ρ : Nat → V)
+    {rdsR : List (Nat × Nat × AnnotTerm)} {conc : AnnotTerm}
+    (hread : denoteMeta mp₂.base2.acval (ENV2) ψ 0 (nestedRecCvAt p.k cvRms cvRns c).type
+      = some (mkPisAV rdsR conc))
+    (hlenR : rdsR.length = b.nP + (b.k + b.ctors.length + ((fms.getD c default).nIdx + 1))) :
+    (D).ReadingFramesT PC ψ (b.elimLevel.eval ψ) rdsR conc c ρ := by
+  obtain ⟨f, hf⟩ : ∃ f, fms[c]? = some f :=
+    ⟨_, List.getElem?_eq_getElem (by rw [I.out.facts.lenFms]; exact hc)⟩
+  have hfD : (fms.getD c default).nIdx = f.nIdx := by rw [List.getD_eq_getElem?_getD, hf]; rfl
+  have hnI : (DA).nIdxAt c = (fms.getD c default).nIdx := by
+    rw [hfD]; exact mutualBlockModel_nIdxAt hf
+  -- the conclusion is the class's `mutualConcAV`
+  obtain ⟨-, u, rds, -, hspec⟩ := I.classRecTy hc
+  obtain ⟨hr, hl, -, -, -⟩ := hspec ψ
+  obtain ⟨rfl, rfl⟩ := mkPisAV_inj (by rw [hlenR, hl]) (Option.some.inj (hread.symm.trans hr))
+  intro xs hxs
+  have hxsA : SpineFit ρ (((DA).blockRds mpA.base2 b.elimLevel c ψ).map (·.2.2)) xs :=
+    (I.spineFit_transfer S hnames hctorsJ hK35 hc ψ ρ hread hlenR xs).mp hxs
+  obtain ⟨ps, Msl, msl, is, t, rfl, hF, his, ht⟩ :=
+    S.reps.spineFit_recData_inv (S.readings ψ) hc hxsA
+  have hisLenA : is.length = (DA).nIdxAt c := by
+    obtain ⟨cvT, cvR, mI, rP, rules, hIA⟩ := S.reps c hc
+    rw [his.length_eq, hIA.IdsM_length ψ]
+  refine ⟨ps, Msl, msl, is, t, rfl, (D).satOfSpine hF.params, ?_, ?_, ?_,
+    (I.idsT_iff ψ ρ ps hc is).mpr his, (I.majorAt ψ ρ ps hF.params hc his t).mp ht,
+    I.motivesAt S ψ ρ hF.params hF.motives,
+    I.minorsAt S ψ ρ hF.params hF.mslLen hF.minsLen hF.motives hF.minors, ?_⟩
+  · rw [I.kT]; exact hF.mslLen
+  · rw [I.nCtorsT_eq S]; exact hF.minsLen
+  · rw [I.nIdxT hc, ← hnI]; exact hisLenA
+  · have hcon := interp_mutualConcAV_at (DA) ρ (ps := ps) (Msl := Msl) (msl := msl) (is := is) t
+      hF.mslLen hF.minsLen hc hisLenA
+    rw [I.nCtorsA_eq S, hnI] at hcon
+    exact hcon
 
 end Run
 
