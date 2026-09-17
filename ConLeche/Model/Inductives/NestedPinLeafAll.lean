@@ -198,7 +198,7 @@ one container `dK`'s member `i`, constructor `j` twice — once as the
 outer container's own copy of a pin, at its pin frame and level
 assignment, once as the BLOCK's copy of the image pin, at the block's —
 and the two agree because the level assignments agree on the
-constructor's level parameters (`targetHead_corr`, `ContainerModeled.pinψ`)
+constructor's level parameters (`targetPin_corr`, `ContainerModeled.pinψ`)
 and the frames on the components' values (`PinCorr`'s `Ds`,
 `interp_instAll`).  The class data are then one datum
 (`IsBlockModel.ctor_params`) and every reading is below the parameter
@@ -633,7 +633,7 @@ at the pin's components applied to the index spine; the copy's slot at
 the container's pin frame to the block pin's frame (the two differ in
 their base only, below the components). -/
 theorem copyEntryAt_of_pinCorr {env : Env} {m : EnvModel V env} {TV : TargetView V}
-    {dJ : BlockModel V} {ψJ : Name → Nat} {Ds : List AnnotTerm} {DsE : List Expr}
+    {dJ : BlockModel V} {ψJ : Name → Nat} {Ds : List AnnotTerm}
     {tg : Nat → Nat}
     {tls : List (List (Nat × Nat × AnnotTerm))} {Eis : List (List AnnotTerm)} {ρp : Nat → V}
     {i j l : Nat}
@@ -643,7 +643,7 @@ theorem copyEntryAt_of_pinCorr {env : Env} {m : EnvModel V env} {TV : TargetView
     (hw : dJ.w ψJ = TV.w) (hl : l < ((dJ.Fss i ψJ).getD j []).length)
     (hr : ((dJ.rss i).getD j []).getD l false = true) (hnt : ¬ dJ.tgts i j l < dJ.k)
     {lpsJ : List Name} {lvlsJ : List Level}
-    (hcorr : PinCorr TV m.acval dJ ψJ Ds DsE lpsJ lvlsJ (tg l) (dJ.tgts i j l - dJ.k))
+    (hcorr : PinCorr TV m.acval dJ ψJ Ds lpsJ lvlsJ (tg l) (dJ.tgts i j l - dJ.k))
     (htl : (tls.getD l []).map (·.2.2)
       = instTele Ds l ((((dJ.tlss i ψJ).getD j []).getD l []).map (·.2.2)))
     (hEis : Eis.getD l [] = (((dJ.Eiss i ψJ).getD j []).getD l []).map
@@ -1595,7 +1595,7 @@ theorem nestedGroupLe_of_entries (hμ : μ.verifiedChecks = true)
 DESIGN §U.51 (c), §U.54 (b)): the container `J`'s own copy of one of its
 pins' constructors and the BLOCK's copy of the image pin are copies of
 ONE constructor of ONE container `dK`, at two level assignments that
-agree on the constructor's level parameters (`targetHead_corr`,
+agree on the constructor's level parameters (`targetPin_corr`,
 `ContainerModeled.pinψ`) and two frames that agree on the components'
 values (`PinCorr`'s `Ds`, `interp_instAll`).  So a spine fitting the
 container-side copy — its slots reading the outer tuple `T` outside the
@@ -1614,7 +1614,7 @@ travel, its slots' bound does. -/
 theorem copyTransfer_pin {env : Env} {m : EnvModel V env} {dK : BlockModel V}
     {pcK : Nat → PinCtors V} {acval : Name → (Name → Nat) → AnnotTerm}
     {TV₁ TV₂ : TargetView V} {ψ₁ ψ₂ : Name → Nat} {Ds₁ Ds₂ : List AnnotTerm}
-    {DsE₁ DsE₂ : List Expr} {lpsK : List Name} {lvls₁ lvls₂ : List Level}
+    {lpsK : List Name} {lvls₁ lvls₂ : List Level}
     {tg₁ tg₂ : Nat → Nat} {tls₁ tls₂ : List (List (Nat × Nat × AnnotTerm))}
     {Eis₁ Eis₂ : List (List AnnotTerm)} {ρ₁ ρ₂ : Nat → V} {base₁ base₂ kK i j : Nat}
     {Fs₁ Fs₂ Es₁ Es₂ : List AnnotTerm} {rs₁ rs₂ : List Bool} {Y T Z : Nat → V}
@@ -1644,8 +1644,8 @@ theorem copyTransfer_pin {env : Env} {m : EnvModel V env} {dK : BlockModel V}
       dK.slotAtT pcK ψ₂ Y i j l (consList fs₁ (consList (Ds₂.map (interp V ρ₂)) ρ₂))
         ⊆ˢ interp V (consList fs₁ (consList (Ds₂.map (interp V ρ₂)) ρ₂))
             (((dK.Fss i ψ₂).getD j []).getD l default))
-    (h₁ : CopyCtorShape TV₁ acval dK ψ₁ Ds₁ DsE₁ lpsK lvls₁ tg₁ tls₁ Eis₁ ρ₁ i j base₁ kK Fs₁ rs₁ Es₁)
-    (h₂ : CopyCtorShape TV₂ acval dK ψ₂ Ds₂ DsE₂ lpsK lvls₂ tg₂ tls₂ Eis₂ ρ₂ i j base₂ kK Fs₂ rs₂ Es₂)
+    (h₁ : CopyCtorShape TV₁ acval dK ψ₁ Ds₁ lpsK lvls₁ tg₁ tls₁ Eis₁ ρ₁ i j base₁ kK Fs₁ rs₁ Es₁)
+    (h₂ : CopyCtorShape TV₂ acval dK ψ₂ Ds₂ lpsK lvls₂ tg₂ tls₂ Eis₂ ρ₂ i j base₂ kK Fs₂ rs₂ Es₂)
     (hent₁ : CopyEntryOut dK ψ₁ Ds₁ tg₁ tls₁ Eis₁ ρ₁ i j base₁ kK Fs₁ rs₁ TV₁.w TV₁.u T)
     (hL₁ : ∀ l, l < Fs₁.length → ((dK.rss i).getD j []).getD l false = true →
       ¬ dK.tgts i j l < dK.k → T (tg₁ l) = Y (dK.tgts i j l))

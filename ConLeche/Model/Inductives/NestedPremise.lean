@@ -177,7 +177,7 @@ container — its ROOT (DESIGN §U.55 (c)) — whose classes are its members
 and its OWN pins (`BlockModel.kT`); `dR`, `ψR`, `ρR` are the root's
 model, level assignment and parameter frame, `D`, `ψ`, `ρp` the block's.
 The clauses are exactly what the transfer consumes at the pair: ONE
-container (`name` — which `targetHead_corr` supplies at a rewritten
+container (`name` — which `targetPin_corr` supplies at a rewritten
 field and the group views at a member), ONE level assignment on that
 container's own level parameters (`psi` — `ContainerModeled.pinψ` and
 `Level.substFn_map_subst`), ONE frame on its parameters (`frame` —
@@ -252,7 +252,7 @@ the carrier `acval`. -/
   DsE := fun t => (d.pinAt (t - d.k)).DsE
   EA := targetRead acval d.memberNames d.pins d.nP d.k ψ
   J := fun t => if t < d.k then d.memberName t else (d.pinAt (t - d.k)).J
-  lvls := fun t => (d.pinAt (t - d.k)).lvls
+  lvls := fun t => if t < d.k then [] else (d.pinAt (t - d.k)).lvls
 
 /-- **A pin group of a stored block, viewed** (task #315 L-E; the
 run's `NestedPinGroupSyn` made abstract): the pins `[q₀, q₀ + kJ)` of
@@ -305,7 +305,7 @@ composes (`nestedPinLeaf_all`). -/
       ∀ (cvT : ConstantVal) (caps : IndCaps),
         env.find? (d.pinAt (q₀ + i')).J = some (.indInfo cvT caps) →
       CopyCtorShape (d.targetView m.acval ψ) m.acval (B ci) ((d.pinAt q₀).ψJ ψ) ((d.pinAt q₀).Ds ψ)
-        (d.pinAt q₀).DsE cvT.levelParams (d.pinAt q₀).lvls (fun l => (pc (q₀ + i')).tgts j l)
+        cvT.levelParams (d.pinAt q₀).lvls (fun l => (pc (q₀ + i')).tgts j l)
         (((pc (q₀ + i')).tlss ψ).getD j [])
         (((pc (q₀ + i')).Eiss ψ).getD j []) ρp i' j (d.k + q₀) kJ
         (((pc (q₀ + i')).Fss ψ).getD j []) ((pc (q₀ + i')).rss.getD j [])
