@@ -1430,6 +1430,37 @@ private theorem constsResolve_lamTower {envR : Env} :
     simp only [Expr.constsResolve, Bool.and_eq_true] at h'
     exact constsResolve_lamTower rest h'.2
 
+/-- **THE RESTORED RULE'S DOOR** (`restoreRecTys_at`'s twin at the
+RULES): `restoreRules` runs `inferTypeCore` on every restored
+right-hand side and keeps it closed and fvar-free, so the claims layer
+(`ClaimsAt.inferRow` at the EMPTY context) hands over the reading AND
+its grading at every frame — the two objects `recRuleLawOf` calls
+`hreadRa` and `hwdRa`, and the two `ruleVal` consumes as `hRa`/`hwdR`.
+
+The `restoreRecTys_at` twin exists for the TYPE (`classRestore`); this
+is the rule's, and nothing else in the tree produced it. -/
+theorem NestedTailIn.ruleRhsDoor
+    {mpP : EnvModelM V μ
+      (ConLeche.provisionNestedRecs (nestedProvList p stored cvRms cvRns) ENV2)}
+    {rhs : Expr}
+    (hb : rhs.looseBVarsBounded 0 = true) (hfv : rhs.hasFvar = false)
+    (hinf : ∃ ty : Expr, ConLeche.inferTypeCore μ
+      (ConLeche.provisionNestedRecs (nestedProvList p stored cvRms cvRns) (ENV2)) F 0 rhs = .ok ty)
+    (ψ : Name → Nat) :
+    ∃ Ra : AnnotTerm,
+      denoteMeta mpP.base2.acval
+          (ConLeche.provisionNestedRecs (nestedProvList p stored cvRms cvRns) (ENV2)) ψ 0 rhs
+        = some Ra ∧
+      ∀ ρ : Nat → V, WellDenotedV V ρ Ra := by
+  obtain ⟨ty, hi⟩ := hinf
+  have hws : Expr.WScoped 0 rhs := Expr.WScoped.of_not_hasFvar hfv
+  have hL : Expr.LeavesBounded rhs := Expr.LeavesBounded.of_not_hasFvar hfv
+  have hnil : rhs.fvarLeaves = [] := Expr.fvarLeaves_eq_nil_of_not_hasFvar hfv
+  obtain ⟨ea, hea⟩ := acceptedReads_of mpP.base2 ψ hi hws hb hL
+  obtain ⟨-, -, hok, -, -⟩ :=
+    (claimsAt_of I.hμ mpP ψ F).inferRow hi hws hb hL (CtxOk.nil hnil) hea
+  exact ⟨ea, hea, fun ρ => hok ρ (Sat_nil V ρ)⟩
+
 /-- **THE RULE'S TRANSFER** (item 5 step 2d (D), the step's only new
 mathematics): the restored rule's right-hand side is the auxiliary
 one's λ prefix put back over the WALK of its body
