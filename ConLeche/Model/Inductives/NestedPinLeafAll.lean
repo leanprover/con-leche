@@ -3,6 +3,7 @@ module
 public import ConLeche.Model.Inductives.NestedPinLaws
 public import ConLeche.Model.Inductives.NestedPins
 import ConLeche.Model.Inductives.NestedAux
+import ConLeche.Model.Inductives.ContainerCross
 public section
 
 /-!
@@ -637,6 +638,31 @@ theorem classPin_of_views {env : Env} {D dR dK : BlockModel V}
     rw [hfr₂, hfr₁, hIds₂, hIds₁, S₂.pinU i hi ψR, S₁.pinU i hi ψ, hparK.1, hparK.2]
     unfold idxSet
     exact congrArg _ (teleOfFields_congr_below hIdsBelow hfr0)
+
+/-- **The WALK's `recF` step, packaged** (task #315 L-E, DESIGN §U.73):
+`classPin_of_views` with its three auxiliary premises discharged from
+the container's own record — the level agreement moved from the PAIR's
+member to the FIELD's target member (`memberLpsI`), the index universe
+and telescope by `params_congr`, and the telescope's bound by
+`memberIds_below`.  Only the pair's own two agreements are left to the
+caller. -/
+theorem classPinAt_of_pairViews {env : Env} {m : EnvModel V env} {D dR dK : BlockModel V}
+    {ci : ContainerInfo} (CK : ContainerModeled m ci dK) {I : Name}
+    (hci : ConLeche.containerInfo? env I = some ci)
+    {cvI : ConstantVal} {capsI : IndCaps} (hfI : env.find? I = some (.indInfo cvI capsI))
+    {q₀ q₀' kK : Nat} (S₁ : PinGroupView D dK q₀ kK) (S₂ : PinGroupView dR dK q₀' kK)
+    {ψ ψR : Name → Nat} {ρp ρR : Nat → V} {r : Nat}
+    (hψ0 : ∀ pp ∈ cvI.levelParams, (dR.pinAt q₀').ψJ ψR pp = (D.pinAt q₀).ψJ ψ pp)
+    (hfr0 : ∀ v, v < dK.nP → dR.pinFrame q₀' ψR ρR v = D.pinFrame q₀ ψ ρp v)
+    {i : Nat} (hi : i < kK) :
+    ClassPinAt env D dR ψ ψR ρp ρR r (dR.k + (q₀' + i)) (q₀ + i) := by
+  have hik : i < dK.k := S₁.kEq ▸ hi
+  have hpar := CK.params_congr hci hfI hψ0 hik
+  refine ⟨classPin_of_views S₁ S₂ (fun cvTi capsi hfi pp hp => ?_) hfr0
+    ⟨hpar.1, ?_⟩ (memberIds_below CK.reps hik _) hi, fun hlt => absurd hlt (by omega)⟩
+  · exact hψ0 pp (by rw [← CK.memberLpsI hci hfI hik hfi]; exact hp)
+  · unfold BlockModel.IdsM
+    rw [hpar.2]
 
 /-- **The covering, split at the root GROUP** (task #315 L-E, DESIGN
 §U.65): `InstanceCovered` at the root pin `r` from its two cases — a
