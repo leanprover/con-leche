@@ -1881,6 +1881,58 @@ theorem NestedTailIn.recTyReadP
   I.provCross hndR hagR ψ 0 _ (NestedTailIn.readAtOf R hc ψ)
 
 
+/-! ## The recursor's spine, decomposed (item 5 step 2e, the LEFT side) -/
+
+/-- **THE RECURSOR'S SPINE, DECOMPOSED**: a `TeleFitPA` fit of the
+RESTORED recursor type's reading is a `SpineFit` of it
+(`teleFitPA_to_chain`, `spineFit_of_chain`), hence — BY THE TRANSFER
+(`spineFit_transfer`) — of the SCRATCH tower, whose inversion
+(`IsBlockModels.spineFit_recData_inv`) splits it into the block's
+parameters, motives and minors (a `PrefixFrame`), class `c`'s index
+spine and a major in the carrier's fibre at its tuple.
+
+This is the fired equality's first move and it is the same on both
+arms: `RecRuleLaw` hands the fit of `xs ++ [major]` at `TVa`, and
+`TVa` is the restored reading by `recTyReadP`. -/
+theorem NestedTailIn.recSpine {mpA : EnvModelM V μ ENVA} {cvRas : List ConstantVal}
+    (S : NestedScratchOut F env b fms f₀ ctorsA kinds mp₁ ppsF W idxF dsF esF srcsF fvsPF xFvsF
+      xrestF eissF tssF stored mpA cvRas)
+    (hnames : NestedCtorPinNames env p st)
+    (hctorsJ : ∀ (q₀ kJ i : Nat) (dJ : BlockModel V), PG mp₂.base2 q₀ kJ dJ → i < kJ →
+      ∀ (ci : ContainerInfo) (J : ContainerMember),
+        ConLeche.containerInfo? env ((D).pinAt (q₀ + i)).J = some ci → J ∈ ci.members →
+        J.name = ((D).pinAt (q₀ + i)).J → (dJ.ctorsM i).map (·.1.name) = J.ctors.map (·.name))
+    (hK35 : NestedRecTysAuxOk p st b stored)
+    {s : (Name → Nat) → Nat} {rdsM : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)}
+    {concM : Nat → AnnotTerm}
+    (R : NestedRecReadings mp₂.base2 (D) PC cvRms cvRns b.rlps b.elimLevel s rdsM concM)
+    {c : Nat} (hc : c < b.k) (ψ : Name → Nat) (ρ : Nat → V)
+    {ws : List AnnotTerm} {restR : AnnotTerm}
+    (hwl : ws.length = (rdsM c ψ).length)
+    (hfitR : TeleFitPA V ρ (mkPisAV (rdsM c ψ) (concM c)) ws restR) :
+    ∃ (ps Msl msl is : List V) (tv : V),
+      ws.map (interp V ρ) = ps ++ Msl ++ msl ++ is ++ [tv] ∧
+      PrefixFrame mpA.base2 (DA) ψ b.elimLevel ρ ps Msl msl ∧
+      SpineFit (consList ps ρ) ((DA).IdsM c ψ) is ∧
+      tv ∈ˢ SetTheory.app (lfpTuple ((DA).w ψ) (DA).k ((DA).idx ψ (consList ps ρ))
+          ((DA).Φ ψ (consList ps ρ)) c) ((DA).tup ψ c is) := by
+  have hcT : c < (D).kT := by rw [I.kT]; exact hc
+  -- the fit, as a spine at the RESTORED reading
+  have hst := stripPisAV_mkPisAV (rdsM c ψ) (concM c)
+  have htele := piTeleAV_of_stripPisAV hst
+  have hchain := teleFitPA_to_chain (rdsM c ψ).length htele hwl hfitR
+  have hsp : SpineFit ρ ((rdsM c ψ).map (·.2.2)) (ws.map (interp V ρ)) := by
+    refine spineFit_of_chain (by rw [hwl, List.length_map]) ?_
+    intro q hq
+    rw [List.length_map] at hq
+    have h := hchain q hq
+    simpa using h
+  -- …and therefore at the SCRATCH one
+  have hspT := (I.spineFit_transfer S hnames hctorsJ hK35 hc ψ ρ
+    (NestedTailIn.readAtOf R hcT ψ) (I.lenAtOf R hc ψ) (ws.map (interp V ρ))).mp hsp
+  exact S.reps.spineFit_recData_inv (S.readings ψ) (by rw [S.record.k]; exact hc) hspT
+
+
 end Run
 
 end ConLeche.Model
