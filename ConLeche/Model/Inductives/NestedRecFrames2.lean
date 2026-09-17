@@ -1,8 +1,8 @@
 module
 
 public import ConLeche.Model.Inductives.NestedRecFrames
-public import ConLeche.Model.Inductives.NestedRecFibre
-public import ConLeche.Model.Inductives.NestedRecTyped
+import ConLeche.Model.Inductives.NestedRecFibre
+import ConLeche.Model.Inductives.NestedRecTyped
 import ConLeche.Model.Inductives.NestedRecRead
 import ConLeche.Model.Inductives.NestedPinLaws
 import ConLeche.Model.Inductives.BlockComposed
