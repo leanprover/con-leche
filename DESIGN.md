@@ -87158,3 +87158,127 @@ Gates at the session's commits: `lake build` 701 jobs warning-free,
 `lake test` warning-free, layering / trust surface / no-local-paths /
 overview-links / quote-gate / proofdeps / shake and pub-imports as the
 integration's, nested-shadow 27/27.
+
+#### U.65 — L-E session 14: the `_dom` bound at a member class, and the covering split at the root GROUP (lane L-E, 2026-09-17)
+
+##### (a) §U.64 (c)'s first row, discharged
+
+`BlockModel.slotDomT_of_le` is `fit_imp_T_le`'s inline derivation
+standing on its own — the container's slots at a tuple below its
+extended carrier are within its real domains (`slotAtT_mono` up to the
+carrier, at which the slot IS the domain, `real_dom_eq`) — and
+`slotDomT_relMeet` is it at the relational meet
+(`relMeet_mem`/`relMeet_le_base`).  That is `copyTransfer_mem`'s `_dom`
+premise at the root's own reading, i.e. the whole per-pair transfer at
+a MEMBER class of the root except the numeric agreements, which
+`ClassPin` and the group views give.
+
+##### (b) The covering, in two named pieces
+
+* `classPin_of_rootMember` (`NestedPremise.lean`): at the ROOT group
+  `[r, r + kR)`, read at the root pin's level assignment and frame, the
+  container's MEMBER class `i` and the block's pin `r + i` are
+  `ClassPin`-related, every clause a field of `PinGroupView` — the
+  container by `name`, the level assignment and components by `same`,
+  the index set by `pinU` with the pin's index telescope being its
+  container member's (`pinPps`/`pinNP`).  **No record**: this is §U.55
+  (b)'s Base;
+* `classPin_of_pinCorr` (`NestedPinLeafAll.lean`): `PinCorr` at the
+  block's target `D.k + q` and the root container's own pin `qK` gives
+  `ClassPin` at the PIN class `dR.k + qK`;
+* `instanceCovered_of_others`: `InstanceCovered` from those two, split
+  on whether a pin's mint group is the root's (the group base is a
+  PARAMETER — the model's `PinSyn` does not carry it; it is
+  `NestedPin.grpBase`, off the run).
+
+##### (c) K.41's completed record, and why `PinCorr` is its model face
+
+K.41 (kernel, `agent/uniform-m5` 7d97adc3) replaced the heads-only
+`nestedPinRootHeadOk` by `nestedPinRootPairOk`: ONE equality of
+recorded pin TERMS, `containerOwnPinsAt` instantiating ALL the mimic
+recursor's binders at once — the container's parameters at the root
+pin's components, the rest at padding — so an own pin comes out
+`Ds`-substituted with nothing lifted and no `lowerBVars` anywhere.
+
+An equality of pin terms is exactly a `PinCorr` at the data the term
+spells: the container (`J`), the level arguments (`lvls`) and the
+components, with `u` and `Ids` following from the container.  That is
+why `classPin_of_pinCorr` is the right consumer, and it means the
+covering's two cases speak ONE language — the `pinF` arm of the
+copies' shape already produces a `PinCorr` at an OWN edge.
+
+Two honest notes:
+
+1. **the level half is unexercised** (K.41's own measurement: blanking
+   the levels fires on no cone block).  In `classPin_of_pinCorr` it
+   bears on the `psi` clause and on nothing else; `frame` and `idx`
+   rest on the components, which are load-bearing at every instance.
+   The lemma does NOT need the `allParamsDefined` scope
+   `targetPin_corr` needs, because both sides' assignments come from
+   `pinψ`: the algebra is `Level.substFn_map_subst` alone;
+2. **the clause deleted in §U.61 is what the record now certifies.**
+   `PinCorr`'s components-as-`Expr` clause was dropped because a
+   stored container's record gave the components only semantically.
+   `containerOwnPinsAt`'s output is precisely that clause's shape —
+   `(d.pinAt q).lvls` substituted at the root pin's levels and
+   `(d.pinAt q).DsE` at its components.  So it may come back, as a
+   CONSEQUENCE of the record, never as an obligation on lane L-B's
+   shape.
+
+##### (d) THE BLOCKER, and the bridge's revised shape
+
+`containerOwnPinsAt`, `nestedPinRootPairOk` and `nestedPinRootGroup`
+live on `agent/uniform-m5` ONLY: the integration `agent/uniform-315`
+at 410b3836 carries K.40 (`nestedPinParent`, `nestedPinEdges_mem`) and
+NOT K.41.  So in this worktree neither the `hothers` discharge nor the
+`ContainerModeled` bridge can be **stated** — they name kernel
+functions that are not here — and this lane did not merge the kernel
+branch, the criss-cross §U.57 (d) 1 aborted.  What is landed is both
+model faces, so `hothers` becomes `classPin_of_pinCorr` applied to the
+record's inversion the moment K.41 reaches the integration.
+
+**The bridge's shape must be revised, and the head-only `ownHeads` of
+§U.64 (d) is now WRONG** — the Bool compares whole pin terms, not
+heads.  What `ContainerModeled` needs is
+
+```lean
+    ownPins : ∀ (i : Nat) (lvls : List Level) (Ds : List Expr) (ps : List Expr), i < d.k →
+      ConLeche.containerOwnPinsAt env (d.memberName i) lvls Ds = some ps →
+      ∀ e ∈ ps, ∃ q, q < d.nPins ∧
+        e = Expr.mkAppN (.const (d.pinAt q).J ((d.pinAt q).lvls.map (Level.subst lpsC lvls)))
+              (((d.pinAt q).DsE).map fun x =>
+                 Expr.instSeq Ds 0 (Expr.instantiateLevelParams lpsC lvls x))
+```
+
+with `lpsC` the container's own level parameters — "every pin the
+mimics spell is one of the block model's recorded pins, at that
+instantiation".  It is vacuous at a pins-free block
+(`containerOwnPinsAt` is `some []` there), it is the nested route's own
+read-back (K.34 stores the mimics), and it is M7-3's to prove at the
+install routes — **but M7-3 cannot state it before K.41 reaches the
+integration either**.  From `ownPins` to `classPin_of_pinCorr`'s
+`PinCorr` there is one further step, the Expr-to-`AnnotTerm` half: the
+pins' components' READINGS are determined by their expressions
+(`PinsTyped`/the run's `pinData` denotation law), which is what turns
+the certified term equality into `PinCorr`'s `Ds`/`EA` clauses.
+
+##### (e) WHAT REMAINS
+
+* kernel/integration: K.41 merged into `agent/uniform-315`, then
+  `ownPins` (M7-3) and K.41's inversion in §U.64 (d) 2's shape read at
+  `nestedPinRootPairOk`;
+* model: `hdom₁` at a PIN class — the one piece of §U.64 (c) still
+  open, and it needs the family identity (‡) "the root's class at a
+  copy's target IS the container's class at the corresponding class",
+  which is `fam_eq_of_leaf` (§U.58) from the root's `pinLeaf` and the
+  container's `leaf`, both readings being the stored container at the
+  same components; then the ALIGNMENT (the two shapes at one
+  `(dK, i, j)`: `ClassPin.name` + `containerInfo?`'s determinism +
+  `ci.members`' `Nodup`), then `hpair`, then
+  `pins_le_of_instanceLe` + `instanceLe_of_pair` + step (ii) give
+  `nestedPinsLe` and step (iv) `NestedPinsEntry`.
+
+Gates at the session's commits: `lake build` 701 jobs warning-free,
+`lake test` warning-free, layering / trust surface / no-local-paths /
+overview-links / quote-gate / proofdeps / shake and pub-imports as the
+integration's, nested-shadow 27/27.
