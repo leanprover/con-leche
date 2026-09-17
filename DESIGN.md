@@ -82712,6 +82712,142 @@ OK; overview-links 112; quote-gate 2; proofdeps 4955 rows / 12 roots /
 **0 doors**.
 
 
+##### (tt) CONTINUATION 15 (lane session 15) — the TOWER GLUE and the fired equality's RIGHT-hand side
+
+Base: this lane's 6b4bf320.  No checker code changed; no `sorry`, no
+axioms, no `maxHeartbeats`; `#print axioms` of every new theorem is
+`[propext, Classical.choice, Quot.sound]` (`take_append₄`: `[propext]`).
+
+*(rr) 1 step 1, THE λ-PREFIX TOWER GLUE, closed* (e10968d1).  Three
+pieces, in the order (qq) 1 predicted:
+
+* **`denoteMeta_foldrLam`** (with `instantiate1_foldrLam`,
+  `openersFrom_openFvars`): a λ-tower's reading WITH ITS BITS.
+  `stripLams_denotePTele` (`Model/IndProjKit.lean`) reads a tower into
+  a `LamTele`, whose bits are EXISTENTIAL — and the fold needs them.
+  A rule's parameter prefix carries ONE binder datum, so the statement
+  is the cheap one: at a tower whose binders all carry the bit `bt`
+  the reading is `mkLamsAV` over `bt` and the domains' readings, each
+  read at its own depth under the anonymous openers, the body at the
+  tower's depth.  *The induction is on the LENGTH, not on the binder
+  list*: the `.lam` step recurses at the INSTANTIATED tower, which is
+  a different list of binders (`instantiate1_foldrLam` relates them
+  positionally), so an induction on the list has no usable hypothesis.
+* **`NestedTailIn.ruleParamDoms`**: `auxRecParamDoms`' twin at the
+  rules — the generated rule's λ prefix is the FIRST former's
+  parameter telescope, every binder carrying the elimination's datum
+  (`mutualRecRhs_paramPrefix` at the tail's own generated data, the
+  runs identified by determinism).
+* **`NestedTailIn.rulePrefix`**: hence the restored right-hand side
+  reads as `mkLamsAV` over `(D).params ψ` at the elimination's bit,
+  with the walked body read at depth `nP` under `openFvars 0 b.nP` —
+  which is exactly what `ruleAgree` compares.  The restore leaves the
+  prefix VERBATIM (`restoreNested_lams`), and the first former's type
+  reads at `mp₂` to `ppsF 0` (`NestedStageFacts.FD`), crossed to the
+  provision by **`NestedTailIn.provCross`** (`restoreAgreeP`'s own
+  `hdeR`, named so both consumers take it).
+
+*(rr) 1 step 2, THE FIRED EQUALITY'S RIGHT-HAND SIDE, closed*
+(ff0b2ff5).  `NestedTailIn.ruleFold`: along any spine fitting the
+SCRATCH rule's binder data the restored right-hand side's reading has
+the AUXILIARY tower's value —
+
+> `vs.foldl app (interp V ρ Ra) = vs.foldl app (interp V ρ ((DA).ruleRhsAV …))`
+
+The two towers share their `λ p⃗` prefix: the restored one's is
+`(D).params ψ` at the elimination's bit (`rulePrefix`), the auxiliary
+one's is `mutualRuleDataAV`'s own `rebit pw (recPps ψ)`
+(`BlockReadings.ppsDom`), and `mkLamsAV_inj` identifies them — so the
+auxiliary reading is ONE `mkLamsAV` over that prefix with the body's
+reading beneath, and no second `rulePrefix` at the scratch model is
+needed.  Below the prefix the bodies interpret alike at every frame
+fitting the block's parameters (`ruleAgree`).  The restored body's
+grading is peeled off the door's `∀ ρ, WellDenotedV V ρ Ra`
+(`wellDenoted_mkLamsAV_body`) — (qq) 2's finding, consumed.
+
+The kit it needed, all new and generic: `stripLams_foldr` (a strip run
+rebuilds its subject), `mkLamsAV_inj` (`mkPisAV_inj`'s λ twin),
+`wellDenoted_mkLamsAV_body`, `take_append₄`, and
+**`foldl_mkLamsAV_congr`** — two towers over ONE prefix fold alike,
+the proof point at a zero bit (`mkLamsAV_zero_head`, both sides) and
+`mkLamsAV_fold` above it, so the `Prop` regime costs three lines
+instead of `blockRecRuleLaw`'s separate branch.
+
+*The restored recursor's row* (17abffb9), two one-liners the LEFT-hand
+side will take: `NestedTailIn.recArgSums` (the read-back's stored
+`mI`/`rP` are the scratch install's — `b.rulePrefix` and that plus
+class `c`'s index count, `auxStored_rules_eq`; this IS `RecRuleLaw`'s
+first conjunct `rP ≤ mI`) and `NestedTailIn.recTyReadP` (the tail's
+recursor-type reading crossed to the provision — the form `TVa` takes).
+
+##### (uu) WHAT THE FIRED EQUALITY STILL OWES — its LEFT-hand side only
+
+`RecRuleLaw`'s equality clause is now half done: its right side is
+`ruleFold` composed with `mkLamsAV_fold` at the WHOLE rule data (the
+mutual law's last two lines, verbatim).  What is left is the left
+side — the recursor's value at the spine — and it is `eqsCand`'s walk
+at a spine coming from `TeleFitPA` instead of `pt_mem_specEqAV_iff`:
+
+1. **the spine, decomposed**: `hspR`/`hspC` (`MutualRecsLaw.lean:485-520`
+   — `teleFitPA_to_chain`, `spineFit_of_chain`) turn the two
+   `TeleFitPA` fits into `SpineFit`s at the RESTORED readings
+   (`recTyReadP`), `spineFit_transfer` moves the recursor's to the
+   SCRATCH tower and `IsBlockModels.spineFit_recData_inv` splits it
+   into `ps ++ Msl ++ msl ++ is ++ [t]`;
+2. **the major, decoded**: at a MEMBER `IsBlockModel.ctor` at `D` plus
+   `BlockModel.injT_of_mem`; at a MIMIC the container's block model's
+   `ctor` with `nestedInjT_eq` and `injT_of_pin`, the container's
+   parameters PINNED by the comparands clause `RecRuleLaw` hands the
+   arm ((gg) 2) — so `ctorArm` is still not needed for the major;
+3. **the ι step**: `blockLeafVT_at` then `blockRecAtT_iota`, the
+   frame's two typings `motivesAt`/`minorsAt`, its field chain
+   `fitsFrom_iff`, its index fit `idsT_iff`/`idxOkT` — `eqsCand`'s own
+   lines;
+4. **the `vpa` conjunct** (the mimic arm's outer clause):
+   `nestedFireShape_inv` + `nt_denoteMeta_restoredPin` at the restored
+   type's major-domain binder, graded by the type's own `WellDenoted`
+   peeled to that binder.
+
+Sized **1–1¼** — the right-hand side and the arithmetic are spent, and
+the tower glue turned out to be the session's own third rather than
+(qq) 1's "⅓–½ and then the equality".
+
+##### (vv) K.43, and the residue of item 5
+
+**K.43 is still owed**, unchanged from (rr): it is taken as
+`restoreAgreeP`'s `hauxNe`, and `ruleFold` passes it straight through,
+so the wiring is still a rewrite at ONE site.
+
+Left of item 5, in order:
+
+1. the FIRED EQUALITY's LEFT-hand side and the `RecRuleLaw` assembly
+   ((uu)) — **1–1¼**;
+2. the store swap, its five missing Verify twins and the free
+   `PinRecLaws.crossEnv` — **1½**;
+3. the tables' twin and §U.36 (d)'s `EnvModelB` supply — **1–1½**.
+
+**Item 5 from here: 3½–4¼ sessions** (session 14 said 3½–4½ with the
+glue and the whole equality open; the glue and the equality's right
+half are spent).
+
+##### (ww) FILES AND GATES (session 15's HEAD)
+
+Touched: `ConLeche/Model/Inductives/NestedRecRule.lean` (1313 → 1886),
+`+1 plain import` (`Verify.Inductives.NestedRecFramesKit`, for
+`mutualRecRhs_paramPrefix` — a PROOF use, so no re-export and no
+pub-import plan entry).  Nothing else moved: no allowlist line, no
+`scripts/pub-import-plan.py` entry.
+
+`lake build` 715 jobs warning-free EXIT 0; `lake test` warning-free
+EXIT 0; shake 512 removals all allowlisted / pub-imports 1314 of 2137
+public, none demotable (45 dot-notation fallbacks); layering base 351 /
+model 281 / caps 3 / umbrella 1, 0 base→lane, 0 impl→theory (the base
+clause is vacuous, §U.29 (mm) — still the maintainer's call, and a
+separate lane off master owns the fix); trust surface 13 escapes in 5
+allowlisted files (647 scanned); no-local-paths OK; overview-links 112;
+quote-gate 2; proofdeps 4955 rows / 12 roots / **0 doors**.
+
+
 #### U.30 — L-B session 2: `CopyCtorInst.ordF` at the READING, the normalisation's reading law PROVED, `ContainerModeled`'s three clauses (lane L-B, 2026-09-16)
 
 Three maintainer rulings opened this session; the first two are landed,
