@@ -75711,3 +75711,36 @@ and every one of them names
 **Ledger row**: CERT-ONLY, category **(S)** — the parent is written by
 OUR elimination's worklist, so no stream can supply it and official
 records nothing of the kind.
+
+#### K.37's edge list, INVERTED (2026-09-17, task #315, lane L-E's DESIGN §U.55 (a))
+
+K.37's four clauses are stated about the EDGE LIST; the model reads its
+copy-field targets off `CopyCtorShape`.  Nothing joined the two, so the
+rank clauses were not consumable at the fields the model actually has.
+**`nestedPinEdges_mem`** (`Verify/Inductives/NestedInv.lean`) is the
+bridge, and it needs NO new Bool — everything it asks for is one of
+`nestedPinEdges`' own lookups, which is exactly the set K.32's
+`nestedCopyTargetsOk` already makes:
+
+> given `nestedPinEdges … = some edges` and `nestedPinKinds … = some
+> kinds`, a pin `q`, its `qn`/`ks`/`a`/`ci`/`J`, a constructor `j` with
+> its `kf`/`c`/`cJ` and the container's `stripPis (ci.nP + cJ.nFields)`,
+> and a field `l` whose kind is `(.recursive | .reflexive, t)` with
+> `p.k ≤ t` and whose container domain is `domJ` —
+> `(q, t - p.k, mentionsMember (ci.members.map (·.name)) domJ.1) ∈ edges`.
+
+The `own` bit is pinned, not existentially quantified: it is
+`mentionsMember` of the container's own group names at the CONTAINER's
+stored field domain, which is `true` exactly at a field the container's
+own elimination pinned (the shape's `pinF` arm) and `false` at an
+`ordF`-right one.  So the model can carry a field straight to K.37's
+clause (1) or (2) without re-deriving which it is.
+
+The proof is three layers of `mapM_option_inv` over `List.range`, one
+`List.mem_flatten` per layer, with the option `do`-blocks opened by
+`split` (their pattern binds elaborate to `match`, so
+`Option.bind_eq_some_iff` does not reach them).
+
+Gates: `lake build` and `lake test` warning-free, `tests/arena.sh`
+**EXIT 0**.  No checker code changed, so no measurement is due — this is
+a Verify-tier theorem over Bools the run already records.

@@ -1110,4 +1110,73 @@ theorem checkNested_inv {env envOut : Env} {p : NestedParts} {F : Nat}
     (by cases uP₁; exact hpins₁), hctors, hrm, hrn, hnd, hrlm, hrln, htbl,
     (by cases u₀; exact hpins), hlen, (by cases u₁; exact hrecs), hrb⟩
 
+/-! ## K.37's edge list, inverted (task #315, lane L-E's DESIGN §U.55 (a))
+
+K.37's clauses are about the EDGE LIST; the model reads its copy-field
+targets off the shape.  This is the bridge: a field the auxiliary block
+classified `.recursive`/`.reflexive` at a target OUTSIDE the block's own
+members IS an edge of `nestedPinEdges`, with the `own` bit the builder
+computes — `mentionsMember` of the container's own group names at the
+CONTAINER's stored field domain, which is `true` exactly at a field the
+container's own elimination pinned and `false` at an `ordF`-right one.
+Every hypothesis is one of `nestedPinEdges`' own lookups, so the model
+supplies them from the same reads K.32 already makes. -/
+theorem nestedPinEdges_mem {env : Env} {p : NestedParts} {b : MutualBlock}
+    {st : ElimState} {stored : List AuxStored} {edges : List (Nat × Nat × Bool)}
+    {kinds : List (List (List (RecFieldKind × Nat)))}
+    (hedges : nestedPinEdges env p b st stored = some edges)
+    (hkinds : nestedPinKinds p b stored = some kinds)
+    {q : Nat} (hq : q < st.pins.length)
+    {qn : NestedPin} (hqn : st.pins[q]? = some qn)
+    {ks : List (List (RecFieldKind × Nat))} (hks : kinds[q]? = some ks)
+    {a : AuxStored} (ha : stored[p.k + q]? = some a)
+    {ci : ContainerInfo} (hci : containerInfo? env qn.container = some ci)
+    {J : ContainerMember} (hJ : ci.members[q - qn.grpBase]? = some J)
+    {j : Nat} (hj : j < ks.length)
+    {kf : List (RecFieldKind × Nat)} (hkf : ks[j]? = some kf)
+    {c : ConstantVal × Nat × Nat} (hc : a.ctors[j]? = some c)
+    {cJ : ContainerCtor} (hcJ : J.ctors[j]? = some cJ)
+    {jbs : List (Expr × BinderMeta)} {res : Expr}
+    (hstrip : cJ.type.stripPis (ci.nP + cJ.nFields) = some (jbs, res))
+    {l : Nat} (hl : l < kf.length) {r : RecFieldKind} {t : Nat}
+    (hkfl : kf[l]? = some (r, t))
+    (hrec : (r == RecFieldKind.recursive || r == RecFieldKind.reflexive) = true)
+    (hge : p.k ≤ t)
+    {domJ : Expr × BinderMeta} (hdom : jbs[ci.nP + l]? = some domJ) :
+    (q, t - p.k, mentionsMember (ci.members.map (·.name)) domJ.1) ∈ edges := by
+  have hrange : ∀ {n i : Nat}, i < n → (List.range n)[i]? = some i := by
+    intro n i h; simp [h]
+  rw [nestedPinEdges] at hedges
+  simp only [hkinds, bind, Option.bind] at hedges
+  split at hedges
+  case h_1 => exact absurd hedges (by simp)
+  rename_i rows hrows
+  simp only [pure, Option.some.injEq] at hedges
+  subst hedges
+  -- the row of pin `q`
+  obtain ⟨rowq, hrowq, hFq⟩ := mapM_option_inv hrows q q (hrange hq)
+  refine List.mem_flatten.mpr ⟨rowq, List.mem_of_getElem? hrowq, ?_⟩
+  simp only [hqn, hks, ha, hci, hJ] at hFq
+  split at hFq
+  case h_1 => exact absurd hFq (by simp)
+  rename_i perCtor hperCtor
+  simp only [pure, Option.some.injEq] at hFq
+  subst hFq
+  -- the row of constructor `j`
+  obtain ⟨rowj, hrowj, hGj⟩ := mapM_option_inv hperCtor j j (hrange hj)
+  refine List.mem_flatten.mpr ⟨rowj, List.mem_of_getElem? hrowj, ?_⟩
+  simp only [hkf, hc, hcJ, hstrip] at hGj
+  split at hGj
+  case h_1 => exact absurd hGj (by simp)
+  rename_i perField hperField
+  simp only [pure, Option.some.injEq] at hGj
+  subst hGj
+  -- the row of field `l`
+  obtain ⟨rowl, hrowl, hHl⟩ := mapM_option_inv hperField l l (hrange hl)
+  refine List.mem_flatten.mpr ⟨rowl, List.mem_of_getElem? hrowl, ?_⟩
+  simp only [hkfl, hrec, hge, hdom, decide_true, Bool.and_self, if_true,
+    pure, Option.some.injEq] at hHl
+  subst hHl
+  simp
+
 end ConLeche
