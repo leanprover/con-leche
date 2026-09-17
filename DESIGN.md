@@ -81830,11 +81830,59 @@ names are fresh at the pre-block environment, which every route checks
 — and `hproj` — the projection slots its output adds are all at its own
 members, which is the table stage's shape.
 
-##### (f) GATES
+##### (f) The guard has TWO sources, one per half of `crossInd`
+
+`ProjFree.of_constsResolve` serves the OLD containers: the block being
+installed is fresh at their environments, so nothing they mention can
+be one of its structures.  It does NOT serve the NEW block — its
+members are stored at the environment its own subjects are read at, and
+they are exactly the structures about to be tabled.  That half is
+served by the install's own bookkeeping:
+
+```lean
+theorem ProjFree.of_noProjEnv {Ts : List Name} {env : Env}
+    (hnp : ∀ T ∈ Ts, ∀ j : Nat, NoProjEnv env T j)
+    {c : ConstantInfo} (hc : c ∈ env.consts) : ProjFree Ts c.toConstantVal.type
+```
+
+`mutualNoProj` proves its premise at the RECURSORS' environment for
+every member of a mutual block (it is what `stageBlockTablesGo`
+already threads for the table data), and every subject of the block
+model's readings is a stored type or an opening of one — (b).  The
+native and nested routes own the same fact under their own names.
+
+##### (g) WHAT THE MUTUAL LIFT STILL OWES (next session)
+
+With the guard in place, `declMutual`'s lift to `EnvModelB` is:
+
+1. `MutualTablesModeled`'s conclusion hands back a NAMED `mpOut` with
+   `AcvalAgrees mp₃.base2 mpOut.base2` — `stageBlockTablesGo` already
+   proves the carrier agreement off the block's table names and drops
+   it, exactly as §U.31 (c)'s value stages did;
+2. the tables' ENV SHAPE (`envOut.consts = new ++ env₃.consts`, every
+   entry a `.projInfo` of a member, fresh) — an induction over
+   `mutualTables` with the inversions `stageBlockTablesGo` already
+   uses — from which `hF`, `hres`, `hG` and `hproj` (the new slots are
+   the block's own) follow;
+3. the block model at `mpOut`: `IsBlockModel.crossEnvP` per member,
+   guards by `ProjFree.of_noProjEnv` at `mutualNoProj`;
+4. `ContainerModeled.of_readBack` (§U.40 (a)) at the run's K.34
+   conjunct, whose remaining arguments are the mutual route's own
+   facts — `hnames`/`hctorNames`/`hk`/`hnP`/`namesLen` from
+   `MutualBlockModelOf`, `inj` and `frame` from `MutualTableFacts` /
+   `MutualFormersFacts.frame`, the two pin clauses VACUOUS (a mutual
+   block has no pins: `MutualBlockModelOf.pins`), and **`ordFree` from
+   `classifyMutualKinds`' inversion — the one clause the mutual route
+   does not already carry**;
+5. `BlockAt` at zero pins (`PinRecLaws`/`PinShapes` vacuous) and
+   `EnvBlockModels.crossIndP` for the old containers, whose `hfresh` is
+   the block's own freshness check.
+
+##### (h) GATES
 
 `lake build` 694 jobs warning-free; `lake test` warning-free; layering
 346 / 265 / 3 / 1, 0/0; trust 13/5 (626); overview-links 112;
 quote-gate 2; no-local-paths OK; proofdeps 4955 rows / 12 roots / 0
 doors; shake 509/509 allowlisted; pub-imports 1259 of 1977, none
 demotable (`ContainerCross`'s `BlockRepCross` edge became PUBLIC — its
-statements name `ProjFree`).  Standard axioms on all 14 new theorems.
+statements name `ProjFree`).  Standard axioms on all 15 new theorems.

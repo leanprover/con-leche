@@ -193,6 +193,20 @@ theorem ProjFree.of_constsResolve {Ts : List Name} {env : Env} {e : Expr}
   fun T hT _ => ConLeche.Expr.noProjAt_of_constsResolve (hfresh T hT) e hres
 
 omit [SetTheory V] in
+/-- **A STORED type is guarded where the environment's bookkeeping says
+so**: the other source of the guard, for the block being installed.
+Its own members are NOT fresh at the environment its subjects are read
+at — they are the very structures the route is about to table — but the
+install has checked that no stored piece mentions their slots
+(`NoProjEnv`, `mutualNoProj` at the recursors' environment), and every
+subject of the block model's readings is a stored type or an opening of
+one. -/
+theorem ProjFree.of_noProjEnv {Ts : List Name} {env : Env}
+    (hnp : ∀ T ∈ Ts, ∀ j : Nat, NoProjEnv env T j)
+    {c : ConstantInfo} (hc : c ∈ env.consts) : ProjFree Ts c.toConstantVal.type :=
+  fun T hT j => (hnp T hT j).type c hc
+
+omit [SetTheory V] in
 /-- The guard is hereditary through an `fvar`'s type annotation. -/
 theorem ProjFree.fvarTypeD {Ts : List Name} {e : Expr} (h : ProjFree Ts e) :
     ProjFree Ts e.fvarTypeD := by
