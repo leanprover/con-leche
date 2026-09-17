@@ -80557,6 +80557,59 @@ the scratch carrier ↔ a fit at the CONTAINER's at the pin frame.
 *Status*: §1d DONE, fibre kit DONE; T2 (`NestedTailIn.ctorArm` =
 `RestoreAgree.ctor` at the tail) IN PROGRESS on this branch.
 
+##### (l) CONTINUATION 4 — base 973803ae absorbed; T2's five pieces incl. THE CRUX
+
+*Base* (`agent/uniform-315` 973803ae, L-E's §U.36): `NestedPinGroup.inst`
+is split into `shape` (`CopyShapeA`) and `entry` (`CopyEntryA`), and
+`ofNested_pin_block_of_inst`/`hfit_at_of_inst`/`ofNested_pinLeaf_of` take
+`acval` explicitly then `hsh`/`hent`; `PinsModeled` now yields `BlockAt m
+(blockOf m) ci`.  Absorbed at b1993962: `pinSegAt` re-argued,
+`ctorPinFieldsFit` re-based on `hfit_at_of_inst` (the `t ∈ idx`
+argument it ignores is `tupW_mem` at `res_es_fit`), `ctorPinLps`
+destructures `BlockAt` and `generalize`s `blockOf`.  §U.36 (d)'s supply
+for `EnvModelB` lands on item 5 (PLAN §7: +1 session); once the groups
+are at `blockOf`, `hctorsJ` follows from `ContainerModeled.member`.
+
+*T2, five pieces* (Opus, cut off by the usage limit before the
+assembly; `Verify/Inductives/NestedRecCtorPin.lean` 193,
+`Model/Inductives/NestedRecCtor.lean` 545; standard axioms):
+`restoreTbl_ctorPins_find?` (+ its converse `_mem`), `liftLooseBVars_mkAppN`,
+`looseBVarsBounded_abstractRange`, `instSeq_ctorPin_open` (the opened
+constructor pin is the pin's own opening at the new head);
+`nestedArity` (the walk's key arities), **`NestedCtorPinNames`** (K.36's
+model face), `nestedArity_ctor`, `NestedTailIn.ctorPinInv` (a `ctorPins`
+hit is the copy of the container member's `jc`-th constructor, with
+`t.name = qn.aux` and `cc.name = newName` through K.36),
+`.ctorPinLps` (the stored constructor's level parameters are the
+member's, via `PinsModeled`), `.ctorPinRead` (the reading clause of
+`RestoreAgree.ctor`, verbatim, through `nt_denoteMeta_restoredPin` at
+`pinψ`/`pinDs`/`find`), `.ctorPinFind2` (the container constructor found
+at `ENV₂`), and **`NestedTailIn.ctorPinFieldsFit`** — THE CRUX: a field
+spine fitting the CONTAINER's constructor at the pin frame fits the
+COPY's telescope at the scratch block (`hfit_at_of_inst`'s composed fit
+at `shape`/`entry`, its slots identified with the scratch block's own by
+F5 through `fitsFrom_iff_frames_spine`, then
+`IsBlockModels.spineFit_of_fitsFrom` at the scratch model).
+
+*T2 assembled* (Opus; `NestedRecCtor.lean` now 920 lines; standard
+axioms; gates green — build 700 jobs, test, shake 508/508, pub-imports
+none demotable): `ctorName_ne_aux`/`ctorNames_nodup`/`ctorPinLookupNone`
+(a copy constructor is no `pins` key — `elimNested_aligned` +
+`auxBlock_former` put the aux name among the members, `blockNames.Nodup`),
+`ctorPinPt` (at `w = 0` the container's constructor IS the point —
+`interp_mkPisAV_mem_univZero`, and at an EMPTY telescope `FormersTyped`
++ `mkPisAV_fold_mem` land the member at its readings in `univZero`;
+nothing forces `ci.nP ≥ 1`), `ctorPinFitJ` (at `w ≠ 0` the graded
+restored application's fields fit the container's telescope —
+`spineFit_of_wellDenoted_mkAppN_pis` with the head typed by
+`IsBlockModels.ctorsTyped`), and **`NestedTailIn.ctorArm S hnames hctorsJ ψ`**
+= `RestoreAgree.ctor`'s clause at `R := restoreTbl p st`, `lps := b.lps`,
+`arityOf := nestedArity p st pinsS`, the scratch model vs `mp₂`, `ENVA`
+vs `ENV₂`, `nP := b.nP`, `params := (D).params ψ` — verbatim match
+with the field confirmed by a probe; hypotheses exactly K.36's face and
+`hctorsJ`, no third.  Trap: `ofMutual_inj` does not `rw` under the
+`mutualBlockModel` notation — `have … := by rfl` (not `:= rfl`).
+
 #### U.30 — L-B session 2: `CopyCtorInst.ordF` at the READING, the normalisation's reading law PROVED, `ContainerModeled`'s three clauses (lane L-B, 2026-09-16)
 
 Three maintainer rulings opened this session; the first two are landed,
