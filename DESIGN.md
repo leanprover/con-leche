@@ -85340,3 +85340,201 @@ of 1990, none demotable.  Standard axioms only on every new theorem
 `NestedPinsRun.copyRecFRead`, `NestedPinsRun.copyOrdFLeft`, and the
 restated `instSeq_abstractRange_fvs`, `normCtorValM_domHead`,
 `copyFields`, `copyResid`, `copyRecFDom`, `copyRecF`).
+
+#### U.54 — L-B session 12: `recF` CLOSED at BOTH field kinds, and `ordF`-left's residue found UNPROVABLE as stated (lane L-B, 2026-09-17)
+
+**`CopyCtorShape.recF` is done.**  The finitary half landed in §U.49 /
+§U.53; this session added the REFLEXIVE half —
+`NestedPinsRun.copyRecFDomRefl`, `.copyRecFKindRefl`, `.copyRecFRefl`
+and `.copyRecFReadRefl` (`ConLeche/Model/Inductives/NestedCopyInst.lean`)
+— so every conjunct of the arm is a theorem at a container-recursive
+field targeting a member, at either kind.  `ordF`-left's second
+disjunct (§U.53's B6) was NOT closed, and (d) says why it cannot be:
+the arm as `CopyCtorShape` states it is FALSE there, and the fix is a
+premise on L-E's side.  `ordF`-right's and `pinF`'s reading halves were
+not started.
+
+##### (a) The Verify kit the reflexive field needed
+
+A reflexive field's domain is a `∀`-tower over a member application, so
+every step of §U.49/§U.53's chain had to be re-run under the field's own
+binders.  Five facts, none of which the tree had:
+
+* `normPosDomM_piIndApp` (`Verify/Inductives/NestedCopyNorm`) — **the
+  positivity walk is the identity on a `∀`-tower over a stuck inductive
+  application**, up to the openers' annotations.  `normPosDomM_indApp`
+  under binders: the walk peels each binder, opens it at its own
+  `.fvar`, recurses and closes it again, and that round trip is the
+  identity on a term whose free variables sit BELOW the binder's depth
+  (`instantiate1_abstract1_selfD`, `erasedEq_abstract1`).  The bound is
+  `Expr.fvarsBelow`, read off the constructor body's leaves
+  (`fvarsBelow_of_leaves`) and carried to the field by
+  `openPisAtFvars_fvarsBelow` (one depth per binder).
+  `normCtorValM_domErasedPi` is `normCtorValM_domErased` over it.
+* `normPosDomM_piDomsFree` (same file) — **a reflexive field's
+  telescope domains are member-free**, which is what lets the rewrite's
+  PRUNE apply to the telescope one binder at a time.  The walk either
+  handed the tower back because it mentions no member (and then so do
+  its openers) or took its Π arm at every binder, whose guard is that
+  very test; `normPosDomM_inv` keeps the middle case's mention test to
+  itself, so the `∀` case gets its own inversion
+  (`normPosDomM_forallE_inv`, over `whnf_forallE_eq`).
+  `normCtorValM_domPiFree` packages it at the field the walk ran on —
+  `normCtorValM_frame` keeps the field walk only in the arm where the
+  store changed something, so the walk is inverted separately
+  (`normCtorValM_fieldWalk`).
+* `uniformIndOccsE_stripPis_res` + `nestedContainersOk_memberSpineRefl`
+  (`Verify/Inductives/NestedGroupInv`) — K.14's uniformity at the BODY
+  of a peel: `uniformIndOccsE_stripPis` lands the walk on a binder
+  DOMAIN, and its twin lands it `n` binders deeper on what is left, so
+  the member application under a reflexive field's telescope is applied
+  to `structPsAt (l + d)` — the offset `mutualPositivity` compares
+  against at peel depth `d`.
+* `AnnotTerm.instAll_mkPisAV` (`Model/Inductives/NestedCopyRead`) —
+  parameter instantiation distributes over a Π-tower: the binder data
+  entry by entry (`instTeleP`, each at its own cut), the conclusion past
+  them all.  This is what turns `BlockCtorData.reflEntry`'s tower into
+  the copy's telescope and index readings.
+* `mutualPositivity_piTower` + `mutualCtorKinds_memberHeadPi`
+  (`Model/Inductives/NestedCopyInst`, private) — the classification's Π
+  case: the walk peels the tower, lands on the member application with a
+  NON-ZERO peel count and answers `.reflexive`.  As in the finitary
+  twin none of the guards has to be proved — every failure answers
+  `.negative`, the later-use test `.unsupported`, and
+  `classifyMutualKinds_inv` excludes both — and the same trick removes
+  the telescope's member-freeness from the lemma's hypotheses: a binder
+  domain that mentioned a member would itself answer `.negative`.
+
+##### (b) `NestedPinsRun.copyRecFDomRefl`
+
+```lean
+theorem NestedPinsRun.copyRecFDomRefl … (hrefl : (dJ.ksF i' j).getD l .ordinary = .reflexive)
+    (hrun : ConLeche.replaceAllNested env (p.lps.map Level.param) params pbs₀ st₁
+        (Expr.instSeq (srcAtE st p (q₀ + i')).2.2 (dJ.nP - 1 + l) (…)) = .ok (Fl, st₂))
+    (hfree : ∀ k, k < ((Fl.piBinders).1).length →
+      ConLeche.mentionsMember b.memberNames (((Fl.piBinders).1).getD k default).1 = false) :
+    ∃ (tbs TL : List (Expr × ConLeche.BinderMeta)) (idxs IDXS : List Expr),
+      (fcs.getD l default).1.stripPis tbs.length = some (tbs, …) ∧ tbs.length ≠ 0 ∧
+      idxs.length = dJ.nIdxAt (dJ.tgts i' j l) ∧
+      (∀ ψJ, (((dJ.tlss i' ψJ).getD j []).getD l []).length = tbs.length) ∧ IDXS = … ∧
+      (Expr.instSeq … (dJ.nP - 1 + l) (…)).stripPis tbs.length = some (TL, …) ∧
+      Fl.stripPis tbs.length = some (TL, …)
+```
+
+The peel is `Expr.piBinders`, and the shape travels between the closed
+and the opened domain by `piBinders_instSeq` (the openers are free
+variables, so the instantiation moves a tower's body and not its binder
+count) — which is how `BlockOpened.reflF`, stated at the OPENED domain,
+names the CLOSED body's head (`os_instSeq_getAppFn_const_inv` twice,
+once per instantiation layer).  From there the chain is §U.49's at the
+deeper cut `l + d`, and `replaceAllNested_mkPisB` splits the rewrite:
+the BODY fires the occurrence (`replaceAllNested_occurrence`, the pin
+identified exactly as in `copyRecFDom`) and every TELESCOPE binder is
+PRUNED — `replaceAllNested_unchanged_or_aux` against `groupCopyFormer`
+(a fired rewrite plants a block member) and `hfree`.  The two `stripPis`
+conjuncts share `TL`: **the rewrite leaves a reflexive field's telescope
+exactly as the instantiation left it**, which is the identity the
+readings run on.
+
+##### (c) The readings, and what closes them
+
+`copyRecFReadRefl` is `copyRecFRead` one layer deeper.  The MINTED
+constructor's `l`-th opened field domain reads as the container's
+instantiated (`mintFieldRead`), its reading is `reflEntry`'s Π-tower,
+and (a)'s distribution law turns `instAll` of that tower into a tower of
+instantiated data — so `denoteMeta_openPisAtFvars_dom` reads its openers
+as the container's telescope instantiated entry by entry and
+`denoteMeta_openPisAtFvars` reads its body's spine as the container's
+index readings instantiated past the telescope.  The copy's STORED
+domain is the rewrite of that very domain: (b) says the two share the
+telescope and `normCtorValM_domErasedPi` carries it across the
+normalisation, so the two openings' binder domains and index arguments
+are pointwise erasure-equal (`ErasedEq.stripPis_inv`,
+`instSeq_erasedEq_args`) and the readings meet (`denoteMeta_erasedEq`,
+`DenoteMetaSpine.erasedEq`, `.unique`).
+
+`copyRecFKindRefl` closes the classification half the same way: the
+stored domain peels the same number of binders to a body with the
+mimic's head, `piBinders_instSeq` brings that back to the CLOSED domain
+the classification reads, and `mutualCtorKinds_memberHeadPi` answers
+`.reflexive` at the copy's own block member.  `copyRecFRefl` reads the
+entry back through `blkRss`/`mutTgts`.
+
+##### (d) FINDING — `ordF`-left's residue is not provable, and the fix is a PREMISE
+
+§U.53 carried B6 as a second disjunct and sized its discharge as "a law
+about the REWRITE".  There is no such law to have: **in the residue case
+`CopyCtorShape.ordF`'s LEFT ARM IS FALSE**, and not only syntactically.
+
+The case is a λ-pin: the container's field domain is a redex whose
+DISCARDED part (the `.lam`'s domain annotation, or its argument) is a
+container application, so the elimination rewrites inside it and `whnf`
+then drops the whole thing.  The arm asks for
+
+```
+∀ fs₁ : List V, fs₁.length = l →
+  interp V (consList fs₁ ρp) (Fs.getD l default)
+    = interp V (consList fs₁ ρp) (AnnotTerm.instAll Ds l (((dJ.Fss i ψJ).getD j []).getD l default))
+```
+
+with `fs₁` constrained by its LENGTH alone.  The left side is the
+whnf'd domain (`Nat`, say); the right side is the redex, and `interp`
+of an application is `SetTheory.app` of the two readings — beta is
+`app_lamR`, whose premise is that the ARGUMENT lies in the domain's
+interpretation (`app_lamR_of_not_mem`: off its domain a graph-regime
+abstraction applies to `∅`).  At a field whose λ-pin mentions an
+EARLIER FIELD (`(f0 : Nat) (f1 : (fun _ : Vec α f0 => Nat) z)`, with
+`α` instantiated at a member-mentioning component) an `fs₁` of the right
+length that does not FIT the earlier domains reads the argument outside
+the domain, the application is `∅`, and the two sides differ.
+
+So the fix is not a lemma but a premise, and it is L-E's to add: the
+left arm needs the fit `CopyEntryAt` already carries,
+
+```
+SpineFit (consList (Ds.map (interp V ρp)) ρp) (((dJ.Fss i ψJ).getD j []).take l) fs₁
+```
+
+after which the residue closes with the reading law `normPosDomM_read_of`
+(`Model/Inductives/MutualNorm`) — whose own premise is `Sat V Δa ρ` at
+the constructor's context, which the fit supplies through the arm's own
+left disjunct at the EARLIER fields.  **Request to L-E: one premise on
+`CopyCtorShape.ordF`'s left arm.**  Until it is there, `copyOrdFLeft`
+stays as §U.53 landed it — unconditional, with the residue named on the
+block's own data.  (Whether the corpus contains such a λ-pin was not
+measured; nothing in this session depends on it.)
+
+##### (e) What the arms still owe
+
+* `ordF`-right's reading half and `pinF`'s remaining half — unchanged,
+  and both now also owe L-E's session-6 clauses (`agent/uniform-entry`
+  a28220d2, not yet merged here): `EntryRead`'s `TargetHead` (the
+  target's head NAME and LEVEL ARGUMENTS, read off the CONTAINER's own
+  field — a constant head level-substituted at the pin's assignment, or
+  a bare parameter whose opened variable carries its position through
+  `BlockCtorData.pIdx`, where the head is the pin's COMPONENT's) and
+  `PinCorr`'s components-as-`Expr` clause.  Both are what `mkCopy`
+  performs, so both come from `replaceAllNested_occurrence`'s
+  `.pin = J.{us} Ds` plus `mkCopy`'s instantiation — the sources
+  `copyPinF_shape` already uses.  `CopyCtorShape`/`CopyShapeA` also gain
+  a `DsE` parameter after `Ds`, threaded and unused in the standalone
+  arms.  **The next session should merge that interface before stating
+  either half.**
+* the assembly `nestedPinsShape_of` — needs all five arms; three are in
+  (`len`, `es`, `recF`), `ordF`-left is in modulo (d)'s premise, and
+  `ordF`-right/`pinF` are the two open ones.
+
+##### (f) GATES
+
+`lake build` 701 jobs warning-free; `lake test` 546 jobs warning-free;
+layering base 347 / model 271 / caps 3 / umbrella 1, 0/0; trust surface
+13/5 (633); overview-links 112; quote-gate 2; no-local-paths OK;
+proofdeps 4955 rows / 12 roots / 0 doors; shake 510/510 allowlisted;
+pub-imports 1276 of 2016, none demotable.  Standard axioms only on
+every new theorem (`fvarsBelow_of_leaves`, `openPisAtFvars_fvarsBelow`,
+`normPosDomM_piIndApp`, `normCtorValM_domErasedPi`,
+`normPosDomM_forallE_inv`, `normPosDomM_piDomsFree`,
+`normCtorValM_fieldWalk`, `normCtorValM_domPiFree`,
+`uniformIndOccsE_stripPis_res`, `nestedContainersOk_memberSpineRefl`,
+`AnnotTerm.instAll_mkPisAV`, `NestedPinsRun.copyRecFDomRefl`,
+`.copyRecFKindRefl`, `.copyRecFRefl`, `.copyRecFReadRefl`).
