@@ -81367,16 +81367,28 @@ match, in this order:
    `copyResid`'s `hshape` computes — which needs only
    `openPisAtFvars_stripPis`, ending at
    `ErasedEq cIbody (Expr.instSeq (openFvars b.nP nF) (nF - 1) RESID_cI)`;
-3. **ONE missing `Verify` lemma** reconciling the two spellings:
-   `Expr.instSeq (openFvars 0 (n + k)) (n + k - 1) (e.abstractRange 0 n k)`
-   is `ErasedEq` to `Expr.instSeq (openFvars n k) (k - 1) e` for an `e`
-   whose `fvar`s are below `n` and whose loose `bvar`s are below `k` —
-   abstracting the parameters and re-opening ALL of them restores them
-   (canonically annotated) and does to the FIELD variables exactly what
-   the field-only opening does.  `instSeq_abstractRange_fvs`
-   (`NestedCopyInstU`, §U.34) is its parameter-only ancestor; the shape
-   is one structural induction with the two `bvar` arithmetic cases.
-   **This is the only piece of `es` with any content left.**
+3. the PARAMETER stage of the copy's own opening.  The two closings
+   are not the same shape and this is the one place with content left:
+   the normalisation's `closeTelescope (pbs ++ fbs) 0` closes over the
+   OPENED domains, so (d)'s round trip applies to it directly (its
+   domains carry `fvar`s and no loose `bvar`, `openPisAtFvars_bounded`
+   and `normPosDomM_pres` §U.30 (b)); but the ELIMINATION's
+   `closeTelescope pbs₀ 0 cbody'` closes over `t₀.type.stripPis`'
+   binders, whose domains carry loose `bvar`s and no `fvar`, so
+   `closeTelescope_eq_mkPisB` turns it into
+   `mkPisB pbs₀ (cbody'.abstractRange 0 b.nP 0)` and the opening lands
+   on the ABSTRACTED body.  `instSeq_abstractRange_fvs`
+   (`NestedCopyGlue`, §U.34) undoes that — `copyBody` already uses it
+   in the other direction on `cI` — but at `cbody'` it wants
+   `cbody'.looseBVarsBounded 0 = true` and every `fvar` leaf of
+   `cbody'` an opener, i.e. **a frame-preservation lemma for
+   `replaceAllNested`** (the walk plants `mkAppN (mkAppN (.const aux
+   blvls) params) idxs`, whose leaves are the openers and which adds no
+   loose `bvar`).  `git grep` finds none; it is a plain induction over
+   the walk beside `replaceAllNested_mkPisB`, and it is the last
+   missing piece of `es`.  The canonical-versus-actual opener
+   difference that remains after it is `ErasedEq` (annotations only,
+   `Expr.instSeq_erasedEq_args`).
 4. `ErasedEq.mkAppN_inv` on both, past `b.nP` resp. `dJ.nP`, landing the
    two index spines on the same expressions (they are literally
    `esJ'.map …` on both sides — `copyResid`'s `hshape` and its
