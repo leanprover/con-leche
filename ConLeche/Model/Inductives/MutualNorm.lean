@@ -147,6 +147,100 @@ theorem normPosDomM_read {m : EnvModel V env} {F : Nat}
     exact ih fuel' (by omega) hbody' hwopen hbopen hLopen hCop hboda hboda' hokbody _
       (Sat_cons V hρ hx)
 
+/-- **The positivity normalisation's output READS**: at a domain that
+reads, whose frame is the run's, the walk's output reads too — the
+existence half of `normPosDomM_read`, which takes the output's reading
+as an input.  Same induction: every step's `whnf` output reads by
+`WhnfReads`, and at a `Π` the output's reading is assembled from the
+domain's (unchanged) and the recursive call's, through the
+`abstract1`/`instantiate1` round trip (task #315 L-B). -/
+theorem normPosDomM_reads {m : EnvModel V env} {F : Nat}
+    (hwc : WhnfClaim μ m φ F) (hwr : WhnfReads m μ φ F) {memberNames : List Name} :
+    ∀ (fuel : Nat) {d : Nat} {e e' : Expr} {Δa : List AnnotTerm} {ea : AnnotTerm},
+      ConLeche.normPosDomM (m := ConLeche.CheckM) (ConLeche.fueledOps μ F) env memberNames d fuel e
+        = .ok e' →
+      Expr.WScoped d e → e.looseBVarsBounded 0 = true → Expr.LeavesBounded e →
+      CtxOk m φ d Δa e →
+      denoteMeta m.acval env φ d e = some ea →
+      (∀ ρ : Nat → V, Sat V Δa ρ → WellDenotedV V ρ ea) →
+      ∃ ea', denoteMeta m.acval env φ d e' = some ea' := by
+  intro fuel
+  induction fuel using Nat.strongRecOn with
+  | _ fuel ih =>
+    intro d e e' Δa ea h hws hb hL hC hea hok
+    rcases ConLeche.normPosDomM_inv h with ⟨-, rfl⟩ | ⟨w, hw, hcase⟩
+    · exact ⟨ea, hea⟩
+    obtain ⟨wa, hwa⟩ := hwr hw hws hb hL (LeafReads.of_ctxOk hC) hea
+    obtain ⟨hokw, -⟩ := hwc hw hws hb hL hC hea hwa hok
+    have hwws : Expr.WScoped d w := ConLeche.whnf_WScoped m.wf F hw hws
+    have hwb : w.looseBVarsBounded 0 = true := ConLeche.whnf_looseBVars m.wf F hw hb
+    have hwl : ∀ l ∈ w.fvarLeaves, l ∈ e.fvarLeaves := ConLeche.whnf_fvarLeaves m.wf F hw
+    have hwL : Expr.LeavesBounded w := fun l hl => hL l (hwl l hl)
+    have hCw : CtxOk m φ d Δa w := hC.of_subset hwl
+    rcases hcase with rfl | ⟨dom, body, bm, body', fuel', rfl, rfl, -, hbody', rfl⟩
+    · exact ⟨wa, hwa⟩
+    -- the reduct's reading
+    rw [denoteMeta] at hwa
+    rcases hdoma : denoteMeta m.acval env φ d dom with _ | doma
+    · rw [hdoma] at hwa; exact nomatch hwa
+    rw [hdoma] at hwa
+    rcases hboda : denoteMeta m.acval env φ (d + 1) (body.instantiate1 (.fvar d dom))
+      with _ | boda
+    · rw [hboda] at hwa; exact nomatch hwa
+    rw [hboda] at hwa
+    obtain rfl : wa = .pi 0 (pwBit φ bm.pw) doma boda := (Option.some.inj hwa).symm
+    -- the opened frame, and the round trip that identifies the output's body
+    simp only [Expr.WScoped] at hwws
+    simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hwb
+    have hLdom : Expr.LeavesBounded dom := fun l hl => hwL l (by simp [Expr.fvarLeaves, hl])
+    have hLbody : Expr.LeavesBounded body := fun l hl => hwL l (by simp [Expr.fvarLeaves, hl])
+    obtain ⟨hwopen, hbopen, hLopen⟩ :=
+      frame_open2 hwws.1 hwb.1 hwws.2 hwb.2 hLdom hLbody
+    obtain ⟨-, hb2, hl2⟩ := ConLeche.normPosDomM_pres m.wf fuel' hbody' hwopen hbopen
+    have hleaf : Expr.LeafCond d dom (body.instantiate1 (.fvar d dom)) := by
+      intro l hl hd
+      rcases Expr.fvarLeaves_instantiate1 body 0 hl with h2 | h2
+      · exact absurd hd (by
+          have := Expr.fvarLeaves_lt_of_wscoped hwws.2 l h2
+          omega)
+      · rw [Expr.fvarLeaves] at h2
+        rcases List.mem_cons.mp h2 with rfl | h3
+        · exact rfl
+        · exact absurd hd (by
+            have := Expr.fvarLeaves_lt_of_wscoped hwws.1 l h3
+            omega)
+    have hcons : Expr.fvarConsistent d dom body' :=
+      Expr.fvarConsistent_of_leafCond body' (fun l hl => hleaf l (hl2 l hl))
+    have hround : (body'.abstract1 d).instantiate1 (.fvar d dom) = body' :=
+      abstract1_instantiate1 body' 0 hcons hb2
+    -- the extended context and the graded readings under it
+    have hokdoma : ∀ ρ : Nat → V, Sat V Δa ρ → WellDenotedV V ρ doma := by
+      intro ρ hρ
+      obtain ⟨hwd, hval⟩ := hokw ρ hρ
+      rw [WellDenoted_pi] at hwd
+      rw [AnnotValid_pi] at hval
+      exact ⟨hwd.1, hval.1⟩
+    have hCop : CtxOk m φ (d + 1) (doma :: Δa) (body.instantiate1 (.fvar d dom)) :=
+      CtxOk.open hCw.forallE_body hCw.forallE_ty hdoma hokdoma
+    have hokbody : ∀ ρ : Nat → V, Sat V (doma :: Δa) ρ → WellDenotedV V ρ boda := by
+      intro ρ hρ
+      have htail : Sat V Δa (fun j => ρ (j + 1)) := Sat_tail hρ
+      have hx : ρ 0 ∈ˢ interp V (fun j => ρ (j + 1)) doma := by
+        have := hρ 0 doma rfl
+        simpa using this
+      obtain ⟨hwd, hval⟩ := hokw _ htail
+      rw [WellDenoted_pi] at hwd
+      rw [AnnotValid_pi] at hval
+      refine ⟨?_, ?_⟩
+      · have := hwd.2 (ρ 0) hx
+        rwa [cons_eta] at this
+      · have := hval.2.1 (ρ 0) hx
+        rwa [cons_eta] at this
+    -- the output's reading, assembled
+    obtain ⟨boda', hboda'⟩ := ih fuel' (by omega) hbody' hwopen hbopen hLopen hCop hboda hokbody
+    rw [← hround] at hboda'
+    exact ⟨.pi 0 (pwBit φ bm.pw) doma boda', by rw [denoteMeta, hdoma, hboda']; rfl⟩
+
 /-- **The reading law at the run's own model package**: the `whnf`
 claims a verified-mode `EnvModelM` answers (`claimsAt_of`,
 `whnfReads_of`), so a consumer inside an inductive stage needs only
@@ -164,5 +258,25 @@ theorem normPosDomM_read_of (hμ : μ.verifiedChecks = true) (mp : EnvModelM V �
     ∀ ρ : Nat → V, Sat V Δa ρ → interp V ρ ea = interp V ρ ea' :=
   normPosDomM_read (claimsAt_of hμ mp φ F).whnf
     (whnfReads_of (TierInputsAt.ofSem mp φ).reads) fuel h hws hb hL hC hea hea' hok
+
+/-- **The consumer's form**: the walk's output reads, and reads the
+same — `normPosDomM_reads` supplies the output's reading that
+`normPosDomM_read_of` demands, so an arm inside an inductive stage
+needs nothing about `e'` at all (task #315 L-B). -/
+theorem normPosDomM_readEq_of (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ env)
+    (φ : Name → Nat) (F : Nat) {memberNames : List Name}
+    {fuel d : Nat} {e e' : Expr} {Δa : List AnnotTerm} {ea : AnnotTerm}
+    (h : ConLeche.normPosDomM (m := ConLeche.CheckM) (ConLeche.fueledOps μ F) env memberNames d
+      fuel e = .ok e')
+    (hws : Expr.WScoped d e) (hb : e.looseBVarsBounded 0 = true) (hL : Expr.LeavesBounded e)
+    (hC : CtxOk mp.base2 φ d Δa e)
+    (hea : denoteMeta mp.base2.acval env φ d e = some ea)
+    (hok : ∀ ρ : Nat → V, Sat V Δa ρ → WellDenotedV V ρ ea) :
+    ∃ ea', denoteMeta mp.base2.acval env φ d e' = some ea' ∧
+      ∀ ρ : Nat → V, Sat V Δa ρ → interp V ρ ea = interp V ρ ea' := by
+  obtain ⟨ea', hea'⟩ :=
+    normPosDomM_reads (claimsAt_of hμ mp φ F).whnf
+      (whnfReads_of (TierInputsAt.ofSem mp φ).reads) fuel h hws hb hL hC hea hok
+  exact ⟨ea', hea', normPosDomM_read_of hμ mp φ F h hws hb hL hC hea hea' hok⟩
 
 end ConLeche.Model
