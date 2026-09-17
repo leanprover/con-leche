@@ -1258,6 +1258,124 @@ theorem nestedBlockAt_of (m : EnvModel V env₂) {B : ContainerInfo → BlockMod
   rw [BlockAt, hB]
   exact ⟨C, PC, hL, hS⟩
 
+/-- **A stored block's pins' groups, with their containers' models** —
+`PinShapes` read for the VIEWS alone, at an assignment every stored
+container's `ContainerModeled` backs (task #315 L-E, DESIGN §U.67
+(c)): what the container instance transfer needs at a target pin of
+the ROOT, where only the frames matter. -/
+theorem PinShapes.views {env : Env} {m : EnvModel V env} {B : ContainerInfo → BlockModel V}
+    {d : BlockModel V} {pc : Nat → PinCtors V}
+    (hB : EnvBlocksOf m B) (hSh : PinShapes m B d pc) :
+    ∀ q, q < d.nPins → ∃ (q₀ kJ i : Nat) (dJ : BlockModel V),
+      q = q₀ + i ∧ i < kJ ∧ PinGroupView d dJ q₀ kJ ∧ IsBlockModels m dJ := by
+  intro q hq
+  obtain ⟨q₀, kJ, i, ci, rfl, hi, hci, S, -⟩ := hSh q hq
+  exact ⟨q₀, kJ, i, B ci, rfl, hi, S, (hB _ ci hci).1.reps⟩
+
+/-- **The entry at a PIN class of a stored block, at its own extended
+carrier** (task #315 L-E, DESIGN §U.67 (c) — `hdom₁`'s content at a
+PIN class): at a pin group `[q₀, q₀ + kK)` of `dR` whose container is
+`dK`, the group's copy of `dK`'s constructor `(i, j)` has, at EVERY
+copy-recursive field, the container's field domain read at the pin's
+frame EQUAL to the copy's slot at `dR`'s own extended carrier.  One
+case per field kind:
+
+* `pinF` — `copyEntryAt_of_pinCorr`, with `famAt_reads` for the
+  target's stored reading and `pinFrame_transport` for the frames;
+* `recF` — the copy's slot IS the container's at the pin's frame
+  (`slot_container`), the container's domain IS its slot at its own
+  least tuple (`real_dom_eq`), and the two families are ONE
+  (`pinGroupFam_mem`: the root's class at the copy's target is the
+  container's class at the corresponding member);
+* `ordF`-right — `copyEntryAt_of_read`, again with `famAt_reads`.
+
+With `slotSet_mono_app`/`app_relMeet_subset` this is `copyTransfer_via`'s
+`hdom₁` at a pin class: the relational meet is below the extended
+carrier, at which the entry is an equality. -/
+theorem BlockModel.copyEntryAt_pin {env : Env} {m : EnvModel V env}
+    {dR dK : BlockModel V} {q₀ kK : Nat}
+    (hrepsR : IsBlockModels m dR) (hrepsK : IsBlockModels m dK) (hkR : 0 < dR.k)
+    (S : PinGroupView dR dK q₀ kK)
+    (hviews : ∀ q, q < dR.nPins → ∃ (q₀' kJ' i' : Nat) (dJ' : BlockModel V),
+      q = q₀' + i' ∧ i' < kJ' ∧ PinGroupView dR dJ' q₀' kJ' ∧ IsBlockModels m dJ')
+    {ψR : Name → Nat} {ρR : Nat → V} (hρR : Sat V (dR.params ψR).reverse ρR)
+    (hfT : FormersTyped m dK ((dR.pinAt q₀).ψJ ψR))
+    (hPT : PinsTyped m dK ((dR.pinAt q₀).ψJ ψR))
+    {i j : Nat} (hi : i < kK) {cA : ConstantVal × Nat} (hj : (dK.ctorsM i)[j]? = some cA)
+    {lpsK : List Name} {lvlsK : List Level} {tg : Nat → Nat}
+    {tls : List (List (Nat × Nat × AnnotTerm))} {Eis : List (List AnnotTerm)}
+    {Fs Es : List AnnotTerm} {rs : List Bool}
+    (hsh : CopyCtorShape (dR.targetView m.acval ψR) m.acval dK ((dR.pinAt q₀).ψJ ψR)
+      ((dR.pinAt q₀).Ds ψR) lpsK lvlsK tg tls Eis ρR i j (dR.k + q₀) kK Fs rs Es)
+    {l : Nat} (hl : l < ((dK.Fss i ((dR.pinAt q₀).ψJ ψR)).getD j []).length)
+    (hrs : rs.getD l false = true) :
+    CopyEntryAt dK ((dR.pinAt q₀).ψJ ψR) ((dR.pinAt q₀).Ds ψR) tg tls Eis ρR i j
+      (dR.targetView m.acval ψR).w (dR.targetView m.acval ψR).u
+      (dR.famAt ψR ρR (lfpTuple (dR.w ψR) dR.k (dR.idx ψR ρR) (dR.Φ ψR ρR))) l := by
+  have hi' : i < dK.k := S.kEq ▸ hi
+  have hjl : j < (dK.ctorsM i).length := (List.getElem?_eq_some_iff.mp hj).1
+  obtain ⟨cvT, cvR, mI, rP, rules, hI⟩ := hrepsK i hi'
+  -- the container's parameter frame at the pin
+  have hρJ : Sat V (dK.params ((dR.pinAt q₀).ψJ ψR)).reverse
+      (consList (((dR.pinAt q₀).Ds ψR).map (interp V ρR)) ρR) := by
+    obtain ⟨ρ, as, hρeq, hsp⟩ := spineOfSat_params dR hρR
+    subst hρeq
+    exact dK.satOfSpine (S.DsFit ψR ρ as hsp)
+  have hw : dK.w ((dR.pinAt q₀).ψJ ψR) = (dR.targetView m.acval ψR).w := S.w ψR
+  -- the root's extended carrier reads as the target view's stored readings
+  have hZ : ∀ t, t < dR.k + dR.nPins → ∀ is : List V,
+      SpineFit ((dR.targetView m.acval ψR).frame ρR t)
+        ((dR.targetView m.acval ψR).Ids t) is →
+      SetTheory.app (dR.famAt ψR ρR
+          (lfpTuple (dR.w ψR) dR.k (dR.idx ψR ρR) (dR.Φ ψR ρR)) t)
+          (tupW ((dR.targetView m.acval ψR).u t) is)
+        = is.foldl SetTheory.app (interp V ρR ((dR.targetView m.acval ψR).EA t)) :=
+    fun t ht is his => BlockModel.famAt_reads hrepsR hρR hkR ht is his
+  by_cases hr : ((dK.rss i).getD j []).getD l false = true
+  · by_cases hnt : dK.tgts i j l < dK.k
+    · -- a container-RECURSIVE field at a MEMBER of the container
+      obtain ⟨-, htg, -, -⟩ := hsh.recF l hl hr hnt
+      have hntK : dK.tgts i j l < kK := S.kEq ▸ hnt
+      have hlt : l < cA.2 := by rw [← hI.Fss_length hj ((dR.pinAt q₀).ψJ ψR)]; exact hl
+      have hr' : (rsOf (dK.ksF i j)).getD l false = true := by
+        rwa [IsBlockModel.rss_getD hjl] at hr
+      intro fs₁ hl₁ hsp
+      rw [hsh.slot_container hl hr fs₁ hl₁, hrepsK.real_dom_eq hfT hPT hi' hj hρJ hlt hr' hsp,
+        dK.slotAt_of_mem hnt, hw]
+      -- the two targets' index universes
+      have hu : (dR.targetView m.acval ψR).u (tg l)
+          = dK.uM (dK.tgts i j l) ((dR.pinAt q₀).ψJ ψR) := by
+        rw [htg]
+        show dR.uT (dR.k + q₀ + dK.tgts i j l) ψR = _
+        rw [Nat.add_assoc, BlockModel.uT_of_pin (by omega) ψR, Nat.add_sub_cancel_left]
+        exact S.pinU _ hntK ψR
+      -- the two families are ONE
+      have hfam : dR.famAt ψR ρR
+            (lfpTuple (dR.w ψR) dR.k (dR.idx ψR ρR) (dR.Φ ψR ρR)) (tg l)
+          = lfpTuple (dK.w ((dR.pinAt q₀).ψJ ψR)) dK.k
+              (dK.idx ((dR.pinAt q₀).ψJ ψR)
+                (consList (((dR.pinAt q₀).Ds ψR).map (interp V ρR)) ρR))
+              (dK.Φ ((dR.pinAt q₀).ψJ ψR)
+                (consList (((dR.pinAt q₀).Ds ψR).map (interp V ρR)) ρR))
+              (dK.tgts i j l) := by
+        rw [htg, Nat.add_assoc, dR.famAt_of_pin (by omega), Nat.add_sub_cancel_left,
+          BlockModel.pinGroupFam_mem hrepsR hrepsK hkR S hρR hntK, hw]
+        rfl
+      rw [hu, hfam, hw]
+    · -- a container-RECURSIVE field at one of the container's OWN pins
+      obtain ⟨-, -, hkle, hklt, hcorr, htl, hEis⟩ := hsh.pinF l hl hr hnt
+      have hkle' : dR.k ≤ tg l := hkle
+      have hklt' : tg l < dR.k + dR.nPins := hklt
+      obtain ⟨q₀', kJ', i', dJ', hqe, hi'', S', hrepsJ'⟩ := hviews _ (by omega : tg l - dR.k < dR.nPins)
+      refine copyEntryAt_of_pinCorr (TV := dR.targetView m.acval ψR) hrepsK hfT hPT hi' hj hρJ
+        hw hl hr hnt hcorr htl hEis ?_ (hZ _ hklt')
+      exact BlockModel.pinFrame_transport S' hrepsJ' hi'' (by omega) hcorr.2.1 hcorr.2.2.2.1
+  · -- a container-ORDINARY field the elimination rewrote
+    have hr' : ((dK.rss i).getD j []).getD l false = false := by simpa using hr
+    rcases hsh.ordF l hl hr' with ⟨hrC, -⟩ | ⟨-, -, hklt, hread⟩
+    · rw [hrC] at hrs; exact absurd hrs Bool.false_ne_true
+    · exact copyEntryAt_of_read hread (hZ _ hklt)
+
 /-! ## The targets read as the stored readings — step (i)'s two leaf laws -/
 
 /-- **A MEMBER target reads as the block's carrier**: at a spine fitting
