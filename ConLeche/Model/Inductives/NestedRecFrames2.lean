@@ -514,6 +514,58 @@ theorem NestedTailIn.FssT_getD_eq {mpA : EnvModelM V μ ENVA} {cvRas : List Cons
     rw [hnr] at h
     exact Bool.false_ne_true h
 
+
+/-! ### The field chains -/
+
+/-- **THE BRIDGE** (PLAN-M7 §1e clause 7): a field spine fits class
+`c`'s constructor `j` at the COMPOSED carrier exactly when it fits the
+copy's constructor at the SCRATCH block's least tuple — position by
+position (`fitsFrom_iff_frames_spine`): the flags are one
+(`rssT_eq`), a recursive position's two slots are one (`slotT_eq`)
+and an ordinary one's two domains are one (`FssT_getD_eq`), with the
+scratch side's recursive entry its own real domain
+(`real_dom_eq`). -/
+theorem NestedTailIn.fitsFrom_iff {mpA : EnvModelM V μ ENVA} {cvRas : List ConstantVal}
+    (S : NestedScratchOut F env b fms f₀ ctorsA kinds mp₁ ppsF W idxF dsF esF srcsF fvsPF xFvsF
+      xrestF eissF tssF stored mpA cvRas)
+    (ψ : Name → Nat) (ρ : Nat → V) (as : List V) (hsp : SpineFit ρ ((D).params ψ) as)
+    {c : Nat} (hc : c < b.k) {j : Nat} {cA : ConstantVal × Nat}
+    (hjA : ((DA).ctorsM c)[j]? = some cA) (fs : List V) :
+    FitsFrom (((DA).rss c).getD j []) ((DA).slotAt ψ (Laux ψ (consList as ρ)) c j) 0
+        (consList as ρ) (((DA).Fss c ψ).getD j []) fs
+      ↔ FitsFrom (((D).rssT PC c).getD j [])
+          ((D).slotAtT PC ψ ((D).famAt ψ (consList as ρ)
+            (lfpTuple ((D).w ψ) (D).k ((D).idx ψ (consList as ρ)) ((D).Φ ψ (consList as ρ)))) c j)
+          0 (consList as ρ) (((D).FssT PC ψ c).getD j []) fs := by
+  have hρp : Sat V ((D).params ψ).reverse (consList as ρ) := (D).satOfSpine hsp
+  have hρpA : Sat V ((DA).params ψ).reverse (consList as ρ) := hρp
+  obtain ⟨cvT, cvR, mI, rP, rules, hIA⟩ := S.reps c hc
+  have hjl : j < ((DA).ctorsM c).length := (List.getElem?_eq_some_iff.mp hjA).1
+  have hlenA : (((DA).Fss c ψ).getD j []).length = cA.2 := hIA.Fss_length hjA ψ
+  have hrsA : ((DA).rss c).getD j [] = rsOf ((DA).ksF c j) :=
+    IsBlockModel.rss_getD (d := (DA)) (mm := c) hjl
+  refine fitsFrom_iff_frames_spine (by rw [hlenA, I.FssT_len_eq S ψ hc hjA])
+    fun l hl fs₁ _ hspine _ _ => ?_
+  rw [hlenA] at hl
+  simp only [Nat.zero_add]
+  by_cases hr : (((DA).rss c).getD j []).getD l false = true
+  · have hr' : (rsOf ((DA).ksF c j)).getD l false = true := by rw [← hrsA]; exact hr
+    have hreal := S.reps.real_dom_eq (S.typed ψ).1 (PinsTyped.of_noPins rfl ψ) hc hjA hρpA hl hr'
+      hspine
+    rw [if_pos hr, if_pos (by rw [I.rssT_eq hjA]; exact hr)]
+    refine ⟨?_, I.slotT_eq S ψ ρ as hsp hc hjA hl hr' hspine⟩
+    rw [hreal]
+    exact Subset.refl _
+  · have hr0 : (((DA).rss c).getD j []).getD l false = false := by
+      cases hh : (((DA).rss c).getD j []).getD l false
+      · rfl
+      · exact absurd hh hr
+    have hr0' : (rsOf ((DA).ksF c j)).getD l false = false := by rw [← hrsA]; exact hr0
+    rw [if_neg (by rw [hr0]; exact Bool.false_ne_true),
+      if_neg (by rw [I.rssT_eq hjA, hr0]; exact Bool.false_ne_true),
+      I.FssT_getD_eq S ψ hc hjA hl hr0']
+    exact ⟨Subset.refl _, rfl⟩
+
 end Run
 
 end ConLeche.Model
