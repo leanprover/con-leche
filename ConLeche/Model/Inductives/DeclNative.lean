@@ -58,6 +58,21 @@ theorem spineFit_take {Fs : List AnnotTerm} {ρ : Nat → V} {as : List V}
   exact h1
 
 
+/-- **The recursor's name is fresh at the constructors' environment**:
+the recursor stage's own `checkConstantVal`, read off the run
+(`checkNativeRec_shape`).  Consumer: the carriers' agreement across the
+recursor's cons (`declNative_syntax`, `declNativeB`). -/
+theorem nativeRec_fresh {F : Nat} {env : Env} {p : NativeParts} {cvTa cvRa : ConstantVal}
+    {ctorsA : List (ConstantVal × Nat)} {rhss : List Expr}
+    (hRec : ConLeche.checkNativeRec (ConLeche.fueledOps μ F) env p cvTa ctorsA
+      = .ok (cvRa, rhss)) :
+    env.find? cvRa.name = none := by
+  obtain ⟨cvRi, recTy, sty, u, hccvR, -, -, -, -, -, -, -, -, -, hcvRa⟩ :=
+    ConLeche.checkNativeRec_shape hRec
+  obtain ⟨hfresh, -, -, -, -, -, -, -, -, -, -, -, -, -, -⟩ := ConLeche.checkConstantVal_inv hccvR
+  rw [show cvRa.name = p.cvR.name from by rw [hcvRa]]
+  exact hfresh
+
 /-! ## What the install establishes about the block (task #315 M7-3 s7) -/
 
 /-- **The facts `declNative` establishes about the block it installs**
@@ -217,7 +232,11 @@ theorem declNative_syntax (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂
       (ksF : Nat → List RecFieldKind) (fvsPF xFvsF : Nat → List Expr) (xrestF : Nat → Expr)
       (eissF : Nat → (Name → Nat) → List (List AnnotTerm))
       (tssF : Nat → (Name → Nat) → List (List (Nat × Nat × AnnotTerm)))
-      (fssZ : (Name → Nat) → List (List AnnotTerm)) (mpC : EnvModelM V μ envC),
+      (fssZ : (Name → Nat) → List (List AnnotTerm)) (mpC : EnvModelM V μ envC)
+      (mp₃ : EnvModelM V μ ⟨.recInfo cvRa p.majorIdx p.rulePrefix
+        (ConLeche.sumRules envC.find? cvRa.name p.nP p.majorIdx p.rulePrefix cvRa.type ctorsA rhss)
+        :: envC.consts⟩) (mpOut : EnvModelM V μ env₂),
+      AcvalAgrees mpC.base2 mp₃.base2 ∧ AcvalAgrees mp₃.base2 mpOut.base2 ∧
       NativeSyntaxFacts (μ := μ) (env := env) (env₁ := env₁) (env₂ := env₂) mpC.base2 F p cvTa cvRa
         ctorsA sortss rhss bsT ppsAll uAV idxF dsF esF srcsF ksF fvsPF xFvsF xrestF eissF tssF
         fssZ := by
@@ -1211,7 +1230,10 @@ theorem declNative_syntax (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂
     (fun j cA hj => (hframes j cA hj).1) hframesR
     (fun hl => (hwl hl).imp_right fun h => by rw [hlenA]; exact h)
   -- the projection table at a structure-like block (task #210 Parts A, B)
-  have hN : Nonempty (EnvModelM V μ env₂) :=
+  have hagC3 : AcvalAgrees mpC.base2 mp₃.base2 := by
+    intro n hn
+    rw [hac₃, acvalWith_ne (fun h => by rw [h, nativeRec_fresh hRec] at hn; exact nomatch hn)]
+  obtain ⟨mpOut, hagOut⟩ :=
     declNativeTable rfl rfl hTbl mpC mp₃ hac₃ hProp hRname hClps hresT hresR
       (by rw [← hTname₀]; exact hpshapeT)
       mp.base2.wf hlenA hnFc hrunOf hfT_C hlpsT hTfresh'
@@ -1271,8 +1293,8 @@ theorem declNative_syntax (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂
       sortsOf := hsortsOf
       XR := fun ψ ρp hρ => ⟨(hframesR ψ ρp hρ).1, (hframesR ψ ρp hρ).2.1⟩
       recRun := hRec }
-  exact ⟨hN, _, _, p, cvTa, cvRa, ctorsA, sortss, rhss, bsT, ppsAll, uAV, idxF, dsF, esF, srcsF,
-    ksF, fvsPF, xFvsF, xrestF, eissF, tssF, Fss₀, mpC, hfacts⟩
+  exact ⟨⟨mpOut⟩, _, _, p, cvTa, cvRa, ctorsA, sortss, rhss, bsT, ppsAll, uAV, idxF, dsF, esF,
+    srcsF, ksF, fvsPF, xFvsF, xrestF, eissF, tssF, Fss₀, mpC, mp₃, mpOut, hagC3, hagOut, hfacts⟩
 
 /-- **The P carrier survives a direct recursive install.** -/
 theorem declNative (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
