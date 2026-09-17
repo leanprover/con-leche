@@ -81669,6 +81669,210 @@ the kernel lane (½ each, both cannot-fire) and `hctorsJ` from the
 groups once `NestedStageFacts.groups` names the model
 (`ContainerModeled.member`, L-E/L-B).
 
+##### (p) CONTINUATION 8 (lane session 9) — item 5 begun, the THIRD FACE GONE, and K.35 found NOT to discharge its own face
+
+Base `agent/uniform-315` d0271fc0 merged clean (`lake build` EXIT 0
+straight after the merge — no adaptations this time, unlike
+continuation 7's three).  No checker code changed; no `sorry`, no
+axioms, no `maxHeartbeats`; `#print axioms` of every new theorem is
+`[propext, Classical.choice, Quot.sound]` (`nestedRecLeaf_params` is
+`[propext, Quot.sound]`).
+
+*The third face is GONE* (62946187).  `NestedGroupCtorNamesOf` —
+`hctorsJ`, the groups' constructor names — is DELETED.  §U.36 (d) said
+it closes once `NestedStageFacts.groups` names the groups' model
+`blockOf mp.base2 (baseInfo env st q)`; it does not need that.  Lane
+L-B's `NestedPinGroupSyn.ctorsOf` (`NestedPins.lean`) already PROVES
+the statement verbatim, and it mentions `containerInfo? env` and `dJ`
+alone — model-free, so it crosses environments untouched.  The change
+is plumbing: `NestedPinGroup` (`NestedCore.lean`) gains the field,
+`NestedPinGroupSyn.ofParts` and `NestedPinGroup.crossEnv` forward it,
+and `nestedRecFramesOf_of`/`nestedRecEqsOf_of_faces` read `hctorsJ`
+off the group (`(G.ctorsOf i hi ci J h1 h2 h3).1`).  **The readings and
+the equations now stand on K.35 and K.36 alone.**  *The `blockOf`
+naming §U.36 (d) asks for is still wanted — for the tail's `BlockAt`
+supply — but the two requests are independent and should stay so.*
+
+##### (q) FINDING — K.35 AS LANDED DOES NOT DISCHARGE `NestedRecTysAuxOf`; and the face is unprovable as stated
+
+K.35 landed on the kernel lane as the Bool `nestedAuxAppsOk`
+(`Kernel/Inductives/NestedInstall.lean:1333`, a `certOnly` conjunct of
+`DeclNestedRun`).  It does **not** imply the model's face
+`NestedRecTysAuxOk` (`Model/Inductives/NestedRecFrames.lean:193`),
+whose content is the INDUCTIVE `AuxAppsOk`
+(`Verify/Inductives/NestedRecWalk.lean:84`).  Four gaps, all verified
+against the tree:
+
+1. **`letE`/`proj`/`lit`.**  The Bool descends into a `.letE`/`.proj`
+   and passes a `.lit`; `AuxAppsOk` has no constructor for any of the
+   three, so the face is FALSE at an admissible input (a field domain
+   may contain a literal or a projection — §U.29 (m) already recorded
+   the same for the parameter prefix).  The fix is on the MODEL side:
+   `AuxAppsOk` must GAIN the three cases.  `letE` is free in both
+   consumers (`denoteMeta` is `none` there); `proj` needs a
+   `RestoreAgree` clause `findProj?` agreeing across the environments
+   plus `restoreWalk_proj_inv`; `lit` needs `natLitSupported`/
+   `strLitSupported` agreeing.  All three discharges have existing
+   `cons*` lemmas at the tail.
+2. **The key head's LEVEL ARGUMENTS.**  `AuxAppsOk.key` concludes at
+   `.const n (lps.map .param)`; the Bool's `auxAppsNodeOk` matches
+   `.const n _` and ignores `us`.  This one is **load-bearing and not
+   derivable**: the reading law's key case (`NestedRecWalk.lean:452`,
+   `:479`) rewrites by `denoteMeta_const` to `acvalA n φ`, which is the
+   only leaf `RestoreAgree.pin`/`.ctor` speak about; at arbitrary `us`
+   the leaf is `acvalA n (Level.substFn φ lps us)` and the identity
+   does not apply.  → **K.38 request** (below).
+3. **The non-key `const` side condition** (`n ∉ R.auxNames ∨ recMap`):
+   DROPPABLE — recoverable inside the reading law from `restoreNode`'s
+   `.ok none` at such a name plus `constsResolve` of the restored term.
+4. **The face's own statement.**  `NestedRecTysAuxOf` quantifies over
+   `pinsS` under `pinsS.length = st.pins.length` ALONE, and
+   `nestedArity p st pinsS` reads `(pinsS.getD j default).nIdx`: at an
+   arbitrary `pinsS` that is not the run's, the arity clause is simply
+   false (`default : PinSyn` has `nIdx = 0`).  The face must be
+   restated at a KERNEL-SHAPED arity `nestedArityK p st` (the model
+   copy of `nestedAuxAppsOk`'s local `arityOf`), with
+   `nestedArity p st pinsS = nestedArityK p st` proved once at the tail
+   from `auxBlock_former` + `NestedPinFacts.pinNIdx` (PROVED at
+   `NestedPins.lean`, but NOT exported through `NestedLoopFacts`/
+   `NestedStageFacts` — the same plumbing the `ctorsOf` field just got)
+   + one extra conjunct on `mutualFormerChecks_true_id` (`f.nIdx = nIdx`).
+
+**K.38 (the request, exact).**  Thread the block's level parameters
+through the walk and require a key-headed spine's head to carry
+exactly them:
+
+```lean
+def auxAppsNodeOk (R : RestoreTbl) (lps : List Name) (arityOf : Name → Option Nat)
+    (d : Nat) (e : Expr) : Bool :=
+  match e.getAppFn with
+  | .const n us =>
+    if isAuxAppKey R n then
+      (us == lps.map Level.param) &&
+        (match arityOf n with
+         | some ar =>
+           (e.getAppArgs.length == R.nP + ar) && (e.getAppArgs.take R.nP == structPsAt d R.nP)
+         | none => false)
+    else true
+  | _ => true
+```
+
+with the same conjunct in `auxAppsOk`'s zero-argument `.const` branch
+and in the memoised twin `auxAppsGoM`, `nestedAuxAppsOk` passing
+`p.lps` (`b.lps = p.lps` by `auxBlock`).  No extra traversal; a failure
+stays `.internal`; measured on the 27 shadow fixtures and the Mathlib
+nested cone before landing, as K.28–K.32 were.  **½ kernel session.**
+Then `NestedRecTysAuxOf` from the run is **2–3 model sessions** (the
+weakening of 1 and 3 with their two new `RestoreAgree` clauses, 1–1½;
+the Bool→Prop reflection on `sizeOf`, ½–1; the arity identity and the
+face's restatement, ½).
+
+##### (r) ITEM 5 — the stage proper, begun: the leaf and the rule-less conses
+
+PLAN-M7 §4a, in four commits.
+
+* **The two clauses the conses need** (6d5a7564, e5d5352b).
+  `NestedRecEqs` gains `valid` (every equation is `AnnotValid` at every
+  tuple typed at the RESTORED readings — the mutual
+  `IsBlockModels.blockEq_valid` at the scratch block, its tuple
+  hypothesis carried across `towerAgree` exactly as `heq`'s is) and
+  `below` (`specEqs_below` at `DA`, `(DA).k = (D).kT`);
+  `NestedRecReadings` gains `tyBelow` (the Π-tower's own bound,
+  `blockRecTy_below` at `below`/`len`, the conclusion being the scratch
+  `mutualConcAV`).  Without these three the chosen tuple's projection
+  is not a legal cons leaf: `declStep_preserves_of_ind_rec_cons` wants
+  `WellDenotedV` (= `WellDenoted ∧ AnnotValid`) and `bvarsBelow 0`, and
+  `NestedRecTuple` supplies `WellDenoted` alone.
+* **The leaf** (`nestedRecLeaf`, e5d5352b): the mutual
+  `BlockModel.recLeaf`'s twin at `kT` classes, `blockLeafAV` at
+  `restrictΨ b.rlps ψ` — so its stability under the recursors' level
+  parameters is definitional (`nestedRecLeaf_params`), its closedness is
+  `blockRecAVI_below` at `tyBelow`/`below` (`nestedRecLeaf_below`), and
+  its typedness with bit validity is `NestedRecTuple` at the restricted
+  assignment carried to `ψ` by `NestedRecReadings.params` plus
+  `blockRecAVI_validV` (`nestedRecLeaf_typed`).
+* **The conses** (`Model/Inductives/NestedRecsStore.lean`, new,
+  52a1d10d): `nestedRecProvisionCons` — `recProvisionCons` with the
+  stored type's reading LEFT ARBITRARY.  That is the one real
+  difference from the mutual step: a restored recursor type's
+  conclusion is the SCRATCH block's `mutualConcAV`, not
+  `mutualConcAV` *of the block being installed*, so `MutualRecData` is
+  the wrong record and `read`/`okTy` go in as two plain hypotheses (the
+  mutual proof uses nothing else of it).  Then `nestedRecsProvisionGo`,
+  the loop over `provisionNestedRecs`' TRIPLES `(cvRa, mI, rP)` paired
+  with their class index — the kernel's list carries the argument sums
+  per entry where the mutual one computes them from the block — and
+  `nestedRecsProvision` at a class-indexed list (`L.zipIdx`,
+  `List.zipIdx_map_fst`).
+
+##### (s) FINDING — the restored recursors' NAMES are not known to be distinct (K.39 request)
+
+The provision loop needs each name FRESH at the environment the cons
+runs at, i.e. the `k + nPins` restored recursor names pairwise
+DISTINCT.  Nothing supplies it:
+
+* `restoreRecTys_door` gives freshness at `ENV₂` — the SAME environment
+  for every entry, so it separates none of them;
+* `checkNested` (both routes) runs no name check on `cvRms`/`cvRns`;
+* `b.blockNames.Nodup` (from `checkMutualCore_inv`) covers the MEMBERS'
+  names `T_m.rec` but not the mimics': a mimic is
+  `Name.appendIndexAfter (T₁.rec) (j+1) = .str T₁ ("rec_" ++ toString (j+1))`,
+  which is not a scratch block name at all;
+* `nestedParts?` — which DOES check
+  `(mrs.map (·.1.name) ++ nrs.map (·.1.name)).Nodup` — is **dead code**:
+  nothing in the tree calls it, so the check is not in `DeclNestedRun`.
+
+Deriving it syntactically needs `Nat.repr` injectivity (`toString`
+on the mimic index), which core does not have (`exact?` fails) and
+which is ~100 lines over `Nat.toDigitsCore`.  **K.39 request**: one
+`certOnly`-gated conjunct beside K.35's, `.internal` on failure,
+cannot fire —
+
+```lean
+unless certOnly ops.mode
+    (decide ((cvRms.map (·.name) ++ cvRns.map (·.name)).Nodup)) do
+  throw (.internal "nested: two restored recursors carry one name")
+```
+
+placed after `restoreRecTys` in `checkNested` and mirrored in
+`checkNestedS`, with the conjunct in `DeclNestedRun`,
+`checkNested_inv`, `NestedTailModeled` and `NestedTailIn`.  **¼ kernel
+session** (it is the nested twin of the mutual route's own
+`b.blockNames.Nodup`, which the kernel DOES check).  Until it lands the
+stage's provision step takes it as a hypothesis.
+
+##### (t) REMAINING of item 5, and the sizing
+
+Done: the leaf and its three laws, the cons step, the loop, the
+list-level `nestedRecsProvision`.  Left, in order:
+
+1. the RUN-level provision (`NestedTailIn.provisioned`): the positional
+   identification of `(cvRms.zip …) ++ (cvRns.zip …)` with
+   `nestedRecCvAt p.k cvRms cvRns`, the names/freshness/reserved/
+   projection-shape/type-well-formedness from `restoreRecTys_door` and
+   `restoreRecTys_at`, and K.39's Nodup — **½ session**;
+2. the rule law per restored rule (PLAN-M7 §4b: the member `.plain`
+   twin at the class kit, the auxiliary `.nested` fire through
+   `nestedFireShape_inv`, `restoreRules_at`) — **2–2½**;
+3. the store swap and `PinRecLaws.crossEnv` — **1**;
+4. the tables' twin (`nestedTables`) and §U.36 (d)'s `EnvModelB`
+   supply — **1–1½**.
+
+**Item 5 from here: 4½–5½ sessions** (PLAN-M7 §4's 5–6, one half
+spent).  Off the lane: K.38 (½) and K.39 (¼) on the kernel lane,
+K.36 still unexamined, and then `NestedRecTysAuxOf` 2–3 model sessions.
+
+##### (u) GATES (at e5d5352b)
+
+`lake build` 712 jobs warning-free EXIT 0; `lake test` warning-free
+EXIT 0; shake 510 removals all allowlisted / pub-imports 1303 of 2110
+public, none demotable (41 dot-notation fallbacks); layering base 350 /
+model 279 / caps 3 / umbrella 1, 0 base→lane, 0 impl→theory; trust
+surface 13 escapes in 5 allowlisted files (644 scanned);
+no-local-paths OK; overview-links 112; quote-gate 2; proofdeps 4955
+rows / 12 roots / **0 doors**.
+
+
 #### U.30 — L-B session 2: `CopyCtorInst.ordF` at the READING, the normalisation's reading law PROVED, `ContainerModeled`'s three clauses (lane L-B, 2026-09-16)
 
 Three maintainer rulings opened this session; the first two are landed,
