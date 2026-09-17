@@ -891,4 +891,262 @@ theorem replaceAllNested_unchanged_or_aux :
           · exact Or.inl (by rw [hx])
           · exact Or.inr ⟨q, hq, by simp [Expr.mentionsConst, hm]⟩
 
+/-! ## (R6) The frame -/
+
+/-- **THE MIMIC'S SHAPE**: whenever `replaceIfNested` fires it returns
+the auxiliary of a pin applied to the walk's OWN parameters and to a
+suffix of the occurrence's arguments — nothing else. -/
+theorem replaceIfNested_shape {st st' : ElimState} {e e' : Expr}
+    (h : replaceIfNested env blvls params pbs₀ st e = .ok (some (e', st'))) :
+    ∃ (A : Name) (n : Nat),
+      e' = Expr.mkAppN (Expr.mkAppN (.const A blvls) params) (e.getAppArgs.drop n) := by
+  unfold replaceIfNested at h
+  split at h
+  · split at h
+    · split at h
+      · split at h
+        · close_throw
+        · split at h
+          · split at h <;> close_throw
+          · dsimp only at h
+            split at h
+            · close_throw
+            · obtain ⟨nested, -, h⟩ := exceptBind_ok h
+              split at h
+              · close_throw
+              · split at h
+                · rename_i qq _
+                  simp only [pure, Except.pure, Except.ok.injEq, Option.some.injEq,
+                    Prod.mk.injEq] at h
+                  obtain ⟨rfl, rfl⟩ := h
+                  exact ⟨qq.aux, _, rfl⟩
+                · obtain ⟨pr, -, h⟩ := exceptBind_ok h
+                  obtain ⟨stM, gotM⟩ := pr
+                  split at h
+                  · close_throw
+                  · rename_i auxI hgot
+                    have hgot' : gotM = some auxI := hgot
+                    subst hgot'
+                    simp only [pure, Except.pure, Except.ok.injEq, Option.some.injEq,
+                      Prod.mk.injEq] at h
+                    obtain ⟨rfl, rfl⟩ := h
+                    exact ⟨auxI, _, rfl⟩
+      · close_throw
+    · close_throw
+  · close_throw
+
+/-- **THE REWRITE PRESERVES THE FRAME** (task #315 L-B, DESIGN §U.38 (e)
+step 3): the walk plants only the mimic — a constant applied to the
+block's parameter openers and to arguments of the term it replaces — so
+its output adds no loose `bvar` and no `fvar` leaf beyond the ones the
+input and the parameters already carry.
+
+Stated at an arbitrary `bvar` bound because the walk descends under
+binders; the parameters are `bvar`-closed, hence bounded at every
+depth (`looseBVarsBounded_mono`). -/
+theorem replaceAllNested_frame {fvs : List Expr}
+    (hpb : ∀ a ∈ params, a.looseBVarsBounded 0 = true)
+    (hpl : ∀ a ∈ params, ∀ l ∈ a.fvarLeaves, Expr.fvar l.1 l.2 ∈ fvs) :
+    ∀ (e : Expr) {k : Nat} {st st' : ElimState} {e' : Expr},
+      replaceAllNested env blvls params pbs₀ st e = .ok (e', st') →
+      e.looseBVarsBounded k = true → (∀ l ∈ e.fvarLeaves, Expr.fvar l.1 l.2 ∈ fvs) →
+      e'.looseBVarsBounded k = true ∧ ∀ l ∈ e'.fvarLeaves, Expr.fvar l.1 l.2 ∈ fvs := by
+  -- the mimic, at the frame: its head is closed, its parameters are the
+  -- openers and its remaining arguments are the input's own
+  have hmimic : ∀ {A : Name} {n k : Nat} {e : Expr}, e.looseBVarsBounded k = true →
+      (∀ l ∈ e.fvarLeaves, Expr.fvar l.1 l.2 ∈ fvs) →
+      (Expr.mkAppN (Expr.mkAppN (.const A blvls) params) (e.getAppArgs.drop n)).looseBVarsBounded k
+          = true ∧
+        ∀ l ∈ (Expr.mkAppN (Expr.mkAppN (.const A blvls) params)
+            (e.getAppArgs.drop n)).fvarLeaves, Expr.fvar l.1 l.2 ∈ fvs := by
+    intro A n k e hb hlv
+    refine ⟨looseBVarsBounded_mkAppN (looseBVarsBounded_mkAppN rfl
+        (fun a ha => Expr.looseBVarsBounded_mono (Nat.zero_le k) (hpb a ha)))
+      (fun x hx => looseBVarsBounded_getAppArgs hb x (List.mem_of_mem_drop hx)), ?_⟩
+    intro l hl
+    rcases fvarLeaves_mkAppN hl with hl' | ⟨x, hx, hlx⟩
+    · rcases fvarLeaves_mkAppN hl' with hl'' | ⟨a, ha, hla⟩
+      · exact absurd hl'' (by simp [Expr.fvarLeaves])
+      · exact hpl a ha l hla
+    · exact hlv l (fvarLeaves_getAppArgs (List.mem_of_mem_drop hx) l hlx)
+  intro e
+  induction e with
+  | bvar _ | sort _ | const _ _ | lit _ | fvar _ _ =>
+    intro k st st' e' h hb hlv
+    rw [replaceAllNested] at h
+    · split at h
+      · obtain ⟨rfl, -⟩ := (by simpa using h : _ ∧ _); exact ⟨hb, hlv⟩
+      · split at h
+        · close_throw
+        · rename_i r heq
+          obtain ⟨re, rst⟩ := r
+          simp only [Except.ok.injEq, Prod.mk.injEq] at h
+          obtain ⟨rfl, rfl⟩ := h
+          obtain ⟨A, n, rfl⟩ := replaceIfNested_shape heq
+          exact hmimic hb hlv
+        · obtain ⟨rfl, -⟩ := (by simpa using h : _ ∧ _); exact ⟨hb, hlv⟩
+    all_goals (intros; exact Expr.noConfusion ‹_›)
+  | app f a ihf iha =>
+    intro k st st' e' h hb hlv
+    rw [replaceAllNested] at h
+    simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
+    simp only [Expr.fvarLeaves, List.mem_append] at hlv
+    split at h
+    · obtain ⟨rfl, -⟩ := (by simpa using h : _ ∧ _)
+      exact ⟨by simp [Expr.looseBVarsBounded, hb.1, hb.2],
+        fun l hl => hlv l (by simpa [Expr.fvarLeaves] using hl)⟩
+    · split at h
+      · close_throw
+      · rename_i r heq
+        obtain ⟨re, rst⟩ := r
+        simp only [Except.ok.injEq, Prod.mk.injEq] at h
+        obtain ⟨rfl, rfl⟩ := h
+        obtain ⟨A, n, rfl⟩ := replaceIfNested_shape heq
+        exact hmimic (by simp [Expr.looseBVarsBounded, hb.1, hb.2])
+          (fun l hl => hlv l (by simpa [Expr.fvarLeaves] using hl))
+      · split at h
+        · close_throw
+        · rename_i f' st1 heq1
+          split at h
+          · close_throw
+          · rename_i a' st2 heq2
+            simp only [Except.ok.injEq, Prod.mk.injEq] at h
+            obtain ⟨rfl, rfl⟩ := h
+            obtain ⟨hbf, hlf⟩ := ihf heq1 hb.1 (fun l hl => hlv l (Or.inl hl))
+            obtain ⟨hba, hla⟩ := iha heq2 hb.2 (fun l hl => hlv l (Or.inr hl))
+            refine ⟨by simp [Expr.looseBVarsBounded, hbf, hba], fun l hl => ?_⟩
+            simp only [Expr.fvarLeaves, List.mem_append] at hl
+            rcases hl with hl | hl
+            · exact hlf l hl
+            · exact hla l hl
+  | lam ty b m ihty ihb =>
+    intro k st st' e' h hb hlv
+    rw [replaceAllNested] at h
+    simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
+    simp only [Expr.fvarLeaves, List.mem_append] at hlv
+    split at h
+    · obtain ⟨rfl, -⟩ := (by simpa using h : _ ∧ _)
+      exact ⟨by simp [Expr.looseBVarsBounded, hb.1, hb.2],
+        fun l hl => hlv l (by simpa [Expr.fvarLeaves] using hl)⟩
+    · split at h
+      · close_throw
+      · rename_i r heq
+        obtain ⟨re, rst⟩ := r
+        simp only [Except.ok.injEq, Prod.mk.injEq] at h
+        obtain ⟨rfl, rfl⟩ := h
+        obtain ⟨A, n, rfl⟩ := replaceIfNested_shape heq
+        exact hmimic (by simp [Expr.looseBVarsBounded, hb.1, hb.2])
+          (fun l hl => hlv l (by simpa [Expr.fvarLeaves] using hl))
+      · split at h
+        · close_throw
+        · rename_i ty' st1 heq1
+          split at h
+          · close_throw
+          · rename_i b' st2 heq2
+            simp only [Except.ok.injEq, Prod.mk.injEq] at h
+            obtain ⟨rfl, rfl⟩ := h
+            obtain ⟨hbt, hlt⟩ := ihty heq1 hb.1 (fun l hl => hlv l (Or.inl hl))
+            obtain ⟨hbb, hlb⟩ := ihb heq2 hb.2 (fun l hl => hlv l (Or.inr hl))
+            refine ⟨by simp [Expr.looseBVarsBounded, hbt, hbb], fun l hl => ?_⟩
+            simp only [Expr.fvarLeaves, List.mem_append] at hl
+            rcases hl with hl | hl
+            · exact hlt l hl
+            · exact hlb l hl
+  | forallE ty b m ihty ihb =>
+    intro k st st' e' h hb hlv
+    rw [replaceAllNested] at h
+    simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
+    simp only [Expr.fvarLeaves, List.mem_append] at hlv
+    split at h
+    · obtain ⟨rfl, -⟩ := (by simpa using h : _ ∧ _)
+      exact ⟨by simp [Expr.looseBVarsBounded, hb.1, hb.2],
+        fun l hl => hlv l (by simpa [Expr.fvarLeaves] using hl)⟩
+    · split at h
+      · close_throw
+      · rename_i r heq
+        obtain ⟨re, rst⟩ := r
+        simp only [Except.ok.injEq, Prod.mk.injEq] at h
+        obtain ⟨rfl, rfl⟩ := h
+        obtain ⟨A, n, rfl⟩ := replaceIfNested_shape heq
+        exact hmimic (by simp [Expr.looseBVarsBounded, hb.1, hb.2])
+          (fun l hl => hlv l (by simpa [Expr.fvarLeaves] using hl))
+      · split at h
+        · close_throw
+        · rename_i ty' st1 heq1
+          split at h
+          · close_throw
+          · rename_i b' st2 heq2
+            simp only [Except.ok.injEq, Prod.mk.injEq] at h
+            obtain ⟨rfl, rfl⟩ := h
+            obtain ⟨hbt, hlt⟩ := ihty heq1 hb.1 (fun l hl => hlv l (Or.inl hl))
+            obtain ⟨hbb, hlb⟩ := ihb heq2 hb.2 (fun l hl => hlv l (Or.inr hl))
+            refine ⟨by simp [Expr.looseBVarsBounded, hbt, hbb], fun l hl => ?_⟩
+            simp only [Expr.fvarLeaves, List.mem_append] at hl
+            rcases hl with hl | hl
+            · exact hlt l hl
+            · exact hlb l hl
+  | letE ty v b ihty ihv ihb =>
+    intro k st st' e' h hb hlv
+    rw [replaceAllNested] at h
+    simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
+    simp only [Expr.fvarLeaves, List.mem_append] at hlv
+    split at h
+    · obtain ⟨rfl, -⟩ := (by simpa using h : _ ∧ _)
+      exact ⟨by simp [Expr.looseBVarsBounded, hb.1.1, hb.1.2, hb.2],
+        fun l hl => hlv l (by simpa [Expr.fvarLeaves, List.mem_append, or_assoc] using hl)⟩
+    · split at h
+      · close_throw
+      · rename_i r heq
+        obtain ⟨re, rst⟩ := r
+        simp only [Except.ok.injEq, Prod.mk.injEq] at h
+        obtain ⟨rfl, rfl⟩ := h
+        obtain ⟨A, n, rfl⟩ := replaceIfNested_shape heq
+        exact hmimic (by simp [Expr.looseBVarsBounded, hb.1.1, hb.1.2, hb.2])
+          (fun l hl => hlv l (by simpa [Expr.fvarLeaves, List.mem_append, or_assoc] using hl))
+      · split at h
+        · close_throw
+        · rename_i ty' st1 heq1
+          split at h
+          · close_throw
+          · rename_i v' st2 heq2
+            split at h
+            · close_throw
+            · rename_i b' st3 heq3
+              simp only [Except.ok.injEq, Prod.mk.injEq] at h
+              obtain ⟨rfl, rfl⟩ := h
+              obtain ⟨hbt, hlt⟩ := ihty heq1 hb.1.1 (fun l hl => hlv l (Or.inl (Or.inl hl)))
+              obtain ⟨hbv, hlvv⟩ := ihv heq2 hb.1.2 (fun l hl => hlv l (Or.inl (Or.inr hl)))
+              obtain ⟨hbb, hlb⟩ := ihb heq3 hb.2 (fun l hl => hlv l (Or.inr hl))
+              refine ⟨by simp [Expr.looseBVarsBounded, hbt, hbv, hbb], fun l hl => ?_⟩
+              simp only [Expr.fvarLeaves, List.mem_append] at hl
+              rcases hl with (hl | hl) | hl
+              · exact hlt l hl
+              · exact hlvv l hl
+              · exact hlb l hl
+  | proj s idx x ihx =>
+    intro k st st' e' h hb hlv
+    rw [replaceAllNested] at h
+    simp only [Expr.looseBVarsBounded] at hb
+    simp only [Expr.fvarLeaves] at hlv
+    split at h
+    · obtain ⟨rfl, -⟩ := (by simpa using h : _ ∧ _)
+      exact ⟨by simp [Expr.looseBVarsBounded, hb], fun l hl => hlv l (by simpa [Expr.fvarLeaves] using hl)⟩
+    · split at h
+      · close_throw
+      · rename_i r heq
+        obtain ⟨re, rst⟩ := r
+        simp only [Except.ok.injEq, Prod.mk.injEq] at h
+        obtain ⟨rfl, rfl⟩ := h
+        obtain ⟨A, n, rfl⟩ := replaceIfNested_shape heq
+        exact hmimic (by simp [Expr.looseBVarsBounded, hb])
+          (fun l hl => hlv l (by simpa [Expr.fvarLeaves] using hl))
+      · split at h
+        · close_throw
+        · rename_i x' st1 heq1
+          simp only [Except.ok.injEq, Prod.mk.injEq] at h
+          obtain ⟨rfl, rfl⟩ := h
+          obtain ⟨hbx, hlx⟩ := ihx heq1 hb hlv
+          exact ⟨by simp [Expr.looseBVarsBounded, hbx],
+            fun l hl => hlx l (by simpa [Expr.fvarLeaves] using hl)⟩
+
 end ConLeche
