@@ -503,6 +503,64 @@ theorem normCtorValM_domErased {env : Env} (henv : EnvWF env) {memberNames : Lis
   rw [normPosDomM_indApp hT hd', ← hhead] at her
   exact her
 
+/-- **A MEMBER-FREE FIELD DOMAIN SURVIVES THE NORMALISATION** (task
+#315 L-B): `normCtorValM_domErased`'s twin at the walk's own guard —
+the positivity normalisation is the identity on a domain mentioning no
+member (`normPosDomM_no_mention`), so the stored constructor's field
+`l` carries the domain the stage was given, up to the openers'
+annotations.  This is the arm `CopyCtorShape.ordF`'s LEFT half runs
+on. -/
+theorem normCtorValM_domUnchanged {env : Env} (henv : EnvWF env) {memberNames : List Name}
+    {nP nF F : Nat} {cvC cvCa cvCa' : ConstantVal}
+    (h : normCtorValM (m := CheckM) (fueledOps mode F) env memberNames nP nF cvC cvCa true
+      = .ok cvCa')
+    (hb : cvCa.type.looseBVarsBounded 0 = true)
+    {fvs xFvs : List Expr} {crest xrest : Expr}
+    (hop1 : openPisAtFvars nP cvCa.type 0 = some (fvs, crest))
+    (hop2 : openPisAtFvars nF crest nP = some (xFvs, xrest))
+    {fvs' xFvs' : List Expr} {crest' xrest' : Expr}
+    (hop1' : openPisAtFvars nP cvCa'.type 0 = some (fvs', crest'))
+    (hop2' : openPisAtFvars nF crest' nP = some (xFvs', xrest'))
+    {l : Nat} {x x' : Expr} (hx : xFvs[l]? = some x) (hx' : xFvs'[l]? = some x')
+    (hm : mentionsMember memberNames x.fvarTypeD = false) :
+    Expr.ErasedEq x'.fvarTypeD x.fvarTypeD := by
+  rcases normCtorValM_frame henv h hb with rfl |
+    ⟨bs, fbs, pbs, fvs₀, xFvs₀, crest₀, xrest₀, hA, hB, hlen, hdoms, hty, hfields, hpl, hbseq⟩
+  · rw [hop1] at hop1'
+    simp only [Option.some.injEq, Prod.mk.injEq] at hop1'
+    obtain ⟨rfl, rfl⟩ := hop1'
+    rw [hop2] at hop2'
+    simp only [Option.some.injEq, Prod.mk.injEq] at hop2'
+    obtain ⟨rfl, rfl⟩ := hop2'
+    obtain rfl : x = x' := Option.some.inj (hx.symm.trans hx')
+    exact Expr.ErasedEq.rfl _
+  rw [hop1] at hA
+  simp only [Option.some.injEq, Prod.mk.injEq] at hA
+  obtain ⟨rfl, rfl⟩ := hA
+  rw [hop2] at hB
+  simp only [Option.some.injEq, Prod.mk.injEq] at hB
+  obtain ⟨rfl, rfl⟩ := hB
+  have hxb : xrest.looseBVarsBounded 0 = true :=
+    (Verify.openPisAtFvars_bounded nF hop2 (Verify.openPisAtFvars_bounded nP hop1 hb).1).1
+  obtain ⟨fvs₃, r₃, hop₃, -, -, hdoms₃⟩ :=
+    openPisAtFvars_closeTelescope_doms bs 0 xrest hdoms hxb
+  rw [hlen] at hop₃
+  have hadd : openPisAtFvars (nP + nF) cvCa'.type 0 = some (fvs' ++ xFvs', xrest') :=
+    openPisAtFvars_addD nP hop1' (by simpa using hop2')
+  rw [hty, hop₃] at hadd
+  simp only [Option.some.injEq, Prod.mk.injEq] at hadd
+  obtain ⟨rfl, -⟩ := hadd
+  have hfvs' : fvs'.length = nP := Verify.openPisAtFvars_length nP hop1'
+  have hidx : (fvs' ++ xFvs')[nP + l]? = some x' := by
+    rw [List.getElem?_append_right (by omega), hfvs', show nP + l - nP = l from by omega]
+    exact hx'
+  obtain ⟨d', bm', hd', hfbsl⟩ := normFieldDomsM_getD hfields hop2 l x hx
+  have hbb : bs[nP + l]? = some (d', bm') := by
+    rw [hbseq, List.getElem?_append_right (by omega), hpl, show nP + l - nP = l from by omega]
+    exact hfbsl
+  have her : Expr.ErasedEq x'.fvarTypeD d' := hdoms₃ (nP + l) x' (d', bm') hidx hbb
+  rwa [normPosDomM_no_mention hd' hm] at her
+
 /-- **THE STORED FIELD DOMAIN'S HEAD** — `normCtorValM_domErased` read
 through `ErasedEq.getApp`: an erasure-equal partner of a constant IS
 that constant, so the stored domain is that former applied to a spine
