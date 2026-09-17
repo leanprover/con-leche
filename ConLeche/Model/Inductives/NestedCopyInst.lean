@@ -13,7 +13,6 @@ import ConLeche.Verify.Inductives.NestedCopyKinds
 import ConLeche.Verify.Inductives.NestedAuxInv
 import ConLeche.Verify.Inductives.NestedRestoreKit
 import ConLeche.Model.Inductives.BlockRepCross
-import ConLeche.Model.Inductives.MutualFormersKit
 public section
 
 /-!
