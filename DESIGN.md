@@ -75217,12 +75217,94 @@ of an invariant whose stream side was already closed, and neither side
 is a place official could be wrong about a stream — official's
 elimination mints these applications itself, exactly as ours does.
 
-**The consequence for the modes.**  Everything in the table is
-certification tax by the standing ruling (`CheckMode` in
-`Kernel/Env.lean`: trusted = verified minus the certification-only
-steps), and none of it is currently gated on `mode.verifiedChecks` —
-`git grep verifiedChecks ConLeche/Kernel/Inductives` is empty.  Gating
-them needs the mode threaded into `checkNative`/`checkMutualCore`/
-`checkNested`, which `CheckerOps` does not carry today (only
-`checkModeled` takes a `mode`); it is the same blast radius the
-`auxRoute` grade had.  Docketed as its own step.
+**The consequence for the modes, and the gate that follows it.**
+Everything in the table is certification tax by the standing ruling
+(`CheckMode` in `Kernel/Env.lean`: trusted = verified minus the
+certification-only steps), and none of it WAS gated on
+`mode.verifiedChecks` — `git grep verifiedChecks ConLeche/Kernel/
+Inductives` was empty.  It is now.
+
+**The mechanism.**  `CheckerOps` gains a field `mode : CheckMode`.  That
+names something every instantiation already baked into its five core
+entry points (`fueledOps mode`, `sharedOpsC mode`, `fueledOpsM mode`,
+`wfOpsM mode`, `fueledOpsGated mode`), so NO route's signature changes
+and no statement in the proof tiers moves; threading `mode` through
+`checkNative`/`checkMutualCore`/`checkNested` instead would have been
+the `auxRoute` grade's 14-file blast radius for no gain.  `OpsRel` gains
+the matching `o₁.mode = o₂.mode` clause.  The gate itself is
+
+```lean
+@[inline] def certOnly (mode : CheckMode) (b : Bool) : Bool :=
+  !mode.verifiedChecks || b
+```
+
+— `true` at `.trusted` whatever `b` is, and `||` short-circuits, so `b`
+is not evaluated at all; `b` at `.verified`.  The run relations record
+`certOnly μ b = true` and the model tier, which is stated under
+`hμ : μ.verifiedChecks = true`, reads `b = true` off it with
+`certOnly_elim` (`certOnly_and_left` projects a conjunct, which is how
+`pinsDistinct` comes off `nestedContainersOk`).  This is the
+`_inv`-friendly shape: the inversions need no new hypothesis and no
+consumer of `declNativeRun_of`/`declMutualRun_of`/`declNestedRun_of`
+changes.
+
+**GATED**: `blockReadBackOk` on all three routes (K.34), and on the
+nested route `nestedContainersOk` (K.14), `nestedCopySrcOk` (K.28),
+`nestedGroupsOk` (K.29), `pinsScoped` (K.30), `nestedCopyTargetsOk`
+(K.32), `nestedPinKindsOk` (K.26), `nestedAuxAppsOk` (K.35) and
+`pinsDistinct` (K.31) — in the pure route, the cached mirror, the run
+relation and the inversion, each.
+
+**NOT gated, deliberately**, and the line is crisp: a check that throws
+`.invalid` is a STREAM-FACING VERDICT, never certification tax
+(`pinsClosed`, the recursor-record comparison), so it runs in both
+modes; the three `nestedPinsOk` runs TYPE the pins in the checker monad
+rather than reading a Bool, so gating them is a monadic-shape change and
+is left for whoever needs the saving; and the K.20 fresh-non-η record is
+`O(k)` and is the premise `declNestedRun_etaClosed` consumes
+unconditionally.
+
+**A SIMP TRAP, recorded beside the module system's two.**  Rewriting the
+gate's condition INSIDE an `ite` transports the `Decidable` instance,
+and `FueledM.atF_ite` then stops matching, so a `_datF` bridge lemma
+silently fails to push its `.val F` inward.  Do not rewrite it: the two
+operation records spell `ops.mode` differently but DEFINITIONALLY, so
+the `_datF` lemmas close with a trailing `rfl`, and an inversion phrases
+its `by_cases` in the route's own spelling (`(fueledOps μ F).mode`),
+which the run relation's `certOnly μ …` then accepts by defeq.
+
+**MEASURED on init-full** (53 093 declarations, `--jobs=4`, the same
+stream and binary pair, instructions:u):
+
+| | before the gate | after |
+| --- | --- | --- |
+| `--verified` | 539 209 653 493 | 539 255 446 213 (+0.0085 %) |
+| `--trusted` | 521 926 609 545 | 521 897 803 698 (−0.0055 %) |
+
+Both are under this run's noise, and that is the honest result: K.34
+measured the read-back itself at +0.00117 %, so there was never a
+measurable saving to win.  **The gate is the RULE, not the
+instructions** — what it buys is that the trusted lane stops carrying
+the model tier's evidence, which is the property the ruling is about,
+and the ledger above is what makes it reviewable.
+
+**BEHAVIOURAL CONTROL** (the `betaTest_of_gate_off` discipline): with
+`&& false` inside the gated Bool,
+
+* `blockReadBackOk` (cached native route): `--verified` gives
+  `internal error: direct rec: the installed block does not read back
+  as its own [at inductive And, fold position 10]`; `--trusted`
+  **accepts 12 declarations**;
+* `nestedAuxAppsOk` (cached nested route, `--nested-shadow` on
+  `nested_p07`): `--verified` gives `nested-shadow P7 error nested: an
+  auxiliary application in the block's read-back is not at the block's
+  parameters`; `--trusted` gives `nested-shadow P7 accept`.
+
+The gate is reached, and it is off at `.trusted`.
+
+**The gates, after it**: `tests/arena.sh` **EXIT 0** — including its own
+`--trusted` sweep (138 arena + 196 e2e + 15 annot, the 3 recorded
+divergences unchanged) and `proofdeps` at 4 915 rows, doors 0.
+nested-shadow **27/27**; the Mathlib nested cone exit 0, **4 926
+accepted**, 41/41 shadow lines `accept`, at 179 460 999 648
+instructions:u against K.35's own 179 465 188 886 — the same run.
