@@ -499,6 +499,183 @@ theorem PinRecLaws.cross {env₁ env₂ : Env} {m₁ : EnvModel V env₁} {m₂ 
     {d : BlockModel V} {pc : Nat → PinCtors V} (h : PinRecLaws m₁ d pc) : PinRecLaws m₂ d pc :=
   ⟨h.tgtsLt, h.idxOk, h.fibre, h.mkZero, h.mkInj, h.injW, h.ind⟩
 
+/-! ## The container's own pins, read back (task #315 M7-3 session 13) -/
+
+/-- **Determinism of a read spine**: `denoteMeta` is a function, so one
+list of expressions reads as one list of terms.  (The twin at two
+carriers and two environments is `DenoteMetaSpine.eq_of_pointwise`,
+`NestedRecWalk.lean`, which this file is below.) -/
+theorem DenoteMetaSpine.det {acval : Name → (Name → Nat) → AnnotTerm} {env : Env}
+    {φ : Name → Nat} {dp : Nat} :
+    ∀ {as : List Expr} {vs vs' : List AnnotTerm},
+      DenoteMetaSpine acval env φ dp as vs → DenoteMetaSpine acval env φ dp as vs' → vs = vs'
+  | _, _, _, .nil, h' => by cases h'; rfl
+  | _, _, _, .cons ha h, h' => by
+    cases h' with
+    | cons ha' h'' => rw [Option.some.inj (ha.symm.trans ha'), DenoteMetaSpine.det h h'']
+
+/-- **EVERY OWN PIN THE MIMICS SPELL IS ONE OF THE BLOCK MODEL'S
+RECORDED PINS, AT THAT INSTANTIATION** (task #315, lane L-E's request,
+DESIGN §U.65 (d) — the bridge §U.68 (e) withdrew the "not needed"
+claim for): `containerOwnPinsAt` reads a stored container's own pins
+off its MIMIC RECURSORS, already instantiated at the level arguments
+and components of the pin that names the container, and hands back
+`Expr`s; K.41's inversion (`nestedPinRootPairOk_inv`) lands a block's
+pin TERM in that list.  `classPin_of_pinCorr`, on the other side, wants
+a `PinCorr` at `d.pinAt qK` — the block model's RECORDED pin.  Nothing
+in `ContainerModeled`/`BlockAt` relates the two; this is what does.
+
+**The shape, against §U.65 (d).**  Two corrections, both forced by the
+tree (DESIGN §U.69 (a)):
+
+1. the components are carried at their READINGS, not by an `Expr`
+   rewriting law.  §U.65 (d) spelled the instantiated component as
+   `Expr.instSeq Ds 0 (Expr.instantiateLevelParams lpsC lvls x)` over
+   the recorded `x ∈ (d.pinAt q).DsE`.  That cannot be right as
+   stated: a block model's `DsE` is the pin's components AT THE
+   BLOCK'S PARAMETER OPENERS (`PinSyn.DsE`, read at depth `nP` —
+   `NestedStageFacts.pinDs`), i.e. already opened at the install's
+   free variables, while `containerOwnPinsAt` instantiates the mimic
+   recursor's BINDERS; and `Expr.instSeq`'s cut DESCENDS
+   (`instSeq (a :: as) t e = instSeq as (t - 1) (e.instantiate1 a t)`),
+   so `0` is the innermost binder, not the outermost.  What the
+   consumer actually needs of the components is their READINGS — the
+   `Ds` clause of `PinCorr` — so the clause states exactly that: the
+   spelled pin's arguments READ as the container's recorded components
+   read at the instantiated level assignment and instantiated at the
+   outer components' readings (`AnnotTerm.instAll Ds 0`, `PinCorr`'s
+   own form);
+2. the level arguments stay syntactic (`Level.subst` at the
+   container's own level parameters, which `env.find?` binds): that is
+   `PinCorr`'s `lvls` clause on the nose, and the `psi` clause reaches
+   the assignments through `ContainerModeled.pinψ` on both sides
+   (`Level.substFn_map_subst`).
+
+**Why it is not a `ContainerModeled` field yet** (DESIGN §U.69 (b)):
+no construction site can prove it today.  The NESTED route needs the
+mimic recursors' stored types related to the recorded pins — the
+arithmetic `containerOwnPinsAt`'s own docstring refuses to do by hand,
+so it wants a kernel record in K.34/K.41's pattern; the pins-free
+routes (native, mutual, the five pinned basis blocks) need
+`containerOwnPinsAt env C lvls Ds = some []`, which is the queued
+K.43's `_inv`; and the CROSSING (`ContainerModeled.crossEnvP`) reads
+`.recInfo`s, which its `hF` deliberately does not preserve.  Landing
+the clause as a field before those exist would put a new hypothesis in
+the B fold, which is not this lane's to spend. -/
+@[expose] def ContainerOwnPins {env : Env} (m : EnvModel V env) (d : BlockModel V) : Prop :=
+  ∀ (i : Nat) (cvC : ConstantVal) (caps : IndCaps) (lvls : List Level)
+    (DsE ps : List Expr) (Ds : List AnnotTerm) (ψ : Name → Nat) (dp : Nat),
+    i < d.k → env.find? (d.memberName i) = some (.indInfo cvC caps) →
+    ConLeche.containerOwnPinsAt env (d.memberName i) lvls DsE = some ps →
+    DenoteMetaSpine m.acval env ψ dp DsE Ds →
+    ∀ e ∈ ps, ∃ (qK : Nat) (es : List Expr), qK < d.nPins ∧
+      e = Expr.mkAppN
+        (.const (d.pinAt qK).J ((d.pinAt qK).lvls.map (Level.subst cvC.levelParams lvls))) es ∧
+      DenoteMetaSpine m.acval env ψ dp es
+        (((d.pinAt qK).Ds (Level.substFn ψ cvC.levelParams lvls)).map (AnnotTerm.instAll Ds 0))
+
+/-- **THE BRIDGE, CONSUMED** (task #315 M7-3 session 13, DESIGN §U.69
+(c)): the block's pin `q`, whose recorded TERM K.41 puts among the root
+container's own pins at the root pin's level arguments and components,
+IS one of the container's recorded pins — `PinCorr` at the block's
+target `D.k + q`, which is `classPin_of_pinCorr`'s input.
+
+This is the Expr-to-`AnnotTerm` half lane L-E named: the `J` and
+`lvls` clauses come out of the term equality by `mkAppN`'s inversion at
+a constant head, and the `Ds` clause by DETERMINISM of the readings —
+the block's own components read as `(D.pinAt q).Ds ψ`
+(`NestedStageFacts.pinDs` at the run, `ContainerModeled`'s twin at a
+stored container) and the spelled ones as the container's instantiated
+at the outer components, and they are ONE list of expressions.  `EA` is
+then `targetRead` at a pin (the stored container at the pin's level
+assignment and components) with the two assignments identified through
+the pins' `pinψ` laws (`Level.substFn_map_subst`) and the carrier's own
+`acval_params`.
+
+The index universe and index telescope (`u`, `Ids`) are the container's
+at both sides and are NOT this bridge's: they are premises, which lane
+L-E discharges from the pins' group views (`PinGroupView.pinU`,
+`pinPps`/`pinNP`). -/
+theorem pinCorr_of_ownPins {env : Env} {m : EnvModel V env} {D dR : BlockModel V}
+    {ψ : Name → Nat} {dp i q : Nat} {cvC : ConstantVal} {caps : IndCaps}
+    {lvlsK : List Level} {DsE₀ ps : List Expr} {Ds₀ : List AnnotTerm}
+    (hown : ContainerOwnPins m dR)
+    (hi : i < dR.k) (hfind : env.find? (dR.memberName i) = some (.indInfo cvC caps))
+    (hps : ConLeche.containerOwnPinsAt env (dR.memberName i) lvlsK DsE₀ = some ps)
+    (h0 : DenoteMetaSpine m.acval env ψ dp DsE₀ Ds₀)
+    (hmem : Expr.mkAppN (.const (D.pinAt q).J (D.pinAt q).lvls) (D.pinAt q).DsE ∈ ps)
+    (hDsD : DenoteMetaSpine m.acval env ψ dp (D.pinAt q).DsE ((D.pinAt q).Ds ψ))
+    (hψD : ∀ (cv : ConstantVal) (cp : IndCaps),
+      env.find? (D.pinAt q).J = some (.indInfo cv cp) →
+      ∀ ψ' : Name → Nat, (D.pinAt q).ψJ ψ' = Level.substFn ψ' cv.levelParams (D.pinAt q).lvls)
+    (hψK : ∀ qK, qK < dR.nPins → ∀ (cv : ConstantVal) (cp : IndCaps),
+      env.find? (dR.pinAt qK).J = some (.indInfo cv cp) →
+      (dR.pinAt qK).lvls.length = cv.levelParams.length ∧
+      ∀ ψ' : Name → Nat, (dR.pinAt qK).ψJ ψ' = Level.substFn ψ' cv.levelParams (dR.pinAt qK).lvls)
+    (hfoundK : ∀ qK, qK < dR.nPins →
+      ∃ (cv : ConstantVal) (cp : IndCaps), env.find? (dR.pinAt qK).J = some (.indInfo cv cp))
+    (huIds : ∀ qK, qK < dR.nPins → (D.pinAt q).J = (dR.pinAt qK).J →
+      (D.pinAt q).u ψ = (dR.pinAt qK).u (Level.substFn ψ cvC.levelParams lvlsK) ∧
+      (D.pinAt q).Ids ψ = (dR.pinAt qK).Ids (Level.substFn ψ cvC.levelParams lvlsK)) :
+    ∃ qK, qK < dR.nPins ∧
+      PinCorr (D.targetView m.acval ψ) m.acval dR (Level.substFn ψ cvC.levelParams lvlsK)
+        Ds₀ cvC.levelParams lvlsK (D.k + q) qK := by
+  obtain ⟨qK, es, hqK, heq, hes⟩ :=
+    hown i cvC caps lvlsK DsE₀ ps Ds₀ ψ dp hi hfind hps h0 _ hmem
+  -- the term equality, inverted at the constant head
+  have hhead : (Expr.const (D.pinAt q).J (D.pinAt q).lvls)
+      = .const (dR.pinAt qK).J ((dR.pinAt qK).lvls.map (Level.subst cvC.levelParams lvlsK)) := by
+    have := congrArg Expr.getAppFn heq
+    rwa [Expr.getAppFn_mkAppN, Expr.getAppFn_mkAppN] at this
+  have hargs : (D.pinAt q).DsE = es := by
+    have := congrArg Expr.getAppArgs heq
+    rwa [Expr.getAppArgs_mkAppN, Expr.getAppArgs_mkAppN,
+      show (Expr.const (D.pinAt q).J (D.pinAt q).lvls).getAppArgs = [] from rfl,
+      show (Expr.const (dR.pinAt qK).J
+          ((dR.pinAt qK).lvls.map (Level.subst cvC.levelParams lvlsK))).getAppArgs = [] from rfl,
+      List.nil_append, List.nil_append] at this
+  obtain ⟨hJ, hlvls⟩ : (D.pinAt q).J = (dR.pinAt qK).J ∧
+      (D.pinAt q).lvls = (dR.pinAt qK).lvls.map (Level.subst cvC.levelParams lvlsK) := by
+    exact ⟨congrArg (fun e => match e with | .const n _ => n | _ => .anonymous) hhead,
+      congrArg (fun e => match e with | .const _ us => us | _ => []) hhead⟩
+  -- the components' READINGS are one list
+  have hDs : (D.pinAt q).Ds ψ
+      = ((dR.pinAt qK).Ds (Level.substFn ψ cvC.levelParams lvlsK)).map
+          (AnnotTerm.instAll Ds₀ 0) :=
+    DenoteMetaSpine.det hDsD (hargs ▸ hes)
+  -- the two level assignments agree on the container's own parameters
+  obtain ⟨cv, cp, hfK⟩ := hfoundK qK hqK
+  obtain ⟨hvlen, hlawK⟩ := hψK qK hqK cv cp hfK
+  have hpsi : ∀ r ∈ cv.levelParams,
+      (D.pinAt q).ψJ ψ r
+        = (dR.pinAt qK).ψJ (Level.substFn ψ cvC.levelParams lvlsK) r := by
+    intro r hr
+    rw [hψD cv cp (by rw [hJ]; exact hfK) ψ, hlvls, Level.substFn_map_subst hvlen hr, hlawK]
+  have hacval : m.acval (D.pinAt q).J ((D.pinAt q).ψJ ψ)
+      = m.acval (dR.pinAt qK).J
+          ((dR.pinAt qK).ψJ (Level.substFn ψ cvC.levelParams lvlsK)) := by
+    rw [hJ]
+    exact m.acval_params _ _ hfK _ _ hpsi
+  have hnk : ¬ D.k + q < D.k := by omega
+  have hsub : D.k + q - D.k = q := by omega
+  obtain ⟨hu, hIds⟩ := huIds qK hqK hJ
+  refine ⟨qK, hqK, ?_, ?_, ?_, ?_, ?_, ?_⟩
+  · -- the stored reading at the pin
+    show targetRead m.acval D.memberNames D.pins D.nP D.k ψ (D.k + q) = _
+    rw [targetRead_of_pin hnk, hsub]
+    show AnnotTerm.mkAppN (m.acval (D.pinAt q).J ((D.pinAt q).ψJ ψ)) ((D.pinAt q).Ds ψ) = _
+    rw [hacval, hDs]
+  · show (D.pinAt (D.k + q - D.k)).Ds ψ = _
+    rw [hsub, hDs]
+  · show D.uT (D.k + q) ψ = _
+    rw [BlockModel.uT_of_pin hnk ψ, hsub, hu]
+  · show D.IdsT (D.k + q) ψ = _
+    rw [BlockModel.IdsT_of_pin hnk ψ, hsub, hIds]
+  · show (if D.k + q < D.k then _ else (D.pinAt (D.k + q - D.k)).J) = _
+    rw [if_neg hnk, hsub, hJ]
+  · show (if D.k + q < D.k then _ else (D.pinAt (D.k + q - D.k)).lvls) = _
+    rw [if_neg hnk, hsub, hlvls]
+
 /-! ## The model with its blocks -/
 
 /-- **The P-tier environment invariant WITH ITS BLOCKS** (task #315
