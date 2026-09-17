@@ -963,18 +963,6 @@ end Run
 
 /-! ## The named fact -/
 
-/-- **K.35 AT THE RUN**: every read-back recursor type of a scratch
-install of the auxiliary block has, below its parameter prefix, the
-restore walk's shape (`NestedRecTysAuxOk`, `NestedRecFrames.lean`).
-A KERNEL-SIDE model face (PLAN-M7 §1a). -/
-@[expose] def NestedRecTysAuxOf (μ : CheckMode) (F : Nat) : Prop :=
-  ∀ (env : Env) (p : NestedParts) (st : ElimState) (b : MutualBlock) (envAux : Env)
-    (stored : List AuxStored),
-    ConLeche.auxBlock p st = some b →
-    ConLeche.checkMutualCore (m := ConLeche.CheckM) (fueledOps μ F) env b none true = .ok envAux →
-    ConLeche.auxStoredAll envAux b b.k = some stored →
-    NestedRecTysAuxOk p st b stored
-
 /-- **K.36 AT THE RUN**: a copy's constructor names round-trip through
 the container's (`NestedCtorPinNames`, `NestedRecCtor.lean`, T2).  A
 KERNEL-SIDE model face. -/
@@ -990,10 +978,12 @@ KERNEL-SIDE model face. -/
 
 /-- **THE FRAMES AT THE RUN** (PLAN-M7 §1e): `NestedRecFramesOf` —
 the named fact `nestedRecReadingsOf_of` consumes — discharged at every
-tail input, modulo the two model faces K.35 (`NestedRecTysAuxOf`) and
-K.36 (`NestedCtorPinNamesOf`); `hctorsJ` is the pin group's own
-`NestedPinGroup.ctorsOf` (task #315 L-B, exported at `NestedCore.lean`). -/
-theorem nestedRecFramesOf_of {F : Nat} (hK35 : NestedRecTysAuxOf μ F)
+tail input, modulo the ONE model face K.36 (`NestedCtorPinNamesOf`) —
+K.35's is the run's own Bool now (`nestedRecTysAuxOk_of_bool` at
+`NestedTailIn.hauxApps`, task #315 M7-3's wiring, DESIGN §U.29 (dd));
+`hctorsJ` is the pin group's own `NestedPinGroup.ctorsOf` (task #315
+L-B, exported at `NestedCore.lean`). -/
+theorem nestedRecFramesOf_of {F : Nat}
     (hK36 : NestedCtorPinNamesOf μ F) : NestedRecFramesOf V μ F := by
   intro env mp p envOut st b envAux stored ctorsR cvRms cvRns rulesM rulesN fmsA ctorsA₀ fms f₀
     ctorsA sortss kinds mp₁ ppsF W idxF dsF esF srcsF fvsPF xFvsF xrestF eissF tssF dsR xFvsR
@@ -1002,24 +992,24 @@ theorem nestedRecFramesOf_of {F : Nat} (hK35 : NestedRecTysAuxOf μ F)
   have hcb : c < b.k := by rw [← I.kT]; exact hc
   refine I.framesAt S (hK36 env p st fmsA ctorsA₀ I.hfA I.hcA I.helim I.hcont)
     (fun _q₀ _kJ i _dJ G hi ci J h1 h2 h3 => (G.ctorsOf i hi ci J h1 h2 h3).1)
-    (hK35 env p st b envAux stored I.hb I.haux I.hstored)
+    (nestedRecTysAuxOk_of_bool I.hb I.hauxApps)
     hcb ψ ρ (hread c ψ hc) ?_
   have hlc := hlen c ψ hc
   rw [nestedBlockModel_nP, I.kT, I.nCtorsT, I.nIdxT hcb] at hlc
   omega
 
-/-- **THE READINGS AT THE RUN, FROM THE THREE FACES**: the first of
+/-- **THE READINGS AT THE RUN, FROM THE ONE FACE**: the first of
 `nestedTailModeled_of`'s three named facts. -/
-theorem nestedRecReadingsOf_of_faces {F : Nat} (hK35 : NestedRecTysAuxOf μ F)
+theorem nestedRecReadingsOf_of_faces {F : Nat}
     (hK36 : NestedCtorPinNamesOf μ F) : NestedRecReadingsOf V μ F :=
-  nestedRecReadingsOf_of (nestedRecFramesOf_of hK35 hK36)
+  nestedRecReadingsOf_of (nestedRecFramesOf_of hK36)
 
 /-- **THE CONSUMER** (consumer-first): the recursors' stage at the run
-needs the readings, and this lane supplies them from the three model
-faces alone. -/
-theorem nestedTailModeled_of_faces {F : Nat} (hK35 : NestedRecTysAuxOf μ F)
+needs the readings, and this lane supplies them from the ONE model
+face alone. -/
+theorem nestedTailModeled_of_faces {F : Nat}
     (hK36 : NestedCtorPinNamesOf μ F)
     (heqs : NestedRecEqsOf V μ F) (hst : NestedRecsStored V μ F) : NestedTailModeled V μ F :=
-  nestedTailModeled_of_frames (nestedRecFramesOf_of hK35 hK36) heqs hst
+  nestedTailModeled_of_frames (nestedRecFramesOf_of hK36) heqs hst
 
 end ConLeche.Model
