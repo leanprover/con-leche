@@ -105178,3 +105178,37 @@ Bool guards and then the two walks, whose jobs need a scope
 side-condition traced to `nestedOrdDomPairs`), and the assembly itself
 (`checkNestedS_run`, whose twin `checkMutualCoreS_run` is 200 lines).
 The stage tier is otherwise complete.
+
+##### The run obligation's remaining path, as it stands
+
+Landed since the stage tier: `nestedDomPair_WScoped` (a job's minted
+domain is scoped at its own depth) and the two job-list inversions
+`nestedOrdDomPairs_WScoped` / `nestedPinDomPairs_WScoped` — three
+nested `mapM`s peeled with `split` (each step needs a `simp only []`
+first: `split` cannot see through the beta-redex `mapM_option_inv`
+hands back), the container's stored constructor type taken fvar-free
+off `EnvWF` through `containerInfo?_inv`, and the pins' arguments left
+as a hypothesis.
+
+**The remaining path, step by step:**
+
+1. **discharge the jobs' `hDs`** — `∀ t ∈ st.types, ∀ Jn lvls Ds,
+   t.src = some (Jn, lvls, Ds) → ∀ D ∈ Ds, WScoped p.nP D`: from
+   `pinsScoped_inv` (the pin's leaves are the parameter openers) with
+   `WScoped_of_leaves`, and `nestedCopySrcOk_inv`'s
+   `qn.pin = mkAppN (.const Jn lvls) Ds` — the args of a well-scoped
+   application are well-scoped;
+2. **`nestedPinChecksS_run`** — six Bool guards (mode-only) and then the
+   two walks, each `nestedOrdNormsS_run`/`nestedPinNormsS_run` fed by
+   (1).  NOTE, measured the hard way: the cascade's ites sit under an
+   application to the state, so `split` needs `apply_ite` — and that
+   simp LOOPS here; the working shape is `by_cases` per condition, or
+   `split` after the state application is peeled;
+3. **`checkNestedS_run`** — the assembly, twenty-odd stages in the order
+   `checkNestedS` runs them, each with its `_eq` (index → environment)
+   and its `_sim`/`_run` from the stage tier, the fuels joined at the
+   end as `checkMutualCoreS_run` does it.
+
+Nothing in (1)–(3) needs a fact that is not already recorded; (2)'s
+tactic shape is the only thing that bit, and it is written down here so
+the next attempt does not rediscover it.

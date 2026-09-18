@@ -5,6 +5,10 @@ public import ConLeche.Verify.Inductives.MutualNormPres
 import ConLeche.Verify.Denote.IndFrame
 import ConLeche.Verify.InferLemmas
 import ConLeche.Verify.Inductives.NestedCopyKinds
+-- the `mapM` length, for the jobs' inversion (task #315 M8)
+import ConLeche.Verify.Inductives.NestedElimInv
+-- the container's stored constructors, for the same (task #315 M8)
+import ConLeche.Verify.Inductives.NestedGroupInv
 
 public section
 
@@ -1240,6 +1244,317 @@ theorem nestedOrdDomPairs_mem {env : Env} {p : NestedParts} {st : ElimState}
       Option.some.injEq] at hHl
     subst hHl
     simp
+
+/-- **EVERY ORDINARY-FIELD JOB IS SCOPED** (task #315 M8, the cached run
+obligation): the inversion of `nestedOrdDomPairs`' three `mapM`s, fed
+to `nestedDomPair_WScoped`.  The container's stored constructor types
+come from `EnvWF`; the pins' arguments are the caller's (`pinsScoped`
+with `nestedCopySrcOk_inv` supply them). -/
+theorem nestedOrdDomPairs_WScoped {env : Env} {p : NestedParts} {st : ElimState}
+    {stored : List AuxStored} {kinds : List (List (List (RecFieldKind × Nat)))}
+    {jobs : List (Nat × Expr × Expr)} (henv : EnvWF env)
+    (hDs : ∀ t ∈ st.types, ∀ Jn lvls Ds, t.src = some (Jn, lvls, Ds) →
+      ∀ D ∈ Ds, Expr.WScoped p.nP D)
+    (h : nestedOrdDomPairs env p st stored (some kinds) = some jobs) :
+    ∀ je ∈ jobs, Expr.WScoped je.1 je.2.1 := by
+  intro je hje
+  rw [nestedOrdDomPairs] at h
+  simp only [bind, Option.bind] at h
+  split at h
+  case h_1 => exact absurd h (by simp)
+  rename_i rows hrows
+  simp only [pure, Option.some.injEq] at h
+  subst h
+  obtain ⟨row, hrowmem, hjerow⟩ := List.mem_flatten.mp hje
+  obtain ⟨q, hq⟩ := List.getElem?_of_mem hrowmem
+  have hqlt : q < st.pins.length := by
+    have hlen := mapM_option_length hrows
+    have := (List.getElem?_eq_some_iff.mp hq).1
+    simp only [hlen, List.length_range] at this
+    exact this
+  obtain ⟨rowq, hrowq, hFq⟩ := mapM_option_inv hrows q q (by simp [hqlt])
+  obtain rfl : row = rowq := by rw [hq] at hrowq; exact Option.some.inj hrowq
+  -- the pin's row: the copy's source and the container's member
+  split at hFq
+  case h_1 => exact absurd hFq (by simp)
+  rename_i t ht
+  try simp only [] at hFq
+  split at hFq
+  case h_1 => exact absurd hFq (by simp)
+  rename_i src hsrceq
+  obtain ⟨Jn, lvls, Ds⟩ := src
+  try simp only [] at hFq
+  split at hFq
+  case h_1 => exact absurd hFq (by simp)
+  rename_i a ha
+  try simp only [] at hFq
+  split at hFq
+  case h_1 => exact absurd hFq (by simp)
+  rename_i ks hks
+  try simp only [] at hFq
+  split at hFq
+  case h_1 => exact absurd hFq (by simp)
+  rename_i ci hci
+  try simp only [] at hFq
+  split at hFq
+  case h_1 => exact absurd hFq (by simp)
+  rename_i J hJ
+  try simp only [] at hFq
+  split at hFq
+  case isTrue => exact absurd hFq (by simp)
+  case isFalse =>
+  try simp only [] at hFq
+  split at hFq
+  case h_1 => exact absurd hFq (by simp)
+  rename_i perCtor hperCtor
+  simp only [pure, Option.some.injEq] at hFq
+  subst hFq
+  -- the constructor's row
+  obtain ⟨crow, hcrowmem, hjecrow⟩ := List.mem_flatten.mp hjerow
+  obtain ⟨j, hj⟩ := List.getElem?_of_mem hcrowmem
+  have hjlt : j < ks.length := by
+    have hlen := mapM_option_length hperCtor
+    have := (List.getElem?_eq_some_iff.mp hj).1
+    simp only [hlen, List.length_range] at this
+    exact this
+  obtain ⟨crowj, hcrowj, hGj⟩ := mapM_option_inv hperCtor j j (by simp [hjlt])
+  obtain rfl : crow = crowj := by rw [hj] at hcrowj; exact Option.some.inj hcrowj
+  try simp only [] at hGj
+  split at hGj
+  case h_1 => exact absurd hGj (by simp)
+  rename_i kf hkf
+  try simp only [] at hGj
+  split at hGj
+  case h_1 => exact absurd hGj (by simp)
+  rename_i cJ hcJ
+  try simp only [] at hGj
+  split at hGj
+  case h_1 => exact absurd hGj (by simp)
+  rename_i cS hcS
+  obtain ⟨cvS, nI, nF⟩ := cS
+  try simp only [] at hGj
+  split at hGj
+  case h_1 => exact absurd hGj (by simp)
+  rename_i cI hcI
+  try simp only [] at hGj
+  split at hGj
+  case h_1 => exact absurd hGj (by simp)
+  rename_i qM hqM
+  obtain ⟨xsM, restM⟩ := qM
+  try simp only [] at hGj
+  split at hGj
+  case h_1 => exact absurd hGj (by simp)
+  rename_i qS hqS
+  obtain ⟨fvsS, crestS⟩ := qS
+  try simp only [] at hGj
+  split at hGj
+  case h_1 => exact absurd hGj (by simp)
+  rename_i qS2 hqS2
+  obtain ⟨xsS, restS⟩ := qS2
+  try simp only [] at hGj
+  split at hGj
+  case h_1 => exact absurd hGj (by simp)
+  rename_i perField hperField
+  simp only [pure, Option.some.injEq] at hGj
+  subst hGj
+  -- the field's row: a singleton exactly where the filter admits it
+  obtain ⟨frow, hfrowmem, hjefrow⟩ := List.mem_flatten.mp hjecrow
+  obtain ⟨l, hl⟩ := List.getElem?_of_mem hfrowmem
+  have hllt : l < kf.length := by
+    have hlen := mapM_option_length hperField
+    have := (List.getElem?_eq_some_iff.mp hl).1
+    simp only [hlen, List.length_range] at this
+    exact this
+  obtain ⟨frowl, hfrowl, hHl⟩ := mapM_option_inv hperField l l (by simp [hllt])
+  obtain rfl : frow = frowl := by rw [hl] at hfrowl; exact Option.some.inj hfrowl
+  try simp only [] at hHl
+  split at hHl
+  case h_1 => exact absurd hHl (by simp)
+  rename_i rt hrt
+  obtain ⟨r, tgt⟩ := rt
+  try simp only [] at hHl
+  split at hHl
+  case isFalse =>
+    simp only [pure, Option.some.injEq] at hHl
+    subst hHl
+    exact absurd hjefrow (by simp)
+  case isTrue =>
+  try simp only [] at hHl
+  split at hHl
+  case h_1 => exact absurd hHl (by simp)
+  rename_i xM hxM
+  try simp only [] at hHl
+  split at hHl
+  case h_1 => exact absurd hHl (by simp)
+  rename_i xS hxS
+  simp only [pure, Option.some.injEq] at hHl
+  subst hHl
+  obtain rfl : je = (p.nP + l, xM.fvarTypeD, xS.fvarTypeD) := by simpa using hjefrow
+  -- the container's stored constructor type is fvar-free
+  obtain ⟨cvT, caps, cvR, mIc, rPc, rulesc, h1c, h2c, h3c, h4c, hmem⟩ := containerInfo?_inv hci
+  obtain ⟨cvC, capsC, cvRc, mIc', rulesC, hf1, hf2, hl1, hl2, hl3, hlen4, hctors⟩ :=
+    hmem J (List.mem_of_find?_eq_some hJ)
+  obtain ⟨r', cvc, -, -, hfindC, hcJty⟩ := hctors j cJ hcJ
+  have hctorF : cJ.type.hasFvar = false := by
+    rw [hcJty]
+    exact (henv _ (List.mem_of_find?_eq_some hfindC)).1
+  exact nestedDomPair_WScoped hctorF
+    (hDs t (List.mem_of_getElem? ht) Jn lvls Ds hsrceq) hcI hqM hxM
+
+/-- **AND EVERY PIN-TARGET JOB** (K.51's list) (task #315 M8, the cached run
+obligation): the same
+inversion at the other filter — the fields a copy classifies recursive
+or reflexive at a MIMIC target. -/
+theorem nestedPinDomPairs_WScoped {env : Env} {p : NestedParts} {st : ElimState}
+    {stored : List AuxStored} {kinds : List (List (List (RecFieldKind × Nat)))}
+    {jobs : List (Nat × Expr × Expr)} (henv : EnvWF env)
+    (hDs : ∀ t ∈ st.types, ∀ Jn lvls Ds, t.src = some (Jn, lvls, Ds) →
+      ∀ D ∈ Ds, Expr.WScoped p.nP D)
+    (h : nestedPinDomPairs env p st stored (some kinds) = some jobs) :
+    ∀ je ∈ jobs, Expr.WScoped je.1 je.2.1 := by
+  intro je hje
+  unfold nestedPinDomPairs at h
+  simp only [bind, Option.bind] at h
+  split at h
+  case h_1 => exact absurd h (by simp)
+  rename_i rows hrows
+  simp only [pure, Option.some.injEq] at h
+  subst h
+  obtain ⟨row, hrowmem, hjerow⟩ := List.mem_flatten.mp hje
+  obtain ⟨q, hq⟩ := List.getElem?_of_mem hrowmem
+  have hqlt : q < st.pins.length := by
+    have hlen := mapM_option_length hrows
+    have := (List.getElem?_eq_some_iff.mp hq).1
+    simp only [hlen, List.length_range] at this
+    exact this
+  obtain ⟨rowq, hrowq, hFq⟩ := mapM_option_inv hrows q q (by simp [hqlt])
+  obtain rfl : row = rowq := by rw [hq] at hrowq; exact Option.some.inj hrowq
+  -- the pin's row: the copy's source and the container's member
+  split at hFq
+  case h_1 => exact absurd hFq (by simp)
+  rename_i t ht
+  try simp only [] at hFq
+  split at hFq
+  case h_1 => exact absurd hFq (by simp)
+  rename_i src hsrceq
+  obtain ⟨Jn, lvls, Ds⟩ := src
+  try simp only [] at hFq
+  split at hFq
+  case h_1 => exact absurd hFq (by simp)
+  rename_i a ha
+  try simp only [] at hFq
+  split at hFq
+  case h_1 => exact absurd hFq (by simp)
+  rename_i ks hks
+  try simp only [] at hFq
+  split at hFq
+  case h_1 => exact absurd hFq (by simp)
+  rename_i ci hci
+  try simp only [] at hFq
+  split at hFq
+  case h_1 => exact absurd hFq (by simp)
+  rename_i J hJ
+  try simp only [] at hFq
+  split at hFq
+  case isTrue => exact absurd hFq (by simp)
+  case isFalse =>
+  try simp only [] at hFq
+  split at hFq
+  case h_1 => exact absurd hFq (by simp)
+  rename_i perCtor hperCtor
+  simp only [pure, Option.some.injEq] at hFq
+  subst hFq
+  -- the constructor's row
+  obtain ⟨crow, hcrowmem, hjecrow⟩ := List.mem_flatten.mp hjerow
+  obtain ⟨j, hj⟩ := List.getElem?_of_mem hcrowmem
+  have hjlt : j < ks.length := by
+    have hlen := mapM_option_length hperCtor
+    have := (List.getElem?_eq_some_iff.mp hj).1
+    simp only [hlen, List.length_range] at this
+    exact this
+  obtain ⟨crowj, hcrowj, hGj⟩ := mapM_option_inv hperCtor j j (by simp [hjlt])
+  obtain rfl : crow = crowj := by rw [hj] at hcrowj; exact Option.some.inj hcrowj
+  try simp only [] at hGj
+  split at hGj
+  case h_1 => exact absurd hGj (by simp)
+  rename_i kf hkf
+  try simp only [] at hGj
+  split at hGj
+  case h_1 => exact absurd hGj (by simp)
+  rename_i cJ hcJ
+  try simp only [] at hGj
+  split at hGj
+  case h_1 => exact absurd hGj (by simp)
+  rename_i cS hcS
+  obtain ⟨cvS, nI, nF⟩ := cS
+  try simp only [] at hGj
+  split at hGj
+  case h_1 => exact absurd hGj (by simp)
+  rename_i cI hcI
+  try simp only [] at hGj
+  split at hGj
+  case h_1 => exact absurd hGj (by simp)
+  rename_i qM hqM
+  obtain ⟨xsM, restM⟩ := qM
+  try simp only [] at hGj
+  split at hGj
+  case h_1 => exact absurd hGj (by simp)
+  rename_i qS hqS
+  obtain ⟨fvsS, crestS⟩ := qS
+  try simp only [] at hGj
+  split at hGj
+  case h_1 => exact absurd hGj (by simp)
+  rename_i qS2 hqS2
+  obtain ⟨xsS, restS⟩ := qS2
+  try simp only [] at hGj
+  split at hGj
+  case h_1 => exact absurd hGj (by simp)
+  rename_i perField hperField
+  simp only [pure, Option.some.injEq] at hGj
+  subst hGj
+  -- the field's row: a singleton exactly where the filter admits it
+  obtain ⟨frow, hfrowmem, hjefrow⟩ := List.mem_flatten.mp hjecrow
+  obtain ⟨l, hl⟩ := List.getElem?_of_mem hfrowmem
+  have hllt : l < kf.length := by
+    have hlen := mapM_option_length hperField
+    have := (List.getElem?_eq_some_iff.mp hl).1
+    simp only [hlen, List.length_range] at this
+    exact this
+  obtain ⟨frowl, hfrowl, hHl⟩ := mapM_option_inv hperField l l (by simp [hllt])
+  obtain rfl : frow = frowl := by rw [hl] at hfrowl; exact Option.some.inj hfrowl
+  try simp only [] at hHl
+  split at hHl
+  case h_1 => exact absurd hHl (by simp)
+  rename_i rt hrt
+  obtain ⟨r, tgt⟩ := rt
+  try simp only [] at hHl
+  split at hHl
+  case isTrue =>
+    simp only [pure, Option.some.injEq] at hHl
+    subst hHl
+    exact absurd hjefrow (by simp)
+  case isFalse =>
+  try simp only [] at hHl
+  split at hHl
+  case h_1 => exact absurd hHl (by simp)
+  rename_i xM hxM
+  try simp only [] at hHl
+  split at hHl
+  case h_1 => exact absurd hHl (by simp)
+  rename_i xS hxS
+  simp only [pure, Option.some.injEq] at hHl
+  subst hHl
+  obtain rfl : je = (p.nP + l, xM.fvarTypeD, xS.fvarTypeD) := by simpa using hjefrow
+  -- the container's stored constructor type is fvar-free
+  obtain ⟨cvT, caps, cvR, mIc, rPc, rulesc, h1c, h2c, h3c, h4c, hmem⟩ := containerInfo?_inv hci
+  obtain ⟨cvC, capsC, cvRc, mIc', rulesC, hf1, hf2, hl1, hl2, hl3, hlen4, hctors⟩ :=
+    hmem J (List.mem_of_find?_eq_some hJ)
+  obtain ⟨r', cvc, -, -, hfindC, hcJty⟩ := hctors j cJ hcJ
+  have hctorF : cJ.type.hasFvar = false := by
+    rw [hcJty]
+    exact (henv _ (List.mem_of_find?_eq_some hfindC)).1
+  exact nestedDomPair_WScoped hctorF
+    (hDs t (List.mem_of_getElem? ht) Jn lvls Ds hsrceq) hcI hqM hxM
 
 /-- A handler that always throws never produces the `.ok`: a successful
 `tryCatchThe` in `Except` is a successful body. -/
