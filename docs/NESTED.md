@@ -102,6 +102,11 @@ Given a block `T⃗` with parameters `α⃗` and a nested occurrence `J(s⃗)`:
    substitution `α⃗_J ↦ s⃗` applied, and with every occurrence of the
    instantiated container `J(s⃗)` rewritten to `J'`.  Record the pin's
    *components* `s⃗` — the tuple of arguments the copy was taken at.
+   The mint is syntax only, so on the model side "the copy's constructors
+   are `J`'s at the substitution" is not a definition but a *transport* —
+   a rewritten term's reading is the original's with each rewritten
+   occurrence read as the mimic's carrier — and it is proved by a
+   congruence between a term and its rewrite with one firing case.
 2. **Iterate.**  The copy's constructors may now contain *new* nested
    occurrences: either from `s⃗` (e.g. `List (Option Tree)` puts
    `Option Tree` inside `List`'s field `α`), or from `J`'s own nesting
@@ -348,6 +353,7 @@ Resolution 1 needs.
 | (compose): narrow from wide | `composeΦ`, `pinsCar`, `lfpTuple_composeΦ`; `ofNested` in `Model/Inductives/BlockComposed.lean` |
 | the block model and its laws | `BlockModel`, `IsBlockModel` (`leaf`, `pinLeaf`, `functor`, `pinMono`) in `Model/Inductives/BlockRep.lean` |
 | the expansion | `replaceIfNested`, `mkCopies`, the worklist `elimLoop` in `Kernel/Inductives/NestedElim.lean`; `checkNested` in `Kernel/Inductives/NestedInstall.lean` |
+| the rewrite at the readings | `RewriteRel`, `replaceAllNested_rel`, `denoteMeta_of_rewriteRel` (`Model/Inductives/NestedRewriteRead.lean`) |
 | the pin table | `NestedPin` (`grpBase`, `grpSize`, components), read back as `NestedPinSynFacts` |
 | the aux block's install | `checkMutualCore` on `{T⃗, J'⃗}` in a scratch environment |
 | restore | `restoreNested`, `restoreRules`, `restoreRecTys` |
