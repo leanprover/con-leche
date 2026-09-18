@@ -107285,3 +107285,114 @@ things the coordinator has already ruled out or held.
 * `memberTarget_reads` — `[propext, Classical.choice, Quot.sound]`
 
 Nothing in this section changes the tree's accept set.
+
+#### (number at the integrator's sync) — L-E: COSTING the component family's producer — it specialises `tupleLfpAV_fold` for one half and for the other half the tree has nothing (lane L-E, 2026-09-18)
+
+Costing only.  **Nothing landed, no producer, no spanning edit, no
+candidate-frame index fit.**  The answer is split, and the split is the
+answer.
+
+##### (a) THE HALF THAT SPECIALISES — and it is already proved
+
+`NestedPinSynFacts.pinRec` records that a pin's expression is
+**exactly** its container applied to its components:
+
+```lean
+pin.pin = Expr.mkAppN (.const pin.container (pinsS.getD q default).lvls)
+                      (pinsS.getD q default).DsE
+```
+
+So when a component of pin `q` IS another pin `q'`'s expression, its
+candidate value is `interp V ρp (auxTargetRead b.nP (p.k + q') ψ)`, and
+the bridge to the auxiliary carrier is
+
+```lean
+auxTarget_reads : app (L⁺ t) (tupW (nestedU p.k W pinsS ψ t) is)
+                    = is.foldl app (interp V ρp (auxTargetRead b.nP t ψ))
+```
+
+— which **IS** `tupleLfpAV_fold` specialised to the auxiliary block, and
+it is landed and consumed.  **This half costs nothing new.**  It covers
+`nested_p04`'s `P4`, where pins 1 and 2 each have `P4C P4` — pin 0's
+expression — as their component.
+
+##### (b) THE HALF THAT DOES NOT — a component that CONTAINS a pin
+
+At `nested_p22` the component is `fun _ : Nat => List P22` and at
+`nested_p26` it is `fun _ : Nat => (P26V P26) #0`: the pin's reading is
+buried under a binder, not at the top of a spine.  `tupleLfpAV_fold`
+speaks about ONE reading applied to a parameter spine and an index
+spine; it says nothing about a reading occurring inside a larger term.
+
+**And the λ case cannot be avoided.**  The container's least tuple
+`pinLfpAt … as q` is taken at a frame on the CONTAINER's parameters, and
+`P22T`'s parameter is `f : Nat → Type` — so the frame must carry a
+function value, and the field domain `f n` reaches it only through that
+value.  There is no route that needs only `f n`.
+
+What this half needs is a **compositional substitution lemma**: `interp`
+of a component with every identified pin reading replaced by its
+`auxTargetRead`.  The tree has no such thing.  Grepped before costing:
+
+* `replaceAllNested` — the kernel's own pin→copy rewrite — carries
+  **eleven** theorems in `Verify/Inductives/*` and `Model/Inductives/*`
+  (`_aligned`, `_frame`, `_head_const`, `_lengths`, `_mkPisB`, `_named`,
+  `_occurrence`, `_of_no_mention`, `_pins_prefix`, `_types_prefix`,
+  `_unchanged_or_aux`), and **none of the eleven mentions `interp`**.
+  Every one is syntactic.
+* `interp_instAll` is the tree's substitution/interpretation
+  commutation, and it substitutes TERMS FOR BVARS.  The pin→copy
+  replacement substitutes for SUBTERMS.  Different operation; it does
+  not apply.
+* `ownSubst` (`ContainerCross.lean:1045`) re-spells a container's own
+  pin at the block's components — the opposite direction, and on `Expr`.
+
+##### (c) THE STATEMENT THE PRODUCER WOULD HAVE
+
+```lean
+-- given the QUEUED kernel record: per component, which subterms are
+-- pin readings and at which pins
+theorem interp_pinRewrite … (hcls : <that record at pin q, component i>) :
+    interp V ρp ((candDs q ψ).getD i default)
+      = <interp of (Ds q ψ).getD i default, with the value at every
+         identified pin reading replaced by interp V ρp (auxTargetRead b.nP (p.k + q') ψ)>
+```
+
+structurally, by recursion over the reading — `app`, `lam`, `forallE`,
+`letE`, `proj` congruence at every node and the replacement at the
+identified ones.  **That is the re-pointing interpretation of the scope
+call, not an instance of anything.**
+
+##### (d) THE COSTING, PLAINLY
+
+* **Half (a): zero.**  Landed, consumed, and it is the common case.
+* **Half (b): the scope call's option (1) in full** — a compositional
+  substitution over `AnnotTerm` readings, gated on the queued
+  per-component kernel record.  The derived-term-formers ruling makes it
+  a significant object with its own API, and **nothing in the tree
+  discharges any of it** — the eleven `replaceAllNested` lemmas are the
+  closest relative and they are on the wrong side of the `interp`
+  boundary.
+
+So the honest answer to "does it specialise" is **half yes, half no, and
+the no is the whole cost.**  A negative costing at the same price, as
+asked: what blocks the specialisation is that `tupleLfpAV_fold` is a
+statement about a reading at the TOP of a spine, and the components that
+need the producer have the reading UNDER A BINDER.
+
+##### (e) WHAT IT IMPLIES FOR THE SCOPE CALL — offered, not taken
+
+The abstract carry (option 2) remains cheap and unblocks the spanning
+edit's arithmetic; option (1) is what eventually discharges it and is
+not reducible to a lemma.  **This lane is not making the call** — it is
+reporting that the two options are not near each other in cost, which is
+the thing an estimate would have hidden.
+
+##### (f) THE PROBE NOTE, carried from L-B
+
+Pass the family explicitly at every call site from the start.  The two
+failures are distinguishable: **an inverted index expression TIMES OUT
+at `whnf`; a missing family ERRORS immediately** with "don't know how to
+synthesize implicit argument".  Both were seen today, one per lane.
+
+Nothing in this section changes the tree.
