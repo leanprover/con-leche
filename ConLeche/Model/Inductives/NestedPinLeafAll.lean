@@ -4350,6 +4350,52 @@ theorem nestedPinsLe_of_rank {env : Env} {p : NestedParts} {b : MutualBlock} {st
     (fun q q' hq hq' hqq => h3 q q' hq hq' hqq)
     (hinst edges hed)
 
+
+/-- **Step (ii) of the global entry theorem** (task #315 L-E, DESIGN
+§U.78): the two inclusions ARE the identity.  Step (i)/(ii)
+(`nestedPinsFixed`) gives the auxiliary carrier below the containers'
+least tuples at every pin; the rank induction
+(`nestedPinsLe_of_rank`, over `nestedPinInstLe` at each instance's
+root) gives the converse; and both families live in the family space
+of the SAME index set — the pin's, which is its container member's
+(`nestedIdx_of_group`) — so `famSpace_ext` turns the pair into
+`pinLfp q = L⁺ (k + q)`, which is `hIH`'s statement and, at every
+group, `nestedPinsEntry_of`'s. -/
+theorem nestedPinsEq_of_le (hμ : μ.verifiedChecks = true)
+    (h : MutualFormersFacts V F g mp b fms f₀ ctorsA sortss kinds mp₁ ppsF W idxF dsF esF srcsF
+      fvsPF xFvsF xrestF eissF tssF)
+    (h3 : ConLeche.mutualCtorsGrouped b.ctors = true)
+    (hbk : b.k = p.k + pinsS.length)
+    (m : EnvModel V env₂)
+    (hleafM : ∀ (t : Nat) (f : MutualFormerA), t < p.k → fms[t]? = some f →
+      m.acval f.cvTa.name = mutMemberLeaf b fms f₀ ctorsA kinds ppsF W dsF esF eissF tssF t)
+    {st : ElimState} (dJf : Nat → BlockModel V)
+    (hgroups : ∀ q, q < pinsS.length → ∃ (q₀ kJ i : Nat),
+      q = q₀ + i ∧ i < kJ ∧ GF st m q₀ kJ (dJf q₀))
+    {ψ : Name → Nat} {ρp : Nat → V} (hρp : Sat V ((D).params ψ).reverse ρp)
+    (hle : ∀ q, q < pinsS.length →
+      FamLe ((D).idx ψ ρp (p.k + q)) (pinLfp st pinsS dJf (f₀.s.eval ψ) ψ ρp q)
+        (lfpTuple ((D).w ψ) (p.k + pinsS.length) ((D).idx ψ ρp) (ΨA ψ ρp) (p.k + q))) :
+    ∀ q, q < pinsS.length →
+      pinLfp st pinsS dJf (f₀.s.eval ψ) ψ ρp q
+        = lfpTuple ((D).w ψ) (p.k + pinsS.length) ((D).idx ψ ρp) (ΨA ψ ρp) (p.k + q) := by
+  have hfix := nestedPinsFixed hμ h h3 hbk m hleafM dJf hgroups hρp
+  intro q hq
+  obtain ⟨q₀, kJ, iq, hqe, hiq, G⟩ := hgroups q hq
+  have hidx : (D).idx ψ ρp (p.k + q)
+      = (dJf q₀).idx (((D).pinAt (q₀ + iq)).ψJ ψ)
+          (consList ((((D).pinAt (q₀ + iq)).Ds ψ).map (interp V ρp)) ρp) iq := by
+    rw [hqe, show p.k + (q₀ + iq) = p.k + q₀ + iq from by omega]
+    exact nestedIdx_of_group G hiq
+  have hPmem : pinLfp st pinsS dJf (f₀.s.eval ψ) ψ ρp q
+      ∈ˢ famSpace ((D).w ψ) ((D).idx ψ ρp (p.k + q)) := by
+    rw [hidx]
+    unfold pinLfp
+    rw [hqe, (G.syn.grp iq hiq).1, Nat.add_sub_cancel_left]
+    exact lfpTuple_mem _ _ _ _ iq (G.syn.kEq ▸ hiq)
+  refine famSpace_ext hPmem (lfpTuple_mem _ _ _ _ (p.k + q) (by omega)) fun i hi => ?_
+  exact Subset.antisymm (hle q hq i hi) (hfix.2 q hq i hi)
+
 end Assembly
 
 end ConLeche.Model
