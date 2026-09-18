@@ -6248,13 +6248,25 @@ minted domain back. -/
         ((mutTlss ctorsA.length tssF ψ).getD (b.ownOffset (p.k + q₀ + i') + j) [])
         ((mutEiss0 ctorsA.length eissF ψ).getD (b.ownOffset (p.k + q₀ + i') + j) []) ρp i' j l
 
-/-- **RESIDUAL 2R — `ordF`'s right arm at a REFLEXIVE copy field, and
-it is REFUTED** (task #315 L-B, DESIGN "the telescope the positivity
-`whnf` MAKES"): the conjunct of
+/-- **RESIDUAL 2R — `ordF`'s right arm at a REFLEXIVE copy field**
+(task #315 L-B, DESIGN "the telescope the positivity `whnf` MAKES" and
+"does the refutation survive the repair"): the conjunct of
 `NestedPinsShapeOrdRight` at a field the auxiliary block classified
 REFLEXIVE.
 
-**The statement is FALSE at an accepted block.**  The witness is
+**It is FALSE against the shape of `EntryRead` IN THIS TREE, and the
+REPAIRED shape DISSOLVES that.**  The repair — on the integration
+branch, in the form this lane recommended — drops the two SYNTACTIC
+Π-tower clauses and asks instead for what the consumer produces: the
+container's field domain, read at the pin's frame, IS the copy's SLOT.
+The witness below breaks the old clauses and SATISFIES the new one,
+because a λ-redex respects a semantic equality and does not provide a
+syntactic Π-tower.  So the residual is OPEN once the repair arrives,
+and its route is `copyOrdFRightReadM`'s with `BlockCtorData.reflEntry`
+for `recEntry`, `interp_mkPisAV_piTele` for `slotSet_nil`, and the
+index fit taken under the telescope's own spine.
+
+The refutation of the OLD shape stands as recorded.  The witness is
 `tests/e2e/nested_lam_pin_refl.ndjson`, which `checkNested` accepts
 (`tests/nested-shadow-expected.txt`):
 
@@ -6391,9 +6403,9 @@ AUXILIARY block's kind at the field (`kindAt_ne_of` excludes the two
 rejecting kinds) into `copyOrdFLeft` and `copyOrdFRight_shape`; `pinF`
 is `copyPinF_shape`; `es` is `copyEs`.  FOUR residuals remain, one per
 open conjunct (`NestedPinsShapeK42`, `NestedPinsShapeOrdRight` and its
-reflexive half `NestedPinsShapeOrdRightRefl` — which DESIGN "the
-telescope the positivity `whnf` MAKES" REFUTES — and
-`NestedPinsShapePinF`).  K.32's `nestedCopyTargetsOk`, which the
+reflexive half `NestedPinsShapeOrdRightRefl` — false against THIS
+tree's `EntryRead` and re-opened by its repair, DESIGN "does the
+refutation survive the repair" — and `NestedPinsShapePinF`).  K.32's `nestedCopyTargetsOk`, which the
 bookkeeping predicate `NestedPinsKindsRun` stood for until lane L-E
 threaded it (`NestedPinsRun.hK32`, DESIGN §U.64 (f)), is now read off
 the run record itself. -/
