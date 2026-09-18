@@ -558,6 +558,176 @@ theorem mkAppN_app : ∀ (args : List Expr), args ≠ [] → ∀ (f : Expr),
   | [a], _, f => ⟨f, a, rfl⟩
   | a :: x :: as, _, f => mkAppN_app (x :: as) (by simp) (.app f a)
 
+/-- `mkAppN` over a spine extended on the right. -/
+private theorem mkAppN_concat : ∀ (as : List Expr) (f a : Expr),
+    Expr.mkAppN f (as ++ [a]) = .app (Expr.mkAppN f as) a
+  | [], _, _ => rfl
+  | b :: as, f, a => by
+    show Expr.mkAppN (.app f b) (as ++ [a]) = _
+    rw [mkAppN_concat as (.app f b) a]
+    rfl
+
+/-- **A CONSTANT HEAD SURVIVES THE WALK** (task #315 L-B): the walk's
+only head-changing step is a FIRE, and its descent into `.app f a`
+reaches the head through PREFIXES of the same spine — so a spine at
+whose every prefix `replaceIfNested` declines comes back with the head
+it went in with.
+
+The hypothesis is uniform in the state because the descent walks the
+function part at the state it was given (`f` at `st`, the argument at
+the state `f` returned), so every prefix of the spine is offered to
+`replaceIfNested` at the ORIGINAL `st`.
+
+Its consumer reads the fire off the CLASSIFICATION rather than off the
+mention: a copy field the auxiliary block calls `.recursive` has a
+member-headed stored domain, and a container is no member of that
+block, so the rewrite must have fired. -/
+theorem replaceAllNested_head_const {env : Env} {blvls : List Level}
+    {params : List Expr} {pbs₀ : List (Expr × BinderMeta)} {I : Name} {us : List Level} :
+    ∀ (as : List Expr) {st st' : ElimState} {e' : Expr},
+      (∀ k : Nat, replaceIfNested env blvls params pbs₀ st
+        (Expr.mkAppN (.const I us) (as.take k)) = .ok none) →
+      replaceAllNested env blvls params pbs₀ st (Expr.mkAppN (.const I us) as)
+        = .ok (e', st') →
+      e'.getAppFn = Expr.const I us := by
+  -- a reverse recursor, spelled here because the spine grows on the right
+  have revRec : ∀ {motive : List Expr → Prop}, motive [] →
+      (∀ (bs : List Expr) (b : Expr), motive bs → motive (bs ++ [b])) → ∀ bs, motive bs := by
+    intro motive hnil hsnoc bs
+    have key : ∀ cs : List Expr, motive cs.reverse := by
+      intro cs
+      induction cs with
+      | nil => exact hnil
+      | cons c cs ih =>
+        rw [show (c :: cs).reverse = cs.reverse ++ [c] from by simp]
+        exact hsnoc _ _ ih
+    have h := key bs.reverse
+    rwa [List.reverse_reverse] at h
+  refine revRec ?_ ?_
+  case _ =>
+    intro st st' e' _ hrun
+    rw [replaceAllNested.eq_def] at hrun
+    replace hrun : (if (!st.newNames.any fun T => Expr.mentionsConst T (Expr.const I us)) = true
+        then Except.ok (Expr.const I us, st)
+        else Except.ok (Expr.const I us, st)) = Except.ok (e', st') := hrun
+    rw [ite_self] at hrun
+    simp only [Except.ok.injEq, Prod.mk.injEq] at hrun
+    rw [← hrun.1]
+    rfl
+  case _ =>
+    intro as a ih st st' e' hnone hrun
+    have hih : ∀ k : Nat, replaceIfNested env blvls params pbs₀ st
+        (Expr.mkAppN (.const I us) (as.take k)) = .ok none := by
+      intro k
+      have hk : as.take k = (as ++ [a]).take (min k as.length) := by
+        rcases Nat.le_total k as.length with hle | hle
+        · rw [show min k as.length = k from Nat.min_eq_left hle,
+            List.take_append_of_le_length hle]
+        · rw [show min k as.length = as.length from Nat.min_eq_right hle,
+            List.take_left, List.take_of_length_le hle]
+      rw [hk]
+      exact hnone (min k as.length)
+    rw [mkAppN_concat] at hrun
+    rw [replaceAllNested.eq_def] at hrun
+    split at hrun
+    · simp only [Except.ok.injEq, Prod.mk.injEq] at hrun
+      rw [← hrun.1]
+      show (Expr.mkAppN (Expr.const I us) as).getAppFn = _
+      rw [Expr.getAppFn_mkAppN]
+      rfl
+    · have hroot : replaceIfNested env blvls params pbs₀ st
+          (.app (Expr.mkAppN (Expr.const I us) as) a) = .ok none := by
+        have h := hnone (as ++ [a]).length
+        rw [List.take_length, mkAppN_concat] at h
+        exact h
+      rw [hroot] at hrun
+      simp only at hrun
+      cases hf : replaceAllNested env blvls params pbs₀ st (Expr.mkAppN (Expr.const I us) as) with
+      | error err => rw [hf] at hrun; exact nomatch hrun
+      | ok r =>
+        obtain ⟨u', st₁⟩ := r
+        rw [hf] at hrun
+        simp only at hrun
+        cases ha : replaceAllNested env blvls params pbs₀ st₁ a with
+        | error err => rw [ha] at hrun; simp only at hrun; exact nomatch hrun
+        | ok r' =>
+          obtain ⟨a', st₂⟩ := r'
+          rw [ha] at hrun
+          simp only [Except.ok.injEq, Prod.mk.injEq] at hrun
+          rw [← hrun.1]
+          show u'.getAppFn = _
+          exact ih hih hf
+
+/-- **A FIRED OCCURRENCE'S PARAMETERS ARE CLOSED** (task #315 L-B):
+`nestedOccOk` REJECTS a nested occurrence whose parameter arguments
+carry a local variable (official's "nested inductive datatypes
+parameters cannot contain local variables"), so at an occurrence that
+mentions a name of the growing list an ACCEPTED run has none.  The
+`hloose` of `replaceIfNested_occurrence` and
+`replaceAllNested_occurrence` is therefore a CONSEQUENCE of the run
+rather than a second input — which is what a consumer needs at a
+MINTED domain, where the parameter arguments are the container's
+field's own and nothing records them closed. -/
+theorem replaceIfNested_loose {st : ElimState} {e : Expr}
+    {I : Name} {us : List Level} {args : List Expr} {cv : ConstantVal}
+    {caps : IndCaps} {ci : ContainerInfo} {r : Option (Expr × ElimState)}
+    (he : e = Expr.mkAppN (.const I us) args)
+    (hfind : env.find? I = some (.indInfo cv caps))
+    (hci : containerInfo? env I = some ci)
+    (hnP : ci.nP ≤ args.length)
+    (hment : ((args.take ci.nP).any fun a =>
+      st.newNames.any fun T => a.mentionsConst T) = true)
+    (h : replaceIfNested env blvls params pbs₀ st e = .ok r) :
+    ∀ a ∈ args.take ci.nP, a.looseBVarsBounded 0 = true := by
+  have hargsne : args ≠ [] := by
+    intro hnil
+    rw [hnil] at hment
+    simp at hment
+  have hfn : e.getAppFn = .const I us := by
+    rw [he, Expr.getAppFn_mkAppN]; rfl
+  have hargs : e.getAppArgs = args := by
+    rw [he, Expr.getAppArgs_mkAppN]; rfl
+  have hIq : (I == quotName) = false := by
+    cases hq : I == quotName with
+    | false => rfl
+    | true =>
+      exfalso
+      have hnone : containerInfo? env I = none := by
+        unfold containerInfo?
+        simp [hq]
+      rw [hnone] at hci
+      simp at hci
+  have hloose' : ((args.take ci.nP).any fun a => !a.looseBVarsBounded 0) = false := by
+    cases hb : (args.take ci.nP).any fun a => !a.looseBVarsBounded 0 with
+    | false => rfl
+    | true =>
+      exfalso
+      unfold replaceIfNested at h
+      split at h
+      · rw [hfn, hargs] at h
+        dsimp only at h
+        rw [hfind, hIq] at h
+        dsimp only at h
+        simp only [Bool.false_eq_true, if_false] at h
+        rw [hci] at h
+        dsimp only at h
+        rw [if_neg (by omega : ¬ args.length < ci.nP)] at h
+        unfold nestedOccOk at h
+        simp only [hment, hb, Bool.and_self, if_true, bind, Except.bind] at h
+        exact nomatch h
+      · obtain ⟨u, v, huv⟩ := mkAppN_app args hargsne (.const I us)
+        rename_i hne
+        exact hne u v (he.trans huv)
+  intro a ha
+  cases hab : a.looseBVarsBounded 0 with
+  | true => rfl
+  | false =>
+    exfalso
+    have hcon : ((args.take ci.nP).any fun a => !a.looseBVarsBounded 0) = true :=
+      List.any_eq_true.mpr ⟨a, ha, by simp [hab]⟩
+    rw [hloose'] at hcon
+    exact nomatch hcon
+
 /-- **ONE REWRITTEN OCCURRENCE** (task #315): at an application of a
 recorded container whose parameter arguments are closed and mention a
 name of the growing list, `replaceIfNested` fires — the result is the
