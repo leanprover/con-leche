@@ -89202,3 +89202,106 @@ not committed):
 Both negatives hold at exactly the counts the record states, so the
 widened filter's claim stands — and it was measured on its own terms
 anyway (the previous section).
+
+#### THE CACHED MIRROR, STEP 2: the restore stages, and TWO BLOCKERS the plan could not see (2026-09-18, task #315 M8 session 5, `agent/uniform-m5`)
+
+The brief was the `nestedRecsOkF` inversion and then the two
+assemblies.  The inversion turned out to be the wrong tool for one of
+them and insufficient for the other, and both reasons are findings
+about the route rather than about the proofs.
+
+##### (a) LANDED: the restore stages' names and freshness
+
+`restoreCtorsF_names` / `restoreRecTysF_names` (`AgreeFloor.lean`) and
+`checkConstantValPreF_fresh` / `restoreCtorsF_fresh` /
+`restoreRecTysF_fresh` (`PushChain.lean`).  The shape that makes them
+short is the route's: **the restore checks every constant it stores
+against ONE index** — the constructors at `fe₁`, the recursor types at
+`fe₂` — and conses them all afterwards.  So each stage lemma is about
+that single index, `checkConstantValPreF`'s own duplicate guard is the
+freshness, and what the assembly still owes is the name list's own
+`Nodup`.
+
+##### (b) BLOCKER 1 — the skeleton of a nested install is NOT a function of the declaration, because the RECOGNISER drops the two numbers it is made of
+
+`indDeclSkels nP block sk` must be a function of the declaration: the
+tier's terminal results are `trusted_agrees_skels_D` and its two
+corollaries (the `--trusted` / `--verified` modes install the same
+skeletons, hence the same names and the same counts), and they are
+`checkDecls_skels`' — `envSkels env = streamSkels ds` — applied twice.
+
+A `recr` skeleton carries `(name, majorIdx, rulePrefix, ruleCtors)`.
+For the nested route:
+
+* the NAMES are declaration data (`T_m.rec` from `p.formers`,
+  `T₁.rec_j` from `p.mimicRecName`), and `nestedRecOkF` pins them to
+  the stream's records anyway;
+* the RULE CONSTRUCTORS come through `nestedRulesOk`, also pinned;
+* **`majorIdx` and `rulePrefix` do not.**  They are `a.mI` / `a.rP`,
+  read off the SCRATCH install's stored recursors
+  (`auxStoredAll feAux.env b b.k`), and `nestedRecOkF` checks the
+  stream's record for name, level parameters, type (up to defeq) and
+  rules — **not for those two numbers**.
+
+And the information is not merely unchecked, it is DISCARDED:
+`NestedParts.memberRecs`/`mimicRecs` are
+`List (ConstantVal × List RecRule)`, so `nestedParts?` drops the
+`.recInfo`'s `mI`/`rP` on the way in (its docstring explains why they
+are useless for the block's index count — "a nested block's recursor
+records carry the AUXILIARY block's argument sums" — which is exactly
+what makes them the right numbers HERE).
+
+So the nested arm's skeleton is a function of `(env, p)`, not of `p`,
+and no inversion of `nestedRecsOkF` can change that.  **Three ways out,
+and the choice is not a lane's:**
+
+1. **keep the two numbers in `NestedParts` and pin them** — one more
+   conjunct in `nestedRecOkF` comparing the stored `mI`/`rP` with the
+   stream's record.  This makes the skeleton declaration-computable AND
+   closes a real omission: we store recursor numbers the stream
+   declared and never compare.  It is a kernel check, so it needs a
+   number and a measurement (does it fire on the corpora?  the
+   recogniser's own docstring says the stream's numbers ARE the
+   auxiliary block's, which is what we store, so a fire would be a
+   finding);
+2. restate `checkDecls_skels` and the three terminal theorems over a
+   skeleton that carries the environment — which weakens the sentence
+   the tier exists to say;
+3. state the nested arm's skeleton existentially, with the same effect
+   on those three theorems.
+
+(1) is the only one that does not weaken a result, and it is a kernel
+request rather than proof work.  **`checkNestedS_skels` is blocked on
+it.**
+
+##### (c) BLOCKER 2 — the push assembly needs a `Nodup` that the route only checks CERT-ONLY
+
+`checkNestedS_push` needs `FreshNames fe₂.env` of the restored
+recursors' names, whose `Nodup` half the route DOES check — K.39, "two
+restored recursors carry one name" — but **under `certOnly`**, so it is
+absent in `.trusted` mode, and `PushChain` is consumed by the shipped
+driver's chain (`StreamThm.lean`, `InstalledC.lean`) in both modes.
+The mutual route has no such gap: its recursor names come from
+`mutualShapeOk`, an unconditional check.
+
+Two ways out: make K.39 unconditional (it is a `Nodup` decision on a
+list of `k + n` names — cost of the order of nothing, but it is a
+kernel change), or prove the `Nodup` syntactically from the members'
+own `Nodup` and the naming scheme (`T_m.rec` by `Name.str`
+injectivity, `T₁.rec_j` by `appendIndexAfter`'s index, and the two
+families disjoint because `"rec" ≠ "rec_j"`).  The ingredients are in
+`Verify/Inductives/NestedRecNames.lean`, whose pure-route counterpart
+`nestedRecNames_of` is the model; the cached twin is its own piece of
+work, not a corollary.
+
+The constructors' side has no such gap: their names are the AUXILIARY
+block's, so `mutualShapeOk b`'s `Nodup` — unconditional, inside
+`checkMutualCoreS` — covers them.
+
+##### (d) WHERE THE THIRD OBLIGATION STANDS
+
+`checkNestedS_run` is untouched and unblocked by either of the above;
+it is the simulation (cached success → pure success) and needs no
+skeleton and no chain.  It is also the largest of the three (the
+mutual counterpart is 176 lines against 88 and 65) and the only one the
+capstones consume.

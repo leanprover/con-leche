@@ -1512,6 +1512,56 @@ theorem checkConstantValPreF_name (ops : CheckerOps CheckCM) (fe : FEnv)
   yields
   all_goals (apply Yields.pure; rfl)
 
+/-! ### The nested route's restore stages: the names they store
+
+The restore checks every constant it stores at ONE index — the
+constructors at `fe₁`, the recursors at `fe₂` — and conses them all
+afterwards, so the stage lemmas are about that one index and the
+assembly supplies the list's own `Nodup`. -/
+
+/-- A restored constructor carries the name the auxiliary block stored,
+with the block's own level parameters and the restored type. -/
+theorem restoreCtorsF_names (ops : CheckerOps CheckCM) (fe : FEnv) (R : RestoreTbl)
+    (lps : List Name) :
+    ∀ (cs : List (ConstantVal × Nat × Nat)),
+      Yields (restoreCtorsF ops fe R lps cs)
+        (fun cs' => cs'.map (fun c => (c.1.name, c.2.1, c.2.2))
+          = cs.map (fun c => (c.1.name, c.2.1, c.2.2)))
+  | [] => by unfold restoreCtorsF; exact Yields.pure rfl
+  | (cvCa, nP, nF) :: rest => by
+    unfold restoreCtorsF
+    ybind
+    refine Yields.bind' (checkConstantValPreF_name ops fe
+      { cvCa with levelParams := lps, type := _ }) fun cvA hn => ?_
+    refine Yields.bind' (restoreCtorsF_names ops fe R lps rest) fun cs' hcs => ?_
+    refine Yields.pure ?_
+    simp only [List.map_cons, hcs, List.cons.injEq, and_true, Prod.mk.injEq]
+    simpa using hn
+
+/-- A restored recursor carries the name the route gave it: the members'
+`T_m.rec` and the mimics' `T₁.rec_j`, in order. -/
+theorem restoreRecTysF_names (ops : CheckerOps CheckCM) (fe : FEnv) (R : RestoreTbl)
+    (lps : List Name) :
+    ∀ (names : List Name) (as : List AuxStored), as.length ≤ names.length →
+      Yields (restoreRecTysF ops fe R lps names as)
+        (fun cvs => cvs.map (·.name) = names.take as.length)
+  | _, [], _ => by unfold restoreRecTysF; exact Yields.pure rfl
+  | names, a :: rest, hlen => by
+    unfold restoreRecTysF
+    ybind
+    refine Yields.bind' (checkConstantValPreF_name ops fe
+      ⟨names.headD a.cvRa.name, a.cvRa.levelParams, _⟩) fun cvA hn => ?_
+    have hlen' : rest.length ≤ (names.drop 1).length := by
+      simp only [List.length_cons, List.length_drop] at hlen ⊢; omega
+    refine Yields.bind' (restoreRecTysF_names ops fe R lps (names.drop 1) rest
+      hlen') fun cvs hcvs => ?_
+    refine Yields.pure ?_
+    match names, hlen with
+    | n :: ns, hlen =>
+      simp only [List.map_cons, hcvs, List.length_cons, List.take_succ_cons,
+        List.drop_succ_cons, List.drop_zero, List.cons.injEq, and_true]
+      simpa using hn
+
 theorem normCtorValMF_name (ops : CheckerOps CheckCM) (fe : FEnv)
     (memberNames : List Name) (nP nF : Nat) (cvC cvCa : ConstantVal)
     (hn : cvCa.name = cvC.name) :

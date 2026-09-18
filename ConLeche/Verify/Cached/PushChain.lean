@@ -1024,6 +1024,63 @@ theorem storeNestedRecsF_push :
     exact storeNestedRecsF_push (rs := rest) (h.push hfr)
       (FreshNames.step (c := .recInfo cv mI rP rules) hf)
 
+/-- The pre-normalisation front door REFUSES a taken name, so a success
+is the name's freshness at the index it was checked against. -/
+theorem checkConstantValPreF_fresh (ops : CheckerOps CheckCM) (fe : FEnv) (cv : ConstantVal) :
+    Yields (checkConstantValPreF ops fe cv) (fun _ => fe.find? cv.name = none) := by
+  unfold checkConstantValPreF
+  yields
+  all_goals (apply Yields.pure; exact Option.not_isSome_iff_eq_none.mp (by assumption))
+
+/-- Every restored constructor is fresh at the index the restore checked
+it against — which is ONE index for all of them (`fe₁`), so the
+assembly's remaining duty is the name list's own `Nodup`. -/
+theorem restoreCtorsF_fresh (ops : CheckerOps CheckCM) (fe : FEnv) (R : RestoreTbl)
+    (lps : List Name) :
+    ∀ (cs : List (ConstantVal × Nat × Nat)),
+      Yields (restoreCtorsF ops fe R lps cs)
+        (fun cs' => ∀ c ∈ cs', fe.find? c.1.name = none)
+  | [] => by unfold restoreCtorsF; exact Yields.pure (fun _ h => nomatch h)
+  | (cvCa, nP, nF) :: rest => by
+    unfold restoreCtorsF
+    ybind
+    refine Yields.bind' (Yields.and
+      (checkConstantValPreF_fresh ops fe { cvCa with levelParams := lps, type := _ })
+      (checkConstantValPreF_name ops fe { cvCa with levelParams := lps, type := _ }))
+      fun cvA hA => ?_
+    obtain ⟨hfr, hnm⟩ := hA
+    refine Yields.bind' (restoreCtorsF_fresh ops fe R lps rest) fun cs' hcs => ?_
+    refine Yields.pure ?_
+    intro c hc
+    rcases List.mem_cons.mp hc with rfl | hc'
+    · rw [hnm]; exact hfr
+    · exact hcs c hc'
+
+/-- Every restored recursor type is fresh at the index the restore
+checked it against (`fe₂`), positionally. -/
+theorem restoreRecTysF_fresh (ops : CheckerOps CheckCM) (fe : FEnv) (R : RestoreTbl)
+    (lps : List Name) :
+    ∀ (names : List Name) (as : List AuxStored),
+      Yields (restoreRecTysF ops fe R lps names as)
+        (fun cvs => ∀ cv ∈ cvs, fe.find? cv.name = none)
+  | _, [] => by unfold restoreRecTysF; exact Yields.pure (fun _ h => nomatch h)
+  | names, a :: rest => by
+    unfold restoreRecTysF
+    ybind
+    refine Yields.bind' (Yields.and
+      (checkConstantValPreF_fresh ops fe
+        ⟨names.headD a.cvRa.name, a.cvRa.levelParams, _⟩)
+      (checkConstantValPreF_name ops fe
+        ⟨names.headD a.cvRa.name, a.cvRa.levelParams, _⟩)) fun cvA hA => ?_
+    obtain ⟨hfr, hnm⟩ := hA
+    refine Yields.bind' (restoreRecTysF_fresh ops fe R lps (names.drop 1) rest)
+      fun cvs hcvs => ?_
+    refine Yields.pure ?_
+    intro cv hcv
+    rcases List.mem_cons.mp hcv with rfl | hcv'
+    · rw [hnm]; exact hfr
+    · exact hcvs cv hcv'
+
 theorem nestedMemberTableF_push {w : StructWalkers} {env : Env} {fe : FEnv}
     (h : PushChain env fe) (T : Name) (tbl? : Option ProjTable)
     (cs : List (ConstantVal × Nat × Nat)) :
