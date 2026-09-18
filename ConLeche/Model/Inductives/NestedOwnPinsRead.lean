@@ -1,7 +1,12 @@
 module
 
+-- The two `public import`s are FALLBACKS, each verified by a failing
+-- demotion (task #315 M7-3 session 16): demoting `NestedPremise` loses
+-- the `ConLeche.SetTheory` namespace this file `open`s, and demoting
+-- `NestedRestoreOpen` loses `ConLeche.mkPisB`, which the dummy
+-- telescope is built with.  Everything else here is a plain import.
 public import ConLeche.Model.Inductives.NestedPremise
-public import ConLeche.Model.Inductives.NestedCopyRead
+import ConLeche.Model.Inductives.NestedCopyRead
 import ConLeche.Model.Inductives.StructFrames
 import ConLeche.Model.Inductives.FixData
 import ConLeche.Model.Steps.Stuck
