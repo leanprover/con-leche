@@ -104180,3 +104180,54 @@ nests through `Array` and `List` only.
 
 **Neither result was acted on.**  The instrumentation is reverted and
 the tree is unchanged.
+
+#### THE `whnf` RESOLUTION CONJUNCT — the helpers, and the finding that it needs more than `EnvWF` (2026-09-18, task #315 M8, `agent/uniform-m5`, lane L-B's request)
+
+The request was a fourth preservation fact for the reduction:
+`whnf` keeps every constant of its output in the environment it ran
+at, so that the positivity normalisation's preservation lemma can
+inherit it beside scoping, bounds and variable leaves.
+
+**The helper family is landed** (`Verify/InferLeaves.lean`,
+`Verify/StrLitExpr.lean`): `constsResolve_mkAppN`,
+`constsResolve_getAppArgs`, `constsResolve_getAppFn`,
+`natLitToConstructor_constsResolve`, `litToCtorIfNat_constsResolve`,
+`strLitList_constsResolve`/`strLitToConstructor_constsResolve` and —
+the δ step — `unfoldDefinition_constsResolve`, which is exactly the
+shape the request predicted: what δ introduces is a stored value, and
+its resolution is `ConstWF`'s value clause at the same environment.
+
+**THE FINDING: the conjunct is FALSE under `EnvWF` alone**, and the
+counterexample is in the reduction's literal fast path rather than
+anywhere near the nested route.
+
+* `reduceNat` answers `Nat.beq`/`Nat.ble` on two literals with
+  `natOpResult`, which returns `.const boolTrueName []` or
+  `.const boolFalseName []` **without consulting the environment** —
+  deliberately, and the reason is written in `natOpStored`'s own
+  docstring: the install fold's guard carries the `Bool` constructors'
+  presence (`natOpGuard`'s third clause), so the reduction does not
+  re-derive it.  `EnvWF` says nothing about them.
+* The binary arithmetic path has the same shape one level down: it is
+  guarded by `natOpStored env c` alone, so the `Nat` trio the RESULT
+  literal's own `constsResolve` asks for is not available from the
+  guard.  It IS available from the induction hypothesis (the whnf'd
+  argument resolves and is a literal), but only because the statement
+  carries resolution — which is the property being proved.
+
+So the honest statement needs the literal-reduction basis as a
+hypothesis: `natLitSupported env = true` and the two `Bool`
+constructors resolving.  Both are `natOpGuard`'s own conjuncts, so any
+environment the fold built supplies them; what does NOT supply them is
+`EnvWF`, and no amount of work on the induction will change that.
+
+**This is a statement question rather than a proof question**, so it is
+reported rather than decided here: the three candidate shapes are (i)
+the two hypotheses above on `whnfPres_constsResolve` and on
+`normPosDomM_pres`, discharged by the consumer from the fold's
+invariant; (ii) a strengthened `EnvWF` clause, which every install
+route would then have to re-establish; (iii) the conclusion weakened to
+resolution at `env` extended with the `Bool` constructors, which is
+worse than (i) for every consumer.  **(i) is the one this lane would
+write**, and the induction is otherwise a line-for-line twin of
+`whnfPres_looseBVars`.

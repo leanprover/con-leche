@@ -315,6 +315,65 @@ theorem litToCtorIfNat_fvarLeaves {env : Env} {e : Expr} :
   | .app _ _, hl | .lam _ _ _, hl | .forallE _ _ _, hl
   | .letE _ _ _, hl | .proj _ _ _, hl => exact hl
 
+/-! ### Constant resolution, preserved (task #315 M8, lane L-B's request)
+
+The fourth preservation fact of the reduction: every constant the
+OUTPUT mentions is in the environment the reduction ran at.  It is not
+"the constants only shrink" — δ and ι INTRODUCE constants, from a
+definition's value and from a rule's right-hand side — and what makes
+it true is that those are stored constants, whose own resolution is a
+clause of `EnvWF`. -/
+
+theorem constsResolve_mkAppN {env : Env} : ∀ {xs : List Expr} {f : Expr},
+    f.constsResolve env = true → (∀ x ∈ xs, x.constsResolve env = true) →
+    (Expr.mkAppN f xs).constsResolve env = true := by
+  intro xs
+  induction xs with
+  | nil => intro f hf _; exact hf
+  | cons x xs ih =>
+    intro f hf hxs
+    simp only [Expr.mkAppN]
+    refine ih ?_ (fun y hy => hxs y (List.mem_cons_of_mem _ hy))
+    simp only [Expr.constsResolve, Bool.and_eq_true]
+    exact ⟨hf, hxs x List.mem_cons_self⟩
+
+theorem constsResolve_getAppArgs {env : Env} :
+    ∀ {e : Expr}, e.constsResolve env = true →
+      ∀ x ∈ e.getAppArgs, x.constsResolve env = true := by
+  intro e
+  induction e with
+  | app f a ihf iha =>
+    intro hb x hx
+    simp only [Expr.getAppArgs, List.mem_append, List.mem_singleton] at hx
+    simp only [Expr.constsResolve, Bool.and_eq_true] at hb
+    rcases hx with hx | rfl
+    · exact ihf hb.1 x hx
+    · exact hb.2
+  | _ => intro hb x hx; simp [Expr.getAppArgs] at hx
+
+theorem constsResolve_getAppFn {env : Env} :
+    ∀ {e : Expr}, e.constsResolve env = true → e.getAppFn.constsResolve env = true := by
+  intro e
+  induction e with
+  | app f a ihf _ =>
+    intro hb
+    simp only [Expr.constsResolve, Bool.and_eq_true] at hb
+    exact ihf hb.1
+  | _ => intro hb; exact hb
+
+/-- A `Nat` literal's constructor form resolves wherever the literal
+does: `constsResolve` at a literal ASKS for the `Nat` trio. -/
+theorem natLitToConstructor_constsResolve {env : Env} {n : Nat}
+    (h : (Expr.lit (.natVal n)).constsResolve env = true) :
+    (natLitToConstructor n).constsResolve env = true := by
+  simp only [Expr.constsResolve, Bool.and_eq_true] at h
+  cases n with
+  | zero => simpa [natLitToConstructor, Expr.constsResolve] using h.1.2
+  | succ k =>
+    simp only [natLitToConstructor, Expr.constsResolve, Bool.and_eq_true]
+    exact ⟨h.2, h.1, h.2⟩
+
+
 /-- The literal-major conversion preserves the bvar bound. -/
 theorem litToCtorIfNat_looseBVars {env : Env} {e : Expr} {k : Nat}
     (hb : e.looseBVarsBounded k = true) :
@@ -329,6 +388,62 @@ theorem litToCtorIfNat_looseBVars {env : Env} {e : Expr} {k : Nat}
   | .bvar _ | .fvar _ _ | .sort _ | .const _ _ | .app _ _
   | .lam _ _ _ | .forallE _ _ _ | .letE _ _ _ | .proj _ _ _ =>
     exact hb
+
+/-- The literal-major conversion preserves constant resolution: the
+`Nat` form asks for the trio the literal already asks for. -/
+theorem litToCtorIfNat_constsResolve {env : Env} {e : Expr}
+    (h : e.constsResolve env = true) :
+    (litToCtorIfNat env e).constsResolve env = true := by
+  match e with
+  | .lit (.natVal n) =>
+    rw [litToCtorIfNat]
+    split
+    · exact natLitToConstructor_constsResolve h
+    · exact h
+  | .lit (.strVal _) => exact h
+  | .bvar _ | .fvar _ _ | .sort _ | .const _ _ | .app _ _
+  | .lam _ _ _ | .forallE _ _ _ | .letE _ _ _ | .proj _ _ _ =>
+    exact h
+
+/-- **Unfolding a definition at the head keeps every constant in the
+environment**: what δ introduces is the stored VALUE, whose own
+resolution is `EnvWF`'s value clause, at the same environment. -/
+theorem unfoldDefinition_constsResolve {env : Env} (henv : EnvWF env)
+    {e e₂ : Expr} (h : unfoldDefinition env e = some e₂)
+    (hr : e.constsResolve env = true) :
+    e₂.constsResolve env = true := by
+  unfold unfoldDefinition at h
+  revert h
+  match hfn : e.getAppFn with
+  | .const n us => ?_
+  | .bvar _ | .fvar _ _ | .sort _ | .app _ _ | .lam _ _ _
+  | .forallE _ _ _ | .letE _ _ _ | .lit _ | .proj _ _ _ =>
+    intro h; exact nomatch h
+  intro h
+  dsimp only at h
+  revert h
+  match hf : env.find? n with
+  | none => intro h; exact nomatch h
+  | some (.axiomInfo _) => intro h; exact nomatch h
+  | some (.projInfo _) => intro h; exact nomatch h
+  | some (.thmInfo _ _) => intro h; exact nomatch h
+  | some (.indInfo _ _) => intro h; exact nomatch h
+  | some (.ctorInfo _ _ _) => intro h; exact nomatch h
+  | some (.recInfo _ _ _ _) => intro h; exact nomatch h
+  | some (.defnInfo cv value hint) => ?_
+  intro h
+  dsimp only at h
+  revert h
+  split
+  · intro h
+    simp only [Option.some.injEq] at h
+    subst h
+    obtain ⟨-, -, -, -, hval, -⟩ := henv _ (find?_mem hf)
+    obtain ⟨-, -, hvr, -⟩ := hval cv value hint rfl
+    refine constsResolve_mkAppN ?_ (fun x hx => constsResolve_getAppArgs hr x hx)
+    rw [Expr.constsResolve_instantiateLevelParams]
+    exact hvr
+  · intro h; exact nomatch h
 
 /-- Unfolding a definition at the head only shrinks the leaf
 closure. -/

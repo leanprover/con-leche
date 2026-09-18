@@ -72,6 +72,36 @@ theorem strLitToConstructor_looseBVars (s : String) (k : Nat) :
   simp only [looseBVarsBounded, strLitList_looseBVarsBounded s.toList k,
     Bool.and_self]
 
+/-- **THE CONSTRUCTOR FORM RESOLVES WHEREVER THE LITERAL DOES** (task
+#315 M8): `constsResolve` at a string literal ASKS for the ten
+constants the expansion mentions — the `Nat` trio inside the character
+numerals, and `String.mk`, `List.nil`, `List.cons`, `Char`,
+`Char.ofNat`, `String` — so the expansion resolves by the literal's own
+clause and by nothing else. -/
+theorem strLitList_constsResolve {env : Env} (hNat : (env.find? natName).isSome = true)
+    (hZ : (env.find? natZeroName).isSome = true)
+    (hS : (env.find? natSuccName).isSome = true)
+    (hNil : (env.find? listNilName).isSome = true)
+    (hCons : (env.find? listConsName).isSome = true)
+    (hChar : (env.find? charName).isSome = true)
+    (hOfNat : (env.find? charOfNatName).isSome = true) :
+    ∀ cs : List Char, (strLitList cs).constsResolve env = true
+  | [] => by simp only [strLitList, Expr.constsResolve, Bool.and_eq_true]; exact ⟨hNil, hChar⟩
+  | c :: cs => by
+    simp only [strLitList, Expr.constsResolve, Bool.and_eq_true]
+    refine ⟨⟨⟨hCons, hChar⟩, hOfNat, ?_⟩, strLitList_constsResolve hNat hZ hS hNil
+      hCons hChar hOfNat cs⟩
+    exact ⟨⟨hNat, hZ⟩, hS⟩
+
+theorem strLitToConstructor_constsResolve {env : Env} {s : String}
+    (h : (Expr.lit (.strVal s)).constsResolve env = true) :
+    (strLitToConstructor s).constsResolve env = true := by
+  simp only [Expr.constsResolve, Bool.and_eq_true] at h
+  obtain ⟨⟨⟨⟨⟨⟨⟨⟨⟨hNat, hZ⟩, hS⟩, hStr⟩, hOfList⟩, hList⟩, hNil⟩, hCons⟩, hChar⟩, hOfNat⟩ := h
+  rw [strLitToConstructor_eq]
+  simp only [Expr.constsResolve, Bool.and_eq_true]
+  exact ⟨hOfList, strLitList_constsResolve hNat hZ hS hNil hCons hChar hOfNat s.toList⟩
+
 /-- The constructor form of a string literal is well-scoped at every
 depth. -/
 theorem strLitToConstructor_WScoped (s : String) (d : Nat) :
