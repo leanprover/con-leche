@@ -104053,3 +104053,35 @@ argument sums disagree with the auxiliary install's while its type is
 still `isDefEq` to the generated one.  If one is ever found, the answer
 is to widen the skeleton (carry the numbers existentially and prove the
 two drivers agree on them) rather than to keep rejecting.
+
+##### THE SKELETON ASSEMBLY, mapped — four bridges, now that K.54 unblocks it
+
+With the numbers pinned the statement exists; what it needs is four
+bridges from the route's own data to `p`, one per cons, and they are
+the same four the push assembly needs for its `Nodup`s:
+
+1. **the members' names** — `stored.take p.k`'s `cvTa.name`s are
+   `p.memberNames`.  Pure form: `auxBlock_memberNames`, which wants the
+   PURE `nestedAnnotFormers` equation; the cached side needs a
+   `nestedAnnotFormersF_names` Yields lemma (the names are `p.formers`'
+   positionally) and the existing lemma restated over it.  **One lemma,
+   two consumers.**
+2. **the restored constructors' data** — `restoreCtorsF_names` ties
+   `(name, nP, nF)` to the auxiliary block's stored constructors, and
+   `auxBlock_ctors_getElem?` ties those to `p.ctors` for a member.
+3. **the recursors' rows** — settled: the names by `nestedRecOk`, the
+   two numbers by K.54, and the rule constructor names by
+   `nestedRulesOk`'s `a.ctor == g.ctor`, which pins them to the STREAM's
+   records and hence to `p`.
+4. **the tables' presence** — a table is consed iff the read-back's
+   `a.tbl` is `some` AND the member has exactly one restored
+   constructor.  The second half is `p`'s own; the first needs a bridge
+   into the SCRATCH install's table stage (`mutualMemberTable` stores
+   one exactly under `mutualTableSkel`'s condition at the auxiliary
+   block), and for a member below `p.k` that condition is `p.ctors`'
+   singleton plus `nIdx == 0`.
+
+Bridge 3 is done, 1 is shared with the push assembly, and 2 and 4 are
+the new work.  Sizing: one session for the four bridges and the
+skeleton walk, one more for the push walk — **read as low**, as three
+estimates in this arc came in under.
