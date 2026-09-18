@@ -106922,3 +106922,84 @@ copied verbatim into `pinTarget_reads_at` from `pinTarget_reads`.
 doors 0.**
 
 Nothing else in this section changes the tree.
+
+#### (number at the integrator's sync) — L-E: the re-basing row is NOT a mechanical generalisation, and a textual grep said it was (lane L-E, 2026-09-18)
+
+Two attempts, both reverted to green.  **Nothing is half-done and the
+tree is at `03526f64`'s state.**  What the attempts bought is the row's
+real shape, which is not the one this lane described.
+
+##### (a) WHAT THE ROW LOOKED LIKE
+
+`nestedPinPairAt` and its neighbours do not take the frame at all.  They
+take step (ii)'s conclusion as a PREMISE, quantified over an arbitrary
+predicate `S`:
+
+```lean
+{S : Nat → Prop}
+(hIH : ∀ q', q' < pinsS.length → S q' →
+  pinLfp st pinsS dJf (f₀.s.eval ψ) ψ ρp q'
+    = lfpTuple ((D).w ψ) (p.k + pinsS.length) ((D).idx ψ ρp) (ΨA ψ ρp) (p.k + q'))
+```
+
+So the re-basing looked like: abstract `pinLfp …` to a variable `Pf`,
+and the proofs cannot notice, because they only ever use `hIH` as a
+rewrite.  `grep` agreed — inside `nestedPinPairAt`'s whole span the name
+`pinLfp` occurs exactly ONCE, in that hypothesis (the other two hits are
+in the NEXT theorem's docstring).
+
+##### (b) WHY THAT WAS WRONG
+
+It is false, and the build says so at
+`NestedPinLeafAll.lean:3926` and `:4041`:
+
+```
+nestedPinPairAt_mem hμ h hbk m hleafM dJf hgroups hρp GR CR hB hshR hIH hc hjl
+```
+
+The proof PASSES `hIH` to sub-lemmas whose OWN statements mention
+`pinLfp`, so abstracting it here type-errors there.  **The name occurs
+once; the dependency does not.**
+
+This is the same failure mode as the two warning incidents, in a third
+disguise: **a textual command answering a semantic question.**  `grep -c
+pinLfp` counts occurrences of a name; it cannot see a hypothesis's shape
+travelling into a callee.  The rule generalises from "a claim of absence
+needs a command that can express absence" to the sharper form: **a claim
+about a DEPENDENCY needs the elaborator, not a search.  The cheap
+falsifier is to make the edit and build.**
+
+That is what happened here, twice, and it cost two reverts rather than a
+session — which is the argument for attempting the edit early rather
+than reasoning about whether it will work.
+
+##### (c) THE ROW'S REAL SHAPE
+
+Seven sites carry that hypothesis shape, at
+`NestedPinLeafAll.lean:2615, 3387, 3588, 3700, 3892, 4446, 4508`, and
+they are NOT uniform: the blanket edit broke `2615` (a `rewrite` that
+needs the concrete term) and `3387` (a different binder shape, with no
+`{S : Nat → Prop}` line above it at all).  So the row is
+
+> abstract `pinLfp` out of the whole `nestedPinPairAt_mem` / `_pin` /
+> `nestedPinPairAt` / `nestedInstanceLe` / `nestedPinInstLe` CHAIN at
+> once, bottom-up, because the hypothesis travels between them
+
+— one connected edit, not ten independent ones, and it must start at the
+leaves (`_mem`, `_pin`) rather than in the middle.  **It is still
+unblocked** — no candidate family, no producer, no L-B dependency — and
+it is still the right next row; it is simply one edit rather than ten.
+
+##### (d) A CORRECTION TO THIS LANE'S OWN GREEN FORMAT
+
+The "rebuilt-or-replayed module count" proposed one session ago is not a
+reliable coverage figure: `grep -c "Built\|Replayed"` returned `1` and
+then `0` across two runs of an identical green tree, because Lake prints
+those lines only for what it actually touched.  **The coverage figure is
+Lake's own `Build completed successfully (N jobs)`.**  Greens from here
+carry that.
+
+Green now: `lake build` → **0 errors/warnings, 722 jobs**, at the
+reverted state.
+
+Nothing in this section changes the tree.
