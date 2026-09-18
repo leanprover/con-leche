@@ -423,6 +423,37 @@ theorem frame_of_mem (TV : TargetView V) (ρp : Nat → V) {t : Nat} (ht : t < T
 theorem frame_of_pin (TV : TargetView V) (ρp : Nat → V) {t : Nat} (ht : ¬ t < TV.k) :
     TV.frame ρp t = consList ((TV.Ds t).map (interp V ρp)) ρp := by simp only [frame, if_neg ht]
 
+/-- **THE FRAME AT A GIVEN COMPONENT FAMILY** (task #315 L-E, the
+collapse): `TargetView.frame` with a pin target's component VALUES
+supplied instead of interpreted from the recorded components.
+
+This is the candidate frame, and it is where the whole restatement
+lives: at a member the frame does not move — the output model's value at
+a member already IS the auxiliary leaf — and at a pin it is the
+container's parameter frame at the candidate components. -/
+@[expose] noncomputable def frameAt (TV : TargetView V) (cAs : Nat → List V)
+    (ρp : Nat → V) (t : Nat) : Nat → V :=
+  if t < TV.k then ρp else consList (cAs (t - TV.k)) ρp
+
+theorem frameAt_of_mem (TV : TargetView V) (cAs : Nat → List V) (ρp : Nat → V) {t : Nat}
+    (ht : t < TV.k) : TV.frameAt cAs ρp t = ρp := by
+  simp only [frameAt, if_pos ht]
+
+theorem frameAt_of_pin (TV : TargetView V) (cAs : Nat → List V) (ρp : Nat → V) {t : Nat}
+    (ht : ¬ t < TV.k) : TV.frameAt cAs ρp t = consList (cAs (t - TV.k)) ρp := by
+  simp only [frameAt, if_neg ht]
+
+/-- **The recorded frame is the general one at the recorded components**
+(task #315 L-E): conservativity again, so every consumer of
+`TargetView.frame` specialises back. -/
+theorem frameAt_recorded (TV : TargetView V) (ρp : Nat → V) (t : Nat) :
+    TV.frameAt (fun q => (TV.Ds (TV.k + q)).map (interp V ρp)) ρp t = TV.frame ρp t := by
+  by_cases ht : t < TV.k
+  · rw [frameAt_of_mem _ _ _ ht, frame_of_mem _ _ ht]
+  · rw [frameAt_of_pin _ _ _ ht, frame_of_pin _ _ ht]
+    have h : TV.k + (t - TV.k) = t := by omega
+    simp only [h]
+
 end TargetView
 
 /-- **The targets' stored readings at the parameter depth**: member
@@ -449,10 +480,10 @@ theorem targetRead_of_pin {acval : Name → (Name → Nat) → AnnotTerm} {membe
           ((pins.getD (t - k) default).Ds ψ) := by
   simp only [targetRead, if_neg ht]
 
-/-- **THE TARGETS' READINGS AT A GIVEN COMPONENT FAMILY** (task #315
-L-E, the COLLAPSE of the pin-target arms): `targetRead` with the pins'
-components supplied as an argument instead of read off the recorded
-pin.
+/-- **THE TARGETS' READINGS AT A GIVEN COMPONENT FAMILY, AS VALUES**
+(task #315 L-E, the COLLAPSE of the pin-target arms): `targetRead`'s
+denotation with the pins' component VALUES supplied as an argument
+instead of read off the recorded pin.
 
 **Why this is the collapse and not another re-basing.**  The restated
 ordinary-field case was splitting three ways by the head of the
@@ -469,10 +500,16 @@ fields that carry an edge, and with no head analysis anywhere.  Stated
 over that image the answer is read off, the head never appears, and the
 target becomes an INDEX rather than a case.
 
-Note the shape of the two branches here: BOTH are `mkAppN (acval …) …`,
-differing only in which constant names the target and what it is applied
-to.  That was already true of `targetRead`; what the generalisation adds
-is that the pin branch no longer forces the recorded components.
+**WHY VALUES AND NOT TERMS.**  The natural-looking generalisation takes
+the components as ANNOTTERMS, and it cannot state the candidate frame at
+all: a pin's candidate component has to denote the AUXILIARY CARRIER at
+another pin, and the copies are minted into a scratch block that the
+restore removes, so no term of the output environment denotes one.  The
+container's former does have a constant — only its arguments move — so
+the candidate reading is the former's value with the candidate component
+VALUES folded onto it.  (This is the same shape as `pinLfpAt`, which
+takes `as : List V` for the same reason, and it is G2's point about
+carriers one level out: the thing being replaced is not a term.)
 
 **IT BUYS THE ORDERING QUESTION NOTHING, and the next reader's first
 instinct will be that it should.**  K.51 is a SYNTACTIC identity between
@@ -483,44 +520,37 @@ settles the collapse and says nothing whatever about which pin must be
 settled before which — the candidate-to-true bridge still needs its own
 well-founded induction, over a relation whose union with the
 declaration order is cyclic on an accepted fixture. -/
-@[expose] def targetReadAt (acval : Name → (Name → Nat) → AnnotTerm) (memberNames : List Name)
-    (pins : List PinSyn) (cDs : Nat → (Name → Nat) → List AnnotTerm)
-    (nP k : Nat) (ψ : Name → Nat) (t : Nat) : AnnotTerm :=
-  if t < k then AnnotTerm.mkAppN (acval (memberNames.getD t .anonymous) ψ) (paramBvarsAt nP nP)
-  else AnnotTerm.mkAppN (acval (pins.getD (t - k) default).J ((pins.getD (t - k) default).ψJ ψ))
-    (cDs (t - k) ψ)
+@[expose] noncomputable def targetValAt (acval : Name → (Name → Nat) → AnnotTerm)
+    (memberNames : List Name) (pins : List PinSyn) (cAs : Nat → List V)
+    (nP k : Nat) (ψ : Name → Nat) (ρp : Nat → V) (t : Nat) : V :=
+  if t < k then
+    interp V ρp (AnnotTerm.mkAppN (acval (memberNames.getD t .anonymous) ψ) (paramBvarsAt nP nP))
+  else
+    (cAs (t - k)).foldl SetTheory.app
+      (interp V ρp (acval (pins.getD (t - k) default).J ((pins.getD (t - k) default).ψJ ψ)))
 
-/-- **The recorded components, as a family** — what today's
-`targetRead` supplies. -/
-@[expose] def recordedDs (pins : List PinSyn) (q : Nat) (ψ : Name → Nat) : List AnnotTerm :=
-  (pins.getD q default).Ds ψ
+/-- **The recorded components' VALUES, as a family** — what today's
+`targetRead` supplies once interpreted. -/
+@[expose] noncomputable def recordedAs (pins : List PinSyn) (ψ : Name → Nat) (ρp : Nat → V)
+    (q : Nat) : List V :=
+  ((pins.getD q default).Ds ψ).map (interp V ρp)
 
-omit [SetTheory V] in
-/-- **Today's reading IS the general one at the recorded components**
-(task #315 L-E).  Definitional, so every consumer of `targetRead`
-specialises back with no rewriting — the collapse is conservative by
-construction, exactly as `pinLfp_eq_pinLfpAt` is. -/
-theorem targetRead_eq_targetReadAt (acval : Name → (Name → Nat) → AnnotTerm)
-    (memberNames : List Name) (pins : List PinSyn) (nP k : Nat) (ψ : Name → Nat) (t : Nat) :
-    targetRead acval memberNames pins nP k ψ t
-      = targetReadAt acval memberNames pins (recordedDs pins) nP k ψ t := by rfl
+theorem targetValAt_of_mem {acval : Name → (Name → Nat) → AnnotTerm} {memberNames : List Name}
+    {pins : List PinSyn} {cAs : Nat → List V} {nP k : Nat} {ψ : Name → Nat} {ρp : Nat → V}
+    {t : Nat} (ht : t < k) :
+    targetValAt (V := V) acval memberNames pins cAs nP k ψ ρp t
+      = interp V ρp
+          (AnnotTerm.mkAppN (acval (memberNames.getD t .anonymous) ψ) (paramBvarsAt nP nP)) := by
+  simp only [targetValAt, if_pos ht]
 
-omit [SetTheory V] in
-theorem targetReadAt_of_mem {acval : Name → (Name → Nat) → AnnotTerm} {memberNames : List Name}
-    {pins : List PinSyn} {cDs : Nat → (Name → Nat) → List AnnotTerm} {nP k : Nat}
-    {ψ : Name → Nat} {t : Nat} (ht : t < k) :
-    targetReadAt acval memberNames pins cDs nP k ψ t
-      = AnnotTerm.mkAppN (acval (memberNames.getD t .anonymous) ψ) (paramBvarsAt nP nP) := by
-  simp only [targetReadAt, if_pos ht]
-
-omit [SetTheory V] in
-theorem targetReadAt_of_pin {acval : Name → (Name → Nat) → AnnotTerm} {memberNames : List Name}
-    {pins : List PinSyn} {cDs : Nat → (Name → Nat) → List AnnotTerm} {nP k : Nat}
-    {ψ : Name → Nat} {t : Nat} (ht : ¬ t < k) :
-    targetReadAt acval memberNames pins cDs nP k ψ t
-      = AnnotTerm.mkAppN (acval (pins.getD (t - k) default).J ((pins.getD (t - k) default).ψJ ψ))
-          (cDs (t - k) ψ) := by
-  simp only [targetReadAt, if_neg ht]
+theorem targetValAt_of_pin {acval : Name → (Name → Nat) → AnnotTerm} {memberNames : List Name}
+    {pins : List PinSyn} {cAs : Nat → List V} {nP k : Nat} {ψ : Name → Nat} {ρp : Nat → V}
+    {t : Nat} (ht : ¬ t < k) :
+    targetValAt (V := V) acval memberNames pins cAs nP k ψ ρp t
+      = (cAs (t - k)).foldl SetTheory.app
+          (interp V ρp (acval (pins.getD (t - k) default).J
+            ((pins.getD (t - k) default).ψJ ψ))) := by
+  simp only [targetValAt, if_neg ht]
 
 /-! ## The identities of one copy's constructor, entry-free -/
 

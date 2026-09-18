@@ -1868,6 +1868,27 @@ theorem pinTarget_reads {st : ElimState} (m : EnvModel V env₂) {q₀ kJ i : Na
     ← List.foldl_append]
   exact pinTarget_reads_at m S hi (S.DsFit i hi ψ ρ as hsp) his
 
+/-- **TODAY'S TARGET READING IS THE GENERAL ONE AT THE RECORDED
+COMPONENTS** (task #315 L-E, the collapse's conservativity): the value
+`targetValAt` gives at the recorded component values is exactly the
+denotation of `targetRead`.
+
+Both branches, in one proof of two `rw`s — which is the point.  The
+member branch is an identity of the SAME term; the pin branch is
+`interp_mkAppN_foldl`, the commutation of `interp` with an application
+spine, and it is head-free.  Nothing here inspects the container's field
+domain, because at this level there is no field domain to inspect: the
+target is an index into `memberNames ++ pins`. -/
+theorem targetValAt_recorded (acval : Name → (Name → Nat) → AnnotTerm)
+    (memberNames : List Name) (pins : List PinSyn) (nP k : Nat) (ψ : Name → Nat)
+    (ρp : Nat → V) (t : Nat) :
+    targetValAt (V := V) acval memberNames pins (recordedAs (V := V) pins ψ ρp) nP k ψ ρp t
+      = interp V ρp (targetRead acval memberNames pins nP k ψ t) := by
+  by_cases ht : t < k
+  · rw [targetValAt_of_mem ht, targetRead_of_mem ht]
+  · rw [targetValAt_of_pin ht, targetRead_of_pin ht, interp_mkAppN_foldl]
+    rfl
+
 /-! ## The global entry theorem: (i) the containers' least tuples are a fixed point of the pins' section, (ii) the auxiliary carrier's pins lie below them -/
 
 /-- **A pin group with its identities and shapes** (task #315 L-E): the

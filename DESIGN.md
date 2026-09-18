@@ -106099,3 +106099,121 @@ install.  The serial in-process fold is why such a probe does not scale;
 that flag is the avoidable half.
 
 Nothing in this section changes the tree.
+
+#### (number at the integrator's sync) — L-E: `candDs` IS NOT A TERM FAMILY — the term-level generalisation cannot state the candidate frame, and the candidate frame's vocabulary is now landed (lane L-E, 2026-09-18)
+
+Item one of the queue, and it began by refuting something this lane
+landed an hour earlier.  The refutation came from trying to USE it,
+which is the only way this kind of defect surfaces.
+
+##### (a) THE SELF-CORRECTION: `targetReadAt` could not state what it was built for
+
+`targetReadAt` generalised `targetRead` in the pins' components **as
+ANNOTTERMS**.  That is the natural-looking move and it is wrong: a pin's
+candidate component has to denote the AUXILIARY CARRIER at another pin,
+and the copies are minted into a scratch block that the RESTORE removes,
+so **no term of the output environment denotes one**.  The term-level
+family can express the recorded components and nothing else.
+
+It is replaced by `targetValAt`, which takes the components as VALUES
+(`cAs : Nat → List V`).  The container's former does have a constant in
+the output environment — only its arguments move — so the candidate
+reading is the former's value with the candidate component values folded
+onto it.
+
+**This is G2's point one level out**, and it settles item one's shape:
+`candDs` is not a term substitution.  It is `candAs : Nat → List V`.
+`pinLfpAt`'s `as : List V`, `CandParamFit` and `CandIdxAgree` over
+`Nat → List V` were right for the same reason, and they stand unchanged.
+
+##### (b) LANDED — the candidate frame's vocabulary, all conservative
+
+`ConLeche/Model/Inductives/NestedFit.lean` and `NestedPinLeafAll.lean`:
+
+* `targetValAt` — `targetRead`'s denotation at a given component-value
+  family; `targetValAt_of_mem` / `_of_pin`;
+* `recordedAs` — the recorded components' values;
+* `targetValAt_recorded` — today's reading is the general one at the
+  recorded components.  **Two rewrites and `interp_mkAppN_foldl`**, and
+  that is the point: the member branch is an identity of the same term,
+  the pin branch is the commutation of `interp` with an application
+  spine, and neither inspects a field domain, because at this level
+  there is no field domain to inspect — the target is an index;
+* `TargetView.frameAt` — `TargetView.frame` at a given component-value
+  family, with `frameAt_of_mem` / `_of_pin` and `frameAt_recorded`.
+
+##### (c) A CORRECTION TO THIS LANE'S OWN WORDING, from `nested_p26`
+
+This lane wrote that the auxiliary domain "is the copy constant".  At
+`tests/e2e/nested_p26.ndjson` it is not:
+
+```
+    pin 0: container=P26D  pin=((P26D Nat) (fun _:Nat => ((P26V P26) #0)))
+    edge q=0(P26D) -> pin 1  own=false  ctor=1 field=1  dom=PARAM-applied/1(bvar 1)
+      containerDom=(#1 #0)
+      auxDom      =(_nested.P26V_2 #0)
+```
+
+— the component is a λ whose body is pin 1's reading APPLIED to the
+bound variable, and the auxiliary domain is the copy **applied**.  The
+head-free fact is "the stored domain is HEADED BY an auxiliary member",
+which is what `BlockOpened.recF` says and what the collapse needs; "is
+the copy constant" was an over-reading of the two simplest witnesses.
+
+`nested_p26` is also the second `PARAM-applied` witness, so that bucket
+is not a singleton.
+
+##### (d) THE LESSON WAS ALREADY LEARNED ONCE, AT §U.61
+
+`TargetView.DsE`'s docstring records that lane L-B refuted "the target's
+container taken from the pin's component's HEAD" at
+`tests/e2e/nested_lam_pin_prop.ndjson` — component `fun _ : True => T`,
+a λ-redex the positivity `whnf` reduces — and that a target's identity
+is now read off its POSITION in the pin table.  **That is the collapse's
+own lesson, one layer down, already settled.**  Three λ-component
+fixtures are now known (`nested_lam_pin_prop`, `nested_p22`,
+`nested_p26`), and the rule they teach is the same each time: read the
+position, never the head.
+
+##### (e) WHERE THE QUEUE STANDS, and the one decision it needs
+
+Items two, three and four all funnel through the same missing object.
+
+* **Item 2, the collapse lemma**, mentions the candidate components.
+* **Item 3, the consumption check**, cannot be answered from a lemma
+  that is not written.  The evidence is sharper than it was — today's
+  two leaf laws conclude at two DIFFERENT carriers (the block's own
+  `lfpTuple … p.k` and the CONTAINER's least tuple), and it is that
+  difference, not the domain's head, that made an arm reach for a
+  hypothesis at another pin — but evidence is not the confirmation that
+  was asked for.  **K.57 stays untouched.**
+* **Item 4, G1's bridge**, is abstractly `pins_all_of_measure` at the
+  size measure, already landed; its STEP is the frame equality, which
+  again mentions the candidate components.
+
+So the decision is how `candAs` is PRODUCED, and it is a scope question
+rather than a difficulty:
+
+1. **A re-pointing interpretation** — `interp` with the pin readings
+   evaluated at the auxiliary carrier — defined by recursion over the
+   containment relation, well-founded by the SAME term-size measure G1's
+   bridge uses (a pleasing coherence, and evidence the measure is the
+   right one).  This is a second interpreter over `AnnotTerm`, which the
+   project's derived-term-formers ruling treats as a significant object
+   with its own `interp`/subst API, not a casual addition.
+2. **Carry `candAs` abstractly** with exactly the properties its
+   consumers need — `CandParamFit`, `CandIdxAgree`, and the collapse —
+   and name the producer as a kernel record.  This is the
+   consumer-first discipline's shape-fixing use, and it defers (1)
+   without prejudging it.
+
+This lane's reading is that (2) unblocks items two through four
+immediately and (1) is what eventually discharges them, so they are
+sequential rather than alternative — but which is funded now is a scope
+call, and the derived-former ruling makes (1) large enough that it
+should not be started on this lane's own initiative.
+
+`lake build`, `lake test` and the doc gates green; every new theorem at
+`[propext, Classical.choice, Quot.sound]`.
+
+Nothing in this section changes the tree.
