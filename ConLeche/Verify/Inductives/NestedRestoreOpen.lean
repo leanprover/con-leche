@@ -1310,6 +1310,36 @@ theorem mentionsMember_liftLooseBVars {names : List Name} {e : Expr} (n c : Nat)
   obtain ⟨T, hT, hm⟩ := List.any_eq_true.mp h
   exact List.any_eq_true.mpr ⟨T, hT, by rw [mentionsConst_liftLooseBVars]; exact hm⟩
 
+/-- A lift keeps a spine's ARITY: only the `.app` node grows the
+argument list, and the walk keeps `.app` nodes. -/
+theorem getAppArgs_length_liftLooseBVars (d c : Nat) : ∀ e : Expr,
+    (e.liftLooseBVars d c).getAppArgs.length = e.getAppArgs.length
+  | .app f a => by
+    show ((f.liftLooseBVars d c).getAppArgs ++ [a.liftLooseBVars d c]).length
+      = (f.getAppArgs ++ [a]).length
+    simp only [List.length_append, List.length_cons, List.length_nil,
+      getAppArgs_length_liftLooseBVars d c f]
+  | .bvar i => by
+    show (Expr.getAppArgs (if i ≥ c then Expr.bvar (i + d) else Expr.bvar i)).length = _
+    split <;> rfl
+  | .fvar _ _ | .sort _ | .const _ _ | .lit _ | .lam _ _ _ | .forallE _ _ _
+  | .letE _ _ _ | .proj _ _ _ => rfl
+
+/-- ... and so does an abstraction. -/
+theorem getAppArgs_length_abstractRange (d k c : Nat) : ∀ e : Expr,
+    (e.abstractRange d k c).getAppArgs.length = e.getAppArgs.length
+  | .app f a => by
+    show ((f.abstractRange d k c).getAppArgs ++ [a.abstractRange d k c]).length
+      = (f.getAppArgs ++ [a]).length
+    simp only [List.length_append, List.length_cons, List.length_nil,
+      getAppArgs_length_abstractRange d k c f]
+  | .fvar idx ty => by
+    show (Expr.getAppArgs (if d ≤ idx ∧ idx < d + k then Expr.bvar (c + (d + k - 1 - idx))
+      else Expr.fvar idx ty)).length = _
+    split <;> rfl
+  | .bvar _ | .sort _ | .const _ _ | .lit _ | .lam _ _ _ | .forallE _ _ _
+  | .letE _ _ _ | .proj _ _ _ => rfl
+
 /-- **The walk, domain by domain**: a `∀`-telescope's `l`-th domain is
 walked at the depth `l` binders below the telescope's own.  (The
 telescope's SHAPE is `rk_restoreWalk_stripPis`; what this adds is the

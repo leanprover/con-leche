@@ -266,6 +266,28 @@ structure NestedCtorRead (mp₁ : EnvModelM V μ ENV₁) (mm j : Nat) (c : Const
     x.fvarTypeD.getAppArgs.take ((D).pinAt q).nPJ
       = (Expr.instSeq ((D).fvsPF mm j) ((D).nP - 1)
           (Expr.abstractRange pin 0 p.nP 0)).getAppArgs
+  /-- **AND THE SAME ON THE ABSTRACT DOMAIN** (task #315 PINF): the
+  clause above is on the OPENED spine, which is the side the reading
+  law works on.  K.60's guard reads the CLOSED one — the container's
+  stored constructor STRIPPED — and the transport between the two runs
+  only abstract ⟹ opened (an opener's annotation can carry a mention
+  the abstract domain does not have), so the pin case is carried on
+  BOTH sides from here.
+
+  The lift is the abstract twin of the opened form's reopening: the
+  pin lives in the parameter context, so under `l` field binders it
+  stands lifted by `l`.  The depth is existential because the
+  consumer's use of it is a MENTION, and a mention survives any lift
+  (`mentionsConst_liftLooseBVars`). -/
+  pinArgsAbs : ∀ (l : Nat) (bs : List (Expr × BinderMeta)) (r : Expr)
+      (dom : Expr × BinderMeta) (pin : Expr) (q : Nat),
+    c.1.type.stripPis ((D).nP + c.2.2) = some (bs, r) →
+    bs[(D).nP + l]? = some dom →
+    pin = Expr.mkAppN (.const ((D).pinAt q).J ((D).pinAt q).lvls) ((D).pinAt q).DsE →
+    (D).nestOf mm j l = some q →
+    ((D).ksF mm j).getD l .ordinary = .recursive →
+    ∃ d : Nat, dom.1.getAppArgs.take ((D).pinAt q).nPJ
+      = ((Expr.abstractRange pin 0 p.nP 0).liftLooseBVars d 0).getAppArgs
   /-- **THE RESTORED CONSTRUCTOR'S STORED TYPE HAS ITS `.proj` SLOTS AT
   THE MEMBERS' PREFIX ENVIRONMENT** (task #315 PINF): the front door's
   own `slots`, kept because it is the only place the fact is TRUE.
@@ -705,6 +727,8 @@ theorem nestedLoopFacts_of (hpins : NestedPinsStaged V μ F) (hread : NestedRead
       pinArgs := fun mm j l x pin q hmm hj hx hpinE hn hk => by
         obtain ⟨c, hc⟩ : ∃ c, (ctorsR.getD mm [])[j]? = some c := ⟨_, List.getElem?_eq_getElem hj⟩
         exact (hR mm j c hmm hc).pinArgs l x pin q hx hpinE hn hk
+      pinArgsAbs := fun mm j l c bs r dom pin q hmm hc hs hd hpinE hn hk =>
+        (hR mm j c hmm hc).pinArgsAbs l bs r dom pin q hs hd hpinE hn hk
       ctorSlots := fun mm j c hmm hc => (hR mm j c hmm hc).ctorSlots }⟩
   · -- the members' leaves
     intro t f ht hft
