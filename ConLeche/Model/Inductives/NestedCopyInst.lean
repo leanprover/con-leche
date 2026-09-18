@@ -1,6 +1,7 @@
 module
 
 public import ConLeche.Model.Inductives.NestedCopyRead
+import ConLeche.Model.Inductives.NestedCopyFound
 import ConLeche.Verify.Inductives.NestedGroupInv
 import ConLeche.Verify.Inductives.NestedElimInv
 import ConLeche.Verify.Inductives.NestedCopyGlue
@@ -6365,6 +6366,125 @@ theorem NestedPinsRun.copyFieldReadPin {pbs : List (Expr × ConLeche.BinderMeta)
       ψ ρp hsat fs₁ hfs hfit
   obtain ⟨params, pbs₀, st', hrwd, hrep⟩ := hQ
   exact ⟨x', w, ea', params, pbs₀, st', hx', hrwd, hrep, hea', heq, hok⟩
+
+/-! ## The `ordF`-RIGHT field's PIN TARGET, IDENTIFIED (task #315 L-B,
+DESIGN "the backwards inversion")
+
+At a field the auxiliary block classified `.recursive` at a target AT OR
+ABOVE `p.k` — a MIMIC — the stored domain is headed by that target
+member's constant, and the rewrite sent `w` there.  Read backwards that
+identifies `w`: its head is a RECORDED CONTAINER, and the pin the fire
+landed on is the block pin at the classification's own target index.
+
+**The subject is `w` — the CONTAINER-headed normalisation of the minted
+domain** — and nothing here is about a target's reading.  Three inputs,
+each already a theorem:
+
+* the CLASSIFICATION names the stored domain's head
+  (`mutualOpenedOk_recHead`);
+* `w` names no copy, because `w` READS at the members-only environment
+  (`denoteMeta_head_ne_fresh`) and a copy is not stored there — no
+  preservation property of the positivity walk is involved;
+* the rewrite's backwards inversion
+  (`replaceAllNested_container_head_stable`) then gives the container,
+  the pin and the mimic, the last of which the block's `Nodup` member
+  names turn into the pin's INDEX. -/
+
+/-- **THE PIN TARGET, IDENTIFIED** (task #315 L-B): at an `ordF`-right
+field whose copy the auxiliary block classified `.recursive` at a pin
+target, the field's normalised minted domain `w` is a recorded
+container's application, the target is the block pin `p.k + qq`, and
+that pin's recorded application is `w`'s head at `w`'s own parameter
+arguments. -/
+theorem NestedPinsRun.copyOrdFRightPinCorr {pbs : List (Expr × ConLeche.BinderMeta)}
+    (hPD : ∀ q, q < st.pins.length → PinData env st p pbs q)
+    {i' : Nat} (hi' : i' < kJ) {j : Nat} {cAJ : ConstantVal × Nat}
+    (hj : (dJ.ctorsM i')[j]? = some cAJ) {l : Nat} (hlF : l < cAJ.2)
+    (hkA : kindAt (mutKsOf kinds (b.ownOffset (p.k + q₀ + i') + j)) l = RecFieldKind.recursive)
+    (hpinT : ¬ ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+      (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0 < p.k)
+    {params : List Expr} {pbs₀ : List (Expr × ConLeche.BinderMeta)} {w : Expr}
+    {st' : ConLeche.ElimState} {x' : Expr}
+    (hx' : (xFvsF (b.ownOffset (p.k + q₀ + i') + j))[l]? = some x')
+    (hrep : ConLeche.replaceAllNested env (p.lps.map Level.param) params pbs₀ st w
+      = .ok (x'.fvarTypeD, st'))
+    (hstable : st'.pins.length ≤ st.pins.length)
+    {ψ : Name → Nat} {ea' : AnnotTerm}
+    (hea' : denoteMeta mp₁'.base2.acval
+      (ConLeche.consMutualFormers (fms.take p.k) env) ψ (b.nP + l) w = some ea') :
+    ∃ (I : Name) (lvls : List Level) (ci' : ConLeche.ContainerInfo) (qq : Nat),
+      qq < st.pins.length ∧
+      ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+        (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0 = p.k + qq ∧
+      w.getAppFn = Expr.const I lvls ∧
+      ConLeche.containerInfo? env I = some ci' ∧
+      ci'.nP ≤ w.getAppArgs.length ∧
+      (pinAtE st qq).pin = Expr.mkAppN (.const I lvls) (w.getAppArgs.take ci'.nP) := by
+  classical
+  obtain ⟨cc, J, ci, cI, cA, cname, hciP, hJmem, hcc, hn, hty, hnf, hJname, hinstCI,
+    hcj, hcA, hbc, hnF⟩ := R.ctorPair SF S hPD hi' hj
+  have hGlt : b.ownOffset (p.k + q₀ + i') + j < ctorsA.length :=
+    (List.getElem?_eq_some_iff.mp hcA).1
+  have hCD := R.h.CD _ _ hcA
+  have hlcc : l < cc.nFields := by rw [← hnf]; exact hlF
+  have hlA : l < cA.2 := by rw [hnF]; exact hlcc
+  have hnFs : l < mutNFOf ctorsA (b.ownOffset (p.k + q₀ + i') + j) := by
+    show l < (ctorsA.getD _ default).2
+    rw [List.getD_eq_getElem?_getD, hcA, Option.getD_some]
+    exact hlA
+  -- ==== the CLASSIFICATION names the stored domain's head ====
+  obtain ⟨crest', hopP', hopX'⟩ := hCD.opens
+  obtain ⟨-, hopen, htgtLt⟩ := R.h.ksJ _ _ hcA
+  have hstoredHead := mutualOpenedOk_recHead hopen hopP' hopX' hx' hkA
+  have htgtEq : ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+      (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0
+      = tgtAt (mutKsOf kinds (b.ownOffset (p.k + q₀ + i') + j)) l := mutTgts_getD hGlt hnFs
+  obtain ⟨ft, hft⟩ : ∃ ft, fms[tgtAt (mutKsOf kinds (b.ownOffset (p.k + q₀ + i') + j)) l]?
+      = some ft := ⟨_, List.getElem?_eq_getElem (htgtLt l)⟩
+  obtain ⟨hnameT, -⟩ := R.h.memT _ _ hft
+  have hmemNd : (fms.map (·.cvTa.name)).Nodup := by
+    have h0 := R.hnd
+    unfold ConLeche.MutualBlock.blockNames at h0
+    rw [R.h.names]
+    exact (List.nodup_append.mp (List.nodup_append.mp h0).1).1
+  have htk : ¬ tgtAt (mutKsOf kinds (b.ownOffset (p.k + q₀ + i') + j)) l < p.k := by
+    rw [htgtEq] at hpinT; exact hpinT
+  -- ==== `w` names no copy: it READS at the members-only environment ====
+  have hne : ∀ g ∈ fms.take p.k, g.cvTa.name ≠ ft.cvTa.name := by
+    intro g hg heq
+    obtain ⟨s, hs⟩ := List.getElem?_of_mem hg
+    have hslt : s < (fms.take p.k).length := (List.getElem?_eq_some_iff.mp hs).1
+    have hsk : s < p.k := by rw [List.length_take] at hslt; omega
+    rw [List.getElem?_take_of_lt hsk] at hs
+    have hseq : s = tgtAt (mutKsOf kinds (b.ownOffset (p.k + q₀ + i') + j)) l :=
+      nodup_getElem?_inj hmemNd (a := ft.cvTa.name)
+        (by rw [List.getElem?_map, hs, ← heq]; rfl)
+        (by rw [List.getElem?_map, hft]; rfl)
+    omega
+  have hfindNone : (ConLeche.consMutualFormers (fms.take p.k) env).find? ft.cvTa.name = none := by
+    rw [ConLeche.consMutualFormers_find?_of_ne hne]
+    exact R.h.fresh _ _ hft
+  have hfree : w.getAppFn ≠ Expr.const ft.cvTa.name (b.lps.map Level.param) :=
+    denoteMeta_head_ne_fresh hea' hfindNone
+  have hhead : x'.fvarTypeD.getAppFn = Expr.const ft.cvTa.name (b.lps.map Level.param) := by
+    rw [hstoredHead, hnameT]
+  -- ==== the rewrite, backwards ====
+  obtain ⟨I, lvls, cv, caps, ci', qn, hfn, hfind, hci', hnP, hqm, hqp, hauxHead⟩ :=
+    ConLeche.replaceAllNested_container_head_stable hrep hhead hfree hstable
+  have hqaux : ft.cvTa.name = qn.aux := (ConLeche.Expr.const.inj (hhead.symm.trans hauxHead)).1
+  -- ==== the pin's INDEX, off the block's `Nodup` member names ====
+  obtain ⟨qq, hqq⟩ := List.getElem?_of_mem hqm
+  have hqqLt : qq < st.pins.length := (List.getElem?_eq_some_iff.mp hqq).1
+  have hpinAtE : pinAtE st qq = qn := Option.some.inj ((hPD qq hqqLt).pin.symm.trans hqq)
+  obtain ⟨fM, nIdxM, hfM, hauxM, -, -, -, -⟩ := R.groupCopyFormer hPD hqqLt
+  rw [hpinAtE] at hauxM
+  have hnameEq : ft.cvTa.name = fM.cvTa.name := by rw [hauxM]; exact hqaux
+  have hidx : tgtAt (mutKsOf kinds (b.ownOffset (p.k + q₀ + i') + j)) l = p.k + qq :=
+    nodup_getElem?_inj hmemNd (a := ft.cvTa.name)
+      (by rw [List.getElem?_map, hft]; rfl)
+      (by rw [List.getElem?_map, hfM]; simp only [Option.map_some]; rw [hnameEq])
+  exact ⟨I, lvls, ci', qq, hqqLt, by rw [htgtEq, hidx], hfn, hci', hnP,
+    by rw [hpinAtE]; exact hqp⟩
 
 /-- **`CopyCtorShape.ordF`'s LEFT arm, SEMANTICALLY** (task #315 L-B):
 at every field the auxiliary block classifies ordinary, the copy's
