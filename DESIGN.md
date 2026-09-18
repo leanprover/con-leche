@@ -112838,3 +112838,87 @@ provable at `nestedContainerModeled` as stated, which is one read of the
 restore and is where a next session should start.
 
 Nothing in this section changes the tree.
+
+#### PINF: (ii)'s read — the restore identity is NOT provable as stated; the provable one carries the opener instantiation (lane PINF, 2026-09-18)
+
+The read only.  **Nothing built**, and nothing weakened silently.
+
+##### (a) THE RESTORE LEMMA EXISTS, AND IT IS THE ANTICIPATED ONE
+
+`restoreOpen_pin_domain` (`Verify/Inductives/NestedRestoreOpen.lean`) is
+the pin case of the restore's walk, and its conclusion is
+
+```lean
+    Expr.instSeq (fvsP ++ osR) (nP + j + off - 1) dR
+      = Expr.mkAppN (Expr.instSeq fvsP (nP - 1) pin) is
+```
+
+— "the restored domain is the pin, **instantiated at the parameter
+openers**, applied to the same index arguments", with `hpinB : pin.looseBVarsBounded nP = true`
+as the hypothesis that makes the phrase exact.
+
+##### (b) SO THE IDENTITY IS TRUE WITH A SUBSTITUTION IN IT
+
+`NestedBlockModelOf.pin` gives `pin.pin = Expr.mkAppN (.const J (d.pinAt q).lvls) (d.pinAt q).DsE`,
+and `instSeq` leaves a `const` head alone, so the restored domain is
+
+```
+    Expr.mkAppN (.const J lvls) (((d.pinAt q).DsE).map (Expr.instSeq fvsP (d.nP - 1)) ++ is)
+```
+
+and, with `((d.pinAt q).DsE).length = (d.pinAt q).nPJ` — which
+`nestedContainerModeled` ALREADY establishes, inside its own
+`nestMention` discharge — the provable statement is
+
+```
+    x.fvarTypeD.getAppArgs.take (d.pinAt q).nPJ
+      = ((d.pinAt q).DsE).map (Expr.instSeq fvsP (d.nP - 1))
+```
+
+**and not** `= (d.pinAt q).DsE`.  The difference is not incidental: the
+pin TERM is closed over the block's parameters (`pinsClosed`, `hpinB`),
+while a constructor's opened field domain stands at the parameter
+OPENERS, and `PinSyn.DsE`'s own docstring ("the pin's components at the
+block's parameter openers") names the two ends of exactly this
+substitution.
+
+**So the clause as the scope call stated it is FALSE**, and this is the
+stop the instruction asked for.
+
+##### (c) WHETHER THE PROVABLE FORM STILL SERVES (ii) — yes, and why
+
+`hment` needs an EXISTENTIAL mention carried from the pin's components
+to the field's arguments, and `Expr.instSeq fvsP (nP - 1)` substitutes
+FVARS FOR BVARS: it can neither delete nor (from the components' side)
+invent a constant occurrence.  So a member mention in
+`(d.pinAt q).DsE.take nPJ` — which is `ContainerModeled.nestMention`
+verbatim — survives into `x.fvarTypeD.getAppArgs.take nPJ` under the
+map.  The opened form is therefore enough for conjunct 1.
+
+That is an argument for stating the clause in the opened form, not a
+licence to restate it: **the decision is the coordinator's**, and this
+section exists so that it is made on the true statement.
+
+##### (d) WHAT STEP 2 WOULD STILL COST, measured rather than assumed
+
+`restoreOpen_pin_domain` and its telescope wrapper `restoreOpenFields`
+have **no consumer anywhere outside their own file** — they are Verify
+machinery built for this and never spent.  So the lemma is in hand, but
+the plumbing is not: `restoreOpenFields` concludes about
+`openPisAtFvars` outputs, and the clause is stated about
+`BlockCtorData`'s `xFvsF`, so the producer's discharge is that
+connection plus the per-pin bookkeeping.  Not priced here — one read
+was the bound — but it is the part that is not free, and it is at the
+ONE non-vacuous producer, exactly as the comparison predicted.
+
+##### (e) AN INSTRUCTION THAT CANNOT BE CARRIED OUT AS GIVEN
+
+The scope call asks for a sentence in `docs/NESTED.md` §3's
+stored-versus-derived note, "which currently names only `pinOwn`".
+**There is no `docs/` directory in this tree**, no `NESTED.md` anywhere,
+and `pinOwn` is named in no Markdown file but `DESIGN.md` (this
+section's own neighbours).  No file was created: inventing a document to
+satisfy a citation is how a wrong reason gets recorded as a fact, which
+is the failure this row has now catalogued five times.
+
+Nothing in this section changes the tree.
