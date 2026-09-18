@@ -102182,6 +102182,311 @@ shake 511 removals all allowlisted; pub-imports 1315 of 2147, none
 demotable; nested-shadow 28/28.  `tests/arena.sh` not re-run: the
 session touches no checker code.
 
+#### U.111 — L-E session 36: THE HOLE, minimal and exactly stated — and the chain WALKED, with the honest verdict (lane L-E, 2026-09-18)
+
+*(§U.111–§U.113 numbered at the integrator's sync after integration 3r:
+this lane wrote them as §U.91–§U.93, which on the integrated tree are
+lane L-E's OWN sessions 24–26 under 3r's renumbering.  §U.106–§U.109
+are lane L-B's sessions 24–27 and §U.110 is lane M7-3's session 21,
+both assigned on those lanes' branches at the same sync.  This lane's
+citations of its own earlier sessions were shifted with them:
+`§U.77`→`§U.89`, `§U.85`→`§U.97`, `§U.89`→`§U.101`.  **One of those is
+flagged rather than corrected**: "§U.85's measurement" is translated
+mechanically to `§U.97`, but §U.97 (session 30) ASKS for that test
+where the fourteen-edges count is recorded at `§U.92 (b)` (session 25)
+— the lane should say which it meant.)*
+
+The fourth count is negative on the weakest graph, so no measure of any
+kind exists and the route is closed.  §U.101 (d)'s obstruction is the
+statement that goes upward.  What follows is the two things the
+decision needs.
+
+##### (a) THE HOLE, in its tightest form
+
+The out-of-instance case is PROVED (`pins_le_of_instanceLe` over
+K.52).  What is missing is exactly the entry at an `ordF`-right target
+INSIDE the source's own instance:
+
+```lean
+-- at the run, with `tgt` abbreviating
+--   ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+--       (b.ownOffset (p.k + q₀ + iq) + j) []).getD l 0
+∀ (q₀ iq j l : Nat),
+  -- the field: copy-recursive, container-ORDINARY, target a PIN
+  l < ((blkFss0 b ctorsA kinds dsF ψ).getD (b.ownOffset (p.k + q₀ + iq) + j) []).length →
+  ((blkRss ctorsA kinds).getD (b.ownOffset (p.k + q₀ + iq) + j) []).getD l false = true →
+  (((dJf q₀).rss iq).getD j []).getD l false = false →
+  ¬ tgt < p.k →
+  -- and the target is IN THE SOURCE'S OWN INSTANCE
+  (ConLeche.nestedPinInstOf env p b st stored).getD (tgt - p.k) 0
+    = (ConLeche.nestedPinInstOf env p b st stored).getD (q₀ + iq) 0 →
+  -- then the entry holds there
+  pinLfp st pinsS dJf (f₀.s.eval ψ) ψ ρp (tgt - p.k)
+    = lfpTuple ((D).w ψ) (p.k + pinsS.length) ((D).idx ψ ρp) (ΨA ψ ρp)
+        (p.k + (tgt - p.k))
+```
+
+Three things make this the tightest form:
+
+* **the fifth hypothesis is the whole restriction.**  Without it this is
+  `hout` in full; with it, everything the rank induction already
+  discharges is excluded.  So the premise is INVOKED ONLY at the
+  configurations the measurement found;
+* **it is vacuous almost everywhere.**  Its hypothesis is exactly what
+  the measurement recorded at **§U.92 (b)** counted: `ordF`-right
+  (not-own) edges with equal instance labels — **fourteen such edges,
+  hence fourteen field positions, across eight accepted blocks** (four
+  in three fixture blocks, ten in five library-cone blocks).  (The
+  integrator's note at the head of this section flagged this citation
+  rather than guessing: the mechanical translation sent it to §U.97,
+  which only ASKS for a test.  §U.92 (b) is the section that carries
+  the count, and is what was meant.)  On the other seventy-five of the eighty-three block-runs
+  measured it is vacuously true.  (The fourth count's "eight blocks" is
+  a DIFFERENT property — a not-own edge inside a directed SCC — and the
+  two counts are not assumed to name the same eight;)
+* **its conclusion is the entry itself**, not a weakening: it is one
+  instance of the very identity step (ii)/(iv) produce elsewhere.
+
+**Not landed as a `def`.**  A named premise with no call site is what
+this project's own rule forbids (`consumer-first-hypotheses`), and
+wiring a call site is construction.  The statement lives here.
+
+##### (b) THE CHAIN, WALKED — and the claim is NOT "one hole"
+
+The coordinator asked to be able to say that one precisely-shaped hole
+is all that stands between this route and a closed proof, and asked for
+that claim to be TRUE.  **It is not true, and here is the walk.**
+Checked on this branch at this commit.
+
+| link | state |
+| --- | --- |
+| `NestedPinsEntry` ← `nestedPinsEntry_of_le_all` | **LANDED** (mine), axioms standard |
+| `NestedPinsShape` ← `nestedPinsShape_of` | landed, but from THREE OPEN residuals: `NestedPinsShapeNoLam`, `NestedPinsShapeOrdRight`, `NestedPinsShapePinF` — **lane L-B** (on its tip `NoLam` is discharged and `OrdRight` is split with the REFLEXIVE half REFUTED; not yet merged here) |
+| `NestedPinsLe` ← `nestedPinsLe_of_rank` | **LANDED** (mine) |
+| its `hrank` | K.37's Bool off `NestedPinsRun.hrank` — **unconditional** |
+| its `hinst` ← `nestedPinInstLe` | **LANDED** (mine) |
+| `InstanceCovered` ← `instanceCovered_of_others` | **LANDED** (mine); its `hothers` is **OPEN — M7-3's `ownPins` + K.41** |
+| `hB : EnvBlocksOf` | available (`PinsModeled`/`mp.blocks`) — **unconditional** |
+| `hppB : ContainerPinParams` | **OPEN — no producer anywhere in the tree** (`git grep` finds it only in its definition and this lane's uses).  M7-3's |
+| `hdJfB` | run-level, mechanical (`NestedTailOut.groups` already names the model `blockOf`) |
+| `hIH` ← `nestedPinsEq_of_le` ← `nestedPinsFixed` | **LANDED** (mine) — unconditional |
+| `hout`, out-of-instance | **PROVED** — `pins_le_of_instanceLe` over K.52 |
+| `hout`, in-instance | **THE HOLE** (a) — nobody's, undischargeable by the tier (§U.101 (d)) |
+| the run-level `Edge`/`EdgeOrd` production | mechanical; the mention bridge is `os_field_domain_free` (`Verify/Inductives/NestedOpenSpine.lean:298`) plus a `List.any` lift |
+| above: `nestedPinsIdent_of`, `nestedPinsStaged_of` | landed, unconditional given the two residuals |
+| `nestedCtorsStaged_of` | landed; it also takes `NestedReadLaw` — **CORRECTED 2026-09-18 (§U.112): that law IS proved unconditionally (`NestedReadLaw.lean`'s `nestedReadLaw`) and had no call site.  Now WIRED as `nestedCtorsStaged_of_pins`, so it is no longer a residual** |
+| `nestedCoreModeled_of`, `nestedTailModeled_of`, `declNested_of` | landed |
+
+**Verdict** (amended by §U.112).  On the route there are, besides the
+hole: three shape arms (L-B), `hothers`/`ownPins` (M7-3),
+`ContainerPinParams` (M7-3), and mechanical run-level plumbing.
+`NestedReadLaw` was in this list and is NOT a residual — it was proved
+and unwired (§U.112).  So the true statement is:
+
+> **one hole that nobody can discharge, plus THREE named residuals
+> belonging to other lanes — one of which itself contains a refuted
+> arm — plus mechanical plumbing.**
+
+That is what the maintainer should be told, and it is a different claim
+from the one I was asked to make true.  What IS true and worth saying
+beside it: **every link this lane owns is landed and unconditional
+except the hole**, and the hole's out-of-instance half is proved.
+
+##### (c) WHAT STANDS FINISHED BEHIND IT
+
+This lane's landed chain, all with standard axioms: `nestedPinPairAt_mem`,
+`nestedPinPairAt_pin`, `nestedPinPairAt` (`hpair`, both class kinds),
+`nestedInstanceLe`, `nestedPinFam_of_classPin`, `instanceCovered_of_others`,
+`nestedPinInstLe`, `pins_le_of_instanceLe`, `nestedPinsLe_of_rank`,
+`nestedPinsEq_of_le` (step ii), `nestedPinsEntry_at`/`_of`/`_of_le`
+(step iv) and `nestedPinsEntry_of_le_all` (the residual's discharge),
+plus the `EntryRead` repair and the K.42/K.52 threading.
+
+##### (d) STANDING DOWN on this row
+
+Ten read-only sessions bounded the route and five constructions were
+not started on the strength of them.  The in-instance row is closed as
+far as this lane can take it; §U.101 (d) is the obstruction and (a) is
+the hole.
+
+##### (e) UNAMBIGUOUSLY: nothing landed is affected
+
+Every theorem this lane has landed stays landed.  The OUT-OF-INSTANCE
+case, step (ii), step (iv) and the residual's discharge go through
+today exactly as they did before this arc began.  No line of the proof
+tree was touched in eleven sessions of this arc.
+
+Gates: `lake build` and `lake test` warning-free at the session's
+commit; text gates green.
+
+#### U.112 — L-E session 37: `NestedReadLaw` was PROVED and UNWIRED — the residual list loses an entry (lane L-E, 2026-09-18)
+
+§U.111 (b) listed `NestedReadLaw` as open with "no producer in the
+tree".  **That was wrong, and wrong in the way this project has a rule
+about.**  `ConLeche/Model/Inductives/NestedReadLaw.lean` proves
+
+```lean
+theorem nestedReadLaw {F : Nat} : NestedReadLaw V μ F
+```
+
+with NO premises — a complete, unconditional producer, sitting with no
+call site anywhere outside its own file.  My walk searched for
+`theorem nested<Name>_of`-shaped producers and for premise THREADING,
+and this producer matches neither pattern: it is named for the law, not
+for its consumer.
+
+**The rule, and the second instance of it on this task**: a hypothesis
+with no call site is indistinguishable from a hypothesis with no proof,
+so grep for a producer — by the law's own NAME, not only by the
+naming convention — before sizing an obligation.  Eleven sessions
+earlier another lane met this from the same side.  Here it cost this
+lane's own residual walk one of its four entries, in the same session
+in which it declined to land the hole as a `def` for exactly this
+reason.
+
+**Wired** (`NestedReadLaw.lean`, after the law):
+
+```lean
+theorem nestedCtorsStaged_of_pins {F : Nat} (hpins : NestedPinsStaged V μ F) :
+    NestedCtorsStaged V μ F :=
+  nestedCtorsStaged_of hpins nestedReadLaw
+```
+
+Strictly subtractive: `nestedCtorsStaged_of` keeps its two-premise
+form, and any consumer that reaches for `..._of_pins` carries only the
+pins' stage.  Axioms standard on both; `lake build`, `lake test` and
+the full gate set green.
+
+**The residual list afterwards** — besides the hole (§U.111 (a)):
+
+| residual | whose | state |
+| --- | --- | --- |
+| `NestedPinsShapeNoLam`, `NestedPinsShapeOrdRight`, `NestedPinsShapePinF` | lane L-B | open; on its tip `NoLam` discharged, `OrdRight` split with the reflexive half REFUTED |
+| `hothers` of `instanceCovered_of_others` (`ownPins` + K.41) | M7-3 | open; nine sites proved, held by one kernel premise |
+| `ContainerPinParams` | M7-3 | open; only its vacuous case exists, no general producer |
+| run-level plumbing (`hdJfB`, the `Edge`/`EdgeOrd` production, the `List.any` lift over `os_field_domain_free`) | the assembly | mechanical |
+
+So: **one hole nobody can discharge, plus THREE named residuals of
+other lanes, plus plumbing.**  Every link this lane owns is landed and
+unconditional except the hole, whose out-of-instance half is proved.
+
+##### UNAMBIGUOUSLY: nothing landed is affected
+
+Every theorem this lane has landed stays landed, and the wiring added a
+theorem without changing any.  The OUT-OF-INSTANCE case, step (ii),
+step (iv) and the residual's discharge go through exactly as before.
+
+Standing down on the in-instance row.
+
+#### U.113 — L-E session 38: the pins' SEMANTIC data, exposed per pin — DERIVED, so no producer owes anything (lane L-E, 2026-09-18)
+
+Lane L-B asked for one clause giving, per pin, the level substitution
+at its container's level parameters and the container block model's
+sort and index data at the group-relative index.  **It is landed, and
+as a DERIVED lemma rather than a clause**, which is a better answer
+than the request asked for.
+
+`NestedPinSynFacts.pinSem` (`NestedPins.lean`): at every pin `q`,
+
+* `(ENV₁).find? ((D).pinAt q).J = some (.indInfo cvT caps)` and
+  `∀ ψ, ((D).pinAt q).ψJ ψ = Level.substFn ψ cvT.levelParams ((D).pinAt q).lvls`
+  — the level substitution, at the CONTAINER's own level parameters;
+* `∀ ψ, dJ.w (((D).pinAt q).ψJ ψ) = f₀.s.eval ψ` — the sort;
+* `∀ ψ, ((D).pinAt q).u ψ = dJ.uM i (((D).pinAt q).ψJ ψ)`,
+  `((D).pinAt q).pps = dJ.ppsM i` and `((D).pinAt q).nPJ = dJ.nP` — the
+  index data at the group-relative index;
+* with `i`, `q₀`, `kJ`, `dJ` existential and
+  `(st.pins.getD q default).grpBase = q₀` tying the group-relative
+  index to the pin table's own `grpBase`.
+
+##### THE CHECK THE REQUEST ASKED FOR, discharged the strong way
+
+The request rightly warned that "true at the construction site" is no
+reason to expect a clause, and asked for confirmation that all three
+come from the definition at EVERY producer.  **They are not read off
+any producer at all**: all of it comes off `groups`, a field
+`NestedPinSynFacts` ALREADY carries, through `NestedPinGroupSyn`'s
+`stored` (the constant and the level law), `w` (the sort), `pinU`,
+`pinPps`, `pinNP` (the index data) and `grp` (the base).
+
+So nothing is imposed on any producer, and the confirmation is
+stronger than an enumeration would have been: a producer that does not
+yet exist cannot fail it either.  This is the same move that made
+§U.112 subtractive — prefer a derived lemma over a recorded clause
+whenever the record already carries the data.
+
+##### ONE DISCREPANCY, REPORTED NOT ASSUMED
+
+The request described the target as a record of about eleven hundred
+lines in which the sort field occurs zero times and the index field
+once.  `NestedPins.lean` is 1620 lines and contains one `.w (`, two
+`IdsM` and eighteen `substFn` occurrences, so the counts do not match
+and L-B may have counted a different record or file.  What is exposed
+here is `NestedPinSynFacts` — the per-pin SYNTACTIC record that lane
+consumes as `SF`, whose fields are `pinsLen`, `pinRec`, `pinDs` and
+`groups`, and which carries exactly the syntactic data the request
+describes as already present.  **If a different record was meant, the
+coordinates are `ConLeche/Model/Inductives/NestedPins.lean:462` for the
+record and `:481` for the new lemma** — redirect against those and the
+same derivation will apply, since it only uses `groups`.
+
+##### THE REPAIR CONVERTED A REFUTATION INTO A ROUTE
+
+Recorded because it closes §U.89 (b)'s loop: L-B's refuted `ordF`-right
+arm was refuted against the OLD shape of `EntryRead`.  Under the safe
+repair this lane took — the one that lane recommended — the two
+clauses its witness broke no longer exist and the witness satisfies
+the clause that replaced them, so the refutation DISSOLVES and the arm
+is open with a named route.  A λ-redex respects a semantic equality and
+does not provide a syntactic tower, which is precisely why the old
+statement was wrong and the repaired one is right; that lane's fixture
+becomes an acceptance test rather than a witness.
+
+Axioms standard; `lake build`, `lake test` and the full gate set
+green.  Nothing landed is affected: this adds a lemma and changes no
+theorem, and the hole (§U.111 (a)) and the obstruction (§U.101 (d)) are
+untouched.
+
+##### U.113 (addendum) — the two sync items, settled 2026-09-18
+
+**1. The explicit argument was ALREADY APPLIED, by the integrator, not
+by this lane.**  `NestedPinSynFacts` gained an `mp` parameter (lane
+M7-2's `groupsAt`, commit `93c7b39b`), and `NestedPinSynFacts.pinSem`
+was written against the shape without it.  The sync added
+`(mp := mp)` to the lemma's application of the record; the proof itself
+is untouched.  Verified rather than assumed: `b846b107`'s version of
+the lemma has no `(mp := mp)` and the tree's does, and `lake build`
+and `lake test` are green at the synced commit as it stands, so there
+was nothing left to fix.
+
+**The general form is worth carrying**, and it is the second time a
+version of it has cost a lane a broken call site: **a structure that
+gains a parameter breaks NAMED-ARGUMENT call sites silently rather
+than loudly** — the omitted parameter becomes a metavariable and the
+failure surfaces later, at a unification against one of the record's
+own fields, where it reads as a problem with the proof.  A call site
+that lists parameters by name is not protected by listing them; it is
+exposed by it.
+
+**2. The flagged citation is settled** at §U.111 (a): the
+fourteen-edges count is recorded at **§U.92 (b)**, not at §U.97, which
+only asks for a test.  The integrator translated the number
+mechanically and left the note rather than guessing, which was right —
+the two sections differ in exactly the way that matters, one carrying a
+measurement and the other requesting one.
+
+**And the numbering lesson, now twice-bitten.**  Citing by TITLE
+protects sections not yet numbered; it does nothing for a citation of a
+section that was ALREADY numbered when the citing line was written,
+because the number can still shift under a later integration.  This
+lane's §U.85 → §U.97 was exactly that case.  The rule that follows:
+**cite a section by title when it is new, and re-check numeric
+self-citations after any sync** — the integrator's rebuild-rather-than-
+union of this file is what made the shift visible at all.
+
+Nothing else changed: the hole (§U.111 (a)) and the obstruction
+(§U.101 (d)) are untouched, and no theorem moved.
+
 #### U.114 — L-B session 28: the reflexive arm WRITTEN; the two ordinary-field residuals are ONE residual; and the pin-shape arm's `EA` clause needed no per-pin lemma (lane L-B, 2026-09-18)
 
 *(Numbered at integration 3s: this lane wrote it as §U.110, which the
