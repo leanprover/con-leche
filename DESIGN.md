@@ -94481,3 +94481,64 @@ NOT STARTED.  No code changed this session.
 
 Gates: `lake build` and `lake test` warning-free at the session's
 commit; text gates green.
+
+##### U.88 (b) — THE DIRECTION, SETTLED 2026-09-18 (and the general statement RETRACTED)
+
+**The general statement written at (b) is FALSE and is retracted.**  It
+said the opened field's `fvarTypeD` and the stripped binder's domain
+have the SAME `mentionsMember` value.  The other lane refuted it, and
+the mechanism is decisive: `mentionsConst` DESCENDS into an `fvar`'s
+type annotation, and `openPisAtFvars` instantiates a stripped binder at
+the parameter openers followed by the EARLIER FIELD openers, whose
+annotations carry the earlier field domains.  So a field whose closed
+domain applies an earlier field's variable has an OPENED domain
+mentioning whatever that earlier domain mentions — a member included —
+while its own STRIPPED binder mentions nothing.  A dependent
+constructor exhibits it.  No lemma can make the two equal.
+
+**The direction this lane needs is the TRUE one.**  Reading the two
+sides off the tree:
+
+* what is HELD: `ContainerModeled.ordFree` —
+  `mentionsMember d.memberNames x.fvarTypeD = false`, on `d.xFvsF i j`,
+  the OPENED field, i.e. AFTER instantiation;
+* what is WANTED: `nestedPinEdges`' bit, `mentionsMember names domJ.1`,
+  on the STRIPPED binder, i.e. BEFORE instantiation, to be `false`.
+
+So the implication needed is **free-after ⟹ free-before**, which is the
+contrapositive of
+
+```lean
+Expr.mentionsConst_instantiate1 :               -- Verify/Inductives/NestedInv.lean
+  ∀ {e : Expr} {j : Nat}, e.mentionsConst m = true →
+    (e.instantiate1 v j).mentionsConst m = true
+```
+
+— public, already in the tree, and exactly "a constant mentioned before
+a substitution is mentioned after it".  `mentionsMember` is
+`memberNames.any (e.mentionsConst ·)`, so the lift is a `List.any`
+step.  **The refuted direction (stripped-free ⟹ opened-free) is the one
+this lane does NOT need**, so the cut does not have to move and
+§U.87 (c)'s fourth row keeps its shape.
+
+What is not literally in the tree is the MULTI-STEP form at a field
+position — the opened field is the binder with the parameter openers
+and the earlier field openers instantiated, so it is several
+`instantiate1`s and wants a short induction over the opening, in the
+same shape as `mentionsMember_openPisAtFvars_false` beside it (which is
+`private` and runs whole-tower-to-field, a different statement).  **The
+other lane's use is at the same level as this lane's cut, at the run
+with the instantiation equation in hand, and is already discharged
+there — so this is very likely ONE obligation, already met, and this
+lane CONSUMES it rather than writing a second.**
+
+##### U.88 (h) — SPELLING: the pin accessor is a field read, not an unfolding
+
+The module system does not expose the pin accessor's body in this tier,
+so "the pin at an index" is read off the record's field.  Every
+statement in (c) spells it `(D).pinAt q` / `(dJf r).pinAt q₀'`, which is
+that read, and the first session should keep that spelling.  This is
+the same phenomenon §U.80 (a) recorded from the other side: `pinAt` and
+`pinsS.getD _ default` are defeq only at DEFAULT transparency, so the
+anonymous constructor rejects the mismatch and the goal has to be built
+where `isDefEq` runs at default.
