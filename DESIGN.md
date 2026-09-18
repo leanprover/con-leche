@@ -93434,3 +93434,92 @@ demotable; nested-shadow 28/28.  `tests/arena.sh` not re-run: the
 session touches no checker code.  Standard axioms on
 `replaceAllNested_head_const` and on the chain probe over the five
 residuals.
+
+#### U.80 — L-B session 22: the pin route's STEP TWO is COMPLETE, and step three's extra cost named (lane L-B, 2026-09-18)
+
+The plumbing is written and step two is closed: `copyPinFCorr` derives
+the MENTION from the classification, `hloose` from the run, and leaves
+one named input — the pin's container record, which the monotonicity
+clause will retire.  Step three was NOT started, and this session
+found a cost in it that §U.75 (d) did not name (d).
+
+##### (a) TWO SMALL RUN-INVERSIONS (commits `97e6a52a`, and the reader in `6390d5b7`)
+
+* **`replaceIfNested_loose`** — `nestedOccOk` REJECTS a nested
+  occurrence whose parameter arguments carry a local variable, so at an
+  occurrence that mentions a name of the growing list an accepted run
+  has none.  The `hloose` that `replaceIfNested_occurrence` and
+  `replaceAllNested_occurrence` take as a SECOND input is derivable
+  from the first.  That matters at a minted domain, where the
+  parameter arguments are the container's field's own and no record
+  says they are closed;
+* **`mutualOpenedOk_recHead`** — the kernel re-checks the
+  classification on the ANNOTATED constructor opened at variables, and
+  at a `.recursive` field that re-check says the domain is headed by
+  its TARGET MEMBER's constant.  Read here for the first time; it is
+  what makes §U.78 (d)'s "inversion of `mutualCtorKinds`" unnecessary.
+
+##### (b) STEP TWO — `copyPinFCorr` (commit `6390d5b7`)
+
+The contradiction runs exactly as §U.79 (b) verified it, and the
+verification held at every step — nothing in the chain had to be
+revisited.  Two details of the writing are worth keeping:
+
+* `set` is not available in this build's tactic set; the spine is
+  abbreviated with `obtain ⟨AS, hAS⟩ : ∃ AS, AS = … := ⟨_, rfl⟩`
+  instead.  The HEAD must NOT be abbreviated the same way — an opaque
+  local stops `replaceIfNested` from reducing and stops
+  `replaceAllNested_head_const` from matching, so the constant is
+  written out at its four sites;
+* the recogniser's declination at a prefix is proved by rewriting
+  `nestedOccOk`'s answer in and collapsing BOTH branches of the length
+  test with `ite_self`, not by splitting the goal: `split` will not
+  split an `if` that sits under the `Except` bind, while the same `if`
+  splits happily in a HYPOTHESIS.  That asymmetry cost several
+  iterations and is worth knowing.
+
+The conclusion carries none of `copyResid`'s existentials, as the
+statement was settled to: the container member travels as a binder
+with its own three clauses, and what comes out is the block pin the
+fire landed on, in `st.pins`, with the container's pin's head and level
+arguments and the right number of components.
+
+##### (c) WHAT STEP TWO STILL TAKES, AND FROM WHERE
+
+`henv₀` — `dJ.env₀ = env` — which is FALSE as an equation (the owning
+lane refused it, correctly) and will be replaced by the monotonicity
+clause that lane proposed; §U.79 (f) records why that form serves and
+which of its side conditions this lane had not checked.  Nothing else.
+
+##### (d) STEP THREE — not started, and one cost §U.75 (d) did not name
+
+`PinCorr`'s six clauses compare the BLOCK pin at `tg l - p.k` with the
+CONTAINER's pin `dJ.tgts i' j l - dJ.k` instantiated.  Step two hands
+the syntactic seed at a pin `qn ∈ st.pins`; what it does NOT hand is
+that `qn` is the pin at INDEX `tg l - p.k`.  The target `tg l` is the
+auxiliary block's member index of the MIMIC that heads the stored
+domain, and `qn.aux` is that mimic's NAME, so step three needs the
+correspondence
+
+    the block position of the mimic named `qn.aux` is `tg l`
+
+which is the `groupCopyFormer`/`auxStored` bookkeeping, not the pin
+record.  §U.75 (d) put step three at "`PinCorr`'s six clauses read off
+the elimination's own pin record"; the index correspondence is a
+separate piece in front of them.  With it the six clauses are the
+readings `copyOrdFLeftRead` already computes, so the sizing is one
+session for the correspondence and one for the clauses — and this
+session declined to start either in its tail, for the fourth time.
+
+##### (e) GATES
+
+`lake build` 716 jobs warning-free; `lake build ConLecheTests` 572 jobs
+warning-free; layering base 351 / model 282 / caps 3 / umbrella 1, 0
+base->lane and 0 impl->theory; trust surface 13/5 (648 scanned);
+no-local-paths OK; overview-links 112, no anchor moved; quote-gate 2;
+**proofdeps 4965 rows / 12 roots / 0 doors** (the baseline, unmoved);
+shake 511 removals all allowlisted; pub-imports 1315 of 2147, none
+demotable; nested-shadow 28/28.  `tests/arena.sh` not re-run: the
+session touches no checker code.  Standard axioms on
+`replaceIfNested_loose`, `mutualOpenedOk_recHead`, `copyPinFCorr` and
+the chain probe over the five residuals.
