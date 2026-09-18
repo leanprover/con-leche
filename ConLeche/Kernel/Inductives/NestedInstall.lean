@@ -2183,7 +2183,8 @@ def nestedPinRewrites (env : Env) (p : NestedParts) (st : ElimState)
         st'.pins.length == st.pins.length
     | .error _ => false
 
-/-- **THE PINS' COMPONENTS, REWRITTEN** (task #315, lane L-E's request):
+/-- **THE PINS' COMPONENTS, REWRITTEN** (task #315 K.59, lane L-E's
+request):
 every component of a pin's argument spine, rewritten by the
 elimination's own `replaceAllNested` at the FINAL state — and the state
 does not grow, which says the re-run minted nothing.  This is K.51's
@@ -2378,13 +2379,20 @@ def checkNested (ops : CheckerOps m) (env : Env) (p : NestedParts) : m Env := do
   unless certOnly ops.mode (nestedContainersOk env st.pins) do
     throw (.internal "nested: a container the elimination pinned fails a fact its own \
       install established")
-  -- **THE PINS' COMPONENTS REWRITE** (task #315, lane L-E's request):
+  -- **THE PINS' COMPONENTS REWRITE** (task #315 K.59, lane L-E's request):
   -- every component of every pin's argument spine goes through the
   -- elimination's own `replaceAllNested` at the FINAL state, and the
   -- state does not grow.  UNCONDITIONAL, and `.internal`: three of the
   -- model's arms read the rewritten components, and a `certOnly` check
-  -- is `true` in trusted mode.  See DESIGN "#### The next row, priced:
-  -- the pins' COMPONENTS, rewritten".
+  -- is `true` in trusted mode.  Measured before it landed: 87 shadow
+  -- blocks over e2e+arena and Mathlib, zero fires, firing control 43/43
+  -- where the check is reached, and +0.025 % of a Mathlib shadow run
+  -- (nothing today — the route is not dispatched).
+  --
+  -- **IF THIS EVER FIRES** the elimination's rewrite is not reproducible
+  -- at the final state: that is a defect in the ROUTE, not in the
+  -- stream, and the answer is never to relax the check.  See DESIGN
+  -- "#### K.59 — the pins' components, rewritten".
   unless nestedPinCompsOk env p st do
     throw (.internal "nested: a pin's components do not rewrite at the final state")
   -- 2. the auxiliary mutual block, checked in a SCRATCH environment

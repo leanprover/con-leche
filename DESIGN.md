@@ -105266,7 +105266,7 @@ findings (the `tryCatch` boundary and the grade tax).
 
 Nothing in (1)–(3) needs a fact that is not recorded today.
 
-#### The next row, priced: the pins' COMPONENTS, rewritten (lane L-E's request)
+#### The next row, priced: the pins' COMPONENTS, rewritten (lane L-E's request — LANDED as K.59)
 
 Three model arms (`recF`, `es`, `ordF`-left) have no route until the
 route records that every component of a pin's argument spine rewrites,
@@ -105322,7 +105322,7 @@ unconditional and walks every pin component — an instruction-count
 measurement (`perf stat -e instructions:u`) in both modes, since the
 cost lands in trusted mode too.
 
-#### The pins' COMPONENTS, rewritten — landed, with its cost measured (2026-09-18, task #315, `agent/uniform-m5`)
+#### K.59 — the pins' components, rewritten (2026-09-18, task #315, `agent/uniform-m5`, lane L-E's request)
 
 Lane L-E's request, implemented as priced.  Three model arms (`recF`,
 `es`, `ordF`-left) had no route until the install recorded that every
@@ -105380,8 +105380,8 @@ no-shadow deltas are inside run-to-run noise.  **The forecast for when
 the dispatch arm lands is +0.025 % of a Mathlib run** — about 72 M
 instructions per nested block.
 
-**LEDGER ROW.**  Not certification-only: an unconditional check in both
-routes whose failure is `.internal`.  Category **(B)**,
+**LEDGER ROW — K.59.**  Not certification-only: an unconditional check
+in both routes whose failure is `.internal`.  Category **(B)**,
 by-construction-only — official computes nothing of the kind; the
 rewrite is our elimination's own, and the fact is true by construction
 of `mkCopies`.  **It cannot fire**, which is what (B) means, and it
