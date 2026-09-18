@@ -375,7 +375,36 @@ container at the pin's components).  The auxiliary lists instantiate
 it (`nestedTV`), and so does a stored block model with its pins'
 constructors (`BlockModel.targetView`), which is what lets the
 identities be stated ONCE for the block being installed and for the
-containers already stored (`PinShapes`). -/
+containers already stored (`PinShapes`).
+
+**THE RULE OF THIS ROUTE, and it has cost four refutations to learn:
+NEVER READ A TARGET'S IDENTITY, OR A FIELD'S CLASSIFICATION, OFF A
+COMPONENT'S OR A DOMAIN'S HEAD.  READ IT OFF THE RECORDED POSITION.**
+A component can be a λ that the positivity `whnf` reduces, so its head
+is not the container's; a field domain can be a parameter APPLIED, so
+its head is not the target's; the auxiliary domain can be a copy
+applied, so it is not the copy constant; and a copy has no NAME in the
+output environment while having a perfectly good READING.  The four
+witnesses, in the order they were paid for:
+
+* §U.61 — the target's container taken from the component's head,
+  refuted by lane L-B at `tests/e2e/nested_lam_pin_prop.ndjson`
+  (component `fun _ : True => T`), which is why `DsE` below is read by
+  nothing and `PinCorr`/`targetPin_corr` read the POSITION instead;
+* the restated ordinary-field case split three ways by the container
+  domain's head, collapsed by K.51 (`nestedPinRewrites`), which
+  certifies that the normalised minted domain rewritten by
+  `replaceAllNested` IS the stored one — over exactly the fields that
+  carry an edge, with no head analysis anywhere;
+* "the auxiliary domain is the copy constant", corrected at
+  `tests/e2e/nested_p26.ndjson`, where it is the copy APPLIED; the
+  head-free fact is "headed by an auxiliary member";
+* "no term denotes a copy", corrected by `mutMemberLeaf` and
+  `tupleLfpAV_fold`, which are index-generic: a copy has a reading, and
+  only the NAME is missing.
+
+Three fixtures carry a λ component and teach the first form of the rule:
+`nested_lam_pin_prop`, `nested_p22`, `nested_p26`. -/
 structure TargetView (V : Type w) where
   /-- the members -/
   k : Nat

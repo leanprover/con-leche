@@ -106319,3 +106319,88 @@ component positions, more if it is not.  The re-price must be able to
 see this row.
 
 Nothing in this section changes the tree.
+
+#### (number at the integrator's sync) — L-E: THE CLOSURE STEP — step (iii)'s skeleton is `lfpTuple_le` and takes ONE per-pin hypothesis (lane L-E, 2026-09-18)
+
+Worked through.  The subject does **not** collapse to an identity, a
+component family **does** survive, and the induction's consumer has moved
+rather than vanished — three answers, none of them the "too good" one.
+
+##### (a) LANDED — `pinLfpAt_le`, and it is one line
+
+```lean
+theorem pinLfpAt_le … (hcl : IsClosedTuple w (dJf …).k (… .idx …) (… .Φ …) L)
+    (hq : q - grpBase < (dJf …).k) :
+    FamLe (… .idx … (q - grpBase)) (pinLfpAt st pinsS dJf w ψ ρp as q) (L (q - grpBase)) :=
+  lfpTuple_le hcl _ hq
+```
+
+**Leastness is unconditional on this route** — `lfpTuple` is the
+INTERSECTION of the closed tuples (`mem_app_lfpTuple`), not a stage
+limit — so there is no monotonicity obligation and no chain.  The frame
+`as` is universally quantified, so every skeleton above this one can be
+built before any candidate component family exists.
+
+##### (b) THE ANSWER ON THE COMPONENT FAMILY: it survives
+
+`as` occurs in `pinLfpAt` and in `hcl`, as the CONTAINER's parameter
+frame.  The reading side needs no family — `tupleLfpAV_fold` is
+index-generic and covers copies — but a parameter frame is a list of
+values and something must name it.  So the family is carried abstractly,
+its producer is owed as its own row, and the carry is **not an end
+state**.
+
+##### (c) THE CONSUMPTION CHECK, as far as a written lemma can take it
+
+**Step (iii)'s skeleton is induction-free and per-pin.**  `hcl` speaks
+about pin `q` alone; no ordering, no measure and no conclusion at another
+pin appears in the statement.  So the declaration-order induction has no
+consumer *here*.
+
+Decomposing `hcl = InTupleSpace ∧ TupleLe (Φ L) L` at `L i := L⁺ (p.k +
+grpBase + i)`:
+
+1. **`InTupleSpace`** — each `L⁺` component is in its own `famSpace`
+   (`lfpTuple_mem`, unconditional); what is needed is that the
+   container's index set at the candidate frame is the auxiliary one.
+   That is **side condition two** (`CandIdxAgree`) plus the sort
+   identity (`NestedPinGroupSyn.w`).  Both already named; neither
+   mentions another pin.
+2. **`TupleLe (Φ L) L`** — the container's section at the candidate
+   frame lies below the auxiliary block's own section at the copy.  A
+   RECURSIVE field at target `t` is `tupleLfpAV_fold` at index `t`,
+   index-generic and cross-pin-free; an ORDINARY field needs the domains
+   to agree, which is the collapse lemma over K.51.  Lane L-B's
+   `CopyCtorShape` is the constructor-level half.
+
+**So no cross-pin hypothesis appears anywhere this lane can currently
+see — and that is still not a claim.**  Clause 2 is not written, and it
+is precisely where such a hypothesis would hide.  **K.57 stays
+untouched**, and when clause 2 is written this lane will report the
+answer rather than act on it.
+
+##### (d) THE RULE IS NOW WHERE A FRESH LANE MEETS IT
+
+Moved out of the session records and into `TargetView`'s own docstring
+(`ConLeche/Model/Inductives/NestedFit.lean`), which is what a lane
+reading the nested shape opens first: one rule, four witnesses with the
+fixture that paid for each, and the three λ-component fixtures named.
+
+##### (e) THE RE-PRICE
+
+| piece | sessions |
+| --- | --- |
+| the collapse lemma over K.51, and clause 2's ordinary-field half | 2–3 |
+| the component family's producer (its own row, not absorbed) | 1–2 |
+| re-basing the ten theorems, plus G3's two | 2–3 |
+| G1's bridge — the step, over `pins_all_of_measure` | 1–2 |
+| re-wiring the assembly and the residual's discharge | 1 |
+
+**8–11 sessions remaining here**, unchanged from the last re-price: the
+collapse removed the three-way split but clause 2 absorbed the saving,
+and the component family's producer became visible as a row of its own.
+**7–10 if the declaration-order induction proves unnecessary**, which is
+the one thing that would move the number and is not claimed.  Kernel:
+2–3, unchanged.
+
+Nothing in this section changes the tree.

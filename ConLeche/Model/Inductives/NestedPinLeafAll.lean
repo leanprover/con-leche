@@ -4428,6 +4428,44 @@ theorem nestedPinInstLe (hμ : μ.verifiedChecks = true)
 
 /-! ## Step (iii)'s INDUCTION: the rank orders the instances (K.37) -/
 
+/-- **STEP (iii) AT ONE PIN, FROM CLOSURE AT A GIVEN FRAME** (task #315
+L-E, the closure step): the container's least tuple at ANY parameter
+frame lies below ANY tuple closed under the container's section at that
+same frame.
+
+This is `lfpTuple_le` — **leastness, which is unconditional on this
+route**, because `lfpTuple` is the INTERSECTION of the closed tuples
+(`mem_app_lfpTuple`) rather than a stage limit.  It needs no
+monotonicity and no chain.
+
+**WHAT IT SETTLES, AND WHAT IT DOES NOT.**  Step (iii)'s SKELETON at a
+pin takes exactly one hypothesis, `hcl`, and that hypothesis is about
+pin `q` alone: no induction, no ordering, no conclusion at another pin
+appears anywhere in this statement.  So the declaration-order induction
+has no consumer HERE.  It does not follow that it has none: the
+consumer, if it survives, has moved into the DISCHARGE of `hcl` — the
+agreement between the container's section at the candidate frame and the
+auxiliary block's own section at the copy — and this lane does not claim
+the discharge is cross-pin-free until it is written.
+
+**The frame stays abstract.**  `as` is universally quantified, so every
+skeleton above this one can be built before any candidate component
+family is constructed; only `hcl`'s discharge needs the family to be the
+candidate one. -/
+theorem pinLfpAt_le {st : ElimState} {pinsS : List PinSyn} {dJf : Nat → BlockModel V}
+    {w : Nat} {ψ : Name → Nat} {ρp : Nat → V} {as : List V} {q : Nat} {L : Nat → V}
+    (hcl : IsClosedTuple w (dJf (st.pins.getD q default).grpBase).k
+      ((dJf (st.pins.getD q default).grpBase).idx ((pinsS.getD q default).ψJ ψ)
+        (consList as ρp))
+      ((dJf (st.pins.getD q default).grpBase).Φ ((pinsS.getD q default).ψJ ψ)
+        (consList as ρp)) L)
+    (hq : q - (st.pins.getD q default).grpBase < (dJf (st.pins.getD q default).grpBase).k) :
+    FamLe ((dJf (st.pins.getD q default).grpBase).idx ((pinsS.getD q default).ψJ ψ)
+        (consList as ρp) (q - (st.pins.getD q default).grpBase))
+      (pinLfpAt (V := V) st pinsS dJf w ψ ρp as q)
+      (L (q - (st.pins.getD q default).grpBase)) :=
+  lfpTuple_le hcl _ hq
+
 /-- **STRONG INDUCTION OVER A NUMERIC MEASURE ON THE PINS** (task #315
 L-E): if each pin's goal follows from the goal at every pin of strictly
 smaller measure, it holds at every pin.  `Q` is arbitrary and `ord` is
