@@ -104097,15 +104097,33 @@ corollary rather than a second copy of the proof: **a proof that exists
 twice is the thing that later diverges**, and this arc has already had
 one inline derivation lifted out for the same reason.
 
-**THE DAG FALSIFIER, RUN AGAINST THIS SESSION'S THREE CHECKS.**
-`tests/e2e/tower_nested.ndjson` (the depth-60 doubling tower, built as
-the canonical falsifier for an unmemoised walk: baseline 0.046 s, and
-a tree walk over it does not finish in ten minutes) runs in **0.022 s**
-with K.51's rewrite run, K.53's name round-trip and K.57's
-declaration-order scan all in force.  So none of the three added a
-traversal that the DAG punishes — K.57's scan is per PIN rather than
-per edge for exactly that reason, and K.51 reuses the addressing K.42
-already walks.
+**THE DAG FALSIFIER, RUN AGAINST THIS SESSION'S THREE CHECKS — IN
+INSTRUCTIONS, NOT WALL TIME.**  `tests/e2e/tower_nested.ndjson` is the
+depth-60 doubling tower, built as the canonical falsifier for an
+unmemoised walk (a tree walk over it does not finish in ten minutes).
+**Wall time is not a measurement on this machine** — it is shared with
+other lanes' builds — so the number is `perf stat -e instructions:u`,
+and the comparison is the same binary with the certification group ON
+and OFF rather than an older build:
+
+| run | instructions (3 runs) |
+|---|---|
+| `--verified` (K.51, K.53, K.57 and the rest of the gated group in force) | 112 129 599 / 112 130 818 / 112 129 316 |
+| `--trusted` (the group skipped) | 109 227 719 / 109 226 282 / 109 223 260 |
+
+**+2.7 % for the WHOLE certification group**, and stable to five
+significant figures across runs — which is the other reason to count
+instructions here: the signal a DAG-punishing walk produces is orders
+of magnitude, so what is wanted is a measure with no noise floor
+rather than a precise one.
+
+**The two design choices are why it is clean, and they matter more
+than the number.**  K.57's environment scan is per PIN, not per edge:
+per-edge would be `|edges| × |env|`, which on Mathlib is 132 × 650 000
+instead of a handful of scans.  And K.51 reuses the addressing K.42
+already walks — the same `nestedOrdDomPairs` three-layer shape — so the
+copies' constructors are traversed ONCE for both records rather than
+twice.
 
 **BRIDGE 4 IS LANDED** (2026-09-18): `mutualTables_find?_projInfo_of`
 — the converse of `mutualTables_find?_projInfo_inv` — with
