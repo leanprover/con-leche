@@ -307,11 +307,26 @@ from the SCRATCH rule while RENAMING the constructor, so what
 `mutualRules_bits` says about the scratch rule at `envAux` and what
 `ConstWF` asks of the stored rule at the provision differ in BOTH
 arguments, and no lemma in the tree relates them across the copies'
-capability records.  With the bits recorded `false` the two conjuncts
-are vacuous, and this hypothesis becomes `I.hbits`' one rewrite. -/
+capability records.
+
+**K.50 records the two conjuncts THEMSELVES**, at the provisioned
+environment where `ConstWF` asks for them — not the bits `false`.
+Recording the bits `false` would DECLINE 35 of the 41 Mathlib cone
+blocks and 7 of the 27 shadow fixtures: η is about a structure's single
+constructor and its recursor not being a projection function, not about
+field counts, and a copy of a structure-like container is
+structure-like.  The K half is vacuous on both corpora today (dropping
+`!r.k` fails 24/27 and 41/41) and is recorded anyway, nothing making it
+so in principle.  So this hypothesis passes straight through to the
+kernel's own record. -/
 theorem NestedTailIn.storeCtors
     (hbits : ∀ c, c < b.k → ∀ r ∈ nestedRulesAt p.k rulesM rulesN c,
-      RecRule.k r = false ∧ RecRule.eta r = false) :
+      (RecRule.k r = true → ConLeche.recRuleKOf
+        (ConLeche.provisionNestedRecs (nestedProvList p stored cvRms cvRns) (ENV2)).find?
+        (RecRule.ctor r) = true) ∧
+      (RecRule.eta r = true → ConLeche.recRuleEtaOf
+        (ConLeche.provisionNestedRecs (nestedProvList p stored cvRms cvRns) (ENV2)).find?
+        (nestedRecCvAt p.k cvRms cvRns c).name (RecRule.ctor r) = true)) :
     ∀ x ∈ nestedStoreList p stored cvRms cvRns rulesM rulesN, ∀ r ∈ x.2.2.2,
       (∃ cvj cnP cnF,
         (ConLeche.provisionNestedRecs (nestedProvList p stored cvRms cvRns) (ENV2)).find?
@@ -323,7 +338,7 @@ theorem NestedTailIn.storeCtors
         (ConLeche.provisionNestedRecs (nestedProvList p stored cvRms cvRns) (ENV2)).find?
         x.1.name (RecRule.ctor r) = true) := by
   intro x hx r hr
-  obtain ⟨c, hc, -, -, -, hrs⟩ := nestedStoreList_mem I.lenM hx
+  obtain ⟨c, hc, hcv, -, -, hrs⟩ := nestedStoreList_mem I.lenM hx
   have hcb : c < b.k := by rw [I.out.bk, ← I.lenN] at *; exact hc
   obtain ⟨a, ha⟩ : ∃ a, stored[c]? = some a :=
     ⟨_, List.getElem?_eq_getElem (by rw [I.storedLen]; exact hcb)⟩
@@ -336,8 +351,7 @@ theorem NestedTailIn.storeCtors
       rw [← hlenR]; exact (List.getElem?_eq_some_iff.mp hoAt).1)⟩
   obtain ⟨-, -, -, -, -, -, -, hfindC, -, -, -, -⟩ := hallR ii rl r hrlAt hoAt
   obtain ⟨cvj, cnF, hfc⟩ := hfindC
-  exact ⟨⟨cvj, RecRule.ctorParams r, cnF, hfc⟩,
-    fun hb => absurd (hk0 ▸ hb) (by simp), fun hb => absurd (he0 ▸ hb) (by simp)⟩
+  exact ⟨⟨cvj, RecRule.ctorParams r, cnF, hfc⟩, hk0, by rw [hcv]; exact he0⟩
 
 end Run
 
