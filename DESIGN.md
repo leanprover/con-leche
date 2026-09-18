@@ -93292,3 +93292,145 @@ shake 511 removals all allowlisted; pub-imports 1315 of 2147, none
 demotable; nested-shadow 28/28.  `tests/arena.sh` not re-run: the
 session touches no checker code.  Standard axioms on `copyPinFFire`
 and on the chain probe over the five residuals.
+
+#### U.79 — L-B session 21: the head survives the rewrite, and the mention's route verified to the last lemma (lane L-B, 2026-09-18)
+
+The classification route for step two's remaining input has two halves.
+The first is landed (a): a constant head survives the walk unless the
+fire takes it.  The second was verified lemma by lemma without being
+written (b), and the verification re-sized it once more — the inversion
+§U.78 (d) expected is not needed, because the kernel's own re-check
+hands the head directly.  What is left is PLUMBING of a kind this lane
+has written twice, and it did not fit the session (c).
+
+##### (a) `replaceAllNested_head_const` (commit `9a98f4d1`)
+
+```lean
+theorem replaceAllNested_head_const … :
+    ∀ (as : List Expr) {st st' : ElimState} {e' : Expr},
+      (∀ k : Nat, replaceIfNested env blvls params pbs₀ st
+        (Expr.mkAppN (.const I us) (as.take k)) = .ok none) →
+      replaceAllNested env blvls params pbs₀ st (Expr.mkAppN (.const I us) as)
+        = .ok (e', st') →
+      e'.getAppFn = Expr.const I us
+```
+
+Two things make it go through.  The walk's descent into `.app f a`
+walks the FUNCTION part at the state it was given and the argument at
+the state that returned, so every prefix of a spine is offered to
+`replaceIfNested` at the ORIGINAL state — the hypothesis is uniform in
+the state, and the induction runs on the right.  And the base case is
+free: a bare `.const` takes the walk's catch-all whether or not the
+prune fires, so no freshness hypothesis is needed.
+
+`List.reverseRecOn` is not available in this build's prelude; the
+recursor is four lines, proved over `List.reverse`.
+
+##### (b) THE REST OF THE ROUTE, VERIFIED — and the inversion is not needed
+
+Assume the mention FAILS.  Then, step by step:
+
+1. `copyPinFDom` puts the minted domain in the form
+   `mkAppN (.const J_q lvls') args`;
+2. **every prefix declines.**  `nestedOccOk`'s verdict is a function of
+   `args.take ci'.nP` alone, and every prefix of the spine of length
+   `≥ ci'.nP` has the SAME `take ci'.nP`; the shorter prefixes decline
+   on `args.length < ci.nP` before the test is reached.  So (a) applies
+   and the rewrite's output keeps the head `J_q`;
+3. that output IS the given constructor's `l`-th field binder
+   (`copyResid`'s `hfields` returns `.ok ((Fs'.getD l default).1, st₂)`),
+   and `os_instSeq_head` carries the head to the constructor's OPENED
+   domain;
+4. `normCtorValM_domHead` carries it across the positivity
+   normalisation to the STORED domain — at the formers' environment,
+   which `consMutualFormers_find?_of_ne` reaches from `env` because the
+   formers are fresh there;
+5. **`mutualOpenedOk`'s `.recursive` clause hands the head:**
+   `x.fvarTypeD.getAppFn == Expr.const (nameOf m') (lps.map .param)`,
+   read off `MutualFormersFacts.ksJ`.  So §U.78 (d)'s "inversion of
+   `mutualCtorKinds`" is NOT needed — the kernel re-checks the
+   classification on the annotated constructor opened at variables, and
+   that re-check is the reader;
+6. so `J_q` is a member name of the auxiliary block, while
+   `env.find? J_q` answers (through `pinNP`) and the block's formers are
+   fresh in `env` (`MutualFormersFacts.fresh`).  Contradiction, and the
+   mention holds.
+
+**No new mathematics is left in step two.**  Every step is a lemma in
+the tree, and the only `whnf` fact it needs — that the normalisation
+carries a constant head — is `normCtorValM_domHead`, which
+`copyRecFKind` already uses on the member side.
+
+##### (c) WHY IT DID NOT FIT, AND THE SHAPE THE LAST THEOREM MUST HAVE
+
+The remaining work is not the argument but the PLUMBING around it: the
+given annotated constructor's two openings and the stored one's, at the
+field's own cut — `copyOrdFLeft`'s lines, which this lane has written
+twice and which run to some sixty lines before the new argument starts.
+With the `copyResid` unpack and the contradiction it is about two
+hundred lines, and the session had already spent its first half
+verifying (b) rather than assuming it.  Starting it in the tail is the
+judgement this lane has twice declined to make and declines again.
+
+Its STATEMENT is settled, and it is not `hment` in isolation: the
+mention mentions `copyResid`'s existentials (`Fs'`, `params`, `st₁`),
+so the last theorem unpacks `copyResid` itself and concludes in
+`copyResid`-free terms — the pin the fire lands on, in `st.pins`
+(through `hpre`), with its recorded pin expression at the container's
+pin instantiated.  The container member `J` travels as a BINDER with
+`copyResid`'s own three clauses, the way §U.74 (b) found it must.
+
+##### (d) STEP THREE — untouched
+
+##### (e) THE WIDENED FILTER
+
+Landed on the kernel branch, fires nowhere, cost inside noise;
+`NestedPinsShapeRunM` closes at integration with nothing owed here.
+Its coverage figure is recorded in §U.78 (f).
+
+##### (f) THE REFUSED CLAUSE, AND THE ANSWER ON THE MONOTONICITY FORM
+
+§U.78 (a) requested `dJ.env₀ = env`.  **The owning lane refuses it and
+is right**: the record's `env₀` is deliberately an EARLIER environment
+— which is why the parameter-count clause is spelled there — and the
+equation is false at the nested, mutual and native sites.  The
+precedent that was offered (the block-model record's field of the same
+spelling) is about the block BEING INSTALLED, whose base environment
+genuinely is the run's; same spelling, different meaning.  This lane
+keeps both hypotheses named and waits for nothing.
+
+**The monotonicity form WOULD serve**, and the reason is a lemma
+already in the tree.  If the clause says the container's group reads
+the same at `d.env₀` and at the MODEL's environment, then with `pinNP`
+it gives `containerInfo? (consMutualFormers (fms.take p.k) env) J_q
+= some ci'`, and `containerInfo?_ext_ind`
+(`Verify/Inductives/ContainerFrame.lean`) carries exactly that back to
+`env` — it is stated in the direction needed, from the EXTENDED
+environment to the old one.  `hfind` then follows by
+`containerInfo?_found`, so BOTH of `copyPinFFire`'s named inputs close
+on that one clause.
+
+Its four side conditions are records this lane holds: the formers'
+freshness (`MutualFormersFacts.fresh`) gives the extension and the
+`hfresh`; the cons adds no `.recInfo`, which discharges the
+new-recursor condition; `EnvWF` comes off the model.  **One is not yet
+checked and this lane says so rather than assuming it**:
+`containerInfo?_ext_ind` also wants `J_q ∉` the block's new names, and
+the natural source is that `MutualBlock.blockNames` — members,
+constructors AND recursor names — is fresh at `env`, which the run may
+or may not record in the form needed.  If it does not, the clause
+should carry `J_q ∉ N` itself, since the site that builds the record
+has it.
+
+##### (g) GATES
+
+`lake build` 716 jobs warning-free; `lake build ConLecheTests` 572 jobs
+warning-free; layering base 351 / model 282 / caps 3 / umbrella 1, 0
+base->lane and 0 impl->theory; trust surface 13/5 (648 scanned);
+no-local-paths OK; overview-links 112, no anchor moved; quote-gate 2;
+**proofdeps 4965 rows / 12 roots / 0 doors** (the baseline, unmoved);
+shake 511 removals all allowlisted; pub-imports 1315 of 2147, none
+demotable; nested-shadow 28/28.  `tests/arena.sh` not re-run: the
+session touches no checker code.  Standard axioms on
+`replaceAllNested_head_const` and on the chain probe over the five
+residuals.
