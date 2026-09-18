@@ -3,6 +3,7 @@ module
 public import ConLeche.Model.Inductives.NestedPinLaws
 public import ConLeche.Model.Inductives.NestedPins
 import ConLeche.Model.Inductives.NestedAux
+import ConLeche.Model.Inductives.ContainerCross
 public section
 
 /-!
@@ -638,6 +639,31 @@ theorem classPin_of_views {env : Env} {D dR dK : BlockModel V}
     unfold idxSet
     exact congrArg _ (teleOfFields_congr_below hIdsBelow hfr0)
 
+/-- **The WALK's `recF` step, packaged** (task #315 L-E, DESIGN §U.77):
+`classPin_of_views` with its three auxiliary premises discharged from
+the container's own record — the level agreement moved from the PAIR's
+member to the FIELD's target member (`memberLpsI`), the index universe
+and telescope by `params_congr`, and the telescope's bound by
+`memberIds_below`.  Only the pair's own two agreements are left to the
+caller. -/
+theorem classPinAt_of_pairViews {env : Env} {m : EnvModel V env} {D dR dK : BlockModel V}
+    {ci : ContainerInfo} (CK : ContainerModeled m ci dK) {I : Name}
+    (hci : ConLeche.containerInfo? env I = some ci)
+    {cvI : ConstantVal} {capsI : IndCaps} (hfI : env.find? I = some (.indInfo cvI capsI))
+    {q₀ q₀' kK : Nat} (S₁ : PinGroupView D dK q₀ kK) (S₂ : PinGroupView dR dK q₀' kK)
+    {ψ ψR : Name → Nat} {ρp ρR : Nat → V} {r : Nat}
+    (hψ0 : ∀ pp ∈ cvI.levelParams, (dR.pinAt q₀').ψJ ψR pp = (D.pinAt q₀).ψJ ψ pp)
+    (hfr0 : ∀ v, v < dK.nP → dR.pinFrame q₀' ψR ρR v = D.pinFrame q₀ ψ ρp v)
+    {i : Nat} (hi : i < kK) :
+    ClassPinAt env D dR ψ ψR ρp ρR r (dR.k + (q₀' + i)) (q₀ + i) := by
+  have hik : i < dK.k := S₁.kEq ▸ hi
+  have hpar := CK.params_congr hci hfI hψ0 hik
+  refine ⟨classPin_of_views S₁ S₂ (fun cvTi capsi hfi pp hp => ?_) hfr0
+    ⟨hpar.1, ?_⟩ (memberIds_below CK.reps hik _) hi, fun hlt => absurd hlt (by omega)⟩
+  · exact hψ0 pp (by rw [← CK.memberLpsI hci hfI hik hfi]; exact hp)
+  · unfold BlockModel.IdsM
+    rw [hpar.2]
+
 /-- **The covering, split at the root GROUP** (task #315 L-E, DESIGN
 §U.65): `InstanceCovered` at the root pin `r` from its two cases — a
 pin of the ROOT group is its own container member's partner
@@ -677,7 +703,7 @@ theorem map_range_reverse_consList (as : List V) (ρ : Nat → V) :
   rfl
 
 /-- **The extended carrier reads as the target view's stored
-readings** (task #315 L-E, DESIGN §U.66): at a class of a stored
+readings** (task #315 L-E, DESIGN §U.70 (b)): at a class of a stored
 block model — a member or one of its own pins — the extended carrier
 at a fitting index spine IS the stored reading applied to the spine:
 `IsBlockModel.leaf` at a member (the former at the parameter bvars,
@@ -751,7 +777,7 @@ theorem BlockModel.famAt_reads {env : Env} {m : EnvModel V env} {d : BlockModel 
       ← hleaf]
 
 /-- **A pin group's carrier IS its container's least tuple** (task #315
-L-E, DESIGN §U.66 — the family identity (‡)): at a pin group
+L-E, DESIGN §U.70 (b) — the family identity (‡)): at a pin group
 `[q₀, q₀ + kK)` of a stored block model `d` whose container is `dJ`,
 the block's own pin carrier at member `i` of the group and `dJ`'s least
 tuple at member `i`, read at the pin's frame, are ONE family.
@@ -1286,7 +1312,7 @@ theorem nestedBlockModel_targetView (m : EnvModel V env₂) (ψ : Name → Nat) 
   funext t
   exact ofNested_uT t ψ
 
-/-- **A pin group of the run, VIEWED** (task #315 L-E, DESIGN §U.71):
+/-- **A pin group of the run, VIEWED** (task #315 L-E, DESIGN §U.72 (a)):
 `NestedPinGroup`'s facts as the abstract `PinGroupView` the container
 instance transfer speaks — the group's segment, its container's
 members by name, its pins' shared level assignment, level arguments and
@@ -1617,7 +1643,7 @@ structure GroupFacts (st : ElimState) (m : EnvModel V env₂) (q₀ kJ : Nat) (d
 
 /-- **A pin group's SYNTACTIC facts, VIEWED** — `pinGroupView_of_group`
 at `NestedPinGroupSyn`, which is what `GroupFacts` carries (task #315
-L-E, DESIGN §U.71 (d)): the container instance transfer needs the view
+L-E, DESIGN §U.72 (a)): the container instance transfer needs the view
 at the ROOT group and at the block's group of the pin, and both arrive
 as `GroupFacts`. -/
 theorem pinGroupView_of_syn {st : ElimState} {m : EnvModel V env₂} {q₀ kJ : Nat}
@@ -1666,7 +1692,7 @@ local notation "ΨA" => nestedΨ (V := V) b.nP p.k f₀.s ppsF W pinsS b.ownOffs
 local notation "TVA" => nestedTV (V := V) b.nP p.k f₀.s ppsF W pinsS
 
 /-- **A pin's class index set is its container member's** (task #315
-L-E, DESIGN §U.71 (e)): the block's own `idx` at the class `p.k + q₀ + i`
+L-E, DESIGN §U.72 (a)): the block's own `idx` at the class `p.k + q₀ + i`
 IS the container's `idx` at member `i` at the pin's frame — the sort by
 `nestedU_pin`/`pinU`, the telescope by the group's index identity
 (`GroupFacts.idx`, `idxSet_instTele`).  `nestedPinsFixed` had this

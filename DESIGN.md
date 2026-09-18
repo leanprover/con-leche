@@ -92586,3 +92586,131 @@ Files: `Verify/Inductives/NestedCopyInstU.lean` (the law and
 `substFvarList`, one new plain `import ConLeche.Verify.AbstractRange`),
 `Verify/Inductives/NestedCopyNorm.lean` (K.42's addressing),
 `DESIGN.md`.
+
+#### U.77 — L-E session 18: the citation audit, `ContainerPinParams` named, and the walk's `recF` step at a PIN class (lane L-E, 2026-09-17)
+
+##### (a) THE CITATION AUDIT
+
+Integration 3p renumbered this lane's §U.67–§U.69 to §U.70–§U.72, and
+the integrator repointed the source citations mechanically.  A full
+audit of every `§U.NN` in this lane's files against the CURRENT
+numbering found **five rotten**, and the mechanical repoint could not
+have caught three of them, because they were already wrong when the
+line was typed — the section did not exist yet and the author guessed
+its number:
+
+| site | said | says now | why |
+| --- | --- | --- | --- |
+| `famAt_reads` | §U.66 | §U.70 (b) | §U.66 is now M7-3's `declMutualB`; the lemma is session 15's |
+| `pinGroupFam_mem` | §U.66 | §U.70 (b) | ditto |
+| `pinGroupView_of_group` | §U.71 | §U.72 (a) | landed in session 16 AFTER §U.68 was written, so it is in neither; §U.72 (a) is where the view lemmas are set out |
+| `pinGroupView_of_syn` | §U.71 (d) | §U.72 (a) | session 17's, cited against session 16's number |
+| `nestedIdx_of_group` | §U.71 (e) | §U.72 (a) | ditto — and (e) is "WHAT REMAINS", which says something else |
+
+The rest check out and every cited section exists: §U.70 (c) at
+`pinFrame_transport`/`PinShapes.views`/`copyEntryAt_pin` (the plan they
+implement), §U.71 at `ClassPinAt`/`classPin_of_views`/`memberName_inj`/
+`params_congr`/`pinIdx_of_view`, §U.72 at the session-17 theorems.
+
+**The lesson, since it has now bitten three times in three sessions
+(M7-3's own, and these three):** do not cite a section number before
+the section is written.  Either write DESIGN first and cite it, or cite
+the section by its TITLE and let the integrator number it.
+
+**One citation NOT touched, and it is not this lane's**:
+`NestedPremise.lean`'s `ContainerModeled.nestMention` says "`DsE`,
+DESIGN §U.67 (b) B1".  It arrived with M7-3's merge (1d03769e), and
+§U.67's body contains no `nestMention`, no `DsE` and no `B1`; the
+respelling it means is recorded at §U.27 (w-2) finding 2.  Left for
+M7-3 / the integrator rather than repointed at a guess.
+
+##### (b) `ContainerPinParams` — the record of §U.72 (e), NAMED
+
+```lean
+@[expose] def ContainerPinParams (cvI : ConstantVal) (d : BlockModel V) : Prop :=
+  ∀ q, q < d.nPins → ∀ ψ₁ ψ₂ : Name → Nat,
+    (∀ pp ∈ cvI.levelParams, ψ₁ pp = ψ₂ pp) →
+    (d.pinAt q).u ψ₁ = (d.pinAt q).u ψ₂ ∧
+    (d.pinAt q).Ds ψ₁ = (d.pinAt q).Ds ψ₂ ∧
+    (d.pinAt q).Ids ψ₁ = (d.pinAt q).Ids ψ₂
+```
+
+with `of_noPins` for the pins-free case.  Carried as a premise until
+M7-3 makes it a `ContainerModeled` clause.  §U.72 (e) sized the
+derivation; working the walk out refines that estimate, and the
+refinement is worth recording because it changes what M7-3 has to
+prove:
+
+* the `u` and `Ids` halves DO reduce — through the container's OWN
+  `PinShapes` view (`pinU`/`pinPps`/`pinNP`), `params_congr` at the
+  pin's container and `ContainerModeled.pinψ`, they come down to **the
+  pins' level ARGUMENTS being scoped in the container's own level
+  parameters** (`∀ v ∈ (d.pinAt q).lvls, v.allParamsDefined lps`), which
+  is also exactly `targetPin_corr`'s `hpd` and which no record carries
+  either;
+* the `Ds` half does NOT reduce: a pin's components are an abstract
+  `(Name → Nat) → List AnnotTerm` and nothing constrains them across
+  assignments.
+
+So recording the three-part congruence is still the smaller ask than
+recording the scope and deriving two thirds of it.
+
+##### (c) The walk's `recF` step at a PIN class, PACKAGED
+
+`classPinAt_of_pairViews` is `classPin_of_views` with its three
+auxiliary premises discharged from the container's own record:
+
+* `ContainerModeled.memberLpsI` — a member's level parameters ARE the
+  group's (`containerInfo?_inv` + `ContainerModeled.member`), so the
+  level agreement the PAIR supplies at ITS member is an agreement at
+  the FIELD's target member.  `memberLps` is the two-member corollary;
+* `params_congr` for the index universe and the telescope, and
+  `memberIds_below` (`pinIds_below`'s member twin) for the telescope's
+  bound.
+
+Only the pair's own two agreements are left to the caller, and both
+travel from the pair through `PinGroupView.same`.  **No
+`ContainerPinParams` is needed here**: a MEMBER target of the container
+stays inside the member congruences the tier already has — the record
+is needed only at the `pinF` arm.
+
+`NestedPinLeafAll.lean` gained `import ConLeche.Model.Inductives.ContainerCross`:
+`NestedPins`' import of it is private, so the record's lemmas were not
+in scope.  Shake and the pub-import plan are green with it.
+
+##### (d) A THIRD gap at the PIN class: the pins' CONSTRUCTOR COUNT
+
+`ChainFitT` at a pin class reads `(pc q).ctors` (`ctorsT_of_pin`), so
+the transfer's `j` ranges over `(pc q).ctors.length`; `PinShapes`
+supplies a `CopyCtorShape` only for `j < ((B ci).ctorsM i').length`.
+**Nothing ties the two.**  `PinRecLaws` quantifies `j` over the former
+everywhere (`tgtsLt`, `fibre`, `mkInj`, `ind`) and `PinCtors` is a bare
+record, so a pin could carry constructors the container does not have
+and the transfer would have no shape at them.
+
+This is a MODEL-tier clause on a MODEL-tier definition — one more
+conjunct of `PinShapes`,
+`(pc (q₀ + i')).ctors.length = ((B ci).ctorsM i').length` — but every
+`BlockAt` producer must then prove it: the five pinned basis blocks
+(vacuous, pins-free), the nested route (`NestedPinGroupSyn.ctorCount`),
+and M7-3's native and mutual routes.  Carried as a premise for now
+rather than changed unilaterally mid-flight; **the coordinator's to
+place.**
+
+##### (e) WHAT REMAINS
+
+* M7-3: `ownPins` (§U.65 (d)) with its Expr-to-`AnnotTerm` half, and
+  `ContainerPinParams` (b);
+* the coordinator: where (d)'s count clause lands;
+* this lane: the `pinF` arm of the walk at a PIN class — the two sides'
+  `PinCorr` are at the SAME own pin of the container, so `name` is
+  `targetPin_corr`'s first conclusion outright, `psi` is its second
+  (with the `hpd` scope), and `frame`/`idx` are where
+  `ContainerPinParams` is spent; then `nestedPinPairAt_pin`, `hpair`,
+  `nestedPinsLe` and step (iv).
+
+Gates at the session's commits: `lake build` warning-free, `lake test`
+warning-free, layering / trust surface / no-local-paths /
+overview-links / quote-gate / proofdeps (0 doors) / shake and
+pub-imports / nested-shadow all green; standard axioms on every new
+theorem.
