@@ -152,47 +152,6 @@ interpretation only through `interp_app`, `interp_bvar`, `interp_sort`,
 `interp_pi` and `interp_closed`, and this was the one of the five with
 no `interp` analogue. -/
 
-theorem interp_congr_below :
-    ∀ (e : AnnotTerm) (k : Nat) (ρ ρ' : Nat → V),
-      ConLeche.Term.Term.bvarsBelow k e.erase →
-      (∀ i, i < k → ρ i = ρ' i) →
-      interp V ρ e = interp V ρ' e := by
-  intro e
-  induction e with
-  | bvar i => intro k ρ ρ' hb hag; exact hag i hb
-  | sort u => intros; rfl
-  | const c us => intros; rfl
-  | prf => intros; rfl
-  | app f a ihf iha =>
-    intro k ρ ρ' hb hag
-    simp only [interp_app, ihf k ρ ρ' hb.1 hag, iha k ρ ρ' hb.2 hag]
-  | lam v A b ihA ihb =>
-    intro k ρ ρ' hb hag
-    simp only [interp_lam, ihA k ρ ρ' hb.1 hag]
-    refine lamR_congr fun x _ => ihb (k + 1) _ _ hb.2 ?_
-    intro i hi
-    cases i with
-    | zero => rfl
-    | succ i => exact hag i (Nat.lt_of_succ_lt_succ hi)
-  | pi u v A B ihA ihB =>
-    intro k ρ ρ' hb hag
-    simp only [interp_pi, ihA k ρ ρ' hb.1 hag]
-    refine piR_congr fun x _ => ihB (k + 1) _ _ hb.2 ?_
-    intro i hi
-    cases i with
-    | zero => rfl
-    | succ i => exact hag i (Nat.lt_of_succ_lt_succ hi)
-  | eqE a b iha ihb =>
-    intro k ρ ρ' hb hag
-    simp only [interp_eqE, iha k ρ ρ' hb.1 hag,
-      ihb k ρ ρ' hb.2 hag]
-  | fst e ihe =>
-    intro k ρ ρ' hb hag
-    simp only [interp_fst, ihe k ρ ρ' hb hag]
-  | snd e ihe =>
-    intro k ρ ρ' hb hag
-    simp only [interp_snd, ihe k ρ ρ' hb hag]
-
 /-- **INTERPRETATION INVARIANCE AT A SET OF POSITIONS** (task #315 L-E,
 "T1"): two environments agreeing at every position the term READS give
 it the same value.
@@ -251,13 +210,18 @@ theorem interp_congr_on :
     intro P ρ ρ' hb hag
     simp only [interp_snd, ihe P ρ ρ' hb hag]
 
-/-- `interp_congr_below` is `interp_congr_on` at a prefix predicate — the
-conservativity bridge, so no consumer of the bound form moves. -/
-theorem interp_congr_below_of_on (e : AnnotTerm) (k : Nat) (ρ ρ' : Nat → V)
-    (hb : ConLeche.Term.Term.bvarsBelow k e.erase) (hag : ∀ i, i < k → ρ i = ρ' i) :
-    interp V ρ e = interp V ρ' e :=
-  interp_congr_on (V := V) e (· < k) ρ ρ' (ConLeche.Term.Term.bvarsOn_of_bvarsBelow e.erase k hb) hag
-
+/-- **Interpretation invariance below a bound** — now the PREFIX case of
+`interp_congr_on` rather than its own induction (task #315 L-E).  Every
+existing consumer of this statement is unchanged; the duplicated
+structural induction is gone. -/
+theorem interp_congr_below :
+    ∀ (e : AnnotTerm) (k : Nat) (ρ ρ' : Nat → V),
+      ConLeche.Term.Term.bvarsBelow k e.erase →
+      (∀ i, i < k → ρ i = ρ' i) →
+      interp V ρ e = interp V ρ' e :=
+  fun e k ρ ρ' hb hag =>
+    interp_congr_on (V := V) e (· < k) ρ ρ'
+      (ConLeche.Term.Term.bvarsOn_of_bvarsBelow e.erase k hb) hag
 /-- A closed term interprets the same under every environment. -/
 theorem interp_closed {e : AnnotTerm}
     (he : ConLeche.Term.Term.bvarsBelow 0 e.erase) (ρ ρ' : Nat → V) :

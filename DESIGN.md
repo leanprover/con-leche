@@ -108136,3 +108136,38 @@ lane produced all moved on inspection and the pattern is now the
 expectation rather than the surprise.
 
 Nothing in this section changes the tree.
+
+#### (number at the integrator's sync) — L-E: T1 gets its consumer — `interp_congr_below` IS the derivation now (lane L-E, 2026-09-18)
+
+`interp_congr_below` carried its own structural induction, so
+`interp_congr_below_of_on` was itself unconsumed and T1 had no consumer
+at all — the same liability this lane flagged about the F-layer earlier
+today, and it applied to its own work.
+
+`interp_congr_below` is now the PREFIX case of `interp_congr_on`, in
+three lines:
+
+```lean
+  fun e k ρ ρ' hb hag =>
+    interp_congr_on (V := V) e (· < k) ρ ρ'
+      (ConLeche.Term.Term.bvarsOn_of_bvarsBelow e.erase k hb) hag
+```
+
+and `interp_congr_below_of_on` is deleted, being the same statement.
+
+**Line delta: `Semantics/Kit.lean` 12 insertions, 48 deletions — net
+−36.**  Nothing the derivation needed was absent from the standalone
+induction; both are the same proof, and only one of them is now written.
+
+**Every existing consumer is untouched** — thirty-seven uses across nine
+files (`StructEntryKit2` 12, `NestedPinLeafAll` 10, `IndOpenerGrade` 3,
+and six others) all stand on the derived form without edit.
+
+Same move as `memberTarget_reads` from `auxTarget_reads` this morning,
+and it paid the same way: the general statement is written once and the
+special case is the general one at a particular argument.
+
+`lake build` 0 errors/warnings **722 jobs**; `lake test` 0;
+`tests/proofdeps.sh` doors **0**.
+
+Nothing in this section changes the tree's accept set.
