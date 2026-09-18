@@ -112465,3 +112465,141 @@ shorter and the statement the consumer wants.
 `lake build` and `lake test` warning-free; `tests/proofdeps.sh` doors
 `0`; `shake`, `layering`, `no-local-paths` OK.  Nothing in the tree's
 accept set changes: no consumer moves to the new lemma in this step.
+
+#### WIDE (c): THE WHOLE-SPACE IDENTIFICATION — `ofNested_pin_block_wide`, and the ONE clause the reframing test did not price (lane WIDE, 2026-09-18)
+
+Resolution 1's third step: identify a container INSTANCE's copies with
+the container's own WIDE fixpoint, by whole-space Bekić at the
+instance's index set, instead of the at-the-carrier variant with its
+domination hypothesis.
+
+##### (a) P4, worked
+
+`tests/e2e/nested_p04.ndjson` (`P4 ::= mk (P4C P4)`, `P4C α ::= …
+Array (P4C α) … List (P4C α)`).  The block being installed is `P4`:
+`k = 1` member, `n = 3` pins — `0 = P4C P4`, `1 = Array (P4C P4)`,
+`2 = List (P4C P4)` — so the auxiliary tuple has four components
+
+```
+0 = P4      1 = P4C_P4      2 = Array_(P4C P4)      3 = List_(P4C P4)
+```
+
+The root pin is `0`, its container `P4C`, whose stored block model
+`dJ` has `dJ.k = 1` and `dJ.nPins = 2` (its OWN pins `Array (P4C α)`
+and `List (P4C α)`).  So:
+
+* **the instance closure of pin 0 is `{0, 1, 2}`** — the root's group
+  `[q₀, q₀ + dJ.k) = [0,1)` plus the block pins that `PinCorr`-match
+  the container's own pins `0` and `1`.  It is NOT K.37's partition
+  (own-edge components `{0,1}` and `{2}`) and not the mint tree;
+* **`σ : [0, 3) → [0, 4)`** is `σ 0 = k + 0 = 1`, `σ 1 = k + 1 = 2`,
+  `σ 2 = k + 2 = 3` — here a range, `[1,4)`; at `TwoInst` (R2 (b)) the
+  same construction gives `A`'s instance `σ = (1, 3)`, which is not;
+* **`Φ'` is `dJ.Ψaux ψJ ρJ` at width `dJ.k + dJ.nPins = 3`**, the frame
+  `ρJ = consList [L⁺ 0] ρp` — the block's own member's carrier as
+  `P4C`'s parameter.  No pin value enters the frame, so no candidate
+  tuple at this instance;
+* **`hΦ`, the three arms.**  `i = 0`: the copy of `P4C`'s member; its
+  field `Array (P4C P4)` targets component `2 = σ 1`, read as `Y 1`,
+  and `P4C`'s own row reads its pin `0` as its own variable `Y 1`.
+  `i = 1`: the copy of `Array (P4C ·)`; its element field targets
+  `1 = σ 0`, read as `Y 0`, and `Array`'s row inside `P4C`'s wide
+  operator reads `P4C`'s member as `Y 0`.  `i = 2`: the copy of
+  `List (P4C ·)`; its two fields target `1 = σ 0` and `3 = σ 2`.
+  Everything either side reads OUTSIDE the closure is the parameter,
+  held at `L⁺ 0` by `setJoin` on the block's side and by `ρJ 0` on the
+  container's.  The two match **for every `Y`**, which is what
+  `segOne_forces_const` (lane SEG) shows is impossible at the narrow
+  width `s = dJ.k`.
+
+##### (b) What landed, and what it deletes
+
+`Model/Inductives/BlockComposed.lean`:
+
+* **`ofNested_pin_block_wide`** — `ofNested_pin_block_at`'s sibling:
+  the instance given by `σ` (contiguous on the members, `hroot`;
+  arbitrary beyond), the container's wide operator `ΨJ` at width
+  `kJ + nJ`, `hΦ` on the WHOLE tuple space, and the conclusion
+  `pinCar … (q₀ + i) = lfpTuple w kJ IsJ (composeΦ w kJ nJ IsJ ΨJ) i`
+  — `lfpTuple_set_congr` plus Bekić's nested form
+  (`lfpTuple_composeΦ`), which turns the container's WIDE least tuple's
+  member back into its NARROW one;
+* **`ofNested_pin_block_of_wide`** — the same against the container's
+  STORED model: `hmonoJ`/`hclJ` are its `auxFunctor` and `hcomp` its
+  `auxCompose`, and the conclusion is
+  `lfpTuple w dJ.k (dJ.idx ψJ ρJ) (dJ.Φ ψJ ρJ) i`, the container's
+  stored carrier — exactly `ofNested_pin_block_at`'s.
+
+**`hle` is gone, and with it `hfit_le_of_inst`'s purpose.**  Neither
+theorem has a domination hypothesis, a candidate tuple, or a
+`pinMono` consumer: `lfpTuple_seg_congr_at`'s `hle`, and therefore
+`ofNested_pin_block_of_fit_at`'s `hfitLe` and `NestedFit.lean`'s
+`hfit_le_of_inst` that produces it, have NO counterpart on the wide
+route.  The reframing test's claim is CONFIRMED with one correction of
+scope: `hfit_le_of_inst` is not deleted by this commit, because the
+assembly (`NestedRecFibre` → `ofNested_pin_block_of_inst`) still calls
+the narrow route; it is deleted when the assembly moves, and it is
+then deleted outright rather than re-proved.  `pinMono` itself stays —
+`BlockRecKit`, `NestedRecCand` and `NestedPinLeafAll` consume it for
+other purposes.
+
+##### (c) THE FINDING: `hΦ` has no source yet — two more clauses, one of them not cheap
+
+`hΦ` quantifies over EVERY tuple of the instance's space, and on the
+container's side it is a statement about `dJ.Ψaux`, which is an
+ABSTRACT field.  The three laws of WIDE (a) do not determine it there:
+
+* `auxCompose` determines `Ψaux` only at EXTENDED tuples
+  `extT X = (X, pinsCar X)` — R2 (a) already says this, about
+  recovering `Ψaux` from `Φ`/`pinCar`, and the same argument runs the
+  other way;
+* `auxPinsCar` determines only a least fixpoint of a section, not
+  pointwise values;
+* `auxFunctor` is monotonicity and formation.
+
+The tuples `setJoin σ s L⁺ Y` are not extended tuples of the
+container, so **`hΦ` is not derivable from the stored model as it
+stands.**  What is missing is a FIBRE law at the wide width — the
+analogue of `IsBlockModel.fibre`, at every component `t < k + nPins`
+rather than at the members, with a `ChainFitAux` whose recursive slot
+reads `Y tgt` directly (no `famAt`, no `pinCar`).  That clause needs
+the AUXILIARY block's per-component constructor data on the block
+model, which today is `ofNested`'s arguments (`offs`, `mems`, `nFs`,
+`tgtsG`, `rss`, `tlss`, `Eiss₀`, `Fss₀`, `Ess₀`) and not fields of
+`BlockModel`.  So the honest price of Resolution 1 is
+
+    one field + three laws        (WIDE (a), landed)
+  + one reindexing lemma          (WIDE (b), landed)
+  + ~nine fields + `auxFibre`     (NOT landed — the missing piece)
+  + `auxPinIdx`                   (see below, cheap)
+
+and not "one field with two laws".  The producers stay mechanical
+(`ofNested` has the data already; at `nPins = 0` the new clause IS
+`fibre`), but it is a representation change to `BlockModel`, not an
+annotation.
+
+**`auxPinIdx`, the second and cheap one.**  `hIs` at a position beyond
+the container's members reads `dJ.idx ψJ ρJ (dJ.k + qK)`, and nothing
+in `IsBlockModel` ties that to `dJ.pinIdx qK ψJ ρJ` — `pinMem` and
+`auxPinsCar` place `pinCar` in both family spaces without forcing the
+two index sets equal.  The clause `d.idx ψ ρp (d.k + q) = d.pinIdx q ψ ρp`
+for `q < d.nPins` is exactly `ofNested`'s `hPinIdx`, which the nested
+assembly already supplies, and is vacuous everywhere else.
+
+##### (d) What this does NOT establish
+
+The set-theoretic layer only.  The two theorems are proved; `hΦ`
+itself — the wide-width sibling of `hfit_at_of_inst`, whose bridge is
+`CopyShapeA`/`CopyEntryA` and whose pin-target arm reads the
+segment's own variable instead of the target's stored reading at the
+carrier — is not, and it lives in `NestedFit.lean`, which this lane
+does not own.  The residue R2 (d) named survives unchanged: the
+candidate frame at instance roots whose components mention other pins,
+the induction over INSTANCES for targets outside a segment, and K.57's
+declaration order for cross-instance constant-headed edges.
+
+##### (e) Green
+
+`lake build` and `lake test` warning-free; `tests/proofdeps.sh` doors
+`0`; `shake`, `layering`, `no-local-paths` OK.  No consumer moves to
+the wide route in this step, so the accept set is untouched.

@@ -304,6 +304,15 @@ each checked against the tree:
   and its congruence against another presentation, of which the
   contiguous form is the case `σ = (a + ·)`.  One reindexing lemma, no
   kernel change, no effect on the accept set.
+* *The identification needs the container's CONSTRUCTORS, not just its
+  operator.*  The agreement `hΦ` above is a statement about the
+  container's wide operator at *every* tuple, and (compose)/(pins)
+  determine it only at the tuples of the form `(X⃗, pinCar(X⃗))`.  So
+  the block model must expose the wide operator FIBREWISE too — a
+  constructor decomposition at every component, members and pins
+  alike, which is the auxiliary block's constructor data.  That is a
+  representation change, not an annotation, and it is the real price
+  of Resolution 1.
 
 What survives Resolution 1 is smaller and no longer an ordering problem
 *within* an instance: the identification at an instance's *root* pin is
@@ -364,6 +373,7 @@ Resolution 1 needs.
 | the pin table | `NestedPin` (`grpBase`, `grpSize`, components), read back as `NestedPinSynFacts` |
 | the aux block's install | `checkMutualCore` on `{T⃗, J'⃗}` in a scratch environment |
 | restore | `restoreNested`, `restoreRules`, `restoreRecTys` |
+| Resolution 1's identification | `ofNested_pin_block_wide`, `ofNested_pin_block_of_wide` (`Model/Inductives/BlockComposed.lean`) |
 | Resolution 1's experiment | `SetModel/SegCopy.lean` |
 | Resolution 3's apparatus | `pinLfpAt` (candidate tuples), `pins_le_of_declOrder`, `hentR` in `Model/Inductives/NestedFit.lean` / `NestedPinLeafAll.lean`; the declaration-order record `declPos`/`nestedPinOrderAt` |
 
@@ -375,17 +385,21 @@ artefact of the narrow stored operator (§5, verified both by the
 experiment and by reading the stored model); that Resolution 3's two
 passes consume different facts and can be sequenced.
 
-Also settled, by reading the stored model and by two accepted witnesses:
-Resolution 1 *can* be adopted in the current design without any kernel
-change — the wide operator is one mostly-trivial field, the instance is
-the closure computed from the stored pin table, and interleaving is
-handled by reindexing rather than by contiguity.  Adopting it deletes the
-domination hypothesis and the within-instance transfer machinery of
-Resolution 3 outright, and leaves a smaller residue: the component family
-at instance roots, an induction over instances, and the declaration-order
-record for cross-instance constant-headed edges.
+Also settled: Resolution 1 needs no kernel change.  The wide operator is
+a stored field of the block model, the instance is the closure computed
+from the stored pin table, and interleaving is handled by reindexing
+rather than by contiguity — (B-set).  The identification itself is
+proved at the set-theoretic layer, and it carries NO domination
+hypothesis: (B-at)'s `hle`, and the within-instance transfer machinery
+Resolution 3 needs in order to produce it, have no counterpart on the
+wide route.
 
-Not settled: the decision to adopt it — Resolution 3 is what is being
-built today, and switching is a representation change to §3 that every
-install route touches, trivially for all but the nested one — and the
-exact cost of the residue either way.
+Not settled: the identification's own hypothesis `hΦ` — that the
+copies' section of the auxiliary operator IS the container's wide
+operator, for every tuple.  Discharging it needs the block model to
+expose that operator fibrewise, i.e. to remember the auxiliary block's
+constructor data; that is the representation change Resolution 1 really
+asks for, and it is not yet made.  Beyond it the residue is unchanged:
+the component family at instance roots whose components mention other
+pins, an induction over instances, and the declaration-order record for
+cross-instance constant-headed edges.
