@@ -1194,6 +1194,64 @@ theorem mutualInstallExt {F : Nat} {env : Env} {b : MutualBlock}
   rw [List.map_reverse, List.mem_reverse, List.map_map]
   exact List.mem_map_of_mem hf
 
+/-- **EVERY NAME THE MUTUAL BLOCK DECLARES IS FRESH AT THE PRE-BLOCK
+ENVIRONMENT** — members, constructors and recursors alike (task #315,
+lane M7-3 session 20).
+
+Each third of `blockNames` has its own freshness witness already, at
+its own stage's environment, and the point of this theorem is to put
+them on ONE list at ONE environment: the members' names are fresh at
+`env` by `mutualFormers`' duplicate guard (`mutualMemberNames`); a
+constructor's name is fresh at the FORMERS' environment
+(`checkMutualCtors_fresh`) and a recursor's at the CONSTRUCTORS'
+(`recNames_of`), so both travel back to `env` across the conses
+(`find?_none_of_append`).
+
+It is stated off the run's own conjuncts, with no `env₁` on the caller's
+side, because the consumers are container-frame lemmas that ask for
+exactly this shape — `containerInfo?_ext_ind_eq`'s `hfresh` at the
+mutual route's name list — and should not have to redo the inversion. -/
+theorem mutualBlockNames_fresh {F : Nat} {env env₁ : Env} {p : MutualParts}
+    {fms : List MutualFormerA} {ctorsA : List (ConstantVal × Nat)}
+    {sortss : List (List Level)} {formers4 : List MutualFormer}
+    {ctors4 : List MutualCtor4} {cvRas : List ConstantVal} {g isProp : Bool}
+    (hpinOk : ConLeche.mutualRecPinOk p = true)
+    (h1 : (p.toBlock.formers.all (fun f => f.1.levelParams == p.toBlock.lps) &&
+      p.toBlock.ctors.all (fun c => c.cv.levelParams == p.toBlock.lps)) = true)
+    (hformers : ConLeche.mutualFormers (m := ConLeche.CheckM) (fueledOps μ F) p.toBlock.nP
+      p.toBlock.formers env g = .ok (env₁, fms))
+    (hctors : ConLeche.checkMutualCtors (m := ConLeche.CheckM) (fueledOps μ F) env₁ p.toBlock
+      fms isProp false p.toBlock.ctors = .ok (ctorsA, sortss))
+    (hrectys : ConLeche.checkMutualRecTys (m := ConLeche.CheckM) (fueledOps μ F)
+      (ConLeche.consMutualCtors p.toBlock.nP ctorsA env₁) p.toBlock formers4 ctors4
+      (some (p.members.map fun mb => (mb.cvR, mb.rules))) p.toBlock.k = .ok cvRas) :
+    ∀ n ∈ p.toBlock.blockNames, env.find? n = none := by
+  obtain ⟨-, rfl⟩ := ConLeche.mutualFormers_inv hformers
+  obtain ⟨hlenA, hnamesA⟩ := ctorsA_names_of hctors h1
+  have hmemFresh : ∀ T ∈ fms.map (·.cvTa.name), env.find? T = none := by
+    intro T hT'
+    obtain ⟨f, hf, rfl⟩ := List.mem_map.mp hT'
+    obtain ⟨t, ht⟩ := List.getElem?_of_mem hf
+    exact (mutualMemberNames hformers t f ht).1
+  intro n hn
+  unfold ConLeche.MutualBlock.blockNames at hn
+  rcases List.mem_append.mp hn with hn' | hn'
+  · rcases List.mem_append.mp hn' with hn'' | hn''
+    · exact hmemFresh n (by rw [mutualMemberNames_eq hformers]; exact hn'')
+    · obtain ⟨ct, hct, rfl⟩ := List.mem_map.mp hn''
+      obtain ⟨J, hJ⟩ := List.getElem?_of_mem hct
+      have hJl : J < ctorsA.length := by
+        rw [hlenA]; exact (List.getElem?_eq_some_iff.mp hJ).1
+      have hcA : ctorsA[J]? = some ctorsA[J] := List.getElem?_eq_getElem hJl
+      obtain ⟨hnm, -, -⟩ := hnamesA J _ ct hcA hJ
+      rw [← hnm]
+      exact ConLeche.Semantics.find?_none_of_append consMutualFormers_consts
+        (checkMutualCtors_fresh hctors _ (List.mem_of_getElem? hcA))
+  · obtain ⟨t, ht, rfl⟩ := List.mem_map.mp hn'
+    exact ConLeche.Semantics.find?_none_of_append consMutualFormers_consts
+      (ConLeche.Semantics.find?_none_of_append consMutualCtors_consts
+        (recNames_of hpinOk hrectys t (List.mem_range.mp ht)).1)
+
 /-- **The model WITH ITS BLOCKS survives a mutual block** (task #315
 M7-3 session 6, DESIGN §U.46 (c)): `declMutual`'s conclusion
 strengthened to `EnvModelB` — the block the route installed is read
@@ -1234,7 +1292,7 @@ theorem declMutualB (hμ : μ.verifiedChecks = true) {F : Nat} {env envOut : Env
     hrectys hrules (recNames_of hpinOk hrectys) mp₃ d hd hrepsAt.toIsBlockModels hT hstored htf
     htbl
   -- the block's data
-  obtain ⟨hlenA, hnamesA⟩ := ctorsA_names_of hctors h1
+  obtain ⟨hlenA, -⟩ := ctorsA_names_of hctors h1
   have hlenF : fms.length = p.toBlock.k := (mutualFormerChecksG_pos hchecks).1
   -- the block's own-pin table is empty (K.43, DESIGN §U.74 (c)): the
   -- clause `ContainerModeled.ownPins` will take once its field lands
@@ -1300,25 +1358,7 @@ theorem declMutualB (hμ : μ.verifiedChecks = true) {F : Nat} {env envOut : Env
       (fun ψ => ⟨(hT ψ).1.crossEnv hagT hrepsAt.toIsBlockModels,
         (hT ψ).2.crossEnv hagT hrepsAt.toIsBlockModels⟩) htf
   -- the carriers agree at every stored name
-  have hbnFresh : ∀ n ∈ p.toBlock.blockNames, env.find? n = none := by
-    intro n hn
-    unfold ConLeche.MutualBlock.blockNames at hn
-    rcases List.mem_append.mp hn with hn' | hn'
-    · rcases List.mem_append.mp hn' with hn'' | hn''
-      · exact hmemFresh n (by rw [mutualMemberNames_eq hformers]; exact hn'')
-      · obtain ⟨ct, hct, rfl⟩ := List.mem_map.mp hn''
-        obtain ⟨J, hJ⟩ := List.getElem?_of_mem hct
-        have hJl : J < ctorsA.length := by
-          rw [hlenA]; exact (List.getElem?_eq_some_iff.mp hJ).1
-        have hcA : ctorsA[J]? = some ctorsA[J] := List.getElem?_eq_getElem hJl
-        obtain ⟨hnm, -, -⟩ := hnamesA J _ ct hcA hJ
-        rw [← hnm]
-        exact ConLeche.Semantics.find?_none_of_append consMutualFormers_consts
-          (checkMutualCtors_fresh hctors _ (List.mem_of_getElem? hcA))
-    · obtain ⟨t, ht, rfl⟩ := List.mem_map.mp hn'
-      exact ConLeche.Semantics.find?_none_of_append consMutualFormers_consts
-        (ConLeche.Semantics.find?_none_of_append consMutualCtors_consts
-          (recNames_of hpinOk hrectys t (List.mem_range.mp ht)).1)
+  have hbnFresh := mutualBlockNames_fresh hpinOk h1 hformers hctors hrectys
   have hagEnv : ∀ n : Name, (env.find? n).isSome = true →
       mpOut.base2.acval n = mb.base2.acval n := by
     intro n hn
