@@ -107826,3 +107826,17 @@ lemmas divide the state threading rather than duplicate it — but a
 retirement that quietly un-retires is a price correction, and this one
 is recorded as such rather than left for the next reader to notice that
 a retired lemma is in the tree.
+
+**THE SHAPE OF THE FAILED RETIREMENT, named by the coordinator and kept
+because it will recur**: *a retirement argued from WHERE a fact comes
+from, rather than from WHAT FIXES ITS SIZE, is the shape that failed
+here.*  Session 35's reasoning — "`w`'s tower comes from the walk, so no
+rewrite-reflection lemma is needed" — was about PROVENANCE and was
+locally correct; it simply was not the question.  The question was which
+side fixes the tower's LENGTH, and that is the stored domain
+(`reflOpen`), which only the output-side lemma can be driven by.
+
+Worth pairing with this round's other two rules: read a target's
+identity off the recorded POSITION, not off a head; and name the OBJECT
+a claim is about when two obligations share a proof.  All three are
+failures of asking the wrong question about the right facts.
