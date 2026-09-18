@@ -1009,18 +1009,30 @@ private theorem auxBlock_formerAt {p : NestedParts} {st : ElimState} {b : Mutual
 
 /-! ## (G) The two composites the model tier reads -/
 
-/-- **THE AUXILIARY BLOCK STARTS WITH THE DECLARED BLOCK** (task #315):
-the first `p.k` members of the auxiliary mutual block are the stream's
-own members, under their declared names — the annotation is positional
-and name-preserving, the elimination keeps its input list in place, and
-`auxBlock` reads the names off it. -/
-theorem auxBlock_memberNames {env : Env} {p : NestedParts} {F : Nat}
+/-- **THE AUXILIARY BLOCK STARTS WITH THE DECLARED BLOCK, off the
+ANNOTATED NAMES ALONE** (task #315 M8, the mirror assemblies' bridge
+1): `auxBlock_memberNames`'s content with the annotation stage's run
+replaced by the one fact it uses — that the stage is positional and
+name-preserving.  The CACHED mirror has that fact
+(`nestedAnnotFormersF_names`) and cannot have the pure run, so the
+lemma is stated over the names and the pure form is its corollary. -/
+theorem auxBlock_memberNames_of {p : NestedParts}
     {fmsA ctorsA : List ConstantVal} {st : ElimState} {b : MutualBlock}
-    (hf : nestedAnnotFormers (m := CheckM) (fueledOps mode F) env p.nP p.formers = .ok fmsA)
+    (hmap : fmsA.map (·.name) = p.formers.map (·.1.name))
     (he : elimNested env p.nP p.lps (nestedTypes0 p fmsA ctorsA) = .ok st)
     (hb : auxBlock p st = some b) :
     b.memberNames.take p.k = p.memberNames := by
-  have hlen : fmsA.length = p.k := nestedAnnotFormers_length hf
+  have hlen : fmsA.length = p.k := by
+    have := congrArg List.length hmap
+    simpa [NestedParts.k] using this
+  have hnames : ∀ (i : Nat) (cvT : ConstantVal), fmsA[i]? = some cvT →
+      ∃ cv nIdx, p.formers[i]? = some (cv, nIdx) ∧ cvT.name = cv.name := by
+    intro i cvT hi
+    have h1 : (fmsA.map (·.name))[i]? = some cvT.name := by
+      rw [List.getElem?_map, hi]; rfl
+    rw [hmap, List.getElem?_map] at h1
+    obtain ⟨f, hf, hfn⟩ := Option.map_eq_some_iff.mp h1
+    exact ⟨f.1, f.2, by simpa using hf, hfn.symm⟩
   refine List.ext_getElem? (fun i => ?_)
   rw [List.getElem?_take]
   split
@@ -1029,7 +1041,7 @@ theorem auxBlock_memberNames {env : Env} {p : NestedParts} {F : Nat}
       ⟨_, List.getElem?_eq_getElem (by omega)⟩
     obtain ⟨t₀, ht₀⟩ : ∃ t₀, (nestedTypes0 p fmsA ctorsA)[i]? = some t₀ :=
       ⟨_, List.getElem?_eq_getElem (by rw [nestedTypes0_length]; omega)⟩
-    obtain ⟨cv, nIdx, hfm, hname⟩ := nestedAnnotFormers_names hf i cvT hcvT
+    obtain ⟨cv, nIdx, hfm, hname⟩ := hnames i cvT hcvT
     obtain ⟨cvT', hcvT', hn0, -, -⟩ := nestedTypes0_getElem? ht₀
     obtain rfl : cvT' = cvT := Option.some.inj (hcvT'.symm.trans hcvT)
     obtain ⟨t', ht', hn', -, -, -⟩ := elimNested_types_prefix he i t₀ ht₀
@@ -1043,6 +1055,36 @@ theorem auxBlock_memberNames {env : Env} {p : NestedParts} {F : Nat}
     have hpl : p.memberNames.length = p.k := by
       simp only [NestedParts.memberNames, List.length_map, NestedParts.k]
     exact (List.getElem?_eq_none (by omega)).symm
+
+/-- **THE AUXILIARY BLOCK STARTS WITH THE DECLARED BLOCK** (task #315):
+the first `p.k` members of the auxiliary mutual block are the stream's
+own members, under their declared names — the annotation is positional
+and name-preserving, the elimination keeps its input list in place, and
+`auxBlock` reads the names off it. -/
+theorem auxBlock_memberNames {env : Env} {p : NestedParts} {F : Nat}
+    {fmsA ctorsA : List ConstantVal} {st : ElimState} {b : MutualBlock}
+    (hf : nestedAnnotFormers (m := CheckM) (fueledOps mode F) env p.nP p.formers = .ok fmsA)
+    (he : elimNested env p.nP p.lps (nestedTypes0 p fmsA ctorsA) = .ok st)
+    (hb : auxBlock p st = some b) :
+    b.memberNames.take p.k = p.memberNames := by
+  refine auxBlock_memberNames_of ?_ he hb
+  refine List.ext_getElem? (fun i => ?_)
+  rw [List.getElem?_map, List.getElem?_map]
+  cases hi : fmsA[i]? with
+  | none =>
+    have hlen : fmsA.length = p.k := nestedAnnotFormers_length hf
+    have : p.formers[i]? = none := by
+      refine List.getElem?_eq_none ?_
+      have := List.getElem?_eq_none_iff.mp hi
+      simp only [NestedParts.k] at hlen
+      omega
+    rw [this]
+    rfl
+  | some cvT =>
+    obtain ⟨cv, nIdx, hfm, hname⟩ := nestedAnnotFormers_names hf i cvT hi
+    rw [hfm]
+    simp only [Option.map_some, Option.some.injEq]
+    exact hname
 
 /-- **EVERY OWN-MEMBER CONSTRUCTOR OF THE AUXILIARY BLOCK IS A DECLARED
 ONE** (task #315): a constructor of the auxiliary block whose member

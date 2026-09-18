@@ -1522,6 +1522,28 @@ constructors at `fe₁`, the recursors at `fe₂` — and conses them all
 afterwards, so the stage lemmas are about that one index and the
 assembly supplies the list's own `Nodup`. -/
 
+/-- **THE ANNOTATED FORMERS CARRY THE DECLARED NAMES** (task #315 M8,
+the mirror assemblies' bridge 1): the cached annotation stage is
+positional and name-preserving, so the block's members are the
+stream's own under their declared names.  The PURE twin is
+`nestedAnnotFormers_names`; this is the one the mirror's assemblies
+can use, since they run at an index rather than at an environment. -/
+theorem nestedAnnotFormersF_names (ops : CheckerOps CheckCM) (fe : FEnv) (nP : Nat) :
+    ∀ (formers : List (ConstantVal × Nat)),
+      Yields (nestedAnnotFormersF ops fe nP formers)
+        (fun fmsA => fmsA.map (·.name) = formers.map (·.1.name))
+  | [] => by unfold nestedAnnotFormersF; exact Yields.pure rfl
+  | (cv, nIdx) :: rest => by
+    unfold nestedAnnotFormersF
+    refine Yields.bind' (checkConstantValF_name ops fe cv) fun cvTa₀ h₀ => ?_
+    refine Yields.bind' (checkSumTeleF_name ops fe cv (nP + nIdx) cvTa₀) fun r hr => ?_
+    refine Yields.bind' (nestedAnnotFormersF_names ops fe nP rest) fun restA hrest => ?_
+    refine Yields.pure ?_
+    simp only [List.map_cons, hrest, List.cons.injEq, and_true]
+    rcases hr with h | h
+    · rw [h, h₀]
+    · exact h
+
 /-- A restored constructor carries the name the auxiliary block stored,
 with the block's own level parameters and the restored type. -/
 theorem restoreCtorsF_names (ops : CheckerOps CheckCM) (fe : FEnv) (R : RestoreTbl)

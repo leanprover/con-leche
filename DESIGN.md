@@ -104085,3 +104085,29 @@ Bridge 3 is done, 1 is shared with the push assembly, and 2 and 4 are
 the new work.  Sizing: one session for the four bridges and the
 skeleton walk, one more for the push walk — **read as low**, as three
 estimates in this arc came in under.
+
+**BRIDGE 1 IS LANDED** (2026-09-18): `nestedAnnotFormersF_names` (the
+cached stage is positional and name-preserving, off
+`checkConstantValF_name` and `checkSumTeleF_name`) and
+`auxBlock_memberNames_of` — `auxBlock_memberNames`'s content restated
+over the NAME MAP instead of the pure annotation run, which is the
+form the mirror can use.  The pure `auxBlock_memberNames` is now its
+corollary rather than a second copy of the proof: **a proof that exists
+twice is the thing that later diverges**, and this arc has already had
+one inline derivation lifted out for the same reason.
+
+**BRIDGES 2 AND 4, traced to their pieces.**  Bridge 2 is a
+composition of three lemmas that all exist: `restoreCtorsF_names`
+(restored `(name, nP, nF)` = the read-back's), `auxStored_ctor_eq`
+(the read-back's = `ctorsA`'s, with `nP = b.nP`) and
+`auxBlock_ctors_getElem?` (`b.ctors` at a member below `p.k` is `p`'s
+own).  Bridge 4 is NOT a composition: the walk installs a table iff the
+READ-BACK's `a.tbl` is `some` and the member has one restored
+constructor, so the skeleton needs the BICONDITIONAL against the
+condition `mutualMemberTable` decides on
+(`b.ownCtors mIdx = [(J, c)]` and `f.nIdx == 0`).  The forward half is
+`auxStored_tbl_eq`; **the converse — that a member satisfying the
+condition HAS a stored table in the scratch environment — does not
+exist** and is the one genuinely new lemma the skeleton assembly needs
+(`mutualTables_find?_projInfo_of`, a fold walk keeping the `find?`
+across the later members' conses).  60–100 lines, read as low.
