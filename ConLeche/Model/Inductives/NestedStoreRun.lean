@@ -2,7 +2,17 @@ module
 
 public import ConLeche.Model.Inductives.NestedRecRule
 public import ConLeche.Verify.Inductives.NestedRecsWF
+import ConLeche.Model.Inductives.NestedRecsSwap
+import ConLeche.Model.Swap
+import ConLeche.Model.Inductives.BlockStageTable
+import ConLeche.Model.Inductives.MutualNoProj
+import ConLeche.Verify.Inductives.NestedAuxFormers
+import ConLeche.Verify.Inductives.ContainerFrame
+public import ConLeche.Model.Inductives.NestedTables
 import ConLeche.Verify.Inductives.NestedRecRuleKit
+import ConLeche.Verify.Inductives.NestedAuxInv
+import ConLeche.Verify.Inductives.NestedTablesInv
+import ConLeche.Verify.Inductives.StructWF
 public section
 
 /-!
@@ -37,7 +47,7 @@ open ConLeche.SetModel
 open ConLeche.Term ConLeche.Verify SetTheory
 open ConLeche.Semantics (AnnotTerm)
 open ConLeche (Env Expr Name Level CheckMode ConstantInfo ConstantVal RecFieldKind RecRule
-  NestedParts MutualBlock AuxStored ElimState NestedPin IndCaps fueledOps)
+  NestedParts MutualBlock AuxStored ElimState NestedPin IndCaps ContainerInfo ProjTable fueledOps)
 
 universe w
 
@@ -74,6 +84,59 @@ theorem zip_zip_getElem? {α β γ : Type} :
   | _ :: l₁, _ :: l₂, _ :: l₃, i + 1, x, h => by
     simp only [List.zip_cons_cons, List.getElem?_cons_succ] at h
     exact zip_zip_getElem? l₁ l₂ l₃ i x h
+
+/-! ## The swap at a NAMED provision list -/
+
+/-- **`nestedRecsStore` at a provision list the caller NAMES**: the
+swap is stated at `nestedProvOf l`, the projection of its own
+quadruples, while the run's provision is `nestedProvList` — the list
+the restored rules were actually scoped at.  The two are equal
+(`nestedProvOf_nestedStoreList`), but the equality sits under
+`EnvModelM`'s index, so it has to be spent before the model is built,
+not after.  This wrapper is that `subst`, and nothing else. -/
+theorem nestedRecsStore_at {env₂ : Env} {l : List (ConstantVal × Nat × Nat × List RecRule)}
+    {prov : List (ConstantVal × Nat × Nat)} (hprov : ConLeche.nestedProvOf l = prov)
+    (henv₂ : ConLeche.EnvWF env₂)
+    (mpP : EnvModelM V μ (ConLeche.provisionNestedRecs prov env₂))
+    (hfresh : ∀ x ∈ l, env₂.find? x.1.name = none)
+    (hnres : ∀ x ∈ l, ConLeche.reservedBasisNames.contains x.1.name = false)
+    (htys : ∀ x ∈ l, x.1.type.hasFvar = false ∧
+      x.1.type.allLevelParamsDefined x.1.levelParams = true ∧
+      x.1.type.constsResolve env₂ = true ∧ x.1.type.looseBVarsBounded 0 = true)
+    (hrulesWF : ∀ x ∈ l, ∀ r ∈ x.2.2.2,
+      (RecRule.rhs r).hasFvar = false ∧
+      (RecRule.rhs r).allLevelParamsDefined x.1.levelParams = true ∧
+      (RecRule.rhs r).constsResolve (ConLeche.provisionNestedRecs prov env₂) = true ∧
+      (RecRule.rhs r).looseBVarsBounded 0 = true ∧
+      ∀ lvls pins, RecRule.fire r = .nested lvls pins →
+        x.2.2.1 ≤ x.2.1 ∧
+        (∀ u ∈ lvls, u.allParamsDefined x.1.levelParams = true) ∧
+        (∀ pin ∈ pins, pin.hasFvar = false ∧
+          pin.allLevelParamsDefined x.1.levelParams = true ∧
+          pin.constsResolve (ConLeche.provisionNestedRecs prov env₂) = true ∧
+          pin.looseBVarsBounded x.2.2.1 = true) ∧
+        ∃ pre dom body bm D,
+          x.1.type.stripPis x.2.1 = some (pre, .forallE dom body bm) ∧
+          dom.getAppFn = .const D lvls ∧
+          dom.getAppArgs =
+            pins.map (Expr.liftLooseBVars (x.2.1 - x.2.2.1) 0) ++
+              (List.range (x.2.1 - x.2.2.1)).map
+                (fun i => Expr.bvar (x.2.1 - x.2.2.1 - 1 - i)))
+    (hctorStored : ∀ x ∈ l, ∀ r ∈ x.2.2.2,
+      (∃ cvj cnP cnF, (ConLeche.provisionNestedRecs prov env₂).find?
+        (RecRule.ctor r) = some (.ctorInfo cvj cnP cnF)) ∧
+      (r.k = true → ConLeche.recRuleKOf
+        (ConLeche.provisionNestedRecs prov env₂).find? r.ctor = true) ∧
+      (r.eta = true → ConLeche.recRuleEtaOf
+        (ConLeche.provisionNestedRecs prov env₂).find? x.1.name r.ctor = true))
+    (hlaws : ∀ m₃ : EnvModel V (ConLeche.storeNestedRecs l env₂),
+      m₃.acval = mpP.base2.acval → ∀ φ : Name → Nat, ∀ x ∈ l, ∀ rl ∈ x.2.2.2,
+        RecRule.fire rl ≠ .inert →
+        RecRuleLaw m₃ φ x.1.name x.1 x.2.1 x.2.2.1 rl) :
+    ∃ mp₃ : EnvModelM V μ (ConLeche.storeNestedRecs l env₂),
+      mp₃.base2.acval = mpP.base2.acval ∧ mp₃.base2.cvalE = mpP.base2.cvalE := by
+  subst hprov
+  exact nestedRecsStore henv₂ mpP hfresh hnres htys hrulesWF hctorStored hlaws
 
 /-! ## The store list at the run -/
 
@@ -354,5 +417,667 @@ theorem NestedTailIn.storeCtors
   exact ⟨⟨cvj, RecRule.ctorParams r, cnF, hfc⟩, hk0, by rw [hcv]; exact he0⟩
 
 end Run
+
+/-! ## K.50's face -/
+
+/-- **K.50's face** (DESIGN §U.29 (gggg)): at every tail input, every
+restored rule's two RESCUE BITS are answered where `ConstWF` asks for
+them — at the environment the rules were scoped at, the rule-less
+provision.
+
+The record is the two CONJUNCTS and not the two bits.  `restoreRules`
+copies `k` and `eta` from the SCRATCH rule while RENAMING the
+constructor, so what the scratch block's own check says and what
+`ConstWF` asks of the stored rule differ in both arguments, and no
+lemma in the tree relates them across the copies' capability records.
+Recording the bits `false` instead would DECLINE 35 of the 41 Mathlib
+cone blocks and 7 of the 27 shadow fixtures: η is about a structure's
+single constructor and its recursor not being a projection function,
+not about field counts, and a copy of a structure-like container is
+structure-like.  In this form the record holds 27/27 and 41/41 with no
+fire at all — the K half vacuously, and recorded anyway, nothing making
+it so in principle.
+
+The face names only what it mentions: the two restore runs that produce
+the rule rows, and the environment they ran at.  Consumer:
+`nestedRecsStored_of`, through `NestedTailIn.storeCtors`. -/
+@[expose] def NestedRuleBitsOf (μ : CheckMode) (F : Nat) : Prop :=
+  ∀ (env : Env) (p : NestedParts) (st : ElimState) (stored : List AuxStored)
+    (ctorsR : List (List (ConstantVal × Nat × Nat))) (cvRms cvRns : List ConstantVal)
+    (rulesM rulesN : List (List RecRule)),
+    (cvRms.zip (stored.take p.k)).mapM (fun (cvRa, a) =>
+        ConLeche.restoreRules (m := ConLeche.CheckM) (fueledOps μ F)
+          (ConLeche.provisionNestedRecs (nestedProvList p stored cvRms cvRns)
+            (ConLeche.consNestedCtors ctorsR.flatten
+              (ConLeche.consNestedFormers (stored.take p.k) env)))
+          (ConLeche.restoreTbl p st) cvRa.levelParams cvRa.name false cvRa.type a.mI a.rP a.rules)
+      = .ok rulesM →
+    (cvRns.zip (stored.drop p.k)).mapM (fun (cvRa, a) =>
+        ConLeche.restoreRules (m := ConLeche.CheckM) (fueledOps μ F)
+          (ConLeche.provisionNestedRecs (nestedProvList p stored cvRms cvRns)
+            (ConLeche.consNestedCtors ctorsR.flatten
+              (ConLeche.consNestedFormers (stored.take p.k) env)))
+          (ConLeche.restoreTbl p st) cvRa.levelParams cvRa.name true cvRa.type a.mI a.rP a.rules)
+      = .ok rulesN →
+    ∀ c, c < p.k + cvRns.length → ∀ r ∈ nestedRulesAt p.k rulesM rulesN c,
+      (RecRule.k r = true → ConLeche.recRuleKOf
+        (ConLeche.provisionNestedRecs (nestedProvList p stored cvRms cvRns)
+          (ConLeche.consNestedCtors ctorsR.flatten
+            (ConLeche.consNestedFormers (stored.take p.k) env))).find?
+        (RecRule.ctor r) = true) ∧
+      (RecRule.eta r = true → ConLeche.recRuleEtaOf
+        (ConLeche.provisionNestedRecs (nestedProvList p stored cvRms cvRns)
+          (ConLeche.consNestedCtors ctorsR.flatten
+            (ConLeche.consNestedFormers (stored.take p.k) env))).find?
+        (nestedRecCvAt p.k cvRms cvRns c).name (RecRule.ctor r) = true)
+
+/-! ## The nested install's conses -/
+
+namespace NestedInstallExt
+
+/-- A stage that conses nothing (`BlockInstallExt.rfl'`'s twin). -/
+theorem rfl' (Ms : List Name) (env : Env) : NestedInstallExt Ms env env [] :=
+  ⟨⟨rfl, by simp⟩, by simp, by simp, by simp⟩
+
+/-- Two nested install stages compose (`BlockInstallExt.trans`'s twin):
+the later stage's names are fresh at the earlier environment, so they
+are fresh at the base too. -/
+theorem trans {Ms : List Name} {env env₁ env₂ : Env} {new₁ new₂ : List ConstantInfo}
+    (h₁ : NestedInstallExt Ms env env₁ new₁) (h₂ : NestedInstallExt Ms env₁ env₂ new₂) :
+    NestedInstallExt Ms env env₂ (new₂ ++ new₁) := by
+  obtain ⟨⟨hc₁, hf₁⟩, hi₁, hr₁, hp₁⟩ := h₁
+  obtain ⟨⟨hc₂, hf₂⟩, hi₂, hr₂, hp₂⟩ := h₂
+  refine ⟨⟨by rw [hc₂, hc₁, List.append_assoc], fun c hc => ?_⟩, fun c hc => ?_, fun c hc => ?_,
+    fun c hc => ?_⟩ <;> rcases List.mem_append.mp hc with hc' | hc'
+  · exact ConLeche.Semantics.find?_none_of_append hc₁ (hf₂ c hc')
+  · exact hf₁ c hc'
+  · exact hi₂ c hc'
+  · exact hi₁ c hc'
+  · exact hr₂ c hc'
+  · exact hr₁ c hc'
+  · exact hp₂ c hc'
+  · exact hp₁ c hc'
+
+/-- One fresh cons, as the nested crossing sees it. -/
+theorem cons {Ms : List Name} {env : Env} {c₀ : ConstantInfo}
+    (hfresh : env.find? c₀.name = none)
+    (hi : ∀ (cv : ConstantVal) (caps : IndCaps), c₀ = .indInfo cv caps → c₀.name ∈ Ms)
+    (hr : ∀ (cv : ConstantVal) (mI rP : Nat) (rules : List RecRule),
+      c₀ = .recInfo cv mI rP rules → ∀ n : Name, c₀.name = n.str "rec" → n ∈ Ms)
+    (hp : ∀ tbl : ProjTable, c₀ = .projInfo tbl → tbl.structName ∈ Ms) :
+    NestedInstallExt Ms env ⟨c₀ :: env.consts⟩ [c₀] := by
+  refine ⟨⟨rfl, ?_⟩, ?_, ?_, ?_⟩ <;> intro c hc <;> (obtain rfl := List.mem_singleton.mp hc)
+  · exact hfresh
+  · exact hi
+  · exact hr
+  · exact hp
+
+end NestedInstallExt
+
+/-- **Stage 1**: the restored formers, consed as the block's members. -/
+theorem consNestedFormers_installExt {Ms : List Name} {as : List AuxStored} {env : Env}
+    (hfresh : ∀ a ∈ as, env.find? a.cvTa.name = none)
+    (hMs : ∀ a ∈ as, a.cvTa.name ∈ Ms) :
+    NestedInstallExt Ms env (ConLeche.consNestedFormers as env)
+      ((as.map fun a => ConstantInfo.indInfo a.cvTa a.caps).reverse) := by
+  refine ⟨⟨consNestedFormers_consts, fun c hc => ?_⟩, fun c hc => ?_, fun c hc => ?_,
+    fun c hc => ?_⟩ <;>
+    (simp only [List.mem_reverse, List.mem_map] at hc; obtain ⟨a, ha, rfl⟩ := hc)
+  · exact hfresh a ha
+  · exact fun _ _ _ => hMs a ha
+  · exact fun _ _ _ _ heq => nomatch heq
+  · exact fun _ heq => nomatch heq
+
+/-- **Stage 2**: the restored constructors' conses — no container, no
+recursor, no table. -/
+theorem consNestedCtors_installExt {Ms : List Name} {cs : List (ConstantVal × Nat × Nat)}
+    {env : Env} (hfresh : ∀ c ∈ cs, env.find? c.1.name = none) :
+    NestedInstallExt Ms env (ConLeche.consNestedCtors cs env)
+      ((cs.map fun c => ConstantInfo.ctorInfo c.1 c.2.1 c.2.2).reverse) := by
+  refine ⟨⟨consNestedCtors_consts, fun c hc => ?_⟩, fun c hc => ?_, fun c hc => ?_,
+    fun c hc => ?_⟩ <;>
+    (simp only [List.mem_reverse, List.mem_map] at hc; obtain ⟨cA, hcA, rfl⟩ := hc)
+  · exact hfresh cA hcA
+  · exact fun _ _ heq => nomatch heq
+  · exact fun _ _ _ _ heq => nomatch heq
+  · exact fun _ heq => nomatch heq
+
+/-- **Stage 3**: the restored recursors' store.  The clause is the
+CONDITIONAL one: a member's recursor is `T.rec`, and a mimic's name is
+no `_.str "rec"` at all. -/
+theorem storeNestedRecs_installExt {Ms : List Name}
+    {l : List (ConstantVal × Nat × Nat × List RecRule)} {env : Env}
+    (hfresh : ∀ x ∈ l, env.find? x.1.name = none)
+    (hrec : ∀ x ∈ l, ∀ n : Name, x.1.name = n.str "rec" → n ∈ Ms) :
+    NestedInstallExt Ms env (ConLeche.storeNestedRecs l env)
+      ((l.map fun x => ConstantInfo.recInfo x.1 x.2.1 x.2.2.1 x.2.2.2).reverse) := by
+  refine ⟨⟨storeNestedRecs_consts, fun c hc => ?_⟩, fun c hc => ?_, fun c hc => ?_,
+    fun c hc => ?_⟩ <;>
+    (simp only [List.mem_reverse, List.mem_map] at hc; obtain ⟨x, hx, rfl⟩ := hc)
+  · exact hfresh x hx
+  · exact fun _ _ heq => nomatch heq
+  · exact fun _ _ _ _ _ => hrec x hx
+  · exact fun _ heq => nomatch heq
+
+/-- **Stage 4**: the structure-like members' projection tables — every
+table is a MEMBER's. -/
+theorem nestedTables_installExt {Ms : List Name} :
+    ∀ {l : List (Name × Option ProjTable × List (ConstantVal × Nat × Nat))} {env env' : Env},
+      ConLeche.nestedTables (m := ConLeche.CheckM) l env = .ok env' →
+      (∀ e ∈ l, e.1 ∈ Ms) →
+      ∃ new : List ConstantInfo, NestedInstallExt Ms env env' new
+  | [], env, env', h, _ => by
+    obtain rfl := ConLeche.nestedTables_nil_inv h
+    exact ⟨[], NestedInstallExt.rfl' Ms _⟩
+  | (T, tbl?, cs) :: rest, env, env', h, hTs => by
+    obtain ⟨envI, hI, hrest⟩ := ConLeche.nestedTables_inv h
+    obtain ⟨new₂, h₂⟩ := nestedTables_installExt hrest
+      (fun q hq => hTs q (List.mem_cons_of_mem _ hq))
+    rcases ConLeche.nestedMemberTable_inv hI with rfl | ⟨tbl, cvCa, nP, nF, -, -, htbl⟩
+    · exact ⟨new₂, h₂⟩
+    · obtain ⟨bodies, -, -, -, hfreshTbl, rfl⟩ := ConLeche.checkStructProjTable_inv htbl
+      refine ⟨_, NestedInstallExt.trans (NestedInstallExt.cons ?_ ?_ ?_ ?_) h₂⟩
+      · exact hfreshTbl
+      · exact fun _ _ heq => nomatch heq
+      · exact fun _ _ _ _ heq => nomatch heq
+      · intro tbl' heq
+        obtain rfl := ConstantInfo.projInfo.inj heq
+        exact hTs (T, tbl?, cs) List.mem_cons_self
+
+/-! ## The recorded tables' face -/
+
+/-- **THE RESTORED MEMBERS' RECORDED TABLES** (task #315 M7-2): at
+every tail input and every model of the recursors' environment whose
+carrier is the constructors' off the restored recursors, the SCRATCH
+block's recorded projection tables carry the data the table stage's P
+step asks for — the recorded constructor name is the member's one
+restored constructor's, the offset is `1`, the guards are that
+constructor's field sorts' `structProjGuards`, and the flat bundle at
+it is the member's table carrier (`NestedMemberTableOk`,
+`NestedTables.lean`).
+
+The nested route RE-USES the table the scratch install built
+(`mutualMemberTable`, `Kernel/Inductives/MutualInstall.lean`) instead
+of recomputing it, so the three data are that stage's own and the
+bundle is the scratch block model's, read through the restore — a
+transfer no module in the tree performs today.  Hence the face.
+Consumer: `nestedRecsStored_of`. -/
+@[expose] def NestedTablesDataOf (V : Type w) [SetTheory V] (μ : CheckMode) (F : Nat) : Prop :=
+  ∀ {env : Env} (mp : EnvModelM V μ env) (p : NestedParts) (envOut : Env) (st : ElimState)
+    (b : MutualBlock) (envAux : Env) (stored : List AuxStored)
+    (ctorsR : List (List (ConstantVal × Nat × Nat))) (cvRms cvRns : List ConstantVal)
+    (rulesM rulesN : List (List RecRule)) (fmsA ctorsA₀ : List ConstantVal)
+    (fms : List MutualFormerA) (f₀ : MutualFormerA) (ctorsA : List (ConstantVal × Nat))
+    (sortss : List (List Level)) (kinds : List (List (RecFieldKind × Nat)))
+    (mp₁ : EnvModelM V μ (ConLeche.consMutualFormers fms env))
+    (ppsF : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)) (W : (Name → Nat) → Nat)
+    (idxF : Nat → List Expr) (dsF : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm))
+    (esF : Nat → (Name → Nat) → List AnnotTerm) (srcsF : Nat → List (Option Nat))
+    (fvsPF xFvsF : Nat → List Expr) (xrestF : Nat → Expr)
+    (eissF : Nat → (Name → Nat) → List (List AnnotTerm))
+    (tssF : Nat → (Name → Nat) → List (List (Nat × Nat × AnnotTerm)))
+    (dsR : Nat → Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)) (xFvsR : Nat → Nat → List Expr)
+    (pinsS : List PinSyn)
+    (mp₂ : EnvModelM V μ (ConLeche.consNestedCtors ctorsR.flatten
+      (ConLeche.consMutualFormers (fms.take p.k) env))),
+    NestedTailIn F mp p envOut st b envAux stored ctorsR cvRms cvRns rulesM rulesN fmsA ctorsA₀
+      fms f₀ ctorsA sortss kinds mp₁ ppsF W idxF dsF esF srcsF fvsPF xFvsF xrestF eissF tssF dsR
+      xFvsR pinsS mp₂ →
+    ∀ mp₃ : EnvModelM V μ (ConLeche.storeNestedRecs
+        (nestedStoreList p stored cvRms cvRns rulesM rulesN)
+        (ConLeche.consNestedCtors ctorsR.flatten
+          (ConLeche.consMutualFormers (fms.take p.k) env))),
+      (∀ n : Name, (∀ c, c < b.k → n ≠ (nestedRecCvAt p.k cvRms cvRns c).name) →
+        mp₃.base2.acval n = mp₂.base2.acval n) →
+      ∃ (isProp : Bool) (S : Name → (Name → Nat) → (Nat → V) → V),
+        ∀ e ∈ (((stored.take p.k).zip ctorsR).zipIdx.map fun ((a, cs), mIdx) =>
+            ((p.formers.getD mIdx default).1.name, a.tbl, cs)),
+          NestedMemberTableOk mp₃.base2 isProp S e
+
+/-! ## The stage, assembled -/
+
+/-- **THE RECURSORS' STAGE OF A NESTED BLOCK, ASSEMBLED** —
+`NestedRecsStored` (DESIGN §U.25 (e) 5), from the readings, the
+equations and the chosen tuple, in five steps:
+
+* **the provision** (`NestedTailIn.provisioned`): the `k + nPins`
+  restored recursors consed RULE-LESS, class `c` with the tuple's
+  `c`-th projection as its leaf, the restored types read there and the
+  carrier untouched off those names;
+* **the rule law** (`NestedTailIn.recRuleLawsAt`) at every restored
+  rule of every class, at that provisioned model;
+* **the store swap** (`nestedRecsStore_at` at `nestedStoreList`): the
+  same recursors WITH their rules, the front door off
+  `NestedTailIn.storeDoor`, the rules' well-formedness off
+  `storeRules`, their constructors and rescue bits off `storeCtors`,
+  and the laws transported by `RecRuleLaw.swapP`;
+* **the tables** (`stageNestedTables`): the structure-like members'
+  recorded projection tables, the members' names distinct;
+* **the seven fields** of `NestedTailOut`: the install's conses as one
+  `NestedInstallExt` (the four stage lemmas above, composed), the two
+  agreements along the chain `mp → mp₂ → mpP → mp₃ → mpOut`, the
+  lookups' survival, the block's representation at the OUTPUT model —
+  crossed unguarded through the provision and the swap and GUARDED
+  through the tables, where a new projection table moves a reading, the
+  guards being the members' own types' resolution at the pre-block
+  environment and the restored constructors' `ProjSlotsOk` at the
+  formers' one — and the pins' groups and containers, whose readings do
+  not move because every constant the install conses is fresh at the
+  pre-block environment (`containerInfo?_ext_ind_eq`).
+
+Three named facts remain: K.50 (`NestedRuleBitsOf`, the restored rules'
+two rescue conjuncts at the provision), K.36 (`NestedCtorPinNamesOf`,
+the readings' and the equations' own model face) and the recorded
+tables' data (`NestedTablesDataOf`).  Consumer:
+`nestedTailModeled_of_stage`. -/
+theorem nestedRecsStored_of {F : Nat}
+    (hbits : NestedRuleBitsOf μ F) (hK36 : NestedCtorPinNamesOf μ F)
+    (htbls : NestedTablesDataOf V μ F) :
+    NestedRecsStored V μ F := by
+  intro env mp p envOut st b envAux stored ctorsR cvRms cvRns rulesM rulesN fmsA ctorsA₀ fms f₀
+    ctorsA sortss kinds mp₁ ppsF W idxF dsF esF srcsF fvsPF xFvsF xrestF eissF tssF dsR xFvsR
+    pinsS mp₂ I s rdsM concM R mpA cvRas S E Tu
+  -- the lists' lengths
+  have hbk : b.k = p.k + pinsS.length := I.out.bk
+  have hslen : stored.length = b.k := I.storedLen
+  have hM : (stored.take p.k).length ≤ rulesM.length := by
+    rw [(ConLeche.mapM_except_inv I.hrulesM).1, List.length_zip, I.lenM, List.length_take, hslen]
+    omega
+  have hN : (stored.drop p.k).length ≤ rulesN.length := by
+    rw [(ConLeche.mapM_except_inv I.hrulesN).1, List.length_zip, I.lenN, List.length_drop, hslen]
+    omega
+  have hpo : ConLeche.nestedProvOf (nestedStoreList p stored cvRms cvRns rulesM rulesN)
+      = nestedProvList p stored cvRms cvRns := nestedProvOf_nestedStoreList hM hN
+  -- **(a) the provision**
+  obtain ⟨mpP, -, -, hleafP, hagP⟩ := I.provisioned I.recNodup R E Tu
+  -- **(b) the rule law at every rule**
+  have hnames := hK36 env p st fmsA ctorsA₀ I.hfA I.hcA I.helim I.hcont
+  have hK35 := nestedRecTysAuxOk_of_bool I.hb I.hauxApps
+  have hK35r := nestedRulesAuxOk_of_bool I.hb I.hauxApps
+  have hsw : ConLeche.SwapShList
+      (ConLeche.provisionNestedRecs (nestedProvList p stored cvRms cvRns)
+        (ConLeche.consNestedCtors ctorsR.flatten
+          (ConLeche.consMutualFormers (fms.take p.k) env))).consts
+      (ConLeche.storeNestedRecs (nestedStoreList p stored cvRms cvRns rulesM rulesN)
+        (ConLeche.consNestedCtors ctorsR.flatten
+          (ConLeche.consMutualFormers (fms.take p.k) env))).consts := by
+    rw [← hpo]
+    exact swapShList_provision_store_nested _ (ConLeche.SwapShList.of_eq _)
+  have hcg := ConLeche.SwapShList.congr hsw
+  -- **(c) the store swap**
+  have hbits' : ∀ c, c < b.k → ∀ r ∈ nestedRulesAt p.k rulesM rulesN c,
+      (RecRule.k r = true → ConLeche.recRuleKOf
+        (ConLeche.provisionNestedRecs (nestedProvList p stored cvRms cvRns)
+          (ConLeche.consNestedCtors ctorsR.flatten
+            (ConLeche.consMutualFormers (fms.take p.k) env))).find?
+        (RecRule.ctor r) = true) ∧
+      (RecRule.eta r = true → ConLeche.recRuleEtaOf
+        (ConLeche.provisionNestedRecs (nestedProvList p stored cvRms cvRns)
+          (ConLeche.consNestedCtors ctorsR.flatten
+            (ConLeche.consMutualFormers (fms.take p.k) env))).find?
+        (nestedRecCvAt p.k cvRms cvRns c).name (RecRule.ctor r) = true) := by
+    intro c hc r hr
+    have h := hbits env p st stored ctorsR cvRms cvRns rulesM rulesN I.hrulesM I.hrulesN c
+      (by rw [I.lenN]; omega) r hr
+    rw [I.henv] at h
+    exact h
+  have hlaws : ∀ m₃ : EnvModel V (ConLeche.storeNestedRecs
+        (nestedStoreList p stored cvRms cvRns rulesM rulesN)
+        (ConLeche.consNestedCtors ctorsR.flatten
+          (ConLeche.consMutualFormers (fms.take p.k) env))),
+      m₃.acval = mpP.base2.acval → ∀ φ : Name → Nat,
+      ∀ x ∈ nestedStoreList p stored cvRms cvRns rulesM rulesN, ∀ rl ∈ x.2.2.2,
+        RecRule.fire rl ≠ .inert →
+        RecRuleLaw m₃ φ x.1.name x.1 x.2.1 x.2.2.1 rl := by
+    intro m₃ hac φ x hx rl hrl hfire
+    obtain ⟨c, hc, hcv, hmI, hrP, hrs⟩ := nestedStoreList_mem I.lenM hx
+    have hcb : c < b.k := by rw [hbk, ← I.lenN]; exact hc
+    obtain ⟨a, ha⟩ : ∃ a, stored[c]? = some a :=
+      ⟨_, List.getElem?_eq_getElem (by rw [hslen]; exact hcb)⟩
+    have haD : stored.getD c default = a := by rw [List.getD_eq_getElem?_getD, ha]; rfl
+    rw [hrs] at hrl
+    have hlaw := I.recRuleLawsAt S hnames
+      (fun _q₀ _kJ i _dJ G hi ci J h1 h2 h3 => (G.ctorsOf i hi ci J h1 h2 h3).1)
+      hK35 R E Tu hleafP hagP hK35r φ hcb ha rl hrl hfire
+    rw [hcv, hmI, hrP, haD]
+    exact RecRuleLaw.swapP hcg hac hlaw
+  obtain ⟨mp₃, hac₃, -⟩ := nestedRecsStore_at hpo mp₂.base2.wf mpP
+    (fun x hx => (I.storeDoor x hx).1) (fun x hx => (I.storeDoor x hx).2.1)
+    (fun x hx => ⟨(I.storeDoor x hx).2.2.1, (I.storeDoor x hx).2.2.2.1,
+      (I.storeDoor x hx).2.2.2.2.1, (I.storeDoor x hx).2.2.2.2.2⟩)
+    I.storeRules (I.storeCtors hbits') hlaws
+  have hag₃ : ∀ n : Name, (∀ c, c < b.k → n ≠ (nestedRecCvAt p.k cvRms cvRns c).name) →
+      mp₃.base2.acval n = mp₂.base2.acval n := by
+    intro n hn
+    rw [hac₃]
+    exact hagP n (fun c hc => hn c (by rw [← I.kT]; exact hc))
+  -- **(d) the tables**
+  have hclen : ctorsR.length = p.k := by
+    rw [(ConLeche.mapM_except_inv I.hctors).1, List.length_take]
+    omega
+  have hzl : ((stored.take p.k).zip ctorsR).length = p.k := by
+    rw [List.length_zip, List.length_take, hclen, hslen]
+    omega
+  have htblR : ConLeche.nestedTables (m := ConLeche.CheckM)
+      (((stored.take p.k).zip ctorsR).zipIdx.map fun ((a, cs), mIdx) =>
+        ((p.formers.getD mIdx default).1.name, a.tbl, cs))
+      (ConLeche.storeNestedRecs (nestedStoreList p stored cvRms cvRns rulesM rulesN)
+        (ConLeche.consNestedCtors ctorsR.flatten
+          (ConLeche.consMutualFormers (fms.take p.k) env))) = .ok envOut := by
+    rw [← I.henv]
+    exact I.htbl
+  have hTLnames : ((((stored.take p.k).zip ctorsR).zipIdx.map fun ((a, cs), mIdx) =>
+        ((p.formers.getD mIdx default).1.name, a.tbl, cs)).map (·.1)) = p.memberNames := by
+    have hpk : p.formers.length = p.k := rfl
+    refine List.ext_getElem? fun i => ?_
+    rw [List.getElem?_map, List.getElem?_map, List.getElem?_zipIdx]
+    show _ = (p.formers.map (·.1.name))[i]?
+    rw [List.getElem?_map]
+    cases hz : ((stored.take p.k).zip ctorsR)[i]? with
+    | none =>
+      have hi : ¬ i < p.k := by
+        intro h
+        rw [List.getElem?_eq_getElem (by rw [hzl]; exact h)] at hz
+        exact nomatch hz
+      rw [List.getElem?_eq_none (by rw [hpk]; omega)]
+      rfl
+    | some z =>
+      have hi : i < p.k := by
+        have h := (List.getElem?_eq_some_iff.mp hz).1
+        rw [hzl] at h
+        exact h
+      obtain ⟨a, cs⟩ := z
+      simp only [Option.map_some, Nat.zero_add]
+      rw [List.getElem?_eq_getElem (by rw [hpk]; exact hi), List.getD_eq_getElem?_getD,
+        List.getElem?_eq_getElem (by rw [hpk]; exact hi)]
+      rfl
+  have hndM : p.memberNames.Nodup := by
+    rw [← I.out.stage.names, show (fms.take p.k).map (·.cvTa.name)
+      = (fms.map (·.cvTa.name)).take p.k from List.map_take]
+    exact I.fmsNodup.sublist (List.take_sublist _ _)
+  obtain ⟨isProp, SC, hTok⟩ := htbls mp p envOut st b envAux stored ctorsR cvRms cvRns rulesM
+    rulesN fmsA ctorsA₀ fms f₀ ctorsA sortss kinds mp₁ ppsF W idxF dsF esF srcsF fvsPF xFvsF xrestF
+    eissF tssF dsR xFvsR pinsS mp₂ I mp₃ hag₃
+  obtain ⟨mpOut, hagT⟩ := stageNestedTables (V := V) (μ := μ) blockTableStep (isProp := isProp)
+    (S := SC) _ mp₃ htblR (by rw [hTLnames]; exact hndM) hTok
+  -- **the install's conses**
+  have hcvA := (ConLeche.consNestedFormers_take_eq I.haux I.out.formers I.hstored p.k
+    (by omega)).2
+  have hmemFresh : ∀ a ∈ stored.take p.k, env.find? a.cvTa.name = none := by
+    intro a ha
+    have h := List.all_eq_true.mp I.hcaps a ha
+    rw [Bool.and_eq_true] at h
+    exact Option.isNone_iff_eq_none.mp h.2
+  have hmemMs : ∀ a ∈ stored.take p.k, a.cvTa.name ∈ p.memberNames := by
+    intro a ha
+    obtain ⟨i, hi⟩ := List.getElem?_of_mem ha
+    have hilt : i < p.k := by
+      have h := (List.getElem?_eq_some_iff.mp hi).1
+      rw [List.length_take] at h
+      omega
+    have hsi : stored[i]? = some a := by rw [← List.getElem?_take_of_lt hilt]; exact hi
+    obtain ⟨f, hf, hcveq, -, -⟩ := hcvA i _ hilt hsi
+    rw [← I.out.stage.names]
+    exact List.mem_map.mpr ⟨f,
+      List.mem_of_getElem? (by rw [List.getElem?_take_of_lt hilt]; exact hf), by rw [← hcveq]⟩
+  have hmemStored : ∀ n ∈ p.memberNames, ∃ a ∈ stored.take p.k, a.cvTa.name = n := by
+    intro n hn
+    rw [← I.out.stage.names] at hn
+    obtain ⟨f, hf, rfl⟩ := List.mem_map.mp hn
+    obtain ⟨i, hi⟩ := List.getElem?_of_mem hf
+    have hilt : i < p.k := by
+      have h := (List.getElem?_eq_some_iff.mp hi).1
+      rw [List.length_take] at h
+      omega
+    have hsi : stored[i]? = some stored[i] := List.getElem?_eq_getElem (by omega)
+    obtain ⟨f', hf', hcveq, -, -⟩ := hcvA i _ hilt hsi
+    have hfi : fms[i]? = some f := by rw [← List.getElem?_take_of_lt hilt]; exact hi
+    obtain rfl : f' = f := Option.some.inj (hf'.symm.trans hfi)
+    exact ⟨stored[i], List.mem_of_getElem? (by rw [List.getElem?_take_of_lt hilt]; exact hsi),
+      by rw [hcveq]⟩
+  have hfC : ∀ c ∈ ctorsR.flatten,
+      (ConLeche.consNestedFormers (stored.take p.k) env).find? c.1.name = none := by
+    intro c hc
+    obtain ⟨cs, hcs, hcin⟩ := List.mem_flatten.mp hc
+    obtain ⟨j, hj⟩ := List.getElem?_of_mem hcs
+    obtain ⟨hlenC, hallC⟩ := ConLeche.mapM_except_inv I.hctors
+    obtain ⟨a, cs', ha, hcs', hrun⟩ := hallC j (by
+      have h := (List.getElem?_eq_some_iff.mp hj).1
+      omega)
+    rw [hj] at hcs'
+    obtain rfl : cs = cs' := by simpa using hcs'
+    exact ConLeche.restoreCtors_fresh hrun c hcin
+  have hrecMs : ∀ x ∈ nestedStoreList p stored cvRms cvRns rulesM rulesN, ∀ n : Name,
+      x.1.name = n.str "rec" → n ∈ p.memberNames := by
+    intro x hx n hn
+    obtain ⟨c, hc, hcv, -, -, -⟩ := nestedStoreList_mem I.lenM hx
+    have hcb : c < b.k := by rw [hbk, ← I.lenN]; exact hc
+    rw [hcv] at hn
+    by_cases hck : c < p.k
+    · rw [I.recCvNameM hck] at hn
+      unfold ConLeche.MutualBlock.recName at hn
+      rw [I.memberNameAt hck] at hn
+      obtain rfl : n = (p.formers.getD c default).1.name := ((ConLeche.Name.str.inj hn).1).symm
+      have hpk : p.formers.length = p.k := rfl
+      refine List.mem_map.mpr ⟨p.formers[c]'(by rw [hpk]; exact hck), List.getElem_mem _, ?_⟩
+      rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem (by rw [hpk]; exact hck)]
+      rfl
+    · exfalso
+      have hj : c - p.k < pinsS.length := by omega
+      rw [show c = p.k + (c - p.k) from by omega, I.recCvNameN hj] at hn
+      simp only [ConLeche.NestedParts.mimicRecName, ConLeche.Name.appendIndexAfter] at hn
+      have hstr : "rec" ++ "_" ++ toString (c - p.k + 1) = "rec" := (ConLeche.Name.str.inj hn).2
+      have hlen := congrArg String.length hstr
+      rw [String.length_append, String.length_append] at hlen
+      have h1 : "_".length = 1 := rfl
+      omega
+  rw [I.henv] at hfC
+  have EF := consNestedFormers_installExt (Ms := p.memberNames) hmemFresh hmemMs
+  rw [I.henv] at EF
+  have EC := consNestedCtors_installExt (Ms := p.memberNames) (cs := ctorsR.flatten) hfC
+  have ER := storeNestedRecs_installExt (Ms := p.memberNames)
+    (l := nestedStoreList p stored cvRms cvRns rulesM rulesN)
+    (fun x hx => (I.storeDoor x hx).1) hrecMs
+  obtain ⟨newT, ET⟩ := nestedTables_installExt (Ms := p.memberNames) htblR
+    (fun e he => by rw [← hTLnames]; exact List.mem_map_of_mem he)
+  have EI := ((EF.trans EC).trans ER).trans ET
+  have hMs : ∀ n ∈ p.memberNames,
+      n ∈ (newT ++ ((((nestedStoreList p stored cvRms cvRns rulesM rulesN).map fun x =>
+        ConstantInfo.recInfo x.1 x.2.1 x.2.2.1 x.2.2.2).reverse ++
+        (((ctorsR.flatten.map fun c => ConstantInfo.ctorInfo c.1 c.2.1 c.2.2).reverse ++
+          ((stored.take p.k).map fun a =>
+            ConstantInfo.indInfo a.cvTa a.caps).reverse))))).map (·.name) := by
+    intro n hn
+    obtain ⟨a, ha, rfl⟩ := hmemStored n hn
+    rw [List.map_append, List.mem_append]; right
+    rw [List.map_append, List.mem_append]; right
+    rw [List.map_append, List.mem_append]; right
+    rw [List.map_reverse, List.mem_reverse, List.map_map]
+    exact List.mem_map_of_mem ha
+  have hMs₁₂ : ∀ n ∈ p.memberNames,
+      n ∈ (((ctorsR.flatten.map fun c => ConstantInfo.ctorInfo c.1 c.2.1 c.2.2).reverse ++
+        ((stored.take p.k).map fun a =>
+          ConstantInfo.indInfo a.cvTa a.caps).reverse)).map (·.name) := by
+    intro n hn
+    obtain ⟨a, ha, rfl⟩ := hmemStored n hn
+    rw [List.map_append, List.mem_append]; right
+    rw [List.map_reverse, List.mem_reverse, List.map_map]
+    exact List.mem_map_of_mem ha
+  have hmemFreshN : ∀ n ∈ p.memberNames, env.find? n = none := by
+    intro n hn
+    obtain ⟨a, ha, rfl⟩ := hmemStored n hn
+    exact hmemFresh a ha
+  -- **the agreements**
+  have hagE : AcvalAgrees mp₂.base2 mpOut.base2 := by
+    intro n hn
+    obtain ⟨c, hc⟩ := Option.isSome_iff_exists.mp hn
+    rw [hagT n (by rw [ER.toConsExt.ext n c hc]; rfl), hac₃]
+    refine hagP n fun t ht heq => ?_
+    have hfr := (I.recCvDoor (by rw [← I.kT]; exact ht)).1
+    rw [← heq, hc] at hfr
+    exact nomatch hfr
+  have hag₀ : AcvalAgrees mp.base2 mpOut.base2 := by
+    intro n hn
+    obtain ⟨c, hc⟩ := Option.isSome_iff_exists.mp hn
+    have hc₂ := EC.toConsExt.ext n c (EF.toConsExt.ext n c hc)
+    refine (hagE n (by rw [hc₂]; rfl)).trans (I.out.stage.agreeR n (fun cR hcR heq => ?_)
+      (fun t f ht hf heq => ?_))
+    · have := hfC cR hcR
+      rw [← heq, EF.toConsExt.ext n c hc] at this
+      exact nomatch this
+    · have hmem : f.cvTa.name ∈ p.memberNames := by
+        rw [← I.out.stage.names]
+        exact List.mem_map_of_mem
+          (List.mem_of_getElem? (by rw [List.getElem?_take_of_lt ht]; exact hf))
+      rw [← heq] at hmem
+      rw [hmemFreshN n hmem] at hc
+      exact nomatch hc
+  -- **the block's representation at the OUTPUT model**
+  have hndP : ((nestedProvList p stored cvRms cvRns).map (·.1.name)).Nodup := by
+    rw [nestedProvList_names I.lenM I.lenN I.storedLen hbk]
+    exact I.recNodup
+  have hFP := ConLeche.provisionNestedRecs_findPreserved (l := nestedProvList p stored cvRms cvRns)
+    I.provListFresh
+  have hagPs : ∀ n : Name, ((ConLeche.consNestedCtors ctorsR.flatten
+      (ConLeche.consMutualFormers (fms.take p.k) env)).find? n).isSome = true →
+      mpP.base2.acval n = mp₂.base2.acval n := by
+    intro n hn
+    refine hagP n fun t ht heq => ?_
+    have hfr := (I.recCvDoor (by rw [← I.kT]; exact ht)).1
+    rw [heq, hfr] at hn
+    simp at hn
+  have hrepsP : IsBlockModelsAt mpP.base2
+      (nestedBlockModel (V := V) p b fms f₀ ctorsA kinds env ppsF W idxF dsF esF srcsF fvsPF
+        xrestF eissF tssF ctorsR dsR xFvsR pinsS)
+      (fun mm => (fms.getD mm default).cvTa) :=
+    I.out.reps.crossEnv (fun n ci _ hf => hFP n ci hf)
+      (constsResolve_of_findPreserved (fun {n} {c} h => hFP n c h)) hagPs
+      (provisionNestedRecs_hde I.provListFresh hndP hagPs)
+  have hreps₃ : IsBlockModelsAt mp₃.base2
+      (nestedBlockModel (V := V) p b fms f₀ ctorsA kinds env ppsF W idxF dsF esF srcsF fvsPF
+        xrestF eissF tssF ctorsR dsR xFvsR pinsS)
+      (fun mm => (stored.getD mm default).cvTa) := by
+    refine IsBlockModelsAt.congr (fun c hc => ?_)
+      (hrepsP.crossEnv (fun n ci hnr hf => hcg.findUp n ci hf hnr)
+        (constsResolve_of_swapCongr hcg) (fun n _ => congrFun hac₃ n) (swap_hde hcg hac₃))
+    have hcp : c < p.k := hc
+    have hsi : stored[c]? = some stored[c] := List.getElem?_eq_getElem (by omega)
+    obtain ⟨f, hf, hcveq, -, -⟩ := hcvA c _ hcp hsi
+    rw [List.getD_eq_getElem?_getD, hsi, List.getD_eq_getElem?_getD, hf]
+    exact hcveq
+  have tcR : TableCross p.memberNames
+      (ConLeche.storeNestedRecs (nestedStoreList p stored cvRms cvRns rulesM rulesN)
+        (ConLeche.consNestedCtors ctorsR.flatten
+          (ConLeche.consMutualFormers (fms.take p.k) env))) envOut :=
+    nestedTables_cross _ htblR (fun e he => by rw [← hTLnames]; exact List.mem_map_of_mem he)
+  have hdeT : ∀ (ψ : Name → Nat) (dp : Nat) (e : Expr), ProjFree p.memberNames e →
+      ∀ {ea : AnnotTerm},
+      denoteMeta mp₃.base2.acval
+          (ConLeche.storeNestedRecs (nestedStoreList p stored cvRms cvRns rulesM rulesN)
+            (ConLeche.consNestedCtors ctorsR.flatten
+              (ConLeche.consMutualFormers (fms.take p.k) env))) ψ dp e = some ea →
+        denoteMeta mpOut.base2.acval envOut ψ dp e = some ea := by
+    intro ψ dp e hpf ea hr
+    rw [denoteMeta_acval_congr (fun n hn => (hagT n hn).symm) dp e] at hr
+    exact denoteMeta_env_mono_projFree tcR.find tcR.lit tcR.proj dp e hpf hr
+  have hslotM : ∀ T ∈ p.memberNames, ∀ i : Nat,
+      (ConLeche.consNestedFormers (stored.take p.k) env).findProj? T i = none := by
+    intro T hT i
+    rw [I.henv]
+    exact findProj?_none_consMutualFormers
+      (findProj?_none_of_indFresh mp.base2.proj_ok (hmemFreshN T hT) i)
+  have hctorSlots : ∀ (mm j : Nat) (c : ConstantVal × Nat × Nat), mm < p.k →
+      (ctorsR.getD mm [])[j]? = some c →
+      ConLeche.Expr.ProjSlotsOk (ConLeche.consNestedFormers (stored.take p.k) env) c.1.type := by
+    intro mm j c hmm hj
+    obtain ⟨hlenC, hallC⟩ := ConLeche.mapM_except_inv I.hctors
+    obtain ⟨a, cs, ha, hcs, hrun⟩ := hallC mm (by rw [List.length_take]; omega)
+    have hcsD : ctorsR.getD mm [] = cs := by rw [List.getD_eq_getElem?_getD, hcs]; rfl
+    rw [hcsD] at hj
+    obtain ⟨hlenD, hallD⟩ := ConLeche.restoreCtors_door hrun
+    obtain ⟨c0, hc0⟩ : ∃ c0, a.ctors[j]? = some c0 :=
+      ⟨_, List.getElem?_eq_getElem (by
+        have h := (List.getElem?_eq_some_iff.mp hj).1
+        omega)⟩
+    obtain ⟨ty, -, hfd, -, -⟩ := hallD j c0 c hc0 hj
+    exact hfd.slots
+  have hmemProj : ∀ c, c < p.k →
+      ProjFree p.memberNames (stored.getD c default).cvTa.type := by
+    intro c hc T hT i
+    obtain ⟨-, hposF⟩ := mutualFormers_nameFacts I.out.formers
+    have hsi : stored[c]? = some stored[c] := List.getElem?_eq_getElem (by omega)
+    obtain ⟨f, hf, hcveq, -, -⟩ := hcvA c _ hc hsi
+    have hgd : (stored.getD c default).cvTa = f.cvTa := by
+      rw [List.getD_eq_getElem?_getD, hsi]
+      exact hcveq
+    rw [hgd]
+    exact ConLeche.Expr.noProjAt_of_constsResolve (hmemFreshN T hT) _ (hposF c f hf).2.2.2.2.2
+  have hrepsOut : IsBlockModelsAt mpOut.base2
+      (nestedBlockModel (V := V) p b fms f₀ ctorsA kinds env ppsF W idxF dsF esF srcsF fvsPF
+        xrestF eissF tssF ctorsR dsR xFvsR pinsS)
+      (fun mm => (stored.getD mm default).cvTa) := by
+    intro c hc
+    obtain ⟨cvR, mI, rP, rules, hI⟩ := hreps₃ c hc
+    refine ⟨cvR, mI, rP, rules, hI.crossEnvG (fun n ci _ hf => tcR.find hf)
+      (constsResolve_of_findPreserved tcR.find) hagT hdeT (hmemProj c hc) ?_⟩
+    intro mm' j cA hmm' hj
+    rw [I.out.record.ctors mm' hmm', List.getElem?_map] at hj
+    cases hcj : (ctorsR.getD mm' [])[j]? with
+    | none => rw [hcj] at hj; exact nomatch hj
+    | some cR =>
+      rw [hcj] at hj
+      obtain rfl : cA = (cR.1, cR.2.2) := (Option.some.inj hj).symm
+      exact fun T hT i =>
+        ConLeche.Expr.ProjSlotsOk.noProjAt (hslotM T hT i) _ (hctorSlots mm' j cR hmm' hcj)
+  -- **the pins' containers**
+  have hpinStored : ∀ q, q < pinsS.length → ∃ ci : ContainerInfo,
+      ConLeche.containerInfo? env ((nestedBlockModel (V := V) p b fms f₀ ctorsA kinds env ppsF W
+          idxF dsF esF srcsF fvsPF xrestF eissF tssF ctorsR dsR xFvsR pinsS).pinAt q).J
+        = some ci := by
+    intro q hq
+    have hql : q < st.pins.length := by rw [← I.out.record.nPins]; exact hq
+    have hpq : st.pins[q]? = some st.pins[q] := List.getElem?_eq_getElem hql
+    obtain ⟨hJ, -⟩ := I.out.record.pin q _ hpq
+    obtain ⟨ci, hci, -⟩ := (ConLeche.nestedContainersOk_group I.hcont).2 _
+      (List.mem_of_getElem? hpq)
+    exact ⟨ci, by rw [hJ]; exact hci⟩
+  have E₁₂ := EF.trans EC
+  have hci₂ : ∀ (J : Name) (ci : ContainerInfo), ConLeche.containerInfo? env J = some ci →
+      ConLeche.containerInfo? (ConLeche.consNestedCtors ctorsR.flatten
+        (ConLeche.consMutualFormers (fms.take p.k) env)) J = some ci := by
+    intro J ci hci
+    obtain ⟨cv, caps, hf⟩ := containerInfo?_found hci
+    rw [ConLeche.containerInfo?_ext_ind_eq E₁₂.toConsExt.ext E₁₂.toConsExt.newN
+      E₁₂.toConsExt.freshN (E₁₂.recN hMs₁₂) mp.base2.wf mp.base2.rec_ctors
+      (I := J) (fun hJ => by rw [E₁₂.toConsExt.freshN J hJ] at hf; exact nomatch hf)]
+    exact hci
+  have hciOut : ∀ (J : Name) (ci : ContainerInfo), ConLeche.containerInfo? env J = some ci →
+      ConLeche.containerInfo? envOut J = some ci := by
+    intro J ci hci
+    obtain ⟨cv, caps, hf⟩ := containerInfo?_found hci
+    rw [ConLeche.containerInfo?_ext_ind_eq EI.toConsExt.ext EI.toConsExt.newN
+      EI.toConsExt.freshN (EI.recN hMs) mp.base2.wf mp.base2.rec_ctors
+      (I := J) (fun hJ => by rw [EI.toConsExt.freshN J hJ] at hf; exact nomatch hf)]
+    exact hci
+  -- **the seven fields**
+  refine ⟨mpOut, ⟨_, EI, hMs⟩, hag₀, hagE, ?_, hrepsOut, ?_, ?_⟩
+  · intro n c _ hf
+    exact ET.toConsExt.ext n c (ER.toConsExt.ext n c hf)
+  · intro q hq ci hci
+    obtain ⟨ci₀, hci₀⟩ := hpinStored q hq
+    obtain rfl : ci = ci₀ := Option.some.inj (hci.symm.trans (hci₂ _ _ hci₀))
+    exact I.out.stage.groupsAt q hq ci hci₀
+  · intro q hq
+    obtain ⟨ci₀, hci₀⟩ := hpinStored q hq
+    exact ⟨ci₀, hci₂ _ _ hci₀, hciOut _ _ hci₀, hci₀⟩
+
+/-- **THE CONSUMER** (consumer-first): the recursors' stage of a nested
+block closes `NestedTailModeled` — the readings and the equations are
+K.36's alone (`nestedTailModeled_of_stage`), and the stage proper is
+this lane's, modulo K.50 and the recorded tables' data. -/
+theorem nestedTailModeled_of_three {F : Nat} (hbits : NestedRuleBitsOf μ F)
+    (hK36 : NestedCtorPinNamesOf μ F) (htbls : NestedTablesDataOf V μ F) :
+    NestedTailModeled V μ F :=
+  nestedTailModeled_of_stage hK36 (nestedRecsStored_of hbits hK36 htbls)
 
 end ConLeche.Model
