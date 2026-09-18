@@ -449,6 +449,79 @@ theorem targetRead_of_pin {acval : Name → (Name → Nat) → AnnotTerm} {membe
           ((pins.getD (t - k) default).Ds ψ) := by
   simp only [targetRead, if_neg ht]
 
+/-- **THE TARGETS' READINGS AT A GIVEN COMPONENT FAMILY** (task #315
+L-E, the COLLAPSE of the pin-target arms): `targetRead` with the pins'
+components supplied as an argument instead of read off the recorded
+pin.
+
+**Why this is the collapse and not another re-basing.**  The restated
+ordinary-field case was splitting three ways by the head of the
+CONTAINER's field domain — parameter-headed bare, parameter-headed
+applied, constant-headed at an earlier container.  Each arm was
+answering the same question, "what does this field's domain evaluate to
+at the candidate frame", by RECOMPUTING it from the container's syntax,
+and the recomputation is what branched.  The elimination has already
+computed it: `nestedPinRewrites` (K.51,
+`ConLeche/Kernel/Inductives/NestedInstall.lean`) certifies that the
+normalised MINTED domain, rewritten by `replaceAllNested` at the final
+state, IS the domain the auxiliary install stored — over exactly the
+fields that carry an edge, and with no head analysis anywhere.  Stated
+over that image the answer is read off, the head never appears, and the
+target becomes an INDEX rather than a case.
+
+Note the shape of the two branches here: BOTH are `mkAppN (acval …) …`,
+differing only in which constant names the target and what it is applied
+to.  That was already true of `targetRead`; what the generalisation adds
+is that the pin branch no longer forces the recorded components.
+
+**IT BUYS THE ORDERING QUESTION NOTHING, and the next reader's first
+instinct will be that it should.**  K.51 is a SYNTACTIC identity between
+two terms whose interpretations differ by how the copy constants are
+read: as the auxiliary carrier it gives the candidate frame, as the
+containers' least tuples the true one.  So a certified syntactic chain
+settles the collapse and says nothing whatever about which pin must be
+settled before which — the candidate-to-true bridge still needs its own
+well-founded induction, over a relation whose union with the
+declaration order is cyclic on an accepted fixture. -/
+@[expose] def targetReadAt (acval : Name → (Name → Nat) → AnnotTerm) (memberNames : List Name)
+    (pins : List PinSyn) (cDs : Nat → (Name → Nat) → List AnnotTerm)
+    (nP k : Nat) (ψ : Name → Nat) (t : Nat) : AnnotTerm :=
+  if t < k then AnnotTerm.mkAppN (acval (memberNames.getD t .anonymous) ψ) (paramBvarsAt nP nP)
+  else AnnotTerm.mkAppN (acval (pins.getD (t - k) default).J ((pins.getD (t - k) default).ψJ ψ))
+    (cDs (t - k) ψ)
+
+/-- **The recorded components, as a family** — what today's
+`targetRead` supplies. -/
+@[expose] def recordedDs (pins : List PinSyn) (q : Nat) (ψ : Name → Nat) : List AnnotTerm :=
+  (pins.getD q default).Ds ψ
+
+omit [SetTheory V] in
+/-- **Today's reading IS the general one at the recorded components**
+(task #315 L-E).  Definitional, so every consumer of `targetRead`
+specialises back with no rewriting — the collapse is conservative by
+construction, exactly as `pinLfp_eq_pinLfpAt` is. -/
+theorem targetRead_eq_targetReadAt (acval : Name → (Name → Nat) → AnnotTerm)
+    (memberNames : List Name) (pins : List PinSyn) (nP k : Nat) (ψ : Name → Nat) (t : Nat) :
+    targetRead acval memberNames pins nP k ψ t
+      = targetReadAt acval memberNames pins (recordedDs pins) nP k ψ t := by rfl
+
+omit [SetTheory V] in
+theorem targetReadAt_of_mem {acval : Name → (Name → Nat) → AnnotTerm} {memberNames : List Name}
+    {pins : List PinSyn} {cDs : Nat → (Name → Nat) → List AnnotTerm} {nP k : Nat}
+    {ψ : Name → Nat} {t : Nat} (ht : t < k) :
+    targetReadAt acval memberNames pins cDs nP k ψ t
+      = AnnotTerm.mkAppN (acval (memberNames.getD t .anonymous) ψ) (paramBvarsAt nP nP) := by
+  simp only [targetReadAt, if_pos ht]
+
+omit [SetTheory V] in
+theorem targetReadAt_of_pin {acval : Name → (Name → Nat) → AnnotTerm} {memberNames : List Name}
+    {pins : List PinSyn} {cDs : Nat → (Name → Nat) → List AnnotTerm} {nP k : Nat}
+    {ψ : Name → Nat} {t : Nat} (ht : ¬ t < k) :
+    targetReadAt acval memberNames pins cDs nP k ψ t
+      = AnnotTerm.mkAppN (acval (pins.getD (t - k) default).J ((pins.getD (t - k) default).ψJ ψ))
+          (cDs (t - k) ψ) := by
+  simp only [targetReadAt, if_neg ht]
+
 /-! ## The identities of one copy's constructor, entry-free -/
 
 section Shape

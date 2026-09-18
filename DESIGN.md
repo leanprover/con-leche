@@ -105997,3 +105997,105 @@ path, is (a)'s: one tagged line per edge from inside the install, the
 real driver, one process per input, counters in the shell.
 
 Nothing in this section changes the tree.
+
+#### (number at the integrator's sync) — L-E: the collapse's VOCABULARY landed, and why the declaration-order consequence is NOT yet confirmable (lane L-E, 2026-09-18)
+
+The collapse lemma was put ahead of everything downstream.  Writing it
+exposed a dependency worth reporting before the work rather than after:
+**the lemma's STATEMENT mentions the candidate components**, so it
+cannot be written entirely ahead of `candDs`.  What can — and what this
+session landed — is the vocabulary in which it is stated, generalised
+exactly as `pinLfpAt` and `pinTarget_reads_at` were, so that `candDs`
+arrives as an argument rather than as a rewrite of the consumers.
+
+##### (a) LANDED — `targetReadAt`, and today's reading as its instance
+
+`ConLeche/Model/Inductives/NestedFit.lean`: `targetReadAt` is
+`targetRead` with the pins' components a parameter; `recordedDs` is
+today's family; `targetRead_eq_targetReadAt` is definitional, so every
+consumer specialises back with no rewriting.  `targetReadAt_of_mem` and
+`targetReadAt_of_pin` replace the two branch lemmas.
+
+The docstring carries the caveat where the next reader will meet it,
+not only in this record: **K.51 is a syntactic identity between two
+terms whose interpretations differ by how the copy constants are read**
+— as the auxiliary carrier it gives the candidate frame, as the
+containers' least tuples the true one — so a certified syntactic chain
+settles the collapse and says nothing about which pin must be settled
+before which.  It buys G1 nothing.
+
+One structural observation worth recording, because it is evidence the
+collapse is real rather than wished for: `targetRead`'s two branches
+were ALREADY the same shape, `mkAppN (acval …) …`, differing only in
+which constant names the target and what it is applied to.  And the
+composed-block vocabulary already unifies the two index universes
+(`nestedU`) and the two index telescopes (`blockIds`, indexed by `t`
+across members and copies alike).  The uniformity the collapse needs was
+in the tree; the three-way split was above it.
+
+##### (b) WHAT THE COLLAPSE LEMMA STILL IS, precisely
+
+> `interp ρp` of the container's field domain reading, with the
+> container's parameters at the CANDIDATE components, equals `interp ρp`
+> of the auxiliary block's STORED field domain reading.
+
+Head-free: its proof is substitution/interpretation commutation plus
+whnf-preservation, with K.51 supplying the syntactic chain
+(substitute → normalise → rewrite) as a certified equality rather than
+something the tier re-derives.  Both dispatch on the WALK's recursion —
+congruence at every node but the replaced one.
+
+##### (c) THE DECLARATION-ORDER CONSEQUENCE — STILL FLAGGED, and now with a reason rather than a hunch
+
+The instruction was to confirm it from the WRITTEN lemma.  The lemma is
+not written — only its vocabulary is — so the consequence is not
+confirmed, and **K.57 must not be revisited on this lane's word.**
+
+What writing the statement DID establish, and it is evidence rather
+than confirmation: the collapsed form carries **no hypothesis at another
+pin**.  Today's pair of leaf laws is two statements at two DIFFERENT
+carriers — `memberTarget_reads` concludes at the block's own
+`lfpTuple … p.k`, `pinTarget_reads` at the CONTAINER's least tuple — and
+it is that difference, not the domain's head, that made the
+constant-headed arm reach for a hypothesis at another pin.  At one
+carrier the reach has nowhere to go.
+
+But the reach could reappear inside the proof of (b), and that is
+exactly where this lane has been wrong before.  So the sequence is: write
+(b), then look at what its proof consumes, then report.  **If (b) closes
+without a hypothesis at another pin, step (iii)'s induction is gone and
+K.57's only consumer with it** — which is a ledger question for the
+kernel lane and not a change this lane should make.
+
+##### (d) THE MEASUREMENT'S STATUS, kept distinguishable
+
+G1's thirteen containment pairs with none non-decreasing are
+**diagnostic**: they say the term-size measure is not obviously wrong and
+that containment is neither the edge relation nor the pin-index order.
+What will CLOSE G1's well-foundedness is the argument — a pin's reading
+is a proper subterm of a component of the pin that contains it, and its
+own components are proper subterms of that reading — not the count.  The
+count appears in no proof.
+
+The same distinction applies to the head-shape histogram, which is now
+diagnostic only and gates nothing.
+
+##### (e) INIT-FULL, worth keeping
+
+Exactly ONE nested block in the whole of init-full (`Lean.Syntax`, over
+`Array` and `List`), cross-checked against a direct count of the
+stream's records: 587 at `numNested = 0`, one at `2`.  **Our fixture
+corpus, not init-full, is what carries nested coverage.**  That is an
+argument for the missing fixtures already on the docket, not for more
+corpus runs.
+
+##### (f) THE PROBE'S DEFECT, one line for the next person
+
+A fixture-scale probe that folds the install in process must NOT pass
+the in-model flag to keep the fold running past the first nested block:
+the modeller then generates a model block per nested block into the same
+declaration array, which buys nothing for a question read BEFORE the
+install.  The serial in-process fold is why such a probe does not scale;
+that flag is the avoidable half.
+
+Nothing in this section changes the tree.
