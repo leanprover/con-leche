@@ -89305,3 +89305,116 @@ it is the simulation (cached success → pure success) and needs no
 skeleton and no chain.  It is also the largest of the three (the
 mutual counterpart is 176 lines against 88 and 65) and the only one the
 capstones consume.
+
+#### THE UNCONDITIONAL MAJOR-PREMISE SHAPE: sized, the MUTUAL route PROVED, and the blocker is the MODELED route (2026-09-18, task #315 M8 session 5, `agent/uniform-m5`)
+
+The crossing's premise — the stored recursor's type, stripped at its
+major index, has a domain headed by a CONSTANT, unconditionally, for
+every stored recursor.  The ruling was to prefer strengthening `ConstWF`
+over a standalone premise, and to size it across the routes before
+committing.  Sized, and one route proved.
+
+##### (a) IT IS A PROPERTY OF THE GENERATORS, not of the stream
+
+The decisive fact about the tree: **no live route stores the stream's
+recursor type.**  `checkNativeRec` builds `structRecTyR`'s output and
+requires the stream's record to be DEFEQ to it
+(`NativeInstall.lean`: `cvRa := ⟨p.cvR.name, p.cvR.levelParams,
+recTy⟩`); the mutual route does the same through `mutualRecTy`; the
+nested route stores the RESTORE of the auxiliary block's generated
+type; the basis blocks and `Quot` are literals.  So the premise is a
+statement about the generators, and it holds by construction:
+`structFamI T lps … = Expr.mkAppN (.const T (lps.map .param)) …`.
+
+##### (b) LANDED: the mutual route's lemma, in thirty lines
+
+`mutualRecTy_major` (`Verify/Inductives/NestedRecDoor.lean`) is
+`mutualRecTy_stripPis`' sibling stopping ONE binder earlier — at
+`nP + k + n + f.nIdx` rather than `+ 1` — so the major premise itself is
+exposed as `.forallE dom body bm` with
+`dom.getAppFn = .const f.name (lps.map .param)`.  The proof is the
+existing chain minus its last `stripPis_append`, and the head comes off
+`structFamI` by `getAppFn_mkAppN`.  **No rule, no fire, no `.nested`
+guard** — which is the whole point of the request.
+
+##### (c) THE SIZING, route by route
+
+| route | what it stores | cost |
+| --- | --- | --- |
+| mutual | `mutualRecTy`'s output | **DONE**, ~30 lines |
+| native | `structRecTyR`'s output | ~30–60: `structRecTyR_unfold` exists, `structMinorsPisR`'s strip lemma may need writing |
+| nested | `restoreNested` of the auxiliary type | ~1 session: needs "the restore keeps the head a constant"; the `NestedRestoreOpen` kit and K.35's own `stripPis` reading are the material |
+| basis (5 blocks) + `Quot` | literals | `rfl`/`decide` per block |
+| the cached mirrors | the `F`-twins | `_eq` transports |
+| **MODELED** | **the STREAM's type, annotated** | **NOT PROVABLE** — see (d) |
+
+So **2–3 sessions for the live routes**, which is smaller than the
+estimate I gave, because the generators' shapes are already unfolded in
+the tree.
+
+##### (d) THE BLOCKER: the modeled route stores a type nothing generated
+
+`provisionRecs` (`Kernel/Inductives/Modeled.lean`) stores
+`.recInfo cvA mI rP []` with `cvA` the STREAM's record through
+`checkMemberVal` — no generation, and no check of the major premise's
+head anywhere on that path (the `getAppFn` test at `Modeled.lean:263`
+is the iota certification's CONSTRUCTOR residual, not the recursor's
+major premise).  So the clause is a property of the stream there, and
+**`ConstWF` cannot be strengthened while the modeled arm is in the
+dispatch** — the same shape as M8's own blocker: an arm that is not to
+be proved but deleted.
+
+**MEASURED, on the fixed binary** (a probe at that store site, testing
+`stripPis mI` and the domain's head; reverted):
+
+* every `tests/e2e` fixture and every arena test, good and bad: **0
+  hits**;
+* `init-full`: **0**, 53 093 accepted;
+* Mathlib: **0**, 654 504 accepted.
+
+So a guard there would be VACUOUS on every corpus, and the honest
+category is **(B)** — true by construction of official's own
+generators, since official's generated recursor takes the family
+application as its major premise.  A fire would be a stream official
+accepted whose recursor declares a major premise that is not an
+application of a constant: a genuine finding about the reference
+kernel, not about us.
+
+**Two ways to proceed, and the choice is the maintainer's**: land the
+clause after 2e (cheapest, and the modeled route is going anyway), or
+add that one `unless` to `provisionRecs` now so the clause can land
+before it — measured vacuous, category (B), and it would be the second
+(B) row in the ledger.
+
+##### (e) LANE L-E's SECOND MEASUREMENT: the NOT-OWN edges alone are ACYCLIC
+
+The question, and it is NOT the one already answered: is the graph of
+the **not-own edges alone** acyclic on accepted blocks?  The
+equal-instance-label count came off `nestedPinArcs` — the AUGMENTED
+graph, with the own edges symmetrised and the mint groups joined — and
+says nothing about this.  **The graph measured here is the plain
+not-own arc list**, `(edges.filter (!·.own)).map (source, target)`, with
+no own edge and no group join, and reachability by `nestedReach` over
+exactly those arcs.
+
+| corpus | blocks | not-own arcs | blocks with arcs | **blocks with a cycle** |
+| --- | --- | --- | --- | --- |
+| the 36 shadow rows | 42 runs | 16 | 12 | **0** |
+| the Mathlib nested cone | 41 | 76 | 35 | **0** |
+
+**Ninety-two not-own arcs across forty-seven block-runs, and not one
+cycle.**  The discriminating case is `nested_p04`, whose three copies
+DO cycle in the augmented graph (§ the K.37 record): its not-own arcs
+are `[(1,2), (2,0)]` — no cycle, because the closing edge `(0,1)` is an
+OWN edge.  So the two graphs genuinely differ at the corpus's hardest
+block, which is why the distinction had to be measured rather than
+inherited.
+
+**So a route exists** for L-E's in-instance case: the not-own relation
+is a well-founded measure on every block either corpus contains, and
+the remaining work is re-cutting the transfer to prove an instance's
+pins in that order rather than simultaneously.  What this measurement
+does NOT give is a proof of acyclicity — it is a corpus fact, so a
+record over it would be a Bool with a ledger row (the rank machinery
+already computes reachability, so it would cost one more pass over data
+it has), not a theorem.
