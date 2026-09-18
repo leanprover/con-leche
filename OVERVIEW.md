@@ -597,7 +597,7 @@ Inductive blocks are not trusted from the stream. Three cases:
   whose two named facts — the stages up to the recursors keep the
   model and leave the block model, the projection tables keep it from
   there — are proved
-  ([theorem `declMutual` in `ConLeche/Model/Inductives/MutualTables.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Inductives/MutualTables.lean#L305)).
+  ([theorem `declMutual` in `ConLeche/Model/Inductives/MutualTables.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Inductives/MutualTables.lean#L310)).
 * **Nested blocks** are handled by an in-process modeller
   (`ConLeche/Frontend/InModel/*`): at parse time the checker generates,
   over its own `Expr`, a *model* of the block, an auxiliary family plus

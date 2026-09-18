@@ -85,6 +85,22 @@ theorem swapNResS_provision_store_nested :
       rw [find?_cons_of_name_ne (c := ConstantInfo.recInfo cvRa mI rP rules) hn] at h₃
       exact h n cv mI' rP' rules' h₀ h₃
 
+/-- A name free after the store's conses was free before them: the
+stage only ADDS recursors (`consNestedFormers_find?_none`'s twin at
+`storeNestedRecs`). -/
+theorem storeNestedRecs_find?_none :
+    ∀ {l : List (ConstantVal × Nat × Nat × List RecRule)} {env : Env} {n : Name},
+      (ConLeche.storeNestedRecs l env).find? n = none → env.find? n = none
+  | [], _, _, h => h
+  | (cvRa, mI, rP, rules) :: rest, env, n, h => by
+    simp only [ConLeche.storeNestedRecs] at h
+    have h' : (Env.mk (.recInfo cvRa mI rP rules :: env.consts)).find? n = none :=
+      storeNestedRecs_find?_none h
+    rw [ConLeche.Env.find?_cons] at h'
+    split at h'
+    · exact nomatch h'
+    · exact h'
+
 /-- The store's lookups: the base environment's, or one of the stored
 recursors. -/
 theorem storeNestedRecs_find?_inv :
