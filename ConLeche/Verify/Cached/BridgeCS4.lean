@@ -57,6 +57,32 @@ theorem bindC_ok {α β : Type} {x : CheckCM α} {k : α → CheckCM β}
     rw [hx] at h
     exact ⟨a, s₁, rfl, h⟩
 
+/-- **A GRADED FRONT DOOR, DESTRUCTURED** (task #315 M8): `do`-notation
+pushes the bind INSIDE an `if`, so a stage that picks its first action
+by a `Bool` — the annotation grade — is two binds of one continuation
+rather than one bind of an `ite`.  This turns that shape back into "the
+front door ran, then the tail did", which is what lets a grade-generic
+run proof keep ONE copy of the tail. -/
+theorem bindC_ite_ok {α β : Type} {c : Bool} {m₁ m₂ : CheckCM α} {k : α → CheckCM β}
+    {s₀ : CState} {v : β} {s' : CState}
+    (h : (if c = true then m₁ >>= k else m₂ >>= k) s₀ = .ok (v, s')) :
+    ∃ a s₁, (if c = true then m₁ else m₂) s₀ = .ok (a, s₁) ∧ k a s₁ = .ok (v, s') := by
+  cases c
+  · simp only [Bool.false_eq_true, if_false] at h ⊢
+    exact bindC_ok h
+  · simp only [if_true] at h ⊢
+    exact bindC_ok h
+
+/-- The same shape on the PURE side: a graded front door whose answer
+is known reduces the whole `ite`-of-binds to the tail. -/
+theorem iteBindE_eq {α β : Type} {c : Bool} {m₁ m₂ : Except CheckError α}
+    {k : α → Except CheckError β} {a : α}
+    (h : (if c = true then m₁ else m₂) = .ok a) :
+    (if c = true then m₁ >>= k else m₂ >>= k) = k a := by
+  cases c <;>
+    simp only [Bool.false_eq_true, if_false, if_true] at h ⊢ <;>
+    rw [h] <;> rfl
+
 theorem pureC_ok {α : Type} {a : α} {s₀ : CState} {v : α} {s' : CState}
     (h : (pure a : CheckCM α) s₀ = .ok (v, s')) : a = v ∧ s₀ = s' := by
   simp only [pure, StateT.pure, Except.pure, Except.ok.injEq,

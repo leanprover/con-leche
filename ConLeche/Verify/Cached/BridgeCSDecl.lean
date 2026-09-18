@@ -772,33 +772,33 @@ section MutualMirrors
 variable {m : Type → Type} [Monad m] [MonadExceptOf CheckError m]
 
 theorem normCtorValMF_eq (ops : CheckerOps m) (env : Env) (memberNames : List Name)
-    (nP nF : Nat) (cvC cvCa : ConstantVal) :
-    normCtorValMF ops (mkFEnv env) memberNames nP nF cvC cvCa
-      = normCtorValM ops env memberNames nP nF cvC cvCa := by
+    (nP nF : Nat) (cvC cvCa : ConstantVal) (g : Bool) :
+    normCtorValMF ops (mkFEnv env) memberNames nP nF cvC cvCa g
+      = normCtorValM ops env memberNames nP nF cvC cvCa g := by
   simp only [normCtorValMF, normCtorValM, mkFEnv_env, checkConstantValF_eq,
-    Bool.false_eq_true, if_false]
+    checkConstantValPreF_eq]
 
 theorem checkMutualCtorF_eq (ops : CheckerOps m) (env : Env) (memberNames : List Name)
     (T : Name) (lps : List Name) (nP nIdx : Nat) (resSort : Level) (isProp large : Bool)
-    (cvC : ConstantVal) (nF : Nat) (cvTa : ConstantVal) :
+    (cvC : ConstantVal) (nF : Nat) (cvTa : ConstantVal) (g : Bool) :
     checkMutualCtorF ops .plain (mkFEnv env) memberNames T lps nP nIdx resSort isProp large
-        cvC nF cvTa
-      = checkMutualCtor ops env memberNames T lps nP nIdx resSort isProp large cvC nF cvTa := by
-  simp only [checkMutualCtorF, checkMutualCtor, checkConstantValF_eq, normCtorValMF_eq,
-    Bool.false_eq_true, if_false,
+        cvC nF cvTa g
+      = checkMutualCtor ops env memberNames T lps nP nIdx resSort isProp large cvC nF cvTa g := by
+  simp only [checkMutualCtorF, checkMutualCtor, checkConstantValF_eq,
+    checkConstantValPreF_eq, normCtorValMF_eq,
     checkStructDomsAtFA_eq, checkStructDomsAtF_eq, openPisAtFvarsF_eq,
     checkStructFieldSortsIFA_eq, checkStructFieldSortsIF_eq, StructWalkers.plain,
     constsResolveF_eq]
 
 theorem checkMutualCtorsF_eq (ops : CheckerOps m) (env : Env) (b : MutualBlock)
-    (fms : List MutualFormerA) (isProp : Bool) :
+    (fms : List MutualFormerA) (isProp : Bool) (g : Bool) :
     ∀ (cs : List MutualCtor),
-      checkMutualCtorsF ops .plain (mkFEnv env) b fms isProp false cs
-        = checkMutualCtors ops env b fms isProp false cs
+      checkMutualCtorsF ops .plain (mkFEnv env) b fms isProp g cs
+        = checkMutualCtors ops env b fms isProp g cs
   | [] => rfl
   | c :: cs => by
     simp only [checkMutualCtorsF, checkMutualCtors, checkMutualCtorF_eq,
-      checkMutualCtorsF_eq ops env b fms isProp cs]
+      checkMutualCtorsF_eq ops env b fms isProp g cs]
 
 theorem checkMutualRecTyF_eq (ops : CheckerOps m) (env : Env) (b : MutualBlock)
     (formers4 : List MutualFormer) (ctors4 : List MutualCtor4) (mIdx : Nat)
@@ -1008,13 +1008,13 @@ theorem mutualTablesS_run {b : MutualBlock} {ctorsA : List (ConstantVal × Nat)}
 former is checked at the SAME index — the block's starting one — so
 one memo invariant carries the whole stage, and the pure comparand is
 `mutualFormerChecks` at that one environment. -/
-theorem mutualFormerChecksS_run (hμ : mode.verifiedChecks = true) {nP : Nat} :
+theorem mutualFormerChecksS_run (hμ : mode.verifiedChecks = true) {nP : Nat} (g : Bool) :
     ∀ (l : List (ConstantVal × Nat)) (env : Env) {s₀ : CState}
       {fms : List MutualFormerA} {s' : CState},
       EnvWF env → CSOK mode env s₀ →
-      mutualFormerChecksS mode (mkFEnv env) nP false l s₀ = .ok (fms, s') →
+      mutualFormerChecksS mode (mkFEnv env) nP g l s₀ = .ok (fms, s') →
       CSOK mode env s' ∧ (∀ f ∈ fms, f.cvTa.type.hasFvar = false) ∧
-      ∃ F, mutualFormerChecks (fueledOps mode F) env nP false l = .ok fms
+      ∃ F, mutualFormerChecks (fueledOps mode F) env nP g l = .ok fms
   | [], env, s₀, fms, s', _, hs, h => by
     unfold mutualFormerChecksS at h
     obtain ⟨hr, rfl⟩ := pureC_ok h
@@ -1022,12 +1022,28 @@ theorem mutualFormerChecksS_run (hμ : mode.verifiedChecks = true) {nP : Nat} :
     exact ⟨hs, (fun f hf => nomatch hf), 0, rfl⟩
   | (cv, nIdx) :: rest, env, s₀, fms, s', henv, hs, h => by
     unfold mutualFormerChecksS at h
-    -- the constant check and official's telescope, both at `env`
-    simp only [Bool.false_eq_true, if_false] at h
-    rw [checkConstantValF_eq] at h
-    obtain ⟨cvTa₀, s₂, hcv, h⟩ := bindC_ok h
-    obtain ⟨hs₂, cvTa₀', hP₀, F₁, hF₁⟩ := (checkConstantValS_sim hμ henv hs) cvTa₀ s₂ hcv
-    obtain ⟨rfl, hw₀⟩ := hP₀
+    -- THE GRADED FRONT DOOR, then official's telescope, both at `env`
+    obtain ⟨cvTa₀, s₂, hcv, h⟩ := bindC_ite_ok h
+    obtain ⟨hs₂, hw₀, hTf₀, F₁, hF₁⟩ :
+        CSOK mode env s₂ ∧ Expr.WScoped 0 cvTa₀.type ∧ cvTa₀.type.hasFvar = false ∧
+          ∃ F, (if g = true then checkConstantValPre (fueledOps mode F) env cv
+            else checkConstantVal (fueledOps mode F) env cv) = .ok cvTa₀ := by
+      cases g
+      · simp only [Bool.false_eq_true, if_false] at hcv ⊢
+        rw [checkConstantValF_eq] at hcv
+        obtain ⟨hs₂, cvTa₀', hP₀, F₁, hF₁⟩ := (checkConstantValS_sim hμ henv hs) cvTa₀ s₂ hcv
+        obtain ⟨rfl, hw₀⟩ := hP₀
+        have hF₁' : checkConstantVal (fueledOps mode F₁) env cv = .ok cvTa₀ := by
+          rw [← checkConstantVal_datF]; exact hF₁
+        exact ⟨hs₂, hw₀, (checkConstantVal_typeWF hF₁').1, F₁, hF₁'⟩
+      · simp only [if_true] at hcv ⊢
+        rw [checkConstantValPreF_eq] at hcv
+        obtain ⟨hs₂, cvTa₀', hP₀, F₁, hF₁⟩ := (checkConstantValPreS_sim hμ henv hs) cvTa₀ s₂ hcv
+        obtain ⟨rfl, hw₀⟩ := hP₀
+        have hF₁' : checkConstantValPre (fueledOps mode F₁) env cv = .ok cvTa₀ := by
+          rw [← checkConstantValPre_datF]; exact hF₁
+        exact ⟨hs₂, hw₀, (FrontDoorFacts.ofPre hF₁').noFvar, F₁, hF₁'⟩
+    simp only [] at h
     rw [checkSumTeleF_pushC] at h
     obtain ⟨q, s₃, hte, h⟩ := bindC_ok h
     obtain ⟨hs₃, q', hPq, F₂, hF₂⟩ := (checkSumTeleS_sim hμ henv hs₂ hw₀) q s₃ hte
@@ -1052,17 +1068,16 @@ theorem mutualFormerChecksS_run (hμ : mode.verifiedChecks = true) {nP : Nat} :
     have hF₂p : checkSumTele (fueledOps mode (max F₁ F₂)) env cv (nP + nIdx) cvTa₀
         = .ok (cvTa, sx) := by
       rw [← checkSumTele_datF]; exact FueledM.up (Nat.le_max_right _ _) hF₂
-    have hF₁p : checkConstantVal (fueledOps mode (max F₁ F₂)) env cv = .ok cvTa₀ := by
-      rw [← checkConstantVal_datF]; exact FueledM.up (Nat.le_max_left _ _) hF₁
-    obtain ⟨cv', hccv'⟩ : ∃ cv',
-        checkConstantVal (fueledOps mode (max F₁ F₂)) env cv' = .ok cvTa := by
+    -- the stored type is fvar-free whichever branch the telescope took:
+    -- the door's own output at the identity branch, the re-check's at
+    -- the other — and the FRONT DOOR's grade does not enter
+    have hTf : cvTa.type.hasFvar = false := by
       rcases checkSumTele_shape hF₂p with ⟨rfl, -⟩ | ⟨ty, hccv⟩
-      · exact ⟨cv, hF₁p⟩
-      · exact ⟨{ cv with type := ty }, hccv⟩
-    have hTf : cvTa.type.hasFvar = false := (checkConstantVal_typeWF hccv').1
+      · exact hTf₀
+      · exact (checkConstantVal_typeWF hccv).1
     -- the rest of the stage, at the SAME environment
     obtain ⟨q2, s₄, hrec, h⟩ := bindC_ok h
-    obtain ⟨hs₄, hall, F₃, hF₃⟩ := mutualFormerChecksS_run hμ rest env henv hs₃ hrec
+    obtain ⟨hs₄, hall, F₃, hF₃⟩ := mutualFormerChecksS_run hμ g rest env henv hs₃ hrec
     obtain ⟨hr, rfl⟩ := pureC_ok h
     subst hr
     obtain ⟨G, hle₁, hle₂, hle₃⟩ : ∃ G, F₁ ≤ G ∧ F₂ ≤ G ∧ F₃ ≤ G :=
@@ -1072,18 +1087,23 @@ theorem mutualFormerChecksS_run (hμ : mode.verifiedChecks = true) {nP : Nat} :
       rcases List.mem_cons.mp hf with rfl | hf
       · exact hTf
       · exact hall f hf
-    · have g₁ : checkConstantVal (fueledOps mode G) env cv = .ok cvTa₀ := by
-        rw [← checkConstantVal_datF]; exact FueledM.up hle₁ hF₁
+    · have g₁ : (if g = true then checkConstantValPre (fueledOps mode G) env cv
+          else checkConstantVal (fueledOps mode G) env cv) = .ok cvTa₀ := by
+        cases g
+        · simp only [Bool.false_eq_true, if_false] at hF₁ ⊢
+          rw [← checkConstantVal_datF]
+          exact FueledM.up hle₁ (by rw [checkConstantVal_datF]; exact hF₁)
+        · simp only [if_true] at hF₁ ⊢
+          rw [← checkConstantValPre_datF]
+          exact FueledM.up hle₁ (by rw [checkConstantValPre_datF]; exact hF₁)
       have g₂ : checkSumTele (fueledOps mode G) env cv (nP + nIdx) cvTa₀ = .ok (cvTa, sx) := by
         rw [← checkSumTele_datF]; exact FueledM.up hle₂ hF₂
-      have g₃ : mutualFormerChecks (fueledOps mode G) env nP false rest = .ok q2 := by
+      have g₃ : mutualFormerChecks (fueledOps mode G) env nP g rest = .ok q2 := by
         rw [← mutualFormerChecks_datF]
         exact FueledM.up hle₃ (by rw [mutualFormerChecks_datF]; exact hF₃)
       unfold mutualFormerChecks
-      simp only [Bool.false_eq_true, if_false]
+      rw [iteBindE_eq g₁]
       simp only [Bind.bind, Except.bind, pure, Except.pure]
-      rw [g₁]
-      simp only [Except.bind]
       rw [g₂]
       simp only [Except.bind, unwrapOr, hst, if_pos hb]
       rw [g₃]
@@ -1091,21 +1111,21 @@ theorem mutualFormerChecksS_run (hμ : mode.verifiedChecks = true) {nP : Nat} :
 
 /-- The formers' stage at the cached driver: ONE flush entering it,
 the checks at that index, the conses after them. -/
-theorem mutualFormersS_run (hμ : mode.verifiedChecks = true) {nP : Nat}
+theorem mutualFormersS_run (hμ : mode.verifiedChecks = true) {nP : Nat} (g : Bool)
     (l : List (ConstantVal × Nat)) (env : Env) {s₀ : CState}
     {r : FEnv × List MutualFormerA} {s' : CState}
     (henv : EnvWF env) (hwf : CSOKF s₀)
-    (h : mutualFormersS mode nP l false (mkFEnv env) s₀ = .ok (r, s')) :
+    (h : mutualFormersS mode nP l g (mkFEnv env) s₀ = .ok (r, s')) :
     CSOKF s' ∧ r.1 = mkFEnv r.1.env ∧ EnvWF r.1.env ∧
     (∀ f ∈ r.2, f.cvTa.type.hasFvar = false) ∧
-    ∃ F, mutualFormers (fueledOps mode F) nP l env = .ok (r.1.env, r.2) := by
+    ∃ F, mutualFormers (fueledOps mode F) nP l env g = .ok (r.1.env, r.2) := by
   unfold mutualFormersS at h
   obtain ⟨u, s₁, hfl, h⟩ := bindC_ok h
   rw [flushC_run] at hfl
   injection hfl with hfl
   obtain rfl : s₀.flushed = s₁ := congrArg Prod.snd hfl
   obtain ⟨fms, s₂, hchk, h⟩ := bindC_ok h
-  obtain ⟨hs₂, hTfs, F, hF⟩ := mutualFormerChecksS_run hμ l env henv (flushC_csok hwf) hchk
+  obtain ⟨hs₂, hTfs, F, hF⟩ := mutualFormerChecksS_run hμ g l env henv (flushC_csok hwf) hchk
   obtain ⟨hr, rfl⟩ := pureC_ok h
   subst hr
   simp only []
@@ -1129,11 +1149,11 @@ cross-member checks at the formers' environment, the constructors
 there too, the recursors at the constructors' environment and the
 tables on top. -/
 theorem checkMutualCoreS_run (hμ : mode.verifiedChecks = true) {env : Env} (henv : EnvWF env)
-    {b : MutualBlock} {streamRecs : Option (List (ConstantVal × List RecRule))}
+    {b : MutualBlock} {streamRecs : Option (List (ConstantVal × List RecRule))} (g : Bool)
     {s₀ : CState} (hwf : CSOKF s₀) {feOut : FEnv} {s' : CState}
-    (h : checkMutualCoreS mode (mkFEnv env) b streamRecs false s₀ = .ok (feOut, s')) :
+    (h : checkMutualCoreS mode (mkFEnv env) b streamRecs g s₀ = .ok (feOut, s')) :
     CSOKF s' ∧ feOut = mkFEnv feOut.env ∧
-    ∃ F, checkMutualCore (fueledOps mode F) env b streamRecs false = .ok feOut.env := by
+    ∃ F, checkMutualCore (fueledOps mode F) env b streamRecs g = .ok feOut.env := by
   unfold checkMutualCoreS at h
   simp only [] at h
   rw [structWalkersC_eq_plain] at h
@@ -1143,7 +1163,7 @@ theorem checkMutualCoreS_run (hμ : mode.verifiedChecks = true) {env : Env} (hen
   obtain ⟨r1, s₁, hform, h⟩ := bindC_ok h
   obtain ⟨fe₁, fms⟩ := r1
   obtain ⟨hwf₁, hfe₁, henv₁, hTfs, F₁, hF₁⟩ :=
-    mutualFormersS_run hμ b.formers env henv hwf hform
+    mutualFormersS_run hμ g b.formers env henv hwf hform
   simp only [] at hfe₁ henv₁ hTfs hF₁ h
   rw [hfe₁] at h
   -- the first member
@@ -1204,7 +1224,7 @@ theorem checkMutualCoreS_run (hμ : mode.verifiedChecks = true) {env : Env} (hen
         · rw [hm]; rfl) hs₂) (ctorsA, sortss) s₃ hctors
   obtain rfl : (ctorsA, sortss) = r3' := hP3
   have hF₃p : checkMutualCtors (fueledOps mode F₃) fe₁.env b fms
-      (Level.isEquiv f₀.s .zero == some true) false b.ctors = .ok (ctorsA, sortss) := by
+      (Level.isEquiv f₀.s .zero == some true) g b.ctors = .ok (ctorsA, sortss) := by
     rw [← checkMutualCtors_datF]; exact hF₃
   -- the kinds, classified on the stored constructors
   simp only [] at h
@@ -1287,7 +1307,7 @@ theorem checkMutualCoreS_run (hμ : mode.verifiedChecks = true) {env : Env} (hen
   obtain ⟨G, hle₁, hle₂, hle₃, hle₅⟩ : ∃ G, F₁ ≤ G ∧ F₂ ≤ G ∧ F₃ ≤ G ∧ F₅ ≤ G :=
     ⟨max F₁ (max F₂ (max F₃ F₅)), by omega, by omega, by omega, by omega⟩
   refine ⟨hwfO, hfeO, G, ?_⟩
-  have g₁ : mutualFormers (fueledOps mode G) b.nP b.formers env = .ok (fe₁.env, fms) := by
+  have g₁ : mutualFormers (fueledOps mode G) b.nP b.formers env g = .ok (fe₁.env, fms) := by
     rw [← mutualFormers_datF]
     exact FueledM.up hle₁ (by rw [mutualFormers_datF]; exact hF₁)
   have g₂ : mutualCrossChecks (fueledOps mode G) fe₁.env b.nP f₀
@@ -1295,7 +1315,7 @@ theorem checkMutualCoreS_run (hμ : mode.verifiedChecks = true) {env : Env} (hen
     rw [← mutualCrossChecks_datF]
     exact FueledM.up hle₂ hF₂
   have g₃ : checkMutualCtors (fueledOps mode G) fe₁.env b fms
-      (Level.isEquiv f₀.s .zero == some true) false b.ctors = .ok (ctorsA, sortss) := by
+      (Level.isEquiv f₀.s .zero == some true) g b.ctors = .ok (ctorsA, sortss) := by
     rw [← checkMutualCtors_datF]; exact FueledM.up hle₃ hF₃
   have g₅ : checkMutualRecTys (fueledOps mode G) (consMutualCtors b.nP ctorsA fe₁.env) b
       (mutualGenData b fms ctorsA kinds).1 (mutualGenData b fms ctorsA kinds).2 streamRecs b.k
@@ -1341,7 +1361,7 @@ theorem checkMutualS_run (hμ : mode.verifiedChecks = true) {env : Env} (henv : 
     rw [if_neg hpin] at h
     exact absurd h throwC_bind_ok
   rw [if_pos hpin] at h
-  obtain ⟨hres, hfe, F, hF⟩ := checkMutualCoreS_run hμ henv hwf h
+  obtain ⟨hres, hfe, F, hF⟩ := checkMutualCoreS_run hμ henv false hwf h
   refine ⟨hres, hfe, F, ?_⟩
   unfold checkMutual
   simp only [Bind.bind, Except.bind, pure, Except.pure, if_pos hpin]

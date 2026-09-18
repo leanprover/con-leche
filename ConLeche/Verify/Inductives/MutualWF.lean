@@ -375,16 +375,16 @@ theorem mutualFormerChecks_length {nP F : Nat} {g : Bool} :
 
 /-- The type-slot `ConstWF` facts of every checked former, AT THE
 PRE-BLOCK ENVIRONMENT (where the whole stage runs). -/
-theorem mutualFormerChecks_typeWF {nP F : Nat} {l : List (ConstantVal × Nat)} {env : Env}
-    {fms : List MutualFormerA}
-    (h : mutualFormerChecks (fueledOps mode F) env nP false l = .ok fms) :
+theorem mutualFormerChecks_typeWF {nP F : Nat} {g : Bool} {l : List (ConstantVal × Nat)}
+    {env : Env} {fms : List MutualFormerA}
+    (h : mutualFormerChecks (fueledOps mode F) env nP g l = .ok fms) :
     ∀ f ∈ fms, f.cvTa.type.hasFvar = false ∧
       f.cvTa.type.allLevelParamsDefined f.cvTa.levelParams = true ∧
       f.cvTa.type.constsResolve env = true ∧
       f.cvTa.type.looseBVarsBounded 0 = true := by
   intro f hf
-  obtain ⟨cv', hccv'⟩ := mutualFormerChecks_checked h f hf
-  exact checkConstantVal_typeWF hccv'
+  obtain ⟨cv', hdoor⟩ := mutualFormerChecks_frontDoor h f hf
+  exact ⟨hdoor.noFvar, hdoor.lpsOk, hdoor.resolve, hdoor.bounded⟩
 
 /-- The formers' conses keep well-formedness: every member's type
 resolves at the pre-block environment, and resolution is monotone
@@ -474,9 +474,9 @@ theorem mutual_ctor_typeWF {env : Env} {memberNames : List Name} {T : Name}
 /-- Every annotated constructor of the block carries the four type-slot
 facts at the formers' environment. -/
 theorem checkMutualCtors_typeWF {env : Env} {b : MutualBlock} {fms : List MutualFormerA}
-    {isProp : Bool} {F : Nat} {cs : List MutualCtor} {ctorsA : List (ConstantVal × Nat)}
-    {sortss : List (List Level)}
-    (h : checkMutualCtors (fueledOps mode F) env b fms isProp false cs = .ok (ctorsA, sortss)) :
+    {isProp : Bool} {g : Bool} {F : Nat} {cs : List MutualCtor}
+    {ctorsA : List (ConstantVal × Nat)} {sortss : List (List Level)}
+    (h : checkMutualCtors (fueledOps mode F) env b fms isProp g cs = .ok (ctorsA, sortss)) :
     ∀ c ∈ ctorsA, c.1.type.hasFvar = false ∧
       c.1.type.allLevelParamsDefined c.1.levelParams = true ∧
       c.1.type.constsResolve env = true ∧ c.1.type.looseBVarsBounded 0 = true := by
@@ -487,7 +487,8 @@ theorem checkMutualCtors_typeWF {env : Env} {b : MutualBlock} {fms : List Mutual
     have := (List.getElem?_eq_some_iff.mp hj).1
     omega
   obtain ⟨-, _, -, hrun⟩ := hall j cs[j] c (List.getElem?_eq_getElem hj') hj
-  exact mutual_ctor_typeWF hrun
+  obtain ⟨⟨ty', hdoor⟩, -, -⟩ := checkMutualCtorG_shape hrun
+  exact ⟨hdoor.noFvar, hdoor.lpsOk, hdoor.resolve, hdoor.bounded⟩
 
 /-! ## Stage 4: the recursors -/
 

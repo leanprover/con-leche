@@ -631,11 +631,11 @@ theorem normFieldDomsMS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env
 
 /-- The constructor's normalisation over the member list. -/
 theorem normCtorValMS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env)
-    {memberNames : List Name} {nP nF : Nat} {cvC cvCa : ConstantVal}
+    {memberNames : List Name} {nP nF : Nat} {cvC cvCa : ConstantVal} {g : Bool}
     (hs : CSOK mode env s₀) (hCw : WScoped 0 cvCa.type) :
     SimC mode env s₀ (fun v w => v = w ∧ WScoped 0 v.type)
-      (normCtorValM (sharedOpsC mode (mkFEnv env)) env memberNames nP nF cvC cvCa)
-      (normCtorValM (fueledOpsM mode) env memberNames nP nF cvC cvCa) := by
+      (normCtorValM (sharedOpsC mode (mkFEnv env)) env memberNames nP nF cvC cvCa g)
+      (normCtorValM (fueledOpsM mode) env memberNames nP nF cvC cvCa g) := by
   unfold normCtorValM
   refine SimC.bind (SimC.unwrapOr' hs) (fun s₁ q q' hs₁ hQ => ?_)
   obtain ⟨rfl, -⟩ := hQ
@@ -653,21 +653,26 @@ theorem normCtorValMS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env)
   dsimp only
   split
   · exact SimC.pure hs₃ ⟨rfl, hCw⟩
-  · exact checkConstantValS_sim hμ henv hs₃
+  · cases g
+    · simp only [Bool.false_eq_true, if_false]
+      exact checkConstantValS_sim hμ henv hs₃
+    · simp only [if_true]
+      exact checkConstantValPreS_sim hμ henv hs₃
 
 /-- One constructor of a mutual block at the shared operations. -/
 theorem checkMutualCtorS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env)
     {memberNames : List Name} {T : Name} {lps : List Name} {nP nIdx : Nat}
     {resSort : Level} {isProp large : Bool} {cvC : ConstantVal} {nF : Nat}
-    {cvTa : ConstantVal} (hTf : cvTa.type.hasFvar = false) (hs : CSOK mode env s₀) :
+    {cvTa : ConstantVal} {g : Bool}
+    (hTf : cvTa.type.hasFvar = false) (hs : CSOK mode env s₀) :
     SimC mode env s₀ RelVC
       (checkMutualCtor (sharedOpsC mode (mkFEnv env)) env memberNames T lps nP nIdx resSort
-        isProp large cvC nF cvTa)
+        isProp large cvC nF cvTa g)
       (checkMutualCtor (fueledOpsM mode) env memberNames T lps nP nIdx resSort isProp large
-        cvC nF cvTa) := by
+        cvC nF cvTa g) := by
   unfold checkMutualCtor
   dsimp only [sharedOpsC]
-  refine SimC.bind (checkConstantValS_sim hμ henv hs)
+  refine SimC.iteBind (checkConstantValPreS_sim hμ henv hs) (checkConstantValS_sim hμ henv hs)
     (fun s₀' cvCa₀ cvCa₀' hs₀' hP₀ => ?_)
   obtain ⟨rfl, hCw₀⟩ := hP₀
   refine SimC.bind (normCtorValMS_sim hμ henv hs₀' hCw₀) (fun s₁ cvCa cvCa' hs₁ hP => ?_)
@@ -736,12 +741,12 @@ theorem checkMutualCtorS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF en
 /-- The constructor list of a mutual block: every constructor is
 checked at the environment holding all the formers. -/
 theorem checkMutualCtorsS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env)
-    {b : MutualBlock} {fms : List MutualFormerA} {isProp : Bool}
+    {b : MutualBlock} {fms : List MutualFormerA} {isProp : Bool} {g : Bool}
     (hTf : ∀ m : Nat, ((fms.getD m default).cvTa.type).hasFvar = false) :
     ∀ {cs : List MutualCtor} {s₀ : CState}, CSOK mode env s₀ →
       SimC mode env s₀ RelVC
-        (checkMutualCtors (sharedOpsC mode (mkFEnv env)) env b fms isProp false cs)
-        (checkMutualCtors (fueledOpsM mode) env b fms isProp false cs)
+        (checkMutualCtors (sharedOpsC mode (mkFEnv env)) env b fms isProp g cs)
+        (checkMutualCtors (fueledOpsM mode) env b fms isProp g cs)
   | [], s₀, hs => SimC.pure hs rfl
   | c :: cs, s₀, hs => by
     unfold checkMutualCtors

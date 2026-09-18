@@ -434,6 +434,25 @@ protected theorem bind {β β' α α' : Type}
     dsimp only [Except.bind]
     exact (q a).property (Nat.le_max_right F₁ F₂) hp₂
 
+/-- **A GRADED FRONT DOOR, SIMULATED** (task #315 M8): a stage whose
+first action is picked by a `Bool` — the annotation grade — binds both
+choices into the same continuation on BOTH sides, because `do`-notation
+pushes the bind inside the `ite`.  This is the rule that keeps the
+continuation's simulation in ONE copy. -/
+protected theorem iteBind {β β' α α' : Type} {gr : Bool}
+    {P : β → α → Prop} {Q : β' → α' → Prop}
+    {c₁ c₂ : CheckCM β} {k : β → CheckCM β'}
+    {p₁ p₂ : FueledM α} {q : α → FueledM α'}
+    (h₁ : SimC mode env s₀ P c₁ p₁) (h₂ : SimC mode env s₀ P c₂ p₂)
+    (hf : ∀ s₁ b a, CSOK mode env s₁ → P b a → SimC mode env s₁ Q (k b) (q a)) :
+    SimC mode env s₀ Q (if gr = true then c₁ >>= k else c₂ >>= k)
+      (if gr = true then p₁ >>= q else p₂ >>= q) := by
+  cases gr
+  · simp only [Bool.false_eq_true, if_false]
+    exact SimC.bind h₂ hf
+  · simp only [if_true]
+    exact SimC.bind h₁ hf
+
 /-- Left bind: a twin-only effect before the simulated remainder. -/
 protected theorem bind_left {β β' α : Type}
     {Q : β → Prop} {P : β' → α → Prop}

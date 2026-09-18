@@ -1556,4 +1556,26 @@ theorem nativeOrdFree_of {env : Env} {T : Name} {lps : List Name} {nP nIdx : Nat
   simp only at hcell
   exact mentionsConst_eq_false_of_constsResolve hfresh hcell
 
+/-- **THE FORMERS WERE CHECKED BY SOME FRONT DOOR, AT ANY GRADE**
+(task #315 M8): off `auxRoute` every member went through the
+annotating door; on it the member's own type went through the
+pre-annotated one, and `checkSumTele`'s re-check branch runs the
+annotating door in both grades.  `FrontDoorFacts` is what the two have
+in common, and it is all the well-formedness consumers need. -/
+theorem mutualFormerChecks_frontDoor {nP F : Nat} {g : Bool} :
+    ∀ {l : List (ConstantVal × Nat)} {env : Env} {fms : List MutualFormerA},
+      mutualFormerChecks (fueledOps mode F) env nP g l = .ok fms →
+      ∀ f ∈ fms, ∃ cv', FrontDoorFacts mode F env cv' f.cvTa
+  | [], _, _, h, f, hf => by
+    obtain rfl := mutualFormerChecksG_nil_inv h
+    exact nomatch hf
+  | (cv, nIdx) :: rest, env, fms, h, f, hf => by
+    obtain ⟨cvTa₀, cvTa, s, bs, fs, hdoor, htele, -, hrest, rfl⟩ := mutualFormerChecksG_inv h
+    rcases List.mem_cons.mp hf with rfl | hf
+    · rcases checkSumTele_shape htele with ⟨rfl, -⟩ | ⟨ty, hccv⟩
+      · exact ⟨cv, hdoor⟩
+      · exact ⟨{ cv with type := ty }, FrontDoorFacts.ofCheck hccv⟩
+    · exact mutualFormerChecks_frontDoor hrest f hf
+
+
 end ConLeche
