@@ -1034,8 +1034,16 @@ theorem nestedPinChecks_inv {ops : CheckerOps CheckM} {env envN : Env} {p : Nest
           nestedRewriteData p st = some (params, pbs₀) ∧
           nestedPinDomPairs env p st stored (nestedPinKinds p b stored) = some jobsP ∧
           nestedPinNorms ops envN b.memberNames jobsP = .ok wsP ∧
-          nestedPinRewrites env p st params pbs₀ jobsP wsP = true) := by
+          nestedPinRewrites env p st params pbs₀ jobsP wsP = true) ∧
+      -- **K.60**: a container's nested field lands on a block pin.
+      -- UNCONDITIONAL — it stands before the mode test, because its
+      -- consumer reads it in every mode
+      nestedCopyPinFieldsOk env p b st stored = true := by
   unfold nestedPinChecks at h
+  simp only at h
+  by_cases hcpf : nestedCopyPinFieldsAt env p st (nestedPinKinds p b stored) = true
+  case neg => rw [if_pos (by simpa using hcpf)] at h; close_throw
+  rw [if_neg (by simpa using hcpf)] at h
   rcases Bool.eq_false_or_eq_true ops.mode.verifiedChecks with hv | hv
   · -- `.verified`: each `unless` is its own clause, as before
     simp only [hv, Bool.not_true, Bool.false_eq_true, if_false] at h
@@ -1086,12 +1094,12 @@ theorem nestedPinChecks_inv {ops : CheckerOps CheckM} {env envN : Env} {p : Nest
               by simp [certOnly, nestedPinOrderOk, hord'],
               fun _ => ⟨jobs, ws, unwrapOr_ok hjobs, hws, by simpa using hcmp⟩,
               fun _ => ⟨pd.1, pd.2, jobsP, wsP, unwrapOr_ok hpd, unwrapOr_ok hjobsP,
-                hwsP, hrw⟩⟩
+                hwsP, hrw⟩, hcpf⟩
   · -- `.trusted`: the group does not run, and every `certOnly` is `true`
     exact ⟨by simp [certOnly, hv], by simp [certOnly, hv], by simp [certOnly, hv],
       by simp [certOnly, hv], by simp [certOnly, hv],
       fun hv' => absurd hv' (by simp [hv]),
-      fun hv' => absurd hv' (by simp [hv])⟩
+      fun hv' => absurd hv' (by simp [hv]), hcpf⟩
 
 /-- **The nested chain's FRONT half**: official's two syntactic guards,
 the elimination on the annotated inputs, the mimic count, the minted
@@ -1280,6 +1288,13 @@ private theorem checkNested_inv_rest {env envOut : Env} {p : NestedParts} {F : N
           nestedPinNorms (m := CheckM) (fueledOps mode F)
               (consNestedFormers (stored.take p.k) env) b.memberNames jobsP = .ok wsP ∧
           nestedPinRewrites env p st params pbs₀ jobsP wsP = true) ∧
+      -- **A CONTAINER'S NESTED FIELD LANDS ON A BLOCK PIN** (K.60):
+      -- at a container field headed by another stored container whose
+      -- parameter part carries one of the container's own members, the
+      -- copy's corresponding field is classified `.recursive` into a
+      -- PIN.  K.32's twin, running the other way; UNCONDITIONAL, since
+      -- the model's `pinF` arm reads it in every mode
+      nestedCopyPinFieldsOk env p b st stored = true ∧
       -- POST-CHECK (a) A THIRD TIME (K.30): the pins typed at the
       -- environment holding the RESTORED formers
       nestedPinsOk (m := CheckM) (fueledOps mode F)
@@ -1427,7 +1442,7 @@ private theorem checkNested_inv_rest {env envOut : Env} {p : NestedParts} {F : N
   rw [if_pos hpa] at h
   try simp only [bind, Except.bind] at h
   obtain ⟨uPC, hpc4, h⟩ := exceptBind_ok h
-  obtain ⟨htg, hkd, hrk, hrh, hordC, hord, hpinN⟩ := nestedPinChecks_inv hpc4
+  obtain ⟨htg, hkd, hrk, hrh, hordC, hord, hpinN, hcpf⟩ := nestedPinChecks_inv hpc4
   try simp only at h
   obtain ⟨uP₁, hpins₁, h⟩ := exceptBind_ok h
   try simp only at h
@@ -1499,9 +1514,9 @@ private theorem checkNested_inv_rest {env envOut : Env} {p : NestedParts} {F : N
   exact ⟨stored, ctorsR, cvRms, cvRns, rulesM, rulesN,
     hst', hpc, (by cases uA; exact hpinsAux), hcaps, hsrc,
     certOnly_and_left hcont, hgrp, hmn, hsc, hpl, htg, hkd, haa, hrk, hpa, hrh, hordC,
-    hord, hpinN, (by cases uP₁; exact hpins₁), hctors, hrm, hrn, hnd, hdj, hrlm, hrln,
-    hrb2, htbl, (by cases u₀; exact hpins), hnums, hlen, (by cases u₁; exact hrecs),
-    hrb, hop, hom⟩
+    hord, hpinN, hcpf, (by cases uP₁; exact hpins₁), hctors, hrm, hrn, hnd, hdj,
+    hrlm, hrln, hrb2, htbl, (by cases u₀; exact hpins), hnums, hlen,
+    (by cases u₁; exact hrecs), hrb, hop, hom⟩
 
 /-- **The whole nested chain**, as the install ran it. -/
 theorem checkNested_inv {env envOut : Env} {p : NestedParts} {F : Nat}
@@ -1616,6 +1631,13 @@ theorem checkNested_inv {env envOut : Env} {p : NestedParts} {F : Nat}
           nestedPinNorms (m := CheckM) (fueledOps mode F)
               (consNestedFormers (stored.take p.k) env) b.memberNames jobsP = .ok wsP ∧
           nestedPinRewrites env p st params pbs₀ jobsP wsP = true) ∧
+      -- **A CONTAINER'S NESTED FIELD LANDS ON A BLOCK PIN** (K.60):
+      -- at a container field headed by another stored container whose
+      -- parameter part carries one of the container's own members, the
+      -- copy's corresponding field is classified `.recursive` into a
+      -- PIN.  K.32's twin, running the other way; UNCONDITIONAL, since
+      -- the model's `pinF` arm reads it in every mode
+      nestedCopyPinFieldsOk env p b st stored = true ∧
       -- POST-CHECK (a) A THIRD TIME (K.30): the pins typed at the
       -- environment holding the RESTORED formers
       nestedPinsOk (m := CheckM) (fueledOps mode F)
@@ -1721,13 +1743,13 @@ theorem checkNested_inv {env envOut : Env} {p : NestedParts} {F : Nat}
   obtain ⟨hg₀, hg₁, st, b, envAux, fmsA, ctorsA, hfmsA, hctorsA, helim, hcnt, hfresh,
     hcont, hcomp, hb, haux, hrest⟩ := checkNested_inv_front h
   obtain ⟨stored, ctorsR, cvRms, cvRns, rulesM, rulesN, hst, hpc, hpinsAux, hcaps, hsrc,
-    hdist, hgrp, hmn, hsc, hpl, htg, hkd, haa, hrk, hpa, hrh, hordC, hord, hpinN, hpins₁,
-    hctors, hrm, hrn, hnd, hdj, hrlm, hrln, hrb2, htbl, hpins, hnums, hlen, hrecs, hrb,
-    hop, hom⟩ := checkNested_inv_rest hcont hrest
+    hdist, hgrp, hmn, hsc, hpl, htg, hkd, haa, hrk, hpa, hrh, hordC, hord, hpinN, hcpf,
+    hpins₁, hctors, hrm, hrn, hnd, hdj, hrlm, hrln, hrb2, htbl, hpins, hnums, hlen,
+    hrecs, hrb, hop, hom⟩ := checkNested_inv_rest hcont hrest
   exact ⟨hg₀, hg₁, st, b, envAux, stored, ctorsR, cvRms, cvRns, rulesM, rulesN, fmsA,
     ctorsA, hfmsA, hctorsA, helim, hcnt, hfresh, hcont, hcomp, hb, haux, hst, hpc,
     hpinsAux, hcaps, hsrc, hdist, hgrp, hmn, hsc, hpl, htg, hkd, haa, hrk, hpa, hrh,
-    hordC, hord, hpinN, hpins₁, hctors, hrm, hrn, hnd, hdj, hrlm, hrln, hrb2, htbl,
+    hordC, hord, hpinN, hcpf, hpins₁, hctors, hrm, hrn, hnd, hdj, hrlm, hrln, hrb2, htbl,
     hpins, hnums, hlen, hrecs, hrb, hop, hom⟩
 
 

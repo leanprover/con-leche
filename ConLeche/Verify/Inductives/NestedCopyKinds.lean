@@ -472,4 +472,66 @@ theorem nestedCopyTargetsOk_mentions {env : Env} {p : NestedParts} {b : MutualBl
   rw [stripPis_mkPisB _ hpk]
   exact mentionsConst_mkPisB tbs jres hjm
 
+/-- **K.60's clause, read back**: at pin `q`, constructor `j` and field
+`l` of the CONTAINER's own stored constructor, a domain headed by
+another stored container `K` — not a member of the container's own
+group — whose first `ciK.nP` arguments mention one of that group's
+members forces the auxiliary block's classification of the COPY's field
+`l` to be `.recursive` into a PIN (`p.k ≤ t`).
+
+K.32's twin, running the other way, and in the same positional style as
+`nestedPinKinds_get` and `nestedCopyTargetsOk_head`, so the same
+readers apply.  It needs no `stored[p.k + q]`: the guard is entirely on
+the container's side and the conclusion entirely on the kinds table's. -/
+theorem nestedCopyPinFieldsOk_head {env : Env} {p : NestedParts} {b : MutualBlock}
+    {st : ElimState} {stored : List AuxStored}
+    (h : nestedCopyPinFieldsOk env p b st stored = true)
+    {kinds : List (List (List (RecFieldKind × Nat)))}
+    (hk : nestedPinKinds p b stored = some kinds)
+    {q : Nat} (hq : q < st.pins.length) {qn : NestedPin} (hqn : st.pins[q]? = some qn)
+    {ks : List (List (RecFieldKind × Nat))} (hks : kinds[q]? = some ks)
+    {ci : ContainerInfo} (hci : containerInfo? env qn.container = some ci)
+    {J : ContainerMember} (hJ : ci.members[q - qn.grpBase]? = some J)
+    {j : Nat} (hj : j < ks.length)
+    {kf : List (RecFieldKind × Nat)} (hkf : ks[j]? = some kf)
+    {cJ : ContainerCtor} (hcJ : J.ctors[j]? = some cJ)
+    {jbs : List (Expr × BinderMeta)} {rJ : Expr}
+    (hsJ : cJ.type.stripPis (ci.nP + cJ.nFields) = some (jbs, rJ))
+    {l : Nat} {r : RecFieldKind} {t : Nat} (hl : kf[l]? = some (r, t))
+    {domJ : Expr × BinderMeta} (hdJ : jbs[ci.nP + l]? = some domJ)
+    {K : Name} {us : List Level} (hhead : domJ.1.getAppFn = .const K us)
+    (hnm : ((ci.members.map (·.name)).contains K) = false)
+    {ciK : ContainerInfo} (hciK : containerInfo? env K = some ciK)
+    {e : Expr} (he : e ∈ domJ.1.getAppArgs.take ciK.nP)
+    (hmen : mentionsMember (ci.members.map (·.name)) e = true) :
+    r = .recursive ∧ p.k ≤ t := by
+  unfold nestedCopyPinFieldsOk nestedCopyPinFieldsAt at h
+  rw [hk] at h
+  simp only [_root_.List.all_eq_true, _root_.List.mem_range] at h
+  have hqv := h q hq
+  rw [hqn, hks] at hqv
+  simp only at hqv
+  rw [hci] at hqv
+  simp only at hqv
+  rw [hJ] at hqv
+  simp only [_root_.List.all_eq_true, _root_.List.mem_range] at hqv
+  have hjv := hqv j hj
+  rw [hkf, hcJ] at hjv
+  simp only at hjv
+  rw [hsJ] at hjv
+  simp only [_root_.List.all_eq_true, _root_.List.mem_range] at hjv
+  have hlLt : l < kf.length := (_root_.List.getElem?_eq_some_iff.mp hl).1
+  have hlv := hjv l hlLt
+  rw [hl, hdJ] at hlv
+  simp only at hlv
+  rw [hhead] at hlv
+  simp only at hlv
+  rw [if_neg (by rw [hnm]; simp), hciK] at hlv
+  simp only at hlv
+  rw [if_pos (by
+    simp only [_root_.List.any_eq_true]
+    exact ⟨e, he, hmen⟩)] at hlv
+  simp only [Bool.and_eq_true, beq_iff_eq, decide_eq_true_eq] at hlv
+  exact hlv
+
 end ConLeche

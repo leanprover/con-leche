@@ -181,6 +181,15 @@ is an *insertion-time* one, and a projection-slot check is satisfied
 more easily in a larger environment, so nothing a later reader knows
 about the environment it sees recovers it.  It rides on the block's
 record from the door the constructor came through.
+A fourth is of a different kind again: it is about the ELIMINATION's own
+output rather than about a container.  A copy is the container's
+constructors at the pin's components with every group occurrence
+rewritten, so a container field that nests through a FURTHER container
+carrying one of the container's own members becomes, in the copy, a
+field at one of the block's own pins — and the block's classification
+says so.  Neither direction of that correspondence is derivable: the
+copies come from a rewrite the model tier has no theorem about, so both
+are recorded at the install, one each way.
 Uniqueness of models is never needed: semantic facts meet at the
 readings, and syntactic facts that no law fixes are recorded.
 

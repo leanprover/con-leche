@@ -105972,6 +105972,118 @@ mode.  **If it ever fires, the answer is that the elimination's rewrite
 is not reproducible at the final state — a defect in the route, not in
 the stream; do not relax the check.**
 
+#### K.60 — a container's nested field lands on a block pin (2026-09-18, task #315, lane PINF)
+
+K.32's twin, running the other way.  K.32 goes from the COPY's
+classification to the container's field; the model's `pinF` arm needs
+the converse, and nothing derives it — the opened form of a nested
+field keeps the head and the argument count and drops the parameter
+part, and the elimination's own records (K.32, K.44) run the other way.
+
+**WHAT THE ROUTE RECORDS.**  `nestedCopyPinFieldsAt`
+(`Kernel/Inductives/NestedInstall.lean`, beside K.32's
+`nestedCopyTargetsAt`, whose traversal it is verbatim down to the field
+loop) reads, at pin `q`, constructor `j` and field `l`, the CONTAINER's
+own stored constructor's telescope.  Its GUARD is the container field's
+own shape, and every part of it is a fact the model holds:
+
+* the domain is headed by `.const K …` with `K` NOT a member of the
+  container's own group;
+* `K` is itself a stored container (`containerInfo? env K = some ciK`);
+* one of the first `ciK.nP` arguments mentions a member of the
+  container's group.
+
+The third conjunct keeps the check off an ORDINARY container-headed
+field: `mk : List Nat → Tree` has head `List`, a container, and no
+member in its parameter part, so no pin is minted and nothing is
+claimed.  Reflexive nested fields fall outside the guard by
+construction — their domain is a `Π`, so `getAppFn` is not a `.const`.
+
+Under the guard, `kf[l] = (.recursive, t)` with `p.k ≤ t`: the copy's
+corresponding field is classified `.recursive` into a PIN.  That is the
+model's conjunct 1 and `copyPinFCorr`'s `hkA` together.
+
+**CARRIER: recompute-and-certify, K.59's shape** — no field on
+`NestedPin`, no parameter on the elimination (the `mintedAt` trap).
+UNCONDITIONAL in both routes, `.internal` on failure.  It sits INSIDE
+`nestedPinChecks` but BEFORE that function's mode test, with K.46's
+shared `kinds?` hoisted out of the test with it, so the classification
+is computed once rather than twice and neither route's call site
+changes.  That arrangement was chosen to save the second walk and does
+not, in fact, save anything measurable (+0.129 % unshared
+against +0.128 % shared on a Mathlib shadow run): K.60's price
+is its OWN traversal — every container constructor's telescope
+stripped, and an environment lookup at each constant-headed field — not
+the classification it shares.  It is kept because one walk is better
+than two and because it costs no call-site change.
+
+**THE MEASUREMENT.**
+
+| corpus | shadow blocks | accepting | fires |
+|---|---|---|---|
+| `tests/e2e/*` + `_tmp/arena-tests/{good,bad}`, each at both `CON_LECHE_INMODEL` settings | 88 runs | 82 | 0 |
+| `init-full` (53 093 accepted) | 1 | 1 | 0 |
+| Mathlib (654 504 accepted) | 41 | 41 | 0 |
+
+*Firing control* — the same check demanding `t < p.k`, the wrong
+answer: **3 fires over the e2e+arena sweep** (`nested_p04`'s `P4`,
+`inmodel_groups`' `M` and `H` — the two rows that turn
+`tests/nested-shadow.sh` from 38/38 into 36/38 under the control) and
+**5 of Mathlib's 41** (`Lean.Elab.InfoTree`, `Lean.Widget.MsgEmbed`,
+`Lean.Widget.HighlightedMsgEmbed` and the two
+`Lean.Server.Test.Runner.Client` twins).  *Reachability*: those 8 are
+every block at which the guard is reached with content — 3 of the
+e2e+arena sweep's 88 runs, 5 of Mathlib's 41 blocks, 0 of `init-full`'s
+1.  Everything else fails the guard rather than the conclusion: no
+container field headed by a FURTHER stored container carrying one of
+the first container's own members.  `init-full`'s single shadow block
+`Lean.Syntax` is the clean example — `Array`'s `toList : List α` is
+headed by a container whose parameter is `Array`'s own parameter, not a
+member.  The control fires
+in `--trusted` as well as `--verified` (checked at `nested_p04`), which
+is the direct evidence that the check is live in both modes.
+
+**THE COST, IN INSTRUCTIONS (`perf stat -e instructions:u`).**  "with"
+is the landed, SHARED version.
+
+| run | without | with | delta |
+|---|---|---|---|
+| `init-full --verified` (no shadow) | 539.240 G | 539.247 G | +0.001 % |
+| `init-full --trusted` (no shadow) | 521.883 G | 521.918 G | +0.007 % |
+| `init-full --verified --nested-shadow` | 539.329 G | 539.345 G | +0.003 % |
+| `init-full --trusted --nested-shadow` | 521.940 G | 521.946 G | +0.001 % |
+| Mathlib `--verified --nested-shadow` | 12 199.65 G | 12 215.30 G | +0.128 % |
+| Mathlib `--trusted --nested-shadow` | 11 232.59 G | 11 248.52 G | +0.142 % |
+| *(unshared, not landed)* Mathlib `--verified --nested-shadow` | 12 199.65 G | 12 215.44 G | +0.129 % |
+| *(unshared, not landed)* Mathlib `--trusted --nested-shadow` | 11 232.59 G | 11 248.29 G | +0.140 % |
+
+The no-shadow rows are the noise floor of this harness (the check
+cannot run there at all, and they move by up to 0.007 %).  **The
+forecast for when the dispatch arm lands** is the Mathlib shadow rows —
+about +0.13 % in BOTH modes, ~383 M instructions per nested block
+against K.59's ~72 M, which makes K.60 the most expensive recorded
+check on this route.  Today the route is not dispatched and the
+production cost is zero in both modes.  The obvious lever, if the cost
+is ever wanted back, is to order the guard so that the environment
+lookup comes last; it is recorded rather than taken.
+
+**LEDGER ROW — K.60.**  Not certification-only: an unconditional check
+in both routes whose failure is `.internal`.  Category **(B)**,
+by-construction-only — official computes nothing of the kind; the
+classification is our auxiliary block's and the rewrite our
+elimination's, and the fact is true by construction of `mkCopy` +
+`replaceAllNested`.  **Gating: NONE, and the reason is the consumer's**
+— the model's `pinF` arm reads it in every mode, so a `certOnly` clause
+would be `true` in trusted mode and could serve nobody.  **It cannot
+fire.**
+
+**IF IT EVER FIRES** the elimination's classification of a copy field
+disagrees with its container's — a defect in the ROUTE, not in the
+stream, and the answer is never to relax the check.  The message is
+"nested: a container's nested field is not classified recursive into a
+pin of the block", and both routes carry that instruction at the point
+of failure.
+
 #### U.117 — M7-3 session 24: **`ContainerModeled.ownPins` LANDED at all nine sites** — the covering premise closed (lane M7-3, session 24, 2026-09-18)
 
 The field lane L-E's covering premise waits on.  Every ingredient was
@@ -114106,3 +114218,171 @@ recompiled, 0 warning line(s)", "lake test — 0 module(s) recompiled, 0
 warning line(s)", "OK (a run that could have failed)".  proofdeps 4965
 rows / 12 roots / doors 0 — unmoved.  shake: 510 removals, all
 allowlisted; pub-imports 1339 of 2264, none demotable.
+
+#### PINF: K.60 LANDED, measured — the shared classification walk, and (ii)'s price MEASURED BEFORE IT WAS BUILT: the guard is on the ABSTRACT field and `nestArgsMention` is on the OPENED one (lane PINF, 2026-09-18)
+
+The split (the row above) unblocked K.60, and K.60 is in the tree with
+the full battery behind it; the numbers are in the ledger row "#### K.60
+— a container's nested field lands on a block pin".  Two things belong
+here rather than there: what the measurement changed about the DESIGN,
+and the price of the consumer, taken before writing a line of it.
+
+##### (a) WHAT LANDED
+
+`nestedCopyPinFieldsAt`/`nestedCopyPinFieldsOk` beside K.32's
+`nestedCopyTargetsAt`, whose traversal it is verbatim down to the field
+loop; the conjunct in `DeclNestedRun` after K.51's; the inversion
+`nestedCopyPinFieldsOk_head` — in
+`Verify/Inductives/NestedCopyKinds.lean` beside
+`nestedCopyTargetsOk_head`, its twin, rather than in `NestedInv.lean`,
+because that is where K.32's positional readers live and the new one is
+stated in the same style.  It needs no `stored[p.k + q]`: the guard is
+entirely on the container's side and the conclusion entirely on the
+kinds table's.
+
+The split held.  Adding a conjunct to the tail inversion is ~5 k
+heartbeats of the 200 000 budget; the tail is at 20–25 k either way here
+because the conjunct comes out of `nestedPinChecks_inv` rather than out
+of a new `by_cases` in `checkNested_inv_rest`.
+
+##### (b) THE MEASUREMENT MOVED THE CHECK, AND THEN TOLD US THE MOVE WAS NOT THE SAVING
+
+The obvious placement — a separate unconditional `unless` beside the
+`nestedPinChecks` call in each route, K.59's shape — was built first and
+MEASURED: **+0.129 % of a Mathlib shadow run**, five times K.59's whole
+cost.  The suspected cause was the second `nestedPinKinds` walk
+(`nestedCopyPinFieldsOk` recomputes it, and K.46 exists precisely
+because that walk used to run four times per block), so the check moved
+INSIDE `nestedPinChecks`, in front of that function's mode test, with
+the shared `let kinds?` hoisted out of the test with it.
+
+**The re-measurement refuted the diagnosis**: shared costs +0.128 %,
+unshared +0.129 %.  The second classification walk was never the price;
+K.60's OWN traversal is — it strips every container constructor's
+telescope and, at each constant-headed field, looks the head up in the
+environment.  The move is kept anyway (one walk rather than two, and it
+needs no call-site change in either route: `checkNestedS` already calls
+`nestedPinChecks`, so the two `ofDecCases` lines the plan predicted for
+`checkNestedS_push`/`_skels` were not needed either), but the comment
+in the tree says what the numbers say, not what the plan expected.
+
+**The lesson, since the guess was wrong in an instructive way**: an
+unconditional check placed beside a gated group looks like it costs its
+own traversal plus whatever it recomputes, and the arithmetic of which
+half dominates is not guessable — the `stripPis` + `containerInfo?`
+walk over the CONTAINERS' constructors is bigger than the positivity
+classification of the COPIES'.  Measure the placement, not the plan.
+
+**Is +0.13 % material?**  It is the largest recorded check on this
+route (~383 M instructions per nested block against K.59's ~72 M), and
+it is paid in BOTH modes, by design.  It is also zero today — the
+nested route is not dispatched, so the check runs only under
+`--nested-shadow` — and 0.13 % of a Mathlib run is inside the band this
+project has treated as immaterial.  It is recorded rather than
+optimised; the obvious lever, if it is ever wanted, is to order the
+guard so that the environment lookup comes last.
+
+##### (c) (ii)'s PRICE, MEASURED: THE GUARD'S MENTION IS ON THE ABSTRACT FIELD AND THE CONSUMER'S IS ON THE OPENED ONE
+
+The spec named `ContainerModeled.nestArgsMention` as the discharge of
+the guard's third conjunct.  It is not, as it stands, and the reason is
+the asymmetry §(e) of the K.60 specification section recorded — read in
+the other direction this time.
+
+* K.60's Bool reads the container's STORED constructor: it strips
+  `cJ.type` to `ci.nP + cJ.nFields` binders and tests
+  `jbs[ci.nP + l].1.getAppArgs.take ciK.nP` — the ABSTRACT field
+  domain, with bound variables where the earlier parameters and fields
+  stand.  It must: `nestedPinKinds` classifies that same stored type
+  and `replaceAllNested` mints from the substituted copy of it, so a
+  kernel Bool has nothing else to read.
+* `nestArgsMention` is stated on `x.fvarTypeD` for
+  `(d.xFvsF i j)[l]? = some x` — the OPENED domain, the abstract one
+  with the earlier binders instantiated at the constructor's own
+  openers.  That was deliberate: the `pinF` arm works on the opened
+  side.
+* The two differ in the direction that does not help.
+  `Expr.mentionsConst` descends into an `.fvar _ ty` ANNOTATION
+  (`Kernel/Inductives/StructParts.lean`, and its docstring says so), so
+  an opener whose annotation mentions a member — an earlier field
+  `t : Tree`, say — puts a member mention into the OPENED spine that
+  the ABSTRACT one does not have.  Abstract ⟹ opened
+  (`mentionsMember_instSeq`), never back; the same hole that killed
+  R1's `mentionsFvar` weakening.
+
+**Only the mention has the gap**, which is worth stating because it
+bounds the work: the guard's other two conjuncts are about the HEAD, and
+the head crosses the opening in both directions — `instSeq` substitutes
+BOUND variables by the constructor's openers, which are `.fvar`s
+(`BlockCtorData.pIdx`), so an abstract head that is `.const K` opens to
+`.const K` and an opened head that is `.const K` can only have come from
+one.  `BlockOpened.nestF`'s head equation and
+`ContainerModeled.pinsNotMembers`/`pinNP`/`pinConts` therefore do
+discharge conjuncts one and two exactly as the spec said.
+
+So the consumer cannot hand K.60 its guard from `nestArgsMention`
+alone.  **What it needs is that clause's ABSTRACT-SIDE twin**, and the
+good news is where the twin comes from: it is an INTERMEDIATE STEP of
+`nestArgsMention`'s own discharge at the nested site (`declNested_of`,
+the `nestArgsMention` bullet), which builds
+
+    mentionsMember memberNames (abstractRange st.pins[q].pin 0 p.nP 0)
+
+by `mentionsMember_abstractRange` FIRST and only then pushes it through
+`mentionsMember_instSeq`.  The twin is that first half, stopped one step
+earlier, with `abstractRange_mkAppN` (already in
+`Verify/Inductives/NestedCopyKinds.lean`) where
+`rk_restoredPin_getAppFn` stands.  At the other eight producers it is
+vacuous for the reason `nestArgsMention` is: no pins.
+
+**This is a scope decision and the lane did not take it.**  A
+`ContainerModeled` clause is a nine-site record and §U.117's standing
+preference is to derive rather than impose; here it does not derive.
+The two options are
+
+1. the abstract-side twin as a clause — ~1 session on §U.117's pattern,
+   one substantive site and eight `nomatch`es plus the `of_readBack`
+   and `crossEnvP` arrows; or
+2. re-spelling K.60's guard so that what the kernel tests is the OPENED
+   domain.  **Option 2 is REFUTED, not merely expensive**: the
+   conclusion is about a classification computed on the ABSTRACT type,
+   and a member mention that exists only in an opener's annotation
+   mints no pin — so a check guarded on the opened domain would claim
+   something false and WOULD fire.
+
+The choice is therefore option 1 or leaving (ii) where it is.
+
+##### (d) (iii)'s PRICE
+
+`copyRecFRead` is `NestedCopyInst.lean:3589–3870` and
+`copyRecFReadRefl` `4666–5183`: the pin-target twins of the two are
+~800 lines on the same skeleton, with `copyPinFCorr` where
+`copyRecFDom` stands.  A session of its own, and independent of (c)'s
+decision — it takes `hkA` as a hypothesis.
+
+##### (e) GATES
+
+`lake build` and `lake test` EXIT 0; `tests/warning-free.sh 162cbe9c`:
+"5 changed module(s) since 162cbe9c", "lake build — 5 module(s)
+recompiled, 0 warning line(s)", "lake test — 0 module(s) recompiled, 0
+warning line(s)", "OK (a run that could have failed)".  `tests/arena.sh`
+**EXIT 0** — nested-shadow 38/38, e2e 200/200, arena 91/96, links 112,
+quote-gate 2, no-local-paths OK.  proofdeps 4965 rows / 12 roots /
+doors 0 — unmoved.  shake 510 removals all allowlisted; pub-imports
+1339 of 2264, none demotable.  `tests/unconsumed.sh` 174 of 3624,
+including the new inversion (advisory, and (ii) is its consumer).
+
+##### (f) STATE
+
+* **(A)** LANDED `9a558b04`; **(B)** LANDED `dd44fbf0`;
+* the run relation's inversion SPLIT — LANDED, the row above;
+* **K.60** LANDED with the full battery.  Its inversion
+  `nestedCopyPinFieldsOk_head` has no consumer yet — `tests/unconsumed.sh`
+  lists it, advisory — and that consumer is (ii);
+* **(ii)** blocked on (c)'s scope decision, not on any proof;
+* **(iii)** unstarted, ~800 lines, buildable standalone taking `hkA`;
+* **(iv)** unstarted;
+* **(v)** `docs/NESTED.md` §3 done — K.60 is a recorded fact of the
+  ELIMINATION's own output rather than a container clause, and §3 now
+  says so in one sentence beside the three container records it already
+  lists.  The other four items of (v) are unstarted.

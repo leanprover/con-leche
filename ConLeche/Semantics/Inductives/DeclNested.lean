@@ -282,6 +282,14 @@ def DeclNestedRun (μ : CheckMode) (F : Nat) (env : Env)
         ConLeche.nestedPinNorms (m := CheckM) (fueledOps μ F)
             (consNestedFormers (stored.take p.k) env) b.memberNames jobsP = .ok wsP ∧
         ConLeche.nestedPinRewrites env p st params pbs₀ jobsP wsP = true) ∧
+    -- **A CONTAINER'S NESTED FIELD LANDS ON A BLOCK PIN** (K.60): at a
+    -- container field headed by another stored container whose
+    -- parameter part carries one of the container's own members, the
+    -- copy's corresponding field is classified `.recursive` into a PIN.
+    -- K.32's twin, running the other way — the direction the model's
+    -- `pinF` arm needs.  UNCONDITIONAL, like K.59 and for the same
+    -- reason: the consumer reads it in every mode
+    ConLeche.nestedCopyPinFieldsOk env p b st stored = true ∧
     -- POST-CHECK (a) A THIRD TIME (K.30): the pins typed at the
     -- environment holding the RESTORED formers — the model tier's own
     ConLeche.nestedPinsOk (m := CheckM) (fueledOps μ F)
@@ -545,7 +553,9 @@ theorem declNestedRun_etaClosed {μ : CheckMode} {F : Nat} {env envOut : Env}
     {p : NestedParts} (hE : EtaFamiliesClosed env)
     (h : DeclNestedRun μ F env p envOut) : EtaFamiliesClosed envOut := by
   obtain ⟨-, -, st, b, envAux, stored, ctorsR, cvRms, cvRns, rulesM, rulesN, fmsA, ctorsA,
-    -, -, -, -, -, -, -, -, -, -, -, -, hcaps, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, hctors, hrm, hrn, -, -, -, -, -, htbl,
+    -, -, -, -, -, -, -, -, -, -, -, -, hcaps,
+    -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -,
+    hctors, hrm, hrn, -, -, -, -, -, htbl,
     -, -, -, -, -, -⟩ := h
   refine EtaFamiliesClosed.ofFreshExt hE ?_
   -- the formers

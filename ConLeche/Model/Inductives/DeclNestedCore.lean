@@ -1409,7 +1409,8 @@ theorem declNested_of (hμ : μ.verifiedChecks = true) {F : Nat} {env envOut : E
   obtain ⟨h0, h1, st, b, envAux, stored, ctorsR, cvRms, cvRns, rulesM, rulesN, fmsA, ctorsA,
     hfA, hcA, helim, hcount, hfresh, hcont, hcomps, hb, haux, hstored, hclosed, hpinsAux,
     hcaps, hsrc,
-    -, hgrp, hmn, hsc, hlv, hK32, hkinds, hauxApps, hrank, -, -, -, hK42, hK51, hpins₁, hctors,
+    -, hgrp, hmn, hsc, hlv, hK32, hkinds, hauxApps, hrank, -, -, -, hK42, hK51, -, hpins₁,
+    hctors,
     hrm, hrn,
     hndR, hdisj,
     hrulesM, hrulesN, -, htbl, hpinsOut, -, hcnt, hrecs, hrb, hownP, hmimB⟩ := h
@@ -1441,7 +1442,10 @@ theorem declNested_of (hμ : μ.verifiedChecks = true) {F : Nat} {env envOut : E
   -- PIN targets — the normalisation of the minted domain REWRITTEN —
   -- which lane L-B's `ordF`-RIGHT arm reads at a pin target and nothing
   -- on this path does, so it is carried by the run relation and picked
-  -- up where that arm is assembled;
+  -- up where that arm is assembled; the `-` after `hK51` is K.60's
+  -- `nestedCopyPinFieldsOk` — a container's nested field lands on a
+  -- block pin, K.32's twin the other way round — which the copies'
+  -- `pinF` arm reads and nothing on this path does;
   -- then K.34's `blockReadBackOk` (`hrb`) — the route's own
   -- read-back, which the block this route stores needs and `mp.blocks`
   -- carries for the rest — and the LAST two `-` are K.47's
