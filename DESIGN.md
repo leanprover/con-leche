@@ -107912,3 +107912,90 @@ next candidate was assumed to be reachable rather than checked.  The
 check took one grep of `mutualCtorKinds` and one of `interp_whnf`.
 
 Nothing in this section changes the tree.
+
+#### (number at the integrator's sync) — L-E: "no such lemma exists" was WRONG — the whnf fact is at `Steps/Whnf.lean:700`, and the negative now rests on a different reason (lane L-E, 2026-09-18)
+
+**Correction first.**  This lane wrote that `interp` respecting the
+normalisation "is a soundness statement larger than the arm" and that
+"no such lemma exists — grepped for `interp_whnf` and defeq-respecting
+variants, zero hits."  **That is false, and the way it is false is the
+route's own recorded failure**: a TEXTUAL command answering a SEMANTIC
+question.  `ConLeche/Model/Steps/Whnf.lean:700` concludes, under the
+standard package,
+
+```lean
+(∀ ρ, Sat V Δa ρ → WellDenotedV V ρ ea') ∧
+  ∀ ρ, Sat V Δa ρ → interp V ρ ea = interp V ρ ea'
+```
+
+— whnf preserving the interpretation, PROVED.  Fifth shape of the same
+rule, and the second time this lane has committed it after recording it.
+
+##### (a) CHECK ONE — PASSES.  It is the same whnf, at a nameable fuel
+
+`fueledOps`' field is `whnf env d e := ConLeche.whnf mode env F d e`
+(`CheckerBase.lean:106`), and `ConLeche.whnf env fuel depth e :=
+(pureFns mode env fuel).whnf depth e` (`TypeChecker.lean:32`).  The
+claims are about `whnfLoop (pureFns μ env fuel) env d budget e`.  Same
+function, and the fuel at the run is `checkFuel` (`pureOps`).
+
+##### (b) CHECK THREE — PASSES.  No layer is crossed
+
+`Model/Inductives/*` already imports `Model/Steps/*` at
+`MutualRecData.lean`, `NestedOwnPinsRead.lean` and `MutualRecsLaw.lean`.
+The claims are in reach.
+
+##### (c) CHECK TWO — NOT ASSESSED, because a fourth fact decides it
+
+**`normPosDomM` normalises the MINTED domain, not the container's
+parametric one.**  `nestedOrdNorms` runs
+`normPosDomM ops env memberNames je.1 1024 je.2.1` over jobs whose triple
+is `(depth, MINTED, STORED)` (`NestedInstall.lean:2121–2126`, and the
+triple named at `:2038`).  The minted domain is the container's field
+already instantiated at the pin's components — **the parameters are
+gone**.
+
+T1 has to be applied to the container's PARAMETRIC domain at two
+parameter frames, and the whnf fact relates a term to its own normal
+form at ONE frame.  So the normalised object the record speaks about is
+not the object T1 needs, and the bridge does not connect.
+
+##### (d) AND THE ERASURE SURVIVES PARAMETRIC NORMALISATION ANYWAY
+
+Normalising the parametric domain ourselves is available — the whnf fact
+is about any `whnfLoop` run — but it does not help, because the erasure
+that defeats T1 happens AT INSTANTIATION, not before it.  A parametric
+whnf is stuck at `β k`; substituting a λ for `β` creates the redex whose
+reduction erases the mention.  So the parametric normal form still reads
+the replaced position, and T1's hypothesis is still false there.
+
+The shape that realises it: a component that is a λ mentioning a pin in
+a position its BODY discards — `β := fun (x : List P22) => Nat`, field
+`β k` — which instantiates to `Nat` and is therefore classified
+`.ordinary`, while `β` is a replaced component.  **This lane has no
+fixture for that shape** and, per the standing ruling, does not need one:
+a case split is exhaustive over the syntax, and absence from a corpus
+does not discharge a case.
+
+##### (e) THE NEGATIVE, RESTATED ON A REASON
+
+`ordF`-left's side condition does not derive — **not** because the whnf
+fact is missing (it is not; it is proved and in reach), but because
+**the fact normalises the minted domain while T1 needs the parametric
+one, and the erasure that makes T1's hypothesis false survives
+parametric normalisation.**
+
+What survives from the earlier costing: the positive half is free and
+definitional, and the negative half evaporates.  What is corrected: the
+reason the bridge fails, and the claim that the tree lacks the whnf
+fact.
+
+##### (f) WHAT WOULD CLOSE IT, for whoever prices next
+
+Working entirely at the INSTANTIATED level would connect — the record's
+normalisation lives there — but the candidate side has no instantiated
+TERM, only values, which is option (1)'s object again.  So the three
+arms remain one obligation, and this lane's recommendation is unchanged:
+let `ordF`-left ride with `recF` and `es`.
+
+Nothing in this section changes the tree.
