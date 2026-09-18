@@ -898,6 +898,44 @@ theorem auxStored?_tbl {envAux : Env} {b : MutualBlock} {mIdx : Nat} {a : AuxSto
           | _ => exact absurd h (by simp)
       | _ => exact absurd h (by simp)
 
+/-- The read-back's `tbl` field, BOTH ways (task #315 M8): it is
+exactly what the scratch environment answers at the member's
+`projTableName`, so its absence is that lookup's absence too. -/
+theorem auxStored?_tbl_eq {envAux : Env} {b : MutualBlock} {mIdx : Nat} {a : AuxStored}
+    (h : auxStored? envAux b mIdx = some a) :
+    ∃ cv : ConstantVal, b.formers[mIdx]? = some (cv, a.nIdx) ∧
+      a.tbl = (match envAux.find? (projTableName cv.name) with
+        | some (.projInfo t) => some t
+        | _ => none) := by
+  unfold auxStored? at h
+  cases hfm : b.formers[mIdx]? with
+  | none => rw [hfm] at h; exact absurd h (by simp [bind, Option.bind])
+  | some q =>
+    obtain ⟨cv, nIdx⟩ := q
+    rw [hfm] at h
+    simp only [bind, Option.bind] at h
+    cases hfi : envAux.find? cv.name with
+    | none => rw [hfi] at h; exact absurd h (by simp)
+    | some ci =>
+      rw [hfi] at h
+      cases ci with
+      | indInfo cvTa caps =>
+        simp only [] at h
+        cases hfr : envAux.find? (cv.name.str "rec") with
+        | none => rw [hfr] at h; exact absurd h (by simp)
+        | some cir =>
+          rw [hfr] at h
+          cases cir with
+          | recInfo cvRa mI rP rules =>
+            simp only [] at h
+            split at h
+            · exact absurd h (by simp)
+            · simp only [pure, Option.some.injEq] at h
+              obtain rfl := h
+              exact ⟨cv, rfl, rfl⟩
+          | _ => exact absurd h (by simp)
+      | _ => exact absurd h (by simp)
+
 /-- **AND ITS PROJECTION TABLE IS THE SCRATCH INSTALL'S**
 (`auxStored_rec_eq`'s twin at the TABLES): the read-back's `tbl` field
 at member `mIdx` is what the scratch install's table stage

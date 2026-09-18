@@ -104994,3 +104994,70 @@ constructors (E3a, E3b), and the tables' fold machinery with its
 freshness bridge.  The walk itself is parked at
 `_tmp/m8/checkNestedS_skels.scaffold.lean`, ~200 lines, wanting only
 this clause and the final rewrite.
+
+#### The auxiliary block's member index counts, pinned (2026-09-18, task #315 M8, `agent/uniform-m5`)
+
+The walk's table clause could not be proved, and the reason was a gap
+rather than a proof difficulty: **two places decided "structure-like"
+from different data.**  `nestedTableSkelAt` reads the RECORD's index
+count (`(p.formers.getD m default).2`, what `nestedParts?` read off the
+stream's former telescope); the route reads the AUXILIARY block's
+(`auxIdxCount p.nP` of the ANNOTATED former type, via `auxBlock`).  They
+agree because `checkSumTele` leaves a type of depth `nP + nIdx` in both
+branches and annotation preserves pi-depth — a property of the datum
+the agreement floor forgets by design, and one **no guard checked**.
+
+**The check, in both routes**, immediately after `auxBlock`:
+
+```lean
+  unless p.formers.map (·.2) == (b.formers.take p.k).map (·.2) do
+    throw (.invalid "nested: a member's index count is not the one its declaration carries")
+```
+
+**NOT `certOnly`**, for the reason that now has a precedent: the cached
+mirror's skeleton must be a function of the record in EVERY mode, and a
+gated check is `true` in the trusted one.  So this is a REJECT-level
+commitment and the accept set is on the line — hence the measurement
+first.
+
+**THE MEASUREMENT, before the check was written.**  Instrument: a
+`dbg_trace` at the comparison point in `checkNestedS`, run under
+`--nested-shadow` (the mode that runs the nested route beside the
+install, one line per recognised block).
+
+| corpus | files | blocks | counts compared | differences |
+|---|---|---|---|---|
+| `tests/e2e/*` + `_tmp/arena-tests/{good,bad}` | 243 | 43 | 45 | 0 |
+| `init-full` (53 093 accepted) | 1 | 1 | 1 | 0 |
+| Mathlib (654 504 accepted) | 1 | 41 | 56 | 0 |
+
+**85 blocks, 102 counts compared, zero differences.**
+
+*Firing control*: the same instrument with the auxiliary side perturbed
+(`fun f => f.2 + 1`) reports a difference at **43 of 43** e2e/arena
+blocks — the comparison is live and the instrument can fail.
+*Non-vacuity*: 85 blocks were reached across the three corpora and every
+one of them compared at least one count; 30 of the 243 fixtures carry a
+nested block at all.
+
+**Ledger row.**  Not certification-only: a plain check in both routes
+whose failure is `.invalid`.  Category **(B)**, by-construction-only:
+official does not compare these two numbers because it never computes
+them twice — the auxiliary block is our own scratch construction — so
+what the check records is an internal agreement, and a fire would be a
+stream whose annotated former telescope has a different depth from the
+declared one.  The honest statement is **a measured narrowing risk of
+zero over 102 counts**; if a fire is ever seen, the answer is to widen
+(carry the auxiliary count in the skeleton and prove the two drivers
+agree on it) rather than to keep rejecting.
+
+**What it unblocked.**  With the counts pinned, `checkNestedS_skels` is
+**complete**: the nested route's install skeleton is a function of the
+recognised block — the `k` restored formers under their declared names,
+every restored constructor with the block's parameter count and the
+declared field counts, the `k + numNested` restored recursors at the
+record's argument sums and rule constructors, and the structure-like
+members' projection tables.  Twenty-three `ofDecCases` guard lines (the
+new check added exactly one more, to both the push and the walk — the
+idiom's promise under change), four data bridges, and one run fact (the
+restore's table-name freshness, as recorded).

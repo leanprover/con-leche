@@ -2339,6 +2339,17 @@ def checkNested (ops : CheckerOps m) (env : Env) (p : NestedParts) : m Env := do
   -- 2. the auxiliary mutual block, checked in a SCRATCH environment
   let b ← unwrapOr (auxBlock p st)
     (.invalid "invalid nested inductive datatype, ill-formed declaration")
+  -- **THE BLOCK'S MEMBER INDEX COUNTS ARE THE RECORD'S** (task #315 M8):
+  -- the auxiliary block reads each member's index count off the
+  -- ANNOTATED former's telescope (`auxIdxCount`), while the recogniser
+  -- read it off the stream's; the two decide structure-likeness (and so
+  -- the projection tables) and nothing until now checked that they
+  -- agree.  Not `certOnly`: the cached mirror's SKELETON is a function
+  -- of the record in EVERY mode, and a gated check is `true` in the
+  -- trusted one.  See DESIGN "#### The auxiliary block's member index
+  -- counts, pinned" for the measurement.
+  unless p.formers.map (·.2) == (b.formers.take p.k).map (·.2) do
+    throw (.invalid "nested: a member's index count is not the one its declaration carries")
   -- `auxRoute := true` (K.10, widened by K.12): EVERY member of this
   -- block is pre-annotated — the real members are the constants the
   -- input-annotation stage checked, and the copies are minted out of

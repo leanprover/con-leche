@@ -15,6 +15,8 @@ import ConLeche.Verify.Inductives.NestedElimInv
 import ConLeche.Verify.Inductives.NestedRecNames
 -- member m's auxiliary constructors are its own (task #315 M8)
 import ConLeche.Verify.Inductives.NestedCopyGlue
+-- the read-back's table field, both ways (task #315 M8)
+import ConLeche.Verify.Inductives.NestedRecDoor
 
 public section
 
@@ -1297,6 +1299,7 @@ theorem checkNestedS_push (mode : CheckMode) {env : Env} {fe : FEnv}
   refine Yields.ofDecCases (fun _ => Yields.ofThrowBind) (fun hfresh => ?_)
   refine Yields.ofDecCases (fun _ => Yields.ofThrowBind) (fun hcont => ?_)
   refine Yields.bind' Yields.ofUnwrapOr fun b hb => ?_
+  refine Yields.ofDecCases (fun _ => Yields.ofThrowBind) (fun _ => ?_)
   refine Yields.bind' (Yields.and (Yields.and (checkMutualCoreS_nodup mode fe b none true)
       (checkMutualCoreS_grouped mode fe b none true))
     (checkMutualCoreS_skels mode h.skelIs b none true)) fun feAux hAux => ?_
@@ -1501,6 +1504,592 @@ theorem nestedRecsOkF_ctors (ops : CheckerOps CheckCM) (fe : FEnv) (nP k n : Nat
     cases i with
     | zero => simp only [List.getElem?_cons_zero, Option.some.injEq] at hr; subst hr; exact hhead
     | succ j => exact hrest j r (by simpa using hr)
+
+/-- **THE NESTED ROUTE'S SKELETON** (task #315 M8). -/
+theorem checkNestedS_skels (mode : CheckMode) {fe : FEnv} {sk : List InstallSkel}
+    (h : SkelIs fe sk) (p : NestedParts) :
+    Yields (checkNestedS mode fe p) (fun fe' => SkelIs fe' (nestedSkels p sk)) := by
+  unfold checkNestedS
+  try ylet
+  refine Yields.ofDecCases (fun _ => Yields.ofThrowBind) (fun _ => ?_)
+  refine Yields.ofDecCases (fun _ => Yields.ofThrowBind) (fun _ => ?_)
+  ybind
+  refine Yields.bind' (nestedAnnotFormersF_names _ _ _ _) fun fmsA hfmsA => ?_
+  ybind
+  refine Yields.bind' (nestedAnnotCtorsF_names _ _ _) fun ctorsA hctorsA => ?_
+  refine Yields.bind' Yields.ofNestedLift fun st hst0 => ?_
+  refine Yields.ofDecCases (fun _ => Yields.ofThrowBind) (fun hcnt => ?_)
+  refine Yields.ofDecCases (fun _ => Yields.ofThrowBind) (fun _ => ?_)
+  refine Yields.ofDecCases (fun _ => Yields.ofThrowBind) (fun _ => ?_)
+  refine Yields.bind' Yields.ofUnwrapOr fun b hb => ?_
+  refine Yields.ofDecCases (fun _ => Yields.ofThrowBind) (fun hidx => ?_)
+  refine Yields.bind' (Yields.and (Yields.and (checkMutualCoreS_nodup mode fe b none true)
+      (checkMutualCoreS_grouped mode fe b none true))
+    (checkMutualCoreS_skels mode h b none true)) fun feAux hAux => ?_
+  obtain ⟨⟨hnd, hgr⟩, hsk⟩ := hAux
+  refine Yields.bind' Yields.ofUnwrapOr fun stored hst => ?_
+  apply Yields.letFun
+  refine Yields.ofDecCases (fun _ => Yields.ofThrowBind) (fun _ => ?_)
+  ybind
+  ybind
+  apply Yields.letFun
+  refine Yields.ofDecCases (fun _ => Yields.ofThrowBind) (fun _ => ?_)
+  apply Yields.letFun
+  refine Yields.ofDecCases (fun _ => Yields.ofThrowBind) (fun _ => ?_)
+  apply Yields.letFun
+  refine Yields.ofDecCases (fun _ => Yields.ofThrowBind) (fun _ => ?_)
+  apply Yields.letFun
+  refine Yields.ofDecCases (fun _ => Yields.ofThrowBind) (fun _ => ?_)
+  apply Yields.letFun
+  refine Yields.ofDecCases (fun _ => Yields.ofThrowBind) (fun _ => ?_)
+  apply Yields.letFun
+  refine Yields.ofDecCases (fun _ => Yields.ofThrowBind) (fun _ => ?_)
+  apply Yields.letFun
+  refine Yields.ofDecCases (fun _ => Yields.ofThrowBind) (fun _ => ?_)
+  apply Yields.letFun
+  refine Yields.ofDecCases (fun _ => Yields.ofThrowBind) (fun _ => ?_)
+  -- the read-back's positional facts, and the two length readings
+  have htake : ∀ (m : Nat) (a : AuxStored), (List.take p.k stored)[m]? = some a →
+      stored[m]? = some a := by
+    intro m a ha
+    rw [List.getElem?_take] at ha
+    split at ha
+    · exact ha
+    · exact absurd ha (by simp)
+  have hlenS : stored.length = p.k + p.numNested := by
+    rw [(auxStoredAll_get hst).1,
+      auxBlock_k_count_of (by
+        have := congrArg List.length hfmsA
+        simpa [NestedParts.k] using this) hst0 hb]
+    exact congrArg (p.k + ·) (by simpa using hcnt)
+  have hlenM : (List.take p.k stored).length = p.k := by
+    rw [List.length_take, hlenS]; omega
+  -- (1) THE RESTORED FORMERS' NAMES ARE THE BLOCK'S OWN
+  have hnamesM : (List.take p.k stored).map (fun a => a.cvTa.name) = p.memberNames := by
+    rw [← auxBlock_memberNames_of hfmsA hst0 hb]
+    refine List.ext_getElem? ?_
+    intro m
+    rw [List.getElem?_map]
+    by_cases hm : m < p.k
+    · have hmS : m < (List.take p.k stored).length := by rw [hlenM]; exact hm
+      have hs : (List.take p.k stored)[m]? = some (List.take p.k stored)[m] :=
+        List.getElem?_eq_getElem hmS
+      obtain ⟨cv, hfm, hnm⟩ := auxStoredAll_cvTa_name hsk hst m _ (htake m _ hs)
+      have hRHS : (List.take p.k b.memberNames)[m]? = some cv.name := by
+        rw [List.getElem?_take, if_pos hm]
+        simp only [MutualBlock.memberNames, List.getElem?_map, hfm]
+        rfl
+      rw [hs, hRHS]
+      exact congrArg some hnm
+    · rw [List.getElem?_eq_none_iff.mpr (by rw [hlenM]; omega),
+        List.getElem?_eq_none_iff.mpr (by rw [List.length_take]; omega)]
+      rfl
+  have h₁ : SkelIs (consNestedFormersF (List.take p.k stored) fe)
+      (nestedIndSkels (List.take p.k stored) sk) := consNestedFormersF_skels h
+  apply Yields.letFun
+  ybind
+  ybind
+  ybind
+  ybind
+  ybind
+  refine Yields.bind' (Yields.mapM_getElem
+    (fun a : AuxStored => restoreCtorsF_names _ _ _ _ a.ctors) _) fun ctorsR hctorsR => ?_
+  -- (2) EACH MEMBER'S RESTORED CONSTRUCTORS ARE ITS OWN, WITH THE
+  -- BLOCK'S PARAMETER COUNT AND THE DECLARED FIELD COUNTS
+  have hbridgeC := auxStoredAll_ctor_name hsk hst
+  have hnP : b.nP = p.nP := (auxBlock_fields hb).1
+  have hmember : ∀ (m : Nat) (l : List (ConstantVal × Nat × Nat)), ctorsR[m]? = some l →
+      l.map (fun c => (c.1.name, c.2.1, c.2.2))
+        = (p.ctors.filter (fun c => c.member == m)).map
+            (fun c => (c.cv.name, p.nP, c.nF)) := by
+    intro m l hl
+    obtain ⟨a, ha, hnames⟩ := hctorsR.2 m l hl
+    have hmlt : m < p.k := by
+      have := (List.getElem?_eq_some_iff.mp ha).1
+      rw [hlenM] at this; exact this
+    have hlenT : (nestedTypes0 p fmsA ctorsA).length = p.k := by
+      rw [nestedTypes0_length]
+      have := congrArg List.length hfmsA
+      simpa [NestedParts.k] using this
+    obtain ⟨t₀, ht₀⟩ : ∃ t₀, (nestedTypes0 p fmsA ctorsA)[m]? = some t₀ :=
+      ⟨_, List.getElem?_eq_getElem (by rw [hlenT]; exact hmlt)⟩
+    have hpairs := auxBlock_ownCtors_pairs hctorsA hst0 hb hgr ht₀
+    have hstored := (auxStoredAll_get hst).2 m a (htake m a ha)
+    rw [hnames]
+    refine List.ext_getElem? ?_
+    intro j
+    rw [List.getElem?_map, List.getElem?_map]
+    cases hc : a.ctors[j]? with
+    | some c =>
+      obtain ⟨J, mc, hown, hn, h1, h2⟩ :=
+        auxStoredAll_ctor_data hsk hnd hst m a (htake m a ha) j c hc
+      obtain ⟨c', hc', heq⟩ := getElem?_of_map_eq hpairs hown
+      rw [hc']
+      simp only [Option.map_some, Option.some.injEq, Prod.mk.injEq]
+      have e1 : mc.cv.name = c'.cv.name := congrArg Prod.fst heq
+      have e2 : mc.nF = c'.nF := congrArg Prod.snd heq
+      exact ⟨by rw [hn, e1], by rw [h1, hnP], by rw [h2, e2]⟩
+    | none =>
+      have hj : a.ctors.length ≤ j := List.getElem?_eq_none_iff.mp hc
+      have hl2 : a.ctors.length = (b.ownCtors m).length := (auxStored?_ctors hstored).1
+      have hl3 : (b.ownCtors m).length
+          = (p.ctors.filter (fun c => c.member == m)).length := by
+        have := congrArg List.length hpairs; simpa using this
+      rw [List.getElem?_eq_none_iff.mpr (by omega)]
+      rfl
+  have h₂ : SkelIs (consNestedCtorsF ctorsR.flatten
+      (consNestedFormersF (List.take p.k stored) fe))
+      (nestedCtorSkels ctorsR.flatten (nestedIndSkels (List.take p.k stored) sk)) :=
+    consNestedCtorsF_skels h₁
+  apply Yields.letFun
+  ybind
+  refine Yields.bind' (restoreRecTysF_names _ _ _ _ _ (List.take p.k stored)
+    (by simp only [List.length_take, List.length_map, List.length_range]; omega))
+    fun cvRms hcvRms => ?_
+  refine Yields.bind' (restoreRecTysF_names _ _ _ _ _ (List.drop p.k stored)
+    (by simp only [List.length_drop, List.length_map, List.length_range, hlenS]; omega))
+    fun cvRns hcvRns => ?_
+  refine Yields.ofDecCases (fun _ => Yields.ofThrowBind) (fun _ => ?_)
+  apply Yields.letFun
+  refine Yields.ofDecCases (fun _ => Yields.ofThrowBind) (fun _ => ?_)
+  apply Yields.letFun
+  ybind
+  refine Yields.bind' (Yields.mapM_length _) fun rulesM hlenRM => ?_
+  refine Yields.bind' (Yields.mapM_length _) fun rulesN hlenRN => ?_
+  refine Yields.ofDecCases (fun _ => Yields.ofThrowBind) (fun _ => ?_)
+  apply Yields.letFun
+  ybind
+  have h₃ : SkelIs (storeNestedRecsF
+      ((cvRms.zip ((List.take p.k stored).zip rulesM)).map
+          (fun x : ConstantVal × AuxStored × List RecRule => (x.1, x.2.1.mI, x.2.1.rP, x.2.2))
+        ++ (cvRns.zip ((List.drop p.k stored).zip rulesN)).map
+          (fun x : ConstantVal × AuxStored × List RecRule => (x.1, x.2.1.mI, x.2.1.rP, x.2.2)))
+      (consNestedCtorsF ctorsR.flatten (consNestedFormersF (List.take p.k stored) fe)))
+      (nestedRecSkels
+        ((cvRms.zip ((List.take p.k stored).zip rulesM)).map
+            (fun x : ConstantVal × AuxStored × List RecRule => (x.1, x.2.1.mI, x.2.1.rP, x.2.2))
+          ++ (cvRns.zip ((List.drop p.k stored).zip rulesN)).map
+            (fun x : ConstantVal × AuxStored × List RecRule => (x.1, x.2.1.mI, x.2.1.rP, x.2.2)))
+        (nestedCtorSkels ctorsR.flatten (nestedIndSkels (List.take p.k stored) sk))) :=
+    storeNestedRecsF_skels h₂
+  obtain ⟨preR, hpreR⟩ := nestedSkels_append (List.take p.k stored) ctorsR.flatten
+    ((cvRms.zip ((List.take p.k stored).zip rulesM)).map
+        (fun x : ConstantVal × AuxStored × List RecRule => (x.1, x.2.1.mI, x.2.1.rP, x.2.2))
+      ++ (cvRns.zip ((List.drop p.k stored).zip rulesN)).map
+        (fun x : ConstantVal × AuxStored × List RecRule => (x.1, x.2.1.mI, x.2.1.rP, x.2.2))) sk
+  refine Yields.bind' (Yields.and (nestedTablesF_skels structWalkersC _ h₃)
+    (nestedTablesF_fresh structWalkersC (sk := sk) (pre := preR) _
+      (by rw [← hpreR]; exact h₃))) fun fe₄ hfe₄ => ?_
+  obtain ⟨hsk₄, hfresh₄⟩ := hfe₄
+  ybind
+  ybind
+  apply Yields.letFun
+  refine Yields.ofDecCases (fun _ => Yields.ofThrowBind) (fun hcount => ?_)
+  apply Yields.letFun
+  refine Yields.ofDecCases (fun _ => Yields.ofThrowBind) (fun hnums => ?_)
+  apply Yields.letFun
+  refine Yields.bind' (nestedRecsOkF_ctors _ _ _ _ _ _) fun _ hrules => ?_
+  refine Yields.ofDecCases (fun _ => Yields.ofThrowBind) (fun _ => ?_)
+  apply Yields.letFun
+  refine Yields.ofDecCases (fun _ => Yields.ofThrowBind) (fun _ => ?_)
+  apply Yields.letFun
+  refine Yields.ofDecCases (fun _ => Yields.ofThrowBind) (fun _ => ?_)
+  refine Yields.pure ?_
+  -- the four transports from the read-back's lists to the block record's
+  have hmemName : ∀ i, i < p.k → p.memberNames[i]? = some (p.formers.getD i default).1.name := by
+    intro i hi
+    have hi' : i < p.formers.length := by simpa [NestedParts.k] using hi
+    simp only [NestedParts.memberNames, List.getElem?_map, List.getElem?_eq_getElem hi',
+      List.getD_eq_getElem?_getD, Option.map_some]
+    rfl
+  have hE1 : nestedIndSkels (List.take p.k stored) sk
+      = (List.range p.k).foldl
+        (fun acc m => InstallSkel.ind (p.formers.getD m default).1.name :: acc) sk := by
+    unfold nestedIndSkels
+    refine foldl_step_congr (F := fun (a : AuxStored) acc => InstallSkel.ind a.cvTa.name :: acc)
+      (G := fun (m : Nat) acc => InstallSkel.ind (p.formers.getD m default).1.name :: acc)
+      (by rw [hlenM, List.length_range]) ?_ sk
+    intro i a m ha hm acc
+    obtain ⟨cv, hn, hnm⟩ := getElem?_of_map_eq hnamesM ha
+    have hmi : m = i := by
+      have := List.getElem?_eq_some_iff.mp hm
+      simpa using this.2.symm
+    subst hmi
+    have hget : p.formers.getD m default = cv := by
+      rw [List.getD_eq_getElem?_getD, hn]; rfl
+    rw [hnm, hget]
+  have hE2 : ∀ X, nestedCtorSkels ctorsR.flatten X
+      = (List.range p.k).foldl (fun acc m => nestedCtorSkelsAt p m acc) X := by
+    intro X
+    rw [nestedCtorSkels_flatten]
+    refine foldl_step_congr
+      (F := fun (l : List (ConstantVal × Nat × Nat)) acc => nestedCtorSkels l acc)
+      (G := fun (m : Nat) acc => nestedCtorSkelsAt p m acc)
+      (by rw [hctorsR.1, hlenM, List.length_range]) ?_ X
+    intro i l m hl hm acc
+    have hmi : m = i := by
+      have := List.getElem?_eq_some_iff.mp hm
+      simpa using this.2.symm
+    subst hmi
+    have hkey := hmember m l hl
+    have e1 : ∀ (xs : List (ConstantVal × Nat × Nat)) (acc : List InstallSkel),
+        xs.foldl (fun acc c => InstallSkel.ctor c.1.name c.2.1 c.2.2 :: acc) acc
+          = (xs.map (fun c => (c.1.name, c.2.1, c.2.2))).foldl
+              (fun acc t => InstallSkel.ctor t.1 t.2.1 t.2.2 :: acc) acc := by
+      intro xs acc; rw [List.foldl_map]
+    have e2 : ∀ (xs : List MutualCtor) (acc : List InstallSkel),
+        xs.foldl (fun acc c => InstallSkel.ctor c.cv.name p.nP c.nF :: acc) acc
+          = (xs.map (fun c => (c.cv.name, p.nP, c.nF))).foldl
+              (fun acc t => InstallSkel.ctor t.1 t.2.1 t.2.2 :: acc) acc := by
+      intro xs acc; rw [List.foldl_map]
+    show nestedCtorSkels l acc = nestedCtorSkelsAt p m acc
+    unfold nestedCtorSkels nestedCtorSkelsAt
+    rw [e1, e2, hkey]
+  -- (3a) the restored member recursors: name, argument sums, rule constructors
+  have hlenCM : cvRms.length = p.k := by
+    have := congrArg List.length hcvRms
+    simp only [List.length_map, List.length_take, List.length_range, hlenM] at this
+    omega
+  have hnameM : ∀ (i : Nat) (cv : ConstantVal), cvRms[i]? = some cv →
+      cv.name = (p.formers.getD i default).1.name.str "rec" := by
+    intro i cv hi
+    have hlt : i < p.k := by
+      have := (List.getElem?_eq_some_iff.mp hi).1; rw [hlenCM] at this; exact this
+    have h1 : (cvRms.map (fun c => c.name))[i]? = some cv.name := by
+      rw [List.getElem?_map, hi]; rfl
+    rw [hcvRms] at h1
+    rw [List.getElem?_take, if_pos (by rw [hlenM]; exact hlt), List.getElem?_map,
+      List.getElem?_range hlt] at h1
+    simpa using h1.symm
+  have hnumsM : ∀ (i : Nat) (a : AuxStored), (List.take p.k stored)[i]? = some a →
+      p.memberRecNums.getD i (0, 0) = (a.mI, a.rP) := by
+    intro i a hi
+    have hnums' : p.memberRecNums
+        = (List.take p.k stored).map (fun a => (a.mI, a.rP)) := by
+      simp only [Bool.and_eq_true, beq_iff_eq] at hnums
+      exact hnums.1
+    rw [hnums', List.getD_eq_getElem?_getD, List.getElem?_map, hi]
+    rfl
+  have hlenRM' : rulesM.length = p.k := by
+    rw [hlenRM, List.length_zip, hlenCM, hlenM]; omega
+  have hcount' : p.memberRecs.length = cvRms.length ∧ p.mimicRecs.length = cvRns.length := by
+    simp only [Bool.and_eq_true, beq_iff_eq] at hcount
+    exact hcount
+  have hrulesM : ∀ (i : Nat) (rs : List RecRule), rulesM[i]? = some rs →
+      rs.map (fun r => r.ctor) = (p.memberRecs.getD i default).2.map (fun r => r.ctor) := by
+    intro i rs hrs
+    have hlt : i < p.k := by
+      have := (List.getElem?_eq_some_iff.mp hrs).1; rw [hlenRM'] at this; exact this
+    have hmr : i < p.memberRecs.length := by rw [hcount'.1, hlenCM]; exact hlt
+    obtain ⟨sr, hsr⟩ : ∃ sr, p.memberRecs[i]? = some sr := ⟨_, List.getElem?_eq_getElem hmr⟩
+    obtain ⟨cv, hcv⟩ : ∃ cv, cvRms[i]? = some cv :=
+      ⟨_, List.getElem?_eq_getElem (by rw [hlenCM]; exact hlt)⟩
+    have hrow : (((p.memberRecs.zip cvRms).zip rulesM).zipIdx)[i]? = some (((sr, cv), rs), i) := by
+      rw [List.getElem?_zipIdx,
+        zip_getElem?_of _ _ i (sr, cv) rs (zip_getElem?_of _ _ i sr cv hsr hcv) hrs]
+      simp
+    have hmRows : i < ((p.memberRecs.zip cvRms).zip rulesM).zipIdx.length := by
+      simp only [List.length_zipIdx, List.length_zip, hlenCM, hlenRM']
+      omega
+    have hidx := hrules i _ (by
+      rw [List.getElem?_append_left (by simpa using hmRows), List.getElem?_map, hrow]
+      rfl)
+    simp only at hidx
+    rw [hidx, List.getD_eq_getElem?_getD, hsr]
+    rfl
+  have hE3a : ∀ X, nestedRecSkels ((cvRms.zip ((List.take p.k stored).zip rulesM)).map
+        (fun x : ConstantVal × AuxStored × List RecRule => (x.1, x.2.1.mI, x.2.1.rP, x.2.2))) X
+      = (List.range p.k).foldl (fun acc m => InstallSkel.recr
+          ((p.formers.getD m default).1.name.str "rec")
+          (p.memberRecNums.getD m (0, 0)).1 (p.memberRecNums.getD m (0, 0)).2
+          ((p.memberRecs.getD m default).2.map (fun r => r.ctor)) :: acc) X := by
+    intro X
+    show List.foldl _ X _ = _
+    refine foldl_step_congr
+      (F := fun (r : ConstantVal × Nat × Nat × List RecRule) acc =>
+        InstallSkel.recr r.1.name r.2.1 r.2.2.1 (r.2.2.2.map (fun x => x.ctor)) :: acc)
+      (G := fun (m : Nat) acc => InstallSkel.recr
+        ((p.formers.getD m default).1.name.str "rec")
+        (p.memberRecNums.getD m (0, 0)).1 (p.memberRecNums.getD m (0, 0)).2
+        ((p.memberRecs.getD m default).2.map (fun r => r.ctor)) :: acc)
+      ?hlen ?hstep X
+    case hlen =>
+      simp only [List.length_map, List.length_zip, List.length_range]
+      omega
+    case hstep =>
+    intro i r m hr hm acc
+    have hmi : m = i := by
+      have := List.getElem?_eq_some_iff.mp hm
+      simpa using this.2.symm
+    subst hmi
+    rw [List.getElem?_map] at hr
+    obtain ⟨x, hx, hrx⟩ := Option.map_eq_some_iff.mp hr
+    obtain ⟨hcv, hrest⟩ := zip_getElem? _ _ m x hx
+    obtain ⟨ha, hrs⟩ := zip_getElem? _ _ m x.2 hrest
+    subst hrx
+    rw [hnameM m x.1 hcv, hnumsM m x.2.1 ha, hrulesM m x.2.2 hrs]
+  -- (3b) the mimics, by the same three readings
+  have hlenD : (List.drop p.k stored).length = p.numNested := by
+    rw [List.length_drop, hlenS]; omega
+  have hlenCN : cvRns.length = p.numNested := by
+    have := congrArg List.length hcvRns
+    simp only [List.length_map, List.length_take, List.length_range, hlenD] at this
+    omega
+  have hlenRN' : rulesN.length = p.numNested := by
+    rw [hlenRN, List.length_zip, hlenCN, hlenD]; omega
+  have hnameN : ∀ (j : Nat) (cv : ConstantVal), cvRns[j]? = some cv →
+      cv.name = p.mimicRecName j := by
+    intro j cv hj
+    have hlt : j < p.numNested := by
+      have := (List.getElem?_eq_some_iff.mp hj).1; rw [hlenCN] at this; exact this
+    have h1 : (cvRns.map (fun c => c.name))[j]? = some cv.name := by
+      rw [List.getElem?_map, hj]; rfl
+    rw [hcvRns] at h1
+    rw [List.getElem?_take, if_pos (by rw [hlenD]; exact hlt), List.getElem?_map,
+      List.getElem?_range hlt] at h1
+    simpa using h1.symm
+  have hnumsN : ∀ (j : Nat) (a : AuxStored), (List.drop p.k stored)[j]? = some a →
+      p.mimicRecNums.getD j (0, 0) = (a.mI, a.rP) := by
+    intro j a hj
+    have hnums' : p.mimicRecNums
+        = (List.drop p.k stored).map (fun a => (a.mI, a.rP)) := by
+      simp only [Bool.and_eq_true, beq_iff_eq] at hnums
+      exact hnums.2
+    rw [hnums', List.getD_eq_getElem?_getD, List.getElem?_map, hj]
+    rfl
+  have hrulesN : ∀ (j : Nat) (rs : List RecRule), rulesN[j]? = some rs →
+      rs.map (fun r => r.ctor) = (p.mimicRecs.getD j default).2.map (fun r => r.ctor) := by
+    intro j rs hrs
+    have hlt : j < p.numNested := by
+      have := (List.getElem?_eq_some_iff.mp hrs).1; rw [hlenRN'] at this; exact this
+    have hmr : j < p.mimicRecs.length := by rw [hcount'.2, hlenCN]; exact hlt
+    obtain ⟨sr, hsr⟩ : ∃ sr, p.mimicRecs[j]? = some sr := ⟨_, List.getElem?_eq_getElem hmr⟩
+    obtain ⟨cv, hcv⟩ : ∃ cv, cvRns[j]? = some cv :=
+      ⟨_, List.getElem?_eq_getElem (by rw [hlenCN]; exact hlt)⟩
+    have hrow : (((p.mimicRecs.zip cvRns).zip rulesN).zipIdx)[j]? = some (((sr, cv), rs), j) := by
+      rw [List.getElem?_zipIdx,
+        zip_getElem?_of _ _ j (sr, cv) rs (zip_getElem?_of _ _ j sr cv hsr hcv) hrs]
+      simp
+    have hlenMRows : ((p.memberRecs.zip cvRms).zip rulesM).zipIdx.length = p.k := by
+      simp only [List.length_zipIdx, List.length_zip, hlenCM, hlenRM', hcount'.1]
+      omega
+    have hidx := hrules (p.k + j) _ (by
+      rw [List.getElem?_append_right (by simp only [List.length_map, hlenMRows]; omega),
+        List.length_map, hlenMRows, show p.k + j - p.k = j from by omega,
+        List.getElem?_map, hrow]
+      rfl)
+    simp only at hidx
+    rw [hidx, List.getD_eq_getElem?_getD, hsr]
+    rfl
+  have hE3b : ∀ Y, nestedRecSkels ((cvRns.zip ((List.drop p.k stored).zip rulesN)).map
+        (fun x : ConstantVal × AuxStored × List RecRule => (x.1, x.2.1.mI, x.2.1.rP, x.2.2))) Y
+      = (List.range p.numNested).foldl (fun acc j => InstallSkel.recr (p.mimicRecName j)
+          (p.mimicRecNums.getD j (0, 0)).1 (p.mimicRecNums.getD j (0, 0)).2
+          ((p.mimicRecs.getD j default).2.map (fun r => r.ctor)) :: acc) Y := by
+    intro Y
+    show List.foldl _ Y _ = _
+    refine foldl_step_congr
+      (F := fun (r : ConstantVal × Nat × Nat × List RecRule) acc =>
+        InstallSkel.recr r.1.name r.2.1 r.2.2.1 (r.2.2.2.map (fun x => x.ctor)) :: acc)
+      (G := fun (j : Nat) acc => InstallSkel.recr (p.mimicRecName j)
+        (p.mimicRecNums.getD j (0, 0)).1 (p.mimicRecNums.getD j (0, 0)).2
+        ((p.mimicRecs.getD j default).2.map (fun r => r.ctor)) :: acc)
+      ?hlen ?hstep Y
+    case hlen =>
+      simp only [List.length_map, List.length_zip, List.length_range]
+      omega
+    case hstep =>
+    intro i r j hr hj acc
+    have hji : j = i := by
+      have := List.getElem?_eq_some_iff.mp hj
+      simpa using this.2.symm
+    subst hji
+    rw [List.getElem?_map] at hr
+    obtain ⟨x, hx, hrx⟩ := Option.map_eq_some_iff.mp hr
+    obtain ⟨hcv, hrest⟩ := zip_getElem? _ _ j x hx
+    obtain ⟨ha, hrs⟩ := zip_getElem? _ _ j x.2 hrest
+    subst hrx
+    rw [hnameN j x.1 hcv, hnumsN j x.2.1 ha, hrulesN j x.2.2 hrs]
+  -- (4) THE TABLES: the restored table is consed exactly where the
+  -- RECORD says the member is structure-like.  The member's index count
+  -- is the record's by the block's own check; the table's presence is
+  -- the scratch install's skeleton, with the pre-block branch refuted by
+  -- the restore's own freshness guard
+  have hidxAt : ∀ (i : Nat), i < p.k →
+      (b.formers.getD i default).2 = (p.formers.getD i default).2 := by
+    intro i hi
+    have hmap : p.formers.map (fun f => f.2) = (b.formers.take p.k).map (fun f => f.2) := by
+      simpa using hidx
+    have hpi : i < p.formers.length := by simpa [NestedParts.k] using hi
+    obtain ⟨y, hy, hxy⟩ := getElem?_of_map_eq hmap (List.getElem?_eq_getElem hpi)
+    have hby : b.formers[i]? = some y := by
+      rw [List.getElem?_take, if_pos hi] at hy; exact hy
+    rw [List.getD_eq_getElem?_getD, hby, List.getD_eq_getElem?_getD,
+      List.getElem?_eq_getElem hpi]
+    exact hxy.symm
+  -- the table's presence at member `i`, both ways
+  have hmemNd : b.memberNames.Nodup := (List.nodup_append.mp (List.nodup_append.mp hnd).1).1
+  have hbUniq : ∀ (i j : Nat), i < b.formers.length → j < b.formers.length →
+      (b.formers.getD i default).1.name = (b.formers.getD j default).1.name → i = j := by
+    intro i j hi hj hn
+    have hget : ∀ (t : Nat) (ht : t < b.formers.length),
+        b.memberNames[t]? = some (b.formers.getD t default).1.name := by
+      intro t ht
+      simp only [MutualBlock.memberNames, List.getElem?_map,
+        List.getD_eq_getElem?_getD, List.getElem?_eq_getElem ht]
+      rfl
+    have h1 := hget i hi
+    have h2 := hget j hj
+    rw [hn] at h1
+    rw [List.Nodup, List.pairwise_iff_getElem] at hmemNd
+    obtain ⟨hil, hiv⟩ := List.getElem?_eq_some_iff.mp h1
+    obtain ⟨hjl, hjv⟩ := List.getElem?_eq_some_iff.mp h2
+    rcases Nat.lt_trichotomy i j with hlt | hlt | hlt
+    · exact absurd (hiv.trans hjv.symm) (hmemNd i j hil hjl hlt)
+    · exact hlt
+    · exact absurd (hjv.trans hiv.symm) (hmemNd j i hjl hil hlt)
+  have htblAt : ∀ (i : Nat) (a : AuxStored) (cs : List (ConstantVal × Nat × Nat))
+      (c : ConstantVal × Nat × Nat), i < p.k → (List.take p.k stored)[i]? = some a →
+      ctorsR[i]? = some cs → cs = [c] →
+      (a.tbl.isSome = true ↔ (p.formers.getD i default).2 = 0) := by
+    intro i a cs c hi ha hcs hcs1
+    have hstored := (auxStoredAll_get hst).2 i a (htake i a ha)
+    obtain ⟨cv, hfm, htbl⟩ := auxStored?_tbl_eq hstored
+    have hib : i < b.formers.length := (List.getElem?_eq_some_iff.mp hfm).1
+    have hfmGetD : b.formers.getD i default = (cv, a.nIdx) := by
+      rw [List.getD_eq_getElem?_getD, hfm]; rfl
+    have hcvname : cv.name = (p.formers.getD i default).1.name := by
+      obtain ⟨cv'', hn'', hnm''⟩ := getElem?_of_map_eq hnamesM ha
+      have hgetD : p.formers.getD i default = cv'' := by
+        rw [List.getD_eq_getElem?_getD, hn'']; rfl
+      obtain ⟨cv', hfm', hnm⟩ := auxStoredAll_cvTa_name hsk hst i a (htake i a ha)
+      have hcc : cv = cv' := by
+        rw [hfm] at hfm'
+        have := Option.some.inj hfm'
+        simpa using congrArg Prod.fst this
+      rw [hgetD, ← hnm'', hcc, ← hnm]
+    have hownLen : (b.ownCtors i).length = 1 := by
+      have hkey := hmember i cs hcs
+      rw [hcs1] at hkey
+      obtain ⟨t₀, ht₀⟩ : ∃ t₀, (nestedTypes0 p fmsA ctorsA)[i]? = some t₀ := by
+        refine ⟨_, List.getElem?_eq_getElem ?_⟩
+        rw [nestedTypes0_length]
+        have hlf := congrArg List.length hfmsA
+        simp only [List.length_map] at hlf
+        simpa [NestedParts.k] using (hlf ▸ hi)
+      have hpairs := auxBlock_ownCtors_pairs hctorsA hst0 hb hgr ht₀
+      have h1 := congrArg List.length hpairs
+      have h2 := congrArg List.length hkey
+      simp only [List.length_map, List.length_cons, List.length_nil] at h1 h2
+      omega
+    have hrowmem : ∀ t : ProjTable, a.tbl = some t →
+        ((p.formers.getD i default).1.name, some t, cs) ∈
+          (((List.take p.k stored).zip ctorsR).zipIdx.map
+            (fun x : (AuxStored × List (ConstantVal × Nat × Nat)) × Nat =>
+              ((p.formers.getD x.2 default).1.name, x.1.1.tbl, x.1.2))) := by
+      intro t ht
+      refine List.mem_map.mpr ⟨((a, cs), i), ?_, by rw [ht]⟩
+      exact List.mk_mem_zipIdx_iff_getElem?.mpr (zip_getElem?_of _ _ i a cs ha hcs)
+    constructor
+    · intro hsome
+      obtain ⟨t, ht⟩ := Option.isSome_iff_exists.mp hsome
+      have hfind : feAux.env.find? (projTableName cv.name) = some (.projInfo t) := by
+        rw [htbl] at ht
+        split at ht
+        · rename_i tt hft; rw [hft]; simpa using ht
+        · exact nomatch ht
+      have hskf := hsk.env_find? (projTableName cv.name)
+      rw [hfind] at hskf
+      rcases mutualBlockSkels_proj_cases (by simpa using hskf.symm) with
+        ⟨m', hm', hnm', hown', hidx'⟩ | hsk0
+      · have hmi : m' = i := hbUniq m' i hm' hib (by rw [hnm', hfmGetD])
+        subst hmi
+        rw [← hidxAt m' hi, hidx']
+      · exfalso
+        have hnone := hfresh₄ _ t c (by rw [← hcs1]; exact hrowmem t ht)
+        rw [hcvname] at hsk0
+        rw [hnone] at hsk0
+        exact nomatch hsk0
+    · intro hzero
+      have hhit := mutualBlockSkels_proj_hit (b := b) (sk := sk) (m := i)
+        (T := cv.name) hib (by rw [hfmGetD]) hownLen
+        (by rw [← hidxAt i hi] at hzero; exact hzero)
+      have hskf := hsk.env_find? (projTableName cv.name)
+      rw [hhit] at hskf
+      cases hfind : feAux.env.find? (projTableName cv.name) with
+      | none => rw [hfind] at hskf; exact nomatch hskf
+      | some ci =>
+        rw [hfind] at hskf
+        obtain ⟨tbl, rfl, -⟩ := proj_of_ciSkel (by simpa using hskf)
+        rw [htbl, hfind]
+        rfl
+  have hE4 : ∀ Z, (((List.take p.k stored).zip ctorsR).zipIdx.map
+        (fun x : (AuxStored × List (ConstantVal × Nat × Nat)) × Nat =>
+          ((p.formers.getD x.2 default).1.name, x.1.1.tbl, x.1.2))).foldl
+        (fun acc t => nestedTableSkel t.1 t.2.1 t.2.2 acc) Z
+      = (List.range p.k).foldl (fun acc m => nestedTableSkelAt p m acc) Z := by
+    intro Z
+    refine foldl_step_congr
+      (F := fun (t : Name × Option ProjTable × List (ConstantVal × Nat × Nat)) acc =>
+        nestedTableSkel t.1 t.2.1 t.2.2 acc)
+      (G := fun (m : Nat) acc => nestedTableSkelAt p m acc) ?hlen ?hstep Z
+    case hlen =>
+      simp only [List.length_map, List.length_zipIdx, List.length_zip, List.length_range,
+        hlenM, hctorsR.1]
+      omega
+    case hstep =>
+    intro i t m ht hm acc
+    have hmi : m = i := by
+      have := List.getElem?_eq_some_iff.mp hm
+      simpa using this.2.symm
+    subst hmi
+    rw [List.getElem?_map] at ht
+    obtain ⟨x, hx, hrx⟩ := Option.map_eq_some_iff.mp ht
+    rw [List.getElem?_zipIdx] at hx
+    obtain ⟨y, hy, hxy⟩ := Option.map_eq_some_iff.mp hx
+    obtain ⟨ha, hcs⟩ := zip_getElem? _ _ m y hy
+    have hlt : m < p.k := by
+      have := (List.getElem?_eq_some_iff.mp ha).1
+      rw [hlenM] at this; exact this
+    subst hxy
+    subst hrx
+    have hkey := hmember m y.2 hcs
+    have hlenEq : y.2.length = (p.ctors.filter (fun c => c.member == m)).length := by
+      have := congrArg List.length hkey; simpa using this
+    show nestedTableSkel _ y.1.tbl y.2 acc = nestedTableSkelAt p m acc
+    simp only [Nat.zero_add]
+    unfold nestedTableSkel nestedTableSkelAt
+    rcases hcsv : y.2 with _ | ⟨c0, cs'⟩ <;>
+      rcases hfv : p.ctors.filter (fun c => c.member == m) with _ | ⟨c1, fs'⟩ <;>
+      rw [hfv] <;>
+      simp only [hcsv, hfv, List.length_cons, List.length_nil] at hlenEq
+    · cases y.1.tbl <;> rfl
+    · exact absurd hlenEq (by simp)
+    · exact absurd hlenEq (by simp)
+    · rcases cs' with _ | ⟨c2, cs''⟩ <;> rcases fs' with _ | ⟨c3, fs''⟩ <;>
+        simp only [List.length_cons, List.length_nil] at hlenEq
+      · -- both singletons: the tables' presence decides, and it is the
+        -- record's index count by `htblAt`
+        have hiff := htblAt m y.1 y.2 c0 hlt ha hcs hcsv
+        cases htb : y.1.tbl with
+        | none =>
+          have : ¬ ((p.formers.getD m default).2 = 0) := by
+            intro h0
+            have := hiff.mpr h0
+            rw [htb] at this
+            exact nomatch this
+          simp only []
+          rw [if_neg (by simpa using this)]
+        | some tt =>
+          have h0 : (p.formers.getD m default).2 = 0 := hiff.mp (by rw [htb]; rfl)
+          simp only []
+          rw [if_pos (by simpa using h0)]
+      · exact absurd hlenEq (by simp)
+      · exact absurd hlenEq (by simp)
+      · cases y.1.tbl <;> rfl
+  rw [nestedRecSkels_append, hE1, hE2, hE3a, hE3b, hE4] at hsk₄
+  unfold nestedSkels
+  exact hsk₄
 
 /-! ## The declaration clause and the two drivers' steps -/
 

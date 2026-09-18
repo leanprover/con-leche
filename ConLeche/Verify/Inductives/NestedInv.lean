@@ -1337,6 +1337,10 @@ theorem checkNested_inv {env envOut : Env} {p : NestedParts} {F : Nat}
   obtain ⟨b, hb, h⟩ := exceptBind_ok h
   have hb' := unwrapOr_ok hb
   try simp only at h
+  by_cases hidx : (p.formers.map (·.2) == (b.formers.take p.k).map (·.2)) = true
+  case neg => rw [if_neg hidx] at h; close_throw
+  rw [if_pos hidx] at h
+  try simp only [bind, Except.bind] at h
   obtain ⟨envAux, haux, h⟩ := exceptBind_ok h
   try simp only at h
   obtain ⟨stored, hst, h⟩ := exceptBind_ok h
