@@ -7597,13 +7597,16 @@ of a pin group.  Its five fields are the arms proved above — `len`
 (`copyLen`), `recF` (`copyRecF`/`copyRecFRefl` with their readings),
 `ordF`'s left arm (`copyOrdFLeft`), `ordF`'s right arm and `pinF`
 (their target conjuncts, `copyOrdFRight_shape`/`copyPinF_shape`) and
-`es` (`copyEs`) — with THREE residuals, each named below at exactly
-the conjunct that is open.  K.42's own conjunct is no residual any
+`es` (`copyEs`) — with ONE residual left, `NestedPinsShapePinF`, named
+below at exactly the conjunct that is open.  The `ordF`-right reading
+at a PIN target was the other one and is now a theorem
+(`nestedPinsShapeOrdRight_of`, task #315 R3).  K.42's own conjunct is no residual any
 more: lane L-E threaded it onto the run's bundle and
 `nestedPinsShape_of` reads `R.hK42` (integration 3r). -/
 
-/-- **RESIDUAL 2 — `ordF`'s right arm at the READING, at a PIN
-TARGET** (lane L-E's `EntryRead`, DESIGN §U.36/§U.51): at a
+/-- **`ordF`'s right arm at the READING, at a PIN TARGET** — a
+RESIDUAL no longer (task #315 R3, `nestedPinsShapeOrdRight_of` below;
+lane L-E's `EntryRead`, DESIGN §U.36/§U.51): at a
 container-ORDINARY field the auxiliary block classified RECURSIVE OR
 REFLEXIVE, whose target is one of the block's PINS, the copy's entry is
 the target's STORED reading — the container's domain read fibre-wise
@@ -7642,12 +7645,27 @@ container's field domain, read at the pin's frame, IS the copy's SLOT
 because a λ-redex respects a semantic equality (DESIGN "does the
 refutation survive the repair").
 
-What is left is the PIN target at either kind: there `TargetView.EA` is
-the CONTAINER's reading while the stored domain's head is the MIMIC,
-and identifying them is `pinLeaf`, which is downstream of this very
-shape (DESIGN §U.62 (a)).  It waits on the kernel record's second
-clause, the one that rewrites the normalised minted domain back — the
-SAME record for both kinds, which is why they are one residual. -/
+**AND THE PIN TARGET IS PROVED AT BOTH KINDS** (task #315 R3):
+`copyOrdFRightReadP` at `.recursive` and `copyOrdFRightReadReflP` at
+`.reflexive`, dispatched by `nestedPinsShapeOrdRight_of`, so this
+predicate is a theorem and `nestedPinsShape_of` no longer takes it.
+
+**The circularity this docstring used to record DOES NOT ARISE**, and
+recording why is the point.  It read: at a pin target `TargetView.EA`
+is the CONTAINER's reading while the stored domain's head is the
+MIMIC, and identifying them is `pinLeaf`, which is downstream of this
+very shape.  Neither arm identifies them.  `TargetView.EA` at a pin
+index IS the container's leaf at the pin's components
+(`targetRead_of_pin`), and the entry's other side is the reading of
+`w` — K.51's CONTAINER-headed normalisation of the minted domain, not
+the stored mimic-headed one (`copyFieldReadPin`).  So both sides are
+read on the container's side and no leaf is identified.  The mimic
+enters SYNTACTICALLY and only to name the pin's INDEX: the
+classification names the stored domain's head, the rewrite's backwards
+inversion (`replaceAllNested_container_head_stable`) names the
+container and the pin the fire landed on, and the block's `Nodup`
+member names turn the mimic into `p.k + qq`
+(`copyOrdFRightPinCorr`). -/
 @[expose] def NestedPinsShapeOrdRight (V : Type w) [SetTheory V] (μ : CheckMode) (F : Nat) : Prop :=
   NestedPinsIdsAt V μ F fun {env} _ p _ b fms f₀ ctorsA kinds ppsF W _ _ _ _ _ _ eissF tssF _
       _ _ pinsS mp₁' q₀ kJ dJ =>
@@ -7753,6 +7771,59 @@ private theorem kindAt_ne_of {members : List (Name × Nat × Nat)} {lps : List N
 
 section Assembly2
 
+/-- **RESIDUAL 2, DISCHARGED** (task #315 R3): `NestedPinsShapeOrdRight`
+is a theorem.  The dispatch is by the copy field's KIND — the
+disjunction the predicate carries, which is also what `blkRss`' bit
+says — and each branch is its own arm at a PIN target
+(`copyOrdFRightReadP` at `.recursive`, `copyOrdFRightReadReflP` at
+`.reflexive`), fed K.51's positivity run (`copyOrdFRightPinRun`, which
+is stated at either kind: its guard is only that the field is not
+ordinary) and the pins' index count (`NestedPinSynFacts.pinNIdx`).
+
+The MEMBER-target halves are elsewhere: they are the two arms
+`nestedPinsShape_of` applies directly, and the predicate here is
+narrowed to the pin target.  What made this residual wait was the
+reflexive half's tower peel, not the dispatch. -/
+theorem nestedPinsShapeOrdRight_of {F : Nat} : NestedPinsShapeOrdRight V μ F := by
+  intro env mp p st b envAux stored ctorsR fmsA ctorsA₀ fms f₀ ctorsA sortss kinds mp₁ ppsF W idxF
+    dsF esF srcsF fvsPF xFvsF xrestF eissF tssF mp₁' R pinsS SF dsR xFvsR q₀ kJ dJ S
+  intro i hi cvT caps hfind ψ ρp hsat i' hi' j hj l hl hrs hrsT hkind hpinT
+  obtain ⟨pbs, hpbs, hpfree, hPD⟩ := R.pinDataFree
+  obtain ⟨cAJ, hj'⟩ : ∃ cAJ, (dJ.ctorsM i')[j]? = some cAJ :=
+    ⟨_, List.getElem?_eq_getElem hj⟩
+  obtain ⟨cvTJ, capsJ, cvRJ, mIJ, rPJ, rulesJ, -, hI, -⟩ := S.stored i' hi'
+  have hpinAt : ∀ n : Nat, (nestedBlockModel (V := V) p b fms f₀ ctorsA kinds env ppsF W idxF dsF
+      esF srcsF fvsPF xrestF eissF tssF ctorsR dsR xFvsR pinsS).pinAt n = pinsS.getD n default :=
+    fun _ => rfl
+  rw [hpinAt] at hI
+  have hFssLen : ∀ ψJ : Name → Nat, ((dJ.Fss i' ψJ).getD j []).length = cAJ.2 :=
+    fun ψJ => hI.Fss_length hj' ψJ
+  have hlF : l < cAJ.2 := by rw [hFssLen] at hl; exact hl
+  have hψ := S.ψJEq i i' hi hi' ψ
+  rw [hpinAt, hpinAt] at hψ
+  have hDs : (pinsS.getD (q₀ + i) default).Ds ψ = (pinsS.getD (q₀ + i') default).Ds ψ := by
+    have a := S.sameDs i hi ψ
+    have bb := S.sameDs i' hi' ψ
+    rw [hpinAt, hpinAt] at a
+    rw [hpinAt, hpinAt] at bb
+    rw [a, bb]
+  rw [hψ, hDs]
+  rcases hkind with hkA | hkA
+  · exact R.copyOrdFRightReadP SF S hPD hi' hj' hlF
+      (fun _ _ _ _ _ _ _ h1 h2 h3 h4 h5 h6 h7 => by
+        obtain ⟨prms, pb₀, ww, stt, hA, hB, hC, -, hE⟩ :=
+          R.copyOrdFRightPinRun SF S hPD R.hK51 hi' hj' hlF
+            (by rw [hkA]; exact fun hc => nomatch hc) hpinT h1 h2 h3 h4 h5 h6 h7
+        exact ⟨prms, pb₀, ww, stt, hA, hB, hC, Nat.le_of_eq hE⟩)
+      hkA hpinT SF.pinNIdx ψ ρp hsat
+  · exact R.copyOrdFRightReadReflP SF S hPD hi' hj' hlF
+      (fun _ _ _ _ _ _ _ h1 h2 h3 h4 h5 h6 h7 => by
+        obtain ⟨prms, pb₀, ww, stt, hA, hB, hC, -, hE⟩ :=
+          R.copyOrdFRightPinRun SF S hPD R.hK51 hi' hj' hlF
+            (by rw [hkA]; exact fun hc => nomatch hc) hpinT h1 h2 h3 h4 h5 h6 h7
+        exact ⟨prms, pb₀, ww, stt, hA, hB, hC, Nat.le_of_eq hE⟩)
+      hkA hpinT SF.pinNIdx ψ ρp hsat
+
 /-- **THE COPIES' SHAPES, ASSEMBLED** (task #315 L-B, DESIGN §U.60):
 `NestedPinsShape` — `CopyShapeA` at every constructor of every copy of
 every pin group — from the arms proved above.  `len` is `copyLen`;
@@ -7760,21 +7831,19 @@ every pin group — from the arms proved above.  `len` is `copyLen`;
 `copyRecFReadRefl` at the two field kinds; `ordF` splits on the
 AUXILIARY block's kind at the field (`kindAt_ne_of` excludes the two
 rejecting kinds) into `copyOrdFLeft` and `copyOrdFRight_shape`; `pinF`
-is `copyPinF_shape`; `es` is `copyEs`.  THREE residuals remain, one per
-open conjunct.  `NestedPinsShapeOrdRight` is ONE residual over BOTH
-field kinds now, narrowed to the PIN target: the MEMBER-target halves
-are proved by `copyOrdFRightReadM` and `copyOrdFRightReadRefl`, the
-second of them under lane L-E's repaired `EntryRead` (DESIGN "does the
-refutation survive the repair"), and the two kinds' remaining halves
-wait on the SAME kernel record, so they are one statement.
-`NestedPinsShapePinF` is the other.  K.42's
+is `copyPinF_shape`; `es` is `copyEs`.  ONE residual remains,
+`NestedPinsShapePinF`.  The `ordF`-right reading is complete at all
+four cases: the MEMBER targets by `copyOrdFRightReadM` and
+`copyOrdFRightReadRefl` (the second under lane L-E's repaired
+`EntryRead`, DESIGN "does the refutation survive the repair"), the PIN
+targets by `copyOrdFRightReadP` and `copyOrdFRightReadReflP` through
+`nestedPinsShapeOrdRight_of` (task #315 R3).  K.42's
 record is read off the run (`NestedPinsRun.hK42`, lane L-E), and
 K.32's `nestedCopyTargetsOk`, which the
 bookkeeping predicate `NestedPinsKindsRun` stood for until lane L-E
 threaded it (`NestedPinsRun.hK32`, DESIGN §U.64 (f)), is now read off
 the run record itself. -/
 theorem nestedPinsShape_of {F : Nat}
-    (hOrd : NestedPinsShapeOrdRight V μ F)
     (hPin : NestedPinsShapePinF V μ F) :
     NestedPinsShape V μ F := by
   intro env mp p st b envAux stored ctorsR fmsA ctorsA₀ fms f₀ ctorsA sortss kinds mp₁ ppsF W idxF
@@ -7783,7 +7852,8 @@ theorem nestedPinsShape_of {F : Nat}
   have hK32 := R.hK32
   have hkindsRun := R.h.classify
   have hres1 := R.hK42
-  have hres2 := hOrd mp p st b envAux stored ctorsR fmsA ctorsA₀ fms f₀ ctorsA sortss kinds mp₁
+  have hres2 := nestedPinsShapeOrdRight_of (V := V) (μ := μ) (F := F)
+    mp p st b envAux stored ctorsR fmsA ctorsA₀ fms f₀ ctorsA sortss kinds mp₁
     ppsF W idxF dsF esF srcsF fvsPF xFvsF xrestF eissF tssF mp₁' R pinsS SF dsR xFvsR q₀ kJ dJ S
     i hi cvT caps hfind ψ ρp hsat i' hi' j hj
   have hres3 := hPin mp p st b envAux stored ctorsR fmsA ctorsA₀ fms f₀ ctorsA sortss kinds mp₁

@@ -654,6 +654,14 @@ structure NestedPinSynFacts (st : ElimState) (mp₁ : EnvModelM V μ ENV₁) : P
           (esF := esF) (srcsF := srcsF) (fvsPF := fvsPF) (xrestF := xrestF) (eissF := eissF)
           (tssF := tssF) (ctorsR := ctorsR) (dsR := dsR') (xFvsR := xFvsR') (pinsS := pinsS)
           st mp₁.base2 q₀ kJ (blockOf mp.base2 ci)
+  /-- **the copy's index count is the pin's** (task #315 R3, at the
+  `ordF`-right arm's PIN target): `NestedPinFacts` carries this fact
+  already, but the copies' SHAPE is stated at this record, and the
+  index fit at a pin target needs the aux former's arity to be the
+  pin's.  It is `NestedPinsRun.pinNIdx` read through `pinsOf_getD`, so
+  the record's only producer proves it with nothing new. -/
+  pinNIdx : ∀ q, q < pinsS.length →
+    (fms.getD (p.k + q) default).nIdx = (pinsS.getD q default).nIdx
 
 /-- **The pins' SEMANTIC data, PER PIN** (task #315 L-E, at lane L-B's
 request, DESIGN §U.113): at every pin `q` — at the pin, not at a group
@@ -1818,7 +1826,7 @@ theorem NestedPinsRun.synFacts
   have hlenS : (PINS).length = st.pins.length := pinsOf_length _ _ _ _ _ _
   have hget : ∀ n, n < st.pins.length → (PINS).getD n default
       = pinOf mp.base2 st p mp₁'.base2.acval (ENV₁) b.nP n := fun n hn => pinsOf_getD _ _ _ _ _ _ hn
-  refine ⟨hlenS, ?_, ?_, ?_, ?_, ?_⟩
+  refine ⟨hlenS, ?_, ?_, ?_, ?_, ?_, ?_⟩
   · -- the records
     intro q pin hpin
     have hq : q < st.pins.length := (List.getElem?_eq_some_iff.mp hpin).1
@@ -1865,6 +1873,11 @@ theorem NestedPinsRun.synFacts
       R.groupSyn hpinsE hop hsc hpbs hPD dsR' xFvsR' hq
     obtain rfl : ci = ci' := Option.some.inj (hci.symm.trans hci')
     exact ⟨q₀, kJ, i, hqe, hi, S⟩
+  · -- the copy's index count is the pin's (task #315 R3)
+    intro q hq
+    rw [hlenS] at hq
+    rw [hget q hq]
+    exact R.pinNIdx hpbs hPD hq
 
 end Discharge
 
