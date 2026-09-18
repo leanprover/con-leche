@@ -89636,3 +89636,83 @@ keeps the head a constant", about a session, and the place where the
 claim must be measured rather than asserted, because the restore is
 where the mint defect lived), the `ConstWF` clause itself with its
 per-route discharge, and the cached mirrors by transport.
+
+#### THE RESTORE KEEPS THE HEAD A CONSTANT — MEASURED, and the proof's two missing pieces named (2026-09-18, task #315 M8 session 6, `agent/uniform-m5`)
+
+The last of the five producers, and the one whose claim had to be
+measured rather than argued: the nested route stores
+`restoreNested R (the auxiliary block's generated recursor type)`, so
+the major premise's head survives only if the RESTORE keeps it a
+constant.  The restore is the function family the `mintedAt` defect
+lived in, and an argument that a walk preserves something looked sound
+there too.
+
+##### THE MEASUREMENT: 284 restored recursors, zero bad heads
+
+A probe at `checkNestedS`' `provisions` — per restored recursor, member
+and mimic, `Expr.recMajorHeadOk cv.type mI` on the term the route is
+about to STORE (reverted, not in the tree):
+
+| corpus | blocks | restored recursors | members | mimics | **bad heads** |
+| --- | --- | --- | --- | --- | --- |
+| the 36 shadow rows | 42 runs | 107 | 44 | 63 | **0** |
+| the Mathlib nested cone | 41 | 177 | 56 | 121 | **0** |
+
+**284 restored recursors and not one bad head**, and the number that
+matters is the **184 MIMICS** — the mimic is where `restoreNode`
+replaces the key-headed application by the PIN rather than renaming a
+constant, which is the case the argument was about.  (The large streams
+are not evidence here: `init-full` and Mathlib-full install their
+nested blocks through the modeller, so the nested route's restore never
+runs on them.  The cone is the library-scale evidence, and it is 41
+blocks of it.)
+
+##### THE PROOF, sized from the inside: two missing pieces, ~120–150 lines
+
+The engine EXISTS and is better than expected —
+`restoreWalk_stripPis_doms` (`Verify/Inductives/NestedRecDoor.lean`)
+already says that a walk of a `Π`-telescope keeps its length and walks
+the body, positionally.  Composed with `mutualRecTy_major` on the
+AUXILIARY block's type it reduces the whole obligation to one step: **a
+walk of a `const`-headed application is `const`-headed**.  Four cases,
+from `restoreNode`'s own structure:
+
+* the PRUNE (the node mentions no auxiliary name) — the term is
+  returned unchanged (`restoreWalk_of_no_aux`);
+* a `recMap` key — the constant is RENAMED
+  (`restoreWalk_const_rec`): still a `const`;
+* a `ctorPins` key — the node becomes
+  `mkAppN (mkAppN (.const newName ilvls) …) …`
+  (`restoreWalk_ctorPin`): a `const` by inspection;
+* a `pins` key — the node becomes
+  `mkAppN (pin.liftLooseBVars d 0) (args.drop nP)`, so the head is the
+  PIN's head.  **This is the only case with content**, and it needs
+  that a table pin is `const`-headed: `restoreTbl`'s pins are
+  `Expr.abstractRange q.pin 0 p.nP 0`, and `abstractRange` replaces
+  free variables — it cannot change a `const` head — so the premise
+  reduces to `q.pin.getAppFn` being a `const`, which is exactly what
+  `nestedPinLvlsDs` returns `some` on;
+* otherwise the node declines and the walk is componentwise
+  (`restoreWalk_app_inv`), so the head follows the function part by
+  induction on the spine.
+
+**What is missing is two lemmas**, and the session that writes them
+should expect no more: `restoreWalk_pin` — the `pins`-key fire, the
+exact twin of the existing `restoreWalk_ctorPin` (~40 lines, and the
+model is beside it) — and `restoreWalk_getAppFn_const`, the spine
+induction over the five cases above (~40–60).  With those,
+`restoreNested_major` is the composition.  **~120–150 lines, most of a
+session**, which confirms the estimate from the outside.
+
+##### The producer census, complete
+
+| route | the stored recursor type | status |
+| --- | --- | --- |
+| mutual | `mutualRecTy`'s output | PROVED (`mutualRecTy_major`) |
+| native | `structRecTyR`'s output | PROVED (`structRecTyR_major`) |
+| basis (5) + `Quot` | literals | DECIDED (`basisDeclsA_recMajorHead`) |
+| modeled | the STREAM's, annotated | RECORDED (K.55) |
+| nested | `restoreNested` of the auxiliary one | **MEASURED**, proof sized at ~120–150 lines |
+
+Then the `ConstWF` clause itself, wired to these five, and the cached
+mirrors by transport.
