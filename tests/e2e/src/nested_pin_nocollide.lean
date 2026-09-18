@@ -24,15 +24,16 @@
 
    so `J`'s classes sit at the block's components 1, 2, 3.
 
-   official (Lean v4.29.1): accepts.  con-leche: accepts (exit 0).
+   official (Lean v4.29.1): accepts.  con-leche: accepts (exit 0), and
+   the UNIFORM route accepts both nested blocks in shadow —
+   `J=accept,NoCollide=accept,` in `tests/nested-shadow-expected.txt`,
+   which is this witness's point.
 
-   NO ROW IN `tests/e2e-expected.txt` AND NO COMMITTED STREAM.  The
-   three sources are witnesses to a shape, not verdict fixtures: two of
-   them are rejected today by a defect (see `nested_pin_collide.lean`),
-   and a row would either enshrine that reject or fail the gate.  The
-   streams regenerate from these sources with the pinned toolchain,
-   `scripts/export-fixture.sh nested_pin_nocollide` (Lean v4.29.1,
-   lean4export at `caccfbe`). -/
+   No `tests/e2e-expected.txt` row: the three witnesses are held
+   together in the shadow gate, and its two partners have no e2e row
+   until the flip.  The stream is committed beside this source and
+   regenerates with `scripts/export-fixture.sh nested_pin_nocollide`
+   (Lean v4.29.1, lean4export at `caccfbe`). -/
 
 inductive Wrap (α : Type) where
   | w (a : α)

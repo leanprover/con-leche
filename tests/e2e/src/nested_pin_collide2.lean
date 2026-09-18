@@ -13,14 +13,13 @@
    become one expression).  So the variable that moves the verdict is
    the collapse and not the extra type.
 
-   official (Lean v4.29.1): accepts.  con-leche today: REJECTS, exit 1,
-   `duplicate declaration Collide2._model._impl.pack_1` — the same
-   in-process-modeller helper-naming defect
-   (`ConLeche/Frontend/InModel/Nested.lean:653`) that
-   `nested_pin_collide.lean`'s header records.
+   official (Lean v4.29.1): accepts.  con-leche's modelled dispatch
+   exits 1 on it today, as on `nested_pin_collide`.
 
-   NO ROW IN `tests/e2e-expected.txt` AND NO COMMITTED STREAM; the
-   stream regenerates with `scripts/export-fixture.sh nested_pin_collide2`
+   Shadow row `J=accept,` in `tests/nested-shadow-expected.txt`, a
+   tripwire like its partner's; no `tests/e2e-expected.txt` row until
+   the flip.  The stream is committed beside this source and
+   regenerates with `scripts/export-fixture.sh nested_pin_collide2`
    (Lean v4.29.1, lean4export at `caccfbe`). -/
 
 inductive Wrap (α : Type) where
