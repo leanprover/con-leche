@@ -136,6 +136,7 @@ the injections `natzero` and the von Neumann successor. -/
   pins := []
   Φ := fun _ _ X _ => graph (fun _ => natStepSet (app (X 0) pt)) unitSet
   pinCar := fun _ _ _ _ => pt
+  Ψaux := fun _ _ X _ => graph (fun _ => natStepSet (app (X 0) pt)) unitSet
   inj := fun _ _ j fs => if j = 0 then natzero else vsucc (fs.getD 0 pt)
 
 namespace natBlock
@@ -619,6 +620,9 @@ theorem natBlock_isBlockModel {env : Env} {m : EnvModel V env} {cvR : ConstantVa
   pinShape := fun _ h => nomatch h
   pinMem := fun _ _ _ _ _ _ h => nomatch h
   pinMono := fun _ _ _ _ _ _ _ _ _ h => nomatch h
+  auxFunctor := fun ψ ρp _ => ⟨natBlock.mono ψ ρp, natBlock.maps ψ ρp, natBlock.closed ψ ρp⟩
+  auxCompose := fun _ _ => composeΦ_zero.symm
+  auxPinsCar := fun _ _ _ _ h => nomatch h
   pinLeaf := fun _ h => nomatch h
   leaf := fun ψ ρ as is hsp hi => by
     obtain rfl : as = [] := List.eq_nil_of_length_eq_zero (SpineFit.length_eq hsp)

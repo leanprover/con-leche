@@ -84,6 +84,8 @@ injection the point (the block is `Prop`-valued). -/
   Φ := fun ψ ρp _ _ =>
     graph (fun t => eqv (ρp 0) (projS 0 t)) (idxSet (ψ ConLeche.uN) ρp [.bvar 1])
   pinCar := fun _ _ _ _ => pt
+  Ψaux := fun ψ ρp _ _ =>
+    graph (fun t => eqv (ρp 0) (projS 0 t)) (idxSet (ψ ConLeche.uN) ρp [.bvar 1])
   inj := fun _ _ _ _ => pt
 
 namespace eqBlock
@@ -415,6 +417,9 @@ theorem eqBlock_isBlockModel {env : Env} {m : EnvModel V env} {cvR : ConstantVal
   pinShape := fun _ h => (nomatch h)
   pinMem := fun _ _ _ _ _ _ h => (nomatch h)
   pinMono := fun _ _ _ _ _ _ _ _ _ h => (nomatch h)
+  auxFunctor := fun ψ ρp _ => ⟨eqBlock.mono ψ ρp, eqBlock.maps ψ ρp, eqBlock.closed ψ ρp⟩
+  auxCompose := fun _ _ => composeΦ_zero.symm
+  auxPinsCar := fun _ _ _ _ h => nomatch h
   pinLeaf := fun _ h => (nomatch h)
   leaf := fun ψ ρ as is hsp hi => by
     match as, hsp with

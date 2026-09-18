@@ -1,7 +1,6 @@
 module
 
 public import ConLeche.Model.Inductives.BlockRepMutual
-public import ConLeche.SetTheory.Derive.LfpCompose
 public section
 
 /-!
@@ -166,6 +165,7 @@ tagged towers at the MEMBER-LOCAL position. -/
     pinsCar (resSort.eval ψ) k pins.length (nestedIs nP k ppsA W pins ψ ρp)
       (nestedΨ nP k resSort ppsA W pins offs mems nFs tgtsG rss tlss Eiss₀ Fss₀ Ess₀ ψ ρp)
       X q
+  Ψaux := nestedΨ nP k resSort ppsA W pins offs mems nFs tgtsG rss tlss Eiss₀ Fss₀ Ess₀
   inj := fun ψ _ j fs => injW (resSort.eval ψ) j (mkTower (fs ++ [pt]))
 
 section Nested
@@ -237,6 +237,23 @@ theorem ofNested_Φ (ψ : Name → Nat) (ρp : Nat → V) :
 theorem ofNested_pinCar (ψ : Name → Nat) (ρp : Nat → V) (X : Nat → V) (q : Nat) :
     (D).pinCar ψ ρp X q = pinsCar ((D).w ψ) k pins.length ((D).idx ψ ρp) (ΨA ψ ρp) X q := rfl
 
+/-- **The block model's WIDE operator** (task #315, Resolution 1): the
+auxiliary `k + n`-tuple operator, promoted from a local of the
+construction to a stored field — the object a LATER block identifies
+a copied instance of this container with. -/
+theorem ofNested_Ψaux (ψ : Name → Nat) (ρp : Nat → V) : (D).Ψaux ψ ρp = ΨA ψ ρp := rfl
+
+/-- **`auxCompose` for the block model**: the operator is the wide
+one composed (`rfl` — it is how it was defined). -/
+theorem ofNested_auxCompose (ψ : Name → Nat) (ρp : Nat → V) :
+    (D).Φ ψ ρp = composeΦ ((D).w ψ) (D).k (D).nPins ((D).idx ψ ρp) ((D).Ψaux ψ ρp) := rfl
+
+/-- **`auxPinsCar` for the block model**: the pins' carriers are the
+wide operator's pins' least tuple (`rfl`). -/
+theorem ofNested_auxPinsCar (ψ : Name → Nat) (ρp : Nat → V) (X : Nat → V) (q : Nat) :
+    (D).pinCar ψ ρp X q
+      = pinsCar ((D).w ψ) (D).k (D).nPins ((D).idx ψ ρp) ((D).Ψaux ψ ρp) X q := rfl
+
 /-- The block model's injections: the tagged towers at the MEMBER-LOCAL
 position. -/
 theorem ofNested_inj (ψ : Name → Nat) (mm j : Nat) (fs : List V) :
@@ -304,6 +321,14 @@ theorem nestedΨ_functor :
     ∃ L, IsClosedTuple (resSort.eval ψ) (k + pins.length) (nestedIs nP k ppsA W pins ψ ρp)
       (ΨA ψ ρp) L :=
   tupleLfpΦ_functor h
+
+/-- **`auxFunctor` for the block model**: the wide operator's laws, at
+the block model's own spelling of the width and the index sets. -/
+theorem ofNested_auxFunctor :
+    MonoTuple ((D).w ψ) ((D).k + (D).nPins) ((D).idx ψ ρp) ((D).Ψaux ψ ρp) ∧
+    MapsTuple ((D).w ψ) ((D).k + (D).nPins) ((D).idx ψ ρp) ((D).Ψaux ψ ρp) ∧
+    ∃ L, IsClosedTuple ((D).w ψ) ((D).k + (D).nPins) ((D).idx ψ ρp) ((D).Ψaux ψ ρp) L :=
+  nestedΨ_functor h
 
 /-- **`functor` for the block model**: the composed operator is a
 monotone, space-preserving tuple functor with a closed tuple, from the
@@ -376,6 +401,85 @@ theorem ofNested_pinCar_lfp {q : Nat} (hq : q < pins.length) :
   rw [ofNested_pinCar, ofNested_Φ]
   exact pinsCar_lfp hΨ.1 hΨ.2.2 hq
 
+
+/-- **A pin's carrier at the block's carrier is the least tuple of its
+CONTAINER's WIDE block, from a WHOLE-SPACE agreement** — Resolution 1
+of `docs/NESTED.md`.
+
+The segment is the container's whole INSTANCE: its `kJ` members'
+copies `[k + q₀, k + q₀ + kJ)` AND the `nJ` copies of the container's
+OWN pins, which the block's worklist may have minted anywhere among
+the pins — so the instance is given by an injection
+`σ : [0, kJ + nJ) → [0, k + n)`, contiguous on the members (`hroot`)
+and arbitrary beyond (`lfpTuple_set_congr`).  Against it stands the
+CONTAINER's wide operator `ΨJ` at the instantiated frame, whose rows
+read the container's own pins as VARIABLES — exactly as the copies'
+section does, once the copies of those pins are inside the segment.
+So the agreement is on the WHOLE tuple space (`hΦ`) and there is no
+domination hypothesis and no candidate tuple: `lfpTuple_seg_congr_at`'s
+`hle` has no counterpart here.
+
+The conclusion is `ofNested_pin_block_at`'s, because Bekić's nested
+form (`lfpTuple_composeΦ`) turns the container's WIDE least tuple's
+member `i` back into its NARROW one — the container's stored carrier —
+using nothing but the container's own `auxFunctor` and `auxCompose`. -/
+theorem ofNested_pin_block_wide {q₀ kJ nJ : Nat} (hseg : q₀ + kJ ≤ pins.length)
+    {σ : Nat → Nat} (hinj : InjOn σ (kJ + nJ))
+    (hσ : ∀ i, i < kJ + nJ → σ i < k + pins.length)
+    (hroot : ∀ i, i < kJ → σ i = k + q₀ + i)
+    {IsJ : Nat → V} {ΨJ : (Nat → V) → Nat → V}
+    (hmonoJ : MonoTuple ((D).w ψ) (kJ + nJ) IsJ ΨJ)
+    (hclJ : ∃ L, IsClosedTuple ((D).w ψ) (kJ + nJ) IsJ ΨJ L)
+    (hIs : ∀ i, i < kJ + nJ → (D).idx ψ ρp (σ i) = IsJ i)
+    (hΦ : ∀ Y, InTupleSpace ((D).w ψ) (kJ + nJ) (fun i => (D).idx ψ ρp (σ i)) Y →
+      ∀ i, i < kJ + nJ →
+      ΨA ψ ρp (setJoin σ (kJ + nJ)
+          (lfpTuple ((D).w ψ) (k + pins.length) ((D).idx ψ ρp) (ΨA ψ ρp)) Y) (σ i) = ΨJ Y i)
+    {i : Nat} (hi : i < kJ) :
+    (D).pinCar ψ ρp (lfpTuple ((D).w ψ) k ((D).idx ψ ρp) ((D).Φ ψ ρp)) (q₀ + i)
+      = lfpTuple ((D).w ψ) kJ IsJ (composeΦ ((D).w ψ) kJ nJ IsJ ΨJ) i := by
+  have hΨ := nestedΨ_functor h
+  have hi' : i < kJ + nJ := by omega
+  rw [ofNested_pinCar_lfp h (by omega), lfpTuple_composeΦ hmonoJ hclJ hi,
+    ← Nat.add_assoc, ← hroot i hi]
+  exact lfpTuple_set_congr hinj hσ hΨ.2.2 hΨ.1 hIs hΦ hi'
+
+/-- **The container's side of the wide identification, read off its
+STORED block model.**  `ofNested_pin_block_wide` against the container's
+own `Ψaux`: `hmonoJ`/`hclJ` are its `IsBlockModel.auxFunctor` and
+`hcomp` its `auxCompose`, both at the pin's frame and at the BLOCK's
+sort (the caller transports along `dJ.w ψJ = (D).w ψ`, as the narrow
+route does).  The conclusion is the container's stored carrier, which
+is what `pinLeaf` consumes through the container's `leaf`.
+
+What is left to the assembly is `hΦ` alone: the copies' section of the
+auxiliary operator at the instance's positions IS the container's wide
+operator, FOR EVERY tuple of the instance's space.  Two arms — the
+copies of the container's members, and the copies of the container's
+own pins — and in both a container-recursive field at one of the
+container's own pins reads the SEGMENT's own variable on each side,
+where at the narrow width the block's side read the target's stored
+reading at the carrier and the container's side read its pin's carrier
+at the tuple. -/
+theorem ofNested_pin_block_of_wide {dJ : BlockModel V} {ψJ : Name → Nat} {ρJ : Nat → V}
+    {q₀ : Nat} (hseg : q₀ + dJ.k ≤ pins.length)
+    (hmonoJ : MonoTuple ((D).w ψ) (dJ.k + dJ.nPins) (dJ.idx ψJ ρJ) (dJ.Ψaux ψJ ρJ))
+    (hclJ : ∃ L, IsClosedTuple ((D).w ψ) (dJ.k + dJ.nPins) (dJ.idx ψJ ρJ) (dJ.Ψaux ψJ ρJ) L)
+    (hcomp : dJ.Φ ψJ ρJ = composeΦ ((D).w ψ) dJ.k dJ.nPins (dJ.idx ψJ ρJ) (dJ.Ψaux ψJ ρJ))
+    {σ : Nat → Nat} (hinj : InjOn σ (dJ.k + dJ.nPins))
+    (hσ : ∀ i, i < dJ.k + dJ.nPins → σ i < k + pins.length)
+    (hroot : ∀ i, i < dJ.k → σ i = k + q₀ + i)
+    (hIs : ∀ i, i < dJ.k + dJ.nPins → (D).idx ψ ρp (σ i) = dJ.idx ψJ ρJ i)
+    (hΦ : ∀ Y, InTupleSpace ((D).w ψ) (dJ.k + dJ.nPins) (fun i => (D).idx ψ ρp (σ i)) Y →
+      ∀ i, i < dJ.k + dJ.nPins →
+      ΨA ψ ρp (setJoin σ (dJ.k + dJ.nPins)
+          (lfpTuple ((D).w ψ) (k + pins.length) ((D).idx ψ ρp) (ΨA ψ ρp)) Y) (σ i)
+        = dJ.Ψaux ψJ ρJ Y i)
+    {i : Nat} (hi : i < dJ.k) :
+    (D).pinCar ψ ρp (lfpTuple ((D).w ψ) k ((D).idx ψ ρp) ((D).Φ ψ ρp)) (q₀ + i)
+      = lfpTuple ((D).w ψ) dJ.k (dJ.idx ψJ ρJ) (dJ.Φ ψJ ρJ) i := by
+  rw [hcomp]
+  exact ofNested_pin_block_wide h hseg hinj hσ hroot hmonoJ hclJ hIs hΦ hi
 
 /-- **A pin's carrier at the block's carrier is the least tuple of ITS
 CONTAINER's block, from an agreement AT THE CONTAINER'S CARRIER** —

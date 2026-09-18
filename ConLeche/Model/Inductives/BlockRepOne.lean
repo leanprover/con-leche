@@ -288,6 +288,11 @@ towers (the point at `w = 0`). -/
     oneTuple (fixFunVI (uAV ψ) (resSort.eval ψ) ρp Ids Ids.length (rssOfK ksF ctorsA.length)
       (tlssOfR cds) (eissOfR cds) (fssOfR nP cds) (essOfR cds))
   pinCar := fun _ _ _ _ => pt
+  Ψaux := fun ψ ρp =>
+    let cds := fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0
+    let Ids := ((ppsAll ψ).drop nP).map (·.2.2)
+    oneTuple (fixFunVI (uAV ψ) (resSort.eval ψ) ρp Ids Ids.length (rssOfK ksF ctorsA.length)
+      (tlssOfR cds) (eissOfR cds) (fssOfR nP cds) (essOfR cds))
   inj := fun ψ _ j fs => injW (resSort.eval ψ) j (mkTower (fs ++ [pt]))
 
 section One
@@ -314,6 +319,16 @@ theorem ofNative_Φ (ψ : Name → Nat) (ρp : Nat → V) (X : Nat → V) (mm : 
     (D).Φ ψ ρp X mm
       = SetTheory.app (fixFunVI (uAV ψ) ((D).w ψ) ρp ((D).IdsM 0 ψ) ((D).IdsM 0 ψ).length ((D).rss 0)
           ((D).tlss 0 ψ) ((D).Eiss 0 ψ) ((D).Fss 0 ψ) ((D).Ess 0 ψ)) (X 0) := rfl
+
+/-- The one-member block model's wide operator IS its operator: with
+no pins there is nothing to solve internally. -/
+theorem ofNative_Ψaux (ψ : Name → Nat) (ρp : Nat → V) : (D).Ψaux ψ ρp = (D).Φ ψ ρp := rfl
+
+/-- **`auxCompose` at no pins**: `composeΦ` over an empty pin segment
+is the operator itself (`composeΦ_zero`). -/
+theorem ofNative_auxCompose (ψ : Name → Nat) (ρp : Nat → V) :
+    (D).Φ ψ ρp = composeΦ ((D).w ψ) (D).k (D).nPins ((D).idx ψ ρp) ((D).Ψaux ψ ρp) :=
+  composeΦ_zero.symm
 
 /-- **`functor` at `k = 1`**: from the native functor's laws. -/
 theorem ofNative_functor {ψ : Name → Nat} {ρp : Nat → V}

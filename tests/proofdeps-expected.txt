@@ -369,6 +369,7 @@ main_model :: ConLeche.SetTheory.Derive.Choice
 main_model :: ConLeche.SetTheory.Derive.Empty
 main_model :: ConLeche.SetTheory.Derive.Graphs
 main_model :: ConLeche.SetTheory.Derive.Lfp
+main_model :: ConLeche.SetTheory.Derive.LfpCompose
 main_model :: ConLeche.SetTheory.Derive.LfpFam
 main_model :: ConLeche.SetTheory.Derive.LfpSplit
 main_model :: ConLeche.SetTheory.Derive.LfpTuple
@@ -883,6 +884,7 @@ main_file_False :: ConLeche.SetTheory.Derive.Choice
 main_file_False :: ConLeche.SetTheory.Derive.Empty
 main_file_False :: ConLeche.SetTheory.Derive.Graphs
 main_file_False :: ConLeche.SetTheory.Derive.Lfp
+main_file_False :: ConLeche.SetTheory.Derive.LfpCompose
 main_file_False :: ConLeche.SetTheory.Derive.LfpFam
 main_file_False :: ConLeche.SetTheory.Derive.LfpSplit
 main_file_False :: ConLeche.SetTheory.Derive.LfpTuple
@@ -1386,6 +1388,7 @@ stream_False :: ConLeche.SetTheory.Derive.Choice
 stream_False :: ConLeche.SetTheory.Derive.Empty
 stream_False :: ConLeche.SetTheory.Derive.Graphs
 stream_False :: ConLeche.SetTheory.Derive.Lfp
+stream_False :: ConLeche.SetTheory.Derive.LfpCompose
 stream_False :: ConLeche.SetTheory.Derive.LfpFam
 stream_False :: ConLeche.SetTheory.Derive.LfpSplit
 stream_False :: ConLeche.SetTheory.Derive.LfpTuple
@@ -1880,6 +1883,7 @@ False_cached :: ConLeche.SetTheory.Derive.Choice
 False_cached :: ConLeche.SetTheory.Derive.Empty
 False_cached :: ConLeche.SetTheory.Derive.Graphs
 False_cached :: ConLeche.SetTheory.Derive.Lfp
+False_cached :: ConLeche.SetTheory.Derive.LfpCompose
 False_cached :: ConLeche.SetTheory.Derive.LfpFam
 False_cached :: ConLeche.SetTheory.Derive.LfpSplit
 False_cached :: ConLeche.SetTheory.Derive.LfpTuple
@@ -2373,6 +2377,7 @@ Empty_cached :: ConLeche.SetTheory.Derive.Choice
 Empty_cached :: ConLeche.SetTheory.Derive.Empty
 Empty_cached :: ConLeche.SetTheory.Derive.Graphs
 Empty_cached :: ConLeche.SetTheory.Derive.Lfp
+Empty_cached :: ConLeche.SetTheory.Derive.LfpCompose
 Empty_cached :: ConLeche.SetTheory.Derive.LfpFam
 Empty_cached :: ConLeche.SetTheory.Derive.LfpSplit
 Empty_cached :: ConLeche.SetTheory.Derive.LfpTuple
@@ -2866,6 +2871,7 @@ sound_cached :: ConLeche.SetTheory.Derive.Choice
 sound_cached :: ConLeche.SetTheory.Derive.Empty
 sound_cached :: ConLeche.SetTheory.Derive.Graphs
 sound_cached :: ConLeche.SetTheory.Derive.Lfp
+sound_cached :: ConLeche.SetTheory.Derive.LfpCompose
 sound_cached :: ConLeche.SetTheory.Derive.LfpFam
 sound_cached :: ConLeche.SetTheory.Derive.LfpSplit
 sound_cached :: ConLeche.SetTheory.Derive.LfpTuple
@@ -3453,6 +3459,7 @@ False_checked :: ConLeche.SetTheory.Derive.Choice
 False_checked :: ConLeche.SetTheory.Derive.Empty
 False_checked :: ConLeche.SetTheory.Derive.Graphs
 False_checked :: ConLeche.SetTheory.Derive.Lfp
+False_checked :: ConLeche.SetTheory.Derive.LfpCompose
 False_checked :: ConLeche.SetTheory.Derive.LfpFam
 False_checked :: ConLeche.SetTheory.Derive.LfpSplit
 False_checked :: ConLeche.SetTheory.Derive.LfpTuple
@@ -3945,6 +3952,7 @@ fullyChecked_sound :: ConLeche.SetTheory.Derive.Choice
 fullyChecked_sound :: ConLeche.SetTheory.Derive.Empty
 fullyChecked_sound :: ConLeche.SetTheory.Derive.Graphs
 fullyChecked_sound :: ConLeche.SetTheory.Derive.Lfp
+fullyChecked_sound :: ConLeche.SetTheory.Derive.LfpCompose
 fullyChecked_sound :: ConLeche.SetTheory.Derive.LfpFam
 fullyChecked_sound :: ConLeche.SetTheory.Derive.LfpSplit
 fullyChecked_sound :: ConLeche.SetTheory.Derive.LfpTuple
@@ -4423,6 +4431,7 @@ False_pure :: ConLeche.SetTheory.Derive.Choice
 False_pure :: ConLeche.SetTheory.Derive.Empty
 False_pure :: ConLeche.SetTheory.Derive.Graphs
 False_pure :: ConLeche.SetTheory.Derive.Lfp
+False_pure :: ConLeche.SetTheory.Derive.LfpCompose
 False_pure :: ConLeche.SetTheory.Derive.LfpFam
 False_pure :: ConLeche.SetTheory.Derive.LfpSplit
 False_pure :: ConLeche.SetTheory.Derive.LfpTuple
@@ -4870,6 +4879,7 @@ Empty_pure :: ConLeche.SetTheory.Derive.Choice
 Empty_pure :: ConLeche.SetTheory.Derive.Empty
 Empty_pure :: ConLeche.SetTheory.Derive.Graphs
 Empty_pure :: ConLeche.SetTheory.Derive.Lfp
+Empty_pure :: ConLeche.SetTheory.Derive.LfpCompose
 Empty_pure :: ConLeche.SetTheory.Derive.LfpFam
 Empty_pure :: ConLeche.SetTheory.Derive.LfpSplit
 Empty_pure :: ConLeche.SetTheory.Derive.LfpTuple

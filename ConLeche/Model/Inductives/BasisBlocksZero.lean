@@ -78,6 +78,7 @@ index-tuple set, the injections the tagged towers. -/
   pins := []
   Φ := fun _ _ _ _ => graph (fun _ => empty) unitSet
   pinCar := fun _ _ _ _ => pt
+  Ψaux := fun _ _ _ _ => graph (fun _ => empty) unitSet
   inj := fun ψ _ j fs => injW (resSort.eval ψ) j (mkTower (fs ++ [pt]))
 
 namespace zeroCtorBlock
@@ -176,6 +177,9 @@ theorem zeroCtorBlock_isBlockModel {env : Env} {m : EnvModel V env}
   pinShape := fun _ h => nomatch h
   pinMem := fun _ _ _ _ _ _ h => nomatch h
   pinMono := fun _ _ _ _ _ _ _ _ _ h => nomatch h
+  auxFunctor := fun ψ ρp _ => ⟨zeroCtorBlock.mono ψ ρp, zeroCtorBlock.maps ψ ρp, zeroCtorBlock.closed ψ ρp⟩
+  auxCompose := fun _ _ => composeΦ_zero.symm
+  auxPinsCar := fun _ _ _ _ h => nomatch h
   pinLeaf := fun _ h => nomatch h
   leaf := fun ψ ρ as is hsp hi => by
     obtain rfl : as = [] := List.eq_nil_of_length_eq_zero (SpineFit.length_eq hsp)

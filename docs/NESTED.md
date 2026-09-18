@@ -143,6 +143,8 @@ For every installed inductive the model keeps a *block model*
 * `k` members, `nP` parameters, index data;
 * **the operator `Φ_d`, at width `k`, as a function of a parameter frame**
   — this is the `Φ_T⃗(α⃗)` of §1;
+* **the wide operator `Ψ_d`, at width `k + n`** — one row per member and
+  one per pin, the pins still variables;
 * for a nested type, its **pin table**: for each of its own pins, the
   container's name and the components `s⃗` (both as syntax and as
   readings), and a *pin carrier* `pinCar_i(X⃗)` — the pin's slot as a
@@ -174,18 +176,20 @@ the true carrier, is exactly the pin's slot.  It is what makes the restored
 constructor `node : List Tree → Tree` well-typed against a carrier that was
 built from `J'`.
 
-**The crucial representational fact.**  `Φ_d` is the *narrow* operator.
-For a nested `T`, the model constructs `⟦T⃗⟧` via (aux) as a segment of the
-wide `μΨ`, and then *packages* the result at width `k`:
+**Narrow and wide.**  `Φ_d` is the *narrow* operator.  For a nested `T`
+the model constructs `⟦T⃗⟧` via (aux) as a segment of the wide `μΨ_d`, and
+then *packages* the result at width `k`:
 
-    Φ_d(a⃗)(X⃗)  =  Ψ_{0..k}( X⃗,  μY⃗. Ψ_{k..k+n}(X⃗, Y⃗) )                        (compose)
+    Φ_d(a⃗)(X⃗)     =  Ψ_d(a⃗)( X⃗, pinCar_d(a⃗)(X⃗) )_{0..k}                      (compose)
+    pinCar_d(a⃗)(X⃗) =  μY⃗. Ψ_d(a⃗)_{k..k+n}(X⃗, Y⃗)                              (pins)
 
-— the members' rows of `Ψ`, with the pins *solved internally* by an inner
-`μ` at each `X⃗`.  Bekić says `μΦ_d = (μΨ)_{0..k}`, so this is a correct
-definition.  But the wide operator `Ψ` is a *local of the construction*:
-once `T` is installed, a later block that uses `T` as a container sees only
-`Φ_d`, `pinCar`, and the laws — never `Ψ`.  Everything hard in §5 traces to
-this.
+— the members' rows of `Ψ_d`, with the pins *solved internally* by an
+inner `μ` at each `X⃗`, and the pins' carriers that inner `μ`.  Bekić says
+`μΦ_d = (μΨ_d)_{0..k}`, so this is a correct definition.  Both equations
+are *laws of the block model*, so the wide operator is not lost when the
+construction ends: a later block that uses `T` as a container reads
+`Ψ_d` off `T`'s stored model.  §5 is what that buys.  A block with no
+pins is its own wide operator, and both laws are trivial there.
 
 ## 4. The proof: discharging `pinLeaf`
 
@@ -288,14 +292,15 @@ fixpoint is one line, and `L_1 = ⟦Tree'⟧(L_0)` falls out by (compose) for
 `Tree'`.  This is what the pure-set-model experiment (`SegCopy`) proved,
 for this shape and for a copied instance instantiated at another copy.
 **What it needs is `Ψ^{Tree'}` — the container's wide operator — which the
-stored block model of `Tree'` does not carry (§3).**  Three things follow,
+stored block model of `Tree'` carries (§3).**  Three things follow,
 each checked against the tree:
 
-* *Giving the model the wide operator is cheap.*  One field `Ψaux` on the
-  block model with two laws (`Φ = compose(Ψaux)`, `pinCar = pinsCar(Ψaux)`);
-  the nested construction promotes its local and both laws are `rfl`; every
-  non-nested route has no pins, so `Ψaux := Φ` and the laws are trivial.
-  About ten sites, all but one vacuous.  No kernel change.
+* *The model has the wide operator.*  One field `Ψaux` on the block
+  model, carrying (compose) and (pins) of §3 as laws together with its
+  functor laws at width `k + n`; the nested construction promotes its
+  local and the two composition laws are `rfl`; every non-nested route
+  has no pins, so `Ψaux := Φ` and the laws are trivial.  Eight law
+  sites, all but one vacuous.  No kernel change.
 * *The instance is the* closure, *not the kernel's mint partition, and it
   is computable model-side.*  The container's own pins are a stored field
   of its block model; matching them against the block's pins is a pure
@@ -305,10 +310,25 @@ each checked against the tree:
 * *Contiguity is not required.*  The kernel's worklist does interleave
   instances (two nested containers in one constructor mint both roots
   before expanding either — an accepted input), and Bekić's segment
-  theorem is stated for a contiguous range.  But the joint tuple can be
-  *reindexed*: pulling back the wide operator along a permutation is a
-  definitional congruence, after which the instance is a range.  One
-  reindexing lemma, no kernel change, no effect on the accept set.
+  theorem is stated for a contiguous range.  But Bekić holds at an
+  arbitrary *index set* just as well: the same proof, with the segment
+  `[a, a+s)` replaced by the image of an injection `σ : [0,s) → [0,N)`
+  and the join `Z[a..a+s ↦ Y⃗]` by `Z[σ i ↦ Y_i]`, gives
+
+      (L⃗)_{σ i}  =  μY⃗. Ψ|^σ_L⃗ (Y⃗) _i                                (B-set)
+
+  and its congruence against another presentation, of which the
+  contiguous form is the case `σ = (a + ·)`.  One reindexing lemma, no
+  kernel change, no effect on the accept set.
+* *The identification needs the container's CONSTRUCTORS, not just its
+  operator.*  The agreement `hΦ` above is a statement about the
+  container's wide operator at *every* tuple, and (compose)/(pins)
+  determine it only at the tuples of the form `(X⃗, pinCar(X⃗))`.  So
+  the block model must expose the wide operator FIBREWISE too — a
+  constructor decomposition at every component, members and pins
+  alike, which is the auxiliary block's constructor data.  That is a
+  representation change, not an annotation, and it is the real price
+  of Resolution 1.
 
 What survives Resolution 1 is smaller and no longer an ordering problem
 *within* an instance: the identification at an instance's *root* pin is
@@ -360,13 +380,16 @@ Resolution 1 needs.
 | `μX⃗.Φ`, leastness, fixpoint | `lfpTuple`, `lfpTuple_le`, `lfpTuple_fixed` (`SetTheory/Derive/LfpTuple.lean`) |
 | (B) Bekić at a segment | `lfpTuple_seg`, `lfpTuple_eq_section` |
 | (B-whole) | `lfpTuple_seg_congr` (`SetTheory/Derive/LfpCompose.lean`) |
+| (B-set), (B-whole) at an index set | `lfpTuple_set`, `lfpTuple_set_congr` (same file; `setJoin`, `setSec`) |
 | (B-at) | `lfpTuple_seg_congr_at`, `lfpTuple_eq_of_at` |
 | (compose): narrow from wide | `composeΦ`, `pinsCar`, `lfpTuple_composeΦ`; `ofNested` in `Model/Inductives/BlockComposed.lean` |
 | the block model and its laws | `BlockModel`, `IsBlockModel` (`leaf`, `pinLeaf`, `functor`, `pinMono`) in `Model/Inductives/BlockRep.lean` |
+| the wide operator, stored | `BlockModel.Ψaux` with `auxFunctor`, `auxCompose`, `auxPinsCar` (same file) |
 | the expansion | `replaceIfNested`, `mkCopies`, the worklist `elimLoop` in `Kernel/Inductives/NestedElim.lean`; `checkNested` in `Kernel/Inductives/NestedInstall.lean` |
 | the pin table | `NestedPin` (`grpBase`, `grpSize`, components), read back as `NestedPinSynFacts` |
 | the aux block's install | `checkMutualCore` on `{T⃗, J'⃗}` in a scratch environment |
 | restore | `restoreNested`, `restoreRules`, `restoreRecTys` |
+| Resolution 1's identification | `ofNested_pin_block_wide`, `ofNested_pin_block_of_wide` (`Model/Inductives/BlockComposed.lean`) |
 | Resolution 1's experiment | `SetModel/SegCopy.lean` |
 | Resolution 3's apparatus | `pinLfpAt` (candidate tuples), `pins_le_of_declOrder`, `hentR` in `Model/Inductives/NestedFit.lean` / `NestedPinLeafAll.lean`; the declaration-order record `declPos`/`nestedPinOrderAt` |
 
@@ -378,15 +401,14 @@ artefact of the narrow stored operator (§5, verified both by the
 experiment and by reading the stored model); that Resolution 3's two
 passes consume different facts and can be sequenced.
 
-Also settled, by reading the stored model and by two accepted witnesses:
-Resolution 1 *can* be adopted in the current design without any kernel
-change — the wide operator is one mostly-trivial field, the instance is
-the closure computed from the stored pin table, and interleaving is
-handled by reindexing rather than by contiguity.  Adopting it deletes the
-domination hypothesis and the within-instance transfer machinery of
-Resolution 3 outright, and leaves a smaller residue: the component family
-at instance roots, an induction over instances, and the declaration-order
-record for cross-instance constant-headed edges.
+Also settled: Resolution 1 needs no kernel change.  The wide operator is
+a stored field of the block model, the instance is the closure computed
+from the stored pin table, and interleaving is handled by reindexing
+rather than by contiguity — (B-set).  The identification itself is
+proved at the set-theoretic layer, and it carries NO domination
+hypothesis: (B-at)'s `hle`, and the within-instance transfer machinery
+Resolution 3 needs in order to produce it, have no counterpart on the
+wide route.
 
 Decided: Resolution 1 is adopted, in stages so that each stands alone —
 first expose the wide operator on the block model (strictly additive),
@@ -397,10 +419,17 @@ until the third step lands.  In parallel, the two things every design
 needs: the reading of a rewritten term (§8, item 1) and the second
 residual's syntactic correspondence.
 
-Not settled: the exact cost of the residue — the component family at
-instance roots, the induction over instances, and whether the closure's
-identification is as cheap as the experiment suggests once the readings
-are threaded.
+Not settled: the identification's own hypothesis `hΦ` — that the
+copies' section of the auxiliary operator IS the container's wide
+operator, for every tuple.  Discharging it needs the block model to
+expose that operator fibrewise, i.e. to remember the auxiliary block's
+constructor data; that is the representation change Resolution 1 really
+asks for, and it is not yet made.  Beyond it the residue is unchanged:
+the component family at instance roots whose components mention other
+pins, an induction over instances, and the declaration-order record for
+cross-instance constant-headed edges — and the exact cost of that
+residue, in particular whether the closure's identification is as cheap
+as the experiment suggests once the readings are threaded.
 
 ## 8. What the abstraction hides
 

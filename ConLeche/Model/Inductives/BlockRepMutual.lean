@@ -106,6 +106,9 @@ at the MEMBER-LOCAL position. -/
     tupleLfpΦ (W ψ) (fun _ => W ψ) (resSort.eval ψ) ρp k (blockIds nP ppsM ψ) offs mems nFs tgtsG rss
       (tlss ψ) (Eiss₀ ψ) (Fss₀ ψ) (Ess₀ ψ)
   pinCar := fun _ _ _ _ => pt
+  Ψaux := fun ψ ρp =>
+    tupleLfpΦ (W ψ) (fun _ => W ψ) (resSort.eval ψ) ρp k (blockIds nP ppsM ψ) offs mems nFs tgtsG rss
+      (tlss ψ) (Eiss₀ ψ) (Fss₀ ψ) (Ess₀ ψ)
   inj := fun ψ _ j fs => injW (resSort.eval ψ) j (mkTower (fs ++ [pt]))
 
 section Mutual
@@ -159,6 +162,16 @@ positive). -/
 theorem ofMutual_tup {ψ : Name → Nat} (hW : W ψ ≠ 0) (mm : Nat) (is : List V) :
     (D).tup ψ mm is = mkTower is :=
   tupW_pos hW is
+
+/-- The block model's wide operator IS its operator: a mutual block
+has no pins, so there is nothing to solve internally. -/
+theorem ofMutual_Ψaux (ψ : Name → Nat) (ρp : Nat → V) : (D).Ψaux ψ ρp = (D).Φ ψ ρp := rfl
+
+/-- **`auxCompose` at no pins**: `composeΦ` over an empty pin segment
+is the operator itself (`composeΦ_zero`). -/
+theorem ofMutual_auxCompose (ψ : Name → Nat) (ρp : Nat → V) :
+    (D).Φ ψ ρp = composeΦ ((D).w ψ) (D).k (D).nPins ((D).idx ψ ρp) ((D).Ψaux ψ ρp) :=
+  composeΦ_zero.symm
 
 /-- **`functor` for the block model**, from the term former's premise at the
 parameter frame. -/
