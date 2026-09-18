@@ -113870,3 +113870,149 @@ measured and both refuted.
 * **(iv)**, **(v)** unstarted.
 
 Nothing in this section changes the tree.
+
+#### PINF: K.60 SPECIFIED AND BUILT, NOT LANDED — the run relation's inversion is AT its heartbeat ceiling, and the measurement corpora are not in this worktree (lane PINF, 2026-09-18)
+
+The decision was K.60 in K.59's exact shape.  The Bool is written and
+compiles; the route's two call sites and the run conjunct are written;
+**the landing is blocked on two things that are not about K.60 at
+all**, and the tree is back at `746a7eb3`, green, rather than carrying
+a half-applied record.
+
+##### (a) THE STATEMENT, SETTLED — and why its GUARD is the whole design
+
+K.32 runs from the copy's classification to the container's field;
+K.60 runs the other way, which is the direction the model's `pinF` arm
+needs.  The guard is the container field's own shape, and **every part
+of it is a fact the model already holds** — a guard the consumer cannot
+verify makes the record useless, which is the trap this row fell into
+once already:
+
+* the opened domain is headed by `.const K …` with `K` NOT a member of
+  the container's group — `BlockOpened.nestF`'s head equation and
+  `ContainerModeled.pinsNotMembers`;
+* `K` is a stored container — `ContainerModeled.pinNP`/`pinConts`;
+* one of the first `ciK.nP` arguments mentions a member of the
+  container's group — `ContainerModeled.nestArgsMention`, landed at
+  `9a558b04` for exactly this.
+
+The third conjunct is what keeps the check from firing on an ORDINARY
+container-headed field (`mk : List Nat → Tree`: head `List`, a
+container, no member in the parameter part, no pin minted).  It is
+`nestedOccOk`'s own occurrence test, read at the container's stored
+constructor instead of at the elimination's input.  Reflexive nested
+fields fall outside the guard by construction — their opened domain is
+a `Π`, so `getAppFn` is not a `.const` — which is where (iv)'s own arm
+picks them up.
+
+The conclusion is `kf[l] = (.recursive, t)` with `p.k ≤ t`: conjunct 1
+and `copyPinFCorr`'s `hkA` together, which is (ii) entire — everything
+else `copyPinFCorr` already derives FROM `hkA`.
+
+Carrier: recompute-and-certify over `nestedPinKinds p b stored`, K.59's
+shape, no new state field (the `mintedAt` trap).  Unconditional in both
+routes, `.internal` on failure, outside `nestedPinChecks`, category
+(B).  The full text of `nestedPinFiresAt`/`nestedPinFiresOk` is in this
+lane's working tree history at the reverted edit; it is ~45 lines and
+its traversal is `nestedCopyTargetsAt`'s verbatim down to the field
+loop.
+
+##### (b) BLOCKER 1 — `nestedCore_run_of` IS AT THE HEARTBEAT LIMIT, and any next record hits the same wall
+
+Adding the conjunct to `DeclNestedRun` means adding it to the
+inversion that proves the run relation from `checkNestedCore = .ok`
+(`Verify/Inductives/NestedInv.lean`).  That declaration **already sits
+at the 200 000-heartbeat budget**: one more `by_cases`/`rw [if_pos] at h`
+step over the route's monadic term plus one more component in its
+sixty-conjunct anonymous constructor puts it over, and `maxHeartbeats`
+is forbidden.
+
+Three cheapenings were tried and none was enough: splitting the
+existential witnesses from the conjunction (`refine … ?_` then
+`exact`), hoisting the four inline `(by cases u; exact h)` components
+into top-level `cases`, and both together.  The failure moves from
+`isDefEq` to `whnf` to `«tactic execution»` and stays over.
+
+**This is not K.60's cost, it is the route's.**  K.59 added a conjunct
+today; K.60 is the one that does not fit.  The next record on this
+route — any record — needs `nestedCore_run_of` split first (the natural
+cut is at the auxiliary install: one lemma for everything up to
+`auxStoredAll`, one for the rest), and that is a piece with its own
+price, not a side effect of the next Bool.  **Whoever schedules a
+kernel record on the nested route should schedule that split in front
+of it.**
+
+##### (c) BLOCKER 2 — the measurement cannot be run in this worktree
+
+The gate set for landing was K.59's battery: conformance over e2e +
+arena + `init-full` + Mathlib with a firing control and a reachability
+count, and `perf stat -e instructions:u` in BOTH modes.  Of that,
+**only the e2e leg is runnable here**: `tests/nested-shadow.sh` is
+present and is the conformance gate (a fire turns an `accept` line into
+an `error` line, so the gate reads it), but `_tmp/arena-tests`, an
+`init-full` stream and a Mathlib stream are NOT in this worktree —
+`_tmp/` holds this lane's directories and nothing else — and both perf
+legs need the last two.  Fetching them is a decision with a cost
+attached, not something to do silently inside a proof lane.
+
+##### (d) WHAT IS TRUE OF THE PRICE, now that it is measured rather than estimated
+
+The Bool and the two call sites are half a session.  The run conjunct
+is blocked behind (b).  The inversion `nestedPinFiresOk_inv` — stated
+in `nestedPinKinds_get`'s positional style so K.32's existing bridge
+(`Verify/Inductives/NestedCopyKinds.lean`) applies — is unwritten and
+is ~100 lines.  With (b) and (c) in front of it, **K.60 is 2–3
+sessions, not 1.5–2.5**, and the first of those sessions is the
+run-relation split, which belongs to whoever owns that proof.
+
+##### (e) THE STANDING RULE THIS ROW PAID FOR — a syntactic clause on a CONSTRUCTOR'S PARAMETERS can never be recorded on this route
+
+Recorded here so that no lane proposes it a third time.
+
+A container's FORMER's parameter telescope is member-free, provably:
+its type is checked at the pre-block environment, where the members are
+fresh, and the tree spends exactly that argument at
+`nestedContainerModeled` (K.30's step, `rk_openPisAtFvars_constsResolve`
+on the first former's type, turned into member-freeness by the members'
+freshness).
+
+A CONSTRUCTOR's parameter openers reach the former's **only through
+`isDefEq`**: `checkMutualCtor` runs
+`checkStructDomsAt ops env 0 cq.1 (tq.1.map Expr.fvarTypeD) nP`
+(`Kernel/Inductives/MutualInstall.lean`), whose body is
+`ops.isDefEq env (off + j) a.fvarTypeD b`
+(`Kernel/Inductives/StructInstallF.lean`), and `normCtorValM`
+normalises the FIELD domains only — it rebuilds the parameter binders
+unchanged.  **So a constructor whose parameter annotation is a redex
+that mentions a member and reduces to the former's domain is accepted,
+by this checker and by official.**  `BlockOpened` and `FixOpened`
+record nothing about `fvsP`'s annotations; `BlockCtorData` adds only
+`pLen` and `pIdx`.
+
+Therefore: a `ContainerModeled` clause saying a constructor's parameter
+domains mention no member is **not a consequence of any check the
+checker runs**, and the two ways to make it one are both out — a new
+kernel Bool of that shape CAN FIRE on a stream official accepts (which
+`nestedPinKinds`' own docstring sets as the disqualifying property of a
+recorded check), and strengthening `checkStructDomsAt` to syntactic
+equality is an accept-set SHRINK and a divergence from official.  The
+same refutation kills the `mentionsFvar` weakening: `Expr.mentionsFvar`
+is `fvarLeaves`-based and `Expr.fvarLeaves` descends hereditarily into
+annotations.
+
+**Consequence for the model tier**: a mention travels from a
+constructor's ABSTRACT field data to its OPENED field data
+(`mentionsMember_instSeq`) and never back, so an EXISTENCE fact wanted
+on the abstract side must be recorded on the abstract side or obtained
+from the elimination's own output.  `ordFree` is unaffected because it
+is NEGATIVE and travels the available direction.
+
+##### (f) STATE
+
+* **(A)** LANDED `9a558b04`; **(B)** LANDED `dd44fbf0`;
+* **K.60** specified (a), built and reverted, blocked on (b) and (c);
+* **(ii)** blocked on K.60;
+* **(iii)** unstarted, buildable standalone taking `hkA`;
+* **(iv)**, **(v)** unstarted.
+
+The tree is at `746a7eb3` plus this section; nothing of K.60 is in it.
