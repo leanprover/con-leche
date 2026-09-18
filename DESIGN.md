@@ -82135,6 +82135,212 @@ Cost: one session.  Next: L-B's three shape arms (the `ordF`-right
 reflexive half is no longer refuted), `NestedPinsLe`, K.36, the
 recorded tables' data — and `ModeledStepB`.
 
+#### THE ARENA HALF'S 44 UNLISTED FIXTURES, SETTLED — the row file IS the tutorial suite, and every one of the 44 is accounted for (2026-09-18, task #315, read-only audit)
+
+A lane recorded as a question that `_tmp/arena-tests` holds **182**
+streams while `tests/arena-expected.txt` pins **138** rows, and that
+`arena_half` iterates the ROW FILE (`done < "$EXPECTED"`) rather than
+the directory — so roughly forty-four vendored streams are run by
+nothing.  It did not claim it as a hole.  This is the answer, measured;
+**no gate, expectation file or fixture was changed.**
+
+##### (a) THE EXACT SET — it is not a ragged 44, it is four whole subtrees
+
+The row file is **exactly and completely the `tutorial` subtree**:
+
+| path | in directory | rows |
+| --- | --- | --- |
+| `bad/tutorial/` | 46 | **46** |
+| `good/tutorial/` | 92 | **92** |
+| `bad/` (top level) | 18 | 0 |
+| `bad/perf/` | 2 | 0 |
+| `good/` (top level) | 4 | 0 |
+| `good/perf/` | 16 | 0 |
+| `good/undecidability/` | 4 | 0 |
+
+138 rows against 138 tutorial files — **the tutorial suite is covered
+without a single gap**, and not one row names a file that is missing.
+The harness's own label already says which suite it measures ("arena
+tutorial: 90/92 good tests accepted").  So the gap is by construction
+and by name rather than by omission; what was open is whether the other
+four groups SHOULD be gated, and that is what the runs below decide.
+
+The vendored tarball carries **no manifest and no expectation of its
+own** — 182 entries, all `.ndjson` — so the only upstream verdict is
+the `good/`-versus-`bad/` path, which is the convention `arena_half`
+already enforces (`good/*` may not exit 1 or 3; `bad/*` may not exit 0).
+
+##### (b) WHAT THE CHECKER DOES ON ALL 44, and the headline is a negative
+
+Every one run at `--jobs=1` under `ulimit -v 16000000` and `timeout 900`:
+
+* **ZERO exit 3.**  Not one of the 44 crashes for unclear cause, which
+  is the code the convention reserves for that and the one this audit
+  was built to find.
+* **ZERO `bad/` accepts.**  All 20 `bad/` streams are refused: **18
+  REJECT (1)** and **2 DECLINE (2)** — `bad/proj-non-structure`
+  ("projection on a non-structure-like type") and `bad/rec-missing-ih`
+  ("direct rec: a nested occurrence of the block (not modeled here)").
+  A decline on a stream that ought to be rejected is the conservative
+  direction and carries no soundness risk.
+* **`good/`: 20 accept (0), 3 decline (2), 1 rejects (1).**
+
+The four non-accepting `good/` streams, each with its reason:
+
+1. **`good/undecidability/subject-reduction-redex` REJECTS**, and it is
+   RULED, not a regression.  Task #258 made theorems opaque to
+   reduction; §"Task #258" records this exact fixture flipping
+   accept → reject as "an accept-SUBSET of the reference kernels until
+   lean4#14896 lands".  **It is gated elsewhere**: the arena copy is
+   BYTE-IDENTICAL (sha256) to `tests/e2e/subject_reduction_redex.ndjson`,
+   which `tests/e2e-expected.txt` pins at `1` with the reasoning beside
+   it.  Adding an arena row would duplicate an existing pin.
+2. **`good/level-index-out-of-order`**, 3. **`good/proof-irrel`**,
+   4. **`good/sparse-name-index`** all DECLINE at
+   `non-standard axiom`, at fold position 12, before reaching the
+   feature they are named for.  That is the standing maintainer ruling
+   (a non-standard axiom is never accepted), and it is the same reason
+   the row file already documents for tutorial row 045.
+
+Two further streams are already spoken for in this document:
+`bad/proj-of-stuck-prop` and `bad/proj-of-subst-prop` are the "two
+`bad/` fixtures outside the expectations file" of the native-agree
+gate's record.  And `bad/nested-unused-param` is byte-identical to
+`tests/e2e/nested_unused_param.ndjson`, which IS a shadow row pinned at
+`E=reject` — so that one is gated twice over.
+
+`good/init-prelude` accepts 1 777 declarations in 1 s and
+`good/perf/grind-ring-5` 2 185 in 3 s; `good/perf/app-lam` accepts in
+**24 s**, against the 119 s / 7.6 GB this document recorded for it at
+task #78 — the figure is stale in our favour.
+
+##### (c) DOES THE SAME GAP EXIST ELSEWHERE — every gate classified
+
+Row-file-driven (the pattern in question), with its corpus measured:
+
+* **`arena.sh` arena half** — 138 rows / 182 files; the 44 above.
+* **`arena.sh` e2e half** — 196 rows / 220 streams.  Of the 24
+  unlisted, **21 are nested-shadow rows** and **3 are vestigial
+  bases**: `nat_beq_bad_base`, `nat_ble_bad_base`, `nat_ops_bad_base`,
+  added by `7e761483` whose message says "the bad variants are patched
+  AFTER preprocessing so the preprocessor's own check doesn't mask
+  them".  The preprocessor is gone (#207) and the patched variants
+  (`nat_beq_wrong` etc., pinned at `1`) are the real rows.  **Nothing
+  in the tree references the three bases** and all three accept, so
+  their accept is the one verdict in either corpus that is pinned
+  NOWHERE.  Harmless — they are inputs to a generator that no longer
+  runs — but they are the honest residue of this question.
+* **`arena.sh` annot half** — 15 rows against 15 files in
+  `tests/annot/`, **exact, no gap either way**.
+* **`nested-shadow.sh`** — 37 rows.  Re-measured independently here by
+  running `--nested-shadow` over all 220 e2e streams: **31 fixtures
+  report a nested block (44 blocks), and every one of the 31 is a
+  row**; the remaining 6 rows are the `inmodel=0` ones, whose blocks
+  the modeller declines before the shadow runs, which is why the census
+  does not see them.  31 + 6 = 37 — **the gate covers its whole corpus
+  with no gap**, which confirms the closure M8 session 1 made after
+  finding nine blocks in no gate at all.
+
+Corpus-driven, so structurally immune:
+`layering.sh` (`os.walk('ConLeche')`), `trust-surface.sh` (scans the
+tree against an allowlist, 654 files), `no-local-paths.sh`
+(`git grep` over all tracked files), `shake.sh` (`lake shake` over the
+whole tree plus an allowlist), `overview-links.sh` and `quote-gate.sh`
+(both iterate `$DOCS` and parse what is there), `pindump.sh`
+(`pins/*.json`, `pinners/*/`).
+
+Two that are list-driven but whose list IS the contract:
+**`proofdeps.sh`** diffs a MEASURED set against the pin, so no row can
+hide a module — but its twelve roots are a hand-kept list in
+`tests/ProofDeps.lean`; checked, and `MainTheorem.lean` declares
+exactly two theorems, both of them roots.  **`challenge.sh`** takes its
+names from `comparator.json`, which is the challenge's own statement
+list.  **`inmodel.sh`** carries a hard-coded default of five nested
+fixtures with the reason for the choice written beside it.
+
+##### (d) WHAT SHOULD BECOME A ROW — a recommendation, for the maintainer to time
+
+Total cost of running all 44 is **34 s**, and **33 s of it is
+`good/perf/`** (24 s of that one stream, `app-lam`).  So the cheap and
+the expensive parts separate cleanly:
+
+* **The 20 `bad/` streams (18 top-level + 2 `perf/`) cost 0 s together
+  and are the ones worth rows.**  They are kernel-soundness negatives;
+  a row arms `arena_half`'s `bad/*` arm — which fails on exit 0 — over
+  eighteen more refusals for no measurable time.  This is the highest
+  value in the list by a wide margin.
+* **The 3 non-standard-axiom declines and `good/init-prelude`** (1 s
+  together) would be rows at `2`, `2`, `2`, `0`, documenting the axiom
+  ruling the way row 045 already does and pinning a 1 777-declaration
+  accept that is already a named benchmark here.
+* **`good/undecidability/`**: the three accepts are free; the fourth is
+  already pinned through its byte-identical e2e twin and a second row
+  would only duplicate it.
+* **`good/perf/`**: leave out, or take only the sub-second ones.  Their
+  value is throughput, which `tests/scale.sh` and PERF already measure,
+  and `app-lam` alone would add 24 s to the battery.
+
+
+##### (e) THE FULL LIST, with the measured exit code
+
+Exit codes are the arena convention (0 accept, 1 reject, 2 decline,
+3 error); `decls` is the accepted-declaration count where there is one.
+
+| exit | fixture | time | decls |
+| --- | --- | --- | --- |
+| 1 | `bad/bogus1.ndjson` | 0s | - |
+| 1 | `bad/constlevels.ndjson` | 0s | - |
+| 1 | `bad/ctor-num-fields.ndjson` | 0s | - |
+| 1 | `bad/extra-rec.ndjson` | 0s | - |
+| 1 | `bad/k-rec-conv.ndjson` | 0s | - |
+| 1 | `bad/large-elim-param.ndjson` | 0s | - |
+| 1 | `bad/level-imax-leq.ndjson` | 0s | - |
+| 1 | `bad/level-imax-normalization.ndjson` | 0s | - |
+| 1 | `bad/nat-rec-k-lie.ndjson` | 0s | - |
+| 1 | `bad/nat-rec-rules.ndjson` | 0s | - |
+| 1 | `bad/nested-unused-param.ndjson` | 0s | - |
+| 1 | `bad/perf/refute-cheap-first.ndjson` | 0s | - |
+| 1 | `bad/perf/refute-cheap-last.ndjson` | 0s | - |
+| 2 | `bad/proj-non-structure.ndjson` | 0s | - |
+| 1 | `bad/proj-of-imax-prop.ndjson` | 0s | - |
+| 1 | `bad/proj-of-prop.ndjson` | 0s | - |
+| 1 | `bad/proj-of-stuck-prop.ndjson` | 0s | - |
+| 1 | `bad/proj-of-subst-prop.ndjson` | 0s | - |
+| 1 | `bad/rec-k-lie.ndjson` | 0s | - |
+| 2 | `bad/rec-missing-ih.ndjson` | 0s | - |
+| 0 | `good/init-prelude.ndjson` | 1s | 1777 |
+| 2 | `good/level-index-out-of-order.ndjson` | 0s | - |
+| 0 | `good/perf/app-lam.ndjson` | 24s | 21 |
+| 0 | `good/perf/args-before-unfold.ndjson` | 0s | 5 |
+| 0 | `good/perf/beta-ladder.ndjson` | 5s | 11 |
+| 0 | `good/perf/church-numerals.ndjson` | 0s | 4 |
+| 0 | `good/perf/discarded-argument-match.ndjson` | 0s | 15 |
+| 0 | `good/perf/discarded-argument.ndjson` | 0s | 6 |
+| 0 | `good/perf/folded-constant-first.ndjson` | 0s | 9 |
+| 0 | `good/perf/folded-constant-last.ndjson` | 0s | 9 |
+| 0 | `good/perf/grind-ring-5.ndjson` | 3s | 2185 |
+| 0 | `good/perf/identical-nesting.ndjson` | 0s | 8 |
+| 0 | `good/perf/irrelevance-before-evaluation.ndjson` | 0s | 7 |
+| 0 | `good/perf/let-ladder.ndjson` | 1s | 13 |
+| 0 | `good/perf/repeated-subproblem.ndjson` | 0s | 5 |
+| 0 | `good/perf/shared-subterm.ndjson` | 0s | 8 |
+| 0 | `good/perf/shift-cascade.ndjson` | 0s | 5 |
+| 0 | `good/perf/unroll-versus-evaluate.ndjson` | 0s | 5 |
+| 2 | `good/proof-irrel.ndjson` | 0s | - |
+| 2 | `good/sparse-name-index.ndjson` | 0s | - |
+| 0 | `good/undecidability/alg-conv-trans-acc-left.ndjson` | 0s | 40 |
+| 0 | `good/undecidability/alg-conv-trans-acc-right.ndjson` | 0s | 40 |
+| 0 | `good/undecidability/alg-conv-trans-quot-right.ndjson` | 0s | 7 |
+| 1 | `good/undecidability/subject-reduction-redex.ndjson` | 0s | - |
+
+**The honest summary is that the question closes without a defect.**
+Nothing exits 3, nothing unsound accepts, the one `good/` reject is a
+recorded ruling gated under another name, and the shadow gate's corpus
+is fully covered on re-measurement.  What the audit changes is the
+ledger, not the tree: *the arena gate measures the tutorial suite, and
+says so*, and the twenty `bad/` streams outside it are refused today by
+a checker that nothing asks to keep refusing them.
+
 #### K.32 — the copies' recursive targets come from the container's own recursion (2026-09-16, task #315, lane L-B's DESIGN §U.23 (e))
 
 The model's `ordF` arm needs to know that a container-ORDINARY field
