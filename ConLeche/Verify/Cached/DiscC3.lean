@@ -954,7 +954,7 @@ private theorem iotaRec_certs_tail (ih : SSimC mode env f) (henv : EnvWF env)
           (fun s₈ red hs₈ hQred => ?_)
         refine SimC.pure hs₈ ⟨hQred, ?_⟩
         refine Expr.WScoped.mkAppN ?_ ?_
-        · obtain ⟨-, -, -, -, -, hrules, -⟩ :=
+        · obtain ⟨-, -, -, -, -, -, hrules, -⟩ :=
             henv _ (find?_mem hfc)
           obtain ⟨hrf, -, -, -, -⟩ := hrules cv mI rP rules
             rfl rl (List.mem_of_find?_eq_some hrule)
@@ -1149,7 +1149,7 @@ theorem iotaRecC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode env f) 
                           rl.fire = .nested lvls pins →
                           ∀ pin ∈ pins, pin.hasFvar = false := by
                         intro lvls pins hf' pin hpin
-                        obtain ⟨-, -, -, -, -, hrules, -⟩ :=
+                        obtain ⟨-, -, -, -, -, -, hrules, -⟩ :=
                           henv _ (find?_mem hfc)
                         obtain ⟨-, -, -, -, g5⟩ := hrules cv mI rP rules
                           rfl rl (List.mem_of_find?_eq_some hrule)

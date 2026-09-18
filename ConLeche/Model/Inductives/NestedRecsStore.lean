@@ -215,6 +215,11 @@ theorem nestedRecsProvisionGo {kT : Nat} {T A : Nat → (Name → Nat) → Annot
       (∀ c, c < kT → (cvOf c).type.constsResolve env = true) →
       ConLeche.EtaFamiliesClosed env →
       (rest.map (·.1.1.name)).Nodup →
+      -- **THE MAJOR PREMISE'S HEAD** (task #315): the cons is a
+      -- recursor, so `ConstWF` asks for the stored type's major premise
+      -- to have a `const` head at the STORED major index — per ENTRY,
+      -- because the index is the triple's, not the class's
+      (∀ x ∈ rest, ConLeche.Expr.recMajorHeadOk x.1.1.type x.1.2.1 = true) →
       (∀ c, c < kT → ∀ ψ : Name → Nat,
         denoteMeta _mp.base2.acval env ψ 0 (cvOf c).type = some (T c ψ)) →
       ∃ mp' : EnvModelM V μ (ConLeche.provisionNestedRecs (rest.map (·.1)) env),
@@ -226,9 +231,9 @@ theorem nestedRecsProvisionGo {kT : Nat} {T A : Nat → (Name → Nat) → Annot
             (cvOf c).type = some (T c ψ)) ∧
         (∀ x ∈ rest, ∀ ψ : Name → Nat, mp'.base2.acval x.1.1.name ψ = A x.2 ψ) ∧
         (∀ nm : Name, (∀ x ∈ rest, nm ≠ x.1.1.name) → mp'.base2.acval nm = _mp.base2.acval nm)
-  | [], env, mp, _, _, hres, hE, _, hreads =>
+  | [], env, mp, _, _, hres, hE, _, _, hreads =>
     ⟨mp, hE, hres, hreads, fun x hx => absurd hx (by simp), fun _ _ => rfl⟩
-  | ((cvRa, mI, rP), c) :: rest, env, mp, hmem, hfr, hres, hE, hnd, hreads => by
+  | ((cvRa, mI, rP), c) :: rest, env, mp, hmem, hfr, hres, hE, hnd, hmaj, hreads => by
     obtain ⟨hcT, hcv⟩ := hmem ((cvRa, mI, rP), c) List.mem_cons_self
     dsimp only at hcT hcv
     subst hcv
@@ -238,7 +243,12 @@ theorem nestedRecsProvisionGo {kT : Nat} {T A : Nat → (Name → Nat) → Annot
     -- the cons's head and its well-formedness
     have hwf : ConLeche.EnvWF ⟨.recInfo (cvOf c) mI rP [] :: env.consts⟩ := by
       refine ConLeche.EnvWF.cons mp.base2.wf (ConLeche.structConstWF hfv hlp
-        (Expr.constsResolve_mono (hres c hcT)) hbv (fun _ _ _ heq => nomatch heq) ?_)
+        (Expr.constsResolve_mono (hres c hcT)) hbv (fun _ _ _ heq => nomatch heq) ?_
+        (hmaj := ?maj))
+      case maj =>
+        intro cv mI' rP' rules heq
+        obtain ⟨rfl, rfl, -, -⟩ := ConstantInfo.recInfo.inj heq
+        exact hmaj ((cvOf c, mI, rP), c) List.mem_cons_self
       intro cv mI' rP' rules heq r hr
       injection heq with _ _ _ hrules
       rw [← hrules] at hr
@@ -271,7 +281,8 @@ theorem nestedRecsProvisionGo {kT : Nat} {T A : Nat → (Name → Nat) → Annot
         (fun x hx => by
           rw [ConLeche.Env.find?_cons, if_neg (fun h => hneRest x hx h.symm)]
           exact hfr x (List.mem_cons_of_mem _ hx))
-        hres' hE' (by simpa using hndc.2) hreads'
+        hres' hE' (by simpa using hndc.2)
+        (fun x hx => hmaj x (List.mem_cons_of_mem _ hx)) hreads'
     refine ⟨mp', hE'', hres'', hreads'', ?_, ?_⟩
     · intro x hx ψ
       rcases List.mem_cons.mp hx with heq | hx'
@@ -305,6 +316,9 @@ theorem nestedRecsProvision {kT : Nat} {T A : Nat → (Name → Nat) → AnnotTe
       (cvOf c).type.allLevelParamsDefined (cvOf c).levelParams = true ∧
       (cvOf c).type.looseBVarsBounded 0 = true)
     (hnd : (L.map (·.1.name)).Nodup)
+    -- **THE MAJOR PREMISE'S HEAD** (task #315), per entry (the major
+    -- index is the triple's)
+    (hmaj : ∀ x ∈ L, ConLeche.Expr.recMajorHeadOk x.1.type x.2.1 = true)
     (hfresh : ∀ c, c < kT → env₂.find? (cvOf c).name = none)
     (hres : ∀ c, c < kT → (cvOf c).type.constsResolve env₂ = true)
     (hE : ConLeche.EtaFamiliesClosed env₂)
@@ -335,7 +349,11 @@ theorem nestedRecsProvision {kT : Nat} {T A : Nat → (Name → Nat) → AnnotTe
   obtain ⟨mp₃, hE₃, hres₃, hreads₃, hleaf₃, hag⟩ :=
     nestedRecsProvisionGo (cvOf := cvOf) (T := T) (A := A) hokTy hleaf hAcl hAparams hnres hpshape
       htyWF L.zipIdx env₂ mp₂ hzip
-      (fun x hx => by rw [(hzip x hx).2]; exact hfresh x.2 (hzip x hx).1) hres hE hndZ hreads
+      (fun x hx => by rw [(hzip x hx).2]; exact hfresh x.2 (hzip x hx).1) hres hE hndZ
+      (fun x hx => hmaj x.1 (by
+        have := List.mem_map_of_mem (f := fun y : (ConstantVal × Nat × Nat) × Nat => y.1) hx
+        rwa [hmapFst] at this))
+      hreads
   refine ⟨mp₃, hE₃, hres₃, hreads₃, ?_, ?_⟩
   · intro c hc ψ
     have hmem : (L.getD c default, c) ∈ L.zipIdx := by

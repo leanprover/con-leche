@@ -52,7 +52,7 @@ theorem projInstallRun_ext {μ : CheckMode} {F : Nat}
     refine ExtEta.trans ?_ (ih htail)
     rcases hstep with hfn | ⟨-, rfl⟩
     · obtain ⟨cvj, mcv, mval, mhint, pty, rhsA, -, -, -, hfresh, -, -,
-        -, -, -, -, -, -, -, -, -, -, rfl⟩ := hfn
+        -, -, -, -, -, -, -, -, -, -, -, rfl⟩ := hfn
       exact ExtEta.cons (Option.isNone_iff_eq_none.mp hfresh)
         (fun _ _ hh => ConstantInfo.noConfusion hh)
     · exact ExtEta.refl _
@@ -75,7 +75,7 @@ theorem provisionRecsRunS_mono {μ : CheckMode} {F : Nat}
     exact hf
   | cons ci₀ rest ih =>
     intro envAcc envSelf checked h n ci hf
-    obtain ⟨cvA, mI, rP, rules, rest', -, hmv, hrec, -⟩ := h
+    obtain ⟨cvA, mI, rP, rules, rest', -, hmv, hmajK, hrec, -⟩ := h
     obtain ⟨type', ⟨hfresh, -, -, -, -, -, -, -, -, -⟩, rfl, -⟩ := hmv
     exact ih hrec n ci (Env.find?_cons_of_fresh
       (c := .recInfo _ mI rP []) (Option.isNone_iff_eq_none.mp hfresh)
@@ -95,7 +95,7 @@ theorem provisionRecsRunS_fresh {μ : CheckMode} {F : Nat}
     exact nomatch hci
   | cons ci₀ rest ih =>
     intro envAcc envSelf checked h ci hci
-    obtain ⟨cvA, mI, rP, rules, rest', -, hmv, hprov', -⟩ := h
+    obtain ⟨cvA, mI, rP, rules, rest', -, hmv, hmajK, hprov', -⟩ := h
     obtain ⟨type', hcv, hcvA, -⟩ := id hmv
     have hnameA : cvA.name = ci₀.name := by rw [hcvA]; rfl
     have hfresh : envAcc.find? cvA.name = none := by
@@ -127,7 +127,7 @@ theorem provisionRecsRunS_nameGuards {μ : CheckMode} {F : Nat}
     exact nomatch hci
   | cons ci₀ rest ih =>
     intro envAcc envSelf checked h ci hci
-    obtain ⟨cvA, mI, rP, rules, rest', -, hmv, hprov', -⟩ := h
+    obtain ⟨cvA, mI, rP, rules, rest', -, hmv, hmajK, hprov', -⟩ := h
     obtain ⟨type', hcv, -, -⟩ := id hmv
     rcases List.mem_cons.mp hci with heq | hci'
     · rw [heq]
@@ -206,7 +206,7 @@ theorem provisionRecsRunS_stored {μ : CheckMode} {F : Nat}
     exact nomatch hci
   | cons ci₀ rest ih =>
     intro envAcc envSelf checked h ci hci
-    obtain ⟨cvA, mI, rP, rules, rest', -, hmv, hprov', -⟩ := h
+    obtain ⟨cvA, mI, rP, rules, rest', -, hmv, hmajK, hprov', -⟩ := h
     obtain ⟨type', -, hcvAdef, -⟩ := hmv
     rcases List.mem_cons.mp hci with rfl | hci'
     · have : envSelf.find? cvA.name = some (.recInfo cvA mI rP []) :=
@@ -231,7 +231,7 @@ theorem provisionRecsRunS_mem {μ : CheckMode} {F : Nat}
     exact hc
   | cons ci₀ rest ih =>
     intro envAcc envSelf checked h c hc
-    obtain ⟨cvA, mI, rP, rules, rest', -, -, hprov', -⟩ := h
+    obtain ⟨cvA, mI, rP, rules, rest', -, -, hmajK, hprov', -⟩ := h
     exact ih hprov' c (List.mem_cons_of_mem _ hc)
 
 /-! ## The member fold's syntactic residue -/
@@ -523,7 +523,7 @@ theorem provisionRecsRun_checkedFresh {μ : CheckMode} {F : Nat}
     exact nomatch hc
   | cons ci₀ rest ih =>
     intro envAcc envSelf checked h c hc
-    obtain ⟨cvA, mI, rP, rules, rest', -, hmv, hprov', rfl⟩ := h
+    obtain ⟨cvA, mI, rP, rules, rest', -, hmv, hmajK, hprov', rfl⟩ := h
     obtain ⟨type', ⟨hfresh, -, -, -, -, -, -, -, -, -⟩, rfl, -⟩ := hmv
     rcases List.mem_cons.mp hc with rfl | hc'
     · exact Option.isNone_iff_eq_none.mp hfresh
@@ -743,7 +743,7 @@ theorem indRecsFoldFactsRun {μ : CheckMode} {F : Nat}
   | cons ci₀ rest ih =>
     intro envP envF env₃ checked hsw hnres hupF hupP heqP
       hents hentF hbn hprov hfold
-    obtain ⟨cvA, mI, rP, rules, rest', hciE, hmv, hprov', rfl⟩ := hprov
+    obtain ⟨cvA, mI, rP, rules, rest', hciE, hmv, hmajK, hprov', rfl⟩ := hprov
     obtain ⟨rules', hiot, hfold'⟩ := hfold
     obtain ⟨type', ⟨hfresh0, hres0, -, -, -, -, -, -, -, -⟩, hcvAdef,
       -⟩ := hmv

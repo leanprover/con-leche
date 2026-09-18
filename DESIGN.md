@@ -90013,3 +90013,46 @@ The previous attempt's blind spot was reading the first error per file.
 This pass re-ran the census after every fix, which is how the projection
 half appeared as the FOURTH census rather than not at all, and how the
 count of real producers went from five to six.
+
+##### THE CLAUSE HAS LANDED, complete
+
+`ConstWF`'s sixth conjunct
+
+```lean
+    (∀ cv mI rP rules, c = .recInfo cv mI rP rules →
+      Expr.recMajorHeadOk cv.type mI = true) ∧
+```
+
+is in force unconditionally: `lake build` and `lake test` are green, the
+gate battery passes (layering 0/0, proofdeps doors 0, trust surface 13/5
+allowlisted, overview-links 112, quote-gate 2, nested-shadow 36/36,
+shake 510/510 allowlisted, arena 90/92 good tests, e2e 196/196), and no
+named hypothesis carries it anywhere.  Every recursor-storing route
+proves it from ITS OWN generator:
+
+* **mutual** — `checkMutualRecTys_majorHead` (new, in `MutualWF`): the
+  stored type IS `mutualRecTy`'s output, so the clause is
+  `mutualRecTy_majorDom` with the stored major index
+  `b.rulePrefix + nIdx` identified with the generator's
+  `b.nP + formers.length + ctors.length + f.nIdx`.  Three call sites
+  discharge its three arity facts off the ONE equation
+  `mutualGenData b fms ctorsA kinds = (formers4, ctors4)`:
+  `checkMutualCore_wf`, `mutualRecsStore_of` (through
+  `mutualRecsStore`'s new premises) and `checkMutualCoreS_run` at the
+  cached bridge.  The MODEL half needed the same at the PROVISION cons,
+  where the recursors go in rule-less: `recsProvisionGo`/`recsProvision`
+  carry a per-member `hmaj` and `mutualRecsProvision` discharges it with
+  the new helper.
+* **native** — `structRecTyR_majorDom` through `direct_fix_rec_wf`'s two
+  callers, with the constructor/kind lengths.
+* **basis and Quot** — `basisDeclsA_recMajorHead`, by `cases k <;> rfl`.
+* **nested (restore)** — `restoreWalk_major`; the restore's provisioning
+  loop (`nestedRecsProvisionGo`/`nestedRecsProvision`) carries the fact
+  PER ENTRY, because the major index is the stored triple's and not a
+  function of the class.
+* **modeled** — K.55's runtime Bool, gated on `verifiedChecks`, which the
+  route is being deleted with at step 2e.
+
+One import died with the move of the telescope kits and is deleted in the
+same arc: `NestedRecDoor` no longer needs `FixRec` (the shake gate found
+it; the #223 criterion holds — the tree builds without it).

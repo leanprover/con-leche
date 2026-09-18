@@ -89,6 +89,14 @@ theorem memberInstallInv {μ : CheckMode} {F : Nat}
     (hBP : BlockEtaPinned μ blockNames env)
     (hc₀cv : c₀.toConstantVal = cvA) (hc₀name : c₀.name = cvA.name)
     (hkind : BlockMemberKind c₀ cvA)
+    -- **THE MAJOR PREMISE'S HEAD** (task #315): `EnvWF`'s clause at every
+    -- stored recursor, which a provisional `.recInfo` must carry too.
+    -- The caller has it from its route: generated
+    -- (`mutualRecTy_majorDom`, `structRecTyR_majorDom`), restored
+    -- (`restoreWalk_major`), a literal (`basisDeclsA_recMajorHead`) or
+    -- recorded (K.55, this route's own).
+    (hmajP : ∀ mI rP, c₀ = .recInfo cvA mI rP [] →
+      ConLeche.Expr.recMajorHeadOk cvA.type mI = true)
     -- the capability arities of an inductive member
     (hicw : IndCapsWF c₀) :
     EnvWF ⟨c₀ :: env.consts⟩ ∧
@@ -108,13 +116,23 @@ theorem memberInstallInv {μ : CheckMode} {F : Nat}
     rw [hnameA]
     exact Option.isNone_iff_eq_none.mp hfind
   have hwf : EnvWF ⟨c₀ :: env.consts⟩ := by
-    refine EnvWF.cons hwfE ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, hicw⟩
+    refine EnvWF.cons hwfE ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, hicw⟩
     · rw [hc₀cv, htypeA]; exact htf'
     · rw [hc₀cv, htypeA, hlpsA]; exact htp
     · rw [hc₀cv, htypeA]; exact Expr.constsResolve_mono htr
     · rw [hc₀cv, htypeA]; exact hbt'
     · rcases hkind with ⟨caps', rfl⟩ | ⟨nP, nF, rfl⟩ | ⟨mI, rP, rfl⟩ <;>
         intro cv2 v2 h2 heq <;> exact nomatch heq
+    · -- the major-premise clause: vacuous at the two non-recursor kinds,
+      -- the caller's hypothesis at a provisional recursor
+      rcases hkind with ⟨caps', rfl⟩ | ⟨nP, nF, rfl⟩ | ⟨mI, rP, rfl⟩ <;>
+        intro cv2 mI2 rP2 rules2 heq
+      · exact nomatch heq
+      · exact nomatch heq
+      · injection heq with h1 h2 _ _
+        subst h1
+        subst h2
+        exact hmajP mI rP rfl
     · rcases hkind with ⟨caps', rfl⟩ | ⟨nP, nF, rfl⟩ | ⟨mI, rP, rfl⟩ <;>
         intro cv2 mI2 rP2 rules2 heq
       · exact nomatch heq
@@ -283,7 +301,7 @@ theorem projFnInv {μ : CheckMode} {F : Nat} {env' env₁ : Env}
           (fun ψ => cval (projModelName T i) ψ)) := by
   obtain ⟨cvj, mcv, mval, mhint, pty, rhsA, hctor, hfm, hmlps, hpnone,
     hTf, heqf, hptyB, hround, hptyres, hptyb, hptyf, hptylp, hstrip1,
-    hilt, hstripP, hbig, henv⟩ := hR
+    hmajPr, hilt, hstripP, hbig, henv⟩ := hR
   subst henv
   have hfresh : env'.find? (projFnName T i) = none :=
     Option.isNone_iff_eq_none.mp hpnone

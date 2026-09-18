@@ -186,7 +186,7 @@ theorem provisionRecsRunRS
             Prod.mk.injEq] at h
           obtain ⟨rfl, rfl⟩ := h
           exact ⟨cvA, mI, rP, rules, p.2, rfl,
-            memberValRun_of hmv0, ih hrest, rfl⟩
+            memberValRun_of hmv0, hmh, ih hrest, rfl⟩
     | axiomInfo cv | defnInfo cv v hint | thmInfo cv v
     | indInfo cv c | ctorInfo cv nP nF | projInfo e =>
       simp [provisionRecs, throw, throwThe, MonadExceptOf.throw] at h
@@ -459,7 +459,7 @@ theorem projFnRun_of {env' env₁ : Env} {μ : CheckMode}
   rw [hcb3] at hdomsS
   refine ⟨cvj, mcv, mval, mhint, pty, rhsA, hctor, hfm, hmlps,
     (by rw [hpnone]; rfl), hTf, heqf, hptyB, (by rw [hround]; simp),
-    hptyres, hptyb, hptyf, hptylp, hstrip1.1, hilt,
+    hptyres, hptyb, hptyf, hptylp, hstrip1.1, hstrip1.2, hilt,
     (by rw [hstripP]; rfl),
     ⟨cbindersR, cbody, hCstrip, hcbodyArity, hcbodyHead, hrhsnf,
       hrhsb, hrlp, hrres, ⟨rbinders, hrhsAstrip, ?_⟩,

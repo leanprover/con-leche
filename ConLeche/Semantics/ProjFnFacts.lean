@@ -75,6 +75,11 @@ theorem EnvFacts.consProjFn {env' : Env} (m : EnvFacts env')
     (hptyb : pty.looseBVarsBounded 0 = true)
     (hptyf : pty.hasFvar = false)
     (hptylp : pty.allLevelParamsDefined lps = true)
+    -- **K.56's RECORD, consumed**: a projection entry is a `.recInfo`, so
+    -- `EnvWF`'s unconditional major-premise clause applies to it; the
+    -- checker records the shape (`checkProjTy`) and `checkProjTy_inv`
+    -- carries it here
+    (hmajP : Expr.recMajorHeadOk pty nP = true)
     (hinv : ProjPhaseInvS T ctorName nF env' m.cval)
     (hrulesWF : ∀ r ∈ rules,
       (RecRule.rhs r).hasFvar = false ∧
@@ -159,7 +164,11 @@ theorem EnvFacts.consProjFn {env' : Env} (m : EnvFacts env')
   · -- `EnvWF` at the extension
     refine EnvWF.cons m.wf ⟨hptyf, hptylp,
       Expr.constsResolve_mono hptyres, hptyb,
-      (fun cv2 v2 h2 heq => ConstantInfo.noConfusion heq), ?_,
+      (fun cv2 v2 h2 heq => ConstantInfo.noConfusion heq),
+      (fun cv2 mI2 rP2 rules2 heq => by
+        obtain ⟨hq1, hq2, -, -⟩ := ConstantInfo.recInfo.inj heq
+        rw [← hq1, ← hq2]
+        exact hmajP), ?_,
       (fun tbl heq => ConstantInfo.noConfusion heq),
       (fun cv2 caps heq => ConstantInfo.noConfusion heq)⟩
     intro cv2 mI2 rP2 rules2 heq r hr
@@ -235,6 +244,10 @@ semantic. -/
 theorem projFn_head {μ : CheckMode} {F : Nat} {env' env₁ : Env}
     {T ctorName : Name} {lps : List Name}
     {nP nF i : Nat}
+    -- K.56's record is CERTIFICATION-ONLY, so the projection entry's
+    -- major-premise clause needs the verified mode — which every
+    -- consumer of this theorem has (`projFn`, `projInstall`)
+    (hμ : μ.verifiedChecks = true)
     (hwfE : EnvWF env')
     (hR : ProjFnRun μ F env' T ctorName lps nP nF i env₁) :
     EnvWF env₁ ∧
@@ -244,7 +257,7 @@ theorem projFn_head {μ : CheckMode} {F : Nat} {env' env₁ : Env}
           env'.find? (RecRule.ctor r) = some (.ctorInfo cvj cnP cnF) := by
   obtain ⟨cvj, mcv, mval, mhint, pty, rhsA, hctor, hfm, hmlps, hpnone,
     hTf, heqf, hptyB, hround, hptyres, hptyb, hptyf, hptylp, hstrip1,
-    hilt, hstripP, hbig, henv⟩ := hR
+    hmajPr, hilt, hstripP, hbig, henv⟩ := hR
   obtain ⟨cbinders, cbody, hCstrip, hcbodyArity, hcbodyHead, hrhsw,
     hrhsb, hrlp, hrres, hrstrip, hrhsKey, -, -⟩ := hbig
   subst henv
@@ -267,7 +280,11 @@ theorem projFn_head {μ : CheckMode} {F : Nat} {env' env₁ : Env}
   refine ⟨?_, ?_⟩
   · refine EnvWF.cons hwfE ⟨hptyf, hptylp,
       Expr.constsResolve_mono hptyres, hptyb,
-      (fun cv2 v2 h2 heq => ConstantInfo.noConfusion heq), ?_,
+      (fun cv2 v2 h2 heq => ConstantInfo.noConfusion heq),
+      (fun cv2 mI2 rP2 rules2 heq => by
+        obtain ⟨hq1, hq2, -, -⟩ := ConstantInfo.recInfo.inj heq
+        rw [← hq1, ← hq2]
+        exact certOnly_elim hmajPr hμ), ?_,
       (fun tbl heq => ConstantInfo.noConfusion heq),
       (fun cv2 caps heq => ConstantInfo.noConfusion heq)⟩
     intro cv2 mI2 rP2 rules2 heq r hr

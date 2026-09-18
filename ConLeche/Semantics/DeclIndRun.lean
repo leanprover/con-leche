@@ -106,6 +106,9 @@ def ProvisionRecsRun (μ : CheckMode) (F : Nat)
     ∃ cvA mI rP rules rest',
       ci = .recInfo ci.toConstantVal mI rP rules ∧
       MemberValRun μ F envAcc blockNames ci.toConstantVal cvA ∧
+      -- K.55: the modelled route stores the STREAM's recursor type, so
+      -- the environment invariant's major-premise clause is recorded
+      ConLeche.certOnly μ (ConLeche.Expr.recMajorHeadOk cvA.type mI) = true ∧
       ProvisionRecsRun μ F blockNames
         ⟨.recInfo cvA mI rP [] :: envAcc.consts⟩ rest envSelf rest' ∧
       checked = (cvA, mI, rP, rules) :: rest'
@@ -318,6 +321,9 @@ def ProjFnRun (μ : CheckMode) (F : Nat) (env' : Env)
     pty.hasFvar = false ∧
     pty.allLevelParamsDefined lps = true ∧
     (pty.stripPis (nP + 1)).isSome = true ∧
+    -- K.56: a projection entry is a `.recInfo`, so `EnvWF`'s
+    -- unconditional major-premise clause applies to it
+    ConLeche.certOnly μ (ConLeche.Expr.recMajorHeadOk pty nP) = true ∧
     i < nF ∧
     (pty.stripPis nP).isSome = true ∧
     (∃ cbinders cbody,
