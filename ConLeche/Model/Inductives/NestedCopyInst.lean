@@ -1597,6 +1597,104 @@ theorem NestedPinsRun.copyPinF_shape {pbs : List (Expr × ConLeche.BinderMeta)}
   exact absurd hnm hnotmem
 
 
+/-! ## The recursive field at one of the CONTAINER'S OWN pins — step
+one (task #315 L-B, DESIGN "the telescope the positivity `whnf`
+MAKES" (d))
+
+`CopyCtorShape.pinF` claims that a container field recursive at one of
+the CONTAINER's own pins becomes, in the copy, a field recursive at the
+BLOCK pin corresponding to it.  The route has four steps and this is
+the first: what the MINTED domain looks like, before the elimination
+has been asked whether it fires.
+
+It is `copyRecFDom`'s twin, and it is shorter, because at a nested
+field the container's own record says the head outright:
+`BlockOpened.nestF` gives the head `(pinAt q).J` WITH its level
+arguments and the argument count `nPJ + nIdx`, where the member case
+had to reconstruct the head from K.14's uniformity.  B1 carries both
+from the OPENED domain to the CLOSED one (`blockCtorFieldHead`,
+`blockCtorFieldArgs` — the opening substitutes `fvar`s for `bvar`s and
+can neither make nor unmake a `const` head), and the two substitutions
+the mint applies distribute over the spine (`ilp_mkAppN`,
+`instSeq_mkAppN_const`), leaving the head's NAME fixed and its level
+arguments substituted.
+
+What this step does NOT say is that the elimination FIRES there.  That
+is step two, it needs the mention (`ContainerModeled.nestMention`)
+moved across the instantiation by the group's uniformity, and it is the
+step this lane flagged as the route's risk. -/
+
+/-- **THE COPY'S NESTED FIELD, MINTED** (task #315 L-B): at a container
+field `l` of member `i'` constructor `j` that is finitary recursive at
+one of the CONTAINER's own pins, the closed field domain is that pin's
+container applied to `nPJ + nIdx` arguments, and the minted domain —
+the closed one level-substituted and instantiated at any components —
+is the same application with the head's level arguments substituted and
+the spine mapped. -/
+theorem NestedPinsRun.copyPinFDom
+    {i' : Nat} (hi' : i' < kJ)
+    {j : Nat} {cAJ : ConstantVal × Nat} (hj : (dJ.ctorsM i')[j]? = some cAJ)
+    {cc : ContainerCtor} (hty : cAJ.1.type = cc.type) (hnf : cAJ.2 = cc.nFields)
+    {pcs fcs : List (Expr × ConLeche.BinderMeta)} {residJ : Expr}
+    (hstripJ : cc.type.stripPis (dJ.nP + cc.nFields) = some (pcs ++ fcs, residJ))
+    (hpl : pcs.length = dJ.nP) (hfl : fcs.length = cc.nFields)
+    {l : Nat} (hlF : l < cc.nFields)
+    (hnest : ¬ dJ.tgts i' j l < dJ.k)
+    (hrec : (dJ.ksF i' j).getD l .ordinary = .recursive) :
+    dJ.tgts i' j l - dJ.k < dJ.nPins ∧
+    (fcs.getD l default).1.getAppFn
+        = Expr.const (dJ.pinAt (dJ.tgts i' j l - dJ.k)).J
+            (dJ.pinAt (dJ.tgts i' j l - dJ.k)).lvls ∧
+    (fcs.getD l default).1.getAppArgs.length
+        = (dJ.pinAt (dJ.tgts i' j l - dJ.k)).nPJ
+          + (dJ.pinAt (dJ.tgts i' j l - dJ.k)).nIdx ∧
+    ∀ (lps : List Name) (lvls : List Level) (Ds : List Expr) (c : Nat),
+      Expr.instSeq Ds c (Expr.instantiateLevelParams lps lvls (fcs.getD l default).1)
+        = Expr.mkAppN
+            (.const (dJ.pinAt (dJ.tgts i' j l - dJ.k)).J
+              ((dJ.pinAt (dJ.tgts i' j l - dJ.k)).lvls.map (Level.subst lps lvls)))
+            (((fcs.getD l default).1.getAppArgs.map
+                (Expr.instantiateLevelParams lps lvls)).map (Expr.instSeq Ds c)) := by
+  classical
+  obtain ⟨cvT, caps, cvR, mI, rP, rules, -, hI, -⟩ := S.stored i' hi'
+  obtain ⟨-, -, hCDJ⟩ := hI.ctors i' j cAJ hI.memberLt hj
+  have hjlt : j < (dJ.ctorsM i').length := (List.getElem?_eq_some_iff.mp hj).1
+  have hlA : l < cAJ.2 := by rw [hnf]; exact hlF
+  have hkindLen : l < (dJ.ksF i' j).length := by rw [hCDJ.ksLen]; exact hlA
+  -- the target is a PIN of the container's own block
+  have hqlt : dJ.tgts i' j l - dJ.k < dJ.nPins := by
+    have h := hI.tgtsLt i' j l hI.memberLt hjlt hkindLen
+    omega
+  have hnestOf : dJ.nestOf i' j l = some (dJ.tgts i' j l - dJ.k) := dJ.nestOf_some hnest
+  -- the OPENED domain: the pin's container, at its own level arguments
+  obtain ⟨x, hx⟩ : ∃ x, (dJ.xFvsF i' j)[l]? = some x :=
+    ⟨_, List.getElem?_eq_getElem (by rw [hCDJ.xLen]; exact hlA)⟩
+  obtain ⟨hfn, hlen, -, -, -⟩ := hCDJ.opened.nestF l x _ hx hnestOf hrec
+  -- B1: the CLOSED domain has the same head and the same arity
+  have hstrip' : cAJ.1.type.stripPis (dJ.nP + cAJ.2) = some (pcs ++ fcs, residJ) := by
+    rw [hty, hnf]; exact hstripJ
+  obtain ⟨bd, hbd⟩ : ∃ bd, fcs[l]? = some bd :=
+    ⟨_, List.getElem?_eq_getElem (by rw [hfl]; exact hlF)⟩
+  have hbdD : fcs.getD l default = bd := by
+    rw [List.getD_eq_getElem?_getD, hbd]; rfl
+  have hheadC := blockCtorFieldHead hCDJ hstrip' hpl hx hbd hfn
+  have hargsC := blockCtorFieldArgs hCDJ hstrip' hpl hx hbd
+  rw [hbdD]
+  refine ⟨hqlt, hheadC, ?_, ?_⟩
+  · rw [← hargsC]; exact hlen
+  · -- the mint's two substitutions, over the spine
+    intro lps lvls Ds c
+    have hsplit : bd.1 = Expr.mkAppN (Expr.const (dJ.pinAt (dJ.tgts i' j l - dJ.k)).J
+        (dJ.pinAt (dJ.tgts i' j l - dJ.k)).lvls) bd.1.getAppArgs := by
+      rw [← hheadC]; exact (Expr.mkAppN_getApp bd.1).symm
+    rw [hsplit, ConLeche.ilp_mkAppN, show Expr.instantiateLevelParams lps lvls
+        (Expr.const (dJ.pinAt (dJ.tgts i' j l - dJ.k)).J
+          (dJ.pinAt (dJ.tgts i' j l - dJ.k)).lvls)
+        = Expr.const (dJ.pinAt (dJ.tgts i' j l - dJ.k)).J
+            ((dJ.pinAt (dJ.tgts i' j l - dJ.k)).lvls.map (Level.subst lps lvls)) from rfl,
+      ConLeche.instSeq_mkAppN_const]
+    simp only [Expr.getAppArgs_mkAppN, Expr.getAppArgs, List.nil_append]
+
 /-! ## The result's index readings (task #315 L-B, DESIGN §U.38 (e))
 
 `CopyCtorShape.es` is the one arm with no kinds and no targets in it:
