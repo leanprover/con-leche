@@ -150,6 +150,7 @@ public import ConLeche.Model.Inductives.NestedRecEqs
 public import ConLeche.Model.Inductives.NestedRecsStore
 public import ConLeche.Model.Inductives.NestedRecsSwap
 public import ConLeche.Model.Inductives.NestedRecRule
+public import ConLeche.Model.Inductives.NestedStoreRun
 public import ConLeche.Model.Inductives.NestedRec
 public import ConLeche.Model.Inductives.NestedRecCand
 public import ConLeche.Model.Inductives.NestedRecTyped
