@@ -2,6 +2,7 @@ module
 
 public import ConLeche.Model.Inductives.NestedCopyRead
 import ConLeche.Model.Inductives.NestedCopyFound
+import ConLeche.Model.Inductives.BlockRecFrames
 import ConLeche.Verify.Inductives.NestedGroupInv
 import ConLeche.Verify.Inductives.NestedElimInv
 import ConLeche.Verify.Inductives.NestedCopyGlue
@@ -6491,6 +6492,43 @@ theorem NestedPinsRun.copyOrdFRightPinCorr {pbs : List (Expr × ConLeche.BinderM
       (by rw [List.getElem?_map, hfM]; simp only [Option.map_some]; rw [hnameEq])
   exact ⟨I, lvls, ci', qq, hqqLt, by rw [htgtEq, hidx], hfn, hci', hnP,
     by rw [hpinAtE]; exact hqp, by rw [hpinAtE]; exact hqe⟩
+
+omit R SF S in
+/-- **A BLOCK FORMER'S INDEX ARGUMENTS FIT ITS INDEX TELESCOPE, AT
+GENERAL PARAMETER ARGUMENTS AND A FREE FIT FRAME** (task #315 L-B):
+`IsBlockModels.former_app_fit` with two generalisations, and both are
+forced by a block PIN.
+
+* the parameter arguments are FREE — a pin's container is applied to
+  the pin's COMPONENTS, not to the block's parameter variables, so the
+  index fit lands at the components' frame, which is what
+  `TargetView.frame` is at a pin target;
+* the FIT's frame `σ` is free of the READING's frame `ρ` — the copy's
+  field reads one binder-depth down (under the constructor's earlier
+  fields) while the target's telescope is read at the block's parameter
+  frame.  The engine already separates them
+  (`spineFit_of_wellDenoted_mkAppN_pis` takes `σ` and `ρ` apart), and
+  the former's own value is closed, so nothing has to be transported. -/
+theorem blockFormer_ids_fit_gen {env : Env} {m : EnvModel V env} {d : BlockModel V}
+    (hreps : IsBlockModels m d) {ψ : Name → Nat} (hfT : FormersTyped m d ψ)
+    {t : Nat} (ht : t < d.k) {σ ρ : Nat → V} {Ds Eis : List AnnotTerm}
+    (hDl : Ds.length = d.nP) (hEl : Eis.length = d.nIdxAt t)
+    (hwd : WellDenoted V ρ (AnnotTerm.mkAppN (m.acval (d.memberName t) ψ) (Ds ++ Eis))) :
+    SpineFit (consList (Ds.map (interp V ρ)) σ) (d.IdsM t ψ) (Eis.map (interp V ρ)) := by
+  obtain ⟨cvT, cvR, mI, rP, rules, ht'⟩ := hreps t ht
+  have hfit := spineFit_of_wellDenoted_mkAppN_pis (C := .sort (d.w ψ)) (ds := d.ppsM t ψ)
+    (σ := σ) (ρ := ρ) (fv := interp V σ (m.acval (d.memberName t) ψ))
+    (fun d' hd' => ht'.former.bits ψ d' hd')
+    (by rw [List.length_append, hDl, hEl, ht'.ppsM_length]; exact Nat.le_refl _)
+    hwd (interp_closed (V := V) (m.cval_closedL _ ψ) _ _) (hfT t ht _)
+  rw [List.length_append, hDl, hEl, ← ht'.ppsM_length ψ, List.take_length,
+    ← List.take_append_drop d.nP (d.ppsM t ψ), List.map_append, List.map_append] at hfit
+  obtain ⟨as₁, as₂, heq, h1, h2⟩ := spineFit_append_inv hfit
+  have hlen₁ : as₁.length = (Ds.map (interp V ρ)).length := by
+    rw [h1.length_eq, List.length_map, List.length_take, ht'.ppsM_length, List.length_map, hDl]
+    exact Nat.min_eq_left (Nat.le_add_right _ _)
+  obtain ⟨rfl, rfl⟩ := List.append_inj heq hlen₁.symm
+  exact h2
 
 /-- **THE PIN TARGET'S READING** (task #315 L-B, step (iv)): at an
 `ordF`-right field at a pin target, the reading of `w` — the
