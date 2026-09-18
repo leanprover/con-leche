@@ -101520,10 +101520,14 @@ Three things make this the tightest form:
   discharges is excluded.  So the premise is INVOKED ONLY at the
   configurations the measurement found;
 * **it is vacuous almost everywhere.**  Its hypothesis is exactly what
-  §U.97's measurement counted: `ordF`-right (not-own) edges with equal
-  instance labels — **fourteen field positions across eight accepted
-  blocks** (four in three fixture blocks, ten in five library-cone
-  blocks).  On the other seventy-five of the eighty-three block-runs
+  the measurement recorded at **§U.92 (b)** counted: `ordF`-right
+  (not-own) edges with equal instance labels — **fourteen such edges,
+  hence fourteen field positions, across eight accepted blocks** (four
+  in three fixture blocks, ten in five library-cone blocks).  (The
+  integrator's note at the head of this section flagged this citation
+  rather than guessing: the mechanical translation sent it to §U.97,
+  which only ASKS for a test.  §U.92 (b) is the section that carries
+  the count, and is what was meant.)  On the other seventy-five of the eighty-three block-runs
   measured it is vacuously true.  (The fourth count's "eight blocks" is
   a DIFFERENT property — a not-own edge inside a directed SCC — and the
   two counts are not assumed to name the same eight;)
@@ -101729,3 +101733,43 @@ Axioms standard; `lake build`, `lake test` and the full gate set
 green.  Nothing landed is affected: this adds a lemma and changes no
 theorem, and the hole (§U.111 (a)) and the obstruction (§U.101 (d)) are
 untouched.
+
+##### U.113 (addendum) — the two sync items, settled 2026-09-18
+
+**1. The explicit argument was ALREADY APPLIED, by the integrator, not
+by this lane.**  `NestedPinSynFacts` gained an `mp` parameter (lane
+M7-2's `groupsAt`, commit `93c7b39b`), and `NestedPinSynFacts.pinSem`
+was written against the shape without it.  The sync added
+`(mp := mp)` to the lemma's application of the record; the proof itself
+is untouched.  Verified rather than assumed: `b846b107`'s version of
+the lemma has no `(mp := mp)` and the tree's does, and `lake build`
+and `lake test` are green at the synced commit as it stands, so there
+was nothing left to fix.
+
+**The general form is worth carrying**, and it is the second time a
+version of it has cost a lane a broken call site: **a structure that
+gains a parameter breaks NAMED-ARGUMENT call sites silently rather
+than loudly** — the omitted parameter becomes a metavariable and the
+failure surfaces later, at a unification against one of the record's
+own fields, where it reads as a problem with the proof.  A call site
+that lists parameters by name is not protected by listing them; it is
+exposed by it.
+
+**2. The flagged citation is settled** at §U.111 (a): the
+fourteen-edges count is recorded at **§U.92 (b)**, not at §U.97, which
+only asks for a test.  The integrator translated the number
+mechanically and left the note rather than guessing, which was right —
+the two sections differ in exactly the way that matters, one carrying a
+measurement and the other requesting one.
+
+**And the numbering lesson, now twice-bitten.**  Citing by TITLE
+protects sections not yet numbered; it does nothing for a citation of a
+section that was ALREADY numbered when the citing line was written,
+because the number can still shift under a later integration.  This
+lane's §U.85 → §U.97 was exactly that case.  The rule that follows:
+**cite a section by title when it is new, and re-check numeric
+self-citations after any sync** — the integrator's rebuild-rather-than-
+union of this file is what made the shift visible at all.
+
+Nothing else changed: the hole (§U.111 (a)) and the obstruction
+(§U.101 (d)) are untouched, and no theorem moved.
