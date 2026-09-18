@@ -89704,6 +89704,21 @@ induction over the five cases above (~40–60).  With those,
 `restoreNested_major` is the composition.  **~120–150 lines, most of a
 session**, which confirms the estimate from the outside.
 
+**LANDED, and the sizing was wrong in the cheapest possible direction:
+`restoreWalk_pin` ALREADY EXISTED** (`Verify/Inductives/NestedInv.lean`),
+with the statement I had just written, one file over from its sibling.
+I had grepped the file where the `ctorPins` twin lives instead of the
+tree.  That is the FOURTH time this arc that the tree already held what
+a lane was about to build — and the first where the lane was this one,
+which is the point: the standing first step is not a thing other lanes
+need.  What actually had to be written was
+`restoreHead_head_const` (the node step, three firing branches) and
+`restoreWalk_getAppFn_const` (the spine induction), both in
+`NestedInv.lean` because `restoreHead`'s body is private to that module
+— the module system's rule, not a preference — and `restoreWalk_major`
+in `NestedRecDoor.lean`, beside the engine it composes with.  **About
+110 lines instead of 150.**
+
 ##### The producer census, complete
 
 | route | the stored recursor type | status |
@@ -89716,3 +89731,27 @@ session**, which confirms the estimate from the outside.
 
 Then the `ConstWF` clause itself, wired to these five, and the cached
 mirrors by transport.
+
+##### FOR THE DELETION STEP (2e), recorded now rather than discovered then
+
+The limit above is a fact about 2e's plan and not only about this
+measurement.  **The large corpora install their nested blocks through
+the route 2e removes**, so the restore has never run on them: `init-full`
+and Mathlib-full go through the modeller, and the 41-block cone is the
+whole of the library-scale evidence for every restore-side claim on this
+route — K.35's auxiliary applications, K.50's rescue bits, K.47's stored
+mimic types and the major-premise head measured here.
+
+Two things follow for that session:
+
+1. **the flip exposes this route to far more material than anything we
+   have measured it on.**  The census that licenses the deletion is
+   therefore not only "every block reaching the old arm is one
+   `nestedParts?` takes" — it is also the FIRST time the restore-side
+   claims meet the full streams;
+2. **re-run the restore-side probes on the full corpora as part of 2e**,
+   not as a follow-up: the major-premise head (this section), and the
+   cert-only Bools whose measurements were taken on the cone alone.  A
+   fire there is a finding about this route on material it has never
+   seen, which is exactly the kind of thing the deletion must not
+   discover after the fact.

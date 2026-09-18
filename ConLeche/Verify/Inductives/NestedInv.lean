@@ -2574,4 +2574,129 @@ theorem nestedPinRankOk_inv {env : Env} {p : NestedParts} {b : MutualBlock}
               (st.pins.getD q default).grpBase 0) :=
   nestedPinRankAt_inv h
 
+/-! ## THE RESTORE KEEPS A SPINE'S HEAD A CONSTANT (task #315)
+
+The crossing's premise at the NESTED route: the stored recursor type is
+`restoreNested` of the auxiliary block's GENERATED one, whose major
+premise's domain is a constant application (`mutualRecTy_major`), and
+`restoreWalk_stripPis_doms` carries the telescope positionally — so the
+whole obligation is that a walk of a `const`-headed application is
+`const`-headed.  MEASURED first, at 284 restored recursors of which 184
+are mimics (DESIGN, "THE RESTORE KEEPS THE HEAD A CONSTANT"). -/
+
+/-- **Every table pin is an application of a constant**, at every binder
+depth.  It is a property of `restoreTbl`: its pins are
+`Expr.abstractRange q.pin 0 nP 0`, and abstracting free variables cannot
+change a `const` head.  Carried as a hypothesis here, in the shape the
+`ctorPins` fire already uses (`restoreWalk_ctorPin`'s `hhead`). -/
+@[expose] def RestoreTbl.PinsHeaded (R : RestoreTbl) : Prop :=
+  ∀ n pin, R.pins.lookup n = some pin →
+    ∃ J ilvls, ∀ d, (pin.liftLooseBVars d 0).getAppFn = .const J ilvls
+
+/-- **THE NODE STEP KEEPS THE HEAD A CONSTANT**: whichever of the three
+maps answers, the replacement is an application of a constant — the pin's
+head at a `pins` key (`PinsHeaded`), `newName` at a `ctorPins` key, the
+renamed constant at a `recMap` key. -/
+theorem restoreHead_head_const {R : RestoreTbl} (hp : R.PinsHeaded) {d : Nat} {e e' : Expr}
+    (h : restoreHead R d e = .ok (some e')) :
+    ∃ q ls, e'.getAppFn = .const q ls := by
+  unfold restoreHead at h
+  split at h
+  case h_2 => exact nomatch h
+  case h_1 n _ _ =>
+  simp only [] at h
+  split at h
+  case h_1 pin hpin =>
+    by_cases hl : e.getAppArgs.length < R.nP
+    · rw [if_pos hl] at h; exact nomatch h
+    · rw [if_neg hl] at h
+      obtain ⟨J, ilvls, hJ⟩ := hp n pin hpin
+      obtain rfl : Expr.mkAppN (pin.liftLooseBVars d 0) (e.getAppArgs.drop R.nP) = e' :=
+        Option.some.inj (Except.ok.inj h)
+      exact ⟨J, ilvls, by rw [Expr.getAppFn_mkAppN, hJ]⟩
+  case h_2 =>
+    split at h
+    case h_2 => exact nomatch h
+    case h_1 n₀ pin newName hc =>
+      by_cases hl : e.getAppArgs.length < R.nP
+      · rw [if_pos hl] at h; exact nomatch h
+      · rw [if_neg hl] at h
+        split at h
+        case h_2 => exact nomatch h
+        case h_1 J ilvls hJ =>
+          refine ⟨newName, ilvls, ?_⟩
+          obtain rfl : Expr.mkAppN (Expr.mkAppN (.const newName ilvls)
+              (pin.liftLooseBVars d 0).getAppArgs) (e.getAppArgs.drop R.nP) = e' :=
+            Option.some.inj (Except.ok.inj h)
+          rw [Expr.getAppFn_mkAppN, Expr.getAppFn_mkAppN]
+          rfl
+
+/-- **THE WALK KEEPS A SPINE'S HEAD A CONSTANT.**  Five cases, four of
+them immediate: the PRUNE returns the term, a `recMap` key renames a
+constant, the two pin fires are `restoreHead_head_const`, and a
+declining node descends componentwise so the head follows the function
+part. -/
+theorem restoreWalk_getAppFn_const {R : RestoreTbl} (hp : R.PinsHeaded) :
+    ∀ (e : Expr) {d : Nat} {e' : Expr} {n : Name} {us : List Level},
+      restoreWalk R d e = .ok e' → e.getAppFn = .const n us →
+      ∃ q ls, e'.getAppFn = .const q ls := by
+  intro e
+  induction e with
+  | const m ms =>
+    intro d e' n us h _
+    rcases Bool.eq_false_or_eq_true
+        (R.auxNames.any fun m' => (Expr.const m ms).mentionsConst m') with hq | hq
+    · simp only [restoreWalk, hq, Bool.not_true, Bool.false_eq_true, if_false] at h
+      cases hn : restoreNode R d (Expr.const m ms) with
+      | error err => rw [hn] at h; exact nomatch h
+      | ok o =>
+        rw [hn] at h
+        match o, h with
+        | some e₀, h =>
+          obtain rfl : e₀ = e' := Except.ok.inj h
+          rw [restoreNode_const] at hn
+          split at hn
+          case h_1 m' hm' =>
+            exact ⟨m', ms, by rw [← Option.some.inj (Except.ok.inj hn)]; rfl⟩
+          case h_2 => exact restoreHead_head_const hp hn
+        | none, h => exact ⟨m, ms, by rw [← Except.ok.inj h]; rfl⟩
+    · simp only [restoreWalk, hq, Bool.not_false, if_pos] at h
+      exact ⟨m, ms, by rw [← Except.ok.inj h]; rfl⟩
+  | app f a ihf _ =>
+    intro d e' n us h hfn
+    rcases Bool.eq_false_or_eq_true
+        (R.auxNames.any fun m' => (Expr.app f a).mentionsConst m') with hq | hq
+    · simp only [restoreWalk, hq, Bool.not_true, Bool.false_eq_true, if_false] at h
+      cases hn : restoreNode R d (Expr.app f a) with
+      | error err => rw [hn] at h; exact nomatch h
+      | ok o =>
+        rw [hn] at h
+        match o, h with
+        | some e₀, h =>
+          obtain rfl : e₀ = e' := Except.ok.inj h
+          rw [restoreNode_eq_head (by intro n' us' hq'; exact Expr.noConfusion hq')] at hn
+          exact restoreHead_head_const hp hn
+        | none, h =>
+          cases hf : restoreWalk R d f with
+          | error err => rw [hf] at h; exact nomatch h
+          | ok f' =>
+            rw [hf] at h
+            cases ha : restoreWalk R d a with
+            | error err => rw [ha] at h; exact nomatch h
+            | ok a' =>
+              rw [ha] at h
+              obtain rfl : Expr.app f' a' = e' := Except.ok.inj h
+              obtain ⟨q, ls, hq'⟩ := ihf hf hfn
+              exact ⟨q, ls, hq'⟩
+    · simp only [restoreWalk, hq, Bool.not_false, if_pos] at h
+      exact ⟨n, us, by rw [← Except.ok.inj h]; exact hfn⟩
+  | bvar _ => intro d e' n us _ hfn; exact absurd hfn (by simp [Expr.getAppFn])
+  | fvar _ _ _ => intro d e' n us _ hfn; exact absurd hfn (by simp [Expr.getAppFn])
+  | sort _ => intro d e' n us _ hfn; exact absurd hfn (by simp [Expr.getAppFn])
+  | lam _ _ _ _ _ => intro d e' n us _ hfn; exact absurd hfn (by simp [Expr.getAppFn])
+  | forallE _ _ _ _ _ => intro d e' n us _ hfn; exact absurd hfn (by simp [Expr.getAppFn])
+  | letE _ _ _ _ _ _ => intro d e' n us _ hfn; exact absurd hfn (by simp [Expr.getAppFn])
+  | lit _ => intro d e' n us _ hfn; exact absurd hfn (by simp [Expr.getAppFn])
+  | proj _ _ _ _ => intro d e' n us _ hfn; exact absurd hfn (by simp [Expr.getAppFn])
+
 end ConLeche

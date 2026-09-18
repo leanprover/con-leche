@@ -612,6 +612,30 @@ theorem restoreNested_stripPis_doms {R : RestoreTbl} {nP nF : Nat} (hnP : R.nP =
       show nP + i - nP = i from by omega]
     exact hy
 
+/-- **THE RESTORE KEEPS THE MAJOR PREMISE'S HEAD A CONSTANT** (task
+#315, the crossing's premise at the NESTED route): the composition.
+`restoreWalk_stripPis_doms` carries the `Π`-telescope positionally, so
+the restored type strips at the same major index; `restoreWalk_forallE_inv`
+exposes the restored major premise; and `restoreWalk_getAppFn_const`
+keeps its domain's head a constant.
+
+With `mutualRecTy_major` on the AUXILIARY block's generated type as the
+`hs`/`hdom` input, this is the nested route's half of the invariant's
+clause — and the claim was MEASURED first, at 284 restored recursors of
+which 184 are mimics (DESIGN, "THE RESTORE KEEPS THE HEAD A
+CONSTANT"). -/
+theorem restoreWalk_major {R : RestoreTbl} (hp : R.PinsHeaded) {d mI : Nat} {e e' : Expr}
+    (hw : restoreWalk R d e = .ok e')
+    {bs : List (Expr × BinderMeta)} {dom body : Expr} {bm : BinderMeta}
+    (hs : e.stripPis mI = some (bs, .forallE dom body bm))
+    {n : Name} {us : List Level} (hdom : dom.getAppFn = .const n us) :
+    Expr.recMajorHeadOk e' mI = true := by
+  obtain ⟨bs', body', hs', hw', -, -, -⟩ := restoreWalk_stripPis_doms mI hw hs
+  obtain ⟨dom', b'', hdw, -, rfl⟩ := restoreWalk_forallE_inv hw'
+  obtain ⟨q, ls, hq⟩ := restoreWalk_getAppFn_const hp dom hdw hdom
+  rw [Expr.recMajorHeadOk, hs']
+  simp only [hq]
+
 /-- **An auxiliary-free binder is its own restoration**: at a domain
 mentioning no auxiliary name the walk is the identity, so the restored
 telescope carries the source's domain verbatim. -/
