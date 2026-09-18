@@ -67,6 +67,30 @@ theorem constsResolveF_eq (env : Env) :
     simp only [Expr.constsResolveF, Expr.constsResolve, mkFEnv_find?,
       constsResolveF_eq env e]
 
+/-- The `.proj` name-slot walk through the index is the pure one at the
+index's environment (task #315 M8, the nested run obligation's Pre
+door). -/
+theorem projTablesOkF_eq (env : Env) :
+    ∀ (e : Expr), e.projTablesOkF (mkFEnv env) = e.projTablesOk env
+  | .bvar _ | .sort _ | .lit _ | .const _ _ => rfl
+  | .fvar _ ty => by
+    simp only [Expr.projTablesOkF, Expr.projTablesOk, projTablesOkF_eq env ty]
+  | .app f a => by
+    simp only [Expr.projTablesOkF, Expr.projTablesOk,
+      projTablesOkF_eq env f, projTablesOkF_eq env a]
+  | .lam ty body _ => by
+    simp only [Expr.projTablesOkF, Expr.projTablesOk,
+      projTablesOkF_eq env ty, projTablesOkF_eq env body]
+  | .forallE ty body _ => by
+    simp only [Expr.projTablesOkF, Expr.projTablesOk,
+      projTablesOkF_eq env ty, projTablesOkF_eq env body]
+  | .letE ty val body => by
+    simp only [Expr.projTablesOkF, Expr.projTablesOk,
+      projTablesOkF_eq env ty, projTablesOkF_eq env val, projTablesOkF_eq env body]
+  | .proj sn i e => by
+    simp only [Expr.projTablesOkF, Expr.projTablesOk, mkFEnv_findProj?,
+      projTablesOkF_eq env e]
+
 /-- `constsResolveF` under `mkFEnv`, as a function equation. -/
 theorem constsResolveF_eq_fun (env : Env) :
     (Expr.constsResolveF (mkFEnv env)) = (Expr.constsResolve env ·) :=
@@ -178,6 +202,14 @@ theorem checkConstantValF_eq (ops : CheckerOps m) (env : Env)
     checkConstantValF ops (mkFEnv env) cv = checkConstantVal ops env cv := by
   simp only [checkConstantValF, checkConstantVal, mkFEnv_find?,
     constsResolveF_eq] <;> rfl
+
+/-- The PRE-ANNOTATION door through the index is the pure one at the
+index's environment (task #315 M8, the nested run obligation). -/
+theorem checkConstantValPreF_eq (ops : CheckerOps m) (env : Env)
+    (cv : ConstantVal) :
+    checkConstantValPreF ops (mkFEnv env) cv = checkConstantValPre ops env cv := by
+  simp only [checkConstantValPreF, checkConstantValPre, mkFEnv_find?,
+    constsResolveF_eq, projTablesOkF_eq] <;> rfl
 
 theorem checkMemberValF_eq (ops : CheckerOps m) (blockNames : List Name)
     (env : Env) (cv : ConstantVal) :

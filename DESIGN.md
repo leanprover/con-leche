@@ -105081,3 +105081,58 @@ members' projection tables.  Twenty-three `ofDecCases` guard lines (the
 new check added exactly one more, to both the push and the walk — the
 idiom's promise under change), four data bridges, and one run fact (the
 restore's table-name freshness, as recorded).
+
+#### `checkNestedS_run` is not filler — the arm re-priced, with evidence
+
+The third cached obligation was queued as filler.  It is the largest of
+the three, and it has an **unwritten prerequisite tier** under it: no
+stage of the nested route has a simulation lemma, and neither had the
+door the route's scratch install takes.
+
+**Landed now (the atoms everything else stands on):**
+
+* `projTablesOkF_eq` — the `.proj` name-slot walk through the index is
+  the pure one (`Verify/CheckerF.lean`);
+* `checkConstantValPreF_eq` — the PRE-annotation door through the index
+  is the pure one at the index's environment;
+* `checkConstantValPreS_sim` — that door's cached/fueled simulation
+  (`Verify/Cached/BridgeCS1.lean`, 45 lines, first try).  The plain
+  door had one; the pre door did not, and the nested route takes it at
+  every restored constructor and recursor.
+
+**What the run obligation still needs, itemised:**
+
+1. **the run family at the OTHER grade** — `mutualFormerChecksS_run`,
+   `mutualFormersS_run`, `checkMutualCtorsF`'s ops equation and
+   `checkMutualCoreS_run` are all stated at `auxRoute = false`, and the
+   nested scratch install is the one call at `true`.  This is the third
+   time this generalisation has come up (the skels family, the push
+   family, now the run family): **the grade splits every mutual-stage
+   lemma family in the tree, and the nested route needs all three
+   halves.**  ~40–60 lines each, and the front-door branch is now
+   routine (`Yields.ofIteBind` for the walks, `checkConstantValPreS_sim`
+   here);
+2. **nine nested stage simulations** — `nestedAnnotFormersF`,
+   `nestedAnnotCtorsF`, `nestedPinsOk`, `restoreCtorsF`,
+   `restoreRecTysF`, `restoreRulesF`, `nestedPinChecks`,
+   `nestedRecsOkF`, `nestedTablesF` (that last one has
+   `checkStructProjTableS_run` under it already), plus the `mkFEnv`
+   forms of the four cons functions.  Two of them — `restoreRulesF`
+   (rule bodies, `whnf`/`isDefEq` per rule) and `nestedPinChecks` (five
+   gated checks on one computation) — are where the time goes;
+3. **the assembly**, whose twin `checkMutualCoreS_run` is 200 lines for
+   a 41-line function; `checkNestedS` is 115 lines with a dozen stages.
+
+**Estimate: 1.5–2.5 sessions**, dominated by (2).  The basis for it:
+DESIGN's own pricing of the three obligations together was 700–900
+lines and 2–4 sessions; `checkNestedS_skels` came to ~200 proof lines
+plus ~250 of bridges and kit, `checkNestedS_push` to ~190, and today's
+atom took 45.
+
+**Where the M8 arm stands after this session.**  Of the kernel lane's
+three cached obligations: `_skels` DONE (this session), `_push` DONE
+(this session), `_run` priced above.  After it come the dispatch arm
+itself and the DELETION of the modeled arm — which is licensed by a
+measurement, not a proof (instrument the modeled arm, run arena +
+`init-full` + Mathlib, and re-read every corpus row whose expectation
+is exit 2) — and then the capstones' side, which sees nothing new.

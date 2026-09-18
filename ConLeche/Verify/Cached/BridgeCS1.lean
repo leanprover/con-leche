@@ -94,6 +94,53 @@ theorem checkConstantValS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF e
     (fun s₃ u u' hs₃ hP₃ => ?_)
   exact SimC.pure hs₃ ⟨rfl, hwty⟩
 
+/-- **The PRE-ANNOTATION door at the cached shared operations** (task
+#315 M8): `checkConstantValPre` is the plain door minus the annotation
+walk — it returns its INPUT — so the simulation is the same guard
+sequence with `inferType`/`ensureSort` run on the declared type.  The
+nested route's scratch install takes this door (the `auxRoute` grade),
+so the cached mirror's run obligation needs it. -/
+theorem checkConstantValPreS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env)
+    {cv : ConstantVal} (hs : CSOK mode env s₀) :
+    SimC mode env s₀ (fun v w => v = w ∧ Expr.WScoped 0 v.type)
+      (checkConstantValPre (sharedOpsC mode (mkFEnv env)) env cv)
+      (checkConstantValPre (fueledOpsM mode) env cv) := by
+  unfold checkConstantValPre
+  dsimp only [sharedOpsC]
+  by_cases h1 : (env.find? cv.name).isSome = true
+  · simp only [if_pos h1]; exact SimC.throw_bind
+  simp only [if_neg h1]
+  by_cases h2 : reservedBasisNames.contains cv.name = true
+  · simp only [if_pos h2]; exact SimC.throw_bind
+  simp only [if_neg h2]
+  by_cases h3 : cv.name.isProjFnShape = true
+  · simp only [if_pos h3]; exact SimC.throw_bind
+  simp only [if_neg h3]
+  by_cases h4 : Name.nodup cv.levelParams = true
+  case neg => simp only [if_neg h4]; exact SimC.throw_bind
+  simp only [if_pos h4]
+  by_cases h5 : Expr.looseBVarsBounded 0 cv.type = true
+  case neg => simp only [if_neg h5]; exact SimC.throw_bind
+  simp only [if_pos h5]
+  by_cases h6 : cv.type.hasFvar = true
+  · simp only [if_pos h6]; exact SimC.throw_bind
+  simp only [if_neg h6]
+  have hwty : Expr.WScoped 0 cv.type :=
+    Expr.WScoped.of_not_hasFvar (Bool.not_eq_true _ ▸ h6)
+  by_cases h7 : Expr.allLevelParamsDefined cv.levelParams cv.type = true
+  case neg => simp only [if_neg h7]; exact SimC.throw_bind
+  simp only [if_pos h7]
+  by_cases h8 : Expr.constsResolve env cv.type = true
+  case neg => simp only [if_neg h8]; exact SimC.throw_bind
+  simp only [if_pos h8]
+  by_cases h9 : Expr.projTablesOk env cv.type = true
+  case neg => simp only [if_neg h9]; exact SimC.throw_bind
+  simp only [if_pos h9]
+  refine SimC.bind (opE_infer_sim hμ henv hs hwty) (fun s₂ sty sty' hs₂ hP₂ => ?_)
+  obtain ⟨rfl, hwsty⟩ := hP₂
+  refine SimC.bind (opS_sim hμ henv hs₂ hwsty) (fun s₃ u u' hs₃ hP₃ => ?_)
+  exact SimC.pure hs₃ ⟨rfl, hwty⟩
+
 /-- `checkReducePin` at the cached shared operations. -/
 theorem checkReducePinS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {env2 : Env} {c : Name}
     {value : Expr} (hvf : value.hasFvar = false)
