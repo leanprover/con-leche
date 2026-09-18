@@ -3293,6 +3293,63 @@ theorem copyPinFUIds {pbs : List (Expr × ConLeche.BinderMeta)}
     rw [hpinPps, hpinNP, hppsC]
     rfl
 
+/-- **`PinCorr`'s `u` AND `Ids` CLAUSES AT A PIN TARGET** (task #315
+PINF): `copyPinFUIds` lands the block pin's index data on the CONTAINER
+GROUP's block model at the named family `blockOf mp.base2`, which is one
+step short of `PinCorr` — the clauses ask for the CONTAINER'S OWN PIN's
+data.  `NestedPinGroupSyn.pinOwn` is that step, and it is the whole of
+what the two records' identification costs: both sides read one family
+at one container record, so the comparison needs no equality of choices.
+
+The hypotheses are `copyPinFCorr`'s own — the target pin's name and the
+two assignments' POINTWISE agreement on the container's own level
+parameters — so this consumes nothing the arm does not already have. -/
+theorem copyPinFUIdsCorr {pbs : List (Expr × ConLeche.BinderMeta)}
+    (hPD : ∀ q, q < st.pins.length → PinData env st p pbs q)
+    {i' : Nat} (hi' : i' < kJ)
+    {j : Nat} {cAJ : ConstantVal × Nat} (hj : (dJ.ctorsM i')[j]? = some cAJ)
+    {l : Nat} (hlF : l < cAJ.2)
+    (hnest : ¬ dJ.tgts i' j l < dJ.k)
+    (hrec : (dJ.ksF i' j).getD l .ordinary = .recursive)
+    (hkA : kindAt (mutKsOf kinds (b.ownOffset (p.k + q₀ + i') + j)) l = RecFieldKind.recursive)
+    {ci : ContainerInfo} {J : ContainerMember}
+    (hci : ConLeche.containerInfo? env (pinsS.getD (q₀ + i') default).J = some ci)
+    (hJmem : J ∈ ci.members) (hJn : J.name = (pinsS.getD (q₀ + i') default).J)
+    (CM : ∀ ciJ : ContainerInfo,
+      ConLeche.containerInfo? env (pinsS.getD (q₀ + i') default).J = some ciJ →
+      ContainerModeled mp₁'.base2 ciJ dJ) (ψ : Name → Nat) :
+    ∃ qq : Nat,
+      ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+        (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0 = p.k + qq ∧
+      (nestedTV (V := V) b.nP p.k f₀.s ppsF W pinsS mp₁'.base2.acval
+          ((fms.take p.k).map (·.cvTa.name)) ψ).u (p.k + qq)
+        = (dJ.pinAt (dJ.tgts i' j l - dJ.k)).u ((pinsS.getD (q₀ + i') default).ψJ ψ) ∧
+      (nestedTV (V := V) b.nP p.k f₀.s ppsF W pinsS mp₁'.base2.acval
+          ((fms.take p.k).map (·.cvTa.name)) ψ).Ids (p.k + qq)
+        = (dJ.pinAt (dJ.tgts i' j l - dJ.k)).Ids ((pinsS.getD (q₀ + i') default).ψJ ψ) := by
+  classical
+  obtain ⟨ci', qn, qq, hci', hnPeq, hqq, hidx, hhead, hargsLen, hJQ, hclvls, hDsE, hlps, hDsQ,
+    ⟨cvQ, capsQ, hfindQ, hagree⟩, -⟩ :=
+    copyPinFCorr R SF S hPD hi' hj hlF hnest hrec hkA hci hJmem hJn CM ψ
+  have hqqLt : qq < st.pins.length := (List.getElem?_eq_some_iff.mp hqq).1
+  have hqSq : qq < pinsS.length := by rw [SF.pinsLen]; exact hqqLt
+  -- the container's own pin index is in range
+  have hqlt : dJ.tgts i' j l - dJ.k < dJ.nPins := by
+    obtain ⟨cvT, caps, cvR, mI, rP, rules, -, hI, -⟩ := S.stored i' hi'
+    have hjlt : j < (dJ.ctorsM i').length := (List.getElem?_eq_some_iff.mp hj).1
+    obtain ⟨-, -, hCD⟩ := hI.ctors i' j cAJ hI.memberLt hj
+    have := hI.tgtsLt i' j l hI.memberLt hjlt (by rw [hCD.ksLen]; exact hlF)
+    omega
+  have hown := S.pinOwn _ hqlt qq hqSq hJQ cvQ capsQ hfindQ ψ _ hagree
+  refine ⟨qq, hidx, ?_, ?_⟩
+  · show nestedU p.k W pinsS ψ (p.k + qq) = _
+    rw [nestedU_pin]
+    exact hown.1
+  · show (if p.k + qq < p.k then blockIds b.nP ppsF ψ (p.k + qq)
+      else (pinsS.getD (p.k + qq - p.k) default).Ids ψ) = _
+    rw [if_neg (by omega), show p.k + qq - p.k = qq from by omega]
+    exact hown.2
+
 /-- **THE AUXILIARY BLOCK'S KIND AT A COPY'S RECURSIVE FIELD** (task
 #315 L-B): a container field that is FINITARY RECURSIVE at one of the
 container's own members `m` is classified by the auxiliary block's

@@ -112471,3 +112471,126 @@ the two transports — the handover names five of the nine) would be
 spent on a route with no consumer.  That is why nothing was built.
 
 Nothing in this section changes the tree.
+
+#### PINF: residual 3, piece (i) — the model NAMED, without the structure parameter; and (ii) re-located (lane PINF, 2026-09-18)
+
+**The four prices, set before any of it was started** (the rule the
+coordinator attached to this row): (i) name the model — **1 session**;
+(ii) conjunct 1, `copyPinFCorr`'s `hkA` promoted — **1–2 sessions**;
+(iii) the telescope and index-expression conjuncts, the pin twins of
+`copyRecFRead`/`copyRecFReadRefl` — **1–2 sessions**; (iv) the reflexive
+arms of (ii) and (iii) — **1.5–2 sessions**.  Plus (v) the assembly,
+half a session.  **(i) came in at its price.**
+
+##### (a) WHAT (i) IS — and why it is NOT the structure parameter
+
+The order was: give `NestedPinGroupSyn` the pre-block model and make
+`pinViews` name `blockOf m₀ ci'`.  That change breaks
+`NestedPinLeafAll.lean` — the `PGS` notation and four named-argument
+applications inside `nestedPinsEntry_of_le_all`, none of which passes a
+model — and that file is out of bounds for this row.  The two
+instructions are not jointly satisfiable, so the END was taken and the
+MEANS changed: what the consumer needs is not a named model in
+`pinViews`, it is that the two sides of the comparison speak of ONE
+model.
+
+The new clause `NestedPinGroupSyn.pinOwn` gets that by comparing `dJ`'s
+own pin with the BLOCK's pin — both objects the structure already binds
+(`dJ`, and `pinsS` through `D`):
+
+* same container name, and level assignments agreeing POINTWISE on that
+  container's own level parameters (exactly what `copyPinFCorr`
+  produces), give one index-tuple sort and one index telescope.
+
+No parameter, no call site moved, and `pinViews` keeps its statement —
+its docstring now records that the cost leg it priced has been paid
+this other way, beside the uniqueness leg it had already marked stale.
+
+##### (b) HOW IT IS DISCHARGED — one producer, and the naming happens there
+
+`NestedPinGroupSyn` has exactly ONE constructor, `NestedPinsRun.groupSyn`
+(`pinViews` itself has one producer and, before this row, no consumer at
+all).  At that producer both sides are concrete: `dJ` IS
+`blockOf mp.base2 (baseInfo env st q)`, and the block's pin table is
+`pinOf mp.base2 …`, whose `u`, `pps` and `nPJ` are *by definition*
+`blockOf mp.base2 (baseInfo env st q₂)`'s at the member index
+`q₂ - grpBase`.  So the producer names the family once and the clause
+falls out.
+
+The joining lemma is `pinOwn_core` (`NestedPins.lean`), stated at an
+abstract family `B` and consuming `PinShapes`' view on the `dJ` side:
+the two `ContainerInfo`s are identified by `containerInfo?`'s
+functionality off the pins' NAME equality (no equality of `blockOf`
+choices is demanded — the stale leg again), the two member indices by
+`ContainerModeled.memberName_inj`, and the assignments are moved by
+`IsBlockModel.uParams` and `FormerData.params`, both stated over exactly
+the pointwise membership the consumer supplies.
+
+`ContainerModeled.memberName_inj` was **already in the tree**
+(`ContainerCross.lean`) — found by grep before writing, which is the
+rule this lane's previous section paid for.
+
+##### (c) THE CONSUMER, LANDED WITH IT
+
+`copyPinFUIdsCorr` (`NestedCopyInst.lean`) is `PinCorr`'s `u` and `Ids`
+clauses at a pin target: `copyPinFUIds` lands the block pin's index data
+on the CONTAINER GROUP's model at the named family, and `pinOwn` takes
+the last step to the container's OWN pin, which is the form `PinCorr`
+asks for.  Six lines of proof — the row's whole `u`/`Ids` remainder, the
+thing two costings called the gap.
+
+##### (d) (ii) IS NOT A PROMOTION — a finding, before it is spent
+
+The order for (ii) was "promote `copyPinFCorr`'s `hkA` from hypothesis
+to conclusion".  Reading where `hkA` is used says that is not what it
+is.  `hkA` appears twice, and only the second is the index
+identification; the FIRST is inside the proof of `hment` — the mention
+that makes `replaceIfNested` FIRE.  That argument runs by
+contradiction: if the elimination did not fire, the stored domain stays
+container-headed, while `mutualOpenedOk_recHead` **at `hkA`** says a
+`.recursive` field's stored domain is headed by the target member's
+former, and the container is no former of the block.
+
+So `hkA` is load-bearing for the fire itself, and conjunct 1 cannot be
+read off the existing proof by moving a hypothesis: the fire has to be
+re-proved from the mention DIRECTLY — §U.79 (d)'s step 2,
+`ContainerModeled.nestMention` carried across the instantiation by the
+group's uniformity, which §U.79 already flagged as "where a surprise
+would be".  **The price stands at 1–2 sessions but the work is the
+honest mention argument, not a refactor**, and the next session should
+start from that sentence rather than from the word "promote".
+
+##### (e) (iii), SIZED AGAINST ITS MODEL, as asked
+
+`copyRecFRead`'s conclusion IS conjuncts 4 and 5 of the residual at a
+MEMBER target, and its three steps are: the minted domain reads as the
+container's instantiated; the rewrite replaces the head and LEAVES THE
+INDEX ARGUMENTS ALONE; so the two index spines are pointwise
+erasure-equal and a read spine transports along that.
+
+At a PIN target only the first two change, and both already have their
+pin form: `copyPinFDom` gives the minted domain as the PIN'S CONTAINER
+applied to `nPJ + nIdx` arguments (where the member case reconstructed a
+member former's head from K.14's uniformity), and `copyPinFCorr`'s
+`hqnEq` gives the rewrite's output as the MIMIC applied to `params` and
+the same index arguments.  The erasure-equality step is unchanged.  R3's
+`copyOrdFRightPinCorr`/`copyOrdFRightPinRead` are NOT the parts to reuse
+— they are the `ordF`-right arm's reading, a different conclusion; the
+twin to write is `copyRecFRead`'s.
+
+##### (f) GATES
+
+`tests/warning-free.sh e663fddc`:
+
+```
+warning-free: 2 changed module(s) since e663fddc
+warning-free: lake build — 4 module(s) recompiled, 0 warning line(s)
+warning-free: lake test — 5 module(s) recompiled, 0 warning line(s)
+warning-free: OK (a run that could have failed)
+```
+
+`lake build` 724 jobs, 0 errors/warnings; `lake test` exit 0;
+`tests/proofdeps.sh` 4965 rows / 12 roots / **doors 0**;
+`tests/shake.sh` and `tests/no-local-paths.sh` OK.
+
+Residual 3 is still open; this section changes no accept set.
