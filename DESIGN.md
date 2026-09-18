@@ -113008,6 +113008,81 @@ halves meet there.
 `tests/warning-free.sh 0c8567b5`: 19 changed modules, 0 warning lines in
 build and test, "OK (a run that could have failed)".
 
+#### WIDE (1w): THE MEMBER HALF'S WRAPPER, AND WHERE THE OTHER HALF HAS TO LIVE (lane WIDE, 2026-09-18)
+
+Residue item (1)'s remainder: `CopyCtorShape.fit_iff_wide` lifted to the
+group, in `ofNested_hΦ_of_fit`'s own vocabulary.
+
+##### (a) What landed
+
+`NestedFit.lean`:
+
+* **`hfit_wide_mem_of_inst`** — `hfit_at_of_inst`'s sibling at the wide
+  width: `ofNested_hΦ_of_fit`'s `hfit` at every class `i < dJ.k`, from
+  the group's `CopyShapeA` and the run's `CopyEntryA`, with `nCJ` the
+  container's class constructor count (`ctorsT_of_mem`) and `FitJ` its
+  class fit `ChainFitT`;
+* **`hfit_wide_of_inst`** — the same at EVERY class, the copies of the
+  container's own pins taken as the hypothesis `hpin`;
+* **`CopyEntryOrd`** and `CopyEntryOut.ord`, and `fit_iff_wide`
+  weakened to take the former.
+
+##### (b) Three inputs are the wide route's own, and two are σ-facts
+
+The wrapper needs, beyond `hfit_at_of_inst`'s list:
+
+* `hstgt` — at a container-recursive field targeting one of the
+  container's OWN pins, the block's target is the instance's image
+  `σ (dJ.tgts i j l)`.  This is what REPLACES the narrow route's entry
+  at that arm, and it is the pin-table matching the assembly computes;
+* `houtσ` — at a container-ordinary field the elimination rewrote
+  (`ordF`-right), the block's target is OUTSIDE the instance.  Then
+  `setJoin σ s L⁺ Y` is `L⁺` there and the run's entry residue applies
+  verbatim.  DESIGN WIDE (1) (c) asserted this; it is now a stated
+  hypothesis rather than an assumption inside a proof;
+* the BOUND, consumed exactly once, through
+  `BlockModel.auxLfp_eq_famAt` (the container's wide carrier IS its
+  extended narrow one, which is the `famAt` form its slot reads).
+
+##### (c) THE ENTRIES SHRINK: `CopyEntryOrd`
+
+`fit_iff_wide` consumes the entry identities ONLY at the `ordF`-right
+arm — the container-ORDINARY fields the elimination rewrote.  At the
+`pinF` arm the wide width reads the segment's own variable on both
+sides, so the entry there is not consumed at all, and stating the
+hypothesis as `CopyEntryOut` would have been unsatisfiable on the wide
+route: at a `pinF` field the target IS inside the instance, so the
+joined tuple is the free `Y` there and no entry at the block's carrier
+could hold.  `CopyEntryOrd` is `CopyEntryOut` restricted to the
+container-ordinary fields, `CopyEntryOut.ord` the (one-line) bridge,
+and the narrow route keeps `CopyEntryOut` unchanged.
+
+##### (d) THE FINDING: the own-pin half cannot live in `NestedFit.lean`
+
+`copyTransfer_via` is in `NestedPinLeafAll.lean`, which is strictly
+DOWNSTREAM of `NestedFit.lean`
+(`NestedFit → NestedPremise → NestedCore → NestedPinLaws →
+NestedPinLeafAll`).  So the two halves cannot be one theorem in
+`NestedFit.lean`, and `hfit_wide_of_inst` takes the own-pin classes'
+half as the hypothesis `hpin` — exactly as `ofNested_pinLeaf_of`
+already takes `hsh`/`hent`, and for the same reason.  The assembly site
+(`NestedRecFibre.lean:299`) does import `NestedPinLeafAll`
+transitively, so the two meet there; `NestedCore.lean:558` (the
+`pinLeaf` clause) does not, which is why the threading stays
+hypothesis-shaped all the way down.
+
+##### (e) Green
+
+`tests/warning-free.sh 884671f8`: "1 changed module(s) since 884671f8",
+"lake build — 1 module(s) recompiled, 0 warning line(s)", "lake test —
+5 module(s) recompiled, 0 warning line(s)", "OK (a run that could have
+failed)".  `lake test` exit 0; `tests/proofdeps.sh` doors `0`;
+`tests/shake.sh` OK (513 removals, all allowlisted, none demotable);
+`tests/unconsumed.sh` advisory — `CopyCtorShape.fit_iff_wide` LEFT the
+list (the wrapper consumes it) and `hfit_wide_of_inst` entered it, the
+step's product, which the assembly move consumes.  The accept set is
+untouched: no consumer has moved to the wide route.
+
 #### WIDE (2)/(3)/(f): THE WIRING, AUDITED AND HANDED OVER (lane WIDE, 2026-09-18)
 
 Item (2) is confirmed to be a RE-POINTING and is wired below; it is a

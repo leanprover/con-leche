@@ -854,6 +854,19 @@ the whole block (`nestedPinLeaf_all`). -/
   ∀ l, l < Fs.length → rs.getD l false = true → ¬ (base ≤ tg l ∧ tg l < base + kJ) →
     CopyEntryAt dJ ψJ Ds tg tls Eis ρp i j w u Z l
 
+/-- **The entry identities at the container-ORDINARY fields the
+elimination rewrote** — `CopyEntryOut` restricted to the `ordF`-right
+arm.  At the WIDE width this is all the fit equivalence asks: a
+container-recursive field at one of the container's OWN pins reads the
+SEGMENT's own variable on both sides (`CopyCtorShape.fit_iff_wide`'s
+`hZY`), so the `pinF` arm no longer passes through its target's stored
+reading and the entry there is not consumed.  The narrow route needs
+both arms, hence `CopyEntryOut` stays. -/
+@[expose] def CopyEntryOrd (w : Nat) (u : Nat → Nat) (Z : Nat → V) : Prop :=
+  ∀ l, l < Fs.length → ((dJ.rss i).getD j []).getD l false = false →
+    rs.getD l false = true → ¬ (base ≤ tg l ∧ tg l < base + kJ) →
+    CopyEntryAt dJ ψJ Ds tg tls Eis ρp i j w u Z l
+
 /-- **The outside entries, FRAME-GENERIC** (task #315 L-E, the abstract
 carry): `CopyEntryOut` with the container-side frame an argument.
 
@@ -943,6 +956,16 @@ structure CopyCtorShape : Prop where
       = AnnotTerm.instAll Ds ((dJ.Fss i ψJ).getD j []).length (((dJ.Ess i ψJ).getD j []).getD l default)
 
 end Shape
+
+/-- The outside entries give the container-ordinary ones. -/
+theorem CopyEntryOut.ord {dJ : BlockModel V} {ψJ : Name → Nat} {Ds : List AnnotTerm}
+    {tg : Nat → Nat} {tls : List (List (Nat × Nat × AnnotTerm))} {Eis : List (List AnnotTerm)}
+    {ρp : Nat → V} {i j base kJ : Nat} {Fs : List AnnotTerm} {rs : List Bool}
+    {w : Nat} {u : Nat → Nat} {Z : Nat → V}
+    (h : CopyEntryOut (V := V) dJ ψJ Ds tg tls Eis ρp i j base kJ Fs rs w u Z) :
+    CopyEntryOrd (V := V) dJ ψJ Ds tg tls Eis ρp i j base kJ Fs rs w u Z :=
+  fun l hl _ hrC hout => h l hl hrC hout
+
 
 /-! ## The two copies of ONE container field name ONE target container -/
 
@@ -1256,7 +1279,7 @@ theorem CopyCtorShape.fit_iff_wide {env : Env} {m : EnvModel V env}
     (hYle : ∀ l, l < ((dJ.Fss i ψJ).getD j []).length →
       ((dJ.rss i).getD j []).getD l false = true → ∀ t',
       SetTheory.app (Y (dJ.tgts i j l)) t' ⊆ˢ SetTheory.app (dJ.famAt ψJ ρJ LJ (dJ.tgts i j l)) t')
-    (hent : CopyEntryOut dJ ψJ Ds tg tls Eis ρp i j base kJ Fs rs TV.w TV.u Z)
+    (hent : CopyEntryOrd dJ ψJ Ds tg tls Eis ρp i j base kJ Fs rs TV.w TV.u Z)
     (t : V) (fs : List V) :
     (FitsFrom rs (fun i' ρ => slotSet TV.w (TV.u (tg i')) ρ (tls.getD i' []) (Eis.getD i' [])
         (Z (tg i'))) 0 ρp Fs fs ∧
@@ -1316,7 +1339,7 @@ theorem CopyCtorShape.fit_iff_wide {env : Env} {m : EnvModel V env}
       rcases h.ordF _ hl hr' with ⟨hrC, hF⟩ | ⟨hrC, hout, -, -⟩
       · rw [if_neg (by rw [hrC]; exact Bool.false_ne_true), hF fs₁ rfl hsp, interp_instAll]
       · rw [if_pos hrC]
-        exact hent _ (h.len ▸ hl) hrC hout fs₁ rfl hsp
+        exact hent _ (h.len ▸ hl) hr' hrC hout fs₁ rfl hsp
   -- the index equations
   refine Iff.trans (and_congr hfits Iff.rfl) ?_
   unfold BlockModel.ChainFitT
@@ -2086,6 +2109,239 @@ theorem hfit_le_of_inst {env : Env} {m : EnvModel V env} {q₀ kJ : Nat}
   obtain ⟨h3, h4⟩ := CopyCtorShape.fit_imp (TV := TVA) hreps hfT hPT hi rfl hw
     (fun i' hi' => hu i' hi') hρJ hnI hY hYle hj' (hsh i hi j hj) (hent i hi j hj) t fs hC
   exact ⟨h1, h2, h3, h4⟩
+
+
+/-- **`hfit` at the container's MEMBER classes, AT THE WIDE WIDTH**
+(task #315, Resolution 1) — `hfit_at_of_inst`'s sibling and item (1)'s
+wrapper: `ofNested_hΦ_of_fit`'s hypothesis at a class `i < dJ.k`, from
+the group's shape and the run's entries.
+
+Three inputs are the wide route's own, and they are what the assembly
+reads off the instance CLOSURE rather than off the group:
+
+* `hstgt` — at a container-recursive field targeting one of the
+  container's OWN pins, the block's target is the instance's image `σ`
+  of that class.  This is what replaces the narrow route's entry at
+  that arm: `CopyCtorShape.fit_iff_wide` reads the segment's own
+  variable on both sides;
+* `houtσ` — at a container-ordinary field the elimination rewrote
+  (`ordF`-right), the block's target is OUTSIDE the instance, so the
+  joined tuple is the block's own carrier there and the run's entry
+  residue (`CopyEntryA`, `nestedPinLeaf_all`) applies verbatim;
+* the BOUND on the tuple, which `fit_iff_wide` consumes exactly once,
+  at the container-side spine obligation.  The container's own wide
+  carrier is its EXTENDED narrow one (`BlockModel.auxLfp_eq_famAt`),
+  which is the `famAt` form the container's slot reads. -/
+theorem hfit_wide_mem_of_inst {env : Env} {m : EnvModel V env} {q₀ : Nat} {σ : Nat → Nat}
+    (hreps : IsBlockModels m dJ) (hfT : FormersTyped m dJ ψJ) (hPT : PinsTyped m dJ ψJ)
+    (hw : dJ.w ψJ = resSort.eval ψ)
+    (hinjσ : InjOn σ (dJ.k + dJ.nPins))
+    (hroot : ∀ i, i < dJ.k → σ i = k + q₀ + i)
+    (hu : ∀ i', i' < dJ.k → nestedU k W pins ψ (k + q₀ + i') = dJ.uM i' ψJ)
+    (hρJ : Sat V (dJ.params ψJ).reverse ρJ)
+    (hidx : ∀ i, i < dJ.k → blockIds nP ppsA ψ (k + q₀ + i) = instTele Ds 0 (dJ.IdsM i ψJ))
+    (hgrp : ∀ i, i < dJ.k → ∀ j, (offs (k + q₀ + i) + j < (Fss₀ ψ).length ∧
+      mems.getD (offs (k + q₀ + i) + j) 0 = k + q₀ + i) ↔ j < (dJ.ctorsM i).length)
+    (hsh : ∀ i, i < dJ.k → ∀ j, j < (dJ.ctorsM i).length →
+      CopyShapeA (V := V) (nP := nP) (k := k) (resSort := resSort) (ppsA := ppsA) (W := W)
+        (pins := pins) (offs := offs) (memberNames := memberNames) (tgtsG := tgtsG) (rss := rss)
+        (tlss := tlss) (Eiss₀ := Eiss₀) (Fss₀ := Fss₀) (Ess₀ := Ess₀) (ψ := ψ) (ρp := ρp)
+        acval dJ ψJ Ds DsE lpsJ lvlsJ q₀ dJ.k i j)
+    (hent : ∀ i, i < dJ.k → ∀ j, j < (dJ.ctorsM i).length →
+      CopyEntryA (V := V) (nP := nP) (k := k) (resSort := resSort) (ppsA := ppsA) (W := W)
+        (pins := pins) (offs := offs) (mems := mems) (nFs := nFs) (tgtsG := tgtsG) (rss := rss)
+        (tlss := tlss) (Eiss₀ := Eiss₀) (Fss₀ := Fss₀) (Ess₀ := Ess₀) (ψ := ψ) (ρp := ρp)
+        dJ ψJ Ds q₀ dJ.k i j)
+    (hstgt : ∀ i, i < dJ.k → ∀ j, j < (dJ.ctorsM i).length → ∀ l,
+      l < ((dJ.Fss i ψJ).getD j []).length → ((dJ.rss i).getD j []).getD l false = true →
+      ¬ dJ.tgts i j l < dJ.k →
+      (tgtsG.getD (offs (k + q₀ + i) + j) []).getD l 0 = σ (dJ.tgts i j l))
+    (houtσ : ∀ i, i < dJ.k → ∀ j, j < (dJ.ctorsM i).length → ∀ l,
+      l < ((dJ.Fss i ψJ).getD j []).length → ((dJ.rss i).getD j []).getD l false = false →
+      (rss.getD (offs (k + q₀ + i) + j) []).getD l false = true →
+      ¬ ∃ m, m < dJ.k + dJ.nPins ∧
+        σ m = (tgtsG.getD (offs (k + q₀ + i) + j) []).getD l 0) :
+    ∀ Y, InTupleSpace (resSort.eval ψ) (dJ.k + dJ.nPins) (dJ.idx ψJ ρJ) Y →
+      TupleLe (dJ.k + dJ.nPins) (dJ.idx ψJ ρJ) Y
+        (lfpTuple (resSort.eval ψ) (dJ.k + dJ.nPins) (dJ.idx ψJ ρJ) (dJ.Ψaux ψJ ρJ)) →
+      ∀ i, i < dJ.k → ∀ t, t ∈ˢ dJ.idx ψJ ρJ i → ∀ j fs,
+      (offs (σ i) + j < (Fss₀ ψ).length ∧ mems.getD (offs (σ i) + j) 0 = σ i ∧
+        FitsFrom (rss.getD (offs (σ i) + j) []) (fun i' ρ => slotSet (resSort.eval ψ)
+            (nestedU k W pins ψ ((tgtsG.getD (offs (σ i) + j) []).getD i' 0)) ρ
+            (((tlss ψ).getD (offs (σ i) + j) []).getD i' [])
+            (((Eiss₀ ψ).getD (offs (σ i) + j) []).getD i' [])
+            (setJoin σ (dJ.k + dJ.nPins) L⁺ Y ((tgtsG.getD (offs (σ i) + j) []).getD i' 0)))
+          0 ρp ((Fss₀ ψ).getD (offs (σ i) + j) []) fs ∧
+        (∀ l, l < (blockIds nP ppsA ψ (σ i)).length →
+          interp V (consList fs ρp) (((Ess₀ ψ).getD (offs (σ i) + j) []).getD l default)
+            = projS l t))
+      ↔ (j < (dJ.ctorsT dJ.pinCtors i).length ∧ dJ.ChainFitT dJ.pinCtors ψJ ρJ Y t i j fs) := by
+  intro Y hY hYC i hi t _ j fs
+  rw [BlockModel.ctorsT_of_mem hi, hroot i hi]
+  by_cases hj : j < (dJ.ctorsM i).length
+  · have hj' : (dJ.ctorsM i)[j]? = some ((dJ.ctorsM i).getD j default) := by
+      rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hj]; rfl
+    have hnI : (blockIds nP ppsA ψ (k + q₀ + i)).length = (dJ.IdsM i ψJ).length := by
+      rw [hidx i hi, instTele_length]
+    have hshij := hsh i hi j hj
+    -- the container's own wide carrier IS its extended narrow one
+    obtain ⟨cvT, cvR, mI, rP, rules, hI⟩ := hreps i hi
+    have hFa := hI.auxFunctor ψJ ρJ hρJ
+    have hCeq : ∀ c, c < dJ.k + dJ.nPins →
+        lfpTuple (resSort.eval ψ) (dJ.k + dJ.nPins) (dJ.idx ψJ ρJ) (dJ.Ψaux ψJ ρJ) c
+          = dJ.famAt ψJ ρJ (lfpTuple (resSort.eval ψ) dJ.k (dJ.idx ψJ ρJ) (dJ.Φ ψJ ρJ)) c := by
+      intro c hc
+      rw [← hw]
+      exact dJ.auxLfp_eq_famAt hFa.1 hFa.2.2 (hI.auxCompose ψJ ρJ)
+        (fun X q hq => hI.auxPinsCar ψJ ρJ X q hq) hc
+    -- the three wide inputs, at this constructor
+    have htgtlt : ∀ l, l < ((dJ.Fss i ψJ).getD j []).length → ¬ dJ.tgts i j l < dJ.k →
+        dJ.tgts i j l - dJ.k < dJ.nPins := hreps.tgt_pin_lt hi hj'
+    have huT : ∀ l, l < ((dJ.Fss i ψJ).getD j []).length →
+        ((dJ.rss i).getD j []).getD l false = true →
+        nestedU k W pins ψ ((tgtsG.getD (offs (k + q₀ + i) + j) []).getD l 0)
+          = dJ.uT (dJ.tgts i j l) ψJ := by
+      intro l hl hr
+      by_cases hnt : dJ.tgts i j l < dJ.k
+      · obtain ⟨-, htg, -, -⟩ := hshij.recF l hl hr hnt
+        rw [BlockModel.uT_of_mem hnt ψJ, htg]
+        exact hu _ hnt
+      · obtain ⟨-, -, -, -, ⟨-, -, hv, -, -, -⟩, -, -⟩ := hshij.pinF l hl hr hnt
+        rw [BlockModel.uT_of_pin hnt ψJ]
+        exact hv
+    have hZY : ∀ l, l < ((dJ.Fss i ψJ).getD j []).length →
+        ((dJ.rss i).getD j []).getD l false = true →
+        setJoin σ (dJ.k + dJ.nPins) L⁺ Y ((tgtsG.getD (offs (k + q₀ + i) + j) []).getD l 0)
+          = Y (dJ.tgts i j l) := by
+      intro l hl hr
+      have htg : (tgtsG.getD (offs (k + q₀ + i) + j) []).getD l 0 = σ (dJ.tgts i j l) := by
+        by_cases hnt : dJ.tgts i j l < dJ.k
+        · obtain ⟨-, htg, -, -⟩ := hshij.recF l hl hr hnt
+          rw [hroot _ hnt]
+          exact htg
+        · exact hstgt i hi j hj l hl hr hnt
+      have hlt : dJ.tgts i j l < dJ.k + dJ.nPins := by
+        by_cases hnt : dJ.tgts i j l < dJ.k
+        · omega
+        · have := htgtlt l hl hnt; omega
+      rw [htg]
+      exact setJoin_at hinjσ _ _ hlt
+    have hYle : ∀ l, l < ((dJ.Fss i ψJ).getD j []).length →
+        ((dJ.rss i).getD j []).getD l false = true → ∀ t',
+        SetTheory.app (Y (dJ.tgts i j l)) t'
+          ⊆ˢ SetTheory.app (dJ.famAt ψJ ρJ
+              (lfpTuple (resSort.eval ψ) dJ.k (dJ.idx ψJ ρJ) (dJ.Φ ψJ ρJ)) (dJ.tgts i j l)) t' := by
+      intro l hl hr t'
+      have hlt : dJ.tgts i j l < dJ.k + dJ.nPins := by
+        by_cases hnt : dJ.tgts i j l < dJ.k
+        · omega
+        · have := htgtlt l hl hnt; omega
+      rw [← hCeq _ hlt]
+      exact app_subset_of_famLe (hY _ hlt) (hYC _ hlt) t'
+    -- the entries: at a rewritten container-ORDINARY field the joined
+    -- tuple is the block's own carrier
+    have hentZ : CopyEntryOrd (V := V) dJ ψJ Ds
+        (fun l => (tgtsG.getD (offs (k + q₀ + i) + j) []).getD l 0)
+        ((tlss ψ).getD (offs (k + q₀ + i) + j) []) ((Eiss₀ ψ).getD (offs (k + q₀ + i) + j) [])
+        ρp i j (k + q₀) dJ.k ((Fss₀ ψ).getD (offs (k + q₀ + i) + j) [])
+        (rss.getD (offs (k + q₀ + i) + j) []) (resSort.eval ψ) (nestedU k W pins ψ)
+        (setJoin σ (dJ.k + dJ.nPins) L⁺ Y) := by
+      intro l hl hr' hrC hout fs₁ hl₁ hsp
+      rw [setJoin_out _ _ (houtσ i hi j hj l (by rwa [hshij.len] at hl) hr' hrC)]
+      exact CopyEntryOut.ord (hent i hi j hj) l hl hr' hrC hout fs₁ hl₁ hsp
+    have hfit := CopyCtorShape.fit_iff_wide (TV := nestedTV nP k resSort ppsA W pins acval
+        memberNames ψ) hreps hfT hPT hi hw hρJ hnI hj' hshij huT hZY hYle hentZ t fs
+    obtain ⟨h1, h2⟩ := (hgrp i hi j).mpr hj
+    constructor
+    · rintro ⟨-, -, h3, h4⟩
+      exact ⟨hj, hfit.mp ⟨h3, h4⟩⟩
+    · rintro ⟨-, hC⟩
+      obtain ⟨h3, h4⟩ := hfit.mpr hC
+      exact ⟨h1, h2, h3, h4⟩
+  · constructor
+    · rintro ⟨h1, h2, -, -⟩
+      exact absurd ((hgrp i hi j).mp ⟨h1, h2⟩) hj
+    · rintro ⟨h', -⟩
+      exact absurd h' hj
+
+/-- **`hfit` at EVERY class of the container instance, at the wide
+width** (task #315, Resolution 1): `ofNested_hΦ_of_fit`'s hypothesis,
+assembled from the two halves that are not alike.
+
+At the container's MEMBERS the run states the comparison and
+`hfit_wide_mem_of_inst` proves it.  At the copies of the container's
+OWN pins it does not: such a copy belongs to a group whose container is
+the PIN's container `K`, not `dJ`, and `dJ`'s own record of that pin is
+`K`'s constructors at `dJ`'s components — two copies of ONE container
+at two instantiations, whose comparison is the two-copies transfer
+(`copyTransfer_via`) and not a fact the run states about either.  That
+half is `hpin`, and it is discharged where the transfer lives
+(`NestedPinLeafAll.lean`), which is strictly downstream of this
+module. -/
+theorem hfit_wide_of_inst {env : Env} {m : EnvModel V env} {q₀ : Nat} {σ : Nat → Nat}
+    (hreps : IsBlockModels m dJ) (hfT : FormersTyped m dJ ψJ) (hPT : PinsTyped m dJ ψJ)
+    (hw : dJ.w ψJ = resSort.eval ψ)
+    (hinjσ : InjOn σ (dJ.k + dJ.nPins))
+    (hroot : ∀ i, i < dJ.k → σ i = k + q₀ + i)
+    (hu : ∀ i', i' < dJ.k → nestedU k W pins ψ (k + q₀ + i') = dJ.uM i' ψJ)
+    (hρJ : Sat V (dJ.params ψJ).reverse ρJ)
+    (hidx : ∀ i, i < dJ.k → blockIds nP ppsA ψ (k + q₀ + i) = instTele Ds 0 (dJ.IdsM i ψJ))
+    (hgrp : ∀ i, i < dJ.k → ∀ j, (offs (k + q₀ + i) + j < (Fss₀ ψ).length ∧
+      mems.getD (offs (k + q₀ + i) + j) 0 = k + q₀ + i) ↔ j < (dJ.ctorsM i).length)
+    (hsh : ∀ i, i < dJ.k → ∀ j, j < (dJ.ctorsM i).length →
+      CopyShapeA (V := V) (nP := nP) (k := k) (resSort := resSort) (ppsA := ppsA) (W := W)
+        (pins := pins) (offs := offs) (memberNames := memberNames) (tgtsG := tgtsG) (rss := rss)
+        (tlss := tlss) (Eiss₀ := Eiss₀) (Fss₀ := Fss₀) (Ess₀ := Ess₀) (ψ := ψ) (ρp := ρp)
+        acval dJ ψJ Ds DsE lpsJ lvlsJ q₀ dJ.k i j)
+    (hent : ∀ i, i < dJ.k → ∀ j, j < (dJ.ctorsM i).length →
+      CopyEntryA (V := V) (nP := nP) (k := k) (resSort := resSort) (ppsA := ppsA) (W := W)
+        (pins := pins) (offs := offs) (mems := mems) (nFs := nFs) (tgtsG := tgtsG) (rss := rss)
+        (tlss := tlss) (Eiss₀ := Eiss₀) (Fss₀ := Fss₀) (Ess₀ := Ess₀) (ψ := ψ) (ρp := ρp)
+        dJ ψJ Ds q₀ dJ.k i j)
+    (hstgt : ∀ i, i < dJ.k → ∀ j, j < (dJ.ctorsM i).length → ∀ l,
+      l < ((dJ.Fss i ψJ).getD j []).length → ((dJ.rss i).getD j []).getD l false = true →
+      ¬ dJ.tgts i j l < dJ.k →
+      (tgtsG.getD (offs (k + q₀ + i) + j) []).getD l 0 = σ (dJ.tgts i j l))
+    (houtσ : ∀ i, i < dJ.k → ∀ j, j < (dJ.ctorsM i).length → ∀ l,
+      l < ((dJ.Fss i ψJ).getD j []).length → ((dJ.rss i).getD j []).getD l false = false →
+      (rss.getD (offs (k + q₀ + i) + j) []).getD l false = true →
+      ¬ ∃ m, m < dJ.k + dJ.nPins ∧
+        σ m = (tgtsG.getD (offs (k + q₀ + i) + j) []).getD l 0)
+    (hpin : ∀ Y, InTupleSpace (resSort.eval ψ) (dJ.k + dJ.nPins) (dJ.idx ψJ ρJ) Y →
+      TupleLe (dJ.k + dJ.nPins) (dJ.idx ψJ ρJ) Y
+        (lfpTuple (resSort.eval ψ) (dJ.k + dJ.nPins) (dJ.idx ψJ ρJ) (dJ.Ψaux ψJ ρJ)) →
+      ∀ i, ¬ i < dJ.k → i < dJ.k + dJ.nPins → ∀ t, t ∈ˢ dJ.idx ψJ ρJ i → ∀ j fs,
+      (offs (σ i) + j < (Fss₀ ψ).length ∧ mems.getD (offs (σ i) + j) 0 = σ i ∧
+        FitsFrom (rss.getD (offs (σ i) + j) []) (fun i' ρ => slotSet (resSort.eval ψ)
+            (nestedU k W pins ψ ((tgtsG.getD (offs (σ i) + j) []).getD i' 0)) ρ
+            (((tlss ψ).getD (offs (σ i) + j) []).getD i' [])
+            (((Eiss₀ ψ).getD (offs (σ i) + j) []).getD i' [])
+            (setJoin σ (dJ.k + dJ.nPins) L⁺ Y ((tgtsG.getD (offs (σ i) + j) []).getD i' 0)))
+          0 ρp ((Fss₀ ψ).getD (offs (σ i) + j) []) fs ∧
+        (∀ l, l < (blockIds nP ppsA ψ (σ i)).length →
+          interp V (consList fs ρp) (((Ess₀ ψ).getD (offs (σ i) + j) []).getD l default)
+            = projS l t))
+      ↔ (j < (dJ.ctorsT dJ.pinCtors i).length ∧ dJ.ChainFitT dJ.pinCtors ψJ ρJ Y t i j fs)) :
+    ∀ Y, InTupleSpace (resSort.eval ψ) (dJ.k + dJ.nPins) (dJ.idx ψJ ρJ) Y →
+      TupleLe (dJ.k + dJ.nPins) (dJ.idx ψJ ρJ) Y
+        (lfpTuple (resSort.eval ψ) (dJ.k + dJ.nPins) (dJ.idx ψJ ρJ) (dJ.Ψaux ψJ ρJ)) →
+      ∀ i, i < dJ.k + dJ.nPins → ∀ t, t ∈ˢ dJ.idx ψJ ρJ i → ∀ j fs,
+      (offs (σ i) + j < (Fss₀ ψ).length ∧ mems.getD (offs (σ i) + j) 0 = σ i ∧
+        FitsFrom (rss.getD (offs (σ i) + j) []) (fun i' ρ => slotSet (resSort.eval ψ)
+            (nestedU k W pins ψ ((tgtsG.getD (offs (σ i) + j) []).getD i' 0)) ρ
+            (((tlss ψ).getD (offs (σ i) + j) []).getD i' [])
+            (((Eiss₀ ψ).getD (offs (σ i) + j) []).getD i' [])
+            (setJoin σ (dJ.k + dJ.nPins) L⁺ Y ((tgtsG.getD (offs (σ i) + j) []).getD i' 0)))
+          0 ρp ((Fss₀ ψ).getD (offs (σ i) + j) []) fs ∧
+        (∀ l, l < (blockIds nP ppsA ψ (σ i)).length →
+          interp V (consList fs ρp) (((Ess₀ ψ).getD (offs (σ i) + j) []).getD l default)
+            = projS l t))
+      ↔ (j < (dJ.ctorsT dJ.pinCtors i).length ∧ dJ.ChainFitT dJ.pinCtors ψJ ρJ Y t i j fs) := by
+  intro Y hY hYC i hi t ht j fs
+  by_cases hm : i < dJ.k
+  · exact hfit_wide_mem_of_inst acval hreps hfT hPT hw hinjσ hroot hu hρJ hidx hgrp hsh hent
+      hstgt houtσ Y hY hYC i hm t ht j fs
+  · exact hpin Y hY hYC i hm hi t ht j fs
 
 /-- **A pin's carrier at the block's carrier is its container's least
 tuple**, from the shape and the entries — at a container with pins of

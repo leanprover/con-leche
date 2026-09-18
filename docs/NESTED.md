@@ -431,6 +431,7 @@ Resolution 1 needs.
 | restore | `restoreNested`, `restoreRules`, `restoreRecTys` |
 | Resolution 1's identification | `ofNested_pin_block_wide`, `ofNested_pin_block_of_wide` (`Model/Inductives/BlockComposed.lean`) |
 | its agreement, reduced to the fits | `ofNested_hΦ_of_fit` (same file) |
+| the fits at the container's members | `CopyCtorShape.fit_iff_wide`, `hfit_wide_mem_of_inst`, `hfit_wide_of_inst` (`Model/Inductives/NestedFit.lean`) |
 | the transfer between two copies of one container | `chainFitT_congr_mem`, `copyTransfer_via` (`Model/Inductives/NestedPinLeafAll.lean`) |
 | Resolution 1's experiment | `SetModel/SegCopy.lean` |
 | Resolution 3's apparatus | `pinLfpAt` (candidate tuples), `pins_le_of_declOrder`, `hentR` in `Model/Inductives/NestedFit.lean` / `NestedPinLeafAll.lean`; the declaration-order record `declPos`/`nestedPinOrderAt` |
@@ -483,10 +484,17 @@ in two:
 * at the container's **members** the block records the comparison
   directly — a copy of a member is a copy of the group the worklist
   minted, and the group carries the container's constructors
-  instantiated at the pin's components.  This half is PROVED: at the
-  wide width the two arms for a container-recursive field (at a member,
-  and at one of the container's own pins) collapse into one, because
-  the container's own pin is a variable on both sides;
+  instantiated at the pin's components.  This half is PROVED, at one
+  constructor and at the whole group: at the wide width the two arms
+  for a container-recursive field (at a member, and at one of the
+  container's own pins) collapse into one, because the container's own
+  pin is a variable on both sides.  What the group's wrapper reads off
+  the instance beyond what the narrow one read is two facts about the
+  instance map: a container-recursive field at one of the container's
+  own pins lands on the image of that class, and a rewritten
+  container-ordinary field lands OUTSIDE the instance, where the joined
+  tuple is the block's own carrier and the run's entry applies
+  verbatim.  The entries are needed at the second kind of field only;
 * at the copies of the container's **own pins** it does not.  Such a
   copy belongs to a group of its own, whose container is the pin's
   container `K`, not the container `J` whose instance is being
