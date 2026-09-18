@@ -276,6 +276,16 @@ container block model per group. -/
     ConLeche.nestedCopyTargetsOk env p b st stored = true →
     ConLeche.nestedPinKindsOk p b st stored = true →
     ConLeche.nestedPinRankOk env p b st stored = true →
+    -- **THE POSITIVITY NORMALISATION ON THE MINTED COPY** (K.42, task
+    -- #315, lane L-B): at every ORDINARY field of every copy's
+    -- constructor, the stored domain IS the positivity normalisation of
+    -- the MINTED one, which the copies' identities read on the
+    -- `ordF`-LEFT arm (lane L-B's `NestedPinsShape`)
+    (∃ (jobs : List (Nat × Expr × Expr)) (ws : List Expr),
+      ConLeche.nestedOrdDomPairs env p st stored (ConLeche.nestedPinKinds p b stored) = some jobs ∧
+      ConLeche.nestedOrdNorms (m := ConLeche.CheckM) (fueledOps μ F)
+          (ConLeche.consNestedFormers (stored.take p.k) env) b.memberNames jobs = .ok ws ∧
+      ws = jobs.map (·.2.2)) →
     -- POST-CHECK (a) A THIRD TIME (K.30): the pins typed at the prefix
     -- formers' environment
     ConLeche.nestedPinsOk (m := ConLeche.CheckM) (fueledOps μ F)
@@ -457,6 +467,11 @@ theorem nestedLoopFacts_of (hpins : NestedPinsStaged V μ F) (hread : NestedRead
     (hK32 : ConLeche.nestedCopyTargetsOk env p b st stored = true)
     (hkinds : ConLeche.nestedPinKindsOk p b st stored = true)
     (hrank : ConLeche.nestedPinRankOk env p b st stored = true)
+    (hK42 : ∃ (jobs : List (Nat × Expr × Expr)) (ws : List Expr),
+      ConLeche.nestedOrdDomPairs env p st stored (ConLeche.nestedPinKinds p b stored) = some jobs ∧
+      ConLeche.nestedOrdNorms (m := ConLeche.CheckM) (fueledOps μ F)
+          (ConLeche.consNestedFormers (stored.take p.k) env) b.memberNames jobs = .ok ws ∧
+      ws = jobs.map (·.2.2))
     (hpins₁ : ConLeche.nestedPinsOk (m := ConLeche.CheckM) (fueledOps μ F) ENV₁ p.nP st.pins = .ok ())
     (hformers : ConLeche.mutualFormers (m := ConLeche.CheckM) (fueledOps μ F) b.nP b.formers env true
       = .ok (ConLeche.consMutualFormers fms env, fms))
@@ -489,7 +504,7 @@ theorem nestedLoopFacts_of (hpins : NestedPinsStaged V μ F) (hread : NestedRead
         (tssF := tssF) (ctorsR := ctorsR) (dsR := dsR) (xFvsR := xFvsR) (pinsS := pinsS) st mp₁' mp₂ := by
   obtain ⟨pinsS, PF⟩ := hpins hμ mp hE p st b envAux stored ctorsR fmsA ctorsA₀ fms f₀ ctorsA sortss kinds mp₁ ppsF W idxF dsF
     esF srcsF fvsPF xFvsF xrestF eissF tssF mp₁' hPM h0 h1 hfA hcA helim hcount hfresh hcont hb haux
-    hstored hclosed hpinsAux hcaps hsrc hgrp hsc hK32 hkinds hrank hpins₁ hformers h hbk h3 hnd
+    hstored hclosed hpinsAux hcaps hsrc hgrp hsc hK32 hkinds hrank hK42 hpins₁ hformers h hbk h3 hnd
     hctorsA hleafM' hoff' hfind' hctors
   obtain ⟨dsR, xFvsR, hR⟩ := hread hμ mp hE p st b envAux stored ctorsR fmsA ctorsA₀ fms f₀ ctorsA sortss kinds mp₁ ppsF W idxF dsF
     esF srcsF fvsPF xFvsF xrestF eissF tssF mp₁' hPM h0 h1 hfA hcA helim hcount hfresh hcont hb haux
@@ -656,10 +671,10 @@ the reading law and the groups crossed to the loop's model. -/
 theorem nestedCtorsStaged_of {F : Nat} (hpins : NestedPinsStaged V μ F)
     (hread : NestedReadLaw V μ F) : NestedCtorsStaged V μ F :=
   fun hμ _ mp hE _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ mp₁' hPM h0 h1 hfA hcA helim
-    hcount hfresh hcont hb haux hstored hclosed hpinsAux hcaps hsrc hgrp hsc hK32 hkinds hrank hpins₁
-    hformers h hbk h3 hnd hctorsA hleafM' hoff' hfind' hctors =>
+    hcount hfresh hcont hb haux hstored hclosed hpinsAux hcaps hsrc hgrp hsc hK32 hkinds hrank hK42
+    hpins₁ hformers h hbk h3 hnd hctorsA hleafM' hoff' hfind' hctors =>
   nestedLoopFacts_of hpins hread hμ hE (mp := mp) mp₁' hPM h0 h1 hfA hcA helim hcount hfresh hcont
-    hb haux hstored hclosed hpinsAux hcaps hsrc hgrp hsc hK32 hkinds hrank hpins₁ hformers h hbk h3
-    hnd hctorsA hleafM' hoff' hfind' hctors
+    hb haux hstored hclosed hpinsAux hcaps hsrc hgrp hsc hK32 hkinds hrank hK42 hpins₁ hformers h hbk
+    h3 hnd hctorsA hleafM' hoff' hfind' hctors
 
 end ConLeche.Model
