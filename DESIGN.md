@@ -107143,3 +107143,85 @@ exactly this kind would close.  The probe demonstrates the group law and
 nothing beyond it.
 
 Nothing in this section changes the tree.
+
+#### (number at the integrator's sync) — L-E: the two edits do NOT close in their scope — the second reaches the entry layer (lane L-E, 2026-09-18)
+
+Attempted rather than reasoned about, as the rule says.  **It did not
+close; reverted wholesale; the tree is at `ee1eda07`'s state and green.**
+The attempt is a measurement, and this is what it measured.
+
+##### (a) EDIT ONE IS MECHANICAL AND APPLIES CLEANLY
+
+Parameterising the group law's frame — `{Af : Nat → List V}` beside
+`{Pf}`, and `consList ((((D).pinAt (q₀+i)).Ds ψ).map (interp V ρp)) ρp`
+→ `consList (Af (q₀+i)) ρp` — applied at **all seven sites** with no
+adjustment.  The premise then admits any family, as the probe predicted.
+
+##### (b) A CONCRETE GOTCHA WORTH KEEPING
+
+Edit one alone produced, at one top-level call site, a **`(deterministic)
+timeout at whnf, maximum number of heartbeats (200000)`** — not a type
+error.  The cause is higher-order: with `Af` implicit, unification has to
+invert `q₀ + i` to solve `Af` from a hypothesis stated at the recorded
+components.  **Supplying `Af` explicitly at the call site removed it
+outright.**  Any future edit that abstracts an index-indexed family out
+of a hypothesis should pass the family explicitly at call sites from the
+start.
+
+##### (c) EDIT TWO IS NOT CONFINED TO ONE THEOREM — and that is the finding
+
+`nestedTargetReads_L`'s conclusion is
+
+```
+… = is.foldl app (interp V ρp (TV.EA t))
+```
+
+— the target's recorded READING.  At a candidate frame the target does
+not read as a recorded term; it reads as a VALUE (`targetValAt`, G2's
+lesson).  **So moving the frame moves the conclusion**, and the
+conclusion is what `copyEntryAt_of_read` consumes:
+
+```
+NestedPinLeafAll.lean:3456   copyEntryAt_of_read hread hZ
+NestedPinLeafAll.lean:4928 / 4934   (the assembly's two uses)
+```
+
+Those want `CopyEntryAt`; the re-based `hZ` fits `copyEntryAtF_of_read`,
+which concludes `CopyEntryAtF`.  **So the row reaches the `CopyEntryAt`
+layer — which is the closure step's surface and is shared with lane
+L-B.**
+
+And the two edits are inseparable: edit one alone breaks
+`nestedTargetReads_L` (its `hP` is then at `Af` while `pinTarget_reads`
+is at the recorded frame), which is the type mismatch the first build
+reported.
+
+##### (d) WHAT DID WORK, AND IS WORTH RE-USING WHEN THE ROW IS RE-SCOPED
+
+* `pinDsFit` — `NestedPinGroupSyn.DsFit` with the parameter spine
+  destructured — is exactly the `hAfFit` witness at the recorded family,
+  and it type-checked;
+* `pinTarget_reads_at` slotted into `nestedTargetReads_L`'s pin branch
+  with `hAfFit` supplying the fit, as designed;
+* the member branch needed only `targetValAt_of_mem` and
+  `← targetRead_of_mem`;
+* the pin branch needed `targetValAt_of_pin` and `← List.foldl_append`.
+
+`nestedTargetReads_L` itself CLOSED at the candidate frame.  What did not
+close is everything downstream of its conclusion.
+
+##### (e) THE RE-SCOPE
+
+The row is not "two edits to the pin-pair chain".  It is **one edit
+spanning the chain AND the entry layer**, and the entry layer is L-B's,
+so it needs coordination rather than a unilateral pass.  This lane is not
+attempting it again without that.
+
+**The price does not move on a failed attempt any more than on a
+check** — nothing is written.  What moves is the row's SHAPE, from "two
+edits here" to "one edit across two lanes' surfaces".
+
+Green at the reverted state: `lake build` 0 errors/warnings, **722
+jobs**.
+
+Nothing in this section changes the tree.
