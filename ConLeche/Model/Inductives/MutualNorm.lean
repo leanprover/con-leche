@@ -147,13 +147,20 @@ theorem normPosDomM_read {m : EnvModel V env} {F : Nat}
     exact ih fuel' (by omega) hbody' hwopen hbopen hLopen hCop hboda hboda' hokbody _
       (Sat_cons V hρ hx)
 
-/-- **The positivity normalisation's output READS**: at a domain that
-reads, whose frame is the run's, the walk's output reads too — the
-existence half of `normPosDomM_read`, which takes the output's reading
-as an input.  Same induction: every step's `whnf` output reads by
-`WhnfReads`, and at a `Π` the output's reading is assembled from the
-domain's (unchanged) and the recursive call's, through the
-`abstract1`/`instantiate1` round trip (task #315 L-B). -/
+/-- **The positivity normalisation's output READS, AND IS GRADED**: at
+a domain that reads and is graded, whose frame is the run's, the
+walk's output reads too and its reading is graded at the same context
+— the existence half of `normPosDomM_read`, which takes the output's
+reading as an input.  Same induction: every step's `whnf` output reads
+by `WhnfReads` and is graded by `WhnfClaim`'s FIRST component (which
+`normPosDomM_read` computes and discards), and at a `Π` both halves
+are assembled from the domain's (unchanged) and the recursive call's,
+through the `abstract1`/`instantiate1` round trip.
+
+The grading is what an arm needs when the walk's output is the term it
+must read a TARGET off — `WellDenoted` of an application is the fit of
+its arguments, so the index expressions of a copy's recursive field fit
+the target's index telescope only through this (task #315 L-B). -/
 theorem normPosDomM_reads {m : EnvModel V env} {F : Nat}
     (hwc : WhnfClaim μ m φ F) (hwr : WhnfReads m μ φ F) {memberNames : List Name} :
     ∀ (fuel : Nat) {d : Nat} {e e' : Expr} {Δa : List AnnotTerm} {ea : AnnotTerm},
@@ -163,13 +170,14 @@ theorem normPosDomM_reads {m : EnvModel V env} {F : Nat}
       CtxOk m φ d Δa e →
       denoteMeta m.acval env φ d e = some ea →
       (∀ ρ : Nat → V, Sat V Δa ρ → WellDenotedV V ρ ea) →
-      ∃ ea', denoteMeta m.acval env φ d e' = some ea' := by
+      ∃ ea', denoteMeta m.acval env φ d e' = some ea' ∧
+        ∀ ρ : Nat → V, Sat V Δa ρ → WellDenotedV V ρ ea' := by
   intro fuel
   induction fuel using Nat.strongRecOn with
   | _ fuel ih =>
     intro d e e' Δa ea h hws hb hL hC hea hok
     rcases ConLeche.normPosDomM_inv h with ⟨-, rfl⟩ | ⟨w, hw, hcase⟩
-    · exact ⟨ea, hea⟩
+    · exact ⟨ea, hea, hok⟩
     obtain ⟨wa, hwa⟩ := hwr hw hws hb hL (LeafReads.of_ctxOk hC) hea
     obtain ⟨hokw, -⟩ := hwc hw hws hb hL hC hea hwa hok
     have hwws : Expr.WScoped d w := ConLeche.whnf_WScoped m.wf F hw hws
@@ -178,7 +186,7 @@ theorem normPosDomM_reads {m : EnvModel V env} {F : Nat}
     have hwL : Expr.LeavesBounded w := fun l hl => hL l (hwl l hl)
     have hCw : CtxOk m φ d Δa w := hC.of_subset hwl
     rcases hcase with rfl | ⟨dom, body, bm, body', fuel', rfl, rfl, -, hbody', rfl⟩
-    · exact ⟨wa, hwa⟩
+    · exact ⟨wa, hwa, hokw⟩
     -- the reduct's reading
     rw [denoteMeta] at hwa
     rcases hdoma : denoteMeta m.acval env φ d dom with _ | doma
@@ -236,10 +244,31 @@ theorem normPosDomM_reads {m : EnvModel V env} {F : Nat}
         rwa [cons_eta] at this
       · have := hval.2.1 (ρ 0) hx
         rwa [cons_eta] at this
-    -- the output's reading, assembled
-    obtain ⟨boda', hboda'⟩ := ih fuel' (by omega) hbody' hwopen hbopen hLopen hCop hboda hokbody
+    -- the output's reading, assembled — and its grading with it
+    obtain ⟨boda', hboda', hokboda'⟩ :=
+      ih fuel' (by omega) hbody' hwopen hbopen hLopen hCop hboda hokbody
+    -- the body's two readings agree, which is what the `Π`'s PROP-SORT
+    -- clause of `AnnotValid` needs at the output
+    have heqBody := normPosDomM_read hwc hwr fuel' hbody' hwopen hbopen hLopen hCop hboda hboda'
+      hokbody
+    have hokPi : ∀ ρ : Nat → V, Sat V Δa ρ →
+        WellDenotedV V ρ (AnnotTerm.pi 0 (pwBit φ bm.pw) doma boda') := by
+      intro ρ hρ
+      obtain ⟨hwdD, hvalD⟩ := hokdoma ρ hρ
+      have hsatX : ∀ x : V, x ∈ˢ interp V ρ doma → Sat V (doma :: Δa) (cons x ρ) :=
+        fun x hx => Sat_cons V hρ hx
+      refine ⟨?_, ?_⟩
+      · rw [WellDenoted_pi]
+        exact ⟨hwdD, fun x hx => (hokboda' _ (hsatX x hx)).1⟩
+      · rw [AnnotValid_pi]
+        refine ⟨hvalD, fun x hx => (hokboda' _ (hsatX x hx)).2, ?_⟩
+        intro hz x hx
+        obtain ⟨-, hvalW⟩ := hokw ρ hρ
+        rw [AnnotValid_pi] at hvalW
+        rw [← heqBody _ (hsatX x hx)]
+        exact hvalW.2.2 hz x hx
     rw [← hround] at hboda'
-    exact ⟨.pi 0 (pwBit φ bm.pw) doma boda', by rw [denoteMeta, hdoma, hboda']; rfl⟩
+    exact ⟨.pi 0 (pwBit φ bm.pw) doma boda', by rw [denoteMeta, hdoma, hboda']; rfl, hokPi⟩
 
 /-- **The reading law at the run's own model package**: the `whnf`
 claims a verified-mode `EnvModelM` answers (`claimsAt_of`,
@@ -259,10 +288,10 @@ theorem normPosDomM_read_of (hμ : μ.verifiedChecks = true) (mp : EnvModelM V �
   normPosDomM_read (claimsAt_of hμ mp φ F).whnf
     (whnfReads_of (TierInputsAt.ofSem mp φ).reads) fuel h hws hb hL hC hea hea' hok
 
-/-- **The consumer's form**: the walk's output reads, and reads the
-same — `normPosDomM_reads` supplies the output's reading that
-`normPosDomM_read_of` demands, so an arm inside an inductive stage
-needs nothing about `e'` at all (task #315 L-B). -/
+/-- **The consumer's form**: the walk's output reads, is GRADED, and
+reads the same — `normPosDomM_reads` supplies the output's reading
+that `normPosDomM_read_of` demands, so an arm inside an inductive
+stage needs nothing about `e'` at all (task #315 L-B). -/
 theorem normPosDomM_readEq_of (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ env)
     (φ : Name → Nat) (F : Nat) {memberNames : List Name}
     {fuel d : Nat} {e e' : Expr} {Δa : List AnnotTerm} {ea : AnnotTerm}
@@ -273,10 +302,11 @@ theorem normPosDomM_readEq_of (hμ : μ.verifiedChecks = true) (mp : EnvModelM V
     (hea : denoteMeta mp.base2.acval env φ d e = some ea)
     (hok : ∀ ρ : Nat → V, Sat V Δa ρ → WellDenotedV V ρ ea) :
     ∃ ea', denoteMeta mp.base2.acval env φ d e' = some ea' ∧
+      (∀ ρ : Nat → V, Sat V Δa ρ → WellDenotedV V ρ ea') ∧
       ∀ ρ : Nat → V, Sat V Δa ρ → interp V ρ ea = interp V ρ ea' := by
-  obtain ⟨ea', hea'⟩ :=
+  obtain ⟨ea', hea', hokOut⟩ :=
     normPosDomM_reads (claimsAt_of hμ mp φ F).whnf
       (whnfReads_of (TierInputsAt.ofSem mp φ).reads) fuel h hws hb hL hC hea hok
-  exact ⟨ea', hea', normPosDomM_read_of hμ mp φ F h hws hb hL hC hea hea' hok⟩
+  exact ⟨ea', hea', hokOut, normPosDomM_read_of hμ mp φ F h hws hb hL hC hea hea' hok⟩
 
 end ConLeche.Model

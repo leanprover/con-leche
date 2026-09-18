@@ -5076,7 +5076,7 @@ theorem NestedPinsRun.copyOrdFLeftRead {pbs : List (Expr × ConLeche.BinderMeta)
   -- ==== the run, and the reading law ====
   have hrun := R.copyOrdFLeftRun SF S hPD hK42 hi' hj hlF hordA hciP hJmem hJname
     (by rw [hty]; exact hinstCI) (by rw [hnf]; exact hopM) hxI hx'
-  obtain ⟨ea', hea', heq⟩ := normPosDomM_readEq_of R.hμ mp₁' ψ F hrun hwsxI hbxI hLxI hCtx
+  obtain ⟨ea', hea', -, heq⟩ := normPosDomM_readEq_of R.hμ mp₁' ψ F hrun hwsxI hbxI hLxI hCtx
     (hmfr l hlF xI hxI)
     (by
       have h := hgrade l hlF
