@@ -85066,6 +85066,145 @@ which is a ¼-session KERNEL request on the recommendation above, or an
 unsized model proof if the maintainer prefers no new record.
 
 
+##### (iiii) CONTINUATION 24 (lane session 24) — the store's rules at the run, and K.50's shape CORRECTED
+
+Base: this lane's fb85f442.  No checker code changed; no `sorry`, no
+axioms, no `maxHeartbeats`.
+
+*The store's RULES* (9e28b41e), completing `nestedRecsStore`'s
+per-entry premises in `NestedStoreRun.lean`:
+
+* `NestedTailIn.storeRules` — `hrulesWF`.  `restoreRules_at` gives the
+  right-hand side's four syntactic facts at the environment
+  `restoreRules` ran at, and **`nestedFireShape_inv` IS `ConstWF`'s
+  nested clause, conjunct for conjunct** — modulo the pin tuple's
+  ORDER, which is the one thing to watch: the certificate reports
+  `hasFvar / looseBVarsBounded / constsResolve / allLevelParamsDefined`
+  and `ConstWF` asks `hasFvar / allLevelParamsDefined / constsResolve /
+  looseBVarsBounded`.  Only a MIMIC fires `.nested`; a member's fire is
+  `.plain`-or-`.inert`, so the clause is vacuous there — the same split
+  `recRuleLawsAt` makes, for the same reason.
+* `NestedTailIn.storeCtors` — `hctorStored`.  Its first conjunct is
+  `restoreRules_at`'s own verdict (task #279 K.24: a restored rule
+  whose constructor is not stored at the provision is INVALID).  The
+  other two are **K.50's**, taken as a hypothesis in the shape K.50's
+  inversion has.
+
+Both are stated at `nestedProvList`, the environment the rules were
+checked at; `nestedProvOf_nestedStoreList` ((ffff)) is the caller's
+single rewrite into the swap's own spelling.  That is the shape to
+prefer generally: prove a premise at the RUN's spelling and let the
+generic consumer's rewrite happen once, at the call site.
+
+##### (jjjj) A CORRECTION TO (gggg) — η is not about field counts, and the recommendation was half wrong
+
+(gggg) recommended recording the restored rules' K and η bits as
+`false`, reasoning that "the mimics' constructors have fields".  **The
+kernel lane built that Bool and measured it: it would DECLINE 35 of the
+41 Mathlib cone blocks and 7 of the 27 shadow fixtures.**  The argument
+is right about K and wrong about η — the η condition is about a
+STRUCTURE's single constructor and the recursor not being a projection
+function, NOT about field counts, and a copy of a structure-like
+container is structure-like.  The error was reasoning about η from K's
+premise.
+
+**What K.50 records is `hctorStored`'s two conjuncts THEMSELVES**, at
+the provisioned environment where `ConstWF` asks them:
+`(!r.k || recRuleKOf find? r.ctor) && (!r.eta || recRuleEtaOf find? cvRa.name r.ctor)`
+— 27/27 and 41/41 with zero fires.  So the model side takes exactly
+those two implications, and `storeCtors` passes them straight through
+rather than discharging them as vacuous.
+
+Two further results from that session, both worth keeping:
+
+* the Bool takes its lookup FUNCTION, not an `Env` — the `env.find?`
+  form cost **+0.053 %** on the cone and a stub showed all of it was
+  the lookups, so the mirror hands it `feR.find?`.  That is the
+  OPPOSITE conclusion from K.49, for exactly the reason K.49's rule
+  gives: this check runs per η-carrying rule at an environment holding
+  the whole prefix, where K.49's ran once.
+* a NULL RESULT not to mistake for coverage: dropping the `!r.k`
+  disjunct fails 24/27 and 41/41, so `recRuleKOf` holds at essentially
+  no restored rule and **the K half is vacuous on both corpora today**.
+  It is recorded anyway, because nothing makes it vacuous in
+  principle — a copy of a K-eligible member is K-eligible.
+
+##### (kkkk) THE RECURSORS' STAGE, ASSEMBLED — and it is THREE faces, not one
+
+(89423500.)  `nestedRecsStored_of`
+(`ConLeche/Model/Inductives/NestedStoreRun.lean:673`) proves
+`NestedRecsStored`, and `nestedTailModeled_of_three` (`:1078`) is
+`NestedTailModeled` from it.  The four stages wire as planned —
+`provisioned` → `recRuleLawsAt` at every class → `nestedRecsStore` at
+`nestedStoreList` → `stageNestedTables` — and the seven
+`NestedTailOut` fields read off them.
+
+**Say the residue plainly: the stage is NOT modulo K.50 alone.**
+
+1. `NestedRuleBitsOf` (`:444`) — **K.50**, in (jjjj)'s corrected form.
+   Requested, measured, landing.
+2. `NestedCtorPinNamesOf` — **K.36**, and this is NOT new debt: it is
+   the SAME face `nestedRecReadingsOf_of_faces` and
+   `nestedRecEqsOf_of_faces` already take, and
+   `nestedTailModeled_of_stage` already took.  It has no producer in
+   the tree and is the nested chain's own open face; the stage inherits
+   it rather than adding it.
+3. `NestedTablesDataOf` (`:605`) — **NEW, and it is this stage's own
+   residue.**  The scratch block's RECORDED projection tables' data
+   (`NestedMemberTableOk` at every element: the recorded constructor
+   name, the offset `1`, `structProjGuards`, and `TableMember`).
+   (cccc) already named the cause — the nested route RE-USES the
+   scratch install's table instead of recomputing it, so there is no
+   `MutualBlock` to project and no module performs the transfer.
+   (dddd) 3 predicted three obligations; the honest count is a face.
+
+So `NestedTailModeled` closes when K.50 lands AND `NestedTablesDataOf`
+is discharged (K.36 being the chain's pre-existing one).  **It is two
+away, not one.**
+
+*What did NOT need a face*, worth recording because (dddd) feared it:
+`repsAt`.  The block model crosses unguarded through the provision and
+the swap, and guarded through the tables — a new projection table moves
+a reading — with the `ProjFree` guards coming from the members' own
+types resolving at the pre-block environment and the restored
+constructors' `FrontDoorFacts.slots` at the formers'.
+
+Also new in the file and reusable: `nestedRecsStore_at` (the `subst`
+wrapper letting the swap take a NAMED provision list),
+`NestedInstallExt.rfl'`/`.trans`/`.cons`, and the nested install's four
+stage lemmas `consNestedFormers_installExt` /
+`consNestedCtors_installExt` / `storeNestedRecs_installExt` (whose
+recursor clause is CONDITIONAL — a mimic's `T.rec_j` is no
+`_.str "rec"`) / `nestedTables_installExt`.
+
+##### (llll) FILES AND GATES (session 24's HEAD)
+
+Touched: `ConLeche/Model/Inductives/NestedStoreRun.lean` only
+(225 → 1083), plus three FALLBACK entries in
+`scripts/pub-import-plan.py`.  No allowlist line, no checker code.
+
+**A gate lapse to own**: 9e28b41e (the store's rules) was committed
+after `lake build` and `lake test` alone, and its theorem-only public
+statements turned the pub-import half of shake RED — the same class
+(yyy) recorded, one file further on.  It was caught at the next
+commit, not at the one that caused it.  All three demotions are
+refused by the compiler, probed one at a time, and carry their reason.
+**Run the battery on the commit that changes a file's public surface,
+not on the next one.**
+
+`lake build` warning-free EXIT 0; `lake test` warning-free EXIT 0;
+shake 510 removals all allowlisted / pub-imports 1332 of 2197 public,
+none demotable (53 dot-notation fallbacks); layering base 353 / model
+285 / caps 3 / umbrella 1, 0 base→lane, 0 impl→theory; trust surface 13
+escapes in 5 allowlisted files (653 scanned), 0 outside;
+no-local-paths OK; overview-links 112; quote-gate 2; proofdeps 4965
+rows / 12 roots / **0 doors**.
+
+**Item 5 is DONE modulo the two faces above.**  What remains on this
+lane is `NestedTablesDataOf`'s producer — the transfer from the scratch
+install's own table stage, **1–1½ sessions**, and the last thing
+between this lane and `NestedTailModeled`.
+
 
 #### U.30 — L-B session 2: `CopyCtorInst.ordF` at the READING, the normalisation's reading law PROVED, `ContainerModeled`'s three clauses (lane L-B, 2026-09-16)
 
