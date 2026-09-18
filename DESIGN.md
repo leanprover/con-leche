@@ -82624,6 +82624,124 @@ of the ten probe theorems, of `nestedPinsEntry_of_le_all` and of
 Cost: one session.  Next: the kernel lane closes the seventh producer
 on the synced tree, then 3t takes merges 1 and 4.
 
+##### (bb) INTEGRATION 3t — the two merges 3s deferred, and the circularity resolved by SYNCING FIRST (session U-42)
+
+Integration 3s stopped at its first item and reverted it: the kernel
+lane's `ConstWF` major-premise clause was complete against the SIX
+producers on its own branch, and the integration branch had a SEVENTH.
+3s then synced the integration branch INTO that lane, and **the lane
+closed the seventh producer in one commit on top of that sync**.  Both
+deferred merges land here, in the pinned order:
+
+* `agent/uniform-m5` **997a999a** (M8: the clause, K.55, K.56, the
+  seventh producer) at **94b9e668**;
+* `agent/uniform-m7env` **71e7f932** (M7-3 sessions 21–23) at
+  **ca1f0d27**.
+
+**MERGE 1 WAS CONFLICT-FREE**, which is the whole point: the lane's
+history already contained integration 3s's own resolutions, so nothing
+was re-applied and nothing was re-decided.  Verified rather than
+assumed before merging — the rescued `mutualRecTy_major` is still in
+`Verify/Inductives/MutualWF.lean` with its relocation note, and the
+shake allowlist still carries both sides of 3s's union.
+
+###### (bb-1) THE RULE, CONFIRMED BY ITS OWN REMEDY
+
+§U.27 (aa-1) stated it: **a census sees only the producers that exist
+in the tree it runs on.**  3t is the confirmation, because the remedy
+worked exactly as the rule predicts.  The lane could not close a
+producer it had never seen; one sync put the producer in front of it;
+it closed it in a single commit; the merge that had failed then went
+through with no conflict at all.  **Sync a lane BEFORE it closes
+something tier-wide, not after** is now a fact about this task and not
+a prediction.
+
+And the lane's second census found **an EIGHTH site — a CALL rather
+than a producer** — which is why a kernel-lane merge touches seven
+model-tier files.  A census keyed on producers will miss call sites by
+construction; it took a second pass to see it.
+
+###### (bb-2) A CORRECTION TO (aa-1), from the lane that owns the file
+
+(aa-1) attributed the silently mis-merged `NestedRecsStore.lean` to the
+invariant's own tuple — `ConstWF` going from eight conjuncts to nine
+with the new one SIXTH, so every projection chain past the fifth shifts.
+**That shift is real, the lane verified it per site, and it is NOT what
+broke that file.**  The badly merged thing was the CALL to the
+provision, whose POSITIONAL arguments moved when the lane added a
+per-entry premise; two lanes edited the same call, the edits merged
+cleanly, and the arguments misaligned.
+
+Right in kind, wrong in place — and the kind is the part worth keeping:
+**a positional interface that gains an argument in the middle breaks
+its callers silently, and a clean auto-merge is exactly the moment
+nobody looks.**  It is the same shape as the structure that gained a
+parameter and broke named-argument sites off-branch (§U.27 (z-8) 1's
+neighbourhood), one position-based and one name-based.
+
+###### (bb-3) NUMBERING — two moved, one honoured, and the rule now lives HERE
+
+Lane M7-3's session 21 keeps **§U.110**, the number integration 3s
+reserved for it.  That reservation is the one 3s recorded ONLY on a
+lane branch, where no other lane could see it — so lane L-B took it at
+3s and had to be moved to §U.114.  Sessions 22 and 23 arrived as
+§U.111/§U.112, which had LANDED at 3s as lane L-E's sessions 37–38, so
+landed-outranks-arriving moves them to **§U.115** and **§U.116**.  Two
+headers, neither cited anywhere.
+
+**THE NEXT FREE NUMBER IS §U.117, AND THIS SENTENCE IS THE RECORD OF
+IT** — on the integration branch, which is the only place every lane
+can see.  There are no outstanding reservations.  The rule 3s's
+collision produced: *a number reserved on a lane branch is invisible to
+every other lane and will be taken again.*
+
+The citation audit found nothing to repoint: lane M7-3's own landed
+sections are cited correctly under 3r's renumbering (`§U.104 (b)` is
+its session 18), and its five new in-tree `.lean` citations name landed
+sections only — among them `§U.86`, the repoint integration 3r made on
+this lane's behalf, which arrived already applied.
+
+###### (bb-4) THE RESIDUAL AFTER 3t — unchanged, and that is expected
+
+* **`NestedPinsShape V μ F`** — `NestedPinsShapeOrdRight` and
+  `NestedPinsShapePinF` (lane L-B).
+* **`NestedPinsEntry V μ F`** — the shape plus **`NestedPinsLe`**
+  (lane L-E).
+* **`NestedTailModeled V μ F`** — **`NestedCtorPinNamesOf` (K.36)
+  ALONE**.
+* **M8** — `ModeledStepB`.
+
+Four, as after 3s.  Lane M7-3's field — the one the clause unblocks —
+lands in that lane's NEXT commit, not in the pin merged here, and it is
+the covering premise that stands behind one of these four.
+
+###### (bb-5) GATES
+
+At both merge commits: `lake build` **722 jobs** warning-free, `lake
+test` warning-free, layering base 353 / model 286 / caps 3 / umbrella 1
+with 0 base→lane and 0 impl→theory, trust surface 13 escapes in 5
+allowlisted files (654 scanned), no-local-paths OK, overview-links
+**112**, quote-gate **2**, proofdeps **4965 rows / 12 roots / 0 doors**
+— the baseline, unmoved through eleven merges across 3r, 3s and 3t —
+shake 510/510 allowlisted, pub-imports none demotable (1334 of 2236 at
+merge 1, 2242 at merge 4), **nested-shadow 37/37**.
+
+**`tests/arena.sh` EXIT 0 at merge 1**, the only one moving checker
+code (`Kernel/ExprOps`, `Kernel/DeclCheck`,
+`Kernel/Inductives/Modeled`, `Cached/CheckerC`): arena suite 91/96, e2e
+199/199, annot 15/15, nested-shadow 37/37, axiom pin 20 theorems,
+trusted and both `--jobs` sweeps at 162 + 199 + 15 with the same three
+recorded divergences.
+
+**The chain, verified** (`_tmp/uniform-315/chain-probe-u42.lean`,
+outside the build): `probe_decl_all` closes over exactly `hOrd`,
+`hPin`, `hLe` and `hK36` plus the run; `#print axioms` of the ten probe
+theorems, of `nestedPinsEntry_of_le_all` and of `copyPinFCorr`:
+`[propext, Classical.choice, Quot.sound]`.  Present and checked:
+`Expr.recMajorHeadOk` and `RecMajorHeadStored`.
+
+Cost: one session.  Next: lane M7-3's field once it has this tree.
+
 #### K.32 — the copies' recursive targets come from the container's own recursion (2026-09-16, task #315, lane L-B's DESIGN §U.23 (e))
 
 The model's `ordF` arm needs to know that a container-ORDINARY field
