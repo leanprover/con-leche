@@ -658,6 +658,76 @@ theorem replaceAllNested_head_const {env : Env} {blvls : List Level}
           show u'.getAppFn = _
           exact ih hih hf
 
+/-- **A FIRED OCCURRENCE'S PARAMETERS ARE CLOSED** (task #315 L-B):
+`nestedOccOk` REJECTS a nested occurrence whose parameter arguments
+carry a local variable (official's "nested inductive datatypes
+parameters cannot contain local variables"), so at an occurrence that
+mentions a name of the growing list an ACCEPTED run has none.  The
+`hloose` of `replaceIfNested_occurrence` and
+`replaceAllNested_occurrence` is therefore a CONSEQUENCE of the run
+rather than a second input — which is what a consumer needs at a
+MINTED domain, where the parameter arguments are the container's
+field's own and nothing records them closed. -/
+theorem replaceIfNested_loose {st : ElimState} {e : Expr}
+    {I : Name} {us : List Level} {args : List Expr} {cv : ConstantVal}
+    {caps : IndCaps} {ci : ContainerInfo} {r : Option (Expr × ElimState)}
+    (he : e = Expr.mkAppN (.const I us) args)
+    (hfind : env.find? I = some (.indInfo cv caps))
+    (hci : containerInfo? env I = some ci)
+    (hnP : ci.nP ≤ args.length)
+    (hment : ((args.take ci.nP).any fun a =>
+      st.newNames.any fun T => a.mentionsConst T) = true)
+    (h : replaceIfNested env blvls params pbs₀ st e = .ok r) :
+    ∀ a ∈ args.take ci.nP, a.looseBVarsBounded 0 = true := by
+  have hargsne : args ≠ [] := by
+    intro hnil
+    rw [hnil] at hment
+    simp at hment
+  have hfn : e.getAppFn = .const I us := by
+    rw [he, Expr.getAppFn_mkAppN]; rfl
+  have hargs : e.getAppArgs = args := by
+    rw [he, Expr.getAppArgs_mkAppN]; rfl
+  have hIq : (I == quotName) = false := by
+    cases hq : I == quotName with
+    | false => rfl
+    | true =>
+      exfalso
+      have hnone : containerInfo? env I = none := by
+        unfold containerInfo?
+        simp [hq]
+      rw [hnone] at hci
+      simp at hci
+  have hloose' : ((args.take ci.nP).any fun a => !a.looseBVarsBounded 0) = false := by
+    cases hb : (args.take ci.nP).any fun a => !a.looseBVarsBounded 0 with
+    | false => rfl
+    | true =>
+      exfalso
+      unfold replaceIfNested at h
+      split at h
+      · rw [hfn, hargs] at h
+        dsimp only at h
+        rw [hfind, hIq] at h
+        dsimp only at h
+        simp only [Bool.false_eq_true, if_false] at h
+        rw [hci] at h
+        dsimp only at h
+        rw [if_neg (by omega : ¬ args.length < ci.nP)] at h
+        unfold nestedOccOk at h
+        simp only [hment, hb, Bool.and_self, if_true, bind, Except.bind] at h
+        exact nomatch h
+      · obtain ⟨u, v, huv⟩ := mkAppN_app args hargsne (.const I us)
+        rename_i hne
+        exact hne u v (he.trans huv)
+  intro a ha
+  cases hab : a.looseBVarsBounded 0 with
+  | true => rfl
+  | false =>
+    exfalso
+    have hcon : ((args.take ci.nP).any fun a => !a.looseBVarsBounded 0) = true :=
+      List.any_eq_true.mpr ⟨a, ha, by simp [hab]⟩
+    rw [hloose'] at hcon
+    exact nomatch hcon
+
 /-- **ONE REWRITTEN OCCURRENCE** (task #315): at an application of a
 recorded container whose parameter arguments are closed and mention a
 name of the growing list, `replaceIfNested` fires — the result is the
