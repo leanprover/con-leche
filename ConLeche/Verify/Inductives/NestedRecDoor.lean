@@ -2,6 +2,7 @@ module
 
 public import ConLeche.Verify.Inductives.NestedInv
 import ConLeche.Verify.Inductives.MutualInv
+import ConLeche.Verify.Inductives.MutualWF
 import ConLeche.Verify.Inductives.FrontDoor
 import ConLeche.Verify.Inductives.StructRec
 import ConLeche.Verify.Inductives.NestedRestoreKit
@@ -414,6 +415,77 @@ theorem restoreWalk_major {R : RestoreTbl} (hp : R.PinsHeaded) {d mI : Nat} {e e
   rw [Expr.recMajorHeadOk, hs']
   simp only [hq]
 
+/-- `recMajorHeadOk`, inverted: the Bool says the strip succeeds at a
+`∀`-binder whose domain's head is a constant. -/
+theorem recMajorHeadOk_inv {ty : Expr} {mI : Nat} (h : Expr.recMajorHeadOk ty mI = true) :
+    ∃ (bs : List (Expr × BinderMeta)) (dom body : Expr) (bm : BinderMeta)
+      (n : Name) (us : List Level),
+      ty.stripPis mI = some (bs, .forallE dom body bm) ∧ dom.getAppFn = .const n us := by
+  unfold Expr.recMajorHeadOk at h
+  split at h
+  · next bs dom body bm hs =>
+    split at h
+    · next n us hd => exact ⟨bs, dom, body, bm, n, us, hs, hd⟩
+    · exact absurd h (by simp)
+  · exact absurd h (by simp)
+
+/-- **THE RESTORED TYPE'S MAJOR PREMISE IS CONSTANT-HEADED** (task
+#315): `restoreWalk_major` composed over the restore's VERBATIM
+PARAMETER PREFIX.
+
+`restoreNested` is not `restoreWalk`: it strips `R.nP` binders
+UNTOUCHED, walks only the body, and rebuilds the prefix.  So the
+source's major premise at `nP + nF` is the walked body's at `nF`, where
+`restoreWalk_major` applies, and the prefix goes back on by
+`stripPis_append`.  `restoreNested_stripPis_doms` cannot serve here: it
+asks the residue to mention no auxiliary name, and the major premise's
+domain is exactly where one sits. -/
+theorem restoreNested_major {R : RestoreTbl} (hp : R.PinsHeaded) {nP nF : Nat}
+    (hnP : R.nP = nP) {tyA tyR : Expr} {bs : List (Expr × BinderMeta)}
+    {dom body : Expr} {bm : BinderMeta}
+    (hs : tyA.stripPis (nP + nF) = some (bs, .forallE dom body bm))
+    {n : Name} {us : List Level} (hdom : dom.getAppFn = .const n us)
+    (hres : restoreNested R tyA = .ok tyR) :
+    Expr.recMajorHeadOk tyR (nP + nF) = true := by
+  obtain ⟨mid, h1, h2⟩ := rk_stripPis_split nP nF hs
+  have htk : (bs.take nP).length = nP := by
+    rw [List.length_take, stripPis_length _ hs]
+    omega
+  have hs' : tyA.stripPis R.nP = some (bs.take nP, mid) := by rw [hnP]; exact h1
+  have hpi : 0 < R.nP → ∃ ty b bm, tyA = Expr.forallE ty b bm := by
+    intro hlt
+    rw [hnP] at hlt
+    obtain ⟨j, rfl⟩ : ∃ j, nP = j + 1 := ⟨nP - 1, by omega⟩
+    cases tyA with
+    | forallE ty b bm => exact ⟨ty, b, bm, rfl⟩
+    | bvar _ | fvar _ _ | sort _ | const _ _ | app _ _
+    | lam _ _ _ | letE _ _ _ | lit _ | proj _ _ _ => exact nomatch h1
+  obtain ⟨body', hw, rfl⟩ := restoreNested_pis hs' hpi hres
+  -- the walked body's own major premise, by `restoreWalk_major`'s steps
+  obtain ⟨bs', body'', hsb, hw', -, -, -⟩ := restoreWalk_stripPis_doms nF hw h2
+  obtain ⟨dom', b'', hdw, -, rfl⟩ := restoreWalk_forallE_inv hw'
+  obtain ⟨q, ls, hq⟩ := restoreWalk_getAppFn_const hp dom hdw hdom
+  -- and the prefix, put back verbatim
+  rw [mkPisB_eq_foldr]
+  have hpre := rk_mkPisB_stripPis (bs.take nP) body'
+  rw [htk] at hpre
+  rw [Expr.recMajorHeadOk, stripPis_append nP hpre hsb]
+  simp only [hq]
+
+/-- **THE RESTORE CARRIES THE MAJOR PREMISE'S HEAD**, in the form the
+environment invariant asks for: the scratch recursor's Bool in, the
+restored recursor's Bool out.  `restoreNested_major` at
+`mI = R.nP + (mI - R.nP)`. -/
+theorem restoreNested_majorOk {R : RestoreTbl} (hp : R.PinsHeaded) {mI : Nat}
+    (hle : R.nP ≤ mI) {tyA tyR : Expr}
+    (hmajA : Expr.recMajorHeadOk tyA mI = true)
+    (hres : restoreNested R tyA = .ok tyR) :
+    Expr.recMajorHeadOk tyR mI = true := by
+  obtain ⟨bs, dom, body, bm, n, us, hs, hd⟩ := recMajorHeadOk_inv hmajA
+  have hsplit : R.nP + (mI - R.nP) = mI := by omega
+  rw [← hsplit] at hs ⊢
+  exact restoreNested_major hp rfl hs hd hres
+
 /-- **An auxiliary-free binder is its own restoration**: at a domain
 mentioning no auxiliary name the walk is the identity, so the restored
 telescope carries the source's domain verbatim. -/
@@ -446,11 +518,12 @@ theorem auxStored_rec_eq {env envAux : Env} {b : MutualBlock} {F : Nat}
         (mutualGenData b fms ctorsA kinds).2 mIdx = some a.cvRa.type ∧
       a.cvRa.type.allLevelParamsDefined b.rlps = true ∧
       a.cvRa.type.constsResolve (consMutualCtors b.nP ctorsA (consMutualFormers fms env)) = true ∧
-      a.cvRa.type.looseBVarsBounded 0 = true ∧ a.cvRa.type.hasFvar = false := by
+      a.cvRa.type.looseBVarsBounded 0 = true ∧ a.cvRa.type.hasFvar = false ∧
+      b.nP ≤ a.mI ∧ Expr.recMajorHeadOk a.cvRa.type a.mI = true := by
   obtain ⟨hnd0, -, -, -, env₁, fms, f₀, _tq₀, ctorsA, sortss, kinds, formers4, ctors4, cvRas,
     rulesOf, hformers, hf₀, -, -, -, hctors, hkinds, -, hgd, hrectys, -, htables, -⟩ :=
     checkMutualCore_inv h
-  obtain ⟨-, rfl⟩ := mutualFormers_inv hformers
+  obtain ⟨hchecks, rfl⟩ := mutualFormers_inv hformers
   obtain ⟨hlenR, hallR⟩ := checkMutualRecTys_inv hrectys
   -- every generated recursor constant, positionally
   have hshape : ∀ t, t < b.k → ∃ (cvRa : ConstantVal) (recTy : Expr), cvRas[t]? = some cvRa ∧
@@ -509,11 +582,36 @@ theorem auxStored_rec_eq {env envAux : Env} {b : MutualBlock} {F : Nat}
   have hname : cvRa.name = cv.name.str "rec" := by rw [hcvR, ← hrn]
   rw [hname, hstore, Option.some.injEq] at hfind
   have haq : a.cvRa = cvRa := (ConstantInfo.recInfo.inj hfind).1
+  -- **THE MAJOR PREMISE'S HEAD AT THE SCRATCH RECURSOR** (task #315):
+  -- the read-back's own major index is the store's, and the store's
+  -- type is `mutualRecTy`'s output
+  have hmI : a.mI = b.rulePrefix + (fms.getD mIdx default).nIdx :=
+    (ConstantInfo.recInfo.inj hfind).2.1
+  obtain ⟨hf4, hc4⟩ := Prod.mk.inj hgd
+  have hkf : b.k = formers4.length := by
+    rw [← hf4, List.length_map, mutualFormerChecks_length hchecks]
+    rfl
+  have hnc : b.n = ctors4.length := by
+    rw [← hc4]
+    simp only [List.length_zipWith, List.length_zip, (checkMutualCtors_inv hctors).1,
+      (classifyMutualKinds_inv hkinds).2.2.2, MutualBlock.n]
+    omega
+  have hnIdxs : ∀ m f, formers4[m]? = some f → (fms.getD m default).nIdx = f.nIdx := by
+    intro m f hm
+    rw [← hf4, List.getElem?_map] at hm
+    obtain ⟨g, hg, rfl⟩ := Option.map_eq_some_iff.mp hm
+    rw [List.getD_eq_getElem?_getD, hg]
+    rfl
+  have hmaj := checkMutualRecTys_majorHead (fms := fms) hrectys hkf hnc hnIdxs mIdx cvRa hmk hgetR
   rw [haq, hcvR]
   refine ⟨rfl, rfl, fms, f₀, ctorsA, sortss, kinds, hformers, hf₀, hctors, hkinds, ?_,
-    hlp, hres, hbv, hfv⟩
-  rw [hgd]
-  exact hrt
+    hlp, hres, hbv, hfv, ?_, ?_⟩
+  · rw [hgd]
+    exact hrt
+  · rw [hmI, MutualBlock.rulePrefix]
+    omega
+  · rw [hmI, ← hcvR]
+    exact hmaj
 
 /-- **AND ITS RULES ARE THE SCRATCH INSTALL'S GENERATED ONES**
 (`auxStored_rec_eq`'s twin at the RULES): the read-back's recursor

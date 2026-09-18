@@ -103680,3 +103680,74 @@ links over 65 files, no anchor moved; quote-gate OK; **proofdeps 4965
 module rows / 12 roots / 0 doors** (the baseline, unmoved); shake 510
 removals all allowlisted; nested-shadow 37/37; layering base 353 / model 286 / caps 3 / umbrella 1, 0 base->lane and 0 impl->theory.
 `tests/arena.sh` not re-run: the session touches no checker code.
+
+##### THE SEVENTH PRODUCER, and what a census cannot see
+
+The integration carries a module this lane's tree never had:
+`Verify/Inductives/NestedRecsWF.lean`, the restored recursors' own
+`EnvWF` producer (`nested_recs_wf`, `mutual_recs_wf`'s twin at
+`provisionNestedRecs`/`storeNestedRecs`).  The clause's census, re-run
+four times, enumerated six producers and was correct **on the tree it
+ran on**; the integration has seven.  So the census rule gains a second
+clause, and it is not a refinement of the first: a census sees only the
+first error per file, AND it sees only the producers that exist in the
+tree it runs on.  The consequence is operational — **a lane closing
+something tier-wide should sync before the census, not after**.
+
+The seventh producer's hypothesis gave the constant-headed major
+premise only under the per-rule `.nested` fire guard, where the clause
+asks for it UNCONDITIONALLY: a restored recursor with no nested-firing
+rule still declares a major premise, and nothing under that guard
+speaks about it.  So `nested_recs_wf` gains `hmaj` per entry, and the
+route proves it.
+
+##### THE RESTORED RECURSORS' MAJOR PREMISE, proved
+
+Four links, three of which existed:
+
+* **the transport across the walk** — `restoreWalk_major`, which until
+  now had NO consumer, because the thing that would consume it did not
+  exist;
+* **the composition over the verbatim parameter prefix** —
+  `restoreNested_major` (new, ~25 lines): `restoreNested` is not
+  `restoreWalk`, it strips `R.nP` binders untouched, walks the body and
+  rebuilds the prefix, so the source's major premise at `nP + nF` is the
+  walked body's at `nF`.  `restoreNested_stripPis_doms` cannot serve:
+  it needs the residue to mention no auxiliary name, and the major
+  premise's domain is exactly where one sits.  `restoreNested_majorOk`
+  is the Bool-in/Bool-out form the invariant wants;
+* **the scratch recursor's own shape and index** — `auxStored_rec_eq`
+  gains two conjuncts, `b.nP ≤ a.mI` and
+  `Expr.recMajorHeadOk a.cvRa.type a.mI = true`.  Both come from data
+  the proof already had: the read-back's `mI` IS the store's
+  (`storeMutualRecs_find?_recInfo`, one projection of the `hfind` the
+  proof already inverts) and the stored type is `mutualRecTy`'s output
+  (`checkMutualRecTys_majorHead`).  `mutualFormerChecks_length` had to
+  be generalised from `auxRoute = false` to any grade, since the scratch
+  install runs the same fold at `true`;
+* **`PinsHeaded` at the route** — `NestedTailIn.pinsHeaded`, and this is
+  the one case of `restoreWalk_getAppFn_const` with content (at a
+  `ctorPins` key the replacement is `newName`, at a `recMap` key the
+  renamed constant, both `const` by construction).  It needed no new
+  check and no measurement: a recorded pin IS the source spelled out,
+  `q.pin = I lvls Ds`, which is K.28's own record read through
+  `nestedCopySrcOk_inv`, and neither `abstractRange` nor
+  `liftLooseBVars` can change an application's head.
+
+The mimics needed no second argument after all: the scratch block's
+members ARE the real members followed by the copies, so one `stored`
+list serves both halves and only the NAME lists differ.
+
+##### AND AN EIGHTH SITE, which is a call rather than a producer
+
+`NestedTailIn.scratchProv` (`Model/Inductives/NestedRecRule.lean`) calls
+the MUTUAL rule-less provision at the nested route's SCRATCH block, so
+it needs the mutual `hmaj` too — discharged from
+`checkMutualRecTys_majorHead` at `S.rectys` with the three arity facts
+off `mutualGenData`'s components, which the tail record carries
+(`I.out.formers`, `I.out.ctors`, `I.out.kindsRun`).
+
+**No runtime check was added anywhere in this arc**: the nested route's
+major-premise fact is a PROOF from the route's own generators and
+records, so no accept set can move by construction — which is what the
+battery confirms rather than establishes.

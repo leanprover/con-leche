@@ -361,15 +361,15 @@ theorem find?_isSome_cons_mono {c c' : ConstantInfo} {env env' : Env}
 because the stored recursor's major index is
 `b.rulePrefix + (fms.getD m default).nIdx` while `mutualRecTy` is called
 at `formers4 = fms.map …`. -/
-theorem mutualFormerChecks_length {nP F : Nat} :
+theorem mutualFormerChecks_length {nP F : Nat} {g : Bool} :
     ∀ {l : List (ConstantVal × Nat)} {env : Env} {fms : List MutualFormerA},
-      mutualFormerChecks (fueledOps mode F) env nP false l = .ok fms →
+      mutualFormerChecks (fueledOps mode F) env nP g l = .ok fms →
       fms.length = l.length
   | [], _, _, h => by
-    obtain rfl := mutualFormerChecks_nil_inv h
+    obtain rfl := mutualFormerChecksG_nil_inv h
     rfl
   | (cv, nIdx) :: rest, env, fms, h => by
-    obtain ⟨cvTa₀, cvTa, s, bs, fs, -, -, -, hrest, rfl⟩ := mutualFormerChecks_inv h
+    obtain ⟨cvTa₀, cvTa, s, bs, fs, -, -, -, hrest, rfl⟩ := mutualFormerChecksG_inv h
     simp only [List.length_cons]
     exact congrArg (· + 1) (mutualFormerChecks_length hrest)
 
