@@ -105265,3 +105265,59 @@ findings (the `tryCatch` boundary and the grade tax).
    expecting exit 2 must be re-read before a line comes out.
 
 Nothing in (1)–(3) needs a fact that is not recorded today.
+
+#### The next row, priced: the pins' COMPONENTS, rewritten (lane L-E's request)
+
+Three model arms (`recF`, `es`, `ordF`-left) have no route until the
+route records that every component of a pin's argument spine rewrites,
+at the final state, by the elimination's own `replaceAllNested`.  This
+is K.51's clause at COMPONENTS instead of domains.
+
+**CARRIER — recompute-and-certify, in `nestedPinRewrites`' shape.  No
+change to `NestedPin` or `ElimState`.**  Reasons, in order: a new pin
+field means touching `mkCopies` and every `ElimState` literal, which is
+exactly where the `mintedAt` trap bit — a literal naming three fields
+silently reset the fourth on every mint, and two Mathlib cone blocks
+carried a wrong parent for a session; the elimination needs no new
+parameter this way; and K.51 already proves the shape is consumable by
+the model tier, so L-E reads the same idiom twice rather than two.
+
+**THE SHAPE**
+
+```lean
+def nestedPinCompRewrites (env : Env) (p : NestedParts) (st : ElimState)
+    (params : List Expr) (pbs₀ : List (Expr × BinderMeta)) :
+    Option (List (List Expr)) :=
+  st.pins.mapM fun q => q.pin.getAppArgs.mapM fun c =>
+    match replaceAllNested env (p.lps.map Level.param) params pbs₀ st c with
+    | .ok (c', st') =>
+      if st'.types.length == st.types.length && st'.pins.length == st.pins.length
+      then some c' else none
+    | .error _ => none
+```
+
+with the Bool `(nestedPinCompRewrites …).isSome` under
+`nestedRewriteData p st`, checked **unconditionally** in both routes —
+NOT inside `nestedPinChecks`, which is entered only at
+`mode.verifiedChecks`, and a gated check cannot serve a consumer that
+needs it in every mode.  Failure is `.internal`.
+
+**THE CLAUSE THAT WOULD OTHERWISE BE MISSED** — which copy name is which
+aux index — needs no kernel check: `nestedCopyNames k st` is
+`(st.types.drop k).flatMap fun t => t.name :: t.name.str "rec" ::
+t.ctors.map (·.1)`, so the `j`-th copy's block IS `st.types[k + j]`
+positionally.  It ships as a Verify lemma (`nestedCopyNames_getElem`),
+not as a run fact.
+
+**PRICE: 1.5 sessions.**  (A) kernel ~40 lines (two defs, the check in
+both routes, one more `ofDecCases` line in each of the landed
+`checkNestedS_push` and `checkNestedS_skels`); the pure inversion and
+the run relation's conjunct with the model's destructurings ~40; (B)
+the consumer-side exposure — `nestedPinCompsOk_inv` (the same
+`Option`-`mapM` inversion idiom as `nestedOrdDomPairs_WScoped`, ~70
+lines) and `nestedCopyNames_getElem` ~15; (C) the measurement, half a
+session: conformance over e2e+arena, `init-full` and Mathlib with a
+firing control and the reachability count, AND — because this check is
+unconditional and walks every pin component — an instruction-count
+measurement (`perf stat -e instructions:u`) in both modes, since the
+cost lands in trusted mode too.
