@@ -626,11 +626,38 @@ fitting the container's real domains, the CONTAINER's domain read at
 the pin's frame IS the copy's slot at `Z`, taken at the field's target
 (`CopyEntry` of DESIGN §U.23, re-based on the container's prefix fit
 and generic in the tuple, task #315 L-E). -/
+@[expose] def CopyEntryAtF (fr : Nat → V) (w : Nat) (u : Nat → Nat) (Z : Nat → V) (l : Nat) :
+    Prop :=
+  ∀ fs₁ : List V, fs₁.length = l →
+    SpineFit fr (((dJ.Fss i ψJ).getD j []).take l) fs₁ →
+    interp V (consList fs₁ fr) (((dJ.Fss i ψJ).getD j []).getD l default)
+      = slotSet w (u (tg l)) (consList fs₁ ρp) (tls.getD l []) (Eis.getD l []) (Z (tg l))
+
+/-- **THE ENTRY IDENTITY, FRAME-GENERIC** (task #315 L-E, clause two of
+the closure step).  `CopyEntryAt` is `CopyEntryAtF` at the RECORDED
+frame, definitionally, so every consumer is untouched.
+
+**The asymmetry is the whole point.**  The container's side — the
+`SpineFit` and the `interp` of its field domain — is read at the frame
+`fr`; the copy's SLOT is read at `ρp`, the block's own frame, and does
+not move.  That is what a candidate frame IS: the same syntactic shape
+(`CopyCtorShape` keeps `Ds` untouched, because the copy is the container
+at `Ds` whatever frame one reads it at) evaluated on the container's
+side at different component values.  Separating the two was the finding:
+the frame and the shape are separable, and only the frame moves. -/
 @[expose] def CopyEntryAt (w : Nat) (u : Nat → Nat) (Z : Nat → V) (l : Nat) : Prop :=
   ∀ fs₁ : List V, fs₁.length = l →
     SpineFit (consList (Ds.map (interp V ρp)) ρp) (((dJ.Fss i ψJ).getD j []).take l) fs₁ →
     interp V (consList fs₁ (consList (Ds.map (interp V ρp)) ρp)) (((dJ.Fss i ψJ).getD j []).getD l default)
       = slotSet w (u (tg l)) (consList fs₁ ρp) (tls.getD l []) (Eis.getD l []) (Z (tg l))
+
+/-- **Today's entry identity IS the frame-generic one at the recorded
+frame** (task #315 L-E).  `Iff.rfl`, so the re-basing is conservative
+and no consumer moves. -/
+theorem copyEntryAt_iff_F (w : Nat) (u : Nat → Nat) (Z : Nat → V) (l : Nat) :
+    CopyEntryAt (V := V) dJ ψJ Ds tg tls Eis ρp i j w u Z l
+      ↔ CopyEntryAtF (V := V) dJ ψJ tg tls Eis ρp i j
+          (consList (Ds.map (interp V ρp)) ρp) w u Z l := Iff.rfl
 
 /-- **The entry at the STORED READING** (task #315 L-E, DESIGN §U.36):
 the shape of a container-ordinary field the elimination rewrote — the

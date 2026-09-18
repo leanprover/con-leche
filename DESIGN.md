@@ -106404,3 +106404,86 @@ the one thing that would move the number and is not claimed.  Kernel:
 2–3, unchanged.
 
 Nothing in this section changes the tree.
+
+#### (number at the integrator's sync) — L-E: CLAUSE TWO'S SURFACE — the frame and the shape are SEPARABLE, and only the frame moves (lane L-E, 2026-09-18)
+
+Clause two is the section agreement: the container's section at the
+candidate frame below the auxiliary block's own section at the copy.
+The standing reminder paid off again — **the tree already proves the
+agreement in the other direction, at the true frame**, and reading that
+proof is what sized this one.
+
+##### (a) WHAT THE TREE ALREADY PROVES
+
+`nestedPinsFixed` is steps (i) and (ii), and step (i) IS a section
+agreement: the auxiliary fibre at a copy is the container's fibre at its
+least tuple, an EQUALITY, via `CopyCtorShape.fit_iff_at` at the joined
+tuple `segJoin k n Lblock P` whose entries are the targets' stored
+readings.  Step (ii) then falls out by leastness.
+
+So clause two is not a new argument.  It is `fit_iff_at` **at a
+different tuple and a different frame**: `Z := L⁺` instead of the join,
+and the candidate frame instead of the recorded one.
+
+##### (b) THE SURFACE, named exactly
+
+`fit_iff_at` is stated over a section variable `Ds : List AnnotTerm`
+with the frame a local notation `ρJ = consList (Ds.map (interp V ρp))
+ρp`.  The re-basing is therefore:
+
+| object | what moves |
+| --- | --- |
+| `CopyCtorShape` | **nothing** — `Ds` stays |
+| `CopyEntryAt` / `EntryRead` / `CopyEntryOut` / `CopyEntryA` | the frame |
+| `CopyCtorShape.fit_iff_at` / `.fit_imp` | the frame (`ρJ`), and `LJ` becomes `pinLfpAt`-shaped |
+
+**`Ds` stays in the shape and only the frame moves**, and that
+separation is the finding.  The copy IS the container at `Ds`
+syntactically, whatever frame one reads it at; what a candidate frame
+changes is the values the container's side is evaluated on.  The
+asymmetry is visible in the entry identity itself: the CONTAINER's side
+— the `SpineFit` and the `interp` of its field domain — is read at the
+frame, while the copy's SLOT is read at `ρp`, the block's own frame, and
+does not move.
+
+##### (c) LANDED — `CopyEntryAtF`, the first brick
+
+`ConLeche/Model/Inductives/NestedFit.lean`: `CopyEntryAtF` is the entry
+identity with the container-side frame an argument, and
+`copyEntryAt_iff_F` is `Iff.rfl`, so the re-basing is conservative and
+no consumer moves.
+
+A mechanical note worth one line, because it will recur through the rest
+of this surface: `CopyEntryAtF` does not mention `Ds`, so its
+auto-bound section variables differ from `CopyEntryAt`'s and the two
+signatures do NOT line up positionally.  Defining one as an application
+of the other fails with an argument-order mismatch; stating the bridge
+as a separate `Iff.rfl` theorem with explicit named arguments is the way
+through.
+
+##### (d) THE PRICE HOLDS, and the schedule improves
+
+Clause two at **2–3 sessions** is confirmed by its surface rather than
+estimated: four frame-generalisations of the same mechanical kind this
+lane has now done five times (`pinLfpAt`, `pinTarget_reads_at`,
+`targetValAt`, `TargetView.frameAt`, `CopyEntryAtF`), plus `fit_iff_at`
+re-based and instantiated at `Z := L⁺`, whose `hZ` is
+`tupleLfpAV_fold` at the field's target — index-generic, no case, no
+cross-pin hypothesis.
+
+And the schedule improves as the coordinator predicted: because the
+frame is universally quantified, the ten theorems and G3's two can be
+re-based against the abstract frame **in parallel with** the component
+family's producer rather than after it.  The 8–11 is partly overlapped,
+not sequential.
+
+##### (e) THE CROSS-PIN QUESTION, still where it was
+
+Clause two is now sized but not written, and it is still the place a
+cross-pin hypothesis would hide.  `fit_iff_at`'s own hypotheses —
+`IsBlockModels`, `FormersTyped`, `PinsTyped`, the universe facts, the
+parameter fit — are all about ONE container; `hZ` at `Z := L⁺` is
+index-generic.  **Nothing cross-pin is visible on the surface, and this
+lane still does not claim it.**  K.57 untouched.
+
+Nothing in this section changes the tree.
