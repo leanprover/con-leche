@@ -104981,3 +104981,197 @@ warning-free; layering, trust-surface, no-local-paths, overview-links,
 quote-gate, proofdeps, shake and nested-shadow all pass.
 `tests/arena.sh` not re-run: no checker code touched — K.51's kernel
 side arrived with the integration.
+
+#### L-B session 31: the backwards inversion LANDED and its side condition FREE; and `EntryReadF` at the candidate frame is NOT a shape-and-reading obligation (lane L-B, 2026-09-18)
+
+*(No number taken: the title is the citation, the integrator numbers.)*
+
+##### (a) THE REQUEST THIS LANE MADE IS RETIRED — and by something better than the reason given
+
+Session 30 asked for a fourth conjunct on `normPosDomM_pres`/`whnf_*`:
+`whnf` preserving `constsResolve`, so that the rewrite's input `w`
+could be shown copy-free.  **That request is withdrawn, and so is the
+replacement the brief offered.**
+
+The brief proposed deriving copy-freeness from three identity shapes of
+the walk — `normPosDomM_no_mention` (member-free), `normPosDomM_indApp`
+(a stuck inductive application) and `normPosDomM_piIndApp` (a Π-tower
+over one) — "exhaustive at a copy's fields by K.26's classification".
+**Those three are facts about the walk's INPUT, and the classification
+is a fact about its OUTPUT'S IMAGE UNDER THE REWRITE, so the
+trichotomy does not transfer.**  `tests/e2e/nested_p26.ndjson` is the
+witness, in lane L-E's own probe output (`524c87fc`): at the edge
+`q=0(P26D) -> pin 1`, the container's domain is `(#1 #0)` — a PARAMETER
+APPLIED — and the component is `fun _:Nat => ((P26V P26) #0)`, a λ.  So
+the MINTED domain there is a β-redex, which is none of the three
+shapes; the positivity `whnf` reduces it, and only then is the result a
+container application the rewrite fires on.  A fourth fixture,
+`nested_lam_pin_prop`, is the same phenomenon at a reflexive field.
+
+**What discharges the side condition instead is a conjunct this lane's
+own lemma already returns.**  `NestedPinsRun.copyFieldReadCoreQ`
+concludes, beside the reading, that
+
+    denoteMeta mp₁'.base2.acval (consMutualFormers (fms.take p.k) env) ψ (b.nP + l) w = some ea'
+
+— `w` READS at the MEMBERS-ONLY environment.  `denoteMeta` answers
+`none` at a `.const n us` the environment does not find, so a term it
+reads names no constant the environment lacks
+(`denoteMeta_some_found`, `Model/Inductives/NestedCopyFound.lean`,
+already in the tree since this lane's earlier session).  The copies are
+minted into a scratch environment the RESTORE removes and are not in
+`consMutualFormers (fms.take p.k) env`.  **So `w` cannot be headed by a
+copy, and no preservation property of `whnf` is involved at any
+strength.**  `denoteMeta_head_ne_fresh` (commit `a1019e83`) is the
+one-line consequence, stated at the HEAD because the head is all the
+inversion uses and because `mentionsConstRead` — the walk `denoteMeta`
+actually performs — sees a spine head and does not see a `fvar`
+annotation.
+
+**The `ErasedEq` congruence residual (queue item 3) is retired with
+it**: it existed only to carry copy-freeness across
+`normPosDomM_piIndApp`'s conclusion, and nothing now goes that way.
+
+##### (b) THE BACKWARDS INVERSION, LANDED (commit `f33926f0`)
+
+`replaceAllNested_container_head`
+(`Verify/Inductives/NestedCopyRewrite.lean`): a walk whose OUTPUT's
+spine head is a constant its INPUT is not headed by has FIRED, and the
+firing identifies the input's head as a RECORDED CONTAINER together
+with the pin at its parameter arguments —
+
+    e.getAppFn = .const I lvls ∧ env.find? I = some (.indInfo cv caps) ∧
+    containerInfo? env I = some ci ∧ ci.nP ≤ e.getAppArgs.length ∧
+    q ∈ st₁.pins ∧ q.pin = mkAppN (.const I lvls) (e.getAppArgs.take ci.nP)
+
+Three pieces, none of which existed:
+
+* `replaceAllNested_head_or_fire` — `replaceAllNested_head_const`'s
+  contrapositive at an ARBITRARY head.  The walk's only head-changing
+  step is a fire and its descent into `.app f a` offers every PREFIX of
+  the spine to the step at the ORIGINAL state, so the disjunction is
+  uniform in the state.  The base case (`rw_nonApp_head`) is where the
+  generality is paid for: at a term that is not an application the walk
+  either fires at it, or hands back a term with the SAME TOP FORMER, so
+  a constant-headed output pins the input to that constant.
+* `replaceIfNested_fire_inv` — the step's own guards read backwards: a
+  firing is an application of a stored inductive former with a recorded
+  container block, carrying at least the block's parameters and passing
+  the occurrence test.
+* `replaceIfNested_fire_pin` — `replaceIfNested_occurrence` with its
+  shape hypotheses supplied BY the firing (the occurrence test's two
+  verdicts give the mention and the closedness), so a firing alone
+  identifies the pin with nothing assumed about the term fired on.
+
+**This is queue item 4's step (iii) at the syntactic level.**  Step
+(iv), the reading — `w`'s reading is `TargetView.EA (p.k + qq)`,
+`copyPinFCorr`'s `EA` clause with `w` in place of the minted spine — is
+what is left of the `ordF`-right arm at a PIN target, and it is now
+unblocked with no open side condition.
+
+##### (c) `EntryReadF` AT THE CANDIDATE FRAME: WHAT IT NEEDS, AND WHY THIS LANE CANNOT STATE IT
+
+The brief assigns this lane the chain's last open antecedent and calls
+it "a shape-and-reading obligation, not an ordering one".  **Worked
+through, that characterisation does not hold**, and the reason is
+visible in three places in the tree rather than in this lane's
+judgement.
+
+**1. The parameter that has to move is `frSelf`, not `cAs`.**  In
+`EntryReadF TV dJ ψJ tg tls Eis ρp i j cAs EAv frSelf l`, `cAs` occurs
+ONLY inside the `hZ` hypothesis's spine-fit side condition; the
+conclusion — `CopyEntryAtF` — reads the container's field domain at
+`frSelf`.  At an `ordF`-RIGHT field targeting a PIN, that domain's
+value at the RECORDED frame is the CONTAINER's least tuple (this is
+exactly what `copyFieldReadPin` returns: the container-headed pre-image
+`w`'s reading, K.51's own rationale), while `EAv` at the candidate is
+the AUXILIARY CARRIER.  So `EntryReadF` with `frSelf` recorded and
+`EAv` the carrier asks for
+
+    P q'  =  slotSet … (L⁺ (p.k + q'))
+
+which is `pinLeaf` AT ANOTHER PIN — the ordering content, verbatim.
+`frSelf` must therefore be the candidate frame, which is also what
+`CopyEntryAtF`'s own docstring says.  **And the tree contains no
+candidate value for it**: lane L-E's `CandParamFit`/`CandIdxAgree` are
+side conditions ON such a family, `candIdxAgree_pinAs` shows they hold
+of the TRUE components, and L-E recorded the production of `candAs` as
+an open scope call (a re-pointing interpreter, or an abstract carry).
+A conditional form is not a close on this project, so this lane does
+not carry it abstractly on its own initiative.
+
+**2. Even with `frSelf` candidate, the step to `hentR` is not a
+re-basing.**  `hentR` is a hypothesis of
+`CopyCtorShape.fit_imp_T_le_dom` (and of `fit_iff_at_T_dom`,
+`copyTransfer_pin`), and in all three the container's side is read at
+`ρJ = consList (Ds.map (interp V ρp)) ρp` — the RECORDED frame.  Their
+proofs turn on `slotSet_instTele … Ds ρp …` and `interp_instAll`, which
+are the two steps lane L-E's own refutation showed force the frame to
+be the interpretation of the terms substituted in.  So
+`fit_imp_T_le_dom` is no more frame-re-basable than `fit_iff_at` was,
+and the chain `CopyEntryAtF at L⁺ ⟹ hentR` has an unstated step whose
+cost is unknown.
+
+**3. The substance, in one sentence.**  The syntactic bridge from the
+container's field domain to the copy's STORED domain (`interp_instAll`,
+K.42, K.51) holds exactly at the RECORDED frame, and the carrier
+reading of a copy-target field (`MutualFormersFacts.leaf`, which is
+stated at every `t < fms.length` and so covers the COPIES, composed
+with `auxTarget_reads`) holds exactly at `ρp`.  The candidate-frame
+entry identity needs the container's domain at a frame where the
+components denote CARRIERS, and no bridge holds there — except where
+the container's field domain is PARAMETER-HEADED, in which case the
+domain's value IS the candidate component and the identity is
+immediate.
+
+**4. And lane L-E's own measurement says that exception is a
+minority.**  `pins_le_of_declOrder`'s docstring (L-E, `524c87fc`)
+enumerates the arms of exactly this obligation: "a PARAMETER-headed
+domain needs nothing either, and that is the whole point of the
+candidate frame … (35 of the 94 measured edges)"; "a CONSTANT-headed
+domain at a container declared strictly earlier is the one arm that
+consumes the hypothesis (59 of 94, all measured strictly earlier,
+K.57)".  That is a description of `EntryReadF` at the candidate frame,
+and it says 59 of 94 of its instances consume the declaration-order
+hypothesis.  Nothing in the tree retracts it; the later claim that the
+collapse lemma removes the cross-pin demand is stated about `hentR` at
+`Z := L⁺` and does not address the container-domain head at the
+candidate frame.
+
+**What this lane is NOT claiming**: that the candidate-frame route is
+wrong, or that `auxTarget_reads` is anything other than the real
+advance it is.  `auxTarget_reads` is cross-pin-free and it does remove
+the ordering from the TARGET's reading.  What it does not remove is the
+ordering in the container's DOMAIN at a constant-headed occurrence, and
+that is the half that lands here.
+
+**The question for lane L-E / the coordinator**, and it is a statement
+question rather than a difficulty: is `EntryReadF` at the candidate
+frame meant to be asked only at the parameter-headed edges (in which
+case its statement needs that restriction, and the constant-headed ones
+keep K.57), or at all of them (in which case `pins_le_of_declOrder`'s
+docstring is stale and the argument that supersedes it needs writing)?
+Until that is answered this lane cannot write the statement, and
+writing the wrong one is exactly the failure mode the "do not
+half-start a long proof" rule exists for.
+
+##### (d) WHERE THE LANE'S OWN QUEUE STANDS
+
+* item 2 (the backwards inversion) — **LANDED**, and its side condition
+  is free;
+* item 3 (the `ErasedEq` congruence) — **RETIRED**, it was a residual of
+  the route (a) replaced;
+* item 4 — step (iii) **LANDED** (`replaceAllNested_container_head`);
+  step (iv), the reading, is unblocked and is the next session;
+* item 1 (`EntryReadF` at the candidate frame) — **BLOCKED on (c)'s
+  statement question**, not on difficulty.
+
+##### (e) GATES
+
+At `a1019e83`: `lake build` warning-free; `lake test` warning-free;
+layering, trust-surface, no-local-paths, overview-links, quote-gate,
+proofdeps, shake and nested-shadow all pass.  `tests/arena.sh` not
+re-run: no checker code touched (both commits are Verify/Model tier).
+Lane L-E's `agent/uniform-entry` (`524c87fc`) was READ for this
+session's analysis but NOT merged — the tree here is still at the
+integration's base plus this lane's commits.
