@@ -107492,3 +107492,83 @@ and BOUNDED — it does not reach the fit layer — while (1) is expensive
 and, once its record lands, does.
 
 Nothing in this section changes the tree.
+
+#### (number at the integrator's sync) — L-E: `CopyEntryOutF` landed; the two-frame hypothesis is REFUTED, and the forcing arm is not `recF` (lane L-E, 2026-09-18)
+
+##### (a) LANDED — the carry, completed
+
+`CopyEntryOutF` and `copyEntryOut_iff_F` (`Iff.rfl`).  **`Ds` does not
+occur in it**, which is the whole point of the carry.  The entry layer is
+now stated at an arbitrary container-side frame end to end:
+`CopyEntryAtF` → `EntryReadF` → `copyEntryAtF_of_read` →
+`CopyEntryOutF`, each with an `Iff.rfl` bridge to its recorded form.
+
+##### (b) THE ARITHMETIC, CORRECTED — and the coordinator's guess was right
+
+This lane said "three through the entry, two not", which is five over
+four sites and wrong in both directions.  `ordF` has TWO disjuncts, so
+there are FIVE arms over four fields, and the split is:
+
+| arm | reaches `Ds` how | carries? |
+| --- | --- | --- |
+| `ordF`-RIGHT | through `EntryRead` | **yes** |
+| `pinF` | through `PinCorr`/the entry | **yes** |
+| `recF` | `slotSet_instTele … Ds ρp` | no |
+| `ordF`-LEFT | `hF` then `interp_instAll` | **no** |
+| `es` | `h.es` then `interp_instAll` | no |
+
+**`ordF`-left does NOT re-base freely.**  Its consumer in `fit_iff_at`
+is `rw [if_neg …, hF fs₁ rfl hsp, interp_instAll]` — the same
+commutation as `es`, with the same forcing of the frame to the recorded
+values.  Being an equation at an arbitrary `fs₁` does not help: the
+equation is between the copy's reading and `instAll Ds` of the
+container's, and it is `interp_instAll` that turns that into a
+frame.  **So the third piece is THREE arms, not two**, and that is
+before anyone prices it.
+
+##### (c) THE HYPOTHESIS IS REFUTED, in two steps
+
+**Step one — `recF`'s target being inside the group is a fact about the
+FAMILY, not the frame.**  Its slot family is
+`segJoin base kJ L LJ (tg l)`, and `tg l ∈ [base, base + kJ)` selects
+`LJ`, the CONTAINER's least tuple, rather than `L`.  Its slot's FRAME is
+`consList fs₁ ρp`, the block's, which does not move.  So `recF` straddles
+— copy-side frame, container-side family — and the asymmetry rule is not
+violated by it.  There is also no parameter to split: `CopyCtorShape`
+has no frame parameter at all, only `Ds` and `ρp`; the container frame
+`ρJ` is a local notation DERIVED from `Ds` in `fit_iff_at` and
+`fit_imp_T_le_dom`.
+
+**Step two — and this is the real answer: the arm that forces the two
+frames together is `hC`, the chain-fit hypothesis.**
+
+```lean
+(t : V) (fs : List V) (hC : dJ.ChainFitT pc ψJ ρJ T t i j fs)
+```
+
+unpacked in the proof to `hfC : FitsFrom … ((dJ.Fss i ψJ).getD j []) fs`
+at `ρJ`.  `hdom` and `hentR` are at `ρJ` too, and about the same
+`dJ.Fss i ψJ` — six occurrences of `ρJ` across the three.  **`hC` says
+the field values `fs` FIT the container's domains at `ρJ`; the entries
+say those same domains lie inside the copy's slots.**  Move the entries
+to a frame `fr` and the composition is between "`fs` fits at `ρJ`" and
+"the domain at `fr` is inside the slot" — which do not compose, because
+`fs` is what fitting at `ρJ` produced.
+
+**So the incoherence is in the mathematics, not in a signature**, and it
+is one level above where the hypothesis placed it: not `recF`, but the
+single chain fit that every arm's conclusion is relative to.  A
+two-frame `fit_imp_T_le_dom` would need two chain fits, and then it would
+not be one lemma.
+
+##### (d) WHAT THIS MEANS FOR THE THIRD PIECE
+
+The constrained-frame relation is not "agree except where a field's
+domain reads" arm by arm — it has to be a relation under which the
+CHAIN FIT transports, because that is the object the arms share.  That is
+a stronger requirement than the per-arm phrasing suggested, and it is the
+thing to cost.  **This lane has not costed it and is not guessing at it.**
+
+`lake build` — 0 errors/warnings, **722 jobs**.
+
+Nothing in this section changes the tree's accept set.

@@ -854,6 +854,27 @@ the whole block (`nestedPinLeaf_all`). -/
   ∀ l, l < Fs.length → rs.getD l false = true → ¬ (base ≤ tg l ∧ tg l < base + kJ) →
     CopyEntryAt dJ ψJ Ds tg tls Eis ρp i j w u Z l
 
+/-- **The outside entries, FRAME-GENERIC** (task #315 L-E, the abstract
+carry): `CopyEntryOut` with the container-side frame an argument.
+
+`Ds` does not occur — the whole point of the carry.  These are the
+`ordF`-RIGHT and `pinF` arms, the two that reach the container's field
+domain THROUGH the entry, and they are the two the carry covers.  The
+three that do not (`recF`, `ordF`-left, `es`) reach `instAll Ds`
+directly and are not stated here. -/
+@[expose] def CopyEntryOutF (fr : Nat → V) (w : Nat) (u : Nat → Nat) (Z : Nat → V) : Prop :=
+  ∀ l, l < Fs.length → rs.getD l false = true → ¬ (base ≤ tg l ∧ tg l < base + kJ) →
+    CopyEntryAtF dJ ψJ tg tls Eis ρp i j fr w u Z l
+
+/-- **Today's outside entries ARE the frame-generic ones at the recorded
+frame** (task #315 L-E).  `Iff.rfl`, stated as a theorem rather than a
+definitional alias for the auto-bound-signature reason in this file's
+header. -/
+theorem copyEntryOut_iff_F (w : Nat) (u : Nat → Nat) (Z : Nat → V) :
+    CopyEntryOut (V := V) dJ ψJ Ds tg tls Eis ρp i j base kJ Fs rs w u Z
+      ↔ CopyEntryOutF (V := V) dJ ψJ tg tls Eis ρp i j base kJ Fs rs
+          (consList (Ds.map (interp V ρp)) ρp) w u Z := Iff.rfl
+
 variable (Es : List AnnotTerm)
 
 /-- **The instantiation identities of one copy's constructor, ENTRY-FREE**
