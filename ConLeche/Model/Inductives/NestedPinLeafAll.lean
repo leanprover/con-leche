@@ -3912,6 +3912,244 @@ theorem instanceLe_of_pair (hμ : μ.verifiedChecks = true)
         (by omega) hcp)
 
 
+
+/-- **The covering class's family IS the block pin's** (task #315 L-E,
+DESIGN §U.77): at a `ClassPinAt` pair `(c, q)` of the root group, the
+container's least tuple at block pin `q`'s frame — `pinLfp`, the `P`
+of the global entry theorem — and the ROOT's extended carrier at its
+class `c` are ONE family.  This is what turns `nestedInstanceLe`'s
+conclusion (stated at the root's class) into the rank induction's
+(stated at the pin).
+
+**The route is the LEAF, and it has to be** (the negative result of
+DESIGN §U.77 (b)): at a PIN class the two families are least tuples of
+ONE container at two level assignments agreeing only on its level
+parameters and two frames agreeing only below its parameter count, and
+that is NOT a congruence of `lfpTuple` — `BlockModel.Φ` is an
+arbitrary function of `(ψ, ρ)` and no clause of the tier makes it
+depend on the restrictions alone.  `fam_eq_of_leaf` is the way
+through: both families' leaves are ONE stored reading at ONE list of
+values, which is exactly what `ClassPin`'s four clauses say — the
+container (`name`), the assignment at its level parameters (`psi`,
+through `EnvModel.acval_params`), the components' values (`frame`) and
+the index set (`idx`).
+
+At a MEMBER class nothing is needed: `ClassPinAt`'s own conjunct makes
+`q` the root group's pin `r + c`, whose `pinLfp` IS the root's least
+tuple at `c` (`grp`, `ψJEq`, `sameDs`). -/
+theorem nestedPinFam_of_classPin (m : EnvModel V env₂) {st : ElimState}
+    (dJf : Nat → BlockModel V)
+    (hgroups : ∀ q, q < pinsS.length → ∃ (q₀ kJ i : Nat),
+      q = q₀ + i ∧ i < kJ ∧ GF st m q₀ kJ (dJf q₀))
+    {ψ : Name → Nat} {ρp : Nat → V} (hρp : Sat V ((D).params ψ).reverse ρp)
+    {B : ContainerInfo → BlockModel V} (hB : EnvBlocksOf m B)
+    (hdJfB : ∀ (q₀ kJ iq : Nat) (ci : ContainerInfo), iq < kJ → GF st m q₀ kJ (dJf q₀) →
+      ConLeche.containerInfo? env₂ ((D).pinAt (q₀ + iq)).J = some ci → dJf q₀ = B ci)
+    {r kR : Nat} (GR : GF st m r kR (dJf r))
+    {pcR : Nat → PinCtors V} (hshR : PinShapes m B (dJf r) pcR) :
+    ∀ c q, c < (dJf r).kT →
+      ClassPinAt env₂ (D) (dJf r) ψ (((D).pinAt r).ψJ ψ) ρp ((D).pinFrame r ψ ρp) r c q →
+      pinLfp st pinsS dJf (f₀.s.eval ψ) ψ ρp q
+        = (dJf r).famAt (((D).pinAt r).ψJ ψ) ((D).pinFrame r ψ ρp)
+            (lfpTuple ((dJf r).w (((D).pinAt r).ψJ ψ)) (dJf r).k
+              ((dJf r).idx (((D).pinAt r).ψJ ψ) ((D).pinFrame r ψ ρp))
+              ((dJf r).Φ (((D).pinAt r).ψJ ψ) ((D).pinFrame r ψ ρp))) c := by
+  intro c q hcT hcp
+  have hwR : (dJf r).w (((D).pinAt r).ψJ ψ) = f₀.s.eval ψ := by
+    have := GR.syn.w 0 GR.syn.kpos ψ
+    rwa [Nat.add_zero] at this
+  have hρR : Sat V ((dJf r).params (((D).pinAt r).ψJ ψ)).reverse ((D).pinFrame r ψ ρp) := by
+    obtain ⟨ρ, as, hρe, hsp⟩ := spineOfSat_params (D) hρp
+    subst hρe
+    have := (dJf r).satOfSpine (GR.syn.DsFit 0 GR.syn.kpos ψ ρ as hsp)
+    rw [Nat.add_zero] at this
+    exact this
+  have hkR : 0 < (dJf r).k := GR.syn.kEq ▸ GR.syn.kpos
+  by_cases hcm : c < (dJf r).k
+  · -- a MEMBER class: the pin IS the root group's, and `pinLfp` is the root's least tuple
+    obtain rfl : q = r + c := hcp.2 hcm
+    have hc : c < kR := GR.syn.kEq ▸ hcm
+    rw [(dJf r).famAt_of_mem hcm, hwR]
+    unfold pinLfp
+    simp only [show ∀ t : Nat, pinsS.getD t default = (D).pinAt t from fun _ => rfl]
+    rw [(GR.syn.grp c hc).1, Nat.add_sub_cancel_left,
+      show ((D).pinAt (r + c)).ψJ ψ = ((D).pinAt r).ψJ ψ from
+        (GR.syn.ψJEq c 0 hc GR.syn.kpos ψ).trans (by rw [Nat.add_zero]),
+      show ((D).pinAt (r + c)).Ds ψ = ((D).pinAt r).Ds ψ from GR.syn.sameDs c hc ψ]
+    rfl
+  · -- a PIN class: the two least tuples are compared through their LEAVES
+    have hqK : c - (dJf r).k < (dJf r).nPins := by
+      have := hcT; unfold BlockModel.kT at this; omega
+    obtain ⟨q₀', kK', i'', ci', hqKe, hi'', hci', S₂', hcount', hshape'⟩ := hshR _ hqK
+    have hname : ((dJf r).pinAt (c - (dJf r).k)).J = ((D).pinAt q).J := by
+      have := hcp.1.name
+      rwa [(dJf r).nameT_of_pin hcm] at this
+    have hci₂ : ConLeche.containerInfo? env₂ ((D).pinAt q).J = some ci' := by
+      rw [← hname]; exact hci'
+    have hqLt : q < pinsS.length := hcp.1.qLt
+    obtain ⟨q₀, kJ, iq, hqe, hiq, G⟩ := hgroups q hqLt
+    have hdJf : dJf q₀ = B ci' := hdJfB q₀ kJ iq ci' hiq G (by rw [← hqe]; exact hci₂)
+    have CK : ContainerModeled m ci' (dJf q₀) := by rw [hdJf]; exact (hB _ ci' hci').1
+    have S₂ : PinGroupView (dJf r) (dJf q₀) q₀' kK' := by rw [hdJf]; exact S₂'
+    have hkK : kK' = kJ := by
+      have h1 := S₂.kEq
+      have h2 := G.syn.kEq
+      omega
+    subst hkK
+    have hi''k : i'' < (dJf q₀).k := by rw [S₂.kEq]; exact hi''
+    have hiqk : iq < (dJf q₀).k := by rw [G.syn.kEq]; exact hiq
+    have hii : i'' = iq := by
+      refine CK.memberName_inj hci' hi''k hiqk ?_
+      rw [← S₂.name i'' hi'', ← (pinGroupView_of_syn G.syn).name iq hiq, ← hqe, hqKe] at *
+      exact hname
+    subst hii
+    obtain ⟨cvT, caps, cvR, mI, rP, rules, hfind, hI, hψJ⟩ := G.syn.stored i'' hiq
+    have hfindq : env₂.find? ((D).pinAt q).J = some (.indInfo cvT caps) := by
+      rw [hqe]; exact hfind
+    -- the pair's two agreements, at the group's base pins
+    have hψag : ∀ pp ∈ cvT.levelParams,
+        (((dJf r).pinAt q₀').ψJ (((D).pinAt r).ψJ ψ)) pp = (((D).pinAt (q₀ + i'')).ψJ ψ) pp := by
+      intro pp hpp'
+      have := hcp.1.psi cvT caps hfindq pp hpp'
+      rw [(dJf r).psiT_of_pin _ hcm, hqKe,
+        (S₂.same i'' hiq (((D).pinAt r).ψJ ψ)).1, hqe] at this
+      exact this
+    have hnp : ((D).pinAt q).nPJ = (dJf q₀).nP := by
+      rw [hqe]; exact G.syn.pinNP i'' hiq
+    have hfr : ∀ v, v < (dJf q₀).nP →
+        (dJf r).pinFrame q₀' (((D).pinAt r).ψJ ψ) ((D).pinFrame r ψ ρp) v
+          = (D).pinFrame (q₀ + i'') ψ ρp v := by
+      intro v hv
+      have := hcp.1.frame v (by rw [hnp]; exact hv)
+      rw [(dJf r).frameT_of_pin hcm, hqKe] at this
+      unfold BlockModel.pinFrame at this ⊢
+      rw [(S₂.same i'' hiq (((D).pinAt r).ψJ ψ)).2] at this
+      rw [← hqe]
+      exact this
+    have hpar := CK.params_congr hci₂ hfindq hψag hiqk
+    -- the two sides, named
+    have hLHS : pinLfp st pinsS dJf (f₀.s.eval ψ) ψ ρp q
+        = lfpTuple (f₀.s.eval ψ) (dJf q₀).k
+            ((dJf q₀).idx (((D).pinAt (q₀ + i'')).ψJ ψ) ((D).pinFrame (q₀ + i'') ψ ρp))
+            ((dJf q₀).Φ (((D).pinAt (q₀ + i'')).ψJ ψ) ((D).pinFrame (q₀ + i'') ψ ρp)) i'' := by
+      unfold pinLfp
+      rw [hqe, (G.syn.grp i'' hiq).1, Nat.add_sub_cancel_left]
+      rfl
+    have hRHS : (dJf r).famAt (((D).pinAt r).ψJ ψ) ((D).pinFrame r ψ ρp)
+          (lfpTuple ((dJf r).w (((D).pinAt r).ψJ ψ)) (dJf r).k
+            ((dJf r).idx (((D).pinAt r).ψJ ψ) ((D).pinFrame r ψ ρp))
+            ((dJf r).Φ (((D).pinAt r).ψJ ψ) ((D).pinFrame r ψ ρp))) c
+        = lfpTuple (f₀.s.eval ψ) (dJf q₀).k
+            ((dJf q₀).idx (((dJf r).pinAt q₀').ψJ (((D).pinAt r).ψJ ψ))
+              ((dJf r).pinFrame q₀' (((D).pinAt r).ψJ ψ) ((D).pinFrame r ψ ρp)))
+            ((dJf q₀).Φ (((dJf r).pinAt q₀').ψJ (((D).pinAt r).ψJ ψ))
+              ((dJf r).pinFrame q₀' (((D).pinAt r).ψJ ψ) ((D).pinFrame r ψ ρp))) i'' := by
+      rw [(dJf r).famAt_of_pin hcm, hqKe,
+        (dJf r).pinGroupFam_mem GR.syn.reps CK.reps hkR S₂ hρR hiq, hwR]
+    rw [hLHS, hRHS]
+    -- the container's data at the two assignments
+    have huE : (dJf q₀).uM i'' (((dJf r).pinAt q₀').ψJ (((D).pinAt r).ψJ ψ))
+        = (dJf q₀).uM i'' (((D).pinAt (q₀ + i'')).ψJ ψ) := hpar.1
+    have hIdsE : (dJf q₀).IdsM i'' (((dJf r).pinAt q₀').ψJ (((D).pinAt r).ψJ ψ))
+        = (dJf q₀).IdsM i'' (((D).pinAt (q₀ + i'')).ψJ ψ) := by
+      unfold BlockModel.IdsM; rw [hpar.2.1]
+    have hbelow : FieldsBelow (dJf q₀).nP
+        ((dJf q₀).IdsM i'' (((D).pinAt (q₀ + i'')).ψJ ψ)) :=
+      memberIds_below CK.reps hiqk _
+    -- the two component lists are ONE list of values
+    have hL₁len : ((((D).pinAt (q₀ + i'')).Ds ψ).map (interp V ρp)).length = (dJf q₀).nP := by
+      rw [List.length_map]; exact G.syn.pinDsLen i'' hiq ψ
+    have hL₂len : ((((dJf r).pinAt q₀').Ds (((D).pinAt r).ψJ ψ)).map
+        (interp V ((D).pinFrame r ψ ρp))).length = (dJf q₀).nP := by
+      rw [List.length_map]; exact S₂.pinDsLen (((D).pinAt r).ψJ ψ)
+    have hAs : (((dJf r).pinAt q₀').Ds (((D).pinAt r).ψJ ψ)).map
+          (interp V ((D).pinFrame r ψ ρp))
+        = (((D).pinAt (q₀ + i'')).Ds ψ).map (interp V ρp) := by
+      have h₁ := map_range_reverse_consList
+        ((((D).pinAt (q₀ + i'')).Ds ψ).map (interp V ρp)) ρp
+      have h₂ := map_range_reverse_consList
+        ((((dJf r).pinAt q₀').Ds (((D).pinAt r).ψJ ψ)).map
+          (interp V ((D).pinFrame r ψ ρp))) ((D).pinFrame r ψ ρp)
+      rw [hL₁len] at h₁
+      rw [hL₂len] at h₂
+      rw [← h₁, ← h₂]
+      refine List.map_congr_left fun v hv => ?_
+      exact hfr v (by simpa using List.mem_range.mp (List.mem_reverse.mp hv))
+    -- the leaf: ONE stored reading at ONE list of values
+    have hacv : m.acval ((dJf q₀).memberName i'')
+          (((dJf r).pinAt q₀').ψJ (((D).pinAt r).ψJ ψ))
+        = m.acval ((dJf q₀).memberName i'') (((D).pinAt (q₀ + i'')).ψJ ψ) := by
+      have hfindM : env₂.find? ((dJf q₀).memberName i'') = some (.indInfo cvT caps) := by
+        rw [hI.member, ← hqe]; exact hfindq
+      exact m.acval_params _ _ hfindM _ _ hψag
+    obtain ⟨cvTJ, cvRJ, mIJ, rPJ, rulesJ, hIJ⟩ := CK.reps i'' hiqk
+    have hwJ₁ : (dJf q₀).w (((D).pinAt (q₀ + i'')).ψJ ψ) = f₀.s.eval ψ := G.syn.w i'' hiq ψ
+    have hwJ₂ : (dJf q₀).w (((dJf r).pinAt q₀').ψJ (((D).pinAt r).ψJ ψ)) = f₀.s.eval ψ := by
+      rw [hpar.2.2]; exact hwJ₁
+    have hfit₁ : SpineFit ρp ((dJf q₀).params (((D).pinAt (q₀ + i'')).ψJ ψ))
+        ((((D).pinAt (q₀ + i'')).Ds ψ).map (interp V ρp)) := by
+      obtain ⟨ρ₀, as, hρe, hsp⟩ := spineOfSat_params (D) hρp
+      subst hρe
+      exact G.syn.DsFit i'' hiq ψ ρ₀ as hsp
+    have hfit₂ : SpineFit ((D).pinFrame r ψ ρp)
+        ((dJf q₀).params (((dJf r).pinAt q₀').ψJ (((D).pinAt r).ψJ ψ)))
+        ((((dJf r).pinAt q₀').Ds (((D).pinAt r).ψJ ψ)).map
+          (interp V ((D).pinFrame r ψ ρp))) := by
+      obtain ⟨ρ', as', hρ'e, hsp'⟩ := spineOfSat_params (dJf r) hρR
+      rw [hρ'e]
+      exact S₂.DsFit (((D).pinAt r).ψJ ψ) ρ' as' hsp'
+    refine fam_eq_of_leaf (w' := f₀.s.eval ψ)
+      (u := (dJf q₀).uM i'' (((D).pinAt (q₀ + i'')).ψJ ψ))
+      (Ids := (dJf q₀).IdsM i'' (((D).pinAt (q₀ + i'')).ψJ ψ))
+      (ρ₁ := (D).pinFrame (q₀ + i'') ψ ρp)
+      (ρ₂ := (dJf r).pinFrame q₀' (((D).pinAt r).ψJ ψ) ((D).pinFrame r ψ ρp))
+      (A := ((((D).pinAt (q₀ + i'')).Ds ψ).map (interp V ρp)).foldl SetTheory.app
+        (interp V ρp (m.acval ((dJf q₀).memberName i'') (((D).pinAt (q₀ + i'')).ψJ ψ))))
+      (fun is his => spineFit_congr_fields hbelow (fun v hv => (hfr v hv).symm) his)
+      (congrArg (towerSet _)
+        (teleOfFields_congr_below hbelow fun v hv => (hfr v hv).symm))
+      (lfpTuple_mem _ _ _ _ i'' hiqk)
+      ?_ ?_ ?_
+    · -- the ROOT class's family lives in the same space
+      have hmem₂ := lfpTuple_mem (f₀.s.eval ψ) (dJf q₀).k
+        ((dJf q₀).idx (((dJf r).pinAt q₀').ψJ (((D).pinAt r).ψJ ψ))
+          ((dJf r).pinFrame q₀' (((D).pinAt r).ψJ ψ) ((D).pinFrame r ψ ρp)))
+        ((dJf q₀).Φ (((dJf r).pinAt q₀').ψJ (((D).pinAt r).ψJ ψ))
+          ((dJf r).pinFrame q₀' (((D).pinAt r).ψJ ψ) ((D).pinFrame r ψ ρp))) i'' hiqk
+      unfold BlockModel.idx at hmem₂
+      rw [huE, hIdsE] at hmem₂
+      exact hmem₂
+    · -- the BLOCK pin's leaf
+      intro is his
+      have hleaf := hIJ.leaf (((D).pinAt (q₀ + i'')).ψJ ψ) ρp
+        ((((D).pinAt (q₀ + i'')).Ds ψ).map (interp V ρp)) is hfit₁ his
+      rw [List.foldl_append, hwJ₁] at hleaf
+      exact hleaf.symm
+    · -- the ROOT class's leaf: ONE stored reading at ONE list of values
+      intro is his
+      have hleaf := hIJ.leaf (((dJf r).pinAt q₀').ψJ (((D).pinAt r).ψJ ψ))
+        ((D).pinFrame r ψ ρp)
+        ((((dJf r).pinAt q₀').Ds (((D).pinAt r).ψJ ψ)).map
+          (interp V ((D).pinFrame r ψ ρp))) is hfit₂
+        (by rw [hIdsE]; exact his)
+      have hA : ((((dJf r).pinAt q₀').Ds (((D).pinAt r).ψJ ψ)).map
+              (interp V ((D).pinFrame r ψ ρp))).foldl SetTheory.app
+            (interp V ((D).pinFrame r ψ ρp)
+              (m.acval ((dJf q₀).memberName i'')
+                (((dJf r).pinAt q₀').ψJ (((D).pinAt r).ψJ ψ))))
+          = ((((D).pinAt (q₀ + i'')).Ds ψ).map (interp V ρp)).foldl SetTheory.app
+            (interp V ρp
+              (m.acval ((dJf q₀).memberName i'') (((D).pinAt (q₀ + i'')).ψJ ψ))) := by
+        rw [hAs, hacv,
+          interp_closed (V := V) (m.cval_closedL _ _) ((D).pinFrame r ψ ρp) ρp]
+      rw [List.foldl_append, hwJ₂,
+        show (dJf q₀).tup (((dJf r).pinAt q₀').ψJ (((D).pinAt r).ψJ ψ)) i'' is
+            = tupW ((dJf q₀).uM i'' (((D).pinAt (q₀ + i'')).ψJ ψ)) is from by
+          unfold BlockModel.tup; rw [huE],
+        hA] at hleaf
+      exact hleaf.symm
+
+
 /-- **`instanceLe` at the ROOT GROUP, from the run** (task #315 L-E,
 DESIGN §U.75 (b)): `instanceLe_of_pair` with its per-pair transfer
 discharged by `nestedPinPairAt` — at a root group `r` of the block's
