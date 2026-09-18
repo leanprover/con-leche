@@ -22,6 +22,8 @@
 import ConLeche
 import ConLeche.Frontend.ExportC
 import ConLeche.Cached.Installed
+import ConLeche.Frontend.Prepare
+import ConLeche.Frontend.Prelude
 
 open ConLeche
 
@@ -40,11 +42,23 @@ partial def pp : Expr → String
 def main (args : List String) : IO Unit := do
   let path := args.getD 0 "tests/e2e/ind_nest_straddle.ndjson"
   let target := args.getD 1 "Straddle"
-  let r ← ConLeche.Frontend.parseExportStreamD path false false
+  -- the in-process modeller is ON by default: a stream whose PREFIX
+  -- holds another nested block does not fold without it (the native
+  -- route is not on the dispatch).  Pass "nomodel" as a third argument
+  -- to turn it off.
+  let inModel := args.getD 2 "model" != "nomodel"
+  let r ← ConLeche.Frontend.parseExportStreamD path inModel false
   match r with
   | .error (e, n) => IO.println s!"parse error at {n}: {repr e}"
   | .ok pr =>
-    let ds := pr.decls
+    -- the DRIVER's own pipeline: the built-in prelude prepended and the
+    -- pinned grounds hoisted (`Frontend.prepareD`), which is what the
+    -- fold runs over — without it a prefix fold fails at the first
+    -- basis constant
+    let prelude ← match ConLeche.Frontend.builtinPreludeE with
+      | Except.ok pre => pure pre
+      | Except.error _ => do IO.println "the built-in prelude does not parse"; return ()
+    let ds := ConLeche.Frontend.preparePrelude prelude pr.decls
     let mut idx := 0
     let mut found := false
     for i in [0:ds.size] do

@@ -111727,12 +111727,12 @@ that folds the prefix and runs the elimination
 pin 0  container=Box     pin=(Box Straddle)            comp[0]=Straddle
 pin 1  container=List    pin=(List (Option Straddle))  comp[0]=(Option Straddle)
 pin 2  container=Option  pin=(Option Straddle)         comp[0]=Straddle
-pin 0: declPos=3 ; ctor 0 field 0: dom=(List (Option #0)) head=List declPos(head)=11
+pin 0: declPos=49 ; ctor 0 field 0: dom=(List (Option #0)) head=List declPos(head)=57
 rewritten comp[1][0] = _nested.Option_3          -- the COPY, not `Option Straddle`
 ```
 
 So the edge `0 → 1` is CONSTANT-HEADED by `nestedPinOrderAt`'s own test
-and satisfies K.57 (3 < 11, a larger index being an earlier
+and satisfies K.57 (49 < 57, a larger index being an earlier
 declaration); the straddling argument `Option #0` instantiates to pin
 2's expression; and K.59's rewrite of pin 1's component is the MIMIC.
 (M) there reads `Option_carrier (Straddle_carrier) = copy₂'s carrier` —
@@ -111740,7 +111740,7 @@ declaration); the straddling argument `Option #0` instantiates to pin
 compositional fact.**  (M) is not refuted as a proposition; its stated
 discharge is.
 
-##### (d) WHAT (M) ADDITIONALLY NEEDS — and why it crosses the G1 sequencing
+##### (d) WHAT (M) ADDITIONALLY NEEDS — **(d) IS RETRACTED by the next row; read it there**
 
 At a straddle, (M) at `q → q'` needs at the inner pin `q''`: the
 INCLUSION (the induction hypothesis, hence `ord q'' < ord q`), the
@@ -111749,7 +111749,7 @@ stated at `pinLfp`, the RECORDED frame**, so it applies at `q''` only
 when `q''`'s own components rewrote trivially, which K.59's two lists
 let the model decide but which fails one nest deeper), and an ORDER fact
 nobody records: `ord q'' < ord q`.  That last one holds on the witness
-(`declPos Option = 7 > declPos Box = 3`) and is plausible in general — a
+(`declPos Option = 53 > declPos Box = 49`) and is plausible in general — a
 straddle's head constant occurs in the SOURCE container's own
 declaration, hence is declared before it — but it is a NEW per-component
 clause, not K.57.
@@ -111817,3 +111817,183 @@ induction concludes at `pinLfpAt` (candidate), and the step does not
 type-check until those two are frame-generic.
 
 Nothing in this section changes the tree.
+
+#### R2: the straddle dependency, CHARACTERISED — A does not consume B, the measure is declaration order ALONE, and the previous row's (d) is RETRACTED (lane R2, 2026-09-18)
+
+Read-and-reason on top of the previous row, with the three pin tables
+read off runs (`scripts/nested-pin-probe.lean`).  Nothing but this
+record changed.
+
+##### (a) QUESTION 1 — WHICH PINS THE STRADDLE ARM CAN CONSUME, exactly
+
+(M) at a not-own constant-headed edge `q → q'` is proved by induction
+over the CONTAINER-side argument `A i` (a subterm of `q`'s container's
+stored field domain, `nestedPinOrderAt`'s own `jbs[ci.nP + l]`,
+`NestedInstall.lean:1551`), against the rewrite of `A i [Dsq]`.  Three
+cases, and only one of them reaches another pin:
+
+1. **`A i` is a bvar (a container parameter `#j`)** — the common case,
+   and all three fixtures' constant-headed edges are in it.  Both sides
+   are `q`'s own rewritten component `j`: the left by definition of
+   `candAs q`, the right because the rewrite is run at the FINAL state,
+   where it mints nothing (`nestedPinCompRewrites`,
+   `NestedInstall.lean:2208`) and is therefore a LOCAL, deterministic
+   walk — so its restriction to a substituted component is K.59's own
+   recorded answer at that component.  **No dependency at all.**
+2. **a node of `A i` at which the rewrite does not fire** — congruence
+   and the induction hypothesis.  No dependency.
+3. **a node of `A i` at which it fires — a STRADDLE.**
+   `replaceIfNested` fires only at `I Ds is` with a parameter argument
+   mentioning a growing-list name (`nestedOccOk`, `NestedElim.lean:150`),
+   and K.59's no-growth clause says the pin it finds ALREADY EXISTS;
+   `replaceIfNested_occurrence` (`NestedCopyRewrite.lean:736`) names it.
+   Call it `q''`.
+
+So, for question 1: **yes, and in a stronger form than asked.**  The
+pins the arm can consume are exactly case 3's, and each satisfies both
+
+* `q''`'s expression is a subterm of a COMPONENT of `q'`, hence a
+  PROPER subterm of `q'`'s expression (containment-smaller than the
+  edge's target); and
+* — the fact that actually carries the induction — `q''`'s HEAD comes
+  from `A i`, i.e. from **`q`'s container's own declaration**, so
+  `q''`'s container is declared strictly EARLIER than `q`'s.
+
+Pins occurring inside the SOURCE's components (the case an earlier
+reading feared) are consumed by NOTHING: the induction stops at case 1
+before descending into them.  That is why `nested_p04` does not need an
+order between `Array` and `P4C`, which it could not have.
+
+##### (b) QUESTION 2 — THE MEASURE IS DECLARATION ORDER ALONE, and (d) of the previous row is WRONG
+
+**Retraction, and the exact error.**  The previous row said the straddle
+makes A consume B.  It reached for an EQUALITY at `q''` and found only
+`nestedPinEq_at_of_le` (`NestedPinLeafAll.lean:4794`), which is stated
+at `pinLfp` — the RECORDED frame — and concluded that the bridge was
+needed.  **The arm does not need an equality and does not need a
+true-frame value.**  `hentR` is an INCLUSION
+(`CopyCtorShape.fit_imp_T_le_dom`, `NestedFit.lean:1290`), and at a
+straddle
+
+```
+interp_cand (K args)  =  P_cand q''  ≤  L⁺ (p.k + q'')  =  candAs q' at that position
+```
+
+— the middle step being A at `q''`, the induction hypothesis
+`pins_le_of_declOrder` already hands out.  Two routes close it and
+NEITHER mentions the true frame: (α) the candidate-frame identity at
+`q''`, whose converse half is an INSTANTIATION rather than a re-basing —
+`lfp_pins_le_of_section_closed` (`SetTheory/Derive/LfpCompose.lean:836`)
+is generic in the family `{P : Nat → V}` and takes a section-closure
+INEQUALITY; or (β) A at `q''` plus monotonicity of the target
+container's least tuple in the straddling parameter position.  Both
+consume only pins with smaller `ord`.  Neither is landed, and (β) needs
+a monotonicity object the tree does not have; that is a price question,
+not an ordering one.
+
+**So the dependency graph of A has arcs only to `ord`-smaller pins**:
+edge targets (K.57) and straddle pins ((a)'s second bullet).  B's graph
+has arcs only to containment-smaller pins.  **There are no A→B arcs**,
+so no combined order is needed: L-E's sequencing — all of A in
+declaration order, then all of B in containment order — stands
+unchanged.
+
+**The three fixtures, written out.**  `E(q)` = targets of not-own
+constant-headed pin-target fields; `S(q)` = straddle pins at those
+fields; `declPos` LARGER = declared EARLIER; probe output is the
+citation.
+
+*`ind_nest_straddle`* — pins 0 `Box Straddle` (Box, 49), 1
+`List (Option Straddle)` (List, 57), 2 `Option Straddle` (Option, 53):
+
+```
+A:  A(0) → A(1)        [E(0): dom (List (Option #0)), not-own, head List; 49 < 57]
+    A(0) → A(2)        [S(0): argument (Option #0) fires; 49 < 53]
+    A(1) → ∅           [List's fields: #0 parameter-headed, List #1 own]
+    A(2) → ∅           [Option's field #0 parameter-headed, target is a MEMBER]
+B:  B(1) → Id(2)       [pin 2's expression IS pin 1's component]
+    B(0) → ∅ , B(2) → ∅
+```
+
+*`nested_p22`* — pins 0 `P22T (fun _ : Nat => List P22)` (P22T, 42), 1
+`List P22` (List, 38):
+
+```
+A:  A(0) → ∅   [P22T's fields: Nat ordinary; (#1 #0) PARAMETER-headed — the 0→1 edge]
+    A(1) → ∅   [#0 parameter-headed to a MEMBER; List #1 own]
+B:  B(0) → Id(1)   [`List P22` occurs inside pin 0's component]
+    B(1) → ∅
+```
+
+The A-graph is EMPTY here, so the "A ∪ B cycle" of the G1 row is a
+clash of two TOTAL orders, not of the dependency graph: there is no arc
+`A(0) → A(1)` for `B(0) → Id(1)` to contradict.  K.57's silence at the
+parameter-headed edge is what makes that so — the edge would have
+demanded `42 < 38`.
+
+*`nested_p04` / P4* — pins 0 `P4C P4` (P4C, 51), 1 `Array (P4C P4)`
+(Array, 91), 2 `List (P4C P4)` (List, 95):
+
+```
+A:  A(0) → ∅   [P4C ctor 1 field 0: dom (Array (P4C #0)) MENTIONS P4C ⇒ OWN]
+    A(1) → A(2)    [E(1): dom (List #0), not-own, head List; 91 < 95.  S(1) = ∅: the argument is a BVAR]
+    A(2) → ∅   [#0 parameter-headed (the 2→0 edge); List #1 own]
+B:  B(1) → Id(0), B(2) → Id(0)   [pin 0's expression IS their component]
+    B(0) → ∅
+```
+
+**The edge three-cycle `0→1→2→0` is not a dependency cycle**: two of its
+three arcs are own and parameter-headed and carry no obligation.  All
+three fixtures are acyclic, and they are acyclic under the previous
+row's pessimistic reading too (S is empty at `nested_p22` and P4, and
+pin 2 holds no pin at `ind_nest_straddle`), so **no cycle was exhibited
+by any reading, and under the corrected one none can be**: every arc
+strictly decreases `ord`.
+
+For the record, since a cycle was the alternative deliverable: under the
+pessimistic reading the shortest cycle would be
+`A(q₁) → B(q₂) → A(q₃) → A(q₁)`, needing `q₃ ⊏ q₂`, `ord q₂ < ord q₁ <
+ord q₃` and an edge `q₃ → q₁`.  It is blocked structurally — the return
+arc forces `q₃`'s own container name into its own field domain, which
+makes `mentionsMember` true (`NestedInstall.lean:1571`) and the edge
+OWN, and own edges carry no dependency.  That is a blocked shape, not a
+general impossibility proof; it is moot under (b).
+
+##### (c) QUESTION 3 — ONE NEW CLAUSE, K.57's SHAPE, CANNOT FIRE
+
+The measure needs exactly one fact K.57 does not record:
+
+> **(EARLIER-DECLARED DOMAIN CONSTANTS)** for every pin `q` and every
+> NOT-OWN CONSTANT-HEADED pin-target field domain `domJ` of `q`'s
+> container's constructor: every CONSTANT occurring in `domJ` has
+> `declPos` strictly greater than `declPos q.container`.
+
+* **it needs no per-component classification** — the straddle's head is
+  a constant of `domJ`, so quantifying over ALL of them is a superset,
+  and it is computed from the same stripped data `nestedPinOrderAt`
+  already holds (`cJ.type.stripPis (ci.nP + cJ.nFields)`).  The
+  per-component classification stays what it was: G1's, for B;
+* **it cannot fire**: a constant occurring in a declaration's type is
+  declared before that declaration, which is the environment's own cons
+  order — the same reason K.59 cannot fire;
+* **category (B)**, by-construction-only; **unconditional**, both routes,
+  `.internal` on failure — it is load-bearing for every mode, exactly
+  like K.59, so it must not sit inside `nestedPinChecks`;
+* **accept-set consequence: none.**  A check that cannot fire narrows
+  nothing; the cost is the walk over the containers' stored domains,
+  which is `nestedPinOrderAt`'s own walk with a `declPos` lookup per
+  constant.
+
+The alternative is to derive it model-side from the environment's cons
+order rather than record it — no kernel change, but `declPos` is K.57's
+own notion and the tie between it and `constsResolve` is not in the
+tree, so the record is the cheaper of the two and has K.57's precedent.
+
+##### (d) WHAT THIS DOES TO THE PREVIOUS ROW
+
+Its (a), (b), (c) and (e) stand: the producer's environment, the
+annotation obligation, (C)'s falsity at a straddle and the two side
+conditions are unchanged, and (M) is still not the compositional fact
+the request assumed.  **Its (d) is retracted**: the straddle costs an
+IH at an `ord`-smaller pin and one cannot-fire kernel clause, not a
+crossing of the G1 sequencing.  Risk 1 is not reopened.
