@@ -721,7 +721,7 @@ theorem nestedContainersOk_uniform {env : Env} {pins : List NestedPin}
   have hq' := List.all_eq_true.mp h.2 q hq
   rw [hci] at hq'
   simp only [containerFactsOk, Bool.and_eq_true] at hq'
-  have hM' := List.all_eq_true.mp hq'.2 M hM
+  have hM' := List.all_eq_true.mp hq'.1.2 M hM
   simp only [Bool.and_eq_true] at hM'
   obtain ⟨⟨⟨hnd, hun⟩, -⟩, -⟩ := hM'
   refine ⟨hnd, fun cty hcty => ?_⟩

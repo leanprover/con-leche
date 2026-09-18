@@ -255,6 +255,22 @@ def DeclNestedRun (μ : CheckMode) (F : Nat) (env : Env)
         ConLeche.nestedOrdNorms (m := CheckM) (fueledOps μ F)
             (consNestedFormers (stored.take p.k) env) b.memberNames jobs = .ok ws ∧
         ws = jobs.map (·.2.2)) ∧
+    -- THE SAME WALK AT A PIN TARGET, REWRITTEN (K.51): a copy field
+    -- whose target is a MIMIC has a stored domain headed by that mimic,
+    -- so the normalisation of the minted domain is rewritten — by the
+    -- elimination's own `replaceAllNested` at the FINAL state, which
+    -- therefore mints nothing — before the comparison.  Lane L-B's
+    -- `ordF`-RIGHT arm reads the pin target off the MINTED domain, where
+    -- the container application still stands, with no `pinLeaf` anywhere
+    (μ.verifiedChecks = true →
+      ∃ (params : List Expr) (pbs₀ : List (Expr × BinderMeta))
+        (jobsP : List (Nat × Expr × Expr)) (wsP : List Expr),
+        ConLeche.nestedRewriteData p st = some (params, pbs₀) ∧
+        ConLeche.nestedPinDomPairs env p st stored
+            (ConLeche.nestedPinKinds p b stored) = some jobsP ∧
+        ConLeche.nestedPinNorms (m := CheckM) (fueledOps μ F)
+            (consNestedFormers (stored.take p.k) env) b.memberNames jobsP = .ok wsP ∧
+        ConLeche.nestedPinRewrites env p st params pbs₀ jobsP wsP = true) ∧
     -- POST-CHECK (a) A THIRD TIME (K.30): the pins typed at the
     -- environment holding the RESTORED formers — the model tier's own
     ConLeche.nestedPinsOk (m := CheckM) (fueledOps μ F)
@@ -512,7 +528,7 @@ theorem declNestedRun_etaClosed {μ : CheckMode} {F : Nat} {env envOut : Env}
     {p : NestedParts} (hE : EtaFamiliesClosed env)
     (h : DeclNestedRun μ F env p envOut) : EtaFamiliesClosed envOut := by
   obtain ⟨-, -, st, b, envAux, stored, ctorsR, cvRms, cvRns, rulesM, rulesN, fmsA, ctorsA,
-    -, -, -, -, -, -, -, -, -, -, -, hcaps, -, -, -, -, -, -, -, -, -, -, -, -, -, -, hctors, hrm, hrn, -, -, -, -, -, htbl,
+    -, -, -, -, -, -, -, -, -, -, -, hcaps, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, hctors, hrm, hrn, -, -, -, -, -, htbl,
     -, -, -, -, -, -⟩ := h
   refine EtaFamiliesClosed.ofFreshExt hE ?_
   -- the formers

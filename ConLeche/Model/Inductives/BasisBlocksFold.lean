@@ -61,7 +61,8 @@ theorem EnvBlocksOf.extendBasisExt {env₁ env₂ : Env} {m₁ : EnvModel V env�
     (hAt : BlockAt m₂ (extendAt B ci₀ d₀) ci₀) :
     EnvBlocksOf m₂ (extendAt B ci₀ d₀) := by
   have hF : FindPreserved env₁ env₂ := fun hf => hI.ext _ _ hf
-  refine EnvBlocksOf.extendBasisOf hI.ext hI.newN hI.freshN (hI.recN hMs) m₁.wf m₁.rec_ctors
+  refine EnvBlocksOf.extendBasisOf hI.ext hI.newN hI.freshN (hI.recN hMs) hI.mimN
+    m₁.wf m₁.rec_ctors
     (fun n c _ hf => hI.ext n c hf) (constsResolve_of_findPreserved hF) hag
     (fun ψ dp e ea hr => ?_) hfreshM hb hread hother hAt
   rw [denoteMeta_acval_congr (fun n hn => (hag n hn).symm) dp e] at hr
@@ -85,7 +86,8 @@ block's own (`emptyBlockAt`). -/
 theorem emptyBlocksStepOf {env env₂ : Env} {m₁ : EnvModel V env} {m₂ : EnvModel V env₂}
     {B : ContainerInfo → BlockModel V}
     (h : ConLeche.Semantics.BasisInstallRun env ConLeche.BasisKind.emptyK.declsA env₂)
-    (hag : AcvalAgrees m₁ m₂) (hb : EnvBlocksOf m₁ B) :
+    (hag : AcvalAgrees m₁ m₂) (hb : EnvBlocksOf m₁ B)
+    (hmim : ConLeche.blockOwnMimicsOk env₂ ConLeche.emptyName 0 = true) :
     EnvBlocksOf m₂ (extendAt B
       ⟨0, [⟨ConLeche.emptyName, [], ConLeche.emptyA.toConstantVal.type, []⟩]⟩
       (zeroCtorBlock (V := V) ConLeche.emptyName (.succ .zero) ⟨[]⟩)) := by
@@ -148,7 +150,7 @@ theorem emptyBlocksStepOf {env env₂ : Env} {m₁ : EnvModel V env} {m₂ : Env
       exact absurd rfl hne
   exact EnvBlocksOf.extendBasisExt (J₀ := ConLeche.emptyName) hI hMs hnoTbl hag
     ⟨_, List.mem_singleton.mpr rfl, hf1⟩ hb (containerInfo?_emptyA hT hR) hother
-    (emptyBlockAt hT (extendAt_self _ _ _))
+    (emptyBlockAt hT hR hmim (extendAt_self _ _ _))
 
 /-- **`False`'s block survives its own install** (task #315 M7-3
 session 9): `emptyBlocksStepOf` one universe down — the same
@@ -157,7 +159,8 @@ two-cons block, the same zero-constructor block model at grade
 theorem falseBlocksStepOf {env env₂ : Env} {m₁ : EnvModel V env} {m₂ : EnvModel V env₂}
     {B : ContainerInfo → BlockModel V}
     (h : ConLeche.Semantics.BasisInstallRun env ConLeche.BasisKind.falseK.declsA env₂)
-    (hag : AcvalAgrees m₁ m₂) (hb : EnvBlocksOf m₁ B) :
+    (hag : AcvalAgrees m₁ m₂) (hb : EnvBlocksOf m₁ B)
+    (hmim : ConLeche.blockOwnMimicsOk env₂ ConLeche.falseName 0 = true) :
     EnvBlocksOf m₂ (extendAt B
       ⟨0, [⟨ConLeche.falseName, [], ConLeche.falseA.toConstantVal.type, []⟩]⟩
       (zeroCtorBlock (V := V) ConLeche.falseName .zero ⟨[]⟩)) := by
@@ -220,7 +223,7 @@ theorem falseBlocksStepOf {env env₂ : Env} {m₁ : EnvModel V env} {m₂ : Env
       exact absurd rfl hne
   exact EnvBlocksOf.extendBasisExt (J₀ := ConLeche.falseName) hI hMs hnoTbl hag
     ⟨_, List.mem_singleton.mpr rfl, hf1⟩ hb (containerInfo?_falseA hT hR) hother
-    (falseBlockAt hT (extendAt_self _ _ _))
+    (falseBlockAt hT hR hmim (extendAt_self _ _ _))
 
 /-- **`PUnit`'s block survives its own install** (task #315 M7-3
 session 9): the three-cons block (former, constructor, recursor), with
@@ -229,7 +232,8 @@ obligation the block's own (`punitBlockAt`). -/
 theorem punitBlocksStepOf {env env₂ : Env} {m₁ : EnvModel V env} {m₂ : EnvModel V env₂}
     {B : ContainerInfo → BlockModel V}
     (h : ConLeche.Semantics.BasisInstallRun env ConLeche.BasisKind.punitK.declsA env₂)
-    (hag : AcvalAgrees m₁ m₂) (hb : EnvBlocksOf m₁ B) :
+    (hag : AcvalAgrees m₁ m₂) (hb : EnvBlocksOf m₁ B)
+    (hmim : ConLeche.blockOwnMimicsOk env₂ ConLeche.punitName 0 = true) :
     EnvBlocksOf m₂ (extendAt B
       ⟨0, [⟨ConLeche.punitName, [ConLeche.uN], ConLeche.punitA.toConstantVal.type,
         [⟨ConLeche.punitUnitName, ConLeche.punitUnitA.toConstantVal.type, 0⟩]⟩]⟩
@@ -318,7 +322,7 @@ theorem punitBlocksStepOf {env env₂ : Env} {m₁ : EnvModel V env} {m₂ : Env
       exact absurd rfl hne
   exact EnvBlocksOf.extendBasisExt (J₀ := ConLeche.punitName) hI hMs hnoTbl hag
     ⟨_, List.mem_singleton.mpr rfl, hf1⟩ hb (containerInfo?_punitA hT hR hU) hother
-    (punitBlockAt hT hU (extendAt_self _ _ _))
+    (punitBlockAt hT hR hU hmim (extendAt_self _ _ _))
 
 /-- **`Nat`'s block survives its own install** (task #315 M7-3 session
 9): the four-cons block (former, the two constructors, recursor), with
@@ -327,7 +331,8 @@ obligation the block's own (`natBlockAt`). -/
 theorem natBlocksStepOf {env env₂ : Env} {m₁ : EnvModel V env} {m₂ : EnvModel V env₂}
     {B : ContainerInfo → BlockModel V}
     (h : ConLeche.Semantics.BasisInstallRun env ConLeche.BasisKind.natK.declsA env₂)
-    (hag : AcvalAgrees m₁ m₂) (hb : EnvBlocksOf m₁ B) :
+    (hag : AcvalAgrees m₁ m₂) (hb : EnvBlocksOf m₁ B)
+    (hmim : ConLeche.blockOwnMimicsOk env₂ ConLeche.natName 0 = true) :
     EnvBlocksOf m₂ (extendAt B
       ⟨0, [⟨ConLeche.natName, [], ConLeche.natA.toConstantVal.type,
         [⟨ConLeche.natZeroName, ConLeche.natZeroA.toConstantVal.type, 0⟩,
@@ -442,7 +447,7 @@ theorem natBlocksStepOf {env env₂ : Env} {m₁ : EnvModel V env} {m₂ : EnvMo
       exact absurd rfl hne
   exact EnvBlocksOf.extendBasisExt (J₀ := ConLeche.natName) hI hMs hnoTbl hag
     ⟨_, List.mem_singleton.mpr rfl, hf1⟩ hb (containerInfo?_natA hT hR hZ hS) hother
-    (natBlockAt hT hZ hS (extendAt_self _ _ _))
+    (natBlockAt hT hR hZ hS hmim (extendAt_self _ _ _))
 
 /-- **`Eq`'s block survives its own install** (task #315 M7-3 session
 9): the three-cons block at the two-parameter group, with the
@@ -454,7 +459,8 @@ the step is stated at an `EnvModelM`. -/
 theorem eqBlocksStepOf {env env₂ : Env} {m₁ : EnvModel V env} (mp₂ : EnvModelM V μ env₂)
     {B : ContainerInfo → BlockModel V}
     (h : ConLeche.Semantics.BasisInstallRun env ConLeche.BasisKind.eqK.declsA env₂)
-    (hag : AcvalAgrees m₁ mp₂.base2) (hb : EnvBlocksOf m₁ B) :
+    (hag : AcvalAgrees m₁ mp₂.base2) (hb : EnvBlocksOf m₁ B)
+    (hmim : ConLeche.blockOwnMimicsOk env₂ ConLeche.eqName 0 = true) :
     EnvBlocksOf mp₂.base2 (extendAt B
       ⟨2, [⟨ConLeche.eqName, [ConLeche.uN], ConLeche.eqA.toConstantVal.type,
         [⟨ConLeche.eqReflName, ConLeche.eqReflA.toConstantVal.type, 0⟩]⟩]⟩
@@ -542,7 +548,7 @@ theorem eqBlocksStepOf {env env₂ : Env} {m₁ : EnvModel V env} (mp₂ : EnvMo
       exact absurd rfl hne
   exact EnvBlocksOf.extendBasisExt (J₀ := ConLeche.eqName) hI hMs hnoTbl hag
     ⟨_, List.mem_singleton.mpr rfl, hf1⟩ hb (containerInfo?_eqA hT hR hC) hother
-    (eqBlockAt mp₂ hT hC (extendAt_self _ _ _))
+    (eqBlockAt mp₂ hT hC hR hmim (extendAt_self _ _ _))
 
 /-- **THE STEP AT A BLOCK THAT CREATES NO GROUP** (task #315 M7-3
 session 9): `extendBasisExt` without the new group — the assignment
@@ -563,13 +569,16 @@ theorem EnvBlocksOf.extendNoGroup {env₁ env₂ : Env} {m₁ : EnvModel V env�
     (hrecN : ∀ (n : Name) (cv : ConstantVal) (mI rP : Nat) (rules : List RecRule),
       env₂.find? (n.str "rec") = some (.recInfo cv mI rP rules) →
       n.str "rec" ∈ new.map (·.name) → n ∈ new.map (·.name))
+    (hmimN : ∀ (n : Name) (j : Nat) (cv : ConstantVal) (mI rP : Nat) (rules : List RecRule),
+      env₂.find? (Name.appendIndexAfter (n.str "rec") j) = some (.recInfo cv mI rP rules) →
+      Name.appendIndexAfter (n.str "rec") j ∈ new.map (·.name) → n ∈ new.map (·.name))
     (hnoTbl : ∀ c ∈ new, ∀ tbl : ConLeche.ProjTable, c ≠ .projInfo tbl)
     (hag : AcvalAgrees m₁ m₂)
     (hb : EnvBlocksOf m₁ B)
     (hnone : ∀ J ∈ new.map (·.name), ConLeche.containerInfo? env₂ J = none) :
     EnvBlocksOf m₂ B := by
   have hF : FindPreserved env₁ env₂ := fun hf => hE.ext _ _ hf
-  refine EnvBlocksOf.crossInd hE.ext hE.newN hE.freshN hrecN m₁.wf m₁.rec_ctors
+  refine EnvBlocksOf.crossInd hE.ext hE.newN hE.freshN hrecN hmimN m₁.wf m₁.rec_ctors
     (fun n c _ hf => hE.ext n c hf) (constsResolve_of_findPreserved hF) hag
     (fun ψ dp e ea hr => ?_) (fun _ _ _ _ => rfl) hb (fun J hJ ci hci => ?_)
   · rw [denoteMeta_acval_congr (fun n hn => (hag n hn).symm) dp e] at hr
@@ -640,7 +649,7 @@ theorem quotBlocksStepOf {env env₂ : Env} {m₁ : EnvModel V env} {m₂ : EnvM
     rw [ConLeche.Env.find?_cons]
     exact if_pos rfl
   refine EnvBlocksOf.extendNoGroup (new := [quotSoundA, quotIndA, quotLiftA, quotMkA, quotA])
-    ⟨rfl, ?_⟩ ?_ ?_ hag hb ?_
+    ⟨rfl, ?_⟩ ?_ ?_ ?_ hag hb ?_
   · intro c hc
     rcases List.mem_cons.mp hc with rfl | hc1
     · exact hf5
@@ -656,6 +665,16 @@ theorem quotBlocksStepOf {env env₂ : Env} {m₁ : EnvModel V env} {m₂ : EnvM
     simp only [List.map, List.mem_cons, List.not_mem_nil, or_false] at hmem
     rcases hmem with hn | hn | hn | hn | hn <;>
       exact absurd (ConLeche.Name.str.inj hn).2 (by decide)
+  · -- no MIMIC name is one of `Quot`'s either: four of the five are too
+    -- short (`appendIndexAfter_rec_str`), and the one that is not —
+    -- `Quot.sound` — has `Quot` as its prefix, which IS a new name
+    intro n j cv mI rP rules _ hmem
+    simp only [List.map, List.mem_cons, List.not_mem_nil, or_false] at hmem
+    rcases hmem with hn | hn | hn | hn | hn
+    · rw [(appendIndexAfter_rec_str hn).1]
+      show quotA.name ∈ _
+      exact List.mem_map_of_mem (by simp)
+    all_goals exact absurd (appendIndexAfter_rec_str hn).2 (by decide)
   · intro c hc tbl
     rcases List.mem_cons.mp hc with rfl | hc1
     · exact fun heq => nomatch heq
@@ -697,17 +716,37 @@ theorem basisStepB_of (hμ : μ.verifiedChecks = true) {env : Env} (mb : EnvMode
   obtain ⟨mp', hag⟩ := basisStepAgree_of mb.toEnvModelM h
   -- the LAST conjunct is K.49's `basisOwnMimicsOk`, the pinned block's
   -- own-pin table, off which `natBlock_ownPins` and its three twins close
-  -- `ContainerOwnPinsSyn` — the clause `ContainerModeled.ownPins` will
-  -- read.  It is `certOnly`-gated, which is why this theorem gained
+  -- `ContainerOwnPinsSyn` — the clause `ContainerModeled.ownPins`.  It
+  -- is `certOnly`-gated, which is why this theorem gained
   -- `hμ`: `EnvModelB`/`EnvModelM` carry no `μ.verifiedChecks`, and every
   -- caller (`declStepB_preserves`, `Model/Fold.lean`) already has one
   obtain ⟨-, hchain, hom⟩ := h
   replace hom := ConLeche.certOnly_elim hom hμ
   cases kind with
-  | eqK => exact ⟨⟨mp', ⟨_, eqBlocksStepOf mp' hchain hag hb⟩⟩⟩
-  | natK => exact ⟨⟨mp', ⟨_, natBlocksStepOf hchain hag hb⟩⟩⟩
-  | punitK => exact ⟨⟨mp', ⟨_, punitBlocksStepOf hchain hag hb⟩⟩⟩
-  | emptyK => exact ⟨⟨mp', ⟨_, emptyBlocksStepOf hchain hag hb⟩⟩⟩
-  | falseK => exact ⟨⟨mp', ⟨_, falseBlocksStepOf hchain hag hb⟩⟩⟩
+  | eqK =>
+    have hmim : ConLeche.blockOwnMimicsOk env₂ ConLeche.eqName 0 = true := by
+      unfold ConLeche.basisOwnMimicsOk at hom
+      exact List.all_eq_true.mp hom ConLeche.eqA (by simp [ConLeche.BasisKind.declsA])
+    exact ⟨⟨mp', ⟨_, eqBlocksStepOf mp' hchain hag hb hmim⟩⟩⟩
+  | natK =>
+    have hmim : ConLeche.blockOwnMimicsOk env₂ ConLeche.natName 0 = true := by
+      unfold ConLeche.basisOwnMimicsOk at hom
+      exact List.all_eq_true.mp hom ConLeche.natA (by simp [ConLeche.BasisKind.declsA])
+    exact ⟨⟨mp', ⟨_, natBlocksStepOf hchain hag hb hmim⟩⟩⟩
+  | punitK =>
+    have hmim : ConLeche.blockOwnMimicsOk env₂ ConLeche.punitName 0 = true := by
+      unfold ConLeche.basisOwnMimicsOk at hom
+      exact List.all_eq_true.mp hom ConLeche.punitA (by simp [ConLeche.BasisKind.declsA])
+    exact ⟨⟨mp', ⟨_, punitBlocksStepOf hchain hag hb hmim⟩⟩⟩
+  | emptyK =>
+    have hmim : ConLeche.blockOwnMimicsOk env₂ ConLeche.emptyName 0 = true := by
+      unfold ConLeche.basisOwnMimicsOk at hom
+      exact List.all_eq_true.mp hom ConLeche.emptyA (by simp [ConLeche.BasisKind.declsA])
+    exact ⟨⟨mp', ⟨_, emptyBlocksStepOf hchain hag hb hmim⟩⟩⟩
+  | falseK =>
+    have hmim : ConLeche.blockOwnMimicsOk env₂ ConLeche.falseName 0 = true := by
+      unfold ConLeche.basisOwnMimicsOk at hom
+      exact List.all_eq_true.mp hom ConLeche.falseA (by simp [ConLeche.BasisKind.declsA])
+    exact ⟨⟨mp', ⟨_, falseBlocksStepOf hchain hag hb hmim⟩⟩⟩
   | quotK => exact ⟨⟨mp', ⟨_, quotBlocksStepOf hchain hag hb⟩⟩⟩
 end ConLeche.Model

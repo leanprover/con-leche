@@ -687,14 +687,38 @@ theorem natBlock_pinRecLaws {env : Env} {m : EnvModel V env} :
   injW := fun _ _ h => nomatch h
   ind := fun _ _ _ _ _ _ _ _ h => nomatch h
 
+/-- **`Nat`'S OWN-PIN TABLE IS EMPTY** (task #315 M7-3 session 17,
+K.49 and DESIGN §U.74).  A pinned basis block installs no MIMIC
+recursor, so `containerOwnPinsAt` of its group hands back the empty
+table at every instantiation, and the clause `ContainerOwnPinsSyn` —
+which is `ContainerModeled.ownPins` — holds vacuously.
+
+That `Nat.rec_1` is absent is a statement about what the environment
+does NOT store, which no other record carries; `checkBasisDecl`
+certifies it itself (`basisOwnMimicsOk`, the last conjunct of
+`DeclBasisRun`), and `hmim` is that Bool at this block's own former,
+which is where `containerOwnPinsAt`'s walk starts. -/
+theorem natBlock_ownPins {env : Env}
+    (hT : env.find? ConLeche.natName = some ConLeche.natA)
+    (hR : env.find? (ConLeche.natName.str "rec") = some ConLeche.natRecA)
+    (hZ : env.find? ConLeche.natZeroName = some ConLeche.natZeroA)
+    (hS : env.find? ConLeche.natSuccName = some ConLeche.natSuccA)
+    (hmim : ConLeche.blockOwnMimicsOk env ConLeche.natName 0 = true) :
+    ContainerOwnPinsSyn (V := V) env (natBlock (V := V)) :=
+  ContainerOwnPinsSyn.of_noMimics hmim fun i hi => by
+    obtain rfl : i = 0 := Nat.lt_one_iff.mp (show i < 1 from hi)
+    exact ⟨_, _, containerInfo?_natA hT hR hZ hS, rfl, rfl⟩
+
 /-- **`Nat`'s group carries its block model**.  The `inj` clause is
 VACUOUS: `Nat` has no parameters, so the guard `0 < d.nP` (task #315
 M7-4) is unsatisfiable — which is the point, `ω`'s elements being von
 Neumann ordinals and not tagged towers. -/
 theorem natBlock_containerModeled {env : Env} {m : EnvModel V env}
     (hT : env.find? ConLeche.natName = some ConLeche.natA)
+    (hR : env.find? (ConLeche.natName.str "rec") = some ConLeche.natRecA)
     (hZ : env.find? ConLeche.natZeroName = some ConLeche.natZeroA)
-    (hS : env.find? ConLeche.natSuccName = some ConLeche.natSuccA) :
+    (hS : env.find? ConLeche.natSuccName = some ConLeche.natSuccA)
+    (hmim : ConLeche.blockOwnMimicsOk env ConLeche.natName 0 = true) :
     ContainerModeled m ⟨0, [⟨ConLeche.natName, [], ConLeche.natA.toConstantVal.type,
         [⟨ConLeche.natZeroName, ConLeche.natZeroA.toConstantVal.type, 0⟩,
          ⟨ConLeche.natSuccName, ConLeche.natSuccA.toConstantVal.type, 1⟩]⟩]⟩
@@ -754,38 +778,18 @@ theorem natBlock_containerModeled {env : Env} {m : EnvModel V env}
   pinsNotMembers := fun _ h => nomatch h
   pinNP := fun _ h => nomatch h
   pinConts := fun _ h => nomatch h
+  ownPins := natBlock_ownPins hT hR hZ hS hmim
   pinψ := fun _ h => nomatch h
   pinParams := fun _ _ _ => ContainerPinParams.of_noPins rfl
-
-/-- **`Nat`'S OWN-PIN TABLE IS EMPTY** (task #315 M7-3 session 17,
-K.49 and DESIGN §U.74).  A pinned basis block installs no MIMIC
-recursor, so `containerOwnPinsAt` of its group hands back the empty
-table at every instantiation, and the clause
-`ContainerOwnPinsSyn` — what `ContainerModeled.ownPins` will be —
-holds vacuously.
-
-That `Nat.rec_1` is absent is a statement about what the environment
-does NOT store, which no other record carries; `checkBasisDecl`
-certifies it itself (`basisOwnMimicsOk`, the last conjunct of
-`DeclBasisRun`), and `hmim` is that Bool at this block's own former,
-which is where `containerOwnPinsAt`'s walk starts. -/
-theorem natBlock_ownPins {env : Env}
-    (hT : env.find? ConLeche.natName = some ConLeche.natA)
-    (hR : env.find? (ConLeche.natName.str "rec") = some ConLeche.natRecA)
-    (hZ : env.find? ConLeche.natZeroName = some ConLeche.natZeroA)
-    (hS : env.find? ConLeche.natSuccName = some ConLeche.natSuccA)
-    (hmim : ConLeche.blockOwnMimicsOk env ConLeche.natName 0 = true) :
-    ContainerOwnPinsSyn (V := V) env (natBlock (V := V)) :=
-  ContainerOwnPinsSyn.of_noMimics hmim fun i hi => by
-    obtain rfl : i = 0 := Nat.lt_one_iff.mp (show i < 1 from hi)
-    exact ⟨_, _, containerInfo?_natA hT hR hZ hS, rfl, rfl⟩
 
 /-- **`Nat` carries its block's model** at any assignment that sends
 its group to `natBlock`. -/
 theorem natBlockAt {env : Env} {m : EnvModel V env}
     (hT : env.find? ConLeche.natName = some ConLeche.natA)
+    (hR : env.find? (ConLeche.natName.str "rec") = some ConLeche.natRecA)
     (hZ : env.find? ConLeche.natZeroName = some ConLeche.natZeroA)
     (hS : env.find? ConLeche.natSuccName = some ConLeche.natSuccA)
+    (hmim : ConLeche.blockOwnMimicsOk env ConLeche.natName 0 = true)
     {B : ContainerInfo → BlockModel V}
     (hB : B ⟨0, [⟨ConLeche.natName, [], ConLeche.natA.toConstantVal.type,
         [⟨ConLeche.natZeroName, ConLeche.natZeroA.toConstantVal.type, 0⟩,
@@ -794,7 +798,7 @@ theorem natBlockAt {env : Env} {m : EnvModel V env}
     BlockAt m B ⟨0, [⟨ConLeche.natName, [], ConLeche.natA.toConstantVal.type,
         [⟨ConLeche.natZeroName, ConLeche.natZeroA.toConstantVal.type, 0⟩,
          ⟨ConLeche.natSuccName, ConLeche.natSuccA.toConstantVal.type, 1⟩]⟩]⟩ := by
-  refine ⟨hB ▸ natBlock_containerModeled hT hZ hS, ⟨fun _ => default, ?_, ?_⟩⟩
+  refine ⟨hB ▸ natBlock_containerModeled hT hR hZ hS hmim, ⟨fun _ => default, ?_, ?_⟩⟩
   · exact hB ▸ natBlock_pinRecLaws
   · rw [hB]; exact fun q hq => nomatch hq
 

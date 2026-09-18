@@ -1002,7 +1002,17 @@ theorem nestedPinChecks_inv {ops : CheckerOps CheckM} {env envN : Env} {p : Nest
         ∃ (jobs : List (Nat × Expr × Expr)) (ws : List Expr),
           nestedOrdDomPairs env p st stored (nestedPinKinds p b stored) = some jobs ∧
           nestedOrdNorms ops envN b.memberNames jobs = .ok ws ∧
-          ws = jobs.map (·.2.2)) := by
+          ws = jobs.map (·.2.2)) ∧
+      -- **K.51**: the same walk at the PIN targets, whose stored domain
+      -- is headed by the mimic, so the normalisation's output is
+      -- REWRITTEN before the comparison
+      (ops.mode.verifiedChecks = true →
+        ∃ (params : List Expr) (pbs₀ : List (Expr × BinderMeta))
+          (jobsP : List (Nat × Expr × Expr)) (wsP : List Expr),
+          nestedRewriteData p st = some (params, pbs₀) ∧
+          nestedPinDomPairs env p st stored (nestedPinKinds p b stored) = some jobsP ∧
+          nestedPinNorms ops envN b.memberNames jobsP = .ok wsP ∧
+          nestedPinRewrites env p st params pbs₀ jobsP wsP = true) := by
   unfold nestedPinChecks at h
   rcases Bool.eq_false_or_eq_true ops.mode.verifiedChecks with hv | hv
   · -- `.verified`: each `unless` is its own clause, as before
@@ -1034,15 +1044,24 @@ theorem nestedPinChecks_inv {ops : CheckerOps CheckM} {env envN : Env} {p : Nest
             obtain ⟨ws, hws, h⟩ := exceptBind_ok h
             by_cases hcmp : (ws == jobs.map (·.2.2)) = true
             case neg => rw [if_neg hcmp] at h; close_throw
+            rw [if_pos hcmp] at h
+            obtain ⟨pd, hpd, h⟩ := exceptBind_ok h
+            obtain ⟨jobsP, hjobsP, h⟩ := exceptBind_ok h
+            obtain ⟨wsP, hwsP, h⟩ := exceptBind_ok h
+            by_cases hrw : nestedPinRewrites env p st pd.1 pd.2 jobsP wsP = true
+            case neg => rw [if_neg (by simpa using hrw)] at h; close_throw
             exact ⟨by simp [certOnly, nestedCopyTargetsOk, htg'],
               by simp [certOnly, nestedPinKindsOk, hkd'],
               by simp [certOnly, nestedPinRankOk, nestedPinEdges, hrk'],
               by simp [certOnly, nestedPinRootPairOk, nestedPinRootGroup, nestedPinInstOf,
                 nestedPinEdges, hrh'],
-              fun _ => ⟨jobs, ws, unwrapOr_ok hjobs, hws, by simpa using hcmp⟩⟩
+              fun _ => ⟨jobs, ws, unwrapOr_ok hjobs, hws, by simpa using hcmp⟩,
+              fun _ => ⟨pd.1, pd.2, jobsP, wsP, unwrapOr_ok hpd, unwrapOr_ok hjobsP,
+                hwsP, hrw⟩⟩
   · -- `.trusted`: the group does not run, and every `certOnly` is `true`
     exact ⟨by simp [certOnly, hv], by simp [certOnly, hv], by simp [certOnly, hv],
-      by simp [certOnly, hv], fun hv' => absurd hv' (by simp [hv])⟩
+      by simp [certOnly, hv], fun hv' => absurd hv' (by simp [hv]),
+      fun hv' => absurd hv' (by simp [hv])⟩
 
 /-- **The whole nested chain**, as the install ran it. -/
 theorem checkNested_inv {env envOut : Env} {p : NestedParts} {F : Nat}
@@ -1134,6 +1153,19 @@ theorem checkNested_inv {env envOut : Env} {p : NestedParts} {F : Nat}
           nestedOrdNorms (m := CheckM) (fueledOps mode F)
               (consNestedFormers (stored.take p.k) env) b.memberNames jobs = .ok ws ∧
           ws = jobs.map (·.2.2)) ∧
+      -- THE SAME WALK AT A PIN TARGET, REWRITTEN (K.51): there the
+      -- stored domain is headed by the MIMIC and the minted one by the
+      -- CONTAINER, so the normalisation's output is rewritten — by the
+      -- elimination's own `replaceAllNested`, at the FINAL state, which
+      -- therefore mints nothing — before the comparison
+      (mode.verifiedChecks = true →
+        ∃ (params : List Expr) (pbs₀ : List (Expr × BinderMeta))
+          (jobsP : List (Nat × Expr × Expr)) (wsP : List Expr),
+          nestedRewriteData p st = some (params, pbs₀) ∧
+          nestedPinDomPairs env p st stored (nestedPinKinds p b stored) = some jobsP ∧
+          nestedPinNorms (m := CheckM) (fueledOps mode F)
+              (consNestedFormers (stored.take p.k) env) b.memberNames jobsP = .ok wsP ∧
+          nestedPinRewrites env p st params pbs₀ jobsP wsP = true) ∧
       -- POST-CHECK (a) A THIRD TIME (K.30): the pins typed at the
       -- environment holding the RESTORED formers
       nestedPinsOk (m := CheckM) (fueledOps mode F)
@@ -1310,7 +1342,7 @@ theorem checkNested_inv {env envOut : Env} {p : NestedParts} {F : Nat}
   rw [if_pos hpa] at h
   try simp only [bind, Except.bind] at h
   obtain ⟨uPC, hpc4, h⟩ := exceptBind_ok h
-  obtain ⟨htg, hkd, hrk, hrh, hord⟩ := nestedPinChecks_inv hpc4
+  obtain ⟨htg, hkd, hrk, hrh, hord, hpinN⟩ := nestedPinChecks_inv hpc4
   try simp only at h
   obtain ⟨uP₁, hpins₁, h⟩ := exceptBind_ok h
   try simp only at h
@@ -1377,7 +1409,7 @@ theorem checkNested_inv {env envOut : Env} {p : NestedParts} {F : Nat}
   exact ⟨st, b, envAux, stored, ctorsR, cvRms, cvRns, rulesM, rulesN, fmsA, ctorsA,
     hfmsA, hctorsA, helim', beq_iff_eq.mp hcnt, hfresh, hcont, hb', haux, hst', hpc,
     (by cases uA; exact hpinsAux), hcaps, hsrc,
-    certOnly_and_left hcont, hgrp, hmn, hsc, hpl, htg, hkd, haa, hrk, hpa, hrh, hord,
+    certOnly_and_left hcont, hgrp, hmn, hsc, hpl, htg, hkd, haa, hrk, hpa, hrh, hord, hpinN,
     (by cases uP₁; exact hpins₁), hctors, hrm, hrn, hnd, hdj, hrlm, hrln, hrb2, htbl,
     (by cases u₀; exact hpins), hlen, (by cases u₁; exact hrecs), hrb, hop, hom⟩
 

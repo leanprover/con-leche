@@ -257,7 +257,8 @@ theorem mutualContainerModeled {env envR : Env} {m : EnvModel V envR}
     (hOrd : ConLeche.MutualOrdFree (fms.map (·.cvTa.name)) b.nP ctorsA kinds)
     (hrepsAt : IsBlockModelsAt m d (fun mm => (fms.getD mm default).cvTa))
     (htyped : ∀ ψ : Name → Nat, FormersTyped m d ψ ∧ CtorsTyped m d ψ)
-    (htf : MutualTableFacts b fms sortss d) :
+    (htf : MutualTableFacts b fms sortss d)
+    (hownPins : ContainerOwnPinsSyn (V := V) envR d) :
     ContainerModeled m
       (ConLeche.blockContainerInfo b.nP (fms.zipIdx.map fun (f, mIdx) =>
         (f.cvTa, (b.ownCtors mIdx).filterMap fun (J, _) => ctorsA[J]?))) d := by
@@ -286,6 +287,7 @@ theorem mutualContainerModeled {env envR : Env} {m : EnvModel V envR}
     (fun q hq => absurd hq (by rw [hnoPins]; omega))
     (fun q hq => absurd hq (by rw [hnoPins]; omega))
     (fun q hq => absurd hq (by rw [hnoPins]; omega))
+    hownPins
     (fun q hq => absurd hq (by rw [hnoPins]; omega))
     (fun _ _ => ContainerPinParams.of_noPins hd.pins) (fun i hi => ?_)
   · rw [List.length_map, List.length_zipIdx, hkF]
@@ -331,9 +333,7 @@ first step at every member and every instantiation
 (`containerOwnPinsAt_nil`), and the table is empty; the block model's
 recorded pins are never needed (a mutual block has none).
 
-This is the shape `ContainerModeled.ownPins` will take once the field
-lands; it is proved standalone here because the field is blocked on a
-separate record. -/
+This is the clause `ContainerModeled.ownPins` at this route's site. -/
 theorem mutualOwnPins_of {envB envOut : Env} {b : MutualBlock} {fms : List MutualFormerA}
     {f₀ : MutualFormerA} {ctorsA : List (ConstantVal × Nat)} {d : BlockModel V}
     (hlenF : fms.length = b.k) (hd : MutualBlockModelOf (V := V) envB b fms ctorsA d)
@@ -534,6 +534,27 @@ theorem appendIndexAfter_rec_ne_rec (n n' : Name) (j : Nat) :
   intro h
   have h' : Name.str n ("rec" ++ "_" ++ toString j) = Name.str n' "rec" := h
   obtain ⟨-, hs⟩ := ConLeche.Name.str.inj h'
+  have hlen := congrArg String.length hs
+  rw [String.length_append, String.length_append] at hlen
+  simp only [show "rec".length = 3 from rfl, show "_".length = 1 from rfl] at hlen
+  omega
+
+omit [SetTheory V] in
+/-- **A MIMIC RECURSOR'S LAST COMPONENT IS AT LEAST FIVE CHARACTERS
+LONG, AND ITS PREFIX IS THE BASE'S**: `Name.appendIndexAfter` writes
+`"rec" ++ "_" ++ toString j`, and a natural number's decimal digits are
+never empty (`Nat.length_repr_pos`).
+
+The general form of `appendIndexAfter_rec_ne_rec` above, for the one
+install whose new names are not all members' own recursors — `Quot`'s,
+whose `hmimN` is then decided component by component (`Quot.sound` is
+the one name long enough, and its prefix IS a new name). -/
+theorem appendIndexAfter_rec_str {n n' : Name} {j : Nat} {s : String}
+    (h : Name.appendIndexAfter (n.str "rec") j = n'.str s) : n = n' ∧ 5 ≤ s.length := by
+  have h' : Name.str n ("rec" ++ "_" ++ toString j) = Name.str n' s := h
+  obtain ⟨hn, hs⟩ := ConLeche.Name.str.inj h'
+  refine ⟨hn, ?_⟩
+  have hpos : 0 < (toString j).length := Nat.length_repr_pos
   have hlen := congrArg String.length hs
   rw [String.length_append, String.length_append] at hlen
   simp only [show "rec".length = 3 from rfl, show "_".length = 1 from rfl] at hlen
@@ -1158,7 +1179,8 @@ theorem nativeContainerModeled {envO : Env} {m : EnvModel V envO} {mC : EnvModel
       ctorsA sortss rhss bsT ppsAll uAV idxF dsF esF srcsF ksF fvsPF xFvsF xrestF eissF tssF
       fssZ)
     (hI : IsBlockModel m p.cvT.name cvTa cvRa p.majorIdx p.rulePrefix rules DN 0)
-    (htyped : ∀ ψ : Name → Nat, FormersTyped m DN ψ ∧ CtorsTyped m DN ψ) :
+    (htyped : ∀ ψ : Name → Nat, FormersTyped m DN ψ ∧ CtorsTyped m DN ψ)
+    (hown : ContainerOwnPinsSyn (V := V) envO DN) :
     ContainerModeled m (ConLeche.blockContainerInfo p.nP [(cvTa, ctorsA)]) DN := by
   have hord := nativeOrdFree_of hf
   refine ContainerModeled.of_readBack rfl rfl rfl (fun i hi => ?_) (fun i hi => ?_)
@@ -1167,6 +1189,7 @@ theorem nativeContainerModeled {envO : Env} {m : EnvModel V envO} {mC : EnvModel
     (fun q hq => absurd hq (Nat.not_lt_zero q))
     (fun q hq => absurd hq (Nat.not_lt_zero q)) (fun q hq => absurd hq (Nat.not_lt_zero q))
     (fun q hq => absurd hq (Nat.not_lt_zero q))
+    hown
     (fun q hq => absurd hq (Nat.not_lt_zero q))
     (fun _ _ => ContainerPinParams.of_noPins rfl) (fun i hi => ?_)
   · obtain rfl : i = 0 := Nat.lt_one_iff.mp hi
@@ -1200,9 +1223,7 @@ stops at its first step at every instantiation
 (`containerOwnPinsAt_nil`) and the table is empty; the block model's
 recorded pins are never needed (a native block has none).
 
-This is the shape `ContainerModeled.ownPins` will take once the field
-lands; it is proved standalone here because the field is blocked on a
-separate record. -/
+This is the clause `ContainerModeled.ownPins` at this route's site. -/
 theorem nativeOwnPins_of {mC : EnvModel V envC}
     (hf : NativeSyntaxFacts (μ := μ) (env := env) (env₁ := env₁) (env₂ := env₂) mC F p cvTa cvRa
       ctorsA sortss rhss bsT ppsAll uAV idxF dsF esF srcsF ksF fvsPF xFvsF xrestF eissF tssF
@@ -1463,8 +1484,8 @@ theorem declMutualB (hμ : μ.verifiedChecks = true) {F : Nat} {env envOut : Env
   obtain ⟨hlenA, -⟩ := ctorsA_names_of hctors h1
   have hlenF : fms.length = p.toBlock.k := (mutualFormerChecksG_pos hchecks).1
   -- the block's own-pin table is empty (K.43, DESIGN §U.74 (c)): the
-  -- clause `ContainerModeled.ownPins` will take once its field lands
-  have _hown : ContainerOwnPinsSyn (V := V) envOut d :=
+  -- clause `ContainerModeled.ownPins`
+  have hown : ContainerOwnPinsSyn (V := V) envOut d :=
     mutualOwnPins_of hlenF hd hf₀ hrb hom
   have hmemFresh : ∀ T ∈ fms.map (·.cvTa.name), env.find? T = none := by
     intro T hT'
@@ -1524,7 +1545,7 @@ theorem declMutualB (hμ : μ.verifiedChecks = true) {F : Nat} {env envOut : Env
         (f.cvTa, (p.toBlock.ownCtors mIdx).filterMap fun (J, _) => ctorsA[J]?))) d :=
     mutualContainerModeled h3 hlenA hlenF hd hks hOrd' hrepsOut
       (fun ψ => ⟨(hT ψ).1.crossEnv hagT hrepsAt.toIsBlockModels,
-        (hT ψ).2.crossEnv hagT hrepsAt.toIsBlockModels⟩) htf
+        (hT ψ).2.crossEnv hagT hrepsAt.toIsBlockModels⟩) htf hown
   -- the carriers agree at every stored name
   have hbnFresh := mutualBlockNames_fresh hpinOk h1 hformers hctors hrectys
   have hagEnv : ∀ n : Name, (env.find? n).isSome = true →
@@ -1544,7 +1565,7 @@ theorem declMutualB (hμ : μ.verifiedChecks = true) {F : Nat} {env envOut : Env
       (fms.zipIdx.map fun (f, mIdx) =>
         (f.cvTa, (p.toBlock.ownCtors mIdx).filterMap fun (J, _) => ctorsA[J]?))
       then d else B ci, ?_⟩⟩⟩
-  refine hB.crossIndP (Ts := fms.map (·.cvTa.name)) E.ext E.newN E.freshN (E.recN hMs)
+  refine hB.crossIndP (Ts := fms.map (·.cvTa.name)) E.ext E.newN E.freshN (E.recN hMs) E.mimN
     mb.base2.wf mb.base2.rec_ctors (fun n c _ hf => E.ext n c hf)
     (constsResolve_of_findPreserved (fun hf => E.ext _ _ hf)) hagEnv ?_ hmemFresh ?_ ?_
   · -- the readings cross the whole install under the guard
@@ -1650,14 +1671,14 @@ theorem declNativeB (hμ : μ.verifiedChecks = true) {F : Nat} {env envOut : Env
     intro c hc
     obtain rfl : c = 0 := Nat.lt_one_iff.mp hc
     exact ⟨cvTa, cvRa, p.majorIdx, p.rulePrefix, [], hIC⟩
-  have hcm := nativeContainerModeled hf hI (fun ψ =>
-    ⟨(nativeTyped hf ψ).1.crossEnv hagCO hreps, (nativeTyped hf ψ).2.crossEnv hagCO hreps⟩)
   -- the block's own-pin table is empty (K.43, DESIGN §U.74 (c)): the
-  -- clause `ContainerModeled.ownPins` will take once its field lands
-  have _hown : ContainerOwnPinsSyn (V := V) envOut
+  -- clause `ContainerModeled.ownPins`
+  have hown : ContainerOwnPinsSyn (V := V) envOut
       (BlockModel.ofNative (V := V) p.nP p.resSort p.isProp p.large env p.cvT.name p.nIdx
         ppsAll uAV ctorsA idxF dsF esF srcsF ksF fvsPF xFvsF xrestF eissF tssF) :=
     nativeOwnPins_of hf
+  have hcm := nativeContainerModeled hf hI (fun ψ =>
+    ⟨(nativeTyped hf ψ).1.crossEnv hagCO hreps, (nativeTyped hf ψ).2.crossEnv hagCO hreps⟩) hown
   -- the old containers cross, the new block is its own group
   obtain ⟨B, hB⟩ := mb.blocks
   refine ⟨⟨mpOut, ⟨fun ci => if ci = ConLeche.blockContainerInfo p.nP [(cvTa, ctorsA)]
@@ -1669,6 +1690,7 @@ theorem declNativeB (hμ : μ.verifiedChecks = true) {F : Nat} {env envOut : Env
       obtain rfl := List.mem_singleton.mp hn
       rw [List.map_append, List.mem_append]
       exact Or.inr hMs))
+    E.mimN
     mb.base2.wf mb.base2.rec_ctors (fun n c _ hff => E.ext n c hff)
     (constsResolve_of_findPreserved (fun hff => E.ext _ _ hff)) hagEnv ?_ hmemFresh ?_ ?_
   · -- the readings cross the whole install under the guard
