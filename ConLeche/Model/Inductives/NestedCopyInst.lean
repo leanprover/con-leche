@@ -176,6 +176,27 @@ theorem os_instSeq_head {e : Expr} {n : Name} {us : List Level}
   rw [← he, ConLeche.instSeq_mkAppN_const, Expr.getAppFn_mkAppN]
   rfl
 
+omit [SetTheory V] in
+/-- **AN INSTANTIATION ABOVE A LIFT COMMUTES WITH IT** (task #315 L-B):
+`AVExprSubst.inst_liftN_comm` iterated over the list — instantiating a
+lift-of-`B` at the cut the lift made is the lift of the instantiation
+at the bottom.  This is the step from a container's NESTED FIELD
+reading, where the pin's components are lifted over the field binders,
+to the block pin's components, which carry no lift. -/
+theorem instAll_liftN0 : ∀ (ds : List AnnotTerm) (l : Nat) (B : AnnotTerm),
+    AnnotTerm.instAll ds l (AnnotTerm.liftN l B 0)
+      = AnnotTerm.liftN l (AnnotTerm.instAll ds 0 B) 0
+  | [], _, _ => rfl
+  | d :: ds, l, B => by
+    show AnnotTerm.instAll ds l (AnnotTerm.inst (AnnotTerm.liftN l B 0) d (l + ds.length)) = _
+    rw [AVExprSubst.inst_liftN_comm B (by omega) d,
+      show l + ds.length - l = ds.length from by omega,
+      instAll_liftN0 ds l (AnnotTerm.inst B d ds.length)]
+    show _ = AnnotTerm.liftN l (AnnotTerm.instAll ds 0
+      (AnnotTerm.inst B d (0 + ds.length))) 0
+    rw [Nat.zero_add]
+
+
 /-- The formers are consed in order, so a prefix's environment is a
 stage of the whole list's. -/
 theorem consMutualFormers_append :
