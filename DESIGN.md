@@ -103921,3 +103921,74 @@ my estimates this arc came in under.  It is NOT done here: the check is
 landed and measured, the lane's face is unblocked today, and the
 derivation is the strictly better end state whenever a session can be
 spent replacing this row with a theorem.
+
+#### THE MIRROR ASSEMBLIES' BLOCKER 2, PROVED — the restored recursors' names are distinct, syntactically (2026-09-18, task #315 M8, `agent/uniform-m5`)
+
+The ruling was: prove the distinctness the cached mirror's push chain
+needs **syntactically**, and do NOT make K.39's certification-only
+check unconditional.  The reason the check cannot serve is one line:
+`certOnly` is `true` in trusted mode, and a push chain must hold in
+EVERY mode.
+
+**What was missing, and where it was.**  The mimic recursors are
+`T₁.rec_1, T₁.rec_2, …`, so separating them is `Nat.repr`'s
+injectivity — which the kernel's `Name.appendIndexAfter` reaches
+through `toString`, and which K.39's own comment records as "not
+something core carries".  It is in the tree: `Verify/Frontend/Digits.lean`
+characterises the decimal rendering once, for the file-level statement
+(`IsDec`, `repr_isDec`), and `digitsVal ∘ lit ∘ toString` is a left
+inverse.  This is that module's second consumer.
+
+The kit, in `Verify/Inductives/NestedRecNames.lean`:
+
+* `string_append_cancel`, `toString_nat_inj` — the rendering determines
+  the number;
+* `appendIndexAfter_inj` — the index appended to a fixed name determines
+  the index;
+* `recName_ne_mimicName` — a member's `X.rec` is never a mimic's
+  `X.rec_j` (the last string component's length);
+* `mimicRecNames_nodup`, `memberRecNames_nodup`,
+  `restoredRecNames_nodup`, and the assembly form
+  `restoredRecNames_nodup_of (hnd : p.memberNames.Nodup)`.
+
+So K.39's content is now a THEOREM for the mirror, with the check left
+exactly where it is for the model tier.
+
+##### AND A SECOND, CHEAPER ROUTE TO THE SAME FACT, found while wiring it
+
+`nestedParts?` — the recogniser — ALREADY checks
+`(mrs.map (·.1.name) ++ nrs.map (·.1.name)).Nodup` and returns `none`
+when it fails, so the fact is available at REJECT level, in every mode,
+from the very record the driver is called with.  The mutual mirror's
+`checkMutualCoreS_push` takes exactly this shape of hypothesis
+(`hlen`, `hnm`) and lets its caller discharge it from the recogniser, so
+the nested assembly should do the same and take the `Nodup` as a
+premise.  The kit above is then the general form — it needs only
+`p.memberNames.Nodup` — and the assembly need not derive it through the
+scratch install's shape check and `auxBlock_memberNames` at all.
+
+##### WHAT REMAINS OF THE TWO ASSEMBLIES, precisely
+
+* **`checkNestedS_push`**: the walk plus THREE name-list bridges, one
+  per cons — the members' (`stored.take p.k`'s names are
+  `p.memberNames`), the restored constructors' (`restoreCtorsF_names`
+  ties them to the auxiliary block's stored ctor names, whose `Nodup` is
+  `nodup_ctors_of_blockNames`) and the recursors' (`restoreRecTysF_names`
+  ties them to the asked-for name lists, now `Nodup` by the kit).  The
+  freshness halves are all landed already (`restoreCtorsF_fresh`,
+  `restoreRecTysF_fresh`, and the route's own `members.all … isNone`).
+* **`checkNestedS_skels`**: **BLOCKED, and on K.54 itself rather than on
+  the walk.**  A skeleton row for a recursor is
+  `.recr name mI rP ctors`, and the nested route's `mI`/`rP` come from
+  the READ-BACK (`stored`'s `a.mI`, `a.rP`), which is a function of the
+  elimination and the scratch install — not of `p`.  K.54's ruling
+  (option one: keep the recursor numbers in `NestedParts` and pin them)
+  is **not landed**: `nestedParts?` builds `memberRecs`/`mimicRecs` as
+  `(r.1, r.2.2.2)`, dropping the stream record's `mI` and `rP`, and
+  `nestedRecOk` compares the name, the level parameters, the type (by
+  `isDefEq`) and the rules — never the two numbers.  So K.54 is a kernel
+  record still to land (the recogniser field, the pin, a measurement
+  that the pin never fires — a nested block's recursor records carry the
+  AUXILIARY block's argument sums, so the stream's numbers should BE the
+  stored ones, but that is an argument until measured — and a ledger
+  row), and the skeleton assembly cannot be stated before it.

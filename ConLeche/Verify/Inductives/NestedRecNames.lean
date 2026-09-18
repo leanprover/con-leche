@@ -7,6 +7,13 @@ import ConLeche.Verify.Inductives.NestedAuxInv
 import ConLeche.Verify.Inductives.MutualInv
 import ConLeche.Verify.Inductives.FrontDoor
 import ConLeche.Verify.EnvWF
+-- **THE DECIMAL RENDERING** (task #315, the mirror assemblies' Blocker 2):
+-- the restored recursors' names are pairwise distinct SYNTACTICALLY, and
+-- the mimics' `T₁.rec_j` are separated by `j` — which needs `toString`
+-- injective on `Nat`.  `Verify/Frontend/Digits.lean` characterises
+-- `Nat.repr` once, for the file-level statement; this is its second
+-- consumer.
+import ConLeche.Verify.Frontend.Digits
 
 public section
 
@@ -535,6 +542,120 @@ theorem elimNested_named {env : Env} {nP : Nat} {lps : List Name}
       · close_throw
     · close_throw
   · close_throw
+
+/-! ## The mimic recursors' indices (task #315, the mirror assemblies)
+
+`K.39` records the restored recursors' distinctness as a
+CERTIFICATION-ONLY Bool, which is `true` in trusted mode and therefore
+useless to the cached mirror's push chain: that chain must hold in
+EVERY mode.  The ruling was to prove the distinctness syntactically
+instead of making the check unconditional, and the one thing it needs
+that core does not carry is `Nat.repr`'s injectivity —
+`Verify/Frontend/Digits.lean` has it, as `digitsVal ∘ lit ∘ toString`.
+-/
+
+/-- Left cancellation for `String.append`, through the character list. -/
+theorem string_append_cancel {s x y : String} (h : s ++ x = s ++ y) : x = y := by
+  have h2 := congrArg String.toList h
+  rw [String.toList_append, String.toList_append] at h2
+  exact String.toList_inj.mp (List.append_cancel_left h2)
+
+/-- **`toString` IS INJECTIVE ON `Nat`**: the rendering's digit run
+values back to the number (`Frontend.repr_isDec`), so two numbers with
+one rendering are one number. -/
+theorem toString_nat_inj {a b : Nat} (h : toString a = toString b) : a = b := by
+  have ha := (Frontend.repr_isDec a).val
+  have hb := (Frontend.repr_isDec b).val
+  rw [h] at ha
+  rw [← ha, hb]
+
+/-- **THE INDEX APPENDED TO A NAME DETERMINES THE INDEX.** -/
+theorem appendIndexAfter_inj : ∀ {n : Name} {i j : Nat},
+    Name.appendIndexAfter n i = Name.appendIndexAfter n j → i = j
+  | .str q s, i, j, h => by
+    simp only [Name.appendIndexAfter, Name.str.injEq] at h
+    exact toString_nat_inj (string_append_cancel h.2)
+  | .anonymous, i, j, h => by
+    simp only [Name.appendIndexAfter, Name.str.injEq] at h
+    exact toString_nat_inj (string_append_cancel h.2)
+  | .num q k, i, j, h => by
+    simp only [Name.appendIndexAfter, Name.str.injEq] at h
+    exact toString_nat_inj (string_append_cancel h.2)
+
+/-- **A MEMBER'S RECURSOR NAME IS NOT A MIMIC'S**: the last string
+component is `rec` on one side and `rec_j` on the other. -/
+theorem recName_ne_mimicName {b b' : Name} {i : Nat} :
+    (Name.str b "rec") ≠ Name.appendIndexAfter (Name.str b' "rec") i := by
+  simp only [Name.appendIndexAfter, ne_eq, Name.str.injEq, not_and]
+  intro _ hs
+  have hlen := congrArg String.length hs
+  simp only [String.length_append] at hlen
+  rw [show "rec".length = 3 from rfl, show "_".length = 1 from rfl] at hlen
+  omega
+
+/-- **THE MIMIC RECURSOR NAMES ARE PAIRWISE DISTINCT**, syntactically:
+`T₁.rec_1, T₁.rec_2, …` differ in their index. -/
+theorem mimicRecNames_nodup (p : NestedParts) (n : Nat) :
+    ((List.range n).map p.mimicRecName).Nodup := by
+  rw [List.Nodup, List.pairwise_map]
+  refine List.pairwise_lt_range.imp ?_
+  intro i j hij heq
+  have := appendIndexAfter_inj (n := (p.formers.headD default).1.name.str "rec") heq
+  omega
+
+/-- **THE MEMBERS' RECURSOR NAMES ARE PAIRWISE DISTINCT** when the
+members' own names are: `·.str "rec"` is injective. -/
+theorem memberRecNames_nodup {p : NestedParts} {k : Nat}
+    (h : ∀ i j, i < k → j < k →
+      (p.formers.getD i default).1.name = (p.formers.getD j default).1.name → i = j) :
+    ((List.range k).map fun mIdx => ((p.formers.getD mIdx default).1.name.str "rec")).Nodup := by
+  rw [List.Nodup, List.pairwise_map, List.pairwise_iff_getElem]
+  intro i j hi hj hij heq
+  rw [List.length_range] at hi hj
+  rw [List.getElem_range, List.getElem_range] at heq
+  exact absurd (h i j hi hj (Name.str.inj heq).1) (by omega)
+
+/-- **AND THE TWO LISTS ARE DISJOINT**, so the whole restored-recursor
+name list is `Nodup` — K.39's content, proved rather than recorded. -/
+theorem restoredRecNames_nodup {p : NestedParts} {k n : Nat}
+    (h : ∀ i j, i < k → j < k →
+      (p.formers.getD i default).1.name = (p.formers.getD j default).1.name → i = j) :
+    (((List.range k).map fun mIdx => ((p.formers.getD mIdx default).1.name.str "rec"))
+      ++ ((List.range n).map p.mimicRecName)).Nodup := by
+  refine List.nodup_append.mpr ⟨memberRecNames_nodup h, mimicRecNames_nodup p n, ?_⟩
+  intro x hx y hx'
+  obtain ⟨i, -, rfl⟩ := List.mem_map.mp hx
+  obtain ⟨j, -, hj⟩ := List.mem_map.mp hx'
+  rw [← hj]
+  exact recName_ne_mimicName
+
+/-- **THE RESTORED RECURSORS' NAME LIST IS `Nodup`**, from the block's
+own members being distinct — which the SCRATCH install's shape check
+establishes (`b.blockNames.Nodup`, through `auxBlock_memberNames`).
+This is K.39's content as a THEOREM: the cached mirror's push chain
+must hold in EVERY mode, and a `certOnly` Bool is `true` in trusted
+mode, so the check cannot serve it. -/
+theorem restoredRecNames_nodup_of {p : NestedParts} (hnd : p.memberNames.Nodup) (n : Nat) :
+    (((List.range p.k).map fun mIdx => ((p.formers.getD mIdx default).1.name.str "rec"))
+      ++ ((List.range n).map p.mimicRecName)).Nodup := by
+  refine restoredRecNames_nodup (fun i j hi hj heq => ?_)
+  have hlen : p.memberNames.length = p.k := by
+    simp only [NestedParts.memberNames, List.length_map, NestedParts.k]
+  have hget : ∀ m, m < p.k → p.memberNames[m]? = some (p.formers.getD m default).1.name := by
+    intro m hm
+    simp only [NestedParts.memberNames, List.getElem?_map, List.getD_eq_getElem?_getD,
+      List.getElem?_eq_getElem (show m < p.formers.length from hm)]
+    rfl
+  have hi' := hget i hi
+  have hj' := hget j hj
+  rw [heq] at hi'
+  rw [List.Nodup, List.pairwise_iff_getElem] at hnd
+  obtain ⟨hil, hiv⟩ := List.getElem?_eq_some_iff.mp hi'
+  obtain ⟨hjl, hjv⟩ := List.getElem?_eq_some_iff.mp hj'
+  rcases Nat.lt_trichotomy i j with hlt | hlt | hlt
+  · exact absurd (hiv.trans hjv.symm) (hnd i j hil hjl hlt)
+  · exact hlt
+  · exact absurd (hjv.trans hiv.symm) (hnd j i hjl hil hlt)
 
 /-! ## The recursor names, at the scratch install -/
 
