@@ -105078,3 +105078,168 @@ lane's four numbers were withdrawn, and the restatement's shape is
 settled only once the two side conditions are written into it.
 
 Nothing in this section changes the tree.
+
+#### (number at the integrator's sync) — L-E: THE RESTATEMENT, written — the candidate frame, its two side conditions, and what is re-based versus unnecessary (lane L-E, 2026-09-18)
+
+Statement only: no proof, no construction.  The estimate is at the end,
+where the shape is settled enough to carry one.
+
+##### (a) WHAT THE CANDIDATE FRAME IS
+
+The components of a pin are AnnotTerms whose readings the true frame
+interprets at `ρp`.  Two facts fix what "candidate" changes:
+
+* at a component mentioning only block MEMBERS nothing changes — the
+  output model's `acval` at a member already IS the auxiliary leaf
+  (`hleafM`, `ofNested_lfp`), so true and candidate agree there;
+* the difference is at a component that is another PIN's reading: its
+  true value is that pin's container's least tuple (`pinTarget_reads`),
+  and its candidate value is the auxiliary carrier at that pin,
+  `L⁺ (p.k + q')`.
+
+So the candidate frame replaces exactly the pin-valued component
+positions, and that is why the ordinary field's domain at the candidate
+frame IS the block-side slot's tuple: the fit pins the element to
+`L⁺ q'` rather than to `P q'`.
+
+##### (b) THE RESTATED INCLUSION
+
+The pin's fixed point takes the component VALUES as an argument —
+today they are computed from `pinsS.getD q` and `ρp`, which is exactly
+what welds it to the true frame:
+
+```lean
+noncomputable def pinLfpAt (st : ElimState) (pinsS : List PinSyn)
+    (dJf : Nat → BlockModel V) (w : Nat) (ψ : Name → Nat) (ρp : Nat → V)
+    (as : List V) (q : Nat) : V :=
+  lfpTuple w (dJf (st.pins.getD q default).grpBase).k
+    ((dJf (st.pins.getD q default).grpBase).idx ((pinsS.getD q default).ψJ ψ) (consList as ρp))
+    ((dJf (st.pins.getD q default).grpBase).Φ ((pinsS.getD q default).ψJ ψ) (consList as ρp))
+    (q - (st.pins.getD q default).grpBase)
+```
+
+`pinLfp` is `pinLfpAt` at the true components; write `candAs q` for the
+candidate ones of (a).  The inclusion to prove is then
+
+```lean
+∀ q, q < pinsS.length →
+  FamLe ((D).idx ψ ρp (p.k + q))
+    (pinLfpAt st pinsS dJf (f₀.s.eval ψ) ψ ρp (candAs q) q)
+    (lfpTuple ((D).w ψ) (p.k + pinsS.length) ((D).idx ψ ρp) (ΨA ψ ρp) (p.k + q))
+```
+
+— the same shape as today's `NestedPinsLe`, at `candAs` instead of the
+true components.
+
+##### (c) SIDE CONDITION ONE — the parameter fit at a DEPENDENT telescope
+
+The statement needs the candidate components to fit the container's
+parameter telescope:
+
+```lean
+SpineFit ρp ((dJf q₀).params ((pinsS.getD q default).ψJ ψ)) (candAs q)
+```
+
+**It cannot be `DsFit`.**  `PinGroupView.DsFit` is the TRUE components'
+fit and is a RECORDED clause; there is no candidate analogue, and
+`PinsTyped`/`FormersTyped` give membership in a SORT, not satisfaction
+of the container's parameter domains.
+
+At a NON-dependent telescope the two coincide and the fit follows from
+the auxiliary block's own tuple-space membership (`lfpTuple_mem`: each
+fibre is in `univ w`).  At a DEPENDENT telescope they do not: `SpineFit`
+interprets each later domain AT THE EARLIER VALUES, so a frame mixing
+candidate and true entries changes those later domains and the fit must
+be established at the candidate values rather than transported.  **The
+restated statement therefore CARRIES this fit as a hypothesis**, to be
+discharged per telescope shape, and must not be written as if `DsFit`
+supplied it.
+
+##### (d) SIDE CONDITION TWO — the index telescope over a REPLACED component
+
+The conclusion is a `FamLe` indexed by `(D).idx ψ ρp (p.k + q)`, which
+`nestedIdx_of_group` ties to the container's `idx` at the pin frame,
+and `idx` reads the frame:
+
+```lean
+idx ψ ρ mm = idxSet (d.uM mm ψ) ρ (d.IdsM mm ψ)
+```
+
+with the index telescope bounded on the components (`pinIds_below`).  So
+the statement requires
+
+```lean
+(dJf q₀).idx ψ₁ (consList (candAs q) ρp) i = (dJf q₀).idx ψ₁ (consList (trueAs q) ρp) i
+```
+
+which holds whenever **no component the index telescope reads is one the
+candidate substitution replaces** — i.e., in the refined form, no index
+telescope mentions a parameter whose component mentions a block member.
+
+**No corpus exercises the failure**: Mathlib nests 121 instances with
+none indexed, init nests arrays and lists only, and the one
+parameter-reaching fixture reaches the parameter the rewriting leaves
+alone.  It goes into the statement NOW precisely because nothing would
+discover it later.
+
+##### (e) THE SHAPE CHANGES
+
+* **the entry-reading predicate loses its condition on the stored
+  reading.**  `EntryRead` today takes `hZ` — "the target's family at a
+  fitting spine IS the stored reading applied to the spine" — because
+  the ordinary field's domain is the STORED reading and the slot is at
+  `L⁺`.  At the candidate frame the domain is already `L⁺` at the
+  target, so the predicate becomes the identity between the container's
+  domain at the candidate frame and the copy's slot, with no
+  stored-reading hypothesis;
+* **the ordinary-field arm splits three ways by the domain's head**:
+  MEMBER-headed (handled today, `ofNested_lfp`); PARAMETER-headed (the
+  candidate case of (a), 35 of 94 edges measured); CONSTANT-headed at a
+  container declared strictly EARLIER (59 of 94), where the induction is
+  on declaration order rather than on the head.
+
+##### (f) RE-BASED versus UNNECESSARY — the difference between a rewrite and a rebuild
+
+**RE-BASED** — a frame argument is added and the proofs carry over,
+because they use the frame ONLY through `DsFit` (now (c)) and the index
+identities (now (d)):
+`nestedPinPairAt_mem`, `nestedPinPairAt_pin`, `nestedPinPairAt`,
+`nestedInstanceLe`, `nestedPinFam_of_classPin`, `nestedPinInstLe`,
+`nestedPinsEq_of_le`, `nestedPinsEntry_at`, `nestedPinsEntry_of`,
+`nestedPinsEntry_of_le_all`.
+
+**UNNECESSARY FOR THIS STEP, NOT DELETED** — the declaration order
+replaces the rank as this step's measure, so `pins_le_of_instanceLe`
+and `nestedPinsLe_of_rank` are no longer on this path.  **K.37 and
+K.52 are not deleted**: the rank records are consumed elsewhere, and
+the ordering lemma is abstract in its edge relation and may serve the
+declaration-order induction directly.
+
+**STATUS NOT SETTLED BY THE STATEMENT ALONE** — whether the container
+INSTANCE apparatus (`instanceCovered_of_others` and the covering) is
+still needed depends on whether the restated proof still goes through
+the instance transfer at all.  The review's "one application of
+leastness with no premise" suggests not; this lane will not claim it
+before the proof is written.
+
+##### (g) THE ESTIMATE
+
+| piece | sessions |
+| --- | --- |
+| `pinLfpAt`, `candAs`, and the two side conditions as stated predicates | 1 |
+| re-basing the ten theorems of (f) | 2–3 |
+| the new entry identity and the ordinary-field arm's three-way split | 2–3 |
+| the declaration-order induction for this step | 1–2 |
+| re-wiring the assembly and the residual's discharge | 1 |
+
+**7–10 sessions for this lane**, plus 1–2 on the kernel lane for the
+declaration-order record (every not-own edge parameter-headed, or
+constant-headed at a strictly earlier container — measured 94/94).
+
+Its premises, named: the kernel record lands; (c) is dischargeable at
+the corpora's telescopes; (d) is vacuous on the corpora, which is
+measured.  **The row with least evidence is the third**: the
+constant-headed case's induction on declaration order is machinery
+nobody has written, and if it runs long that is the row to revisit.
+
+Nothing in this section changes the tree.
