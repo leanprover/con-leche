@@ -3203,7 +3203,13 @@ over).  `ruleVal` supplies the right-hand side's value and
 `recRuleLawOf` does the rest.
 
 The outer `vpa` conjunct is the mimic's own (`mimicPin`); a member
-rule never needs it, its fire being `.plain`-or-`.inert`. -/
+rule never needs it, its fire being `.plain`-or-`.inert`.
+
+The SCRATCH side's provision is no longer assumed: `scratchProv`
+builds it right here, out of the same scratch out-record, so the only
+model this theorem still takes from outside is the RESTORED one.  The
+per-arm lemmas (`recRuleLawOf`, `ruleVal`) keep their `mpAP` — they are
+consumed under this `obtain`. -/
 theorem NestedTailIn.recRuleLawsAt {mpA : EnvModelM V μ ENVA} {cvRas : List ConstantVal}
     (S : NestedScratchOut F env b fms f₀ ctorsA kinds mp₁ ppsF W idxF dsF esF srcsF fvsPF xFvsF
       xrestF eissF tssF stored mpA cvRas)
@@ -3219,17 +3225,8 @@ theorem NestedTailIn.recRuleLawsAt {mpA : EnvModelM V μ ENVA} {cvRas : List Con
     (E : NestedRecEqs (D) PC (fun ψ => b.elimLevel.eval ψ) rdsM concM
       (fun φ' => (DA).recEqs mpA.base2 b.elimLevel φ'))
     (Tu : NestedRecTuple (D) s rdsM concM (fun φ' => (DA).recEqs mpA.base2 b.elimLevel φ'))
-    {mpAP : EnvModelM V μ (ConLeche.provisionMutualRecs b fms cvRas.zipIdx ENVA)}
     {mpP : EnvModelM V μ
       (ConLeche.provisionNestedRecs (nestedProvList p stored cvRms cvRns) ENV2)}
-    (hshapeA : ∀ c, c < b.k → (cvRas.getD c default).name = b.recName c ∧
-      (cvRas.getD c default).levelParams = b.rlps)
-    (hleafA : ∀ c, c < b.k → ∀ φ' : Name → Nat,
-      mpAP.base2.acval (cvRas.getD c default).name φ'
-        = nestedRecLeaf (D).kT s rdsM concM
-            (fun φ'' => (DA).recEqs mpA.base2 b.elimLevel φ'') b.rlps c φ')
-    (hagA : ∀ nm : Name, (∀ c, c < b.k → nm ≠ (cvRas.getD c default).name) →
-      mpAP.base2.acval nm = mpA.base2.acval nm)
     (hleafR : ∀ c, c < (D).kT → ∀ φ' : Name → Nat,
       mpP.base2.acval (nestedRecCvAt p.k cvRms cvRns c).name φ'
         = nestedRecLeaf (D).kT s rdsM concM
@@ -3246,6 +3243,8 @@ theorem NestedTailIn.recRuleLawsAt {mpA : EnvModelM V μ ENVA} {cvRas : List Con
   have hndR : (cvRms.map (·.name) ++ cvRns.map (·.name)).Nodup := I.recNodup
   have hauxNe : ∀ n ∈ (ConLeche.restoreTbl p st).auxNames, ∀ c, c < b.k →
       n ≠ (nestedRecCvAt p.k cvRms cvRns c).name := I.auxNe
+  -- the scratch recursors provisioned at OUR leaves are BUILT, not assumed
+  obtain ⟨mpAP, -, -, hleafA, hshapeA, hagA⟩ := I.scratchProv S hnames hctorsJ hK35 R E Tu
   intro o ho hfire
   obtain ⟨hlenR, hallR⟩ := ConLeche.restoreRules_at (I.restRulesRun hc ha)
   obtain ⟨ii, hoAt⟩ := List.getElem?_of_mem ho
