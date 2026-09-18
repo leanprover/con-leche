@@ -258,7 +258,9 @@ theorem mutualContainerModeled {env envR : Env} {m : EnvModel V envR}
     (hrepsAt : IsBlockModelsAt m d (fun mm => (fms.getD mm default).cvTa))
     (htyped : ∀ ψ : Name → Nat, FormersTyped m d ψ ∧ CtorsTyped m d ψ)
     (htf : MutualTableFacts b fms sortss d)
-    (hownPins : ContainerOwnPinsSyn (V := V) envR d) :
+    (hownPins : ContainerOwnPinsSyn (V := V) envR d)
+    (hnpC : ∀ (i j : Nat) (cA : ConstantVal × Nat), i < d.k → (d.ctorsM i)[j]? = some cA →
+      ProjFree (fms.map (·.cvTa.name)) cA.1.type) :
     ContainerModeled m
       (ConLeche.blockContainerInfo b.nP (fms.zipIdx.map fun (f, mIdx) =>
         (f.cvTa, (b.ownCtors mIdx).filterMap fun (J, _) => ctorsA[J]?))) d := by
@@ -284,6 +286,8 @@ theorem mutualContainerModeled {env envR : Env} {m : EnvModel V envR}
     (fun ψ => ⟨(htyped ψ).1, (htyped ψ).2, PinsTyped.of_noPins hd.pins ψ⟩)
     htf.inj (fun i hi ψ ρ => (htf.frame i hi ψ ρ).symm) (fun i j l x hi hj hx hk => ?_)
     (fun q hq => absurd hq (by rw [hnoPins]; omega))
+    (fun _ _ _ _ _ _ _ _ _ hq _ => absurd hq (by rw [hnoPins]; omega))
+    (fun i j cA hi hj T hT n => hnpC i j cA hi hj T (hd.memberNames ▸ hT) n)
     (fun q hq => absurd hq (by rw [hnoPins]; omega))
     (fun q hq => absurd hq (by rw [hnoPins]; omega))
     (fun q hq => absurd hq (by rw [hnoPins]; omega))
@@ -1180,13 +1184,19 @@ theorem nativeContainerModeled {envO : Env} {m : EnvModel V envO} {mC : EnvModel
       fssZ)
     (hI : IsBlockModel m p.cvT.name cvTa cvRa p.majorIdx p.rulePrefix rules DN 0)
     (htyped : ∀ ψ : Name → Nat, FormersTyped m DN ψ ∧ CtorsTyped m DN ψ)
-    (hown : ContainerOwnPinsSyn (V := V) envO DN) :
+    (hown : ContainerOwnPinsSyn (V := V) envO DN)
+    (hnpC : ∀ (j : Nat) (cA : ConstantVal × Nat), ctorsA[j]? = some cA →
+      ProjFree [p.cvT.name] cA.1.type) :
     ContainerModeled m (ConLeche.blockContainerInfo p.nP [(cvTa, ctorsA)]) DN := by
   have hord := nativeOrdFree_of hf
   refine ContainerModeled.of_readBack rfl rfl rfl (fun i hi => ?_) (fun i hi => ?_)
     (fun c hc => ?_) (fun ψ => ⟨(htyped ψ).1, (htyped ψ).2, PinsTyped.of_noPins rfl ψ⟩)
     (fun _ _ _ _ => rfl) (fun _ _ _ _ => Iff.rfl) (fun i j l x hi hj hx hk => ?_)
     (fun q hq => absurd hq (Nat.not_lt_zero q))
+    (fun _ _ _ _ _ _ _ _ _ hq _ => absurd hq (Nat.not_lt_zero _))
+    (fun i j cA hi hj => by
+      obtain rfl : i = 0 := Nat.lt_one_iff.mp hi
+      exact hnpC j cA hj)
     (fun q hq => absurd hq (Nat.not_lt_zero q)) (fun q hq => absurd hq (Nat.not_lt_zero q))
     (fun q hq => absurd hq (Nat.not_lt_zero q))
     hown
@@ -1546,6 +1556,10 @@ theorem declMutualB (hμ : μ.verifiedChecks = true) {F : Nat} {env envOut : Env
     mutualContainerModeled h3 hlenA hlenF hd hks hOrd' hrepsOut
       (fun ψ => ⟨(hT ψ).1.crossEnv hagT hrepsAt.toIsBlockModels,
         (hT ψ).2.crossEnv hagT hrepsAt.toIsBlockModels⟩) htf hown
+      (fun i j cA hi hj => by
+        obtain ⟨cvR, mI, rP, rules, hI⟩ := hrepsAt i hi
+        exact ProjFree.of_noProjEnv hnpT
+          (ConLeche.Semantics.Env.find?_mem (hI.ctors i j cA hi hj).1))
   -- the carriers agree at every stored name
   have hbnFresh := mutualBlockNames_fresh hpinOk h1 hformers hctors hrectys
   have hagEnv : ∀ n : Name, (env.find? n).isSome = true →
@@ -1679,6 +1693,7 @@ theorem declNativeB (hμ : μ.verifiedChecks = true) {F : Nat} {env envOut : Env
     nativeOwnPins_of hf
   have hcm := nativeContainerModeled hf hI (fun ψ =>
     ⟨(nativeTyped hf ψ).1.crossEnv hagCO hreps, (nativeTyped hf ψ).2.crossEnv hagCO hreps⟩) hown
+    (fun j cA hj => nativeCtorProjFree mb.base2.proj_ok hf hj)
   -- the old containers cross, the new block is its own group
   obtain ⟨B, hB⟩ := mb.blocks
   refine ⟨⟨mpOut, ⟨fun ci => if ci = ConLeche.blockContainerInfo p.nP [(cvTa, ctorsA)]

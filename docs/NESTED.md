@@ -168,7 +168,36 @@ syntactic data, and no argument from the semantics can close that gap —
 which is why the block being installed *records* the tie between its
 own pins and the container's (one clause, on the one structure that
 binds the container's model, whose single producer holds the fact for
-free).  Uniqueness of models is never needed: semantic facts meet at the
+free).  A second thing is recorded for the same reason, one level down:
+that a *nested field*'s parameter arguments mention a member of the
+container's own group.  The opened form of a constructor keeps a nested
+field's head and its argument count and drops the parameter part, so the
+fact cannot be read back where it is wanted; it is carried from the
+container's own restore, where the field's spine is still visibly the
+pin re-opened.  It is recorded as a *mention* and not as an equality:
+the restore closes the pin over the parameters and reopens it at the
+constructor's own variables, and those differ from the block's by
+definitional unfolding, so the two spines need not be equal — but a
+mention survives both steps, and a mention is all the proof asks for.
+A third is recorded for a different reason again: that no projection
+node in a container's stored constructor type names one of that
+container's own members.  That is true, and the constant check is what
+makes it true — a member being declared has no projection table yet, so
+such a node is rejected at the block's own installation — but the fact
+is an *insertion-time* one, and a projection-slot check is satisfied
+more easily in a larger environment, so nothing a later reader knows
+about the environment it sees recovers it.  It rides on the block's
+record from the door the constructor came through.
+A fourth is of a different kind again: it is about the ELIMINATION's own
+output rather than about a container.  A copy is the container's
+constructors at the pin's components with every group occurrence
+rewritten, so a container field that nests through a FURTHER container
+carrying one of the container's own members becomes, in the copy, a
+field at one of the block's own pins — and the block's classification
+says so.  Neither direction of that correspondence is derivable: the
+copies come from a rewrite the model tier has no theorem about, so both
+are recorded at the install, one each way.
+Uniqueness of models is never needed: semantic facts meet at the
 readings, and syntactic facts that no law fixes are recorded.
 
 The laws, of which two matter here:

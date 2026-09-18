@@ -268,6 +268,68 @@ structure ContainerModeled {env : Env} (m : EnvModel V env) (ci : ContainerInfo)
   nestMention : ∀ q, q < d.nPins →
     ∃ e ∈ (d.pinAt q).DsE.take (d.pinAt q).nPJ,
       ConLeche.mentionsMember d.memberNames e = true
+  /-- **A NESTED FIELD'S PARAMETER ARGUMENTS MENTION A MEMBER**, on the
+  field's OPENED DOMAIN (task #315 PINF, DESIGN "the pin case IS
+  dropped").
+
+  `nestMention` spells the same existence on the pin's RECORDED
+  components, which is where K.44 (`nestedPinMentionOk`) has it.  A
+  consumer working on the copies' `pinF` arm needs it on the FIELD's
+  own argument spine instead, and `BlockOpened.nestF` — which records
+  the head, the argument count and `constsResolve env₀` for the
+  arguments PAST `nPJ` — says nothing about the parameter part, so
+  nothing derives one from the other: `BlockCtorData` keeps only
+  READINGS there (`nestEntry`), and a reading is not an injection.
+
+  It is a MENTION and not the equality `= DsE.map (instSeq fvsP …)`:
+  the restore hands the domain as the pin CLOSED over the parameters
+  and REOPENED at the constructor's own openers
+  (`ReadCtx.restoredOpened`'s `RestoredField`), and the two opener lists
+  are DEFEQ, not equal, so the round trip is not the identity.  A
+  mention travels through it all the same
+  (`mentionsMember_abstractRange` at K.30's leaves,
+  `mentionsMember_instSeq`), and a mention is all the consumer wants.
+
+  Stated at BOTH recursive kinds and with `q < d.nPins`, so a pins-free
+  block discharges it in `nestMention`'s own idiom. -/
+  nestArgsMention : ∀ (i j l : Nat) (x : Expr) (q : Nat), i < d.k → j < (d.ctorsM i).length →
+    (d.xFvsF i j)[l]? = some x → d.nestOf i j l = some q → q < d.nPins →
+    (d.ksF i j).getD l .ordinary = .recursive →
+    ∃ e ∈ x.fvarTypeD.getAppArgs.take (d.pinAt q).nPJ,
+      ConLeche.mentionsMember d.memberNames e = true
+  /-- **NO `.proj` NODE OF A STORED CONSTRUCTOR TYPE NAMES A MEMBER**
+  (task #315 PINF, DESIGN "the `ConstWF` fifth clause does NOT deliver
+  the derivation").
+
+  A consumer walking a container's stored constructor type and carrying
+  a member MENTION across a substitution loses it at a `.proj` node:
+  `Expr.mentionsConst (.proj s _ x)` counts the STRUCTURE NAME `s`,
+  while `uniformIndOccsE` (whose node test dispatches on `getAppFn`)
+  never looks at it and `instantiate1` does not touch it either.  The
+  arm is vacuous in fact, and this clause is where that fact is held.
+
+  **Not derivable at the consumer, and not a kernel Bool.**  Neither
+  walk constrains a `.proj` node's structure name — `normPosDomM`
+  rejects only a Π whose domain mentions a member, and `uniformOccNode`
+  answers `some false` at a `.proj` node and descends into the subject
+  alone.  What rejects it is `checkConstantVal`/`checkConstantValPre`'s
+  `projTablesOk` at the INSERTION environment, where a member being
+  declared is `.indInfo` and has no projection table.  `ConstWF` cannot
+  carry that: it is stated at the CURRENT environment and
+  `projTablesOk`'s `.proj` node is a `findProj?` `.isSome`, satisfied
+  more often in a LARGER environment — so a fifth clause there would be
+  satisfied by exactly the node it was meant to exclude.  The fact lives
+  where it is true: `FrontDoorFacts.slots`, at the door's own
+  environment, which every install route holds
+  (`Expr.ProjSlotsOk.noProjAt` against the member's empty slot).
+
+  Spelled on the STORED constructor type and not on the opened field
+  domains: that is the form the doors hand, the form `ProjFree`'s kit
+  (`BlockRepCross.lean`) descends from, and the form `copyResid`
+  delivers to the consumer (`cAJ.1.type = cc.type`). -/
+  ctorProjFree : ∀ (i j : Nat) (cA : ConstantVal × Nat), i < d.k →
+    (d.ctorsM i)[j]? = some cA →
+    ∀ T ∈ d.memberNames, ∀ n : Nat, ConLeche.Expr.NoProjAt T n cA.1.type
   /-- **a pin's container is not a member** of the block: the opened
   form of a nested field (`BlockOpened.nestF`) is shape-compatible with
   a member occurrence at the parameters, which the copies' kind reading

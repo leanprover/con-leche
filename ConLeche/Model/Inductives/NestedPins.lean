@@ -390,6 +390,75 @@ theorem pinFit_of_wd {m : EnvModel V env} {dJ : BlockModel V} {i : Nat} {J : Nam
   rw [List.length_map, List.length_map, List.length_take, List.length_take, hI.ppsM_length,
     hI₀.ppsM_length, Nat.min_eq_left (Nat.le_add_right _ _), Nat.min_eq_left (Nat.le_add_right _ _)]
 
+/-! ## One pin's data against two records (task #315 PINF) -/
+
+/-- **ONE PIN'S INDEX DATA, READ OFF TWO RECORDS** (task #315 PINF):
+a recorded pin `pq` whose container is member `i₂` of that container's
+own block model `B ciB`, and a pin `qq` of another block model `d` at
+the SAME container name seen through `d`'s `PinShapes` view at the same
+family `B`, have one index-tuple sort and one index telescope — as soon
+as their level assignments agree on the container's own level
+parameters.
+
+**This is the identification `NestedPinGroupSyn.pinViews` deliberately
+omitted**, paid here rather than by a structure parameter: the view
+`pinViews` hands back is at an ANONYMOUS block model, and two anonymous
+models of one container group cannot be compared (`blockOf` is a choice
+function with no uniqueness in this tier).  Both sides here read the
+family `B` at the same `ci`, which `containerInfo?`'s functionality
+forces from the pins' NAME equality — so no equality of choices is
+demanded and none is needed.
+
+The assignments are compared POINTWISE on the container's own level
+parameters and never as functions: that is the form the copies' side
+produces (`copyPinFCorr`'s level agreement), and the two congruences
+that consume it — `IsBlockModel.uParams` for the sort and
+`FormerData.params` for the telescope — are stated over exactly that
+membership. -/
+theorem pinOwn_core {env₀ : Env} {m₀ : EnvModel V env₀} {B : ContainerInfo → BlockModel V}
+    {d : BlockModel V} {pc : Nat → PinCtors V} (hSh : PinShapes m₀ B d pc)
+    {qq : Nat} (hqq : qq < d.nPins) {ciB : ContainerInfo}
+    (hciB : ContainerModeled m₀ ciB (B ciB)) {pq : PinSyn} {i₂ : Nat}
+    (hJ : pq.J = (d.pinAt qq).J)
+    (hciB' : ConLeche.containerInfo? env₀ pq.J = some ciB)
+    (hi₂ : i₂ < (B ciB).k) (hname₂ : (B ciB).memberName i₂ = pq.J)
+    (hu₂ : ∀ φ : Name → Nat, pq.u φ = (B ciB).uM i₂ (pq.ψJ φ))
+    (hpps₂ : pq.pps = (B ciB).ppsM i₂) (hnP₂ : pq.nPJ = (B ciB).nP)
+    {cv : ConstantVal} {caps : IndCaps}
+    (hfind : env₀.find? pq.J = some (.indInfo cv caps)) (φ ψ' : Name → Nat)
+    (hag : ∀ pp ∈ cv.levelParams, pq.ψJ φ pp = (d.pinAt qq).ψJ ψ' pp) :
+    pq.u φ = (d.pinAt qq).u ψ' ∧ pq.Ids φ = (d.pinAt qq).Ids ψ' := by
+  -- the pin of `d`, in its own group, against the SAME family
+  obtain ⟨a, kk, i', ci', hqe, hi', hci', hview, -, -⟩ := hSh qq hqq
+  obtain rfl : ciB = ci' := Option.some.inj ((hJ ▸ hciB').symm.trans hci')
+  subst hqe
+  -- the two member indices name one member, hence are one index
+  have hnameV : (d.pinAt (a + i')).J = (B ciB).memberName i' := hview.name i' hi'
+  obtain rfl : i₂ = i' :=
+    hciB.memberName_inj hciB' hi₂ (by rw [hview.kEq]; exact hi')
+      (by rw [hname₂, hJ, hnameV])
+  -- the container's own record at that member, and its level parameters
+  obtain ⟨M, hM⟩ : ∃ M, ciB.members[i₂]? = some M :=
+    ⟨_, List.getElem?_eq_getElem (by rw [← hciB.k]; exact hi₂)⟩
+  obtain ⟨hMname, -, cvR, mI, rP, rules, hI⟩ := hciB.member i₂ M hM
+  obtain ⟨cvT₀, -, -, -, rP₀, -, -, -, -, -, hmems⟩ := ConLeche.containerInfo?_inv hciB'
+  obtain ⟨cvC, capsC, -, -, -, hfC, -, hMlps, -, -, -, -⟩ := hmems M (List.mem_of_getElem? hM)
+  have hMJ : M.name = pq.J := by rw [← hMname, hname₂]
+  obtain rfl : cvC = cv := by
+    rw [hMJ] at hfC
+    exact (ConLeche.ConstantInfo.indInfo.inj (Option.some.inj (hfC.symm.trans hfind))).1
+  have hag' : ∀ pp ∈ M.lps, pq.ψJ φ pp = (d.pinAt (a + i₂)).ψJ ψ' pp := by
+    rw [hMlps]; exact hag
+  -- the sort and the telescope, moved along the two congruences
+  have hψ : (d.pinAt (a + i₂)).ψJ ψ' = (d.pinAt a).ψJ ψ' := (hview.same i₂ hi' ψ').1
+  refine ⟨?_, ?_⟩
+  · rw [hu₂ φ, hI.uParams i₂ hi₂ _ _ hag', hview.pinU i₂ hi' ψ', hψ]
+  · show ((pq.pps (pq.ψJ φ)).drop pq.nPJ).map (·.2.2)
+      = (((d.pinAt (a + i₂)).pps ((d.pinAt (a + i₂)).ψJ ψ')).drop
+          (d.pinAt (a + i₂)).nPJ).map (·.2.2)
+    rw [hpps₂, hnP₂, hview.pinPps i₂ hi', hview.pinNP i₂ hi',
+      (hI.former.params _ _ hag').1]
+
 /-! ## The group's facts, split into the PROVED and the NAMED halves -/
 
 section Assembly
@@ -521,9 +590,50 @@ structure NestedPinGroupSyn (st : ElimState) (m : EnvModel V env₂) (q₀ kJ : 
   So the objection to naming the model is the threading cost alone.
   These three consequences are what the consumer actually reads, they
   mention no object the record does not already carry, and so they are
-  FIELDS. -/
+  FIELDS.
+
+  **AND THE COST LEG HAS NOW BEEN PAID, WITHOUT THE PARAMETER** (task
+  #315 PINF).  The consequence this field does NOT carry — a pin's index
+  data against the NAMED model of its container — is what residual 3's
+  `PinCorr` needs, and it is not reachable from the anonymous view: two
+  models of one container group are incomparable here.  It is also not
+  reachable from the discharger's own `PinsModeled`, which gives
+  `PinShapes` at `blockOf mp.base2 ci` while the residual's `dJ` is
+  bound abstractly by `NestedPinsIdsAt`.  What closes it is `pinOwn`
+  below, which states the identification AGAINST THE BLOCK'S OWN PIN
+  TABLE — an object this structure already carries — so the producer,
+  which does hold the pre-block model, discharges it and no call site
+  moves. -/
   pinViews : ∀ qq, qq < dJ.nPins → ∃ (a kk i' : Nat) (dJ' : BlockModel V),
     qq = a + i' ∧ i' < kk ∧ PinGroupView dJ dJ' a kk
+  /-- **THE BLOCK'S PIN AND THE CONTAINER'S OWN PIN ARE ONE PIN'S INDEX
+  DATA** (task #315 PINF): where a pin of the BLOCK spells one of `dJ`'s
+  own pins — the same container name, and level assignments agreeing on
+  that container's own level parameters — the two records give one
+  index-tuple sort and one index telescope.
+
+  **This is the identification `pinViews` omits, stated where it can be
+  discharged rather than bought with a structure parameter.**  `pinViews`
+  hands its view back at an ANONYMOUS block model, and two anonymous
+  models of one container group cannot be compared; naming the model in
+  `pinViews` itself would put the pre-block model on this structure — the
+  parameter its own docstring prices.  This clause needs no such
+  parameter: it mentions only the block's own pin table (`pinsS`, through
+  `D`) and `dJ`, and its producer, which HAS the pre-block model, closes
+  it with `pinOwn_core` at the one family `blockOf mp.base2`.
+
+  The consumer is residual 3's `PinCorr`, whose `u` and `Ids` clauses
+  (`copyPinFUIds`) are exactly this at the block pin the copy's nested
+  field landed on; the level agreement is `copyPinFCorr`'s, pointwise and
+  not as functions. -/
+  pinOwn : ∀ qq, qq < dJ.nPins → ∀ q₂, q₂ < pinsS.length →
+    ((D).pinAt q₂).J = (dJ.pinAt qq).J →
+    ∀ (cv : ConstantVal) (caps : IndCaps),
+      env₂.find? (dJ.pinAt qq).J = some (.indInfo cv caps) →
+    ∀ φ ψ' : Name → Nat,
+      (∀ pp ∈ cv.levelParams, ((D).pinAt q₂).ψJ φ pp = (dJ.pinAt qq).ψJ ψ' pp) →
+      ((D).pinAt q₂).u φ = (dJ.pinAt qq).u ψ' ∧
+      ((D).pinAt q₂).Ids φ = (dJ.pinAt qq).Ids ψ'
   /-- **the block model's constructors ARE the pin's own container
   member's**, by name and in order, and the parameter counts agree
   (task #315 L-B): a pin records its OWN container's group, the block
@@ -1532,6 +1642,59 @@ theorem NestedPinsRun.groupSyn
         intro qq hqq
         obtain ⟨a, kk, i', ci', hqe, hi', -, hview, -, -⟩ := hSh qq hqq
         exact ⟨a, kk, i', blockOf mp.base2 ci', hqe, hi', hview⟩
+      pinOwn := by
+        -- the container's own pins' views at the family, and the BLOCK
+        -- pin's own group at the same family: `pinOwn_core` joins them
+        obtain ⟨-, pc, -, hSh⟩ := R.hPM _ hbaseMem _ PD.base
+        intro qq hqq q₂ hq₂ hJeq cv caps hfind φ ψ' hag
+        rw [hpinAt] at hJeq hag ⊢
+        rw [← hJeq] at hfind
+        have hq₂' : q₂ < st.pins.length := by rw [← hlenS]; exact hq₂
+        have PD₂ := hPD q₂ hq₂'
+        obtain ⟨hb1₂, hb2₂, hb3₂⟩ := PD₂.seg
+        have hm₂ : q₂ - (pinAtE st q₂).grpBase < (pinAtE st q₂).grpSize := by omega
+        have hq₂e : (pinAtE st q₂).grpBase + (q₂ - (pinAtE st q₂).grpBase) = q₂ := by omega
+        have hbaseMem₂ : pinAtE st (pinAtE st q₂).grpBase ∈ st.pins := by
+          have hlt : (pinAtE st q₂).grpBase < st.pins.length := by omega
+          show st.pins.getD (pinAtE st q₂).grpBase default ∈ st.pins
+          rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hlt]
+          exact List.getElem_mem hlt
+        have CM₂ : ContainerModeled mp.base2 (baseInfo env st q₂)
+            (blockOf mp.base2 (baseInfo env st q₂)) :=
+          blockOf_spec (R.hPM _ hbaseMem₂ _ PD₂.base)
+        obtain ⟨ci₂, hci₂, -, -, hnP₂, hnames₂, -⟩ := PD₂.own
+        obtain rfl : ci₂ = baseInfo env st q₂ :=
+          ConLeche.containerInfo?_eq_of_names hci₂ PD₂.base hnP₂ hnames₂
+        have hgq₂ : (PINS).getD q₂ default
+            = pinOf mp.base2 st p mp₁'.base2.acval (ENV₁) b.nP q₂ := hget q₂ hq₂'
+        have hJ₂ : ((PINS).getD q₂ default).J = (pinAtE st q₂).container := by
+          rw [hgq₂]; rfl
+        have hci₂J : ConLeche.containerInfo? env ((PINS).getD q₂ default).J
+            = some (baseInfo env st q₂) := by rw [hJ₂]; exact hci₂
+        have hi₂ : q₂ - (pinAtE st q₂).grpBase
+            < (blockOf mp.base2 (baseInfo env st q₂)).k := by
+          rw [CM₂.k, PD₂.baseLen]; exact hm₂
+        have hname₂ : (blockOf mp.base2 (baseInfo env st q₂)).memberName
+              (q₂ - (pinAtE st q₂).grpBase) = ((PINS).getD q₂ default).J := by
+          have hc := (PD₂.grp _ hm₂).1
+          rw [hq₂e] at hc
+          rw [hJ₂, hc]
+          exact (CM₂.member _ _ (PD₂.grp _ hm₂).2.2.2.2).1
+        -- the container is none of the block's own formers, so the two
+        -- environments hold the same constant under its name
+        have hne : ∀ g ∈ fms.take p.k, g.cvTa.name ≠ ((PINS).getD q₂ default).J := by
+          intro g hg heq
+          obtain ⟨cvX, capsX, hfX⟩ := containerInfo?_found hci₂J
+          obtain ⟨t, ht⟩ := List.getElem?_of_mem (List.mem_of_mem_take hg)
+          have hfr := R.h.fresh t g ht
+          rw [heq, hfX] at hfr
+          exact nomatch hfr
+        have hfindEnv : env.find? ((PINS).getD q₂ default).J = some (.indInfo cv caps) := by
+          rw [← consMutualFormers_find?_of_ne (env := env) hne]
+          exact hfind
+        exact pinOwn_core (m₀ := mp.base2) (B := blockOf mp.base2) hSh hqq CM₂ hJeq hci₂J
+          hi₂ hname₂ (fun φ' => by rw [hgq₂]; rfl) (by rw [hgq₂]; rfl) (by rw [hgq₂]; rfl)
+          hfindEnv φ ψ' hag
       reps := CM.reps
       kEq := hkJ
       rep := ?_

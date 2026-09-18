@@ -1835,7 +1835,7 @@ theorem ReadCtx.nestedCtorRead_of {mm j : Nat} {c : ConstantVal × Nat × Nat} {
   have hinput := C.input_of RC RS hagree
   have hName : (D).memberName mm = (fms.getD mm default).cvTa.name := C.dName RC
   have hNIdx : (D).nIdxAt mm = (fms.getD mm default).nIdx := C.dNIdx RC
-  refine ⟨?_, ?_, fun ψ => ?_⟩
+  refine ⟨?_, ?_, fun ψ => ?_, ?_, ?_⟩
   · rw [RC.hnF]; exact hinput
   · rw [RC.hnF]
     show BlockCtorData mp₁'.base2 env ((D).memberName mm) _ _ _ _ b.lps c.1 b.nP cA.2 ((D).nIdxAt mm) f₀.s
@@ -1846,6 +1846,66 @@ theorem ReadCtx.nestedCtorRead_of {mm j : Nat} {c : ConstantVal × Nat × Nat} {
     rw [hName, hNIdx]
     exact hdata
   · exact C.dom_of RC RS ψ
+  · -- **the nested field's parameter arguments**: `RestoredField`'s own
+    -- pin case, before `BlockOpened.nestF` drops it (task #315 PINF)
+    intro l x pin q hx hpinE hn hk
+    have hCD := C.h.CD (b.ownOffset mm + j) cA RC.hJ
+    have hlenP : (fvsPF (b.ownOffset mm + j)).length = b.nP := hCD.pLen
+    have hidxP := C.fvsPIdx RC.hJ
+    have hk' : kindAt (mutKsOf kinds (b.ownOffset mm + j)) l = .recursive := by
+      rw [← kindsOf_getD']; exact hk
+    have htg : tgtAt (mutKsOf kinds (b.ownOffset mm + j)) l = p.k + q := by
+      rcases Nat.lt_or_ge (tgtAt (mutKsOf kinds (b.ownOffset mm + j)) l) p.k with h | h
+      · rw [(D).nestOf_none h] at hn; exact nomatch hn
+      · rw [(D).nestOf_some (Nat.not_lt.mpr h)] at hn
+        have h2 : tgtAt (mutKsOf kinds (b.ownOffset mm + j)) l - p.k = q := Option.some.inj hn
+        omega
+    have hil : l < cA.2 := by rw [← RC.hlenX]; exact (List.getElem?_eq_some_iff.mp hx).1
+    obtain ⟨x₀, hx₀⟩ : ∃ y, (xFvsF (b.ownOffset mm + j))[l]? = some y :=
+      ⟨_, List.getElem?_eq_getElem (by rw [hCD.xLen]; exact hil)⟩
+    obtain ⟨ty', hxR, hRF⟩ := RC.fields l x₀ hx₀
+    obtain rfl : x = Expr.fvar (b.nP + l) ty' := Option.some.inj (hx.symm.trans hxR)
+    unfold RestoredField at hRF
+    rcases hRF with ⟨hA, -⟩ | ⟨q', qn, hq', htg', -, -, hty⟩ |
+        ⟨-, -, -, -, -, -, -, -, hkr, -, -, -, -⟩
+    · exfalso
+      rcases hA with h | h
+      · rw [hk'] at h; exact nomatch h
+      · omega
+    · have hqq : q' = q := by omega
+      subst hqq
+      have hql : q' < pinsS.length := by
+        rw [C.PF.pinsLen]; exact (List.getElem?_eq_some_iff.mp hq').1
+      obtain ⟨hJn, hpin⟩ := C.PF.pinRec q' qn hq'
+      obtain rfl : pin = qn.pin := by
+        rw [hpinE, hpin]
+        show Expr.mkAppN (Expr.const (pinsS.getD q' default).J (pinsS.getD q' default).lvls)
+            (pinsS.getD q' default).DsE
+          = Expr.mkAppN (Expr.const qn.container (pinsS.getD q' default).lvls)
+            (pinsS.getD q' default).DsE
+        rw [hJn]
+      have hDs := C.PF.pinDs q' hql (fun _ => 0)
+      have hbnd : (Expr.mkAppN (.const qn.container (pinsS.getD q' default).lvls)
+          (pinsS.getD q' default).DsE).looseBVarsBounded 0 = true := nt_pin_bounded hDs
+      obtain ⟨q₀, kJ, i', dJ, hqe, hi', G⟩ := C.PF.groups dsR xFvsR q' hql
+      have hnp : (pinsS.getD q' default).nPJ = dJ.nP := by rw [hqe]; exact G.pinNP i' hi'
+      have hdl : ((pinsS.getD q' default).Ds (fun _ => 0)).length = dJ.nP := by
+        rw [hqe]; exact G.pinDsLen i' hi' (fun _ => 0)
+      have hDsLen : (pinsS.getD q' default).DsE.length = (pinsS.getD q' default).nPJ := by
+        rw [hDs.length, hdl, hnp]
+      have hPargs : (Expr.instSeq (fvsPF (b.ownOffset mm + j)) (b.nP - 1)
+          (Expr.abstractRange qn.pin 0 p.nP 0)).getAppArgs.length
+            = (pinsS.getD q' default).nPJ := by
+        rw [hpin, ← C.hnP, ← hDsLen]
+        exact ConLeche.rk_restoredPin_getAppArgs_length hlenP hidxP hbnd
+      show ty'.getAppArgs.take (pinsS.getD q' default).nPJ
+        = (Expr.instSeq (fvsPF (b.ownOffset mm + j)) (b.nP - 1)
+            (Expr.abstractRange qn.pin 0 p.nP 0)).getAppArgs
+      rw [hty, Expr.getAppArgs_mkAppN, List.take_left' hPargs]
+    · rw [hk'] at hkr; exact nomatch hkr
+  · -- the front door's own `.proj`-slot fact, at the members' prefix
+    -- environment (task #315 PINF)
+    exact RC.hfd.slots
 
 end Assembly
 

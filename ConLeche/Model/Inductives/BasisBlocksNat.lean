@@ -779,6 +779,17 @@ theorem natBlock_containerModeled {env : Env} {m : EnvModel V env}
       match l, hx with
       | 0, _ => exact nomatch hk
   nestMention := fun _ h => nomatch h
+  nestArgsMention := fun _ _ _ _ _ _ _ _ _ h _ => nomatch h
+  ctorProjFree := fun i j cA hi hj T hT n => by
+    obtain rfl : i = 0 := Nat.lt_one_iff.mp hi
+    obtain rfl := List.mem_singleton.mp hT
+    match j, hj with
+    | 0, hj =>
+      obtain rfl : cA = (ConLeche.natZeroA.toConstantVal, 0) := (Option.some.inj hj).symm
+      simp [ConLeche.natZeroA, ConLeche.ConstantInfo.toConstantVal]
+    | 1, hj =>
+      obtain rfl : cA = (ConLeche.natSuccA.toConstantVal, 1) := (Option.some.inj hj).symm
+      simp [ConLeche.natSuccA, ConLeche.ConstantInfo.toConstantVal]
   pinsNotMembers := fun _ h => nomatch h
   pinNP := fun _ h => nomatch h
   pinConts := fun _ h => nomatch h

@@ -1015,6 +1015,100 @@ def nestedCopyTargetsAt (env : Env) (p : NestedParts) (st : ElimState)
     (st : ElimState) (stored : List AuxStored) : Bool :=
   nestedCopyTargetsAt env p st stored (nestedPinKinds p b stored)
 
+/-- **A CONTAINER'S NESTED FIELD LANDS ON A BLOCK PIN** (task #315
+K.60): K.32's twin, running the other way.
+
+K.32 goes from the COPY's classification to the container's field.  The
+model's `pinF` arm needs the converse, and its guard is the CONTAINER
+field's own shape — every part of which is a fact the model already
+holds:
+
+* the field's domain is headed by `.const K …` with `K` NOT a member of
+  the container's own group (`BlockOpened.nestF`'s head equation and
+  `ContainerModeled.pinsNotMembers`);
+* `K` is itself a stored container (`ContainerModeled.pinNP`/`pinConts`);
+* one of the first `ciK.nP` arguments mentions a member of the
+  container's group (`ContainerModeled.nestArgsMention`).
+
+The third conjunct is what keeps the check off an ORDINARY
+container-headed field — `mk : List Nat → Tree` has head `List`, a
+container, and no member in its parameter part, so no pin is minted and
+nothing is claimed.  Reflexive nested fields fall outside the guard by
+construction: their domain is a `Π`, so `getAppFn` is not a `.const`.
+
+Under the guard, the auxiliary block classified the copy's
+corresponding field `.recursive` into a PIN: `kf[l] = (.recursive, t)`
+with `p.k ≤ t`.  That is the model's conjunct 1 and `copyPinFCorr`'s
+`hkA` together.
+
+**Why it is recorded and not derived**, which is K.32's reason in the
+other direction: it is a property of `mkCopy` + `replaceAllNested`.
+`mkCopy` substitutes the pin's components for the container's
+parameters and leaves the container's OWN group occurrences standing;
+`replaceAllNested` turns those into the group's copies, so `K …` now
+carries an auxiliary member inside its parameter spine — a nested
+occurrence, rewritten to a mimic, which is an auxiliary member at an
+index at or past `p.k`.  The model derives none of it: the opened form
+of a nested field keeps the head and the argument count and drops the
+parameter part, and the elimination's own records (K.32, K.44) run the
+other way.
+
+UNCONDITIONAL in both routes, and `.internal`: the consumer needs the
+fact in every mode, and a `certOnly` check is `true` in the trusted
+one.
+
+**IF THIS EVER FIRES** the elimination's classification of a copy field
+disagrees with its container's — a defect in the ROUTE, not in the
+stream, and the answer is never to relax the check.  See DESIGN
+"#### K.60". -/
+def nestedCopyPinFieldsAt (env : Env) (p : NestedParts) (st : ElimState)
+    (kinds? : Option (List (List (List (RecFieldKind × Nat))))) : Bool :=
+  match kinds? with
+  | none => false
+  | some kinds =>
+    (List.range st.pins.length).all fun q =>
+      match st.pins[q]?, kinds[q]? with
+      | some qn, some ks =>
+        match containerInfo? env qn.container with
+        | none => false
+        | some ci =>
+          match ci.members[q - qn.grpBase]? with
+          | none => false
+          | some J =>
+            let mems := ci.members.map (·.name)
+            (List.range ks.length).all fun j =>
+              match ks[j]?, J.ctors[j]? with
+              | some kf, some cJ =>
+                match cJ.type.stripPis (ci.nP + cJ.nFields) with
+                | none => false
+                | some (jbs, _) =>
+                  (List.range kf.length).all fun l =>
+                    match kf[l]?, jbs[ci.nP + l]? with
+                    | some (r, t), some domJ =>
+                      -- the guard: a container-headed field whose
+                      -- parameter part carries one of the container's
+                      -- own members
+                      match domJ.1.getAppFn with
+                      | .const K _ =>
+                        if mems.contains K then true
+                        else
+                          match containerInfo? env K with
+                          | none => true
+                          | some ciK =>
+                            if (domJ.1.getAppArgs.take ciK.nP).any (mentionsMember mems) then
+                              r == .recursive && decide (p.k ≤ t)
+                            else true
+                      | _ => true
+                    | _, _ => false
+              | _, _ => false
+      | _, _ => false
+
+/-- The Bool the route records (task #315 K.60), on the same field kinds
+`nestedPinKinds` computes for K.26 and K.32. -/
+@[inline] def nestedCopyPinFieldsOk (env : Env) (p : NestedParts) (b : MutualBlock)
+    (st : ElimState) (stored : List AuxStored) : Bool :=
+  nestedCopyPinFieldsAt env p st (nestedPinKinds p b stored)
+
 /-- Every argument of an application spine is a proper subterm: the
 measure that lets `auxAppsOk` recurse into `getAppArgs`. -/
 theorem sizeOf_mem_getAppArgs : ∀ {e a : Expr}, a ∈ e.getAppArgs → sizeOf a < sizeOf e
@@ -2254,8 +2348,9 @@ def nestedPinNorms (ops : CheckerOps m) (env : Env) (memberNames : List Name)
       (fun _ => throw (.internal "nested: the positivity normalisation of a minted copy \
         field at a pin target does not run"))
 
-/-- **THE PINS' CERTIFICATION-ONLY CHECKS, ON ONE WALK** (task #315
-K.46).  K.26, K.32, K.37 and K.41 each ask a question about the copies.
+/-- **THE PINS' CHECKS, ON ONE WALK** (task #315 K.46; all
+certification-only until K.60, which is not).  K.26, K.32, K.37 and
+K.41 each ask a question about the copies.
 field kinds, and each used to recompute them: `nestedPinKinds` ran FOUR
 times per nested block (twice directly, and twice more under
 `nestedPinEdges`, which K.37 calls and K.41 reaches through
@@ -2265,16 +2360,46 @@ clause, its own message and its own conjunct of the run relation:
 `nestedPinKindsAt p st kinds? = nestedPinKindsOk p b st stored` and its
 three twins hold by definition, so nothing the model consumes moves.
 
-The whole group is skipped at `.trusted` — these are the model tier's
-evidence, not the kernel's (`certOnly`'s docstring) — which is why the
-shared computation sits INSIDE the mode test rather than in a `let`
-above it: a `let` would be strict, and `certOnly`'s `||` short-circuit
-would no longer keep the walk from running. -/
+The certification-only group is skipped at `.trusted` — these are the
+model tier's evidence, not the kernel's (`certOnly`'s docstring).  It
+used to be the WHOLE body, and the shared `kinds?` sat inside the mode
+test for exactly that reason (a `let` is strict, so a `let` above the
+test would have run the walk in trusted mode for nothing).  **K.60
+changed that**: it is unconditional — its consumer reads it in every
+mode — so the classification is needed in every mode too, and the `let`
+is hoisted and SHARED with it rather than recomputed beside the group.
+
+Measured, and the measurement is worth keeping: the shared and the
+unshared arrangements cost the SAME (+0.128 % and +0.129 % of a Mathlib
+shadow run), so the second classification walk was never K.60's price —
+its own traversal of the containers' stored constructors is.  The
+shared form is kept because it is one walk rather than two and because
+it needs no call-site change in either route. -/
 def nestedPinChecks (ops : CheckerOps m) (env envN : Env) (p : NestedParts) (b : MutualBlock)
     (st : ElimState) (stored : List AuxStored) : m Unit :=
-  if !ops.mode.verifiedChecks then pure () else
-  -- ONE classification of the copies' fields, and ONE reference graph
+  -- ONE classification of the copies' fields (K.46), HOISTED out of the
+  -- mode test by K.60, which reads it in EVERY mode.  The reference
+  -- graph stays inside the gate — nothing unconditional reads it.
   let kinds? := nestedPinKinds p b stored
+  -- **A CONTAINER'S NESTED FIELD LANDS ON A BLOCK PIN** (task #315
+  -- K.60): at a container field headed by another stored container
+  -- whose parameter part carries one of the container's own members,
+  -- the copy's corresponding field is classified `.recursive` into a
+  -- PIN.  K.32's twin, running the other way — the direction the
+  -- model's `pinF` arm needs.  UNCONDITIONAL, and `.internal`: the
+  -- consumer reads it in every mode, and a `certOnly` check is `true`
+  -- in the trusted one.  It is the one check in this group that is not
+  -- certification-only, which is why it stands before the mode test.
+  --
+  -- **IF THIS EVER FIRES** the elimination's classification of a copy
+  -- field disagrees with its container's: that is a defect in the
+  -- ROUTE, not in the stream, and the answer is never to relax the
+  -- check.  See DESIGN "#### K.60".
+  if !nestedCopyPinFieldsAt env p st kinds? then
+    throw (.internal "nested: a container's nested field is not classified recursive \
+      into a pin of the block")
+  else if !ops.mode.verifiedChecks then pure () else
+  -- ONE reference graph
   let edges? := nestedPinEdgesAt env p st stored kinds?
   let roots := nestedPinRootGroupAt p st (nestedPinInstAt st edges?)
   -- **THE COPIES' RECURSIVE TARGETS** (K.32): a copy field the aux
@@ -2337,95 +2462,27 @@ def nestedPinChecks (ops : CheckerOps m) (env envN : Env) (p : NestedParts) (b :
       throw (.internal "nested: a pin-target copy field's stored domain is not the \
         rewrite of the positivity normalisation of the minted one")
 
-/-- **Check and install a recognised NESTED block** (see the module
-docstring): official's two syntactic front guards, the elimination, the
-auxiliary mutual block checked in a scratch environment, the restore,
-and the three post-checks.  Only the restored constants are stored. -/
-def checkNested (ops : CheckerOps m) (env : Env) (p : NestedParts) : m Env := do
-  -- 0. official's `check_no_nested_aux` and `check_uniform_ind_occs`
-  let ctorTypes := p.ctors.map (fun c => c.cv.type)
-  unless p.formers.all (fun f => !f.1.type.mentionsNestedAux) &&
-      ctorTypes.all (fun t => !t.mentionsNestedAux) do
-    throw (.invalid "invalid declaration, it uses the reserved prefix '_nested'")
-  unless uniformIndOccsOk p.memberNames (p.lps.map Level.param) p.nP ctorTypes do
-    throw (.invalid "invalid occurrence of datatype being declared: it must be applied \
-      to the parameters and universe levels of the mutual declaration")
-  -- 1. THE ELIMINATION'S INPUTS, ANNOTATED (K.12): the formers as the
-  -- install will store them and the constructors at the environment
-  -- holding those formers — so every piece the elimination instantiates,
-  -- closes over or pins is annotated, and every copy it mints is
-  -- annotated BY CONSTRUCTION, with no annotation pass left to run on it
-  let fmsA ← nestedAnnotFormers ops env p.nP p.formers
-  let ctorsA ← nestedAnnotCtors ops (nestedFormerEnv fmsA env) p.ctors
-  -- 2. the elimination, and the mimic count against the stream's records
-  let st ← nestedLift (m := m) (elimNested env p.nP p.lps (nestedTypes0 p fmsA ctorsA))
-  unless st.pins.length == p.numNested do
-    throw (.invalid s!"the block carries {p.numNested} recursor records past its \
-      {p.k} type formers; the elimination finds {st.pins.length} nested occurrences")
-  -- the minted names are free in the PRE-BLOCK environment
-  -- (`copiesFresh`; official's `check_name` at
-  -- `declare_inductive_types`), so that the scratch environment's cons
-  -- shadows nothing a later declaration could reach
-  unless copiesFresh env p.k st do
-    throw (.invalid "nested: an auxiliary type generated by the elimination names a \
-      constant the environment already carries")
-  -- THE CONTAINERS' FACTS (K.14, the model lane's DESIGN §M.28): every
-  -- container the elimination pinned has uniform occurrences of its own
-  -- group in its stored constructors, and every member's stored
-  -- recursor keeps its elimination universe out of the block's level
-  -- parameters (large) or eliminates into `Prop` (small).  All three
-  -- hold of any container this checker installed — a failure is a
-  -- broken environment, not a stream's fault.
-  unless certOnly ops.mode (nestedContainersOk env st.pins) do
-    throw (.internal "nested: a container the elimination pinned fails a fact its own \
-      install established")
-  -- **THE PINS' COMPONENTS REWRITE** (task #315 K.59, lane L-E's request):
-  -- every component of every pin's argument spine goes through the
-  -- elimination's own `replaceAllNested` at the FINAL state, and the
-  -- state does not grow.  UNCONDITIONAL, and `.internal`: three of the
-  -- model's arms read the rewritten components, and a `certOnly` check
-  -- is `true` in trusted mode.  Measured before it landed: 87 shadow
-  -- blocks over e2e+arena and Mathlib, zero fires, firing control 43/43
-  -- where the check is reached, and +0.025 % of a Mathlib shadow run
-  -- (nothing today — the route is not dispatched).
-  --
-  -- **IF THIS EVER FIRES** the elimination's rewrite is not reproducible
-  -- at the final state: that is a defect in the ROUTE, not in the
-  -- stream, and the answer is never to relax the check.  See DESIGN
-  -- "#### K.59 — the pins' components, rewritten".
-  unless nestedPinCompsOk env p st do
-    throw (.internal "nested: a pin's components do not rewrite at the final state")
-  -- 2. the auxiliary mutual block, checked in a SCRATCH environment
-  let b ← unwrapOr (auxBlock p st)
-    (.invalid "invalid nested inductive datatype, ill-formed declaration")
-  -- **THE BLOCK'S MEMBER INDEX COUNTS ARE THE RECORD'S** (task #315
-  -- K.58): the auxiliary block reads each member's index count off the
-  -- ANNOTATED former's telescope (`auxIdxCount`), while the recogniser
-  -- read it off the stream's; the two decide structure-likeness (and so
-  -- the projection tables) and nothing until now checked that they
-  -- agree.  Not `certOnly`: the cached mirror's SKELETON is a function
-  -- of the record in EVERY mode, and a gated check is `true` in the
-  -- trusted one.  Measured before it landed — 85 blocks, 102 counts,
-  -- zero differences over e2e+arena, `init-full` and Mathlib, with a
-  -- firing control and a reachability control.
-  --
-  -- **IF THIS EVER FIRES, WIDEN THE SKELETON** — carry the auxiliary
-  -- count in it and prove the two drivers agree on that — rather than
-  -- keep rejecting.  See DESIGN "#### K.58 — the auxiliary block's
-  -- member index counts, pinned".
-  unless p.formers.map (·.2) == (b.formers.take p.k).map (·.2) do
-    throw (.invalid "nested: a member's index count is not the one its declaration carries")
-  -- `auxRoute := true` (K.10, widened by K.12): EVERY member of this
-  -- block is pre-annotated — the real members are the constants the
-  -- input-annotation stage checked, and the copies are minted out of
-  -- them and out of the containers' stored types at annotated pins — so
-  -- the install's front doors (the formers' and the constructors')
-  -- skip the annotation walk throughout and the stored types are the
-  -- minted ones.  Every check still runs, `inferType` included, which
-  -- is what validates each binder datum.  The grade is the CALLER's
-  -- single explicit opt-in for the whole block: no name is
-  -- interpreted.
-  let envAux ← checkMutualCore ops env b none true
+/-- **The nested install's SECOND STAGE**: everything after the auxiliary
+block has been checked in its scratch environment — the read-back of what
+it stored, the pins' certification checks, the restore of constructors,
+recursor types and rules, the projection tables, and the three
+post-checks.
+
+A stage of `checkNested`, called from nowhere else, and split out so that
+the route's INVERSION can be split too: `checkNested_inv`
+(`ConLeche/Verify/Inductives/NestedInv.lean`) recovers a sixty-conjunct
+run relation from one `.ok`, and as a single declaration it sat at the
+elaborator's heartbeat budget — the next recorded check on this route
+would have pushed it over, and `maxHeartbeats` is not available.  With
+the cut here the inversion is two declarations, `checkNested_inv_front`
+and `checkNested_inv_rest`, each with room, composed into the same
+statement.
+
+`env` is the pre-block environment, `envAux` the scratch one the
+auxiliary install produced, `st` the elimination's state and `b` the
+auxiliary block. -/
+def checkNestedRest (ops : CheckerOps m) (env : Env) (p : NestedParts)
+    (st : ElimState) (b : MutualBlock) (envAux : Env) : m Env := do
   let stored ← unwrapOr (auxStoredAll envAux b b.k)
     (.internal "nested: the auxiliary block's stored records")
   let R := restoreTbl p st
@@ -2643,5 +2700,99 @@ def checkNested (ops : CheckerOps m) (env : Env) (p : NestedParts) : m Env := do
       (blockOwnMimicsOk env₄ (p.formers.headD default).1.name p.numNested) do
     throw (.internal "nested: the installed block's mimic recursors are not the route's")
   pure env₄
+
+/-- **Check and install a recognised NESTED block** (see the module
+docstring): official's two syntactic front guards, the elimination, the
+auxiliary mutual block checked in a scratch environment, the restore,
+and the three post-checks.  Only the restored constants are stored.
+
+Everything from the auxiliary block's read-back onwards is
+`checkNestedRest`, for the reason its docstring gives. -/
+def checkNested (ops : CheckerOps m) (env : Env) (p : NestedParts) : m Env := do
+  -- 0. official's `check_no_nested_aux` and `check_uniform_ind_occs`
+  let ctorTypes := p.ctors.map (fun c => c.cv.type)
+  unless p.formers.all (fun f => !f.1.type.mentionsNestedAux) &&
+      ctorTypes.all (fun t => !t.mentionsNestedAux) do
+    throw (.invalid "invalid declaration, it uses the reserved prefix '_nested'")
+  unless uniformIndOccsOk p.memberNames (p.lps.map Level.param) p.nP ctorTypes do
+    throw (.invalid "invalid occurrence of datatype being declared: it must be applied \
+      to the parameters and universe levels of the mutual declaration")
+  -- 1. THE ELIMINATION'S INPUTS, ANNOTATED (K.12): the formers as the
+  -- install will store them and the constructors at the environment
+  -- holding those formers — so every piece the elimination instantiates,
+  -- closes over or pins is annotated, and every copy it mints is
+  -- annotated BY CONSTRUCTION, with no annotation pass left to run on it
+  let fmsA ← nestedAnnotFormers ops env p.nP p.formers
+  let ctorsA ← nestedAnnotCtors ops (nestedFormerEnv fmsA env) p.ctors
+  -- 2. the elimination, and the mimic count against the stream's records
+  let st ← nestedLift (m := m) (elimNested env p.nP p.lps (nestedTypes0 p fmsA ctorsA))
+  unless st.pins.length == p.numNested do
+    throw (.invalid s!"the block carries {p.numNested} recursor records past its \
+      {p.k} type formers; the elimination finds {st.pins.length} nested occurrences")
+  -- the minted names are free in the PRE-BLOCK environment
+  -- (`copiesFresh`; official's `check_name` at
+  -- `declare_inductive_types`), so that the scratch environment's cons
+  -- shadows nothing a later declaration could reach
+  unless copiesFresh env p.k st do
+    throw (.invalid "nested: an auxiliary type generated by the elimination names a \
+      constant the environment already carries")
+  -- THE CONTAINERS' FACTS (K.14, the model lane's DESIGN §M.28): every
+  -- container the elimination pinned has uniform occurrences of its own
+  -- group in its stored constructors, and every member's stored
+  -- recursor keeps its elimination universe out of the block's level
+  -- parameters (large) or eliminates into `Prop` (small).  All three
+  -- hold of any container this checker installed — a failure is a
+  -- broken environment, not a stream's fault.
+  unless certOnly ops.mode (nestedContainersOk env st.pins) do
+    throw (.internal "nested: a container the elimination pinned fails a fact its own \
+      install established")
+  -- **THE PINS' COMPONENTS REWRITE** (task #315 K.59, lane L-E's request):
+  -- every component of every pin's argument spine goes through the
+  -- elimination's own `replaceAllNested` at the FINAL state, and the
+  -- state does not grow.  UNCONDITIONAL, and `.internal`: three of the
+  -- model's arms read the rewritten components, and a `certOnly` check
+  -- is `true` in trusted mode.  Measured before it landed: 87 shadow
+  -- blocks over e2e+arena and Mathlib, zero fires, firing control 43/43
+  -- where the check is reached, and +0.025 % of a Mathlib shadow run
+  -- (nothing today — the route is not dispatched).
+  --
+  -- **IF THIS EVER FIRES** the elimination's rewrite is not reproducible
+  -- at the final state: that is a defect in the ROUTE, not in the
+  -- stream, and the answer is never to relax the check.  See DESIGN
+  -- "#### K.59 — the pins' components, rewritten".
+  unless nestedPinCompsOk env p st do
+    throw (.internal "nested: a pin's components do not rewrite at the final state")
+  -- 2. the auxiliary mutual block, checked in a SCRATCH environment
+  let b ← unwrapOr (auxBlock p st)
+    (.invalid "invalid nested inductive datatype, ill-formed declaration")
+  -- **THE BLOCK'S MEMBER INDEX COUNTS ARE THE RECORD'S** (task #315
+  -- K.58): the auxiliary block reads each member's index count off the
+  -- ANNOTATED former's telescope (`auxIdxCount`), while the recogniser
+  -- read it off the stream's; the two decide structure-likeness (and so
+  -- the projection tables) and nothing until now checked that they
+  -- agree.  Not `certOnly`: the cached mirror's SKELETON is a function
+  -- of the record in EVERY mode, and a gated check is `true` in the
+  -- trusted one.  Measured before it landed — 85 blocks, 102 counts,
+  -- zero differences over e2e+arena, `init-full` and Mathlib, with a
+  -- firing control and a reachability control.
+  --
+  -- **IF THIS EVER FIRES, WIDEN THE SKELETON** — carry the auxiliary
+  -- count in it and prove the two drivers agree on that — rather than
+  -- keep rejecting.  See DESIGN "#### K.58 — the auxiliary block's
+  -- member index counts, pinned".
+  unless p.formers.map (·.2) == (b.formers.take p.k).map (·.2) do
+    throw (.invalid "nested: a member's index count is not the one its declaration carries")
+  -- `auxRoute := true` (K.10, widened by K.12): EVERY member of this
+  -- block is pre-annotated — the real members are the constants the
+  -- input-annotation stage checked, and the copies are minted out of
+  -- them and out of the containers' stored types at annotated pins — so
+  -- the install's front doors (the formers' and the constructors')
+  -- skip the annotation walk throughout and the stored types are the
+  -- minted ones.  Every check still runs, `inferType` included, which
+  -- is what validates each binder datum.  The grade is the CALLER's
+  -- single explicit opt-in for the whole block: no name is
+  -- interpreted.
+  let envAux ← checkMutualCore ops env b none true
+  checkNestedRest ops env p st b envAux
 
 end ConLeche

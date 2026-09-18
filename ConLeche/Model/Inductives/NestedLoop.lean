@@ -245,6 +245,41 @@ structure NestedCtorRead (mp₁ : EnvModelM V μ ENV₁) (mm j : Nat) (c : Const
     (∀ i, ((D).nestOf mm j i = none ∨
         (rsOf (kindsOf (mutKsOf kinds (b.ownOffset mm + j)))).getD i false = false) →
       (dsR mm j ψ).getD (b.nP + i) default = (dsF (b.ownOffset mm + j) ψ).getD (b.nP + i) default)
+  /-- **A NESTED FINITARY FIELD'S PARAMETER ARGUMENTS ARE THE RESTORED
+  PIN'S** (task #315 PINF): `BlockOpened.nestF` keeps the head, the
+  argument count and the resolution PAST `nPJ` and drops the parameter
+  part, and nothing below recovers it — so the one clause of
+  `ContainerModeled` that speaks about it
+  (`nestArgsMention`) has to be carried from here, where
+  `RestoredField`'s own pin case still has it.
+
+  Carried as the EQUALITY against the restored pin — the pin closed
+  over the parameters and reopened at this constructor's openers —
+  rather than as the mention the consumer wants, because the mention
+  step needs K.30 (`pinsScoped`) and K.44 (`nestedPinMentionOk`),
+  neither of which reaches this tier. -/
+  pinArgs : ∀ (l : Nat) (x pin : Expr) (q : Nat),
+    ((D).xFvsF mm j)[l]? = some x →
+    pin = Expr.mkAppN (.const ((D).pinAt q).J ((D).pinAt q).lvls) ((D).pinAt q).DsE →
+    (D).nestOf mm j l = some q →
+    ((D).ksF mm j).getD l .ordinary = .recursive →
+    x.fvarTypeD.getAppArgs.take ((D).pinAt q).nPJ
+      = (Expr.instSeq ((D).fvsPF mm j) ((D).nP - 1)
+          (Expr.abstractRange pin 0 p.nP 0)).getAppArgs
+  /-- **THE RESTORED CONSTRUCTOR'S STORED TYPE HAS ITS `.proj` SLOTS AT
+  THE MEMBERS' PREFIX ENVIRONMENT** (task #315 PINF): the front door's
+  own `slots`, kept because it is the only place the fact is TRUE.
+  `ProjSlotsOk` is not antitone in the environment — its `.proj` node is
+  a `findProj?` `.isSome` — so `ConstWF` at a later environment cannot
+  supply it, and at ENV₁ the block's members are `.indInfo` with no
+  projection table, which is what makes it say
+  "no `.proj` node names a member".
+
+  Carried raw rather than as the `NoProjAt` the consumer wants:
+  turning the empty slot into a `NoProjAt` needs `ProjOkT` at the
+  pre-block environment and the members' freshness, and those meet the
+  clause at `nestedContainerModeled`. -/
+  ctorSlots : ConLeche.Expr.ProjSlotsOk ENV₁ c.1.type
 
 end Assembly
 
@@ -666,7 +701,11 @@ theorem nestedLoopFacts_of (hpins : NestedPinsStaged V μ F) (hread : NestedRead
       pinWd := PF.pinWd
       find := hF₂, pinψ := PF.pinψ, pinNIdx := PF.pinNIdx, hde := hde₂
       leafKeep := ?_, agreeC := hag₂, ctorFacts := ?_, domFacts := ?_, groups := ?_
-      groupsAt := ?_ }⟩
+      groupsAt := ?_
+      pinArgs := fun mm j l x pin q hmm hj hx hpinE hn hk => by
+        obtain ⟨c, hc⟩ : ∃ c, (ctorsR.getD mm [])[j]? = some c := ⟨_, List.getElem?_eq_getElem hj⟩
+        exact (hR mm j c hmm hc).pinArgs l x pin q hx hpinE hn hk
+      ctorSlots := fun mm j c hmm hc => (hR mm j c hmm hc).ctorSlots }⟩
   · -- the members' leaves
     intro t f ht hft
     exact hag₂ f.cvTa.name (hneR _ (by rw [(hfind' t f ht hft).1]; rfl))
