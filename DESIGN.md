@@ -92882,8 +92882,13 @@ smaller in size than §U.76 (c) said:
   makes the edge production at the run a two-line consequence of the
   kinds instead of a container-syntax argument.
 
-And the simplification of §U.76 (c) stands: **the model never reads the
-`own` bit** — an own edge gives instance equality, a not-own edge the
+And the simplification of §U.76 (c) stands FOR THIS ROUTE: **the model
+never reads the `own` bit here** — **SCOPED 2026-09-18 (§U.88 (b)):
+true of the rank induction, where both branches of clause (2) share a
+conclusion, and FALSE of the stratified route, where own edges give `≤`
+and not-own give `<`.  The bit is readable either way, off an edge's
+membership in the list the inversion exposes; what is route-specific is
+whether it has to be read.** — an own edge gives instance equality, a not-own edge the
 disjunction, and `hedge`'s conclusion is the disjunction either way.
 
 Gates at the session's commits: `lake build` warning-free, `lake test`
@@ -92900,7 +92905,10 @@ The kernel lane's `nestedPinRankAt_inv`/`nestedPinRankOk_inv` (K.52) is
 the statement this lane asked for, to the clause: the edge list's
 existence IN the statement, the four clauses at
 `nestedPinInstOf`/`nestedPinRankOf`, and (1)+(2) folded into one
-disjunction per edge so the ownership bit is never read.  Its commit is
+disjunction per edge so the ownership bit is never read BY THE RANK
+INDUCTION (§U.88 (b): the stratified route does read it, off the edge
+list the inversion exposes, because there the two branches do not share
+a conclusion).  Its commit is
 cherry-picked here so the consumer could be built against it rather
 than against its name.
 
@@ -94191,3 +94199,56 @@ NOT STARTED.  No code changed this session.
 
 Gates: `lake build` and `lake test` warning-free at the session's
 commit; text gates green.
+
+##### U.88 (b) — CORRECTED AND COMPLETED 2026-09-18
+
+Two corrections to (b) above, both from the coordinator reading the
+inversion's statement rather than taking this lane's word for it.
+
+**1. There is nothing to request, and no reversal of the inversion.**
+`nestedPinRankOk_inv` CONCLUDES `∃ edges, nestedPinEdges … = some edges ∧ …`
+— it exposes the edge LIST, and an edge is a triple carrying the
+ownership bit.  So a consumer holding that list reads the bit off an
+element's membership.  What K.52's folding made bit-agnostic is the
+first clause's CONCLUSION, not the data.  The stratified route reads the
+bit from membership, which is available, and not from the clause, which
+no longer distinguishes.  **No new kernel clause, no request.**
+
+**2. What remains is the BRIDGE, and it is SHARED WORK.**  To conclude
+`<` from (S2) at an `ordF`-right field, the route must know that
+field's edge is NOT-OWN — i.e. tie `ContainerModeled.ordFree`
+(`mentionsMember memberNames x.fvarTypeD = false`, on the OPENED field)
+to `nestedPinEdges`' own bit (`mentionsMember names domJ.1`, on the
+STRIPPED binder).  The two test the same predicate on the same field at
+two spellings; the general statement is
+
+```
+    the `l`-th opened field's `fvarTypeD` and the `l`-th stripped
+    binder's domain have the SAME `mentionsMember` value
+```
+
+**This is the opened-versus-stripped step another lane met from the
+other side, and it should be proved ONCE.**  Where the tree stands
+today: `mentionsMember_openPisAtFvars_false`
+(`Verify/Inductives/NestedCopyNorm.lean`) and
+`normPosDomM_piDomsFree` beside it both go from "the whole tower is
+member-free" to "each opened field is", which is one direction and not
+the one needed; the first is `private`.  `openPisAtFvars_stripPis`
+(`Verify/Denote/TeleOpen.lean`) is the structural bridge the proof would
+run on.  **So neither existing form is the general one.**  If the other
+lane's version turns out to be general, this lane CONSUMES it rather
+than writing a second; if not, the statement above is what to prove,
+made public.
+
+Note that by §U.78's cut this bridge is owed by the RUN-LEVEL assembly,
+where `EdgeOrd`'s production lives — not by the theorems of this
+section, which take `EdgeOrd` abstract.  It is inside §U.87 (c)'s
+fourth row either way and the 3–4 does not move.
+
+##### U.88 (g) — the measure will be a kernel record
+
+The coordinator has pre-assigned a number on the kernel lane for the
+component-based measure and its two laws.  This section's (a) — (S1),
+(S2), (P2) — is exactly what that record would supply, stated on the
+model side; the collapse of (e) is what keeps today's statements valid
+while it does not exist.
