@@ -108796,3 +108796,94 @@ and the record should show that.
 Nothing built; `lake build` 0 errors/warnings, **722 jobs**.
 
 Nothing in this section changes the tree.
+
+#### (number at the integrator's sync) — L-E: THE ESCAPE FIRES — option (a) is refuted by the design note that motivated `ContainerOwnPinsSyn`, and the scope call's reasoning inverts (lane L-E, 2026-09-18)
+
+Stopped at the escape condition, before adding anything.  **Nothing
+built.**
+
+##### (a) THE PRODUCER COUNT — small, but one of them cannot discharge
+
+`ContainerModeled` has two real producers — `mutualContainerModeled`
+(`EnvModelBStages.lean:250`) and `nativeContainerModeled` (`:1176`) —
+plus `ContainerModeled.of_readBack` (`ContainerCross.lean:1512`), and
+**two transports**, `crossEnv` and `crossEnvP` (`:551`, `:486`).
+
+A transport is not a producer in the burden sense, but it is where the
+escape fires: **`crossEnvP` cannot carry a reading-form clause**, and
+the tree says so in the docstring that exists to explain exactly this:
+
+> `ContainerModeled` is proved where a container is INSTALLED and
+> consumed where a LATER block is checked, so every clause crosses
+> `ContainerModeled.crossEnvP`.  **The reading form below does NOT
+> cross: its `DenoteMetaSpine` premise is CONTRAVARIANT** (reading
+> monotonicity runs `env₁ → env₂`, and the clause would have to pull a
+> reading at `env₂` back to `env₁`).  This one mentions no model at all
+> … so it crosses as soon as the TABLE does.
+
+**Four of the six missing premises are reading-form facts** —
+`hpinDs` and `h0` are `DenoteMetaSpine`s outright, and `hscope`/`hDsE`
+are the scope package that goes with them.  Putting them in
+`ContainerModeled` is precisely the thing `ownPins` was made syntactic
+to avoid.
+
+##### (b) SO THE SCOPE CALL'S REASONING INVERTS
+
+The call chose (a) because "the container-side facts are coherence
+properties of the chosen model, established when the container was
+modelled", so a twin at the nested run "relocates the obligation without
+discharging it".
+
+**The crossing note says the opposite for the reading form.**  A
+`DenoteMetaSpine` clause about the container's pins **cannot be stated
+where the container was installed** and carried forward — that is the
+contravariance.  It can only be stated at the LATER environment, which
+is where the nested run lives.  So for these four premises the twin is
+not a relocation; it is **the only place the fact can be said at all**.
+
+`ContainerOwnPinsSyn.toReadOf` is the tree's own expression of this: the
+syntactic form is recorded at the container and crosses; the bridge to
+the reading form is applied at the CONSUMPTION site, and its package is
+what the consumption site must supply.  **The six are not missing from
+`ContainerModeled` by oversight; they are deliberately not there.**
+
+##### (c) WHAT THIS LANE IS NOT DOING
+
+Not adding the clauses — the escape says stop, and it fired on the
+strongest possible evidence, a design note written to forbid exactly
+this.
+
+Not switching to (b) unilaterally either.  The inversion is an argument
+that (b) is right for the four reading-form premises, but the other two
+(`hps`, `hmem`) are syntactic and may genuinely belong at the container
+— which would make the answer **both**, split by form rather than by
+place.  That is a different shape from either option as put, and it is
+the coordinator's call.
+
+##### (d) THE `hDsD` INSTANTIATION, now decided by the same argument
+
+If the reading-form facts can only live at the later environment, then
+the package lives at `ENV₁` and the instantiation follows: **`m :=
+mp₁'.base2`, `env := ENV₁`**, which is also the choice that makes
+`NestedPinSynFacts.pinDs` match `hDsD` with no crossing.  The syntactic
+premises (`hsyn`, `hps`, `hmem`) then have to be transported UP to
+`ENV₁` — the covariant direction, which `crossEnvP` is built for.
+
+**That is a coherent package**, and it is the first thing in this row
+that has looked like one: syntactic facts recorded at the container and
+carried up; reading facts stated at the run where the nested block is
+checked; `toReadOf` joining them at the consumption site, which is what
+it was written for.
+
+##### (e) THE REVISED QUESTION FOR THE SCOPE CALL
+
+Not "(a) or (b)" but: **do the four reading-form premises go into
+`NestedPinSynFacts` (or a sibling) at `ENV₁`, with the two syntactic
+ones transported up from `ContainerModeled`?**  This lane believes so
+and has said why, but it has been wrong three times today about what a
+record can carry, and the producer-burden ruling is the coordinator's to
+apply.
+
+`lake build` 0 errors/warnings, **722 jobs**; nothing half-applied.
+
+Nothing in this section changes the tree.
