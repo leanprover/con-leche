@@ -107,6 +107,49 @@ theorem restoreRecTys_at {env : Env} {R : RestoreTbl} {lps : List Name} {F : Nat
       simp only [List.getElem?_cons_succ] at ha ho
       exact ih hrest k a' o ha ho
 
+/-- **THE RESTORED RECURSOR TYPES' PROJECTION SLOTS** (task #315 M7-2):
+every `.proj` node of a restored recursor type sits at a table the
+environment stores.
+
+`restoreRecTys_at` reports the front door's scope guards and its sort
+inference and DROPS this one, and the resolution predicate cannot
+replace it: `constsResolve`'s `.proj s _ e` clause only asks that `s`
+be stored, and at the restored environment every MEMBER is.  The
+pre-annotated door checked the stronger guard (`projTablesOk`, K.13)
+and `FrontDoorFacts.slots` is it as a proposition, so the report is
+this projection of the same witness — the shape `restoreCtors_door`
+already hands the constructors' side.
+
+Consumer: the projection tables' face, through `NoProjEnv` at the
+restored recursors' store. -/
+theorem restoreRecTys_slots {env : Env} {R : RestoreTbl} {lps : List Name} {F : Nat} :
+    ∀ {names : List Name} {as : List AuxStored} {out : List ConstantVal},
+      restoreRecTys (m := CheckM) (fueledOps mode F) env R lps names as = .ok out →
+      ∀ (i : Nat) (o : ConstantVal), out[i]? = some o → Expr.ProjSlotsOk env o.type := by
+  intro names as
+  induction as generalizing names with
+  | nil =>
+    intro out h i o ho
+    simp only [restoreRecTys, pure, Except.pure, Except.ok.injEq] at h
+    rw [← h] at ho
+    exact absurd ho (by simp)
+  | cons a rest ih =>
+    intro out h i o ho
+    unfold restoreRecTys at h
+    obtain ⟨ty, hty, h⟩ := exceptBind_ok h
+    obtain ⟨cvA, hpre, h⟩ := exceptBind_ok h
+    obtain ⟨rest', hrest, h⟩ := exceptBind_ok h
+    simp only [pure, Except.pure, Except.ok.injEq] at h
+    obtain rfl := h
+    cases i with
+    | zero =>
+      simp only [List.getElem?_cons_zero, Option.some.injEq] at ho
+      obtain rfl := ho
+      exact (FrontDoorFacts.ofPre hpre).slots
+    | succ k =>
+      simp only [List.getElem?_cons_succ] at ho
+      exact ih hrest k o ho
+
 /-! ## The read-back's recursor record -/
 
 /-- The read-back's recursor: the scratch environment's `recInfo` at

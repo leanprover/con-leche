@@ -11,6 +11,7 @@ import ConLeche.Verify.Inductives.ContainerFrame
 public import ConLeche.Model.Inductives.NestedTables
 import ConLeche.Verify.Inductives.NestedRecDoor
 import ConLeche.Verify.Inductives.NestedRecNames
+import ConLeche.Verify.Inductives.NestedRestoreKit
 import ConLeche.Verify.Inductives.NestedRecRuleKit
 import ConLeche.Verify.Inductives.NestedAuxInv
 import ConLeche.Verify.Inductives.NestedTablesInv
@@ -139,6 +140,107 @@ theorem nestedRecsStore_at {env₂ : Env} {l : List (ConstantVal × Nat × Nat �
       mp₃.base2.acval = mpP.base2.acval ∧ mp₃.base2.cvalE = mpP.base2.cvalE := by
   subst hprov
   exact nestedRecsStore henv₂ mpP hfresh hnres htys hrulesWF hctorStored hlaws
+
+/-! ## `NoProjEnv` across the nested install's conses
+
+The projection-table face asks for `NoProjEnv` at the environment the
+recursors' store leaves, at every member's every slot
+(`BlockTableMember.nproj`).  These are the mutual route's three cons
+lemmas (`MutualNoProj.lean`) at the nested install's own three
+conses — with ONE difference, and it is the whole reason the recursors'
+step is not a copy: a nested block's stored rules FIRE `.nested`, so
+`NoProjEnv`'s rule clause asks for the fire's PINS as well as the
+right-hand side.
+-/
+
+/-- An empty projection slot survives the restored members' conses. -/
+theorem findProj?_none_consNestedFormers {T : Name} {i : Nat} :
+    ∀ {as : List AuxStored} {env₀ : Env}, env₀.findProj? T i = none →
+      (ConLeche.consNestedFormers as env₀).findProj? T i = none
+  | [], _, h => h
+  | _ :: _, _, h => by
+    simp only [ConLeche.consNestedFormers]
+    exact findProj?_none_consNestedFormers
+      (findProj?_none_cons (fun _ hh => ConstantInfo.noConfusion hh) h)
+
+/-- An empty projection slot survives the restored constructors' conses. -/
+theorem findProj?_none_consNestedCtors {T : Name} {i : Nat} :
+    ∀ {cs : List (ConstantVal × Nat × Nat)} {env₀ : Env}, env₀.findProj? T i = none →
+      (ConLeche.consNestedCtors cs env₀).findProj? T i = none
+  | [], _, h => h
+  | (_, _, _) :: _, _, h => by
+    simp only [ConLeche.consNestedCtors]
+    exact findProj?_none_consNestedCtors
+      (findProj?_none_cons (fun _ hh => ConstantInfo.noConfusion hh) h)
+
+/-- An empty projection slot survives the rule-less provision. -/
+theorem findProj?_none_provisionNestedRecs {T : Name} {i : Nat} :
+    ∀ {l : List (ConstantVal × Nat × Nat)} {env₀ : Env}, env₀.findProj? T i = none →
+      (ConLeche.provisionNestedRecs l env₀).findProj? T i = none
+  | [], _, h => h
+  | (_, _, _) :: _, _, h => by
+    simp only [ConLeche.provisionNestedRecs]
+    exact findProj?_none_provisionNestedRecs
+      (findProj?_none_cons (fun _ hh => ConstantInfo.noConfusion hh) h)
+
+/-- An empty projection slot survives the recursors' store. -/
+theorem findProj?_none_storeNestedRecs {T : Name} {i : Nat} :
+    ∀ {l : List (ConstantVal × Nat × Nat × List RecRule)} {env₀ : Env},
+      env₀.findProj? T i = none →
+      (ConLeche.storeNestedRecs l env₀).findProj? T i = none
+  | [], _, h => h
+  | (_, _, _, _) :: _, _, h => by
+    simp only [ConLeche.storeNestedRecs]
+    exact findProj?_none_storeNestedRecs
+      (findProj?_none_cons (fun _ hh => ConstantInfo.noConfusion hh) h)
+
+/-- `NoProjEnv` across the restored members' conses. -/
+theorem noProjEnv_consNestedFormers {T : Name} {i : Nat} :
+    ∀ {as : List AuxStored} {env₀ : Env}, NoProjEnv env₀ T i →
+      (∀ a ∈ as, Expr.NoProjAt T i a.cvTa.type) →
+      NoProjEnv (ConLeche.consNestedFormers as env₀) T i
+  | [], _, h, _ => h
+  | a :: rest, env₀, h, hall => by
+    simp only [ConLeche.consNestedFormers]
+    refine noProjEnv_consNestedFormers (h.cons (c₀ := .indInfo a.cvTa a.caps)
+      (NoProjHead.ofType (hall a List.mem_cons_self) (fun _ _ _ hh => nomatch hh)
+        (fun _ _ _ _ hh => nomatch hh) (fun _ hh => nomatch hh)))
+      (fun a' ha' => hall a' (List.mem_cons_of_mem _ ha'))
+
+/-- `NoProjEnv` across the restored constructors' conses. -/
+theorem noProjEnv_consNestedCtors {T : Name} {i : Nat} :
+    ∀ {cs : List (ConstantVal × Nat × Nat)} {env₀ : Env}, NoProjEnv env₀ T i →
+      (∀ c ∈ cs, Expr.NoProjAt T i c.1.type) →
+      NoProjEnv (ConLeche.consNestedCtors cs env₀) T i
+  | [], _, h, _ => h
+  | (cv, nP, nF) :: rest, env₀, h, hall => by
+    simp only [ConLeche.consNestedCtors]
+    refine noProjEnv_consNestedCtors (h.cons (c₀ := .ctorInfo cv nP nF)
+      (NoProjHead.ofType (hall (cv, nP, nF) List.mem_cons_self) (fun _ _ _ hh => nomatch hh)
+        (fun _ _ _ _ hh => nomatch hh) (fun _ hh => nomatch hh)))
+      (fun c' hc' => hall c' (List.mem_cons_of_mem _ hc'))
+
+/-- `NoProjEnv` across the restored recursors' store: the type, every
+rule's right-hand side, and — the nested route's own clause — every
+`.nested` fire's PINS. -/
+theorem noProjEnv_storeNestedRecs {T : Name} {i : Nat} :
+    ∀ {l : List (ConstantVal × Nat × Nat × List RecRule)} {env₀ : Env}, NoProjEnv env₀ T i →
+      (∀ x ∈ l, Expr.NoProjAt T i x.1.type ∧
+        ∀ r ∈ x.2.2.2, Expr.NoProjAt T i (RecRule.rhs r) ∧
+          ∀ lvls pins, RecRule.fire r = .nested lvls pins →
+            ∀ pin ∈ pins, Expr.NoProjAt T i pin) →
+      NoProjEnv (ConLeche.storeNestedRecs l env₀) T i
+  | [], _, h, _ => h
+  | (cv, mI, rP, rules) :: rest, env₀, h, hall => by
+    simp only [ConLeche.storeNestedRecs]
+    refine noProjEnv_storeNestedRecs (h.cons (c₀ := .recInfo cv mI rP rules)
+      ⟨(hall _ List.mem_cons_self).1, (fun _ _ _ hh => nomatch hh), ?_,
+        (fun _ hh => nomatch hh)⟩)
+      (fun x hx => hall x (List.mem_cons_of_mem _ hx))
+    intro cv' mI' rP' rules' heq r hr
+    injection heq with _ _ _ hrules
+    rw [← hrules] at hr
+    exact (hall _ List.mem_cons_self).2 r hr
 
 /-! ## The store list at the run -/
 
@@ -725,6 +827,126 @@ theorem NestedTailIn.tblCtor {mIdx : Nat} (hmIdx : mIdx < p.k) {a : AuxStored}
     exact Option.some.inj h
   show c.cv.name = cvCa.name
   rw [hcvEq, ← hcname, ← hc1]
+
+/-! ## `NoProjEnv` at the recursors' store, at the run -/
+
+/-- **THE STORED RULES' RIGHT-HAND SIDES MENTION ONLY STORED
+PROJECTION SLOTS**: `restoreRules_at`'s `projTablesOk` conjunct, the
+guard the restore checked at the environment the rules were scoped at,
+as a proposition (`projSlotsOk_of_projTablesOk`, K.13). -/
+theorem NestedTailIn.storeRuleSlots :
+    ∀ x ∈ nestedStoreList p stored cvRms cvRns rulesM rulesN, ∀ r ∈ x.2.2.2,
+      ConLeche.Expr.ProjSlotsOk
+        (ConLeche.provisionNestedRecs (nestedProvList p stored cvRms cvRns) (ENV2))
+        (RecRule.rhs r) := by
+  intro x hx r hr
+  obtain ⟨c, hc, -, -, -, hrs⟩ := nestedStoreList_mem I.lenM hx
+  have hcb : c < b.k := by rw [I.out.bk, ← I.lenN] at *; exact hc
+  obtain ⟨a, ha⟩ : ∃ a, stored[c]? = some a :=
+    ⟨_, List.getElem?_eq_getElem (by rw [I.storedLen]; exact hcb)⟩
+  obtain ⟨hlenR, hallR⟩ := ConLeche.restoreRules_at (I.restRulesRun hcb ha)
+  rw [hrs] at hr
+  obtain ⟨ii, hoAt⟩ := List.getElem?_of_mem hr
+  obtain ⟨rl, hrlAt⟩ : ∃ rl, a.rules[ii]? = some rl :=
+    ⟨_, List.getElem?_eq_getElem (by
+      rw [← hlenR]; exact (List.getElem?_eq_some_iff.mp hoAt).1)⟩
+  obtain ⟨-, -, -, -, -, hpo, -, -, -, -, -, -⟩ := hallR ii rl r hrlAt hoAt
+  exact ConLeche.Expr.projSlotsOk_of_projTablesOk _ hpo
+
+/-- **NO STORED PIECE MENTIONS A MEMBER'S PROJECTIONS** at the
+environment the restored recursors' store leaves (task #315 M7-2) —
+the nested twin of `mutualNoProj`, and the last of `tableMember_of`'s
+premises the nested route owed.
+
+Four conses, four sources, and only the last is new:
+
+* the PRE-BLOCK environment: the member is not stored there
+  (`nestedMembersFresh`), so nothing stored there mentions its
+  projections (`noProjEnv_of_fresh`), and its slot is empty
+  (`findProj?_none_of_indFresh`);
+* the restored MEMBERS: their types resolve at the pre-block
+  environment (`mutualFormers_nameFacts`), where the member is fresh;
+* the restored CONSTRUCTORS: their `.proj` nodes name a table stored
+  at the FORMERS' environment (`restoreCtors_door`'s
+  `FrontDoorFacts.slots`), where the member's own slot is still empty;
+* the restored RECURSORS: the type off `recCvSlots` — the report
+  `restoreRecTys_at` drops and the resolution predicate cannot
+  replace — every rule's right-hand side off `storeRuleSlots`, and
+  every `.nested` fire's PINS, which are the major domain's lowered
+  leading arguments (`NestedTailIn.storeRules`' shape clause) and so
+  inherit the type's own freedom through the telescope, the spine and
+  the lift (`rg_noProjAt_stripPis`, `rg_noProjAt_getAppArgs`,
+  `rg_noProjAt_of_lift`). -/
+theorem NestedTailIn.storeNoProj {t : Nat} {f : MutualFormerA}
+    (hft : fms[t]? = some f) (j : Nat) :
+    NoProjEnv (ConLeche.storeNestedRecs (nestedStoreList p stored cvRms cvRns rulesM rulesN)
+      (ENV2)) f.cvTa.name j := by
+  obtain ⟨-, hposF⟩ := mutualFormers_nameFacts I.out.formers
+  have hfreshT : env.find? f.cvTa.name = none := (hposF t f hft).2.2.1
+  -- the pre-block environment
+  have h0 : NoProjEnv env f.cvTa.name j := noProjEnv_of_fresh mp.base2.wf hfreshT j
+  have hs0 : env.findProj? f.cvTa.name j = none :=
+    findProj?_none_of_indFresh mp.base2.proj_ok hfreshT j
+  -- the members
+  have hnpT : ∀ g ∈ fms.take p.k, Expr.NoProjAt f.cvTa.name j g.cvTa.type := by
+    intro g hg
+    obtain ⟨t', hg'⟩ := List.getElem?_of_mem hg
+    have ht' : t' < p.k := by
+      have hl := (List.getElem?_eq_some_iff.mp hg').1
+      rw [List.length_take] at hl
+      omega
+    have hgf : fms[t']? = some g := by rw [← List.getElem?_take_of_lt ht']; exact hg'
+    exact ConLeche.Expr.noProjAt_of_constsResolve hfreshT _ (hposF t' g hgf).2.2.2.2.2
+  have h1 : NoProjEnv (ConLeche.consMutualFormers (fms.take p.k) env) f.cvTa.name j :=
+    noProjEnv_consMutualFormers h0 hnpT
+  have hs1 : (ConLeche.consMutualFormers (fms.take p.k) env).findProj? f.cvTa.name j = none :=
+    findProj?_none_consMutualFormers hs0
+  have hs1' : (ConLeche.consNestedFormers (stored.take p.k) env).findProj? f.cvTa.name j
+      = none := by rw [I.henv]; exact hs1
+  -- the constructors
+  have hnpC : ∀ c ∈ ctorsR.flatten, Expr.NoProjAt f.cvTa.name j c.1.type := by
+    intro c hc
+    obtain ⟨cs, hcs, hcin⟩ := List.mem_flatten.mp hc
+    obtain ⟨mm, hmm⟩ := List.getElem?_of_mem hcs
+    obtain ⟨hlenC, hallC⟩ := ConLeche.mapM_except_inv I.hctors
+    obtain ⟨a, cs', ha, hcs', hrun⟩ := hallC mm (by
+      have h := (List.getElem?_eq_some_iff.mp hmm).1
+      omega)
+    rw [hmm] at hcs'
+    obtain rfl : cs = cs' := by simpa using hcs'
+    obtain ⟨jj, hjj⟩ := List.getElem?_of_mem hcin
+    obtain ⟨hlenD, hallD⟩ := ConLeche.restoreCtors_door hrun
+    obtain ⟨c0, hc0⟩ : ∃ c0, a.ctors[jj]? = some c0 :=
+      ⟨_, List.getElem?_eq_getElem (by
+        have h := (List.getElem?_eq_some_iff.mp hjj).1
+        omega)⟩
+    obtain ⟨ty, -, hfd, -, -⟩ := hallD jj c0 c hc0 hjj
+    exact ConLeche.Expr.ProjSlotsOk.noProjAt hs1' _ hfd.slots
+  have h2 : NoProjEnv (ENV2) f.cvTa.name j := noProjEnv_consNestedCtors h1 hnpC
+  have hs2 : (ENV2).findProj? f.cvTa.name j = none := findProj?_none_consNestedCtors hs1
+  have hs2P : (ConLeche.provisionNestedRecs (nestedProvList p stored cvRms cvRns)
+      (ENV2)).findProj? f.cvTa.name j = none := findProj?_none_provisionNestedRecs hs2
+  -- the recursors
+  refine noProjEnv_storeNestedRecs h2 fun x hx => ⟨?_, fun r hr => ⟨?_, ?_⟩⟩
+  · obtain ⟨c, hc, hcv, -, -, -⟩ := nestedStoreList_mem I.lenM hx
+    have hcb : c < b.k := by rw [I.out.bk, ← I.lenN] at *; exact hc
+    rw [hcv]
+    exact ConLeche.Expr.ProjSlotsOk.noProjAt hs2 _ (I.recCvSlots hcb)
+  · exact ConLeche.Expr.ProjSlotsOk.noProjAt hs2P _ (I.storeRuleSlots x hx r hr)
+  · intro lvls pins hfire pin hpin
+    obtain ⟨c, hc, hcv, -, -, -⟩ := nestedStoreList_mem I.lenM hx
+    have hcb : c < b.k := by rw [I.out.bk, ← I.lenN] at *; exact hc
+    have hty : Expr.NoProjAt f.cvTa.name j x.1.type := by
+      rw [hcv]
+      exact ConLeche.Expr.ProjSlotsOk.noProjAt hs2 _ (I.recCvSlots hcb)
+    obtain ⟨-, -, -, pre, dom, body, bm, Dn, hstrip, -, hargs⟩ :=
+      (I.storeRules x hx r hr).2.2.2.2 lvls pins hfire
+    obtain ⟨-, hbody⟩ := ConLeche.rg_noProjAt_stripPis x.2.1 hstrip hty
+    rw [ConLeche.Expr.noProjAt_forallE] at hbody
+    have hmem : pin.liftLooseBVars (x.2.1 - x.2.2.1) 0 ∈ dom.getAppArgs := by
+      rw [hargs, List.mem_append]
+      exact Or.inl (List.mem_map_of_mem hpin)
+    exact ConLeche.rg_noProjAt_of_lift pin 0 (ConLeche.rg_noProjAt_getAppArgs hbody.1 _ hmem)
 
 end Run
 
