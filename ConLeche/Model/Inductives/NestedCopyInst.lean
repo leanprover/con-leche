@@ -6098,6 +6098,189 @@ theorem NestedPinsRun.copyOrdFRightReadM {pbs : List (Expr × ConLeche.BinderMet
       exact (leafSpineFit ((R.h.FD _ _ hft).len ψ) (mp₁.base2.cval_closedL _ ψ)
         (R.h.leafT hft ψ) hfs
         (by rw [hCD.eisLen ψ l hrecA hlA, hnIdxT]) hokA).2
+/-! ## The ordinary field, RIGHT arm at a MEMBER target, REFLEXIVE
+(task #315 L-B, DESIGN "does the refutation survive the repair")
+
+The reflexive twin of `copyOrdFRightReadM`, writable because lane
+L-E's repaired `EntryRead` asks for the copy's SLOT rather than a
+syntactic Π-tower on the container's side — the shape against which
+this lane's refutation dissolves.  Three substitutions on that arm:
+`MutualCtorDataI.reflEntry` for `recEntry` (a reflexive field's stored
+domain reads as the Π-tower over its OWN telescope ending in the
+target applied), `interp_mkPisAV_piTele` for `slotSet_nil` (the
+tower's interpretation IS the slot — the step the repair absorbed from
+`copyEntryAt_of_read`), and both the reading and the index fit taken
+one frame deeper, under the telescope's own spine. -/
+
+/-- **`CopyCtorShape.ordF`'s RIGHT arm at a MEMBER target, REFLEXIVE**
+(task #315 L-B): at a container-ordinary field the auxiliary block
+classified REFLEXIVE at one of the block's own members, the copy's
+entry is its slot — the Π-tower over the copy's telescope of the
+target's stored reading applied to the copy's index expressions. -/
+theorem NestedPinsRun.copyOrdFRightReadRefl {pbs : List (Expr × ConLeche.BinderMeta)}
+    (hPD : ∀ q, q < st.pins.length → PinData env st p pbs q)
+    {i' : Nat} (hi' : i' < kJ) {j : Nat} {cAJ : ConstantVal × Nat}
+    (hj : (dJ.ctorsM i')[j]? = some cAJ) {l : Nat} (hlF : l < cAJ.2)
+    (hrunAll : ∀ (ci : ContainerInfo) (J : ContainerMember) (cI : Expr) (xfvs' : List Expr)
+        (restM xI x' : Expr),
+      ConLeche.containerInfo? env (pinsS.getD (q₀ + i') default).J = some ci →
+      J ∈ ci.members → J.name = (pinsS.getD (q₀ + i') default).J →
+      Expr.instPis (Expr.instantiateLevelParams J.lps
+        (pinsS.getD (q₀ + i') default).lvls cAJ.1.type) (srcAtE st p (q₀ + i')).2.2 = some cI →
+      ConLeche.openPisAtFvars cAJ.2 cI b.nP = some (xfvs', restM) →
+      xfvs'[l]? = some xI →
+      (xFvsF (b.ownOffset (p.k + q₀ + i') + j))[l]? = some x' →
+      ConLeche.normPosDomM (m := ConLeche.CheckM) (ConLeche.fueledOps μ F)
+          (ConLeche.consMutualFormers (fms.take p.k) env) b.memberNames (b.nP + l) 1024
+          xI.fvarTypeD
+        = .ok x'.fvarTypeD)
+    (hreflA : kindAt (mutKsOf kinds (b.ownOffset (p.k + q₀ + i') + j)) l = .reflexive)
+    (hmemT : ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+      (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0 < p.k)
+    (ψ : Name → Nat) (ρp : Nat → V)
+    (hsat : Sat V (((ppsF 0 ψ).take b.nP).map (·.2.2)).reverse ρp) :
+    EntryRead
+      (nestedTV b.nP p.k f₀.s ppsF W pinsS mp₁'.base2.acval
+        ((fms.take p.k).map (·.cvTa.name)) ψ)
+      dJ ((pinsS.getD (q₀ + i') default).ψJ ψ) ((pinsS.getD (q₀ + i') default).Ds ψ)
+      (fun l => ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+        (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0)
+      ((mutTlss ctorsA.length tssF ψ).getD (b.ownOffset (p.k + q₀ + i') + j) [])
+      ((mutEiss0 ctorsA.length eissF ψ).getD (b.ownOffset (p.k + q₀ + i') + j) []) ρp i' j l := by
+  classical
+  obtain ⟨cc, J, ci, lpsJ, pcs, fcs, Fs', esJ, cbody', o, params, pbs₀, cA, cname, qn, usJ,
+    hciP, hJmem, hJcc, hn, hty, hnf, hJname, hDsnP, hstripJ, hpl, hfl, hesJ, hccf, hccb, hksJ,
+    hopb, hplenB, hidxP, hpbs₀len, hpbs₀f, ⟨o', hstripF⟩, hcbb, hcbl, hDsB, hlenF, hfields,
+    hqnMem, hqnPin, ⟨cI, fcs', hinstCI, hstripCI, hfcs'⟩, hcb, hcA, hnF, hbc⟩ :=
+    R.copyResid SF S hPD hi' hj
+  have hlcc : l < cc.nFields := by rw [← hnf]; exact hlF
+  have hGlt : b.ownOffset (p.k + q₀ + i') + j < ctorsA.length :=
+    (List.getElem?_eq_some_iff.mp hcA).1
+  have hCD := R.h.CD _ _ hcA
+  have hlA : l < cA.2 := by rw [hnF]; exact hlcc
+  have hnFs : l < mutNFOf ctorsA (b.ownOffset (p.k + q₀ + i') + j) := by
+    show l < (ctorsA.getD _ default).2
+    rw [List.getD_eq_getElem?_getD, hcA, Option.getD_some]
+    exact hlA
+  -- the target: a member of the block, its former and its leaf
+  have htgt : ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+      (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0
+      = tgtAt (mutKsOf kinds (b.ownOffset (p.k + q₀ + i') + j)) l := by
+    rw [mutTgts_getD hGlt hnFs]
+  obtain ⟨-, -, htgtLt⟩ := R.h.ksJ _ _ hcA
+  obtain ⟨ft, hft⟩ : ∃ ft, fms[tgtAt (mutKsOf kinds (b.ownOffset (p.k + q₀ + i') + j)) l]?
+      = some ft := ⟨_, List.getElem?_eq_getElem (htgtLt l)⟩
+  have hTk : tgtAt (mutKsOf kinds (b.ownOffset (p.k + q₀ + i') + j)) l < p.k := by
+    rw [htgt] at hmemT; exact hmemT
+  obtain ⟨hnameT, hnIdxT⟩ := R.h.memT _ _ hft
+  have hacv : mp₁'.base2.acval ft.cvTa.name = mp₁.base2.acval ft.cvTa.name := by
+    rw [R.hleafM' _ _ hTk hft, R.h.leaf _ _ hft]
+  have hnameTake : ((fms.take p.k).map (·.cvTa.name)).getD
+      (tgtAt (mutKsOf kinds (b.ownOffset (p.k + q₀ + i') + j)) l) .anonymous = ft.cvTa.name := by
+    rw [List.getD_eq_getElem?_getD, List.getElem?_map, List.getElem?_take_of_lt hTk, hft]
+    rfl
+  -- the copy's telescope and index expressions, off the block's tables
+  have htls : ((mutTlss ctorsA.length tssF ψ).getD (b.ownOffset (p.k + q₀ + i') + j) [])
+      = tssF (b.ownOffset (p.k + q₀ + i') + j) ψ := by
+    rw [mutTlss_getD hGlt]
+  have hEis : ((mutEiss0 ctorsA.length eissF ψ).getD (b.ownOffset (p.k + q₀ + i') + j) []).getD l []
+      = (eissF (b.ownOffset (p.k + q₀ + i') + j) ψ).getD l [] := by
+    rw [mutEiss0_getD hGlt]
+  have hentry := hCD.reflEntry ψ l hreflA hlA
+  rw [hnameT] at hentry
+  -- the block's sort at this constructor's member is the first member's
+  have hmotLt := R.h.motLt _ hGlt
+  have hsEq : (fms.getD (mutMemF b (b.ownOffset (p.k + q₀ + i') + j)) default).s.eval ψ
+      = f₀.s.eval ψ := by
+    rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hmotLt]
+    exact R.h.sEq _ _ (List.getElem?_eq_getElem hmotLt) ψ
+  intro Z hZ
+  intro fs₁ hfs hfit
+  have hcore := R.copyFieldReadCore SF S hPD hi' hj hlF hrunAll ψ ρp hsat fs₁ hfs hfit
+  have hEA : (nestedTV (V := V) b.nP p.k f₀.s ppsF W pinsS mp₁'.base2.acval
+        ((fms.take p.k).map (·.cvTa.name)) ψ).EA
+        (tgtAt (mutKsOf kinds (b.ownOffset (p.k + q₀ + i') + j)) l)
+      = AnnotTerm.mkAppN (mp₁'.base2.acval
+          (((fms.take p.k).map (·.cvTa.name)).getD
+            (tgtAt (mutKsOf kinds (b.ownOffset (p.k + q₀ + i') + j)) l) .anonymous) ψ)
+          (paramBvarsAt b.nP b.nP) :=
+    targetRead_of_mem hTk
+  have hIds : (nestedTV (V := V) b.nP p.k f₀.s ppsF W pinsS mp₁'.base2.acval
+        ((fms.take p.k).map (·.cvTa.name)) ψ).Ids
+        (tgtAt (mutKsOf kinds (b.ownOffset (p.k + q₀ + i') + j)) l)
+      = blockIds b.nP ppsF ψ (tgtAt (mutKsOf kinds (b.ownOffset (p.k + q₀ + i') + j)) l) := by
+    show (if tgtAt (mutKsOf kinds (b.ownOffset (p.k + q₀ + i') + j)) l < p.k then
+        blockIds b.nP ppsF ψ (tgtAt (mutKsOf kinds (b.ownOffset (p.k + q₀ + i') + j)) l)
+      else _) = _
+    rw [if_pos hTk]
+  have hfr : (nestedTV (V := V) b.nP p.k f₀.s ppsF W pinsS mp₁'.base2.acval
+        ((fms.take p.k).map (·.cvTa.name)) ψ).frame ρp
+        (tgtAt (mutKsOf kinds (b.ownOffset (p.k + q₀ + i') + j)) l) = ρp :=
+    TargetView.frame_of_mem _ _ hTk
+  have hpar0 : (paramBvarsAt b.nP b.nP).map (interp V ρp)
+      = (List.range b.nP).reverse.map ρp := by
+    have h := map_paramBvarsAt_interp (V := V) (nP := b.nP) (e := 0) (ρp := ρp) (σ := ρp)
+      (fun i => by rw [Nat.add_zero])
+    rwa [Nat.add_zero] at h
+  -- the tower's interpretation IS the slot
+  rw [← interp_instAll _ fs₁ ρp _, hfs, hcore.1, hentry, hEis, htls]
+  simp only [slotSet]
+  refine interp_mkPisAV_piTele (fun d hd => ?_) (fun as hasFit => ?_)
+  · have hb := hCD.tssBits ψ l d hd
+    rw [hsEq] at hb
+    exact hb
+  · -- the tower's BODY, at the telescope's own frame
+    have hlenAs : as.length = ((tssF (b.ownOffset (p.k + q₀ + i') + j) ψ).getD l []).length := by
+      rw [hasFit.length_eq, List.length_map]
+    have hσ' : ∀ i : Nat,
+        consList as (consList fs₁ ρp) (i + (l + as.length)) = ρp i := by
+      intro i
+      rw [show i + (l + as.length) = i + l + as.length from by omega,
+        consList_apply_add as (consList fs₁ ρp) (i + l), ← hfs]
+      exact consList_apply_add fs₁ ρp i
+    have hpar1 : (paramBvarsAt b.nP
+        (b.nP + l + ((tssF (b.ownOffset (p.k + q₀ + i') + j) ψ).getD l []).length)).map
+        (interp V (consList as (consList fs₁ ρp)))
+        = (List.range b.nP).reverse.map ρp := by
+      rw [show b.nP + l + ((tssF (b.ownOffset (p.k + q₀ + i') + j) ψ).getD l []).length = b.nP + (l + as.length) from by
+        rw [← hlenAs]; omega]
+      exact map_paramBvarsAt_interp hσ'
+    have hhead : interp V (consList as (consList fs₁ ρp)) (mp₁.base2.acval ft.cvTa.name ψ)
+        = interp V ρp (mp₁'.base2.acval ft.cvTa.name ψ) := by
+      rw [hacv]
+      exact interp_closed (V := V) (mp₁.base2.cval_closedL _ ψ) _ _
+    -- the index fit, under the telescope
+    have hokTower := hcore.2.1
+    rw [hentry] at hokTower
+    obtain ⟨-, hokBody⟩ := WellDenoted_mkPisAV_inv hokTower
+    have hokA := hokBody as hasFit
+    have hfitZ : SpineFit ρp
+        (blockIds b.nP ppsF ψ (tgtAt (mutKsOf kinds (b.ownOffset (p.k + q₀ + i') + j)) l))
+        (((eissF (b.ownOffset (p.k + q₀ + i') + j) ψ).getD l []).map
+          (interp V (consList as (consList fs₁ ρp)))) := by
+      simp only [blockIds]
+      have hokA' : WellDenoted V (consList (fs₁ ++ as) ρp)
+          (AnnotTerm.mkAppN (mp₁.base2.acval ft.cvTa.name ψ)
+            (paramBvarsAt b.nP (b.nP + (fs₁ ++ as).length)
+              ++ (eissF (b.ownOffset (p.k + q₀ + i') + j) ψ).getD l [])) := by
+        rw [consList_append,
+          show b.nP + (fs₁ ++ as).length
+              = b.nP + l + ((tssF (b.ownOffset (p.k + q₀ + i') + j) ψ).getD l []).length from by
+            rw [List.length_append, hfs, ← hlenAs]; omega]
+        exact hokA
+      rw [show consList as (consList fs₁ ρp) = consList (fs₁ ++ as) ρp from
+        (consList_append fs₁ as ρp).symm]
+      exact (leafSpineFit ((R.h.FD _ _ hft).len ψ) (mp₁.base2.cval_closedL _ ψ)
+        (R.h.leafT hft ψ) rfl
+        (by rw [hCD.eisLenRefl ψ l hreflA hlA, hnIdxT]) hokA').2
+    -- the predicate's `tg` is a λ: the `simp only`s are BETA steps, since
+    -- `rw` matches syntactically
+    rw [List.nil_append, hZ _ (by simp only [htgt]; rw [hfr, hIds]; exact hfitZ)]
+    simp only [htgt]
+    rw [hEA, hnameTake,
+      interp_mkAppN_foldl, List.map_append, List.foldl_append, hpar1, hhead,
+      interp_mkAppN_foldl, hpar0]
+
 end Assembly
 
 /-! ## THE FIVE ARMS, ASSEMBLED (task #315 L-B, DESIGN §U.58)
