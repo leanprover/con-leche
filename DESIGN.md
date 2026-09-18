@@ -116074,3 +116074,82 @@ allowlisted, none demotable); `tests/nested-shadow.sh` 41/41;
 nothing left — which is the session's only new declaration without a
 consumer and is step 2's own product.  The accept set is untouched: no
 consumer has moved to the wide route.
+
+#### WIDE (f1) step 2 (a): THE ROW HYPOTHESIS WAS UNSATISFIABLE — `hfcJ` at a free tuple is FALSE, and the third restatement (lane WIDE, 2026-09-18)
+
+Step 2's remainder — the producer of `hrowsσ` — begins with a finding
+about `hrowsσ`'s own statement, and the finding is of the same shape as
+"WIDE (e) step 2" and "WIDE (f1)" before it: a hypothesis this thread
+landed quantifies over MORE tuples than the fact holds at.
+
+##### (a) The counterexample
+
+`hfcJ` (and the assembly's `hrowsσ`) read
+
+    ∀ Y, FibreConst σ (kJ + nJ) (ΨJ Y)
+
+— the container's wide operator's rows constant on `σ`'s fibres at
+EVERY tuple `Y`.  That is false as soon as the collapse is non-trivial
+and the collapsing classes' container is itself recursive:
+
+```lean
+inductive Pair (α : Type) (β : Type) where | mk (a : α) (b : β)
+inductive J (α : Type) (β : Type) where
+  | node (x : List (Pair α (J α β))) (y : List (Pair β (J α β)))
+```
+
+`J`'s own pins are `Pair α (J α β)`, `Pair β (J α β)`,
+`List (Pair α (J α β))` and `List (Pair β (J α β))`; a block that
+instantiates `α` and `β` alike collapses them in pairs.  At the two
+`List` classes the rows are
+`{nil} ∪ {cons(h,t) | h ∈ Y p₀, t ∈ Y p₂}` and
+`{nil} ∪ {cons(h,t) | h ∈ Y p₁, t ∈ Y p₃}`, which differ at any `Y`
+that separates `p₂` from `p₃`.  So the rows agree exactly on the
+tuples that do not tell the collapsed classes apart — the
+FIBRE-CONSTANT ones — and, because the rows are read off `auxFibre`,
+only at tuples of the wide SPACE (`auxFibre` and `row_congr` both take
+`InTupleSpace`, so no producer could have met the free form anyway).
+
+##### (b) The restatement, the same shape as the two before it
+
+`SetTheory/Derive/LfpCompose.lean`:
+
+* `fibreConst_lfpTuple`'s `hfc` is asked of the tuples of the SPACE
+  (it reads it at the least tuple and nowhere else);
+* `lfpTuple_fcNorm_comp` and `lfpTuple_set_congr_le` take
+  `hfc' : ∀ Y, InTupleSpace … Y → FibreConst σ s Y → FibreConst σ s (Φ' Y)`
+  — the composite only ever hands it `fcNorm`'s images, which are both
+  in the space and fibre-constant.  What the weaker hypothesis no
+  longer PRODUCES is `Φ'`'s own least tuple's fibre-constancy (the
+  fixpoint law is circular at that strength), so that is `hL'fc`, a
+  hypothesis of its own.
+
+`Model/Inductives/BlockComposed.lean` and `NestedFit.lean`:
+`ofNested_pin_block_wide`, `ofNested_pin_block_of_wide` and
+`ofNested_pin_block_of_wide_inst` take the weakened rows hypothesis
+and, in its place, the CARRIER's fibre-constancy `hCfcJ`/`hcarσ`
+(`FibreConst σ (kJ + nJ) (lfpTuple … ΨJ)`), which the congruence used
+to derive from the free form.
+
+##### (c) `hcarσ` — where it comes from, priced
+
+It is NOT derivable from the weakened rows law: the fixpoint argument
+needs the rows at a tuple that is not yet known fibre-constant.  Two
+routes, neither taken here:
+
+* **the fibre meet, in set theory** — `L' i := ⨅ { L i' | σ i' = σ i }`
+  is fibre-constant and below `L`, so `Ψ L' ≤ Ψ L = L` pointwise and
+  `Ψ L'` is fibre-constant by the weakened law, hence `Ψ L' ≤ L'` and
+  `L ≤ L'` by leastness.  It needs a finite meet of families over a
+  fibre (the tree has the binary `meetT` only).  ~1/3 session;
+* **`pinLeaf`, at the run** — the wide carrier at a pin class is the
+  pin's carrier (`auxLfp_eq_famAt`), and `pinLeaf` reads that as the
+  CONTAINER at the pin's components; two classes that `σ` collapses
+  have one container name, one level assignment and one component
+  READING, so the two carriers are equal.  Its inputs are the same
+  `PinCorr` pair that `hidxσ` below wants.
+
+##### (d) Green
+
+`lake build` exit 0, 725 jobs, 0 warning lines.  The accept set is
+untouched: no consumer has moved to the wide route.
