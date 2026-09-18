@@ -346,6 +346,47 @@ private theorem doorMentionsConst_mkAppN_false {n : Name} :
       (by simp only [Expr.mentionsConst, hf, has a List.mem_cons_self, Bool.or_self])
       (fun x hx => has x (List.mem_cons_of_mem _ hx))
 
+/-- **THE MAJOR PREMISE'S DOMAIN IS AN APPLICATION OF A CONSTANT**
+(task #315, the crossing's premise): the generated recursor type of
+member `mm`, stripped at its MAJOR INDEX — one binder short of
+`mutualRecTy_stripPis`' strip — exposes the major premise itself, and
+its domain is the member's own family application, whose head is a
+`const`.
+
+This is the unconditional form: no rule, no fire, no `.nested` guard —
+the shape holds of the type the route GENERATES, and the stream's
+record is only required to be defeq to it, so what is STORED is this
+term.  `structFamI` is the family at the parameter and index openers,
+so the head is `.const f.name (lps.map .param)` by construction. -/
+theorem mutualRecTy_majorDom {lps : List Name} {elim : Name} {large : Bool} {nP mm : Nat}
+    {formers : List MutualFormer} {ctors : List MutualCtor4} {recTy : Expr}
+    (h : mutualRecTy lps elim large nP formers ctors mm = some recTy) :
+    ∃ (f : MutualFormer) (bs : List (Expr × BinderMeta)) (dom body : Expr) (bm : BinderMeta),
+      formers[mm]? = some f ∧
+      recTy.stripPis (nP + formers.length + ctors.length + f.nIdx)
+        = some (bs, .forallE dom body bm) ∧
+      dom.getAppFn = .const f.name (lps.map .param) := by
+  unfold mutualRecTy at h
+  split at h
+  · next f f₀ hf _hf₀ =>
+    simp only [Option.bind_eq_some_iff] at h
+    obtain ⟨q, hq, major, hmaj, minors, hmin, motives, hmot, hr⟩ := h
+    obtain ⟨bs1, body1, hbs1⟩ := replacePisPw_some_stripPis f.nIdx hmaj
+    have h2 := replacePisPw_stripPis f.nIdx hmaj hbs1
+    obtain ⟨bs2, hbs2, -⟩ := mutualMinorsPis_stripPis ctors hmin
+    have h5 := stripPis_append ctors.length hbs2 h2
+    obtain ⟨bs3, hbs3, -⟩ := mutualMotivesPis_stripPis formers hmot
+    have h6 := stripPis_append formers.length hbs3 h5
+    obtain ⟨bs0, body0, hbs0⟩ := replacePisPw_some_stripPis nP hr
+    have h7 := replacePisPw_stripPis nP hr hbs0
+    have h8 := stripPis_append nP h7 h6
+    rw [show nP + (formers.length + (ctors.length + f.nIdx))
+      = nP + formers.length + ctors.length + f.nIdx from by omega] at h8
+    refine ⟨f, _, _, _, _, hf, h8, ?_⟩
+    rw [structFamI, Expr.getAppFn_mkAppN]
+    rfl
+  · exact nomatch h
+
 /-- **The generated recursor type of member `mm` is a syntactic
 `∀`-telescope** of `nP + k + n + nIdx_m + 1` binders, every binder meta
 the elimination datum, whose residual is the conclusion `motive_m ı⃗ t`

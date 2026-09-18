@@ -40,10 +40,18 @@ fail=0
 while read -r fixture inmodel want; do
   case "$fixture" in ''|\#*) continue ;; esac
   total=$((total+1))
+  # large fixtures are committed gzipped (arena.sh's convention): the
+  # e2e corpus's nested blocks live in four of them, so the gate reads
+  # them the same way
+  src="$fixture"
+  if [ ! -f "$src" ] && [ -f "$src.gz" ]; then
+    src="${TMPDIR:-/tmp}/con-leche-shadow-$(basename "$fixture")"
+    gunzip -c "$fixture.gz" > "$src" || { echo "nested-shadow FAIL $fixture: gunzip"; fail=$((fail+1)); continue; }
+  fi
   # only the block NAME and the verdict WORD are compared, so that a
   # message change does not move the gate
   verdicts=$(CON_LECHE_INMODEL="$inmodel" \
-        timeout 900 "$BIN" --jobs=1 --nested-shadow "$fixture" 2>&1 \
+        timeout 900 "$BIN" --jobs=1 --nested-shadow "$src" 2>&1 \
         | sed -n 's/^con-leche: nested-shadow \([^ ]*\) \([a-z]*\).*/\1=\2/p' \
         | tr '\n' ',' )
   if [ "$verdicts" = "$want" ]; then
