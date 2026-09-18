@@ -108171,3 +108171,98 @@ special case is the general one at a particular argument.
 `tests/proofdeps.sh` doors **0**.
 
 Nothing in this section changes the tree's accept set.
+
+#### (number at the integrator's sync) — KERNEL REQUEST FROM LANE L-E: the pins' components, recorded in rewritten form (2026-09-18)
+
+Self-contained; implementable without reading the sections that derived
+it.  Relay target: the kernel lane, when it comes off `checkNestedS_run`.
+
+##### 1. KIND, CATEGORY, GATING
+
+* **kind** — a recorded `Bool`, run unconditionally at the nested
+  install, `throw (.internal …)` on failure.  NOT a `certOnly` check.
+* **category** — (B), by-construction-only.
+* **gating** — **none**, and the reason is K.51's precedent:
+  `NestedInstall.lean:2209` runs `nestedPinRewrites` as a bare `unless`
+  with an `.internal` failure, in every mode.  A check in that class
+  cannot fire on a correct stream, so it narrows the accept set by
+  nothing and gating buys nothing.  **This matters here**: all three
+  model consumers need the fact unconditionally, and a `certOnly` check
+  could not serve them.  This one can, because it is not gated in the
+  first place.
+* **K-number** — the kernel lane's to assign.
+
+##### 2. THE STATEMENT
+
+> For every pin `q` and every component `c` of the argument spine of
+> `st.pins[q]!.pin`:
+> `replaceAllNested env (p.lps.map Level.param) params pbs₀ st c`
+> succeeds; its output is the recorded rewritten component; and the
+> state does not grow — `st'.types.length == st.types.length` and
+> `st'.pins.length == st.pins.length`, which says the re-run mints
+> nothing.
+
+`params` and `pbs₀` are `nestedRewriteData p st`'s, exactly as K.51 uses
+them.  This is K.51's clause with the pins' COMPONENTS in place of the
+copies' field DOMAINS; the proof obligation and the failure mode are the
+same.
+
+##### 3. THE CARRIER — left open deliberately
+
+Either a new per-pin field beside `NestedPin`'s existing data, or a
+recomputing function plus a certifying `Bool` in `nestedPinRewrites`'
+shape.  **The model side does not care and will consume whichever is
+cheaper to record.**
+
+##### 4. WHAT THE MODEL CONSUMES
+
+Two clauses, the first the exact twin of `NestedPinSynFacts.pinDs`:
+
+```lean
+pinDsRw    : ∀ q, q < pinsS.length → ∀ ψ : Name → Nat,
+               DenoteMetaSpine acval' ENV₁ ψ b.nP <rewritten DsE of pin q> (DsCand q ψ)
+pinDsRw_eq : ∀ q, q < pinsS.length →
+               <rewritten DsE of pin q>
+                 = ((pinsS.getD q default).DsE).map (replaceAllNested …)
+```
+
+##### 5. THE CLAUSE MOST LIKELY TO BE MISSED — copy name ↔ aux index
+
+The rewritten components mention the COPY constants, and the restore
+removes them, so they have **no `acval` in the output environment**.  The
+model supplies their readings itself — `auxTargetRead b.nP (p.k + q') ψ`
+at the copy of pin `q'`, which lane L-E has landed and whose denotation
+`auxTarget_reads` proves is the auxiliary carrier.
+
+**For that to be usable the record must expose which copy NAME is which
+AUX INDEX.**  `nestedCopyNames` and `ElimState.types` already carry the
+correspondence; what is missing is a clause naming it, of the shape
+
+> for every `q < st.pins.length`, the constant the elimination minted
+> for pin `q` is the aux block's member at index `p.k + q`.
+
+An implementation that provides §2 and §4 but not this is **not
+consumable**: the model would hold terms mentioning constants it cannot
+interpret.
+
+##### 6. WHY THIS SHAPE, IN ONE PARAGRAPH
+
+Lane L-E first asked for a classification — which subterms of `Ds` are
+pin readings, at which pins.  That is strictly less information and
+strictly more expensive to consume, because the model would then have to
+locate those subterms inside the AnnotTerm READING and perform the
+substitution itself.  Recording the rewritten component deletes that
+work: the elimination has already performed the substitution, and the
+model denotes its output.  The same move pays again downstream — with
+the components recorded, all three consumers (`recF`, `es`,
+`ordF`-left) close at the INSTANTIATED level, where K.51's clause and
+the whnf denotation preservation (`Model/Steps/Whnf.lean:700`) already
+live.
+
+##### 7. WHAT THIS LANE IS NOT ASKING FOR
+
+No classification of components, no per-subterm addressing, no measure,
+and no new positivity or kinds data.  One clause, one shape, three
+consumers.
+
+Nothing in this section changes the tree.
