@@ -112791,3 +112791,108 @@ the build and 2 by the test library, 0 warning lines, "OK (a run that
 could have failed)"), `lake test`, `tests/proofdeps.sh` doors `0`,
 `tests/shake.sh` OK (513 removals, all allowlisted; none demotable).
 Nothing consumes the new theorem yet, so the accept set is untouched.
+
+#### WIDE (e) step 2: THE BOUND — `hΦ` is NOT whole-space, and the congruence it needs instead (lane WIDE, 2026-09-18)
+
+Work on residue item (1) — `hfit` at the container's members — stopped
+at its statement, not its proof.  Reporting before spending, per the
+funding rule: item (1) as scoped has doubled, because it needs a
+set-theory change to a LANDED statement.
+
+##### (a) The obstruction, exactly
+
+`hfit` is proved field by field against the run's `CopyCtorShape`, and
+the combinator that carries it, `fitsFrom_iff_frames_spine`, maintains
+the CONTAINER-side prefix spine fit `SpineFit ρJ ((dJ.Fss i ψJ).getD j
+[]).take l) fs₁` along the constructor.  It has to: `CopyCtorShape.ordF`
+— the reading identity between the copy's ordinary field domain and the
+container's INSTANTIATED one — is stated only at such prefixes.  And a
+container-RECURSIVE field's domain is its target's former applied, i.e.
+the container's CARRIER, so "the prefix fits the container's domains"
+says exactly "the values so far lie below the container's carrier".
+
+At the wide width the tuple `Y` ranges over the container's classes'
+tuple SPACE, which is not below anything.  A spine can then fit the
+copy's constructor with a field value above the container's carrier,
+and there the two sides' ordinary-domain readings are not known to
+agree — the copy's stored domain is the elimination's rewrite
+positivity-NORMALISED, and the two terms are known to denote alike only
+at well-denoted frames.  So **`hΦ` on the whole tuple space is not
+dischargeable from what the run records**, and WIDE (c)'s and (d)'s
+statements are, in that one respect, stronger than the tree can
+support.
+
+The same bound appears independently in the machinery the coordinator
+named for item (2): `copyTransfer_via`'s first premise `hdom₁` is
+literally "the FIRST copy's entries sit inside the container's real
+domains".  Two unrelated routes to the same side condition is what
+makes this a property of the comparison rather than of one proof.
+
+##### (b) Why it is NOT (B-at)'s domination coming back
+
+`hle` was an inclusion AT ANOTHER PIN — `⟦J'(s⃗)⟧ ⊆ L_{k+i'}` — and
+producing it is what forced Resolution 3's candidate tuples and its
+ordered induction; that is what the wide route deletes, and it stays
+deleted.  The bound here is `Y ≤ the CONTAINER's own wide carrier`: a
+fact about a type that is already installed and already modelled, with
+no hypothesis at any pin of the block being installed and no ordering
+among pins.  Nothing is circular: the container's carrier is
+`lfpTuple` of its own stored `Ψaux`, available from `auxFunctor` alone.
+
+##### (c) The repair, priced
+
+One set-theory lemma and three restatements:
+
+* **`lfpTuple_congr_le`** (and its index-set form
+  `lfpTuple_set_congr_le`): if `C` is in the tuple space and closed
+  under both operators, and the two agree on every tuple of the space
+  BELOW `C`, their least tuples agree.  The proof is
+  `lfpTuple_congr`'s with `meetT Is · C` clamping the closed tuples —
+  `X ⊓ C` is closed when `X` and `C` are and the operator is monotone,
+  and `meetT`'s order lemmas are already in `LfpCompose.lean`;
+* `ofNested_pin_block_wide`, `ofNested_pin_block_of_wide` and
+  `ofNested_hΦ_of_fit` take the bound `TupleLe s (fun i => Is (σ i)) Y C`
+  as an extra premise of `hΦ`/`hfit`, with `C` the container's wide
+  carrier `lfpTuple w (kJ + nJ) IsJ ΨJ`.  `C` is closed under `ΨJ` by
+  `lfpTuple_fixed`, and closed under the block's section by the
+  agreement AT `C`, so the new lemma's hypotheses are met by the same
+  data the current ones take;
+* then item (1) proceeds as planned: with `Y ≤ C` the container-side
+  spine fit is maintainable (`real_dom_eq` at the container's wide
+  carrier, which its own `auxPinsCar` + `pinsCar_lfp` and
+  `lfpTuple_composeΦ` give at the pin and member components), and the
+  copy-versus-container arm of `fit_iff_at` simplifies as WIDE (c)
+  predicted — a container-recursive field at one of the container's own
+  pins reads the SEGMENT's variable on both sides, so `real_dom_eq`,
+  `hfT`/`hPT` and the `EntryRead` at that arm all go.
+
+##### (d) What item (2) will consume, for the gate's report after (f)
+
+Named now so that `tests/unconsumed.sh` can be read against it.  The
+own-pin classes' fit consumes, from `NestedPinLeafAll.lean`:
+`copyTransfer_via` (the two-copies fit transfer, once per direction),
+`copyTransfer_mem`/`copyTransfer_pin` (its two target arms),
+`BlockModel.chainFitT_congr_mem` and `BlockModel.slotAtT_congr_mem`
+(the class fit and the slot across two level assignments and two
+frames), `IsBlockModel.dom_congr_mem`/`BlockModel.slotDom_congr_mem`
+(the domain side of the same), and the general congruences
+`slotSet_congr_below`/`teleOfFields_congr_below`/`spineFit_congr_fields`.
+
+It does NOT consume — and these are the ones `hle`'s death frees —
+`pins_le_of_declOrder`, `pins_le_of_instanceLe`, `nestedPinsLe_of_rank`,
+`instanceLe_of_transfer`/`_of_rel`/`_of_classPin`/`_of_pair`,
+`nestedGroupLe_of_entries`, `BlockModel.famAt_le_of_TClosed`,
+`copyEntryAtF_le_of_app`/`_of_famLe`, and
+`CopyCtorShape.fit_imp_T_le`/`fit_imp_T_le_dom`, together with
+`NestedFit.lean`'s `hfit_le_of_inst` (deleted by (f)) and the
+declaration-order record `declPos`/`nestedPinOrderAt` in so far as its
+only consumer is that chain.
+
+##### (e) State
+
+Nothing landed in this step but the documentation of the bound; the
+tree is unchanged from WIDE (e) step 1 except `docs/NESTED.md` and this
+section.  Items (1), (2), (3) and (f) are all still open, with (1)
+gated on the repair in (c) above — a coordinator decision, since it
+restates two theorems this lane landed as carrying no side condition at
+all.

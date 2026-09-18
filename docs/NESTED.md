@@ -340,12 +340,31 @@ each checked against the tree:
   earlier laws forced.
 
 What survives Resolution 1 is smaller and no longer an ordering problem
-*within* an instance: the identification at an instance's *root* pin is
-still stated at the root's component values, which are auxiliary carriers
-whenever the root's components mention other pins (so a candidate tuple
-and the component family are still needed there); there is an induction
-over *instances* for targets outside a segment; and it is acyclic by
-argument — a cross-instance edge is parameter-headed (nothing required) or
+*within* an instance.  What it is, exactly, is the **comparison of two
+copies of one container at two instantiations**, related only through
+that container — and that is not an accident of the proof but the
+content of nested-through-nested itself: the block's copy of the
+container's own pin and the container's own record of that pin are both
+copies of the *pin's* container, minted at different substitutions.  The
+machinery for it already exists, in this route's own vocabulary (the
+transfer between two copies of one container, §6).  What does NOT
+survive is the domination: no inclusion at another pin is required, no
+candidate tuple ranges over closed tuples, and no ordered induction
+sequences the pins.
+
+The comparison does carry a BOUND, which the domination did not have in
+the same sense: it holds for tuples below the container's OWN carrier,
+because the run's copy-versus-container readings are stated at prefixes
+that fit the container's domains, and a container-recursive field's
+domain is its carrier.  That bound is a fact about a type already
+installed, so it needs nothing from any other pin — it is not (B-at)'s
+`hle` in disguise — but the set-theoretic congruence it feeds must be
+the one that compares two operators on the tuples below a common closed
+tuple, not on the whole space.
+
+Besides the comparison there is still an induction over *instances* for
+targets outside a segment; and it is acyclic by argument — a
+cross-instance edge is parameter-headed (nothing required) or
 constant-headed with the head a constant of the source container's own
 declaration, hence declared strictly earlier.  A cycle would need two
 containers mentioning each other, which makes them one mutual group and
@@ -419,9 +438,12 @@ a stored field of the block model, the instance is the closure computed
 from the stored pin table, and interleaving is handled by reindexing
 rather than by contiguity — (B-set).  The identification itself is
 proved at the set-theoretic layer, and it carries NO domination
-hypothesis: (B-at)'s `hle`, and the within-instance transfer machinery
-Resolution 3 needs in order to produce it, have no counterpart on the
-wide route.
+hypothesis: (B-at)'s `hle` — an inclusion at ANOTHER pin, which is what
+forced Resolution 3's ordered induction — has no counterpart on the
+wide route.  Its agreement is, however, bounded: it holds below the
+container's own carrier and not on the whole tuple space (§5), so the
+congruence it feeds is the one for two operators agreeing on the tuples
+below a common closed tuple.
 
 Also settled: the representation Resolution 1 asks for.  The block
 model remembers the auxiliary block's constructor data at every
@@ -429,13 +451,23 @@ component and reads its wide operator fibrewise (`auxFibre`), the
 narrow fibre is that law restricted to the members, and a pin
 component's index set is the pin's.
 
-Not settled: the identification's own hypothesis `hΦ` — that the
-copies' section of the auxiliary operator IS the container's wide
-operator, for every tuple.  Both sides are readable fibrewise now, and
-`hΦ` accordingly reduces to a FIT equivalence, one clause per class of
-the container: a spine fits the block's copy of class `i` at the
-joined tuple exactly when it is the container's own class fit at the
-free tuple.  What is *not* settled is that equivalence, and it splits
+Not settled, and now three named things.
+
+**(i) The bound.**  `hΦ` as it stands quantifies over the whole tuple
+space, and the run cannot supply that: the copy-versus-container
+reading of an ORDINARY field is stated at prefixes fitting the
+container's domains, and a container-recursive field's domain is the
+container's carrier — so the comparison is available below that carrier
+and not above it.  (The existing two-copies transfer carries the same
+premise, independently.)  The repair is set-theoretic and local: a
+congruence for two operators agreeing on the tuples below a tuple
+closed under both, instantiated at the container's own wide carrier,
+which is closed under both by the agreement at it.
+
+**(ii) and (iii) The fit equivalence.**  With the bound in place, `hΦ`
+reduces to a FIT equivalence, one clause per class of the container: a
+spine fits the block's copy of class `i` at the joined tuple exactly
+when it is the container's own class fit at the free tuple.  It splits
 in two:
 
 * at the container's **members** the block records the comparison
@@ -448,7 +480,9 @@ in two:
   identified; and `J`'s own pin record is `K`'s constructors
   instantiated at `J`'s components.  So both sides are copies of ONE
   container at two instantiations, and the comparison is the transfer
-  between two copies rather than a fact the run states about either.  Beyond it the residue is unchanged:
-the component family at instance roots whose components mention other
-pins, an induction over instances, and the declaration-order record for
-cross-instance constant-headed edges.
+  between two copies rather than a fact the run states about either.
+
+Beyond these three the residue is unchanged: the component family at
+instance roots whose components mention other pins, an induction over
+instances, and the declaration-order record for cross-instance
+constant-headed edges.
