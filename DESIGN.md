@@ -114648,3 +114648,148 @@ equation, and the `ContainerModeled` clause can then be stated as the
 mention (its consumer's form) with `mentionsMember_abstractRange` and
 K.44 closing it at the producer.  Still four clauses, but each is an
 equation or a one-line consequence rather than a transport proof.
+
+#### PINF: (ii) LANDED — the abstract-side carry built in ONE tier, not three, and (iii)'s route 2 is REFUTED in favour of an EXTRACTION (lane PINF, 2026-09-18)
+
+The three-tier carry the previous section priced was built and landed,
+and it came in under its own estimate for a reason worth recording.
+(ii) is closed: `NestedPinsShapePinF`'s conjuncts 1, 2 and 3 are
+theorems, `copyPinFCorr`'s `hkA` has a producer, and K.60's inversion
+has its consumer.  (iii) was then measured at its proof — again — and
+the route the previous section named for a successor is NOT the cheaper
+one.
+
+##### (a) WHAT LANDED, and the shape that made it cheap
+
+The carry is an EQUATION, exactly as the bounded check predicted, and
+the tier-1 arm is **not** surgery inside `ReadCtx.restoredOpened`.
+
+* **tier 1** (`NestedRestoreOpen.lean`): `restoreWalk_stripPis_domain`
+  carries `rk_restoreWalk_stripPis`' induction one step further — the
+  restored telescope's `l`-th domain is the walk of the auxiliary one
+  at depth `l` — and `restoreWalk_stripPis_pin` reads it at a pin key:
+  the restored domain is the pin LIFTED past the field binders, applied
+  to the arguments past the parameters.  `restoreOpen_pin_domain`'s
+  twin on the closed side, and it needs no openers, no
+  `RestoreOpenAgree` and no `bad` set, which is why `restoreOpenFields`
+  did not have to be touched at all.  **The surgery the re-pricing
+  feared was avoidable because the abstract side has no opener
+  bookkeeping** — the fact that makes the abstract side hard to REACH
+  from the opened one makes it easy to PROVE from the walk.
+* **the glue** (`NestedCtorRead.lean`): `ReadCtx.restoredAbsPin`, off
+  `restoreNested_pis` + `rk_stripPis_split` + `rk_mkPisB_stripPis`,
+  and `RestoredCtor.absPin` beside `fields`;
+* **tiers 2 and 3**: `NestedCtorRead.pinArgsAbs`,
+  `NestedLoopFacts.pinArgsAbs`, `NestedStageFacts.pinArgsAbs` beside
+  the three `pinArgs`;
+* **the clause**: `ContainerModeled.nestArgsMentionAbs`, eight vacuous
+  sites in `nestMention`'s `q < d.nPins` idiom and one real discharge
+  at `nestedContainerModeled` — the opened clause's own proof with
+  `mentionsMember_instSeq` replaced by `mentionsMember_liftLooseBVars`
+  and `rk_restoredPin_getAppFn` by `getAppFn_const_abstractRange` +
+  `getAppFn_const_liftLooseBVars`.
+
+The depth of the lift is EXISTENTIAL in every clause: the consumer's
+use is a mention and a mention survives any lift, so no tier has to
+agree on what `l` counts.
+
+##### (b) K.60, THREADED AND CONSUMED
+
+`nestedCopyPinFieldsOk` was a `-` in `declNested_of`'s destructuring;
+it is `hK60` now, carried down the chain K.32 and K.51 take
+(`NestedCoreModeled` → `NestedCtorsStaged` → `NestedPinsStaged` →
+`NestedPinsRun.hK60`).  Unconditional, so no `certOnly_elim`.
+
+`NestedPinsRun.copyPinFKind` is the inversion at the copy's field —
+`copyGroupTargetHead`'s converse, and its proof is that one's skeleton
+run backwards.  **Every part of K.60's guard is discharged from the
+model, as the record was designed for**: the head from
+`BlockOpened.nestF` through `blockCtorFieldHead`, its non-membership
+from `pinsNotMembers`, the further container from `pinNP` +
+`NestedPinGroupSyn.contsEnv` (NOT `pinConts`, which lands at ENV₁ and
+not at `env`), and the mention from `nestArgsMentionAbs`.
+`ContainerModeled.memberNames_eq` — the model's name list IS the
+group's, as lists — is what lets a `mentionsMember` meet a kernel
+record spelled on `ci.members.map (·.name)`.
+
+`NestedPinsRun.copyPinFPinCorr` then joins it with `copyPinFCorr` and
+`copyPinFUIdsCorr` into the arm's first three conjuncts.  It has no
+consumer yet (`tests/unconsumed.sh` lists it, advisory) and its
+consumer is (v).
+
+##### (c) (iii) RE-MEASURED AT THE PROOF: route 2 is the WORSE of the two, and route 1 is not a duplication
+
+The previous section named route 2 (give `copyPinFCorr`
+`copyRecFDom`-style parameters so `Fl` appears in its statement) as
+"the least bad", over route 1 (extract `copyPinFStored`, "~150 lines
+but it takes ~15 hypotheses, every one of them a local that
+`copyPinFCorr` derives from `R.copyResid`").  Reading both proofs says
+that comparison was made on the wrong axis.
+
+* `copyRecFRead` calls `R.copyRecFDom` with **exactly** the
+  `R.copyResid` package — `hciP hJmem hJcc hJname hty hnf hstripJ hpl
+  hfl hDsnP hDsB hlcc hmem hrec hrun hpre hmint`.  So "it takes ~15
+  hypotheses that `copyPinFCorr` derives from `copyResid`" is not a
+  cost of route 1; it is the established shape of the member arm, and
+  the read lemma's own call site supplies them.
+* Route 1 is therefore an EXTRACTION, not a duplication: the chain
+  moves out of `copyPinFCorr` into `copyPinFStored` and
+  `copyPinFCorr` CALLS it.  No signature change, no call site moved
+  (there are now THREE: `copyPinFUIds`, `copyPinFUIdsCorr`,
+  `copyPinFPinCorr`).
+* What the pin arm really costs beyond the member arm is **the
+  preamble**, `NestedCopyInst.lean:2810–2905`: the given constructor's
+  two-stage opening (`hop1`, `hop2`, `hopP'`, `hopX'`), the positivity
+  run (`hnorm`, `hbndC`) and the opened domain at the field's own cut
+  (`hxdom2`).  The member arm needs none of it — at a member target
+  the fire is decided syntactically — and the pin arm's contradiction
+  needs all of it.  So `copyPinFStored` takes the `copyResid` package
+  and redoes that preamble, or takes the preamble's nine outputs as
+  further parameters.
+
+**So (iii) is: `copyPinFStored` (the preamble + the fire chain moved
+out of `copyPinFCorr`, ~250 lines relocated, no new proof), then
+`copyPinFRead` (~280) and `copyPinFReadRefl` (~520) on
+`copyRecFRead`/`copyRecFReadRefl`'s skeleton.**  Not started: it is a
+session of its own and this one's budget went on (ii).
+
+##### (d) AND (iv) IS WIDER THAN "THE REFLEXIVE ARMS"
+
+Recorded now because (ii) measured it by accident.  The reflexive twin
+of `nestArgsMention` is spelled on the telescope's BODY
+(`BlockOpened.nestReflF`), and the reflexive twin of
+`nestArgsMentionAbs` is spelled on the stored domain's own `stripPis`
+body.  Both are three-tier carries of the shape just landed — tier 1
+is `restoreOpen_pinRefl_domain` and a `stripPis`-body twin of
+`restoreWalk_stripPis_pin` — so (iv) owns **two more clauses and two
+more nine-site rounds**, not only the read lemmas.
+
+##### (e) STATE
+
+* **(A)** `9a558b04`, **(B)** `dd44fbf0`, **K.60** landed with its
+  battery;
+* **(ii) LANDED** — tiers 1–3, the clause and its nine sites, K.60
+  threaded, `copyPinFKind`, `copyPinFPinCorr`;
+* **(iii)** unstarted, route 1 (EXTRACTION) named, ~1050 lines;
+* **(iv)** unstarted, and it owns two further clauses (c);
+* **(v)** unstarted apart from `docs/NESTED.md` §3, which now records
+  that the nested field's mention is kept on BOTH spines and why.
+
+##### (f) GATES
+
+`tests/warning-free.sh ddad1060`:
+
+```
+warning-free: 14 changed module(s) since ddad1060
+warning-free: lake build — 14 module(s) recompiled, 0 warning line(s)
+warning-free: lake test — 0 module(s) recompiled, 0 warning line(s)
+warning-free: OK (a run that could have failed)
+```
+
+`lake build` and `lake test` EXIT 0; `tests/proofdeps.sh` 4965 rows /
+12 roots / **doors 0**; `tests/shake.sh` 510 removals all allowlisted,
+pub-imports 1339 of 2264, none demotable; `tests/quote-gate.sh` and
+`tests/no-local-paths.sh` OK; `tests/unconsumed.sh` 173 of 3636 —
+K.60's inversion is OFF that list now and `copyPinFPinCorr` is on it,
+which is exactly the hand-off.  No kernel file changed, so no accept
+set moved and `tests/arena.sh` was not re-run.
