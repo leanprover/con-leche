@@ -107071,3 +107071,75 @@ reverted ones had mapped the seven sites and shown which were special.
 * `tests/no-local-paths.sh` — OK
 
 Nothing in this section changes the tree's accept set.
+
+#### (number at the integrator's sync) — L-E: THE CHECK — the candidate frame IS admitted by `pinLfpAt`, and the producer row is not what stands in its way (lane L-E, 2026-09-18)
+
+Answered with a falsifier rather than an argument, and **nothing was
+built**: the probe lives in `_tmp/le/groupprobe.lean` and the tree is
+untouched by it.
+
+##### (a) THE PROBE, and it compiles
+
+```lean
+theorem pinLfpAt_group_probe … (as : Nat → List V)
+    (hgrp : (st.pins.getD (q₀ + i) default).grpBase = q₀) :
+    pinLfpAt st pinsS dJf w ψ ρp (as (q₀ + i)) (q₀ + i)
+      = lfpTuple w (dJf q₀).k
+          ((dJf q₀).idx ((pinsS.getD (q₀ + i) default).ψJ ψ) (consList (as (q₀ + i)) ρp))
+          ((dJf q₀).Φ ((pinsS.getD (q₀ + i) default).ψJ ψ) (consList (as (q₀ + i)) ρp)) i := by
+  unfold pinLfpAt
+  rw [hgrp, Nat.add_sub_cancel_left]
+```
+
+**`pinLfpAt` satisfies the group law at an ARBITRARY component family,
+by the same proof as `pinLfp` — two lines, and it needs one less step
+(no closing `rfl`).**  The group-base fact `hgrp` is what
+`GroupFacts`/`NestedPinGroupSyn.grp` already supplies.
+
+##### (b) SO THE ANSWER IS YES, with two named edits
+
+For the seven to accept `pinLfpAt … as` as their family:
+
+1. **`hPfGroup`'s RHS must be parameterised in `as`.**  As landed, its
+   frame is hard-wired to `consList ((Ds ψ).map (interp V ρp)) ρp`, the
+   recorded one — so as it stands the premise ADMITS ONLY the recorded
+   family.  Moving it is the same mechanical edit just completed, at the
+   same seven sites.
+2. **`nestedTargetReads_L`'s `exact pinTarget_reads m G.syn hi hρp his'`
+   becomes `pinTarget_reads_at`**, supplying the parameter fit and the
+   index fit at the candidate frame.  **All three ingredients are already
+   in the tree**: `pinTarget_reads_at` landed earlier this session, and
+   the two fits are `CandParamFit` and `CandIdxAgree`, stated as
+   predicates and shown to hold at the recorded components.
+
+Neither edit needs a candidate family to EXIST: `as` stays universally
+quantified throughout, exactly as `pinLfpAt` takes it.
+
+##### (c) WHAT THIS DOES AND DOES NOT DO TO THE PRICE
+
+**The "component family's producer" row — an open scope call about a
+second interpreter, priced 1–2 sessions — is NOT what stands between us
+and the candidate frame for this chain.**  It can be scheduled behind
+the two edits of (b), or not at all on this path.
+
+**It is still needed elsewhere, and this lane is not retracting it.**
+The closure step's `hentR` requires the container's FIELD DOMAIN to
+actually evaluate to `L⁺`, not merely to be taken at some frame — and
+that is where a candidate family has to be a particular one.  That is
+the parameter-headed and constant-headed arms: L-B's surface, plus the
+declaration-order induction at the constant-headed edges, both unchanged
+by this check.
+
+So: **the producer moves off the critical path for the pin-pair chain
+and stays on it for the closure step.**  This lane will not re-price the
+8–11 on a check alone; what the check settles is the ORDER, and (b)'s
+two edits are the next row rather than the producer.
+
+##### (d) NOT CLAIMED
+
+That the seven accept `pinLfpAt` today.  (b) 1 and 2 are inspected, not
+done, and this lane has been wrong twice today about whether an edit of
+exactly this kind would close.  The probe demonstrates the group law and
+nothing beyond it.
+
+Nothing in this section changes the tree.

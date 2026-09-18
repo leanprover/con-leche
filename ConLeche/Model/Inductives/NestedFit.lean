@@ -118,6 +118,24 @@ Together with the rule above this is a method, not two anecdotes: read
 the position rather than the head, and watch whether the work stays the
 same work.
 
+**AND THE FOURTH SHAPE, which explains the other three: A SEARCH FINDS
+OCCURRENCES; WHAT BREAKS AN EDIT IS A PROPERTY.**  A hypothesis's shape
+travelling into a callee has no textual footprint at all.  Abstracting
+`pinLfp` out of the pin-pair chain looked free because the name occurred
+once; it was not, because `nestedTargetReads_L`'s proof needs that family
+to BE a container's least tuple — it feeds `pinTarget_reads`.  The edit
+closed only once the PROPERTY was supplied as a premise (`hPfGroup`,
+proved for `pinLfp` by `pinLfp_group`).  **A claim about a dependency
+needs the elaborator, not a search, and the cheap falsifier is to make
+the edit and build.**
+
+**CHEAP REVERTS, NOT MERELY CHEAP FALSIFIERS.**  That edit succeeded on
+the third attempt, and only because the two reverted ones had mapped its
+seven sites and shown which were special.  **A failed attempt that leaves
+knowledge behind is a measurement**; reverting WHOLESALE is what keeps
+attempting cheap enough to do repeatedly, and what stops a half-done
+chain from being indistinguishable from an intended one.
+
 **GREP BEFORE FUNDING — the first step of costing any piece of work on
 this route, not a heuristic.**  Five times a deadlock on this route was
 broken by something the tree already proved: K.51 for the head split,
