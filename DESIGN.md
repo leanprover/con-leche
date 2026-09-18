@@ -113214,3 +113214,127 @@ deliberately not sharpened: this section exists because the previous
 one's number was built on an unrun check.
 
 Nothing in this section changes the tree.
+
+#### PINF: (A) answered — the pin case IS dropped; and (ii)'s mention is of the WRONG NAME LIST (lane PINF, 2026-09-18)
+
+The one read, done, and a second read that the first one forced.  The
+row's plan changes in one place and the change is checkable in two
+commands.
+
+##### (a) (A) — `BlockCtorData` DROPS the per-field pin case
+
+`BlockOpened.nestF`/`nestReflF` (`BlockRep.lean`) record, at a nested
+field: the head `(pins q).J` with its level arguments, the argument
+COUNT `nPJ + nIdx`, `constsResolve env₀` for the arguments PAST `nPJ`,
+and two `mentionsFvar` clauses.  `BlockCtorData` adds only READINGS
+there (`nestEisRead`, `nestEntry`, `nestReflOpen`, `nestReflEntry`) —
+`denoteMeta` is a function, not an injection, so no syntactic tie
+follows from them.  `NestedStageFacts.ctorFacts` hands exactly
+`BlockCtorFacts … mm j` and nothing else, so `ReadCtx.restoredOpened`'s
+`RestoredField` pin case — which DOES carry it — is spent at the
+staging boundary and is not visible to `ContainerModeled`.
+
+`BlockOpened.nestF`'s own docstring says as much outright ("the
+components' identity is SEMANTIC — `BlockCtorData.nestEntry` — since
+the opened form re-annotates the parameter variables").  **DROPPED: a
+clause is needed, the tie is not derivable at the consumer.**
+
+##### (b) AND THE CLAUSE'S TRUE STATEMENT IS NOT THE ONE ON THE ORDER
+
+`RestoredField`'s finitary nested arm gives the restored domain as
+
+```
+  ty' = Expr.mkAppN (Expr.instSeq fvsP (b.nP - 1) (Expr.abstractRange qn.pin 0 p.nP 0)) is
+```
+
+— the pin CLOSED over the parameters and REOPENED at the constructor's
+own openers.  `instSeq fvsP (d.nP - 1)` alone (the form the previous
+section wrote, and the form the order repeats) drops the
+`abstractRange`.  The round trip is the identity only if the pin's free
+variables are the CONSTRUCTOR's openers with the same annotations, and
+the two opener lists are DEFEQ, not equal (`mutualDomsOk`; DESIGN §M.22
+premise B) — so the tie in the `= DsE.map (instSeq fvsP (d.nP - 1))`
+form is unproved, and possibly false.
+
+This matters only for the EQUALITY form.  For the MENTION form it does
+not: `mentionsConst` is monotone under `instSeq` (contrapositive of
+`mentionsConst_instSeq_false`), and under `abstractRange` it is
+monotone **except** where the mention sits only in an abstracted
+`fvar`'s ANNOTATION — `Expr.mentionsConst (.fvar _ ty) = ty.mentionsConst`
+(`StructParts.lean:775`) and `abstractRange` drops the annotation
+(`ExprOps.lean:791`).  Ruling that out needs K.30's `pinsScope`
+(a pin's `fvar`s are the first former's openers, annotation included)
+plus those annotations' `constsResolve` against the members' freshness
+— `ordFree`'s own argument, at a place that does not currently hold the
+pin-scope fact.
+
+##### (c) (ii) — THE MENTION `hment` NEEDS IS OF `st.newNames`, AND `nestMention` CANNOT SUPPLY IT
+
+This is the finding, and it refutes the order's (ii) rather than
+re-pricing it.
+
+`copyPinFCorr`'s `hment` is
+
+```
+  ((AS.take ci'.nP).any fun a => st₁.newNames.any fun T => a.mentionsConst T) = true
+```
+
+and `ElimState.newNames = st.types.map (·.name)` (`NestedElim.lean:141`)
+— the AUXILIARY block's types: the block's own members and the copies
+minted so far.  `ContainerModeled.nestMention` produces a mention of
+`d.memberNames`, the CONTAINER's group.  **The two lists are disjoint,
+and `copyPinFCorr` proves it itself**: `hne : ∀ g ∈ fms, g.cvTa.name ≠ (dJ.pinAt …).J`
+runs off `R.h.fresh` (every auxiliary former is absent from `env`)
+against `containerInfo?_inv`'s `find?` (every container member is
+present in `env`).  So carrying `nestMention` across the opener
+substitution — however cleanly — lands a mention of a name the
+occurrence test does not look for.
+
+**Where the mention really comes from.**  `AS` is the container's
+STORED field spine, level-substituted and instantiated at the OUTER
+pin's components, and `copyResid` already hands
+`hmint : (srcAtE st p (q₀ + i')).2.2.any (fun a => st₁.newNames.any …) = true`
+— the components mention a new name (it is `copyRecFDom`'s input at the
+member arm, where `htakeD` makes the components BE the parameter
+prefix).  At a PIN target the components are not the prefix; they are
+substituted INSIDE it.  So (ii) is three facts, not one:
+
+1. **existence** — some element of the field's first `nPJ` arguments
+   mentions a member of the container's group.  This is the clause (A),
+   and nothing else in the tree has it;
+2. **shape** — that member occurrence is applied to the group's
+   parameter spine, so the instantiation puts the components there.
+   This is K.14's uniformity, `nestedContainersOk_uniform`'s
+   `uniformIndOccsE`, which `copyPinFDom`'s own docstring already names
+   as the route's risk;
+3. **the new name** — `hmint`, in hand.
+
+Step 2 is exactly the "(3) supplies the shape with an existence fact in
+hand" of the section two above, and it needs a lemma the tree does not
+have: a mention-carrying induction on `uniformIndOccsE`.  It is
+provable — `uniformOccNode` (`NestedParts.lean:242`) answers `none` at a
+member occurrence that is not applied to `nP` parameter bvars, so at
+`0 < nP` (which `hmint` forces, `copyRecFDom`'s `hDsNe`) every surviving
+occurrence carries the whole spine.
+
+##### (d) THE PRICES, CORRECTED
+
+| piece | order's price | measured |
+| --- | --- | --- |
+| (A) the clause + 9 sites | folded into (ii) | 1 session — the real discharge needs the pin-scope/annotation argument of (b) |
+| (ii) step 2, `uniformIndOccsE` mention | — | 0.5–1 session (~150 lines, new induction) |
+| (ii) assembly (conjunct 1 from 1+2+3) | 1–2 sessions | 0.5 session |
+| (iii) the pin twin of `copyRecFRead` | 1–2 sessions | stands; BLOCKED on (ii) only for its `hkA`, so it can be built as a standalone taking `hkA` |
+| (iv), (v) | 1.5–2 / 0.5 | stand |
+
+**The row is 3–4 sessions, not one.**  The number moved because the
+previous count assumed (ii) was a refactor of an existing proof; it is
+not, and the proof that exists reaches conjunct 1's premise by
+contradiction FROM `hkA`, which is why it cannot be run backwards.
+
+##### (e) WHAT THIS SESSION BUILT
+
+Step 2's lemma — the one piece of the corrected route that is
+independent of both the clause's statement question (b) and of (iii)'s
+`hkA`, and the piece that carried the route's named risk.
+
