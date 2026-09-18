@@ -89418,3 +89418,65 @@ does NOT give is a proof of acyclicity — it is a corpus fact, so a
 record over it would be a Bool with a ledger row (the rank machinery
 already computes reachability, so it would cost one more pass over data
 it has), not a theorem.
+
+#### THE OWN-CONTRACTED NOT-OWN GRAPH IS **CYCLIC** ON ACCEPTED BLOCKS — the corrected question, answered NEGATIVELY (2026-09-18, task #315 M8 session 5, `agent/uniform-m5`)
+
+The corrected specification, and it changes the answer.  **THREE graphs
+are in play over this data and they give three different answers**, so
+each number below is stated with the graph it came off.
+
+1. **THE AUGMENTED GRAPH** — `nestedPinArcs`: every edge as an arc,
+   every OWN edge additionally reversed, and every pin joined to its
+   mint group's base in both directions.  Its SCCs are the container
+   instances.  This is the graph the earlier equal-instance-label count
+   ran over (14 not-own edges in 8 accepted blocks carry equal labels);
+2. **THE BARE NOT-OWN GRAPH** — the not-own arc list alone, no own edge
+   and no group join.  **ACYCLIC everywhere**: 16 arcs over 12 of the 42
+   shadow runs and 76 over 35 of the 41 cone blocks — 92 arcs, zero
+   cycles;
+3. **THE OWN-CONTRACTED GRAPH** — the own relation's connected
+   components (own edges SYMMETRISED), the not-own edges projected onto
+   them, contraction's self-loops dropped.  **This is the one the
+   question is about**, because a recursive field's target sits at the
+   SAME measure value, so the measure must be per component and not per
+   pin.  Equivalently: *does a measure exist that is CONSTANT along own
+   edges and STRICTLY DECREASES along not-own ones?*
+
+##### THE ANSWER: NO, on six accepted blocks
+
+| corpus | blocks | contracted arcs | **blocks with a cycle** |
+| --- | --- | --- | --- |
+| the 36 shadow rows | 42 runs | 16 | **1** |
+| the Mathlib nested cone | 41 | 76 | **5** |
+
+* `tests/e2e/nested_p04.ndjson`'s **`P4`** — pins `0 = P4C`,
+  `1 = Array`, `2 = List`; own edges `(0,1)` and `(2,2)`; components
+  `{0,1}` and `{2}`; contracted arcs `[(0,2), (2,0)]` — **a 2-cycle**;
+* **`Lean.Elab.InfoTree`** — 6 pins, 5 components, contracted arcs
+  `[(0,1), (0,2), (1,2), (2,4), (1,5), (5,1)]`, cycle between
+  components `1` and `5`;
+* **the four `MsgEmbed`-shaped blocks** —
+  `Lean.Widget.MsgEmbed`, `Lean.Widget.HighlightedMsgEmbed` and the two
+  `Lean.Server.Test.Runner.Client` twins: 4 pins, 3 components,
+  contracted arcs `[(1,0), (0,3), (3,0)]`, the 2-cycle `0 ↔ 3`.
+
+**All six ACCEPT today**, and five of them are ordinary Mathlib blocks
+rather than crafted fixtures.
+
+##### WHAT IT MEANS, in the form the model tier consumes
+
+**No measure constant along own edges and strictly decreasing along
+not-own ones exists**, on blocks the checker accepts now.  So the
+in-instance case has no well-founded measure available from the
+reference graph at all, and the impasse is **structural** — not a
+missing record and not a record this lane can supply: a Bool over this
+property would DECLINE `nested_p04` and five Mathlib blocks, which is
+an accept-set narrowing on shapes official takes.
+
+**And the contrast is the reason the specification mattered.**  The bare
+not-own graph is acyclic in all 83 block-runs; the contracted one cycles
+in six.  **The contraction is what creates the cycles** — at `P4` the
+closing arc `(2,0)` and the opening arc `(0,2)` are both not-own, and
+they only meet because the OWN edge `(0,1)` merges `P4C` with `Array`.
+A count over graph 2 would have reported "acyclic, the route is open at
+three to four sessions" and been wrong.
