@@ -88,6 +88,35 @@ theorem interp_instAll :
     rw [instE_consList', List.length_map] at hin
     rw [hsh, hin]
 
+/-- **The truthfulness twin of `interp_instAll`**: with `fs` field
+values above the base `ρ`, the term with `ds` substituted at the
+fields' depth is well-denoted at the fields' frame exactly when the
+original is at the frame holding the fields above the values of `ds`
+at `ρ`.  The premise is at the BASE frame `ρ` — the frame `ds`
+themselves are stated in, the one each step's `WellDenoted_inst`
+demands after `shiftE`ing the cut away (task #315 L-B). -/
+theorem wellDenoted_instAll :
+    ∀ (ds : List AnnotTerm) (fs : List V) (ρ : Nat → V) (e : AnnotTerm),
+      (∀ d ∈ ds, WellDenoted V ρ d) →
+      (WellDenoted V (consList fs (consList (ds.map (interp V ρ)) ρ)) e ↔
+        WellDenoted V (consList fs ρ) (AnnotTerm.instAll ds fs.length e))
+  | [], _, _, _, _ => Iff.rfl
+  | d :: ds, fs, ρ, e, hds => by
+    simp only [AnnotTerm.instAll, List.map_cons, consList_cons]
+    rw [← wellDenoted_instAll ds fs ρ (e.inst d (fs.length + ds.length))
+      (fun x hx => hds x (List.mem_cons_of_mem _ hx))]
+    have hsh : shiftE (fs.length + ds.length) 0 (consList fs (consList (ds.map (interp V ρ)) ρ))
+        = ρ := by
+      have := shiftE_consList (ds.map (interp V ρ)) ρ
+      rw [List.length_map] at this
+      rw [shiftE_consList_add, this]
+    have hin := instE_consList (interp V ρ d) fs (ds.map (interp V ρ)).length
+      (consList (ds.map (interp V ρ)) ρ)
+    rw [instE_consList', List.length_map] at hin
+    rw [WellDenoted_inst V e d (fs.length + ds.length)
+      (consList fs (consList (ds.map (interp V ρ)) ρ)) (by rw [hsh]; exact hds d List.mem_cons_self),
+      hsh, hin]
+
 /-- `sigmaSet` reads its universe only through `= 0`. -/
 theorem sigmaSet_zero_agree {w w' : Nat} (hz : w = 0 ↔ w' = 0) (A : V) (B : V → V) :
     sigmaSet w A B = sigmaSet w' A B := by
@@ -155,5 +184,26 @@ theorem piTele_instTele {w w' : Nat} (hz : w = 0 ↔ w' = 0) (ds : List AnnotTer
       simpa only [List.append_assoc, List.singleton_append] using h
     rw [List.length_append, List.length_singleton] at this
     simpa only [consList_append, consList_cons, consList_nil] using this
+
+
+/-- **A spine fits an instantiated telescope at the block's frame iff it
+fits the telescope at the pin's frame** (`interp_instAll` along the
+telescope). -/
+theorem spineFit_instTele (Ds : List AnnotTerm) (ρ' : Nat → V) :
+    ∀ (Ids : List AnnotTerm) (fs₁ is : List V),
+      SpineFit (consList fs₁ ρ') (instTele Ds fs₁.length Ids) is ↔
+        SpineFit (consList fs₁ (consList (Ds.map (interp V ρ')) ρ')) Ids is
+  | [], _, [] => Iff.rfl
+  | [], _, _ :: _ => Iff.rfl
+  | _ :: _, _, [] => Iff.rfl
+  | T :: Ids, fs₁, a :: is => by
+    show (a ∈ˢ interp V (consList fs₁ ρ') (AnnotTerm.instAll Ds fs₁.length T) ∧
+        SpineFit (cons a (consList fs₁ ρ')) (instTele Ds (fs₁.length + 1) Ids) is) ↔
+      (a ∈ˢ interp V (consList fs₁ (consList (Ds.map (interp V ρ')) ρ')) T ∧
+        SpineFit (cons a (consList fs₁ (consList (Ds.map (interp V ρ')) ρ'))) Ids is)
+    rw [interp_instAll]
+    have h := spineFit_instTele Ds ρ' Ids (fs₁ ++ [a]) is
+    rw [List.length_append, List.length_singleton, consList_append, consList_append] at h
+    exact and_congr Iff.rfl h
 
 end ConLeche.Semantics

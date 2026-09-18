@@ -77,6 +77,11 @@ tests/e2e/nested_aux_clash.ndjson 1 P3=reject,
 # type is annotated throughout (§M.21 (A)).  `nested_pin_prop_cod` is a
 # fourth shape the modeller declines and the native route takes.
 tests/e2e/nested_lam_pin_prop.ndjson 1 T=accept,
+# The REFLEXIVE twin (task #315 L-B): the same λ-redex, but the
+# normalisation's `whnf` CREATES a Π-telescope — the copy's field is
+# REFLEXIVE at `T` where the container's is ordinary and is no Π.
+# The modeller declines it, so the row runs with the modeller off.
+tests/e2e/nested_lam_pin_refl.ndjson 0 T=accept,
 tests/e2e/nested_pin_prop_cod.ndjson 0 T=accept,
 # `tower_nested`: the depth-60 DAG tower.  It sat OUT of this gate while
 # the shadow ran the PURE uncached core, which exhausted memory inside

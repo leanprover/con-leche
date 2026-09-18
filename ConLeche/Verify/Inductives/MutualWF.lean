@@ -220,6 +220,76 @@ theorem mutualRecTy_stripPis {lps : List Name} {elim : Name} {large : Bool} {nP 
       · rw [List.mem_singleton.mp ha]; rfl
   · exact nomatch h
 
+/-- **THE GENERATED RECURSOR TYPE'S MAJOR BINDER, SYNTACTICALLY**
+(task #315 M7-2): `mutualRecTy_stripPis` with the LAST binder named.
+
+Relocated here at integration 3s: it consumes the telescope kit that
+M8 session 6 moved out of `NestedRecDoor.lean` into this file, so it
+follows the kit.  Its consumer, `Model/Inductives/NestedRecRule.lean`,
+already reaches this module, so the move adds no import edge.
+The telescope's binder `nP + k + n + nIdx_m` — the one the major
+premise occupies — carries the domain `structFamI`, member `m`'s own
+former applied to the block's parameters and the index binders, and
+the elimination datum like every other.  The mimic recursors' fire
+shape reads THIS binder through the restore, which is why it has to be
+named. -/
+theorem mutualRecTy_major {lps : List Name} {elim : Name} {large : Bool} {nP mm : Nat}
+    {formers : List MutualFormer} {ctors : List MutualCtor4} {recTy : Expr}
+    (h : mutualRecTy lps elim large nP formers ctors mm = some recTy) :
+    ∃ (f : MutualFormer) (cbs₀ : List (Expr × BinderMeta)) (conc : Expr),
+      formers[mm]? = some f ∧
+      recTy.stripPis (nP + formers.length + ctors.length + f.nIdx + 1)
+        = some (cbs₀ ++ [(structFamI f.name lps nP f.nIdx (formers.length + ctors.length) 0,
+            (⟨Level.zeronessOf (structElimLevel elim large)⟩ : BinderMeta))], conc) ∧
+      cbs₀.length = nP + formers.length + ctors.length + f.nIdx := by
+  unfold mutualRecTy at h
+  split at h
+  · next f f₀ hf _hf₀ =>
+    simp only [Option.bind_eq_some_iff] at h
+    obtain ⟨q, hq, major, hmaj, minors, hmin, motives, hmot, hr⟩ := h
+    obtain ⟨bs1, body1, hbs1⟩ := replacePisPw_some_stripPis f.nIdx hmaj
+    have h2 := replacePisPw_stripPis f.nIdx hmaj hbs1
+    have h4 := stripPis_append f.nIdx h2 (m := 1) rfl
+    obtain ⟨bs2, hbs2, -⟩ := mutualMinorsPis_stripPis ctors hmin
+    have h5 := stripPis_append ctors.length hbs2 h4
+    obtain ⟨bs3, hbs3, -⟩ := mutualMotivesPis_stripPis formers hmot
+    have h6 := stripPis_append formers.length hbs3 h5
+    obtain ⟨bs0, body0, hbs0⟩ := replacePisPw_some_stripPis nP hr
+    have h7 := replacePisPw_stripPis nP hr hbs0
+    have h8 := stripPis_append nP h7 h6
+    rw [show nP + (formers.length + (ctors.length + (f.nIdx + 1)))
+      = nP + formers.length + ctors.length + f.nIdx + 1 from by omega] at h8
+    refine ⟨f, (bs0.map fun x => (x.1, (⟨Level.zeronessOf (structElimLevel elim large)⟩ :
+        BinderMeta))) ++ (bs3 ++ (bs2 ++ (bs1.map fun x => (x.1,
+          (⟨Level.zeronessOf (structElimLevel elim large)⟩ : BinderMeta))))),
+      Expr.mkAppN (.bvar (f.nIdx + ctors.length + formers.length - mm))
+        (structPsAt 1 f.nIdx ++ [.bvar 0]), hf, ?_, ?_⟩
+    · rw [show (bs0.map fun x => (x.1, (⟨Level.zeronessOf (structElimLevel elim large)⟩ :
+          BinderMeta))) ++ (bs3 ++ (bs2 ++ (bs1.map fun x => (x.1,
+            (⟨Level.zeronessOf (structElimLevel elim large)⟩ : BinderMeta)))))
+          ++ [(structFamI f.name lps nP f.nIdx (formers.length + ctors.length) 0,
+            (⟨Level.zeronessOf (structElimLevel elim large)⟩ : BinderMeta))]
+        = (bs0.map fun x => (x.1, (⟨Level.zeronessOf (structElimLevel elim large)⟩ :
+            BinderMeta))) ++ (bs3 ++ (bs2 ++ ((bs1.map fun x => (x.1,
+              (⟨Level.zeronessOf (structElimLevel elim large)⟩ : BinderMeta)))
+            ++ [(structFamI f.name lps nP f.nIdx (formers.length + ctors.length) 0,
+              (⟨Level.zeronessOf (structElimLevel elim large)⟩ : BinderMeta))]))) from by
+          simp only [List.append_assoc]]
+      exact h8
+    · have e0 : (bs0.map fun x => (x.1, (⟨Level.zeronessOf (structElimLevel elim large)⟩ :
+          BinderMeta))).length = nP := by
+        rw [List.length_map]
+        exact Expr.stripPis_length _ hbs0
+      have e1 : (bs1.map fun x => (x.1, (⟨Level.zeronessOf (structElimLevel elim large)⟩ :
+          BinderMeta))).length = f.nIdx := by
+        rw [List.length_map]
+        exact Expr.stripPis_length _ hbs1
+      have e2 : bs2.length = ctors.length := Expr.stripPis_length _ hbs2
+      have e3 : bs3.length = formers.length := Expr.stripPis_length _ hbs3
+      simp only [List.length_append, e0, e1, e2, e3]
+      omega
+  · exact nomatch h
+
 /-! ## Monotone extension -/
 
 /-- One constant's well-formedness is monotone under lookup-preserving

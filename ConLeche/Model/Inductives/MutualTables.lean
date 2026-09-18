@@ -44,10 +44,16 @@ variable {V : Type w} [SetTheory V] {μ : CheckMode}
 /-- **The flat table bundle at a structure-like member**, from the
 block model at the recursors' environment: the readings are the block model's,
 the set-level clauses `BlockTableOf.lean`'s, the sorts the table
-facts', the names the run's. -/
+facts', the names the run's.
+
+The pins enter only through `table_fibreAt`'s `PinsTyped`, so the
+bundle is stated at that clause rather than at `d.pins = []`: the
+NESTED route's block model has pins (`NestedCoreOut.typed` publishes
+`PinsTyped` for it), and the mutual arm below supplies the clause from
+its own `d.pins = []` in one step (`PinsTyped.of_noPins`). -/
 theorem tableMember_of {env : Env} {m : EnvModel V env} {b : MutualBlock}
     {fms : List MutualFormerA} {sortss : List (List Level)} {d : BlockModel V}
-    (hreps : IsBlockModels m d) (hpins : d.pins = [])
+    (hreps : IsBlockModels m d) (hPT : ∀ ψ : Name → Nat, PinsTyped m d ψ)
     (htyped : ∀ ψ : Name → Nat, FormersTyped m d ψ ∧ CtorsTyped m d ψ)
     (htf : MutualTableFacts b fms sortss d)
     {mIdx : Nat} (hmm : mIdx < d.k) {f : MutualFormerA} (hft : fms[mIdx]? = some f)
@@ -121,8 +127,7 @@ theorem tableMember_of {env : Env} {m : EnvModel V env} {b : MutualBlock}
         exact h.table_fold hreps (htf.frame mIdx hmm) hnI ψ ρ ts hsp
       fib := fun ψ ρ' hρ' => by
         rw [hsEq]
-        exact hreps.table_fibreAt (htyped ψ).1 (PinsTyped.of_noPins hpins ψ) hmm hone hnI
-          (hinj ψ) hρ'
+        exact hreps.table_fibreAt (htyped ψ).1 (hPT ψ) hmm hone hnI (hinj ψ) hρ'
       ctor := fun ψ ρ as fs hspP hspF => by
         rw [hsEq]
         exact h.table_ctor hreps hone (hinj ψ) ρ as fs hspP hspF
@@ -184,8 +189,8 @@ theorem memberTableOk_of {env env₀ : Env} {m : EnvModel V env} {b : MutualBloc
   have hsD : sortss.getD J [] = sorts := by rw [List.getD_eq_getElem?_getD, hsj]; rfl
   obtain ⟨hCshape, hresC⟩ := hcnames J _ hcA
   refine ⟨d.ppsM mIdx, d.dsF mIdx 0, d.esF mIdx 0, hnm, hnF, ?_⟩
-  have htm := tableMember_of hreps hd.pins htyped htf hmmd hft hname hstored hd.nP hnIdx hone hJ
-    hlpsC hnp
+  have htm := tableMember_of hreps (fun ψ => PinsTyped.of_noPins hd.pins ψ) htyped htf hmmd hft
+    hname hstored hd.nP hnIdx hone hJ hlpsC hnp
     hTshape hresT hresR hCshape hresC hsj
   rw [hsD, ← hnF, ← hd.nP]
   exact htm

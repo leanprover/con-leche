@@ -3,7 +3,7 @@ module
 public import ConLeche.Model.Inductives.BlockRepOne
 import ConLeche.Model.Inductives.FixAssemblyKit
 import ConLeche.Model.Inductives.FixStageTable
-public import ConLeche.Model.Inductives.FixZeroField
+import ConLeche.Model.Inductives.FixZeroField
 public import ConLeche.Semantics.Inductives.DeclNative
 import ConLeche.Verify.Inductives.FixParts
 public section
@@ -208,6 +208,14 @@ structure NativeSyntaxFacts {env env₁ envC env₂ : Env} (m : EnvModel V envC)
   environment the route produced reads, at the member it installed,
   exactly the block's own data -/
   readBack : ConLeche.blockReadBackOk env₂ p.nP [(cvTa, ctorsA)] = true
+  /-- **THE OWN-PIN TABLE IS EMPTY** (task #315 K.43, DESIGN §U.74
+  (c)): this route installs no mimic recursor under its member, so
+  `containerOwnPinsAt` of the environment it produced is `some []` at
+  every instantiation.  It rides beside `readBack` for the same reason
+  that one does: the Bool is the route's own certification and nothing
+  downstream of the run can recompute it, so the lift to `EnvModelB`
+  (`nativeOwnPins_of`, `EnvModelBStages.lean`) reads it off here -/
+  ownMimics : ConLeche.blockOwnMimicsOk env₂ cvTa.name 0 = true
 
 /-! ## The assembly -/
 
@@ -246,12 +254,14 @@ theorem declNative_syntax (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂
         ctorsA sortss rhss bsT ppsAll uAV idxF dsF esF srcsF ksF fvsPF xFvsF xrestF eissF tssF
         fssZ := by
   obtain ⟨hnd₀, isRec, env₁, cvTa, p₁, p, ctorsA, sortss, kinds, cvRa, rhss, tfvs, trest, isorts,
-    hInd, rfl, hCtors, hK, hcaps, hwl, hopT2, hsorts, hFOk, -, hRec, hTbl, hrb, -⟩ := h
-  -- K.34's read-back is CERTIFICATION-ONLY (K.35's follow-up), so the run
-  -- records it `certOnly μ …`; this theorem is stated under `hμ`.  The
-  -- LAST `-` is K.43's `blockOwnMimicsOk` — the route's own-pin table,
-  -- which `ContainerModeled.ownPins` reads and nothing here does
+    hInd, rfl, hCtors, hK, hcaps, hwl, hopT2, hsorts, hFOk, -, hRec, hTbl, hrb, hom⟩ := h
+  -- K.34's read-back and K.43's own-pin table are both
+  -- CERTIFICATION-ONLY (K.35's follow-up), so the run records them
+  -- `certOnly μ …`; this theorem is stated under `hμ`, at which the
+  -- gate is the Bool.  `hom` is K.43's `blockOwnMimicsOk` — the route's
+  -- own-pin table, which the bundle carries for `nativeOwnPins_of`
   replace hrb := ConLeche.certOnly_elim hrb hμ
+  replace hom := ConLeche.certOnly_elim hom hμ
   obtain ⟨hshape, -⟩ := ConLeche.nativeParts?_inv hdp
   obtain ⟨-, hClps₀, hresT₀, hresR₀⟩ := ConLeche.nativeShape?_inv hshape
   -- the former: its run completed the record with the sort it read
@@ -1319,7 +1329,8 @@ theorem declNative_syntax (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂
       sortsOf := hsortsOf
       XR := fun ψ ρp hρ => ⟨(hframesR ψ ρp hρ).1, (hframesR ψ ρp hρ).2.1⟩
       recRun := hRec
-      readBack := hrb }
+      readBack := hrb
+      ownMimics := hom }
   exact ⟨⟨mpOut⟩, _, _, p, cvTa, cvRa, ctorsA, sortss, rhss, bsT, ppsAll, uAV, idxF, dsF, esF,
     srcsF, ksF, fvsPF, xFvsF, xrestF, eissF, tssF, Fss₀, mpC, mp₃, mpOut, hagEnvC, hagC3, hagOut,
     hfacts⟩

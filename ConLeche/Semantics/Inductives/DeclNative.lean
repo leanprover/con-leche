@@ -83,7 +83,7 @@ def DeclNativeRun (μ : CheckMode) (F : Nat) (env : Env)
     -- model tier, stated under `hμ : μ.verifiedChecks = true`, reads the
     -- Bool off it with `certOnly_elim`
     ConLeche.certOnly μ (ConLeche.blockReadBackOk env₂ p.nP [(cvTa, ctorsA)]) = true ∧
-    -- THE OWN-PIN TABLE IS EMPTY (K.43, lane M7-3's §U.66 (a)): this
+    -- THE OWN-PIN TABLE IS EMPTY (K.43, lane M7-3's §U.68 (a)): this
     -- route installs no mimic recursor, so `containerOwnPinsAt` of the
     -- block it produced is `some []` at every instantiation — which
     -- `ContainerModeled.ownPins` needs and cannot derive, since it is a

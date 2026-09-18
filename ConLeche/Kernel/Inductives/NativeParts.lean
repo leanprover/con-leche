@@ -800,7 +800,7 @@ def isRecInfoAt (env : Env) (n : Name) : Bool :=
   | _ => false
 
 /-- **THE BLOCK'S OWN-PIN TABLE IS THE ROUTE'S OWN** (task #315 K.43,
-lane M7-3's DESIGN §U.66 (a)).
+lane M7-3's DESIGN §U.68 (a)).
 
 `containerOwnPinsAt` reads a stored block's own pins off its MIMIC
 recursors, walking `T₁.rec_1, T₁.rec_2, …` and stopping at the first

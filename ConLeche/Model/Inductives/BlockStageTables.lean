@@ -226,9 +226,9 @@ theorem TableMember.cross {m : EnvModel V env} {lps : List Name} {nP : Nat} {T :
     {sorts : List Level} {pps ds : (Name → Nat) → List (Nat × Nat × AnnotTerm)}
     {Es : (Name → Nat) → List AnnotTerm} {S : (Name → Nat) → (Nat → V) → V}
     (h : TableMember m lps nP T cvTa cvCa nF J resSort isProp sorts pps ds Es S)
-    {tbl : ProjTable} {cty : Expr} {nF' : Nat}
+    {tbl : ProjTable} {cty : Expr} {nP' nF' : Nat}
     (hfresh : env.find? (ConstantInfo.projInfo tbl).name = none)
-    (hbodies : ConLeche.structProjBodies tbl.structName nP nF' cty = some tbl.bodies)
+    (hbodies : ConLeche.structProjBodies tbl.structName nP' nF' cty = some tbl.bodies)
     (hcty : ∃ ci ∈ env.consts, ci.toConstantVal.type = cty)
     (hnpT : ∀ i, NoProjEnv env tbl.structName i)
     (hne : tbl.structName ≠ T)
@@ -308,9 +308,9 @@ theorem MemberTableOk.cross {m : EnvModel V env} {b : MutualBlock}
     {ctorsA : List (ConstantVal × Nat)} {sortss : List (List Level)} {isProp : Bool}
     {S : Nat → (Name → Nat) → (Nat → V) → V} {f : MutualFormerA} {mIdx : Nat}
     (h : MemberTableOk m b ctorsA sortss isProp S f mIdx)
-    {tbl : ProjTable} {cty : Expr} {nF' : Nat}
+    {tbl : ProjTable} {cty : Expr} {nP' nF' : Nat}
     (hfresh : env.find? (ConstantInfo.projInfo tbl).name = none)
-    (hbodies : ConLeche.structProjBodies tbl.structName b.nP nF' cty = some tbl.bodies)
+    (hbodies : ConLeche.structProjBodies tbl.structName nP' nF' cty = some tbl.bodies)
     (hcty : ∃ ci ∈ env.consts, ci.toConstantVal.type = cty)
     (hnpT : ∀ i, NoProjEnv env tbl.structName i)
     (hne : tbl.structName ≠ f.cvTa.name)
@@ -323,13 +323,100 @@ theorem MemberTableOk.cross {m : EnvModel V env} {b : MutualBlock}
 
 /-! ## The fold over the members -/
 
+/-- **The table stage over a list of members, in EITHER route**: each
+element conses nothing or conses its projection table; the carrier
+survives every cons (the P step `BlockTableStep`), and the new carrier
+values every OLD constant as the old one did (`AcvalAgrees` — the
+table's name is fresh at the environment it is consed at, so no stored
+name is moved).  The agreement is what a block model needs to cross
+the stage (task #315 M7-3 session 4, DESIGN §U.43).
+
+The ROUTE enters through four hypotheses and nothing else: the fold's
+two run inversions (`hnil`/`hcons`), the member step's (`hstruct` —
+either the step changed nothing, or the element's table data
+`TableMember` sits at a `checkStructProjTable` run in the P step's
+shape), and the transport of the route's own per-element predicate
+across ANOTHER member's cons (`hcross`, which is `TableMember.cross`
+wrapped).  The real work — that transport and the bookkeeping — is
+proved once, here; `stageBlockTablesGo` below and the nested route's
+`stageNestedTables` (`NestedTables.lean`) are the two instances. -/
+theorem stageTablesGo (step : BlockTableStep V μ) {α : Type} {isProp : Bool}
+    (nm : α → Name) (Sof : α → (Name → Nat) → (Nat → V) → V)
+    (run : α → Env → ConLeche.CheckM Env) (runs : List α → Env → ConLeche.CheckM Env)
+    (Ok : (env : Env) → EnvModel V env → α → Prop)
+    (hnil : ∀ {env env' : Env}, runs [] env = .ok env' → env' = env)
+    (hcons : ∀ {a : α} {l : List α} {env env' : Env}, runs (a :: l) env = .ok env' →
+      ∃ envI, run a env = .ok envI ∧ runs l envI = .ok env')
+    (hstruct : ∀ (a : α) {env env' : Env} (m : EnvModel V env), Ok env m a →
+      run a env = .ok env' → env' = env ∨
+      ∃ (cvTa cvCa : ConstantVal) (lps : List Name) (nP nF J : Nat) (resSort : Level)
+        (sorts : List Level) (pps ds : (Name → Nat) → List (Nat × Nat × AnnotTerm))
+        (Es : (Name → Nat) → List AnnotTerm),
+        TableMember m lps nP (nm a) cvTa cvCa nF J resSort isProp sorts pps ds Es (Sof a) ∧
+        ConLeche.checkStructProjTable (m := ConLeche.CheckM) (nm a) cvCa.name lps nP nF resSort
+          (ConLeche.structProjGuards cvCa.type nP nF sorts) 1 cvCa env = .ok env')
+    (hcross : ∀ (a : α) {env : Env} (m : EnvModel V env) {tbl : ProjTable} {cty : Expr}
+      {nP' nF' : Nat}, Ok env m a →
+      env.find? (ConstantInfo.projInfo tbl).name = none →
+      ConLeche.structProjBodies tbl.structName nP' nF' cty = some tbl.bodies →
+      (∃ ci ∈ env.consts, ci.toConstantVal.type = cty) →
+      (∀ i, NoProjEnv env tbl.structName i) → tbl.structName ≠ nm a →
+      ∀ m₂ : EnvModel V ⟨.projInfo tbl :: env.consts⟩,
+        m₂.acval = acvalWith m.acval (ConstantInfo.projInfo tbl).name (fun _ => .sort 0) →
+        Ok ⟨.projInfo tbl :: env.consts⟩ m₂ a) :
+    ∀ (l : List α) {env : Env} (mp : EnvModelM V μ env) {env' : Env},
+      runs l env = .ok env' →
+      (l.map nm).Nodup →
+      (∀ a ∈ l, Ok env mp.base2 a) →
+      ∃ mp' : EnvModelM V μ env', AcvalAgrees mp.base2 mp'.base2 := by
+  intro l
+  induction l with
+  | nil =>
+    intro env mp env' h _ _
+    obtain rfl := hnil h
+    exact ⟨mp, AcvalAgrees.rfl' _⟩
+  | cons a rest ih =>
+    intro env mp env' h hnd hmem
+    obtain ⟨envI, hI, hrestRun⟩ := hcons h
+    rw [List.map_cons, List.nodup_cons] at hnd
+    rcases hstruct a mp.base2 (hmem a List.mem_cons_self) hI with rfl | hdata
+    · -- the member conses nothing
+      exact ih mp hrestRun hnd.2 (fun q hq => hmem q (List.mem_cons_of_mem _ hq))
+    · -- the member conses its table
+      obtain ⟨cvTa, cvCa, lps, nP, nF, J, resSort, sorts, pps, ds, Es, hTM, htbl⟩ := hdata
+      obtain ⟨bodies, hbodies, -, -, hfreshTbl, rfl⟩ := ConLeche.checkStructProjTable_inv htbl
+      obtain ⟨mpI, hacI⟩ := step mp hTM htbl
+      have hfresh' : env.find? (ConstantInfo.projInfo (⟨nm a, lps, nP, cvCa.name, nF, resSort,
+          bodies, ConLeche.structProjGuards cvCa.type nP nF sorts, 1⟩ : ProjTable)).name
+          = none := hfreshTbl
+      have hmemI : ∀ q ∈ rest, Ok _ mpI.base2 q := by
+        intro q hq
+        refine hcross q mp.base2 (nP' := nP) (nF' := nF) (cty := cvCa.type)
+          (tbl := ⟨nm a, lps, nP, cvCa.name, nF, resSort, bodies,
+            ConLeche.structProjGuards cvCa.type nP nF sorts, 1⟩)
+          (hmem q (List.mem_cons_of_mem _ hq)) hfresh' hbodies
+          ⟨.ctorInfo cvCa nP nF, ConLeche.Semantics.Env.find?_mem hTM.fC, rfl⟩ hTM.nproj ?_
+          mpI.base2 hacI
+        intro hh
+        refine hnd.1 ?_
+        show nm a ∈ rest.map nm
+        rw [show nm a = nm q from hh]
+        exact List.mem_map_of_mem hq
+      obtain ⟨mp', hag'⟩ := ih mpI hrestRun hnd.2 hmemI
+      refine ⟨mp', fun n hn => ?_⟩
+      obtain ⟨cn, hcn⟩ := Option.isSome_iff_exists.mp hn
+      have hneT : n ≠ ConLeche.projTableName (nm a) := by
+        intro hh
+        rw [hh, hfreshTbl] at hcn
+        exact nomatch hcn
+      have hnI := ConLeche.Env.find?_cons_of_fresh hfresh' hcn
+      rw [hag' n (by rw [hnI]; rfl), hacI]
+      exact acvalWith_ne hneT
+
 /-- **The table stage over the members**: each member either conses
 nothing or conses its projection table (`mutualMemberTable_inv`); the
-carrier survives every cons (the P step `BlockTableStep`), and the new
-carrier values every OLD constant as the old one did (`AcvalAgrees` —
-the table's name is fresh at the environment it is consed at, so no
-stored name is moved).  The agreement is what a block model needs to
-cross the stage (task #315 M7-3 session 4, DESIGN §U.43). -/
+generic fold `stageTablesGo` at the mutual route's own inversions and
+`MemberTableOk`. -/
 theorem stageBlockTablesGo (step : BlockTableStep V μ) {b : MutualBlock}
     {ctorsA : List (ConstantVal × Nat)} {sortss : List (List Level)} {isProp : Bool}
     {S : Nat → (Name → Nat) → (Nat → V) → V} :
@@ -338,53 +425,25 @@ theorem stageBlockTablesGo (step : BlockTableStep V μ) {b : MutualBlock}
       (l.map (·.1.cvTa.name)).Nodup →
       (∀ p ∈ l, MemberTableOk mp.base2 b ctorsA sortss isProp S p.1 p.2) →
       ∃ mp' : EnvModelM V μ env', AcvalAgrees mp.base2 mp'.base2 := by
-  intro l
-  induction l with
-  | nil =>
-    intro env mp env' h _ _
-    obtain rfl := ConLeche.mutualTables_nil_inv h
-    exact ⟨mp, AcvalAgrees.rfl' _⟩
-  | cons p rest ih =>
-    intro env mp env' h hnd hmem
+  refine stageTablesGo step (isProp := isProp) (·.1.cvTa.name) (fun p => S p.2)
+    (fun p env => ConLeche.mutualMemberTable (m := ConLeche.CheckM) b p.1 ctorsA sortss p.2 env)
+    (fun l env => ConLeche.mutualTables (m := ConLeche.CheckM) b ctorsA sortss l env)
+    (fun _ m p => MemberTableOk m b ctorsA sortss isProp S p.1 p.2) ?_ ?_ ?_ ?_
+  · intro env env' h
+    exact ConLeche.mutualTables_nil_inv h
+  · intro a l env env' h
+    obtain ⟨f, mIdx⟩ := a
+    exact ConLeche.mutualTables_inv h
+  · intro p env env' m hok hrun
     obtain ⟨f, mIdx⟩ := p
-    obtain ⟨envI, hI, hrestRun⟩ := ConLeche.mutualTables_inv h
-    rw [List.map_cons, List.nodup_cons] at hnd
-    rcases ConLeche.mutualMemberTable_inv hI with rfl | ⟨J, c, hown, hnIdx, htbl⟩
-    · -- the member conses nothing
-      exact ih mp hrestRun hnd.2 (fun q hq => hmem q (List.mem_cons_of_mem _ hq))
-    · -- the member conses its table
-      obtain ⟨pps, ds, Es, hCname, -, hTM⟩ := hmem (f, mIdx) List.mem_cons_self J c hown hnIdx
+    rcases ConLeche.mutualMemberTable_inv hrun with rfl | ⟨J, c, hown, hnIdx, htbl⟩
+    · exact Or.inl rfl
+    · obtain ⟨pps, ds, Es, hCname, -, hTM⟩ := hok J c hown hnIdx
       rw [← hCname] at htbl
-      obtain ⟨bodies, hbodies, -, -, hfreshTbl, rfl⟩ := ConLeche.checkStructProjTable_inv htbl
-      obtain ⟨mpI, hacI⟩ := step mp hTM htbl
-      have hmemI : ∀ q ∈ rest, MemberTableOk mpI.base2 b ctorsA sortss isProp S q.1 q.2 := by
-        intro q hq
-        refine (hmem q (List.mem_cons_of_mem _ hq)).cross (nF' := c.nF)
-          (cty := (ctorsA.getD J default).1.type)
-          (tbl := ⟨f.cvTa.name, b.lps, b.nP, (ctorsA.getD J default).1.name, c.nF, f.s, bodies,
-            ConLeche.structProjGuards (ctorsA.getD J default).1.type b.nP c.nF (sortss.getD J []),
-            1⟩)
-          hfreshTbl hbodies ⟨.ctorInfo (ctorsA.getD J default).1 b.nP c.nF,
-            ConLeche.Semantics.Env.find?_mem hTM.fC, rfl⟩ hTM.nproj ?_ mpI.base2 hacI
-        intro hh
-        refine hnd.1 ?_
-        show f.cvTa.name ∈ rest.map (·.1.cvTa.name)
-        rw [show f.cvTa.name = q.1.cvTa.name from hh]
-        exact List.mem_map_of_mem hq
-      obtain ⟨mp', hag'⟩ := ih mpI hrestRun hnd.2 hmemI
-      refine ⟨mp', fun n hn => ?_⟩
-      obtain ⟨cn, hcn⟩ := Option.isSome_iff_exists.mp hn
-      have hneT : n ≠ ConLeche.projTableName f.cvTa.name := by
-        intro hh
-        rw [hh, hfreshTbl] at hcn
-        exact nomatch hcn
-      have hfresh' : env.find? (ConstantInfo.projInfo (⟨f.cvTa.name, b.lps, b.nP,
-          (ctorsA.getD J default).1.name, c.nF, f.s, bodies,
-          ConLeche.structProjGuards (ctorsA.getD J default).1.type b.nP c.nF (sortss.getD J []),
-          1⟩ : ProjTable)).name = none := hfreshTbl
-      have hnI := ConLeche.Env.find?_cons_of_fresh hfresh' hcn
-      rw [hag' n (by rw [hnI]; rfl), hacI]
-      exact acvalWith_ne hneT
+      exact Or.inr ⟨f.cvTa, (ctorsA.getD J default).1, b.lps, b.nP, c.nF, 0, f.s,
+        sortss.getD J [], pps, ds, Es, hTM, htbl⟩
+  · intro p env m tbl cty nP' nF' hok hfresh hbodies hcty hnpT hne m₂ hac
+    exact hok.cross hfresh hbodies hcty hnpT hne m₂ hac
 
 /-- **The table stage**: the run's final environment carries an
 `EnvModelM` whose carrier agrees with the one it started from at every

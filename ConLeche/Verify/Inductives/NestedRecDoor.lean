@@ -33,7 +33,14 @@ for the **recursors**:
   `nP + k + n + nIdx + 1` binders, every binder carrying the
   elimination datum, over the conclusion `motive_m ı⃗ t`
   (`mutualRecTy_stripPis`) — a spine of bound variables, mentioning no
-  constant.
+  constant;
+* and the same at the **projection table** (task #315 M7-2): the
+  read-back's `tbl` field (`auxStored?_tbl`) is what the scratch
+  install's table stage consed at that member
+  (`mutualTables_find?_projInfo_inv`, the stage's own fold), hence
+  `auxStored_tbl_eq` — the nested route RE-USES that table, so its
+  constructor, its offset `1` and its guards are the scratch stage's
+  data and not a record the nested route checked.
 -/
 
 namespace ConLeche
@@ -99,6 +106,49 @@ theorem restoreRecTys_at {env : Env} {R : RestoreTbl} {lps : List Name} {F : Nat
     | succ k =>
       simp only [List.getElem?_cons_succ] at ha ho
       exact ih hrest k a' o ha ho
+
+/-- **THE RESTORED RECURSOR TYPES' PROJECTION SLOTS** (task #315 M7-2):
+every `.proj` node of a restored recursor type sits at a table the
+environment stores.
+
+`restoreRecTys_at` reports the front door's scope guards and its sort
+inference and DROPS this one, and the resolution predicate cannot
+replace it: `constsResolve`'s `.proj s _ e` clause only asks that `s`
+be stored, and at the restored environment every MEMBER is.  The
+pre-annotated door checked the stronger guard (`projTablesOk`, K.13)
+and `FrontDoorFacts.slots` is it as a proposition, so the report is
+this projection of the same witness — the shape `restoreCtors_door`
+already hands the constructors' side.
+
+Consumer: the projection tables' face, through `NoProjEnv` at the
+restored recursors' store. -/
+theorem restoreRecTys_slots {env : Env} {R : RestoreTbl} {lps : List Name} {F : Nat} :
+    ∀ {names : List Name} {as : List AuxStored} {out : List ConstantVal},
+      restoreRecTys (m := CheckM) (fueledOps mode F) env R lps names as = .ok out →
+      ∀ (i : Nat) (o : ConstantVal), out[i]? = some o → Expr.ProjSlotsOk env o.type := by
+  intro names as
+  induction as generalizing names with
+  | nil =>
+    intro out h i o ho
+    simp only [restoreRecTys, pure, Except.pure, Except.ok.injEq] at h
+    rw [← h] at ho
+    exact absurd ho (by simp)
+  | cons a rest ih =>
+    intro out h i o ho
+    unfold restoreRecTys at h
+    obtain ⟨ty, hty, h⟩ := exceptBind_ok h
+    obtain ⟨cvA, hpre, h⟩ := exceptBind_ok h
+    obtain ⟨rest', hrest, h⟩ := exceptBind_ok h
+    simp only [pure, Except.pure, Except.ok.injEq] at h
+    obtain rfl := h
+    cases i with
+    | zero =>
+      simp only [List.getElem?_cons_zero, Option.some.injEq] at ho
+      obtain rfl := ho
+      exact (FrontDoorFacts.ofPre hpre).slots
+    | succ k =>
+      simp only [List.getElem?_cons_succ] at ho
+      exact ih hrest k o ho
 
 /-! ## The read-back's recursor record -/
 
@@ -464,5 +514,284 @@ theorem auxStored_rec_eq {env envAux : Env} {b : MutualBlock} {F : Nat}
     hlp, hres, hbv, hfv⟩
   rw [hgd]
   exact hrt
+
+/-- **AND ITS RULES ARE THE SCRATCH INSTALL'S GENERATED ONES**
+(`auxStored_rec_eq`'s twin at the RULES): the read-back's recursor
+record carries the rule list the recursors' store consed there, which
+is `mutualRules` of the member's own stage of `checkMutualAllRules`
+(`storeMutualRecs_find?_recInfo` again, the projection tables carrying
+the answer through, `mutualTables_find?_recInfo_inv`), together with
+the two argument sums the store computed (`a.mI`, `a.rP`) and the
+formers'/constructors'/kinds'/rules' runs, which the consumer
+identifies with its own by determinism. -/
+theorem auxStored_rules_eq {env envAux : Env} {b : MutualBlock} {F : Nat}
+    (h : checkMutualCore (fueledOps mode F) env b none true = .ok envAux)
+    {stored : List AuxStored} (hst : auxStoredAll envAux b b.k = some stored)
+    {mIdx : Nat} {a : AuxStored} (ha : stored[mIdx]? = some a) :
+    ∃ (fms : List MutualFormerA) (f₀ : MutualFormerA) (ctorsA : List (ConstantVal × Nat))
+      (sortss : List (List Level)) (kinds : List (List (RecFieldKind × Nat)))
+      (cvRas : List ConstantVal) (rulesOf : List (List (MutualCtor × Expr))),
+      mutualFormers (fueledOps mode F) b.nP b.formers env true
+        = .ok (consMutualFormers fms env, fms) ∧
+      fms[0]? = some f₀ ∧
+      checkMutualCtors (fueledOps mode F) (consMutualFormers fms env) b fms
+        (Level.isEquiv f₀.s .zero == some true) true b.ctors = .ok (ctorsA, sortss) ∧
+      classifyMutualKinds (m := CheckM) b.members3 b.lps b.nP ctorsA = .ok kinds ∧
+      checkMutualAllRules (m := CheckM)
+          (provisionMutualRecs b fms cvRas.zipIdx
+            (consMutualCtors b.nP ctorsA (consMutualFormers fms env)))
+          b (mutualGenData b fms ctorsA kinds).1 (mutualGenData b fms ctorsA kinds).2 none b.k
+        = .ok rulesOf ∧
+      a.mI = b.rulePrefix + (fms.getD mIdx default).nIdx ∧ a.rP = b.rulePrefix ∧
+      a.rules = mutualRules
+        (consMutualCtors b.nP ctorsA (consMutualFormers fms env)).find? a.cvRa.name b.nP
+          a.mI a.rP a.cvRa.type (rulesOf.getD mIdx []) := by
+  obtain ⟨hnd0, -, -, -, env₁, fms, f₀, _tq₀, ctorsA, sortss, kinds, formers4, ctors4, cvRas,
+    rulesOf, hformers, hf₀, -, -, -, hctors, hkinds, -, hgd, hrectys, hrules, htables, -⟩ :=
+    checkMutualCore_inv h
+  obtain ⟨-, rfl⟩ := mutualFormers_inv hformers
+  obtain ⟨hlenR, hallR⟩ := checkMutualRecTys_inv hrectys
+  -- the generated recursor constants' names, and their distinctness
+  have hnames : ∀ t, t < b.k → ∃ cvRa : ConstantVal, cvRas[t]? = some cvRa ∧
+      cvRa.name = b.recName t := by
+    intro t ht
+    obtain ⟨cvRa, hget, hrun⟩ := hallR t ht
+    obtain ⟨recTy, _sty, _u, -, -, -, -, -, -, -, -, hcv⟩ := checkMutualRecTy_shape hrun
+    exact ⟨cvRa, hget, by rw [hcv]⟩
+  have hmapEq : cvRas.map (·.name) = (List.range b.k).map b.recName := by
+    refine List.ext_getElem? fun t => ?_
+    rw [List.getElem?_map, List.getElem?_map]
+    by_cases ht : t < b.k
+    · obtain ⟨cvRa, hget, hcv⟩ := hnames t ht
+      rw [hget, List.getElem?_range ht]
+      simp only [Option.map_some, Option.some.injEq]
+      exact hcv
+    · rw [List.getElem?_eq_none (by rw [hlenR]; omega),
+        List.getElem?_eq_none (by rw [List.length_range]; omega)]
+      rfl
+  have hndZ : ((cvRas.zipIdx).map (·.1.name)).Nodup := by
+    rw [show (cvRas.zipIdx).map (fun x => x.1.name) = cvRas.map (·.name) from by
+      rw [show (fun x : ConstantVal × Nat => x.1.name)
+            = (fun c : ConstantVal => c.name) ∘ Prod.fst from rfl,
+        ← List.map_map, List.zipIdx_map_fst], hmapEq]
+    have h0' := hnd0
+    unfold MutualBlock.blockNames at h0'
+    exact (List.nodup_append.mp h0').2.1
+  -- the read-back at `mIdx`, and the record the store consed there
+  obtain ⟨hlenS, hgetS⟩ := auxStoredAll_get hst
+  have hmk : mIdx < b.k := by
+    have h1 := (List.getElem?_eq_some_iff.mp ha).1
+    rw [hlenS] at h1
+    exact h1
+  obtain ⟨cv, hfm, hrec⟩ := auxStored?_rec (hgetS mIdx a ha)
+  have hrn : b.recName mIdx = cv.name.str "rec" := by
+    unfold MutualBlock.recName
+    rw [List.getD_eq_getElem?_getD, hfm]
+    rfl
+  have hstore := mutualTables_find?_recInfo_inv fms.zipIdx htables hrec
+  obtain ⟨cvRa, hgetR, hcvn⟩ := hnames mIdx hmk
+  have hmem : (cvRa, mIdx) ∈ cvRas.zipIdx := by
+    refine List.mem_of_getElem? (i := mIdx) ?_
+    rw [List.getElem?_zipIdx, hgetR]
+    simp
+  have hfind := storeMutualRecs_find?_recInfo
+    (env₂ := consMutualCtors b.nP ctorsA (consMutualFormers fms env)) (b := b) (fms := fms)
+    (rulesOf := rulesOf) cvRas.zipIdx
+    (env := consMutualCtors b.nP ctorsA (consMutualFormers fms env)) hndZ cvRa mIdx hmem
+  rw [show cvRa.name = cv.name.str "rec" from by rw [hcvn, ← hrn], hstore,
+    Option.some.injEq] at hfind
+  obtain ⟨haq, hmI, hrP, hrules'⟩ := ConstantInfo.recInfo.inj hfind
+  refine ⟨fms, f₀, ctorsA, sortss, kinds, cvRas, rulesOf, hformers, hf₀, hctors, hkinds, ?_,
+    hmI, hrP, ?_⟩
+  · rw [hgd]; exact hrules
+  · rw [hrules', haq, hmI, hrP, show cvRa.name = cv.name.str "rec" from by rw [hcvn, ← hrn]]
+
+
+/-! ## The auxiliary member's PROJECTION TABLE, read back -/
+
+/-- The formers' conses carry no projection table. -/
+private theorem consMutualFormers_find?_projInfo :
+    ∀ (l : List MutualFormerA) {env : Env} {n : Name} {tbl : ProjTable},
+      (consMutualFormers l env).find? n = some (.projInfo tbl) →
+      env.find? n = some (.projInfo tbl)
+  | [], _, _, _, h => h
+  | f :: rest, env, n, tbl, h => by
+    have h' := consMutualFormers_find?_projInfo rest h
+    rw [Env.find?_cons] at h'
+    split at h'
+    · exact nomatch h'
+    · exact h'
+
+/-- The constructors' conses carry no projection table. -/
+private theorem consMutualCtors_find?_projInfo (nP : Nat) :
+    ∀ (l : List (ConstantVal × Nat)) {env : Env} {n : Name} {tbl : ProjTable},
+      (consMutualCtors nP l env).find? n = some (.projInfo tbl) →
+      env.find? n = some (.projInfo tbl)
+  | [], _, _, _, h => h
+  | (cv, nF) :: rest, env, n, tbl, h => by
+    have h' := consMutualCtors_find?_projInfo nP rest h
+    rw [Env.find?_cons] at h'
+    split at h'
+    · exact nomatch h'
+    · exact h'
+
+/-- The recursors' store carries no projection table. -/
+private theorem storeMutualRecs_find?_projInfo (env₂ : Env) (b : MutualBlock)
+    (fms : List MutualFormerA) (rulesOf : List (List (MutualCtor × Expr))) :
+    ∀ (l : List (ConstantVal × Nat)) {env : Env} {n : Name} {tbl : ProjTable},
+      (storeMutualRecs env₂ b fms rulesOf l env).find? n = some (.projInfo tbl) →
+      env.find? n = some (.projInfo tbl)
+  | [], _, _, _, h => h
+  | (cvRa, mIdx) :: rest, env, n, tbl, h => by
+    have h' := storeMutualRecs_find?_projInfo env₂ b fms rulesOf rest h
+    rw [Env.find?_cons] at h'
+    split at h'
+    · exact nomatch h'
+    · exact h'
+
+/-- **The tables' stage conses a member's own table**: a `projInfo`
+answer at the stage's output either stood at its input already or is
+the table `mutualMemberTable` built at one of the members the stage
+walked — its structure that member, its constructor the member's ONE
+own constructor, its level parameters and parameter count the block's,
+its result sort the member's, its offset `1` and its guards that
+constructor's field sorts' `structProjGuards`. -/
+theorem mutualTables_find?_projInfo_inv {b : MutualBlock} {ctorsA : List (ConstantVal × Nat)}
+    {sortss : List (List Level)} :
+    ∀ (l : List (MutualFormerA × Nat)) {env env' : Env} {T : Name} {tbl : ProjTable},
+      mutualTables (m := CheckM) b ctorsA sortss l env = .ok env' →
+      env'.find? (projTableName T) = some (.projInfo tbl) →
+      env.find? (projTableName T) = some (.projInfo tbl) ∨
+      ∃ (f : MutualFormerA) (mIdx J : Nat) (c : MutualCtor) (bodies : Array Expr),
+        (f, mIdx) ∈ l ∧ f.cvTa.name = T ∧ b.ownCtors mIdx = [(J, c)] ∧ f.nIdx = 0 ∧
+          structProjBodies T b.nP c.nF (ctorsA.getD J default).1.type = some bodies ∧
+          tbl = ⟨T, b.lps, b.nP, c.cv.name, c.nF, f.s, bodies,
+            structProjGuards (ctorsA.getD J default).1.type b.nP c.nF (sortss.getD J []), 1⟩ := by
+  intro l
+  induction l with
+  | nil =>
+    intro env env' T tbl h hf
+    obtain rfl := mutualTables_nil_inv h
+    exact Or.inl hf
+  | cons hd rest ih =>
+    intro env env' T tbl h hf
+    obtain ⟨f, mIdx⟩ := hd
+    obtain ⟨envI, hI, hrest⟩ := mutualTables_inv h
+    rcases ih hrest hf with hfI | ⟨f', mIdx', J, c, bodies, hmem, hname, hown, hnIdx, hbs, rfl⟩
+    · rcases mutualMemberTable_inv hI with rfl | ⟨J, c, hown, hnIdx, htbl⟩
+      · exact Or.inl hfI
+      · obtain ⟨bodies, hbs, -, -, -, rfl⟩ := checkStructProjTable_inv htbl
+        rw [Env.find?_cons] at hfI
+        split at hfI
+        · next heq =>
+          obtain rfl : f.cvTa.name = T := projTableName_inj heq
+          exact Or.inr ⟨f, mIdx, J, c, bodies, List.mem_cons_self .., rfl, hown, hnIdx, hbs,
+            (ConstantInfo.projInfo.inj (Option.some.inj hfI)).symm⟩
+        · exact Or.inl hfI
+    · exact Or.inr ⟨f', mIdx', J, c, bodies, List.mem_cons_of_mem _ hmem, hname, hown, hnIdx,
+        hbs, rfl⟩
+
+/-- **The read-back at one member's projection table**: the record's
+`tbl` field is the `projInfo` the scratch environment answers at the
+member's `projTableName`. -/
+theorem auxStored?_tbl {envAux : Env} {b : MutualBlock} {mIdx : Nat} {a : AuxStored}
+    (h : auxStored? envAux b mIdx = some a) {tbl : ProjTable} (htbl : a.tbl = some tbl) :
+    ∃ cv : ConstantVal, b.formers[mIdx]? = some (cv, a.nIdx) ∧
+      envAux.find? (projTableName cv.name) = some (.projInfo tbl) := by
+  unfold auxStored? at h
+  cases hfm : b.formers[mIdx]? with
+  | none => rw [hfm] at h; exact absurd h (by simp [bind, Option.bind])
+  | some p =>
+    obtain ⟨cv, nIdx⟩ := p
+    rw [hfm] at h
+    simp only [bind, Option.bind] at h
+    cases hfi : envAux.find? cv.name with
+    | none => rw [hfi] at h; exact absurd h (by simp)
+    | some ci =>
+      rw [hfi] at h
+      cases ci with
+      | indInfo cvTa caps =>
+        simp only [] at h
+        cases hfr : envAux.find? (cv.name.str "rec") with
+        | none => rw [hfr] at h; exact absurd h (by simp)
+        | some cir =>
+          rw [hfr] at h
+          cases cir with
+          | recInfo cvRa mI rP rules =>
+            simp only [] at h
+            split at h
+            · exact absurd h (by simp)
+            · simp only [pure, Option.some.injEq] at h
+              obtain rfl := h
+              refine ⟨cv, rfl, ?_⟩
+              simp only [] at htbl
+              cases hpt : envAux.find? (projTableName cv.name) with
+              | none => rw [hpt] at htbl; exact nomatch htbl
+              | some cit =>
+                rw [hpt] at htbl
+                cases cit with
+                | projInfo t =>
+                  simp only [Option.some.injEq] at htbl
+                  rw [htbl]
+                | _ => exact nomatch htbl
+          | _ => exact absurd h (by simp)
+      | _ => exact absurd h (by simp)
+
+/-- **AND ITS PROJECTION TABLE IS THE SCRATCH INSTALL'S**
+(`auxStored_rec_eq`'s twin at the TABLES): the read-back's `tbl` field
+at member `mIdx` is what the scratch install's table stage
+(`mutualMemberTable`) built there — the member's own structure, its ONE
+own constructor, the block's level parameters and parameter count, the
+member's result sort, the offset `1` and the guards
+`structProjGuards` of that constructor's ANNOTATED type at the
+constructor stage's field sorts.
+
+The stage conses a table only at a STRUCTURE-LIKE member, so the
+member's `ownCtors` is the singleton `[(J, c)]` and its index count is
+`0`: a read-back table is the witness that the scratch member was
+structure-like.
+
+The left disjunct — the table stood at the PRE-BLOCK environment
+already — is refuted by the nested route's own table stage, whose
+`checkStructProjTable` found `projTableName` free at an environment
+extending `env`; it is left to the consumer because the scratch
+install's guard alone does not see `env`.
+
+The member the stage walked is named by its own constant, not by its
+position: `fms[t]? = some f` with `f.cvTa.name = cv.name`.  The
+consumer identifies `t` with `mIdx` from the members' names being
+distinct (`mutualMemberNames_eq`, the block record's `blockNames.Nodup`). -/
+theorem auxStored_tbl_eq {env envAux : Env} {b : MutualBlock} {F : Nat}
+    (h : checkMutualCore (fueledOps mode F) env b none true = .ok envAux)
+    {stored : List AuxStored} (hst : auxStoredAll envAux b b.k = some stored)
+    {mIdx : Nat} {a : AuxStored} (ha : stored[mIdx]? = some a)
+    {tbl : ProjTable} (htbl : a.tbl = some tbl) :
+    ∃ cv : ConstantVal, b.formers[mIdx]? = some (cv, a.nIdx) ∧
+      (env.find? (projTableName cv.name) = some (.projInfo tbl) ∨
+        ∃ (fms : List MutualFormerA) (f₀ f : MutualFormerA) (ctorsA : List (ConstantVal × Nat))
+          (sortss : List (List Level)) (t J : Nat) (c : MutualCtor) (bodies : Array Expr),
+          mutualFormers (fueledOps mode F) b.nP b.formers env true
+            = .ok (consMutualFormers fms env, fms) ∧
+          fms[0]? = some f₀ ∧
+          checkMutualCtors (fueledOps mode F) (consMutualFormers fms env) b fms
+            (Level.isEquiv f₀.s .zero == some true) true b.ctors = .ok (ctorsA, sortss) ∧
+          fms[t]? = some f ∧ f.cvTa.name = cv.name ∧
+          b.ownCtors t = [(J, c)] ∧ f.nIdx = 0 ∧
+          structProjBodies cv.name b.nP c.nF (ctorsA.getD J default).1.type = some bodies ∧
+          tbl = ⟨cv.name, b.lps, b.nP, c.cv.name, c.nF, f.s, bodies,
+            structProjGuards (ctorsA.getD J default).1.type b.nP c.nF (sortss.getD J []), 1⟩) := by
+  obtain ⟨-, -, -, -, env₁, fms, f₀, _tq₀, ctorsA, sortss, kinds, formers4, ctors4, cvRas,
+    rulesOf, hformers, hf₀, -, -, -, hctors, -, -, -, -, -, htables, -⟩ := checkMutualCore_inv h
+  obtain ⟨-, rfl⟩ := mutualFormers_inv hformers
+  obtain ⟨-, hgetS⟩ := auxStoredAll_get hst
+  obtain ⟨cv, hfm, hfind⟩ := auxStored?_tbl (hgetS mIdx a ha) htbl
+  refine ⟨cv, hfm, ?_⟩
+  rcases mutualTables_find?_projInfo_inv fms.zipIdx htables hfind with
+    hleft | ⟨f, t, J, c, bodies, hmem, hname, hown, hnIdx, hbs, rfl⟩
+  · exact Or.inl (consMutualFormers_find?_projInfo fms
+      (consMutualCtors_find?_projInfo b.nP ctorsA
+        (storeMutualRecs_find?_projInfo _ b fms rulesOf cvRas.zipIdx hleft)))
+  · exact Or.inr ⟨fms, f₀, f, ctorsA, sortss, t, J, c, bodies, hformers, hf₀, hctors,
+      List.mk_mem_zipIdx_iff_getElem?.mp hmem, hname, hown, hnIdx, hbs, rfl⟩
 
 end ConLeche

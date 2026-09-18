@@ -115,26 +115,73 @@ theorem spineFit_iff_agree {Fs Fs' : List AnnotTerm} {ρ : Nat → V} (hlen : Fs
   simp only [List.getD_nil, Bool.false_eq_true, if_false]
   exact hag l hl fs₁ hl₁ (fitsFrom_nil_iff.mp hf) (fitsFrom_nil_iff.mp hf')
 
-/-- **A spine fits an instantiated telescope at the block's frame iff it
-fits the telescope at the pin's frame** (`interp_instAll` along the
-telescope). -/
-theorem spineFit_instTele (Ds : List AnnotTerm) (ρ' : Nat → V) :
-    ∀ (Ids : List AnnotTerm) (fs₁ is : List V),
-      SpineFit (consList fs₁ ρ') (instTele Ds fs₁.length Ids) is ↔
-        SpineFit (consList fs₁ (consList (Ds.map (interp V ρ')) ρ')) Ids is
-  | [], _, [] => Iff.rfl
-  | [], _, _ :: _ => Iff.rfl
-  | _ :: _, _, [] => Iff.rfl
-  | T :: Ids, fs₁, a :: is => by
-    show (a ∈ˢ interp V (consList fs₁ ρ') (AnnotTerm.instAll Ds fs₁.length T) ∧
-        SpineFit (cons a (consList fs₁ ρ')) (instTele Ds (fs₁.length + 1) Ids) is) ↔
-      (a ∈ˢ interp V (consList fs₁ (consList (Ds.map (interp V ρ')) ρ')) T ∧
-        SpineFit (cons a (consList fs₁ (consList (Ds.map (interp V ρ')) ρ'))) Ids is)
-    rw [interp_instAll]
-    have h := spineFit_instTele Ds ρ' Ids (fs₁ ++ [a]) is
-    rw [List.length_append, List.length_singleton, consList_append, consList_append] at h
-    exact and_congr Iff.rfl h
+/-- A `getD` inside a long enough prefix. -/
+private theorem getD_take {α : Type} [Inhabited α] {L : List α} {k l : Nat} (h : l < k) :
+    (L.take k).getD l default = L.getD l default := by
+  rw [List.getD_eq_getElem?_getD, List.getD_eq_getElem?_getD, List.getElem?_take_of_lt h]
 
+/-- **THE PREFIXES FIT ALIKE** when two equally long domain lists read
+alike at every prefix fitting both — `spineFit_iff_agree` at the
+truncations. -/
+theorem spineFit_take_iff_agree {FsA FsR : List AnnotTerm} {ρ : Nat → V} {nF : Nat}
+    (hlenA : FsA.length = nF) (hlenR : FsR.length = nF)
+    (hag : ∀ l, l < nF → ∀ fs : List V, fs.length = l →
+      SpineFit ρ (FsA.take l) fs → SpineFit ρ (FsR.take l) fs →
+      interp V (consList fs ρ) (FsA.getD l default)
+        = interp V (consList fs ρ) (FsR.getD l default)) :
+    ∀ k, k ≤ nF → ∀ fs : List V, SpineFit ρ (FsA.take k) fs ↔ SpineFit ρ (FsR.take k) fs := by
+  intro k hk fs
+  refine spineFit_iff_agree (by rw [List.length_take, List.length_take, hlenA, hlenR]) ?_ fs
+  intro l hl fs₁ hl₁ h1 h2
+  rw [List.length_take, hlenA] at hl
+  have hlk : l < k := by omega
+  rw [List.take_take, Nat.min_eq_left (Nat.le_of_lt hlk)] at h1 h2
+  rw [getD_take hlk, getD_take hlk]
+  exact hag l (by omega) fs₁ hl₁ h1 h2
+
+/-- The length a spine fitting a prefix has. -/
+private theorem spineFitTake_length {Fs : List AnnotTerm} {ρ : Nat → V} {nF k : Nat}
+    (hlen : Fs.length = nF) (hk : k ≤ nF) {fs : List V} (hsp : SpineFit ρ (Fs.take k) fs) :
+    fs.length = k := by
+  have h := SpineFit.length_eq hsp
+  rw [List.length_take, hlen] at h
+  omega
+
+/-- **`FieldsBound` TRANSPORTS ALONG THE AGREEMENT**: two equally long
+domain lists that read alike at every prefix fitting both are bounded
+alike. -/
+theorem fieldsBound_of_agree {w nF : Nat} {FsA FsR : List AnnotTerm} {ρ : Nat → V}
+    (hlenA : FsA.length = nF) (hlenR : FsR.length = nF)
+    (hag : ∀ l, l < nF → ∀ fs : List V, fs.length = l →
+      SpineFit ρ (FsA.take l) fs → SpineFit ρ (FsR.take l) fs →
+      interp V (consList fs ρ) (FsA.getD l default)
+        = interp V (consList fs ρ) (FsR.getD l default))
+    (hA : FieldsBound w ρ FsA) : FieldsBound w ρ FsR := by
+  refine fieldsBound_of_pointwise fun i hi as hsp => ?_
+  have hiN : i < nF := by rw [← hlenR]; exact hi
+  have hspA : SpineFit ρ (FsA.take i) as :=
+    (spineFit_take_iff_agree hlenA hlenR hag i (Nat.le_of_lt hiN) as).mpr hsp
+  rw [← hag i hiN as (spineFitTake_length hlenA (Nat.le_of_lt hiN) hspA) hspA hsp]
+  exact fieldsBound_getD hA i (by rw [hlenA]; exact hiN) as hspA
+
+/-- **`FieldsOkB` TRANSPORTS ALONG THE AGREEMENT**, given the restored
+list's own truthfulness (`FieldsOkB 0`, which its Π-tower's
+`WellDenoted` gives): the truthfulness half is the restored list's,
+the bound half the auxiliary list's, carried by the agreement. -/
+theorem fieldsOkB_of_agree {w nF : Nat} {FsA FsR : List AnnotTerm} {ρ : Nat → V}
+    (hlenA : FsA.length = nF) (hlenR : FsR.length = nF)
+    (hag : ∀ l, l < nF → ∀ fs : List V, fs.length = l →
+      SpineFit ρ (FsA.take l) fs → SpineFit ρ (FsR.take l) fs →
+      interp V (consList fs ρ) (FsA.getD l default)
+        = interp V (consList fs ρ) (FsR.getD l default))
+    (hA : FieldsOkB w ρ FsA) (hR0 : FieldsOkB 0 ρ FsR) : FieldsOkB w ρ FsR := by
+  refine fieldsOkB_of_pointwise fun i hi as hsp =>
+    ⟨FieldsOkB.wellDenoted_at hR0 i hi as hsp, fun hw => ?_⟩
+  have hiN : i < nF := by rw [← hlenR]; exact hi
+  have hspA : SpineFit ρ (FsA.take i) as :=
+    (spineFit_take_iff_agree hlenA hlenR hag i (Nat.le_of_lt hiN) as).mpr hsp
+  rw [← hag i hiN as (spineFitTake_length hlenA (Nat.le_of_lt hiN) hspA) hspA hsp]
+  exact fieldsBound_getD (hA.toBound hw) i (by rw [hlenA]; exact hiN) as hspA
 
 /-- Two frames from spines of one length over one base agree only on
 equal spines. -/
@@ -150,6 +197,13 @@ private theorem consList_inj_len {as bs : List V} {ρ : Nat → V} (hl : as.leng
     List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hi₁, List.getD_eq_getElem?_getD,
     List.getElem?_eq_getElem hi₂] at this
   exact this
+
+/-- The entries of a domain list's field part. -/
+theorem fieldsGetD (l : List (Nat × Nat × AnnotTerm)) (n i : Nat) (hi : n + i < l.length) :
+    ((l.drop n).map (·.2.2)).getD i default = (l.getD (n + i) default).2.2 := by
+  rw [List.getD_eq_getElem?_getD, List.getElem?_map, List.getElem?_drop,
+    List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hi]
+  rfl
 
 /-! ## The assembly -/
 
@@ -209,6 +263,10 @@ structure NestedPinGroup (m : EnvModel V env₂) (q₀ kJ : Nat) (dJ : BlockMode
     ((D).pinAt (q₀ + i)).ψJ ψ = ((D).pinAt q₀).ψJ ψ ∧ ((D).pinAt (q₀ + i)).Ds ψ = ((D).pinAt q₀).Ds ψ
   /-- the group's pins share their level arguments (task #315 L-E) -/
   lvls : ∀ i, i < kJ → ((D).pinAt (q₀ + i)).lvls = ((D).pinAt q₀).lvls
+  /-- the group's pins share their components SYNTACTICALLY (task #315
+  L-E: `NestedPinGroupSyn.same`'s second half, which `ofParts` used to
+  drop — `nestedPinShapes_of` reads it at the tail's groups) -/
+  sameE : ∀ i, i < kJ → ((D).pinAt (q₀ + i)).DsE = ((D).pinAt q₀).DsE
   /-- the pin's container is stored, and the pin's level assignment is
   the substitution at its level parameters (task #315 L-E, step (iii)) -/
   stored : ∀ i, i < kJ → ∃ (cvT : ConstantVal) (caps : IndCaps),
@@ -247,7 +305,7 @@ structure NestedPinGroup (m : EnvModel V env₂) (q₀ kJ : Nat) (dJ : BlockMode
         (Fss₀ := fun ψ => blkFss0 b ctorsA kinds dsF ψ)
         (Ess₀ := fun ψ => mutEss0 ctorsA.length esF ψ) (ψ := ψ) (ρp := ρp)
         m.acval dJ (((D).pinAt (q₀ + i)).ψJ ψ) (((D).pinAt (q₀ + i)).Ds ψ)
-        cvT.levelParams ((D).pinAt (q₀ + i)).lvls q₀ kJ i' j
+        ((D).pinAt (q₀ + i)).DsE cvT.levelParams ((D).pinAt (q₀ + i)).lvls q₀ kJ i' j
   /-- the copies' ENTRIES at the auxiliary carrier (`nestedPinLeaf_all`) -/
   entry :
     ∀ i, i < kJ → ∀ (ψ : Name → Nat) (ρp : Nat → V),
@@ -591,12 +649,195 @@ theorem nestedIdent_of (hμ : μ.verifiedChecks = true)
   rw [tupleLfpAV_fold htgt hOk' rfl hsp_t hi_t, ← Nat.add_assoc, hu]
   rfl
 
+/-- **THE TWO DOMAIN LISTS READ ALIKE AT EVERY FITTING PREFIX**, at ANY
+model carrying the groups: at a plain position the restored entry IS
+the auxiliary one; at a nested position the auxiliary entry is the
+COPY's leaf at the parameter variables and the restored entry the
+CONTAINER's leaf at the pin's components, and those read alike by the
+pin identification `nestedIdent_of` — in the finitary and in the
+reflexive shape.
+
+The restored constructors' loop spends it at its own intermediate
+model (`ReadCtx.agree_of`, `NestedCtorRead.lean`); the recursors'
+stage spends it at the restored constructors' one
+(`NestedTailIn.domAgree`), where it is what carries the constructor
+stage's FIELD facts — the grading, the bounds and the field sorts'
+universes — across the restore.  The body of the restored
+constructor's Π-tower is irrelevant (only its domains' grading is
+read), so `hokR` is stated at an arbitrary `R`. -/
+theorem nestedDomAgree_of (hμ : μ.verifiedChecks = true)
+    (h : MutualFormersFacts V F g mp b fms f₀ ctorsA sortss kinds mp₁ ppsF W idxF dsF esF srcsF
+      fvsPF xFvsF xrestF eissF tssF)
+    (h3 : ConLeche.mutualCtorsGrouped b.ctors = true)
+    (hbk : b.k = p.k + pinsS.length)
+    (m : EnvModel V env₂)
+    (hgroups : ∀ q, q < pinsS.length → ∃ (q₀ kJ i : Nat) (dJ : BlockModel V),
+      q = q₀ + i ∧ i < kJ ∧ PG m q₀ kJ dJ)
+    {mm j : Nat} {cA : ConstantVal × Nat} {R : (Name → Nat) → AnnotTerm}
+    (hJ : ctorsA[b.ownOffset mm + j]? = some cA)
+    (hmemJ : mutMemF b (b.ownOffset mm + j) = mm)
+    (hlenR : ∀ ψ : Name → Nat, (dsR mm j ψ).length = b.nP + cA.2)
+    (hokR : ∀ (ψ : Name → Nat) (ρ : Nat → V), WellDenoted V ρ (mkPisAV (dsR mm j ψ) (R ψ)))
+    (htake : ∀ ψ : Name → Nat, (dsR mm j ψ).take b.nP = (dsF (b.ownOffset mm + j) ψ).take b.nP)
+    (hplain : ∀ (ψ : Name → Nat) (l : Nat), l < cA.2 →
+      ((D).nestOf mm j l = none ∨
+        (rsOf (kindsOf (mutKsOf kinds (b.ownOffset mm + j)))).getD l false = false) →
+      (dsR mm j ψ).getD (b.nP + l) default = (dsF (b.ownOffset mm + j) ψ).getD (b.nP + l) default)
+    (hnest : ∀ (ψ : Name → Nat) (l q : Nat), l < cA.2 → (D).nestOf mm j l = some q →
+      (kindsOf (mutKsOf kinds (b.ownOffset mm + j))).getD l .ordinary = .recursive →
+      ((dsR mm j ψ).getD (b.nP + l) default).2.2
+        = AnnotTerm.mkAppN (m.acval ((D).pinAt q).J (((D).pinAt q).ψJ ψ))
+            ((((D).pinAt q).Ds ψ).map (·.liftN l 0) ++ (eissF (b.ownOffset mm + j) ψ).getD l []) ∧
+      ((eissF (b.ownOffset mm + j) ψ).getD l []).length = ((D).pinAt q).nIdx)
+    (hnestRefl : ∀ (ψ : Name → Nat) (l q : Nat), l < cA.2 → (D).nestOf mm j l = some q →
+      (kindsOf (mutKsOf kinds (b.ownOffset mm + j))).getD l .ordinary = .reflexive →
+      ((dsR mm j ψ).getD (b.nP + l) default).2.2
+        = mkPisAV ((tssF (b.ownOffset mm + j) ψ).getD l [])
+          (AnnotTerm.mkAppN (m.acval ((D).pinAt q).J (((D).pinAt q).ψJ ψ))
+            ((((D).pinAt q).Ds ψ).map
+                (·.liftN (l + ((tssF (b.ownOffset mm + j) ψ).getD l []).length) 0)
+              ++ (eissF (b.ownOffset mm + j) ψ).getD l [])) ∧
+      ((eissF (b.ownOffset mm + j) ψ).getD l []).length = ((D).pinAt q).nIdx) :
+    ∀ (ψ : Name → Nat) (ρ : Nat → V),
+      Sat V (((dsF (b.ownOffset mm + j) ψ).take b.nP).map (·.2.2)).reverse ρ →
+      ∀ l, l < cA.2 → ∀ fs₁ : List V, fs₁.length = l →
+        SpineFit ρ ((((dsF (b.ownOffset mm + j) ψ).drop b.nP).map (·.2.2)).take l) fs₁ →
+        SpineFit ρ ((((dsR mm j ψ).drop b.nP).map (·.2.2)).take l) fs₁ →
+        interp V (consList fs₁ ρ) ((dsF (b.ownOffset mm + j) ψ).getD (b.nP + l) default).2.2
+          = interp V (consList fs₁ ρ) ((dsR mm j ψ).getD (b.nP + l) default).2.2 := by
+  intro ψ ρ hsat l hl fs₁ hl₁ _ hfR
+  have hJl : b.ownOffset mm + j < ctorsA.length := (List.getElem?_eq_some_iff.mp hJ).1
+  have hkT : b.k = fms.length := h.lenFms.symm
+  have hbk' : b.k = p.k + pinsS.length := hbk
+  have hlenDs : (dsF (b.ownOffset mm + j) ψ).length = b.nP + cA.2 := (h.CD _ _ hJ).len ψ
+  have hksl : (mutKsOf kinds (b.ownOffset mm + j)).length = cA.2 := (h.ksJ _ _ hJ).1
+  -- the parameter frame as a fitting spine at the block's parameters
+  have hplen : ∀ ψ : Name → Nat, ((D).params ψ).length = b.nP := by
+    intro ψ
+    show (((ppsF 0 ψ).take b.nP).map (·.2.2)).length = b.nP
+    rw [List.length_map, List.length_take, (h.FD 0 f₀ h.first).len ψ]
+    omega
+  have hframeC : ∀ ρ' : Nat → V,
+      Sat V ((D).params ψ).reverse ρ' ↔
+        Sat V (((dsF (b.ownOffset mm + j) ψ).take b.nP).map (·.2.2)).reverse ρ' := by
+    intro ρ'
+    exact ((h.frame _ _ (fms_get (h.motLt _ hJl)) ψ ρ').symm).trans ((h.framesJ hμ hJl).1 ψ ρ')
+  have hlenTake : (((dsF (b.ownOffset mm + j) ψ).take b.nP).map (·.2.2)).length = b.nP := by
+    rw [List.length_map, List.length_take, hlenDs]
+    exact Nat.min_eq_left (Nat.le_add_right _ _)
+  have hspA := spineFit_of_sat (Δ₀ := []) (Ds := ((dsF (b.ownOffset mm + j) ψ).take b.nP).map (·.2.2))
+    (ρ := ρ) (by rw [List.append_nil]; exact hsat)
+  rw [hlenTake] at hspA
+  have hρ : consList ((List.range b.nP).reverse.map ρ) (fun i => ρ (i + b.nP)) = ρ :=
+    consList_range_reverse b.nP ρ
+  have hsp : SpineFit (fun i => ρ (i + b.nP)) ((D).params ψ) ((List.range b.nP).reverse.map ρ) :=
+    spineFit_of_frames (by rw [hlenTake, hplen]) (fun ρ' => (hframeC ρ').symm) hspA
+  -- the restored fields are graded at every fitting prefix
+  have hFok : FieldsOkB 0 ρ (((dsR mm j ψ).drop b.nP).map (·.2.2)) := by
+    have hok := hokR ψ (fun i => ρ (i + b.nP))
+    rw [← List.take_append_drop b.nP (dsR mm j ψ), mkPisAV_append] at hok
+    have hpfit : SpineFit (fun i => ρ (i + b.nP))
+        (((dsR mm j ψ).take b.nP).map (·.2.2)) ((List.range b.nP).reverse.map ρ) := by
+      rw [htake]; exact hspA
+    have h1 := (WellDenoted_mkPisAV_inv hok).2 _ hpfit
+    rw [hρ] at h1
+    exact (WellDenoted_mkPisAV_inv h1).1
+  have hlR : b.nP + l < (dsR mm j ψ).length := by rw [hlenR]; omega
+  have hlA : b.nP + l < (dsF (b.ownOffset mm + j) ψ).length := by rw [hlenDs]; omega
+  have hwdE := fieldsOkB_getD hFok (by
+    rw [List.length_map, List.length_drop, hlenR, Nat.add_sub_cancel_left]; exact hl) hfR
+  rw [fieldsGetD _ _ _ hlR] at hwdE
+  rcases Decidable.em ((D).nestOf mm j l = none ∨
+      (rsOf (kindsOf (mutKsOf kinds (b.ownOffset mm + j)))).getD l false = false) with hpl | hpl
+  · rw [hplain ψ l hl hpl]
+  -- a nested field: the container at the pin's components, the copy's leaf
+  have hr : (rsOf (kindsOf (mutKsOf kinds (b.ownOffset mm + j)))).getD l false = true := by
+    cases hb : (rsOf (kindsOf (mutKsOf kinds (b.ownOffset mm + j)))).getD l false
+    · exact absurd (Or.inr hb) hpl
+    · rfl
+  have hnt : ¬ (D).tgts mm j l < p.k := by
+    intro hlt
+    exact hpl (Or.inl ((D).nestOf_none hlt))
+  have hq : (D).nestOf mm j l = some ((D).tgts mm j l - p.k) := (D).nestOf_some hnt
+  have htgt : (D).tgts mm j l < p.k + pinsS.length := by
+    show tgtAt (mutKsOf kinds (b.ownOffset mm + j)) l < p.k + pinsS.length
+    rw [← hbk', hkT]; exact (h.ksJ _ _ hJ).2.2 l
+  have hqlt : (D).tgts mm j l - p.k < pinsS.length := by omega
+  have hkl : l < (kindsOf (mutKsOf kinds (b.ownOffset mm + j))).length := by
+    rw [kindsOf_length, hksl]; exact hl
+  have hkind := (rsOf_getD_iff hkl).mp hr
+  have htl : (D).tgts mm j l < fms.length := by rw [← hkT, hbk']; exact htgt
+  have hft_t := fms_get htl
+  have hleafT : mp₁.base2.acval (mutualNameOf b.members3 (tgtAt (mutKsOf kinds (b.ownOffset mm + j)) l))
+      = mutMemberLeaf b fms f₀ ctorsA kinds ppsF W dsF esF eissF tssF ((D).tgts mm j l) := by
+    rw [show tgtAt (mutKsOf kinds (b.ownOffset mm + j)) l = (D).tgts mm j l from rfl,
+      (h.memT _ _ hft_t).1, h.leaf _ _ hft_t]
+  have hident := nestedIdent_of hμ h h3 hbk' m hgroups ((D).tgts mm j l - p.k) hqlt ψ
+    (fun i => ρ (i + b.nP)) ((List.range b.nP).reverse.map ρ) hsp
+  rw [show p.k + ((D).tgts mm j l - p.k) = (D).tgts mm j l from by omega, hρ] at hident
+  have hnameT : (fms.getD (mutMemF b (b.ownOffset mm + j)) default).cvTa.name
+      = (fms.getD mm default).cvTa.name := by rw [hmemJ]
+  rcases hkind with hk | hk
+  · -- a finitary nested field
+    have hk' : kindAt (mutKsOf kinds (b.ownOffset mm + j)) l = .recursive := by
+      rw [← kindsOf_getD']; exact hk
+    obtain ⟨hL, hEl⟩ := hnest ψ l _ hl hq hk
+    have hR := (h.CD _ _ hJ).recEntry ψ l hk' hl
+    rw [hL, hR, hleafT]
+    rw [hL] at hwdE
+    exact (hident l fs₁ _ hl₁ hEl hwdE).symm
+  · -- a reflexive nested field
+    have hk' : kindAt (mutKsOf kinds (b.ownOffset mm + j)) l = .reflexive := by
+      rw [← kindsOf_getD']; exact hk
+    obtain ⟨hL, hEl⟩ := hnestRefl ψ l _ hl hq hk
+    have hR := (h.CD _ _ hJ).reflEntry ψ l hk' hl
+    rw [hL] at hwdE
+    rw [hL, hR, hleafT]
+    have hbits : ∀ d ∈ (tssF (b.ownOffset mm + j) ψ).getD l [], (d.2.1 = 0 ↔ f₀.s.eval ψ = 0) := by
+      intro d hd
+      have := (h.CD _ _ hJ).tssBits ψ l d hd
+      rw [h.sEq _ _ (fms_get (h.motLt _ hJl)) ψ] at this
+      exact this
+    rw [interp_mkPisAV_piTele (v := f₀.s.eval ψ) (acc := [])
+      (B := fun ys => interp V (consList ys (consList fs₁ ρ))
+        (AnnotTerm.mkAppN (m.acval ((D).pinAt ((D).tgts mm j l - p.k)).J
+            (((D).pinAt ((D).tgts mm j l - p.k)).ψJ ψ))
+          ((((D).pinAt ((D).tgts mm j l - p.k)).Ds ψ).map
+              (·.liftN (l + ((tssF (b.ownOffset mm + j) ψ).getD l []).length) 0)
+            ++ (eissF (b.ownOffset mm + j) ψ).getD l [])))
+      hbits (fun ys _ => rfl),
+      interp_mkPisAV_piTele (v := f₀.s.eval ψ) (acc := [])
+      (B := fun ys => interp V (consList ys (consList fs₁ ρ))
+        (AnnotTerm.mkAppN (m.acval ((D).pinAt ((D).tgts mm j l - p.k)).J
+            (((D).pinAt ((D).tgts mm j l - p.k)).ψJ ψ))
+          ((((D).pinAt ((D).tgts mm j l - p.k)).Ds ψ).map
+              (·.liftN (l + ((tssF (b.ownOffset mm + j) ψ).getD l []).length) 0)
+            ++ (eissF (b.ownOffset mm + j) ψ).getD l [])))
+      hbits (fun ys hys => ?_)]
+    simp only [List.nil_append]
+    have hysl : ys.length = ((tssF (b.ownOffset mm + j) ψ).getD l []).length := by
+      rw [hys.length_eq, List.length_map]
+    have hwd' := (WellDenoted_mkPisAV_inv hwdE).2 ys hys
+    rw [← consList_append] at hwd' ⊢
+    have := hident (l + ((tssF (b.ownOffset mm + j) ψ).getD l []).length) (fs₁ ++ ys) _
+      (by rw [List.length_append, hl₁, hysl]) hEl hwd'
+    rw [← Nat.add_assoc] at this
+    exact this.symm
+
 /-- **The nested block's block model at the restored environment, at
 every member** (`blockReps_of`'s nested twin): from the auxiliary
 block's formers' facts, the constructors' stage's outputs at the model
 `mp₂` of the restored environment (the members' records and leaves,
 the restored constructors' records, leaves and readings through the
-nested arm), and the pins' groups. -/
+nested arm), and the pins' groups.
+
+The representation is published in the NAMED form
+(`IsBlockModelsAt`, task #315 M7-3 session 11): the assembly builds it
+at the members' OWN auxiliary constants `(fms.getD mm default).cvTa`,
+and `ContainerModeled.member` — the read-back's record — demands it
+there, so the existential form would lose exactly what the install's
+tail has to cross.  `IsBlockModelsAt.toIsBlockModels` is the
+projection where the weaker form is enough. -/
 theorem nestedBlockReps_of (hμ : μ.verifiedChecks = true)
     (h : MutualFormersFacts V F g mp b fms f₀ ctorsA sortss kinds mp₁ ppsF W idxF dsF esF srcsF
       fvsPF xFvsF xrestF eissF tssF)
@@ -627,7 +868,7 @@ theorem nestedBlockReps_of (hμ : μ.verifiedChecks = true)
         (dsR mm j ψ).getD (b.nP + i) default = (dsF (b.ownOffset mm + j) ψ).getD (b.nP + i) default)
     (hgroups : ∀ q, q < pinsS.length → ∃ (q₀ kJ i : Nat) (dJ : BlockModel V),
       q = q₀ + i ∧ i < kJ ∧ PG mp₂.base2 q₀ kJ dJ) :
-    IsBlockModels mp₂.base2 (D) ∧
+    IsBlockModelsAt mp₂.base2 (D) (fun mm => (fms.getD mm default).cvTa) ∧
     ∀ ψ : Name → Nat,
       FormersTyped mp₂.base2 (D) ψ ∧ CtorsTyped mp₂.base2 (D) ψ ∧ PinsTyped mp₂.base2 (D) ψ := by
   -- the readers
@@ -797,13 +1038,12 @@ theorem nestedBlockReps_of (hμ : μ.verifiedChecks = true)
       List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hi]
     rfl
   -- the per-member facts
-  have hrep : ∀ mm, mm < (D).k → ∃ (cvT cvR : ConstantVal) (mI rP : Nat) (rules : List RecRule),
-      IsBlockModel mp₂.base2 ((D).memberName mm) cvT cvR mI rP rules (D) mm := by
+  have hrep : IsBlockModelsAt mp₂.base2 (D) (fun mm => (fms.getD mm default).cvTa) := by
     intro mm hmm
     have hmmF : mm < fms.length := Nat.lt_of_lt_of_le hmm hkle
     have hft := fms_get hmmF
     have hlpsT : (fms.getD mm default).cvTa.levelParams = b.lps := h.lps _ _ hft
-    refine ⟨(fms.getD mm default).cvTa, default, (D).nP + (D).k + (D).nCtors + (D).nIdxAt mm,
+    refine ⟨default, (D).nP + (D).k + (D).nCtors + (D).nIdxAt mm,
       (D).nP + (D).k + (D).nCtors, [], ?_⟩
     refine
       { memberLt := hmm, member := rfl, strip := ?_, isProp := rfl, mI := rfl, rP := rfl
@@ -1229,12 +1469,30 @@ structure NestedStageFacts (st : ElimState) (mp₂ : EnvModelM V μ ENV₂) : Pr
   pinRec : ∀ (q : Nat) (pin : NestedPin), st.pins[q]? = some pin →
     ((D).pinAt q).J = pin.container ∧
     pin.pin = Expr.mkAppN (.const pin.container ((D).pinAt q).lvls) ((D).pinAt q).DsE
+  /-- **a pin's parameter count is the one `containerInfo?` reads of
+  its container**, at the PRE-BLOCK environment (task #315 M7-3
+  session 11, DESIGN §U.67 (c) 5): the pins' own record's
+  (`NestedPinFacts.pinNP`, off the group's `pinNP` and `modeled`),
+  carried across the `NestedCtorsStaged` boundary because
+  `ContainerModeled.pinNP` — a clause of the nested block's OWN
+  read-back — demands it at `d.env₀ = env`, and nothing below the
+  boundary can recover it. -/
+  pinNP : ∀ q, q < pinsS.length → ∀ ci : ConLeche.ContainerInfo,
+    ConLeche.containerInfo? env ((D).pinAt q).J = some ci → ((D).pinAt q).nPJ = ci.nP
   /-- the pins' components read at the block's parameter depth, at the
   restored model (task #315 M7-2: the recursors' readings' walk needs
   the components' syntactic form `DsE` tied to their readings `Ds`) -/
   pinDs : ∀ q, q < pinsS.length → ∀ ψ : Name → Nat,
     DenoteMetaSpine mp₂.base2.acval ENV₂ ψ b.nP (pinsS.getD q default).DsE
       ((pinsS.getD q default).Ds ψ)
+  /-- **the pins' components are GRADED at the block's parameter frame**
+  (task #315 M7-2): `nestedPinsOk`'s own `inferType` runs at the
+  block's PARAMETER context, which is the guard a grading needs; the
+  nested rule's pin conjunct spends the clause at the recursor's
+  padded frame -/
+  pinWd : ∀ q, q < pinsS.length → ∀ (ψ : Name → Nat) (ρ : Nat → V),
+    Sat V ((D).params ψ).reverse ρ →
+    ∀ A ∈ (pinsS.getD q default).Ds ψ, WellDenotedV V ρ A
   /-- the restored environment extends the prefix environment (M7-2) -/
   find : FindPreserved ENV₁ ENV₂
   /-- the pins' level assignment is the container's level parameters
@@ -1245,6 +1503,10 @@ structure NestedStageFacts (st : ElimState) (mp₂ : EnvModelM V μ ENV₂) : Pr
     (pinsS.getD q default).lvls.length = cvT.levelParams.length ∧
     ∀ ψ : Name → Nat, (pinsS.getD q default).ψJ ψ
       = Level.substFn ψ cvT.levelParams (pinsS.getD q default).lvls
+  /-- the copy's index count is the pin's (task #315 M7-2: the model's
+  arity function at a restore key, `nestedArityK`) -/
+  pinNIdx : ∀ q, q < pinsS.length →
+    (fms.getD (p.k + q) default).nIdx = (pinsS.getD q default).nIdx
   names : (fms.take p.k).map (·.cvTa.name) = p.memberNames
   agree : ∀ n, n ∉ p.memberNames ++ p.ctors.map (·.cv.name) →
     ∀ ψ : Name → Nat, mp₂.base2.acval n ψ = mp.base2.acval n ψ
@@ -1279,6 +1541,17 @@ structure NestedStageFacts (st : ElimState) (mp₂ : EnvModelM V μ ENV₂) : Pr
       (dsR mm j ψ).getD (b.nP + i) default = (dsF (b.ownOffset mm + j) ψ).getD (b.nP + i) default
   groups : ∀ q, q < pinsS.length → ∃ (q₀ kJ i : Nat) (dJ : BlockModel V),
     q = q₀ + i ∧ i < kJ ∧ PG mp₂.base2 q₀ kJ dJ
+  /-- **the groups with their block model NAMED by the environment
+  model's own assignment** (task #315 M7-3 session 12): `groups` keyed
+  by the reading `containerInfo?` makes of the pin's container at the
+  PRE-BLOCK environment, which is where the core has it
+  (`NestedPinFacts.groupsAt`).  `NestedTailOut.groups` ASSUMED this
+  form until now; `declNested_of` reads it here instead, and carries
+  it to the output environment's reading through
+  `NestedTailOut.conts`. -/
+  groupsAt : ∀ q, q < pinsS.length → ∀ ci : ConLeche.ContainerInfo,
+    ConLeche.containerInfo? env ((D).pinAt q).J = some ci →
+    ∃ (q₀ kJ i : Nat), q = q₀ + i ∧ i < kJ ∧ PG mp₂.base2 q₀ kJ (blockOf mp.base2 ci)
 
 /-- **The restored constructors' LOOP's outputs** — what the named fact
 `NestedCtorsStaged` supplies, at a model `mp₁` of the members' prefix
@@ -1295,10 +1568,28 @@ structure NestedLoopFacts (st : ElimState) (mp₁ : EnvModelM V μ ENV₁) (mp�
   pinRec : ∀ (q : Nat) (pin : NestedPin), st.pins[q]? = some pin →
     ((D).pinAt q).J = pin.container ∧
     pin.pin = Expr.mkAppN (.const pin.container ((D).pinAt q).lvls) ((D).pinAt q).DsE
+  /-- **a pin's parameter count is the one `containerInfo?` reads of
+  its container**, at the PRE-BLOCK environment (task #315 M7-3
+  session 11, DESIGN §U.67 (c) 5): the pins' own record's
+  (`NestedPinFacts.pinNP`, off the group's `pinNP` and `modeled`),
+  carried across the `NestedCtorsStaged` boundary because
+  `ContainerModeled.pinNP` — a clause of the nested block's OWN
+  read-back — demands it at `d.env₀ = env`, and nothing below the
+  boundary can recover it. -/
+  pinNP : ∀ q, q < pinsS.length → ∀ ci : ConLeche.ContainerInfo,
+    ConLeche.containerInfo? env ((D).pinAt q).J = some ci → ((D).pinAt q).nPJ = ci.nP
   /-- the pins' components read at the restored model (M7-2) -/
   pinDs : ∀ q, q < pinsS.length → ∀ ψ : Name → Nat,
     DenoteMetaSpine mp₂.base2.acval ENV₂ ψ b.nP (pinsS.getD q default).DsE
       ((pinsS.getD q default).Ds ψ)
+  /-- **the pins' components are GRADED at the block's parameter frame**
+  (task #315 M7-2): `nestedPinsOk`'s own `inferType` runs at the
+  block's PARAMETER context, which is the guard a grading needs; the
+  nested rule's pin conjunct spends the clause at the recursor's
+  padded frame -/
+  pinWd : ∀ q, q < pinsS.length → ∀ (ψ : Name → Nat) (ρ : Nat → V),
+    Sat V ((D).params ψ).reverse ρ →
+    ∀ A ∈ (pinsS.getD q default).Ds ψ, WellDenotedV V ρ A
   find : FindPreserved ENV₁ ENV₂
   /-- the pins' level assignment is the container's level parameters
   instantiated at the pin's levels (task #315 M7-2: the constructor
@@ -1308,6 +1599,10 @@ structure NestedLoopFacts (st : ElimState) (mp₁ : EnvModelM V μ ENV₁) (mp�
     (pinsS.getD q default).lvls.length = cvT.levelParams.length ∧
     ∀ ψ : Name → Nat, (pinsS.getD q default).ψJ ψ
       = Level.substFn ψ cvT.levelParams (pinsS.getD q default).lvls
+  /-- the copy's index count is the pin's (task #315 M7-2: the model's
+  arity function at a restore key, `nestedArityK`) -/
+  pinNIdx : ∀ q, q < pinsS.length →
+    (fms.getD (p.k + q) default).nIdx = (pinsS.getD q default).nIdx
   hde : ∀ (ψ : Name → Nat) (dp : Nat) (e : Expr) {ea : AnnotTerm},
     denoteMeta mp₁.base2.acval ENV₁ ψ dp e = some ea →
     denoteMeta mp₂.base2.acval ENV₂ ψ dp e = some ea
@@ -1332,6 +1627,17 @@ structure NestedLoopFacts (st : ElimState) (mp₁ : EnvModelM V μ ENV₁) (mp�
       (dsR mm j ψ).getD (b.nP + i) default = (dsF (b.ownOffset mm + j) ψ).getD (b.nP + i) default
   groups : ∀ q, q < pinsS.length → ∃ (q₀ kJ i : Nat) (dJ : BlockModel V),
     q = q₀ + i ∧ i < kJ ∧ PG mp₂.base2 q₀ kJ dJ
+  /-- **the groups with their block model NAMED by the environment
+  model's own assignment** (task #315 M7-3 session 12): `groups` keyed
+  by the reading `containerInfo?` makes of the pin's container at the
+  PRE-BLOCK environment, which is where the core has it
+  (`NestedPinFacts.groupsAt`).  `NestedTailOut.groups` ASSUMED this
+  form until now; `declNested_of` reads it here instead, and carries
+  it to the output environment's reading through
+  `NestedTailOut.conts`. -/
+  groupsAt : ∀ q, q < pinsS.length → ∀ ci : ConLeche.ContainerInfo,
+    ConLeche.containerInfo? env ((D).pinAt q).J = some ci →
+    ∃ (q₀ kJ i : Nat), q = q₀ + i ∧ i < kJ ∧ PG mp₂.base2 q₀ kJ (blockOf mp.base2 ci)
 
 end Assembly
 
@@ -1385,7 +1691,23 @@ Consumer: `nestedStageFacts_of` → `nestedCoreModeled_of`. -/
     -- THE PINS' SCOPE (K.30): every pin's free variables are the first
     -- former's openers, annotation included, and no loose bvar
     ConLeche.pinsScoped p.nP st = true →
+    -- **THE COPIES' TARGETS** (K.32, task #315 L-E, DESIGN §U.64): a
+    -- copy's group-internal recursive field points at the copy of the
+    -- container member its own field points at, which the copies'
+    -- identities read on the `ordF` arm (lane L-B's `NestedPinsShape`)
+    ConLeche.nestedCopyTargetsOk env p b st stored = true →
     ConLeche.nestedPinKindsOk p b st stored = true →
+    ConLeche.nestedPinRankOk env p b st stored = true →
+    -- **THE POSITIVITY NORMALISATION ON THE MINTED COPY** (K.42, task
+    -- #315, lane L-B): at every ORDINARY field of every copy's
+    -- constructor, the stored domain IS the positivity normalisation of
+    -- the MINTED one, which the copies' identities read on the
+    -- `ordF`-LEFT arm (lane L-B's `NestedPinsShape`)
+    (∃ (jobs : List (Nat × Expr × Expr)) (ws : List Expr),
+      ConLeche.nestedOrdDomPairs env p st stored (ConLeche.nestedPinKinds p b stored) = some jobs ∧
+      ConLeche.nestedOrdNorms (m := ConLeche.CheckM) (fueledOps μ F)
+          (ConLeche.consNestedFormers (stored.take p.k) env) b.memberNames jobs = .ok ws ∧
+      ws = jobs.map (·.2.2)) →
     -- POST-CHECK (a) A THIRD TIME (K.30): the pins typed at the prefix
     -- formers' environment (`consNestedFormers_take_eq`)
     ConLeche.nestedPinsOk (m := ConLeche.CheckM) (fueledOps μ F)
@@ -1421,7 +1743,7 @@ Consumer: `nestedStageFacts_of` → `nestedCoreModeled_of`. -/
           (ConLeche.consMutualFormers (fms.take p.k) env)))
       (dsR : Nat → Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm))
       (xFvsR : Nat → Nat → List Expr) (pinsS : List PinSyn),
-      NestedLoopFacts (V := V) (p := p) (b := b) (fms := fms) (f₀ := f₀) (ctorsA := ctorsA)
+      NestedLoopFacts (V := V) (mp := mp) (p := p) (b := b) (fms := fms) (f₀ := f₀) (ctorsA := ctorsA)
         (kinds := kinds) (env := env) (ppsF := ppsF) (W := W) (idxF := idxF) (dsF := dsF)
         (esF := esF) (srcsF := srcsF) (fvsPF := fvsPF) (xrestF := xrestF) (eissF := eissF)
         (tssF := tssF) (ctorsR := ctorsR) (dsR := dsR) (xFvsR := xFvsR) (pinsS := pinsS) st mp₁' mp₂
@@ -1474,7 +1796,14 @@ theorem nestedStageFacts_of (hst : NestedCtorsStaged V μ F) (hμ : μ.verifiedC
     (hsrc : ConLeche.nestedCopySrcOk env p st = true)
     (hgrp : ConLeche.nestedGroupsOk env p st = true)
     (hsc : ConLeche.pinsScoped p.nP st = true)
+    (hK32 : ConLeche.nestedCopyTargetsOk env p b st stored = true)
     (hkinds : ConLeche.nestedPinKindsOk p b st stored = true)
+    (hrank : ConLeche.nestedPinRankOk env p b st stored = true)
+    (hK42 : ∃ (jobs : List (Nat × Expr × Expr)) (ws : List Expr),
+      ConLeche.nestedOrdDomPairs env p st stored (ConLeche.nestedPinKinds p b stored) = some jobs ∧
+      ConLeche.nestedOrdNorms (m := ConLeche.CheckM) (fueledOps μ F)
+          (ConLeche.consNestedFormers (stored.take p.k) env) b.memberNames jobs = .ok ws ∧
+      ws = jobs.map (·.2.2))
     (hpins₁ : ConLeche.nestedPinsOk (m := ConLeche.CheckM) (fueledOps μ F)
       (ConLeche.consMutualFormers (fms.take p.k) env) p.nP st.pins = .ok ())
     (hnd : b.blockNames.Nodup) (h3 : ConLeche.mutualCtorsGrouped b.ctors = true)
@@ -1545,8 +1874,8 @@ theorem nestedStageFacts_of (hst : NestedCtorsStaged V μ F) (hμ : μ.verifiedC
   -- the loop
   obtain ⟨mp₂, dsR, xFvsR, pinsS, L⟩ := hst hμ mp hE p st b envAux stored ctorsR fmsA ctorsA₀ fms f₀
     ctorsA sortss kinds mp₁ ppsF W idxF dsF esF srcsF fvsPF xFvsF xrestF eissF tssF mp₁' hPM h0 h1
-    hfA hcA helim hcount hfresh hcont hb haux hstored hclosed hpinsAux hcaps hsrc hgrp hsc hkinds hpins₁
-    hformers h hbk h3 hnd hctorsA hleafM' hoff' hfind' hctors
+    hfA hcA helim hcount hfresh hcont hb haux hstored hclosed hpinsAux hcaps hsrc hgrp hsc hK32
+    hkinds hrank hK42 hpins₁ hformers h hbk h3 hnd hctorsA hleafM' hoff' hfind' hctors
   -- the names
   have hnames : (fms.take p.k).map (·.cvTa.name) = p.memberNames := by
     rw [List.map_take, h.names]
@@ -1613,14 +1942,17 @@ theorem nestedStageFacts_of (hst : NestedCtorsStaged V μ F) (hμ : μ.verifiedC
     rw [hmemc]
     exact hmmk
   refine ⟨mp₂, dsR, xFvsR, pinsS,
-    { pinsLen := L.pinsLen, pinRec := L.pinRec, pinDs := L.pinDs, find := L.find, pinψ := L.pinψ
+    { pinsLen := L.pinsLen, pinRec := L.pinRec, pinDs := L.pinDs, pinWd := L.pinWd
+      pinNP := L.pinNP
+      find := L.find, pinψ := L.pinψ
+      pinNIdx := L.pinNIdx
       names := hnames, agree := ?_
       agreeR := fun n hnC hnM => (L.agreeC n hnC).trans (hoff' n hnM)
       findM := fun t f ht hft => L.find (hfind' t f ht hft).1
       leafM := fun t f ht hft => (L.leafKeep t f ht hft).trans (hleafM' t f ht hft)
       FD := fun t f ht hft => FormerData.crossEnv' L.hde (hfind' t f ht hft).2
       ctorsLen := hctorsLen, ctorFacts := L.ctorFacts, domFacts := L.domFacts
-      groups := L.groups }⟩
+      groups := L.groups, groupsAt := L.groupsAt }⟩
   intro n hn ψ
   have hnM : n ∉ p.memberNames := fun hm => hn (List.mem_append_left _ hm)
   have hnC : n ∉ p.ctors.map (·.cv.name) := fun hc => hn (List.mem_append_right _ hc)

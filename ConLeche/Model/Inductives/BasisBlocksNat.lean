@@ -684,6 +684,7 @@ theorem natBlock_pinRecLaws {env : Env} {m : EnvModel V env} :
   fibre := fun _ _ _ _ _ _ _ h => nomatch h
   mkZero := fun _ _ _ _ _ => rfl
   mkInj := fun _ _ _ h => nomatch h
+  injW := fun _ _ h => nomatch h
   ind := fun _ _ _ _ _ _ _ _ h => nomatch h
 
 /-- **`Nat`'s group carries its block model**.  The `inj` clause is
@@ -749,9 +750,35 @@ theorem natBlock_containerModeled {env : Env} {m : EnvModel V env}
     | 1, _ =>
       match l, hx with
       | 0, _ => exact nomatch hk
+  nestMention := fun _ h => nomatch h
   pinsNotMembers := fun _ h => nomatch h
   pinNP := fun _ h => nomatch h
+  pinConts := fun _ h => nomatch h
   pinψ := fun _ h => nomatch h
+  pinParams := fun _ _ _ _ h => nomatch h
+
+/-- **`Nat`'S OWN-PIN TABLE IS EMPTY** (task #315 M7-3 session 17,
+K.49 and DESIGN §U.74).  A pinned basis block installs no MIMIC
+recursor, so `containerOwnPinsAt` of its group hands back the empty
+table at every instantiation, and the clause
+`ContainerOwnPinsSyn` — what `ContainerModeled.ownPins` will be —
+holds vacuously.
+
+That `Nat.rec_1` is absent is a statement about what the environment
+does NOT store, which no other record carries; `checkBasisDecl`
+certifies it itself (`basisOwnMimicsOk`, the last conjunct of
+`DeclBasisRun`), and `hmim` is that Bool at this block's own former,
+which is where `containerOwnPinsAt`'s walk starts. -/
+theorem natBlock_ownPins {env : Env}
+    (hT : env.find? ConLeche.natName = some ConLeche.natA)
+    (hR : env.find? (ConLeche.natName.str "rec") = some ConLeche.natRecA)
+    (hZ : env.find? ConLeche.natZeroName = some ConLeche.natZeroA)
+    (hS : env.find? ConLeche.natSuccName = some ConLeche.natSuccA)
+    (hmim : ConLeche.blockOwnMimicsOk env ConLeche.natName 0 = true) :
+    ContainerOwnPinsSyn (V := V) env (natBlock (V := V)) :=
+  ContainerOwnPinsSyn.of_noMimics hmim fun i hi => by
+    obtain rfl : i = 0 := Nat.lt_one_iff.mp (show i < 1 from hi)
+    exact ⟨_, _, containerInfo?_natA hT hR hZ hS, rfl, rfl⟩
 
 /-- **`Nat` carries its block's model** at any assignment that sends
 its group to `natBlock`. -/

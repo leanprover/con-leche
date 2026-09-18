@@ -756,7 +756,7 @@ def nestedCopySrcOk (env : Env) (p : NestedParts) (st : ElimState) : Bool :=
   | none => false
 
 /-- **A PIN'S COMPONENTS MENTION A MEMBER OF THE BLOCK** (task #315
-K.44, lane M7-3's DESIGN §U.66 (b)).
+K.44, lane M7-3's DESIGN §U.68 (b)).
 
 Lane L-E's `ContainerModeled.nestMention` — `ordFree`'s nested twin —
 asks, at a field the classification calls NESTED at pin `q`, for a

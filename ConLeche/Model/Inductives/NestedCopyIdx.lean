@@ -306,7 +306,7 @@ theorem NestedPinsRun.idxIdent
       ∀ l ∈ q.pin.fvarLeaves, Expr.fvar l.1 l.2 ∈ fvs)
     {pinsS : List PinSyn}
     (SF : NestedPinSynFacts (V := V) (p := p) (b := b) (fms := fms) (f₀ := f₀) (ctorsA := ctorsA)
-      (kinds := kinds) (env := env) (ppsF := ppsF) (W := W) (idxF := idxF) (dsF := dsF)
+      (kinds := kinds) (env := env) (mp := mp) (ppsF := ppsF) (W := W) (idxF := idxF) (dsF := dsF)
       (esF := esF) (srcsF := srcsF) (fvsPF := fvsPF) (xrestF := xrestF) (eissF := eissF)
       (tssF := tssF) (ctorsR := ctorsR) (pinsS := pinsS) st mp₁')
     {dsR : Nat → Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)} {xFvsR : Nat → Nat → List Expr}
@@ -452,6 +452,7 @@ correspondence, `es`), K.28's pre-image computed through
         (Fss₀ := fun ψ => blkFss0 b ctorsA kinds dsF ψ)
         (Ess₀ := fun ψ => mutEss0 ctorsA.length esF ψ) (ψ := ψ) (ρp := ρp)
         mp₁'.base2.acval dJ ((pinsS.getD (q₀ + i) default).ψJ ψ) ((pinsS.getD (q₀ + i) default).Ds ψ)
+        (pinsS.getD (q₀ + i) default).DsE
         cvT.levelParams (pinsS.getD (q₀ + i) default).lvls q₀ kJ i' j
 
 /-- **The copies' ENTRIES at the auxiliary carrier** (NAMED — lane L-E's

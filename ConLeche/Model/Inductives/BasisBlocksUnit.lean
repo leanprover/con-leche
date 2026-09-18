@@ -351,6 +351,7 @@ theorem punitBlock_pinRecLaws {env : Env} {m : EnvModel V env} :
   fibre := fun _ _ _ _ _ _ _ h => nomatch h
   mkZero := fun _ _ _ _ _ => rfl
   mkInj := fun _ _ _ h => nomatch h
+  injW := fun _ _ h => nomatch h
   ind := fun _ _ _ _ _ _ _ _ h => nomatch h
 
 /-- **`PUnit`'s group carries its block model**.  The `inj` clause is
@@ -399,9 +400,27 @@ theorem punitBlock_containerModeled {env : Env} {m : EnvModel V env}
       punitBlock_isBlockModel hT hU (fun h => absurd rfl h)⟩
   frame := fun _ _ _ _ => Iff.rfl
   ordFree := fun _ _ _ _ _ _ h => nomatch h
+  nestMention := fun _ h => nomatch h
   pinsNotMembers := fun _ h => nomatch h
   pinNP := fun _ h => nomatch h
+  pinConts := fun _ h => nomatch h
   pinψ := fun _ h => nomatch h
+  pinParams := fun _ _ _ _ h => nomatch h
+
+/-- **`PUnit`'S OWN-PIN TABLE IS EMPTY** (task #315 M7-3 session 17,
+K.49) — `natBlock_ownPins` at the one-constructor block: no mimic
+recursor is installed, `checkBasisDecl` certifies that itself
+(`basisOwnMimicsOk`), and `containerOwnPinsAt`'s walk stops before its
+first step. -/
+theorem punitBlock_ownPins {env : Env}
+    (hT : env.find? ConLeche.punitName = some ConLeche.punitA)
+    (hR : env.find? ConLeche.punitRecName = some ConLeche.punitRecA)
+    (hU : env.find? ConLeche.punitUnitName = some ConLeche.punitUnitA)
+    (hmim : ConLeche.blockOwnMimicsOk env ConLeche.punitName 0 = true) :
+    ContainerOwnPinsSyn (V := V) env (punitBlock (V := V)) :=
+  ContainerOwnPinsSyn.of_noMimics hmim fun i hi => by
+    obtain rfl : i = 0 := Nat.lt_one_iff.mp (show i < 1 from hi)
+    exact ⟨_, _, containerInfo?_punitA hT hR hU, rfl, rfl⟩
 
 /-- **`PUnit` carries its block's model** at any assignment that sends
 its group to `punitBlock`. -/

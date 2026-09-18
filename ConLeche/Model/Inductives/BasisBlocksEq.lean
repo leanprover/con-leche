@@ -551,9 +551,26 @@ theorem eqBlock_containerModeled {env : Env} {m : EnvModel V env}
       eqBlock_isBlockModel hE hR heq hctorTy (fun h => absurd rfl h)⟩
   frame := fun _ _ _ _ => Iff.rfl
   ordFree := fun _ _ _ _ _ _ h => (nomatch h)
+  nestMention := fun _ h => (nomatch h)
   pinsNotMembers := fun _ h => (nomatch h)
   pinNP := fun _ h => (nomatch h)
+  pinConts := fun _ h => (nomatch h)
   pinψ := fun _ h => (nomatch h)
+  pinParams := fun _ _ _ _ h => (nomatch h)
+
+/-- **`Eq`'S OWN-PIN TABLE IS EMPTY** (task #315 M7-3 session 17,
+K.49) — `natBlock_ownPins` at the two-parameter block.  `Eq` has no
+mimic recursor either; `hmim` is `checkBasisDecl`'s own certification
+(`basisOwnMimicsOk`, the last conjunct of `DeclBasisRun`) at `Eq`. -/
+theorem eqBlock_ownPins {env : Env}
+    (hT : env.find? ConLeche.eqName = some ConLeche.eqA)
+    (hR : env.find? (ConLeche.eqName.str "rec") = some ConLeche.eqRecA)
+    (hC : env.find? ConLeche.eqReflName = some ConLeche.eqReflA)
+    (hmim : ConLeche.blockOwnMimicsOk env ConLeche.eqName 0 = true) :
+    ContainerOwnPinsSyn (V := V) env (eqBlock (V := V)) :=
+  ContainerOwnPinsSyn.of_noMimics hmim fun i hi => by
+    obtain rfl : i = 0 := Nat.lt_one_iff.mp (show i < 1 from hi)
+    exact ⟨_, _, containerInfo?_eqA hT hR hC, rfl, rfl⟩
 
 /-- **`Eq`'s pins' laws**: no pins. -/
 theorem eqBlock_pinRecLaws {env : Env} {m : EnvModel V env} :
@@ -563,6 +580,7 @@ theorem eqBlock_pinRecLaws {env : Env} {m : EnvModel V env} :
   fibre := fun _ _ _ _ _ _ _ h => (nomatch h)
   mkZero := fun _ _ _ _ _ => rfl
   mkInj := fun _ _ _ h => (nomatch h)
+  injW := fun _ _ h => (nomatch h)
   ind := fun _ _ _ _ _ _ _ _ h => (nomatch h)
 
 /-- **`Eq` carries its block's model** at any assignment that sends its

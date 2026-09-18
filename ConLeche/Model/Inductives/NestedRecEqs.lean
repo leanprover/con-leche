@@ -155,7 +155,7 @@ theorem NestedTailIn.towerAgree {mpA : EnvModelM V μ ENVA} {cvRas : List Consta
       ∀ (ci : ContainerInfo) (J : ContainerMember),
         ConLeche.containerInfo? env ((D).pinAt (q₀ + i)).J = some ci → J ∈ ci.members →
         J.name = ((D).pinAt (q₀ + i)).J → (dJ.ctorsM i).map (·.1.name) = J.ctors.map (·.name))
-    (hK35 : NestedRecTysAuxOk p st b stored pinsS)
+    (hK35 : NestedRecTysAuxOk p st b stored)
     {c : Nat} (hc : c < b.k) (ψ : Name → Nat) (ρ : Nat → V)
     {rdsR : List (Nat × Nat × AnnotTerm)} {conc : AnnotTerm}
     (hread : denoteMeta mp₂.base2.acval (ENV2) ψ 0 (nestedRecCvAt p.k cvRms cvRns c).type
@@ -234,7 +234,7 @@ theorem NestedTailIn.eqsWD {mpA : EnvModelM V μ ENVA} {cvRas : List ConstantVal
       ∀ (ci : ContainerInfo) (J : ContainerMember),
         ConLeche.containerInfo? env ((D).pinAt (q₀ + i)).J = some ci → J ∈ ci.members →
         J.name = ((D).pinAt (q₀ + i)).J → (dJ.ctorsM i).map (·.1.name) = J.ctors.map (·.name))
-    (hK35 : NestedRecTysAuxOk p st b stored pinsS)
+    (hK35 : NestedRecTysAuxOk p st b stored)
     {s : (Name → Nat) → Nat} {rdsM : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)}
     {concM : Nat → AnnotTerm}
     (R : NestedRecReadings mp₂.base2 (D) PC cvRms cvRns b.rlps b.elimLevel s rdsM concM)
@@ -297,7 +297,7 @@ theorem NestedTailIn.eqsCand {mpA : EnvModelM V μ ENVA} {cvRas : List ConstantV
       ∀ (ci : ContainerInfo) (J : ContainerMember),
         ConLeche.containerInfo? env ((D).pinAt (q₀ + i)).J = some ci → J ∈ ci.members →
         J.name = ((D).pinAt (q₀ + i)).J → (dJ.ctorsM i).map (·.1.name) = J.ctors.map (·.name))
-    (hK35 : NestedRecTysAuxOk p st b stored pinsS)
+    (hK35 : NestedRecTysAuxOk p st b stored)
     {s : (Name → Nat) → Nat} {rdsM : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)}
     {concM : Nat → AnnotTerm}
     (R : NestedRecReadings mp₂.base2 (D) PC cvRms cvRns b.rlps b.elimLevel s rdsM concM)
@@ -311,7 +311,7 @@ theorem NestedTailIn.eqsCand {mpA : EnvModelM V μ ENVA} {cvRas : List ConstantV
   have hfT := (S.typed ψ).1
   have hR := S.readings ψ
   obtain ⟨cvT, cvR, mI, rP, rules, h⟩ := hreps c hc
-  obtain ⟨cvT0, cvR0, mI0, rP0, rules0, hD0⟩ := I.out.reps 0 I.kpos
+  obtain ⟨cvT0, cvR0, mI0, rP0, rules0, hD0⟩ := I.out.reps.toIsBlockModels 0 I.kpos
   have hcd := h.ctorData hj
   have hj' : j < ((DA).ctorsM c).length := (List.getElem?_eq_some_iff.mp hj).1
   have hpl := hreps.params_length (by omega) ψ
@@ -508,7 +508,7 @@ theorem NestedTailIn.eqsCand {mpA : EnvModelM V μ ENVA} {cvRas : List ConstantV
         List.getElem?_eq_getElem (by rw [List.length_map] at hl'; exact hl'), Option.map_some,
         Option.getD_some, Option.getD_some]
     rw [← nestedInjT_eq ψ c j fs,
-      hD0.blockRecAtT_iota I.out.reps I.pinLaws hρpD hwD hMs hms hcT hidxT hjT hfitT]
+      hD0.blockRecAtT_iota I.out.reps.toIsBlockModels I.pinLaws hρpD hwD hMs hms hcT hidxT hjT hfitT]
     -- the minor and the inductive hypotheses
     have hrecIdx : recIdx (((D).rssT PC c).getD j []) ((((D).FssT PC ψ c).getD j []).length)
         = ConLeche.recIdxOf ((DA).ksF c j) := by
@@ -617,9 +617,11 @@ theorem NestedTailIn.eqsCand {mpA : EnvModelM V μ ENVA} {cvRas : List ConstantV
 /-! ### The record -/
 
 /-- **THE EQUATIONS AT THE TAIL** (PLAN-M7 §2–3): `NestedRecEqs` at
-the SCRATCH block's own rule equations — graded at every tuple typed
-at the restored readings (`eqsWD`) and satisfied at the candidate
-tuple (`eqsCand`). -/
+the SCRATCH block's own rule equations — NAMED, not existential
+(DESIGN §U.29 (yy): the recursors' leaves are a `schoice` over the
+equations, so the rule law can only fire at equations it can point
+to) — graded at every tuple typed at the restored readings (`eqsWD`)
+and satisfied at the candidate tuple (`eqsCand`). -/
 theorem NestedTailIn.recEqsOf {mpA : EnvModelM V μ ENVA} {cvRas : List ConstantVal}
     (S : NestedScratchOut F env b fms f₀ ctorsA kinds mp₁ ppsF W idxF dsF esF srcsF fvsPF xFvsF
       xrestF eissF tssF stored mpA cvRas)
@@ -628,50 +630,209 @@ theorem NestedTailIn.recEqsOf {mpA : EnvModelM V μ ENVA} {cvRas : List Constant
       ∀ (ci : ContainerInfo) (J : ContainerMember),
         ConLeche.containerInfo? env ((D).pinAt (q₀ + i)).J = some ci → J ∈ ci.members →
         J.name = ((D).pinAt (q₀ + i)).J → (dJ.ctorsM i).map (·.1.name) = J.ctors.map (·.name))
-    (hK35 : NestedRecTysAuxOk p st b stored pinsS)
+    (hK35 : NestedRecTysAuxOk p st b stored)
     {s : (Name → Nat) → Nat} {rdsM : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)}
     {concM : Nat → AnnotTerm}
     (R : NestedRecReadings mp₂.base2 (D) PC cvRms cvRns b.rlps b.elimLevel s rdsM concM) :
-    ∃ eqs : (Name → Nat) → List AnnotTerm,
-      NestedRecEqs (D) PC (fun ψ => b.elimLevel.eval ψ) rdsM concM eqs :=
-  ⟨fun ψ => (DA).recEqs mpA.base2 b.elimLevel ψ,
-    { heq := fun ψ ρ _rs hlen hrs _e he =>
-        ⟨(I.eqsWD S hnames hctorsJ hK35 R ψ ρ hlen hrs he).1,
-          (I.eqsWD S hnames hctorsJ hK35 R ψ ρ hlen hrs he).2.1⟩
-      hceq := fun ψ ρ _e he => I.eqsCand S hnames hctorsJ hK35 R ψ ρ he
-      valid := fun ψ ρ _rs hlen hrs _e he =>
-        (I.eqsWD S hnames hctorsJ hK35 R ψ ρ hlen hrs he).2.2
-      below := fun ψ _e he => by
-        have h := S.reps.specEqs_below (S.readings ψ) _ he
-        rw [S.record.k, ← I.kT] at h
-        exact h }⟩
+    NestedRecEqs (D) PC (fun ψ => b.elimLevel.eval ψ) rdsM concM
+      (fun ψ => (DA).recEqs mpA.base2 b.elimLevel ψ) :=
+  { heq := fun ψ ρ _rs hlen hrs _e he =>
+      ⟨(I.eqsWD S hnames hctorsJ hK35 R ψ ρ hlen hrs he).1,
+        (I.eqsWD S hnames hctorsJ hK35 R ψ ρ hlen hrs he).2.1⟩
+    hceq := fun ψ ρ _e he => I.eqsCand S hnames hctorsJ hK35 R ψ ρ he
+    valid := fun ψ ρ _rs hlen hrs _e he =>
+      (I.eqsWD S hnames hctorsJ hK35 R ψ ρ hlen hrs he).2.2
+    below := fun ψ _e he => by
+      have h := S.reps.specEqs_below (S.readings ψ) _ he
+      rw [S.record.k, ← I.kT] at h
+      exact h }
 
 end Run
 
 /-! ## The named fact and its consumer -/
 
+/-- **The equations at the run** (DESIGN §U.25 (e) 3–4): at every tail
+input, every readings record and every SCRATCH out-record, THE SCRATCH
+BLOCK'S OWN rule equations satisfy `NestedRecEqs` (graded at the
+restored readings, satisfied at the candidate).  The equations are
+NAMED, not existential: the recursors' leaves are a `schoice` over
+them, so the rule law can only fire at equations it can point to
+(DESIGN §U.29 (yy)).  Consumer:
+`nestedTailModeled_of`. -/
+@[expose] def NestedRecEqsOf (V : Type w) [SetTheory V] (μ : CheckMode) (F : Nat) : Prop :=
+  ∀ {env : Env} (mp : EnvModelM V μ env) (p : NestedParts) (envOut : Env) (st : ElimState)
+    (b : MutualBlock) (envAux : Env) (stored : List AuxStored)
+    (ctorsR : List (List (ConstantVal × Nat × Nat))) (cvRms cvRns : List ConstantVal)
+    (rulesM rulesN : List (List RecRule)) (fmsA ctorsA₀ : List ConstantVal)
+    (fms : List MutualFormerA) (f₀ : MutualFormerA) (ctorsA : List (ConstantVal × Nat))
+    (sortss : List (List Level)) (kinds : List (List (RecFieldKind × Nat)))
+    (mp₁ : EnvModelM V μ (ConLeche.consMutualFormers fms env))
+    (ppsF : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)) (W : (Name → Nat) → Nat)
+    (idxF : Nat → List Expr) (dsF : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm))
+    (esF : Nat → (Name → Nat) → List AnnotTerm) (srcsF : Nat → List (Option Nat))
+    (fvsPF xFvsF : Nat → List Expr) (xrestF : Nat → Expr)
+    (eissF : Nat → (Name → Nat) → List (List AnnotTerm))
+    (tssF : Nat → (Name → Nat) → List (List (Nat × Nat × AnnotTerm)))
+    (dsR : Nat → Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)) (xFvsR : Nat → Nat → List Expr)
+    (pinsS : List PinSyn)
+    (mp₂ : EnvModelM V μ (ConLeche.consNestedCtors ctorsR.flatten
+      (ConLeche.consMutualFormers (fms.take p.k) env))),
+    NestedTailIn F mp p envOut st b envAux stored ctorsR cvRms cvRns rulesM rulesN fmsA ctorsA₀
+      fms f₀ ctorsA sortss kinds mp₁ ppsF W idxF dsF esF srcsF fvsPF xFvsF xrestF eissF tssF dsR
+      xFvsR pinsS mp₂ →
+    ∀ (s : (Name → Nat) → Nat) (rdsM : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm))
+      (concM : Nat → AnnotTerm),
+      NestedRecReadings mp₂.base2
+        (nestedBlockModel (V := V) p b fms f₀ ctorsA kinds env ppsF W idxF dsF esF srcsF fvsPF
+          xrestF eissF tssF ctorsR dsR xFvsR pinsS)
+        (nestedPc (V := V) b ctorsA kinds p.k f₀.s dsF esF eissF tssF)
+        cvRms cvRns b.rlps b.elimLevel s rdsM concM →
+      ∀ (mpA : EnvModelM V μ (ConLeche.consMutualCtors b.nP ctorsA
+          (ConLeche.consMutualFormers fms env))) (cvRas : List ConstantVal),
+        NestedScratchOut F env b fms f₀ ctorsA kinds mp₁ ppsF W idxF dsF esF srcsF fvsPF xFvsF
+          xrestF eissF tssF stored mpA cvRas →
+        NestedRecEqs
+          (nestedBlockModel (V := V) p b fms f₀ ctorsA kinds env ppsF W idxF dsF esF srcsF fvsPF
+            xrestF eissF tssF ctorsR dsR xFvsR pinsS)
+          (nestedPc (V := V) b ctorsA kinds p.k f₀.s dsF esF eissF tssF)
+          (fun ψ => b.elimLevel.eval ψ) rdsM concM
+        (fun ψ => (mutualBlockModel (V := V) b fms f₀ ctorsA kinds env ppsF W idxF dsF esF
+          srcsF fvsPF xFvsF xrestF eissF tssF).recEqs mpA.base2 b.elimLevel ψ)
+
+/-- **The stage proper** (DESIGN §U.25 (e) 5): at every tail input, from
+the readings, the equations and the chosen tuple, the provision conses
+of the `k + nPins` rule-less recursors, the rule law per restored rule,
+the store swap, the post-checks and the tables cons a model of the
+post-block environment.  Consumer: `nestedTailModeled_of`. -/
+@[expose] def NestedRecsStored (V : Type w) [SetTheory V] (μ : CheckMode) (F : Nat) : Prop :=
+  ∀ {env : Env} (mp : EnvModelM V μ env) (p : NestedParts) (envOut : Env) (st : ElimState)
+    (b : MutualBlock) (envAux : Env) (stored : List AuxStored)
+    (ctorsR : List (List (ConstantVal × Nat × Nat))) (cvRms cvRns : List ConstantVal)
+    (rulesM rulesN : List (List RecRule)) (fmsA ctorsA₀ : List ConstantVal)
+    (fms : List MutualFormerA) (f₀ : MutualFormerA) (ctorsA : List (ConstantVal × Nat))
+    (sortss : List (List Level)) (kinds : List (List (RecFieldKind × Nat)))
+    (mp₁ : EnvModelM V μ (ConLeche.consMutualFormers fms env))
+    (ppsF : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)) (W : (Name → Nat) → Nat)
+    (idxF : Nat → List Expr) (dsF : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm))
+    (esF : Nat → (Name → Nat) → List AnnotTerm) (srcsF : Nat → List (Option Nat))
+    (fvsPF xFvsF : Nat → List Expr) (xrestF : Nat → Expr)
+    (eissF : Nat → (Name → Nat) → List (List AnnotTerm))
+    (tssF : Nat → (Name → Nat) → List (List (Nat × Nat × AnnotTerm)))
+    (dsR : Nat → Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)) (xFvsR : Nat → Nat → List Expr)
+    (pinsS : List PinSyn)
+    (mp₂ : EnvModelM V μ (ConLeche.consNestedCtors ctorsR.flatten
+      (ConLeche.consMutualFormers (fms.take p.k) env))),
+    NestedTailIn F mp p envOut st b envAux stored ctorsR cvRms cvRns rulesM rulesN fmsA ctorsA₀
+      fms f₀ ctorsA sortss kinds mp₁ ppsF W idxF dsF esF srcsF fvsPF xFvsF xrestF eissF tssF dsR
+      xFvsR pinsS mp₂ →
+    ∀ (s : (Name → Nat) → Nat) (rdsM : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm))
+      (concM : Nat → AnnotTerm),
+      NestedRecReadings mp₂.base2
+        (nestedBlockModel (V := V) p b fms f₀ ctorsA kinds env ppsF W idxF dsF esF srcsF fvsPF
+          xrestF eissF tssF ctorsR dsR xFvsR pinsS)
+        (nestedPc (V := V) b ctorsA kinds p.k f₀.s dsF esF eissF tssF)
+        cvRms cvRns b.rlps b.elimLevel s rdsM concM →
+      ∀ (mpA : EnvModelM V μ (ConLeche.consMutualCtors b.nP ctorsA
+          (ConLeche.consMutualFormers fms env))) (cvRas : List ConstantVal),
+        NestedScratchOut F env b fms f₀ ctorsA kinds mp₁ ppsF W idxF dsF esF srcsF fvsPF xFvsF
+          xrestF eissF tssF stored mpA cvRas →
+        NestedRecEqs
+          (nestedBlockModel (V := V) p b fms f₀ ctorsA kinds env ppsF W idxF dsF esF srcsF fvsPF
+            xrestF eissF tssF ctorsR dsR xFvsR pinsS)
+          (nestedPc (V := V) b ctorsA kinds p.k f₀.s dsF esF eissF tssF)
+          (fun ψ => b.elimLevel.eval ψ) rdsM concM
+        (fun ψ => (mutualBlockModel (V := V) b fms f₀ ctorsA kinds env ppsF W idxF dsF esF
+          srcsF fvsPF xFvsF xrestF eissF tssF).recEqs mpA.base2 b.elimLevel ψ) →
+        NestedRecTuple
+          (nestedBlockModel (V := V) p b fms f₀ ctorsA kinds env ppsF W idxF dsF esF srcsF fvsPF
+            xrestF eissF tssF ctorsR dsR xFvsR pinsS) s rdsM concM
+        (fun ψ => (mutualBlockModel (V := V) b fms f₀ ctorsA kinds env ppsF W idxF dsF esF
+          srcsF fvsPF xFvsF xrestF eissF tssF).recEqs mpA.base2 b.elimLevel ψ) →
+        -- task #315 M7-3 session 10 (DESIGN §U.67 (c)): the conclusion is
+        -- `NestedTailModeled`'s, which now carries the install's conses, the
+        -- agreements, the block's representation at the OUTPUT model and the
+        -- pins' groups with their containers' models NAMED — what the route's
+        -- lift to `EnvModelB` reads (`declNested_of`).
+        ∃ mpOut : EnvModelM V μ envOut,
+          NestedTailOut (V := V) (p := p) (b := b) (fms := fms) (f₀ := f₀) (ctorsA := ctorsA)
+            (kinds := kinds) (env := env) (ppsF := ppsF) (W := W) (idxF := idxF) (dsF := dsF)
+            (esF := esF) (srcsF := srcsF) (fvsPF := fvsPF) (xrestF := xrestF) (eissF := eissF)
+            (tssF := tssF) (ctorsR := ctorsR) (dsR := dsR) (xFvsR := xFvsR) (pinsS := pinsS)
+            mp stored mp₂ envOut mpOut
+
+/-! ## The skeleton -/
+
+/-- **THE RECURSORS' STAGE OF A NESTED BLOCK, assembled** — `NestedTailModeled`
+from its three named facts: at the tail's input the pins' laws are
+M7-1's (`nestedPinRecLaws_of`), the readings are found, the equations at the readings follow, the chosen
+tuple exists (`nestedRecsTuple_of`: `nestedRecs` with `hcand` from
+`hcandT` at the readings' frames), and the stage conses the post-block
+model from them. -/
+theorem nestedTailModeled_of {F : Nat}
+    (hrd : NestedRecReadingsOf V μ F) (heqs : NestedRecEqsOf V μ F)
+    (hst : NestedRecsStored V μ F) : NestedTailModeled V μ F := by
+  intro hμ env mp hE p envOut st b envAux stored ctorsR cvRms cvRns rulesM rulesN fmsA ctorsA₀
+    hPM h0 h1 hfA hcA helim hcount hfresh hcont hb haux hstored hclosed hpinsAux hcaps hsrc hgrp hkinds
+    hauxApps hctors hrm hrn hndR hdisj hrulesM hrulesN htbl hpinsOut hcnt hrecs fms f₀ ctorsA sortss
+    kinds mp₁ ppsF W idxF
+    dsF esF srcsF fvsPF xFvsF xrestF eissF tssF dsR xFvsR pinsS mp₂ henv O
+  have I : NestedTailIn F mp p envOut st b envAux stored ctorsR cvRms cvRns rulesM rulesN fmsA
+      ctorsA₀ fms f₀ ctorsA sortss kinds mp₁ ppsF W idxF dsF esF srcsF fvsPF xFvsF xrestF eissF tssF
+      dsR xFvsR pinsS mp₂ :=
+    ⟨hμ, hE, hPM, h0, h1, hfA, hcA, helim, hcount, hfresh, hcont, hb, haux, hstored, hclosed,
+      hpinsAux, hcaps, hsrc, hgrp, hkinds, hauxApps, hctors, hrm, hrn, hndR, hdisj, hrulesM,
+      hrulesN, htbl, hpinsOut, hcnt, hrecs, henv, O⟩
+  have hp := nestedPinRecLaws_of hμ O.facts O.grouped O.bk mp₂.base2 O.stage.groups
+  obtain ⟨mpA, cvRas, S⟩ := I.scratch
+  obtain ⟨s, rdsM, concM, R⟩ := hrd mp p envOut st b envAux stored ctorsR cvRms cvRns rulesM rulesN
+    fmsA ctorsA₀ fms f₀ ctorsA sortss kinds mp₁ ppsF W idxF dsF esF srcsF fvsPF xFvsF xrestF eissF
+    tssF dsR xFvsR pinsS mp₂ I
+  have E := heqs mp p envOut st b envAux stored ctorsR cvRms cvRns rulesM rulesN fmsA
+    ctorsA₀ fms f₀ ctorsA sortss kinds mp₁ ppsF W idxF dsF esF srcsF fvsPF xFvsF xrestF eissF tssF
+    dsR xFvsR pinsS mp₂ I s rdsM concM R mpA cvRas S
+  have hk : 0 < (nestedBlockModel (V := V) p b fms f₀ ctorsA kinds env ppsF W idxF dsF esF srcsF
+      fvsPF xrestF eissF tssF ctorsR dsR xFvsR pinsS).k := I.kpos
+  exact hst mp p envOut st b envAux stored ctorsR cvRms cvRns rulesM rulesN fmsA ctorsA₀ fms f₀
+    ctorsA sortss kinds mp₁ ppsF W idxF dsF esF srcsF fvsPF xFvsF xrestF eissF tssF dsR xFvsR pinsS
+    mp₂ I s rdsM concM R mpA cvRas S E (nestedRecsTuple_of O.reps.toIsBlockModels hp hk R E)
+
 /-- **THE EQUATIONS AT THE RUN** — `NestedRecEqsOf`, the second of
 `nestedTailModeled_of`'s three named facts, at every tail input and
-every readings record, modulo the same TWO model faces the readings
-take: K.35 (`NestedRecTysAuxOf`) and K.36 (`NestedCtorPinNamesOf`);
+every readings record, modulo the same ONE model face the readings
+take: K.36 (`NestedCtorPinNamesOf`) — K.35's face is the run's own Bool
+(`nestedRecTysAuxOk_of_bool` at `NestedTailIn.hauxApps`);
 `hctorsJ` is the pin group's own `NestedPinGroup.ctorsOf`. -/
-theorem nestedRecEqsOf_of_faces {F : Nat} (hK35 : NestedRecTysAuxOf μ F)
+theorem nestedRecEqsOf_of_faces {F : Nat}
     (hK36 : NestedCtorPinNamesOf μ F) : NestedRecEqsOf V μ F := by
   intro env mp p envOut st b envAux stored ctorsR cvRms cvRns rulesM rulesN fmsA ctorsA₀ fms f₀
     ctorsA sortss kinds mp₁ ppsF W idxF dsF esF srcsF fvsPF xFvsF xrestF eissF tssF dsR xFvsR
-    pinsS mp₂ I s rdsM concM R
-  obtain ⟨mpA, cvRas, S⟩ := I.scratch
+    pinsS mp₂ I s rdsM concM R mpA cvRas S
   exact I.recEqsOf S (hK36 env p st fmsA ctorsA₀ I.hfA I.hcA I.helim I.hcont)
     (fun _q₀ _kJ i _dJ G hi ci J h1 h2 h3 => (G.ctorsOf i hi ci J h1 h2 h3).1)
-    (hK35 env p st b envAux stored pinsS I.hb I.haux I.hstored I.out.stage.pinsLen) R
+    (nestedRecTysAuxOk_of_bool I.hb I.hauxApps) R
+
+/-- **THE CONSUMER** (consumer-first): the frames feed the recursors'
+stage verbatim — `nestedTailModeled_of` at `nestedRecReadingsOf_of`'s
+output and the stage's other two named facts. -/
+theorem nestedTailModeled_of_frames {F : Nat} (hfr : NestedRecFramesOf V μ F)
+    (heqs : NestedRecEqsOf V μ F) (hst : NestedRecsStored V μ F) : NestedTailModeled V μ F :=
+  nestedTailModeled_of (nestedRecReadingsOf_of hfr) heqs hst
+
+/-- **THE CONSUMER** (consumer-first): the recursors' stage at the run
+needs the readings, and this lane supplies them from the ONE model
+face alone. -/
+theorem nestedTailModeled_of_faces {F : Nat}
+    (hK36 : NestedCtorPinNamesOf μ F)
+    (heqs : NestedRecEqsOf V μ F) (hst : NestedRecsStored V μ F) : NestedTailModeled V μ F :=
+  nestedTailModeled_of_frames (nestedRecFramesOf_of hK36) heqs hst
 
 /-- **THE CONSUMER** (consumer-first): with the readings and the
-equations both discharged from the two model faces, the recursors'
+equations both discharged from the ONE model face, the recursors'
 stage of a nested block needs only the stage proper
 (`NestedRecsStored`, item 5). -/
-theorem nestedTailModeled_of_stage {F : Nat} (hK35 : NestedRecTysAuxOf μ F)
+theorem nestedTailModeled_of_stage {F : Nat}
     (hK36 : NestedCtorPinNamesOf μ F) (hst : NestedRecsStored V μ F) :
     NestedTailModeled V μ F :=
-  nestedTailModeled_of_faces hK35 hK36 (nestedRecEqsOf_of_faces hK35 hK36) hst
+  nestedTailModeled_of_faces hK36 (nestedRecEqsOf_of_faces hK36) hst
 
 end ConLeche.Model
