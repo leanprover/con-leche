@@ -93735,3 +93735,85 @@ demotable; nested-shadow 28/28.  `tests/arena.sh` not re-run: the
 session touches no checker code.  Standard axioms throughout
 (`liftN0_inj` and `instAll_liftN0` need only `propext` and
 `Quot.sound`).
+
+#### U.83 — L-B session 25: the superseded step-two form deleted, the chain's last unknown resolved, and a cwd incident that cost the session (lane L-B, 2026-09-18)
+
+##### (a) A SELF-INFLICTED FALSE ALARM, AND WHAT IT COST
+
+Half this session went to a scare of the lane's own making.  A `grep`
+and a `git log` written WITHOUT the `cd` prefix ran after a
+working-directory reset, in ANOTHER LANE'S worktree, and reported that
+`copyPinFDom`, `copyPinFFire` and `copyPinFCorr` were absent from the
+tree and that HEAD carried another lane's commits.  Both reports were
+true OF THAT WORKTREE.  Re-running everything against absolute paths
+showed all three theorems present at the lines the record gives and
+HEAD exactly where it was left.
+
+The lesson is not "use absolute paths" — that was already the rule and
+the build commands obeyed it.  It is that a READ can mislead as badly
+as a write: a relative `grep` that finds nothing looks like a finding,
+and a relative `git log` looks like history.  **Diagnostic commands
+need the prefix as much as mutating ones**, and a surprising absence
+should be re-checked with an absolute path BEFORE it is believed.
+
+##### (b) THE SUPERSEDED FORM, DELETED (commit `0ee2d88a`)
+
+`copyPinFFire` (session 22) took the mention and the loose-variable
+premise as named inputs and concluded less; `copyPinFCorr` derives both
+and concludes more, and has since.  The file's only occurrence of the
+older name was its own declaration — no consumers — so a second proof
+of the same step with weaker hypotheses was sitting there waiting to
+diverge.  It is gone.  105 lines.
+
+It also explains a discrepancy in this lane's own record: §U.80 called
+the step-two result `copyPinFCorr` while the tree carried both names
+for a session.  One name now.
+
+##### (c) THE CHAIN'S LAST UNKNOWN, RESOLVED — every lemma is named
+
+§U.82 (c) recorded the chain but left the spine's depth change
+unlocated.  It is `DenoteMetaSpine.map_map`
+(`Model/Inductives/FixRecRead.lean`): a spine at one depth becomes a
+spine at another under a pointwise transfer of the readings, which is
+exactly `denoteMeta_lift` applied element by element.  With
+`DenoteMetaSpine.append_inv` to split the components from the index
+expressions and `DenoteMetaSpine.unique` to match two spines over the
+same expressions, the chain has NO unnamed step left:
+
+`mintFieldRead` → `BlockCtorData.nestEntry` → `AnnotTerm.instAll_mkAppN`
+and `List.map_append` → `hfcs'` and `copyPinFDom`'s shape with
+`instSeq_mkAppN_const` → `denoteMeta_mkAppN_inv` →
+`AnnotTerm.mkAppN_inj` and `List.append_inj` → `pinDs` with
+`DenoteMetaSpine.map_map` over `denoteMeta_lift` →
+`DenoteMetaSpine.unique` → `instAll_liftN0` → `liftN0_inj`.
+
+One step of the front half is worth recording because it is not
+obvious: `xI.fvarTypeD`'s arguments are the elimination's minted
+arguments instantiated ONCE MORE, at the minted constructor's own
+field openers — and that second layer vanishes because the pin's
+components are loose-`bvar`-free, which is step two's `hloose`
+(`Expr.instSeq_eq_self`).  So `hloose` earns its keep twice: it lets
+the fire fire, and it makes the components' reading computable.
+
+##### (d) WHAT WAS WRITTEN AND NOT KEPT
+
+The chain's front half — the minted constructor's opening, the pin's
+components scoped and read, `mintFieldRead`, `nestEntry` and the
+reading's decomposition — was written and typechecks but for two
+`have`s (`hfcsl'`, `hxIdom`, both transcribable from
+`copyOrdFLeftRead`).  The back half was not written, and the theorem
+cannot compile with a conclusion it does not discharge, so the work was
+REVERTED rather than left half-applied: the tree is green at every
+commit.  The next session writes it in one pass, and by (c) nothing in
+it is unknown.
+
+##### (e) GATES
+
+`lake build` 716 jobs warning-free; `lake build ConLecheTests` 572 jobs
+warning-free; layering base 351 / model 282 / caps 3 / umbrella 1, 0
+base->lane and 0 impl->theory; trust surface 13/5 (648 scanned);
+no-local-paths OK; overview-links 112, no anchor moved; quote-gate 2;
+**proofdeps 4965 rows / 12 roots / 0 doors** (the baseline, unmoved);
+shake 511 removals all allowlisted; pub-imports 1315 of 2147, none
+demotable; nested-shadow 28/28.  `tests/arena.sh` not re-run: the
+session touches no checker code.
