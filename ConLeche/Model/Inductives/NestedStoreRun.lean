@@ -165,6 +165,9 @@ variable {env : Env} {F : Nat} {mp : EnvModelM V μ env} {p : NestedParts} {envO
 local notation "ENV2" => (ConLeche.consNestedCtors ctorsR.flatten
   (ConLeche.consMutualFormers (fms.take p.k) env))
 
+local notation "DB" => (nestedBlockModel (V := V) p b fms f₀ ctorsA kinds env ppsF W idxF dsF esF
+  srcsF fvsPF xrestF eissF tssF ctorsR dsR xFvsR pinsS)
+
 variable (I : NestedTailIn F mp p envOut st b envAux stored ctorsR cvRms cvRns rulesM rulesN
   fmsA ctorsA₀ fms f₀ ctorsA sortss kinds mp₁ ppsF W idxF dsF esF srcsF fvsPF xFvsF xrestF eissF
   tssF dsR xFvsR pinsS mp₂)
@@ -417,6 +420,197 @@ theorem NestedTailIn.storeCtors
   obtain ⟨-, -, -, -, -, -, -, hfindC, -, -, -, -⟩ := hallR ii rl r hrlAt hoAt
   obtain ⟨cvj, cnF, hfc⟩ := hfindC
   exact ⟨⟨cvj, RecRule.ctorParams r, cnF, hfc⟩, hk0, by rw [hcv]; exact he0⟩
+
+/-! ## The restored field domains, against the auxiliary ones -/
+
+/-- **THE RESTORED AND THE AUXILIARY FIELD DOMAINS READ ALIKE AT THE
+TAIL** — `nestedDomAgree_of` (`NestedCore.lean`) at the restored
+constructors' model.  Its six data are the tail's own: the restored
+domains' LENGTH, their parameter prefix and their plain positions come
+from `NestedStageFacts.domFacts`, their grading and their NESTED
+positions' shape off the block model's own constructor record
+(`BlockCtorData` at `(DB).dsF mm j = dsR mm j`, which
+`NestedCoreOut.reps` publishes).
+
+This is what carries the constructor stage's FIELD facts — the
+grading, the bounds and the field sorts' universes — across the
+restore, and so what the projection tables' `MutualTableFacts` at the
+nested block model rests on. -/
+theorem NestedTailIn.domAgree {mm j : Nat} (hmm : mm < p.k)
+    {c : ConstantVal × Nat × Nat} (hc : (ctorsR.getD mm [])[j]? = some c)
+    {cA : ConstantVal × Nat} (hJ : ctorsA[b.ownOffset mm + j]? = some cA)
+    (hnF : c.2.2 = cA.2) (hmemJ : mutMemF b (b.ownOffset mm + j) = mm) :
+    ∀ (ψ : Name → Nat) (ρ : Nat → V),
+      Sat V (((dsF (b.ownOffset mm + j) ψ).take b.nP).map (·.2.2)).reverse ρ →
+      ∀ l, l < cA.2 → ∀ fs₁ : List V, fs₁.length = l →
+        SpineFit ρ ((((dsF (b.ownOffset mm + j) ψ).drop b.nP).map (·.2.2)).take l) fs₁ →
+        SpineFit ρ ((((dsR mm j ψ).drop b.nP).map (·.2.2)).take l) fs₁ →
+        interp V (consList fs₁ ρ) ((dsF (b.ownOffset mm + j) ψ).getD (b.nP + l) default).2.2
+          = interp V (consList fs₁ ρ) ((dsR mm j ψ).getD (b.nP + l) default).2.2 := by
+  have hjl : j < (ctorsR.getD mm []).length := (List.getElem?_eq_some_iff.mp hc).1
+  have hdom := I.out.stage.domFacts
+  have hcM : ((DB).ctorsM mm)[j]? = some (c.1, c.2.2) := by
+    change ((ctorsR.getD mm []).map fun c => (c.1, c.2.2))[j]? = _
+    rw [List.getElem?_map, hc]
+    rfl
+  obtain ⟨cvR, mI, rP, rules, hI⟩ := I.out.reps mm hmm
+  obtain ⟨-, -, hCD⟩ := hI.ctors mm j _ hmm hcM
+  have hnFl : ∀ l, l < cA.2 → l < c.2.2 := fun l hl => by rw [hnF]; exact hl
+  refine nestedDomAgree_of I.hμ I.out.facts I.out.grouped I.out.bk mp₂.base2
+    I.out.stage.groups hJ hmemJ (fun ψ => ?_)
+    (R := fun ψ => ctorBodyAVI mp₂.base2 ((DB).memberName mm) (DB).nP c.2.2 ψ
+      ((DB).esF mm j ψ))
+    (fun ψ ρ => (hCD.okTy ψ ρ).1) (fun ψ => (hdom mm j ψ hmm hjl).2.1)
+    (fun ψ l _ hpl => (hdom mm j ψ hmm hjl).2.2 l hpl)
+    (fun ψ l q hl hq hk => ⟨hCD.nestEntry ψ l q hq hk (hnFl l hl),
+      hCD.nestEisLen ψ l q hq hk (hnFl l hl)⟩)
+    (fun ψ l q hl hq hk => ⟨hCD.nestReflEntry ψ l q hq hk (hnFl l hl),
+      hCD.nestEisLenRefl ψ l q hq hk (hnFl l hl)⟩)
+  rw [(hdom mm j ψ hmm hjl).1]
+  exact (I.out.facts.CD _ _ hJ).len ψ
+
+/-! ## The nested block model's table facts -/
+
+/-- A constructor position of a member is the auxiliary block's, at the
+member's own offset (`ownCtors`' grouping), so the block's constructor
+table sends it back to that member. -/
+theorem NestedTailIn.memF {mm : Nat} (hmm : mm < p.k) {j : Nat}
+    (hj : j < (ctorsR.getD mm []).length) : mutMemF b (b.ownOffset mm + j) = mm := by
+  have hjo : j < (b.ownCtors mm).length := by
+    rw [← I.out.stage.ctorsLen mm hmm]; exact hj
+  obtain ⟨q, hq⟩ : ∃ q, (b.ownCtors mm)[j]? = some q := ⟨_, List.getElem?_eq_getElem hjo⟩
+  obtain ⟨J, ct⟩ := q
+  obtain ⟨hcJ, hmemc⟩ := ConLeche.ownCtors_getElem?_ctors hq
+  have hJ : J = b.ownOffset mm + j := ConLeche.ownCtors_getElem?_idx I.out.grouped hq
+  show (b.ctors.getD (b.ownOffset mm + j) default).member = mm
+  rw [← hJ, List.getD_eq_getElem?_getD, hcJ]
+  exact hmemc
+
+/-- **THE NESTED BLOCK MODEL'S TABLE FACTS** (task #315 M7-2) —
+`MutualTableFacts` (`DeclBlock.lean`) at the nested run's data, which
+is what `tableMember_of` reads of a structure-like member beyond the
+block model itself.  The three fields come from three different
+places:
+
+* `inj` is `rfl`: `BlockModel.ofNested`'s injection IS the tagged tower
+  at the MEMBER-LOCAL position;
+* `frame` is `MutualFormersFacts.frame` verbatim — the nested block
+  model's members are the scratch block's first `p.k`, with the same
+  parameter readings `ppsF`, so the cross-member identification is the
+  scratch one;
+* `sorts` is the real content, because it is about the RESTORED field
+  domains `dsR`.  The field SORTS are the scratch constructor stage's
+  (`sortsJ`) and so are the grading, the bounds and the sorts'
+  universes (`framesJ`) — all stated at the AUXILIARY domains `dsF`.
+  `NestedTailIn.domAgree` carries each of them across the restore:
+  the parameter prefix is literally equal (`domFacts`), so the frame
+  transfers, and the field entries read alike, so the universes do
+  (`fieldsOkB_of_agree`, `fieldsBound_of_agree`).  The restored list's
+  own `WellDenoted`/`AnnotValid` halves — which no agreement can give
+  — come from its Π-tower's truthfulness, the block model's
+  constructor record (`CtorDataI.okTy`). -/
+theorem NestedTailIn.tableFacts : MutualTableFacts b fms sortss (DB) where
+  inj _ _ _ _ := rfl
+  frame t ht ψ ρ := by
+    have ht' : t < p.k := ht
+    have htl : t < fms.length := by
+      rw [I.out.facts.lenFms, I.out.bk]; omega
+    exact I.out.facts.frame t _ (List.getElem?_eq_getElem htl) ψ ρ
+  sorts mm j cA hmm hj := by
+    -- the restored constructor at that position, and the auxiliary one
+    obtain ⟨c, hc, hcaEq⟩ : ∃ c, (ctorsR.getD mm [])[j]? = some c ∧ cA = (c.1, c.2.2) := by
+      have hm : ((ctorsR.getD mm []).map fun cc => (cc.1, cc.2.2))[j]? = some cA := hj
+      rw [List.getElem?_map] at hm
+      cases hcc : (ctorsR.getD mm [])[j]? with
+      | none => rw [hcc] at hm; exact nomatch hm
+      | some c' => exact ⟨c', rfl, by rw [hcc] at hm; exact (Option.some.inj hm).symm⟩
+    subst hcaEq
+    have hjl : j < (ctorsR.getD mm []).length := (List.getElem?_eq_some_iff.mp hc).1
+    obtain ⟨cAx, hJ, hnF, -, -, -⟩ := I.out.stage.ctorFacts mm j c hmm hc
+    have hmemJ : mutMemF b (b.ownOffset mm + j) = mm := I.memF hmm hjl
+    have hJl : b.ownOffset mm + j < ctorsA.length := (List.getElem?_eq_some_iff.mp hJ).1
+    have hmtl : mutMemF b (b.ownOffset mm + j) < fms.length := I.out.facts.motLt _ hJl
+    have hmtG : fms[mutMemF b (b.ownOffset mm + j)]?
+        = some (fms.getD (mutMemF b (b.ownOffset mm + j)) default) := by
+      rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hmtl]; rfl
+    obtain ⟨sorts, hss, hlenS, hleqS, hmemS⟩ := I.out.facts.sortsJ I.hμ hJ
+    -- the restored constructor's record at the block model
+    have hcM : ((DB).ctorsM mm)[j]? = some (c.1, c.2.2) := hj
+    obtain ⟨cvR, mI, rP, rules, hIb⟩ := I.out.reps mm hmm
+    obtain ⟨-, -, hCD⟩ := hIb.ctors mm j _ hmm hcM
+    have hsEq : ∀ ψ : Name → Nat,
+        (fms.getD (mutMemF b (b.ownOffset mm + j)) default).s.eval ψ = f₀.s.eval ψ :=
+      fun ψ => I.out.facts.sEq _ _ hmtG ψ
+    refine ⟨sorts, hss, by rw [hlenS]; exact hnF.symm, ?_, ?_⟩
+    · intro k hk hp
+      have h := hleqS k (by rw [← hnF]; exact hk) hp
+      rw [hmemJ] at h
+      exact h
+    intro ψ ρ hsatR
+    -- the lengths, and the parameter frame at the AUXILIARY domains
+    have hdom := I.out.stage.domFacts mm j ψ hmm hjl
+    have hlenDsA : (dsF (b.ownOffset mm + j) ψ).length = b.nP + cAx.2 :=
+      (I.out.facts.CD _ _ hJ).len ψ
+    have hlenDsR : (dsR mm j ψ).length = b.nP + cAx.2 := by rw [hdom.1]; exact hlenDsA
+    have hsatA : Sat V (((dsF (b.ownOffset mm + j) ψ).take b.nP).map (·.2.2)).reverse ρ := by
+      rw [← hdom.2.1]; exact hsatR
+    have hlenA : ((((dsF (b.ownOffset mm + j) ψ).drop b.nP).map (·.2.2))).length = cAx.2 := by
+      rw [List.length_map, List.length_drop, hlenDsA]; omega
+    have hlenR : ((((dsR mm j ψ).drop b.nP).map (·.2.2))).length = cAx.2 := by
+      rw [List.length_map, List.length_drop, hlenDsR]; omega
+    -- THE AGREEMENT, in the field lists' own currency
+    have hag : ∀ l, l < cAx.2 → ∀ fs : List V, fs.length = l →
+        SpineFit ρ ((((dsF (b.ownOffset mm + j) ψ).drop b.nP).map (·.2.2)).take l) fs →
+        SpineFit ρ ((((dsR mm j ψ).drop b.nP).map (·.2.2)).take l) fs →
+        interp V (consList fs ρ)
+            ((((dsF (b.ownOffset mm + j) ψ).drop b.nP).map (·.2.2)).getD l default)
+          = interp V (consList fs ρ)
+            ((((dsR mm j ψ).drop b.nP).map (·.2.2)).getD l default) := by
+      intro l hl fs hfl h1 h2
+      rw [fieldsGetD _ _ _ (by rw [hlenDsA]; omega), fieldsGetD _ _ _ (by rw [hlenDsR]; omega)]
+      exact I.domAgree hmm hc hJ hnF hmemJ ψ ρ hsatA l hl fs hfl h1 h2
+    -- the restored Π-tower's own truthfulness and validity
+    have hlenTake : ((((dsF (b.ownOffset mm + j) ψ).take b.nP).map (·.2.2))).length = b.nP := by
+      rw [List.length_map, List.length_take, hlenDsA]
+      exact Nat.min_eq_left (Nat.le_add_right _ _)
+    have hspP := spineFit_of_sat (Δ₀ := [])
+      (Ds := ((dsF (b.ownOffset mm + j) ψ).take b.nP).map (·.2.2)) (ρ := ρ)
+      (by rw [List.append_nil]; exact hsatA)
+    rw [hlenTake] at hspP
+    have hρ : consList ((List.range b.nP).reverse.map ρ) (fun i => ρ (i + b.nP)) = ρ :=
+      consList_range_reverse b.nP ρ
+    have hpfit : SpineFit (fun i => ρ (i + b.nP))
+        (((dsR mm j ψ).take b.nP).map (·.2.2)) ((List.range b.nP).reverse.map ρ) := by
+      rw [hdom.2.1]; exact hspP
+    have hsplitR : (dsR mm j ψ).take b.nP ++ (dsR mm j ψ).drop b.nP = dsR mm j ψ :=
+      List.take_append_drop _ _
+    have hdsEq : (DB).dsF mm j ψ = dsR mm j ψ := rfl
+    have hokW := (hCD.okTy ψ (fun i => ρ (i + b.nP))).1
+    have hokV := (hCD.okTy ψ (fun i => ρ (i + b.nP))).2
+    rw [hdsEq, ← hsplitR, mkPisAV_append] at hokW hokV
+    have hokR0 : FieldsOkB 0 ρ (((dsR mm j ψ).drop b.nP).map (·.2.2)) := by
+      have h1 := (WellDenoted_mkPisAV_inv hokW).2 _ hpfit
+      rw [hρ] at h1
+      exact (WellDenoted_mkPisAV_inv h1).1
+    have hvR : FieldsValid ρ (((dsR mm j ψ).drop b.nP).map (·.2.2)) := by
+      have h1 := (AnnotValid_mkPisAV_inv hokV).2 _ hpfit
+      rw [hρ] at h1
+      exact (AnnotValid_mkPisAV_inv h1).1
+    -- the auxiliary domains' grading, bounds and sorts
+    obtain ⟨hOkA, hVA, hBndA, -⟩ := (I.out.facts.framesJ I.hμ hJl).2 ψ ρ hsatA
+    rw [hsEq ψ] at hOkA hBndA
+    refine ⟨fieldsOkB_of_agree hlenA hlenR hag hOkA hokR0, hvR,
+      fun hp => fieldsBound_of_agree hlenA hlenR hag (hBndA hp), fun k hk as hsp => ?_⟩
+    have hkx : k < cAx.2 := by rw [← hnF]; exact hk
+    have hspA := (spineFit_take_iff_agree hlenA hlenR hag k (Nat.le_of_lt hkx) as).mpr hsp
+    have hlas : as.length = k := by
+      have h := SpineFit.length_eq hspA
+      rw [List.length_take, hlenA] at h
+      omega
+    show interp V (consList as ρ) ((((dsR mm j ψ).drop b.nP).map (·.2.2)).getD k default)
+      ∈ˢ (univ ((sorts.getD k .zero).eval ψ) : V)
+    rw [← hag k hkx as hlas hspA hsp]
+    exact hmemS ψ ρ hsatA k hkx as hspA
 
 /-! ## The recorded table's constructor -/
 
