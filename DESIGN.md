@@ -94003,7 +94003,11 @@ a fit at the stratified meet.  Its three premises land as follows:
 * `hrel` at a container-RECURSIVE field — the target is an OWN edge, so
   it stays in the same own-edge component and hence at the same
   `orank`, which is `< n`; `app_relMeet_le_rel` then applies at `R_n`
-  exactly as it does today at `R`;
+  exactly as it does today at `R`.  **CORRECTED 2026-09-18 (§U.90 (b)):
+  "and hence at the same `orank`" is not needed — `≤` suffices, since
+  all the side condition asks is `orank (target) < n`.  Asserting
+  equality here is what made the measure component-based and produced
+  the contraction the cyclic count measured;**
 * `hent₂`/`hout` at an `ordF`-right field — the target's `orank` is
   STRICTLY smaller, so the OUTER INDUCTION's hypothesis supplies
   `famAt c'' ≤ L⁺ q'`.  **This is the field §U.83–§U.86 could not
@@ -94359,6 +94363,119 @@ named premise.  The OUT-OF-INSTANCE case, step (ii), step (iv) and the
 residual's discharge go through today exactly as they did before this
 arc began.  Eight read-only sessions, no line of the proof tree
 touched.
+
+NOT STARTED.  No code changed this session.
+
+Gates: `lake build` and `lake test` warning-free at the session's
+commit; text gates green.
+
+#### U.90 — L-E session 35: the constancy was NOT forced — it was mine, and the graph that decides is a THIRD one (lane L-E, 2026-09-18)
+
+The asymmetry is real.  **The constancy along own edges is not forced
+by the problem; it came from this lane's choice of outer induction.
+With it removed the route needs a graph condition that NEITHER
+measurement tested.**
+
+##### (a) WHERE THE CONSTANCY CAME FROM
+
+§U.88 (d) discharged the outer induction by reusing
+`pins_le_of_instanceLe` at `inst := comp`, `rank := orank`.  That
+lemma's `hhom` clause is "the rank is a function of `inst`", so
+choosing `inst := the own-edge component` is exactly what demanded
+`orank` be constant on own-edge components — and the contraction, and
+therefore the cyclic count, follow from that choice and from nothing
+else.  §U.88 (a) had already weakened the edge premise to `≤` ((S1)),
+noting equality was more than the stratum needs; the constancy survived
+only in `hhom`.
+
+##### (b) WHAT REPLACES IT: a plain strong induction, and a PER-PIN measure
+
+Drop `pins_le_of_instanceLe` here and induct directly on `orank q`.
+Premises, both per-pin and neither requiring constancy:
+
+```lean
+-- (S1) no edge RAISES the measure, in its recorded direction
+hle : ∀ q q', Edge q q' → orank q' ≤ orank q
+-- (S2) an `ordF`-right edge LOWERS it
+hlt : ∀ q q', EdgeOrd q q' → orank q' < orank q
+```
+
+The induction, at `m := orank q`, with IH "closed at every pin of
+`orank < m`": take `q`'s instance root and run the transfer at stratum
+`n := m + 1`, i.e. at `RelAt (m+1)`.  Its two measure-dependent
+premises both close, and neither needs an equality:
+
+* `hrel` at a container-RECURSIVE field of the copy of a related pin
+  `b` (so `orank b ≤ m`): the target `q₁` is an OWN edge `b → q₁`, and
+  (S1) gives `orank q₁ ≤ orank b ≤ m`, which is the `RelAt (m+1)`
+  side condition.  **`≤` suffices; equality was never needed here** —
+  that is the point §U.87 (b) got wrong by asserting "hence at the same
+  `orank`";
+* `hout` at an `ordF`-right field of that same copy: (S2) gives
+  `orank q' < orank b ≤ m`, so `orank q' < m` and the IH applies.
+
+The transfer then concludes for every related pin of `orank ≤ m`, `q`
+among them.  No component, no contraction, no `hhom`.
+
+##### (c) THE CATCH: the deciding graph is a THIRD one
+
+(S1) and (S2) are satisfiable exactly when **no strongly connected
+component of the FULL DIRECTED edge graph contains a not-own edge** —
+condense the SCCs, note that `≤` around a cycle forces equality inside
+an SCC so a not-own edge inside one is contradictory, and otherwise
+rank by longest not-own-weighted path in the condensation.
+
+Neither measurement tested that graph, and the difference is in the
+kernel's own code: own edges are symmetrised, and mint-group joins
+added in both directions, ONLY in `nestedPinArcs`,
+
+```lean
+  edges.flatMap (fun e => if e.2.2 then [(e.1, e.2.1), (e.2.1, e.1)] else [(e.1, e.2.1)])
+    ++ (List.range st.pins.length).flatMap fun q => … [(q, g), (g, q)]
+```
+
+which is the graph the INSTANCE computation uses.  The edge LIST itself
+is directed.  So:
+
+* the **contracted** count merged own-edge endpoints BOTH ways (and
+  joined mint groups), which is strictly stronger than (S1) asks — its
+  six cycles may be artefacts of the symmetrisation;
+* the **bare** not-own count ignored own edges entirely, which is
+  strictly weaker than (S1) asks.
+
+**The route is therefore OPEN pending a third count, and I am not
+claiming the answer.**  The question, stated so it cannot be confused
+with the other two: *in the full directed edge graph — every edge in
+its recorded direction, own and not-own alike, no symmetrisation and no
+group joins — does any strongly connected component contain a not-own
+edge?*
+
+##### (d) WHAT EACH ANSWER MEANS
+
+* **No such SCC**: (S1)/(S2) are satisfiable, the measure is a kernel
+  record as §U.88 (g) planned but PER-PIN, and the route is §U.87's
+  minus the `hhom` row — the price does not rise and may fall, since
+  `pins_le_of_instanceLe`'s reuse is replaced by a plain strong
+  induction.  I would not re-price it before the count;
+* **some SCC contains one**: no per-pin measure exists either, the
+  impasse is final, and §U.89 (d) stands unchanged as the obstruction
+  to take upward.
+
+##### (e) WHAT THIS DOES NOT CHANGE
+
+§U.89's obstruction is untouched as a statement about the tier: no
+leastness from the block models can constrain an ordinary position, and
+the missing clause cannot be block-model data.  What (a)–(c) show is
+only that the ORDER the route needs may still exist — the obstruction
+said an order was needed, the count said none existed, and the count
+answered a stricter question than the route asks.
+
+##### (f) UNAMBIGUOUSLY: nothing landed is affected
+
+Every theorem this lane has landed stays landed.  `hout` remains a
+named premise.  The OUT-OF-INSTANCE case, step (ii), step (iv) and the
+residual's discharge go through today exactly as they did before this
+arc began.  Nine read-only sessions, no line of the proof tree touched.
 
 NOT STARTED.  No code changed this session.
 
