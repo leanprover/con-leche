@@ -92884,3 +92884,126 @@ warning-free, layering / trust surface / no-local-paths /
 overview-links / quote-gate / proofdeps / shake and pub-imports /
 nested-shadow all green; standard axioms on `nestedPinFam_of_classPin`
 and `nestedPinInstLe`.
+
+#### U.78 — L-E session 23: the rank induction AT THE RUN, step (ii), and clause (2) is WEAKER than this document has been saying (lane L-E, 2026-09-18)
+
+##### (a) K.52 taken, and the rank clauses discharged
+
+The kernel lane's `nestedPinRankAt_inv`/`nestedPinRankOk_inv` (K.52) is
+the statement this lane asked for, to the clause: the edge list's
+existence IN the statement, the four clauses at
+`nestedPinInstOf`/`nestedPinRankOf`, and (1)+(2) folded into one
+disjunction per edge so the ownership bit is never read.  Its commit is
+cherry-picked here so the consumer could be built against it rather
+than against its name.
+
+`nestedPinsLe_of_rank` is `pins_le_of_instanceLe` with `hedge` and
+`hhom` discharged from it, at `Edge q q' := ∃ own, (q, q', own) ∈ edges`.
+What is left is `hinst`, stated against the edge list the inversion
+produces, so that **the run-level assembly is the only place that ever
+exhibits an edge — this lane produces none**, which is the cut the
+coordinator approved.  `nestedPinInstLe` (§U.77) is `hinst` at one
+instance's root.
+
+##### (b) Step (ii): the two inclusions ARE the identity
+
+`nestedPinsEq_of_le`: `nestedPinsFixed`'s second half gives the
+auxiliary carrier below the containers' least tuples at every pin, the
+rank induction gives the converse, and both families live in the family
+space of the SAME index set (`nestedIdx_of_group`), so `famSpace_ext`
+turns the pair into `pinLfp q = L⁺ (k + q)` — `hIH`'s own statement.
+
+##### (c) EXPOSURE AUDIT against the mint defect (the coordinator's two checks)
+
+The defect stamps `NestedPin.mintedAt` zero on every pin but the first
+of a worklist step, so `nestedPinParent` — and everything above it —
+reads spurious parentless roots.  **Both checks come back clean, and
+for reasons, not by luck:**
+
+1. **No step of this lane rests on the parent or root relation, nor on
+   any measurement over it.**  `git grep mintedAt|nestedPinParent|nestedPinRootGroup|nestedPinRootPair`
+   over `NestedPinLeafAll.lean` returns two hits and both are
+   DOCSTRING prose naming K.41 as the intended discharger of a premise.
+   The chain this lane does consume is
+   `nestedPinRankOk → nestedPinRankAt → nestedPinInstFrom/nestedPinRankFrom → nestedPinArcs`,
+   and `nestedPinArcs` keys on `grpBase`/`grpSize`, never on
+   `mintedAt`; clause (4) of the Bool does the same.  The ROOT `r` is a
+   free parameter of every theorem here — `nestedPinPairAt`,
+   `nestedInstanceLe`, `nestedPinFam_of_classPin`, `nestedPinInstLe` —
+   carrying a `GroupFacts` and nothing else.  It is never *computed*
+   as the parent-minimal member;
+2. **no step assumes a UNIQUE entry group.**  `InstanceCovered` is
+   stated at a GIVEN `r` (`∀ q, inst q = inst r → ∃ c, ClassPinAt … r c q`)
+   and `instanceCovered_of_others` takes the group map and the
+   others-case as premises.  Uniqueness lives entirely in K.41's Bool
+   (`nestedPinRootGroupAt` returns `none` unless the entry group is
+   unique) and in whoever discharges `InstanceCovered` — which is not
+   this lane, and which is named as not this lane at
+   `nestedPinInstLe`.
+
+A DESIGN sweep of this lane's sections for corpus-quantified claims
+over the parent or root relation finds none.
+
+##### (d) FINDING: `nestedPinRankOk`'s clause (2) does NOT say what §U.72 (c) says it says
+
+**This document has been reading clause (2) as "an `ordF`-right target
+LEAVES the instance".  The Bool does not assert that.**  Its not-own
+branch is
+
+```lean
+    inst.getD e.1 0 == inst.getD e.2.1 0 ||
+      decide (rank.getD e.2.1 0 < rank.getD e.1 0)
+```
+
+— a DISJUNCTION, exactly as the kernel's own docstring describes it
+("a reference that LEAVES the instance goes to a strictly smaller
+rank").  §U.72 (c) turned that into "the `ordF`-right targets must
+LEAVE the instance (`nestedPinRankOk`'s clause (2))", and §U.74/§U.75
+repeated it.  The two are different statements and the weaker one is
+what is checked.
+
+**Why it matters, precisely.**  `hout` asks for the induction's
+predicate at every `ordF`-right PIN target.  In
+`pins_le_of_instanceLe` the induction hypothesis supplies exactly the
+targets with `inst q' ≠ inst q`.  At `inst q' = inst q` clause (3)
+forces `rank q' = rank q`, so the induction supplies nothing — and the
+in-instance case is CIRCULAR on this route: an `ordF`-right field is
+container-ORDINARY, so the container side has no recursion at it,
+there is no `hrel` step to hang the relational meet on, and `hent₂`
+(`copyTransfer_via`) asks for the target's family at `L⁺` — which at a
+pin of the same instance is the very conclusion being proved.
+
+An `ordF`-right field's edge IS the not-own one: `own` is
+`mentionsMember` of the container's own group names at the CONTAINER's
+stored field domain, and a container-ordinary field mentions no member
+of its own group (`ContainerModeled.ordFree`), while `recF` and `pinF`
+fields both do (a pin's components mention a member, `nestMention`).
+So the clause the model needs is exactly the strengthening of the
+not-own branch.
+
+**Request to the kernel lane, with the measurement it needs FIRST.**
+Drop the `inst == inst ||` from the not-own branch, leaving
+`decide (rank q' < rank q)` — which implies `inst q' ≠ inst q` by
+clause (3).  **Measure before committing**: does any accepted block
+have a not-own edge with equal instance labels?  If one does, the
+strengthening would reject an accepted block and the model needs the
+other route instead, which is a re-cut of `copyTransfer_via` so that a
+container-ordinary field with an IN-INSTANCE target is bounded by the
+RELATIONAL MEET (the covering already relates that target to a root
+class) rather than by `L⁺` — substantially more work than the Bool.
+
+**This is a request for a measurement, not a claim about the corpus.**
+This lane has measured nothing here, and — given the mint defect — a
+measurement over the instance labels should be re-run after the fix
+lands, since `nestedPinArcs` keys on `grpBase` (unaffected) but the
+blocks whose stamps were wrong are exactly the ones worth looking at.
+
+Nothing proved in this lane depends on the stronger reading: `hout` is
+a PREMISE of every theorem here, named and carried.  What the finding
+changes is the SIZE of the tail, not its correctness.
+
+Gates at the session's commits: `lake build` warning-free, `lake test`
+warning-free, layering / trust surface / no-local-paths /
+overview-links / quote-gate / proofdeps / shake and pub-imports /
+nested-shadow all green; standard axioms on `nestedPinsLe_of_rank` and
+`nestedPinsEq_of_le`.
