@@ -4612,7 +4612,13 @@ at the declaration order with `Q q := FamLe …` — the inclusion of step
 (iii).  G1's candidate-to-true bridge instantiates it at the pin
 expression's TERM SIZE with `Q q :=` the frame equality at pin `q`,
 because "pin `q`'s components contain pin `q'`'s expression" strictly
-decreases that size (measured on every corpus).
+decreases that size.  **The decrease is SYNTACTIC, not measured** (task
+#315 L-C): a pin's reading occurring inside `q`'s components is a
+proper subterm of them, and `q` cannot be its own predecessor because
+its reading `J Ds` cannot occur inside its own `Ds`.  What the corpus
+measurement covers is the IDENTIFICATION of those subterms with table
+pins — the kernel record lane L-E requested — and not the order's
+well-foundedness.
 
 The two instantiations must stay SEPARATE and SEQUENCED — the bridge
 runs after the inclusion is established at every pin, consuming its
@@ -4768,6 +4774,56 @@ theorem nestedPinsLe_of_rank {env : Env} {p : NestedParts} {b : MutualBlock} {st
     (hinst edges hed)
 
 
+/-- **STEP (ii) AT ONE PIN** (task #315 L-C, the declaration-order
+step's bridge): the two inclusions are the identity **at a single
+pin**, from the inclusion at that pin alone.
+
+Its consumer is the induction step, and it is what the step needs and
+`nestedPinsEq_of_le` cannot give: a well-founded induction over the
+pins (`pins_all_of_measure`, and `pins_le_of_declOrder` over it) hands
+its step the INCLUSION at the pins already settled, while the
+`hIH` every entry lemma below takes (`nestedPinEntryOut`,
+`nestedInstanceLe`, `nestedPinInstLe`) is an EQUALITY,
+`Pf q' = L⁺ (p.k + q')`.  Step (ii) (`nestedPinsFixed`) supplies the
+converse inclusion UNCONDITIONALLY and per pin, so the upgrade is
+per pin too — it never needs the conclusion anywhere else, which is
+exactly the property an induction step may not assume.
+
+`nestedPinsEq_of_le` is now this lemma pointwise, so the generalisation
+is conservative by the elaborator's verdict rather than by reading. -/
+theorem nestedPinEq_at_of_le (hμ : μ.verifiedChecks = true)
+    (h : MutualFormersFacts V F g mp b fms f₀ ctorsA sortss kinds mp₁ ppsF W idxF dsF esF srcsF
+      fvsPF xFvsF xrestF eissF tssF)
+    (h3 : ConLeche.mutualCtorsGrouped b.ctors = true)
+    (hbk : b.k = p.k + pinsS.length)
+    (m : EnvModel V env₂)
+    (hleafM : ∀ (t : Nat) (f : MutualFormerA), t < p.k → fms[t]? = some f →
+      m.acval f.cvTa.name = mutMemberLeaf b fms f₀ ctorsA kinds ppsF W dsF esF eissF tssF t)
+    {st : ElimState} (dJf : Nat → BlockModel V)
+    (hgroups : ∀ q, q < pinsS.length → ∃ (q₀ kJ i : Nat),
+      q = q₀ + i ∧ i < kJ ∧ GF st m q₀ kJ (dJf q₀))
+    {ψ : Name → Nat} {ρp : Nat → V} (hρp : Sat V ((D).params ψ).reverse ρp)
+    {q : Nat} (hq : q < pinsS.length)
+    (hle : FamLe ((D).idx ψ ρp (p.k + q)) (pinLfp st pinsS dJf (f₀.s.eval ψ) ψ ρp q)
+      (lfpTuple ((D).w ψ) (p.k + pinsS.length) ((D).idx ψ ρp) (ΨA ψ ρp) (p.k + q))) :
+    pinLfp st pinsS dJf (f₀.s.eval ψ) ψ ρp q
+      = lfpTuple ((D).w ψ) (p.k + pinsS.length) ((D).idx ψ ρp) (ΨA ψ ρp) (p.k + q) := by
+  have hfix := nestedPinsFixed hμ h h3 hbk m hleafM dJf hgroups hρp
+  obtain ⟨q₀, kJ, iq, hqe, hiq, G⟩ := hgroups q hq
+  have hidx : (D).idx ψ ρp (p.k + q)
+      = (dJf q₀).idx (((D).pinAt (q₀ + iq)).ψJ ψ)
+          (consList ((((D).pinAt (q₀ + iq)).Ds ψ).map (interp V ρp)) ρp) iq := by
+    rw [hqe, show p.k + (q₀ + iq) = p.k + q₀ + iq from by omega]
+    exact nestedIdx_of_group G hiq
+  have hPmem : pinLfp st pinsS dJf (f₀.s.eval ψ) ψ ρp q
+      ∈ˢ famSpace ((D).w ψ) ((D).idx ψ ρp (p.k + q)) := by
+    rw [hidx]
+    unfold pinLfp
+    rw [hqe, (G.syn.grp iq hiq).1, Nat.add_sub_cancel_left]
+    exact lfpTuple_mem _ _ _ _ iq (G.syn.kEq ▸ hiq)
+  refine famSpace_ext hPmem (lfpTuple_mem _ _ _ _ (p.k + q) (by omega)) fun i hi => ?_
+  exact Subset.antisymm (hle i hi) (hfix.2 q hq i hi)
+
 /-- **Step (ii) of the global entry theorem** (task #315 L-E, DESIGN
 §U.90): the two inclusions ARE the identity.  Step (i)/(ii)
 (`nestedPinsFixed`) gives the auxiliary carrier below the containers'
@@ -4795,23 +4851,8 @@ theorem nestedPinsEq_of_le (hμ : μ.verifiedChecks = true)
         (lfpTuple ((D).w ψ) (p.k + pinsS.length) ((D).idx ψ ρp) (ΨA ψ ρp) (p.k + q))) :
     ∀ q, q < pinsS.length →
       pinLfp st pinsS dJf (f₀.s.eval ψ) ψ ρp q
-        = lfpTuple ((D).w ψ) (p.k + pinsS.length) ((D).idx ψ ρp) (ΨA ψ ρp) (p.k + q) := by
-  have hfix := nestedPinsFixed hμ h h3 hbk m hleafM dJf hgroups hρp
-  intro q hq
-  obtain ⟨q₀, kJ, iq, hqe, hiq, G⟩ := hgroups q hq
-  have hidx : (D).idx ψ ρp (p.k + q)
-      = (dJf q₀).idx (((D).pinAt (q₀ + iq)).ψJ ψ)
-          (consList ((((D).pinAt (q₀ + iq)).Ds ψ).map (interp V ρp)) ρp) iq := by
-    rw [hqe, show p.k + (q₀ + iq) = p.k + q₀ + iq from by omega]
-    exact nestedIdx_of_group G hiq
-  have hPmem : pinLfp st pinsS dJf (f₀.s.eval ψ) ψ ρp q
-      ∈ˢ famSpace ((D).w ψ) ((D).idx ψ ρp (p.k + q)) := by
-    rw [hidx]
-    unfold pinLfp
-    rw [hqe, (G.syn.grp iq hiq).1, Nat.add_sub_cancel_left]
-    exact lfpTuple_mem _ _ _ _ iq (G.syn.kEq ▸ hiq)
-  refine famSpace_ext hPmem (lfpTuple_mem _ _ _ _ (p.k + q) (by omega)) fun i hi => ?_
-  exact Subset.antisymm (hle q hq i hi) (hfix.2 q hq i hi)
+        = lfpTuple ((D).w ψ) (p.k + pinsS.length) ((D).idx ψ ρp) (ΨA ψ ρp) (p.k + q) :=
+  fun q hq => nestedPinEq_at_of_le hμ h h3 hbk m hleafM dJf hgroups hρp hq (hle q hq)
 
 
 /-- **STEP (iv): the copies' ENTRIES at the auxiliary carrier** (task
