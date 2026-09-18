@@ -92551,3 +92551,174 @@ warning-free, layering / trust surface / no-local-paths /
 overview-links / quote-gate / proofdeps (0 doors) / shake and
 pub-imports / nested-shadow all green; standard axioms on every new
 theorem.
+
+#### U.76 — L-E session 21: `hpair` and `instanceLe` LANDED, K.42 plumbed, and the rank clauses SIZED (lane L-E, 2026-09-18)
+
+##### (a) K.42's conjunct threaded to the run's bundle (the coordinator's item 0)
+
+`NestedPinsRun.hK42`, beside `hK32` and `hrank`: the positivity
+normalisation on the minted copy — the `nestedOrdDomPairs` jobs,
+`nestedOrdNorms` on them, and the equality with the stored domains —
+carried down from `DeclNestedRun` through `NestedCoreModeled`,
+`NestedCtorsStaged` and `NestedPinsStaged`.  `declNested_of` names the
+THIRD `-` after `hrank` (K.40's `nestedPinParentOk` and K.41's
+`nestedPinRootPairOk` stay anonymous) and discharges the conjunct's own
+`μ.verifiedChecks` guard beside the `certOnly_elim`s, so the field is
+the bare existential.  Not consumed here: lane L-B's
+`nestedPinsShape_of` reads it, which is why the residual
+`NestedPinsShapeK42` can go.
+
+##### (b) `hpair`, THE CASE SPLIT, and `instanceLe` at the run
+
+`nestedPinPairAt` joins the two per-class halves into
+`instanceLe_of_pair`'s `hpair` verbatim, exactly along §U.75 (b)'s
+brief: a MEMBER class through `ClassPinAt`'s own conjunct, a PIN class
+through the root's `PinShapes` at `c - dR.k`, `ClassPin.name` (one
+name for `containerInfo?`), `hdJfB`, `ContainerModeled.memberName_inj`
+and `PinGroupView.kEq`.  The COUNT conjunct of `PinShapes` (§U.74 (a))
+is what supplies `j < ((dJf q₀).ctorsM iq).length` from
+`ctorsT_of_pin`; without it the pin arm has no constructor bound.
+
+Two premises the brief expected are DERIVED rather than carried:
+`hpinψD` (a block pin's level assignment is the substitution of its
+level arguments) and `hDsLenD` (its component count) both come off
+`hgroups` through `NestedPinGroupSyn.stored`/`pinNP`/`pinDsLen`, with
+`find?`'s determinism doing the rest.
+
+The pin half's container-side premises are PER-CONTAINER, so they are
+carried QUANTIFIED — `hppB` is `ContainerPinParams` at EVERY stored
+container, beside `EnvBlocksOf`, and `hdJfB` names the block's pin
+groups' models in the same assignment.  That is the form that becomes
+free the moment M7-3 makes `ContainerPinParams` a `ContainerModeled`
+clause: the quantified premise is then `EnvBlocksOf`'s own projection
+and nothing here is restated.
+
+`nestedInstanceLe` is `instanceLe_of_pair` composed with it, with the
+root's parameter frame derived from the group's `DsFit` at the base
+pin.  **What is left of the whole of step (iii) above the rank
+induction are `hIH` and `hout`** — the two `pins_le_of_instanceLe`
+supplies.
+
+##### (c) `hedge`/`hhom`: what is missing is SMALLER than §U.75 (b) feared, and it is in two places
+
+The brief called this new territory.  Reading the kernel and the
+Verify tier before writing anything (the standing rule: grep for a
+producer before sizing an obligation) found ONE producer landed and
+ONE reading lemma missing, and the missing one is smaller than
+expected:
+
+* **landed**: `nestedPinEdges_mem` (`Verify/Inductives/NestedInv.lean`)
+  — a field the auxiliary block classified `.recursive`/`.reflexive`
+  at a target OUTSIDE the block's own members IS an edge of
+  `nestedPinEdges`, with the `own` bit the builder computes;
+* **missing**: any inversion of `nestedPinRankAt` itself.  `git grep
+  nestedPinRankAt` finds the kernel definition and ONE use, inside
+  `nestedPinChecks_inv`, which produces the `= true` Bool and stops
+  there.  The model tier has the Bool and no way into it.
+
+**THE REQUEST (kernel/Verify lane), precisely.**  What the Bool says
+is four clauses over `List.range n` and over the edge list; what the
+Model tier needs is those clauses at `nestedPinInstOf`/`nestedPinRankOf`
+— which is what `nestedPinInstAt`/`nestedPinRankListAt` reduce to once
+the edge list is known to exist, so the existence must be part of the
+statement:
+
+```lean
+theorem nestedPinRankOk_inv {env : Env} {p : NestedParts} {b : MutualBlock}
+    {st : ElimState} {stored : List AuxStored}
+    (h : nestedPinRankOk env p b st stored = true) :
+    ∃ edges, nestedPinEdges env p b st stored = some edges ∧
+      -- (1)+(2) an edge stays in the instance or DROPS the rank
+      (∀ e ∈ edges,
+        (nestedPinInstOf env p b st stored).getD e.1 0
+            = (nestedPinInstOf env p b st stored).getD e.2.1 0 ∨
+          (nestedPinRankOf env p b st stored).getD e.2.1 0
+            < (nestedPinRankOf env p b st stored).getD e.1 0) ∧
+      -- (3) the rank is a function of the instance
+      (∀ q t, q < st.pins.length → t < st.pins.length →
+        (nestedPinInstOf env p b st stored).getD q 0
+          = (nestedPinInstOf env p b st stored).getD t 0 →
+        (nestedPinRankOf env p b st stored).getD q 0
+          = (nestedPinRankOf env p b st stored).getD t 0) ∧
+      -- (4) a mint group is one instance
+      (∀ q, q < st.pins.length →
+        (nestedPinInstOf env p b st stored).getD q 0
+          = (nestedPinInstOf env p b st stored).getD
+              (st.pins.getD q default).grpBase 0)
+```
+
+It is a `List.all`/`Bool.and` inversion in the idiom of
+`nestedPinRootPairAt_inv` beside it, with no term traversal anywhere.
+Clause (1) is folded into the disjunction on purpose: **the model never
+needs to read the `own` bit.**  At an OWN edge the Bool gives the
+instance equality, at a NOT-OWN edge the disjunction, and `hedge`'s
+conclusion is the disjunction either way — so the model may take
+`Edge q q' := ∃ own, (q, q', own) ∈ edges` and never compute
+`mentionsMember`.  (The lemma may of course also return clause (1)
+sharpened at `e.2.2 = true`; nothing in this lane consumes it.)
+
+**What is left on THIS lane once that lands**: producing the edge at
+the fields where `hout` fires — `nestedPinEdges_mem`'s hypotheses at an
+`ordF`-right field.  Most are the run's own lookups that lane L-B's
+K.26 work already makes (`nestedPinKinds` at the pin, the constructor
+and the field, the recursive/reflexive bit, the target past `p.k`).
+The one that is NOT in the Inductives model tier's vocabulary is
+`hstrip`/`hdom`: the CONTAINER's stored constructor type stripped at
+`ci.nP + cJ.nFields`, with a binder at position `ci.nP + l`.  The tier
+speaks `xFvsF`/`dsF` (opened fields, `BlockCtorData.opens` via
+`openPisAtFvars`) and `git grep stripPis ConLeche/Model/Inductives`
+returns NOTHING.  Because the `own` bit need not be read, what is
+needed is only the binder's EXISTENCE — a length fact
+(`Expr.stripPis_length` at a type `openPisAtFvars` already opened past
+`nP + nF`), not a mention fact.  Sizing: the inversion ~0.3 session
+(kernel lane), the edge production 1–1.5 sessions (this lane).
+
+##### (d) SIZING the rest of step (iii), honestly
+
+`pins_le_of_instanceLe`'s `hinst` at a pin `q` wants
+`FamLe ((D).idx ψ ρp (p.k + q)) (pinLfp … q) (L (p.k + q))`, and
+`nestedInstanceLe` gives it at the COVERING CLASS instead:
+`FamLe ((D).pinIdx q ψ ρp) (dR.famAt ψR ρR (lfp …) c) (L (p.k + q))`.
+Two gaps between them:
+
+1. the index sets — `nestedIdx_eq_pinIdx`, free;
+2. **`pinLfp … q = dR.famAt ψR ρR (lfp …) c` at the covering class.**
+   At a MEMBER class it is `hP_group` with `dJf r = dR` and the sort by
+   `NestedPinGroupSyn.w`.  At a PIN class it is `pinGroupFam_mem`
+   composed with a comparison of TWO least tuples of one container at
+   two level assignments agreeing only on its level parameters and two
+   frames agreeing only below `nP` — which is NOT a congruence of
+   `lfpTuple` (`BlockModel.Φ` is an arbitrary function of `(ψ, ρ)` and
+   no clause makes it depend on the restrictions only), and must go
+   through `fam_eq_of_leaf` instead: the two leaves are ONE reading,
+   which is exactly what `ClassPin`'s four clauses say.  About a
+   session.
+
+Then `InstanceCovered` (`instanceCovered_of_others`) is the remaining
+premise of `hinst`, and its `hothers` still waits on M7-3's `ownPins`
+at the nested site.  So the tail is: the rank clauses (c), the least
+tuple identification (2), `hothers`, then step (ii) and step (iv) —
+`nestedPinsLe` and `nestedPinsEntry_of` — which are assembly.
+
+##### (e) FOR M7-3, on narrowing the own-pin table's components
+
+The coordinator asked whether this lane's components are always a
+recorded pin's.  **They are** — `classPin_of_pinCorr`'s `Ds₀` at the
+covering's second case is the ROOT PIN's components
+`((D).pinAt r).Ds ψ` off the block's own pin table, and the `pinF`
+arm's are a stored container's own recorded pin's; neither is ever
+arbitrary.  **But they are NOT old**: a block pin's components MENTION
+a member of the block being installed — that is `ContainerModeled`'s
+`nestMention` (K.44), which asserts it of EVERY pin — so they do not
+resolve in the pre-block environment.  They resolve at `env₂`, the
+constructors' environment the model `m` is stated at.  So a narrowing
+to "components that resolve at the environment the table is READ at"
+costs this lane nothing; a narrowing to "components that resolve at the
+container's OWN (older) environment" would be FALSE at every nested
+block.
+
+Gates at the session's commits: `lake build` warning-free, `lake test`
+warning-free, layering / trust surface / no-local-paths /
+overview-links / quote-gate / proofdeps / shake and pub-imports /
+nested-shadow all green; standard axioms on `nestedPinPairAt` and
+`nestedInstanceLe`.
