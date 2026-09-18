@@ -253,7 +253,10 @@ FALLBACK = {
     ('ConLeche.Model.Inductives.NestedRecsSwap','ConLeche.Verify.Inductives.NestedRecsWF'),
     ('ConLeche.Model.Inductives.NestedRecsSwap','ConLeche.Semantics.IndBlockFacts'),
     ('ConLeche.Model.Inductives.NestedRecsSwap','ConLeche.Model.Annot.EnvModelM'),
-    ('ConLeche.Model.Inductives.NestedRecsSwap','ConLeche.Verify.Extend.Recs'),
+    # ('ConLeche.Model.Inductives.NestedRecsSwap','ConLeche.Verify.Extend.Recs')
+    # was REFUTED at integration 3q — the edge demotes cleanly on the union
+    # and the import is plain — and re-arrived with this lane's base.  It
+    # stays out: a FALLBACK is a claim about the tree.
     # task #315 M7-2 (§U.29): the STORE'S RUN file is the same class one file
     # further on — its public statements are theorems bar three `def … : Prop`
     # (`nestedStoreList`, the two faces), so the census attributes almost

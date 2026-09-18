@@ -204,6 +204,24 @@ theorem mentionsConst_instSeq_false {m : Name} :
 
 /-! ## Two openings that differ only where nothing looks -/
 
+
+/-- **Member-freedom transfer at an instantiation** (task #315 L-B):
+`mentionsConst_instSeq_false` at the LIST, which is the form every
+consumer wants — the walks ask `mentionsMember` of a field's domain,
+not `mentionsConst` of one name.  It is `os_field_domain_free`'s step
+for a caller that already holds the instantiation equation
+(`copyOrdFLeft`'s `hxdom2`) rather than the two openings. -/
+theorem mentionsMember_instSeq_false {names : List Name} (vs : List Expr) (t : Nat) {e : Expr}
+    (h : mentionsMember names (Expr.instSeq vs t e) = false) :
+    mentionsMember names e = false := by
+  rcases hM : mentionsMember names e with _ | _
+  · rfl
+  · exfalso
+    obtain ⟨T, hT, hTm⟩ := List.any_eq_true.mp hM
+    rw [mentionsConst_instSeq_false vs t
+      (by simpa using List.any_eq_false.mp h T hT)] at hTm
+    exact nomatch hTm
+
 /-- Two opener lists that agree except at positions carrying a "bad"
 variable — where they may differ in the ANNOTATION only. -/
 def RestoreOpenAgree (bad : Nat → Prop) (vs ws : List Expr) : Prop :=

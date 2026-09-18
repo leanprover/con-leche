@@ -38,6 +38,35 @@ tests/e2e/nested_rec.ndjson 1 Tree=accept,
 tests/e2e/nested_struct_proj.ndjson 1 NestedStructProj.Tree=accept,
 tests/e2e/ind_proj_mutual_nested.ndjson 1 NT=accept,
 tests/e2e/inmodel_nested.ndjson 1 InModelNested.Tree=accept,InModelNested.TV=accept,InModelNested.Op=accept,InModelNested.W=accept,InModelNested.PT=accept,InModelNested.NTree=accept,InModelNested.A=accept,
+# THE REST OF THE E2E CORPUS'S NESTED BLOCKS (task #315 M8 session 1).
+# A census of all 196 e2e rows through `--nested-shadow` found FIFTEEN
+# fixtures carrying a nested block and thirty blocks in all; six were in
+# this gate and nine were in no gate at all.  These are those nine, at
+# their measured verdicts — the gate's rows are not the corpus, and the
+# one failure below is what that gap was hiding.
+tests/e2e/let_rec_rhs.ndjson 1 Lean.Syntax=accept,
+tests/e2e/presieve_ofarrows_cone.ndjson 1 Lean.Syntax=accept,
+tests/e2e/nested_pin_names.ndjson 1 PTree=accept,
+tests/e2e/indexed_nested_aux.ndjson 1 TV=accept,
+tests/e2e/ind_mutual_idxsort.ndjson 1 IdxSort.NT=accept,IdxSort.NU=accept,
+tests/e2e/ind_nest_two_pins.ndjson 1 TwoPins=accept,
+tests/e2e/ind_nest_prop.ndjson 1 PNonempty=accept,PAnd=accept,
+tests/e2e/ind_rec_struct_proj_raw.ndjson 1 NT=accept,
+# **THE `mintedAt` REGRESSION ROW.**  `InModelGroups.H` nests through
+# `TT (List H)` — a group whose pin is another mimic's carrier — so the
+# copy of `TT` nests TWICE (`text` and `node` at `α := List H`) and its
+# worklist step mints two pin groups.  That is the shape that exposed
+# the stamp reset: `mkCopies` built its successor state with a literal
+# omitting `curType`, a field with a default of `0`, so the second mint
+# of the step recorded the block's own constructors as its minter, two
+# pins of one instance both read as parentless, and K.41's
+# `nestedPinRootPairOk` refused the block with an `.internal`.  The row
+# was pinned at `H=error` for one session as the finding; it is
+# `H=accept` since the fix, and it is now the regression test for the
+# stamp — a block whose step mints twice is the only shape that can see
+# it, and this is the corpus's only one.  See DESIGN, "THE `mintedAt`
+# STAMP IS RESET BY ITS OWN MINT".
+tests/e2e/inmodel_groups.ndjson 1 InModelGroups.TT=accept,InModelGroups.M=accept,InModelGroups.N=accept,InModelGroups.H=accept,InModelGroups.P=accept,
 # --- the auxiliary-name clash (`scripts/mk_nested_aux_clash.py`) ------
 # A definition named `_nested.List_2.cons` stands where the second
 # copy's constructor is about to be minted.  Official rejects the block
@@ -48,6 +77,11 @@ tests/e2e/nested_aux_clash.ndjson 1 P3=reject,
 # type is annotated throughout (§M.21 (A)).  `nested_pin_prop_cod` is a
 # fourth shape the modeller declines and the native route takes.
 tests/e2e/nested_lam_pin_prop.ndjson 1 T=accept,
+# The REFLEXIVE twin (task #315 L-B): the same λ-redex, but the
+# normalisation's `whnf` CREATES a Π-telescope — the copy's field is
+# REFLEXIVE at `T` where the container's is ordinary and is no Π.
+# The modeller declines it, so the row runs with the modeller off.
+tests/e2e/nested_lam_pin_refl.ndjson 0 T=accept,
 tests/e2e/nested_pin_prop_cod.ndjson 0 T=accept,
 # `tower_nested`: the depth-60 DAG tower.  It sat OUT of this gate while
 # the shadow ran the PURE uncached core, which exhausted memory inside

@@ -243,7 +243,7 @@ private theorem cpOccOk_inv {I : Name} {names : List Name} {nPI : Nat} {args : L
 type — `mkCopy`'s output, with its own pin — is a `CopyStep` of the one
 before it. -/
 private theorem cpStep_append {env : Env} {pbs₀ : List (Expr × BinderMeta)} {st : ElimState}
-    {copy : AuxType} {pin : NestedPin} {nextIdx : Nat} {Ic : Name} {ci : ContainerInfo}
+    {copy : AuxType} {pin : NestedPin} {nextIdx curType : Nat} {Ic : Name} {ci : ContainerInfo}
     {m : Nat} {J : ContainerMember} {lvls : List Level} {Ds : List Expr}
     (hci : containerInfo? env Ic = some ci) (hm : ci.members[m]? = some J)
     (hsrc : copy.src = some (J.name, lvls, Ds))
@@ -251,7 +251,8 @@ private theorem cpStep_append {env : Env} {pbs₀ : List (Expr × BinderMeta)} {
     (hany : (Ds.any fun a => st.newNames.any fun T => a.mentionsConst T) = true)
     (hloose : ∀ a ∈ Ds, a.looseBVarsBounded 0 = true) :
     CopyStep env pbs₀ st
-      { types := st.types ++ [copy], pins := st.pins ++ [pin], nextIdx := nextIdx } := by
+      { types := st.types ++ [copy], pins := st.pins ++ [pin], nextIdx := nextIdx
+        curType := curType } := by
   have hnpre : st.types.map (·.name) <+: (st.types ++ [copy]).map (·.name) := by
     rw [List.map_append]; exact List.prefix_append _ _
   refine ⟨List.prefix_append _ _, hnpre, fun i t hi => cpGetElem?_append hi, ?_⟩
@@ -291,7 +292,8 @@ private theorem cpMkCopies_step {env : Env} {pbs₀ : List (Expr × BinderMeta)}
         { types := st.types ++ [copy]
           pins := st.pins ++
             [⟨auxName, J.name, Expr.mkAppN (.const J.name lvls) Ds, base, size, st.curType⟩]
-          nextIdx := nextIdx } :=
+          nextIdx := nextIdx
+          curType := st.curType } :=
       cpStep_append hci hm hsrc (by rw [hname]; exact hcopy) hany hloose
     exact cpStep_trans hmid (cpMkCopies_step hci hloose
       (fun J' hJ' => hJs J' (List.mem_cons_of_mem _ hJ')) (cpAny_mono hmid.2.1 hany) hrec)

@@ -105,7 +105,18 @@ structure NestedPin where
   is the parent chain.  A worklist POSITION rather than a pin index is
   what lets the elimination record it with no new parameter of its own:
   `k` is the caller's, and the Bool that reads the parent off it has `p.k`
-  (`nestedPinParentOk`, `Kernel/Inductives/NestedInstall.lean`). -/
+  (`nestedPinParentOk`, `Kernel/Inductives/NestedInstall.lean`).
+
+  **THE STATE LITERAL MUST CARRY THIS FIELD** (task #315 M8 session 3).
+  It is declared with a default of `0` so that `elimNested`'s initial
+  state and the record's own `deriving Inhabited` need not name it — and
+  that default is a TRAP: `mkCopies` built its successor state with a
+  literal naming three fields and not this one, so every mint reset the
+  position and only the FIRST pin of a worklist step carried the truth.
+  Two pins of one instance then both read as parentless, K.41 refused
+  the block (`tests/e2e/inmodel_groups.ndjson`), and two Mathlib cone
+  blocks carried a wrong parent SILENTLY.  Any new construction of
+  `ElimState` either uses `{ st with … }` or names this field. -/
   mintedAt : Nat := 0
   deriving Repr, Inhabited
 
@@ -202,11 +213,18 @@ def mkCopies (env : Env) (pbs : List (Expr × BinderMeta)) (lvls : List Level)
     let (auxName, nextIdx) :=
       mkUniqueName env (Name.appendName nestedPrefixName J.name) 1024 st.nextIdx
     let copy ← mkCopy pbs lvls Ds auxName J
+    -- **THE STAMP IS CARRIED, NOT DEFAULTED** (task #315 M8 session 3):
+    -- `curType` is a field with a DEFAULT, so a literal that omits it
+    -- silently resets the worklist position to `0` — which is what this
+    -- literal did, making every pin minted after the first one of a step
+    -- claim the block's own constructors had minted it.  See
+    -- `NestedPin.mintedAt`.
     let st' : ElimState :=
       { types := st.types ++ [copy]
         pins := st.pins ++
           [⟨auxName, J.name, Expr.mkAppN (.const J.name lvls) Ds, base, size, st.curType⟩]
-        nextIdx := nextIdx }
+        nextIdx := nextIdx
+        curType := st.curType }
     let (st'', got) ← mkCopies env pbs lvls Ds I base size rest st'
     pure (st'', if J.name == I then some auxName else got)
 

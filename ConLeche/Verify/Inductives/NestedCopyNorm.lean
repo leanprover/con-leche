@@ -1128,8 +1128,9 @@ theorem normCtorValM_domHead {env : Env} (henv : EnvWF env) {memberNames : List 
 /-! ## THE MINTED COPY'S POSITIVITY RUN, INVERTED (task #315 L-B, DESIGN §U.76)
 
 K.42's record is two functions: `nestedOrdDomPairs` collects, per pin,
-per constructor, per ORDINARY field, the pair of domains (the MINTED
-one and the STORED one) at that field's depth, and `nestedOrdNorms`
+per constructor, per field the filter admits — ORDINARY, or with a
+target below `p.k` — the pair of domains (the MINTED one and the STORED
+one) at that field's depth, and `nestedOrdNorms`
 runs `normPosDomM` on every minted one.  The model consumes them at ONE
 field of ONE constructor of ONE pin, so these two theorems are the
 addressing: the first says the job list HOLDS that field's triple (the
@@ -1138,10 +1139,18 @@ discharged by the caller's own read), the second says the recorded run
 at a job of the list IS `normPosDomM`'s, with the error handler's
 reclassification seen through. -/
 
-/-- **THE JOB AT AN ORDINARY FIELD.**  Every hypothesis is one of
-`nestedOrdDomPairs`' own lookups, in the order the walk makes them, so
-the model supplies them from the reads it already has; the conclusion
-is the walk's triple `(p.nP + l, the MINTED domain, the STORED one)`. -/
+/-- **THE JOB AT A FIELD THE RECORD INSPECTS.**  Every hypothesis is one
+of `nestedOrdDomPairs`' own lookups, in the order the walk makes them,
+so the model supplies them from the reads it already has; the
+conclusion is the walk's triple `(p.nP + l, the MINTED domain, the
+STORED one)`.
+
+`hwide` is the walk's own filter, in Prop form: the field is classified
+ORDINARY, **or** its target lies below `p.k`, i.e. at a MEMBER of the
+block being installed rather than at a mimic (task #315 M8 session 3's
+widening, lane L-B's request — DESIGN "THE `mintedAt` FIX, AND TWO
+MEASUREMENTS" (d)).  The member-target disjunct is what lane L-B's
+`ordF`-right arm reads. -/
 theorem nestedOrdDomPairs_mem {env : Env} {p : NestedParts} {st : ElimState}
     {stored : List AuxStored} {kinds : List (List (List (RecFieldKind × Nat)))}
     {jobs : List (Nat × Expr × Expr)}
@@ -1161,7 +1170,8 @@ theorem nestedOrdDomPairs_mem {env : Env} {p : NestedParts} {st : ElimState}
     {xsM : List Expr} {restM : Expr} (hopM : openPisAtFvars nF cI p.nP = some (xsM, restM))
     {fvsS : List Expr} {crestS : Expr} (hopS : openPisAtFvars p.nP cvS.type 0 = some (fvsS, crestS))
     {xsS : List Expr} {restS : Expr} (hopS2 : openPisAtFvars nF crestS p.nP = some (xsS, restS))
-    {l : Nat} {n : Nat} (hkfl : kf[l]? = some (RecFieldKind.ordinary, n))
+    {l : Nat} {r : RecFieldKind} {n : Nat} (hkfl : kf[l]? = some (r, n))
+    (hwide : r = RecFieldKind.ordinary ∨ n < p.k)
     {xM xS : Expr} (hxM : xsM[l]? = some xM) (hxS : xsS[l]? = some xS) :
     (p.nP + l, xM.fvarTypeD, xS.fvarTypeD) ∈ jobs := by
   have hrange : ∀ {n i : Nat}, i < n → (List.range n)[i]? = some i := by
@@ -1194,12 +1204,18 @@ theorem nestedOrdDomPairs_mem {env : Env} {p : NestedParts} {st : ElimState}
   rename_i perField hperField
   simp only [pure, Option.some.injEq] at hGj
   subst hGj
-  -- the row of field `l`, a singleton at an ordinary kind
+  -- the row of field `l`, a singleton at a kind the filter admits
   obtain ⟨rowl, hrowl, hHl⟩ := mapM_option_inv hperField l l (hrange hllt)
   refine List.mem_flatten.mpr ⟨rowl, List.mem_of_getElem? hrowl, ?_⟩
-  simp only [hkfl, hxM, hxS, beq_self_eq_true, if_true, pure, Option.some.injEq] at hHl
-  subst hHl
-  simp
+  rcases hwide with rfl | hlt
+  · simp only [hkfl, hxM, hxS, beq_self_eq_true, Bool.true_or, if_true, pure,
+      Option.some.injEq] at hHl
+    subst hHl
+    simp
+  · simp only [hkfl, hxM, hxS, hlt, decide_true, Bool.or_true, if_true, pure,
+      Option.some.injEq] at hHl
+    subst hHl
+    simp
 
 /-- A handler that always throws never produces the `.ok`: a successful
 `tryCatchThe` in `Except` is a successful body. -/

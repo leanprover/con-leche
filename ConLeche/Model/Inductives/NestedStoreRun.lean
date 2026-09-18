@@ -51,8 +51,10 @@ fire's PINS — the one place a nested block's store is not the mutual
 route's), and the recorded tables' data
 (`NestedTailIn.tablesData`/`nestedTablesData_of`: the scratch
 install's own table, its guards carried across the restore, and
-`tableMember_of`'s bundle at the nested block model).  K.50's record
-`NestedRuleBitsOf` is the stage's one remaining premise here.
+`tableMember_of`'s bundle at the nested block model).  `NestedRuleBitsOf`
+is stated here and PROVED here (`nestedRuleBitsOf_of`): the restored
+rules' two rescue bits are `recRuleBits` at the store environment, so
+the stage has no premise of its own left.
 -/
 
 namespace ConLeche.Model
@@ -1291,6 +1293,76 @@ the rule rows, and the environment they ran at.  Consumer:
             (ConLeche.consNestedFormers (stored.take p.k) env))).find?
         (nestedRecCvAt p.k cvRms cvRns c).name (RecRule.ctor r) = true)
 
+/-- **K.50'S FACE, DISCHARGED — AND THE RECORD IS NOT NEEDED** (task
+#315 M7-2, session 29).  The face's premise was that `restoreRules`
+COPIES the scratch rule's two rescue bits while renaming the
+constructor, so that what the scratch block checked and what `ConstWF`
+asks of the stored rule differ in both arguments.  **That is not what
+the kernel does**: `restoreRules`' last line is
+
+    recRuleBits envR.find? recName { rl with ctor := ctor, … }
+
+and `recRuleBits` OVERWRITES both fields with the lookup's own verdict
+at THAT environment — the restored constructor name and the restored
+recursor's name, which are exactly the two arguments the face asks
+about.  So both conjuncts are the stamp read back
+(`restoreRules_bits`), the report `restoreRules_at` happened to drop,
+and the face is a theorem.
+
+The two branches are the member's list and the mimic's, at the class's
+own index; a class whose rule list is empty is vacuous, so no length
+premise is needed beyond the run's own. -/
+theorem nestedRuleBitsOf_of {F : Nat} : NestedRuleBitsOf μ F := by
+  intro env p st stored ctorsR cvRms cvRns rulesM rulesN hrulesM hrulesN c hc r hr
+  unfold nestedRulesAt at hr
+  by_cases hck : c < p.k
+  · -- a MEMBER's recursor
+    rw [if_pos hck] at hr
+    obtain ⟨hlen, hall⟩ := ConLeche.mapM_except_inv hrulesM
+    cases hrc : rulesM[c]? with
+    | none =>
+      rw [List.getD_eq_getElem?_getD, hrc] at hr
+      exact absurd hr (by simp)
+    | some rs =>
+      rw [List.getD_eq_getElem?_getD, hrc] at hr
+      have hcl : c < (cvRms.zip (stored.take p.k)).length := by
+        rw [← hlen]
+        exact (List.getElem?_eq_some_iff.mp hrc).1
+      obtain ⟨x, out, hx, hout, hrun⟩ := hall c hcl
+      obtain ⟨cvRa, a⟩ := x
+      obtain rfl : out = rs := Option.some.inj (hout.symm.trans hrc)
+      obtain ⟨hcv, -⟩ := zip_getElem?_pair _ _ _ _ hx
+      have hname : nestedRecCvAt p.k cvRms cvRns c = cvRa := by
+        unfold nestedRecCvAt
+        rw [if_pos hck, List.getD_eq_getElem?_getD, hcv]
+        rfl
+      obtain ⟨hk, heta⟩ := ConLeche.restoreRules_bits hrun r hr
+      rw [hname]
+      exact ⟨fun h => by rw [← hk]; exact h, fun h => by rw [← heta]; exact h⟩
+  · -- a MIMIC's
+    rw [if_neg hck] at hr
+    obtain ⟨hlen, hall⟩ := ConLeche.mapM_except_inv hrulesN
+    cases hrc : rulesN[c - p.k]? with
+    | none =>
+      rw [List.getD_eq_getElem?_getD, hrc] at hr
+      exact absurd hr (by simp)
+    | some rs =>
+      rw [List.getD_eq_getElem?_getD, hrc] at hr
+      have hcl : c - p.k < (cvRns.zip (stored.drop p.k)).length := by
+        rw [← hlen]
+        exact (List.getElem?_eq_some_iff.mp hrc).1
+      obtain ⟨x, out, hx, hout, hrun⟩ := hall (c - p.k) hcl
+      obtain ⟨cvRa, a⟩ := x
+      obtain rfl : out = rs := Option.some.inj (hout.symm.trans hrc)
+      obtain ⟨hcv, -⟩ := zip_getElem?_pair _ _ _ _ hx
+      have hname : nestedRecCvAt p.k cvRms cvRns c = cvRa := by
+        unfold nestedRecCvAt
+        rw [if_neg hck, List.getD_eq_getElem?_getD, hcv]
+        rfl
+      obtain ⟨hk, heta⟩ := ConLeche.restoreRules_bits hrun r hr
+      rw [hname]
+      exact ⟨fun h => by rw [← hk]; exact h, fun h => by rw [← heta]; exact h⟩
+
 /-! ## The nested install's conses -/
 
 namespace NestedInstallExt
@@ -1914,13 +1986,14 @@ theorem nestedTablesData_of {F : Nat} : NestedTablesDataOf V μ F := by
   exact ⟨_, _, I.tablesData mp₃ hag₃ hreps₃ hfind₃⟩
 
 /-- **THE CONSUMER** (consumer-first): the recursors' stage of a nested
-block closes `NestedTailModeled` — the readings and the equations are
-K.36's alone (`nestedTailModeled_of_stage`), and the stage proper is
-this lane's, modulo K.50; the recorded tables' data is now the
-lane's own theorem (`nestedTablesData_of`). -/
-theorem nestedTailModeled_of_two {F : Nat} (hbits : NestedRuleBitsOf μ F)
-    (hK36 : NestedCtorPinNamesOf μ F) :
+block closes `NestedTailModeled` from **ONE** model face.  The readings
+and the equations are K.36's alone (`nestedTailModeled_of_stage`); the
+recorded tables' data (`nestedTablesData_of`) and the restored rules'
+rescue bits (`nestedRuleBitsOf_of`) are this lane's own theorems, so
+`NestedCtorPinNamesOf` is all that is left of the stage's premises. -/
+theorem nestedTailModeled_of_face {F : Nat} (hK36 : NestedCtorPinNamesOf μ F) :
     NestedTailModeled V μ F :=
-  nestedTailModeled_of_stage hK36 (nestedRecsStored_of hbits hK36 nestedTablesData_of)
+  nestedTailModeled_of_stage hK36
+    (nestedRecsStored_of nestedRuleBitsOf_of hK36 nestedTablesData_of)
 
 end ConLeche.Model

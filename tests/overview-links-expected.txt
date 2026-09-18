@@ -361,10 +361,10 @@
    103    pw : PropWhen
    104    deriving DecidableEq, Repr, Hashable
 
-== ConLeche/Verify/Cached/AgreeFloor.lean#L1431-L1433
-  1431        (fun r => r.1.name = cvC.name) := by
-  1432    unfold checkMutualCtorF
-  1433    refine Yields.bind' (checkConstantValF_name ops fe cvC) fun cvCa₀ hn₀ => ?_
+== ConLeche/Verify/Cached/AgreeFloor.lean#L2111-L2113
+  2111  theorem checkDecls_skels {mode : CheckMode} {ds : Array Declaration}
+  2112      {env : Env} (h : checkDecls mode pins ds = .ok env) :
+  2113      envSkels env = streamSkels ds.toList := by
 
 == ConLeche/Term/Syntax.lean#L176-L205
    176    deriving Repr, DecidableEq, Inhabited

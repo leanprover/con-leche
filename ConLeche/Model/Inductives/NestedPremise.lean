@@ -157,6 +157,22 @@ structure ContainerModeled {env : Env} (m : EnvModel V env) (ci : ContainerInfo)
   exactly that count. -/
   pinNP : ∀ q, q < d.nPins → ∃ ci' : ContainerInfo,
     ConLeche.containerInfo? d.env₀ (d.pinAt q).J = some ci' ∧ (d.pinAt q).nPJ = ci'.nP
+  /-- **A pin's container reads the SAME group at the model's
+  environment as at the block's own** (task #315 M7-3 session 20, lane
+  L-B's request): `pinNP` is spelled at `d.env₀`, the block's own
+  pre-block environment, because that is where `BlockOpened.nestF`
+  resolves a pin's index arguments — and a consumer working at the
+  MODEL's environment cannot use it there.  This is the monotonicity
+  that carries it across: the container is stored at `d.env₀` and no
+  install since has disturbed it.
+
+  Requested in place of an EQUATION `d.env₀ = env`, which is false at
+  three of the nine sites (the nested, mutual and native routes all
+  build this record at a model of the OUTPUT environment while `env₀`
+  is the pre-block one) and unavailable at the four basis sites. -/
+  pinConts : ∀ q, q < d.nPins → ∀ ci' : ContainerInfo,
+    ConLeche.containerInfo? d.env₀ (d.pinAt q).J = some ci' →
+    ConLeche.containerInfo? env (d.pinAt q).J = some ci'
   /-- **a pin's level assignment is the substitution of its level
   arguments for its container's level parameters** (task #315 L-E,
   DESIGN §U.39): the syntactic form every pin this checker records has
@@ -214,16 +230,27 @@ the WALK (the two sides' `PinCorr` are at the same own pin, so
 `ClassPin`'s `frame` and `idx` come down to that pin's `Ds`/`Ids` at the
 two assignments).
 
+Four parts, and the WALK at a PIN class spends each exactly once
+(DESIGN §U.86): the pins' level ARGUMENTS scoped in the group's own
+level parameters (`ClassPin`'s `psi`, through `Level.substFn_ext` —
+this is also `targetPin_corr`'s `hpd`), the pins' COMPONENTS bounded at
+the container's parameters (`frame`, through `interp_congr_below`: the
+two sides read one component at two frames that agree only below
+`d.nP`), and the `u`/`Ds`/`Ids` congruences (`frame` and `idx`).
+
 It is true of every pin this checker records — a pin's level arguments
 and components are read off the block's own opened constructor, so they
-mention only the block's level parameters — and vacuous at a pins-free
-container. -/
+mention only the block's level parameters and its parameter context —
+and vacuous at a pins-free container. -/
 @[expose] def ContainerPinParams (cvI : ConstantVal) (d : BlockModel V) : Prop :=
-  ∀ q, q < d.nPins → ∀ ψ₁ ψ₂ : Name → Nat,
-    (∀ pp ∈ cvI.levelParams, ψ₁ pp = ψ₂ pp) →
-    (d.pinAt q).u ψ₁ = (d.pinAt q).u ψ₂ ∧
-    (d.pinAt q).Ds ψ₁ = (d.pinAt q).Ds ψ₂ ∧
-    (d.pinAt q).Ids ψ₁ = (d.pinAt q).Ids ψ₂
+  ∀ q, q < d.nPins →
+    (∀ v ∈ (d.pinAt q).lvls, v.allParamsDefined cvI.levelParams = true) ∧
+    (∀ (ψ : Name → Nat) (e : AnnotTerm), e ∈ (d.pinAt q).Ds ψ →
+      ConLeche.Term.Term.bvarsBelow d.nP e.erase) ∧
+    ∀ ψ₁ ψ₂ : Name → Nat, (∀ pp ∈ cvI.levelParams, ψ₁ pp = ψ₂ pp) →
+      (d.pinAt q).u ψ₁ = (d.pinAt q).u ψ₂ ∧
+      (d.pinAt q).Ds ψ₁ = (d.pinAt q).Ds ψ₂ ∧
+      (d.pinAt q).Ids ψ₁ = (d.pinAt q).Ids ψ₂
 
 omit [SetTheory V] in
 /-- At a pins-free container the clause is vacuous. -/
@@ -503,12 +530,32 @@ and components, at every parameter frame.  The assignment is ONE
 function for the whole environment so that the shape a container's own
 pins carry and the shape the block being installed proves speak of the
 SAME model of the pins' container — what the global entry theorem
-composes (`nestedPinLeaf_all`). -/
+composes (`nestedPinLeaf_all`).
+
+The COUNT conjunct (task #315 L-E, DESIGN §U.77 (d), the maintainer's
+ruling): a pin's constructors are as many as its container member's.
+`ChainFitT` at a pin class reads `(pc q).ctors` (`ctorsT_of_pin`), so
+the container instance transfer's `j` ranges over that list, while the
+shape below is supplied only for `j < ((B ci).ctorsM i').length`;
+`PinCtors` is a bare record and `PinRecLaws` quantifies `j` over the
+former everywhere, so without this nothing forbids a pin carrying
+constructors its container does not have, and the transfer would have
+no shape at them.
+
+**Its three producer classes**, so that nobody rediscovers them: the
+five PINNED BASIS blocks, where it is vacuous (`d.pins = []`, so `q`
+does not exist); the NESTED route, where it is
+`NestedPinGroupSyn.ctorCount` composed with `nestedPc`'s own count; and
+M7-3's NATIVE and MUTUAL sites, whose blocks are pins-free for the same
+reason as the basis (`ContainerCross.lean`'s pins-free construction).
+The transports (`PinShapes.crossEnv`, `PinShapes.congrB`) carry it
+unchanged. -/
 @[expose] def PinShapes {env : Env} (m : EnvModel V env) (B : ContainerInfo → BlockModel V)
     (d : BlockModel V) (pc : Nat → PinCtors V) : Prop :=
   ∀ q, q < d.nPins → ∃ (q₀ kJ i : Nat) (ci : ContainerInfo), q = q₀ + i ∧ i < kJ ∧
     ConLeche.containerInfo? env (d.pinAt q).J = some ci ∧
     PinGroupView d (B ci) q₀ kJ ∧
+    (∀ i', i' < kJ → (pc (q₀ + i')).ctors.length = ((B ci).ctorsM i').length) ∧
     ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (d.params ψ).reverse ρp →
       ∀ i' j, i' < kJ → j < ((B ci).ctorsM i').length →
       ∀ (cvT : ConstantVal) (caps : IndCaps),
@@ -695,10 +742,31 @@ invariant under a later install.
 
 `ContainerOwnPinsSyn.toReadOf` (`NestedOwnPinsRead.lean`, which is
 above this file) is the bridge to the reading form the
-consumer (`pinCorr_of_ownPins`) wants. -/
+consumer (`pinCorr_of_ownPins`) wants.
+
+**THE COMPONENTS MUST BE CLOSED, and the clause is FALSE without it**
+(task #315 M7-3 session 18, DESIGN §U.104 (a) — REFUTED on two real
+runs, not argued).  `containerOwnPinsAtGo` instantiates the mimic
+recursor at `Ds ++ pad`, and `Expr.instPis` peels ONE binder per
+argument at cursor 0 — so the PAD substitutions run on the
+already-inserted components, at descending cursors, and a component
+carrying a LOOSE BOUND VARIABLE is eaten by the pad.  `PinSyn.ownAt`
+re-opens the recorded (openers-instantiated, hence pad-processed) pin
+at `DsE` afterwards, so the same bvar survives there.  At
+`tests/e2e/nested_rec.ndjson`'s `Tree` the reader answers
+`[List (Tree Sort)]` where `ownAt` predicts `[List (Tree #0)]`, at
+`DsE = [Expr.bvar 0]`; `nested_p30`'s `P30` is the same.  Lane L-B's
+`instPis_openers_subst` carries `hDcl : ∀ a ∈ Ds, a.looseBVarsBounded 0`
+for exactly this reason — that hypothesis is not a proof artefact, it
+is the gap.
+
+The closedness costs no consumer: `toReadOf` already takes it (inside
+its `hDsE`), and the seven pins-free sites go through `of_noMimics`,
+which only gains an `intro`. -/
 @[expose] def ContainerOwnPinsSyn (env : Env) (d : BlockModel V) : Prop :=
   ∀ (i : Nat) (cvC : ConstantVal) (caps : IndCaps) (lvls : List Level) (DsE ps : List Expr),
     i < d.k → env.find? (d.memberName i) = some (.indInfo cvC caps) →
+    (∀ a ∈ DsE, a.looseBVarsBounded 0 = true) →
     ConLeche.containerOwnPinsAt env (d.memberName i) lvls DsE = some ps →
     ∀ e ∈ ps, ∃ qK, qK < d.nPins ∧ e = (d.pinAt qK).ownAt d.nP cvC.levelParams lvls DsE
 
@@ -711,7 +779,7 @@ theorem ContainerOwnPinsSyn.of_noOwn {env : Env} {d : BlockModel V}
     (hempty : ∀ (i : Nat) (lvls : List Level) (DsE ps : List Expr), i < d.k →
       ConLeche.containerOwnPinsAt env (d.memberName i) lvls DsE = some ps → ps = []) :
     ContainerOwnPinsSyn (V := V) env d := by
-  intro i _cvC _caps lvls DsE ps hi _ hps e he
+  intro i _cvC _caps lvls DsE ps hi _ _ hps e he
   rw [hempty i lvls DsE ps hi hps] at he
   exact nomatch he
 
