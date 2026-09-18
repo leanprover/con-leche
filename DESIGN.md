@@ -96011,3 +96011,121 @@ container is stored at `d.env₀` and installs since then do not disturb
 it.  That is the shape `EnvBlocksOf.crossIndP` already proves
 (`containerInfo?_ext_ind_eq`), and it would be a different clause with
 a different discharge.  Reported rather than absorbed.
+
+#### U.80 — M7-3 session 20: `pinConts` LANDED at all nine sites, the extended operator counted then withdrawn, and a crossing that was free one level up (lane M7-3, session 20, 2026-09-18)
+
+Two clauses were requested of `ContainerModeled`/`BlockModel` and the
+instruction was to count the blast radius before writing either.  Both
+counts are below, and one of them changes the plan.
+
+##### (a) THE EXTENDED OPERATOR — counted, then WITHDRAWN
+
+Lane L-E asked for an operator over the EXTENDED classes (members plus
+the block's own pins) recorded the way `BlockModel.Φ` is, and the
+instruction was to count the blast radius before writing it.  The count
+came back GOOD and the clause was then withdrawn for good by the
+coordinator, the route it served having been refuted on L-E's own lane.
+**The count is recorded anyway, because it is the number anyone will
+want if a re-pointed operator is ever proposed**, and because it
+identifies where the work would fall:
+
+`BlockModel` has exactly SEVEN literal producers — every place with a
+field list, hence every place a new field must be given:
+`BlockModel.ofNative` (`BlockRepOne.lean:261`), `BlockModel.ofMutual`
+(`BlockRepMutual.lean:81`), **`BlockModel.ofNested`
+(`BlockComposed.lean:138`)**, `zeroCtorBlock`
+(`BasisBlocksZero.lean:55`, serving Empty and False), `eqBlock`,
+`punitBlock` and `natBlock`.  **Six carry `pins := []` and are
+therefore VACUOUS** (the extended arity `k + nPins` collapses to `k`
+and the extended operator IS the one already there); only `ofNested`
+carries `pins := pins` and is real.  `MutualCore.lean:1809` and
+`NestedCore.lean:74` are `:=` WRAPPERS with no field list and need no
+change — which is the difference between this count and the earlier
+attempt that became 170 errors: that one was pushed from the wrapper
+end.  `IsBlockModel.functor` has EIGHT sites, six pins-free, one real
+(`NestedCore`), one a pure transport (`BlockRepCross`).
+
+**The cross-lane flag**, which was the other thing asked: the single
+non-vacuous producer, `BlockComposed.lean`, and `BlockRepMutual.lean`
+were both last touched by lane **L-A** (live at `d9dc80d5`).  So the one
+file where the work would have been real is a file another lane is
+editing.
+
+##### (b) THE MONOTONICITY CLAUSE — LANDED at all nine, and free at the one site that looked hard
+
+`ContainerModeled.pinConts` is the shape this lane proposed when it
+refused the environment EQUATION:
+
+```lean
+  pinConts : ∀ q, q < d.nPins → ∀ ci' : ContainerInfo,
+    ConLeche.containerInfo? d.env₀ (d.pinAt q).J = some ci' →
+    ConLeche.containerInfo? env (d.pinAt q).J = some ci'
+```
+
+`pinNP` is spelled at `d.env₀` because that is where
+`BlockOpened.nestF` resolves a pin's index arguments; a consumer at the
+MODEL's environment cannot use it there, and this is the monotonicity
+that carries it across.  Lane L-B's two named inputs close on it.
+
+The nine sites: the **seven pins-free ones** are vacuous; the **nested
+site** is `NestedTailOut.conts` read at its two ends (the antecedent is
+at `d.env₀`, which is `env` there on the nose, and `conts`' `envOut`
+half is the conclusion); `of_readBack` takes one more premise.
+
+**And `crossEnvP` is free, which a first pass got wrong.**  This
+lane's own session-19 reading said the crossing was not free, because
+`crossEnvP` carries none of the frame lemma's six conditions.  It does
+not need them: **the hypothesis already existed one level up.**
+`BlockAt.crossEnvP` has taken
+
+```lean
+    (hci : ∀ q, q < (B ci).nPins → ∀ ci' : ContainerInfo,
+      containerInfo? env₁ ((B ci).pinAt q).J = some ci' →
+      containerInfo? env₂ ((B ci).pinAt q).J = some ci')
+```
+
+all along — passing it only to the `PinShapes` crossing — and
+`EnvBlocksOf.crossIndP` already PROVES it (`hpc … .2`).  So the clause
+crosses by composition, with nothing new proved anywhere.  **Check one
+level up before concluding a crossing is not free** is the lesson, and
+it cost a wrong sizing in the previous session's record.
+
+**One piece of plumbing the analysis did not cover, proved rather than
+assumed**: `ContainerModeled.crossEnv` — the unguarded sibling — has
+two callers in `NestedPins.lean` (`NestedPinsRun.groupSyn`,
+`pinNIdx`) that cross to the formers' prefix model and had no `hci`.
+`consMutualFormers_find?_cases` (a lookup past the formers' conses is
+the base's or a former's own `indInfo`),
+`containerInfo?_consMutualFormers` (`containerInfo?_ext_ind_eq` at
+`N := fms.map (·.cvTa.name)`, with `hrecN` discharged because every
+cons is an `indInfo` and never a `recInfo`) and
+`NestedPinsRun.contsCross` close both.
+
+L-B's fourth side condition is settled by an EXPOSURE, not a proof:
+`mutualBlockNames_fresh` lifts `declMutualB`'s twenty-line `have
+hbnFresh` to a lemma over five RUN conjuncts, re-deriving `hmemFresh`,
+`hlenA`/`hnamesA` and the `env₁` inversion internally so a caller
+holding only the run can feed it straight in.
+
+##### (c) Two negatives recorded, so nobody tries them twice
+
+From lane L-E's analysis, verified and not re-derived here:
+monotonicity of the extended operator is free from a mono lemma already
+used at exactly these classes, and the defining equality needs no
+monotonicity at all — the least tuple is the INTERSECTION of the closed
+tuples, not an iteration, so the ordering lemma is unconditional.
+Monotonicity is wanted only by the bisimulation-style ordering lemma
+above.  And **clamping the extended operator's fibres to the carrier by
+separation does NOT work**: clamping weakens the closure condition
+while leastness needs the stronger one, so one half of the equality
+stops going through.
+
+##### (d) WHAT IS LEFT ON THIS LANE
+
+The `ownPins` FIELD is the only thing outstanding, and it is held out
+by ONE premise that is not this lane's: `RecMajorHeadStored`, i.e. the
+environment invariant's recursor clause giving the stripped major
+premise with a CONST head UNCONDITIONALLY (§U.79 (b)).  All nine sites
+are proved, the reading bridge is unconditional, and the crossing is
+proved modulo that premise, so the field is one line per site behind
+it.  Nothing else on this lane is blocked by this lane.
