@@ -1365,11 +1365,11 @@ private theorem rw_nonApp_head {A : Name} {us : List Level}
       replaceAllNested env blvls params pbs₀ st hd = .ok (e', st') →
       e'.getAppFn = Expr.const A us →
       hd = Expr.const A us ∨
-        ∃ r, replaceIfNested env blvls params pbs₀ st hd = .ok (some r) := by
+        ∃ r, replaceIfNested env blvls params pbs₀ st hd = .ok (some r) ∧ e' = r.1 := by
   intro hd hna h h2
   have hsame : (Except.ok (hd, st) : CheckM (Expr × ElimState)) = .ok (e', st') →
       hd = Expr.const A us ∨
-        ∃ r, replaceIfNested env blvls params pbs₀ st hd = .ok (some r) := by
+        ∃ r, replaceIfNested env blvls params pbs₀ st hd = .ok (some r) ∧ e' = r.1 := by
     intro hu
     simp only [Except.ok.injEq, Prod.mk.injEq] at hu
     rw [← hu.1, getAppFn_of_not_app hna] at h2
@@ -1382,7 +1382,7 @@ private theorem rw_nonApp_head {A : Name} {us : List Level}
     · exact hsame h
     · split at h
       · close_throw
-      · exact Or.inr ⟨_, by assumption⟩
+      · exact Or.inr ⟨_, by assumption, (congrArg Prod.fst (Except.ok.inj h)).symm⟩
       · exact hsame h
   | sort u =>
     simp only [replaceAllNested] at h
@@ -1390,7 +1390,7 @@ private theorem rw_nonApp_head {A : Name} {us : List Level}
     · exact hsame h
     · split at h
       · close_throw
-      · exact Or.inr ⟨_, by assumption⟩
+      · exact Or.inr ⟨_, by assumption, (congrArg Prod.fst (Except.ok.inj h)).symm⟩
       · exact hsame h
   | lit l =>
     simp only [replaceAllNested] at h
@@ -1398,7 +1398,7 @@ private theorem rw_nonApp_head {A : Name} {us : List Level}
     · exact hsame h
     · split at h
       · close_throw
-      · exact Or.inr ⟨_, by assumption⟩
+      · exact Or.inr ⟨_, by assumption, (congrArg Prod.fst (Except.ok.inj h)).symm⟩
       · exact hsame h
   | fvar i ty =>
     simp only [replaceAllNested] at h
@@ -1406,7 +1406,7 @@ private theorem rw_nonApp_head {A : Name} {us : List Level}
     · exact hsame h
     · split at h
       · close_throw
-      · exact Or.inr ⟨_, by assumption⟩
+      · exact Or.inr ⟨_, by assumption, (congrArg Prod.fst (Except.ok.inj h)).symm⟩
       · exact hsame h
   | const m ws =>
     simp only [replaceAllNested] at h
@@ -1414,7 +1414,7 @@ private theorem rw_nonApp_head {A : Name} {us : List Level}
     · exact hsame h
     · split at h
       · close_throw
-      · exact Or.inr ⟨_, by assumption⟩
+      · exact Or.inr ⟨_, by assumption, (congrArg Prod.fst (Except.ok.inj h)).symm⟩
       · exact hsame h
   | lam ty b bm =>
     simp only [replaceAllNested] at h
@@ -1422,7 +1422,7 @@ private theorem rw_nonApp_head {A : Name} {us : List Level}
     · exact hsame h
     · split at h
       · close_throw
-      · exact Or.inr ⟨_, by assumption⟩
+      · exact Or.inr ⟨_, by assumption, (congrArg Prod.fst (Except.ok.inj h)).symm⟩
       · split at h
         · close_throw
         · split at h
@@ -1437,7 +1437,7 @@ private theorem rw_nonApp_head {A : Name} {us : List Level}
     · exact hsame h
     · split at h
       · close_throw
-      · exact Or.inr ⟨_, by assumption⟩
+      · exact Or.inr ⟨_, by assumption, (congrArg Prod.fst (Except.ok.inj h)).symm⟩
       · split at h
         · close_throw
         · split at h
@@ -1452,7 +1452,7 @@ private theorem rw_nonApp_head {A : Name} {us : List Level}
     · exact hsame h
     · split at h
       · close_throw
-      · exact Or.inr ⟨_, by assumption⟩
+      · exact Or.inr ⟨_, by assumption, (congrArg Prod.fst (Except.ok.inj h)).symm⟩
       · split at h
         · close_throw
         · split at h
@@ -1469,7 +1469,7 @@ private theorem rw_nonApp_head {A : Name} {us : List Level}
     · exact hsame h
     · split at h
       · close_throw
-      · exact Or.inr ⟨_, by assumption⟩
+      · exact Or.inr ⟨_, by assumption, (congrArg Prod.fst (Except.ok.inj h)).symm⟩
       · split at h
         · close_throw
         · simp only [Except.ok.injEq, Prod.mk.injEq] at h
@@ -1492,7 +1492,7 @@ theorem replaceAllNested_head_or_fire {A : Name} {us : List Level} {hd : Expr}
       hd = Expr.const A us ∨
         ∃ (k : Nat) (r : Expr × ElimState),
           replaceIfNested env blvls params pbs₀ st (Expr.mkAppN hd (as.take k))
-            = .ok (some r) := by
+            = .ok (some r) ∧ e'.getAppFn = r.1.getAppFn := by
   -- a reverse recursor, spelled here because the spine grows on the right
   have revRec : ∀ {motive : List Expr → Prop}, motive [] →
       (∀ (bs : List Expr) (b : Expr), motive bs → motive (bs ++ [b])) → ∀ bs, motive bs := by
@@ -1509,9 +1509,9 @@ theorem replaceAllNested_head_or_fire {A : Name} {us : List Level} {hd : Expr}
   refine revRec ?_ ?_
   case _ =>
     intro st st' e' hrun h2
-    rcases rw_nonApp_head hna hrun h2 with h | ⟨r, hr⟩
+    rcases rw_nonApp_head hna hrun h2 with h | ⟨r, hr, hre⟩
     · exact Or.inl h
-    · exact Or.inr ⟨0, r, hr⟩
+    · exact Or.inr ⟨0, r, hr, by rw [hre]⟩
   case _ =>
     intro as a ih st st' e' hrun h2
     rw [mkAppN_concat] at hrun
@@ -1528,9 +1528,11 @@ theorem replaceAllNested_head_or_fire {A : Name} {us : List Level} {hd : Expr}
       · close_throw
       · -- the whole spine fired
         rename_i r hr
-        refine Or.inr ⟨(as ++ [a]).length, r, ?_⟩
-        rw [List.take_length, mkAppN_concat]
-        exact hr
+        refine Or.inr ⟨(as ++ [a]).length, r, ?_, ?_⟩
+        · rw [List.take_length, mkAppN_concat]
+          exact hr
+        · simp only [Except.ok.injEq] at hrun
+          rw [show r.1 = e' from congrArg Prod.fst hrun]
       · simp only at hrun
         cases hf : replaceAllNested env blvls params pbs₀ st (Expr.mkAppN hd as) with
         | error err => rw [hf] at hrun; exact nomatch hrun
@@ -1546,9 +1548,10 @@ theorem replaceAllNested_head_or_fire {A : Name} {us : List Level} {hd : Expr}
             simp only [Except.ok.injEq, Prod.mk.injEq] at hrun
             rw [← hrun.1] at h2
             simp only [Expr.getAppFn] at h2
-            rcases ih hf h2 with h | ⟨k, r, hr⟩
+            rcases ih hf h2 with h | ⟨k, r, hr, hrh⟩
             · exact Or.inl h
-            · refine Or.inr ⟨min k as.length, r, ?_⟩
+            · refine Or.inr ⟨min k as.length, r, ?_, by
+                rw [← hrun.1]; exact hrh⟩
               rw [show (as ++ [a]).take (min k as.length) = as.take k from by
                 rcases Nat.le_total k as.length with hle | hle
                 · rw [show min k as.length = k from Nat.min_eq_left hle,
@@ -1683,13 +1686,14 @@ theorem replaceAllNested_container_head {A : Name} {us : List Level}
         containerInfo? env I = some ci ∧
         ci.nP ≤ e.getAppArgs.length ∧
         q ∈ st₁.pins ∧
-        q.pin = Expr.mkAppN (.const I lvls) (e.getAppArgs.take ci.nP) := by
+        q.pin = Expr.mkAppN (.const I lvls) (e.getAppArgs.take ci.nP) ∧
+        e'.getAppFn = Expr.const q.aux blvls := by
   have hna : ∀ f a, e.getAppFn ≠ Expr.app f a := getAppFn_not_app e
   have hsp : Expr.mkAppN e.getAppFn e.getAppArgs = e := Expr.mkAppN_getApp e
   rw [← hsp] at hrun
-  rcases replaceAllNested_head_or_fire hna e.getAppArgs hrun hhead with hcst | ⟨k, r, hr⟩
+  rcases replaceAllNested_head_or_fire hna e.getAppArgs hrun hhead with hcst | ⟨k, r, hr, hrh⟩
   · exact absurd hcst hfree
-  obtain ⟨I, lvls, cv, caps, ci, q, st₁, hpre, hfind, hci, hlen, hqm, hqp, -⟩ :=
+  obtain ⟨I, lvls, cv, caps, ci, q, st₁, hpre, hfind, hci, hlen, hqm, hqp, hrs⟩ :=
     replaceIfNested_fire_pin hr
   -- the fired prefix's head is the spine's head, and its parameter
   -- arguments are the spine's (the prefix is at least `ci.nP` long)
@@ -1703,7 +1707,9 @@ theorem replaceAllNested_container_head {A : Name} {us : List Level}
   simp only [List.length_take] at hlen
   have hnPk : ci.nP ≤ k := by omega
   have hnPlen : ci.nP ≤ e.getAppArgs.length := by omega
-  exact ⟨I, lvls, cv, caps, ci, q, st₁, hfn, hfind, hci, hnPlen, hqm,
-    by rw [hqp, List.take_take, Nat.min_eq_left hnPk]⟩
+  refine ⟨I, lvls, cv, caps, ci, q, st₁, hfn, hfind, hci, hnPlen, hqm,
+    by rw [hqp, List.take_take, Nat.min_eq_left hnPk], ?_⟩
+  rw [hrh, hrs]
+  simp only [Expr.getAppFn_mkAppN, Expr.getAppFn]
 
 end ConLeche
