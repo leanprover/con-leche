@@ -112560,6 +112560,49 @@ would be".  **The price stands at 1–2 sessions but the work is the
 honest mention argument, not a refactor**, and the next session should
 start from that sentence rather than from the word "promote".
 
+##### (d2) AND (ii)'s PRICE IS NOW ITSELF IN DOUBT — the mention is spelled on the WRONG LIST
+
+Having re-located (ii) as "prove `hment` honestly", the next read says
+the honest argument does not have its input either, and the reason is a
+trade-off the tree documents in the very clause that would supply it.
+
+`hment` is about the MINTED domain's argument spine: one of
+`AS.take ci'.nP` must mention a name of the elimination's growing list,
+where `AS` is the CONTAINER'S FIELD's own argument spine, level-
+substituted and instantiated at the outer pin's components.
+
+`ContainerModeled.nestMention` is spelled on the PIN'S RECORDED
+COMPONENTS — `∃ e ∈ (d.pinAt q).DsE.take (d.pinAt q).nPJ, mentionsMember …`
+— and its docstring says why: the opened-domain spelling "dies at the
+`NestedCtorsStaged` boundary, where `BlockOpened.nestF` is all that
+survives", and only the components' form has a kernel source (K.44).
+
+And `BlockOpened.nestF` (`BlockRep.lean`) records, for a nested field:
+the head, the argument COUNT, `constsResolve env₀` for the arguments
+**past** `nPJ`, and two `mentionsFvar` clauses.  **Nothing about the
+first `nPJ` arguments** — which is the half `hment` needs, and which
+`nestMention`'s own docstring names as the gap ("says nothing about the
+parameter part, so the copies' `pinF` arm cannot see the mention it
+needs").
+
+So at a STORED container the two lists — the field's opened-domain
+arguments and the pin's recorded `DsE` — have no recorded relation;
+`nestMention`'s "the consumer loses nothing" holds at the nested
+block's OWN read-back, where the restored domain IS the pin re-opened,
+and this consumer is not that one.
+
+**The question for the scope call, stated and not guessed at**: does
+(ii) want (1) a `ContainerModeled` clause spelling the mention on the
+field's opened domain — the respelling that was deliberately NOT taken,
+and whose kernel source would have to be found; (2) a recorded tie
+between a nested field's first `nPJ` arguments and its pin's `DsE` at a
+stored container; or (3) the uniformity route §U.79 (d) step 2 names
+(`nestedContainersOk_uniform` + `uniformIndOccsE_stripPis`), which this
+lane has not costed and which is the only one of the three that adds no
+record.  **This lane is not choosing**: the last three costings on this
+row that were made without reading the producer were all wrong, and the
+input to the choice is the paragraph above.
+
 ##### (e) (iii), SIZED AGAINST ITS MODEL, as asked
 
 `copyRecFRead`'s conclusion IS conjuncts 4 and 5 of the residual at a
