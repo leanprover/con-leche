@@ -113083,6 +113083,108 @@ list (the wrapper consumes it) and `hfit_wide_of_inst` entered it, the
 step's product, which the assembly move consumes.  The accept set is
 untouched: no consumer has moved to the wide route.
 
+#### WIDE (2)+(3): THE TRANSFER RE-POINTED, AND THE ASSEMBLY COMPOSED (lane WIDE, 2026-09-18)
+
+##### (a) Item (2): the transfer, both ways
+
+`NestedPinLeafAll.lean`:
+
+* **`copyTransfer_iff`** — `copyTransfer_via` once per direction, with
+  the premises symmetric in the two sides: `hdom₁`/`hdom₂` (the BOUND,
+  one per side), `hent₁`/`hent₂` (each side's entries at its
+  `ordF`-right fields) and `hrel`, which at the wide width is an
+  EQUALITY of the two tuples at a container-recursive field's target,
+  used as `⊆` in both directions.  The wiring is exactly the one the
+  handover's table names, and no induction and no new combinator
+  appear;
+* **`pinClassFit_of_transfer`** — that composed with
+  `chainFitT_of_pin`.  Side 2 is `dJ`'s own record of its pin
+  (`dJ.pinCtors qK`, shaped by `PinShapes` against the PIN's container
+  `dK`) at the target view `dJ.targetView acval ψJ`, whose `w` and `u`
+  are `dJ.w ψJ` and `fun t => dJ.uT t ψJ` — which is precisely what
+  `chainFitT_of_pin` reads.  So the transfer's conclusion IS
+  `dJ.ChainFitT dJ.pinCtors ψJ ρJ Y t c j fs` at the class
+  `c = dJ.k + qK`, with no restatement;
+* **`hfit_wide_pin_of_class`** — the count and the fit paired, at every
+  class beyond the members.  Its statement is `hfit_wide_of_inst`'s
+  `hpin` VERBATIM, which is what makes the two halves check that they
+  meet rather than merely look alike.
+
+##### (b) Item (3): the assembly, composed
+
+`NestedFit.lean`, **`ofNested_pin_block_of_wide_inst`** —
+`ofNested_pin_block_of_inst`'s sibling on the wide route.  It is
+`ofNested_pin_block_of_wide` fed by `ofNested_hΦ_of_fit` fed by
+`hfit_wide_of_inst`, with the container's side read ENTIRELY off its
+stored model: `auxFunctor` for the two functor clauses, `auxCompose`
+for the composition, `auxFibre` for the wide fibre, `ctorsT`/`injT`/
+`ChainFitT` for the class readers.  No domination hypothesis, no
+candidate tuple, no ordering among pins — the three things Resolution 3
+needs and Resolution 1 does not.
+
+This is also the step that CHECKED the chain: the five landed wide
+theorems compose, at the same spelling of the width, the index sets,
+the bound and the class readers.  The instance data it takes are `σ`
+with `InjOn`/`hσ`/`hroot`/`hIsσ`, `hinjJ` (the class injections are
+towers) and the two σ-facts of WIDE (1w).
+
+##### (c) THE FINDING: (f) is not available, and why
+
+(f) — `NestedRecFibre.lean:299` moving from `ofNested_pin_block_of_inst`
+to `_of_wide`, with `hfit_le_of_inst`/`hfitLe` deleted — needs the
+wide assembly's inputs AT THE RUN, and those are what is now missing:
+`σ` computed from the container's pin table matched by `PinCorr`, the
+two σ-facts, `hIsσ` at the closure's positions, `hinjJ`, and above all
+`hpin` — `hfit_wide_pin_of_class`'s two hypotheses (the block's group
+count against `PinShapes`' COUNT conjunct, and
+`pinClassFit_of_transfer`'s ~18 premises) discharged from the run's
+records.  None of that is a statement question; all of it is the
+run-level plumbing the handover priced as (2)'s second half plus (3)'s
+inputs, and it is a session of its own.
+
+`hfit_le_of_inst` therefore KEEPS its consumer and is not deleted: the
+narrow assembly is still the one the tree calls.  Deleting it now would
+break the build, which is the sound form of the gate.
+
+##### (d) The unconsumed report, read against the handover's two lists
+
+`tests/unconsumed.sh` (advisory), before → after this session:
+
+* **left the list** (now consumed): `CopyCtorShape.fit_iff_wide`,
+  `ofNested_pin_block_of_wide`, `ofNested_hΦ_of_fit` — the wide chain
+  is connected from the fit up to the identification;
+* **entered the list**: `ofNested_pin_block_of_wide_inst`,
+  `pinClassFit_of_transfer`, `hfit_wide_pin_of_class` — the session's
+  three products, which (f) consumes;
+* **"must stay consumed"** (the handover's first list): `copyTransfer_via`,
+  `copyTransfer_mem`, `chainFitT_congr_mem`, `slotAtT_congr_mem`,
+  `dom_congr_mem`, `slotDom_congr_mem`, `slotSet_congr_below`,
+  `teleOfFields_congr_below`, `spineFit_congr_fields` — all consumed.
+  `copyTransfer_pin` is unconsumed, and WAS unconsumed before this
+  session;
+* **"`hle`'s death frees"** (the handover's second list): nothing moved,
+  because the narrow assembly is still live.  Five of the named
+  declarations were ALREADY unconsumed on this branch before the
+  session — `pins_le_of_declOrder`, `nestedPinsLe_of_rank`,
+  `instanceLe_of_classPin`, `nestedGroupLe_of_entries`,
+  `copyEntryAtF_le_of_famLe` — and the rest
+  (`pins_le_of_instanceLe`, `instanceLe_of_transfer`/`_of_rel`/`_of_pair`,
+  `famAt_le_of_TClosed`, `copyEntryAtF_le_of_app`,
+  `CopyCtorShape.fit_imp_T_le`/`_dom`, `declPos`, `nestedPinOrderAt`)
+  are still consumed, by each other and by the narrow route.  So the
+  handover's expectation is right in direction and premature in timing:
+  the list is freed by (f), not by (2)/(3).
+
+##### (e) Green
+
+`tests/warning-free.sh 884671f8`: "2 changed module(s) since 884671f8",
+"lake build — 2 module(s) recompiled, 0 warning line(s)", "lake test —
+2 module(s) recompiled, 0 warning line(s)", "OK (a run that could have
+failed)".  `lake test` exit 0; `tests/proofdeps.sh` doors `0`;
+`tests/shake.sh` OK (513 removals, all allowlisted, none demotable);
+`tests/overview-links.sh` OK.  The accept set is untouched: no consumer
+has moved to the wide route.
+
 #### WIDE (2)/(3)/(f): THE WIRING, AUDITED AND HANDED OVER (lane WIDE, 2026-09-18)
 
 Item (2) is confirmed to be a RE-POINTING and is wired below; it is a

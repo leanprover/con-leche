@@ -432,7 +432,9 @@ Resolution 1 needs.
 | Resolution 1's identification | `ofNested_pin_block_wide`, `ofNested_pin_block_of_wide` (`Model/Inductives/BlockComposed.lean`) |
 | its agreement, reduced to the fits | `ofNested_hΦ_of_fit` (same file) |
 | the fits at the container's members | `CopyCtorShape.fit_iff_wide`, `hfit_wide_mem_of_inst`, `hfit_wide_of_inst` (`Model/Inductives/NestedFit.lean`) |
-| the transfer between two copies of one container | `chainFitT_congr_mem`, `copyTransfer_via` (`Model/Inductives/NestedPinLeafAll.lean`) |
+| the transfer between two copies of one container | `chainFitT_congr_mem`, `copyTransfer_via`, `copyTransfer_iff` (`Model/Inductives/NestedPinLeafAll.lean`) |
+| the fit at a container's own-pin class | `pinClassFit_of_transfer`, `hfit_wide_pin_of_class` (same file) |
+| the identification assembled | `ofNested_pin_block_of_wide_inst` (`Model/Inductives/NestedFit.lean`) |
 | Resolution 1's experiment | `SetModel/SegCopy.lean` |
 | Resolution 3's apparatus | `pinLfpAt` (candidate tuples), `pins_le_of_declOrder`, `hentR` in `Model/Inductives/NestedFit.lean` / `NestedPinLeafAll.lean`; the declaration-order record `declPos`/`nestedPinOrderAt` |
 
@@ -502,6 +504,21 @@ in two:
   instantiated at `J`'s components.  So both sides are copies of ONE
   container at two instantiations, and the comparison is the transfer
   between two copies rather than a fact the run states about either.
+  This half is now the transfer applied once per direction, whose
+  conclusion at a pin class IS the container's class fit, with premises
+  symmetric in the two sides: each side's slots inside the container's
+  domains, each side's own entries at its rewritten ordinary fields,
+  and the two tuples agreeing at every recursive field's target.
+
+**The identification is assembled.**  The two halves, the agreement's
+reduction to them, the reindexing and the congruence below a common
+bound compose into one theorem: a pin's carrier at the block's carrier
+is its container's least tuple, with the container's side read entirely
+off its stored model.  What is not yet done is reading its inputs off
+the RUN — the instance map from the container's pin table, the two
+facts about where that map sends a field's target, and the own-pin
+half's own premises — so the tree still takes the long way round
+(Resolution 3) at the one site that consumes the identification.
 
 Beyond these three the residue is unchanged: the component family at
 instance roots whose components mention other pins, an induction over
