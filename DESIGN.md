@@ -113391,8 +113391,129 @@ shape this row has twice paid for by building first and reading after.
 
 ##### (f) WHAT THIS SESSION BUILT
 
-Nothing in the tree.  The deliverable is (a)–(e): (A) answered, the
-clause's true statement corrected, (ii)'s route refuted and rebuilt,
-and step 2 stated down to the two arms that need an input.  The gates
-were run and are green on the unchanged tree.
+(a)–(e) above are the reads; the build is in the next section.
+
+#### PINF: (A) LANDED — the mention clause, and the two inputs step 2 needs, settled by reading the kernel (lane PINF, 2026-09-18)
+
+The coordinator's two decisions taken: the clause is the MENTION, not
+the tie; and step 2's two inputs are settled off the kernel rather than
+recorded blind.  **(A) is landed and green**; the row stops before (ii)
+on the coordinator's own condition.
+
+##### (a) THE CLAUSE, AND WHAT CARRIES IT
+
+`ContainerModeled.nestArgsMention` (`NestedPremise.lean`) — at a field
+the classification calls NESTED at pin `q` and FINITARY recursive, some
+element of the field's opened spine's first `nPJ` arguments mentions a
+member of the container's own group.  `nestMention`'s twin on the other
+list, stated with `q < d.nPins` so a pins-free block discharges it in
+that clause's own idiom.
+
+Recursive only.  At a REFLEXIVE nested field the opened domain is a Π
+and `getAppArgs` is empty — `BlockOpened.nestReflF` speaks of the
+telescope's BODY — so the reflexive twin is a second clause, and it
+belongs to (iv), which writes that arm anyway.
+
+The parameter part is genuinely dropped at the model tier
+(`BlockOpened.nestF` records the head, the count and `constsResolve`
+PAST `nPJ`; `BlockCtorData` adds only readings; `ctorFacts` hands
+`BlockCtorFacts` and no more), so the fact is carried from the restore:
+
+* `NestedCtorRead.pinArgs` — the field's spine's first `nPJ` arguments
+  ARE the restored pin's, i.e. the pin closed over the parameters and
+  reopened at this constructor's openers.  Discharged in
+  `ReadCtx.nestedCtorRead_of` from `RestoredField`'s own pin arm, which
+  is where the datum still exists.  Carried as the EQUALITY, not as the
+  mention, because the mention step needs K.30 and K.44 and neither
+  reaches that tier;
+* `NestedLoopFacts.pinArgs`, `NestedStageFacts.pinArgs` — pass-through;
+* `nestedContainerModeled` does the mention step, and takes `pinsScoped`
+  (K.30) and `auxBlock` as two new hypotheses for it, both already in
+  `declNested_of`'s hand.
+
+The mention step is four moves and no elementwise map: K.44 puts a
+member in a COMPONENT, so the pin spine mentions it
+(`rg_mentionsConst_mkAppN`); `mentionsMember_abstractRange` and
+`mentionsMember_instSeq` (both new, `NestedRestoreOpen.lean`) carry it
+through the close and the reopen; and the head it lands under is the
+pin's CONTAINER, which `pinsNotMembers`' own freshness argument keeps
+out of `memberNames` — so the mention is in an argument.
+
+`mentionsConst_abstractRange` is the one that is not free.  `abstractRange`
+replaces an `fvar` by a `bvar` and DROPS its annotation, while
+`Expr.mentionsConst` reads annotations — so it is stated with the
+annotation hypothesis on every `fvar` leaf, and K.30 supplies exactly
+that: a pin's leaves are the first former's parameter openers, whose
+annotations `constsResolve env` where the block's members are fresh.
+
+##### (b) STEP 2'S FIRST INPUT — DERIVED, not recorded
+
+A stored constructor type has no free variables at all, and `EnvWF`
+carries it: `ConstWF env c`'s first conjunct is
+`c.toConstantVal.type.hasFvar = false` (`Verify/EnvWF.lean`), which at a
+`.ctorInfo` IS the constructor's type.  `checkConstantValPre` is where
+it is checked (`Kernel/CheckerBase.lean`, "unexpected free variable in
+type of …").  **No gap in `EnvWF`, and no record needed**: step 2's
+`.fvar` arm is vacuous on the container's stored constructor type.
+
+##### (c) STEP 2'S SECOND INPUT — THE WALK ACCEPTS, AND THIS IS THE STOP
+
+Read as asked.  `normPosDomM` (`Kernel/Inductives/MutualInstall.lean`)
+whnf's a member-mentioning domain and then matches:
+
+```lean
+    | .forallE dom body bm =>
+      if mentionsMember memberNames dom then throw (.invalid "… non positive occurrence …")
+      else … recurse …
+    | _ => pure w
+```
+
+A `.proj s i x` with `s` a member is not a `∀`, so it falls into
+`| _ => pure w` and is **ACCEPTED**.  `uniformOccNode` does not
+constrain it either — a `.proj` node's `getAppFn` is not a `.const`, so
+the node answers `some false` and `uniformIndOccsE` descends into `x`
+only, never looking at `s`.  So the coordinator's second branch holds
+and the row stops here.
+
+**But it is rejected elsewhere, and that is the finding worth having.**
+`checkMutualCtor` runs `checkConstantVal`/`checkConstantValPre` on the
+constructor type at the environment holding the FORMERS, and that check
+includes `cv.type.projTablesOk env` — "invalid projection: the node
+names another structure".  A member being declared is stored as
+`.indInfo` and has no `.projInfo` table at that moment, so `.proj M i x`
+with `M` a member is INVALID at the block's own install.  Proj-freeness
+against the group's members is therefore a consequence of acceptance —
+of the CONSTANT check, not of the positivity walk.
+
+The catch is the tier: `ConstWF` carries four syntactic Bools of exactly
+this shape (`hasFvar`, `allLevelParamsDefined`, `constsResolve`,
+`looseBVarsBounded`) and **not** `projTablesOk`, so at a STORED
+container the fact is an environment-history one — K.43's class — unless
+`ConstWF` gains a fifth clause.  That fifth clause is discharged
+wherever the other four are, which is one place; it is not a kernel
+Bool and not a `ContainerModeled` record.  **That is the option this
+lane would take, and the coordinator's call.**
+
+##### (d) STATE AND GATES
+
+* **(A) LANDED** — `nestArgsMention` + the three carriers + the nine
+  sites + three Verify mention lemmas, all consumed
+  (`tests/unconsumed.sh` clean on them);
+* **(ii)** — blocked on (c)'s decision only.  Its other two inputs are
+  in hand: the clause, and `copyResid`'s `hmint`;
+* **(iii)–(v)** — untouched; (iii) is buildable standalone taking `hkA`,
+  as measured.
+
+`tests/warning-free.sh 829f8ebd`:
+
+```
+warning-free: 12 changed module(s) since 829f8ebd
+warning-free: lake build — 12 module(s) recompiled, 0 warning line(s)
+warning-free: lake test — 2 module(s) recompiled, 0 warning line(s)
+warning-free: OK (a run that could have failed)
+```
+
+`lake build` 724 jobs, 0 errors/warnings; `lake test` exit 0;
+`tests/proofdeps.sh` 4965 rows / 12 roots / **doors 0**; `tests/shake.sh`
+510 removals all allowlisted, no demotable public imports.
 
