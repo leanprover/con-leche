@@ -2114,6 +2114,187 @@ def nestedPinRootPairAt (env : Env) (st : ElimState) (roots : List (Option Nat))
     (st : ElimState) (stored : List AuxStored) : Bool :=
   nestedPinRootPairAt env st (nestedPinRootGroup env p b st stored)
 
+/-! ## THE CONTAINER INSTANCE MAP (task #315 K.61 and K.62)
+
+A nested block's expansion mints one mimic per distinct pin EXPRESSION
+(`replaceIfNested`: `st.pins.find? (fun q => q.pin == pin)`).  When a
+pin's container `J` is ITSELF nested, `J`'s own pin table is part of
+`J`'s stored block model, and the block's worklist re-mints `J`'s own
+pins under the substitution at which `J` was instantiated.  The
+**instance map** of a block pin `q` is the resulting map
+
+    J's own pin index  qK   ↦   the block pin index  σ q qK
+
+and it is what identifies a container INSTANCE's copies with the
+container's own wide fixpoint (`docs/NESTED.md` §5).  K.41 records the
+CONVERSE direction — every pin of a container instance is one the root
+container's own elimination minted — which is a covering and not a map:
+it says each block pin is SOME own pin's image, and says nothing about
+which, nor that every own pin has an image, nor where a field's target
+sits.
+
+**THE MAP IS A FUNCTION AND MAY COLLAPSE.**  Two own pins instantiated
+alike arrive at ONE mimic — `tests/e2e/src/nested_pin_collide.lean`
+exhibits it — and the set theory allows that (`FibreConst`,
+`lfpTuple_set` without `InjOn`).  Injectivity is NOT checked; what is
+checked is that a value exists at every own pin.  -/
+
+/-- **PIN `q`'s INSTANCE MAP** (task #315 K.61): the block-pin index of
+each of `q`'s container's own pins, instantiated at `q`'s own level
+arguments and components.  `none` as soon as one of them is not a pin of
+the block.
+
+`containerOwnPinsAt` hands back the container's recorded pin list
+VERBATIM, in pin order, instantiated at the pin's components — K.41's
+own reader, reused unchanged — and pin order is what the model indexes
+by. -/
+def nestedInstMapAt (env : Env) (st : ElimState) (q : Nat) : Option (List Nat) := do
+  let qn ← st.pins[q]?
+  let (lvls, Ds) ← nestedPinLvlsDs env qn
+  let own ← containerOwnPinsAt env qn.container lvls Ds
+  own.mapM fun e => st.pins.findIdx? (fun r => r.pin == e)
+
+/-- Every pin's instance map, in pin order; `none` as soon as one pin's
+is undefined.  This is K.61's TOTALITY clause: the `mapM` succeeding
+says `σ q` is defined at every own pin of every pin's container. -/
+def nestedInstMaps (env : Env) (st : ElimState) : Option (List (List Nat)) :=
+  (List.range st.pins.length).mapM (nestedInstMapAt env st)
+
+/-- **THE CONTAINER'S PARAMETERS AS OPAQUE OPENERS**: `nP` free
+variables at the levels `0 … nP-1`.
+
+They stand for the container's own parameters wherever the own-pin table
+and a stored constructor's telescope have to be compared, and they are
+SYNTHETIC on purpose: a stored constant's type carries no free variable
+at all, so any `fvar` is a marker that cannot collide, and the two sides
+of the comparison are two substitutions by the SAME list — which is all
+the comparison needs.  The type an opener carries is never read.
+
+A bound variable would NOT do: `containerOwnPinsAt` instantiates the
+mimic recursor's whole telescope with `Expr.instPis`, whose
+`instantiate1` lowers the binders above each substitution, so a loose
+`bvar` handed to it is re-captured by the next binder and comes back as
+the padding. -/
+def containerParamOpeners (nP : Nat) : List Expr :=
+  (List.range nP).map fun i => Expr.fvar i (Expr.sort Level.zero)
+
+/-- A stored container's own pins **at its OWN parameters**: the same
+reader (`containerOwnPinsAt`) at the identity level instantiation and
+the parameter openers.
+
+This, and not the table at a pin's components, is where an own-pin INDEX
+is determined: the instance map MAY COLLAPSE, so two distinct own pins
+can become one block pin, and only the container's own scope tells them
+apart. -/
+def containerOwnPinsSelf (env : Env) (C : Name) : Option (List Expr) := do
+  let ci ← containerInfo? env C
+  let m ← ci.members.head?
+  containerOwnPinsAt env C (m.lps.map Level.param) (containerParamOpeners ci.nP)
+
+/-- **THE OWN-PIN FIELDS' TARGETS ARE THE INSTANCE MAP'S VALUES**
+(task #315 K.61).
+
+The walk is `nestedCopyPinFieldsAt`'s (K.60) with the SAME GUARD — the
+field's domain headed by `.const K` with `K` not a member of the
+container's own group, `K` itself a stored container, and one of its
+first `ciK.nP` arguments mentioning a member of the group — so the two
+records constrain exactly the same fields and compose: K.60 says the
+copy's field is classified `.recursive` into a PIN, and this says WHICH
+pin — the instance map's value at the own-pin position the container's
+field sits at.  (The guard is read here off the telescope INSTANTIATED
+at the openers rather than off the raw binder list; substituting a bound
+variable changes neither a head nor a mentioned constant, so the two
+readings of the guard agree.)
+
+The own-pin position is `containerOwnPinsSelf`'s, and the field's domain
+is cut to the shape that table holds (`replaceIfNested`'s
+`pin = I lvls (args.take nP)`) before the match.  Both sides are
+instantiated at the SAME openers, so the comparison is exact.
+
+Reflexive nested fields fall outside the guard exactly as they do in
+K.60: their domain is a `Π`, so `getAppFn` is not a `.const`. -/
+def nestedInstMapOkAt (env : Env) (p : NestedParts) (st : ElimState)
+    (maps? : Option (List (List Nat)))
+    (kinds? : Option (List (List (List (RecFieldKind × Nat))))) : Bool :=
+  match maps?, kinds? with
+  | some maps, some kinds =>
+    (List.range st.pins.length).all fun q =>
+      match st.pins[q]?, kinds[q]? with
+      | some qn, some ks =>
+        match containerInfo? env qn.container with
+        | none => false
+        | some ci =>
+          let params := containerParamOpeners ci.nP
+          match ci.members[q - qn.grpBase]?, containerOwnPinsSelf env qn.container with
+          | some J, some own0 =>
+            let mems := ci.members.map (·.name)
+            (List.range ks.length).all fun j =>
+              match ks[j]?, J.ctors[j]? with
+              | some kf, some cJ =>
+                match Expr.instPisAtF
+                    (params ++ (List.range cJ.nFields).map fun _ => Expr.sort Level.zero)
+                    cJ.type with
+                | none => false
+                | some (ds, _) =>
+                  (List.range kf.length).all fun l =>
+                    match kf[l]?, ds[ci.nP + l]? with
+                    | some (_, t), some domJ =>
+                      match domJ.getAppFn with
+                      | .const K _ =>
+                        if mems.contains K then true
+                        else
+                          match containerInfo? env K with
+                          | none => true
+                          | some ciK =>
+                            if (domJ.getAppArgs.take ciK.nP).any (mentionsMember mems) then
+                              match own0.findIdx? (fun e => e ==
+                                  Expr.mkAppN domJ.getAppFn
+                                    (domJ.getAppArgs.take ciK.nP)) with
+                              | some qK =>
+                                (maps.getD q []).getD qK st.pins.length == t - p.k
+                              | none => false
+                            else true
+                      | _ => true
+                    | _, _ => false
+              | _, _ => false
+          | _, _ => false
+      | _, _ => false
+  | _, _ => false
+
+/-- The Bool the route records (task #315 K.61), on the same field kinds
+`nestedPinKinds` computes for K.26, K.32 and K.60. -/
+@[inline] def nestedInstMapOk (env : Env) (p : NestedParts) (b : MutualBlock)
+    (st : ElimState) (stored : List AuxStored) : Bool :=
+  nestedInstMapOkAt env p st (nestedInstMaps env st) (nestedPinKinds p b stored)
+
+/-- **A REWRITTEN ORDINARY FIELD LEAVES THE INSTANCE** (task #315 K.62).
+
+A SECOND record, and separate from K.61 on purpose: it needs no walk of
+its own (it is a predicate on `nestedPinEdges`' existing rows against
+K.61's table), its clause is a NEGATIVE one, and a fire in it means
+something different.  K.61 firing says the instance map is not what the
+mint produced; K.62 firing says a rewritten ORDINARY field re-entered
+the instance, which would refute the argument that such a target's
+container is not one of the container's own classes.
+
+`nestedPinEdgesAt`'s rows are `(q, t - p.k, mentions)`, and `mentions` —
+"the CONTAINER's stored field at that position already mentioned a
+member of the container's own group" — is exactly the `pinF`/`ordF`-right
+split.  At an `ordF`-right row the recorded target must be OUTSIDE
+`σ q`'s image. -/
+def nestedOrdOutsideAt (maps? : Option (List (List Nat)))
+    (edges? : Option (List (Nat × Nat × Bool))) : Bool :=
+  match maps?, edges? with
+  | some maps, some rows =>
+    rows.all fun (q, t, mentions) => mentions || !((maps.getD q []).contains t)
+  | _, _ => false
+
+/-- The Bool the route records (task #315 K.62), on the same edge list
+`nestedPinEdges` computes for K.37 and K.41. -/
+@[inline] def nestedOrdOutsideOk (env : Env) (p : NestedParts) (b : MutualBlock)
+    (st : ElimState) (stored : List AuxStored) : Bool :=
+  nestedOrdOutsideAt (nestedInstMaps env st) (nestedPinEdges env p b st stored)
+
 /-! ## THE POSITIVITY NORMALISATION ON THE MINTED COPY (task #315 K.42)
 
 Lane L-B's `ordF`-LEFT arm (DESIGN §U.62) needs, at an ORDINARY field of
@@ -2381,6 +2562,12 @@ def nestedPinChecks (ops : CheckerOps m) (env envN : Env) (p : NestedParts) (b :
   -- mode test by K.60, which reads it in EVERY mode.  The reference
   -- graph stays inside the gate — nothing unconditional reads it.
   let kinds? := nestedPinKinds p b stored
+  -- ONE reference graph (K.46), HOISTED out of the mode test too, by
+  -- K.62 — which reads it in EVERY mode, for the same reason K.60 reads
+  -- the classification in every mode
+  let edges? := nestedPinEdgesAt env p st stored kinds?
+  -- ONE instance-map table (K.61), shared by K.61 and K.62
+  let maps? := nestedInstMaps env st
   -- **A CONTAINER'S NESTED FIELD LANDS ON A BLOCK PIN** (task #315
   -- K.60): at a container field headed by another stored container
   -- whose parameter part carries one of the container's own members,
@@ -2398,9 +2585,36 @@ def nestedPinChecks (ops : CheckerOps m) (env envN : Env) (p : NestedParts) (b :
   if !nestedCopyPinFieldsAt env p st kinds? then
     throw (.internal "nested: a container's nested field is not classified recursive \
       into a pin of the block")
+  -- **THE CONTAINER INSTANCE MAP** (task #315 K.61): every own pin of
+  -- every pin's container, instantiated at that pin's own levels and
+  -- components, IS a pin of the block (totality), and a copy's field at
+  -- one of those own pins carries the map's value as its recorded
+  -- target.  K.41's converse, and a FUNCTION where K.41 has only a
+  -- covering — the map may COLLAPSE, and injectivity is not checked.
+  -- UNCONDITIONAL, and `.internal`: the wide identification reads it in
+  -- every mode, and a `certOnly` check is `true` in the trusted one.
+  --
+  -- **IF THIS EVER FIRES** the elimination's instance map disagrees
+  -- with its own pin table — a defect in the ROUTE, not in the stream,
+  -- and the answer is never to relax the check.  See DESIGN "#### K.61".
+  else if !nestedInstMapOkAt env p st maps? kinds? then
+    throw (.internal "nested: a container's own pin is not the block pin the copy's \
+      field records")
+  -- **A REWRITTEN ORDINARY FIELD LEAVES THE INSTANCE** (task #315
+  -- K.62): at an `ordF`-right edge — a reference whose container-side
+  -- field mentions no member of the container's own group — the
+  -- recorded target is OUTSIDE the instance map's image.  A negative
+  -- clause on K.61's table, with no walk of its own.  UNCONDITIONAL and
+  -- `.internal`, for K.61's reason.
+  --
+  -- **IF THIS EVER FIRES** a rewritten ordinary field re-entered the
+  -- instance, which refutes the argument that such a target's container
+  -- is not one of the container's own classes — again a defect in the
+  -- ROUTE.  See DESIGN "#### K.62".
+  else if !nestedOrdOutsideAt maps? edges? then
+    throw (.internal "nested: a rewritten ordinary field's target is inside the \
+      container instance")
   else if !ops.mode.verifiedChecks then pure () else
-  -- ONE reference graph
-  let edges? := nestedPinEdgesAt env p st stored kinds?
   let roots := nestedPinRootGroupAt p st (nestedPinInstAt st edges?)
   -- **THE COPIES' RECURSIVE TARGETS** (K.32): a copy field the aux
   -- block classified recursive into its own group comes from a
