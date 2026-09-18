@@ -106840,3 +106840,52 @@ consumes it.
 K.57 keeps its consumer.  Nothing to route.
 
 Nothing in this section changes the tree.
+
+#### (number at the integrator's sync) — L-E: a verification trap of my own — `lake build` does not re-show warnings it has already emitted (lane L-E, 2026-09-18)
+
+Lane L-B's merge had to fix two warnings in this lane's file
+(`TargetView.frameAt_of_mem` / `_of_pin`, each carrying an unused
+instance binder).  **They were this lane's, and this lane reported the
+tree warning-free several times after introducing them.**  The same fix
+is now applied here so the two branches do not diverge on it.
+
+##### (a) WHY THEY WERE MISSED, and it is not carelessness about the gate
+
+The check being run was `timeout … lake build > log 2>&1` followed by
+`grep -n "error\|warning" log`.  That is sound on a COLD build and
+useless on a warm one: **Lake does not re-emit a module's warnings when
+the module is up to date**, so every build after the first one that
+compiled the offending file reported a clean log for a tree that was not
+clean.  The first build after writing them did emit them, in a run whose
+log this lane grepped for `error` alone.
+
+##### (b) THE RULE
+
+A warning-free claim needs one of:
+
+* `lake build` on a tree where the touched modules were actually
+  rebuilt in THAT run (check the log names the module), or
+* a grep that counts rather than one that samples —
+  `lake build 2>&1 | grep -ic warning` — run when the module is dirty,
+* or the full gate, which is what `tests/arena.sh` is for.
+
+This is the same failure mode as the truncated-`grep` incident recorded
+earlier on this lane: **a negative claim taken from a command that
+cannot express the negative.**  Twice now, with different commands.
+
+##### (c) THE FOREIGN-UNFOLD HAZARD, audited
+
+Per the new DESIGN rule — in a low-tier module, do not unfold another
+module's definition by name, because that generates its equation lemmas
+HERE and drags the module into every later proof's closure — this lane's
+new proofs were checked.  `auxTarget_reads` contains `unfold
+mutMemberLeaf`, which is foreign (`MutualCore.lean`).  It adds nothing:
+`memberTarget_reads`, pre-existing in the same module, already unfolds
+it, so this module was already the one that asked.  `unfold PinSyn.Ids`
+and `unfold BlockModel.tup` are likewise pre-existing here, the latter
+copied verbatim into `pinTarget_reads_at` from `pinTarget_reads`.
+
+`tests/proofdeps.sh`: **4965 module rows as pinned across 12 roots,
+doors 0.**
+
+Nothing else in this section changes the tree.

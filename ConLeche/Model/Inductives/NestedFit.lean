@@ -520,10 +520,12 @@ container's parameter frame at the candidate components. -/
     (ρp : Nat → V) (t : Nat) : Nat → V :=
   if t < TV.k then ρp else consList (cAs (t - TV.k)) ρp
 
+omit [SetTheory V] in
 theorem frameAt_of_mem (TV : TargetView V) (cAs : Nat → List V) (ρp : Nat → V) {t : Nat}
     (ht : t < TV.k) : TV.frameAt cAs ρp t = ρp := by
   simp only [frameAt, if_pos ht]
 
+omit [SetTheory V] in
 theorem frameAt_of_pin (TV : TargetView V) (cAs : Nat → List V) (ρp : Nat → V) {t : Nat}
     (ht : ¬ t < TV.k) : TV.frameAt cAs ρp t = consList (cAs (t - TV.k)) ρp := by
   simp only [frameAt, if_neg ht]
