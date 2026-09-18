@@ -6345,25 +6345,24 @@ minted domain back. -/
         ((mutTlss ctorsA.length tssF ψ).getD (b.ownOffset (p.k + q₀ + i') + j) [])
         ((mutEiss0 ctorsA.length eissF ψ).getD (b.ownOffset (p.k + q₀ + i') + j) []) ρp i' j l
 
-/-- **RESIDUAL 2R — `ordF`'s right arm at a REFLEXIVE copy field**
-(task #315 L-B, DESIGN "the telescope the positivity `whnf` MAKES" and
-"does the refutation survive the repair"): the conjunct of
-`NestedPinsShapeOrdRight` at a field the auxiliary block classified
-REFLEXIVE.
+/-- **RESIDUAL 2R — `ordF`'s right arm at a REFLEXIVE copy field, at a
+PIN target** (task #315 L-B, DESIGN "the telescope the positivity
+`whnf` MAKES" and "does the refutation survive the repair"): the
+conjunct of `NestedPinsShapeOrdRight` at a field the auxiliary block
+classified REFLEXIVE.
 
-**It is FALSE against the shape of `EntryRead` IN THIS TREE, and the
-REPAIRED shape DISSOLVES that.**  The repair — on the integration
-branch, in the form this lane recommended — drops the two SYNTACTIC
-Π-tower clauses and asks instead for what the consumer produces: the
-container's field domain, read at the pin's frame, IS the copy's SLOT.
-The witness below breaks the old clauses and SATISFIES the new one,
-because a λ-redex respects a semantic equality and does not provide a
-syntactic Π-tower.  So the residual is OPEN once the repair arrives,
-and its route is `copyOrdFRightReadM`'s with `BlockCtorData.reflEntry`
-for `recEntry`, `interp_mkPisAV_piTele` for `slotSet_nil`, and the
-index fit taken under the telescope's own spine.
+**The refutation this residual carried is DISSOLVED by lane L-E's
+repair of `EntryRead`, and the MEMBER-target half is now PROVED**
+(`NestedPinsRun.copyOrdFRightReadRefl`).  What was false was the OLD
+predicate's two SYNTACTIC Π-tower clauses, never the arm's reading and
+never the route: the telescope the copy carries was MADE by the
+positivity normalisation's `whnf` out of a λ-redex, and the container
+has no Π to split.  The repaired predicate asks instead for what the
+consumer produces — the container's field domain, read at the pin's
+frame, IS the copy's SLOT — and the witness that broke the old clauses
+SATISFIES that one, because a λ-redex respects a semantic equality.
 
-The refutation of the OLD shape stands as recorded.  The witness is
+The witness stays as a regression fixture,
 `tests/e2e/nested_lam_pin_refl.ndjson`, which `checkNested` accepts
 (`tests/nested-shadow-expected.txt`):
 
@@ -6374,20 +6373,18 @@ the redex `(fun _ : True => True → T) True.intro`, whose positivity
 normalisation is `True → T`: the copy's field is REFLEXIVE at the
 member `T`, with a ONE-entry telescope (`BlockCtorData.reflOpen` takes
 the telescope's length off `piBinders`, and `mutualOpenedOk` rejects
-an empty one).  The CONTAINER's own field is `f True.intro` — ordinary
-there, and an APPLICATION, not a Π.  `EntryRead`'s telescope clause
-forces `tlsJ.length = 1` (`instTele` preserves length) and its first
-clause then asks `f True.intro = mkPisAV tlsJ body`, which is
-`.pi`-headed.  No `tlsJ`, `body` exist.
+an empty one), while the CONTAINER's own field is the application
+`f True.intro`.  Under the repaired predicate both sides denote the
+same slot, and the proved arm is `copyOrdFRightReadM`'s with
+`BlockCtorData.reflEntry` for `recEntry`, `interp_mkPisAV_piTele` for
+`slotSet_nil`, and both the reading and the index fit taken one frame
+deeper — under the reflexive binder's own telescope.
 
-What is false is `EntryRead`'s two SYNTACTIC Π-tower clauses, not the
-arm's reading and not the route: the telescope the copy carries was
-made by the positivity normalisation's `whnf` out of a λ-redex, and
-the container has no Π to split.  The REPAIR is lane L-E's, in
-`NestedFit.lean`; `EntryRead`'s only consumer is `copyEntryAt_of_read`
-(three call sites in `NestedPinLeafAll.lean`, all through that
-lemma's signature, which the repair leaves unchanged).  That DESIGN
-section states the two candidate shapes. -/
+The TARGET hypothesis narrows what is left to the PIN target, exactly
+as in `NestedPinsShapeOrdRight`: there `TargetView.EA` is the
+CONTAINER's reading while the stored domain's head is the MIMIC, and
+identifying them is `pinLeaf`, downstream of this very shape.  Both
+halves wait on the same kernel record. -/
 @[expose] def NestedPinsShapeOrdRightRefl (V : Type w) [SetTheory V] (μ : CheckMode) (F : Nat) :
     Prop :=
   NestedPinsIdsAt V μ F fun {env} _ p _ b fms f₀ ctorsA kinds ppsF W _ _ _ _ _ _ eissF tssF _
@@ -6402,6 +6399,8 @@ section states the two candidate shapes. -/
       ((dJ.rss i').getD j []).getD l false = false →
       ((blkRss ctorsA kinds).getD (b.ownOffset (p.k + q₀ + i') + j) []).getD l false = true →
       kindAt (mutKsOf kinds (b.ownOffset (p.k + q₀ + i') + j)) l = RecFieldKind.reflexive →
+      ¬ ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+        (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0 < p.k →
       EntryRead
         (nestedTV b.nP p.k f₀.s ppsF W pinsS mp₁'.base2.acval
           ((fms.take p.k).map (·.cvTa.name)) ψ)
@@ -6500,9 +6499,11 @@ AUXILIARY block's kind at the field (`kindAt_ne_of` excludes the two
 rejecting kinds) into `copyOrdFLeft` and `copyOrdFRight_shape`; `pinF`
 is `copyPinF_shape`; `es` is `copyEs`.  THREE residuals remain, one per
 open conjunct (`NestedPinsShapeOrdRight` and its reflexive half
-`NestedPinsShapeOrdRightRefl` — false against the OLD `EntryRead` and
-RE-OPENED by lane L-E's repair of that predicate, DESIGN "does the
-refutation survive the repair" — and `NestedPinsShapePinF`).  K.42's
+`NestedPinsShapeOrdRightRefl`, both now narrowed to the PIN target —
+the MEMBER-target halves are proved by `copyOrdFRightReadM` and
+`copyOrdFRightReadRefl`, the second of them under lane L-E's repaired
+`EntryRead`, DESIGN "does the refutation survive the repair" — and
+`NestedPinsShapePinF`).  K.42's
 record is read off the run (`NestedPinsRun.hK42`, lane L-E), and
 K.32's `nestedCopyTargetsOk`, which the
 bookkeeping predicate `NestedPinsKindsRun` stood for until lane L-E
@@ -6627,14 +6628,23 @@ theorem nestedPinsShape_of {F : Nat}
           hkA hmemT ψ ρp hsat
       · exact hres2 l hl hord hrsT hkA hmemT
     · -- the copy's field is reflexive: the RIGHT arm, at a telescope the
-      -- positivity `whnf` may have MADE — this branch's residual is
-      -- REFUTED (task #315 L-B, DESIGN "the telescope the positivity
-      -- `whnf` MAKES"), and the repair is
-      -- `EntryRead`'s
+      -- positivity `whnf` may have MADE (task #315 L-B, DESIGN "the
+      -- telescope the positivity `whnf` MAKES").  Against the OLD
+      -- `EntryRead` this branch was REFUTED; under lane L-E's repaired
+      -- predicate it is PROVED at a MEMBER target, and only the PIN
+      -- target is left (DESIGN "does the refutation survive the repair")
       have hrsT : ((blkRss ctorsA kinds).getD (b.ownOffset (p.k + q₀ + i') + j) []).getD l false
           = true := by rw [hrsAt l hlF, hkA]; simp
-      exact Or.inr ⟨hrsT, R.copyOrdFRight_shape SF S hPD hkindsRun hK32 hi' hgb hgs CM hmn hj'
-          hl hord hrsT, R.copyTgtLt SF S hPD hi' hj' l, hres2R l hl hord hrsT hkA⟩
+      refine Or.inr ⟨hrsT, R.copyOrdFRight_shape SF S hPD hkindsRun hK32 hi' hgb hgs CM hmn hj'
+          hl hord hrsT, R.copyTgtLt SF S hPD hi' hj' l, ?_⟩
+      by_cases hmemT : ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+          (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0 < p.k
+      · rw [hψ, hDs]
+        exact R.copyOrdFRightReadRefl SF S hPD hi' hj' hlF
+          (fun _ _ _ _ _ _ _ h1 h2 h3 h4 h5 h6 h7 =>
+            R.copyOrdFLeftRun SF S hPD hres1 hi' hj' hlF (Or.inr hmemT) h1 h2 h3 h4 h5 h6 h7)
+          hkA hmemT ψ ρp hsat
+      · exact hres2R l hl hord hrsT hkA hmemT
     · exact absurd hkA (kindAt_ne_of hkindsRun hGlt l).1
     · exact absurd hkA (kindAt_ne_of hkindsRun hGlt l).2
   · -- `pinF`
