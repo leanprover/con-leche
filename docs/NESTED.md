@@ -544,7 +544,7 @@ until the third step lands.  In parallel, the two things every design
 needs: the reading of a rewritten term (§8, item 1 — landed, §6) and the
 second residual's syntactic correspondence.
 
-Not settled, and now three named things.
+Three named things, the first of them now landed.
 
 **(i) The bound — LANDED.**  `hΦ` as first stated quantified over the
 whole tuple space, and the run cannot supply that: the
