@@ -32,9 +32,11 @@ about the ORIGINAL block's stored constants.
   (`hPinIdx`), the assembly's;
 * `functor` is `composeΦ_mono/_maps/_closed_exists` at
   `tupleLfpΦ_functor` on `k + n` (`ofNested_functor`); `pinMem`/`pinMono`
-  are `pinsCar_mem/_mono` (`ofNested_pinMem/_pinMono`); `fibre` is
-  `tupleLfpΦ_fibre` at the EXTENDED tuple, whose slot at a target is
-  the block model's `famAt` (`ofNested_fibre`, `ofNested_famAt`); the
+  are `pinsCar_mem/_mono` (`ofNested_pinMem/_pinMono`); `auxFibre` is
+  `tupleLfpΦ_fibre` at every component and every tuple of the wide
+  space (`ofNested_auxFibre_raw`), and `fibre` is that at the EXTENDED
+  tuple, whose slot at a target is the block model's `famAt`
+  (`BlockModel.fibre_of_auxFibre`, `ofNested_famAt`); the
   per-constructor bookkeeping (member-local position ↔ global
   position, `fitsFrom_congr` with `slotAt_of_mem`/`slotAt_of_pin`) is
   the assembly's, exactly as for the mutual block;
@@ -370,9 +372,9 @@ copy's — and at EVERY tuple `Z` of the WIDE tuple space, the wide
 operator's fibre at `(Z, t)` is the set of the tagged towers of the
 spines fitting one of the auxiliary block's constructors `offs c + j`,
 each recursive field read at its target's component of `Z` ITSELF.
-This is the sealed law `tupleLfpΦ_fibre` at the stored operator, and
-`ofNested_fibre` is its restriction to the members and the EXTENDED
-tuple. -/
+This is the sealed law `tupleLfpΦ_fibre` at the stored operator; the
+block model's narrow `fibre` is its restriction to the members and the
+EXTENDED tuple (`BlockModel.fibre_of_auxFibre`). -/
 theorem ofNested_auxFibre_raw (hS : TupleLfpShape (k + pins.length) (blockIds nP ppsA ψ) mems nFs
       tgtsG rss (Eiss₀ ψ) (Fss₀ ψ) (Ess₀ ψ))
     {Z : Nat → V} (hZ : InTupleSpace ((D).w ψ) ((D).k + (D).nPins) ((D).idx ψ ρp) Z)
@@ -389,35 +391,6 @@ theorem ofNested_auxFibre_raw (hS : TupleLfpShape (k + pins.length) (blockIds nP
           interp V (consList fs ρp) (((Ess₀ ψ).getD (offs c + j) []).getD l default) = projS l t) ∧
         x = injW ((D).w ψ) j (mkTower (fs ++ [pt])) :=
   tupleLfpΦ_fibre h hS hZ hc ht x
-
-/-- **`fibre` for the block model, at the auxiliary lists**: component
-`mm`'s fibre at `(X, t)` is the set of the tagged towers of the spines
-fitting one of the auxiliary block's constructors `offs mm + j` of
-member `mm` at the EXTENDED tuple — a recursive field read at its
-target's component of `extT X`, i.e. at the target member's component
-of `X` or the target pin's carrier at `X` (`ofNested_famAt`), at the
-TARGET's index universe (`nestedU`) — tagged by the MEMBER-LOCAL
-position `j`.  The per-constructor bookkeeping to
-the block model's `ChainFit` (`fitsFrom_congr` with
-`slotAt_of_mem`/`slotAt_of_pin`) is the assembly's. -/
-theorem ofNested_fibre (hS : TupleLfpShape (k + pins.length) (blockIds nP ppsA ψ) mems nFs tgtsG rss
-      (Eiss₀ ψ) (Fss₀ ψ) (Ess₀ ψ))
-    {X : Nat → V} (hX : InTupleSpace ((D).w ψ) k ((D).idx ψ ρp) X) {mm : Nat} (hmm : mm < k)
-    {t : V} (ht : t ∈ˢ (D).idx ψ ρp mm) (x : V) :
-    x ∈ˢ SetTheory.app ((D).Φ ψ ρp X mm) t ↔
-      ∃ j fs, offs mm + j < (Fss₀ ψ).length ∧ mems.getD (offs mm + j) 0 = mm ∧
-        FitsFrom (rss.getD (offs mm + j) []) (fun i ρ => slotSet ((D).w ψ)
-            (nestedU k W pins ψ ((tgtsG.getD (offs mm + j) []).getD i 0)) ρ
-            (((tlss ψ).getD (offs mm + j) []).getD i [])
-            (((Eiss₀ ψ).getD (offs mm + j) []).getD i [])
-            (extT ((D).w ψ) k pins.length ((D).idx ψ ρp) (ΨA ψ ρp) X
-              ((tgtsG.getD (offs mm + j) []).getD i 0)))
-          0 ρp ((Fss₀ ψ).getD (offs mm + j) []) fs ∧
-        (∀ l, l < ((D).IdsM mm ψ).length →
-          interp V (consList fs ρp) (((Ess₀ ψ).getD (offs mm + j) []).getD l default) = projS l t) ∧
-        x = injW ((D).w ψ) j (mkTower (fs ++ [pt])) := by
-  rw [ofNested_Φ, composeΦ_apply]
-  exact ofNested_auxFibre_raw h hS (extT_mem hX) (by show mm < k + pins.length; omega) ht x
 
 /-- **The pins' carriers at the block's carrier are the auxiliary
 least tuple's pin components** (Bekić, the nested form) — `pinLeaf`'s
@@ -508,6 +481,80 @@ theorem ofNested_pin_block_of_wide {dJ : BlockModel V} {ψJ : Name → Nat} {ρJ
       = lfpTuple ((D).w ψ) dJ.k (dJ.idx ψJ ρJ) (dJ.Φ ψJ ρJ) i := by
   rw [hcomp]
   exact ofNested_pin_block_wide h hseg hinj hσ hroot hmonoJ hclJ hIs hΦ hi
+
+/-- **THE WHOLE-SPACE AGREEMENT `hΦ`, REDUCED TO THE FITS** (task #315,
+Resolution 1): `ofNested_pin_block_of_wide`'s hypothesis is a
+FIBREWISE statement once both sides are read by their constructors —
+the block's side by the sealed law at the joined tuple
+(`ofNested_auxFibre_raw`, at the instance's position `σ i`), the
+container's by its own WIDE fibre (`IsBlockModel.auxFibre`, at the
+tuple `Y` itself).  The two sides' elements are then the SAME tagged
+towers, and the set equality reduces to the fit equivalence `hfit`: a
+spine fits the copy's constructor at the JOINED tuple iff it is the
+container's class fit at `Y`.
+
+This is `ofNested_pin_block_of_fit_at`'s shape at the wide width, with
+three differences and no fourth: the segment is an arbitrary index set
+(`σ`), the comparison runs over the container's CLASSES (its members
+AND the copies of its own pins, `i < s = kJ + nJ`) rather than its
+members, and there is NO below-the-carrier direction — `hfitLe` has no
+counterpart, because the agreement is on the whole space. -/
+theorem ofNested_hΦ_of_fit (hS : TupleLfpShape (k + pins.length) (blockIds nP ppsA ψ) mems nFs
+      tgtsG rss (Eiss₀ ψ) (Fss₀ ψ) (Ess₀ ψ))
+    {s : Nat} {σ : Nat → Nat} (hinj : InjOn σ s) (hσ : ∀ i, i < s → σ i < k + pins.length)
+    {IsJ : Nat → V} {ΨJ : (Nat → V) → Nat → V}
+    (hIs : ∀ i, i < s → (D).idx ψ ρp (σ i) = IsJ i)
+    (hmapsJ : MapsTuple ((D).w ψ) s IsJ ΨJ)
+    {nCJ : Nat → Nat} {FitJ : (Nat → V) → V → Nat → Nat → List V → Prop}
+    {injJ : Nat → Nat → List V → V}
+    (hinjJ : ∀ i j fs, injJ i j fs = injW ((D).w ψ) j (mkTower (fs ++ [pt])))
+    (hfibJ : ∀ Y, InTupleSpace ((D).w ψ) s IsJ Y → ∀ i, i < s → ∀ t, t ∈ˢ IsJ i → ∀ x,
+      x ∈ˢ SetTheory.app (ΨJ Y i) t ↔ ∃ j fs, j < nCJ i ∧ FitJ Y t i j fs ∧ x = injJ i j fs)
+    (hfit : ∀ Y, InTupleSpace ((D).w ψ) s IsJ Y → ∀ i, i < s → ∀ t, t ∈ˢ IsJ i → ∀ j fs,
+      (offs (σ i) + j < (Fss₀ ψ).length ∧ mems.getD (offs (σ i) + j) 0 = σ i ∧
+        FitsFrom (rss.getD (offs (σ i) + j) []) (fun i' ρ => slotSet ((D).w ψ)
+            (nestedU k W pins ψ ((tgtsG.getD (offs (σ i) + j) []).getD i' 0)) ρ
+            (((tlss ψ).getD (offs (σ i) + j) []).getD i' [])
+            (((Eiss₀ ψ).getD (offs (σ i) + j) []).getD i' [])
+            (setJoin σ s (lfpTuple ((D).w ψ) (k + pins.length) ((D).idx ψ ρp) (ΨA ψ ρp)) Y
+              ((tgtsG.getD (offs (σ i) + j) []).getD i' 0)))
+          0 ρp ((Fss₀ ψ).getD (offs (σ i) + j) []) fs ∧
+        (∀ l, l < ((D).IdsM (σ i) ψ).length →
+          interp V (consList fs ρp) (((Ess₀ ψ).getD (offs (σ i) + j) []).getD l default)
+            = projS l t))
+      ↔ (j < nCJ i ∧ FitJ Y t i j fs)) :
+    ∀ Y, InTupleSpace ((D).w ψ) s (fun i => (D).idx ψ ρp (σ i)) Y → ∀ i, i < s →
+      ΨA ψ ρp (setJoin σ s (lfpTuple ((D).w ψ) (k + pins.length) ((D).idx ψ ρp) (ΨA ψ ρp)) Y) (σ i)
+        = ΨJ Y i := by
+  have hΨ := nestedΨ_functor h
+  intro Y hY i hi
+  -- `Y` as a tuple of the container's spaces
+  have hYJ : InTupleSpace ((D).w ψ) s IsJ Y := by
+    intro m hm
+    have hm' : Y m ∈ˢ famSpace ((D).w ψ) ((D).idx ψ ρp (σ m)) := hY m hm
+    rw [hIs m hm] at hm'
+    exact hm'
+  have hjoin : InTupleSpace ((D).w ψ) (k + pins.length) ((D).idx ψ ρp)
+      (setJoin σ s (lfpTuple ((D).w ψ) (k + pins.length) ((D).idx ψ ρp) (ΨA ψ ρp)) Y) :=
+    inTupleSpace_setJoin hinj (lfpTuple_mem _ _ _ _) hY
+  -- both sides are families over the container's index-tuple set at `i`
+  have hlhs : ΨA ψ ρp (setJoin σ s
+        (lfpTuple ((D).w ψ) (k + pins.length) ((D).idx ψ ρp) (ΨA ψ ρp)) Y) (σ i)
+      ∈ˢ famSpace ((D).w ψ) ((D).idx ψ ρp (σ i)) := hΨ.2.1 _ hjoin _ (hσ i hi)
+  have hrhs := hmapsJ _ hYJ i hi
+  rw [hIs i hi] at hlhs
+  refine famSpace_ext hlhs hrhs fun t ht => ?_
+  have ht' : t ∈ˢ (D).idx ψ ρp (σ i) := by rw [hIs i hi]; exact ht
+  have hL := fun x => ofNested_auxFibre_raw h hS hjoin (hσ i hi) ht' x
+  have hR := fun x => hfibJ Y hYJ i hi t ht x
+  refine Subset.antisymm (fun x hx => ?_) (fun x hx => ?_)
+  · obtain ⟨j, fs, h1, h2, h3, h4, rfl⟩ := (hL x).mp hx
+    obtain ⟨hj, hF⟩ := (hfit Y hYJ i hi t ht j fs).mp ⟨h1, h2, h3, h4⟩
+    exact (hR _).mpr ⟨j, fs, hj, hF, (hinjJ i j fs).symm⟩
+  · obtain ⟨j, fs, hj, hF, rfl⟩ := (hR x).mp hx
+    obtain ⟨h1, h2, h3, h4⟩ := (hfit Y hYJ i hi t ht j fs).mpr ⟨hj, hF⟩
+    rw [hinjJ]
+    exact (hL _).mpr ⟨j, fs, h1, h2, h3, h4, rfl⟩
 
 /-- **A pin's carrier at the block's carrier is the least tuple of ITS
 CONTAINER's block, from an agreement AT THE CONTAINER'S CARRIER** —
@@ -649,7 +696,7 @@ theorem ofNested_pin_block_of_fit_at (hS : TupleLfpShape (k + pins.length) (bloc
 /-! The falsifiers `ofNested_pin_tag`/`ofNested_pin_tag_lt` of M6 s3
 (DESIGN §U.15 (a)) — a pin's elements tagged by the GLOBAL list
 position — are gone with the tag they refuted: the sealed fibre law
-now tags member-locally (`ofNested_fibre`), and the container's
+now tags member-locally (`ofNested_auxFibre_raw`), and the container's
 elements and the pin's carry the same tags. -/
 
 /-- **The block's carrier is the auxiliary least tuple's members**

@@ -401,6 +401,8 @@ Resolution 1 needs.
 | the aux block's install | `checkMutualCore` on `{T⃗, J'⃗}` in a scratch environment |
 | restore | `restoreNested`, `restoreRules`, `restoreRecTys` |
 | Resolution 1's identification | `ofNested_pin_block_wide`, `ofNested_pin_block_of_wide` (`Model/Inductives/BlockComposed.lean`) |
+| its agreement, reduced to the fits | `ofNested_hΦ_of_fit` (same file) |
+| the transfer between two copies of one container | `chainFitT_congr_mem`, `copyTransfer_via` (`Model/Inductives/NestedPinLeafAll.lean`) |
 | Resolution 1's experiment | `SetModel/SegCopy.lean` |
 | Resolution 3's apparatus | `pinLfpAt` (candidate tuples), `pins_le_of_declOrder`, `hentR` in `Model/Inductives/NestedFit.lean` / `NestedPinLeafAll.lean`; the declaration-order record `declPos`/`nestedPinOrderAt` |
 
@@ -429,10 +431,24 @@ component's index set is the pin's.
 
 Not settled: the identification's own hypothesis `hΦ` — that the
 copies' section of the auxiliary operator IS the container's wide
-operator, for every tuple.  Both sides are readable fibrewise now, so
-what is left is the COMPARISON: a copy's constructor against the
-container's own component's, at a tuple where the container's own pins
-are variables on both sides rather than carriers on one.  Beyond it the residue is unchanged:
+operator, for every tuple.  Both sides are readable fibrewise now, and
+`hΦ` accordingly reduces to a FIT equivalence, one clause per class of
+the container: a spine fits the block's copy of class `i` at the
+joined tuple exactly when it is the container's own class fit at the
+free tuple.  What is *not* settled is that equivalence, and it splits
+in two:
+
+* at the container's **members** the block records the comparison
+  directly — a copy of a member is a copy of the group the worklist
+  minted, and the group carries the container's constructors
+  instantiated at the pin's components;
+* at the copies of the container's **own pins** it does not.  Such a
+  copy belongs to a group of its own, whose container is the pin's
+  container `K`, not the container `J` whose instance is being
+  identified; and `J`'s own pin record is `K`'s constructors
+  instantiated at `J`'s components.  So both sides are copies of ONE
+  container at two instantiations, and the comparison is the transfer
+  between two copies rather than a fact the run states about either.  Beyond it the residue is unchanged:
 the component family at instance roots whose components mention other
 pins, an induction over instances, and the declaration-order record for
 cross-instance constant-headed edges.

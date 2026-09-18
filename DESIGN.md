@@ -112708,3 +112708,86 @@ definitions travel with `BlockRep`, which is already on every path);
 (`NestedPinLeafAll`, with the compensating plain import in
 `DeclNestedCore`).  The accept set is untouched: no clause weakens and
 no consumer moves.
+
+#### WIDE (e) step 1: `hΦ` REDUCED TO THE FITS — and where the fit at a container's OWN-PIN class has to come from (lane WIDE, 2026-09-18)
+
+##### (a) What landed
+
+`ofNested_hΦ_of_fit` (`BlockComposed.lean`), the wide sibling of
+`ofNested_pin_block_of_fit_at`'s at-the-carrier bullet:
+`ofNested_pin_block_of_wide`'s `hΦ` is a FIBREWISE statement once both
+sides are read by their constructors — the block's side by
+`ofNested_auxFibre_raw` at the JOINED tuple and the instance's position
+`σ i`, the container's by its stored `auxFibre` (WIDE (d)) at the tuple
+`Y` itself — so the two sides' elements are the same tagged towers and
+the equality reduces to ONE hypothesis:
+
+    hfit : a spine fits the copy's constructor at `setJoin σ s L⁺ Y`
+           ⟺ it is the container's CLASS fit `ChainFitT` at `Y`
+
+for every `i < s = kJ + nJ`, every `Y` of the instance's space, every
+index tuple and every constructor.  There is no second direction:
+`hfitLe`'s counterpart does not exist on this route, as WIDE (c) said.
+
+##### (b) THE FINDING: the classes beyond the container's members have no run-level shape, and the transfer chain is what covers them
+
+`hfit` ranges over the container's CLASSES.  Its two halves are not
+alike:
+
+* **at the container's members** (`i < kJ`) the run states the
+  comparison: the block's pin `q₀ + i` IS the copy the worklist minted
+  for that member, its group carries `CopyShapeA` against the
+  container's constructors at the pin's components, and this is the
+  input `hfit_at_of_inst` already takes (with the wide route's one
+  change: a container-recursive field at one of the container's OWN
+  pins reads the SEGMENT's variable on both sides instead of the
+  target's stored reading at the carrier);
+* **at the copies of the container's own pins** (`kJ ≤ i`) it does
+  not, and this was not priced.  Every pin of the block is a copy of a
+  MEMBER of ITS OWN container's block — `hgroups` says exactly that —
+  so the block's copy of `K(t⃗[α⃗_J ↦ s⃗])` belongs to a group whose
+  container is `K`, not `J`.  The container `J`'s own pin record
+  (`dJ.pinCtors qK`, `PinShapes`) is `K`'s constructors instantiated at
+  `J`'s components.  So the two sides of `hfit` there are two copies of
+  ONE container at two instantiations, related to each other only
+  through `K`.
+
+The composition of two such copies is exactly what
+`NestedPinLeafAll.lean`'s transfer chain does, and it is stated in the
+`ChainFitT` vocabulary this route uses
+(`BlockModel.chainFitT_congr_mem`: a container's class fit carried
+across TWO level assignments and TWO frames; `copyTransfer_via`).  So
+the expectation that the wide route makes that chain unconsumed is
+WRONG in an informative way: `hfit_le_of_inst`/`hfitLe` do die with
+`hle`, but the two-copies transfer is what the own-pin classes need.
+
+##### (c) What this means for the remaining budget
+
+The residue of Resolution 1 is now three named things and no ordering
+problem: (1) `hfit` at the members — `hfit_at_of_inst` re-shaped at the
+wide width, mechanical; (2) `hfit` at the own-pin classes — the
+two-copies transfer, machinery that EXISTS but has never been pointed
+at this comparison; (3) the instance's `σ`, `hIs` and the container's
+`auxFibre`/`auxFunctor` at the block's sort, which the assembly reads
+off the stored model.  The assembly move (`NestedRecFibre` →
+`ofNested_pin_block_of_inst` becoming `_of_wide`) stays gated on (1)
+and (2).
+
+##### (c2) One deletion falls out
+
+`ofNested_fibre` — the narrow fibre AT THE AUXILIARY LISTS — had one
+consumer, the nested route's `fibre` bullet, and WIDE (d) replaced that
+by `BlockModel.fibre_of_auxFibre` at the wide law.  It is deleted
+rather than left standing: its statement is `ofNested_auxFibre_raw`'s
+at the extended tuple, which the generic bridge already says.
+`tests/unconsumed.sh` then reports exactly ONE new declaration without
+a consumer, `ofNested_hΦ_of_fit` itself — the step's product, which the
+assembly move consumes.
+
+##### (d) Green
+
+`tests/warning-free.sh 0c8567b5` (18 changed modules, 56 recompiled by
+the build and 2 by the test library, 0 warning lines, "OK (a run that
+could have failed)"), `lake test`, `tests/proofdeps.sh` doors `0`,
+`tests/shake.sh` OK (513 removals, all allowlisted; none demotable).
+Nothing consumes the new theorem yet, so the accept set is untouched.

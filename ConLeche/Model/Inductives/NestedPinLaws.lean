@@ -94,7 +94,7 @@ include h
 below the block's carrier, pin `q`'s carrier at `(X, t)` is the set of
 the tagged towers of the spines fitting one of the auxiliary block's
 constructors `offs (k + q) + j` of the copy `k + q` at the EXTENDED
-tuple — `ofNested_fibre`'s pin twin, through the pins' fixed-point law
+tuple — `ofNested_auxFibre_raw`'s COMPOSED twin, through the pins' fixed-point law
 (`app_pinsCar_eq`) and Bekić's nested form at the members
 (`lfpTuple_composeΦ`, which identifies the block's carrier with the
 auxiliary one below which the clamp is invisible). -/
