@@ -86304,7 +86304,9 @@ named premise**: `nestedTablesData_of` proves it, and
 stage now stands on TWO faces, and they are exactly the two (yyyy)
 said need two different records — `NestedRuleBitsOf` (the restored
 rules' rescue conjuncts) and `NestedCtorPinNamesOf` (the readings' and
-equations' model face).  (yyyy)'s correction is confirmed, not
+equations' model face).  *(Superseded later in the same session:
+(ddddd) proves `NestedRuleBitsOf`, so the stage stands on ONE face and
+one of the two needed no record at all.)*  (yyyy)'s correction is confirmed, not
 weakened: closing the tables' face retired a face, not a record.
 
 **Item 4, and THE NAMED GAP (xxxx) located, closed where it said.**
@@ -86385,7 +86387,8 @@ copied out by absolute path FIRST, then `git merge --abort` (which
 discards uncommitted work and so must never be run first), then the
 files back and diffed.  `HEAD` is a single-parent commit
 (`f2ec04ce`, parent `eac9d9cd`): the merge never entered this lane's
-history, and the integrator re-runs the sync.
+history, and the integrator re-runs the sync.  *(The re-run landed
+mid-session and this lane's next commit consumed it — (eeeee).)*
 
 **The gate consequence, stated because it is easy to miss.**  Builds
 and gates run while a merge is staged measure the MERGED tree, not the
@@ -86419,6 +86422,123 @@ fixture verdict can move.
 **The tables' face: CLOSED** ((zzzz) said 1½–2 sessions; it took one).
 What is left of the stage is the two faces above, and neither is this
 lane's to prove.
+
+##### (ddddd) K.50'S FACE IS NOT A RECORD — the rescue bits are `recRuleBits`' own verdict
+
+(`ca3bbbec`.)  The coordinator asked for the rules' face in a form the
+kernel lane could be handed.  **There is no request to hand it**: the
+face's stated premise is false about the kernel as it stands, and the
+face is a theorem (`nestedRuleBitsOf_of`).
+
+**What the record said, and what the code does.**
+`NestedRuleBitsOf`'s docstring — and (jjjj)'s request behind it — said
+`restoreRules` COPIES the scratch rule's `k` and `eta` while RENAMING
+the constructor, so that what the scratch block's own check says and
+what `ConstWF` asks of the stored rule differ in BOTH arguments, with
+no lemma relating them across the copies' capability records.  The last
+line of `restoreRules` (`Kernel/Inductives/NestedInstall.lean`) is
+
+    pure (recRuleBits envR.find? recName
+      { rl with ctor := ctor, ctorParams := cnP, fire := fire, rhs := rhsA,
+                paramsBlind := !isMimic } :: rest')
+
+and `recRuleBits` (`Kernel/Core.lean:1577`) sets
+`k := recRuleKOf find? rl.ctor` and
+`eta := recRuleEtaOf find? recName rl.ctor` — it **overwrites both
+fields**, at THIS environment, at the RESTORED constructor name (the
+record `{rl with ctor := ctor}` is what it is applied to) and at the
+restored recursor's name.  Those are exactly the two arguments the face
+asks about, and `envR` is exactly the provision environment the face
+names.  Neither bit is ever the scratch rule's.  `recRuleBits`'
+own docstring says as much for every route: *"the one place the K and
+η-rescue conditions are decided … the reduction then reads
+`RecRule.k`/`RecRule.eta` and re-derives nothing"*.
+
+**So the gap was a DROPPED REPORT, for the second time this session.**
+`restoreRules_at` reports the row's other seven data and drops these
+two; `restoreRules_bits` (`Verify/Inductives/NestedRecRuleKit.lean`) is
+the report, `restoreRecTys_slots`' twin at the rules, and
+`nestedRuleBitsOf_of` is the face — per class, member list and mimic
+list, a class with no rules vacuous, so no length premise beyond the
+run's own.
+
+> **The rule this hands the next reader.**  On this route a named face
+> has now TWICE been a report the walk already justified rather than a
+> check anyone had to add — the restored recursor types' `projTablesOk`
+> ((aaaaa)) and these two bits.  **Before a face becomes a kernel
+> request, read the kernel function's LAST LINE**: the request is only
+> real if the datum is absent from the code, not merely from the
+> inversion lemma.  Both of this session's faces were written from the
+> inversion lemma.
+
+**No check is added, so there is no certification-tax ledger row and no
+install cost**: `recRuleBits` is pre-existing behaviour on every route
+that stores rules, and this session added nothing to the kernel at all.
+The measurements in the old docstring (the record holds 27/27 shadow
+fixtures and 41/41 Mathlib cone blocks; recording the bits `false`
+would decline 7/27 and 35/41; dropping `!r.k` fails 24/27 and 41/41)
+stand as evidence about *recording* the bits, and are now moot for this
+face, which records nothing.
+
+**The stage stands on ONE face.**  `nestedTailModeled_of_face`
+replaces `nestedTailModeled_of_two`: `NestedCtorPinNamesOf` — the
+constructor-names request, already queued and numbered on the
+coordinator's side — is the whole of the recursors' stage's remaining
+premises.  (yyyy)'s correction is now fully resolved: of the two faces
+it said needed two different records, one needed no record at all.
+
+`lake build` warning-free EXIT 0; `lake test` warning-free EXIT 0;
+shake 510 all allowlisted / pub-imports 1334 of 2225, none demotable
+(54 fallbacks — the six new in-tree edges and the fallback that stops
+being one are this entry's own cross-module uses, chiefly
+`NestedStoreRun → NestedRecRuleKit`); layering base 353 / model 286 /
+caps 3 / umbrella 1, 0 base→lane, 0 impl→theory; trust surface 13
+escapes in 5 allowlisted files, 0 outside; no-local-paths OK;
+overview-links 112; quote-gate 2; proofdeps 4965 rows / 12 roots /
+**0 doors**.  `#print axioms` of `restoreRules_bits`,
+`nestedRuleBitsOf_of` and `nestedTailModeled_of_face` is
+`[propext, Classical.choice, Quot.sound]`.
+`tests/arena.sh` not run: no checker code changed.
+
+##### (eeeee) A CORRECTION TO (bbbbb) — the sync landed mid-session, and this lane's commit CONSUMED it
+
+(bbbbb) says the staged merge "never entered this lane's history".
+**That was true when it was written and is now false, and the second
+collision was not caught the way the first was.**  The integrator
+re-ran the sync while this session was still working; it staged a
+merge of `0b7fa889` in the worktree again, and this lane's next
+`git add -A && git commit` — the K.50 discharge — **consumed it**.
+So that commit is a MERGE (parents this lane's pre-merge commit
+`3b195443` and the integration's `0b7fa889`), and its message
+described only the proof.  The commit before it and the one after it
+are single-parent and this lane's alone.
+
+*The maintainer's ruling (and it is the whole repair): amend the
+MESSAGE, change nothing else* — no split, no reset, no restructuring.
+The content is right, the battery is green, and the only defect was a
+message that named a proof while the commit was also a merge; so the
+message now says both.  Rewriting history to tidy a message, when the
+commit carries a merge of work this lane did not write, would trade a
+real risk for a cosmetic gain.
+
+*What is and is not damaged.*  Nothing is lost: every theorem of this
+session is present, `lake build` is warning-free, and the whole gate
+battery was re-run AFTER that commit, so the figures in (ddddd)
+measure the merged tree, which is now legitimately this branch's
+content.  What is damaged is REVIEWABILITY, exactly as the coordinator
+predicted: a reader of `ca3bbbec`'s message cannot tell that a
+hundred-commit integration arrived with it.  Rewriting it is not this
+lane's call — the merge carries another lane's landed work — so it is
+recorded here and reported instead.
+
+> **The mechanical lesson, and it is the one that matters.**  `git add
+> -A` in a worktree that may receive a lane-sync is not a safe habit:
+> it silently turns a staged merge into a commit of yours.  Two
+> defences, either sufficient: check for `MERGE_HEAD` before every
+> commit, or stage by PATH (`git add <the files you edited>`), which
+> cannot pick up a merge's staged files.  The first incident was caught
+> by the coordinator's message; nothing in the tooling caught the
+> second, and a gate battery cannot — it passes either way.
 
 #### U.30 — L-B session 2: `CopyCtorInst.ordF` at the READING, the normalisation's reading law PROVED, `ContainerModeled`'s three clauses (lane L-B, 2026-09-16)
 
