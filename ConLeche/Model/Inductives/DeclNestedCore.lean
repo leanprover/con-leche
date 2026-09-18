@@ -775,7 +775,7 @@ theorem nestedContainerModeled {F : Nat} {st : ElimState} {envAux : Env}
     exact hI
 
 /-- **THE BLOCK'S OWN PINS ARE ITS RECORDED PINS, AT EVERY
-INSTANTIATION** (task #315 M7-3 session 18, DESIGN §U.79):
+INSTANTIATION** (task #315 M7-3 session 18, DESIGN §U.104):
 `ContainerOwnPinsSyn` at the nested route — the ninth and last of the
 nine `ContainerModeled` construction sites, and the only one whose
 block carries a mimic at all (the other eight read the empty table,
@@ -1044,6 +1044,16 @@ discharged modulo the loop by `nestedCoreModeled_of`. -/
     ConLeche.nestedCopyTargetsOk env p b st stored = true →
     ConLeche.nestedPinKindsOk p b st stored = true →
     ConLeche.nestedPinRankOk env p b st stored = true →
+    -- **THE POSITIVITY NORMALISATION ON THE MINTED COPY** (K.42, task
+    -- #315, lane L-B): at every ORDINARY field of every copy's
+    -- constructor, the stored domain IS the positivity normalisation of
+    -- the MINTED one, which the copies' identities read on the
+    -- `ordF`-LEFT arm (lane L-B's `NestedPinsShape`)
+    (∃ (jobs : List (Nat × Expr × Expr)) (ws : List Expr),
+      ConLeche.nestedOrdDomPairs env p st stored (ConLeche.nestedPinKinds p b stored) = some jobs ∧
+      ConLeche.nestedOrdNorms (m := ConLeche.CheckM) (fueledOps μ F)
+          (ConLeche.consNestedFormers (stored.take p.k) env) b.memberNames jobs = .ok ws ∧
+      ws = jobs.map (·.2.2)) →
     -- POST-CHECK (a) A THIRD TIME (K.30): the pins typed at the
     -- environment holding the RESTORED formers
     ConLeche.nestedPinsOk (m := ConLeche.CheckM) (fueledOps μ F)
@@ -1255,9 +1265,9 @@ theorem declNested_of (hμ : μ.verifiedChecks = true) {F : Nat} {env envOut : E
   classical
   obtain ⟨h0, h1, st, b, envAux, stored, ctorsR, cvRms, cvRns, rulesM, rulesN, fmsA, ctorsA,
     hfA, hcA, helim, hcount, hfresh, hcont, hb, haux, hstored, hclosed, hpinsAux, hcaps, hsrc,
-    -, hgrp, hmn, hsc, hlv, hK32, hkinds, hauxApps, hrank, -, -, -, hpins₁, hctors, hrm, hrn, hndR,
-    hdisj,
-    hrulesM, hrulesN, htbl, hpinsOut, hcnt, hrecs, hrb, -, -⟩ := h
+    -, hgrp, hmn, hsc, hlv, hK32, hkinds, hauxApps, hrank, -, -, hK42, hpins₁, hctors, hrm, hrn,
+    hndR, hdisj,
+    hrulesM, hrulesN, -, htbl, hpinsOut, hcnt, hrecs, hrb, -, -⟩ := h
   -- the `-` after `hsrc` is K.31's `pinsDistinct` conjunct: named for the
   -- identities' discharge (`NestedPinsIdent`, lane L-B), not consumed here;
   -- `hmn` after `hgrp` is K.44's `nestedPinMentionOk`, which lane L-E's
@@ -1272,10 +1282,14 @@ theorem declNested_of (hμ : μ.verifiedChecks = true) {F : Nat} {env envOut : E
   -- K.35's `nestedAuxAppsOk`, which the tail consumes, and `hrank` after
   -- it is K.37's `nestedPinRankOk` — the global entry theorem's induction
   -- measure, carried down to `NestedPinsRun` (task #315 L-E, DESIGN
-  -- §U.55) — the `-` after THAT is K.40's `nestedPinParentOk`, the one
-  -- after THAT K.41's `nestedPinRootPairOk` and the one after THAT K.42's
-  -- second positivity run on the minted copies, none consumed on this
-  -- path; then K.34's `blockReadBackOk` (`hrb`) — the route's own
+  -- §U.55) — the `-` after THAT is K.40's `nestedPinParentOk` and the one
+  -- after THAT K.41's `nestedPinRootPairOk`, neither consumed on this
+  -- path; `hK42` after THEM is K.42's second positivity run on the minted
+  -- copies, carried down to `NestedPinsRun` for the copies' identities'
+  -- `ordF`-LEFT arm and — since the filter was widened to member
+  -- targets — its `ordF`-RIGHT arm too (lane L-B's `NestedPinsShape`),
+  -- and not consumed here;
+  -- then K.34's `blockReadBackOk` (`hrb`) — the route's own
   -- read-back, which the block this route stores needs and `mp.blocks`
   -- carries for the rest — and the LAST two `-` are K.47's
   -- `nestedOwnPinsOk` (the mimics' stored types ARE the recorded pins, at
@@ -1285,7 +1299,9 @@ theorem declNested_of (hμ : μ.verifiedChecks = true) {F : Nat} {env envOut : E
   -- the two `-` after `hrn` are K.39's `Nodup` of the restored recursors'
   -- names and K.45's disjointness of those names from the auxiliary ones,
   -- which the provision loop's conses and the restore's agreement need,
-  -- and nothing on this path reads
+  -- and nothing on this path reads; the `-` after `hrulesN` is K.50's
+  -- `nestedRuleBitsOk`, which `nestedRecsStore`'s `hctorStored` reads
+  -- (lane M7-2's item 5) and nothing on this path does.
   -- THE CERTIFICATION-ONLY RECORDS (K.35's follow-up): the run carries them
   -- as `certOnly μ …`; this theorem is stated under `hμ`, at which the gate
   -- is the Bool the consumers below expect — K.34's `blockReadBackOk`
@@ -1299,13 +1315,14 @@ theorem declNested_of (hμ : μ.verifiedChecks = true) {F : Nat} {env envOut : E
   replace hK32 := ConLeche.certOnly_elim hK32 hμ
   replace hkinds := ConLeche.certOnly_elim hkinds hμ
   replace hrank := ConLeche.certOnly_elim hrank hμ
+  replace hK42 := hK42 hμ
   replace hauxApps := ConLeche.certOnly_elim hauxApps hμ
   replace hrb := ConLeche.certOnly_elim hrb hμ
   have hPM : PinsModeled mp.base2 st.pins := pinsModeled_of_env mp.blocks hcont
   obtain ⟨fms, f₀, ctorsA', sortss, kinds, mp₁, ppsF, W, idxF, dsF, esF, srcsF, fvsPF, xFvsF, xrestF,
     eissF, tssF, dsR, xFvsR, pinsS, mp₂, henv, O⟩ := hcore hμ mp.toEnvModelM hE p st b envAux stored
     ctorsR fmsA ctorsA hPM h0 h1 hfA hcA helim hcount hfresh hcont hb haux hstored hclosed hpinsAux
-    hcaps hsrc hgrp hsc hK32 hkinds hrank hpins₁ hctors
+    hcaps hsrc hgrp hsc hK32 hkinds hrank hK42 hpins₁ hctors
   obtain ⟨mpOut, T⟩ := htail hμ mp.toEnvModelM hE p envOut st b envAux stored ctorsR cvRms cvRns
     rulesM rulesN fmsA ctorsA hPM h0 h1 hfA hcA helim hcount hfresh hcont hb haux hstored hclosed
     hpinsAux hcaps hsrc hgrp hkinds hauxApps hctors hrm hrn hndR hdisj hrulesM hrulesN htbl
@@ -1456,7 +1473,8 @@ CONCRETELY (`NestedCoreOut`). -/
 theorem nestedCoreModeled_of {F : Nat} (hst : NestedCtorsStaged V μ F) :
     NestedCoreModeled V μ F := by
   intro hμ env mp hE p st b envAux stored ctorsR fmsA ctorsA₀ hPM h0 h1 hfA hcA helim hcount hfresh
-    hcont hb haux hstored hclosed hpinsAux hcaps hsrc hgrp hsc hK32 hkinds hrank hpins₁ hctors
+    hcont hb haux hstored hclosed hpinsAux hcaps hsrc hgrp hsc hK32 hkinds hrank hK42 hpins₁
+    hctors
   obtain ⟨hnd, hlp, hmem, h3, env₁, fms, f₀, tq₀, ctorsA, sortss, kinds, formers4, ctors4, cvRas,
     rulesOf, hformers, hf₀, htq₀, hcross, -, hctorsA, hkindsA, hfo, -, -, -, -⟩ :=
     ConLeche.checkMutualCore_inv haux
@@ -1467,7 +1485,8 @@ theorem nestedCoreModeled_of {F : Nat} (hst : NestedCtorsStaged V μ F) :
   obtain ⟨henv, -⟩ := ConLeche.consNestedFormers_take_eq haux hformers hstored p.k (by omega)
   rw [henv] at hctors hpins₁
   obtain ⟨mp₂, dsR, xFvsR, pinsS, S⟩ := nestedStageFacts_of hst hμ hE hPM h0 h1 hfA hcA helim hcount
-    hfresh hcont hb haux hstored hclosed hpinsAux hcaps hsrc hgrp hsc hK32 hkinds hrank hpins₁ hnd h3
+    hfresh hcont hb haux hstored hclosed hpinsAux hcaps hsrc hgrp hsc hK32 hkinds hrank hK42 hpins₁
+    hnd h3
     hformers hctorsA h hbk hctors
   have hbk' : b.k = p.k + pinsS.length := by rw [hbk, S.pinsLen]
   obtain ⟨hreps, htyped⟩ := nestedBlockReps_of hμ h h3 hbk' mp₂ S.findM S.leafM S.FD S.ctorsLen

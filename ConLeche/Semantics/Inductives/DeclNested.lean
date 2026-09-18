@@ -310,6 +310,19 @@ def DeclNestedRun (μ : CheckMode) (F : Nat) (env : Env)
               (consNestedFormers (stored.take p.k) env)))
           (restoreTbl p st) cvRa.levelParams cvRa.name true cvRa.type a.mI a.rP a.rules)
       = .ok rulesN ∧
+    -- THE RESTORED RULES' RESCUE BITS (K.50, lane M7-2's §U.29 (gggg)):
+    -- a set bit IS the provisioned environment's own verdict.
+    -- `nestedRecsStore`'s `hctorStored` asks it and `restoreRules`
+    -- cannot supply it: it copies the SCRATCH rule's bits while
+    -- replacing its constructor, so the obligation is a transport
+    -- across two environments AND two constructor names
+    ConLeche.certOnly μ (ConLeche.nestedRuleBitsOk
+      (provisionNestedRecs
+        ((cvRms.zip ((stored.take p.k).map fun (a : AuxStored) => (a.mI, a.rP)))
+          ++ (cvRns.zip ((stored.drop p.k).map fun (a : AuxStored) => (a.mI, a.rP))))
+        (consNestedCtors ctorsR.flatten
+          (consNestedFormers (stored.take p.k) env))).find?
+      (cvRms.zip rulesM ++ cvRns.zip rulesN)) = true ∧
     -- the projection tables, on the stored recursors
     nestedTables (m := CheckM)
         (((stored.take p.k).zip ctorsR).zipIdx.map fun ((a, cs), mIdx) =>
@@ -499,7 +512,7 @@ theorem declNestedRun_etaClosed {μ : CheckMode} {F : Nat} {env envOut : Env}
     {p : NestedParts} (hE : EtaFamiliesClosed env)
     (h : DeclNestedRun μ F env p envOut) : EtaFamiliesClosed envOut := by
   obtain ⟨-, -, st, b, envAux, stored, ctorsR, cvRms, cvRns, rulesM, rulesN, fmsA, ctorsA,
-    -, -, -, -, -, -, -, -, -, -, -, hcaps, -, -, -, -, -, -, -, -, -, -, -, -, -, -, hctors, hrm, hrn, -, -, -, -, htbl,
+    -, -, -, -, -, -, -, -, -, -, -, hcaps, -, -, -, -, -, -, -, -, -, -, -, -, -, -, hctors, hrm, hrn, -, -, -, -, -, htbl,
     -, -, -, -, -, -⟩ := h
   refine EtaFamiliesClosed.ofFreshExt hE ?_
   -- the formers

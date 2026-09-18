@@ -220,8 +220,9 @@ theorem PinShapes.crossEnv {env₁ env₂ : Env} {m₁ : EnvModel V env₁} {m�
       ConLeche.containerInfo? env₂ (d.pinAt q).J = some ci)
     (h : PinShapes m₁ B d pc) : PinShapes m₂ B d pc := by
   intro q hq
-  obtain ⟨q₀, kJ, i, ci, hqe, hi, hcont, hgv, hsh⟩ := h q hq
-  refine ⟨q₀, kJ, i, ci, hqe, hi, hci q hq ci hcont, hgv, fun ψ ρp hρp i' j hi' hj cvT₂ caps₂ hf₂ => ?_⟩
+  obtain ⟨q₀, kJ, i, ci, hqe, hi, hcont, hgv, hct, hsh⟩ := h q hq
+  refine ⟨q₀, kJ, i, ci, hqe, hi, hci q hq ci hcont, hgv, hct,
+    fun ψ ρp hρp i' j hi' hj cvT₂ caps₂ hf₂ => ?_⟩
   obtain ⟨cvT, cvR, mI, rP, rules, h0⟩ := hd 0 hk
   -- the pin's container at the new environment is the one at the old
   obtain ⟨cv₁, caps₁, hf₁⟩ := h0.pinsFound (q₀ + i') (by
@@ -831,7 +832,7 @@ theorem ContainerOwnPinsSyn.crossIndOf {env₁ env₂ : Env} {m₁ : EnvModel V 
     hwf hrc hhead
 
 /-! ## The own-pin table at ANOTHER instantiation (task #315 M7-3
-session 18, DESIGN §U.79)
+session 18, DESIGN §U.104)
 
 `containerOwnPinsAt` reads a container's own pins AT AN INSTANTIATION —
 the level arguments and the components the caller asks for — and K.47
@@ -1005,7 +1006,7 @@ theorem ownPinsStep_inv {env : Env} {lps : List Name} {lvls : List Level} {Ds : 
     · exact nomatch h
   · exact nomatch h
 
-/-- **ONE STEP, TRANSPORTED** (task #315 M7-3 session 18, DESIGN §U.79
+/-- **ONE STEP, TRANSPORTED** (task #315 M7-3 session 18, DESIGN §U.104
 (b)): a step that reads a pin at the block's own levels and parameter
 OPENERS reads the SAME pin, re-spelled (`ownSubst`), at any level
 arguments and any CLOSED components of the same number.
@@ -1130,7 +1131,7 @@ theorem containerOwnPinsAtGo_nil_of_len {env : Env} {base : Name} {lps : List Na
       | _ =>
         exact containerOwnPinsAtGo_stop (f + 1) j (by unfold ConLeche.isRecInfoAt; rw [hfind])
 
-/-- **THE TABLE, TRANSPORTED** (task #315 M7-3 session 18, DESIGN §U.79
+/-- **THE TABLE, TRANSPORTED** (task #315 M7-3 session 18, DESIGN §U.104
 (b)): the own-pin table at any level arguments and any CLOSED
 components of the right number is the table at the block's own levels
 and parameter openers, entry by entry re-spelled.
@@ -1524,7 +1525,7 @@ theorem ContainerModeled.params_congr {env : Env} {m : EnvModel V env} {ci : Con
     (hci : ConLeche.containerInfo? env I = some ci)
     {cvI : ConstantVal} {capsI : IndCaps} (hfI : env.find? I = some (.indInfo cvI capsI))
     {ψ₁ ψ₂ : Name → Nat} (hψ : ∀ p ∈ cvI.levelParams, ψ₁ p = ψ₂ p) {a : Nat} (ha : a < dK.k) :
-    dK.uM a ψ₁ = dK.uM a ψ₂ ∧ dK.ppsM a ψ₁ = dK.ppsM a ψ₂ := by
+    dK.uM a ψ₁ = dK.uM a ψ₂ ∧ dK.ppsM a ψ₁ = dK.ppsM a ψ₂ ∧ dK.w ψ₁ = dK.w ψ₂ := by
   obtain ⟨cvT, _caps, _cvR0, _mI0, _rP0, _rules0, hfind, _hfr0, _hmem0, _hnd0, hall⟩ :=
     ConLeche.containerInfo?_inv hci
   have hcvT : cvT = cvI := (ConstantInfo.indInfo.inj (Option.some.inj (hfind.symm.trans hfI))).1
@@ -1537,7 +1538,8 @@ theorem ContainerModeled.params_congr {env : Env} {m : EnvModel V env} {ci : Con
       : ConstantVal).levelParams, ψ₁ p = ψ₂ p := by
     intro p hp
     exact hψ p (by rw [← hcvT, ← hshare, ← hlps]; exact hp)
-  exact ⟨hI.uParams a ha ψ₁ ψ₂ hψ', (hI.former.params ψ₁ ψ₂ hψ').1⟩
+  exact ⟨hI.uParams a ha ψ₁ ψ₂ hψ', (hI.former.params ψ₁ ψ₂ hψ').1,
+    (hI.former.params ψ₁ ψ₂ hψ').2⟩
 
 
 /-- **A member's level parameters ARE the group's** (task #315 L-E,

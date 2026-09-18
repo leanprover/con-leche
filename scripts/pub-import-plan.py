@@ -253,6 +253,22 @@ FALLBACK = {
     ('ConLeche.Model.Inductives.NestedRecsSwap','ConLeche.Verify.Inductives.NestedRecsWF'),
     ('ConLeche.Model.Inductives.NestedRecsSwap','ConLeche.Semantics.IndBlockFacts'),
     ('ConLeche.Model.Inductives.NestedRecsSwap','ConLeche.Model.Annot.EnvModelM'),
+    # ('ConLeche.Model.Inductives.NestedRecsSwap','ConLeche.Verify.Extend.Recs')
+    # was REFUTED at integration 3q — the edge demotes cleanly on the union
+    # and the import is plain — and re-arrived with this lane's base.  It
+    # stays out: a FALLBACK is a claim about the tree.
+    # task #315 M7-2 (§U.29): the STORE'S RUN file is the same class one file
+    # further on — its public statements are theorems bar three `def … : Prop`
+    # (`nestedStoreList`, the two faces), so the census attributes almost
+    # everything to the proofs and proposes demoting all three re-exports.
+    # Each is refused by the compiler, probed one at a time: without
+    # `NestedRecRule` the statements lose `nestedProvList`, `nestedRecCvAt`
+    # and `nestedRulesAt`, without `NestedRecsWF` they lose
+    # `ConLeche.nestedProvOf`, and without `NestedTables` the recorded
+    # tables' face loses `NestedMemberTableOk`.
+    ('ConLeche.Model.Inductives.NestedStoreRun','ConLeche.Model.Inductives.NestedRecRule'),
+    ('ConLeche.Model.Inductives.NestedStoreRun','ConLeche.Verify.Inductives.NestedRecsWF'),
+    ('ConLeche.Model.Inductives.NestedStoreRun','ConLeche.Model.Inductives.NestedTables'),
     # task #315 M7-3 session 21: `NestedTablesInv`'s two re-exports became
     # demotion candidates when `nestedTables_mem_inv` changed the file's
     # public interface graph (the fixpoint is order-dependent).  Both

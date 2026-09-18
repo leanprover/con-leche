@@ -1663,6 +1663,50 @@ def nestedPinLvlsDs (env : Env) (q : NestedPin) : Option (List Level × List Exp
   let ci ← containerInfo? env q.container
   pure (lvls, q.pin.getAppArgs.take ci.nP)
 
+/-- **THE RESTORED RULES' RESCUE BITS ARE THE PROVISION'S OWN VERDICT**
+(task #315 K.50, lane M7-2's DESIGN §U.29 (gggg)).
+
+`nestedRecsStore`'s `hctorStored` has three conjuncts; the first is
+`restoreRules_at`'s verbatim and the other two are NOT available, for a
+structural reason.  `restoreRules` builds the restored rule as
+`{ rl with ctor := ctor, … }`, so `r.k` and `r.eta` are the SCRATCH
+rule's, unchanged, while `r.ctor` at a mimic is the RESTORED
+constructor.  What the scratch bits mean is `mutualRules_bits` at
+`envAux`; what `ConstWF` asks is
+`r.k = true → recRuleKOf (provision).find? r.ctor = true` and its η
+twin.  The two differ in BOTH arguments — a different constructor name
+AND a different environment — so the obligation is a transport across
+`consNestedCtors`' capability records, which no lemma in the tree
+relates.
+
+This is those two conjuncts, recorded at the provisioned environment
+where `ConstWF` asks them.
+
+**IT IS NOT THE `false` THE REQUEST PREDICTED, and the measurement is
+the reason** (DESIGN `#### K.50`).  §U.29 (gggg) proposed recording both
+bits as `false`, on the argument that a mimic's constructors have
+fields.  That argument is right about **K** — the K bit is `false` at
+every rule of every fixture and every Mathlib cone block — and wrong
+about **η**, whose condition is about a STRUCTURE's single constructor
+and not about field counts: a copy of a structure-like container is
+structure-like, so its restored rule legitimately carries η, and 7 of
+the 27 shadow fixtures have one.  Recording `false` there would have
+DECLINED them, which the standing rule forbids.
+
+The implication form costs nothing at a rule with no bit set (`!r.k ||`
+short-circuits) and two `find?`s at one that has, so only the η-carrying
+rules pay — but MEASURED, those two were +0.053 % on the Mathlib cone,
+all of it the lookups (a stub with the list work kept and the lookups
+removed is free).  So the Bool takes the LOOKUP FUNCTION rather than an
+environment, and the cached mirror hands it the driver's index while the
+pure route — which the run relation records — hands it `envR.find?`.
+`.internal` on failure, CERTIFICATION-ONLY: gated. -/
+def nestedRuleBitsOk (find? : Name → Option ConstantInfo)
+    (rows : List (ConstantVal × List RecRule)) : Bool :=
+  rows.all fun (cvRa, rs) => rs.all fun r =>
+    (!r.k || recRuleKOf find? r.ctor) &&
+      (!r.eta || recRuleEtaOf find? cvRa.name r.ctor)
+
 /-- **THE MIMICS' STORED TYPES ARE THE RECORDED PINS** (task #315 K.47,
 lane M7-3's DESIGN §U.69 (c) 1 and (d)).
 
@@ -1811,9 +1855,13 @@ holds. -/
 
 /-- Each pin's instance ENTRY GROUP: the mint-group base of the unique
 group of its container instance whose parent lies OUTSIDE the instance.
-`none` at a pin whose instance has no unique entry group — which K.40's
-measurement found of no instance in either corpus, and which this Bool's
-first clause refuses. -/
+`none` at a pin whose instance has no unique entry group, which K.41's
+first clause refuses.  K.40's measurement found no such instance in
+either corpus — but that corpus was the 27 shadow rows and the 41-block
+Mathlib cone, and `tests/e2e/inmodel_groups.ndjson` was in NEITHER: at
+its `InModelGroups.H` there are two entry groups, because the `mintedAt`
+stamp two of the three pins carry is wrong (DESIGN "THE `mintedAt`
+STAMP IS RESET BY ITS OWN MINT"). -/
 def nestedPinRootGroupAt (p : NestedParts) (st : ElimState) (inst : List Nat) :
     List (Option Nat) :=
   let par := nestedPinParent p st
@@ -1848,10 +1896,17 @@ accepted fixture `nested_lam_pin_prop`, where the positivity `whnf`
 turns `(fun _ => T) trivial` into a member and the component's head is
 a λ.
 
-**It cannot fire**, and a failure is `.internal`: the block's
-elimination mints a pin only while rewriting a copy, and the copy is the
-root container's — whose own elimination pinned the same occurrence, at
-the components the copy was made at.  CERTIFICATION-ONLY: gated. -/
+**IT CAN FIRE, and it HAS** (task #315 M8 session 2; DESIGN "THE
+`mintedAt` STAMP IS RESET BY ITS OWN MINT").  The argument that stood
+here — the block's elimination mints a pin only while rewriting a copy,
+and that copy is the root container's — is sound about the MINT and says
+nothing about the RECORD the pairing is computed from.  At
+`tests/e2e/inmodel_groups.ndjson`'s `InModelGroups.H` this Bool is
+`false`, on a stream official accepts, because `mkCopies` resets
+`mintedAt` and two pins of one instance then both claim to be
+parentless.  A failure stays `.internal` and the ledger category stays
+(S) — a fire IS a defect in our own generator, and this one was.
+CERTIFICATION-ONLY: gated. -/
 def nestedPinRootPairAt (env : Env) (st : ElimState) (roots : List (Option Nat)) : Bool :=
   (List.range st.pins.length).all fun q =>
     match roots.getD q none with
@@ -1941,8 +1996,18 @@ def nestedOrdDomPairs (env : Env) (p : NestedParts) (st : ElimState)
       let (_, crestS) ← openPisAtFvars p.nP cvS.type 0
       let (xsS, _) ← openPisAtFvars nF crestS p.nP
       let perField ← (List.range kf.length).mapM fun l => do
-        let (r, _) ← kf[l]?
-        if r == RecFieldKind.ordinary then
+        -- **ORDINARY, OR A MEMBER TARGET** (lane L-B's request, task
+        -- #315 M8 session 3): a field classified recursive or reflexive
+        -- at a target BELOW `p.k` points at a MEMBER of the block being
+        -- installed, not at a mimic, and there the stored domain is
+        -- mimic-free — positivity admits a member head only with
+        -- member-free telescope domains and index arguments — so the
+        -- minted and the rewritten walk end at the SAME term and the
+        -- comparison is the one this record already makes.  It is the
+        -- PIN targets (`p.k ≤ t`) that would need the heavier rewritten
+        -- form, and they are NOT widened here.
+        let (r, t) ← kf[l]?
+        if r == RecFieldKind.ordinary || t < p.k then
           let xM ← xsM[l]?
           let xS ← xsS[l]?
           pure [(p.nP + l, xM.fvarTypeD, xS.fvarTypeD)]
@@ -2235,6 +2300,15 @@ def checkNested (ops : CheckerOps m) (env : Env) (p : NestedParts) : m Env := do
     restoreRules ops envR R cvRa.levelParams cvRa.name false cvRa.type a.mI a.rP a.rules
   let rulesN ← (cvRns.zip mimics).mapM fun (cvRa, a) =>
     restoreRules ops envR R cvRa.levelParams cvRa.name true cvRa.type a.mI a.rP a.rules
+  -- **THE RESTORED RULES' RESCUE BITS** (K.50): a set bit IS the
+  -- provisioned environment's own verdict — `hctorStored`'s other two
+  -- conjuncts, recorded where `ConstWF` asks them.  `restoreRules`
+  -- copies the SCRATCH rule's bits while replacing its constructor, so
+  -- the obligation is a transport across two environments AND two
+  -- constructor names that no lemma relates.  A failure is `.internal`.
+  unless certOnly ops.mode
+      (nestedRuleBitsOk envR.find? (cvRms.zip rulesM ++ cvRns.zip rulesN)) do
+    throw (.internal "nested: a restored rule carries a K or eta rescue bit")
   let env₃ := storeNestedRecs
     ((cvRms.zip (members.zip rulesM)).map (fun (cv, a, rs) => (cv, a.mI, a.rP, rs))
       ++ (cvRns.zip (mimics.zip rulesN)).map (fun (cv, a, rs) => (cv, a.mI, a.rP, rs))) env₂

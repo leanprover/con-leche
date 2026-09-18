@@ -392,6 +392,18 @@ structure NestedPinGroupSyn (st : ElimState) (m : EnvModel V env₂) (q₀ kJ : 
   request: `ordFree`/`pinsNotMembers` live here, not in `IsBlockModel`) -/
   modeled : ∀ i, i < kJ → ∀ ci : ContainerInfo,
     ConLeche.containerInfo? env ((D).pinAt (q₀ + i)).J = some ci → ContainerModeled m ci dJ
+  /-- **the group's OWN pins read the same at the ELIMINATION's
+  environment** (task #315, integration 3r): `ContainerModeled.pinConts`
+  (lane M7-3 session 20) says a pin's container reads the same at
+  `d.env₀` as at the record's environment — and `modeled`'s record is at
+  the FORMERS' prefix model, so a consumer working at `env`, where
+  `replaceAllNested` actually runs, cannot use it there.  The
+  construction discharges this from the PRE-BLOCK record, whose own
+  `pinConts` concludes at `env` on the nose; lane L-B's pin route spends
+  it where it used to name `dJ.env₀ = env` as an input. -/
+  contsEnv : ∀ q', q' < dJ.nPins → ∀ ci' : ContainerInfo,
+    ConLeche.containerInfo? dJ.env₀ (dJ.pinAt q').J = some ci' →
+    ConLeche.containerInfo? env (dJ.pinAt q').J = some ci'
   reps : IsBlockModels m dJ
   kEq : dJ.k = kJ
   rep : ∀ i, i < kJ → ∃ (cvT cvR : ConstantVal) (mI rP : Nat) (rules : List RecRule),
@@ -808,6 +820,19 @@ structure NestedPinsRun (V : Type w) [SetTheory V] (μ : CheckMode) (F : Nat) {e
   reference that LEAVES it goes to a strictly smaller rank, the rank is
   a function of the instance, and a mint group is one instance -/
   hrank : ConLeche.nestedPinRankOk env p b st stored = true
+  /-- **THE POSITIVITY NORMALISATION ON THE MINTED COPY** (K.42, task
+  #315, lane L-B): at every field of every copy's constructor that the
+  record's filter admits — ORDINARY, **or** with a target below `p.k`,
+  i.e. at one of the block's own MEMBERS (the kernel lane's widening of
+  2026-09-18) — the stored domain IS the positivity normalisation of
+  the MINTED one; what the copies' identities read on the `ordF`-LEFT
+  arm and, at a member target, on the `ordF`-RIGHT one, with the
+  rewrite's own leg (which needs `pinLeaf`, and is circular) gone -/
+  hK42 : ∃ (jobs : List (Nat × Expr × Expr)) (ws : List Expr),
+      ConLeche.nestedOrdDomPairs env p st stored (ConLeche.nestedPinKinds p b stored) = some jobs ∧
+      ConLeche.nestedOrdNorms (m := ConLeche.CheckM) (fueledOps μ F)
+          (ConLeche.consNestedFormers (stored.take p.k) env) b.memberNames jobs = .ok ws ∧
+      ws = jobs.map (·.2.2)
   hpinsE : ConLeche.nestedPinsOk (m := ConLeche.CheckM) (fueledOps μ F)
       (ConLeche.consMutualFormers (fms.take p.k) env) p.nP st.pins = .ok ()
   hformers : ConLeche.mutualFormers (m := ConLeche.CheckM) (fueledOps μ F) b.nP b.formers env true
@@ -1351,6 +1376,7 @@ theorem NestedPinsRun.groupSyn
         obtain rfl : ci' = cii := Option.some.inj (hci'.symm.trans hcii)
         rw [ConLeche.containerInfo?_eq_of_names hci' PD.base hnPi hnamesi]
         exact CM
+      contsEnv := CM₀.pinConts
       reps := CM.reps
       kEq := hkJ
       rep := ?_
@@ -1708,12 +1734,12 @@ DESIGN §U.22.) -/
 theorem nestedPinsStaged_of {F : Nat} (hId : NestedPinsIdent V μ F) : NestedPinsStaged V μ F := by
   intro hμ env mp hE p st b envAux stored ctorsR fmsA ctorsA₀ fms f₀ ctorsA sortss kinds mp₁ ppsF W
     idxF dsF esF srcsF fvsPF xFvsF xrestF eissF tssF mp₁' hPM h0 h1 hfA hcA helim hcount hfresh hcont
-    hb haux hstored hclosed hpinsAux hcaps hsrc hgrp hscoped hK32 hkinds hrank hpinsE hformers h hbk
+    hb haux hstored hclosed hpinsAux hcaps hsrc hgrp hscoped hK32 hkinds hrank hK42 hpinsE hformers h hbk
     h3 hnd hctorsA hleafM' hoff' hfind' hctors
   have R : NestedPinsRun V μ F mp p st b envAux stored ctorsR fmsA ctorsA₀ fms f₀ ctorsA sortss kinds
       mp₁ ppsF W idxF dsF esF srcsF fvsPF xFvsF xrestF eissF tssF mp₁' :=
     ⟨hμ, hE, hPM, h0, h1, hfA, hcA, helim, hcount, hfresh, hcont, hb, haux, hstored, hclosed, hpinsAux,
-      hcaps, hsrc, hgrp, hscoped, hK32, hkinds, hrank, hpinsE, hformers, h, hbk, h3, hnd, hctorsA,
+      hcaps, hsrc, hgrp, hscoped, hK32, hkinds, hrank, hK42, hpinsE, hformers, h, hbk, h3, hnd, hctorsA,
       hleafM',
       hoff', hfind', hctors⟩
   obtain ⟨hpinsE, fvs, o, hop, hsc⟩ := R.scoped

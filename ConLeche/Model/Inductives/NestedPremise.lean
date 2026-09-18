@@ -2,7 +2,8 @@ module
 
 public import ConLeche.Semantics.Inductives.DeclNested
 public import ConLeche.Model.Inductives.NestedFit
--- `containerInfo?_inv` in `ContainerModeled.pinParamsOf`'s proof only
+-- `containerInfo?_inv`, for `ContainerModeled.pinParamsOf`'s re-indexing:
+-- proof-only, hence a plain import (task #315 M7-3 session 22).
 import ConLeche.Verify.Inductives.NestedGroupInv
 public section
 
@@ -70,7 +71,7 @@ the WALK (the two sides' `PinCorr` are at the same own pin, so
 two assignments).
 
 Four parts, and the WALK at a PIN class spends each exactly once
-(DESIGN §U.74): the pins' level ARGUMENTS scoped in the group's own
+(DESIGN §U.86): the pins' level ARGUMENTS scoped in the group's own
 level parameters (`ClassPin`'s `psi`, through `Level.substFn_ext` —
 this is also `targetPin_corr`'s `hpd`), the pins' COMPONENTS bounded at
 the container's parameters (`frame`, through `interp_congr_below`: the
@@ -235,12 +236,10 @@ structure ContainerModeled {env : Env} (m : EnvModel V env) (ci : ContainerInfo)
     (d.pinAt q).lvls.length = cvT.levelParams.length ∧
     ∀ ψ : Name → Nat, (d.pinAt q).ψJ ψ = Level.substFn ψ cvT.levelParams (d.pinAt q).lvls
   /-- **A PIN'S DATA DEPEND ON THE ASSIGNMENT ONLY THROUGH THE
-  CONTAINER'S OWN LEVEL PARAMETERS, AND ITS COMPONENTS ARE BOUNDED AT
-  THE CONTAINER'S PARAMETERS** (task #315 lane L-E session 17's
-  request, DESIGN §U.69 (e)): the clause is lane L-E's record of
-  `ContainerPinParams`, completed to four parts — the pins' level
-  ARGUMENTS scoped in the group's level parameters, the components'
-  READINGS bounded below `d.nP`, and the `u`/`Ds`/`Ids` congruences.
+  CONTAINER'S OWN LEVEL PARAMETERS** (task #315 lane L-E session 17's
+  request, DESIGN §U.69 (e)): two assignments agreeing on the group's
+  level parameters give one index universe, one component reading and
+  one index telescope at every pin.
 
   A record and not a derivation, and lane L-E checked before asking:
   `IsBlockModel.uParams` and `FormerData.params` are the MEMBERS'
@@ -264,6 +263,16 @@ structure ContainerModeled {env : Env} (m : EnvModel V env) (ci : ContainerInfo)
   neighbours. -/
   pinParams : ∀ (i : Nat) (M : ConLeche.ContainerMember), ci.members[i]? = some M →
     ContainerPinParams (V := V) ⟨M.name, M.lps, M.type⟩ d
+
+/-- **A member's index telescope is bounded at the parameters** — the
+MEMBER twin of `pinIds_below` (task #315 L-E, DESIGN §U.77). -/
+theorem memberIds_below {env : Env} {m : EnvModel V env} {dJ : BlockModel V}
+    (hreps : IsBlockModels m dJ) {i : Nat} (hi : i < dJ.k) (ψ : Name → Nat) :
+    FieldsBelow dJ.nP (dJ.IdsM i ψ) := by
+  obtain ⟨cvT, cvR, mI, rP, rules, hI⟩ := hreps i hi
+  refine DomsBelow.fields ?_
+  have := DomsBelow.drop dJ.nP (hI.former.below ψ)
+  simpa using this
 
 /-- **The pins' congruence, re-indexed by the STORED constant** (task
 #315 M7-3 session 22, for lane L-E's quantified premise): the clause
@@ -298,16 +307,6 @@ theorem ContainerModeled.pinParamsOf {env : Env} {m : EnvModel V env} {ci : Cont
   obtain ⟨hlvls, hbelow, hcongr⟩ := C.pinParams i M hi q hq
   refine ⟨fun v hv => by rw [← hlps]; exact hlvls v hv, hbelow, fun ψ₁ ψ₂ hag => ?_⟩
   exact hcongr ψ₁ ψ₂ fun pp hpp => hag pp (hlps ▸ hpp)
-
-/-- **A member's index telescope is bounded at the parameters** — the
-MEMBER twin of `pinIds_below` (task #315 L-E, DESIGN §U.77). -/
-theorem memberIds_below {env : Env} {m : EnvModel V env} {dJ : BlockModel V}
-    (hreps : IsBlockModels m dJ) {i : Nat} (hi : i < dJ.k) (ψ : Name → Nat) :
-    FieldsBelow dJ.nP (dJ.IdsM i ψ) := by
-  obtain ⟨cvT, cvR, mI, rP, rules, hI⟩ := hreps i hi
-  refine DomsBelow.fields ?_
-  have := DomsBelow.drop dJ.nP (hI.former.below ψ)
-  simpa using this
 
 /-! ## The correspondence a container instance is compared along -/
 
@@ -569,12 +568,32 @@ and components, at every parameter frame.  The assignment is ONE
 function for the whole environment so that the shape a container's own
 pins carry and the shape the block being installed proves speak of the
 SAME model of the pins' container — what the global entry theorem
-composes (`nestedPinLeaf_all`). -/
+composes (`nestedPinLeaf_all`).
+
+The COUNT conjunct (task #315 L-E, DESIGN §U.77 (d), the maintainer's
+ruling): a pin's constructors are as many as its container member's.
+`ChainFitT` at a pin class reads `(pc q).ctors` (`ctorsT_of_pin`), so
+the container instance transfer's `j` ranges over that list, while the
+shape below is supplied only for `j < ((B ci).ctorsM i').length`;
+`PinCtors` is a bare record and `PinRecLaws` quantifies `j` over the
+former everywhere, so without this nothing forbids a pin carrying
+constructors its container does not have, and the transfer would have
+no shape at them.
+
+**Its three producer classes**, so that nobody rediscovers them: the
+five PINNED BASIS blocks, where it is vacuous (`d.pins = []`, so `q`
+does not exist); the NESTED route, where it is
+`NestedPinGroupSyn.ctorCount` composed with `nestedPc`'s own count; and
+M7-3's NATIVE and MUTUAL sites, whose blocks are pins-free for the same
+reason as the basis (`ContainerCross.lean`'s pins-free construction).
+The transports (`PinShapes.crossEnv`, `PinShapes.congrB`) carry it
+unchanged. -/
 @[expose] def PinShapes {env : Env} (m : EnvModel V env) (B : ContainerInfo → BlockModel V)
     (d : BlockModel V) (pc : Nat → PinCtors V) : Prop :=
   ∀ q, q < d.nPins → ∃ (q₀ kJ i : Nat) (ci : ContainerInfo), q = q₀ + i ∧ i < kJ ∧
     ConLeche.containerInfo? env (d.pinAt q).J = some ci ∧
     PinGroupView d (B ci) q₀ kJ ∧
+    (∀ i', i' < kJ → (pc (q₀ + i')).ctors.length = ((B ci).ctorsM i').length) ∧
     ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (d.params ψ).reverse ρp →
       ∀ i' j, i' < kJ → j < ((B ci).ctorsM i').length →
       ∀ (cvT : ConstantVal) (caps : IndCaps),
@@ -764,7 +783,7 @@ above this file) is the bridge to the reading form the
 consumer (`pinCorr_of_ownPins`) wants.
 
 **THE COMPONENTS MUST BE CLOSED, and the clause is FALSE without it**
-(task #315 M7-3 session 18, DESIGN §U.79 (a) — REFUTED on two real
+(task #315 M7-3 session 18, DESIGN §U.104 (a) — REFUTED on two real
 runs, not argued).  `containerOwnPinsAtGo` instantiates the mimic
 recursor at `Ds ++ pad`, and `Expr.instPis` peels ONE binder per
 argument at cursor 0 — so the PAD substitutions run on the
