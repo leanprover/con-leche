@@ -111637,3 +111637,181 @@ object is a value family and its law (M).
   the elaborator's verdict.
 
 Nothing here changes the tree's accept set.
+
+#### R2: the candidate component family, priced — the producer is cheap, its READING is a new object, and law (M)'s stated discharge is INCOMPLETE (lane R2, 2026-09-18)
+
+Read-only on the tree; `_tmp/r2/PLAN.md` carries the long form.  Every
+claim below is either read off the tree, or read off a run of the
+checker, or marked as this lane's own derivation.
+
+##### (a) `acval'` AND THE ENVIRONMENT — the request's "only subtle part" needs no virtual environment
+
+The request (§"request form" (c), §5) asks for an `acval'` that sends
+copy `j` to `auxTargetRead b.nP (p.k + j) ψ`.  **The run already carries
+one.**  `ENVA := consMutualFormers fms env` — the AUXILIARY formers'
+environment (`NestedPinsRun.hformers`, `hbk : b.k = p.k + st.pins.length`,
+so the copies ARE formers of it) — and `acval' := mp₁.base2.acval`, a
+field of `NestedPinsRun`.  `denoteMeta`'s `.const` case asks exactly two
+things of a constant, `env.find? n = some ci` and the level-count match;
+`MutualFormersFacts.find` and `.lps` give both at EVERY former, copies
+included, and `.leaf` gives `acval' (copy j) = mutMemberLeaf b fms … (p.k+j)`,
+which is the head `auxTargetRead` is built from.  The rewrite's `params`
+are `openPisAtFvars`' same-index `.fvar` spine, whose reading at depth
+`b.nP` is `paramBvarsAt b.nP b.nP` by the landed `denoteMetaSpine_fvars`
+— so **the reading of a planted mimic IS `auxTargetRead`, on the nose.**
+
+`candAs` itself is then `pinOf`-shaped and total: the K.59 witness list
+`comps` from `nestedPinCompsOk_inv`, read by
+`(denoteMeta acval' ENVA ψ b.nP ·).getD default` and interpreted at `ρp`.
+One threading note: **`NestedPinsRun` does not carry K.59's conjunct**
+(the run relation does, `DeclNested.lean`), and adding it means touching
+`DeclNestedCore.lean`; until the integrator threads it, the producer
+takes `nestedPinCompsOk env p st = true` as an explicit hypothesis.
+
+##### (b) THE ANNOTATION OBLIGATION IS REAL, and its object is stated
+
+Nothing in the tree says a rewritten term denotes: the
+`replace{All,If}Nested_*` family is twenty-seven theorems and **not one
+mentions `denoteMeta` or `interp`**.  Nor is the fact available
+elsewhere, and the reason is structural: the elimination replaces
+`J Ds is` by `aux params is`, DROPPING `Ds`, so a pin's components in
+REWRITTEN form occur in no constructor the auxiliary block ever checks.
+`nestedPinsOk` types the pins UNREWRITTEN; `checkMutualCore env b` types
+the copies' rewritten CONSTRUCTORS, where the components do not appear.
+K.59 recomputes them because nothing else holds them.
+
+The object, in the form this lane would build it: an `Expr`-level
+relation `RewriteRel` (congruence at every former plus one `fire` case
+`mkAppN (.const I us) (Ds ++ is) ↦ mkAppN (mkAppN (.const A blvls) params) is`),
+with (i) `replaceAllNested` produces it — one induction in the landed
+`replaceAllNested_unchanged_or_aux` / `_frame` idiom — and (ii)
+`RewriteRel` transports the reading.  **(ii) is where the price is**:
+`denoteMeta` OPENS binders (`body.instantiate1 (.fvar d ty)`) while the
+walk descends under them CLOSED and with a rewritten domain, so (ii)
+needs `RewriteRel` closed under `liftLooseBVars` and `instantiate1`, and
+`denoteMeta`'s indifference to an `.fvar`'s stored type.  A RELATION on
+`Expr` — no new `AnnotTerm` constructor, no second interpreter, no new
+substitution API — so the derived-term-formers ruling is respected.
+**1.5–2 sessions, the risk in the binder step.**
+
+##### (c) LAW (M): the reduction is right, and it is NOT ENOUGH
+
+With `candAs` the rewrite's denotation, (M) at a constant-headed edge
+`q → q'` reduces — through `Dsq' i = (A i).instAll Dsq` and
+`interp_instAll` — to the SYNTACTIC commutation
+
+>  (C)   `rewrite ((A i).instAll Dsq) = (A i).instAll (map rewrite Dsq)`.
+
+**(C) is false.**  `replaceIfNested` fires at a subterm whose container
+PARAMETER argument mentions a name of the growing list, so a subterm
+whose SHAPE comes from `A i` and whose block names come only from the
+substituted `Dsq` — a STRADDLE — fires on the left and does not exist on
+the right.
+
+**A straddle is reachable, and the route ACCEPTS it today.**  Witness
+(exported with the pinned toolchain; the stream is `_tmp/r2/straddle.ndjson`):
+
+```lean
+inductive Box (α : Type) where | mk (l : List (Option α))
+inductive Straddle where       | node (b : Box Straddle)
+```
+
+`con-leche --jobs=1 --nested-shadow` prints `nested-shadow Straddle accept`
+— the whole native check list, K.51/K.57/K.59 included, passes.  A probe
+that folds the prefix and runs the elimination
+(`_tmp/r2/probe.lean`) reads off:
+
+```
+pin 0  container=Box     pin=(Box Straddle)            comp[0]=Straddle
+pin 1  container=List    pin=(List (Option Straddle))  comp[0]=(Option Straddle)
+pin 2  container=Option  pin=(Option Straddle)         comp[0]=Straddle
+pin 0: declPos=3 ; ctor 0 field 0: dom=(List (Option #0)) head=List declPos(head)=11
+rewritten comp[1][0] = _nested.Option_3          -- the COPY, not `Option Straddle`
+```
+
+So the edge `0 → 1` is CONSTANT-HEADED by `nestedPinOrderAt`'s own test
+and satisfies K.57 (3 < 11, a larger index being an earlier
+declaration); the straddling argument `Option #0` instantiates to pin
+2's expression; and K.59's rewrite of pin 1's component is the MIMIC.
+(M) there reads `Option_carrier (Straddle_carrier) = copy₂'s carrier` —
+**true, but it is the fixpoint identity at a THIRD pin, not a
+compositional fact.**  (M) is not refuted as a proposition; its stated
+discharge is.
+
+##### (d) WHAT (M) ADDITIONALLY NEEDS — and why it crosses the G1 sequencing
+
+At a straddle, (M) at `q → q'` needs at the inner pin `q''`: the
+INCLUSION (the induction hypothesis, hence `ord q'' < ord q`), the
+CONVERSE (`nestedPinsFixed` through `nestedPinEq_at_of_le` — **which is
+stated at `pinLfp`, the RECORDED frame**, so it applies at `q''` only
+when `q''`'s own components rewrote trivially, which K.59's two lists
+let the model decide but which fails one nest deeper), and an ORDER fact
+nobody records: `ord q'' < ord q`.  That last one holds on the witness
+(`declPos Option = 7 > declPos Box = 3`) and is plausible in general — a
+straddle's head constant occurs in the SOURCE container's own
+declaration, hence is declared before it — but it is a NEW per-component
+clause, not K.57.
+
+**And it makes A consume B.**  Lane L-E's G1 finding sequences A (the
+declaration-order induction at the candidate frame) BEFORE B (the
+candidate→true bridge, ordered by component containment) because A ∪ B
+is cyclic at `nested_p22`.  A straddle makes A's OWN step need B at an
+inner pin.  The natural repair is a lexicographic measure (container
+`declPos`, then A-before-B at a pin) and **this lane could not show it
+well-founded**: at `nested_p22` (`Nat, P22T, List, P22`) B at pin 0
+needs A at pin 1, whose container is declared LATER — the direction a
+`declPos`-first measure forbids.
+
+**The decision, and it is not this lane's:**
+
+1. **restrict** — a kernel clause certifying NO STRADDLE (every argument
+   of a constant-headed pin-target domain is rewrite-stable under the
+   pin's substitution); then (M) is (C) and the discharge stands as
+   written.  It declines `Box`-shaped blocks the route accepts today;
+2. **record and interleave** — the per-component classification record
+   already priced for G1, plus (d)'s `declPos` clause, plus a combined
+   measure; the measure is the piece with no evidence;
+3. **re-define the candidate family so (M) is definitional** — not
+   available: a pin is the target of several edges and also a root.
+
+##### (e) THE TWO SIDE CONDITIONS, and the CLOSEDNESS DESCENT
+
+The descent L-C names as unproved is **free**: K.30 `pinsScoped` gives
+`q.pin.looseBVarsBounded 0` and the `fvarLeaves` clause, and
+`looseBVarsBounded_getAppArgs` / `fvarLeaves_getAppArgs` (both landed,
+the second used inside `replaceAllNested_frame`) descend both to
+`DsE`.  (M)'s `fs₁`-independence follows: a field variable read by
+`A i` would survive `instAll Dsq` as a loose bvar in `Dsq' i`, which the
+descent forbids; `nt_pin_bounded` and `interp_congr_on` finish.
+
+Call the FIRING POSITIONS of pin `q` the `i` at which K.59's rewritten
+component differs from the recorded one (the model can compare, and at
+none of them `candAs q = pinAs q`).  Then **`CandIdxAgree` is `rfl` at an
+index-free container** — which is what its docstring's "measured vacuous"
+is really observing — and in general asks that no index-telescope
+reading of the container member reads a firing position; and
+**`CandParamFit` is provable at a firing position whose parameter binder
+is a SORT** (the auxiliary carrier's tuple-space membership,
+`lfpTuple_mem`, with `NestedPinSynFacts.pinSem`'s `dJ.w (ψJ ψ) = f₀.s.eval ψ`),
+and otherwise asks that no later parameter domain read a firing
+position.  **One clause serves both**, over data `nestedPinOrderAt`
+already strips:
+
+> **(FIRING-POSITION INDEPENDENCE)** for every pin `q` and every firing
+> position `i`: the container member's parameter binder `i` is a sort,
+> and no later parameter binder and no index binder of that member
+> mentions bvar `nP-1-i`.
+
+Category (B), K.57's shape, half a kernel session.
+
+##### (f) WHAT `NestedPinsLe` STILL NEEDS
+
+(b)'s reading lemma; (M) under (d)'s decision; then the step itself is
+assembly — `copyEntryAtF_le_of_famLe` and `nestedPinEq_at_of_le` are
+landed and are the right shape — plus `pinLfpAt_le` as the leastness,
+plus one re-basing that is NOT on the landed list: `nestedPinsFixed` and
+`nestedPinEq_at_of_le` are stated at `pinLfp` (recorded) while the
+induction concludes at `pinLfpAt` (candidate), and the step does not
+type-check until those two are frame-generic.
+
+Nothing in this section changes the tree.
