@@ -93914,6 +93914,12 @@ PROPOSAL requiring a measurement, not as a fact:
    `instanceLe_of_transfer` closes a whole instance simultaneously, and
    a per-pin measure does not compose with it — that is the piece of
    work, and it is larger than anything priced in this arc.
+   **CORRECTED 2026-09-18 (§U.87): wrong twice.**  The simultaneous
+   argument is KEPT (`famAt_le_of_TClosed` reused verbatim, once per
+   stratum) and the stratification is by the RELATION, which every link
+   of the chain already takes as a parameter — so this is an
+   instantiation at `R_n c b := R c b ∧ orank b < n`, not a re-cut, and
+   it prices at 3–4 sessions with nothing landed at risk.
 4. **The measurement that decides whether the measure can exist**: is
    the NOT-OWN edge graph acyclic on accepted blocks?  **The existing
    measurement does not answer this.**  Equal instance labels mean
@@ -93942,6 +93948,123 @@ named premise.  The OUT-OF-INSTANCE case, step (ii), step (iv) and the
 residual's discharge go through today exactly as they did before this
 session.  Five read-only sessions have now bounded this route without
 touching a line of the proof tree.
+
+NOT STARTED.  No code changed this session.
+
+Gates: `lake build` and `lake test` warning-free at the session's
+commit; text gates green.
+
+#### U.87 — L-E session 32: the "re-cut" is an INSTANTIATION, not a re-cut — 3–4 sessions, and nothing landed is at risk (lane L-E, 2026-09-18)
+
+Pricing §U.86 (d) 3, read-only.  **It is much smaller than §U.86 said,
+and that section's own wording is corrected: the transfer does not have
+to be re-cut, and an instance's pins do not have to be proved one at a
+time.**
+
+##### (a) THE CHAIN IS ALREADY GENERIC IN THE RELATION
+
+Every link the stratification would touch takes the correspondence as a
+PARAMETER: `relMeet` and all six of its kit lemmas (`app_relMeet`,
+`relMeet_mem`, `app_relMeet_subset`, `relMeet_le_base`,
+`relMeet_le_rel`, `app_relMeet_le_rel`), `instanceLe_of_transfer`,
+`instanceLe_of_rel`, `htrans_of_walk` and `instanceLe_of_pair` — all
+carry `{R : Nat → Nat → Prop}` or `{Rel : Nat → Nat → Prop}`.
+
+So the stratified meet needs **no new kit and no new theorem**: it is
+the EXISTING `relMeet` at the restricted relation
+
+```
+    R_n c b := R c b ∧ orank b < n
+```
+
+whose `sep` condition is exactly "in `L⁺ b` for every related `b` of
+rank below `n`", and `instanceLe_of_transfer` applies to it unchanged,
+concluding at the stratum.  §U.86 (d) 3 said the transfer "must be
+re-cut to prove an instance's pins in that measure's order rather than
+all at once".  That is wrong twice over: the simultaneous argument is
+KEPT — `famAt_le_of_TClosed` is reused verbatim, once per stratum —
+and the stratification is by the relation, not by the class set.
+
+##### (b) HOW THE STRATUM'S OBLIGATIONS GO
+
+At stratum `n`, `instanceLe_of_transfer` at `R_n` asks for `htrans` at
+a fit at the stratified meet.  Its three premises land as follows:
+
+* `hdom₁` — unchanged: it needs only that the tuple is below the
+  extended carrier, which `relMeet_le_base` gives at any relation;
+* `hrel` at a container-RECURSIVE field — the target is an OWN edge, so
+  it stays in the same own-edge component and hence at the same
+  `orank`, which is `< n`; `app_relMeet_le_rel` then applies at `R_n`
+  exactly as it does today at `R`;
+* `hent₂`/`hout` at an `ordF`-right field — the target's `orank` is
+  STRICTLY smaller, so the OUTER INDUCTION's hypothesis supplies
+  `famAt c'' ≤ L⁺ q'`.  **This is the field §U.83–§U.86 could not
+  reach, and the stratification is what reaches it.**
+
+The outer induction is likely `pins_le_of_instanceLe` itself, reused at
+`inst :=` the own-edge component label and `rank := orank` — its `hhom`
+clause ("the rank is a function of the instance") becomes "constant on
+own-edge components", which is what the measure is.
+
+##### (c) THE PRICE, with its premises named
+
+| piece | whose | sessions |
+| --- | --- | --- |
+| the measure, its Bool and its inversion (same shape as K.37/K.52) | kernel lane | 1–2 |
+| the `orank` side condition threaded through `nestedPinPairAt_mem`/`_pin`/`nestedPinPairAt`, `nestedInstanceLe`, `nestedPinInstLe` | this lane | 1–2 |
+| the outer induction (probably `pins_le_of_instanceLe` at the component label) | this lane | 1 |
+| `hout` discharged from the induction hypothesis at `ordF`-right fields | this lane | 1 |
+
+**3–4 sessions for this lane, plus 1–2 for the kernel measure.**
+
+Premises, named rather than assumed:
+
+* **(P1)** the queued count comes back ACYCLIC — the NOT-OWN edges, on
+  the own-edge components, not on the augmented graph;
+* **(P2)** hence a measure exists that is constant along own edges and
+  strictly decreases along not-own ones.  (P1) and (P2) are the same
+  fact: a measure like that exists exactly when the contracted not-own
+  graph is acyclic;
+* **(P3)** at a container-RECURSIVE field the target's `orank` equals
+  the source's.  It follows from (P2), and it is named separately
+  because it is the step that fails if the measure is defined per PIN
+  instead of per own-edge COMPONENT — the distinction that made the
+  refused strengthening contradictory (§U.86 (d) 2).
+
+If (P1) fails, none of this is reachable and the impasse is structural,
+as §U.86 (d) 4 said.
+
+##### (d) WHAT IT COSTS THE PARTS THAT ALREADY WORK — plainly, NOTHING
+
+The coordinator asked whether re-cutting the theorem the out-of-instance
+case goes through puts landed results at risk.  **It does not, and the
+reason is (a): there is no re-cut.**
+
+* `famAt_TClosed`, `famAt_le_of_TClosed`, the whole `relMeet` kit,
+  `instanceLe_of_transfer`, `instanceLe_of_rel`,
+  `instanceLe_of_classPin`, `htrans_of_walk` and `instanceLe_of_pair`
+  are all REUSED UNCHANGED, at a different instantiation of a
+  parameter they already have;
+* the present statements are recovered as the stratum with `n` above
+  every `orank`, where `R_n` collapses to `R` — so today's
+  out-of-instance conclusion is an INSTANCE of the new one, not a
+  casualty of it;
+* what does change is signatures along four theorems of this lane
+  (`nestedPinPairAt_mem`/`_pin`, `nestedInstanceLe`,
+  `nestedPinInstLe`), whose proofs carry over with one extra side
+  condition each.  That is churn, priced in (c), not risk;
+* steps (ii) and (iv) and the residual's discharge
+  (`nestedPinsEq_of_le`, `nestedPinsEntry_at`/`_of`/`_of_le`,
+  `nestedPinsEntry_of_le_all`) do not mention the correspondence at
+  all and are untouched either way.
+
+##### (e) UNAMBIGUOUSLY: nothing landed is affected
+
+Every theorem this lane has landed stays landed.  `hout` remains a
+named premise.  The OUT-OF-INSTANCE case, step (ii), step (iv) and the
+residual's discharge go through today exactly as they did before this
+session.  Six read-only sessions have now bounded and priced this route
+without touching a line of the proof tree.
 
 NOT STARTED.  No code changed this session.
 
