@@ -112333,3 +112333,110 @@ remains is declaration order, which is already recorded (K.57) and is
 acyclic by construction rather than by corpus.  **The candidate frame,
 the component producer and law (M) at cross-instance constant-headed
 edges are not moot.**
+
+#### RW: the reading of a rewritten term — LANDED (lane RW, 2026-09-18)
+
+`ConLeche/Model/Inductives/NestedRewriteRead.lean`.  R2 (b) priced the
+one object every design on the table needs and the tree did not have:
+the twenty-seven `replace{All,If}Nested_*` theorems are all syntactic,
+none mentions `denoteMeta` or `interp`, and the rewritten components
+exist nowhere else (the elimination DROPS `Ds`).  Three things now
+exist, and the module's only external hypotheses are run facts.
+
+##### (a) `RewriteRel` — the walk as a relation
+
+```
+inductive RewriteRel (auxNames : List Name) (blvls : List Level) (params : List Expr) :
+    Expr → Expr → Prop
+```
+
+congruence at every `Expr` former plus one case
+
+```
+  | fire {A : Name} (I : Name) (us : List Level) (Ds : List Expr) :
+      A ∈ auxNames →
+      RewriteRel auxNames blvls params
+        (Expr.mkAppN (.const I us) Ds) (Expr.mkAppN (.const A blvls) params)
+```
+
+**`fire` carries no list relation**: `replaceIfNested` copies the
+occurrence's INDEX arguments unchanged, so `J Ds is ↦ A p⃗ is` is `fire`
+under `app`-congruence at each index (`RewriteRel.mkAppN`).  `fvar`
+relates an `.fvar` to itself at an ARBITRARY stored type — sound because
+`denoteMeta`'s `.fvar` clause reads the index alone, and necessary
+because the two sides open a binder with different domains.
+
+`replaceAllNested_rel : ∀ e, replaceAllNested env blvls params pbs₀ st e
+= .ok (e', st') → RewriteRel (st'.pins.map (·.aux)) blvls params e e'`
+is the producer, one induction in the `replaceAllNested_unchanged_or_aux`
+idiom; the state-threading of a binary node is absorbed by
+`RewriteRel.mono` over the plant list.
+
+**R2's risk did not materialise.**  The relation needs NO
+`liftLooseBVars` closure: this tree's `Expr.instantiate1` does not lift
+its replacement (`Kernel/ExprOps.lean`), so `RewriteRel.instantiate1`
+— the binder step — consumes the related pair directly, its only side
+condition being that `params` are `bvar`-closed (they are
+`openPisAtFvars`' `.fvar` spine).  Half a session, not the 1.5–2 priced.
+
+##### (b) The transport
+
+```
+theorem denoteMeta_of_rewriteRel
+    (hpb : ∀ a ∈ params, a.looseBVarsBounded 0 = true)
+    (hplant : ∀ (d : Nat) (A : Name), A ∈ auxNames →
+      ∃ u, denoteMeta acval env φ d (Expr.mkAppN (.const A blvls) params) = some u)
+    (h : RewriteRel auxNames blvls params e e')
+    (hd : denoteMeta acval env φ d e = some ea) :
+    ∃ ea', denoteMeta acval env φ d e' = some ea' ∧
+      ReadRel (PlantRead acval env φ auxNames blvls params) ea ea'
+```
+
+`ReadRel` is the ANNOTATION-level mirror of the same congruence with one
+`fire` case; `PlantRead u` says `u` is the reading, at some depth, of a
+planted mimic.  So "`ea'` is `ea` with each fired pin's reading replaced
+by the mimic's" is stated POSITIONALLY — `AnnotTerm` has no substitution
+operator and the derived-term-formers ruling forbids adding one.  Two
+relations on existing syntax; no new former, no second interpreter.
+
+**Stated at ONE environment.**  The members'-formers `ENV₁` to
+auxiliary-formers `ENVA` change is the landed crossing
+(`prefixCross_of`, `denoteMeta_env_mono`), and composing it with the
+transport is the consumer's one line — which is why the transport's
+induction has no `FindPreserved`/`LitGuardsMono`/`findProj?` conditions
+at all.  The induction is on `Expr.sizeB` (`denoteMeta`'s own measure),
+not on the derivation, because the binder step reads an INSTANTIATED
+body.
+
+`plant_reads` computes the plant: at `openPisAtFvars`' same-index spine,
+`denoteMeta acval env φ d (mkAppN (.const A blvls) params)
+= some (AnnotTerm.mkAppN (acval A (Level.substFn φ lps blvls)) (paramBvarsAt nP d))`
+— `auxTargetRead`'s shape, on the nose, confirming R2 (a).
+
+##### (c) The producer
+
+`candDsOf acval envA nP comps ψ q` and `candAsOf V … ρp q` are pin `q`'s
+candidate components as readings and as values; `candDs_reads` is their
+reading (`DenoteMetaSpine acval envA φ nP (comps.getD q []) (candDsOf …)`).
+
+**Where recorded-ness enters, exactly.**  BOTH halves of K.59 are spent:
+`nestedPinComps_at` reads `nestedPinCompRewrites` for the per-component
+RUN (which `replaceAllNested_rel` turns into the relation) and for the
+NO-GROWTH equations, which — with `replaceAllNested_pins_prefix` — give
+`st'.pins = st.pins`, i.e. the plants are pins of the table the
+elimination finished with.  That is what makes the copies' resolution
+hypothesis (`∀ qn ∈ st.pins, ∃ ci, envA.find? qn.aux = some ci ∧ …`)
+the right one; it is `MutualFormersFacts.find`/`.lps` at the copy
+formers, which `NestedPinsRun` carries.  As R2 said, `NestedPinsRun`
+does not carry K.59's conjunct, so `hrw` is an explicit hypothesis and
+`DeclNestedCore.lean` was not touched.
+
+The components' UNREWRITTEN readings (`hDs`) are
+`NestedPinSynFacts.pinDs` composed with the prefix crossing — also a
+hypothesis here, also a run fact.
+
+##### (d) What this row does NOT do
+
+Law (M) and the two inductions are untouched: this row makes the
+producer and its reading exist, which is obligation (i) of R2 §1.3/§2.
+Nothing here decides the straddle question of the two R2 rows.
