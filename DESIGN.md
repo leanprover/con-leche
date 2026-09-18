@@ -105192,9 +105192,13 @@ discover it later.
   target, so the predicate becomes the identity between the container's
   domain at the candidate frame and the copy's slot, with no
   stored-reading hypothesis;
-* **the ordinary-field arm splits three ways by the domain's head**:
-  MEMBER-headed (handled today, `ofNested_lfp`); PARAMETER-headed (the
-  candidate case of (a), 35 of 94 edges measured); CONSTANT-headed at a
+* **the ordinary-field arm splits three ways, by the TARGET first and
+  only then by the domain's head** (the wording is repaired in the
+  fixture-coverage section below, which caught it conflating two
+  classifications): a MEMBER target (`t < p.k`) is handled today by
+  `ofNested_lfp` and is not an edge at all; a PIN target splits by the
+  container domain's head into PARAMETER-headed (the candidate case of
+  (a), 35 of 94 not-own edges measured) and CONSTANT-headed at a
   container declared strictly EARLIER (59 of 94), where the induction is
   on declaration order rather than on the head.
 
@@ -105406,5 +105410,188 @@ strictly-earlier half, only the SAME-container half is structural, and
 the choice the coordinator described returns for the later-container
 case alone.  This lane's step cares only about the same-container half,
 because that is the one that would leave the induction with nothing.
+
+Nothing in this section changes the tree.
+
+#### (number at the integrator's sync) — L-E: the simplest nested fixture reaches ONE of the three arms, not two — and the split's own wording was wrong (lane L-E, 2026-09-18)
+
+The concrete-instantiation track was told to expect that a tree over
+lists never reaches the constant-headed arm, because the list's head
+field targets the block member directly rather than a pin.  **Confirmed
+from this side, and it is stronger than that**: that fixture reaches
+neither pin-valued arm.  Checking it also caught a wording defect in
+the restatement's own three-way split, which is repaired here before
+the re-basing consumes it.
+
+##### (a) THE FIXTURE, and its whole edge set
+
+`tests/e2e/nested_rec.ndjson`'s member is `Tree`, `nP = 1`, and the
+K.47 base table records its single pin as `List (Tree @0)` — the tree
+over lists.  So the aux block is `[Tree, List']` with `p.k = 1` and one
+pin at `q = 0`, whose stored constructors are `List`'s instantiated at
+the component `Tree α`:
+
+| ctor | field | stored type | kind, target | edge? |
+| --- | --- | --- | --- | --- |
+| `nil` | — | — | — | none |
+| `cons` | 0 | `Tree α` | `.recursive`, `t = 0` | **no** — `t < p.k` |
+| `cons` | 1 | `List (Tree α)` | `.recursive`, `t = 1` | yes, and **own** |
+
+The first row is the coordinator's point, and the filter that makes it
+is literal in `ConLeche/Kernel/Inductives/NestedInstall.lean:1508`:
+`if (r == .recursive || r == .reflexive) && p.k ≤ t`.  Field 0 clears
+the kind test — it IS recursive, because the kinds are recomputed on
+the constructors the scratch install stored, which are instantiated at
+the pin's components, so `α` has already become `Tree α` — and fails
+`p.k ≤ t`.  The second row's own bit is
+`mentionsMember (ci.members.map (·.name)) domJ.1` at `domJ.1 = List α`,
+which mentions `List`.
+
+**`nested_rec`'s entire edge set is one own self-loop.**  It has zero
+not-own edges, so it exercises neither of the two pin-valued arms — not
+the constant-headed one the parallel track was warned about, and not
+the parameter-headed one either.
+
+##### (b) THE WORDING DEFECT: two classifications were run together
+
+The restatement said "the ordinary-field arm splits three ways by the
+domain's head: MEMBER-headed; PARAMETER-headed; CONSTANT-headed at a
+strictly earlier container".  That reads as one classification and is
+two, which the table above makes plain: `cons`'s field 0 has a
+PARAMETER-headed domain in the container (`α`) and lands in the MEMBER
+arm, because what puts it there is its *target after instantiation*,
+not its head.  The split is:
+
+1. **by the target** — a member (`t < p.k`) or a pin (`p.k ≤ t`).  A
+   member target is `ofNested_lfp`'s case, handled today, and is not an
+   edge at all;
+2. **then, at a pin target, by the container domain's head** —
+   parameter-headed (35 of the 94 measured not-own edges) or
+   constant-headed at a container declared strictly earlier (59).
+
+The two counts partition the not-own edges, so they partition arm 2
+alone; arm 1 was never in that measurement.  Nothing about the
+substance of the three arms changes — only that the first is selected
+by a different fact than the other two, and a proof that splits on the
+domain's head throughout will mis-sort exactly the fields this fixture
+is made of.
+
+##### (c) WHAT EXERCISES THE OTHER TWO, for the concrete track
+
+Arm 2's parameter-headed case needs a container whose ordinary
+parameter-headed field instantiates to a PIN rather than to a member —
+a container applied at a nested container instance, not at the block's
+own member.  Arm 2's constant-headed case needs a container field whose
+domain is headed by a *different, earlier* container: the shape is
+`Array (List X)` — `Array`'s field domain `List α`, constant-headed at
+`List`, targeting the pin for `List X` — which is where
+`nested_p04`'s `P4C`/`Array`/`List` cycle lives.  Neither shape occurs
+in a tree over lists, which is why the simplest fixture cannot reach
+them.
+
+So the concrete track's two examples are complementary rather than
+graded: `nested_rec` exercises arm 1 and the own recursion, and
+`nested_p04` is the one that reaches arm 2 at all — both of its halves.
+A check that only ran the tree over lists would say nothing about the
+part of the restatement that is new.
+
+Nothing in this section changes the tree.
+
+#### (number at the integrator's sync) — L-E: ROW ONE LANDED, and the reading lemma's re-basing is now PROVED rather than predicted (lane L-E, 2026-09-18)
+
+The re-basing, begun as directed while the concrete-instantiation track
+runs.  Row one of the restatement's table is landed whole, and the
+"newly identified reading lemma" with it — and it landed in the
+strongest available form: **the old statement is now an application of
+the new one**, so "the proof carries over" is the elaborator's verdict
+and not this lane's estimate.
+
+##### (a) ROW ONE — `pinLfpAt`, `pinAs`, and the two side conditions
+
+Four declarations in `NestedPinLeafAll.lean`, beside `pinLfp`:
+
+* `pinAs` — the components a pin's frame is taken at TODAY, read off
+  the recorded pin syntax;
+* `pinLfpAt` — `pinLfp` with the component values as an argument
+  (`as : List V`), exactly the restatement's (b);
+* `pinLfp_eq_pinLfpAt` — `pinLfp … q = pinLfpAt … (pinAs … q) q`.
+  **Definitional** (`:= by rfl`; the term-mode `:= rfl` fails in the
+  public view, the documented module-system trap), so a re-based
+  theorem specialises back to its current statement with no rewriting;
+* `CandParamFit` and `CandIdxAgree` — side conditions one and two of
+  the restatement, stated as predicates over a per-pin component family
+  `as : Nat → List V`, each quantified over `q < pinsS.length`.
+
+`candIdxAgree_pinAs` proves side condition two at the TRUE components by
+reflexivity, and side condition one at them is `DsFit`'s conclusion.
+**So the restated statement, instantiated at today's frame, asks for
+nothing today's does not already have** — the re-basing is conservative
+by construction, which is the property that makes it safe to re-base
+the consumers before the candidate frame is built.
+
+##### (b) THE READING LEMMA — `pinTarget_reads_at`, and the old one derived from it
+
+```lean
+theorem pinTarget_reads_at {st : ElimState} (m : EnvModel V env₂) {q₀ kJ i : Nat}
+    {dJ : BlockModel V} (S : PGS st m q₀ kJ dJ) (hi : i < kJ)
+    {ψ : Name → Nat} {ρp : Nat → V} {aas is : List V}
+    (hfit : SpineFit ρp (dJ.params (((D).pinAt (q₀ + i)).ψJ ψ)) aas)
+    (his : SpineFit (consList aas ρp) (((D).pinAt (q₀ + i)).Ids ψ) is) :
+    SetTheory.app
+        (lfpTuple (f₀.s.eval ψ) dJ.k
+          (dJ.idx (((D).pinAt (q₀ + i)).ψJ ψ) (consList aas ρp))
+          (dJ.Φ (((D).pinAt (q₀ + i)).ψJ ψ) (consList aas ρp)) i)
+        (tupW (nestedU p.k W pinsS ψ (p.k + (q₀ + i))) is)
+      = (aas ++ is).foldl SetTheory.app
+          (interp V ρp (m.acval ((D).pinAt (q₀ + i)).J (((D).pinAt (q₀ + i)).ψJ ψ)))
+```
+
+Its body is the recorded-frame proof with the `spineOfSat_params`
+destructuring and the `DsFit` appeal removed and **nothing else
+changed** — `stored`, `pinIds`, `IsBlockModel.leaf`, `w` and `pinU` all
+took the general frame without complaint, first compile.  That is the
+check of the claim the declaration-order row made on inspection: the
+frame entered through `DsFit` and nowhere else.
+
+`pinTarget_reads` is now five lines — `spineOfSat_params`, the
+`targetRead_of_pin` rewriting that identifies the reading, and
+
+```lean
+  exact pinTarget_reads_at m S hi (S.DsFit i hi ψ ρ as hsp) his
+```
+
+— so the recorded clause appears exactly once, as the argument that
+discharges side condition one at the true components.  **This is the
+shape every re-basing on the list should take**: generalise, then
+recover the old statement by supplying `DsFit`, and let the compiler
+certify that nothing else moved.
+
+##### (c) THE TABLE, current
+
+| row | state |
+| --- | --- |
+| `pinLfpAt`, `pinAs`, the two side conditions | **LANDED** (a) |
+| the reading lemma `pinTarget_reads_at` | **LANDED** (b) |
+| the declaration-order induction (`pins_le_of_declOrder`) | **LANDED** earlier, abstract in `ord` |
+| the ten theorems of the restatement's (f) | open — next |
+| the new entry identity and the three-way split | open |
+| re-wiring the assembly and the residual's discharge | open |
+
+Three of the six rows are in, and two of them were the rows this lane
+priced highest.  **The estimate is NOT revised on that** — the three
+landed rows are the ones whose shape was already known, and the two
+open middle rows are where the new content is.  This lane will revise
+the number when a row with new content closes, not before.
+
+##### (d) WHAT IS STILL NOT CLAIMED
+
+The candidate components themselves (`candAs`) are still not defined:
+naming the pin-valued component positions is per-pin syntactic data
+(K.32/K.51 territory) and belongs with the three-way split, not with
+row one.  Row one deliberately stops at "the frame is an argument",
+which is what unblocks the consumers.
+
+`lake build`, `lake test` and the full arena gate green; every new
+theorem at `[propext, Classical.choice, Quot.sound]`.
 
 Nothing in this section changes the tree.

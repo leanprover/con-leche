@@ -1802,6 +1802,42 @@ theorem NestedPinGroupSyn.pinIds {st : ElimState} {m : EnvModel V env₂} {q₀ 
   rw [S.pinPps i hi, S.pinNP i hi]
   rfl
 
+/-- **A PIN target reads as its container's least tuple, AT ANY FITTING
+FRAME** (task #315 L-E, the restatement's row two — the reading lemma
+identified as frame-generic except through `DsFit`).
+
+This is `pinTarget_reads` with the pin's component values taken as an
+ARGUMENT and their fit as a HYPOTHESIS, instead of read off the
+recorded pin and supplied by `NestedPinGroupSyn.DsFit`.  Everything else
+the proof uses — `stored`, `pinIds`, `IsBlockModel.leaf`, `w`, `pinU` —
+is already generic in the frame, which is what the restatement claimed
+and this is the check of it: the body below is the recorded-frame
+proof with the `spineOfSat_params` destructuring and the `DsFit`
+appeal removed, and nothing else changed.
+
+`DsFit` was the ONLY place the recorded frame entered, so this is
+exactly side condition one of the restatement made explicit at the one
+lemma that needed it. -/
+theorem pinTarget_reads_at {st : ElimState} (m : EnvModel V env₂) {q₀ kJ i : Nat}
+    {dJ : BlockModel V} (S : PGS st m q₀ kJ dJ) (hi : i < kJ)
+    {ψ : Name → Nat} {ρp : Nat → V} {aas is : List V}
+    (hfit : SpineFit ρp (dJ.params (((D).pinAt (q₀ + i)).ψJ ψ)) aas)
+    (his : SpineFit (consList aas ρp) (((D).pinAt (q₀ + i)).Ids ψ) is) :
+    SetTheory.app
+        (lfpTuple (f₀.s.eval ψ) dJ.k
+          (dJ.idx (((D).pinAt (q₀ + i)).ψJ ψ) (consList aas ρp))
+          (dJ.Φ (((D).pinAt (q₀ + i)).ψJ ψ) (consList aas ρp)) i)
+        (tupW (nestedU p.k W pinsS ψ (p.k + (q₀ + i))) is)
+      = (aas ++ is).foldl SetTheory.app
+          (interp V ρp (m.acval ((D).pinAt (q₀ + i)).J (((D).pinAt (q₀ + i)).ψJ ψ))) := by
+  obtain ⟨cvT, caps, cvR, mI, rP, rules, -, hI, -⟩ := S.stored i hi
+  rw [S.pinIds hi ψ] at his
+  have hleaf := hI.leaf (((D).pinAt (q₀ + i)).ψJ ψ) ρp aas is hfit his
+  rw [← S.w i hi ψ, hleaf]
+  unfold BlockModel.tup
+  rw [nestedU_pin]
+  exact congrArg _ (congrArg (fun u => tupW u is) (S.pinU i hi ψ i hi))
+
 /-- **A PIN target reads as its container's least tuple**: at a spine
 fitting the pin's index telescope at the pin's frame, the container's
 least tuple at the pin's frame (at the block's sort, the container's —
@@ -1825,19 +1861,12 @@ theorem pinTarget_reads {st : ElimState} (m : EnvModel V env₂) {q₀ kJ i : Na
         (tupW (nestedU p.k W pinsS ψ (p.k + (q₀ + i))) is)
       = is.foldl SetTheory.app
           (interp V ρp (targetRead m.acval (D).memberNames pinsS b.nP p.k ψ (p.k + (q₀ + i)))) := by
-  obtain ⟨cvT, caps, cvR, mI, rP, rules, -, hI, -⟩ := S.stored i hi
   obtain ⟨ρ, as, rfl, hsp⟩ := spineOfSat_params (D) hρp
   have hnlt : ¬ p.k + (q₀ + i) < p.k := by omega
   have hpin : pinsS.getD (q₀ + i) default = (D).pinAt (q₀ + i) := rfl
   rw [targetRead_of_pin hnlt, Nat.add_sub_cancel_left, hpin, interp_mkAppN_foldl,
     ← List.foldl_append]
-  rw [S.pinIds hi ψ] at his
-  have hleaf := hI.leaf (((D).pinAt (q₀ + i)).ψJ ψ) (consList as ρ) _ is
-    (S.DsFit i hi ψ ρ as hsp) his
-  rw [← S.w i hi ψ, hleaf]
-  unfold BlockModel.tup
-  rw [nestedU_pin]
-  exact congrArg _ (congrArg (fun u => tupW u is) (S.pinU i hi ψ i hi))
+  exact pinTarget_reads_at m S hi (S.DsFit i hi ψ ρ as hsp) his
 
 /-! ## The global entry theorem: (i) the containers' least tuples are a fixed point of the pins' section, (ii) the auxiliary carrier's pins lie below them -/
 
@@ -1903,6 +1932,95 @@ noncomputable def pinLfp (st : ElimState) (pinsS : List PinSyn) (dJf : Nat → B
     ((dJf (st.pins.getD q default).grpBase).Φ ((pinsS.getD q default).ψJ ψ)
       (consList (((pinsS.getD q default).Ds ψ).map (interp V ρp)) ρp))
     (q - (st.pins.getD q default).grpBase)
+
+/-- **The components a pin's frame is taken at**, as a function of the
+pin — today's, read off the recorded pin syntax (task #315 L-E, the
+restatement's row one).  `pinLfp` is `pinLfpAt` at exactly this
+argument, definitionally. -/
+noncomputable def pinAs (pinsS : List PinSyn) (ψ : Name → Nat) (ρp : Nat → V)
+    (q : Nat) : List V :=
+  ((pinsS.getD q default).Ds ψ).map (interp V ρp)
+
+/-- **The containers' least tuples at the pins, AT A GIVEN FRAME** (task
+#315 L-E, the restatement's row one): `pinLfp` with the pin's component
+values supplied as an argument rather than read off the recorded pin.
+
+This is the object the restated step (iii) is about.  The whole point of
+the re-basing is that the frame is no longer forced to be the recorded
+one: the candidate frame differs from it at the pin-valued component
+positions, and every consumer of `pinLfp` that used the frame ONLY
+through a fit and the index identities re-bases to `pinLfpAt` by adding
+this argument and changing nothing else. -/
+noncomputable def pinLfpAt (st : ElimState) (pinsS : List PinSyn) (dJf : Nat → BlockModel V)
+    (w : Nat) (ψ : Name → Nat) (ρp : Nat → V) (as : List V) (q : Nat) : V :=
+  lfpTuple w (dJf (st.pins.getD q default).grpBase).k
+    ((dJf (st.pins.getD q default).grpBase).idx ((pinsS.getD q default).ψJ ψ)
+      (consList as ρp))
+    ((dJf (st.pins.getD q default).grpBase).Φ ((pinsS.getD q default).ψJ ψ)
+      (consList as ρp))
+    (q - (st.pins.getD q default).grpBase)
+
+/-- **Today's `pinLfp` IS the frame-generic one at the recorded
+components** (task #315 L-E).  Definitional, so a re-based theorem
+specialises back to its current statement with no rewriting at all —
+which is what makes the ten theorems of the restatement's list
+re-basings rather than rebuilds. -/
+theorem pinLfp_eq_pinLfpAt (st : ElimState) (pinsS : List PinSyn)
+    (dJf : Nat → BlockModel V) (w : Nat) (ψ : Name → Nat) (ρp : Nat → V) (q : Nat) :
+    pinLfp (V := V) st pinsS dJf w ψ ρp q
+      = pinLfpAt (V := V) st pinsS dJf w ψ ρp (pinAs (V := V) pinsS ψ ρp q) q := by rfl
+
+/-- **SIDE CONDITION ONE, stated** (task #315 L-E, the restatement's
+(c)): the candidate components fit the container's parameter telescope,
+at every pin.
+
+It is NOT `PinGroupView.DsFit`, and the difference is the whole content
+of the side condition: `DsFit` is the recorded fit of the TRUE
+components and has no candidate analogue, while `PinsTyped` gives
+membership in a sort rather than satisfaction of the parameter domains.
+At a non-dependent telescope the two coincide and this follows from the
+auxiliary block's own tuple-space membership; at a dependent telescope
+`SpineFit` interprets each later domain at the EARLIER values, so a
+frame mixing candidate and true entries changes those domains and the
+fit has to be established at the candidate values rather than
+transported.  Hence a hypothesis. -/
+def CandParamFit (st : ElimState) (pinsS : List PinSyn) (dJf : Nat → BlockModel V)
+    (ψ : Name → Nat) (ρp : Nat → V) (as : Nat → List V) : Prop :=
+  ∀ q, q < pinsS.length →
+    SpineFit ρp ((dJf (st.pins.getD q default).grpBase).params ((pinsS.getD q default).ψJ ψ))
+      (as q)
+
+/-- **SIDE CONDITION TWO, stated** (task #315 L-E, the restatement's
+(d)): the container's index-tuple sets do not move when the frame does.
+
+The restated inclusion's conclusion is a `FamLe` at ONE index family —
+the auxiliary block's, tied to the container's by `nestedIdx_of_group`
+at the TRUE frame — while its subject is the container's least tuple at
+the CANDIDATE frame.  `BlockModel.idx` reads the frame
+(`idx ψ ρ mm = idxSet (uM mm ψ) ρ (IdsM mm ψ)`), so the two agree only
+when no index telescope reads a component the candidate substitution
+replaces.  Measured VACUOUS on every corpus (Mathlib nests 121
+instances, none indexed; init nests arrays and lists only; the one
+parameter-reaching fixture reaches the parameter the rewriting leaves
+alone) — which is exactly why it is written into the statement now, as
+nothing downstream would ever discover it. -/
+def CandIdxAgree (st : ElimState) (pinsS : List PinSyn) (dJf : Nat → BlockModel V)
+    (ψ : Name → Nat) (ρp : Nat → V) (as : Nat → List V) : Prop :=
+  ∀ q, q < pinsS.length → ∀ i, i < (dJf (st.pins.getD q default).grpBase).k →
+    (dJf (st.pins.getD q default).grpBase).idx ((pinsS.getD q default).ψJ ψ)
+        (consList (as q) ρp) i
+      = (dJf (st.pins.getD q default).grpBase).idx ((pinsS.getD q default).ψJ ψ)
+          (consList (pinAs (V := V) pinsS ψ ρp q) ρp) i
+
+/-- **Both side conditions hold of the TRUE components** (task #315
+L-E): the fit is `DsFit`'s conclusion and the index agreement is
+reflexivity.  So the restated statement, instantiated at today's frame,
+asks for nothing today's does not already have — the re-basing is
+conservative by construction. -/
+theorem candIdxAgree_pinAs (st : ElimState) (pinsS : List PinSyn)
+    (dJf : Nat → BlockModel V) (ψ : Name → Nat) (ρp : Nat → V) :
+    CandIdxAgree (V := V) st pinsS dJf ψ ρp (pinAs (V := V) pinsS ψ ρp) :=
+  fun _ _ _ _ => rfl
 
 local notation "GF" => GroupFacts (V := V) (p := p) (b := b) (fms := fms) (f₀ := f₀)
   (ctorsA := ctorsA) (kinds := kinds) (env := env) (ppsF := ppsF) (W := W) (idxF := idxF)
