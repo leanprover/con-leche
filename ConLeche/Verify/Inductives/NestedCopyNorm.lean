@@ -1821,4 +1821,185 @@ theorem newNames_no_mention_of_memberFree {p : ConLeche.NestedParts}
   rw [← auxBlock_newNames h]
   exact hm
 
+/-! ## The positivity walk's Π-TOWER has member-free domains (task #315 R3)
+
+A REFLEXIVE copy field's stored domain is a `∀`-telescope, and the
+`ordF`-right arm at a PIN target has to peel that telescope on BOTH
+sides — the stored domain and the container-headed normalisation `w`
+the elimination rewrote into it — and align the two peels.  The
+alignment is by INERTNESS: the rewrite must return `w`'s binder
+domains unchanged, so that the two towers are towers over the SAME
+binder list and their readings share a Π-prefix.
+
+The certificate for that is the walk's own Π arm (`normPosDomM_inv`):
+every binder it goes under has a member-free domain, and a member-free
+term is what `replaceAllNested`'s prune returns untouched
+(`newNames_no_mention_of_memberFree`, just above).  `normPosDomM_inv`
+states the mention test only in the arm that TOOK it, so the walk's
+two non-Π arms need their own reading (`normPosDomM_free_or_pi`); from
+there the tower fact is an induction on the tower's LENGTH, with the
+`abstract1` the Π arm closes with carried along
+(`mentionsConst_abstract1_false`: an abstraction replaces variables by
+bound variables and can only DELETE a constant occurrence). -/
+
+/-- **`abstract1` cannot manufacture a constant occurrence.** -/
+theorem mentionsConst_abstract1_false {T : Name} :
+    ∀ (e : Expr) (d k : Nat), e.mentionsConst T = false →
+      (e.abstract1 d k).mentionsConst T = false
+  | .bvar _, _, _, h => h
+  | .sort _, _, _, h => h
+  | .lit _, _, _, h => h
+  | .const _ _, _, _, h => h
+  | .fvar idx ty, d, k, h => by
+    show (if idx = d then Expr.bvar k else Expr.fvar idx ty).mentionsConst T = false
+    split
+    · rfl
+    · exact h
+  | .app f a, d, k, h => by
+    show (Expr.app (f.abstract1 d k) (a.abstract1 d k)).mentionsConst T = false
+    show ((f.abstract1 d k).mentionsConst T || (a.abstract1 d k).mentionsConst T) = false
+    have h' : (f.mentionsConst T || a.mentionsConst T) = false := h
+    simp only [Bool.or_eq_false_iff] at h' ⊢
+    exact ⟨mentionsConst_abstract1_false f d k h'.1, mentionsConst_abstract1_false a d k h'.2⟩
+  | .lam ty b m, d, k, h => by
+    show ((ty.abstract1 d k).mentionsConst T || (b.abstract1 d (k + 1)).mentionsConst T) = false
+    have h' : (ty.mentionsConst T || b.mentionsConst T) = false := h
+    simp only [Bool.or_eq_false_iff] at h' ⊢
+    exact ⟨mentionsConst_abstract1_false ty d k h'.1,
+      mentionsConst_abstract1_false b d (k + 1) h'.2⟩
+  | .forallE ty b m, d, k, h => by
+    show ((ty.abstract1 d k).mentionsConst T || (b.abstract1 d (k + 1)).mentionsConst T) = false
+    have h' : (ty.mentionsConst T || b.mentionsConst T) = false := h
+    simp only [Bool.or_eq_false_iff] at h' ⊢
+    exact ⟨mentionsConst_abstract1_false ty d k h'.1,
+      mentionsConst_abstract1_false b d (k + 1) h'.2⟩
+  | .letE ty v b, d, k, h => by
+    show (((ty.abstract1 d k).mentionsConst T || (v.abstract1 d k).mentionsConst T) ||
+      (b.abstract1 d (k + 1)).mentionsConst T) = false
+    have h' : ((ty.mentionsConst T || v.mentionsConst T) || b.mentionsConst T) = false := h
+    simp only [Bool.or_eq_false_iff] at h' ⊢
+    exact ⟨⟨mentionsConst_abstract1_false ty d k h'.1.1,
+      mentionsConst_abstract1_false v d k h'.1.2⟩,
+      mentionsConst_abstract1_false b d (k + 1) h'.2⟩
+  | .proj s i e, d, k, h => by
+    show (s == T || (e.abstract1 d k).mentionsConst T) = false
+    have h' : (s == T || e.mentionsConst T) = false := h
+    simp only [Bool.or_eq_false_iff] at h' ⊢
+    exact ⟨h'.1, mentionsConst_abstract1_false e d k h'.2⟩
+
+theorem mentionsMember_abstract1_false {ms : List Name} {e : Expr} (d k : Nat)
+    (h : mentionsMember ms e = false) : mentionsMember ms (e.abstract1 d k) = false := by
+  simp only [mentionsMember, List.any_eq_false] at h ⊢
+  exact fun T hT => by simpa using mentionsConst_abstract1_false e d k (by simpa using h T hT)
+
+/-- The tower predicate the induction travels on: the first `n`
+binders of a term have member-free domains.  A term that is not a `∀`
+where a binder is asked for carries no obligation — the walk's own
+stopping arm returns exactly such a term (the stuck member
+application), and the consumer only ever instantiates the predicate at
+a real tower. -/
+private def PisDomsFree (ms : List Name) : Nat → Expr → Prop
+  | 0, _ => True
+  | n + 1, .forallE dom body _ => mentionsMember ms dom = false ∧ PisDomsFree ms n body
+  | _ + 1, _ => True
+
+private theorem PisDomsFree.of_free {ms : List Name} :
+    ∀ (n : Nat) {e : Expr}, mentionsMember ms e = false → PisDomsFree ms n e
+  | 0, _, _ => trivial
+  | n + 1, e, h => by
+    cases e
+    case forallE dom body bm =>
+      obtain ⟨hd, hb⟩ := mentionsMember_forallE_false h
+      exact ⟨hd, PisDomsFree.of_free n hb⟩
+    all_goals exact trivial
+
+private theorem PisDomsFree.abstract1 {ms : List Name} :
+    ∀ (n : Nat) {e : Expr} (d k : Nat), PisDomsFree ms n e →
+      PisDomsFree ms n (e.abstract1 d k)
+  | 0, _, _, _, _ => trivial
+  | n + 1, e, d, k, h => by
+    cases e
+    case forallE dom body bm =>
+      obtain ⟨hd, hb⟩ := h
+      exact ⟨mentionsMember_abstract1_false d k hd, PisDomsFree.abstract1 n d (k + 1) hb⟩
+    case fvar idx ty =>
+      show PisDomsFree ms (n + 1) (if idx = d then Expr.bvar k else Expr.fvar idx ty)
+      split <;> exact trivial
+    all_goals exact trivial
+
+private theorem PisDomsFree.mkPisB {ms : List Name} :
+    ∀ (bs : List (Expr × BinderMeta)) {res : Expr},
+      PisDomsFree ms bs.length (mkPisB bs res) →
+      ∀ b ∈ bs, mentionsMember ms b.1 = false
+  | [], _, _, _, hb => by simp at hb
+  | b₀ :: bs, res, h, b, hb => by
+    rw [mkPisB_cons] at h
+    obtain ⟨hd, hrest⟩ := h
+    rcases List.mem_cons.mp hb with rfl | hb
+    · exact hd
+    · exact PisDomsFree.mkPisB bs hrest b hb
+
+/-- **The walk's output has member-free binder domains**, to any
+depth.  Three arms and each gives the predicate for its own reason:
+the two stopping arms return a term the walk has just tested
+member-free OR a term that is not a `∀` at all (the stuck member
+application — where the predicate asks nothing), and the `Π` arm is
+the one that carries content: it went under the binder only after
+testing the domain member-free, and closes with an `abstract1`, which
+cannot manufacture a constant occurrence. -/
+private theorem normPosDomM_PisDomsFree {env : Env} {memberNames : List Name} {F : Nat} :
+    ∀ (n : Nat) {d fuel : Nat} {e w : Expr},
+      normPosDomM (m := CheckM) (fueledOps mode F) env memberNames d fuel e = .ok w →
+      PisDomsFree memberNames n w
+  | 0, _, _, _, _, _ => trivial
+  | n + 1, d, fuel, e, w, h => by
+    cases fuel with
+    | zero => exfalso; simp [normPosDomM, throw, throwThe, MonadExceptOf.throw] at h
+    | succ fuel =>
+      unfold normPosDomM at h
+      by_cases hm : mentionsMember memberNames e = true
+      case neg =>
+        rw [if_pos (by simpa using hm)] at h
+        simp only [pure, Except.pure, Except.ok.injEq] at h
+        exact PisDomsFree.of_free _ (by rw [← h]; simpa using hm)
+      rw [if_neg (by simpa using hm)] at h
+      try simp only [bind, Except.bind] at h
+      obtain ⟨v, -, h⟩ := exceptBind_ok h
+      by_cases hmw : mentionsMember memberNames v = true
+      case neg =>
+        rw [if_pos (by simpa using hmw)] at h
+        simp only [pure, Except.pure, Except.ok.injEq] at h
+        exact PisDomsFree.of_free _ (by rw [← h]; simpa using hmw)
+      rw [if_neg (by simpa using hmw)] at h
+      cases v
+      case forallE dom body bm =>
+        simp only at h
+        by_cases hd : mentionsMember memberNames dom = true
+        · exfalso
+          rw [if_pos hd] at h
+          simp [throw, throwThe, MonadExceptOf.throw] at h
+        rw [if_neg hd] at h
+        try simp only [bind, Except.bind] at h
+        obtain ⟨body', hbody, h⟩ := exceptBind_ok h
+        simp only [pure, Except.pure, Except.ok.injEq] at h
+        rw [← h]
+        exact ⟨by simpa using hd,
+          PisDomsFree.abstract1 n d 0 (normPosDomM_PisDomsFree n hbody)⟩
+      all_goals
+        (simp only [pure, Except.pure, Except.ok.injEq] at h
+         rw [← h]
+         exact trivial)
+
+/-- **THE INERTNESS CERTIFICATE** (task #315 R3): every binder domain
+of the positivity walk's OUTPUT, read as a `∀`-telescope, is
+member-free — so `replaceAllNested`'s prune returns it unchanged and
+the stored domain's telescope is the normalisation's own, binder for
+binder. -/
+theorem normPosDomM_mkPisB_free {env : Env} {memberNames : List Name} {F : Nat}
+    {d fuel : Nat} {e w : Expr} {bs : List (Expr × BinderMeta)} {res : Expr}
+    (h : normPosDomM (m := CheckM) (fueledOps mode F) env memberNames d fuel e = .ok w)
+    (hw : w = mkPisB bs res) :
+    ∀ b ∈ bs, mentionsMember memberNames b.1 = false :=
+  PisDomsFree.mkPisB bs (hw ▸ normPosDomM_PisDomsFree bs.length h)
+
 end ConLeche
