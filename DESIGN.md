@@ -104111,3 +104111,72 @@ condition HAS a stored table in the scratch environment — does not
 exist** and is the one genuinely new lemma the skeleton assembly needs
 (`mutualTables_find?_projInfo_of`, a fold walk keeping the `find?`
 across the later members' conses).  60–100 lines, read as low.
+
+#### THE ADVERSARIAL REVIEW'S TWO QUESTIONS, MEASURED (2026-09-18, task #315 M8, `agent/uniform-m5`)
+
+Both run at the edge computation's own site (`nestedPinEdgesAt`'s
+addressing, the same `domJ`), over the 37 shadow rows, `init-full` and
+Mathlib, with the instrumentation reverted afterwards.
+
+##### Question 1 — the not-own edges' field-domain heads
+
+For every NOT-OWN edge, the container's stored field domain, stripped
+of its own `∀`s, classified at the head.
+
+| corpus | blocks with not-own edges | constant-headed | parameter-headed | constant target declared LATER |
+|---|---|---|---|---|
+| the 37 shadow rows | 13 | 7 | 10 | **0** |
+| `init-full` | 1 | 1 | 0 | **0** |
+| Mathlib | 35 | 51 | 25 | **0** |
+
+**94 edges, 59 constant-headed and 35 parameter-headed, and every one
+of the 59 points at a container declared STRICTLY EARLIER than the
+source's** (declaration order read off `env.consts`, whose head is the
+most recent cons; no target was unresolvable, and no head was anything
+but a `bvar` into the parameters or a `const`).
+
+So the review's CLAIM holds on every corpus.  Its EXPECTATION does not:
+it predicted all the problematic edges parameter-headed, and the
+majority — 59 of 94 — are constant-headed.  They are the admissible
+other case it named, `Array`'s field at `List`, `Lean.PersistentArrayNode`'s
+at `Array`, and so on, always into a container the environment already
+held.
+
+##### Question 2 — an index telescope over a replaced parameter
+
+Per pinned container: its parameter count, its index count, and
+whether any index binder's domain reaches past the index binders into
+the parameters (`!dom.looseBVarsBounded i` at index position `i`, which
+is exactly "mentions a parameter", since a candidate frame replaces all
+`nP` of them).
+
+| corpus | container rows | indexed containers | index telescope over a parameter |
+|---|---|---|---|
+| the 37 shadow rows | 121 | 6 (`C`, `Vec`, `InModelNested.Vec`, `P24V`, `P25V`, `P26V`) | **1** |
+| `init-full` | 2 (`Array`, `List`) | 0 | 0 |
+| Mathlib | 121 | **0** | 0 |
+
+**It is not empty, and the one case is `tests/e2e/nested_prop_idx.ndjson`:**
+
+```lean
+inductive C (α : Type) (p : Prop) : p → Type where
+  | mk : α → (h : p) → C α p h
+inductive T : Nat → Type where
+  | mk : C (T 0) True True.intro → T 1
+```
+
+`C`'s single index is a PROOF OF ITS OWN SECOND PARAMETER — the index
+binder's domain IS `p`, at index position 0 — so the index telescope
+mentions a replaced parameter in the only way an index telescope can.
+The block is **official-accepted** and in our accept set
+(`nested-shadow` row `T=accept`), so the case is real rather than
+hypothetical; whether it is a REAL obstruction or an artefact of how
+that telescope is written is the requesting lane's call, not this
+lane's.
+
+The two big corpora are clean: Mathlib nests through 121 container
+instances and **not one of them is indexed at all**, and `init-full`
+nests through `Array` and `List` only.
+
+**Neither result was acted on.**  The instrumentation is reverted and
+the tree is unchanged.
