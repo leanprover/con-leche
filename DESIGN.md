@@ -111783,8 +111783,20 @@ construction.
 
 ##### (g) GATES
 
-`lake build` warning-free (723 jobs); `lake build ConLecheTests`
-warning-free; `tests/warning-free.sh` at the branch point (it forces
-recompilation of every changed module and fails when nothing
-recompiles).  `tests/proofdeps.sh` unmoved.  `tests/arena.sh` not
-re-run: this session touches no checker code.
+`lake build` warning-free (723 jobs); `lake test` green and
+warning-free; `tests/warning-free.sh 1211d276` — *5 changed module(s),
+5 recompiled, 0 warning lines, "OK (a run that could have failed)"*.
+**proofdeps 4965 module rows / 12 roots / 0 doors** (the baseline,
+unmoved); shake 510 removals all allowlisted, pub-imports 1336 of 2257
+in-tree edges public, none demotable; layering base 353 / model 287 /
+caps 3 / umbrella 1, 0 base->lane and 0 impl->theory; trust surface 13
+escapes in 5 allowlisted files (655 scanned), 0 outside;
+no-local-paths OK; overview-links 112 links over 65 files, no anchor
+moved; quote-gate OK; nested-shadow 37/37.  Axioms at
+`nestedPinsShape_of` and `nestedPinsShapeOrdRight_of`: `propext`,
+`Classical.choice`, `Quot.sound` and nothing else.  `tests/arena.sh`
+not re-run: this session touches no checker code.
+
+*(`tests/shake.sh` needs the `meta` pin generators' `.olean`s, which
+`lake build` does not produce; `lake build ConLeche.PinGen{,.Prelude,
+.Certs,.Dump}` first, or its census half aborts before it starts.)*
