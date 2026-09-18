@@ -787,6 +787,63 @@ theorem PinShapes.congrB {env : Env} {m : EnvModel V env} {B B' : ContainerInfo 
   rw [← hBB q hq ci hci] at hgv hsh
   exact ⟨q₀, kJ, i, ci, hqe, hi, hci, hgv, hsh⟩
 
+/-- **A STORED CONTAINER'S OWN PIN, READ AGAINST ITS PIN'S CONTAINER AT
+THE ABSTRACT ASSIGNMENT** (task #315 M7-3): at a pin `q` of the block
+model `B ci` of a stored container group, the pin's own container is
+some group `ci'`, and the pin's index data — the member NAME, the
+parameter count `nPJ`, the parameter-and-index telescope `pps`, and the
+index-tuple sort `u` — is `B ci'`'s at one member index `i`, the
+member's own, at the PIN's level assignment.
+
+**Why it exists, and why it is not a clause.**  Another lane needed the
+container half of a pin's index data at the ABSTRACT assignment `B`
+(not at a concrete, already-constructed block model), checked every
+record it was holding, and found the view only at concrete models — so
+it was about to ask for a new clause on `ContainerModeled`.  It needs
+none: `PinShapes`, which `EnvBlocksOf` already carries at every stored
+container through `BlockAt`, states exactly this, at the abstract `B`,
+and its `PinGroupView` has the four consequences as fields
+(`name`, `pinNP`, `pinPps`, `pinU`, with `kEq` for the bound).  A
+clause was therefore considered and REJECTED: the fact DERIVES, so no
+producer is burdened with it — including producers that do not exist
+yet, which is the argument a site-by-site enumeration cannot make.
+This is the move L-E's record *the pins' semantic data, exposed per
+pin — DERIVED, so no producer owes anything* made for the nested run's
+own syntactic record; here it is made for a STORED container's, at the
+global assignment L-E's record *the structure change and the global
+entry theorem* introduced.
+
+**Two points of care.**  The sort equation is stated at the pin's OWN
+level assignment `((B ci).pinAt q).ψJ ψ`, not at its group base's: the
+consumer holds the pin, not the base, and `PinGroupView.same` moving
+one to the other is the only real step of the proof.  And the member
+index is forced by the NAME (`PinGroupView.name`), which is the point
+of the lemma — no positional matching is needed, and none appears in
+the statement; the container `ci'` comes out of `PinShapes`'
+existential and is identified with the caller's by `Option.some.inj`. -/
+theorem ownPinView_of_blocks {env : Env} {m : EnvModel V env}
+    {B : ContainerInfo → BlockModel V} (hb : EnvBlocksOf m B)
+    {J : Name} {ci : ContainerInfo} (hci : ConLeche.containerInfo? env J = some ci)
+    {q : Nat} (hq : q < (B ci).nPins)
+    {ci' : ContainerInfo}
+    (hci' : ConLeche.containerInfo? env ((B ci).pinAt q).J = some ci') :
+    ∃ i, i < (B ci').k ∧
+      ((B ci).pinAt q).J = (B ci').memberName i ∧
+      ((B ci).pinAt q).nPJ = (B ci').nP ∧
+      ((B ci).pinAt q).pps = (B ci').ppsM i ∧
+      ∀ ψ : Name → Nat, ((B ci).pinAt q).u ψ = (B ci').uM i (((B ci).pinAt q).ψJ ψ) := by
+  obtain ⟨-, pc, -, hsh⟩ := hb J ci hci
+  obtain ⟨q₀, kJ, i, ciq, hqe, hi, hciq, hgv, -⟩ := hsh q hq
+  obtain rfl := Option.some.inj (hciq.symm.trans hci')
+  refine ⟨i, ?_, ?_, ?_, ?_, ?_⟩
+  · rw [hgv.kEq]; exact hi
+  · rw [hqe]; exact hgv.name i hi
+  · rw [hqe]; exact hgv.pinNP i hi
+  · rw [hqe]; exact hgv.pinPps i hi
+  · intro ψ
+    rw [hqe, (hgv.same i hi ψ).1]
+    exact hgv.pinU i hi ψ
+
 /-- **The leastness law is not vacuous** (the check DESIGN §U.36 records
 against the `Prop` countermodel of the maintainer's plan, `PLAN` §5): at
 a tuple `X` at which NO spine fits any of pin `q`'s constructors, the
