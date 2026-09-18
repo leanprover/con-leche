@@ -84950,8 +84950,8 @@ Merged `agent/uniform-315` 651413ab.  Touched beyond the merge:
 `NestedRecRule.lean`, `NestedRecsStore.lean`, `NestedCopyIdx.lean`,
 `NestedCopyInst.lean`, `NestedCtorRead.lean`, `BlockStageTables.lean`,
 `DeclNestedCore.lean`, plus two NEW files —
-`ConLeche/Verify/Inductives/NestedTablesInv.lean` (105) and
-`ConLeche/Model/Inductives/NestedTables.lean` (160) — and one line of
+`ConLeche/Verify/Inductives/NestedTablesInv.lean` (107) and
+`ConLeche/Model/Inductives/NestedTables.lean` (162) — and one line of
 `ConLeche/Model.lean`.  No allowlist line, no new FALLBACK entry (the
 table stage's `public import`s the plan accepted as they stand), no
 checker code.
