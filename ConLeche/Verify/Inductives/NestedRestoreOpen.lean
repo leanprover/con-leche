@@ -1256,4 +1256,133 @@ theorem restoreNested_opened {R : RestoreTbl} (hk : R.KeysInAux) {nP nF : Nat}
   rw [Nat.add_zero] at hk'
   exact ⟨ty', hk', ha, hb, hc⟩
 
+/-! ## The restore at the ABSTRACT field domains (task #315 PINF)
+
+`restoreOpenFields` above states the restore's effect on a
+constructor's field domains as the READING side sees them — opened at
+the parameter and field variables.  The copies' `pinF` arm needs the
+same fact one step earlier, on the domains as `stripPis` leaves them
+(bound variables where the parameters and the earlier fields stand),
+because that is the form the kernel's own records read: K.60's guard
+tests a container's stored constructor stripped, and a member mention
+that exists only in an opener's annotation mints no pin, so the
+abstract side is the side that is forced.
+
+Nothing here opens anything: the walk commutes with `stripPis`
+(`rk_restoreWalk_stripPis` has the telescope's shape; this is the same
+induction carrying the per-domain equation) and the pin case is
+`restoreWalk_pin` read at the field's own depth. -/
+
+/-- **A lift neither creates nor deletes a constant occurrence**: it
+moves bound variables and leaves a `.const`, a `.proj`'s structure name
+and an `fvar`'s ANNOTATION alone — and `Expr.mentionsConst` reads
+exactly those three. -/
+theorem mentionsConst_liftLooseBVars {T : Name} :
+    ∀ (e : Expr) (n c : Nat), (e.liftLooseBVars n c).mentionsConst T = e.mentionsConst T := by
+  intro e
+  induction e with
+  | bvar i => intro n c; simp only [Expr.liftLooseBVars]; split <;> rfl
+  | fvar _ ty _ => intro n c; rfl
+  | sort _ => intro n c; rfl
+  | const _ _ => intro n c; rfl
+  | lit _ => intro n c; rfl
+  | app f a ihf iha =>
+    intro n c
+    simp only [Expr.liftLooseBVars, Expr.mentionsConst, ihf, iha]
+  | lam ty b m ihty ihb =>
+    intro n c
+    simp only [Expr.liftLooseBVars, Expr.mentionsConst, ihty, ihb]
+  | forallE ty b m ihty ihb =>
+    intro n c
+    simp only [Expr.liftLooseBVars, Expr.mentionsConst, ihty, ihb]
+  | letE ty v b ihty ihv ihb =>
+    intro n c
+    simp only [Expr.liftLooseBVars, Expr.mentionsConst, ihty, ihv, ihb]
+  | proj s i e ih =>
+    intro n c
+    simp only [Expr.liftLooseBVars, Expr.mentionsConst, ih]
+
+/-- The list form of `mentionsConst_liftLooseBVars`, which is what the
+pin's components' mention travels through. -/
+theorem mentionsMember_liftLooseBVars {names : List Name} {e : Expr} (n c : Nat)
+    (h : mentionsMember names e = true) :
+    mentionsMember names (e.liftLooseBVars n c) = true := by
+  obtain ⟨T, hT, hm⟩ := List.any_eq_true.mp h
+  exact List.any_eq_true.mpr ⟨T, hT, by rw [mentionsConst_liftLooseBVars]; exact hm⟩
+
+/-- **The walk, domain by domain**: a `∀`-telescope's `l`-th domain is
+walked at the depth `l` binders below the telescope's own.  (The
+telescope's SHAPE is `rk_restoreWalk_stripPis`; what this adds is the
+positional equation, which is what the abstract-side records need.) -/
+theorem restoreWalk_stripPis_domain {R : RestoreTbl} :
+    ∀ (m : Nat) {d : Nat} {e e' : Expr} {bs bs' : List (Expr × BinderMeta)} {body body' : Expr},
+      restoreWalk R d e = .ok e' → e.stripPis m = some (bs, body) →
+      e'.stripPis m = some (bs', body') →
+      ∀ (l : Nat) (dA : Expr × BinderMeta), bs[l]? = some dA →
+        ∃ dR : Expr × BinderMeta, bs'[l]? = some dR ∧ restoreWalk R (d + l) dA.1 = .ok dR.1 := by
+  intro m
+  induction m with
+  | zero =>
+    intro d e e' bs bs' body body' _ hs _ l dA hA
+    simp only [Expr.stripPis, Option.some.injEq, Prod.mk.injEq] at hs
+    obtain ⟨rfl, rfl⟩ := hs
+    exact absurd hA (by simp)
+  | succ m ih =>
+    intro d e e' bs bs' body body' hw hs hs' l dA hA
+    cases e with
+    | forallE ty b bm =>
+      rw [Expr.stripPis] at hs
+      cases hb : b.stripPis m with
+      | none => rw [hb] at hs; exact nomatch hs
+      | some pr =>
+        obtain ⟨bs₀, body₀⟩ := pr
+        rw [hb] at hs
+        simp only [Option.map_some, Option.some.injEq, Prod.mk.injEq] at hs
+        obtain ⟨rfl, rfl⟩ := hs
+        obtain ⟨ty', b', hty, hbw, rfl⟩ := restoreWalk_forallE_inv hw
+        rw [Expr.stripPis] at hs'
+        cases hb' : b'.stripPis m with
+        | none => rw [hb'] at hs'; exact nomatch hs'
+        | some pr' =>
+          obtain ⟨bs₁, body₁⟩ := pr'
+          rw [hb'] at hs'
+          simp only [Option.map_some, Option.some.injEq, Prod.mk.injEq] at hs'
+          obtain ⟨rfl, rfl⟩ := hs'
+          cases l with
+          | zero =>
+            simp only [List.getElem?_cons_zero, Option.some.injEq] at hA
+            exact ⟨(ty', bm), rfl, by rw [Nat.add_zero, ← hA]; exact hty⟩
+          | succ l =>
+            simp only [List.getElem?_cons_succ] at hA ⊢
+            obtain ⟨dR, hR, hwR⟩ := ih hbw hb hb' l dA hA
+            exact ⟨dR, hR, by rw [show d + (l + 1) = d + 1 + l from by omega]; exact hwR⟩
+    | bvar _ | fvar _ _ | sort _ | const _ _ | app _ _
+    | lam _ _ _ | letE _ _ _ | lit _ | proj _ _ _ => exact nomatch hs
+
+/-- **The restored ABSTRACT field domain at a pin**: where the
+auxiliary telescope's `l`-th domain is headed by a pin key with at
+least `R.nP` arguments, the restored one is that pin — LIFTED past the
+binders the field stands under, since the pin lives in the parameter
+context — applied to the arguments past the parameters.
+
+This is `restoreOpen_pin_domain`'s twin on the closed side: there the
+openers turn the lift into `instSeq fvsP (nP - 1) pin`; here nothing is
+opened and the lift stands. -/
+theorem restoreWalk_stripPis_pin {R : RestoreTbl} (hk : R.KeysInAux) {m d : Nat}
+    {e e' : Expr} {bs bs' : List (Expr × BinderMeta)} {body body' : Expr}
+    (hw : restoreWalk R d e = .ok e') (hs : e.stripPis m = some (bs, body))
+    (hs' : e'.stripPis m = some (bs', body'))
+    {l : Nat} {dA dR : Expr × BinderMeta} (hA : bs[l]? = some dA) (hR : bs'[l]? = some dR)
+    {n : Name} {us : List Level} {pin : Expr}
+    (hfn : dA.1.getAppFn = .const n us) (hlen : R.nP ≤ dA.1.getAppArgs.length)
+    (hp : R.pins.lookup n = some pin) (hrec : R.recMap.lookup n = none) :
+    dR.1 = Expr.mkAppN (pin.liftLooseBVars (d + l) 0) (dA.1.getAppArgs.drop R.nP) := by
+  obtain ⟨dR₀, hR₀, hwD⟩ := restoreWalk_stripPis_domain m hw hs hs' l dA hA
+  obtain rfl : dR₀ = dR := Option.some.inj (hR₀.symm.trans hR)
+  have hshape : Expr.mkAppN (.const n us) dA.1.getAppArgs = dA.1 := by
+    rw [← hfn]; exact Expr.mkAppN_getApp dA.1
+  have hfire := restoreWalk_pin (R := R) (d := d + l) (us := us) hp hrec (hk.1 n pin hp) hlen
+  rw [hshape] at hfire
+  exact Except.ok.inj (hwD.symm.trans hfire)
+
 end ConLeche
