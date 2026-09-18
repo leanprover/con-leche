@@ -94,3 +94,26 @@ tests/e2e/tower_nested.ndjson 1 NTow=accept,
 # ACCEPTS the block, so the model-side gap is real; the route accepts
 # it too.
 tests/e2e/nested_prop_idx.ndjson 1 T=accept,
+
+# --- the container-instance map's three witnesses --------------------
+# One container `J α β | node (x : Pair α (J α β)) (y : Pair β (J α β))`
+# at three instantiations.  `J` itself has TWO own pins, differing only
+# in which parameter sits in `Pair`'s first slot; whether they survive
+# as two in the outer block is what the three streams separate.
+# Official (Lean v4.29.1) accepts all three.
+#
+# `nested_pin_nocollide` keeps them apart, and the route accepts the
+# outer block as well as `J`.
+tests/e2e/nested_pin_nocollide.ndjson 1 J=accept,NoCollide=accept,
+# `nested_pin_collide` and `nested_pin_collide2` instantiate both
+# parameters alike, so the expansion's dedup by pin EXPRESSION mints one
+# mimic for two of `J`'s own-pin classes — the collapse the wide
+# identification has to survive.  The outer block's own shadow does NOT
+# run yet, and the reason is not this route: the modelled dispatch stops
+# the stream at a generated model record before the outer block's
+# install, so the shadow is never reached there.  `J` is measured; the
+# outer block is the TRIPWIRE — these rows gain `,Collide=accept` (resp.
+# `Collide2`) the day the stream gets that far, and a route change that
+# broke the collapse would show here first.
+tests/e2e/nested_pin_collide.ndjson 1 J=accept,
+tests/e2e/nested_pin_collide2.ndjson 1 J=accept,

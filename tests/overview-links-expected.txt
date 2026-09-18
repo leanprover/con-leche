@@ -743,8 +743,8 @@
 == ConLeche/SetModel/UnionRec.lean#L208
    208  noncomputable def unionRec (ℓ w k : Nat) (Is : Nat → V) (Φ : (Nat → V) → Nat → V)
 
-== ConLeche/Model/Inductives/BlockRep.lean#L598
-   598  structure IsBlockModel (m : EnvModel V env) (T : Name) (cvT cvR : ConstantVal) (mI rP : Nat)
+== ConLeche/Model/Inductives/BlockRep.lean#L926
+   926  structure IsBlockModel (m : EnvModel V env) (T : Name) (cvT cvR : ConstantVal) (mI rP : Nat)
 
 == ConLeche/Model/Inductives/DeclBlock.lean#L297
    297  theorem declBlock (hμ : μ.verifiedChecks = true) {F : Nat} {env envOut : Env}

@@ -102,6 +102,7 @@ at the MEMBER-LOCAL position. -/
   eissF := eissF
   tssF := tssF
   pins := []
+  pinCtors := fun _ => default
   Φ := fun ψ ρp =>
     tupleLfpΦ (W ψ) (fun _ => W ψ) (resSort.eval ψ) ρp k (blockIds nP ppsM ψ) offs mems nFs tgtsG rss
       (tlss ψ) (Eiss₀ ψ) (Fss₀ ψ) (Ess₀ ψ)

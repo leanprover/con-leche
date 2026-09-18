@@ -591,7 +591,7 @@ Inductive blocks are not trusted from the stream. Three cases:
   disjoint union of the members' values
   ([the union recursor in `ConLeche/SetModel/UnionRec.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/SetModel/UnionRec.lean#L208)).
   What every member carries in the model is the block model
-  ([structure `IsBlockModel` in `ConLeche/Model/Inductives/BlockRep.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Inductives/BlockRep.lean#L598));
+  ([structure `IsBlockModel` in `ConLeche/Model/Inductives/BlockRep.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Inductives/BlockRep.lean#L926));
   the model-tier theorem for the whole install is
   [theorem `declBlock` in `ConLeche/Model/Inductives/DeclBlock.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Inductives/DeclBlock.lean#L297),
   whose two named facts — the stages up to the recursors keep the

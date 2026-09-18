@@ -66,6 +66,7 @@ proof point. -/
   Φ := fun _ _ _ _ => graph (fun _ => unitSet) unitSet
   pinCar := fun _ _ _ _ => pt
   Ψaux := fun _ _ _ _ => graph (fun _ => unitSet) unitSet
+  pinCtors := fun _ => default
   inj := fun _ _ _ _ => pt
 
 namespace punitBlock
@@ -322,6 +323,16 @@ theorem punitBlock_isBlockModel {env : Env} {m : EnvModel V env} {cvR : Constant
   auxFunctor := fun ψ ρp _ => ⟨punitBlock.mono ψ ρp, punitBlock.maps ψ ρp, punitBlock.closed ψ ρp⟩
   auxCompose := fun _ _ => composeΦ_zero.symm
   auxPinsCar := fun _ _ _ _ h => nomatch h
+  auxPinIdx := fun _ h => nomatch h
+  auxFibre := BlockModel.auxFibre_of_noPins _ rfl (fun _ _ => rfl)
+    (fun _ _ _ _ _ => Nat.one_pos)
+    (fun ψ ρp _ X _ mm' hmm t ht x => by
+        obtain rfl : mm' = 0 := Nat.lt_one_iff.mp hmm
+        rw [punitBlock.Phi_app ψ ρp X 0, app_graph ht]
+        refine ⟨fun hx => ⟨0, [], Nat.one_pos, ⟨trivial, fun l hl => nomatch hl⟩,
+          mem_unitSet_iff.mp hx⟩, ?_⟩
+        rintro ⟨j, fs, -, -, rfl⟩
+        exact pt_mem_unitSet)
   pinLeaf := fun _ h => nomatch h
   leaf := fun ψ ρ as is hsp hi => by
     obtain rfl : as = [] := List.eq_nil_of_length_eq_zero (SpineFit.length_eq hsp)

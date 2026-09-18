@@ -59,9 +59,17 @@ and, weaker, if the two agree only *at* `μΦ'` and `Ψ|_L⃗` is dominated by
 
     μY⃗. Ψ|_L⃗ (Y⃗)  =  μΦ'       if   Ψ|_L⃗(μΦ') = Φ'(μΦ')  ∧  ∀Y⃗ ⊆ μΦ'. Ψ|_L⃗(Y⃗) ⊆ Φ'(Y⃗)     (B-at)
 
+and, between the two and at the strength the theory actually asks for,
+if they agree on the tuples below a tuple `C` closed under both — a
+least fixpoint is an intersection of closed tuples, and every closed
+tuple may be clamped to `C` without changing that intersection:
+
+    μY⃗. Ψ|_L⃗ (Y⃗)  =  μΦ'    if  Ψ|_L⃗(C) ⊆ C ∧ Φ'(C) ⊆ C ∧ ∀Y⃗ ⊆ C. Ψ|_L⃗(Y⃗) = Φ'(Y⃗)   (B-below)
+
 (B-whole) is a one-line congruence.  (B-at) needs the domination
 hypothesis, and that hypothesis is where every difficulty in this story
-lives.
+lives.  (B-below) needs no relation between the two operators at all,
+only a common closed bound.
 
 ## 1. Inductives as definitions
 
@@ -154,6 +162,13 @@ For every installed inductive the model keeps a *block model*
   container's name and the components `s⃗` (both as syntax and as
   readings), and a *pin carrier* `pinCar_i(X⃗)` — the pin's slot as a
   function of the members' tuple;
+* **the auxiliary block's constructor data at every component** — the
+  members' as always, and one *copy record* per pin (the container's
+  constructors instantiated at the pin: field domains, recursive flags,
+  field targets in `members ++ pins`, telescopes, index expressions,
+  result readings, injection).  Together they give a constructor
+  decomposition at each of the `k + n` components, which is what
+  reading `Ψ_d` fibrewise needs;
 
 **Stored versus re-derived.**  Not everything the proof needs about a
 container is *fixed* by the laws listed below, and the difference matters.  A
@@ -204,6 +219,10 @@ The laws, of which two matter here:
 
     leaf:     ⟦T_j(a⃗)⟧  =  (μX⃗. Φ_d(a⃗)(X⃗))_j                                      (the definition of §1)
     pinLeaf:  ⟦J_i(s⃗_i[a⃗, μΦ_d(a⃗)])⟧  =  pinCar_i(μΦ_d(a⃗))                       (the entry law)
+    fibre:    x ∈ Φ_d(a⃗)(X⃗)_j(t)  ⟺  x = c(f⃗), c a constructor of member j whose fields
+              fit at X⃗ and whose index expressions read t                      (the narrow fibre)
+    auxFibre: x ∈ Ψ_d(a⃗)(Z⃗)_c(t)  ⟺  the same at COMPONENT c — a member's row or a
+              copy's — with every recursive field read at Z_{tgt} ITSELF        (the wide fibre)
 
 `pinLeaf` says: the *container applied to the pin's components*, read at
 the true carrier, is exactly the pin's slot.  It is what makes the restored
@@ -224,6 +243,15 @@ are *laws of the block model*, so the wide operator is not lost when the
 construction ends: a later block that uses `T` as a container reads
 `Ψ_d` off `T`'s stored model.  §5 is what that buys.  A block with no
 pins is its own wide operator, and both laws are trivial there.
+
+The two fibres stand in the same relation: `fibre` IS `auxFibre` at a
+member and at the *extended* tuple `(X⃗, pinCar(X⃗))`, and that is a
+theorem, not a second assumption — the class readers are the members'
+there and the class fit over the extended tuple is the member's fit at
+`X⃗`.  What the narrow one cannot do is the converse: it says nothing
+at a tuple that is not extended, and a container instance's copies
+inside a later block are read at exactly such tuples.  Hence `auxFibre`
+is the stored law and `fibre` its restriction.
 
 ## 4. The proof: discharging `pinLeaf`
 
@@ -335,12 +363,21 @@ each checked against the tree:
   local and the two composition laws are `rfl`; every non-nested route
   has no pins, so `Ψaux := Φ` and the laws are trivial.  Eight law
   sites, all but one vacuous.  No kernel change.
-* *The instance is the* closure, *not the kernel's mint partition, and it
-  is computable model-side.*  The container's own pins are a stored field
-  of its block model; matching them against the block's pins is a pure
-  function of data the model already holds.  (The kernel's partition of
-  pins by which type minted them is a different, coarser thing and is not
-  what the segment needs.)
+* *The instance is the* closure, *not the kernel's mint partition.*  The
+  container's own pins are a stored field of its block model, and the
+  segment is that table matched against the block's pins.  (The kernel's
+  partition of pins by which type minted them is a different, coarser
+  thing and is not what the segment needs.)  **The matching is not an
+  injection.**  The expansion mints one copy per distinct pin
+  EXPRESSION, so two of the container's own pins whose components differ
+  only in parameter positions the block instantiates alike arrive at one
+  copy — `K α (J α β)` and `K β (J α β)` at `α = β`.  Two of the
+  container's classes then share a component of the block's tuple, and
+  the index-set form of Bekić, which is stated for an injection, does
+  not apply as it stands.  What it wants instead is the tuples that are
+  constant on the matching's fibres, and the container's operator
+  preserving them; the two classes do agree there, because a shared copy
+  means one container, one instantiation and hence one row.
 * *Contiguity is not required.*  The kernel's worklist does interleave
   instances (two nested containers in one constructor mint both roots
   before expanding either — an accepted input), and Bekić's segment
@@ -362,15 +399,40 @@ each checked against the tree:
   constructor decomposition at every component, members and pins
   alike, which is the auxiliary block's constructor data.  That is a
   representation change, not an annotation, and it is the real price
-  of Resolution 1.
+  of Resolution 1.  **It is paid**: the block model carries one copy
+  record per pin and the law `auxFibre` (§3), the narrow `fibre` is now
+  a theorem about it, and a block with no pins discharges the wide law
+  from the narrow one.  A second, cheap clause came with it — that a
+  pin component's index-tuple set IS the pin's, which nothing in the
+  earlier laws forced.
 
 What survives Resolution 1 is smaller and no longer an ordering problem
-*within* an instance: the identification at an instance's *root* pin is
-still stated at the root's component values, which are auxiliary carriers
-whenever the root's components mention other pins (so a candidate tuple
-and the component family are still needed there); there is an induction
-over *instances* for targets outside a segment; and it is acyclic by
-argument — a cross-instance edge is parameter-headed (nothing required) or
+*within* an instance.  What it is, exactly, is the **comparison of two
+copies of one container at two instantiations**, related only through
+that container — and that is not an accident of the proof but the
+content of nested-through-nested itself: the block's copy of the
+container's own pin and the container's own record of that pin are both
+copies of the *pin's* container, minted at different substitutions.  The
+machinery for it already exists, in this route's own vocabulary (the
+transfer between two copies of one container, §6).  What does NOT
+survive is the domination: no inclusion at another pin is required, no
+candidate tuple ranges over closed tuples, and no ordered induction
+sequences the pins.
+
+The comparison does carry a BOUND, which the domination did not have in
+the same sense: it holds for tuples below the container's OWN carrier,
+because the run's copy-versus-container readings are stated at prefixes
+that fit the container's domains, and a container-recursive field's
+domain is its carrier.  That bound is a fact about a type already
+installed, so it needs nothing from any other pin — it is not (B-at)'s
+`hle` in disguise — and the identification therefore uses **(B-below)**
+with the container's own wide carrier as `C`: closed under the
+container's operator because it IS its least fixpoint, and closed under
+the copies' section because the two agree at it.
+
+Besides the comparison there is still an induction over *instances* for
+targets outside a segment; and it is acyclic by argument — a
+cross-instance edge is parameter-headed (nothing required) or
 constant-headed with the head a constant of the source container's own
 declaration, hence declared strictly earlier.  A cycle would need two
 containers mentioning each other, which makes them one mutual group and
@@ -414,17 +476,25 @@ Resolution 1 needs.
 | `μX⃗.Φ`, leastness, fixpoint | `lfpTuple`, `lfpTuple_le`, `lfpTuple_fixed` (`SetTheory/Derive/LfpTuple.lean`) |
 | (B) Bekić at a segment | `lfpTuple_seg`, `lfpTuple_eq_section` |
 | (B-whole) | `lfpTuple_seg_congr` (`SetTheory/Derive/LfpCompose.lean`) |
+| (B-below) | `lfpTuple_congr_le`, `lfpTuple_set_congr_le` (same file; `meetT` clamps the closed tuples) |
 | (B-set), (B-whole) at an index set | `lfpTuple_set`, `lfpTuple_set_congr` (same file; `setJoin`, `setSec`) |
 | (B-at) | `lfpTuple_seg_congr_at`, `lfpTuple_eq_of_at` |
 | (compose): narrow from wide | `composeΦ`, `pinsCar`, `lfpTuple_composeΦ`; `ofNested` in `Model/Inductives/BlockComposed.lean` |
-| the block model and its laws | `BlockModel`, `IsBlockModel` (`leaf`, `pinLeaf`, `functor`, `pinMono`) in `Model/Inductives/BlockRep.lean` |
+| the block model and its laws | `BlockModel`, `IsBlockModel` (`leaf`, `pinLeaf`, `functor`, `fibre`, `pinMono`) in `Model/Inductives/BlockRep.lean` |
 | the wide operator, stored | `BlockModel.Ψaux` with `auxFunctor`, `auxCompose`, `auxPinsCar` (same file) |
+| the copies' constructor data | `PinCtors`, the field `BlockModel.pinCtors`, the class readers `ctorsT`/`FssT`/`tgtsT`/`slotAtT`/`ChainFitT` (same file) |
+| the wide fibre | `IsBlockModel.auxFibre`, `auxPinIdx`; `BlockModel.fibre_of_auxFibre`, `auxFibre_of_noPins` (same file) |
 | the expansion | `replaceIfNested`, `mkCopies`, the worklist `elimLoop` in `Kernel/Inductives/NestedElim.lean`; `checkNested` in `Kernel/Inductives/NestedInstall.lean` |
 | the rewrite at the readings | `RewriteRel`, `replaceAllNested_rel`, `denoteMeta_of_rewriteRel` (`Model/Inductives/NestedRewriteRead.lean`) |
 | the pin table | `NestedPin` (`grpBase`, `grpSize`, components), read back as `NestedPinSynFacts` |
 | the aux block's install | `checkMutualCore` on `{T⃗, J'⃗}` in a scratch environment |
 | restore | `restoreNested`, `restoreRules`, `restoreRecTys` |
 | Resolution 1's identification | `ofNested_pin_block_wide`, `ofNested_pin_block_of_wide` (`Model/Inductives/BlockComposed.lean`) |
+| its agreement, reduced to the fits | `ofNested_hΦ_of_fit` (same file) |
+| the fits at the container's members | `CopyCtorShape.fit_iff_wide`, `hfit_wide_mem_of_inst`, `hfit_wide_of_inst` (`Model/Inductives/NestedFit.lean`) |
+| the transfer between two copies of one container | `chainFitT_congr_mem`, `copyTransfer_via`, `copyTransfer_iff` (`Model/Inductives/NestedPinLeafAll.lean`) |
+| the fit at a container's own-pin class | `pinClassFit_of_transfer`, `hfit_wide_pin_of_class` (same file) |
+| the identification assembled | `ofNested_pin_block_of_wide_inst` (`Model/Inductives/NestedFit.lean`) |
 | Resolution 1's experiment | `SetModel/SegCopy.lean` |
 | Resolution 3's apparatus | `pinLfpAt` (candidate tuples), `pins_le_of_declOrder`, `hentR` in `Model/Inductives/NestedFit.lean` / `NestedPinLeafAll.lean`; the declaration-order record `declPos`/`nestedPinOrderAt` |
 
@@ -441,9 +511,18 @@ a stored field of the block model, the instance is the closure computed
 from the stored pin table, and interleaving is handled by reindexing
 rather than by contiguity — (B-set).  The identification itself is
 proved at the set-theoretic layer, and it carries NO domination
-hypothesis: (B-at)'s `hle`, and the within-instance transfer machinery
-Resolution 3 needs in order to produce it, have no counterpart on the
-wide route.
+hypothesis: (B-at)'s `hle` — an inclusion at ANOTHER pin, which is what
+forced Resolution 3's ordered induction — has no counterpart on the
+wide route.  Its agreement is, however, bounded: it holds below the
+container's own carrier and not on the whole tuple space (§5), so the
+congruence it feeds is the one for two operators agreeing on the tuples
+below a common closed tuple.
+
+Also settled: the representation Resolution 1 asks for.  The block
+model remembers the auxiliary block's constructor data at every
+component and reads its wide operator fibrewise (`auxFibre`), the
+narrow fibre is that law restricted to the members, and a pin
+component's index set is the pin's.
 
 Decided: Resolution 1 is adopted, in stages so that each stands alone —
 first expose the wide operator on the block model (strictly additive),
@@ -454,17 +533,82 @@ until the third step lands.  In parallel, the two things every design
 needs: the reading of a rewritten term (§8, item 1 — landed, §6) and the
 second residual's syntactic correspondence.
 
-Not settled: the identification's own hypothesis `hΦ` — that the
-copies' section of the auxiliary operator IS the container's wide
-operator, for every tuple.  Discharging it needs the block model to
-expose that operator fibrewise, i.e. to remember the auxiliary block's
-constructor data; that is the representation change Resolution 1 really
-asks for, and it is not yet made.  Beyond it the residue is unchanged:
-the component family at instance roots whose components mention other
-pins, an induction over instances, and the declaration-order record for
-cross-instance constant-headed edges — and the exact cost of that
-residue, in particular whether the closure's identification is as cheap
-as the experiment suggests once the readings are threaded.
+Not settled, and now three named things.
+
+**(i) The bound — LANDED.**  `hΦ` as first stated quantified over the
+whole tuple space, and the run cannot supply that: the
+copy-versus-container reading of an ORDINARY field is stated at
+prefixes fitting the container's domains, and a container-recursive
+field's domain is the container's carrier — so the comparison is
+available below that carrier and not above it.  (The existing
+two-copies transfer carries the same premise, independently.)  The
+repair was set-theoretic and local, and it is made: (B-below) is proved
+at the tuple layer and at an index set, and the identification takes
+its agreement below the container's own wide carrier.
+
+**(ii) and (iii) The fit equivalence.**  With the bound in place, `hΦ`
+reduces to a FIT equivalence, one clause per class of the container: a
+spine fits the block's copy of class `i` at the joined tuple exactly
+when it is the container's own class fit at the free tuple.  It splits
+in two:
+
+* at the container's **members** the block records the comparison
+  directly — a copy of a member is a copy of the group the worklist
+  minted, and the group carries the container's constructors
+  instantiated at the pin's components.  This half is PROVED, at one
+  constructor and at the whole group: at the wide width the two arms
+  for a container-recursive field (at a member, and at one of the
+  container's own pins) collapse into one, because the container's own
+  pin is a variable on both sides.  What the group's wrapper reads off
+  the instance beyond what the narrow one read is two facts about the
+  instance map: a container-recursive field at one of the container's
+  own pins lands on the image of that class, and a rewritten
+  container-ordinary field lands OUTSIDE the instance, where the joined
+  tuple is the block's own carrier and the run's entry applies
+  verbatim.  The entries are needed at the second kind of field only;
+* at the copies of the container's **own pins** it does not.  Such a
+  copy belongs to a group of its own, whose container is the pin's
+  container `K`, not the container `J` whose instance is being
+  identified; and `J`'s own pin record is `K`'s constructors
+  instantiated at `J`'s components.  So both sides are copies of ONE
+  container at two instantiations, and the comparison is the transfer
+  between two copies rather than a fact the run states about either.
+  This half is now the transfer applied once per direction, whose
+  conclusion at a pin class IS the container's class fit, with premises
+  symmetric in the two sides: each side's slots inside the container's
+  domains, each side's own entries at its rewritten ordinary fields,
+  and the two tuples agreeing at every recursive field's target.
+
+**The identification is assembled.**  The two halves, the agreement's
+reduction to them, the reindexing and the congruence below a common
+bound compose into one theorem: a pin's carrier at the block's carrier
+is its container's least tuple, with the container's side read entirely
+off its stored model.  What is not yet done is reading its inputs off
+the RUN — the instance map from the container's pin table, the two
+facts about where that map sends a field's target, and the own-pin
+half's own premises — so the tree still takes the long way round
+(Resolution 3) at the one site that consumes the identification.
+
+**And one of those inputs is not the shape the assembled theorem
+takes.**  It asks the instance map to be an injection; the expansion's
+dedup by pin expression makes it one only when no two of the
+container's own pins instantiate alike, and a three-line block exhibits
+the collapse.  So the identification's set-theoretic layer has one more
+restatement in front of it — the comparison stated on the tuples
+constant along the matching's fibres rather than on an injective
+segment — before its inputs are worth reading off the run at all.  The
+container's side of that is a fact about a type already installed: two
+classes sharing a copy share a container, an instantiation and a row.
+(The colliding shape is also one this checker rejects today, in its
+model generator rather than in its kernel, so no accepted stream
+exhibits it yet.)
+
+Beyond these three the residue is unchanged: the component family at
+instance roots whose components mention other pins, an induction over
+instances, and the declaration-order record for cross-instance
+constant-headed edges — and the exact cost of that residue, in
+particular whether the closure's identification is as cheap as the
+experiment suggests once the readings are threaded.
 
 ## 8. What the abstraction hides
 

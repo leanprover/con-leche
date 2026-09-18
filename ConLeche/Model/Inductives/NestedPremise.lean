@@ -579,7 +579,7 @@ instance : Nonempty (BlockModel V) :=
      srcsF := fun _ _ => [], ksF := fun _ _ => [], tgts := fun _ _ _ => 0, fvsPF := fun _ _ => []
      xFvsF := fun _ _ => [], xrestF := fun _ _ => .sort .zero, eissF := fun _ _ _ => []
      tssF := fun _ _ _ => [], pins := [], Φ := fun _ _ _ _ => pt, pinCar := fun _ _ _ _ => pt
-     Ψaux := fun _ _ _ _ => pt, inj := fun _ _ _ _ => pt }⟩
+     Ψaux := fun _ _ _ _ => pt, pinCtors := fun _ => default, inj := fun _ _ _ _ => pt }⟩
 
 /-- **A stored block's targets, viewed** (task #315 L-E): the block
 model's members and pins at the class readers (`uT`/`IdsT`,
