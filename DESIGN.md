@@ -93835,3 +93835,115 @@ NOT STARTED.  No code changed this session.
 
 Gates: `lake build` and `lake test` warning-free at the session's
 commit; text gates green.
+
+#### U.86 — L-E session 31: the case cannot be STATED away — the entry theorem needs its own conclusion there, and here is the shape that would break it (lane L-E, 2026-09-18)
+
+The consumer-direction question: does the chain have to state the
+in-instance case at all?  **No, it cannot be stated away — and the
+reason is sharper than §U.85's and worth having in place of it.**
+
+##### (a) WHAT THE CHAIN ASKS FOR, in the transfer's own words
+
+`copyTransfer_via`'s docstring names its premises by field kind, and
+the one at issue is not an auxiliary bound:
+
+> `hent₂`: at the SECOND copy's `ordF`-right fields, the container's
+> domain sits inside that copy's slot — **its own entry law**, again as
+> an inclusion
+
+and, of `hdom₁`, "at an `ordF`-right field it is that side's entry law
+read as an INCLUSION".  So both `ordF`-right premises of the transfer
+ARE the entry — `CopyEntryAt` at that field, weakened to ⊆.
+
+`nestedTargetReads_L` then makes the entry at a PIN target equal to
+`pinLfp q' = L⁺ (p.k + q')`.  Therefore:
+
+**the residual `NestedPinsEntry` at the field `(q, j, l)` requires the
+residual at `q'`.**  At an out-of-instance `q'` K.37's rank orders the
+two and the induction discharges it.  At an in-instance `q'` clause (3)
+forces equal ranks and there is no order.
+
+##### (b) WHY THAT SETTLES THE "STATE IT AWAY" QUESTION
+
+A case can be quantified away when the CONSUMER does not need it.
+Here the consumer of the missing instance is the residual's own proof
+at a different field: the dependency is between two instances of ONE
+statement, not between the statement and something outside it.
+Narrowing `CopyEntryOut` to exclude in-instance targets removes the
+conclusion at `(q, j, l)` AND the hypothesis it needs at `q'` — but
+the block's own fit reads that field, so the copies' identities
+(`NestedPinsIdent`, the residual's consumer) would have a hole at
+exactly the fields the block's constructors use.  There is nothing to
+condition on and nothing to requantify: **the statement needs itself
+there.**
+
+That also explains, after the fact, why §U.82–§U.85 kept relocating a
+circle rather than closing one.  Each attempt changed the INDUCTION
+while the dependency being inducted over was the residual on itself.
+
+##### (c) WHAT THE COVERING KNOWS BEYOND WHAT IS USED — and why it is not the gap
+
+K.41 gives more than `ClassPinAt`: at an in-instance pin the recorded
+pin TERM is one the ROOT container's own elimination minted, at the
+root pin's own levels and components.  This lane already spends the
+strongest consequence of that — `nestedPinFam_of_classPin`, the family
+identity.  What the extra term-level information buys is that the
+ordinary field's domain value IS `P q'` unconditionally
+(`pinTarget_reads`: the stored container's reading at the components is
+that container's least tuple).  So the covering makes the demand
+PRECISE; it does not make it smaller.  The hint was worth following and
+the answer is that the covering's surplus is already spent.
+
+##### (d) THE SHAPE A DIFFERENT DECOMPOSITION MUST SUPPLY
+
+Stated so that it is more than "none in sight", and stated as a
+PROPOSAL requiring a measurement, not as a fact:
+
+1. **A measure on NOT-OWN edges, not on instance-leaving edges.**  What
+   the model needs is an order that decreases along every `ordF`-right
+   edge, whether or not the edge leaves its instance.  K.37's rank
+   decreases along instance-LEAVING edges, which is a different
+   relation, and that mismatch is the whole of this impasse.
+2. **It must NOT be constant on instances**, and this is why the
+   refused strengthening was not merely unlucky: demanding a decrease
+   along in-instance not-own edges while clause (3) keeps the rank
+   constant on instances is contradictory.  A new measure has to break
+   the constancy, which K.37's cannot.
+3. **Hence the transfer must be re-cut** to prove an instance's pins in
+   that measure's order rather than all at once.  Today
+   `instanceLe_of_transfer` closes a whole instance simultaneously, and
+   a per-pin measure does not compose with it — that is the piece of
+   work, and it is larger than anything priced in this arc.
+4. **The measurement that decides whether the measure can exist**: is
+   the NOT-OWN edge graph acyclic on accepted blocks?  **The existing
+   measurement does not answer this.**  Equal instance labels mean
+   mutual reachability in the AUGMENTED graph — through own edges and
+   the mint-group joins — and say nothing about whether the not-own
+   edges alone cycle.  The kernel already computes the ownership bit
+   per edge, so this is the same kind of count as the last one.
+
+If that count comes back acyclic, there is a route and (3) prices it.
+If it comes back cyclic, the in-instance case has no well-founded
+measure of ANY kind available from the reference graph, and the impasse
+is structural rather than a missing record.
+
+##### (e) HOW I WOULD PROCEED
+
+Not mine to choose, and I am not starting anything.  The count in
+(d) 4 is cheap, is the same shape as the count that refused the
+strengthening, and decides between "there is a route, and it is a
+re-cut of the transfer" and "there is no measure at all" — so it is
+worth having before either of the two options goes to the maintainer.
+
+##### (f) UNAMBIGUOUSLY: nothing landed is affected
+
+Every theorem this lane has landed stays landed.  `hout` remains a
+named premise.  The OUT-OF-INSTANCE case, step (ii), step (iv) and the
+residual's discharge go through today exactly as they did before this
+session.  Five read-only sessions have now bounded this route without
+touching a line of the proof tree.
+
+NOT STARTED.  No code changed this session.
+
+Gates: `lake build` and `lake test` warning-free at the session's
+commit; text gates green.
