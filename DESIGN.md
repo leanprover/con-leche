@@ -104509,3 +104509,54 @@ will meet the same wall at the same site, and the two ways out are the
 same two: prove it as a metatheorem, or record it at the fabrication
 (which the standing ruling against per-call Bool checks forbids on an
 ungated accept path).
+
+##### THE CONSUMER-SIDE CHECK: the reduct at those sites IS the input
+
+The widened question — does the consumer need a syntactic fact about
+the reduct at all — comes back with a sharper answer than either
+"syntactic" or "semantic".
+
+**(1) It decomposes.**  L-B's chain strips the telescope, reads heads
+and pulls out field domains: `normFieldDomsM_getD` (positional field
+walk), `normCtorValM_domHead` (the stored constructor's opened field
+domain keeps the head the given one's had), `normPosDomM_indApp`.  A
+denotation-only fact would not serve those.
+
+**(2) But at exactly those sites the walk does not move the term, and
+LANE L-B ALREADY PROVED IT.**
+
+* an ORDINARY field domain mentions no member, so `normPosDomM`'s first
+  line returns it — `if !mentionsMember memberNames e then pure e`;
+* a RECURSIVE field domain is a stuck inductive-headed application, and
+  `normPosDomM_indApp` says the walk hands back *the very term it was
+  given* (`whnf_indApp_eq`, K.22, and the Π arm cannot fire);
+* a REFLEXIVE field domain is a `∀`-tower over one, and
+  `normPosDomM_piIndApp` says the tower comes back `ErasedEq` — equal
+  up to the `fvar` annotations the interpretation does not read.
+
+K.26's classification makes those three exhaustive at a copy's fields.
+So the reduct's constants are the input's, and "the normalised minted
+domain is free of the block's copies" follows from the MINT's own
+copy-freeness with no preservation property at any strength.  The
+existing chain is already built on this: `normCtorValM_domErased` and
+`normCtorValM_domHead` read heads off the erased equality rather than
+off a resolution fact.
+
+**(3) And the branch question, measured independently.**  With the
+three rescue success points instrumented and the sentinel caught at
+`normPosDomM`'s own `whnf` call, the K/η rescue fires **zero** times
+inside a positivity normalisation across the whole e2e corpus (200
+fixtures), the 37 shadow rows, `init-full` (53 093 declarations) and
+Mathlib (654 504).  **Control**: with the sentinel left global the
+rescue does fire elsewhere in the checker — `direct_fix_struct_eta`
+changes verdict — so the instrument reaches the branch and the zero is
+a fact about the normalisation rather than about the instrument.
+
+**What this retires, if the reading of L-B's need is right**: the
+fourth conjunct at any strength, the mutual metatheorem, the rescue
+analysis and the 135 parked lines.  **What it does not settle**: I read
+L-B's need from its code and from the request's wording rather than
+from L-B, having no channel to it.  If the term it needs copy-freeness
+of is NOT one of the three shapes above — a domain whose head is not a
+stored inductive — none of this applies, and that is the one question
+to put to the lane rather than to the tree.
