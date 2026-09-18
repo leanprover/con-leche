@@ -92095,9 +92095,12 @@ taken at — a different member of the group.
   step (ii) only gives `L⁺ ≤ P`, i.e. the WRONG direction.  At a
   MEMBER target of the block it is free (the block's own leaf at
   `L⁺`); at a PIN target it is the rank induction's hypothesis
-  (`pins_le_of_instanceLe`'s `hinst` premise) and so needs the
-  `ordF`-right targets to LEAVE the instance — `nestedPinRankOk`'s
-  clause (2).  That premise must be threaded into `hpair`, which the
+  (`pins_le_of_instanceLe`'s `hinst` premise), which supplies it only
+  at a target OUTSIDE the source's instance.  **CORRECTED 2026-09-18
+  (§U.80 (b)): this said the `ordF`-right targets must LEAVE the
+  instance and attributed that to `nestedPinRankOk`'s clause (2).  The
+  clause says no such thing and the measurement refutes the fact — see
+  §U.80 (b).**  That premise must be threaded into `hpair`, which the
   plan's table did not show;
 * `hothers` stays a named premise.  §U.70 (a) recorded that K.41's
   inversion hands "all four `ClassPin` data at once", but the inversion
@@ -92172,9 +92175,13 @@ correction is that ONE of them carries a premise:
   member segment IS the block's own least tuple (`ofNested_lfp`,
   Bekić), so `memberTarget_reads` applies;
 * **at a PIN target, under `P q' = L⁺ (p.k + q')`** — the RANK
-  INDUCTION's hypothesis.  That is exactly why the `ordF`-right targets
-  must LEAVE the instance (`nestedPinRankOk`'s clause (2)): inside the
-  instance the induction has nothing yet.
+  INDUCTION's hypothesis, which holds only at a target OUTSIDE the
+  source's instance: inside the instance the induction has nothing
+  yet.  **CORRECTED 2026-09-18 (§U.80 (b)): this said that is why the
+  `ordF`-right targets must LEAVE the instance, "`nestedPinRankOk`'s
+  clause (2)".  The clause does not say that, and fourteen not-own
+  edges across eight ACCEPTED blocks have equal instance labels — see
+  §U.80 (b).**
 
 `nestedTargetReads_L` is the reading law with the scope as a predicate
 `S`, and `nestedPinEntryOut` is the transfer's `hentR`/`hent₂` from it
@@ -92958,9 +92965,17 @@ branch is
 — a DISJUNCTION, exactly as the kernel's own docstring describes it
 ("a reference that LEAVES the instance goes to a strictly smaller
 rank").  §U.72 (c) turned that into "the `ordF`-right targets must
-LEAVE the instance (`nestedPinRankOk`'s clause (2))", and §U.74/§U.75
-repeated it.  The two are different statements and the weaker one is
-what is checked.
+LEAVE the instance (`nestedPinRankOk`'s clause (2))".  The two are
+different statements and the weaker one is what is checked.
+
+**CORRECTED 2026-09-18 (§U.80 (b)), twice.**  First, "and §U.74/§U.75
+repeated it" was FALSE — neither section mentions the instance at all;
+the repeats were in two DOCSTRINGS of this lane's own file
+(`nestedTargetReads_L`, `nestedPinEntryOut`), both now fixed, and the
+count of misdescribing sites is the plan's table, §U.72 (c) and those
+two.  Second, the request below is ANSWERED AND REFUSED: the
+disjunction is not a weakening of the clause, it is the clause the
+rank means.
 
 **Why it matters, precisely.**  `hout` asks for the induction's
 predicate at every `ordF`-right PIN target.  In
@@ -93092,3 +93107,135 @@ warning-free, layering / trust surface / no-local-paths /
 overview-links / quote-gate / proofdeps / shake and pub-imports /
 nested-shadow all green; standard axioms on `nestedPinsEntry_at`,
 `nestedPinsEntry_of` and `nestedPinsEntry_of_le`.
+
+#### U.80 — L-E session 25: the residual ASSEMBLED, the clause ANSWERED, and what the entry theorem costs from here (lane L-E, 2026-09-18)
+
+##### (a) `NestedPinsEntry`, DISCHARGED as an application
+
+```
+nestedPinsEntry_of_le_all : NestedPinsShape V μ F → NestedPinsLe V μ F → NestedPinsEntry V μ F
+```
+
+Written as an application of the residual so that the ELABORATOR, and
+not a reading of two statements side by side, is what certifies that
+this is a discharge.
+
+`NestedPinsLe` is step (iii) at the run, quantified over the
+assignment `dJf` and its `hgroups` rather than over a chosen one,
+because the choice is made in the discharge: the group the residual
+hands over serves its own base pin, `NestedPinSynFacts.groups` serves
+every other, and the choice is `Classical.epsilon` since nothing in
+the tier names a group's block model at its base.  A handed group and
+a chosen one meet because both sizes are the pin table's own
+`grpSize` at the base (`NestedPinGroupSyn.grp`).
+
+Two defeq traps, both from the pin table's two spellings
+(`pinsS.getD t default` and `(D).pinAt t`): the anonymous constructor
+checks at REDUCIBLE transparency and rejects them, so `GroupFacts` is
+built by `refine`/`intro`/`exact`, where `isDefEq` runs at default
+transparency.  Imports moved as the gate COMPUTED: `NestedCopyIdx`
+became a `public import` (the residual is named in a public
+statement), which made the direct `NestedPins` import first demotable
+and then removable.
+
+##### (b) The clause: ANSWERED, REFUSED, and the misdescriptions fixed
+
+§U.78 (d) asked for `nestedPinRankAt`'s not-own branch to be
+strengthened, after a measurement.  **The measurement says no, and the
+reason is structural.**  Fourteen not-own edges across EIGHT ACCEPTED
+blocks carry equal instance labels (four in three fixture blocks, ten
+in five library-cone blocks), measured after the mint fix; dropping
+the equal-label alternative turns all eight into errors.
+
+The reason is this lane's own sharpening turned around:
+`nestedRankPass` relaxes along an edge only when its endpoints'
+labels DIFFER, so an equal-label not-own edge is exactly an edge along
+which the pass NEVER relaxes, and clause (3) then forces the two ranks
+equal.  A check demanding the decrease would demand the negation of
+what its own rank function computes.  **The disjunction is not a
+weakening of the clause; it is the clause the rank means.**  The Bool,
+quoted so the ambiguity cannot recur:
+
+```lean
+    if e.2.2 then inst.getD e.1 0 == inst.getD e.2.1 0
+    else inst.getD e.1 0 == inst.getD e.2.1 0 ||
+      decide (rank.getD e.2.1 0 < rank.getD e.1 0)
+```
+
+What survives of the request is the shape, not the strength: keeping
+the bit the rank pass already computes costs nothing and helps a future
+consumer.
+
+**The misdescribing sites, counted and fixed** — the plan's table
+(§U.71's `hent₂` row), §U.72 (c), and TWO docstrings in this lane's own
+file (`nestedTargetReads_L`, `nestedPinEntryOut`).  §U.78 (d) said
+"§U.74/§U.75 repeated it"; that was itself FALSE — neither section
+mentions the instance — and is corrected in place.  Each site now
+carries the disjunction rather than a paraphrase of it.
+
+##### (c) WHAT THE ENTRY THEOREM CLOSES OVER — the complete list
+
+| # | open fact | whose | what discharges it | uncertain? |
+| --- | --- | --- | --- | --- |
+| 1 | `NestedPinsShape` | lane L-B | its own four arms; one (`NestedPinsShapeOrdRightRefl`) is REFUTED and split off, the rest open | L-B is one session from its ninth site; the refuted arm needs the repair's consumer, not a proof |
+| 2 | `hothers` of `instanceCovered_of_others` | M7-3 | `ContainerModeled.ownPins` at the NESTED site | the Expr-to-`AnnotTerm` half is the open part |
+| 3 | `hIH` of the rank induction | this lane, DONE as an input | `nestedPinsEq_of_le` — it IS step (ii) plus step (iii) | no |
+| 4 | **`hout` at an IN-INSTANCE target** | this lane | NOT the rank induction — see (d) | **this is the one real residual**; refused by (b) |
+| 5 | `hout` at an out-of-instance target | this lane | `pins_le_of_instanceLe`'s own hypothesis, over K.52 | no |
+| 6 | the run-level `Edge` at an `ordF`-right field | the run-level assembly | `nestedPinEdges_mem` + the K.32 consumer's plumbing at `NestedCopyInst.lean` | no — this lane produces no edge by design |
+| 7 | `ContainerPinParams` at every stored container | M7-3 | a `ContainerModeled` clause; carried QUANTIFIED here so it plugs in unchanged | no |
+| 8 | `hdJfB` (a block group's model is `B` of its container) | the run-level assembly | `NestedTailOut.groups` already names the model as `blockOf` | no |
+
+Everything else this lane needed is proved: `hpair` at both class
+kinds, `instanceLe`, the covering class's family identity, the rank
+induction over K.52, steps (ii) and (iv), and the residual's discharge.
+
+##### (d) SIZING the in-instance route — what it needs, and what it is
+
+(b) removes the cheap route to item 4.  The alternative named in
+§U.78 (d) — bounding an in-instance container-ordinary target by the
+relational meet — is now the route, and working it out for this sizing
+shows it is not a re-cut of one premise but a change of INDUCTION.
+
+Why: at an `ordF`-right field the container's domain is FIXED (the
+container has no recursion there), and the element it contributes is
+the value of the pin's component, which `nestedPinFam_of_classPin`
+identifies with the root's carrier at the target's covering class.  At
+a MEMBER class that carrier is inside the root's own least tuple and
+the existing leastness argument (`famAt_le_of_TClosed`) reaches it; at
+a PIN class it is `pinCar`, a FIXED parameter of that argument, so
+`famAt c'' ≤ L⁺ q'` is not part of the induction and has to come from
+outside — which for an in-instance `q'` is the conclusion itself.
+
+So the instance's pins must be closed JOINTLY: a least-fixed-point
+argument over the root's members TOGETHER WITH the instance's other
+pins' carriers, rather than over one container's members with the pins
+held fixed.
+
+| piece | exists? |
+| --- | --- |
+| the pins' carriers ARE least families closed under their constructors | YES — `PinRecLaws.ind`, and it is exactly the leastness the `Prop` countermodel of §U.36 forced us to record |
+| composition/Bekić kit for a joint tuple over two segments | YES — `LfpCompose.lean`, `segJoin`, `lfpTuple_le_of_rel` (step (i)/(ii) already use it) |
+| the component's value IS the covering class's carrier | YES — `nestedPinFam_of_classPin`, landed this week |
+| a `TClosed`/leastness statement over the INSTANCE's whole class set | NO — this is the new object |
+| `copyTransfer_via`/`copyTransfer_mem` with an in-instance arm | NO — a re-cut of both, and of `nestedPinPairAt_mem`/`_pin` above them |
+| `instanceLe_of_pair`/`nestedInstanceLe` over the re-cut transfer | NO — mechanical once the transfer moves, but it is the whole chain |
+
+**Estimate: 6–10 sessions.**  The floor assumes the joint leastness is
+`LfpCompose`'s existing composition at a different segmentation and
+that the transfer's re-cut leaves `hrel`/`hdom₁` alone; the ceiling
+assumes the joint statement needs its own kit lemma and that the
+re-cut disturbs the `pinF` arm.  **The main uncertainty is whether the
+joint tuple can be built at all from the pins' own leastness**: the
+instance's pins belong to DIFFERENT containers, so the joint least
+fixed point is over a family of operators that no single
+`IsBlockModel` supplies, and that is the piece to settle FIRST — one
+session, before committing to the rest.
+
+NOT STARTED, per the coordinator.
+
+Gates at the session's commits: `lake build` warning-free, `lake test`
+warning-free, layering / trust surface / no-local-paths /
+overview-links / quote-gate / proofdeps / shake and pub-imports /
+nested-shadow all green; standard axioms on
+`nestedPinsEntry_of_le_all`.

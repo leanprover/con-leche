@@ -2344,9 +2344,23 @@ hypothesis:
   least tuple (`ofNested_lfp`, Bekić), so `memberTarget_reads` applies
   unconditionally;
 * at a PIN target `P q' = L⁺ (p.k + q')` is needed, and that is the
-  RANK INDUCTION's hypothesis — which is why the `ordF`-right targets
-  must LEAVE the instance (`nestedPinRankOk`'s clause (2)).  The
-  predicate `S` is where that scope enters. -/
+  RANK INDUCTION's hypothesis, which holds only at a target OUTSIDE
+  the source's instance.  The predicate `S` is where that scope
+  enters.
+
+**Do not read `S` as "the target leaves the instance"** (this
+docstring did, until 2026-09-18, and so did three DESIGN sections):
+`nestedPinRankOk`'s not-own branch is
+
+    inst.getD e.1 0 == inst.getD e.2.1 0 ||
+      decide (rank.getD e.2.1 0 < rank.getD e.1 0)
+
+— a DISJUNCTION — and it is the clause the rank MEANS, not a weakening
+of one: `nestedRankPass` never relaxes along an edge whose endpoints
+share a label, so a strict decrease there is something the computation
+deliberately never establishes.  Fourteen such edges occur across
+eight ACCEPTED blocks.  At an in-instance target `S` is supplied by
+neither this lane nor the induction (DESIGN §U.80 (b)). -/
 theorem nestedTargetReads_L (hμ : μ.verifiedChecks = true)
     (h : MutualFormersFacts V F g mp b fms f₀ ctorsA sortss kinds mp₁ ppsF W idxF dsF esF srcsF
       fvsPF xFvsF xrestF eissF tssF)
@@ -3107,11 +3121,18 @@ elimination rewrote, the container's domain read at the pin's frame is
 the copy's slot at the AUXILIARY CARRIER (`copyEntryAt_of_read` at
 `nestedTargetReads_L`, an equality, read as an inclusion).
 
-`hout` is the rank clause made explicit: at such a field whose target
-is a PIN, that pin must satisfy the induction's predicate — i.e. it
-must LEAVE the instance (`nestedPinRankOk`'s clause (2)).  At a MEMBER
-target nothing is needed, the carrier's member segment being the
-block's own least tuple. -/
+`hout` is the induction's scope made explicit: at such a field whose
+target is a PIN, that pin must satisfy the induction's predicate.  At
+a MEMBER target nothing is needed, the carrier's member segment being
+the block's own least tuple.
+
+**`hout` is NOT `nestedPinRankOk`'s clause (2)** (this docstring said
+it was, until 2026-09-18): that clause's not-own branch is a
+DISJUNCTION — equal instance labels OR a strictly smaller rank — and
+the rank induction discharges only the second alternative.  At an
+`ordF`-right target inside the source's own instance, which fourteen
+edges across eight ACCEPTED blocks have, `hout` needs the route DESIGN
+§U.80 (c) sizes and not this one. -/
 theorem nestedPinEntryOut (hμ : μ.verifiedChecks = true)
     (h : MutualFormersFacts V F g mp b fms f₀ ctorsA sortss kinds mp₁ ppsF W idxF dsF esF srcsF
       fvsPF xFvsF xrestF eissF tssF)
