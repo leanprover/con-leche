@@ -664,6 +664,148 @@ theorem classPinAt_of_pairViews {env : Env} {m : EnvModel V env} {D dR dK : Bloc
   · unfold BlockModel.IdsM
     rw [hpar.2]
 
+/-- **The WALK's `pinF` step** (task #315 L-E, DESIGN §U.74): at a
+container-recursive field whose target is one of the CONTAINER's own
+pins, the two sides' copies carry a `PinCorr` at the SAME own pin
+`qK'`, so the field's two targets are `ClassPin`-related and the
+relation's root-group conjunct is vacuous (both are PIN classes).
+
+Each clause comes off the two `PinCorr`s and one part of
+`ContainerPinParams`:
+
+* `name` — the two targets' recorded containers are that own pin's
+  (`PinCorr`'s `J`), and nothing else is needed;
+* `psi` — each side's pin law spells its target's assignment as the
+  substitution of its recorded level arguments, which `PinCorr`'s
+  `lvls` clause makes the own pin's substituted at the OUTER pin's
+  (`Level.substFn_map_subst` twice); what is left is the own pin's
+  level arguments read at the two outer assignments, which agree by
+  `Level.substFn_ext` at the scope conjunct;
+* `frame` — each side's target frame is the own pin's components read
+  at that side's container frame (`PinCorr`'s `Ds`, `interp_instAll`);
+  the components are ONE list by the congruence and bounded at the
+  container's parameters by the boundedness conjunct, so the two
+  frames' agreement below `dK.nP` carries them;
+* `idx` — the index universe and telescope are the own pin's by
+  `PinCorr`'s `u`/`Ids`, ONE by the congruences, and the telescope
+  reads only the components' prefix. -/
+theorem classPinAt_of_pinCorrs {env : Env} {m : EnvModel V env} {D dR dK : BlockModel V}
+    {ψ ψR : Name → Nat} {ρp ρR : Nat → V} {r : Nat}
+    {ψ₁ ψ₂ : Name → Nat} {Ds₁ Ds₂ : List AnnotTerm}
+    {lpsK : List Name} {lvls₁ lvls₂ : List Level} {t₁ t₂ qK' : Nat}
+    {cvK : ConstantVal} (hpp : ContainerPinParams (V := V) cvK dK) (hqK' : qK' < dK.nPins)
+    (hIdsBelow : FieldsBelow (((dK.pinAt qK').Ds ψ₂).map (interp V ρp)).length
+      ((dK.pinAt qK').Ids ψ₂))
+    (hc₁ : PinCorr (dR.targetView m.acval ψR) m.acval dK ψ₁ Ds₁ lpsK lvls₁ t₁ qK')
+    (hc₂ : PinCorr (D.targetView m.acval ψ) m.acval dK ψ₂ Ds₂ lpsK lvls₂ t₂ qK')
+    (ht₁ : dR.k ≤ t₁) (ht₁' : t₁ < dR.k + dR.nPins)
+    (ht₂ : D.k ≤ t₂) (ht₂' : t₂ < D.k + D.nPins)
+    (hψ₁ : ψ₁ = Level.substFn ψR lpsK lvls₁) (hψ₂ : ψ₂ = Level.substFn ψ lpsK lvls₂)
+    (hpinψR : ∀ (cvT : ConstantVal) (caps : IndCaps),
+      env.find? (dR.pinAt (t₁ - dR.k)).J = some (.indInfo cvT caps) →
+      (dR.pinAt (t₁ - dR.k)).lvls.length = cvT.levelParams.length ∧
+      ∀ φ : Name → Nat, (dR.pinAt (t₁ - dR.k)).ψJ φ
+        = Level.substFn φ cvT.levelParams (dR.pinAt (t₁ - dR.k)).lvls)
+    (hpinψD : ∀ (cvT : ConstantVal) (caps : IndCaps),
+      env.find? (D.pinAt (t₂ - D.k)).J = some (.indInfo cvT caps) →
+      ∀ φ : Name → Nat, (D.pinAt (t₂ - D.k)).ψJ φ
+        = Level.substFn φ cvT.levelParams (D.pinAt (t₂ - D.k)).lvls)
+    (hnPJ : (D.pinAt (t₂ - D.k)).nPJ ≤ ((dK.pinAt qK').Ds ψ₂).length)
+    (hψ : ∀ pp ∈ cvK.levelParams, ψ₁ pp = ψ₂ pp)
+    (hfr : ∀ v, v < dK.nP →
+      consList (Ds₁.map (interp V ρR)) ρR v = consList (Ds₂.map (interp V ρp)) ρp v) :
+    ClassPinAt env D dR ψ ψR ρp ρR r t₁ (t₂ - D.k) := by
+  obtain ⟨hEA₁, hDs₁, hu₁, hIds₁, hJ₁, hl₁⟩ := hc₁
+  obtain ⟨hEA₂, hDs₂, hu₂, hIds₂, hJ₂, hl₂⟩ := hc₂
+  obtain ⟨hscope, hbelow, hcong⟩ := hpp qK' hqK'
+  have hnR : ¬ t₁ < dR.k := by omega
+  have hnD : ¬ t₂ < D.k := by omega
+  -- the own pin's components are ONE list, read at the two container frames
+  have hDsEq : (dK.pinAt qK').Ds ψ₁ = (dK.pinAt qK').Ds ψ₂ := (hcong ψ₁ ψ₂ hψ).2.1
+  have hvals : (((dR.pinAt (t₁ - dR.k)).Ds ψR).map (interp V ρR))
+      = (((D.pinAt (t₂ - D.k)).Ds ψ).map (interp V ρp)) := by
+    have e₁ : ((dR.pinAt (t₁ - dR.k)).Ds ψR) = ((dK.pinAt qK').Ds ψ₁).map
+        (AnnotTerm.instAll Ds₁ 0) := hDs₁
+    have e₂ : ((D.pinAt (t₂ - D.k)).Ds ψ) = ((dK.pinAt qK').Ds ψ₂).map
+        (AnnotTerm.instAll Ds₂ 0) := hDs₂
+    rw [e₁, e₂, List.map_map, List.map_map, hDsEq]
+    refine List.map_congr_left fun e he => ?_
+    show interp V ρR (AnnotTerm.instAll Ds₁ 0 e) = interp V ρp (AnnotTerm.instAll Ds₂ 0 e)
+    have i₁ : interp V ρR (AnnotTerm.instAll Ds₁ 0 e)
+        = interp V (consList (Ds₁.map (interp V ρR)) ρR) e := by
+      have := interp_instAll Ds₁ [] ρR e; simpa using this
+    have i₂ : interp V ρp (AnnotTerm.instAll Ds₂ 0 e)
+        = interp V (consList (Ds₂.map (interp V ρp)) ρp) e := by
+      have := interp_instAll Ds₂ [] ρp e; simpa using this
+    rw [i₁, i₂]
+    exact interp_congr_below V e dK.nP _ _ (hbelow ψ₂ e he) hfr
+  refine ⟨⟨(by show t₁ < dR.k + dR.nPins; omega), by omega, ?_, ?_, ?_, ?_⟩,
+    fun hlt => absurd hlt (by omega)⟩
+  · -- ONE container
+    rw [dR.nameT_of_pin hnR]
+    have j₁ : (dR.targetView m.acval ψR).J t₁ = (dR.pinAt (t₁ - dR.k)).J := if_neg hnR
+    have j₂ : (D.targetView m.acval ψ).J t₂ = (D.pinAt (t₂ - D.k)).J := if_neg hnD
+    rw [← j₁, ← j₂, hJ₁, hJ₂]
+  · -- ONE level assignment at the target container's level parameters
+    intro cvT caps hfind pp hpp'
+    have hfind₁ : env.find? (dR.pinAt (t₁ - dR.k)).J = some (.indInfo cvT caps) := by
+      have j₁ : (dR.targetView m.acval ψR).J t₁ = (dR.pinAt (t₁ - dR.k)).J := if_neg hnR
+      have j₂ : (D.targetView m.acval ψ).J t₂ = (D.pinAt (t₂ - D.k)).J := if_neg hnD
+      rw [show (dR.pinAt (t₁ - dR.k)).J = (D.pinAt (t₂ - D.k)).J from by
+        rw [← j₁, ← j₂, hJ₁, hJ₂]]
+      exact hfind
+    obtain ⟨hlenR, hlawR⟩ := hpinψR cvT caps hfind₁
+    have hlvlsR : (dR.pinAt (t₁ - dR.k)).lvls
+        = ((dK.pinAt qK').lvls).map (Level.subst lpsK lvls₁) := by
+      have j : (dR.targetView m.acval ψR).lvls t₁ = (dR.pinAt (t₁ - dR.k)).lvls := if_neg hnR
+      rw [← j, hl₁]
+    have hlvlsD : (D.pinAt (t₂ - D.k)).lvls
+        = ((dK.pinAt qK').lvls).map (Level.subst lpsK lvls₂) := by
+      have j : (D.targetView m.acval ψ).lvls t₂ = (D.pinAt (t₂ - D.k)).lvls := if_neg hnD
+      rw [← j, hl₂]
+    have hvlen : ((dK.pinAt qK').lvls).length = cvT.levelParams.length := by
+      rw [← hlenR, hlvlsR, List.length_map]
+    rw [dR.psiT_of_pin ψR hnR, hlawR, hpinψD cvT caps hfind, hlvlsR, hlvlsD,
+      Level.substFn_map_subst hvlen hpp', Level.substFn_map_subst hvlen hpp', ← hψ₁, ← hψ₂]
+    exact Level.substFn_ext hψ hscope hvlen pp hpp'
+  · -- ONE frame at the target container's parameters
+    intro v hv
+    rw [dR.frameT_of_pin hnR ψR ρR]
+    unfold BlockModel.pinFrame
+    rw [hvals]
+    have hvl : v < (((D.pinAt (t₂ - D.k)).Ds ψ).map (interp V ρp)).length := by
+      rw [List.length_map,
+        show ((D.pinAt (t₂ - D.k)).Ds ψ) = (D.targetView m.acval ψ).Ds t₂ from rfl,
+        hDs₂, List.length_map]
+      omega
+    rw [consList_getD_lt _ _ v hvl, consList_getD_lt _ _ v hvl]
+  · -- ONE index set
+    rw [dR.idxT_of_pin hnR ψR ρR]
+    unfold BlockModel.pinIdx BlockModel.pinFrame
+    have hu : (dR.pinAt (t₁ - dR.k)).u ψR = (D.pinAt (t₂ - D.k)).u ψ := by
+      have j₁ : (dR.targetView m.acval ψR).u t₁ = dR.uT t₁ ψR := rfl
+      have j₂ : (D.targetView m.acval ψ).u t₂ = D.uT t₂ ψ := rfl
+      rw [← BlockModel.uT_of_pin hnR ψR, ← BlockModel.uT_of_pin hnD ψ, ← j₁, ← j₂,
+        hu₁, hu₂, (hcong ψ₁ ψ₂ hψ).1]
+    have hIds : (dR.pinAt (t₁ - dR.k)).Ids ψR = (D.pinAt (t₂ - D.k)).Ids ψ := by
+      rw [show (dR.pinAt (t₁ - dR.k)).Ids ψR = (dR.targetView m.acval ψR).Ids t₁ from
+          (BlockModel.IdsT_of_pin hnR ψR).symm,
+        show (D.pinAt (t₂ - D.k)).Ids ψ = (D.targetView m.acval ψ).Ids t₂ from
+          (BlockModel.IdsT_of_pin hnD ψ).symm,
+        hIds₁, hIds₂, (hcong ψ₁ ψ₂ hψ).2.2]
+    have hIdsB' : FieldsBelow (((D.pinAt (t₂ - D.k)).Ds ψ).map (interp V ρp)).length
+        ((D.pinAt (t₂ - D.k)).Ids ψ) := by
+      rw [show ((D.pinAt (t₂ - D.k)).Ids ψ) = (dK.pinAt qK').Ids ψ₂ from
+            (BlockModel.IdsT_of_pin hnD ψ).symm.trans hIds₂,
+        List.length_map,
+        show ((D.pinAt (t₂ - D.k)).Ds ψ) = ((dK.pinAt qK').Ds ψ₂).map (AnnotTerm.instAll Ds₂ 0)
+          from hDs₂, List.length_map, ← List.length_map (f := interp V ρp)]
+      exact hIdsBelow
+    rw [hu, hIds, hvals]
+    unfold idxSet
+    refine congrArg _ (teleOfFields_congr_below hIdsB' (fun v hv => ?_))
+    rw [consList_getD_lt _ _ v hv, consList_getD_lt _ _ v hv]
+
 /-- **The covering, split at the root GROUP** (task #315 L-E, DESIGN
 §U.65): `InstanceCovered` at the root pin `r` from its two cases — a
 pin of the ROOT group is its own container member's partner

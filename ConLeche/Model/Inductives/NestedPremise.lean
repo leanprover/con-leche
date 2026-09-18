@@ -182,16 +182,27 @@ the WALK (the two sides' `PinCorr` are at the same own pin, so
 `ClassPin`'s `frame` and `idx` come down to that pin's `Ds`/`Ids` at the
 two assignments).
 
+Four parts, and the WALK at a PIN class spends each exactly once
+(DESIGN §U.74): the pins' level ARGUMENTS scoped in the group's own
+level parameters (`ClassPin`'s `psi`, through `Level.substFn_ext` —
+this is also `targetPin_corr`'s `hpd`), the pins' COMPONENTS bounded at
+the container's parameters (`frame`, through `interp_congr_below`: the
+two sides read one component at two frames that agree only below
+`d.nP`), and the `u`/`Ds`/`Ids` congruences (`frame` and `idx`).
+
 It is true of every pin this checker records — a pin's level arguments
 and components are read off the block's own opened constructor, so they
-mention only the block's level parameters — and vacuous at a pins-free
-container. -/
+mention only the block's level parameters and its parameter context —
+and vacuous at a pins-free container. -/
 @[expose] def ContainerPinParams (cvI : ConstantVal) (d : BlockModel V) : Prop :=
-  ∀ q, q < d.nPins → ∀ ψ₁ ψ₂ : Name → Nat,
-    (∀ pp ∈ cvI.levelParams, ψ₁ pp = ψ₂ pp) →
-    (d.pinAt q).u ψ₁ = (d.pinAt q).u ψ₂ ∧
-    (d.pinAt q).Ds ψ₁ = (d.pinAt q).Ds ψ₂ ∧
-    (d.pinAt q).Ids ψ₁ = (d.pinAt q).Ids ψ₂
+  ∀ q, q < d.nPins →
+    (∀ v ∈ (d.pinAt q).lvls, v.allParamsDefined cvI.levelParams = true) ∧
+    (∀ (ψ : Name → Nat) (e : AnnotTerm), e ∈ (d.pinAt q).Ds ψ →
+      ConLeche.Term.Term.bvarsBelow d.nP e.erase) ∧
+    ∀ ψ₁ ψ₂ : Name → Nat, (∀ pp ∈ cvI.levelParams, ψ₁ pp = ψ₂ pp) →
+      (d.pinAt q).u ψ₁ = (d.pinAt q).u ψ₂ ∧
+      (d.pinAt q).Ds ψ₁ = (d.pinAt q).Ds ψ₂ ∧
+      (d.pinAt q).Ids ψ₁ = (d.pinAt q).Ids ψ₂
 
 omit [SetTheory V] in
 /-- At a pins-free container the clause is vacuous. -/
