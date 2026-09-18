@@ -1,0 +1,10 @@
+# tests/unconsumed-allow.txt — names `tests/unconsumed.sh` must not report.
+#
+# One declaration name per line (`#` comments and blank lines ignored);
+# match is on the name as the script prints it.  A line here says "this
+# declaration has been READ and its lack of a consumer is intended" —
+# a named residual waiting for its producer, a capstone statement that
+# is itself the deliverable, or a lemma a tactic consumes rather than a
+# term.  Everything else in the report is a finding.
+#
+# Deliberately EMPTY: the lens is new and its first crop is evidence.

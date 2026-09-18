@@ -2008,4 +2008,27 @@ theorem nestedTailModeled_of_face {F : Nat} (hK36 : NestedCtorPinNamesOf μ F) :
   nestedTailModeled_of_stage hK36
     (nestedRecsStored_of nestedRuleBitsOf_of hK36 nestedTablesData_of)
 
+/-! ## K.36, discharged -/
+
+/-- **K.36 IS THE RUN'S OWN Bool** (task #315 K.53): the face
+`NestedCtorPinNamesOf` asks exactly what the kernel's
+`nestedContainersOk` check already decided, and the kernel lane's
+`nestedContainersOk_ctorNames` (`Verify/Inductives/NestedAuxFormers.lean`,
+K.53) inverts that Bool into the round-trip statement.  The only gap
+between the two is positional: the face quantifies over `st.pins[q]?`,
+the Bool over membership — `List.mem_of_getElem?` bridges it.  With
+this, the recursors' stage of a nested block has NO open model face
+left. -/
+theorem nestedCtorPinNamesOf_of_containersOk (μ : CheckMode) (F : Nat) :
+    NestedCtorPinNamesOf μ F := by
+  intro env p st fmsA ctorsA₀ _hfA _hcA _helim hcont
+  intro q qn hq ci J hci hJ hJn cc hcc
+  exact ConLeche.nestedContainersOk_ctorNames hcont qn
+    (List.mem_of_getElem? hq) ci J hci hJ hJn cc hcc
+
+/-- **THE STAGE, UNCONDITIONALLY**: `nestedTailModeled_of_face` with
+its one face plugged in (K.36 = K.53's Bool inversion). -/
+theorem nestedTailModeled {F : Nat} : NestedTailModeled V μ F :=
+  nestedTailModeled_of_face (nestedCtorPinNamesOf_of_containersOk μ F)
+
 end ConLeche.Model
