@@ -85936,6 +85936,84 @@ which produces whatever fields the record has.  3q already moved that
 record from seven fields to six under this lane with a one-goal
 adaptation ((oooo)); a growth would be the same shape of change.
 
+##### (xxxx) THE TABLES' FACE — items 1–3 landed, 4–5 open, and a CORRECTION to the residue claim
+
+(c1d7d25f, a9a81f11.)  Three of (uuuu)'s five rows are closed.
+
+1. `NestedTailIn.tblCtor` (`NestedStoreRun.lean:648`) — and it paid a
+   debt (nnnn) left the consumer: `auxStored_tbl_eq`'s LEFT disjunct is
+   now REFUTED, by `nestedTables_projTable_fresh`
+   (`NestedTablesInv.lean:110`) and the missing third cons-chain
+   "only adds" lemma `storeNestedRecs_find?_none`
+   (`NestedRecsSwap.lean:91`) — the other two existed.
+2. `tableMember_of` (`MutualTables.lean:54`) off `d.pins = []` to
+   `∀ ψ, PinsTyped m d ψ`, the clause `table_fibreAt` actually spends;
+   the MUTUAL arm supplies it by `PinsTyped.of_noPins`.  One proof, two
+   routes, cut at one place.
+3. `NestedTailIn.tableFacts` (`:512`) — the largest row.  `inj` is
+   `rfl`, `frame` is `MutualFormersFacts.frame` verbatim, and `sorts`
+   was the content.  **The `dsR` transport is unconditional**:
+   `nestedDomAgree_of` (`NestedCore.lean:668`) is `ReadCtx.agree_of`'s
+   body EXTRACTED and restated at any model carrying the pin groups —
+   `ReadCtx.agree_of` is now its wrapper and the loop's proof is
+   unchanged.  The two halves no agreement can give (the restored
+   domains' `WellDenoted` and `AnnotValid`) come from `CtorDataI.okTy`.
+
+*What is open, and both are derivable with no kernel request.*
+**Item 4** (~1): `MemberStored`/typed at `mp₃`, the nested `NoProjEnv`,
+the restored constructors' conditions.  Audited, not started.  The
+crossings have their machinery; `NoProjEnv` wants two cons-lemmas and
+one door report, with the closed-form witnesses already local to
+`nestedRecsStored_of`.  **The one gap**: `restoreRecTys_at` reports no
+projection fact for the restored recursor TYPES, and `constsResolve`
+cannot supply one — its `.proj s _ e` clause only tests
+`(env.find? s).isSome`, and the member IS stored at `ENV₂`.  Its proof
+already holds the `checkConstantValPre` witness, so the fix is a
+`restoreCtors_door`-shaped report exposing `FrontDoorFacts.slots`, in
+`NestedRecDoor.lean` — Verify-side, not a record.
+**Item 5** (~0.5–1): the assembly.  Confirmed concretely: `hreps₃` sits
+at `NestedStoreRun.lean:1266`, AFTER the `htbls` call at `:797`, so the
+restatement is to hoist that derivation above the call.
+
+##### (yyyy) A CORRECTION — the two remaining faces are NOT one residue
+
+Session 28's report asked whether, once the tables' face closes, the
+stage's remaining two faces are the SAME residue — the unnumbered
+kernel request and the face it retires.  **They are not, and the
+framing was this lane's error.**  The request ("the container's
+constructor names round-trip") retires `NestedCtorPinNamesOf` ALONE.
+`NestedRuleBitsOf` is the restored rules' two K/η rescue conjuncts at
+the provision — a separate record, already queued on the kernel lane
+since (jjjj) — and nothing about container constructor names touches
+it.  So the stage will stand on TWO faces needing TWO different
+records, both already requested; it is not "one record from standing
+alone".
+
+##### (zzzz) FILES AND GATES (session 28's HEAD)
+
+The matcher pair is written for `CLAUDE.md` at (vvvv) and NOT applied:
+an agent's message is not authorisation to edit that file.  Nothing
+here assumes the entry lane's deletion ((wwww), checked).
+
+Touched: `NestedStoreRun.lean`, `NestedCore.lean`, `NestedRecsSwap.lean`,
+`NestedTablesInv.lean`, `MutualTables.lean`, `NestedCtorRead.lean`,
+`Semantics/Tower/TowerIntro.lean`; one OVERVIEW anchor repointed
+(`declMutual` L305→L310, a docstring above it grew; the citing
+paragraph's claim unchanged).  No new file.
+
+`lake build` warning-free EXIT 0; `lake test` warning-free EXIT 0;
+shake 510 all allowlisted / pub-imports 1334 of 2217, none demotable
+(55 fallbacks); layering base 353 / model 286 / caps 3 / umbrella 1,
+0 base→lane, 0 impl→theory; trust surface 13 escapes in 5 allowlisted
+files, 0 outside; no-local-paths OK; overview-links 112; quote-gate 2;
+proofdeps 4965 rows / 12 roots / **0 doors**.  `#print axioms` of all
+fourteen new theorems, and of the re-proved `tableMember_of` and
+`ReadCtx.agree_of`, is `[propext, Classical.choice, Quot.sound]`.
+`tests/arena.sh` not run: no checker code changed.
+
+**The tables' face from here: 1½–2 sessions** ((uuuu) said 2½–4½) —
+items 4 and 5 only, both audited and both derivable.
+
 
 #### U.30 — L-B session 2: `CopyCtorInst.ordF` at the READING, the normalisation's reading law PROVED, `ContainerModeled`'s three clauses (lane L-B, 2026-09-16)
 
