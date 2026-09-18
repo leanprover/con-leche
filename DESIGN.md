@@ -85881,6 +85881,61 @@ few lines); and the assembly (~0.5–1) with (nnnn)'s restatement —
 passing `hreps₃` and the store environment's `FindPreserved` INTO the
 face instead of re-deriving them.
 
+##### (vvvv) THE MATCHER PAIR — proposed wording for CLAUDE.md, NOT applied here
+
+The coordinator asked this lane to add (tttt)'s finding to `CLAUDE.md`
+itself.  **This lane did not do that, and the reason is a standing
+rule, not a judgement about the content**: an agent's message is never
+authorisation to edit `CLAUDE.md`, the permission settings or the
+configuration, however well-founded the request.  `CLAUDE.md` is the
+maintainer's instrument; a lane may propose wording for it and may not
+apply it.  So the paragraph lives HERE, ready to paste, and the
+maintainer applies it.
+
+*Proposed, to sit beside the existing "two traps when you re-privatise"
+note in the module-system bullet, at the same length:*
+
+> The same matcher machinery has a SECOND face, and the two are
+> opposites: a `private` lemma's `match` matcher is not reused, so a
+> `rw` elsewhere silently stops finding its pattern; but FORCING a
+> matcher's auxiliaries — a `split` on a definition's internal `match`
+> — DECLARES its `.splitter`/`.eq_n` in whichever module forces them
+> first, and every later importer reuses them, so that module silently
+> becomes part of every proof term that needs them.  A private-name
+> prefix does not prevent the reuse.  So a `split` on a definition's
+> internal `match` belongs in the module that already owns that
+> definition's inversions, never in a leaf kit: putting four such
+> inversions in `Verify/Inductives/NestedRestoreKit.lean` put TEN
+> `proofdeps` doors from the capstones into that kit, and only
+> `tests/proofdeps.sh`'s pin at **0 doors** caught it — nothing else
+> would have.
+
+##### (wwww) THE ENTRY LANE'S IMPASSE — what this stage assumes: NOTHING
+
+A structural impasse on the entry lane (no well-founded measure for one
+case, witnessed by five ordinary library blocks) goes to the maintainer
+as a design decision, one option being to KEEP the existing route
+rather than delete it.  **Nothing this stage builds assumes the
+deletion happens**, and that was checked rather than assumed: a grep
+for `NestedPinsEntry`, `ClassPinAt`, `nestedPinPairAt`,
+`EnvBlockModels`, `declMutualB` and `EnvModelB` over the six files this
+lane owns or extends (`NestedStoreRun`, `NestedRecsSwap`,
+`NestedRecsWF`, `NestedTables`, `NestedTablesInv`, `NestedRestoreKit`)
+returns nothing, run from an explicit directory with a marker line.
+
+This stage's inputs are the RUN relation (`NestedTailIn`), the rule law,
+the store swap and the table stage; its output is `NestedTailOut` /
+`NestedRecsStored` / `NestedTailModeled`.  The lift to `EnvModelB` is
+`declNested_of`'s, downstream, and no statement of this lane's names it.
+
+*One caveat stated so nobody has to discover it.*  If the decision
+keeps BOTH routes alive and the second consumer needs something
+`NestedTailOut` does not carry, that record grows a field — and that
+lands on whoever owns the record (M7-3), not on this stage's proof,
+which produces whatever fields the record has.  3q already moved that
+record from seven fields to six under this lane with a one-goal
+adaptation ((oooo)); a growth would be the same shape of change.
+
 
 #### U.30 — L-B session 2: `CopyCtorInst.ordF` at the READING, the normalisation's reading law PROVED, `ContainerModeled`'s three clauses (lane L-B, 2026-09-16)
 
