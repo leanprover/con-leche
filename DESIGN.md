@@ -82390,11 +82390,68 @@ gate itself untouched): **138 rows in 1.1 s → 162 rows in 1.5 s**, i.e.
 times in the full battery, so the whole cost of the audit's arming is
 **under two seconds**.
 
-**One honesty note the script's own text now carries**: `arena_half`
-counts `good/*`, not `good/tutorial/*`, so its summary line reads
-**91/96** where it read 90/92 and the word "tutorial" in that label is
-no longer accurate.  Changing the script was not authorised and is not
-done; the count is right, the label is the script's.
+**The summary label, then fixed narrowly.**  `arena_half` counts
+`good/*`, not `good/tutorial/*`, so its line reads **91/96** where it
+read 90/92 — and it used to say "arena tutorial" while counting more
+than the tutorial suite.  ONE WORD, text only, selection logic and
+counting untouched: `arena tutorial:` → **`arena suite:`**.  Nothing
+machine-readable consumes that string (CI names it only in comments;
+this document's ~90 occurrences are transcripts of past runs and stay
+as they were).  `tests/arena.sh`'s header comment still calls the
+corpus "the lean kernel arena tutorial tests", which is now also
+narrower than the row file — outside the authorisation, left alone,
+and named here so the next reader does not take it for the scope.
+
+**The `bad/perf/` question, settled on a criterion worth keeping.**
+The authorisation read both "the twenty `bad/` streams" and "not the
+performance suite", which cannot both hold — the twenty is 18
+top-level plus 2 `bad/perf/`.  The maintainer's resolution is the
+general rule: **the exclusion is about the VALUE OF THE STREAM, not
+its directory.**  A TIMING test's value is throughput, which
+`tests/scale.sh` and PERF.md measure, so pinning its verdict buys
+little; a REFUTATION stream's value IS its verdict, wherever it sits.
+So `bad/perf/refute-cheap-{first,last}` belong with the eighteen.
+
+##### (g) THREE THINGS FROM THIS AUDIT THAT ARE METHOD, NOT CONTENT
+
+**1. The cost was MEASURED, not asserted.**  The arena half's loop was
+replicated verbatim in a scratch script — row-file iteration,
+`timeout 60`, no mode flag, the gate itself untouched — and timed at
+the median of three runs, before and after, reported per half AND per
+battery (the half runs four times).  1.1 s → 1.5 s is a fact; "zero
+measurable cost" would have been a claim.  **This is the standard for
+any future row addition**: replicate, do not modify; median, not one
+run; per battery, not per invocation.
+
+**2. Mode-dependence was checked BEFORE anything was pinned**, and
+nobody asked for it.  The battery re-runs the arena half at the
+default mode, `--trusted`, `--jobs=1` and `--jobs=4`; a candidate whose
+verdict moved between them would have broken the sweeps the moment its
+row landed, and `tests/trusted-expected.txt` would have needed an
+override nobody had measured.  All **28** candidates give the SAME exit
+code in all four modes.  That is what makes those rows safe rather than
+lucky, and it is cheap: four runs of a corpus that costs 0 s.
+
+**3. AN UNGATED FIXTURE HIDES IMPROVEMENTS EXACTLY AS IT HIDES
+DEFECTS.**  On the morning of this same day, a fixture in no gate was
+where the `mintedAt` mint defect had been sitting (K.41 refusing a
+stream official accepts, found only by a census).  On the afternoon of
+it, a fixture in no gate was where a **4.9× speed-up and a 2.7× memory
+reduction** had been sitting unnoticed.  Same hole, opposite sign.
+**A gate is not only a guard against regression; it is the only thing
+that tells you when you have won.**
+
+**FOR WHOEVER WRITES THE NEXT PERFORMANCE PASS** — `good/perf/` remains
+outside every gate by design (its value is throughput, see (f)), so
+this is the one place the figures are recorded: **do not cite task
+#78's `good/perf/app-lam` figure of 119 s / 7.6 GB peak RSS.  It is
+wrong by 4.9× in time and 2.7× in memory.**  Measured 2026-09-18,
+three runs under `ulimit -v 16000000`: **24.1 / 24.7 / 24.4 s wall,
+peak RSS 2 787 MB.**  The memory number matters most: 7.6 GB was what
+made this stream look like one that needs a raised limit, and it does
+not.  PERF.md tracks `app-lam` by INSTRUCTIONS (29.41 G) and is
+regenerated, so it is not stale — only this document's wall/RSS pair
+was, and it is corrected in (b).
 
 **The honest summary is that the question closes without a defect.**
 Nothing exits 3, nothing unsound accepts, the one `good/` reject is a

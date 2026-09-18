@@ -1,5 +1,7 @@
-# Expected exit codes for the vendored arena tutorial tests, read by
-# tests/arena.sh (0 accept, 1 reject, 2 decline, 3 error).
+# Expected exit codes for the vendored arena tests, read by
+# tests/arena.sh (0 accept, 1 reject, 2 decline, 3 error).  Rows 1-138
+# are the `tutorial` subtree; the block at the end of this file adds
+# the non-tutorial ones (task #315's arena audit, 2026-09-18).
 #
 # An expectation is a single exit code.
 #
@@ -261,20 +263,26 @@
 # `--jobs=1` and `--jobs=4`, so no `tests/trusted-expected.txt`
 # override belongs with them.
 #
-# `good/perf/` (16 streams, all accept) is deliberately NOT here: its
-# value is throughput, which tests/scale.sh and PERF.md measure, and
+# `good/perf/` (16 streams, all accept) is deliberately NOT here, and
+# the criterion is the VALUE OF THE STREAM, not its directory: a
+# TIMING test's value is throughput, which tests/scale.sh and PERF.md
+# already measure, so pinning its verdict buys little — and
 # `good/perf/app-lam` alone would add 24 s to a half that costs 1.1 s.
-# The two `bad/perf/` streams ARE here — they are soundness negatives
-# that cost nothing, and the authorisation counted twenty `bad/`
-# streams, which is 18 top-level plus these two.  If "not the
-# performance suite" was meant to cover them, drop exactly these two
-# rows; nothing else in this block depends on them.
+# A REFUTATION stream's value IS its verdict, wherever it sits.  So the
+# two `bad/perf/` streams ARE here, with the eighteen top-level ones,
+# and that is the twenty.  (Recorded because the authorisation first
+# read "the twenty `bad/` streams" AND "not the performance suite",
+# which cannot both hold; the maintainer settled it on this criterion.)
 #
-# NOTE for whoever reads the harness's summary line: `arena_half`
-# counts `good/*`, not `good/tutorial/*`, so its "arena tutorial"
-# label now spans four more good rows and reads 91/96 where it read
-# 90/92.  The label is the script's and the script is not touched
-# here; the count is honest, the word "tutorial" in it is not.
+# THE SUMMARY LABEL, and it was fixed rather than left wrong:
+# `arena_half` counts `good/*`, not `good/tutorial/*`, so with these
+# rows it reads 91/96 where it read 90/92 — and the line used to say
+# "arena tutorial", which was then counting more than the tutorial
+# suite.  One word changed, text only: it says **"arena suite"**.  The
+# selection logic and the counting are untouched.  (`tests/arena.sh`'s
+# own header comment still describes the corpus as "the lean kernel
+# arena tutorial tests", which is now also narrower than what the file
+# names; that line was outside the authorisation and is left alone.)
 #
 # --- bad/ : kernel-soundness negatives (20) --------------------------
 # A row here arms `arena_half`'s `bad/*` arm, which fails on exit 0.

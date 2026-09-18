@@ -331,7 +331,7 @@ annot_half() {
 # stays and is now the pass's *negative* gate: the annot_decline_*
 # streams carry explicit wrong claims the pass must not overwrite.
 arena_half
-echo "arena tutorial: $accepted/$total_good good tests accepted"
+echo "arena suite: $accepted/$total_good good tests accepted"
 if [ -f "$E2E_EXPECTED" ]; then
   e2e_half
   echo "e2e: $e2e_ok/$e2e_total as expected"
