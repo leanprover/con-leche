@@ -107469,3 +107469,102 @@ method; layering, trust-surface, no-local-paths, overview-links,
 quote-gate, proofdeps, shake and nested-shadow all pass.
 `tests/arena.sh` not re-run: no checker code touched (every commit is
 Verify/Model tier or a gate-script comment).
+
+#### L-B session 34: the `ordF`-RIGHT arm at a PIN target is ASSEMBLED (lane L-B, 2026-09-18)
+
+*(No number taken: the title is the citation, the integrator numbers.)*
+
+##### (a) `copyOrdFRightReadP` — `EntryRead` at the last arm that had none
+
+At a container-ordinary field the auxiliary block classified
+`.recursive` at a target at or above `p.k`, the copy's entry is the
+BLOCK PIN's stored reading applied to the copy's index expressions, and
+those fit the pin's index telescope at the pin's frame.  Commit
+`0100f976`.
+
+**The member arm's twin, step for step.**  Where `copyOrdFRightReadM`
+reads the target off `BlockCtorData.recEntry` and gets its fit from
+`leafSpineFit`, this arm reads it off the rewrite's backwards inversion
+and its reading (`copyOrdFRightPinCorr`, `copyOrdFRightPinRead`), and
+gets the fit from `blockFormer_ids_fit_gen`.  The reason for the last
+substitution is the arm's whole character: **at a pin the head is the
+CONTAINER's reading applied to the pin's COMPONENTS, not a block
+member's leaf applied to the parameter variables**, so the fit lands at
+the components' frame — which is exactly what `TargetView.frame` is at
+a pin target.
+
+##### (b) THE TWO FRAMES WERE ALREADY APART, which is what made the fit cheap
+
+`blockFormer_ids_fit_gen` (commit `e4a61225`) is
+`IsBlockModels.former_app_fit` with the parameter arguments free AND the
+FIT's frame free of the READING's.  The second generalisation is the one
+that mattered: the copy's field reads one binder-depth down (under the
+constructor's earlier fields) while the target's telescope is read at
+the block's parameter frame, and `spineFit_of_wellDenoted_mkAppN_pis`
+**already takes `σ` and `ρ` apart**.  The former's own value is closed,
+so nothing is transported.
+
+The alternative — take the fit at the reading's frame and transport it
+across the earlier field binders — would have needed a scoping fact
+about the block model's `ppsM` that this lane never had to go looking
+for.  Sixth time on this route that the tree's existing shape was better
+than the one about to be built.
+
+##### (c) TWO EXPLICIT HYPOTHESES, NO SHARED RECORD TOUCHED
+
+* K.51's run, in the shape `copyOrdFRightPinRun` produces (with the
+  state-length conjunct, now threaded through `copyFieldReadPin` so the
+  inversion can be taken at a walk that mints nothing);
+* `(fms.getD (p.k + q) default).nIdx = (pinsS.getD q default).nIdx` —
+  the copy former's index count against the pin's.
+  **`NestedPinsRun.pinNIdx` PROVES it**, but at the concrete `pinOf`,
+  and `NestedPinSynFacts` is stated over an abstract `pinsS` and carries
+  no such clause.  The K.42 precedent applies: the arm takes it, whoever
+  threads the field discharges it where `pinsS` is instantiated, and no
+  other lane's surface moves.  Recorded here so the threading knows what
+  it owes.
+
+##### (d) THE RETIREMENT CHECK — nothing displaced this time either
+
+Asked again after the assembly.  `copyFieldReadCore` and the member
+arms are untouched consumers; `copyOrdFRightPinRun` is the arm's
+producer; `replaceAllNested_head_const` keeps `copyPinFCorr` (session
+33 (c)).  **Nothing became unnecessary.**  Two consecutive negative
+checks are worth recording as such: a route record that only lists
+successful retirements misstates how much of the tree is load-bearing.
+
+##### (e) THE GREEN CLAIM, AND WHERE THE RULE NOW LIVES
+
+`tests/warning-free.sh` (commit `5b07f6e2`) mechanizes the sound check:
+it deletes the build artifacts of every module whose source moved since
+a base ref — so those modules and their dependents MUST recompile — then
+counts warning lines with an unanchored case-insensitive grep, prints
+how many modules actually recompiled, and FAILS when that is zero,
+because a run in which nothing recompiled proves nothing.  Its header
+carries the general rule, which is not specific to builds:
+
+> **A NEGATIVE CLAIM NEEDS A COMMAND THAT CAN EXPRESS THE NEGATIVE.**
+> Before reporting "X does not occur", ask what the command would have
+> printed if X did.  If the answer is "the same thing", the check proves
+> nothing.
+
+It is placed there, and not only in this record, because that is what a
+lane runs before reporting green — the same reasoning that put the
+equation-lemma hazard in `tests/proofdeps.sh`'s header.  Advisory: not
+wired into CI or `tests/arena.sh`.
+
+At `0100f976`: `tests/warning-free.sh eb0affac` reports 12 changed
+modules, **12 recompiled, 0 warning lines**; layering, trust-surface,
+no-local-paths, overview-links, quote-gate, proofdeps, shake and
+nested-shadow all pass.  `tests/arena.sh` not re-run: no checker code
+touched.
+
+##### (f) WHERE `NestedPinsShapeOrdRight` STANDS
+
+All four of `CopyCtorShape`'s arms now have their `ordF`-right reading:
+ordinary-left (`copyOrdFLeftRead`), member-target
+(`copyOrdFRightReadM`), member-target reflexive, and — as of this
+session — **pin-target (`copyOrdFRightReadP`)**.  What remains for
+`NestedPinsShapeOrdRight` itself is the dispatch: choosing the arm off
+the classification and the target's position, and threading the two
+hypotheses of (c).  No open mathematical question in it.
