@@ -85604,7 +85604,7 @@ by taking "true by construction" to mean "short to prove"; the
 construction is the scratch stage's, and every step of reading it back
 crosses the restore.
 
-##### (pppp) K.51 (request) — the container's constructor names ROUND-TRIP, and the evidence gap closed
+##### (pppp) KERNEL REQUEST (unnumbered) — "the container's constructor names ROUND-TRIP", and the evidence gap closed
 
 (mmmm) reduced K.36's nested face to "either `J.name` is an ancestor of
 `cc.name`, or `q.aux` is not", showed that the mutual retirement
@@ -85648,6 +85648,13 @@ cuts in our favour here, not against.  Measurement as K.39's: the 27
 shadow fixtures and the 41-block Mathlib cone must be `true`, with one
 negative control (a constructor renamed out of its inductive's
 namespace).
+
+*On the NUMBER.*  This section first called the request K.51; that
+number was reserved for another lane and is withdrawn here.  **A lane
+does not assign a kernel record number**: seven collisions on this task
+made the number space the integrator's, so a request is cited BY TITLE
+until it is queued and numbered centrally.  Cite this one as "the
+container's constructor names round-trip".
 
 *The ledger row, and the basis it must be defended on.*  This is a
 **category-B** check — true by construction of OFFICIAL's own
