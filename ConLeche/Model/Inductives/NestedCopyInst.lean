@@ -3154,6 +3154,143 @@ theorem copyPinFCorr {pbs : List (Expr × ConLeche.BinderMeta)}
     rw [targetRead_of_pin (by omega), show p.k + qq - p.k = qq from by omega, hJQ, hDsQ,
       hheadEA]
 
+/-- **THE COPY'S TARGET'S INDEX DATA AT A PIN TARGET** (task #315 L-B):
+at the block pin the nested field landed on, the target view's index
+universe and index telescope are the pin's CONTAINER GROUP's block
+model's, at the group-relative index the pin table's own `grpBase`
+names, and at the CONTAINER's pin's level assignment.
+
+This is the block half of `PinCorr`'s `u` and `Ids` clauses, and it is
+everything those clauses need that this tree carries.  The index data
+come off `NestedPinSynFacts.groupsAt` at the pin — the group syn at the
+NAMED model `blockOf mp.base2 ci'`, which is the same content lane
+L-E's derived `NestedPinSynFacts.pinSem` exposes per pin — through
+`pinU`, `pinPps` and `pinNP`; the ASSIGNMENT moves by the two models'
+level-parameter congruences (`IsBlockModel.uParams` for the universe,
+`FormerData.params` for the telescope), which is what the pointwise
+agreement of `copyPinFCorr` supplies: the two pins' assignments agree
+AT the container's own level parameters and not as functions, which is
+why the congruences are stated over a membership.
+
+What is left of `PinCorr`'s two clauses after this is exactly
+
+    (dJ.pinAt qK).u   ψK = (blockOf mp.base2 ci').uM   i₂ ψK
+    (dJ.pinAt qK).Ids ψK = (blockOf mp.base2 ci').IdsM i₂ ψK
+
+at `ψK = (dJ.pinAt qK).ψJ ((pinsS.getD (q₀ + i') default).ψJ ψ)` — the
+CONTAINER's own pin read against ITS container's block model at the
+same group-relative index.  That is a `PinGroupView` at `dJ`
+(`PinGroupView.pinU`, `pinPps`/`pinNP`, which is how
+`pinCorr_of_ownPins`'s `huIds` premise is meant to be discharged).
+
+**It is `PinShapes`' first component, and `PinShapes` takes the
+container model family ABSTRACTLY** (`B : ContainerInfo → BlockModel V`,
+not `blockOf`): at every pin `q` it hands back a
+`PinGroupView d (B ci) q₀ kJ` at the pin's own container record, whose
+`name` field forces the index by the pin's name rather than by
+position.  An earlier revision of this comment said the view was
+available only at the concrete `blockOf` and only where the run holds
+`PinsModeled`; that was wrong, and wrong in the direction that helps —
+the view is at the abstract family the shape is parameterised by, one
+level out from the per-`dJ` records swept below.
+
+Those records are still the wrong place to look for it:
+`NestedPinGroupSyn`'s `modeled` gives `ContainerModeled`, whose pin
+clauses are `pinψ`, `pinNP`, `pinConts`, `pinParams`, `nestMention` and
+`pinsNotMembers`, and `IsBlockModels` constrains a pin's `u`/`Ids` only
+through `pinShape`, `pinMem`/`pinMono` and `pinLeaf` — properties of
+`dJ`'s own carriers rather than a tie to the pin's container's model.
+The derivation off the shape record is landing on the entry lane's
+branch as a single named lemma, with the universe restated at the pin's
+own assignment (the form these clauses want), and arrives with the
+positivity record at the next integration. -/
+theorem copyPinFUIds {pbs : List (Expr × ConLeche.BinderMeta)}
+    (hPD : ∀ q, q < st.pins.length → PinData env st p pbs q)
+    {i' : Nat} (hi' : i' < kJ)
+    {j : Nat} {cAJ : ConstantVal × Nat} (hj : (dJ.ctorsM i')[j]? = some cAJ)
+    {l : Nat} (hlF : l < cAJ.2)
+    (hnest : ¬ dJ.tgts i' j l < dJ.k)
+    (hrec : (dJ.ksF i' j).getD l .ordinary = .recursive)
+    (hkA : kindAt (mutKsOf kinds (b.ownOffset (p.k + q₀ + i') + j)) l = RecFieldKind.recursive)
+    {ci : ContainerInfo} {J : ContainerMember}
+    (hci : ConLeche.containerInfo? env (pinsS.getD (q₀ + i') default).J = some ci)
+    (hJmem : J ∈ ci.members) (hJn : J.name = (pinsS.getD (q₀ + i') default).J)
+    (CM : ∀ ciJ : ContainerInfo,
+      ConLeche.containerInfo? env (pinsS.getD (q₀ + i') default).J = some ciJ →
+      ContainerModeled mp₁'.base2 ciJ dJ) (ψ : Name → Nat) :
+    ∃ (ci' : ContainerInfo) (qq q₀₂ kJ₂ i₂ : Nat),
+      ConLeche.containerInfo? env (dJ.pinAt (dJ.tgts i' j l - dJ.k)).J = some ci' ∧
+      ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+        (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0 = p.k + qq ∧
+      qq = q₀₂ + i₂ ∧ i₂ < kJ₂ ∧ (st.pins.getD qq default).grpBase = q₀₂ ∧
+      (nestedTV (V := V) b.nP p.k f₀.s ppsF W pinsS mp₁'.base2.acval
+          ((fms.take p.k).map (·.cvTa.name)) ψ).u (p.k + qq)
+        = (blockOf mp.base2 ci').uM i₂
+            ((dJ.pinAt (dJ.tgts i' j l - dJ.k)).ψJ
+              ((pinsS.getD (q₀ + i') default).ψJ ψ)) ∧
+      (nestedTV (V := V) b.nP p.k f₀.s ppsF W pinsS mp₁'.base2.acval
+          ((fms.take p.k).map (·.cvTa.name)) ψ).Ids (p.k + qq)
+        = (blockOf mp.base2 ci').IdsM i₂
+            ((dJ.pinAt (dJ.tgts i' j l - dJ.k)).ψJ
+              ((pinsS.getD (q₀ + i') default).ψJ ψ)) := by
+  classical
+  obtain ⟨ci', qn, qq, hci', hnPeq, hqq, hidx, hhead, hargsLen, hJQ, hclvls, hDsE, hlps, hDsQ,
+    ⟨cvQ, capsQ, hfindQ, hagree⟩, -⟩ :=
+    copyPinFCorr R SF S hPD hi' hj hlF hnest hrec hkA hci hJmem hJn CM ψ
+  have hqqLt : qq < st.pins.length := (List.getElem?_eq_some_iff.mp hqq).1
+  have hqSq : qq < pinsS.length := by rw [SF.pinsLen]; exact hqqLt
+  -- the pin's own group, at the NAMED model of its container
+  obtain ⟨q₀₂, kJ₂, i₂, hqqEq, hi₂, S₂⟩ :=
+    SF.groupsAt dsR xFvsR qq hqSq ci' (by rw [hJQ]; exact hci')
+  -- the group's record at the pin, and its container's constant
+  obtain ⟨cvQ', capsQ', cvR₂, mI₂, rP₂, rules₂, hfindQ'₀, hI₂, -⟩ := S₂.stored i₂ hi₂
+  have hfindQ' : (ConLeche.consMutualFormers (fms.take p.k) env).find?
+      (pinsS.getD (q₀₂ + i₂) default).J = some (.indInfo cvQ' capsQ') := hfindQ'₀
+  rw [← hqqEq] at hfindQ'
+  have hcvQ : cvQ' = cvQ := by
+    have hfq : (ConLeche.consMutualFormers (fms.take p.k) env).find?
+        (pinsS.getD qq default).J = some (.indInfo cvQ capsQ) := by
+      rw [hJQ]; exact hfindQ
+    have h := hfindQ'.symm.trans hfq
+    simp only [Option.some.injEq, ConLeche.ConstantInfo.indInfo.injEq] at h
+    exact h.1
+  subst hcvQ
+  -- the group's index data at the pin, spelled at `pinsS`
+  have hpinU : (pinsS.getD qq default).u ψ
+      = (blockOf mp.base2 ci').uM i₂ ((pinsS.getD qq default).ψJ ψ) := by
+    have h := S₂.pinU i₂ hi₂ ψ i₂ hi₂
+    rw [← hqqEq] at h
+    exact h
+  have hpinPps : (pinsS.getD qq default).pps = (blockOf mp.base2 ci').ppsM i₂ := by
+    have h := S₂.pinPps i₂ hi₂
+    rw [← hqqEq] at h
+    exact h
+  have hpinNP : (pinsS.getD qq default).nPJ = (blockOf mp.base2 ci').nP := by
+    have h := S₂.pinNP i₂ hi₂
+    rw [← hqqEq] at h
+    exact h
+  -- the two assignments agree AT the container's own level parameters
+  have hi₂k : i₂ < (blockOf mp.base2 ci').k := by rw [S₂.kEq]; exact hi₂
+  have huC := hI₂.uParams i₂ hi₂k ((pinsS.getD qq default).ψJ ψ)
+    ((dJ.pinAt (dJ.tgts i' j l - dJ.k)).ψJ ((pinsS.getD (q₀ + i') default).ψJ ψ)) hagree
+  have hppsC := (hI₂.former.params ((pinsS.getD qq default).ψJ ψ)
+    ((dJ.pinAt (dJ.tgts i' j l - dJ.k)).ψJ ((pinsS.getD (q₀ + i') default).ψJ ψ)) hagree).1
+  refine ⟨ci', qq, q₀₂, kJ₂, i₂, hci', hidx, hqqEq, hi₂, ?_, ?_, ?_⟩
+  · have h := (S₂.grp i₂ hi₂).1
+    rw [← hqqEq] at h
+    exact h
+  · -- the index UNIVERSE
+    show nestedU p.k W pinsS ψ (p.k + qq) = _
+    rw [nestedU_pin, hpinU, huC]
+  · -- the index TELESCOPE
+    show (if p.k + qq < p.k then blockIds b.nP ppsF ψ (p.k + qq)
+      else (pinsS.getD (p.k + qq - p.k) default).Ids ψ) = _
+    rw [if_neg (by omega), show p.k + qq - p.k = qq from by omega]
+    show (((pinsS.getD qq default).pps ((pinsS.getD qq default).ψJ ψ)).drop
+      (pinsS.getD qq default).nPJ).map (·.2.2) = _
+    rw [hpinPps, hpinNP, hppsC]
+    rfl
+
 /-- **THE AUXILIARY BLOCK'S KIND AT A COPY'S RECURSIVE FIELD** (task
 #315 L-B): a container field that is FINITARY RECURSIVE at one of the
 container's own members `m` is classified by the auxiliary block's

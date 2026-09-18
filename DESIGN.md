@@ -104494,3 +104494,166 @@ producer, present and future, an obligation that nobody has to supply.
 Seven of nine sites were vacuous last time and that is what made a
 clause cheap; here the count never had to be taken, because no site
 pays anything.
+
+#### U.118 — L-B session 29: `PinCorr`'s `u` and `Ids` — the BLOCK half written, and the CONTAINER half needs a group view no record carries at `dJ` (lane L-B, 2026-09-18)
+
+*(Numbered at integration 3u: this lane and lane M7-3 BOTH took §U.117,
+each correctly reading the next-free number integration 3t recorded on
+the integration branch — the recording rule working, two lanes reading
+one public number rather than one lane guessing.  The tie goes to merge
+order, and M7-3 merged first, so this is §U.118.  Next free: §U.119.)*
+
+*(Numbered as the next free section at the synced commit `7e9569c4`;
+the integrator renumbers if a lower one is reserved.)*
+
+##### (a) THE ARRIVED LEMMA IS THE BLOCK HALF, AND IT WORKS
+
+`NestedPinSynFacts.pinSem` (§U.113) is exactly the per-pin data this
+lane asked for, and it is spent here.  `NestedPinsRun.copyPinFUIds`
+(`NestedCopyInst.lean`, commit `df22fa8b`) proves, at the block pin the
+nested field landed on:
+
+    TV.u   (p.k + qq) = (blockOf mp.base2 ci').uM   i₂ ψK
+    TV.Ids (p.k + qq) = (blockOf mp.base2 ci').IdsM i₂ ψK
+
+at `ψK = (dJ.pinAt qK).ψJ ((pinsS.getD (q₀ + i') default).ψJ ψ)`, with
+`qq = q₀₂ + i₂`, `i₂ < kJ₂` and `(st.pins.getD qq default).grpBase = q₀₂`
+— the group-relative index tied to the pin table's own base, as the
+lemma's shape asks.
+
+Three steps and no surprises: `nestedU_pin` and `nestedTV`'s pin branch
+open the target view; the index data come off
+`NestedPinSynFacts.groupsAt` at the pin (the same content `pinSem`
+exposes, at the NAMED model `blockOf mp.base2 ci'`) through `pinU`,
+`pinPps` and `pinNP`, with `PinSyn.Ids`'s definition turning
+`pps`/`nPJ` into `IdsM`; and the ASSIGNMENT moves by the two
+congruences — `IsBlockModel.uParams` for the universe,
+`FormerData.params` for the telescope — fed by the pointwise level
+agreement §U.114 (d) put into `copyPinFCorr`.  That agreement is
+pointwise and not an equality of assignments, which is exactly why both
+congruences are stated over a membership; the shape predicted in the
+brief is the shape the proof wanted.
+
+##### (b) WHAT IS LEFT IS THE CONTAINER HALF, AND IT IS ONE FACT
+
+After (a), `PinCorr`'s two clauses are equivalent to
+
+    (dJ.pinAt qK).u   ψK = (blockOf mp.base2 ci').uM   i₂ ψK
+    (dJ.pinAt qK).Ids ψK = (blockOf mp.base2 ci').IdsM i₂ ψK
+
+— the CONTAINER's own pin read against ITS container's block model at
+the same group-relative index.  That is a `PinGroupView` at `dJ`
+(`PinGroupView.pinU`, `pinPps`, `pinNP`), which is also how
+`pinCorr_of_ownPins`' own `huIds` premise is documented as being
+discharged ("the pins' group views").
+
+**Checked, not assumed**, at commit `7e9569c4`, over every record this
+lane holds at `dJ`:
+
+* `NestedPinGroupSyn` (25 fields): `pinU`, `pinNP`, `pinNIdx`,
+  `pinPps`, `pinDsLen` are the BLOCK's pins against `dJ`'s MEMBERS —
+  the other direction.  Its only clauses about `dJ`'s OWN pins are
+  `contsEnv` (the container reads the same at `env`) and `pinsTyped`.
+* `ContainerModeled` (14 fields, post-`ContainerPinParams` split):
+  `pinψ`, `pinNP`, `pinConts`, `pinParams`, `nestMention`,
+  `pinsNotMembers`.  `pinParams` is a CONGRUENCE in the assignment, not
+  an identification; nothing names another model.
+* `IsBlockModel` via `reps`: `pinShape`, `pinMem`, `pinMono`,
+  `pinLeaf`, `pinsFound`.  These constrain a pin's `u`/`Ids` only
+  through `dJ`'s OWN carriers.  Going through `pinLeaf` and the
+  J'-model's `leaf` gives one equation between applications, from which
+  `u` can be read back only if the index SETS are already known equal
+  — which is the `Ids` clause, so the route is circular.
+* `PinShapes`/`BlockAt` carry EXACTLY the missing view.  **This entry
+  was WRONG as first written** — it said "at `blockOf m ci` and only
+  where the run holds `PinsModeled`, never for the abstract `dJ`".
+  `PinShapes` takes the container model family ABSTRACTLY
+  (`B : ContainerInfo → BlockModel V`) and hands back a
+  `PinGroupView d (B ci) q₀ kJ` at every pin of `d`, at the pin's own
+  container record — so the view IS available at the family the shape
+  is parameterised by, and the three consequences are three of that
+  view's fields (`pinNP`, `pinPps`, `pinU`), with `same` rewriting the
+  group base's assignment to the pin's own and `name` forcing the index
+  by the pin's NAME rather than by position, exactly as (c) predicted
+  no tie would be needed.
+
+So the gap was never a missing fact: it was one level out from where
+this sweep looked.
+
+##### (c) THE REQUEST, minimal and stated
+
+**For a container's OWN pins, a group view at the pin's container's
+chosen model.**  Either form serves; the second is what the consumer
+spends:
+
+1. as a `ContainerModeled` (or `NestedPinGroupSyn`) clause,
+   `∀ q < d.nPins, ∀ ci'', containerInfo? env (d.pinAt q).J = some ci'' →
+   ∃ q₀'' kJ'' i'', PinGroupView d (blockOf m ci'') q₀'' kJ'' ∧ q = q₀'' + i''`; or
+2. just its three consequences at the pin, which is all this arm needs:
+   `(d.pinAt q).nPJ = (blockOf m ci'').nP`,
+   `(d.pinAt q).pps = (blockOf m ci'').ppsM i''`,
+   `∀ ψ, (d.pinAt q).u ψ = (blockOf m ci'').uM i'' ((d.pinAt q).ψJ ψ)`,
+   with `(blockOf m ci'').memberName i'' = (d.pinAt q).J`.
+
+**No index tie is needed in the request**: the member names of a group
+are `Nodup` (`containerInfo?_inv`) and `ContainerModeled.member` names
+them, so `i''` is forced by the name and coincides with this arm's `i₂`
+— which `NestedPinGroupSyn.name` gives on the block side.
+
+If the data turn out to be derivable from a field already carried — as
+§U.113's did — that is better than a clause, and the same three
+consequences are what to derive.  `ContainerModeled.ownPins`
+(`ContainerOwnPinsSyn`, still to land) does NOT answer this: it
+identifies which pin a container's own mimic table names, not that
+pin's index data.
+
+##### (d) LEDGER
+
+Two residuals, both with a route and neither blocked on this lane:
+`NestedPinsShapeOrdRight` (pin target, both kinds, one statement)
+waits on the positivity record, landed on the kernel lane and arriving
+at the next integration; `NestedPinsShapePinF` has `J`, `lvls`, `Ds`
+and `EA` proved and its `u`/`Ids` reduced by (a) to the single fact of
+(c) — which DERIVES off the shape record and is landing as a named
+lemma, so neither residual carries a producer obligation for anyone.
+
+##### (e) GATES
+
+At `df22fa8b`: `lake build` warning-free; `lake build ConLecheTests`
+warning-free; layering base 353 / model 286 / caps 3 / umbrella 1, 0
+base->lane and 0 impl->theory; trust surface 13 escapes in 5
+allowlisted files (654 scanned), 0 outside; no-local-paths OK;
+overview-links 112 links over 65 files; quote-gate OK; proofdeps 4965
+module rows / 12 roots / 0 doors; shake 510 removals all allowlisted;
+nested-shadow 37/37.  `tests/arena.sh` not re-run: no checker code
+touched.
+
+##### (f) THE CORRECTION, AND THE LESSON IT CARRIES
+
+The entry struck through in (b) is the one error in the elimination,
+and it is the kind a record-by-record sweep produces: **a view at a
+CONCRETE model and the same view at the ABSTRACT family that model
+instantiates are one record, and naming only the record collapses the
+distinction.**  The rule that follows, and it is the third instance of
+it in this arc (another lane hit it from the other side, recording a
+crossing as not free when the hypothesis existed one level up and was
+already being passed to a neighbouring crossing):
+
+> When you rule a record out, say at which LEVEL you checked it, not
+> only which record.
+
+The request was answered in one reading anyway, because the
+enumeration said precisely what to look for — which is the case for
+writing eliminations out even when one of their entries is wrong.  What
+lands is a DERIVATION, not a clause: no producer obligation at any of
+the nine sites, and the universe restated at the pin's own assignment.
+
+##### (g) ONE CORRECTION TO §U.113's DISCREPANCY NOTE
+
+That section could not reconcile this lane's count with
+`NestedPins.lean`, and it was right not to guess.  The count in the
+request ranged over the `ContainerModeled`/`NestedPinGroupSyn` records
+as this lane reads them, not over the file: what was being counted was
+which CLAUSES name a pin's sort and index data, not occurrences in a
+source file.  The lemma that landed is against the right record either
+way.
