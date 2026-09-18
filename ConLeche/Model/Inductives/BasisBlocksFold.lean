@@ -690,12 +690,19 @@ grown by the block's own group (`Quot`'s block grows nothing).
 This is the basis tier's half of the M8 flip: every branch is one of
 the five instantiations above, and the agreement `basisStepAgree_of`
 now returns is exactly what they consume. -/
-theorem basisStepB_of {env : Env} (mb : EnvModelB V μ env)
+theorem basisStepB_of (hμ : μ.verifiedChecks = true) {env : Env} (mb : EnvModelB V μ env)
     {kind : ConLeche.BasisKind} {env₂ : Env} (h : DeclBasisRun μ env kind env₂) :
     Nonempty (EnvModelB V μ env₂) := by
   obtain ⟨B, hb⟩ := mb.blocks
   obtain ⟨mp', hag⟩ := basisStepAgree_of mb.toEnvModelM h
-  obtain ⟨-, hchain, -⟩ := h
+  -- the LAST conjunct is K.49's `basisOwnMimicsOk`, the pinned block's
+  -- own-pin table, off which `natBlock_ownPins` and its three twins close
+  -- `ContainerOwnPinsSyn` — the clause `ContainerModeled.ownPins` will
+  -- read.  It is `certOnly`-gated, which is why this theorem gained
+  -- `hμ`: `EnvModelB`/`EnvModelM` carry no `μ.verifiedChecks`, and every
+  -- caller (`declStepB_preserves`, `Model/Fold.lean`) already has one
+  obtain ⟨-, hchain, hom⟩ := h
+  replace hom := ConLeche.certOnly_elim hom hμ
   cases kind with
   | eqK => exact ⟨⟨mp', ⟨_, eqBlocksStepOf mp' hchain hag hb⟩⟩⟩
   | natK => exact ⟨⟨mp', ⟨_, natBlocksStepOf hchain hag hb⟩⟩⟩

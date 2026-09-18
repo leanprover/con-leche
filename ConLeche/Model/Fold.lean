@@ -387,15 +387,15 @@ theorem declStepB_preserves (hμ : μ.verifiedChecks = true) {F : Nat} {env env�
     subst henv2
     exact envModelB_opaque hμ mb hrun
   | axiomDecl cv => exact envModelB_axiom hμ mb hrun
-  | basisDecl kind => exact basisStepB_of mb hrun
+  | basisDecl kind => exact basisStepB_of hμ mb hrun
   | quotDecl k cv =>
     cases k with
-    | type => exact basisStepB_of mb hrun
+    | type => exact basisStepB_of hμ mb hrun
     | _ => exact (show env₂ = env from hrun) ▸ ⟨mb⟩
   | indDecl block nP =>
     simp only [ConLeche.Semantics.DeclRun] at hrun
     split at hrun
-    · exact basisStepB_of mb hrun
+    · exact basisStepB_of hμ mb hrun
     · exact declInductiveB hμ mb hE hmod hrun
 
 /-- **The P fold at the model WITH ITS BLOCKS**: `foldPM`'s twin, the

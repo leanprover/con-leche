@@ -99958,3 +99958,494 @@ the same phenomenon §U.92 (a) recorded from the other side: `pinAt` and
 `pinsS.getD _ default` are defeq only at DEFAULT transparency, so the
 anonymous constructor rejects the mismatch and the goal has to be built
 where `isDefEq` runs at default.
+
+#### U.103 — M7-3 session 17: the five basis sites from K.49, the crossing PROVED, and the one premise it turned up (lane M7-3, session 17, 2026-09-18)
+
+##### (a) The merge, and what it was NOT
+
+Integration 3q had not landed, so `agent/uniform-m5` `ae0eecc7` was
+merged for **K.49 alone** and nothing else — lane L-B's
+`instPis_openers_subst` and lane L-E's session 18/19 work are still
+outside this lane.  Two conflicts: `Model/Fold.lean`, where the kernel
+lane edited a `basisStepAgree_of` that this lane had already RELOCATED
+to `Model/StepAgree.lean` (resolution: drop the block here, port the
+edit — `DeclBasisRun`'s new `μ` and K.49's `-` — to the relocated
+copy), and `DESIGN.md`, rebuilt as ours plus theirs' suffix.
+
+##### (b) THE FIVE PINNED BASIS SITES, PROVED
+
+`natBlock_ownPins`, `punitBlock_ownPins`, `eqBlock_ownPins` and
+`zeroCtorBlock_ownPins` (the last serves both `Empty` and `False`).
+Each is `ContainerOwnPinsSyn.of_noMimics` at K.49's Bool and the
+block's own singleton group.  Each takes the same `Env.find?` inputs
+its own `containerInfo?_*A` takes — one more than "just the former",
+because the group walk reads the recursor and the constructors too —
+and every call site already has them; the zero block is stated at the
+READ-BACK instead, its model being generic in the former's name.
+
+`basisStepB_of` gains `hμ` to open K.49's `certOnly` gate.  That is not
+a new hypothesis: `EnvModelB`/`EnvModelM` carry no mode, and all three
+callers (`declStepB_preserves`) already have one, so it threads an
+existing one down.
+
+**Seven of the nine sites are now proved**: native, mutual (§U.74 (f))
+and the five basis.
+
+##### (c) THE CROSSING, PROVED — §U.74 (d)'s design held
+
+`ContainerOwnPinsSyn.crossInd` (`ContainerCross.lean`), with
+`containerOwnPinsAtGo_ext` (the fuel induction) and
+`containerOwnPinsAt_inv`/`_eq` under it.  The design of §U.74 (d) was
+right as far as it went: `EnvBlocksOf.crossIndP` already carries FULL
+preservation (`hext`, `.recInfo`s included — it is `hF` that excludes
+them), so an old container's table can only GROW, and growth dies to
+`hnewN` plus one clause in `hrecN`'s pattern (`hmimN`) plus the
+member's oldness.  `hrecN` itself is needed too, in `crossIndP`'s own
+shape, because `containerInfo?_ext_ind_eq` wants it.
+
+##### (d) THE PREMISE THE CROSSING TURNED UP, and the two ways out
+
+One hypothesis beyond the frame was needed, and it is a FINDING:
+
+`ContainerOwnPinsSyn` quantifies over the reader's components `DsE`,
+and `containerOwnPinsAt` substitutes them into the mimic recursor's
+type with `Expr.instPis`.  A domain headed by a loose `bvar` — a
+recursor PARAMETER — therefore comes back headed by whatever `DsE` put
+there.  If that is a constant of the NEW block, `containerInfo? env₂ K`
+answers where `containerInfo? env₁ K` does not, and `env₂`'s table has
+an element `env₁`'s has not — which no fact about the OLD block can
+match.  Everything else in the `here` computation is the SAME stored
+`.recInfo` at both environments, so this is the ONLY way the two
+tables can differ.
+
+```lean
+@[expose] def RecMajorHeadStored (env : Env) : Prop :=
+  ∀ (n : Name) (cvR : ConstantVal) (mI rP : Nat) (rules : List RecRule)
+    (lps : List Name) (lvls : List Level) (args : List Expr)
+    (dom body : Expr) (bm : ConLeche.BinderMeta) (K : Name) (us : List Level),
+    env.find? n = some (.recInfo cvR mI rP rules) → args.length = mI →
+    Expr.instPis (cvR.type.instantiateLevelParams lps lvls) args = some (.forallE dom body bm) →
+    dom.getAppFn = .const K us → (env.find? K).isSome = true
+```
+
+It constrains `env₁` ALONE, it is the unguarded form of the shape
+`EnvWF`'s `ConstWF` already records for a recursor with a `.nested`
+rule, and it holds of every honestly built environment — a real
+recursor's major premise is `T params indices`.  No countermodel was
+built: an environment exhibiting the gap needs a mimic whose major
+premise is headed by one of the recursor's own parameters, which no
+install writes.
+
+**The two ways out, and the second looks better:**
+
+1. discharge `RecMajorHeadStored` per route — it is an environment
+   invariant, so this wants an `EnvWF`/`EnvModel` clause or a kernel
+   record, i.e. a fourth record on a lane whose kernel queue the
+   coordinator has just closed;
+2. **NARROW the clause's `DsE`** to components that resolve at the
+   environment the clause is stated over.  The consumer's `DsE` is a
+   RECORDED PIN's components (K.41's inversion hands
+   `nestedPinLvlsDs env (st.pins.getD i default)`), which are old by
+   construction, so the narrowing costs the consumer nothing and kills
+   the gap at its source.  **Check this against
+   `pinCorr_of_ownPins`/`classPin_of_pinCorr` before taking it** — it
+   is a change to a clause lane L-E consumes.
+
+##### (e) THE FIELD IS NOT IN, and what is left
+
+Seven sites proved, the crossing proved.  The field waits on exactly
+two things, neither of them algebra:
+
+* **the NESTED site** — K.47 plus `ContainerOwnPinsSyn.toReadOf` plus
+  lane L-B's `instPis_openers_subst`, which is NOT in this lane (it
+  comes with integration 3q).  Until then the ninth site has no proof,
+  and a `ContainerModeled` field must be discharged at all nine;
+* **(d)'s premise** — whichever way out is taken, `crossEnvP` cannot
+  carry the clause until one of them is.
+
+##### (f) Two notes from lane L-E, for the record
+
+The `PinShapes` constructor-count conjunct landed and touched NO basis
+and no M7-3 site (the nested route discharged it from
+`NestedPinGroupSyn.ctorCount`), so it is off this lane's list.
+`ContainerPinParams` grew from three parts to FOUR — the `pinF` arm
+spends two SYNTACTIC facts besides the `u`/`Ds`/`Ids` congruences (the
+pins' level arguments scoped in the group's level parameters, which is
+also `targetPin_corr`'s unsourced `hpd`, and the pins' components
+bounded at the container's parameters) — each with exactly one
+consumer, tabulated in lane L-E's own section.  It must land as a
+`ContainerModeled` CLAUSE, not a threaded premise, so that the
+assembly above gets it quantified over stored containers for free.
+This lane already carries a three-part `pinParams` field; the four-part
+version supersedes it, and the table is not in this tree yet.
+
+##### (g) Gates
+
+`lake build` 717 jobs warning-free; `lake test` warning-free; layering
+351 / 283 / 3 / 1, 0 base->lane and 0 impl->theory; trust 13/5 (648);
+overview-links 112; quote-gate 2; no-local-paths OK; **proofdeps 4965
+rows / 12 roots / 0 doors**; shake all allowlisted, pub-imports none
+demotable; `tests/arena.sh` **EXIT 0** (the merge carries K.49's
+checker code).  Standard axioms on every new theorem.
+
+#### U.104 — M7-3 session 18: the clause REFUTED and repaired, option C measured, and the admissible narrowing found NOT to close the crossing (lane M7-3, session 18, 2026-09-18)
+
+##### (a) THE CLAUSE WAS FALSE, and two real runs say so
+
+Proving `ContainerOwnPinsSyn` at the NESTED route — the ninth site —
+did not produce a theorem.  It produced a counterexample.
+
+`containerOwnPinsAtGo` instantiates the mimic recursor at `Ds ++ pad`,
+and `Expr.instPis` peels ONE binder per argument at cursor 0: the PAD
+substitutions therefore run on the ALREADY-INSERTED components, at
+descending cursors, and a component carrying a LOOSE BOUND VARIABLE is
+eaten by the pad.  `PinSyn.ownAt` re-opens the recorded pin — which is
+openers-instantiated, hence already pad-processed — at `DsE`
+afterwards, so the same bvar survives there.  The clause quantified
+`DsE` with no closedness condition, so it asserted the two agree at
+OPEN components.  They do not, at the route's own `envOut`:
+
+```
+nested_rec.ndjson, member `Tree`, nP = 1, lvls = p.lps.map Level.param
+  K.47 base table          : [List (Tree @0)]
+  DsE = [bvar 0]  ownAt    : [List (Tree #0)]
+                  ACTUAL   : [List (Tree Sort)]      ← refutation
+  DsE = [Nat] / [List Nat] / [fun x => x]  ownAt = ACTUAL
+nested_p30.ndjson, member `P30`, nP = 1 : the same pattern
+```
+
+Blocks with `nP = 0` are immune (nothing to substitute), and the other
+eight sites go through `of_noMimics` at an EMPTY table — which is why
+the gap surfaced only at the ninth, and only when someone tried to
+PROVE it rather than to discharge it vacuously.
+
+**The repair** is the side condition the evidence names, added to the
+clause: `∀ a ∈ DsE, a.looseBVarsBounded 0 = true`.  Lane L-B's
+`instPis_openers_subst` already carries exactly this as `hDcl` — the
+tell that it was never a proof artefact.  It costs no consumer:
+`toReadOf` already had it inside `hDsE` (the two `obtain`s swap order),
+`of_noOwn`/`of_noMimics`/`crossInd` gain an `intro`, and the seven
+proved sites are untouched.
+
+##### (b) OPTION C, MEASURED: the link fails, and the request is precise
+
+The ruling was to derive `RecMajorHeadStored` from the environment's
+well-formedness rather than carry it per site.  Measured, and the half
+that works is the half the ruling named:
+
+* `ConstWF`'s GENERIC clause gives `cvR.type.constsResolve env = true`
+  for every stored constant, recursors included.  So if the major
+  premise's head is a CONSTANT it resolves, and the crossing's gap is
+  closed **for that case**;
+* `ConstWF`'s RECURSOR clause gives `cv.type.stripPis mI = some (pre,
+  .forallE dom body bm)` with `dom.getAppFn = .const D lvls` — exactly
+  the missing case (a const head, not a bvar) — **but it is doubly
+  guarded**: `∀ r ∈ rules, … ∀ lvls pins, RecRule.fire r = .nested lvls
+  pins → …`.  A recursor with no rules, or none whose `fire` is
+  `.nested`, gives nothing;
+* **the walk cannot supply that guard.**  `containerOwnPinsAtGo`
+  matches `env.find? (appendIndexAfter base (j+1))` against `.recInfo
+  cvR mI _rP _rules` and never looks at `_rules`; and
+  `ContainerOwnPinsSyn env d` is quantified over an environment with no
+  history, the only link to `d` being the clause's own `env.find?` of a
+  MEMBER.  Nothing in `EnvWF`, `RecCtorsStored` or `EnvModel` says that
+  a recursor named `C.rec_j` carries a nested rule — `RecCtorsStored`
+  constrains a rule's CONSTRUCTORS, not its `fire`.
+
+**THE REQUEST, precisely**: `ConstWF`'s recursor clause should give
+
+```lean
+∃ pre dom body bm D us,
+  cv.type.stripPis mI = some (pre, .forallE dom body bm) ∧ dom.getAppFn = .const D us
+```
+
+**UNCONDITIONALLY** — for every stored recursor, not only for one
+carrying a nested rule — or an inversion lemma of that shape.  It is
+true of every recursor this checker installs (a major premise is `T
+params indices`), it is "validate once at insertion", and with it
+`RecMajorHeadStored` follows from `hwf` at all nine sites and the
+ad-hoc premise disappears.  This is the kernel-lane item; the nested
+route's own well-formedness producer and preservation theorem, which
+the kernel lane has already sized, are the same debt seen from the
+other side.
+
+##### (c) THE ADMISSIBLE NARROWING DOES NOT CLOSE THE CROSSING — a correction
+
+The fallback was to narrow `DsE` to components that resolve at the
+environment the table is read at (the other narrowing, at the
+container's own older environment, is false at every nested block —
+every block pin's components mention a member of the block being
+installed, which is what `nestMention` asserts).  **The admissible
+narrowing does not help**, and it is worth being exact about why,
+because it is easy to think it does:
+
+`crossInd` must prove the clause at `env₂` from the clause at `env₁`.
+The `env₂` clause hands it `∀ a ∈ DsE, a.constsResolve env₂ = true`.
+To invoke the `env₁` clause it needs the same at `env₁` — and
+`constsResolve env₂` does not give it.  The problematic entry's head is
+the head of some `DsE[i]`, and being old AT `env₂` is precisely not
+being old at `env₁`: a constant of the new block resolves at `env₂`.
+So the narrowing weakens the clause without touching the crossing's
+obligation.
+
+The gap is about the MIMICS (is the major premise's head a bvar at
+all?), not about the components, which is why (b) is the only route.
+The closedness repair of (a) does not close it either, for the same
+reason: closedness stops the PAD from eating a component, it does not
+make a component's head old.
+
+##### (d) THE NESTED SITE: what remains, and it is not much
+
+Sized against the tree: **about one session**, after (a)'s repair.
+
+* K.43 fixes the walk's LENGTH and K.47 its CONTENT, so each of the
+  `numNested` steps yields exactly one entry at both instantiations;
+* `Expr.instantiateLevelParams_self` / `Level.subst_param_self`
+  (`Verify/InstLevels.lean`) discharge K.47's identity level
+  substitution — both in the tree;
+* **missing kit**: a general `instPis`/`instantiateLevelParams`
+  commutation, `instPis e args = some r → instPis (e.ilp ks us)
+  (args.map (·.ilp ks us)) = some (r.ilp ks us)` — a ten-line induction
+  mirroring `instPis_substFvarList`, using `ilp_instantiate1`.  Only
+  the telescope-shaped `instPis_ilp_mkPisB` exists today;
+* `containerOwnPinsAt_inv`, `containerOwnPinsAt_eq` and
+  `containerOwnPinsAtGo_ext` (`ContainerCross.lean`) are `private` and
+  want making public rather than duplicating;
+* one identification: K.47's table is read at the block's FIRST former
+  and the clause at `d.memberName i`, and the walk starts at
+  `ci.members.head?` for every member, so the tables coincide.
+
+##### (e) STATUS
+
+**Seven of the nine sites proved** (native, mutual, the five basis);
+the crossing proved, modulo (b)'s premise; the ninth site open at the
+time of writing, and now with a correct clause to aim at — **(g) below
+closes it**.  **The field is not in**, and it cannot be until the ninth
+site is proved — a `ContainerModeled` field is discharged at all nine
+or at none.
+
+##### (f) Gates
+
+`lake build` warning-free; `lake test` warning-free; layering / trust /
+overview-links / quote-gate / no-local-paths / shake / pub-imports /
+proofdeps (0 doors) / `tests/arena.sh` — figures at the landing commit.
+Standard axioms on every theorem the repair touched.
+
+##### (g) THE NINTH SITE, PROVED — `nestedOwnPins_of` (same session, after (a))
+
+`ContainerOwnPinsSyn (V := V) envOut (D)` at the nested route is
+`nestedOwnPins_of` (`Model/Inductives/DeclNestedCore.lean`, in
+`section TailOut` beside `nestedContainerModeled`), against the
+REPAIRED clause.  (d)'s plan held with no surprises and nothing was
+weakened: the theorem's hypotheses are the route's own records and
+data — `hk0`, `hcount` (`st.pins.length = p.numNested`), `haux`,
+`hstored`, `hctors`, `hlps` (the members' level parameters are the
+block's, which `declNested_of` already computes for
+`nestedPinParams_of`), K.34 (`hrb`), K.47 (`hown`), K.43 (`hmim`),
+`O : NestedCoreOut` and the output model `mpOut` (for `EnvWF envOut`
+alone).  `NestedTailOut` is NOT needed.
+
+What landed, bottom up:
+
+* `instPis_ilp` and `abstractRange_ilp`
+  (`Verify/Inductives/NestedCopyInstU.lean`, beside their siblings):
+  the missing commutations (d) named — the first is the ten-line
+  induction mirroring `instPis_substFvarList`;
+* `ownSubst` and `ownPinsStep` (`Model/Inductives/ContainerCross.lean`,
+  new section "The own-pin table at ANOTHER instantiation"):
+  a table entry re-spelled at another instantiation, and the walk's own
+  `here` named so that the step and the walk can be reasoned about
+  apart.  `ownSubst` at a constant-headed spine IS `PinSyn.ownAt`,
+  which is what makes the last step of the route-level proof a
+  `simp only`;
+* `ownPinsStep_inv` / `ownPinsStep_subst` — a step that reads a pin at
+  the openers reads the same pin, re-spelled, at any level arguments
+  and any CLOSED components of the same number (this is where (a)'s
+  `hDcl` is consumed, through `instPis_openers_subst`);
+* `containerOwnPinsAtGo_cons` / `_stop` / `_length_le` / `_nil_of_len`
+  and `containerOwnPinsAtGo_subst` — the walk.  **The length argument
+  is the load-bearing one**: the transport carries a step that SUCCEEDS
+  at the openers and says nothing about one that fails there, and a
+  failing step can succeed at other components (a major premise headed
+  by a PARAMETER — (b)'s gap, seen from inside the route).  K.43 makes
+  the walk visit exactly `numNested` names, K.47 makes it read exactly
+  `st.pins.length` entries, a step reads at most one, and the two
+  counts force every step to succeed.  So the route needs no
+  `RecMajorHeadStored` of its own: (b) remains the CROSSING's debt, not
+  this site's;
+* `containerOwnPinsAt_inv`, `containerOwnPinsAt_eq` and
+  `containerOwnPinsAtGo_ext` made public (not duplicated), as (d)
+  asked.
+
+Two side conditions in the clause are discharged rather than assumed:
+a reader asking at the wrong NUMBER of components gets the empty table
+(`containerOwnPinsAtGo_nil_of_len`, vacuous), and the level parameters
+of the queried member and of the group's first member agree because
+`containerInfo?` checks them (`containerInfo?_inv`), which is what
+lets K.47's table — read at the FIRST former — answer for `memberName
+i`.
+
+**Nine of nine.**  The `ContainerModeled` field is the next step and
+is deliberately not taken here: a partial field must not land.
+
+##### (h) THE `env₀` CLAUSE REQUESTED OF THIS RECORD: REFUSED, with the reason
+
+Lane L-B asked, through the coordinator, for a `ContainerModeled`
+clause naming the block model's own base environment as equal to the
+environment the run works at — `d.env₀ = env` — on the precedent of
+the mutual block-model record's field of that name
+(`BlockRepMutual.lean`), and on the strength of this lane's own
+comment that the parameter-count clause is discharged "at the pin's
+stored container, which is `d.env₀ = env`".
+
+**It cannot be a clause of this record, and the spelling is false at
+three of the nine sites.**  `ContainerModeled m ci d` knows exactly one
+environment — the model's — and `d.env₀` is deliberately a DIFFERENT,
+EARLIER one.  That is the whole reason `pinNP` is spelled at `d.env₀`
+rather than at the model's environment (this record's own docstring
+since M7-3 session 10: "`pinNP` reads `containerInfo?` at `d.env₀`, the
+block's own pre-block environment, not at the model's").  Concretely:
+
+* **the nested site** builds `ContainerModeled mpOut.base2 … (D)` — the
+  model is at `envOut` — while `D.env₀ = env`, the PRE-BLOCK
+  environment (`NestedBlockModelOf.env₀`).  `D.env₀ = envOut` is FALSE:
+  the install added the block's own constants;
+* **the mutual site** is the same shape (`ContainerModeled mpOut.base2 …`);
+* **the native site** builds `ContainerModeled m …` at the CONSTRUCTORS'
+  model while `BlockModel.ofNative`'s `env₀` is the route's pre-block
+  `env`;
+* **the four basis sites** would need a new hypothesis, not a free one:
+  `zeroCtorBlock T resSort env₀` takes `env₀` as a free parameter and
+  the four theorems are stated at an arbitrary `env` with `env₀`
+  unconstrained, so there is nothing to prove the equation from.
+
+The precedent does not transfer for exactly the reason the coordinator
+suspected: the mutual record is about the block BEING INSTALLED, whose
+`env₀` IS the run's environment; `ContainerModeled` is about a STORED
+container, read at a model of a LATER environment.
+
+**What is derivable, if that is what the consumer needs**, is a
+MONOTONICITY statement rather than an equation — the container's group
+reads the same at `d.env₀` and at the model's environment, because the
+container is stored at `d.env₀` and installs since then do not disturb
+it.  That is the shape `EnvBlocksOf.crossIndP` already proves
+(`containerInfo?_ext_ind_eq`), and it would be a different clause with
+a different discharge.  Reported rather than absorbed.
+
+#### U.105 — M7-3 session 20: `pinConts` LANDED at all nine sites, the extended operator counted then withdrawn, and a crossing that was free one level up (lane M7-3, session 20, 2026-09-18)
+
+Two clauses were requested of `ContainerModeled`/`BlockModel` and the
+instruction was to count the blast radius before writing either.  Both
+counts are below, and one of them changes the plan.
+
+##### (a) THE EXTENDED OPERATOR — counted, then WITHDRAWN
+
+Lane L-E asked for an operator over the EXTENDED classes (members plus
+the block's own pins) recorded the way `BlockModel.Φ` is, and the
+instruction was to count the blast radius before writing it.  The count
+came back GOOD and the clause was then withdrawn for good by the
+coordinator, the route it served having been refuted on L-E's own lane.
+**The count is recorded anyway, because it is the number anyone will
+want if a re-pointed operator is ever proposed**, and because it
+identifies where the work would fall:
+
+`BlockModel` has exactly SEVEN literal producers — every place with a
+field list, hence every place a new field must be given:
+`BlockModel.ofNative` (`BlockRepOne.lean:261`), `BlockModel.ofMutual`
+(`BlockRepMutual.lean:81`), **`BlockModel.ofNested`
+(`BlockComposed.lean:138`)**, `zeroCtorBlock`
+(`BasisBlocksZero.lean:55`, serving Empty and False), `eqBlock`,
+`punitBlock` and `natBlock`.  **Six carry `pins := []` and are
+therefore VACUOUS** (the extended arity `k + nPins` collapses to `k`
+and the extended operator IS the one already there); only `ofNested`
+carries `pins := pins` and is real.  `MutualCore.lean:1809` and
+`NestedCore.lean:74` are `:=` WRAPPERS with no field list and need no
+change — which is the difference between this count and the earlier
+attempt that became 170 errors: that one was pushed from the wrapper
+end.  `IsBlockModel.functor` has EIGHT sites, six pins-free, one real
+(`NestedCore`), one a pure transport (`BlockRepCross`).
+
+**The cross-lane flag**, which was the other thing asked: the single
+non-vacuous producer, `BlockComposed.lean`, and `BlockRepMutual.lean`
+were both last touched by lane **L-A** (live at `d9dc80d5`).  So the one
+file where the work would have been real is a file another lane is
+editing.
+
+##### (b) THE MONOTONICITY CLAUSE — LANDED at all nine, and free at the one site that looked hard
+
+`ContainerModeled.pinConts` is the shape this lane proposed when it
+refused the environment EQUATION:
+
+```lean
+  pinConts : ∀ q, q < d.nPins → ∀ ci' : ContainerInfo,
+    ConLeche.containerInfo? d.env₀ (d.pinAt q).J = some ci' →
+    ConLeche.containerInfo? env (d.pinAt q).J = some ci'
+```
+
+`pinNP` is spelled at `d.env₀` because that is where
+`BlockOpened.nestF` resolves a pin's index arguments; a consumer at the
+MODEL's environment cannot use it there, and this is the monotonicity
+that carries it across.  Lane L-B's two named inputs close on it.
+
+The nine sites: the **seven pins-free ones** are vacuous; the **nested
+site** is `NestedTailOut.conts` read at its two ends (the antecedent is
+at `d.env₀`, which is `env` there on the nose, and `conts`' `envOut`
+half is the conclusion); `of_readBack` takes one more premise.
+
+**And `crossEnvP` is free, which a first pass got wrong.**  This
+lane's own session-19 reading said the crossing was not free, because
+`crossEnvP` carries none of the frame lemma's six conditions.  It does
+not need them: **the hypothesis already existed one level up.**
+`BlockAt.crossEnvP` has taken
+
+```lean
+    (hci : ∀ q, q < (B ci).nPins → ∀ ci' : ContainerInfo,
+      containerInfo? env₁ ((B ci).pinAt q).J = some ci' →
+      containerInfo? env₂ ((B ci).pinAt q).J = some ci')
+```
+
+all along — passing it only to the `PinShapes` crossing — and
+`EnvBlocksOf.crossIndP` already PROVES it (`hpc … .2`).  So the clause
+crosses by composition, with nothing new proved anywhere.  **Check one
+level up before concluding a crossing is not free** is the lesson, and
+it cost a wrong sizing in the previous session's record.
+
+**One piece of plumbing the analysis did not cover, proved rather than
+assumed**: `ContainerModeled.crossEnv` — the unguarded sibling — has
+two callers in `NestedPins.lean` (`NestedPinsRun.groupSyn`,
+`pinNIdx`) that cross to the formers' prefix model and had no `hci`.
+`consMutualFormers_find?_cases` (a lookup past the formers' conses is
+the base's or a former's own `indInfo`),
+`containerInfo?_consMutualFormers` (`containerInfo?_ext_ind_eq` at
+`N := fms.map (·.cvTa.name)`, with `hrecN` discharged because every
+cons is an `indInfo` and never a `recInfo`) and
+`NestedPinsRun.contsCross` close both.
+
+L-B's fourth side condition is settled by an EXPOSURE, not a proof:
+`mutualBlockNames_fresh` lifts `declMutualB`'s twenty-line `have
+hbnFresh` to a lemma over five RUN conjuncts, re-deriving `hmemFresh`,
+`hlenA`/`hnamesA` and the `env₁` inversion internally so a caller
+holding only the run can feed it straight in.
+
+##### (c) Two negatives recorded, so nobody tries them twice
+
+From lane L-E's analysis, verified and not re-derived here:
+monotonicity of the extended operator is free from a mono lemma already
+used at exactly these classes, and the defining equality needs no
+monotonicity at all — the least tuple is the INTERSECTION of the closed
+tuples, not an iteration, so the ordering lemma is unconditional.
+Monotonicity is wanted only by the bisimulation-style ordering lemma
+above.  And **clamping the extended operator's fibres to the carrier by
+separation does NOT work**: clamping weakens the closure condition
+while leastness needs the stronger one, so one half of the equality
+stops going through.
+
+##### (d) WHAT IS LEFT ON THIS LANE
+
+The `ownPins` FIELD is the only thing outstanding, and it is held out
+by ONE premise that is not this lane's: `RecMajorHeadStored`, i.e. the
+environment invariant's recursor clause giving the stripped major
+premise with a CONST head UNCONDITIONALLY (§U.104 (b)).  All nine sites
+are proved, the reading bridge is unconditional, and the crossing is
+proved modulo that premise, so the field is one line per site behind
+it.  Nothing else on this lane is blocked by this lane.

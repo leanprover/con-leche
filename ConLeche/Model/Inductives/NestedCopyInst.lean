@@ -1713,11 +1713,14 @@ wrong, which is why this arm names them rather than hiding them:
   needed first and has no run route.  Both come instead from
   `ContainerModeled.pinNP` (`containerInfo? d.env₀ (d.pinAt q).J`, and
   `containerInfo?_found` for the `find?`), which is at the container
-  block model's OWN `env₀` — and NO record in this lane's scope ties
-  `dJ.env₀` to the elimination's `env`.  It is one equation, it is TRUE
-  at the only site that builds the record (`nestedContainerModeled`
-  discharges `pinNP` "at the pin's stored container, which is
-  `d.env₀ = env`"), and it is `henv₀` here until it is recorded;
+  block model's OWN `env₀`.  **RETIRED at integration 3r**: what this
+  arm named `henv₀ : dJ.env₀ = env` is now
+  `NestedPinGroupSyn.contsEnv`, the MONOTONICITY clause lane M7-3
+  landed as `ContainerModeled.pinConts` (its session 20) discharged at
+  the group's construction from the PRE-BLOCK record, whose own
+  environment IS `env`.  The equation was the wrong request — it is
+  false at three of the record's nine sites — and the monotone form is
+  the one that serves;
 * `hment` and `hloose` are the FIELD's own, and unlike the member case
   they are not the components': at a member target the minted domain's
   parameter arguments ARE the pin's components (K.14's uniformity puts
@@ -1752,7 +1755,6 @@ theorem copyPinFFire
     {l : Nat} (hlF : l < cc.nFields)
     (hnest : ¬ dJ.tgts i' j l < dJ.k)
     (hrec : (dJ.ksF i' j).getD l .ordinary = .recursive)
-    (henv₀ : dJ.env₀ = env)
     {params : List Expr} {pbs₀ : List (Expr × ConLeche.BinderMeta)}
     {Fl : Expr} {st₁ st₂ : ElimState}
     (hrun : ConLeche.replaceAllNested env (p.lps.map Level.param) params pbs₀ st₁
@@ -1787,9 +1789,11 @@ theorem copyPinFFire
   classical
   obtain ⟨hqlt, -, harity, hshape⟩ :=
     copyPinFDom S hi' hj hty hnf hstripJ hpl hfl hlF hnest hrec
-  -- the pin's container is recorded, at the container model's own `env₀`
-  obtain ⟨ci', hci', hnPeq⟩ := (CM ci hciP).pinNP _ hqlt
-  rw [henv₀] at hci'
+  -- the pin's container is recorded at the container model's own `env₀`,
+  -- and `NestedPinGroupSyn.contsEnv` — M7-3's `pinConts` at the
+  -- PRE-BLOCK record — reads it at the elimination's `env`
+  obtain ⟨ci', hci'₀, hnPeq⟩ := (CM ci hciP).pinNP _ hqlt
+  have hci' := S.contsEnv _ hqlt ci' hci'₀
   obtain ⟨cv, caps, -, -, -, -, hfind, -, -, -, -⟩ := ConLeche.containerInfo?_inv hci'
   refine ⟨ci', ?_⟩
   -- the run, at step one's spine
@@ -2647,8 +2651,9 @@ available from the CLASSIFICATION instead, by contradiction:
   are fresh there.
 
 `hloose` is the run's too (`replaceIfNested_loose`), so the fire needs
-no input beyond the pin's container record — which is `henv₀`, this
-lane's one named input, until the monotonicity clause lands.
+no input beyond the pin's container record — which is
+`NestedPinGroupSyn.contsEnv` since integration 3r, the monotonicity
+clause this lane asked for in place of the environment EQUATION.
 
 The conclusion is stated WITHOUT `copyResid`'s existentials: the
 container member `J` travels as a binder with `copyResid`'s own three
@@ -2675,8 +2680,7 @@ theorem copyPinFCorr {pbs : List (Expr × ConLeche.BinderMeta)}
     (hJmem : J ∈ ci.members) (hJn : J.name = (pinsS.getD (q₀ + i') default).J)
     (CM : ∀ ciJ : ContainerInfo,
       ConLeche.containerInfo? env (pinsS.getD (q₀ + i') default).J = some ciJ →
-      ContainerModeled mp₁'.base2 ciJ dJ)
-    (henv₀ : dJ.env₀ = env) :
+      ContainerModeled mp₁'.base2 ciJ dJ) :
     ∃ (ci' : ContainerInfo) (qn : ConLeche.NestedPin) (qq : Nat),
       ConLeche.containerInfo? env (dJ.pinAt (dJ.tgts i' j l - dJ.k)).J = some ci' ∧
       (dJ.pinAt (dJ.tgts i' j l - dJ.k)).nPJ = ci'.nP ∧
@@ -2771,8 +2775,8 @@ theorem copyPinFCorr {pbs : List (Expr × ConLeche.BinderMeta)}
   -- the minted domain's shape, and the pin's container at `env`
   obtain ⟨hqlt, hheadC, harity, hshape⟩ :=
     copyPinFDom S hi' hj hty hnf hstripJ hpl hfl hlcc hnest hrec
-  obtain ⟨ci', hci'₀, hnPeq⟩ := (CM ci hciPR).pinNP _ hqlt
-  rw [henv₀] at hci'₀
+  obtain ⟨ci', hci'₁, hnPeq⟩ := (CM ci hciPR).pinNP _ hqlt
+  have hci'₀ := S.contsEnv _ hqlt ci' hci'₁
   obtain ⟨cvq, capsq, -, -, -, -, hfindq, -, -, -, -⟩ := ConLeche.containerInfo?_inv hci'₀
   obtain ⟨x', hx'⟩ : ∃ x', (xFvsF (b.ownOffset (p.k + q₀ + i') + j))[l]? = some x' :=
     ⟨_, List.getElem?_eq_getElem (by rw [hCD.xLen, hnF]; exact hlcc)⟩

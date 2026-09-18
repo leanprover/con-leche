@@ -76,6 +76,9 @@ consumes. -/
 theorem basisStepAgree_of {env : Env} (mp : EnvModelM V μ env)
     {kind : ConLeche.BasisKind} {env₂ : Env} (h : DeclBasisRun μ env kind env₂) :
     ∃ mp' : EnvModelM V μ env₂, AcvalAgrees mp.base2 mp'.base2 := by
+  -- the LAST `-` is K.49's `basisOwnMimicsOk` — the pinned block's own-pin
+  -- table, which `ContainerModeled.ownPins` reads at the five basis sites
+  -- and nothing on this path does
   obtain ⟨hEq, hchain, -⟩ := h
   cases kind with
   | eqK => exact declBasisPB_eqK mp hchain
