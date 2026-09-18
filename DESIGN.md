@@ -114027,3 +114027,82 @@ is NEGATIVE and travels the available direction.
 * **(iv)**, **(v)** unstarted.
 
 The tree is at `746a7eb3` plus this section; nothing of K.60 is in it.
+
+#### PINF: the run relation's inversion SPLIT — the cut is the auxiliary install, and the two halves cost 3 k and 25 k of the 200 k budget (lane PINF, 2026-09-18)
+
+The blocker the previous session named (§ "K.60 SPECIFIED AND BUILT,
+NOT LANDED", (b)) is gone.  `checkNested_inv` is two declarations plus a
+composition, its STATEMENT byte-identical (`diff` of the old and new
+docstring-to-`:= by` block, not an eye check), and no consumer changed:
+`declNestedRun_of` still calls `ConLeche.checkNested_inv`.
+
+##### (a) THE CUT IS IN THE KERNEL, AND THAT IS WHY IT IS CHEAP
+
+The tail of the inversion cannot be stated without a NAME for the tail
+of the checker: the residual hypothesis after inverting the front is
+the rest of `checkNested`'s `do` block, and writing that out in the
+proof file would duplicate ~220 lines of kernel source into
+`Verify/`, to be re-synced by hand at every future check.  So the
+kernel carries the cut:
+
+* `checkNestedRest ops env p st b envAux` (`Kernel/Inductives/NestedInstall.lean`)
+  is everything from `auxStoredAll` to `pure env₄` — the read-back, the
+  pins' scope and their three typings, the certification group, the two
+  positivity walks, the restore of constructors, recursor types and
+  rules, the projection tables and the three post-checks.  Its free
+  variables are exactly `ops env p st b envAux`; `R`, `members`,
+  `mimics` and the `env₁…env₄` chain are all minted after the cut.
+* `checkNested` ends `let envAux ← checkMutualCore ops env b none true;
+  checkNestedRest ops env p st b envAux`.  Behaviour unchanged — a
+  `let`-tail turned into a call.
+
+**Blast radius: one site.**  `checkNested` is unfolded in exactly one
+proof in the tree (`checkNested_inv`) and appears as a hypothesis in one
+other (`declNestedRun_of`); the cached route's `checkNestedS` and its
+simulation walks do not mention it.
+
+##### (b) THE TWO HALVES
+
+* `checkNested_inv_front` — the two syntactic guards, the annotated
+  inputs, the elimination, the mimic count, `copiesFresh`, K.14, K.59,
+  `auxBlock`, K.58's index-count guard (consumed, not recorded) and
+  `checkMutualCore`, plus the residual
+  `checkNestedRest … = .ok envOut` as its last conjunct.
+* `checkNested_inv_rest` — everything from `auxStoredAll` on.  It takes
+  ONE fact across the cut, `hcont`, the containers' check: the run
+  relation records `pinsDistinct` (K.31) as `certOnly_and_left hcont`,
+  and that conjunct sits in the tail's half of the conjunction.
+* `checkNested_inv` — `obtain` twice, one 55-component `exact`.  The
+  statement is the old one, character for character.
+
+##### (c) THE HEADROOM, MEASURED
+
+By bisection on `set_option maxHeartbeats N in` before each
+declaration (a scratch edit, reverted; nothing of the kind is in the
+tree), `lake env lean` over the whole module:
+
+| declaration | heartbeats | of the 200 000 budget |
+|---|---|---|
+| `checkNested_inv` BEFORE the split | 175 000 < c ≤ 180 000 | 88–90 % used |
+| `checkNested_inv_front` | 2 000 < c ≤ 3 000 | 1.5 % |
+| `checkNested_inv_rest` | 20 000 < c ≤ 25 000 | 10–13 % |
+| `checkNested_inv` (the composition) | c ≤ 2 500 | 1.3 % |
+
+The drop is far more than the halving the cut would suggest, and the
+reason is worth recording for whoever splits the next long inversion:
+the cost was never the `by_cases`/`rw [if_pos]` chain, it was the FINAL
+`exact ⟨…⟩` — 55 components elaborated against a goal whose eleven
+existential witnesses are metavariables, which is superlinear in the
+number of conjuncts.  Two `exact`s of 15 and 40 components cost a sixth
+of one of 55.  **A future record adds one conjunct to the tail half,
+which has ~175 000 heartbeats of room**; the ceiling is no longer where
+anything is.
+
+##### (d) GATES
+
+`lake build` and `lake test` EXIT 0; `tests/warning-free.sh 162cbe9c`:
+"2 changed module(s) since 162cbe9c", "lake build — 2 module(s)
+recompiled, 0 warning line(s)", "lake test — 0 module(s) recompiled, 0
+warning line(s)", "OK (a run that could have failed)".  proofdeps 4965
+rows / 12 roots / doors 0 — unmoved.  shake: 510 removals, all
+allowlisted; pub-imports 1339 of 2264, none demotable.
