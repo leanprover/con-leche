@@ -3911,6 +3911,63 @@ theorem instanceLe_of_pair (hμ : μ.verifiedChecks = true)
       htrans_of_walk hμ h h3 hbk m dJf hgroups hρp hpair c hc t ht j fs hj hfit q
         (by omega) hcp)
 
+
+/-- **`instanceLe` at the ROOT GROUP, from the run** (task #315 L-E,
+DESIGN §U.75 (b)): `instanceLe_of_pair` with its per-pair transfer
+discharged by `nestedPinPairAt` — at a root group `r` of the block's
+pin table whose container carries its block model, every class of the
+root that is `ClassPinAt`-related to a block pin `q` has its extended
+carrier below the auxiliary carrier at `q`.
+
+The root's parameter frame is its group's own (`DsFit` at the base
+pin), so nothing beyond the block's `Sat` is asked of the caller; what
+is left are `hIH` and `hout`, the rank induction's two. -/
+theorem nestedInstanceLe (hμ : μ.verifiedChecks = true)
+    (h : MutualFormersFacts V F g mp b fms f₀ ctorsA sortss kinds mp₁ ppsF W idxF dsF esF srcsF
+      fvsPF xFvsF xrestF eissF tssF)
+    (h3 : ConLeche.mutualCtorsGrouped b.ctors = true)
+    (hbk : b.k = p.k + pinsS.length)
+    (m : EnvModel V env₂)
+    (hleafM : ∀ (t : Nat) (f : MutualFormerA), t < p.k → fms[t]? = some f →
+      m.acval f.cvTa.name = mutMemberLeaf b fms f₀ ctorsA kinds ppsF W dsF esF eissF tssF t)
+    {st : ElimState} (dJf : Nat → BlockModel V)
+    (hgroups : ∀ q, q < pinsS.length → ∃ (q₀ kJ i : Nat),
+      q = q₀ + i ∧ i < kJ ∧ GF st m q₀ kJ (dJf q₀))
+    {ψ : Name → Nat} {ρp : Nat → V} (hρp : Sat V ((D).params ψ).reverse ρp)
+    {B : ContainerInfo → BlockModel V} (hB : EnvBlocksOf m B)
+    (hppB : ∀ (J : Name) (ci : ContainerInfo) (cv : ConstantVal) (caps : IndCaps),
+      ConLeche.containerInfo? env₂ J = some ci → env₂.find? J = some (.indInfo cv caps) →
+      ContainerPinParams (V := V) cv (B ci))
+    (hdJfB : ∀ (q₀ kJ iq : Nat) (ci : ContainerInfo), iq < kJ → GF st m q₀ kJ (dJf q₀) →
+      ConLeche.containerInfo? env₂ ((D).pinAt (q₀ + iq)).J = some ci → dJf q₀ = B ci)
+    {r kR : Nat} (GR : GF st m r kR (dJf r))
+    {ciR : ContainerInfo} (CR : ContainerModeled m ciR (dJf r))
+    {pcR : Nat → PinCtors V} (hpR : PinRecLaws m (dJf r) pcR)
+    (hshR : PinShapes m B (dJf r) pcR)
+    {S : Nat → Prop}
+    (hIH : ∀ q', q' < pinsS.length → S q' →
+      pinLfp st pinsS dJf (f₀.s.eval ψ) ψ ρp q' = (lfpTuple ((D).w ψ) (p.k + pinsS.length) ((D).idx ψ ρp) (ΨA ψ ρp)) (p.k + q'))
+    (hout : ∀ q₀ iq j l, l < ((blkFss0 b ctorsA kinds dsF ψ).getD (b.ownOffset (p.k + q₀ + iq) + j) []).length →
+      ((blkRss ctorsA kinds).getD (b.ownOffset (p.k + q₀ + iq) + j) []).getD l false = true →
+      (((dJf q₀).rss iq).getD j []).getD l false = false → ¬ (((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD (b.ownOffset (p.k + q₀ + iq) + j) []).getD l 0) < p.k → S ((((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD (b.ownOffset (p.k + q₀ + iq) + j) []).getD l 0) - p.k)) :
+    ∀ c q, p.k + q < p.k + pinsS.length →
+      ClassPinAt env₂ (D) (dJf r) ψ (((D).pinAt r).ψJ ψ) ρp ((D).pinFrame r ψ ρp) r c q →
+      FamLe ((D).pinIdx q ψ ρp)
+        ((dJf r).famAt (((D).pinAt r).ψJ ψ) ((D).pinFrame r ψ ρp)
+          (lfpTuple ((dJf r).w (((D).pinAt r).ψJ ψ)) (dJf r).k
+            ((dJf r).idx (((D).pinAt r).ψJ ψ) ((D).pinFrame r ψ ρp))
+            ((dJf r).Φ (((D).pinAt r).ψJ ψ) ((D).pinFrame r ψ ρp))) c)
+        (lfpTuple ((D).w ψ) (p.k + pinsS.length) ((D).idx ψ ρp) (ΨA ψ ρp) (p.k + q)) := by
+  have hρR : Sat V ((dJf r).params (((D).pinAt r).ψJ ψ)).reverse ((D).pinFrame r ψ ρp) := by
+    obtain ⟨ρ, as, hρe, hsp⟩ := spineOfSat_params (D) hρp
+    subst hρe
+    have := (dJf r).satOfSpine (GR.syn.DsFit 0 GR.syn.kpos ψ ρ as hsp)
+    rw [Nat.add_zero] at this
+    exact this
+  exact instanceLe_of_pair hμ h h3 hbk m dJf hgroups hρp GR.syn.reps hpR
+    (GR.syn.kEq ▸ GR.syn.kpos) hρR (fun _ _ hcp => hcp.1)
+    (nestedPinPairAt hμ h hbk m hleafM dJf hgroups hρp hB hppB hdJfB GR CR hpR hshR hIH hout)
+
 /-! ## Step (iii)'s INDUCTION: the rank orders the instances (K.37) -/
 
 /-- **The rank induction, over K.37's four clauses** (task #315 L-E,
