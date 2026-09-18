@@ -114580,3 +114580,71 @@ that was ordered because its price was "confirmed".
 * **(iv)**, **(v)** unstarted apart from `docs/NESTED.md` §3, done.
 
 Nothing in this section changes the tree.
+
+#### PINF: the bounded check on (ii)'s alternative route — REFUTED on a misreading of the Bool, but it narrows the carry to ONE syntactic equation (lane PINF, 2026-09-18)
+
+The check asked whether `ContainerModeled.nestMention` plus a
+substitution lemma on `Expr` reaches K.60's guard directly, with nothing
+carried through `ReadCtx`/`NestedCtorRead`/`NestedStageFacts`.  It does
+not, and the reason is upstream of the substitution: **the guard is not
+on the copy's field at all.**
+
+##### (a) THE GUARD IS ON THE CONTAINER'S FIELD, NOT THE COPY'S
+
+Read off `nestedCopyPinFieldsAt`: at pin `q` it takes
+`ci = containerInfo? env qn.container`, `J = ci.members[q - grpBase]`,
+`cJ = J.ctors[j]`, strips `cJ.type` and tests
+`jbs[ci.nP + l]` against `mems = ci.members.map (·.name)`.  Every term
+in the guard is the CONTAINER's own stored constructor and the
+CONTAINER's own group.  `mkCopy`, `replaceAllNested` and `normPosDomM`
+appear nowhere in it — they justify the CONCLUSION (`kf[l]`, the
+auxiliary block's classification), which is on the other side of the
+implication.  So a `RewriteRel`-based substitution lemma has nothing to
+act on, and the guessed failure point (the mint's normalisation having
+changed the arguments) is not the failure point: that walk is not in
+the guard's dependency cone.
+
+##### (b) WHAT `nestMention` IS, EXACTLY — abstract in the fields, OPENED in the parameters
+
+`nestMention` is on `(d.pinAt q).DsE`, the pin's recorded components,
+and K.30 (`pinsScoped`) says a pin's free variables ARE the first
+former's parameter openers: the components carry those openers as
+`.fvar`s.  So `DsE` is parameter-OPENED, while K.60's guard reads a
+binder of `cJ.type.stripPis` — parameter-CLOSED, bound variables where
+the parameters stand.  The two are still not the same term, which is
+why the route does not close as posed.
+
+##### (c) THE CHECK'S POSITIVE RESULT — the transport runs the right way here
+
+`mentionsMember_abstractRange` (`Verify/Inductives/NestedRestoreOpen.lean`)
+takes a mention on the OPENED term to a mention on the CLOSED one,
+under the side condition that no `.fvar` leaf's annotation mentions a
+member — the very condition whose failure refutes the general
+opened→abstract direction.  **At a pin that side condition is
+discharged**, by K.30's scope record and the members' freshness, and
+`declNested_of` already performs exactly this step inside
+`nestArgsMention`'s own proof.
+
+So the mention is NOT what the carry has to transport.  What is missing
+is purely syntactic and is one equation:
+
+    (the container's abstract field domain at (i, j, l)).getAppArgs.take nPJ
+      =  (the pin's components, closed over the parameters)
+
+`copyPinFDom` already gives that domain's HEAD (the pin's container) and
+its ARITY (`nPJ + nIdx`) against the same pin; it is the ARGUMENTS that
+no record carries — `BlockOpened.nestF` keeps head, count and the
+resolution past `nPJ` and drops the parameter part, which is the same
+drop that started this whole row.
+
+##### (d) CONSEQUENCE FOR THE THREE-TIER CARRY
+
+It is narrower than the previous section priced it.  Tier 1's new arm
+is a `restoreWalk_pin`-shaped EQUATION — the restored node at a pin is
+`Expr.mkAppN (pin.liftLooseBVars d 0) (args.drop R.nP)`, so the abstract
+field domain's first `nPJ` arguments are the pin's components lifted —
+and no mention argument travels with it; tiers 2 and 3 carry that
+equation, and the `ContainerModeled` clause can then be stated as the
+mention (its consumer's form) with `mentionsMember_abstractRange` and
+K.44 closing it at the producer.  Still four clauses, but each is an
+equation or a one-line consequence rather than a transport proof.
