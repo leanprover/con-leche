@@ -82094,6 +82094,43 @@ Present and checked: `nestedRuleBitsOk`, `nestedPinRankOk_inv`,
 the ten probe theorems, of `nestedPinsEntry_of_le_all` and of
 `copyPinFFire`: `[propext, Classical.choice, Quot.sound]`.
 
+###### (z-8) TWO FINDINGS ABOUT THE PROCESS, and they are the reusable ones
+
+**1. THE LANDED-OUTRANKS-ARRIVING RULE COVERS IDENTIFIERS, NOT ONLY
+SECTION NUMBERS.**  §U.27 (u)'s rule was written for DESIGN numbers;
+this integration needed it for a THEOREM NAME.  The kernel lane's M8
+session-5 lemma and lane M7-2's LANDED major-binder lemma both arrived
+as `mutualRecTy_major`, in ONE file, with different statements — so
+Lean refused the second declaration and the collision was visible.
+**Had the two statements been compatible it would have bound silently**,
+and the second lane's consumers would have been proving the first
+lane's proposition.  That this is not hypothetical is shown by the NEAR
+MISS in the same integration: lanes L-E and the kernel lane wrote
+`nestedPinRankAt_inv` and `nestedPinRankOk_inv` INDEPENDENTLY (K.52 was
+L-E's request and the kernel lane's delivery), and git merged the two
+copies only because they were BYTE-IDENTICAL.  One character of
+difference in either would have been a duplicate declaration; one
+character of difference in the STATEMENT with the same name would have
+been worse than that.  So: **a name that has landed outranks an
+arriving one, the arrival is renamed, and two lanes that expect to
+write the same lemma agree on its name BEFORE either writes it** — the
+same discipline as citing a section by title.
+
+**2. A GATE BATTERY RUN WITH A MERGE STAGED MEASURES THE MERGED TREE,
+NOT THE BRANCH.**  Lane M7-2 found this integrator's staged merge in
+its worktree mid-session; every build in that session had exited zero,
+so nothing was broken — but its battery numbers described the union of
+its branch with `agent/uniform-315`, not its branch.  The lane copied
+every working file out by absolute path, confirmed by diff that nothing
+was lost, aborted the merge, and **re-ran the whole battery**, which is
+the right response: the first run's numbers were not evidence about
+anything it could report.  The finding generalises past this incident —
+**if `MERGE_HEAD` exists, gate numbers do not describe the branch you
+think they describe**, and the check costs one `git status`.  It is the
+reason the integrator's sync pass must look for a live agent as well as
+a clean tree, and the reason a lane that finds a staged merge should
+neither continue nor commit on top of it.
+
 Cost: one session.  Next: L-B's three shape arms (the `ordF`-right
 reflexive half is no longer refuted), `NestedPinsLe`, K.36, the
 recorded tables' data — and `ModeledStepB`.
