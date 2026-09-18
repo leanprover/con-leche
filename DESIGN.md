@@ -93605,3 +93605,109 @@ NOT STARTED.  No code changed this session.
 
 Gates: `lake build` and `lake test` warning-free at the session's
 commit; text gates green.
+
+#### U.84 — L-E session 29: the re-pointing CANNOT be a block-model clause — it is transfer-side, and there is nothing left to request (lane L-E, 2026-09-18)
+
+The ownership question of §U.83 (e), answered: **NO.**  There is no
+clause to reword and none to route; the construction belongs wholly to
+this lane, and the extra obligation §U.83 (c) names is this lane's too.
+
+##### (a) NO CLAUSE EXISTS — every semantic tie is gated on the kind
+
+In `BlockCtorData`/`CtorDataI`, every clause that attaches a field to a
+CLASS or to a reading is gated on the field being recursive or
+reflexive: `recF`, `reflF`, `nestF`, `nestReflF`, `eisRead`, `eisLen`,
+`recEntry`, `nestEisRead`, `nestEisLen`, `reflOpen`.  At an ORDINARY
+field the record says only
+
+* `ordNone` — the index readings are EMPTY;
+* `ordFree` (`ContainerModeled`) — the opened domain mentions no member
+  of the container's group, a SYNTACTIC fact;
+* `domRead` — the domain's reading, with no class attached.
+
+`tgtsLt`/`tgt_cases` do put `d.tgts mm j l` in range
+(`< d.k + d.nPins`) for EVERY field index, ordinary ones included — but
+being in range is not being the right class, and nothing anywhere ties
+it to the field's reading at an ordinary position.  So the datum exists
+as an unconstrained slot, and constraining it would be a new clause.
+
+##### (b) AND NO CLAUSE COULD — the class is a function of the INSTANTIATION
+
+This is the structural answer, and it does not depend on what the
+records happen to contain.
+
+An `ordF`-right field is parameter-typed in the container: its domain
+mentions no member of the container's own group.  Which class its
+INSTANTIATED domain lands on is therefore a function of the
+parameters — the pin's components `Ds` — and not of the container.  The
+same container constructor, at different components, sends that field
+to a different class of the system, or to no class at all: at
+`K α := mk : α → K α` nested as `K (List P)` the field's instantiation
+is a block pin; at `K Nat` it is a basis type and no class of anything.
+
+So a clause on a BLOCK MODEL, which is quantified over all level
+assignments and all parameter frames, would be FALSE: there is no
+class to name at a general frame.  Conditioning it on the frames the
+transfer actually uses — the pins' components — IS transfer-side
+conditioning.  **The re-pointing is not block-model data in any
+formulation.**
+
+##### (c) THE SHAPE, then, and it is entirely this lane's
+
+Per root `r` and its frame, over the root's extended classes:
+
+1. a re-pointing `tgt⁺ c j l` — for each class `c` of `dR`,
+   constructor `j` and field `l` that the CONTAINER calls ordinary and
+   the BLOCK's copy calls recursive, the class of `dR` the target's
+   covering supplies (`InstanceCovered` at the block target, which
+   K.41 discharges and which this lane already carries as a premise);
+2. `Φ_T⁺ X c` — the classes' constructors with those fields reading
+   `X (tgt⁺ c j l)` in place of their domain, everything else as
+   `ChainFitT`;
+3. **(i) monotone and maps** — free, `ChainFitT_mono` as in §U.82 (a);
+4. **(ii) `lfpTuple … Φ_T⁺ = famAt`** — the extra obligation.
+   `lfpTuple ≤ famAt` is `famAt_TClosed` read at `Φ_T⁺`, because at
+   `X := famAt` the re-pointed reading EQUALS the domain reading
+   (`nestedPinFam_of_classPin`).  The converse — `famAt` below every
+   `Φ_T⁺`-closed tuple — is the open half: the ordinary field's element
+   must now be placed by the induction AT CLASS `tgt⁺` rather than by
+   its domain, and the re-pointing graph is CYCLIC exactly in the
+   configuration that makes the target in-instance.  The two
+   ingredients `famAt_le_of_TClosed` uses (`PinRecLaws.ind`,
+   `lfpTuple_le`) are both simultaneous, so this is plausible, and
+   nothing in the tree does it;
+5. **(iii) `hrel`** — now the induction hypothesis DOES reach the
+   field, which was the whole point.
+
+**Who discharges (ii): this lane.**  §U.83's warning not to let a
+rewording hide it is moot in the best way — there is no rewording,
+because there is no clause and no other party.
+
+##### (d) A RANGE, and what it rests on
+
+**5–8 sessions for this lane**, and unlike the three withdrawn figures
+this one names its premise rather than assuming it: it holds IF (ii)'s
+open half goes through by the two simultaneous ingredients
+`famAt_le_of_TClosed` already uses.  Breakdown: (1)+(2) one session,
+(ii) two to four, (iii) plus the transfer's in-instance arm two to
+three, re-wiring one.
+
+**Settle (ii) first, read-only, before trusting the number.**  It is
+the fourth candidate blocker on this route and the previous three each
+dissolved or refuted on one session's reading.  The question is sharp:
+is `famAt` below every `Φ_T⁺`-closed tuple, given that the re-pointing
+graph may be cyclic?
+
+##### (e) UNAMBIGUOUSLY: nothing landed is affected
+
+Every theorem this lane has landed stays landed.  `hout` remains a
+named premise.  The OUT-OF-INSTANCE case is untouched and still goes
+through `pins_le_of_instanceLe` over K.52 exactly as it does today, as
+does step (ii), step (iv) and the residual's discharge.  What §U.83 and
+this section bear on is only the proposed route to the IN-INSTANCE
+case.
+
+NOT STARTED.  No code changed this session.
+
+Gates: `lake build` and `lake test` warning-free at the session's
+commit; text gates green.
