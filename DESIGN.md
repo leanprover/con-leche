@@ -107572,3 +107572,91 @@ thing to cost.  **This lane has not costed it and is not guessing at it.**
 `lake build` — 0 errors/warnings, **722 jobs**.
 
 Nothing in this section changes the tree's accept set.
+
+#### (number at the integrator's sync) — L-E: COSTING the chain-fit transport — it is a congruence plus a classification, and it buys ONE of the three arms (lane L-E, 2026-09-18)
+
+Costing only.  Nothing landed beyond `CopyEntryOutF`.
+
+##### (a) THE INPUT DIES AT FIVE MINUTES, and says where to look next
+
+Monotonicity in the frame does not stand, because **the tree's
+monotonicity is all in the FAMILY with the frame fixed**:
+`BlockModel.ChainFitT_mono` and `FitsFrom.mono`
+(`NestedRecCand.lean:584, 551`) both move the slot family `Y → Y'` and
+leave `ρ` alone — `FitsFrom.mono`'s hypothesis is
+`∀ l, … → ∀ ρ', slot l ρ' ⊆ slot' l ρ'`, the frame universally
+quantified INSIDE the slot and unchanged outside it.  And `FitsFrom`'s
+ORDINARY positions are `interp V (consList fs₁ ρ) F` — a direct
+interpretation, not a slot — so a frame move changes them with nothing
+available to bound it.
+
+Killed fast, as instructed.  What it pointed at — frame-monotonicity via
+positivity — would be a NEW object needing positivity semantically, and
+larger than the transport rather than smaller.
+
+##### (b) A REFINEMENT OF THIS LANE'S OWN REFUTATION, owed under the naming rule
+
+Two different questions, two different answers, and the record must not
+run them together:
+
+* **can the entries move ALONE, leaving the rest at `ρJ`?**  No — `hC`
+  forbids it, for the reason given: `fs` is constrained by fitting at
+  `ρJ` and the entries would speak at another frame.  That was the
+  hypothesis asked about and the answer stands;
+* **can the WHOLE lemma be instantiated at a candidate frame?**  Also
+  no — but the obstruction there is the three arms' PROOFS
+  (`slotSet_instTele` at `recF`, `interp_instAll` at `ordF`-left and
+  `es`), not `hC`.  Instantiated wholesale, `hC`, `hdom` and `hentR`
+  move together and compose fine.
+
+The operative obstruction for the route is the second.  This lane's
+earlier sentence named `hC` for both, and only the first is its.
+
+##### (c) THE TRANSPORT'S PRICE — and it is not one object
+
+| piece | what | size |
+| --- | --- | --- |
+| **T1** | a POSITIONAL `interp` congruence, generalising `interp_congr_below` (`Semantics/Kit.lean:155`) from "bvars below `k` and frames agree below `k`" to "frames agree at the positions the term reads" | ~40 lines, one induction, the existing proof's shape carries, **no dependency** |
+| **T2** | the same for `slotSet` — a `piTele` congruence in the frame | ~40–60 lines, same shape |
+| **T3** | `FrameAgree` + `FitsFrom` transports under it | ~40 lines over T1/T2 |
+| **T4** | the classification: which positions each arm READS | see below — this is where it stops being cheap |
+
+**T1 is the reusable core and the tree is one generalisation away from
+it**: `interp_congr_below` already proves exactly this for a PREFIX
+bound, and the candidate frame's replaced positions are scattered rather
+than a prefix.  That is the whole gap.
+
+##### (d) WHAT IT BUYS — one arm of three
+
+* **`ordF`-LEFT: bought, probably.**  A container-ordinary field whose
+  instantiation stays ordinary mentions no member and no pin — so its
+  domain reads no REPLACED component, and T1 closes it by agreement.
+  **Inspected, not proved**, and the fact it needs is K.32-adjacent
+  (`nestedCopyTargetsOk`'s "a container-ORDINARY field cannot
+  instantiate to the group's own pin"), so it may already be recorded;
+* **`recF`: not bought.**  Its domain is the container's own member
+  applied to the PARAMETER SPINE, so it reads every component including
+  the replaced ones.  Agreement is false there by construction;
+* **`es`: not bought.**  The result's index readings read the parameter
+  spine for the same reason.
+
+`recF` and `es` are not transport problems at all: at the candidate frame
+the container's side moves and the copy's does not, so what they need is
+the COLLAPSE — the identity between the container's reading at the
+candidate frame and the copy's stored one — which is option (1)'s
+territory and carries option (1)'s kernel-record wait.
+
+##### (e) THE PRICE, PLAINLY
+
+**T1–T3: one to two sessions, no dependency, and they close `ordF`-left
+— one of the three arms.**  The other two are not cheaper under a
+transport than under option (1), because they are not about frames
+agreeing; they are about two different readings of the same field.
+
+So what the route has acquired is: **a bounded piece worth about a
+session that removes a third of the third piece, and a residue that is
+the same obligation option (1) already carried.**  That is smaller than
+"an obligation of unknown size", and this lane is reporting it before any
+of it is spent, as asked.
+
+Nothing in this section changes the tree.
