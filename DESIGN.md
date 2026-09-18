@@ -107233,3 +107233,122 @@ re-run: no checker code touched (both commits are Verify/Model tier).
 Lane L-E's `agent/uniform-entry` (`524c87fc`) was READ for this
 session's analysis but NOT merged — the tree here is still at the
 integration's base plus this lane's commits.
+
+#### L-B session 32: the restricted `EntryReadF` arm, and step (iv)'s syntactic half (lane L-B, 2026-09-18)
+
+*(No number taken: the title is the citation, the integrator numbers.)*
+
+##### (a) THE ADJUDICATION, AND WHAT IT CHANGED HERE
+
+Lane L-E retracted "not an ordering one" (`04eb5e87`) and recorded this
+lane's three points at `EntryReadF` itself.  The answer to the blocking
+question: the candidate-frame arm is asked at the PARAMETER-HEADED pin
+targets; the constant-headed ones keep K.57's consumer, because a
+container's field domain such as `List α`, read at a frame where `α` is
+the auxiliary carrier, evaluates to `List`'s LEAST TUPLE at that
+argument — the inner pin's `pinLfpAt`, not the inner pin's carrier.
+
+**The rule the round produced, and this lane owns half of it: NAME THE
+OBJECT A CLAIM IS ABOUT, especially when two obligations share a
+proof.**  L-E's theorem is about a TARGET's READING; this lane's
+obligation is about the CONTAINER's FIELD DOMAIN at a frame.  A summary
+true of the first, stated as if it covered both, is indistinguishable —
+to the lane consuming it — from a false claim.  Both new artifacts below
+name their subject in their own headers.
+
+##### (b) `entryReadF_of_paramHeadDom` — the restricted statement, written
+
+`ConLeche/Model/Inductives/NestedEntryParam.lean` (commit `2f3794c2`),
+a module whose header states its subject and its restriction: when the
+CONTAINER's `l`-th field domain is the parameter at position `v` applied
+to a spine, the reading law holds at any frame whose value at `v` is the
+target's reading.  Four hypotheses, each about a named object and none
+at another pin: the domain's recorded shape, the frame's value at that
+position, the copy's empty telescope, and the index correspondence with
+its fit.
+
+**Stated at an arbitrary `frSelf` constrained only at the field's own
+parameter position.**  That is as unconditional as the arm gets: it
+assumes no candidate family, and any such family satisfies the
+constraint by construction at a pin-valued component.  It also produces
+none — no construction of a candidate family is in the tree
+(`CandParamFit`/`CandIdxAgree` are side conditions ON one).  **A
+reduction, not a close**, and recorded as such in the module.
+
+##### (c) THE BACKWARDS INVERSION, FINISHED, AND STEP (iv)'s SYNTACTIC HALF
+
+Four commits, and the queue item that was blocked on a whnf property is
+closed:
+
+* `replaceAllNested_head_or_fire` (`f33926f0`, strengthened at
+  `a288fbd1` and `b1bdd8c1`) — `replaceAllNested_head_const`'s
+  contrapositive at an ARBITRARY head, now carrying the output's head
+  (`e'.getAppFn = r.1.getAppFn`) and the fire state's pin count.  The
+  induction gets both for free: a descent preserves the spine head and
+  only grows the pins, a top-level fire IS the result.
+* `replaceIfNested_fire_inv` / `replaceIfNested_fire_pin` — the step's
+  guards read backwards, then `replaceIfNested_occurrence` with its
+  shape hypotheses supplied BY the firing.
+* `replaceAllNested_container_head` / `_stable` — the inversion, and its
+  form at a walk that MINTS NOTHING (K.51's two length conjuncts), where
+  the fired pin is one the walk went in with and can therefore be named
+  by its INDEX.
+* `NestedPinsRun.copyOrdFRightPinCorr` (`ba75b242`) — step (iv)'s
+  syntactic half: at an `ordF`-right field at a pin target, `w` is a
+  recorded container's application, the target is `p.k + qq`, and the
+  block pin at `qq` is that application at `w`'s parameter arguments.
+
+**The side condition cost nothing**, and the reason is worth keeping:
+`copyFieldReadCoreQ` already returns `denoteMeta … w = some ea'`, `w`
+therefore names no constant the members-only environment lacks
+(`denoteMeta_some_found`), and a copy is not stored there.  The
+three-shape route the brief offered does NOT work — those are facts
+about the walk's INPUT while the classification is about its output's
+image under the rewrite, and `tests/e2e/nested_p26.ndjson` has a minted
+domain that is a β-redex (container domain `(#1 #0)`, component
+`fun _:Nat => ((P26V P26) #0)`), which is none of the three.
+
+**Unlike `copyPinFCorr`, this arm needs no shape for the minted domain.**
+`copyPinFDom` has no analogue at a container-ORDINARY field, and the
+inversion is exactly what replaces it — which is also why the inversion
+would simplify `copyPinFCorr`, whose forward "the mention read off the
+classification by contradiction" argument it subsumes.
+
+##### (d) WHAT IS LEFT OF STEP (iv), sized
+
+Step (iv)'s SEMANTIC half: `ea'` — `w`'s reading — is
+`TargetView.EA (p.k + qq)` applied to the field's index readings.  The
+pieces are `denoteMeta_mkAppN_inv`, `DenoteMetaSpine.append_inv` at the
+`ci'.nP` split, `SF.pinDs` at the block pin `qq`, and `denoteMeta_lift`
+to move the components' reading from the block's parameter depth to the
+field's — the same four `copyPinFCorr` spends, minus its minted-domain
+shape.  **120–180 lines, one session**, and nothing in it is open.
+Then the `EntryRead` assembly follows `copyOrdFRightReadM`'s last twenty
+lines.
+
+##### (e) THE MERGE, AND TWO GATE REPAIRS IT FORCED
+
+`agent/uniform-entry` `04eb5e87` merged here (`c5800a1b`) because
+`EntryReadF` is L-E's predicate and (b) has to be stated at it.  The
+lanes' files are disjoint; only DESIGN.md conflicted.  Two repairs:
+
+* `TargetView.frameAt_of_mem`/`_of_pin` carried an unused
+  `[SetTheory V]` and warned — `omit [SetTheory V] in`, the idiom
+  already in that file.
+* **`proofdeps` flagged `NestedCopyFound` ENTERING every capstone's
+  closure, and the door was this lane's own.**  `simp only [Expr.getAppFn]`
+  generates that FOREIGN definition's equation lemmas IN THE MODULE THAT
+  FIRST ASKS FOR THEM, and every later proof that reuses them pulls that
+  module into its proof term — although nothing referenced the two new
+  theorems at all.  Fixed by unfolding through defeq
+  (`exact nomatch (h : …)`).  **The rule, worth keeping beside the other
+  gate-blindness entries: in a low-tier module, do not unfold someone
+  else's definition with `simp only [it]`** — the equation lemmas it
+  mints are attributed to you, and an import gate cannot see it.
+
+##### (f) GATES
+
+At `ba75b242`: `lake build` warning-free; `lake test` warning-free;
+layering, trust-surface, no-local-paths, overview-links, quote-gate,
+proofdeps, shake and nested-shadow all pass.  `tests/arena.sh` not
+re-run: no checker code touched (every commit is Verify/Model tier).
