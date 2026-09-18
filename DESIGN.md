@@ -95767,3 +95767,145 @@ overview-links 112; quote-gate 2; no-local-paths OK; **proofdeps 4965
 rows / 12 roots / 0 doors**; shake all allowlisted, pub-imports none
 demotable; `tests/arena.sh` **EXIT 0** (the merge carries K.49's
 checker code).  Standard axioms on every new theorem.
+
+#### U.79 — M7-3 session 18: the clause REFUTED and repaired, option C measured, and the admissible narrowing found NOT to close the crossing (lane M7-3, session 18, 2026-09-18)
+
+##### (a) THE CLAUSE WAS FALSE, and two real runs say so
+
+Proving `ContainerOwnPinsSyn` at the NESTED route — the ninth site —
+did not produce a theorem.  It produced a counterexample.
+
+`containerOwnPinsAtGo` instantiates the mimic recursor at `Ds ++ pad`,
+and `Expr.instPis` peels ONE binder per argument at cursor 0: the PAD
+substitutions therefore run on the ALREADY-INSERTED components, at
+descending cursors, and a component carrying a LOOSE BOUND VARIABLE is
+eaten by the pad.  `PinSyn.ownAt` re-opens the recorded pin — which is
+openers-instantiated, hence already pad-processed — at `DsE`
+afterwards, so the same bvar survives there.  The clause quantified
+`DsE` with no closedness condition, so it asserted the two agree at
+OPEN components.  They do not, at the route's own `envOut`:
+
+```
+nested_rec.ndjson, member `Tree`, nP = 1, lvls = p.lps.map Level.param
+  K.47 base table          : [List (Tree @0)]
+  DsE = [bvar 0]  ownAt    : [List (Tree #0)]
+                  ACTUAL   : [List (Tree Sort)]      ← refutation
+  DsE = [Nat] / [List Nat] / [fun x => x]  ownAt = ACTUAL
+nested_p30.ndjson, member `P30`, nP = 1 : the same pattern
+```
+
+Blocks with `nP = 0` are immune (nothing to substitute), and the other
+eight sites go through `of_noMimics` at an EMPTY table — which is why
+the gap surfaced only at the ninth, and only when someone tried to
+PROVE it rather than to discharge it vacuously.
+
+**The repair** is the side condition the evidence names, added to the
+clause: `∀ a ∈ DsE, a.looseBVarsBounded 0 = true`.  Lane L-B's
+`instPis_openers_subst` already carries exactly this as `hDcl` — the
+tell that it was never a proof artefact.  It costs no consumer:
+`toReadOf` already had it inside `hDsE` (the two `obtain`s swap order),
+`of_noOwn`/`of_noMimics`/`crossInd` gain an `intro`, and the seven
+proved sites are untouched.
+
+##### (b) OPTION C, MEASURED: the link fails, and the request is precise
+
+The ruling was to derive `RecMajorHeadStored` from the environment's
+well-formedness rather than carry it per site.  Measured, and the half
+that works is the half the ruling named:
+
+* `ConstWF`'s GENERIC clause gives `cvR.type.constsResolve env = true`
+  for every stored constant, recursors included.  So if the major
+  premise's head is a CONSTANT it resolves, and the crossing's gap is
+  closed **for that case**;
+* `ConstWF`'s RECURSOR clause gives `cv.type.stripPis mI = some (pre,
+  .forallE dom body bm)` with `dom.getAppFn = .const D lvls` — exactly
+  the missing case (a const head, not a bvar) — **but it is doubly
+  guarded**: `∀ r ∈ rules, … ∀ lvls pins, RecRule.fire r = .nested lvls
+  pins → …`.  A recursor with no rules, or none whose `fire` is
+  `.nested`, gives nothing;
+* **the walk cannot supply that guard.**  `containerOwnPinsAtGo`
+  matches `env.find? (appendIndexAfter base (j+1))` against `.recInfo
+  cvR mI _rP _rules` and never looks at `_rules`; and
+  `ContainerOwnPinsSyn env d` is quantified over an environment with no
+  history, the only link to `d` being the clause's own `env.find?` of a
+  MEMBER.  Nothing in `EnvWF`, `RecCtorsStored` or `EnvModel` says that
+  a recursor named `C.rec_j` carries a nested rule — `RecCtorsStored`
+  constrains a rule's CONSTRUCTORS, not its `fire`.
+
+**THE REQUEST, precisely**: `ConstWF`'s recursor clause should give
+
+```lean
+∃ pre dom body bm D us,
+  cv.type.stripPis mI = some (pre, .forallE dom body bm) ∧ dom.getAppFn = .const D us
+```
+
+**UNCONDITIONALLY** — for every stored recursor, not only for one
+carrying a nested rule — or an inversion lemma of that shape.  It is
+true of every recursor this checker installs (a major premise is `T
+params indices`), it is "validate once at insertion", and with it
+`RecMajorHeadStored` follows from `hwf` at all nine sites and the
+ad-hoc premise disappears.  This is the kernel-lane item; the nested
+route's own well-formedness producer and preservation theorem, which
+the kernel lane has already sized, are the same debt seen from the
+other side.
+
+##### (c) THE ADMISSIBLE NARROWING DOES NOT CLOSE THE CROSSING — a correction
+
+The fallback was to narrow `DsE` to components that resolve at the
+environment the table is read at (the other narrowing, at the
+container's own older environment, is false at every nested block —
+every block pin's components mention a member of the block being
+installed, which is what `nestMention` asserts).  **The admissible
+narrowing does not help**, and it is worth being exact about why,
+because it is easy to think it does:
+
+`crossInd` must prove the clause at `env₂` from the clause at `env₁`.
+The `env₂` clause hands it `∀ a ∈ DsE, a.constsResolve env₂ = true`.
+To invoke the `env₁` clause it needs the same at `env₁` — and
+`constsResolve env₂` does not give it.  The problematic entry's head is
+the head of some `DsE[i]`, and being old AT `env₂` is precisely not
+being old at `env₁`: a constant of the new block resolves at `env₂`.
+So the narrowing weakens the clause without touching the crossing's
+obligation.
+
+The gap is about the MIMICS (is the major premise's head a bvar at
+all?), not about the components, which is why (b) is the only route.
+The closedness repair of (a) does not close it either, for the same
+reason: closedness stops the PAD from eating a component, it does not
+make a component's head old.
+
+##### (d) THE NESTED SITE: what remains, and it is not much
+
+Sized against the tree: **about one session**, after (a)'s repair.
+
+* K.43 fixes the walk's LENGTH and K.47 its CONTENT, so each of the
+  `numNested` steps yields exactly one entry at both instantiations;
+* `Expr.instantiateLevelParams_self` / `Level.subst_param_self`
+  (`Verify/InstLevels.lean`) discharge K.47's identity level
+  substitution — both in the tree;
+* **missing kit**: a general `instPis`/`instantiateLevelParams`
+  commutation, `instPis e args = some r → instPis (e.ilp ks us)
+  (args.map (·.ilp ks us)) = some (r.ilp ks us)` — a ten-line induction
+  mirroring `instPis_substFvarList`, using `ilp_instantiate1`.  Only
+  the telescope-shaped `instPis_ilp_mkPisB` exists today;
+* `containerOwnPinsAt_inv`, `containerOwnPinsAt_eq` and
+  `containerOwnPinsAtGo_ext` (`ContainerCross.lean`) are `private` and
+  want making public rather than duplicating;
+* one identification: K.47's table is read at the block's FIRST former
+  and the clause at `d.memberName i`, and the walk starts at
+  `ci.members.head?` for every member, so the tables coincide.
+
+##### (e) STATUS
+
+**Seven of the nine sites proved** (native, mutual, the five basis);
+the crossing proved, modulo (b)'s premise; the ninth site open, and now
+with a correct clause to aim at.  **The field is not in**, and it
+cannot be until the ninth site is proved — a `ContainerModeled` field
+is discharged at all nine or at none.
+
+##### (f) Gates
+
+`lake build` warning-free; `lake test` warning-free; layering / trust /
+overview-links / quote-gate / no-local-paths / shake / pub-imports /
+proofdeps (0 doors) / `tests/arena.sh` — figures at the landing commit.
+Standard axioms on every theorem the repair touched.
