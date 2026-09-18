@@ -107999,3 +107999,140 @@ arms remain one obligation, and this lane's recommendation is unchanged:
 let `ordF`-left ride with `recF` and `es`.
 
 Nothing in this section changes the tree.
+
+#### (number at the integrator's sync) — L-E: THE REQUEST — record the pins' COMPONENTS in rewritten form; K.51's clause, one level out (lane L-E, 2026-09-18)
+
+Specification only; nothing landed.  Written so the kernel lane can
+price it without re-deriving this lane's reasoning.
+
+##### (a) IT IS A CHECK, IT IS NOT GATED, AND K.51 IS THE PRECEDENT
+
+Answering the disqualification concern first, because it decides the
+rest.  **K.51 is not a `certOnly` check.**
+`NestedInstall.lean:2209` runs it as
+
+```lean
+unless nestedPinRewrites env p st params pbs₀ jobsP wsP do
+  throw (.internal "nested: a pin-target copy field's stored domain is not the \
+    rewrite of the positivity normalisation of the minted one")
+```
+
+— an `unless` in every mode, with an `.internal` failure.  It is in the
+class that **cannot fire**: a failure is a broken environment, not a
+stream's fault, so it narrows the accept set by nothing and needs no
+gating.  The request below is the same class, and therefore **can be
+load-bearing for something trusted mode needs**, which is what all three
+arms require.
+
+* **kind**: recorded Bool, run unconditionally, `.internal` on failure;
+* **ledger category**: (B), by-construction-only;
+* **gating**: none, for K.51's reason;
+* **K-number**: to be assigned by the kernel lane.
+
+It is not a provable property in the Verify sense — the elimination's
+rewrite of a COMPONENT is not currently recomputed anywhere, so there is
+nothing to prove it against.  It is the same recomputation K.51 already
+performs for domains, at a different argument.
+
+##### (b) THE STATEMENT
+
+K.51 certifies that the normalised minted DOMAIN, rewritten by
+`replaceAllNested` at the final state, is the stored one.  The request is
+the same clause at the pins' **components**:
+
+> for every pin `q` and every component `c` of `st.pins[q]!.pin`'s
+> argument spine, `replaceAllNested env (p.lps.map Level.param) params
+> pbs₀ st c` succeeds, its output is the recorded rewritten component,
+> and the state does not grow (`types.length` and `pins.length`
+> unchanged — the re-run mints nothing).
+
+The carrier is the kernel lane's choice: a new per-pin field beside
+`DsE`, or a recomputing function with a certifying Bool in
+`nestedPinRewrites`' shape.  This lane does not need one over the other
+and will consume whichever is cheaper to record.
+
+**Why components and not a classification.**  This lane originally asked
+for "which subterms of `Ds` are pin readings, at which pins".  That is
+strictly more than is needed and harder to consume: the model would then
+have to locate those subterms inside the AnnotTerm READING and perform
+the substitution itself, which is the structural recursion priced as
+option (1)'s model half.  **Recording the rewritten component instead
+deletes that half**, because the elimination has already performed the
+substitution and the model can denote its output directly.
+
+##### (c) WHAT THE MODEL CONSUMES, in the form it consumes it
+
+Two clauses, the first being the twin of `NestedPinSynFacts.pinDs`:
+
+```lean
+-- the rewritten components denote, exactly as the recorded ones do
+pinDsRw : ∀ q, q < pinsS.length → ∀ ψ : Name → Nat,
+  DenoteMetaSpine acval' ENV₁ ψ b.nP (rewritten DsE of pin q) (DsCand q ψ)
+
+-- and they are the rewrite of the recorded ones
+pinDsRw_eq : ∀ q, q < pinsS.length →
+  (rewritten DsE of pin q) = ((pinsS.getD q default).DsE).map (replaceAllNested …)
+```
+
+**One requirement on the denotation's `acval'`**, and it is the only
+subtle part: the rewritten components mention the COPY constants, which
+the restore removes, so they have no `acval` in the output environment.
+The model supplies one — `auxTargetRead b.nP (p.k + q') ψ` at the copy
+of pin `q'`, which this lane landed and which `auxTarget_reads` already
+proves denotes the auxiliary carrier.  So the record must also expose
+**which copy name is which aux index**; `nestedCopyNames` and
+`ElimState.types` already carry that, and a clause naming it is enough.
+
+Then `candAs q := (DsCand q ψ).map (interp V ρp)`, and the producer row
+is discharged — no second interpreter, no structural recursion.
+
+##### (d) THE THREE CONSUMERS, AND THEY NEED THE SAME STRENGTH
+
+| consumer | what it needs |
+| --- | --- |
+| `recF` | the full candidate components — its domain is the container's member at the PARAMETER SPINE, so it reads every replaced position |
+| `es` | the same, for the same reason |
+| `ordF`-left | **the same, and not less** |
+
+`ordF`-left was expected to need less — "positions not read" — and it
+does not, but the reason is favourable.  With the rewritten components
+recorded, its obligation moves from the PARAMETRIC level to the
+INSTANTIATED one: both sides become `instAll`-applications at the single
+frame `ρp`,
+
+```
+interp ρp (instAll Ds     l D)   -- the copy's reading, fixed
+interp ρp (instAll DsCand l D)   -- the container's domain at the candidate frame,
+                                 -- via interp_instAll, now that DsCand is a TERM
+```
+
+and at one frame the existing machinery applies: K.51's clause plus the
+whnf denotation preservation (`Model/Steps/Whnf.lean:700`).  **The
+parametric-versus-instantiated mismatch that defeated T1 disappears,
+because the candidate side is a term again.**
+
+So a weaker fact is not wanted here: one fact with three consumers, and
+it is the stronger-looking one that is actually cheaper, because it
+deletes the model-side recursion rather than feeding it.
+
+##### (e) WHAT THIS DOES TO T1, said rather than buried
+
+If the request lands in this form, **T1's intended consumer evaporates**:
+`ordF`-left no longer needs a congruence, because its obligation is no
+longer between two frames.  T1 stands as a library lemma — it is
+general, it subsumes `interp_congr_below` by
+`interp_congr_below_of_on`, and it cost well under its estimate — but
+this lane is not going to claim a consumer it will not have.  That is
+the honest ledger entry for a piece funded on a costing that later
+improved.
+
+##### (f) THE PRICE THIS IMPLIES, for the model side
+
+With the record: the producer row collapses to a denotation, option
+(1)'s structural recursion is not needed, and the three arms close at the
+instantiated level.  **This lane will not put a number on it until the
+kernel lane prices the record**, because the last three numbers this
+lane produced all moved on inspection and the pattern is now the
+expectation rather than the surprise.
+
+Nothing in this section changes the tree.
