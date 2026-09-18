@@ -4612,7 +4612,13 @@ at the declaration order with `Q q := FamLe …` — the inclusion of step
 (iii).  G1's candidate-to-true bridge instantiates it at the pin
 expression's TERM SIZE with `Q q :=` the frame equality at pin `q`,
 because "pin `q`'s components contain pin `q'`'s expression" strictly
-decreases that size (measured on every corpus).
+decreases that size.  **The decrease is SYNTACTIC, not measured** (task
+#315 L-C): a pin's reading occurring inside `q`'s components is a
+proper subterm of them, and `q` cannot be its own predecessor because
+its reading `J Ds` cannot occur inside its own `Ds`.  What the corpus
+measurement covers is the IDENTIFICATION of those subterms with table
+pins — the kernel record lane L-E requested — and not the order's
+well-foundedness.
 
 The two instantiations must stay SEPARATE and SEQUENCED — the bridge
 runs after the inclusion is established at every pin, consuming its
