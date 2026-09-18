@@ -112878,7 +112878,9 @@ frames), `IsBlockModel.dom_congr_mem`/`BlockModel.slotDom_congr_mem`
 (the domain side of the same), and the general congruences
 `slotSet_congr_below`/`teleOfFields_congr_below`/`spineFit_congr_fields`.
 
-It does NOT consume — and these are the ones `hle`'s death frees —
+It does NOT consume — and these are the ones `hle`'s death frees
+(**CORRECTED: this list is wrong about the `pins_le_*` family; read
+"WIDE (f1): THE `hle` LISTS, CORRECTED" below instead**) —
 `pins_le_of_declOrder`, `pins_le_of_instanceLe`, `nestedPinsLe_of_rank`,
 `instanceLe_of_transfer`/`_of_rel`/`_of_classPin`/`_of_pair`,
 `nestedGroupLe_of_entries`, `BlockModel.famAt_le_of_TClosed`,
@@ -113813,3 +113815,65 @@ and `hIsσ` are hypotheses of `ofNested_pin_block_of_wide_inst`, whose
 at the group's own pin `q`.  The consuming site is
 `NestedRecFibre.lean`'s `NestedTailIn.pinSegAt`, which today calls the
 NARROW `ofNested_pin_block_of_inst`.
+
+#### WIDE (f1): THE `hle` LISTS, CORRECTED (lane WIDE, 2026-09-18)
+
+"WIDE (e) step 2 (d)" named a list of declarations that `hle`'s death
+frees.  It is right about one chain and wrong about another, because
+TWO different facts carry the name `hle` and the entry conflated them.
+The old list stays where it is, with a forward pointer; this is the one
+to read the unconsumed gate against.
+
+##### (a) The two `hle`s
+
+* **`lfpTuple_seg_congr_at`'s `hle`** — the DOMINATION: an inclusion at
+  ANOTHER pin of the block being installed, which
+  `ofNested_pin_block_of_fit_at` takes as `hfitLe` and
+  `hfit_le_of_inst` produces.  This is what forced Resolution 3's
+  candidate tuples and its ordered induction, and it has NO counterpart
+  on the wide route.  It dies with the switch;
+* **`NestedPinsLe`'s `hle`** — "the containers' least tuples lie below
+  the auxiliary carrier at every pin", whose ONLY consumer is
+  `nestedPinsEntry_of_le_all`, which produces `NestedPinsEntry`: the
+  copies' ENTRIES (`CopyEntryA`) at the auxiliary carrier.
+
+**The wide route consumes those entries too.**
+`hfit_wide_mem_of_inst` takes `hent : CopyEntryA …` and spends it at the
+`ordF`-right arm through `CopyEntryOrd`.  So `NestedPinsLe` means after
+the switch exactly what it means now, it stays a named premise of the
+chain (`NestedChain.lean`'s `hLe`), and `nestedPinsEntry_of_le_all`
+still needs it in full.
+
+##### (b) The corrected list — what the switch frees
+
+Only `hfit_le_of_inst`'s own chain:
+
+* `hfit_le_of_inst` and `hfitLe` themselves (deleted by the switch);
+* `CopyCtorShape.fit_imp_T_le` and `fit_imp_T_le_dom`;
+* `copyEntryAtF_le_of_app` and `copyEntryAtF_le_of_famLe`;
+* `BlockModel.famAt_le_of_TClosed`;
+* `instanceLe_of_transfer`/`_of_rel`/`_of_classPin`/`_of_pair`,
+  `nestedGroupLe_of_entries` — in so far as their only consumers are
+  the above and each other.
+
+##### (c) The corrected list — what the switch does NOT free
+
+`pins_le_of_declOrder`, `pins_le_of_instanceLe`, `nestedPinsLe_of_rank`
+are `NestedPinsLe`'s PRODUCERS, not `hfitLe`'s consumers.  They are
+freed only if that premise is discharged another way, which the switch
+does not do — and `NestedPinsLe` is still an OPEN premise of the chain,
+so they are unconsumed today for that reason and not because the wide
+route arrived.  The declaration-order record `declPos`/`nestedPinOrderAt`
+follows them: it serves the declaration-order pass that produces
+`NestedPinsLe`, so it survives the switch as well.
+
+##### (d) The gate's reading, today
+
+`tests/unconsumed.sh` on this branch, against (b) and (c): already
+unconsumed are `pins_le_of_declOrder`, `nestedPinsLe_of_rank`,
+`instanceLe_of_classPin`, `nestedGroupLe_of_entries`,
+`copyEntryAtF_le_of_famLe` and — newly, since the handover was written —
+`CopyCtorShape.fit_imp_T_le`.  The rest of (b) is still consumed, by
+`hfit_le_of_inst` and by each other, and leaves when the switch lands.
+Nothing in (c) should move then; if something in (c) DOES leave the
+list at the switch, that is a finding, not a tidy-up.
