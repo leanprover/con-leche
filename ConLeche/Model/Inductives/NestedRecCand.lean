@@ -341,7 +341,7 @@ theorem famAt_of_pin {ψ : Name → Nat} {ρp : Nat → V} {X : Nat → V} {c : 
 (task #315 L-E, DESIGN §U.74): every reader is the pin's
 (`rssT_of_pin` and friends), so the fit is the one
 `copyTransfer_via` takes, at the pin's own lists. -/
-theorem BlockModel.chainFitT_of_pin {d : BlockModel V} {pc : Nat → PinCtors V} {ψ : Name → Nat}
+theorem chainFitT_of_pin {d : BlockModel V} {pc : Nat → PinCtors V} {ψ : Name → Nat}
     {ρp : Nat → V} {Y : Nat → V} {t : V} {c j : Nat} {fs : List V} (hc : ¬ c < d.k) :
     d.ChainFitT pc ψ ρp Y t c j fs ↔
       (FitsFrom ((pc (c - d.k)).rss.getD j [])
