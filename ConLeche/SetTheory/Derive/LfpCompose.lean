@@ -311,6 +311,186 @@ theorem lfpTuple_seg_congr {w N a s : Nat} {Is Is' : Nat → V} {Ψ Φ' : (Nat �
   rw [lfpTuple_seg h hmono hN hi]
   exact lfpTuple_congr hIs (fun Y hY i hi => hΦ Y hY i hi) hi
 
+/-! ## Segments given by an INDEX SET -/
+
+section IdxSet
+
+variable {w N s : Nat} {Is : Nat → V} {σ : Nat → Nat} {Ψ : (Nat → V) → Nat → V}
+
+open Classical in
+/-- **The tuple `Z` with the positions `σ 0, …, σ (s-1)` replaced by
+`Y 0, …, Y (s-1)`.**  `segJoin a s` is the case `σ = (a + ·)`
+(`setJoin_ofAdd`); the general form is what a CONTAINER INSTANCE needs,
+whose copies the block's worklist may interleave with another
+instance's, so that they are not a contiguous range. -/
+noncomputable def setJoin (σ : Nat → Nat) (s : Nat) (Z Y : Nat → V) : Nat → V :=
+  fun j => if h : ∃ i, i < s ∧ σ i = j then Y (Classical.choose h) else Z j
+
+/-- The positions `σ` picks out of a tuple, re-indexed from `0`
+(`segOf a` is the case `σ = (a + ·)`). -/
+def setPick (σ : Nat → Nat) (Z : Nat → V) : Nat → V := fun i => Z (σ i)
+
+/-- `σ` is injective on `[0, s)` — what makes the replaced positions
+read back unambiguously. -/
+def InjOn (σ : Nat → Nat) (s : Nat) : Prop :=
+  ∀ i i', i < s → i' < s → σ i = σ i' → i = i'
+
+omit [SetTheory V] in
+theorem setJoin_out (Z Y : Nat → V) {j : Nat} (h : ¬ ∃ i, i < s ∧ σ i = j) :
+    setJoin σ s Z Y j = Z j := dif_neg h
+
+omit [SetTheory V] in
+theorem setJoin_at (hinj : InjOn σ s) (Z Y : Nat → V) {i : Nat} (hi : i < s) :
+    setJoin σ s Z Y (σ i) = Y i := by
+  have h : ∃ i', i' < s ∧ σ i' = σ i := ⟨i, hi, rfl⟩
+  show (if h : ∃ i', i' < s ∧ σ i' = σ i then Y (Classical.choose h) else Z (σ i)) = Y i
+  rw [dif_pos h]
+  obtain ⟨hlt, heq⟩ := Classical.choose_spec h
+  rw [hinj _ _ hlt hi heq]
+
+omit [SetTheory V] in
+theorem setPick_apply (σ : Nat → Nat) (Z : Nat → V) (i : Nat) : setPick σ Z i = Z (σ i) := rfl
+
+omit [SetTheory V] in
+/-- A tuple is the join of itself and its own picked positions. -/
+theorem setJoin_setPick (σ : Nat → Nat) (s : Nat) (Z : Nat → V) :
+    setJoin σ s Z (setPick σ Z) = Z := by
+  funext j
+  by_cases h : ∃ i, i < s ∧ σ i = j
+  · show (if h : ∃ i, i < s ∧ σ i = j then setPick σ Z (Classical.choose h) else Z j) = Z j
+    rw [dif_pos h, setPick_apply, (Classical.choose_spec h).2]
+  · exact setJoin_out Z _ h
+
+omit [SetTheory V] in
+/-- **The index-set join is the contiguous one at `σ = (a + ·)`** — so
+the theorems below cover `segJoin`'s. -/
+theorem setJoin_ofAdd (a s : Nat) (Z Y : Nat → V) :
+    setJoin (fun i => a + i) s Z Y = segJoin a s Z Y := by
+  funext j
+  by_cases h : ∃ i, i < s ∧ a + i = j
+  · obtain ⟨i, hi, rfl⟩ := h
+    rw [setJoin_at (fun _ _ _ _ he => by omega) Z Y hi, segJoin_add Z Y hi]
+  · rw [setJoin_out Z Y h, segJoin_out Z Y (fun hc => h ⟨j - a, by omega, by omega⟩)]
+
+theorem inTupleSpace_setJoin (hinj : InjOn σ s) {Z Y : Nat → V}
+    (hZ : InTupleSpace w N Is Z) (hY : InTupleSpace w s (fun i => Is (σ i)) Y) :
+    InTupleSpace w N Is (setJoin σ s Z Y) := by
+  intro j hj
+  by_cases h : ∃ i, i < s ∧ σ i = j
+  · obtain ⟨i, hi, rfl⟩ := h
+    rw [setJoin_at hinj Z Y hi]
+    exact hY i hi
+  · rw [setJoin_out Z Y h]; exact hZ j hj
+
+theorem inTupleSpace_setPick (hσ : ∀ i, i < s → σ i < N) {Z : Nat → V}
+    (hZ : InTupleSpace w N Is Z) : InTupleSpace w s (fun i => Is (σ i)) (setPick σ Z) :=
+  fun i hi => hZ (σ i) (hσ i hi)
+
+theorem tupleLe_setJoin (hinj : InjOn σ s) {Z Z' Y Y' : Nat → V} (hZ : TupleLe N Is Z Z')
+    (hY : TupleLe s (fun i => Is (σ i)) Y Y') :
+    TupleLe N Is (setJoin σ s Z Y) (setJoin σ s Z' Y') := by
+  intro j hj
+  by_cases h : ∃ i, i < s ∧ σ i = j
+  · obtain ⟨i, hi, rfl⟩ := h
+    rw [setJoin_at hinj Z Y hi, setJoin_at hinj Z' Y' hi]
+    exact hY i hi
+  · rw [setJoin_out Z Y h, setJoin_out Z' Y' h]; exact hZ j hj
+
+theorem tupleLe_setPick (hσ : ∀ i, i < s → σ i < N) {Z Z' : Nat → V} (h : TupleLe N Is Z Z') :
+    TupleLe s (fun i => Is (σ i)) (setPick σ Z) (setPick σ Z') :=
+  fun i hi => h (σ i) (hσ i hi)
+
+/-- The join is below `Z` when its replaced part is below `Z`'s. -/
+theorem tupleLe_setJoin_of_le (hinj : InjOn σ s) {Z Y : Nat → V}
+    (hY : TupleLe s (fun i => Is (σ i)) Y (setPick σ Z)) : TupleLe N Is (setJoin σ s Z Y) Z := by
+  have := tupleLe_setJoin (N := N) (Is := Is) hinj (TupleLe.refl N Is Z) hY
+  rwa [setJoin_setPick] at this
+
+/-- **The section of `Ψ` at the index set `σ`** with everything else
+held at `Z`: an operator on `s` components. -/
+noncomputable def setSec (Ψ : (Nat → V) → Nat → V) (σ : Nat → Nat) (s : Nat) (Z : Nat → V) :
+    (Nat → V) → Nat → V :=
+  fun Y i => Ψ (setJoin σ s Z Y) (σ i)
+
+omit [SetTheory V] in
+theorem setSec_apply (Z Y : Nat → V) (i : Nat) :
+    setSec Ψ σ s Z Y i = Ψ (setJoin σ s Z Y) (σ i) := rfl
+
+theorem setSec_mono (hinj : InjOn σ s) (hmono : MonoTuple w N Is Ψ)
+    (hσ : ∀ i, i < s → σ i < N) {Z : Nat → V} (hZ : InTupleSpace w N Is Z) :
+    MonoTuple w s (fun i => Is (σ i)) (setSec Ψ σ s Z) := by
+  intro Y Y' hY hY' hle i hi
+  exact hmono _ _ (inTupleSpace_setJoin hinj hZ hY) (inTupleSpace_setJoin hinj hZ hY')
+    (tupleLe_setJoin hinj (TupleLe.refl N Is Z) hle) (σ i) (hσ i hi)
+
+theorem setSec_maps (hinj : InjOn σ s) (hmaps : MapsTuple w N Is Ψ)
+    (hσ : ∀ i, i < s → σ i < N) {Z : Nat → V} (hZ : InTupleSpace w N Is Z) :
+    MapsTuple w s (fun i => Is (σ i)) (setSec Ψ σ s Z) :=
+  fun _ hY i hi => hmaps _ (inTupleSpace_setJoin hinj hZ hY) (σ i) (hσ i hi)
+
+/-- A closed tuple's picked positions are a closed tuple of the
+section at it. -/
+theorem isClosedTuple_setSec_of_closed (hσ : ∀ i, i < s → σ i < N) {L : Nat → V}
+    (hL : IsClosedTuple w N Is Ψ L) :
+    IsClosedTuple w s (fun i => Is (σ i)) (setSec Ψ σ s L) (setPick σ L) := by
+  refine ⟨inTupleSpace_setPick hσ hL.1, fun i hi => ?_⟩
+  rw [setSec_apply, setJoin_setPick]
+  exact hL.2 (σ i) (hσ i hi)
+
+/-- **Bekić at an index set.**  `lfpTuple_seg` with the contiguous
+segment `[a, a + s)` replaced by the image of an injection
+`σ : [0, s) → [0, N)`: the least pre-fixed tuple's positions `σ i` are
+the least pre-fixed tuple of the section at the least tuple itself. -/
+theorem lfpTuple_set (hinj : InjOn σ s) (hσ : ∀ i, i < s → σ i < N)
+    (h : ∃ L, IsClosedTuple w N Is Ψ L) (hmono : MonoTuple w N Is Ψ) {i : Nat} (hi : i < s) :
+    lfpTuple w N Is Ψ (σ i)
+      = lfpTuple w s (fun i => Is (σ i)) (setSec Ψ σ s (lfpTuple w N Is Ψ)) i := by
+  have hLmem := lfpTuple_mem w N Is Ψ
+  have hLcl := lfpTuple_isClosed h hmono
+  have hsecCl : ∃ P, IsClosedTuple w s (fun i => Is (σ i))
+      (setSec Ψ σ s (lfpTuple w N Is Ψ)) P := ⟨_, isClosedTuple_setSec_of_closed hσ hLcl⟩
+  have hsecMono := setSec_mono hinj hmono hσ hLmem
+  have hSmem := lfpTuple_mem w s (fun i => Is (σ i)) (setSec Ψ σ s (lfpTuple w N Is Ψ))
+  have hSle : TupleLe s (fun i => Is (σ i))
+      (lfpTuple w s (fun i => Is (σ i)) (setSec Ψ σ s (lfpTuple w N Is Ψ)))
+      (setPick σ (lfpTuple w N Is Ψ)) :=
+    lfpTuple_le (isClosedTuple_setSec_of_closed hσ hLcl)
+  have hU : IsClosedTuple w N Is Ψ
+      (setJoin σ s (lfpTuple w N Is Ψ)
+        (lfpTuple w s (fun i => Is (σ i)) (setSec Ψ σ s (lfpTuple w N Is Ψ)))) := by
+    refine ⟨inTupleSpace_setJoin hinj hLmem hSmem, fun j hj => ?_⟩
+    by_cases hin : ∃ i, i < s ∧ σ i = j
+    · obtain ⟨i, hi', rfl⟩ := hin
+      rw [setJoin_at hinj _ _ hi']
+      exact lfpTuple_closed hsecCl hsecMono i hi'
+    · rw [setJoin_out _ _ hin]
+      refine FamLe.trans ?_ (hLcl.2 j hj)
+      exact hmono _ _ (inTupleSpace_setJoin hinj hLmem hSmem) hLmem
+        (tupleLe_setJoin_of_le hinj hSle) j hj
+  have hLle := lfpTuple_le hU (σ i) (hσ i hi)
+  rw [setJoin_at hinj _ _ hi] at hLle
+  exact famSpace_ext (hLmem (σ i) (hσ i hi)) (hSmem i hi) fun t ht =>
+    Subset.antisymm (hLle t ht) (hSle i hi t ht)
+
+/-- **Bekić at an index set, against another presentation of the
+section** — `lfpTuple_seg_congr` with the contiguous segment replaced
+by the image of an injection `σ : [0, s) → [0, N)`.  Stated in the same
+vocabulary, so it substitutes for `lfpTuple_seg_congr` at a call site
+whose positions are not a range (`setJoin_ofAdd` makes the contiguous
+case literally this one). -/
+theorem lfpTuple_set_congr {w N s : Nat} {Is Is' : Nat → V} {Ψ Φ' : (Nat → V) → Nat → V}
+    {σ : Nat → Nat} (hinj : InjOn σ s) (hσ : ∀ i, i < s → σ i < N)
+    (h : ∃ L, IsClosedTuple w N Is Ψ L) (hmono : MonoTuple w N Is Ψ)
+    (hIs : ∀ i, i < s → Is (σ i) = Is' i)
+    (hΦ : ∀ Y, InTupleSpace w s (fun i => Is (σ i)) Y → ∀ i, i < s →
+      Ψ (setJoin σ s (lfpTuple w N Is Ψ) Y) (σ i) = Φ' Y i)
+    {i : Nat} (hi : i < s) :
+    lfpTuple w N Is Ψ (σ i) = lfpTuple w s Is' Φ' i := by
+  rw [lfpTuple_set hinj hσ h hmono hi]
+  exact lfpTuple_congr hIs (fun Y hY i hi => hΦ Y hY i hi) hi
+
+end IdxSet
+
 /-! ## Congruence AT THE CARRIER: agreement at the other presentation's least tuple -/
 
 section CongrAt

@@ -112416,3 +112416,52 @@ justification is this paragraph.  Nothing LEFT any closure.
 `tests/shake.sh` then demotes two now-redundant re-exports
 (`BlockComposed`, `NestedRecCand`): `BlockRep` public-imports
 `LfpCompose`, so theirs need not be public.
+
+#### WIDE (b): BEKIĆ AT AN INDEX SET — `lfpTuple_set_congr`, the contiguity assumption removed (lane WIDE, 2026-09-18)
+
+Resolution 1's second step, pure set theory
+(`SetTheory/Derive/LfpCompose.lean`), independent of the block model.
+`lfpTuple_seg`/`lfpTuple_seg_congr` are stated for a CONTIGUOUS segment
+`[a, a + s)`; a container INSTANCE's copies are contiguous only when
+the kernel's worklist happens not to interleave it with another
+instance's, and R2 (b) exhibited an accepted input where it does
+(`A`/`B`/`TwoInst`: instances `{0,2}` and `{1,3}`).
+
+##### (a) What landed
+
+The segment vocabulary, with the range replaced by the image of an
+injection `σ : [0, s) → [0, N)`:
+
+* `setJoin σ s Z Y` — `Z` with position `σ i` replaced by `Y i`
+  (`Classical.choose` on `∃ i < s, σ i = j`; the `dite` is total, so
+  no decidability enters the statements);
+* `setPick σ Z = fun i => Z (σ i)`, `InjOn σ s`, `setSec Ψ σ s Z`;
+* the space/order/closure lemmas (`inTupleSpace_setJoin`,
+  `tupleLe_setJoin`, `tupleLe_setJoin_of_le`, `setSec_mono/_maps`,
+  `isClosedTuple_setSec_of_closed`);
+* **`lfpTuple_set`** — Bekić at the index set — and
+  **`lfpTuple_set_congr`**, `lfpTuple_seg_congr`'s twin: same
+  hypotheses, `a + i` everywhere replaced by `σ i`, plus `InjOn σ s`
+  and `∀ i < s, σ i < N`.
+
+`setJoin_ofAdd : setJoin (a + ·) s Z Y = segJoin a s Z Y` records that
+the contiguous case IS this one, so `lfpTuple_set_congr` substitutes
+for `lfpTuple_seg_congr` at a call site whose positions are not a
+range.
+
+##### (b) Why not the pullback
+
+R2 (b) costed `lfpTuple_pullback` at a permutation as one route.  It is
+not the shape: `lfpTuple_pullback`'s `hpull` says `Φ'` at the
+RESTRICTION of an arbitrary tuple below the carrier equals `Ψ` there,
+where the segment congruence's `hΦ` says `Ψ` at the JOIN (carrier
+outside the index set, `Y` inside) equals `Φ' Y`.  The two differ
+exactly off the index set, which is where a copied instance reads its
+instantiation values.  Mirroring `lfpTuple_seg`'s proof is both
+shorter and the statement the consumer wants.
+
+##### (c) Green
+
+`lake build` and `lake test` warning-free; `tests/proofdeps.sh` doors
+`0`; `shake`, `layering`, `no-local-paths` OK.  Nothing in the tree's
+accept set changes: no consumer moves to the new lemma in this step.

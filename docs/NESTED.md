@@ -294,10 +294,16 @@ each checked against the tree:
 * *Contiguity is not required.*  The kernel's worklist does interleave
   instances (two nested containers in one constructor mint both roots
   before expanding either — an accepted input), and Bekić's segment
-  theorem is stated for a contiguous range.  But the joint tuple can be
-  *reindexed*: pulling back the wide operator along a permutation is a
-  definitional congruence, after which the instance is a range.  One
-  reindexing lemma, no kernel change, no effect on the accept set.
+  theorem is stated for a contiguous range.  But Bekić holds at an
+  arbitrary *index set* just as well: the same proof, with the segment
+  `[a, a+s)` replaced by the image of an injection `σ : [0,s) → [0,N)`
+  and the join `Z[a..a+s ↦ Y⃗]` by `Z[σ i ↦ Y_i]`, gives
+
+      (L⃗)_{σ i}  =  μY⃗. Ψ|^σ_L⃗ (Y⃗) _i                                (B-set)
+
+  and its congruence against another presentation, of which the
+  contiguous form is the case `σ = (a + ·)`.  One reindexing lemma, no
+  kernel change, no effect on the accept set.
 
 What survives Resolution 1 is smaller and no longer an ordering problem
 *within* an instance: the identification at an instance's *root* pin is
@@ -349,6 +355,7 @@ Resolution 1 needs.
 | `μX⃗.Φ`, leastness, fixpoint | `lfpTuple`, `lfpTuple_le`, `lfpTuple_fixed` (`SetTheory/Derive/LfpTuple.lean`) |
 | (B) Bekić at a segment | `lfpTuple_seg`, `lfpTuple_eq_section` |
 | (B-whole) | `lfpTuple_seg_congr` (`SetTheory/Derive/LfpCompose.lean`) |
+| (B-set), (B-whole) at an index set | `lfpTuple_set`, `lfpTuple_set_congr` (same file; `setJoin`, `setSec`) |
 | (B-at) | `lfpTuple_seg_congr_at`, `lfpTuple_eq_of_at` |
 | (compose): narrow from wide | `composeΦ`, `pinsCar`, `lfpTuple_composeΦ`; `ofNested` in `Model/Inductives/BlockComposed.lean` |
 | the block model and its laws | `BlockModel`, `IsBlockModel` (`leaf`, `pinLeaf`, `functor`, `pinMono`) in `Model/Inductives/BlockRep.lean` |
