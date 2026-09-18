@@ -106553,3 +106553,112 @@ theorems can be re-based against it while the family's producer is still
 owed.
 
 Nothing in this section changes the tree.
+
+#### (number at the integrator's sync) — L-E: `fit_iff_at` IS NOT FRAME-RE-BASABLE, the family-generic form already exists, and the cross-pin hypothesis is LOCATED (lane L-E, 2026-09-18)
+
+Read before written, and the reading refutes the plan's ordering.  **No
+work was half-started**: the tree is at the last green commit.
+
+##### (a) THE REFUTATION — the frame is DETERMINED by the instantiation
+
+`fit_iff_at`'s proof turns on three steps, and all three are
+instantiation/interpretation commutations:
+
+* `slotSet_instTele` at the `recF` arm,
+* `interp_instAll` at the `ordF` arm,
+* `interp_instAll` again at the index equations.
+
+Both lemmas have the shape
+
+```
+… (consList fs ρ) (instAll ds …)  =  … (consList fs (consList (ds.map (interp V ρ)) ρ)) …
+```
+
+— the right-hand frame is **forced** to be the interpretation of the very
+terms `ds` that were substituted in.  The copy's readings ARE `instAll
+Ds` of the container's, so the syntactic instantiation DETERMINES the
+semantic frame.  **A frame parameter has nowhere to go.**
+
+So the belief this lane has been working under — "clause two is four
+mechanical frame-generalisations plus `fit_iff_at` re-based" — is false
+in its second half.  `fit_iff_at` cannot be re-based in the frame; its
+three steps have to be REPLACED by the collapse lemma over K.51, which
+is what says that the REWRITTEN domain read at `ρp` is the container's
+domain read at the candidate frame.  **The collapse lemma is a
+prerequisite of `fit_iff_at`, not a consequence of it**, and the plan
+had them the other way round.
+
+##### (b) AND THE FAMILY-GENERIC FORM ALREADY EXISTS
+
+`CopyCtorShape.fit_imp_T_le_dom` (`NestedFit.lean:1127`) takes an
+arbitrary container-side family `T`, an arbitrary copy-side family `Z`,
+the relation between them (`hrel`), the domain bound (`hdom`) and the
+entries as INCLUSIONS (`hentR`), and concludes the copy's fit from
+`dJ.ChainFitT pc ψJ ρJ T t i j fs`.  Frame fixed, family generic,
+inclusion rather than `iff` — **exactly clause two's direction and
+exactly its shape**.
+
+That is the fifth time the tree already held what a deadlock needed.
+
+##### (c) THE CROSS-PIN HYPOTHESIS, LOCATED — it is `hentR`
+
+The question this lane has declined to answer four times is now
+answerable, because `fit_imp_T_le_dom` exhibits the hypothesis instead
+of hiding it.
+
+`hentR` says: at a copy-recursive field whose CONTAINER kind is ordinary
+and whose target lies outside the group, the container's field domain at
+`ρJ` is within the copy's slot at `Z`.  At `Z := L⁺` and the TRUE frame,
+that domain's value at an ordinary field targeting a PIN is the pin's
+reading — which is `P q'` by `pinTarget_reads`.  So `hentR` demands
+
+```
+P q'  ⊆  L⁺ (p.k + q')
+```
+
+— **the inclusion at ANOTHER PIN.  That is the declaration-order
+induction's consumer, and it is `hentR`.**
+
+And it is exactly what the candidate frame removes: at the candidate
+frame the same field's domain evaluates to `L⁺ (p.k + q')` directly, so
+`hentR` becomes an identity and nothing at another pin is required.
+
+##### (d) SO K.57's FATE IS THE COLLAPSE LEMMA'S, and now precisely
+
+* at the TRUE frame the induction **is** needed, and its consumer is
+  named: `hentR` at the ordinary-field-to-pin edges — which is exactly
+  the edge set the probe enumerates;
+* at the CANDIDATE frame `hentR` is an identity and the consumer
+  disappears — **provided the collapse lemma holds**.
+
+This is a fact about the tree rather than a survey of what is visible,
+which is what was asked for.  It is still not a licence to touch K.57:
+the conditional's antecedent is unproved.  **The kernel lane should be
+told that K.57's consumer is `hentR`, and that it survives or dies with
+the collapse lemma.**
+
+##### (e) THE CORRECTED ORDER, and the price
+
+1. the collapse lemma over K.51 — now FIRST, and it is the whole of
+   clause two's difficulty;
+2. `fit_imp_T_le_dom` at `T`/`Z := L⁺` with `hentR` discharged by the
+   collapse lemma — **not a re-basing**, an instantiation of a lemma
+   that already exists;
+3. then the ten theorems and G3's two, against a settled surface.
+
+**Clause two stays at 2–3** — the difficulty moved from `fit_iff_at`'s
+216 lines to the collapse lemma, and step 2 got cheaper by exactly as
+much as step 1 got dearer.  **8–11 unchanged.**
+
+##### (f) THE SIGNAL, named because it was missed for weeks
+
+When a cut is real, the work at each site is the SAME work; when it is
+imposed, each site needs its own argument.  Five frame-generalisations
+landed first or second try because the frame/shape separation is real.
+The three-way head split needed a different argument at each arm — and
+that asymmetry in EFFORT was the signal, weeks before K.51 explained it.
+`fit_iff_at` resisting a frame parameter is the same signal read the
+other way: the effort did not stay mechanical, and the reason was that
+the cut was in the wrong place.
+
+Nothing in this section changes the tree.
