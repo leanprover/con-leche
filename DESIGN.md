@@ -104270,15 +104270,21 @@ lane holds at `dJ`:
   J'-model's `leaf` gives one equation between applications, from which
   `u` can be read back only if the index SETS are already known equal
   — which is the `Ids` clause, so the route is circular.
-* `PinShapes`/`BlockAt`, reachable from the run's `hPM`, carry EXACTLY
-  the missing view — but at `blockOf m ci` and only for a container the
-  run holds `PinsModeled` at, never for the abstract `dJ` the shape
-  predicate quantifies over.  `dJ` and `blockOf mp.base2 ci` are two
-  block models of one container group, and no record in the tier makes
-  them equal (`BlockModel` carries semantic fields; the group syn's
-  clauses pin down `dJ`'s member data, never its pin table).
+* `PinShapes`/`BlockAt` carry EXACTLY the missing view.  **This entry
+  was WRONG as first written** — it said "at `blockOf m ci` and only
+  where the run holds `PinsModeled`, never for the abstract `dJ`".
+  `PinShapes` takes the container model family ABSTRACTLY
+  (`B : ContainerInfo → BlockModel V`) and hands back a
+  `PinGroupView d (B ci) q₀ kJ` at every pin of `d`, at the pin's own
+  container record — so the view IS available at the family the shape
+  is parameterised by, and the three consequences are three of that
+  view's fields (`pinNP`, `pinPps`, `pinU`), with `same` rewriting the
+  group base's assignment to the pin's own and `name` forcing the index
+  by the pin's NAME rather than by position, exactly as (c) predicted
+  no tie would be needed.
 
-So the gap is one step wide and it is `dJ`-vs-`blockOf`.
+So the gap was never a missing fact: it was one level out from where
+this sweep looked.
 
 ##### (c) THE REQUEST, minimal and stated
 
@@ -104314,7 +104320,8 @@ Two residuals, both with a route and neither blocked on this lane:
 waits on the positivity record, landed on the kernel lane and arriving
 at the next integration; `NestedPinsShapePinF` has `J`, `lvls`, `Ds`
 and `EA` proved and its `u`/`Ids` reduced by (a) to the single fact of
-(c).
+(c) — which DERIVES off the shape record and is landing as a named
+lemma, so neither residual carries a producer obligation for anyone.
 
 ##### (e) GATES
 
@@ -104327,7 +104334,27 @@ module rows / 12 roots / 0 doors; shake 510 removals all allowlisted;
 nested-shadow 37/37.  `tests/arena.sh` not re-run: no checker code
 touched.
 
-##### (f) ONE CORRECTION TO §U.113's DISCREPANCY NOTE
+##### (f) THE CORRECTION, AND THE LESSON IT CARRIES
+
+The entry struck through in (b) is the one error in the elimination,
+and it is the kind a record-by-record sweep produces: **a view at a
+CONCRETE model and the same view at the ABSTRACT family that model
+instantiates are one record, and naming only the record collapses the
+distinction.**  The rule that follows, and it is the third instance of
+it in this arc (another lane hit it from the other side, recording a
+crossing as not free when the hypothesis existed one level up and was
+already being passed to a neighbouring crossing):
+
+> When you rule a record out, say at which LEVEL you checked it, not
+> only which record.
+
+The request was answered in one reading anyway, because the
+enumeration said precisely what to look for — which is the case for
+writing eliminations out even when one of their entries is wrong.  What
+lands is a DERIVATION, not a clause: no producer obligation at any of
+the nine sites, and the universe restated at the pin's own assignment.
+
+##### (g) ONE CORRECTION TO §U.113's DISCREPANCY NOTE
 
 That section could not reconcile this lane's count with
 `NestedPins.lean`, and it was right not to guess.  The count in the

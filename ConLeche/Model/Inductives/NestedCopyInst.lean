@@ -3181,16 +3181,29 @@ at `ψK = (dJ.pinAt qK).ψJ ((pinsS.getD (q₀ + i') default).ψJ ψ)` — the
 CONTAINER's own pin read against ITS container's block model at the
 same group-relative index.  That is a `PinGroupView` at `dJ`
 (`PinGroupView.pinU`, `pinPps`/`pinNP`, which is how
-`pinCorr_of_ownPins`'s `huIds` premise is meant to be discharged), and
-no record this lane holds at `dJ` carries one: `NestedPinGroupSyn`'s
-`modeled` gives `ContainerModeled`, whose pin clauses are `pinψ`,
-`pinNP`, `pinConts`, `pinParams`, `nestMention` and `pinsNotMembers`,
-and `IsBlockModels` constrains a pin's `u`/`Ids` only through
-`pinShape`, `pinMem`/`pinMono` and `pinLeaf`, which are properties of
+`pinCorr_of_ownPins`'s `huIds` premise is meant to be discharged).
+
+**It is `PinShapes`' first component, and `PinShapes` takes the
+container model family ABSTRACTLY** (`B : ContainerInfo → BlockModel V`,
+not `blockOf`): at every pin `q` it hands back a
+`PinGroupView d (B ci) q₀ kJ` at the pin's own container record, whose
+`name` field forces the index by the pin's name rather than by
+position.  An earlier revision of this comment said the view was
+available only at the concrete `blockOf` and only where the run holds
+`PinsModeled`; that was wrong, and wrong in the direction that helps —
+the view is at the abstract family the shape is parameterised by, one
+level out from the per-`dJ` records swept below.
+
+Those records are still the wrong place to look for it:
+`NestedPinGroupSyn`'s `modeled` gives `ContainerModeled`, whose pin
+clauses are `pinψ`, `pinNP`, `pinConts`, `pinParams`, `nestMention` and
+`pinsNotMembers`, and `IsBlockModels` constrains a pin's `u`/`Ids` only
+through `pinShape`, `pinMem`/`pinMono` and `pinLeaf` — properties of
 `dJ`'s own carriers rather than a tie to the pin's container's model.
-`PinShapes`/`BlockAt` carry exactly the missing view, but at `blockOf`
-and for a container the run holds `PinsModeled` at — not for the
-abstract `dJ` the shape quantifies over. -/
+The derivation off the shape record is landing on the entry lane's
+branch as a single named lemma, with the universe restated at the pin's
+own assignment (the form these clauses want), and arrives with the
+positivity record at the next integration. -/
 theorem copyPinFUIds {pbs : List (Expr × ConLeche.BinderMeta)}
     (hPD : ∀ q, q < st.pins.length → PinData env st p pbs q)
     {i' : Nat} (hi' : i' < kJ)
