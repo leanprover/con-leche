@@ -104605,3 +104605,37 @@ from L-B, having no channel to it.  If the term it needs copy-freeness
 of is NOT one of the three shapes above — a domain whose head is not a
 stored inductive — none of this applies, and that is the one question
 to put to the lane rather than to the tree.
+
+##### THE SKELETON ASSEMBLY, STARTED — the spec, and the bridge that makes it possible
+
+**`nestedSkels`** (`Verify/Cached/AgreeFloor.lean`) is the nested
+route's skeleton list: the `k` restored formers under their declared
+names, every restored constructor at the block's parameter count and
+its own field count, the `k + numNested` recursors — the members'
+`T_m.rec` and the mimics' `T₁.rec_j`, at the argument sums the RECORD
+carries (K.54) and with the rule constructor names the record carries
+(`nestedRulesOk` pins them) — and the structure-like members' tables,
+at the condition `mutualMemberTable` itself tests (bridge 4).
+
+**And the bridge that makes a mode-generic walk possible at all.**  The
+read-back (`auxStored?`) reads the SCRATCH environment, and a skeleton
+walk has no access to the scratch install's pure run.  What it does
+have is the scratch install's own SKELETON theorem
+(`checkMutualCoreS_skels`), and that pins exactly the fields the
+read-back reads through a `find?`: a constant's NAME, a constructor's
+`(numParams, numFields)`, a recursor's `(majorIdx, rulePrefix, rule
+constructors)`.  `skels_find?_name` is the first of those, with
+`skFind?_name` under it.
+
+So the assembly's shape is settled: **the scratch install's skeleton
+is what carries the read-back's data**, and the pure inversions
+(`auxStored_ctor_eq` and friends) are the run-level route, not this
+one.  That is why bridge 2's cached form is not the pure composition
+it looked like: at the mode-generic walk it goes through the scratch
+skeleton instead.
+
+**Still to write**: the walk itself, which is the driver's ~30 steps
+with a `_skels` lemma at each of the four conses (three exist;
+`nestedTablesF` needs its own), and the four data bridges read off the
+scratch skeleton.  The DAG falsifier is clean at every step so far
+(112.13 M instructions, unchanged).

@@ -252,6 +252,13 @@ theorem skFind?_map (l : List ConstantInfo) (n : Name) :
     (l.find? (fun c => c.name == n)).map ciSkel = skFind? (l.map ciSkel) n := by
   simp only [skFind?, List.find?_map, Function.comp_def, skelName_ciSkel]
 
+/-- A skeleton lookup answers at the name it was asked for. -/
+theorem skFind?_name {sk : List InstallSkel} {n : Name} {s : InstallSkel}
+    (h : skFind? sk n = some s) : skelName s = n := by
+  simp only [skFind?] at h
+  have := List.find?_some h
+  simpa using this
+
 /-! ## The canonical index
 
 Both drivers thread the index by `FEnv.push` from `mkFEnv Env.empty`,
@@ -507,6 +514,76 @@ def mutualBlockSkels (b : MutualBlock) (sk : List InstallSkel) : List InstallSke
 /-- The mutual route's skeleton (task #278). -/
 def mutualSkels (p : MutualParts) (sk : List InstallSkel) : List InstallSkel :=
   mutualBlockSkels p.toBlock sk
+
+/-- **The nested route's own constructors at the skeleton level**: the
+restored constructors of member `mm`, which are the block's own — the
+restore keeps the name, the parameter count is the block's and the
+field count the declared one. -/
+def nestedCtorSkelsAt (p : NestedParts) (mm : Nat) (sk : List InstallSkel) :
+    List InstallSkel :=
+  (p.ctors.filter (fun c => c.member == mm)).foldl
+    (fun acc c => .ctor c.cv.name p.nP c.nF :: acc) sk
+
+/-- Member `mm`'s projection table at the skeleton level: one at a
+structure-like member (one own constructor, no index), nothing
+otherwise — the condition `mutualMemberTable` itself tests, at the
+block the nested route hands the mutual installer. -/
+def nestedTableSkelAt (p : NestedParts) (mm : Nat) (sk : List InstallSkel) :
+    List InstallSkel :=
+  match p.ctors.filter (fun c => c.member == mm) with
+  | [_] =>
+    if (p.formers.getD mm default).2 == 0 then
+      .proj (projTableName (p.formers.getD mm default).1.name) :: sk
+    else sk
+  | _ => sk
+
+/-- **The nested route's skeleton** (task #315 M8): the `k` restored
+formers under their declared names, every restored constructor, the
+`k + numNested` restored recursors — the members' `T_m.rec` and the
+mimics' `T₁.rec_j`, at the argument sums the RECORD carries (K.54) and
+with the rule constructor names the record carries
+(`nestedRulesOk` pins them) — and the structure-like members' tables.
+
+Everything in the list is a function of the recognised block: the
+elimination's own output reaches the skeleton only through data the
+route pins to the record. -/
+def nestedSkels (p : NestedParts) (sk : List InstallSkel) : List InstallSkel :=
+  let formers := (List.range p.k).foldl
+    (fun acc m => .ind (p.formers.getD m default).1.name :: acc) sk
+  let ctors := (List.range p.k).foldl (fun acc m => nestedCtorSkelsAt p m acc) formers
+  let recs := ((List.range p.k).foldl
+      (fun acc m =>
+        .recr ((p.formers.getD m default).1.name.str "rec")
+          (p.memberRecNums.getD m (0, 0)).1 (p.memberRecNums.getD m (0, 0)).2
+          ((p.memberRecs.getD m default).2.map (·.ctor)) :: acc)
+      ctors)
+  let recsN := ((List.range p.numNested).foldl
+      (fun acc j =>
+        .recr (p.mimicRecName j)
+          (p.mimicRecNums.getD j (0, 0)).1 (p.mimicRecNums.getD j (0, 0)).2
+          ((p.mimicRecs.getD j default).2.map (·.ctor)) :: acc)
+      recs)
+  (List.range p.k).foldl (fun acc m => nestedTableSkelAt p m acc) recsN
+
+/-- **WHAT THE READ-BACK READS IS WHAT THE SKELETON PINS** (task #315
+M8, the skeleton assembly's bridge): the scratch install's own
+skeleton fixes the NAME of the constant stored at a member's name, so
+the read-back's `cvTa` carries the block's own name — without the
+scratch install's pure run, which a mode-generic walk does not have.
+
+The same argument serves every field `auxStored?` reads through a
+`find?`: the skeleton pins a constructor's `(numParams, numFields)`
+and a recursor's `(majorIdx, rulePrefix, rule constructors)`, which is
+exactly the data the nested route's own conses carry forward. -/
+theorem skels_find?_name {fe : FEnv} {sk : List InstallSkel} (h : SkelIs fe sk)
+    {n : Name} {ci : ConstantInfo} (hf : fe.env.find? n = some ci) :
+    ci.name = n := by
+  have hmap := h.find? n
+  rw [canon_find? h.1 n, hf] at hmap
+  simp only [Option.map_some] at hmap
+  have := skFind?_name hmap.symm
+  rw [skelName_ciSkel] at this
+  exact this
 
 /-! ### The nested route's conses at the skeleton level (task #315 M8)
 
