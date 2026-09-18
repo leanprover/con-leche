@@ -112715,3 +112715,126 @@ The hold arrived after the piece was built; nothing was reverted,
 because what the hold forbids — a model PARAMETER on
 `NestedPinGroupSyn` — is not what was built, and the answer to the
 question it was protecting is (3).
+
+#### PINF: (ii) — route (3) does NOT close, and the two-way comparison with the kernel sources named (lane PINF, 2026-09-18)
+
+One costing pass, as bounded.  **Nothing built.**
+
+##### (a) (3) — the uniformity fact is about a different list AND a different KIND of fact
+
+`nestedContainersOk_uniform` (`Verify/Inductives/NestedGroupInv.lean`)
+gives: at a pinned container, every member `M` of its group has
+`Name.nodup M.lps` and every stored constructor type passing
+`uniformIndOccsE (ci.members.map (·.name)) (M.lps.map Level.param) ci.nP 0`.
+
+Its consumer `nestedContainersOk_memberSpine` is the one that turns that
+into an argument list, and its hypothesis is
+
+```lean
+    (hT : T ∈ ci.members.map (·.name))
+```
+
+— the field's head is a GROUP MEMBER, and the conclusion is that its
+first `ci.nP` arguments are `structPsAt l ci.nP`, the parameter
+variables.  **Our field's head is the container's own PIN, which
+`ContainerModeled.pinsNotMembers` puts OUTSIDE `ci.members`.**  So that
+consumer does not apply, and `uniformIndOccsE_spine`'s own `hT` fails
+for the same reason.
+
+Read on the pin-headed field directly, `uniformIndOccsE`
+(`Kernel/Inductives/NestedParts.lean`) does descend into the arguments
+(`.app` recurses on both halves) — but its shape is
+
+```lean
+    if !indNames.any (fun T => e.mentionsConst T) then true else …
+```
+
+a PRUNE followed by the node check.  So the walk is a UNIVERSAL
+statement about the occurrences that are there — every member
+occurrence sits at the parameter spine — and is vacuously `true` on any
+argument with no member occurrence at all.
+
+`hment` needs an EXISTENTIAL: some element of `AS.take ci'.nP` mentions
+a name of the elimination's growing list.  **Uniformity gives the SHAPE
+of a mention, never its existence**, and it does not determine the
+argument list.  So the gap is untouched by (3): it was never about the
+shape of either list, it is about the relation between them.
+
+(3) is not worthless — with an existence fact in hand it supplies the
+shape — but it is not a route to conjunct 1 on its own, and it adds
+nothing this row is short of.
+
+##### (b) THE TWO-WAY COMPARISON, with each one's kernel source
+
+**(1) the RESPELLING** — a `ContainerModeled` clause spelling the
+mention on the nested field's OPENED DOMAIN:
+
+```
+∀ i' j l x q, … → d.nestOf i' j l = some q → (d.ksF i' j).getD l .ordinary = .recursive →
+  (d.xFvsF i' j)[l]? = some x →
+  ∃ e ∈ x.fvarTypeD.getAppArgs.take (d.pinAt q).nPJ,
+    ConLeche.mentionsMember d.memberNames e = true
+```
+
+*Kernel source*: K.44's `nestedPinMentionOk` is spelled on the RECORDED
+PIN, so this needs a new Bool at the nested install certifying the same
+thing on the stored constructor's field spine.  **And that is not all
+it needs**: the model-side carrier `BlockOpened.nestF` (`BlockRep.lean`)
+records, at a nested field, the head, the argument COUNT,
+`constsResolve env₀` for the arguments PAST `nPJ` and two
+`mentionsFvar` clauses — nothing about the first `nPJ`.  So the clause
+would have to be threaded through `BlockOpened` as well.  **Two records,
+one of them kernel** — and it reverses a documented decision whose
+stated reason (the opened-domain spelling "dies at the
+`NestedCtorsStaged` boundary, where `BlockOpened.nestF` is all that
+survives") is confirmed, not refuted, by that same reading.
+
+**(2) the TIE** — a `ContainerModeled` clause tying a nested field's
+first `nPJ` opened-domain arguments to the pin's recorded components:
+
+```
+∀ i' j l x q, … → d.nestOf i' j l = some q → … → (d.xFvsF i' j)[l]? = some x →
+  x.fvarTypeD.getAppArgs.take (d.pinAt q).nPJ = (d.pinAt q).DsE
+```
+
+*Kernel source*: **none required, and the tree says why.**
+`nestMention`'s own docstring states the identity outright — "at the
+nested block's own read-back the two are the same list — the restored
+domain is the pin re-opened at the parameter openers" — so at the one
+producer that has pins it is a PROOF about the restore, not a record.
+And it is the only non-vacuous producer: the five pinned BASIS blocks
+are pins-free, and M7-3's NATIVE and MUTUAL sites are pins-free too
+(`PinShapes`' own docstring enumerates exactly these three producer
+classes for its pin clauses).  `of_readBack` and the two transports
+carry a syntactic clause as `ownPins` does.
+
+So the count is: **(1) = one new kernel Bool + a `BlockOpened`
+strengthening + eight vacuous producers; (2) = zero kernel Bools, one
+real producer (`nestedContainerModeled`), eight vacuous.**
+
+##### (c) WHAT THIS DOES TO THE COORDINATOR'S REASONING — one half stands, one inverts
+
+The reasoning offered was: prefer (3) (adds no record); (2) is "a new
+kernel obligation at every nested install, on the container's side, for
+a consumer that is a later block — K.43's class"; (1) reverses a
+documented decision.
+
+The (1) half **stands and is stronger than stated** — the decision's
+recorded reason is confirmed by `BlockOpened.nestF`'s field list, and
+reversing it costs a second record.
+
+The (2) half **inverts**: it is NOT K.43's class.  K.43 was requested
+because the fact (the own-pin table being empty) is an
+environment-history invariant that no model-tier object can see.  This
+one is a statement about the restore's own output at the block being
+installed, which the producer has in hand; the docstring asserts it as a
+known identity rather than as a wish.  **It is a clause with one real
+producer and no kernel source** — the cheapest shape this route has.
+
+**This lane is not picking** (the instruction was to compare and stop),
+but it will say which way the evidence points: (2), and the thing to
+check before committing to it is whether the restore identity is
+provable at `nestedContainerModeled` as stated, which is one read of the
+restore and is where a next session should start.
+
+Nothing in this section changes the tree.
