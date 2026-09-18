@@ -54,6 +54,19 @@ theorem PushChain.refl (env : Env) : PushChain env (mkFEnv env) :=
 theorem PushChain.canon {env : Env} {fe : FEnv} (h : PushChain env fe) :
     fe = mkFEnv fe.env := h.1
 
+/-- **A CHAIN IS A SKELETON STATEMENT ABOUT ITSELF** (task #315 M8):
+`PushChain`'s first conjunct *is* canonicity, and a skeleton claim at
+the index's own environment is then reflexivity.  This is why the push
+assembly for a scratch install needs **no new hypothesis** to read
+what the install stored: the walk's lemmas (`…_skels`, and everything
+`SkelIs.find?`/`SkelIs.isSome` derives from them) ask for `SkelIs`,
+and the push proof already carries a chain — it does not have to be
+handed the index's canonicity from outside, nor to re-establish it at
+the stage boundaries. -/
+theorem PushChain.skelIs {env : Env} {fe : FEnv} (h : PushChain env fe) :
+    SkelIs fe (envSkels fe.env) :=
+  SkelIs.self (canon_self h.1)
+
 /-- A canonical index is a chain from its own environment. -/
 theorem PushChain.self {fe : FEnv} (h : fe = mkFEnv fe.env) : PushChain fe.env fe :=
   ⟨h, ⟨[], rfl⟩, id⟩
@@ -758,7 +771,7 @@ theorem checkMutualCtorF_fresh (ops : CheckerOps CheckCM) (w : StructWalkers) (f
   unfold checkMutualCtorF
   refine Yields.bind' (checkConstantValF_fresh ops fe cvC) fun cvCa₀ h₀ => ?_
   obtain ⟨hn₀, hfr⟩ := h₀
-  refine Yields.bind' (normCtorValMF_name ops fe memberNames nP nF cvC cvCa₀ hn₀)
+  refine Yields.bind' (normCtorValMF_name ops fe memberNames nP nF cvC cvCa₀ false hn₀)
     fun cvCa hn => ?_
   yields
   all_goals (apply Yields.pure; exact ⟨hn, hfr⟩)
@@ -921,7 +934,7 @@ theorem checkMutualCoreS_push (mode : CheckMode) {env : Env} {fe : FEnv}
   case isTrue =>
   refine Yields.bind'
     (Yields.and (checkMutualCtorsF_fresh (sharedOpsC mode fe₁) structWalkersC fe₁ b fms _ b.ctors)
-      (checkMutualCtorsF_names (sharedOpsC mode fe₁) structWalkersC fe₁ b fms _ b.ctors))
+      (checkMutualCtorsF_names (sharedOpsC mode fe₁) structWalkersC fe₁ b fms _ false b.ctors))
     fun r hr => ?_
   obtain ⟨ctorsA, sortss⟩ := r
   obtain ⟨hfrs, hctors⟩ := hr

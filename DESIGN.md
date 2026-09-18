@@ -104681,3 +104681,51 @@ landed and green: `checkMutualCoreS_nodup` (the scratch call's
 `skFind?_name`, `skels_find?_name`, and the two read-back bridges.  The
 walk's scaffold — nine steps in, with the idiom validated — is parked
 at `_tmp/m8/checkNestedS_push.scaffold.lean`.
+
+### The grade generalisation, and where the wide-clause idiom now lives
+
+The four cached skeleton lemmas are grade-generic, in one pass:
+`mutualFormerChecksS_names`, `mutualFormersS_skels`,
+`checkMutualCtorsF_names` and `checkMutualCoreS_skels` all take a
+`(g : Bool)` and are stated at `… g …`; the two call sites that passed
+the literal now pass `false` and the nested route's scratch install can
+be proved about at `true`.  Two lemmas below them came along for the
+ride, because the grade reaches them: `normCtorValMF_name` and
+`checkMutualCtorF_name`.
+
+The generalisation needed ONE new rule, and it is worth knowing why.
+The front door is `if g then checkConstantValPreF … else
+checkConstantValF …` followed by the rest of the stage — but
+`do`-notation does NOT elaborate that to one bind of an `ite`: it
+pushes the bind INSIDE both branches, so the goal is
+`if g = true then (pre >>= jp) else (plain >>= jp)`, and a `have`
+about the front door alone never matches it.  `Yields.ofIteBind`
+(`Yields m₁ Q → Yields m₂ Q → (∀ a, Q a → Yields (f a) P) →
+Yields (if c = true then m₁ >>= f else m₂ >>= f) P`) is the shape that
+does, and it keeps the continuation's walk in ONE copy — a `cases g`
+at the top would have duplicated every stage below the front door,
+twice per lemma.
+
+The wide-clause idiom is no longer only in this file's session record.
+It is where the next cached-walk author meets it: the `Yields` kit's
+own documentation, in a section **"Walking a WIDE clause"** beside the
+`yields`/`ylet`/`ybind` macros in
+`ConLeche/Verify/Cached/AgreeFloor.lean`, with both halves — the
+failure mode (`split` duplicates the standing join points, so a
+twenty-two-guard body grows multiplicatively; `maxSteps` is not the
+problem) and the prerequisite (do NOT `simp only []` the body first,
+or the duplication happens at elaboration and no rule can avoid it) —
+and with the point that makes the idiom worth reaching for: the
+twenty-two guards become **twenty-two identical lines**, not twenty-two
+transcriptions of a condition, because `ofDecCases` takes the decidable
+instance out of the goal and never names the guard's Bool.
+
+Finally, the canonicity find is recorded as a lemma rather than as a
+step that happened to work: `PushChain.skelIs` — a chain's FIRST
+conjunct is canonicity, so a skeleton claim at the chain's own
+environment is reflexivity.  **That is the reason the push assembly
+needs no new hypothesis** to read what the scratch install stored: the
+walk's `…_skels` lemmas ask for `SkelIs`, and the push proof already
+carries a chain.  (Two introduction rules were exposed for it,
+`canon_self` and `SkelIs.self`, since `Canon`'s and `SkelIs`'s bodies
+are private to `AgreeFloor`.)

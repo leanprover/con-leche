@@ -1317,12 +1317,12 @@ theorem natOpGuard_bool {env : Env} {c : Name} (h : natOpGuard env c = true)
   · simp only [Expr.constsResolve]
     revert hb
     cases hT : env.find? boolTrueName with
-    | none => intro hb; simp [hT] at hb
+    | none => intro hb; simp at hb
     | some ci => intro _; simp
   · simp only [Expr.constsResolve]
     revert hb
     cases hF : env.find? boolFalseName with
-    | none => intro hb; simp [hF] at hb
+    | none => intro hb; simp at hb
     | some ci => intro _; simp
 
 end ConLeche

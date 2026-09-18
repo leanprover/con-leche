@@ -118,6 +118,21 @@ theorem Yields.bind' {α β : Type} {m : CheckCM α} {f : α → CheckCM β}
     rw [hs, hm'] at hr
     exact h v.1 (hm s v.1 v.2 hm') v.2 b s' hr
 
+/-- **The grade's front door** (task #315 M8): a stage whose FIRST
+action is chosen by a `Bool` — the annotation grade — and whose two
+choices bind into the same continuation.  `do`-notation pushes the
+bind *inside* the `ite`, so what the goal shows is two binds of one
+join point, not one bind of an `ite`; this is the rule that matches
+that shape, and it is what lets a grade-generic proof keep a SINGLE
+copy of the continuation's walk instead of one per grade. -/
+theorem Yields.ofIteBind {α β : Type} {c : Bool} {m₁ m₂ : CheckCM α}
+    {f : α → CheckCM β} {Q : α → Prop} {P : β → Prop}
+    (h₁ : Yields m₁ Q) (h₂ : Yields m₂ Q) (h : ∀ a, Q a → Yields (f a) P) :
+    Yields (if c = true then m₁ >>= f else m₂ >>= f) P := by
+  cases c
+  · exact Yields.bind' h₂ h
+  · exact Yields.bind' h₁ h
+
 /-- Do-notation elaborates its guards through *join points*
 (`have __do_jp := …`), so the clause walker needs the `letFun` rule to
 step past them. -/
@@ -183,6 +198,46 @@ macro_rules
 syntax "ybind" : tactic
 macro_rules
   | `(tactic| ybind) => `(tactic| (with_reducible apply Yields.bind); intro)
+
+/-! ### Walking a WIDE clause (a driver body with many guards)
+
+`yields` walks a clause by *stepping*, and its last resort is `split`.
+On a narrow clause that is fine.  On a wide one — `checkNestedS` is
+twenty-two guards deep — **`split` does not scale**, and the reason is
+not the step count:
+
+* do-notation compiles each guard into a *join point* (`have __do_jp
+  := fun __r => …`) that BOTH of the guard's branches call.  `split`
+  duplicates the goal, so it duplicates every join point still
+  standing; at twenty-two guards the term grows multiplicatively and
+  the `simp` `split` runs on it does not come back.  Raising
+  `maxSteps` does not help — nothing is looping, the term really is
+  that large.
+
+The rule that does scale is the one that never looks inside the join
+point:
+
+```
+refine Yields.ofDecCases (fun _ => Yields.ofThrowBind) (fun hg => ?_) …
+```
+
+— the failure branch is closed by `Yields.ofThrowBind` (a `throw` bind,
+closed WITHOUT descending into the join point it calls), and the
+success branch is the walk's single continuation.  Two consequences
+worth knowing before you start:
+
+* **the twenty-two guards become twenty-two IDENTICAL lines**, not
+  twenty-two transcriptions of a condition: `ofDecCases` takes the
+  decidable instance from the goal, so no guard's Bool is ever written
+  down in the proof.  A clause that grows a guard grows one more copy
+  of the same line;
+* **you must NOT normalise the body first.**  `simp only []` (or any
+  `unfold` that beta-reduces the join points) inlines them, and the
+  duplication `split` would have caused happens at elaboration
+  instead — after that even `ofDecCases` is walking a term of the
+  duplicated size.  `unfold` the clause and step; leave the join
+  points standing.
+-/
 
 /-- The fold rule, with an abstraction `R` of the accumulator: if each
 step takes `R b c` to `R b' (g c a)`, the fold takes it to
@@ -281,10 +336,19 @@ theorem canon_find? {fe : FEnv} (h : Canon fe) (n : Name) :
 
 theorem canon_empty : Canon (mkFEnv Env.empty) := ⟨_, rfl⟩
 
+/-- An index that is `mkFEnv` of its own environment is canonical (the
+introduction rule the *other* tiers need, since `Canon`'s body is
+private to this module). -/
+theorem canon_self {fe : FEnv} (h : fe = mkFEnv fe.env) : Canon fe := ⟨_, h⟩
+
 /-- The floor's induction hypothesis: a canonical index whose
 environment has the given skeleton list. -/
 def SkelIs (fe : FEnv) (sk : List InstallSkel) : Prop :=
   Canon fe ∧ envSkels fe.env = sk
+
+/-- A canonical index states its own skeleton (the introduction rule,
+for the same reason as `canon_self`). -/
+theorem SkelIs.self {fe : FEnv} (h : Canon fe) : SkelIs fe (envSkels fe.env) := ⟨h, rfl⟩
 
 theorem SkelIs.find? {fe : FEnv} {sk : List InstallSkel} (h : SkelIs fe sk)
     (n : Name) : (fe.find? n).map ciSkel = skFind? sk n := by
@@ -1512,19 +1576,29 @@ private theorem foldl_zipIdx_congr {α β γ : Type} [Inhabited α] [Inhabited �
         rw [he] at hs
         simpa only [List.getD_cons_succ] using hs
 
+/-- The constructors' normalisation stores a constant of the declared
+name. -/
+theorem checkConstantValPreF_name (ops : CheckerOps CheckCM) (fe : FEnv)
+    (cv : ConstantVal) :
+    Yields (checkConstantValPreF ops fe cv) (fun cvA => cvA.name = cv.name) := by
+  unfold checkConstantValPreF
+  yields
+  all_goals (apply Yields.pure; rfl)
+
 /-- The formers' checks: the checked formers carry the declared names
 and index counts.  The whole stage runs at ONE index, so it pushes
 nothing. -/
-theorem mutualFormerChecksS_names (mode : CheckMode) (nP : Nat) :
+theorem mutualFormerChecksS_names (mode : CheckMode) (nP : Nat) (g : Bool) :
     ∀ (fs : List (ConstantVal × Nat)) {fe : FEnv},
-      Yields (mutualFormerChecksS mode fe nP false fs)
+      Yields (mutualFormerChecksS mode fe nP g fs)
         (fun fms => fms.map (fun f => (f.cvTa.name, f.nIdx)) = fs.map (fun f => (f.1.name, f.2)))
   | [], fe => by
       unfold mutualFormerChecksS
       exact Yields.pure rfl
   | (cv, nIdx) :: fs, fe => by
       unfold mutualFormerChecksS
-      refine Yields.bind' (checkConstantValF_name (sharedOpsC mode fe) fe cv) fun cvTa₀ hn₀ => ?_
+      refine Yields.ofIteBind (checkConstantValPreF_name (sharedOpsC mode fe) fe cv)
+        (checkConstantValF_name (sharedOpsC mode fe) fe cv) fun cvTa₀ hn₀ => ?_
       refine Yields.bind' (checkSumTeleF_name (sharedOpsC mode fe) fe cv (nP + nIdx) cvTa₀)
         fun r hn => ?_
       obtain ⟨cvTa, s⟩ := r
@@ -1537,7 +1611,7 @@ theorem mutualFormerChecksS_names (mode : CheckMode) (nP : Nat) :
       split
       case isFalse => exact Yields.ofThrowBind
       case isTrue =>
-      refine Yields.bind' (mutualFormerChecksS_names mode nP fs (fe := fe)) fun fms hq => ?_
+      refine Yields.bind' (mutualFormerChecksS_names mode nP g fs (fe := fe)) fun fms hq => ?_
       exact Yields.pure (by simp [hn', hq])
 
 /-- The names a list of checked formers conses, as the skeleton fold
@@ -1570,27 +1644,19 @@ and the checked formers carry the declared names and index counts.
 The stage flushes once, checks every member at that one index, and
 conses afterwards. -/
 theorem mutualFormersS_skels (mode : CheckMode) (nP : Nat)
-    (fs : List (ConstantVal × Nat)) {fe : FEnv} {sk : List InstallSkel} (h : SkelIs fe sk) :
-    Yields (mutualFormersS mode nP fs false fe)
+    (fs : List (ConstantVal × Nat)) (g : Bool)
+    {fe : FEnv} {sk : List InstallSkel} (h : SkelIs fe sk) :
+    Yields (mutualFormersS mode nP fs g fe)
       (fun r => SkelIs r.1 (mutualIndSkels fs sk) ∧
         r.2.map (fun f => (f.cvTa.name, f.nIdx)) = fs.map (fun f => (f.1.name, f.2))) := by
   unfold mutualFormersS
   ybind
-  refine Yields.bind' (mutualFormerChecksS_names mode nP fs (fe := fe)) fun fms hq => ?_
+  refine Yields.bind' (mutualFormerChecksS_names mode nP g fs (fe := fe)) fun fms hq => ?_
   refine Yields.pure ⟨?_, hq⟩
   refine (mutualIndSkels_congr (fs := fms.map (fun f => (f.cvTa, f.nIdx))) sk ?_) ▸
     consMutualFormersF_skels h
   have := congrArg (List.map Prod.fst) hq
   simpa [List.map_map, Function.comp_def] using this
-
-/-- The constructors' normalisation stores a constant of the declared
-name. -/
-theorem checkConstantValPreF_name (ops : CheckerOps CheckCM) (fe : FEnv)
-    (cv : ConstantVal) :
-    Yields (checkConstantValPreF ops fe cv) (fun cvA => cvA.name = cv.name) := by
-  unfold checkConstantValPreF
-  yields
-  all_goals (apply Yields.pure; rfl)
 
 /-! ### The nested route's restore stages: the names they store
 
@@ -1665,9 +1731,9 @@ theorem restoreRecTysF_names (ops : CheckerOps CheckCM) (fe : FEnv) (R : Restore
       simpa using hn
 
 theorem normCtorValMF_name (ops : CheckerOps CheckCM) (fe : FEnv)
-    (memberNames : List Name) (nP nF : Nat) (cvC cvCa : ConstantVal)
+    (memberNames : List Name) (nP nF : Nat) (cvC cvCa : ConstantVal) (g : Bool)
     (hn : cvCa.name = cvC.name) :
-    Yields (normCtorValMF ops fe memberNames nP nF cvC cvCa) (fun r => r.name = cvC.name) := by
+    Yields (normCtorValMF ops fe memberNames nP nF cvC cvCa g) (fun r => r.name = cvC.name) := by
   unfold normCtorValMF
   yields
   all_goals (dsimp only; split)
@@ -1680,29 +1746,30 @@ theorem normCtorValMF_name (ops : CheckerOps CheckCM) (fe : FEnv)
 /-- One constructor's stage keeps the declared name. -/
 theorem checkMutualCtorF_name (ops : CheckerOps CheckCM) (w : StructWalkers) (fe : FEnv)
     (memberNames : List Name) (T : Name) (lps : List Name) (nP nIdx : Nat) (rs : Level)
-    (isProp large : Bool) (cvC : ConstantVal) (nF : Nat) (cvTa : ConstantVal) :
-    Yields (checkMutualCtorF ops w fe memberNames T lps nP nIdx rs isProp large cvC nF cvTa)
+    (isProp large : Bool) (cvC : ConstantVal) (nF : Nat) (cvTa : ConstantVal) (g : Bool) :
+    Yields (checkMutualCtorF ops w fe memberNames T lps nP nIdx rs isProp large cvC nF cvTa g)
       (fun r => r.1.name = cvC.name) := by
   unfold checkMutualCtorF
-  refine Yields.bind' (checkConstantValF_name ops fe cvC) fun cvCa₀ hn₀ => ?_
-  refine Yields.bind' (normCtorValMF_name ops fe memberNames nP nF cvC cvCa₀ hn₀)
+  refine Yields.ofIteBind (checkConstantValPreF_name ops fe cvC)
+    (checkConstantValF_name ops fe cvC) fun cvCa₀ hn₀ => ?_
+  refine Yields.bind' (normCtorValMF_name ops fe memberNames nP nF cvC cvCa₀ g hn₀)
     fun cvCa hn => ?_
   yields
   all_goals (apply Yields.pure; exact hn)
 
 /-- The constructor list's names and field counts are the block's. -/
 theorem checkMutualCtorsF_names (ops : CheckerOps CheckCM) (w : StructWalkers) (fe : FEnv)
-    (b : MutualBlock) (fms : List MutualFormerA) (isProp : Bool) :
+    (b : MutualBlock) (fms : List MutualFormerA) (isProp : Bool) (g : Bool) :
     ∀ (cs : List MutualCtor),
-      Yields (checkMutualCtorsF ops w fe b fms isProp false cs)
+      Yields (checkMutualCtorsF ops w fe b fms isProp g cs)
         (fun r => r.1.map (fun c => (c.1.name, c.2)) = cs.map (fun c => (c.cv.name, c.nF)))
   | [] => Yields.pure rfl
   | c :: cs => by
     unfold checkMutualCtorsF
     refine Yields.bind' (checkMutualCtorF_name ops w fe b.memberNames _ b.lps b.nP _ _
-      isProp b.large c.cv c.nF _) fun q hn => ?_
+      isProp b.large c.cv c.nF _ g) fun q hn => ?_
     obtain ⟨cvCa, sorts⟩ := q
-    refine Yields.bind' (checkMutualCtorsF_names ops w fe b fms isProp cs) fun rest hrest => ?_
+    refine Yields.bind' (checkMutualCtorsF_names ops w fe b fms isProp g cs) fun rest hrest => ?_
     obtain ⟨rest, srest⟩ := rest
     have hn' : cvCa.name = c.cv.name := hn
     exact Yields.pure (by simp [hn', hrest])
@@ -1866,13 +1933,13 @@ the two member-indexed folds transported from the checked members to
 the declared ones. -/
 theorem checkMutualCoreS_skels (mode : CheckMode) {fe : FEnv} {sk : List InstallSkel}
     (h : SkelIs fe sk) (b : MutualBlock)
-    (streamRecs : Option (List (ConstantVal × List RecRule))) :
-    Yields (checkMutualCoreS mode fe b streamRecs false)
+    (streamRecs : Option (List (ConstantVal × List RecRule))) (g : Bool) :
+    Yields (checkMutualCoreS mode fe b streamRecs g)
       (fun fe' => SkelIs fe' (mutualBlockSkels b sk)) := by
   unfold checkMutualCoreS mutualBlockSkels
   simp only []
   ybind
-  refine Yields.bind' (mutualFormersS_skels mode b.nP b.formers h) fun r hr => ?_
+  refine Yields.bind' (mutualFormersS_skels mode b.nP b.formers g h) fun r hr => ?_
   obtain ⟨fe₁, fms⟩ := r
   obtain ⟨h₁, hfms⟩ := hr
   simp only [] at h₁ hfms ⊢
@@ -1886,7 +1953,7 @@ theorem checkMutualCoreS_skels (mode : CheckMode) {fe : FEnv} {sk : List Install
   case isFalse => exact Yields.ofThrowBind
   case isTrue =>
   refine Yields.bind' (checkMutualCtorsF_names (sharedOpsC mode fe₁) structWalkersC fe₁ b fms
-    _ b.ctors) fun r hctors => ?_
+    _ g b.ctors) fun r hctors => ?_
   obtain ⟨ctorsA, sortss⟩ := r
   simp only [] at hctors ⊢
   ybind
@@ -1957,7 +2024,7 @@ theorem checkMutualS_skels (mode : CheckMode) {fe : FEnv} {sk : List InstallSkel
   unfold checkMutualS mutualSkels
   split
   case isFalse => exact Yields.ofThrowBind
-  case isTrue => exact checkMutualCoreS_skels mode h p.toBlock _
+  case isTrue => exact checkMutualCoreS_skels mode h p.toBlock _ false
 
 /-! ### The tolerated-axiom branch
 
