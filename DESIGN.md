@@ -108613,3 +108613,83 @@ and which are absent.  That is a read, not a build.
 `lake build` 0 errors/warnings, **722 jobs**.
 
 Nothing in this section changes the tree.
+
+#### (number at the integrator's sync) — L-E: THE READ — the premise package splits BLOCK-side present, CONTAINER-side thin (lane L-E, 2026-09-18)
+
+Twelve premises walked against `NestedPinsRun`, `NestedPinGroupSyn`,
+`NestedPinSynFacts` and `ContainerModeled`.  **Nothing built.**  Where
+this lane verified a field it says so; where it named a route without
+following it, it says that too.
+
+##### (a) PRESENT — verified against the field
+
+| premise | source |
+| --- | --- |
+| `hsyn` (`toReadOf`) | **`ContainerModeled.ownPins : ContainerOwnPinsSyn env d`** — a field, reachable through `NestedPinGroupSyn.modeled` |
+| `hψD` | **`NestedPinGroupSyn.stored`'s third conjunct**, literally `∀ ψ, ((D).pinAt (q₀+i)).ψJ ψ = Level.substFn ψ cvT.levelParams (…).lvls` |
+| `hi` | an index bound, available wherever the group is |
+| `hDsD` | **`NestedPinSynFacts.pinDs`**, same shape — **modulo the environment**: `pinDs` is at `ENV₁` and `mp₁.base2.acval`, the premise at `env` and `m.acval`.  That crossing is NOT checked here |
+
+##### (b) DERIVABLE — route named, route NOT followed
+
+| premise | route |
+| --- | --- |
+| `hfind` | `ContainerModeled.member` + `reps : IsBlockModels m d`, whose `IsBlockModel.member` carries `d.memberName mm = T` |
+| `hfoundK`, `hψK` | `ContainerModeled.pinConts` / `pinNP` are the shape.  **A caution**: `NestedPremise.lean`'s prose lists the pin clauses as "`pinψ`, `pinNP`, `pinConts`, `pinParams`, `nestMention`, `pinsNotMembers`", but the STRUCTURE has no `pinψ` field — the prose is stale or the clause was renamed.  `hψK` is the one that would have used it |
+
+##### (c) UNVERIFIED OR ABSENT — and they cluster, which is the finding
+
+| premise | state |
+| --- | --- |
+| `hscope` (`toReadOf`) | the CONTAINER's pins' `DsE` closed, fvar-leaves in params.  K.30 (`NestedPinsRun.hscoped`) is the BLOCK's analogue.  **No container-side field found** |
+| `hpinDs` (`toReadOf`) | `DenoteMetaSpine` for the CONTAINER's own pins.  `NestedPinSynFacts.pinDs` is the BLOCK's.  **No container-side field found** |
+| `hDsE` (`toReadOf`) | the length and scope clause at an own-pin lookup.  **None found** |
+| `hps` | `containerOwnPinsAt env (dR.memberName i) lvlsK DsE₀ = some ps` — a COMPUTATION succeeding.  **None found** |
+| `hmem` | the block's pin ∈ the container's own pins.  `ContainerModeled.nestMention` is the plausible route; **not followed** |
+| `h0` | `DenoteMetaSpine` for the member's instantiation arguments.  **None found** |
+
+**THE PATTERN: everything present is about the BLOCK's pins; everything
+missing is about the CONTAINER's OWN pins.**  The run and the group syn
+are rich block-side — `pinDs`, `stored`, K.30's scope, the level
+assignments — and thin container-side, where `ContainerModeled` carries
+shape clauses (`nestMention`, `pinsNotMembers`, `pinNP`, `pinConts`,
+`ownPins`, `pinParams`) but no denotation and no scope.
+
+That asymmetry is not an accident of this read: `ContainerOwnPinsSyn` is
+deliberately the SYNTACTIC form, and `toReadOf`'s whole job is to cross
+to the reading form — so its package is exactly the container-side
+denotation and scope the records do not carry.
+
+##### (d) THE ALTERNATIVE PRODUCER, and what it tells us
+
+`ContainerOwnPins.of_noOwn` (`NestedPremise.lean:1044`) discharges
+`ContainerOwnPins` **vacuously**, for a container with no own pins, and
+its docstring says the `hempty` premise is **K.43's**, with "the wiring
+when K.43 lands is one line per route".
+
+So the tree's two routes are: vacuous (gated on K.43) for containers
+without own pins, and `toReadOf` for those with.  **Residual 3 is about
+`pinF` at the container's OWN pin, so it is exactly the case the vacuous
+route does not cover.**  There is no cheap path.
+
+##### (e) THE ANSWER
+
+**The package is NOT there.**  Four premises present (one with an
+unchecked environment crossing), two derivable with routes named, and
+**six unverified or absent, all six container-side**.
+
+So the assembly should not start, and the row is re-scoped rather than
+abandoned: what residual 3 needs next is not a proof but a decision
+about where the container-side denotation and scope facts come from —
+new `ContainerModeled` clauses, a `NestedPinSynFacts` twin at the
+container, or K.43 plus a restriction to own-pin-free containers (which
+would not cover the fixtures that have them).
+
+**This lane is not proposing which.**  It has been wrong twice today
+about "of the shape" meaning "available", and six premises is too many
+to guess at.  The next step is a scope call, and the input to it is this
+table.
+
+`lake build` 0 errors/warnings, **722 jobs**; nothing half-applied.
+
+Nothing in this section changes the tree.
