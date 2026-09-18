@@ -92468,3 +92468,141 @@ Files: `Verify/Inductives/NestedCopyInstU.lean` (the law and
 `substFvarList`, one new plain `import ConLeche.Verify.AbstractRange`),
 `Verify/Inductives/NestedCopyNorm.lean` (K.42's addressing),
 `DESIGN.md`.
+
+#### U.74 — L-B session 16: `NestedPinsShapeNoLam` DISCHARGED — the `ordF`-left arm reads K.42, and what is left of it is PLUMBING (lane L-B, 2026-09-18)
+
+**The λ-pin residue is gone.**  §U.73 (d) located its three
+obligations in existing kit; this session ran that chain, and
+`nestedPinsShape_of`'s first residual — the one no model-tier argument
+could reach (§U.62 (a): the only route through the elimination's
+rewrite is the mimic's own reading law, and that law is what the shape
+is used to prove) — is replaced by **the kernel's own conjunct at the
+run**.  `NestedPinsShapeOrdRight` and `NestedPinsShapePinF` were not
+reached, so `NestedPinsShape` is NOT discharged.
+
+##### (a) The two kit lemmas (commit `22ad6656`)
+
+* **`wellDenoted_instAll`** (`Semantics/Tower/InstAll.lean`) — the
+  truthfulness twin of `interp_instAll`, the same induction over
+  `WellDenoted_inst`, premise at the BASE frame the cut collapses to.
+  It carries the CONTAINER's field grading across the pin's
+  components;
+* **`normPosDomM_reads`** + **`normPosDomM_readEq_of`**
+  (`Model/Inductives/MutualNorm.lean`) — the positivity walk's OUTPUT
+  reads whenever its input does, so the reading law no longer takes
+  `hea'` as an input.  The existence was already inside
+  `normPosDomM_read`'s own induction (`WhnfReads` at every step); this
+  exposes it.  **`normPosDomM_read_of` had no consumer in the tree
+  before this session** — the `_readEq_of` form is the one an arm can
+  actually call.
+
+##### (b) K.42, ADDRESSED AND CONSUMED (commits `7c32df14`, `83717110`)
+
+* **`NestedPinsRun.copyOrdFLeftRun`** — the record at the arm's own
+  field: `normPosDomM (fueledOps μ F) ENV₁ b.memberNames (b.nP + l)
+  1024 xI.fvarTypeD = .ok x'.fvarTypeD`, every hypothesis of §U.73
+  (c)'s `nestedOrdDomPairs_mem` discharged from the run's own reads.
+  Three identifications do the work: `auxStored_ctor_eq` (the stored
+  constructor IS `ctorsA[b.ownOffset … + j]`, so the walk's two stored
+  openings ARE `MutualFormersFacts.CD`'s and the walk's `xS` is the
+  run's `x'`), `classifyMutualKinds_inv` against `nestedPinKinds` (the
+  arm's `.ordinary` is the walk's), and `consNestedFormers_take_eq`
+  (the walk's environment is `mp₁'`'s, which is where `mintFieldRead`
+  already reads).  **The container member cannot travel as a
+  quantified level-parameter list** — `copyResid`'s clause equates two
+  `Level.substFn`s, and two lists can induce one substitution — so it
+  travels as a binder with the three clauses `copyResid` hands a
+  caller;
+* **`NestedPinsRun.copyOrdFLeftRead`** — the arm's READING IDENTITY at
+  EVERY ordinary field: the copy's STORED domain and the container's
+  field domain instantiated at the pin's components have the same
+  interpretation at any prefix fitting the container's own earlier
+  domains.  `normPosDomM_readEq_of` on (b)'s run, with `mintFieldRead`
+  as the input's reading, `ctxOk_of_openers` (`Model/IndFrame.lean`)
+  over the block's parameter openers (the former's `Opened`, as
+  `pinRead_of_inferAt` builds it) and the minted field openers
+  (`mintFieldRead` again, at every earlier field) as the context, the
+  CONTAINER's own grading (`IsBlockModel.ctor_okB` + `fieldsOkB_getD`,
+  whose fit premise is lane L-E's fitting prefix VERBATIM) carried
+  across the instantiation by (a), the components' own grading off
+  `NestedPinsRun.pinRead`, the frame by `sat_of_spineFit` over
+  `spineFit_instTele`, and `R.crossUp` lifting the finished equation
+  to the whole block's model where the run's own reading meets it.
+
+Two things the §U.73 (d) plan did not mention and the proof needed:
+`WellDenotedV` is `WellDenoted ∧ AnnotValid`, so the `AnnotValid` half
+is carried by an inline twin of `wellDenoted_instAll` over
+`AnnotValid_inst`, with `IsBlockModel.ctor_validV` + `fieldsValid_getD`
+as the container's side; and the components' leaves are put in the
+block's openers by `copyResid`'s own pin record (`qn ∈ st.pins`,
+`qn.pin = mkAppN (.const …) Ds`), not by `PinData.pinEq`.  Three plain
+imports were added to `NestedCopyInst.lean` (`MutualNorm`,
+`BlockRecBridge`, `BlockRecValid`).
+
+##### (c) The assembly (commit `a448c7d8`), and what the residual now IS
+
+`nestedPinsShape_of`'s `ordF`-left branch closes with
+`copyOrdFLeftRead` at every ordinary field — the `rcases` on the
+residue is gone, and `copyOrdFLeft` is called only for the recursive
+flag.  `NestedPinsShapeNoLam` is DELETED; in its place is
+
+```lean
+@[expose] def NestedPinsShapeK42 (V : Type w) [SetTheory V] (μ : CheckMode) (F : Nat) : Prop :=
+  ∀ … (mp₁' : EnvModelM V μ (ConLeche.consMutualFormers (fms.take p.k) env)),
+    NestedPinsRun V μ F mp p st b envAux stored … mp₁' →
+    ∃ (jobs : List (Nat × Expr × Expr)) (ws : List Expr),
+      ConLeche.nestedOrdDomPairs env p st stored (ConLeche.nestedPinKinds p b stored) = some jobs ∧
+      ConLeche.nestedOrdNorms (m := ConLeche.CheckM) (ConLeche.fueledOps μ F)
+          (ConLeche.consNestedFormers (stored.take p.k) env) b.memberNames jobs = .ok ws ∧
+      ws = jobs.map (·.2.2)
+```
+
+— **the kernel's `certOnly` conjunct, verbatim**, which
+`nestedPinChecks_inv` already inverts at `DeclNestedRun`.  This is not
+an obligation but PLUMBING, and the lane states it rather than reaches
+for it: the conjunct reaches `NestedPinsRun` only through
+`NestedPinsStaged`'s binder list (`NestedLoop.lean`) and
+`declNested_of`'s application of it (`DeclNestedCore.lean`, lane
+L-E's).
+
+**REQUEST (three lines, one of them in lane L-E's file)**: a field
+`hK42` on `NestedPinsRun` (`NestedPins.lean`), the same hypothesis on
+`NestedPinsStaged` (`NestedLoop.lean`), and the conjunct passed at
+`declNested_of`'s application (`DeclNestedCore.lean`) — where
+`nestedPinChecks_inv` already produces it.  With it
+`nestedPinsShape_of` reads `R.hK42`, `NestedPinsShapeK42` is deleted,
+and NOTHING else changes.  The chain still typechecks over the three
+residuals (`nestedPinsStaged_of (nestedPinsIdent_of
+(nestedPinsShape_of hK42 hOrd hPin) hEn)`, standard axioms).
+
+##### (d) What the other two residuals owe
+
+* `NestedPinsShapeOrdRight` — not started.  Its shape is now
+  reading-only (§U.61), and the ROUTE is (b)'s with the AUXILIARY
+  block's own normalisation in place of the minted one: at a
+  container-ORDINARY field the rewrite is the identity
+  (`ContainerModeled.ordFree` + `replaceAllNested_of_no_mention`, the
+  prune `copyOrdFLeft` already runs), so leg 1's `hok` comes from the
+  block's OWN `ctor_okB` — K.42 does not cover these fields (its job
+  list is the ordinary ones, where `stored` carries no mimic), and it
+  does not need to.  What is new there is the `EntryRead` SHAPE (the
+  Π-tower `tlsJ`/`body` and the index-fit clause), not the reading;
+* `NestedPinsShapePinF` — not started; §U.62 (e)'s chain, with
+  `ContainerModeled.nestMention` now in the tree.
+
+##### (e) GATES
+
+`lake build` 716 jobs warning-free; `lake test` 571 jobs warning-free;
+layering base 351 / model 282 / caps 3 / umbrella 1, 0 base->lane and
+0 impl->theory; trust surface 13/5 (648 scanned); no-local-paths OK;
+overview-links 112, no anchor moved; quote-gate 2; **proofdeps 4965
+rows / 12 roots / 0 doors** (the baseline, unmoved); shake 511
+removals all allowlisted; pub-imports 1315 of 2147, none demotable
+(the three new plain imports of (b) are in-tree edges, none of them
+public); nested-shadow 27/27.  `tests/arena.sh` not re-run: the
+session touches no checker code.  Standard axioms on every new
+theorem — `wellDenoted_instAll`, `normPosDomM_reads`,
+`normPosDomM_readEq_of`, `NestedPinsRun.copyOrdFLeftRun`,
+`NestedPinsRun.copyOrdFLeftRead`, `nestedPinsShape_of` and the chain
+probe.
+
