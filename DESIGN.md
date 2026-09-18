@@ -107795,3 +107795,34 @@ recompiled on the build and 1 on the test library, **0 warning lines**;
 layering, trust-surface, no-local-paths, overview-links, quote-gate,
 proofdeps, shake and nested-shadow all pass.  `tests/arena.sh` not
 re-run: no checker code touched.
+
+##### L-B session 36 (addendum): the retired lemma CAME BACK — the retirement was wrong
+
+Session 35 (b) retired a rewrite-reflection lemma — "the output is a
+`∀` only if the input was", priced at ~50 lines — on the grounds that
+`w`'s tower comes from the WALK (`normPosDomM_inv`'s Π arm, iterated)
+instead.  **`replaceAllNested_forallE_inv` IS that lemma, and the
+retirement was wrong.**
+
+They are not two objects at two stages.  Both exist for one purpose —
+obtaining `w`'s `∀`-tower — and they differ only in the SOURCE:
+
+* the retired route reads the tower off the WALK that produced `w`;
+* the built one reads it off the REWRITE's output, which is `w`'s image.
+
+The walk route fails, and the reason is worth keeping: `normPosDomM_inv`
+does peel one binder, but **nothing ties the number of peels the walk
+performs to `tls.length`** — the copy's recorded telescope length, which
+is what `reflOpen` fixes on the STORED side.  Matching the two would
+have needed a fact relating the walk's depth to the stored domain's,
+which is the same bridging problem in another dress.  The
+reflection route sidesteps it because `replaceAllNested_mkPisB_inv` is
+driven by `bs'.length = n` on the OUTPUT side, where `reflOpen` already
+fixes `n`.
+
+**The ledger takes the hit**: the ~50 lines are spent, not saved.  The
+cost is small — brick 2 came in under its estimate because its two
+lemmas divide the state threading rather than duplicate it — but a
+retirement that quietly un-retires is a price correction, and this one
+is recorded as such rather than left for the next reader to notice that
+a retired lemma is in the tree.
