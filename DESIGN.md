@@ -111997,3 +111997,166 @@ conditions are unchanged, and (M) is still not the compositional fact
 the request assumed.  **Its (d) is retracted**: the straddle costs an
 IH at an `ord`-smaller pin and one cannot-fire kernel clause, not a
 crossing of the G1 sequencing.  Risk 1 is not reopened.
+
+#### U.120 — R3: `NestedPinsShapeOrdRight`'s pin-target halves and the dispatch — the residual is a THEOREM (lane R3, 2026-09-18)
+
+*(Numbered after §U.119, which was the last section at this branch's
+base; a parallel lane may have reserved it, so cite this section by
+TITLE.)*
+
+##### (a) WHAT LANDED
+
+`NestedPinsShapeOrdRight` — the `ordF`-right reading at a PIN target,
+at either field kind — is no longer a residual.  `nestedPinsShape_of`
+takes ONE hypothesis, `NestedPinsShapePinF`.
+
+* **`NestedPinsRun.copyOrdFRightReadReflP`** — the `.reflexive` half,
+  the arm that did not exist.  Its `.recursive` twin
+  (`copyOrdFRightReadP`) was already proved;
+* **`nestedPinsShapeOrdRight_of`** — the dispatch: case on the kind
+  disjunction the predicate carries, feed each arm K.51's positivity
+  run (`copyOrdFRightPinRun`, whose guard is only that the field is not
+  ordinary, so ONE run serves both kinds) and the pins' index count.
+
+##### (b) THE CIRCULARITY ESCAPE, STATED
+
+The residual's own docstring recorded a circularity: at a pin target
+`TargetView.EA` is the CONTAINER's reading while the stored domain's
+head is the MIMIC, and identifying the two is `pinLeaf`, which is
+downstream of this very shape.  **The escape was already in the
+`.recursive` arm, and it is available verbatim at `.reflexive`.**  It
+is not an identification at all:
+
+* the entry's RIGHT side is `TargetView.EA` at a pin index, which
+  `targetRead_of_pin` makes the CONTAINER's leaf at the pin's
+  components — no mimic;
+* the entry's LEFT side is the reading of `w`, K.51's
+  CONTAINER-headed normalisation of the MINTED domain
+  (`copyFieldReadPin`), not of the stored mimic-headed domain — no
+  mimic either.
+
+So both sides are read on the container's side and no leaf is
+identified.  The mimic enters only SYNTACTICALLY, and only to compute
+the pin's INDEX: `mutualOpenedOk` names the stored domain's head, the
+rewrite's backwards inversion
+(`replaceAllNested_container_head_stable`) names the container and the
+pin the fire landed on, and the block's `Nodup` member names turn the
+mimic into `p.k + qq` (`copyOrdFRightPinCorr`).  At `.reflexive` the
+same three steps run on the tower's BODY, where `MutualOpened.reflF`
+names the head exactly as `mutualOpenedOk_recHead` does at the
+finitary field.
+
+The docstring is corrected in place rather than deleted, with the
+reason — a dissolved obstruction is recorded as dissolved.
+
+##### (c) THE REFLEXIVE ARM: FOUR STEPS, AND ONE SIMPLIFICATION OF THE PLAN
+
+The extra cost at `.reflexive` is entirely SYNTACTIC: the target sits
+under the field's own `∀`-telescope, so both sides must be peeled and
+the peels aligned.
+
+1. the STORED domain is a tower whose length is the copy's recorded
+   telescope (`MutualCtorDataI.reflOpen`, then
+   `openPisAtFvars_stripPis` + `stripPis_mkPisB` into `mkPisB` form);
+2. so is the normalisation `w` (`replaceAllNested_mkPisB_inv`), and its
+   binder domains are member-free, so the rewrite's prune is the
+   identity on them and the two towers are towers over **literally the
+   same binder list**;
+3. two telescopes over the same binders read with the same `Π`-prefix,
+   and the stored side's prefix IS the copy's telescope (`domRead`
+   composed with `reflEntry`) — so `w` reads as the `Π`-tower over the
+   copy's own telescope and `interp_mkPisAV_piTele` turns it into the
+   slot;
+4. the tower's BODY is `copyOrdFRightPinRead`'s situation one telescope
+   deeper.
+
+**The simplification.**  The plan called for step 3 in two halves — the
+domains' READINGS (per binder, off `reflOpen`'s third clause) and the
+binder BITS (off `stripPisAV_denoteMeta_mkPisB`).  Both are consequences
+of ONE lemma, `denoteMeta_mkPisB_prefix`: `denoteMeta` descends a `∀`
+into its domain and its OPENED body, so the reading's `Π`-prefix
+depends on the binder list alone, whatever the two bodies are.  That
+also removed the need to reach for `NestedCtorRead`'s bits lemma, which
+is NOT in this module's import closure — a lemma whose statement is
+"the same binders give the same prefix" belongs where the alignment is
+made, and proving it there cost less than moving it.
+
+##### (d) THE FOUR BRICKS THE STEPS NEEDED
+
+* `normPosDomM_mkPisB_free` (`Verify/Inductives/NestedCopyNorm.lean`) —
+  **the inertness certificate**: the positivity walk's output, read as
+  a `∀`-telescope, has member-free binder domains to any depth.
+  `normPosDomM_inv` states the mention test only in the arm that TOOK
+  it, so the tower fact gets its own reading; the induction travels on
+  a predicate whose third clause is what lets the walk's STOPPING arm
+  (the stuck member application, which is not a `Π`) carry no
+  obligation, and `mentionsConst_abstract1_false` carries the `Π` arm's
+  closing abstraction;
+* `replaceAllNested_mkPisB_inert` (`NestedCopyRewrite.lean`) — with
+  every domain pruned the state never moves before the body, so the
+  body's run starts at the input's OWN state and the output tower is
+  the input's.  `replaceAllNested_mkPisB` cannot serve: its threading
+  bounds the intermediate states only by prefixes, which is all a
+  general telescope allows;
+* `instSeq_eq_self` + `instSeq_getAppFn_const` (`NestedRestoreOpen.lean`)
+  — the rewrite's facts are about the RAW tower body while the reading's
+  are about the OPENED one, so the two heads must cross in both
+  directions, and the pin's COMPONENTS must survive the opening
+  verbatim.  They do: a recorded pin carries no loose bound variable
+  (`NestedPinsRun.scoped`, whose `looseBVarsBounded` conjunct had no
+  consumer until now);
+* `denoteMeta_mkPisB_prefix` (`NestedCopyInst.lean`, private) — (c)'s
+  step 3.
+
+`copyOrdFRightPinCorr` and `copyOrdFRightPinRead` are generalised off
+the field's own frame to carry all of this: the stored term, the depth
+offset, the index readings and the OPENER LIST are parameters, and the
+head and the index spine are HYPOTHESES rather than derivations, so
+each kind supplies them from its own clause.  **The finitary arm is the
+instance at the EMPTY opener list**, where `instSeq` is the identity —
+which is why no second copy of the reading exists.
+
+##### (e) ONE CLAUSE ADDED, AND IT COSTS NO PRODUCER ANYTHING
+
+The dispatch needs `(fms.getD (p.k + q)).nIdx = (pinsS.getD q).nIdx` —
+the aux copy former's arity is the pin's — and at the abstract
+telescope of `NestedPinsIdsAt` the pin table is a VARIABLE constrained
+only by `NestedPinSynFacts` and `NestedPinGroupSyn`, neither of which
+carried it.  `NestedPinFacts` does, but that record is not in the
+telescope.  So `NestedPinSynFacts` gains `pinNIdx`, and its ONLY
+producer (`NestedPinsRun.synFacts`) proves it in three lines from
+`NestedPinsRun.pinNIdx` read through `pinsOf_getD` — exactly as
+`nestedPinsStaged_of` already proves the same clause for the other
+record.  No new premise reaches the run.
+
+##### (f) NOTHING REFUTED, AND ONE BELIEF CORRECTED
+
+No statement in this arc turned out false.  The prompt's belief that
+the reflexive half's blocker was "the kernel record" is not what the
+tree says: K.51's run is stated at `kindAt ≠ .ordinary` and covers the
+reflexive field already (`copyOrdFRightPinRun`).  What was missing was
+the TOWER PEEL and its alignment, which is syntactic, plus the one
+record clause of (e).
+
+No runtime check was added anywhere, so no accept set can move by
+construction.
+
+##### (g) GATES
+
+`lake build` warning-free (723 jobs); `lake test` green and
+warning-free; `tests/warning-free.sh 1211d276` — *5 changed module(s),
+5 recompiled, 0 warning lines, "OK (a run that could have failed)"*.
+**proofdeps 4965 module rows / 12 roots / 0 doors** (the baseline,
+unmoved); shake 510 removals all allowlisted, pub-imports 1336 of 2257
+in-tree edges public, none demotable; layering base 353 / model 287 /
+caps 3 / umbrella 1, 0 base->lane and 0 impl->theory; trust surface 13
+escapes in 5 allowlisted files (655 scanned), 0 outside;
+no-local-paths OK; overview-links 112 links over 65 files, no anchor
+moved; quote-gate OK; nested-shadow 37/37.  Axioms at
+`nestedPinsShape_of` and `nestedPinsShapeOrdRight_of`: `propext`,
+`Classical.choice`, `Quot.sound` and nothing else.  `tests/arena.sh`
+not re-run: this session touches no checker code.
+
+*(`tests/shake.sh` needs the `meta` pin generators' `.olean`s, which
+`lake build` does not produce; `lake build ConLeche.PinGen{,.Prelude,
+.Certs,.Dump}` first, or its census half aborts before it starts.)*
