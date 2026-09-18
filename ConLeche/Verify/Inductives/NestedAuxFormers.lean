@@ -132,6 +132,29 @@ theorem mutualFormerChecksTrue_at {nP F : Nat} {env : Env} :
 
 /-! ## The pinned containers' groups -/
 
+/-- **THE CONTAINER'S CONSTRUCTOR NAMES ROUND-TRIP** (task #315 K.53,
+lane M7-2's request), inverted: at every pin, every constructor of the
+container's own member survives the mint's rename and the restore's
+rename back.  `NestedCtorPinNames` is this, at a positional pin. -/
+theorem nestedContainersOk_ctorNames {env : Env} {pins : List NestedPin}
+    (h : nestedContainersOk env pins = true) :
+    ∀ q ∈ pins, ∀ (ci : ContainerInfo) (J : ContainerMember),
+      containerInfo? env q.container = some ci → J ∈ ci.members → J.name = q.container →
+      ∀ cc ∈ J.ctors,
+        Name.replacePrefix q.aux q.container
+          (Name.replacePrefix J.name q.aux cc.name) = cc.name := by
+  simp only [nestedContainersOk, Bool.and_eq_true] at h
+  intro q hq ci J hci hJ hJn cc hcc
+  have hq' := List.all_eq_true.mp h.2 q hq
+  rw [hci] at hq'
+  simp only [Bool.and_eq_true] at hq'
+  have hJ' := List.all_eq_true.mp hq'.2 J hJ
+  rw [hJn] at hJ'
+  simp only [beq_self_eq_true, Bool.not_true, Bool.false_or] at hJ'
+  have := List.all_eq_true.mp hJ' cc hcc
+  rw [hJn]
+  simpa using this
+
 /-- **THE CONTAINERS' GROUP FACTS AT EVERY PIN** (task #279 K.14/K.15,
 inverted): the pins are structurally distinct, every pin's container
 has a stored `containerInfo?`, and every member of that container's
@@ -153,7 +176,7 @@ theorem nestedContainersOk_group {env : Env} {pins : List NestedPin}
   | some ci =>
     rw [hc] at hq'
     simp only [containerFactsOk, Bool.and_eq_true] at hq'
-    have hg : containerGroupOk env ci = true := hq'.1
+    have hg : containerGroupOk env ci = true := hq'.1.1
     simp only [containerGroupOk] at hg
     refine ⟨ci, rfl, fun M hM => ?_⟩
     have hM' := List.all_eq_true.mp hg M hM
