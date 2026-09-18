@@ -425,14 +425,17 @@ form (`lfpTuple_composeΦ`) turns the container's WIDE least tuple's
 member `i` back into its NARROW one — the container's stored carrier —
 using nothing but the container's own `auxFunctor` and `auxCompose`. -/
 theorem ofNested_pin_block_wide {q₀ kJ nJ : Nat} (hseg : q₀ + kJ ≤ pins.length)
-    {σ : Nat → Nat} (hinj : InjOn σ (kJ + nJ))
+    {σ : Nat → Nat}
     (hσ : ∀ i, i < kJ + nJ → σ i < k + pins.length)
     (hroot : ∀ i, i < kJ → σ i = k + q₀ + i)
     {IsJ : Nat → V} {ΨJ : (Nat → V) → Nat → V}
     (hmonoJ : MonoTuple ((D).w ψ) (kJ + nJ) IsJ ΨJ)
+    (hmapsJ : MapsTuple ((D).w ψ) (kJ + nJ) IsJ ΨJ)
     (hclJ : ∃ L, IsClosedTuple ((D).w ψ) (kJ + nJ) IsJ ΨJ L)
+    (hfcJ : ∀ Y, FibreConst σ (kJ + nJ) (ΨJ Y))
     (hIs : ∀ i, i < kJ + nJ → (D).idx ψ ρp (σ i) = IsJ i)
     (hΦ : ∀ Y, InTupleSpace ((D).w ψ) (kJ + nJ) (fun i => (D).idx ψ ρp (σ i)) Y →
+      FibreConst σ (kJ + nJ) Y →
       TupleLe (kJ + nJ) (fun i => (D).idx ψ ρp (σ i)) Y
         (lfpTuple ((D).w ψ) (kJ + nJ) IsJ ΨJ) →
       ∀ i, i < kJ + nJ →
@@ -453,17 +456,23 @@ theorem ofNested_pin_block_wide {q₀ kJ nJ : Nat} (hseg : q₀ + kJ ≤ pins.le
   have hC' : IsClosedTuple ((D).w ψ) (kJ + nJ) (fun i => (D).idx ψ ρp (σ i)) ΨJ
       (lfpTuple ((D).w ψ) (kJ + nJ) IsJ ΨJ) :=
     ⟨hLmem, (tupleLe_congr hIs).mpr (lfpTuple_closed hclJ hmonoJ)⟩
+  have hmapsJ' : MapsTuple ((D).w ψ) (kJ + nJ) (fun i => (D).idx ψ ρp (σ i)) ΨJ := fun X hX =>
+    (inTupleSpace_congr hIs).mpr (hmapsJ X ((inTupleSpace_congr hIs).mp hX))
+  -- the container's own carrier is constant on the collapse's fibres, by its
+  -- own fixpoint law: its operator's rows are
+  have hCfc : FibreConst σ (kJ + nJ) (lfpTuple ((D).w ψ) (kJ + nJ) IsJ ΨJ) :=
+    fibreConst_lfpTuple hclJ hmonoJ hmapsJ hfcJ
   -- and it is closed under the copies' section, by the agreement AT it
   have hC : IsClosedTuple ((D).w ψ) (kJ + nJ) (fun i => (D).idx ψ ρp (σ i))
       (setSec (ΨA ψ ρp) σ (kJ + nJ)
         (lfpTuple ((D).w ψ) (k + pins.length) ((D).idx ψ ρp) (ΨA ψ ρp)))
       (lfpTuple ((D).w ψ) (kJ + nJ) IsJ ΨJ) := by
     refine ⟨hLmem, fun m hm => ?_⟩
-    rw [setSec_apply, hΦ _ hLmem (TupleLe.refl _ _ _) m hm]
+    rw [setSec_apply, hΦ _ hLmem hCfc (TupleLe.refl _ _ _) m hm]
     exact hC'.2 m hm
   rw [ofNested_pinCar_lfp h (by omega), lfpTuple_composeΦ hmonoJ hclJ hi,
     ← Nat.add_assoc, ← hroot i hi]
-  exact lfpTuple_set_congr_le hinj hσ hΨ.2.2 hΨ.1 hIs hmonoJ' hC hC' hΦ hi'
+  exact lfpTuple_set_congr_le hσ hΨ.2.2 hΨ.1 hΨ.2.1 hIs hmonoJ' hmapsJ' hfcJ hC hC' hCfc hΦ hi'
 
 /-- **The container's side of the wide identification, read off its
 STORED block model.**  `ofNested_pin_block_wide` against the container's
@@ -485,13 +494,16 @@ at the tuple. -/
 theorem ofNested_pin_block_of_wide {dJ : BlockModel V} {ψJ : Name → Nat} {ρJ : Nat → V}
     {q₀ : Nat} (hseg : q₀ + dJ.k ≤ pins.length)
     (hmonoJ : MonoTuple ((D).w ψ) (dJ.k + dJ.nPins) (dJ.idx ψJ ρJ) (dJ.Ψaux ψJ ρJ))
+    (hmapsJ : MapsTuple ((D).w ψ) (dJ.k + dJ.nPins) (dJ.idx ψJ ρJ) (dJ.Ψaux ψJ ρJ))
     (hclJ : ∃ L, IsClosedTuple ((D).w ψ) (dJ.k + dJ.nPins) (dJ.idx ψJ ρJ) (dJ.Ψaux ψJ ρJ) L)
     (hcomp : dJ.Φ ψJ ρJ = composeΦ ((D).w ψ) dJ.k dJ.nPins (dJ.idx ψJ ρJ) (dJ.Ψaux ψJ ρJ))
-    {σ : Nat → Nat} (hinj : InjOn σ (dJ.k + dJ.nPins))
+    {σ : Nat → Nat}
+    (hfcJ : ∀ Y, FibreConst σ (dJ.k + dJ.nPins) (dJ.Ψaux ψJ ρJ Y))
     (hσ : ∀ i, i < dJ.k + dJ.nPins → σ i < k + pins.length)
     (hroot : ∀ i, i < dJ.k → σ i = k + q₀ + i)
     (hIs : ∀ i, i < dJ.k + dJ.nPins → (D).idx ψ ρp (σ i) = dJ.idx ψJ ρJ i)
     (hΦ : ∀ Y, InTupleSpace ((D).w ψ) (dJ.k + dJ.nPins) (fun i => (D).idx ψ ρp (σ i)) Y →
+      FibreConst σ (dJ.k + dJ.nPins) Y →
       TupleLe (dJ.k + dJ.nPins) (fun i => (D).idx ψ ρp (σ i)) Y
         (lfpTuple ((D).w ψ) (dJ.k + dJ.nPins) (dJ.idx ψJ ρJ) (dJ.Ψaux ψJ ρJ)) →
       ∀ i, i < dJ.k + dJ.nPins →
@@ -502,7 +514,7 @@ theorem ofNested_pin_block_of_wide {dJ : BlockModel V} {ψJ : Name → Nat} {ρJ
     (D).pinCar ψ ρp (lfpTuple ((D).w ψ) k ((D).idx ψ ρp) ((D).Φ ψ ρp)) (q₀ + i)
       = lfpTuple ((D).w ψ) dJ.k (dJ.idx ψJ ρJ) (dJ.Φ ψJ ρJ) i := by
   rw [hcomp]
-  exact ofNested_pin_block_wide h hseg hinj hσ hroot hmonoJ hclJ hIs hΦ hi
+  exact ofNested_pin_block_wide h hseg hσ hroot hmonoJ hmapsJ hclJ hfcJ hIs hΦ hi
 
 /-- **THE WHOLE-SPACE AGREEMENT `hΦ`, REDUCED TO THE FITS** (task #315,
 Resolution 1): `ofNested_pin_block_of_wide`'s hypothesis is a
@@ -523,7 +535,7 @@ members, and there is NO below-the-carrier direction — `hfitLe` has no
 counterpart, because the agreement is on the whole space. -/
 theorem ofNested_hΦ_of_fit (hS : TupleLfpShape (k + pins.length) (blockIds nP ppsA ψ) mems nFs
       tgtsG rss (Eiss₀ ψ) (Fss₀ ψ) (Ess₀ ψ))
-    {s : Nat} {σ : Nat → Nat} (hinj : InjOn σ s) (hσ : ∀ i, i < s → σ i < k + pins.length)
+    {s : Nat} {σ : Nat → Nat} (hσ : ∀ i, i < s → σ i < k + pins.length)
     {IsJ : Nat → V} {ΨJ : (Nat → V) → Nat → V}
     (hIs : ∀ i, i < s → (D).idx ψ ρp (σ i) = IsJ i)
     (hmapsJ : MapsTuple ((D).w ψ) s IsJ ΨJ)
@@ -533,7 +545,7 @@ theorem ofNested_hΦ_of_fit (hS : TupleLfpShape (k + pins.length) (blockIds nP p
     {C : Nat → V}
     (hfibJ : ∀ Y, InTupleSpace ((D).w ψ) s IsJ Y → ∀ i, i < s → ∀ t, t ∈ˢ IsJ i → ∀ x,
       x ∈ˢ SetTheory.app (ΨJ Y i) t ↔ ∃ j fs, j < nCJ i ∧ FitJ Y t i j fs ∧ x = injJ i j fs)
-    (hfit : ∀ Y, InTupleSpace ((D).w ψ) s IsJ Y → TupleLe s IsJ Y C →
+    (hfit : ∀ Y, InTupleSpace ((D).w ψ) s IsJ Y → FibreConst σ s Y → TupleLe s IsJ Y C →
       ∀ i, i < s → ∀ t, t ∈ˢ IsJ i → ∀ j fs,
       (offs (σ i) + j < (Fss₀ ψ).length ∧ mems.getD (offs (σ i) + j) 0 = σ i ∧
         FitsFrom (rss.getD (offs (σ i) + j) []) (fun i' ρ => slotSet ((D).w ψ)
@@ -547,12 +559,12 @@ theorem ofNested_hΦ_of_fit (hS : TupleLfpShape (k + pins.length) (blockIds nP p
           interp V (consList fs ρp) (((Ess₀ ψ).getD (offs (σ i) + j) []).getD l default)
             = projS l t))
       ↔ (j < nCJ i ∧ FitJ Y t i j fs)) :
-    ∀ Y, InTupleSpace ((D).w ψ) s (fun i => (D).idx ψ ρp (σ i)) Y →
+    ∀ Y, InTupleSpace ((D).w ψ) s (fun i => (D).idx ψ ρp (σ i)) Y → FibreConst σ s Y →
       TupleLe s (fun i => (D).idx ψ ρp (σ i)) Y C → ∀ i, i < s →
       ΨA ψ ρp (setJoin σ s (lfpTuple ((D).w ψ) (k + pins.length) ((D).idx ψ ρp) (ΨA ψ ρp)) Y) (σ i)
         = ΨJ Y i := by
   have hΨ := nestedΨ_functor h
-  intro Y hY hYC i hi
+  intro Y hY hYfc hYC i hi
   -- `Y` as a tuple of the container's spaces
   have hYJ : InTupleSpace ((D).w ψ) s IsJ Y := by
     intro m hm
@@ -566,7 +578,7 @@ theorem ofNested_hΦ_of_fit (hS : TupleLfpShape (k + pins.length) (blockIds nP p
     exact hm'
   have hjoin : InTupleSpace ((D).w ψ) (k + pins.length) ((D).idx ψ ρp)
       (setJoin σ s (lfpTuple ((D).w ψ) (k + pins.length) ((D).idx ψ ρp) (ΨA ψ ρp)) Y) :=
-    inTupleSpace_setJoin hinj (lfpTuple_mem _ _ _ _) hY
+    inTupleSpace_setJoin (lfpTuple_mem _ _ _ _) hY
   -- both sides are families over the container's index-tuple set at `i`
   have hlhs : ΨA ψ ρp (setJoin σ s
         (lfpTuple ((D).w ψ) (k + pins.length) ((D).idx ψ ρp) (ΨA ψ ρp)) Y) (σ i)
@@ -579,10 +591,10 @@ theorem ofNested_hΦ_of_fit (hS : TupleLfpShape (k + pins.length) (blockIds nP p
   have hR := fun x => hfibJ Y hYJ i hi t ht x
   refine Subset.antisymm (fun x hx => ?_) (fun x hx => ?_)
   · obtain ⟨j, fs, h1, h2, h3, h4, rfl⟩ := (hL x).mp hx
-    obtain ⟨hj, hF⟩ := (hfit Y hYJ hYCJ i hi t ht j fs).mp ⟨h1, h2, h3, h4⟩
+    obtain ⟨hj, hF⟩ := (hfit Y hYJ hYfc hYCJ i hi t ht j fs).mp ⟨h1, h2, h3, h4⟩
     exact (hR _).mpr ⟨j, fs, hj, hF, (hinjJ i j fs).symm⟩
   · obtain ⟨j, fs, hj, hF, rfl⟩ := (hR x).mp hx
-    obtain ⟨h1, h2, h3, h4⟩ := (hfit Y hYJ hYCJ i hi t ht j fs).mpr ⟨hj, hF⟩
+    obtain ⟨h1, h2, h3, h4⟩ := (hfit Y hYJ hYfc hYCJ i hi t ht j fs).mpr ⟨hj, hF⟩
     rw [hinjJ]
     exact (hL _).mpr ⟨j, fs, h1, h2, h3, h4, rfl⟩
 

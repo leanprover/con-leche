@@ -113491,3 +113491,93 @@ handover was written.
 this worktree, 724 jobs).  `tests/unconsumed.sh` exit 0.  No Lean source
 changed in this session, so the accept set is untouched and no gate can
 have moved.
+
+#### WIDE (f1) step 1: INJECTIVITY REPLACED BY FIBRE-CONSTANCY — `FibreConst`, `fcNorm`, and the index-set Bekić with NO hypothesis on `σ` (lane WIDE, 2026-09-18)
+
+The coordinator's ruling on WIDE (f1), executed at the set-theoretic
+layer.
+
+##### (a) Why injectivity was never the right hypothesis
+
+**A non-injective `σ` makes the compared space a QUOTIENT of the
+`s`-tuple space, and the least tuple lives on the quotient** — so
+nothing has to be assumed of `σ` at all.  `setSec`'s value at a
+position depends on that position only through `σ i`
+(`fibreConst_setSec`), hence its least tuple is constant on `σ`'s
+fibres by its own fixpoint law (`fibreConst_lfpTuple`, one `rw` through
+`lfpTuple_eq`), and that is exactly what reading a joined position back
+needs.  `InjOn` bought that by making the fibres singletons; it is the
+same over-statement as whole-space agreement was in WIDE (e) step 2,
+and the correction is the same shape.
+
+##### (b) What landed (`SetTheory/Derive/LfpCompose.lean`)
+
+* **`FibreConst σ s Y`** — `∀ i i' < s, σ i = σ i' → Y i = Y i'`, with
+  `FibreConst.of_injOn`.  It replaces `InjOn` in `setJoin_at`, which is
+  kept as the injective corollary so `setJoin_ofAdd` is untouched;
+* **`fcRepAt`/`fcRep`/`fcNorm`** — the fibre's chosen representative
+  (keyed on the POSITION `σ i`, so two identified positions get the same
+  one by `rfl` under the identification) and the projection
+  `fcNorm σ s Y i = Y (fcRep σ s i)`.  `setJoin_at_norm` says the join
+  reads exactly that, unconditionally; `setJoin_fcNorm` says the join
+  never sees anything else;
+* **four consumers lose their hypothesis entirely** —
+  `inTupleSpace_setJoin`, `tupleLe_setJoin`, `tupleLe_setJoin_of_le`,
+  `setSec_mono`/`setSec_maps` need NO hypothesis on `σ`: at a replaced
+  position the join reads a family of the fibre, whose index set is the
+  position's (`inTupleSpace_fcNorm`, `tupleLe_fcNorm`, with
+  `fibreInv_comp` supplying the index sets' fibre-invariance);
+* **`lfpTuple_set`** — Bekić at an index set, `InjOn` GONE, `MapsTuple`
+  gained (what the fixpoint law costs).  The one place the old proof
+  used injectivity is `setJoin_at` at the section's own least tuple, and
+  that tuple is fibre-constant for free;
+* **`lfpTuple_fcNorm_comp`** — the other presentation read through the
+  projection has the SAME least tuple, when it too factors through the
+  fibres.  Four inclusions, two `lfpTuple_le` each way: `Φ'`'s least
+  tuple is `Φ' ∘ fcNorm`-closed and vice versa, because both are
+  fibre-constant and the projection is then the identity in both
+  directions (as a `TupleLe`, which is all closure asks);
+* **`lfpTuple_set_congr` and `lfpTuple_set_congr_le`** restated on it.
+  The congruence's agreement `hΦ` is now asked only of FIBRE-CONSTANT
+  tuples — strictly weaker than before — and the bound `C` is required
+  fibre-constant, which at the call site is the container's own carrier
+  and therefore free.  Internally the agreement is transported to the
+  whole space against `Φ' ∘ fcNorm` (`setJoin_fcNorm`), `lfpTuple_congr_le_same`
+  runs there, and `lfpTuple_fcNorm_comp` brings the conclusion back to
+  `Φ'`.
+
+##### (c) The three wide theorems, restated
+
+`ofNested_pin_block_wide`, `ofNested_pin_block_of_wide` and
+`ofNested_hΦ_of_fit` (`BlockComposed.lean`) drop `hinj` and gain, in its
+place:
+
+* `hmapsJ` — the container's wide operator maps its space, which its
+  `auxFunctor` already gives (`hFa.2.1`);
+* `hfcJ` — **the container's wide operator's ROWS are constant on `σ`'s
+  fibres**, the one genuinely new obligation, and the model's half of
+  the ruling (step 2 below);
+* `FibreConst σ s Y` on every universally quantified tuple, which is a
+  WEAKENING of the hypotheses `hΦ`/`hfit` carry.
+
+`hfit_wide_mem_of_inst`, `hfit_wide_of_inst` and
+`ofNested_pin_block_of_wide_inst` (`NestedFit.lean`) follow: `hinjσ`
+becomes `hrowsσ` at the assembly, and the one use of `setJoin_at hinjσ`
+(the `hZY` step: the joined tuple at a container-recursive field's
+target IS `Y` at the container's class) becomes `setJoin_at_fc hYfc`.
+
+`hfit_wide_pin_of_class` (`NestedPinLeafAll.lean`) needs NO change: its
+`∀ Y` carries no premise on `Y` at all, so it is strictly stronger than
+`hpin` and still meets it.  (DESIGN's earlier "`hpin` VERBATIM" was
+already loose in the same direction — `hpin` also restricts `t` to the
+index set and the pin lemma does not.)
+
+##### (d) Green
+
+`tests/warning-free.sh 5e30d28f`: "6 changed module(s) since 5e30d28f",
+"lake build — 3 module(s) recompiled, 0 warning line(s)", "lake test —
+2 module(s) recompiled, 0 warning line(s)", "OK (a run that could have
+failed)"; a preceding COLD `lake build` of everything downstream of
+`LfpCompose` (724 jobs) logged 0 warning lines and exit 0.
+`tests/proofdeps.sh` doors `0`.  The accept set is untouched: no
+consumer has moved to the wide route.

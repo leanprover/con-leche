@@ -2138,7 +2138,6 @@ reads off the instance CLOSURE rather than off the group:
 theorem hfit_wide_mem_of_inst {env : Env} {m : EnvModel V env} {q₀ : Nat} {σ : Nat → Nat}
     (hreps : IsBlockModels m dJ) (hfT : FormersTyped m dJ ψJ) (hPT : PinsTyped m dJ ψJ)
     (hw : dJ.w ψJ = resSort.eval ψ)
-    (hinjσ : InjOn σ (dJ.k + dJ.nPins))
     (hroot : ∀ i, i < dJ.k → σ i = k + q₀ + i)
     (hu : ∀ i', i' < dJ.k → nestedU k W pins ψ (k + q₀ + i') = dJ.uM i' ψJ)
     (hρJ : Sat V (dJ.params ψJ).reverse ρJ)
@@ -2165,6 +2164,7 @@ theorem hfit_wide_mem_of_inst {env : Env} {m : EnvModel V env} {q₀ : Nat} {σ 
       ¬ ∃ m, m < dJ.k + dJ.nPins ∧
         σ m = (tgtsG.getD (offs (k + q₀ + i) + j) []).getD l 0) :
     ∀ Y, InTupleSpace (resSort.eval ψ) (dJ.k + dJ.nPins) (dJ.idx ψJ ρJ) Y →
+      FibreConst σ (dJ.k + dJ.nPins) Y →
       TupleLe (dJ.k + dJ.nPins) (dJ.idx ψJ ρJ) Y
         (lfpTuple (resSort.eval ψ) (dJ.k + dJ.nPins) (dJ.idx ψJ ρJ) (dJ.Ψaux ψJ ρJ)) →
       ∀ i, i < dJ.k → ∀ t, t ∈ˢ dJ.idx ψJ ρJ i → ∀ j fs,
@@ -2179,7 +2179,7 @@ theorem hfit_wide_mem_of_inst {env : Env} {m : EnvModel V env} {q₀ : Nat} {σ 
           interp V (consList fs ρp) (((Ess₀ ψ).getD (offs (σ i) + j) []).getD l default)
             = projS l t))
       ↔ (j < (dJ.ctorsT dJ.pinCtors i).length ∧ dJ.ChainFitT dJ.pinCtors ψJ ρJ Y t i j fs) := by
-  intro Y hY hYC i hi t _ j fs
+  intro Y hY hYfc hYC i hi t _ j fs
   rw [BlockModel.ctorsT_of_mem hi, hroot i hi]
   by_cases hj : j < (dJ.ctorsM i).length
   · have hj' : (dJ.ctorsM i)[j]? = some ((dJ.ctorsM i).getD j default) := by
@@ -2228,7 +2228,7 @@ theorem hfit_wide_mem_of_inst {env : Env} {m : EnvModel V env} {q₀ : Nat} {σ 
         · omega
         · have := htgtlt l hl hnt; omega
       rw [htg]
-      exact setJoin_at hinjσ _ _ hlt
+      exact setJoin_at_fc hYfc _ hlt
     have hYle : ∀ l, l < ((dJ.Fss i ψJ).getD j []).length →
         ((dJ.rss i).getD j []).getD l false = true → ∀ t',
         SetTheory.app (Y (dJ.tgts i j l)) t'
@@ -2284,7 +2284,6 @@ module. -/
 theorem hfit_wide_of_inst {env : Env} {m : EnvModel V env} {q₀ : Nat} {σ : Nat → Nat}
     (hreps : IsBlockModels m dJ) (hfT : FormersTyped m dJ ψJ) (hPT : PinsTyped m dJ ψJ)
     (hw : dJ.w ψJ = resSort.eval ψ)
-    (hinjσ : InjOn σ (dJ.k + dJ.nPins))
     (hroot : ∀ i, i < dJ.k → σ i = k + q₀ + i)
     (hu : ∀ i', i' < dJ.k → nestedU k W pins ψ (k + q₀ + i') = dJ.uM i' ψJ)
     (hρJ : Sat V (dJ.params ψJ).reverse ρJ)
@@ -2311,6 +2310,7 @@ theorem hfit_wide_of_inst {env : Env} {m : EnvModel V env} {q₀ : Nat} {σ : Na
       ¬ ∃ m, m < dJ.k + dJ.nPins ∧
         σ m = (tgtsG.getD (offs (k + q₀ + i) + j) []).getD l 0)
     (hpin : ∀ Y, InTupleSpace (resSort.eval ψ) (dJ.k + dJ.nPins) (dJ.idx ψJ ρJ) Y →
+      FibreConst σ (dJ.k + dJ.nPins) Y →
       TupleLe (dJ.k + dJ.nPins) (dJ.idx ψJ ρJ) Y
         (lfpTuple (resSort.eval ψ) (dJ.k + dJ.nPins) (dJ.idx ψJ ρJ) (dJ.Ψaux ψJ ρJ)) →
       ∀ i, ¬ i < dJ.k → i < dJ.k + dJ.nPins → ∀ t, t ∈ˢ dJ.idx ψJ ρJ i → ∀ j fs,
@@ -2326,6 +2326,7 @@ theorem hfit_wide_of_inst {env : Env} {m : EnvModel V env} {q₀ : Nat} {σ : Na
             = projS l t))
       ↔ (j < (dJ.ctorsT dJ.pinCtors i).length ∧ dJ.ChainFitT dJ.pinCtors ψJ ρJ Y t i j fs)) :
     ∀ Y, InTupleSpace (resSort.eval ψ) (dJ.k + dJ.nPins) (dJ.idx ψJ ρJ) Y →
+      FibreConst σ (dJ.k + dJ.nPins) Y →
       TupleLe (dJ.k + dJ.nPins) (dJ.idx ψJ ρJ) Y
         (lfpTuple (resSort.eval ψ) (dJ.k + dJ.nPins) (dJ.idx ψJ ρJ) (dJ.Ψaux ψJ ρJ)) →
       ∀ i, i < dJ.k + dJ.nPins → ∀ t, t ∈ˢ dJ.idx ψJ ρJ i → ∀ j fs,
@@ -2340,11 +2341,11 @@ theorem hfit_wide_of_inst {env : Env} {m : EnvModel V env} {q₀ : Nat} {σ : Na
           interp V (consList fs ρp) (((Ess₀ ψ).getD (offs (σ i) + j) []).getD l default)
             = projS l t))
       ↔ (j < (dJ.ctorsT dJ.pinCtors i).length ∧ dJ.ChainFitT dJ.pinCtors ψJ ρJ Y t i j fs) := by
-  intro Y hY hYC i hi t ht j fs
+  intro Y hY hYfc hYC i hi t ht j fs
   by_cases hm : i < dJ.k
-  · exact hfit_wide_mem_of_inst acval hreps hfT hPT hw hinjσ hroot hu hρJ hidx hgrp hsh hent
-      hstgt houtσ Y hY hYC i hm t ht j fs
-  · exact hpin Y hY hYC i hm hi t ht j fs
+  · exact hfit_wide_mem_of_inst acval hreps hfT hPT hw hroot hu hρJ hidx hgrp hsh hent
+      hstgt houtσ Y hY hYfc hYC i hm t ht j fs
+  · exact hpin Y hY hYfc hYC i hm hi t ht j fs
 
 /-- **A pin's carrier at the block's carrier is its container's least
 tuple**, from the shape and the entries — at a container with pins of
@@ -2442,7 +2443,7 @@ theorem ofNested_pin_block_of_wide_inst {env : Env} {m : EnvModel V env} {q₀ :
     (hreps : IsBlockModels m dJ) (hfT : FormersTyped m dJ ψJ) (hPT : PinsTyped m dJ ψJ)
     (hkpos : 0 < dJ.k)
     (hw : dJ.w ψJ = resSort.eval ψ)
-    (hinjσ : InjOn σ (dJ.k + dJ.nPins))
+    (hrowsσ : ∀ Y, FibreConst σ (dJ.k + dJ.nPins) (dJ.Ψaux ψJ ρJ Y))
     (hσ : ∀ i, i < dJ.k + dJ.nPins → σ i < k + pins.length)
     (hroot : ∀ i, i < dJ.k → σ i = k + q₀ + i)
     (hIsσ : ∀ i, i < dJ.k + dJ.nPins →
@@ -2473,6 +2474,7 @@ theorem ofNested_pin_block_of_wide_inst {env : Env} {m : EnvModel V env} {q₀ :
       ¬ ∃ mm, mm < dJ.k + dJ.nPins ∧
         σ mm = (tgtsG.getD (offs (k + q₀ + i) + j) []).getD l 0)
     (hpin : ∀ Y, InTupleSpace (resSort.eval ψ) (dJ.k + dJ.nPins) (dJ.idx ψJ ρJ) Y →
+      FibreConst σ (dJ.k + dJ.nPins) Y →
       TupleLe (dJ.k + dJ.nPins) (dJ.idx ψJ ρJ) Y
         (lfpTuple (resSort.eval ψ) (dJ.k + dJ.nPins) (dJ.idx ψJ ρJ) (dJ.Ψaux ψJ ρJ)) →
       ∀ i, ¬ i < dJ.k → i < dJ.k + dJ.nPins → ∀ t, t ∈ˢ dJ.idx ψJ ρJ i → ∀ j fs,
@@ -2494,11 +2496,13 @@ theorem ofNested_pin_block_of_wide_inst {env : Env} {m : EnvModel V env} {q₀ :
   have hw' : (D).w ψ = dJ.w ψJ := hw.symm
   have hFa := hI.auxFunctor ψJ ρJ hρJ
   have hIs : ∀ i, i < dJ.k + dJ.nPins → (D).idx ψ ρp (σ i) = dJ.idx ψJ ρJ i := hIsσ
-  refine (ofNested_pin_block_of_wide h hseg ?_ ?_ ?_ hinjσ hσ hroot hIs ?_ hi).trans (by rw [hw'])
+  refine (ofNested_pin_block_of_wide h hseg ?_ ?_ ?_ ?_ hrowsσ hσ hroot hIs ?_ hi).trans
+    (by rw [hw'])
   · rw [hw']; exact hFa.1
+  · rw [hw']; exact hFa.2.1
   · rw [hw']; exact hFa.2.2
   · rw [hw']; exact hI.auxCompose ψJ ρJ
-  · refine ofNested_hΦ_of_fit h hS hinjσ hσ hIs ?_
+  · refine ofNested_hΦ_of_fit h hS hσ hIs ?_
       (nCJ := fun i => (dJ.ctorsT dJ.pinCtors i).length)
       (FitJ := fun Y t i j fs => dJ.ChainFitT dJ.pinCtors ψJ ρJ Y t i j fs) hinjJ
       (C := lfpTuple (resSort.eval ψ) (dJ.k + dJ.nPins) (dJ.idx ψJ ρJ) (dJ.Ψaux ψJ ρJ)) ?_ ?_
@@ -2506,7 +2510,7 @@ theorem ofNested_pin_block_of_wide_inst {env : Env} {m : EnvModel V env} {q₀ :
       rw [← hw]; exact hFa.2.1
     · intro Y hY c hc t ht x
       exact hI.auxFibre ψJ ρJ hρJ Y (by rw [hw]; exact hY) c hc t ht x
-    · exact hfit_wide_of_inst acval hreps hfT hPT hw hinjσ hroot hu hρJ hidx hgrp hsh hent
+    · exact hfit_wide_of_inst acval hreps hfT hPT hw hroot hu hρJ hidx hgrp hsh hent
         hstgt houtσ hpin
 
 /-- **`pinLeaf` for `ofNested` at a pin group** — at a container with

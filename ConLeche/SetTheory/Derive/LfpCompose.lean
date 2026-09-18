@@ -330,23 +330,118 @@ noncomputable def setJoin (σ : Nat → Nat) (s : Nat) (Z Y : Nat → V) : Nat �
 (`segOf a` is the case `σ = (a + ·)`). -/
 def setPick (σ : Nat → Nat) (Z : Nat → V) : Nat → V := fun i => Z (σ i)
 
-/-- `σ` is injective on `[0, s)` — what makes the replaced positions
-read back unambiguously. -/
+/-- `σ` is injective on `[0, s)`.  **Not what the replaced positions
+need** — see `FibreConst` — but the special case every non-collapsing
+instance is in, and what `setJoin_ofAdd` uses at `σ = (a + ·)`. -/
 def InjOn (σ : Nat → Nat) (s : Nat) : Prop :=
   ∀ i i', i < s → i' < s → σ i = σ i' → i = i'
+
+/-- **A tuple is CONSTANT ON `σ`'s FIBRES**: two positions of `[0, s)`
+that `σ` sends to one carry the same family.
+
+**This, and not `InjOn`, is what reading a joined position back
+needs.**  `setJoin` puts `s` families at the positions `σ 0 … σ (s-1)`;
+when `σ` collapses two of them the joined tuple has ONE slot where the
+`s`-tuple has two, so `setJoin σ s Z Y (σ i) = Y i` is available for
+exactly the tuples that do not tell those two apart.  Injectivity is
+the brutal way to get that — it makes the hypothesis vacuous — and it
+is stronger than the fixpoint theory needs, in the same way whole-space
+agreement was stronger than the congruence needed.
+
+The right reading is that a collapsing `σ` makes the compared space a
+QUOTIENT of the `s`-tuple space, and the least tuple lives on the
+quotient: `setSec`'s value at a position depends on `i` only through
+`σ i` (`fibreConst_setSec`), so its least tuple is fibre-constant by
+its own fixpoint law (`fibreConst_lfpTuple`) whatever the tuples around
+it do.  Nothing has to be assumed of `σ` at all; what has to be known
+of the OTHER presentation is that it too factors through the quotient
+(`fibreConst_lfpTuple`'s `hfc`), and `fcNorm` is the projection. -/
+def FibreConst (σ : Nat → Nat) (s : Nat) (Y : Nat → V) : Prop :=
+  ∀ i i', i < s → i' < s → σ i = σ i' → Y i = Y i'
+
+omit [SetTheory V] in
+theorem FibreConst.of_injOn (hinj : InjOn σ s) (Y : Nat → V) : FibreConst σ s Y :=
+  fun i i' hi hi' he => by rw [hinj i i' hi hi' he]
+
+open Classical in
+/-- `σ`'s chosen representative of the fibre OVER A POSITION `j` — the
+witness `setJoin` itself reads there. -/
+noncomputable def fcRepAt (σ : Nat → Nat) (s : Nat) (j : Nat) : Nat :=
+  if h : ∃ i, i < s ∧ σ i = j then Classical.choose h else j
+
+/-- `σ`'s chosen representative of `i`'s own fibre: `fcRepAt` at `σ i`,
+so that two positions `σ` identifies get the SAME representative by
+`rfl` under the identification. -/
+noncomputable def fcRep (σ : Nat → Nat) (s : Nat) (i : Nat) : Nat := fcRepAt σ s (σ i)
+
+omit [SetTheory V] in
+theorem fcRep_lt {i : Nat} (hi : i < s) : fcRep σ s i < s := by
+  have h : ∃ i', i' < s ∧ σ i' = σ i := ⟨i, hi, rfl⟩
+  show (if h : ∃ i', i' < s ∧ σ i' = σ i then Classical.choose h else σ i) < s
+  rw [dif_pos h]; exact (Classical.choose_spec h).1
+
+omit [SetTheory V] in
+theorem fcRep_eq {i : Nat} (hi : i < s) : σ (fcRep σ s i) = σ i := by
+  have h : ∃ i', i' < s ∧ σ i' = σ i := ⟨i, hi, rfl⟩
+  show σ (if h : ∃ i', i' < s ∧ σ i' = σ i then Classical.choose h else σ i) = σ i
+  rw [dif_pos h]; exact (Classical.choose_spec h).2
+
+/-- **The projection onto the fibre quotient**: `Y` with every position
+replaced by its fibre's representative.  It is what the join actually
+reads (`setJoin_at_norm`), it is fibre-constant (`fibreConst_fcNorm`),
+and it is the identity on fibre-constant tuples
+(`fcNorm_of_fibreConst`). -/
+noncomputable def fcNorm (σ : Nat → Nat) (s : Nat) (Y : Nat → V) : Nat → V :=
+  fun i => Y (fcRep σ s i)
+
+omit [SetTheory V] in
+theorem fcNorm_apply (Y : Nat → V) (i : Nat) : fcNorm σ s Y i = Y (fcRep σ s i) := rfl
 
 omit [SetTheory V] in
 theorem setJoin_out (Z Y : Nat → V) {j : Nat} (h : ¬ ∃ i, i < s ∧ σ i = j) :
     setJoin σ s Z Y j = Z j := dif_neg h
 
 omit [SetTheory V] in
-theorem setJoin_at (hinj : InjOn σ s) (Z Y : Nat → V) {i : Nat} (hi : i < s) :
-    setJoin σ s Z Y (σ i) = Y i := by
+/-- **What the join reads at a replaced position**: the fibre's
+representative, unconditionally.  `setJoin_at` is this at a tuple that
+cannot tell the fibre apart. -/
+theorem setJoin_at_norm (Z Y : Nat → V) {i : Nat} (hi : i < s) :
+    setJoin σ s Z Y (σ i) = fcNorm σ s Y i := by
   have h : ∃ i', i' < s ∧ σ i' = σ i := ⟨i, hi, rfl⟩
-  show (if h : ∃ i', i' < s ∧ σ i' = σ i then Y (Classical.choose h) else Z (σ i)) = Y i
-  rw [dif_pos h]
-  obtain ⟨hlt, heq⟩ := Classical.choose_spec h
-  rw [hinj _ _ hlt hi heq]
+  show (if h : ∃ i', i' < s ∧ σ i' = σ i then Y (Classical.choose h) else Z (σ i))
+      = Y (if h : ∃ i', i' < s ∧ σ i' = σ i then Classical.choose h else σ i)
+  rw [dif_pos h, dif_pos h]
+
+omit [SetTheory V] in
+theorem fibreConst_fcNorm (Y : Nat → V) : FibreConst σ s (fcNorm σ s Y) := by
+  intro i i' _ _ he
+  show Y (fcRepAt σ s (σ i)) = Y (fcRepAt σ s (σ i'))
+  rw [he]
+
+omit [SetTheory V] in
+theorem fcNorm_of_fibreConst {Y : Nat → V} (hfc : FibreConst σ s Y) {i : Nat} (hi : i < s) :
+    fcNorm σ s Y i = Y i :=
+  hfc _ _ (fcRep_lt hi) hi (fcRep_eq hi)
+
+omit [SetTheory V] in
+theorem setJoin_at_fc {Y : Nat → V} (hfc : FibreConst σ s Y) (Z : Nat → V) {i : Nat}
+    (hi : i < s) : setJoin σ s Z Y (σ i) = Y i :=
+  (setJoin_at_norm Z Y hi).trans (fcNorm_of_fibreConst hfc hi)
+
+omit [SetTheory V] in
+theorem setJoin_at (hinj : InjOn σ s) (Z Y : Nat → V) {i : Nat} (hi : i < s) :
+    setJoin σ s Z Y (σ i) = Y i :=
+  setJoin_at_fc (FibreConst.of_injOn hinj Y) Z hi
+
+omit [SetTheory V] in
+/-- **The join only ever sees the projection.** -/
+theorem setJoin_fcNorm (Z Y : Nat → V) :
+    setJoin σ s Z (fcNorm σ s Y) = setJoin σ s Z Y := by
+  funext j
+  by_cases h : ∃ i, i < s ∧ σ i = j
+  · obtain ⟨i, hi, rfl⟩ := h
+    rw [setJoin_at_fc (fibreConst_fcNorm Y) Z hi, setJoin_at_norm Z Y hi]
+  · rw [setJoin_out Z _ h, setJoin_out Z Y h]
 
 omit [SetTheory V] in
 theorem setPick_apply (σ : Nat → Nat) (Z : Nat → V) (i : Nat) : setPick σ Z i = Z (σ i) := rfl
@@ -372,28 +467,67 @@ theorem setJoin_ofAdd (a s : Nat) (Z Y : Nat → V) :
     rw [setJoin_at (fun _ _ _ _ he => by omega) Z Y hi, segJoin_add Z Y hi]
   · rw [setJoin_out Z Y h, segJoin_out Z Y (fun hc => h ⟨j - a, by omega, by omega⟩)]
 
-theorem inTupleSpace_setJoin (hinj : InjOn σ s) {Z Y : Nat → V}
+/-- **The projection stays in the space** — the representative's
+position has the same index set. -/
+theorem inTupleSpace_fcNorm {Is' : Nat → V}
+    (hIs' : ∀ i i', i < s → i' < s → σ i = σ i' → Is' i = Is' i')
+    {Y : Nat → V} (hY : InTupleSpace w s Is' Y) : InTupleSpace w s Is' (fcNorm σ s Y) := by
+  intro i hi
+  rw [fcNorm_apply Y i, hIs' i (fcRep σ s i) hi (fcRep_lt hi) (fcRep_eq hi).symm]
+  exact hY _ (fcRep_lt hi)
+
+/-- **The projection is monotone.** -/
+theorem tupleLe_fcNorm {Is' : Nat → V}
+    (hIs' : ∀ i i', i < s → i' < s → σ i = σ i' → Is' i = Is' i')
+    {Y Y' : Nat → V} (h : TupleLe s Is' Y Y') :
+    TupleLe s Is' (fcNorm σ s Y) (fcNorm σ s Y') := by
+  intro i hi
+  rw [fcNorm_apply Y i, fcNorm_apply Y' i,
+    hIs' i (fcRep σ s i) hi (fcRep_lt hi) (fcRep_eq hi).symm]
+  exact h _ (fcRep_lt hi)
+
+/-- **The projection of a tuple below a FIBRE-CONSTANT bound is below
+it too** — the bound cannot tell the representative from the position. -/
+theorem tupleLe_fcNorm_of_le {Is' : Nat → V}
+    (hIs' : ∀ i i', i < s → i' < s → σ i = σ i' → Is' i = Is' i')
+    {Y C : Nat → V} (hC : FibreConst σ s C) (h : TupleLe s Is' Y C) :
+    TupleLe s Is' (fcNorm σ s Y) C := by
+  intro i hi
+  rw [fcNorm_apply Y i, hIs' i (fcRep σ s i) hi (fcRep_lt hi) (fcRep_eq hi).symm,
+    ← hC _ _ (fcRep_lt hi) hi (fcRep_eq hi)]
+  exact h _ (fcRep_lt hi)
+
+omit [SetTheory V] in
+/-- The index sets a joined instance is compared at are fibre-invariant
+by construction. -/
+theorem fibreInv_comp (Is : Nat → V) :
+    ∀ i i', i < s → i' < s → σ i = σ i' → (fun i => Is (σ i)) i = (fun i => Is (σ i)) i' :=
+  fun _ _ _ _ he => by simp only; rw [he]
+
+/-- **No hypothesis on `σ`.**  At a replaced position the join reads a
+family of the fibre, whose index set is the position's. -/
+theorem inTupleSpace_setJoin {Z Y : Nat → V}
     (hZ : InTupleSpace w N Is Z) (hY : InTupleSpace w s (fun i => Is (σ i)) Y) :
     InTupleSpace w N Is (setJoin σ s Z Y) := by
   intro j hj
   by_cases h : ∃ i, i < s ∧ σ i = j
   · obtain ⟨i, hi, rfl⟩ := h
-    rw [setJoin_at hinj Z Y hi]
-    exact hY i hi
+    rw [setJoin_at_norm Z Y hi]
+    exact inTupleSpace_fcNorm (fibreInv_comp Is) hY i hi
   · rw [setJoin_out Z Y h]; exact hZ j hj
 
 theorem inTupleSpace_setPick (hσ : ∀ i, i < s → σ i < N) {Z : Nat → V}
     (hZ : InTupleSpace w N Is Z) : InTupleSpace w s (fun i => Is (σ i)) (setPick σ Z) :=
   fun i hi => hZ (σ i) (hσ i hi)
 
-theorem tupleLe_setJoin (hinj : InjOn σ s) {Z Z' Y Y' : Nat → V} (hZ : TupleLe N Is Z Z')
+theorem tupleLe_setJoin {Z Z' Y Y' : Nat → V} (hZ : TupleLe N Is Z Z')
     (hY : TupleLe s (fun i => Is (σ i)) Y Y') :
     TupleLe N Is (setJoin σ s Z Y) (setJoin σ s Z' Y') := by
   intro j hj
   by_cases h : ∃ i, i < s ∧ σ i = j
   · obtain ⟨i, hi, rfl⟩ := h
-    rw [setJoin_at hinj Z Y hi, setJoin_at hinj Z' Y' hi]
-    exact hY i hi
+    rw [setJoin_at_norm Z Y hi, setJoin_at_norm Z' Y' hi]
+    exact tupleLe_fcNorm (fibreInv_comp Is) hY i hi
   · rw [setJoin_out Z Y h, setJoin_out Z' Y' h]; exact hZ j hj
 
 theorem tupleLe_setPick (hσ : ∀ i, i < s → σ i < N) {Z Z' : Nat → V} (h : TupleLe N Is Z Z') :
@@ -401,9 +535,9 @@ theorem tupleLe_setPick (hσ : ∀ i, i < s → σ i < N) {Z Z' : Nat → V} (h 
   fun i hi => h (σ i) (hσ i hi)
 
 /-- The join is below `Z` when its replaced part is below `Z`'s. -/
-theorem tupleLe_setJoin_of_le (hinj : InjOn σ s) {Z Y : Nat → V}
+theorem tupleLe_setJoin_of_le {Z Y : Nat → V}
     (hY : TupleLe s (fun i => Is (σ i)) Y (setPick σ Z)) : TupleLe N Is (setJoin σ s Z Y) Z := by
-  have := tupleLe_setJoin (N := N) (Is := Is) hinj (TupleLe.refl N Is Z) hY
+  have := tupleLe_setJoin (N := N) (Is := Is) (TupleLe.refl N Is Z) hY
   rwa [setJoin_setPick] at this
 
 /-- **The section of `Ψ` at the index set `σ`** with everything else
@@ -416,17 +550,38 @@ omit [SetTheory V] in
 theorem setSec_apply (Z Y : Nat → V) (i : Nat) :
     setSec Ψ σ s Z Y i = Ψ (setJoin σ s Z Y) (σ i) := rfl
 
-theorem setSec_mono (hinj : InjOn σ s) (hmono : MonoTuple w N Is Ψ)
+theorem setSec_mono (hmono : MonoTuple w N Is Ψ)
     (hσ : ∀ i, i < s → σ i < N) {Z : Nat → V} (hZ : InTupleSpace w N Is Z) :
     MonoTuple w s (fun i => Is (σ i)) (setSec Ψ σ s Z) := by
   intro Y Y' hY hY' hle i hi
-  exact hmono _ _ (inTupleSpace_setJoin hinj hZ hY) (inTupleSpace_setJoin hinj hZ hY')
-    (tupleLe_setJoin hinj (TupleLe.refl N Is Z) hle) (σ i) (hσ i hi)
+  exact hmono _ _ (inTupleSpace_setJoin hZ hY) (inTupleSpace_setJoin hZ hY')
+    (tupleLe_setJoin (TupleLe.refl N Is Z) hle) (σ i) (hσ i hi)
 
-theorem setSec_maps (hinj : InjOn σ s) (hmaps : MapsTuple w N Is Ψ)
+theorem setSec_maps (hmaps : MapsTuple w N Is Ψ)
     (hσ : ∀ i, i < s → σ i < N) {Z : Nat → V} (hZ : InTupleSpace w N Is Z) :
     MapsTuple w s (fun i => Is (σ i)) (setSec Ψ σ s Z) :=
-  fun _ hY i hi => hmaps _ (inTupleSpace_setJoin hinj hZ hY) (σ i) (hσ i hi)
+  fun _ hY i hi => hmaps _ (inTupleSpace_setJoin hZ hY) (σ i) (hσ i hi)
+
+omit [SetTheory V] in
+/-- **The section factors through the fibre quotient**: its value at a
+position depends on the position only through `σ`.  This is why the
+collapse costs the theory nothing — the section never had more than
+`σ`'s image many rows. -/
+theorem fibreConst_setSec (Z Y : Nat → V) : FibreConst σ s (setSec Ψ σ s Z Y) := by
+  intro i i' _ _ he
+  show Ψ (setJoin σ s Z Y) (σ i) = Ψ (setJoin σ s Z Y) (σ i')
+  rw [he]
+
+/-- **An operator that factors through the quotient has a
+fibre-constant least tuple** — by its own fixpoint law, with nothing
+assumed of `σ`. -/
+theorem fibreConst_lfpTuple {Is' : Nat → V} {Φ : (Nat → V) → Nat → V}
+    (h : ∃ L, IsClosedTuple w s Is' Φ L) (hmono : MonoTuple w s Is' Φ)
+    (hmaps : MapsTuple w s Is' Φ) (hfc : ∀ Y, FibreConst σ s (Φ Y)) :
+    FibreConst σ s (lfpTuple w s Is' Φ) := by
+  intro i i' hi hi' he
+  rw [← lfpTuple_eq h hmono hmaps hi, ← lfpTuple_eq h hmono hmaps hi']
+  exact hfc _ i i' hi hi' he
 
 /-- A closed tuple's picked positions are a closed tuple of the
 section at it. -/
@@ -438,19 +593,34 @@ theorem isClosedTuple_setSec_of_closed (hσ : ∀ i, i < s → σ i < N) {L : Na
   exact hL.2 (σ i) (hσ i hi)
 
 /-- **Bekić at an index set.**  `lfpTuple_seg` with the contiguous
-segment `[a, a + s)` replaced by the image of an injection
+segment `[a, a + s)` replaced by the image of a map
 `σ : [0, s) → [0, N)`: the least pre-fixed tuple's positions `σ i` are
-the least pre-fixed tuple of the section at the least tuple itself. -/
-theorem lfpTuple_set (hinj : InjOn σ s) (hσ : ∀ i, i < s → σ i < N)
-    (h : ∃ L, IsClosedTuple w N Is Ψ L) (hmono : MonoTuple w N Is Ψ) {i : Nat} (hi : i < s) :
+the least pre-fixed tuple of the section at the least tuple itself.
+
+**`σ` need not be injective**, and that is not a strengthening of the
+statement but a correction of it (task #315, lane WIDE (f1)): the
+section's value at a position depends on the position only through
+`σ i`, so its least tuple is constant on `σ`'s fibres by its own
+fixpoint law (`fibreConst_setSec`, `fibreConst_lfpTuple`), which is
+exactly what reading a joined position back needs.  A collapsing `σ`
+makes the comparison a QUOTIENT of the `s`-tuple space and the least
+tuple lives on the quotient; injectivity only made the quotient
+trivial.  `hmaps` is what the fixpoint law costs. -/
+theorem lfpTuple_set (hσ : ∀ i, i < s → σ i < N)
+    (h : ∃ L, IsClosedTuple w N Is Ψ L) (hmono : MonoTuple w N Is Ψ)
+    (hmaps : MapsTuple w N Is Ψ) {i : Nat} (hi : i < s) :
     lfpTuple w N Is Ψ (σ i)
       = lfpTuple w s (fun i => Is (σ i)) (setSec Ψ σ s (lfpTuple w N Is Ψ)) i := by
   have hLmem := lfpTuple_mem w N Is Ψ
   have hLcl := lfpTuple_isClosed h hmono
   have hsecCl : ∃ P, IsClosedTuple w s (fun i => Is (σ i))
       (setSec Ψ σ s (lfpTuple w N Is Ψ)) P := ⟨_, isClosedTuple_setSec_of_closed hσ hLcl⟩
-  have hsecMono := setSec_mono hinj hmono hσ hLmem
+  have hsecMono := setSec_mono hmono hσ hLmem
+  have hsecMaps := setSec_maps hmaps hσ hLmem
   have hSmem := lfpTuple_mem w s (fun i => Is (σ i)) (setSec Ψ σ s (lfpTuple w N Is Ψ))
+  have hSfc : FibreConst σ s
+      (lfpTuple w s (fun i => Is (σ i)) (setSec Ψ σ s (lfpTuple w N Is Ψ))) :=
+    fibreConst_lfpTuple hsecCl hsecMono hsecMaps (fun Y => fibreConst_setSec _ Y)
   have hSle : TupleLe s (fun i => Is (σ i))
       (lfpTuple w s (fun i => Is (σ i)) (setSec Ψ σ s (lfpTuple w N Is Ψ)))
       (setPick σ (lfpTuple w N Is Ψ)) :=
@@ -458,19 +628,62 @@ theorem lfpTuple_set (hinj : InjOn σ s) (hσ : ∀ i, i < s → σ i < N)
   have hU : IsClosedTuple w N Is Ψ
       (setJoin σ s (lfpTuple w N Is Ψ)
         (lfpTuple w s (fun i => Is (σ i)) (setSec Ψ σ s (lfpTuple w N Is Ψ)))) := by
-    refine ⟨inTupleSpace_setJoin hinj hLmem hSmem, fun j hj => ?_⟩
+    refine ⟨inTupleSpace_setJoin hLmem hSmem, fun j hj => ?_⟩
     by_cases hin : ∃ i, i < s ∧ σ i = j
     · obtain ⟨i, hi', rfl⟩ := hin
-      rw [setJoin_at hinj _ _ hi']
+      rw [setJoin_at_fc hSfc _ hi']
       exact lfpTuple_closed hsecCl hsecMono i hi'
     · rw [setJoin_out _ _ hin]
       refine FamLe.trans ?_ (hLcl.2 j hj)
-      exact hmono _ _ (inTupleSpace_setJoin hinj hLmem hSmem) hLmem
-        (tupleLe_setJoin_of_le hinj hSle) j hj
+      exact hmono _ _ (inTupleSpace_setJoin hLmem hSmem) hLmem
+        (tupleLe_setJoin_of_le hSle) j hj
   have hLle := lfpTuple_le hU (σ i) (hσ i hi)
-  rw [setJoin_at hinj _ _ hi] at hLle
+  rw [setJoin_at_fc hSfc _ hi] at hLle
   exact famSpace_ext (hLmem (σ i) (hσ i hi)) (hSmem i hi) fun t ht =>
     Subset.antisymm (hLle t ht) (hSle i hi t ht)
+
+/-- **The other presentation, read through the quotient, has the SAME
+least tuple** — when it too factors through `σ`'s fibres.  This is what
+lets the congruence be stated at the projection `fcNorm` and still
+conclude about `Φ'` itself: `Φ' ∘ fcNorm`'s least tuple is `Φ'`-closed
+(both are fibre-constant, so the projection changes nothing below
+them), and `Φ'`'s is `Φ' ∘ fcNorm`-closed for the same reason. -/
+theorem lfpTuple_fcNorm_comp {Is' : Nat → V} {Φ' : (Nat → V) → Nat → V}
+    (hIs' : ∀ i i', i < s → i' < s → σ i = σ i' → Is' i = Is' i')
+    (hmono' : MonoTuple w s Is' Φ') (hmaps' : MapsTuple w s Is' Φ')
+    (hcl' : ∃ L, IsClosedTuple w s Is' Φ' L) (hfc' : ∀ Y, FibreConst σ s (Φ' Y))
+    {i : Nat} (hi : i < s) :
+    lfpTuple w s Is' (fun Y => Φ' (fcNorm σ s Y)) i = lfpTuple w s Is' Φ' i := by
+  have hmonoN : MonoTuple w s Is' (fun Y => Φ' (fcNorm σ s Y)) := fun Y Y' hY hY' hle =>
+    hmono' _ _ (inTupleSpace_fcNorm hIs' hY) (inTupleSpace_fcNorm hIs' hY')
+      (tupleLe_fcNorm hIs' hle)
+  have hmapsN : MapsTuple w s Is' (fun Y => Φ' (fcNorm σ s Y)) :=
+    fun _ hY => hmaps' _ (inTupleSpace_fcNorm hIs' hY)
+  have hfcN : ∀ Y, FibreConst σ s (Φ' (fcNorm σ s Y)) := fun Y => hfc' _
+  -- the projection is the identity, both ways, at a fibre-constant tuple
+  have hid : ∀ X : Nat → V, FibreConst σ s X →
+      TupleLe s Is' (fcNorm σ s X) X ∧ TupleLe s Is' X (fcNorm σ s X) := by
+    intro X hX
+    constructor <;> intro m hm <;>
+      rw [fcNorm_apply X m, hX _ _ (fcRep_lt hm) hm (fcRep_eq hm)] <;>
+      exact FamLe.refl _ _
+  -- `Φ'`'s least tuple is closed under the composite
+  have hL'fc : FibreConst σ s (lfpTuple w s Is' Φ') :=
+    fibreConst_lfpTuple hcl' hmono' hmaps' hfc'
+  have hclN : IsClosedTuple w s Is' (fun Y => Φ' (fcNorm σ s Y)) (lfpTuple w s Is' Φ') := by
+    refine ⟨lfpTuple_mem w s Is' Φ', TupleLe.trans ?_ (lfpTuple_closed hcl' hmono')⟩
+    exact hmono' _ _ (inTupleSpace_fcNorm hIs' (lfpTuple_mem w s Is' Φ'))
+      (lfpTuple_mem w s Is' Φ') (hid _ hL'fc).1
+  -- the composite's least tuple is closed under `Φ'`
+  have hMfc : FibreConst σ s (lfpTuple w s Is' (fun Y => Φ' (fcNorm σ s Y))) :=
+    fibreConst_lfpTuple ⟨_, hclN⟩ hmonoN hmapsN hfcN
+  have hclM : IsClosedTuple w s Is' Φ'
+      (lfpTuple w s Is' (fun Y => Φ' (fcNorm σ s Y))) := by
+    refine ⟨lfpTuple_mem w s Is' _, TupleLe.trans ?_ (lfpTuple_closed ⟨_, hclN⟩ hmonoN)⟩
+    exact hmono' _ _ (lfpTuple_mem w s Is' _)
+      (inTupleSpace_fcNorm hIs' (lfpTuple_mem w s Is' _)) (hid _ hMfc).2
+  exact famSpace_ext (lfpTuple_mem w s Is' _ i hi) (lfpTuple_mem w s Is' Φ' i hi) fun t ht =>
+    Subset.antisymm (lfpTuple_le hclN i hi t ht) (lfpTuple_le hclM i hi t ht)
 
 /-- **Bekić at an index set, against another presentation of the
 section** — `lfpTuple_seg_congr` with the contiguous segment replaced
@@ -479,14 +692,15 @@ vocabulary, so it substitutes for `lfpTuple_seg_congr` at a call site
 whose positions are not a range (`setJoin_ofAdd` makes the contiguous
 case literally this one). -/
 theorem lfpTuple_set_congr {w N s : Nat} {Is Is' : Nat → V} {Ψ Φ' : (Nat → V) → Nat → V}
-    {σ : Nat → Nat} (hinj : InjOn σ s) (hσ : ∀ i, i < s → σ i < N)
+    {σ : Nat → Nat} (hσ : ∀ i, i < s → σ i < N)
     (h : ∃ L, IsClosedTuple w N Is Ψ L) (hmono : MonoTuple w N Is Ψ)
+    (hmaps : MapsTuple w N Is Ψ)
     (hIs : ∀ i, i < s → Is (σ i) = Is' i)
     (hΦ : ∀ Y, InTupleSpace w s (fun i => Is (σ i)) Y → ∀ i, i < s →
       Ψ (setJoin σ s (lfpTuple w N Is Ψ) Y) (σ i) = Φ' Y i)
     {i : Nat} (hi : i < s) :
     lfpTuple w N Is Ψ (σ i) = lfpTuple w s Is' Φ' i := by
-  rw [lfpTuple_set hinj hσ h hmono hi]
+  rw [lfpTuple_set hσ h hmono hmaps hi]
   exact lfpTuple_congr hIs (fun Y hY i hi => hΦ Y hY i hi) hi
 
 end IdxSet
@@ -714,20 +928,44 @@ presentation's own carrier at the call site — must be closed under
 both, which for `Φ'` is its fixpoint law and for the section follows
 from the agreement AT `C`. -/
 theorem lfpTuple_set_congr_le {w N s : Nat} {Is Is' : Nat → V} {Ψ Φ' : (Nat → V) → Nat → V}
-    {σ : Nat → Nat} (hinj : InjOn σ s) (hσ : ∀ i, i < s → σ i < N)
+    {σ : Nat → Nat} (hσ : ∀ i, i < s → σ i < N)
     (h : ∃ L, IsClosedTuple w N Is Ψ L) (hmono : MonoTuple w N Is Ψ)
+    (hmaps : MapsTuple w N Is Ψ)
     (hIs : ∀ i, i < s → Is (σ i) = Is' i)
     (hmono' : MonoTuple w s (fun i => Is (σ i)) Φ')
+    (hmaps' : MapsTuple w s (fun i => Is (σ i)) Φ')
+    (hfc' : ∀ Y, FibreConst σ s (Φ' Y))
     {C : Nat → V}
     (hC : IsClosedTuple w s (fun i => Is (σ i)) (setSec Ψ σ s (lfpTuple w N Is Ψ)) C)
     (hC' : IsClosedTuple w s (fun i => Is (σ i)) Φ' C)
-    (hΦ : ∀ Y, InTupleSpace w s (fun i => Is (σ i)) Y → TupleLe s (fun i => Is (σ i)) Y C →
+    (hCfc : FibreConst σ s C)
+    (hΦ : ∀ Y, InTupleSpace w s (fun i => Is (σ i)) Y → FibreConst σ s Y →
+      TupleLe s (fun i => Is (σ i)) Y C →
       ∀ i, i < s → Ψ (setJoin σ s (lfpTuple w N Is Ψ) Y) (σ i) = Φ' Y i)
     {i : Nat} (hi : i < s) :
     lfpTuple w N Is Ψ (σ i) = lfpTuple w s Is' Φ' i := by
-  rw [lfpTuple_set hinj hσ h hmono hi]
-  exact lfpTuple_congr_le hIs (setSec_mono hinj hmono hσ (lfpTuple_mem w N Is Ψ)) hmono' hC hC'
-    (fun Y hY hYC m hm => hΦ Y hY hYC m hm) hi
+  have hIsFC := fibreInv_comp (σ := σ) (s := s) Is
+  -- the composite reads the projection, which the join alone already does
+  have hC'N : IsClosedTuple w s (fun i => Is (σ i)) (fun Y => Φ' (fcNorm σ s Y)) C := by
+    refine ⟨hC'.1, TupleLe.trans ?_ hC'.2⟩
+    exact hmono' _ _ (inTupleSpace_fcNorm hIsFC hC'.1) hC'.1
+      (fun m hm => by
+        rw [fcNorm_apply C m, hCfc _ _ (fcRep_lt hm) hm (fcRep_eq hm)]; exact FamLe.refl _ _)
+  have hagree : ∀ X, InTupleSpace w s (fun i => Is (σ i)) X →
+      TupleLe s (fun i => Is (σ i)) X C → ∀ m, m < s →
+      setSec Ψ σ s (lfpTuple w N Is Ψ) X m = Φ' (fcNorm σ s X) m := by
+    intro X hX hXC m hm
+    show Ψ (setJoin σ s (lfpTuple w N Is Ψ) X) (σ m) = _
+    rw [← setJoin_fcNorm (lfpTuple w N Is Ψ) X]
+    exact hΦ (fcNorm σ s X) (inTupleSpace_fcNorm hIsFC hX) (fibreConst_fcNorm X)
+      (tupleLe_fcNorm_of_le hIsFC hCfc hXC) m hm
+  rw [lfpTuple_set hσ h hmono hmaps hi]
+  refine (lfpTuple_congr_le_same (setSec_mono hmono hσ (lfpTuple_mem w N Is Ψ))
+    (fun Y Y' hY hY' hle => hmono' _ _ (inTupleSpace_fcNorm hIsFC hY)
+      (inTupleSpace_fcNorm hIsFC hY') (tupleLe_fcNorm hIsFC hle))
+    hC hC'N hagree hi).trans ?_
+  exact (lfpTuple_fcNorm_comp hIsFC hmono' hmaps' ⟨C, hC'⟩ hfc' hi).trans
+    (lfpTuple_congr hIs (fun _ _ _ _ => rfl) hi)
 
 end CongrLe
 
