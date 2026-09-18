@@ -482,6 +482,11 @@ The three that remain name the OUTPUT model, and come from the tail
 (`NestedTailOut`): the representation at the members' stored constants
 (`repsAt`, which also carries `member`) and the typing crossed off it.
 
+`pinConts` is the tail's `conts` read at the two ends (task #315 M7-3
+session 20): the antecedent is the pre-block reading (`d.env₀ = env`)
+and the conclusion the OUTPUT one, and `conts` says the two are ONE
+group.
+
 `pinNP` and `pinψ` are the core's (task #315 M7-3 session 11, DESIGN
 §U.67 (c) 5): the two pin records now travel on `NestedStageFacts`, so
 the tail is not asked for them.  Both read an environment the install
@@ -559,7 +564,7 @@ theorem nestedContainerModeled {F : Nat} {st : ElimState} {envAux : Env}
     (fun ψ => ⟨(O.typed ψ).1.crossEnv T.agree O.reps.toIsBlockModels,
       (O.typed ψ).2.1.crossEnv T.agree O.reps.toIsBlockModels,
       (O.typed ψ).2.2.crossEnv T.agree O.reps.toIsBlockModels ?_⟩)
-    (fun ψ mm' j fs => ofNested_inj ψ mm' j fs) ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_
+    (fun ψ mm' j fs => ofNested_inj ψ mm' j fs) ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_
   · -- `hk`
     rw [hdk, List.length_map, List.length_zip, List.length_take, hclen]
     omega
@@ -626,6 +631,13 @@ theorem nestedContainerModeled {F : Nat} {st : ElimState} {envAux : Env}
     intro q hq
     obtain ⟨ci, hci⟩ := hpinStored q hq
     exact ⟨ci, hci, O.stage.pinNP q hq ci hci⟩
+  · -- `pinConts`: the tail's `conts`, whose pre-block and OUTPUT
+    -- readings are ONE group — and `d.env₀` IS `env` here, so the
+    -- clause's antecedent is the pre-block reading on the nose
+    intro q hq ci' hci'
+    obtain ⟨ci, -, hOut, hEnv⟩ := T.conts q hq
+    obtain rfl : ci' = ci := Option.some.inj (hci'.symm.trans hEnv)
+    exact hOut
   · -- `pinψ`: the core's own (`NestedStageFacts.pinψ`) at the members'
     -- PREFIX environment — the pin's container is stored at `env`, so
     -- its record is the same one there (no member is found at `env`,

@@ -96,7 +96,10 @@ representation (`IsBlockModels`), the per-member `IsBlockModel` of the
 `member` clause and the three typing clauses travel by
 `BlockRepCross.lean`'s four hypotheses; every other clause is
 model-free (`pinNP` reads `containerInfo?` at `d.env₀`, the block's own
-pre-block environment, not at the model's). -/
+pre-block environment, not at the model's).  `pinConts` is the one
+clause that names BOTH environments, and `hci` — the pins' containers'
+groups read the same at the new one, which every caller already holds
+for the pins' shapes — is what carries it. -/
 theorem ContainerModeled.crossEnvP {Ts : List Name} {env₁ env₂ : Env}
     {m₁ : EnvModel V env₁} {m₂ : EnvModel V env₂}
     {ci : ContainerInfo} {d : BlockModel V}
@@ -109,7 +112,11 @@ theorem ContainerModeled.crossEnvP {Ts : List Name} {env₁ env₂ : Env}
       denoteMeta m₁.acval env₁ ψ dp e = some ea → denoteMeta m₂.acval env₂ ψ dp e = some ea)
     (hfresh : ∀ T ∈ Ts, env₁.find? T = none)
     (hnpMem : ∀ M ∈ ci.members, ProjFree Ts M.type)
-    (hk : 0 < d.k) (C : ContainerModeled m₁ ci d) : ContainerModeled m₂ ci d := by
+    (hk : 0 < d.k)
+    (hci : ∀ q, q < d.nPins → ∀ ci' : ContainerInfo,
+      ConLeche.containerInfo? env₁ (d.pinAt q).J = some ci' →
+      ConLeche.containerInfo? env₂ (d.pinAt q).J = some ci')
+    (C : ContainerModeled m₁ ci d) : ContainerModeled m₂ ci d := by
   -- the member clause crosses at the STORED constant, whose type is
   -- guarded; `IsBlockModels` is then READ OFF it (the `member` clause
   -- is the stronger one — DESIGN §U.31 (e) 2)
@@ -142,6 +149,7 @@ theorem ContainerModeled.crossEnvP {Ts : List Name} {env₁ env₂ : Env}
       nestMention := C.nestMention
       pinsNotMembers := C.pinsNotMembers
       pinNP := C.pinNP
+      pinConts := fun q hq ci' h => hci q hq ci' (C.pinConts q hq ci' h)
       pinParams := C.pinParams
       pinψ := fun q hq cvT caps hf => by
         obtain ⟨cvT', cvR', mI', rP', rules', h0⟩ := C.reps 0 hk
@@ -164,9 +172,13 @@ theorem ContainerModeled.crossEnv {env₁ env₂ : Env} {m₁ : EnvModel V env�
     (hag : ∀ n : Name, (env₁.find? n).isSome = true → m₂.acval n = m₁.acval n)
     (hde : ∀ (ψ : Name → Nat) (dp : Nat) (e : Expr) {ea : AnnotTerm},
       denoteMeta m₁.acval env₁ ψ dp e = some ea → denoteMeta m₂.acval env₂ ψ dp e = some ea)
-    (hk : 0 < d.k) (C : ContainerModeled m₁ ci d) : ContainerModeled m₂ ci d :=
+    (hk : 0 < d.k)
+    (hci : ∀ q, q < d.nPins → ∀ ci' : ContainerInfo,
+      ConLeche.containerInfo? env₁ (d.pinAt q).J = some ci' →
+      ConLeche.containerInfo? env₂ (d.pinAt q).J = some ci')
+    (C : ContainerModeled m₁ ci d) : ContainerModeled m₂ ci d :=
   C.crossEnvP (Ts := []) hF hres hag (fun ψ dp e _ {_ea} hr => hde ψ dp e hr)
-    (fun _ hT => nomatch hT) (fun M _ => ProjFree.nil M.type) hk
+    (fun _ hT => nomatch hT) (fun M _ => ProjFree.nil M.type) hk hci
 
 /-- **A stored container's member types are guarded at names the
 environment does not carry**: `containerInfo?` returns the members'
@@ -268,7 +280,7 @@ theorem BlockAt.crossEnvP {Ts : List Name} {env₁ env₂ : Env}
       ConLeche.containerInfo? env₂ ((B ci).pinAt q).J = some ci')
     (h : BlockAt m₁ B ci) : BlockAt m₂ B ci := by
   obtain ⟨C, pc, hL, hS⟩ := h
-  exact ⟨C.crossEnvP hF hres hag hde hfresh hnpMem hk, pc, hL.cross,
+  exact ⟨C.crossEnvP hF hres hag hde hfresh hnpMem hk hci, pc, hL.cross,
     hS.crossEnv hF hag hk C.reps hB hci⟩
 
 /-- **A container group's obligation crosses an environment change**
@@ -293,7 +305,8 @@ theorem BlockAt.crossEnv {env₁ env₂ : Env} {m₁ : EnvModel V env₁} {m₂ 
       ConLeche.containerInfo? env₂ ((B ci).pinAt q).J = some ci')
     (h : BlockAt m₁ B ci) : BlockAt m₂ B ci := by
   obtain ⟨C, pc, hL, hS⟩ := h
-  exact ⟨C.crossEnv hF hres hag hde hk, pc, hL.cross, hS.crossEnv hF hag hk C.reps hB hci⟩
+  exact ⟨C.crossEnv hF hres hag hde hk hci, pc, hL.cross,
+    hS.crossEnv hF hag hk C.reps hB hci⟩
 
 /-! ## The field across an extension -/
 
@@ -1301,6 +1314,9 @@ theorem ContainerModeled.of_readBack {env : Env} {m : EnvModel V env} {nP : Nat}
     (hpinsNotMembers : ∀ q, q < d.nPins → (d.pinAt q).J ∉ d.memberNames)
     (hpinNP : ∀ q, q < d.nPins → ∃ ci' : ContainerInfo,
       ConLeche.containerInfo? d.env₀ (d.pinAt q).J = some ci' ∧ (d.pinAt q).nPJ = ci'.nP)
+    (hpinConts : ∀ q, q < d.nPins → ∀ ci' : ContainerInfo,
+      ConLeche.containerInfo? d.env₀ (d.pinAt q).J = some ci' →
+      ConLeche.containerInfo? env (d.pinAt q).J = some ci')
     (hpinψ : ∀ q, q < d.nPins → ∀ (cvT : ConstantVal) (caps : IndCaps),
       env.find? (d.pinAt q).J = some (.indInfo cvT caps) →
       (d.pinAt q).lvls.length = cvT.levelParams.length ∧
@@ -1325,6 +1341,7 @@ theorem ContainerModeled.of_readBack {env : Env} {m : EnvModel V env} {nP : Nat}
   nestMention := hnestMention
   pinsNotMembers := hpinsNotMembers
   pinNP := hpinNP
+  pinConts := hpinConts
   pinψ := hpinψ
   pinParams := by
     -- the group's member `i` IS the route's `i`-th member

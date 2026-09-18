@@ -242,7 +242,7 @@ K.34 conjunct, with every remaining clause the route's own —
 `hk`/`hnP`/`hnames`/`hctorNames`/`namesLen` from `MutualBlockModelOf`
 and the list plumbing, `reps`/`member` from the AT-form the core hands
 back (DESIGN §U.46 (a)), `inj` and `frame` from `MutualTableFacts`, the
-two pin clauses VACUOUS (a mutual block has no pins), and `ordFree`
+PIN clauses VACUOUS (a mutual block has no pins), and `ordFree`
 from `MutualOrdFree` by a rewrite through `BlockCtorData.opens` and the
 block model's field kinds. -/
 theorem mutualContainerModeled {env envR : Env} {m : EnvModel V envR}
@@ -280,6 +280,7 @@ theorem mutualContainerModeled {env envR : Env} {m : EnvModel V envR}
     hrepsAt.toIsBlockModels
     (fun ψ => ⟨(htyped ψ).1, (htyped ψ).2, PinsTyped.of_noPins hd.pins ψ⟩)
     htf.inj (fun i hi ψ ρ => (htf.frame i hi ψ ρ).symm) (fun i j l x hi hj hx hk => ?_)
+    (fun q hq => absurd hq (by rw [hnoPins]; omega))
     (fun q hq => absurd hq (by rw [hnoPins]; omega))
     (fun q hq => absurd hq (by rw [hnoPins]; omega))
     (fun q hq => absurd hq (by rw [hnoPins]; omega))
@@ -981,7 +982,7 @@ theorem nativeTyped {mpC : EnvModelM V μ envC}
 session 8): `ContainerModeled.of_readBack` at the single-member list
 the route's K.34 Bool certifies.  Every DATA clause is the block
 model's own shape at `k = 1` (`memberNames = [T]`, `ctorsM _ = ctorsA`,
-`pins = []`), the three pin clauses are vacuous, `ordFree` is
+`pins = []`), the pin clauses are vacuous, `ordFree` is
 `nativeOrdFree_of` through the constructor data's openings, and the
 representation is the caller's — `nativeIsBlockModel` crossed to the
 OUTPUT model. -/
@@ -999,6 +1000,7 @@ theorem nativeContainerModeled {envO : Env} {m : EnvModel V envO} {mC : EnvModel
     (fun _ _ _ _ => rfl) (fun _ _ _ _ => Iff.rfl) (fun i j l x hi hj hx hk => ?_)
     (fun q hq => absurd hq (Nat.not_lt_zero q))
     (fun q hq => absurd hq (Nat.not_lt_zero q)) (fun q hq => absurd hq (Nat.not_lt_zero q))
+    (fun q hq => absurd hq (Nat.not_lt_zero q))
     (fun q hq => absurd hq (Nat.not_lt_zero q))
     (fun _ _ q hq => absurd hq (Nat.not_lt_zero q)) (fun i hi => ?_)
   · obtain rfl : i = 0 := Nat.lt_one_iff.mp hi

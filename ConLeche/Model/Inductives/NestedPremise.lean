@@ -157,6 +157,22 @@ structure ContainerModeled {env : Env} (m : EnvModel V env) (ci : ContainerInfo)
   exactly that count. -/
   pinNP : ∀ q, q < d.nPins → ∃ ci' : ContainerInfo,
     ConLeche.containerInfo? d.env₀ (d.pinAt q).J = some ci' ∧ (d.pinAt q).nPJ = ci'.nP
+  /-- **A pin's container reads the SAME group at the model's
+  environment as at the block's own** (task #315 M7-3 session 20, lane
+  L-B's request): `pinNP` is spelled at `d.env₀`, the block's own
+  pre-block environment, because that is where `BlockOpened.nestF`
+  resolves a pin's index arguments — and a consumer working at the
+  MODEL's environment cannot use it there.  This is the monotonicity
+  that carries it across: the container is stored at `d.env₀` and no
+  install since has disturbed it.
+
+  Requested in place of an EQUATION `d.env₀ = env`, which is false at
+  three of the nine sites (the nested, mutual and native routes all
+  build this record at a model of the OUTPUT environment while `env₀`
+  is the pre-block one) and unavailable at the four basis sites. -/
+  pinConts : ∀ q, q < d.nPins → ∀ ci' : ContainerInfo,
+    ConLeche.containerInfo? d.env₀ (d.pinAt q).J = some ci' →
+    ConLeche.containerInfo? env (d.pinAt q).J = some ci'
   /-- **a pin's level assignment is the substitution of its level
   arguments for its container's level parameters** (task #315 L-E,
   DESIGN §U.39): the syntactic form every pin this checker records has

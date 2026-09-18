@@ -15,6 +15,7 @@ import ConLeche.Model.Steps.Stuck
 import ConLeche.Model.Steps.Accepted
 import ConLeche.Model.Install
 import ConLeche.Model.IndTele
+import ConLeche.Verify.Inductives.ContainerFrame
 import ConLeche.Verify.Inductives.NestedGroupInv
 import ConLeche.Verify.Inductives.NestedAuxFormers
 import ConLeche.Verify.Inductives.NestedElimInv
@@ -100,6 +101,68 @@ theorem consMutualFormers_ext :
     obtain ⟨hF₂, hG₂, hP₂⟩ := consMutualFormers_ext hfresh' hnd.2
     exact ⟨fun h => hF₂ (hF₁ h), ⟨fun h => hG₂.1 (hG₁.1 h), fun h => hG₂.2 (hG₁.2 h)⟩,
       fun sn i h => hP₂ sn i (hP₁ sn i h)⟩
+
+/-- **A lookup at the formers' conses is the base's or a former's own
+`indInfo`** — the kinds half of the same conses, with no freshness and
+no `Nodup`: `consMutualFormers` conses nothing else. -/
+theorem consMutualFormers_find?_cases :
+    ∀ {fms : List MutualFormerA} {env : Env} {n : Name} {c : ConstantInfo},
+      (ConLeche.consMutualFormers fms env).find? n = some c →
+      env.find? n = some c ∨ ∃ f ∈ fms, c = .indInfo f.cvTa {}
+  | [], _, _, _, h => Or.inl h
+  | g :: gs, env, n, c, h => by
+    have h' : (ConLeche.consMutualFormers gs
+        ⟨.indInfo g.cvTa {} :: env.consts⟩).find? n = some c := h
+    rcases consMutualFormers_find?_cases h' with h₁ | ⟨f, hf, rfl⟩
+    · by_cases hn : (ConstantInfo.indInfo g.cvTa {}).name = n
+      · rw [ConLeche.Env.find?_cons, if_pos hn] at h₁
+        exact Or.inr ⟨g, List.mem_cons_self, (Option.some.inj h₁).symm⟩
+      · rw [ConLeche.Env.find?_cons, if_neg hn] at h₁
+        exact Or.inl h₁
+    · exact Or.inr ⟨f, List.mem_cons_of_mem _ hf, rfl⟩
+
+/-- **A STORED CONTAINER'S GROUP IS READ THE SAME PAST THE FORMERS'
+CONSES** (task #315 M7-3 session 20): `ContainerModeled.crossEnv`'s
+`hci` at the prefix environment.
+
+`containerInfo?` consults the environment at the container's own
+constant, at its recursor and at each member the recursor's motive
+names; a reading can therefore only MOVE if one of the conses answers
+a lookup that failed before, and `containerInfo?_ext_ind_eq` is
+exactly the statement that at a container the base already stores it
+cannot — given that the new names are fresh (`hfresh`) and that no
+cons is a recursor, which here holds because every one of them is an
+`indInfo` (`consMutualFormers_find?_cases`). -/
+theorem containerInfo?_consMutualFormers {fms : List MutualFormerA} {env : Env}
+    (hwf : ConLeche.EnvWF env) (hrc : ConLeche.RecCtorsStored env)
+    (hfresh : ∀ f ∈ fms, env.find? f.cvTa.name = none) {J : Name}
+    (hJ : (env.find? J).isSome = true) :
+    ConLeche.containerInfo? (ConLeche.consMutualFormers fms env) J
+      = ConLeche.containerInfo? env J := by
+  have hfreshN : ∀ n ∈ fms.map (·.cvTa.name), env.find? n = none := by
+    intro n hn
+    obtain ⟨f, hf, rfl⟩ := List.mem_map.mp hn
+    exact hfresh f hf
+  -- off the new names the two environments answer the same lookups
+  have hne : ∀ n : Name, n ∉ fms.map (·.cvTa.name) →
+      (ConLeche.consMutualFormers fms env).find? n = env.find? n := by
+    intro n hn
+    exact consMutualFormers_find?_of_ne fun g hg heq => hn (heq ▸ List.mem_map_of_mem hg)
+  have hstored : ∀ n : Name, (env.find? n).isSome = true → n ∉ fms.map (·.cvTa.name) := by
+    intro n hn hmem
+    rw [hfreshN n hmem] at hn
+    exact nomatch hn
+  refine ConLeche.containerInfo?_ext_ind_eq (N := fms.map (·.cvTa.name))
+    (fun n c hf => ?_) (fun n c hf => ?_) hfreshN (fun n cv mI rP rules hf hmem => ?_) hwf hrc
+    (hstored J hJ)
+  · rw [hne n (hstored n (by rw [hf]; rfl))]; exact hf
+  · by_cases hn : n ∈ fms.map (·.cvTa.name)
+    · exact Or.inr hn
+    · rw [hne n hn] at hf; exact Or.inl hf
+  · -- a consed constant is an `indInfo`, and the base has nothing at a new name
+    rcases consMutualFormers_find?_cases hf with h₁ | ⟨f, -, hc⟩
+    · rw [hfreshN _ hmem] at h₁; exact nomatch h₁
+    · exact nomatch hc
 
 /-! ## Kit: two small converses -/
 
@@ -1033,6 +1096,23 @@ theorem NestedPinsRun.cross :
     unfold ConLeche.MutualBlock.blockNames at h0
     exact (List.nodup_append.mp (List.nodup_append.mp h0).1).1
 
+/-- **A STORED CONTAINER'S GROUP IS READ THE SAME AT THE PREFIX
+ENVIRONMENT** — `containerInfo?_consMutualFormers` at the run, whose
+`hfresh` is the members' own (`MutualFormersFacts.fresh`) and whose
+well-formedness is the pre-block model's.  `ContainerModeled.crossEnv`'s
+`hci` on this lane: a pin's container's OWN pins are containers stored
+before the block, so this is the shape the crossing asks for. -/
+theorem NestedPinsRun.contsCross {J : Name} {ci : ContainerInfo}
+    (h : ConLeche.containerInfo? env J = some ci) :
+    ConLeche.containerInfo? (ENV₁) J = some ci := by
+  obtain ⟨cv, caps, hf⟩ := containerInfo?_found h
+  have hfr : ∀ f ∈ fms.take p.k, env.find? f.cvTa.name = none := by
+    intro f hf'
+    obtain ⟨t, ht⟩ := List.getElem?_of_mem (List.mem_of_mem_take hf')
+    exact R.h.fresh t f ht
+  rw [containerInfo?_consMutualFormers mp.base2.wf mp.base2.rec_ctors hfr (by rw [hf]; rfl)]
+  exact h
+
 /-- The block has a member; the first former's type is closed and
 bounded, and its data hold at the prefix model. -/
 theorem NestedPinsRun.former0 :
@@ -1168,6 +1248,7 @@ theorem NestedPinsRun.groupSyn
     blockOf_spec (R.hPM _ hbaseMem _ PD.base)
   have CM : ContainerModeled mp₁'.base2 (baseInfo env st q) (blockOf mp.base2 (baseInfo env st q)) :=
     CM₀.crossEnv hF hres hag hde (by rw [CM₀.k, PD.baseLen]; exact hkpos)
+      (fun _ _ _ h => R.contsCross h)
   have hkJ : (blockOf mp.base2 (baseInfo env st q)).k = (pinAtE st q).grpSize := by
     rw [CM.k, PD.baseLen]
   -- the group's pins, described
@@ -1519,6 +1600,7 @@ theorem NestedPinsRun.pinNIdx {pbs : List (Expr × ConLeche.BinderMeta)} (hpbs :
     blockOf_spec (R.hPM _ hbaseMem _ PD.base)
   have CM : ContainerModeled mp₁'.base2 (baseInfo env st q) (blockOf mp.base2 (baseInfo env st q)) :=
     CM₀.crossEnv hF hres hag hde (by rw [CM₀.k, PD.baseLen]; omega)
+      (fun _ _ _ h => R.contsCross h)
   obtain ⟨-, -, cvR, mI, rP, rules, hI⟩ := CM.member _ _ hmemE
   obtain ⟨bsM, sM, hstripM, -⟩ := hI.strip
   -- K.28 at the pin: the copy from the member `J`, whose type is the member's
