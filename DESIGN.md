@@ -89599,3 +89599,40 @@ that caught this is worth keeping:
 A count over graph 2 alone would have reported the route open; a count
 over graph 3 alone would have left the symmetrisation as an excuse.
 Graph 4 is the weakest and it closes both.
+
+**AND THE ANSWER WAS DOCUMENTED BEFORE IT WAS MEASURED.**  The witness is
+`nested_p04`'s three-cycle, and the K.37 record above describes it in
+these very words — "the three copies form a CYCLE in which only one edge
+is own at its source" — in the recorded directions, needing no
+symmetrisation.  It has been in this document since that record landed,
+and nothing connected it to the order question until the count made it
+unavoidable.  A design record is evidence, and it is worth reading for
+answers before measuring for them.
+
+#### THE MAJOR-PREMISE SHAPE AT THE LIVE ROUTES: native PROVED, basis and `Quot` DECIDED (2026-09-18, task #315 M8 session 5/6, `agent/uniform-m5`)
+
+Continuing the sizing: three of the five live producers are now closed.
+
+* **mutual** — `mutualRecTy_major` (previous section);
+* **native** — `structRecTyR_major` (`Verify/Inductives/NestedRecDoor.lean`),
+  the twin at `structRecTyR`, whose output is what `checkNativeRec`
+  STORES (the stream's record is only required to be defeq).  The strip
+  is the parameters, the motive, the minors and the indices — exactly
+  `InductiveShape.majorIdx = nP + 1 + n + nIdx` — and it needed one new
+  telescope lemma, `structMinorsPisR_stripPis` (the recursive minors'
+  strip, `mutualMinorsPis_stripPis`' twin).  `NestedRecDoor` gains a
+  plain `import` of `FixRec` for the unfold; no cycle (FixRec imports
+  only `SumRec` and the kernel's `NativeParts`);
+* **the five pinned basis blocks and `Quot`** —
+  `basisDeclsA_recMajorHead` (`Verify/EnvPreds.lean`), `cases k <;> rfl`
+  over the literals, with `basisDeclsA_recMajorHead_mem` in the shape
+  the invariant's clause consumes.  **`Quot.lift` and `Quot.ind` pass**,
+  which was the one open question: neither is named `_.rec`, but each
+  major premise is `Quot r` and its head is the constant `Quot`.  All
+  seven pinned recursors satisfy the Bool.
+
+**WHAT REMAINS**: the NESTED route (the restored type — "the restore
+keeps the head a constant", about a session, and the place where the
+claim must be measured rather than asserted, because the restore is
+where the mint defect lived), the `ConstWF` clause itself with its
+per-route discharge, and the cached mirrors by transport.

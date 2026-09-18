@@ -4,6 +4,7 @@ public import ConLeche.Verify.Inductives.NestedInv
 import ConLeche.Verify.Inductives.MutualInv
 import ConLeche.Verify.Inductives.FrontDoor
 import ConLeche.Verify.Inductives.StructRec
+import ConLeche.Verify.Inductives.FixRec
 import ConLeche.Verify.Inductives.NestedRestoreKit
 
 public section
@@ -345,6 +346,73 @@ private theorem doorMentionsConst_mkAppN_false {n : Name} :
     doorMentionsConst_mkAppN_false as (.app f a)
       (by simp only [Expr.mentionsConst, hf, has a List.mem_cons_self, Bool.or_self])
       (fun x hx => has x (List.mem_cons_of_mem _ hx))
+
+/-- The recursive minors' telescope's two steps, by `rfl` (the reason is
+`doorMinorsPis_nil`'s). -/
+private theorem doorMinorsPisR_nil {lps : List Name} {nP : Nat} {pw : PropWhen} {o : Nat}
+    {body : Expr} : structMinorsPisR lps nP pw [] o body = some body := rfl
+
+private theorem doorMinorsPisR_cons {lps : List Name} {nP : Nat} {pw : PropWhen}
+    {c : Name × Nat × Expr × List Nat} {cs : List (Name × Nat × Expr × List Nat)}
+    {o : Nat} {body : Expr} :
+    structMinorsPisR lps nP pw (c :: cs) o body
+      = (structMinorTyR c.1 lps nP c.2.1 o pw c.2.2.1 c.2.2.2).bind fun mty =>
+          (structMinorsPisR lps nP pw cs (o + 1) body).map fun rest =>
+            Expr.forallE mty rest ⟨pw⟩ := rfl
+
+/-- The recursive minors' telescope: one `∀` per constructor, the body
+under them. -/
+theorem structMinorsPisR_stripPis {lps : List Name} {nP : Nat} {pw : PropWhen} :
+    ∀ (cs : List (Name × Nat × Expr × List Nat)) {o : Nat} {body mins : Expr},
+      structMinorsPisR lps nP pw cs o body = some mins →
+      ∃ bs : List (Expr × BinderMeta), mins.stripPis cs.length = some (bs, body) := by
+  intro cs
+  induction cs with
+  | nil =>
+    intro o body mins h
+    rw [doorMinorsPisR_nil, Option.some.injEq] at h
+    exact ⟨[], by rw [← h]; rfl⟩
+  | cons c cs ih =>
+    intro o body mins h
+    rw [doorMinorsPisR_cons] at h
+    simp only [Option.bind_eq_some_iff, Option.map_eq_some_iff] at h
+    obtain ⟨mty, -, rest, hrest, rfl⟩ := h
+    obtain ⟨bs, hbs⟩ := ih hrest
+    exact ⟨(mty, ⟨pw⟩) :: bs, by
+      simp only [List.length_cons, Expr.stripPis, hbs, Option.map_some]⟩
+
+/-- **THE FIXPOINT ROUTE'S MAJOR PREMISE IS AN APPLICATION OF A
+CONSTANT** (task #315, the crossing's premise): `mutualRecTy_major`'s
+twin at `structRecTyR`, whose output is what `checkNativeRec` STORES
+(the stream's record is only required to be defeq to it).  The strip is
+the parameters, the motive, the minors and the indices — `majorIdx` —
+and the domain exposed is `structFamI`'s family application. -/
+theorem structRecTyR_major {T : Name} {lps : List Name} {elim : Name} {large : Bool}
+    {nP nIdx : Nat} {tty recTy : Expr} {ctors : List (Name × Nat × Expr × List Nat)}
+    (h : structRecTyR T lps elim large nP nIdx tty ctors = some recTy) :
+    ∃ (bs : List (Expr × BinderMeta)) (dom body : Expr) (bm : BinderMeta),
+      recTy.stripPis (nP + 1 + ctors.length + nIdx)
+        = some (bs, .forallE dom body bm) ∧
+      dom.getAppFn = .const T (lps.map .param) := by
+  obtain ⟨tbs, itele, motiveTy, major, minors, hq, hmot, hmaj, hmin, hr⟩ :=
+    structRecTyR_unfold h
+  -- the indices, landing ON the major premise
+  obtain ⟨bs1, body1, hbs1⟩ := replacePisPw_some_stripPis nIdx hmaj
+  have h2 := replacePisPw_stripPis nIdx hmaj hbs1
+  -- the minors, the motive, the parameters
+  obtain ⟨bs2, hbs2⟩ := structMinorsPisR_stripPis ctors hmin
+  have h5 := stripPis_append ctors.length hbs2 h2
+  have hmotive : (Expr.forallE motiveTy minors
+      ⟨Level.zeronessOf (structElimLevel elim large)⟩).stripPis 1
+        = some ([(motiveTy, ⟨Level.zeronessOf (structElimLevel elim large)⟩)], minors) := rfl
+  have h6 := stripPis_append 1 hmotive h5
+  obtain ⟨bs0, body0, hbs0⟩ := replacePisPw_some_stripPis nP hr
+  have h7 := replacePisPw_stripPis nP hr hbs0
+  have h8 := stripPis_append nP h7 h6
+  rw [show nP + (1 + (ctors.length + nIdx)) = nP + 1 + ctors.length + nIdx from by omega] at h8
+  refine ⟨_, _, _, _, h8, ?_⟩
+  rw [structFamI, Expr.getAppFn_mkAppN]
+  rfl
 
 /-- **THE MAJOR PREMISE'S DOMAIN IS AN APPLICATION OF A CONSTANT**
 (task #315, the crossing's premise): the generated recursor type of
