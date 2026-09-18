@@ -82742,6 +82742,130 @@ theorems, of `nestedPinsEntry_of_le_all` and of `copyPinFCorr`:
 
 Cost: one session.  Next: lane M7-3's field once it has this tree.
 
+##### (cc) INTEGRATION 3u — two kernel records, the nine-site field UNCONDITIONAL, and a measurement that killed its own request (session U-43)
+
+Three merges, all landing, and the round's theme is evidence overruling
+intention:
+
+* `agent/uniform-m5` **7fa8e306** (K.51, K.53) at **e288046c**;
+* `agent/uniform-m7env` **7e004a2d** (M7-3 session 24) at **99369ea5**;
+* `agent/uniform-ident` **8eef3b99** (L-B session 29) at **7ccecec6**.
+
+DESIGN was the only conflict in all three, and all three were pure
+appends on both sides.
+
+###### (cc-1) A MEASUREMENT THAT OVERTURNED ITS OWN PROPOSED ROW
+
+K.53 was requested as a new certification-only check — the container's
+constructor names round-tripping through the prefix rename.  The
+measurement found it **DOMINATED by an existing check that mirrors
+official's already-declared refusal**, so the record is filed as
+DOMINATED WITH THE ARGUMENT rather than added as a row that could never
+fire.  **The standing finding that this route has no member of that
+category survives** — a row that would have quietly falsified it was
+refused on its own evidence.
+
+This is the fourth time in this arc that measuring before committing
+changed the answer, and the first where what it killed was the request
+itself.  Beside K.42's `false`-that-wasn't (K.50) and the arena audit's
+stale benchmark, the pattern is now explicit: **a measurement run to
+justify a record is worth running precisely because it can refuse it.**
+
+###### (cc-2) THE NINE-SITE FIELD, AND A CLAIM CHECKED RATHER THAN TAKEN
+
+`ContainerModeled.ownPins` lands at all nine sites UNCONDITIONALLY.
+What had held it out was `RecMajorHeadStored`, and its last step is now
+a **DERIVATION off the environment invariant's major-premise clause** —
+the clause integration 3t merged — rather than a premise.  So the
+record lands adding nothing to any producer's obligation, which is the
+shape §U.27 (aa)'s ordering rule exists to produce: the clause went in
+first, and the field that needed it followed without a new hypothesis.
+
+The lane claimed the four declaration theorems' signatures are
+byte-identical before and after.  **Verified, not taken**:
+`declNested_of`, `declMutualB`, `declNativeB` and `basisStepB_of` show
+ZERO changed signature lines in the merge diff.  A record that lands at
+nine sites and moves no consumer's statement is exactly the shape that
+would hide a silent widening, so it is the shape to check.
+
+###### (cc-3) THE CORRECTION, KEPT AS WRITTEN
+
+Lane L-B found a wrong entry in its own pin-view elimination and
+rewrote both the docstring and its design section to say so plainly —
+"that was wrong, and wrong in the direction that helps".  **None of it
+was reconciled toward the older text.**  Its §(g) corrects a note in
+lane L-E's LANDED §U.113 by adding the correction in its OWN section
+rather than editing another lane's record, which is the right way
+round and worth copying: **correct another lane's claim beside it, not
+inside it.**
+
+###### (cc-4) NUMBERING — THE RECORDING RULE WORKED, AND PRODUCED A TIE
+
+Lane M7-3 and lane L-B **both took §U.117**, each correctly reading the
+next-free number integration 3t recorded ON THE INTEGRATION BRANCH.
+
+That is the rule from §U.27 (bb-3) doing its job.  When the number
+lived only on a lane branch (§U.110, integration 3s) one lane could not
+see it and took it in ignorance — a collision.  When it lives where
+every lane reads it, two lanes take it *knowingly and identically* — a
+TIE.  **A tie is a better failure than a collision**: it is visible at
+the merge, it needs no archaeology, and it breaks on merge order.
+M7-3 merged first and keeps **§U.117**; lane L-B's session 29 is
+**§U.118**, with a note at its head recording the tie.
+
+The remaining gap is that "next free" is a moving target between
+integrations.  The cheap fix, if it recurs: lanes cite by TITLE and
+take no number at all, which is already the rule for citations and
+could be the rule for headers too.
+
+**§U.119 IS THE NEXT FREE NUMBER.**  No outstanding reservations.
+Both kernel records used numbers the coordinator had assigned (K.51
+reserved, K.53 queued), and **the kernel lane asked for confirmation
+against the central list rather than trusting its own branch's
+reservation** — the §U.110 lesson applied by the lane that would have
+been entitled to assume.
+
+###### (cc-5) THE RESIDUAL AFTER 3u
+
+Unchanged in COUNT, and that is the honest reading: the merges put the
+inputs in place rather than discharging the facts.
+
+* **`NestedPinsShape V μ F`** — `NestedPinsShapeOrdRight` and
+  `NestedPinsShapePinF` (lane L-B); both now have the positivity record
+  (K.51) and the derived pin view they were waiting on.
+* **`NestedPinsEntry V μ F`** — the shape plus **`NestedPinsLe`**
+  (lane L-E).
+* **`NestedTailModeled V μ F`** — **`NestedCtorPinNamesOf` (K.36)
+  ALONE**, and K.53 puts its last face one line from closed.
+* **M8** — `ModeledStepB`.
+
+###### (cc-6) GATES
+
+At all three merge commits: `lake build` **722 jobs** warning-free,
+`lake test` warning-free, layering base 353 / model 286 / caps 3 /
+umbrella 1 with 0 base→lane and 0 impl→theory, trust surface 13 escapes
+in 5 allowlisted files (654 scanned), no-local-paths OK, overview-links
+**112**, quote-gate **2**, proofdeps **4965 rows / 12 roots / 0 doors**
+— unmoved through fourteen merges across 3r, 3s, 3t and 3u — shake
+510/510 allowlisted, pub-imports 1334 of 2242 none demotable,
+**nested-shadow 37/37**.
+
+**`tests/arena.sh` EXIT 0 at merge 1**, the only one moving checker
+code (`Kernel/Inductives/NestedInstall.lean`, +116): arena suite 91/96,
+e2e 199/199, annot 15/15, nested-shadow 37/37, axiom pin 20 theorems,
+trusted and both `--jobs` sweeps at 162 + 199 + 15 with the same three
+recorded divergences.
+
+**The chain, verified** (`_tmp/uniform-315/chain-probe-u43.lean`):
+`probe_decl_all` closes over exactly `hOrd`, `hPin`, `hLe` and `hK36`
+plus the run; `#print axioms` of the ten probe theorems, of
+`nestedPinsEntry_of_le_all` and of `copyPinFCorr`: `[propext,
+Classical.choice, Quot.sound]`.  `ContainerModeled.ownPins` present and
+checked.
+
+Cost: one session.  Next: the two lanes synced below take their
+residuals to transcription and to one line respectively.
+
 #### K.32 — the copies' recursive targets come from the container's own recursion (2026-09-16, task #315, lane L-B's DESIGN §U.23 (e))
 
 The model's `ordF` arm needs to know that a container-ORDINARY field
