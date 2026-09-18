@@ -85438,6 +85438,172 @@ lane is `NestedTablesDataOf`'s producer — the transfer from the scratch
 install's own table stage, **1–1½ sessions**, and the last thing
 between this lane and `NestedTailModeled`.
 
+##### (mmmm) K.36's NESTED FACE — the mutual retirement precedent does NOT transfer, and here is exactly where it stops
+
+The mutual instance of K.36 was RETIRED as a check
+(`EnvModelBStages.lean:181`, `mutualOrdFree_of_run`): `MutualOrdFree`
+is a consequence of `mutualFieldsOk`'s `.ordinary` cell —
+`x.fvarTypeD.constsResolve env` at the PRE-BLOCK environment, where
+every member is fresh — and that derivation is what makes `declMutualB`
+hypothesis-free.  Before requesting a record for the NESTED face, the
+question is whether the nested route runs an analogous check.  **It
+does not, and the reason is structural rather than an oversight.**
+
+*The fact, reduced.*  `NestedCtorPinNames` (`NestedRecCtor.lean:86`)
+asks, per pin `q`, per member `J` of its container group with
+`J.name = q.container`, per constructor `cc ∈ J.ctors`:
+
+    replacePrefix q.aux q.container (replacePrefix J.name q.aux cc.name) = cc.name
+
+`Name.replacePrefix old new` (`NestedParts.lean:64`) walks a name's
+ANCESTOR chain and replaces `old` by `new` where it occurs, keeping the
+suffix.  So the identity says the RESTORE's rename
+(`restoreTbl`'s `ctorPins`, `NestedInstall.lean:278`) undoes the MINT's
+(`mkCopy`'s, `NestedElim.lean:175`), and it splits exactly two ways:
+
+> **either `J.name` is an ancestor of `cc.name`, or `q.aux` is not.**
+
+Case A is the normal world (a constructor named under its inductive):
+the mint rewrites `J.name ↦ q.aux`, the restore rewrites it back, and
+`J.name = q.container` closes it.  Case B is the escape hatch: if the
+mint did nothing because `cc.name` is not under `J.name`, the restore
+must do nothing either.
+
+*Why neither disjunct is available.*
+
+* **A is not checked.**  `containerInfo?` (`NativeParts.lean:744`)
+  builds `J.ctors` from the container RECURSOR's rules —
+  `rulesC.mapM fun r => env.find? r.ctor` — and tests only the
+  parameter count (`nPc == nP`).  Nothing anywhere constrains a
+  constructor's name to sit under its inductive's;
+  `containerFactsOk`'s four clauses (`containerGroupOk`,
+  `Name.nodup`/`uniformIndOccsOk`, `containerRecOk`,
+  `containerCtorFieldsOk`) are about levels, occurrences, the recursor
+  and the fields' shapes.  A grep for `hasPrefixOf`/`replacePrefix`
+  across `ConLeche/Kernel/` finds the two definitions, the two rename
+  SITES, and `mentionsNestedAux` — no test.
+* **B is not derivable from the freshness the route has.**  `q.aux` is
+  `mkUniqueName env (nestedPrefixName ++ J.name) …`, and both
+  `mkUniqueName` and `copiesFresh` give NAME-ABSENCE
+  (`env.find? q.aux = none`).  What B needs is PREFIX-absence — that no
+  stored constructor name has `q.aux` as an ancestor — and a name may
+  extend an absent one.
+
+*Why the mutual argument cannot be ported.*  `mutualOrdFree_of_run`
+reasons about THE BLOCK'S OWN fields at an environment where THE
+BLOCK'S OWN members are fresh: the check and the freshness are about
+the same names, so name-absence is exactly the right currency.  The
+nested face is about a PREVIOUSLY INSTALLED container's constructor
+names against a freshly minted one, and there the two kinds of
+freshness come apart.  It is not that the nested route forgot to run a
+check; it is that no check the route runs looks at the container's
+constructor NAMES at all — the route reads the container for its
+types, its levels, its arities and its fields, never for its naming.
+
+*A note for the certification-tax ledger.*  A record here would be of
+the "true by construction of official's own generators" kind, not the
+"mirrors an official test" kind: official's own nested elimination
+performs the same `replacePrefix` round-trip, so a stream that broke it
+would make official mis-restore too.  That is the class in which a
+genuine finding about the reference kernel could surface, and it is
+worth saying out loud before the row is added.
+
+##### (nnnn) THE PROJECTION-TABLE FACE — the read-back PROVED, the face NOT, and a hazard nobody had named
+
+(116d5d29.)  The transfer (dddd) 3 called "should fall out of the
+scratch block's own table stage" is now half done, and the other half
+has a shape I had not seen.
+
+*Proved*, in `Verify/Inductives/NestedRecDoor.lean` —
+`auxStored_rec_eq`'s twin at the tables:
+
+* `mutualTables_find?_projInfo_inv` (:820) — the SCRATCH stage's fold
+  inverted: a `projInfo` at its output either stood at its input or IS
+  the table `mutualMemberTable` built, with every field of that call
+  read off (the structure, `b.lps`, `b.nP`, the member's ONE own
+  constructor and its `nF`, `f.s`, the bodies, `structProjGuards
+  (ctorsA.getD J default).1.type b.nP c.nF (sortss.getD J [])`, and the
+  offset `1`);
+* `auxStored?_tbl` (:858) and `auxStored_tbl_eq` (:925) — the record's
+  `tbl` field IS that table.  **A read-back table is the WITNESS that
+  the scratch member was structure-like** (`ownCtors` a singleton,
+  `nIdx = 0`) — neither of which `nestedMemberTable` re-checks.
+
+That settles (dddd) 3's list: `tbl.off = 1` done, `tbl.levelParams`
+and `tbl.structSort` done, `tbl.ctor = cvCa.name` a few lines
+(`restoreCtors` keeps the name).
+
+**THE HAZARD, and it was not on anyone's list.**  `tbl.guards` were
+computed at the AUXILIARY constructor's type; the clause demands them
+at the RESTORED one.  So the face needs
+
+    structUsedLater (restoreNested R ctyAux) nP j = structUsedLater ctyAux nP j
+
+and nothing states it.  **The kernel does not record it either**:
+`nestedAuxAppsOk` — the Bool that licenses `restoreNode`'s
+`args.drop nP` — covers the read-back RECURSOR TYPES and RULE
+right-hand sides, NOT the stored CONSTRUCTOR types; and
+`checkStructProjTable` re-derives the bodies from the restored type but
+never the guards.
+
+**It is true and derivable without a kernel request**, which is the
+part worth keeping: `restoreWalk` can never ADD the occurrence (a fired
+pin is `pin.liftLooseBVars d 0`, whose loose indices are all `≥ d`), and
+it can only LOSE one by dropping `args.take nP` — which
+`mutualFieldsOk`/`mutualOpenedOk` forbid exactly: an ORDINARY field's
+domain resolves at the pre-block environment and holds no auxiliary
+constant at all, so the walk is the identity there, and a
+RECURSIVE/REFLEXIVE field's domain has `getAppArgs.take nP == fvsP`.
+The cost is the opened-form ↔ closed-form bridge, whose telescope half
+`rk_restoreWalk_stripPis`/`rk_restoreNested_stripPis` already do.
+
+*If it could differ* the installed guards would be strictly more
+conservative than correct — an accept-subset, not unsoundness — but the
+clause demands literal EQUALITY and `sorts` is pinned semantically by
+`TableMember.leq`/`.sortsF`, so no choice of `sorts` absorbs it.
+
+*A restatement the face wants.*  `NestedTablesDataOf` is handed `mp₃`
+and only the CARRIER agreement, but `TableMember` is stated at the
+STORE environment (`FD`/`CDread` are `denoteMeta … envStore`,
+`fT`/`fC`/`memsFound` are lookups there), so the face must rebuild the
+block model.  Its consumer already has `hreps₃ : IsBlockModelsAt
+mp₃.base2 (D) …` thirty lines above the call.  **Pass `hreps₃` and the
+store environment's `FindPreserved` into the face** rather than making
+it re-derive them — a restatement of the face, not a weakening of
+`NestedMemberTableOk`.
+
+##### (oooo) FILES AND GATES (session 25's HEAD), and the re-size I owe
+
+Merged `agent/uniform-315` b3df20d8 (integration 3q): one conflict (the
+FALLBACK set — session 24's three entries are additive and stay) and
+one adaptation — 3q RETIRED `NestedTailOut.groups`, because M7-3 now
+reads `NestedStageFacts.groupsAt` directly through `conts`' pre-block
+reading, which is what session 22 published it for.  Six fields, not
+seven; the bullet that proved `groups` is deleted, not kept.
+
+Touched beyond the merge: `ConLeche/Model/Inductives/NestedStoreRun.lean`
+(the retired field) and `ConLeche/Verify/Inductives/NestedRecDoor.lean`
+(the read-back).  No new file, no allowlist line, no FALLBACK entry, no
+checker code.
+
+`lake build` warning-free EXIT 0; `lake test` warning-free EXIT 0;
+shake 510 removals all allowlisted / pub-imports 1334 of 2212, none
+demotable (55 fallbacks); layering base 353 / model 286 / caps 3 /
+umbrella 1, 0 base→lane, 0 impl→theory; trust surface 13 escapes in 5
+allowlisted files, 0 outside; no-local-paths OK; overview-links 112;
+quote-gate 2; proofdeps 4965 rows / 12 roots / **0 doors**.
+
+**THE RE-SIZE.**  (llll) put the tables' face at 1–1½ sessions.  With
+the read-back proved and the remainder enumerated — the guards'
+restore-invariance (1–2), `tableMember_of` generalised off
+`d.pins = []` to `PinsTyped` (~0.2), `MutualTableFacts` at the nested
+block model whose `sorts` field is about the RESTORED domains (1–2),
+`MemberStored`/`NoProjEnv`/the restored constructors' conditions (~1),
+and the assembly (~0.5–1) — it is **4–6 sessions**.  I under-sized it
+by taking "true by construction" to mean "short to prove"; the
+construction is the scratch stage's, and every step of reading it back
+crosses the restore.
+
 
 #### U.30 — L-B session 2: `CopyCtorInst.ordF` at the READING, the normalisation's reading law PROVED, `ContainerModeled`'s three clauses (lane L-B, 2026-09-16)
 
