@@ -161,7 +161,18 @@ syntactic data, and no argument from the semantics can close that gap —
 which is why the block being installed *records* the tie between its
 own pins and the container's (one clause, on the one structure that
 binds the container's model, whose single producer holds the fact for
-free).  Uniqueness of models is never needed: semantic facts meet at the
+free).  A second thing is recorded for the same reason, one level down:
+that a *nested field*'s parameter arguments mention a member of the
+container's own group.  The opened form of a constructor keeps a nested
+field's head and its argument count and drops the parameter part, so the
+fact cannot be read back where it is wanted; it is carried from the
+container's own restore, where the field's spine is still visibly the
+pin re-opened.  It is recorded as a *mention* and not as an equality:
+the restore closes the pin over the parameters and reopens it at the
+constructor's own variables, and those differ from the block's by
+definitional unfolding, so the two spines need not be equal — but a
+mention survives both steps, and a mention is all the proof asks for.
+Uniqueness of models is never needed: semantic facts meet at the
 readings, and syntactic facts that no law fixes are recorded.
 
 The laws, of which two matter here:

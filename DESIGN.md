@@ -113517,3 +113517,104 @@ warning-free: OK (a run that could have failed)
 `tests/proofdeps.sh` 4965 rows / 12 roots / **doors 0**; `tests/shake.sh`
 510 removals all allowlisted, no demotable public imports.
 
+
+#### PINF: the `ConstWF` fifth clause does NOT deliver the derivation — and the tree already carries the fact it was meant to supply (lane PINF, 2026-09-18)
+
+The decision was taken and the change was measured before it was
+started; the measurement refutes it, in one read, and the replacement is
+cheaper than either.  **Nothing of the `ConstWF` change was built.**
+
+##### (a) THE REFUTATION — `ConstWF` is stated at the CURRENT environment
+
+`EnvWF env` is `∀ c ∈ env.consts, ConstWF env c` (`Verify/EnvWF.lean`) —
+the environment a consumer holds, not the one the constant was inserted
+into.  Its four Bools survive that because they are all ANTITONE in the
+environment or independent of it: `hasFvar`, `allLevelParamsDefined` and
+`looseBVarsBounded` do not mention `env` at all, and `constsResolve` is
+carried forward by `constsResolve_mono`.
+
+`projTablesOk` runs the other way.  Its only environment-sensitive node
+is
+
+```lean
+  | .proj sn i e => (env.findProj? sn i).isSome && e.projTablesOk env
+```
+
+— a `.isSome`, which a LARGER environment satisfies more often.  So
+`projTablesOk env` at the current environment is the WEAK form: a
+container member that is itself a structure has a projection table by
+the time any consumer looks, and the clause would then be satisfied by
+exactly the `.proj M i x` node it was added to exclude.
+
+The derivation the decision named — "at the container's INSERTION
+environment the group's members were `.indInfo` with no projection
+table" — is an insertion-time fact, and `ConstWF` does not remember the
+insertion environment.  **A fifth clause there is true, discharged at
+seventeen `structConstWF` sites, and useless to this consumer.**
+
+##### (b) THE REPLACEMENT, AND IT IS ALREADY IN THE TREE
+
+`FrontDoorFacts` (`Verify/Inductives/FrontDoor.lean`) already carries
+
+```lean
+  slots : Expr.ProjSlotsOk env cvA.type
+```
+
+at the door's OWN environment — the insertion-time one — and
+`RestoredCtor.hfd` hands it at `ENV₁`, the members' prefix environment,
+where the block's members are `.indInfo` and have no projection table.
+That is the fact, at the only place it is true.
+
+So proj-freeness against a group's members is a `ContainerModeled`
+clause in the `ordFree`/`nestArgsMention` family: stated on a
+constructor's opened field domains, discharged at the nine sites from
+the door facts each route already holds, with **no `ConstWF` change, no
+kernel Bool and no new record on the kernel side**.  Priced by analogy
+with `nestArgsMention`, which is the same shape and landed this session:
+about one session, most of it the nine sites.
+
+##### (c) THE WALK'S BOUNDARY, recorded so nobody re-derives it
+
+Two kernel checks pass a `.proj` node whose structure name is one of the
+datatypes being declared, and it is worth naming both.
+
+* `normPosDomM` (`Kernel/Inductives/MutualInstall.lean`) rejects only a
+  Π whose DOMAIN mentions a member; anything else that still mentions
+  one after `whnf` falls into its `| _ => pure w` arm.  A `.proj M i x`
+  is not a Π, so the positivity walk accepts it;
+* `uniformOccNode` (`Kernel/Inductives/NestedParts.lean`) dispatches on
+  `t.getAppFn`, which at a `.proj` node is the `.proj` itself and not a
+  `.const`, so the node answers `some false` and `uniformIndOccsE`
+  descends into the SUBJECT only.  The structure name is never looked
+  at.
+
+Neither is a defect, because a third check catches the case:
+`checkConstantVal`/`checkConstantValPre` run `cv.type.projTablesOk env`
+on every stored type, and at the block's own install a member is
+`.indInfo` with no projection table, so such a node is INVALID there.
+
+**The boundary to remember: proj-freeness against the block's members is
+not a consequence of the positivity walk or of the uniformity walk — it
+comes from `projTablesOk` at the INSERTION environment, and any future
+consumer that wants it pays that same route.**  The walks say nothing
+about a `.proj` node's structure name and were never meant to.
+
+##### (d) STATE AT CLOSE-OUT
+
+* **(A) LANDED** (`9a558b04`) — `ContainerModeled.nestArgsMention`, its
+  three carriers, its nine sites and the three Verify mention lemmas;
+* **proj-freeness** — the replacement clause of (b), not built: the
+  route was refuted after the decision and before any of it was spent;
+* **(ii)** — its three inputs are now the clause (landed), `hmint` (in
+  hand) and the `uniformIndOccsE` mention induction, whose `.fvar` arm
+  is discharged by `ConstWF`'s FIRST conjunct (measured, no gap) and
+  whose `.proj` arm waits on (b);
+* **(iii)** — unstarted, buildable standalone taking `hkA`;
+* **(iv)** — unstarted; it owns the reflexive twin of `nestArgsMention`,
+  which must be spelled on the telescope's BODY (`BlockOpened.nestReflF`)
+  and not on `getAppArgs`;
+* **(v)** — unstarted.
+
+`docs/NESTED.md` §3's stored-versus-derived note now names the landed
+clause, faithfully: a MENTION, carried from the restore, because the
+opened form drops the parameter part.
