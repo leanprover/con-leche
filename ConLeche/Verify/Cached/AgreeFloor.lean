@@ -649,6 +649,108 @@ def nestedSkels (p : NestedParts) (sk : List InstallSkel) : List InstallSkel :=
       recs)
   (List.range p.k).foldl (fun acc m => nestedTableSkelAt p m acc) recsN
 
+/-! ### Reading a BUILT skeleton list back (task #315 M8)
+
+The nested route's walk asks what the SCRATCH install stored, and the
+answer comes out of that install's own skeleton list rather than out of
+its run.  Three structural facts do it: a cons fold whose entries do
+not carry the name is passed over, a cons fold whose entries cannot BE
+the answer is passed over whatever the names are (so a projection table
+that shadowed a constructor's name would contradict the read-back's own
+answer rather than needing to be excluded), and the constructors' fold
+is computed outright at a name the block's `Nodup` makes unique. -/
+
+/-- A cons fold whose entries all carry another name is passed over. -/
+private theorem skFind?_foldl_cons_miss {α : Type} (f : α → InstallSkel) {n : Name} :
+    ∀ (l : List α) (sk : List InstallSkel), (∀ a ∈ l, skelName (f a) ≠ n) →
+      skFind? (l.foldl (fun acc a => f a :: acc) sk) n = skFind? sk n
+  | [], _, _ => rfl
+  | a :: l, sk, h => by
+      rw [List.foldl_cons,
+        skFind?_foldl_cons_miss f l _ (fun x hx => h x (List.mem_cons_of_mem _ hx))]
+      have hne : (skelName (f a) == n) = false := by
+        simpa using h a List.mem_cons_self
+      simp only [skFind?, List.find?_cons, hne]
+
+/-- A cons fold whose entries cannot be the ANSWER is passed over. -/
+private theorem skFind?_foldl_cons_pass {α : Type} (f : α → InstallSkel) {n : Name}
+    {s : InstallSkel} (hs : ∀ a, f a ≠ s) :
+    ∀ (l : List α) (sk : List InstallSkel),
+      skFind? (l.foldl (fun acc a => f a :: acc) sk) n = some s → skFind? sk n = some s
+  | [], _, h => h
+  | a :: l, sk, h => by
+      rw [List.foldl_cons] at h
+      have h' := skFind?_foldl_cons_pass f hs l _ h
+      simp only [skFind?, List.find?_cons] at h'
+      split at h'
+      · exact absurd (Option.some.inj h') (hs a)
+      · exact h'
+
+/-- The constructors' fold, computed: at a name the list carries once,
+the lookup is that constructor's own entry. -/
+private theorem skFind?_sumCtorSkels_hit {nP : Nat} {n : Name} {nF : Nat} :
+    ∀ (cs : List (Name × Nat)) (sk : List InstallSkel), (cs.map (·.1)).Nodup →
+      (n, nF) ∈ cs → skFind? (sumCtorSkels nP cs sk) n = some (.ctor n nP nF)
+  | [], _, _, hm => nomatch hm
+  | (m, mF) :: rest, sk, hnd, hm => by
+      rw [sumCtorSkels, List.foldl_cons]
+      simp only [List.map_cons, List.nodup_cons] at hnd
+      rcases List.mem_cons.mp hm with he | hmr
+      · obtain ⟨rfl, rfl⟩ := Prod.mk.injEq .. ▸ he
+        rw [skFind?_foldl_cons_miss (fun c : Name × Nat => InstallSkel.ctor c.1 nP c.2) rest _
+          (fun c hc hne => hnd.1 (by rw [← hne]; exact List.mem_map_of_mem hc))]
+        simp only [skFind?, List.find?_cons, skelName, beq_self_eq_true]
+      · exact skFind?_sumCtorSkels_hit rest _ hnd.2 hmr
+
+/-- The tables' fold is passed over whenever the answer is not a
+projection table. -/
+private theorem skFind?_tables_pass {b : MutualBlock} {n : Name} {s : InstallSkel}
+    (hs : ∀ m, s ≠ .proj m) :
+    ∀ (l : List ((ConstantVal × Nat) × Nat)) (sk : List InstallSkel),
+      skFind? (l.foldl (fun acc f => mutualTableSkel b f.1.1.name f.1.2 f.2 acc) sk) n = some s →
+      skFind? sk n = some s
+  | [], _, h => h
+  | _ :: l, sk, h => by
+      rw [List.foldl_cons] at h
+      have h' := skFind?_tables_pass hs l _ h
+      unfold mutualTableSkel at h'
+      split at h' <;> try split at h'
+      all_goals
+        first
+          | exact h'
+          | (simp only [skFind?, List.find?_cons] at h'
+             split at h'
+             · exact absurd (Option.some.inj h').symm (hs _)
+             · exact h')
+
+/-- **A CONSTRUCTOR'S NUMBERS, READ OFF THE BLOCK'S SKELETON** (task
+#315 M8): whatever the scratch install stored at a block
+constructor's name carries the block's parameter count and the
+constructor's declared field count — the recursors' and tables' folds
+sit above it in the list, but neither can BE a `.ctor`. -/
+theorem mutualBlockSkels_ctor_data {b : MutualBlock} (hnd : b.blockNames.Nodup)
+    {sk : List InstallSkel} {J : Nat} {c : MutualCtor} (hc : b.ctors[J]? = some c)
+    {nP nF : Nat} {nm : Name}
+    (h : skFind? (mutualBlockSkels b sk) c.cv.name = some (.ctor nm nP nF)) :
+    nP = b.nP ∧ nF = c.nF := by
+  rw [mutualBlockSkels] at h
+  have h1 := skFind?_foldl_cons_pass
+    (fun f : (ConstantVal × Nat) × Nat =>
+      mutualRecSkel b (f.1.1.name.str "rec") f.1.2 ((b.ownCtors f.2).map (·.2.cv.name)))
+    (fun _ => by simp [mutualRecSkel]) _ _
+    (skFind?_tables_pass (b := b) (by simp) _ _ h)
+  have hhit := skFind?_sumCtorSkels_hit (nP := b.nP) (n := c.cv.name) (nF := c.nF)
+    (b.ctors.map fun x => (x.cv.name, x.nF)) (mutualIndSkels b.formers sk)
+    (by
+      have : ((b.ctors.map fun x => (x.cv.name, x.nF)).map (·.1)) = b.ctors.map (·.cv.name) := by
+        simp [List.map_map, Function.comp_def]
+      rw [this]
+      exact (List.nodup_append.mp (List.nodup_append.mp hnd).1).2.1)
+    (List.mem_map_of_mem (List.mem_of_getElem? hc))
+  rw [hhit] at h1
+  obtain ⟨-, h2, h3⟩ := InstallSkel.ctor.injEq .. ▸ (Option.some.inj h1)
+  exact ⟨h2.symm, h3.symm⟩
+
 /-- **WHAT THE READ-BACK READS IS WHAT THE SKELETON PINS** (task #315
 M8, the skeleton assembly's bridge): the scratch install's own
 skeleton fixes the NAME of the constant stored at a member's name, so
