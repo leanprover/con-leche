@@ -109050,3 +109050,119 @@ family (seven theorems) · `bvarsOn`/`shiftP`/`bvarsOn_mono`/
 `tests/proofdeps.sh` doors **0**; `tests/no-local-paths.sh` OK.
 
 Nothing in this section changes the tree's accept set.
+
+#### L-C: the constant-headed closure, STATED — the IH fits, the measure is not what blocks it, and the blocker is the candidate frame (lane L-C, 2026-09-18)
+
+Read-only on the route's substance; two small unconditional lemmas
+landed, named below.  **The tree does not contain the closure**:
+`pins_all_of_measure`, `pins_le_of_declOrder` and `pinLfpAt_le` are
+landed and have NO consumers outside their own file (grepped), so
+nothing here duplicates work.
+
+##### (a) THE OBLIGATION, verbatim
+
+`hentR` of `CopyCtorShape.fit_imp_T_le_dom`
+(`ConLeche/Model/Inductives/NestedFit.lean`), which at the run is the
+CONCLUSION of `nestedPinEntryOut`:
+
+```lean
+hentR : ∀ l, l < Fs.length → rs.getD l false = true →
+  ((dJ.rss i).getD j []).getD l false = false → ¬ (base ≤ tg l ∧ tg l < base + kJ) →
+  ∀ fs₁ : List V, fs₁.length = l → SpineFit ρJ (((dJ.Fss i ψJ).getD j []).take l) fs₁ →
+    interp V (consList fs₁ ρJ) (((dJ.Fss i ψJ).getD j []).getD l default)
+      ⊆ˢ slotSet TV.w (TV.u (tg l)) (consList fs₁ ρp) (tls.getD l []) (Eis.getD l []) (Z (tg l))
+```
+
+At a CONSTANT-HEADED edge — the classification `nestedPinOrderAt`
+makes, `stripDomPis domJ.1` with a `.const` head — and at the CANDIDATE
+frame `frSelf = consList (candAs q) ρp`, the left-hand side is the
+TARGET container's least tuple at the argument values `candArgs` of the
+domain's spine, read at `consList fs₁ frSelf`.  Under
+
+* **(M)** `candArgs = candAs q'` — the TARGET pin's candidate components
+  are the container domain's arguments read at the SOURCE pin's
+  candidate frame —
+
+the obligation reduces to
+
+```lean
+FamLe ((D).idx ψ ρp (p.k + q'))
+  (pinLfpAt st pinsS dJf (f₀.s.eval ψ) ψ ρp (candAs q') q')
+  (lfpTuple ((D).w ψ) (p.k + pinsS.length) ((D).idx ψ ρp) (ΨA ψ ρp) (p.k + q'))
+```
+
+— `pins_le_of_declOrder`'s conclusion at `q'`, so its HYPOTHESIS at `q`
+whenever `ord q' < ord q`, which is K.57's clause.
+
+##### (b) THE IH SHAPE FITS — the feared mismatch is (M), and (M) is not one
+
+The failure mode to look for was a mismatch in what is quantified: the
+IH about the inner pin's carrier, the obligation about `pinLfpAt` at an
+argument mentioning the OUTER candidate.  **It is not that.**  Both
+sides are the same functional — the target container's least tuple — at
+an argument list, so they are the same object exactly when (M) holds;
+and (M) is not a new kind of fact, because pin `q'`'s RECORDED
+components ARE the container domain's arguments instantiated at pin
+`q`'s components.  The candidate images then agree as soon as the
+candidate substitution commutes with `AnnotTerm.instAll`, which is the
+commutation `interp_instAll` already performs at the true frame.
+
+**The one real risk in (M) is `fs₁`**: `candArgs` is read under the
+earlier field values and `candAs q'` is not, so a pin whose components
+read a constructor field variable would break it.  K.30 excludes that —
+`pinsScoped` is `st.pins.all fun q => q.pin.looseBVarsBounded 0 && …`,
+carried as `NestedPinsRun.hscoped` — but the DESCENT of closedness from
+the pin expression to its argument spine is not proved in the tree.
+That is the side condition (M) must be proved under, and it is named
+here so the producer's row can carry it.
+
+##### (c) WHAT BLOCKS IT — not the measure, and this is the finding
+
+At the RECORDED frame the declaration-order induction **provably cannot
+run**, and the reason is not the constant-headed arm at all.
+`nestedPinEntryOut` discharges `hentR` at EVERY not-own pin-target edge
+uniformly from `S (tg l - p.k)` — through `hsh.ordF`'s right arm,
+`nestedTargetReads_L` and `copyEntryAt_of_read`, with **no analysis of
+the domain's head anywhere** — so `S` would have to cover the
+PARAMETER-headed edges too.  Declaration order does not cover them: at
+`tests/e2e/nested_p22.ndjson` the stream declares `Nat, P22T, List,
+P22`, so `P22T` is EARLIER than `List`, while the edge runs
+`q = 0 (P22T) → pin 1 (List)` — the order INCREASES along it.  (Both
+are lane L-E's probe measurements as recorded above; this lane
+re-derived neither.)
+
+So K.57's deliberate silence at a parameter-headed edge is not a gap in
+the record: it is the record being exactly as strong as the candidate
+frame makes it possible to be.  **The candidate frame is a PREMISE of
+the constant-headed arm, not an optimisation of it**, and `candAs` has
+no producer on any branch.
+
+**Construction gap, not a design gap.**  Every piece the induction needs
+exists and is of the right shape — the measure (`pins_all_of_measure`),
+its instance at the declaration order (`pins_le_of_declOrder`), the
+leastness (`pinLfpAt_le`), the kernel order (K.57 on
+`agent/uniform-m5`) and now the arm's arithmetic (below).  The missing
+object is a value family and its law (M).
+
+##### (d) LANDED, both unconditional and both with their consumer named
+
+* `copyEntryAtF_le_of_app` / `copyEntryAtF_le_of_famLe`
+  (`NestedFit.lean`, beside `slotSet_mono_app`) — the constant-headed
+  arm's ARITHMETIC: an entry identity at the target's own carrier `P`
+  plus `P ≤ Z` at the target gives `hentR` at `Z`.  The `_famLe` form
+  takes the induction hypothesis in the shape `pins_le_of_declOrder`
+  hands it out (`FamLe`, with `lfpTuple_mem` for the family-space
+  side).  The frame is universally quantified, so the same lemma serves
+  the recorded frame and a candidate one;
+* `nestedPinEq_at_of_le` (`NestedPinLeafAll.lean`) — step (ii) AT ONE
+  PIN.  An induction step is handed the INCLUSION at the pins already
+  settled, while every entry lemma below (`nestedPinEntryOut`,
+  `nestedInstanceLe`, `nestedPinInstLe`) takes an EQUALITY
+  `Pf q' = L⁺ (p.k + q')`; `nestedPinsFixed` supplies the converse
+  unconditionally and per pin, so the upgrade is per pin too — which is
+  precisely what the ∀-quantified `nestedPinsEq_of_le` could not give a
+  step that may not assume its own conclusion.  `nestedPinsEq_of_le` is
+  now this lemma pointwise, so the generalisation is conservative by
+  the elaborator's verdict.
+
+Nothing here changes the tree's accept set.

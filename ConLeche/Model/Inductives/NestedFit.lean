@@ -1216,6 +1216,60 @@ theorem slotSet_mono_app {w u : Nat} {ρ : Nat → V} {tl : List (Nat × Nat × 
   unfold slotSet
   exact piTele_mono fun bs _ => h _
 
+/-- **`hentR` AT ONE FIELD, FROM AN ENTRY IDENTITY AT ANOTHER FAMILY**
+(task #315 L-C, the constant-headed step's arithmetic): if the
+container's field domain, read at whatever frame `fr` the statement
+stands at, IS the copy's slot at a family `P`, and `P` lies under `Z` at
+the field's target, then the domain lies under the copy's slot at `Z` —
+which is exactly the `hentR` of `CopyCtorShape.fit_imp_T_le_dom` at that
+field.
+
+**What it is for, named.**  `hentR` is step (iii)'s only cross-pin
+obligation (DESIGN, the adjudication of 2026-09-18).  At a copy-recursive
+field whose container kind is ordinary and whose target `tg l` is a pin
+outside the group, the two inputs decompose as:
+
+* `hent` — the ENTRY IDENTITY at the target's OWN carrier.  At a
+  CONSTANT-HEADED container domain (`Array`'s field `List α`, at a
+  candidate frame sending `α` to the block's auxiliary carrier) that
+  carrier is the target container's least tuple at those arguments —
+  the target pin's `pinLfpAt`, which is why the identity is available
+  without any fact at another pin;
+* `hle` — the INDUCTION HYPOTHESIS at the target pin, `P (tg l)` under
+  `Z (tg l)`, which is `pins_le_of_declOrder`'s hypothesis read through
+  `app_subset_of_famLe`.
+
+So this lemma is where the declaration-order induction's conclusion at
+the INNER pin turns into the outer pin's `hentR`, and it is the only
+step of that arm that is arithmetic rather than syntactic.  It says
+nothing about the frame: `fr` is universally quantified, so the same
+lemma serves the recorded frame and a candidate one. -/
+theorem copyEntryAtF_le_of_app {fr : Nat → V} {w : Nat} {u : Nat → Nat} {P Z : Nat → V} {l : Nat}
+    (hent : CopyEntryAtF (V := V) dJ ψJ tg tls Eis ρp i j fr w u P l)
+    (hle : ∀ t', SetTheory.app (P (tg l)) t' ⊆ˢ SetTheory.app (Z (tg l)) t') :
+    ∀ fs₁ : List V, fs₁.length = l →
+      SpineFit fr (((dJ.Fss i ψJ).getD j []).take l) fs₁ →
+      interp V (consList fs₁ fr) (((dJ.Fss i ψJ).getD j []).getD l default)
+        ⊆ˢ slotSet w (u (tg l)) (consList fs₁ ρp) (tls.getD l []) (Eis.getD l []) (Z (tg l)) := by
+  intro fs₁ hl₁ hsp
+  rw [hent fs₁ hl₁ hsp]
+  exact slotSet_mono_app hle
+
+/-- **The same, with the induction hypothesis in its OWN shape** (task
+#315 L-C): `pins_le_of_declOrder` concludes a `FamLe` at the target
+pin's index set, and `lfpTuple_mem` puts the target's least tuple in
+that index set's family space, so the two hypotheses this takes are
+literally what the induction step holds. -/
+theorem copyEntryAtF_le_of_famLe {fr : Nat → V} {w wI : Nat} {u : Nat → Nat} {P Z : Nat → V}
+    {I : V} {l : Nat}
+    (hent : CopyEntryAtF (V := V) dJ ψJ tg tls Eis ρp i j fr w u P l)
+    (hmem : P (tg l) ∈ˢ famSpace wI I) (hIH : FamLe I (P (tg l)) (Z (tg l))) :
+    ∀ fs₁ : List V, fs₁.length = l →
+      SpineFit fr (((dJ.Fss i ψJ).getD j []).take l) fs₁ →
+      interp V (consList fs₁ fr) (((dJ.Fss i ψJ).getD j []).getD l default)
+        ⊆ˢ slotSet w (u (tg l)) (consList fs₁ ρp) (tls.getD l []) (Eis.getD l []) (Z (tg l)) :=
+  copyEntryAtF_le_of_app hent (app_subset_of_famLe hmem hIH)
+
 theorem CopyCtorShape.fit_imp_T_le_dom {env : Env} {m : EnvModel V env} {pc : Nat → PinCtors V}
     {T : Nat → V}
     (hreps : IsBlockModels m dJ)
