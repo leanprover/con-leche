@@ -1,6 +1,7 @@
 module
 
 public import ConLeche.Verify.Inductives.NestedRestoreOpen
+import ConLeche.Verify.AbstractRange
 import ConLeche.Verify.Inductives.NestedCopyTele
 import ConLeche.Verify.Subst
 import ConLeche.Verify.InstLevels
@@ -545,5 +546,374 @@ theorem instPisILP_frame {ks : List Name} {us : List Level} {T : Expr}
       (by rw [Expr.hasFvar_instantiateLevelParams]; exact hf)] at hl'
     exact nomatch hl'
   · exact hlv a ha l hal
+
+/-! ## The openers, replaced by the components (task #315 L-B, DESIGN §U.76)
+
+`mkCopy` instantiates a container constructor's parameter telescope at
+a pin's COMPONENTS, while the restore table closes a recorded pin at
+the block's parameter OPENERS (`restoreTbl`:
+`Expr.abstractRange q.pin 0 p.nP 0`).  Lane M7-3's
+`ContainerOwnPinsSyn.toRead` reads a recorded pin at ANOTHER
+instantiation, and needs the two to be one substitution: **the
+identity run, closed at the openers and re-opened at an argument
+list, is the run at that list** (DESIGN §U.73 (d) (C), the law lane
+M7-3 asked for).
+
+The bridge is a simultaneous `fvar` substitution.  `substFvarList` is
+it; `instSeq_abstractRange_substFvarList` says the
+`abstractRange`-then-`instSeq` round trip IS that substitution (the
+exact-roundtrip lemma `instSeq_abstractRange_fvs` is its special case
+at the openers themselves), and `instPis_substFvarList` says it
+commutes with a telescope instantiation.  `instPis_openers_subst`
+composes the two. -/
+
+/-- **A SIMULTANEOUS `fvar` SUBSTITUTION**: the `j`-th free variable
+becomes the `j`-th entry of `as`, and a variable past the list stays
+put, annotation and all.  As in `Expr.abstractRange` (and
+`Expr.abstract1`) the walk does not descend into a `fvar`'s type
+annotation — which is what makes it the composite of the two.
+
+`@[expose]`: lane M7-3's `ContainerOwnPinsSyn.toRead` reads a pin off
+the instantiated recursor type node by node, so the consumer unfolds
+this walk. -/
+@[expose] def substFvarList (as : List Expr) : Expr → Expr
+  | .bvar i => .bvar i
+  | .fvar idx ty => (as[idx]?).getD (.fvar idx ty)
+  | .sort u => .sort u
+  | .const n us => .const n us
+  | .app f b => .app (substFvarList as f) (substFvarList as b)
+  | .lam ty body m => .lam (substFvarList as ty) (substFvarList as body) m
+  | .forallE ty body m => .forallE (substFvarList as ty) (substFvarList as body) m
+  | .letE ty val body =>
+    .letE (substFvarList as ty) (substFvarList as val) (substFvarList as body)
+  | .lit l => .lit l
+  | .proj s i e => .proj s i (substFvarList as e)
+
+/-- A term with no free variable is untouched. -/
+theorem substFvarList_eq_self (as : List Expr) :
+    ∀ {e : Expr}, e.hasFvar = false → substFvarList as e = e := by
+  intro e
+  induction e with
+  | fvar idx ty _ => intro h; exact nomatch h
+  | _ => intro h <;> simp_all [substFvarList, Expr.hasFvar]
+
+/-- The substitution's own values are closed (a variable past the list
+is its own, and a `fvar` has no loose bound variable). -/
+private theorem substFvarList_fvar_bounded {as : List Expr}
+    (hcl : ∀ a ∈ as, a.looseBVarsBounded 0 = true) (idx : Nat) (ty : Expr) :
+    ((as[idx]?).getD (Expr.fvar idx ty)).looseBVarsBounded 0 = true := by
+  rcases h : as[idx]? with _ | a
+  · rfl
+  · simpa using hcl a (List.mem_of_getElem? h)
+
+/-- **THE SUBSTITUTION COMMUTES WITH OPENING A BINDER**: the values
+are closed, so the opening does not reach into them. -/
+theorem substFvarList_instantiate1 {as : List Expr}
+    (hcl : ∀ a ∈ as, a.looseBVarsBounded 0 = true) :
+    ∀ (e v : Expr) (t : Nat),
+      substFvarList as (e.instantiate1 v t)
+        = (substFvarList as e).instantiate1 (substFvarList as v) t := by
+  intro e
+  induction e with
+  | bvar i =>
+    intro v t
+    by_cases h1 : i = t
+    · subst h1; simp [Expr.instantiate1, substFvarList]
+    · by_cases h2 : i > t <;>
+        simp [Expr.instantiate1, substFvarList, h1, h2]
+  | fvar idx ty _ =>
+    intro v t
+    show substFvarList as (Expr.fvar idx ty) = _
+    exact (Expr.instantiate1_eq_self
+      (Expr.looseBVarsBounded_mono (Nat.zero_le t)
+        (substFvarList_fvar_bounded hcl idx ty))).symm
+  | app f b ihf ihb =>
+    intro v t
+    simp only [Expr.instantiate1, substFvarList, ihf, ihb]
+  | lam ty body m ihty ihb =>
+    intro v t
+    simp only [Expr.instantiate1, substFvarList, ihty, ihb]
+  | forallE ty body m ihty ihb =>
+    intro v t
+    simp only [Expr.instantiate1, substFvarList, ihty, ihb]
+  | letE ty val body ihty ihv ihb =>
+    intro v t
+    simp only [Expr.instantiate1, substFvarList, ihty, ihv, ihb]
+  | proj s i x ih =>
+    intro v t
+    simp only [Expr.instantiate1, substFvarList, ih]
+  | _ => intro v t; rfl
+
+/-- **THE SUBSTITUTION COMMUTES WITH A TELESCOPE INSTANTIATION**: the
+same `∀`-binders are peeled on both sides, and each argument is
+substituted in. -/
+theorem instPis_substFvarList {as : List Expr}
+    (hcl : ∀ a ∈ as, a.looseBVarsBounded 0 = true) :
+    ∀ (args : List Expr) (e r : Expr), Expr.instPis e args = some r →
+      Expr.instPis (substFvarList as e) (args.map (substFvarList as))
+        = some (substFvarList as r) := by
+  intro args
+  induction args with
+  | nil =>
+    intro e r h
+    simp only [Expr.instPis, Option.some.injEq] at h
+    subst h
+    rfl
+  | cons a args ih =>
+    intro e r h
+    match e with
+    | .forallE ty body m =>
+      show Expr.instPis (Expr.forallE (substFvarList as ty) (substFvarList as body) m)
+        ((a :: args).map (substFvarList as)) = _
+      show Expr.instPis ((substFvarList as body).instantiate1 (substFvarList as a) 0)
+        (args.map (substFvarList as)) = _
+      rw [← substFvarList_instantiate1 hcl body a 0]
+      exact ih _ r h
+    | .bvar _ | .fvar .. | .sort _ | .const .. | .app .. | .lam .. | .letE .. | .lit _
+    | .proj .. => exact nomatch h
+
+/-! ### The instantiation sequence, node by node
+
+`Expr.instSeq_forallE` and `Expr.instSeq_app` (`Verify/Subst.lean`)
+and `instSeq_bvar_below` above are in the tree; the three remaining
+node shapes the round trip below walks through are not, and are proved
+here in their spelling. -/
+
+/-- Peel `instSeq` through a `λ`-binder (the `∀` twin of
+`Expr.instSeq_forallE`). -/
+private theorem instSeq_lam' : ∀ (args : List Expr) (t : Nat) (d b : Expr) (m : BinderMeta),
+    args.length ≤ t + 1 →
+    Expr.instSeq args t (.lam d b m)
+      = .lam (Expr.instSeq args t d) (Expr.instSeq args (t + 1) b) m := by
+  intro args
+  induction args with
+  | nil => intro t d b m _; rfl
+  | cons a as ih =>
+    intro t d b m hlen
+    simp only [List.length_cons] at hlen
+    show Expr.instSeq as (t - 1)
+      (.lam (d.instantiate1 a t) (b.instantiate1 a (t + 1)) m) = _
+    rw [ih (t - 1) (d.instantiate1 a t) (b.instantiate1 a (t + 1)) m (by omega)]
+    show Expr.lam (Expr.instSeq as (t - 1) (d.instantiate1 a t))
+        (Expr.instSeq as (t - 1 + 1) (b.instantiate1 a (t + 1))) m
+      = Expr.lam (Expr.instSeq as (t - 1) (d.instantiate1 a t))
+        (Expr.instSeq as (t + 1 - 1) (b.instantiate1 a (t + 1))) m
+    cases as with
+    | nil => rfl
+    | cons a2 as2 => rw [show t - 1 + 1 = t + 1 - 1 from by simp only [List.length_cons] at hlen; omega]
+
+/-- Peel `instSeq` through a `let` (only the body is under a binder). -/
+private theorem instSeq_letE' : ∀ (args : List Expr) (t : Nat) (ty v b : Expr),
+    args.length ≤ t + 1 →
+    Expr.instSeq args t (.letE ty v b)
+      = .letE (Expr.instSeq args t ty) (Expr.instSeq args t v) (Expr.instSeq args (t + 1) b) := by
+  intro args
+  induction args with
+  | nil => intro t ty v b _; rfl
+  | cons a as ih =>
+    intro t ty v b hlen
+    simp only [List.length_cons] at hlen
+    show Expr.instSeq as (t - 1)
+      (.letE (ty.instantiate1 a t) (v.instantiate1 a t) (b.instantiate1 a (t + 1))) = _
+    rw [ih (t - 1) (ty.instantiate1 a t) (v.instantiate1 a t) (b.instantiate1 a (t + 1))
+      (by omega)]
+    show Expr.letE (Expr.instSeq as (t - 1) (ty.instantiate1 a t))
+        (Expr.instSeq as (t - 1) (v.instantiate1 a t))
+        (Expr.instSeq as (t - 1 + 1) (b.instantiate1 a (t + 1)))
+      = Expr.letE (Expr.instSeq as (t - 1) (ty.instantiate1 a t))
+        (Expr.instSeq as (t - 1) (v.instantiate1 a t))
+        (Expr.instSeq as (t + 1 - 1) (b.instantiate1 a (t + 1)))
+    cases as with
+    | nil => rfl
+    | cons a2 as2 => rw [show t - 1 + 1 = t + 1 - 1 from by simp only [List.length_cons] at hlen; omega]
+
+/-- `instSeq` distributes over a projection. -/
+private theorem instSeq_proj' : ∀ (args : List Expr) (t : Nat) (s : Name) (i : Nat) (x : Expr),
+    Expr.instSeq args t (.proj s i x) = .proj s i (Expr.instSeq args t x) := by
+  intro args
+  induction args with
+  | nil => intro t s i x; rfl
+  | cons a as ih =>
+    intro t s i x
+    show Expr.instSeq as (t - 1) (.proj s i (x.instantiate1 a t)) = _
+    rw [ih]
+    rfl
+
+/-- The substitution distributes over an application spine — which is
+how a recorded pin's components are reached from the instantiated
+major-premise domain (`containerOwnPinsAtGo`: the head and the first
+`nP` arguments of `dom`). -/
+theorem substFvarList_mkAppN (as : List Expr) :
+    ∀ (f : Expr) (args : List Expr),
+      substFvarList as (Expr.mkAppN f args)
+        = Expr.mkAppN (substFvarList as f) (args.map (substFvarList as))
+  | _, [] => rfl
+  | f, a :: args => by
+    show substFvarList as (Expr.mkAppN (.app f a) args) = _
+    rw [substFvarList_mkAppN as (.app f a) args]
+    rfl
+
+/-- An empty substitution is the identity (as is an empty
+abstraction range: `abstractRange_zero`). -/
+private theorem substFvarList_nil : ∀ e : Expr, substFvarList [] e = e := by
+  intro e
+  induction e with
+  | fvar idx ty _ => rfl
+  | _ => simp_all [substFvarList]
+
+/-- **THE ROUND TRIP AT ANOTHER ARGUMENT LIST** (task #315 L-B, DESIGN
+§U.76): closing the leading `nP` free variables above `c` loose
+binders and re-opening them at `as` IS the simultaneous substitution
+of `as` for them — `instSeq_abstractRange_fvs` at `as` the openers
+themselves is the special case where the substitution is the identity.
+The values are closed and the term's loose bound variables stay below
+the cursor, so the two ranges of bound variables never meet. -/
+theorem instSeq_abstractRange_substFvarList (as : List Expr) (nP : Nat)
+    (hlen : as.length = nP) (hcl : ∀ a ∈ as, a.looseBVarsBounded 0 = true) :
+    ∀ (e : Expr) (c : Nat), e.looseBVarsBounded c = true →
+      Expr.instSeq as (nP + c - 1) (e.abstractRange 0 nP c) = substFvarList as e := by
+  rcases Nat.eq_zero_or_pos nP with hz | hpos
+  · subst hz
+    obtain rfl : as = [] := List.eq_nil_of_length_eq_zero hlen
+    intro e c _
+    show e.abstractRange 0 0 c = substFvarList [] e
+    rw [ConLeche.abstractRange_zero, substFvarList_nil]
+  intro e
+  induction e with
+  | bvar i =>
+    intro c hb
+    simp only [Expr.looseBVarsBounded, decide_eq_true_eq] at hb
+    show Expr.instSeq as (nP + c - 1) (Expr.bvar i) = _
+    rw [instSeq_bvar_below as (nP + c - 1) i (by rw [hlen]; omega)]
+    rfl
+  | fvar idx ty _ =>
+    intro c _
+    by_cases hr : idx < nP
+    · show Expr.instSeq as (nP + c - 1)
+        (if 0 ≤ idx ∧ idx < 0 + nP then Expr.bvar (c + (0 + nP - 1 - idx))
+          else Expr.fvar idx ty) = _
+      rw [if_pos (by omega)]
+      have hj : c + (0 + nP - 1 - idx) ≤ nP + c - 1 := by omega
+      have hr' : nP + c - 1 - (c + (0 + nP - 1 - idx)) < as.length := by rw [hlen]; omega
+      have hb := Expr.instSeq_bvar as (nP + c - 1) (c + (0 + nP - 1 - idx)) hcl hj hr'
+      rw [show nP + c - 1 - (c + (0 + nP - 1 - idx)) = idx from by omega] at hb
+      show _ = (as[idx]?).getD (Expr.fvar idx ty)
+      rw [hb]
+      rfl
+    · show Expr.instSeq as (nP + c - 1)
+        (if 0 ≤ idx ∧ idx < 0 + nP then Expr.bvar (c + (0 + nP - 1 - idx))
+          else Expr.fvar idx ty) = _
+      rw [if_neg (by omega)]
+      rw [Expr.instSeq_eq_self as (nP + c - 1) (by rfl)]
+      show _ = (as[idx]?).getD (Expr.fvar idx ty)
+      rw [List.getElem?_eq_none (by rw [hlen]; omega)]
+      rfl
+  | app f b ihf ihb =>
+    intro c hb
+    simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
+    show Expr.instSeq as (nP + c - 1)
+      (Expr.app (f.abstractRange 0 nP c) (b.abstractRange 0 nP c)) = _
+    rw [Expr.instSeq_app, ihf c hb.1, ihb c hb.2]
+    rfl
+  | lam ty body m ihty ihb =>
+    intro c hb
+    simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
+    show Expr.instSeq as (nP + c - 1)
+      (Expr.lam (ty.abstractRange 0 nP c) (body.abstractRange 0 nP (c + 1)) m) = _
+    rw [instSeq_lam' as (nP + c - 1) _ _ m (by rw [hlen]; omega),
+      show nP + c - 1 + 1 = nP + (c + 1) - 1 from by omega,
+      ihty c hb.1, ihb (c + 1) hb.2]
+    rfl
+  | forallE ty body m ihty ihb =>
+    intro c hb
+    simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
+    show Expr.instSeq as (nP + c - 1)
+      (Expr.forallE (ty.abstractRange 0 nP c) (body.abstractRange 0 nP (c + 1)) m) = _
+    rw [Expr.instSeq_forallE as (nP + c - 1) _ _ m (by rw [hlen]; omega),
+      show nP + c - 1 + 1 = nP + (c + 1) - 1 from by omega,
+      ihty c hb.1, ihb (c + 1) hb.2]
+    rfl
+  | letE ty val body ihty ihv ihb =>
+    intro c hb
+    simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
+    show Expr.instSeq as (nP + c - 1)
+      (Expr.letE (ty.abstractRange 0 nP c) (val.abstractRange 0 nP c)
+        (body.abstractRange 0 nP (c + 1))) = _
+    rw [instSeq_letE' as (nP + c - 1) _ _ _ (by rw [hlen]; omega),
+      show nP + c - 1 + 1 = nP + (c + 1) - 1 from by omega,
+      ihty c hb.1.1, ihv c hb.1.2, ihb (c + 1) hb.2]
+    rfl
+  | proj s i x ih =>
+    intro c hb
+    show Expr.instSeq as (nP + c - 1) (Expr.proj s i (x.abstractRange 0 nP c)) = _
+    rw [instSeq_proj' as (nP + c - 1) s i _, ih c hb]
+    rfl
+  | _ =>
+    intro c _
+    rw [Expr.instSeq_eq_self as (nP + c - 1) (by rfl)]
+    rfl
+
+/-- **THE IDENTITY RUN, RE-OPENED AT THE COMPONENTS, IS THE RUN AT THE
+COMPONENTS** (task #315 L-B, DESIGN §U.76 — the law lane M7-3's
+`ContainerOwnPinsSyn.toRead` consumes, DESIGN §U.73 (d) (C)):
+instantiating a closed `∀`-telescope at the block's parameter OPENERS
+(and a closed pad), closing the openers again and re-opening at `Ds`
+is instantiating it at `Ds` (and the same pad) in the first place.
+
+The telescope is closed (`hf`, `hb`: `mkCopy` runs on a STORED
+constructor type), the components are closed (`hDcl`, the elimination
+rejects a loose bound variable in a component) and so is the pad
+(`hpadb`, `hpadf`: the mimic's extra binders are instantiated at
+sorts), which is what keeps the abstraction's range to the openers. -/
+theorem instPis_openers_subst {T : Expr} {nP : Nat} {params pad Ds : List Expr} {R₀ : Expr}
+    (hf : T.hasFvar = false) (hb : T.looseBVarsBounded 0 = true)
+    (hplen : params.length = nP)
+    (hidx : ∀ j, j < nP → ∃ ty, params[j]? = some (Expr.fvar j ty))
+    (hDlen : Ds.length = nP) (hDcl : ∀ a ∈ Ds, a.looseBVarsBounded 0 = true)
+    (hpadb : ∀ a ∈ pad, a.looseBVarsBounded 0 = true)
+    (hpadf : ∀ a ∈ pad, a.hasFvar = false)
+    (h0 : Expr.instPis T (params ++ pad) = some R₀) :
+    Expr.instPis T (Ds ++ pad)
+      = some (Expr.instSeq Ds (nP - 1) (R₀.abstractRange 0 nP 0)) := by
+  -- the arguments, substituted: the openers become the components, the pad stays
+  have hmap : (params ++ pad).map (substFvarList Ds) = Ds ++ pad := by
+    rw [List.map_append]
+    congr 1
+    · refine List.ext_getElem (by rw [List.length_map, hplen, hDlen]) ?_
+      intro n h1 h2
+      rw [List.getElem_map]
+      have hn : n < nP := by rw [List.length_map, hplen] at h1; exact h1
+      obtain ⟨ty, hty⟩ := hidx n hn
+      rw [List.getElem?_eq_getElem (by rw [hplen]; exact hn)] at hty
+      rw [(by simpa using hty : params[n] = Expr.fvar n ty)]
+      show (Ds[n]?).getD (Expr.fvar n ty) = _
+      rw [List.getElem?_eq_getElem (by rw [hDlen]; exact hn)]
+      rfl
+    · refine List.ext_getElem (by rw [List.length_map]) ?_
+      intro n h1 _
+      rw [List.getElem_map]
+      exact substFvarList_eq_self Ds (hpadf _ (List.getElem_mem _))
+  -- the run at the components, by the commutation
+  have hrun := instPis_substFvarList hDcl (params ++ pad) T R₀ h0
+  rw [substFvarList_eq_self Ds hf, hmap] at hrun
+  rw [hrun]
+  -- the identity run is closed, so the round trip is the substitution
+  have hb0 : R₀.looseBVarsBounded 0 = true := by
+    refine looseBVarsBounded_instPis (params ++ pad) T R₀ hb (fun a ha => ?_) h0
+    rcases List.mem_append.mp ha with ha | ha
+    · obtain ⟨n, hn⟩ := List.getElem?_of_mem ha
+      obtain ⟨ty, hty⟩ := hidx n (by
+        have : n < params.length := by
+          rcases Nat.lt_or_ge n params.length with h | h
+          · exact h
+          · rw [List.getElem?_eq_none h] at hn; exact nomatch hn
+        omega)
+      rw [hty] at hn
+      rw [← Option.some.inj hn]
+      rfl
+    · exact hpadb a ha
+  have := instSeq_abstractRange_substFvarList Ds nP hDlen hDcl R₀ 0 hb0
+  rw [show nP + 0 - 1 = nP - 1 from by omega] at this
+  rw [this]
 
 end ConLeche
