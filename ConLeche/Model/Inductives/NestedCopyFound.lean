@@ -328,17 +328,25 @@ theorem denoteMeta_some_found_of_mentionsConst :
 constant: `mentionsConstRead` stops at a variable but never at a
 `.const`, and the spine's head is reached through its `.app` nodes. -/
 theorem mentionsConstRead_getAppFn {us : List Level} :
-    ∀ (e : Expr), e.getAppFn = Expr.const n us → mentionsConstRead n e = true
-  | .app f _, h => by
-      simp only [mentionsConstRead, Bool.or_eq_true]
-      exact Or.inl (mentionsConstRead_getAppFn f h)
-  | .const _ _, h => by
-      simp only [Expr.getAppFn, Expr.const.injEq] at h
-      simp [mentionsConstRead, h.1]
-  | .bvar _, h | .sort _, h | .lit _, h | .fvar _ _, h
-  | .lam _ _ _, h | .forallE _ _ _, h | .letE _ _ _, h | .proj _ _ _, h => by
-      simp only [Expr.getAppFn] at h
-      exact nomatch h
+    ∀ (e : Expr), e.getAppFn = Expr.const n us → mentionsConstRead n e = true := by
+  intro e
+  induction e with
+  | app f a ihf _ =>
+    intro h
+    simp only [mentionsConstRead, Bool.or_eq_true]
+    exact Or.inl (ihf h)
+  | const m us' =>
+    intro h
+    have h' : Expr.const m us' = Expr.const n us := h
+    simp only [mentionsConstRead, (Expr.const.inj h').1, beq_self_eq_true]
+  | bvar i => intro h; exact nomatch (h : Expr.bvar i = Expr.const n us)
+  | sort u => intro h; exact nomatch (h : Expr.sort u = Expr.const n us)
+  | lit l => intro h; exact nomatch (h : Expr.lit l = Expr.const n us)
+  | fvar i ty _ => intro h; exact nomatch (h : Expr.fvar i ty = Expr.const n us)
+  | lam ty bo m _ _ => intro h; exact nomatch (h : Expr.lam ty bo m = Expr.const n us)
+  | forallE ty bo m _ _ => intro h; exact nomatch (h : Expr.forallE ty bo m = Expr.const n us)
+  | letE ty v bo _ _ _ => intro h; exact nomatch (h : Expr.letE ty v bo = Expr.const n us)
+  | proj sn i x _ => intro h; exact nomatch (h : Expr.proj sn i x = Expr.const n us)
 
 /-- **A TERM THE ENVIRONMENT READS IS NOT HEADED BY A NAME IT DOES NOT
 HAVE** (task #315 L-B): the copy-freeness side condition of the
