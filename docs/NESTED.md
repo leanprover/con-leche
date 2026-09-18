@@ -149,11 +149,22 @@ For every installed inductive the model keeps a *block model*
   container's name and the components `s⃗` (both as syntax and as
   readings), and a *pin carrier* `pinCar_i(X⃗)` — the pin's slot as a
   function of the members' tuple;
+* **the auxiliary block's constructor data at every component** — the
+  members' as always, and one *copy record* per pin (the container's
+  constructors instantiated at the pin: field domains, recursive flags,
+  field targets in `members ++ pins`, telescopes, index expressions,
+  result readings, injection).  Together they give a constructor
+  decomposition at each of the `k + n` components, which is what
+  reading `Ψ_d` fibrewise needs;
 
 and the laws it satisfies, of which two matter here:
 
     leaf:     ⟦T_j(a⃗)⟧  =  (μX⃗. Φ_d(a⃗)(X⃗))_j                                      (the definition of §1)
     pinLeaf:  ⟦J_i(s⃗_i[a⃗, μΦ_d(a⃗)])⟧  =  pinCar_i(μΦ_d(a⃗))                       (the entry law)
+    fibre:    x ∈ Φ_d(a⃗)(X⃗)_j(t)  ⟺  x = c(f⃗), c a constructor of member j whose fields
+              fit at X⃗ and whose index expressions read t                      (the narrow fibre)
+    auxFibre: x ∈ Ψ_d(a⃗)(Z⃗)_c(t)  ⟺  the same at COMPONENT c — a member's row or a
+              copy's — with every recursive field read at Z_{tgt} ITSELF        (the wide fibre)
 
 `pinLeaf` says: the *container applied to the pin's components*, read at
 the true carrier, is exactly the pin's slot.  It is what makes the restored
@@ -174,6 +185,15 @@ are *laws of the block model*, so the wide operator is not lost when the
 construction ends: a later block that uses `T` as a container reads
 `Ψ_d` off `T`'s stored model.  §5 is what that buys.  A block with no
 pins is its own wide operator, and both laws are trivial there.
+
+The two fibres stand in the same relation: `fibre` IS `auxFibre` at a
+member and at the *extended* tuple `(X⃗, pinCar(X⃗))`, and that is a
+theorem, not a second assumption — the class readers are the members'
+there and the class fit over the extended tuple is the member's fit at
+`X⃗`.  What the narrow one cannot do is the converse: it says nothing
+at a tuple that is not extended, and a container instance's copies
+inside a later block are read at exactly such tuples.  Hence `auxFibre`
+is the stored law and `fibre` its restriction.
 
 ## 4. The proof: discharging `pinLeaf`
 
@@ -312,7 +332,12 @@ each checked against the tree:
   constructor decomposition at every component, members and pins
   alike, which is the auxiliary block's constructor data.  That is a
   representation change, not an annotation, and it is the real price
-  of Resolution 1.
+  of Resolution 1.  **It is paid**: the block model carries one copy
+  record per pin and the law `auxFibre` (§3), the narrow `fibre` is now
+  a theorem about it, and a block with no pins discharges the wide law
+  from the narrow one.  A second, cheap clause came with it — that a
+  pin component's index-tuple set IS the pin's, which nothing in the
+  earlier laws forced.
 
 What survives Resolution 1 is smaller and no longer an ordering problem
 *within* an instance: the identification at an instance's *root* pin is
@@ -367,8 +392,10 @@ Resolution 1 needs.
 | (B-set), (B-whole) at an index set | `lfpTuple_set`, `lfpTuple_set_congr` (same file; `setJoin`, `setSec`) |
 | (B-at) | `lfpTuple_seg_congr_at`, `lfpTuple_eq_of_at` |
 | (compose): narrow from wide | `composeΦ`, `pinsCar`, `lfpTuple_composeΦ`; `ofNested` in `Model/Inductives/BlockComposed.lean` |
-| the block model and its laws | `BlockModel`, `IsBlockModel` (`leaf`, `pinLeaf`, `functor`, `pinMono`) in `Model/Inductives/BlockRep.lean` |
+| the block model and its laws | `BlockModel`, `IsBlockModel` (`leaf`, `pinLeaf`, `functor`, `fibre`, `pinMono`) in `Model/Inductives/BlockRep.lean` |
 | the wide operator, stored | `BlockModel.Ψaux` with `auxFunctor`, `auxCompose`, `auxPinsCar` (same file) |
+| the copies' constructor data | `PinCtors`, the field `BlockModel.pinCtors`, the class readers `ctorsT`/`FssT`/`tgtsT`/`slotAtT`/`ChainFitT` (same file) |
+| the wide fibre | `IsBlockModel.auxFibre`, `auxPinIdx`; `BlockModel.fibre_of_auxFibre`, `auxFibre_of_noPins` (same file) |
 | the expansion | `replaceIfNested`, `mkCopies`, the worklist `elimLoop` in `Kernel/Inductives/NestedElim.lean`; `checkNested` in `Kernel/Inductives/NestedInstall.lean` |
 | the pin table | `NestedPin` (`grpBase`, `grpSize`, components), read back as `NestedPinSynFacts` |
 | the aux block's install | `checkMutualCore` on `{T⃗, J'⃗}` in a scratch environment |
@@ -394,12 +421,18 @@ hypothesis: (B-at)'s `hle`, and the within-instance transfer machinery
 Resolution 3 needs in order to produce it, have no counterpart on the
 wide route.
 
+Also settled: the representation Resolution 1 asks for.  The block
+model remembers the auxiliary block's constructor data at every
+component and reads its wide operator fibrewise (`auxFibre`), the
+narrow fibre is that law restricted to the members, and a pin
+component's index set is the pin's.
+
 Not settled: the identification's own hypothesis `hΦ` — that the
 copies' section of the auxiliary operator IS the container's wide
-operator, for every tuple.  Discharging it needs the block model to
-expose that operator fibrewise, i.e. to remember the auxiliary block's
-constructor data; that is the representation change Resolution 1 really
-asks for, and it is not yet made.  Beyond it the residue is unchanged:
+operator, for every tuple.  Both sides are readable fibrewise now, so
+what is left is the COMPARISON: a copy's constructor against the
+container's own component's, at a tuple where the container's own pins
+are variables on both sides rather than carriers on one.  Beyond it the residue is unchanged:
 the component family at instance roots whose components mention other
 pins, an induction over instances, and the declaration-order record for
 cross-instance constant-headed edges.

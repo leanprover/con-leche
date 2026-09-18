@@ -86,6 +86,7 @@ injection the point (the block is `Prop`-valued). -/
   pinCar := fun _ _ _ _ => pt
   Ψaux := fun ψ ρp _ _ =>
     graph (fun t => eqv (ρp 0) (projS 0 t)) (idxSet (ψ ConLeche.uN) ρp [.bvar 1])
+  pinCtors := fun _ => default
   inj := fun _ _ _ _ => pt
 
 namespace eqBlock
@@ -420,6 +421,23 @@ theorem eqBlock_isBlockModel {env : Env} {m : EnvModel V env} {cvR : ConstantVal
   auxFunctor := fun ψ ρp _ => ⟨eqBlock.mono ψ ρp, eqBlock.maps ψ ρp, eqBlock.closed ψ ρp⟩
   auxCompose := fun _ _ => composeΦ_zero.symm
   auxPinsCar := fun _ _ _ _ h => nomatch h
+  auxPinIdx := fun _ h => nomatch h
+  auxFibre := BlockModel.auxFibre_of_noPins _ rfl (fun _ _ => rfl)
+    (fun _ _ _ _ _ => Nat.one_pos)
+    (fun ψ ρp _ X _ mm' hmm t ht x => by
+        obtain rfl : mm' = 0 := Nat.lt_one_iff.mp hmm
+        rw [eqBlock.Phi_app, app_graph ht, eqv_eq_truthVal]
+        constructor
+        · intro hx
+          refine ⟨0, [], Nat.one_pos, ⟨trivial, fun l hl => ?_⟩, eq_pt_of_mem_truthVal hx⟩
+          obtain rfl : l = 0 := Nat.lt_one_iff.mp hl
+          exact of_mem_truthVal hx
+        · rintro ⟨j, fs, hj, ⟨hfit, hidx⟩, rfl⟩
+          obtain rfl : j = 0 := Nat.lt_one_iff.mp hj
+          obtain rfl : fs = [] := List.eq_nil_of_length_eq_zero (FitsFrom.length_eq hfit)
+          have h0 := hidx 0 Nat.one_pos
+          show (pt : V) ∈ˢ truthVal (ρp 0 = projS 0 t)
+          exact pt_mem_truthVal (by exact h0))
   pinLeaf := fun _ h => (nomatch h)
   leaf := fun ψ ρ as is hsp hi => by
     match as, hsp with

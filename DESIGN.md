@@ -112603,3 +112603,108 @@ declaration order for cross-instance constant-headed edges.
 `lake build` and `lake test` warning-free; `tests/proofdeps.sh` doors
 `0`; `shake`, `layering`, `no-local-paths` OK.  No consumer moves to
 the wide route in this step, so the accept set is untouched.
+
+#### WIDE (d): THE REPRESENTATION — the copies' constructor data on the block model, `auxFibre`, `auxPinIdx` (lane WIDE, 2026-09-18)
+
+Resolution 1's fourth step and the one WIDE (c) priced as "not
+landed": the wide operator is now readable FIBREWISE off a stored
+block model, which is what `hΦ` needs and what `auxCompose`/
+`auxPinsCar` cannot give (they determine `Ψaux` only at extended
+tuples).
+
+##### (a) The data was already in the tree, one layer too low
+
+`PinCtors` — a pin's copy of the container's constructors (field
+domains at the block's parameter frame, recursive flags, targets in
+`members ++ pins`, telescopes, index expressions, result readings,
+injection) — and the CLASS READERS over `d` and `pc`
+(`kT`/`IdsT`/`idxT`/`ctorsT`/`FssT`/`rssT`/`tgtsT`/`tlssT`/`EissT`/
+`EssT`/`injT`/`slotAtT`/**`ChainFitT`**) were built by lane L-D for the
+recursor kit (`NestedRecCand.lean`), with `pc : Nat → PinCtors V` an
+ARGUMENT of every statement.  `ChainFitT` is exactly the "`ChainFit`
+whose recursive slot reads `Y tgt` directly" that WIDE (c) called for.
+
+So the representation change is one field, not nine: `PinCtors`, the
+class readers and `FitsFrom.congr_slot`/`.mono` move UP into
+`BlockRep.lean`, `BlockModel` gains
+
+```lean
+  pinCtors : Nat → PinCtors V
+```
+
+and the readers keep their `pc` argument, so **no existing signature
+changes**; the new laws pass `d.pinCtors` for it.
+
+##### (b) The two clauses
+
+* **`auxFibre`** — at every tuple `Z` of the WIDE space and every
+  class `c < k + nPins`, `Ψaux`'s component `c` at `Z` decomposes by
+  class `c`'s constructors (`ctorsT`), the fields fitting by
+  `ChainFitT` at `Z` and the element `injT c j fs`;
+* **`auxPinIdx`** — `d.idx ψ ρp (d.k + q) = d.pinIdx q ψ ρp` at
+  `q < d.nPins`, which is `ofNested`'s `hPinIdx` and vacuous
+  elsewhere.  Nothing in `pinMem`/`auxPinsCar` forced it, and the wide
+  fibre at a pin class is stated at the pin's index set.
+
+##### (c) `fibre` IS `auxFibre` restricted — a theorem, and it replaces a proof
+
+`BlockModel.fibre_of_auxFibre` (`BlockRep.lean`): at a member and at
+the EXTENDED tuple the class readers are the members'
+(`ctorsT_of_mem`, `injT_of_mem`) and `ChainFitT` at `extT X` IS
+`ChainFit` at `X` (`chainFitT_iff_chainFit`, whose slot identity is
+`slotAtT_of_mem`: at a member target `famAt` ignores the frame that
+`ChainFit`'s slot passes it).  So the nested route's `fibre` clause is
+no longer proved: `nestedBlockModel_is` proves the WIDE one and
+derives the narrow one, and the ~100-line member bullet became one
+application.  The converse direction is `BlockModel.auxFibre_of_noPins`
+— at `nPins = 0` the wide clause follows from the narrow one — which
+is how the six pin-less producers discharge it.
+
+`fibre` STAYS a field.  Making it a derived theorem everywhere would
+force the four basis blocks, `ofNative` and `ofMutual` through the wide
+statement for nothing; the deriving lemma exists and is used where it
+pays (the nested route), and `auxFibre_of_noPins` is used where the
+other direction pays.  Nothing is proved twice.
+
+##### (d) The producers, all eight, opened
+
+* **`ofNested`** (`BlockComposed.lean`) gains a last argument
+  `pc : Nat → PinCtors V`; `nestedBlockModel` passes `nestedPc`, which
+  MOVES from `NestedPinLaws.lean` (with `getD_drop`) into
+  `NestedCore.lean` — the nested block model now CARRIES the pins'
+  constructors that `PinRecLaws` used to be handed separately;
+* **`ofNested_auxFibre_raw`** is `tupleLfpΦ_fibre` at the stored
+  operator — the sealed law at EVERY component and EVERY tuple, no
+  `extT`, no below-the-carrier premise (that premise is the COMPOSED
+  pins' operator's, §U.28, and it is invisible at this width).
+  `ofNested_fibre` is now its restriction;
+* **`nestedBlockModel_is`** proves `auxFibre` in two arms — the
+  members' by the generalised fit bridge `hfitZ` (the old `hfitJ` with
+  the tuple an argument and `slotAtT` in place of `slotAt`/`famAt`),
+  the copies' by `hchainP`/`hcountP` (the arms `nestedPinRecLaws_of`
+  already had: `ownCtors_grp` for the member-local ↔ global
+  constructor positions, the class readers at a pin for the fit).
+  `hgroups` supplies the copies' telescope lengths, as it does for
+  `hPinIdx`;
+* **`ofNative`/`ofMutual`** and the four pinned basis blocks:
+  `pinCtors := fun _ => default`, `auxPinIdx` vacuous, `auxFibre` by
+  `auxFibre_of_noPins`.  `MutualCore`'s `fibre` bullet is hoisted to a
+  `have` so that both clauses read it;
+* the transport `BlockRepCross` passes both clauses through (they are
+  environment-free), and `NestedPremise`'s `Nonempty` instance gains
+  the field.
+
+##### (e) Green
+
+`tests/warning-free.sh 0c8567b5`: 18 changed modules, `lake build` 18
+recompiled 0 warning lines, `lake test` 0 warning lines, "OK (a run
+that could have failed)".  `lake test` exit 0; `tests/proofdeps.sh`
+doors `0` (no new module enters a capstone's closure — the moved
+definitions travel with `BlockRep`, which is already on every path);
+`tests/shake.sh` OK after three compensated removals were allowlisted
+(`NestedFit` → `NestedRecCand`, `NestedPinLeafAll` and
+`NestedRecsStage` → `NestedPinLaws`, each paired with a compensating
+`add` elsewhere) and one `public import` was demoted
+(`NestedPinLeafAll`, with the compensating plain import in
+`DeclNestedCore`).  The accept set is untouched: no clause weakens and
+no consumer moves.

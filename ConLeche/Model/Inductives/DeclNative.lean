@@ -1374,6 +1374,12 @@ theorem nativeIsBlockModel {env env₁ envC env₂ : Env} {m : EnvModel V envC} 
         ofNative_functor (xChainsOk_congr (hf.fssAgree ψ) (hf.XR ψ ρp hρp).1)
       auxCompose := fun ψ ρp => ofNative_auxCompose ψ ρp
       auxPinsCar := fun _ _ _ q hq => absurd hq (Nat.not_lt_zero q)
+      auxPinIdx := fun q hq => absurd hq (Nat.not_lt_zero q)
+      auxFibre := BlockModel.auxFibre_of_noPins _ rfl (fun _ _ => rfl)
+        (fun _ _ _ _ _ => Nat.zero_lt_one)
+        (fun ψ ρp hρp X hX c hc t ht x => by
+          obtain rfl : c = 0 := Nat.lt_one_iff.mp hc
+          exact ofNative_fibre (xChainsOk_congr (hf.fssAgree ψ) (hf.XR ψ ρp hρp).1) hX ht x)
       pinLeaf := ?_, leaf := ?_, ctor := ?_, mkZero := ?_
       mkInj := ?_ }
   · exact Nat.zero_lt_one

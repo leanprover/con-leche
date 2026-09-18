@@ -53,6 +53,40 @@ variable {V : Type w} [SetTheory V] {μ : CheckMode} {env : Env}
 
 /-! ## The block model of the nested run -/
 
+omit [SetTheory V] in
+/-- A dropped list's entry is the original's, shifted. -/
+theorem getD_drop {α : Type _} (l : List α) (n j : Nat) (a : α) :
+    (l.drop n).getD j a = l.getD (n + j) a := by
+  rw [List.getD_eq_getElem?_getD, List.getD_eq_getElem?_getD, List.getElem?_drop]
+
+/-! ## The pins' constructor data at the run -/
+
+/-- **The pins' constructors at the run's data** (DESIGN §U.25 (e) 1):
+pin `q`'s data is the AUXILIARY block's at the copy's positions
+`b.ownOffset (k + q) + j` — the copy's constructors (`b.ownCtors (k +
+q)`, as `ctorsA` entries), its shadow domains, flags, targets,
+telescopes and index expressions and its results' index readings, all
+dropped to the copy's first position so that the member-local index
+`j` reads the global one — with the injection the tagged tower at `j`
+(the member-local tag inside the seal, §U.16). -/
+@[expose] noncomputable def nestedPc (b : MutualBlock) (ctorsA : List (ConstantVal × Nat))
+    (kinds : List (List (RecFieldKind × Nat))) (k : Nat) (resSort : Level)
+    (dsF : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm))
+    (esF : Nat → (Name → Nat) → List AnnotTerm)
+    (eissF : Nat → (Name → Nat) → List (List AnnotTerm))
+    (tssF : Nat → (Name → Nat) → List (List (Nat × Nat × AnnotTerm)))
+    (q : Nat) : PinCtors V where
+  ctors := (b.ownCtors (k + q)).map fun jc => ctorsA.getD jc.1 default
+  Fss := fun ψ => (blkFss0 b ctorsA kinds dsF ψ).drop (b.ownOffset (k + q))
+  rss := (blkRss ctorsA kinds).drop (b.ownOffset (k + q))
+  tgts := fun j i =>
+    ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD (b.ownOffset (k + q) + j)
+      []).getD i 0
+  tlss := fun ψ => (mutTlss ctorsA.length tssF ψ).drop (b.ownOffset (k + q))
+  Eiss := fun ψ => (mutEiss0 ctorsA.length eissF ψ).drop (b.ownOffset (k + q))
+  Ess := fun ψ => (mutEss0 ctorsA.length esF ψ).drop (b.ownOffset (k + q))
+  inj := fun ψ j fs => injW (resSort.eval ψ) j (mkTower (fs ++ [pt]))
+
 /-- **The nested block's block model at the run's data**: `BlockModel.ofNested`
 at the auxiliary block's lists (the members' constructors first, one
 copy per pin after), the members' constructors the RESTORED ones
@@ -85,6 +119,7 @@ noncomputable abbrev nestedBlockModel (p : NestedParts) (b : MutualBlock)
     (mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)) (blkRss ctorsA kinds)
     (fun ψ => mutTlss ctorsA.length tssF ψ) (fun ψ => mutEiss0 ctorsA.length eissF ψ)
     (fun ψ => blkFss0 b ctorsA kinds dsF ψ) (fun ψ => mutEss0 ctorsA.length esF ψ)
+    (nestedPc b ctorsA kinds p.k f₀.s dsF esF eissF tssF)
 
 /-! ## Kit: spine fits across agreeing domains, and under instantiation -/
 
@@ -1037,6 +1072,220 @@ theorem nestedBlockReps_of (hμ : μ.verifiedChecks = true)
     rw [List.getD_eq_getElem?_getD, List.getElem?_map, List.getElem?_drop,
       List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hi]
     rfl
+  -- every field's target is a class
+  have htgtsLtM : ∀ c j i, c < (D).k → j < ((D).ctorsM c).length →
+      (D).tgts c j i < (D).k + (D).nPins := by
+    intro c j i hc hj
+    have hj' : ((D).ctorsM c)[j]? = some (((D).ctorsM c).getD j default) := by
+      rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hj]; rfl
+    obtain ⟨-, hJ, -, -⟩ := hctorA c j _ hc hj'
+    show tgtAt (mutKsOf kinds (b.ownOffset c + j)) i < p.k + pinsS.length
+    rw [← hbk, hkT]
+    exact (h.ksJ _ _ hJ).2.2 i
+  -- **the WIDE fibre** (task #315, Resolution 1): the auxiliary
+  -- operator's decomposition at EVERY class and EVERY tuple of the wide
+  -- tuple space — the members' rows against the block model's readers,
+  -- the copies' against the pins' constructor data `nestedPc`.  The
+  -- narrow `fibre` is this at the members and the EXTENDED tuple.
+  have hPC : (D).pinCtors = nestedPc (V := V) b ctorsA kinds p.k f₀.s dsF esF eissF tssF := rfl
+  have htgtLtG : ∀ J i : Nat, 0 < p.k + pinsS.length →
+      ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD J []).getD i 0
+        < p.k + pinsS.length := by
+    intro J i hz
+    by_cases hJ : J < ctorsA.length
+    · by_cases hi : i < mutNFOf ctorsA J
+      · rw [mutTgts_getD hJ hi]
+        have hb := (h.ksJ J _ (ctorsA_get hJ)).2.2 i
+        rw [← hkT, hbk] at hb
+        exact hb
+      · have hlen : ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD J []).length
+            = mutNFOf ctorsA J := by
+          simp [mutTgts, List.getD_eq_getElem?_getD, List.getElem?_map, List.getElem?_range hJ]
+        rw [List.getD_eq_getElem?_getD, List.getElem?_eq_none (by rw [hlen]; omega),
+          Option.getD_none]
+        exact hz
+    · have hnil : (mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD J [] = [] := by
+        rw [List.getD_eq_getElem?_getD,
+          List.getElem?_eq_none (by simp only [mutTgts, List.length_map, List.length_range]; omega),
+          Option.getD_none]
+      rw [hnil, List.getD_nil]
+      exact hz
+  -- a copy's index telescope has the container's instantiated length
+  have hIdsP : ∀ (ψ : Name → Nat) (q : Nat), q < pinsS.length →
+      ((D).IdsM (p.k + q) ψ).length = ((D).IdsT ((D).k + q) ψ).length := by
+    intro ψ q hq
+    have hnk : ¬ (D).k + q < (D).k := by omega
+    rw [BlockModel.IdsT_of_pin hnk, Nat.add_sub_cancel_left]
+    obtain ⟨q₀, kJ, i, dJ, rfl, hi, G⟩ := hgroups q hq
+    show (blockIds b.nP ppsF ψ (p.k + (q₀ + i))).length = (((D).pinAt (q₀ + i)).Ids ψ).length
+    rw [← Nat.add_assoc, G.idx i hi ψ i hi, G.pinIds hi ψ, instTele_length]
+  -- the auxiliary constructor's fit at a COPY is the class's `ChainFitT`
+  have hchainP : ∀ (ψ : Name → Nat) (ρp : Nat → V) (q : Nat), q < pinsS.length →
+      ∀ (Z : Nat → V) (t : V) (j : Nat) (fs : List V),
+      (FitsFrom ((blkRss ctorsA kinds).getD (b.ownOffset (p.k + q) + j) [])
+          (fun i ρ => slotSet ((D).w ψ)
+            (nestedU p.k W pinsS ψ
+              (((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+                (b.ownOffset (p.k + q) + j) []).getD i 0)) ρ
+            (((mutTlss ctorsA.length tssF ψ).getD (b.ownOffset (p.k + q) + j) []).getD i [])
+            (((mutEiss0 ctorsA.length eissF ψ).getD (b.ownOffset (p.k + q) + j) []).getD i [])
+            (Z (((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+              (b.ownOffset (p.k + q) + j) []).getD i 0)))
+          0 ρp ((blkFss0 b ctorsA kinds dsF ψ).getD (b.ownOffset (p.k + q) + j) []) fs ∧
+        (∀ l, l < ((D).IdsM (p.k + q) ψ).length →
+          interp V (consList fs ρp)
+              (((mutEss0 ctorsA.length esF ψ).getD (b.ownOffset (p.k + q) + j) []).getD l default)
+            = projS l t))
+      ↔ (D).ChainFitT (D).pinCtors ψ ρp Z t ((D).k + q) j fs := by
+    intro ψ ρp q hq Z t j fs
+    have hnk : ¬ (D).k + q < (D).k := by omega
+    have hslot : (fun (i : Nat) (ρ : Nat → V) => slotSet ((D).w ψ)
+          (nestedU p.k W pinsS ψ
+            (((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+              (b.ownOffset (p.k + q) + j) []).getD i 0)) ρ
+          (((mutTlss ctorsA.length tssF ψ).getD (b.ownOffset (p.k + q) + j) []).getD i [])
+          (((mutEiss0 ctorsA.length eissF ψ).getD (b.ownOffset (p.k + q) + j) []).getD i [])
+          (Z (((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+            (b.ownOffset (p.k + q) + j) []).getD i 0)))
+        = (D).slotAtT (D).pinCtors ψ Z ((D).k + q) j := by
+      funext i ρ
+      unfold BlockModel.slotAtT BlockModel.teleAtT BlockModel.eisAtT
+      rw [BlockModel.tgtsT_of_pin hnk, BlockModel.tlssT_of_pin hnk, BlockModel.EissT_of_pin hnk,
+        Nat.add_sub_cancel_left, ofNested_uT, hPC]
+      simp only [nestedPc, getD_drop]
+    unfold BlockModel.ChainFitT
+    rw [BlockModel.rssT_of_pin hnk, BlockModel.FssT_of_pin hnk, BlockModel.EssT_of_pin hnk,
+      Nat.add_sub_cancel_left, ← hslot, hIdsP ψ q hq, hPC]
+    simp only [nestedPc, getD_drop]
+  -- the auxiliary constructor's fit at a MEMBER is the class's `ChainFitT`
+  have hfitZ : ∀ (ψ : Name → Nat) (ρp : Nat → V) (mm' j : Nat) (cA : ConstantVal × Nat),
+      mm' < p.k → ((D).ctorsM mm')[j]? = some cA → ∀ (Z : Nat → V) (fs : List V),
+      FitsFrom ((blkRss ctorsA kinds).getD (b.ownOffset mm' + j) [])
+          (fun i ρ => slotSet ((D).w ψ)
+            (nestedU p.k W pinsS ψ (((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+              (b.ownOffset mm' + j) []).getD i 0)) ρ
+            (((mutTlss ctorsA.length tssF ψ).getD (b.ownOffset mm' + j) []).getD i [])
+            (((mutEiss0 ctorsA.length eissF ψ).getD (b.ownOffset mm' + j) []).getD i [])
+            (Z (((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+              (b.ownOffset mm' + j) []).getD i 0)))
+          0 ρp ((blkFss0 b ctorsA kinds dsF ψ).getD (b.ownOffset mm' + j) []) fs ↔
+        FitsFrom (((D).rss mm').getD j []) ((D).slotAtT (D).pinCtors ψ Z mm' j) 0 ρp
+          (((D).Fss mm' ψ).getD j []) fs := by
+    intro ψ ρp mm' j cA hmm' hj Z fs
+    obtain ⟨c, hc, rfl, hJ, hnF, hBF⟩ := hctorData mm' j cA hmm' hj
+    have hJl : b.ownOffset mm' + j < ctorsA.length := (List.getElem?_eq_some_iff.mp hJ).1
+    have hjR : j < (ctorsR.getD mm' []).length := (List.getElem?_eq_some_iff.mp hc).1
+    have hjl : j < ((D).ctorsM mm').length := (List.getElem?_eq_some_iff.mp hj).1
+    have hCD := hBF.2.2
+    have hlenDs : (dsF (b.ownOffset mm' + j) ψ).length = b.nP + c.2.2 := by
+      rw [← hnF]; exact (h.CD _ _ hJ).len ψ
+    have hlenR : (dsR mm' j ψ).length = b.nP + c.2.2 := hCD.len ψ
+    have hksl : (mutKsOf kinds (b.ownOffset mm' + j)).length = c.2.2 := by
+      rw [← hnF]; exact (h.ksJ _ _ hJ).1
+    have hnFm : mutNFOf ctorsA (b.ownOffset mm' + j) = c.2.2 := by
+      rw [mutNFOf_eq hJ]; exact hnF
+    rw [IsBlockModel.rss_getD hjl, IsBlockModel.Fss_getD hj ψ, blkRss_getD hJl, blkFss0_getD hJl]
+    show FitsFrom (rsOf (kindsOf (mutKsOf kinds (b.ownOffset mm' + j)))) _ 0 ρp _ fs ↔
+      FitsFrom (rsOf (kindsOf (mutKsOf kinds (b.ownOffset mm' + j)))) _ 0 ρp
+        (((dsR mm' j ψ).drop b.nP).map (·.2.2)) fs
+    refine fitsFrom_iff_frames (by
+        rw [shadowFs_length, List.length_map, List.length_drop, hlenR, hnFm]; omega)
+      (fun l hl fs₁ hl₁ _ _ => ?_)
+    rw [shadowFs_length, hnFm] at hl
+    simp only [Nat.zero_add]
+    by_cases hr : (rsOf (kindsOf (mutKsOf kinds (b.ownOffset mm' + j)))).getD l false = true
+    · rw [if_pos hr, if_pos hr]
+      have huT : (D).uT ((D).tgts mm' j l) ψ = nestedU p.k W pinsS ψ ((D).tgts mm' j l) :=
+        ofNested_uT _ _
+      show slotSet _ _ _ _ _ _ = slotSet ((D).w ψ) ((D).uT ((D).tgtsT (D).pinCtors mm' j l) ψ)
+        (consList fs₁ ρp) ((((D).tlssT (D).pinCtors ψ mm').getD j []).getD l [])
+        ((((D).EissT (D).pinCtors ψ mm').getD j []).getD l [])
+        (Z ((D).tgtsT (D).pinCtors mm' j l))
+      rw [BlockModel.tgtsT_of_mem hmm', BlockModel.tlssT_of_mem hmm',
+        BlockModel.EissT_of_mem hmm', huT, IsBlockModel.tlss_getD hj ψ,
+        IsBlockModel.Eiss_getD hj ψ, mutTlss_getD hJl, mutEiss0_getD hJl,
+        mutTgts_getD hJl (by rw [hnFm]; exact hl)]
+      rfl
+    · rw [if_neg hr, if_neg hr]
+      have hr' : (rsOf (kindsOf (mutKsOf kinds (b.ownOffset mm' + j)))).getD l false = false := by
+        simpa using hr
+      rw [shadowFs_getD (by rw [hnFm]; exact hl), if_neg]
+      · rw [hgetD _ _ _ (by rw [hlenDs]; omega), hgetD _ _ _ (by rw [hlenR]; omega),
+          (hdsR mm' j ψ hmm' hjR).2.2 l (Or.inr hr')]
+      · intro hrec
+        have hkind := hrec.2
+        rw [Nat.add_sub_cancel_left] at hkind
+        have := (rsOf_getD_iff (ks := kindsOf (mutKsOf kinds (b.ownOffset mm' + j)))
+          (by rw [kindsOf_length, hksl]; exact hl)).mpr hkind
+        rw [hr'] at this
+        exact Bool.false_ne_true this
+  -- the result's index readings at a MEMBER
+  have htermZ : ∀ (ψ : Name → Nat) (ρp : Nat → V) (mm' j : Nat) (cA : ConstantVal × Nat),
+      ((D).ctorsM mm')[j]? = some cA → b.ownOffset mm' + j < ctorsA.length →
+      ∀ (t : V) (fs : List V),
+      (∀ l, l < (blockIds b.nP ppsF ψ mm').length →
+        interp V (consList fs ρp)
+            (((mutEss0 ctorsA.length esF ψ).getD (b.ownOffset mm' + j) []).getD l default)
+          = projS l t) ↔
+      ∀ l, l < ((D).IdsM mm' ψ).length →
+        interp V (consList fs ρp) ((((D).Ess mm' ψ).getD j []).getD l default) = projS l t := by
+    intro ψ ρp mm' j cA hj hJl t fs
+    rw [IsBlockModel.Ess_getD hj ψ, mutEss0_getD hJl]
+    exact Iff.rfl
+  have hfibZ : ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V ((D).params ψ).reverse ρp →
+      ∀ Z, InTupleSpace ((D).w ψ) ((D).k + (D).nPins) ((D).idx ψ ρp) Z →
+      ∀ c, c < (D).k + (D).nPins → ∀ t, t ∈ˢ (D).idx ψ ρp c → ∀ x,
+        x ∈ˢ SetTheory.app ((D).Ψaux ψ ρp Z c) t ↔
+          ∃ j fs, j < ((D).ctorsT (D).pinCtors c).length ∧
+            (D).ChainFitT (D).pinCtors ψ ρp Z t c j fs ∧
+            x = (D).injT (D).pinCtors ψ c j fs := by
+    intro ψ ρp hρp Z hZ c hc t ht x
+    rw [ofNested_auxFibre_raw (hOk ψ ρp hρp) (hS ψ) hZ hc ht x]
+    by_cases hck : c < p.k
+    · -- a member's row
+      rw [BlockModel.ctorsT_of_mem hck, BlockModel.injT_of_mem hck]
+      constructor
+      · rintro ⟨j, fs, hJ, hmemJ, hfit, heqs, rfl⟩
+        rw [hlenF ψ] at hJ
+        rw [mutMems_getD hJ] at hmemJ
+        have hmemk : mutMemF b (b.ownOffset c + j) < p.k := by rw [hmemJ]; exact hck
+        obtain ⟨-, cA, hj, -⟩ := hofCtor _ hJ hmemk
+        rw [hmemJ, Nat.add_sub_cancel_left] at hj
+        refine ⟨j, fs, (List.getElem?_eq_some_iff.mp hj).1, ⟨?_, ?_⟩, rfl⟩
+        · rw [BlockModel.rssT_of_mem hck, BlockModel.FssT_of_mem hck]
+          exact (hfitZ ψ ρp c j cA hck hj Z fs).mp hfit
+        · rw [BlockModel.IdsT_of_mem hck, BlockModel.EssT_of_mem hck]
+          exact (htermZ ψ ρp c j cA hj hJ t fs).mp heqs
+      · rintro ⟨j, fs, hjl, ⟨hfit, heqs⟩, rfl⟩
+        have hj : ((D).ctorsM c)[j]? = some (((D).ctorsM c).getD j default) := by
+          rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hjl]; rfl
+        obtain ⟨hJl, -, hmemJ, -⟩ := hctorA c j _ hck hj
+        rw [BlockModel.rssT_of_mem hck, BlockModel.FssT_of_mem hck] at hfit
+        rw [BlockModel.IdsT_of_mem hck, BlockModel.EssT_of_mem hck] at heqs
+        exact ⟨j, fs, by rw [hlenF ψ]; exact hJl, by rw [mutMems_getD hJl]; exact hmemJ,
+          (hfitZ ψ ρp c j _ hck hj Z fs).mpr hfit, (htermZ ψ ρp c j _ hj hJl t fs).mpr heqs, rfl⟩
+    · -- a copy's row
+      obtain ⟨q, rfl⟩ : ∃ q, c = p.k + q := ⟨c - p.k, by omega⟩
+      have hq : q < pinsS.length := by
+        have : p.k + q < p.k + pinsS.length := hc
+        omega
+      have hnk : ¬ p.k + q < (D).k := by
+        show ¬ p.k + q < p.k
+        omega
+      have hsub : p.k + q - (D).k = q := by show p.k + q - p.k = q; omega
+      rw [BlockModel.ctorsT_of_pin hnk, BlockModel.injT_of_pin hnk, hsub, hPC]
+      constructor
+      · rintro ⟨j, fs, hJ, hmemJ, hfit, heqs, rfl⟩
+        refine ⟨j, fs, ?_, (hchainP ψ ρp q hq Z t j fs).mp ⟨hfit, heqs⟩, rfl⟩
+        have hcnt := (ownCtors_grp h3 hlenA ψ (mm := p.k + q)
+          (nC := (b.ownCtors (p.k + q)).length) rfl j).mp ⟨hJ, hmemJ⟩
+        simpa [nestedPc] using hcnt
+      · rintro ⟨j, fs, hjl, hcf, rfl⟩
+        obtain ⟨hfit, heqs⟩ := (hchainP ψ ρp q hq Z t j fs).mpr hcf
+        have hjl' : j < (b.ownCtors (p.k + q)).length := by simpa [nestedPc] using hjl
+        obtain ⟨hJ, hmemJ⟩ := (ownCtors_grp h3 hlenA ψ (mm := p.k + q)
+          (nC := (b.ownCtors (p.k + q)).length) rfl j).mpr hjl'
+        exact ⟨j, fs, hJ, hmemJ, hfit, heqs, rfl⟩
   -- the per-member facts
   have hrep : IsBlockModelsAt mp₂.base2 (D) (fun mm => (fms.getD mm default).cvTa) := by
     intro mm hmm
@@ -1049,10 +1298,15 @@ theorem nestedBlockReps_of (hμ : μ.verifiedChecks = true)
       { memberLt := hmm, member := rfl, strip := ?_, isProp := rfl, mI := rfl, rP := rfl
         rules := fun hne => absurd rfl hne, former := ?_, ctors := ?_, memsFound := ?_
         pinsFound := ?_, tgtsLt := ?_, idxRes := ?_, uParams := ?_, paramsIff := ?_, idxOk := ?_
-        functor := ?_, fibre := ?_, pinShape := hpinShape, pinMem := ?_, pinMono := ?_
+        functor := ?_
+        fibre := (D).fibre_of_auxFibre (fun ψ ρp => ofNested_auxCompose ψ ρp)
+          (fun ψ ρp X q _ => ofNested_auxPinsCar ψ ρp X q) htgtsLtM hfibZ
+        pinShape := hpinShape, pinMem := ?_, pinMono := ?_
         auxFunctor := fun ψ ρp hρp => ofNested_auxFunctor (hOk ψ ρp hρp)
         auxCompose := fun ψ ρp => ofNested_auxCompose ψ ρp
         auxPinsCar := fun ψ ρp X q _ => ofNested_auxPinsCar ψ ρp X q
+        auxPinIdx := fun q hq ψ ρp => (hPinIdx q hq ψ ρp).symm
+        auxFibre := hfibZ
         pinLeaf := hpinLeaf, leaf := ?_, ctor := ?_, mkZero := ofNested_mkZero, mkInj := ?_ }
     · -- strip
       obtain ⟨bs, hstrip⟩ := h.strip _ _ hft
@@ -1110,109 +1364,6 @@ theorem nestedBlockReps_of (hμ : μ.verifiedChecks = true)
     · -- functor
       intro ψ ρp hρp
       exact ofNested_functor (hOk ψ ρp hρp)
-    · -- fibre
-      intro ψ ρp hρp X hX mm' hmm' t ht x
-      have hOk' := hOk ψ ρp hρp
-      have hS' := hS ψ
-      -- the fit at a constructor's global position, against the block model's
-      have hfitJ : ∀ (j : Nat) (cA : ConstantVal × Nat), ((D).ctorsM mm')[j]? = some cA →
-          ∀ fs : List V,
-          FitsFrom ((blkRss ctorsA kinds).getD (b.ownOffset mm' + j) [])
-              (fun i ρ => slotSet (f₀.s.eval ψ)
-                (nestedU p.k W pinsS ψ (((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
-                  (b.ownOffset mm' + j) []).getD i 0)) ρ
-                (((mutTlss ctorsA.length tssF ψ).getD (b.ownOffset mm' + j) []).getD i [])
-                (((mutEiss0 ctorsA.length eissF ψ).getD (b.ownOffset mm' + j) []).getD i [])
-                (extT (f₀.s.eval ψ) p.k pinsS.length ((D).idx ψ ρp)
-                  (nestedΨ (V := V) b.nP p.k f₀.s ppsF W pinsS b.ownOffset
-                    (mutMems ctorsA.length (mutMemF b)) (mutNFs ctorsA.length (mutNFOf ctorsA))
-                    (mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)) (blkRss ctorsA kinds)
-                    (fun ψ => mutTlss ctorsA.length tssF ψ) (fun ψ => mutEiss0 ctorsA.length eissF ψ)
-                    (fun ψ => blkFss0 b ctorsA kinds dsF ψ) (fun ψ => mutEss0 ctorsA.length esF ψ)
-                    ψ ρp)
-                  X (((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
-                    (b.ownOffset mm' + j) []).getD i 0)))
-              0 ρp ((blkFss0 b ctorsA kinds dsF ψ).getD (b.ownOffset mm' + j) []) fs ↔
-            FitsFrom (((D).rss mm').getD j []) ((D).slotAt ψ X mm' j) 0 ρp
-              (((D).Fss mm' ψ).getD j []) fs := by
-        intro j cA hj fs
-        obtain ⟨c, hc, rfl, hJ, hnF, hBF⟩ := hctorData mm' j cA hmm' hj
-        have hJl : b.ownOffset mm' + j < ctorsA.length := (List.getElem?_eq_some_iff.mp hJ).1
-        have hjR : j < (ctorsR.getD mm' []).length := (List.getElem?_eq_some_iff.mp hc).1
-        have hjl : j < ((D).ctorsM mm').length := (List.getElem?_eq_some_iff.mp hj).1
-        have hCD := hBF.2.2
-        have hlenDs : (dsF (b.ownOffset mm' + j) ψ).length = b.nP + c.2.2 := by
-          rw [← hnF]; exact (h.CD _ _ hJ).len ψ
-        have hlenR : (dsR mm' j ψ).length = b.nP + c.2.2 := hCD.len ψ
-        have hksl : (mutKsOf kinds (b.ownOffset mm' + j)).length = c.2.2 := by
-          rw [← hnF]; exact (h.ksJ _ _ hJ).1
-        have hnFm : mutNFOf ctorsA (b.ownOffset mm' + j) = c.2.2 := by
-          rw [mutNFOf_eq hJ]; exact hnF
-        rw [IsBlockModel.rss_getD hjl, IsBlockModel.Fss_getD hj ψ, blkRss_getD hJl, blkFss0_getD hJl]
-        show FitsFrom (rsOf (kindsOf (mutKsOf kinds (b.ownOffset mm' + j)))) _ 0 ρp _ fs ↔
-          FitsFrom (rsOf (kindsOf (mutKsOf kinds (b.ownOffset mm' + j)))) _ 0 ρp
-            (((dsR mm' j ψ).drop b.nP).map (·.2.2)) fs
-        refine fitsFrom_iff_frames (by
-            rw [shadowFs_length, List.length_map, List.length_drop, hlenR, hnFm]; omega)
-          (fun l hl fs₁ hl₁ _ _ => ?_)
-        rw [shadowFs_length, hnFm] at hl
-        simp only [Nat.zero_add]
-        by_cases hr : (rsOf (kindsOf (mutKsOf kinds (b.ownOffset mm' + j)))).getD l false = true
-        · rw [if_pos hr, if_pos hr]
-          have htgt : (D).tgts mm' j l < p.k + pinsS.length := by
-            show tgtAt (mutKsOf kinds (b.ownOffset mm' + j)) l < p.k + pinsS.length
-            rw [← hbk, hkT]; exact (h.ksJ _ _ hJ).2.2 l
-          have hfr : (fun n => consList fs₁ ρp (n + l)) = ρp := by
-            funext n; rw [← hl₁]; exact consList_apply_add fs₁ ρp n
-          have huT : (D).uT ((D).tgts mm' j l) ψ = nestedU p.k W pinsS ψ ((D).tgts mm' j l) :=
-            ofNested_uT _ _
-          show slotSet _ _ _ _ _ _ = slotSet ((D).w ψ) ((D).uT ((D).tgts mm' j l) ψ) (consList fs₁ ρp)
-            ((((D).tlss mm' ψ).getD j []).getD l []) ((((D).Eiss mm' ψ).getD j []).getD l [])
-            ((D).famAt ψ (fun n => consList fs₁ ρp (n + l)) X ((D).tgts mm' j l))
-          rw [huT, hfr, ofNested_famAt ψ ρp X htgt, IsBlockModel.tlss_getD hj ψ,
-            IsBlockModel.Eiss_getD hj ψ, mutTlss_getD hJl, mutEiss0_getD hJl,
-            mutTgts_getD hJl (by rw [hnFm]; exact hl)]
-          rfl
-        · rw [if_neg hr, if_neg hr]
-          have hr' : (rsOf (kindsOf (mutKsOf kinds (b.ownOffset mm' + j)))).getD l false = false := by
-            simpa using hr
-          rw [shadowFs_getD (by rw [hnFm]; exact hl), if_neg]
-          · rw [hgetD _ _ _ (by rw [hlenDs]; omega), hgetD _ _ _ (by rw [hlenR]; omega),
-              (hdsR mm' j ψ hmm' hjR).2.2 l (Or.inr hr')]
-          · intro hrec
-            have hkind := hrec.2
-            rw [Nat.add_sub_cancel_left] at hkind
-            have := (rsOf_getD_iff (ks := kindsOf (mutKsOf kinds (b.ownOffset mm' + j)))
-              (by rw [kindsOf_length, hksl]; exact hl)).mpr hkind
-            rw [hr'] at this
-            exact Bool.false_ne_true this
-      have htermJ : ∀ (j : Nat) (cA : ConstantVal × Nat), ((D).ctorsM mm')[j]? = some cA →
-          b.ownOffset mm' + j < ctorsA.length → ∀ fs : List V,
-          (∀ l, l < (blockIds b.nP ppsF ψ mm').length →
-            interp V (consList fs ρp)
-                (((mutEss0 ctorsA.length esF ψ).getD (b.ownOffset mm' + j) []).getD l default)
-              = projS l t) ↔
-          ∀ l, l < ((D).IdsM mm' ψ).length →
-            interp V (consList fs ρp) ((((D).Ess mm' ψ).getD j []).getD l default) = projS l t := by
-        intro j cA hj hJl fs
-        rw [IsBlockModel.Ess_getD hj ψ, mutEss0_getD hJl]
-        exact Iff.rfl
-      rw [ofNested_fibre hOk' hS' hX hmm' ht x]
-      constructor
-      · rintro ⟨j, fs, hJ, hmemJ, hfit, heqs, rfl⟩
-        rw [hlenF] at hJ
-        rw [mutMems_getD hJ] at hmemJ
-        have hmemk : mutMemF b (b.ownOffset mm' + j) < p.k := by rw [hmemJ]; exact hmm'
-        obtain ⟨-, cA, hj, -⟩ := hofCtor _ hJ hmemk
-        rw [hmemJ, Nat.add_sub_cancel_left] at hj
-        exact ⟨j, fs, (List.getElem?_eq_some_iff.mp hj).1,
-          ⟨(hfitJ j cA hj fs).mp hfit, (htermJ j cA hj hJ fs).mp heqs⟩, rfl⟩
-      · rintro ⟨j, fs, hjl, ⟨hfit, heqs⟩, rfl⟩
-        have hj : ((D).ctorsM mm')[j]? = some (((D).ctorsM mm').getD j default) := by
-          rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hjl]; rfl
-        obtain ⟨hJl, -, hmemJ, -⟩ := hctorA mm' j _ hmm' hj
-        refine ⟨j, fs, by rw [hlenF]; exact hJl, by rw [mutMems_getD hJl]; exact hmemJ,
-          (hfitJ j _ hj fs).mpr hfit, (htermJ j _ hj hJl fs).mpr heqs, rfl⟩
     · -- pinMem
       intro ψ ρp hρp X hX q hq
       exact ofNested_pinMem hq (hPinIdx q hq ψ ρp)

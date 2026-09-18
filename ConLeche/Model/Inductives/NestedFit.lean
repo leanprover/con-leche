@@ -1771,11 +1771,11 @@ variable {nP k : Nat} {resSort : Level} {isProp large : Bool} {env₀ : Env} {me
   {mems nFs : List Nat} {tgtsG : List (List Nat)} {rss : List (List Bool)}
   {tlss : (Name → Nat) → List (List (List (Nat × Nat × AnnotTerm)))}
   {Eiss₀ : (Name → Nat) → List (List (List AnnotTerm))}
-  {Fss₀ Ess₀ : (Name → Nat) → List (List AnnotTerm)}
+  {Fss₀ Ess₀ : (Name → Nat) → List (List AnnotTerm)} {pc : Nat → PinCtors V}
 
 local notation "D" => (BlockModel.ofNested (V := V) nP k resSort isProp large env₀ memberNames
   nIdxs ppsA W ctorsM idxF dsF esF srcsF ksF tgts fvsPF xFvsF xrestF eissF tssF pins offs mems nFs
-  tgtsG rss tlss Eiss₀ Fss₀ Ess₀)
+  tgtsG rss tlss Eiss₀ Fss₀ Ess₀ pc)
 
 local notation "ΨA" => nestedΨ (V := V) nP k resSort ppsA W pins offs mems nFs tgtsG rss tlss
   Eiss₀ Fss₀ Ess₀

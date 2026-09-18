@@ -134,7 +134,8 @@ tagged towers at the MEMBER-LOCAL position. -/
     (mems nFs : List Nat) (tgtsG : List (List Nat)) (rss : List (List Bool))
     (tlss : (Name → Nat) → List (List (List (Nat × Nat × AnnotTerm))))
     (Eiss₀ : (Name → Nat) → List (List (List AnnotTerm)))
-    (Fss₀ Ess₀ : (Name → Nat) → List (List AnnotTerm)) : BlockModel V where
+    (Fss₀ Ess₀ : (Name → Nat) → List (List AnnotTerm))
+    (pc : Nat → PinCtors V) : BlockModel V where
   nP := nP
   k := k
   resSort := resSort
@@ -166,6 +167,7 @@ tagged towers at the MEMBER-LOCAL position. -/
       (nestedΨ nP k resSort ppsA W pins offs mems nFs tgtsG rss tlss Eiss₀ Fss₀ Ess₀ ψ ρp)
       X q
   Ψaux := nestedΨ nP k resSort ppsA W pins offs mems nFs tgtsG rss tlss Eiss₀ Fss₀ Ess₀
+  pinCtors := pc
   inj := fun ψ _ j fs => injW (resSort.eval ψ) j (mkTower (fs ++ [pt]))
 
 section Nested
@@ -183,11 +185,11 @@ variable {nP k : Nat} {resSort : Level} {isProp large : Bool} {env₀ : Env} {me
   {mems nFs : List Nat} {tgtsG : List (List Nat)} {rss : List (List Bool)}
   {tlss : (Name → Nat) → List (List (List (Nat × Nat × AnnotTerm)))}
   {Eiss₀ : (Name → Nat) → List (List (List AnnotTerm))}
-  {Fss₀ Ess₀ : (Name → Nat) → List (List AnnotTerm)}
+  {Fss₀ Ess₀ : (Name → Nat) → List (List AnnotTerm)} {pc : Nat → PinCtors V}
 
 local notation "D" => (BlockModel.ofNested (V := V) nP k resSort isProp large env₀ memberNames
   nIdxs ppsA W ctorsM idxF dsF esF srcsF ksF tgts fvsPF xFvsF xrestF eissF tssF pins offs mems nFs
-  tgtsG rss tlss Eiss₀ Fss₀ Ess₀)
+  tgtsG rss tlss Eiss₀ Fss₀ Ess₀ pc)
 
 local notation "ΨA" => nestedΨ (V := V) nP k resSort ppsA W pins offs mems nFs tgtsG rss tlss
   Eiss₀ Fss₀ Ess₀
@@ -362,6 +364,32 @@ theorem ofNested_pinMono {X Y : Nat → V} (hX : InTupleSpace ((D).w ψ) k ((D).
   rw [hPinIdx, ofNested_pinCar, ofNested_pinCar]
   exact pinsCar_mono hΨ.1 hΨ.2.2 hX hY hle q hq
 
+/-- **THE WIDE FIBRE at the auxiliary lists** (task #315,
+Resolution 1): at EVERY component `c < k + n` — a member's row AND a
+copy's — and at EVERY tuple `Z` of the WIDE tuple space, the wide
+operator's fibre at `(Z, t)` is the set of the tagged towers of the
+spines fitting one of the auxiliary block's constructors `offs c + j`,
+each recursive field read at its target's component of `Z` ITSELF.
+This is the sealed law `tupleLfpΦ_fibre` at the stored operator, and
+`ofNested_fibre` is its restriction to the members and the EXTENDED
+tuple. -/
+theorem ofNested_auxFibre_raw (hS : TupleLfpShape (k + pins.length) (blockIds nP ppsA ψ) mems nFs
+      tgtsG rss (Eiss₀ ψ) (Fss₀ ψ) (Ess₀ ψ))
+    {Z : Nat → V} (hZ : InTupleSpace ((D).w ψ) ((D).k + (D).nPins) ((D).idx ψ ρp) Z)
+    {c : Nat} (hc : c < (D).k + (D).nPins) {t : V} (ht : t ∈ˢ (D).idx ψ ρp c) (x : V) :
+    x ∈ˢ SetTheory.app ((D).Ψaux ψ ρp Z c) t ↔
+      ∃ j fs, offs c + j < (Fss₀ ψ).length ∧ mems.getD (offs c + j) 0 = c ∧
+        FitsFrom (rss.getD (offs c + j) []) (fun i ρ => slotSet ((D).w ψ)
+            (nestedU k W pins ψ ((tgtsG.getD (offs c + j) []).getD i 0)) ρ
+            (((tlss ψ).getD (offs c + j) []).getD i [])
+            (((Eiss₀ ψ).getD (offs c + j) []).getD i [])
+            (Z ((tgtsG.getD (offs c + j) []).getD i 0)))
+          0 ρp ((Fss₀ ψ).getD (offs c + j) []) fs ∧
+        (∀ l, l < ((D).IdsM c ψ).length →
+          interp V (consList fs ρp) (((Ess₀ ψ).getD (offs c + j) []).getD l default) = projS l t) ∧
+        x = injW ((D).w ψ) j (mkTower (fs ++ [pt])) :=
+  tupleLfpΦ_fibre h hS hZ hc ht x
+
 /-- **`fibre` for the block model, at the auxiliary lists**: component
 `mm`'s fibre at `(X, t)` is the set of the tagged towers of the spines
 fitting one of the auxiliary block's constructors `offs mm + j` of
@@ -389,7 +417,7 @@ theorem ofNested_fibre (hS : TupleLfpShape (k + pins.length) (blockIds nP ppsA �
           interp V (consList fs ρp) (((Ess₀ ψ).getD (offs mm + j) []).getD l default) = projS l t) ∧
         x = injW ((D).w ψ) j (mkTower (fs ++ [pt])) := by
   rw [ofNested_Φ, composeΦ_apply]
-  exact tupleLfpΦ_fibre h hS (extT_mem hX) (by omega) ht x
+  exact ofNested_auxFibre_raw h hS (extT_mem hX) (by show mm < k + pins.length; omega) ht x
 
 /-- **The pins' carriers at the block's carrier are the auxiliary
 least tuple's pin components** (Bekić, the nested form) — `pinLeaf`'s

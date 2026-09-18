@@ -336,6 +336,36 @@ theorem BlockCtorData.ofFix {m : EnvModel V env} {env₀ : Env} {T : Name} {lps 
     nestEisLenRefl := fun _ i q hq _ hi => by rw [hn i hi] at hq; exact nomatch hq
     nestReflEntry := fun _ i q hq _ hi => by rw [hn i hi] at hq; exact nomatch hq }
 
+/-! ## The pins' constructors at the pin -/
+
+/-- **A pin's constructors at the pin** (see the module docstring):
+the container's constructors instantiated at the pin's components —
+per constructor its field domains at the block's parameter frame
+(depth `nP`; a recursive entry is its target's family applied), its
+recursive flags, its fields' targets in `members ++ pins`, its
+reflexive telescopes and index expressions, its result's index
+readings — and the pin's injection (the container's, abstract). -/
+structure PinCtors (V : Type w) where
+  /-- the container's constructors, with their field counts -/
+  ctors : List (ConstantVal × Nat)
+  /-- per constructor: the field domains at the block's parameter frame -/
+  Fss : (Name → Nat) → List (List AnnotTerm)
+  /-- per constructor: the recursive flags -/
+  rss : List (List Bool)
+  /-- per constructor and field: the target class -/
+  tgts : Nat → Nat → Nat
+  /-- per constructor: the reflexive fields' telescopes -/
+  tlss : (Name → Nat) → List (List (List (Nat × Nat × AnnotTerm)))
+  /-- per constructor: the recursive fields' index expressions -/
+  Eiss : (Name → Nat) → List (List (List AnnotTerm))
+  /-- per constructor: the result's index readings -/
+  Ess : (Name → Nat) → List (List AnnotTerm)
+  /-- the injection at a field spine -/
+  inj : (Name → Nat) → Nat → List V → V
+
+noncomputable instance : Inhabited (PinCtors V) :=
+  ⟨⟨[], fun _ => [], [], fun _ _ => 0, fun _ => [], fun _ => [], fun _ => [], fun _ _ _ => pt⟩⟩
+
 /-! ## The block model -/
 
 /-- **The representation block model of a block** (see the module
@@ -407,6 +437,12 @@ structure BlockModel (V : Type w) where
   later block is identified with.  A block with no pins carries its own
   `Φ` (`composeΦ` at zero pins is the identity). -/
   Ψaux : (Name → Nat) → (Nat → V) → (Nat → V) → Nat → V
+  /-- **the pins' constructors**: pin `q`'s copy of the container's
+  constructors, at the pin (`PinCtors`) — the auxiliary block's
+  per-component constructor data beyond the members, which is what
+  makes the wide operator readable FIBREWISE (`auxFibre`).  A block
+  with no pins carries the default. -/
+  pinCtors : Nat → PinCtors V
   /-- **the constructor injections**: member `mm`'s constructor `j`
   (member-local) at a field spine -/
   inj : (Name → Nat) → Nat → Nat → List V → V
@@ -558,9 +594,53 @@ theorem FitsFrom.length_eq {rs : List Bool} {slot : Nat → (Nat → V) → V} :
   | _, _, _ :: Fs, _ :: as, h =>
     congrArg Nat.succ (FitsFrom.length_eq (Fs := Fs) (as := as) h.2)
 
+/-- A fit reads its slots at the frames it visits only. -/
+theorem FitsFrom.congr_slot {rs : List Bool} {slot slot' : Nat → (Nat → V) → V} :
+    ∀ {i : Nat} {ρ : Nat → V} {Fs : List AnnotTerm} {as : List V},
+      (∀ l, l < Fs.length →
+        slot (i + l) (consList (as.take l) ρ) = slot' (i + l) (consList (as.take l) ρ)) →
+      (FitsFrom rs slot i ρ Fs as ↔ FitsFrom rs slot' i ρ Fs as)
+  | _, _, [], [], _ => Iff.rfl
+  | _, _, [], _ :: _, _ => Iff.rfl
+  | _, _, _ :: _, [], _ => Iff.rfl
+  | i, ρ, F :: Fs, a :: as, hsl => by
+    show (a ∈ˢ (if rs.getD i false then slot i ρ else interp V ρ F) ∧
+        FitsFrom rs slot (i + 1) (cons a ρ) Fs as) ↔
+      (a ∈ˢ (if rs.getD i false then slot' i ρ else interp V ρ F) ∧
+        FitsFrom rs slot' (i + 1) (cons a ρ) Fs as)
+    have h0 := hsl 0 (Nat.succ_pos _)
+    simp only [List.take_zero, consList_nil, Nat.add_zero] at h0
+    rw [h0]
+    refine and_congr Iff.rfl (FitsFrom.congr_slot fun l hl => ?_)
+    have := hsl (l + 1) (by simpa using hl)
+    rw [show i + (l + 1) = i + 1 + l from by omega] at this
+    simpa [List.take_succ_cons, consList_cons] using this
+
+/-- A fit is monotone in the slots at its recursive positions. -/
+theorem FitsFrom.mono {rs : List Bool} {slot slot' : Nat → (Nat → V) → V} :
+    ∀ {i : Nat} {ρ : Nat → V} {Fs : List AnnotTerm} {as : List V},
+      (∀ l, l < Fs.length → rs.getD (i + l) false = true → ∀ ρ', slot (i + l) ρ' ⊆ˢ slot' (i + l) ρ') →
+      FitsFrom rs slot i ρ Fs as → FitsFrom rs slot' i ρ Fs as
+  | _, _, [], [], _, hf => hf
+  | _, _, [], _ :: _, _, hf => hf.elim
+  | _, _, _ :: _, [], _, hf => hf.elim
+  | i, ρ, F :: Fs, a :: as, h, hf => by
+    obtain ⟨h1, h2⟩ := hf
+    refine ⟨?_, FitsFrom.mono (fun l hl hr ρ' => ?_) h2⟩
+    · by_cases hr : rs.getD i false = true
+      · rw [if_pos hr] at h1 ⊢
+        have := h 0 (Nat.succ_pos _) (by rw [Nat.add_zero]; exact hr) ρ
+        rw [Nat.add_zero] at this
+        exact this a h1
+      · rw [if_neg hr] at h1 ⊢; exact h1
+    · have := h (l + 1) (by simpa using hl)
+        (by rw [show i + (l + 1) = i + 1 + l from by omega]; exact hr) ρ'
+      rw [show i + (l + 1) = i + 1 + l from by omega] at this
+      exact this
+
 namespace BlockModel
 
-variable (d : BlockModel V)
+variable (d : BlockModel V) (pc : Nat → PinCtors V)
 
 /-- **A field spine fits member `mm`'s constructor `j` at the functor
 frame `(ρp, X, t)`**: it fits the constructor's entries at `X`, and the
@@ -572,6 +652,254 @@ constructor's index expressions at it are the components of the tuple
   FitsFrom ((d.rss mm).getD j []) (d.slotAt ψ X mm j) 0 ρp ((d.Fss mm ψ).getD j []) fs ∧
   ∀ l, l < (d.IdsM mm ψ).length →
     interp V (consList fs ρp) (((d.Ess mm ψ).getD j []).getD l default) = projS l t
+
+
+/-! ### The class readers -/
+
+/-- The number of classes. -/
+@[expose] def kT : Nat := d.k + d.nPins
+
+/-- A class's index count. -/
+@[expose] def nIdxT (c : Nat) : Nat := if c < d.k then d.nIdxAt c else (d.pinAt (c - d.k)).nIdx
+
+/-- A class's index telescope (the member's at the parameter frame;
+the pin's container's, at the pin's frame). -/
+@[expose] def IdsT (c : Nat) (ψ : Name → Nat) : List AnnotTerm :=
+  if c < d.k then d.IdsM c ψ else (d.pinAt (c - d.k)).Ids ψ
+
+/-- A class's frame at the parameter frame: the parameters for a
+member, the pin's frame for a pin. -/
+@[expose] noncomputable def frameT (c : Nat) (ψ : Name → Nat) (ρp : Nat → V) : Nat → V :=
+  if c < d.k then ρp else d.pinFrame (c - d.k) ψ ρp
+
+/-- **A class's index-tuple set**: the member's `idx`, the pin's `pinIdx`. -/
+@[expose] noncomputable def idxT (ψ : Name → Nat) (ρp : Nat → V) (c : Nat) : V :=
+  if c < d.k then d.idx ψ ρp c else d.pinIdx (c - d.k) ψ ρp
+
+/-- A class's index spine as its tuple (at the class's sort `uT`). -/
+@[expose] noncomputable def tupT (ψ : Name → Nat) (c : Nat) (is : List V) : V := tupW (d.uT c ψ) is
+
+/-- A class's constructors. -/
+@[expose] def ctorsT (c : Nat) : List (ConstantVal × Nat) :=
+  if c < d.k then d.ctorsM c else (pc (c - d.k)).ctors
+
+/-- A class's field domains, per constructor. -/
+@[expose] def FssT (ψ : Name → Nat) (c : Nat) : List (List AnnotTerm) :=
+  if c < d.k then d.Fss c ψ else (pc (c - d.k)).Fss ψ
+
+/-- A class's recursive flags, per constructor. -/
+@[expose] def rssT (c : Nat) : List (List Bool) := if c < d.k then d.rss c else (pc (c - d.k)).rss
+
+/-- A class's targets, per constructor and field. -/
+@[expose] def tgtsT (c : Nat) : Nat → Nat → Nat := if c < d.k then d.tgts c else (pc (c - d.k)).tgts
+
+/-- A class's reflexive telescopes, per constructor. -/
+@[expose] def tlssT (ψ : Name → Nat) (c : Nat) : List (List (List (Nat × Nat × AnnotTerm))) :=
+  if c < d.k then d.tlss c ψ else (pc (c - d.k)).tlss ψ
+
+/-- A class's recursive fields' index expressions, per constructor. -/
+@[expose] def EissT (ψ : Name → Nat) (c : Nat) : List (List (List AnnotTerm)) :=
+  if c < d.k then d.Eiss c ψ else (pc (c - d.k)).Eiss ψ
+
+/-- A class's results' index readings, per constructor. -/
+@[expose] def EssT (ψ : Name → Nat) (c : Nat) : List (List AnnotTerm) :=
+  if c < d.k then d.Ess c ψ else (pc (c - d.k)).Ess ψ
+
+/-- A class's injection. -/
+@[expose] def injT (ψ : Name → Nat) (c : Nat) : Nat → List V → V :=
+  if c < d.k then d.inj ψ c else (pc (c - d.k)).inj ψ
+
+
+/-- Field `i'`'s telescope at a class. -/
+@[expose] def teleAtT (ψ : Name → Nat) (c j i' : Nat) : List (Nat × Nat × AnnotTerm) :=
+  ((d.tlssT pc ψ c).getD j []).getD i' []
+
+/-- Field `i'`'s index expressions at a class. -/
+@[expose] def eisAtT (ψ : Name → Nat) (c j i' : Nat) : List AnnotTerm :=
+  ((d.EissT pc ψ c).getD j []).getD i' []
+
+/-- **A recursive slot over an EXTENDED tuple** `Y` of `k + nPins`
+families: field `i` of class `c`'s constructor `j` reads its target
+class's family `Y (tgtsT c j i)` at the tuple of its index expressions
+under its telescope. -/
+@[expose] noncomputable def slotAtT (ψ : Name → Nat) (Y : Nat → V) (c j i : Nat) (ρ : Nat → V) : V :=
+  slotSet (d.w ψ) (d.uT (d.tgtsT pc c j i) ψ) ρ (d.teleAtT pc ψ c j i) (d.eisAtT pc ψ c j i)
+    (Y (d.tgtsT pc c j i))
+
+/-- **A field spine fits class `c`'s constructor `j` at the extended
+tuple `Y` and index tuple `t`** (`ChainFit`'s twin over the classes). -/
+@[expose] def ChainFitT (ψ : Name → Nat) (ρp : Nat → V) (Y : Nat → V) (t : V) (c j : Nat)
+    (fs : List V) : Prop :=
+  FitsFrom ((d.rssT pc c).getD j []) (d.slotAtT pc ψ Y c j) 0 ρp ((d.FssT pc ψ c).getD j []) fs ∧
+  ∀ l, l < (d.IdsT c ψ).length →
+    interp V (consList fs ρp) (((d.EssT pc ψ c).getD j []).getD l default) = projS l t
+
+
+/-! ### The class readers at a member -/
+
+section Members
+
+variable {d pc} {c : Nat} (hc : c < d.k)
+include hc
+
+omit [SetTheory V] in
+theorem nIdxT_of_mem : d.nIdxT c = d.nIdxAt c := by simp only [nIdxT, if_pos hc]
+omit [SetTheory V] in
+theorem IdsT_of_mem (ψ : Name → Nat) : d.IdsT c ψ = d.IdsM c ψ := by simp only [IdsT, if_pos hc]
+theorem frameT_of_mem (ψ : Name → Nat) (ρp : Nat → V) : d.frameT c ψ ρp = ρp := by
+  simp only [frameT, if_pos hc]
+theorem idxT_of_mem (ψ : Name → Nat) (ρp : Nat → V) : d.idxT ψ ρp c = d.idx ψ ρp c := by
+  simp only [idxT, if_pos hc]
+omit [SetTheory V] in
+theorem uT_of_mem (ψ : Name → Nat) : d.uT c ψ = d.uM c ψ := by simp only [uT, if_pos hc]
+theorem tupT_of_mem (ψ : Name → Nat) (is : List V) : d.tupT ψ c is = d.tup ψ c is := by
+  simp only [tupT, tup, uT, if_pos hc]
+omit [SetTheory V] in
+theorem ctorsT_of_mem : d.ctorsT pc c = d.ctorsM c := by simp only [ctorsT, if_pos hc]
+omit [SetTheory V] in
+theorem FssT_of_mem (ψ : Name → Nat) : d.FssT pc ψ c = d.Fss c ψ := by simp only [FssT, if_pos hc]
+omit [SetTheory V] in
+theorem rssT_of_mem : d.rssT pc c = d.rss c := by simp only [rssT, if_pos hc]
+omit [SetTheory V] in
+theorem tgtsT_of_mem : d.tgtsT pc c = d.tgts c := by simp only [tgtsT, if_pos hc]
+omit [SetTheory V] in
+theorem tlssT_of_mem (ψ : Name → Nat) : d.tlssT pc ψ c = d.tlss c ψ := by
+  simp only [tlssT, if_pos hc]
+omit [SetTheory V] in
+theorem EissT_of_mem (ψ : Name → Nat) : d.EissT pc ψ c = d.Eiss c ψ := by
+  simp only [EissT, if_pos hc]
+omit [SetTheory V] in
+theorem EssT_of_mem (ψ : Name → Nat) : d.EssT pc ψ c = d.Ess c ψ := by simp only [EssT, if_pos hc]
+omit [SetTheory V] in
+theorem injT_of_mem (ψ : Name → Nat) : d.injT pc ψ c = d.inj ψ c := by simp only [injT, if_pos hc]
+
+/-- A member's slot over the extended tuple at `X` is its slot at `X`,
+at a frame whose parameter part is `ρp` (the pin's carrier is taken at
+the slot's frame below the fields). -/
+theorem slotAtT_of_mem (ψ : Name → Nat) (ρp : Nat → V) (X : Nat → V) (j i : Nat) {fs' : List V}
+    (hlen : fs'.length = i) :
+    d.slotAtT pc ψ (d.famAt ψ ρp X) c j i (consList fs' ρp) = d.slotAt ψ X c j i (consList fs' ρp) := by
+  have hρ : (fun n => consList fs' ρp (n + i)) = ρp :=
+    funext fun n => by rw [← hlen]; exact consList_apply_add fs' ρp n
+  simp only [slotAtT, slotAt, teleAtT, eisAtT, tlssT, EissT, tgtsT, if_pos hc, hρ]
+
+end Members
+
+/-! ### The class readers at a pin -/
+
+section Pins
+
+variable {d pc} {c : Nat} (hc : ¬ c < d.k)
+include hc
+
+omit [SetTheory V] in
+theorem nIdxT_of_pin : d.nIdxT c = (d.pinAt (c - d.k)).nIdx := by simp only [nIdxT, if_neg hc]
+omit [SetTheory V] in
+theorem IdsT_of_pin (ψ : Name → Nat) : d.IdsT c ψ = (d.pinAt (c - d.k)).Ids ψ := by
+  simp only [IdsT, if_neg hc]
+theorem frameT_of_pin (ψ : Name → Nat) (ρp : Nat → V) : d.frameT c ψ ρp = d.pinFrame (c - d.k) ψ ρp := by
+  simp only [frameT, if_neg hc]
+theorem idxT_of_pin (ψ : Name → Nat) (ρp : Nat → V) : d.idxT ψ ρp c = d.pinIdx (c - d.k) ψ ρp := by
+  simp only [idxT, if_neg hc]
+omit [SetTheory V] in
+theorem uT_of_pin (ψ : Name → Nat) : d.uT c ψ = (d.pinAt (c - d.k)).u ψ := by
+  simp only [uT, if_neg hc]
+omit [SetTheory V] in
+theorem ctorsT_of_pin : d.ctorsT pc c = (pc (c - d.k)).ctors := by simp only [ctorsT, if_neg hc]
+omit [SetTheory V] in
+theorem FssT_of_pin (ψ : Name → Nat) : d.FssT pc ψ c = (pc (c - d.k)).Fss ψ := by
+  simp only [FssT, if_neg hc]
+omit [SetTheory V] in
+theorem rssT_of_pin : d.rssT pc c = (pc (c - d.k)).rss := by simp only [rssT, if_neg hc]
+omit [SetTheory V] in
+theorem tgtsT_of_pin : d.tgtsT pc c = (pc (c - d.k)).tgts := by simp only [tgtsT, if_neg hc]
+omit [SetTheory V] in
+theorem tlssT_of_pin (ψ : Name → Nat) : d.tlssT pc ψ c = (pc (c - d.k)).tlss ψ := by
+  simp only [tlssT, if_neg hc]
+omit [SetTheory V] in
+theorem EissT_of_pin (ψ : Name → Nat) : d.EissT pc ψ c = (pc (c - d.k)).Eiss ψ := by
+  simp only [EissT, if_neg hc]
+omit [SetTheory V] in
+theorem EssT_of_pin (ψ : Name → Nat) : d.EssT pc ψ c = (pc (c - d.k)).Ess ψ := by
+  simp only [EssT, if_neg hc]
+omit [SetTheory V] in
+theorem injT_of_pin (ψ : Name → Nat) : d.injT pc ψ c = (pc (c - d.k)).inj ψ := by
+  simp only [injT, if_neg hc]
+
+end Pins
+
+omit [SetTheory V] in
+/-- The extended tuple at `X`, at a class: the member's component or
+the pin's carrier. -/
+theorem famAt_of_mem {ψ : Name → Nat} {ρp : Nat → V} {X : Nat → V} {c : Nat} (hc : c < d.k) :
+    d.famAt ψ ρp X c = X c := by simp only [famAt, if_pos hc]
+
+omit [SetTheory V] in
+theorem famAt_of_pin {ψ : Name → Nat} {ρp : Nat → V} {X : Nat → V} {c : Nat} (hc : ¬ c < d.k) :
+    d.famAt ψ ρp X c = d.pinCar ψ ρp X (c - d.k) := by simp only [famAt, if_neg hc]
+
+/-- **`ChainFitT` at a PIN class, read off the pin's constructors**
+(task #315 L-E, DESIGN §U.86): every reader is the pin's
+(`rssT_of_pin` and friends), so the fit is the one
+`copyTransfer_via` takes, at the pin's own lists. -/
+theorem chainFitT_of_pin {d : BlockModel V} {pc : Nat → PinCtors V} {ψ : Name → Nat}
+    {ρp : Nat → V} {Y : Nat → V} {t : V} {c j : Nat} {fs : List V} (hc : ¬ c < d.k) :
+    d.ChainFitT pc ψ ρp Y t c j fs ↔
+      (FitsFrom ((pc (c - d.k)).rss.getD j [])
+          (fun i' ρ => slotSet (d.w ψ) (d.uT ((pc (c - d.k)).tgts j i') ψ) ρ
+            ((((pc (c - d.k)).tlss ψ).getD j []).getD i' [])
+            ((((pc (c - d.k)).Eiss ψ).getD j []).getD i' [])
+            (Y ((pc (c - d.k)).tgts j i'))) 0 ρp (((pc (c - d.k)).Fss ψ).getD j []) fs ∧
+        ∀ l, l < ((d.pinAt (c - d.k)).Ids ψ).length →
+          interp V (consList fs ρp) ((((pc (c - d.k)).Ess ψ).getD j []).getD l default)
+            = projS l t) := by
+  unfold ChainFitT slotAtT teleAtT eisAtT
+  simp only [rssT, FssT, tlssT, EissT, EssT, tgtsT, IdsT, if_neg hc]
+
+/-! ### The narrow fit against the class fit -/
+
+/-- A member's fit at `X` is a fit over the extended tuple at `X`. -/
+theorem chainFitT_of_chainFit {d : BlockModel V} (pc : Nat → PinCtors V) {ψ : Name → Nat}
+    {ρp : Nat → V} {X : Nat → V} {t : V} {c j : Nat} (hc : c < d.k) {fs : List V}
+    (hf : d.ChainFit ψ ρp X t c j fs) : d.ChainFitT pc ψ ρp (d.famAt ψ ρp X) t c j fs := by
+  obtain ⟨hfit, hidx⟩ := hf
+  refine ⟨?_, ?_⟩
+  · rw [rssT_of_mem hc, FssT_of_mem hc]
+    refine (FitsFrom.congr_slot (Fs := (d.Fss c ψ).getD j []) (fun l hl => ?_)).mpr hfit
+    rw [Nat.zero_add]
+    exact slotAtT_of_mem hc ψ ρp X j l
+      (by rw [List.length_take, hfit.length_eq]; exact Nat.min_eq_left (Nat.le_of_lt hl))
+  · rw [IdsT_of_mem hc, EssT_of_mem hc]
+    exact hidx
+
+/-- **At a MEMBER class the two fits are the same**: the class fit
+over the extended tuple at `X` IS the member's fit at `X` (task #315,
+Resolution 1) — what makes `fibre` the restriction of `auxFibre` to
+the members, once the extended tuple is the pins' least one. -/
+theorem chainFitT_iff_chainFit {d : BlockModel V} (pc : Nat → PinCtors V) {ψ : Name → Nat}
+    {ρp : Nat → V} {X : Nat → V} {t : V} {c j : Nat} (hc : c < d.k) {fs : List V} :
+    d.ChainFitT pc ψ ρp (d.famAt ψ ρp X) t c j fs ↔ d.ChainFit ψ ρp X t c j fs := by
+  refine ⟨fun hf => ⟨?_, ?_⟩, chainFitT_of_chainFit pc hc⟩
+  · have hfit := hf.1
+    rw [rssT_of_mem hc, FssT_of_mem hc] at hfit
+    refine (FitsFrom.congr_slot (Fs := (d.Fss c ψ).getD j []) (fun l hl => ?_)).mp hfit
+    rw [Nat.zero_add]
+    exact slotAtT_of_mem hc ψ ρp X j l
+      (by rw [List.length_take, hfit.length_eq]; exact Nat.min_eq_left (Nat.le_of_lt hl))
+  · have hidx := hf.2
+    rw [IdsT_of_mem hc, EssT_of_mem hc] at hidx
+    exact hidx
+
+/-- **The class fit reads its tuple at the targets only**. -/
+theorem chainFitT_congr {d : BlockModel V} (pc : Nat → PinCtors V) {ψ : Name → Nat}
+    {ρp : Nat → V} {Y Y' : Nat → V} {t : V} {c j : Nat} {fs : List V}
+    (h : ∀ i, i < ((d.FssT pc ψ c).getD j []).length →
+      Y (d.tgtsT pc c j i) = Y' (d.tgtsT pc c j i)) :
+    d.ChainFitT pc ψ ρp Y t c j fs ↔ d.ChainFitT pc ψ ρp Y' t c j fs := by
+  refine and_congr (FitsFrom.congr_slot fun l hl => ?_) Iff.rfl
+  rw [Nat.zero_add]
+  unfold slotAtT
+  rw [h l hl]
 
 end BlockModel
 
@@ -699,6 +1027,29 @@ structure IsBlockModel (m : EnvModel V env) (T : Name) (cvT cvR : ConstantVal) (
   members' tuple -/
   auxPinsCar : ∀ (ψ : Name → Nat) (ρp : Nat → V) (X : Nat → V) (q : Nat), q < d.nPins →
     d.pinCar ψ ρp X q = pinsCar (d.w ψ) d.k d.nPins (d.idx ψ ρp) (d.Ψaux ψ ρp) X q
+  /-- **a pin component's index-tuple set IS the pin's** — the tuple
+  space at position `k + q` is the one the pin's carrier lives in.
+  Nothing in `pinMem`/`auxPinsCar` forces the two, and the wide
+  operator's fibre at a pin class is stated at the pin's (task #315,
+  Resolution 1) -/
+  auxPinIdx : ∀ q, q < d.nPins → ∀ (ψ : Name → Nat) (ρp : Nat → V),
+    d.idx ψ ρp (d.k + q) = d.pinIdx q ψ ρp
+  /-- **the wide operator's fibre, at every class**: at a tuple `Z` of
+  the WIDE tuple space, component `c`'s fibre at `(Z, t)` is the set
+  of injections of the spines fitting one of class `c`'s constructors
+  — the members' as `fibre` says, a pin's the copy's (`pinCtors`) —
+  with every recursive field read at its target's component of `Z`
+  ITSELF (`ChainFitT`: no `famAt` and no `pinCar`, because at this
+  width the pins ARE variables).  This is what `fibre` cannot say: it
+  pins `Ψaux` down only at the extended tuples `(X, pinCar X)`, and a
+  CONTAINER instance's copies are read at tuples that are not of that
+  form -/
+  auxFibre : ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (d.params ψ).reverse ρp →
+    ∀ Z, InTupleSpace (d.w ψ) (d.k + d.nPins) (d.idx ψ ρp) Z →
+    ∀ c, c < d.k + d.nPins → ∀ t, t ∈ˢ d.idx ψ ρp c → ∀ x,
+      x ∈ˢ app (d.Ψaux ψ ρp Z c) t ↔
+        ∃ j fs, j < (d.ctorsT d.pinCtors c).length ∧
+          d.ChainFitT d.pinCtors ψ ρp Z t c j fs ∧ x = d.injT d.pinCtors ψ c j fs
   /-- **a pin's leaf**: the container at the pin's components (read at
   fitting parameters) and fitting indices is the pin's carrier at the
   least tuple — the pin's stored reading IS `pinCar` at the carrier -/
@@ -746,6 +1097,101 @@ set. -/
 theorem BlockModel.tupMem (d : BlockModel V) {ψ : Name → Nat} {ρp : Nat → V} {mm' : Nat}
     {is : List V} (hsp : SpineFit ρp (d.IdsM mm' ψ) is) : d.tup ψ mm' is ∈ˢ d.idx ψ ρp mm' :=
   tupW_mem (u := d.uM mm' ψ) hsp
+
+omit [SetTheory V] in
+/-- A member has one domain list per constructor. -/
+theorem BlockModel.Fss_length (d : BlockModel V) (mm : Nat) (ψ : Name → Nat) :
+    (d.Fss mm ψ).length = (d.ctorsM mm).length := by
+  show (fssOfR _ _).length = _
+  rw [fssOfR_length]
+  show (fixCtorDataList _ _ _ _ _ _ _ _).length = _
+  rw [fixCtorDataList_length]
+
+/-- **`fibre` IS `auxFibre` restricted to the members** (task #315,
+Resolution 1): at a member and at the EXTENDED tuple `(X, pinCar X)`
+the wide fibre is the narrow one, because the class readers are the
+members' there (`ctorsT_of_mem`, `injT_of_mem`) and the class fit over
+the extended tuple IS the member's fit at `X`
+(`chainFitT_iff_chainFit`).  What the narrow clause cannot do is the
+converse: it says nothing at a tuple that is not extended, which is
+where a CONTAINER instance's copies are read. -/
+theorem BlockModel.fibre_of_auxFibre (d : BlockModel V)
+    (hcomp : ∀ (ψ : Name → Nat) (ρp : Nat → V),
+      d.Φ ψ ρp = composeΦ (d.w ψ) d.k d.nPins (d.idx ψ ρp) (d.Ψaux ψ ρp))
+    (hpins : ∀ (ψ : Name → Nat) (ρp : Nat → V) (X : Nat → V) (q : Nat), q < d.nPins →
+      d.pinCar ψ ρp X q = pinsCar (d.w ψ) d.k d.nPins (d.idx ψ ρp) (d.Ψaux ψ ρp) X q)
+    (htgt : ∀ c j i, c < d.k → j < (d.ctorsM c).length → d.tgts c j i < d.k + d.nPins)
+    (haux : ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (d.params ψ).reverse ρp →
+      ∀ Z, InTupleSpace (d.w ψ) (d.k + d.nPins) (d.idx ψ ρp) Z →
+      ∀ c, c < d.k + d.nPins → ∀ t, t ∈ˢ d.idx ψ ρp c → ∀ x,
+        x ∈ˢ app (d.Ψaux ψ ρp Z c) t ↔
+          ∃ j fs, j < (d.ctorsT d.pinCtors c).length ∧
+            d.ChainFitT d.pinCtors ψ ρp Z t c j fs ∧ x = d.injT d.pinCtors ψ c j fs) :
+    ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (d.params ψ).reverse ρp →
+    ∀ X, InTupleSpace (d.w ψ) d.k (d.idx ψ ρp) X → ∀ c, c < d.k →
+    ∀ t, t ∈ˢ d.idx ψ ρp c → ∀ x,
+      x ∈ˢ app (d.Φ ψ ρp X c) t ↔
+        ∃ j fs, j < (d.ctorsM c).length ∧ d.ChainFit ψ ρp X t c j fs ∧ x = d.inj ψ c j fs := by
+  intro ψ ρp hρp X hX c hc t ht x
+  rw [hcomp, composeΦ_apply,
+    haux ψ ρp hρp _ (extT_mem hX) c (by omega) t ht x,
+    BlockModel.ctorsT_of_mem hc, BlockModel.injT_of_mem hc]
+  refine exists_congr fun j => exists_congr fun fs => and_congr Iff.rfl (and_congr ?_ Iff.rfl)
+  rw [← BlockModel.chainFitT_iff_chainFit d.pinCtors hc]
+  refine BlockModel.chainFitT_congr d.pinCtors fun i hi => ?_
+  rw [BlockModel.FssT_of_mem hc] at hi
+  have hj : j < (d.ctorsM c).length := by
+    rcases Nat.lt_or_ge j (d.ctorsM c).length with h' | h'
+    · exact h'
+    · exfalso
+      rw [List.getD_eq_getElem?_getD,
+        List.getElem?_eq_none (by rw [d.Fss_length c ψ]; exact h'), Option.getD_none,
+        List.length_nil] at hi
+      exact Nat.not_lt_zero i hi
+  have hlt := htgt c j i hc hj
+  rw [BlockModel.tgtsT_of_mem hc, extT_eq_famAt hlt]
+  unfold BlockModel.famAt
+  by_cases hk : d.tgts c j i < d.k
+  · rw [if_pos hk, if_pos hk]
+  · rw [if_neg hk, if_neg hk, hpins ψ ρp X _ (by omega)]
+
+/-- **`auxFibre` at a block with NO pins**, from `fibre`: the wide
+operator is the narrow one (`hΨ`), every class is a member and every
+target is one (`htgt`), so the class readers are the members' and the
+class fit over the tuple IS the member's fit at it.  The six pin-less
+routes (native, mutual, the four pinned basis blocks) discharge the
+wide clause with this. -/
+theorem BlockModel.auxFibre_of_noPins (d : BlockModel V) (hn : d.nPins = 0)
+    (hΨ : ∀ (ψ : Name → Nat) (ρp : Nat → V), d.Ψaux ψ ρp = d.Φ ψ ρp)
+    (htgt : ∀ c j i, c < d.k → j < (d.ctorsM c).length → d.tgts c j i < d.k)
+    (hfib : ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (d.params ψ).reverse ρp →
+      ∀ X, InTupleSpace (d.w ψ) d.k (d.idx ψ ρp) X → ∀ c, c < d.k →
+      ∀ t, t ∈ˢ d.idx ψ ρp c → ∀ x,
+        x ∈ˢ app (d.Φ ψ ρp X c) t ↔
+          ∃ j fs, j < (d.ctorsM c).length ∧ d.ChainFit ψ ρp X t c j fs ∧ x = d.inj ψ c j fs) :
+    ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (d.params ψ).reverse ρp →
+    ∀ Z, InTupleSpace (d.w ψ) (d.k + d.nPins) (d.idx ψ ρp) Z →
+    ∀ c, c < d.k + d.nPins → ∀ t, t ∈ˢ d.idx ψ ρp c → ∀ x,
+      x ∈ˢ app (d.Ψaux ψ ρp Z c) t ↔
+        ∃ j fs, j < (d.ctorsT d.pinCtors c).length ∧
+          d.ChainFitT d.pinCtors ψ ρp Z t c j fs ∧ x = d.injT d.pinCtors ψ c j fs := by
+  intro ψ ρp hρp Z hZ c hc t ht x
+  rw [hn, Nat.add_zero] at hc hZ
+  rw [hΨ, hfib ψ ρp hρp Z hZ c hc t ht x, BlockModel.ctorsT_of_mem hc,
+    BlockModel.injT_of_mem hc]
+  refine exists_congr fun j => exists_congr fun fs => and_congr Iff.rfl (and_congr ?_ Iff.rfl)
+  rw [← BlockModel.chainFitT_iff_chainFit d.pinCtors hc]
+  refine BlockModel.chainFitT_congr d.pinCtors fun i hi => ?_
+  rw [BlockModel.FssT_of_mem hc] at hi
+  have hj : j < (d.ctorsM c).length := by
+    rcases Nat.lt_or_ge j (d.ctorsM c).length with h' | h'
+    · exact h'
+    · exfalso
+      rw [List.getD_eq_getElem?_getD,
+        List.getElem?_eq_none (by rw [d.Fss_length c ψ]; exact h'), Option.getD_none,
+        List.length_nil] at hi
+      exact Nat.not_lt_zero i hi
+  rw [BlockModel.tgtsT_of_mem hc, d.famAt_of_mem (htgt c j i hc hj)]
 
 namespace IsBlockModel
 

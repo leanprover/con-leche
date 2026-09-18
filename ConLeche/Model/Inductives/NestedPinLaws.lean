@@ -57,12 +57,6 @@ universe w
 
 variable {V : Type w} [SetTheory V] {μ : CheckMode} {env : Env}
 
-omit [SetTheory V] in
-/-- A dropped list's entry is the original's, shifted. -/
-theorem getD_drop {α : Type _} (l : List α) (n j : Nat) (a : α) :
-    (l.drop n).getD j a = l.getD (n + j) a := by
-  rw [List.getD_eq_getElem?_getD, List.getD_eq_getElem?_getD, List.getElem?_drop]
-
 /-! ## The composed operator's pins: the fibre and the induction -/
 
 section Nested
@@ -80,11 +74,11 @@ variable {nP k : Nat} {resSort : Level} {isProp large : Bool} {env₀ : Env} {me
   {mems nFs : List Nat} {tgtsG : List (List Nat)} {rss : List (List Bool)}
   {tlss : (Name → Nat) → List (List (List (Nat × Nat × AnnotTerm)))}
   {Eiss₀ : (Name → Nat) → List (List (List AnnotTerm))}
-  {Fss₀ Ess₀ : (Name → Nat) → List (List AnnotTerm)}
+  {Fss₀ Ess₀ : (Name → Nat) → List (List AnnotTerm)} {pc : Nat → PinCtors V}
 
 local notation "D" => (BlockModel.ofNested (V := V) nP k resSort isProp large env₀ memberNames
   nIdxs ppsA W ctorsM idxF dsF esF srcsF ksF tgts fvsPF xFvsF xrestF eissF tssF pins offs mems nFs
-  tgtsG rss tlss Eiss₀ Fss₀ Ess₀)
+  tgtsG rss tlss Eiss₀ Fss₀ Ess₀ pc)
 
 local notation "ΨA" => nestedΨ (V := V) nP k resSort ppsA W pins offs mems nFs tgtsG rss tlss
   Eiss₀ Fss₀ Ess₀
@@ -162,34 +156,6 @@ theorem ofNested_pin_ind
   exact hP q' hq' t' ht' x' (by rwa [hsep] at hx')
 
 end Nested
-
-/-! ## The pins' constructor data at the run -/
-
-/-- **The pins' constructors at the run's data** (DESIGN §U.25 (e) 1):
-pin `q`'s data is the AUXILIARY block's at the copy's positions
-`b.ownOffset (k + q) + j` — the copy's constructors (`b.ownCtors (k +
-q)`, as `ctorsA` entries), its shadow domains, flags, targets,
-telescopes and index expressions and its results' index readings, all
-dropped to the copy's first position so that the member-local index
-`j` reads the global one — with the injection the tagged tower at `j`
-(the member-local tag inside the seal, §U.16). -/
-@[expose] noncomputable def nestedPc (b : MutualBlock) (ctorsA : List (ConstantVal × Nat))
-    (kinds : List (List (RecFieldKind × Nat))) (k : Nat) (resSort : Level)
-    (dsF : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm))
-    (esF : Nat → (Name → Nat) → List AnnotTerm)
-    (eissF : Nat → (Name → Nat) → List (List AnnotTerm))
-    (tssF : Nat → (Name → Nat) → List (List (Nat × Nat × AnnotTerm)))
-    (q : Nat) : PinCtors V where
-  ctors := (b.ownCtors (k + q)).map fun jc => ctorsA.getD jc.1 default
-  Fss := fun ψ => (blkFss0 b ctorsA kinds dsF ψ).drop (b.ownOffset (k + q))
-  rss := (blkRss ctorsA kinds).drop (b.ownOffset (k + q))
-  tgts := fun j i =>
-    ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD (b.ownOffset (k + q) + j)
-      []).getD i 0
-  tlss := fun ψ => (mutTlss ctorsA.length tssF ψ).drop (b.ownOffset (k + q))
-  Eiss := fun ψ => (mutEiss0 ctorsA.length eissF ψ).drop (b.ownOffset (k + q))
-  Ess := fun ψ => (mutEss0 ctorsA.length esF ψ).drop (b.ownOffset (k + q))
-  inj := fun ψ j fs => injW (resSort.eval ψ) j (mkTower (fs ++ [pt]))
 
 /-! ## The pins' recursion laws at the nested block model -/
 

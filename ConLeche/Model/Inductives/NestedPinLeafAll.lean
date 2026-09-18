@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Model.Inductives.NestedPinLaws
+import ConLeche.Model.Inductives.NestedPinLaws
 import ConLeche.Model.Inductives.NestedAux
 import ConLeche.Model.Inductives.ContainerCross
 public import ConLeche.Model.Inductives.NestedCopyIdx

@@ -137,6 +137,7 @@ the injections `natzero` and the von Neumann successor. -/
   Φ := fun _ _ X _ => graph (fun _ => natStepSet (app (X 0) pt)) unitSet
   pinCar := fun _ _ _ _ => pt
   Ψaux := fun _ _ X _ => graph (fun _ => natStepSet (app (X 0) pt)) unitSet
+  pinCtors := fun _ => default
   inj := fun _ _ j fs => if j = 0 then natzero else vsucc (fs.getD 0 pt)
 
 namespace natBlock
@@ -623,6 +624,35 @@ theorem natBlock_isBlockModel {env : Env} {m : EnvModel V env} {cvR : ConstantVa
   auxFunctor := fun ψ ρp _ => ⟨natBlock.mono ψ ρp, natBlock.maps ψ ρp, natBlock.closed ψ ρp⟩
   auxCompose := fun _ _ => composeΦ_zero.symm
   auxPinsCar := fun _ _ _ _ h => nomatch h
+  auxPinIdx := fun _ h => nomatch h
+  auxFibre := BlockModel.auxFibre_of_noPins _ rfl (fun _ _ => rfl)
+    (fun _ _ _ _ _ => Nat.one_pos)
+    (fun ψ ρp _ X _ mm' hmm t ht x => by
+        obtain rfl : mm' = 0 := Nat.lt_one_iff.mp hmm
+        have hpt : t = pt := mem_unitSet_iff.mp ht
+        rw [natBlock.Phi_app, app_graph ht, mem_natStepSet]
+        constructor
+        · rintro (rfl | ⟨a, ha, rfl⟩)
+          · exact ⟨0, [], Nat.zero_lt_two, ⟨trivial, fun l hl => (nomatch hl)⟩, rfl⟩
+          · refine ⟨1, [a], Nat.one_lt_two, ⟨⟨?_, trivial⟩, fun l hl => (nomatch hl)⟩, rfl⟩
+            show a ∈ˢ (natBlock (V := V)).slotAt ψ X 0 1 0 ρp
+            rw [natBlock.slot_succ]
+            exact ha
+        · rintro ⟨j, fs, hj, ⟨hfit, -⟩, rfl⟩
+          match j, hj with
+          | 0, _ => exact Or.inl rfl
+          | 1, _ =>
+            have hlen : fs.length = 1 := by
+              have := FitsFrom.length_eq hfit
+              rwa [natBlock.Fss_succ] at this
+            match fs, hlen with
+            | [a], _ =>
+              refine Or.inr ⟨a, ?_, rfl⟩
+              have ha : a ∈ˢ (natBlock (V := V)).slotAt ψ X 0 1 0 ρp := by
+                have h1 := hfit
+                rw [natBlock.Fss_succ, natBlock.rss_succ] at h1
+                exact h1.1
+              rwa [natBlock.slot_succ] at ha)
   pinLeaf := fun _ h => nomatch h
   leaf := fun ψ ρ as is hsp hi => by
     obtain rfl : as = [] := List.eq_nil_of_length_eq_zero (SpineFit.length_eq hsp)

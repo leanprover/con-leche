@@ -282,6 +282,7 @@ towers (the point at `w = 0`). -/
   eissF := fun _ => eissF
   tssF := fun _ => tssF
   pins := []
+  pinCtors := fun _ => default
   Φ := fun ψ ρp =>
     let cds := fixCtorDataList dsF esF ksF eissF tssF ψ ctorsA 0
     let Ids := ((ppsAll ψ).drop nP).map (·.2.2)
