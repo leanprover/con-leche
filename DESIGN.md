@@ -113007,3 +113007,54 @@ halves meet there.
 
 `tests/warning-free.sh 0c8567b5`: 19 changed modules, 0 warning lines in
 build and test, "OK (a run that could have failed)".
+
+#### WIDE (2)/(3)/(f): THE WIRING, AUDITED AND HANDED OVER (lane WIDE, 2026-09-18)
+
+Item (2) is confirmed to be a RE-POINTING and is wired below; it is a
+session of plumbing on its own, so it is handed over rather than
+half-built.
+
+##### (a) Why (2) is exactly two applications of one theorem
+
+`copyTransfer_via` takes a fit AND its index equations on side 1 and
+concludes the fit AND the index equations on side 2 — which is
+precisely the two halves of `hfit`.  So the pin-class fit is that
+theorem twice, once per direction, with `chainFitT_of_pin` turning side
+2 into `dJ.ChainFitT dJ.pinCtors ψJ ρJ Y (dJ.k + qK) j fs`.  No
+induction, no new combinator.
+
+##### (b) The wiring, premise by premise
+
+At a pin class `c = dJ.k + qK` of the container instance, with `qB` the
+block's pin at `σ c = k + qB`:
+
+| `copyTransfer_via` premise | where it comes from |
+|---|---|
+| `dK`, `hreps` | `B ci` for the PIN's container `K` and its `IsBlockModels` — `EnvBlocksOf`/`BlockAt` at `ci`.  The SAME `B` serves both sides; that is what `PinShapes`' global assignment is for |
+| `h₁` (the block's copy) | our `hgroups` at `qB`: `CopyShapeA` against `B ci` at our components |
+| `h₂` (the container's own pin record) | `PinShapes m B dJ dJ.pinCtors` at `qK`: `CopyCtorShape` against `B ci` at `dJ`'s components |
+| `hi`, `hj`, `hkK` | `K`'s member and constructor; `PinShapes`' COUNT conjunct makes `j` range over the same list on both sides |
+| `hψ`, `hρ`, `hwK`, `huT`, `hIdsLen` | the two copies' level assignments and frames agree on the constructor's own level parameters and on the components' values — `targetPin_corr`/`PinCorr`, as `chainFitT_congr_mem`'s docstring records |
+| `hrel` | the target families agree: `Z (tg₁ l) = Y (tg₂ l)`, from `σ` matching the two pin tables (`PinCorr`); used as `⊆` in both directions |
+| `hdom₁`, `hdom₂` | the BOUND on each side — the slots at the two tuples inside `K`'s real domains (`real_dom_eq` + `slotSet_mono_app`), exactly as `fit_iff_wide` consumes it |
+| `hent₁`, `hent₂` | the `ordF`-right entries at targets OUTSIDE the two groups: our side the run's `nestedPinLeaf_all` residue, the container's side its own |
+
+##### (c) (3) and (f)
+
+(3) is the assembly's: `σ` (the instance closure read off the
+container's pin table and `PinCorr`), `hIs`, and the container's
+`auxFunctor`/`auxCompose` transported to the block's sort — the same
+transport the narrow route does, with `hw`.  (f) — `NestedRecFibre` →
+`ofNested_pin_block_of_inst` becoming `_of_wide`, and
+`hfit_le_of_inst`/`hfitLe` deleted outright — is gated on (1)'s wrapper
+and (2); the list in "WIDE (e) step 2 (d)" is what to read the
+unconsumed gate against once it lands.
+
+##### (d) State at the close of the session
+
+Landed: WIDE (d) (the representation), (e) step 1 (the reduction), (e)
+step 2 (the finding), (e) step 3 (the bound adopted: (B-below), the
+three restatements), (1)'s core (`CopyCtorShape.fit_iff_wide`).  Open:
+(1)'s `CopyShapeA` wrapper, (2) as wired above, (3), (f).  Every gate
+green at each commit; the accept set is untouched throughout — no
+consumer has moved to the wide route yet.

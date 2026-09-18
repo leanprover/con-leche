@@ -483,7 +483,10 @@ in two:
 * at the container's **members** the block records the comparison
   directly — a copy of a member is a copy of the group the worklist
   minted, and the group carries the container's constructors
-  instantiated at the pin's components;
+  instantiated at the pin's components.  This half is PROVED: at the
+  wide width the two arms for a container-recursive field (at a member,
+  and at one of the container's own pins) collapse into one, because
+  the container's own pin is a variable on both sides;
 * at the copies of the container's **own pins** it does not.  Such a
   copy belongs to a group of its own, whose container is the pin's
   container `K`, not the container `J` whose instance is being
