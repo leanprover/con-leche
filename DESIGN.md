@@ -94070,3 +94070,124 @@ NOT STARTED.  No code changed this session.
 
 Gates: `lake build` and `lake test` warning-free at the session's
 commit; text gates green.
+
+#### U.88 — L-E session 33: THE STRATIFIED CONCLUSION, stated (lane L-E, 2026-09-18)
+
+Held, as instructed, while the count runs.  What follows is the TARGET
+STATEMENT and nothing else: no proofs, no construction.  If the count
+comes back acyclic the first session starts from this; if it comes back
+cyclic this is the record of what was on the table.
+
+##### (a) THE MEASURE, as two model-side premises
+
+Kept abstract, on this lane's side of §U.78's cut — the run-level
+assembly supplies the edge relations, this lane never produces an edge:
+
+```lean
+variable (comp orank : Nat → Nat)          -- own-edge component label, and the measure
+variable (Edge EdgeOrd : Nat → Nat → Prop) -- all reference edges; the `ordF`-right ones
+
+-- (S1) no edge raises the measure
+hle : ∀ q q', q < n → q' < n → Edge q q' → orank q' ≤ orank q
+-- (S2) an `ordF`-right edge strictly lowers it
+hlt : ∀ q q', q < n → q' < n → EdgeOrd q q' → orank q' < orank q
+-- (P2) the measure is a function of the own-edge component
+hhom : ∀ q q', q < n → q' < n → comp q = comp q' → orank q = orank q'
+```
+
+`EdgeOrd ⊆ Edge`.  (S1) is what a RECURSIVE field needs — `≤`, not
+equality, which is weaker than §U.87 (P3) asked for and enough, since
+all the stratum needs is `orank (target) < n` from `orank (source) < n`.
+
+##### (b) THE RESTRICTED RELATION, and the one obligation §U.87 did not name
+
+```lean
+RelAt (n : Nat) : Nat → Nat → Prop :=
+  fun c q => ClassPinAt env₂ (D) (dJf r) ψ (((D).pinAt r).ψJ ψ) ρp ((D).pinFrame r ψ ρp) r c q
+             ∧ orank q < n
+```
+
+and the stratified meet is the EXISTING `relMeet` at
+`fun c' bb => ∃ q', bb = p.k + q' ∧ RelAt n c' q'`.
+
+**The obligation §U.87 (c) did not name**: (S2) is keyed on the
+ownership BIT, while the model knows the FIELD KIND (the container's
+`rss = false`).  So the route needs the bridge "an `ordF`-right field's
+edge is NOT-OWN" — `ContainerModeled.ordFree` against
+`nestedPinEdges`' `mentionsMember` at the container's STRIPPED domain,
+the opened-vs-stripped step §U.76 (e) already flagged.  **This is a
+reversal for this lane**: §U.78 established that the model never needs
+the ownership bit for K.37, because there the two branches share a
+conclusion.  Here they do not — own edges get `≤`, not-own get `<` —
+so the bit is needed after all.  It sits inside §U.87 (c)'s fourth row
+and does not move the 3–4, but it was not visible when that row was
+priced.
+
+##### (c) THE STRATIFIED STATEMENTS
+
+Only what changes is shown; every other premise is as it stands today.
+
+```lean
+-- the per-pair transfer: `hout` GONE, replaced by the outer hypothesis
+nestedPinPairAt (n : Nat) …
+    (hIHout : ∀ q', q' < pinsS.length → orank q' < n →
+      pinLfp st pinsS dJf (f₀.s.eval ψ) ψ ρp q'
+        = lfpTuple ((D).w ψ) (p.k + pinsS.length) ((D).idx ψ ρp) (ΨA ψ ρp) (p.k + q')) …
+  : ∀ c q, c < (dJf r).kT → RelAt n c q → … (as today, at `RelAt n`)
+
+-- the instance transfer at a stratum
+nestedInstanceLe (n : Nat) … :
+  ∀ c q, p.k + q < p.k + pinsS.length → RelAt n c q →
+    FamLe ((D).pinIdx q ψ ρp)
+      ((dJf r).famAt … c)
+      (lfpTuple ((D).w ψ) (p.k + pinsS.length) ((D).idx ψ ρp) (ΨA ψ ρp) (p.k + q))
+
+-- a component closed, at its instance's root
+nestedPinInstLe (n : Nat) … (hcov : InstanceCovered … inst r) :
+  ∀ q, q < pinsS.length → inst q = inst r → orank q < n →
+    FamLe ((D).idx ψ ρp (p.k + q)) (pinLfp … q)
+      (lfpTuple ((D).w ψ) (p.k + pinsS.length) ((D).idx ψ ρp) (ΨA ψ ρp) (p.k + q))
+```
+
+##### (d) THE OUTER INDUCTION — `pins_le_of_instanceLe`, REUSED VERBATIM
+
+At `inst := comp`, `rank := orank`, `Edge := EdgeOrd`:
+
+* its `hhom` is (P2) exactly;
+* its `hedge` — `Edge q q' → inst q' = inst q ∨ rank q' < rank q` — is
+  (S2)'s right disjunct;
+* its `hinst q` — the component of `q` closed given the `EdgeOrd`
+  targets OUTSIDE it closed — is `nestedPinInstLe` at
+  `n := orank q + 1`, whose `ordF`-right obligations are at
+  `orank < orank q` and are therefore exactly what `hinst`'s own
+  hypothesis supplies: (S2) puts them strictly lower and (P2) then puts
+  them in a different component.
+
+So the ordering lemma this lane already landed carries the new
+induction with no change at all.
+
+##### (e) THE COLLAPSE that recovers today's statement
+
+```lean
+-- with N above every measure value
+hbound : ∀ q, q < pinsS.length → orank q < N
+```
+
+then for `q < pinsS.length`, `RelAt N c q ↔ ClassPinAt … c q`, so
+`nestedInstanceLe N` IS today's `nestedInstanceLe`, and
+`nestedPinInstLe N` is today's with its third hypothesis vacuous.  `N`
+exists because the pins are finitely many.  **The working case is an
+INSTANCE of the stratified statement**, which is the whole reason
+§U.87 (d) could answer the risk question with "nothing".
+
+##### (f) UNAMBIGUOUSLY: nothing landed is affected
+
+Every theorem this lane has landed stays landed.  `hout` remains a
+named premise.  The OUT-OF-INSTANCE case, step (ii), step (iv) and the
+residual's discharge go through today exactly as they did before this
+session.  Seven read-only sessions, no line of the proof tree touched.
+
+NOT STARTED.  No code changed this session.
+
+Gates: `lake build` and `lake test` warning-free at the session's
+commit; text gates green.
