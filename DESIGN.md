@@ -104457,3 +104457,55 @@ cases, and the two small lemmas it needed are LANDED and useful on
 their own: `constsResolve_fvarLeaves` (a resolving term's `fvar`
 annotations resolve) and `constsResolve_of_instantiate1` (instantiation
 only adds constants).
+
+##### THE FORWARD CHECK: preservation survives all three sites
+
+The refuted lemma was a CONVERSE.  The property the rescue needs is
+FORWARD — if the input resolves, the inferred type resolves — and the
+three existing twins are forward too, which is the shape that works on
+this walk.  Checked at exactly the two cases that killed the converse,
+plus the rescue, before writing a line:
+
+* **the `λ`'s unexamined domain** — SURVIVES.  The input's own
+  resolution gives `ty`, by inversion rather than by inference having
+  looked; the opened body `body.instantiate1 (.fvar d ty)` resolves by
+  `constsResolve_instantiate1_gen` from `body` and `ty`; the induction
+  gives `bt`; and the returned type is
+  `.forallE ty (bt.abstract1 d) m` (`inferTypeCoreIO_lam_inv`), so the
+  only new piece is that ABSTRACTION preserves resolution.
+* **the `.never` binder's skipped argument** — SURVIVES, and for the
+  same reason: `t = body'.instantiate1 a` and `a`'s resolution is
+  carried IN from `.app f a`, not discovered.  `body'` comes from
+  `whnf tf` and `tf` from the induction on `f`, which is where the
+  mutual pair is actually used.
+* **the rescue** — SURVIVES in both arms.  The K arm's fabrication
+  `mkAppN (.const rl.ctor ust) (tmaj.getAppArgs.take cnP)` has its head
+  from `env.find? rl.ctor` and its arguments from `tmaj`, which the
+  mutual pair delivers.  The η arm's `etaFabArgsE` is `targs ++
+  etaProjs …`, and `etaProjs` is either `.proj T j major` — needing
+  `env.find? T`, which the branch carries — or
+  `mkAppN (.const (projFnName T j) us) (targs ++ [major])`, whose head
+  is reached by **the fragment of the converse that IS true**.
+
+**THE SURVIVING FRAGMENT, worth naming**: the head of a successfully
+inferred application resolves.  `inferTypeCoreIO_app_inv` infers the
+FUNCTION side unconditionally — only the argument is optional — and the
+`const` case is a `find?`.  So the converse fails exactly where the
+walk SKIPS: a binder's domain and a `.never` argument, and nowhere
+else.  That is the precise statement of what was wrong with the
+refuted lemma, rather than "inference does not check its input".
+
+##### AND THE ARCHITECTURAL FACT BEHIND THE WHOLE EPISODE
+
+**An inversion's content is a fossil of what some earlier lane needed,
+not a description of the term.**  `majorToCtor_inv` reports
+`wscopedB`, `looseBVarsBounded` and `fvarLeaves ⊆` about the rescue's
+fabricated major because the kernel CHECKS exactly those three at
+fabrication time — and it checks those three because three earlier
+proofs asked for them.  A fourth property of that term is not
+"missing from the inversion"; it was never recorded, and the inversion
+cannot invent it.  Any lane wanting a fifth property of the reduction
+will meet the same wall at the same site, and the two ways out are the
+same two: prove it as a metatheorem, or record it at the fabrication
+(which the standing ruling against per-call Bool checks forbids on an
+ungated accept path).
