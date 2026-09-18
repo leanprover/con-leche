@@ -104861,6 +104861,69 @@ last.  What is left is exactly two steps:
   with `w` in place of the minted spine.  Then `hZ` gives the slot and
   the telescope and index conjuncts follow the member-target arms.
 
+##### (b2) THE BACKWARDS INVERSION: NEARLY FREE, AND THE GAP IS ONE LEVEL DOWN
+
+Both questions the brief asked were worth asking, and both have answers
+that change the shape of the remaining work.
+
+**Does the forward lemma want strengthening to a biconditional?  No —
+the inversion is already in the tree, as a contrapositive.**
+`replaceAllNested_head_const` (this lane, `NestedCopyRewrite.lean`)
+says: a spine at whose every prefix `replaceIfNested` DECLINES comes
+back with the head it went in with.  So "the output's body is headed by
+the MIMIC" gives "some prefix fired" by contraposition, and
+`replaceIfNested_occurrence` at that prefix gives the pin, its
+container application and the index split.  No new lemma about the
+rewrite is needed, and its docstring already names this consumer.
+
+**Does it need the rewrite's final state or only the step's?  Only the
+step's, and the final state HELPS rather than hurting.**  At the final
+state the fired step takes the `find?` branch — the pin is found, not
+minted — which is exactly what K.51's own two length conjuncts
+certify.  So the inversion is placeable at a field, with no obligation
+to reason about a growing state.
+
+**What is missing is not a lemma about the rewrite but a SIDE
+CONDITION**: the contrapositive needs that the rewrite's INPUT does not
+already carry that mimic head — that `w` is COPY-FREE.  The chain for
+it is three quarters derivable from what this lane holds:
+
+* the container's stored constructor type is copy-free: `EnvWF` gives
+  `constsResolve env` for a stored constant's type, `copiesFresh` says
+  no copy name is in `env`, and `mentionsConst_of_constsResolve`
+  (`NestedCopyGlue.lean`) turns the two into a non-mention;
+* the pin's components are copy-free: `NestedPinsRun.hpinsE`
+  type-checks the pins at `consNestedFormers (stored.take p.k) env` —
+  the environment holding the block's MEMBERS, which holds no copy;
+* so the MINTED domain, built from those two by instantiation, is
+  copy-free.
+
+**And then it bottoms out at something nobody has**: `w` is the minted
+domain's positivity NORMALISATION, and nothing says the walk keeps a
+term copy-free.  `normPosDomM_pres` preserves scoping, bounds and
+`fvar` leaves — one conjunct per `whnf_*` preservation lemma — and
+there is no `whnf_constsResolve` for it to lean on (grep over
+`ConLeche/Verify/`: the only `whnf_*` preservation lemmas are
+`whnf_WScoped`, `whnf_looseBVars`, `whnf_fvarLeaves`).
+`normPosDomM_no_mention` does NOT serve: it is the walk's IDENTITY case
+at a member-free domain, and ours mentions a member — that is why the
+rewrite fires at all.
+
+**The request, and its cheapest shape.**  `whnf` preserves
+`constsResolve` at its own environment, and `normPosDomM` inherits it
+as a fourth conjunct of `normPosDomM_pres`.  By the rule this round
+named — when a new consumer wants the same core with one more
+guarantee, strengthen rather than fork — the right shape is a fourth
+conjunct on `whnf_WScoped`'s statement rather than a lemma beside it;
+the induction is the same one, already written.  `Verify/InferLemmas.lean`
+and `Verify/Inductives/MutualNormPres.lean` are the two files, neither
+this lane's.
+
+Everything downstream of that side condition is ready: with `w`
+copy-free the inversion is the contrapositive above, and the reading
+step is `copyPinFCorr`'s `EA` clause with `w` in place of the minted
+spine.
+
 ##### (c) THE MODEL-SIDE FIELD: A BOUNDARY QUESTION, NOT A REFUSAL
 
 The placement the kernel lane left is `NestedPinsRun`, and the
