@@ -27,7 +27,7 @@ quadruples the kernel conses; this file is that list AT THE RUN — the
 one `checkNested` builds — with the swap's per-entry premises read off
 the run's own reports.
 
-Three things happen here and nothing else:
+Three things happen here, and then the stage they are for:
 
 * `nestedStoreList` names the list (`NestedTailIn.htbl`'s), and
   `nestedProvOf_nestedStoreList` says its projection IS the provision
@@ -42,6 +42,17 @@ Three things happen here and nothing else:
   respectively — with the `.nested` fire's shape off
   `nestedFireShape_inv`, which is `ConstWF`'s nested clause conjunct
   for conjunct.
+
+Above them sit the stage and the two faces stated over it: the
+recursors' stage itself (`nestedRecsStored_of`, `NestedRecsStored`),
+the `NoProjEnv` bookkeeping the projection tables ask for
+(`NestedTailIn.storeNoProj`, whose rule clause covers the `.nested`
+fire's PINS — the one place a nested block's store is not the mutual
+route's), and the recorded tables' data
+(`NestedTailIn.tablesData`/`nestedTablesData_of`: the scratch
+install's own table, its guards carried across the restore, and
+`tableMember_of`'s bundle at the nested block model).  K.50's record
+`NestedRuleBitsOf` is the stage's one remaining premise here.
 -/
 
 namespace ConLeche.Model

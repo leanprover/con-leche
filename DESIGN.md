@@ -86015,6 +86015,130 @@ fourteen new theorems, and of the re-proved `tableMember_of` and
 items 4 and 5 only, both audited and both derivable.
 
 
+##### (aaaaa) THE TABLES' FACE IS CLOSED — items 4 and 5, the named gap, and the face turned into a theorem
+
+(Session 29; commits below.)  `NestedTablesDataOf` is **no longer a
+named premise**: `nestedTablesData_of` proves it, and
+`nestedTailModeled_of_two` replaces `nestedTailModeled_of_three`.  The
+stage now stands on TWO faces, and they are exactly the two (yyyy)
+said need two different records — `NestedRuleBitsOf` (the restored
+rules' rescue conjuncts) and `NestedCtorPinNamesOf` (the readings' and
+equations' model face).  (yyyy)'s correction is confirmed, not
+weakened: closing the tables' face retired a face, not a record.
+
+**Item 4, and THE NAMED GAP (xxxx) located, closed where it said.**
+`restoreRecTys_at` reports the pre-annotated door's scope guards and
+its sort inference and DROPS the `projTablesOk` guard, and
+`constsResolve` cannot replace it — its `.proj s _ e` clause only asks
+that `s` be stored, and at the restored environment every MEMBER is.
+The fix is the same shape `restoreCtors_door` already hands the
+constructors: `restoreRecTys_slots`
+(`Verify/Inductives/NestedRecDoor.lean:125`) projects
+`FrontDoorFacts.slots` out of the `checkConstantValPre` witness the
+proof already held, and `NestedTailIn.recCvSlots`
+(`NestedRecsStore.lean:516`) is it at the two lists `recCvDoor` reads.
+No kernel request, as (xxxx) predicted.
+
+**The clause that is NOT the mutual route's, and the only real
+content of item 4.**  A nested block's stored rules FIRE `.nested`, so
+`NoProjEnv`'s rule clause asks for the fire's PINS as well as the
+right-hand side — the mutual route's `mutualRules_shape` refutes that
+case, the nested route cannot.  The pins are the major domain's
+LOWERED LEADING ARGUMENTS, and `NestedTailIn.storeRules` already
+reports that shape (a `stripPis` to the major, `getAppArgs` split at
+the pin count), so they inherit the recursor type's own freedom
+through the three steps the shape takes: `rg_noProjAt_stripPis`,
+`rg_noProjAt_getAppArgs`, `rg_noProjAt_of_lift`
+(`NestedRestoreKit.lean`, the `constsResolve` twins' shape —
+`Expr.constsResolve_stripPis` and `rg_constsResolve_getAppArgs`).
+**The method rule paid again**: the fact was already reported, in a
+walk's own certificate, and the search was for the REPORT and not for
+a new lemma.
+
+`NestedTailIn.storeNoProj` (`NestedStoreRun.lean`) is the run-level
+fact — four conses, four sources: pre-block freshness
+(`nestedMembersFresh`-shaped, off `mutualFormers_nameFacts`), the
+members' resolution, the constructors' `FrontDoorFacts.slots`, and the
+recursors' three above.  The four cons lemmas
+(`findProj?_none_*`/`noProjEnv_*` at `consNestedFormers`,
+`consNestedCtors`, `provisionNestedRecs`, `storeNestedRecs`) are the
+mutual route's at the nested install's conses.
+
+**Item 5, the assembly, and the restatement (nnnn) asked for.**
+`NestedTailIn.tablesData` is `NestedMemberTableOk` per entry.  The
+recorded table is the SCRATCH install's (`auxStored_tbl_eq`, whose
+left disjunct is refuted as at `tblCtor`), so its constructor, its
+offset `1`, its level parameters, its parameter count and its result
+sort are that stage's data; its GUARDS are the auxiliary constructor
+type's, and they are the RESTORED type's by
+`rg_structProjGuards_of_run` — (rrrr)/(tttt)'s theorem, spent here for
+the first time, and the one step no agreement could give.  The bundle
+is `tableMember_of` at the nested block model.
+
+The face gained exactly TWO hypotheses, both (nnnn)'s: the
+representation at `mp₃` and the store environment's lookup
+preservation.  `nestedRecsStored_of` already derives both; the edit is
+the hoist (xxxx) measured — the install's conses and the
+representation block now sit ABOVE the `htbls` call instead of below
+it, which is a pure reordering with no new step.  `S` is keyed by NAME
+here where the mutual route's `MemberTableOk` is keyed by index
+(the nested table stage folds over a name-keyed list), and the
+inversion is the member list's own `Nodup`
+(`List.Nodup.idxOf_getElem`).
+
+*Two `subst` traps, both worth the next reader's time.*  `subst h`
+with `h : a = b` eliminates the RIGHT-hand variable when it can, so
+`subst` on `t = mIdx` deleted `mIdx` and on `ctorsA' = ctorsA` deleted
+the SECTION variable `ctorsA` — the error is `Unknown identifier` at
+every later use, which reads like a missing import.  Targeted
+`rw [h] at …` is the fix.  And a `restoreCtors_door` datum is
+`o.2 = c.2` at `o = (cv, nP, nF)`: `rw` cannot see `(nP, nF)` in it,
+`congrArg Prod.fst` can.
+
+##### (bbbbb) THE STAGED MERGE THIS SESSION DID NOT START — what the evidence covers
+
+A lane-sync merge of the integration branch (`31ad630b`, integration
+3r) was staged in this worktree, uncommitted, while this session was
+running; the coordinator's sequence was followed — every working file
+copied out by absolute path FIRST, then `git merge --abort` (which
+discards uncommitted work and so must never be run first), then the
+files back and diffed.  `HEAD` is a single-parent commit
+(`f2ec04ce`, parent `eac9d9cd`): the merge never entered this lane's
+history, and the integrator re-runs the sync.
+
+**The gate consequence, stated because it is easy to miss.**  Builds
+and gates run while a merge is staged measure the MERGED tree, not the
+lane's.  So this session's battery was re-run after the abort, on the
+lane's own tree, and only the post-abort figures are recorded below.
+
+##### (ccccc) FILES AND GATES (session 29's HEAD)
+
+Touched: `ConLeche/Verify/Inductives/NestedRestoreKit.lean` (the three
+`NoProjAt` travel lemmas), `ConLeche/Verify/Inductives/NestedRecDoor.lean`
+(`restoreRecTys_slots`), `ConLeche/Model/Inductives/NestedRecsStore.lean`
+(`recCvSlots`) and `ConLeche/Model/Inductives/NestedStoreRun.lean` (the
+cons lemmas, `storeRuleSlots`, `storeNoProj`, `tablesData`, the face's
+restatement, `nestedTablesData_of`, `nestedTailModeled_of_two`, and the
+hoist).  Two new plain imports there (`NestedRestoreKit`,
+`NestedElimInv`), both already transitive build dependencies and
+neither in any capstone's closure.  No new file — (rrrr)'s tier rule
+held again.
+
+`lake build` warning-free EXIT 0; `lake test` warning-free EXIT 0;
+shake 510 removals all allowlisted / pub-imports 1334 of 2219, none
+demotable (55 fallbacks); layering base 353 / model 286 / caps 3 /
+umbrella 1, 0 base→lane, 0 impl→theory; trust surface 13 escapes in 5
+allowlisted files, 0 outside; no-local-paths OK; overview-links 112;
+quote-gate 2; proofdeps 4965 rows / 12 roots / **0 doors**.
+`#print axioms` of all eighteen new theorems is
+`[propext, Classical.choice, Quot.sound]` (`zip_getElem?_pair`:
+`[propext]`).  `tests/arena.sh` not run: no checker code changed, so no
+fixture verdict can move.
+
+**The tables' face: CLOSED** ((zzzz) said 1½–2 sessions; it took one).
+What is left of the stage is the two faces above, and neither is this
+lane's to prove.
+
 #### U.30 — L-B session 2: `CopyCtorInst.ordF` at the READING, the normalisation's reading law PROVED, `ContainerModeled`'s three clauses (lane L-B, 2026-09-16)
 
 Three maintainer rulings opened this session; the first two are landed,
