@@ -38,6 +38,32 @@ tests/e2e/nested_rec.ndjson 1 Tree=accept,
 tests/e2e/nested_struct_proj.ndjson 1 NestedStructProj.Tree=accept,
 tests/e2e/ind_proj_mutual_nested.ndjson 1 NT=accept,
 tests/e2e/inmodel_nested.ndjson 1 InModelNested.Tree=accept,InModelNested.TV=accept,InModelNested.Op=accept,InModelNested.W=accept,InModelNested.PT=accept,InModelNested.NTree=accept,InModelNested.A=accept,
+# THE REST OF THE E2E CORPUS'S NESTED BLOCKS (task #315 M8 session 1).
+# A census of all 196 e2e rows through `--nested-shadow` found FIFTEEN
+# fixtures carrying a nested block and thirty blocks in all; six were in
+# this gate and nine were in no gate at all.  These are those nine, at
+# their measured verdicts — the gate's rows are not the corpus, and the
+# one failure below is what that gap was hiding.
+tests/e2e/let_rec_rhs.ndjson 1 Lean.Syntax=accept,
+tests/e2e/presieve_ofarrows_cone.ndjson 1 Lean.Syntax=accept,
+tests/e2e/nested_pin_names.ndjson 1 PTree=accept,
+tests/e2e/indexed_nested_aux.ndjson 1 TV=accept,
+tests/e2e/ind_mutual_idxsort.ndjson 1 IdxSort.NT=accept,IdxSort.NU=accept,
+tests/e2e/ind_nest_two_pins.ndjson 1 TwoPins=accept,
+tests/e2e/ind_nest_prop.ndjson 1 PNonempty=accept,PAnd=accept,
+tests/e2e/ind_rec_struct_proj_raw.ndjson 1 NT=accept,
+# **THE ONE FAILURE IN THE WHOLE CORPUS**, and it is pinned here as a
+# finding rather than hidden: `InModelGroups.H` nests through
+# `TT (List H)` — a group whose pin is another mimic's carrier — and the
+# nested route fails it at K.41's `nestedPinRootPairOk` ("nested: a pin
+# is not one the instance's root container pinned"), whose docstring
+# says it CANNOT fire.  It fires, on our own mint, with every container
+# installed by this route and with the modeller off as well as on.  The
+# row is an ACCEPTING e2e row (`inmodel_groups.ndjson` expects 0), so
+# M8's dispatch flip would turn an officially-accepted stream into an
+# exit 3: the flip is BLOCKED on this until K.41 is understood at this
+# shape.  See DESIGN, "THE M8 FLIP, MEASURED".
+tests/e2e/inmodel_groups.ndjson 1 InModelGroups.TT=accept,InModelGroups.M=accept,InModelGroups.N=accept,InModelGroups.H=error,InModelGroups.P=accept,
 # --- the auxiliary-name clash (`scripts/mk_nested_aux_clash.py`) ------
 # A definition named `_nested.List_2.cons` stands where the second
 # copy's constructor is about to be minted.  Official rejects the block
