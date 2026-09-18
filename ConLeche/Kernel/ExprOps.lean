@@ -1231,7 +1231,7 @@ family — rather than by a bound variable.
 
 It is true of every recursor the checker installs, and for the routes
 that GENERATE their recursor type it is true by construction: the major
-premise is `structFamI`'s family application (`mutualRecTy_major`).  The
+premise is `structFamI`'s family application (`mutualRecTy_majorDom`).  The
 MODELED route stores the STREAM's type instead, with no generation and
 no head check, so there it is a property of the input and this Bool is
 what records it — which is why the environment invariant can ask for the

@@ -382,12 +382,12 @@ theorem structMinorsPisR_stripPis {lps : List Name} {nP : Nat} {pw : PropWhen} :
       simp only [List.length_cons, Expr.stripPis, hbs, Option.map_some]⟩
 
 /-- **THE FIXPOINT ROUTE'S MAJOR PREMISE IS AN APPLICATION OF A
-CONSTANT** (task #315, the crossing's premise): `mutualRecTy_major`'s
+CONSTANT** (task #315, the crossing's premise): `mutualRecTy_majorDom`'s
 twin at `structRecTyR`, whose output is what `checkNativeRec` STORES
 (the stream's record is only required to be defeq to it).  The strip is
 the parameters, the motive, the minors and the indices — `majorIdx` —
 and the domain exposed is `structFamI`'s family application. -/
-theorem structRecTyR_major {T : Name} {lps : List Name} {elim : Name} {large : Bool}
+theorem structRecTyR_majorDom {T : Name} {lps : List Name} {elim : Name} {large : Bool}
     {nP nIdx : Nat} {tty recTy : Expr} {ctors : List (Name × Nat × Expr × List Nat)}
     (h : structRecTyR T lps elim large nP nIdx tty ctors = some recTy) :
     ∃ (bs : List (Expr × BinderMeta)) (dom body : Expr) (bm : BinderMeta),
@@ -426,7 +426,7 @@ the shape holds of the type the route GENERATES, and the stream's
 record is only required to be defeq to it, so what is STORED is this
 term.  `structFamI` is the family at the parameter and index openers,
 so the head is `.const f.name (lps.map .param)` by construction. -/
-theorem mutualRecTy_major {lps : List Name} {elim : Name} {large : Bool} {nP mm : Nat}
+theorem mutualRecTy_majorDom {lps : List Name} {elim : Name} {large : Bool} {nP mm : Nat}
     {formers : List MutualFormer} {ctors : List MutualCtor4} {recTy : Expr}
     (h : mutualRecTy lps elim large nP formers ctors mm = some recTy) :
     ∃ (f : MutualFormer) (bs : List (Expr × BinderMeta)) (dom body : Expr) (bm : BinderMeta),
@@ -619,7 +619,7 @@ the restored type strips at the same major index; `restoreWalk_forallE_inv`
 exposes the restored major premise; and `restoreWalk_getAppFn_const`
 keeps its domain's head a constant.
 
-With `mutualRecTy_major` on the AUXILIARY block's generated type as the
+With `mutualRecTy_majorDom` on the AUXILIARY block's generated type as the
 `hs`/`hdom` input, this is the nested route's half of the invariant's
 clause — and the claim was MEASURED first, at 284 restored recursors of
 which 184 are mimics (DESIGN, "THE RESTORE KEEPS THE HEAD A

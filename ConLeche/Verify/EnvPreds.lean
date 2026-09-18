@@ -428,7 +428,7 @@ theorem pinnedInfo_ctorInfo_cases {n : Name} {cv : ConstantVal} {nP nF : Nat}
 The crossing's premise asks of EVERY stored recursor that its type,
 stripped at the major index, has a domain headed by a `const`.  For the
 routes that GENERATE the type it is a property of the generator
-(`mutualRecTy_major`, `structRecTyR_major`); for the modeled route it is
+(`mutualRecTy_majorDom`, `structRecTyR_majorDom`); for the modeled route it is
 recorded (K.55).  For the pinned basis blocks the constants are
 LITERALS, so it is decided. -/
 

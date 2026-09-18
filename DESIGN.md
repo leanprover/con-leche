@@ -89328,7 +89328,7 @@ statement about the generators, and it holds by construction:
 
 ##### (b) LANDED: the mutual route's lemma, in thirty lines
 
-`mutualRecTy_major` (`Verify/Inductives/NestedRecDoor.lean`) is
+`mutualRecTy_majorDom` (`Verify/Inductives/NestedRecDoor.lean`) is
 `mutualRecTy_stripPis`' sibling stopping ONE binder earlier — at
 `nP + k + n + f.nIdx` rather than `+ 1` — so the major premise itself is
 exposed as `.forallE dom body bm` with
@@ -89495,7 +89495,7 @@ mutual routes GENERATE the recursor type and require the stream's record
 to be defeq to it, the nested route RESTORES the auxiliary block's
 generated one, and the basis blocks and `Quot` are literals — so for
 them the shape is a property of the generator
-(`mutualRecTy_major`, landed this session).  The MODELED route stores
+(`mutualRecTy_majorDom`, landed this session).  The MODELED route stores
 the STREAM's type through `checkMemberVal` with no generation and no
 head check, so there it is a property of the INPUT.  With this conjunct
 the environment invariant can ask for the shape UNCONDITIONALLY, at
@@ -89613,8 +89613,8 @@ answers before measuring for them.
 
 Continuing the sizing: three of the five live producers are now closed.
 
-* **mutual** — `mutualRecTy_major` (previous section);
-* **native** — `structRecTyR_major` (`Verify/Inductives/NestedRecDoor.lean`),
+* **mutual** — `mutualRecTy_majorDom` (previous section);
+* **native** — `structRecTyR_majorDom` (`Verify/Inductives/NestedRecDoor.lean`),
   the twin at `structRecTyR`, whose output is what `checkNativeRec`
   STORES (the stream's record is only required to be defeq).  The strip
   is the parameters, the motive, the minors and the indices — exactly
@@ -89672,7 +89672,7 @@ blocks of it.)
 The engine EXISTS and is better than expected —
 `restoreWalk_stripPis_doms` (`Verify/Inductives/NestedRecDoor.lean`)
 already says that a walk of a `Π`-telescope keeps its length and walks
-the body, positionally.  Composed with `mutualRecTy_major` on the
+the body, positionally.  Composed with `mutualRecTy_majorDom` on the
 AUXILIARY block's type it reduces the whole obligation to one step: **a
 walk of a `const`-headed application is `const`-headed**.  Four cases,
 from `restoreNode`'s own structure:
@@ -89723,8 +89723,8 @@ in `NestedRecDoor.lean`, beside the engine it composes with.  **About
 
 | route | the stored recursor type | status |
 | --- | --- | --- |
-| mutual | `mutualRecTy`'s output | PROVED (`mutualRecTy_major`) |
-| native | `structRecTyR`'s output | PROVED (`structRecTyR_major`) |
+| mutual | `mutualRecTy`'s output | PROVED (`mutualRecTy_majorDom`) |
+| native | `structRecTyR`'s output | PROVED (`structRecTyR_majorDom`) |
 | basis (5) + `Quot` | literals | DECIDED (`basisDeclsA_recMajorHead`) |
 | modeled | the STREAM's, annotated | RECORDED (K.55) |
 | nested | `restoreNested` of the auxiliary one | **MEASURED**, proof sized at ~120–150 lines |
@@ -89792,8 +89792,8 @@ breaks each of them.
 
 | producer | what stores the recursor | what it needs |
 | --- | --- | --- |
-| `Verify/Inductives/FixWF.lean`'s `direct_fix_rec_wf` | `structRecTyR`'s output, which `checkNativeRec_shape` already exposes as `= some recTy` | `structRecTyR_major` + `(nativeCtors4 ctorsA p.kinds).length = p.ctors.length` to line the strip count up with `p.majorIdx = p.nP + 1 + p.ctors.length + p.nIdx` |
-| `Verify/Inductives/MutualWF.lean`'s recursor cons | `mutualRecTy`'s output | `mutualRecTy_major` + the same arity step |
+| `Verify/Inductives/FixWF.lean`'s `direct_fix_rec_wf` | `structRecTyR`'s output, which `checkNativeRec_shape` already exposes as `= some recTy` | `structRecTyR_majorDom` + `(nativeCtors4 ctorsA p.kinds).length = p.ctors.length` to line the strip count up with `p.majorIdx = p.nP + 1 + p.ctors.length + p.nIdx` |
+| `Verify/Inductives/MutualWF.lean`'s recursor cons | `mutualRecTy`'s output | `mutualRecTy_majorDom` + the same arity step |
 | `Semantics/IndRecsCore.lean` | the MODELED route's provisioned recursor | K.55's Bool, THREADED from `provisionRecs_cons_inv` (which now carries it) into this theorem's hypotheses — the only site needing new plumbing rather than a new proof |
 | `Verify/Cached/BridgeCS4.lean` | the cached mirror of the above | the transport, once the pure side has it |
 | `Semantics/EnvFactsCons.lean`'s `memberInstallInv` | a provisional `.recInfo cvA mI rP []` | one hypothesis on the theorem, discharged by the caller's route |
@@ -89801,7 +89801,7 @@ breaks each of them.
 So the remaining work is **two generator plumbings with their arity
 step, one hypothesis threaded through the modeled route, and two
 transports** — all five ingredients already proved
-(`mutualRecTy_major`, `structRecTyR_major`, `restoreWalk_major`,
+(`mutualRecTy_majorDom`, `structRecTyR_majorDom`, `restoreWalk_major`,
 `basisDeclsA_recMajorHead`, K.55).  **One session**, and nothing in it
 is unknown.
 
@@ -89817,3 +89817,80 @@ discarded walk facts, the other lane's already-proved residual, and my
 own `restoreWalk_pin`).  Whether it is deleted is not this lane's call;
 it is recorded because the next author will otherwise spend the same
 five minutes discovering it.
+
+#### THE CLAUSE'S PROJECTION HALF: a projection FUNCTION is stored as a `.recInfo` (2026-09-18, task #315 M8 session 6, `agent/uniform-m5`)
+
+The clause was taken further this session — the mechanical thirteen, the
+basis literals, the native producer discharged from
+`structRecTyR_majorDom`, the hypothesis threaded through
+`memberInstallInv` — and then stopped at something the census had
+missed, because the census read the FIRST error per file and this one
+was behind another.
+
+##### THE FINDING
+
+`projEntry T lps pty nP i rules = .recInfo ⟨projFnName T i, lps, pty⟩ nP nP rules`
+(`Semantics/ProjFnFacts.lean`).  **A projection FUNCTION is stored as a
+recursor**, so an UNCONDITIONAL clause about "every stored recursor" is
+also a statement about every projection function: at such an entry it
+reads `Expr.recMajorHeadOk pty nP` — strip the parameters and the
+SUBJECT binder's domain must be headed by a constant (the structure
+family).
+
+**And it is not currently establishable.**  `checkProjTy` (and its
+cached twin `checkProjTyF`) checks the roundtrip against the model
+projection's type, the four type-slot facts, and
+`(pty.stripPis (nP + 1)).isSome` — the telescope's LENGTH — but **not
+the subject binder's domain head**.  `pty` is
+`mcv.type.renameConsts (projBack …)` with `mcv` the untrusted
+modeller's `_model.proj_i`, and `renameConsts` maps constants to
+constants, so the head is a constant exactly when the MODEL's is —
+which nothing checks.  So there is no proof available, only a record.
+
+##### WHAT IT COSTS, and why it is K.55's situation again
+
+The guard is ONE line at a site that already strips the telescope:
+`unless certOnly mode (Expr.recMajorHeadOk pty nP)`, `.internal` on
+failure, at both `checkProjTy` and `checkProjTyF`.  Its ledger row is
+K.55's shape — the type comes from the modelled route's own generator,
+so a fire would be that generator's bug, and **it retires with that
+route** — and it needs a NUMBER, which this lane does not assign.
+
+It also carries a ripple the census did not: `checkProjTy`/`checkProjTyF`
+have no `mode` parameter today, so the gate threads `mode` through them
+and through `checkProjTyF_eq` (`Verify/CheckerF.lean`) and
+`Verify/Extend/Proj.lean`'s inversions — four further sites, mechanical
+but not free.
+
+##### WHERE THE CLAUSE STANDS, precisely
+
+DONE and reproducible in minutes from `_tmp/m8/clause-wip2.patch`
+(918 lines, kept):
+
+* the clause in `ConstWF` with its docstring;
+* the thirteen mechanical sites of the previous section;
+* the basis and `Quot` literals, including the recursor literals by
+  `rfl` (`emptyRecA` and its four siblings);
+* **the native producer discharged** — `direct_fix_rec_wf` gains the two
+  arity hypotheses (`ctorsA.length = p.ctors.length`,
+  `p.kinds.length = ctorsA.length`) and reads the clause off
+  `structRecTyR_majorDom`, with the strip count lined up against
+  `InductiveShape.majorIdx`.  The strip kit
+  (`replacePisPw_some_stripPis`, `structMinorsPisR_stripPis`,
+  `structRecTyR_majorDom`) MOVED from `NestedRecDoor` to `FixRec`,
+  because `FixWF` cannot see the former;
+* the hypothesis threaded through `memberInstallInv`.
+
+REMAINING: the projection guard above (a number and a measurement), the
+mutual producer (`mutualRecTy_majorDom` + the same arity step), the
+modeled route's threading into `IndRecsCore`, `BridgeCS4`'s transport,
+`IndMembers`/`TowerCons`' literals, and the two callers of
+`direct_fix_rec_wf`.
+
+##### THE RENAME, ADOPTED
+
+`mutualRecTy_major` is `mutualRecTy_majorDom` on the integrated tree — a
+landed theorem of another lane held the name — and this lane now writes
+the new one.  `structRecTyR_majorDom` is renamed to match, on this
+lane's own initiative and for the same collision risk: the two read as a
+pair and neither should be the next identifier collision.

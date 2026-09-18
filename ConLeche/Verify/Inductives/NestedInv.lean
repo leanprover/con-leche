@@ -2578,7 +2578,7 @@ theorem nestedPinRankOk_inv {env : Env} {p : NestedParts} {b : MutualBlock}
 
 The crossing's premise at the NESTED route: the stored recursor type is
 `restoreNested` of the auxiliary block's GENERATED one, whose major
-premise's domain is a constant application (`mutualRecTy_major`), and
+premise's domain is a constant application (`mutualRecTy_majorDom`), and
 `restoreWalk_stripPis_doms` carries the telescope positionally — so the
 whole obligation is that a walk of a `const`-headed application is
 `const`-headed.  MEASURED first, at 284 restored recursors of which 184
