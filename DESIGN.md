@@ -114477,5 +114477,13 @@ guard.
   whether three tiers of carrying is the right spend for (ii), or
   whether (iii) goes first;
 * **(iii)** unstarted, ~800 lines, standalone, takes `hkA` — it is the
-  only item on the list that is not behind this decision;
+  only item on the list that is not behind this decision, and its price
+  is CONFIRMED rather than estimated: the `pinF` arm's other two
+  conjuncts are already in the tree (`copyPinF_shape` for the
+  target-outside-the-group one — whose docstring names the missing
+  first conjunct as "the elimination's occurrence chain", which is what
+  K.60 now is — and `copyPinFCorr` for the pin identification), and
+  `copyPinFCorr` stands to the read twins exactly as `copyRecFDom`
+  stands to `copyRecFRead`/`copyRecFReadRefl`.  So (iii) really is just
+  the two READ lemmas on groundwork that exists;
 * **(iv)**, **(v)** unstarted apart from `docs/NESTED.md` §3, done.
