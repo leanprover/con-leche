@@ -5,6 +5,7 @@ public import ConLeche.Verify.Inductives.MutualNormPres
 import ConLeche.Verify.Denote.IndFrame
 import ConLeche.Verify.InferLemmas
 import ConLeche.Verify.Inductives.NestedCopyKinds
+import ConLeche.Verify.Inductives.NestedElimInv
 
 public section
 
@@ -1387,5 +1388,64 @@ theorem nestedPinRewrites_job {env : Env} {p : NestedParts} {st : ElimState}
     obtain ⟨⟨hw', htys⟩, hpins⟩ := hat
     subst hw'
     exact ⟨st', rfl, by simpa using htys, by simpa using hpins⟩
+
+/-! ## (R8) THE TWO NAME LISTS ARE ONE (task #315 L-B)
+
+The elimination's occurrence test looks for `st.newNames`; the auxiliary
+block's positivity walk looks for `b.memberNames`.  They are the same
+list — `auxBlock` reads its formers off `st.types`, name by name, and
+`newNames` is that same projection — but the route has twice found a
+real gap behind a same-set-by-two-names identity (K.58: two drivers
+computing one quantity with nothing checking they agreed).  So it is
+PROVED here rather than noted.
+
+Its consumer: a REFLEXIVE field's binder domain is certified
+member-free by the positivity walk (`normPosDomM_inv`'s Π arm), and the
+rewrite's PRUNE therefore returns it unchanged — which is what keeps a
+copy out of the copy's own telescope, and with it the circularity that
+would otherwise move from the target into the telescope. -/
+
+/-- **THE ELIMINATION'S GROWING NAMES ARE THE AUXILIARY BLOCK'S
+MEMBERS** (task #315 L-B): `auxBlock` builds one former per entry of
+`st.types`, keeping its name, and `ElimState.newNames` is that same
+projection. -/
+theorem auxBlock_newNames {p : ConLeche.NestedParts} {st : ConLeche.ElimState}
+    {b : ConLeche.MutualBlock} (h : ConLeche.auxBlock p st = some b) :
+    b.memberNames = st.newNames := by
+  obtain ⟨-, hat⟩ := ConLeche.auxBlock_former h
+  have hlen : b.formers.length = st.types.length := by
+    unfold ConLeche.auxBlock at h
+    simp only [bind, Option.bind_eq_some_iff, pure, Option.some.injEq] at h
+    obtain ⟨formers, hformers, rfl⟩ := h
+    exact ConLeche.mapM_option_length hformers
+  refine List.ext_getElem? (fun i => ?_)
+  show (b.formers.map (·.1.name))[i]? = (st.types.map (·.name))[i]?
+  rw [List.getElem?_map, List.getElem?_map]
+  cases hst : st.types[i]? with
+  | none =>
+    have hge : st.types.length ≤ i := by
+      rcases Nat.lt_or_ge i st.types.length with hlt | hge
+      · rw [List.getElem?_eq_getElem hlt] at hst; exact nomatch hst
+      · exact hge
+    rw [List.getElem?_eq_none (by omega)]
+    rfl
+  | some t =>
+    obtain ⟨nIdx, hfo, -⟩ := hat i t hst
+    rw [hfo]
+    rfl
+
+/-- **A MEMBER-FREE TERM IS PRUNED BY THE REWRITE** (task #315 L-B):
+the consumer form of `auxBlock_newNames`, stated exactly as
+`replaceAllNested_of_no_mention` wants it.  The positivity walk's Π arm
+certifies a reflexive field's binder domains member-free
+(`normPosDomM_inv`), and this turns that verdict into the rewrite's
+prune. -/
+theorem newNames_no_mention_of_memberFree {p : ConLeche.NestedParts}
+    {st : ConLeche.ElimState} {b : ConLeche.MutualBlock}
+    (h : ConLeche.auxBlock p st = some b) {e : ConLeche.Expr}
+    (hm : ConLeche.mentionsMember b.memberNames e = false) :
+    (st.newNames.any fun T => e.mentionsConst T) = false := by
+  rw [← auxBlock_newNames h]
+  exact hm
 
 end ConLeche
