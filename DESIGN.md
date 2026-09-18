@@ -107730,3 +107730,68 @@ coordinator asked to be told rather than to discover when the row
 overran.  What (a) buys is that the route is now known to EXIST — the
 question I opened this row with was whether the reflexive half at a pin
 target is reachable at all by this lane's method, and it is.
+
+#### L-B session 36: the reflexive pin arm's first two bricks (lane L-B, 2026-09-18)
+
+*(No number taken: the title is the citation, the integrator numbers.)*
+
+##### (a) BRICK 1 — the two name lists are one, PROVED (commit `55db9c01`)
+
+`auxBlock_newNames : b.memberNames = st.newNames`
+(`Verify/Inductives/NestedCopyNorm.lean`), with the consumer form
+`newNames_no_mention_of_memberFree` stated exactly as
+`replaceAllNested_of_no_mention` wants it.  `auxBlock` builds one former
+per entry of `st.types` keeping its name; `ElimState.newNames` is that
+same projection.
+
+Proved rather than noted, as instructed, because this route has twice
+found a real gap behind a same-set-by-two-names identity.  It is what
+turns the positivity walk's verdict (`normPosDomM_inv`'s Π arm: a
+reflexive field's binder domain is member-free, and is carried through
+verbatim) into the rewrite's PRUNE — so **a reflexive field's telescope
+is inert under the elimination's rewrite**, and no copy can enter the
+copy's own telescope.
+
+##### (b) BRICK 2 — the rewrite REFLECTS a `∀`-tower (commit `67d1edf7`)
+
+Three lemmas in `Verify/Inductives/NestedCopyRewrite.lean`:
+
+* `replaceAllNested_forallE_run` — the walk at a `∀`, inverted into its
+  two sub-runs (prune, or domain-then-body);
+* `replaceAllNested_forallE_inv` — **a `∀` in the OUTPUT came from a `∀`
+  in the input**, carrying the input's binder data.  The descent
+  preserves the top former at every node and a FIRE returns an
+  APPLICATION (`mkAppN_ne_forallE`), so nothing else can build one;
+* `replaceAllNested_mkPisB_inv` — the same, `n` binders deep.
+
+**The tower inversion returns only the SHAPE, deliberately.**  With it
+the consumer runs the EXISTING `replaceAllNested_mkPisB` forward on the
+input to get the domains' and the body's runs, so the two lemmas divide
+the work instead of duplicating the state threading.  That is also why
+brick 2 came in under its 85-line estimate.
+
+##### (c) WHERE THE ROW STANDS, against the funded price
+
+Funded at 1.5–2 sessions.  Bricks 1 and 2 are the infrastructure and
+they are done; what remains is the arm proper, in two pieces:
+
+1. **step (iv)'s REFLEXIVE twin** — the reading and the index fit at
+   depth `b.nP + l + tls.length`, with `MutualCtorDataI.reflOpen`'s
+   spine clause in place of `eisRead` (it is stated at exactly that
+   depth) and `eisLenRefl` in place of `eisLen`.  The tower's domains
+   are handled by (a): inert, so their readings are `w`'s own;
+2. **the arm** — `copyOrdFRightReadReflP`, mirroring
+   `copyOrdFRightReadRefl` with `reflEntry` for `recEntry`,
+   `interp_mkPisAV_piTele` for `slotSet_nil`, and this lane's pin
+   machinery for the target.
+
+≈250–300 lines over two commits.  Nothing in either is open: every law
+they stand on is named above and each has been read in the tree.
+
+##### (d) GATES
+
+At `67d1edf7`: `tests/warning-free.sh eb0affac` — 12 changed modules, 19
+recompiled on the build and 1 on the test library, **0 warning lines**;
+layering, trust-surface, no-local-paths, overview-links, quote-gate,
+proofdeps, shake and nested-shadow all pass.  `tests/arena.sh` not
+re-run: no checker code touched.
