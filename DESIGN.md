@@ -112896,3 +112896,114 @@ section.  Items (1), (2), (3) and (f) are all still open, with (1)
 gated on the repair in (c) above — a coordinator decision, since it
 restates two theorems this lane landed as carrying no side condition at
 all.
+
+#### WIDE (e) step 3: THE BOUND ADOPTED — `lfpTuple_congr_le`/`lfpTuple_set_congr_le`, and the three wide theorems restated (lane WIDE, 2026-09-18)
+
+The coordinator's ruling on step 2, executed.
+
+##### (a) (B-below), the congruence at its correct strength
+
+`SetTheory/Derive/LfpCompose.lean`:
+
+* `isClosedTuple_meetT` — `X ⊓ C` is closed under a monotone `Φ` when
+  `X` and `C` are;
+* **`lfpTuple_congr_le_same`** — two operators agreeing on the tuples of
+  the space BELOW a tuple `C` closed under both have the same least
+  tuple.  The proof is `lfpTuple_congr`'s: a least tuple is the
+  intersection of the closed tuples (`mem_app_lfpTuple`), every closed
+  tuple may be CLAMPED to `C` without changing that intersection
+  (`isClosedTuple_meetT` for closure, `meetT_le_left` for the
+  membership), and below `C` the two operators are the same function,
+  so they have the same clamped closed tuples;
+* `lfpTuple_congr_le` — the same with the second presentation's index
+  sets renamed;
+* **`lfpTuple_set_congr_le`** — `lfpTuple_set_congr` at that strength:
+  `lfpTuple_set` (Bekić at an index set) followed by `lfpTuple_congr_le`.
+
+Whole-space agreement was stronger than the fixpoint theory needs: two
+presentations need only agree on the tuples that can arise on the way up
+to a common closed point.
+
+##### (b) The three wide theorems, restated
+
+`ofNested_pin_block_wide`, `ofNested_pin_block_of_wide` and
+`ofNested_hΦ_of_fit` take the bound
+`TupleLe s (fun i => Is (σ i)) Y C` in `hΦ`/`hfit`, with `C` the
+CONTAINER's own wide carrier `lfpTuple w (kJ + nJ) IsJ ΨJ`.  **No other
+hypothesis appears**: both closedness facts are derived inside
+`ofNested_pin_block_wide` — `C` is closed under `ΨJ` because it is its
+least tuple (`lfpTuple_closed`), and closed under the copies' section
+because the agreement AT `C` (the bound is reflexive there) identifies
+the two.  The index-set transport between `IsJ` and `fun i => idx (σ i)`
+is `inTupleSpace_congr`/`tupleLe_congr`.
+
+##### (c) What this does and does not change
+
+It does not touch the verdict: no domination between the two operators,
+no candidate tuple, no inclusion at another pin of the block being
+installed, no ordering among pins.  The bound is a fact about a type
+already installed and already modelled, available from its `auxFunctor`
+alone.  What it changes is which set-theoretic congruence the
+identification feeds, and the answer is (B-below) — recorded in
+`docs/NESTED.md` §0 as a fourth form beside (B-whole), (B-at) and
+(B-set).
+
+##### (d) Green
+
+`lake build`; `tests/overview-links.sh` OK.  Nothing consumes the
+restated theorems yet, so the accept set is untouched.
+
+#### WIDE (1): THE FIT AT THE CONTAINER'S MEMBERS, AT THE WIDE WIDTH — `CopyCtorShape.fit_iff_wide` (lane WIDE, 2026-09-18)
+
+Residue item (1).  `fit_iff_at`'s sibling: the copy's fit at an
+ARBITRARY tuple `Z` over the block's targets is the container's CLASS
+fit (`ChainFitT`) at the corresponding tuple `Y` over the container's
+classes, at a member class `i < dJ.k`.
+
+##### (a) What the wide width buys, in the proof
+
+`recF` and `pinF` COLLAPSE.  At the narrow width a container-recursive
+field at one of the container's OWN pins was read through
+`EntryRead`/`PinCorr` as the target's STORED reading at the carrier
+(`hent` at that arm); at the wide width the container's class fit reads
+its own pin as a VARIABLE and the copy reads the block's corresponding
+pin, so `hZY` — the two tuples agree at the field's target — closes
+both arms with ONE reading, `CopyCtorShape.slot_container`, which
+`recF` and `pinF` already state identically (telescope and index
+expressions instantiated).  `hfT`/`hPT` survive only for the spine
+obligation below, and the `pinF` arm's entry is gone.
+
+##### (b) What it pays: the bound, used exactly once
+
+`fitsFrom_iff_frames_spine` carries the CONTAINER-side prefix spine fit,
+and its obligation at a recursive field is "the container's slot is
+inside its field domain".  At the container's own carrier that is
+`IsBlockModels.real_dom_eq` (an equality).  At a free `Y` it is that
+equality plus **`hYle`: `Y` below the container's classes' carrier**,
+through `slotSet_mono_app`.  This is the single place the (B-below)
+bound is consumed, and `BlockModel.auxLfp_eq_famAt` — the wide carrier
+IS the extended narrow one, `lfpTuple_composeΦ` at the members and
+`pinsCar_lfp` at the pins — is what puts that carrier in the `famAt`
+form the slot reads.
+
+##### (c) The ordinary arm is unchanged
+
+`ordF`-left is the reading identity under instantiation
+(`interp_instAll`), `ordF`-right the entry at a target OUTSIDE the
+group, supplied by `hent` at `Z` — at such a target the joined tuple is
+the block's own carrier, so the run's `nestedPinLeaf_all` residue
+applies verbatim.
+
+##### (d) What is left of item (1)
+
+The theorem is the content; what remains is its `CopyShapeA` wrapper
+(the run's `hsh`/`hent`/`hgrp`/`hidx` at the group, `σ` contiguous on
+the members by `hroot`), which is plumbing of the same shape as
+`hfit_at_of_inst` and is written together with item (2)'s half, since
+`ofNested_hΦ_of_fit`'s `hfit` quantifies over ALL classes and the two
+halves meet there.
+
+##### (e) Green
+
+`tests/warning-free.sh 0c8567b5`: 19 changed modules, 0 warning lines in
+build and test, "OK (a run that could have failed)".

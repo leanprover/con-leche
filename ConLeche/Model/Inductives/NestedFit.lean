@@ -1216,6 +1216,118 @@ theorem slotSet_mono_app {w u : Nat} {ρ : Nat → V} {tl : List (Nat × Nat × 
   unfold slotSet
   exact piTele_mono fun bs _ => h _
 
+/-- **`hfit` at one constructor, AT THE WIDE WIDTH** (task #315,
+Resolution 1): the copy's fit at an arbitrary tuple `Z` over the
+block's targets is the container's CLASS fit (`ChainFitT`) at the
+corresponding tuple `Y` over the container's classes.
+
+Three things are different from `fit_iff_at`, and they are exactly what
+the wide route buys and pays:
+
+* a container-recursive field at one of the container's OWN pins is no
+  longer read through its entry: the container's class fit reads its own
+  pin as a VARIABLE, the copy reads the block's corresponding pin, and
+  `hZY` says the two tuples agree there.  `recF` and `pinF` therefore
+  collapse into ONE arm, whose reading identity is `slot_container` for
+  both;
+* the container's side is at a FREE tuple `Y`, so the spine-carrying
+  obligation — the container's slot is inside its field domain — is not
+  `real_dom_eq` alone: it is `real_dom_eq` at the container's carrier
+  plus the BOUND `hYle`, `Y` below the container's classes' carrier
+  (`BlockModel.auxLfp_eq_famAt` puts that carrier in `famAt` form).
+  This is the bound `docs/NESTED.md` §0's (B-below) takes;
+* what is unchanged is the ordinary arm: `ordF`-left is the reading
+  identity under instantiation, `ordF`-right the entry at a target
+  OUTSIDE the group, which `hent` supplies at `Z` (at such a target the
+  joined tuple is the block's own carrier). -/
+theorem CopyCtorShape.fit_iff_wide {env : Env} {m : EnvModel V env}
+    (hreps : IsBlockModels m dJ) (hfT : FormersTyped m dJ ψJ) (hPT : PinsTyped m dJ ψJ)
+    (hi : i < dJ.k)
+    (hw : dJ.w ψJ = TV.w)
+    (hρJ : Sat V (dJ.params ψJ).reverse ρJ)
+    {nI : Nat} (hnI : nI = (dJ.IdsM i ψJ).length)
+    {cA : ConstantVal × Nat} (hj : (dJ.ctorsM i)[j]? = some cA)
+    (h : CopyCtorShape TV acval dJ ψJ Ds lpsJ lvlsJ tg tls Eis ρp i j base kJ Fs rs Es)
+    {Y Z : Nat → V}
+    (huT : ∀ l, l < ((dJ.Fss i ψJ).getD j []).length →
+      ((dJ.rss i).getD j []).getD l false = true → TV.u (tg l) = dJ.uT (dJ.tgts i j l) ψJ)
+    (hZY : ∀ l, l < ((dJ.Fss i ψJ).getD j []).length →
+      ((dJ.rss i).getD j []).getD l false = true → Z (tg l) = Y (dJ.tgts i j l))
+    (hYle : ∀ l, l < ((dJ.Fss i ψJ).getD j []).length →
+      ((dJ.rss i).getD j []).getD l false = true → ∀ t',
+      SetTheory.app (Y (dJ.tgts i j l)) t' ⊆ˢ SetTheory.app (dJ.famAt ψJ ρJ LJ (dJ.tgts i j l)) t')
+    (hent : CopyEntryOut dJ ψJ Ds tg tls Eis ρp i j base kJ Fs rs TV.w TV.u Z)
+    (t : V) (fs : List V) :
+    (FitsFrom rs (fun i' ρ => slotSet TV.w (TV.u (tg i')) ρ (tls.getD i' []) (Eis.getD i' [])
+        (Z (tg i'))) 0 ρp Fs fs ∧
+      (∀ l, l < nI → interp V (consList fs ρp) (Es.getD l default) = projS l t))
+    ↔ dJ.ChainFitT dJ.pinCtors ψJ ρJ Y t i j fs := by
+  obtain ⟨cvT, cvR, mI, rP, rules, hI⟩ := hreps i hi
+  have hjl : j < (dJ.ctorsM i).length := (List.getElem?_eq_some_iff.mp hj).1
+  have hlenF := hI.Fss_length hj ψJ
+  have hLJ : LJ = lfpTuple (dJ.w ψJ) dJ.k (dJ.idx ψJ ρJ) (dJ.Φ ψJ ρJ) := by rw [hw]
+  -- the fits
+  have hfits : FitsFrom rs (fun i' ρ => slotSet TV.w (TV.u (tg i')) ρ (tls.getD i' [])
+        (Eis.getD i' []) (Z (tg i'))) 0 ρp Fs fs ↔
+      FitsFrom ((dJ.rss i).getD j []) (dJ.slotAtT dJ.pinCtors ψJ Y i j) 0 ρJ
+        ((dJ.Fss i ψJ).getD j []) fs := by
+    refine (fitsFrom_iff_frames_spine h.len.symm fun l hl fs₁ hl₁ hsp hf hf' => ?_).symm
+    subst hl₁
+    have hlt : fs₁.length < cA.2 := by rw [← hlenF]; exact hl
+    simp only [Nat.zero_add]
+    by_cases hr : ((dJ.rss i).getD j []).getD fs₁.length false = true
+    · have hr' : (rsOf (dJ.ksF i j)).getD fs₁.length false = true := by
+        rwa [IsBlockModel.rss_getD hjl] at hr
+      have hreal := hreps.real_dom_eq hfT hPT hi hj hρJ hlt hr' hsp
+      rw [hw] at hreal
+      -- the container's slot at `Y`, at a frame whose parameter part is `ρJ`
+      have hslotT : dJ.slotAtT dJ.pinCtors ψJ Y i j fs₁.length (consList fs₁ ρJ)
+          = slotSet (dJ.w ψJ) (dJ.uT (dJ.tgts i j fs₁.length) ψJ) (consList fs₁ ρJ)
+              (((dJ.tlss i ψJ).getD j []).getD fs₁.length [])
+              (((dJ.Eiss i ψJ).getD j []).getD fs₁.length []) (Y (dJ.tgts i j fs₁.length)) := by
+        unfold BlockModel.slotAtT BlockModel.teleAtT BlockModel.eisAtT
+        rw [BlockModel.tgtsT_of_mem hi, BlockModel.tlssT_of_mem hi, BlockModel.EissT_of_mem hi]
+      -- the container's slot at its own carrier, in the same shape
+      have hslotL : dJ.slotAt ψJ LJ i j fs₁.length (consList fs₁ ρJ)
+          = slotSet (dJ.w ψJ) (dJ.uT (dJ.tgts i j fs₁.length) ψJ) (consList fs₁ ρJ)
+              (((dJ.tlss i ψJ).getD j []).getD fs₁.length [])
+              (((dJ.Eiss i ψJ).getD j []).getD fs₁.length [])
+              (dJ.famAt ψJ ρJ LJ (dJ.tgts i j fs₁.length)) := by
+        have hfr : (fun n => consList fs₁ ρJ (n + fs₁.length)) = ρJ :=
+          funext fun n => consList_apply_add fs₁ ρJ n
+        unfold BlockModel.slotAt
+        rw [hfr]
+      rw [if_pos hr, hslotT]
+      refine ⟨?_, ?_⟩
+      · -- the container's slot at `Y` is inside its field domain: the BOUND
+        rw [hreal, hslotL]
+        exact slotSet_mono_app (hYle _ hl hr)
+      · -- the two slots are one reading
+        rw [if_pos (by
+            rcases hI.tgt_cases hjl (by rw [(hI.ctorData hj).ksLen]; exact hlt) with
+              htgt | ⟨hnt, -⟩
+            · exact (h.recF _ hl hr htgt).1
+            · exact (h.pinF _ hl hr hnt).1),
+          h.slot_container hl hr fs₁ rfl (Z (tg fs₁.length)), huT _ hl hr, hw,
+          hZY _ hl hr]
+    · have hr' : ((dJ.rss i).getD j []).getD fs₁.length false = false := by simpa using hr
+      rw [if_neg (by rw [hr']; exact Bool.false_ne_true)]
+      refine ⟨Subset.refl _, ?_⟩
+      rcases h.ordF _ hl hr' with ⟨hrC, hF⟩ | ⟨hrC, hout, -, -⟩
+      · rw [if_neg (by rw [hrC]; exact Bool.false_ne_true), hF fs₁ rfl hsp, interp_instAll]
+      · rw [if_pos hrC]
+        exact hent _ (h.len ▸ hl) hrC hout fs₁ rfl hsp
+  -- the index equations
+  refine Iff.trans (and_congr hfits Iff.rfl) ?_
+  unfold BlockModel.ChainFitT
+  rw [BlockModel.rssT_of_mem hi, BlockModel.FssT_of_mem hi, BlockModel.EssT_of_mem hi,
+    BlockModel.IdsT_of_mem hi]
+  refine and_congr_right fun hf => ?_
+  have hlen : fs.length = ((dJ.Fss i ψJ).getD j []).length := hf.length_eq
+  rw [hnI]
+  refine forall_congr' fun l => imp_congr_right fun hl => ?_
+  rw [h.es l hl, ← hlen, interp_instAll]
+
 /-- **`hentR` AT ONE FIELD, FROM AN ENTRY IDENTITY AT ANOTHER FAMILY**
 (task #315 L-C, the constant-headed step's arithmetic): if the
 container's field domain, read at whatever frame `fr` the statement

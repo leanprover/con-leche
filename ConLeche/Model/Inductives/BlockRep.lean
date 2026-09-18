@@ -1193,6 +1193,28 @@ theorem BlockModel.auxFibre_of_noPins (d : BlockModel V) (hn : d.nPins = 0)
       exact Nat.not_lt_zero i hi
   rw [BlockModel.tgtsT_of_mem hc, d.famAt_of_mem (htgt c j i hc hj)]
 
+/-- **The WIDE carrier is the EXTENDED narrow one**: the least tuple of
+`Ψaux` at a class is the member's component of the block's carrier, or
+the pin's carrier there (task #315, Resolution 1).  Bekić's nested form
+at the members (`lfpTuple_composeΦ`) and the pins' fixed-point law
+(`pinsCar_lfp`) at the pins, both through `auxCompose`/`auxPinsCar`.
+This is the tuple the wide identification's BOUND is taken at: "below
+the container's own carrier", stated over its classes. -/
+theorem BlockModel.auxLfp_eq_famAt (d : BlockModel V) {ψ : Name → Nat} {ρp : Nat → V}
+    (hmono : MonoTuple (d.w ψ) (d.k + d.nPins) (d.idx ψ ρp) (d.Ψaux ψ ρp))
+    (hcl : ∃ L, IsClosedTuple (d.w ψ) (d.k + d.nPins) (d.idx ψ ρp) (d.Ψaux ψ ρp) L)
+    (hcomp : d.Φ ψ ρp = composeΦ (d.w ψ) d.k d.nPins (d.idx ψ ρp) (d.Ψaux ψ ρp))
+    (hpins : ∀ X q, q < d.nPins →
+      d.pinCar ψ ρp X q = pinsCar (d.w ψ) d.k d.nPins (d.idx ψ ρp) (d.Ψaux ψ ρp) X q)
+    {c : Nat} (hc : c < d.k + d.nPins) :
+    lfpTuple (d.w ψ) (d.k + d.nPins) (d.idx ψ ρp) (d.Ψaux ψ ρp) c
+      = d.famAt ψ ρp (lfpTuple (d.w ψ) d.k (d.idx ψ ρp) (d.Φ ψ ρp)) c := by
+  unfold BlockModel.famAt
+  by_cases hk : c < d.k
+  · rw [if_pos hk, hcomp, lfpTuple_composeΦ hmono hcl hk]
+  · rw [if_neg hk, hpins _ _ (by omega), hcomp, pinsCar_lfp hmono hcl (by omega),
+      Nat.add_sub_cancel' (Nat.le_of_not_lt hk)]
+
 namespace IsBlockModel
 
 variable {m : EnvModel V env} {T : Name} {cvT cvR : ConstantVal} {mI rP : Nat}

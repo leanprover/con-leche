@@ -636,6 +636,101 @@ theorem meetT_eq_of_le {X L : Nat → V} (h : TupleLe k Is X L) :
 
 end Meet
 
+/-! ## Congruence BELOW A CLOSED TUPLE -/
+
+section CongrLe
+
+variable {w k : Nat} {Is Is' : Nat → V} {Φ Φ' : (Nat → V) → Nat → V}
+
+/-- **The clamp of a closed tuple is closed**: `X ⊓ C` is closed under
+a monotone `Φ` when `X` and `C` are, because `Φ (X ⊓ C)` is below both
+`Φ X ⊆ X` and `Φ C ⊆ C`. -/
+theorem isClosedTuple_meetT (hmono : MonoTuple w k Is Φ) {X C : Nat → V}
+    (hX : IsClosedTuple w k Is Φ X) (hC : IsClosedTuple w k Is Φ C) :
+    IsClosedTuple w k Is Φ (meetT Is X C) :=
+  ⟨inTupleSpace_meetT hX.1 C,
+    tupleLe_meetT
+      ((hmono _ _ (inTupleSpace_meetT hX.1 C) hX.1 (meetT_le_left X C)).trans hX.2)
+      ((hmono _ _ (inTupleSpace_meetT hX.1 C) hC.1 (meetT_le_right X C)).trans hC.2)⟩
+
+/-- **Two presentations agreeing BELOW a common closed tuple have the
+same least tuple.**  This is the strength the fixpoint theory actually
+asks for, and `lfpTuple_congr`'s whole-space hypothesis is more than it
+needs: a least tuple is the intersection of the closed tuples, every
+closed tuple may be CLAMPED to `C` without changing that intersection
+(`isClosedTuple_meetT`, `meetT_le_left`), and below `C` the two
+operators are the same function — so they have the same clamped closed
+tuples and the same intersection.
+
+The consumer is a CONTAINER INSTANCE's identification (`docs/NESTED.md`,
+Resolution 1): the block's copies and the container's own wide operator
+are compared through readings that the run states at frames fitting the
+container's domains — that is, below the container's own carrier — and
+`C` is that carrier.  It is a bound on the tuples compared, not a
+domination between the operators: nothing about another component of
+the block enters it. -/
+theorem lfpTuple_congr_le_same (hmono : MonoTuple w k Is Φ) (hmono' : MonoTuple w k Is Φ')
+    {C : Nat → V} (hC : IsClosedTuple w k Is Φ C) (hC' : IsClosedTuple w k Is Φ' C)
+    (hΦ : ∀ X, InTupleSpace w k Is X → TupleLe k Is X C → ∀ m, m < k → Φ X m = Φ' X m)
+    {m : Nat} (hm : m < k) : lfpTuple w k Is Φ m = lfpTuple w k Is Φ' m := by
+  -- the clamp of a closed tuple of either operator is closed under BOTH
+  have hclamp : ∀ X, IsClosedTuple w k Is Φ X → IsClosedTuple w k Is Φ' (meetT Is X C) := by
+    intro X hX
+    have hmeet := isClosedTuple_meetT hmono hX hC
+    refine ⟨hmeet.1, fun m' hm' => ?_⟩
+    rw [← hΦ _ hmeet.1 (meetT_le_right X C) m' hm']
+    exact hmeet.2 m' hm'
+  have hclamp' : ∀ X, IsClosedTuple w k Is Φ' X → IsClosedTuple w k Is Φ (meetT Is X C) := by
+    intro X hX
+    have hmeet := isClosedTuple_meetT hmono' hX hC'
+    refine ⟨hmeet.1, fun m' hm' => ?_⟩
+    rw [hΦ _ hmeet.1 (meetT_le_right X C) m' hm']
+    exact hmeet.2 m' hm'
+  refine famSpace_ext (lfpTuple_mem w k Is Φ m hm) (lfpTuple_mem w k Is Φ' m hm) fun i hi => ?_
+  apply SetTheory.ext
+  intro x
+  rw [mem_app_lfpTuple ⟨C, hC⟩ hi, mem_app_lfpTuple ⟨C, hC'⟩ hi]
+  constructor
+  · intro hx X hX
+    exact meetT_le_left (Is := Is) X C m hm i hi x (hx _ (hclamp' X hX))
+  · intro hx X hX
+    exact meetT_le_left (Is := Is) X C m hm i hi x (hx _ (hclamp X hX))
+
+/-- `lfpTuple_congr_le_same` with the second presentation's index sets
+renamed, as `lfpTuple_congr` has them. -/
+theorem lfpTuple_congr_le (hIs : ∀ m, m < k → Is m = Is' m)
+    (hmono : MonoTuple w k Is Φ) (hmono' : MonoTuple w k Is Φ')
+    {C : Nat → V} (hC : IsClosedTuple w k Is Φ C) (hC' : IsClosedTuple w k Is Φ' C)
+    (hΦ : ∀ X, InTupleSpace w k Is X → TupleLe k Is X C → ∀ m, m < k → Φ X m = Φ' X m)
+    {m : Nat} (hm : m < k) : lfpTuple w k Is Φ m = lfpTuple w k Is' Φ' m :=
+  (lfpTuple_congr_le_same hmono hmono' hC hC' hΦ hm).trans
+    (lfpTuple_congr hIs (fun _ _ _ _ => rfl) hm)
+
+/-- **Bekić at an index set, against another presentation of the
+section, BELOW A CLOSED TUPLE** — `lfpTuple_set_congr` at the
+congruence's correct strength.  The agreement `hΦ` is asked only of the
+tuples of the instance's space that lie below `C`, and `C` — the other
+presentation's own carrier at the call site — must be closed under
+both, which for `Φ'` is its fixpoint law and for the section follows
+from the agreement AT `C`. -/
+theorem lfpTuple_set_congr_le {w N s : Nat} {Is Is' : Nat → V} {Ψ Φ' : (Nat → V) → Nat → V}
+    {σ : Nat → Nat} (hinj : InjOn σ s) (hσ : ∀ i, i < s → σ i < N)
+    (h : ∃ L, IsClosedTuple w N Is Ψ L) (hmono : MonoTuple w N Is Ψ)
+    (hIs : ∀ i, i < s → Is (σ i) = Is' i)
+    (hmono' : MonoTuple w s (fun i => Is (σ i)) Φ')
+    {C : Nat → V}
+    (hC : IsClosedTuple w s (fun i => Is (σ i)) (setSec Ψ σ s (lfpTuple w N Is Ψ)) C)
+    (hC' : IsClosedTuple w s (fun i => Is (σ i)) Φ' C)
+    (hΦ : ∀ Y, InTupleSpace w s (fun i => Is (σ i)) Y → TupleLe s (fun i => Is (σ i)) Y C →
+      ∀ i, i < s → Ψ (setJoin σ s (lfpTuple w N Is Ψ) Y) (σ i) = Φ' Y i)
+    {i : Nat} (hi : i < s) :
+    lfpTuple w N Is Ψ (σ i) = lfpTuple w s Is' Φ' i := by
+  rw [lfpTuple_set hinj hσ h hmono hi]
+  exact lfpTuple_congr_le hIs (setSec_mono hinj hmono hσ (lfpTuple_mem w N Is Ψ)) hmono' hC hC'
+    (fun Y hY hYC m hm => hΦ Y hY hYC m hm) hi
+
+end CongrLe
+
 /-! ## The composed operator -/
 
 section Compose

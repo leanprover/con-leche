@@ -59,9 +59,17 @@ and, weaker, if the two agree only *at* `μΦ'` and `Ψ|_L⃗` is dominated by
 
     μY⃗. Ψ|_L⃗ (Y⃗)  =  μΦ'       if   Ψ|_L⃗(μΦ') = Φ'(μΦ')  ∧  ∀Y⃗ ⊆ μΦ'. Ψ|_L⃗(Y⃗) ⊆ Φ'(Y⃗)     (B-at)
 
+and, between the two and at the strength the theory actually asks for,
+if they agree on the tuples below a tuple `C` closed under both — a
+least fixpoint is an intersection of closed tuples, and every closed
+tuple may be clamped to `C` without changing that intersection:
+
+    μY⃗. Ψ|_L⃗ (Y⃗)  =  μΦ'    if  Ψ|_L⃗(C) ⊆ C ∧ Φ'(C) ⊆ C ∧ ∀Y⃗ ⊆ C. Ψ|_L⃗(Y⃗) = Φ'(Y⃗)   (B-below)
+
 (B-whole) is a one-line congruence.  (B-at) needs the domination
 hypothesis, and that hypothesis is where every difficulty in this story
-lives.
+lives.  (B-below) needs no relation between the two operators at all,
+only a common closed bound.
 
 ## 1. Inductives as definitions
 
@@ -358,9 +366,10 @@ because the run's copy-versus-container readings are stated at prefixes
 that fit the container's domains, and a container-recursive field's
 domain is its carrier.  That bound is a fact about a type already
 installed, so it needs nothing from any other pin — it is not (B-at)'s
-`hle` in disguise — but the set-theoretic congruence it feeds must be
-the one that compares two operators on the tuples below a common closed
-tuple, not on the whole space.
+`hle` in disguise — and the identification therefore uses **(B-below)**
+with the container's own wide carrier as `C`: closed under the
+container's operator because it IS its least fixpoint, and closed under
+the copies' section because the two agree at it.
 
 Besides the comparison there is still an induction over *instances* for
 targets outside a segment; and it is acyclic by argument — a
@@ -408,6 +417,7 @@ Resolution 1 needs.
 | `μX⃗.Φ`, leastness, fixpoint | `lfpTuple`, `lfpTuple_le`, `lfpTuple_fixed` (`SetTheory/Derive/LfpTuple.lean`) |
 | (B) Bekić at a segment | `lfpTuple_seg`, `lfpTuple_eq_section` |
 | (B-whole) | `lfpTuple_seg_congr` (`SetTheory/Derive/LfpCompose.lean`) |
+| (B-below) | `lfpTuple_congr_le`, `lfpTuple_set_congr_le` (same file; `meetT` clamps the closed tuples) |
 | (B-set), (B-whole) at an index set | `lfpTuple_set`, `lfpTuple_set_congr` (same file; `setJoin`, `setSec`) |
 | (B-at) | `lfpTuple_seg_congr_at`, `lfpTuple_eq_of_at` |
 | (compose): narrow from wide | `composeΦ`, `pinsCar`, `lfpTuple_composeΦ`; `ofNested` in `Model/Inductives/BlockComposed.lean` |
@@ -453,16 +463,16 @@ component's index set is the pin's.
 
 Not settled, and now three named things.
 
-**(i) The bound.**  `hΦ` as it stands quantifies over the whole tuple
-space, and the run cannot supply that: the copy-versus-container
-reading of an ORDINARY field is stated at prefixes fitting the
-container's domains, and a container-recursive field's domain is the
-container's carrier — so the comparison is available below that carrier
-and not above it.  (The existing two-copies transfer carries the same
-premise, independently.)  The repair is set-theoretic and local: a
-congruence for two operators agreeing on the tuples below a tuple
-closed under both, instantiated at the container's own wide carrier,
-which is closed under both by the agreement at it.
+**(i) The bound — LANDED.**  `hΦ` as first stated quantified over the
+whole tuple space, and the run cannot supply that: the
+copy-versus-container reading of an ORDINARY field is stated at
+prefixes fitting the container's domains, and a container-recursive
+field's domain is the container's carrier — so the comparison is
+available below that carrier and not above it.  (The existing
+two-copies transfer carries the same premise, independently.)  The
+repair was set-theoretic and local, and it is made: (B-below) is proved
+at the tuple layer and at an index set, and the identification takes
+its agreement below the container's own wide carrier.
 
 **(ii) and (iii) The fit equivalence.**  With the bound in place, `hΦ`
 reduces to a FIT equivalence, one clause per class of the container: a
