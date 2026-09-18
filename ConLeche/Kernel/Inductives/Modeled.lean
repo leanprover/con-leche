@@ -427,6 +427,13 @@ def provisionRecs (ops : CheckerOps m) (blockNames : List Name) :
     match ci with
     | .recInfo _ mI rP rules => do
       let cvA ← checkMemberVal ops blockNames envAcc ci.toConstantVal
+      -- **THE MAJOR PREMISE'S HEAD** (task #315 K.55): this route stores
+      -- the STREAM's recursor type, so the shape the environment
+      -- invariant asks of every stored recursor is a property of the
+      -- input here and is recorded rather than generated
+      unless certOnly ops.mode (Expr.recMajorHeadOk cvA.type mI) do
+        throw (.internal s!"recursor {cvA.name}: the major premise is not an \
+          application of a constant")
       let (envSelf, others) ← provisionRecs ops blockNames
         ⟨.recInfo cvA mI rP [] :: envAcc.consts⟩ rest
       pure (envSelf, (cvA, mI, rP, rules) :: others)

@@ -317,6 +317,14 @@ theorem provisionRecsS_run (hμ : mode.verifiedChecks = true) {blockNames : List
     obtain ⟨hccv, -⟩ := checkMemberVal_inv hFmp
     have henv₁ : EnvWF ⟨.recInfo cvA mI rP [] :: env.consts⟩ :=
       envWF_cons_provRec henv hccv
+    -- K.55's guard: the cached run took the passing branch, and the pure
+    -- side takes the same one (the Bool is a function of `cvA.type`)
+    by_cases hmh : certOnly mode (ConLeche.Expr.recMajorHeadOk cvA.type mI) = true
+    case neg =>
+      rw [if_neg hmh] at h
+      simp only [Bind.bind, StateT.bind, throw, throwThe, MonadExceptOf.throw] at h
+      exact nomatch h
+    rw [if_pos hmh] at h
     obtain ⟨p', s₃, hrec, h⟩ := bindC_ok h
     rw [show (mkFEnv env).push (.recInfo cvA mI rP []) =
       mkFEnv ⟨.recInfo cvA mI rP [] :: env.consts⟩ from rfl] at hrec
@@ -333,6 +341,9 @@ theorem provisionRecsS_run (hμ : mode.verifiedChecks = true) {blockNames : List
       (checkMemberVal (fueledOpsM mode) blockNames env _).property
         (Nat.le_max_left F₁ F₂) hFm]
     simp only [Bind.bind, Except.bind]
+    rw [show certOnly (fueledOpsM mode).mode
+        (ConLeche.Expr.recMajorHeadOk cvA.type mI) = true from hmh]
+    simp only [↓reduceIte]
     rw [(provisionRecs (fueledOpsM mode) blockNames
         ⟨.recInfo cvA mI rP [] :: env.consts⟩ rest).property
         (Nat.le_max_right F₁ F₂) hF₂]

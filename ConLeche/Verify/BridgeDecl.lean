@@ -538,11 +538,21 @@ theorem provisionRecs_datF (blockNames : List Name) (F : Nat) :
   | _, [] => rfl
   | envAcc, ci :: rest => by
     unfold provisionRecs
-    (datF_step2 <;> datF_step2) <;>
-      first
-        | (rw [checkMemberVal_datF])
-        | exact provisionRecs_datF blockNames F _ rest
-        | rfl
+    match ci with
+    | .recInfo cv mI rP rules =>
+      -- K.55's guard is a PURE Bool, so the two sides take the same
+      -- branch and the throwing one is fuel-free
+      rw [FueledM.atF_bind, checkMemberVal_datF]
+      congr 1
+      funext cvA
+      simp only [FueledM.atF_bind, FueledM.atF_ite, FueledM.atF_pure,
+        FueledM.atF_throw,
+        provisionRecs_datF blockNames F ⟨.recInfo cvA mI rP [] :: envAcc.consts⟩ rest]
+      -- the `certOnly` gate's two spellings of `ops.mode` (as in
+      -- `checkMutualCore_datF`)
+      rfl
+    | .axiomInfo _ | .defnInfo _ _ _ | .thmInfo _ _ | .indInfo _ _
+    | .ctorInfo _ _ _ | .projInfo _ => rfl
 
 theorem checkIndRecs_datF (blockNames : List Name) (env₂ : Env)
     (recs : List ConstantInfo) (F : Nat) :

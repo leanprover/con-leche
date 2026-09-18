@@ -89480,3 +89480,122 @@ closing arc `(2,0)` and the opening arc `(0,2)` are both not-own, and
 they only meet because the OWN edge `(0,1)` merges `P4C` with `Array`.
 A count over graph 2 would have reported "acyclic, the route is open at
 three to four sessions" and been wrong.
+
+#### K.55 — the major premise's head, RECORDED on the route that does not generate it (2026-09-18, task #315 M8 session 5, `agent/uniform-m5`)
+
+`Expr.recMajorHeadOk recTy mI` (`Kernel/ExprOps.lean`), beside
+`recRulePlain`: the recursor type stripped at its major index has a next
+binder whose DOMAIN is headed by a `const`.  One conjunct in
+`provisionRecs` (`Kernel/Inductives/Modeled.lean`) and its cached twin
+`provisionRecsS` (`Cached/CheckerC.lean`), `certOnly`-gated,
+`.internal` on failure.
+
+**Why HERE and nowhere else.**  No other route needs it: the native and
+mutual routes GENERATE the recursor type and require the stream's record
+to be defeq to it, the nested route RESTORES the auxiliary block's
+generated one, and the basis blocks and `Quot` are literals — so for
+them the shape is a property of the generator
+(`mutualRecTy_major`, landed this session).  The MODELED route stores
+the STREAM's type through `checkMemberVal` with no generation and no
+head check, so there it is a property of the INPUT.  With this conjunct
+the environment invariant can ask for the shape UNCONDITIONALLY, at
+every stored recursor, instead of only inside the doubly-guarded
+nested-rule clause — which is what the crossing's premise needs.
+
+**MEASURED BEFORE COMMITTING, and it does not fire:**
+
+* every `tests/e2e` fixture and BOTH arena halves, good and bad: **0**;
+* `init-full`: **0**, 53 093 accepted;
+* Mathlib: **0**, 654 504 accepted.
+
+**Cost: none measurable.**  `tower_nested` 427 426 098 / 427 419 503
+against 427 420 196 / 427 430 753 instructions:u; `init-full`
+539 232 429 841 with the check.  It is one `stripPis` walk of `mI`
+binders per modeled recursor, on a route no accepted corpus stream
+reaches for its recursors except through the modeller's own generated
+blocks.
+
+**THE LEDGER ROW — category (B), and this is the second (B) row on the
+task.**  CERT-ONLY.  Official's `mk_rec_type` builds the major premise
+as the eliminated family applied to the parameters and indices, so a
+violating input would be **a stream the official kernel accepted whose
+recursor declares a major premise that is not an application of a
+constant**.  A fire is therefore a finding about the REFERENCE KERNEL
+rather than about us — unlike the (S) rows, where a fire means a bug in
+our own generator (as K.41's did).  It is not (A): official performs no
+such test, because it never reads a recursor type it did not build.
+
+**And it is cheap to retire.**  If the modeled arm leaves the dispatch
+(2e), the guard goes with it, because every remaining route proves the
+shape instead of recording it.
+
+##### The proof-tier ripple, for the next kernel check's benefit
+
+One kernel conjunct moved SEVEN proof sites, and the list is the cost
+model for any future guard inside `provisionRecs`:
+`Verify/Extend/Modeled.lean` (the inversion gains the conjunct — which
+is what makes the Bool usable downstream), `Verify/Extend/Recs.lean`
+(two destructurings), `Semantics/Bridge/DeclIndRun.lean` (the run-level
+inversion), `Verify/Cached/AgreeFloor.lean` and
+`Verify/Cached/PushChain.lean` (the cached provisioning's skeleton and
+chain, both by `Yields.ofDecCases`), `Verify/BridgeDecl.lean` (the fuel
+transport, hand-written: the `unless` makes a JOIN POINT that
+`rw [FueledM.atF_bind]` cannot see through, so the branch is `simp only`
+with the IH's specific instance and then `rfl` for the gate's two
+spellings of `ops.mode`), and `Verify/Cached/BridgeCS4.lean` (the
+cached simulation, where both sides take the same branch because the
+Bool is a function of `cvA.type` alone).
+
+#### THE FOURTH GRAPH: a NOT-OWN edge lies INSIDE a strongly connected component on eight accepted blocks (2026-09-18, task #315 M8 session 5)
+
+The question, which is strictly WEAKER than the contracted one and
+therefore settles it: in the **full directed edge graph** — every edge
+in its RECORDED direction, own and not-own alike, **no symmetrisation
+and no mint-group joins** — does any strongly connected component
+contain a NOT-OWN edge?
+
+**IT DOES, on eight accepted blocks.**
+
+| corpus | blocks | not-own edges inside an SCC | blocks with one |
+| --- | --- | --- | --- |
+| the 36 shadow rows | 42 runs | 4 | **3** |
+| the Mathlib nested cone | 41 | 10 | **5** |
+
+* `P4` (`nested_p04`) — arcs `0→1, 1→2, 2→0, 2→2`; the cycle
+  `0→1→2→0` contains the NOT-OWN edges `(1,2)` and `(2,0)`.  This is
+  the cycle the K.37 record already documents ("the three copies form a
+  CYCLE in which only one edge is own at its source") — in the recorded
+  directions, with no symmetrisation needed;
+* `InModelGroups.M` — arcs `0→1, 1→0, 1→1`; the 2-cycle `0↔1` contains
+  the not-own `(1,0)`;
+* `InModelGroups.H` — arcs `0→1, 0→2, 1→1, 2→0, 2→2`; the 2-cycle
+  `0↔2` contains the not-own `(2,0)`;
+* `Lean.Elab.InfoTree` — the cycle `1→3→5→1` contains the not-own
+  `(3,5)` and `(5,1)`;
+* the four `MsgEmbed`-shaped blocks — arcs `0→2, 0→0, 1→2, 2→3, 3→0,
+  3→3`; the cycle `0→2→3→0` contains the not-own `(2,3)` and `(3,0)`.
+
+##### What it settles
+
+**No per-pin measure exists either.**  A measure that decreases
+STRICTLY along not-own edges cannot exist when a not-own edge lies on a
+directed cycle, whatever it does on own edges — so the answer does not
+depend on the constancy clause, on the contraction, or on the
+homogeneity clause that forced it.  The impasse is FINAL, and the six
+contracted cycles reported earlier were **not** artefacts of the
+symmetrisation: the same conclusion holds on the weakest of the four
+graphs.
+
+**THE FOUR GRAPHS, and each gives a different answer** — the discipline
+that caught this is worth keeping:
+
+| graph | own edges | group joins | answer |
+| --- | --- | --- | --- |
+| augmented (`nestedPinArcs`; SCCs = the instances) | symmetrised | yes | 14 not-own edges at equal instance labels, 8 blocks |
+| bare not-own arcs | dropped | no | **acyclic**, 92 arcs, 0 cycles |
+| own-contracted | symmetrised, contracted | via the instance | **cyclic**, 6 blocks |
+| **full directed** | recorded direction | no | **not-own edge inside an SCC, 8 blocks** |
+
+A count over graph 2 alone would have reported the route open; a count
+over graph 3 alone would have left the symmetrisation as an excuse.
+Graph 4 is the weakest and it closes both.

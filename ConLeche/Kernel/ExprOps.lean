@@ -1224,6 +1224,33 @@ def instSpine : List Expr → Nat → Expr → Expr
   | [], _, e => e
   | a :: as, t, e => instSpine as (t - 1) (e.instantiate1 a t)
 
+/-- **THE MAJOR PREMISE IS AN APPLICATION OF A CONSTANT** (task #315
+K.55): the recursor type stripped at its major index has a next binder,
+and that binder's DOMAIN is headed by a `const` — the eliminated
+family — rather than by a bound variable.
+
+It is true of every recursor the checker installs, and for the routes
+that GENERATE their recursor type it is true by construction: the major
+premise is `structFamI`'s family application (`mutualRecTy_major`).  The
+MODELED route stores the STREAM's type instead, with no generation and
+no head check, so there it is a property of the input and this Bool is
+what records it — which is why the environment invariant can ask for the
+shape UNCONDITIONALLY, at every stored recursor, instead of only inside
+the doubly-guarded nested-rule clause.
+
+CERTIFICATION-ONLY and `certOnly`-gated; `.internal` on failure.  See
+DESIGN `#### K.55` for the measurement and the ledger row: a fire would
+be a stream the OFFICIAL kernel accepted whose recursor declares a major
+premise that is not an application of a constant, which is a finding
+about the reference kernel rather than about us. -/
+def recMajorHeadOk (recTy : Expr) (mI : Nat) : Bool :=
+  match recTy.stripPis mI with
+  | some (_, .forallE dom _ _) =>
+    match dom.getAppFn with
+    | .const _ _ => true
+    | _ => false
+  | _ => false
+
 /-- A recursor rule is *canonical* when its constructor's parameters
 are exactly the recursor's own leading arguments: the major premise's
 type applies the eliminated family to the first `cnP` telescope

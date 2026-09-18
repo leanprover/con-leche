@@ -169,6 +169,13 @@ theorem provisionRecsRunRS
       | ok cvA =>
         intro h
         dsimp only at h
+        -- K.55's guard: a run took the passing branch
+        by_cases hmh : certOnly (fueledOps μ F).mode
+            (ConLeche.Expr.recMajorHeadOk cvA.type mI) = true
+        case neg =>
+          rw [if_neg hmh] at h
+          exact absurd h (by simp [throw, throwThe, MonadExceptOf.throw])
+        rw [if_pos hmh] at h
         cases hrest : provisionRecs (m := CheckM) (fueledOps μ F)
             blockNames ⟨.recInfo cvA mI rP [] :: envAcc.consts⟩
             rest with

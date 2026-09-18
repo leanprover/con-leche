@@ -125,6 +125,10 @@ def provisionRecsS (blockNames : List Name) :
       flushC
       let cvA ← checkMemberValF (sharedOpsC mode feAcc) blockNames feAcc
         ci.toConstantVal
+      -- K.55, as in the pure route
+      unless certOnly mode (Expr.recMajorHeadOk cvA.type mI) do
+        throw (.internal s!"recursor {cvA.name}: the major premise is not an \
+          application of a constant")
       let (feSelf, others) ← provisionRecsS blockNames
         (feAcc.push (.recInfo cvA mI rP [])) rest
       pure (feSelf, (cvA, mI, rP, rules) :: others)
