@@ -107825,3 +107825,90 @@ congruence, it subsumes `interp_congr_below`, and it is the step option
   `bvarsOn_of_bvarsBelow` — **no axioms**
 
 Nothing in this section changes the tree's accept set.
+
+#### (number at the integrator's sync) — L-E: COSTING `ordF`-left's side condition as a derivation — one half is FREE, the other is FALSE, and both fallbacks are entangled (lane L-E, 2026-09-18)
+
+Costing only.  Nothing landed.
+
+##### (a) THE POSITIVE HALF DERIVES, AND IS FREE — `.ordinary` is DEFINITIONAL
+
+`mutualCtorKinds` (`Kernel/Inductives/MutualInstall.lean:377–379`):
+
+```lean
+let dom := (cbs.getD (nP + i) default).1
+if !mentionsMember (members.map (·.1)) dom then (RecFieldKind.ordinary, 0)
+else <the positivity walk>
+```
+
+**`.ordinary` IS the `!mentionsMember` branch** — not an inference from
+the classification, a case of its definition.  So "the aux kind at
+`(q, j, l)` is `.ordinary`" gives "the aux STORED domain mentions no aux
+member, in particular no copy" by unfolding, and the tier already
+carries the same shape one level down (`ContainerModeled.ordFree`,
+`NestedPremise.lean:238`, "an ORDINARY field mentions no member",
+recorded because `BlockOpened.ord` does not carry it).
+
+##### (b) AND THE NEGATIVE HALF IS UNNECESSARY
+
+The coordinator's two-half framing can be collapsed: a non-positive
+occurrence never reaches `.ordinary` at all, because `.ordinary` is
+decided BEFORE the positivity walk runs.  **There is no second half to
+price.**  (`nestedPinKindsAt` additionally excludes `.negative`, so even
+the walk's rejections are recorded — but nothing needs them here.)
+
+##### (c) BUT THE BRIDGE TO WHAT T1 NEEDS IS FALSE
+
+T1's hypothesis is about the CONTAINER's domain:
+
+```lean
+bvarsOn (fun i => ¬ Replaced i) D.erase
+```
+
+— `D` reads no parameter position whose component was replaced.  What
+(a) delivers is about the AUX domain mentioning no copy.  **The step
+between them fails, and it fails at `whnf`.**
+
+The kinds are computed on the normalised, rewritten domain
+(`normPosDomM` then `replaceAllNested`, K.51), and **whnf can ERASE a
+mention**: `(fun x => Nat) β` reduces to `Nat` whatever `β` is.  So a
+container domain that READS a replaced position can normalise to one
+that mentions no copy, and be classified `.ordinary` — with T1's
+hypothesis false and its conclusion true.
+
+**The λ-redex shape is not hypothetical.**
+`tests/e2e/nested_lam_pin_prop.ndjson` is an accepted fixture whose
+component is exactly such a redex, and `TargetView.DsE`'s docstring
+already records lane L-B refuting a head-read at it for the same reason.
+
+##### (d) THE TWO FALLBACKS, AND BOTH ARE ENTANGLED
+
+* **a narrow kernel clause** recording T1's hypothesis directly.  It
+  cannot be stated without saying which positions are REPLACED — which
+  is the per-component classification **already queued as option (1)'s
+  record**.  So it is not independent of option (1); it is a second
+  consumer of the same record;
+* **apply the congruence to the NORMALISED domain instead**, which needs
+  `interp` to respect the normalisation.  **No such lemma exists** —
+  grepped for `interp_whnf` and defeq-respecting variants, zero hits.
+  That is a soundness statement larger than the arm it would buy.
+
+##### (e) THE COSTING, PLAINLY
+
+**The side condition does not derive.**  The derivation delivers a
+different fact for free, the negative half evaporates, and the bridge is
+refuted by an accepted fixture's shape.  Both fallbacks lead back to
+option (1)'s queued record or to something larger than the arm.
+
+**So `ordF`-left is not independently cheap after all.**  Its closure
+wants the same per-component classification that `recF` and `es` want,
+and the honest recommendation is to let it ride with them rather than
+fund a third route to the same record.  **That leaves T1 as the session's
+deliverable and `ordF`-left as option (1)'s third arm, not its
+exception.**
+
+This lane notes the shape of its own error: "bought, probably" rested on
+K.32 being adjacent, and when K.32 turned out not to be the fact, the
+next candidate was assumed to be reachable rather than checked.  The
+check took one grep of `mutualCtorKinds` and one of `interp_whnf`.
+
+Nothing in this section changes the tree.
