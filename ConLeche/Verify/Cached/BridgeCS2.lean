@@ -46,6 +46,17 @@ protected theorem SimC.unwrapOr' {α : Type} {o : Option α}
   | none => exact SimC.throw
   | some a => exact SimC.pure hs ⟨rfl, rfl⟩
 
+/-- A lifted `Except` as a `SimC` (task #315 M8): the nested route's
+pure stages — the elimination and every `restoreNested` — are the same
+computation on both sides. -/
+protected theorem SimC.ofNestedLift {α : Type} {r : Except CheckError α}
+    (hs : CSOK mode env s₀) :
+    SimC mode env s₀ (fun v w => v = w ∧ r = .ok v)
+      (nestedLift r : CheckCM α) (nestedLift r : FueledM α) := by
+  cases r with
+  | error e => exact SimC.throw
+  | ok a => exact SimC.pure hs ⟨rfl, rfl⟩
+
 /-- `checkTypedList` at the cached shared operations. -/
 theorem checkTypedListS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {depth : Nat} :
     ∀ {as bs : List Expr},

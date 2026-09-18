@@ -145,6 +145,57 @@ theorem WScoped_leaves : ∀ (e : Expr) {d : Nat}, WScoped d e →
   | const n us => intro d _ l hl; simp [fvarLeaves] at hl
   | lit ll => intro d _ l hl; simp [fvarLeaves] at hl
 
+/-- **THE CONVERSE** (task #315 M8): a term whose every closure leaf is
+in scope IS well scoped.  The nested route's pins are known this way —
+`pinsScoped` records their leaves, not their scope. -/
+theorem WScoped_of_leaves : ∀ (e : Expr) {d : Nat},
+    (∀ l ∈ e.fvarLeaves, l.1 < d ∧ WScoped l.1 l.2) → WScoped d e := by
+  intro e
+  induction e with
+  | fvar idx ty ih =>
+    intro d hl
+    have hhead := hl (idx, ty) (by simp [Expr.fvarLeaves])
+    simp only [WScoped]
+    exact ⟨hhead.1, hhead.2⟩
+  | app f a ihf iha =>
+    intro d hl
+    simp only [WScoped]
+    refine ⟨ihf (fun l hm => hl l ?_), iha (fun l hm => hl l ?_)⟩ <;>
+      simp only [Expr.fvarLeaves, List.mem_append]
+    · exact Or.inl hm
+    · exact Or.inr hm
+  | lam ty body m ihty ihbody =>
+    intro d hl
+    simp only [WScoped]
+    refine ⟨ihty (fun l hm => hl l ?_), ihbody (fun l hm => hl l ?_)⟩ <;>
+      simp only [Expr.fvarLeaves, List.mem_append]
+    · exact Or.inl hm
+    · exact Or.inr hm
+  | forallE ty body m ihty ihbody =>
+    intro d hl
+    simp only [WScoped]
+    refine ⟨ihty (fun l hm => hl l ?_), ihbody (fun l hm => hl l ?_)⟩ <;>
+      simp only [Expr.fvarLeaves, List.mem_append]
+    · exact Or.inl hm
+    · exact Or.inr hm
+  | letE ty val body ihty ihval ihbody =>
+    intro d hl
+    simp only [WScoped]
+    refine ⟨ihty (fun l hm => hl l ?_), ihval (fun l hm => hl l ?_),
+      ihbody (fun l hm => hl l ?_)⟩ <;>
+      simp only [Expr.fvarLeaves, List.mem_append]
+    · exact Or.inl (Or.inl hm)
+    · exact Or.inl (Or.inr hm)
+    · exact Or.inr hm
+  | proj s i e ih =>
+    intro d hl
+    simp only [WScoped]
+    exact ih (fun l hm => hl l (by simpa only [Expr.fvarLeaves] using hm))
+  | bvar i => intro d _; simp only [WScoped]
+  | sort u => intro d _; simp only [WScoped]
+  | const n us => intro d _; simp only [WScoped]
+  | lit ll => intro d _; simp only [WScoped]
+
 /-- Leaves of a well-scoped term have indices below the scope. -/
 theorem fvarLeaves_lt_of_wscoped :
     ∀ {e : Expr} {D : Nat}, WScoped D e → ∀ l ∈ e.fvarLeaves, l.1 < D := by

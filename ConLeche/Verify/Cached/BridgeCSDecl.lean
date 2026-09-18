@@ -840,6 +840,164 @@ theorem checkMutualAllRulesF_eq (envR : Env) (b : MutualBlock)
 
 end MutualMirrors
 
+/-! ## The nested route's stages through the index (task #315 M8)
+
+Each stage of `checkNestedS` is its pure twin at the index's
+environment: the doors by `checkConstantValF_eq`/`checkConstantValPreF_eq`,
+the two walks by `constsResolveF_eq` and `projTablesOkF_eq`, and the
+lookups by `mkFEnv_find?`. -/
+
+section NestedMirrors
+
+variable {m : Type → Type} [Monad m] [MonadExceptOf CheckError m]
+
+theorem checkSumTeleF_eq (ops : CheckerOps m) (env : Env) (cv : ConstantVal) (n : Nat)
+    (cvTa₀ : ConstantVal) :
+    checkSumTeleF ops (mkFEnv env) cv n cvTa₀ = checkSumTele ops env cv n cvTa₀ := by
+  simp only [checkSumTeleF, checkSumTele, mkFEnv_env, checkConstantValF_eq] <;> rfl
+
+theorem nestedAnnotFormersF_eq (ops : CheckerOps m) (env : Env) (nP : Nat) :
+    ∀ (l : List (ConstantVal × Nat)),
+      nestedAnnotFormersF ops (mkFEnv env) nP l = nestedAnnotFormers ops env nP l
+  | [] => rfl
+  | (cv, nIdx) :: rest => by
+    simp only [nestedAnnotFormersF, nestedAnnotFormers, checkConstantValF_eq,
+      checkSumTeleF_eq, nestedAnnotFormersF_eq ops env nP rest]
+
+theorem nestedAnnotCtorsF_eq (ops : CheckerOps m) (env : Env) :
+    ∀ (cs : List MutualCtor),
+      nestedAnnotCtorsF ops (mkFEnv env) cs = nestedAnnotCtors ops env cs
+  | [] => rfl
+  | c :: rest => by
+    simp only [nestedAnnotCtorsF, nestedAnnotCtors, checkConstantValF_eq,
+      nestedAnnotCtorsF_eq ops env rest]
+
+theorem restoreCtorsF_eq (ops : CheckerOps m) (env : Env) (R : RestoreTbl) (lps : List Name) :
+    ∀ (cs : List (ConstantVal × Nat × Nat)),
+      restoreCtorsF ops (mkFEnv env) R lps cs = restoreCtors ops env R lps cs
+  | [] => rfl
+  | (cvCa, nP, nF) :: rest => by
+    simp only [restoreCtorsF, restoreCtors, checkConstantValPreF_eq,
+      restoreCtorsF_eq ops env R lps rest]
+
+theorem restoreRecTysF_eq (ops : CheckerOps m) (env : Env) (R : RestoreTbl) (lps : List Name) :
+    ∀ (names : List Name) (as : List AuxStored),
+      restoreRecTysF ops (mkFEnv env) R lps names as = restoreRecTys ops env R lps names as
+  | _, [] => rfl
+  | names, a :: rest => by
+    simp only [restoreRecTysF, restoreRecTys, checkConstantValPreF_eq,
+      restoreRecTysF_eq ops env R lps (names.drop 1) rest]
+
+theorem restoreRulesF_eq (ops : CheckerOps m) (env : Env) (R : RestoreTbl) (lps : List Name)
+    (recName : Name) (isMimic : Bool) (recTy : Expr) (mI rP : Nat) :
+    ∀ (rs : List RecRule),
+      restoreRulesF ops (mkFEnv env) R lps recName isMimic recTy mI rP rs
+        = restoreRules ops env R lps recName isMimic recTy mI rP rs
+  | [] => rfl
+  | rl :: rest => by
+    simp only [restoreRulesF, restoreRules, constsResolveF_eq, projTablesOkF_eq,
+      mkFEnv_find?, mkFEnv_find?_fun, mkFEnv_env,
+      restoreRulesF_eq ops env R lps recName isMimic recTy mI rP rest] <;> rfl
+
+theorem nestedRecOkF_eq (ops : CheckerOps m) (env : Env) (nP k n : Nat)
+    (sr : ConstantVal × List RecRule) (own : List (Nat × Nat)) (cvRa : ConstantVal)
+    (rules : List RecRule) :
+    nestedRecOkF ops (mkFEnv env) nP k n sr own cvRa rules
+      = nestedRecOk ops env nP k n sr own cvRa rules := by
+  simp only [nestedRecOkF, nestedRecOk, checkConstantValF_eq, mkFEnv_env]
+
+theorem nestedRecsOkF_eq (ops : CheckerOps m) (env : Env) (nP k n : Nat) :
+    ∀ (rows : List ((ConstantVal × List RecRule) × List (Nat × Nat) × ConstantVal ×
+        List RecRule)),
+      nestedRecsOkF ops (mkFEnv env) nP k n rows = nestedRecsOk ops env nP k n rows
+  | [] => rfl
+  | (sr, own, cvRa, rules) :: rest => by
+    simp only [nestedRecsOkF, nestedRecsOk, nestedRecOkF_eq,
+      nestedRecsOkF_eq ops env nP k n rest]
+
+end NestedMirrors
+
+/-- The nested route's table stage at one member, run-level: a table
+at a structure-like member (the direct structure's stage), the index
+unchanged otherwise. -/
+theorem nestedMemberTableS_run {T : Name} {tbl? : Option ProjTable}
+    {cs : List (ConstantVal × Nat × Nat)} (env : Env) {s₀ : CState} {fe' : FEnv} {s' : CState}
+    (henv : EnvWF env) (hwf : CSOKF s₀)
+    (h : nestedMemberTableF (m := CheckCM) .plain T tbl? cs (mkFEnv env) s₀ = .ok (fe', s')) :
+    CSOKF s' ∧ fe' = mkFEnv fe'.env ∧ EnvWF fe'.env ∧
+    ∃ F, (nestedMemberTable (m := FueledM) T tbl? cs env).val F = .ok fe'.env := by
+  match tbl?, cs with
+  | some tbl, [(cvCa, nP, nF)] =>
+    simp only [nestedMemberTableF] at h
+    simp only [nestedMemberTable]
+    exact checkStructProjTableS_run env henv hwf h
+  | none, _ =>
+    simp only [nestedMemberTableF] at h
+    obtain ⟨rfl, rfl⟩ := pureC_ok h
+    exact ⟨hwf, rfl, henv, 0, rfl⟩
+  | some _, [] =>
+    simp only [nestedMemberTableF] at h
+    obtain ⟨rfl, rfl⟩ := pureC_ok h
+    exact ⟨hwf, rfl, henv, 0, rfl⟩
+  | some _, _ :: _ :: _ =>
+    simp only [nestedMemberTableF] at h
+    obtain ⟨rfl, rfl⟩ := pureC_ok h
+    exact ⟨hwf, rfl, henv, 0, rfl⟩
+
+/-- … and over the members, threading the index. -/
+theorem nestedTablesS_run :
+    ∀ (l : List (Name × Option ProjTable × List (ConstantVal × Nat × Nat))) (env : Env)
+      {s₀ : CState} {fe' : FEnv} {s' : CState}, EnvWF env → CSOKF s₀ →
+      nestedTablesF (m := CheckCM) .plain l (mkFEnv env) s₀ = .ok (fe', s') →
+      CSOKF s' ∧ fe' = mkFEnv fe'.env ∧ EnvWF fe'.env ∧
+      ∃ F, (nestedTables (m := FueledM) l env).val F = .ok fe'.env
+  | [], env, s₀, fe', s', henv, hwf, h => by
+    simp only [nestedTablesF] at h
+    obtain ⟨rfl, rfl⟩ := pureC_ok h
+    exact ⟨hwf, rfl, henv, 0, rfl⟩
+  | (T, tbl?, cs) :: rest, env, s₀, fe', s', henv, hwf, h => by
+    simp only [nestedTablesF] at h
+    obtain ⟨fe₁, s₁, hstep, h⟩ := bindC_ok h
+    obtain ⟨hwf₁, hfe₁, henv₁, F₁, hF₁⟩ := nestedMemberTableS_run env henv hwf hstep
+    rw [hfe₁] at h
+    obtain ⟨hwf₂, hfe₂, henv₂, F₂, hF₂⟩ := nestedTablesS_run rest fe₁.env henv₁ hwf₁ h
+    refine ⟨hwf₂, hfe₂, henv₂, max F₁ F₂, ?_⟩
+    simp only [nestedTables]
+    exact atF_bind_intro hF₁ hF₂
+
+theorem consNestedFormersF_mkFEnv :
+    ∀ (as : List AuxStored) (env : Env),
+      consNestedFormersF as (mkFEnv env) = mkFEnv (consNestedFormers as env)
+  | [], _ => rfl
+  | a :: rest, env => by
+    simp only [consNestedFormersF, consNestedFormers, push_mkFEnv,
+      consNestedFormersF_mkFEnv rest ⟨.indInfo a.cvTa a.caps :: env.consts⟩]
+
+theorem consNestedCtorsF_mkFEnv :
+    ∀ (cs : List (ConstantVal × Nat × Nat)) (env : Env),
+      consNestedCtorsF cs (mkFEnv env) = mkFEnv (consNestedCtors cs env)
+  | [], _ => rfl
+  | (cv, nP, nF) :: rest, env => by
+    simp only [consNestedCtorsF, consNestedCtors, push_mkFEnv,
+      consNestedCtorsF_mkFEnv rest ⟨.ctorInfo cv nP nF :: env.consts⟩]
+
+theorem provisionNestedRecsF_mkFEnv :
+    ∀ (rs : List (ConstantVal × Nat × Nat)) (env : Env),
+      provisionNestedRecsF rs (mkFEnv env) = mkFEnv (provisionNestedRecs rs env)
+  | [], _ => rfl
+  | (cv, mI, rP) :: rest, env => by
+    simp only [provisionNestedRecsF, provisionNestedRecs, push_mkFEnv,
+      provisionNestedRecsF_mkFEnv rest ⟨.recInfo cv mI rP [] :: env.consts⟩]
+
+theorem storeNestedRecsF_mkFEnv :
+    ∀ (rs : List (ConstantVal × Nat × Nat × List RecRule)) (env : Env),
+      storeNestedRecsF rs (mkFEnv env) = mkFEnv (storeNestedRecs rs env)
+  | [], _ => rfl
+  | (cv, mI, rP, rules) :: rest, env => by
+    simp only [storeNestedRecsF, storeNestedRecs, push_mkFEnv,
+      storeNestedRecsF_mkFEnv rest ⟨.recInfo cv mI rP rules :: env.consts⟩]
+
+
 theorem consMutualFormersF_mkFEnv :
     ∀ (fms : List MutualFormerA) (env : Env),
       consMutualFormersF fms (mkFEnv env) = mkFEnv (consMutualFormers fms env)

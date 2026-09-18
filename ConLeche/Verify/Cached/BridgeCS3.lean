@@ -879,6 +879,190 @@ theorem checkMutualAllRulesS_sim {envR : Env} {b : MutualBlock}
     obtain rfl : r = r' := hR
     exact SimC.pure hs₂ rfl
 
+/-! ## The nested route's stages at the shared operations (task #315 M8)
+
+Each stage is the pure one at the cached operations; the doors and the
+telescope carry their own simulations, so the stages are their
+compositions. -/
+
+/-- The block's formers, annotated at the pre-block environment. -/
+theorem nestedAnnotFormersS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env)
+    {nP : Nat} :
+    ∀ (l : List (ConstantVal × Nat)) {s₀ : CState}, CSOK mode env s₀ →
+      SimC mode env s₀ RelVC
+        (nestedAnnotFormers (sharedOpsC mode (mkFEnv env)) env nP l)
+        (nestedAnnotFormers (fueledOpsM mode) env nP l)
+  | [], _, hs => SimC.pure hs rfl
+  | (cv, nIdx) :: rest, s₀, hs => by
+    unfold nestedAnnotFormers
+    refine SimC.bind (checkConstantValS_sim hμ henv hs) (fun s₁ cvTa₀ cvTa₀' hs₁ hP => ?_)
+    obtain ⟨rfl, hTw⟩ := hP
+    refine SimC.bind (checkSumTeleS_sim hμ henv hs₁ hTw) (fun s₂ q q' hs₂ hQ => ?_)
+    obtain ⟨rfl, -⟩ := hQ
+    refine SimC.bind (nestedAnnotFormersS_sim hμ henv rest hs₂) (fun s₃ r r' hs₃ hR => ?_)
+    obtain rfl : r = r' := hR
+    exact SimC.pure hs₃ rfl
+
+/-- The block's constructors, annotated at the formers' environment. -/
+theorem nestedAnnotCtorsS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) :
+    ∀ (cs : List MutualCtor) {s₀ : CState}, CSOK mode env s₀ →
+      SimC mode env s₀ RelVC
+        (nestedAnnotCtors (sharedOpsC mode (mkFEnv env)) env cs)
+        (nestedAnnotCtors (fueledOpsM mode) env cs)
+  | [], _, hs => SimC.pure hs rfl
+  | c :: rest, s₀, hs => by
+    unfold nestedAnnotCtors
+    refine SimC.bind (checkConstantValS_sim hμ henv hs) (fun s₁ cvCa cvCa' hs₁ hP => ?_)
+    obtain ⟨rfl, -⟩ := hP
+    refine SimC.bind (nestedAnnotCtorsS_sim hμ henv rest hs₁) (fun s₂ r r' hs₂ hR => ?_)
+    obtain rfl : r = r' := hR
+    exact SimC.pure hs₂ rfl
+
+/-- The restored constructors: the restore is a pure replacement and the
+door is the PRE-annotated one. -/
+theorem restoreCtorsS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env)
+    {R : RestoreTbl} {lps : List Name} :
+    ∀ (cs : List (ConstantVal × Nat × Nat)) {s₀ : CState}, CSOK mode env s₀ →
+      SimC mode env s₀ RelVC
+        (restoreCtors (sharedOpsC mode (mkFEnv env)) env R lps cs)
+        (restoreCtors (fueledOpsM mode) env R lps cs)
+  | [], _, hs => SimC.pure hs rfl
+  | (cvCa, nP, nF) :: rest, s₀, hs => by
+    unfold restoreCtors
+    refine SimC.bind (SimC.ofNestedLift hs) (fun s₁ ty ty' hs₁ hT => ?_)
+    obtain ⟨rfl, -⟩ := hT
+    refine SimC.bind (checkConstantValPreS_sim hμ henv hs₁) (fun s₂ cvA cvA' hs₂ hP => ?_)
+    obtain ⟨rfl, -⟩ := hP
+    refine SimC.bind (restoreCtorsS_sim hμ henv rest hs₂) (fun s₃ r r' hs₃ hR => ?_)
+    obtain rfl : r = r' := hR
+    exact SimC.pure hs₃ rfl
+
+/-- The restored recursor types, by the same two steps. -/
+theorem restoreRecTysS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env)
+    {R : RestoreTbl} {lps : List Name} :
+    ∀ (names : List Name) (as : List AuxStored) {s₀ : CState}, CSOK mode env s₀ →
+      SimC mode env s₀ RelVC
+        (restoreRecTys (sharedOpsC mode (mkFEnv env)) env R lps names as)
+        (restoreRecTys (fueledOpsM mode) env R lps names as)
+  | _, [], _, hs => SimC.pure hs rfl
+  | names, a :: rest, s₀, hs => by
+    unfold restoreRecTys
+    refine SimC.bind (SimC.ofNestedLift hs) (fun s₁ ty ty' hs₁ hT => ?_)
+    obtain ⟨rfl, -⟩ := hT
+    refine SimC.bind (checkConstantValPreS_sim hμ henv hs₁) (fun s₂ cvA cvA' hs₂ hP => ?_)
+    obtain ⟨rfl, -⟩ := hP
+    refine SimC.bind (restoreRecTysS_sim hμ henv (names.drop 1) rest hs₂)
+      (fun s₃ r r' hs₃ hR => ?_)
+    obtain rfl : r = r' := hR
+    exact SimC.pure hs₃ rfl
+
+/-- The restored rules: the right-hand side is a pure replacement, its
+scope is tested by Bools, and the only operation is the `inferType`
+that validates the binder data. -/
+theorem restoreRulesS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env)
+    {R : RestoreTbl} {lps : List Name} {recName : Name} {isMimic : Bool} {recTy : Expr}
+    {mI rP : Nat} :
+    ∀ (rs : List RecRule) {s₀ : CState}, CSOK mode env s₀ →
+      SimC mode env s₀ RelVC
+        (restoreRules (sharedOpsC mode (mkFEnv env)) env R lps recName isMimic recTy mI rP rs)
+        (restoreRules (fueledOpsM mode) env R lps recName isMimic recTy mI rP rs)
+  | [], _, hs => SimC.pure hs rfl
+  | rl :: rest, s₀, hs => by
+    unfold restoreRules
+    dsimp only [sharedOpsC]
+    refine SimC.bind (SimC.ofNestedLift hs) (fun s₁ rhsA rhsA' hs₁ hT => ?_)
+    obtain ⟨rfl, -⟩ := hT
+    by_cases h1 : (rhsA.allLevelParamsDefined lps && rhsA.constsResolve env &&
+        rhsA.looseBVarsBounded 0 && !rhsA.hasFvar) = true
+    case neg => simp only [if_neg h1]; exact SimC.throw_bind
+    simp only [if_pos h1]
+    have hfv : rhsA.hasFvar = false := by
+      simp only [Bool.and_eq_true, Bool.not_eq_true'] at h1
+      exact h1.2
+    by_cases h2 : rhsA.projTablesOk env = true
+    case neg => simp only [if_neg h2]; exact SimC.throw_bind
+    simp only [if_pos h2]
+    refine SimC.bind (opE_infer_sim hμ henv hs₁ (Expr.WScoped.of_not_hasFvar hfv))
+      (fun s₂ ty ty' hs₂ hP => ?_)
+    obtain ⟨rfl, -⟩ := hP
+    by_cases h3 : (!isMimic || R.ctorPins.any fun q => q.1 == rl.ctor) = true
+    case neg => simp only [if_neg h3]; exact SimC.throw_bind
+    simp only [if_pos h3]
+    split
+    · refine SimC.bind (SimC.pure (α := Nat) hs₂ rfl) (fun s₃ cnP cnP' hs₃ hQ => ?_)
+      obtain rfl : cnP = cnP' := hQ
+      refine SimC.bind (restoreRulesS_sim hμ henv rest hs₃) (fun s₄ r r' hs₄ hR => ?_)
+      obtain rfl : r = r' := hR
+      exact SimC.pure hs₄ rfl
+    · exact SimC.throw_bind
+
+/-- The pins' scope-and-inference loop: the two Bool tests are the same
+on both sides and the inference is the shared operation.  The pins'
+well-scopedness is the caller's (`pinsScoped_inv` supplies it). -/
+theorem nestedPinsOkS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {nP : Nat} :
+    ∀ (pins : List NestedPin) {s₀ : CState}, (∀ q ∈ pins, WScoped nP q.pin) →
+      CSOK mode env s₀ →
+      SimC mode env s₀ RelVC
+        (nestedPinsOk (sharedOpsC mode (mkFEnv env)) env nP pins)
+        (nestedPinsOk (fueledOpsM mode) env nP pins)
+  | [], _, _, hs => SimC.pure hs rfl
+  | q :: rest, s₀, hw, hs => by
+    unfold nestedPinsOk
+    dsimp only [sharedOpsC]
+    by_cases h1 : (!(Expr.abstractRange q.pin 0 nP 0).hasFvar &&
+        (Expr.abstractRange q.pin 0 nP 0).looseBVarsBounded nP) = true
+    case neg => simp only [if_neg h1]; exact SimC.throw_bind
+    simp only [if_pos h1]
+    refine SimC.bind (opE_infer_sim hμ henv hs (hw q List.mem_cons_self))
+      (fun s₁ ty ty' hs₁ hP => ?_)
+    obtain ⟨rfl, -⟩ := hP
+    exact nestedPinsOkS_sim hμ henv rest (fun x hx => hw x (List.mem_cons_of_mem _ hx)) hs₁
+
+/-- Post-check (c) at one recursor: the stream's record through the
+annotating door, one `isDefEq` against the restored type, and a Bool. -/
+theorem nestedRecOkS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env)
+    {nP k n : Nat} {sr : ConstantVal × List RecRule} {own : List (Nat × Nat)}
+    {cvRa : ConstantVal} {rules : List RecRule}
+    (hRw : WScoped 0 cvRa.type) (hs : CSOK mode env s₀) :
+    SimC mode env s₀ RelVC
+      (nestedRecOk (sharedOpsC mode (mkFEnv env)) env nP k n sr own cvRa rules)
+      (nestedRecOk (fueledOpsM mode) env nP k n sr own cvRa rules) := by
+  unfold nestedRecOk
+  obtain ⟨cvR, srules⟩ := sr
+  dsimp only [sharedOpsC]
+  by_cases h1 : (cvR.name == cvRa.name && cvR.levelParams == cvRa.levelParams) = true
+  case neg => simp only [if_neg h1]; exact SimC.throw_bind
+  simp only [if_pos h1]
+  refine SimC.bind (checkConstantValS_sim hμ henv hs) (fun s₁ cvRi cvRi' hs₁ hP => ?_)
+  obtain ⟨rfl, hIw⟩ := hP
+  refine SimC.bind (opB_sim hμ henv hs₁ hIw hRw) (fun s₂ b b' hs₂ hQ => ?_)
+  obtain rfl : b = b' := hQ
+  cases b with
+  | false => simp only [Bool.false_eq_true, ↓reduceIte]; exact SimC.throw
+  | true =>
+    simp only [↓reduceIte]
+    by_cases h2 : nestedRulesOk nP k n cvRi.type own srules rules = true
+    case neg => simp only [if_neg h2]; exact SimC.throw
+    simp only [if_pos h2]
+    exact SimC.pure hs₂ rfl
+
+/-- … and over the whole row list. -/
+theorem nestedRecsOkS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env)
+    {nP k n : Nat} :
+    ∀ (rows : List ((ConstantVal × List RecRule) × List (Nat × Nat) × ConstantVal ×
+        List RecRule)) {s₀ : CState},
+      (∀ r ∈ rows, WScoped 0 r.2.2.1.type) → CSOK mode env s₀ →
+      SimC mode env s₀ RelVC
+        (nestedRecsOk (sharedOpsC mode (mkFEnv env)) env nP k n rows)
+        (nestedRecsOk (fueledOpsM mode) env nP k n rows)
+  | [], _, _, hs => SimC.pure hs rfl
+  | (sr, own, cvRa, rules) :: rest, s₀, hw, hs => by
+    unfold nestedRecsOk
+    refine SimC.bind (nestedRecOkS_sim hμ henv (hw _ List.mem_cons_self) hs)
+      (fun s₁ u u' hs₁ hU => ?_)
+    obtain rfl : u = u' := hU
+    exact nestedRecsOkS_sim hμ henv rest (fun x hx => hw x (List.mem_cons_of_mem _ hx)) hs₁
+
 end Walks3
 
 end ConLeche.Cached
