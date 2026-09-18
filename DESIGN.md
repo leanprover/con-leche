@@ -96129,3 +96129,114 @@ premise with a CONST head UNCONDITIONALLY (§U.79 (b)).  All nine sites
 are proved, the reading bridge is unconditional, and the crossing is
 proved modulo that premise, so the field is one line per site behind
 it.  Nothing else on this lane is blocked by this lane.
+
+#### U.81 — M7-3 session 21: the `ownPins` crossing PRE-THREADED to one kernel premise, and the "free one level up" audit (lane M7-3, session 21, 2026-09-18)
+
+##### (a) The path, cleared to a single named input
+
+The field is held out by a kernel clause this lane does not own, so the
+session's work was to make its arrival a one-commit landing rather than
+a session.  Everything on the crossing path except that clause is now
+proved:
+
+* **`ContainerOwnPinsSyn.crossIndOf`** takes exactly
+  `EnvBlocksOf.crossIndP`'s own `hext`/`hnewN`/`hfreshN`/`hrecN`/
+  `hwf`/`hrc` — the rest of `crossIndP`'s list
+  (`hF`/`hres`/`hag`/`hde`/`hfresh`/`hold`/`hb`/`hnew`) is not needed
+  and not taken — plus `hmimN`, `RecMajorHeadStored env₁`, the
+  container's record and the `env₁` clause.  `crossInd`'s `hold` (the
+  block's members are not new) is DISCHARGED inside, off `C.reps`'
+  `memsFound` against `hfreshN`, and needed no `0 < d.k`: `reps` is
+  already indexed at the member;
+* **`BlockInstallExt.mimN`** gives `hmimN` at the NATIVE and MUTUAL
+  routes at once — both records are `BlockInstallExt` and both
+  `crossIndP` call sites already feed the composed one, so the landing
+  is `E.mimN` at each.  ONE lemma rather than two identical route
+  wrappers, which would have been two unconsumed clones.  There the
+  premise is UNSATISFIABLE: the record names every new `.recInfo`
+  `T.rec`, and `appendIndexAfter_rec_ne_rec` refutes a mimic-shaped
+  name being one;
+* **`nestedMimN`** gives it at the nested route.
+
+##### (b) THE FINDING: `NestedInstallExt` cannot decide `hmimN`
+
+The natural expectation was that the nested install's extension record
+would settle it as `BlockInstallExt` does.  It cannot, and the witness
+is cheap: `NestedInstallExt`'s recursor clause is conditional on
+`c.name = n.str "rec"`, which is VACUOUS at a mimic
+(`"rec_1" ≠ "rec"`), and nothing else in the record constrains
+mimic-shaped names — **a `new` list holding a single `.recInfo` named
+`X.rec_1` with `X` not a member satisfies the record and refutes
+`hmimN`.**
+
+So `nestedMimN` argues from the route's CONCRETE install chain instead
+of from a clause, taking `NestedTailIn`'s fields verbatim (so the
+landing is `I.hrm`, `I.hrn`, `I.htbl`, `I.lenM`, `I.lenN`/`I.hcount`,
+`nested_kpos`) plus the two abstract pieces the record does give
+(`hfreshN` and "every member is among the new names"):
+
+1. a `.recInfo` the OUTPUT stores is the input's own past the tables'
+   stage — `nestedTables_mem_inv`, the tables cons `projInfo`s only;
+2. hence either a RESTORED recursor or something from below the two
+   remaining cons stages, which add `indInfo`s and `ctorInfo`s only,
+   and therefore from `env` — contradicting the name's freshness;
+3. a restored recursor's name is the name the restore was ASKED for
+   (`restoreRecTys_names_of_mem`, which carries an
+   `out.length ≤ names.length` side condition because the restore falls
+   back to the auxiliary name past the list's end — both real calls are
+   exact): a member's `T.rec`, excluded by (a)'s string lemma, or
+   `p.mimicRecName i`, whose base is the FIRST former and hence a
+   member.
+
+**This is a case for strengthening `NestedInstallExt` rather than
+re-deriving the chain** if a second consumer ever wants the same fact:
+one conjunct saying the new `.recInfo`s are the members' `T.rec`s and
+the mimics `first.rec_j`, which the route proves anyway.  Recorded, not
+done — one consumer does not justify moving a record.
+
+##### (c) THE AUDIT: no second instance of the mistake
+
+Session 20's lesson was "check one level up before concluding a
+crossing is not free", after this lane had wrongly recorded `pinConts`'
+crossing as hard when `BlockAt.crossEnvP` already held the hypothesis.
+The other fourteen `ContainerModeled` clauses were audited for the same
+error.  **There is no second instance**, and the evidence is
+`crossEnvP`'s own body: ten clauses cross VERBATIM (`k`, `namesLen`,
+`nP`, `inj`, `frame`, `ordFree`, `nestMention`, `pinsNotMembers`,
+`pinNP`, `pinParams`) and are therefore already as cheap as a clause
+can be; the four that need work (`reps`, `typed`, `member`, `pinψ`)
+need it for MODEL-side reasons — the carrier's agreement and the
+stored constant's identification — not because a hypothesis was
+thought missing.
+
+The three clauses that LOOK defensive are each driven by a consumer,
+not by a crossing:
+
+* `pinNP` is at `d.env₀` because that is where `BlockOpened.nestF`
+  resolves a pin's index arguments and `replaceAllNested_occurrence`
+  splits at that count — a consumer's requirement.  `pinConts` exists
+  for the OTHER consumer, at the model's environment; both are needed,
+  neither is redundant;
+* `nestMention` is on `DsE` because the opened-domain spelling dies at
+  the `NestedCtorsStaged` boundary;
+* `pinParams` is over the group's member record rather than an
+  `env.find?` deliberately, so that it mentions no environment and
+  crosses verbatim — the opposite of the mistake.
+
+A negative audit result, recorded so it is not repeated.
+
+##### (d) What the field's landing now costs
+
+Add the field; nine one-liners (`of_readBack` one premise; native,
+mutual and the five basis vacuous or from their `*OwnPins`/`*_ownPins`
+theorem; nested from `nestedOwnPins_of`; `crossEnvP` from
+`crossIndOf` with `E.mimN`/`nestedMimN`); and discharge
+`RecMajorHeadStored env₁` from `hwf` once the environment invariant's
+recursor clause is unconditional (§U.79 (b)).  Nothing else.
+
+##### (e) Gates
+
+`lake build` and `lake test` warning-free; layering / trust /
+overview-links / quote-gate / no-local-paths / shake / pub-imports /
+proofdeps (0 doors) / `tests/arena.sh` — figures at the landing commit.
+Standard axioms on all seven new results.
