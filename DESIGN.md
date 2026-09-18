@@ -104901,3 +104901,38 @@ nested inversions), or the top-level assembly moves above them, into
 `PushChain` or a new capstone module.  **Whoever wires the dispatch owns
 this choice**; it is a layering question with two named options, not an
 archaeology exercise.
+
+#### A negative claim needs a command that can express the negative
+
+The rule, which is what matters:
+
+> **Before reporting "X does not occur", ask what the command would have
+> printed if X DID occur.  If the answer is "the same thing", the check
+> proves nothing.**
+
+**Say which method you used when you report green.**
+
+**MEASURED, because the rule cut both ways here.**  The suspicion that
+prompted this — that `lake build` goes silent about an up-to-date
+module's warnings, making every warm green vacuous — is FALSE on this
+toolchain (Lean 4.33.0), and the check that settles it is the one the
+rule asks for:
+
+* inject an unused-variable warning into `PushChain.lean`, build: one
+  warning (the instrument fires);
+* leave it standing and run the FULL `lake build` again with nothing
+  changed: the same warning is printed again, under
+  `⚠ [111/111] Replayed ConLeche.Verify.Cached.PushChain`.  Lake
+  REPLAYS a cached module's diagnostics;
+* remove it, rebuild: clean.
+
+So a counting grep over a warm `lake build` does express the negative
+here, and the greens reported this way stand.  What it cannot express
+is a warning in a module the invocation never visits — build a single
+module target and you learn nothing about the rest of the tree — so the
+target still has to be the whole default one, and a claim about the
+whole tree is best made from a run that compiled it: the committed tree
+at `bbdf5c76` was verified by DELETING `.lake/build/lib/lean/ConLeche*`
+and rebuilding — 640 modules compiled, zero warnings, exit 0; `lake
+test` likewise after deleting its artifacts, 5 modules compiled, zero
+warnings.
