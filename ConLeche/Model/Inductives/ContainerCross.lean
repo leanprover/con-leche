@@ -7,6 +7,7 @@ import ConLeche.Verify.Inductives.ContainerFrame
 import ConLeche.Verify.Inductives.NestedGroupInv
 import ConLeche.Verify.Inductives.NestedCopyInstU
 import ConLeche.Verify.Inductives.NestedCopyKinds
+import ConLeche.Verify.Inductives.NestedCopyGlue
 public section
 
 /-!
@@ -600,6 +601,93 @@ perfectly well be a parameter. -/
     dom.getAppFn = .const K us →
     (env.find? K).isSome = true
 
+/-! ### `RecMajorHeadStored` from the stored major-premise shape
+
+`EnvWF` records the shape unconditionally at every stored recursor —
+`cv.type` strips `mI` `∀`s onto a `∀` whose domain is headed by a
+CONSTANT (the kernel's `Expr.recMajorHeadOk`, checked once at install).
+`RecMajorHeadStored` asks for the head of the domain the READER sees,
+which is that domain level-instantiated and substituted at the caller's
+`mI` arguments.  Neither operation can move a constant head — level
+instantiation rewrites a `.const`'s level arguments and nothing else,
+and `Expr.instPis`' substitution can only replace a head that is a
+loose `bvar` — so the two are the same name, and `constsResolve` (the
+GENERIC `ConstWF` conjunct) then puts it in the environment.
+
+The head-preservation half is `instPis_ilp_major_head`
+(`Verify/Inductives/NestedCopyInstU.lean`, beside `instPis_ilp`): it is
+stated there, in the Verify tier, so that a route PRODUCING the stored
+shape cites it instead of re-deriving it.  What is left here is the
+occurrence half, `mentionsConst_of_stripPis_body`. -/
+
+/-- A `∀`-telescope's stripped residual is MENTIONED by the whole:
+`Expr.stripPis` peels a binder without instantiating, so the residual
+stands where it was.  (`stripPis_binder_leaves`' `mentionsConst` twin,
+at the residual rather than at a binder.) -/
+private theorem mentionsConst_of_stripPis_body {C : Name} :
+    ∀ (k : Nat) {e : Expr} {bs : List (Expr × ConLeche.BinderMeta)} {body : Expr},
+      e.stripPis k = some (bs, body) → body.mentionsConst C = true →
+      e.mentionsConst C = true := by
+  intro k
+  induction k with
+  | zero =>
+    intro e bs body h hb
+    simp only [Expr.stripPis, Option.some.injEq, Prod.mk.injEq] at h
+    exact h.2 ▸ hb
+  | succ k ih =>
+    intro e bs body h hb
+    match e, h with
+    | .forallE ty b m, h =>
+      simp only [Expr.stripPis] at h
+      cases hs : b.stripPis k with
+      | none => rw [hs] at h; exact nomatch h
+      | some p =>
+        obtain ⟨pbs, pbody⟩ := p
+        rw [hs] at h
+        simp only [Option.map_some, Option.some.injEq, Prod.mk.injEq] at h
+        obtain ⟨-, rfl⟩ := h
+        simp [Expr.mentionsConst, ih hs hb]
+    | .bvar _, h | .fvar _ _, h | .sort _, h | .const _ _, h | .app _ _, h
+    | .lam _ _ _, h | .letE _ _ _, h | .lit _, h | .proj _ _ _, h =>
+      simp [Expr.stripPis] at h
+
+/-- **THE STORED SHAPE DISCHARGES `RecMajorHeadStored`** (task #315 M7-3
+session 18): the premise's environment-level content is exactly
+`EnvWF`'s — a recursor's stored type strips its `mI` major binders onto
+a `∀` with a constant-headed domain, and every constant the stored type
+mentions is stored (`constsResolve`).
+
+`hmaj` is that shape written out: the kernel's `Expr.recMajorHeadOk`
+conjunct of `ConstWF` unfolded, so that this bridge does not wait on the
+integration that brings the name into the tree — when it arrives, the
+field's discharge is this lemma and one `exact`.
+
+The reader's domain is the stored one after `Expr.instantiateLevelParams`
+and after `Expr.instPis` at the caller's `mI` arguments;
+`ConLeche.instPis_ilp_major_head` carries the constant head across both. -/
+theorem recMajorHeadStored_of_stripPis {env : Env}
+    (hmaj : ∀ (n : Name) (cvR : ConstantVal) (mI rP : Nat) (rules : List RecRule),
+      env.find? n = some (.recInfo cvR mI rP rules) →
+      ∃ (pre : List (Expr × ConLeche.BinderMeta)) (dom body : Expr)
+        (bm : ConLeche.BinderMeta) (D : Name) (us : List Level),
+        cvR.type.stripPis mI = some (pre, .forallE dom body bm) ∧
+        dom.getAppFn = .const D us)
+    (hwf : ConLeche.EnvWF env) :
+    RecMajorHeadStored env := by
+  intro n cvR mI rP rules lps lvls args dom body bm K us hf hlen hinst hK
+  obtain ⟨pre, dom₀, body₀, bm₀, D, us₀, hstrip, hD⟩ := hmaj n cvR mI rP rules hf
+  -- (1)+(2) the head the reader saw is the stored one, level arguments aside
+  obtain ⟨us', hD'⟩ := ConLeche.instPis_ilp_major_head hstrip hD hlen hinst
+  obtain rfl : K = D := by
+    rw [hD'] at hK
+    injection hK with hname _
+    exact hname.symm
+  -- (3) `D` occurs in the stored type, which resolves
+  refine ConLeche.mentionsConst_of_constsResolve cvR.type
+    (hwf _ (List.mem_of_find?_eq_some hf)).2.2.1 ?_
+  refine mentionsConst_of_stripPis_body mI hstrip ?_
+  simp [Expr.mentionsConst, Expr.mentionsConst_of_getAppFn hD]
+
 /-- `containerOwnPinsAt`, inverted: a successful read is the mimic walk
 at the group's own first member, from the container's stored level
 parameters and the group's parameter count.
@@ -784,6 +872,52 @@ theorem ContainerOwnPinsSyn.crossInd {env₁ env₂ : Env} {N : List Name} {d : 
     (fun j cv' mI rP rules h2 hmem => hMold (hmimN M.name j cv' mI rP rules h2 hmem))
     hciEq hhead 64 0] at he
   exact h i _ _ lvls DsE _ hi hf₁ hcl (containerOwnPinsAt_eq hf₁ hci₁ hM) e he
+
+/-- **THE CROSSING, AT `EnvBlocksOf.crossIndP`'s OWN HYPOTHESES** (task
+#315 M7-3 session 21): `ContainerOwnPinsSyn.crossInd` with `hold` —
+"the block's members are not new" — DISCHARGED, so that the clause
+`ContainerModeled.ownPins` costs its call site nothing beyond the two
+inputs that are genuinely extra.
+
+Every hypothesis here is one the crossing's own site already has: the
+first six are `EnvBlocksOf.crossIndP`'s (the install's conses and the
+old environment's well-formedness), and the remaining two are the
+crossing's residue — `hmimN`, the mimic twin of `hrecN`, which each
+install route reads off its own `new` list
+(`BlockInstallExt.mimN` / `nestedMimN`, `EnvModelBStages.lean`), and
+`RecMajorHeadStored`, the kernel record the walk cannot do without
+(see its docstring).
+
+`hold` is not an assumption because the block is a container the OLD
+environment STORES: `ContainerModeled`'s representation says every
+member below `d.k` is a stored inductive there
+(`IsBlockModel.memsFound` off `reps`), and a name `env₁` answers is not
+one of the install's fresh names (`hfreshN`).  This is exactly the
+`hstored` dance `EnvBlocksOf.crossIndP` does for the pins' containers,
+at the members. -/
+theorem ContainerOwnPinsSyn.crossIndOf {env₁ env₂ : Env} {m₁ : EnvModel V env₁}
+    {N : List Name} {ci : ContainerInfo} {d : BlockModel V}
+    (hext : ∀ (n : Name) (c : ConstantInfo), env₁.find? n = some c → env₂.find? n = some c)
+    (hnewN : ∀ (n : Name) (c : ConstantInfo), env₂.find? n = some c →
+      env₁.find? n = some c ∨ n ∈ N)
+    (hfreshN : ∀ n ∈ N, env₁.find? n = none)
+    (hrecN : ∀ (n : Name) (cv : ConstantVal) (mI rP : Nat) (rules : List RecRule),
+      env₂.find? (n.str "rec") = some (.recInfo cv mI rP rules) → n.str "rec" ∈ N → n ∈ N)
+    (hmimN : ∀ (n : Name) (j : Nat) (cv : ConstantVal) (mI rP : Nat) (rules : List RecRule),
+      env₂.find? (Name.appendIndexAfter (n.str "rec") j) = some (.recInfo cv mI rP rules) →
+      Name.appendIndexAfter (n.str "rec") j ∈ N → n ∈ N)
+    (hwf : ConLeche.EnvWF env₁) (hrc : ConLeche.RecCtorsStored env₁)
+    (hhead : RecMajorHeadStored env₁)
+    (C : ContainerModeled m₁ ci d)
+    (h : ContainerOwnPinsSyn (V := V) env₁ d) :
+    ContainerOwnPinsSyn (V := V) env₂ d :=
+  h.crossInd hext hnewN hfreshN hrecN hmimN
+    (fun i hi hmem => by
+      obtain ⟨_, _, _, _, _, hb⟩ := C.reps i hi
+      obtain ⟨_, _, hf⟩ := hb.memsFound i hi
+      rw [hfreshN _ hmem] at hf
+      exact nomatch hf)
+    hwf hrc hhead
 
 /-! ## The own-pin table at ANOTHER instantiation (task #315 M7-3
 session 18, DESIGN §U.104)
@@ -1322,11 +1456,8 @@ theorem ContainerModeled.of_readBack {env : Env} {m : EnvModel V env} {nP : Nat}
       env.find? (d.pinAt q).J = some (.indInfo cvT caps) →
       (d.pinAt q).lvls.length = cvT.levelParams.length ∧
       ∀ ψ : Name → Nat, (d.pinAt q).ψJ ψ = Level.substFn ψ cvT.levelParams (d.pinAt q).lvls)
-    (hpinParams : ∀ (i : Nat), i < members.length → ∀ q, q < d.nPins → ∀ ψ₁ ψ₂ : Name → Nat,
-      (∀ pp ∈ (members.getD i default).1.levelParams, ψ₁ pp = ψ₂ pp) →
-      (d.pinAt q).u ψ₁ = (d.pinAt q).u ψ₂ ∧
-      (d.pinAt q).Ds ψ₁ = (d.pinAt q).Ds ψ₂ ∧
-      (d.pinAt q).Ids ψ₁ = (d.pinAt q).Ids ψ₂)
+    (hpinParams : ∀ (i : Nat), i < members.length →
+      ContainerPinParams (V := V) (members.getD i default).1 d)
     (hmember : ∀ i, i < d.k → ∃ (cvR : ConstantVal) (mI rP : Nat) (rules : List RecRule),
       IsBlockModel m (members.getD i default).1.name (members.getD i default).1 cvR mI rP rules
         d i) :
@@ -1347,8 +1478,9 @@ theorem ContainerModeled.of_readBack {env : Env} {m : EnvModel V env} {nP : Nat}
   pinParams := by
     -- the group's member `i` IS the route's `i`-th member
     -- (`blockContainerInfo` copies the stored `ConstantVal` field by
-    -- field), so its level parameters are that member's
-    intro i M hM q hq ψ₁ ψ₂ hag
+    -- field), so the clause at `⟨M.name, M.lps, M.type⟩` IS the clause
+    -- at that member's own constant
+    intro i M hM
     have hMl : (members.map fun (cvT, cs) =>
         (⟨cvT.name, cvT.levelParams, cvT.type,
           cs.map fun (cv, nF) => ⟨cv.name, cv.type, nF⟩⟩ : ConLeche.ContainerMember))[i]?
@@ -1362,8 +1494,9 @@ theorem ContainerModeled.of_readBack {env : Env} {m : EnvModel V env} {nP : Nat}
           c.2.map fun (cv, nF) => ⟨cv.name, cv.type, nF⟩⟩ := (Option.some.inj hMl).symm
       have hcD : members.getD i default = c := by
         rw [List.getD_eq_getElem?_getD, hc]; rfl
-      exact hpinParams i (List.getElem?_eq_some_iff.mp hc).1 q hq ψ₁ ψ₂
-        (by rw [hcD]; exact hag)
+      have h := hpinParams i (List.getElem?_eq_some_iff.mp hc).1
+      rw [hcD] at h
+      exact h
   member := fun i M hM => by
     -- the `i`-th entry is the `i`-th member of the route's list
     have hMl : (members.map fun (cvT, cs) =>

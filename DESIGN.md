@@ -103238,6 +103238,122 @@ shake 511 removals all allowlisted; pub-imports 1315 of 2147, none
 demotable; nested-shadow 28/28.  `tests/arena.sh` not re-run: the
 session touches no checker code.
 
+#### U.110 — M7-3 session 21: the `ownPins` crossing PRE-THREADED to one kernel premise, and the "free one level up" audit (lane M7-3, session 21, 2026-09-18)
+
+*(Numbered at the integrator's sync after integration 3r: this lane
+wrote it as §U.81, which on the integrated tree is lane L-B's session
+19.  §U.106–§U.109 are lane L-B's sessions 24–27, assigned on that
+lane's own branch at the same sync, so this one is §U.110.)*
+
+##### (a) The path, cleared to a single named input
+
+The field is held out by a kernel clause this lane does not own, so the
+session's work was to make its arrival a one-commit landing rather than
+a session.  Everything on the crossing path except that clause is now
+proved:
+
+* **`ContainerOwnPinsSyn.crossIndOf`** takes exactly
+  `EnvBlocksOf.crossIndP`'s own `hext`/`hnewN`/`hfreshN`/`hrecN`/
+  `hwf`/`hrc` — the rest of `crossIndP`'s list
+  (`hF`/`hres`/`hag`/`hde`/`hfresh`/`hold`/`hb`/`hnew`) is not needed
+  and not taken — plus `hmimN`, `RecMajorHeadStored env₁`, the
+  container's record and the `env₁` clause.  `crossInd`'s `hold` (the
+  block's members are not new) is DISCHARGED inside, off `C.reps`'
+  `memsFound` against `hfreshN`, and needed no `0 < d.k`: `reps` is
+  already indexed at the member;
+* **`BlockInstallExt.mimN`** gives `hmimN` at the NATIVE and MUTUAL
+  routes at once — both records are `BlockInstallExt` and both
+  `crossIndP` call sites already feed the composed one, so the landing
+  is `E.mimN` at each.  ONE lemma rather than two identical route
+  wrappers, which would have been two unconsumed clones.  There the
+  premise is UNSATISFIABLE: the record names every new `.recInfo`
+  `T.rec`, and `appendIndexAfter_rec_ne_rec` refutes a mimic-shaped
+  name being one;
+* **`nestedMimN`** gives it at the nested route.
+
+##### (b) THE FINDING: `NestedInstallExt` cannot decide `hmimN`
+
+The natural expectation was that the nested install's extension record
+would settle it as `BlockInstallExt` does.  It cannot, and the witness
+is cheap: `NestedInstallExt`'s recursor clause is conditional on
+`c.name = n.str "rec"`, which is VACUOUS at a mimic
+(`"rec_1" ≠ "rec"`), and nothing else in the record constrains
+mimic-shaped names — **a `new` list holding a single `.recInfo` named
+`X.rec_1` with `X` not a member satisfies the record and refutes
+`hmimN`.**
+
+So `nestedMimN` argues from the route's CONCRETE install chain instead
+of from a clause, taking `NestedTailIn`'s fields verbatim (so the
+landing is `I.hrm`, `I.hrn`, `I.htbl`, `I.lenM`, `I.lenN`/`I.hcount`,
+`nested_kpos`) plus the two abstract pieces the record does give
+(`hfreshN` and "every member is among the new names"):
+
+1. a `.recInfo` the OUTPUT stores is the input's own past the tables'
+   stage — `nestedTables_mem_inv`, the tables cons `projInfo`s only;
+2. hence either a RESTORED recursor or something from below the two
+   remaining cons stages, which add `indInfo`s and `ctorInfo`s only,
+   and therefore from `env` — contradicting the name's freshness;
+3. a restored recursor's name is the name the restore was ASKED for
+   (`restoreRecTys_names_of_mem`, which carries an
+   `out.length ≤ names.length` side condition because the restore falls
+   back to the auxiliary name past the list's end — both real calls are
+   exact): a member's `T.rec`, excluded by (a)'s string lemma, or
+   `p.mimicRecName i`, whose base is the FIRST former and hence a
+   member.
+
+**This is a case for strengthening `NestedInstallExt` rather than
+re-deriving the chain** if a second consumer ever wants the same fact:
+one conjunct saying the new `.recInfo`s are the members' `T.rec`s and
+the mimics `first.rec_j`, which the route proves anyway.  Recorded, not
+done — one consumer does not justify moving a record.
+
+##### (c) THE AUDIT: no second instance of the mistake
+
+Session 20's lesson was "check one level up before concluding a
+crossing is not free", after this lane had wrongly recorded `pinConts`'
+crossing as hard when `BlockAt.crossEnvP` already held the hypothesis.
+The other fourteen `ContainerModeled` clauses were audited for the same
+error.  **There is no second instance**, and the evidence is
+`crossEnvP`'s own body: ten clauses cross VERBATIM (`k`, `namesLen`,
+`nP`, `inj`, `frame`, `ordFree`, `nestMention`, `pinsNotMembers`,
+`pinNP`, `pinParams`) and are therefore already as cheap as a clause
+can be; the four that need work (`reps`, `typed`, `member`, `pinψ`)
+need it for MODEL-side reasons — the carrier's agreement and the
+stored constant's identification — not because a hypothesis was
+thought missing.
+
+The three clauses that LOOK defensive are each driven by a consumer,
+not by a crossing:
+
+* `pinNP` is at `d.env₀` because that is where `BlockOpened.nestF`
+  resolves a pin's index arguments and `replaceAllNested_occurrence`
+  splits at that count — a consumer's requirement.  `pinConts` exists
+  for the OTHER consumer, at the model's environment; both are needed,
+  neither is redundant;
+* `nestMention` is on `DsE` because the opened-domain spelling dies at
+  the `NestedCtorsStaged` boundary;
+* `pinParams` is over the group's member record rather than an
+  `env.find?` deliberately, so that it mentions no environment and
+  crosses verbatim — the opposite of the mistake.
+
+A negative audit result, recorded so it is not repeated.
+
+##### (d) What the field's landing now costs
+
+Add the field; nine one-liners (`of_readBack` one premise; native,
+mutual and the five basis vacuous or from their `*OwnPins`/`*_ownPins`
+theorem; nested from `nestedOwnPins_of`; `crossEnvP` from
+`crossIndOf` with `E.mimN`/`nestedMimN`); and discharge
+`RecMajorHeadStored env₁` from `hwf` once the environment invariant's
+recursor clause is unconditional (§U.104 (b)).  Nothing else.
+
+##### (e) Gates
+
+`lake build` and `lake test` warning-free; layering / trust /
+overview-links / quote-gate / no-local-paths / shake / pub-imports /
+proofdeps (0 doors) / `tests/arena.sh` — figures at the landing commit.
+Standard axioms on all seven new results.
+
 #### U.111 — L-E session 36: THE HOLE, minimal and exactly stated — and the chain WALKED, with the honest verdict (lane L-E, 2026-09-18)
 
 *(§U.111–§U.113 numbered at the integrator's sync after integration 3r:
@@ -103751,3 +103867,224 @@ off `mutualGenData`'s components, which the tail record carries
 major-premise fact is a PROOF from the route's own generators and
 records, so no accept set can move by construction — which is what the
 battery confirms rather than establishes.
+
+#### U.115 — M7-3 session 22: `ContainerPinParams` becomes a CLAUSE — four parts, nine sites, and the bridge the consumer's indexing needed (lane M7-3, session 22, 2026-09-18)
+
+*(Numbered at integration 3t: this lane wrote sessions 22 and 23 as
+§U.111 and §U.112, which had LANDED as lane L-E's sessions 37–38 at
+integration 3s — landed outranks arriving, so they become §U.115 and
+§U.116.  Its session 21 keeps §U.110, the number 3s reserved for it.
+Neither header is cited anywhere, in DESIGN or the tree.)*
+
+##### (a) The definition, adopted VERBATIM
+
+Lane L-E's record of `ContainerPinParams`, completed to four parts, is
+the definition; this lane took it from that branch **byte-identical**
+(verified by `diff`, docstring included) and moved it above
+`structure ContainerModeled`, so that the clause and L-E's consumers
+are literally the same object.  That is deliberate: this task has
+already paid twice for two spellings of one datum, and adopting rather
+than restating removes the class.
+
+The field:
+
+```lean
+  pinParams : ∀ (i : Nat) (M : ConLeche.ContainerMember), ci.members[i]? = some M →
+    ContainerPinParams (V := V) ⟨M.name, M.lps, M.type⟩ d
+```
+
+`M.lps` IS the `cvI.levelParams` the definition asks for — which is
+what lets the clause mention no environment and therefore cross
+`crossEnvP` VERBATIM, exactly as the three-part field it replaces did.
+
+##### (b) The nine sites, counted before the work and confirmed
+
+Seven pins-free sites by `of_noPins`; `crossEnvP` `C.pinParams`
+unchanged; `of_readBack` one premise.  The NESTED site is the only real
+one, and **all four parts had sources already in the tree**:
+
+| part | source |
+| --- | --- |
+| the pins' level ARGUMENTS `allParamsDefined` | **K.48** (`pinsLevelsOk`) at the pin TERM, inverted by this lane's `allLevelParamsDefined_mkAppN`; `hlps` re-indexes `p.lps` to the stored auxiliary's `levelParams` |
+| the components' READINGS `bvarsBelow d.nP` | **K.30** (`pinsScoped`) → `WScoped_of_openers` → `bvarsBelow_of_reading` on each `NestedStageFacts.pinDs` reading |
+| the `Ds` congruence | `nestedPinParams_of` (`denoteMetaSpine_params_ext` + `DenoteMetaSpine.det`) |
+| the `u`/`Ids` congruences | `nestedPinParams_of` (`pinψ` + `Level.substFn_ext` + `IsBlockModel.uParams`/`FormerData.params`) |
+
+`nestedPinParams_of` gained `hsc` (K.30) and `hb`, both already bound in
+`declNested_of`, so **no new premise reaches the run**.
+
+**Two helpers the second part needed, and both are general**:
+`DenoteMetaSpine.memRead` — a READING traced back to the expression
+that produced it, where `DenoteMetaSpine.mem` gives only the source
+side; and `nestedFormerType` — K.30's openers live at the FIRST
+ELIMINATION TYPE while `FormerData` lives at `f₀`, and nothing in
+`NestedCoreOut` identified the two.  The second is the kind of gap that
+only shows up when a clause is proved rather than assumed.
+
+##### (c) THE INTEGRATION CHECK, done before landing
+
+The consuming lane's branch was read rather than guessed at.  Two
+findings:
+
+1. **its consumers use ONLY the four-part definition** — not one of
+   them reaches for the three-part field this replaces, so the
+   replacement is safe from that side;
+2. **but it carries the fact QUANTIFIED and indexed differently**: by
+   the STORED CONSTANT's `ConstantVal` at a container name
+   (`containerInfo? env J = some ci → env.find? J = some (.indInfo cv caps) → ContainerPinParams cv (B ci)`),
+   where the field is indexed by the group's MEMBER record.  Those
+   agree, but not by definition.
+
+`ContainerModeled.pinParamsOf` is the bridge, and it needed **no extra
+hypotheses** — no member index, no `0 < d.k`: `containerInfo?_inv` puts
+the queried name in the group, so the member is the one it names, and
+the record's own clauses give `M.lps = cv.levelParams` through the
+stored constant.  So the consumer's quantified premise is discharged
+from `EnvBlockModels` with nothing restated on its side.
+
+##### (d) A trap, recorded in the code
+
+In an `obtain`/`rcases` over `containerInfo?_inv` (and
+`mutualFormerChecksG_checked`), a `-` on an EXISTENTIAL WITNESS clears
+it and cascades into clearing the later conjuncts that mention it — the
+symptom is `Unknown identifier` for a name that was demonstrably bound.
+Both new sites name the witnesses with a `_` prefix instead.
+
+##### (e) Where the nested route stands from this lane's side
+
+Two of the three things between that route and a closed proof were
+this lane's: **this clause (done)** and the covering premise the
+`ownPins` field supplies (nine sites proved, path pre-threaded, held
+out only by the environment invariant's recursor clause).  The third is
+the other lane's arms.
+
+##### (f) Gates
+
+`lake build` and `lake test` warning-free; layering 353 / 285 / 3 / 1,
+0 base->lane and 0 impl->theory; trust 13/5 (648); overview-links 112;
+quote-gate 2; no-local-paths OK; shake 510 removals all allowlisted;
+pub-imports 1330 of 2206, none demotable; **proofdeps 4965 rows / 12
+roots / 0 doors**; `tests/arena.sh` **EXIT 0** — nested-shadow 27/27,
+e2e 196/196, the arena's 90/92, all four sweeps, axiom pin 20 theorems.
+Standard axioms on all thirteen theorems the clause touched.
+
+##### (g) The lane-sync merge, resolved from this side
+
+Integration 3r reached this worktree as a lane-sync started by the
+integrator, which correctly stopped at the two conflicts needing this
+lane's own knowledge and handed them back.  Both resolved here:
+
+* **`NestedPremise.lean`** — taken from the integration side (it
+  carries lane L-E's richer docstring on `ContainerPinParams` and the
+  `PinShapes` COUNT conjunct) with this session's three changes
+  re-applied on top: the definition and `of_noPins` moved ABOVE
+  `structure ContainerModeled`, the three-part field replaced by the
+  four-part clause-valued one, and `ContainerModeled.pinParamsOf`
+  added.  Two integration artefacts of the re-application were caught
+  by the build rather than by reading: a duplicated `memberIds_below`
+  (the block boundary I cut ran past it) and the missing proof-only
+  import of `containerInfo?_inv`, which the bridge needs and which the
+  integration side did not carry;
+* **`scripts/pub-import-plan.py`** — additive on both sides: the
+  integration's three `NestedStoreRun` entries and this lane's two
+  `NestedTablesInv` entries, all five kept, and the two that are this
+  lane's RE-VERIFIED against a failing demotion rather than trusted
+  from the merged list.
+
+The section's number is this lane's third in the arc: 3r had given the
+number this session first used to another lane, and the lane's three
+previous sections were renumbered mechanically.  Cited by TITLE
+throughout, which is why nothing inside needed changing.
+
+#### U.116 — M7-3 session 23: `RecMajorHeadStored` PROVED, the head-preservation step named for another lane, and why the clause itself needs the integrator (lane M7-3, session 23, 2026-09-18)
+
+##### (a) THE MERGE IS BROAD — measured, not asserted
+
+The kernel lane's unconditional `ConstWF` conjunct landed on its own
+branch, which is the one lane not carrying the last integration.
+Taking it here directly was tested rather than estimated:
+`git apply --check` of the commit alone FAILS on four files —
+`Semantics/Bridge/DeclIndRun.lean`, `Verify/Cached/BridgeCS4.lean`,
+`Verify/Inductives/NestedRecDoor.lean` (which the commit DELETES, 272
+lines) and `DESIGN.md` — and the commit is 40 files / 812 insertions,
+while merging the branch is 13 commits / 58 files / 1698 insertions
+across Kernel, Cached, Semantics, Verify and Model, including checker
+code that is not this lane's.  There is no narrower prefix: the
+conjunct arrives in that single commit, which is the only one touching
+`Verify/EnvWF.lean`.  So the clause comes through the integrator, by
+the standing rule.
+
+##### (b) THE BRIDGE, PROVED WITHOUT THE MERGE
+
+`recMajorHeadStored_of_stripPis` (`ContainerCross.lean`) takes the
+conjunct's content UNFOLDED — at every stored recursor, `stripPis mI`
+of its type gives a `.forallE` whose domain is const-headed — plus
+`EnvWF`, and concludes `RecMajorHeadStored`.  `Expr.recMajorHeadOk` is
+not yet a name in this tree; when it arrives, `hmaj` is one `obtain`
+off the Bool.
+
+The asymmetry is deliberate and was checked with the kernel lane rather
+than worked around: the conjunct is a Bool over the STORED type because
+every route stores what it generates, so that is the cheapest place to
+state it, and the instantiated side pays for it exactly once — here.
+
+Step 3 (the head RESOLVES) is `ConstWF`'s GENERIC `constsResolve`
+conjunct through `mentionsConst_of_constsResolve`, the same step
+`ContainerFrame` takes.  One local helper was needed because
+`ContainerFrame`'s own `mentionsConst_stripPis` is `private` there.
+
+##### (c) THE HEAD-PRESERVATION STEP IS A NAMED VERIFY-TIER LEMMA
+
+Requested by the lane that is about to build the nested route's
+major-premise producer, so it can CITE the step rather than re-derive
+it — **two lanes on this task have already written one theorem twice,
+and it merged only because the two versions happened to be
+byte-identical.**
+
+```lean
+theorem instPis_ilp_major_head {D : Name} {T : Expr} {mI : Nat} {args : List Expr}
+    {ks : List Name} {vs : List Level} {pre : List (Expr × BinderMeta)}
+    {dom₀ body₀ dom body : Expr} {bm₀ bm : BinderMeta} {us₀ : List Level}
+    (hstrip : T.stripPis mI = some (pre, .forallE dom₀ body₀ bm₀))
+    (hhead : dom₀.getAppFn = .const D us₀)
+    (hlen : args.length = mI)
+    (hinst : Expr.instPis (T.instantiateLevelParams ks vs) args
+      = some (.forallE dom body bm)) :
+    ∃ us', dom.getAppFn = .const D us'
+```
+
+`Verify/Inductives/NestedCopyInstU.lean`, beside `instPis_ilp` — the
+VERIFY tier, so the requesting lane can import it; `ContainerCross` is
+Model and it could not.  Stated in `Expr`/`Name`/`Level`/`BinderMeta`
+alone.  Under it, three reusable pieces, the `.forallE`-with-const-head
+twins of `NestedCopySort`'s `sort` kit and written to mirror those
+proofs: `Expr.stripPis_instantiate1_constHead`,
+`Expr.stripPis_instantiateLevelParams_constHead` and
+`Expr.instPis_stripPis_constHead` — the last in the more general
+spelling (any residual arity, returning the residual `∀` itself) for a
+consumer that wants the binders rather than just the head.
+
+##### (d) ONE FINDING: `instPis_ilp` is NOT the move here
+
+This lane's own `instPis_ilp`, proved for the ninth site, commutes level
+instantiation with `instPis` at MAPPED arguments — and the premise's
+arguments are the CALLER's raw ones.  The stored `stripPis` shape is
+what must be pushed forward, not the reader's `instPis` pushed back.
+Recorded because the two look interchangeable and are not.
+
+##### (e) WHERE THE FIELD STANDS
+
+Nine sites proved; the crossing pre-threaded to one premise; that
+premise now proved from well-formedness.  **The field's landing is the
+field, nine one-liners and one `exact` — and the only thing it waits on
+is the integrator bringing the conjunct.**
+
+##### (f) Gates
+
+`lake build` and `lake test` warning-free; layering 353 / 286 / 3 / 1,
+0 base->lane and 0 impl->theory; trust 13/5; overview-links 112;
+quote-gate 2; no-local-paths OK; shake 510 removals all allowlisted;
+pub-imports 1334 of 2227, none demotable; **proofdeps 4965 rows / 12
+roots / 0 doors**; `tests/arena.sh` **EXIT 0** — nested-shadow 37/37,
+e2e 196/196, the arena's 90/92, all four sweeps, axiom pin 20.
+Standard axioms on all six new results.
