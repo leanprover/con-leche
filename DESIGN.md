@@ -116153,3 +116153,122 @@ routes, neither taken here:
 
 `lake build` exit 0, 725 jobs, 0 warning lines.  The accept set is
 untouched: no consumer has moved to the wide route.
+
+#### WIDE (f1) step 2 (b): THE ROWS PRODUCER — `rowsσ_of_pin_class`, and why the collapsed classes need no second transfer (lane WIDE, 2026-09-18)
+
+Step 2's remainder, landed.  `hrowsσ` is produced from the SAME two
+inputs the own-pin half of `hfit` already takes, and the premise-by-
+premise pricing of the previous entry was pessimistic in one important
+way.
+
+##### (a) The block copy is the mediator — `hrel` never arises
+
+The previous entry priced `hfit` at two collapsed own-pin classes as
+`copyTransfer_iff` "at the two `PinShapes` records, both sides
+container-side", with `hrel` trivial.  Both halves of that are wrong
+and the correction makes the step cheaper, not dearer:
+
+* `hrel` would NOT have been trivial.  `CopyCtorShape.recF` fixes a
+  copy's target as `base + dK.tgts i j l`, and two collapsed own pins
+  of `dJ` are copies of the same container `dK` at DIFFERENT group
+  bases, so their records' recursive targets are two different classes
+  of `dJ`.  `hrel` there is `Y` at two classes, not `rfl`;
+* it is not needed, because the two classes share their BLOCK copy.
+  `σ c = σ c'` makes `hcnt`'s and `hfitc`'s left-hand sides at the two
+  classes the SAME proposition — one `offs (σ c) + j`, one target list,
+  one joined tuple — so the counts agree and each class fit is
+  equivalent to it, hence to the other.  The own-pin half's existing
+  hypothesis `hfitc` (`pinClassFit_of_transfer`'s conclusion, which the
+  block's copy already mediates once per class) is applied twice at one
+  `Y` and that is the whole of `row_congr`'s `hfit`.
+
+`hinj` is likewise free: both sides are `injW` by `PinRecLaws`'
+`injW`, which the assembly already holds as `hinjJ`.
+
+##### (b) What landed
+
+* **`IsBlockModel.row_congr`**'s `hfit` is asked only at
+  `j < (d.ctorsT d.pinCtors c).length` — the range its own proof reads
+  it at, and the range the class-fit producers are stated on;
+* **`hfit_wide_pin_of_class`**'s `hfitc` and conclusion carry `hpin`'s
+  three premises on `Y` (in the space, fibre-constant, below the
+  container's wide carrier).  Its free `∀ Y` was not producible for the
+  same reason (a) gives: the producer reads the joined tuple back with
+  `setJoin_at_fc`;
+* **`rowsσ_of_pin_class`** (`NestedPinLeafAll.lean`, beside
+  `hfit_wide_pin_of_class`) — `ofNested_pin_block_of_wide_inst`'s
+  `hrowsσ` VERBATIM, from `hcnt` and `hfitc` (shared with the fit half,
+  verbatim), the block model (`row_congr`), `hroot`, `hinjJ`, and two
+  facts about the instance map: `hmemσ` (no member class is identified
+  with a pin class) and `hidxσ` (two identified pin classes have one
+  index-tuple set).  At the members the map is injective by `hroot`
+  alone.
+
+`tests/unconsumed.sh`: `row_congr` LEFT the list (this is its
+consumer); `rowsσ_of_pin_class` entered it, the step's product, which
+(f3) consumes.
+
+##### (c) `hmemσ` and `hidxσ` are the instance map's, not the model's
+
+Neither is readable off `dJ`'s stored model — both are statements about
+`σ`, which K.61 defines:
+
+* `hmemσ` — that no member class shares a block pin with a pin class.
+  True because a container's own pin's container is declared strictly
+  earlier than the container, so its mimic's expression cannot be the
+  container's own; nothing in the model tier records it;
+* `hidxσ` — two identified pin classes have one index-tuple set.  The
+  route is the previous entry's `hidx` row: two `PinCorr`s at the ONE
+  block target give the two pins one `u`, one `Ids` and components
+  with equal readings at `ρJ`, hence `auxPinIdx` twice and
+  `BlockModel.pinIdx_of_view`.  Its inputs are K.61's `PinCorr` pair.
+
+The same `PinCorr` pair is what `hcarσ` (WIDE (f1) step 2 (a)) wants.
+So the container-side of the whole rows obligation is ONE run-level
+record — the instance map with its two `PinCorr`s — and nothing else.
+
+##### (d) Green
+
+`lake build` exit 0, 0 warning lines.  No consumer has moved to the
+wide route; the accept set is untouched.
+
+#### (f3)'s BRIEF: what `NestedTailIn.pinSegAt` can supply today (lane WIDE, 2026-09-18)
+
+The switch's consuming site is `NestedRecFibre.lean`'s
+`NestedTailIn.pinSegAt`, which calls the NARROW
+`ofNested_pin_block_of_inst` with the pin group `G : NestedPinGroup`
+and the run's `NestedLfpOk`.  Read hypothesis by hypothesis against
+`ofNested_pin_block_of_wide_inst`:
+
+**Available at the site today, unchanged from the narrow call** —
+`h` (`hOk'`), `hS` (`nestedShape_of_formers`), `hseg` (`G.seg`),
+`hreps` (`G.reps`), `hfT` (`G.typed`), `hPT` (`G.pinsTyped`),
+`hw` (`G.w`), `hu` (`nestedU_pin_group`), `hρJ` (`G.DsFit`),
+`hidx` (`G.idx`), `hgrp` (`G.grp`), `hsh` (`G.shape`),
+`hent` (`G.entry`); `hkpos` is `G.kEq` with the caller's `hi`.
+`hroot` is the group's own, once `σ` is defined to be `k + q₀ + i` on
+the members.
+
+**Half available** — `hinjJ` (`dJ.injT` is `injW` at every class):
+at the members it is `G.inj` through `injT_of_mem`; at the pin classes
+it is `PinRecLaws`' `injW` off `BlockAt`, which the site holds but
+has never opened for this.  No new record.
+
+**K.61's, and nothing at the site produces them** — `σ` itself (the
+instance map), `hσ` (its range) and its TOTALITY; `hstgt` (a
+container-recursive field at one of the container's own pins lands on
+`σ` of that class); `hmemσ` and `hidxσ` (`rowsσ_of_pin_class`'s two,
+above) and, with them, `hcarσ`.  `hIsσ` is half K.61's: at the members
+it is the narrow `hIs` bullet, at the pin classes `ClassPin.idx`
+composed with `auxPinIdx`.
+
+**K.62's** — `houtσ` (a rewritten container-ordinary field lands
+outside the instance).
+
+**Gated on both** — `hpin`, whose `hfitc` is
+`pinClassFit_of_transfer`'s premises and whose `hrel` is `σ`'s.
+
+So (f3) is exactly: K.61 (σ, its totality, `hstgt`, and the `PinCorr`
+pair that gives `hidxσ`/`hcarσ`/`hmemσ`) + K.62 (`houtσ`) + the
+pin-class `injW` + `hfitc`'s own plumbing.  Nothing else in the list
+is missing, and no statement question remains in it.
