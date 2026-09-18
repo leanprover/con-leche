@@ -1,9 +1,9 @@
 module
 
 public import ConLeche.Model.Inductives.NestedPinLaws
-public import ConLeche.Model.Inductives.NestedPins
 import ConLeche.Model.Inductives.NestedAux
 import ConLeche.Model.Inductives.ContainerCross
+public import ConLeche.Model.Inductives.NestedCopyIdx
 public section
 
 /-!
@@ -4564,5 +4564,149 @@ theorem nestedPinsEntry_of_le (hμ : μ.verifiedChecks = true)
     (nestedPinsEq_of_le hμ h h3 hbk m hleafM dJf hgroups hρp hle) G hi hi' hj
 
 end Assembly
+
+/-! ## The residual, ASSEMBLED -/
+
+/-- **STEP (iii) AT THE RUN, as a named premise** (task #315 L-E,
+DESIGN §U.80): the containers' least tuples lie below the auxiliary
+carrier at every pin, for any assignment `dJf` of block models to the
+groups' base pins that the run's own groups back.
+
+Quantified over `dJf` and its `hgroups` rather than over a chosen one,
+because the choice is made by the consumer: `nestedPinsEntry_of_le_all`
+builds an assignment out of `NestedPinSynFacts.groups` and the group
+it is handed, and applies this at exactly that one. -/
+@[expose] def NestedPinsLe (V : Type w) [SetTheory V] (μ : CheckMode) (F : Nat) : Prop :=
+  NestedPinsIdsAt V μ F fun {env} _ p st b fms f₀ ctorsA kinds ppsF W idxF dsF esF srcsF fvsPF
+      xrestF eissF tssF ctorsR dsR xFvsR pinsS mp₁' _ _ _ =>
+    ∀ dJf : Nat → BlockModel V,
+      (∀ q, q < pinsS.length → ∃ (a kk ii : Nat), q = a + ii ∧ ii < kk ∧
+        GroupFacts (V := V) (p := p) (b := b) (fms := fms) (f₀ := f₀) (ctorsA := ctorsA)
+          (kinds := kinds) (env := env) (ppsF := ppsF) (W := W) (idxF := idxF) (dsF := dsF)
+          (esF := esF) (srcsF := srcsF) (fvsPF := fvsPF) (xrestF := xrestF) (eissF := eissF)
+          (tssF := tssF) (ctorsR := ctorsR) (dsR := dsR) (xFvsR := xFvsR) (pinsS := pinsS)
+          st mp₁'.base2 a kk (dJf a)) →
+      ∀ (ψ : Name → Nat) (ρp : Nat → V),
+      Sat V (((ppsF 0 ψ).take b.nP).map (·.2.2)).reverse ρp →
+      ∀ q, q < pinsS.length →
+        FamLe ((nestedBlockModel (V := V) p b fms f₀ ctorsA kinds env ppsF W idxF dsF esF srcsF
+            fvsPF xrestF eissF tssF ctorsR dsR xFvsR pinsS).idx ψ ρp (p.k + q))
+          (pinLfp st pinsS dJf (f₀.s.eval ψ) ψ ρp q)
+          (lfpTuple ((nestedBlockModel (V := V) p b fms f₀ ctorsA kinds env ppsF W idxF dsF esF
+              srcsF fvsPF xrestF eissF tssF ctorsR dsR xFvsR pinsS).w ψ)
+            (p.k + pinsS.length)
+            ((nestedBlockModel (V := V) p b fms f₀ ctorsA kinds env ppsF W idxF dsF esF srcsF
+              fvsPF xrestF eissF tssF ctorsR dsR xFvsR pinsS).idx ψ ρp)
+            (nestedΨ (V := V) b.nP p.k f₀.s ppsF W pinsS b.ownOffset
+              (mutMems ctorsA.length (mutMemF b)) (mutNFs ctorsA.length (mutNFOf ctorsA))
+              (mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)) (blkRss ctorsA kinds)
+              (fun ψ => mutTlss ctorsA.length tssF ψ) (fun ψ => mutEiss0 ctorsA.length eissF ψ)
+              (fun ψ => blkFss0 b ctorsA kinds dsF ψ) (fun ψ => mutEss0 ctorsA.length esF ψ)
+              ψ ρp)
+            (p.k + q))
+
+
+
+/-- **THE RESIDUAL, DISCHARGED** (task #315 L-E, DESIGN §U.80):
+`NestedPinsEntry` — the copies' entries at the auxiliary carrier, for
+every group of every accepted nested block — from lane L-B's shape
+residual and step (iii) at the run.
+
+The assignment `dJf` the entry theorem quantifies over is BUILT here,
+not assumed: the group the residual hands over serves its own base pin
+and `NestedPinSynFacts.groups` serves every other, chosen with
+`Classical.epsilon` since nothing names a group's block model at its
+base.  The two group sizes agree because both are the pin table's own
+`grpSize` at the base (`NestedPinGroupSyn.grp`), which is what lets the
+handed group and a chosen one meet.
+
+Stated as an application of the residual so that the elaborator, and
+not a reading of the two statements, is what certifies that this is a
+discharge. -/
+theorem nestedPinsEntry_of_le_all {F : Nat} (hSh : NestedPinsShape V μ F)
+    (hLe : NestedPinsLe V μ F) : NestedPinsEntry V μ F := by
+  classical
+  intro env mp p st b envAux stored ctorsR fmsA ctorsA₀ fms f₀ ctorsA sortss kinds mp₁ ppsF W idxF
+    dsF esF srcsF fvsPF xFvsF xrestF eissF tssF mp₁' R pinsS SF dsR xFvsR q₀ kJ dJ S
+  intro i hi ψ ρp hρp i' hi' j hj
+  -- a group's syntactic facts, with its identity and shape
+  have mkGF : ∀ (a kk : Nat) (d : BlockModel V),
+      NestedPinGroupSyn (V := V) (p := p) (b := b) (fms := fms) (f₀ := f₀) (ctorsA := ctorsA)
+        (kinds := kinds) (env := env) (ppsF := ppsF) (W := W) (idxF := idxF) (dsF := dsF)
+        (esF := esF) (srcsF := srcsF) (fvsPF := fvsPF) (xrestF := xrestF) (eissF := eissF)
+        (tssF := tssF) (ctorsR := ctorsR) (dsR := dsR) (xFvsR := xFvsR) (pinsS := pinsS)
+        st mp₁'.base2 a kk d →
+      GroupFacts (V := V) (p := p) (b := b) (fms := fms) (f₀ := f₀) (ctorsA := ctorsA)
+        (kinds := kinds) (env := env) (ppsF := ppsF) (W := W) (idxF := idxF) (dsF := dsF)
+        (esF := esF) (srcsF := srcsF) (fvsPF := fvsPF) (xrestF := xrestF) (eissF := eissF)
+        (tssF := tssF) (ctorsR := ctorsR) (dsR := dsR) (xFvsR := xFvsR) (pinsS := pinsS)
+        st mp₁'.base2 a kk d := by
+    intro a kk d S'
+    refine ⟨S', ?_, ?_⟩
+    · intro i₂ hi₂ ψ₂ i₃ hi₃
+      exact nestedPinsIdx mp p st b envAux stored ctorsR fmsA ctorsA₀ fms f₀ ctorsA sortss kinds
+        mp₁ ppsF W idxF dsF esF srcsF fvsPF xFvsF xrestF eissF tssF mp₁' R pinsS SF dsR xFvsR
+        a kk d S' i₂ hi₂ ψ₂ i₃ hi₃
+    · intro i₂ hi₂ cvT caps hf ψ₂ ρ₂ hρ₂ i₃ j₂ hi₃ hj₂
+      exact hSh mp p st b envAux stored ctorsR fmsA ctorsA₀ fms f₀ ctorsA sortss kinds mp₁ ppsF W
+        idxF dsF esF srcsF fvsPF xFvsF xrestF eissF tssF mp₁' R pinsS SF dsR xFvsR a kk d S'
+        i₂ hi₂ cvT caps hf ψ₂ ρ₂ hρ₂ i₃ hi₃ j₂ hj₂
+  -- a group's size is the pin table's own `grpSize` at its base
+  have hsize : ∀ (a kk' : Nat) (d : BlockModel V),
+      NestedPinGroupSyn (V := V) (p := p) (b := b) (fms := fms) (f₀ := f₀) (ctorsA := ctorsA)
+        (kinds := kinds) (env := env) (ppsF := ppsF) (W := W) (idxF := idxF) (dsF := dsF)
+        (esF := esF) (srcsF := srcsF) (fvsPF := fvsPF) (xrestF := xrestF) (eissF := eissF)
+        (tssF := tssF) (ctorsR := ctorsR) (dsR := dsR) (xFvsR := xFvsR) (pinsS := pinsS)
+        st mp₁'.base2 a kk' d →
+      (st.pins.getD a default).grpSize = kk' := by
+    intro a kk' d S''
+    have := (S''.grp 0 S''.kpos).2
+    rwa [Nat.add_zero] at this
+  -- the assignment: the handed group at its own base, a chosen one elsewhere
+  obtain ⟨dJf, hdJf₀, hgroups⟩ :
+      ∃ dJf : Nat → BlockModel V, dJf q₀ = dJ ∧
+        ∀ q, q < pinsS.length → ∃ (a kk ii : Nat), q = a + ii ∧ ii < kk ∧
+          GroupFacts (V := V) (p := p) (b := b) (fms := fms) (f₀ := f₀) (ctorsA := ctorsA)
+            (kinds := kinds) (env := env) (ppsF := ppsF) (W := W) (idxF := idxF) (dsF := dsF)
+            (esF := esF) (srcsF := srcsF) (fvsPF := fvsPF) (xrestF := xrestF) (eissF := eissF)
+            (tssF := tssF) (ctorsR := ctorsR) (dsR := dsR) (xFvsR := xFvsR) (pinsS := pinsS)
+            st mp₁'.base2 a kk (dJf a) := by
+    refine ⟨fun a => if a = q₀ then dJ else Classical.epsilon (fun d => ∃ kk : Nat, Nonempty
+        (NestedPinGroupSyn (V := V) (p := p) (b := b) (fms := fms) (f₀ := f₀) (ctorsA := ctorsA)
+          (kinds := kinds) (env := env) (ppsF := ppsF) (W := W) (idxF := idxF) (dsF := dsF)
+          (esF := esF) (srcsF := srcsF) (fvsPF := fvsPF) (xrestF := xrestF) (eissF := eissF)
+          (tssF := tssF) (ctorsR := ctorsR) (dsR := dsR) (xFvsR := xFvsR) (pinsS := pinsS)
+          st mp₁'.base2 a kk d)), by simp, ?_⟩
+    intro q hq
+    obtain ⟨a, kk, ii, dJ', hqe, hii, S'⟩ := SF.groups dsR xFvsR q hq
+    by_cases ha : a = q₀
+    · subst ha
+      obtain rfl : kk = kJ := by rw [← hsize a kk dJ' S', hsize a kJ dJ S]
+      exact ⟨a, kk, ii, hqe, hii, by simpa using mkGF a kk dJ S⟩
+    · obtain ⟨kk₀, ⟨S₀⟩⟩ := Classical.epsilon_spec
+        (p := fun d => ∃ kk : Nat, Nonempty
+          (NestedPinGroupSyn (V := V) (p := p) (b := b) (fms := fms) (f₀ := f₀) (ctorsA := ctorsA)
+            (kinds := kinds) (env := env) (ppsF := ppsF) (W := W) (idxF := idxF) (dsF := dsF)
+            (esF := esF) (srcsF := srcsF) (fvsPF := fvsPF) (xrestF := xrestF) (eissF := eissF)
+            (tssF := tssF) (ctorsR := ctorsR) (dsR := dsR) (xFvsR := xFvsR) (pinsS := pinsS)
+            st mp₁'.base2 a kk d)) ⟨dJ', kk, ⟨S'⟩⟩
+      obtain rfl : kk₀ = kk := by rw [← hsize a kk₀ _ S₀, hsize a kk dJ' S']
+      refine ⟨a, kk₀, ii, hqe, hii, ?_⟩
+      simpa only [if_neg ha] using mkGF a kk₀ _ S₀
+  have hbk : b.k = p.k + pinsS.length := by rw [R.hbk, SF.pinsLen]
+  have hle := hLe mp p st b envAux stored ctorsR fmsA ctorsA₀ fms f₀ ctorsA sortss kinds mp₁ ppsF W
+    idxF dsF esF srcsF fvsPF xFvsF xrestF eissF tssF mp₁' R pinsS SF dsR xFvsR q₀ kJ dJ S
+    dJf hgroups ψ ρp hρp
+  have hGF' : GroupFacts (V := V) (p := p) (b := b) (fms := fms) (f₀ := f₀) (ctorsA := ctorsA)
+      (kinds := kinds) (env := env) (ppsF := ppsF) (W := W) (idxF := idxF) (dsF := dsF)
+      (esF := esF) (srcsF := srcsF) (fvsPF := fvsPF) (xrestF := xrestF) (eissF := eissF)
+      (tssF := tssF) (ctorsR := ctorsR) (dsR := dsR) (xFvsR := xFvsR) (pinsS := pinsS)
+      st mp₁'.base2 q₀ kJ (dJf q₀) := by
+    rw [hdJf₀]; exact mkGF q₀ kJ dJ S
+  have hj' : j < ((dJf q₀).ctorsM i').length := by rw [hdJf₀]; exact hj
+  have hres := nestedPinsEntry_of_le R.hμ R.h R.h3 hbk mp₁'.base2 R.hleafM' dJf hgroups hρp hle
+    hGF' hi hi' hj'
+  rw [hdJf₀] at hres
+  exact hres
 
 end ConLeche.Model
