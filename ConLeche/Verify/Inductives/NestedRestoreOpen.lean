@@ -557,6 +557,19 @@ theorem instSeq_getAppFn_const_inv : ∀ (vs : List Expr), AllFvarsL vs →
     exact Expr.getAppFn_const_of_instantiate1
       (ih (fun x hx => hall x (List.mem_cons_of_mem _ hx)) (t - 1) _ h)
 
+/-- ... and forwards: opening cannot MOVE a constant head either
+(task #315 R3, the reflexive pin arm's `hfree`: the reading side names
+the OPENED body's head, the rewrite's inversion the closed one's). -/
+theorem instSeq_getAppFn_const : ∀ (vs : List Expr),
+    ∀ (t : Nat) (e : Expr) {n : Name} {us : List Level},
+      e.getAppFn = .const n us → (Expr.instSeq vs t e).getAppFn = .const n us := by
+  intro vs
+  induction vs with
+  | nil => intro t e n us h; exact h
+  | cons v vs ih =>
+    intro t e n us h
+    exact ih (t - 1) _ (Expr.getAppFn_instantiate1_const h)
+
 /-- Opening maps a spine's arguments. -/
 theorem instSeq_getAppArgs : ∀ (vs : List Expr), AllFvarsL vs →
     ∀ (t : Nat) (e : Expr),

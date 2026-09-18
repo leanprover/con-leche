@@ -515,6 +515,64 @@ theorem replaceAllNested_mkPisB :
                 exact ⟨hbm, stB₁, stB₂, hrun, hg₁.1.trans hp₁, hp₂, hg₁.2.trans hn₁⟩
             · exact ⟨stR₁, stR₂, hres, hg₁.1.trans hrp₁, hrp₂, hg₁.2.trans hrn₁⟩
 
+/-- **THE REWRITE IS INERT ON A MEMBER-FREE TELESCOPE** (task #315 R3):
+when every binder domain of the input tower is pruned, the output is
+the SAME tower over the body's own image, and the body's run starts at
+the input's own state.
+
+This is the sharpening `replaceAllNested_mkPisB` cannot give: that
+lemma threads the sub-runs through intermediate states it only bounds
+by prefixes, which is all a general telescope allows.  A REFLEXIVE
+copy field's telescope is not general — the positivity walk certified
+its domains member-free (`normPosDomM_mkPisB_free`) — so the domains'
+runs are identities, the state never moves before the body, and the two
+towers are towers over LITERALLY the same binder list.  That is what
+lets the reading side align the two peels binder for binder. -/
+theorem replaceAllNested_mkPisB_inert :
+    ∀ (bs : List (Expr × BinderMeta)) {res : Expr} {st st' : ElimState} {e' : Expr},
+      (∀ b ∈ bs, (st.newNames.any fun T => b.1.mentionsConst T) = false) →
+      replaceAllNested env blvls params pbs₀ st (mkPisB bs res) = .ok (e', st') →
+      ∃ res' : Expr, e' = mkPisB bs res' ∧
+        replaceAllNested env blvls params pbs₀ st res = .ok (res', st')
+  | [], res, st, st', e', _, h => by
+    rw [mkPisB_nil] at h
+    exact ⟨e', (mkPisB_nil e').symm, h⟩
+  | b :: bs, res, st, st', e', hfree, h => by
+    rw [mkPisB_cons] at h
+    rw [replaceAllNested] at h
+    split at h
+    · -- the prune fired on the whole tower: nothing moved
+      rename_i hc
+      simp only [Bool.not_eq_eq_eq_not, Bool.not_true] at hc
+      rw [← mkPisB_cons] at hc h
+      simp only [Except.ok.injEq, Prod.mk.injEq] at h
+      obtain ⟨rfl, rfl⟩ := h
+      obtain ⟨-, hr⟩ := anyMentions_mkPisB_false (b :: bs) res hc
+      exact ⟨res, rfl, replaceAllNested_of_no_mention hr⟩
+    · split at h
+      · close_throw
+      · exfalso
+        rename_i r heq
+        rw [show replaceIfNested env blvls params pbs₀ st
+              (Expr.forallE b.1 (mkPisB bs res) b.2) = pure none from rfl] at heq
+        exact rwNone_ne_some heq
+      · split at h
+        · close_throw
+        · rename_i ty' st1 heq1
+          -- the domain is pruned, so its run is the identity
+          rw [replaceAllNested_of_no_mention (hfree b List.mem_cons_self)] at heq1
+          simp only [Except.ok.injEq, Prod.mk.injEq] at heq1
+          obtain ⟨rfl, rfl⟩ := heq1
+          split at h
+          · close_throw
+          · rename_i b' st2 heq2
+            simp only [Except.ok.injEq, Prod.mk.injEq] at h
+            obtain ⟨rfl, rfl⟩ := h
+            obtain ⟨res', rfl, hrun⟩ :=
+              replaceAllNested_mkPisB_inert bs
+                (fun x hx => hfree x (List.mem_cons_of_mem _ hx)) heq2
+            exact ⟨res', by rw [mkPisB_cons], hrun⟩
+
 /-! ## (R4) The minted name is a pin's -/
 
 /-- **THE MINT RETURNS ONE OF ITS OWN PINS** (task #315): the name
