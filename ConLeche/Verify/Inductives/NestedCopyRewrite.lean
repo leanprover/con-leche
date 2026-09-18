@@ -1336,20 +1336,6 @@ copy — the copies are not in the environment `w`'s reading resolves in
 (`replaceIfNested_fire_inv`).
 -/
 
-/-- The head of an application spine is an occurrence of its constant. -/
-theorem mentionsConst_getAppFn {A : Name} {us : List Level} :
-    ∀ (e : Expr), e.getAppFn = Expr.const A us → e.mentionsConst A = true
-  | .app f _, h => by
-      simp only [Expr.mentionsConst, Bool.or_eq_true]
-      exact Or.inl (mentionsConst_getAppFn f h)
-  | .const _ _, h => by
-      simp only [Expr.getAppFn, Expr.const.injEq] at h
-      simp [Expr.mentionsConst, h.1]
-  | .bvar _, h | .sort _, h | .lit _, h | .fvar _ _, h
-  | .lam _ _ _, h | .forallE _ _ _, h | .letE _ _ _, h | .proj _ _ _, h => by
-      simp only [Expr.getAppFn] at h
-      exact nomatch h
-
 /-- A term that is not an application is its own spine head. -/
 theorem getAppFn_of_not_app : ∀ {e : Expr}, (∀ f a, e ≠ Expr.app f a) → e.getAppFn = e
   | .app f a, h => absurd rfl (h f a)
@@ -1365,13 +1351,11 @@ private theorem rw_nonApp_head {A : Name} {us : List Level}
       replaceAllNested env blvls params pbs₀ st hd = .ok (e', st') →
       e'.getAppFn = Expr.const A us →
       hd = Expr.const A us ∨
-        ∃ r, replaceIfNested env blvls params pbs₀ st hd = .ok (some r) ∧
-          e' = r.1 ∧ st' = r.2 := by
+        ∃ r, replaceIfNested env blvls params pbs₀ st hd = .ok (some r) := by
   intro hd hna h h2
   have hsame : (Except.ok (hd, st) : CheckM (Expr × ElimState)) = .ok (e', st') →
       hd = Expr.const A us ∨
-        ∃ r, replaceIfNested env blvls params pbs₀ st hd = .ok (some r) ∧
-          e' = r.1 ∧ st' = r.2 := by
+        ∃ r, replaceIfNested env blvls params pbs₀ st hd = .ok (some r) := by
     intro hu
     simp only [Except.ok.injEq, Prod.mk.injEq] at hu
     rw [← hu.1, getAppFn_of_not_app hna] at h2
@@ -1384,8 +1368,7 @@ private theorem rw_nonApp_head {A : Name} {us : List Level}
     · exact hsame h
     · split at h
       · close_throw
-      · exact Or.inr ⟨_, by assumption, (congrArg Prod.fst (Except.ok.inj h)).symm,
-          (congrArg Prod.snd (Except.ok.inj h)).symm⟩
+      · exact Or.inr ⟨_, by assumption⟩
       · exact hsame h
   | sort u =>
     simp only [replaceAllNested] at h
@@ -1393,8 +1376,7 @@ private theorem rw_nonApp_head {A : Name} {us : List Level}
     · exact hsame h
     · split at h
       · close_throw
-      · exact Or.inr ⟨_, by assumption, (congrArg Prod.fst (Except.ok.inj h)).symm,
-          (congrArg Prod.snd (Except.ok.inj h)).symm⟩
+      · exact Or.inr ⟨_, by assumption⟩
       · exact hsame h
   | lit l =>
     simp only [replaceAllNested] at h
@@ -1402,8 +1384,7 @@ private theorem rw_nonApp_head {A : Name} {us : List Level}
     · exact hsame h
     · split at h
       · close_throw
-      · exact Or.inr ⟨_, by assumption, (congrArg Prod.fst (Except.ok.inj h)).symm,
-          (congrArg Prod.snd (Except.ok.inj h)).symm⟩
+      · exact Or.inr ⟨_, by assumption⟩
       · exact hsame h
   | fvar i ty =>
     simp only [replaceAllNested] at h
@@ -1411,8 +1392,7 @@ private theorem rw_nonApp_head {A : Name} {us : List Level}
     · exact hsame h
     · split at h
       · close_throw
-      · exact Or.inr ⟨_, by assumption, (congrArg Prod.fst (Except.ok.inj h)).symm,
-          (congrArg Prod.snd (Except.ok.inj h)).symm⟩
+      · exact Or.inr ⟨_, by assumption⟩
       · exact hsame h
   | const m ws =>
     simp only [replaceAllNested] at h
@@ -1420,8 +1400,7 @@ private theorem rw_nonApp_head {A : Name} {us : List Level}
     · exact hsame h
     · split at h
       · close_throw
-      · exact Or.inr ⟨_, by assumption, (congrArg Prod.fst (Except.ok.inj h)).symm,
-          (congrArg Prod.snd (Except.ok.inj h)).symm⟩
+      · exact Or.inr ⟨_, by assumption⟩
       · exact hsame h
   | lam ty b bm =>
     simp only [replaceAllNested] at h
@@ -1429,8 +1408,7 @@ private theorem rw_nonApp_head {A : Name} {us : List Level}
     · exact hsame h
     · split at h
       · close_throw
-      · exact Or.inr ⟨_, by assumption, (congrArg Prod.fst (Except.ok.inj h)).symm,
-          (congrArg Prod.snd (Except.ok.inj h)).symm⟩
+      · exact Or.inr ⟨_, by assumption⟩
       · split at h
         · close_throw
         · split at h
@@ -1445,8 +1423,7 @@ private theorem rw_nonApp_head {A : Name} {us : List Level}
     · exact hsame h
     · split at h
       · close_throw
-      · exact Or.inr ⟨_, by assumption, (congrArg Prod.fst (Except.ok.inj h)).symm,
-          (congrArg Prod.snd (Except.ok.inj h)).symm⟩
+      · exact Or.inr ⟨_, by assumption⟩
       · split at h
         · close_throw
         · split at h
@@ -1461,8 +1438,7 @@ private theorem rw_nonApp_head {A : Name} {us : List Level}
     · exact hsame h
     · split at h
       · close_throw
-      · exact Or.inr ⟨_, by assumption, (congrArg Prod.fst (Except.ok.inj h)).symm,
-          (congrArg Prod.snd (Except.ok.inj h)).symm⟩
+      · exact Or.inr ⟨_, by assumption⟩
       · split at h
         · close_throw
         · split at h
@@ -1479,8 +1455,7 @@ private theorem rw_nonApp_head {A : Name} {us : List Level}
     · exact hsame h
     · split at h
       · close_throw
-      · exact Or.inr ⟨_, by assumption, (congrArg Prod.fst (Except.ok.inj h)).symm,
-          (congrArg Prod.snd (Except.ok.inj h)).symm⟩
+      · exact Or.inr ⟨_, by assumption⟩
       · split at h
         · close_throw
         · simp only [Except.ok.injEq, Prod.mk.injEq] at h
@@ -1503,8 +1478,7 @@ theorem replaceAllNested_head_or_fire {A : Name} {us : List Level} {hd : Expr}
       hd = Expr.const A us ∨
         ∃ (k : Nat) (r : Expr × ElimState),
           replaceIfNested env blvls params pbs₀ st (Expr.mkAppN hd (as.take k))
-            = .ok (some r) ∧ e'.getAppFn = r.1.getAppFn ∧
-            r.2.pins.length ≤ st'.pins.length := by
+            = .ok (some r) := by
   -- a reverse recursor, spelled here because the spine grows on the right
   have revRec : ∀ {motive : List Expr → Prop}, motive [] →
       (∀ (bs : List Expr) (b : Expr), motive bs → motive (bs ++ [b])) → ∀ bs, motive bs := by
@@ -1521,9 +1495,9 @@ theorem replaceAllNested_head_or_fire {A : Name} {us : List Level} {hd : Expr}
   refine revRec ?_ ?_
   case _ =>
     intro st st' e' hrun h2
-    rcases rw_nonApp_head hna hrun h2 with h | ⟨r, hr, hre, hrs⟩
+    rcases rw_nonApp_head hna hrun h2 with h | ⟨r, hr⟩
     · exact Or.inl h
-    · exact Or.inr ⟨0, r, hr, by rw [hre], Nat.le_of_eq (by rw [hrs])⟩
+    · exact Or.inr ⟨0, r, hr⟩
   case _ =>
     intro as a ih st st' e' hrun h2
     rw [mkAppN_concat] at hrun
@@ -1540,14 +1514,9 @@ theorem replaceAllNested_head_or_fire {A : Name} {us : List Level} {hd : Expr}
       · close_throw
       · -- the whole spine fired
         rename_i r hr
-        refine Or.inr ⟨(as ++ [a]).length, r, ?_, ?_, ?_⟩
-        · rw [List.take_length, mkAppN_concat]
-          exact hr
-        · simp only [Except.ok.injEq] at hrun
-          rw [show r.1 = e' from congrArg Prod.fst hrun]
-        · simp only [Except.ok.injEq] at hrun
-          rw [show r.2 = st' from congrArg Prod.snd hrun]
-          exact Nat.le_refl _
+        refine Or.inr ⟨(as ++ [a]).length, r, ?_⟩
+        rw [List.take_length, mkAppN_concat]
+        exact hr
       · simp only at hrun
         cases hf : replaceAllNested env blvls params pbs₀ st (Expr.mkAppN hd as) with
         | error err => rw [hf] at hrun; exact nomatch hrun
@@ -1563,21 +1532,16 @@ theorem replaceAllNested_head_or_fire {A : Name} {us : List Level} {hd : Expr}
             simp only [Except.ok.injEq, Prod.mk.injEq] at hrun
             rw [← hrun.1] at h2
             simp only [Expr.getAppFn] at h2
-            rcases ih hf h2 with h | ⟨k, r, hr, hrh, hrs⟩
+            rcases ih hf h2 with h | ⟨k, r, hr⟩
             · exact Or.inl h
-            · refine Or.inr ⟨min k as.length, r, ?_, ?_, ?_⟩
-              · rw [show (as ++ [a]).take (min k as.length) = as.take k from by
-                  rcases Nat.le_total k as.length with hle | hle
-                  · rw [show min k as.length = k from Nat.min_eq_left hle,
-                      List.take_append_of_le_length hle]
-                  · rw [show min k as.length = as.length from Nat.min_eq_right hle,
-                      List.take_left, List.take_of_length_le hle]]
-                exact hr
-              · rw [← hrun.1]; exact hrh
-              · refine Nat.le_trans hrs ?_
-                have hpa := (replaceAllNested_pins_prefix a ha).1
-                rw [← hrun.2]
-                exact hpa.length_le
+            · refine Or.inr ⟨min k as.length, r, ?_⟩
+              rw [show (as ++ [a]).take (min k as.length) = as.take k from by
+                rcases Nat.le_total k as.length with hle | hle
+                · rw [show min k as.length = k from Nat.min_eq_left hle,
+                    List.take_append_of_le_length hle]
+                · rw [show min k as.length = as.length from Nat.min_eq_right hle,
+                    List.take_left, List.take_of_length_le hle]]
+              exact hr
 
 /-- **A FIRING IS A RECORDED CONTAINER'S APPLICATION** (task #315 L-B):
 the step's own guards, read backwards.  Whenever `replaceIfNested`
@@ -1620,48 +1584,6 @@ theorem replaceIfNested_fire_inv {st : ElimState} {e : Expr} {r : Expr × ElimSt
     · close_throw
   · close_throw
 
-/-- **THE FIRED OCCURRENCE, READ OFF THE FIRING** (task #315 L-B):
-`replaceIfNested_occurrence` with its shape hypotheses supplied by
-`replaceIfNested_fire_inv` — so a FIRING alone identifies the pin, its
-container application and the index split, with nothing assumed about
-the term it fired on. -/
-theorem replaceIfNested_fire_pin {st : ElimState} {e : Expr} {r : Expr × ElimState}
-    (h : replaceIfNested env blvls params pbs₀ st e = .ok (some r)) :
-    ∃ (I : Name) (lvls : List Level) (cv : ConstantVal) (caps : IndCaps)
-      (ci : ContainerInfo) (q : NestedPin) (st₁ : ElimState),
-      e = Expr.mkAppN (.const I lvls) e.getAppArgs ∧
-        env.find? I = some (.indInfo cv caps) ∧
-        containerInfo? env I = some ci ∧ ci.nP ≤ e.getAppArgs.length ∧
-        q ∈ st₁.pins ∧
-        q.pin = Expr.mkAppN (.const I lvls) (e.getAppArgs.take ci.nP) ∧
-        r = (Expr.mkAppN (Expr.mkAppN (.const q.aux blvls) params)
-              (e.getAppArgs.drop ci.nP), st₁) := by
-  obtain ⟨I, lvls, cv, caps, ci, hfn, hfind, hci, hlen, hocc⟩ := replaceIfNested_fire_inv h
-  have he : e = Expr.mkAppN (.const I lvls) e.getAppArgs := by
-    rw [← hfn]
-    exact (Expr.mkAppN_getApp e).symm
-  -- the occurrence test's two verdicts
-  have hboth : ((e.getAppArgs.take ci.nP).any fun a =>
-        st.newNames.any fun T => a.mentionsConst T) = true ∧
-      (∀ a ∈ e.getAppArgs.take ci.nP, a.looseBVarsBounded 0 = true) := by
-    unfold nestedOccOk at hocc
-    dsimp only at hocc
-    split at hocc
-    · close_throw
-    · rename_i hcond
-      simp only [Except.ok.injEq] at hocc
-      refine ⟨hocc, ?_⟩
-      rw [hocc, Bool.true_and] at hcond
-      have hl : ((e.getAppArgs.take ci.nP).any fun a => !a.looseBVarsBounded 0) = false := by
-        simpa using hcond
-      intro a ha
-      have := List.any_eq_false.mp hl a ha
-      simpa using this
-  obtain ⟨q, st₁, hr, hqm, hqp⟩ :=
-    replaceIfNested_occurrence he hfind hci hlen hboth.1 hboth.2 h
-  simp only [Option.some.injEq] at hr
-  exact ⟨I, lvls, cv, caps, ci, q, st₁, he, hfind, hci, hlen, hqm, hqp, hr⟩
-
 /-- A spine head is never itself an application. -/
 theorem getAppFn_not_app : ∀ (e f a : Expr), e.getAppFn ≠ Expr.app f a
   | .app g b, f, a => getAppFn_not_app g f a
@@ -1675,10 +1597,42 @@ theorem getAppArgs_of_not_app : ∀ {e : Expr}, (∀ f a, e ≠ Expr.app f a) �
   | .bvar _, _ | .sort _, _ | .lit _, _ | .fvar _ _, _ | .const _ _, _
   | .lam _ _ _, _ | .forallE _ _ _, _ | .letE _ _ _, _ | .proj _ _ _, _ => rfl
 
+/-- **THE OCCURRENCE TEST'S VERDICT IS A FUNCTION OF THE PARAMETER
+ARGUMENTS ALONE** (task #315 L-B): so it is the same at the whole spine
+as at any prefix long enough to carry them. -/
+private theorem nestedOccOk_take_congr {I : Name} {names : List Name} {nP : Nat}
+    {as bs : List Expr} (h : as.take nP = bs.take nP) :
+    nestedOccOk I names nP as = nestedOccOk I names nP bs := by
+  unfold nestedOccOk
+  simp only [h]
+
+/-- **THE OCCURRENCE TEST'S TWO VERDICTS** (task #315 L-B): a `true`
+says some parameter argument mentions a name of the growing list, and
+the `.ok` says none of them carries a loose bound variable. -/
+private theorem nestedOccOk_verdicts {I : Name} {names : List Name} {nP : Nat}
+    {args : List Expr} (h : nestedOccOk I names nP args = .ok true) :
+    ((args.take nP).any fun a => names.any fun T => a.mentionsConst T) = true ∧
+    (∀ a ∈ args.take nP, a.looseBVarsBounded 0 = true) := by
+  unfold nestedOccOk at h
+  dsimp only at h
+  split at h
+  · close_throw
+  · rename_i hcond
+    simp only [Except.ok.injEq] at h
+    refine ⟨h, ?_⟩
+    rw [h, Bool.true_and] at hcond
+    have hl : ((args.take nP).any fun a => !a.looseBVarsBounded 0) = false := by
+      simpa using hcond
+    intro a ha
+    have := List.any_eq_false.mp hl a ha
+    simpa using this
+
 /-- **THE BACKWARDS INVERSION** (task #315 L-B, DESIGN "the backwards
-inversion"): a walk whose OUTPUT is headed by a constant its INPUT does
-not name has fired, and the firing identifies the input's head as a
-RECORDED CONTAINER together with the pin at its parameter arguments.
+inversion"): a walk whose OUTPUT is headed by a constant its INPUT is
+not headed by has fired at the TOP, and the firing gives the input's
+head as a RECORDED CONTAINER, the pin at its parameter arguments, and
+the output as the MIMIC applied to the walk's parameters and the
+occurrence's indices.
 
 This is `replaceAllNested_occurrence` read the other way round, and it
 is what an `ordF`-RIGHT field at a PIN target wants: the auxiliary
@@ -1687,10 +1641,19 @@ block's classification says the STORED domain is headed by the mimic at
 field's normalised domain `w` reads in, so `w` is the CONTAINER's
 application — with no analysis of `w`'s syntax anywhere.
 
+**The fire is at the TOP even though the inversion finds it at a
+prefix.**  `nestedOccOk`'s verdict depends only on `args.take ci.nP`,
+which every prefix long enough to be tested shares with the whole spine
+(`nestedOccOk_take_congr`), and the shorter prefixes decline on the
+length test.  The walk is top-down, so the whole spine was offered
+first: a prefix that fires means the top fired.  That is what yields the
+OUTPUT's shape and not merely its head — and the shape is what ties the
+copy's recorded index expressions to `w`'s own index arguments.
+
 The side condition is stated at the HEAD, which is all the proof uses
-and all a consumer can cheaply supply: it is NOT a preservation
-property of the positivity walk, but a consequence of `w` READING at
-the members-only environment — `denoteMeta_head_ne_fresh`
+and all a consumer can cheaply supply: it is NOT a preservation property
+of the positivity walk, but a consequence of `w` READING at the
+members-only environment — `denoteMeta_head_ne_fresh`
 (`Model/Inductives/NestedCopyFound.lean`) off the `denoteMeta` conjunct
 `copyFieldReadCoreQ` already returns. -/
 theorem replaceAllNested_container_head {A : Name} {us : List Level}
@@ -1699,50 +1662,48 @@ theorem replaceAllNested_container_head {A : Name} {us : List Level}
     (hhead : e'.getAppFn = Expr.const A us)
     (hfree : e.getAppFn ≠ Expr.const A us) :
     ∃ (I : Name) (lvls : List Level) (cv : ConstantVal) (caps : IndCaps)
-      (ci : ContainerInfo) (q : NestedPin) (st₁ : ElimState),
+      (ci : ContainerInfo) (q : NestedPin),
       e.getAppFn = Expr.const I lvls ∧
         env.find? I = some (.indInfo cv caps) ∧
         containerInfo? env I = some ci ∧
         ci.nP ≤ e.getAppArgs.length ∧
-        q ∈ st₁.pins ∧
+        q ∈ st'.pins ∧
         q.pin = Expr.mkAppN (.const I lvls) (e.getAppArgs.take ci.nP) ∧
-        e'.getAppFn = Expr.const q.aux blvls ∧
-        st.pins <+: st₁.pins ∧ st₁.pins.length ≤ st'.pins.length := by
+        e' = Expr.mkAppN (Expr.mkAppN (.const q.aux blvls) params)
+              (e.getAppArgs.drop ci.nP) := by
   have hna : ∀ f a, e.getAppFn ≠ Expr.app f a := getAppFn_not_app e
   have hsp : Expr.mkAppN e.getAppFn e.getAppArgs = e := Expr.mkAppN_getApp e
-  rw [← hsp] at hrun
-  rcases replaceAllNested_head_or_fire hna e.getAppArgs hrun hhead with hcst | ⟨k, r, hr, hrh, hrs⟩
+  have hrun' : replaceAllNested env blvls params pbs₀ st
+      (Expr.mkAppN e.getAppFn e.getAppArgs) = .ok (e', st') := by rw [hsp]; exact hrun
+  rcases replaceAllNested_head_or_fire hna e.getAppArgs hrun' hhead with hcst | ⟨k, r, hr⟩
   · exact absurd hcst hfree
-  obtain ⟨I, lvls, cv, caps, ci, q, st₁, hpre, hfind, hci, hlen, hqm, hqp, hrs'⟩ :=
-    replaceIfNested_fire_pin hr
-  -- the fired prefix's head is the spine's head, and its parameter
-  -- arguments are the spine's (the prefix is at least `ci.nP` long)
+  obtain ⟨I, lvls, cv, caps, ci, hfnP, hfind, hci, hlenP, hocc⟩ := replaceIfNested_fire_inv hr
   have hargs : (Expr.mkAppN e.getAppFn (e.getAppArgs.take k)).getAppArgs
       = e.getAppArgs.take k := by
     rw [Expr.getAppArgs_mkAppN, getAppArgs_of_not_app hna, List.nil_append]
-  rw [hargs] at hlen hqp
   have hfn : e.getAppFn = Expr.const I lvls := by
-    have hc := congrArg Expr.getAppFn hpre
-    rwa [Expr.getAppFn_mkAppN, Expr.getAppFn_mkAppN, getAppFn_of_not_app hna] at hc
-  simp only [List.length_take] at hlen
+    rwa [Expr.getAppFn_mkAppN, getAppFn_of_not_app hna] at hfnP
+  rw [hargs] at hlenP hocc
+  simp only [List.length_take] at hlenP
   have hnPk : ci.nP ≤ k := by omega
   have hnPlen : ci.nP ≤ e.getAppArgs.length := by omega
-  have hst₁ : st₁ = r.2 := by rw [hrs']
-  refine ⟨I, lvls, cv, caps, ci, q, st₁, hfn, hfind, hci, hnPlen, hqm,
-    by rw [hqp, List.take_take, Nat.min_eq_left hnPk], ?_, ?_, ?_⟩
-  · rw [hrh, hrs']
-    simp only [Expr.getAppFn_mkAppN, Expr.getAppFn]
-  · rw [hst₁]
-    exact (replaceIfNested_pins_prefix hr).1
-  · rw [hst₁]; exact hrs
+  -- the top fired too: the verdict is the prefix's
+  have hoccFull : nestedOccOk I st.newNames ci.nP e.getAppArgs = .ok true :=
+    (nestedOccOk_take_congr (I := I) (names := st.newNames)
+      (by rw [List.take_take, Nat.min_eq_left hnPk])).trans hocc
+  obtain ⟨hment, hloose⟩ := nestedOccOk_verdicts hoccFull
+  have he : e = Expr.mkAppN (.const I lvls) e.getAppArgs := by
+    rw [← hfn]; exact hsp.symm
+  obtain ⟨q, hqm, hqp, hqe⟩ :=
+    replaceAllNested_occurrence he hfind hci hnPlen hment hloose hrun
+  exact ⟨I, lvls, cv, caps, ci, q, hfn, hfind, hci, hnPlen, hqm, hqp, hqe⟩
 
 /-- **THE FIRED PIN IS ONE THE WALK WENT IN WITH** (task #315 L-B):
 `replaceAllNested_container_head` at a walk that MINTS NOTHING — which
 is exactly what K.51's two length conjuncts certify about the
-elimination's own rewrite at the FINAL state.  The step's pins are a
-prefix of the walk's output's and the output's have the length the walk
-started with, so the prefix is an equality and the fire took the `find?`
-branch. -/
+elimination's own rewrite at the FINAL state.  The walk's pins are a
+prefix of its output's and the output's have the length it started with,
+so the prefix is an equality and the pin can be named by its INDEX. -/
 theorem replaceAllNested_container_head_stable {A : Name} {us : List Level}
     {st st' : ElimState} {e e' : Expr}
     (hrun : replaceAllNested env blvls params pbs₀ st e = .ok (e', st'))
@@ -1757,11 +1718,12 @@ theorem replaceAllNested_container_head_stable {A : Name} {us : List Level}
         ci.nP ≤ e.getAppArgs.length ∧
         q ∈ st.pins ∧
         q.pin = Expr.mkAppN (.const I lvls) (e.getAppArgs.take ci.nP) ∧
-        e'.getAppFn = Expr.const q.aux blvls := by
-  obtain ⟨I, lvls, cv, caps, ci, q, st₁, hfn, hfind, hci, hnP, hqm, hqp, hah, hpre, hle⟩ :=
+        e' = Expr.mkAppN (Expr.mkAppN (.const q.aux blvls) params)
+              (e.getAppArgs.drop ci.nP) := by
+  obtain ⟨I, lvls, cv, caps, ci, q, hfn, hfind, hci, hnP, hqm, hqp, hqe⟩ :=
     replaceAllNested_container_head hrun hhead hfree
-  have hlen : st₁.pins.length ≤ st.pins.length := Nat.le_trans hle hstable
-  have heq : st.pins = st₁.pins := hpre.eq_of_length_le hlen
-  exact ⟨I, lvls, cv, caps, ci, q, hfn, hfind, hci, hnP, heq ▸ hqm, hqp, hah⟩
+  have hpre := (replaceAllNested_pins_prefix e hrun).1
+  have heq : st.pins = st'.pins := hpre.eq_of_length_le hstable
+  exact ⟨I, lvls, cv, caps, ci, q, hfn, hfind, hci, hnP, heq ▸ hqm, hqp, hqe⟩
 
 end ConLeche

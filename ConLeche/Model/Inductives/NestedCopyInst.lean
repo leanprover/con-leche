@@ -6419,7 +6419,10 @@ theorem NestedPinsRun.copyOrdFRightPinCorr {pbs : List (Expr × ConLeche.BinderM
       w.getAppFn = Expr.const I lvls ∧
       ConLeche.containerInfo? env I = some ci' ∧
       ci'.nP ≤ w.getAppArgs.length ∧
-      (pinAtE st qq).pin = Expr.mkAppN (.const I lvls) (w.getAppArgs.take ci'.nP) := by
+      (pinAtE st qq).pin = Expr.mkAppN (.const I lvls) (w.getAppArgs.take ci'.nP) ∧
+      x'.fvarTypeD = Expr.mkAppN
+        (Expr.mkAppN (.const (pinAtE st qq).aux (p.lps.map Level.param)) params)
+        (w.getAppArgs.drop ci'.nP) := by
   classical
   obtain ⟨cc, J, ci, cI, cA, cname, hciP, hJmem, hcc, hn, hty, hnf, hJname, hinstCI,
     hcj, hcA, hbc, hnF⟩ := R.ctorPair SF S hPD hi' hj
@@ -6469,8 +6472,11 @@ theorem NestedPinsRun.copyOrdFRightPinCorr {pbs : List (Expr × ConLeche.BinderM
   have hhead : x'.fvarTypeD.getAppFn = Expr.const ft.cvTa.name (b.lps.map Level.param) := by
     rw [hstoredHead, hnameT]
   -- ==== the rewrite, backwards ====
-  obtain ⟨I, lvls, cv, caps, ci', qn, hfn, hfind, hci', hnP, hqm, hqp, hauxHead⟩ :=
+  obtain ⟨I, lvls, cv, caps, ci', qn, hfn, hfind, hci', hnP, hqm, hqp, hqe⟩ :=
     ConLeche.replaceAllNested_container_head_stable hrep hhead hfree hstable
+  have hauxHead : x'.fvarTypeD.getAppFn = Expr.const qn.aux (p.lps.map Level.param) := by
+    rw [hqe, Expr.getAppFn_mkAppN, Expr.getAppFn_mkAppN]
+    rfl
   have hqaux : ft.cvTa.name = qn.aux := (ConLeche.Expr.const.inj (hhead.symm.trans hauxHead)).1
   -- ==== the pin's INDEX, off the block's `Nodup` member names ====
   obtain ⟨qq, hqq⟩ := List.getElem?_of_mem hqm
@@ -6484,7 +6490,7 @@ theorem NestedPinsRun.copyOrdFRightPinCorr {pbs : List (Expr × ConLeche.BinderM
       (by rw [List.getElem?_map, hft]; rfl)
       (by rw [List.getElem?_map, hfM]; simp only [Option.map_some]; rw [hnameEq])
   exact ⟨I, lvls, ci', qq, hqqLt, by rw [htgtEq, hidx], hfn, hci', hnP,
-    by rw [hpinAtE]; exact hqp⟩
+    by rw [hpinAtE]; exact hqp, by rw [hpinAtE]; exact hqe⟩
 
 /-- **`CopyCtorShape.ordF`'s LEFT arm, SEMANTICALLY** (task #315 L-B):
 at every field the auxiliary block classifies ordinary, the copy's
