@@ -2494,4 +2494,84 @@ theorem nestedPinRootPairOk_inv {env : Env} {p : NestedParts} {b : MutualBlock}
           (st.pins.getD q default).pin ∈ own) :=
   nestedPinRootPairAt_inv h hq
 
+/-! ## K.37's rank clauses, inverted (task #315, lane L-E's request)
+
+`nestedPinRankOk` (`Kernel/Inductives/NestedInstall.lean`) had ONE use —
+`nestedPinChecks_inv`, which stops at the Bool being `true`.  This is the
+way in: the edge list EXISTS (the Bool is `false` at `none`, so the
+existence is part of the statement, not a side condition), and the four
+clauses hold at `nestedPinInstOf`/`nestedPinRankOf`, the two lists the
+model reads.
+
+**Clauses (1) and (2) are folded into ONE disjunction on purpose**: the
+model never reads an edge's OWNERSHIP bit.  An own edge gives the
+instance equality, a not-own edge gives the disjunction, and the
+consumer's conclusion is the disjunction either way — so the edge
+relation may be `∃ own, (q, q', own) ∈ edges` and `mentionsMember` is
+never computed on the model side.  That is what keeps this a boolean
+inversion with no term traversal, in `nestedPinRootPairAt_inv`'s idiom. -/
+
+theorem nestedPinRankAt_inv {st : ElimState} {edges? : Option (List (Nat × Nat × Bool))}
+    (h : nestedPinRankAt st edges? = true) :
+    ∃ edges, edges? = some edges ∧
+      -- (1)+(2) an edge stays in the instance or DROPS the rank
+      (∀ e ∈ edges,
+        (nestedPinInstAt st edges?).getD e.1 0 = (nestedPinInstAt st edges?).getD e.2.1 0 ∨
+          (nestedPinRankListAt st edges?).getD e.2.1 0
+            < (nestedPinRankListAt st edges?).getD e.1 0) ∧
+      -- (3) the rank is a function of the instance
+      (∀ q t, q < st.pins.length → t < st.pins.length →
+        (nestedPinInstAt st edges?).getD q 0 = (nestedPinInstAt st edges?).getD t 0 →
+        (nestedPinRankListAt st edges?).getD q 0 = (nestedPinRankListAt st edges?).getD t 0) ∧
+      -- (4) a mint group is one instance
+      (∀ q, q < st.pins.length →
+        (nestedPinInstAt st edges?).getD q 0
+          = (nestedPinInstAt st edges?).getD (st.pins.getD q default).grpBase 0) := by
+  cases hed : edges? with
+  | none => rw [hed] at h; simp [nestedPinRankAt] at h
+  | some edges =>
+  rw [hed] at h
+  simp only [nestedPinRankAt, Bool.and_eq_true, beq_iff_eq, List.all_eq_true] at h
+  obtain ⟨⟨⟨-, h3⟩, h4⟩, h12⟩ := h
+  refine ⟨edges, rfl, ?_, ?_, ?_⟩
+  · intro e he
+    have hb := h12 e he
+    simp only [nestedPinInstAt, nestedPinRankListAt]
+    split at hb
+    · exact Or.inl (by simpa using hb)
+    · rcases Bool.or_eq_true _ _ |>.mp hb with hb' | hb'
+      · exact Or.inl (by simpa using hb')
+      · exact Or.inr (by simpa using hb')
+  · intro q t hq ht hqt
+    simp only [nestedPinInstAt, nestedPinRankListAt] at hqt ⊢
+    have hb := h3 q (List.mem_range.mpr hq) t (List.mem_range.mpr ht)
+    rcases Bool.or_eq_true _ _ |>.mp hb with hb' | hb'
+    · exact absurd (by simpa using hqt) (by simpa using hb')
+    · simpa using hb'
+  · intro q hq
+    have hb := h4 q (List.mem_range.mpr hq)
+    simp only [nestedPinInstAt]
+    simpa using hb
+
+/-- K.37's clauses at the lists the model reads. -/
+theorem nestedPinRankOk_inv {env : Env} {p : NestedParts} {b : MutualBlock}
+    {st : ElimState} {stored : List AuxStored}
+    (h : nestedPinRankOk env p b st stored = true) :
+    ∃ edges, nestedPinEdges env p b st stored = some edges ∧
+      (∀ e ∈ edges,
+        (nestedPinInstOf env p b st stored).getD e.1 0
+            = (nestedPinInstOf env p b st stored).getD e.2.1 0 ∨
+          (nestedPinRankOf env p b st stored).getD e.2.1 0
+            < (nestedPinRankOf env p b st stored).getD e.1 0) ∧
+      (∀ q t, q < st.pins.length → t < st.pins.length →
+        (nestedPinInstOf env p b st stored).getD q 0
+          = (nestedPinInstOf env p b st stored).getD t 0 →
+        (nestedPinRankOf env p b st stored).getD q 0
+          = (nestedPinRankOf env p b st stored).getD t 0) ∧
+      (∀ q, q < st.pins.length →
+        (nestedPinInstOf env p b st stored).getD q 0
+          = (nestedPinInstOf env p b st stored).getD
+              (st.pins.getD q default).grpBase 0) :=
+  nestedPinRankAt_inv h
+
 end ConLeche
