@@ -313,12 +313,21 @@ each checked against the tree:
   local and the two composition laws are `rfl`; every non-nested route
   has no pins, so `Ψaux := Φ` and the laws are trivial.  Eight law
   sites, all but one vacuous.  No kernel change.
-* *The instance is the* closure, *not the kernel's mint partition, and it
-  is computable model-side.*  The container's own pins are a stored field
-  of its block model; matching them against the block's pins is a pure
-  function of data the model already holds.  (The kernel's partition of
-  pins by which type minted them is a different, coarser thing and is not
-  what the segment needs.)
+* *The instance is the* closure, *not the kernel's mint partition.*  The
+  container's own pins are a stored field of its block model, and the
+  segment is that table matched against the block's pins.  (The kernel's
+  partition of pins by which type minted them is a different, coarser
+  thing and is not what the segment needs.)  **The matching is not an
+  injection.**  The expansion mints one copy per distinct pin
+  EXPRESSION, so two of the container's own pins whose components differ
+  only in parameter positions the block instantiates alike arrive at one
+  copy — `K α (J α β)` and `K β (J α β)` at `α = β`.  Two of the
+  container's classes then share a component of the block's tuple, and
+  the index-set form of Bekić, which is stated for an injection, does
+  not apply as it stands.  What it wants instead is the tuples that are
+  constant on the matching's fibres, and the container's operator
+  preserving them; the two classes do agree there, because a shared copy
+  means one container, one instantiation and hence one row.
 * *Contiguity is not required.*  The kernel's worklist does interleave
   instances (two nested containers in one constructor mint both roots
   before expanding either — an accepted input), and Bekić's segment
@@ -519,6 +528,20 @@ the RUN — the instance map from the container's pin table, the two
 facts about where that map sends a field's target, and the own-pin
 half's own premises — so the tree still takes the long way round
 (Resolution 3) at the one site that consumes the identification.
+
+**And one of those inputs is not the shape the assembled theorem
+takes.**  It asks the instance map to be an injection; the expansion's
+dedup by pin expression makes it one only when no two of the
+container's own pins instantiate alike, and a three-line block exhibits
+the collapse.  So the identification's set-theoretic layer has one more
+restatement in front of it — the comparison stated on the tuples
+constant along the matching's fibres rather than on an injective
+segment — before its inputs are worth reading off the run at all.  The
+container's side of that is a fact about a type already installed: two
+classes sharing a copy share a container, an instantiation and a row.
+(The colliding shape is also one this checker rejects today, in its
+model generator rather than in its kernel, so no accepted stream
+exhibits it yet.)
 
 Beyond these three the residue is unchanged: the component family at
 instance roots whose components mention other pins, an induction over
