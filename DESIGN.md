@@ -93817,3 +93817,94 @@ no-local-paths OK; overview-links 112, no anchor moved; quote-gate 2;
 shake 511 removals all allowlisted; pub-imports 1315 of 2147, none
 demotable; nested-shadow 28/28.  `tests/arena.sh` not re-run: the
 session touches no checker code.
+
+#### U.84 — L-B session 26: the COMPONENTS' READING, written in one pass; and the last three clauses need per-pin data the record does not carry (lane L-B, 2026-09-18)
+
+##### (a) `PinCorr`'s `Ds` CLAUSE, LANDED (commit `90b4b2f3`)
+
+The block pin's components read as the container's pin's components
+instantiated at the outer pin's.  The chain is the one §U.82 (c)
+recorded and §U.83 (c) completed, and it went through **without a
+revision** — the value of having verified it first:
+
+* `mintFieldRead` gives the minted domain's reading at the field's own
+  depth; `BlockCtorData.nestEntry` puts the container's nested field in
+  PIN form — its pin's container applied to the pin's components
+  LIFTED over the field binders, and the index readings;
+* step one's spine with `hfcs'` says the minted domain IS that
+  application syntactically, and the SECOND instantiation layer on its
+  arguments (at the minted constructor's own openers) is the IDENTITY
+  because the pin's components are loose-`bvar`-free — step two's
+  `hloose`, earning its keep a second time;
+* `denoteMeta_mkAppN_inv` and `AnnotTerm.mkAppN_inj` split the reading
+  at the components; the lengths come off `IsBlockModel.pinShape` and
+  `BlockCtorData.nestEisLen` — **the nested twin of `eisLen`**, which
+  matters because `eisLen` and `eisLenRefl` are both stated for
+  `nest i = none` and a first look suggests the nested case has no
+  index-count clause.  It does, under its own name;
+* `NestedPinSynFacts.pinDs` reads the BLOCK pin's components one depth
+  lower; `DenoteMetaSpine.map_map` over `denoteMeta_lift` lifts that
+  spine to the field's depth, `unique` matches the two, and
+  `instAll_liftN0` then `liftN0_inj` cancel the lift.
+
+##### (b) THE LAST THREE CLAUSES — a counted gap, and an EXPOSURE request
+
+`EA`, `u` and `Ids` all reduce to the same thing: the BLOCK pin's
+semantic data at index `qq` against the CONTAINER's pin's at the
+composed level assignment.  `NestedPinSynFacts` carries, for EVERY
+pin, its syntactic data (`pinRec`: the container name, the level
+arguments, the components as `Expr`s) and its components' READING
+(`pinDs`) — and nothing else.  Counted over the record's 1149 lines:
+`.u` occurs ZERO times, `.Ids` once and inside `NestedPinsIdsAt`'s
+body rather than as a clause, and every `ψJ` occurrence is either a
+DEFINITION or group-indexed.
+
+So the three clauses need the per-pin characterisation of `ψJ`, `u` and
+`Ids`.  **It is an exposure job, not a proof**: the consumer's own
+definition of a pin's syn data supplies exactly them —
+
+```
+    ψJ := fun ψ => Level.substFn ψ (memberOf env st q (q - (pinAtE st q).grpBase)).lps
+                     (srcAtE st p q).2.1
+    u  := fun ψ => (blockOf m (baseInfo env st q)).uM (q - (pinAtE st q).grpBase)
+```
+
+— a pin's level assignment IS the substitution at its own container's
+level parameters, and its index universe and index telescope ARE its
+container block model's at the group-relative index.  **Request to the
+lane that owns `NestedPins.lean`**: one clause carrying those three for
+every pin.  With it, `EA` is `Level.substFn_map_subst` over (a)'s `Ds`
+clause and the `J`/`lvls` clauses already carried, and `u`/`Ids` are
+immediate.
+
+This is the same SHAPE as §U.78 (a)'s environment story — true where
+the record is built, not exposed in the abstract record — but the
+opposite outcome: there the equation was FALSE and the request was
+refused, here the definition gives it outright.  Worth keeping both
+cases side by side, because "true at the construction site" is not by
+itself a reason to expect a clause.
+
+##### (c) THE LEDGER, CHECKED AGAINST THE MERGE
+
+Integration 3r (`agent/uniform-315` `3b9b3c3f`) took this lane through
+`4bc9f9cc`.  Checked rather than assumed:
+`nestedPinsShape_of` there takes **THREE** residuals, not five —
+`NestedPinsShapeK42` and `NestedPinsShapeRunM` have both CLOSED (the
+kernel's widened filter and lane L-E's `hK42` field met them), and what
+remains is `NestedPinsShapeOrdRight` (the pin-target half),
+`NestedPinsShapeOrdRightRefl` (REFUTED, awaiting the repaired
+`EntryRead`) and `NestedPinsShapePinF`.  `henv₀` is a hypothesis on
+`copyPinFCorr` rather than a residual, and the monotonicity clause
+retires it.  Sessions 24 to 26 are NOT in that merge and ride the next
+one.
+
+##### (d) GATES
+
+`lake build` 716 jobs warning-free; `lake build ConLecheTests` 572 jobs
+warning-free; layering base 351 / model 282 / caps 3 / umbrella 1, 0
+base->lane and 0 impl->theory; trust surface 13/5 (648 scanned);
+no-local-paths OK; overview-links 112, no anchor moved; quote-gate 2;
+**proofdeps 4965 rows / 12 roots / 0 doors** (the baseline, unmoved);
+shake 511 removals all allowlisted; pub-imports 1315 of 2147, none
+demotable; nested-shadow 28/28.  `tests/arena.sh` not re-run: the
+session touches no checker code.  Standard axioms on `copyPinFCorr`.
