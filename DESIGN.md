@@ -106749,3 +106749,94 @@ this lane cannot price it.  **8–11 unchanged**, with the note that one
 of its rows has moved lanes.
 
 Nothing in this section changes the tree.
+
+#### (number at the integrator's sync) — L-E: ADJUDICATION — lane L-B is right on all three points, and this lane RETRACTS "not an ordering one" (lane L-E, 2026-09-18)
+
+Checked, not argued.  **All three of L-B's points hold, K.57's consumer
+survives, and the answer to its blocking question is (b).**
+
+##### (a) POINT ONE — `frSelf`, not `cAs`.  CORRECT
+
+In this lane's own `EntryReadF`, `cAs` occurs only in the hypothesis's
+spine fit (`TV.frameAt cAs ρp (tg l)`).  The container's field domain is
+read at `frSelf`, inside `CopyEntryAtF`.  **So `frSelf` is the parameter
+that must become the candidate frame**, and the tree holds no candidate
+value for it: `CandParamFit` and `CandIdxAgree` are side conditions ON
+such a family, and its production is the scope call this lane left open.
+Recorded at `EntryReadF` itself, not only here.
+
+##### (b) POINT TWO — the arrow is not a lemma.  CORRECT
+
+`CopyCtorShape.fit_imp_T_le_dom`'s `hentR` reads the container's side at
+`ρJ`, the local notation for the RECORDED frame
+(`NestedFit.lean:1171–1173`), and its proof turns on `slotSet_instTele`
+and `interp_instAll` — the two commutations this lane's own refutation
+showed force the frame.  So `CopyEntryAtF` at a candidate `frSelf` is
+**not** `hentR`, and the arrow in the chain this lane reported does not
+exist.  (`copyFieldReadPin`, which L-B also names, is not in this tree —
+presumably its own working branch; the point stands without it.)
+
+##### (c) POINT THREE — the docstring was right and the summary was wrong
+
+The `pins_le_of_declOrder` docstring said the constant-headed arm
+consumes the declaration-order hypothesis.  Checked at the object:
+
+> `Array`'s field domain `List α`, at a candidate frame `α ↦ L⁺`,
+> evaluates to `List`'s LEAST TUPLE at that argument — the inner pin's
+> `pinLfpAt`, **not** the inner pin's `L⁺`.  Closing that gap is the
+> conclusion at the inner pin.
+
+**So the candidate frame does not supersede the constant-headed arm, and
+neither does `auxTarget_reads`.**  The docstring's substance stands; only
+its retracted 35/59 counts were stale, and those are now removed.
+
+##### (d) THE OBJECTS, named — the coordinator's reading is the right one
+
+| claim | object |
+| --- | --- |
+| `auxTarget_reads` removes the ordering | the TARGET'S READING — `hZ` of `copyEntryAtF_of_read`, previously routed through `pinTarget_reads` and landing on the container's least tuple; now landing on `L⁺` with no `P` anywhere |
+| L-B's obstacle | the CONTAINER'S FIELD DOMAIN — `hentR`, at a copy-recursive field |
+
+Both are true.  **This lane's word "remaining" covered only the first
+and was written as if it covered both.  That is the error, and it is
+retracted.**
+
+##### (e) THE ANSWER TO L-B'S QUESTION: (b), with the restriction stated
+
+`EntryReadF` at the candidate frame is **not** askable at all edges.
+
+* **Member target** — not an edge; `ofNested_lfp`.
+* **Parameter-headed pin target** — no hypothesis at another pin, but
+  NOT free: it needs the candidate frame, whose component family has no
+  producer.
+* **Constant-headed pin target** — needs the candidate frame AND the
+  conclusion at the inner pin.  **K.57's consumer survives here.**
+
+So: `EntryReadF` is asked at parameter-headed edges with no ordering
+input, and at constant-headed edges only together with the induction.
+L-B should state it with that restriction and proceed; nothing this lane
+has landed supersedes the constant-headed arm.
+
+##### (f) WHAT STANDS, unretracted
+
+`auxTarget_reads` is unaffected: every target reads as the auxiliary
+carrier, members and copies alike, no case, no cross-pin hypothesis.
+What it buys is precisely that the `hZ` side no longer routes through
+`P`.  That is a real advance and a smaller one than this lane reported.
+
+`pinLfpAt_le`, the five frame-generalisations and `pins_all_of_measure`
+are likewise unaffected — none of them claimed anything about `hentR`.
+
+##### (g) THE LESSON, and it is the day's sixth refutation
+
+Five of the six were caught by checking; this one was caught by ANOTHER
+LANE, because this lane summarised across two objects without naming
+them.  The rule the route already carries — read the position, not the
+head — has a twin: **name the object a claim is about, especially when
+two obligations share a proof.**  A summary that is true of one and
+stated of both is indistinguishable from a false claim to the lane that
+consumes it.
+
+K.57 keeps its consumer.  Nothing to route.
+
+Nothing in this section changes the tree.

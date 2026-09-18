@@ -4607,23 +4607,41 @@ relation for `pins_le_of_instanceLe`: **this lane produces neither an
 edge nor an order.**
 
 What the step is handed is the conclusion at every pin whose container
-is declared STRICTLY EARLIER, which is what the three arms of the
-restated ordinary-field case need:
+is declared STRICTLY EARLIER.  **The obligation this serves is the
+CONTAINER'S FIELD DOMAIN at a copy-recursive field, `hentR` of
+`CopyCtorShape.fit_imp_T_le_dom` — NOT the target's reading.**  Keeping
+those two apart is the whole of the correction recorded below; they were
+run together once and the error cost lane L-B a blocked session.
 
-* a MEMBER-headed domain needs nothing — the carrier's member segment
-  IS the block's own least tuple (`ofNested_lfp`);
-* a PARAMETER-headed domain needs nothing either, and that is the whole
-  point of the candidate frame: the domain at that position IS the
-  block-side slot's tuple, so the fit pins the element without any
-  hypothesis (35 of the 94 measured edges);
-* a CONSTANT-headed domain at a container declared strictly earlier is
-  the one arm that consumes the hypothesis (59 of 94, all measured
-  strictly earlier, K.57).
+By the field domain's head, at a PIN target:
+
+* a MEMBER target needs nothing — the carrier's member segment IS the
+  block's own least tuple (`ofNested_lfp`), and this is not an edge;
+* a PARAMETER-headed domain consumes no hypothesis AT ANOTHER PIN, but
+  it is not free: at the RECORDED frame it evaluates to the component's
+  true value, so it needs the CANDIDATE frame, whose component family
+  has no producer in the tree yet;
+* a CONSTANT-headed domain **consumes this hypothesis, and consumes it
+  AT THE CANDIDATE FRAME TOO.**  `Array`'s field `List α` at a candidate
+  `α ↦ L⁺` evaluates to `List`'s least tuple at that argument, which is
+  the inner pin's `pinLfpAt` — not the inner pin's `L⁺`.  Closing the
+  gap is the conclusion at the inner pin, which is this induction.  The
+  candidate frame does NOT supersede this arm, and `auxTarget_reads`
+  does not either: that lemma is about the TARGET'S READING, a different
+  object.
 
 Pins sharing one container never appear in the step's hypothesis, which
-is why the measurement's "strictly earlier" is load-bearing rather than
-decorative: a constant-headed target at the SAME container — `K (K X)`
-— would leave the step with nothing, and the corpus has none. -/
+is why "strictly earlier" is load-bearing rather than decorative: a
+constant-headed target at the SAME container — `K (K X)` — would leave
+the step with nothing, and this lane's own probe found such an edge to
+be structurally impossible (the own bit makes a domain mentioning its
+own container OWN by definition).
+
+(The per-arm edge counts this docstring used to carry are withdrawn: the
+coordinator retracted the two-way 35/59 split as a measurement of a
+coarser distinction than it was described as.  The three-valued
+classification — parameter-bare, parameter-applied, constant-applied —
+replaces it, and no count is load-bearing in any proof.) -/
 theorem pins_le_of_declOrder {n k : Nat} {Is P L : Nat → V} {ord : Nat → Nat}
     (hstep : ∀ q, q < n →
       (∀ q', q' < n → ord q' < ord q → FamLe (Is (k + q')) (P q') (L (k + q'))) →

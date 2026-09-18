@@ -776,7 +776,22 @@ frame appears in `EntryRead`:
 * `frSelf` — this copy's OWN frame, which is what `CopyEntryAtF` reads
   the container's side at.
 
-`entryRead_iff_F` is `Iff.rfl`, so no consumer moves. -/
+`entryRead_iff_F` is `Iff.rfl`, so no consumer moves.
+
+**WHICH PARAMETER CARRIES THE OBLIGATION — checked after lane L-B
+disputed it, and L-B was right.**  `cAs` occurs ONLY in the hypothesis's
+spine fit.  The container's field domain is read at `frSelf`, inside
+`CopyEntryAtF`, so **`frSelf` is the parameter that must become the
+candidate frame**, and the tree holds no candidate value for it:
+`CandParamFit` and `CandIdxAgree` are side conditions ON such a family,
+not a construction of one.
+
+**AND THIS DOES NOT REACH `hentR`.**  `CopyCtorShape.fit_imp_T_le_dom`'s
+`hentR` reads the container's side at the local notation `ρJ`, the
+RECORDED frame, and its proof turns on `slotSet_instTele … Ds ρp` and
+`interp_instAll` — the two commutations that force the frame.  So
+`CopyEntryAtF` at a candidate `frSelf` is not `hentR`, and the step
+between them is not a lemma in this tree. -/
 @[expose] def EntryReadF (cAs : Nat → List V) (EAv : Nat → V) (frSelf : Nat → V) (l : Nat) :
     Prop :=
   ∀ Z : Nat → V,
