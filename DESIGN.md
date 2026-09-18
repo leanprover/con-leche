@@ -106662,3 +106662,90 @@ other way: the effort did not stay mechanical, and the reason was that
 the cut was in the wrong place.
 
 Nothing in this section changes the tree.
+
+#### (number at the integrator's sync) — L-E: THE COLLAPSE LEMMA IS PROVED — every target reads as the auxiliary carrier, members and copies alike (lane L-E, 2026-09-18)
+
+`auxTarget_reads`, in `NestedPinLeafAll.lean`.  **For every `t < b.k`,
+with no case on the target and no hypothesis at another pin.**
+
+##### (a) THE STATEMENT
+
+At a spine fitting target `t`'s index telescope, the auxiliary carrier
+at `t` — the FULL `(k + n)`-tuple — applied to the spine's tuple, IS the
+auxiliary block's own leaf reading at `t` applied to the spine:
+
+```
+app (lfpTuple ((D).w ψ) (p.k + pinsS.length) ((D).idx ψ ρp) (ΨA ψ ρp) t)
+    (tupW (nestedU p.k W pinsS ψ t) is)
+  = is.foldl app (interp V ρp (auxTargetRead b.nP t ψ))
+```
+
+with `auxTargetRead nP t ψ := mkAppN (mutMemberLeaf b fms … t ψ)
+(paramBvarsAt nP nP)` — `targetRead`'s MEMBER branch, which `hleafM`
+says IS `m.acval` at a member, and which is defined at a COPY too
+because `mutMemberLeaf` is `tupleLfpAV` over all `b.k` members and
+nothing in it restricts the index.
+
+##### (b) WHY IT IS THE COLLAPSE
+
+`memberTarget_reads` is this lemma at `t < p.k` composed with TWO extra
+steps: Bekić (`ofNested_lfp`, converting the full tuple to the block's
+own `p.k`-tuple) and `hleafM` (supplying a NAME for the reading).
+`pinTarget_reads` is the corresponding statement at a pin and lands on
+the CONTAINER's least tuple instead — and **that difference in carrier,
+not the domain's head, is what made an arm reach for a hypothesis at
+another pin.**
+
+Drop the Bekić step and drop the name, and the two become ONE statement
+at ONE carrier, dispatching on nothing.  The proof is
+`memberTarget_reads`'s with its last line and its `hleafM` rewrite
+removed — shorter than the special case, which is what a collapse should
+look like.  The index-genericity is `tupleLfpAV_fold`'s, already stated
+at an arbitrary `m < k`.
+
+##### (c) WHAT IT SETTLES, STATED CAREFULLY
+
+`auxTarget_reads`' hypotheses are `MutualFormersFacts`, `hbk`, the
+parameter satisfaction, `NestedLfpOk`, `t < b.k` and the spine fit.
+**Every one is a fact about the block as a whole or about `t` alone.
+None is at another pin.**
+
+So it discharges the `hZ` of `copyEntryAtF_of_read` at `Z := L⁺` with no
+ordering input.  The chain to `hentR` is then
+
+```
+EntryReadF (at the candidate frame)  +  auxTarget_reads  ⟹  CopyEntryAtF at L⁺  ⟹  hentR
+```
+
+and the piece that was going to carry the ordering is now a theorem with
+no ordering in it.
+
+**NOT CLAIMED: that the cross-pin hypothesis is gone.**  The remaining
+antecedent is `EntryReadF` AT THE CANDIDATE FRAME, and `EntryRead`'s body
+is semantic (`interp`), so it is a genuinely different claim from L-B's
+at the true frame.  What this lane can say precisely is that **the
+ordering question has moved off this lane's surface and onto lane L-B's:
+what remains is a shape-and-reading obligation, not an ordering one.**
+
+##### (d) K.57 — the message for the kernel lane, when it is routed
+
+* the consumer is `hentR`, at the ordinary-field-to-pin edges;
+* at the true frame it demands `P q' ⊆ L⁺ (p.k + q')`, the inclusion at
+  another pin — that is the declaration-order induction's only consumer;
+* the collapse lemma that removes it is **proved** (`auxTarget_reads`),
+  cross-pin-free;
+* one antecedent remains, and it is L-B's (`EntryReadF` at the candidate
+  frame), not the kernel's.
+
+Still not a licence to touch K.57, and this lane is not asking.
+
+##### (e) PRICE
+
+Clause two's difficulty was the collapse lemma and it came in **well
+under** the 2–3: the lemma is shorter than the special case it
+generalises.  The saving is NOT banked — `EntryReadF` at the candidate
+frame is now the open antecedent and it lands on L-B's surface, where
+this lane cannot price it.  **8–11 unchanged**, with the note that one
+of its rows has moved lanes.
+
+Nothing in this section changes the tree.

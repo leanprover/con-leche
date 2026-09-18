@@ -1793,6 +1793,105 @@ theorem memberTarget_reads
   rw [tupleLfpAV_fold htk hOk' rfl hsp_t his, nestedU_mem ht]
   exact congrArg (fun X => SetTheory.app X (tupW (W ψ) is)) (ofNested_lfp hOk' ht)
 
+/-- **THE TARGET'S READING AT THE AUXILIARY BLOCK, FOR EVERY TARGET**
+(task #315 L-E, the collapse): the auxiliary block's own leaf reading at
+target `t`, applied to the parameter variables.
+
+`targetRead`'s MEMBER branch is this term — that is exactly what
+`hleafM` says, `m.acval` at a member IS `mutMemberLeaf` — and unlike
+`targetRead` it is defined at a COPY too, because `mutMemberLeaf` is
+`tupleLfpAV` over all `b.k` members and nothing in it restricts the
+index.  The copies have readings; only their NAMES are missing. -/
+@[expose] noncomputable def auxTargetRead (nP t : Nat) (ψ : Name → Nat) : AnnotTerm :=
+  AnnotTerm.mkAppN (mutMemberLeaf b fms f₀ ctorsA kinds ppsF W dsF esF eissF tssF t ψ)
+    (paramBvarsAt nP nP)
+
+/-- **THE COLLAPSE LEMMA: EVERY TARGET READS AS THE AUXILIARY CARRIER**
+(task #315 L-E).  At a spine fitting target `t`'s index telescope, the
+auxiliary carrier at `t` — the FULL `(k + n)`-tuple — applied to the
+spine's tuple, is the auxiliary block's own leaf reading at `t` applied
+to the spine.  **For every `t < b.k`: members and copies alike, no case
+on the target.**
+
+**This is what the three-way split collapses to.**  `memberTarget_reads`
+is this lemma at `t < p.k` composed with Bekić (`ofNested_lfp`, which
+converts the full tuple to the block's own `p.k`-tuple) and with
+`hleafM` (which supplies a NAME for the reading).  `pinTarget_reads` is
+the corresponding statement at a pin, and it lands on the CONTAINER's
+least tuple instead — which is the difference that made an arm reach for
+a hypothesis at another pin.  Drop the Bekić step and the name, and the
+two become one statement at one carrier, dispatching on nothing.
+
+Its proof is `memberTarget_reads`'s with the last line and the `hleafM`
+rewrite removed; the index-genericity is `tupleLfpAV_fold`'s, which is
+already stated at an arbitrary `m < k`. -/
+theorem auxTarget_reads
+    (h : MutualFormersFacts V F g mp b fms f₀ ctorsA sortss kinds mp₁ ppsF W idxF dsF esF srcsF
+      fvsPF xFvsF xrestF eissF tssF)
+    (hbk : b.k = p.k + pinsS.length)
+    {ψ : Name → Nat} {ρp : Nat → V} (hρp : Sat V ((D).params ψ).reverse ρp)
+    (hOk : NestedLfpOk (V := V) (nP := b.nP) (k := p.k) (resSort := f₀.s) (ppsA := ppsF) (W := W)
+      (pins := pinsS) (offs := b.ownOffset) (mems := mutMems ctorsA.length (mutMemF b))
+      (nFs := mutNFs ctorsA.length (mutNFOf ctorsA))
+      (tgtsG := mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA))
+      (rss := blkRss ctorsA kinds) (tlss := fun ψ => mutTlss ctorsA.length tssF ψ)
+      (Eiss₀ := fun ψ => mutEiss0 ctorsA.length eissF ψ)
+      (Fss₀ := fun ψ => blkFss0 b ctorsA kinds dsF ψ)
+      (Ess₀ := fun ψ => mutEss0 ctorsA.length esF ψ) ψ ρp)
+    {t : Nat} (ht : t < b.k) {is : List V}
+    (his : SpineFit ρp (blockIds b.nP ppsF ψ t) is) :
+    SetTheory.app
+        (lfpTuple ((D).w ψ) (p.k + pinsS.length) ((D).idx ψ ρp)
+          (nestedΨ (V := V) b.nP p.k f₀.s ppsF W pinsS b.ownOffset
+            (mutMems ctorsA.length (mutMemF b)) (mutNFs ctorsA.length (mutNFOf ctorsA))
+            (mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)) (blkRss ctorsA kinds)
+            (fun ψ => mutTlss ctorsA.length tssF ψ) (fun ψ => mutEiss0 ctorsA.length eissF ψ)
+            (fun ψ => blkFss0 b ctorsA kinds dsF ψ) (fun ψ => mutEss0 ctorsA.length esF ψ)
+            ψ ρp) t)
+        (tupW (nestedU p.k W pinsS ψ t) is)
+      = is.foldl SetTheory.app (interp V ρp
+          (auxTargetRead (b := b) (fms := fms) (f₀ := f₀) (ctorsA := ctorsA)
+            (kinds := kinds) (ppsF := ppsF) (W := W) (dsF := dsF) (esF := esF)
+            (eissF := eissF) (tssF := tssF) b.nP t ψ)) := by
+  have hkT : b.k = fms.length := h.lenFms.symm
+  have hplen : ((D).params ψ).length = b.nP := by
+    show (((ppsF 0 ψ).take b.nP).map (·.2.2)).length = b.nP
+    rw [List.length_map, List.length_take, (h.FD 0 f₀ h.first).len ψ]
+    omega
+  have htl : t < fms.length := by rw [← hkT]; exact ht
+  have hft := fms_get htl
+  obtain ⟨ρ, as, rfl, hsp⟩ := spineOfSat_params (D) hρp
+  have hlenAs : as.length = b.nP := by rw [hsp.length_eq, hplen]
+  have hOk' := hOk
+  have hpar : (paramBvarsAt b.nP b.nP).map (interp V (consList as ρ))
+      = (List.range b.nP).reverse.map (consList as ρ) :=
+    map_paramBvarsAt_interp (nP := b.nP) (e := 0) (ρp := consList as ρ) (σ := consList as ρ)
+      (fun _ => rfl)
+  have hrng : (List.range b.nP).reverse.map (consList as ρ) = as := by
+    rw [← hlenAs]; exact range_reverse_map_consList as ρ
+  unfold auxTargetRead
+  rw [interp_mkAppN_foldl, hpar, hrng, ← List.foldl_append]
+  unfold mutMemberLeaf
+  rw [interp_closed (V := V) (tupleLfpAV_below h.blockOk b.ownOffset
+      ((h.FD _ _ hft).below ψ) ((h.FD _ _ hft).len ψ) ψ) _ ρ]
+  have hsp_t : SpineFit ρ (((ppsF t ψ).take b.nP).map (·.2.2)) as :=
+    spineFit_of_frames (by
+        show (((ppsF 0 ψ).take b.nP).map (·.2.2)).length = _
+        simp only [List.length_map, List.length_take, (h.FD 0 f₀ h.first).len ψ,
+          (h.FD _ _ hft).len ψ]
+        omega)
+      (fun ρ' => (h.frame t _ hft ψ ρ').symm) hsp
+  have hnI : ((ppsF t ψ).drop b.nP).length = (fms.getD t default).nIdx := by
+    rw [List.length_drop, (h.FD _ _ hft).len ψ]
+    exact Nat.add_sub_cancel_left _ _
+  have htk : t < p.k + pinsS.length := by omega
+  rw [← hnI,
+    show mutRss ctorsA.length (mutKsOf kinds) = blkRss ctorsA kinds from rfl,
+    show mutFss0 b.nP ctorsA.length dsF (mutKsOf kinds) (mutNFOf ctorsA) ψ
+      = blkFss0 b ctorsA kinds dsF ψ from rfl, hbk]
+  rw [tupleLfpAV_fold htk hOk' rfl hsp_t his]
+  rfl
+
 /-- The pin's index telescope is the container member's at the pin's
 level assignment (`NestedPinGroup.pinIds` at the syntactic group). -/
 theorem NestedPinGroupSyn.pinIds {st : ElimState} {m : EnvModel V env₂} {q₀ kJ : Nat}

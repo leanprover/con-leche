@@ -102,6 +102,31 @@ stating the obligation at the TRUE frame forces both sides to move
 together, and the circularity that appeared then was the cost of tying
 them.
 
+**THE EFFORT PROFILE IS THE DIAGNOSTIC — the same observation from the
+other side.**  When a cut is real, the work at each site is THE SAME
+WORK; when it is imposed, each site needs its own argument.  Five of
+these frame-generalisations landed first or second try, which is what a
+real cut feels like.  The three-way split by a domain's head needed a
+different argument at each arm, and that asymmetry in EFFORT was the
+signal — visible weeks before K.51 explained it.  And `fit_iff_at`
+resisting a frame parameter is the same signal read the other way: the
+work stopped being mechanical, and the reason was that the cut was in
+the wrong place (the syntactic instantiation DETERMINES the semantic
+frame, so a frame parameter has nowhere to go there).
+
+Together with the rule above this is a method, not two anecdotes: read
+the position rather than the head, and watch whether the work stays the
+same work.
+
+**GREP BEFORE FUNDING — the first step of costing any piece of work on
+this route, not a heuristic.**  Five times a deadlock on this route was
+broken by something the tree already proved: K.51 for the head split,
+`tupleLfpAV_fold`'s index-genericity for the copies' readings, §U.61 for
+head-reading, `nestedPinsFixed` for the section agreement, and
+`CopyCtorShape.fit_imp_T_le_dom` for the family-generic fit.  Cost a
+piece of work by first naming what would discharge it and grepping for
+that name.
+
 **A mechanical trap that recurs at every one of these generalisations.**
 When the generic form stops mentioning an object the specific one
 mentions (`CopyEntryAtF` does not mention `Ds`), their auto-bound
