@@ -93523,3 +93523,104 @@ demotable; nested-shadow 28/28.  `tests/arena.sh` not re-run: the
 session touches no checker code.  Standard axioms on
 `replaceIfNested_loose`, `mutualOpenedOk_recHead`, `copyPinFCorr` and
 the chain probe over the five residuals.
+
+#### U.81 — L-B session 23: step three's index correspondence, two of `PinCorr`'s clauses, and the shared bridge answered — the general form is FALSE (lane L-B, 2026-09-18)
+
+##### (a) THE SHARED OPENED-VERSUS-STRIPPED BRIDGE — answered, and the answer is a refutation
+
+The question put to this lane: is the mention transfer it needed for
+step two the general statement "the field's opened type and the
+corresponding stripped binder's domain have the SAME member-mention
+value", or could it be stated so?
+
+**No, because that statement is FALSE**, and the reason is one line of
+the checker: `Expr.mentionsConst` DESCENDS INTO AN FVAR'S TYPE
+ANNOTATION (`| .fvar _ ty => ty.mentionsConst T`,
+`Kernel/Inductives/StructParts.lean`).  `os_field_domain` instantiates
+the stripped binder at the parameter openers followed by the EARLIER
+FIELD openers, and those openers carry the earlier field domains as
+their annotations.  So a field whose closed domain applies an earlier
+field's variable has an opened domain that mentions whatever that
+earlier domain mentions — a member included — while its own stripped
+binder mentions nothing.  The two values differ exactly there, and a
+dependent constructor is enough to see it.
+
+**Both directions that ARE true are already in the tree, public, in
+the same file as the structural bridge** — `Verify/Inductives/NestedOpenSpine.lean`:
+
+* `os_field_domain_mentions` — the stripped binder mentions it, so the
+  opened field does;
+* `os_field_domain_free` — the opened field is free of it, so the
+  stripped binder is.
+
+Those two are contrapositives of ONE implication, and it is the only
+one available.  So **nothing needs owning**: whichever of the two the
+other lane's proof runs on is already stated and public, and if what it
+needs is the OTHER direction, no lemma will serve and its cut has to
+change.  On the level question: this lane's use is at the run, inside
+`copyOrdFLeft`, with the instantiation equation coming from
+`copyResid` — the same level that lane's cut puts its own, so the two
+are plausibly one obligation, already discharged.
+
+One cleanup falls out: `copyOrdFLeft` proves `os_field_domain_free`'s
+statement INLINE, duplicating the public lemma.  That inline block can
+go; this lane will take it when it next touches the arm.
+
+##### (b) STEP THREE'S FIRST PIECE — the fire's pin is the pin AT the target's index (commit `63d03a1d`)
+
+`PinCorr` compares the block pin at INDEX `tg l - p.k` with the
+container's pin instantiated, and step two handed only membership.  The
+correspondence runs through the NAME and closes on `Nodup`:
+
+1. the rewrite's output is the MIMIC applied — `replaceAllNested_occurrence`'s
+   third component, which step two discarded and this session keeps;
+2. so the given constructor's opened domain is mimic-headed
+   (`os_instSeq_head`) and so is the STORED one
+   (`normCtorValM_domHead`);
+3. `mutualOpenedOk_recHead` says that stored head is the TARGET
+   MEMBER's constant — so the mimic's NAME is the target member's;
+4. `groupCopyFormer` puts the mimic named `(pinAtE st qq).aux` at block
+   position `p.k + qq`, and `MutualBlock.blockNames` is `Nodup`, so the
+   positions coincide: `tg l = p.k + qq`.
+
+`p.k ≤ tg l` — one of `pinF`'s own conjuncts — falls out of the same
+equation.  A module-system note worth keeping: `pinAtE`'s body is NOT
+exposed in this tier, so "the pin at index `qq`" is read off
+`PinData.pin` rather than unfolded.
+
+##### (c) TWO OF THE SIX CLAUSES (commit `fc9cc41f`)
+
+With the index tied, the block pin's own record
+(`NestedPinSynFacts.pinRec`) gives its container and its level
+arguments in ONE equation, and comparing that head with step two's
+splits it: `Expr.const.inj` yields both the `J` clause and the `lvls`
+clause of `PinCorr` at once.  `copyPinFCorr` now carries four of the
+six — those two outright, and the seeds of `EA`/`Ds` in the pin
+expression's arguments.
+
+##### (d) WHAT THE CLAUSES' SESSION OWES
+
+The COMPONENTS' reading: `(pinsS.getD qq).Ds ψ` against
+`((dJ.pinAt qK).Ds ψJ).map (AnnotTerm.instAll Ds 0)`.  The block pin's
+components ARE the minted domain's first `nPJ` arguments
+(`pinRec`'s own equation, and step two's arity), and their reading is
+`NestedPinSynFacts.pinDs`; what has to be computed is that this reading
+is the container's pin's components instantiated — `copyRecFRead`'s
+shape, at a pin's components instead of a field's index spine.  `EA`
+follows from it with (c)'s two, and `u`/`Ids` are the container's
+`pinShape`/`ContainerModeled` semantics at the same index.  One
+session, and the level-parameter list wants identifying on the way
+(`PinCorr` spells it `cvT.levelParams`, this lane's binder is `J.lps`;
+`containerInfo?_inv` is the step).
+
+##### (e) GATES
+
+`lake build` 716 jobs warning-free; `lake build ConLecheTests` 572 jobs
+warning-free; layering base 351 / model 282 / caps 3 / umbrella 1, 0
+base->lane and 0 impl->theory; trust surface 13/5 (648 scanned);
+no-local-paths OK; overview-links 112, no anchor moved; quote-gate 2;
+**proofdeps 4965 rows / 12 roots / 0 doors** (the baseline, unmoved);
+shake 511 removals all allowlisted; pub-imports 1315 of 2147, none
+demotable; nested-shadow 28/28.  `tests/arena.sh` not re-run: the
+session touches no checker code.  Standard axioms on `copyPinFCorr`
+and the chain probe over the five residuals.
