@@ -89135,3 +89135,70 @@ so the correction belongs to that lane's text at the integration.  The
 general point is worth keeping: **when prose and code disagree, the code
 is the statement**, and the clause is now quoted verbatim beside its
 description in the K.37 record so the ambiguity cannot recur.
+
+#### THE CACHED MIRROR, STEP 1: the nested route's five conses at both levels (2026-09-18, task #315 M8 session 4, `agent/uniform-m5`)
+
+The flip's real cost is the cached mirror's three obligations
+(`checkNestedS_skels`, `_push`, `_run`).  This session builds the layer
+both of the first two stand on, and it is the layer that is genuinely
+mechanical: the route's CONS steps.
+
+##### (a) WHAT `checkNestedS` PUSHES, and what it does not
+
+Five cons functions and nothing else: `consNestedFormersF`,
+`consNestedCtorsF`, `provisionNestedRecsF`, `storeNestedRecsF`,
+`nestedTablesF`.  **The SCRATCH install's index is discarded** — the
+restored block is consed onto the PRE-BLOCK index (`fe₁ :=
+consNestedFormersF members fe`), not onto `feAux`, so none of
+`checkMutualCoreS … true`'s pushes reaches the output.  That is what
+makes the mirror's first two obligations tractable at all: the scratch
+install contributes no skeleton and no push.
+
+Note also that `provisionNestedRecsF`'s index `feR` is used for the
+RULES' environment and then dropped: `storeNestedRecsF` is applied to
+`fe₂`, not to `feR`.  So the provision's rule-less recursors are not in
+the output either, and the skeleton has one `recr` per recursor, with
+its rules.
+
+##### (b) THE TEN LEMMAS, and five skeleton constructors
+
+`Verify/Cached/AgreeFloor.lean`: `nestedIndSkels`, `nestedCtorSkels`,
+`nestedProvSkels`, `nestedRecSkels`, `nestedTableSkel` and the five
+`…_skels` theorems; `Verify/Cached/PushChain.lean`: the five `…_push`
+twins.  Each is the exact shape of its mutual counterpart
+(`consMutualCtorsF_skels`, `storeMutualRecsF_push`,
+`mutualTablesF_skels`, …), and the table pair reuses
+`checkStructProjTableF_skels`/`_push` — `nestedMemberTableF` calls the
+same stage the mutual route does, with the table read off the scratch
+install instead of recomputed, so it is a four-case match and nothing
+else.
+
+**What remains for the two obligations**, named precisely: the
+top-level assembly of each, and it is NOT mechanical.  The skeleton a
+dispatch arm needs must be a function of the DECLARATION
+(`indDeclSkels nP block sk`), while the restored recursors' major
+index, rule prefix and rule-constructor names come from the SCRATCH
+install's read-back.  The bridge is `nestedRecsOkF`, which compares
+every restored recursor with the stream's own record — the nested
+route's `mutualRecPinOk` — so the transport is a names-and-arities
+inversion of that check, in `checkMutualRecTysF_names`' shape.  That
+inversion, and the freshness side for the push, is the rest of the two
+obligations; the third (`_run`) is untouched.
+
+##### (c) LANE L-B's NEGATIVE HALF SURVIVES THE MINT FIX
+
+The coordinator's caveat: the λ-pin residue measurement's negative half
+is a negative over corpora whose nested blocks the mint touches, so it
+had to be re-run after the stamp fix before the widened filter could
+claim to carry it.  Re-run with the same mechanism (a `dbg_trace` where
+the temporary throw was, `mentionsMember dom && !mentionsMember dom'`;
+not committed):
+
+* every `tests/e2e/*.ndjson` under `--nested-shadow`: **one hit**,
+  `nested_p20` — the positive half, unmoved;
+* `init-full`: **no hit**, 53 093 declarations accepted;
+* Mathlib: **no hit**, 654 504 declarations accepted.
+
+Both negatives hold at exactly the counts the record states, so the
+widened filter's claim stands — and it was measured on its own terms
+anyway (the previous section).

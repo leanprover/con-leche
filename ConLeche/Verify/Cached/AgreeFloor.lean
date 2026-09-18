@@ -508,6 +508,82 @@ def mutualBlockSkels (b : MutualBlock) (sk : List InstallSkel) : List InstallSke
 def mutualSkels (p : MutualParts) (sk : List InstallSkel) : List InstallSkel :=
   mutualBlockSkels p.toBlock sk
 
+/-! ### The nested route's conses at the skeleton level (task #315 M8)
+
+`checkNestedS` pushes through FOUR cons functions and nothing else:
+the restored formers (`consNestedFormersF`), the restored constructors
+(`consNestedCtorsF`), the recursors — provisioned rule-less
+(`provisionNestedRecsF`) and then stored with their rules
+(`storeNestedRecsF`) — and the structure-like members' tables
+(`nestedTablesF`, which is `mutualTablesF`'s twin and already has its
+lemma).  The SCRATCH install's index (`checkMutualCoreS … true`) is
+DISCARDED: the restored block is consed onto the pre-block index, not
+onto the scratch one, so none of its pushes reaches the output.
+
+These are the four cons steps, each the exact twin of its mutual
+counterpart; the route's own skeleton is assembled from them. -/
+
+/-- The restored formers at the skeleton level. -/
+def nestedIndSkels (as : List AuxStored) (sk : List InstallSkel) : List InstallSkel :=
+  as.foldl (fun acc a => .ind a.cvTa.name :: acc) sk
+
+/-- The restored constructors at the skeleton level. -/
+def nestedCtorSkels (cs : List (ConstantVal × Nat × Nat)) (sk : List InstallSkel) :
+    List InstallSkel :=
+  cs.foldl (fun acc c => .ctor c.1.name c.2.1 c.2.2 :: acc) sk
+
+/-- The rule-less provision at the skeleton level. -/
+def nestedProvSkels (rs : List (ConstantVal × Nat × Nat)) (sk : List InstallSkel) :
+    List InstallSkel :=
+  rs.foldl (fun acc r => .recr r.1.name r.2.1 r.2.2 [] :: acc) sk
+
+/-- The stored recursors at the skeleton level. -/
+def nestedRecSkels (rs : List (ConstantVal × Nat × Nat × List RecRule))
+    (sk : List InstallSkel) : List InstallSkel :=
+  rs.foldl (fun acc r => .recr r.1.name r.2.1 r.2.2.1 (r.2.2.2.map (·.ctor)) :: acc) sk
+
+theorem consNestedFormersF_skels :
+    ∀ {as : List AuxStored} {fe : FEnv} {sk : List InstallSkel}, SkelIs fe sk →
+      SkelIs (consNestedFormersF as fe) (nestedIndSkels as sk)
+  | [], _, _, h => h
+  | a :: rest, fe, sk, h => by
+    have hstep := consNestedFormersF_skels (as := rest)
+      (h.push (.indInfo a.cvTa a.caps))
+    simpa [consNestedFormersF, nestedIndSkels, ciSkel] using hstep
+
+theorem consNestedCtorsF_skels :
+    ∀ {cs : List (ConstantVal × Nat × Nat)} {fe : FEnv} {sk : List InstallSkel}, SkelIs fe sk →
+      SkelIs (consNestedCtorsF cs fe) (nestedCtorSkels cs sk)
+  | [], _, _, h => h
+  | (cv, nP, nF) :: rest, fe, sk, h => by
+    have hstep := consNestedCtorsF_skels (cs := rest) (h.push (.ctorInfo cv nP nF))
+    simpa [consNestedCtorsF, nestedCtorSkels, ciSkel] using hstep
+
+theorem provisionNestedRecsF_skels :
+    ∀ {rs : List (ConstantVal × Nat × Nat)} {fe : FEnv} {sk : List InstallSkel}, SkelIs fe sk →
+      SkelIs (provisionNestedRecsF rs fe) (nestedProvSkels rs sk)
+  | [], _, _, h => h
+  | (cv, mI, rP) :: rest, fe, sk, h => by
+    have hstep := provisionNestedRecsF_skels (rs := rest) (h.push (.recInfo cv mI rP []))
+    simpa [provisionNestedRecsF, nestedProvSkels, ciSkel] using hstep
+
+/-- A restored member's projection table at the skeleton level: one at a
+member the scratch install gave a table and exactly one constructor,
+nothing otherwise. -/
+def nestedTableSkel (T : Name) (tbl? : Option ProjTable)
+    (cs : List (ConstantVal × Nat × Nat)) (sk : List InstallSkel) : List InstallSkel :=
+  match tbl?, cs with
+  | some _, [_] => .proj (projTableName T) :: sk
+  | _, _ => sk
+
+theorem storeNestedRecsF_skels :
+    ∀ {rs : List (ConstantVal × Nat × Nat × List RecRule)} {fe : FEnv} {sk : List InstallSkel},
+      SkelIs fe sk → SkelIs (storeNestedRecsF rs fe) (nestedRecSkels rs sk)
+  | [], _, _, h => h
+  | (cv, mI, rP, rules) :: rest, fe, sk, h => by
+    have hstep := storeNestedRecsF_skels (rs := rest) (h.push (.recInfo cv mI rP rules))
+    simpa [storeNestedRecsF, nestedRecSkels, ciSkel] using hstep
+
 /-- The dispatch below the direct-sum gate: the direct recursive gate
 (task #188; the sum's skeleton with the table at a structure-like
 block), then the mutual gate (task #278), then the modeled block.  The
@@ -814,6 +890,32 @@ theorem checkStructProjTableF_skels {w : StructWalkers} {fe : FEnv} {sk : List I
   unfold checkStructProjTableF
   yields
   all_goals (refine Yields.pure ?_; exact h.push _)
+
+theorem nestedMemberTableF_skels {w : StructWalkers} {fe : FEnv} {sk : List InstallSkel}
+    (h : SkelIs fe sk) (T : Name) (tbl? : Option ProjTable)
+    (cs : List (ConstantVal × Nat × Nat)) :
+    Yields (nestedMemberTableF (m := CheckCM) w T tbl? cs fe)
+      (fun fe' => SkelIs fe' (nestedTableSkel T tbl? cs sk)) := by
+  unfold nestedMemberTableF nestedTableSkel
+  match tbl?, cs with
+  | none, _ => exact Yields.pure h
+  | some _, [] => exact Yields.pure h
+  | some _, [(cvCa, nP, nF)] => exact checkStructProjTableF_skels h _ _ _ _ _ _ _ _ _
+  | some _, _ :: _ :: _ => exact Yields.pure h
+
+theorem nestedTablesF_skels (w : StructWalkers) :
+    ∀ (l : List (Name × Option ProjTable × List (ConstantVal × Nat × Nat)))
+      {fe : FEnv} {sk : List InstallSkel}, SkelIs fe sk →
+      Yields (nestedTablesF (m := CheckCM) w l fe)
+        (fun fe' => SkelIs fe'
+          (l.foldl (fun acc t => nestedTableSkel t.1 t.2.1 t.2.2 acc) sk))
+  | [], _, _, h => by
+      unfold nestedTablesF
+      exact Yields.pure h
+  | (T, tbl?, cs) :: rest, fe, sk, h => by
+    unfold nestedTablesF
+    refine Yields.bind' (nestedMemberTableF_skels h T tbl? cs) fun fe' h' => ?_
+    simpa using nestedTablesF_skels w rest h'
 
 /-- The members-then-recursors phase, shared by both arms of
 `checkIndDeclSF`'s block match. -/

@@ -968,6 +968,86 @@ theorem checkMutualS_push (mode : CheckMode) {env : Env} {fe : FEnv}
   · intro m x hx
     exact mutualRecPin_name (by rw [← hpin]; exact hrp) hx
 
+/-! ## The nested route's four conses (task #315 M8)
+
+`checkNestedS` pushes through four cons functions and nothing else, and
+the SCRATCH install's index is discarded — the restored block is consed
+onto the PRE-BLOCK index.  Each of the four is the exact twin of its
+mutual counterpart above, so each is a fresh chain given the names'
+freshness at the index it is consed onto. -/
+
+theorem consNestedFormersF_push :
+    ∀ {as : List AuxStored} {env : Env} {fe : FEnv},
+      PushChain env fe → FreshNames fe.env (as.map (·.cvTa.name)) →
+      PushChain env (consNestedFormersF as fe)
+  | [], _, _, h, _ => h
+  | a :: rest, env, fe, h, hf => by
+    have hfr : fe.find? a.cvTa.name = none := by
+      rw [h.find?]
+      exact hf.2 _ (by simp)
+    exact consNestedFormersF_push (as := rest) (h.push hfr)
+      (FreshNames.step (c := .indInfo a.cvTa a.caps) hf)
+
+theorem consNestedCtorsF_push :
+    ∀ {cs : List (ConstantVal × Nat × Nat)} {env : Env} {fe : FEnv},
+      PushChain env fe → FreshNames fe.env (cs.map (·.1.name)) →
+      PushChain env (consNestedCtorsF cs fe)
+  | [], _, _, h, _ => h
+  | (cv, nP, nF) :: rest, env, fe, h, hf => by
+    have hfr : fe.find? cv.name = none := by
+      rw [h.find?]
+      exact hf.2 _ (by simp)
+    exact consNestedCtorsF_push (cs := rest) (h.push hfr)
+      (FreshNames.step (c := .ctorInfo cv nP nF) hf)
+
+theorem provisionNestedRecsF_push :
+    ∀ {rs : List (ConstantVal × Nat × Nat)} {env : Env} {fe : FEnv},
+      PushChain env fe → FreshNames fe.env (rs.map (·.1.name)) →
+      PushChain env (provisionNestedRecsF rs fe)
+  | [], _, _, h, _ => h
+  | (cv, mI, rP) :: rest, env, fe, h, hf => by
+    have hfr : fe.find? cv.name = none := by
+      rw [h.find?]
+      exact hf.2 _ (by simp)
+    exact provisionNestedRecsF_push (rs := rest) (h.push hfr)
+      (FreshNames.step (c := .recInfo cv mI rP []) hf)
+
+theorem storeNestedRecsF_push :
+    ∀ {rs : List (ConstantVal × Nat × Nat × List RecRule)} {env : Env} {fe : FEnv},
+      PushChain env fe → FreshNames fe.env (rs.map (·.1.name)) →
+      PushChain env (storeNestedRecsF rs fe)
+  | [], _, _, h, _ => h
+  | (cv, mI, rP, rules) :: rest, env, fe, h, hf => by
+    have hfr : fe.find? cv.name = none := by
+      rw [h.find?]
+      exact hf.2 _ (by simp)
+    exact storeNestedRecsF_push (rs := rest) (h.push hfr)
+      (FreshNames.step (c := .recInfo cv mI rP rules) hf)
+
+theorem nestedMemberTableF_push {w : StructWalkers} {env : Env} {fe : FEnv}
+    (h : PushChain env fe) (T : Name) (tbl? : Option ProjTable)
+    (cs : List (ConstantVal × Nat × Nat)) :
+    Yields (nestedMemberTableF (m := CheckCM) w T tbl? cs fe)
+      (fun fe' => PushChain env fe') := by
+  unfold nestedMemberTableF
+  match tbl?, cs with
+  | none, _ => exact Yields.pure h
+  | some _, [] => exact Yields.pure h
+  | some _, [(cvCa, nP, nF)] => exact checkStructProjTableF_push h _ _ _ _ _ _ _ _ _
+  | some _, _ :: _ :: _ => exact Yields.pure h
+
+theorem nestedTablesF_push (w : StructWalkers) :
+    ∀ (l : List (Name × Option ProjTable × List (ConstantVal × Nat × Nat)))
+      {env : Env} {fe : FEnv}, PushChain env fe →
+      Yields (nestedTablesF (m := CheckCM) w l fe) (fun fe' => PushChain env fe')
+  | [], _, _, h => by
+      unfold nestedTablesF
+      exact Yields.pure h
+  | (T, tbl?, cs) :: rest, env, fe, h => by
+    unfold nestedTablesF
+    refine Yields.bind' (nestedMemberTableF_push h T tbl? cs) fun fe' h' => ?_
+    exact nestedTablesF_push w rest h'
+
 /-! ## The declaration clause and the two drivers' steps -/
 
 theorem installBasisDeclF_push {env : Env} {fe : FEnv} (h : PushChain env fe)
