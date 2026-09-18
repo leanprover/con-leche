@@ -377,6 +377,84 @@ theorem natLitToConstructor_constsResolve {env : Env} {n : Nat}
     exact ⟨h.2, h.1, h.2⟩
 
 
+/-- **INSTANTIATION ONLY ADDS CONSTANTS**: a `bvar` carries none, so
+every constant of the body survives, and the instantiated term's
+resolution gives the body's. -/
+theorem constsResolve_of_instantiate1 {env : Env} {v : Expr} :
+    ∀ {e : Expr} (k : Nat), (e.instantiate1 v k).constsResolve env = true →
+      e.constsResolve env = true := by
+  intro e
+  induction e with
+  | bvar i => intro k h; simp [Expr.constsResolve]
+  | sort u => intro k h; simp [Expr.constsResolve]
+  | const n us => intro k h; simpa [Expr.instantiate1, Expr.constsResolve] using h
+  | lit l => intro k h; simpa [Expr.instantiate1, Expr.constsResolve] using h
+  | fvar idx ty ih =>
+    intro k h
+    simpa [Expr.instantiate1] using h
+  | app f a ihf iha =>
+    intro k h
+    simp only [Expr.instantiate1, Expr.constsResolve, Bool.and_eq_true] at h ⊢
+    exact ⟨ihf k h.1, iha k h.2⟩
+  | lam ty body m ihty ihb | forallE ty body m ihty ihb =>
+    intro k h
+    simp only [Expr.instantiate1, Expr.constsResolve, Bool.and_eq_true] at h ⊢
+    exact ⟨ihty k h.1, ihb (k + 1) h.2⟩
+  | letE ty val body ihty ihv ihb =>
+    intro k h
+    simp only [Expr.instantiate1, Expr.constsResolve, Bool.and_eq_true] at h ⊢
+    exact ⟨⟨ihty k h.1.1, ihv k h.1.2⟩, ihb (k + 1) h.2⟩
+  | proj sn i pe ih =>
+    intro k h
+    simp only [Expr.instantiate1, Expr.constsResolve, Bool.and_eq_true] at h ⊢
+    exact ⟨h.1, ih k h.2⟩
+
+/-- **A RESOLVING TERM'S fvar ANNOTATIONS RESOLVE** (task #315 M8):
+`constsResolve` descends into an `fvar`'s type annotation, and
+`fvarLeaves` collects exactly those annotations, so the leaf condition
+the inference walk needs is free from the term's own resolution. -/
+theorem constsResolve_fvarLeaves {env : Env} :
+    ∀ {e : Expr}, e.constsResolve env = true →
+      ∀ l ∈ e.fvarLeaves, l.2.constsResolve env = true := by
+  intro e
+  induction e with
+  | fvar idx ty ih =>
+    intro h l hl
+    simp only [Expr.constsResolve] at h
+    simp only [Expr.fvarLeaves, List.mem_cons] at hl
+    rcases hl with rfl | hl
+    · exact h
+    · exact ih h l hl
+  | app f a ihf iha =>
+    intro h l hl
+    simp only [Expr.constsResolve, Bool.and_eq_true] at h
+    simp only [Expr.fvarLeaves, List.mem_append] at hl
+    rcases hl with hl | hl
+    · exact ihf h.1 l hl
+    · exact iha h.2 l hl
+  | lam ty body m ihty ihb | forallE ty body m ihty ihb =>
+    intro h l hl
+    simp only [Expr.constsResolve, Bool.and_eq_true] at h
+    simp only [Expr.fvarLeaves, List.mem_append] at hl
+    rcases hl with hl | hl
+    · exact ihty h.1 l hl
+    · exact ihb h.2 l hl
+  | letE ty val body ihty ihv ihb =>
+    intro h l hl
+    simp only [Expr.constsResolve, Bool.and_eq_true] at h
+    simp only [Expr.fvarLeaves, List.mem_append] at hl
+    rcases hl with (hl | hl) | hl
+    · exact ihty h.1.1 l hl
+    · exact ihv h.1.2 l hl
+    · exact ihb h.2 l hl
+  | proj sn i pe ih =>
+    intro h l hl
+    simp only [Expr.constsResolve, Bool.and_eq_true] at h
+    simp only [Expr.fvarLeaves] at hl
+    exact ih h.2 l hl
+  | bvar i | sort u | const n us | lit l0 =>
+    intro h l hl; simp [Expr.fvarLeaves] at hl
+
 /-- The literal-major conversion preserves the bvar bound. -/
 theorem litToCtorIfNat_looseBVars {env : Env} {e : Expr} {k : Nat}
     (hb : e.looseBVarsBounded k = true) :

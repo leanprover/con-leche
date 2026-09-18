@@ -104400,3 +104400,60 @@ induction's 135 lines are parked at
 `_tmp/m8/whnfPres-constsResolve.parked.lean` (gitignored) and are a
 mechanical transformation of `whnfPres_looseBVars`, cheap to regenerate
 if that file is lost.
+
+##### THE INFERENCE TWIN IS REFUTED, and the pattern is the one to record
+
+The repair proposed for the rescue — "inference succeeds only on
+resolving INPUT", a one-directional induction over the io walk — **is
+false**, and two cases show it:
+
+* **a `λ`'s DOMAIN is never inferred.**  `inferTypeCoreIO_lam_inv`:
+  the walk opens the body at `.fvar d ty` and infers THAT; the domain
+  is carried into the opener and never looked at.  The `fvar` case
+  then RETURNS the stored annotation without walking it.  So
+  `inferTypeIO` succeeds on `.lam (.const Bad []) (.bvar 0) m` with
+  `Bad` absent from the environment.
+* **a `.never` binder's ARGUMENT is never inferred.**
+  `inferTypeCoreIO_app_inv`'s last clause is a disjunction: at
+  `m'.pw.isNever = true` the argument's type is not inferred at all
+  (the io slot's licence), so nothing looks at its constants either.
+
+The leaf hypothesis does not rescue either case: a `λ`'s domain is not
+one of `e.fvarLeaves`' annotations — the leaf `(d, ty)` is CREATED by
+the opening — and a skipped argument is not a leaf at all.
+
+**THE PATTERN, which is what the coordinator asked to hear about.**
+The rescue's fabricated major carries exactly THREE properties —
+`wscopedB`, `looseBVarsBounded`, `fvarLeaves ⊆` — because the kernel
+CHECKS exactly those three at fabrication time (`Kernel/Core.lean`,
+the `fab.fvarLeaves.all …` guard and its two neighbours).  That is why
+the three existing preservation twins sail through the case and a
+fourth property cannot: **the inversion reports what the checker
+records, and the checker records what someone needed.**  Any fifth
+property of the reduction will meet the same wall at the same place.
+
+**So the conjunct has exactly two honest routes**, and the choice is
+not this lane's to make:
+
+* **(A) the metatheorem** — resolution preserved MUTUALLY by `whnf` and
+  `inferTypeCoreIO`, in the style of the three existing families but
+  with the two walks proved together, since whnf's rescue needs
+  inference's output and inference's app/proj cases need whnf's.  Big,
+  and the only route that adds no runtime work.
+* **(B) record it at the fabrication, as the architecture already
+  does** — a fourth guard beside the three in `majorToCtor`
+  (`fab.constsResolve env`), reported by `majorToCtor_inv` and consumed
+  by the whnf induction, which then closes with the 135 parked lines.
+  Small and architecture-consistent, but it sits on the ACCEPT PATH
+  rather than in a `certOnly` group, so it needs the measurement
+  discipline this arc has been using: the fabrication cannot fail to
+  resolve by construction — its head is a stored constructor and its
+  arguments come from an inferred type — but "by construction" is the
+  argument, and the fixtures and both corpora are the evidence.
+
+The refuted draft is parked at
+`_tmp/m8/inferTypeCoreIO-constsResolve.refuted.lean` with its two live
+cases, and the two small lemmas it needed are LANDED and useful on
+their own: `constsResolve_fvarLeaves` (a resolving term's `fvar`
+annotations resolve) and `constsResolve_of_instantiate1` (instantiation
+only adds constants).
