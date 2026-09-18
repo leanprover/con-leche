@@ -112988,3 +112988,123 @@ never spent are a standing invitation to rebuild them by accident; this
 row should retire that risk rather than add to it.
 
 Nothing in this section changes the tree.
+
+#### PINF: the bridge MEASURED — the join lemma stated exactly, and it is more than one session (lane PINF, 2026-09-18)
+
+The three files read.  **Nothing built**; this section is the
+deliverable, and the next session starts from (c) and (d).
+
+##### (a) `xFvsF` IS an `openPisAtFvars` output — the favourable answer
+
+`BlockCtorData.opens` (`BlockRep.lean`) says it outright:
+
+```lean
+  opens : ∃ crest, openPisAtFvars nP cvC.type 0 = some (fvsP, crest) ∧
+    openPisAtFvars nF crest nP = some (xFvs, xrest)
+```
+
+— the TWO-STAGE opening of the constructor's STORED type, parameters
+then fields.  So the clause's side and the restore's side are the same
+kind of object, and the join is an equation rather than a translation.
+
+##### (b) THE TWO WALKS OPEN THE SAME TYPE, and the peel is already inside the restore
+
+`restoreCtors_id` (`Verify/Inductives/NestedInv.lean`) gives the
+restored constructor's stored type as `restoreNested R` of the
+AUXILIARY one, syntactically:
+
+```lean
+  ∃ ty, restoreNested R c.1.type = .ok ty ∧
+    o = ({ c.1 with levelParams := lps, type := ty }, c.2.1, c.2.2)
+```
+
+and `restoreNested` (`Kernel/Inductives/NestedInstall.lean`) is
+
+```lean
+  match stripPisOrLams R.nP e with
+  | some (bs, body) => match restoreWalk R 0 body with …
+```
+
+— it strips `R.nP` parameter binders ITSELF and runs `restoreWalk R 0`
+on the body.  **So `restoreOpenFields`' `j = 0` is exactly the restored
+constructor's field telescope, at the same `nP`, and no separate
+parameter-peel lemma is needed.**  That was the one thing that could
+have made the join impossible, and it does not.
+
+##### (c) THE JOIN LEMMA, STATED
+
+```lean
+theorem restoredCtor_xFvs_pin {R : RestoreTbl} (hk : R.KeysInAux)
+    {nP nF : Nat} (hnP : R.nP = nP)
+    (hpinB : ∀ n pin, R.pins.lookup n = some pin → pin.looseBVarsBounded nP = true)
+    {cvCa cvC : ConstantVal} (hres : restoreNested R cvCa.type = .ok cvC.type)
+    {fvsPA xFvsA : List Expr} {crestA xrestA : Expr}
+    (hopPA : openPisAtFvars nP cvCa.type 0 = some (fvsPA, crestA))
+    (hopXA : openPisAtFvars nF crestA nP = some (xFvsA, xrestA))
+    {fvsP xFvs : List Expr} {crest xrest : Expr}
+    (hopP : openPisAtFvars nP cvC.type 0 = some (fvsP, crest))
+    (hopX : openPisAtFvars nF crest nP = some (xFvs, xrest))
+    (hallP : AllFvarsL fvsP) (hlenP : fvsP.length = nP)
+    (hxrest : ∀ n ∈ R.auxNames, xrest.mentionsConst n = false)
+    (hmv : ∀ (k : Nat) (x : Expr), xFvsA[k]? = some x →
+      (∃ n ∈ R.auxNames, x.fvarTypeD.mentionsConst n = true) →
+      (∀ y ∈ xFvsA.drop (k + 1), y.fvarTypeD.mentionsFvar (nP + k) = false) ∧
+        xrest.mentionsFvar (nP + k) = false)
+    {l : Nat} {xA x : Expr} (hxA : xFvsA[l]? = some xA) (hx : xFvs[l]? = some x)
+    {n : Name} {us : List Level} {pin : Expr} {is : List Expr}
+    (hp : R.pins.lookup n = some pin) (hrec : R.recMap.lookup n = none)
+    (hdomA : xA.fvarTypeD = Expr.mkAppN (.const n us) (fvsP ++ is)) :
+    x.fvarTypeD = Expr.mkAppN (Expr.instSeq fvsP (nP - 1) pin) is
+```
+
+**What closes it, and what is NOT needed.**  `restoreOpenFields`
+(`NestedRestoreOpen.lean:840`) at `j = 0`, `osA = osR = []` and
+`bad := fun _ => False` — at which `RestoreOpenAgree`, the bound
+`∀ idx, bad idx → idx < nP + j` and `hfreeDom` are all VACUOUS — plus
+`restoreOpen_pin_domain` (`:670`) for the domain itself.  And **no
+determinism lemma is required**: `openPisAtFvars` is a FUNCTION, so
+equal inputs give equal outputs by `congrArg`.  The only real matching
+is `crest` against `restoreOpenFields`' `Expr.instSeq (fvsP ++ []) (nP - 1) bR`,
+which is `restoreNested`'s own re-closing read backwards.
+
+With `NestedBlockModelOf.pin`'s `pin = Expr.mkAppN (.const J lvls) DsE`,
+the clause in the opened form follows by `instSeq`'s distribution over a
+`const`-headed spine, which `copyPinFDom` already spends
+(`instSeq_mkAppN_const`).
+
+##### (d) THE COUNT — and it is over the bound
+
+Verified above: (a), (b), the closing route in (c).  ESTIMATED, and
+labelled as such:
+
+| piece | lines |
+| --- | --- |
+| the join lemma (c) | 120–160 |
+| its hypothesis package at `nestedContainerModeled` | 150–250 |
+| the clause + nine sites (eight vacuous/transport, one real) | ~80 |
+| (ii) on top, via `mentionsConst_instSeq_false`'s contrapositive | ~60 |
+
+**≈ 400–550 lines across three files: 1.5–2.5 sessions, over the
+one-session bound.**
+
+The package is where the estimate's width is, and one sub-argument in
+it is genuinely new: `restoreOpenFields`' per-field trigger is "the
+auxiliary field mentions an AUX NAME", while the model side's
+`BlockOpened` clauses are triggered by `nest k = some q`.  Converting
+one to the other needs the aux names' freshness against
+`BlockOpened.ord`'s `constsResolve env₀` at an ordinary field — a small
+argument, but not one the tree already makes.
+
+Everything else in the package is recorded and locatable: `R.KeysInAux`
+and `R.nP` from `restoreTbl`, `hpinB` from `pinsClosed`, `hallP`/`hlenP`
+from the opening itself, and the AUXILIARY `BlockCtorData` from the
+auxiliary block's stage facts, which `NestedStageFacts.ctorFacts` is
+already built out of.
+
+##### (e) SO THIS PASS ENDS IN THE STATEMENT, NOT THE BRIDGE
+
+Per the bound.  The row's remaining shape is: build (c), assemble its
+package, then the clause, then (ii), then (iii)–(v) — and the doc
+sentence last, when the clause it describes exists.
+
+Nothing in this section changes the tree.
