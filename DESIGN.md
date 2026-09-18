@@ -85198,6 +85198,744 @@ trust surface 13 escapes in 5 allowlisted files (652 scanned), 0
 outside; no-local-paths OK; overview-links 112; quote-gate 2;
 proofdeps 4965 rows / 12 roots / **0 doors**.
 
+##### (ffff) CONTINUATION 23 (lane session 23) — the scratch provision FOUND, the store's list at the run, and the K/η finding
+
+Base: this lane's bfca8f6e.  No checker code changed; no `sorry`, no
+axioms, no `maxHeartbeats`; `#print axioms` of every new theorem is
+`[propext, Classical.choice, Quot.sound]` or less.
+
+*The scratch provision was already in the tree* (338cadce).  (dddd) 2
+called `mpAP` "the largest of the three" and said it had no producer.
+**It had one**: `NestedTailIn.scratchProv`, landed by this lane at
+725136ea ("item 5 step 2a") and never consumed — `recsProvision` at
+`A := nestedRecLeaf …`, with `hleaf` through `nestedRecLeaf_typed` and
+`towerAgree` exactly as session 12's F6 designed it, the front door
+through `checkMutualRecTys_inv`/`checkMutualRecTy_shape`, `hE := S.etaA`
+and `hRDs := S.recData`.  So the work was to WIRE it, not to write it:
+`recRuleLawsAt` now `obtain`s `mpAP`, `hshapeA`, `hleafA` and `hagA`
+from it and has lost four more hypotheses.  **The correction is mine to
+own**: (dddd) 2 was written from the consumer's signature without
+grepping for a producer, and a hypothesis with no call site looks
+exactly like a hypothesis with no proof.
+
+*The store's list at the run* (2064cbd4), in a new file
+`ConLeche/Model/Inductives/NestedStoreRun.lean`:
+
+* `nestedStoreList` names the quadruple list `checkNested` conses, and
+  **`nestedProvOf_nestedStoreList`** says its projection IS
+  `nestedProvList` — THE fact tying `storeNestedRecs` to the
+  `provisionNestedRecs` every restored rule was scoped at.  Both `zip`s
+  truncate, so it needs the rule rows to be as many as the stored
+  records, which the two `mapM`s give.  (yyy) kept the swap free of
+  this algebra on purpose; this is where it is paid, once.
+* `nestedStoreList_mem` describes an entry, over the two recursor
+  lists' own lengths — neither the block nor the tail.
+* `NestedTailIn.storeDoor` is `nestedRecsStore`'s `hfresh`, `hnres` and
+  `htys` in one, off `recCvDoor`.
+
+##### (gggg) FINDING — the restored rules' K and η bits are NOT transported, and nothing says they are
+
+`nestedRecsStore`'s `hctorStored` premise has three conjuncts.  The
+first — the rule's constructor is stored at the provision — is
+`restoreRules_at`'s, verbatim.  **The other two are not available, and
+the reason is structural.**
+
+`restoreRules` builds the restored rule as `{ rl with ctor := ctor,
+ctorParams := cnP, fire := fire, rhs := rhsA, paramsBlind := !isMimic }`
+— so `r.k` and `r.eta` are the SCRATCH rule's, unchanged, while
+`r.ctor` at a MIMIC is the RESTORED constructor.  What the scratch
+rule's bits mean is `mutualRules_bits` at the auxiliary install:
+`rl.k = recRuleKOf envAux.find? rl.ctor` (and the η twin).  What
+`ConstWF` asks of the stored rule is
+`r.k = true → recRuleKOf (provision).find? r.ctor = true`.  The two
+differ in BOTH arguments — a different constructor name and a different
+environment — so the obligation is a transport:
+
+> if the SCRATCH constructor `rl.ctor` carries K at `envAux`, then the
+> RESTORED constructor `r.ctor` carries K at the provision
+
+and `recRuleKOf` reads the constructor's field count and its
+inductive's `caps.ruleK` (`Kernel/Core.lean:1531`), so the transport is
+a statement about what `consNestedCtors` stores for a copy's
+constructor against what the auxiliary install stored — the copies'
+capability records, which no lemma in the tree relates.  It is not
+vacuous in principle: a copy of a K-eligible container member is
+K-eligible.
+
+Three ways out, in increasing cost: (i) a run-level `certOnly` Bool
+asking the restored rules' bits to be `false` (they are, on every
+fixture measured so far — the mimics' constructors have fields), which
+is a kernel request of K.39's shape and ¼ session; (ii) the transport
+proved from `consNestedCtors`' own records, unsized because nobody has
+read them for this; (iii) `nestedRecsStore` weakened to take the bits
+as data, which only moves the obligation.  **Recommendation: (i)** —
+the bits are a rescue path the nested route never uses, and a recorded
+`false` is exactly the "containers' facts are recorded, never inferred
+from a copy" discipline.
+
+##### (hhhh) FILES AND GATES (session 23's HEAD)
+
+Touched: `ConLeche/Model/Inductives/NestedRecRule.lean` (the four
+hypotheses discharged) and one NEW file
+`ConLeche/Model/Inductives/NestedStoreRun.lean` (225), plus one line
+of `ConLeche/Model.lean`.  No allowlist line, no new FALLBACK entry (the
+new file's one re-export the plan accepted), no checker code.  Shake
+proposed a RELOCATION on the new file — `NestedRecsSwap` for
+`Verify.Inductives.NestedRecsWF` — and its own minimisation was applied.
+
+`lake build` warning-free EXIT 0; `lake test` warning-free EXIT 0;
+shake 510 removals all allowlisted / pub-imports 1331 of 2186 public,
+none demotable (50 dot-notation fallbacks); layering base 353 / model
+285 / caps 3 / umbrella 1, 0 base→lane, 0 impl→theory (the base clause
+is vacuous, §U.29 (mm)); trust surface 13 escapes in 5 allowlisted
+files (653 scanned), 0 outside; no-local-paths OK; overview-links 112;
+quote-gate 2; proofdeps 4965 rows / 12 roots / **0 doors**.
+
+**Item 5 from here: 1½–3 sessions** ((dddd) said 2½–4).  `mpAP` cost
+nothing it had not already been paid, and the store's list algebra is
+done; what is left is the ASSEMBLY ((dddd) 1), the rules' half of the
+store's per-entry premises, and (gggg)'s K/η transport — the last of
+which is a ¼-session KERNEL request on the recommendation above, or an
+unsized model proof if the maintainer prefers no new record.
+
+
+##### (iiii) CONTINUATION 24 (lane session 24) — the store's rules at the run, and K.50's shape CORRECTED
+
+Base: this lane's fb85f442.  No checker code changed; no `sorry`, no
+axioms, no `maxHeartbeats`.
+
+*The store's RULES* (9e28b41e), completing `nestedRecsStore`'s
+per-entry premises in `NestedStoreRun.lean`:
+
+* `NestedTailIn.storeRules` — `hrulesWF`.  `restoreRules_at` gives the
+  right-hand side's four syntactic facts at the environment
+  `restoreRules` ran at, and **`nestedFireShape_inv` IS `ConstWF`'s
+  nested clause, conjunct for conjunct** — modulo the pin tuple's
+  ORDER, which is the one thing to watch: the certificate reports
+  `hasFvar / looseBVarsBounded / constsResolve / allLevelParamsDefined`
+  and `ConstWF` asks `hasFvar / allLevelParamsDefined / constsResolve /
+  looseBVarsBounded`.  Only a MIMIC fires `.nested`; a member's fire is
+  `.plain`-or-`.inert`, so the clause is vacuous there — the same split
+  `recRuleLawsAt` makes, for the same reason.
+* `NestedTailIn.storeCtors` — `hctorStored`.  Its first conjunct is
+  `restoreRules_at`'s own verdict (task #279 K.24: a restored rule
+  whose constructor is not stored at the provision is INVALID).  The
+  other two are **K.50's**, taken as a hypothesis in the shape K.50's
+  inversion has.
+
+Both are stated at `nestedProvList`, the environment the rules were
+checked at; `nestedProvOf_nestedStoreList` ((ffff)) is the caller's
+single rewrite into the swap's own spelling.  That is the shape to
+prefer generally: prove a premise at the RUN's spelling and let the
+generic consumer's rewrite happen once, at the call site.
+
+##### (jjjj) A CORRECTION TO (gggg) — η is not about field counts, and the recommendation was half wrong
+
+(gggg) recommended recording the restored rules' K and η bits as
+`false`, reasoning that "the mimics' constructors have fields".  **The
+kernel lane built that Bool and measured it: it would DECLINE 35 of the
+41 Mathlib cone blocks and 7 of the 27 shadow fixtures.**  The argument
+is right about K and wrong about η — the η condition is about a
+STRUCTURE's single constructor and the recursor not being a projection
+function, NOT about field counts, and a copy of a structure-like
+container is structure-like.  The error was reasoning about η from K's
+premise.
+
+**What K.50 records is `hctorStored`'s two conjuncts THEMSELVES**, at
+the provisioned environment where `ConstWF` asks them:
+`(!r.k || recRuleKOf find? r.ctor) && (!r.eta || recRuleEtaOf find? cvRa.name r.ctor)`
+— 27/27 and 41/41 with zero fires.  So the model side takes exactly
+those two implications, and `storeCtors` passes them straight through
+rather than discharging them as vacuous.
+
+Two further results from that session, both worth keeping:
+
+* the Bool takes its lookup FUNCTION, not an `Env` — the `env.find?`
+  form cost **+0.053 %** on the cone and a stub showed all of it was
+  the lookups, so the mirror hands it `feR.find?`.  That is the
+  OPPOSITE conclusion from K.49, for exactly the reason K.49's rule
+  gives: this check runs per η-carrying rule at an environment holding
+  the whole prefix, where K.49's ran once.
+* a NULL RESULT not to mistake for coverage: dropping the `!r.k`
+  disjunct fails 24/27 and 41/41, so `recRuleKOf` holds at essentially
+  no restored rule and **the K half is vacuous on both corpora today**.
+  It is recorded anyway, because nothing makes it vacuous in
+  principle — a copy of a K-eligible member is K-eligible.
+
+##### (kkkk) THE RECURSORS' STAGE, ASSEMBLED — and it is THREE faces, not one
+
+(89423500.)  `nestedRecsStored_of`
+(`ConLeche/Model/Inductives/NestedStoreRun.lean:673`) proves
+`NestedRecsStored`, and `nestedTailModeled_of_three` (`:1078`) is
+`NestedTailModeled` from it.  The four stages wire as planned —
+`provisioned` → `recRuleLawsAt` at every class → `nestedRecsStore` at
+`nestedStoreList` → `stageNestedTables` — and the seven
+`NestedTailOut` fields read off them.
+
+**Say the residue plainly: the stage is NOT modulo K.50 alone.**
+
+1. `NestedRuleBitsOf` (`:444`) — **K.50**, in (jjjj)'s corrected form.
+   Requested, measured, landing.
+2. `NestedCtorPinNamesOf` — **K.36**, and this is NOT new debt: it is
+   the SAME face `nestedRecReadingsOf_of_faces` and
+   `nestedRecEqsOf_of_faces` already take, and
+   `nestedTailModeled_of_stage` already took.  It has no producer in
+   the tree and is the nested chain's own open face; the stage inherits
+   it rather than adding it.
+3. `NestedTablesDataOf` (`:605`) — **NEW, and it is this stage's own
+   residue.**  The scratch block's RECORDED projection tables' data
+   (`NestedMemberTableOk` at every element: the recorded constructor
+   name, the offset `1`, `structProjGuards`, and `TableMember`).
+   (cccc) already named the cause — the nested route RE-USES the
+   scratch install's table instead of recomputing it, so there is no
+   `MutualBlock` to project and no module performs the transfer.
+   (dddd) 3 predicted three obligations; the honest count is a face.
+
+So `NestedTailModeled` closes when K.50 lands AND `NestedTablesDataOf`
+is discharged (K.36 being the chain's pre-existing one).  **It is two
+away, not one.**
+
+*What did NOT need a face*, worth recording because (dddd) feared it:
+`repsAt`.  The block model crosses unguarded through the provision and
+the swap, and guarded through the tables — a new projection table moves
+a reading — with the `ProjFree` guards coming from the members' own
+types resolving at the pre-block environment and the restored
+constructors' `FrontDoorFacts.slots` at the formers'.
+
+Also new in the file and reusable: `nestedRecsStore_at` (the `subst`
+wrapper letting the swap take a NAMED provision list),
+`NestedInstallExt.rfl'`/`.trans`/`.cons`, and the nested install's four
+stage lemmas `consNestedFormers_installExt` /
+`consNestedCtors_installExt` / `storeNestedRecs_installExt` (whose
+recursor clause is CONDITIONAL — a mimic's `T.rec_j` is no
+`_.str "rec"`) / `nestedTables_installExt`.
+
+##### (llll) FILES AND GATES (session 24's HEAD)
+
+Touched: `ConLeche/Model/Inductives/NestedStoreRun.lean` only
+(225 → 1083), plus three FALLBACK entries in
+`scripts/pub-import-plan.py`.  No allowlist line, no checker code.
+
+**A gate lapse to own**: 9e28b41e (the store's rules) was committed
+after `lake build` and `lake test` alone, and its theorem-only public
+statements turned the pub-import half of shake RED — the same class
+(yyy) recorded, one file further on.  It was caught at the next
+commit, not at the one that caused it.  All three demotions are
+refused by the compiler, probed one at a time, and carry their reason.
+**Run the battery on the commit that changes a file's public surface,
+not on the next one.**
+
+`lake build` warning-free EXIT 0; `lake test` warning-free EXIT 0;
+shake 510 removals all allowlisted / pub-imports 1332 of 2197 public,
+none demotable (53 dot-notation fallbacks); layering base 353 / model
+285 / caps 3 / umbrella 1, 0 base→lane, 0 impl→theory; trust surface 13
+escapes in 5 allowlisted files (653 scanned), 0 outside;
+no-local-paths OK; overview-links 112; quote-gate 2; proofdeps 4965
+rows / 12 roots / **0 doors**.
+
+**Item 5 is DONE modulo the two faces above.**  What remains on this
+lane is `NestedTablesDataOf`'s producer — the transfer from the scratch
+install's own table stage, **1–1½ sessions**, and the last thing
+between this lane and `NestedTailModeled`.
+
+##### (mmmm) K.36's NESTED FACE — the mutual retirement precedent does NOT transfer, and here is exactly where it stops
+
+The mutual instance of K.36 was RETIRED as a check
+(`EnvModelBStages.lean:181`, `mutualOrdFree_of_run`): `MutualOrdFree`
+is a consequence of `mutualFieldsOk`'s `.ordinary` cell —
+`x.fvarTypeD.constsResolve env` at the PRE-BLOCK environment, where
+every member is fresh — and that derivation is what makes `declMutualB`
+hypothesis-free.  Before requesting a record for the NESTED face, the
+question is whether the nested route runs an analogous check.  **It
+does not, and the reason is structural rather than an oversight.**
+
+*The fact, reduced.*  `NestedCtorPinNames` (`NestedRecCtor.lean:86`)
+asks, per pin `q`, per member `J` of its container group with
+`J.name = q.container`, per constructor `cc ∈ J.ctors`:
+
+    replacePrefix q.aux q.container (replacePrefix J.name q.aux cc.name) = cc.name
+
+`Name.replacePrefix old new` (`NestedParts.lean:64`) walks a name's
+ANCESTOR chain and replaces `old` by `new` where it occurs, keeping the
+suffix.  So the identity says the RESTORE's rename
+(`restoreTbl`'s `ctorPins`, `NestedInstall.lean:278`) undoes the MINT's
+(`mkCopy`'s, `NestedElim.lean:175`), and it splits exactly two ways:
+
+> **either `J.name` is an ancestor of `cc.name`, or `q.aux` is not.**
+
+Case A is the normal world (a constructor named under its inductive):
+the mint rewrites `J.name ↦ q.aux`, the restore rewrites it back, and
+`J.name = q.container` closes it.  Case B is the escape hatch: if the
+mint did nothing because `cc.name` is not under `J.name`, the restore
+must do nothing either.
+
+*Why neither disjunct is available.*
+
+* **A is not checked.**  `containerInfo?` (`NativeParts.lean:744`)
+  builds `J.ctors` from the container RECURSOR's rules —
+  `rulesC.mapM fun r => env.find? r.ctor` — and tests only the
+  parameter count (`nPc == nP`).  Nothing anywhere constrains a
+  constructor's name to sit under its inductive's;
+  `containerFactsOk`'s four clauses (`containerGroupOk`,
+  `Name.nodup`/`uniformIndOccsOk`, `containerRecOk`,
+  `containerCtorFieldsOk`) are about levels, occurrences, the recursor
+  and the fields' shapes.  A grep for `hasPrefixOf`/`replacePrefix`
+  across `ConLeche/Kernel/` finds the two definitions, the two rename
+  SITES, and `mentionsNestedAux` — no test.
+* **B is not derivable from the freshness the route has.**  `q.aux` is
+  `mkUniqueName env (nestedPrefixName ++ J.name) …`, and both
+  `mkUniqueName` and `copiesFresh` give NAME-ABSENCE
+  (`env.find? q.aux = none`).  What B needs is PREFIX-absence — that no
+  stored constructor name has `q.aux` as an ancestor — and a name may
+  extend an absent one.
+
+*Why the mutual argument cannot be ported.*  `mutualOrdFree_of_run`
+reasons about THE BLOCK'S OWN fields at an environment where THE
+BLOCK'S OWN members are fresh: the check and the freshness are about
+the same names, so name-absence is exactly the right currency.  The
+nested face is about a PREVIOUSLY INSTALLED container's constructor
+names against a freshly minted one, and there the two kinds of
+freshness come apart.  It is not that the nested route forgot to run a
+check; it is that no check the route runs looks at the container's
+constructor NAMES at all — the route reads the container for its
+types, its levels, its arities and its fields, never for its naming.
+
+*A note for the certification-tax ledger.*  A record here would be of
+the "true by construction of official's own generators" kind, not the
+"mirrors an official test" kind: official's own nested elimination
+performs the same `replacePrefix` round-trip, so a stream that broke it
+would make official mis-restore too.  That is the class in which a
+genuine finding about the reference kernel could surface, and it is
+worth saying out loud before the row is added.
+
+##### (nnnn) THE PROJECTION-TABLE FACE — the read-back PROVED, the face NOT, and a hazard nobody had named
+
+(116d5d29.)  The transfer (dddd) 3 called "should fall out of the
+scratch block's own table stage" is now half done, and the other half
+has a shape I had not seen.
+
+*Proved*, in `Verify/Inductives/NestedRecDoor.lean` —
+`auxStored_rec_eq`'s twin at the tables:
+
+* `mutualTables_find?_projInfo_inv` (:820) — the SCRATCH stage's fold
+  inverted: a `projInfo` at its output either stood at its input or IS
+  the table `mutualMemberTable` built, with every field of that call
+  read off (the structure, `b.lps`, `b.nP`, the member's ONE own
+  constructor and its `nF`, `f.s`, the bodies, `structProjGuards
+  (ctorsA.getD J default).1.type b.nP c.nF (sortss.getD J [])`, and the
+  offset `1`);
+* `auxStored?_tbl` (:858) and `auxStored_tbl_eq` (:925) — the record's
+  `tbl` field IS that table.  **A read-back table is the WITNESS that
+  the scratch member was structure-like** (`ownCtors` a singleton,
+  `nIdx = 0`) — neither of which `nestedMemberTable` re-checks.
+
+That settles (dddd) 3's list: `tbl.off = 1` done, `tbl.levelParams`
+and `tbl.structSort` done, `tbl.ctor = cvCa.name` a few lines
+(`restoreCtors` keeps the name).
+
+**THE HAZARD, and it was not on anyone's list.**  `tbl.guards` were
+computed at the AUXILIARY constructor's type; the clause demands them
+at the RESTORED one.  So the face needs
+
+    structUsedLater (restoreNested R ctyAux) nP j = structUsedLater ctyAux nP j
+
+and nothing states it.  **The kernel does not record it either**:
+`nestedAuxAppsOk` — the Bool that licenses `restoreNode`'s
+`args.drop nP` — covers the read-back RECURSOR TYPES and RULE
+right-hand sides, NOT the stored CONSTRUCTOR types; and
+`checkStructProjTable` re-derives the bodies from the restored type but
+never the guards.
+
+**It is true and derivable without a kernel request**, which is the
+part worth keeping: `restoreWalk` can never ADD the occurrence (a fired
+pin is `pin.liftLooseBVars d 0`, whose loose indices are all `≥ d`), and
+it can only LOSE one by dropping `args.take nP` — which
+`mutualFieldsOk`/`mutualOpenedOk` forbid exactly: an ORDINARY field's
+domain resolves at the pre-block environment and holds no auxiliary
+constant at all, so the walk is the identity there, and a
+RECURSIVE/REFLEXIVE field's domain has `getAppArgs.take nP == fvsP`.
+The cost is the opened-form ↔ closed-form bridge, whose telescope half
+`rk_restoreWalk_stripPis`/`rk_restoreNested_stripPis` already do.
+
+*If it could differ* the installed guards would be strictly more
+conservative than correct — an accept-subset, not unsoundness — but the
+clause demands literal EQUALITY and `sorts` is pinned semantically by
+`TableMember.leq`/`.sortsF`, so no choice of `sorts` absorbs it.
+
+*A restatement the face wants.*  `NestedTablesDataOf` is handed `mp₃`
+and only the CARRIER agreement, but `TableMember` is stated at the
+STORE environment (`FD`/`CDread` are `denoteMeta … envStore`,
+`fT`/`fC`/`memsFound` are lookups there), so the face must rebuild the
+block model.  Its consumer already has `hreps₃ : IsBlockModelsAt
+mp₃.base2 (D) …` thirty lines above the call.  **Pass `hreps₃` and the
+store environment's `FindPreserved` into the face** rather than making
+it re-derive them — a restatement of the face, not a weakening of
+`NestedMemberTableOk`.
+
+##### (oooo) FILES AND GATES (session 25's HEAD), and the re-size I owe
+
+Merged `agent/uniform-315` b3df20d8 (integration 3q): one conflict (the
+FALLBACK set — session 24's three entries are additive and stay) and
+one adaptation — 3q RETIRED `NestedTailOut.groups`, because M7-3 now
+reads `NestedStageFacts.groupsAt` directly through `conts`' pre-block
+reading, which is what session 22 published it for.  Six fields, not
+seven; the bullet that proved `groups` is deleted, not kept.
+
+Touched beyond the merge: `ConLeche/Model/Inductives/NestedStoreRun.lean`
+(the retired field) and `ConLeche/Verify/Inductives/NestedRecDoor.lean`
+(the read-back).  No new file, no allowlist line, no FALLBACK entry, no
+checker code.
+
+`lake build` warning-free EXIT 0; `lake test` warning-free EXIT 0;
+shake 510 removals all allowlisted / pub-imports 1334 of 2212, none
+demotable (55 fallbacks); layering base 353 / model 286 / caps 3 /
+umbrella 1, 0 base→lane, 0 impl→theory; trust surface 13 escapes in 5
+allowlisted files, 0 outside; no-local-paths OK; overview-links 112;
+quote-gate 2; proofdeps 4965 rows / 12 roots / **0 doors**.
+
+**THE RE-SIZE.**  (llll) put the tables' face at 1–1½ sessions.  With
+the read-back proved and the remainder enumerated — the guards'
+restore-invariance (1–2), `tableMember_of` generalised off
+`d.pins = []` to `PinsTyped` (~0.2), `MutualTableFacts` at the nested
+block model whose `sorts` field is about the RESTORED domains (1–2),
+`MemberStored`/`NoProjEnv`/the restored constructors' conditions (~1),
+and the assembly (~0.5–1) — it is **4–6 sessions**.  I under-sized it
+by taking "true by construction" to mean "short to prove"; the
+construction is the scratch stage's, and every step of reading it back
+crosses the restore.
+
+##### (pppp) KERNEL REQUEST (unnumbered) — "the container's constructor names ROUND-TRIP", and the evidence gap closed
+
+(mmmm) reduced K.36's nested face to "either `J.name` is an ancestor of
+`cc.name`, or `q.aux` is not", showed that the mutual retirement
+precedent does not transfer, and left ONE gap: three Bools read only by
+grep.  They are now read line by line, and the conclusion holds.
+
+* `containerGroupOk` (`NestedParts.lean:400`) — every member's own
+  `containerInfo?` reads the same `nP` and the same **member** names.
+* `containerRecOk` (`:337`) — the member's recursor's level parameters
+  and its motive sort.  No names at all.
+* `containerCtorFieldsOk` (`:384`) — strips the constructor type and
+  tests each FIELD DOMAIN through `containerFieldOk`, whose own name
+  test is again the MEMBER names.
+* (`uniformIndOccsOk`, the fourth clause, is likewise about occurrences
+  of MEMBER names in constructor types.)
+
+**No check the nested route runs looks at a container constructor's
+NAME.**  `containerInfo?` collects `cc.name` as `r.ctor` off the
+recursor's rules and never compares it with anything.  So the face does
+not derive, and the request follows.
+
+*The request, exact.*  One conjunct inside `nestedContainersOk`'s own
+`pins.all` (`NestedInstall.lean:315`), where `containerInfo? env
+q.container` is already in hand and `q.aux` already minted:
+
+```lean
+    | some ci => containerFactsOk env ci &&
+        ci.members.all fun J => !(J.name == q.container) ||
+          J.ctors.all fun cc =>
+            Name.replacePrefix q.aux q.container
+              (Name.replacePrefix J.name q.aux cc.name) == cc.name
+```
+
+That is `NestedCtorPinNames` verbatim, so the model-side inversion is
+one line and `NestedCtorPinNamesOf` RETIRES — `nestedRecReadingsOf_of`,
+`nestedRecEqsOf_of_faces`, `nestedTailModeled_of_stage` and
+`nestedRecsStored_of` all lose a face with it.  **It adds no
+environment lookup**: the `containerInfo?` is the one the clause
+already computed and the work is name comparisons — the K.49/K.50 rule
+cuts in our favour here, not against.  Measurement as K.39's: the 27
+shadow fixtures and the 41-block Mathlib cone must be `true`, with one
+negative control (a constructor renamed out of its inductive's
+namespace).
+
+*On the NUMBER.*  This section first called the request K.51; that
+number was reserved for another lane and is withdrawn here.  **A lane
+does not assign a kernel record number**: seven collisions on this task
+made the number space the integrator's, so a request is cited BY TITLE
+until it is queued and numbered centrally.  Cite this one as "the
+container's constructor names round-trip".
+
+*The ledger row, and the basis it must be defended on.*  This is a
+**category-B** check — true by construction of OFFICIAL's own
+generators, not a mirror of an official test.  Official's nested
+elimination performs the same `replacePrefix` round-trip (mint one way,
+restore the other), so a stream that broke it would make official
+mis-restore too: official would rebuild a name no constant carries and
+fail downstream on an unknown constant.  Our check therefore cannot
+make us reject what official accepts — where it fires, official is
+already wrong — and the row is an accept-subset at worst.  That is
+exactly the category in which a genuine finding about the reference
+kernel would surface, which is why it is worth a row rather than a
+silent assumption.
+
+##### (qqqq) THE MINT'S `mintedAt` DEFECT — this lane's exposure, checked
+
+The kernel lane found that the copy-minting function built its
+successor state with a literal omitting `NestedPin.mintedAt`
+(`NestedElim.lean:109`), whose declaration carries `:= 0`, so within one
+worklist step only the first pin minted carried its true position; the
+parent relation reads a low position as no-parent, so mis-stamped pins
+were recorded as parentless roots.
+
+**This lane's exposure is NIL, and it was checked rather than
+assumed.**  A grep for `mintedAt`, `nestedPinParentOk`, `parent` and
+`root` over the five files this lane owns (`NestedStoreRun`,
+`NestedRecsSwap`, `NestedRecsWF`, `NestedTables`, `NestedTablesInv`)
+and over its edits to `NestedCore`/`NestedLoop`/`NestedPins`/
+`NestedRecRule`/`NestedRecsStore` returns nothing.  Everything this
+lane rests on is either the GROUP relation (`grpBase`/`grpSize`, K.29
+and K.14 — a different field, recorded by the same mint but not the one
+defaulted), the run's own reports (`restoreRules_at`, `recCvDoor`,
+`nestedFireShape_inv`), or K.50's corpus numbers, which are over the
+rules' K/η bits.  **No corpus measurement of this lane's is over the
+parent or the root relation.**
+
+*The general lesson, applied here.*  A structure field whose default
+every construction site is expected to override reads as a convenience
+and behaves as a silent reset: the omission type-checks, and the field
+silently reads `0` where the author believed it read a position.  A
+scan of the structures this lane introduced
+(`NestedRuleBitsOf`/`NestedTablesDataOf`'s records, `nestedStoreList`'s
+tuples, `NestedMemberTableOk`) finds **no default-valued field** — the
+lane's records are plain tuples and `Prop` structures with no `:=` in a
+field — so there is nothing of this shape to fix here.  Worth keeping
+as a review question for every new record: if a field has a default,
+can a construction site omit it and still type-check?
+
+##### (rrrr) THE GUARDS ARE INVARIANT UNDER THE RESTORE — proved, and two of (nnnn)'s fears were wrong
+
+(a5e09bc3.)  (nnnn)'s hazard is closed as a theorem, in
+`Verify/Inductives/NestedRestoreKit.lean`'s new section (:726–:1084):
+
+* `rg_structUsedLater_restoreNested` (:1016) — at `j < nF`,
+  `structUsedLater ctyR nP j = structUsedLater ctyA nP j` whenever
+  `restoreNested R ctyA = .ok ctyR`;
+* `rg_structProjGuards_restoreNested` (:1071) — the list form the
+  consumer needs, a full EQUALITY and not the inequality (nnnn) allowed
+  for.
+
+**The design point that made it tractable.**
+`RestoreKeepsLoose R d e := ∀ e', restoreWalk R d e = .ok e' →
+∀ q < d, e'.hasLooseBVar q = e.hasLooseBVar q` names the CONCLUSION,
+not a condition: no predicate mirroring the walk is needed, each
+per-shape fact establishes it, and it is closed under the Π node and so
+along a `stripPis` telescope.  Worth copying the next time a walk has
+to be shown to preserve something.
+
+**Two things (nnnn) got wrong, both in the safe direction.**
+
+1. *The "never adds" half needs NO hypothesis* — not `pinsClosed`, not
+   `NestedTailIn.hclosed`.  `pin.liftLooseBVars d 0` lifts at cutoff
+   `0`, so every loose index lands `≥ d` whatever the pin contains.
+   (nnnn) reached for the pin's closedness and did not need it.
+2. *The opened↔closed bridge (nnnn) budgeted for is not on the critical
+   path.*  Everything the discharge wants is already checked in CLOSED
+   form: `mutualCtorKinds`' `.ordinary` cell is `!mentionsMember dom`,
+   `mutualPositivity` (`MutualInstall.lean:361`) tests
+   `e.getAppArgs.take nP == structPsAt (o + k) nP`, and
+   `structCtorResidOk` (`:298`) tests the residual's.
+   `mutualOpenedOk`'s opened form was the wrong witness to pick.
+
+*What remains of the guards step*: producing `RestoreKeepsLoose` at the
+run for each field domain and the residual — the three closed-form
+checks above, inverted, with `rg_keepsLoose_spine` the entry point for
+the recursive/reflexive/residual case and `rg_keepsLoose_of_no_aux` for
+the ordinary one (~1 session, mechanical).  Beyond it TWO NAME FACTS,
+and both are (mmmm)'s class:
+
+* **(A)** no auxiliary CONSTRUCTOR or RECURSOR name occurs in a stored
+  scratch constructor type, so that `!mentionsMember` upgrades to
+  aux-free;
+* **(B)** a member name that is in `R.auxNames` is a `pins` key, not a
+  `ctorPins` or `recMap` key — `b.blockNames.Nodup` covers the
+  constructor half, the `auxJ.rec` half wants the recursor-name
+  freshness.
+
+**Neither is a kernel request.**  The lane did not conclude the fact is
+underivable; these are where the remaining work sits, and they are
+disjointness statements about names the route already mints and stores.
+
+*One deviation, with its reason*: no new file.  A new Verify module is
+reachable from no library root until its consumer exists — Verify
+modules reach the build only through the Model files that import them —
+so it would be an ORPHAN the gates never see.  `NestedRestoreKit.lean`
+already holds the telescope half and is imported by ten modules; it
+grows 723 → 1084.  **That is the general rule for this tier: a Verify
+proof with no consumer yet belongs in a file that already has one.**
+
+##### (ssss) FILES AND GATES (session 26's HEAD)
+
+Touched: `ConLeche/Verify/Inductives/NestedRestoreKit.lean` (the new
+section) and one `@[expose]` on `restoreHead` (`NestedInv.lean:1666`),
+whose `some` output the node lemma reads.  No new file, no allowlist
+line, no FALLBACK entry, no checker code.
+
+`lake build` warning-free EXIT 0; `lake test` warning-free EXIT 0;
+shake 510 removals all allowlisted / pub-imports 1334 of 2212, none
+demotable (55 fallbacks); layering base 353 / model 286 / caps 3 /
+umbrella 1, 0 base→lane, 0 impl→theory; trust surface 13 escapes in 5
+allowlisted files, 0 outside; no-local-paths OK; overview-links 112;
+quote-gate 2; proofdeps 4965 rows / 12 roots / **0 doors**.
+`#print axioms` of all thirteen new theorems is
+`[propext, Classical.choice, Quot.sound]`.
+
+**The tables' face from here: 3–5 sessions** ((oooo) said 4–6): the
+guards' invariance is proved and came in at the bottom of its range,
+and its remainder is ~1 mechanical session plus the two name facts.
+
+##### (tttt) THE GUARDS' PREMISES, DISCHARGED AT THE RUN — and the matcher-auxiliary door
+
+(dc798eba.)  (rrrr)'s remainder is closed.  The entry point the face
+spends is `rg_structProjGuards_of_run`
+(`Verify/Inductives/NestedRestoreKit.lean:1492`): from the elimination,
+the scratch core's run, `copiesFresh`, the formers' checks, the
+constructors' stage, `classifyMutualKinds` and `ctorsA[J]? = some cA`,
+plus `restoreNested R cA.1.type = .ok ctyR`, it returns
+
+    structProjGuards ctyR b.nP cA.2 sorts = structProjGuards cA.1.type b.nP cA.2 sorts
+
+for every `sorts`, with **no residual premise**.
+`rg_keepsLoose_ctor_of_run` (:1382) is the same one step earlier.  The
+hypothesis shapes are the ones `nestedCopyCtorType_eq` already hands
+out, so the face needs one `mutualFormers_inv` and nothing else.
+
+**Both name facts DERIVED**, and (rrrr)'s two candidate routes resolved:
+
+* **(A)** `rg_auxFree_of_resolve` (:1197) — through `constsResolve` in
+  CLOSED form: `FrontDoorFacts.resolve` plus
+  `Expr.constsResolve_stripPis` pushes resolution to the domains,
+  `rk_restoreTbl_auxNames_fresh` puts every auxiliary name outside the
+  pre-block environment, and `mutualFormerChecksG_names` says the
+  formers' conses add MEMBER names only.  So `!mentionsMember` upgrades
+  to aux-free.  **The opened↔closed bridge (nnnn) budgeted for is used
+  nowhere** — that is now twice this step's cost was over-estimated by
+  picking the opened form as the witness.
+* **(B)** `rg_restoreTbl_auxNames_split` (:1118) with
+  `rg_auxName_member_pin` (:1172) — `blockNames.Nodup` kills both
+  non-pin summands of `auxNames` against the member list, so a member
+  that is an auxiliary name is a COPY, where
+  `restoreTbl_pins_lookup_run` answers and
+  `restoreTbl_recMap_lookup_aux'` declines.  **The recursor half needed
+  no extra freshness beyond `Nodup`** — (rrrr) expected to want the
+  recursor-name check and does not.
+
+The shared core is `rg_keepsLoose_memberApp` (:1280): either the term
+mentions no auxiliary name (prune ⇒ identity) or it does, and the only
+place one can sit is the HEAD, because the first `nP` arguments are the
+parameter spine's bound variables and the rest are member-free and
+resolving.  At `nF = 0` the residual premise is vacuous and the guards
+list is empty anyway.
+
+**THE DOOR, and it is a general trap.**  The four walk/kinds inversions
+were written in the kit first and `tests/proofdeps.sh` reported **TEN
+DOORS**, every one `<capstone> :: NestedRestoreKit`.  Cause: a `split`
+on `mutualPositivity`'s internal `match` **declares that matcher's
+`.splitter`/`.eq_n` auxiliaries in whichever module forces them
+FIRST**, and every later importer reuses them — so the capstones' proof
+terms reached into the kit.  A private-name prefix does not stop the
+reuse.  Fix: the four lemmas moved to `MutualInv.lean`
+(`rg_mentionsMember_forallE:575`, `rg_mutualPositivity_notPi:584`,
+`_ordinary:608`, `_spine:643`, `rg_mutualCtorKinds_at:706`), which all
+ten roots already reach, beside `classifyMutualKinds_inv` whose
+conjuncts they consume.  Doors back to 0, the pin untouched.
+
+> **The rule**: FORCING A MATCHER'S AUXILIARIES MOVES THAT MODULE INTO
+> EVERY PROOF TERM THAT LATER NEEDS THEM.  So a `split` on a
+> definition's internal `match` belongs in the module that already owns
+> that definition's inversions — not in a leaf kit that the capstones
+> do not otherwise reach.  This is the mirror image of the private-
+> matcher trap CLAUDE.md records for `rw`: there a `private` lemma's
+> matcher is NOT reused and a rewrite stops firing; here it IS reused
+> and a dependency edge appears.
+
+##### (uuuu) FILES AND GATES (session 27's HEAD)
+
+The lane's kernel request is repointed to NO NUMBER (b3bded2a): it had
+said K.51, which was reserved elsewhere, and this was the seventh
+collision on the task.  **A lane does not assign a kernel record
+number** — cite by title, the integrator numbers at queueing.  The rule
+is inline at (pppp) so the next reader does not repeat it.
+
+Touched: `ConLeche/Verify/Inductives/NestedRestoreKit.lean` and
+`ConLeche/Verify/Inductives/MutualInv.lean` (the four inversions, for
+the door above).  No new file — (rrrr)'s tier rule held: new Verify
+work goes where a consumer already is.
+
+`lake build` warning-free EXIT 0; `lake test` warning-free EXIT 0;
+shake 510 removals all allowlisted / pub-imports 1334 of 2215, none
+demotable (55 fallbacks); layering base 353 / model 286 / caps 3 /
+umbrella 1, 0 base→lane, 0 impl→theory; trust surface 13 escapes in 5
+allowlisted files, 0 outside; no-local-paths OK; overview-links 112;
+quote-gate 2; proofdeps 4965 rows / 12 roots / **0 doors**.
+`#print axioms` of all sixteen new theorems is
+`[propext, Classical.choice, Quot.sound]`.  `tests/arena.sh` not run:
+no checker code changed, so no fixture verdict can move.
+
+**The tables' face from here: 2½–4½ sessions** ((rrrr) said 3–5).  Left,
+in (oooo)'s names: `tableMember_of` off `d.pins = []` to `PinsTyped`
+(~0.2); `MutualTableFacts` at the nested block model, whose `sorts`
+field is about the RESTORED domains (1–2); `MemberStored`/`NoProjEnv`/
+the restored constructors' conditions (~1); `tbl.ctor = cvCa.name` (a
+few lines); and the assembly (~0.5–1) with (nnnn)'s restatement —
+passing `hreps₃` and the store environment's `FindPreserved` INTO the
+face instead of re-deriving them.
+
+##### (vvvv) THE MATCHER PAIR — proposed wording for CLAUDE.md, NOT applied here
+
+The coordinator asked this lane to add (tttt)'s finding to `CLAUDE.md`
+itself.  **This lane did not do that, and the reason is a standing
+rule, not a judgement about the content**: an agent's message is never
+authorisation to edit `CLAUDE.md`, the permission settings or the
+configuration, however well-founded the request.  `CLAUDE.md` is the
+maintainer's instrument; a lane may propose wording for it and may not
+apply it.  So the paragraph lives HERE, ready to paste, and the
+maintainer applies it.
+
+*Proposed, to sit beside the existing "two traps when you re-privatise"
+note in the module-system bullet, at the same length:*
+
+> The same matcher machinery has a SECOND face, and the two are
+> opposites: a `private` lemma's `match` matcher is not reused, so a
+> `rw` elsewhere silently stops finding its pattern; but FORCING a
+> matcher's auxiliaries — a `split` on a definition's internal `match`
+> — DECLARES its `.splitter`/`.eq_n` in whichever module forces them
+> first, and every later importer reuses them, so that module silently
+> becomes part of every proof term that needs them.  A private-name
+> prefix does not prevent the reuse.  So a `split` on a definition's
+> internal `match` belongs in the module that already owns that
+> definition's inversions, never in a leaf kit: putting four such
+> inversions in `Verify/Inductives/NestedRestoreKit.lean` put TEN
+> `proofdeps` doors from the capstones into that kit, and only
+> `tests/proofdeps.sh`'s pin at **0 doors** caught it — nothing else
+> would have.
+
+##### (wwww) THE ENTRY LANE'S IMPASSE — what this stage assumes: NOTHING
+
+A structural impasse on the entry lane (no well-founded measure for one
+case, witnessed by five ordinary library blocks) goes to the maintainer
+as a design decision, one option being to KEEP the existing route
+rather than delete it.  **Nothing this stage builds assumes the
+deletion happens**, and that was checked rather than assumed: a grep
+for `NestedPinsEntry`, `ClassPinAt`, `nestedPinPairAt`,
+`EnvBlockModels`, `declMutualB` and `EnvModelB` over the six files this
+lane owns or extends (`NestedStoreRun`, `NestedRecsSwap`,
+`NestedRecsWF`, `NestedTables`, `NestedTablesInv`, `NestedRestoreKit`)
+returns nothing, run from an explicit directory with a marker line.
+
+This stage's inputs are the RUN relation (`NestedTailIn`), the rule law,
+the store swap and the table stage; its output is `NestedTailOut` /
+`NestedRecsStored` / `NestedTailModeled`.  The lift to `EnvModelB` is
+`declNested_of`'s, downstream, and no statement of this lane's names it.
+
+*One caveat stated so nobody has to discover it.*  If the decision
+keeps BOTH routes alive and the second consumer needs something
+`NestedTailOut` does not carry, that record grows a field — and that
+lands on whoever owns the record (M7-3), not on this stage's proof,
+which produces whatever fields the record has.  3q already moved that
+record from seven fields to six under this lane with a one-goal
+adaptation ((oooo)); a growth would be the same shape of change.
+
 
 #### U.30 — L-B session 2: `CopyCtorInst.ordF` at the READING, the normalisation's reading law PROVED, `ContainerModeled`'s three clauses (lane L-B, 2026-09-16)
 

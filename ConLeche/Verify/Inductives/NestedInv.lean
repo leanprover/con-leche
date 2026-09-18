@@ -1683,7 +1683,7 @@ made once; `restoreNode_eq_head` and `restoreNode_const` pin this copy to
 the kernel's by `rfl`. -/
 
 /-- The head half of `restoreNode`'s step (its `let head`), restated. -/
-def restoreHead (R : RestoreTbl) (d : Nat) (e : Expr) : Except CheckError (Option Expr) :=
+@[expose] def restoreHead (R : RestoreTbl) (d : Nat) (e : Expr) : Except CheckError (Option Expr) :=
   match e.getAppFn with
   | .const n _ =>
     let args := e.getAppArgs
