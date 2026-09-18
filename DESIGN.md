@@ -108693,3 +108693,106 @@ table.
 `lake build` 0 errors/warnings, **722 jobs**; nothing half-applied.
 
 Nothing in this section changes the tree.
+
+#### (number at the integrator's sync) — L-E: the `pinψ` claim RETRACTED (my extraction, not the prose), and the fourth option refuted structurally (lane L-E, 2026-09-18)
+
+##### (a) RETRACTION — `ContainerModeled.pinψ` EXISTS, and `hψK` is PRESENT
+
+This lane reported that `NestedPremise.lean`'s prose "lists a `pinψ`
+clause the structure does not have", and called it the fourth stale
+reason of the day and the first not its own.  **That was wrong.  The
+field is at `NestedPremise.lean:330` and is `hψK` verbatim:**
+
+```lean
+pinψ : ∀ q, q < d.nPins → ∀ (cvT : ConstantVal) (caps : IndCaps),
+  env.find? (d.pinAt q).J = some (.indInfo cvT caps) →
+  (d.pinAt q).lvls.length = cvT.levelParams.length ∧
+  ∀ ψ, (d.pinAt q).ψJ ψ = Level.substFn ψ cvT.levelParams (d.pinAt q).lvls
+```
+
+It is also USED and compiling at `NestedCopyInst.lean:3083`
+(`(CM ci hciPR).pinψ _ hqlt cvq capsq hfindq₂`), which alone refutes the
+claim.
+
+**The cause was an extraction bug, and it is worth a rule.**  The field
+list was pulled with `grep -oE "^  [a-zA-Z][a-zA-Z0-9_']* :"`, whose
+character class is ASCII-only, so it silently dropped **every field
+whose name contains a non-ASCII character** — and this tree's
+identifiers routinely do (`ψ`, `ρ`, `Φ`, `₀`).  Re-extracting properly
+gives sixteen fields, not fifteen:
+
+> `k namesLen nP reps typed inj member frame ordFree nestMention
+> pinsNotMembers pinNP pinConts ownPins pinψ pinParams`
+
+**RULE: a field- or name-extraction regex in this tree must not use an
+ASCII-only class.**  A dropped field reads exactly like an absent one,
+and this lane then reported another lane's correct prose as stale.  That
+is the fifth textual command answering a structural question today, and
+the first whose error landed on someone else.
+
+##### (b) THE FOURTH OPTION — refuted, and structurally rather than by search
+
+The question was whether the six container-side facts follow from the
+container being an already-installed, already-modelled inductive in
+`env`.  **They do not, and the reason is where the pin table lives.**
+
+`BlockModel.pins : List PinSyn` (`BlockRep.lean:393`) is **model-side
+data**.  A `PinSyn` carries BOTH the `Expr` side (`DsE`) and the reading
+side (`Ds`), and the denotation relating them is a COHERENCE property of
+the chosen model — not a fact about the environment, which holds neither
+list.  `blockOf` is a choice function, and what its predicate guarantees
+is exactly what `ContainerModeled` records; **if a clause is not in
+`ContainerModeled`, no chosen model need satisfy it and the environment
+cannot supply it.**
+
+The tree says the same thing one level down for the closest relative:
+`ContainerOwnPins.of_noOwn`'s docstring records that §U.68 (a) found the
+analogous emptiness "NOT derivable in the model tier … an
+environment-history invariant no record carries", which is why K.43 was
+requested rather than derived.
+
+`ContainerModeled.typed`'s `PinsTyped` does not close the gap either: it
+gives membership in a SORT, not a denotation.
+
+**So the choice is between (a) new `ContainerModeled` clauses and (b) a
+`NestedPinSynFacts` twin at the container — and they are the same
+content in two places.**  Deriving is not available here, and the
+standing ruling's preference is satisfied by having tested it rather
+than assumed it.
+
+##### (c) `hDsD`'s CROSSING — avoidable, not a crossing
+
+`pinCorr_of_ownPins` is generic in `{m : EnvModel V env}`, so the
+consumer CHOOSES.  Instantiated at `ENV₁`/`mp₁'.base2` rather than at
+`env`/`mp.base2`, `NestedPinSynFacts.pinDs` matches `hDsD` with no
+crossing at all — the contravariant pull the `ContainerModeled`
+docstring warns about is only needed if one insists on `env`.
+
+**The cost is that the choice is global**: `hfind`, `hps`, `hsyn` and
+`hfoundK` must then also hold at `ENV₁`.  `find?` survives the extension
+(`copiesFresh` gives no shadowing), but whether `ContainerModeled` is
+available at `ENV₁` this lane has NOT checked.  So `hDsD` stays out of
+the PRESENT column — not because it is absent, but because which
+instantiation makes all the environment-dependent premises line up is
+itself part of the scope call.
+
+##### (d) THE TABLE, CORRECTED
+
+| premise | state |
+| --- | --- |
+| `hsyn` | **present** — `ContainerModeled.ownPins` |
+| `hψD` | **present** — `NestedPinGroupSyn.stored` |
+| `hψK` | **present** — `ContainerModeled.pinψ` (corrected) |
+| `hi` | **present** |
+| `hDsD` | present at `ENV₁`; blocked on the instantiation choice |
+| `hfind` | derivable — `ContainerModeled.member` + `reps` |
+| `hfoundK` | derivable — `pinConts` plus `containerInfo?`'s lookup |
+| `hscope`, `hpinDs`, `hDsE`, `hps`, `hmem`, `h0` | **unverified or absent, all container-side** |
+
+Five present or near, two derivable, **six still the gap** — the count
+is unchanged, but one of them moved for a reason this lane got wrong,
+and the record should show that.
+
+Nothing built; `lake build` 0 errors/warnings, **722 jobs**.
+
+Nothing in this section changes the tree.
