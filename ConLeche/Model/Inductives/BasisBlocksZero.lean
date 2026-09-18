@@ -202,6 +202,26 @@ theorem zeroCtorBlock_pinRecLaws {env : Env} {m : EnvModel V env}
   injW := fun _ _ h => nomatch h
   ind := fun _ _ _ _ _ _ _ _ h => nomatch h
 
+/-- **A ZERO-CONSTRUCTOR PINNED BLOCK'S OWN-PIN TABLE IS EMPTY**
+(task #315 M7-3 session 17, K.49 and DESIGN §U.74) — the clause
+`ContainerOwnPinsSyn` at `Empty`'s and `False`'s block model.
+
+Stated at the READ-BACK rather than at `Env.find?` results because the
+block model itself is generic in the former's name: the two
+instantiations supply `containerInfo?_emptyA` and
+`containerInfo?_falseA`.  `hmim` is `checkBasisDecl`'s own
+certification (`basisOwnMimicsOk`, the last conjunct of
+`DeclBasisRun`) at the block's former, which is where
+`containerOwnPinsAt`'s walk starts. -/
+theorem zeroCtorBlock_ownPins {env env₀ : Env} {T : Name} {resSort : Level}
+    {lps : List Name} {ty : Expr}
+    (hci : ConLeche.containerInfo? env T = some ⟨0, [⟨T, lps, ty, []⟩]⟩)
+    (hmim : ConLeche.blockOwnMimicsOk env T 0 = true) :
+    ContainerOwnPinsSyn (V := V) env (zeroCtorBlock (V := V) T resSort env₀) :=
+  ContainerOwnPinsSyn.of_noMimics hmim fun i hi => by
+    obtain rfl : i = 0 := Nat.lt_one_iff.mp (show i < 1 from hi)
+    exact ⟨_, _, hci, rfl, rfl⟩
+
 /-- **The container's block model, in the container's own terms**: the
 group `containerInfo?` reads for a zero-constructor pinned basis block
 is the one-member group with no constructors, and the block model
@@ -212,7 +232,9 @@ theorem zeroCtorBlock_containerModeled {env : Env} {m : EnvModel V env}
     (hnm : cvT.name = T) (hty : cvT.type = .sort resSort) {env₀ : Env}
     (hval : ∀ (ψ : Name → Nat) (ρ : Nat → V), interp V ρ (m.acval T ψ) = (empty : V))
     (hsort : ∀ ψ₁ ψ₂ : Name → Nat, (∀ p ∈ cvT.levelParams, ψ₁ p = ψ₂ p) →
-      resSort.eval ψ₁ = resSort.eval ψ₂) :
+      resSort.eval ψ₁ = resSort.eval ψ₂)
+    (hci : ConLeche.containerInfo? env T = some ⟨0, [⟨T, cvT.levelParams, cvT.type, []⟩]⟩)
+    (hmim : ConLeche.blockOwnMimicsOk env T 0 = true) :
     ContainerModeled m ⟨0, [⟨T, cvT.levelParams, cvT.type, []⟩]⟩
       (zeroCtorBlock (V := V) T resSort env₀) where
   k := rfl
@@ -244,28 +266,9 @@ theorem zeroCtorBlock_containerModeled {env : Env} {m : EnvModel V env}
   pinsNotMembers := fun _ h => nomatch h
   pinNP := fun _ h => nomatch h
   pinConts := fun _ h => nomatch h
+  ownPins := zeroCtorBlock_ownPins hci hmim
   pinψ := fun _ h => nomatch h
   pinParams := fun _ _ _ => ContainerPinParams.of_noPins rfl
-
-/-- **A ZERO-CONSTRUCTOR PINNED BLOCK'S OWN-PIN TABLE IS EMPTY**
-(task #315 M7-3 session 17, K.49 and DESIGN §U.74) — the clause
-`ContainerOwnPinsSyn` at `Empty`'s and `False`'s block model.
-
-Stated at the READ-BACK rather than at `Env.find?` results because the
-block model itself is generic in the former's name: the two
-instantiations supply `containerInfo?_emptyA` and
-`containerInfo?_falseA`.  `hmim` is `checkBasisDecl`'s own
-certification (`basisOwnMimicsOk`, the last conjunct of
-`DeclBasisRun`) at the block's former, which is where
-`containerOwnPinsAt`'s walk starts. -/
-theorem zeroCtorBlock_ownPins {env env₀ : Env} {T : Name} {resSort : Level}
-    {lps : List Name} {ty : Expr}
-    (hci : ConLeche.containerInfo? env T = some ⟨0, [⟨T, lps, ty, []⟩]⟩)
-    (hmim : ConLeche.blockOwnMimicsOk env T 0 = true) :
-    ContainerOwnPinsSyn (V := V) env (zeroCtorBlock (V := V) T resSort env₀) :=
-  ContainerOwnPinsSyn.of_noMimics hmim fun i hi => by
-    obtain rfl : i = 0 := Nat.lt_one_iff.mp (show i < 1 from hi)
-    exact ⟨_, _, hci, rfl, rfl⟩
 
 /-! ## The read-back at `Empty` -/
 
@@ -323,6 +326,8 @@ the empty family over the one-point index set, the pinned value
 `bval .empty [1] = empty`. -/
 theorem emptyBlockAt {env : Env} {m : EnvModel V env}
     (hT : env.find? ConLeche.emptyName = some ConLeche.emptyA)
+    (hR : env.find? (ConLeche.emptyName.str "rec") = some ConLeche.emptyRecA)
+    (hmim : ConLeche.blockOwnMimicsOk env ConLeche.emptyName 0 = true)
     {B : ContainerInfo → BlockModel V}
     (hB : B ⟨0, [⟨ConLeche.emptyName, [], ConLeche.emptyA.toConstantVal.type, []⟩]⟩
       = zeroCtorBlock (V := V) ConLeche.emptyName (.succ .zero) ⟨[]⟩) :
@@ -336,7 +341,8 @@ theorem emptyBlockAt {env : Env} {m : EnvModel V env}
     rw [acval_basis_pinned hT (by decide) hpd]
     rfl
   refine ⟨hB ▸ zeroCtorBlock_containerModeled (cvR := ConLeche.emptyRecA.toConstantVal)
-      hT rfl rfl hval (fun _ _ _ => rfl), ⟨fun _ => default, ?_, ?_⟩⟩
+      hT rfl rfl hval (fun _ _ _ => rfl) (containerInfo?_emptyA hT hR) hmim,
+    ⟨fun _ => default, ?_, ?_⟩⟩
   · exact hB ▸ zeroCtorBlock_pinRecLaws
   · rw [hB]; exact fun q hq => nomatch hq
 
@@ -345,6 +351,8 @@ universe down (`False : Prop`, the pinned value `bval .empty [0] =
 empty`, the false proposition). -/
 theorem falseBlockAt {env : Env} {m : EnvModel V env}
     (hT : env.find? ConLeche.falseName = some ConLeche.falseA)
+    (hR : env.find? (ConLeche.falseName.str "rec") = some ConLeche.falseRecA)
+    (hmim : ConLeche.blockOwnMimicsOk env ConLeche.falseName 0 = true)
     {B : ContainerInfo → BlockModel V}
     (hB : B ⟨0, [⟨ConLeche.falseName, [], ConLeche.falseA.toConstantVal.type, []⟩]⟩
       = zeroCtorBlock (V := V) ConLeche.falseName .zero ⟨[]⟩) :
@@ -358,7 +366,8 @@ theorem falseBlockAt {env : Env} {m : EnvModel V env}
     rw [acval_basis_pinned hT (by decide) hpd]
     rfl
   refine ⟨hB ▸ zeroCtorBlock_containerModeled (cvR := ConLeche.falseRecA.toConstantVal)
-      hT rfl rfl hval (fun _ _ _ => rfl), ⟨fun _ => default, ?_, ?_⟩⟩
+      hT rfl rfl hval (fun _ _ _ => rfl) (containerInfo?_falseA hT hR) hmim,
+    ⟨fun _ => default, ?_, ?_⟩⟩
   · exact hB ▸ zeroCtorBlock_pinRecLaws
   · rw [hB]; exact fun q hq => nomatch hq
 

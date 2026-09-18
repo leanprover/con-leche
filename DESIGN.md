@@ -104376,3 +104376,121 @@ my estimates this arc came in under.  It is NOT done here: the check is
 landed and measured, the lane's face is unblocked today, and the
 derivation is the strictly better end state whenever a session can be
 spent replacing this row with a theorem.
+
+#### U.117 — M7-3 session 24: **`ContainerModeled.ownPins` LANDED at all nine sites** — the covering premise closed (lane M7-3, session 24, 2026-09-18)
+
+The field lane L-E's covering premise waits on.  Every ingredient was
+proved in earlier sessions of this lane; this is the landing, and it
+came in one commit as designed.
+
+```lean
+  ownPins : ContainerOwnPinsSyn (V := V) env d
+```
+
+The SYNTACTIC form, because the reading form cannot cross
+`ContainerModeled.crossEnvP` (its `DenoteMetaSpine` premise is
+contravariant), with `ContainerOwnPinsSyn.toReadOf` as the bridge to
+the form `classPin_of_pinCorr` consumes.
+
+##### (a) The nine
+
+| site | discharge |
+| --- | --- |
+| `nativeContainerModeled` | `nativeOwnPins_of hf` — the route already bound it |
+| `mutualContainerModeled` | `mutualOwnPins_of …` — likewise |
+| the four basis theorems (`zeroCtorBlock` serving Empty **and** False) | each file's own `*_ownPins`, with K.49's Bool threaded from `basisStepB_of` through the five `*BlocksStepOf` |
+| `nestedContainerModeled` | `nestedOwnPins_of`, with K.47 and K.43 named in `declNested_of`'s `obtain` |
+| `ContainerModeled.of_readBack` | one premise, supplied by its three callers |
+| `ContainerModeled.crossEnvP` | an arrow, supplied at `crossIndP` by `ContainerOwnPinsSyn.crossIndOf` |
+
+##### (b) THE LAST STEP IS A DERIVATION, NOT A HYPOTHESIS
+
+`recMajorHeadStored_of_envWF` reads the environment invariant's new
+UNCONDITIONAL conjunct `Expr.recMajorHeadOk cv.type mI = true` and
+feeds `recMajorHeadStored_of_stripPis`.  Every crossing now takes the
+premise from the well-formedness it already carries, so **nothing is
+imposed on any producer** — including producers that do not exist yet.
+
+**NO NEW HYPOTHESIS REACHES THE FOLD.**  `declNativeB`, `declMutualB`,
+`basisStepB_of` and `declNested_of` have byte-identical signatures to
+before the commit, checked mechanically against `HEAD` rather than by
+eye — which is the right standard for a claim of that shape, since a
+nine-site record is exactly where such a hypothesis would hide.
+
+##### (c) THE BLAST RADIUS THE PLAN DID NOT NAME
+
+Both failure shapes this arc has been bitten by — a structure gaining a
+field breaking NAMED-argument call sites, and an interface gaining an
+argument breaking POSITIONAL ones — bit here, and both surface far from
+their cause.  Chasing callers rather than trusting the build found more
+than the plan listed:
+
+* the unguarded twins `ContainerModeled.crossEnv` / `BlockAt.crossEnv`
+  route through `crossEnvP`, so they carry the arrow too;
+* `EnvBlocksOf.crossSame` takes the identity; `crossCons` derives the
+  arrow from `crossIndOf` at `N := [c₀.name]`, where the cons's kind
+  clause makes `hrecN`/`hmimN` unsatisfiable;
+* `crossInd`, `EnvBlockModels.crossIndP`/`crossInd`,
+  `extendBasis`/`extendBasisOf`, `extendBasisExt` and `extendNoGroup`
+  all gained `hmimN`;
+* **`quotBlocksStepOf` is the one install whose new names are not all
+  members' own recursors**, so its `hmimN` is proved by hand against a
+  new `appendIndexAfter_rec_str`: four of `Quot`'s five names are too
+  short to be mimic-shaped, and the fifth's prefix IS one of the new
+  names.  A uniform argument would have mis-handled exactly this case;
+* `NestedPins.lean`'s two crossings to the members' prefix environment
+  are closed by `ownPinsSyn_consMutualFormers` and
+  `NestedPinsRun.ownCross`, modelled on
+  `containerInfo?_consMutualFormers` — the cons carries `.indInfo`s
+  only, so the walk cannot grow.
+
+`nestedMimN`, proved two sessions ago and unconsumed since, now has its
+consumer.
+
+##### (d) Gates
+
+`lake build` and `lake test` warning-free; **proofdeps 4965 rows / 12
+roots / doors 0** — unmoved by a nine-site record, which is where it
+would have moved; layering 353 / 286 / 3 / 1, 0 base->lane and 0
+impl->theory; trust 13/5; overview-links 112; quote-gate 2;
+no-local-paths OK; shake 510 removals all allowlisted; pub-imports 1334
+of 2242, none demotable, no new FALLBACK needed; `tests/arena.sh`
+**EXIT 0** — nested-shadow 37/37, e2e 199/199, trusted sweep 162 arena
++ 199 e2e + 15 annot, axiom pin 20.  (e2e 196 -> 199 and the trusted
+arena sweep 138 -> 162 are fixtures the last sync brought, not drift.)
+Standard axioms on all thirteen touched results.
+
+##### (e) THE PIN VIEW, DERIVED — a clause asked for and not needed
+
+Lane L-E needed, for a stored container's own pin, the pin's index data
+read against the pin's container's block model AT THE ABSTRACT
+assignment.  It had checked every record it holds — this record's six
+pin clauses are properties and a congruence, never an identification;
+the group-syntactic record's five run the other way, the block's pins
+against the container's members; the block-model clauses constrain a
+pin only through that model's own carriers; and the route through the
+leaf is circular — and found the view only at CONCRETE models.  It
+asked for a clause, preferring three consequences at the pin.
+
+**It derives.**  `PinShapes` — which `EnvBlocksOf` already carries,
+through `BlockAt` — states its group view at the SAME abstract `B` the
+consumer quantifies over.  The gap was one level out from where it was
+being looked for, which is why an otherwise exhaustive enumeration
+missed it.
+
+`ownPinView_of_blocks` is the derivation, and the three consequences
+are three FIELDS of `PinGroupView`: the parameter count is `pinNP`, the
+projection data `pinPps`, the universe `pinU` — the last stated at the
+group BASE's assignment and rewritten to the pin's OWN by `same`, which
+is the only real step.  `kEq` gives the index bound and `name` the
+identification, so **the index is forced by the pin's own name** and
+nothing is matched by position.  `PinShapes`' shape and count
+conjuncts are discarded: the lemma does not depend on the shape half.
+
+**This is the second request of this kind answered by a derived lemma
+off a field the record already carried**, and the reason to prefer that
+is structural rather than stylistic: a clause imposes on every
+producer, present and future, an obligation that nobody has to supply.
+Seven of nine sites were vacuous last time and that is what made a
+clause cheap; here the count never had to be taken, because no site
+pays anything.
