@@ -111955,7 +111955,7 @@ pessimistic reading the shortest cycle would be
 `A(q₁) → B(q₂) → A(q₃) → A(q₁)`, needing `q₃ ⊏ q₂`, `ord q₂ < ord q₁ <
 ord q₃` and an edge `q₃ → q₁`.  It is blocked structurally — the return
 arc forces `q₃`'s own container name into its own field domain, which
-makes `mentionsMember` true (`NestedInstall.lean:1571`) and the edge
+makes `mentionsMember` true (`NestedInstall.lean:1575`) and the edge
 OWN, and own edges carry no dependency.  That is a blocked shape, not a
 general impossibility proof; it is moot under (b).
 
