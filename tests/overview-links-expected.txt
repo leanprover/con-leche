@@ -362,9 +362,9 @@
    104    deriving DecidableEq, Repr, Hashable
 
 == ConLeche/Verify/Cached/AgreeFloor.lean#L2114-L2116
-  2114  theorem checkDecls_skels {mode : CheckMode} {ds : Array Declaration}
-  2115      {env : Env} (h : checkDecls mode pins ds = .ok env) :
-  2116      envSkels env = streamSkels ds.toList := by
+  2114        show SkelIs (fe.push (.axiomInfo cvA)) (.ax cv.name :: sk)
+  2115        rw [← hr.1]; exact h.push _
+  2116    | axiomDecl cv => exact hord _
 
 == ConLeche/Term/Syntax.lean#L176-L205
    176    deriving Repr, DecidableEq, Inhabited

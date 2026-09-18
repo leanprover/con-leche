@@ -998,6 +998,9 @@ theorem nestedPinChecks_inv {ops : CheckerOps CheckM} {env envN : Env} {p : Nest
       certOnly ops.mode (nestedPinKindsOk p b st stored) = true ∧
       certOnly ops.mode (nestedPinRankOk env p b st stored) = true ∧
       certOnly ops.mode (nestedPinRootPairOk env p b st stored) = true ∧
+      -- **K.57**: a reference that LEAVES the instance goes to a
+      -- container declared strictly earlier
+      certOnly ops.mode (nestedPinOrderOk env p b st stored) = true ∧
       (ops.mode.verifiedChecks = true →
         ∃ (jobs : List (Nat × Expr × Expr)) (ws : List Expr),
           nestedOrdDomPairs env p st stored (nestedPinKinds p b stored) = some jobs ∧
@@ -1040,6 +1043,12 @@ theorem nestedPinChecks_inv {ops : CheckerOps CheckM} {env envN : Env} {p : Nest
                 (nestedPinRootGroupAt p st (nestedPinInstAt st
                   (nestedPinEdgesAt env p st stored (nestedPinKinds p b stored)))) = true := by
               simpa using hrh
+            split at h
+            case isTrue => close_throw
+            rename_i hord
+            have hord' : nestedPinOrderAt env p st stored
+                (nestedPinKinds p b stored) = true := by
+              simpa using hord
             obtain ⟨jobs, hjobs, h⟩ := exceptBind_ok h
             obtain ⟨ws, hws, h⟩ := exceptBind_ok h
             by_cases hcmp : (ws == jobs.map (·.2.2)) = true
@@ -1055,12 +1064,14 @@ theorem nestedPinChecks_inv {ops : CheckerOps CheckM} {env envN : Env} {p : Nest
               by simp [certOnly, nestedPinRankOk, nestedPinEdges, hrk'],
               by simp [certOnly, nestedPinRootPairOk, nestedPinRootGroup, nestedPinInstOf,
                 nestedPinEdges, hrh'],
+              by simp [certOnly, nestedPinOrderOk, hord'],
               fun _ => ⟨jobs, ws, unwrapOr_ok hjobs, hws, by simpa using hcmp⟩,
               fun _ => ⟨pd.1, pd.2, jobsP, wsP, unwrapOr_ok hpd, unwrapOr_ok hjobsP,
                 hwsP, hrw⟩⟩
   · -- `.trusted`: the group does not run, and every `certOnly` is `true`
     exact ⟨by simp [certOnly, hv], by simp [certOnly, hv], by simp [certOnly, hv],
-      by simp [certOnly, hv], fun hv' => absurd hv' (by simp [hv]),
+      by simp [certOnly, hv], by simp [certOnly, hv],
+      fun hv' => absurd hv' (by simp [hv]),
       fun hv' => absurd hv' (by simp [hv])⟩
 
 /-- **The whole nested chain**, as the install ran it. -/
@@ -1144,6 +1155,10 @@ theorem checkNested_inv {env envOut : Env} {p : NestedParts} {F : Nat}
       certOnly mode (nestedPinParentOk p st) = true ∧
       -- THE PIN PAIRING AT A NOT-OWN EDGE (K.41): all four of `ClassPin`'s
       certOnly mode (nestedPinRootPairOk env p b st stored) = true ∧
+      -- THE NOT-OWN REFERENCES' ORDER (K.57): a reference that leaves the
+      -- instance goes to a container declared strictly earlier — the
+      -- model's step (iii) inducts on it at a constant-headed field
+      certOnly mode (nestedPinOrderOk env p b st stored) = true ∧
       -- THE POSITIVITY NORMALISATION ON THE MINTED COPY (K.42): at every
       -- ORDINARY field of every copy's constructor, the stored domain IS
       -- the normalisation of the MINTED one — lane L-B's `ordF`-left arm
@@ -1348,7 +1363,7 @@ theorem checkNested_inv {env envOut : Env} {p : NestedParts} {F : Nat}
   rw [if_pos hpa] at h
   try simp only [bind, Except.bind] at h
   obtain ⟨uPC, hpc4, h⟩ := exceptBind_ok h
-  obtain ⟨htg, hkd, hrk, hrh, hord, hpinN⟩ := nestedPinChecks_inv hpc4
+  obtain ⟨htg, hkd, hrk, hrh, hordC, hord, hpinN⟩ := nestedPinChecks_inv hpc4
   try simp only at h
   obtain ⟨uP₁, hpins₁, h⟩ := exceptBind_ok h
   try simp only at h
@@ -1420,7 +1435,7 @@ theorem checkNested_inv {env envOut : Env} {p : NestedParts} {F : Nat}
   exact ⟨st, b, envAux, stored, ctorsR, cvRms, cvRns, rulesM, rulesN, fmsA, ctorsA,
     hfmsA, hctorsA, helim', beq_iff_eq.mp hcnt, hfresh, hcont, hb', haux, hst', hpc,
     (by cases uA; exact hpinsAux), hcaps, hsrc,
-    certOnly_and_left hcont, hgrp, hmn, hsc, hpl, htg, hkd, haa, hrk, hpa, hrh, hord, hpinN,
+    certOnly_and_left hcont, hgrp, hmn, hsc, hpl, htg, hkd, haa, hrk, hpa, hrh, hordC, hord, hpinN,
     (by cases uP₁; exact hpins₁), hctors, hrm, hrn, hnd, hdj, hrlm, hrln, hrb2, htbl,
     (by cases u₀; exact hpins), hnums, hlen, (by cases u₁; exact hrecs), hrb, hop, hom⟩
 

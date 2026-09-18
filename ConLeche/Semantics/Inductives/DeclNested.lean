@@ -242,6 +242,13 @@ def DeclNestedRun (μ : CheckMode) (F : Nat) (env : Env)
     -- levels and components — all four of `ClassPin`'s data in ONE
     -- equality, off the two recorded tables and no term head
     ConLeche.certOnly μ (ConLeche.nestedPinRootPairOk env p b st stored) = true ∧
+    -- THE NOT-OWN REFERENCES' ORDER (K.57): a reference that LEAVES an
+    -- instance goes to a container declared strictly earlier, which is
+    -- the well-founded order the entry theorem's step (iii) inducts on
+    -- at a constant-headed field.  A same-container reference cannot
+    -- appear: the ownership bit is `mentionsMember` against the
+    -- container's own group, which contains the container
+    ConLeche.certOnly μ (ConLeche.nestedPinOrderOk env p b st stored) = true ∧
     -- THE POSITIVITY NORMALISATION ON THE MINTED COPY (K.42): at every
     -- ORDINARY field of every copy's constructor, `normPosDomM` on the
     -- MINTED domain — the container's field at the pin's components,
@@ -534,7 +541,7 @@ theorem declNestedRun_etaClosed {μ : CheckMode} {F : Nat} {env envOut : Env}
     {p : NestedParts} (hE : EtaFamiliesClosed env)
     (h : DeclNestedRun μ F env p envOut) : EtaFamiliesClosed envOut := by
   obtain ⟨-, -, st, b, envAux, stored, ctorsR, cvRms, cvRns, rulesM, rulesN, fmsA, ctorsA,
-    -, -, -, -, -, -, -, -, -, -, -, hcaps, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, hctors, hrm, hrn, -, -, -, -, -, htbl,
+    -, -, -, -, -, -, -, -, -, -, -, hcaps, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, hctors, hrm, hrn, -, -, -, -, -, htbl,
     -, -, -, -, -, -⟩ := h
   refine EtaFamiliesClosed.ofFreshExt hE ?_
   -- the formers

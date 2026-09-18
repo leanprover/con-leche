@@ -1168,7 +1168,8 @@ theorem declNested_of (hμ : μ.verifiedChecks = true) {F : Nat} {env envOut : E
   classical
   obtain ⟨h0, h1, st, b, envAux, stored, ctorsR, cvRms, cvRns, rulesM, rulesN, fmsA, ctorsA,
     hfA, hcA, helim, hcount, hfresh, hcont, hb, haux, hstored, hclosed, hpinsAux, hcaps, hsrc,
-    -, hgrp, hmn, hsc, hlv, hK32, hkinds, hauxApps, hrank, -, -, hK42, -, hpins₁, hctors, hrm, hrn,
+    -, hgrp, hmn, hsc, hlv, hK32, hkinds, hauxApps, hrank, -, -, -, hK42, -, hpins₁, hctors, hrm,
+    hrn,
     hndR, hdisj,
     hrulesM, hrulesN, -, htbl, hpinsOut, -, hcnt, hrecs, hrb, -, -⟩ := h
   -- the `-` after `hsrc` is K.31's `pinsDistinct` conjunct: named for the
@@ -1191,7 +1192,10 @@ theorem declNested_of (hμ : μ.verifiedChecks = true) {F : Nat} {env envOut : E
   -- copies, carried down to `NestedPinsRun` for the copies' identities'
   -- `ordF`-LEFT arm and — since the filter was widened to member
   -- targets — its `ordF`-RIGHT arm too (lane L-B's `NestedPinsShape`),
-  -- and not consumed here; the `-` after `hK42` is K.51's twin at the
+  -- and not consumed here; the `-` between `hrh` and `hK42` is K.57's
+  -- ordering record (a not-own reference goes to an earlier-declared
+  -- container), which the entry theorem's step (iii) reads and nothing
+  -- on this path does; the `-` after `hK42` is K.51's twin at the
   -- PIN targets — the normalisation of the minted domain REWRITTEN —
   -- which lane L-B's `ordF`-RIGHT arm reads at a pin target and nothing
   -- on this path does, so it is carried by the run relation and picked

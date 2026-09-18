@@ -1513,9 +1513,85 @@ def nestedPinEdgesAt (env : Env) (p : NestedParts) (st : ElimState)
     pure perCtor.flatten
   pure rows.flatten
 
+/-- **THE CONTAINERS' DECLARATION ORDER** (task #315 K.57): a name's
+position in the environment's own list, whose HEAD is the most recent
+cons — so a LARGER index is an EARLIER declaration.  `none` at a name
+the environment does not hold, which `containerInfo?` has already
+excluded for every container this walk visits. -/
+def declPos (env : Env) (n : Name) : Option Nat :=
+  env.consts.findIdx? (fun ci => ci.name == n)
+
+/-- The container's stored field domain, stripped of its own binders. -/
+def stripDomPis : Expr → Expr
+  | .forallE _ b _ => stripDomPis b
+  | e => e
+
 @[inline] def nestedPinEdges (env : Env) (p : NestedParts) (b : MutualBlock) (st : ElimState)
     (stored : List AuxStored) : Option (List (Nat × Nat × Bool)) :=
   nestedPinEdgesAt env p st stored (nestedPinKinds p b stored)
+
+/-- **A NOT-OWN, CONSTANT-HEADED REFERENCE GOES TO AN EARLIER-DECLARED
+CONTAINER** (task #315 K.57): the ordering the entry theorem's step
+(iii) inducts on.
+
+Three shapes of reference, and only the third carries an obligation.
+An OWN reference stays inside the instance — the ownership bit is
+`mentionsMember` against the container's OWN GROUP's names, and
+`containerInfo?` puts the container among them, so a not-own reference
+can never point back at the source's own group, which is the one shape
+no ordering could make decrease.  A not-own reference whose stripped
+field domain is headed by a PARAMETER carries no obligation either: the
+step reads the parameter's own value and never descends.  What is left
+is a not-own reference whose domain is headed by a CONSTANT — another
+container — and there the record is that its declaration is strictly
+earlier.
+
+Same addressing as `nestedPinEdgesAt`, same `domJ`; the positions are
+computed per visit rather than per environment. -/
+def nestedPinOrderAt (env : Env) (p : NestedParts) (st : ElimState)
+    (stored : List AuxStored)
+    (kinds? : Option (List (List (List (RecFieldKind × Nat))))) : Bool :=
+  match kinds? with
+  | none => false
+  | some kinds =>
+    (List.range st.pins.length).all fun q =>
+      match st.pins[q]?, kinds[q]?, stored[p.k + q]? with
+      | some qn, some ks, some a =>
+        match containerInfo? env qn.container, declPos env qn.container with
+        | some ci, some posQ =>
+          match ci.members[q - qn.grpBase]? with
+          | some J =>
+            (List.range ks.length).all fun j =>
+              match ks[j]?, a.ctors[j]?, J.ctors[j]? with
+              | some kf, some _, some cJ =>
+                match cJ.type.stripPis (ci.nP + cJ.nFields) with
+                | some (jbs, _) =>
+                  (List.range kf.length).all fun l =>
+                    match kf[l]? with
+                    | some (r, t) =>
+                      if (r == .recursive || r == .reflexive) && p.k ≤ t then
+                        match jbs[ci.nP + l]? with
+                        | some domJ =>
+                          if mentionsMember (ci.members.map (·.name)) domJ.1 then true
+                          else
+                            match (stripDomPis domJ.1).getAppFn with
+                            | .const n _ =>
+                              match declPos env n with
+                              | some posT => decide (posQ < posT)
+                              | none => false
+                            | _ => true
+                        | none => false
+                      else true
+                    | none => false
+                | none => false
+              | _, _, _ => false
+          | none => false
+        | _, _ => false
+      | _, _, _ => false
+
+@[inline] def nestedPinOrderOk (env : Env) (p : NestedParts) (b : MutualBlock)
+    (st : ElimState) (stored : List AuxStored) : Bool :=
+  nestedPinOrderAt env p st stored (nestedPinKinds p b stored)
 
 /-- **The augmented reference digraph**: every edge as an arc, an OWN
 edge additionally as its reverse, and every pin joined to its mint
@@ -2184,6 +2260,14 @@ def nestedPinChecks (ops : CheckerOps m) (env envN : Env) (p : NestedParts) (b :
   -- ONE equality, off the two recorded tables
   else if !nestedPinRootPairAt env st roots then
     throw (.internal "nested: a pin is not one the instance's root container pinned")
+  -- **THE NOT-OWN REFERENCES' ORDER** (K.57): a reference that LEAVES
+  -- the instance goes to a container declared strictly earlier — the
+  -- well-founded order the model's step (iii) inducts on at a
+  -- constant-headed field.  Same-container references cannot appear
+  -- here at all: the ownership bit is `mentionsMember` against the
+  -- container's own group, which contains the container.
+  else if !nestedPinOrderAt env p st stored kinds? then
+    throw (.internal "nested: a not-own reference does not go to an earlier-declared container")
   -- **THE POSITIVITY NORMALISATION ON THE MINTED COPY** (K.42): at every
   -- ORDINARY field of every copy's constructor, the stored domain IS the
   -- normalisation of the MINTED one, so the model's `ordF`-left arm gets
