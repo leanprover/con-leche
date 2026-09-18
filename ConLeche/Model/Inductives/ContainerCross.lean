@@ -532,6 +532,7 @@ theorem ContainerModeled.crossEnvP {Ts : List Name} {env₁ env₂ : Env}
       ordFree := C.ordFree
       nestMention := C.nestMention
       nestArgsMention := C.nestArgsMention
+      nestArgsMentionAbs := C.nestArgsMentionAbs
       ctorProjFree := C.ctorProjFree
       pinsNotMembers := C.pinsNotMembers
       pinNP := C.pinNP
@@ -1536,6 +1537,15 @@ theorem ContainerModeled.of_readBack {env : Env} {m : EnvModel V env} {nP : Nat}
       (d.ksF i j).getD l .ordinary = .recursive →
       ∃ e ∈ x.fvarTypeD.getAppArgs.take (d.pinAt q).nPJ,
         ConLeche.mentionsMember d.memberNames e = true)
+    (hnestArgsMentionAbs : ∀ (i j l : Nat) (cA : ConstantVal × Nat)
+      (bs : List (Expr × ConLeche.BinderMeta)) (r : Expr)
+      (dom : Expr × ConLeche.BinderMeta) (q : Nat), i < d.k →
+      (d.ctorsM i)[j]? = some cA →
+      cA.1.type.stripPis (d.nP + cA.2) = some (bs, r) → bs[d.nP + l]? = some dom →
+      d.nestOf i j l = some q → q < d.nPins →
+      (d.ksF i j).getD l .ordinary = .recursive →
+      ∃ e ∈ dom.1.getAppArgs.take (d.pinAt q).nPJ,
+        ConLeche.mentionsMember d.memberNames e = true)
     (hctorProjFree : ∀ (i j : Nat) (cA : ConstantVal × Nat), i < d.k →
       (d.ctorsM i)[j]? = some cA →
       ∀ T ∈ d.memberNames, ∀ n : Nat, ConLeche.Expr.NoProjAt T n cA.1.type)
@@ -1566,6 +1576,7 @@ theorem ContainerModeled.of_readBack {env : Env} {m : EnvModel V env} {nP : Nat}
   ordFree := hordFree
   nestMention := hnestMention
   nestArgsMention := hnestArgsMention
+  nestArgsMentionAbs := hnestArgsMentionAbs
   ctorProjFree := hctorProjFree
   pinsNotMembers := hpinsNotMembers
   pinNP := hpinNP

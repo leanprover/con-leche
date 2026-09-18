@@ -297,6 +297,38 @@ structure ContainerModeled {env : Env} (m : EnvModel V env) (ci : ContainerInfo)
     (d.ksF i j).getD l .ordinary = .recursive →
     ∃ e ∈ x.fvarTypeD.getAppArgs.take (d.pinAt q).nPJ,
       ConLeche.mentionsMember d.memberNames e = true
+  /-- **AND THE SAME ON THE STORED CONSTRUCTOR'S ABSTRACT DOMAIN**
+  (task #315 PINF, DESIGN "(ii)'s price MEASURED BEFORE IT WAS BUILT").
+
+  `nestArgsMention` is the OPENED spelling, which is the side
+  `BlockOpened` works on.  K.60's Bool
+  (`nestedCopyPinFieldsOk`) reads the CLOSED one — it strips the
+  container's stored constructor to `nP + nFields` binders and tests
+  `jbs[nP + l]`'s own argument spine — and it MUST: the classification
+  it concludes about is computed on that same stored type, and a member
+  mention that lives only in an opener's ANNOTATION mints no pin, so a
+  guard on the opened domain would claim something false.
+
+  The two do not derive from one another.  `Expr.mentionsConst`
+  descends into an `.fvar`'s annotation, so an earlier RECURSIVE
+  field's opener carries a member mention into the opened spine that
+  the abstract one does not have: abstract ⟹ opened
+  (`mentionsMember_instSeq`), never back.  So both sides are carried,
+  from the restore, where the field's spine is still visibly the pin —
+  here LIFTED past the field binders rather than closed and reopened
+  (`NestedStageFacts.pinArgsAbs`).
+
+  Recursive only and with `q < d.nPins`, in `nestArgsMention`'s own
+  idiom. -/
+  nestArgsMentionAbs : ∀ (i j l : Nat) (cA : ConstantVal × Nat)
+      (bs : List (Expr × ConLeche.BinderMeta)) (r : Expr)
+      (dom : Expr × ConLeche.BinderMeta) (q : Nat), i < d.k →
+    (d.ctorsM i)[j]? = some cA →
+    cA.1.type.stripPis (d.nP + cA.2) = some (bs, r) → bs[d.nP + l]? = some dom →
+    d.nestOf i j l = some q → q < d.nPins →
+    (d.ksF i j).getD l .ordinary = .recursive →
+    ∃ e ∈ dom.1.getAppArgs.take (d.pinAt q).nPJ,
+      ConLeche.mentionsMember d.memberNames e = true
   /-- **NO `.proj` NODE OF A STORED CONSTRUCTOR TYPE NAMES A MEMBER**
   (task #315 PINF, DESIGN "the `ConstWF` fifth clause does NOT deliver
   the derivation").

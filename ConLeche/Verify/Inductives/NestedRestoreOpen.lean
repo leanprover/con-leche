@@ -1340,6 +1340,45 @@ theorem getAppArgs_length_abstractRange (d k c : Nat) : ∀ e : Expr,
   | .bvar _ | .sort _ | .const _ _ | .lit _ | .lam _ _ _ | .forallE _ _ _
   | .letE _ _ _ | .proj _ _ _ => rfl
 
+/-- A lift keeps a CONSTANT head, for the same reason: it rewrites
+only `.bvar` leaves, and a spine's head is read through its `.app`
+nodes. -/
+theorem getAppFn_const_liftLooseBVars (d c : Nat) : ∀ {e : Expr} {n : Name} {us : List Level},
+    e.getAppFn = .const n us → (e.liftLooseBVars d c).getAppFn = .const n us
+  | .app f a, n, us, h => by
+    show (f.liftLooseBVars d c).getAppFn = _
+    exact getAppFn_const_liftLooseBVars d c (show f.getAppFn = .const n us from h)
+  | .const _ _, _, _, h => by
+    rw [show Expr.liftLooseBVars d c (.const _ _) = .const _ _ from rfl]
+    exact h
+  | .bvar _, _, _, h => nomatch h
+  | .fvar _ _, _, _, h => nomatch h
+  | .sort _, _, _, h => nomatch h
+  | .lit _, _, _, h => nomatch h
+  | .lam _ _ _, _, _, h => nomatch h
+  | .forallE _ _ _, _, _, h => nomatch h
+  | .letE _ _ _, _, _, h => nomatch h
+  | .proj _ _ _, _, _, h => nomatch h
+
+/-- ... and so does an abstraction. -/
+theorem getAppFn_const_abstractRange (d k c : Nat) :
+    ∀ {e : Expr} {n : Name} {us : List Level},
+      e.getAppFn = .const n us → (e.abstractRange d k c).getAppFn = .const n us
+  | .app f a, n, us, h => by
+    show (f.abstractRange d k c).getAppFn = _
+    exact getAppFn_const_abstractRange d k c (show f.getAppFn = .const n us from h)
+  | .const _ _, _, _, h => by
+    rw [show Expr.abstractRange (.const _ _) d k c = .const _ _ from rfl]
+    exact h
+  | .bvar _, _, _, h => nomatch h
+  | .fvar _ _, _, _, h => nomatch h
+  | .sort _, _, _, h => nomatch h
+  | .lit _, _, _, h => nomatch h
+  | .lam _ _ _, _, _, h => nomatch h
+  | .forallE _ _ _, _, _, h => nomatch h
+  | .letE _ _ _, _, _, h => nomatch h
+  | .proj _ _ _, _, _, h => nomatch h
+
 /-- **The walk, domain by domain**: a `∀`-telescope's `l`-th domain is
 walked at the depth `l` binders below the telescope's own.  (The
 telescope's SHAPE is `rk_restoreWalk_stripPis`; what this adds is the
