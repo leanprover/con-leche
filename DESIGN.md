@@ -108968,3 +108968,85 @@ content.
 `lake build` 0 errors/warnings, **722 jobs**; nothing half-applied.
 
 Nothing in this section changes the tree.
+
+#### (number at the integrator's sync) — L-E: `hDsE`'s discharger is NAMED and the escape does NOT fire — and the row's handover state (lane L-E, 2026-09-18)
+
+##### (a) `hDsE` IS DISCHARGEABLE, and from BLOCK-side data
+
+The escape was: name `hDsE`'s discharger before anything depends on it.
+**Named, and it is favourable — because `hDsE`'s `DsE` is not the
+container's.**
+
+```lean
+hDsE : ∀ i cvC caps lvls DsE ps Ds ψ dp,
+  i < d.k → env.find? (d.memberName i) = some (.indInfo cvC caps) →
+  containerOwnPinsAt env (d.memberName i) lvls DsE = some ps →
+  DenoteMetaSpine m.acval env ψ dp DsE Ds →
+  DsE.length = d.nP ∧ ∀ a ∈ DsE, Expr.WScoped dp a ∧ a.looseBVarsBounded 0 = true
+```
+
+Its `DsE` is the **argument** to `containerOwnPinsAt` — the
+instantiation the caller supplies.  At the consumption site that caller
+is `pinCorr_of_ownPins`, whose `DsE₀` is the **BLOCK's** pin's
+components (the own pins are computed at the instantiation the block's
+pin records).  So both conjuncts are block-side facts:
+
+* `DsE.length = d.nP` — **`NestedPinGroupSyn.pinDsLen`**
+  (`NestedPins.lean:469`), `(((D).pinAt (q₀+i)).Ds ψ).length = dJ.nP`,
+  with `pinNP` for the container's count;
+* `∀ a ∈ DsE, WScoped ∧ looseBVarsBounded 0` — **K.30**, and literally:
+  `pinsScoped` (`NestedInstall.lean:824`) is
+  `st.pins.all fun q => q.pin.looseBVarsBounded 0 && q.pin.fvarLeaves.all …`,
+  carried on the run as `NestedPinsRun.hscoped`.  Closedness of the pin
+  expression descends to its argument spine.
+
+**So the escape does not fire.**  `hDsE` is supplied at the consumption
+site exactly as `toReadOf`'s design intends, and the supplier is data the
+nested run already carries.
+
+##### (b) THE ROW'S STATE, for the handover
+
+The decomposition is settled and every piece has a named discharger:
+
+| premise | where | discharger |
+| --- | --- | --- |
+| `hpinDs`, `h0` | `ContainerModeled`, conclusion-shaped | the container's install producers; crosses by `crossEnvP`'s `hde` with an `hnpPins` side condition analogous to `hnpMem` |
+| `hscope`, `hps`, `hmem` | `ContainerModeled`, syntactic | same producers; cross as `ownPins` does |
+| `hDsE` | consumption site | `NestedPinGroupSyn.pinDsLen` + `pinNP`, and K.30 (`NestedPinsRun.hscoped`) |
+| `hsyn`, `hψD`, `hψK`, `hi` | already present | `ContainerModeled.ownPins`, `NestedPinGroupSyn.stored`, `ContainerModeled.pinψ` |
+| `hfind`, `hfoundK` | derivable | `ContainerModeled.member`/`reps`; `pinConts` |
+| `hDsD` | present at `ENV₁` | `NestedPinSynFacts.pinDs`, under the global instantiation `m := mp₁'.base2`, `env := ENV₁` |
+
+**Nothing is unaccounted for.**  What remains is construction: five
+clauses, their two installation dischargers, the `hnpPins` side
+condition, the crossing, and then residual 3's assembly over
+`copyPinF_shape` + `pinCorr_of_ownPins` + the derived conjunct 1.
+
+##### (c) WHY THIS LANE IS CLOSING OUT HERE RATHER THAN STARTING IT
+
+Five clauses across two installation producers, the two crossing lemmas
+and `of_readBack` is on the order of twenty obligations, and this
+session has already reversed its own decomposition twice.  **A half-built
+structure change across three files is the handover state this route has
+agreed is worst**, and the coordinator offered the close-out explicitly.
+
+So: the row is fully specified, nothing is half-applied, and the next
+session starts with (b)'s table rather than with a re-derivation.
+
+##### (d) WHAT THIS SESSION LANDED, for the record
+
+`pins_all_of_measure` · `pinLfpAt`/`pinAs`/`CandParamFit`/`CandIdxAgree`
+· `pinTarget_reads_at` (and `pinTarget_reads` derived from it) ·
+`targetValAt`/`recordedAs`/`targetValAt_recorded` ·
+`TargetView.frameAt` · `CopyEntryAtF`/`EntryReadF`/`copyEntryAtF_of_read`
+· `CopyEntryOutF` · `auxTargetRead`/`auxTarget_reads` (the collapse
+lemma) with `memberTarget_reads` **derived** from it · `pinLfpAt_le` ·
+`pinDsFit` · `pinLfp_group` · the pin-pair chain made generic in the
+family (seven theorems) · `bvarsOn`/`shiftP`/`bvarsOn_mono`/
+`bvarsOn_of_bvarsBelow` · `interp_congr_on`, with `interp_congr_below`
+**derived** from it at net −36 lines.
+
+`lake build` 0 errors/warnings **722 jobs**; `lake test` 0;
+`tests/proofdeps.sh` doors **0**; `tests/no-local-paths.sh` OK.
+
+Nothing in this section changes the tree's accept set.
