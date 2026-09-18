@@ -106849,29 +106849,62 @@ instance binder).  **They were this lane's, and this lane reported the
 tree warning-free several times after introducing them.**  The same fix
 is now applied here so the two branches do not diverge on it.
 
-##### (a) WHY THEY WERE MISSED, and it is not carelessness about the gate
+##### (a) WHY THEY WERE MISSED — the first explanation was WRONG, and was tested
 
-The check being run was `timeout … lake build > log 2>&1` followed by
-`grep -n "error\|warning" log`.  That is sound on a COLD build and
-useless on a warm one: **Lake does not re-emit a module's warnings when
-the module is up to date**, so every build after the first one that
-compiled the offending file reported a clean log for a tree that was not
-clean.  The first build after writing them did emit them, in a run whose
-log this lane grepped for `error` alone.
+This lane first reported that Lake does not re-emit a cached module's
+warnings on a warm build.  **That is false on this toolchain**, and the
+control takes two commands:
+
+```
+--- WARM build, nothing changed:
+⚠ [461/722] Replayed ConLeche.Model.Inductives.NestedFit
+warning: …NestedFit.lean:523:0: automatically included section variable(s) unused…
+```
+
+Lake REPLAYS a cached module's diagnostics, so a counting grep over a
+warm FULL build does express the negative.  The kernel lane ran this
+control rather than adopting the explanation; this lane reproduced it
+before accepting the correction.
+
+**The actual cause is the grep pattern.**  Every build command this lane
+ran after the offending theorems were written grepped for `error` alone
+— `grep -n "error" -A 8 …`, `grep -c error …` — and a warning line
+contains no substring `error`:
+
+```
+$ printf 'warning: …unused in theorem X\n' | grep -c "error"
+0
+```
+
+The builds that did use `grep -n "error\|warning"` were all from BEFORE
+those theorems existed, which is why those greens were sound.  The
+`lake test` runs printed only the exit code and were never grepped at
+all.
 
 ##### (b) THE RULE
 
-A warning-free claim needs one of:
+A warning-free claim needs a FULL `lake build` (and `lake test`) whose
+output is matched by a pattern that can match a warning, counted rather
+than sampled:
 
-* `lake build` on a tree where the touched modules were actually
-  rebuilt in THAT run (check the log names the module), or
-* a grep that counts rather than one that samples —
-  `lake build 2>&1 | grep -ic warning` — run when the module is dirty,
-* or the full gate, which is what `tests/arena.sh` is for.
+```
+timeout 3600 lake build 2>&1 | grep -ic warning
+```
 
-This is the same failure mode as the truncated-`grep` incident recorded
-earlier on this lane: **a negative claim taken from a command that
-cannot express the negative.**  Twice now, with different commands.
+A targeted single-module build says nothing about the tree, because a
+build invocation only reports on the modules it VISITS.  Report the
+rebuilt/replayed module count beside the zero, so the claim carries its
+own evidence of coverage.
+
+**Three shapes of the same failure on this project now**: a truncated
+pipeline, a build that never visited the module, and — here — a pattern
+that could not match.  The general rule survives all three: **a claim of
+absence needs a command that can express absence.**
+
+And the lesson this episode actually teaches, which is the new one:
+**the first explanation for a false negative is itself a claim that
+needs a falsifier.**  This lane diagnosed; another lane tested, in
+minutes, and the diagnosis was wrong.
 
 ##### (c) THE FOREIGN-UNFOLD HAZARD, audited
 
