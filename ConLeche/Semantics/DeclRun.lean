@@ -247,18 +247,18 @@ def DeclRun (μ : CheckMode) (F : Nat)
   | .thmDecl cv value, env₂ => DeclThmRun μ F env cv value env₂
   | .opaqueDecl cv value, env₂ => DeclOpaqueRun μ F env cv value env₂
   | .axiomDecl cv, env₂ => DeclAxiomRun μ F env cv env₂
-  | .basisDecl kind, env₂ => DeclBasisRun env kind env₂
+  | .basisDecl kind, env₂ => DeclBasisRun μ env kind env₂
   -- **The pinned blocks are recognised in the FOLD** (task #293): a
   -- stream block that IS one of the five pins installs the pin, and the
   -- quotient package's `type` record installs the sixth (its other
   -- records are members of the block that one installs).
   | .indDecl block nP, env₂ =>
     match basisPinHit block with
-    | some kind => DeclBasisRun env kind env₂
+    | some kind => DeclBasisRun μ env kind env₂
     | none => Ind block nP env₂
   | .quotDecl k _, env₂ =>
     match k with
-    | .type => DeclBasisRun env .quotK env₂
+    | .type => DeclBasisRun μ env .quotK env₂
     | _ => env₂ = env
 
 /-! ## The projections, retired (2026-09-05)

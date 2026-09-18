@@ -1291,13 +1291,17 @@ structure NestedStageFacts (st : ElimState) (mp₂ : EnvModelM V μ ENV₂) : Pr
       (dsR mm j ψ).getD (b.nP + i) default = (dsF (b.ownOffset mm + j) ψ).getD (b.nP + i) default
   groups : ∀ q, q < pinsS.length → ∃ (q₀ kJ i : Nat) (dJ : BlockModel V),
     q = q₀ + i ∧ i < kJ ∧ PG mp₂.base2 q₀ kJ dJ
-  /-- **the same groups with their container's block model NAMED**
-  (task #315 M7-2, DESIGN §U.36 (d)): `NestedTailOut.groups` is the
-  consumer — the route's lift to `EnvModelB` needs the ASSIGNMENT
-  `blockOf mp.base2 ci`, not merely the existence of a model. -/
+  /-- **the groups with their block model NAMED by the environment
+  model's own assignment** (task #315 M7-3 session 12): `groups` keyed
+  by the reading `containerInfo?` makes of the pin's container at the
+  PRE-BLOCK environment, which is where the core has it
+  (`NestedPinFacts.groupsAt`).  `NestedTailOut.groups` ASSUMED this
+  form until now; `declNested_of` reads it here instead, and carries
+  it to the output environment's reading through
+  `NestedTailOut.conts`. -/
   groupsAt : ∀ q, q < pinsS.length → ∀ ci : ConLeche.ContainerInfo,
     ConLeche.containerInfo? env ((D).pinAt q).J = some ci →
-    ∃ q₀ kJ i : Nat, q = q₀ + i ∧ i < kJ ∧ PG mp₂.base2 q₀ kJ (blockOf mp.base2 ci)
+    ∃ (q₀ kJ i : Nat), q = q₀ + i ∧ i < kJ ∧ PG mp₂.base2 q₀ kJ (blockOf mp.base2 ci)
 
 /-- **The restored constructors' LOOP's outputs** — what the named fact
 `NestedCtorsStaged` supplies, at a model `mp₁` of the members' prefix
@@ -1373,13 +1377,17 @@ structure NestedLoopFacts (st : ElimState) (mp₁ : EnvModelM V μ ENV₁) (mp�
       (dsR mm j ψ).getD (b.nP + i) default = (dsF (b.ownOffset mm + j) ψ).getD (b.nP + i) default
   groups : ∀ q, q < pinsS.length → ∃ (q₀ kJ i : Nat) (dJ : BlockModel V),
     q = q₀ + i ∧ i < kJ ∧ PG mp₂.base2 q₀ kJ dJ
-  /-- **the same groups with their container's block model NAMED**
-  (task #315 M7-2, DESIGN §U.36 (d)): `NestedTailOut.groups` is the
-  consumer — the route's lift to `EnvModelB` needs the ASSIGNMENT
-  `blockOf mp.base2 ci`, not merely the existence of a model. -/
+  /-- **the groups with their block model NAMED by the environment
+  model's own assignment** (task #315 M7-3 session 12): `groups` keyed
+  by the reading `containerInfo?` makes of the pin's container at the
+  PRE-BLOCK environment, which is where the core has it
+  (`NestedPinFacts.groupsAt`).  `NestedTailOut.groups` ASSUMED this
+  form until now; `declNested_of` reads it here instead, and carries
+  it to the output environment's reading through
+  `NestedTailOut.conts`. -/
   groupsAt : ∀ q, q < pinsS.length → ∀ ci : ConLeche.ContainerInfo,
     ConLeche.containerInfo? env ((D).pinAt q).J = some ci →
-    ∃ q₀ kJ i : Nat, q = q₀ + i ∧ i < kJ ∧ PG mp₂.base2 q₀ kJ (blockOf mp.base2 ci)
+    ∃ (q₀ kJ i : Nat), q = q₀ + i ∧ i < kJ ∧ PG mp₂.base2 q₀ kJ (blockOf mp.base2 ci)
 
 end Assembly
 
@@ -1475,8 +1483,8 @@ Consumer: `nestedStageFacts_of` → `nestedCoreModeled_of`. -/
           (ConLeche.consMutualFormers (fms.take p.k) env)))
       (dsR : Nat → Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm))
       (xFvsR : Nat → Nat → List Expr) (pinsS : List PinSyn),
-      NestedLoopFacts (V := V) (p := p) (b := b) (fms := fms) (f₀ := f₀) (ctorsA := ctorsA)
-        (kinds := kinds) (env := env) (mp := mp) (ppsF := ppsF) (W := W) (idxF := idxF) (dsF := dsF)
+      NestedLoopFacts (V := V) (mp := mp) (p := p) (b := b) (fms := fms) (f₀ := f₀) (ctorsA := ctorsA)
+        (kinds := kinds) (env := env) (ppsF := ppsF) (W := W) (idxF := idxF) (dsF := dsF)
         (esF := esF) (srcsF := srcsF) (fvsPF := fvsPF) (xrestF := xrestF) (eissF := eissF)
         (tssF := tssF) (ctorsR := ctorsR) (dsR := dsR) (xFvsR := xFvsR) (pinsS := pinsS) st mp₁' mp₂
 

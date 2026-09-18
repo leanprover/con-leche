@@ -227,6 +227,15 @@ FALLBACK = {
     ('ConLeche.Model.Inductives.NestedRecFrames','ConLeche.Model.Inductives.NestedRecCtor'),
     ('ConLeche.Model.Inductives.NestedRecFrames','ConLeche.Model.Inductives.NestedRecTypes'),
     ('ConLeche.Model.Inductives.NestedRecFrames','ConLeche.Verify.Inductives.NestedRestoreTbl'),
+    # task #315 M7-3 session 16: `NestedOwnPinsRead`'s two re-exports are
+    # its whole public view, and the compiler refuses both demotions —
+    # the `MutualIdxUniv`/`InstAll` class.  Without `NestedPremise` the
+    # file's own `variable [SetTheory V]` fails to resolve (`unknown
+    # identifier SetTheory`); without `NestedRestoreOpen` the dummy
+    # telescope's `ConLeche.mkPisB` does.  Both verified by a failing
+    # `lake build`.
+    ('ConLeche.Model.Inductives.NestedOwnPinsRead','ConLeche.Model.Inductives.NestedPremise'),
+    ('ConLeche.Model.Inductives.NestedOwnPinsRead','ConLeche.Verify.Inductives.NestedRestoreOpen'),
     # task #315 M7-2 (§U.29 (yyy)): the store swap's two files hold ONLY
     # theorems — bar the one `def nestedProvOf`, whose re-export the model
     # DOES see and does not ask for.  A theorem's STATEMENT is public but
@@ -235,9 +244,11 @@ FALLBACK = {
     # re-export.  Each demotion is refused by the compiler, probed one at a
     # time: without `Verify.EnvWF` the WF file's `EnvWF env` is an unknown
     # identifier; in the swap file `Annot.EnvModelM` is where `SetTheory`
-    # reaches the public view, `IndBlockFacts` where `SwapNResS` does,
-    # `Extend.Recs` where `SwapShList` does and `NestedRecsWF` where
-    # `storeNestedRecs` does.
+    # reaches the public view, `IndBlockFacts` where `SwapNResS` does and
+    # `NestedRecsWF` where `ConLeche.provisionNestedRecs` does.  The fifth
+    # entry the lane recorded, `Extend.Recs`, is NOT one: re-probed on the
+    # union at integration 3q it demotes cleanly (whole-tree build), so it
+    # is a plain import here and no fallback is claimed for it.
     ('ConLeche.Verify.Inductives.NestedRecsWF','ConLeche.Verify.EnvWF'),
     ('ConLeche.Model.Inductives.NestedRecsSwap','ConLeche.Verify.Inductives.NestedRecsWF'),
     ('ConLeche.Model.Inductives.NestedRecsSwap','ConLeche.Semantics.IndBlockFacts'),

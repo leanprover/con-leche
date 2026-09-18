@@ -3,7 +3,7 @@ module
 public import ConLeche.Verify.Inductives.NestedRecsWF
 public import ConLeche.Semantics.IndBlockFacts
 public import ConLeche.Model.Annot.EnvModelM
-public import ConLeche.Verify.Extend.Recs
+import ConLeche.Verify.Extend.Recs
 import ConLeche.Model.Inductives.MutualFormersKit
 import ConLeche.Model.Swap
 import ConLeche.Model.Inductives.MutualRecsSwap

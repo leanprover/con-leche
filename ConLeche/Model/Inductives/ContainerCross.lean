@@ -140,6 +140,7 @@ theorem ContainerModeled.crossEnvP {Ts : List Name} {env₁ env₂ : Env}
       nestMention := C.nestMention
       pinsNotMembers := C.pinsNotMembers
       pinNP := C.pinNP
+      pinParams := C.pinParams
       pinψ := fun q hq cvT caps hf => by
         obtain ⟨cvT', cvR', mI', rP', rules', h0⟩ := C.reps 0 hk
         obtain ⟨cv, caps', hf₁⟩ := h0.pinsFound q hq
@@ -706,6 +707,11 @@ theorem ContainerModeled.of_readBack {env : Env} {m : EnvModel V env} {nP : Nat}
       env.find? (d.pinAt q).J = some (.indInfo cvT caps) →
       (d.pinAt q).lvls.length = cvT.levelParams.length ∧
       ∀ ψ : Name → Nat, (d.pinAt q).ψJ ψ = Level.substFn ψ cvT.levelParams (d.pinAt q).lvls)
+    (hpinParams : ∀ (i : Nat), i < members.length → ∀ q, q < d.nPins → ∀ ψ₁ ψ₂ : Name → Nat,
+      (∀ pp ∈ (members.getD i default).1.levelParams, ψ₁ pp = ψ₂ pp) →
+      (d.pinAt q).u ψ₁ = (d.pinAt q).u ψ₂ ∧
+      (d.pinAt q).Ds ψ₁ = (d.pinAt q).Ds ψ₂ ∧
+      (d.pinAt q).Ids ψ₁ = (d.pinAt q).Ids ψ₂)
     (hmember : ∀ i, i < d.k → ∃ (cvR : ConstantVal) (mI rP : Nat) (rules : List RecRule),
       IsBlockModel m (members.getD i default).1.name (members.getD i default).1 cvR mI rP rules
         d i) :
@@ -722,6 +728,26 @@ theorem ContainerModeled.of_readBack {env : Env} {m : EnvModel V env} {nP : Nat}
   pinsNotMembers := hpinsNotMembers
   pinNP := hpinNP
   pinψ := hpinψ
+  pinParams := by
+    -- the group's member `i` IS the route's `i`-th member
+    -- (`blockContainerInfo` copies the stored `ConstantVal` field by
+    -- field), so its level parameters are that member's
+    intro i M hM q hq ψ₁ ψ₂ hag
+    have hMl : (members.map fun (cvT, cs) =>
+        (⟨cvT.name, cvT.levelParams, cvT.type,
+          cs.map fun (cv, nF) => ⟨cv.name, cv.type, nF⟩⟩ : ConLeche.ContainerMember))[i]?
+        = some M := hM
+    rw [List.getElem?_map] at hMl
+    cases hc : members[i]? with
+    | none => rw [hc] at hMl; exact nomatch hMl
+    | some c =>
+      rw [hc] at hMl
+      obtain rfl : M = ⟨c.1.name, c.1.levelParams, c.1.type,
+          c.2.map fun (cv, nF) => ⟨cv.name, cv.type, nF⟩⟩ := (Option.some.inj hMl).symm
+      have hcD : members.getD i default = c := by
+        rw [List.getD_eq_getElem?_getD, hc]; rfl
+      exact hpinParams i (List.getElem?_eq_some_iff.mp hc).1 q hq ψ₁ ψ₂
+        (by rw [hcD]; exact hag)
   member := fun i M hM => by
     -- the `i`-th entry is the `i`-th member of the route's list
     have hMl : (members.map fun (cvT, cs) =>
@@ -852,6 +878,45 @@ theorem ContainerModeled.params_congr {env : Env} {m : EnvModel V env} {ci : Con
     intro p hp
     exact hψ p (by rw [← hcvT, ← hshare, ← hlps]; exact hp)
   exact ⟨hI.uParams a ha ψ₁ ψ₂ hψ', (hI.former.params ψ₁ ψ₂ hψ').1⟩
+
+
+/-- **A member's level parameters ARE the group's** (task #315 L-E,
+DESIGN §U.77): `containerInfo?_inv` records every member's as the
+group's own constant's, and `ContainerModeled.member` asserts the
+member's `IsBlockModel` at that record. -/
+theorem ContainerModeled.memberLpsI {env : Env} {m : EnvModel V env} {ci : ContainerInfo}
+    {dK : BlockModel V} (h : ContainerModeled m ci dK) {I : Name}
+    (hci : ConLeche.containerInfo? env I = some ci)
+    {cvI : ConstantVal} {capsI : IndCaps} (hfI : env.find? I = some (.indInfo cvI capsI))
+    {a : Nat} (ha : a < dK.k) {cvA : ConstantVal} {capsA : IndCaps}
+    (hA : env.find? (dK.memberName a) = some (.indInfo cvA capsA)) :
+    cvA.levelParams = cvI.levelParams := by
+  obtain ⟨cvT, _caps, _cvR0, _mI0, _rP0, _rules0, hfind, _hfr0, _hmem0, _hnd0, hall⟩ :=
+    ConLeche.containerInfo?_inv hci
+  obtain rfl : cvT = cvI := (ConstantInfo.indInfo.inj (Option.some.inj (hfind.symm.trans hfI))).1
+  have ha' : a < ci.members.length := by rw [← h.k]; exact ha
+  have hmem : ci.members[a]? = some ci.members[a] := by rw [List.getElem?_eq_getElem ha']
+  have hname := (h.member a ci.members[a] hmem).1
+  obtain ⟨cvC, _capsC, _cvRc, _mIc, _rulesC, hf1, _hf2, _hlps, _hf4, hshare, _hf6, _hf7⟩ :=
+    hall ci.members[a] (List.getElem_mem ha')
+  rw [hname] at hA
+  obtain rfl : cvA = cvC := (ConstantInfo.indInfo.inj (Option.some.inj (hA.symm.trans hf1))).1
+  exact hshare
+
+/-- **A group's members share their level parameters** — so a level
+agreement taken at ONE member's constant is an agreement at EVERY
+member's.  What the WALK needs when it steps from the pair's member to
+the field's target member (task #315 L-E, DESIGN §U.77). -/
+theorem ContainerModeled.memberLps {env : Env} {m : EnvModel V env} {ci : ContainerInfo}
+    {dK : BlockModel V} (h : ContainerModeled m ci dK) {I : Name}
+    (hci : ConLeche.containerInfo? env I = some ci)
+    {cvI : ConstantVal} {capsI : IndCaps} (hfI : env.find? I = some (.indInfo cvI capsI))
+    {a b : Nat} (ha : a < dK.k) (hb : b < dK.k)
+    {cvA cvB : ConstantVal} {capsA capsB : IndCaps}
+    (hA : env.find? (dK.memberName a) = some (.indInfo cvA capsA))
+    (hB : env.find? (dK.memberName b) = some (.indInfo cvB capsB)) :
+    cvA.levelParams = cvB.levelParams := by
+  rw [h.memberLpsI hci hfI ha hA, h.memberLpsI hci hfI hb hB]
 
 
 end ConLeche.Model

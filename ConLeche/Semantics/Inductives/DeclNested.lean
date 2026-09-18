@@ -199,7 +199,7 @@ def DeclNestedRun (μ : CheckMode) (F : Nat) (env : Env)
     -- THE PINS' MINT GROUPS (K.29): the segment, its size, the member
     -- order, and the group's shared level instantiation and components
     ConLeche.certOnly μ (ConLeche.nestedGroupsOk env p st) = true ∧
-    -- A PIN'S COMPONENTS MENTION A MEMBER (K.44, lane M7-3's §U.66 (b)):
+    -- A PIN'S COMPONENTS MENTION A MEMBER (K.44, lane M7-3's §U.68 (b)):
     -- the parameter part of every pin's spine carries a member of the
     -- block's own group.  Lane L-E's `ContainerModeled.nestMention` reads
     -- it here; the elimination's own record permits a COPY as the witness,

@@ -1059,14 +1059,12 @@ theorem nestedRecsStored_of {F : Nat}
       EI.toConsExt.freshN (EI.recN hMs) mp.base2.wf mp.base2.rec_ctors
       (I := J) (fun hJ => by rw [EI.toConsExt.freshN J hJ] at hf; exact nomatch hf)]
     exact hci
-  -- **the seven fields**
-  refine ⟨mpOut, ⟨_, EI, hMs⟩, hag₀, hagE, ?_, hrepsOut, ?_, ?_⟩
+  -- **the six fields** (integration 3q retired `groups`: the tail
+  -- publishes `NestedStageFacts.groupsAt` and `declNested_of` reads it
+  -- there, through `conts`' reading at the PRE-BLOCK environment)
+  refine ⟨mpOut, ⟨_, EI, hMs⟩, hag₀, hagE, ?_, hrepsOut, ?_⟩
   · intro n c _ hf
     exact ET.toConsExt.ext n c (ER.toConsExt.ext n c hf)
-  · intro q hq ci hci
-    obtain ⟨ci₀, hci₀⟩ := hpinStored q hq
-    obtain rfl : ci = ci₀ := Option.some.inj (hci.symm.trans (hci₂ _ _ hci₀))
-    exact I.out.stage.groupsAt q hq ci hci₀
   · intro q hq
     obtain ⟨ci₀, hci₀⟩ := hpinStored q hq
     exact ⟨ci₀, hci₂ _ _ hci₀, hciOut _ _ hci₀, hci₀⟩
