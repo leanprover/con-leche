@@ -14,7 +14,7 @@ Nothing new is proved here.  This file exists so that the ELABORATOR,
 and not a reading of seven statements in seven files, is what certifies
 that the nested route's model side composes: the links
 
-* `nestedPinsShape_of`     (`NestedCopyInst.lean`),
+* `nestedPinsShapePinF_of`, `nestedPinsShape_of` (`NestedCopyInst.lean`),
 * `nestedPinsEntry_of_le_all` (`NestedPinLeafAll.lean`),
 * `nestedPinsIdent_of`     (`NestedCopyIdx.lean`),
 * `nestedPinsStaged_of`    (`NestedPins.lean`),
@@ -44,15 +44,22 @@ variable {V : Type w} [SetTheory V] {μ : CheckMode} {F : Nat} {env envOut : Env
 block's install carries the environment's model across, from exactly
 TWO open hypotheses and nothing else —
 
-* `NestedPinsShapePinF` (`NestedCopyInst.lean`): the `F`-side half of a
-  copied constructor's field shape, which waits on a kernel record;
+* `NestedPinsShapePinFRefl` (`NestedCopyInst.lean`): the `F`-side half
+  of a copied constructor's field shape AT A REFLEXIVE nested field,
+  which waits on a kernel record — K.60's reflexive twin.  The
+  FINITARY half is a theorem (`nestedPinsShapePinF_of`), so what is
+  open here is the arm at a container field whose domain is a `Π`,
+  which is exactly where K.60's guard claims nothing by construction;
 * `NestedPinsLe` (`NestedPinLeafAll.lean`): the pins' rank order.
 
 Everything else the chain needs is a theorem in this tree.  The other
 half of the field shape, `NestedPinsShapeOrdRight`, was the third
 hypothesis until lane R3 discharged it unconditionally
 (`nestedPinsShapeOrdRight_of`), and `nestedPinsShape_of` now takes
-`hPin` alone; the tail's last model face K.36 is the run's own
+`hPin` alone, through `nestedPinsShapePinF_of` (task #315 PINF), which
+discharges the `pinF` arm at a FINITARY nested field from
+`NestedPinsRun.copyPinFPinCorr` and `NestedPinsRun.copyPinFRead` and
+leaves the reflexive one; the tail's last model face K.36 is the run's own
 `nestedContainersOk` Bool (`nestedCtorPinNamesOf_of_containersOk`,
 K.53), and the core's stages come out of the two residuals by
 `nestedPinsShape_of`, `nestedPinsEntry_of_le_all`,
@@ -64,15 +71,16 @@ elaborator-checked (this project's `consumer-first-hypotheses` rule
 applied to the route as a whole): if a link's statement drifts, this
 theorem stops compiling. -/
 theorem nestedModeled_of_two
-    (hPin : NestedPinsShapePinF V μ F) (hLe : NestedPinsLe V μ F)
+    (hPin : NestedPinsShapePinFRefl V μ F) (hLe : NestedPinsLe V μ F)
     (hμ : μ.verifiedChecks = true) (mp : EnvModelB V μ env)
     (hE : ConLeche.EtaFamiliesClosed env)
     (h : ConLeche.Semantics.DeclNestedRun μ F env p envOut) :
     Nonempty (EnvModelB V μ envOut) :=
   declNested_of hμ mp hE
     (nestedCoreModeled_of (nestedCtorsStaged_of_pins (nestedPinsStaged_of
-      (nestedPinsIdent_of (nestedPinsShape_of hPin)
-        (nestedPinsEntry_of_le_all (nestedPinsShape_of hPin) hLe)))))
+      (nestedPinsIdent_of (nestedPinsShape_of (nestedPinsShapePinF_of hPin))
+        (nestedPinsEntry_of_le_all (nestedPinsShape_of (nestedPinsShapePinF_of hPin))
+          hLe)))))
     nestedTailModeled h
 
 end ConLeche.Model

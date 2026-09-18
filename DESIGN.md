@@ -116678,3 +116678,178 @@ pub-imports 1339 of 2264, none demotable; `tests/quote-gate.sh` and
 K.60's inversion is OFF that list now and `copyPinFPinCorr` is on it,
 which is exactly the hand-off.  No kernel file changed, so no accept
 set moved and `tests/arena.sh` was not re-run.
+
+#### PINF: (iii) LANDED at the finitary field, the residual NARROWED to the reflexive one — and the reflexive arm's blocker is a KERNEL RECORD, requested here (lane PINF, 2026-09-18)
+
+Route 1 (the EXTRACTION) was taken and it came in under its estimate,
+for a reason worth recording; the finitary half of residual 3 is now a
+theorem end to end and `nestedModeled_of_two`'s first hypothesis is the
+REFLEXIVE arm alone.  The reflexive read twin was then measured at its
+inputs and STOPPED: it is not a ~520-line twin on groundwork that
+exists, and the thing it waits on is not a model proof.
+
+##### (a) WHAT LANDED
+
+* **`NestedPinsRun.copyPinFStored`** (`28b5b039`) — the pin arm's
+  `hFl`.  `copyRecFRead` opens with `obtain ⟨hshape, hcLen, hFl⟩ :=
+  R.copyRecFDom …`; at a pin target that third conjunct is entangled
+  with `copyPinFCorr`'s contradiction against the classification, and
+  this is that chain standing on its own.  `copyPinFCorr` calls it and
+  its own statement did not change — its three call sites
+  (`copyPinFUIds`, `copyPinFUIdsCorr`, `copyPinFPinCorr`) are
+  untouched.
+* **`NestedPinsRun.copyPinFRead`** (`96650177`) — conjuncts 4 and 5 at
+  a FINITARY nested field, on `copyRecFRead`'s skeleton.
+* **`nestedPinsShapePinF_of`** and **`NestedPinsShapePinFRefl`**
+  (`7a9833a4`) — the dispatch on the container field's kind, the
+  finitary branch discharged by `copyPinFPinCorr` (conjuncts 1–3) and
+  `copyPinFRead` (4–5), and the residual narrowed.  `NestedChain.lean`
+  takes the narrowed predicate, so the remaining-residual count stays
+  elaborator-checked.
+
+##### (b) THE EXTRACTION GOT SMALLER THAN ROUTE 1 PREDICTED, and why
+
+The previous section priced `copyPinFStored` as "takes the `copyResid`
+package and redoes that preamble", ~35 parameters.  It takes **19**,
+and the container side is not among them.  Reading the chain rather
+than the lemma showed that `copyPinFDom`'s outputs (`hshape`,
+`harity`, `hqlt`) are used ONLY to put `hrun` into spine form and to
+bound the spine — both of which the CALLER can do — so the head `I`,
+its level arguments `us` and the spine `AS` are abstract in the
+extracted lemma, the whole container half (`cc`, `fcs`, `hstripJ`,
+`hty`, `hnf`, `hpl`, `hfl`, `J`, `ci`, `CM`, `hnest`, `hrec`) drops
+out, and what is left is exactly the copy-side constructor package
+plus `hkA`, `hci'`, `ci'.nP ≤ AS.length` and the run.
+
+That is the SAME lesson as the two bad prices, applied in the good
+direction: **price a proof by its inputs, and the inputs are what the
+chain USES, not what the surrounding lemma happens to have in
+context.**  The abstraction is not cosmetic — it is what lets the read
+twins consume the lemma without re-deriving the container side.
+
+##### (c) `copyPinFReadRefl` STOPPED — the price TRIPLES, measured at the input
+
+`copyRecFReadRefl`'s first `obtain` is `R.copyResid`, but the input
+that carries its argument is **`R.copyRecFDomRefl`** — a ~400-line
+lemma of its own, the reflexive twin of `copyRecFDom`, peeling the
+field's `Π` tower and stating the rewritten domain under it.  At a pin
+target there is no `copyPinFDomRefl` and no reflexive
+`copyPinFStored`: the contradiction they would need reads
+`mutualOpenedOk`'s REFLEXIVE clause, and the tree's reader
+(`mutualOpenedOk_recHead`) is stated at `.recursive` only.  So the
+item named as "~520 lines on groundwork that exists" is
+
+    copyPinFDomRefl (~400, no twin)
+  + a reflexive copyPinFStored (~250, incl. a mutualOpenedOk reflexive reader)
+  + copyPinFReadRefl (~520)
+
+— about **3×** the estimate.  The standing rule stops it.
+
+**And a second, independent reason to stop it**: its `hkA :
+kindAt … l = .reflexive` HAS NO PRODUCER, which is (d).
+
+##### (d) KERNEL REQUEST — K.60's REFLEXIVE TWIN (for the lane that owns `Kernel/Inductives/*`)
+
+**Why it is needed and cannot be derived.**  K.60's guard
+(`nestedCopyPinFieldsAt`) dispatches on the CONTAINER field's stored
+domain being `.const K …`.  A reflexive nested field's stored domain
+is a `Π`, so `getAppFn` is not a `.const`, the traversal falls into
+its `| _ => true` arm and claims nothing — by construction, as K.60's
+own docstring records.  The model cannot supply the kind in its place,
+and the reason is the circle K.60 exists to break: the copy's stored
+domain is mimic-headed only if the rewrite FIRED; the fire needs the
+MENTION; and at a pin target the mention is read off the kind
+(`copyPinFCorr`'s contradiction).  Nor can the model exclude
+`.ordinary` instead — `mutualOpenedOk`'s ordinary clause says the
+stored domain resolves in the pre-block environment, which an
+UNFIRED container-headed domain satisfies, so that arm is consistent
+with "no fire" and closes nothing.
+
+**WHAT THE ROUTE SHOULD RECORD.**  Beside K.60's own loop, at pin `q`,
+constructor `j`, field `l`, on the same `jbs[ci.nP + l]`: peel the
+domain's `Π` prefix and run K.60's guard on the BODY —
+
+* the domain is a non-empty `Π` telescope (`piBinders` with a
+  non-empty first component);
+* the body is headed by `.const K …` with `K` NOT a member of the
+  container's own group;
+* `K` is itself a stored container (`containerInfo? env K = some ciK`);
+* one of the first `ciK.nP` arguments of the BODY mentions a member of
+  the container's group.
+
+Under that guard, `kf[l] = (.reflexive, t)` with `p.k ≤ t`.
+
+**WHY EACH PART IS AVAILABLE TO THE MODEL** — the criterion K.60 was
+designed against.  `BlockOpened.nestReflF` gives the reflexive nested
+field's OPENED form as exactly this: a non-empty `Π` telescope whose
+body is headed by `(pinAt q).J` at the pin's level arguments with
+`(pinAt q).nPJ + (pinAt q).nIdx` arguments.  So the head comes from
+`nestReflF` through `blockCtorFieldHead`'s `stripPis`-body twin, the
+non-membership from `ContainerModeled.pinsNotMembers`, the further
+container from `pinNP` + `NestedPinGroupSyn.contsEnv`, and the mention
+from the reflexive twin of `ContainerModeled.nestArgsMentionAbs`
+spelled on the stored domain's own `stripPis` body — which is (iv)(b)
+below and is this lane's to build once the record exists.
+
+**CARRIER**: K.59/K.60's shape — recompute-and-certify, no field on
+`NestedPin`, no parameter on the elimination, unconditional in both
+routes, `.internal` on failure, inside `nestedPinChecks` beside K.60
+sharing K.46's hoisted `kinds?`.  **Gating: NONE**, for K.60's reason
+— the model's `pinF` arm reads it in every mode.  **It cannot fire**,
+for K.60's reason: the fact is true by construction of `mkCopy` +
+`replaceAllNested`.  **Measurement**: K.60's corpora and the same
+firing control (the check demanding `t < p.k`), plus a REFLEXIVE
+fixture — none of K.60's 8 reachable blocks exercises this guard, so
+the control's reachability has to be established fresh.  **IF IT EVER
+FIRES**: a defect in the ROUTE, not in the stream; the message is
+"nested: a container's reflexive nested field is not classified
+reflexive into a pin of the block".
+
+##### (e) (iv)(b) NOT STARTED, and that is the consumer-first rule
+
+The two reflexive mention clauses — `nestArgsMention`'s twin on
+`BlockOpened.nestReflF`'s body and `nestArgsMentionAbs`' twin on the
+stored domain's `stripPis` body — are three-tier carries of the shape
+(ii) landed, two nine-site rounds, and their price is the one the
+brief names.  But their ONLY consumer is the discharge of (d)'s guard,
+and (d) does not exist yet.  This lane's own rule
+(`consumer-first-hypotheses`) says a clause lands with its consumer;
+nine vacuous discharges against a record that may be shaped differently
+when it arrives is exactly what that rule forbids.  So (iv)(b) waits
+on (d), and it is the FIRST thing to do when (d) lands.
+
+##### (f) STATE
+
+* **(iii) LANDED at the finitary field** — `copyPinFStored`,
+  `copyPinFRead`;
+* **(v) LANDED at the finitary field** — `nestedPinsShapePinF_of`;
+  `NestedPinsShapePinF` is a theorem given `NestedPinsShapePinFRefl`,
+  and `nestedModeled_of_two`'s two hypotheses are now
+  `NestedPinsShapePinFRefl` and `NestedPinsLe`;
+* **(iii)/(iv)/(v) at the REFLEXIVE field**: blocked on (d)'s kernel
+  record, then (iv)(b)'s two clauses, then `copyPinFDomRefl` + a
+  reflexive `copyPinFStored` + `copyPinFReadRefl`;
+* `docs/NESTED.md` §3 unchanged — nothing new is RECORDED by this
+  session; (d) adds a record when it lands, and §3's fourth bullet is
+  where it goes.
+
+##### (g) GATES
+
+`tests/warning-free.sh 5e1a6c29`:
+
+```
+warning-free: 2 changed module(s) since 5e1a6c29
+warning-free: lake build — 2 module(s) recompiled, 0 warning line(s)
+warning-free: lake test — 0 module(s) recompiled, 0 warning line(s)
+warning-free: OK (a run that could have failed)
+```
+
+`lake build` and `lake test` EXIT 0; `tests/proofdeps.sh` 4965 rows /
+12 roots / **doors 0**; `tests/shake.sh` 510 removals all allowlisted,
+pub-imports 1339 of 2264, none demotable; `tests/quote-gate.sh`,
+`tests/overview-links.sh` (112 links) and `tests/no-local-paths.sh`
+OK; `tests/unconsumed.sh` 172 of 3640 — `copyPinFPinCorr` is OFF that
+list now (its consumer is `nestedPinsShapePinF_of`), and
+`copyPinFStored`, `copyPinFRead` and the dispatch never reach it.  No
+kernel file changed, so no accept set moved and `tests/arena.sh` was
+not re-run.
