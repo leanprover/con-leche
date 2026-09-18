@@ -114142,6 +114142,12 @@ The tree is at `746a7eb3` plus this section; nothing of K.60 is in it.
 
 #### PINF: the run relation's inversion SPLIT — the cut is the auxiliary install, and the two halves cost 3 k and 25 k of the 200 k budget (lane PINF, 2026-09-18)
 
+**EVERY FUTURE KERNEL RECORD ON THE NESTED ROUTE IS UNBLOCKED BY THIS
+ONE CUT — the ceiling is measured and it is no longer where anything
+is; do not measure it again.**  One further conjunct costs ~5 k
+heartbeats of the 200 000 budget and the tail half sits at 20–25 k, so
+there is room for roughly thirty-five more.
+
 The blocker the previous session named (§ "K.60 SPECIFIED AND BUILT,
 NOT LANDED", (b)) is gone.  `checkNested_inv` is two declarations plus a
 composition, its STATEMENT byte-identical (`diff` of the old and new
@@ -114386,3 +114392,90 @@ including the new inversion (advisory, and (ii) is its consumer).
   ELIMINATION's own output rather than a container clause, and §3 now
   says so in one sentence beside the three container records it already
   lists.  The other four items of (v) are unstarted.
+
+#### PINF: the abstract twin RE-PRICED AND STOPPED — it is four clauses across three tiers, not one clause off an existing half-proof (lane PINF, 2026-09-18)
+
+The decision was the abstract-side twin of `nestArgsMention`, taken on
+this lane's estimate: "~1 session — it is an INTERMEDIATE STEP of
+`nestArgsMention`'s own discharge, vacuous at the other eight
+producers".  **The estimate was wrong, and the standing rule is to stop
+when a price doubles.**  Nothing of the twin was built; the tree carries
+this section and the DESIGN line the decision also asked for, and
+nothing else.
+
+##### (a) WHAT IS TRUE OF THE ESTIMATE
+
+Half of it holds.  The mention the twin needs IS an intermediate of the
+existing discharge (`declNested_of`'s `nestArgsMention` bullet):
+
+    mentionsMember memberNames (Expr.abstractRange st.pins[q].pin 0 p.nP 0)
+
+is built by `mentionsMember_abstractRange` from K.44's mention on the
+pin, and only then pushed through `mentionsMember_instSeq` to the opened
+spine.  So the MENTION exists one step earlier, exactly as claimed.
+
+##### (b) WHAT IS NOT — the mention is not the part that is missing
+
+What attaches that mention to a FIELD is `NestedStageFacts.pinArgs`,
+and `pinArgs` is stated on the OPENED field:
+
+    x.fvarTypeD.getAppArgs.take ((D).pinAt q).nPJ
+      = (Expr.instSeq ((D).fvsPF mm j) ((D).nP - 1)
+          (Expr.abstractRange pin 0 p.nP 0)).getAppArgs
+
+There is no abstract-side twin of *that*, and it does not derive from
+this one.  `Verify/Denote/TeleOpen.lean`'s `openPisAtFvars_domain` gives
+the opened annotation as `Expr.instSeq (fvs.take l) (l - 1) dom` exactly
+(on the nose, not `ErasedEq`), so the opened and the abstract domain are
+related — but in the direction that loses the fact: from a mention in an
+argument of `instSeq σ dom` nothing follows about `dom`, which is the
+same asymmetry that refutes the opened-domain spelling of K.60's guard.
+
+##### (c) WHERE THE ABSTRACT FACT ACTUALLY LIVES, AND WHAT CARRYING IT COSTS
+
+It is provable — this is not a second refutation — but it lives three
+tiers down, in the RESTORE, where the pin stands unabstracted:
+`restoreWalk_pin` (`Verify/Inductives/NestedInv.lean`) says the restored
+node at a pin target is `Expr.mkAppN (pin.liftLooseBVars d 0)
+(args.drop R.nP)`, so the restored constructor's ABSTRACT field domain
+has the pin's own `DsE` (lifted) as its first `nPJ` arguments, and a
+mention survives a lift.  `ReadCtx.restoredOpened` is the theorem that
+would have to carry it: it already holds the abstract binder list
+(`c.1.type.stripPis (b.nP + cA.2) = some (cbs', …)`) and it already runs
+`restoreNested_pis`, but its per-field output is `RestoredField`, which
+is spelled on the opened domain throughout.
+
+So the carrying chain is
+
+1. a new arm in `ReadCtx.restoredOpened` / `RestoredField` on the
+   ABSTRACT binder (surgery inside a ~200-line theorem in the middle of
+   the stack);
+2. a new `NestedCtorRead` clause beside `pinArgs`;
+3. a new `NestedStageFacts` clause beside it;
+4. the `ContainerModeled` clause and its nine discharges;
+
+plus the consumer wiring in (ii).  **Four clauses across three tiers
+against the one clause the estimate named** — and the one substantive
+discharge is not the cheap half of an existing proof, because the
+existing proof starts at (3) and (3) is the tier that has to be built.
+
+##### (d) WHAT THIS DOES NOT CHANGE
+
+K.60 as landed is unaffected: its guard is on the side that is forced
+(the classification is computed on the abstract type, so a guard on the
+opened one would claim something false — the refutation recorded last
+session still stands), and its inversion
+`nestedCopyPinFieldsOk_head` is stated in the guard's own spelling and
+will be consumed unchanged whenever the twin arrives.  The estimate was
+about the COST of reaching that guard from the model, not about the
+guard.
+
+##### (e) STATE
+
+* K.60 LANDED with the full battery; the inversion has no consumer yet;
+* the abstract twin: REPRICED at (c), not started — coordinator's call
+  whether three tiers of carrying is the right spend for (ii), or
+  whether (iii) goes first;
+* **(iii)** unstarted, ~800 lines, standalone, takes `hkA` — it is the
+  only item on the list that is not behind this decision;
+* **(iv)**, **(v)** unstarted apart from `docs/NESTED.md` §3, done.
