@@ -108473,3 +108473,71 @@ gives is a failure mode this route has committed before.
 `lake build` 0 errors/warnings, **722 jobs**, at the reverted state.
 
 Nothing in this section changes the tree.
+
+#### (number at the integrator's sync) — L-E: the second leg is DEAD, and the tree had already recorded the correction (lane L-E, 2026-09-18)
+
+##### (a) THE ANSWER — no equality is demanded, so no uniqueness is needed
+
+The coordinator's reading is right, and it is stronger than a reading:
+**`NestedCopyInst.lean` already records the correction, in terms, against
+an earlier revision of its own comment that had made the same mistake**:
+
+> **It is `PinShapes`' first component, and `PinShapes` takes the
+> container model family ABSTRACTLY** (`B : ContainerInfo → BlockModel
+> V`, not `blockOf`): at every pin `q` it hands back a
+> `PinGroupView d (B ci) q₀ kJ` … An earlier revision of this comment
+> said the view was available only at the concrete `blockOf` and only
+> where the run holds `PinsModeled`; **that was wrong, and wrong in the
+> direction that helps**.
+
+And `pinCorr_of_ownPins`'s `huIds` premise **mentions no block model at
+all** — it relates `(D.pinAt q).u` to `(dR.pinAt qK).u`, two recorded
+pin tables.  A block model appears only as the COMMON ROUTE between the
+two sides, and two sides that both read `B` at the same `ci` agree by
+construction.  `ci` is forced by `huIds`' own hypothesis
+`(D.pinAt q).J = (dR.pinAt qK).J` through `containerInfo?`'s
+functionality — **not by any choice being unique.**
+
+So the old objection was aimed at an EQUALITY `dJ' = blockOf …`, and
+the shape in hand demands none.  **The uniqueness leg does not apply.**
+
+##### (b) THE STALE REASON IS CORRECTED IN PLACE
+
+`NestedPins.lean`'s `pinViews` docstring — this lane's own — carried the
+uniqueness objection as a live reason.  It now says that the threading
+cost stands and the uniqueness reason is stale, with the correction and
+its evidence.  **A wrong reason recorded as fact is the phantom-obstacle
+failure this lane named two sessions ago**, and this is the second time
+it has found one of its own.
+
+##### (c) AND THE FIRST LEG MAY BE AVOIDABLE TOO — the next check
+
+If `PinShapes` hands back the view at `B ci` with `ci` named, then a
+consumer that can reach `PinShapes` **does not need `pinViews` at all**.
+The producer reaches it as `R.hPM _ hbaseMem _ PD.base`, and residual
+3's discharger has the run `R` for the same reason.
+
+So the next check is one question: **can residual 3's discharge site
+reach `R.hPM`'s `PinShapes` directly?**  If yes, the structure parameter
+is not needed, the twelve call sites are not touched, and the row is the
+assembly alone.  If no, the half-session threading stands.
+
+This lane has not run that check — the instruction was to settle the
+second leg first, and settling it changed what the first leg is worth
+checking for.
+
+##### (d) THE PATTERN, since it now has a count
+
+Three times today a recorded reason turned out to be stale or wrong, and
+each time the cost of checking was a single read: "no term denotes a
+copy" (true of names, false of readings), "no `interp_whnf` exists"
+(true of the name, false of the object), and now "`blockOf` has no
+uniqueness" (true, and irrelevant — no equality is demanded).  **All
+three were this lane's own.**  The rule the route already carries —
+read the statement before pricing the framing — has a companion: **a
+reason recorded in a docstring ages exactly as badly as a measurement,
+and nothing marks it.**
+
+`lake build` 0 errors/warnings, **722 jobs**.
+
+Nothing in this section changes the tree's accept set.

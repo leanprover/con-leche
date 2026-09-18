@@ -502,12 +502,26 @@ structure NestedPinGroupSyn (st : ElimState) (m : EnvModel V env₂) (q₀ kJ : 
   **Consequences, not an identification.**  The identification "`dJ` IS
   the chosen model at its container" would drag the PRE-BLOCK model onto
   this structure — a new PARAMETER, which breaks named-argument call
-  sites silently at twelve places in four files — and it is not cheaply
+  sites silently at twelve places in four files.  That cost stands.
+
+  **The SECOND reason this docstring used to give is STALE** (task #315
+  L-E, 2026-09-18).  It said the identification "is not cheaply
   available anyway: `blockOf` is a choice function with no uniqueness in
-  this tier (see the section note), so `crossEnv` gives "satisfies the
-  predicate", never equality.  These three consequences are what the
-  consumer actually reads, they mention no object the record does not
-  already carry, and so they are FIELDS. -/
+  this tier, so `crossEnv` gives 'satisfies the predicate', never
+  equality".  **No equality is demanded, so no uniqueness is needed.**
+  `PinShapes` takes the container model family ABSTRACTLY
+  (`B : ContainerInfo → BlockModel V`, not `blockOf`) and hands back
+  `PinGroupView d (B ci) q₀ kJ` at the pin's own container record —
+  `NestedCopyInst.lean` records that correction in terms, against an
+  earlier revision of its own comment that had made the same mistake.
+  Two sides that both read `B` at the same `ci` agree by construction,
+  and `ci` is forced by the pins' NAME equality through
+  `containerInfo?`'s functionality, not by any choice being unique.
+
+  So the objection to naming the model is the threading cost alone.
+  These three consequences are what the consumer actually reads, they
+  mention no object the record does not already carry, and so they are
+  FIELDS. -/
   pinViews : ∀ qq, qq < dJ.nPins → ∃ (a kk i' : Nat) (dJ' : BlockModel V),
     qq = a + i' ∧ i' < kk ∧ PinGroupView dJ dJ' a kk
   /-- **the block model's constructors ARE the pin's own container
