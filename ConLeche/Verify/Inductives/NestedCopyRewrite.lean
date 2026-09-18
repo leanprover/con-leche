@@ -1665,15 +1665,17 @@ block's classification says the STORED domain is headed by the mimic at
 field's normalised domain `w` reads in, so `w` is the CONTAINER's
 application — with no analysis of `w`'s syntax anywhere.
 
-The copy-freeness side condition is NOT a preservation property of the
-positivity walk: `denoteMeta_some_found` (`NestedCopyFound.lean`)
-derives it from the fact that `w` READS at the members-only
-environment, which `copyFieldReadCoreQ` already returns. -/
+The side condition is stated at the HEAD, which is all the proof uses
+and all a consumer can cheaply supply: it is NOT a preservation
+property of the positivity walk, but a consequence of `w` READING at
+the members-only environment — `denoteMeta_head_ne_fresh`
+(`Model/Inductives/NestedCopyFound.lean`) off the `denoteMeta` conjunct
+`copyFieldReadCoreQ` already returns. -/
 theorem replaceAllNested_container_head {A : Name} {us : List Level}
     {st st' : ElimState} {e e' : Expr}
     (hrun : replaceAllNested env blvls params pbs₀ st e = .ok (e', st'))
     (hhead : e'.getAppFn = Expr.const A us)
-    (hfree : e.mentionsConst A = false) :
+    (hfree : e.getAppFn ≠ Expr.const A us) :
     ∃ (I : Name) (lvls : List Level) (cv : ConstantVal) (caps : IndCaps)
       (ci : ContainerInfo) (q : NestedPin) (st₁ : ElimState),
       e.getAppFn = Expr.const I lvls ∧
@@ -1686,7 +1688,7 @@ theorem replaceAllNested_container_head {A : Name} {us : List Level}
   have hsp : Expr.mkAppN e.getAppFn e.getAppArgs = e := Expr.mkAppN_getApp e
   rw [← hsp] at hrun
   rcases replaceAllNested_head_or_fire hna e.getAppArgs hrun hhead with hcst | ⟨k, r, hr⟩
-  · exact absurd (mentionsConst_getAppFn e hcst) (by rw [hfree]; exact Bool.false_ne_true)
+  · exact absurd hcst hfree
   obtain ⟨I, lvls, cv, caps, ci, q, st₁, hpre, hfind, hci, hlen, hqm, hqp, -⟩ :=
     replaceIfNested_fire_pin hr
   -- the fired prefix's head is the spine's head, and its parameter

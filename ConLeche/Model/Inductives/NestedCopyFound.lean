@@ -324,4 +324,37 @@ theorem denoteMeta_some_found_of_mentionsConst :
   intro d e ea h1 h2 h3 h4
   exact denoteMeta_some_found_aux d e ea h1 (mentionsConstRead_of_mentionsConst e h2 h3 h4)
 
+/-- The head of an application spine is a READ occurrence of its
+constant: `mentionsConstRead` stops at a variable but never at a
+`.const`, and the spine's head is reached through its `.app` nodes. -/
+theorem mentionsConstRead_getAppFn {us : List Level} :
+    ∀ (e : Expr), e.getAppFn = Expr.const n us → mentionsConstRead n e = true
+  | .app f _, h => by
+      simp only [mentionsConstRead, Bool.or_eq_true]
+      exact Or.inl (mentionsConstRead_getAppFn f h)
+  | .const _ _, h => by
+      simp only [Expr.getAppFn, Expr.const.injEq] at h
+      simp [mentionsConstRead, h.1]
+  | .bvar _, h | .sort _, h | .lit _, h | .fvar _ _, h
+  | .lam _ _ _, h | .forallE _ _ _, h | .letE _ _ _, h | .proj _ _ _, h => by
+      simp only [Expr.getAppFn] at h
+      exact nomatch h
+
+/-- **A TERM THE ENVIRONMENT READS IS NOT HEADED BY A NAME IT DOES NOT
+HAVE** (task #315 L-B): the copy-freeness side condition of the
+rewrite's backwards inversion (`replaceAllNested_container_head`,
+`Verify/Inductives/NestedCopyRewrite.lean`), and it costs nothing —
+the positivity walk's output READS at the members-only environment
+(`NestedPinsRun.copyFieldReadCoreQ` returns that conjunct), the copies
+are minted into a scratch environment the restore removes and are
+therefore not found there, and a spine head is a node the reading
+consults.  **No preservation property of `whnf` is involved.** -/
+theorem denoteMeta_head_ne_fresh {d : Nat} {e : Expr} {ea : AnnotTerm} {us : List Level}
+    (h : denoteMeta acval env φ d e = some ea) (hfresh : env.find? n = none) :
+    e.getAppFn ≠ Expr.const n us := by
+  intro hhd
+  have hfound := denoteMeta_some_found d e h (mentionsConstRead_getAppFn e hhd)
+  rw [hfresh] at hfound
+  exact nomatch hfound
+
 end ConLeche.Model
