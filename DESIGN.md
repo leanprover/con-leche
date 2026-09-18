@@ -85604,6 +85604,98 @@ by taking "true by construction" to mean "short to prove"; the
 construction is the scratch stage's, and every step of reading it back
 crosses the restore.
 
+##### (pppp) K.51 (request) — the container's constructor names ROUND-TRIP, and the evidence gap closed
+
+(mmmm) reduced K.36's nested face to "either `J.name` is an ancestor of
+`cc.name`, or `q.aux` is not", showed that the mutual retirement
+precedent does not transfer, and left ONE gap: three Bools read only by
+grep.  They are now read line by line, and the conclusion holds.
+
+* `containerGroupOk` (`NestedParts.lean:400`) — every member's own
+  `containerInfo?` reads the same `nP` and the same **member** names.
+* `containerRecOk` (`:337`) — the member's recursor's level parameters
+  and its motive sort.  No names at all.
+* `containerCtorFieldsOk` (`:384`) — strips the constructor type and
+  tests each FIELD DOMAIN through `containerFieldOk`, whose own name
+  test is again the MEMBER names.
+* (`uniformIndOccsOk`, the fourth clause, is likewise about occurrences
+  of MEMBER names in constructor types.)
+
+**No check the nested route runs looks at a container constructor's
+NAME.**  `containerInfo?` collects `cc.name` as `r.ctor` off the
+recursor's rules and never compares it with anything.  So the face does
+not derive, and the request follows.
+
+*The request, exact.*  One conjunct inside `nestedContainersOk`'s own
+`pins.all` (`NestedInstall.lean:315`), where `containerInfo? env
+q.container` is already in hand and `q.aux` already minted:
+
+```lean
+    | some ci => containerFactsOk env ci &&
+        ci.members.all fun J => !(J.name == q.container) ||
+          J.ctors.all fun cc =>
+            Name.replacePrefix q.aux q.container
+              (Name.replacePrefix J.name q.aux cc.name) == cc.name
+```
+
+That is `NestedCtorPinNames` verbatim, so the model-side inversion is
+one line and `NestedCtorPinNamesOf` RETIRES — `nestedRecReadingsOf_of`,
+`nestedRecEqsOf_of_faces`, `nestedTailModeled_of_stage` and
+`nestedRecsStored_of` all lose a face with it.  **It adds no
+environment lookup**: the `containerInfo?` is the one the clause
+already computed and the work is name comparisons — the K.49/K.50 rule
+cuts in our favour here, not against.  Measurement as K.39's: the 27
+shadow fixtures and the 41-block Mathlib cone must be `true`, with one
+negative control (a constructor renamed out of its inductive's
+namespace).
+
+*The ledger row, and the basis it must be defended on.*  This is a
+**category-B** check — true by construction of OFFICIAL's own
+generators, not a mirror of an official test.  Official's nested
+elimination performs the same `replacePrefix` round-trip (mint one way,
+restore the other), so a stream that broke it would make official
+mis-restore too: official would rebuild a name no constant carries and
+fail downstream on an unknown constant.  Our check therefore cannot
+make us reject what official accepts — where it fires, official is
+already wrong — and the row is an accept-subset at worst.  That is
+exactly the category in which a genuine finding about the reference
+kernel would surface, which is why it is worth a row rather than a
+silent assumption.
+
+##### (qqqq) THE MINT'S `mintedAt` DEFECT — this lane's exposure, checked
+
+The kernel lane found that the copy-minting function built its
+successor state with a literal omitting `NestedPin.mintedAt`
+(`NestedElim.lean:109`), whose declaration carries `:= 0`, so within one
+worklist step only the first pin minted carried its true position; the
+parent relation reads a low position as no-parent, so mis-stamped pins
+were recorded as parentless roots.
+
+**This lane's exposure is NIL, and it was checked rather than
+assumed.**  A grep for `mintedAt`, `nestedPinParentOk`, `parent` and
+`root` over the five files this lane owns (`NestedStoreRun`,
+`NestedRecsSwap`, `NestedRecsWF`, `NestedTables`, `NestedTablesInv`)
+and over its edits to `NestedCore`/`NestedLoop`/`NestedPins`/
+`NestedRecRule`/`NestedRecsStore` returns nothing.  Everything this
+lane rests on is either the GROUP relation (`grpBase`/`grpSize`, K.29
+and K.14 — a different field, recorded by the same mint but not the one
+defaulted), the run's own reports (`restoreRules_at`, `recCvDoor`,
+`nestedFireShape_inv`), or K.50's corpus numbers, which are over the
+rules' K/η bits.  **No corpus measurement of this lane's is over the
+parent or the root relation.**
+
+*The general lesson, applied here.*  A structure field whose default
+every construction site is expected to override reads as a convenience
+and behaves as a silent reset: the omission type-checks, and the field
+silently reads `0` where the author believed it read a position.  A
+scan of the structures this lane introduced
+(`NestedRuleBitsOf`/`NestedTablesDataOf`'s records, `nestedStoreList`'s
+tuples, `NestedMemberTableOk`) finds **no default-valued field** — the
+lane's records are plain tuples and `Prop` structures with no `:=` in a
+field — so there is nothing of this shape to fix here.  Worth keeping
+as a review question for every new record: if a field has a default,
+can a construction site omit it and still type-check?
+
 
 #### U.30 — L-B session 2: `CopyCtorInst.ordF` at the READING, the normalisation's reading law PROVED, `ContainerModeled`'s three clauses (lane L-B, 2026-09-16)
 
