@@ -1322,4 +1322,386 @@ theorem replaceAllNested_frame {fvs : List Expr}
           exact ⟨by simp [Expr.looseBVarsBounded, hbx],
             fun l hl => hlx l (by simpa [Expr.fvarLeaves] using hl)⟩
 
+/-! ## (R7) THE HEAD, BACKWARDS (task #315 L-B)
+
+`replaceAllNested_head_const` says a spine at whose every prefix the
+step DECLINES comes back with the head it went in with.  Its consumer
+wants the contrapositive at an arbitrary head: the elimination's rewrite
+sends a field's normalised domain `w` to the domain the auxiliary block
+STORED, and at a field the block's classification calls recursive at a
+COPY that stored domain is headed by the MIMIC.  `w` itself names no
+copy — the copies are not in the environment `w`'s reading resolves in
+(`denoteMeta_some_found`, `NestedCopyFound.lean`) — so some PREFIX of
+`w`'s spine fired, and a firing is a recorded container's application
+(`replaceIfNested_fire_inv`).
+-/
+
+/-- The head of an application spine is an occurrence of its constant. -/
+theorem mentionsConst_getAppFn {A : Name} {us : List Level} :
+    ∀ (e : Expr), e.getAppFn = Expr.const A us → e.mentionsConst A = true
+  | .app f _, h => by
+      simp only [Expr.mentionsConst, Bool.or_eq_true]
+      exact Or.inl (mentionsConst_getAppFn f h)
+  | .const _ _, h => by
+      simp only [Expr.getAppFn, Expr.const.injEq] at h
+      simp [Expr.mentionsConst, h.1]
+  | .bvar _, h | .sort _, h | .lit _, h | .fvar _ _, h
+  | .lam _ _ _, h | .forallE _ _ _, h | .letE _ _ _, h | .proj _ _ _, h => by
+      simp only [Expr.getAppFn] at h
+      exact nomatch h
+
+/-- A term that is not an application is its own spine head. -/
+theorem getAppFn_of_not_app : ∀ {e : Expr}, (∀ f a, e ≠ Expr.app f a) → e.getAppFn = e
+  | .app f a, h => absurd rfl (h f a)
+  | .bvar _, _ | .sort _, _ | .lit _, _ | .fvar _ _, _ | .const _ _, _
+  | .lam _ _ _, _ | .forallE _ _ _, _ | .letE _ _ _, _ | .proj _ _ _, _ => rfl
+
+/-- **THE HEAD AT A NON-APPLICATION**: the walk at a term that is not an
+application either FIRES at it, or hands back a term with the same top
+former — so a CONSTANT-headed output pins the input to that constant. -/
+private theorem rw_nonApp_head {A : Name} {us : List Level}
+    {st st' : ElimState} {e' : Expr} :
+    ∀ {hd : Expr}, (∀ f a, hd ≠ Expr.app f a) →
+      replaceAllNested env blvls params pbs₀ st hd = .ok (e', st') →
+      e'.getAppFn = Expr.const A us →
+      hd = Expr.const A us ∨
+        ∃ r, replaceIfNested env blvls params pbs₀ st hd = .ok (some r) := by
+  intro hd hna h h2
+  have hsame : (Except.ok (hd, st) : CheckM (Expr × ElimState)) = .ok (e', st') →
+      hd = Expr.const A us ∨
+        ∃ r, replaceIfNested env blvls params pbs₀ st hd = .ok (some r) := by
+    intro hu
+    simp only [Except.ok.injEq, Prod.mk.injEq] at hu
+    rw [← hu.1, getAppFn_of_not_app hna] at h2
+    exact Or.inl h2
+  cases hd with
+  | app f a => exact absurd rfl (hna f a)
+  | bvar i =>
+    simp only [replaceAllNested] at h
+    split at h
+    · exact hsame h
+    · split at h
+      · close_throw
+      · exact Or.inr ⟨_, by assumption⟩
+      · exact hsame h
+  | sort u =>
+    simp only [replaceAllNested] at h
+    split at h
+    · exact hsame h
+    · split at h
+      · close_throw
+      · exact Or.inr ⟨_, by assumption⟩
+      · exact hsame h
+  | lit l =>
+    simp only [replaceAllNested] at h
+    split at h
+    · exact hsame h
+    · split at h
+      · close_throw
+      · exact Or.inr ⟨_, by assumption⟩
+      · exact hsame h
+  | fvar i ty =>
+    simp only [replaceAllNested] at h
+    split at h
+    · exact hsame h
+    · split at h
+      · close_throw
+      · exact Or.inr ⟨_, by assumption⟩
+      · exact hsame h
+  | const m ws =>
+    simp only [replaceAllNested] at h
+    split at h
+    · exact hsame h
+    · split at h
+      · close_throw
+      · exact Or.inr ⟨_, by assumption⟩
+      · exact hsame h
+  | lam ty b bm =>
+    simp only [replaceAllNested] at h
+    split at h
+    · exact hsame h
+    · split at h
+      · close_throw
+      · exact Or.inr ⟨_, by assumption⟩
+      · split at h
+        · close_throw
+        · split at h
+          · close_throw
+          · simp only [Except.ok.injEq, Prod.mk.injEq] at h
+            rw [← h.1] at h2
+            simp only [Expr.getAppFn] at h2
+            exact nomatch h2
+  | forallE ty b bm =>
+    simp only [replaceAllNested] at h
+    split at h
+    · exact hsame h
+    · split at h
+      · close_throw
+      · exact Or.inr ⟨_, by assumption⟩
+      · split at h
+        · close_throw
+        · split at h
+          · close_throw
+          · simp only [Except.ok.injEq, Prod.mk.injEq] at h
+            rw [← h.1] at h2
+            simp only [Expr.getAppFn] at h2
+            exact nomatch h2
+  | letE ty v b =>
+    simp only [replaceAllNested] at h
+    split at h
+    · exact hsame h
+    · split at h
+      · close_throw
+      · exact Or.inr ⟨_, by assumption⟩
+      · split at h
+        · close_throw
+        · split at h
+          · close_throw
+          · split at h
+            · close_throw
+            · simp only [Except.ok.injEq, Prod.mk.injEq] at h
+              rw [← h.1] at h2
+              simp only [Expr.getAppFn] at h2
+              exact nomatch h2
+  | proj s i x =>
+    simp only [replaceAllNested] at h
+    split at h
+    · exact hsame h
+    · split at h
+      · close_throw
+      · exact Or.inr ⟨_, by assumption⟩
+      · split at h
+        · close_throw
+        · simp only [Except.ok.injEq, Prod.mk.injEq] at h
+          rw [← h.1] at h2
+          simp only [Expr.getAppFn] at h2
+          exact nomatch h2
+
+/-- **THE HEAD SURVIVES, OR A PREFIX FIRED** (task #315 L-B): the
+contrapositive of `replaceAllNested_head_const` at an arbitrary head.
+At a spine whose head is not itself an application, a walk whose output
+is headed by a CONSTANT either went in with that same head, or
+`replaceIfNested` FIRED at one of the spine's prefixes — the descent
+into `.app f a` offers every prefix to the step at the ORIGINAL state,
+which is what makes the disjunction uniform in the state. -/
+theorem replaceAllNested_head_or_fire {A : Name} {us : List Level} {hd : Expr}
+    (hna : ∀ f a, hd ≠ Expr.app f a) :
+    ∀ (as : List Expr) {st st' : ElimState} {e' : Expr},
+      replaceAllNested env blvls params pbs₀ st (Expr.mkAppN hd as) = .ok (e', st') →
+      e'.getAppFn = Expr.const A us →
+      hd = Expr.const A us ∨
+        ∃ (k : Nat) (r : Expr × ElimState),
+          replaceIfNested env blvls params pbs₀ st (Expr.mkAppN hd (as.take k))
+            = .ok (some r) := by
+  -- a reverse recursor, spelled here because the spine grows on the right
+  have revRec : ∀ {motive : List Expr → Prop}, motive [] →
+      (∀ (bs : List Expr) (b : Expr), motive bs → motive (bs ++ [b])) → ∀ bs, motive bs := by
+    intro motive hnil hsnoc bs
+    have key : ∀ cs : List Expr, motive cs.reverse := by
+      intro cs
+      induction cs with
+      | nil => exact hnil
+      | cons c cs ih =>
+        rw [show (c :: cs).reverse = cs.reverse ++ [c] from by simp]
+        exact hsnoc _ _ ih
+    have h := key bs.reverse
+    rwa [List.reverse_reverse] at h
+  refine revRec ?_ ?_
+  case _ =>
+    intro st st' e' hrun h2
+    rcases rw_nonApp_head hna hrun h2 with h | ⟨r, hr⟩
+    · exact Or.inl h
+    · exact Or.inr ⟨0, r, hr⟩
+  case _ =>
+    intro as a ih st st' e' hrun h2
+    rw [mkAppN_concat] at hrun
+    rw [replaceAllNested.eq_def] at hrun
+    split at hrun
+    · -- the prune: the spine comes back unchanged
+      simp only [Except.ok.injEq, Prod.mk.injEq] at hrun
+      rw [← hrun.1] at h2
+      rw [show (Expr.mkAppN hd as).app a = Expr.mkAppN hd (as ++ [a]) from
+          (mkAppN_concat as hd a).symm,
+        Expr.getAppFn_mkAppN, getAppFn_of_not_app hna] at h2
+      exact Or.inl h2
+    · split at hrun
+      · close_throw
+      · -- the whole spine fired
+        rename_i r hr
+        refine Or.inr ⟨(as ++ [a]).length, r, ?_⟩
+        rw [List.take_length, mkAppN_concat]
+        exact hr
+      · simp only at hrun
+        cases hf : replaceAllNested env blvls params pbs₀ st (Expr.mkAppN hd as) with
+        | error err => rw [hf] at hrun; exact nomatch hrun
+        | ok rf =>
+          obtain ⟨u', st₁⟩ := rf
+          rw [hf] at hrun
+          simp only at hrun
+          cases ha : replaceAllNested env blvls params pbs₀ st₁ a with
+          | error err => rw [ha] at hrun; simp only at hrun; exact nomatch hrun
+          | ok ra =>
+            obtain ⟨a', st₂⟩ := ra
+            rw [ha] at hrun
+            simp only [Except.ok.injEq, Prod.mk.injEq] at hrun
+            rw [← hrun.1] at h2
+            simp only [Expr.getAppFn] at h2
+            rcases ih hf h2 with h | ⟨k, r, hr⟩
+            · exact Or.inl h
+            · refine Or.inr ⟨min k as.length, r, ?_⟩
+              rw [show (as ++ [a]).take (min k as.length) = as.take k from by
+                rcases Nat.le_total k as.length with hle | hle
+                · rw [show min k as.length = k from Nat.min_eq_left hle,
+                    List.take_append_of_le_length hle]
+                · rw [show min k as.length = as.length from Nat.min_eq_right hle,
+                    List.take_left, List.take_of_length_le hle]]
+              exact hr
+
+/-- **A FIRING IS A RECORDED CONTAINER'S APPLICATION** (task #315 L-B):
+the step's own guards, read backwards.  Whenever `replaceIfNested`
+replaces a term, that term is an application whose head is a stored
+inductive type former with a recorded container block, carrying at
+least the block's parameters, and passing the occurrence test. -/
+theorem replaceIfNested_fire_inv {st : ElimState} {e : Expr} {r : Expr × ElimState}
+    (h : replaceIfNested env blvls params pbs₀ st e = .ok (some r)) :
+    ∃ (I : Name) (lvls : List Level) (cv : ConstantVal) (caps : IndCaps)
+      (ci : ContainerInfo),
+      e.getAppFn = Expr.const I lvls ∧ env.find? I = some (.indInfo cv caps) ∧
+        containerInfo? env I = some ci ∧ ci.nP ≤ e.getAppArgs.length ∧
+        nestedOccOk I st.newNames ci.nP e.getAppArgs = .ok true := by
+  unfold replaceIfNested at h
+  split at h
+  · split at h
+    · rename_i I lvls hfn
+      split at h
+      · rename_i cv caps hfind
+        split at h
+        · close_throw
+        · split at h
+          · split at h <;> close_throw
+          · rename_i ci hci
+            dsimp only at h
+            split at h
+            · close_throw
+            · rename_i hlen
+              obtain ⟨nested, hnest, h⟩ := exceptBind_ok h
+              split at h
+              · close_throw
+              · rename_i hnt
+                have hnested : nested = true := by
+                  cases nested with
+                  | true => rfl
+                  | false => exact absurd rfl hnt
+                exact ⟨I, lvls, cv, caps, ci, hfn, hfind, hci, by omega,
+                  by rw [hnest, hnested]⟩
+      · close_throw
+    · close_throw
+  · close_throw
+
+/-- **THE FIRED OCCURRENCE, READ OFF THE FIRING** (task #315 L-B):
+`replaceIfNested_occurrence` with its shape hypotheses supplied by
+`replaceIfNested_fire_inv` — so a FIRING alone identifies the pin, its
+container application and the index split, with nothing assumed about
+the term it fired on. -/
+theorem replaceIfNested_fire_pin {st : ElimState} {e : Expr} {r : Expr × ElimState}
+    (h : replaceIfNested env blvls params pbs₀ st e = .ok (some r)) :
+    ∃ (I : Name) (lvls : List Level) (cv : ConstantVal) (caps : IndCaps)
+      (ci : ContainerInfo) (q : NestedPin) (st₁ : ElimState),
+      e = Expr.mkAppN (.const I lvls) e.getAppArgs ∧
+        env.find? I = some (.indInfo cv caps) ∧
+        containerInfo? env I = some ci ∧ ci.nP ≤ e.getAppArgs.length ∧
+        q ∈ st₁.pins ∧
+        q.pin = Expr.mkAppN (.const I lvls) (e.getAppArgs.take ci.nP) ∧
+        r = (Expr.mkAppN (Expr.mkAppN (.const q.aux blvls) params)
+              (e.getAppArgs.drop ci.nP), st₁) := by
+  obtain ⟨I, lvls, cv, caps, ci, hfn, hfind, hci, hlen, hocc⟩ := replaceIfNested_fire_inv h
+  have he : e = Expr.mkAppN (.const I lvls) e.getAppArgs := by
+    rw [← hfn]
+    exact (Expr.mkAppN_getApp e).symm
+  -- the occurrence test's two verdicts
+  have hboth : ((e.getAppArgs.take ci.nP).any fun a =>
+        st.newNames.any fun T => a.mentionsConst T) = true ∧
+      (∀ a ∈ e.getAppArgs.take ci.nP, a.looseBVarsBounded 0 = true) := by
+    unfold nestedOccOk at hocc
+    dsimp only at hocc
+    split at hocc
+    · close_throw
+    · rename_i hcond
+      simp only [Except.ok.injEq] at hocc
+      refine ⟨hocc, ?_⟩
+      rw [hocc, Bool.true_and] at hcond
+      have hl : ((e.getAppArgs.take ci.nP).any fun a => !a.looseBVarsBounded 0) = false := by
+        simpa using hcond
+      intro a ha
+      have := List.any_eq_false.mp hl a ha
+      simpa using this
+  obtain ⟨q, st₁, hr, hqm, hqp⟩ :=
+    replaceIfNested_occurrence he hfind hci hlen hboth.1 hboth.2 h
+  simp only [Option.some.injEq] at hr
+  exact ⟨I, lvls, cv, caps, ci, q, st₁, he, hfind, hci, hlen, hqm, hqp, hr⟩
+
+/-- A spine head is never itself an application. -/
+theorem getAppFn_not_app : ∀ (e f a : Expr), e.getAppFn ≠ Expr.app f a
+  | .app g b, f, a => getAppFn_not_app g f a
+  | .bvar _, _, _ | .sort _, _, _ | .lit _, _, _ | .fvar _ _, _, _ | .const _ _, _, _
+  | .lam _ _ _, _, _ | .forallE _ _ _, _, _ | .letE _ _ _, _, _
+  | .proj _ _ _, _, _ => by simp only [Expr.getAppFn]; exact nofun
+
+/-- A term that is not an application has no spine arguments. -/
+theorem getAppArgs_of_not_app : ∀ {e : Expr}, (∀ f a, e ≠ Expr.app f a) → e.getAppArgs = []
+  | .app f a, h => absurd rfl (h f a)
+  | .bvar _, _ | .sort _, _ | .lit _, _ | .fvar _ _, _ | .const _ _, _
+  | .lam _ _ _, _ | .forallE _ _ _, _ | .letE _ _ _, _ | .proj _ _ _, _ => rfl
+
+/-- **THE BACKWARDS INVERSION** (task #315 L-B, DESIGN "the backwards
+inversion"): a walk whose OUTPUT is headed by a constant its INPUT does
+not name has fired, and the firing identifies the input's head as a
+RECORDED CONTAINER together with the pin at its parameter arguments.
+
+This is `replaceAllNested_occurrence` read the other way round, and it
+is what an `ordF`-RIGHT field at a PIN target wants: the auxiliary
+block's classification says the STORED domain is headed by the mimic at
+`p.k + q`, the mimic is a copy and a copy is in no environment the
+field's normalised domain `w` reads in, so `w` is the CONTAINER's
+application — with no analysis of `w`'s syntax anywhere.
+
+The copy-freeness side condition is NOT a preservation property of the
+positivity walk: `denoteMeta_some_found` (`NestedCopyFound.lean`)
+derives it from the fact that `w` READS at the members-only
+environment, which `copyFieldReadCoreQ` already returns. -/
+theorem replaceAllNested_container_head {A : Name} {us : List Level}
+    {st st' : ElimState} {e e' : Expr}
+    (hrun : replaceAllNested env blvls params pbs₀ st e = .ok (e', st'))
+    (hhead : e'.getAppFn = Expr.const A us)
+    (hfree : e.mentionsConst A = false) :
+    ∃ (I : Name) (lvls : List Level) (cv : ConstantVal) (caps : IndCaps)
+      (ci : ContainerInfo) (q : NestedPin) (st₁ : ElimState),
+      e.getAppFn = Expr.const I lvls ∧
+        env.find? I = some (.indInfo cv caps) ∧
+        containerInfo? env I = some ci ∧
+        ci.nP ≤ e.getAppArgs.length ∧
+        q ∈ st₁.pins ∧
+        q.pin = Expr.mkAppN (.const I lvls) (e.getAppArgs.take ci.nP) := by
+  have hna : ∀ f a, e.getAppFn ≠ Expr.app f a := getAppFn_not_app e
+  have hsp : Expr.mkAppN e.getAppFn e.getAppArgs = e := Expr.mkAppN_getApp e
+  rw [← hsp] at hrun
+  rcases replaceAllNested_head_or_fire hna e.getAppArgs hrun hhead with hcst | ⟨k, r, hr⟩
+  · exact absurd (mentionsConst_getAppFn e hcst) (by rw [hfree]; exact Bool.false_ne_true)
+  obtain ⟨I, lvls, cv, caps, ci, q, st₁, hpre, hfind, hci, hlen, hqm, hqp, -⟩ :=
+    replaceIfNested_fire_pin hr
+  -- the fired prefix's head is the spine's head, and its parameter
+  -- arguments are the spine's (the prefix is at least `ci.nP` long)
+  have hargs : (Expr.mkAppN e.getAppFn (e.getAppArgs.take k)).getAppArgs
+      = e.getAppArgs.take k := by
+    rw [Expr.getAppArgs_mkAppN, getAppArgs_of_not_app hna, List.nil_append]
+  rw [hargs] at hlen hqp
+  have hfn : e.getAppFn = Expr.const I lvls := by
+    have hc := congrArg Expr.getAppFn hpre
+    rwa [Expr.getAppFn_mkAppN, Expr.getAppFn_mkAppN, getAppFn_of_not_app hna] at hc
+  simp only [List.length_take] at hlen
+  have hnPk : ci.nP ≤ k := by omega
+  have hnPlen : ci.nP ≤ e.getAppArgs.length := by omega
+  exact ⟨I, lvls, cv, caps, ci, q, st₁, hfn, hfind, hci, hnPlen, hqm,
+    by rw [hqp, List.take_take, Nat.min_eq_left hnPk]⟩
+
 end ConLeche
