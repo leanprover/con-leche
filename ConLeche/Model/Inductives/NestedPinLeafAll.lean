@@ -4396,6 +4396,132 @@ theorem nestedPinsEq_of_le (hμ : μ.verifiedChecks = true)
   refine famSpace_ext hPmem (lfpTuple_mem _ _ _ _ (p.k + q) (by omega)) fun i hi => ?_
   exact Subset.antisymm (hle q hq i hi) (hfix.2 q hq i hi)
 
+
+/-- **STEP (iv): the copies' ENTRIES at the auxiliary carrier** (task
+#315 L-E, DESIGN §U.79) — the residual `NestedPinsEntry` names, at one
+group, read off the identity step (ii)/(iii) produced.
+
+`nestedPinsFixed` builds exactly this at `P`, the containers' least
+tuples, where the target readings are `pinTarget_reads`/`memberTarget_reads`
+directly.  Here the tuple is `L⁺` and the readings come from
+`nestedTargetReads_L` — whose pin-target half is the identity
+`pinLfp q = L⁺ (k + q)`, now UNCONDITIONAL (`S := fun _ => True`), so
+the predicate that carried the rank induction's scope disappears from
+the statement.
+
+The three arms are the shape's own: a container-RECURSIVE field at a
+MEMBER target lands inside the group and `CopyEntryOut` does not ask
+about it; at one of the container's OWN pins it is
+`copyEntryAt_of_pinCorr` with `nestedPinFrame_transport` carrying the
+fit from the container's pin frame to the block pin's; a
+container-ORDINARY field is `copyEntryAt_of_read` at the repaired
+`EntryRead`. -/
+theorem nestedPinsEntry_at (hμ : μ.verifiedChecks = true)
+    (h : MutualFormersFacts V F g mp b fms f₀ ctorsA sortss kinds mp₁ ppsF W idxF dsF esF srcsF
+      fvsPF xFvsF xrestF eissF tssF)
+    (hbk : b.k = p.k + pinsS.length)
+    (m : EnvModel V env₂)
+    (hleafM : ∀ (t : Nat) (f : MutualFormerA), t < p.k → fms[t]? = some f →
+      m.acval f.cvTa.name = mutMemberLeaf b fms f₀ ctorsA kinds ppsF W dsF esF eissF tssF t)
+    {st : ElimState} (dJf : Nat → BlockModel V)
+    (hgroups : ∀ q, q < pinsS.length → ∃ (q₀ kJ i : Nat),
+      q = q₀ + i ∧ i < kJ ∧ GF st m q₀ kJ (dJf q₀))
+    {ψ : Name → Nat} {ρp : Nat → V} (hρp : Sat V ((D).params ψ).reverse ρp)
+    (heq : ∀ q, q < pinsS.length →
+      pinLfp st pinsS dJf (f₀.s.eval ψ) ψ ρp q
+        = lfpTuple ((D).w ψ) (p.k + pinsS.length) ((D).idx ψ ρp) (ΨA ψ ρp) (p.k + q))
+    {q₀ kJ : Nat} (G : GF st m q₀ kJ (dJf q₀)) {i : Nat} (hi : i < kJ)
+    {j : Nat} (hj : j < ((dJf q₀).ctorsM i).length) :
+    CopyEntryOut (dJf q₀) (((D).pinAt (q₀ + i)).ψJ ψ) (((D).pinAt (q₀ + i)).Ds ψ)
+      (fun l => ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+        (b.ownOffset (p.k + q₀ + i) + j) []).getD l 0)
+      ((mutTlss ctorsA.length tssF ψ).getD (b.ownOffset (p.k + q₀ + i) + j) [])
+      ((mutEiss0 ctorsA.length eissF ψ).getD (b.ownOffset (p.k + q₀ + i) + j) []) ρp i j
+      (p.k + q₀) kJ ((blkFss0 b ctorsA kinds dsF ψ).getD (b.ownOffset (p.k + q₀ + i) + j) [])
+      ((blkRss ctorsA kinds).getD (b.ownOffset (p.k + q₀ + i) + j) []) (f₀.s.eval ψ)
+      (nestedU p.k W pinsS ψ)
+      (lfpTuple ((D).w ψ) (p.k + pinsS.length) ((D).idx ψ ρp) (ΨA ψ ρp)) := by
+  have hZ := nestedTargetReads_L (S := fun _ => True) hμ h hbk m hleafM dJf hgroups hρp
+    (fun q' hq' _ => heq q' hq')
+  have hρJ : Sat V ((dJf q₀).params (((D).pinAt (q₀ + i)).ψJ ψ)).reverse
+      (consList ((((D).pinAt (q₀ + i)).Ds ψ).map (interp V ρp)) ρp) := by
+    obtain ⟨ρ, as, hρe, hsp⟩ := spineOfSat_params (D) hρp
+    subst hρe
+    exact (dJf q₀).satOfSpine (G.syn.DsFit i hi ψ ρ as hsp)
+  intro l hl hrs hout
+  obtain ⟨cvT, caps, cvR, mI, rP, rules, hfind, hI, -⟩ := G.syn.stored i hi
+  have hsh := G.shape i hi cvT caps hfind ψ ρp hρp i j hi hj
+  unfold CopyShapeA at hsh
+  have hjl : (((dJf q₀).ctorsM i))[j]? = some (((dJf q₀).ctorsM i).getD j default) := by
+    rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hj]; rfl
+  have hlenF := hI.Fss_length hjl (((D).pinAt (q₀ + i)).ψJ ψ)
+  have hks : ((dJf q₀).ksF i j).length
+      = (((dJf q₀).Fss i (((D).pinAt (q₀ + i)).ψJ ψ)).getD j []).length := by
+    rw [(hI.ctorData hjl).ksLen, hlenF]
+  have hlF : l < (((dJf q₀).Fss i (((D).pinAt (q₀ + i)).ψJ ψ)).getD j []).length := by
+    rw [← hsh.len]; exact hl
+  by_cases hr : (((dJf q₀).rss i).getD j []).getD l false = true
+  · rcases hI.tgt_cases hj (hks ▸ hlF) with htgt | ⟨hnt, -⟩
+    · -- a MEMBER target: inside the group, which `CopyEntryOut` does not ask about
+      obtain ⟨-, htg, -, -⟩ := hsh.recF l hlF hr htgt
+      have hk := G.syn.kEq
+      exact absurd
+        (⟨by rw [htg]; omega, by rw [htg]; omega⟩ :
+          p.k + q₀ ≤ ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+              (b.ownOffset (p.k + q₀ + i) + j) []).getD l 0 ∧
+            ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+              (b.ownOffset (p.k + q₀ + i) + j) []).getD l 0 < p.k + q₀ + kJ) hout
+    · -- one of the CONTAINER'S OWN pins
+      obtain ⟨-, -, hkle, hklt, hcorr, htl, hEis⟩ := hsh.pinF l hlF hr hnt
+      refine copyEntryAt_of_pinCorr (TV := TVA m.acval ((fms.take p.k).map (·.cvTa.name)) ψ)
+        G.syn.reps (G.syn.typed _) (G.syn.pinsTyped _) (G.syn.kEq ▸ hi) hjl hρJ
+        (G.syn.w i hi ψ) hlF hr hnt hcorr htl hEis ?_ (hZ _ hklt (fun _ => trivial))
+      exact nestedPinFrame_transport dJf hgroups hkle hklt hcorr.2.1 hcorr.2.2.2.1
+  · -- a container-ORDINARY field: the repaired `EntryRead`
+    have hr' : (((dJf q₀).rss i).getD j []).getD l false = false := by simpa using hr
+    rcases hsh.ordF l hlF hr' with ⟨hrC, -⟩ | ⟨-, -, hklt, hread⟩
+    · rw [hrC] at hrs; exact absurd hrs Bool.false_ne_true
+    · exact copyEntryAt_of_read hread (hZ _ hklt (fun _ => trivial))
+
+
+/-- **Step (iv), in the residual's own shape**: `CopyEntryA` exactly as
+`NestedPinsEntry` spells it — at the group's pin `i` for the level
+assignment and components and at constructor `(i', j)` — from
+`nestedPinsEntry_at` at `i'`, the group's own `ψJEq`/`sameDs` moving
+the reading data between its members. -/
+theorem nestedPinsEntry_of (hμ : μ.verifiedChecks = true)
+    (h : MutualFormersFacts V F g mp b fms f₀ ctorsA sortss kinds mp₁ ppsF W idxF dsF esF srcsF
+      fvsPF xFvsF xrestF eissF tssF)
+    (hbk : b.k = p.k + pinsS.length)
+    (m : EnvModel V env₂)
+    (hleafM : ∀ (t : Nat) (f : MutualFormerA), t < p.k → fms[t]? = some f →
+      m.acval f.cvTa.name = mutMemberLeaf b fms f₀ ctorsA kinds ppsF W dsF esF eissF tssF t)
+    {st : ElimState} (dJf : Nat → BlockModel V)
+    (hgroups : ∀ q, q < pinsS.length → ∃ (q₀ kJ i : Nat),
+      q = q₀ + i ∧ i < kJ ∧ GF st m q₀ kJ (dJf q₀))
+    {ψ : Name → Nat} {ρp : Nat → V} (hρp : Sat V ((D).params ψ).reverse ρp)
+    (heq : ∀ q, q < pinsS.length →
+      pinLfp st pinsS dJf (f₀.s.eval ψ) ψ ρp q
+        = lfpTuple ((D).w ψ) (p.k + pinsS.length) ((D).idx ψ ρp) (ΨA ψ ρp) (p.k + q))
+    {q₀ kJ : Nat} (G : GF st m q₀ kJ (dJf q₀)) {i : Nat} (hi : i < kJ)
+    {i' j : Nat} (hi' : i' < kJ) (hj : j < ((dJf q₀).ctorsM i').length) :
+    CopyEntryA (V := V) (nP := b.nP) (k := p.k) (resSort := f₀.s) (ppsA := ppsF) (W := W)
+      (pins := pinsS) (offs := b.ownOffset) (mems := mutMems ctorsA.length (mutMemF b))
+      (nFs := mutNFs ctorsA.length (mutNFOf ctorsA))
+      (tgtsG := mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA))
+      (rss := blkRss ctorsA kinds) (tlss := fun ψ => mutTlss ctorsA.length tssF ψ)
+      (Eiss₀ := fun ψ => mutEiss0 ctorsA.length eissF ψ)
+      (Fss₀ := fun ψ => blkFss0 b ctorsA kinds dsF ψ)
+      (Ess₀ := fun ψ => mutEss0 ctorsA.length esF ψ) (ψ := ψ) (ρp := ρp)
+      (dJf q₀) ((pinsS.getD (q₀ + i) default).ψJ ψ) ((pinsS.getD (q₀ + i) default).Ds ψ)
+      q₀ kJ i' j := by
+  have hψ : ((D).pinAt (q₀ + i)).ψJ ψ = ((D).pinAt (q₀ + i')).ψJ ψ := G.syn.ψJEq i i' hi hi' ψ
+  have hDs : ((D).pinAt (q₀ + i)).Ds ψ = ((D).pinAt (q₀ + i')).Ds ψ := by
+    rw [G.syn.sameDs i hi ψ, ← G.syn.sameDs i' hi' ψ]
+  simp only [show ∀ t : Nat, pinsS.getD t default = (D).pinAt t from fun _ => rfl]
+  rw [hψ, hDs]
+  exact nestedPinsEntry_at hμ h hbk m hleafM dJf hgroups hρp heq G hi' hj
+
 end Assembly
 
 end ConLeche.Model
