@@ -6386,31 +6386,52 @@ the conjunct that is open.  K.42's own conjunct is no residual any
 more: lane L-E threaded it onto the run's bundle and
 `nestedPinsShape_of` reads `R.hK42` (integration 3r). -/
 
-/-- **RESIDUAL 2 — `ordF`'s right arm at the READING, at a FINITARY
-copy field** (lane L-E's `EntryRead`, DESIGN §U.36/§U.51): at a
-container-ORDINARY field the auxiliary block classified RECURSIVE, the
-copy's entry is the target's STORED reading — the container's domain
-read fibre-wise under its own telescope, and NOTHING about the
-target's head since the `TargetHead` conjunct was refuted at an
-accepted block (DESIGN §U.61).  The arm's TARGET conjunct (outside the
-group) is `copyOrdFRight_shape`.
+/-- **RESIDUAL 2 — `ordF`'s right arm at the READING, at a PIN
+TARGET** (lane L-E's `EntryRead`, DESIGN §U.36/§U.51): at a
+container-ORDINARY field the auxiliary block classified RECURSIVE OR
+REFLEXIVE, whose target is one of the block's PINS, the copy's entry is
+the target's STORED reading — the container's domain read fibre-wise
+under its own telescope, and NOTHING about the target's head since the
+`TargetHead` conjunct was refuted at an accepted block (DESIGN §U.61).
+The arm's TARGET conjunct (outside the group) is
+`copyOrdFRight_shape`.
 
-The kind hypothesis is the split of DESIGN "the telescope the
-positivity `whnf` MAKES": at a RECURSIVE copy
-field the copy's telescope is empty (`BlockCtorData.tssNone`), so
-`EntryRead`'s two Π-tower clauses are discharged by `tlsJ := []` and
-`body := the container's own domain`, and what is open is the reading
-(its last clause).  The REFLEXIVE half is `NestedPinsShapeOrdRightRefl`
-— and THAT one is REFUTED.
+**ONE residual over BOTH field kinds** (task #315 L-B, the session that
+proved the reflexive half): the two kinds' conclusions are the SAME
+`EntryRead` call — what differed was only the kind hypothesis, and the
+two arms at a MEMBER target are now both proved
+(`NestedPinsRun.copyOrdFRightReadM` at `.recursive`,
+`NestedPinsRun.copyOrdFRightReadRefl` at `.reflexive`).  So the
+hypothesis here is the DISJUNCTION, which is also what the assembly
+has at both branches (`blkRss`' bit is `true` at exactly these two
+kinds).  The proof, when the kernel record lands, will still split:
+at a RECURSIVE copy field the copy's telescope is empty
+(`BlockCtorData.tssNone`) and `EntryRead`'s tower is `slotSet_nil`,
+while at a REFLEXIVE one the positivity `whnf` MADE a telescope
+(`BlockCtorData.reflOpen` off `piBinders`, and `mutualOpenedOk`
+rejects an empty one) and the tower is `interp_mkPisAV_piTele` — the
+same two substitutions that separated the member-target arms.
 
-The TARGET hypothesis narrows it once more: at a MEMBER target the arm
-is PROVED (`NestedPinsRun.copyOrdFRightReadM`, off
-`copyOrdFLeftRun` at the widened filter), and what is left here is the PIN target,
-where `TargetView.EA` is the CONTAINER's reading while the stored
-domain's head is the MIMIC — identifying them is `pinLeaf`, which is
-downstream of this very shape (DESIGN §U.62 (a)).  It waits on the
-kernel record's second clause, the one that rewrites the normalised
-minted domain back. -/
+The REFUTATION this residual's reflexive half used to carry is
+DISSOLVED: what was false was the OLD `EntryRead`'s two SYNTACTIC
+Π-tower clauses, at a container field that is a λ-redex
+(`tests/e2e/nested_lam_pin_refl.ndjson`, kept as a regression fixture
+— `Wrap (f : True → Type) | mk : f True.intro → Wrap f` nested at
+`f := fun _ : True => True → T`, where the copy's field is REFLEXIVE at
+the member `T` with a one-entry telescope while the container's own
+field is the APPLICATION `f True.intro`).  Lane L-E's repaired
+predicate asks instead for what the consumer produces — the
+container's field domain, read at the pin's frame, IS the copy's SLOT
+— and the witness that broke the old clauses satisfies the new one,
+because a λ-redex respects a semantic equality (DESIGN "does the
+refutation survive the repair").
+
+What is left is the PIN target at either kind: there `TargetView.EA` is
+the CONTAINER's reading while the stored domain's head is the MIMIC,
+and identifying them is `pinLeaf`, which is downstream of this very
+shape (DESIGN §U.62 (a)).  It waits on the kernel record's second
+clause, the one that rewrites the normalised minted domain back — the
+SAME record for both kinds, which is why they are one residual. -/
 @[expose] def NestedPinsShapeOrdRight (V : Type w) [SetTheory V] (μ : CheckMode) (F : Nat) : Prop :=
   NestedPinsIdsAt V μ F fun {env} _ p _ b fms f₀ ctorsA kinds ppsF W _ _ _ _ _ _ eissF tssF _
       _ _ pinsS mp₁' q₀ kJ dJ =>
@@ -6423,72 +6444,8 @@ minted domain back. -/
       ∀ l, l < ((dJ.Fss i' ((pinsS.getD (q₀ + i) default).ψJ ψ)).getD j []).length →
       ((dJ.rss i').getD j []).getD l false = false →
       ((blkRss ctorsA kinds).getD (b.ownOffset (p.k + q₀ + i') + j) []).getD l false = true →
-      kindAt (mutKsOf kinds (b.ownOffset (p.k + q₀ + i') + j)) l = RecFieldKind.recursive →
-      ¬ ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
-        (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0 < p.k →
-      EntryRead
-        (nestedTV b.nP p.k f₀.s ppsF W pinsS mp₁'.base2.acval
-          ((fms.take p.k).map (·.cvTa.name)) ψ)
-        dJ ((pinsS.getD (q₀ + i) default).ψJ ψ) ((pinsS.getD (q₀ + i) default).Ds ψ)
-        (fun l => ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
-          (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0)
-        ((mutTlss ctorsA.length tssF ψ).getD (b.ownOffset (p.k + q₀ + i') + j) [])
-        ((mutEiss0 ctorsA.length eissF ψ).getD (b.ownOffset (p.k + q₀ + i') + j) []) ρp i' j l
-
-/-- **RESIDUAL 2R — `ordF`'s right arm at a REFLEXIVE copy field, at a
-PIN target** (task #315 L-B, DESIGN "the telescope the positivity
-`whnf` MAKES" and "does the refutation survive the repair"): the
-conjunct of `NestedPinsShapeOrdRight` at a field the auxiliary block
-classified REFLEXIVE.
-
-**The refutation this residual carried is DISSOLVED by lane L-E's
-repair of `EntryRead`, and the MEMBER-target half is now PROVED**
-(`NestedPinsRun.copyOrdFRightReadRefl`).  What was false was the OLD
-predicate's two SYNTACTIC Π-tower clauses, never the arm's reading and
-never the route: the telescope the copy carries was MADE by the
-positivity normalisation's `whnf` out of a λ-redex, and the container
-has no Π to split.  The repaired predicate asks instead for what the
-consumer produces — the container's field domain, read at the pin's
-frame, IS the copy's SLOT — and the witness that broke the old clauses
-SATISFIES that one, because a λ-redex respects a semantic equality.
-
-The witness stays as a regression fixture,
-`tests/e2e/nested_lam_pin_refl.ndjson`, which `checkNested` accepts
-(`tests/nested-shadow-expected.txt`):
-
-    Wrap (f : True → Type) | mk : f True.intro → Wrap f
-
-nested at `f := fun _ : True => True → T`.  The copy's field domain is
-the redex `(fun _ : True => True → T) True.intro`, whose positivity
-normalisation is `True → T`: the copy's field is REFLEXIVE at the
-member `T`, with a ONE-entry telescope (`BlockCtorData.reflOpen` takes
-the telescope's length off `piBinders`, and `mutualOpenedOk` rejects
-an empty one), while the CONTAINER's own field is the application
-`f True.intro`.  Under the repaired predicate both sides denote the
-same slot, and the proved arm is `copyOrdFRightReadM`'s with
-`BlockCtorData.reflEntry` for `recEntry`, `interp_mkPisAV_piTele` for
-`slotSet_nil`, and both the reading and the index fit taken one frame
-deeper — under the reflexive binder's own telescope.
-
-The TARGET hypothesis narrows what is left to the PIN target, exactly
-as in `NestedPinsShapeOrdRight`: there `TargetView.EA` is the
-CONTAINER's reading while the stored domain's head is the MIMIC, and
-identifying them is `pinLeaf`, downstream of this very shape.  Both
-halves wait on the same kernel record. -/
-@[expose] def NestedPinsShapeOrdRightRefl (V : Type w) [SetTheory V] (μ : CheckMode) (F : Nat) :
-    Prop :=
-  NestedPinsIdsAt V μ F fun {env} _ p _ b fms f₀ ctorsA kinds ppsF W _ _ _ _ _ _ eissF tssF _
-      _ _ pinsS mp₁' q₀ kJ dJ =>
-    ∀ i, i < kJ → ∀ (cvT : ConstantVal) (caps : IndCaps),
-      (ConLeche.consMutualFormers (fms.take p.k) env).find? (pinsS.getD (q₀ + i) default).J
-        = some (.indInfo cvT caps) →
-      ∀ (ψ : Name → Nat) (ρp : Nat → V),
-      Sat V (((ppsF 0 ψ).take b.nP).map (·.2.2)).reverse ρp →
-      ∀ i', i' < kJ → ∀ j, j < (dJ.ctorsM i').length →
-      ∀ l, l < ((dJ.Fss i' ((pinsS.getD (q₀ + i) default).ψJ ψ)).getD j []).length →
-      ((dJ.rss i').getD j []).getD l false = false →
-      ((blkRss ctorsA kinds).getD (b.ownOffset (p.k + q₀ + i') + j) []).getD l false = true →
-      kindAt (mutKsOf kinds (b.ownOffset (p.k + q₀ + i') + j)) l = RecFieldKind.reflexive →
+      (kindAt (mutKsOf kinds (b.ownOffset (p.k + q₀ + i') + j)) l = RecFieldKind.recursive ∨
+        kindAt (mutKsOf kinds (b.ownOffset (p.k + q₀ + i') + j)) l = RecFieldKind.reflexive) →
       ¬ ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
         (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0 < p.k →
       EntryRead
@@ -6588,12 +6545,13 @@ every pin group — from the arms proved above.  `len` is `copyLen`;
 AUXILIARY block's kind at the field (`kindAt_ne_of` excludes the two
 rejecting kinds) into `copyOrdFLeft` and `copyOrdFRight_shape`; `pinF`
 is `copyPinF_shape`; `es` is `copyEs`.  THREE residuals remain, one per
-open conjunct (`NestedPinsShapeOrdRight` and its reflexive half
-`NestedPinsShapeOrdRightRefl`, both now narrowed to the PIN target —
-the MEMBER-target halves are proved by `copyOrdFRightReadM` and
-`copyOrdFRightReadRefl`, the second of them under lane L-E's repaired
-`EntryRead`, DESIGN "does the refutation survive the repair" — and
-`NestedPinsShapePinF`).  K.42's
+open conjunct.  `NestedPinsShapeOrdRight` is ONE residual over BOTH
+field kinds now, narrowed to the PIN target: the MEMBER-target halves
+are proved by `copyOrdFRightReadM` and `copyOrdFRightReadRefl`, the
+second of them under lane L-E's repaired `EntryRead` (DESIGN "does the
+refutation survive the repair"), and the two kinds' remaining halves
+wait on the SAME kernel record, so they are one statement.
+`NestedPinsShapePinF` is the other.  K.42's
 record is read off the run (`NestedPinsRun.hK42`, lane L-E), and
 K.32's `nestedCopyTargetsOk`, which the
 bookkeeping predicate `NestedPinsKindsRun` stood for until lane L-E
@@ -6601,7 +6559,7 @@ threaded it (`NestedPinsRun.hK32`, DESIGN §U.64 (f)), is now read off
 the run record itself. -/
 theorem nestedPinsShape_of {F : Nat}
     (hOrd : NestedPinsShapeOrdRight V μ F)
-    (hOrdR : NestedPinsShapeOrdRightRefl V μ F) (hPin : NestedPinsShapePinF V μ F) :
+    (hPin : NestedPinsShapePinF V μ F) :
     NestedPinsShape V μ F := by
   intro env mp p st b envAux stored ctorsR fmsA ctorsA₀ fms f₀ ctorsA sortss kinds mp₁ ppsF W idxF
     dsF esF srcsF fvsPF xFvsF xrestF eissF tssF mp₁' R pinsS SF dsR xFvsR q₀ kJ dJ S
@@ -6610,9 +6568,6 @@ theorem nestedPinsShape_of {F : Nat}
   have hkindsRun := R.h.classify
   have hres1 := R.hK42
   have hres2 := hOrd mp p st b envAux stored ctorsR fmsA ctorsA₀ fms f₀ ctorsA sortss kinds mp₁
-    ppsF W idxF dsF esF srcsF fvsPF xFvsF xrestF eissF tssF mp₁' R pinsS SF dsR xFvsR q₀ kJ dJ S
-    i hi cvT caps hfind ψ ρp hsat i' hi' j hj
-  have hres2R := hOrdR mp p st b envAux stored ctorsR fmsA ctorsA₀ fms f₀ ctorsA sortss kinds mp₁
     ppsF W idxF dsF esF srcsF fvsPF xFvsF xrestF eissF tssF mp₁' R pinsS SF dsR xFvsR q₀ kJ dJ S
     i hi cvT caps hfind ψ ρp hsat i' hi' j hj
   have hres3 := hPin mp p st b envAux stored ctorsR fmsA ctorsA₀ fms f₀ ctorsA sortss kinds mp₁
@@ -6716,7 +6671,7 @@ theorem nestedPinsShape_of {F : Nat}
           (fun _ _ _ _ _ _ _ h1 h2 h3 h4 h5 h6 h7 =>
             R.copyOrdFLeftRun SF S hPD hres1 hi' hj' hlF (Or.inr hmemT) h1 h2 h3 h4 h5 h6 h7)
           hkA hmemT ψ ρp hsat
-      · exact hres2 l hl hord hrsT hkA hmemT
+      · exact hres2 l hl hord hrsT (Or.inl hkA) hmemT
     · -- the copy's field is reflexive: the RIGHT arm, at a telescope the
       -- positivity `whnf` may have MADE (task #315 L-B, DESIGN "the
       -- telescope the positivity `whnf` MAKES").  Against the OLD
@@ -6734,7 +6689,7 @@ theorem nestedPinsShape_of {F : Nat}
           (fun _ _ _ _ _ _ _ h1 h2 h3 h4 h5 h6 h7 =>
             R.copyOrdFLeftRun SF S hPD hres1 hi' hj' hlF (Or.inr hmemT) h1 h2 h3 h4 h5 h6 h7)
           hkA hmemT ψ ρp hsat
-      · exact hres2R l hl hord hrsT hkA hmemT
+      · exact hres2 l hl hord hrsT (Or.inr hkA) hmemT
     · exact absurd hkA (kindAt_ne_of hkindsRun hGlt l).1
     · exact absurd hkA (kindAt_ne_of hkindsRun hGlt l).2
   · -- `pinF`

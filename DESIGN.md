@@ -101798,7 +101798,9 @@ Of the three residuals this lane still names: `NestedPinsShapeOrdRight`
 (the pin-target half) waits on a kernel record not started;
 `NestedPinsShapePinF` waits on the per-pin exposure routed in §U.108 (b);
 `NestedPinsShapeOrdRightRefl` is now OPEN with a named route and is the
-one this lane can write as soon as it sits on a merged tree.
+one this lane can write as soon as it sits on a merged tree.  (It was
+written the next session, and the two `ordF`-right residuals became one
+— see "the two ordinary-field residuals are ONE residual".)
 
 ##### (f) GATES
 
@@ -101810,3 +101812,135 @@ no-local-paths OK; overview-links 112, no anchor moved; quote-gate 2;
 shake 511 removals all allowlisted; pub-imports 1315 of 2147, none
 demotable; nested-shadow 28/28.  `tests/arena.sh` not re-run: the
 session touches no checker code.
+
+#### U.110 — L-B session 28: the reflexive arm WRITTEN; the two ordinary-field residuals are ONE residual; and the pin-shape arm's `EA` clause needed no per-pin lemma (lane L-B, 2026-09-18)
+
+##### (a) THE ARM THAT COULD NOT BE WRITTEN, WRITTEN (commit `338b37b2`)
+
+`NestedPinsRun.copyOrdFRightReadRefl` — the `ordF`-right reading at a
+MEMBER target at a REFLEXIVE copy field — is proved against lane L-E's
+repaired `EntryRead`, on the route this lane named in "does the
+refutation survive the repair": `BlockCtorData.reflEntry` for
+`recEntry`, `interp_mkPisAV_piTele` for `slotSet_nil`, and both the
+reading and the index fit one frame deeper, under the reflexive
+binder's own telescope.  Nothing in the route had to be re-cut.
+
+Two things cost iterations, and both are transcription traps rather
+than mathematics:
+
+1. **`consList_append`'s orientation is the opposite of the natural
+   guess.**  `consList (as ++ fs₁) ρp` is `consList fs₁ (consList as
+   ρp)`, so the frame `consList as (consList fs₁ ρp)` that the tower's
+   body hands you is `consList (fs₁ ++ as) ρp` — the SECOND list is the
+   outer one.  `leafSpineFit` wants the appended form, and the wrong
+   instantiation shows up as a type mismatch on the well-denotedness
+   argument, several lines away from the `rw` that introduced it.
+2. **A beta step must sit AFTER the clause that consumes the
+   predicate's `tg`, not before it.**  `EntryRead` takes the target
+   function as an argument and the call site passes a λ, so the goal
+   carries `(fun l => …) l` while every lemma about the target is
+   stated at `tgtAt …`.  `simp only [htgt]` is the bridge, and if it
+   runs before the `rw [… hZ …]` then `hZ`'s own pattern — which still
+   carries the λ — no longer matches.  The member-target arm had the
+   same step in the same place; this session re-derived it the hard way
+   by putting it first.
+
+##### (b) THE ASSEMBLY'S REFLEXIVE BRANCH SPLIT BY TARGET (commit `40f275ea`)
+
+The `.reflexive` branch now splits on `tgt < p.k` exactly as the
+`.recursive` one does, with `copyOrdFLeftRun` at the WIDENED filter
+supplying the positivity run at the member target, and the residual
+narrowed to the pin target.  The refutation's docstring is restated (a
+dissolved refutation is recorded as dissolved, with the reason) and the
+fixture kept.
+
+##### (c) THE TWO ORDINARY-FIELD HALVES ARE **ONE** RESIDUAL
+
+With both member-target arms proved, the two residuals' conclusions are
+the SAME `EntryRead` call: the only difference was the kind hypothesis.
+They are now one predicate, `NestedPinsShapeOrdRight`, whose kind
+hypothesis is the DISJUNCTION `.recursive ∨ .reflexive` — which is also
+what the assembly holds at both branches, since `blkRss`' bit is `true`
+at exactly those two kinds.  `NestedPinsShapeOrdRightRefl` is deleted
+and `nestedPinsShape_of` takes two residual hypotheses instead of
+three.
+
+The STATEMENT merges; the PROOF will still split, and by the same two
+substitutions that separated the member-target arms — `tssNone` +
+`slotSet_nil` at `.recursive`, `reflOpen` + `interp_mkPisAV_piTele` at
+`.reflexive`.  What makes them one residual is that both halves wait on
+the SAME kernel record (the minted domain's normalisation, REWRITTEN):
+one record unblocks both, and one statement makes that visible.
+
+##### (d) THE PIN-SHAPE ARM: `EA` NEEDED NO PER-PIN LEMMA (commit `f0ddb9ef`)
+
+Of the three clauses of `PinCorr` left after the components' reading,
+ONE is now proved and the other two are the ones that wait.
+`copyPinFCorr` concludes two more things:
+
+* **The two pins' level ASSIGNMENTS agree at the container's own level
+  parameters** — POINTWISE, not as functions.  The block pin's
+  assignment is `Level.substFn ψ cvQ.levelParams` at its own level
+  arguments (its group's `NestedPinGroupSyn.stored`, reached at an
+  arbitrary pin through `NestedPinSynFacts.groupsAt`), the container's
+  pin's is the same at ITS arguments (`ContainerModeled.pinψ`), and the
+  copies' arguments are the container's SUBSTITUTED
+  (`copyPinFCorr`'s `lvls` clause), so `Level.substFn_map_subst`
+  composes the two — and that lemma holds only AT the substituted
+  parameters, which is exactly why `ContainerModeled.pinParams` is a
+  congruence over a membership and not an equality of assignments.
+* **`PinCorr`'s `EA` clause**: `targetRead`'s pin branch gives the
+  block pin's leaf at its own assignment applied to its components'
+  readings; the `J` clause moves the name, the `Ds` clause (§U.108 (a))
+  moves the arguments, and `EnvModel.acval_params` moves the
+  ASSIGNMENT, because a leaf reads only its constant's level
+  parameters — which is what the pointwise agreement supplies.
+
+So §U.108 (b)'s "last three clauses" is a THREE that was really a ONE
+and a TWO.  `u` and `Ids` are the two, and they do need per-pin data
+this tree does not carry — checked, at commit `40f275ea`, over the
+whole of `ConLeche/Model/`: the BLOCK side has a per-pin group view
+(`NestedPinSynFacts.groupsAt` hands any pin's group a
+`NestedPinGroupSyn` at `blockOf mp.base2 ci`, whose `pinU`, `pinPps`,
+`pinNP` read the pin's universe and telescope off the container's
+chosen block model), while the CONTAINER side has none: the only
+record this lane holds at `dJ` is `NestedPinGroupSyn.modeled`'s
+`ContainerModeled`, whose pin clauses are `pinψ`, `pinNP`,
+`pinConts`, `pinParams`, `nestMention` and `pinsNotMembers` — no
+clause relates `(dJ.pinAt q).u` or `.Ids` to a block model of the
+pin's own container, and a `BlockModel` is not unique, so nothing
+derives one.  `PinShapes`/`BlockAt` carry exactly that missing view
+(`PinGroupView.pinU`/`pinPps`) but only for a container the run holds
+`PinsModeled` at, not for the abstract `dJ` of this lane's records.
+That is the derived lemma the entry lane's branch is bringing.
+
+##### (e) THE ENVIRONMENT EQUATION: NOT REQUESTED, AND WHY
+
+Checked before asking, as instructed: at HEAD `8c88c5e9` the string
+`henv₀` occurs ZERO times in the lane's file, and the pin route's step
+that used to name `dJ.env₀ = env` now spends
+`NestedPinGroupSyn.contsEnv` — the monotonicity clause this lane asked
+for in place of the equation, which integration 3r landed.  The
+hypothesis dissolved against the tree; there is nothing to request.
+
+##### (f) THE LEDGER
+
+TWO residuals, the smallest this lane has carried:
+
+* `NestedPinsShapeOrdRight` — the `ordF`-right reading at a PIN target,
+  at EITHER field kind, one statement, waiting on the kernel record
+  (the minted domain's normalisation, REWRITTEN).  One record, both
+  kinds.
+* `NestedPinsShapePinF` — `PinCorr` at the container's own pin.  Its
+  `J`, `lvls`, `Ds` and `EA` clauses are proved (`copyPinFCorr`); `u`
+  and `Ids` wait on the per-pin group view of (d).
+
+##### (g) GATES
+
+At the merge commit of (c): `lake build` warning-free; `lake build
+ConLecheTests` warning-free; trust surface 13 escapes in 5 allowlisted
+files (654 scanned), 0 outside; no-local-paths OK; overview-links 112
+links over 65 files, no anchor moved; quote-gate OK; **proofdeps 4965
+module rows / 12 roots / 0 doors** (the baseline, unmoved); shake 510
+removals all allowlisted; nested-shadow 37/37; layering base 353 / model 286 / caps 3 / umbrella 1, 0 base->lane and 0 impl->theory.
+`tests/arena.sh` not re-run: the session touches no checker code.
