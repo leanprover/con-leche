@@ -1726,4 +1726,218 @@ theorem replaceAllNested_container_head_stable {A : Name} {us : List Level}
   have heq : st.pins = st'.pins := hpre.eq_of_length_le hstable
   exact ⟨I, lvls, cv, caps, ci, q, hfn, hfind, hci, hnP, heq ▸ hqm, hqp, hqe⟩
 
+/-! ## (R8) THE REWRITE REFLECTS A `∀`-TOWER (task #315 L-B)
+
+A REFLEXIVE copy field's stored domain is a `∀`-tower; the field's
+normalised minted domain `w` is what the rewrite sent there, and the arm
+has to peel `w`'s own tower to read its body.  The walk's only
+head-changing step is a FIRE, and a fire returns an APPLICATION, so a
+`∀` in the OUTPUT can only have come from a `∀` in the input — the
+descent preserves the top former at every other node.
+-/
+
+/-- An application spine is never a `∀`, whatever its head is not. -/
+private theorem mkAppN_ne_forallE : ∀ (args : List Expr) (f : Expr),
+    (∀ ty bo bm, f ≠ Expr.forallE ty bo bm) →
+    ∀ ty bo bm, Expr.mkAppN f args ≠ Expr.forallE ty bo bm
+  | [], f, hf, ty, bo, bm => hf ty bo bm
+  | a :: as, f, _, ty, bo, bm => by
+    rw [show Expr.mkAppN f (a :: as) = Expr.mkAppN (.app f a) as from rfl]
+    exact mkAppN_ne_forallE as (.app f a) (by nofun) ty bo bm
+
+/-- The step declines at anything that is not an application. -/
+private theorem replaceIfNested_nonApp {st : ElimState} {e : Expr}
+    (hna : ∀ f a, e ≠ Expr.app f a) :
+    replaceIfNested env blvls params pbs₀ st e = .ok none := by
+  cases e with
+  | app f a => exact absurd rfl (hna f a)
+  | _ => rfl
+
+/-- **THE WALK AT A `∀`, INVERTED**: either the prune returned it
+unchanged, or the walk descended into the domain and then the body. -/
+theorem replaceAllNested_forallE_run {st st' : ElimState} {ty bo : Expr} {bm : BinderMeta}
+    {e' : Expr}
+    (h : replaceAllNested env blvls params pbs₀ st (.forallE ty bo bm) = .ok (e', st')) :
+    (e' = .forallE ty bo bm ∧ st' = st) ∨
+    ∃ (ty' bo' : Expr) (st₁ : ElimState),
+      replaceAllNested env blvls params pbs₀ st ty = .ok (ty', st₁) ∧
+      replaceAllNested env blvls params pbs₀ st₁ bo = .ok (bo', st') ∧
+      e' = .forallE ty' bo' bm := by
+  simp only [replaceAllNested] at h
+  split at h
+  · simp only [Except.ok.injEq, Prod.mk.injEq] at h
+    exact Or.inl ⟨h.1.symm, h.2.symm⟩
+  · split at h
+    · close_throw
+    · rename_i r hri
+      rw [replaceIfNested_nonApp (by nofun)] at hri
+      exact nomatch hri
+    · cases hty : replaceAllNested env blvls params pbs₀ st ty with
+      | error err => rw [hty] at h; exact nomatch h
+      | ok r =>
+        obtain ⟨ty', st₁⟩ := r
+        rw [hty] at h
+        simp only at h
+        cases hbo : replaceAllNested env blvls params pbs₀ st₁ bo with
+        | error err => rw [hbo] at h; simp only at h; exact nomatch h
+        | ok r' =>
+          obtain ⟨bo', st₂⟩ := r'
+          rw [hbo] at h
+          simp only [Except.ok.injEq, Prod.mk.injEq] at h
+          exact Or.inr ⟨ty', bo', st₁, rfl, by rw [← h.2]; exact hbo, h.1.symm⟩
+
+/-- **A `∀` IN THE OUTPUT CAME FROM A `∀` IN THE INPUT** (task #315
+L-B): the binder data is the input's, because the only step that could
+have built it is the descent, and a FIRE returns an application. -/
+theorem replaceAllNested_forallE_inv {st st' : ElimState} {e : Expr}
+    {ty' bo' : Expr} {bm : BinderMeta}
+    (h : replaceAllNested env blvls params pbs₀ st e = .ok (.forallE ty' bo' bm, st')) :
+    ∃ ty bo, e = Expr.forallE ty bo bm := by
+  cases e with
+  | forallE ty bo bm₀ =>
+    rcases replaceAllNested_forallE_run h with ⟨he, -⟩ | ⟨_, _, _, _, _, he⟩
+    · exact ⟨ty, bo, by rw [(Expr.forallE.inj he).2.2]⟩
+    · exact ⟨ty, bo, by rw [(Expr.forallE.inj he).2.2]⟩
+  | app f a =>
+    exfalso
+    simp only [replaceAllNested] at h
+    split at h
+    · simp only [Except.ok.injEq, Prod.mk.injEq] at h
+      exact nomatch h.1
+    · split at h
+      · close_throw
+      · rename_i r hri
+        obtain ⟨A, n, hshape⟩ := replaceIfNested_shape hri
+        simp only [Except.ok.injEq] at h
+        have hr1 : r.fst = Expr.forallE ty' bo' bm := congrArg Prod.fst h
+        rw [hr1] at hshape
+        exact mkAppN_ne_forallE _ _
+          (mkAppN_ne_forallE params (Expr.const A blvls) (by nofun)) ty' bo' bm hshape.symm
+      · cases hf : replaceAllNested env blvls params pbs₀ st f with
+        | error err => rw [hf] at h; exact nomatch h
+        | ok r =>
+          obtain ⟨f', st₁⟩ := r
+          rw [hf] at h
+          simp only at h
+          cases ha : replaceAllNested env blvls params pbs₀ st₁ a with
+          | error err => rw [ha] at h; simp only at h; exact nomatch h
+          | ok r' =>
+            obtain ⟨a', st₂⟩ := r'
+            rw [ha] at h
+            simp only [Except.ok.injEq, Prod.mk.injEq] at h
+            exact nomatch h.1
+  | bvar _ | sort _ | lit _ | fvar _ _ | const _ _ =>
+    exfalso
+    simp only [replaceAllNested] at h
+    split at h
+    · simp only [Except.ok.injEq, Prod.mk.injEq] at h; exact nomatch h.1
+    · split at h
+      · close_throw
+      · rename_i r hri
+        rw [replaceIfNested_nonApp (by nofun)] at hri
+        exact nomatch hri
+      · simp only [Except.ok.injEq, Prod.mk.injEq] at h; exact nomatch h.1
+  | lam ty bo bm₀ =>
+    exfalso
+    simp only [replaceAllNested] at h
+    split at h
+    · simp only [Except.ok.injEq, Prod.mk.injEq] at h; exact nomatch h.1
+    · split at h
+      · close_throw
+      · rename_i r hri
+        rw [replaceIfNested_nonApp (by nofun)] at hri
+        exact nomatch hri
+      · cases hty : replaceAllNested env blvls params pbs₀ st ty with
+        | error err => rw [hty] at h; exact nomatch h
+        | ok r =>
+          obtain ⟨ty₁, st₁⟩ := r
+          rw [hty] at h
+          simp only at h
+          cases hbo : replaceAllNested env blvls params pbs₀ st₁ bo with
+          | error err => rw [hbo] at h; simp only at h; exact nomatch h
+          | ok r' =>
+            obtain ⟨bo₁, st₂⟩ := r'
+            rw [hbo] at h
+            simp only [Except.ok.injEq, Prod.mk.injEq] at h
+            exact nomatch h.1
+  | letE ty v bo =>
+    exfalso
+    simp only [replaceAllNested] at h
+    split at h
+    · simp only [Except.ok.injEq, Prod.mk.injEq] at h; exact nomatch h.1
+    · split at h
+      · close_throw
+      · rename_i r hri
+        rw [replaceIfNested_nonApp (by nofun)] at hri
+        exact nomatch hri
+      · cases hty : replaceAllNested env blvls params pbs₀ st ty with
+        | error err => rw [hty] at h; exact nomatch h
+        | ok r =>
+          obtain ⟨ty₁, st₁⟩ := r
+          rw [hty] at h
+          simp only at h
+          cases hv : replaceAllNested env blvls params pbs₀ st₁ v with
+          | error err => rw [hv] at h; simp only at h; exact nomatch h
+          | ok r' =>
+            obtain ⟨v₁, st₂⟩ := r'
+            rw [hv] at h
+            simp only at h
+            cases hbo : replaceAllNested env blvls params pbs₀ st₂ bo with
+            | error err => rw [hbo] at h; simp only at h; exact nomatch h
+            | ok r'' =>
+              obtain ⟨bo₁, st₃⟩ := r''
+              rw [hbo] at h
+              simp only [Except.ok.injEq, Prod.mk.injEq] at h
+              exact nomatch h.1
+  | proj sn i x =>
+    exfalso
+    simp only [replaceAllNested] at h
+    split at h
+    · simp only [Except.ok.injEq, Prod.mk.injEq] at h; exact nomatch h.1
+    · split at h
+      · close_throw
+      · rename_i r hri
+        rw [replaceIfNested_nonApp (by nofun)] at hri
+        exact nomatch hri
+      · cases hx : replaceAllNested env blvls params pbs₀ st x with
+        | error err => rw [hx] at h; exact nomatch h
+        | ok r =>
+          obtain ⟨x₁, st₁⟩ := r
+          rw [hx] at h
+          simp only [Except.ok.injEq, Prod.mk.injEq] at h
+          exact nomatch h.1
+
+/-- **THE REWRITE REFLECTS A `∀`-TOWER** (task #315 L-B): an output that
+is an `n`-fold `∀`-tower came from an `n`-fold one.
+
+Only the SHAPE, deliberately: with it the consumer runs the EXISTING
+`replaceAllNested_mkPisB` forward on the input to get the domains' and
+the body's own runs, so the two lemmas divide the work rather than
+duplicating the threading. -/
+theorem replaceAllNested_mkPisB_inv :
+    ∀ (n : Nat) {st st' : ElimState} {e : Expr} {bs' : List (Expr × BinderMeta)} {res' : Expr},
+      replaceAllNested env blvls params pbs₀ st e = .ok (mkPisB bs' res', st') →
+      bs'.length = n →
+      ∃ (bs : List (Expr × BinderMeta)) (res : Expr), e = mkPisB bs res ∧ bs.length = n := by
+  intro n
+  induction n with
+  | zero =>
+    intro st st' e bs' res' _ hlen
+    exact ⟨[], e, (mkPisB_nil e).symm, rfl⟩
+  | succ n ih =>
+    intro st st' e bs' res' h hlen
+    match bs', hlen with
+    | b' :: bs'', hlen =>
+      rw [mkPisB_cons] at h
+      obtain ⟨ty, bo, rfl⟩ := replaceAllNested_forallE_inv h
+      rcases replaceAllNested_forallE_run h with ⟨he, -⟩ | ⟨ty₁, bo₁, st₁, -, hbo, he⟩
+      · obtain ⟨-, hbody, -⟩ := Expr.forallE.inj he
+        exact ⟨(ty, b'.2) :: bs'', res', by rw [mkPisB_cons, hbody], by
+          simp only [List.length_cons] at hlen ⊢; omega⟩
+      · obtain ⟨-, hbody, -⟩ := Expr.forallE.inj he
+        rw [← hbody] at hbo
+        obtain ⟨bs, res, hbs, hbsl⟩ := ih hbo (by simp only [List.length_cons] at hlen; omega)
+        exact ⟨(ty, b'.2) :: bs, res, by rw [mkPisB_cons, hbs], by
+          simp only [List.length_cons, hbsl]⟩
+
 end ConLeche
