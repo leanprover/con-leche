@@ -662,7 +662,7 @@ theorem classPinAt_of_pairViews {env : Env} {m : EnvModel V env} {D dR dK : Bloc
     ⟨hpar.1, ?_⟩ (memberIds_below CK.reps hik _) hi, fun hlt => absurd hlt (by omega)⟩
   · exact hψ0 pp (by rw [← CK.memberLpsI hci hfI hik hfi]; exact hp)
   · unfold BlockModel.IdsM
-    rw [hpar.2]
+    rw [hpar.2.1]
 
 /-- **The WALK's `pinF` step** (task #315 L-E, DESIGN §U.74): at a
 container-recursive field whose target is one of the CONTAINER's own
@@ -805,6 +805,87 @@ theorem classPinAt_of_pinCorrs {env : Env} {m : EnvModel V env} {D dR dK : Block
     unfold idxSet
     refine congrArg _ (teleOfFields_congr_below hIdsB' (fun v hv => ?_))
     rw [consList_getD_lt _ _ v hv, consList_getD_lt _ _ v hv]
+
+/-- **THE WALK at a PIN class of the root** (task #315 L-E, DESIGN
+§U.74): at a container-recursive field of the container's constructor,
+the root's copy's target class and the block's copy's target are
+`ClassPinAt`-related — a MEMBER target of the container by
+`classPinAt_of_pairViews` at the two groups' views, one of the
+container's OWN pins by `classPinAt_of_pinCorrs` at the two copies'
+`PinCorr`.  Both targets are PIN classes of the root, so the
+relation's root-group conjunct is vacuous throughout.
+
+The premises are the pair's own two agreements (`hψ`, `hfr`), the
+container's record (`CK`, `hpp`, and `hOwn` for ITS pins' groups), and
+each side's pin laws — the root's `ContainerModeled.pinψ` and the
+block's own, which the run supplies. -/
+theorem classPinAt_of_walk {env : Env} {m : EnvModel V env} {D dR dK : BlockModel V}
+    {ciK : ContainerInfo} (CK : ContainerModeled m ciK dK) {IK : Name}
+    (hciK : ConLeche.containerInfo? env IK = some ciK)
+    {cvK : ConstantVal} {capsK : IndCaps} (hfK : env.find? IK = some (.indInfo cvK capsK))
+    (hpp : ContainerPinParams (V := V) cvK dK)
+    (hOwn : ∀ qq, qq < dK.nPins → ∃ (q₀'' kk'' i'' : Nat) (dJ'' : BlockModel V),
+      qq = q₀'' + i'' ∧ i'' < kk'' ∧ PinGroupView dK dJ'' q₀'' kk'' ∧ IsBlockModels m dJ'')
+    {q₀ q₀' kK : Nat} (S₁ : PinGroupView D dK q₀ kK) (S₂ : PinGroupView dR dK q₀' kK)
+    {ψ ψR : Name → Nat} {ρp ρR : Nat → V} {r iq j : Nat}
+    {lvls₁ lvls₂ : List Level} {tg₁ tg₂ : Nat → Nat}
+    {tls₁ tls₂ : List (List (Nat × Nat × AnnotTerm))} {Eis₁ Eis₂ : List (List AnnotTerm)}
+    {Fs₁ Fs₂ Es₁ Es₂ : List AnnotTerm} {rs₁ rs₂ : List Bool}
+    (h₁ : CopyCtorShape (dR.targetView m.acval ψR) m.acval dK ((dR.pinAt q₀').ψJ ψR)
+      ((dR.pinAt q₀').Ds ψR) cvK.levelParams lvls₁ tg₁ tls₁ Eis₁ ρR iq j
+      (dR.k + q₀') kK Fs₁ rs₁ Es₁)
+    (h₂ : CopyCtorShape (D.targetView m.acval ψ) m.acval dK ((D.pinAt q₀).ψJ ψ)
+      ((D.pinAt q₀).Ds ψ) cvK.levelParams lvls₂ tg₂ tls₂ Eis₂ ρp iq j
+      (D.k + q₀) kK Fs₂ rs₂ Es₂)
+    (hψ₁ : (dR.pinAt q₀').ψJ ψR = Level.substFn ψR cvK.levelParams lvls₁)
+    (hψ₂ : (D.pinAt q₀).ψJ ψ = Level.substFn ψ cvK.levelParams lvls₂)
+    (hpinψR : ∀ qq, qq < dR.nPins → ∀ (cvT : ConstantVal) (caps : IndCaps),
+      env.find? (dR.pinAt qq).J = some (.indInfo cvT caps) →
+      (dR.pinAt qq).lvls.length = cvT.levelParams.length ∧
+      ∀ φ : Name → Nat, (dR.pinAt qq).ψJ φ
+        = Level.substFn φ cvT.levelParams (dR.pinAt qq).lvls)
+    (hpinψD : ∀ qq, qq < D.nPins → ∀ (cvT : ConstantVal) (caps : IndCaps),
+      env.find? (D.pinAt qq).J = some (.indInfo cvT caps) →
+      ∀ φ : Name → Nat, (D.pinAt qq).ψJ φ
+        = Level.substFn φ cvT.levelParams (D.pinAt qq).lvls)
+    (hDsLenD : ∀ qq, qq < D.nPins → (D.pinAt qq).nPJ ≤ ((D.pinAt qq).Ds ψ).length)
+    (hψ : ∀ pp ∈ cvK.levelParams,
+      (dR.pinAt q₀').ψJ ψR pp = (D.pinAt q₀).ψJ ψ pp)
+    (hfr : ∀ v, v < dK.nP → dR.pinFrame q₀' ψR ρR v = D.pinFrame q₀ ψ ρp v)
+    (hiq : iq < kK) {l : Nat}
+    (hl₁ : l < ((dK.Fss iq ((dR.pinAt q₀').ψJ ψR)).getD j []).length)
+    (hl₂ : l < ((dK.Fss iq ((D.pinAt q₀).ψJ ψ)).getD j []).length)
+    {cA : ConstantVal × Nat} (hj : (dK.ctorsM iq)[j]? = some cA)
+    (hr : ((dK.rss iq).getD j []).getD l false = true) :
+    tg₂ l = D.k + (tg₂ l - D.k) ∧ ClassPinAt env D dR ψ ψR ρp ρR r (tg₁ l) (tg₂ l - D.k) := by
+  have hiqK : iq < dK.k := S₁.kEq ▸ hiq
+  by_cases hnt : dK.tgts iq j l < dK.k
+  · -- a MEMBER target of the container
+    obtain ⟨-, htg₁, -, -⟩ := h₁.recF l hl₁ hr hnt
+    obtain ⟨-, htg₂, -, -⟩ := h₂.recF l hl₂ hr hnt
+    refine ⟨by rw [htg₂]; omega, ?_⟩
+    rw [htg₁, htg₂,
+      show dR.k + q₀' + dK.tgts iq j l = dR.k + (q₀' + dK.tgts iq j l) from by omega,
+      show D.k + q₀ + dK.tgts iq j l - D.k = q₀ + dK.tgts iq j l from by omega]
+    exact classPinAt_of_pairViews CK hciK hfK S₁ S₂ hψ hfr (S₁.kEq ▸ hnt)
+  · -- one of the container's OWN pins
+    obtain ⟨-, -, hkle₁, hklt₁, hcorr₁, -, -⟩ := h₁.pinF l hl₁ hr hnt
+    obtain ⟨-, -, hkle₂, hklt₂, hcorr₂, -, -⟩ := h₂.pinF l hl₂ hr hnt
+    have hkle₁' : dR.k ≤ tg₁ l := hkle₁
+    have hklt₁' : tg₁ l < dR.k + dR.nPins := hklt₁
+    have hkle₂' : D.k ≤ tg₂ l := hkle₂
+    have hklt₂' : tg₂ l < D.k + D.nPins := hklt₂
+    have hqK' : dK.tgts iq j l - dK.k < dK.nPins :=
+      CK.reps.tgt_pin_lt hiqK hj l hl₂ hnt
+    obtain ⟨q₀'', kk'', i'', dJ'', hqe'', hi'', S'', hreps''⟩ := hOwn _ hqK'
+    refine ⟨by omega, ?_⟩
+    refine classPinAt_of_pinCorrs hpp hqK' ?_ hcorr₁ hcorr₂ hkle₁' hklt₁' hkle₂' hklt₂'
+      hψ₁ hψ₂ (hpinψR _ (by omega)) (hpinψD _ (by omega)) ?_ hψ hfr
+    · rw [hqe'']
+      exact pinIds_below S'' hreps'' hi'' ((D.pinAt q₀).ψJ ψ) ρp
+    · refine Nat.le_trans (hDsLenD _ (by omega)) (Nat.le_of_eq ?_)
+      rw [show ((D.pinAt (tg₂ l - D.k)).Ds ψ) = (D.targetView m.acval ψ).Ds (tg₂ l) from rfl,
+        hcorr₂.2.1, List.length_map]
 
 /-- **The covering, split at the root GROUP** (task #315 L-E, DESIGN
 §U.65): `InstanceCovered` at the root pin `r` from its two cases — a

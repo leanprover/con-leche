@@ -839,7 +839,7 @@ theorem ContainerModeled.params_congr {env : Env} {m : EnvModel V env} {ci : Con
     (hci : ConLeche.containerInfo? env I = some ci)
     {cvI : ConstantVal} {capsI : IndCaps} (hfI : env.find? I = some (.indInfo cvI capsI))
     {ψ₁ ψ₂ : Name → Nat} (hψ : ∀ p ∈ cvI.levelParams, ψ₁ p = ψ₂ p) {a : Nat} (ha : a < dK.k) :
-    dK.uM a ψ₁ = dK.uM a ψ₂ ∧ dK.ppsM a ψ₁ = dK.ppsM a ψ₂ := by
+    dK.uM a ψ₁ = dK.uM a ψ₂ ∧ dK.ppsM a ψ₁ = dK.ppsM a ψ₂ ∧ dK.w ψ₁ = dK.w ψ₂ := by
   obtain ⟨cvT, _caps, _cvR0, _mI0, _rP0, _rules0, hfind, _hfr0, _hmem0, _hnd0, hall⟩ :=
     ConLeche.containerInfo?_inv hci
   have hcvT : cvT = cvI := (ConstantInfo.indInfo.inj (Option.some.inj (hfind.symm.trans hfI))).1
@@ -852,7 +852,8 @@ theorem ContainerModeled.params_congr {env : Env} {m : EnvModel V env} {ci : Con
       : ConstantVal).levelParams, ψ₁ p = ψ₂ p := by
     intro p hp
     exact hψ p (by rw [← hcvT, ← hshare, ← hlps]; exact hp)
-  exact ⟨hI.uParams a ha ψ₁ ψ₂ hψ', (hI.former.params ψ₁ ψ₂ hψ').1⟩
+  exact ⟨hI.uParams a ha ψ₁ ψ₂ hψ', (hI.former.params ψ₁ ψ₂ hψ').1,
+    (hI.former.params ψ₁ ψ₂ hψ').2⟩
 
 
 /-- **A member's level parameters ARE the group's** (task #315 L-E,
