@@ -347,8 +347,10 @@ theorem RestoreOpenAgree.mono {bad bad' : Nat → Prop} {vs ws : List Expr}
 
 /-! ## Opening a `∀`-telescope -/
 
-/-- Every entry of an opener list is a variable. -/
-def AllFvarsL (l : List Expr) : Prop :=
+/-- Every entry of an opener list is a variable.  (Exposed: the
+pin-target reading at a REFLEXIVE field states the opener hypothesis
+unfolded, task #315 R3.) -/
+@[expose] def AllFvarsL (l : List Expr) : Prop :=
   ∀ v ∈ l, ∃ (idx : Nat) (ty : Expr), v = .fvar idx ty
 
 theorem AllFvarsL.bounded {l : List Expr} (h : AllFvarsL l) :
@@ -556,6 +558,22 @@ theorem instSeq_getAppFn_const_inv : ∀ (vs : List Expr), AllFvarsL vs →
     obtain ⟨idx, ty, rfl⟩ := hall v List.mem_cons_self
     exact Expr.getAppFn_const_of_instantiate1
       (ih (fun x hx => hall x (List.mem_cons_of_mem _ hx)) (t - 1) _ h)
+
+/-- **Opening is the identity on a closed term** (task #315 R3): a
+pin's components carry no loose bound variable (`NestedPinsRun.scoped`),
+so they survive a telescope's opening verbatim — which is what lets the
+pin-target reading run under a REFLEXIVE field's telescope with the
+components' reading untouched. -/
+theorem instSeq_eq_self : ∀ (vs : List Expr) (t : Nat) {e : Expr},
+    e.looseBVarsBounded 0 = true → Expr.instSeq vs t e = e := by
+  intro vs
+  induction vs with
+  | nil => intro t e _; rfl
+  | cons v vs ih =>
+    intro t e hb
+    show Expr.instSeq vs (t - 1) (e.instantiate1 v t) = e
+    rw [Expr.instantiate1_eq_self (looseBVarsBounded_mono (Nat.zero_le t) hb)]
+    exact ih (t - 1) hb
 
 /-- ... and forwards: opening cannot MOVE a constant head either
 (task #315 R3, the reflexive pin arm's `hfree`: the reading side names

@@ -6411,9 +6411,10 @@ theorem NestedPinsRun.copyOrdFRightPinCorr {pbs : List (Expr × ConLeche.BinderM
     (hrep : ConLeche.replaceAllNested env (p.lps.map Level.param) params pbs₀ st w
       = .ok (xt, st'))
     (hstable : st'.pins.length ≤ st.pins.length)
+    {fvs : List Expr} {tsq : Nat}
     {ψ : Name → Nat} {t : Nat} {ea' : AnnotTerm}
-    (hea' : denoteMeta mp₁'.base2.acval
-      (ConLeche.consMutualFormers (fms.take p.k) env) ψ t w = some ea') :
+    (hea' : denoteMeta mp₁'.base2.acval (ConLeche.consMutualFormers (fms.take p.k) env) ψ t
+      (Expr.instSeq fvs tsq w) = some ea') :
     ∃ (I : Name) (lvls : List Level) (ci' : ConLeche.ContainerInfo) (qq : Nat),
       qq < st.pins.length ∧
       ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
@@ -6465,8 +6466,9 @@ theorem NestedPinsRun.copyOrdFRightPinCorr {pbs : List (Expr × ConLeche.BinderM
   have hfindNone : (ConLeche.consMutualFormers (fms.take p.k) env).find? ft.cvTa.name = none := by
     rw [ConLeche.consMutualFormers_find?_of_ne hne]
     exact R.h.fresh _ _ hft
-  have hfree : w.getAppFn ≠ Expr.const ft.cvTa.name (b.lps.map Level.param) :=
+  have hfree : w.getAppFn ≠ Expr.const ft.cvTa.name (b.lps.map Level.param) := fun hc =>
     denoteMeta_head_ne_fresh hea' hfindNone
+      (ConLeche.instSeq_getAppFn_const fvs tsq w hc)
   have hhead : xt.getAppFn = Expr.const ft.cvTa.name (b.lps.map Level.param) := by
     rw [hheadS, hnameT]
   -- ==== the rewrite, backwards ====
@@ -6558,13 +6560,15 @@ theorem NestedPinsRun.copyOrdFRightPinRead {pbs : List (Expr × ConLeche.BinderM
     (hstable : st'.pins.length ≤ st.pins.length)
     (hnIdx : ∀ q, q < pinsS.length →
       (fms.getD (p.k + q) default).nIdx = (pinsS.getD q default).nIdx)
+    {fvs : List Expr} {tsq : Nat}
+    (hallF : ∀ v ∈ fvs, ∃ (idx : Nat) (ty : Expr), v = Expr.fvar idx ty)
     {ψ : Name → Nat} {ea' : AnnotTerm}
     (heisRead : DenoteMetaSpine mp₁.base2.acval (ConLeche.consMutualFormers fms env) ψ
-      (b.nP + t) (xt.getAppArgs.drop b.nP) Eis)
+      (b.nP + t) ((Expr.instSeq fvs tsq xt).getAppArgs.drop b.nP) Eis)
     (hEisLen : Eis.length = mutualNIdxOf b.members3
       (tgtAt (mutKsOf kinds (b.ownOffset (p.k + q₀ + i') + j)) l))
-    (hea' : denoteMeta mp₁'.base2.acval
-      (ConLeche.consMutualFormers (fms.take p.k) env) ψ (b.nP + t) w = some ea')
+    (hea' : denoteMeta mp₁'.base2.acval (ConLeche.consMutualFormers (fms.take p.k) env) ψ
+      (b.nP + t) (Expr.instSeq fvs tsq w) = some ea')
     (ρp : Nat → V) (fs₁ : List V) (hfs : fs₁.length = t)
     (hok : WellDenotedV V (consList fs₁ ρp) ea') :
     ∃ qq : Nat,
@@ -6601,6 +6605,13 @@ theorem NestedPinsRun.copyOrdFRightPinRead {pbs : List (Expr × ConLeche.BinderM
     rw [hqe, Expr.getAppArgs_mkAppN, Expr.getAppArgs_mkAppN]
     simp only [Expr.getAppArgs, List.nil_append]
     rw [List.drop_left' hplen]
+  -- ==== the same one telescope deeper: opening maps the spine ====
+  have hargsO : (Expr.instSeq fvs tsq xt).getAppArgs.drop b.nP
+      = (Expr.instSeq fvs tsq w).getAppArgs.drop ci'.nP := by
+    rw [ConLeche.instSeq_getAppArgs fvs hallF tsq xt,
+      ConLeche.instSeq_getAppArgs fvs hallF tsq w, ← List.map_drop, ← List.map_drop, hargsX]
+  have hfnO : (Expr.instSeq fvs tsq w).getAppFn = Expr.const I lvls :=
+    ConLeche.instSeq_getAppFn_const fvs tsq w hfn
   obtain ⟨cc, J, ci, cI, cA, cname, hciP, hJmem, hcc, hn, hty, hnf, hJname, hinstCI,
     hcj, hcA, hbc, hnF⟩ := R.ctorPair SF S hPD hi' hj
   have hGlt : b.ownOffset (p.k + q₀ + i') + j < ctorsA.length :=
@@ -6613,13 +6624,14 @@ theorem NestedPinsRun.copyOrdFRightPinRead {pbs : List (Expr × ConLeche.BinderM
     exact hlA
   have htgt : tgtAt (mutKsOf kinds (b.ownOffset (p.k + q₀ + i') + j)) l = p.k + qq := by
     rw [← mutTgts_getD hGlt hnFs]; exact hidx
-  rw [hargsX] at heisRead
+  rw [hargsO] at heisRead
   -- ==== `w`'s own spine, split at the container's parameters ====
-  have hwsp : w = Expr.mkAppN (.const I lvls) w.getAppArgs := by
-    rw [← hfn]; exact (Expr.mkAppN_getApp w).symm
+  have hwsp : Expr.instSeq fvs tsq w
+      = Expr.mkAppN (.const I lvls) (Expr.instSeq fvs tsq w).getAppArgs := by
+    rw [← hfnO]; exact (Expr.mkAppN_getApp _).symm
   rw [hwsp] at hea'
   obtain ⟨fa, vs, hfa, hspM, rfl⟩ := denoteMeta_mkAppN_inv hea'
-  rw [← List.take_append_drop ci'.nP w.getAppArgs] at hspM
+  rw [← List.take_append_drop ci'.nP (Expr.instSeq fvs tsq w).getAppArgs] at hspM
   obtain ⟨vs₁, vs₂, rfl, hsp₁, hsp₂⟩ := DenoteMetaSpine.append_inv hspM
   have hvs₂ : vs₂ = Eis :=
     DenoteMetaSpine.unique (R.crossUpSpine ψ (b.nP + t) hsp₂) heisRead
@@ -6643,15 +6655,27 @@ theorem NestedPinsRun.copyOrdFRightPinRead {pbs : List (Expr × ConLeche.BinderM
   obtain ⟨-, hcl₀, hbt₀, hFD₀⟩ := R.former0
   obtain ⟨hbndQ, hleafQ⟩ := hsc _ (List.mem_of_getElem? (hPD qq hqqLt).pin)
   have hwsQ := WScoped_of_openers mp₁' hFD₀ hcl₀ hbt₀ hopS hleafQ ψ
-  rw [hpinSyn] at hwsQ
+  rw [hpinSyn] at hwsQ hbndQ
   obtain ⟨-, hwsDQ⟩ := ConLeche.WScoped_of_mkAppN hwsQ
+  -- ==== the components carry no loose variable, so the opening skips them ====
+  have hbndDs : ∀ a ∈ (pinsS.getD qq default).DsE, a.looseBVarsBounded 0 = true :=
+    (ConLeche.looseBVarsBounded_of_mkAppN hbndQ).2
+  have hDsEqO : (pinsS.getD qq default).DsE
+      = (Expr.instSeq fvs tsq w).getAppArgs.take ci'.nP := by
+    have hid : List.map (fun x => Expr.instSeq fvs tsq x) (pinsS.getD qq default).DsE
+        = (pinsS.getD qq default).DsE := by
+      have h1 := List.map_congr_left (l := (pinsS.getD qq default).DsE) (g := fun x => x)
+        (fun a ha => ConLeche.instSeq_eq_self fvs tsq (hbndDs a ha))
+      simpa using h1
+    rw [ConLeche.instSeq_getAppArgs fvs hallF tsq w, ← List.map_take, ← hDsEq, hid]
   have hspQ : DenoteMetaSpine mp₁'.base2.acval
       (ConLeche.consMutualFormers (fms.take p.k) env) ψ (b.nP + t)
-      (w.getAppArgs.take ci'.nP)
+      ((Expr.instSeq fvs tsq w).getAppArgs.take ci'.nP)
       (((pinsS.getD qq default).Ds ψ).map (fun X => AnnotTerm.liftN t X 0)) := by
     have hbase := SF.pinDs _ hqSq ψ
-    rw [hDsEq] at hbase
-    have hstep : ∀ (a : Expr) (v : AnnotTerm), a ∈ w.getAppArgs.take ci'.nP →
+    rw [hDsEqO] at hbase
+    have hstep : ∀ (a : Expr) (v : AnnotTerm),
+        a ∈ (Expr.instSeq fvs tsq w).getAppArgs.take ci'.nP →
         denoteMeta mp₁'.base2.acval (ConLeche.consMutualFormers (fms.take p.k) env) ψ b.nP
             (id a) = some v →
         denoteMeta mp₁'.base2.acval (ConLeche.consMutualFormers (fms.take p.k) env) ψ
@@ -6659,7 +6683,7 @@ theorem NestedPinsRun.copyOrdFRightPinRead {pbs : List (Expr × ConLeche.BinderM
       intro a v ha hv
       have hl := denoteMeta_lift (acval := mp₁'.base2.acval)
         (env := ConLeche.consMutualFormers (fms.take p.k) env) (φ := ψ)
-        mp₁'.base2.acval_closed (hwsDQ a (by rw [hDsEq]; exact ha)) (b.nP + t) (by omega)
+        mp₁'.base2.acval_closed (hwsDQ a (by rw [hDsEqO]; exact ha)) (b.nP + t) (by omega)
       simp only [id] at hv ⊢
       rw [hv] at hl
       simp only [Option.map_some, Nat.add_sub_cancel_left] at hl
@@ -6845,6 +6869,7 @@ theorem NestedPinsRun.copyOrdFRightReadP {pbs : List (Expr × ConLeche.BinderMet
   obtain ⟨qq, hidx, hread, hfitI⟩ :=
     R.copyOrdFRightPinRead SF S hPD hi' hj hlF hpinT
       (mutualOpenedOk_recHead hopen hopP' hopX' hx' hkA) hrwd hrep hstable hnIdx
+      (fvs := []) (tsq := 0) (fun _ hv => nomatch hv)
       (hCD.eisRead ψ l x' hx' hkA) (hCD.eisLen ψ l hkA hlA) hea' ρp fs₁ hfs hok
   simp only [htls, hEis]
   rw [slotSet_nil]
