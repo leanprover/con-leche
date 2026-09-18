@@ -92621,8 +92621,11 @@ witness is a new fixture, and `checkNested` ACCEPTS it (a).  The
 residual is split at the assembly's own `kindAt` case so that the
 falsehood is confined to one named object and the finitary half stays
 open rather than refuted (b).  What the finitary half then owes is (c)
-— including a kernel request, K.43, without which the PIN-target case
-of the arm is `pinLeaf` and circular.  `NestedPinsShapePinF` was
+— including a kernel request, cited by TITLE ("the minted domain's
+normalisation, REWRITTEN") and carrying NO number, without which the
+PIN-target case of the arm is `pinLeaf` and circular.  The number is
+the integrator's: the one this section first wrote down was already
+taken (`blockOwnMimicsOk`).  `NestedPinsShapePinF` was
 planned, not started (d).
 
 ##### (a) THE REFUTATION — `tests/e2e/nested_lam_pin_refl.ndjson` (commit `149bf97f`)
@@ -92734,7 +92737,7 @@ not move.  Two shapes, in increasing order of safety:
    the copy's stored domain being a Π-tower over its own telescope by
    the block's own `reflOpen`/`recEntry`.  This lane recommends it.
 
-##### (c) WHAT THE FINITARY HALF OWES — and K.43 (REQUESTED)
+##### (c) WHAT THE FINITARY HALF OWES — and a kernel record REQUESTED
 
 At `.recursive` the four shape clauses are free (b) and clause 5 is
 
@@ -92774,9 +92777,9 @@ same difficulty:
   container's ORDINARY `val : α` instantiated to `List P20`, a pin of
   another group — copy-recursive, `ordF`-right, pin target.
 
-**K.43 (REQUESTED) — the minted domain's normalisation, REWRITTEN.**
-The generalisation of K.42 past the ordinary fields: at every
-constructor field of every copy, record
+**REQUESTED — "the minted domain's normalisation, REWRITTEN"** (the
+integrator numbers it).  The generalisation of K.42 past the ordinary
+fields: at every constructor field of every copy, record
 
 ```
 normPosDomM ops env memberNames (p.nP + l) 1024 Fl₀ = .ok w   ∧
@@ -92803,16 +92806,16 @@ so the minted and the rewritten walk see a member at exactly the same
 nodes".  What is NOT established is that `replaceAllNested` after the
 `whnf` replaces the same occurrences as before it: a δ-step can expose
 a container application that was not in the minted domain (`Foo α :=
-List α` at `Foo (List T)`), and there the Bool would fail.  So K.43's
-second clause needs §U.62 (d)'s measurement before it is committed to
+List α` at `Foo (List T)`), and there the Bool would fail.  So the
+record's second clause needs §U.62 (d)'s measurement before it is committed to
 — a temporary throw over `tests/e2e/*.ndjson` under `--nested-shadow`,
 `init-full` and Mathlib — and if it is non-vacuous the record must be
 weakened (the comparison at the HEAD only, which is all the arm reads)
 rather than allowed to decline an accepted shape.
 
 Sizing, honestly: the member-target case is ONE session on §U.74 (b)'s
-chain with the grading free; the pin-target case is one more once K.43
-lands, and cannot start before it.
+chain with the grading free; the pin-target case is one more once the
+record lands, and cannot start before it.
 
 ##### (d) `NestedPinsShapePinF` — the route, planned, NOT started
 
