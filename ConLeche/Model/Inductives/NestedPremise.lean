@@ -695,10 +695,31 @@ invariant under a later install.
 
 `ContainerOwnPinsSyn.toReadOf` (`NestedOwnPinsRead.lean`, which is
 above this file) is the bridge to the reading form the
-consumer (`pinCorr_of_ownPins`) wants. -/
+consumer (`pinCorr_of_ownPins`) wants.
+
+**THE COMPONENTS MUST BE CLOSED, and the clause is FALSE without it**
+(task #315 M7-3 session 18, DESIGN §U.79 (a) — REFUTED on two real
+runs, not argued).  `containerOwnPinsAtGo` instantiates the mimic
+recursor at `Ds ++ pad`, and `Expr.instPis` peels ONE binder per
+argument at cursor 0 — so the PAD substitutions run on the
+already-inserted components, at descending cursors, and a component
+carrying a LOOSE BOUND VARIABLE is eaten by the pad.  `PinSyn.ownAt`
+re-opens the recorded (openers-instantiated, hence pad-processed) pin
+at `DsE` afterwards, so the same bvar survives there.  At
+`tests/e2e/nested_rec.ndjson`'s `Tree` the reader answers
+`[List (Tree Sort)]` where `ownAt` predicts `[List (Tree #0)]`, at
+`DsE = [Expr.bvar 0]`; `nested_p30`'s `P30` is the same.  Lane L-B's
+`instPis_openers_subst` carries `hDcl : ∀ a ∈ Ds, a.looseBVarsBounded 0`
+for exactly this reason — that hypothesis is not a proof artefact, it
+is the gap.
+
+The closedness costs no consumer: `toReadOf` already takes it (inside
+its `hDsE`), and the seven pins-free sites go through `of_noMimics`,
+which only gains an `intro`. -/
 @[expose] def ContainerOwnPinsSyn (env : Env) (d : BlockModel V) : Prop :=
   ∀ (i : Nat) (cvC : ConstantVal) (caps : IndCaps) (lvls : List Level) (DsE ps : List Expr),
     i < d.k → env.find? (d.memberName i) = some (.indInfo cvC caps) →
+    (∀ a ∈ DsE, a.looseBVarsBounded 0 = true) →
     ConLeche.containerOwnPinsAt env (d.memberName i) lvls DsE = some ps →
     ∀ e ∈ ps, ∃ qK, qK < d.nPins ∧ e = (d.pinAt qK).ownAt d.nP cvC.levelParams lvls DsE
 
@@ -711,7 +732,7 @@ theorem ContainerOwnPinsSyn.of_noOwn {env : Env} {d : BlockModel V}
     (hempty : ∀ (i : Nat) (lvls : List Level) (DsE ps : List Expr), i < d.k →
       ConLeche.containerOwnPinsAt env (d.memberName i) lvls DsE = some ps → ps = []) :
     ContainerOwnPinsSyn (V := V) env d := by
-  intro i _cvC _caps lvls DsE ps hi _ hps e he
+  intro i _cvC _caps lvls DsE ps hi _ _ hps e he
   rw [hempty i lvls DsE ps hi hps] at he
   exact nomatch he
 

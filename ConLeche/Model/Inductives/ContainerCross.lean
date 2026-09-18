@@ -742,7 +742,7 @@ theorem ContainerOwnPinsSyn.crossInd {env₁ env₂ : Env} {N : List Name} {d : 
   have hciEq : ∀ K : Name, (env₁.find? K).isSome = true →
       ConLeche.containerInfo? env₂ K = ConLeche.containerInfo? env₁ K := fun K hK =>
     ConLeche.containerInfo?_ext_ind_eq hext hnewN hfreshN hrecN hwf hrc (hstored K hK)
-  intro i cvC caps lvls DsE ps hi hf₂ hps e he
+  intro i cvC caps lvls DsE ps hi hf₂ hcl hps e he
   -- the member is old, so it is stored as it was
   have hf₁ : env₁.find? (d.memberName i) = some (.indInfo cvC caps) :=
     (hnewN _ _ hf₂).resolve_right (hold i hi)
@@ -758,7 +758,7 @@ theorem ContainerOwnPinsSyn.crossInd {env₁ env₂ : Env} {N : List Name} {d : 
   rw [containerOwnPinsAtGo_ext hext hnewN
     (fun j cv' mI rP rules h2 hmem => hMold (hmimN M.name j cv' mI rP rules h2 hmem))
     hciEq hhead 64 0] at he
-  exact h i _ _ lvls DsE _ hi hf₁ (containerOwnPinsAt_eq hf₁ hci₁ hM) e he
+  exact h i _ _ lvls DsE _ hi hf₁ hcl (containerOwnPinsAt_eq hf₁ hci₁ hM) e he
 
 /-! ## What the crossing cannot be asked across a projection table -/
 

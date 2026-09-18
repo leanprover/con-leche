@@ -373,8 +373,9 @@ theorem ContainerOwnPinsSyn.toReadOf {env : Env} {m : EnvModel V env} {d : Block
     ContainerOwnPins m d := by
   obtain ⟨params, hplen, hidx, hpins⟩ := hscope
   intro i cvC caps lvls DsE ps Ds ψ dp hi hfind hps hspine e he
-  obtain ⟨qK, hqK, rfl⟩ := hsyn i cvC caps lvls DsE ps hi hfind hps e he
   obtain ⟨hDlen, hsc⟩ := hDsE i cvC caps lvls DsE ps Ds ψ dp hi hfind hps hspine
+  obtain ⟨qK, hqK, rfl⟩ :=
+    hsyn i cvC caps lvls DsE ps hi hfind (fun a ha => (hsc a ha).2) hps e he
   exact ⟨qK, _, hqK, rfl,
     denoteMetaSpine_ownAt m hplen hidx hDlen hsc hspine
       (hpinDs qK hqK (Level.substFn ψ cvC.levelParams lvls))
