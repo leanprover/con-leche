@@ -104993,3 +104993,88 @@ cycle, and §U.101 (d) stands unchanged.
 Nothing in this section changes the tree.  Everything this lane landed
 stays landed and is at the true frame; the out-of-instance case, both
 assembly steps and the residual's discharge are unaffected either way.
+
+#### (number at the integrator's sync) — L-E: the indexed fixture is an ARTEFACT — my own condition was coarser than I stated it (lane L-E, 2026-09-18)
+
+The call is mine and the answer is **artefact**.  The route is open on
+all three corpora.  What the measurement exposed is that §U.115 (c)
+stated my condition more coarsely than the argument needs, and the
+fixture separates the two readings exactly.
+
+##### (a) THE CONDITION, restated precisely
+
+Attack 2 bites only if the candidate substitution CHANGES the value the
+index telescope reads.  The substitution does not replace every
+component: it replaces the components whose values are the copies'
+carriers, which are exactly the member-mentioning ones —
+`ContainerModeled.nestMention` requires SOME component to mention a
+member, never all of them, and a component mentioning none keeps its
+true value in both frames.
+
+So the condition is not "the index telescope reaches into the
+parameters".  It is:
+
+> **the index telescope mentions a parameter whose COMPONENT mentions a
+> block member.**
+
+##### (b) THE FIXTURE FAILS THE REFINED CONDITION
+
+```lean
+inductive C (α : Type) (p : Prop) : p → Type where
+  | mk : α → (h : p) → C α p h
+inductive T : Nat → Type where
+  | mk : C (T 0) True True.intro → T 1
+```
+
+At the pin `C (T 0) True`:
+
+* the components are `[T 0, True]`.  `T 0` mentions the member and is
+  REPLACED; `True` mentions no member and is NOT;
+* `C`'s index telescope is `[p]` — the SECOND parameter.  Its reading
+  at the pin frame is `True`'s value, at the unreplaced position;
+* therefore `idxSet u ρ_true Ids = idxSet u ρ_cand Ids`, and the
+  transport §U.115 (c) worried about is the identity.
+
+The index is a PROOF of the container's own second parameter, so the
+telescope reaches a parameter — but the one the rewriting leaves
+alone.  **The measurement's "reaching into the parameters" and my
+condition are different predicates, and this fixture is exactly the
+gap between them.**
+
+##### (c) WHAT REMAINS, stated so it is not lost
+
+The refined condition is not vacuous as a matter of logic: a container
+`C (α : Type) : α → Type`, whose index telescope is the REPLACED
+parameter, would make the two index sets genuinely differ, and there
+the transport is the circularity.  **No corpus exercises it** — Mathlib
+nests 121 instances with none indexed, init nests arrays and lists
+only, and of the six indexed fixture containers the one that reaches
+the parameters reaches an unreplaced one.  So it is a side condition on
+the restatement, not a blocker, and it should be written into the
+candidate-frame statement rather than discovered later.
+
+##### (d) ON THE REVIEW'S PREDICTION vs ITS CRITERION
+
+Worth separating, as the coordinator did: the review predicted the
+problematic edges would be parameter-headed and the majority are
+constant-headed — the criterion passed while the reasoning behind the
+expectation did not.  That is a reason to check its remaining claims
+one at a time rather than to trust the argument wholesale, which is
+what §U.115 did for its central move (conceded after checking, not
+granted) and what (a)–(b) do here.  It is not a reason to discount the
+criterion, which is what the measurement actually tested.
+
+##### (e) VERDICT
+
+Attack 1 (§U.115 (b)) stands as a side condition on dependent
+parameter telescopes; Attack 2 is withdrawn as a corpus obstacle and
+kept as a side condition in the refined form of (a).  With both named,
+**this lane has no remaining objection to the review's route**, and
+§U.101 (d)'s obstruction is superseded rather than standing: it bounded
+the true-frame statement, which the restatement abandons.
+
+Still no estimate, and for the reason already given: three of this
+lane's four numbers were withdrawn, and the restatement's shape is
+settled only once the two side conditions are written into it.
+
+Nothing in this section changes the tree.
