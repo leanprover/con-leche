@@ -1139,6 +1139,30 @@ discharged by the caller's own read), the second says the recorded run
 at a job of the list IS `normPosDomM`'s, with the error handler's
 reclassification seen through. -/
 
+/-- **A JOB'S MINTED DOMAIN IS SCOPED AT ITS OWN DEPTH** (task #315 M8,
+the cached run obligation): the job `(nP + l, xM.fvarTypeD, _)` carries
+the `l`-th opener's domain of the container constructor's type
+instantiated at the pin's arguments, so its scope is the container's
+stored type (fvar-free), the pin's arguments (the block's parameter
+openers) and the openers before it — exactly what
+`normPosDomM`'s simulation asks of the term it walks. -/
+theorem nestedDomPair_WScoped {p : NestedParts} {J : ContainerMember}
+    {cJ : ContainerCtor} {lvls : List Level} {Ds : List Expr} {cI : Expr}
+    {nF : Nat} {xsM : List Expr} {restM : Expr} {l : Nat} {xM : Expr}
+    (hctor : cJ.type.hasFvar = false) (hDs : ∀ D ∈ Ds, Expr.WScoped p.nP D)
+    (hcI : Expr.instPis (Expr.instantiateLevelParams J.lps lvls cJ.type) Ds = some cI)
+    (hopM : openPisAtFvars nF cI p.nP = some (xsM, restM))
+    (hxM : xsM[l]? = some xM) :
+    Expr.WScoped (p.nP + l) xM.fvarTypeD := by
+  have hlp : Expr.WScoped p.nP (Expr.instantiateLevelParams J.lps lvls cJ.type) :=
+    wscoped_instLevels_of_not_hasFvar hctor J.lps lvls
+  have hcIw : Expr.WScoped p.nP cI := instPis_WScoped hcI hlp hDs
+  obtain ⟨hall, -⟩ := openPisAtFvars_WScoped nF cI p.nP hopM hcIw
+  obtain ⟨ty, rfl⟩ := openPisAtFvars_index nF cI p.nP hopM l xM hxM
+  have hx := hall _ (List.mem_of_getElem? hxM)
+  simp only [Expr.WScoped] at hx
+  exact hx.2
+
 /-- **THE JOB AT A FIELD THE RECORD INSPECTS.**  Every hypothesis is one
 of `nestedOrdDomPairs`' own lookups, in the order the walk makes them,
 so the model supplies them from the reads it already has; the
