@@ -112333,3 +112333,141 @@ remains is declaration order, which is already recorded (K.57) and is
 acyclic by construction rather than by corpus.  **The candidate frame,
 the component producer and law (M) at cross-instance constant-headed
 edges are not moot.**
+
+#### PINF: residual 3's handover table does NOT match the tree — the `pinCorr_of_ownPins` route is superseded, and the remainder is the identification `pinViews` omitted (lane PINF, 2026-09-18)
+
+Stopped before building.  **Nothing changed but this section.**  The
+row was handed over as "constructing, not investigating", with a
+premise table and a named discharger for every premise.  Five of that
+table's load-bearing statements are refuted by the tree, and the
+refutations are checkable in one read each.
+
+##### (a) THE PREDICATE HAS FIVE CONJUNCTS, NOT THREE
+
+`NestedPinsShapePinF` (`NestedCopyInst.lean`) concludes
+
+1. `blkRss … = true` — the copy's field is recursive-or-reflexive;
+2. `p.k ≤ (mutTgts …).getD l 0` — the target is a PIN class;
+3. `PinCorr …`;
+4. the TELESCOPE conjunct, `… = instTele Ds l …`;
+5. the INDEX-EXPRESSION conjunct, `… = … .map (AnnotTerm.instAll Ds …)`.
+
+`CopyCtorShape.pinF` has seven conjuncts; `nestedPinsShape_of` supplies
+the other two itself (`copyPinF_shape`, `copyTgtLt`).  The handover
+table addresses (3) only, and names `copyPinF_shape` as "conjunct 2" —
+but `copyPinF_shape` proves the OUTSIDE-THE-GROUP conjunct, which is
+already discharged at the consumption site and is not a conjunct of
+this predicate at all.  (4) and (5) are §U.79 (d)'s step 4; at a MEMBER
+target they are `copyRecFRead`/`copyRecFReadRefl`, each a substantial
+erasure-equality chain over `copyRecFDom`.  **No pin-target analogue
+exists** (`copyPinFRead` is absent).
+
+##### (b) THE `PinCorr` ROUTE IN THE TREE IS NOT `pinCorr_of_ownPins`
+
+Lane L-B already landed §U.79 (d)'s steps 1–3:
+
+* `copyPinFDom` (`NestedCopyInst.lean`) — the minted domain's head,
+  level arguments and arity at a container field nested at an own pin;
+* `copyPinFCorr` — the FIRE: the block pin `qq` the elimination landed
+  on, with `(mutTgts …).getD l 0 = p.k + qq` (which is conjunct (2)),
+  the pin's `J`, its substituted `lvls`, its components' reading
+  `… .map (AnnotTerm.instAll Ds 0)`, and `TargetView.EA` at `p.k + qq`
+  — i.e. `PinCorr`'s clauses 1, 2, 5 and 6;
+* `copyPinFUIds` — clauses 3 and 4 reduced to
+  `(dJ.pinAt qK).u ψK = (blockOf mp.base2 ci').uM i₂ ψK` and the same
+  for `Ids`.
+
+`pinCorr_of_ownPins`, `ContainerOwnPins` and
+`ContainerOwnPinsSyn.toReadOf` have **no consumer anywhere in the
+tree** (one docstring mention, no term).  They are a second, parallel
+route to the same place, and its own `huIds` premise is the SAME two
+clauses `copyPinFUIds` reduces to — so it does not shorten the
+remainder, it only adds a premise package in front of it.
+
+##### (c) `hmem` CANNOT BE A `ContainerModeled` CLAUSE
+
+The table puts `hscope`/`hps`/`hmem` into `ContainerModeled` as
+syntactic clauses.  `hmem` is
+
+```
+Expr.mkAppN (.const (D.pinAt q).J (D.pinAt q).lvls) (D.pinAt q).DsE ∈ ps
+```
+
+— it mentions `D`, the BLOCK BEING INSTALLED, which
+`ContainerModeled m ci d` does not bind.  It is K.41's content ("the
+block's pin's recorded TERM is among the root container's own pins"),
+its only inversion in the tree is `nestedPinRootPairOk_inv`
+(`Verify/Inductives/NestedInv.lean`), and **`nestedPinRootPairOk` is
+not a field of `NestedPinsRun`** — it reaches the nested route only
+through `nestedPinChecks`, which this record does not carry.  So the
+premise is neither a container clause nor available.
+
+`ContainerOwnPins` runs the other way (every COMPUTED own pin is a
+recorded pin), so it cannot supply `hmem` either — which also breaks
+the table's derivation of conjunct (1).
+
+##### (d) `R.hPM`'s `PinShapes` DOES NOT REACH THE RESIDUAL'S `dJ`
+
+This is the one load-bearing claim of the handover, and it fails on the
+binder.  `R.hPM : PinsModeled mp.base2 st.pins` yields
+`BlockAt mp.base2 (blockOf mp.base2) ci`, hence
+`PinShapes mp.base2 (blockOf mp.base2) (blockOf mp.base2 ci) pc` — a
+view of the pins of **`blockOf mp.base2 ci`**.  `NestedPinsIdsAt`
+quantifies `∀ (q₀ kJ : Nat) (dJ : BlockModel V), NestedPinGroupSyn … dJ → P …`,
+so at the residual `dJ` is ABSTRACT, constrained only by the group syn
+(whose `modeled` gives `ContainerModeled mp₁'.base2 ci dJ` — a
+different model at a different environment as well).  Nothing in the
+tree identifies `dJ` with `blockOf mp.base2 ci`; the producer
+`NestedPinsRun.groupSyn` constructs the record AT `blockOf mp.base2 ci`,
+which is exactly why the identification is available to the producer
+and not to the consumer.
+
+That is the omission `NestedPinGroupSyn.pinViews`' own docstring
+records: the field hands the view at an ANONYMOUS `dJ'`, and naming the
+model "would drag the PRE-BLOCK model onto this structure — a new
+PARAMETER".  The later finding that the parameter is unnecessary
+because the discharger can reach `PinShapes` directly is **wrong for
+this reason**: the discharger reaches `PinShapes` at `blockOf`, not at
+`dJ`.
+
+The two clauses cannot be closed with two anonymous models either: the
+`dJ` side offers `dJ'.uM i'` and the target side `(blockOf mp.base2 ci').uM i₂`,
+two block models of the same container group, and this tier has no
+uniqueness for `blockOf` — the identification has to be by NAMING, on
+both sides, which is what `NestedPinSynFacts.groupsAt` already does for
+the BLOCK's pins.
+
+##### (e) AND THE ARMS ARE HALF-COVERED BY KIND
+
+`copyPinFCorr`/`copyPinFUIds` both take `hrec : (dJ.ksF i' j).getD l .ordinary = .recursive`
+and `hkA : kindAt … = .recursive`.  Conjunct (1) of the predicate is
+`blkRss = true`, i.e. recursive OR reflexive, and its hypothesis
+`hrecC` admits a reflexive CONTAINER field too.  So of the four
+kind pairs only (recursive, recursive) has an arm; the reflexive twins
+do not exist, as they did not for `NestedPinsShapeOrdRight` until lane
+R3 built them.
+
+##### (f) WHAT THE ROW ACTUALLY NEEDS — for the scope call
+
+1. the identification, by naming: `NestedPinGroupSyn` (the record that
+   binds `dJ`) gains the pre-block model — or the family — as a
+   parameter, and `pinViews` becomes
+   `PinGroupView dJ (blockOf m₀ ci') a kk` with
+   `containerInfo? env (dJ.pinAt qq).J = some ci'`.  This is the
+   change §U.79-era costing priced at "half a session for the parameter
+   and its call sites", with the recorded hazard that named-argument
+   call sites break SILENTLY.  **It was rejected in the handover on a
+   reason that does not hold.**
+2. conjunct (1): the occurrence chain, which is `copyPinFCorr`'s own
+   `hkA` hypothesis promoted to a conclusion — not the `ContainerOwnPins`
+   derivation the table gives, which needs `hmem`;
+3. conjuncts (4) and (5): the pin-target twins of `copyRecFRead`;
+4. the reflexive arms of (2) and (3).
+
+Five new `ContainerModeled` clauses, `hnpPins` and their discharge at
+the NINE construction sites (the four basis blocks, `nestedContainerModeled`,
+`of_readBack`, `mutualContainerModeled`, `nativeContainerModeled`, and
+the two transports — the handover names five of the nine) would be
+spent on a route with no consumer.  That is why nothing was built.
+
+Nothing in this section changes the tree.
