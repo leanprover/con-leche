@@ -1624,6 +1624,7 @@ is step two, it needs the mention (`ContainerModeled.nestMention`)
 moved across the instantiation by the group's uniformity, and it is the
 step this lane flagged as the route's risk. -/
 
+omit R SF in
 /-- **THE COPY'S NESTED FIELD, MINTED** (task #315 L-B): at a container
 field `l` of member `i'` constructor `j` that is finitary recursive at
 one of the CONTAINER's own pins, the closed field domain is that pin's
@@ -1631,7 +1632,7 @@ container applied to `nPJ + nIdx` arguments, and the minted domain —
 the closed one level-substituted and instantiated at any components —
 is the same application with the head's level arguments substituted and
 the spine mapped. -/
-theorem NestedPinsRun.copyPinFDom
+theorem copyPinFDom
     {i' : Nat} (hi' : i' < kJ)
     {j : Nat} {cAJ : ConstantVal × Nat} (hj : (dJ.ctorsM i')[j]? = some cAJ)
     {cc : ContainerCtor} (hty : cAJ.1.type = cc.type) (hnf : cAJ.2 = cc.nFields)

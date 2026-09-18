@@ -93084,6 +93084,13 @@ mint's two substitutions distribute over the spine (`ilp_mkAppN`,
 arguments substituted — stated for ANY components, level assignment
 and cut, which is the shape step two consumes.
 
+It takes the group's syntactic record `S` and neither the run record
+`R` nor `SF` — the container's own data is all it reads — so it is a
+plain `copyPinFDom` under `omit R SF in`, not a `NestedPinsRun`
+method: the unused-section-variable linter is the gate that says which
+records an arm actually depends on, and it is worth reading rather
+than silencing.
+
 ##### (c) STEP TWO, RE-SIZED — five discharges, one of them new
 
 §U.75 (d) called step two "the one step whose premise lives on the
