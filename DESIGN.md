@@ -89949,3 +89949,67 @@ It stays (S) because that is the only source any corpus exercises, and
 because official has no such generator at all — the (B) reading is
 unavailable here, unlike K.55's.  Like K.55 it **retires with the
 modelled route**.
+
+#### THE CLAUSE, SECOND ATTEMPT: five of six producers discharged, and the mutual one's three arity facts located (2026-09-18, task #315 M8 session 6, `agent/uniform-m5`)
+
+With K.56 in the tree the clause was written again, re-running the
+census after each fix as the previous section's rule requires.  **It is
+not landed**, and this record is what the second pass established that
+the first could not.
+
+##### FIVE OF SIX PRODUCERS ARE DISCHARGED (`_tmp/m8/clause-wip3.patch`, 1 210 lines)
+
+| producer | discharge | state |
+| --- | --- | --- |
+| the thirteen mechanical sites | destructurings, chains, the builder's LAST argument | DONE |
+| the basis blocks and `Quot` | the vacuous clause at the non-recursor literals, `rfl` at the recursor literals (`emptyRecA`, `falseRecA` and their siblings) | DONE |
+| **native** | `structRecTyR_majorDom` + two arity hypotheses on `direct_fix_rec_wf` | DONE |
+| **the projection entries** | **K.56's conjunct**, carried through `checkProjTy_inv` → `ProjFnRun`'s new conjunct → `consProjFn`'s `hmajP` | DONE — this is what K.56 bought |
+| `memberInstallInv` | one hypothesis, the caller's route's | DONE |
+| **mutual** | `mutualRecTy_majorDom`, and it compiles — modulo THREE arity facts | see below |
+
+The telescope kits moved where the module system puts them: the
+fixpoint kit (`replacePisPw_some_stripPis`,
+`structMinorsPisR_stripPis`, `structRecTyR_majorDom`) from
+`NestedRecDoor` to `FixRec`, because `FixWF` cannot see the former; the
+mutual kit (the motives'/minors' telescopes, `mutualRecTy_stripPis`,
+`mutualRecTy_majorDom`) from `NestedRecDoor` to `MutualWF`, for the same
+reason at `mutual_recs_wf`.
+
+##### THE MUTUAL PRODUCER'S THREE FACTS, and where they come from
+
+`mutual_recs_wf` stores `.recInfo` at
+`mI = b.rulePrefix + (fms.getD mIdx default).nIdx = b.nP + b.k + b.n + nIdx`
+while `mutualRecTy` is called at `formers4`/`ctors4`, so the clause needs
+
+* `b.k = formers4.length`,
+* `b.n = ctors4.length`,
+* `∀ m f, formers4[m]? = some f → (fms.getD m default).nIdx = f.nIdx`.
+
+All three follow from ONE equation the inversion already carries —
+`mutualGenData b fms ctorsA kinds = (formers4, ctors4)`
+(`MutualInv.lean`), whose first component is
+`fms.map fun f => ⟨f.cvTa.name, f.nIdx, f.cvTa.type⟩`, so the third is
+immediate and the first is `fms.length = b.k` from the formers' stage;
+the second needs `kinds.length = b.ctors.length` from
+`classifyMutualKinds`.  They are carried as hypotheses in the patch and
+must be discharged at **three** call sites — `checkMutualCore_wf`,
+`Model/Inductives/MutualRecsSwap.lean` and
+`Verify/Cached/BridgeCSDecl.lean` — plus the two callers of
+`direct_fix_rec_wf` for the native pair.
+
+##### WHAT REMAINS, and it is arity plumbing rather than proof
+
+The three facts at three sites, the native pair at two,
+`Semantics/IndRecsCore.lean`'s threading of K.55's Bool from
+`provisionRecs_cons_inv`, `Verify/Cached/BridgeCS4.lean`'s transport and
+`Model/IndMembers.lean`'s literal.  **No new lemma is needed anywhere**:
+every generator fact is proved, K.55 and K.56 are recorded, and what is
+left is passing lengths through five signatures.
+
+##### THE CENSUS RULE, APPLIED — and it worked
+
+The previous attempt's blind spot was reading the first error per file.
+This pass re-ran the census after every fix, which is how the projection
+half appeared as the FOURTH census rather than not at all, and how the
+count of real producers went from five to six.
