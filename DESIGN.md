@@ -93161,3 +93161,134 @@ shake 511 removals all allowlisted; pub-imports 1315 of 2147, none
 demotable; nested-shadow 28/28.  `tests/arena.sh` not re-run: the
 session touches no checker code.  Standard axioms on `copyPinFDom` and
 on the chain probe over the five residuals.
+
+#### U.78 — L-B session 20: step two landed at two named inputs, and both of §U.77's "cheap" discharges were wrong (lane L-B, 2026-09-18)
+
+Step two is landed (b), and checking its discharges BEFORE building
+them — which is what the session was told to do — found §U.77 (c)
+wrong twice: the run route it claimed for one hypothesis does not
+exist (c), and the record route for the other two runs into an
+environment equation that nothing in this lane's scope carries (a).
+The remaining input, the MENTION, turns out to have no record route
+either, and the reason is one lane L-E predicted in its own comment;
+what is left is a different inversion from the one §U.62 (e) planned
+(d).  Step three was not started (e).
+
+##### (a) THE ENVIRONMENT STEP, CHECKED BEFORE USE — one equation, requested
+
+`ContainerModeled.pinNP` is where a pin's container is recorded:
+
+```lean
+  pinNP : ∀ q, q < d.nPins → ∃ ci' : ContainerInfo,
+    ConLeche.containerInfo? d.env₀ (d.pinAt q).J = some ci' ∧ (d.pinAt q).nPJ = ci'.nP
+```
+
+— at the container block model's OWN `d.env₀`, and the elimination runs
+at `env`.  Counted rather than assumed: `NestedPins.lean` and
+`NestedCopyIdx.lean` contain ZERO occurrences of `env₀`, and the only
+clauses anywhere that mention it are `BlockOpened`'s `constsResolve`
+guards and `pinNP` itself.  **So nothing in this lane's scope ties
+`dJ.env₀` to `env`.**
+
+It is TRUE at the only site that builds the record:
+`nestedContainerModeled` (`DeclNestedCore.lean`) discharges `pinNP`
+"at the pin's stored container, which is `d.env₀ = env`".  So this is a
+one-line REQUEST to lane L-E — a clause `env₀ : dJ.env₀ = env` on
+`NestedPinGroupSyn` (or on `ContainerModeled`) — discharged for free
+where the record is built.  Until it lands it is `henv₀`, a hypothesis
+of `copyPinFFire`.
+
+With it, `hci` is `pinNP` and `hfind` is `containerInfo?_found` on the
+same answer; both disappear.
+
+##### (b) STEP TWO, LANDED — `copyPinFFire` (commit `daae76a4`)
+
+`replaceAllNested_occurrence` at step one's minted domain, giving the
+block pin the fire lands on, its recorded pin expression — the
+container's pin at the instantiated components — and the rewritten
+domain.  Its inputs are NAMED rather than hidden: `henv₀` (a), and
+`hment`/`hloose` (d).  `he` is `copyPinFDom`, `hnP` is step one's arity
+against `pinNP`, and both are discharged inside.
+
+##### (c) CORRECTION — `hci` is not readable off the run
+
+§U.77 (c) said `hci` "costs nothing beyond `hment`", because the
+`containerInfo? = none` branch errors exactly when an argument mentions
+a new name.  The branch does error.  **But it is only REACHED once
+`env.find? I` has answered `.indInfo`**, and the branch where `find?`
+does not is `pure none` — quiet.  So `hfind` is needed FIRST and has no
+run route at all, and `hci` inherits that.  The elaborator was made to
+confirm this rather than the argument: `copyPinFFire` takes the
+`pinNP` route and compiles; the run route was not writable.
+
+##### (d) THE MENTION — the record route is blocked, and the inversion is a different one
+
+`hment` asks: one of the minted domain's first `nPJ` arguments mentions
+a name of the growing list.  At a MEMBER target this is free — K.14's
+uniformity puts the block's parameter spine there, so the minted
+parameter arguments ARE the pin's components and `copyResid`'s `hmint`
+is the answer (that is how `copyRecFDom` discharges it).  At a NESTED
+target they are the CONTAINER's field's own arguments, instantiated,
+and:
+
+* **the record route is blocked.**  `ContainerModeled.nestMention` is
+  spelled on the pin's own components, `(d.pinAt q).DsE.take nPJ`, and
+  what `hment` needs is the FIELD's arguments.  Counted: across all of
+  `ConLeche/Model/`, ZERO clauses mention `DsE` and a field's
+  `getAppArgs` together.  Lane L-E's own comment on that field
+  predicted it — "the opened-domain spelling dies at the
+  `NestedCtorsStaged` boundary, where `BlockOpened.nestF` is all that
+  survives" — so this is not an oversight to repair but the boundary
+  working as designed.  §U.62 (e)'s plan (the mention moved across the
+  instantiation by the group's uniformity) starts from a premise the
+  tier does not carry;
+* **the route is the CLASSIFICATION's own success.**  The copy's field
+  is `.recursive` (the assembly's own `hkA`), and `mutualPositivity`
+  returns `.recursive` only at a MEMBER-headed application.  The
+  container `J_q` is not a member of the auxiliary block: it is found
+  in `env` (`hfind`), and the block's formers are fresh there
+  (`MutualFormersFacts.fresh`), so no former carries its name.  So if
+  the rewrite had NOT fired, the stored domain's head would still be
+  `J_q` and the classification would have returned `.unsupported`,
+  which `classifyMutualKinds` throws on — against `R.h.classify`.
+  What this needs beyond the run is one `whnf` fact: an inductive
+  constant's application is its own head-normal form, so the positivity
+  normalisation cannot turn `J_q` into a member.  That is the lemma to
+  find or write, and then the fire is read off the CLASSIFICATION
+  rather than off the mention.
+
+Sizing, honestly: the mention route is one `whnf` fact plus an
+inversion of `mutualCtorKinds` at the field — comparable to
+`copyRecFKind`, which is the same shape on the member side.
+
+##### (e) STEP THREE — not started
+
+Step two's smaller size was not allowed to pull step three forward: the
+session's remaining time went to (a), (c) and (d), each of which
+changes what step two owes.  Steps three and four stand as §U.75 (d)
+recorded them.
+
+##### (f) THE WIDENED FILTER, FROM THE KERNEL LANE
+
+The record this lane requested landed and was measured, and the
+measurement answers §U.77 (a)'s caveat directly rather than by
+inference: over both corpora the widened check fires nowhere, verdicts
+unchanged, cost inside noise.  It also reports something about the
+record's COVERAGE that is worth keeping: compared domains went from 14
+to 63 on the fixture corpus and 45 to 91 on the cone, every block
+widening, because only 13 of 43 blocks had an ordinary-field job at
+all.  The check was inspecting nothing at two thirds of its blocks
+before.  `NestedPinsShapeRunM` converts to a closed residual at
+integration.
+
+##### (g) GATES
+
+`lake build` 716 jobs warning-free; `lake build ConLecheTests` 572 jobs
+warning-free; layering base 351 / model 282 / caps 3 / umbrella 1, 0
+base->lane and 0 impl->theory; trust surface 13/5 (648 scanned);
+no-local-paths OK; overview-links 112, no anchor moved; quote-gate 2;
+**proofdeps 4965 rows / 12 roots / 0 doors** (the baseline, unmoved);
+shake 511 removals all allowlisted; pub-imports 1315 of 2147, none
+demotable; nested-shadow 28/28.  `tests/arena.sh` not re-run: the
+session touches no checker code.  Standard axioms on `copyPinFFire`
+and on the chain probe over the five residuals.
