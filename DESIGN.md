@@ -104873,6 +104873,18 @@ branch is closed by the restore's own guard, through
 `nestedMemberTableF_fresh` / `nestedTablesF_fresh`
 (`checkStructProjTableF`'s "projection table taken").
 
+**Independently corroborated, and worth citing at the point of use.**
+The PURE route had already reached the same conclusion: `auxStored_tbl_eq`'s
+docstring in `ConLeche/Verify/Inductives/NestedRecDoor.lean` says of the
+same disjunct — "the table stood at the PRE-BLOCK environment already" —
+that it "is refuted by the nested route's own table stage, whose
+`checkStructProjTable` found `projTableName` free at an environment
+extending `env`; it is left to the consumer because the scratch
+install's guard alone does not see `env`."  Two routes arriving at that
+irreducibility separately is the best evidence available that it is
+genuine rather than one lane's incomplete search; the cached twin is
+`nestedMemberTableF_fresh`, and the two halves belong together.
+
 **What it costs, explicitly.**  The nested skeleton walk is no longer
 free of the restore's execution: its TABLE bridge — and only that
 bridge — consumes a guard of `checkStructProjTableF`.  A walk that
@@ -104995,7 +105007,7 @@ freshness bridge.  The walk itself is parked at
 `_tmp/m8/checkNestedS_skels.scaffold.lean`, ~200 lines, wanting only
 this clause and the final rewrite.
 
-#### The auxiliary block's member index counts, pinned (2026-09-18, task #315 M8, `agent/uniform-m5`)
+#### K.58 — the auxiliary block's member index counts, pinned (2026-09-18, task #315 M8, `agent/uniform-m5`)
 
 The walk's table clause could not be proved, and the reason was a gap
 rather than a proof difficulty: **two places decided "structure-like"
@@ -105040,16 +105052,24 @@ blocks — the comparison is live and the instrument can fail.
 one of them compared at least one count; 30 of the 243 fixtures carry a
 nested block at all.
 
-**Ledger row.**  Not certification-only: a plain check in both routes
-whose failure is `.invalid`.  Category **(B)**, by-construction-only:
-official does not compare these two numbers because it never computes
-them twice — the auxiliary block is our own scratch construction — so
-what the check records is an internal agreement, and a fire would be a
+**LEDGER ROW — K.58.**  Not certification-only: a plain check in both
+routes whose failure is `.invalid`.  Category **(B)**,
+by-construction-only: official does not compare these two numbers
+because it never computes them twice — the auxiliary block is our own
+scratch construction — so what the check records is an internal
+agreement rather than a property of the input, and a fire would be a
 stream whose annotated former telescope has a different depth from the
-declared one.  The honest statement is **a measured narrowing risk of
-zero over 102 counts**; if a fire is ever seen, the answer is to widen
-(carry the auxiliary count in the skeleton and prove the two drivers
-agree on it) rather than to keep rejecting.
+declared one.  **A measured narrowing risk of zero over 102 counts.**
+**STANDING INSTRUCTION, at the point of failure: if this check ever
+fires, WIDEN THE SKELETON — carry the auxiliary count in it and prove
+the two drivers agree on that — do NOT keep rejecting.**  The rejection
+message names this row so a lane meeting it finds the instruction here.
+
+(B) is not "harmless".  The gap was real: the route decided
+structure-likeness from two different data with no check that they
+agree, and the agreement rested on a property the floor forgets by
+design.  Zero differences is what makes the check CHEAP, not what makes
+it unnecessary.
 
 **What it unblocked.**  With the counts pinned, `checkNestedS_skels` is
 **complete**: the nested route's install skeleton is a function of the
