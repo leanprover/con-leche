@@ -105332,3 +105332,79 @@ statement is the thing that was wrong.
 
 Gates: `lake build` and `lake test` warning-free, full gate set green;
 standard axioms on the new theorem.
+
+#### (number at the integrator's sync) — L-E: the same-container edge is STRUCTURALLY IMPOSSIBLE — K.57 certifies what the elimination cannot produce (lane L-E, 2026-09-18)
+
+The question was whether a same-container constant-headed edge is
+impossible or merely unobserved.  **Impossible, and the exclusion is
+the ownership bit's own definition — not luck and not the corpus.**
+
+##### (a) THE EXCLUSION
+
+`nestedPinEdgesAt` computes the bit as
+
+```lean
+    let names := ci.members.map (·.name)
+    …  pure [(q, t - p.k, mentionsMember names domJ.1)]
+```
+
+— `mentionsMember` of the CONTAINER'S OWN GROUP's names, tested against
+the container's STRIPPED field domain `domJ.1`.  And
+`containerInfo?_inv` gives `I ∈ ci.members.map (·.name)`: **the
+container itself is among those names.**
+
+So if the container's field domain were headed by the constant of that
+same container, the domain would MENTION it, `mentionsMember` would be
+`true`, and the edge would be recorded OWN.  A NOT-OWN edge is by
+definition one whose domain mentions no name of the container's own
+group.  Therefore:
+
+> **every not-own edge points at a container outside the source's own
+> mutual group** — a fortiori at a container other than the source's.
+
+The coordinator's reading was right and is sharpened by this: the case
+is excluded by the CLASSIFICATION, and it is excluded for the whole
+mutual group and not merely for the one container.
+
+##### (b) THE TWO NEAR-COUNTEREXAMPLES, checked
+
+* **`List (List T)`** — the container is `List` and the field at issue
+  is `cons`'s `α`, whose head is the PARAMETER.  Parameter-headed, so
+  not constant-headed at all, and by the restatement's split it costs
+  the step nothing.  `List`'s other field, `List α`, mentions `List`
+  and is therefore OWN;
+* **a rose tree, `T := node : List T → T`** — the pin is `List T`, and
+  the constant-headed arm shows up one level out, at shapes like
+  `Array (List X)`: `Array`'s field `List α` is headed by the constant
+  `List`, mentions no member of `Array`'s group, and `List` is earlier.
+  That is the 59-edge population, and none of it is same-container.
+
+##### (c) AND THE "STRICTLY EARLIER" HALF LOOKS STRUCTURAL TOO
+
+(a) excludes the SAME container.  The measured claim is stronger —
+strictly EARLIER — and that also has a structural argument: a constant
+occurring in a container's stored constructor type must resolve in the
+environment as it stood when that container was DECLARED, so it was
+declared before.  Constant-headed therefore implies strictly earlier by
+the environment's own cons order, not by measurement.
+
+**Flagged rather than claimed**: the precise invariant that carries it
+is the kernel lane's surface (`EnvWF` and the stored types'
+`constsResolve` at `env₀`), and that lane should name it when it writes
+K.57 rather than take this lane's word.
+
+##### (d) THE ANSWER, and the ledger row
+
+K.57 is **free**: it certifies a property the elimination cannot
+violate, so it is not a reject-level check and **narrows the accept set
+by nothing**.  The ledger row should say so in those terms —
+certification-only, cannot fire, the same class as the records whose
+failure is `.internal`.
+
+If the kernel lane finds that (c)'s invariant does not carry the
+strictly-earlier half, only the SAME-container half is structural, and
+the choice the coordinator described returns for the later-container
+case alone.  This lane's step cares only about the same-container half,
+because that is the one that would leave the induction with nothing.
+
+Nothing in this section changes the tree.
