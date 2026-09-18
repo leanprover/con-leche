@@ -108266,3 +108266,104 @@ and no new positivity or kinds data.  One clause, one shape, three
 consumers.
 
 Nothing in this section changes the tree.
+
+#### (number at the integrator's sync) — L-E: residual 3 (`NestedPinsShapePinF`) IS this lane's, is NOT blocked on the record, and its remainder is two `PinGroupView` clauses (lane L-E, 2026-09-18)
+
+Costing only; nothing started.
+
+##### (a) WHOSE IT IS — this lane's, and the tree says so
+
+`NestedCopyInst.lean:6597`'s docstring names it: "**RESIDUAL 3 —
+`pinF` at the container's OWN pin** (lane L-E's `PinCorr`, DESIGN
+§U.36/§U.51)".  `PinCorr` is this lane's object
+(`NestedFit.lean:699`), and `targetPin_corr` is this lane's consumer of
+it.
+
+##### (b) IT IS NOT BLOCKED ON THE KERNEL RECORD
+
+`PinCorr` is **six syntactic conjuncts** — `EA`, `Ds`, `u`, `Ids`, `J`
+and `lvls` of the target view against the container's own pin table,
+with `instAll Ds 0` on the components.  **No frame, no candidate
+component, no `interp`.**  The record this lane requested is about the
+pins' components in rewritten form for the CANDIDATE FRAME; residual 3
+is about the syntactic shape of a copy's constructor.  Different
+objects.
+
+The tree distinguishes them too: `NestedCopyInst.lean:6684` says the
+OTHER residual's "two kinds' remaining halves wait on the SAME kernel
+record", and says no such thing about this one.
+
+##### (c) WHAT IS ALREADY DONE, AND WHAT IS LEFT — the tree states it exactly
+
+`NestedPinsShapePinF` has three conjuncts:
+
+1. **the copy's field IS recursive** — `copyPinF_shape`'s docstring says
+   plainly "(The arm's first conjunct — the copy's field IS recursive —
+   is the elimination's occurrence chain and is **not proved here**.)",
+   and the theorem takes it as the hypothesis `hrss`;
+2. **the target is a pin** — `copyPinF_shape`
+   (`NestedCopyInst.lean:1550`) proves the "outside the group" half from
+   `ContainerModeled.pinsNotMembers`;
+3. **`PinCorr`** — and `NestedCopyInst.lean:3175` states what remains of
+   it after the work already done:
+
+   > What is left of `PinCorr`'s two clauses after this is exactly
+   > `(dJ.pinAt qK).u ψK = (blockOf mp.base2 ci').uM i₂ ψK` and
+   > `(dJ.pinAt qK).Ids ψK = (blockOf mp.base2 ci').IdsM i₂ ψK`
+   > … **That is a `PinGroupView` at `dJ`.**
+
+##### (d) AND `PinGroupView` IS MACHINERY THIS LANE ALREADY BUILT
+
+Those two clauses ARE `PinGroupView`'s `pinU` and (via `pinPps`/`pinNP`,
+as `NestedPinGroupSyn.pinIds` shows) its `Ids`.  And
+`NestedPinGroupSyn.pinViews` (`NestedPins.lean:511`), landed by this
+lane earlier in the arc, supplies exactly a per-pin `PinGroupView`:
+
+```lean
+pinViews : ∀ qq, qq < dJ.nPins → ∃ (a kk i' : Nat) (dJ' : BlockModel V),
+  qq = a + i' ∧ i' < kk ∧ PinGroupView dJ dJ' a kk
+```
+
+##### (e) THE ONE GAP, NAMED — and it is this lane's own deliberate omission
+
+`pinViews` gives the view at an **anonymous** `dJ'`; the remainder needs
+it at `blockOf mp.base2 ci'`, the NAMED block model of the container's
+container.  **That identification is precisely the `IsBlockModels`
+conjunct this lane deliberately omitted when it landed `pinViews`**, on
+the ground that the producer lacked `EnvBlocksOf`.
+
+So the gap is: **can the producer name `dJ'`?**  `EnvBlocksOf` exists and
+is extended along a run (`EnvBlocksOf.extendBasis`,
+`BasisBlocksStep.lean:90`; `EnvBlocksOf.crossInd` in
+`ContainerCross.lean`), so the object is in the tree — what is not
+established is whether it reaches `NestedPinsRun.groupSyn`'s producer.
+
+##### (f) THE COSTING
+
+* **if `EnvBlocksOf` reaches the producer**: extend `pinViews` with the
+  identification, then assemble residual 3 from `copyPinF_shape` +
+  `pinViews` + the occurrence-chain conjunct — **about one session**,
+  and no kernel request;
+* **if it does not**: the run must carry the container's container's
+  block model, which is a MODEL-side threading question (what the run
+  bundles), not a kernel record — a different and probably larger row,
+  and this lane will not price it blind;
+* **conjunct 1 is separate either way.**  "The elimination's occurrence
+  chain" — that the copy's field is recursive — is not proved anywhere
+  and is not a `PinGroupView` matter.  Whether it is derivable from
+  K.47's `nestedOwnPinsOk` (which certifies the pin list IS
+  `containerOwnPinsAt`'s) this lane has not checked.
+
+##### (g) THE ANSWER TO THE QUESTION ASKED
+
+**Residual 3 is this lane's, it is NOT blocked on the kernel record, and
+it is plausibly workable now** — with one gap that is this lane's own
+earlier omission rather than anyone else's dependency.  So the model side
+should NOT be described as "waiting on the kernel": one of its two open
+residuals is not.
+
+The next step is a single check — does `EnvBlocksOf` reach
+`NestedPinsRun.groupSyn`'s producer — and this lane has not run it,
+because the instruction was to answer before starting.
+
+Nothing in this section changes the tree.
