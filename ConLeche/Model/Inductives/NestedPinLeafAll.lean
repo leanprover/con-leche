@@ -639,7 +639,7 @@ theorem classPin_of_views {env : Env} {D dR dK : BlockModel V}
     unfold idxSet
     exact congrArg _ (teleOfFields_congr_below hIdsBelow hfr0)
 
-/-- **The WALK's `recF` step, packaged** (task #315 L-E, DESIGN §U.73):
+/-- **The WALK's `recF` step, packaged** (task #315 L-E, DESIGN §U.77):
 `classPin_of_views` with its three auxiliary premises discharged from
 the container's own record — the level agreement moved from the PAIR's
 member to the FIELD's target member (`memberLpsI`), the index universe
@@ -664,7 +664,7 @@ theorem classPinAt_of_pairViews {env : Env} {m : EnvModel V env} {D dR dK : Bloc
   · unfold BlockModel.IdsM
     rw [hpar.2.1]
 
-/-- **The WALK's `pinF` step** (task #315 L-E, DESIGN §U.74): at a
+/-- **The WALK's `pinF` step** (task #315 L-E, DESIGN §U.86): at a
 container-recursive field whose target is one of the CONTAINER's own
 pins, the two sides' copies carry a `PinCorr` at the SAME own pin
 `qK'`, so the field's two targets are `ClassPin`-related and the
@@ -807,7 +807,7 @@ theorem classPinAt_of_pinCorrs {env : Env} {m : EnvModel V env} {D dR dK : Block
     rw [consList_getD_lt _ _ v hv, consList_getD_lt _ _ v hv]
 
 /-- **THE WALK at a PIN class of the root** (task #315 L-E, DESIGN
-§U.74): at a container-recursive field of the container's constructor,
+§U.86): at a container-recursive field of the container's constructor,
 the root's copy's target class and the block's copy's target are
 `ClassPinAt`-related — a MEMBER target of the container by
 `classPinAt_of_pairViews` at the two groups' views, one of the
@@ -2360,7 +2360,7 @@ of one: `nestedRankPass` never relaxes along an edge whose endpoints
 share a label, so a strict decrease there is something the computation
 deliberately never establishes.  Fourteen such edges occur across
 eight ACCEPTED blocks.  At an in-instance target `S` is supplied by
-neither this lane nor the induction (DESIGN §U.80 (b)). -/
+neither this lane nor the induction (DESIGN §U.92 (b)). -/
 theorem nestedTargetReads_L (hμ : μ.verifiedChecks = true)
     (h : MutualFormersFacts V F g mp b fms f₀ ctorsA sortss kinds mp₁ ppsF W idxF dsF esF srcsF
       fvsPF xFvsF xrestF eissF tssF)
@@ -3132,7 +3132,7 @@ DISJUNCTION — equal instance labels OR a strictly smaller rank — and
 the rank induction discharges only the second alternative.  At an
 `ordF`-right target inside the source's own instance, which fourteen
 edges across eight ACCEPTED blocks have, `hout` needs the route DESIGN
-§U.80 (c) sizes and not this one. -/
+§U.92 (c) sizes and not this one. -/
 theorem nestedPinEntryOut (hμ : μ.verifiedChecks = true)
     (h : MutualFormersFacts V F g mp b fms f₀ ctorsA sortss kinds mp₁ ppsF W idxF dsF esF srcsF
       fvsPF xFvsF xrestF eissF tssF)
@@ -3399,7 +3399,7 @@ theorem nestedPinPairAt_mem (hμ : μ.verifiedChecks = true)
 
 
 /-- **`hpair` at a PIN class of the root** (task #315 L-E, DESIGN
-§U.75): the pin-side twin of `nestedPinPairAt_mem`.
+§U.87): the pin-side twin of `nestedPinPairAt_mem`.
 `nestedPinPair_pin` with every premise discharged — `hdom₁` by
 `copyEntryAt_pin` through `slotSet_mono_app`/`app_relMeet_subset` (the
 relational meet is below the extended carrier, at which the entry is
@@ -3604,7 +3604,7 @@ theorem nestedPinPairAt_pin (hμ : μ.verifiedChecks = true)
     rfl
 
 
-/-- **`hpair`, THE CASE SPLIT** (task #315 L-E, DESIGN §U.75 (b)): the
+/-- **`hpair`, THE CASE SPLIT** (task #315 L-E, DESIGN §U.87 (b)): the
 two halves above, joined — at a `ClassPinAt` pair `(c, q)` of the
 ROOT GROUP `r`, the block's copy of pin `q`'s constructor `j` fits the
 auxiliary carrier at the same spine with the same result indices and
@@ -3935,7 +3935,7 @@ theorem instanceLe_of_pair (hμ : μ.verifiedChecks = true)
 
 
 /-- **The covering class's family IS the block pin's** (task #315 L-E,
-DESIGN §U.77): at a `ClassPinAt` pair `(c, q)` of the root group, the
+DESIGN §U.89): at a `ClassPinAt` pair `(c, q)` of the root group, the
 container's least tuple at block pin `q`'s frame — `pinLfp`, the `P`
 of the global entry theorem — and the ROOT's extended carrier at its
 class `c` are ONE family.  This is what turns `nestedInstanceLe`'s
@@ -3943,7 +3943,7 @@ conclusion (stated at the root's class) into the rank induction's
 (stated at the pin).
 
 **The route is the LEAF, and it has to be** (the negative result of
-DESIGN §U.77 (b)): at a PIN class the two families are least tuples of
+DESIGN §U.89 (b)): at a PIN class the two families are least tuples of
 ONE container at two level assignments agreeing only on its level
 parameters and two frames agreeing only below its parameter count, and
 that is NOT a congruence of `lfpTuple` — `BlockModel.Φ` is an
@@ -4172,7 +4172,7 @@ theorem nestedPinFam_of_classPin (m : EnvModel V env₂) {st : ElimState}
 
 
 /-- **`instanceLe` at the ROOT GROUP, from the run** (task #315 L-E,
-DESIGN §U.75 (b)): `instanceLe_of_pair` with its per-pair transfer
+DESIGN §U.87 (b)): `instanceLe_of_pair` with its per-pair transfer
 discharged by `nestedPinPairAt` — at a root group `r` of the block's
 pin table whose container carries its block model, every class of the
 root that is `ClassPinAt`-related to a block pin `q` has its extended
@@ -4229,7 +4229,7 @@ theorem nestedInstanceLe (hμ : μ.verifiedChecks = true)
 
 
 /-- **A container instance is closed, at its ROOT** (task #315 L-E,
-DESIGN §U.77): `pins_le_of_instanceLe`'s `hinst` at one instance —
+DESIGN §U.89): `pins_le_of_instanceLe`'s `hinst` at one instance —
 every pin of the instance of `r` has its container's least tuple below
 the auxiliary carrier there.  The three pieces compose with nothing
 left between them: the COVERING (`InstanceCovered`, a premise here —
@@ -4328,7 +4328,7 @@ theorem pins_le_of_instanceLe {n k : Nat} {Is P L : Nat → V}
   exact fun q hq => key (rank q + 1) q (Nat.lt_succ_self _) hq
 
 
-/-- **The rank induction AT THE RUN** (task #315 L-E, DESIGN §U.78):
+/-- **The rank induction AT THE RUN** (task #315 L-E, DESIGN §U.90):
 `pins_le_of_instanceLe` with `hedge` and `hhom` — K.37's clauses (2)
 and (3) — DISCHARGED from the kernel lane's K.52
 (`nestedPinRankOk_inv`), at the two lists the model reads
@@ -4373,7 +4373,7 @@ theorem nestedPinsLe_of_rank {env : Env} {p : NestedParts} {b : MutualBlock} {st
 
 
 /-- **Step (ii) of the global entry theorem** (task #315 L-E, DESIGN
-§U.78): the two inclusions ARE the identity.  Step (i)/(ii)
+§U.90): the two inclusions ARE the identity.  Step (i)/(ii)
 (`nestedPinsFixed`) gives the auxiliary carrier below the containers'
 least tuples at every pin; the rank induction
 (`nestedPinsLe_of_rank`, over `nestedPinInstLe` at each instance's
@@ -4419,7 +4419,7 @@ theorem nestedPinsEq_of_le (hμ : μ.verifiedChecks = true)
 
 
 /-- **STEP (iv): the copies' ENTRIES at the auxiliary carrier** (task
-#315 L-E, DESIGN §U.79) — the residual `NestedPinsEntry` names, at one
+#315 L-E, DESIGN §U.91) — the residual `NestedPinsEntry` names, at one
 group, read off the identity step (ii)/(iii) produced.
 
 `nestedPinsFixed` builds exactly this at `P`, the containers' least
@@ -4544,7 +4544,7 @@ theorem nestedPinsEntry_of (hμ : μ.verifiedChecks = true)
   exact nestedPinsEntry_at hμ h hbk m hleafM dJf hgroups hρp heq G hi' hj
 
 
-/-- **THE TAIL, at ONE premise** (task #315 L-E, DESIGN §U.79): steps
+/-- **THE TAIL, at ONE premise** (task #315 L-E, DESIGN §U.91): steps
 (ii) and (iv) chained — the copies' entries at the auxiliary carrier,
 for every group, from the single input `hle`: the containers' least
 tuples lie below the auxiliary carrier at every pin.
@@ -4589,7 +4589,7 @@ end Assembly
 /-! ## The residual, ASSEMBLED -/
 
 /-- **STEP (iii) AT THE RUN, as a named premise** (task #315 L-E,
-DESIGN §U.80): the containers' least tuples lie below the auxiliary
+DESIGN §U.92): the containers' least tuples lie below the auxiliary
 carrier at every pin, for any assignment `dJf` of block models to the
 groups' base pins that the run's own groups back.
 
@@ -4628,7 +4628,7 @@ it is handed, and applies this at exactly that one. -/
 
 
 
-/-- **THE RESIDUAL, DISCHARGED** (task #315 L-E, DESIGN §U.80):
+/-- **THE RESIDUAL, DISCHARGED** (task #315 L-E, DESIGN §U.92):
 `NestedPinsEntry` — the copies' entries at the auxiliary carrier, for
 every group of every accepted nested block — from lane L-B's shape
 residual and step (iii) at the run.

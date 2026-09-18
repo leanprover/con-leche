@@ -207,7 +207,7 @@ theorem nestedReadLaw {F : Nat} : NestedReadLaw V μ F := by
   exact C.nestedCtorRead RC RS
 
 /-- **`NestedCtorsStaged` with the reading law DISCHARGED** (task #315
-L-E, DESIGN §U.92): `nestedCtorsStaged_of` takes `NestedReadLaw` as a
+L-E, DESIGN §U.112): `nestedCtorsStaged_of` takes `NestedReadLaw` as a
 premise and `nestedReadLaw` above PROVES it unconditionally, so the
 composition leaves only the pins' stage — and no consumer has to carry
 the reading law as a residual.

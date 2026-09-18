@@ -1004,12 +1004,4 @@ theorem nestedRecReadingsOf_of_faces {F : Nat}
     (hK36 : NestedCtorPinNamesOf μ F) : NestedRecReadingsOf V μ F :=
   nestedRecReadingsOf_of (nestedRecFramesOf_of hK36)
 
-/-- **THE CONSUMER** (consumer-first): the recursors' stage at the run
-needs the readings, and this lane supplies them from the ONE model
-face alone. -/
-theorem nestedTailModeled_of_faces {F : Nat}
-    (hK36 : NestedCtorPinNamesOf μ F)
-    (heqs : NestedRecEqsOf V μ F) (hst : NestedRecsStored V μ F) : NestedTailModeled V μ F :=
-  nestedTailModeled_of_frames (nestedRecFramesOf_of hK36) heqs hst
-
 end ConLeche.Model

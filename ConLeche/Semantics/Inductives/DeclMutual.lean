@@ -94,7 +94,7 @@ def DeclMutualRun (μ : CheckMode) (F : Nat) (env : Env)
     -- the model tier reads the Bool off it under `μ.verifiedChecks`
     ConLeche.certOnly μ (ConLeche.blockReadBackOk env₂ b.nP (fms.zipIdx.map fun (f, mIdx) =>
       (f.cvTa, (b.ownCtors mIdx).filterMap fun (J, _) => ctorsA[J]?))) = true ∧
-    -- THE OWN-PIN TABLE IS EMPTY (K.43, lane M7-3's §U.66 (a)): this
+    -- THE OWN-PIN TABLE IS EMPTY (K.43, lane M7-3's §U.68 (a)): this
     -- route installs no mimic recursor, so `containerOwnPinsAt` of the
     -- block it produced is `some []` at every instantiation — which
     -- `ContainerModeled.ownPins` needs and cannot derive, since it is a

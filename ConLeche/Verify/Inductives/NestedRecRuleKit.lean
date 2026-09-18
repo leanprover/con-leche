@@ -1,6 +1,7 @@
 module
 
 public import ConLeche.Verify.Inductives.NestedInv
+import ConLeche.Verify.Denote.Install
 
 public section
 
@@ -207,5 +208,91 @@ theorem restoreRules_at {envR : Env} {R : RestoreTbl} {lps : List Name} {recName
     | succ n =>
       simp only [List.getElem?_cons_succ] at hr ho
       exact hall n rl' o hr ho
+
+/-! ## The rule-less provision's lookups (`provisionNestedRecs`)
+
+The mutual route's four lookup facts about `provisionMutualRecs`
+(`MutualRecsSwap.lean`, `MutualRecsStore.lean`, `BlockRepCross.lean`)
+at the NESTED route's loop, whose list is one of TRIPLES
+`(cvRa, mI, rP)`: the read-back supplies each recursor's argument sums
+per entry where the mutual route computes them from the block, so the
+consed head is `recInfo x.1 x.2.1 x.2.2 []` and nothing else differs.
+-/
+
+/-- The provision's lookups, at a name none of the provisioned
+recursors carries: the base environment's
+(`provisionMutualRecs_find?_of_ne`'s twin). -/
+theorem provisionNestedRecs_find?_of_ne :
+    ∀ {l : List (ConstantVal × Nat × Nat)} {env : Env} {n : Name},
+      (∀ x ∈ l, n ≠ x.1.name) →
+      (provisionNestedRecs l env).find? n = env.find? n
+  | [], _, _, _ => rfl
+  | (cvRa, mI, rP) :: rest, env, n, hne => by
+    show (provisionNestedRecs rest ⟨.recInfo cvRa mI rP [] :: env.consts⟩).find? n = env.find? n
+    rw [provisionNestedRecs_find?_of_ne (fun x hx => hne x (List.mem_cons_of_mem _ hx)),
+      Env.find?_cons, if_neg (fun hh => hne (cvRa, mI, rP) List.mem_cons_self hh.symm)]
+
+/-- The provision stores every entry rule-less under its own name
+(`provisionMutualRecs_find?_mem`'s twin). -/
+theorem provisionNestedRecs_find?_mem :
+    ∀ {l : List (ConstantVal × Nat × Nat)} {env : Env} {x : ConstantVal × Nat × Nat},
+      (l.map (·.1.name)).Nodup → x ∈ l →
+      (provisionNestedRecs l env).find? x.1.name
+        = some (.recInfo x.1 x.2.1 x.2.2 [])
+  | [], _, _, _, hx => absurd hx (by simp)
+  | (cvRa, mI, rP) :: rest, env, x, hnd, hx => by
+    rw [List.map_cons, List.nodup_cons] at hnd
+    show (provisionNestedRecs rest ⟨.recInfo cvRa mI rP [] :: env.consts⟩).find? x.1.name = _
+    rcases List.mem_cons.mp hx with rfl | hx'
+    · rw [provisionNestedRecs_find?_of_ne (fun y hy heq => hnd.1 (by
+        rw [heq]; exact List.mem_map_of_mem hy))]
+      exact Env.find?_cons_self _ _
+    · exact provisionNestedRecs_find?_mem hnd.2 hx'
+
+/-- **The provision's stored entries survive its own conses**: a name
+the restored constructors' environment already carries is found
+unchanged past the `k + nPins` fresh recursors
+(`provisionMutualRecs_findPreserved`'s twin). -/
+theorem provisionNestedRecs_findPreserved {l : List (ConstantVal × Nat × Nat)} {env : Env}
+    (hfresh : ∀ x ∈ l, env.find? x.1.name = none) :
+    ∀ (n : Name) (ci : ConstantInfo), env.find? n = some ci →
+      (provisionNestedRecs l env).find? n = some ci := by
+  intro n ci hf
+  rw [provisionNestedRecs_find?_of_ne ?ne]
+  · exact hf
+  case ne =>
+    intro x hx hn
+    have := hfresh x hx
+    rw [← hn, hf] at this
+    exact nomatch this
+
+/-- **NO PROJECTION TABLE APPEARS**: every cons of the provision is a
+RECURSOR, so where the base environment has no table neither does the
+provisioned one (`findProj?_cons_of_base_none`, the third component of
+`provisionMutualRecs_extend`). -/
+theorem provisionNestedRecs_findProj?_none :
+    ∀ {l : List (ConstantVal × Nat × Nat)} {env : Env} (sn : Name) (i : Nat),
+      env.findProj? sn i = none → (provisionNestedRecs l env).findProj? sn i = none
+  | [], _, _, _, h => h
+  | (cvRa, mI, rP) :: rest, env, sn, i, h => by
+    show (provisionNestedRecs rest ⟨.recInfo cvRa mI rP [] :: env.consts⟩).findProj? sn i = none
+    exact provisionNestedRecs_findProj?_none sn i
+      (Verify.findProj?_cons_of_base_none (c₀ := .recInfo cvRa mI rP [])
+        (fun _ hh => nomatch hh) sn i h)
+
+/-- **NO PROJECTION TABLE MOVES ACROSS THE PROVISION**: the conses are
+recursors at names the environment does not carry, so a table lookup is
+answered the same below and above them.  Stated through the tree's
+`findProj?` API (`Env.findProj?_some`/`_of_table`) — never by unfolding
+`Env.findProj?`. -/
+theorem provisionNestedRecs_findProj?_eq {l : List (ConstantVal × Nat × Nat)} {env : Env}
+    (hfresh : ∀ x ∈ l, env.find? x.1.name = none) :
+    ∀ (sn : Name) (i : Nat), (provisionNestedRecs l env).findProj? sn i = env.findProj? sn i := by
+  intro sn i
+  cases h : env.findProj? sn i with
+  | none => exact provisionNestedRecs_findProj?_none sn i h
+  | some entry =>
+    obtain ⟨tbl, h0, hi, rfl⟩ := Env.findProj?_some h
+    exact Env.findProj?_of_table (provisionNestedRecs_findPreserved hfresh _ _ h0) hi
 
 end ConLeche

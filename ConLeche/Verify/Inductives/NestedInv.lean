@@ -1181,6 +1181,16 @@ theorem checkNested_inv {env envOut : Env} {p : NestedParts} {F : Nat}
                 (consNestedFormers (stored.take p.k) env)))
             (restoreTbl p st) cvRa.levelParams cvRa.name true cvRa.type a.mI a.rP a.rules)
         = .ok rulesN ∧
+      -- THE RESTORED RULES' RESCUE BITS (K.50): a set bit IS the
+      -- provisioned environment's own verdict — `hctorStored`'s other
+      -- two conjuncts, which `restoreRules` cannot transport
+      certOnly mode (nestedRuleBitsOk
+        (provisionNestedRecs
+            ((cvRms.zip ((stored.take p.k).map fun (a : AuxStored) => (a.mI, a.rP)))
+              ++ (cvRns.zip ((stored.drop p.k).map fun (a : AuxStored) => (a.mI, a.rP))))
+            (consNestedCtors ctorsR.flatten
+              (consNestedFormers (stored.take p.k) env))).find?
+        (cvRms.zip rulesM ++ cvRns.zip rulesN)) = true ∧
       -- the projection tables, on the stored recursors
       nestedTables (m := CheckM)
           (((stored.take p.k).zip ctorsR).zipIdx.map fun ((a, cs), mIdx) =>
@@ -1326,6 +1336,16 @@ theorem checkNested_inv {env envOut : Env} {p : NestedParts} {F : Nat}
   try simp only at h
   obtain ⟨rulesN, hrln, h⟩ := exceptBind_ok h
   try simp only at h
+  by_cases hrb2 : certOnly (fueledOps mode F).mode (nestedRuleBitsOk
+      (provisionNestedRecs
+            ((cvRms.zip ((stored.take p.k).map fun (a : AuxStored) => (a.mI, a.rP)))
+              ++ (cvRns.zip ((stored.drop p.k).map fun (a : AuxStored) => (a.mI, a.rP))))
+            (consNestedCtors ctorsR.flatten
+              (consNestedFormers (stored.take p.k) env))).find?
+      (cvRms.zip rulesM ++ cvRns.zip rulesN)) = true
+  case neg => rw [if_neg hrb2] at h; close_throw
+  rw [if_pos hrb2] at h
+  try simp only [bind, Except.bind] at h
   obtain ⟨env₄, htbl, h⟩ := exceptBind_ok h
   try simp only at h
   obtain ⟨u₀, hpins, h⟩ := exceptBind_ok h
@@ -1358,7 +1378,7 @@ theorem checkNested_inv {env envOut : Env} {p : NestedParts} {F : Nat}
     hfmsA, hctorsA, helim', beq_iff_eq.mp hcnt, hfresh, hcont, hb', haux, hst', hpc,
     (by cases uA; exact hpinsAux), hcaps, hsrc,
     certOnly_and_left hcont, hgrp, hmn, hsc, hpl, htg, hkd, haa, hrk, hpa, hrh, hord,
-    (by cases uP₁; exact hpins₁), hctors, hrm, hrn, hnd, hdj, hrlm, hrln, htbl,
+    (by cases uP₁; exact hpins₁), hctors, hrm, hrn, hnd, hdj, hrlm, hrln, hrb2, htbl,
     (by cases u₀; exact hpins), hlen, (by cases u₁; exact hrecs), hrb, hop, hom⟩
 
 /-! ## The restore, syntactically (task #315)
@@ -1663,7 +1683,7 @@ made once; `restoreNode_eq_head` and `restoreNode_const` pin this copy to
 the kernel's by `rfl`. -/
 
 /-- The head half of `restoreNode`'s step (its `let head`), restated. -/
-def restoreHead (R : RestoreTbl) (d : Nat) (e : Expr) : Except CheckError (Option Expr) :=
+@[expose] def restoreHead (R : RestoreTbl) (d : Nat) (e : Expr) : Except CheckError (Option Expr) :=
   match e.getAppFn with
   | .const n _ =>
     let args := e.getAppArgs

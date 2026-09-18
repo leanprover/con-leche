@@ -533,7 +533,7 @@ theorem checkDeclRun_of {μ : CheckMode} {F : Nat}
     -- task #293: a block the fold recognises as a pinned one installs
     -- the pin; everything else is the caller's `Ind`
     show (match basisPinHit block with
-      | some kind => DeclBasisRun env kind env₂
+      | some kind => DeclBasisRun μ env kind env₂
       | none => Ind block nP env₂)
     have h' := h
     simp only [checkDecl] at h'

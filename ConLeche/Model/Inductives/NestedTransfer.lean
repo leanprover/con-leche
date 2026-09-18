@@ -443,10 +443,39 @@ theorem nt_liftN_eq_self_of_one {e : AnnotTerm} (h : ∀ k, AnnotTerm.liftN 1 e 
     rw [show n + 1 = 1 + n from by omega, ← AnnotTerm.liftN_liftN e 1 n k,
       nt_liftN_eq_self_of_one h n k, h k]
 
+/-- **A CLOSED TERM'S READING at a deeper depth**, the pin's reading
+without the pin: a term that reads at the parameter depth, abstracted
+over the parameters and re-opened at the parameter variables, reads at
+any deeper frame as its own reading lifted past the extra binders.
+The three laws are term-generic — the erasure sees through the
+re-opening (`Expr.eraseAnnots_openAbstract`), a well-scoped erasure
+reads alike at a deeper depth (`denoteMeta_lift`), and the reading's
+own boundedness comes with it (`nt_looseBVarsBounded_of_denoteMeta`) —
+so `nt_denoteMeta_restoredPin` is this at a container application and
+the nested rule's pin conjunct is this at ONE component. -/
+theorem nt_denoteMeta_restoredTerm {env : Env} (m : EnvModel V env) {φ : Name → Nat} {nP i : Nat}
+    {e : Expr} {A : AnnotTerm} {fvsP : List Expr}
+    (hlenP : fvsP.length = nP)
+    (hidx : ∀ k, k < nP → ∃ ty, fvsP[k]? = some (.fvar k ty))
+    (hfv : (Expr.abstractRange e 0 nP 0).hasFvar = false)
+    (hread : denoteMeta m.acval env φ nP e = some A) :
+    denoteMeta m.acval env φ (nP + i) (Expr.instSeq fvsP (nP - 1) (Expr.abstractRange e 0 nP 0))
+      = some (A.liftN i 0) := by
+  have hb : e.looseBVarsBounded 0 = true := nt_looseBVarsBounded_of_denoteMeta nP e hread
+  have hws : Expr.WScoped nP e.eraseAnnots :=
+    nt_WScoped_eraseAnnots_of_fvarsBelow (nt_fvarsBelow_of_abstractRange_noFvar 0 hfv)
+  rw [denoteMeta_congr_eraseAnnots (nP + i) _ e
+      (Expr.eraseAnnots_openAbstract _ hb fvsP hlenP hidx),
+    ← denoteMeta_eraseAnnots (nP + i) e,
+    denoteMeta_lift m.acval_closed hws (nP + i) (Nat.le_add_right _ _),
+    denoteMeta_eraseAnnots nP e, hread, show nP + i - nP = i from by omega]
+  rfl
+
 /-- **THE PIN'S READING at a deeper depth** (the assembly's `nestEntry`
 core): the abstraction re-opened at the parameter variables reads, at
 any depth past the opener's, as the container's leaf applied to the
-lifted components. -/
+lifted components.  `nt_denoteMeta_restoredTerm` at the container
+application, whose reading is `denoteMeta_mkAppN`'s. -/
 theorem nt_denoteMeta_restoredPin {env : Env} (m : EnvModel V env) {φ : Name → Nat} {nP i : Nat}
     {J : Name} {lvls : List Level} {DsE : List Expr} {Ds : List AnnotTerm} {fvsP : List Expr}
     (hlenP : fvsP.length = nP)
@@ -459,20 +488,8 @@ theorem nt_denoteMeta_restoredPin {env : Env} (m : EnvModel V env) {φ : Name �
         (Expr.instSeq fvsP (nP - 1) (Expr.abstractRange (Expr.mkAppN (.const J lvls) DsE) 0 nP 0))
       = some (AnnotTerm.mkAppN (m.acval J (Level.substFn φ ci.toConstantVal.levelParams lvls))
           (Ds.map (·.liftN i 0))) := by
-  have hb : (Expr.mkAppN (.const J lvls) DsE).looseBVarsBounded 0 = true := nt_pin_bounded hDs
-  have hws : Expr.WScoped nP (Expr.mkAppN (.const J lvls) DsE).eraseAnnots :=
-    nt_WScoped_eraseAnnots_of_fvarsBelow (nt_pin_fvarsBelow hfv)
-  have hread : denoteMeta m.acval env φ nP (Expr.mkAppN (.const J lvls) DsE)
-      = some (AnnotTerm.mkAppN
-          (m.acval J (Level.substFn φ ci.toConstantVal.levelParams lvls)) Ds) :=
-    denoteMeta_mkAppN hDs (denoteMeta_const hf hlen)
-  rw [denoteMeta_congr_eraseAnnots (nP + i) _ (Expr.mkAppN (.const J lvls) DsE)
-      (Expr.eraseAnnots_openAbstract _ hb fvsP hlenP hidx),
-    ← denoteMeta_eraseAnnots (nP + i) (Expr.mkAppN (.const J lvls) DsE),
-    denoteMeta_lift m.acval_closed hws (nP + i) (Nat.le_add_right _ _),
-    denoteMeta_eraseAnnots nP (Expr.mkAppN (.const J lvls) DsE), hread,
-    show nP + i - nP = i from by omega]
-  simp only [Option.map_some, nt_liftN_mkAppN,
-    nt_liftN_eq_self_of_one (m.acval_closed J _) i 0]
+  rw [nt_denoteMeta_restoredTerm m hlenP hidx hfv
+    (denoteMeta_mkAppN hDs (denoteMeta_const hf hlen))]
+  simp only [nt_liftN_mkAppN, nt_liftN_eq_self_of_one (m.acval_closed J _) i 0]
 
 end ConLeche.Model

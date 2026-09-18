@@ -15,6 +15,7 @@ import ConLeche.Model.Steps.Stuck
 import ConLeche.Model.Steps.Accepted
 import ConLeche.Model.Install
 import ConLeche.Model.IndTele
+import ConLeche.Verify.Inductives.ContainerFrame
 import ConLeche.Verify.Inductives.NestedGroupInv
 import ConLeche.Verify.Inductives.NestedAuxFormers
 import ConLeche.Verify.Inductives.NestedElimInv
@@ -100,6 +101,68 @@ theorem consMutualFormers_ext :
     obtain ⟨hF₂, hG₂, hP₂⟩ := consMutualFormers_ext hfresh' hnd.2
     exact ⟨fun h => hF₂ (hF₁ h), ⟨fun h => hG₂.1 (hG₁.1 h), fun h => hG₂.2 (hG₁.2 h)⟩,
       fun sn i h => hP₂ sn i (hP₁ sn i h)⟩
+
+/-- **A lookup at the formers' conses is the base's or a former's own
+`indInfo`** — the kinds half of the same conses, with no freshness and
+no `Nodup`: `consMutualFormers` conses nothing else. -/
+theorem consMutualFormers_find?_cases :
+    ∀ {fms : List MutualFormerA} {env : Env} {n : Name} {c : ConstantInfo},
+      (ConLeche.consMutualFormers fms env).find? n = some c →
+      env.find? n = some c ∨ ∃ f ∈ fms, c = .indInfo f.cvTa {}
+  | [], _, _, _, h => Or.inl h
+  | g :: gs, env, n, c, h => by
+    have h' : (ConLeche.consMutualFormers gs
+        ⟨.indInfo g.cvTa {} :: env.consts⟩).find? n = some c := h
+    rcases consMutualFormers_find?_cases h' with h₁ | ⟨f, hf, rfl⟩
+    · by_cases hn : (ConstantInfo.indInfo g.cvTa {}).name = n
+      · rw [ConLeche.Env.find?_cons, if_pos hn] at h₁
+        exact Or.inr ⟨g, List.mem_cons_self, (Option.some.inj h₁).symm⟩
+      · rw [ConLeche.Env.find?_cons, if_neg hn] at h₁
+        exact Or.inl h₁
+    · exact Or.inr ⟨f, List.mem_cons_of_mem _ hf, rfl⟩
+
+/-- **A STORED CONTAINER'S GROUP IS READ THE SAME PAST THE FORMERS'
+CONSES** (task #315 M7-3 session 20): `ContainerModeled.crossEnv`'s
+`hci` at the prefix environment.
+
+`containerInfo?` consults the environment at the container's own
+constant, at its recursor and at each member the recursor's motive
+names; a reading can therefore only MOVE if one of the conses answers
+a lookup that failed before, and `containerInfo?_ext_ind_eq` is
+exactly the statement that at a container the base already stores it
+cannot — given that the new names are fresh (`hfresh`) and that no
+cons is a recursor, which here holds because every one of them is an
+`indInfo` (`consMutualFormers_find?_cases`). -/
+theorem containerInfo?_consMutualFormers {fms : List MutualFormerA} {env : Env}
+    (hwf : ConLeche.EnvWF env) (hrc : ConLeche.RecCtorsStored env)
+    (hfresh : ∀ f ∈ fms, env.find? f.cvTa.name = none) {J : Name}
+    (hJ : (env.find? J).isSome = true) :
+    ConLeche.containerInfo? (ConLeche.consMutualFormers fms env) J
+      = ConLeche.containerInfo? env J := by
+  have hfreshN : ∀ n ∈ fms.map (·.cvTa.name), env.find? n = none := by
+    intro n hn
+    obtain ⟨f, hf, rfl⟩ := List.mem_map.mp hn
+    exact hfresh f hf
+  -- off the new names the two environments answer the same lookups
+  have hne : ∀ n : Name, n ∉ fms.map (·.cvTa.name) →
+      (ConLeche.consMutualFormers fms env).find? n = env.find? n := by
+    intro n hn
+    exact consMutualFormers_find?_of_ne fun g hg heq => hn (heq ▸ List.mem_map_of_mem hg)
+  have hstored : ∀ n : Name, (env.find? n).isSome = true → n ∉ fms.map (·.cvTa.name) := by
+    intro n hn hmem
+    rw [hfreshN n hmem] at hn
+    exact nomatch hn
+  refine ConLeche.containerInfo?_ext_ind_eq (N := fms.map (·.cvTa.name))
+    (fun n c hf => ?_) (fun n c hf => ?_) hfreshN (fun n cv mI rP rules hf hmem => ?_) hwf hrc
+    (hstored J hJ)
+  · rw [hne n (hstored n (by rw [hf]; rfl))]; exact hf
+  · by_cases hn : n ∈ fms.map (·.cvTa.name)
+    · exact Or.inr hn
+    · rw [hne n hn] at hf; exact Or.inl hf
+  · -- a consed constant is an `indInfo`, and the base has nothing at a new name
+    rcases consMutualFormers_find?_cases hf with h₁ | ⟨f, -, hc⟩
+    · rw [hfreshN _ hmem] at h₁; exact nomatch h₁
+    · exact nomatch hc
 
 /-! ## Kit: two small converses -/
 
@@ -329,6 +392,18 @@ structure NestedPinGroupSyn (st : ElimState) (m : EnvModel V env₂) (q₀ kJ : 
   request: `ordFree`/`pinsNotMembers` live here, not in `IsBlockModel`) -/
   modeled : ∀ i, i < kJ → ∀ ci : ContainerInfo,
     ConLeche.containerInfo? env ((D).pinAt (q₀ + i)).J = some ci → ContainerModeled m ci dJ
+  /-- **the group's OWN pins read the same at the ELIMINATION's
+  environment** (task #315, integration 3r): `ContainerModeled.pinConts`
+  (lane M7-3 session 20) says a pin's container reads the same at
+  `d.env₀` as at the record's environment — and `modeled`'s record is at
+  the FORMERS' prefix model, so a consumer working at `env`, where
+  `replaceAllNested` actually runs, cannot use it there.  The
+  construction discharges this from the PRE-BLOCK record, whose own
+  `pinConts` concludes at `env` on the nose; lane L-B's pin route spends
+  it where it used to name `dJ.env₀ = env` as an input. -/
+  contsEnv : ∀ q', q' < dJ.nPins → ∀ ci' : ContainerInfo,
+    ConLeche.containerInfo? dJ.env₀ (dJ.pinAt q').J = some ci' →
+    ConLeche.containerInfo? env (dJ.pinAt q').J = some ci'
   reps : IsBlockModels m dJ
   kEq : dJ.k = kJ
   rep : ∀ i, i < kJ → ∃ (cvT cvR : ConstantVal) (mI rP : Nat) (rules : List RecRule),
@@ -467,6 +542,16 @@ structure NestedPinSynFacts (st : ElimState) (mp₁ : EnvModelM V μ ENV₁) : P
   pinDs : ∀ q, q < pinsS.length → ∀ ψ : Name → Nat,
     DenoteMetaSpine mp₁.base2.acval ENV₁ ψ b.nP (pinsS.getD q default).DsE
       ((pinsS.getD q default).Ds ψ)
+  /-- **the pins' components are GRADED at the block's parameter frame**
+  (task #315 M7-2): the tail carries `nestedPinsOk` only at `envAux`
+  and at `envOut`, while the pin's own type-check — `nestedPinsOk`'s
+  `inferType` at the block's PARAMETER context, which is the guard a
+  grading needs — is packaged at `NestedPinsRun.pinRead`; this clause
+  is the bridge, and the nested rule's pin conjunct spends it at the
+  recursor's padded frame. -/
+  pinWd : ∀ q, q < pinsS.length → ∀ (ψ : Name → Nat) (ρ : Nat → V),
+    Sat V ((((ppsF 0 ψ).take b.nP).map (·.2.2)).reverse) ρ →
+    ∀ A ∈ (pinsS.getD q default).Ds ψ, WellDenotedV V ρ A
   groups : ∀ (dsR' : Nat → Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm))
     (xFvsR' : Nat → Nat → List Expr) (q : Nat), q < pinsS.length →
     ∃ (q₀ kJ i : Nat) (dJ : BlockModel V), q = q₀ + i ∧ i < kJ ∧
@@ -475,9 +560,25 @@ structure NestedPinSynFacts (st : ElimState) (mp₁ : EnvModelM V μ ENV₁) : P
         (esF := esF) (srcsF := srcsF) (fvsPF := fvsPF) (xrestF := xrestF) (eissF := eissF)
         (tssF := tssF) (ctorsR := ctorsR) (dsR := dsR') (xFvsR := xFvsR') (pinsS := pinsS)
         st mp₁.base2 q₀ kJ dJ
+  /-- **the same groups with their container's block model NAMED**
+  (task #315 M7-2, DESIGN §U.36 (d)): at the container record the pin's
+  own name reads, the group's model is `blockOf mp.base2 ci` — the value
+  `groupSyn` constructs anyway.  `NestedTailOut.groups` is its consumer:
+  the route's lift to `EnvModelB` needs the assignment `B`, not merely
+  the existence of a model. -/
+  groupsAt : ∀ (dsR' : Nat → Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm))
+    (xFvsR' : Nat → Nat → List Expr) (q : Nat), q < pinsS.length →
+    ∀ ci : ConLeche.ContainerInfo,
+      ConLeche.containerInfo? env (pinsS.getD q default).J = some ci →
+      ∃ q₀ kJ i : Nat, q = q₀ + i ∧ i < kJ ∧
+        NestedPinGroupSyn (V := V) (p := p) (b := b) (fms := fms) (f₀ := f₀) (ctorsA := ctorsA)
+          (kinds := kinds) (env := env) (ppsF := ppsF) (W := W) (idxF := idxF) (dsF := dsF)
+          (esF := esF) (srcsF := srcsF) (fvsPF := fvsPF) (xrestF := xrestF) (eissF := eissF)
+          (tssF := tssF) (ctorsR := ctorsR) (dsR := dsR') (xFvsR := xFvsR') (pinsS := pinsS)
+          st mp₁.base2 q₀ kJ (blockOf mp.base2 ci)
 
 /-- **The pins' SEMANTIC data, PER PIN** (task #315 L-E, at lane L-B's
-request, DESIGN §U.93): at every pin `q` — at the pin, not at a group
+request, DESIGN §U.113): at every pin `q` — at the pin, not at a group
 index — its level assignment is the substitution of its recorded level
 arguments for its CONTAINER's own level parameters, its container's
 block model carries the block's sort at that assignment, and its index
@@ -496,7 +597,7 @@ confirmed — and confirming it this way is stronger than enumerating
 producers, since a later producer cannot fail it either. -/
 theorem NestedPinSynFacts.pinSem {st : ElimState} {mpP : EnvModelM V μ ENV₁}
     (SF : NestedPinSynFacts (V := V) (p := p) (b := b) (fms := fms) (f₀ := f₀) (ctorsA := ctorsA)
-      (kinds := kinds) (env := env) (ppsF := ppsF) (W := W) (idxF := idxF) (dsF := dsF)
+      (kinds := kinds) (env := env) (mp := mp) (ppsF := ppsF) (W := W) (idxF := idxF) (dsF := dsF)
       (esF := esF) (srcsF := srcsF) (fvsPF := fvsPF) (xrestF := xrestF) (eissF := eissF)
       (tssF := tssF) (ctorsR := ctorsR) (pinsS := pinsS) st mpP)
     (dsR' : Nat → Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm))
@@ -758,9 +859,12 @@ structure NestedPinsRun (V : Type w) [SetTheory V] (μ : CheckMode) (F : Nat) {e
   a function of the instance, and a mint group is one instance -/
   hrank : ConLeche.nestedPinRankOk env p b st stored = true
   /-- **THE POSITIVITY NORMALISATION ON THE MINTED COPY** (K.42, task
-  #315, lane L-B): at every ORDINARY field of every copy's constructor,
-  the stored domain IS the positivity normalisation of the MINTED one —
-  what the copies' identities read on the `ordF`-LEFT arm, with the
+  #315, lane L-B): at every field of every copy's constructor that the
+  record's filter admits — ORDINARY, **or** with a target below `p.k`,
+  i.e. at one of the block's own MEMBERS (the kernel lane's widening of
+  2026-09-18) — the stored domain IS the positivity normalisation of
+  the MINTED one; what the copies' identities read on the `ordF`-LEFT
+  arm and, at a member target, on the `ordF`-RIGHT one, with the
   rewrite's own leg (which needs `pinLeaf`, and is circular) gone -/
   hK42 : ∃ (jobs : List (Nat × Expr × Expr)) (ws : List Expr),
       ConLeche.nestedOrdDomPairs env p st stored (ConLeche.nestedPinKinds p b stored) = some jobs ∧
@@ -827,7 +931,7 @@ half holds has the identity `P`. -/
       ppsF W idxF dsF esF srcsF fvsPF xFvsF xrestF eissF tssF mp₁' →
     ∀ pinsS : List PinSyn,
       NestedPinSynFacts (V := V) (p := p) (b := b) (fms := fms) (f₀ := f₀) (ctorsA := ctorsA)
-        (kinds := kinds) (env := env) (ppsF := ppsF) (W := W) (idxF := idxF) (dsF := dsF)
+        (kinds := kinds) (env := env) (mp := mp) (ppsF := ppsF) (W := W) (idxF := idxF) (dsF := dsF)
         (esF := esF) (srcsF := srcsF) (fvsPF := fvsPF) (xrestF := xrestF) (eissF := eissF)
         (tssF := tssF) (ctorsR := ctorsR) (pinsS := pinsS) st mp₁' →
       ∀ (dsR : Nat → Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm))
@@ -1055,6 +1159,23 @@ theorem NestedPinsRun.cross :
     unfold ConLeche.MutualBlock.blockNames at h0
     exact (List.nodup_append.mp (List.nodup_append.mp h0).1).1
 
+/-- **A STORED CONTAINER'S GROUP IS READ THE SAME AT THE PREFIX
+ENVIRONMENT** — `containerInfo?_consMutualFormers` at the run, whose
+`hfresh` is the members' own (`MutualFormersFacts.fresh`) and whose
+well-formedness is the pre-block model's.  `ContainerModeled.crossEnv`'s
+`hci` on this lane: a pin's container's OWN pins are containers stored
+before the block, so this is the shape the crossing asks for. -/
+theorem NestedPinsRun.contsCross {J : Name} {ci : ContainerInfo}
+    (h : ConLeche.containerInfo? env J = some ci) :
+    ConLeche.containerInfo? (ENV₁) J = some ci := by
+  obtain ⟨cv, caps, hf⟩ := containerInfo?_found h
+  have hfr : ∀ f ∈ fms.take p.k, env.find? f.cvTa.name = none := by
+    intro f hf'
+    obtain ⟨t, ht⟩ := List.getElem?_of_mem (List.mem_of_mem_take hf')
+    exact R.h.fresh t f ht
+  rw [containerInfo?_consMutualFormers mp.base2.wf mp.base2.rec_ctors hfr (by rw [hf]; rfl)]
+  exact h
+
 /-- The block has a member; the first former's type is closed and
 bounded, and its data hold at the prefix model. -/
 theorem NestedPinsRun.former0 :
@@ -1160,12 +1281,14 @@ theorem NestedPinsRun.groupSyn
     (hPD : ∀ q, q < st.pins.length → PinData env st p pbs q)
     (dsR' : Nat → Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)) (xFvsR' : Nat → Nat → List Expr)
     {q : Nat} (hq : q < st.pins.length) :
-    ∃ (q₀ kJ i : Nat) (dJ : BlockModel V), q = q₀ + i ∧ i < kJ ∧
+    ∃ (q₀ kJ i : Nat) (ci : ConLeche.ContainerInfo),
+      ConLeche.containerInfo? env ((PINS).getD q default).J = some ci ∧
+      q = q₀ + i ∧ i < kJ ∧
       NestedPinGroupSyn (V := V) (p := p) (b := b) (fms := fms) (f₀ := f₀) (ctorsA := ctorsA)
         (kinds := kinds) (env := env) (ppsF := ppsF) (W := W) (idxF := idxF) (dsF := dsF)
         (esF := esF) (srcsF := srcsF) (fvsPF := fvsPF) (xrestF := xrestF) (eissF := eissF)
         (tssF := tssF) (ctorsR := ctorsR) (dsR := dsR') (xFvsR := xFvsR') (pinsS := PINS)
-        st mp₁'.base2 q₀ kJ dJ := by
+        st mp₁'.base2 q₀ kJ (blockOf mp.base2 ci) := by
   obtain ⟨hF, hres, hag, hde⟩ := R.cross
   have hnP : b.nP = p.nP := (ConLeche.auxBlock_former R.hb).1
   have hlenS : (PINS).length = st.pins.length := pinsOf_length _ _ _ _ _ _
@@ -1188,6 +1311,7 @@ theorem NestedPinsRun.groupSyn
     blockOf_spec (R.hPM _ hbaseMem _ PD.base)
   have CM : ContainerModeled mp₁'.base2 (baseInfo env st q) (blockOf mp.base2 (baseInfo env st q)) :=
     CM₀.crossEnv hF hres hag hde (by rw [CM₀.k, PD.baseLen]; exact hkpos)
+      (fun _ _ _ h => R.contsCross h)
   have hkJ : (blockOf mp.base2 (baseInfo env st q)).k = (pinAtE st q).grpSize := by
     rw [CM.k, PD.baseLen]
   -- the group's pins, described
@@ -1263,8 +1387,19 @@ theorem NestedPinsRun.groupSyn
           ⟨(memberOf env st q i).name, (memberOf env st q i).lps, (memberOf env st q i).type⟩
           cvR mI rP rules (blockOf mp.base2 (baseInfo env st q)) i :=
     fun i hi => CM.member i _ (PD.grp i hi).2.2.2.2
+  -- the pin's OWN container reads back as its group's base (K.14's two
+  -- agreements at `containerInfo?_eq_of_names`), so the group's block
+  -- model is the assignment's value at the pin's own reading — which is
+  -- what `ContainerModeled`'s consumers key it by (task #315 M7-3
+  -- session 12)
+  obtain ⟨ciq, hciq, -, -, hnPq, hnamesq, -⟩ := PD.own
+  have hciqJ : ConLeche.containerInfo? env ((PINS).getD q default).J = some ciq := by
+    rw [hget q hq]; exact hciq
+  have hciqEq : ciq = baseInfo env st q :=
+    ConLeche.containerInfo?_eq_of_names hciq PD.base hnPq hnamesq
   refine ⟨(pinAtE st q).grpBase, (pinAtE st q).grpSize, q - (pinAtE st q).grpBase,
-    blockOf mp.base2 (baseInfo env st q), by omega, by omega, ?_⟩
+    ciq, hciqJ, by omega, by omega, ?_⟩
+  rw [hciqEq]
   refine
     { seg := by rw [hlenS]; exact hb3
       kpos := hkpos
@@ -1279,6 +1414,7 @@ theorem NestedPinsRun.groupSyn
         obtain rfl : ci' = cii := Option.some.inj (hci'.symm.trans hcii)
         rw [ConLeche.containerInfo?_eq_of_names hci' PD.base hnPi hnamesi]
         exact CM
+      contsEnv := CM₀.pinConts
       reps := CM.reps
       kEq := hkJ
       rep := ?_
@@ -1528,6 +1664,7 @@ theorem NestedPinsRun.pinNIdx {pbs : List (Expr × ConLeche.BinderMeta)} (hpbs :
     blockOf_spec (R.hPM _ hbaseMem _ PD.base)
   have CM : ContainerModeled mp₁'.base2 (baseInfo env st q) (blockOf mp.base2 (baseInfo env st q)) :=
     CM₀.crossEnv hF hres hag hde (by rw [CM₀.k, PD.baseLen]; omega)
+      (fun _ _ _ h => R.contsCross h)
   obtain ⟨-, -, cvR, mI, rP, rules, hI⟩ := CM.member _ _ hmemE
   obtain ⟨bsM, sM, hstripM, -⟩ := hI.strip
   -- K.28 at the pin: the copy from the member `J`, whose type is the member's
@@ -1565,14 +1702,14 @@ theorem NestedPinsRun.synFacts
     (hsc : ∀ q ∈ st.pins, q.pin.looseBVarsBounded 0 = true ∧
       ∀ l ∈ q.pin.fvarLeaves, Expr.fvar l.1 l.2 ∈ fvs) :
     NestedPinSynFacts (V := V) (p := p) (b := b) (fms := fms) (f₀ := f₀) (ctorsA := ctorsA)
-      (kinds := kinds) (env := env) (ppsF := ppsF) (W := W) (idxF := idxF) (dsF := dsF)
+      (kinds := kinds) (env := env) (mp := mp) (ppsF := ppsF) (W := W) (idxF := idxF) (dsF := dsF)
       (esF := esF) (srcsF := srcsF) (fvsPF := fvsPF) (xrestF := xrestF) (eissF := eissF)
       (tssF := tssF) (ctorsR := ctorsR) (pinsS := PINS) st mp₁' := by
   obtain ⟨pbs, hpbs, hPD⟩ := R.pinData
   have hlenS : (PINS).length = st.pins.length := pinsOf_length _ _ _ _ _ _
   have hget : ∀ n, n < st.pins.length → (PINS).getD n default
       = pinOf mp.base2 st p mp₁'.base2.acval (ENV₁) b.nP n := fun n hn => pinsOf_getD _ _ _ _ _ _ hn
-  refine ⟨hlenS, ?_, ?_, ?_⟩
+  refine ⟨hlenS, ?_, ?_, ?_, ?_, ?_⟩
   · -- the records
     intro q pin hpin
     have hq : q < st.pins.length := (List.getElem?_eq_some_iff.mp hpin).1
@@ -1592,10 +1729,33 @@ theorem NestedPinsRun.synFacts
     show DenoteMetaSpine _ _ _ _ (srcAtE st p q).2.2 ((srcAtE st p q).2.2.map _)
     rw [← hvs]
     exact hspine
+  · -- the components' GRADING, off the pin's own `inferType`
+    intro q hq ψ ρ hsat A hA
+    rw [hlenS] at hq
+    rw [hget q hq] at hA
+    have PD := hPD q hq
+    obtain ⟨ea, hea, hok⟩ := R.pinRead hpinsE hop hsc hq ψ
+    rw [PD.pinEq] at hea
+    obtain ⟨fa, vs, -, hspine, rfl⟩ := denoteMeta_mkAppN_inv hea
+    have hvs := hspine.eq_map
+    have hA' : A ∈ vs := by
+      rw [hvs]
+      exact hA
+    obtain ⟨hw, hv⟩ := hok ρ hsat
+    exact ⟨(WellDenoted.mkAppN_inv hw).2 A hA', (AnnotValid.mkAppN_inv hv).2 A hA'⟩
   · -- the groups
     intro dsR' xFvsR' q hq
     rw [hlenS] at hq
-    exact R.groupSyn hpinsE hop hsc hpbs hPD dsR' xFvsR' hq
+    obtain ⟨q₀, kJ, i, ci, -, hqe, hi, S⟩ := R.groupSyn hpinsE hop hsc hpbs hPD dsR' xFvsR' hq
+    exact ⟨q₀, kJ, i, _, hqe, hi, S⟩
+  · -- the groups, with the container's model NAMED (task #315 M7-2):
+    -- the SAME construction, read at the reading `groupSyn` returns
+    intro dsR' xFvsR' q hq ci hci
+    rw [hlenS] at hq
+    obtain ⟨q₀, kJ, i, ci', hci', hqe, hi, S⟩ :=
+      R.groupSyn hpinsE hop hsc hpbs hPD dsR' xFvsR' hq
+    obtain rfl : ci = ci' := Option.some.inj (hci.symm.trans hci')
+    exact ⟨q₀, kJ, i, hqe, hi, S⟩
 
 end Discharge
 
@@ -1623,7 +1783,7 @@ theorem nestedPinsStaged_of {F : Nat} (hId : NestedPinsIdent V μ F) : NestedPin
   obtain ⟨hpinsE, fvs, o, hop, hsc⟩ := R.scoped
   obtain ⟨pbs, hpbs, hPD⟩ := R.pinData
   have SF := R.synFacts hpinsE hop hsc
-  refine ⟨_, SF.pinsLen, SF.pinRec, SF.pinDs, ?_, ?_, ?_, ?_⟩
+  refine ⟨_, SF.pinsLen, SF.pinRec, SF.pinDs, SF.pinWd, ?_, ?_, ?_, ?_, ?_⟩
   · -- pinψ: the level assignment at the prefix environment's record
     intro q hq cvT caps hfind
     rw [pinsOf_length] at hq
@@ -1643,16 +1803,32 @@ theorem nestedPinsStaged_of {F : Nat} (hId : NestedPinsIdent V μ F) : NestedPin
     rw [pinsOf_length] at hq
     rw [pinsOf_getD _ _ _ _ _ _ hq]
     exact R.pinNIdx hpbs hPD hq
-  intro dsR' xFvsR' q hq
-  obtain ⟨q₀, kJ, i, dJ, hqe, hi, S⟩ := SF.groups dsR' xFvsR' q hq
-  refine ⟨q₀, kJ, i, dJ, hqe, hi, S.ofParts ⟨?_, ?_, ?_⟩⟩
-  · exact (hId mp p st b envAux stored ctorsR fmsA ctorsA₀ fms f₀ ctorsA sortss kinds mp₁ ppsF W idxF
-      dsF esF srcsF fvsPF xFvsF xrestF eissF tssF mp₁' R _ SF dsR' xFvsR' q₀ kJ dJ S).1
-  · exact (hId mp p st b envAux stored ctorsR fmsA ctorsA₀ fms f₀ ctorsA sortss kinds mp₁ ppsF W idxF
-      dsF esF srcsF fvsPF xFvsF xrestF eissF tssF mp₁' R _ SF dsR' xFvsR' q₀ kJ dJ S).2.1
-  · exact (hId mp p st b envAux stored ctorsR fmsA ctorsA₀ fms f₀ ctorsA sortss kinds mp₁ ppsF W idxF
-      dsF esF srcsF fvsPF xFvsF xrestF eissF tssF mp₁' R _ SF dsR' xFvsR' q₀ kJ dJ S).2.2
-
+  -- the groups, and the groups KEYED by the pin's container's reading
+  -- (task #315 M7-3 session 12): ONE construction, `groupSyn`'s, read
+  -- twice — the keyed form is the one `ContainerModeled`'s consumers
+  -- need (the container's block model NAMED as the environment
+  -- model's own assignment at its reading), the existential form the
+  -- one the loop and the reading law read
+  · intro dsR' xFvsR' q hq
+    obtain ⟨q₀, kJ, i, dJ, hqe, hi, S⟩ := SF.groups dsR' xFvsR' q hq
+    refine ⟨q₀, kJ, i, dJ, hqe, hi, S.ofParts ⟨?_, ?_, ?_⟩⟩
+    · exact (hId mp p st b envAux stored ctorsR fmsA ctorsA₀ fms f₀ ctorsA sortss kinds mp₁ ppsF W
+        idxF dsF esF srcsF fvsPF xFvsF xrestF eissF tssF mp₁' R _ SF dsR' xFvsR' q₀ kJ dJ S).1
+    · exact (hId mp p st b envAux stored ctorsR fmsA ctorsA₀ fms f₀ ctorsA sortss kinds mp₁ ppsF W
+        idxF dsF esF srcsF fvsPF xFvsF xrestF eissF tssF mp₁' R _ SF dsR' xFvsR' q₀ kJ dJ S).2.1
+    · exact (hId mp p st b envAux stored ctorsR fmsA ctorsA₀ fms f₀ ctorsA sortss kinds mp₁ ppsF W
+        idxF dsF esF srcsF fvsPF xFvsF xrestF eissF tssF mp₁' R _ SF dsR' xFvsR' q₀ kJ dJ S).2.2
+  intro dsR' xFvsR' q hq ci hci
+  rw [pinsOf_length] at hq
+  obtain ⟨q₀, kJ, i, ci', hci', hqe, hi, S⟩ := R.groupSyn hpinsE hop hsc hpbs hPD dsR' xFvsR' hq
+  obtain rfl : ci = ci' := Option.some.inj (hci.symm.trans hci')
+  refine ⟨q₀, kJ, i, hqe, hi, S.ofParts ⟨?_, ?_, ?_⟩⟩
+  · exact (hId mp p st b envAux stored ctorsR fmsA ctorsA₀ fms f₀ ctorsA sortss kinds mp₁ ppsF W
+      idxF dsF esF srcsF fvsPF xFvsF xrestF eissF tssF mp₁' R _ SF dsR' xFvsR' q₀ kJ _ S).1
+  · exact (hId mp p st b envAux stored ctorsR fmsA ctorsA₀ fms f₀ ctorsA sortss kinds mp₁ ppsF W
+      idxF dsF esF srcsF fvsPF xFvsF xrestF eissF tssF mp₁' R _ SF dsR' xFvsR' q₀ kJ _ S).2.1
+  · exact (hId mp p st b envAux stored ctorsR fmsA ctorsA₀ fms f₀ ctorsA sortss kinds mp₁ ppsF W
+      idxF dsF esF srcsF fvsPF xFvsF xrestF eissF tssF mp₁' R _ SF dsR' xFvsR' q₀ kJ _ S).2.2
 
 end ConLeche.Model
 

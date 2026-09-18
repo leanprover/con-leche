@@ -138,20 +138,20 @@ theorem declEtaStepRun {μ : CheckMode} {F : Nat}
         (fun _ _ heq => nomatch heq)
     · exact hE
   | basisDecl kind =>
-    exact basisInstallRun_etaClosed kind.declsA h.2
+    exact basisInstallRun_etaClosed kind.declsA h.2.1
       (basisIndOk_declsA kind) hE
   | quotDecl k cv =>
     -- the quotient package's `type` record installs the pinned block;
     -- its other records install nothing (task #293)
     cases k with
-    | type => exact basisInstallRun_etaClosed _ h.2 (basisIndOk_declsA .quotK) hE
+    | type => exact basisInstallRun_etaClosed _ h.2.1 (basisIndOk_declsA .quotK) hE
     | _ => exact (show env₂ = env from h) ▸ hE
   | indDecl block nP =>
     -- a block the fold recognises as a pinned one installs the pin
     -- (task #293)
     simp only [DeclRun] at h
     split at h
-    · exact basisInstallRun_etaClosed _ h.2 (basisIndOk_declsA _) hE
+    · exact basisInstallRun_etaClosed _ h.2.1 (basisIndOk_declsA _) hE
     · exact hind h
 
 /-! `declEtaStep` — the `DeclR` instance — moved to

@@ -968,6 +968,143 @@ theorem checkMutualS_push (mode : CheckMode) {env : Env} {fe : FEnv}
   · intro m x hx
     exact mutualRecPin_name (by rw [← hpin]; exact hrp) hx
 
+/-! ## The nested route's four conses (task #315 M8)
+
+`checkNestedS` pushes through four cons functions and nothing else, and
+the SCRATCH install's index is discarded — the restored block is consed
+onto the PRE-BLOCK index.  Each of the four is the exact twin of its
+mutual counterpart above, so each is a fresh chain given the names'
+freshness at the index it is consed onto. -/
+
+theorem consNestedFormersF_push :
+    ∀ {as : List AuxStored} {env : Env} {fe : FEnv},
+      PushChain env fe → FreshNames fe.env (as.map (·.cvTa.name)) →
+      PushChain env (consNestedFormersF as fe)
+  | [], _, _, h, _ => h
+  | a :: rest, env, fe, h, hf => by
+    have hfr : fe.find? a.cvTa.name = none := by
+      rw [h.find?]
+      exact hf.2 _ (by simp)
+    exact consNestedFormersF_push (as := rest) (h.push hfr)
+      (FreshNames.step (c := .indInfo a.cvTa a.caps) hf)
+
+theorem consNestedCtorsF_push :
+    ∀ {cs : List (ConstantVal × Nat × Nat)} {env : Env} {fe : FEnv},
+      PushChain env fe → FreshNames fe.env (cs.map (·.1.name)) →
+      PushChain env (consNestedCtorsF cs fe)
+  | [], _, _, h, _ => h
+  | (cv, nP, nF) :: rest, env, fe, h, hf => by
+    have hfr : fe.find? cv.name = none := by
+      rw [h.find?]
+      exact hf.2 _ (by simp)
+    exact consNestedCtorsF_push (cs := rest) (h.push hfr)
+      (FreshNames.step (c := .ctorInfo cv nP nF) hf)
+
+theorem provisionNestedRecsF_push :
+    ∀ {rs : List (ConstantVal × Nat × Nat)} {env : Env} {fe : FEnv},
+      PushChain env fe → FreshNames fe.env (rs.map (·.1.name)) →
+      PushChain env (provisionNestedRecsF rs fe)
+  | [], _, _, h, _ => h
+  | (cv, mI, rP) :: rest, env, fe, h, hf => by
+    have hfr : fe.find? cv.name = none := by
+      rw [h.find?]
+      exact hf.2 _ (by simp)
+    exact provisionNestedRecsF_push (rs := rest) (h.push hfr)
+      (FreshNames.step (c := .recInfo cv mI rP []) hf)
+
+theorem storeNestedRecsF_push :
+    ∀ {rs : List (ConstantVal × Nat × Nat × List RecRule)} {env : Env} {fe : FEnv},
+      PushChain env fe → FreshNames fe.env (rs.map (·.1.name)) →
+      PushChain env (storeNestedRecsF rs fe)
+  | [], _, _, h, _ => h
+  | (cv, mI, rP, rules) :: rest, env, fe, h, hf => by
+    have hfr : fe.find? cv.name = none := by
+      rw [h.find?]
+      exact hf.2 _ (by simp)
+    exact storeNestedRecsF_push (rs := rest) (h.push hfr)
+      (FreshNames.step (c := .recInfo cv mI rP rules) hf)
+
+/-- The pre-normalisation front door REFUSES a taken name, so a success
+is the name's freshness at the index it was checked against. -/
+theorem checkConstantValPreF_fresh (ops : CheckerOps CheckCM) (fe : FEnv) (cv : ConstantVal) :
+    Yields (checkConstantValPreF ops fe cv) (fun _ => fe.find? cv.name = none) := by
+  unfold checkConstantValPreF
+  yields
+  all_goals (apply Yields.pure; exact Option.not_isSome_iff_eq_none.mp (by assumption))
+
+/-- Every restored constructor is fresh at the index the restore checked
+it against — which is ONE index for all of them (`fe₁`), so the
+assembly's remaining duty is the name list's own `Nodup`. -/
+theorem restoreCtorsF_fresh (ops : CheckerOps CheckCM) (fe : FEnv) (R : RestoreTbl)
+    (lps : List Name) :
+    ∀ (cs : List (ConstantVal × Nat × Nat)),
+      Yields (restoreCtorsF ops fe R lps cs)
+        (fun cs' => ∀ c ∈ cs', fe.find? c.1.name = none)
+  | [] => by unfold restoreCtorsF; exact Yields.pure (fun _ h => nomatch h)
+  | (cvCa, nP, nF) :: rest => by
+    unfold restoreCtorsF
+    ybind
+    refine Yields.bind' (Yields.and
+      (checkConstantValPreF_fresh ops fe { cvCa with levelParams := lps, type := _ })
+      (checkConstantValPreF_name ops fe { cvCa with levelParams := lps, type := _ }))
+      fun cvA hA => ?_
+    obtain ⟨hfr, hnm⟩ := hA
+    refine Yields.bind' (restoreCtorsF_fresh ops fe R lps rest) fun cs' hcs => ?_
+    refine Yields.pure ?_
+    intro c hc
+    rcases List.mem_cons.mp hc with rfl | hc'
+    · rw [hnm]; exact hfr
+    · exact hcs c hc'
+
+/-- Every restored recursor type is fresh at the index the restore
+checked it against (`fe₂`), positionally. -/
+theorem restoreRecTysF_fresh (ops : CheckerOps CheckCM) (fe : FEnv) (R : RestoreTbl)
+    (lps : List Name) :
+    ∀ (names : List Name) (as : List AuxStored),
+      Yields (restoreRecTysF ops fe R lps names as)
+        (fun cvs => ∀ cv ∈ cvs, fe.find? cv.name = none)
+  | _, [] => by unfold restoreRecTysF; exact Yields.pure (fun _ h => nomatch h)
+  | names, a :: rest => by
+    unfold restoreRecTysF
+    ybind
+    refine Yields.bind' (Yields.and
+      (checkConstantValPreF_fresh ops fe
+        ⟨names.headD a.cvRa.name, a.cvRa.levelParams, _⟩)
+      (checkConstantValPreF_name ops fe
+        ⟨names.headD a.cvRa.name, a.cvRa.levelParams, _⟩)) fun cvA hA => ?_
+    obtain ⟨hfr, hnm⟩ := hA
+    refine Yields.bind' (restoreRecTysF_fresh ops fe R lps (names.drop 1) rest)
+      fun cvs hcvs => ?_
+    refine Yields.pure ?_
+    intro cv hcv
+    rcases List.mem_cons.mp hcv with rfl | hcv'
+    · rw [hnm]; exact hfr
+    · exact hcvs cv hcv'
+
+theorem nestedMemberTableF_push {w : StructWalkers} {env : Env} {fe : FEnv}
+    (h : PushChain env fe) (T : Name) (tbl? : Option ProjTable)
+    (cs : List (ConstantVal × Nat × Nat)) :
+    Yields (nestedMemberTableF (m := CheckCM) w T tbl? cs fe)
+      (fun fe' => PushChain env fe') := by
+  unfold nestedMemberTableF
+  match tbl?, cs with
+  | none, _ => exact Yields.pure h
+  | some _, [] => exact Yields.pure h
+  | some _, [(cvCa, nP, nF)] => exact checkStructProjTableF_push h _ _ _ _ _ _ _ _ _
+  | some _, _ :: _ :: _ => exact Yields.pure h
+
+theorem nestedTablesF_push (w : StructWalkers) :
+    ∀ (l : List (Name × Option ProjTable × List (ConstantVal × Nat × Nat)))
+      {env : Env} {fe : FEnv}, PushChain env fe →
+      Yields (nestedTablesF (m := CheckCM) w l fe) (fun fe' => PushChain env fe')
+  | [], _, _, h => by
+      unfold nestedTablesF
+      exact Yields.pure h
+  | (T, tbl?, cs) :: rest, env, fe, h => by
+    unfold nestedTablesF
+    refine Yields.bind' (nestedMemberTableF_push h T tbl? cs) fun fe' h' => ?_
+    exact nestedTablesF_push w rest h'
+
 /-! ## The declaration clause and the two drivers' steps -/
 
 theorem installBasisDeclF_push {env : Env} {fe : FEnv} (h : PushChain env fe)
@@ -982,7 +1119,7 @@ theorem installBasisDeclF_push {env : Env} {fe : FEnv} (h : PushChain env fe)
 `checkDeclC`'s arms share this body). -/
 theorem checkBasisDeclC_push {env : Env} {fe : FEnv}
     (h : PushChain env fe) (kind : BasisKind) :
-    Yields (checkBasisDeclC fe kind) (fun fe' => PushChain env fe') := by
+    Yields (checkBasisDeclC mode fe kind) (fun fe' => PushChain env fe') := by
   have hfold : ∀ (fe' : FEnv), PushChain env fe' →
       Yields (kind.declsA.foldlM installBasisDeclF fe')
         (fun x => PushChain env x) :=
@@ -991,9 +1128,22 @@ theorem checkBasisDeclC_push {env : Env} {fe : FEnv}
         (g := fun u _ => u)
         (fun acc ci _ hacc => installBasisDeclF_push hacc ci)
         kind.declsA fe' () h'
+  -- the fold by its OWN rule, then K.49's gate (which only throws)
+  have htail : Yields
+      (do
+        let fe₂ ← kind.declsA.foldlM installBasisDeclF fe
+        unless certOnly mode (basisOwnMimicsOk fe₂.env kind.declsA) do
+          throw (CheckError.internal "basis: the pinned block carries a mimic recursor")
+        pure fe₂)
+      (fun fe' => PushChain env fe') := by
+    refine Yields.bind' (hfold fe h) (fun fe₂ hfe₂ => ?_)
+    yields
+    all_goals exact Yields.pure hfe₂
   unfold checkBasisDeclC
-  yields
-  all_goals exact hfold fe h
+  refine Yields.letFun ?_
+  repeat' first
+    | exact htail
+    | yields_step
 
 theorem checkDeclC_push (mode : CheckMode) {env : Env} {fe : FEnv}
     (h : PushChain env fe) (pd : Declaration) :

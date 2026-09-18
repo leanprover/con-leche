@@ -338,7 +338,7 @@ theorem famAt_of_pin {ψ : Name → Nat} {ρp : Nat → V} {X : Nat → V} {c : 
     d.famAt ψ ρp X c = d.pinCar ψ ρp X (c - d.k) := by simp only [famAt, if_neg hc]
 
 /-- **`ChainFitT` at a PIN class, read off the pin's constructors**
-(task #315 L-E, DESIGN §U.74): every reader is the pin's
+(task #315 L-E, DESIGN §U.86): every reader is the pin's
 (`rssT_of_pin` and friends), so the fit is the one
 `copyTransfer_via` takes, at the pin's own lists. -/
 theorem chainFitT_of_pin {d : BlockModel V} {pc : Nat → PinCtors V} {ψ : Name → Nat}

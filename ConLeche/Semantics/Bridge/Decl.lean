@@ -98,28 +98,54 @@ theorem foldlM_installBasisDecl_invR :
       exact ⟨Option.isNone_iff_eq_none.mpr hfresh,
         foldlM_installBasisDecl_invR l h⟩
 
+/-- K.49's gate, inverted: the step throws unless the Bool holds. -/
+theorem basisOwnMimicsCheck_inv {μ : CheckMode} {env₂ : Env} {l : List ConstantInfo}
+    {u : Unit} (h : ConLeche.basisOwnMimicsCheck (m := CheckM) μ env₂ l = .ok u) :
+    ConLeche.certOnly μ (ConLeche.basisOwnMimicsOk env₂ l) = true := by
+  unfold ConLeche.basisOwnMimicsCheck at h
+  split at h
+  · simp [throw, throwThe, MonadExceptOf.throw] at h
+  · rename_i hne
+    simpa using hne
+
 /-- **The pinned-block install, bridged.**  Stated over
 `checkBasisDecl` and not over `checkDecl`'s `.basisDecl` arm, because
 since task #293 three arms share that body: the fold's own
 `basisDecl` kind, a stream block `basisPinHit` recognises, and the
 first quotient record `quotPinHit` recognises. -/
-theorem declBasisRunOf {env env₂ : Env} {kind : BasisKind}
-    (h : checkBasisDecl (m := CheckM) env kind = .ok env₂) :
-    DeclBasisRun env kind env₂ := by
+theorem declBasisRunOf {μ : CheckMode} {env env₂ : Env} {kind : BasisKind}
+    (h : checkBasisDecl (m := CheckM) μ env kind = .ok env₂) :
+    DeclBasisRun μ env kind env₂ := by
   simp only [checkBasisDecl, Bind.bind, Except.bind] at h
+  have tail : ConLeche.basisInstallWith (m := CheckM) μ env kind.declsA = .ok env₂ →
+      BasisInstallRun env kind.declsA env₂ ∧
+        ConLeche.certOnly μ (ConLeche.basisOwnMimicsOk env₂ kind.declsA) = true := by
+    intro hh
+    unfold ConLeche.basisInstallWith at hh
+    simp only [Bind.bind, Except.bind] at hh
+    split at hh
+    case h_1 err hf => exact absurd hh (by simp)
+    case h_2 e hf =>
+      split at hh
+      case h_1 err hc => exact absurd hh (by simp)
+      case h_2 u hc =>
+        obtain rfl : e = env₂ := by simpa [pure, Except.pure] using hh
+        exact ⟨foldlM_installBasisDecl_invR _ hf, basisOwnMimicsCheck_inv hc⟩
   by_cases hk : kind = .quotK
   · subst hk
     by_cases hEq : env.find? eqName = some eqA
     · simp only [hEq, if_true] at h
-      exact ⟨fun _ => hEq, foldlM_installBasisDecl_invR _ h⟩
+      obtain ⟨hr, hc⟩ := tail h
+      exact ⟨fun _ => hEq, hr, hc⟩
     · simp [hEq] at h
   · simp only [if_neg hk] at h
-    exact ⟨fun hh => absurd hh hk, foldlM_installBasisDecl_invR _ h⟩
+    obtain ⟨hr, hc⟩ := tail h
+    exact ⟨fun hh => absurd hh hk, hr, hc⟩
 
 /-- **`basisDecl`, bridged.** -/
 theorem declBasisRun {μ : CheckMode} {F : Nat} {env env₂ : Env}
     {kind : BasisKind}
     (h : checkDecl μ (fueledOps μ F) pins env (.basisDecl kind) = .ok env₂) :
-    DeclBasisRun env kind env₂ := declBasisRunOf h
+    DeclBasisRun μ env kind env₂ := declBasisRunOf h
 
 end ConLeche.Semantics
