@@ -361,10 +361,10 @@
    103    pw : PropWhen
    104    deriving DecidableEq, Repr, Hashable
 
-== ConLeche/Verify/Cached/AgreeFloor.lean#L2280-L2282
-  2280  theorem checkDecls_skels {mode : CheckMode} {ds : Array Declaration}
-  2281      {env : Env} (h : checkDecls mode pins ds = .ok env) :
-  2282      envSkels env = streamSkels ds.toList := by
+== ConLeche/Verify/Cached/AgreeFloor.lean#L2336-L2338
+  2336  theorem checkDecls_skels {mode : CheckMode} {ds : Array Declaration}
+  2337      {env : Env} (h : checkDecls mode pins ds = .ok env) :
+  2338      envSkels env = streamSkels ds.toList := by
 
 == ConLeche/Term/Syntax.lean#L176-L205
    176    deriving Repr, DecidableEq, Inhabited

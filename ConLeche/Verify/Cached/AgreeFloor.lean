@@ -237,6 +237,26 @@ worth knowing before you start:
   instead — after that even `ofDecCases` is walking a term of the
   duplicated size.  `unfold` the clause and step; leave the join
   points standing.
+
+One more thing the walk needs, and it is the one place the kit's
+`with_reducible` discipline is deliberately broken: a guard's join
+point is bound by a `letFun` that `ylet` does NOT step (the goal's
+`letFun` is the dependent one, and reducible transparency will not
+instantiate its motive).  **`apply Yields.letFun` at DEFAULT
+transparency does**, and one such step peels a whole run of the
+clause's `have`s up to the next guard.  Two cautions come with it:
+
+* never put it in a `repeat`/`first` loop.  At default transparency
+  `letFun ?v ?f` unfolds to `?f ?v`, which matches ANY goal
+  vacuously — the loop then spins without progress.  One `apply`
+  before each guard, written out;
+* the peel copies the continuation into both of the guard's branches,
+  so close the failure branch on the NEXT line (`ofDecCases (fun _ =>
+  ofThrowBind) …`).  Then the copy dies immediately and the term stays
+  linear in the clause; delay it and the copies compound.
+
+`checkNestedS_push` in `PushChain.lean` is the worked example: twenty-two
+guard lines, twenty peels, and no `simp only []` anywhere.
 -/
 
 /-- The fold rule, with an abstraction `R` of the accumulator: if each
@@ -1517,6 +1537,42 @@ theorem Yields.mapM_map {α β γ : Type} {f : α → CheckCM β} {g : β → γ
       refine Yields.bind' (hf a) fun b hb => ?_
       refine Yields.bind' (Yields.mapM_map hf l) fun l' hl' => ?_
       exact Yields.pure (by simp [hb, hl'])
+
+/-- `List.mapM` POSITIONALLY: each result is related to the input it
+came from, read at the index.  (`Yields.mapM_map` is the value-level
+twin, for the case where the relation is an equation of maps.) -/
+theorem Yields.mapM_getElem {α β : Type} {f : α → CheckCM β} {P : α → β → Prop}
+    (hf : ∀ a, Yields (f a) (P a)) :
+    ∀ l : List α, Yields (l.mapM f)
+      (fun l' => ∀ (i : Nat) (x : β), l'[i]? = some x → ∃ a, l[i]? = some a ∧ P a x)
+  | [] => by
+      rw [List.mapM_nil]
+      exact Yields.pure (by intro i x hx; simp at hx)
+  | a :: l => by
+      rw [List.mapM_cons]
+      refine Yields.bind' (hf a) fun y hy => ?_
+      refine Yields.bind' (Yields.mapM_getElem hf l) fun l' hl' => ?_
+      refine Yields.pure ?_
+      intro i x hx
+      cases i with
+      | zero =>
+        simp only [List.getElem?_cons_zero, Option.some.injEq] at hx
+        subst hx
+        exact ⟨a, rfl, hy⟩
+      | succ n =>
+        simp only [List.getElem?_cons_succ] at hx
+        obtain ⟨a', ha', hP⟩ := hl' n x hx
+        exact ⟨a', by simpa using ha', hP⟩
+
+/-- An equation of maps, read at ONE index. -/
+theorem getElem?_of_map_eq {α β γ : Type} {f : α → γ} {g : β → γ}
+    {l₁ : List α} {l₂ : List β} (h : l₁.map f = l₂.map g) {i : Nat} {a : α}
+    (hi : l₁[i]? = some a) : ∃ c, l₂[i]? = some c ∧ f a = g c := by
+  have hkey : Option.map f l₁[i]? = Option.map g l₂[i]? := by
+    rw [← List.getElem?_map, ← List.getElem?_map, h]
+  rw [hi] at hkey
+  obtain ⟨c, hc, hgc⟩ := Option.map_eq_some_iff.mp hkey.symm
+  exact ⟨c, hc, hgc.symm⟩
 
 /-- A pointwise reading of a `map` equality. -/
 private theorem getD_of_map_eq {α β γ : Type} [Inhabited α] [Inhabited β]

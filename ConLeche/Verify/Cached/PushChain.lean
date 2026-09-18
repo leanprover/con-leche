@@ -9,6 +9,10 @@ import ConLeche.Verify.CheckerF
 -- scratch install's own skeleton pins
 import ConLeche.Verify.Inductives.NestedInv
 import ConLeche.Verify.Inductives.NestedAuxInv
+-- the elimination's and the restore's name facts: the auxiliary block's
+-- member count and member names, and K.39 as a theorem
+import ConLeche.Verify.Inductives.NestedElimInv
+import ConLeche.Verify.Inductives.NestedRecNames
 
 public section
 
@@ -697,6 +701,14 @@ theorem mutualShapeOk_nodup (b : MutualBlock) :
   yields
   all_goals (apply Yields.pure; assumption)
 
+/-- The block's shape guard, second reading: its constructors are
+grouped by the member they return. -/
+theorem mutualShapeOk_grouped (b : MutualBlock) :
+    Yields (mutualShapeOk (m := CheckCM) b) (fun _ => mutualCtorsGrouped b.ctors = true) := by
+  unfold mutualShapeOk
+  yields
+  all_goals (apply Yields.pure; assumption)
+
 /-- The formers' checks: every member's name is the declared one and
 is fresh at the block's starting index (the stage checks them ALL
 there — official's `check_inductive_types` runs before
@@ -1087,6 +1099,41 @@ theorem Yields.ofUnwrapOr {α : Type} {o : Option α} {e : CheckError} :
       exact hr.1.symm
     rw [this]
 
+/-- The first components a `zip` keeps are a sublist of the list they
+came from (the zip truncates at the shorter list). -/
+private theorem zip_fst_sublist {α β : Type} :
+    ∀ (l : List α) (l' : List β), ((l.zip l').map Prod.fst).Sublist l
+  | [], _ => by simp
+  | _ :: _, [] => by simp
+  | a :: l, _ :: l' => by
+      simp only [List.zip_cons_cons, List.map_cons]
+      exact (zip_fst_sublist l l').cons_cons a
+
+/-- The names a row map keeps: a `zip` truncates and the row map keeps
+the constant, so the stored names are a sublist of the checked ones. -/
+private theorem zip_rows_names_sublist {β γ : Type} (g : ConstantVal × β → ConstantVal × γ)
+    (hg : ∀ x, (g x).1 = x.1) :
+    ∀ (cvs : List ConstantVal) (l : List β),
+      (((cvs.zip l).map g).map (·.1.name)).Sublist (cvs.map (·.name))
+  | [], _ => by simp
+  | _ :: _, [] => by simp
+  | cv :: cvs, x :: l => by
+      simp only [List.zip_cons_cons, List.map_cons, hg]
+      exact (zip_rows_names_sublist g hg cvs l).cons_cons cv.name
+
+/-- A lifted `Except` yields its own answer. -/
+theorem Yields.ofNestedLift {α : Type} {r : Except CheckError α} :
+    Yields (nestedLift (m := CheckCM) r) (fun a => r = .ok a) := by
+  cases r with
+  | error e => intro s a s' hr; exact nomatch hr
+  | ok x =>
+    intro s a s' hr
+    have hx : a = x := by
+      unfold ConLeche.nestedLift at hr
+      simp only [Pure.pure, StateT.pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at hr
+      exact hr.1.symm
+    rw [hx]
+
 /-- The scratch install's shape check, read out of the whole call: the
 block's names are pairwise distinct, whatever else the install does. -/
 theorem checkMutualCoreS_nodup (mode : CheckMode) (fe : FEnv) (b : MutualBlock)
@@ -1096,6 +1143,17 @@ theorem checkMutualCoreS_nodup (mode : CheckMode) (fe : FEnv) (b : MutualBlock)
   simp only []
   refine Yields.bind' (mutualShapeOk_nodup b) fun _ hnd => ?_
   exact fun _ _ _ _ => hnd
+
+/-- The same call's grouping guard: a constructor is listed under the
+member it returns, which is what turns a position `(m, j)` of the
+read-back into the global index `ownOffset m + j`. -/
+theorem checkMutualCoreS_grouped (mode : CheckMode) (fe : FEnv) (b : MutualBlock)
+    (sr : Option (List (ConstantVal × List RecRule))) (g : Bool) :
+    Yields (checkMutualCoreS mode fe b sr g) (fun _ => mutualCtorsGrouped b.ctors = true) := by
+  unfold checkMutualCoreS
+  simp only []
+  refine Yields.bind' (mutualShapeOk_grouped b) fun _ hgr => ?_
+  exact fun _ _ _ _ => hgr
 
 /-- The pre-normalisation front door REFUSES a taken name, so a success
 is the name's freshness at the index it was checked against. -/
@@ -1177,6 +1235,241 @@ theorem nestedTablesF_push (w : StructWalkers) :
     unfold nestedTablesF
     refine Yields.bind' (nestedMemberTableF_push h T tbl? cs) fun fe' h' => ?_
     exact nestedTablesF_push w rest h'
+
+/-- A `Nodup` transported along a POSITIONAL naming bridge: if the
+`m`-th element of `l` is named as the `m`-th element of `l'`, then `l`'s
+names are distinct as soon as `l'`'s are.  This is how the read-back's
+lists inherit the scratch block's `blockNames.Nodup`. -/
+private theorem nodup_map_of_index_eq {α β : Type} {l : List α} {l' : List β}
+    {f : α → Name} {g : β → Name}
+    (hb : ∀ (m : Nat) (a : α), l[m]? = some a → ∃ c, l'[m]? = some c ∧ f a = g c)
+    (hnd : (l'.map g).Nodup) : (l.map f).Nodup := by
+  refine List.pairwise_iff_getElem.mpr ?_
+  intro i j hi hj hij
+  simp only [List.length_map] at hi hj
+  simp only [List.getElem_map]
+  obtain ⟨ci, hci, hfi⟩ := hb i l[i] (List.getElem?_eq_getElem hi)
+  obtain ⟨cj, hcj, hfj⟩ := hb j l[j] (List.getElem?_eq_getElem hj)
+  obtain ⟨hi', hci'⟩ := List.getElem?_eq_some_iff.mp hci
+  obtain ⟨hj', hcj'⟩ := List.getElem?_eq_some_iff.mp hcj
+  have hnd' := List.pairwise_iff_getElem.mp hnd i j
+    (by simpa using hi') (by simpa using hj') hij
+  simp only [List.getElem_map] at hnd'
+  rw [hfi, hfj, ← hci', ← hcj']
+  exact hnd'
+
+/-- **THE NESTED ROUTE'S PUSH CHAIN** (task #315 M8): `checkNestedS`
+grows the index by four cons functions and nothing else — the restored
+formers, the restored constructors, the restored recursors with their
+rules, and the structure-like members' projection tables.  The SCRATCH
+install's index is discarded (the restored block is consed onto the
+PRE-BLOCK index), and the rule-less provision is a side branch the
+rules are checked at, so neither reaches the output.
+
+Three of the four cons points need the consed names pairwise distinct,
+and all three distinctness facts come out of the SCRATCH install's own
+shape check (`b.blockNames.Nodup`, read out of the whole call by
+`checkMutualCoreS_nodup`):
+
+* the formers', through the read-back's positional naming
+  (`auxStoredAll_cvTa_name`);
+* the constructors', through the same read-back at the constructors
+  (`auxStoredAll_ctor_name`) and the block's grouping guard, which
+  turns a position `(m, j)` into the global index `ownOffset m + j`
+  (`restoredCtors_nodup_of_key`);
+* the recursors', through `restoredRecNames_nodup_of` — K.39 as a
+  THEOREM rather than as its `certOnly` Bool, which is `true` in
+  trusted mode and could not serve a chain that must hold in every
+  mode.
+
+**No hypothesis is taken.**  The read-back's naming facts are stated
+over the scratch index's SKELETON, and a `PushChain` is a skeleton
+statement about itself (`PushChain.skelIs`), so the walk can read the
+scratch install's data without being handed anything. -/
+theorem checkNestedS_push (mode : CheckMode) {env : Env} {fe : FEnv}
+    (h : PushChain env fe) (p : NestedParts) :
+    Yields (checkNestedS mode fe p) (fun fe' => PushChain env fe') := by
+  unfold checkNestedS
+  try ylet
+  refine Yields.ofDecCases (fun _ => Yields.ofThrowBind) (fun hg1 => ?_)
+  refine Yields.ofDecCases (fun _ => Yields.ofThrowBind) (fun hg2 => ?_)
+  ybind
+  refine Yields.bind' (nestedAnnotFormersF_names _ _ _ _) fun fmsA hfmsA => ?_
+  ybind
+  ybind
+  refine Yields.bind' Yields.ofNestedLift fun st hst0 => ?_
+  refine Yields.ofDecCases (fun _ => Yields.ofThrowBind) (fun hcnt => ?_)
+  refine Yields.ofDecCases (fun _ => Yields.ofThrowBind) (fun hfresh => ?_)
+  refine Yields.ofDecCases (fun _ => Yields.ofThrowBind) (fun hcont => ?_)
+  refine Yields.bind' Yields.ofUnwrapOr fun b hb => ?_
+  refine Yields.bind' (Yields.and (Yields.and (checkMutualCoreS_nodup mode fe b none true)
+      (checkMutualCoreS_grouped mode fe b none true))
+    (checkMutualCoreS_skels mode h.skelIs b none true)) fun feAux hAux => ?_
+  obtain ⟨⟨hnd, hgr⟩, hsk⟩ := hAux
+  refine Yields.bind' Yields.ofUnwrapOr fun stored hst => ?_
+  apply Yields.letFun
+  refine Yields.ofDecCases (fun _ => Yields.ofThrowBind) (fun _ => ?_)
+  ybind
+  ybind
+  apply Yields.letFun
+  refine Yields.ofDecCases (fun _ => Yields.ofThrowBind) (fun hmem => ?_)
+  apply Yields.letFun
+  refine Yields.ofDecCases (fun _ => Yields.ofThrowBind) (fun _ => ?_)
+  apply Yields.letFun
+  refine Yields.ofDecCases (fun _ => Yields.ofThrowBind) (fun _ => ?_)
+  apply Yields.letFun
+  refine Yields.ofDecCases (fun _ => Yields.ofThrowBind) (fun _ => ?_)
+  apply Yields.letFun
+  refine Yields.ofDecCases (fun _ => Yields.ofThrowBind) (fun _ => ?_)
+  apply Yields.letFun
+  refine Yields.ofDecCases (fun _ => Yields.ofThrowBind) (fun _ => ?_)
+  apply Yields.letFun
+  refine Yields.ofDecCases (fun _ => Yields.ofThrowBind) (fun _ => ?_)
+  apply Yields.letFun
+  refine Yields.ofDecCases (fun _ => Yields.ofThrowBind) (fun _ => ?_)
+  -- (1) THE RESTORED FORMERS' CONS: fresh at the PRE-BLOCK index by the
+  -- route's own guard, distinct because the scratch block's names are
+  have htake : ∀ (m : Nat) (a : AuxStored), (List.take p.k stored)[m]? = some a →
+      stored[m]? = some a := by
+    intro m a ha
+    rw [List.getElem?_take] at ha
+    split at ha
+    · exact ha
+    · exact absurd ha (by simp)
+  have hbridge := auxStoredAll_cvTa_name hsk hst
+  have hndM : ((List.take p.k stored).map (·.cvTa.name)).Nodup := by
+    refine nodup_map_of_index_eq (l' := b.formers) (g := fun f => f.1.name) ?_
+      (nodup_members_of_blockNames hnd)
+    intro m a ha
+    obtain ⟨cv, hfm, hnm⟩ := hbridge m a (htake m a ha)
+    exact ⟨(cv, a.nIdx), hfm, hnm⟩
+  have hfrM : ∀ n ∈ (List.take p.k stored).map (fun a => a.cvTa.name), fe.env.find? n = none := by
+    intro n hn
+    obtain ⟨a, ha, rfl⟩ := List.mem_map.mp hn
+    have hall := (List.all_eq_true.mp hmem) a ha
+    simp only [Bool.and_eq_true] at hall
+    rw [← h.find?]
+    exact Option.isNone_iff_eq_none.mp (by simpa using hall.2)
+  have h₁ : PushChain env (consNestedFormersF (List.take p.k stored) fe) :=
+    consNestedFormersF_push h ⟨hndM, hfrM⟩
+  apply Yields.letFun
+  ybind
+  ybind
+  ybind
+  ybind
+  ybind
+  -- (2) THE RESTORED CONSTRUCTORS' CONS: each restored constructor is
+  -- checked at the formers' index it is pushed onto, and the names are
+  -- the scratch block's own — so the block's `Nodup` is the list's
+  refine Yields.bind' (Yields.mapM_getElem
+    (fun a : AuxStored => Yields.and (restoreCtorsF_fresh _ _ _ _ a.ctors)
+      (restoreCtorsF_names _ _ _ _ a.ctors)) _) fun ctorsR hctorsR => ?_
+  have hbridgeC := auxStoredAll_ctor_name hsk hst
+  have hndC : (ctorsR.flatten.map (·.1.name)).Nodup := by
+    refine restoredCtors_nodup_of_key (b := b) (N := b.ctors.map (·.cv.name))
+      (nodup_ctors_of_blockNames hnd) ?_
+    intro mm j l c hl hc
+    obtain ⟨a, ha, -, hnames⟩ := hctorsR mm l hl
+    obtain ⟨c', hc', heq⟩ := getElem?_of_map_eq hnames hc
+    have hname : c.1.name = c'.1.name := congrArg (·.1) heq
+    obtain ⟨J, mc, hown, hnm⟩ := hbridgeC mm a (htake mm a ha) j c' hc'
+    obtain ⟨hctor, -⟩ := ownCtors_getElem?_ctors hown
+    refine ⟨(List.getElem?_eq_some_iff.mp hown).1, ?_⟩
+    rw [List.getElem?_map, ← ownCtors_getElem?_idx hgr hown, hctor, hname, hnm]
+    rfl
+  have hfrC : ∀ n ∈ ctorsR.flatten.map (fun c => c.1.name),
+      (consNestedFormersF (List.take p.k stored) fe).env.find? n = none := by
+    intro n hn
+    obtain ⟨c, hc, rfl⟩ := List.mem_map.mp hn
+    obtain ⟨l, hl, hcl⟩ := List.mem_flatten.mp hc
+    obtain ⟨mm, hmm⟩ := List.getElem?_of_mem hl
+    obtain ⟨-, -, hfresh, -⟩ := hctorsR mm l hmm
+    rw [← h₁.find?]
+    exact hfresh c hcl
+  have h₂ : PushChain env
+      (consNestedCtorsF ctorsR.flatten (consNestedFormersF (List.take p.k stored) fe)) :=
+    consNestedCtorsF_push h₁ ⟨hndC, hfrC⟩
+  -- (3) THE RESTORED RECURSORS' CONS: the names are the route's own
+  -- (`T_m.rec` and the mimics'), and they are distinct because the
+  -- block's members are — K.39's content, which a `certOnly` Bool
+  -- could not supply (it is `true` in trusted mode)
+  have hlenS : stored.length = p.k + p.numNested := by
+    rw [(auxStoredAll_get hst).1,
+      auxBlock_k_count_of (by
+        have := congrArg List.length hfmsA
+        simpa [NestedParts.k] using this) hst0 hb]
+    exact congrArg (p.k + ·) (by simpa using hcnt)
+  have hndP : p.memberNames.Nodup := by
+    rw [← auxBlock_memberNames_of hfmsA hst0 hb]
+    exact (List.take_sublist p.k b.memberNames).nodup
+      ((List.nodup_append.mp (List.nodup_append.mp hnd).1).1)
+  have hndRec := restoredRecNames_nodup_of hndP p.numNested
+  apply Yields.letFun
+  ybind
+  refine Yields.bind' (Yields.and (restoreRecTysF_fresh _ _ _ _ _ (List.take p.k stored))
+    (restoreRecTysF_names _ _ _ _ _ (List.take p.k stored)
+      (by simp only [List.length_take, List.length_map, List.length_range]; omega)))
+    fun cvRms hcvRms => ?_
+  refine Yields.bind' (Yields.and (restoreRecTysF_fresh _ _ _ _ _ (List.drop p.k stored))
+    (restoreRecTysF_names _ _ _ _ _ (List.drop p.k stored)
+      (by simp only [List.length_drop, List.length_map, List.length_range, hlenS]; omega)))
+    fun cvRns hcvRns => ?_
+  obtain ⟨hfrM, hnmM⟩ := hcvRms
+  obtain ⟨hfrN, hnmN⟩ := hcvRns
+  have hndStore : ((cvRms.map (·.name)) ++ (cvRns.map (·.name))).Nodup := by
+    rw [hnmM, hnmN]
+    exact ((List.take_sublist _ _).append (List.take_sublist _ _)).nodup hndRec
+  refine Yields.ofDecCases (fun _ => Yields.ofThrowBind) (fun _ => ?_)
+  apply Yields.letFun
+  refine Yields.ofDecCases (fun _ => Yields.ofThrowBind) (fun _ => ?_)
+  apply Yields.letFun
+  ybind
+  ybind
+  ybind
+  refine Yields.ofDecCases (fun _ => Yields.ofThrowBind) (fun _ => ?_)
+  rename_i rulesM rulesN _
+  -- the stored group's names are a sublist of the restored types' own
+  have hsub3 := ((zip_rows_names_sublist
+      (fun x : ConstantVal × AuxStored × List RecRule => (x.1, x.2.1.mI, x.2.1.rP, x.2.2))
+      (fun _ => rfl) cvRms ((List.take p.k stored).zip rulesM)).append
+    (zip_rows_names_sublist
+      (fun x : ConstantVal × AuxStored × List RecRule => (x.1, x.2.1.mI, x.2.1.rP, x.2.2))
+      (fun _ => rfl) cvRns ((List.drop p.k stored).zip rulesN)))
+  have h₃ : PushChain env (storeNestedRecsF
+      ((cvRms.zip ((List.take p.k stored).zip rulesM)).map
+          (fun x : ConstantVal × AuxStored × List RecRule => (x.1, x.2.1.mI, x.2.1.rP, x.2.2))
+        ++ (cvRns.zip ((List.drop p.k stored).zip rulesN)).map
+          (fun x : ConstantVal × AuxStored × List RecRule => (x.1, x.2.1.mI, x.2.1.rP, x.2.2)))
+      (consNestedCtorsF ctorsR.flatten (consNestedFormersF (List.take p.k stored) fe))) := by
+    refine storeNestedRecsF_push h₂ ⟨?_, ?_⟩
+    · rw [List.map_append]
+      exact hsub3.nodup hndStore
+    · intro n hn
+      rw [List.map_append] at hn
+      rw [← h₂.find?]
+      rcases List.mem_append.mp (hsub3.subset hn) with hm | hm
+      · obtain ⟨cv, hcv, rfl⟩ := List.mem_map.mp hm
+        exact hfrM cv hcv
+      · obtain ⟨cv, hcv, rfl⟩ := List.mem_map.mp hm
+        exact hfrN cv hcv
+  apply Yields.letFun
+  ybind
+  refine Yields.bind' (nestedTablesF_push structWalkersC _ h₃) fun fe₄ h₄ => ?_
+  ybind
+  ybind
+  apply Yields.letFun
+  refine Yields.ofDecCases (fun _ => Yields.ofThrowBind) (fun _ => ?_)
+  apply Yields.letFun
+  refine Yields.ofDecCases (fun _ => Yields.ofThrowBind) (fun _ => ?_)
+  apply Yields.letFun
+  ybind
+  apply Yields.letFun
+  refine Yields.ofDecCases (fun _ => Yields.ofThrowBind) (fun _ => ?_)
+  apply Yields.letFun
+  refine Yields.ofDecCases (fun _ => Yields.ofThrowBind) (fun _ => ?_)
+  apply Yields.letFun
+  refine Yields.ofDecCases (fun _ => Yields.ofThrowBind) (fun _ => ?_)
+  exact Yields.pure h₄
 
 /-! ## The declaration clause and the two drivers' steps -/
 

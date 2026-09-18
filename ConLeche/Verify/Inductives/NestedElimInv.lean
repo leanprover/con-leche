@@ -393,6 +393,19 @@ theorem auxBlock_k {p : NestedParts} {st : ElimState} {b : MutualBlock}
   obtain ⟨formers, hformers, rfl⟩ := h
   exact mapM_option_length hformers
 
+/-- **THE AUXILIARY BLOCK'S MEMBER COUNT**, from the annotated formers'
+LENGTH alone (task #315 M8): the block's own `k` formers followed by one
+mimic per pin.  The pure route reads the length off its own run, the
+cached mirror off the stage's name map — neither reading is needed
+here. -/
+theorem auxBlock_k_count_of {env : Env} {p : NestedParts}
+    {fmsA ctorsA : List ConstantVal} {st : ElimState} {b : MutualBlock}
+    (hlenF : fmsA.length = p.k)
+    (he : elimNested env p.nP p.lps (nestedTypes0 p fmsA ctorsA) = .ok st)
+    (hb : auxBlock p st = some b) :
+    b.k = p.k + st.pins.length := by
+  rw [auxBlock_k hb, elimNested_types_length he, nestedTypes0_length, hlenF]
+
 /-- **THE AUXILIARY BLOCK'S MEMBER COUNT**: the block's own `k` formers
 followed by one mimic per pin. -/
 theorem auxBlock_k_count {env : Env} {p : NestedParts} {F : Nat}
@@ -400,10 +413,8 @@ theorem auxBlock_k_count {env : Env} {p : NestedParts} {F : Nat}
     (hf : nestedAnnotFormers (m := CheckM) (fueledOps mode F) env p.nP p.formers = .ok fmsA)
     (he : elimNested env p.nP p.lps (nestedTypes0 p fmsA ctorsA) = .ok st)
     (hb : auxBlock p st = some b) :
-    b.k = p.k + st.pins.length := by
-  rw [auxBlock_k hb, elimNested_types_length he, nestedTypes0_length,
-    nestedAnnotFormers_length hf]
-  rfl
+    b.k = p.k + st.pins.length :=
+  auxBlock_k_count_of (by rw [nestedAnnotFormers_length hf]; rfl) he hb
 
 /-! ## (C) `mkCopy`, inverted -/
 

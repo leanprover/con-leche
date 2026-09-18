@@ -104729,3 +104729,49 @@ walk's `…_skels` lemmas ask for `SkelIs`, and the push proof already
 carries a chain.  (Two introduction rules were exposed for it,
 `canon_self` and `SkelIs.self`, since `Canon`'s and `SkelIs`'s bodies
 are private to `AgreeFloor`.)
+
+### The push assembly LANDS, and it needs no hypothesis
+
+`checkNestedS_push` is proved: an accepted nested install is a chain of
+fresh pushes from the pre-block index, and **the theorem takes no
+premise beyond the incoming chain** — the recogniser fact the scaffold
+had planned for (`nestedParts?`'s recursor-name `Nodup`) turned out to
+be unnecessary.  All three distinctness obligations come out of the
+SCRATCH install's own shape check, read out of the whole call:
+
+* the formers', by the read-back's positional naming
+  (`auxStoredAll_cvTa_name`) against `b.blockNames.Nodup`;
+* the constructors', by the same read-back at the constructors
+  (`auxStoredAll_ctor_name`) plus the block's GROUPING guard — which is
+  what turns a read-back position `(m, j)` into the global constructor
+  index `ownOffset m + j`, and so into `b.ctors`' own `Nodup`.  The
+  grouping is a second reading of the same call
+  (`checkMutualCoreS_grouped`);
+* the recursors', by `restoredRecNames_nodup_of` — K.39 as a THEOREM.
+  Its `certOnly` Bool could not have served: it is `true` in trusted
+  mode, and a push chain must hold in every mode.
+
+Three lemmas were refactored so that both routes read them, rather than
+being duplicated for the mirror: `restoredCtors_nodup_of_key` (the
+run-free core of the pure route's `restoredCtors_nodup` — the pure
+route feeds it the key from its runs, the cached mirror from the
+read-back's skeleton), `auxBlock_k_count_of` (the auxiliary block's
+member count from the annotated formers' LENGTH alone), and
+`mutualShapeOk_grouped`.  Two general kit lemmas came out of it:
+`Yields.mapM_getElem` (a `mapM` read positionally) and
+`getElem?_of_map_eq`.
+
+The walk itself is the idiom's first full-size exercise and it came out
+exactly as predicted: **twenty-two `Yields.ofDecCases` lines, none of
+which names a guard's condition**, twenty join-point peels, and no
+`simp only []` anywhere.  The peel is the one place the kit's
+`with_reducible` discipline is deliberately broken — `ylet` does not
+step the do-block's `have`, `apply Yields.letFun` at default
+transparency does, and it is safe only because the failure branch is
+closed on the next line.  Both halves are documented where the next
+cached-walk author meets them (the `Yields` kit's "Walking a WIDE
+clause" section), with this proof named as the worked example.
+
+No executable path changed: the assembly is proof-only, and the three
+refactors are restatements of existing Verify lemmas, so the DAG
+falsifier's instruction count is unchanged by construction.

@@ -943,6 +943,46 @@ theorem restoredCtors_nP {env envAux envR : Env} {p : NestedParts} {b : MutualBl
   obtain ⟨j, hj⟩ := List.getElem?_of_mem hcl
   exact (hkey mm j l c hmm hj).1
 
+/-- **THE RUN-FREE CORE** (task #315 M8): the flattened restored
+constructors' names are pairwise distinct as soon as the POSITIONAL
+KEY holds — position `(mm, j)` of `ctorsR` carries the name that sits
+at `ownOffset mm + j` of a `Nodup` name list.  Whatever produced
+`ctorsR` is irrelevant: the pure route reads the key off its runs
+(`restoredCtors_at`), the cached mirror off the read-back's skeleton
+(`auxStoredAll_ctor_name`), and both land here. -/
+theorem restoredCtors_nodup_of_key {b : MutualBlock} {N : List Name} (hndA : N.Nodup)
+    {ctorsR : List (List (ConstantVal × Nat × Nat))}
+    (hidx : ∀ (mm j : Nat) (l : List (ConstantVal × Nat × Nat)) (c : ConstantVal × Nat × Nat),
+      ctorsR[mm]? = some l → l[j]? = some c →
+        j < (b.ownCtors mm).length ∧ N[b.ownOffset mm + j]? = some c.1.name) :
+    (ctorsR.flatten.map (·.1.name)).Nodup := by
+  rw [List.map_flatten]
+  refine List.pairwise_flatten.mpr ⟨?_, ?_⟩
+  · intro l hl
+    obtain ⟨lr, hlr, rfl⟩ := List.mem_map.mp hl
+    obtain ⟨mm, hmm⟩ := List.getElem?_of_mem hlr
+    refine List.pairwise_map.mpr (List.pairwise_iff_getElem.mpr ?_)
+    intro i j hi hj hij hEq
+    obtain ⟨-, h1⟩ := hidx mm i lr lr[i] hmm (List.getElem?_eq_getElem hi)
+    obtain ⟨-, h2⟩ := hidx mm j lr lr[j] hmm (List.getElem?_eq_getElem hj)
+    rw [hEq] at h1
+    have := restoredCtors_nodup_idx hndA h1 h2
+    omega
+  · refine List.pairwise_map.mpr (List.pairwise_iff_getElem.mpr ?_)
+    intro i j hi hj hij x hx y hy hEq
+    obtain ⟨cx, hcx, rfl⟩ := List.mem_map.mp hx
+    obtain ⟨cy, hcy, rfl⟩ := List.mem_map.mp hy
+    obtain ⟨jx, hjx⟩ := List.getElem?_of_mem hcx
+    obtain ⟨jy, hjy⟩ := List.getElem?_of_mem hcy
+    obtain ⟨hbx, h1⟩ := hidx i jx _ cx (List.getElem?_eq_getElem hi) hjx
+    obtain ⟨-, h2⟩ := hidx j jy _ cy (List.getElem?_eq_getElem hj) hjy
+    rw [hEq] at h1
+    have heq2 := restoredCtors_nodup_idx hndA h1 h2
+    have hmono : b.ownOffset (i + 1) ≤ b.ownOffset j := restoredCtors_offset_mono hij
+    rw [ownOffset_succ] at hmono
+    omega
+
+
 /-- **The restored constructors' names are pairwise distinct**. -/
 theorem restoredCtors_nodup {env envAux envR : Env} {p : NestedParts} {b : MutualBlock} {F : Nat}
     {fms : List MutualFormerA} {isProp : Bool} {ctorsA : List (ConstantVal × Nat)}
@@ -975,30 +1015,5 @@ theorem restoredCtors_nodup {env envAux envR : Env} {p : NestedParts} {b : Mutua
     refine ⟨hjl, ?_⟩
     rw [List.getElem?_map, hcA, hn]
     rfl
-  rw [List.map_flatten]
-  refine List.pairwise_flatten.mpr ⟨?_, ?_⟩
-  · intro l hl
-    obtain ⟨lr, hlr, rfl⟩ := List.mem_map.mp hl
-    obtain ⟨mm, hmm⟩ := List.getElem?_of_mem hlr
-    refine List.pairwise_map.mpr (List.pairwise_iff_getElem.mpr ?_)
-    intro i j hi hj hij hEq
-    obtain ⟨-, h1⟩ := hidx mm i lr lr[i] hmm (List.getElem?_eq_getElem hi)
-    obtain ⟨-, h2⟩ := hidx mm j lr lr[j] hmm (List.getElem?_eq_getElem hj)
-    rw [hEq] at h1
-    have := restoredCtors_nodup_idx hndA h1 h2
-    omega
-  · refine List.pairwise_map.mpr (List.pairwise_iff_getElem.mpr ?_)
-    intro i j hi hj hij x hx y hy hEq
-    obtain ⟨cx, hcx, rfl⟩ := List.mem_map.mp hx
-    obtain ⟨cy, hcy, rfl⟩ := List.mem_map.mp hy
-    obtain ⟨jx, hjx⟩ := List.getElem?_of_mem hcx
-    obtain ⟨jy, hjy⟩ := List.getElem?_of_mem hcy
-    obtain ⟨hbx, h1⟩ := hidx i jx _ cx (List.getElem?_eq_getElem hi) hjx
-    obtain ⟨-, h2⟩ := hidx j jy _ cy (List.getElem?_eq_getElem hj) hjy
-    rw [hEq] at h1
-    have heq2 := restoredCtors_nodup_idx hndA h1 h2
-    have hmono : b.ownOffset (i + 1) ≤ b.ownOffset j := restoredCtors_offset_mono hij
-    rw [ownOffset_succ] at hmono
-    omega
-
+  exact restoredCtors_nodup_of_key hndA hidx
 end ConLeche
