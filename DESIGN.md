@@ -82467,6 +82467,163 @@ ledger, not the tree: *the arena gate measures the tutorial suite, and
 says so*, and the twenty `bad/` streams outside it are refused today by
 a checker that nothing asks to keep refusing them.
 
+##### (aa) INTEGRATION 3s — THE MERGE THAT STOPPED AT ITS FIRST ITEM: a clause complete on its own tree meets a producer that exists only here (session U-41)
+
+Five merges were pinned.  **Merge 1 was resolved, built, FAILED, and
+REVERTED**; merges 2, 3 and 5 landed; merges 1 and 4 are deferred to
+3t by the maintainer, because 4's lane waits on 1's clause.  The
+branch never left a green state: the abort put it back at 4f66960d and
+a full rebuild confirmed 722 jobs warning-free before anything else
+was attempted.
+
+* `agent/uniform-ident` **200d6c00** (L-B sessions 24–28) at **89aeb280**;
+* `agent/uniform-entry` **7e6135e6** (L-E sessions 36–38) at **36bc39cf**;
+* `agent/uniform-m7read` **33987379** (M7-2 sessions 28–29) at **c37a6b0e**.
+
+**FOUR RESIDUALS LEFT THE LIST IN ONE INTEGRATION**, which is the most
+any has cleared: the nested route closed over SEVEN named facts after
+3r and closes over **FOUR** now.
+
+###### (aa-1) WHY MERGE 1 STOPPED — a census sees only the producers in the tree it runs on
+
+The kernel lane's `ConstWF` major-premise clause is **complete and
+unconditional on its own branch**, and its own record says so: *"No new
+lemma is needed anywhere: every generator fact is proved, K.55 and K.56
+are recorded, and what is left is passing lengths through five
+signatures."*  That was true of the tree it was measured on.  It is
+**false of this one**, and the reason is structural rather than a
+mistake in the census:
+
+**`ConLeche/Verify/Inductives/NestedRecsWF.lean` does not exist on
+`agent/uniform-m5`** (verified with `git cat-file`).  It is lane M7-2's
+restored-recursor producer and has been on the integration branch since
+3q.  So the lane enumerated SIX producers; the integration branch has a
+**SEVENTH**, and the seventh is precisely the one the lane had already
+measured and deferred — §"THE RESTORE KEEPS THE HEAD A CONSTANT —
+MEASURED, and the proof's two missing pieces named": 284 restored
+recursors, zero bad heads, ~120–150 lines, with the `pins`-key case
+named as "the only case with content".
+
+`structConstWF` now demands `hmaj : ∀ cv mI rP rules, c = .recInfo … →
+Expr.recMajorHeadOk cv.type mI = true` **unconditionally**, while
+`nested_recs_wf`'s hypothesis supplies exactly that shape —
+`x.1.type.stripPis x.2.1 = some (pre, .forallE dom body bm) ∧
+dom.getAppFn = .const D lvls` — **only under
+`RecRule.fire r = .nested lvls pins`, per rule**.  That is not an
+adaptation an integrator can write; it is the lane's own sized proof,
+and it was left alone.
+
+**THE RULE, and it extends the one that lane already had.**  That lane
+learned *a census sees only the first error per file*.  This is
+different in kind: **a census sees only the PRODUCERS THAT EXIST in the
+tree it runs on.**  A lane completing a tier-wide invariant clause
+off-integration will enumerate the producers on its branch and no
+others, and its "no new lemma is needed" will be true locally and false
+globally.  **The remedy is ordering: sync a lane BEFORE it closes
+something tier-wide, not after.**
+
+A second failure in the same merge is the ordinary shape of that
+hazard: `Model/Inductives/NestedRecsStore.lean` exists on BOTH sides,
+git merged the two edits with no conflict, and the result is off by
+one — `ConstWF` went from eight conjuncts to nine with the new one
+**sixth**, so every projection chain reaching past the fifth shifts
+(`I.recCvDoor`'s seven-step chain becomes eight), and an `hlt` arity
+moves with it.  **A structure that gains a field in the middle breaks
+every positional consumer silently**, and a clean auto-merge is exactly
+when nobody looks.
+
+###### (aa-2) WHAT WAS RESCUED FROM THE REVERTED MERGE
+
+The resolutions are kept at `_tmp/uniform-315/3s-m1-*.bak` so 3t need
+not redo them.  One is load-bearing: the kernel lane's commit DELETES
+the region of `Verify/Inductives/NestedRecDoor.lean` holding its
+telescope kit (moved to `MutualWF.lean`), and lane M7-2's
+`mutualRecTy_major` — the major-BINDER lemma, HEAD-only, with a live
+consumer at `NestedRecRule.lean` — sits INSIDE that region.  Taking the
+deletion wholesale loses it.  It was relocated into `MutualWF.lean`
+beside the kit it consumes, after checking that `NestedRecRule` already
+reaches that module (so no import edge is added) and that `MutualWF`
+does not reach `NestedRecDoor` (so no cycle).  **A deletion that is
+correct on one side and destructive on the other is what a merge is
+for.**
+
+The lane had independently ADOPTED integration 3r's
+`mutualRecTy_majorDom` rename, so the name collision 3r resolved did
+not recur — the first time a rename made at integration came back
+already applied.
+
+###### (aa-3) THE THREE MERGES, and the numbering
+
+**Merge 2 (L-B).**  The REFLEXIVE `ordF`-right arm is written
+(`copyOrdFRightReadRefl`, at a MEMBER target) and the two
+ordinary-field residuals are merged into ONE carrying a disjunction
+over both field kinds, so `nestedPinsShape_of` takes `hOrd` and `hPin`
+and nothing else.  `NestedPinsShapeOrdRightRefl` — which 3r recorded as
+"no longer refuted, merely open" — is gone.
+
+**Merge 3 (L-E).**  `NestedReadLaw` PROVED and UNWIRED, a residual
+retired; and `NestedPinSynFacts.pinSem`, the per-pin lemma lane L-B
+needs for its last clauses, **DERIVED off `groups` rather than
+recorded**, so no producer of that record owes anything new.
+
+**Merge 5 (M7-2).**  `NestedTablesDataOf` and `NestedRuleBitsOf` are
+both theorems now (K.50's face needed no record at all — the rescue
+bits are `recRuleBits`' own verdict), so `nestedTailModeled_of_face`
+closes `NestedTailModeled` from **K.36 alone**, where 3r's chain took
+three named facts.
+
+**ONE NUMBER MOVED, and the fault is the integrator's.**  Lane L-B
+numbered sessions 24–27 as §U.106–§U.109 — the 3r sync's own
+assignment — and then took **§U.110** for session 28.  §U.110 had been
+reserved at that sync for lane M7-3's session 21, **on that lane's
+branch only**.  Landed-outranks-arriving does not decide it, since
+neither has landed here; the reservation stands because it is recorded
+in three places and M7-3's branch already carries it, so session 28
+becomes **§U.114** (§U.111–§U.113 being lane L-E's, merged next).  One
+header, no citation anywhere.  **The lesson: a number reserved on a
+lane branch is invisible to every other lane, so a reservation that is
+not also recorded on the integration branch WILL be taken again.**
+
+Merges 3 and 5 needed no renumbering at all: L-E's §U.111–§U.113 are
+exactly what the sync assigned, with its citation corrections already
+applied, and M7-2's §U.29 letters (xxxx)–(eeeee) collide with nothing.
+
+###### (aa-4) THE RESIDUAL AFTER 3s
+
+* **`NestedPinsShape V μ F`** — `nestedPinsShape_of` over **TWO**:
+  `NestedPinsShapeOrdRight` (now over both field kinds) and
+  `NestedPinsShapePinF`, both lane L-B's.
+* **`NestedPinsEntry V μ F`** — the shape plus **`NestedPinsLe`**
+  (lane L-E).
+* **`NestedTailModeled V μ F`** — **`NestedCtorPinNamesOf` (K.36)
+  ALONE**.
+* **M8** — `ModeledStepB`.
+
+Seven after 3r, four now.
+
+###### (aa-5) GATES
+
+At all three merge commits: `lake build` **722 jobs** warning-free,
+`lake test` warning-free, layering base 353 / model 286 / caps 3 /
+umbrella 1 with 0 base→lane and 0 impl→theory, trust surface 13 escapes
+in 5 allowlisted files (654 scanned), no-local-paths OK, overview-links
+**112**, quote-gate **2**, proofdeps **4965 rows / 12 roots / 0 doors**
+— the baseline, unmoved — shake 510/510 allowlisted, pub-imports none
+demotable (1334 of 2221, 2225 after merge 5), **nested-shadow 37/37**.
+`tests/arena.sh` was not re-run: none of the three merges moves checker
+code.  No `sorry`, no axioms, no `maxHeartbeats`.
+
+**The chain, verified** (`_tmp/uniform-315/chain-probe-u41.lean`,
+outside the build): `probe_decl_all` closes over EXACTLY `hOrd`,
+`hPin`, `hLe` and `hK36` plus the run; `declMutualB`, `declNativeB` and
+`basisStepB_of` over nothing beyond their runs;
+`checkDeclsPure_soundB_of` over `ModeledStepB` alone.  `#print axioms`
+of the ten probe theorems, of `nestedPinsEntry_of_le_all` and of
+`copyPinFCorr`: `[propext, Classical.choice, Quot.sound]`.
+
+Cost: one session.  Next: the kernel lane closes the seventh producer
+on the synced tree, then 3t takes merges 1 and 4.
+
 #### K.32 — the copies' recursive targets come from the container's own recursion (2026-09-16, task #315, lane L-B's DESIGN §U.23 (e))
 
 The model's `ordF` arm needs to know that a container-ORDINARY field
