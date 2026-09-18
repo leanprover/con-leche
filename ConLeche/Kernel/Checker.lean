@@ -424,17 +424,37 @@ def checkReducePin (ops : CheckerOps m) (env env2 : Env) (c : Name)
   else throw (.notImplemented
     s!"unsupported compiler-trust opaque declaration ({c})")
 
+/-- **THE PINNED BLOCK'S OWN-PIN TABLE IS EMPTY** (task #315 K.49): a
+pinned block installs no mimic recursor, so `containerOwnPinsAt` of it
+is `some []` at every instantiation.  K.43 records this at the three
+INSTALL routes; a pinned block goes through none of them, so the basis
+install records it itself.  CERTIFICATION-ONLY, gated; a failure is
+`.internal`.  A named step, so that the run relation's inversion is one
+lemma rather than a shape argument about the fold's `do`-block. -/
+def basisOwnMimicsCheck (mode : CheckMode) (env₂ : Env) (l : List ConstantInfo) : m Unit :=
+  if !certOnly mode (basisOwnMimicsOk env₂ l) then
+    throw (.internal "basis: the pinned block carries a mimic recursor")
+  else pure ()
+
+/-- The pinned conses followed by K.49's gate.  A named step, so that
+the run relation's inversion is one lemma about THIS function rather
+than a shape argument about `checkBasisDecl`'s `do`-block. -/
+def basisInstallWith (mode : CheckMode) (env : Env) (l : List ConstantInfo) : m Env := do
+  let env₂ ← l.foldlM installBasisDecl env
+  basisOwnMimicsCheck mode env₂ l
+  pure env₂
+
 /-- **Install the pinned (pre-annotated) basis block.**  The three
 records that install one — the fold's own `basisDecl` kind, a stream
 block `basisPinHit` recognises and a quotient record `quotPinHit`
 recognises — share this body, so what is proved of one is proved of
 all three.  The quotient block's types mention the pinned equality
 former. -/
-def checkBasisDecl (env : Env) (kind : BasisKind) : m Env := do
+def checkBasisDecl (mode : CheckMode) (env : Env) (kind : BasisKind) : m Env := do
   if kind = .quotK then
     unless env.find? eqName = some eqA do
       throw (.notImplemented "quotient basis requires the pinned Eq basis")
-  kind.declsA.foldlM installBasisDecl env
+  basisInstallWith mode env kind.declsA
 
 /-- Check a single declaration, extending the environment on success. -/
 def checkDecl (ops : CheckerOps m) (pins : List NatOpPinSet) (env : Env)
@@ -562,7 +582,7 @@ def checkDecl (ops : CheckerOps m) (pins : List NatOpPinSet) (env : Env)
         pure env
       else
         throw (.notImplemented s!"non-standard axiom ({cv.name})")
-  | .basisDecl kind => checkBasisDecl env kind
+  | .basisDecl kind => checkBasisDecl ops.mode env kind
   | .indDecl block nP =>
     -- **THE PINNED BASIS BLOCKS** (task #293).  A stream's `Nat` block
     -- arrives as an ordinary `indDecl` — the decoder emits the file's
@@ -575,7 +595,7 @@ def checkDecl (ops : CheckerOps m) (pins : List NatOpPinSet) (env : Env)
     -- `checkConstantVal`'s reserved-name check REJECTS it: a basis
     -- redefinition is invalid input (task #181's ruling).
     match basisPinHit block with
-    | some kind => checkBasisDecl env kind
+    | some kind => checkBasisDecl ops.mode env kind
     | none =>
     -- TASK #228 — THE DECLARED PARAMETER COUNT, first and for both
     -- routes.  Official reads `nparams` off the declaration and checks
@@ -627,7 +647,7 @@ def checkDecl (ops : CheckerOps m) (pins : List NatOpPinSet) (env : Env)
     -- fold.
     if quotPinHit k cv then
       (match k with
-       | .type => checkBasisDecl env .quotK
+       | .type => checkBasisDecl ops.mode env .quotK
        | _ => pure env)
     else throw (.notImplemented (match k with
       | .sound => "quotient soundness axiom mismatch"

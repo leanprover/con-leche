@@ -1737,7 +1737,7 @@ theorem tolerated_ne_std {n : Name}
 arms that install one (task #293). -/
 theorem checkBasisDeclC_skels {fe : FEnv}
     {sk : List InstallSkel} (h : SkelIs fe sk) (kind : BasisKind) :
-    Yields (checkBasisDeclC fe kind)
+    Yields (checkBasisDeclC mode fe kind)
       (fun fe' => SkelIs fe'
         (kind.declsA.foldl (fun acc ci => ciSkel ci :: acc) sk)) := by
   have hfold : ∀ (fe' : FEnv) (sk' : List InstallSkel), SkelIs fe' sk' →
@@ -1748,9 +1748,25 @@ theorem checkBasisDeclC_skels {fe : FEnv}
       Yields.foldlM_rel (R := SkelIs) (g := fun acc ci => ciSkel ci :: acc)
         (fun acc ci sk'' hacc => installBasisDeclF_skels hacc ci)
         kind.declsA fe' sk' h'
+  -- the fold by its OWN rule, then K.49's gate (which only throws)
+  have htail : Yields
+      (do
+        let fe₂ ← kind.declsA.foldlM installBasisDeclF fe
+        unless certOnly mode (basisOwnMimicsOk fe₂.env kind.declsA) do
+          throw (CheckError.internal "basis: the pinned block carries a mimic recursor")
+        pure fe₂)
+      (fun fe' => SkelIs fe'
+        (kind.declsA.foldl (fun acc ci => ciSkel ci :: acc) sk)) := by
+    refine Yields.bind' (hfold fe sk h) (fun fe₂ hfe₂ => ?_)
+    yields
+    all_goals exact Yields.pure hfe₂
   unfold checkBasisDeclC
-  yields
-  all_goals exact hfold fe sk h
+  -- the `quotK` guard only: `yields` would peel the fold with the
+  -- UNINFORMATIVE bind rule and lose `hfold`
+  refine Yields.letFun ?_
+  repeat' first
+    | exact htail
+    | yields_step
 
 theorem checkDeclC_skels (mode : CheckMode) {fe : FEnv}
     {sk : List InstallSkel} (h : SkelIs fe sk) (pd : Declaration) :

@@ -98,7 +98,7 @@ theorem axiomStepPB_of (hμ : μ.verifiedChecks = true) : AxiomStepPB V μ := by
 def BasisStepPB (V : Type w) [SetTheory V] (μ : CheckMode) : Prop :=
   ∀ {env : Env}, EnvModelM V μ env →
     ∀ {kind : ConLeche.BasisKind} {env₂ : Env},
-      DeclBasisRun env kind env₂ →
+      DeclBasisRun μ env kind env₂ →
       Nonempty (EnvModelM V μ env₂)
 
 /-- **`BasisStepPB`, discharged** (task #161, ENDGAME H; the `False` block

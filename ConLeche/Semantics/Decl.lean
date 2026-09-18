@@ -63,9 +63,17 @@ def BasisInstallRun (env : Env) : List ConstantInfo → Env → Prop
 /-- A pinned basis block (design §1.5, `basis` row): side conditions
 only — the pinned declarations are pre-annotated, and their semantic
 content is `EnvS`'s basis fields (T5), not per-install premises. -/
-def DeclBasisRun (env : Env) (kind : BasisKind) (env₂ : Env) : Prop :=
+def DeclBasisRun (μ : CheckMode) (env : Env) (kind : BasisKind) (env₂ : Env) : Prop :=
   (kind = .quotK → env.find? eqName = some eqA) ∧
-  BasisInstallRun env kind.declsA env₂
+  BasisInstallRun env kind.declsA env₂ ∧
+  -- THE OWN-PIN TABLE IS EMPTY (K.49, lane M7-3's §U.74): a pinned block
+  -- installs no mimic recursor, so `containerOwnPinsAt` of it is
+  -- `some []` at every instantiation.  K.43 records this at the three
+  -- INSTALL routes; a pinned block goes through none of them —
+  -- `checkBasisDecl` is freshness checks and conses of fixed
+  -- `ConstantInfo`s — so the basis install records it itself, and the
+  -- four basis theorems close `ContainerModeled.ownPins` off it
+  ConLeche.certOnly μ (ConLeche.basisOwnMimicsOk env₂ kind.declsA) = true
 
 /-- The valuation a modeled block member takes at its install: the
 model artifact's.  The block folds thread it (finding 5's resolution,
