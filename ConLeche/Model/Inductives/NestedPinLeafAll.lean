@@ -4206,6 +4206,66 @@ theorem nestedInstanceLe (hμ : μ.verifiedChecks = true)
     (GR.syn.kEq ▸ GR.syn.kpos) hρR (fun _ _ hcp => hcp.1)
     (nestedPinPairAt hμ h hbk m hleafM dJf hgroups hρp hB hppB hdJfB GR CR hpR hshR hIH hout)
 
+
+/-- **A container instance is closed, at its ROOT** (task #315 L-E,
+DESIGN §U.77): `pins_le_of_instanceLe`'s `hinst` at one instance —
+every pin of the instance of `r` has its container's least tuple below
+the auxiliary carrier there.  The three pieces compose with nothing
+left between them: the COVERING (`InstanceCovered`, a premise here —
+`instanceCovered_of_others` builds it, and its `hothers` waits on
+M7-3's `ownPins` at the nested site) hands a class of the root;
+`nestedInstanceLe` bounds the root's carrier at that class; and
+`nestedPinFam_of_classPin` says that carrier IS the pin's family.  The
+index sets are one by `nestedIdx_eq_pinIdx`.
+
+What remains of the whole of step (iii) is then the RANK — `hedge` and
+`hhom`, K.37's clauses (2) and (3), which want the kernel lane's
+inversion of `nestedPinRankAt` — and the two premises this carries,
+`hIH` and `hout`. -/
+theorem nestedPinInstLe (hμ : μ.verifiedChecks = true)
+    (h : MutualFormersFacts V F g mp b fms f₀ ctorsA sortss kinds mp₁ ppsF W idxF dsF esF srcsF
+      fvsPF xFvsF xrestF eissF tssF)
+    (h3 : ConLeche.mutualCtorsGrouped b.ctors = true)
+    (hbk : b.k = p.k + pinsS.length)
+    (m : EnvModel V env₂)
+    (hleafM : ∀ (t : Nat) (f : MutualFormerA), t < p.k → fms[t]? = some f →
+      m.acval f.cvTa.name = mutMemberLeaf b fms f₀ ctorsA kinds ppsF W dsF esF eissF tssF t)
+    {st : ElimState} (dJf : Nat → BlockModel V)
+    (hgroups : ∀ q, q < pinsS.length → ∃ (q₀ kJ i : Nat),
+      q = q₀ + i ∧ i < kJ ∧ GF st m q₀ kJ (dJf q₀))
+    {ψ : Name → Nat} {ρp : Nat → V} (hρp : Sat V ((D).params ψ).reverse ρp)
+    {B : ContainerInfo → BlockModel V} (hB : EnvBlocksOf m B)
+    (hppB : ∀ (J : Name) (ci : ContainerInfo) (cv : ConstantVal) (caps : IndCaps),
+      ConLeche.containerInfo? env₂ J = some ci → env₂.find? J = some (.indInfo cv caps) →
+      ContainerPinParams (V := V) cv (B ci))
+    (hdJfB : ∀ (q₀ kJ iq : Nat) (ci : ContainerInfo), iq < kJ → GF st m q₀ kJ (dJf q₀) →
+      ConLeche.containerInfo? env₂ ((D).pinAt (q₀ + iq)).J = some ci → dJf q₀ = B ci)
+    {r kR : Nat} (GR : GF st m r kR (dJf r))
+    {ciR : ContainerInfo} (CR : ContainerModeled m ciR (dJf r))
+    {pcR : Nat → PinCtors V} (hpR : PinRecLaws m (dJf r) pcR)
+    (hshR : PinShapes m B (dJf r) pcR)
+    {S : Nat → Prop}
+    (hIH : ∀ q', q' < pinsS.length → S q' →
+      pinLfp st pinsS dJf (f₀.s.eval ψ) ψ ρp q' = (lfpTuple ((D).w ψ) (p.k + pinsS.length) ((D).idx ψ ρp) (ΨA ψ ρp)) (p.k + q'))
+    (hout : ∀ q₀ iq j l, l < ((blkFss0 b ctorsA kinds dsF ψ).getD (b.ownOffset (p.k + q₀ + iq) + j) []).length →
+      ((blkRss ctorsA kinds).getD (b.ownOffset (p.k + q₀ + iq) + j) []).getD l false = true →
+      (((dJf q₀).rss iq).getD j []).getD l false = false → ¬ (((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD (b.ownOffset (p.k + q₀ + iq) + j) []).getD l 0) < p.k → S ((((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD (b.ownOffset (p.k + q₀ + iq) + j) []).getD l 0) - p.k))
+    {inst : Nat → Nat}
+    (hcov : InstanceCovered env₂ (D) (dJf r) ψ (((D).pinAt r).ψJ ψ) ρp
+      ((D).pinFrame r ψ ρp) inst r) :
+    ∀ q, q < pinsS.length → inst q = inst r →
+      FamLe ((D).idx ψ ρp (p.k + q)) (pinLfp st pinsS dJf (f₀.s.eval ψ) ψ ρp q)
+        (lfpTuple ((D).w ψ) (p.k + pinsS.length) ((D).idx ψ ρp) (ΨA ψ ρp) (p.k + q)) := by
+  intro q hq hinst
+  obtain ⟨c, hcp⟩ := hcov q hq hinst
+  have hidx : (D).idx ψ ρp (p.k + q) = (D).pinIdx q ψ ρp := by
+    obtain ⟨q₀, kJ, iq, rfl, hiq, G⟩ := hgroups q hq
+    rw [show p.k + (q₀ + iq) = p.k + q₀ + iq from by omega]
+    exact nestedIdx_eq_pinIdx G hiq
+  rw [hidx, nestedPinFam_of_classPin m dJf hgroups hρp hB hdJfB GR hshR c q hcp.1.cLt hcp]
+  exact nestedInstanceLe hμ h h3 hbk m hleafM dJf hgroups hρp hB hppB hdJfB GR CR hpR hshR
+    hIH hout c q (by omega) hcp
+
 /-! ## Step (iii)'s INDUCTION: the rank orders the instances (K.37) -/
 
 /-- **The rank induction, over K.37's four clauses** (task #315 L-E,
