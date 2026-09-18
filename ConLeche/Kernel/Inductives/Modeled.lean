@@ -515,6 +515,20 @@ def checkProjTy (env' : Env) (T ctorName : Name) (lps : List Name)
     throw (.notImplemented "projection type wellformedness")
   unless (pty.stripPis (nP + 1)).isSome do
     throw (.notImplemented "projection type telescope")
+  -- **THE PROJECTION ENTRY'S MAJOR PREMISE** (task #315 K.56): a
+  -- projection FUNCTION is stored as a `.recInfo` (`projEntry`), so the
+  -- environment invariant's UNCONDITIONAL major-premise clause is a
+  -- statement about it too — the subject binder's domain must be headed
+  -- by a constant (the structure family).  The line above strips the
+  -- telescope and checks only its LENGTH; this is the head of the
+  -- binder that strip exposes.  `pty` is the model projection's type
+  -- read backwards through a constant-to-constant rename, so the head
+  -- is a constant exactly when the MODEL's is — which nothing checks.
+  -- Recorded rather than derived, and it retires with the modelled
+  -- route.  See DESIGN `#### K.56`.
+  unless certOnly mode (Expr.recMajorHeadOk pty nP) do
+    throw (.internal "projection type: the subject binder's domain is not an \
+      application of a constant")
   pure pty
 
 /-- Stage 4: the model's `proj_i.iota` theorem pins the rule — the
@@ -577,7 +591,7 @@ rule, so the generic iota machinery reduces it. -/
 def checkProjFn (ops : CheckerOps m) (env' : Env) (T ctorName : Name) (lps : List Name)
     (nP nF i : Nat) : m Env := do
   let (cvj, mcv) ← checkProjLookups env' T ctorName lps nP nF i
-  let pty ← checkProjTy env' T ctorName lps mcv.type nP nF
+  let pty ← checkProjTy mode env' T ctorName lps mcv.type nP nF
   checkProjShape pty cvj.type nP nF
   unless i < nF do
     throw (.invalid "projection index out of range")

@@ -323,8 +323,8 @@ theorem checkProjLookups_datF (env' : Env) (T ctorName : Name) (lps : List Name)
   datF_tac
 
 theorem checkProjTy_datF (env' : Env) (T ctorName : Name) (lps : List Name) (mty : Expr) (nP nF : Nat) (F : Nat) :
-    (checkProjTy env' T ctorName lps mty nP nF : FueledM _).val F =
-      (checkProjTy env' T ctorName lps mty nP nF : CheckM _) := by
+    (checkProjTy mode env' T ctorName lps mty nP nF : FueledM _).val F =
+      (checkProjTy mode env' T ctorName lps mty nP nF : CheckM _) := by
   unfold checkProjTy
   datF_tac
 

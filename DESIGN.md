@@ -89894,3 +89894,58 @@ landed theorem of another lane held the name — and this lane now writes
 the new one.  `structRecTyR_majorDom` is renamed to match, on this
 lane's own initiative and for the same collision risk: the two read as a
 pair and neither should be the next identifier collision.
+
+#### K.56 — the projection entry's major premise (2026-09-18, task #315 M8 session 6, `agent/uniform-m5`)
+
+A projection FUNCTION is stored as a recursor-kind entry —
+`projEntry T lps pty nP i rules = .recInfo ⟨projFnName T i, lps, pty⟩ nP nP rules`
+(`Semantics/ProjFnFacts.lean`) — so the environment invariant's
+UNCONDITIONAL major-premise clause is a statement about every projection
+function too: at such an entry it reads `Expr.recMajorHeadOk pty nP`,
+the SUBJECT binder's domain headed by a constant (the structure family).
+
+**It was not establishable.**  `checkProjTy` and its cached twin check
+the roundtrip against the model projection's type, the four type-slot
+facts and `(pty.stripPis (nP + 1)).isSome` — the telescope's LENGTH —
+but never that domain's head.  `pty` is
+`mcv.type.renameConsts (projBack …)` and `renameConsts` maps constants
+to constants, so the head is a constant exactly when `mcv.type`'s is,
+and nothing checks `mcv.type`.  One `unless` at both sites,
+`certOnly`-gated, `.internal` on failure, plus `mode` threaded through
+`checkProjTy`/`checkProjTyF` and the eight proof sites that name them
+(`Verify/Extend/Proj.lean`'s inversion — which gains the conjunct —
+`CheckerF`'s `_eq`, `BridgeDecl`'s `_datF`, `BridgeWfImp`'s `_wf`,
+`BridgeCS2`'s `SimC`, `BridgeCS4`, `Semantics/Bridge/DeclIndRun` and
+`Cached/CheckerC`).
+
+**MEASURED BEFORE COMMITTING, and it does not fire:**
+
+* every `tests/e2e` fixture and BOTH arena halves, good and bad — **242
+  streams, 0 fires**;
+* `init-full`: **0**, 53 093 accepted;
+* Mathlib: **0**, 654 504 accepted.
+
+**Cost: none measurable.**  `ind_rec_struct_proj` (a projection-carrying
+fixture) 22 326 669 / 22 323 556 without against 22 323 897 /
+22 323 854 with, instructions:u.  It is one `stripPis` of `nP` binders
+and a head read, at a site that has just stripped `nP + 1`.
+
+**THE LEDGER ROW — (S), and the category was determined rather than
+assumed.**  Where does `pty` come from?  `checkProjTy` is handed
+`mcv.type` for `mcv` looked up at `projModelName T i` — the in-process
+modeller's `_model.proj_i`.  So in every corpus run the type is OUR
+generator's and a fire is our generator's bug: **(S)**, the same
+category as K.41's, which is the row that fired this arc and caught a
+real defect in our own mint.
+
+**The honest boundary, which the category does not hide**: a `_model`
+name is NOT reserved (task #219 — the in-process modeller is the only
+model source, but a stream record named `X._model.proj_0` is an
+ordinary declaration, and three fixtures keep such names deliberately as
+the controls for exactly that).  So a stream CAN supply the definition
+this type is read from, and a fire on such a stream would say that
+stream's model is unusable rather than that our generator is buggy.
+It stays (S) because that is the only source any corpus exercises, and
+because official has no such generator at all — the (B) reading is
+unavailable here, unlike K.55's.  Like K.55 it **retires with the
+modelled route**.

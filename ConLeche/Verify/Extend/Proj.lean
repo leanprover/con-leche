@@ -90,9 +90,9 @@ theorem checkProjLookups_inv {env' : Env} {T ctorName : Name}
   exact ⟨mval, hmv', rfl, rfl, hmlps, hpnone, hTf, heqf⟩
 
 /-- Invert stage 2 of `checkProjFn` (the public projection type). -/
-theorem checkProjTy_inv {env' : Env} {T ctorName : Name} {lps : List Name}
-    {mty pty : Expr} {nP nF : Nat}
-    (h : (checkProjTy env' T ctorName lps mty nP nF : CheckM _) =
+theorem checkProjTy_inv {mode : CheckMode} {env' : Env} {T ctorName : Name}
+    {lps : List Name} {mty pty : Expr} {nP nF : Nat}
+    (h : (checkProjTy mode env' T ctorName lps mty nP nF : CheckM _) =
       .ok pty) :
     pty = mty.renameConsts (projBack T ctorName nF) ∧
     pty.renameConsts (projFwd T ctorName nF) = mty ∧
@@ -101,7 +101,9 @@ theorem checkProjTy_inv {env' : Env} {T ctorName : Name} {lps : List Name}
     pty.hasFvar = false ∧
     pty.allLevelParamsDefined lps = true ∧
     -- task #148 T6: the telescope guard, which `ProjFnR` records
-    (pty.stripPis (nP + 1)).isSome = true := by
+    (pty.stripPis (nP + 1)).isSome = true ∧
+    -- K.56: the SUBJECT binder's domain is an application of a constant
+    certOnly mode (Expr.recMajorHeadOk pty nP) = true := by
   simp only [checkProjTy, Bind.bind, Except.bind] at h
   by_cases hround : ((mty.renameConsts (projBack T ctorName nF)).renameConsts
       (projFwd T ctorName nF) == mty) = true
@@ -131,9 +133,14 @@ theorem checkProjTy_inv {env' : Env} {T ctorName : Name} {lps : List Name}
       (projBack T ctorName nF)).stripPis (nP + 1)).isSome = true
   case neg => rw [if_neg hpis] at h; exact nomatch h
   rw [if_pos hpis] at h
+  try dsimp only at h
+  by_cases hmh : certOnly mode (Expr.recMajorHeadOk
+      (mty.renameConsts (projBack T ctorName nF)) nP) = true
+  case neg => rw [if_neg hmh] at h; exact nomatch h
+  rw [if_pos hmh] at h
   simp only [pure, Except.pure, Except.ok.injEq] at h
   subst h
-  exact ⟨rfl, eq_of_beq hround, hres, hptyb, hptyf, hptylp, hpis⟩
+  exact ⟨rfl, eq_of_beq hround, hres, hptyb, hptyf, hptylp, hpis, hmh⟩
 
 /-- Invert stage 3 of `checkProjFn` (the reduction rule). -/
 theorem checkProjRule_inv {env' : Env} {pty : Expr} {cvj : ConstantVal}
@@ -541,7 +548,7 @@ theorem checkProjFn_inv {env' env₁ : Env} {T ctorName : Name}
     ∃ cvj mcv,
       (checkProjLookups env' T ctorName lps nP nF i : CheckM _) =
         .ok (cvj, mcv) ∧
-      ∃ pty, (checkProjTy env' T ctorName lps mcv.type nP nF : CheckM _) =
+      ∃ pty, (checkProjTy mode env' T ctorName lps mcv.type nP nF : CheckM _) =
         .ok pty ∧
       (∃ u : Unit, (checkProjShape pty cvj.type nP nF : CheckM _)
         = .ok u) ∧
@@ -561,7 +568,7 @@ theorem checkProjFn_inv {env' env₁ : Env} {T ctorName : Name}
   rw [hlk] at h
   obtain ⟨cvj, mcv⟩ := pr
   try dsimp only at h
-  cases hty : (checkProjTy env' T ctorName lps mcv.type nP nF : CheckM _) with
+  cases hty : (checkProjTy mode env' T ctorName lps mcv.type nP nF : CheckM _) with
   | error e => rw [hty] at h; exact nomatch h
   | ok pty => ?_
   rw [hty] at h

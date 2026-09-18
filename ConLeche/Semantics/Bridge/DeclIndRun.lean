@@ -459,7 +459,7 @@ theorem projFnRun_of {env' env₁ : Env} {μ : CheckMode}
   rw [hcb3] at hdomsS
   refine ⟨cvj, mcv, mval, mhint, pty, rhsA, hctor, hfm, hmlps,
     (by rw [hpnone]; rfl), hTf, heqf, hptyB, (by rw [hround]; simp),
-    hptyres, hptyb, hptyf, hptylp, hstrip1, hilt,
+    hptyres, hptyb, hptyf, hptylp, hstrip1.1, hilt,
     (by rw [hstripP]; rfl),
     ⟨cbindersR, cbody, hCstrip, hcbodyArity, hcbodyHead, hrhsnf,
       hrhsb, hrlp, hrres, ⟨rbinders, hrhsAstrip, ?_⟩,

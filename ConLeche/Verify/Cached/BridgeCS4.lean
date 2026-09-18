@@ -633,7 +633,7 @@ theorem checkProjFnS_run (hμ : mode.verifiedChecks = true) {env : Env} (henv : 
     exact absurd h throwC_bind_ok
   rw [if_pos hi] at h
   obtain ⟨rhsA, s₃, hrule, h⟩ := bindC_ok h
-  have hTYc0 : (checkProjTy env T ctorName lps mcv.type nP nF :
+  have hTYc0 : (checkProjTy mode env T ctorName lps mcv.type nP nF :
       CheckM _) = .ok pty := by
     rw [← checkProjTy_datF (F := F₀')]
     exact hFty
@@ -658,7 +658,7 @@ theorem checkProjFnS_run (hμ : mode.verifiedChecks = true) {env : Env} (henv : 
       CheckM _) = .ok (cvj, mcv) := by
     rw [← checkProjLookups_datF (F := F₀)]
     exact hFlk
-  have hTYc : (checkProjTy env T ctorName lps mcv.type nP nF :
+  have hTYc : (checkProjTy mode env T ctorName lps mcv.type nP nF :
       CheckM _) = .ok pty := by
     rw [← checkProjTy_datF (F := F₀')]
     exact hFty
@@ -687,7 +687,7 @@ theorem checkProjFnS_run (hμ : mode.verifiedChecks = true) {env : Env} (henv : 
       CheckM _) >>= _) = _
     rw [hLKc]
     simp only [Bind.bind, Except.bind]
-    show ((checkProjTy env T ctorName lps mcv.type nP nF :
+    show ((checkProjTy mode env T ctorName lps mcv.type nP nF :
       CheckM _) >>= _) = _
     rw [hTYc]
     simp only [Bind.bind, Except.bind]

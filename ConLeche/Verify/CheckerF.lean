@@ -237,8 +237,8 @@ theorem checkProjLookupsF_eq (env : Env) (T ctorName : Name)
 
 theorem checkProjTyF_eq (env : Env) (T ctorName : Name)
     (lps : List Name) (mty : Expr) (nP nF : Nat) :
-    (checkProjTyF (mkFEnv env) T ctorName lps mty nP nF : m _)
-      = checkProjTy env T ctorName lps mty nP nF := by
+    (checkProjTyF mode (mkFEnv env) T ctorName lps mty nP nF : m _)
+      = checkProjTy mode env T ctorName lps mty nP nF := by
   simp only [checkProjTyF, checkProjTy, constsResolveF_eq] <;> rfl
 
 theorem checkProjRuleF_eq (ops : CheckerOps m) (env : Env) (pty : Expr)
