@@ -8,6 +8,11 @@ import ConLeche.Verify.Inductives.NestedGroupInv
 import ConLeche.Verify.Inductives.NestedRestoreKit
 import ConLeche.Verify.Inductives.NestedAuxInv
 import ConLeche.Verify.Inductives.NestedElimInv
+-- `WScoped_of_mkAppN`/`looseBVarsBounded_of_mkAppN`: the pins' scope,
+-- pushed from the pin term to its components (`nestedPinParams_of`)
+import ConLeche.Verify.Inductives.NestedCopyTele
+-- `WScoped_of_openers`: K.30's openers turned into a pin's scope
+import ConLeche.Model.Inductives.NestedCopyIdx
 public section
 
 /-!
@@ -347,28 +352,87 @@ theorem denoteMetaSpine_params_ext {env₂ : Env} (m : EnvModel V env₂) {ps : 
       rw [← denoteMeta_params_ext m hφ dp a (hall a List.mem_cons_self)]
       exact ha
 
-/-- **A PIN'S DATA DEPEND ON THE ASSIGNMENT ONLY THROUGH THE
-CONTAINER'S OWN LEVEL PARAMETERS**, at the nested block's own
-read-back — `ContainerModeled.pinParams` (task #315 M7-3 session 14,
-DESIGN §U.69 (e)), DISCHARGED from the kernel's K.48 record
-`pinsLevelsOk` (`pins.all fun q => q.pin.allLevelParamsDefined p.lps`)
-and the containers' block models.  It replaces the named premise
-`NestedPinParams`, which said exactly this and which DESIGN §U.69 (e)
-recorded as "carried NOWHERE": K.48 is that record.
+/-- **A read spine's VALUES are its sources' readings** — the value-side
+membership form of `DenoteMetaSpine` (`DenoteMetaSpine.mem` is the
+source side).  What a bound on the pins' components' READINGS needs: the
+bound is proved of the EXPRESSION that produced each reading, so a
+reading has to be traced back to it. -/
+theorem DenoteMetaSpine.memRead {acval : Name → (Name → Nat) → AnnotTerm} {env₂ : Env}
+    {φ : Name → Nat} {dp : Nat} :
+    ∀ {as : List Expr} {vs : List AnnotTerm}, DenoteMetaSpine acval env₂ φ dp as vs →
+      ∀ v ∈ vs, ∃ e ∈ as, denoteMeta acval env₂ φ dp e = some v := by
+  intro as vs h
+  induction h with
+  | nil => intro v hv; exact nomatch hv
+  | cons ha _ ih =>
+    intro v hv
+    rcases List.mem_cons.mp hv with rfl | hv'
+    · exact ⟨_, List.mem_cons_self, ha⟩
+    · obtain ⟨e, he, hr⟩ := ih v hv'
+      exact ⟨e, List.mem_cons_of_mem _ he, hr⟩
 
-The three halves, at a pin `q` whose group `[q₀, q₀ + kJ)` the stage
+/-- **A SCRATCH FORMER IS THE ELIMINATION TYPE IT WAS BUILT FROM**
+(`NestedPinsRun.formerType` at the core's data, without the record):
+`auxBlock` builds the scratch block's former list out of `st.types`
+entry by entry, and `mutualFormerChecksTrue_at` says the checked
+`MutualFormerA` carries exactly that entry's `ConstantVal`.
+
+Needed because K.30 (`pinsScoped`) states the pins' openers at the
+FIRST ELIMINATION TYPE while the members' semantic data (`FormerData`)
+are stated at `f₀` — the two have to be the same type before
+`WScoped_of_openers` applies. -/
+theorem nestedFormerType {F : Nat} {st : ElimState}
+    {sortss : List (List Level)} {xFvsF : Nat → List Expr}
+    {mp : EnvModelM V μ env} {mp₁ : EnvModelM V μ (ConLeche.consMutualFormers fms env)}
+    {mp₂ : EnvModelM V μ ENV₂}
+    (hb : ConLeche.auxBlock p st = some b)
+    (O : NestedCoreOut F mp p st b ctorsR fms f₀ ctorsA sortss kinds mp₁ ppsF W idxF dsF esF srcsF
+      fvsPF xFvsF xrestF eissF tssF dsR xFvsR pinsS mp₂)
+    {t : Nat} {f : MutualFormerA} (hft : fms[t]? = some f)
+    {ty : ConLeche.AuxType} (hty : st.types[t]? = some ty) :
+    f.cvTa = ⟨ty.name, p.lps, ty.type⟩ := by
+  obtain ⟨hchecks, -⟩ := ConLeche.mutualFormers_inv O.formers
+  obtain ⟨cv, nIdx, hl, -, hcv⟩ := ConLeche.mutualFormerChecksTrue_at hchecks t f hft
+  obtain ⟨hnP, hform⟩ := ConLeche.auxBlock_former hb
+  obtain ⟨nIdx', hl', hcount⟩ := hform t ty hty
+  have heq := Option.some.inj (hl.symm.trans hl')
+  obtain ⟨rfl, rfl⟩ : cv = ⟨ty.name, p.lps, ty.type⟩ ∧ nIdx = nIdx' :=
+    ⟨congrArg Prod.fst heq, congrArg Prod.snd heq⟩
+  obtain ⟨bs, u, hstrip⟩ := ConLeche.auxIdxCount_stripPis hcount
+  exact hcv ⟨bs, u, by rw [hnP]; exact hstrip⟩
+
+/-- **A PIN'S DATA DEPEND ON THE ASSIGNMENT ONLY THROUGH THE
+CONTAINER'S OWN LEVEL PARAMETERS, AND ITS COMPONENTS' READINGS ARE
+BOUNDED AT THE BLOCK'S PARAMETERS**, at the nested block's own
+read-back — `ContainerModeled.pinParams` (task #315 M7-3 sessions 14
+and 22, DESIGN §U.69 (e)), DISCHARGED from the kernel's records K.48
+(`pinsLevelsOk`, `pins.all fun q => q.pin.allLevelParamsDefined p.lps`)
+and K.30 (`pinsScoped`) together with the containers' block models.  It
+replaces the named premise `NestedPinParams`, which said this and which
+DESIGN §U.69 (e) recorded as "carried NOWHERE": those two Bools are the
+record.
+
+The four parts, at a pin `q` whose group `[q₀, q₀ + kJ)` the stage
 names (`NestedStageFacts.groupsAt`, at the container's OWN
 `containerInfo?` reading, so the block model is the pre-block
 carrier's `blockOf`):
 
-* K.48 at `q` is read through `pinRec`: the pin TERM is
+* the pins' LEVEL ARGUMENTS are `allParamsDefined` in `p.lps`: K.48 at
+  `q` read through `pinRec` — the pin TERM is
   `mkAppN (.const J lvls) DsE`, so `allLevelParamsDefined_mkAppN`
   splits the record into "every level argument is `allParamsDefined`
   in `p.lps`" and "every component is";
-* the `Ds` half is the components' reading at the two assignments
-  (`pinDs`), which `denoteMetaSpine_params_ext` transports and
-  `DenoteMetaSpine.det` identifies;
-* the `u` and `Ids` halves go through the CONTAINER's block model:
+* the pins' COMPONENTS' READINGS are bounded below the block's
+  parameter count: `pinDs` reads each component at depth `b.nP`, and
+  K.30 (`pinsScoped_inv`, through `WScoped_of_openers` at the first
+  member's own type — which `nestedFormerType` identifies with the
+  first elimination type, where K.30's openers live) scopes the pin,
+  hence each of its components, at exactly those parameters, so
+  `bvarsBelow_of_reading` bounds every reading;
+* the `Ds` congruence is the components' reading at the two
+  assignments (`pinDs`), which `denoteMetaSpine_params_ext` transports
+  and `DenoteMetaSpine.det` identifies;
+* the `u` and `Ids` congruences go through the CONTAINER's block model:
   `NestedStageFacts.pinψ` spells the pin's level assignment as
   `Level.substFn` at the container's level parameters AND gives the
   arity, so `Level.substFn_ext` at the level arguments' record turns
@@ -380,10 +444,10 @@ carrier's `blockOf`):
   M.type⟩`, whose level parameters `containerInfo?_inv` identifies
   with the pin's container's) — are their congruences.
 
-The consumer's agreement hypothesis is stated over the `i`-th stored
-auxiliary's level parameters, K.48's Bool over `p.lps`; `hlps` is that
-identification, which `declNested_of` discharges from
-`MutualFormersFacts.lps` and `auxBlock_fields`. -/
+The clause is stated at the `i`-th stored auxiliary's `ConstantVal`,
+K.48's Bool over `p.lps`; `hlps` is that identification, which
+`declNested_of` discharges from `MutualFormersFacts.lps` and
+`auxBlock_fields`. -/
 theorem nestedPinParams_of {F : Nat} {st : ElimState} {envAux : Env}
     {stored : List AuxStored} {sortss : List (List Level)} {xFvsF : Nat → List Expr}
     {mp : EnvModelM V μ env} {mp₁ : EnvModelM V μ (ConLeche.consMutualFormers fms env)}
@@ -392,6 +456,8 @@ theorem nestedPinParams_of {F : Nat} {st : ElimState} {envAux : Env}
       !a.caps.eta && (env.find? a.cvTa.name).isNone) = true)
     (hcont : ConLeche.nestedContainersOk env st.pins = true)
     (hlv : ConLeche.pinsLevelsOk p.lps st.pins = true)
+    (hsc : ConLeche.pinsScoped p.nP st = true)
+    (hb : ConLeche.auxBlock p st = some b)
     (hPM : PinsModeled mp.base2 st.pins)
     (hlps : ∀ i, i < p.k → (stored.getD i default).cvTa.levelParams = p.lps)
     (haux : ConLeche.checkMutualCore (m := ConLeche.CheckM) (fueledOps μ F) env b none true
@@ -399,13 +465,32 @@ theorem nestedPinParams_of {F : Nat} {st : ElimState} {envAux : Env}
     (hstored : ConLeche.auxStoredAll envAux b b.k = some stored)
     (O : NestedCoreOut F mp p st b ctorsR fms f₀ ctorsA sortss kinds mp₁ ppsF W idxF dsF esF srcsF
       fvsPF xFvsF xrestF eissF tssF dsR xFvsR pinsS mp₂) :
-    ∀ (i : Nat), i < p.k → ∀ q, q < (D).nPins → ∀ ψ₁ ψ₂ : Name → Nat,
-      (∀ pp ∈ (stored.getD i default).cvTa.levelParams, ψ₁ pp = ψ₂ pp) →
-      ((D).pinAt q).u ψ₁ = ((D).pinAt q).u ψ₂ ∧
-      ((D).pinAt q).Ds ψ₁ = ((D).pinAt q).Ds ψ₂ ∧
-      ((D).pinAt q).Ids ψ₁ = ((D).pinAt q).Ids ψ₂ := by
-  intro i hi q hq ψ₁ ψ₂ hag
-  rw [hlps i hi] at hag
+    ∀ (i : Nat), i < p.k → ContainerPinParams (V := V) (stored.getD i default).cvTa (D) := by
+  have hnPb : b.nP = p.nP := (ConLeche.auxBlock_former hb).1
+  -- K.30 at the first member's own type: every pin is scoped at the
+  -- block's parameter openers and carries no loose bound variable
+  have hscoped : ∀ q, q < st.pins.length →
+      Expr.WScoped b.nP (st.pins.getD q default).pin ∧
+        (st.pins.getD q default).pin.looseBVarsBounded 0 = true := by
+    obtain ⟨t₀, params, o, ht₀, hopen, hall⟩ := ConLeche.pinsScoped_inv hsc
+    have hty0 : st.types[0]? = some t₀ := by rw [← List.head?_eq_getElem?]; exact ht₀
+    have hcvTa : f₀.cvTa = ⟨t₀.name, p.lps, t₀.type⟩ :=
+      nestedFormerType hb O O.facts.first hty0
+    have hop : ConLeche.openPisAtFvars b.nP f₀.cvTa.type 0 = some (params, o) := by
+      rw [hcvTa, hnPb]; exact hopen
+    obtain ⟨hchecks, -⟩ := ConLeche.mutualFormers_inv O.formers
+    -- the witness is NAMED: a `-` would clear it and, with it, `hd`
+    obtain ⟨_cv', hd⟩ := ConLeche.mutualFormerChecksG_checked hchecks f₀
+      (List.mem_of_getElem? O.facts.first)
+    intro q hql
+    have hmem : st.pins.getD q default ∈ st.pins := by
+      rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hql]
+      exact List.getElem_mem hql
+    obtain ⟨hbnd, hleaf⟩ := hall _ hmem
+    exact ⟨WScoped_of_openers mp₁ (O.facts.FD 0 f₀ O.facts.first) hd.noFvar hd.bounded hop
+      hleaf (fun _ => 0), hbnd⟩
+  intro i hi q hq
+  rw [hlps i hi]
   -- K.48 at the pin, split through the pin's recorded shape
   have hql : q < st.pins.length := by rw [← O.record.nPins]; exact hq
   have hpq : st.pins[q]? = some st.pins[q] := List.getElem?_eq_getElem hql
@@ -417,11 +502,20 @@ theorem nestedPinParams_of {F : Nat} {st : ElimState} {envAux : Env}
   have hlvls : ∀ l ∈ ((D).pinAt q).lvls, l.allParamsDefined p.lps = true := by
     have : ((D).pinAt q).lvls.all (Level.allParamsDefined p.lps) = true := hhead
     exact List.all_eq_true.mp this
-  -- the components' readings: one spine, two assignments
-  have hDs : ((D).pinAt q).Ds ψ₁ = ((D).pinAt q).Ds ψ₂ :=
-    DenoteMetaSpine.det
-      (denoteMetaSpine_params_ext mp₂.base2 hag hargs (O.stage.pinDs q hq ψ₁))
-      (O.stage.pinDs q hq ψ₂)
+  -- the components' READINGS are bounded: each is read at depth `b.nP`
+  -- off a component the pin's own scope bounds
+  have hDsBelow : ∀ (ψ : Name → Nat) (e : AnnotTerm), e ∈ ((D).pinAt q).Ds ψ →
+      Term.bvarsBelow (D).nP e.erase := by
+    have hpd : st.pins.getD q default = st.pins[q] := by
+      rw [List.getD_eq_getElem?_getD, hpq, Option.getD_some]
+    obtain ⟨hws, hbnd⟩ := hscoped q hql
+    rw [hpd, hpin] at hws hbnd
+    obtain ⟨-, hwsD⟩ := ConLeche.WScoped_of_mkAppN hws
+    obtain ⟨-, hbndD⟩ := ConLeche.looseBVarsBounded_of_mkAppN hbnd
+    intro ψ e he
+    obtain ⟨x, hx, hread⟩ := (O.stage.pinDs q hq ψ).memRead e he
+    rw [O.record.nP, ← hnPb]
+    exact bvarsBelow_of_reading (m := mp₂.base2) (hwsD x hx) (hbndD x hx) hread
   -- the pin's container, its group and its block model
   obtain ⟨ci, hci0, -⟩ := (ConLeche.nestedContainersOk_group hcont).2 _ (List.mem_of_getElem? hpq)
   have hci : ConLeche.containerInfo? env ((D).pinAt q).J = some ci := by rw [hJ]; exact hci0
@@ -430,7 +524,7 @@ theorem nestedPinParams_of {F : Nat} {st : ElimState} {envAux : Env}
   have hik : i' < ci.members.length := by rw [← CM.k, G.kEq]; exact hi'
   obtain ⟨M, hM⟩ : ∃ M, ci.members[i']? = some M := ⟨_, List.getElem?_eq_getElem hik⟩
   obtain ⟨-, -, cvR, mI, rP, rules, hI⟩ := CM.member i' M hM
-  -- the two assignments agree on the container's own level parameters
+  -- the container's own level parameters, as `containerInfo?` checks them
   obtain ⟨cvT, caps, _cvR, _mI, _rP, _rules, hfT, -, -, -, hmems⟩ :=
     ConLeche.containerInfo?_inv hci
   obtain ⟨cvC, _capsC, _cvRc, _mIc, _rulesC, -, -, hMlps, -, hlpsEq, -, -⟩ :=
@@ -448,6 +542,13 @@ theorem nestedPinParams_of {F : Nat} {st : ElimState} {envAux : Env}
   obtain ⟨hlenL, hψeq⟩ := O.stage.pinψ (q₀ + i') hq cvT caps hfind₁
   have hψ : ∀ ψ : Name → Nat, ((D).pinAt (q₀ + i')).ψJ ψ
       = Level.substFn ψ cvT.levelParams ((D).pinAt (q₀ + i')).lvls := hψeq
+  refine ⟨hlvls, hDsBelow, fun ψ₁ ψ₂ hag => ?_⟩
+  -- the components' readings: one spine, two assignments
+  have hDs : ((D).pinAt (q₀ + i')).Ds ψ₁ = ((D).pinAt (q₀ + i')).Ds ψ₂ :=
+    DenoteMetaSpine.det
+      (denoteMetaSpine_params_ext mp₂.base2 hag hargs (O.stage.pinDs (q₀ + i') hq ψ₁))
+      (O.stage.pinDs (q₀ + i') hq ψ₂)
+  -- the two assignments agree on the container's own level parameters
   have hagψ : ∀ r ∈ M.lps, ((D).pinAt (q₀ + i')).ψJ ψ₁ r = ((D).pinAt (q₀ + i')).ψJ ψ₂ r := by
     intro r hr
     rw [hψ ψ₁, hψ ψ₂]
@@ -516,11 +617,8 @@ theorem nestedContainerModeled {F : Nat} {st : ElimState} {envAux : Env}
       (kinds := kinds) (env := env) (ppsF := ppsF) (W := W) (idxF := idxF) (dsF := dsF) (esF := esF)
       (srcsF := srcsF) (fvsPF := fvsPF) (xrestF := xrestF) (eissF := eissF) (tssF := tssF)
       (ctorsR := ctorsR) (dsR := dsR) (xFvsR := xFvsR) (pinsS := pinsS) mp stored mp₂ envOut mpOut)
-    (hpinParams : ∀ (i : Nat), i < p.k → ∀ q, q < (D).nPins → ∀ ψ₁ ψ₂ : Name → Nat,
-      (∀ pp ∈ (stored.getD i default).cvTa.levelParams, ψ₁ pp = ψ₂ pp) →
-      ((D).pinAt q).u ψ₁ = ((D).pinAt q).u ψ₂ ∧
-      ((D).pinAt q).Ds ψ₁ = ((D).pinAt q).Ds ψ₂ ∧
-      ((D).pinAt q).Ids ψ₁ = ((D).pinAt q).Ids ψ₂) :
+    (hpinParams : ∀ (i : Nat), i < p.k →
+      ContainerPinParams (V := V) (stored.getD i default).cvTa (D)) :
     ContainerModeled mpOut.base2 (ConLeche.blockContainerInfo p.nP
         (((stored.take p.k).zip ctorsR).map fun (a, cs) =>
           (a.cvTa, cs.map fun (cv, _, nF) => (cv, nF)))) (D) := by
@@ -662,13 +760,12 @@ theorem nestedContainerModeled {F : Nat} {st : ElimState} {envAux : Env}
   · -- `pinParams`: the premise, at the read-back's member record
     -- (`nestedReadBack_getD`: the group's `i`-th member is the `i`-th
     -- stored auxiliary's `ConstantVal`)
-    intro i hi q hq ψ₁ ψ₂ hag
+    intro i hi
     have hik : i < p.k := by
       rw [List.length_map, List.length_zip, List.length_take, hclen] at hi
       omega
-    refine hpinParams i hik q hq ψ₁ ψ₂ fun pp hpp => hag pp ?_
     rw [nestedReadBack_getD hik (by omega) hclen]
-    exact hpp
+    exact hpinParams i hik
   · -- `member`
     intro i hi
     obtain ⟨cvR, mI, rP, rules, hI⟩ := T.repsAt i hi
@@ -1235,7 +1332,7 @@ theorem declNested_of (hμ : μ.verifiedChecks = true) {F : Nat} {env envOut : E
     rw [List.getD_eq_getElem?_getD, hsi, Option.getD_some, hcveq, O.facts.lps i f hf,
       (ConLeche.auxBlock_fields hb).2.1]
   have hcm := nestedContainerModeled hcaps hcont hk0 hmn haux hstored hctors O T
-    (nestedPinParams_of hcaps hcont hlv hPM hlps haux hstored O)
+    (nestedPinParams_of hcaps hcont hlv hsc hb hPM hlps haux hstored O)
   have hfreshMs : ∀ n ∈ p.memberNames, env.find? n = none := by
     rw [← O.record.memberNames]
     exact nestedMembersFresh hcaps haux hstored O
