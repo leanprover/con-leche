@@ -93007,3 +93007,88 @@ warning-free, layering / trust surface / no-local-paths /
 overview-links / quote-gate / proofdeps / shake and pub-imports /
 nested-shadow all green; standard axioms on `nestedPinsLe_of_rank` and
 `nestedPinsEq_of_le`.
+
+#### U.79 — L-E session 24: STEP (iv), the tail at one premise, and the clause request sharpened (lane L-E, 2026-09-18)
+
+##### (a) Step (iv): the copies' ENTRIES at the auxiliary carrier
+
+`nestedPinsEntry_at` is the residual `NestedPinsEntry` names, at one
+group.  `nestedPinsFixed` already builds the same object at `P` — the
+containers' least tuples, where the target readings are
+`memberTarget_reads`/`pinTarget_reads` outright; here the tuple is
+`L⁺` and the readings come from `nestedTargetReads_L`, whose
+pin-target half is the identity `pinLfp q = L⁺ (k + q)`.  That identity
+is now UNCONDITIONAL (step (ii)), so `S := fun _ => True` and **the
+predicate that carried the rank induction's scope disappears from the
+statement** — which is the shape the residual wants, since
+`NestedPinsEntry` quantifies over groups with no induction in sight.
+
+Three arms, all the shape's own: a container-RECURSIVE field at a
+MEMBER target lands inside the group and `CopyEntryOut` does not ask
+about it; at one of the container's OWN pins it is
+`copyEntryAt_of_pinCorr`, with `nestedPinFrame_transport` carrying the
+fit from the container's pin frame to the block pin's; a
+container-ORDINARY field is `copyEntryAt_of_read` at the REPAIRED
+`EntryRead` (§U.77 (b)) — the first consumer of the repair in anger,
+and it went through unchanged.
+
+**`nestedPinsEntry_of` is the same fact in the residual's OWN
+spelling** — `CopyEntryA` with `NestedPinsEntry`'s argument list, the
+level assignment and components at the group's pin `i` and the
+constructor at `(i', j)`, the group's `ψJEq`/`sameDs` moving the
+reading data between its members.  Stated that way on purpose: a
+discharge has to be an APPLICATION of the residual, not a resemblance
+to it, and the only way to know which one has been built is to write
+the residual's own spelling and let the elaborator check it.
+
+##### (b) The tail, at ONE premise
+
+`nestedPinsEntry_of_le` chains (ii) and (iv): the entries for every
+group from the single input
+
+```
+hle : ∀ q, q < pinsS.length →
+  FamLe ((D).idx ψ ρp (p.k + q)) (pinLfp … q) (L⁺ (p.k + q))
+```
+
+which is step (iii)'s conclusion — `nestedPinsLe_of_rank` over K.52's
+rank clauses and `hinst`, and `hinst` is `nestedPinInstLe` at each
+instance's root.  So beyond this lane the global entry theorem rests
+on that one premise plus the two the rank induction carries (`hIH`,
+`hout`) and the covering, which is another lane's.
+
+##### (c) The clause request, SHARPENED: the bit is already computed
+
+§U.78 (d) asked the kernel lane to drop the `inst == inst ||` from
+`nestedPinRankAt`'s not-own branch.  Checking the standing advice —
+look whether the walk already computes the fact before requesting it —
+**it does**: `nestedRankPass` relaxes the rank along an edge only when
+the two ends' instance labels DIFFER,
+
+```lean
+    if inst.getD e.1 0 == inst.getD e.2.1 0 then cur else …
+```
+
+so "does this edge leave its instance" is computed once per edge on
+every relaxation pass and discarded, and the check then recomputes it
+inside the disjunction it weakens itself with.  The request is
+therefore not for a new computation but for the check to KEEP the bit
+its own rank machinery already branches on.  The measurement §U.78 (d)
+asks for is unchanged and still comes first.
+
+##### (d) FOR THE INTEGRATOR: one known merge debt
+
+Lane L-B has an `ordF`-right arm that builds the reading predicate at
+an EMPTY telescope.  Under the minimal repair of §U.77 (b) it would
+have gone through verbatim; under the SAFE repair this lane took — the
+one L-B itself recommended, and which both lanes agree on — that arm
+needs one short mechanical re-packaging, because it proves the reading
+and the fit in that order while the applied form consumes them as a
+function.  Nothing to change on either side before the branches meet;
+recorded here so the repackaging is expected rather than discovered.
+
+Gates at the session's commits: `lake build` warning-free, `lake test`
+warning-free, layering / trust surface / no-local-paths /
+overview-links / quote-gate / proofdeps / shake and pub-imports /
+nested-shadow all green; standard axioms on `nestedPinsEntry_at`,
+`nestedPinsEntry_of` and `nestedPinsEntry_of_le`.
