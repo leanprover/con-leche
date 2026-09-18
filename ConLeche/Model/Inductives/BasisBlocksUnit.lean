@@ -418,6 +418,7 @@ theorem punitBlock_containerModeled {env : Env} {m : EnvModel V env}
   frame := fun _ _ _ _ => Iff.rfl
   ordFree := fun _ _ _ _ _ _ h => nomatch h
   nestMention := fun _ h => nomatch h
+  nestArgsMention := fun _ _ _ _ _ _ _ _ _ h _ => nomatch h
   pinsNotMembers := fun _ h => nomatch h
   pinNP := fun _ h => nomatch h
   pinConts := fun _ h => nomatch h

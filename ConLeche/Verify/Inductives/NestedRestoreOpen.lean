@@ -205,6 +205,117 @@ theorem mentionsConst_instSeq_false {m : Name} :
 /-! ## Two openings that differ only where nothing looks -/
 
 
+/-- **`abstractRange` CANNOT DELETE AN OCCURRENCE THAT IS NOT IN AN
+ABSTRACTED VARIABLE'S ANNOTATION** (task #315 PINF).
+
+`mentionsConst_abstract1_false` is the easy direction (an abstraction
+can only delete).  This is the one a mention has to travel in, and it
+is not free: `Expr.mentionsConst` reads an `fvar`'s ANNOTATION
+(`.fvar _ ty => ty.mentionsConst T`) while `abstractRange` replaces the
+variable by a `bvar` and drops the annotation with it, so an occurrence
+living only there IS lost.  Everywhere else the walk is structural and
+the occurrence survives.
+
+The hypothesis is asked of every `fvar` leaf rather than only of the
+abstracted ones, because that is the form K.30's `pinsScoped` supplies
+at a pin: a pin's leaves are the first former's parameter openers, and
+those annotations resolve at the pre-block environment, where the
+block's members are fresh. -/
+theorem mentionsConst_abstractRange {T : Name} :
+    ∀ (e : Expr) (d k c : Nat),
+      (∀ lf ∈ e.fvarLeaves, (lf.2).mentionsConst T = false) →
+      e.mentionsConst T = true → (e.abstractRange d k c).mentionsConst T = true
+  | .bvar _, _, _, _, _, h => nomatch h
+  | .sort _, _, _, _, _, h => nomatch h
+  | .lit _, _, _, _, _, h => nomatch h
+  | .const _ _, _, _, _, _, h => h
+  | .fvar idx ty, _, _, _, hlf, h => by
+    have h0 : ty.mentionsConst T = false :=
+      hlf (idx, ty) (by rw [Expr.fvarLeaves]; exact List.mem_cons_self)
+    rw [show (Expr.fvar idx ty).mentionsConst T = ty.mentionsConst T from rfl, h0] at h
+    exact nomatch h
+  | .app f a, d, k, c, hlf, h => by
+    have hlf' : ∀ lf ∈ f.fvarLeaves, (lf.2).mentionsConst T = false :=
+      fun lf hl => hlf lf (by rw [Expr.fvarLeaves]; exact List.mem_append_left _ hl)
+    have hlf'' : ∀ lf ∈ a.fvarLeaves, (lf.2).mentionsConst T = false :=
+      fun lf hl => hlf lf (by rw [Expr.fvarLeaves]; exact List.mem_append_right _ hl)
+    have h' : (f.mentionsConst T || a.mentionsConst T) = true := h
+    show ((f.abstractRange d k c).mentionsConst T ||
+      (a.abstractRange d k c).mentionsConst T) = true
+    rcases Bool.or_eq_true_iff.mp h' with h1 | h1
+    · rw [mentionsConst_abstractRange f d k c hlf' h1]; rfl
+    · rw [mentionsConst_abstractRange a d k c hlf'' h1]; simp
+  | .lam ty b m, d, k, c, hlf, h => by
+    have hlf' : ∀ lf ∈ ty.fvarLeaves, (lf.2).mentionsConst T = false :=
+      fun lf hl => hlf lf (by rw [Expr.fvarLeaves]; exact List.mem_append_left _ hl)
+    have hlf'' : ∀ lf ∈ b.fvarLeaves, (lf.2).mentionsConst T = false :=
+      fun lf hl => hlf lf (by rw [Expr.fvarLeaves]; exact List.mem_append_right _ hl)
+    have h' : (ty.mentionsConst T || b.mentionsConst T) = true := h
+    show ((ty.abstractRange d k c).mentionsConst T ||
+      (b.abstractRange d k (c + 1)).mentionsConst T) = true
+    rcases Bool.or_eq_true_iff.mp h' with h1 | h1
+    · rw [mentionsConst_abstractRange ty d k c hlf' h1]; rfl
+    · rw [mentionsConst_abstractRange b d k (c + 1) hlf'' h1]; simp
+  | .forallE ty b m, d, k, c, hlf, h => by
+    have hlf' : ∀ lf ∈ ty.fvarLeaves, (lf.2).mentionsConst T = false :=
+      fun lf hl => hlf lf (by rw [Expr.fvarLeaves]; exact List.mem_append_left _ hl)
+    have hlf'' : ∀ lf ∈ b.fvarLeaves, (lf.2).mentionsConst T = false :=
+      fun lf hl => hlf lf (by rw [Expr.fvarLeaves]; exact List.mem_append_right _ hl)
+    have h' : (ty.mentionsConst T || b.mentionsConst T) = true := h
+    show ((ty.abstractRange d k c).mentionsConst T ||
+      (b.abstractRange d k (c + 1)).mentionsConst T) = true
+    rcases Bool.or_eq_true_iff.mp h' with h1 | h1
+    · rw [mentionsConst_abstractRange ty d k c hlf' h1]; rfl
+    · rw [mentionsConst_abstractRange b d k (c + 1) hlf'' h1]; simp
+  | .letE ty v b, d, k, c, hlf, h => by
+    have hlfT : ∀ lf ∈ ty.fvarLeaves, (lf.2).mentionsConst T = false :=
+      fun lf hl => hlf lf (by
+        rw [Expr.fvarLeaves]; exact List.mem_append_left _ (List.mem_append_left _ hl))
+    have hlfV : ∀ lf ∈ v.fvarLeaves, (lf.2).mentionsConst T = false :=
+      fun lf hl => hlf lf (by
+        rw [Expr.fvarLeaves]; exact List.mem_append_left _ (List.mem_append_right _ hl))
+    have hlfB : ∀ lf ∈ b.fvarLeaves, (lf.2).mentionsConst T = false :=
+      fun lf hl => hlf lf (by rw [Expr.fvarLeaves]; exact List.mem_append_right _ hl)
+    have h' : ((ty.mentionsConst T || v.mentionsConst T) || b.mentionsConst T) = true := h
+    show (((ty.abstractRange d k c).mentionsConst T ||
+      (v.abstractRange d k c).mentionsConst T) ||
+      (b.abstractRange d k (c + 1)).mentionsConst T) = true
+    rcases Bool.or_eq_true_iff.mp h' with h1 | h1
+    · rcases Bool.or_eq_true_iff.mp h1 with h2 | h2
+      · rw [mentionsConst_abstractRange ty d k c hlfT h2]; rfl
+      · rw [mentionsConst_abstractRange v d k c hlfV h2]; simp
+    · rw [mentionsConst_abstractRange b d k (c + 1) hlfB h1]; simp
+  | .proj s i e, d, k, c, hlf, h => by
+    have hlf' : ∀ lf ∈ e.fvarLeaves, (lf.2).mentionsConst T = false :=
+      fun lf hl => hlf lf (by rw [Expr.fvarLeaves]; exact hl)
+    have h' : (s == T || e.mentionsConst T) = true := h
+    show (s == T || (e.abstractRange d k c).mentionsConst T) = true
+    rcases Bool.or_eq_true_iff.mp h' with h1 | h1
+    · rw [h1]; rfl
+    · rw [mentionsConst_abstractRange e d k c hlf' h1]; simp
+
+/-- `mentionsConst_abstractRange` at the LIST, which is the form the
+consumers want. -/
+theorem mentionsMember_abstractRange {names : List Name} {e : Expr} (d k c : Nat)
+    (hlf : ∀ lf ∈ e.fvarLeaves, mentionsMember names (lf.2) = false)
+    (h : mentionsMember names e = true) :
+    mentionsMember names (e.abstractRange d k c) = true := by
+  obtain ⟨T, hT, hTm⟩ := List.any_eq_true.mp h
+  exact List.any_eq_true.mpr ⟨T, hT,
+    mentionsConst_abstractRange e d k c
+      (fun lf hl => by simpa using List.any_eq_false.mp (hlf lf hl) T hT) hTm⟩
+
+/-- **A mention SURVIVES an instantiation** — `mentionsConst_instSeq_false`
+read forwards, which is the direction a mention has to travel in. -/
+theorem mentionsMember_instSeq {names : List Name} (vs : List Expr) (t : Nat) {e : Expr}
+    (h : mentionsMember names e = true) :
+    mentionsMember names (Expr.instSeq vs t e) = true := by
+  obtain ⟨T, hT, hTm⟩ := List.any_eq_true.mp h
+  refine List.any_eq_true.mpr ⟨T, hT, ?_⟩
+  cases hm : (Expr.instSeq vs t e).mentionsConst T with
+  | true => rfl
+  | false => rw [mentionsConst_instSeq_false vs t hm] at hTm; exact nomatch hTm
+
 /-- **Member-freedom transfer at an instantiation** (task #315 L-B):
 `mentionsConst_instSeq_false` at the LIST, which is the form every
 consumer wants — the walks ask `mentionsMember` of a field's domain,

@@ -1539,6 +1539,20 @@ structure NestedStageFacts (st : ElimState) (mp₂ : EnvModelM V μ ENV₂) : Pr
     ∀ i, ((D).nestOf mm j i = none ∨
         (rsOf (kindsOf (mutKsOf kinds (b.ownOffset mm + j)))).getD i false = false) →
       (dsR mm j ψ).getD (b.nP + i) default = (dsF (b.ownOffset mm + j) ψ).getD (b.nP + i) default
+  /-- **A NESTED FINITARY FIELD'S PARAMETER ARGUMENTS ARE THE RESTORED
+  PIN'S** (task #315 PINF): carried from `NestedCtorRead.pinArgs`,
+  because `BlockOpened.nestF` drops the parameter part of a nested
+  field's spine and `ContainerModeled.nestArgsMention` needs it.  The
+  mention step itself is the consumer's (`nestedContainerModeled`): it
+  needs K.30 and K.44, which live above this tier. -/
+  pinArgs : ∀ (mm j l : Nat) (x pin : Expr) (q : Nat), mm < p.k →
+    j < (ctorsR.getD mm []).length → ((D).xFvsF mm j)[l]? = some x →
+    pin = Expr.mkAppN (.const ((D).pinAt q).J ((D).pinAt q).lvls) ((D).pinAt q).DsE →
+    (D).nestOf mm j l = some q →
+    ((D).ksF mm j).getD l .ordinary = .recursive →
+    x.fvarTypeD.getAppArgs.take ((D).pinAt q).nPJ
+      = (Expr.instSeq ((D).fvsPF mm j) ((D).nP - 1)
+          (Expr.abstractRange pin 0 p.nP 0)).getAppArgs
   groups : ∀ q, q < pinsS.length → ∃ (q₀ kJ i : Nat) (dJ : BlockModel V),
     q = q₀ + i ∧ i < kJ ∧ PG mp₂.base2 q₀ kJ dJ
   /-- **the groups with their block model NAMED by the environment
@@ -1625,6 +1639,20 @@ structure NestedLoopFacts (st : ElimState) (mp₁ : EnvModelM V μ ENV₁) (mp�
     ∀ i, ((D).nestOf mm j i = none ∨
         (rsOf (kindsOf (mutKsOf kinds (b.ownOffset mm + j)))).getD i false = false) →
       (dsR mm j ψ).getD (b.nP + i) default = (dsF (b.ownOffset mm + j) ψ).getD (b.nP + i) default
+  /-- **A NESTED FINITARY FIELD'S PARAMETER ARGUMENTS ARE THE RESTORED
+  PIN'S** (task #315 PINF): carried from `NestedCtorRead.pinArgs`,
+  because `BlockOpened.nestF` drops the parameter part of a nested
+  field's spine and `ContainerModeled.nestArgsMention` needs it.  The
+  mention step itself is the consumer's (`nestedContainerModeled`): it
+  needs K.30 and K.44, which live above this tier. -/
+  pinArgs : ∀ (mm j l : Nat) (x pin : Expr) (q : Nat), mm < p.k →
+    j < (ctorsR.getD mm []).length → ((D).xFvsF mm j)[l]? = some x →
+    pin = Expr.mkAppN (.const ((D).pinAt q).J ((D).pinAt q).lvls) ((D).pinAt q).DsE →
+    (D).nestOf mm j l = some q →
+    ((D).ksF mm j).getD l .ordinary = .recursive →
+    x.fvarTypeD.getAppArgs.take ((D).pinAt q).nPJ
+      = (Expr.instSeq ((D).fvsPF mm j) ((D).nP - 1)
+          (Expr.abstractRange pin 0 p.nP 0)).getAppArgs
   groups : ∀ q, q < pinsS.length → ∃ (q₀ kJ i : Nat) (dJ : BlockModel V),
     q = q₀ + i ∧ i < kJ ∧ PG mp₂.base2 q₀ kJ dJ
   /-- **the groups with their block model NAMED by the environment
@@ -1974,6 +2002,7 @@ theorem nestedStageFacts_of (hst : NestedCtorsStaged V μ F) (hμ : μ.verifiedC
       leafM := fun t f ht hft => (L.leafKeep t f ht hft).trans (hleafM' t f ht hft)
       FD := fun t f ht hft => FormerData.crossEnv' L.hde (hfind' t f ht hft).2
       ctorsLen := hctorsLen, ctorFacts := L.ctorFacts, domFacts := L.domFacts
+      pinArgs := L.pinArgs
       groups := L.groups, groupsAt := L.groupsAt }⟩
   intro n hn ψ
   have hnM : n ∉ p.memberNames := fun hm => hn (List.mem_append_left _ hm)

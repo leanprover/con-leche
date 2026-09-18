@@ -268,6 +268,35 @@ structure ContainerModeled {env : Env} (m : EnvModel V env) (ci : ContainerInfo)
   nestMention : ∀ q, q < d.nPins →
     ∃ e ∈ (d.pinAt q).DsE.take (d.pinAt q).nPJ,
       ConLeche.mentionsMember d.memberNames e = true
+  /-- **A NESTED FIELD'S PARAMETER ARGUMENTS MENTION A MEMBER**, on the
+  field's OPENED DOMAIN (task #315 PINF, DESIGN "the pin case IS
+  dropped").
+
+  `nestMention` spells the same existence on the pin's RECORDED
+  components, which is where K.44 (`nestedPinMentionOk`) has it.  A
+  consumer working on the copies' `pinF` arm needs it on the FIELD's
+  own argument spine instead, and `BlockOpened.nestF` — which records
+  the head, the argument count and `constsResolve env₀` for the
+  arguments PAST `nPJ` — says nothing about the parameter part, so
+  nothing derives one from the other: `BlockCtorData` keeps only
+  READINGS there (`nestEntry`), and a reading is not an injection.
+
+  It is a MENTION and not the equality `= DsE.map (instSeq fvsP …)`:
+  the restore hands the domain as the pin CLOSED over the parameters
+  and REOPENED at the constructor's own openers
+  (`ReadCtx.restoredOpened`'s `RestoredField`), and the two opener lists
+  are DEFEQ, not equal, so the round trip is not the identity.  A
+  mention travels through it all the same
+  (`mentionsMember_abstractRange` at K.30's leaves,
+  `mentionsMember_instSeq`), and a mention is all the consumer wants.
+
+  Stated at BOTH recursive kinds and with `q < d.nPins`, so a pins-free
+  block discharges it in `nestMention`'s own idiom. -/
+  nestArgsMention : ∀ (i j l : Nat) (x : Expr) (q : Nat), i < d.k → j < (d.ctorsM i).length →
+    (d.xFvsF i j)[l]? = some x → d.nestOf i j l = some q → q < d.nPins →
+    (d.ksF i j).getD l .ordinary = .recursive →
+    ∃ e ∈ x.fvarTypeD.getAppArgs.take (d.pinAt q).nPJ,
+      ConLeche.mentionsMember d.memberNames e = true
   /-- **a pin's container is not a member** of the block: the opened
   form of a nested field (`BlockOpened.nestF`) is shape-compatible with
   a member occurrence at the parameters, which the copies' kind reading

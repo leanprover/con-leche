@@ -531,6 +531,7 @@ theorem ContainerModeled.crossEnvP {Ts : List Name} {env₁ env₂ : Env}
       frame := C.frame
       ordFree := C.ordFree
       nestMention := C.nestMention
+      nestArgsMention := C.nestArgsMention
       pinsNotMembers := C.pinsNotMembers
       pinNP := C.pinNP
       pinConts := fun q hq ci' h => hci q hq ci' (C.pinConts q hq ci' h)
@@ -1528,6 +1529,12 @@ theorem ContainerModeled.of_readBack {env : Env} {m : EnvModel V env} {nP : Nat}
     (hnestMention : ∀ q, q < d.nPins →
       ∃ e ∈ (d.pinAt q).DsE.take (d.pinAt q).nPJ,
         ConLeche.mentionsMember d.memberNames e = true)
+    (hnestArgsMention : ∀ (i j l : Nat) (x : Expr) (q : Nat), i < d.k →
+      j < (d.ctorsM i).length → (d.xFvsF i j)[l]? = some x → d.nestOf i j l = some q →
+      q < d.nPins →
+      (d.ksF i j).getD l .ordinary = .recursive →
+      ∃ e ∈ x.fvarTypeD.getAppArgs.take (d.pinAt q).nPJ,
+        ConLeche.mentionsMember d.memberNames e = true)
     (hpinsNotMembers : ∀ q, q < d.nPins → (d.pinAt q).J ∉ d.memberNames)
     (hpinNP : ∀ q, q < d.nPins → ∃ ci' : ContainerInfo,
       ConLeche.containerInfo? d.env₀ (d.pinAt q).J = some ci' ∧ (d.pinAt q).nPJ = ci'.nP)
@@ -1554,6 +1561,7 @@ theorem ContainerModeled.of_readBack {env : Env} {m : EnvModel V env} {nP : Nat}
   frame := hframe
   ordFree := hordFree
   nestMention := hnestMention
+  nestArgsMention := hnestArgsMention
   pinsNotMembers := hpinsNotMembers
   pinNP := hpinNP
   pinConts := hpinConts
