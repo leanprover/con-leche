@@ -354,13 +354,30 @@ theorem punitBlock_pinRecLaws {env : Env} {m : EnvModel V env} :
   injW := fun _ _ h => nomatch h
   ind := fun _ _ _ _ _ _ _ _ h => nomatch h
 
+/-- **`PUnit`'S OWN-PIN TABLE IS EMPTY** (task #315 M7-3 session 17,
+K.49) — `natBlock_ownPins` at the one-constructor block: no mimic
+recursor is installed, `checkBasisDecl` certifies that itself
+(`basisOwnMimicsOk`), and `containerOwnPinsAt`'s walk stops before its
+first step. -/
+theorem punitBlock_ownPins {env : Env}
+    (hT : env.find? ConLeche.punitName = some ConLeche.punitA)
+    (hR : env.find? ConLeche.punitRecName = some ConLeche.punitRecA)
+    (hU : env.find? ConLeche.punitUnitName = some ConLeche.punitUnitA)
+    (hmim : ConLeche.blockOwnMimicsOk env ConLeche.punitName 0 = true) :
+    ContainerOwnPinsSyn (V := V) env (punitBlock (V := V)) :=
+  ContainerOwnPinsSyn.of_noMimics hmim fun i hi => by
+    obtain rfl : i = 0 := Nat.lt_one_iff.mp (show i < 1 from hi)
+    exact ⟨_, _, containerInfo?_punitA hT hR hU, rfl, rfl⟩
+
 /-- **`PUnit`'s group carries its block model**.  The `inj` clause is
 VACUOUS here: `PUnit` has no parameters, so the guard `0 < d.nP`
 (task #315 M7-4) is unsatisfiable — which is the whole point, the
 pinned injection being `pt` and not a tagged tower. -/
 theorem punitBlock_containerModeled {env : Env} {m : EnvModel V env}
     (hT : env.find? ConLeche.punitName = some ConLeche.punitA)
-    (hU : env.find? ConLeche.punitUnitName = some ConLeche.punitUnitA) :
+    (hR : env.find? ConLeche.punitRecName = some ConLeche.punitRecA)
+    (hU : env.find? ConLeche.punitUnitName = some ConLeche.punitUnitA)
+    (hmim : ConLeche.blockOwnMimicsOk env ConLeche.punitName 0 = true) :
     ContainerModeled m ⟨0, [⟨ConLeche.punitName, [ConLeche.uN],
         ConLeche.punitA.toConstantVal.type,
         [⟨ConLeche.punitUnitName, ConLeche.punitUnitA.toConstantVal.type, 0⟩]⟩]⟩
@@ -404,36 +421,24 @@ theorem punitBlock_containerModeled {env : Env} {m : EnvModel V env}
   pinsNotMembers := fun _ h => nomatch h
   pinNP := fun _ h => nomatch h
   pinConts := fun _ h => nomatch h
+  ownPins := punitBlock_ownPins hT hR hU hmim
   pinψ := fun _ h => nomatch h
-  pinParams := fun _ _ _ _ h => nomatch h
-
-/-- **`PUnit`'S OWN-PIN TABLE IS EMPTY** (task #315 M7-3 session 17,
-K.49) — `natBlock_ownPins` at the one-constructor block: no mimic
-recursor is installed, `checkBasisDecl` certifies that itself
-(`basisOwnMimicsOk`), and `containerOwnPinsAt`'s walk stops before its
-first step. -/
-theorem punitBlock_ownPins {env : Env}
-    (hT : env.find? ConLeche.punitName = some ConLeche.punitA)
-    (hR : env.find? ConLeche.punitRecName = some ConLeche.punitRecA)
-    (hU : env.find? ConLeche.punitUnitName = some ConLeche.punitUnitA)
-    (hmim : ConLeche.blockOwnMimicsOk env ConLeche.punitName 0 = true) :
-    ContainerOwnPinsSyn (V := V) env (punitBlock (V := V)) :=
-  ContainerOwnPinsSyn.of_noMimics hmim fun i hi => by
-    obtain rfl : i = 0 := Nat.lt_one_iff.mp (show i < 1 from hi)
-    exact ⟨_, _, containerInfo?_punitA hT hR hU, rfl, rfl⟩
+  pinParams := fun _ _ _ => ContainerPinParams.of_noPins rfl
 
 /-- **`PUnit` carries its block's model** at any assignment that sends
 its group to `punitBlock`. -/
 theorem punitBlockAt {env : Env} {m : EnvModel V env}
     (hT : env.find? ConLeche.punitName = some ConLeche.punitA)
+    (hR : env.find? ConLeche.punitRecName = some ConLeche.punitRecA)
     (hU : env.find? ConLeche.punitUnitName = some ConLeche.punitUnitA)
+    (hmim : ConLeche.blockOwnMimicsOk env ConLeche.punitName 0 = true)
     {B : ContainerInfo → BlockModel V}
     (hB : B ⟨0, [⟨ConLeche.punitName, [ConLeche.uN], ConLeche.punitA.toConstantVal.type,
         [⟨ConLeche.punitUnitName, ConLeche.punitUnitA.toConstantVal.type, 0⟩]⟩]⟩
       = punitBlock (V := V)) :
     BlockAt m B ⟨0, [⟨ConLeche.punitName, [ConLeche.uN], ConLeche.punitA.toConstantVal.type,
         [⟨ConLeche.punitUnitName, ConLeche.punitUnitA.toConstantVal.type, 0⟩]⟩]⟩ := by
-  refine ⟨hB ▸ punitBlock_containerModeled hT hU, ⟨fun _ => default, ?_, ?_⟩⟩
+  refine ⟨hB ▸ punitBlock_containerModeled hT hR hU hmim, ⟨fun _ => default, ?_, ?_⟩⟩
   · exact hB ▸ punitBlock_pinRecLaws
   · rw [hB]; exact fun q hq => nomatch hq
 

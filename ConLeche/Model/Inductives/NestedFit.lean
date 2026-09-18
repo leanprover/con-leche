@@ -79,6 +79,91 @@ pin's level assignment (`hw`, `mutualCrossChecks`' `isEquiv` at the
 copy's sort); the block's index universe at a group component IS the
 container's (`hu`, the pins' recorded universes — `nestedU`, DESIGN
 §U.22).
+
+## THE FRAME-GENERIC FORMS, and the one sentence that explains them
+
+`CopyEntryAtF`, `TargetView.frameAt`, `targetValAt` and `pinLfpAt` take
+the pin's components — or the frame they induce — as an ARGUMENT rather
+than reading them off the recorded pin.  The reason is one asymmetry,
+and it is the central idea of this route rather than a technical
+convenience:
+
+> **The copy's SLOT reads at the block's own frame `ρp` and does not
+> move.  The CONTAINER's side — its spine fit and the interpretation of
+> its field domain — reads at the frame that varies.  That asymmetry is
+> what a candidate frame IS.**
+
+`CopyCtorShape` keeps the components `Ds` untouched throughout, because
+the copy IS the container at `Ds` syntactically whatever frame one reads
+it at; the frame and the shape are separable, and only the frame moves.
+
+It is also, in one line, why the original impasse was an artefact:
+stating the obligation at the TRUE frame forces both sides to move
+together, and the circularity that appeared then was the cost of tying
+them.
+
+**THE EFFORT PROFILE IS THE DIAGNOSTIC — the same observation from the
+other side.**  When a cut is real, the work at each site is THE SAME
+WORK; when it is imposed, each site needs its own argument.  Five of
+these frame-generalisations landed first or second try, which is what a
+real cut feels like.  The three-way split by a domain's head needed a
+different argument at each arm, and that asymmetry in EFFORT was the
+signal — visible weeks before K.51 explained it.  And `fit_iff_at`
+resisting a frame parameter is the same signal read the other way: the
+work stopped being mechanical, and the reason was that the cut was in
+the wrong place (the syntactic instantiation DETERMINES the semantic
+frame, so a frame parameter has nowhere to go there).
+
+Together with the rule above this is a method, not two anecdotes: read
+the position rather than the head, and watch whether the work stays the
+same work.
+
+**AND THE FOURTH SHAPE, which explains the other three: A SEARCH FINDS
+OCCURRENCES; WHAT BREAKS AN EDIT IS A PROPERTY.**  A hypothesis's shape
+travelling into a callee has no textual footprint at all.  Abstracting
+`pinLfp` out of the pin-pair chain looked free because the name occurred
+once; it was not, because `nestedTargetReads_L`'s proof needs that family
+to BE a container's least tuple — it feeds `pinTarget_reads`.  The edit
+closed only once the PROPERTY was supplied as a premise (`hPfGroup`,
+proved for `pinLfp` by `pinLfp_group`).  **A claim about a dependency
+needs the elaborator, not a search, and the cheap falsifier is to make
+the edit and build.**
+
+**CHEAP REVERTS, NOT MERELY CHEAP FALSIFIERS.**  That edit succeeded on
+the third attempt, and only because the two reverted ones had mapped its
+seven sites and shown which were special.  **A failed attempt that leaves
+knowledge behind is a measurement**; reverting WHOLESALE is what keeps
+attempting cheap enough to do repeatedly, and what stops a half-done
+chain from being indistinguishable from an intended one.
+
+**GREP BEFORE FUNDING — the first step of costing any piece of work on
+this route, not a heuristic.**  Five times a deadlock on this route was
+broken by something the tree already proved: K.51 for the head split,
+`tupleLfpAV_fold`'s index-genericity for the copies' readings, §U.61 for
+head-reading, `nestedPinsFixed` for the section agreement, and
+`CopyCtorShape.fit_imp_T_le_dom` for the family-generic fit.  Cost a
+piece of work by first naming what would discharge it and grepping for
+that name.
+
+**AND A HIGHER-ORDER TRAP, WITH ITS REMEDY AS A DEFAULT.**  When one of
+these generalisations abstracts an INDEX-INDEXED family — `Af : Nat →
+List V` replacing a term like `((d.pinAt (q₀ + i)).Ds ψ).map (interp V
+ρp)` inside a hypothesis — leaving `Af` implicit makes unification invert
+the index expression `q₀ + i` to solve it.  That surfaces not as a type
+error but as a **`(deterministic) timeout at whnf, maximum number of
+heartbeats (200000)`**, which the error text gives no way to diagnose.
+**Pass such a family EXPLICITLY at call sites from the start**
+(`(Af := fun q => …)`); doing so removed the timeout outright when this
+lane hit it.
+
+**A mechanical trap that recurs at every one of these generalisations.**
+When the generic form stops mentioning an object the specific one
+mentions (`CopyEntryAtF` does not mention `Ds`), their auto-bound
+section variables differ and the two signatures do NOT line up
+positionally — so defining the specific one as an application of the
+generic one fails with an argument-order mismatch.  State the bridge as
+a separate `Iff.rfl`/`rfl` theorem with explicit named arguments
+instead (`copyEntryAt_iff_F`).
 -/
 
 namespace ConLeche.Model
@@ -375,7 +460,36 @@ container at the pin's components).  The auxiliary lists instantiate
 it (`nestedTV`), and so does a stored block model with its pins'
 constructors (`BlockModel.targetView`), which is what lets the
 identities be stated ONCE for the block being installed and for the
-containers already stored (`PinShapes`). -/
+containers already stored (`PinShapes`).
+
+**THE RULE OF THIS ROUTE, and it has cost four refutations to learn:
+NEVER READ A TARGET'S IDENTITY, OR A FIELD'S CLASSIFICATION, OFF A
+COMPONENT'S OR A DOMAIN'S HEAD.  READ IT OFF THE RECORDED POSITION.**
+A component can be a λ that the positivity `whnf` reduces, so its head
+is not the container's; a field domain can be a parameter APPLIED, so
+its head is not the target's; the auxiliary domain can be a copy
+applied, so it is not the copy constant; and a copy has no NAME in the
+output environment while having a perfectly good READING.  The four
+witnesses, in the order they were paid for:
+
+* §U.61 — the target's container taken from the component's head,
+  refuted by lane L-B at `tests/e2e/nested_lam_pin_prop.ndjson`
+  (component `fun _ : True => T`), which is why `DsE` below is read by
+  nothing and `PinCorr`/`targetPin_corr` read the POSITION instead;
+* the restated ordinary-field case split three ways by the container
+  domain's head, collapsed by K.51 (`nestedPinRewrites`), which
+  certifies that the normalised minted domain rewritten by
+  `replaceAllNested` IS the stored one — over exactly the fields that
+  carry an edge, with no head analysis anywhere;
+* "the auxiliary domain is the copy constant", corrected at
+  `tests/e2e/nested_p26.ndjson`, where it is the copy APPLIED; the
+  head-free fact is "headed by an auxiliary member";
+* "no term denotes a copy", corrected by `mutMemberLeaf` and
+  `tupleLfpAV_fold`, which are index-generic: a copy has a reading, and
+  only the NAME is missing.
+
+Three fixtures carry a λ component and teach the first form of the rule:
+`nested_lam_pin_prop`, `nested_p22`, `nested_p26`. -/
 structure TargetView (V : Type w) where
   /-- the members -/
   k : Nat
@@ -423,6 +537,39 @@ theorem frame_of_mem (TV : TargetView V) (ρp : Nat → V) {t : Nat} (ht : t < T
 theorem frame_of_pin (TV : TargetView V) (ρp : Nat → V) {t : Nat} (ht : ¬ t < TV.k) :
     TV.frame ρp t = consList ((TV.Ds t).map (interp V ρp)) ρp := by simp only [frame, if_neg ht]
 
+/-- **THE FRAME AT A GIVEN COMPONENT FAMILY** (task #315 L-E, the
+collapse): `TargetView.frame` with a pin target's component VALUES
+supplied instead of interpreted from the recorded components.
+
+This is the candidate frame, and it is where the whole restatement
+lives: at a member the frame does not move — the output model's value at
+a member already IS the auxiliary leaf — and at a pin it is the
+container's parameter frame at the candidate components. -/
+@[expose] noncomputable def frameAt (TV : TargetView V) (cAs : Nat → List V)
+    (ρp : Nat → V) (t : Nat) : Nat → V :=
+  if t < TV.k then ρp else consList (cAs (t - TV.k)) ρp
+
+omit [SetTheory V] in
+theorem frameAt_of_mem (TV : TargetView V) (cAs : Nat → List V) (ρp : Nat → V) {t : Nat}
+    (ht : t < TV.k) : TV.frameAt cAs ρp t = ρp := by
+  simp only [frameAt, if_pos ht]
+
+omit [SetTheory V] in
+theorem frameAt_of_pin (TV : TargetView V) (cAs : Nat → List V) (ρp : Nat → V) {t : Nat}
+    (ht : ¬ t < TV.k) : TV.frameAt cAs ρp t = consList (cAs (t - TV.k)) ρp := by
+  simp only [frameAt, if_neg ht]
+
+/-- **The recorded frame is the general one at the recorded components**
+(task #315 L-E): conservativity again, so every consumer of
+`TargetView.frame` specialises back. -/
+theorem frameAt_recorded (TV : TargetView V) (ρp : Nat → V) (t : Nat) :
+    TV.frameAt (fun q => (TV.Ds (TV.k + q)).map (interp V ρp)) ρp t = TV.frame ρp t := by
+  by_cases ht : t < TV.k
+  · rw [frameAt_of_mem _ _ _ ht, frame_of_mem _ _ ht]
+  · rw [frameAt_of_pin _ _ _ ht, frame_of_pin _ _ ht]
+    have h : TV.k + (t - TV.k) = t := by omega
+    simp only [h]
+
 end TargetView
 
 /-- **The targets' stored readings at the parameter depth**: member
@@ -448,6 +595,78 @@ theorem targetRead_of_pin {acval : Name → (Name → Nat) → AnnotTerm} {membe
       = AnnotTerm.mkAppN (acval (pins.getD (t - k) default).J ((pins.getD (t - k) default).ψJ ψ))
           ((pins.getD (t - k) default).Ds ψ) := by
   simp only [targetRead, if_neg ht]
+
+/-- **THE TARGETS' READINGS AT A GIVEN COMPONENT FAMILY, AS VALUES**
+(task #315 L-E, the COLLAPSE of the pin-target arms): `targetRead`'s
+denotation with the pins' component VALUES supplied as an argument
+instead of read off the recorded pin.
+
+**Why this is the collapse and not another re-basing.**  The restated
+ordinary-field case was splitting three ways by the head of the
+CONTAINER's field domain — parameter-headed bare, parameter-headed
+applied, constant-headed at an earlier container.  Each arm was
+answering the same question, "what does this field's domain evaluate to
+at the candidate frame", by RECOMPUTING it from the container's syntax,
+and the recomputation is what branched.  The elimination has already
+computed it: `nestedPinRewrites` (K.51,
+`ConLeche/Kernel/Inductives/NestedInstall.lean`) certifies that the
+normalised MINTED domain, rewritten by `replaceAllNested` at the final
+state, IS the domain the auxiliary install stored — over exactly the
+fields that carry an edge, and with no head analysis anywhere.  Stated
+over that image the answer is read off, the head never appears, and the
+target becomes an INDEX rather than a case.
+
+**WHY VALUES AND NOT TERMS.**  The natural-looking generalisation takes
+the components as ANNOTTERMS, and it cannot state the candidate frame at
+all: a pin's candidate component has to denote the AUXILIARY CARRIER at
+another pin, and the copies are minted into a scratch block that the
+restore removes, so no term of the output environment denotes one.  The
+container's former does have a constant — only its arguments move — so
+the candidate reading is the former's value with the candidate component
+VALUES folded onto it.  (This is the same shape as `pinLfpAt`, which
+takes `as : List V` for the same reason, and it is G2's point about
+carriers one level out: the thing being replaced is not a term.)
+
+**IT BUYS THE ORDERING QUESTION NOTHING, and the next reader's first
+instinct will be that it should.**  K.51 is a SYNTACTIC identity between
+two terms whose interpretations differ by how the copy constants are
+read: as the auxiliary carrier it gives the candidate frame, as the
+containers' least tuples the true one.  So a certified syntactic chain
+settles the collapse and says nothing whatever about which pin must be
+settled before which — the candidate-to-true bridge still needs its own
+well-founded induction, over a relation whose union with the
+declaration order is cyclic on an accepted fixture. -/
+@[expose] noncomputable def targetValAt (acval : Name → (Name → Nat) → AnnotTerm)
+    (memberNames : List Name) (pins : List PinSyn) (cAs : Nat → List V)
+    (nP k : Nat) (ψ : Name → Nat) (ρp : Nat → V) (t : Nat) : V :=
+  if t < k then
+    interp V ρp (AnnotTerm.mkAppN (acval (memberNames.getD t .anonymous) ψ) (paramBvarsAt nP nP))
+  else
+    (cAs (t - k)).foldl SetTheory.app
+      (interp V ρp (acval (pins.getD (t - k) default).J ((pins.getD (t - k) default).ψJ ψ)))
+
+/-- **The recorded components' VALUES, as a family** — what today's
+`targetRead` supplies once interpreted. -/
+@[expose] noncomputable def recordedAs (pins : List PinSyn) (ψ : Name → Nat) (ρp : Nat → V)
+    (q : Nat) : List V :=
+  ((pins.getD q default).Ds ψ).map (interp V ρp)
+
+theorem targetValAt_of_mem {acval : Name → (Name → Nat) → AnnotTerm} {memberNames : List Name}
+    {pins : List PinSyn} {cAs : Nat → List V} {nP k : Nat} {ψ : Name → Nat} {ρp : Nat → V}
+    {t : Nat} (ht : t < k) :
+    targetValAt (V := V) acval memberNames pins cAs nP k ψ ρp t
+      = interp V ρp
+          (AnnotTerm.mkAppN (acval (memberNames.getD t .anonymous) ψ) (paramBvarsAt nP nP)) := by
+  simp only [targetValAt, if_pos ht]
+
+theorem targetValAt_of_pin {acval : Name → (Name → Nat) → AnnotTerm} {memberNames : List Name}
+    {pins : List PinSyn} {cAs : Nat → List V} {nP k : Nat} {ψ : Name → Nat} {ρp : Nat → V}
+    {t : Nat} (ht : ¬ t < k) :
+    targetValAt (V := V) acval memberNames pins cAs nP k ψ ρp t
+      = (cAs (t - k)).foldl SetTheory.app
+          (interp V ρp (acval (pins.getD (t - k) default).J
+            ((pins.getD (t - k) default).ψJ ψ))) := by
+  simp only [targetValAt, if_neg ht]
 
 /-! ## The identities of one copy's constructor, entry-free -/
 
@@ -494,11 +713,38 @@ fitting the container's real domains, the CONTAINER's domain read at
 the pin's frame IS the copy's slot at `Z`, taken at the field's target
 (`CopyEntry` of DESIGN §U.23, re-based on the container's prefix fit
 and generic in the tuple, task #315 L-E). -/
+@[expose] def CopyEntryAtF (fr : Nat → V) (w : Nat) (u : Nat → Nat) (Z : Nat → V) (l : Nat) :
+    Prop :=
+  ∀ fs₁ : List V, fs₁.length = l →
+    SpineFit fr (((dJ.Fss i ψJ).getD j []).take l) fs₁ →
+    interp V (consList fs₁ fr) (((dJ.Fss i ψJ).getD j []).getD l default)
+      = slotSet w (u (tg l)) (consList fs₁ ρp) (tls.getD l []) (Eis.getD l []) (Z (tg l))
+
+/-- **THE ENTRY IDENTITY, FRAME-GENERIC** (task #315 L-E, clause two of
+the closure step).  `CopyEntryAt` is `CopyEntryAtF` at the RECORDED
+frame, definitionally, so every consumer is untouched.
+
+**The asymmetry is the whole point.**  The container's side — the
+`SpineFit` and the `interp` of its field domain — is read at the frame
+`fr`; the copy's SLOT is read at `ρp`, the block's own frame, and does
+not move.  That is what a candidate frame IS: the same syntactic shape
+(`CopyCtorShape` keeps `Ds` untouched, because the copy is the container
+at `Ds` whatever frame one reads it at) evaluated on the container's
+side at different component values.  Separating the two was the finding:
+the frame and the shape are separable, and only the frame moves. -/
 @[expose] def CopyEntryAt (w : Nat) (u : Nat → Nat) (Z : Nat → V) (l : Nat) : Prop :=
   ∀ fs₁ : List V, fs₁.length = l →
     SpineFit (consList (Ds.map (interp V ρp)) ρp) (((dJ.Fss i ψJ).getD j []).take l) fs₁ →
     interp V (consList fs₁ (consList (Ds.map (interp V ρp)) ρp)) (((dJ.Fss i ψJ).getD j []).getD l default)
       = slotSet w (u (tg l)) (consList fs₁ ρp) (tls.getD l []) (Eis.getD l []) (Z (tg l))
+
+/-- **Today's entry identity IS the frame-generic one at the recorded
+frame** (task #315 L-E).  `Iff.rfl`, so the re-basing is conservative
+and no consumer moves. -/
+theorem copyEntryAt_iff_F (w : Nat) (u : Nat → Nat) (Z : Nat → V) (l : Nat) :
+    CopyEntryAt (V := V) dJ ψJ Ds tg tls Eis ρp i j w u Z l
+      ↔ CopyEntryAtF (V := V) dJ ψJ tg tls Eis ρp i j
+          (consList (Ds.map (interp V ρp)) ρp) w u Z l := Iff.rfl
 
 /-- **The entry at the STORED READING** (task #315 L-E, DESIGN §U.36):
 the shape of a container-ordinary field the elimination rewrote — the
@@ -549,6 +795,56 @@ what the WALK loses is the correspondence at such a field (DESIGN
         = is.foldl SetTheory.app (interp V ρp (TV.EA (tg l)))) →
     CopyEntryAt dJ ψJ Ds tg tls Eis ρp i j TV.w TV.u Z l
 
+/-- **THE READING LAW, FRAME-GENERIC** (task #315 L-E, clause two).
+Three things move together, and they are exactly the three places a
+frame appears in `EntryRead`:
+
+* `cAs` — the component family, which fixes the TARGET's frame through
+  `TargetView.frameAt`;
+* `EAv` — the target's reading as a VALUE, because at a candidate frame
+  the target reads as the container's former at the candidate components
+  (`targetValAt`) and not as `interp` of a recorded term;
+* `frSelf` — this copy's OWN frame, which is what `CopyEntryAtF` reads
+  the container's side at.
+
+`entryRead_iff_F` is `Iff.rfl`, so no consumer moves.
+
+**WHICH PARAMETER CARRIES THE OBLIGATION — checked after lane L-B
+disputed it, and L-B was right.**  `cAs` occurs ONLY in the hypothesis's
+spine fit.  The container's field domain is read at `frSelf`, inside
+`CopyEntryAtF`, so **`frSelf` is the parameter that must become the
+candidate frame**, and the tree holds no candidate value for it:
+`CandParamFit` and `CandIdxAgree` are side conditions ON such a family,
+not a construction of one.
+
+**AND THIS DOES NOT REACH `hentR`.**  `CopyCtorShape.fit_imp_T_le_dom`'s
+`hentR` reads the container's side at the local notation `ρJ`, the
+RECORDED frame, and its proof turns on `slotSet_instTele … Ds ρp` and
+`interp_instAll` — the two commutations that force the frame.  So
+`CopyEntryAtF` at a candidate `frSelf` is not `hentR`, and the step
+between them is not a lemma in this tree. -/
+@[expose] def EntryReadF (cAs : Nat → List V) (EAv : Nat → V) (frSelf : Nat → V) (l : Nat) :
+    Prop :=
+  ∀ Z : Nat → V,
+    (∀ is : List V, SpineFit (TV.frameAt cAs ρp (tg l)) (TV.Ids (tg l)) is →
+      SetTheory.app (Z (tg l)) (tupW (TV.u (tg l)) is)
+        = is.foldl SetTheory.app (EAv (tg l))) →
+    CopyEntryAtF dJ ψJ tg tls Eis ρp i j frSelf TV.w TV.u Z l
+
+/-- **Today's reading law IS the frame-generic one at the recorded
+data** (task #315 L-E).  `Iff.rfl`; the bridge is a theorem and not a
+definitional alias for the signature reason recorded in this file's
+header. -/
+theorem entryRead_iff_F (l : Nat) :
+    EntryRead (V := V) TV dJ ψJ Ds tg tls Eis ρp i j l
+      ↔ EntryReadF (V := V) TV dJ ψJ tg tls Eis ρp i j
+          (fun q => (TV.Ds (TV.k + q)).map (interp V ρp))
+          (fun t => interp V ρp (TV.EA t))
+          (consList (Ds.map (interp V ρp)) ρp) l := by
+  unfold EntryRead EntryReadF
+  simp only [TargetView.frameAt_recorded]
+  rfl
+
 variable (base kJ : Nat) (Fs : List AnnotTerm) (rs : List Bool)
 
 /-- **The entry identities at every copy-recursive field OUTSIDE the
@@ -557,6 +853,27 @@ the whole block (`nestedPinLeaf_all`). -/
 @[expose] def CopyEntryOut (w : Nat) (u : Nat → Nat) (Z : Nat → V) : Prop :=
   ∀ l, l < Fs.length → rs.getD l false = true → ¬ (base ≤ tg l ∧ tg l < base + kJ) →
     CopyEntryAt dJ ψJ Ds tg tls Eis ρp i j w u Z l
+
+/-- **The outside entries, FRAME-GENERIC** (task #315 L-E, the abstract
+carry): `CopyEntryOut` with the container-side frame an argument.
+
+`Ds` does not occur — the whole point of the carry.  These are the
+`ordF`-RIGHT and `pinF` arms, the two that reach the container's field
+domain THROUGH the entry, and they are the two the carry covers.  The
+three that do not (`recF`, `ordF`-left, `es`) reach `instAll Ds`
+directly and are not stated here. -/
+@[expose] def CopyEntryOutF (fr : Nat → V) (w : Nat) (u : Nat → Nat) (Z : Nat → V) : Prop :=
+  ∀ l, l < Fs.length → rs.getD l false = true → ¬ (base ≤ tg l ∧ tg l < base + kJ) →
+    CopyEntryAtF dJ ψJ tg tls Eis ρp i j fr w u Z l
+
+/-- **Today's outside entries ARE the frame-generic ones at the recorded
+frame** (task #315 L-E).  `Iff.rfl`, stated as a theorem rather than a
+definitional alias for the auto-bound-signature reason in this file's
+header. -/
+theorem copyEntryOut_iff_F (w : Nat) (u : Nat → Nat) (Z : Nat → V) :
+    CopyEntryOut (V := V) dJ ψJ Ds tg tls Eis ρp i j base kJ Fs rs w u Z
+      ↔ CopyEntryOutF (V := V) dJ ψJ tg tls Eis ρp i j base kJ Fs rs
+          (consList (Ds.map (interp V ρp)) ρp) w u Z := Iff.rfl
 
 variable (Es : List AnnotTerm)
 
@@ -781,6 +1098,27 @@ theorem copyEntryAt_of_read {TV : TargetView V} {dJ : BlockModel V} {ψJ : Name 
       SetTheory.app (Z (tg l)) (tupW (TV.u (tg l)) is)
         = is.foldl SetTheory.app (interp V ρp (TV.EA (tg l)))) :
     CopyEntryAt dJ ψJ Ds tg tls Eis ρp i j TV.w TV.u Z l :=
+  hread Z hZ
+
+/-- **The entry at a tuple whose target family reads the target's value,
+FRAME-GENERIC** (task #315 L-E, clause two).  `copyEntryAt_of_read` with
+the target's frame, the target's reading VALUE and this copy's own frame
+all supplied — the same one-line proof, because `EntryReadF` is already
+the implication this states.
+
+At the candidate frame the caller supplies `EAv := targetValAt …` and
+`hZ` from `tupleLfpAV_fold` at the field's target, which is
+index-generic: members and copies alike, no case on the target and no
+hypothesis at another pin. -/
+theorem copyEntryAtF_of_read {TV : TargetView V} {dJ : BlockModel V} {ψJ : Name → Nat}
+    {tg : Nat → Nat} {tls : List (List (Nat × Nat × AnnotTerm))}
+    {Eis : List (List AnnotTerm)} {ρp : Nat → V} {i j l : Nat}
+    {cAs : Nat → List V} {EAv : Nat → V} {frSelf : Nat → V}
+    (hread : EntryReadF TV dJ ψJ tg tls Eis ρp i j cAs EAv frSelf l) {Z : Nat → V}
+    (hZ : ∀ is : List V, SpineFit (TV.frameAt cAs ρp (tg l)) (TV.Ids (tg l)) is →
+      SetTheory.app (Z (tg l)) (tupW (TV.u (tg l)) is)
+        = is.foldl SetTheory.app (EAv (tg l))) :
+    CopyEntryAtF dJ ψJ tg tls Eis ρp i j frSelf TV.w TV.u Z l :=
   hread Z hZ
 
 /-! ## The fits at one constructor -/

@@ -269,6 +269,15 @@ FALLBACK = {
     ('ConLeche.Model.Inductives.NestedStoreRun','ConLeche.Model.Inductives.NestedRecRule'),
     ('ConLeche.Model.Inductives.NestedStoreRun','ConLeche.Verify.Inductives.NestedRecsWF'),
     ('ConLeche.Model.Inductives.NestedStoreRun','ConLeche.Model.Inductives.NestedTables'),
+    # task #315 M7-3 session 21: `NestedTablesInv`'s two re-exports became
+    # demotion candidates when `nestedTables_mem_inv` changed the file's
+    # public interface graph (the fixpoint is order-dependent).  Both
+    # demotions are refused by the compiler — the `MutualIdxUniv`/`InstAll`
+    # class: without `NestedInstall` the file's own statements lose
+    # `nestedMemberTable`/`checkStructProjTable`, without `EnvWF` they lose
+    # `EnvWF`.  Both verified by a failing `lake build`.
+    ('ConLeche.Verify.Inductives.NestedTablesInv','ConLeche.Kernel.Inductives.NestedInstall'),
+    ('ConLeche.Verify.Inductives.NestedTablesInv','ConLeche.Verify.EnvWF'),
 }
 
 files=[f for f in subprocess.check_output(['git','ls-files','*.lean']).decode().split()

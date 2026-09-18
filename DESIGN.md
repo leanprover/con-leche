@@ -82624,6 +82624,248 @@ of the ten probe theorems, of `nestedPinsEntry_of_le_all` and of
 Cost: one session.  Next: the kernel lane closes the seventh producer
 on the synced tree, then 3t takes merges 1 and 4.
 
+##### (bb) INTEGRATION 3t — the two merges 3s deferred, and the circularity resolved by SYNCING FIRST (session U-42)
+
+Integration 3s stopped at its first item and reverted it: the kernel
+lane's `ConstWF` major-premise clause was complete against the SIX
+producers on its own branch, and the integration branch had a SEVENTH.
+3s then synced the integration branch INTO that lane, and **the lane
+closed the seventh producer in one commit on top of that sync**.  Both
+deferred merges land here, in the pinned order:
+
+* `agent/uniform-m5` **997a999a** (M8: the clause, K.55, K.56, the
+  seventh producer) at **94b9e668**;
+* `agent/uniform-m7env` **71e7f932** (M7-3 sessions 21–23) at
+  **ca1f0d27**.
+
+**MERGE 1 WAS CONFLICT-FREE**, which is the whole point: the lane's
+history already contained integration 3s's own resolutions, so nothing
+was re-applied and nothing was re-decided.  Verified rather than
+assumed before merging — the rescued `mutualRecTy_major` is still in
+`Verify/Inductives/MutualWF.lean` with its relocation note, and the
+shake allowlist still carries both sides of 3s's union.
+
+###### (bb-1) THE RULE, CONFIRMED BY ITS OWN REMEDY
+
+§U.27 (aa-1) stated it: **a census sees only the producers that exist
+in the tree it runs on.**  3t is the confirmation, because the remedy
+worked exactly as the rule predicts.  The lane could not close a
+producer it had never seen; one sync put the producer in front of it;
+it closed it in a single commit; the merge that had failed then went
+through with no conflict at all.  **Sync a lane BEFORE it closes
+something tier-wide, not after** is now a fact about this task and not
+a prediction.
+
+And the lane's second census found **an EIGHTH site — a CALL rather
+than a producer** — which is why a kernel-lane merge touches seven
+model-tier files.  A census keyed on producers will miss call sites by
+construction; it took a second pass to see it.
+
+###### (bb-2) A CORRECTION TO (aa-1), from the lane that owns the file
+
+(aa-1) attributed the silently mis-merged `NestedRecsStore.lean` to the
+invariant's own tuple — `ConstWF` going from eight conjuncts to nine
+with the new one SIXTH, so every projection chain past the fifth shifts.
+**That shift is real, the lane verified it per site, and it is NOT what
+broke that file.**  The badly merged thing was the CALL to the
+provision, whose POSITIONAL arguments moved when the lane added a
+per-entry premise; two lanes edited the same call, the edits merged
+cleanly, and the arguments misaligned.
+
+Right in kind, wrong in place — and the kind is the part worth keeping:
+**a positional interface that gains an argument in the middle breaks
+its callers silently, and a clean auto-merge is exactly the moment
+nobody looks.**  It is the same shape as the structure that gained a
+parameter and broke named-argument sites off-branch (§U.27 (z-8) 1's
+neighbourhood), one position-based and one name-based.
+
+###### (bb-3) NUMBERING — two moved, one honoured, and the rule now lives HERE
+
+Lane M7-3's session 21 keeps **§U.110**, the number integration 3s
+reserved for it.  That reservation is the one 3s recorded ONLY on a
+lane branch, where no other lane could see it — so lane L-B took it at
+3s and had to be moved to §U.114.  Sessions 22 and 23 arrived as
+§U.111/§U.112, which had LANDED at 3s as lane L-E's sessions 37–38, so
+landed-outranks-arriving moves them to **§U.115** and **§U.116**.  Two
+headers, neither cited anywhere.
+
+**THE NEXT FREE NUMBER IS §U.117, AND THIS SENTENCE IS THE RECORD OF
+IT** — on the integration branch, which is the only place every lane
+can see.  There are no outstanding reservations.  The rule 3s's
+collision produced: *a number reserved on a lane branch is invisible to
+every other lane and will be taken again.*
+
+The citation audit found nothing to repoint: lane M7-3's own landed
+sections are cited correctly under 3r's renumbering (`§U.104 (b)` is
+its session 18), and its five new in-tree `.lean` citations name landed
+sections only — among them `§U.86`, the repoint integration 3r made on
+this lane's behalf, which arrived already applied.
+
+###### (bb-4) THE RESIDUAL AFTER 3t — unchanged, and that is expected
+
+* **`NestedPinsShape V μ F`** — `NestedPinsShapeOrdRight` and
+  `NestedPinsShapePinF` (lane L-B).
+* **`NestedPinsEntry V μ F`** — the shape plus **`NestedPinsLe`**
+  (lane L-E).
+* **`NestedTailModeled V μ F`** — **`NestedCtorPinNamesOf` (K.36)
+  ALONE**.
+* **M8** — `ModeledStepB`.
+
+Four, as after 3s.  Lane M7-3's field — the one the clause unblocks —
+lands in that lane's NEXT commit, not in the pin merged here, and it is
+the covering premise that stands behind one of these four.
+
+###### (bb-5) GATES
+
+At both merge commits: `lake build` **722 jobs** warning-free, `lake
+test` warning-free, layering base 353 / model 286 / caps 3 / umbrella 1
+with 0 base→lane and 0 impl→theory, trust surface 13 escapes in 5
+allowlisted files (654 scanned), no-local-paths OK, overview-links
+**112**, quote-gate **2**, proofdeps **4965 rows / 12 roots / 0 doors**
+— the baseline, unmoved through eleven merges across 3r, 3s and 3t —
+shake 510/510 allowlisted, pub-imports none demotable (1334 of 2236 at
+merge 1, 2242 at merge 4), **nested-shadow 37/37**.
+
+**`tests/arena.sh` EXIT 0 at merge 1**, the only one moving checker
+code (`Kernel/ExprOps`, `Kernel/DeclCheck`,
+`Kernel/Inductives/Modeled`, `Cached/CheckerC`): arena suite 91/96, e2e
+199/199, annot 15/15, nested-shadow 37/37, axiom pin 20 theorems,
+trusted and both `--jobs` sweeps at 162 + 199 + 15 with the same three
+recorded divergences.
+
+**The chain, verified** (`_tmp/uniform-315/chain-probe-u42.lean`,
+outside the build): `probe_decl_all` closes over exactly `hOrd`,
+`hPin`, `hLe` and `hK36` plus the run; `#print axioms` of the ten probe
+theorems, of `nestedPinsEntry_of_le_all` and of `copyPinFCorr`:
+`[propext, Classical.choice, Quot.sound]`.  Present and checked:
+`Expr.recMajorHeadOk` and `RecMajorHeadStored`.
+
+Cost: one session.  Next: lane M7-3's field once it has this tree.
+
+##### (cc) INTEGRATION 3u — two kernel records, the nine-site field UNCONDITIONAL, and a measurement that killed its own request (session U-43)
+
+Three merges, all landing, and the round's theme is evidence overruling
+intention:
+
+* `agent/uniform-m5` **7fa8e306** (K.51, K.53) at **e288046c**;
+* `agent/uniform-m7env` **7e004a2d** (M7-3 session 24) at **99369ea5**;
+* `agent/uniform-ident` **8eef3b99** (L-B session 29) at **7ccecec6**.
+
+DESIGN was the only conflict in all three, and all three were pure
+appends on both sides.
+
+###### (cc-1) A MEASUREMENT THAT OVERTURNED ITS OWN PROPOSED ROW
+
+K.53 was requested as a new certification-only check — the container's
+constructor names round-tripping through the prefix rename.  The
+measurement found it **DOMINATED by an existing check that mirrors
+official's already-declared refusal**, so the record is filed as
+DOMINATED WITH THE ARGUMENT rather than added as a row that could never
+fire.  **The standing finding that this route has no member of that
+category survives** — a row that would have quietly falsified it was
+refused on its own evidence.
+
+This is the fourth time in this arc that measuring before committing
+changed the answer, and the first where what it killed was the request
+itself.  Beside K.42's `false`-that-wasn't (K.50) and the arena audit's
+stale benchmark, the pattern is now explicit: **a measurement run to
+justify a record is worth running precisely because it can refuse it.**
+
+###### (cc-2) THE NINE-SITE FIELD, AND A CLAIM CHECKED RATHER THAN TAKEN
+
+`ContainerModeled.ownPins` lands at all nine sites UNCONDITIONALLY.
+What had held it out was `RecMajorHeadStored`, and its last step is now
+a **DERIVATION off the environment invariant's major-premise clause** —
+the clause integration 3t merged — rather than a premise.  So the
+record lands adding nothing to any producer's obligation, which is the
+shape §U.27 (aa)'s ordering rule exists to produce: the clause went in
+first, and the field that needed it followed without a new hypothesis.
+
+The lane claimed the four declaration theorems' signatures are
+byte-identical before and after.  **Verified, not taken**:
+`declNested_of`, `declMutualB`, `declNativeB` and `basisStepB_of` show
+ZERO changed signature lines in the merge diff.  A record that lands at
+nine sites and moves no consumer's statement is exactly the shape that
+would hide a silent widening, so it is the shape to check.
+
+###### (cc-3) THE CORRECTION, KEPT AS WRITTEN
+
+Lane L-B found a wrong entry in its own pin-view elimination and
+rewrote both the docstring and its design section to say so plainly —
+"that was wrong, and wrong in the direction that helps".  **None of it
+was reconciled toward the older text.**  Its §(g) corrects a note in
+lane L-E's LANDED §U.113 by adding the correction in its OWN section
+rather than editing another lane's record, which is the right way
+round and worth copying: **correct another lane's claim beside it, not
+inside it.**
+
+###### (cc-4) NUMBERING — THE RECORDING RULE WORKED, AND PRODUCED A TIE
+
+Lane M7-3 and lane L-B **both took §U.117**, each correctly reading the
+next-free number integration 3t recorded ON THE INTEGRATION BRANCH.
+
+That is the rule from §U.27 (bb-3) doing its job.  When the number
+lived only on a lane branch (§U.110, integration 3s) one lane could not
+see it and took it in ignorance — a collision.  When it lives where
+every lane reads it, two lanes take it *knowingly and identically* — a
+TIE.  **A tie is a better failure than a collision**: it is visible at
+the merge, it needs no archaeology, and it breaks on merge order.
+M7-3 merged first and keeps **§U.117**; lane L-B's session 29 is
+**§U.118**, with a note at its head recording the tie.
+
+The remaining gap is that "next free" is a moving target between
+integrations.  The cheap fix, if it recurs: lanes cite by TITLE and
+take no number at all, which is already the rule for citations and
+could be the rule for headers too.
+
+**§U.119 IS THE NEXT FREE NUMBER.**  No outstanding reservations.
+Both kernel records used numbers the coordinator had assigned (K.51
+reserved, K.53 queued), and **the kernel lane asked for confirmation
+against the central list rather than trusting its own branch's
+reservation** — the §U.110 lesson applied by the lane that would have
+been entitled to assume.
+
+###### (cc-5) THE RESIDUAL AFTER 3u
+
+Unchanged in COUNT, and that is the honest reading: the merges put the
+inputs in place rather than discharging the facts.
+
+* **`NestedPinsShape V μ F`** — `NestedPinsShapeOrdRight` and
+  `NestedPinsShapePinF` (lane L-B); both now have the positivity record
+  (K.51) and the derived pin view they were waiting on.
+* **`NestedPinsEntry V μ F`** — the shape plus **`NestedPinsLe`**
+  (lane L-E).
+* **`NestedTailModeled V μ F`** — **`NestedCtorPinNamesOf` (K.36)
+  ALONE**, and K.53 puts its last face one line from closed.
+* **M8** — `ModeledStepB`.
+
+###### (cc-6) GATES
+
+At all three merge commits: `lake build` **722 jobs** warning-free,
+`lake test` warning-free, layering base 353 / model 286 / caps 3 /
+umbrella 1 with 0 base→lane and 0 impl→theory, trust surface 13 escapes
+in 5 allowlisted files (654 scanned), no-local-paths OK, overview-links
+**112**, quote-gate **2**, proofdeps **4965 rows / 12 roots / 0 doors**
+— unmoved through fourteen merges across 3r, 3s, 3t and 3u — shake
+510/510 allowlisted, pub-imports 1334 of 2242 none demotable,
+**nested-shadow 37/37**.
+
+**`tests/arena.sh` EXIT 0 at merge 1**, the only one moving checker
+code (`Kernel/Inductives/NestedInstall.lean`, +116): arena suite 91/96,
+e2e 199/199, annot 15/15, nested-shadow 37/37, axiom pin 20 theorems,
+trusted and both `--jobs` sweeps at 162 + 199 + 15 with the same three
+recorded divergences.
+
+**The chain, verified** (`_tmp/uniform-315/chain-probe-u43.lean`):
+`probe_decl_all` closes over exactly `hOrd`, `hPin`, `hLe` and `hK36`
+plus the run; `#print axioms` of the ten probe theorems, of
+`nestedPinsEntry_of_le_all` and of `copyPinFCorr`: `[propext,
+Classical.choice, Quot.sound]`.  `ContainerModeled.ownPins` present and
+checked.
+
+Cost: one session.  Next: the two lanes synced below take their
+residuals to transcription and to one line respectively.
+
 #### K.32 — the copies' recursive targets come from the container's own recursion (2026-09-16, task #315, lane L-B's DESIGN §U.23 (e))
 
 The model's `ordF` arm needs to know that a container-ORDINARY field
@@ -103243,6 +103485,122 @@ shake 511 removals all allowlisted; pub-imports 1315 of 2147, none
 demotable; nested-shadow 28/28.  `tests/arena.sh` not re-run: the
 session touches no checker code.
 
+#### U.110 — M7-3 session 21: the `ownPins` crossing PRE-THREADED to one kernel premise, and the "free one level up" audit (lane M7-3, session 21, 2026-09-18)
+
+*(Numbered at the integrator's sync after integration 3r: this lane
+wrote it as §U.81, which on the integrated tree is lane L-B's session
+19.  §U.106–§U.109 are lane L-B's sessions 24–27, assigned on that
+lane's own branch at the same sync, so this one is §U.110.)*
+
+##### (a) The path, cleared to a single named input
+
+The field is held out by a kernel clause this lane does not own, so the
+session's work was to make its arrival a one-commit landing rather than
+a session.  Everything on the crossing path except that clause is now
+proved:
+
+* **`ContainerOwnPinsSyn.crossIndOf`** takes exactly
+  `EnvBlocksOf.crossIndP`'s own `hext`/`hnewN`/`hfreshN`/`hrecN`/
+  `hwf`/`hrc` — the rest of `crossIndP`'s list
+  (`hF`/`hres`/`hag`/`hde`/`hfresh`/`hold`/`hb`/`hnew`) is not needed
+  and not taken — plus `hmimN`, `RecMajorHeadStored env₁`, the
+  container's record and the `env₁` clause.  `crossInd`'s `hold` (the
+  block's members are not new) is DISCHARGED inside, off `C.reps`'
+  `memsFound` against `hfreshN`, and needed no `0 < d.k`: `reps` is
+  already indexed at the member;
+* **`BlockInstallExt.mimN`** gives `hmimN` at the NATIVE and MUTUAL
+  routes at once — both records are `BlockInstallExt` and both
+  `crossIndP` call sites already feed the composed one, so the landing
+  is `E.mimN` at each.  ONE lemma rather than two identical route
+  wrappers, which would have been two unconsumed clones.  There the
+  premise is UNSATISFIABLE: the record names every new `.recInfo`
+  `T.rec`, and `appendIndexAfter_rec_ne_rec` refutes a mimic-shaped
+  name being one;
+* **`nestedMimN`** gives it at the nested route.
+
+##### (b) THE FINDING: `NestedInstallExt` cannot decide `hmimN`
+
+The natural expectation was that the nested install's extension record
+would settle it as `BlockInstallExt` does.  It cannot, and the witness
+is cheap: `NestedInstallExt`'s recursor clause is conditional on
+`c.name = n.str "rec"`, which is VACUOUS at a mimic
+(`"rec_1" ≠ "rec"`), and nothing else in the record constrains
+mimic-shaped names — **a `new` list holding a single `.recInfo` named
+`X.rec_1` with `X` not a member satisfies the record and refutes
+`hmimN`.**
+
+So `nestedMimN` argues from the route's CONCRETE install chain instead
+of from a clause, taking `NestedTailIn`'s fields verbatim (so the
+landing is `I.hrm`, `I.hrn`, `I.htbl`, `I.lenM`, `I.lenN`/`I.hcount`,
+`nested_kpos`) plus the two abstract pieces the record does give
+(`hfreshN` and "every member is among the new names"):
+
+1. a `.recInfo` the OUTPUT stores is the input's own past the tables'
+   stage — `nestedTables_mem_inv`, the tables cons `projInfo`s only;
+2. hence either a RESTORED recursor or something from below the two
+   remaining cons stages, which add `indInfo`s and `ctorInfo`s only,
+   and therefore from `env` — contradicting the name's freshness;
+3. a restored recursor's name is the name the restore was ASKED for
+   (`restoreRecTys_names_of_mem`, which carries an
+   `out.length ≤ names.length` side condition because the restore falls
+   back to the auxiliary name past the list's end — both real calls are
+   exact): a member's `T.rec`, excluded by (a)'s string lemma, or
+   `p.mimicRecName i`, whose base is the FIRST former and hence a
+   member.
+
+**This is a case for strengthening `NestedInstallExt` rather than
+re-deriving the chain** if a second consumer ever wants the same fact:
+one conjunct saying the new `.recInfo`s are the members' `T.rec`s and
+the mimics `first.rec_j`, which the route proves anyway.  Recorded, not
+done — one consumer does not justify moving a record.
+
+##### (c) THE AUDIT: no second instance of the mistake
+
+Session 20's lesson was "check one level up before concluding a
+crossing is not free", after this lane had wrongly recorded `pinConts`'
+crossing as hard when `BlockAt.crossEnvP` already held the hypothesis.
+The other fourteen `ContainerModeled` clauses were audited for the same
+error.  **There is no second instance**, and the evidence is
+`crossEnvP`'s own body: ten clauses cross VERBATIM (`k`, `namesLen`,
+`nP`, `inj`, `frame`, `ordFree`, `nestMention`, `pinsNotMembers`,
+`pinNP`, `pinParams`) and are therefore already as cheap as a clause
+can be; the four that need work (`reps`, `typed`, `member`, `pinψ`)
+need it for MODEL-side reasons — the carrier's agreement and the
+stored constant's identification — not because a hypothesis was
+thought missing.
+
+The three clauses that LOOK defensive are each driven by a consumer,
+not by a crossing:
+
+* `pinNP` is at `d.env₀` because that is where `BlockOpened.nestF`
+  resolves a pin's index arguments and `replaceAllNested_occurrence`
+  splits at that count — a consumer's requirement.  `pinConts` exists
+  for the OTHER consumer, at the model's environment; both are needed,
+  neither is redundant;
+* `nestMention` is on `DsE` because the opened-domain spelling dies at
+  the `NestedCtorsStaged` boundary;
+* `pinParams` is over the group's member record rather than an
+  `env.find?` deliberately, so that it mentions no environment and
+  crosses verbatim — the opposite of the mistake.
+
+A negative audit result, recorded so it is not repeated.
+
+##### (d) What the field's landing now costs
+
+Add the field; nine one-liners (`of_readBack` one premise; native,
+mutual and the five basis vacuous or from their `*OwnPins`/`*_ownPins`
+theorem; nested from `nestedOwnPins_of`; `crossEnvP` from
+`crossIndOf` with `E.mimN`/`nestedMimN`); and discharge
+`RecMajorHeadStored env₁` from `hwf` once the environment invariant's
+recursor clause is unconditional (§U.104 (b)).  Nothing else.
+
+##### (e) Gates
+
+`lake build` and `lake test` warning-free; layering / trust /
+overview-links / quote-gate / no-local-paths / shake / pub-imports /
+proofdeps (0 doors) / `tests/arena.sh` — figures at the landing commit.
+Standard axioms on all seven new results.
+
 #### U.111 — L-E session 36: THE HOLE, minimal and exactly stated — and the chain WALKED, with the honest verdict (lane L-E, 2026-09-18)
 
 *(§U.111–§U.113 numbered at the integrator's sync after integration 3r:
@@ -103756,6 +104114,227 @@ off `mutualGenData`'s components, which the tail record carries
 major-premise fact is a PROOF from the route's own generators and
 records, so no accept set can move by construction — which is what the
 battery confirms rather than establishes.
+
+#### U.115 — M7-3 session 22: `ContainerPinParams` becomes a CLAUSE — four parts, nine sites, and the bridge the consumer's indexing needed (lane M7-3, session 22, 2026-09-18)
+
+*(Numbered at integration 3t: this lane wrote sessions 22 and 23 as
+§U.111 and §U.112, which had LANDED as lane L-E's sessions 37–38 at
+integration 3s — landed outranks arriving, so they become §U.115 and
+§U.116.  Its session 21 keeps §U.110, the number 3s reserved for it.
+Neither header is cited anywhere, in DESIGN or the tree.)*
+
+##### (a) The definition, adopted VERBATIM
+
+Lane L-E's record of `ContainerPinParams`, completed to four parts, is
+the definition; this lane took it from that branch **byte-identical**
+(verified by `diff`, docstring included) and moved it above
+`structure ContainerModeled`, so that the clause and L-E's consumers
+are literally the same object.  That is deliberate: this task has
+already paid twice for two spellings of one datum, and adopting rather
+than restating removes the class.
+
+The field:
+
+```lean
+  pinParams : ∀ (i : Nat) (M : ConLeche.ContainerMember), ci.members[i]? = some M →
+    ContainerPinParams (V := V) ⟨M.name, M.lps, M.type⟩ d
+```
+
+`M.lps` IS the `cvI.levelParams` the definition asks for — which is
+what lets the clause mention no environment and therefore cross
+`crossEnvP` VERBATIM, exactly as the three-part field it replaces did.
+
+##### (b) The nine sites, counted before the work and confirmed
+
+Seven pins-free sites by `of_noPins`; `crossEnvP` `C.pinParams`
+unchanged; `of_readBack` one premise.  The NESTED site is the only real
+one, and **all four parts had sources already in the tree**:
+
+| part | source |
+| --- | --- |
+| the pins' level ARGUMENTS `allParamsDefined` | **K.48** (`pinsLevelsOk`) at the pin TERM, inverted by this lane's `allLevelParamsDefined_mkAppN`; `hlps` re-indexes `p.lps` to the stored auxiliary's `levelParams` |
+| the components' READINGS `bvarsBelow d.nP` | **K.30** (`pinsScoped`) → `WScoped_of_openers` → `bvarsBelow_of_reading` on each `NestedStageFacts.pinDs` reading |
+| the `Ds` congruence | `nestedPinParams_of` (`denoteMetaSpine_params_ext` + `DenoteMetaSpine.det`) |
+| the `u`/`Ids` congruences | `nestedPinParams_of` (`pinψ` + `Level.substFn_ext` + `IsBlockModel.uParams`/`FormerData.params`) |
+
+`nestedPinParams_of` gained `hsc` (K.30) and `hb`, both already bound in
+`declNested_of`, so **no new premise reaches the run**.
+
+**Two helpers the second part needed, and both are general**:
+`DenoteMetaSpine.memRead` — a READING traced back to the expression
+that produced it, where `DenoteMetaSpine.mem` gives only the source
+side; and `nestedFormerType` — K.30's openers live at the FIRST
+ELIMINATION TYPE while `FormerData` lives at `f₀`, and nothing in
+`NestedCoreOut` identified the two.  The second is the kind of gap that
+only shows up when a clause is proved rather than assumed.
+
+##### (c) THE INTEGRATION CHECK, done before landing
+
+The consuming lane's branch was read rather than guessed at.  Two
+findings:
+
+1. **its consumers use ONLY the four-part definition** — not one of
+   them reaches for the three-part field this replaces, so the
+   replacement is safe from that side;
+2. **but it carries the fact QUANTIFIED and indexed differently**: by
+   the STORED CONSTANT's `ConstantVal` at a container name
+   (`containerInfo? env J = some ci → env.find? J = some (.indInfo cv caps) → ContainerPinParams cv (B ci)`),
+   where the field is indexed by the group's MEMBER record.  Those
+   agree, but not by definition.
+
+`ContainerModeled.pinParamsOf` is the bridge, and it needed **no extra
+hypotheses** — no member index, no `0 < d.k`: `containerInfo?_inv` puts
+the queried name in the group, so the member is the one it names, and
+the record's own clauses give `M.lps = cv.levelParams` through the
+stored constant.  So the consumer's quantified premise is discharged
+from `EnvBlockModels` with nothing restated on its side.
+
+##### (d) A trap, recorded in the code
+
+In an `obtain`/`rcases` over `containerInfo?_inv` (and
+`mutualFormerChecksG_checked`), a `-` on an EXISTENTIAL WITNESS clears
+it and cascades into clearing the later conjuncts that mention it — the
+symptom is `Unknown identifier` for a name that was demonstrably bound.
+Both new sites name the witnesses with a `_` prefix instead.
+
+##### (e) Where the nested route stands from this lane's side
+
+Two of the three things between that route and a closed proof were
+this lane's: **this clause (done)** and the covering premise the
+`ownPins` field supplies (nine sites proved, path pre-threaded, held
+out only by the environment invariant's recursor clause).  The third is
+the other lane's arms.
+
+##### (f) Gates
+
+`lake build` and `lake test` warning-free; layering 353 / 285 / 3 / 1,
+0 base->lane and 0 impl->theory; trust 13/5 (648); overview-links 112;
+quote-gate 2; no-local-paths OK; shake 510 removals all allowlisted;
+pub-imports 1330 of 2206, none demotable; **proofdeps 4965 rows / 12
+roots / 0 doors**; `tests/arena.sh` **EXIT 0** — nested-shadow 27/27,
+e2e 196/196, the arena's 90/92, all four sweeps, axiom pin 20 theorems.
+Standard axioms on all thirteen theorems the clause touched.
+
+##### (g) The lane-sync merge, resolved from this side
+
+Integration 3r reached this worktree as a lane-sync started by the
+integrator, which correctly stopped at the two conflicts needing this
+lane's own knowledge and handed them back.  Both resolved here:
+
+* **`NestedPremise.lean`** — taken from the integration side (it
+  carries lane L-E's richer docstring on `ContainerPinParams` and the
+  `PinShapes` COUNT conjunct) with this session's three changes
+  re-applied on top: the definition and `of_noPins` moved ABOVE
+  `structure ContainerModeled`, the three-part field replaced by the
+  four-part clause-valued one, and `ContainerModeled.pinParamsOf`
+  added.  Two integration artefacts of the re-application were caught
+  by the build rather than by reading: a duplicated `memberIds_below`
+  (the block boundary I cut ran past it) and the missing proof-only
+  import of `containerInfo?_inv`, which the bridge needs and which the
+  integration side did not carry;
+* **`scripts/pub-import-plan.py`** — additive on both sides: the
+  integration's three `NestedStoreRun` entries and this lane's two
+  `NestedTablesInv` entries, all five kept, and the two that are this
+  lane's RE-VERIFIED against a failing demotion rather than trusted
+  from the merged list.
+
+The section's number is this lane's third in the arc: 3r had given the
+number this session first used to another lane, and the lane's three
+previous sections were renumbered mechanically.  Cited by TITLE
+throughout, which is why nothing inside needed changing.
+
+#### U.116 — M7-3 session 23: `RecMajorHeadStored` PROVED, the head-preservation step named for another lane, and why the clause itself needs the integrator (lane M7-3, session 23, 2026-09-18)
+
+##### (a) THE MERGE IS BROAD — measured, not asserted
+
+The kernel lane's unconditional `ConstWF` conjunct landed on its own
+branch, which is the one lane not carrying the last integration.
+Taking it here directly was tested rather than estimated:
+`git apply --check` of the commit alone FAILS on four files —
+`Semantics/Bridge/DeclIndRun.lean`, `Verify/Cached/BridgeCS4.lean`,
+`Verify/Inductives/NestedRecDoor.lean` (which the commit DELETES, 272
+lines) and `DESIGN.md` — and the commit is 40 files / 812 insertions,
+while merging the branch is 13 commits / 58 files / 1698 insertions
+across Kernel, Cached, Semantics, Verify and Model, including checker
+code that is not this lane's.  There is no narrower prefix: the
+conjunct arrives in that single commit, which is the only one touching
+`Verify/EnvWF.lean`.  So the clause comes through the integrator, by
+the standing rule.
+
+##### (b) THE BRIDGE, PROVED WITHOUT THE MERGE
+
+`recMajorHeadStored_of_stripPis` (`ContainerCross.lean`) takes the
+conjunct's content UNFOLDED — at every stored recursor, `stripPis mI`
+of its type gives a `.forallE` whose domain is const-headed — plus
+`EnvWF`, and concludes `RecMajorHeadStored`.  `Expr.recMajorHeadOk` is
+not yet a name in this tree; when it arrives, `hmaj` is one `obtain`
+off the Bool.
+
+The asymmetry is deliberate and was checked with the kernel lane rather
+than worked around: the conjunct is a Bool over the STORED type because
+every route stores what it generates, so that is the cheapest place to
+state it, and the instantiated side pays for it exactly once — here.
+
+Step 3 (the head RESOLVES) is `ConstWF`'s GENERIC `constsResolve`
+conjunct through `mentionsConst_of_constsResolve`, the same step
+`ContainerFrame` takes.  One local helper was needed because
+`ContainerFrame`'s own `mentionsConst_stripPis` is `private` there.
+
+##### (c) THE HEAD-PRESERVATION STEP IS A NAMED VERIFY-TIER LEMMA
+
+Requested by the lane that is about to build the nested route's
+major-premise producer, so it can CITE the step rather than re-derive
+it — **two lanes on this task have already written one theorem twice,
+and it merged only because the two versions happened to be
+byte-identical.**
+
+```lean
+theorem instPis_ilp_major_head {D : Name} {T : Expr} {mI : Nat} {args : List Expr}
+    {ks : List Name} {vs : List Level} {pre : List (Expr × BinderMeta)}
+    {dom₀ body₀ dom body : Expr} {bm₀ bm : BinderMeta} {us₀ : List Level}
+    (hstrip : T.stripPis mI = some (pre, .forallE dom₀ body₀ bm₀))
+    (hhead : dom₀.getAppFn = .const D us₀)
+    (hlen : args.length = mI)
+    (hinst : Expr.instPis (T.instantiateLevelParams ks vs) args
+      = some (.forallE dom body bm)) :
+    ∃ us', dom.getAppFn = .const D us'
+```
+
+`Verify/Inductives/NestedCopyInstU.lean`, beside `instPis_ilp` — the
+VERIFY tier, so the requesting lane can import it; `ContainerCross` is
+Model and it could not.  Stated in `Expr`/`Name`/`Level`/`BinderMeta`
+alone.  Under it, three reusable pieces, the `.forallE`-with-const-head
+twins of `NestedCopySort`'s `sort` kit and written to mirror those
+proofs: `Expr.stripPis_instantiate1_constHead`,
+`Expr.stripPis_instantiateLevelParams_constHead` and
+`Expr.instPis_stripPis_constHead` — the last in the more general
+spelling (any residual arity, returning the residual `∀` itself) for a
+consumer that wants the binders rather than just the head.
+
+##### (d) ONE FINDING: `instPis_ilp` is NOT the move here
+
+This lane's own `instPis_ilp`, proved for the ninth site, commutes level
+instantiation with `instPis` at MAPPED arguments — and the premise's
+arguments are the CALLER's raw ones.  The stored `stripPis` shape is
+what must be pushed forward, not the reader's `instPis` pushed back.
+Recorded because the two look interchangeable and are not.
+
+##### (e) WHERE THE FIELD STANDS
+
+Nine sites proved; the crossing pre-threaded to one premise; that
+premise now proved from well-formedness.  **The field's landing is the
+field, nine one-liners and one `exact` — and the only thing it waits on
+is the integrator bringing the conjunct.**
+
+##### (f) Gates
+
+`lake build` and `lake test` warning-free; layering 353 / 286 / 3 / 1,
+0 base->lane and 0 impl->theory; trust 13/5; overview-links 112;
+quote-gate 2; no-local-paths OK; shake 510 removals all allowlisted;
+pub-imports 1334 of 2227, none demotable; **proofdeps 4965 rows / 12
+roots / 0 doors**; `tests/arena.sh` **EXIT 0** — nested-shadow 37/37,
+e2e 196/196, the arena's 90/92, all four sweeps, axiom pin 20.
+Standard axioms on all six new results.
 
 #### K.51 — the minted domain's normalisation, REWRITTEN (2026-09-18, task #315 M8, `agent/uniform-m5`, lane L-B's request)
 
@@ -105392,3 +105971,4553 @@ has nothing to be proved against and three model arms need it in every
 mode.  **If it ever fires, the answer is that the elimination's rewrite
 is not reproducible at the final state — a defect in the route, not in
 the stream; do not relax the check.**
+
+#### U.117 — M7-3 session 24: **`ContainerModeled.ownPins` LANDED at all nine sites** — the covering premise closed (lane M7-3, session 24, 2026-09-18)
+
+The field lane L-E's covering premise waits on.  Every ingredient was
+proved in earlier sessions of this lane; this is the landing, and it
+came in one commit as designed.
+
+```lean
+  ownPins : ContainerOwnPinsSyn (V := V) env d
+```
+
+The SYNTACTIC form, because the reading form cannot cross
+`ContainerModeled.crossEnvP` (its `DenoteMetaSpine` premise is
+contravariant), with `ContainerOwnPinsSyn.toReadOf` as the bridge to
+the form `classPin_of_pinCorr` consumes.
+
+##### (a) The nine
+
+| site | discharge |
+| --- | --- |
+| `nativeContainerModeled` | `nativeOwnPins_of hf` — the route already bound it |
+| `mutualContainerModeled` | `mutualOwnPins_of …` — likewise |
+| the four basis theorems (`zeroCtorBlock` serving Empty **and** False) | each file's own `*_ownPins`, with K.49's Bool threaded from `basisStepB_of` through the five `*BlocksStepOf` |
+| `nestedContainerModeled` | `nestedOwnPins_of`, with K.47 and K.43 named in `declNested_of`'s `obtain` |
+| `ContainerModeled.of_readBack` | one premise, supplied by its three callers |
+| `ContainerModeled.crossEnvP` | an arrow, supplied at `crossIndP` by `ContainerOwnPinsSyn.crossIndOf` |
+
+##### (b) THE LAST STEP IS A DERIVATION, NOT A HYPOTHESIS
+
+`recMajorHeadStored_of_envWF` reads the environment invariant's new
+UNCONDITIONAL conjunct `Expr.recMajorHeadOk cv.type mI = true` and
+feeds `recMajorHeadStored_of_stripPis`.  Every crossing now takes the
+premise from the well-formedness it already carries, so **nothing is
+imposed on any producer** — including producers that do not exist yet.
+
+**NO NEW HYPOTHESIS REACHES THE FOLD.**  `declNativeB`, `declMutualB`,
+`basisStepB_of` and `declNested_of` have byte-identical signatures to
+before the commit, checked mechanically against `HEAD` rather than by
+eye — which is the right standard for a claim of that shape, since a
+nine-site record is exactly where such a hypothesis would hide.
+
+##### (c) THE BLAST RADIUS THE PLAN DID NOT NAME
+
+Both failure shapes this arc has been bitten by — a structure gaining a
+field breaking NAMED-argument call sites, and an interface gaining an
+argument breaking POSITIONAL ones — bit here, and both surface far from
+their cause.  Chasing callers rather than trusting the build found more
+than the plan listed:
+
+* the unguarded twins `ContainerModeled.crossEnv` / `BlockAt.crossEnv`
+  route through `crossEnvP`, so they carry the arrow too;
+* `EnvBlocksOf.crossSame` takes the identity; `crossCons` derives the
+  arrow from `crossIndOf` at `N := [c₀.name]`, where the cons's kind
+  clause makes `hrecN`/`hmimN` unsatisfiable;
+* `crossInd`, `EnvBlockModels.crossIndP`/`crossInd`,
+  `extendBasis`/`extendBasisOf`, `extendBasisExt` and `extendNoGroup`
+  all gained `hmimN`;
+* **`quotBlocksStepOf` is the one install whose new names are not all
+  members' own recursors**, so its `hmimN` is proved by hand against a
+  new `appendIndexAfter_rec_str`: four of `Quot`'s five names are too
+  short to be mimic-shaped, and the fifth's prefix IS one of the new
+  names.  A uniform argument would have mis-handled exactly this case;
+* `NestedPins.lean`'s two crossings to the members' prefix environment
+  are closed by `ownPinsSyn_consMutualFormers` and
+  `NestedPinsRun.ownCross`, modelled on
+  `containerInfo?_consMutualFormers` — the cons carries `.indInfo`s
+  only, so the walk cannot grow.
+
+`nestedMimN`, proved two sessions ago and unconsumed since, now has its
+consumer.
+
+##### (d) Gates
+
+`lake build` and `lake test` warning-free; **proofdeps 4965 rows / 12
+roots / doors 0** — unmoved by a nine-site record, which is where it
+would have moved; layering 353 / 286 / 3 / 1, 0 base->lane and 0
+impl->theory; trust 13/5; overview-links 112; quote-gate 2;
+no-local-paths OK; shake 510 removals all allowlisted; pub-imports 1334
+of 2242, none demotable, no new FALLBACK needed; `tests/arena.sh`
+**EXIT 0** — nested-shadow 37/37, e2e 199/199, trusted sweep 162 arena
++ 199 e2e + 15 annot, axiom pin 20.  (e2e 196 -> 199 and the trusted
+arena sweep 138 -> 162 are fixtures the last sync brought, not drift.)
+Standard axioms on all thirteen touched results.
+
+##### (e) THE PIN VIEW, DERIVED — a clause asked for and not needed
+
+Lane L-E needed, for a stored container's own pin, the pin's index data
+read against the pin's container's block model AT THE ABSTRACT
+assignment.  It had checked every record it holds — this record's six
+pin clauses are properties and a congruence, never an identification;
+the group-syntactic record's five run the other way, the block's pins
+against the container's members; the block-model clauses constrain a
+pin only through that model's own carriers; and the route through the
+leaf is circular — and found the view only at CONCRETE models.  It
+asked for a clause, preferring three consequences at the pin.
+
+**It derives.**  `PinShapes` — which `EnvBlocksOf` already carries,
+through `BlockAt` — states its group view at the SAME abstract `B` the
+consumer quantifies over.  The gap was one level out from where it was
+being looked for, which is why an otherwise exhaustive enumeration
+missed it.
+
+`ownPinView_of_blocks` is the derivation, and the three consequences
+are three FIELDS of `PinGroupView`: the parameter count is `pinNP`, the
+projection data `pinPps`, the universe `pinU` — the last stated at the
+group BASE's assignment and rewritten to the pin's OWN by `same`, which
+is the only real step.  `kEq` gives the index bound and `name` the
+identification, so **the index is forced by the pin's own name** and
+nothing is matched by position.  `PinShapes`' shape and count
+conjuncts are discarded: the lemma does not depend on the shape half.
+
+**This is the second request of this kind answered by a derived lemma
+off a field the record already carried**, and the reason to prefer that
+is structural rather than stylistic: a clause imposes on every
+producer, present and future, an obligation that nobody has to supply.
+Seven of nine sites were vacuous last time and that is what made a
+clause cheap; here the count never had to be taken, because no site
+pays anything.
+
+#### U.118 — L-B session 29: `PinCorr`'s `u` and `Ids` — the BLOCK half written, and the CONTAINER half needs a group view no record carries at `dJ` (lane L-B, 2026-09-18)
+
+*(Numbered at integration 3u: this lane and lane M7-3 BOTH took §U.117,
+each correctly reading the next-free number integration 3t recorded on
+the integration branch — the recording rule working, two lanes reading
+one public number rather than one lane guessing.  The tie goes to merge
+order, and M7-3 merged first, so this is §U.118.  Next free: §U.119.)*
+
+*(Numbered as the next free section at the synced commit `7e9569c4`;
+the integrator renumbers if a lower one is reserved.)*
+
+##### (a) THE ARRIVED LEMMA IS THE BLOCK HALF, AND IT WORKS
+
+`NestedPinSynFacts.pinSem` (§U.113) is exactly the per-pin data this
+lane asked for, and it is spent here.  `NestedPinsRun.copyPinFUIds`
+(`NestedCopyInst.lean`, commit `df22fa8b`) proves, at the block pin the
+nested field landed on:
+
+    TV.u   (p.k + qq) = (blockOf mp.base2 ci').uM   i₂ ψK
+    TV.Ids (p.k + qq) = (blockOf mp.base2 ci').IdsM i₂ ψK
+
+at `ψK = (dJ.pinAt qK).ψJ ((pinsS.getD (q₀ + i') default).ψJ ψ)`, with
+`qq = q₀₂ + i₂`, `i₂ < kJ₂` and `(st.pins.getD qq default).grpBase = q₀₂`
+— the group-relative index tied to the pin table's own base, as the
+lemma's shape asks.
+
+Three steps and no surprises: `nestedU_pin` and `nestedTV`'s pin branch
+open the target view; the index data come off
+`NestedPinSynFacts.groupsAt` at the pin (the same content `pinSem`
+exposes, at the NAMED model `blockOf mp.base2 ci'`) through `pinU`,
+`pinPps` and `pinNP`, with `PinSyn.Ids`'s definition turning
+`pps`/`nPJ` into `IdsM`; and the ASSIGNMENT moves by the two
+congruences — `IsBlockModel.uParams` for the universe,
+`FormerData.params` for the telescope — fed by the pointwise level
+agreement §U.114 (d) put into `copyPinFCorr`.  That agreement is
+pointwise and not an equality of assignments, which is exactly why both
+congruences are stated over a membership; the shape predicted in the
+brief is the shape the proof wanted.
+
+##### (b) WHAT IS LEFT IS THE CONTAINER HALF, AND IT IS ONE FACT
+
+After (a), `PinCorr`'s two clauses are equivalent to
+
+    (dJ.pinAt qK).u   ψK = (blockOf mp.base2 ci').uM   i₂ ψK
+    (dJ.pinAt qK).Ids ψK = (blockOf mp.base2 ci').IdsM i₂ ψK
+
+— the CONTAINER's own pin read against ITS container's block model at
+the same group-relative index.  That is a `PinGroupView` at `dJ`
+(`PinGroupView.pinU`, `pinPps`, `pinNP`), which is also how
+`pinCorr_of_ownPins`' own `huIds` premise is documented as being
+discharged ("the pins' group views").
+
+**Checked, not assumed**, at commit `7e9569c4`, over every record this
+lane holds at `dJ`:
+
+* `NestedPinGroupSyn` (25 fields): `pinU`, `pinNP`, `pinNIdx`,
+  `pinPps`, `pinDsLen` are the BLOCK's pins against `dJ`'s MEMBERS —
+  the other direction.  Its only clauses about `dJ`'s OWN pins are
+  `contsEnv` (the container reads the same at `env`) and `pinsTyped`.
+* `ContainerModeled` (14 fields, post-`ContainerPinParams` split):
+  `pinψ`, `pinNP`, `pinConts`, `pinParams`, `nestMention`,
+  `pinsNotMembers`.  `pinParams` is a CONGRUENCE in the assignment, not
+  an identification; nothing names another model.
+* `IsBlockModel` via `reps`: `pinShape`, `pinMem`, `pinMono`,
+  `pinLeaf`, `pinsFound`.  These constrain a pin's `u`/`Ids` only
+  through `dJ`'s OWN carriers.  Going through `pinLeaf` and the
+  J'-model's `leaf` gives one equation between applications, from which
+  `u` can be read back only if the index SETS are already known equal
+  — which is the `Ids` clause, so the route is circular.
+* `PinShapes`/`BlockAt` carry EXACTLY the missing view.  **This entry
+  was WRONG as first written** — it said "at `blockOf m ci` and only
+  where the run holds `PinsModeled`, never for the abstract `dJ`".
+  `PinShapes` takes the container model family ABSTRACTLY
+  (`B : ContainerInfo → BlockModel V`) and hands back a
+  `PinGroupView d (B ci) q₀ kJ` at every pin of `d`, at the pin's own
+  container record — so the view IS available at the family the shape
+  is parameterised by, and the three consequences are three of that
+  view's fields (`pinNP`, `pinPps`, `pinU`), with `same` rewriting the
+  group base's assignment to the pin's own and `name` forcing the index
+  by the pin's NAME rather than by position, exactly as (c) predicted
+  no tie would be needed.
+
+So the gap was never a missing fact: it was one level out from where
+this sweep looked.
+
+##### (c) THE REQUEST, minimal and stated
+
+**For a container's OWN pins, a group view at the pin's container's
+chosen model.**  Either form serves; the second is what the consumer
+spends:
+
+1. as a `ContainerModeled` (or `NestedPinGroupSyn`) clause,
+   `∀ q < d.nPins, ∀ ci'', containerInfo? env (d.pinAt q).J = some ci'' →
+   ∃ q₀'' kJ'' i'', PinGroupView d (blockOf m ci'') q₀'' kJ'' ∧ q = q₀'' + i''`; or
+2. just its three consequences at the pin, which is all this arm needs:
+   `(d.pinAt q).nPJ = (blockOf m ci'').nP`,
+   `(d.pinAt q).pps = (blockOf m ci'').ppsM i''`,
+   `∀ ψ, (d.pinAt q).u ψ = (blockOf m ci'').uM i'' ((d.pinAt q).ψJ ψ)`,
+   with `(blockOf m ci'').memberName i'' = (d.pinAt q).J`.
+
+**No index tie is needed in the request**: the member names of a group
+are `Nodup` (`containerInfo?_inv`) and `ContainerModeled.member` names
+them, so `i''` is forced by the name and coincides with this arm's `i₂`
+— which `NestedPinGroupSyn.name` gives on the block side.
+
+If the data turn out to be derivable from a field already carried — as
+§U.113's did — that is better than a clause, and the same three
+consequences are what to derive.  `ContainerModeled.ownPins`
+(`ContainerOwnPinsSyn`, still to land) does NOT answer this: it
+identifies which pin a container's own mimic table names, not that
+pin's index data.
+
+##### (d) LEDGER
+
+Two residuals, both with a route and neither blocked on this lane:
+`NestedPinsShapeOrdRight` (pin target, both kinds, one statement)
+waits on the positivity record, landed on the kernel lane and arriving
+at the next integration; `NestedPinsShapePinF` has `J`, `lvls`, `Ds`
+and `EA` proved and its `u`/`Ids` reduced by (a) to the single fact of
+(c) — which DERIVES off the shape record and is landing as a named
+lemma, so neither residual carries a producer obligation for anyone.
+
+##### (e) GATES
+
+At `df22fa8b`: `lake build` warning-free; `lake build ConLecheTests`
+warning-free; layering base 353 / model 286 / caps 3 / umbrella 1, 0
+base->lane and 0 impl->theory; trust surface 13 escapes in 5
+allowlisted files (654 scanned), 0 outside; no-local-paths OK;
+overview-links 112 links over 65 files; quote-gate OK; proofdeps 4965
+module rows / 12 roots / 0 doors; shake 510 removals all allowlisted;
+nested-shadow 37/37.  `tests/arena.sh` not re-run: no checker code
+touched.
+
+##### (f) THE CORRECTION, AND THE LESSON IT CARRIES
+
+The entry struck through in (b) is the one error in the elimination,
+and it is the kind a record-by-record sweep produces: **a view at a
+CONCRETE model and the same view at the ABSTRACT family that model
+instantiates are one record, and naming only the record collapses the
+distinction.**  The rule that follows, and it is the third instance of
+it in this arc (another lane hit it from the other side, recording a
+crossing as not free when the hypothesis existed one level up and was
+already being passed to a neighbouring crossing):
+
+> When you rule a record out, say at which LEVEL you checked it, not
+> only which record.
+
+The request was answered in one reading anyway, because the
+enumeration said precisely what to look for — which is the case for
+writing eliminations out even when one of their entries is wrong.  What
+lands is a DERIVATION, not a clause: no producer obligation at any of
+the nine sites, and the universe restated at the pin's own assignment.
+
+##### (g) ONE CORRECTION TO §U.113's DISCREPANCY NOTE
+
+That section could not reconcile this lane's count with
+`NestedPins.lean`, and it was right not to guess.  The count in the
+request ranged over the `ContainerModeled`/`NestedPinGroupSyn` records
+as this lane reads them, not over the file: what was being counted was
+which CLAUSES name a pin's sort and index data, not occurrences in a
+source file.  The lemma that landed is against the right record either
+way.
+
+#### U.119 — L-E: the two threading items, checked before editing — one is already done and one cannot be placed where it was asked for without crossing a lane boundary (lane L-E, 2026-09-18)
+
+*(Numbered at the integrator's sync.  This lane wrote the header as
+"(number at the integrator's sync)" and took no number at all, which is
+the fix §U.27 (cc-4) proposed after two lanes TIED on §U.117: cite by
+title, let the integrator number, and a tie cannot happen.  First
+section in this task to arrive that way.  Next free: §U.120.)*
+
+Both items are on surfaces this lane owns and both were checked against
+the tree before touching anything.  **Neither produced an edit, and in
+both cases that is the finding.**
+
+##### ITEM 1 — the positivity record's Bool is ALREADY threaded, by this lane
+
+There is exactly one positivity record in the kernel, K.42, THE
+POSITIVITY NORMALISATION ON THE MINTED COPY
+(`Kernel/Inductives/NestedInstall.lean:1932`, the `nestedOrdDomPairs` /
+`nestedOrdNorms` pair).  It is threaded through all four surfaces
+already, by this lane in its session 21:
+
+* `Model/Inductives/NestedPins.lean:869` — the field `NestedPinsRun.hK42`;
+* `Model/Inductives/NestedLoop.lean:499` — `NestedPinsStaged`'s hypothesis;
+* `Model/Inductives/NestedCore.lean:1552` — `NestedCtorsStaged`'s;
+* `Model/Inductives/DeclNestedCore.lean:1171`, `:1221` — named in
+  `declNested_of`'s destructuring and `μ`-eliminated there.
+
+Comparing `DeclNestedRun`'s Bools against `NestedPinsRun`'s fields, the
+conjuncts NOT threaded are K.31 `pinsDistinct`, K.44
+`nestedPinMentionOk`, K.48 `pinsLevelsOk`, K.40 `nestedPinParentOk`,
+K.41 `nestedPinRootPairOk`, K.47 `nestedOwnPinsOk`, K.43
+`blockOwnMimicsOk`, K.39, K.45 and K.50 `nestedRuleBitsOk` — **none of
+which is a positivity record**.
+
+So either the item is already satisfied, or a different Bool is meant.
+**This lane will not thread a guessed conjunct through three active
+surfaces**; one path and line settles it and the wiring is then a few
+minutes, exactly as it was twice before.  (This is the convention
+agreed after the last description-vs-citation exchange, now used in the
+other direction.)
+
+##### ITEM 2 — the clause cannot go on that record without adding a parameter to TWO files of the requesting lane
+
+The identification wanted is "the group's block model IS the
+assignment's model at its container", i.e. `dJ = blockOf mp.base2 ci`.
+Three facts about where it can live:
+
+1. **It needs the PRE-BLOCK model `mp`.**  `NestedPinGroupSyn` is
+   stated at `m : EnvModel V env₂` (the PREFIX model) and does not
+   mention `mp` at all today.  The producer
+   (`NestedPinsRun.groupSyn`, `NestedPins.lean:1275`) builds the model
+   as literally `blockOf mp.base2 ci`, so the clause is free THERE —
+   but it is against `mp`, not `m`;
+2. **and `blockOf m ci` will not substitute.**  `blockOf` is a
+   `Classical.epsilon` over `EnvBlocksOf`, so `blockOf mp.base2 ci` and
+   `blockOf mp₁'.base2 ci` are different choices at different
+   environments; the producer's `ContainerModeled mp₁'.base2 ci (blockOf mp.base2 ci)`
+   (built by `crossEnv`) says the first satisfies the second's
+   predicate, not that the two are equal.  Nothing in the tier gives
+   uniqueness — which is precisely why this lane's own §U.92 assembly
+   had to build its assignment with `Classical.epsilon` rather than
+   name it;
+3. **so the clause brings `mp` onto the structure**, and a structure
+   that gains a parameter breaks NAMED-ARGUMENT call sites silently
+   (§U.113 addendum, from the same week).  `NestedPinGroupSyn (V := V)`
+   has twelve such call sites across four files — and two of those
+   files, `NestedCopyIdx.lean` and `NestedCopyInst.lean`, are the
+   REQUESTING lane's.
+
+**The closest existing thing does not close it.**
+`NestedPinSynFacts.groupsAt` (`NestedPins.lean:569`, lane M7-2) already
+gives a group whose model is NAMED `blockOf mp.base2 ci`.  It does not
+serve a consumer holding an abstract `S : NestedPinGroupSyn … dJ`,
+because identifying that `dJ` with the named one needs uniqueness of a
+group's model at its base — the same gap as (2).
+
+So: this lane can do it, and the edit is mechanical and build-checked.
+**But it necessarily edits two files of the lane that deliberately did
+not edit this lane's three**, and that is a call for the coordinator,
+not for this lane to make silently.  Say the word and it lands; the
+alternative placement (on `NestedPinSynFacts`, which already carries
+`mp`) is cheaper but does not reach a consumer that holds only the
+group record, for the reason above.
+
+Nothing here touches the hole or the obstruction, and no theorem moved.
+
+#### (number at the integrator's sync) — L-E: the adversarial review ATTACKED — one concession, one weak attack, one sharp measurable attack (lane L-E, 2026-09-18)
+
+Asked to break the review rather than defend the obstruction.  **I
+could not break its central move, and I think the honest report is
+that this lane's ten sessions bounded a ROUTE and not the problem.**
+Two attacks survive as named conditions, one of them measurable and
+sharp.  Everything below was checked at the tree, not granted.
+
+##### (a) THE CONCESSION — the central move is sound, and my own wall says why
+
+§U.101 (c) established, generally, that `ChainFit` is
+`FitsFrom (rss) …` and so constrains the tuple ONLY where the field is
+recursive; at an ordinary position the element is pinned to
+`interp V ρ F`, **a fixed set independent of the candidate tuple**.  I
+concluded that no leastness from the block models can place a
+requirement there.
+
+That statement is still true.  **It is not the obstruction**, and the
+review's move is exactly the gap in my reasoning: if the FRAME's
+component at that position IS the candidate, then `interp V ρ F` —
+the fixed set — is *already* the candidate, and nothing needs to be
+placed.  I inducted over the container's least fixed point at the TRUE
+frame because that is where the entry law is stated, and never asked
+whether the induction had to be at that frame.  §U.99's re-pointing
+attempt is not a counter-example to the review either, and for the
+reason it gives: that attempt re-pointed the FIT while leaving the
+left-hand side at the true frame, so it still imported the inclusion
+it was proving.
+
+##### (b) ATTACK 1 — the parameter fit at a candidate frame: CHECKED, and it is a side condition, not a refutation
+
+The review says the fit at the parameter telescope comes from the
+auxiliary block's own typing.  Checked:
+
+* the TRUE-frame fit is `PinGroupView.DsFit` — a RECORDED clause, which
+  is itself evidence that this fit is not derived;
+* `PinsTyped` (`BlockRecKit.lean:217`) gives
+  `interp ρ (acval (pinAt q).J ψJ) ∈ˢ interp ρ (mkPisAV pps (.sort (d.w ψ)))`
+  — membership in the pin's own Π-type over its SORT, and
+  `FormersTyped` likewise.  That is membership in a SORT, not
+  satisfaction of the CONTAINER's parameter domains.
+
+For a bare type parameter the two coincide and the review's "costs
+nothing" is right.  For a **dependent** parameter telescope they do
+not: `SpineFit` interprets each later domain at the EARLIER values, so
+a frame mixing candidate and true entries changes the later domains,
+and the fit has to be re-established rather than transported.  **Named
+as a side condition on the candidate-frame statement, not as a
+refutation.**
+
+##### (c) ATTACK 2 — the INDEX SET, and this one is sharp and measurable
+
+The chain's conclusion is a `FamLe` **indexed by the block's own index
+set at the pin**, `(D).idx ψ ρp (p.k + q)`, and `nestedIdx_of_group`
+ties that to the CONTAINER's `idx` at the TRUE pin frame.  And the
+index set reads the frame:
+
+```lean
+idx ψ ρp mm = idxSet (d.uM mm ψ) ρp (d.IdsM mm ψ)
+pinIdx q ψ ρp = idxSet ((d.pinAt q).u ψ) (d.pinFrame q ψ ρp) ((d.pinAt q).Ids ψ)
+```
+
+with the index telescope bounded exactly below `nP` (`pinIds_below`) —
+that is, on the COMPONENTS, which are the entries the candidate frame
+replaces.  So a candidate-frame proof concludes at `idx ψ ρ_cand`, and
+identifying that with the true index set needs the components' values
+to agree — **which is the inclusion being proved.**
+
+**Scope, stated so it can be tested.**  The attack is EMPTY whenever
+the container's index telescope does not mention a replaced parameter:
+at `List`, `Array`, `Subtype` the telescope is empty, the index set is
+a singleton either way, and the transport is free.  It bites only for a
+nested container whose INDEX telescope mentions a parameter the
+elimination rewrites.  So:
+
+> **Does any accepted block nest a container whose INDEX telescope
+> mentions a parameter that the rewriting replaces?**
+
+If none, the review's route is clean on this point.  If some, the
+transport at those blocks is the same circularity in a new place —
+and that would be a second configuration to measure beside the
+parameter-headed / constant-headed one already running.
+
+##### (d) ITS READING OF MY STATEMENTS — correct
+
+Checked: the hole's third hypothesis is literally
+`(((dJf q₀).rss iq).getD j []).getD l false = false` — the CONTAINER's
+recursive-bit list.  So the review is right that the hole gates on the
+container's flags.  I have no correction to offer on that point.
+
+##### (e) IF IT SURVIVES: what changes, in this lane's terms — and NO number
+
+Its three predictions match what I see:
+
+* `pinLfp` would take the component VALUES as an argument; today it
+  computes them from `pinsS.getD q` and the block frame, which is what
+  fixes it to the true frame;
+* every theorem of this lane stated at `pinFrame q ψ ρp` gains a frame
+  parameter — `nestedPinPairAt_mem`/`_pin`/`nestedPinPairAt`,
+  `nestedInstanceLe`, `nestedPinFam_of_classPin`, `nestedPinInstLe`.
+  These are RE-BASED, not rebuilt: their proofs use the frame only
+  through `DsFit` and the index identities, which is (b) and (c);
+* `nestedIdx_of_group` / `nestedIdx_eq_pinIdx` need candidate-frame
+  twins, and by (c) that is where the work actually is;
+* steps (i)/(ii) and step (iv) are stated at the true frame and would
+  need transport or re-basing;
+* the entry predicate losing its condition on the stored reading, and
+  the ordinary-field arm splitting by the domain's head, are both
+  consistent with what the arm reads today.
+
+**No estimate.**  Three of this lane's four numbers were withdrawn, and
+the shape is not settled while (b) and (c) are open.  The honest
+statement is "a re-basing rather than a rebuild, with (c)'s transport
+as the unknown".
+
+##### (f) WHAT WOULD RESTORE THE OBSTRUCTION
+
+The review's order needs every problematic edge to be parameter-headed,
+or constant-headed at a container declared strictly EARLIER.  If the
+running measurement finds a constant-headed edge at a LATER container,
+the two relations are not oppositely directed, the union is a genuine
+cycle, and §U.101 (d) stands unchanged.
+
+Nothing in this section changes the tree.  Everything this lane landed
+stays landed and is at the true frame; the out-of-instance case, both
+assembly steps and the residual's discharge are unaffected either way.
+
+#### (number at the integrator's sync) — L-E: the indexed fixture is an ARTEFACT — my own condition was coarser than I stated it (lane L-E, 2026-09-18)
+
+The call is mine and the answer is **artefact**.  The route is open on
+all three corpora.  What the measurement exposed is that §U.115 (c)
+stated my condition more coarsely than the argument needs, and the
+fixture separates the two readings exactly.
+
+##### (a) THE CONDITION, restated precisely
+
+Attack 2 bites only if the candidate substitution CHANGES the value the
+index telescope reads.  The substitution does not replace every
+component: it replaces the components whose values are the copies'
+carriers, which are exactly the member-mentioning ones —
+`ContainerModeled.nestMention` requires SOME component to mention a
+member, never all of them, and a component mentioning none keeps its
+true value in both frames.
+
+So the condition is not "the index telescope reaches into the
+parameters".  It is:
+
+> **the index telescope mentions a parameter whose COMPONENT mentions a
+> block member.**
+
+##### (b) THE FIXTURE FAILS THE REFINED CONDITION
+
+```lean
+inductive C (α : Type) (p : Prop) : p → Type where
+  | mk : α → (h : p) → C α p h
+inductive T : Nat → Type where
+  | mk : C (T 0) True True.intro → T 1
+```
+
+At the pin `C (T 0) True`:
+
+* the components are `[T 0, True]`.  `T 0` mentions the member and is
+  REPLACED; `True` mentions no member and is NOT;
+* `C`'s index telescope is `[p]` — the SECOND parameter.  Its reading
+  at the pin frame is `True`'s value, at the unreplaced position;
+* therefore `idxSet u ρ_true Ids = idxSet u ρ_cand Ids`, and the
+  transport §U.115 (c) worried about is the identity.
+
+The index is a PROOF of the container's own second parameter, so the
+telescope reaches a parameter — but the one the rewriting leaves
+alone.  **The measurement's "reaching into the parameters" and my
+condition are different predicates, and this fixture is exactly the
+gap between them.**
+
+##### (c) WHAT REMAINS, stated so it is not lost
+
+The refined condition is not vacuous as a matter of logic: a container
+`C (α : Type) : α → Type`, whose index telescope is the REPLACED
+parameter, would make the two index sets genuinely differ, and there
+the transport is the circularity.  **No corpus exercises it** — Mathlib
+nests 121 instances with none indexed, init nests arrays and lists
+only, and of the six indexed fixture containers the one that reaches
+the parameters reaches an unreplaced one.  So it is a side condition on
+the restatement, not a blocker, and it should be written into the
+candidate-frame statement rather than discovered later.
+
+##### (d) ON THE REVIEW'S PREDICTION vs ITS CRITERION
+
+Worth separating, as the coordinator did: the review predicted the
+problematic edges would be parameter-headed and the majority are
+constant-headed — the criterion passed while the reasoning behind the
+expectation did not.  That is a reason to check its remaining claims
+one at a time rather than to trust the argument wholesale, which is
+what §U.115 did for its central move (conceded after checking, not
+granted) and what (a)–(b) do here.  It is not a reason to discount the
+criterion, which is what the measurement actually tested.
+
+##### (e) VERDICT
+
+Attack 1 (§U.115 (b)) stands as a side condition on dependent
+parameter telescopes; Attack 2 is withdrawn as a corpus obstacle and
+kept as a side condition in the refined form of (a).  With both named,
+**this lane has no remaining objection to the review's route**, and
+§U.101 (d)'s obstruction is superseded rather than standing: it bounded
+the true-frame statement, which the restatement abandons.
+
+Still no estimate, and for the reason already given: three of this
+lane's four numbers were withdrawn, and the restatement's shape is
+settled only once the two side conditions are written into it.
+
+Nothing in this section changes the tree.
+
+#### (number at the integrator's sync) — L-E: THE RESTATEMENT, written — the candidate frame, its two side conditions, and what is re-based versus unnecessary (lane L-E, 2026-09-18)
+
+Statement only: no proof, no construction.  The estimate is at the end,
+where the shape is settled enough to carry one.
+
+##### (a) WHAT THE CANDIDATE FRAME IS
+
+The components of a pin are AnnotTerms whose readings the true frame
+interprets at `ρp`.  Two facts fix what "candidate" changes:
+
+* at a component mentioning only block MEMBERS nothing changes — the
+  output model's `acval` at a member already IS the auxiliary leaf
+  (`hleafM`, `ofNested_lfp`), so true and candidate agree there;
+* the difference is at a component that is another PIN's reading: its
+  true value is that pin's container's least tuple (`pinTarget_reads`),
+  and its candidate value is the auxiliary carrier at that pin,
+  `L⁺ (p.k + q')`.
+
+So the candidate frame replaces exactly the pin-valued component
+positions, and that is why the ordinary field's domain at the candidate
+frame IS the block-side slot's tuple: the fit pins the element to
+`L⁺ q'` rather than to `P q'`.
+
+**REFUTED as written — see the G2 section below.**  "replaces exactly
+the pin-valued component positions" reads as a POINTWISE replacement of
+component values, and at `tests/e2e/nested_p22.ndjson` that is both
+ill-typed and insufficient: the component is a λ, not a pin reading.
+The substitution DESCENDS into the component term and replaces every
+pin-reading SUBTERM.  Everything else in this subsection stands.
+
+##### (b) THE RESTATED INCLUSION
+
+The pin's fixed point takes the component VALUES as an argument —
+today they are computed from `pinsS.getD q` and `ρp`, which is exactly
+what welds it to the true frame:
+
+```lean
+noncomputable def pinLfpAt (st : ElimState) (pinsS : List PinSyn)
+    (dJf : Nat → BlockModel V) (w : Nat) (ψ : Name → Nat) (ρp : Nat → V)
+    (as : List V) (q : Nat) : V :=
+  lfpTuple w (dJf (st.pins.getD q default).grpBase).k
+    ((dJf (st.pins.getD q default).grpBase).idx ((pinsS.getD q default).ψJ ψ) (consList as ρp))
+    ((dJf (st.pins.getD q default).grpBase).Φ ((pinsS.getD q default).ψJ ψ) (consList as ρp))
+    (q - (st.pins.getD q default).grpBase)
+```
+
+`pinLfp` is `pinLfpAt` at the true components; write `candAs q` for the
+candidate ones of (a).  The inclusion to prove is then
+
+```lean
+∀ q, q < pinsS.length →
+  FamLe ((D).idx ψ ρp (p.k + q))
+    (pinLfpAt st pinsS dJf (f₀.s.eval ψ) ψ ρp (candAs q) q)
+    (lfpTuple ((D).w ψ) (p.k + pinsS.length) ((D).idx ψ ρp) (ΨA ψ ρp) (p.k + q))
+```
+
+— the same shape as today's `NestedPinsLe`, at `candAs` instead of the
+true components.
+
+##### (c) SIDE CONDITION ONE — the parameter fit at a DEPENDENT telescope
+
+The statement needs the candidate components to fit the container's
+parameter telescope:
+
+```lean
+SpineFit ρp ((dJf q₀).params ((pinsS.getD q default).ψJ ψ)) (candAs q)
+```
+
+**It cannot be `DsFit`.**  `PinGroupView.DsFit` is the TRUE components'
+fit and is a RECORDED clause; there is no candidate analogue, and
+`PinsTyped`/`FormersTyped` give membership in a SORT, not satisfaction
+of the container's parameter domains.
+
+At a NON-dependent telescope the two coincide and the fit follows from
+the auxiliary block's own tuple-space membership (`lfpTuple_mem`: each
+fibre is in `univ w`).  At a DEPENDENT telescope they do not: `SpineFit`
+interprets each later domain AT THE EARLIER VALUES, so a frame mixing
+candidate and true entries changes those later domains and the fit must
+be established at the candidate values rather than transported.  **The
+restated statement therefore CARRIES this fit as a hypothesis**, to be
+discharged per telescope shape, and must not be written as if `DsFit`
+supplied it.
+
+##### (d) SIDE CONDITION TWO — the index telescope over a REPLACED component
+
+The conclusion is a `FamLe` indexed by `(D).idx ψ ρp (p.k + q)`, which
+`nestedIdx_of_group` ties to the container's `idx` at the pin frame,
+and `idx` reads the frame:
+
+```lean
+idx ψ ρ mm = idxSet (d.uM mm ψ) ρ (d.IdsM mm ψ)
+```
+
+with the index telescope bounded on the components (`pinIds_below`).  So
+the statement requires
+
+```lean
+(dJf q₀).idx ψ₁ (consList (candAs q) ρp) i = (dJf q₀).idx ψ₁ (consList (trueAs q) ρp) i
+```
+
+which holds whenever **no component the index telescope reads is one the
+candidate substitution replaces** — i.e., in the refined form, no index
+telescope mentions a parameter whose component mentions a block member.
+
+**No corpus exercises the failure**: Mathlib nests 121 instances with
+none indexed, init nests arrays and lists only, and the one
+parameter-reaching fixture reaches the parameter the rewriting leaves
+alone.  It goes into the statement NOW precisely because nothing would
+discover it later.
+
+##### (e) THE SHAPE CHANGES
+
+* **the entry-reading predicate loses its condition on the stored
+  reading.**  `EntryRead` today takes `hZ` — "the target's family at a
+  fitting spine IS the stored reading applied to the spine" — because
+  the ordinary field's domain is the STORED reading and the slot is at
+  `L⁺`.  At the candidate frame the domain is already `L⁺` at the
+  target, so the predicate becomes the identity between the container's
+  domain at the candidate frame and the copy's slot, with no
+  stored-reading hypothesis;
+* **the ordinary-field arm splits three ways, by the TARGET first and
+  only then by the domain's head** (the wording is repaired in the
+  fixture-coverage section below, which caught it conflating two
+  classifications): a MEMBER target (`t < p.k`) is handled today by
+  `ofNested_lfp` and is not an edge at all; a PIN target splits by the
+  container domain's head into PARAMETER-headed (the candidate case of
+  (a), 35 of 94 not-own edges measured) and CONSTANT-headed at a
+  container declared strictly EARLIER (59 of 94), where the induction is
+  on declaration order rather than on the head.
+
+##### (f) RE-BASED versus UNNECESSARY — the difference between a rewrite and a rebuild
+
+**RE-BASED** — a frame argument is added and the proofs carry over,
+because they use the frame ONLY through `DsFit` (now (c)) and the index
+identities (now (d)):
+`nestedPinPairAt_mem`, `nestedPinPairAt_pin`, `nestedPinPairAt`,
+`nestedInstanceLe`, `nestedPinFam_of_classPin`, `nestedPinInstLe`,
+`nestedPinsEq_of_le`, `nestedPinsEntry_at`, `nestedPinsEntry_of`,
+`nestedPinsEntry_of_le_all`.
+
+**UNNECESSARY FOR THIS STEP, NOT DELETED** — the declaration order
+replaces the rank as this step's measure, so `pins_le_of_instanceLe`
+and `nestedPinsLe_of_rank` are no longer on this path.  **K.37 and
+K.52 are not deleted**: the rank records are consumed elsewhere, and
+the ordering lemma is abstract in its edge relation and may serve the
+declaration-order induction directly.
+
+**STATUS NOT SETTLED BY THE STATEMENT ALONE** — whether the container
+INSTANCE apparatus (`instanceCovered_of_others` and the covering) is
+still needed depends on whether the restated proof still goes through
+the instance transfer at all.  The review's "one application of
+leastness with no premise" suggests not; this lane will not claim it
+before the proof is written.
+
+##### (g) THE ESTIMATE
+
+| piece | sessions |
+| --- | --- |
+| `pinLfpAt`, `candAs`, and the two side conditions as stated predicates | 1 |
+| re-basing the ten theorems of (f) | 2–3 |
+| the new entry identity and the ordinary-field arm's three-way split | 2–3 |
+| the declaration-order induction for this step | 1–2 |
+| re-wiring the assembly and the residual's discharge | 1 |
+
+**7–10 sessions for this lane**, plus 1–2 on the kernel lane for the
+declaration-order record (every not-own edge parameter-headed, or
+constant-headed at a strictly earlier container — measured 94/94).
+
+Its premises, named: the kernel record lands; (c) is dischargeable at
+the corpora's telescopes; (d) is vacuous on the corpora, which is
+measured.  **The row with least evidence is the third**: the
+constant-headed case's induction on declaration order is machinery
+nobody has written, and if it runs long that is the row to revisit.
+
+Nothing in this section changes the tree.
+
+#### (number at the integrator's sync) — L-E: the least-evidenced row, taken FIRST — the induction lands and the row turns out to be a RE-BASING (lane L-E, 2026-09-18)
+
+Row three of the restatement's table, taken out of order because it is
+the row that decides whether the rest of the estimate means anything.
+**It behaves, and it is smaller than this lane priced it.**
+
+##### (a) LANDED — `pins_le_of_declOrder`, abstract in the ordering
+
+```lean
+theorem pins_le_of_declOrder {n k : Nat} {Is P L : Nat → V} {ord : Nat → Nat}
+    (hstep : ∀ q, q < n →
+      (∀ q', q' < n → ord q' < ord q → FamLe (Is (k + q')) (P q') (L (k + q'))) →
+      FamLe (Is (k + q)) (P q) (L (k + q))) :
+    ∀ q, q < n → FamLe (Is (k + q)) (P q) (L (k + q))
+```
+
+Eight lines, standard axioms.  `ord q` is MEANT to be the declaration
+position of pin `q`'s container, and the lemma does not know that: the
+run-level assembly supplies `ord`, exactly as it supplies the edge
+relation for `pins_le_of_instanceLe`.  **This lane produces neither an
+edge nor an order**, and K.57 plugs in underneath without any statement
+here moving.
+
+##### (b) THE FINDING — the row is a re-basing, not new machinery
+
+The induction is the easy half; the substance is the step, and working
+out what the step owes shrinks it.  At a pin `q` the step is one
+leastness of `P_cand q` against `L`, whose closure obligation splits by
+the domain's head, and only ONE arm consumes the hypothesis:
+
+* MEMBER-headed — nothing (`ofNested_lfp`);
+* PARAMETER-headed — nothing, and this is the whole point of the
+  candidate frame: the domain at that position IS the block-side slot's
+  tuple, so the fit pins the element with no hypothesis at all;
+* CONSTANT-headed at an earlier container — the domain's value is
+  `P_cand` at the TARGET pin, so the arm is
+  **(i)** a candidate-frame twin of `pinTarget_reads` and **(ii)** the
+  induction hypothesis at that pin.
+
+And (i) is a re-basing rather than new: `pinTarget_reads` is proved from
+`S.stored`, `S.pinIds`, `IsBlockModel.leaf`, `S.w`, `S.pinU` and
+`S.DsFit` — every one frame-generic **except `DsFit`, which is side
+condition one**.  So the candidate-frame twin is the same proof with
+the parameter fit supplied by the statement instead of by the recorded
+clause.
+
+**So "machinery nobody has written" was too pessimistic.**  Row three
+now looks like one session rather than one to two.  I am NOT re-cutting
+the 7–10 on one row's evidence; what changes is that the row this lane
+flagged as least-evidenced is now the best-evidenced, and the range's
+lower end firms up.
+
+##### (c) WHY "STRICTLY EARLIER" IS LOAD-BEARING
+
+The step's hypothesis reaches only pins of a strictly earlier
+container, so pins sharing one container never appear in it.  A
+constant-headed target at the SAME container — `K (K X)` — would leave
+the step with nothing to use, and the induction would not close.  The
+corpus has none: all 59 constant-headed edges of the 94 measured point
+strictly earlier.  **That measurement is a hypothesis of the route, not
+a convenience**, and K.57 is what certifies it.
+
+##### (d) THE TABLE, kept current
+
+**LANDED this session**: `pins_le_of_declOrder`.
+
+**RE-BASED** (frame argument, proofs carry over): the ten of the
+restatement's (f), **plus `pinTarget_reads`**, newly identified — it is
+frame-generic except through `DsFit`.
+
+**UNNECESSARY FOR THIS STEP, NOT DELETED**: `pins_le_of_instanceLe`,
+`nestedPinsLe_of_rank`.  K.37 and K.52 stay, consumed elsewhere.
+
+**STILL OPEN**: whether the covering apparatus is needed at all.  Not
+claimed.
+
+##### (e) AND ONE THING WORTH SAYING PLAINLY
+
+The entry predicate's condition on the stored reading — the one this
+lane repaired after lane L-B refuted its Π-tower clauses, and then
+consumed at three call sites — turns out to be an **artefact of the
+frame**, not a fact about the entry: at the candidate frame the domain
+is already the target's block-side slot and the condition is not there
+to repair.  The repair was correct for the statement it repaired.  The
+statement is the thing that was wrong.
+
+Gates: `lake build` and `lake test` warning-free, full gate set green;
+standard axioms on the new theorem.
+
+#### (number at the integrator's sync) — L-E: the same-container edge is STRUCTURALLY IMPOSSIBLE — K.57 certifies what the elimination cannot produce (lane L-E, 2026-09-18)
+
+The question was whether a same-container constant-headed edge is
+impossible or merely unobserved.  **Impossible, and the exclusion is
+the ownership bit's own definition — not luck and not the corpus.**
+
+##### (a) THE EXCLUSION
+
+`nestedPinEdgesAt` computes the bit as
+
+```lean
+    let names := ci.members.map (·.name)
+    …  pure [(q, t - p.k, mentionsMember names domJ.1)]
+```
+
+— `mentionsMember` of the CONTAINER'S OWN GROUP's names, tested against
+the container's STRIPPED field domain `domJ.1`.  And
+`containerInfo?_inv` gives `I ∈ ci.members.map (·.name)`: **the
+container itself is among those names.**
+
+So if the container's field domain were headed by the constant of that
+same container, the domain would MENTION it, `mentionsMember` would be
+`true`, and the edge would be recorded OWN.  A NOT-OWN edge is by
+definition one whose domain mentions no name of the container's own
+group.  Therefore:
+
+> **every not-own edge points at a container outside the source's own
+> mutual group** — a fortiori at a container other than the source's.
+
+The coordinator's reading was right and is sharpened by this: the case
+is excluded by the CLASSIFICATION, and it is excluded for the whole
+mutual group and not merely for the one container.
+
+##### (b) THE TWO NEAR-COUNTEREXAMPLES, checked
+
+* **`List (List T)`** — the container is `List` and the field at issue
+  is `cons`'s `α`, whose head is the PARAMETER.  Parameter-headed, so
+  not constant-headed at all, and by the restatement's split it costs
+  the step nothing.  `List`'s other field, `List α`, mentions `List`
+  and is therefore OWN;
+* **a rose tree, `T := node : List T → T`** — the pin is `List T`, and
+  the constant-headed arm shows up one level out, at shapes like
+  `Array (List X)`: `Array`'s field `List α` is headed by the constant
+  `List`, mentions no member of `Array`'s group, and `List` is earlier.
+  That is the 59-edge population, and none of it is same-container.
+
+##### (c) AND THE "STRICTLY EARLIER" HALF LOOKS STRUCTURAL TOO
+
+(a) excludes the SAME container.  The measured claim is stronger —
+strictly EARLIER — and that also has a structural argument: a constant
+occurring in a container's stored constructor type must resolve in the
+environment as it stood when that container was DECLARED, so it was
+declared before.  Constant-headed therefore implies strictly earlier by
+the environment's own cons order, not by measurement.
+
+**Flagged rather than claimed**: the precise invariant that carries it
+is the kernel lane's surface (`EnvWF` and the stored types'
+`constsResolve` at `env₀`), and that lane should name it when it writes
+K.57 rather than take this lane's word.
+
+##### (d) THE ANSWER, and the ledger row
+
+K.57 is **free**: it certifies a property the elimination cannot
+violate, so it is not a reject-level check and **narrows the accept set
+by nothing**.  The ledger row should say so in those terms —
+certification-only, cannot fire, the same class as the records whose
+failure is `.internal`.
+
+If the kernel lane finds that (c)'s invariant does not carry the
+strictly-earlier half, only the SAME-container half is structural, and
+the choice the coordinator described returns for the later-container
+case alone.  This lane's step cares only about the same-container half,
+because that is the one that would leave the induction with nothing.
+
+Nothing in this section changes the tree.
+
+#### (number at the integrator's sync) — L-E: the simplest nested fixture reaches ONE of the three arms, not two — and the split's own wording was wrong (lane L-E, 2026-09-18)
+
+The concrete-instantiation track was told to expect that a tree over
+lists never reaches the constant-headed arm, because the list's head
+field targets the block member directly rather than a pin.  **Confirmed
+from this side, and it is stronger than that**: that fixture reaches
+neither pin-valued arm.  Checking it also caught a wording defect in
+the restatement's own three-way split, which is repaired here before
+the re-basing consumes it.
+
+##### (a) THE FIXTURE, and its whole edge set
+
+`tests/e2e/nested_rec.ndjson`'s member is `Tree`, `nP = 1`, and the
+K.47 base table records its single pin as `List (Tree @0)` — the tree
+over lists.  So the aux block is `[Tree, List']` with `p.k = 1` and one
+pin at `q = 0`, whose stored constructors are `List`'s instantiated at
+the component `Tree α`:
+
+| ctor | field | stored type | kind, target | edge? |
+| --- | --- | --- | --- | --- |
+| `nil` | — | — | — | none |
+| `cons` | 0 | `Tree α` | `.recursive`, `t = 0` | **no** — `t < p.k` |
+| `cons` | 1 | `List (Tree α)` | `.recursive`, `t = 1` | yes, and **own** |
+
+The first row is the coordinator's point, and the filter that makes it
+is literal in `ConLeche/Kernel/Inductives/NestedInstall.lean:1508`:
+`if (r == .recursive || r == .reflexive) && p.k ≤ t`.  Field 0 clears
+the kind test — it IS recursive, because the kinds are recomputed on
+the constructors the scratch install stored, which are instantiated at
+the pin's components, so `α` has already become `Tree α` — and fails
+`p.k ≤ t`.  The second row's own bit is
+`mentionsMember (ci.members.map (·.name)) domJ.1` at `domJ.1 = List α`,
+which mentions `List`.
+
+**`nested_rec`'s entire edge set is one own self-loop.**  It has zero
+not-own edges, so it exercises neither of the two pin-valued arms — not
+the constant-headed one the parallel track was warned about, and not
+the parameter-headed one either.
+
+##### (b) THE WORDING DEFECT: two classifications were run together
+
+The restatement said "the ordinary-field arm splits three ways by the
+domain's head: MEMBER-headed; PARAMETER-headed; CONSTANT-headed at a
+strictly earlier container".  That reads as one classification and is
+two, which the table above makes plain: `cons`'s field 0 has a
+PARAMETER-headed domain in the container (`α`) and lands in the MEMBER
+arm, because what puts it there is its *target after instantiation*,
+not its head.  The split is:
+
+1. **by the target** — a member (`t < p.k`) or a pin (`p.k ≤ t`).  A
+   member target is `ofNested_lfp`'s case, handled today, and is not an
+   edge at all;
+2. **then, at a pin target, by the container domain's head** —
+   parameter-headed (35 of the 94 measured not-own edges) or
+   constant-headed at a container declared strictly earlier (59).
+
+The two counts partition the not-own edges, so they partition arm 2
+alone; arm 1 was never in that measurement.  Nothing about the
+substance of the three arms changes — only that the first is selected
+by a different fact than the other two, and a proof that splits on the
+domain's head throughout will mis-sort exactly the fields this fixture
+is made of.
+
+##### (c) WHAT EXERCISES THE OTHER TWO, for the concrete track
+
+Arm 2's parameter-headed case needs a container whose ordinary
+parameter-headed field instantiates to a PIN rather than to a member —
+a container applied at a nested container instance, not at the block's
+own member.  Arm 2's constant-headed case needs a container field whose
+domain is headed by a *different, earlier* container: the shape is
+`Array (List X)` — `Array`'s field domain `List α`, constant-headed at
+`List`, targeting the pin for `List X` — which is where
+`nested_p04`'s `P4C`/`Array`/`List` cycle lives.  Neither shape occurs
+in a tree over lists, which is why the simplest fixture cannot reach
+them.
+
+So the concrete track's two examples are complementary rather than
+graded: `nested_rec` exercises arm 1 and the own recursion, and
+`nested_p04` is the one that reaches arm 2 at all — both of its halves.
+A check that only ran the tree over lists would say nothing about the
+part of the restatement that is new.
+
+Nothing in this section changes the tree.
+
+#### (number at the integrator's sync) — L-E: ROW ONE LANDED, and the reading lemma's re-basing is now PROVED rather than predicted (lane L-E, 2026-09-18)
+
+The re-basing, begun as directed while the concrete-instantiation track
+runs.  Row one of the restatement's table is landed whole, and the
+"newly identified reading lemma" with it — and it landed in the
+strongest available form: **the old statement is now an application of
+the new one**, so "the proof carries over" is the elaborator's verdict
+and not this lane's estimate.
+
+##### (a) ROW ONE — `pinLfpAt`, `pinAs`, and the two side conditions
+
+Four declarations in `NestedPinLeafAll.lean`, beside `pinLfp`:
+
+* `pinAs` — the components a pin's frame is taken at TODAY, read off
+  the recorded pin syntax;
+* `pinLfpAt` — `pinLfp` with the component values as an argument
+  (`as : List V`), exactly the restatement's (b);
+* `pinLfp_eq_pinLfpAt` — `pinLfp … q = pinLfpAt … (pinAs … q) q`.
+  **Definitional** (`:= by rfl`; the term-mode `:= rfl` fails in the
+  public view, the documented module-system trap), so a re-based
+  theorem specialises back to its current statement with no rewriting;
+* `CandParamFit` and `CandIdxAgree` — side conditions one and two of
+  the restatement, stated as predicates over a per-pin component family
+  `as : Nat → List V`, each quantified over `q < pinsS.length`.
+
+`candIdxAgree_pinAs` proves side condition two at the TRUE components by
+reflexivity, and side condition one at them is `DsFit`'s conclusion.
+**So the restated statement, instantiated at today's frame, asks for
+nothing today's does not already have** — the re-basing is conservative
+by construction, which is the property that makes it safe to re-base
+the consumers before the candidate frame is built.
+
+##### (b) THE READING LEMMA — `pinTarget_reads_at`, and the old one derived from it
+
+```lean
+theorem pinTarget_reads_at {st : ElimState} (m : EnvModel V env₂) {q₀ kJ i : Nat}
+    {dJ : BlockModel V} (S : PGS st m q₀ kJ dJ) (hi : i < kJ)
+    {ψ : Name → Nat} {ρp : Nat → V} {aas is : List V}
+    (hfit : SpineFit ρp (dJ.params (((D).pinAt (q₀ + i)).ψJ ψ)) aas)
+    (his : SpineFit (consList aas ρp) (((D).pinAt (q₀ + i)).Ids ψ) is) :
+    SetTheory.app
+        (lfpTuple (f₀.s.eval ψ) dJ.k
+          (dJ.idx (((D).pinAt (q₀ + i)).ψJ ψ) (consList aas ρp))
+          (dJ.Φ (((D).pinAt (q₀ + i)).ψJ ψ) (consList aas ρp)) i)
+        (tupW (nestedU p.k W pinsS ψ (p.k + (q₀ + i))) is)
+      = (aas ++ is).foldl SetTheory.app
+          (interp V ρp (m.acval ((D).pinAt (q₀ + i)).J (((D).pinAt (q₀ + i)).ψJ ψ)))
+```
+
+Its body is the recorded-frame proof with the `spineOfSat_params`
+destructuring and the `DsFit` appeal removed and **nothing else
+changed** — `stored`, `pinIds`, `IsBlockModel.leaf`, `w` and `pinU` all
+took the general frame without complaint, first compile.  That is the
+check of the claim the declaration-order row made on inspection: the
+frame entered through `DsFit` and nowhere else.
+
+`pinTarget_reads` is now five lines — `spineOfSat_params`, the
+`targetRead_of_pin` rewriting that identifies the reading, and
+
+```lean
+  exact pinTarget_reads_at m S hi (S.DsFit i hi ψ ρ as hsp) his
+```
+
+— so the recorded clause appears exactly once, as the argument that
+discharges side condition one at the true components.  **This is the
+shape every re-basing on the list should take**: generalise, then
+recover the old statement by supplying `DsFit`, and let the compiler
+certify that nothing else moved.
+
+##### (c) THE TABLE, current
+
+| row | state |
+| --- | --- |
+| `pinLfpAt`, `pinAs`, the two side conditions | **LANDED** (a) |
+| the reading lemma `pinTarget_reads_at` | **LANDED** (b) |
+| the declaration-order induction (`pins_le_of_declOrder`) | **LANDED** earlier, abstract in `ord` |
+| the ten theorems of the restatement's (f) | open — next |
+| the new entry identity and the three-way split | open |
+| re-wiring the assembly and the residual's discharge | open |
+
+Three of the six rows are in, and two of them were the rows this lane
+priced highest.  **The estimate is NOT revised on that** — the three
+landed rows are the ones whose shape was already known, and the two
+open middle rows are where the new content is.  This lane will revise
+the number when a row with new content closes, not before.
+
+##### (d) WHAT IS STILL NOT CLAIMED
+
+The candidate components themselves (`candAs`) are still not defined:
+naming the pin-valued component positions is per-pin syntactic data
+(K.32/K.51 territory) and belongs with the three-way split, not with
+row one.  Row one deliberately stops at "the frame is an argument",
+which is what unblocks the consumers.
+
+`lake build`, `lake test` and the full arena gate green; every new
+theorem at `[propext, Classical.choice, Quot.sound]`.
+
+Nothing in this section changes the tree.
+
+#### (number at the integrator's sync) — L-E: G2 CONFIRMED against the kernel's own computation, and the substitution turns out to be the ELIMINATION'S OWN (lane L-E, 2026-09-18)
+
+The concrete-instantiation track's three findings were handed over as
+claims to confirm rather than as measurements, because it derived its
+fixture table by hand from the streams.  **This lane built the
+instrument and ran it.**  G2 is confirmed exactly, with one addition
+that makes the repair much cheaper than the finding suggests.
+
+##### (a) THE INSTRUMENT — the kernel's own edge computation, dumped
+
+`_tmp/le/probe.lean` (artefact, not repo content) parses a stream with
+the real frontend, folds the real install, and at every block the
+nested recogniser takes runs the FIRST HALF OF `checkNested` verbatim —
+`nestedAnnotFormers`, `nestedAnnotCtors`, `elimNested`, `auxBlock`,
+`checkMutualCore`, `auxStoredAll` — and then `nestedPinEdgesAt`'s own
+body, reporting at each edge the container's field domain and its head
+shape instead of only the own bit.  It is the kernel's computation on
+the kernel's data; nothing is re-derived by hand.
+
+It also prints, per edge, the AUXILIARY block's stored domain at the
+same field — which is what produced (c).
+
+##### (b) G2 IS CONFIRMED, at the edge and at the head
+
+`tests/e2e/nested_p22.ndjson`, block `P22` (`k = 1`, two pins):
+
+```
+    pin 0: container=P22T  pin=(P22T (fun _:Nat => (List P22)))
+    pin 1: container=List  pin=(List P22)
+    edge q=0(P22T) -> pin 1  own=false  ctor=0 field=1  dom=PARAM-applied/1(bvar 1)
+    edge q=1(List)  -> pin 1  own=true   ctor=1 field=1  dom=CONST-applied/1(List)
+```
+
+`P22T (f : Nat → Type)` has `mk : (n : Nat) → (v : f n) → P22T f`, and
+`P22.mk : P22T (fun _ => List P22) → P22`.  So pin 0's single component
+IS a λ whose body is pin 1's reading, exactly as claimed; the parameter
+`f` is a function type, so a carrier value cannot go there; and the
+edge's container domain is `f n` — **parameter-headed and APPLIED**.
+Every clause of G2 holds.
+
+##### (c) THE ADDITION: the substitution already exists, in `AuxStored`
+
+The probe prints the auxiliary side of the same field:
+
+| fixture, edge | container domain | AUXILIARY domain |
+| --- | --- | --- |
+| `p22` q=0 field 1 | `(#1 #0)` — `f n` | `_nested.List_2` |
+| `p04`/`P4` q=1 field 0 | `(List #0)` | `_nested.List_3` |
+| `p04`/`P4` q=2 field 0 | `#0` | `_nested.P4C_1` |
+| `nested_rec` q=0 field 1 | `(List #1)` | `(_nested.List_1 #1)` |
+
+The elimination has **already performed the descending substitution and
+β-reduced it**: `(fun x => List P22) n` is stored as the copy constant
+`_nested.List_2`.  That is the same repair G2 asks for, computed by the
+kernel, recorded in the auxiliary block, and validated by the install
+that type-checked that block.
+
+So the candidate frame is not a new construction to invent — it is the
+frame the elimination wrote down.  What the model tier owes is the
+SEMANTIC image of that substitution on the components, because a
+container's least tuple is taken at a frame on the CONTAINER's
+parameters and the auxiliary block has no term for "the λ whose body is
+`L⁺`" (its copies are the container already instantiated, with the
+block's parameters, not the container's).  The candidate component is
+therefore
+
+```
+candDs q ψ  :=  (pinsS.getD q default).Ds ψ  with every identified
+                pin-reading subterm replaced by that pin's COPY reading
+candAs q    :=  (candDs q ψ).map (interp V ρp)
+```
+
+— a substitution on AnnotTerms, whose interpretation is a value.  The
+copies' readings ARE terms (`m.acval` at the copy's name), so this is
+well defined; what is missing is the per-component identification, which
+is the kernel record being queued.
+
+##### (d) WHAT SURVIVES OF ROW ONE, AND WHAT DOES NOT
+
+**Survives, unchanged**: `pinLfpAt` takes `as : List V` — a list of
+VALUES, never a list of carriers — so a λ component's candidate value
+sits in it as comfortably as a carrier does.  `pinAs`,
+`pinLfp_eq_pinLfpAt`, `CandParamFit`, `CandIdxAgree` and
+`candIdxAgree_pinAs` are all stated over values and are untouched.
+`pinTarget_reads_at` is untouched.  Nothing landed is withdrawn.
+
+**Does not survive**: the restatement's (a) sentence "the candidate
+frame replaces exactly the pin-valued component positions", now marked
+refuted in place.  And the PRICE: row one was quoted as "`pinLfpAt`,
+`candAs`, and the two side conditions — 1 session", and `candAs` was the
+part this lane deliberately did not build.  Under the repaired reading
+`candAs` is a term substitution plus a kernel record, not a list
+comprehension, so **row one is two thirds landed and its remainder is a
+row of its own**.  That is the honest accounting; the landed two thirds
+were not mispriced, the unbuilt third was.
+
+##### (e) THE CLASSIFICATION QUESTION, SETTLED — it is three-valued
+
+The probe classifies every not-own pin-target edge by the head of the
+container's field domain, with a parameter/field discriminator (at field
+`l` of a constructor with `nP` parameters, `bvar j` is a PARAMETER
+exactly when `j ≥ l`).  Over the nested corpus the buckets are
+
+| bucket | example | not-own edges, 26 fixtures |
+| --- | --- | --- |
+| `PARAM-bare` | `#0` (`p04`'s `List` at `P4C`) | 8 |
+| `PARAM-applied` | `(#1 #0)` — `f n` (`p22`) | **1** |
+| `CONST-applied` | `(List #0)` (`p04`'s `Array`) | 5 |
+
+(14 not-own edges over the 26 fixtures the probe reached; 37 own edges
+beside them, all `CONST-applied` at the container's own group, which is
+the structural fact the same-container section proved.  The remaining
+handful of fixtures and the two large corpora are not in this tally —
+the numbers are a WITNESS that the third bucket is nonempty, not a
+recount of the 94.)
+
+And **no other head shape occurs** — no field-headed domain, no `letE`,
+`lam` or `proj` head.  So the answer to the coordinator's either/or is:
+
+* the classification IS three-valued, not two, and the third bucket is
+  nonempty on the accepted corpus;
+* therefore, if the earlier 35/59 split counted by "the head is a
+  parameter bvar", its 35 is heterogeneous and **the parameter-headed
+  arm's claim that it consumes nothing is false as stated** — true only
+  for the bare form, and true for the applied form only once the
+  substitution descends;
+* if instead it counted only bare domains, **35 + 59 is not exhaustive**
+  and the applied edges were in neither bucket.
+
+Either way the repair is forced, and under the repaired substitution the
+two parameter buckets MERGE again: the applied domain `f n` evaluates at
+the candidate frame to `L⁺` at pin 1 exactly as the bare one does, which
+is what the auxiliary domain `_nested.List_2` already records.  So the
+split stays three-way — member / parameter / constant-at-an-earlier —
+with the parameter arm's proof going through the substitution rather
+than through a bare lookup.
+
+Nothing in this section changes the tree.
+
+#### (number at the integrator's sync) — L-E: G1 is a SEPARATE induction, and it must be — the union of the two orders is cyclic at `nested_p22` (lane L-E, 2026-09-18)
+
+The question put was whether the candidate-to-true bridge folds into
+the induction this lane landed or needs one of its own.  **It needs one
+of its own, and the reason is not convenience: the union of the two
+relations is cyclic on an accepted fixture, so no single well-founded
+induction over it exists.**
+
+##### (a) THE TWO RELATIONS, AND THE CYCLE
+
+* **A, the step-(iii) order** — the declaration order `ord` of
+  `pins_le_of_declOrder`, a well-order on the containers.  At
+  `nested_p22` the stream declares `Nat`, `P22T`, `List`, `P22`, so
+  `ord(P22T-pin) < ord(List-pin)`: **pin 0 before pin 1**.
+* **B, the bridge's order** — "pin `q`'s components contain pin `q'`'s
+  expression".  At `nested_p22` pin 0's component is
+  `fun _ : Nat => List P22`, which contains pin 1's reading, so the
+  bridge at pin 0 needs pin 1 settled: **pin 1 before pin 0**.
+
+A ∪ B therefore contains `0 < 1` and `1 < 0`.  A single induction over
+the union is not available, and **sequencing is what keeps the two
+apart**: run A to completion, obtaining the candidate-frame inclusion at
+EVERY pin; then run B, which consumes A's finished conclusion rather
+than A's hypothesis.
+
+Bridging pin `q` needs `P q' = L⁺ (p.k + q')` for every `q'` its
+components mention — the ≤ half from A plus B at `q'`, the ≥ half from
+step (ii), which is unconditional.  So B's step reads only B's own
+predecessors and a global fact, which is exactly why it composes.
+
+##### (b) B IS WELL-FOUNDED, AND IS NEITHER OF THE OTHER TWO
+
+Well-founded by term size: `q'`'s reading is a proper subterm of one of
+`q`'s components, and `q'`'s own components are proper subterms of that
+reading, so B strictly decreases the pin expression's size.
+
+It is not the edge relation: at `tests/e2e/nested_p04.ndjson`'s `P4`
+the edges are `0→1` (own), `1→2`, `2→0`, `2→2` — a three-cycle — while
+B there is `0 ≺ 1`, `0 ≺ 2` and acyclic (pin 0's component is the
+member `P4`, mentioning no pin).  And it is not the pin-index order:
+`nested_p22` needs pin 1 before pin 0.  Both confirmed by the probe of
+the G2 section.
+
+##### (c) G3 — CONFIRMED, and the covering question is ANSWERED: still needed
+
+The self-nesting fixture's root pin is `P4`'s pin 0, `P4C P4`
+(`grpBase = 0`, `mintedAt = 0`), and the probe gives it exactly one
+edge:
+
+```
+    edge q=0(P4C) -> pin 1  own=true  ctor=1 field=0  dom=CONST-applied/1(Array)
+```
+
+— container-recursive, **own**, and so not an ordinary field at all.
+The three-way split refines the ordinary-field arm and therefore says
+nothing about it.  Its obligation is at an arbitrary tuple while every
+instrument this lane holds concludes at the container's own least
+tuple, and the one tuple-generic instrument carries a side condition
+whose candidate-frame twin is not on the re-basing list.
+
+**So the covering question this lane kept open has a concrete answer,
+and the answer is yes**: `instanceCovered_of_others` and the container
+instance apparatus are still needed, and two further theorems join the
+re-basing list for the same reason.  The restatement's (f) said the
+status was "not settled by the statement alone" and would not be
+claimed before the proof was written; the concrete instantiation wrote
+enough of it to settle it, and this lane accepts the settlement.
+
+##### (d) THE RE-PRICE
+
+Landed: `pins_le_of_declOrder`, row one's two thirds,
+`pinTarget_reads_at`.  Remaining, with the three findings folded in:
+
+| piece | sessions |
+| --- | --- |
+| `candDs` — the descending substitution and its semantics (gated on the new kernel record) | 2 |
+| re-basing the ten theorems, plus G3's two | 2–3 |
+| the entry identity and the three-way split, the parameter arm now going through the substitution | 2–3 |
+| G1's bridge — the second induction and the frame equality | 1–2 |
+| re-wiring the assembly and the residual's discharge | 1 |
+
+**8–11 sessions remaining here**, against the 5–8 that were left after
+the three landed rows — so **+3**, at the low end of the concrete
+check's "two to four on top", and the width comes from G1's measure,
+which nobody has built.  **Two to three kernel sessions**: the
+declaration-order record, and the new per-component classification
+record with G1's measure.
+
+The premises, named and unchanged except where the findings moved them:
+the two kernel records land; side condition one is dischargeable at the
+corpora's telescopes; side condition two is corpus-vacuous, measured.
+**The row with least evidence is now G1's bridge**, for the same reason
+the declaration-order row was: its measure is machinery nobody has
+written.  That row should be taken early, as the last one was.
+
+Nothing in this section changes the tree.
+
+#### (number at the integrator's sync) — L-E: THE SPLIT COLLAPSES — the head distinction is the frame problem one layer out, and K.51 is the recorded fact that dissolves it (lane L-E, 2026-09-18)
+
+The question was whether the pin-target arms can be stated as one, over
+the domain's image under the substitution the elimination recorded,
+rather than over its syntactic head.  **Yes.  And the fact that makes it
+so is already a kernel record, already threaded into the run's bundle by
+this lane.**
+
+##### (a) THE RECORD — K.51, `nestedPinRewrites`
+
+`ConLeche/Kernel/Inductives/NestedInstall.lean:2087`, quoted rather than
+paraphrased because the whole answer is in it:
+
+> **THE REWRITE AFTER THE NORMALISATION** (K.51): each normalised MINTED
+> domain, rewritten by the elimination's own `replaceAllNested` at the
+> FINAL state, IS the stored one … At a pin target the stored domain is
+> headed by the MIMIC while the minted one is headed by the CONTAINER,
+> so the two legs differ by exactly this rewrite.
+
+Its jobs are, verbatim, "a copy field classified recursive or reflexive
+at a target AT OR ABOVE `p.k`" — **exactly the edge set the probe
+enumerates, and exactly the arm that was splitting three ways**.  (The
+apparent mismatch between "ordinary-field arm" and "recursive field" is
+not one: the aux kinds are recomputed on the INSTANTIATED constructors,
+so a container-ORDINARY field becomes aux-RECURSIVE at a pin.  `P22T`'s
+`v : f n` is ordinary in `P22T` and recursive in the copy.  The edges
+are the intersection, which is what K.51 is about.)
+
+So the kernel certifies, per pin-target field and with no head analysis
+anywhere, that the container-side domain and the auxiliary-side domain
+are the two ends of ONE uniform walk.  The probe's own table is that
+record made visible: `(#1 #0)`, `(List #0)` and `#0` all arrive at a
+copy constant, and they arrive there by the same `replaceAllNested`.
+
+##### (b) WHY THE THREE ARMS EXISTED, AND WHY THEY DO NOT
+
+Each arm was answering the same question — "what does this field's
+domain evaluate to at the candidate frame?" — by recomputing it from the
+container's syntax, and the recomputation is what branched.  Stated over
+the image instead, the answer is read off rather than recomputed: the
+stored domain is headed by an auxiliary member in EVERY case
+(`BlockOpened.recF`, K.32), and an auxiliary member's former denotes a
+component of the one auxiliary `lfpTuple`.  The arm becomes
+
+> the field's domain at the candidate frame is `L⁺` at the field's
+> recorded target
+
+with the target an INDEX, not a case.  Member and pin differ in which
+component of the same tuple they name, which is not a case distinction
+either — `ofNested_lfp`'s member case and the pin case are the same
+statement at different indices.
+
+**This is the same move that dissolved §U.101's obstruction, one layer
+out, and the diagnosis was right both times**: a distinction that looked
+structural was an artefact of where the statement stood.  The two
+parameter buckets merging under β was the visible half of it; the
+parameter/constant distinction is the other half, and it merges under
+the same substitution.
+
+##### (c) THE PRICE, NAMED — one lemma, head-free
+
+The collapse is not free; it relocates the work into a single statement:
+
+> `interp` of the container's field domain, at the frame sending the
+> container's parameters to the CANDIDATE components, equals `interp` of
+> the STORED auxiliary domain at the block's frame with the copies
+> interpreted as the auxiliary carrier.
+
+Its proof is the substitution/interpretation commutation plus
+whnf-preservation, with K.51 supplying the syntactic chain
+(substitute → normalise → rewrite) as a certified equality rather than
+something the tier re-derives.  Both ingredients dispatch on the WALK's
+own recursion — congruence at every node but the replaced one — so
+neither introduces a case on the domain's head.
+
+**The honest caveat.**  K.51 is a syntactic identity between two terms
+whose interpretations differ according to how the copy constants are
+read.  Reading them as the auxiliary carrier is what makes the left side
+the candidate frame; reading them as the containers' least tuples is the
+true frame.  So K.51 gives the collapse at the candidate frame and gives
+G1's bridge nothing — the two are still separate, and (b) does not touch
+G1's argument.
+
+##### (d) THREE CONSEQUENCES
+
+1. **The exhaustiveness question dissolves rather than being answered.**
+   A formulation that never inspects the container domain's head has no
+   head constructors to dispatch over, so there is no case to discharge
+   by an invariant and none to measure.  The corpus sweep leaves the
+   critical path; it was a way of noticing the structure, and the
+   structure turned out not to be in the proof.
+2. **The declaration-order induction may be unnecessary for step (iii).**
+   The constant-headed arm was the one that consumed the hypothesis, and
+   in the collapsed form it consumes nothing: the stored domain is the
+   copy constant, not a container applied to something needing `P q'`.
+   **FLAGGED, NOT CLAIMED** — three of this lane's estimates were
+   withdrawn for exactly this kind of "too good", and the claim is only
+   safe once the lemma of (c) is written.  `pins_all_of_measure` is
+   retained regardless: G1's bridge needs it at the size measure.
+3. **`candDs` is still owed and its shape is unchanged** — the
+   substitution descending into the component term.  What changes is that
+   its CONSUMER no longer branches on what it produced.
+
+##### (e) THE ANSWER TO "IS IT NECESSARY", IN ONE LINE
+
+It is not necessary: the pin-target arms are one situation observed
+before and after a rewrite the install has already performed and
+certified, and K.51 is the certificate.
+
+Nothing in this section changes the tree.
+
+#### (number at the integrator's sync) — L-E: the probe's memory shape, and the corpus harness that already exists (lane L-E, 2026-09-18)
+
+Two housekeeping answers, both owed with the sweep.
+
+##### (a) THE HARNESS EXISTS — do not build a second one
+
+The M5/M8 lane's `_tmp/m8/k56-big.sh` (its worktree, not this one) is
+the pattern, and it is the right one: a PATCHED `con-leche` binary
+that prints one tagged line (`K56FIRE`) from inside the checker, run by
+the real driver over `init-full.ndjson` and `mathlib-full.ndjson` with
+`--jobs=4` / `--jobs=8`, `timeout`, and a memory cap; the result is
+`grep -c` over the tagged lines.  Counters only, the driver's own worker
+pool, nothing retained.
+
+That is the instrument any corpus classification should use — including
+the kernel record's per-component classification and G1's measure when
+they run at scale.  This lane should not scale up its fixture probe into
+a corpus tool, and the work should be routed to whoever owns that
+harness.
+
+##### (b) THE MEMORY SHAPE — two structural, one a defect
+
+The probe folds the install in process, serially, and holds:
+
+* **the accumulated environment** (`FEnv` plus the cached state) —
+  structural, and exactly what the checker holds;
+* **the whole `Array Declaration`**, materialised by the parser before
+  the fold — also structural, and also what the driver does
+  (`checkDecls` takes the array);
+* **the in-process modeller's generated records** — `parseExportStreamD
+  path true false`.  This lane turned the modeller ON so that the fold
+  would continue past a nested block instead of stopping at the first
+  one, and for a classification question that reads the block BEFORE the
+  install it buys nothing.  **That is the defect**, and it is the one
+  that scales worst: the modeller generates a model block per nested
+  block and those records join the array.
+
+Nothing is retained per edge or per block — each report is a `String`
+printed and dropped.  So the instrument is sound at fixture scale and
+wrong at corpus scale for a structural reason (a serial in-process fold
+with no pool), not because it leaks.
+
+The right-sized form of this question, had it stayed on the critical
+path, is (a)'s: one tagged line per edge from inside the install, the
+real driver, one process per input, counters in the shell.
+
+Nothing in this section changes the tree.
+
+#### (number at the integrator's sync) — L-E: the collapse's VOCABULARY landed, and why the declaration-order consequence is NOT yet confirmable (lane L-E, 2026-09-18)
+
+The collapse lemma was put ahead of everything downstream.  Writing it
+exposed a dependency worth reporting before the work rather than after:
+**the lemma's STATEMENT mentions the candidate components**, so it
+cannot be written entirely ahead of `candDs`.  What can — and what this
+session landed — is the vocabulary in which it is stated, generalised
+exactly as `pinLfpAt` and `pinTarget_reads_at` were, so that `candDs`
+arrives as an argument rather than as a rewrite of the consumers.
+
+##### (a) LANDED — `targetReadAt`, and today's reading as its instance
+
+`ConLeche/Model/Inductives/NestedFit.lean`: `targetReadAt` is
+`targetRead` with the pins' components a parameter; `recordedDs` is
+today's family; `targetRead_eq_targetReadAt` is definitional, so every
+consumer specialises back with no rewriting.  `targetReadAt_of_mem` and
+`targetReadAt_of_pin` replace the two branch lemmas.
+
+The docstring carries the caveat where the next reader will meet it,
+not only in this record: **K.51 is a syntactic identity between two
+terms whose interpretations differ by how the copy constants are read**
+— as the auxiliary carrier it gives the candidate frame, as the
+containers' least tuples the true one — so a certified syntactic chain
+settles the collapse and says nothing about which pin must be settled
+before which.  It buys G1 nothing.
+
+One structural observation worth recording, because it is evidence the
+collapse is real rather than wished for: `targetRead`'s two branches
+were ALREADY the same shape, `mkAppN (acval …) …`, differing only in
+which constant names the target and what it is applied to.  And the
+composed-block vocabulary already unifies the two index universes
+(`nestedU`) and the two index telescopes (`blockIds`, indexed by `t`
+across members and copies alike).  The uniformity the collapse needs was
+in the tree; the three-way split was above it.
+
+##### (b) WHAT THE COLLAPSE LEMMA STILL IS, precisely
+
+> `interp ρp` of the container's field domain reading, with the
+> container's parameters at the CANDIDATE components, equals `interp ρp`
+> of the auxiliary block's STORED field domain reading.
+
+Head-free: its proof is substitution/interpretation commutation plus
+whnf-preservation, with K.51 supplying the syntactic chain
+(substitute → normalise → rewrite) as a certified equality rather than
+something the tier re-derives.  Both dispatch on the WALK's recursion —
+congruence at every node but the replaced one.
+
+##### (c) THE DECLARATION-ORDER CONSEQUENCE — STILL FLAGGED, and now with a reason rather than a hunch
+
+The instruction was to confirm it from the WRITTEN lemma.  The lemma is
+not written — only its vocabulary is — so the consequence is not
+confirmed, and **K.57 must not be revisited on this lane's word.**
+
+What writing the statement DID establish, and it is evidence rather
+than confirmation: the collapsed form carries **no hypothesis at another
+pin**.  Today's pair of leaf laws is two statements at two DIFFERENT
+carriers — `memberTarget_reads` concludes at the block's own
+`lfpTuple … p.k`, `pinTarget_reads` at the CONTAINER's least tuple — and
+it is that difference, not the domain's head, that made the
+constant-headed arm reach for a hypothesis at another pin.  At one
+carrier the reach has nowhere to go.
+
+But the reach could reappear inside the proof of (b), and that is
+exactly where this lane has been wrong before.  So the sequence is: write
+(b), then look at what its proof consumes, then report.  **If (b) closes
+without a hypothesis at another pin, step (iii)'s induction is gone and
+K.57's only consumer with it** — which is a ledger question for the
+kernel lane and not a change this lane should make.
+
+##### (d) THE MEASUREMENT'S STATUS, kept distinguishable
+
+G1's thirteen containment pairs with none non-decreasing are
+**diagnostic**: they say the term-size measure is not obviously wrong and
+that containment is neither the edge relation nor the pin-index order.
+What will CLOSE G1's well-foundedness is the argument — a pin's reading
+is a proper subterm of a component of the pin that contains it, and its
+own components are proper subterms of that reading — not the count.  The
+count appears in no proof.
+
+The same distinction applies to the head-shape histogram, which is now
+diagnostic only and gates nothing.
+
+##### (e) INIT-FULL, worth keeping
+
+Exactly ONE nested block in the whole of init-full (`Lean.Syntax`, over
+`Array` and `List`), cross-checked against a direct count of the
+stream's records: 587 at `numNested = 0`, one at `2`.  **Our fixture
+corpus, not init-full, is what carries nested coverage.**  That is an
+argument for the missing fixtures already on the docket, not for more
+corpus runs.
+
+##### (f) THE PROBE'S DEFECT, one line for the next person
+
+A fixture-scale probe that folds the install in process must NOT pass
+the in-model flag to keep the fold running past the first nested block:
+the modeller then generates a model block per nested block into the same
+declaration array, which buys nothing for a question read BEFORE the
+install.  The serial in-process fold is why such a probe does not scale;
+that flag is the avoidable half.
+
+Nothing in this section changes the tree.
+
+#### (number at the integrator's sync) — L-E: `candDs` IS NOT A TERM FAMILY — the term-level generalisation cannot state the candidate frame, and the candidate frame's vocabulary is now landed (lane L-E, 2026-09-18)
+
+Item one of the queue, and it began by refuting something this lane
+landed an hour earlier.  The refutation came from trying to USE it,
+which is the only way this kind of defect surfaces.
+
+##### (a) THE SELF-CORRECTION: `targetReadAt` could not state what it was built for
+
+`targetReadAt` generalised `targetRead` in the pins' components **as
+ANNOTTERMS**.  That is the natural-looking move and it is wrong: a pin's
+candidate component has to denote the AUXILIARY CARRIER at another pin,
+and the copies are minted into a scratch block that the RESTORE removes,
+so **no term of the output environment denotes one**.  The term-level
+family can express the recorded components and nothing else.
+
+It is replaced by `targetValAt`, which takes the components as VALUES
+(`cAs : Nat → List V`).  The container's former does have a constant in
+the output environment — only its arguments move — so the candidate
+reading is the former's value with the candidate component values folded
+onto it.
+
+**This is G2's point one level out**, and it settles item one's shape:
+`candDs` is not a term substitution.  It is `candAs : Nat → List V`.
+`pinLfpAt`'s `as : List V`, `CandParamFit` and `CandIdxAgree` over
+`Nat → List V` were right for the same reason, and they stand unchanged.
+
+##### (b) LANDED — the candidate frame's vocabulary, all conservative
+
+`ConLeche/Model/Inductives/NestedFit.lean` and `NestedPinLeafAll.lean`:
+
+* `targetValAt` — `targetRead`'s denotation at a given component-value
+  family; `targetValAt_of_mem` / `_of_pin`;
+* `recordedAs` — the recorded components' values;
+* `targetValAt_recorded` — today's reading is the general one at the
+  recorded components.  **Two rewrites and `interp_mkAppN_foldl`**, and
+  that is the point: the member branch is an identity of the same term,
+  the pin branch is the commutation of `interp` with an application
+  spine, and neither inspects a field domain, because at this level
+  there is no field domain to inspect — the target is an index;
+* `TargetView.frameAt` — `TargetView.frame` at a given component-value
+  family, with `frameAt_of_mem` / `_of_pin` and `frameAt_recorded`.
+
+##### (c) A CORRECTION TO THIS LANE'S OWN WORDING, from `nested_p26`
+
+This lane wrote that the auxiliary domain "is the copy constant".  At
+`tests/e2e/nested_p26.ndjson` it is not:
+
+```
+    pin 0: container=P26D  pin=((P26D Nat) (fun _:Nat => ((P26V P26) #0)))
+    edge q=0(P26D) -> pin 1  own=false  ctor=1 field=1  dom=PARAM-applied/1(bvar 1)
+      containerDom=(#1 #0)
+      auxDom      =(_nested.P26V_2 #0)
+```
+
+— the component is a λ whose body is pin 1's reading APPLIED to the
+bound variable, and the auxiliary domain is the copy **applied**.  The
+head-free fact is "the stored domain is HEADED BY an auxiliary member",
+which is what `BlockOpened.recF` says and what the collapse needs; "is
+the copy constant" was an over-reading of the two simplest witnesses.
+
+`nested_p26` is also the second `PARAM-applied` witness, so that bucket
+is not a singleton.
+
+##### (d) THE LESSON WAS ALREADY LEARNED ONCE, AT §U.61
+
+`TargetView.DsE`'s docstring records that lane L-B refuted "the target's
+container taken from the pin's component's HEAD" at
+`tests/e2e/nested_lam_pin_prop.ndjson` — component `fun _ : True => T`,
+a λ-redex the positivity `whnf` reduces — and that a target's identity
+is now read off its POSITION in the pin table.  **That is the collapse's
+own lesson, one layer down, already settled.**  Three λ-component
+fixtures are now known (`nested_lam_pin_prop`, `nested_p22`,
+`nested_p26`), and the rule they teach is the same each time: read the
+position, never the head.
+
+##### (e) WHERE THE QUEUE STANDS, and the one decision it needs
+
+Items two, three and four all funnel through the same missing object.
+
+* **Item 2, the collapse lemma**, mentions the candidate components.
+* **Item 3, the consumption check**, cannot be answered from a lemma
+  that is not written.  The evidence is sharper than it was — today's
+  two leaf laws conclude at two DIFFERENT carriers (the block's own
+  `lfpTuple … p.k` and the CONTAINER's least tuple), and it is that
+  difference, not the domain's head, that made an arm reach for a
+  hypothesis at another pin — but evidence is not the confirmation that
+  was asked for.  **K.57 stays untouched.**
+* **Item 4, G1's bridge**, is abstractly `pins_all_of_measure` at the
+  size measure, already landed; its STEP is the frame equality, which
+  again mentions the candidate components.
+
+So the decision is how `candAs` is PRODUCED, and it is a scope question
+rather than a difficulty:
+
+1. **A re-pointing interpretation** — `interp` with the pin readings
+   evaluated at the auxiliary carrier — defined by recursion over the
+   containment relation, well-founded by the SAME term-size measure G1's
+   bridge uses (a pleasing coherence, and evidence the measure is the
+   right one).  This is a second interpreter over `AnnotTerm`, which the
+   project's derived-term-formers ruling treats as a significant object
+   with its own `interp`/subst API, not a casual addition.
+2. **Carry `candAs` abstractly** with exactly the properties its
+   consumers need — `CandParamFit`, `CandIdxAgree`, and the collapse —
+   and name the producer as a kernel record.  This is the
+   consumer-first discipline's shape-fixing use, and it defers (1)
+   without prejudging it.
+
+This lane's reading is that (2) unblocks items two through four
+immediately and (1) is what eventually discharges them, so they are
+sequential rather than alternative — but which is funded now is a scope
+call, and the derived-former ruling makes (1) large enough that it
+should not be started on this lane's own initiative.
+
+`lake build`, `lake test` and the doc gates green; every new theorem at
+`[propext, Classical.choice, Quot.sound]`.
+
+Nothing in this section changes the tree.
+
+#### (number at the integrator's sync) — L-E: OPTION (0) HOLDS, in a corrected form — there is no constant environment, and none is needed (lane L-E, 2026-09-18)
+
+Asked before anything else, and the grep answered it in two files.  **The
+answer is yes, and it retires the REASON this lane gave for refuting its
+own `targetReadAt` an hour earlier** — while leaving the replacement
+correct.
+
+##### (a) `interp` HAS NO CONSTANT ENVIRONMENT — the proposed form fails
+
+`ConLeche/Semantics/Interp.lean:150`: `interp : (Nat → V) → AnnotTerm →
+V`, and its only constant case is `| _, .const c us => bval V c us` at a
+`BConst` — a BASIS constant.  `AnnotTerm` has no node for a declared
+constant at all.  A declared constant is resolved into its READING
+before interpretation; that is what `EnvModel.acval` is for.
+
+So there is nothing to re-point at interpretation time, and "interpret
+the copies at a constructed environment" is not available in that form.
+The precedent about `consNestedFormers` is about where pins are
+type-CHECKED, which is a different layer.
+
+##### (b) BUT THE COPIES ALREADY HAVE READINGS — they only lack NAMES
+
+`mutMemberLeaf` (`ConLeche/Model/Inductives/MutualCore.lean:70`) is
+`tupleLfpAV` over `b.k` members at index `t`, built from the AUXILIARY
+block's own data — `ppsF`, `fms`, `dsF`, `esF`, `eissF`, `tssF`, all of
+length `b.k = p.k + pinsS.length`.  **Nothing in it restricts `t` to the
+members.**  `hleafM` restricts to `t < p.k` only because those are the
+targets that have a NAME in the output environment for `acval` to answer
+at; the reading itself is defined at a copy exactly as at a member.
+
+And the lemma that gives such a reading its meaning is already
+index-generic: `tupleLfpAV_fold`
+(`ConLeche/Model/Inductives/TupleLfp.lean:373`) is stated at an
+arbitrary `m < k`, concluding
+
+```
+(as ++ is).foldl app (interp V ρ (tupleLfpAV … m)) = app (lfpTuple w k … m) (tupW (Ws m) is)
+```
+
+— members and copies alike, no case, no new recursion.
+
+##### (c) WHAT THIS CORRECTS, AND WHAT IT LEAVES STANDING
+
+**Corrected**: this lane wrote "no term of the output environment
+denotes a copy, so the term-level family cannot state the candidate
+frame".  That is true of CONSTANTS and false of READINGS, and the tier
+is built on readings — `hleafM` says a member's `acval` IS one of these
+derived-former terms.  The refutation's conclusion (use values) was a
+reasonable choice; its stated REASON was wrong, and a wrong reason
+recorded as a fact is how the next lane inherits a phantom obstacle.
+
+**Standing**: `targetValAt` and `TargetView.frameAt` are correct and
+conservative, and values remain the honest currency for a FRAME.  There
+is no need to churn them back.
+
+**Dissolved**: the well-foundedness worry on the READING side.  There is
+no recursion over containment to make well-founded, because
+`tupleLfpAV_fold`'s own index-generic statement does the work.  Both of
+the options this lane put up — a second interpreter, or an abstract
+carry — are unnecessary FOR THE READINGS.
+
+**Not dissolved, and stated precisely**: step (iii)'s subject is the
+CONTAINER's least tuple at a candidate PARAMETER frame, and a parameter
+frame is a list of values.  So a component family is still wanted there.
+Whether it survives depends on the closure step — by leastness, the
+obligation reduces to the auxiliary carrier being closed under the
+container's operator at the candidate frame, and if that operator is the
+auxiliary block's own section at the copy then the subject is an
+identity and the family goes too.  **That is exactly the kind of "too
+good" this lane has been wrong about three times, and it is NOT
+claimed.**
+
+##### (d) THE RULE, stated once instead of as four incidents
+
+**Never read a target's identity, or a field's classification, off a
+component's or a domain's HEAD; read it off the recorded POSITION.**
+
+Four incidents, one rule: §U.61 (lane L-B, the container taken from the
+component's head, refuted at `nested_lam_pin_prop`'s λ-redex); the
+three-way head split (this lane, collapsed by K.51); "the aux domain is
+the copy constant" (this lane, corrected by `nested_p26`, where it is
+the copy APPLIED); and "no term denotes a copy" (this lane, corrected
+here — the copies have readings, not names).  Three λ-component fixtures
+now teach the first form of it: `nested_lam_pin_prop`, `nested_p22`,
+`nested_p26`.
+
+The `PARAM-applied` bucket has two witnesses (`p22`, `p26`), so it is not
+a singleton and the worry about it being dropped as noise is retired.
+
+##### (e) THE CARRY, IF IT IS STILL WANTED — owed, with its size
+
+If a component family survives (c), it is carried abstractly with its
+run-level consumer named in the same session, per the consumer-first
+rule, and **the carry is not an end state**: a conditional form is not a
+close on this project.  Owed alongside it, and to be priced as its own
+row rather than absorbed into a step, is whatever produces the family —
+**1–2 sessions** if it is a specialisation of `tupleLfpAV_fold` at the
+component positions, more if it is not.  The re-price must be able to
+see this row.
+
+Nothing in this section changes the tree.
+
+#### (number at the integrator's sync) — L-E: THE CLOSURE STEP — step (iii)'s skeleton is `lfpTuple_le` and takes ONE per-pin hypothesis (lane L-E, 2026-09-18)
+
+Worked through.  The subject does **not** collapse to an identity, a
+component family **does** survive, and the induction's consumer has moved
+rather than vanished — three answers, none of them the "too good" one.
+
+##### (a) LANDED — `pinLfpAt_le`, and it is one line
+
+```lean
+theorem pinLfpAt_le … (hcl : IsClosedTuple w (dJf …).k (… .idx …) (… .Φ …) L)
+    (hq : q - grpBase < (dJf …).k) :
+    FamLe (… .idx … (q - grpBase)) (pinLfpAt st pinsS dJf w ψ ρp as q) (L (q - grpBase)) :=
+  lfpTuple_le hcl _ hq
+```
+
+**Leastness is unconditional on this route** — `lfpTuple` is the
+INTERSECTION of the closed tuples (`mem_app_lfpTuple`), not a stage
+limit — so there is no monotonicity obligation and no chain.  The frame
+`as` is universally quantified, so every skeleton above this one can be
+built before any candidate component family exists.
+
+##### (b) THE ANSWER ON THE COMPONENT FAMILY: it survives
+
+`as` occurs in `pinLfpAt` and in `hcl`, as the CONTAINER's parameter
+frame.  The reading side needs no family — `tupleLfpAV_fold` is
+index-generic and covers copies — but a parameter frame is a list of
+values and something must name it.  So the family is carried abstractly,
+its producer is owed as its own row, and the carry is **not an end
+state**.
+
+##### (c) THE CONSUMPTION CHECK, as far as a written lemma can take it
+
+**Step (iii)'s skeleton is induction-free and per-pin.**  `hcl` speaks
+about pin `q` alone; no ordering, no measure and no conclusion at another
+pin appears in the statement.  So the declaration-order induction has no
+consumer *here*.
+
+Decomposing `hcl = InTupleSpace ∧ TupleLe (Φ L) L` at `L i := L⁺ (p.k +
+grpBase + i)`:
+
+1. **`InTupleSpace`** — each `L⁺` component is in its own `famSpace`
+   (`lfpTuple_mem`, unconditional); what is needed is that the
+   container's index set at the candidate frame is the auxiliary one.
+   That is **side condition two** (`CandIdxAgree`) plus the sort
+   identity (`NestedPinGroupSyn.w`).  Both already named; neither
+   mentions another pin.
+2. **`TupleLe (Φ L) L`** — the container's section at the candidate
+   frame lies below the auxiliary block's own section at the copy.  A
+   RECURSIVE field at target `t` is `tupleLfpAV_fold` at index `t`,
+   index-generic and cross-pin-free; an ORDINARY field needs the domains
+   to agree, which is the collapse lemma over K.51.  Lane L-B's
+   `CopyCtorShape` is the constructor-level half.
+
+**So no cross-pin hypothesis appears anywhere this lane can currently
+see — and that is still not a claim.**  Clause 2 is not written, and it
+is precisely where such a hypothesis would hide.  **K.57 stays
+untouched**, and when clause 2 is written this lane will report the
+answer rather than act on it.
+
+##### (d) THE RULE IS NOW WHERE A FRESH LANE MEETS IT
+
+Moved out of the session records and into `TargetView`'s own docstring
+(`ConLeche/Model/Inductives/NestedFit.lean`), which is what a lane
+reading the nested shape opens first: one rule, four witnesses with the
+fixture that paid for each, and the three λ-component fixtures named.
+
+##### (e) THE RE-PRICE
+
+| piece | sessions |
+| --- | --- |
+| the collapse lemma over K.51, and clause 2's ordinary-field half | 2–3 |
+| the component family's producer (its own row, not absorbed) | 1–2 |
+| re-basing the ten theorems, plus G3's two | 2–3 |
+| G1's bridge — the step, over `pins_all_of_measure` | 1–2 |
+| re-wiring the assembly and the residual's discharge | 1 |
+
+**8–11 sessions remaining here**, unchanged from the last re-price: the
+collapse removed the three-way split but clause 2 absorbed the saving,
+and the component family's producer became visible as a row of its own.
+**7–10 if the declaration-order induction proves unnecessary**, which is
+the one thing that would move the number and is not claimed.  Kernel:
+2–3, unchanged.
+
+Nothing in this section changes the tree.
+
+#### (number at the integrator's sync) — L-E: CLAUSE TWO'S SURFACE — the frame and the shape are SEPARABLE, and only the frame moves (lane L-E, 2026-09-18)
+
+Clause two is the section agreement: the container's section at the
+candidate frame below the auxiliary block's own section at the copy.
+The standing reminder paid off again — **the tree already proves the
+agreement in the other direction, at the true frame**, and reading that
+proof is what sized this one.
+
+##### (a) WHAT THE TREE ALREADY PROVES
+
+`nestedPinsFixed` is steps (i) and (ii), and step (i) IS a section
+agreement: the auxiliary fibre at a copy is the container's fibre at its
+least tuple, an EQUALITY, via `CopyCtorShape.fit_iff_at` at the joined
+tuple `segJoin k n Lblock P` whose entries are the targets' stored
+readings.  Step (ii) then falls out by leastness.
+
+So clause two is not a new argument.  It is `fit_iff_at` **at a
+different tuple and a different frame**: `Z := L⁺` instead of the join,
+and the candidate frame instead of the recorded one.
+
+##### (b) THE SURFACE, named exactly
+
+`fit_iff_at` is stated over a section variable `Ds : List AnnotTerm`
+with the frame a local notation `ρJ = consList (Ds.map (interp V ρp))
+ρp`.  The re-basing is therefore:
+
+| object | what moves |
+| --- | --- |
+| `CopyCtorShape` | **nothing** — `Ds` stays |
+| `CopyEntryAt` / `EntryRead` / `CopyEntryOut` / `CopyEntryA` | the frame |
+| `CopyCtorShape.fit_iff_at` / `.fit_imp` | the frame (`ρJ`), and `LJ` becomes `pinLfpAt`-shaped |
+
+**`Ds` stays in the shape and only the frame moves**, and that
+separation is the finding.  The copy IS the container at `Ds`
+syntactically, whatever frame one reads it at; what a candidate frame
+changes is the values the container's side is evaluated on.  The
+asymmetry is visible in the entry identity itself: the CONTAINER's side
+— the `SpineFit` and the `interp` of its field domain — is read at the
+frame, while the copy's SLOT is read at `ρp`, the block's own frame, and
+does not move.
+
+##### (c) LANDED — `CopyEntryAtF`, the first brick
+
+`ConLeche/Model/Inductives/NestedFit.lean`: `CopyEntryAtF` is the entry
+identity with the container-side frame an argument, and
+`copyEntryAt_iff_F` is `Iff.rfl`, so the re-basing is conservative and
+no consumer moves.
+
+A mechanical note worth one line, because it will recur through the rest
+of this surface: `CopyEntryAtF` does not mention `Ds`, so its
+auto-bound section variables differ from `CopyEntryAt`'s and the two
+signatures do NOT line up positionally.  Defining one as an application
+of the other fails with an argument-order mismatch; stating the bridge
+as a separate `Iff.rfl` theorem with explicit named arguments is the way
+through.
+
+##### (d) THE PRICE HOLDS, and the schedule improves
+
+Clause two at **2–3 sessions** is confirmed by its surface rather than
+estimated: four frame-generalisations of the same mechanical kind this
+lane has now done five times (`pinLfpAt`, `pinTarget_reads_at`,
+`targetValAt`, `TargetView.frameAt`, `CopyEntryAtF`), plus `fit_iff_at`
+re-based and instantiated at `Z := L⁺`, whose `hZ` is
+`tupleLfpAV_fold` at the field's target — index-generic, no case, no
+cross-pin hypothesis.
+
+And the schedule improves as the coordinator predicted: because the
+frame is universally quantified, the ten theorems and G3's two can be
+re-based against the abstract frame **in parallel with** the component
+family's producer rather than after it.  The 8–11 is partly overlapped,
+not sequential.
+
+##### (e) THE CROSS-PIN QUESTION, still where it was
+
+Clause two is now sized but not written, and it is still the place a
+cross-pin hypothesis would hide.  `fit_iff_at`'s own hypotheses —
+`IsBlockModels`, `FormersTyped`, `PinsTyped`, the universe facts, the
+parameter fit — are all about ONE container; `hZ` at `Z := L⁺` is
+index-generic.  **Nothing cross-pin is visible on the surface, and this
+lane still does not claim it.**  K.57 untouched.
+
+Nothing in this section changes the tree.
+
+#### (number at the integrator's sync) — L-E: three more frame-generalisations, and `fit_iff_at` sized at 216 lines (lane L-E, 2026-09-18)
+
+##### (a) THE SENTENCE IS WHERE IT BELONGS
+
+`ConLeche/Model/Inductives/NestedFit.lean`'s module header now carries
+the asymmetry as a displayed rule, not as prose in a session record:
+
+> **The copy's SLOT reads at the block's own frame `ρp` and does not
+> move.  The CONTAINER's side — its spine fit and the interpretation of
+> its field domain — reads at the frame that varies.  That asymmetry is
+> what a candidate frame IS.**
+
+with the two consequences a reader needs beside it: `CopyCtorShape`
+keeps `Ds` untouched because the copy IS the container at `Ds` whatever
+frame one reads it at; and stating the obligation at the TRUE frame
+forces both sides to move together, which is why the original
+circularity was an artefact of where the statement stood.
+
+The signature trap is in the same header, for the same reason — it
+recurs at every one of these generalisations and the record means
+nobody pays for it twice.
+
+##### (b) LANDED — three more, all conservative
+
+| generic form | bridge |
+| --- | --- |
+| `CopyEntryAtF` — the entry identity, container-side frame an argument | `copyEntryAt_iff_F`, `Iff.rfl` |
+| `EntryReadF` — the reading law | `entryRead_iff_F`, `Iff.rfl` |
+| `copyEntryAtF_of_read` — the consumer | the same one-line proof |
+
+`EntryReadF` moves three things, and they are exactly the three places a
+frame appears in `EntryRead`: `cAs` (the component family, fixing the
+TARGET's frame through `TargetView.frameAt`), `EAv` (the target's
+reading as a VALUE — at a candidate frame a target reads as the
+container's former at the candidate components, `targetValAt`, not as
+`interp` of a recorded term), and `frSelf` (this copy's own frame, which
+is what the container's side is read at).
+
+Five frame-generalisations now, all landing first or second try:
+`pinLfpAt`, `pinTarget_reads_at`, `targetValAt`, `TargetView.frameAt`,
+`CopyEntryAtF`/`EntryReadF`/`copyEntryAtF_of_read`.
+
+##### (c) `fit_iff_at` IS THE SUBSTANTIAL PIECE — 216 lines
+
+Measured rather than guessed: `CopyCtorShape.fit_iff_at` spans
+`NestedFit.lean:1040–1256`.  Its frame enters through `hρJ`, through
+`IsBlockModels.real_dom_eq` and `slotAt_mono`, and through the local
+notation `LJ` (the container's least tuple), which becomes
+`pinLfpAt`-shaped.  That is a session's careful work on its own and it
+is deliberately NOT half-started here.
+
+The `hZ` it will be instantiated with at `Z := L⁺` is `tupleLfpAV_fold`
+at the field's target — index-generic, members and copies alike, no case
+and no hypothesis at another pin.
+
+##### (d) THE PRICE, UNCHANGED
+
+Clause two stays at 2–3: three of its four generalisations are done and
+cost a fraction of a session between them; `fit_iff_at` is the rest of
+it.  The 8–11 is unchanged and is now partly OVERLAPPED rather than
+sequential, because the frame is universally quantified and the ten
+theorems can be re-based against it while the family's producer is still
+owed.
+
+Nothing in this section changes the tree.
+
+#### (number at the integrator's sync) — L-E: `fit_iff_at` IS NOT FRAME-RE-BASABLE, the family-generic form already exists, and the cross-pin hypothesis is LOCATED (lane L-E, 2026-09-18)
+
+Read before written, and the reading refutes the plan's ordering.  **No
+work was half-started**: the tree is at the last green commit.
+
+##### (a) THE REFUTATION — the frame is DETERMINED by the instantiation
+
+`fit_iff_at`'s proof turns on three steps, and all three are
+instantiation/interpretation commutations:
+
+* `slotSet_instTele` at the `recF` arm,
+* `interp_instAll` at the `ordF` arm,
+* `interp_instAll` again at the index equations.
+
+Both lemmas have the shape
+
+```
+… (consList fs ρ) (instAll ds …)  =  … (consList fs (consList (ds.map (interp V ρ)) ρ)) …
+```
+
+— the right-hand frame is **forced** to be the interpretation of the very
+terms `ds` that were substituted in.  The copy's readings ARE `instAll
+Ds` of the container's, so the syntactic instantiation DETERMINES the
+semantic frame.  **A frame parameter has nowhere to go.**
+
+So the belief this lane has been working under — "clause two is four
+mechanical frame-generalisations plus `fit_iff_at` re-based" — is false
+in its second half.  `fit_iff_at` cannot be re-based in the frame; its
+three steps have to be REPLACED by the collapse lemma over K.51, which
+is what says that the REWRITTEN domain read at `ρp` is the container's
+domain read at the candidate frame.  **The collapse lemma is a
+prerequisite of `fit_iff_at`, not a consequence of it**, and the plan
+had them the other way round.
+
+##### (b) AND THE FAMILY-GENERIC FORM ALREADY EXISTS
+
+`CopyCtorShape.fit_imp_T_le_dom` (`NestedFit.lean:1127`) takes an
+arbitrary container-side family `T`, an arbitrary copy-side family `Z`,
+the relation between them (`hrel`), the domain bound (`hdom`) and the
+entries as INCLUSIONS (`hentR`), and concludes the copy's fit from
+`dJ.ChainFitT pc ψJ ρJ T t i j fs`.  Frame fixed, family generic,
+inclusion rather than `iff` — **exactly clause two's direction and
+exactly its shape**.
+
+That is the fifth time the tree already held what a deadlock needed.
+
+##### (c) THE CROSS-PIN HYPOTHESIS, LOCATED — it is `hentR`
+
+The question this lane has declined to answer four times is now
+answerable, because `fit_imp_T_le_dom` exhibits the hypothesis instead
+of hiding it.
+
+`hentR` says: at a copy-recursive field whose CONTAINER kind is ordinary
+and whose target lies outside the group, the container's field domain at
+`ρJ` is within the copy's slot at `Z`.  At `Z := L⁺` and the TRUE frame,
+that domain's value at an ordinary field targeting a PIN is the pin's
+reading — which is `P q'` by `pinTarget_reads`.  So `hentR` demands
+
+```
+P q'  ⊆  L⁺ (p.k + q')
+```
+
+— **the inclusion at ANOTHER PIN.  That is the declaration-order
+induction's consumer, and it is `hentR`.**
+
+And it is exactly what the candidate frame removes: at the candidate
+frame the same field's domain evaluates to `L⁺ (p.k + q')` directly, so
+`hentR` becomes an identity and nothing at another pin is required.
+
+##### (d) SO K.57's FATE IS THE COLLAPSE LEMMA'S, and now precisely
+
+* at the TRUE frame the induction **is** needed, and its consumer is
+  named: `hentR` at the ordinary-field-to-pin edges — which is exactly
+  the edge set the probe enumerates;
+* at the CANDIDATE frame `hentR` is an identity and the consumer
+  disappears — **provided the collapse lemma holds**.
+
+This is a fact about the tree rather than a survey of what is visible,
+which is what was asked for.  It is still not a licence to touch K.57:
+the conditional's antecedent is unproved.  **The kernel lane should be
+told that K.57's consumer is `hentR`, and that it survives or dies with
+the collapse lemma.**
+
+##### (e) THE CORRECTED ORDER, and the price
+
+1. the collapse lemma over K.51 — now FIRST, and it is the whole of
+   clause two's difficulty;
+2. `fit_imp_T_le_dom` at `T`/`Z := L⁺` with `hentR` discharged by the
+   collapse lemma — **not a re-basing**, an instantiation of a lemma
+   that already exists;
+3. then the ten theorems and G3's two, against a settled surface.
+
+**Clause two stays at 2–3** — the difficulty moved from `fit_iff_at`'s
+216 lines to the collapse lemma, and step 2 got cheaper by exactly as
+much as step 1 got dearer.  **8–11 unchanged.**
+
+##### (f) THE SIGNAL, named because it was missed for weeks
+
+When a cut is real, the work at each site is the SAME work; when it is
+imposed, each site needs its own argument.  Five frame-generalisations
+landed first or second try because the frame/shape separation is real.
+The three-way head split needed a different argument at each arm — and
+that asymmetry in EFFORT was the signal, weeks before K.51 explained it.
+`fit_iff_at` resisting a frame parameter is the same signal read the
+other way: the effort did not stay mechanical, and the reason was that
+the cut was in the wrong place.
+
+Nothing in this section changes the tree.
+
+#### (number at the integrator's sync) — L-E: THE COLLAPSE LEMMA IS PROVED — every target reads as the auxiliary carrier, members and copies alike (lane L-E, 2026-09-18)
+
+`auxTarget_reads`, in `NestedPinLeafAll.lean`.  **For every `t < b.k`,
+with no case on the target and no hypothesis at another pin.**
+
+##### (a) THE STATEMENT
+
+At a spine fitting target `t`'s index telescope, the auxiliary carrier
+at `t` — the FULL `(k + n)`-tuple — applied to the spine's tuple, IS the
+auxiliary block's own leaf reading at `t` applied to the spine:
+
+```
+app (lfpTuple ((D).w ψ) (p.k + pinsS.length) ((D).idx ψ ρp) (ΨA ψ ρp) t)
+    (tupW (nestedU p.k W pinsS ψ t) is)
+  = is.foldl app (interp V ρp (auxTargetRead b.nP t ψ))
+```
+
+with `auxTargetRead nP t ψ := mkAppN (mutMemberLeaf b fms … t ψ)
+(paramBvarsAt nP nP)` — `targetRead`'s MEMBER branch, which `hleafM`
+says IS `m.acval` at a member, and which is defined at a COPY too
+because `mutMemberLeaf` is `tupleLfpAV` over all `b.k` members and
+nothing in it restricts the index.
+
+##### (b) WHY IT IS THE COLLAPSE
+
+`memberTarget_reads` is this lemma at `t < p.k` composed with TWO extra
+steps: Bekić (`ofNested_lfp`, converting the full tuple to the block's
+own `p.k`-tuple) and `hleafM` (supplying a NAME for the reading).
+`pinTarget_reads` is the corresponding statement at a pin and lands on
+the CONTAINER's least tuple instead — and **that difference in carrier,
+not the domain's head, is what made an arm reach for a hypothesis at
+another pin.**
+
+Drop the Bekić step and drop the name, and the two become ONE statement
+at ONE carrier, dispatching on nothing.  The proof is
+`memberTarget_reads`'s with its last line and its `hleafM` rewrite
+removed — shorter than the special case, which is what a collapse should
+look like.  The index-genericity is `tupleLfpAV_fold`'s, already stated
+at an arbitrary `m < k`.
+
+##### (c) WHAT IT SETTLES, STATED CAREFULLY
+
+`auxTarget_reads`' hypotheses are `MutualFormersFacts`, `hbk`, the
+parameter satisfaction, `NestedLfpOk`, `t < b.k` and the spine fit.
+**Every one is a fact about the block as a whole or about `t` alone.
+None is at another pin.**
+
+So it discharges the `hZ` of `copyEntryAtF_of_read` at `Z := L⁺` with no
+ordering input.  The chain to `hentR` is then
+
+```
+EntryReadF (at the candidate frame)  +  auxTarget_reads  ⟹  CopyEntryAtF at L⁺  ⟹  hentR
+```
+
+and the piece that was going to carry the ordering is now a theorem with
+no ordering in it.
+
+**NOT CLAIMED: that the cross-pin hypothesis is gone.**  The remaining
+antecedent is `EntryReadF` AT THE CANDIDATE FRAME, and `EntryRead`'s body
+is semantic (`interp`), so it is a genuinely different claim from L-B's
+at the true frame.  What this lane can say precisely is that **the
+ordering question has moved off this lane's surface and onto lane L-B's:
+what remains is a shape-and-reading obligation, not an ordering one.**
+
+##### (d) K.57 — the message for the kernel lane, when it is routed
+
+* the consumer is `hentR`, at the ordinary-field-to-pin edges;
+* at the true frame it demands `P q' ⊆ L⁺ (p.k + q')`, the inclusion at
+  another pin — that is the declaration-order induction's only consumer;
+* the collapse lemma that removes it is **proved** (`auxTarget_reads`),
+  cross-pin-free;
+* one antecedent remains, and it is L-B's (`EntryReadF` at the candidate
+  frame), not the kernel's.
+
+Still not a licence to touch K.57, and this lane is not asking.
+
+##### (e) PRICE
+
+Clause two's difficulty was the collapse lemma and it came in **well
+under** the 2–3: the lemma is shorter than the special case it
+generalises.  The saving is NOT banked — `EntryReadF` at the candidate
+frame is now the open antecedent and it lands on L-B's surface, where
+this lane cannot price it.  **8–11 unchanged**, with the note that one
+of its rows has moved lanes.
+
+Nothing in this section changes the tree.
+
+#### (number at the integrator's sync) — L-E: ADJUDICATION — lane L-B is right on all three points, and this lane RETRACTS "not an ordering one" (lane L-E, 2026-09-18)
+
+Checked, not argued.  **All three of L-B's points hold, K.57's consumer
+survives, and the answer to its blocking question is (b).**
+
+##### (a) POINT ONE — `frSelf`, not `cAs`.  CORRECT
+
+In this lane's own `EntryReadF`, `cAs` occurs only in the hypothesis's
+spine fit (`TV.frameAt cAs ρp (tg l)`).  The container's field domain is
+read at `frSelf`, inside `CopyEntryAtF`.  **So `frSelf` is the parameter
+that must become the candidate frame**, and the tree holds no candidate
+value for it: `CandParamFit` and `CandIdxAgree` are side conditions ON
+such a family, and its production is the scope call this lane left open.
+Recorded at `EntryReadF` itself, not only here.
+
+##### (b) POINT TWO — the arrow is not a lemma.  CORRECT
+
+`CopyCtorShape.fit_imp_T_le_dom`'s `hentR` reads the container's side at
+`ρJ`, the local notation for the RECORDED frame
+(`NestedFit.lean:1171–1173`), and its proof turns on `slotSet_instTele`
+and `interp_instAll` — the two commutations this lane's own refutation
+showed force the frame.  So `CopyEntryAtF` at a candidate `frSelf` is
+**not** `hentR`, and the arrow in the chain this lane reported does not
+exist.  (`copyFieldReadPin`, which L-B also names, is not in this tree —
+presumably its own working branch; the point stands without it.)
+
+##### (c) POINT THREE — the docstring was right and the summary was wrong
+
+The `pins_le_of_declOrder` docstring said the constant-headed arm
+consumes the declaration-order hypothesis.  Checked at the object:
+
+> `Array`'s field domain `List α`, at a candidate frame `α ↦ L⁺`,
+> evaluates to `List`'s LEAST TUPLE at that argument — the inner pin's
+> `pinLfpAt`, **not** the inner pin's `L⁺`.  Closing that gap is the
+> conclusion at the inner pin.
+
+**So the candidate frame does not supersede the constant-headed arm, and
+neither does `auxTarget_reads`.**  The docstring's substance stands; only
+its retracted 35/59 counts were stale, and those are now removed.
+
+##### (d) THE OBJECTS, named — the coordinator's reading is the right one
+
+| claim | object |
+| --- | --- |
+| `auxTarget_reads` removes the ordering | the TARGET'S READING — `hZ` of `copyEntryAtF_of_read`, previously routed through `pinTarget_reads` and landing on the container's least tuple; now landing on `L⁺` with no `P` anywhere |
+| L-B's obstacle | the CONTAINER'S FIELD DOMAIN — `hentR`, at a copy-recursive field |
+
+Both are true.  **This lane's word "remaining" covered only the first
+and was written as if it covered both.  That is the error, and it is
+retracted.**
+
+##### (e) THE ANSWER TO L-B'S QUESTION: (b), with the restriction stated
+
+`EntryReadF` at the candidate frame is **not** askable at all edges.
+
+* **Member target** — not an edge; `ofNested_lfp`.
+* **Parameter-headed pin target** — no hypothesis at another pin, but
+  NOT free: it needs the candidate frame, whose component family has no
+  producer.
+* **Constant-headed pin target** — needs the candidate frame AND the
+  conclusion at the inner pin.  **K.57's consumer survives here.**
+
+So: `EntryReadF` is asked at parameter-headed edges with no ordering
+input, and at constant-headed edges only together with the induction.
+L-B should state it with that restriction and proceed; nothing this lane
+has landed supersedes the constant-headed arm.
+
+##### (f) WHAT STANDS, unretracted
+
+`auxTarget_reads` is unaffected: every target reads as the auxiliary
+carrier, members and copies alike, no case, no cross-pin hypothesis.
+What it buys is precisely that the `hZ` side no longer routes through
+`P`.  That is a real advance and a smaller one than this lane reported.
+
+`pinLfpAt_le`, the five frame-generalisations and `pins_all_of_measure`
+are likewise unaffected — none of them claimed anything about `hentR`.
+
+##### (g) THE LESSON, and it is the day's sixth refutation
+
+Five of the six were caught by checking; this one was caught by ANOTHER
+LANE, because this lane summarised across two objects without naming
+them.  The rule the route already carries — read the position, not the
+head — has a twin: **name the object a claim is about, especially when
+two obligations share a proof.**  A summary that is true of one and
+stated of both is indistinguishable from a false claim to the lane that
+consumes it.
+
+K.57 keeps its consumer.  Nothing to route.
+
+Nothing in this section changes the tree.
+
+#### (number at the integrator's sync) — L-E: a verification trap of my own — `lake build` does not re-show warnings it has already emitted (lane L-E, 2026-09-18)
+
+Lane L-B's merge had to fix two warnings in this lane's file
+(`TargetView.frameAt_of_mem` / `_of_pin`, each carrying an unused
+instance binder).  **They were this lane's, and this lane reported the
+tree warning-free several times after introducing them.**  The same fix
+is now applied here so the two branches do not diverge on it.
+
+##### (a) WHY THEY WERE MISSED — the first explanation was WRONG, and was tested
+
+This lane first reported that Lake does not re-emit a cached module's
+warnings on a warm build.  **That is false on this toolchain**, and the
+control takes two commands:
+
+```
+--- WARM build, nothing changed:
+⚠ [461/722] Replayed ConLeche.Model.Inductives.NestedFit
+warning: …NestedFit.lean:523:0: automatically included section variable(s) unused…
+```
+
+Lake REPLAYS a cached module's diagnostics, so a counting grep over a
+warm FULL build does express the negative.  The kernel lane ran this
+control rather than adopting the explanation; this lane reproduced it
+before accepting the correction.
+
+**The actual cause is the grep pattern.**  Every build command this lane
+ran after the offending theorems were written grepped for `error` alone
+— `grep -n "error" -A 8 …`, `grep -c error …` — and a warning line
+contains no substring `error`:
+
+```
+$ printf 'warning: …unused in theorem X\n' | grep -c "error"
+0
+```
+
+The builds that did use `grep -n "error\|warning"` were all from BEFORE
+those theorems existed, which is why those greens were sound.  The
+`lake test` runs printed only the exit code and were never grepped at
+all.
+
+##### (b) THE RULE
+
+A warning-free claim needs a FULL `lake build` (and `lake test`) whose
+output is matched by a pattern that can match a warning, counted rather
+than sampled:
+
+```
+timeout 3600 lake build 2>&1 | grep -ic warning
+```
+
+A targeted single-module build says nothing about the tree, because a
+build invocation only reports on the modules it VISITS.  Report the
+rebuilt/replayed module count beside the zero, so the claim carries its
+own evidence of coverage.
+
+**Three shapes of the same failure on this project now**: a truncated
+pipeline, a build that never visited the module, and — here — a pattern
+that could not match.  The general rule survives all three: **a claim of
+absence needs a command that can express absence.**
+
+And the lesson this episode actually teaches, which is the new one:
+**the first explanation for a false negative is itself a claim that
+needs a falsifier.**  This lane diagnosed; another lane tested, in
+minutes, and the diagnosis was wrong.
+
+##### (c) THE FOREIGN-UNFOLD HAZARD, audited
+
+Per the new DESIGN rule — in a low-tier module, do not unfold another
+module's definition by name, because that generates its equation lemmas
+HERE and drags the module into every later proof's closure — this lane's
+new proofs were checked.  `auxTarget_reads` contains `unfold
+mutMemberLeaf`, which is foreign (`MutualCore.lean`).  It adds nothing:
+`memberTarget_reads`, pre-existing in the same module, already unfolds
+it, so this module was already the one that asked.  `unfold PinSyn.Ids`
+and `unfold BlockModel.tup` are likewise pre-existing here, the latter
+copied verbatim into `pinTarget_reads_at` from `pinTarget_reads`.
+
+`tests/proofdeps.sh`: **4965 module rows as pinned across 12 roots,
+doors 0.**
+
+Nothing else in this section changes the tree.
+
+#### (number at the integrator's sync) — L-E: the re-basing row is NOT a mechanical generalisation, and a textual grep said it was (lane L-E, 2026-09-18)
+
+Two attempts, both reverted to green.  **Nothing is half-done and the
+tree is at `03526f64`'s state.**  What the attempts bought is the row's
+real shape, which is not the one this lane described.
+
+##### (a) WHAT THE ROW LOOKED LIKE
+
+`nestedPinPairAt` and its neighbours do not take the frame at all.  They
+take step (ii)'s conclusion as a PREMISE, quantified over an arbitrary
+predicate `S`:
+
+```lean
+{S : Nat → Prop}
+(hIH : ∀ q', q' < pinsS.length → S q' →
+  pinLfp st pinsS dJf (f₀.s.eval ψ) ψ ρp q'
+    = lfpTuple ((D).w ψ) (p.k + pinsS.length) ((D).idx ψ ρp) (ΨA ψ ρp) (p.k + q'))
+```
+
+So the re-basing looked like: abstract `pinLfp …` to a variable `Pf`,
+and the proofs cannot notice, because they only ever use `hIH` as a
+rewrite.  `grep` agreed — inside `nestedPinPairAt`'s whole span the name
+`pinLfp` occurs exactly ONCE, in that hypothesis (the other two hits are
+in the NEXT theorem's docstring).
+
+##### (b) WHY THAT WAS WRONG
+
+It is false, and the build says so at
+`NestedPinLeafAll.lean:3926` and `:4041`:
+
+```
+nestedPinPairAt_mem hμ h hbk m hleafM dJf hgroups hρp GR CR hB hshR hIH hc hjl
+```
+
+The proof PASSES `hIH` to sub-lemmas whose OWN statements mention
+`pinLfp`, so abstracting it here type-errors there.  **The name occurs
+once; the dependency does not.**
+
+This is the same failure mode as the two warning incidents, in a third
+disguise: **a textual command answering a semantic question.**  `grep -c
+pinLfp` counts occurrences of a name; it cannot see a hypothesis's shape
+travelling into a callee.  The rule generalises from "a claim of absence
+needs a command that can express absence" to the sharper form: **a claim
+about a DEPENDENCY needs the elaborator, not a search.  The cheap
+falsifier is to make the edit and build.**
+
+That is what happened here, twice, and it cost two reverts rather than a
+session — which is the argument for attempting the edit early rather
+than reasoning about whether it will work.
+
+##### (c) THE ROW'S REAL SHAPE
+
+Seven sites carry that hypothesis shape, at
+`NestedPinLeafAll.lean:2615, 3387, 3588, 3700, 3892, 4446, 4508`, and
+they are NOT uniform: the blanket edit broke `2615` (a `rewrite` that
+needs the concrete term) and `3387` (a different binder shape, with no
+`{S : Nat → Prop}` line above it at all).  So the row is
+
+> abstract `pinLfp` out of the whole `nestedPinPairAt_mem` / `_pin` /
+> `nestedPinPairAt` / `nestedInstanceLe` / `nestedPinInstLe` CHAIN at
+> once, bottom-up, because the hypothesis travels between them
+
+— one connected edit, not ten independent ones, and it must start at the
+leaves (`_mem`, `_pin`) rather than in the middle.  **It is still
+unblocked** — no candidate family, no producer, no L-B dependency — and
+it is still the right next row; it is simply one edit rather than ten.
+
+##### (d) A CORRECTION TO THIS LANE'S OWN GREEN FORMAT
+
+The "rebuilt-or-replayed module count" proposed one session ago is not a
+reliable coverage figure: `grep -c "Built\|Replayed"` returned `1` and
+then `0` across two runs of an identical green tree, because Lake prints
+those lines only for what it actually touched.  **The coverage figure is
+Lake's own `Build completed successfully (N jobs)`.**  Greens from here
+carry that.
+
+Green now: `lake build` → **0 errors/warnings, 722 jobs**, at the
+reverted state.
+
+Nothing in this section changes the tree.
+
+#### (number at the integrator's sync) — L-E: THE CONNECTED EDIT LANDED — the chain is generic in the family, and `pinLfp` is now one witness among many (lane L-E, 2026-09-18)
+
+One pass, bottom-up, in one session.  **It closed.**
+
+##### (a) WHAT CHANGED
+
+Seven theorems carried step (ii)'s conclusion as a premise written at the
+concrete `pinLfp`:
+
+```lean
+(hIH : ∀ q', q' < pinsS.length → S q' →
+  pinLfp st pinsS dJf (f₀.s.eval ψ) ψ ρp q' = lfpTuple … (p.k + q'))
+```
+
+All seven — `nestedTargetReads_L`, `nestedPinEntryOut`,
+`nestedPinPairAt_mem`, `nestedPinPairAt_pin`, `nestedPinPairAt`,
+`nestedInstanceLe`, `nestedPinInstLe` — now take an abstract family
+`{Pf : Nat → V}` and **the one property of `pinLfp` any of them actually
+used**:
+
+```lean
+(hPfGroup : ∀ q₀ kJ, GF st m q₀ kJ (dJf q₀) → ∀ i, i < kJ →
+  Pf (q₀ + i) = lfpTuple (f₀.s.eval ψ) (dJf q₀).k (…idx…) (…Φ…) i)
+```
+
+`pinLfp_group` is that property proved for `pinLfp` itself — the
+`unfold pinLfp; rw [(G.syn.grp i hi).1, …]; rfl` that used to sit inline
+inside `nestedTargetReads_L`'s proof, hoisted into a lemma so the
+consumers can take it as a hypothesis and stop mentioning `pinLfp`.
+
+**Six of the seven no longer mention `pinLfp` anywhere in their
+statements.**  The seventh, `nestedPinInstLe`, mentions it only in its
+CONCLUSION, which is its subject.
+
+##### (b) WHY THIS IS THE RE-BASING, AND IT IS BETTER THAN A FRAME ARGUMENT
+
+The plan was to add a frame parameter.  What the chain actually needed
+was to stop knowing how `P` is computed at all: with `hPfGroup` as a
+premise the chain is generic in the FAMILY, and `pinLfp` is one witness
+among the `pinLfpAt`s.  A candidate frame will be admitted by supplying a
+different `Pf` and its group law, with no further change to these seven.
+
+That is also why the two earlier attempts failed: they abstracted the
+hypothesis without supplying the property, and `nestedTargetReads_L`'s
+proof genuinely needs `P` to BE a container's least tuple — it feeds
+`pinTarget_reads`.  **The name occurred once; the dependency was a
+property, not an occurrence.**
+
+##### (c) THE OPERATIONAL NOTE
+
+Three failure modes were hit and cleared inside one pass: a premise
+inserted after the conclusion's `:` (syntax), the in-chain call sites
+needing the new argument threaded (four), and two top-level sites needing
+a witness, which `pinLfp_group` supplied.  Total: four build-read-fix
+cycles.  **Attempting the edit was, again, far cheaper than reasoning
+about it** — and the third attempt succeeded only because the two
+reverted ones had mapped the seven sites and shown which were special.
+
+##### (d) GREEN, in the corrected format
+
+* `lake build` — 0 errors/warnings, **722 jobs**
+* `lake test` — 0 errors/warnings
+* `tests/proofdeps.sh` — 4965 module rows as pinned across 12 roots,
+  **doors 0**
+* `tests/no-local-paths.sh` — OK
+
+Nothing in this section changes the tree's accept set.
+
+#### (number at the integrator's sync) — L-E: THE CHECK — the candidate frame IS admitted by `pinLfpAt`, and the producer row is not what stands in its way (lane L-E, 2026-09-18)
+
+Answered with a falsifier rather than an argument, and **nothing was
+built**: the probe lives in `_tmp/le/groupprobe.lean` and the tree is
+untouched by it.
+
+##### (a) THE PROBE, and it compiles
+
+```lean
+theorem pinLfpAt_group_probe … (as : Nat → List V)
+    (hgrp : (st.pins.getD (q₀ + i) default).grpBase = q₀) :
+    pinLfpAt st pinsS dJf w ψ ρp (as (q₀ + i)) (q₀ + i)
+      = lfpTuple w (dJf q₀).k
+          ((dJf q₀).idx ((pinsS.getD (q₀ + i) default).ψJ ψ) (consList (as (q₀ + i)) ρp))
+          ((dJf q₀).Φ ((pinsS.getD (q₀ + i) default).ψJ ψ) (consList (as (q₀ + i)) ρp)) i := by
+  unfold pinLfpAt
+  rw [hgrp, Nat.add_sub_cancel_left]
+```
+
+**`pinLfpAt` satisfies the group law at an ARBITRARY component family,
+by the same proof as `pinLfp` — two lines, and it needs one less step
+(no closing `rfl`).**  The group-base fact `hgrp` is what
+`GroupFacts`/`NestedPinGroupSyn.grp` already supplies.
+
+##### (b) SO THE ANSWER IS YES, with two named edits
+
+For the seven to accept `pinLfpAt … as` as their family:
+
+1. **`hPfGroup`'s RHS must be parameterised in `as`.**  As landed, its
+   frame is hard-wired to `consList ((Ds ψ).map (interp V ρp)) ρp`, the
+   recorded one — so as it stands the premise ADMITS ONLY the recorded
+   family.  Moving it is the same mechanical edit just completed, at the
+   same seven sites.
+2. **`nestedTargetReads_L`'s `exact pinTarget_reads m G.syn hi hρp his'`
+   becomes `pinTarget_reads_at`**, supplying the parameter fit and the
+   index fit at the candidate frame.  **All three ingredients are already
+   in the tree**: `pinTarget_reads_at` landed earlier this session, and
+   the two fits are `CandParamFit` and `CandIdxAgree`, stated as
+   predicates and shown to hold at the recorded components.
+
+Neither edit needs a candidate family to EXIST: `as` stays universally
+quantified throughout, exactly as `pinLfpAt` takes it.
+
+##### (c) WHAT THIS DOES AND DOES NOT DO TO THE PRICE
+
+**The "component family's producer" row — an open scope call about a
+second interpreter, priced 1–2 sessions — is NOT what stands between us
+and the candidate frame for this chain.**  It can be scheduled behind
+the two edits of (b), or not at all on this path.
+
+**It is still needed elsewhere, and this lane is not retracting it.**
+The closure step's `hentR` requires the container's FIELD DOMAIN to
+actually evaluate to `L⁺`, not merely to be taken at some frame — and
+that is where a candidate family has to be a particular one.  That is
+the parameter-headed and constant-headed arms: L-B's surface, plus the
+declaration-order induction at the constant-headed edges, both unchanged
+by this check.
+
+So: **the producer moves off the critical path for the pin-pair chain
+and stays on it for the closure step.**  This lane will not re-price the
+8–11 on a check alone; what the check settles is the ORDER, and (b)'s
+two edits are the next row rather than the producer.
+
+##### (d) NOT CLAIMED
+
+That the seven accept `pinLfpAt` today.  (b) 1 and 2 are inspected, not
+done, and this lane has been wrong twice today about whether an edit of
+exactly this kind would close.  The probe demonstrates the group law and
+nothing beyond it.
+
+Nothing in this section changes the tree.
+
+#### (number at the integrator's sync) — L-E: the two edits do NOT close in their scope — the second reaches the entry layer (lane L-E, 2026-09-18)
+
+Attempted rather than reasoned about, as the rule says.  **It did not
+close; reverted wholesale; the tree is at `ee1eda07`'s state and green.**
+The attempt is a measurement, and this is what it measured.
+
+##### (a) EDIT ONE IS MECHANICAL AND APPLIES CLEANLY
+
+Parameterising the group law's frame — `{Af : Nat → List V}` beside
+`{Pf}`, and `consList ((((D).pinAt (q₀+i)).Ds ψ).map (interp V ρp)) ρp`
+→ `consList (Af (q₀+i)) ρp` — applied at **all seven sites** with no
+adjustment.  The premise then admits any family, as the probe predicted.
+
+##### (b) A CONCRETE GOTCHA WORTH KEEPING
+
+Edit one alone produced, at one top-level call site, a **`(deterministic)
+timeout at whnf, maximum number of heartbeats (200000)`** — not a type
+error.  The cause is higher-order: with `Af` implicit, unification has to
+invert `q₀ + i` to solve `Af` from a hypothesis stated at the recorded
+components.  **Supplying `Af` explicitly at the call site removed it
+outright.**  Any future edit that abstracts an index-indexed family out
+of a hypothesis should pass the family explicitly at call sites from the
+start.
+
+##### (c) EDIT TWO IS NOT CONFINED TO ONE THEOREM — and that is the finding
+
+`nestedTargetReads_L`'s conclusion is
+
+```
+… = is.foldl app (interp V ρp (TV.EA t))
+```
+
+— the target's recorded READING.  At a candidate frame the target does
+not read as a recorded term; it reads as a VALUE (`targetValAt`, G2's
+lesson).  **So moving the frame moves the conclusion**, and the
+conclusion is what `copyEntryAt_of_read` consumes:
+
+```
+NestedPinLeafAll.lean:3456   copyEntryAt_of_read hread hZ
+NestedPinLeafAll.lean:4928 / 4934   (the assembly's two uses)
+```
+
+Those want `CopyEntryAt`; the re-based `hZ` fits `copyEntryAtF_of_read`,
+which concludes `CopyEntryAtF`.  **So the row reaches the `CopyEntryAt`
+layer — which is the closure step's surface and is shared with lane
+L-B.**
+
+And the two edits are inseparable: edit one alone breaks
+`nestedTargetReads_L` (its `hP` is then at `Af` while `pinTarget_reads`
+is at the recorded frame), which is the type mismatch the first build
+reported.
+
+##### (d) WHAT DID WORK, AND IS WORTH RE-USING WHEN THE ROW IS RE-SCOPED
+
+* `pinDsFit` — `NestedPinGroupSyn.DsFit` with the parameter spine
+  destructured — is exactly the `hAfFit` witness at the recorded family,
+  and it type-checked;
+* `pinTarget_reads_at` slotted into `nestedTargetReads_L`'s pin branch
+  with `hAfFit` supplying the fit, as designed;
+* the member branch needed only `targetValAt_of_mem` and
+  `← targetRead_of_mem`;
+* the pin branch needed `targetValAt_of_pin` and `← List.foldl_append`.
+
+`nestedTargetReads_L` itself CLOSED at the candidate frame.  What did not
+close is everything downstream of its conclusion.
+
+##### (e) THE RE-SCOPE
+
+The row is not "two edits to the pin-pair chain".  It is **one edit
+spanning the chain AND the entry layer**, and the entry layer is L-B's,
+so it needs coordination rather than a unilateral pass.  This lane is not
+attempting it again without that.
+
+**The price does not move on a failed attempt any more than on a
+check** — nothing is written.  What moves is the row's SHAPE, from "two
+edits here" to "one edit across two lanes' surfaces".
+
+Green at the reverted state: `lake build` 0 errors/warnings, **722
+jobs**.
+
+Nothing in this section changes the tree.
+
+#### (number at the integrator's sync) — L-E: `memberTarget_reads` is now DERIVED from the collapse lemma, and that was the one unblocked row (lane L-E, 2026-09-18)
+
+##### (a) LANDED — the special case falls out of the general one
+
+`auxTarget_reads` was landed with no consumer, which this project has
+retired more than once as a liability.  It has one now, and it is the
+theorem it generalises:
+
+```lean
+  have haux := auxTarget_reads h hbk hρp hOk (by omega) his
+  rw [nestedU_mem ht] at haux
+  rw [hEA, ← haux]
+  exact congrArg (fun X => SetTheory.app X (tupW (W ψ) is)) (ofNested_lfp hOk ht)
+```
+
+with `hEA` the observation that at a member the two READINGS coincide —
+`targetRead`'s member branch is `auxTargetRead`, because `hleafM` says
+`m.acval` at a member IS `mutMemberLeaf`.  Everything else is the two
+steps the general lemma deliberately omits: `nestedU_mem` for the
+universe and `ofNested_lfp` (Bekić) for the carrier.
+
+**Net −15 lines**, and the forty-line proof that was duplicated between
+the two is now written once.  This is the shape the collapse claimed:
+the general statement is shorter than the special case, and the special
+case is the general one plus the two steps that make it special.
+
+##### (b) THE UNBLOCKED-ROW AUDIT
+
+Asked for plainly, so answered plainly.  On this lane's surface:
+
+| row | state |
+| --- | --- |
+| the spanning edit (chain + entry layer) | **HELD** — coordinated, waiting on L-B's assembly |
+| G1's bridge | blocked: its step is the frame equality, which needs a particular family |
+| the component family's producer | blocked: the scope call is held |
+| `nestedPinInstLe`'s conclusion | not work — abstraction for symmetry, ruled out |
+| `memberTarget_reads` from `auxTarget_reads` | **was unblocked; done, above** |
+
+`EntryReadF`, `CopyEntryAtF` and `copyEntryAtF_of_read` remain landed
+WITHOUT consumers, and this lane records that as a live liability rather
+than letting it pass: their consumer is the closure step, which is the
+held row.  If the spanning edit is re-scoped away from them they should
+be deleted rather than kept.
+
+**With (a) done, this lane has no further unblocked row.**  That is a
+scheduling fact, not a failure, and this lane is not going to invent one
+— the two candidates it could have invented (tidying the last
+conclusion, and generalising the entry layer ahead of L-B) are both
+things the coordinator has already ruled out or held.
+
+##### (c) GREEN
+
+* `lake build` — 0 errors/warnings, **722 jobs**
+* `lake test` — 0 errors/warnings
+* `tests/proofdeps.sh` — 4965 rows as pinned, **doors 0**
+* `tests/no-local-paths.sh` — OK
+* `memberTarget_reads` — `[propext, Classical.choice, Quot.sound]`
+
+Nothing in this section changes the tree's accept set.
+
+#### (number at the integrator's sync) — L-E: COSTING the component family's producer — it specialises `tupleLfpAV_fold` for one half and for the other half the tree has nothing (lane L-E, 2026-09-18)
+
+Costing only.  **Nothing landed, no producer, no spanning edit, no
+candidate-frame index fit.**  The answer is split, and the split is the
+answer.
+
+##### (a) THE HALF THAT SPECIALISES — and it is already proved
+
+`NestedPinSynFacts.pinRec` records that a pin's expression is
+**exactly** its container applied to its components:
+
+```lean
+pin.pin = Expr.mkAppN (.const pin.container (pinsS.getD q default).lvls)
+                      (pinsS.getD q default).DsE
+```
+
+So when a component of pin `q` IS another pin `q'`'s expression, its
+candidate value is `interp V ρp (auxTargetRead b.nP (p.k + q') ψ)`, and
+the bridge to the auxiliary carrier is
+
+```lean
+auxTarget_reads : app (L⁺ t) (tupW (nestedU p.k W pinsS ψ t) is)
+                    = is.foldl app (interp V ρp (auxTargetRead b.nP t ψ))
+```
+
+— which **IS** `tupleLfpAV_fold` specialised to the auxiliary block, and
+it is landed and consumed.  **This half costs nothing new.**  It covers
+`nested_p04`'s `P4`, where pins 1 and 2 each have `P4C P4` — pin 0's
+expression — as their component.
+
+##### (b) THE HALF THAT DOES NOT — a component that CONTAINS a pin
+
+At `nested_p22` the component is `fun _ : Nat => List P22` and at
+`nested_p26` it is `fun _ : Nat => (P26V P26) #0`: the pin's reading is
+buried under a binder, not at the top of a spine.  `tupleLfpAV_fold`
+speaks about ONE reading applied to a parameter spine and an index
+spine; it says nothing about a reading occurring inside a larger term.
+
+**And the λ case cannot be avoided.**  The container's least tuple
+`pinLfpAt … as q` is taken at a frame on the CONTAINER's parameters, and
+`P22T`'s parameter is `f : Nat → Type` — so the frame must carry a
+function value, and the field domain `f n` reaches it only through that
+value.  There is no route that needs only `f n`.
+
+What this half needs is a **compositional substitution lemma**: `interp`
+of a component with every identified pin reading replaced by its
+`auxTargetRead`.  The tree has no such thing.  Grepped before costing:
+
+* `replaceAllNested` — the kernel's own pin→copy rewrite — carries
+  **eleven** theorems in `Verify/Inductives/*` and `Model/Inductives/*`
+  (`_aligned`, `_frame`, `_head_const`, `_lengths`, `_mkPisB`, `_named`,
+  `_occurrence`, `_of_no_mention`, `_pins_prefix`, `_types_prefix`,
+  `_unchanged_or_aux`), and **none of the eleven mentions `interp`**.
+  Every one is syntactic.
+* `interp_instAll` is the tree's substitution/interpretation
+  commutation, and it substitutes TERMS FOR BVARS.  The pin→copy
+  replacement substitutes for SUBTERMS.  Different operation; it does
+  not apply.
+* `ownSubst` (`ContainerCross.lean:1045`) re-spells a container's own
+  pin at the block's components — the opposite direction, and on `Expr`.
+
+##### (c) THE STATEMENT THE PRODUCER WOULD HAVE
+
+```lean
+-- given the QUEUED kernel record: per component, which subterms are
+-- pin readings and at which pins
+theorem interp_pinRewrite … (hcls : <that record at pin q, component i>) :
+    interp V ρp ((candDs q ψ).getD i default)
+      = <interp of (Ds q ψ).getD i default, with the value at every
+         identified pin reading replaced by interp V ρp (auxTargetRead b.nP (p.k + q') ψ)>
+```
+
+structurally, by recursion over the reading — `app`, `lam`, `forallE`,
+`letE`, `proj` congruence at every node and the replacement at the
+identified ones.  **That is the re-pointing interpretation of the scope
+call, not an instance of anything.**
+
+##### (d) THE COSTING, PLAINLY
+
+* **Half (a): zero.**  Landed, consumed, and it is the common case.
+* **Half (b): the scope call's option (1) in full** — a compositional
+  substitution over `AnnotTerm` readings, gated on the queued
+  per-component kernel record.  The derived-term-formers ruling makes it
+  a significant object with its own API, and **nothing in the tree
+  discharges any of it** — the eleven `replaceAllNested` lemmas are the
+  closest relative and they are on the wrong side of the `interp`
+  boundary.
+
+So the honest answer to "does it specialise" is **half yes, half no, and
+the no is the whole cost.**  A negative costing at the same price, as
+asked: what blocks the specialisation is that `tupleLfpAV_fold` is a
+statement about a reading at the TOP of a spine, and the components that
+need the producer have the reading UNDER A BINDER.
+
+##### (e) WHAT IT IMPLIES FOR THE SCOPE CALL — offered, not taken
+
+The abstract carry (option 2) remains cheap and unblocks the spanning
+edit's arithmetic; option (1) is what eventually discharges it and is
+not reducible to a lemma.  **This lane is not making the call** — it is
+reporting that the two options are not near each other in cost, which is
+the thing an estimate would have hidden.
+
+##### (f) THE PROBE NOTE, carried from L-B
+
+Pass the family explicitly at every call site from the start.  The two
+failures are distinguishable: **an inverted index expression TIMES OUT
+at `whnf`; a missing family ERRORS immediately** with "don't know how to
+synthesize implicit argument".  Both were seen today, one per lane.
+
+Nothing in this section changes the tree.
+
+#### (number at the integrator's sync) — L-E: COSTING THE ABSTRACT CARRY — values only at the entry layer, syntax at two named arms below it (lane L-E, 2026-09-18)
+
+Costing only, entirely within this lane's own definitions.  **Nothing
+landed.**  No worktree but this one was read.
+
+##### (a) THE ENTRY LAYER NEEDS VALUES ONLY — checked at the definitions
+
+```lean
+CopyEntryAtF (fr : Nat → V) (w : Nat) (u : Nat → Nat) (Z : Nat → V) (l : Nat) : Prop
+EntryReadF   (cAs : Nat → List V) (EAv : Nat → V) (frSelf : Nat → V) (l : Nat) : Prop
+copyEntryAtF_of_read : EntryReadF … → (hZ …) → CopyEntryAtF …
+```
+
+**`Ds` occurs in none of the three.**  Every parameter that used to be
+syntax is now a value or a value family: the container-side frame
+(`fr`/`frSelf`), the target's frame family (`cAs`), the target's reading
+(`EAv`).  So the carry is available at the entry layer and is already
+landed there; `CopyEntryOutF` is the one piece still missing and is a
+ten-line transcription of `CopyEntryOut`.
+
+##### (b) BUT TWO ARMS BELOW IT READ THE SYNTAX, and they do not go through the entry
+
+`CopyCtorShape` mentions `AnnotTerm.instAll Ds` **four times** — in
+`recF`, `ordF`, `pinF` and `es` (`NestedFit.lean:894, 905, 918, 922`).
+Three of those are reachable through the entry and therefore carry;
+**the other two are not**:
+
+* **`recF`** — a container-recursive field at a MEMBER of the
+  container's OWN group.  Its target is inside the group, so
+  `segJoin base kJ L LJ` picks the container's own carrier, not `L⁺`,
+  and the entry is never consulted.  `fit_imp_T_le_dom` bridges it with
+  `slotSet_instTele Iff.rfl Iff.rfl Ds ρp fs₁ …`, whose conclusion is
+  forced to the frame `consList fs₁ (consList (Ds.map (interp V ρ)) ρ)`
+  — the RECORDED values, because `instAll Ds` on the copy's side is what
+  the lemma is about;
+* **the index equations** — `h.es l hl` then `interp_instAll`, with the
+  same forcing.
+
+So the frame at those two arms is not free: it is determined by the same
+syntactic instantiation that defines the copy.  **That is the identical
+boundary that refuted the spanning edit**, met from the other side, which
+is at least coherent.
+
+##### (c) THE INTERFACE, as a statement
+
+What `EntryReadF`'s consumers actually use, and all they use:
+
+```lean
+-- the carry, in full
+variable (cAs : Nat → List V) (EAv : Nat → V) (frSelf : Nat → V)
+
+CopyEntryOutF … (fr : Nat → V) (w : Nat) (u : Nat → Nat) (Z : Nat → V) : Prop :=
+  ∀ l, l < Fs.length → rs.getD l false = true → ¬ (base ≤ tg l ∧ tg l < base + kJ) →
+    CopyEntryAtF dJ ψJ tg tls Eis ρp i j fr w u Z l
+```
+
+— a family parameter and nothing else.  No syntax, no producer, no
+kernel record.
+
+##### (d) THE COSTING, PLAINLY
+
+**The carry works, is cheap, and does NOT move the producer obligation
+off the spanning edit.**  It moves it off the ENTRY arms — `ordF`-right
+and `pinF`, which are exactly the pin-target edges — and leaves it on
+`recF` and `es`, which reach the frame through `instAll Ds` directly.
+
+* cost of the carry itself: `CopyEntryOutF` plus threading, **well under
+  a session**, and three quarters of it is already landed;
+* what it buys: the entry layer stated at an arbitrary frame, with the
+  producer needed only where the frame is instantiated;
+* what it does NOT buy: `fit_imp_T_le_dom`'s conclusion, because a single
+  invocation has ONE frame — so stating the entry arms at a candidate
+  frame while `recF`/`es` require the recorded one is not a coherent
+  instantiation of that lemma as it stands.
+
+**So this is neither "the carry works" nor "the carry is refuted".**  It
+is: the carry is sound and cheap at the layer it was built for, and the
+layer below needs the frame CONSTRAINED relative to the recorded one
+rather than free — agreeing with it except where a field's domain reads
+it.  Naming that restriction is a different piece of work from either
+scope-call option, and this lane has not costed it because it has not
+been asked to and would have to guess at its shape.
+
+##### (e) THE TWO SIDES, NOW BOTH PRICED
+
+| option | cost | dependency |
+| --- | --- | --- |
+| (1) re-pointing interpretation | structural recursion over readings, no relative in the tree (eleven `replaceAllNested` theorems, zero mention `interp`) | **queued kernel record** — a cross-lane wait |
+| (2) abstract carry | `CopyEntryOutF` + threading, under a session, ¾ landed | none |
+
+and the thing that separates them is not the line count: (2) is cheap
+and BOUNDED — it does not reach the fit layer — while (1) is expensive
+and, once its record lands, does.
+
+Nothing in this section changes the tree.
+
+#### (number at the integrator's sync) — L-E: `CopyEntryOutF` landed; the two-frame hypothesis is REFUTED, and the forcing arm is not `recF` (lane L-E, 2026-09-18)
+
+##### (a) LANDED — the carry, completed
+
+`CopyEntryOutF` and `copyEntryOut_iff_F` (`Iff.rfl`).  **`Ds` does not
+occur in it**, which is the whole point of the carry.  The entry layer is
+now stated at an arbitrary container-side frame end to end:
+`CopyEntryAtF` → `EntryReadF` → `copyEntryAtF_of_read` →
+`CopyEntryOutF`, each with an `Iff.rfl` bridge to its recorded form.
+
+##### (b) THE ARITHMETIC, CORRECTED — and the coordinator's guess was right
+
+This lane said "three through the entry, two not", which is five over
+four sites and wrong in both directions.  `ordF` has TWO disjuncts, so
+there are FIVE arms over four fields, and the split is:
+
+| arm | reaches `Ds` how | carries? |
+| --- | --- | --- |
+| `ordF`-RIGHT | through `EntryRead` | **yes** |
+| `pinF` | through `PinCorr`/the entry | **yes** |
+| `recF` | `slotSet_instTele … Ds ρp` | no |
+| `ordF`-LEFT | `hF` then `interp_instAll` | **no** |
+| `es` | `h.es` then `interp_instAll` | no |
+
+**`ordF`-left does NOT re-base freely.**  Its consumer in `fit_iff_at`
+is `rw [if_neg …, hF fs₁ rfl hsp, interp_instAll]` — the same
+commutation as `es`, with the same forcing of the frame to the recorded
+values.  Being an equation at an arbitrary `fs₁` does not help: the
+equation is between the copy's reading and `instAll Ds` of the
+container's, and it is `interp_instAll` that turns that into a
+frame.  **So the third piece is THREE arms, not two**, and that is
+before anyone prices it.
+
+##### (c) THE HYPOTHESIS IS REFUTED, in two steps
+
+**Step one — `recF`'s target being inside the group is a fact about the
+FAMILY, not the frame.**  Its slot family is
+`segJoin base kJ L LJ (tg l)`, and `tg l ∈ [base, base + kJ)` selects
+`LJ`, the CONTAINER's least tuple, rather than `L`.  Its slot's FRAME is
+`consList fs₁ ρp`, the block's, which does not move.  So `recF` straddles
+— copy-side frame, container-side family — and the asymmetry rule is not
+violated by it.  There is also no parameter to split: `CopyCtorShape`
+has no frame parameter at all, only `Ds` and `ρp`; the container frame
+`ρJ` is a local notation DERIVED from `Ds` in `fit_iff_at` and
+`fit_imp_T_le_dom`.
+
+**Step two — and this is the real answer: the arm that forces the two
+frames together is `hC`, the chain-fit hypothesis.**
+
+```lean
+(t : V) (fs : List V) (hC : dJ.ChainFitT pc ψJ ρJ T t i j fs)
+```
+
+unpacked in the proof to `hfC : FitsFrom … ((dJ.Fss i ψJ).getD j []) fs`
+at `ρJ`.  `hdom` and `hentR` are at `ρJ` too, and about the same
+`dJ.Fss i ψJ` — six occurrences of `ρJ` across the three.  **`hC` says
+the field values `fs` FIT the container's domains at `ρJ`; the entries
+say those same domains lie inside the copy's slots.**  Move the entries
+to a frame `fr` and the composition is between "`fs` fits at `ρJ`" and
+"the domain at `fr` is inside the slot" — which do not compose, because
+`fs` is what fitting at `ρJ` produced.
+
+**So the incoherence is in the mathematics, not in a signature**, and it
+is one level above where the hypothesis placed it: not `recF`, but the
+single chain fit that every arm's conclusion is relative to.  A
+two-frame `fit_imp_T_le_dom` would need two chain fits, and then it would
+not be one lemma.
+
+##### (d) WHAT THIS MEANS FOR THE THIRD PIECE
+
+The constrained-frame relation is not "agree except where a field's
+domain reads" arm by arm — it has to be a relation under which the
+CHAIN FIT transports, because that is the object the arms share.  That is
+a stronger requirement than the per-arm phrasing suggested, and it is the
+thing to cost.  **This lane has not costed it and is not guessing at it.**
+
+`lake build` — 0 errors/warnings, **722 jobs**.
+
+Nothing in this section changes the tree's accept set.
+
+#### (number at the integrator's sync) — L-E: COSTING the chain-fit transport — it is a congruence plus a classification, and it buys ONE of the three arms (lane L-E, 2026-09-18)
+
+Costing only.  Nothing landed beyond `CopyEntryOutF`.
+
+##### (a) THE INPUT DIES AT FIVE MINUTES, and says where to look next
+
+Monotonicity in the frame does not stand, because **the tree's
+monotonicity is all in the FAMILY with the frame fixed**:
+`BlockModel.ChainFitT_mono` and `FitsFrom.mono`
+(`NestedRecCand.lean:584, 551`) both move the slot family `Y → Y'` and
+leave `ρ` alone — `FitsFrom.mono`'s hypothesis is
+`∀ l, … → ∀ ρ', slot l ρ' ⊆ slot' l ρ'`, the frame universally
+quantified INSIDE the slot and unchanged outside it.  And `FitsFrom`'s
+ORDINARY positions are `interp V (consList fs₁ ρ) F` — a direct
+interpretation, not a slot — so a frame move changes them with nothing
+available to bound it.
+
+Killed fast, as instructed.  What it pointed at — frame-monotonicity via
+positivity — would be a NEW object needing positivity semantically, and
+larger than the transport rather than smaller.
+
+##### (b) A REFINEMENT OF THIS LANE'S OWN REFUTATION, owed under the naming rule
+
+Two different questions, two different answers, and the record must not
+run them together:
+
+* **can the entries move ALONE, leaving the rest at `ρJ`?**  No — `hC`
+  forbids it, for the reason given: `fs` is constrained by fitting at
+  `ρJ` and the entries would speak at another frame.  That was the
+  hypothesis asked about and the answer stands;
+* **can the WHOLE lemma be instantiated at a candidate frame?**  Also
+  no — but the obstruction there is the three arms' PROOFS
+  (`slotSet_instTele` at `recF`, `interp_instAll` at `ordF`-left and
+  `es`), not `hC`.  Instantiated wholesale, `hC`, `hdom` and `hentR`
+  move together and compose fine.
+
+The operative obstruction for the route is the second.  This lane's
+earlier sentence named `hC` for both, and only the first is its.
+
+##### (c) THE TRANSPORT'S PRICE — and it is not one object
+
+| piece | what | size |
+| --- | --- | --- |
+| **T1** | a POSITIONAL `interp` congruence, generalising `interp_congr_below` (`Semantics/Kit.lean:155`) from "bvars below `k` and frames agree below `k`" to "frames agree at the positions the term reads" | ~40 lines, one induction, the existing proof's shape carries, **no dependency** |
+| **T2** | the same for `slotSet` — a `piTele` congruence in the frame | ~40–60 lines, same shape |
+| **T3** | `FrameAgree` + `FitsFrom` transports under it | ~40 lines over T1/T2 |
+| **T4** | the classification: which positions each arm READS | see below — this is where it stops being cheap |
+
+**T1 is the reusable core and the tree is one generalisation away from
+it**: `interp_congr_below` already proves exactly this for a PREFIX
+bound, and the candidate frame's replaced positions are scattered rather
+than a prefix.  That is the whole gap.
+
+##### (d) WHAT IT BUYS — one arm of three
+
+* **`ordF`-LEFT: bought, probably.**  A container-ordinary field whose
+  instantiation stays ordinary mentions no member and no pin — so its
+  domain reads no REPLACED component, and T1 closes it by agreement.
+  **Inspected, not proved**, and the fact it needs is K.32-adjacent
+  (`nestedCopyTargetsOk`'s "a container-ORDINARY field cannot
+  instantiate to the group's own pin"), so it may already be recorded;
+* **`recF`: not bought.**  Its domain is the container's own member
+  applied to the PARAMETER SPINE, so it reads every component including
+  the replaced ones.  Agreement is false there by construction;
+* **`es`: not bought.**  The result's index readings read the parameter
+  spine for the same reason.
+
+`recF` and `es` are not transport problems at all: at the candidate frame
+the container's side moves and the copy's does not, so what they need is
+the COLLAPSE — the identity between the container's reading at the
+candidate frame and the copy's stored one — which is option (1)'s
+territory and carries option (1)'s kernel-record wait.
+
+##### (e) THE PRICE, PLAINLY
+
+**T1–T3: one to two sessions, no dependency, and they close `ordF`-left
+— one of the three arms.**  The other two are not cheaper under a
+transport than under option (1), because they are not about frames
+agreeing; they are about two different readings of the same field.
+
+So what the route has acquired is: **a bounded piece worth about a
+session that removes a third of the third piece, and a residue that is
+the same obligation option (1) already carried.**  That is smaller than
+"an obligation of unknown size", and this lane is reporting it before any
+of it is spent, as asked.
+
+Nothing in this section changes the tree.
+
+#### (number at the integrator's sync) — L-E: T1 versus option (1) — PARTLY, and the partition is sharp; T3 turns out unnecessary (lane L-E, 2026-09-18)
+
+Answered from the statements.  The answer is **partly**, and the split
+is clean enough to act on; it also retires a piece of this lane's own
+costing an hour old.
+
+##### (a) T1 IS NOT A PREREQUISITE OF OPTION (1)'S PROOF — they are siblings
+
+`interp_congr_below`'s proof (`Semantics/Kit.lean:160–194`) is a BARE
+structural induction: `interp_app` + the two IHs at `app`, `interp_lam`
++ `lamR_congr` + the IH at an extended environment at `lam`,
+`interp_pi` + `piR_congr` at `pi`, and `rfl` at the leaves.  Its
+ingredients are the `interp` equations and an environment-quantified IH.
+
+Option (1)'s structural recursion over readings would be **the same
+induction with the same ingredients** — `interp_app`/`interp_lam`/… and
+an IH quantified over environments — replacing at the identified nodes
+instead of appealing to agreement.  So option (1) does not CONSUME T1;
+the two are siblings over one induction principle, and neither is built
+from the other.
+
+##### (b) BUT T1 IS A PREREQUISITE OF OPTION (1)'S CONSUMPTION
+
+Option (1) supplies the candidate component VALUES.  It does not supply,
+and cannot, the fact that a field whose domain reads NONE of the
+replaced components has the same value at both frames.  At `ordF`-left
+that is exactly the step:
+
+```
+interp V (consList fs₁ ρp) (copy's reading)          -- interp_instAll
+  = interp V (consList fs₁ ρJ)    (container's domain)
+  = interp V (consList fs₁ ρcand) (container's domain)   -- ← T1, and only T1
+```
+
+The second equation is a congruence, not a substitution.  **Option (1)
+closes `recF` and `es`, whose domains read the parameter spine; it does
+not close `ordF`-left, whose domain reads nothing that moved.**
+
+So the coordinator's dichotomy resolves as: **T1 is on the path under
+either option, and is not paid for twice.**  Spend it.
+
+##### (c) AND T3 IS UNNECESSARY — this lane over-built its own framing
+
+The earlier costing framed the third piece as "a relation under which the
+CHAIN FIT transports".  That assumed `hC` has to MOVE from the recorded
+frame to the candidate one.  It does not: instantiated wholesale, `hC` is
+STATED at the candidate frame, and its caller is the closure step, which
+needs `Φ` at that frame and therefore produces `ChainFit` at that frame
+directly.  **Nothing transports; the fit is born at the frame it is used
+at.**
+
+So the piece priced as T3 (`FrameAgree` + `FitsFrom` transport, ~40
+lines) is not needed at all.  What remains is the congruence pair:
+
+| piece | status |
+| --- | --- |
+| **T1** — positional `interp` congruence | **needed under either option**, ~40 lines, no dependency |
+| **T2** — the `slotSet`/`piTele` analogue | needed for the same arms, ~40–60 lines |
+| ~~T3~~ — chain-fit transport | **withdrawn — nothing transports** |
+
+##### (d) THE REVISED PRICE
+
+**Under a session for T1 + T2**, dependency-free, and both are on the
+path whether or not option (1) ever lands.  The obligation this lane
+reported an hour ago as "one to two sessions buying one arm of three"
+is better than that: **under a session, buying an arm that option (1)
+does NOT buy, and retiring a piece that was never needed.**
+
+That is the third time today a scope shrank on inspection.  The
+mechanism was the same each time: the framing carried an assumption —
+here, that the fit had to move — that nobody had made explicit until the
+statement was read for a different reason.
+
+Nothing landed; `d585d470` stands as the checkpoint.
+
+Nothing in this section changes the tree.
+
+#### (number at the integrator's sync) — L-E: T1 LANDED; T2 withdrawn for want of a consumer; and `ordF`-left's side condition is NOT recorded (lane L-E, 2026-09-18)
+
+##### (a) T1 LANDED
+
+`ConLeche/Verify/Denote/VClosed.lean`: `shiftP`, `bvarsOn` — the
+positional twin of `bvarsBelow`, the same recursion with `n + 1`
+replaced by a shift — plus `bvarsOn_mono` and `bvarsOn_of_bvarsBelow`.
+`bvarsOn_of_bvarsBelow` **depends on no axioms at all.**
+
+`ConLeche/Semantics/Kit.lean`: `interp_congr_on` — two environments
+agreeing at every position the term READS give it the same value — and
+`interp_congr_below_of_on`, the conservativity bridge, so no consumer of
+the bound form moves.  The proof is `interp_congr_below`'s verbatim with
+`k`/`k + 1` replaced by `P`/`shiftP P`, exactly as costed.
+
+##### (b) T2 IS WITHDRAWN — it has no consumer
+
+Read at the branch structure rather than assumed.  In
+`CopyCtorShape.fit_iff_at` the fit splits on the CONTAINER's recursive
+bit:
+
+* `if_pos hr` — the recursive positions, `recF` and `pinF`, whose
+  obligations are `slotSet`-shaped;
+* `if_neg` — the ordinary positions, where the obligation is
+  `⟨Subset.refl _, …⟩` and then, at `ordF`-LEFT,
+  `rw [if_neg …, hF fs₁ rfl hsp, interp_instAll]` — **a pure `interp`
+  equation with no slot in it.**
+
+So `slotSet` appears only at recursive positions; of those, `pinF` and
+`ordF`-right are carried by the entry, and `recF` is not bought by a
+congruence at all.  **The one arm T1 buys has no slot, so the `slotSet`
+congruence has nobody to serve.**
+
+Fourth scope shrink today, same mechanism: the framing assumed a
+`slotSet` congruence was needed because slots occur in `FitsFrom`, and
+reading which BRANCH the bought arm sits in retired it.
+
+##### (c) AND THE SIDE CONDITION IS NOT RECORDED — said plainly
+
+T1 is the tool; what it needs supplied is
+
+> a container-ordinary field that stays ordinary in the copy reads no
+> REPLACED component.
+
+**K.32 is not that fact.**  `nestedCopyTargetsAt`
+(`Kernel/Inductives/NestedInstall.lean:967`) constrains only fields the
+aux block classified recursive **into this copy's OWN group** —
+`p.k + qn.grpBase ≤ t && t < p.k + qn.grpBase + qn.grpSize` — and is
+`true` otherwise.  It says nothing about an ordinary field's domain.
+
+The argument this lane can see is: a domain mentioning a parameter whose
+component is a pin reading would, after instantiation, mention a pin;
+mentioning it positively makes the field recursive (contradicting
+"stays ordinary"), mentioning it negatively is a non-positive occurrence
+the install rejects.  **That rests on the aux block's positivity check
+and the kinds computation, and it is an argument, not a record.**  It
+would need either a new kernel clause or a model-side derivation from
+`nestedPinKindsAt`.
+
+So: **`ordF`-left is NOT closed.**  It was reported as "bought,
+probably"; the probably was load-bearing and the answer is that the tool
+is now landed and the side condition is open and unrecorded.  Proving a
+weaker thing that happens to close the goal was the alternative and is
+not taken.
+
+##### (d) WHERE THE THREE ARMS STAND
+
+| arm | state |
+| --- | --- |
+| `ordF`-left | **tool landed (T1); side condition OPEN and unrecorded** — needs a kernel clause or a derivation from `nestedPinKindsAt` |
+| `recF` | needs the COLLAPSE — its domain is the container's member at the parameter spine, so it reads every replaced component; no congruence applies |
+| `es` | the same, for the same reason |
+
+`recF` and `es` remain option (1)'s, with option (1)'s kernel-record
+wait.  **T1's value stands regardless**: it is a general semantic
+congruence, it subsumes `interp_congr_below`, and it is the step option
+(1) cannot supply.
+
+##### (e) GREEN
+
+* `lake build` — 0 errors/warnings, **722 jobs**
+* `lake test` — 0 errors/warnings
+* `tests/proofdeps.sh` — 4965 rows as pinned, **doors 0**
+* `interp_congr_on`, `interp_congr_below_of_on` — standard axioms;
+  `bvarsOn_of_bvarsBelow` — **no axioms**
+
+Nothing in this section changes the tree's accept set.
+
+#### (number at the integrator's sync) — L-E: COSTING `ordF`-left's side condition as a derivation — one half is FREE, the other is FALSE, and both fallbacks are entangled (lane L-E, 2026-09-18)
+
+Costing only.  Nothing landed.
+
+##### (a) THE POSITIVE HALF DERIVES, AND IS FREE — `.ordinary` is DEFINITIONAL
+
+`mutualCtorKinds` (`Kernel/Inductives/MutualInstall.lean:377–379`):
+
+```lean
+let dom := (cbs.getD (nP + i) default).1
+if !mentionsMember (members.map (·.1)) dom then (RecFieldKind.ordinary, 0)
+else <the positivity walk>
+```
+
+**`.ordinary` IS the `!mentionsMember` branch** — not an inference from
+the classification, a case of its definition.  So "the aux kind at
+`(q, j, l)` is `.ordinary`" gives "the aux STORED domain mentions no aux
+member, in particular no copy" by unfolding, and the tier already
+carries the same shape one level down (`ContainerModeled.ordFree`,
+`NestedPremise.lean:238`, "an ORDINARY field mentions no member",
+recorded because `BlockOpened.ord` does not carry it).
+
+##### (b) AND THE NEGATIVE HALF IS UNNECESSARY
+
+The coordinator's two-half framing can be collapsed: a non-positive
+occurrence never reaches `.ordinary` at all, because `.ordinary` is
+decided BEFORE the positivity walk runs.  **There is no second half to
+price.**  (`nestedPinKindsAt` additionally excludes `.negative`, so even
+the walk's rejections are recorded — but nothing needs them here.)
+
+##### (c) BUT THE BRIDGE TO WHAT T1 NEEDS IS FALSE
+
+T1's hypothesis is about the CONTAINER's domain:
+
+```lean
+bvarsOn (fun i => ¬ Replaced i) D.erase
+```
+
+— `D` reads no parameter position whose component was replaced.  What
+(a) delivers is about the AUX domain mentioning no copy.  **The step
+between them fails, and it fails at `whnf`.**
+
+The kinds are computed on the normalised, rewritten domain
+(`normPosDomM` then `replaceAllNested`, K.51), and **whnf can ERASE a
+mention**: `(fun x => Nat) β` reduces to `Nat` whatever `β` is.  So a
+container domain that READS a replaced position can normalise to one
+that mentions no copy, and be classified `.ordinary` — with T1's
+hypothesis false and its conclusion true.
+
+**The λ-redex shape is not hypothetical.**
+`tests/e2e/nested_lam_pin_prop.ndjson` is an accepted fixture whose
+component is exactly such a redex, and `TargetView.DsE`'s docstring
+already records lane L-B refuting a head-read at it for the same reason.
+
+##### (d) THE TWO FALLBACKS, AND BOTH ARE ENTANGLED
+
+* **a narrow kernel clause** recording T1's hypothesis directly.  It
+  cannot be stated without saying which positions are REPLACED — which
+  is the per-component classification **already queued as option (1)'s
+  record**.  So it is not independent of option (1); it is a second
+  consumer of the same record;
+* **apply the congruence to the NORMALISED domain instead**, which needs
+  `interp` to respect the normalisation.  **No such lemma exists** —
+  grepped for `interp_whnf` and defeq-respecting variants, zero hits.
+  That is a soundness statement larger than the arm it would buy.
+
+##### (e) THE COSTING, PLAINLY
+
+**The side condition does not derive.**  The derivation delivers a
+different fact for free, the negative half evaporates, and the bridge is
+refuted by an accepted fixture's shape.  Both fallbacks lead back to
+option (1)'s queued record or to something larger than the arm.
+
+**So `ordF`-left is not independently cheap after all.**  Its closure
+wants the same per-component classification that `recF` and `es` want,
+and the honest recommendation is to let it ride with them rather than
+fund a third route to the same record.  **That leaves T1 as the session's
+deliverable and `ordF`-left as option (1)'s third arm, not its
+exception.**
+
+This lane notes the shape of its own error: "bought, probably" rested on
+K.32 being adjacent, and when K.32 turned out not to be the fact, the
+next candidate was assumed to be reachable rather than checked.  The
+check took one grep of `mutualCtorKinds` and one of `interp_whnf`.
+
+Nothing in this section changes the tree.
+
+#### (number at the integrator's sync) — L-E: "no such lemma exists" was WRONG — the whnf fact is at `Steps/Whnf.lean:700`, and the negative now rests on a different reason (lane L-E, 2026-09-18)
+
+**Correction first.**  This lane wrote that `interp` respecting the
+normalisation "is a soundness statement larger than the arm" and that
+"no such lemma exists — grepped for `interp_whnf` and defeq-respecting
+variants, zero hits."  **That is false, and the way it is false is the
+route's own recorded failure**: a TEXTUAL command answering a SEMANTIC
+question.  `ConLeche/Model/Steps/Whnf.lean:700` concludes, under the
+standard package,
+
+```lean
+(∀ ρ, Sat V Δa ρ → WellDenotedV V ρ ea') ∧
+  ∀ ρ, Sat V Δa ρ → interp V ρ ea = interp V ρ ea'
+```
+
+— whnf preserving the interpretation, PROVED.  Fifth shape of the same
+rule, and the second time this lane has committed it after recording it.
+
+##### (a) CHECK ONE — PASSES.  It is the same whnf, at a nameable fuel
+
+`fueledOps`' field is `whnf env d e := ConLeche.whnf mode env F d e`
+(`CheckerBase.lean:106`), and `ConLeche.whnf env fuel depth e :=
+(pureFns mode env fuel).whnf depth e` (`TypeChecker.lean:32`).  The
+claims are about `whnfLoop (pureFns μ env fuel) env d budget e`.  Same
+function, and the fuel at the run is `checkFuel` (`pureOps`).
+
+##### (b) CHECK THREE — PASSES.  No layer is crossed
+
+`Model/Inductives/*` already imports `Model/Steps/*` at
+`MutualRecData.lean`, `NestedOwnPinsRead.lean` and `MutualRecsLaw.lean`.
+The claims are in reach.
+
+##### (c) CHECK TWO — NOT ASSESSED, because a fourth fact decides it
+
+**`normPosDomM` normalises the MINTED domain, not the container's
+parametric one.**  `nestedOrdNorms` runs
+`normPosDomM ops env memberNames je.1 1024 je.2.1` over jobs whose triple
+is `(depth, MINTED, STORED)` (`NestedInstall.lean:2121–2126`, and the
+triple named at `:2038`).  The minted domain is the container's field
+already instantiated at the pin's components — **the parameters are
+gone**.
+
+T1 has to be applied to the container's PARAMETRIC domain at two
+parameter frames, and the whnf fact relates a term to its own normal
+form at ONE frame.  So the normalised object the record speaks about is
+not the object T1 needs, and the bridge does not connect.
+
+##### (d) AND THE ERASURE SURVIVES PARAMETRIC NORMALISATION ANYWAY
+
+Normalising the parametric domain ourselves is available — the whnf fact
+is about any `whnfLoop` run — but it does not help, because the erasure
+that defeats T1 happens AT INSTANTIATION, not before it.  A parametric
+whnf is stuck at `β k`; substituting a λ for `β` creates the redex whose
+reduction erases the mention.  So the parametric normal form still reads
+the replaced position, and T1's hypothesis is still false there.
+
+The shape that realises it: a component that is a λ mentioning a pin in
+a position its BODY discards — `β := fun (x : List P22) => Nat`, field
+`β k` — which instantiates to `Nat` and is therefore classified
+`.ordinary`, while `β` is a replaced component.  **This lane has no
+fixture for that shape** and, per the standing ruling, does not need one:
+a case split is exhaustive over the syntax, and absence from a corpus
+does not discharge a case.
+
+##### (e) THE NEGATIVE, RESTATED ON A REASON
+
+`ordF`-left's side condition does not derive — **not** because the whnf
+fact is missing (it is not; it is proved and in reach), but because
+**the fact normalises the minted domain while T1 needs the parametric
+one, and the erasure that makes T1's hypothesis false survives
+parametric normalisation.**
+
+What survives from the earlier costing: the positive half is free and
+definitional, and the negative half evaporates.  What is corrected: the
+reason the bridge fails, and the claim that the tree lacks the whnf
+fact.
+
+##### (f) WHAT WOULD CLOSE IT, for whoever prices next
+
+Working entirely at the INSTANTIATED level would connect — the record's
+normalisation lives there — but the candidate side has no instantiated
+TERM, only values, which is option (1)'s object again.  So the three
+arms remain one obligation, and this lane's recommendation is unchanged:
+let `ordF`-left ride with `recF` and `es`.
+
+Nothing in this section changes the tree.
+
+#### (number at the integrator's sync) — L-E: THE REQUEST — record the pins' COMPONENTS in rewritten form; K.51's clause, one level out (lane L-E, 2026-09-18)
+
+Specification only; nothing landed.  Written so the kernel lane can
+price it without re-deriving this lane's reasoning.
+
+##### (a) IT IS A CHECK, IT IS NOT GATED, AND K.51 IS THE PRECEDENT
+
+Answering the disqualification concern first, because it decides the
+rest.  **K.51 is not a `certOnly` check.**
+`NestedInstall.lean:2209` runs it as
+
+```lean
+unless nestedPinRewrites env p st params pbs₀ jobsP wsP do
+  throw (.internal "nested: a pin-target copy field's stored domain is not the \
+    rewrite of the positivity normalisation of the minted one")
+```
+
+— an `unless` in every mode, with an `.internal` failure.  It is in the
+class that **cannot fire**: a failure is a broken environment, not a
+stream's fault, so it narrows the accept set by nothing and needs no
+gating.  The request below is the same class, and therefore **can be
+load-bearing for something trusted mode needs**, which is what all three
+arms require.
+
+* **kind**: recorded Bool, run unconditionally, `.internal` on failure;
+* **ledger category**: (B), by-construction-only;
+* **gating**: none, for K.51's reason;
+* **K-number**: to be assigned by the kernel lane.
+
+It is not a provable property in the Verify sense — the elimination's
+rewrite of a COMPONENT is not currently recomputed anywhere, so there is
+nothing to prove it against.  It is the same recomputation K.51 already
+performs for domains, at a different argument.
+
+##### (b) THE STATEMENT
+
+K.51 certifies that the normalised minted DOMAIN, rewritten by
+`replaceAllNested` at the final state, is the stored one.  The request is
+the same clause at the pins' **components**:
+
+> for every pin `q` and every component `c` of `st.pins[q]!.pin`'s
+> argument spine, `replaceAllNested env (p.lps.map Level.param) params
+> pbs₀ st c` succeeds, its output is the recorded rewritten component,
+> and the state does not grow (`types.length` and `pins.length`
+> unchanged — the re-run mints nothing).
+
+The carrier is the kernel lane's choice: a new per-pin field beside
+`DsE`, or a recomputing function with a certifying Bool in
+`nestedPinRewrites`' shape.  This lane does not need one over the other
+and will consume whichever is cheaper to record.
+
+**Why components and not a classification.**  This lane originally asked
+for "which subterms of `Ds` are pin readings, at which pins".  That is
+strictly more than is needed and harder to consume: the model would then
+have to locate those subterms inside the AnnotTerm READING and perform
+the substitution itself, which is the structural recursion priced as
+option (1)'s model half.  **Recording the rewritten component instead
+deletes that half**, because the elimination has already performed the
+substitution and the model can denote its output directly.
+
+##### (c) WHAT THE MODEL CONSUMES, in the form it consumes it
+
+Two clauses, the first being the twin of `NestedPinSynFacts.pinDs`:
+
+```lean
+-- the rewritten components denote, exactly as the recorded ones do
+pinDsRw : ∀ q, q < pinsS.length → ∀ ψ : Name → Nat,
+  DenoteMetaSpine acval' ENV₁ ψ b.nP (rewritten DsE of pin q) (DsCand q ψ)
+
+-- and they are the rewrite of the recorded ones
+pinDsRw_eq : ∀ q, q < pinsS.length →
+  (rewritten DsE of pin q) = ((pinsS.getD q default).DsE).map (replaceAllNested …)
+```
+
+**One requirement on the denotation's `acval'`**, and it is the only
+subtle part: the rewritten components mention the COPY constants, which
+the restore removes, so they have no `acval` in the output environment.
+The model supplies one — `auxTargetRead b.nP (p.k + q') ψ` at the copy
+of pin `q'`, which this lane landed and which `auxTarget_reads` already
+proves denotes the auxiliary carrier.  So the record must also expose
+**which copy name is which aux index**; `nestedCopyNames` and
+`ElimState.types` already carry that, and a clause naming it is enough.
+
+Then `candAs q := (DsCand q ψ).map (interp V ρp)`, and the producer row
+is discharged — no second interpreter, no structural recursion.
+
+##### (d) THE THREE CONSUMERS, AND THEY NEED THE SAME STRENGTH
+
+| consumer | what it needs |
+| --- | --- |
+| `recF` | the full candidate components — its domain is the container's member at the PARAMETER SPINE, so it reads every replaced position |
+| `es` | the same, for the same reason |
+| `ordF`-left | **the same, and not less** |
+
+`ordF`-left was expected to need less — "positions not read" — and it
+does not, but the reason is favourable.  With the rewritten components
+recorded, its obligation moves from the PARAMETRIC level to the
+INSTANTIATED one: both sides become `instAll`-applications at the single
+frame `ρp`,
+
+```
+interp ρp (instAll Ds     l D)   -- the copy's reading, fixed
+interp ρp (instAll DsCand l D)   -- the container's domain at the candidate frame,
+                                 -- via interp_instAll, now that DsCand is a TERM
+```
+
+and at one frame the existing machinery applies: K.51's clause plus the
+whnf denotation preservation (`Model/Steps/Whnf.lean:700`).  **The
+parametric-versus-instantiated mismatch that defeated T1 disappears,
+because the candidate side is a term again.**
+
+So a weaker fact is not wanted here: one fact with three consumers, and
+it is the stronger-looking one that is actually cheaper, because it
+deletes the model-side recursion rather than feeding it.
+
+##### (e) WHAT THIS DOES TO T1, said rather than buried
+
+If the request lands in this form, **T1's intended consumer evaporates**:
+`ordF`-left no longer needs a congruence, because its obligation is no
+longer between two frames.  T1 stands as a library lemma — it is
+general, it subsumes `interp_congr_below` by
+`interp_congr_below_of_on`, and it cost well under its estimate — but
+this lane is not going to claim a consumer it will not have.  That is
+the honest ledger entry for a piece funded on a costing that later
+improved.
+
+##### (f) THE PRICE THIS IMPLIES, for the model side
+
+With the record: the producer row collapses to a denotation, option
+(1)'s structural recursion is not needed, and the three arms close at the
+instantiated level.  **This lane will not put a number on it until the
+kernel lane prices the record**, because the last three numbers this
+lane produced all moved on inspection and the pattern is now the
+expectation rather than the surprise.
+
+Nothing in this section changes the tree.
+
+#### (number at the integrator's sync) — L-E: T1 gets its consumer — `interp_congr_below` IS the derivation now (lane L-E, 2026-09-18)
+
+`interp_congr_below` carried its own structural induction, so
+`interp_congr_below_of_on` was itself unconsumed and T1 had no consumer
+at all — the same liability this lane flagged about the F-layer earlier
+today, and it applied to its own work.
+
+`interp_congr_below` is now the PREFIX case of `interp_congr_on`, in
+three lines:
+
+```lean
+  fun e k ρ ρ' hb hag =>
+    interp_congr_on (V := V) e (· < k) ρ ρ'
+      (ConLeche.Term.Term.bvarsOn_of_bvarsBelow e.erase k hb) hag
+```
+
+and `interp_congr_below_of_on` is deleted, being the same statement.
+
+**Line delta: `Semantics/Kit.lean` 12 insertions, 48 deletions — net
+−36.**  Nothing the derivation needed was absent from the standalone
+induction; both are the same proof, and only one of them is now written.
+
+**Every existing consumer is untouched** — thirty-seven uses across nine
+files (`StructEntryKit2` 12, `NestedPinLeafAll` 10, `IndOpenerGrade` 3,
+and six others) all stand on the derived form without edit.
+
+Same move as `memberTarget_reads` from `auxTarget_reads` this morning,
+and it paid the same way: the general statement is written once and the
+special case is the general one at a particular argument.
+
+`lake build` 0 errors/warnings **722 jobs**; `lake test` 0;
+`tests/proofdeps.sh` doors **0**.
+
+Nothing in this section changes the tree's accept set.
+
+#### (number at the integrator's sync) — KERNEL REQUEST FROM LANE L-E: the pins' components, recorded in rewritten form (2026-09-18)
+
+Self-contained; implementable without reading the sections that derived
+it.  Relay target: the kernel lane, when it comes off `checkNestedS_run`.
+
+##### 1. KIND, CATEGORY, GATING
+
+* **kind** — a recorded `Bool`, run unconditionally at the nested
+  install, `throw (.internal …)` on failure.  NOT a `certOnly` check.
+* **category** — (B), by-construction-only.
+* **gating** — **none**, and the reason is K.51's precedent:
+  `NestedInstall.lean:2209` runs `nestedPinRewrites` as a bare `unless`
+  with an `.internal` failure, in every mode.  A check in that class
+  cannot fire on a correct stream, so it narrows the accept set by
+  nothing and gating buys nothing.  **This matters here**: all three
+  model consumers need the fact unconditionally, and a `certOnly` check
+  could not serve them.  This one can, because it is not gated in the
+  first place.
+* **K-number** — the kernel lane's to assign.
+
+##### 2. THE STATEMENT
+
+> For every pin `q` and every component `c` of the argument spine of
+> `st.pins[q]!.pin`:
+> `replaceAllNested env (p.lps.map Level.param) params pbs₀ st c`
+> succeeds; its output is the recorded rewritten component; and the
+> state does not grow — `st'.types.length == st.types.length` and
+> `st'.pins.length == st.pins.length`, which says the re-run mints
+> nothing.
+
+`params` and `pbs₀` are `nestedRewriteData p st`'s, exactly as K.51 uses
+them.  This is K.51's clause with the pins' COMPONENTS in place of the
+copies' field DOMAINS; the proof obligation and the failure mode are the
+same.
+
+##### 3. THE CARRIER — left open deliberately
+
+Either a new per-pin field beside `NestedPin`'s existing data, or a
+recomputing function plus a certifying `Bool` in `nestedPinRewrites`'
+shape.  **The model side does not care and will consume whichever is
+cheaper to record.**
+
+##### 4. WHAT THE MODEL CONSUMES
+
+Two clauses, the first the exact twin of `NestedPinSynFacts.pinDs`:
+
+```lean
+pinDsRw    : ∀ q, q < pinsS.length → ∀ ψ : Name → Nat,
+               DenoteMetaSpine acval' ENV₁ ψ b.nP <rewritten DsE of pin q> (DsCand q ψ)
+pinDsRw_eq : ∀ q, q < pinsS.length →
+               <rewritten DsE of pin q>
+                 = ((pinsS.getD q default).DsE).map (replaceAllNested …)
+```
+
+##### 5. THE CLAUSE MOST LIKELY TO BE MISSED — copy name ↔ aux index
+
+The rewritten components mention the COPY constants, and the restore
+removes them, so they have **no `acval` in the output environment**.  The
+model supplies their readings itself — `auxTargetRead b.nP (p.k + q') ψ`
+at the copy of pin `q'`, which lane L-E has landed and whose denotation
+`auxTarget_reads` proves is the auxiliary carrier.
+
+**For that to be usable the record must expose which copy NAME is which
+AUX INDEX.**  `nestedCopyNames` and `ElimState.types` already carry the
+correspondence; what is missing is a clause naming it, of the shape
+
+> for every `q < st.pins.length`, the constant the elimination minted
+> for pin `q` is the aux block's member at index `p.k + q`.
+
+An implementation that provides §2 and §4 but not this is **not
+consumable**: the model would hold terms mentioning constants it cannot
+interpret.
+
+##### 6. WHY THIS SHAPE, IN ONE PARAGRAPH
+
+Lane L-E first asked for a classification — which subterms of `Ds` are
+pin readings, at which pins.  That is strictly less information and
+strictly more expensive to consume, because the model would then have to
+locate those subterms inside the AnnotTerm READING and perform the
+substitution itself.  Recording the rewritten component deletes that
+work: the elimination has already performed the substitution, and the
+model denotes its output.  The same move pays again downstream — with
+the components recorded, all three consumers (`recF`, `es`,
+`ordF`-left) close at the INSTANTIATED level, where K.51's clause and
+the whnf denotation preservation (`Model/Steps/Whnf.lean:700`) already
+live.
+
+##### 7. WHAT THIS LANE IS NOT ASKING FOR
+
+No classification of components, no per-subterm addressing, no measure,
+and no new positivity or kinds data.  One clause, one shape, three
+consumers.
+
+Nothing in this section changes the tree.
+
+#### (number at the integrator's sync) — L-E: residual 3 (`NestedPinsShapePinF`) IS this lane's, is NOT blocked on the record, and its remainder is two `PinGroupView` clauses (lane L-E, 2026-09-18)
+
+Costing only; nothing started.
+
+##### (a) WHOSE IT IS — this lane's, and the tree says so
+
+`NestedCopyInst.lean:6597`'s docstring names it: "**RESIDUAL 3 —
+`pinF` at the container's OWN pin** (lane L-E's `PinCorr`, DESIGN
+§U.36/§U.51)".  `PinCorr` is this lane's object
+(`NestedFit.lean:699`), and `targetPin_corr` is this lane's consumer of
+it.
+
+##### (b) IT IS NOT BLOCKED ON THE KERNEL RECORD
+
+`PinCorr` is **six syntactic conjuncts** — `EA`, `Ds`, `u`, `Ids`, `J`
+and `lvls` of the target view against the container's own pin table,
+with `instAll Ds 0` on the components.  **No frame, no candidate
+component, no `interp`.**  The record this lane requested is about the
+pins' components in rewritten form for the CANDIDATE FRAME; residual 3
+is about the syntactic shape of a copy's constructor.  Different
+objects.
+
+The tree distinguishes them too: `NestedCopyInst.lean:6684` says the
+OTHER residual's "two kinds' remaining halves wait on the SAME kernel
+record", and says no such thing about this one.
+
+##### (c) WHAT IS ALREADY DONE, AND WHAT IS LEFT — the tree states it exactly
+
+`NestedPinsShapePinF` has three conjuncts:
+
+1. **the copy's field IS recursive** — `copyPinF_shape`'s docstring says
+   plainly "(The arm's first conjunct — the copy's field IS recursive —
+   is the elimination's occurrence chain and is **not proved here**.)",
+   and the theorem takes it as the hypothesis `hrss`;
+2. **the target is a pin** — `copyPinF_shape`
+   (`NestedCopyInst.lean:1550`) proves the "outside the group" half from
+   `ContainerModeled.pinsNotMembers`;
+3. **`PinCorr`** — and `NestedCopyInst.lean:3175` states what remains of
+   it after the work already done:
+
+   > What is left of `PinCorr`'s two clauses after this is exactly
+   > `(dJ.pinAt qK).u ψK = (blockOf mp.base2 ci').uM i₂ ψK` and
+   > `(dJ.pinAt qK).Ids ψK = (blockOf mp.base2 ci').IdsM i₂ ψK`
+   > … **That is a `PinGroupView` at `dJ`.**
+
+##### (d) AND `PinGroupView` IS MACHINERY THIS LANE ALREADY BUILT
+
+Those two clauses ARE `PinGroupView`'s `pinU` and (via `pinPps`/`pinNP`,
+as `NestedPinGroupSyn.pinIds` shows) its `Ids`.  And
+`NestedPinGroupSyn.pinViews` (`NestedPins.lean:511`), landed by this
+lane earlier in the arc, supplies exactly a per-pin `PinGroupView`:
+
+```lean
+pinViews : ∀ qq, qq < dJ.nPins → ∃ (a kk i' : Nat) (dJ' : BlockModel V),
+  qq = a + i' ∧ i' < kk ∧ PinGroupView dJ dJ' a kk
+```
+
+##### (e) THE ONE GAP, NAMED — and it is this lane's own deliberate omission
+
+`pinViews` gives the view at an **anonymous** `dJ'`; the remainder needs
+it at `blockOf mp.base2 ci'`, the NAMED block model of the container's
+container.  **That identification is precisely the `IsBlockModels`
+conjunct this lane deliberately omitted when it landed `pinViews`**, on
+the ground that the producer lacked `EnvBlocksOf`.
+
+So the gap is: **can the producer name `dJ'`?**  `EnvBlocksOf` exists and
+is extended along a run (`EnvBlocksOf.extendBasis`,
+`BasisBlocksStep.lean:90`; `EnvBlocksOf.crossInd` in
+`ContainerCross.lean`), so the object is in the tree — what is not
+established is whether it reaches `NestedPinsRun.groupSyn`'s producer.
+
+##### (f) THE COSTING
+
+* **if `EnvBlocksOf` reaches the producer**: extend `pinViews` with the
+  identification, then assemble residual 3 from `copyPinF_shape` +
+  `pinViews` + the occurrence-chain conjunct — **about one session**,
+  and no kernel request;
+* **if it does not**: the run must carry the container's container's
+  block model, which is a MODEL-side threading question (what the run
+  bundles), not a kernel record — a different and probably larger row,
+  and this lane will not price it blind;
+* **conjunct 1 is separate either way.**  "The elimination's occurrence
+  chain" — that the copy's field is recursive — is not proved anywhere
+  and is not a `PinGroupView` matter.  Whether it is derivable from
+  K.47's `nestedOwnPinsOk` (which certifies the pin list IS
+  `containerOwnPinsAt`'s) this lane has not checked.
+
+##### (g) THE ANSWER TO THE QUESTION ASKED
+
+**Residual 3 is this lane's, it is NOT blocked on the kernel record, and
+it is plausibly workable now** — with one gap that is this lane's own
+earlier omission rather than anyone else's dependency.  So the model side
+should NOT be described as "waiting on the kernel": one of its two open
+residuals is not.
+
+The next step is a single check — does `EnvBlocksOf` reach
+`NestedPinsRun.groupSyn`'s producer — and this lane has not run it,
+because the instruction was to answer before starting.
+
+Nothing in this section changes the tree.
+
+#### (number at the integrator's sync) — L-E: residual 3's two checks, both ANSWERED — and the gap is a structure parameter, not `EnvBlocksOf` (lane L-E, 2026-09-18)
+
+Both checks run.  **Nothing built**; one attempt made and reverted to
+green, which is where the tree stands.
+
+##### (a) CONJUNCT 1 — NO SECOND KERNEL REQUEST
+
+Settled before building on it, as instructed, and the answer is that it
+derives from pieces already in the tree:
+
+1. the container's own pin, instantiated at the block's components, IS a
+   block pin — `pinCorr_of_ownPins`'s `hmem` premise, off
+   `ContainerOwnPins`;
+2. so `replaceAllNested` put a COPY where that pin was —
+   `replaceAllNested_occurrence` is the spec for this;
+3. so the copy's field domain MENTIONS an aux member, hence is **not**
+   `.ordinary` — definitional, `mutualCtorKinds`'s first branch is
+   `if !mentionsMember … then .ordinary`, the same fact this lane
+   established this morning;
+4. and `nestedPinKindsAt` excludes `.negative`/`.unsupported`, so it is
+   `.recursive` or `.reflexive` — which is the bit `blkRss` records.
+
+**K.47 is NOT the fact** — `nestedOwnPinsOk` is about the BLOCK's first
+former's own pins (`containerOwnPinsAt env (p.formers.headD default) …
+= st.pins.map (·.pin)`), one level up from a CONTAINER's own pins.
+Checking that saved writing a request for a record that would not have
+served.
+
+##### (b) CONJUNCT 3 — the producer exists and its open premise is named
+
+`pinCorr_of_ownPins` (`NestedPremise.lean:1074`) is **proved** and
+concludes `∃ qK, qK < dR.nPins ∧ PinCorr …`.  `NestedCopyInst.lean:3184`
+says its `huIds` premise "is meant to be discharged", and `:3175` says
+`huIds` IS the two `PinGroupView` clauses.  So the chain is
+
+```
+pinViews  →  huIds  →  pinCorr_of_ownPins  →  PinCorr
+```
+
+##### (c) THE GAP, CORRECTED — it is not `EnvBlocksOf`
+
+This lane reported the gap as "`pinViews` omits the `IsBlockModels`
+conjunct, which would need `EnvBlocksOf`".  **Both halves of that were
+wrong**, and the producer says so:
+
+```lean
+pinViews := by
+  obtain ⟨-, pc, -, hSh⟩ := R.hPM _ hbaseMem _ PD.base
+  intro qq hqq
+  obtain ⟨a, kk, i', ci', hqe, hi', -, hview, -, -⟩ := hSh qq hqq
+  exact ⟨a, kk, i', blockOf mp.base2 ci', hqe, hi', hview⟩
+```
+
+The witness is **already the named `blockOf mp.base2 ci'`**; what the
+statement drops is the `containerInfo?` equation naming `ci'`, and
+`PinShapes` has no `IsBlockModels` conjunct to omit.  No `EnvBlocksOf` is
+involved anywhere.
+
+**The real gap is that `mp` is not a binder of `NestedPinGroupSyn`.**
+The structure carries `m : EnvModel V env₂`, which at every use site is
+`mp₁'.base2` — a DIFFERENT model at a DIFFERENT environment from the
+`mp.base2` the witness is built with.  So the named form cannot be
+stated in the structure as it stands.  Attempted, and it fails exactly
+there (`containerInfo? env … ` versus `env₂`, `blockOf mp.base2` versus
+`blockOf m`); reverted.
+
+##### (d) WHAT IT ACTUALLY COSTS
+
+`NestedPinGroupSyn` must carry the block-model-of function, as
+`PinShapes` and `BlockAt` already do
+(`NestedPremise.lean:687, 712`: `(B : ContainerInfo → BlockModel V)`),
+and `pinViews` then reads `PinGroupView dJ (B ci') a kk`.
+
+That is a **structure-parameter change**, and this route has a recorded
+hazard for exactly that: a structure that gains a parameter breaks
+NAMED-argument call sites SILENTLY — the argument becomes a
+metavariable and the failure surfaces somewhere else.
+`NestedPinGroupSyn` has many such sites.
+
+**Revised cost: about half a session for the parameter and its call
+sites, then the assembly.**  Still one session in total, still no kernel
+request, and still nobody else's dependency — but the shape is a
+threading change rather than the one-line statement fix this lane
+implied.
+
+##### (e) FOR THE KERNEL LANE — the carrier question, answered
+
+**Per-pin list in spine order is exactly right.**  The spec asked for
+"every component of `st.pins[q]!.pin`'s argument spine", the model
+consumes them positionally against `(pinsS.getD q default).DsE` — which
+`NestedPinSynFacts.pinRec` already pins to that same spine
+(`pin.pin = mkAppN (.const container lvls) DsE`) — and
+`DenoteMetaSpine` is itself positional.  **No other addressing is
+wanted.**
+
+Choosing the recompute carrier so this lane reads K.51's idiom twice
+rather than learning a second one is the right call, and shipping the
+copy-name-to-aux-index correspondence as a Verify lemma off
+`nestedCopyNames`' positionality rather than as a recorded Bool is
+better than what was asked for — recording what construction already
+gives is a failure mode this route has committed before.
+
+`lake build` 0 errors/warnings, **722 jobs**, at the reverted state.
+
+Nothing in this section changes the tree.
+
+#### (number at the integrator's sync) — L-E: the second leg is DEAD, and the tree had already recorded the correction (lane L-E, 2026-09-18)
+
+##### (a) THE ANSWER — no equality is demanded, so no uniqueness is needed
+
+The coordinator's reading is right, and it is stronger than a reading:
+**`NestedCopyInst.lean` already records the correction, in terms, against
+an earlier revision of its own comment that had made the same mistake**:
+
+> **It is `PinShapes`' first component, and `PinShapes` takes the
+> container model family ABSTRACTLY** (`B : ContainerInfo → BlockModel
+> V`, not `blockOf`): at every pin `q` it hands back a
+> `PinGroupView d (B ci) q₀ kJ` … An earlier revision of this comment
+> said the view was available only at the concrete `blockOf` and only
+> where the run holds `PinsModeled`; **that was wrong, and wrong in the
+> direction that helps**.
+
+And `pinCorr_of_ownPins`'s `huIds` premise **mentions no block model at
+all** — it relates `(D.pinAt q).u` to `(dR.pinAt qK).u`, two recorded
+pin tables.  A block model appears only as the COMMON ROUTE between the
+two sides, and two sides that both read `B` at the same `ci` agree by
+construction.  `ci` is forced by `huIds`' own hypothesis
+`(D.pinAt q).J = (dR.pinAt qK).J` through `containerInfo?`'s
+functionality — **not by any choice being unique.**
+
+So the old objection was aimed at an EQUALITY `dJ' = blockOf …`, and
+the shape in hand demands none.  **The uniqueness leg does not apply.**
+
+##### (b) THE STALE REASON IS CORRECTED IN PLACE
+
+`NestedPins.lean`'s `pinViews` docstring — this lane's own — carried the
+uniqueness objection as a live reason.  It now says that the threading
+cost stands and the uniqueness reason is stale, with the correction and
+its evidence.  **A wrong reason recorded as fact is the phantom-obstacle
+failure this lane named two sessions ago**, and this is the second time
+it has found one of its own.
+
+##### (c) AND THE FIRST LEG MAY BE AVOIDABLE TOO — the next check
+
+If `PinShapes` hands back the view at `B ci` with `ci` named, then a
+consumer that can reach `PinShapes` **does not need `pinViews` at all**.
+The producer reaches it as `R.hPM _ hbaseMem _ PD.base`, and residual
+3's discharger has the run `R` for the same reason.
+
+So the next check is one question: **can residual 3's discharge site
+reach `R.hPM`'s `PinShapes` directly?**  If yes, the structure parameter
+is not needed, the twelve call sites are not touched, and the row is the
+assembly alone.  If no, the half-session threading stands.
+
+This lane has not run that check — the instruction was to settle the
+second leg first, and settling it changed what the first leg is worth
+checking for.
+
+##### (d) THE PATTERN, since it now has a count
+
+Three times today a recorded reason turned out to be stale or wrong, and
+each time the cost of checking was a single read: "no term denotes a
+copy" (true of names, false of readings), "no `interp_whnf` exists"
+(true of the name, false of the object), and now "`blockOf` has no
+uniqueness" (true, and irrelevant — no equality is demanded).  **All
+three were this lane's own.**  The rule the route already carries —
+read the statement before pricing the framing — has a companion: **a
+reason recorded in a docstring ages exactly as badly as a measurement,
+and nothing marks it.**
+
+`lake build` 0 errors/warnings, **722 jobs**.
+
+Nothing in this section changes the tree's accept set.
+
+#### (number at the integrator's sync) — L-E: the check ANSWERS YES — no structure parameter, and residual 3's real size is the PREMISE GATHERING (lane L-E, 2026-09-18)
+
+##### (a) THE CHECK — `PinShapes` is reachable, so `pinViews` need not change
+
+`NestedPinsIdsAt` (`NestedPins.lean:1020`) binds
+
+```lean
+NestedPinsRun V μ F mp p st b envAux stored ctorsR fmsA ctorsA₀ fms f₀ ctorsA sortss kinds mp₁
+  ppsF W idxF dsF esF srcsF fvsPF xFvsF xrestF eissF tssF mp₁' → …
+```
+
+as a hypothesis of every predicate stated through it — and
+`NestedPinsShapePinF` is stated through it.  **So any discharger of
+residual 3 has the run `R` in scope, hence `R.hPM`, hence `PinShapes`
+at the abstract family `B`, directly.**
+
+**No structure parameter.  No twelve call sites.  `pinViews` stays as it
+is** — it remains a convenience for consumers that have the group syn
+but not the run, and residual 3 is not one of them.
+
+That is the cheaper branch of the two the coordinator authorised, and it
+removes the half-session the last costing carried.
+
+##### (b) BUT THE ASSEMBLY IS NOT THE SMALL PART, AND THIS IS THE "SAY SO AT ONCE"
+
+The pieces are all present and each was priced as a step.  What nobody
+has inspected — the coordinator said so explicitly — is the ASSEMBLY,
+and inspecting it now says the work is **premise gathering, not proof
+construction**.  `pinCorr_of_ownPins` (`NestedPremise.lean:1074`) takes
+**nine** premises besides `huIds`:
+
+`hown : ContainerOwnPins m dR` · `hi` · `hfind` · `hps` ·
+`h0 : DenoteMetaSpine …` · `hmem` · `hDsD : DenoteMetaSpine …` ·
+`hψD` · `hψK` · `hfoundK`
+
+and `hown` is itself reached through a bridge with its own premise
+package — `ContainerOwnPinsSyn.toReadOf`
+(`NestedOwnPinsRead.lean:359`) takes `hsyn`, a scope condition on every
+pin's `DsE` (`looseBVarsBounded` and `fvarLeaves` clauses) and
+`hpinDs`.
+
+So residual 3 is: three conjuncts whose PROOFS are each a short appeal
+to an existing theorem, wrapped in a premise-gathering layer across
+`ContainerOwnPins`, two `DenoteMetaSpine`s, the level-assignment
+clauses, and a scope package.  **That is the shape that makes an
+assembly larger than its pieces**, and it is exactly what the
+coordinator warned would be the uninspected part.
+
+##### (c) THE RE-PRICE, UPWARD — the first of the day
+
+**One session for the assembly stands only if the premise package is
+already threaded to the run.**  This lane has NOT established that:
+`hψD`, `hψK` and `hfoundK` are level-assignment and `find?` clauses of
+the shape `NestedPinGroupSyn.stored` carries, and the scope conditions
+are of the shape K.30 (`NestedPinsRun.scoped`) carries, but "of the
+shape" is not "available", and this lane has been wrong about exactly
+that distinction twice today.
+
+So the honest statement: **the three conjuncts are settled and cheap;
+the premise gathering is unmeasured and is the whole of the remaining
+risk.**  This is the first row today to be re-priced UPWARD rather than
+down, and it is being said before any of it is spent rather than after.
+
+The next step is to measure the package — walk `pinCorr_of_ownPins`'s
+nine premises and `toReadOf`'s three against what the run and the group
+syn actually carry, and report which are present, which are derivable
+and which are absent.  That is a read, not a build.
+
+`lake build` 0 errors/warnings, **722 jobs**.
+
+Nothing in this section changes the tree.
+
+#### (number at the integrator's sync) — L-E: THE READ — the premise package splits BLOCK-side present, CONTAINER-side thin (lane L-E, 2026-09-18)
+
+Twelve premises walked against `NestedPinsRun`, `NestedPinGroupSyn`,
+`NestedPinSynFacts` and `ContainerModeled`.  **Nothing built.**  Where
+this lane verified a field it says so; where it named a route without
+following it, it says that too.
+
+##### (a) PRESENT — verified against the field
+
+| premise | source |
+| --- | --- |
+| `hsyn` (`toReadOf`) | **`ContainerModeled.ownPins : ContainerOwnPinsSyn env d`** — a field, reachable through `NestedPinGroupSyn.modeled` |
+| `hψD` | **`NestedPinGroupSyn.stored`'s third conjunct**, literally `∀ ψ, ((D).pinAt (q₀+i)).ψJ ψ = Level.substFn ψ cvT.levelParams (…).lvls` |
+| `hi` | an index bound, available wherever the group is |
+| `hDsD` | **`NestedPinSynFacts.pinDs`**, same shape — **modulo the environment**: `pinDs` is at `ENV₁` and `mp₁.base2.acval`, the premise at `env` and `m.acval`.  That crossing is NOT checked here |
+
+##### (b) DERIVABLE — route named, route NOT followed
+
+| premise | route |
+| --- | --- |
+| `hfind` | `ContainerModeled.member` + `reps : IsBlockModels m d`, whose `IsBlockModel.member` carries `d.memberName mm = T` |
+| `hfoundK`, `hψK` | `ContainerModeled.pinConts` / `pinNP` are the shape.  **A caution**: `NestedPremise.lean`'s prose lists the pin clauses as "`pinψ`, `pinNP`, `pinConts`, `pinParams`, `nestMention`, `pinsNotMembers`", but the STRUCTURE has no `pinψ` field — the prose is stale or the clause was renamed.  `hψK` is the one that would have used it |
+
+##### (c) UNVERIFIED OR ABSENT — and they cluster, which is the finding
+
+| premise | state |
+| --- | --- |
+| `hscope` (`toReadOf`) | the CONTAINER's pins' `DsE` closed, fvar-leaves in params.  K.30 (`NestedPinsRun.hscoped`) is the BLOCK's analogue.  **No container-side field found** |
+| `hpinDs` (`toReadOf`) | `DenoteMetaSpine` for the CONTAINER's own pins.  `NestedPinSynFacts.pinDs` is the BLOCK's.  **No container-side field found** |
+| `hDsE` (`toReadOf`) | the length and scope clause at an own-pin lookup.  **None found** |
+| `hps` | `containerOwnPinsAt env (dR.memberName i) lvlsK DsE₀ = some ps` — a COMPUTATION succeeding.  **None found** |
+| `hmem` | the block's pin ∈ the container's own pins.  `ContainerModeled.nestMention` is the plausible route; **not followed** |
+| `h0` | `DenoteMetaSpine` for the member's instantiation arguments.  **None found** |
+
+**THE PATTERN: everything present is about the BLOCK's pins; everything
+missing is about the CONTAINER's OWN pins.**  The run and the group syn
+are rich block-side — `pinDs`, `stored`, K.30's scope, the level
+assignments — and thin container-side, where `ContainerModeled` carries
+shape clauses (`nestMention`, `pinsNotMembers`, `pinNP`, `pinConts`,
+`ownPins`, `pinParams`) but no denotation and no scope.
+
+That asymmetry is not an accident of this read: `ContainerOwnPinsSyn` is
+deliberately the SYNTACTIC form, and `toReadOf`'s whole job is to cross
+to the reading form — so its package is exactly the container-side
+denotation and scope the records do not carry.
+
+##### (d) THE ALTERNATIVE PRODUCER, and what it tells us
+
+`ContainerOwnPins.of_noOwn` (`NestedPremise.lean:1044`) discharges
+`ContainerOwnPins` **vacuously**, for a container with no own pins, and
+its docstring says the `hempty` premise is **K.43's**, with "the wiring
+when K.43 lands is one line per route".
+
+So the tree's two routes are: vacuous (gated on K.43) for containers
+without own pins, and `toReadOf` for those with.  **Residual 3 is about
+`pinF` at the container's OWN pin, so it is exactly the case the vacuous
+route does not cover.**  There is no cheap path.
+
+##### (e) THE ANSWER
+
+**The package is NOT there.**  Four premises present (one with an
+unchecked environment crossing), two derivable with routes named, and
+**six unverified or absent, all six container-side**.
+
+So the assembly should not start, and the row is re-scoped rather than
+abandoned: what residual 3 needs next is not a proof but a decision
+about where the container-side denotation and scope facts come from —
+new `ContainerModeled` clauses, a `NestedPinSynFacts` twin at the
+container, or K.43 plus a restriction to own-pin-free containers (which
+would not cover the fixtures that have them).
+
+**This lane is not proposing which.**  It has been wrong twice today
+about "of the shape" meaning "available", and six premises is too many
+to guess at.  The next step is a scope call, and the input to it is this
+table.
+
+`lake build` 0 errors/warnings, **722 jobs**; nothing half-applied.
+
+Nothing in this section changes the tree.
+
+#### (number at the integrator's sync) — L-E: the `pinψ` claim RETRACTED (my extraction, not the prose), and the fourth option refuted structurally (lane L-E, 2026-09-18)
+
+##### (a) RETRACTION — `ContainerModeled.pinψ` EXISTS, and `hψK` is PRESENT
+
+This lane reported that `NestedPremise.lean`'s prose "lists a `pinψ`
+clause the structure does not have", and called it the fourth stale
+reason of the day and the first not its own.  **That was wrong.  The
+field is at `NestedPremise.lean:330` and is `hψK` verbatim:**
+
+```lean
+pinψ : ∀ q, q < d.nPins → ∀ (cvT : ConstantVal) (caps : IndCaps),
+  env.find? (d.pinAt q).J = some (.indInfo cvT caps) →
+  (d.pinAt q).lvls.length = cvT.levelParams.length ∧
+  ∀ ψ, (d.pinAt q).ψJ ψ = Level.substFn ψ cvT.levelParams (d.pinAt q).lvls
+```
+
+It is also USED and compiling at `NestedCopyInst.lean:3083`
+(`(CM ci hciPR).pinψ _ hqlt cvq capsq hfindq₂`), which alone refutes the
+claim.
+
+**The cause was an extraction bug, and it is worth a rule.**  The field
+list was pulled with `grep -oE "^  [a-zA-Z][a-zA-Z0-9_']* :"`, whose
+character class is ASCII-only, so it silently dropped **every field
+whose name contains a non-ASCII character** — and this tree's
+identifiers routinely do (`ψ`, `ρ`, `Φ`, `₀`).  Re-extracting properly
+gives sixteen fields, not fifteen:
+
+> `k namesLen nP reps typed inj member frame ordFree nestMention
+> pinsNotMembers pinNP pinConts ownPins pinψ pinParams`
+
+**RULE: a field- or name-extraction regex in this tree must not use an
+ASCII-only class.**  A dropped field reads exactly like an absent one,
+and this lane then reported another lane's correct prose as stale.  That
+is the fifth textual command answering a structural question today, and
+the first whose error landed on someone else.
+
+##### (b) THE FOURTH OPTION — refuted, and structurally rather than by search
+
+The question was whether the six container-side facts follow from the
+container being an already-installed, already-modelled inductive in
+`env`.  **They do not, and the reason is where the pin table lives.**
+
+`BlockModel.pins : List PinSyn` (`BlockRep.lean:393`) is **model-side
+data**.  A `PinSyn` carries BOTH the `Expr` side (`DsE`) and the reading
+side (`Ds`), and the denotation relating them is a COHERENCE property of
+the chosen model — not a fact about the environment, which holds neither
+list.  `blockOf` is a choice function, and what its predicate guarantees
+is exactly what `ContainerModeled` records; **if a clause is not in
+`ContainerModeled`, no chosen model need satisfy it and the environment
+cannot supply it.**
+
+The tree says the same thing one level down for the closest relative:
+`ContainerOwnPins.of_noOwn`'s docstring records that §U.68 (a) found the
+analogous emptiness "NOT derivable in the model tier … an
+environment-history invariant no record carries", which is why K.43 was
+requested rather than derived.
+
+`ContainerModeled.typed`'s `PinsTyped` does not close the gap either: it
+gives membership in a SORT, not a denotation.
+
+**So the choice is between (a) new `ContainerModeled` clauses and (b) a
+`NestedPinSynFacts` twin at the container — and they are the same
+content in two places.**  Deriving is not available here, and the
+standing ruling's preference is satisfied by having tested it rather
+than assumed it.
+
+##### (c) `hDsD`'s CROSSING — avoidable, not a crossing
+
+`pinCorr_of_ownPins` is generic in `{m : EnvModel V env}`, so the
+consumer CHOOSES.  Instantiated at `ENV₁`/`mp₁'.base2` rather than at
+`env`/`mp.base2`, `NestedPinSynFacts.pinDs` matches `hDsD` with no
+crossing at all — the contravariant pull the `ContainerModeled`
+docstring warns about is only needed if one insists on `env`.
+
+**The cost is that the choice is global**: `hfind`, `hps`, `hsyn` and
+`hfoundK` must then also hold at `ENV₁`.  `find?` survives the extension
+(`copiesFresh` gives no shadowing), but whether `ContainerModeled` is
+available at `ENV₁` this lane has NOT checked.  So `hDsD` stays out of
+the PRESENT column — not because it is absent, but because which
+instantiation makes all the environment-dependent premises line up is
+itself part of the scope call.
+
+##### (d) THE TABLE, CORRECTED
+
+| premise | state |
+| --- | --- |
+| `hsyn` | **present** — `ContainerModeled.ownPins` |
+| `hψD` | **present** — `NestedPinGroupSyn.stored` |
+| `hψK` | **present** — `ContainerModeled.pinψ` (corrected) |
+| `hi` | **present** |
+| `hDsD` | present at `ENV₁`; blocked on the instantiation choice |
+| `hfind` | derivable — `ContainerModeled.member` + `reps` |
+| `hfoundK` | derivable — `pinConts` plus `containerInfo?`'s lookup |
+| `hscope`, `hpinDs`, `hDsE`, `hps`, `hmem`, `h0` | **unverified or absent, all container-side** |
+
+Five present or near, two derivable, **six still the gap** — the count
+is unchanged, but one of them moved for a reason this lane got wrong,
+and the record should show that.
+
+Nothing built; `lake build` 0 errors/warnings, **722 jobs**.
+
+Nothing in this section changes the tree.
+
+#### (number at the integrator's sync) — L-E: THE ESCAPE FIRES — option (a) is refuted by the design note that motivated `ContainerOwnPinsSyn`, and the scope call's reasoning inverts (lane L-E, 2026-09-18)
+
+Stopped at the escape condition, before adding anything.  **Nothing
+built.**
+
+##### (a) THE PRODUCER COUNT — small, but one of them cannot discharge
+
+`ContainerModeled` has two real producers — `mutualContainerModeled`
+(`EnvModelBStages.lean:250`) and `nativeContainerModeled` (`:1176`) —
+plus `ContainerModeled.of_readBack` (`ContainerCross.lean:1512`), and
+**two transports**, `crossEnv` and `crossEnvP` (`:551`, `:486`).
+
+A transport is not a producer in the burden sense, but it is where the
+escape fires: **`crossEnvP` cannot carry a reading-form clause**, and
+the tree says so in the docstring that exists to explain exactly this:
+
+> `ContainerModeled` is proved where a container is INSTALLED and
+> consumed where a LATER block is checked, so every clause crosses
+> `ContainerModeled.crossEnvP`.  **The reading form below does NOT
+> cross: its `DenoteMetaSpine` premise is CONTRAVARIANT** (reading
+> monotonicity runs `env₁ → env₂`, and the clause would have to pull a
+> reading at `env₂` back to `env₁`).  This one mentions no model at all
+> … so it crosses as soon as the TABLE does.
+
+**Four of the six missing premises are reading-form facts** —
+`hpinDs` and `h0` are `DenoteMetaSpine`s outright, and `hscope`/`hDsE`
+are the scope package that goes with them.  Putting them in
+`ContainerModeled` is precisely the thing `ownPins` was made syntactic
+to avoid.
+
+##### (b) SO THE SCOPE CALL'S REASONING INVERTS
+
+The call chose (a) because "the container-side facts are coherence
+properties of the chosen model, established when the container was
+modelled", so a twin at the nested run "relocates the obligation without
+discharging it".
+
+**The crossing note says the opposite for the reading form.**  A
+`DenoteMetaSpine` clause about the container's pins **cannot be stated
+where the container was installed** and carried forward — that is the
+contravariance.  It can only be stated at the LATER environment, which
+is where the nested run lives.  So for these four premises the twin is
+not a relocation; it is **the only place the fact can be said at all**.
+
+`ContainerOwnPinsSyn.toReadOf` is the tree's own expression of this: the
+syntactic form is recorded at the container and crosses; the bridge to
+the reading form is applied at the CONSUMPTION site, and its package is
+what the consumption site must supply.  **The six are not missing from
+`ContainerModeled` by oversight; they are deliberately not there.**
+
+##### (c) WHAT THIS LANE IS NOT DOING
+
+Not adding the clauses — the escape says stop, and it fired on the
+strongest possible evidence, a design note written to forbid exactly
+this.
+
+Not switching to (b) unilaterally either.  The inversion is an argument
+that (b) is right for the four reading-form premises, but the other two
+(`hps`, `hmem`) are syntactic and may genuinely belong at the container
+— which would make the answer **both**, split by form rather than by
+place.  That is a different shape from either option as put, and it is
+the coordinator's call.
+
+##### (d) THE `hDsD` INSTANTIATION, now decided by the same argument
+
+If the reading-form facts can only live at the later environment, then
+the package lives at `ENV₁` and the instantiation follows: **`m :=
+mp₁'.base2`, `env := ENV₁`**, which is also the choice that makes
+`NestedPinSynFacts.pinDs` match `hDsD` with no crossing.  The syntactic
+premises (`hsyn`, `hps`, `hmem`) then have to be transported UP to
+`ENV₁` — the covariant direction, which `crossEnvP` is built for.
+
+**That is a coherent package**, and it is the first thing in this row
+that has looked like one: syntactic facts recorded at the container and
+carried up; reading facts stated at the run where the nested block is
+checked; `toReadOf` joining them at the consumption site, which is what
+it was written for.
+
+##### (e) THE REVISED QUESTION FOR THE SCOPE CALL
+
+Not "(a) or (b)" but: **do the four reading-form premises go into
+`NestedPinSynFacts` (or a sibling) at `ENV₁`, with the two syntactic
+ones transported up from `ContainerModeled`?**  This lane believes so
+and has said why, but it has been wrong three times today about what a
+record can carry, and the producer-burden ruling is the coordinator's to
+apply.
+
+`lake build` 0 errors/warnings, **722 jobs**; nothing half-applied.
+
+Nothing in this section changes the tree.
+
+#### (number at the integrator's sync) — L-E: MY INVERSION WAS TOO COARSE — `crossEnvP` already carries a denotation, and the original call was substantially right (lane L-E, 2026-09-18)
+
+**This lane persuaded the coordinator to reverse a call that was
+substantially correct, on a reading of the crossing note that was too
+coarse.**  Correcting it before anything is built on it.
+
+##### (a) THE NOTE IS ABOUT A PREMISE, AND THIS LANE READ IT AS ABOUT A FORM
+
+The docstring says, in terms:
+
+> The reading form below does NOT cross: **its `DenoteMetaSpine`
+> PREMISE is CONTRAVARIANT**
+
+`ContainerOwnPins` — the reading form — takes the denotation as a
+HYPOTHESIS (`… → DenoteMetaSpine … → ∀ e ∈ ps, …`), and a hypothesis is
+contravariant under crossing.  **That is a statement about where the
+denotation sits, not about denotations being uncrossable.**
+
+This lane generalised it to "reading-form facts cannot be stated at the
+container", and that is false.
+
+##### (b) `crossEnvP` ALREADY CARRIES A DENOTATION — it has the transport as a hypothesis
+
+`ContainerCross.lean:494`:
+
+```lean
+(hde : ∀ (ψ : Name → Nat) (dp : Nat) (e : Expr), ProjFree Ts e → ∀ {ea : AnnotTerm},
+  denoteMeta m₁.acval env₁ ψ dp e = some ea → denoteMeta m₂.acval env₂ ψ dp e = some ea)
+```
+
+So a **conclusion-shaped** per-pin denotation clause in
+`ContainerModeled` —
+
+```lean
+pinDsD : ∀ qK, qK < d.nPins → ∀ φ,
+  DenoteMetaSpine m.acval env φ d.nP (d.pinAt qK).DsE ((d.pinAt qK).Ds φ)
+```
+
+— crosses by `hde`, subject to `ProjFree Ts` on the pins' `DsE`, which
+is the same side condition `crossEnvP` already imposes on the members'
+types via `hnpMem`.  **The transport is already there; only an
+analogous `hnpPins` would be new.**
+
+##### (c) THE CORRECTED, FINER SPLIT
+
+| premise | shape | crosses? |
+| --- | --- | --- |
+| `hpinDs` | conclusion-shaped denotation | **yes**, by `hde` |
+| `hscope` | an `∃` of params with closedness — syntactic | **yes** |
+| `h0` | a denotation, conclusion-shaped as a clause | **yes**, by `hde` |
+| `hps`, `hmem` | syntactic | **yes** |
+| `hDsE` | has a `DenoteMetaSpine` in **hypothesis** position (`… → DsE.length = d.nP ∧ …`) | **no** — this is the one the note's objection really covers |
+
+So **five of the six go at the container** and cross, and exactly one —
+`hDsE` — resists, for precisely the reason the note gives.  The
+coordinator's original call (a) was right for five of six; this lane's
+inversion was right for one and stated for four.
+
+##### (d) WHAT THIS LANE IS DOING ABOUT IT
+
+Not building.  The decomposition has moved twice inside one exchange —
+once on this lane's argument and once on its correction — and a third
+opinion from the same lane in the same hour is worth less than an
+accurate report.  The escape the coordinator named was "settle who
+discharges them"; the answer is now **the container's own installation
+producers** (`mutualContainerModeled`, `nativeContainerModeled`) for the
+five, and **unsettled** for `hDsE`.
+
+##### (e) THE LESSON, and it is the day's sixth of the same kind
+
+A design note is a statement about a specific object, and this lane read
+it as a statement about a class.  That is the same error as "K.32 is
+adjacent", "of the shape is not available" and the ASCII-class
+extraction: **a fact about one thing, generalised to the kind of thing
+it is.**  The note said "its premise"; the premise was the whole
+content.
+
+`lake build` 0 errors/warnings, **722 jobs**; nothing half-applied.
+
+Nothing in this section changes the tree.
+
+#### (number at the integrator's sync) — L-E: `hDsE`'s discharger is NAMED and the escape does NOT fire — and the row's handover state (lane L-E, 2026-09-18)
+
+##### (a) `hDsE` IS DISCHARGEABLE, and from BLOCK-side data
+
+The escape was: name `hDsE`'s discharger before anything depends on it.
+**Named, and it is favourable — because `hDsE`'s `DsE` is not the
+container's.**
+
+```lean
+hDsE : ∀ i cvC caps lvls DsE ps Ds ψ dp,
+  i < d.k → env.find? (d.memberName i) = some (.indInfo cvC caps) →
+  containerOwnPinsAt env (d.memberName i) lvls DsE = some ps →
+  DenoteMetaSpine m.acval env ψ dp DsE Ds →
+  DsE.length = d.nP ∧ ∀ a ∈ DsE, Expr.WScoped dp a ∧ a.looseBVarsBounded 0 = true
+```
+
+Its `DsE` is the **argument** to `containerOwnPinsAt` — the
+instantiation the caller supplies.  At the consumption site that caller
+is `pinCorr_of_ownPins`, whose `DsE₀` is the **BLOCK's** pin's
+components (the own pins are computed at the instantiation the block's
+pin records).  So both conjuncts are block-side facts:
+
+* `DsE.length = d.nP` — **`NestedPinGroupSyn.pinDsLen`**
+  (`NestedPins.lean:469`), `(((D).pinAt (q₀+i)).Ds ψ).length = dJ.nP`,
+  with `pinNP` for the container's count;
+* `∀ a ∈ DsE, WScoped ∧ looseBVarsBounded 0` — **K.30**, and literally:
+  `pinsScoped` (`NestedInstall.lean:824`) is
+  `st.pins.all fun q => q.pin.looseBVarsBounded 0 && q.pin.fvarLeaves.all …`,
+  carried on the run as `NestedPinsRun.hscoped`.  Closedness of the pin
+  expression descends to its argument spine.
+
+**So the escape does not fire.**  `hDsE` is supplied at the consumption
+site exactly as `toReadOf`'s design intends, and the supplier is data the
+nested run already carries.
+
+##### (b) THE ROW'S STATE, for the handover
+
+The decomposition is settled and every piece has a named discharger:
+
+| premise | where | discharger |
+| --- | --- | --- |
+| `hpinDs`, `h0` | `ContainerModeled`, conclusion-shaped | the container's install producers; crosses by `crossEnvP`'s `hde` with an `hnpPins` side condition analogous to `hnpMem` |
+| `hscope`, `hps`, `hmem` | `ContainerModeled`, syntactic | same producers; cross as `ownPins` does |
+| `hDsE` | consumption site | `NestedPinGroupSyn.pinDsLen` + `pinNP`, and K.30 (`NestedPinsRun.hscoped`) |
+| `hsyn`, `hψD`, `hψK`, `hi` | already present | `ContainerModeled.ownPins`, `NestedPinGroupSyn.stored`, `ContainerModeled.pinψ` |
+| `hfind`, `hfoundK` | derivable | `ContainerModeled.member`/`reps`; `pinConts` |
+| `hDsD` | present at `ENV₁` | `NestedPinSynFacts.pinDs`, under the global instantiation `m := mp₁'.base2`, `env := ENV₁` |
+
+**Nothing is unaccounted for.**  What remains is construction: five
+clauses, their two installation dischargers, the `hnpPins` side
+condition, the crossing, and then residual 3's assembly over
+`copyPinF_shape` + `pinCorr_of_ownPins` + the derived conjunct 1.
+
+##### (c) WHY THIS LANE IS CLOSING OUT HERE RATHER THAN STARTING IT
+
+Five clauses across two installation producers, the two crossing lemmas
+and `of_readBack` is on the order of twenty obligations, and this
+session has already reversed its own decomposition twice.  **A half-built
+structure change across three files is the handover state this route has
+agreed is worst**, and the coordinator offered the close-out explicitly.
+
+So: the row is fully specified, nothing is half-applied, and the next
+session starts with (b)'s table rather than with a re-derivation.
+
+##### (d) WHAT THIS SESSION LANDED, for the record
+
+`pins_all_of_measure` · `pinLfpAt`/`pinAs`/`CandParamFit`/`CandIdxAgree`
+· `pinTarget_reads_at` (and `pinTarget_reads` derived from it) ·
+`targetValAt`/`recordedAs`/`targetValAt_recorded` ·
+`TargetView.frameAt` · `CopyEntryAtF`/`EntryReadF`/`copyEntryAtF_of_read`
+· `CopyEntryOutF` · `auxTargetRead`/`auxTarget_reads` (the collapse
+lemma) with `memberTarget_reads` **derived** from it · `pinLfpAt_le` ·
+`pinDsFit` · `pinLfp_group` · the pin-pair chain made generic in the
+family (seven theorems) · `bvarsOn`/`shiftP`/`bvarsOn_mono`/
+`bvarsOn_of_bvarsBelow` · `interp_congr_on`, with `interp_congr_below`
+**derived** from it at net −36 lines.
+
+`lake build` 0 errors/warnings **722 jobs**; `lake test` 0;
+`tests/proofdeps.sh` doors **0**; `tests/no-local-paths.sh` OK.
+
+Nothing in this section changes the tree's accept set.

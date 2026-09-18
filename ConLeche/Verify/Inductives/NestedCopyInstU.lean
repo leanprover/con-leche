@@ -956,6 +956,136 @@ theorem instPis_ilp (ks : List Name) (us : List Level) :
     | .bvar _ | .fvar .. | .sort _ | .const .. | .app .. | .lam .. | .letE .. | .lit _
     | .proj .. => exact nomatch h
 
+/-! ### A major premise's constant head survives instantiation
+
+A recursor's STORED type is where every route records the shape of its
+major premise (`EnvWF`'s recursor clause: `stripPis mI` lands on a `∀`
+whose domain is headed by a `.const`), and every READER sees that domain
+level-instantiated and substituted at the caller's `mI` arguments.  The
+head NAME is the same on both sides: `Expr.instantiateLevelParams`
+rewrites a `.const`'s level arguments and nothing else, and the
+substitutions `Expr.instPis` performs can only replace a head that is a
+loose `bvar`.  `instPis_ilp_major_head` is that statement, once, for
+every consumer that has the stored shape and wants the instantiated
+one; the two telescope readings it composes are the
+`.forallE`-with-constant-head twins of the `sort` kit in
+`NestedCopySort.lean`. -/
+
+/-- **INSTANTIATING A BINDER KEEPS A CONSTANT-HEADED RESIDUAL `∀`**:
+`Expr.instantiate1` substitutes into the residual at its depth
+(`Expr.stripPis_instantiate1_isSome`/`_eq`), and a constant head is not
+a `bvar`, so it stays (`Expr.getAppFn_instantiate1_const`). -/
+theorem Expr.stripPis_instantiate1_constHead {v : Expr} {D : Name} (k j : Nat) {e : Expr}
+    {bs : List (Expr × BinderMeta)} {dom body : Expr} {bm : BinderMeta} {us : List Level}
+    (h : e.stripPis k = some (bs, .forallE dom body bm))
+    (hd : dom.getAppFn = .const D us) :
+    ∃ (bs' : List (Expr × BinderMeta)) (dom' body' : Expr) (bm' : BinderMeta),
+      (e.instantiate1 v j).stripPis k = some (bs', .forallE dom' body' bm') ∧
+        dom'.getAppFn = .const D us := by
+  have hsome : ((e.instantiate1 v j).stripPis k).isSome :=
+    Expr.stripPis_instantiate1_isSome k j (by rw [h]; rfl)
+  cases hq : (e.instantiate1 v j).stripPis k with
+  | none => rw [hq] at hsome; exact nomatch hsome
+  | some q =>
+    obtain ⟨qbs, qbody⟩ := q
+    obtain ⟨hbody, -⟩ := Expr.stripPis_instantiate1_eq k j h hq
+    exact ⟨qbs, dom.instantiate1 v (j + k), body.instantiate1 v (j + k + 1), bm,
+      by rw [hbody]; rfl, Expr.getAppFn_instantiate1_const hd⟩
+
+/-- **LEVEL INSTANTIATION KEEPS A CONSTANT-HEADED RESIDUAL `∀`**: the
+same binders are peeled on both sides
+(`Expr.stripPis_instantiateLevelParams_isSome`/`_eq`) and
+`Expr.instantiateLevelParams` rewrites a `.const`'s level arguments
+without touching its NAME (`Expr.getAppFn_instantiateLevelParams`). -/
+theorem Expr.stripPis_instantiateLevelParams_constHead {ks : List Name} {vs : List Level}
+    {D : Name} (k : Nat) {e : Expr} {bs : List (Expr × BinderMeta)} {dom body : Expr}
+    {bm : BinderMeta} {us : List Level}
+    (h : e.stripPis k = some (bs, .forallE dom body bm))
+    (hd : dom.getAppFn = .const D us) :
+    ∃ (bs' : List (Expr × BinderMeta)) (dom' body' : Expr) (bm' : BinderMeta)
+      (us' : List Level),
+      (e.instantiateLevelParams ks vs).stripPis k = some (bs', .forallE dom' body' bm') ∧
+        dom'.getAppFn = .const D us' := by
+  have hsome : ((e.instantiateLevelParams ks vs).stripPis k).isSome :=
+    Expr.stripPis_instantiateLevelParams_isSome ks vs k (by rw [h]; rfl)
+  cases hq : (e.instantiateLevelParams ks vs).stripPis k with
+  | none => rw [hq] at hsome; exact nomatch hsome
+  | some q =>
+    obtain ⟨qbs, qbody⟩ := q
+    obtain ⟨hbody, -⟩ := Expr.stripPis_instantiateLevelParams_eq ks vs k h hq
+    refine ⟨qbs, dom.instantiateLevelParams ks vs, body.instantiateLevelParams ks vs,
+      ⟨Level.substPW ks vs bm.pw⟩, us.map (Level.subst ks vs), by rw [hbody]; rfl, ?_⟩
+    rw [Expr.getAppFn_instantiateLevelParams, hd]
+    rfl
+
+/-- **A TELESCOPE INSTANTIATION READS BACK THE STRIPPED RESIDUAL'S
+HEAD**: when the arguments eat exactly the stripped binders, what
+`Expr.instPis` returns is that residual `∀` — substituted, hence with
+the same constant head.  (`Expr.instPis_stripPis_sort`'s twin at a
+constant-headed domain; the residual arity is `0` because `args.length`
+is the strip count itself.) -/
+theorem Expr.instPis_stripPis_constHead {D : Name} :
+    ∀ (as : List Expr) {e : Expr} {bs : List (Expr × BinderMeta)}
+      {dom body : Expr} {bm : BinderMeta} {us : List Level} {r : Expr},
+      e.stripPis as.length = some (bs, .forallE dom body bm) →
+      dom.getAppFn = .const D us →
+      e.instPis as = some r →
+      ∃ (dom' body' : Expr) (bm' : BinderMeta) (us' : List Level),
+        r = .forallE dom' body' bm' ∧ dom'.getAppFn = .const D us' := by
+  intro as
+  induction as with
+  | nil =>
+    intro e bs dom body bm us r h hd hr
+    simp only [List.length_nil, Expr.stripPis, Option.some.injEq, Prod.mk.injEq] at h
+    simp only [Expr.instPis, Option.some.injEq] at hr
+    exact ⟨dom, body, bm, us, by rw [← hr, ← h.2], hd⟩
+  | cons a as ih =>
+    intro e bs dom body bm us r h hd hr
+    rw [show (a :: as).length = as.length + 1 from rfl] at h
+    match e, h, hr with
+    | .forallE d b m, h, hr =>
+      simp only [Expr.stripPis] at h
+      cases hs : b.stripPis as.length with
+      | none => rw [hs] at h; exact nomatch h
+      | some p =>
+        obtain ⟨pbs, pbody⟩ := p
+        rw [hs] at h
+        simp only [Option.map_some, Option.some.injEq, Prod.mk.injEq] at h
+        obtain ⟨-, rfl⟩ := h
+        obtain ⟨bs', dom', body', bm', hbs', hd'⟩ :=
+          Expr.stripPis_instantiate1_constHead (v := a) as.length 0 hs hd
+        exact ih hbs' hd' (by simpa only [Expr.instPis] using hr)
+    | .bvar _, h, _ | .fvar _ _, h, _ | .sort _, h, _ | .const _ _, h, _ | .app _ _, h, _
+    | .lam _ _ _, h, _ | .letE _ _ _, h, _ | .lit _, h, _ | .proj _ _ _, h, _ =>
+      simp [Expr.stripPis] at h
+
+/-- **THE MAJOR PREMISE'S HEAD NAME IS THE STORED ONE** (task #315
+M7-3 session 18): a type whose `mI`-binder strip lands on a `∀` with a
+`.const D`-headed domain still has a `.const D`-headed one after level
+instantiation and after `Expr.instPis` at `mI` arguments.  Only the
+level arguments move.
+
+This is the ONE step between a recursor's stored major-premise shape
+(what `EnvWF` records, since every route stores what it generates) and
+the domain a reader of the INSTANTIATED type sees — `Model`'s
+`recMajorHeadStored_of_stripPis` is its consumer, and any producer of
+the stored shape can cite it here rather than re-derive it. -/
+theorem instPis_ilp_major_head {D : Name} {T : Expr} {mI : Nat} {args : List Expr}
+    {ks : List Name} {vs : List Level} {pre : List (Expr × BinderMeta)}
+    {dom₀ body₀ dom body : Expr} {bm₀ bm : BinderMeta} {us₀ : List Level}
+    (hstrip : T.stripPis mI = some (pre, .forallE dom₀ body₀ bm₀))
+    (hhead : dom₀.getAppFn = .const D us₀)
+    (hlen : args.length = mI)
+    (hinst : Expr.instPis (T.instantiateLevelParams ks vs) args
+      = some (.forallE dom body bm)) :
+    ∃ us', dom.getAppFn = .const D us' := by
+  obtain ⟨pre₁, dom₁, body₁, bm₁, us₁, hstrip₁, hhead₁⟩ :=
+    Expr.stripPis_instantiateLevelParams_constHead (ks := ks) (vs := vs) mI hstrip hhead
+  obtain ⟨dom₂, body₂, bm₂, us₂, hr, hhead₂⟩ :=
+    Expr.instPis_stripPis_constHead args (by rw [hlen]; exact hstrip₁) hhead₁ hinst
+  injection hr with hdom _ _
+  exact ⟨us₂, by rw [hdom]; exact hhead₂⟩
+
 /-- **CLOSING A RANGE OF FREE VARIABLES COMMUTES WITH LEVEL
 INSTANTIATION**: neither walk touches the other's data.  A variable in
 the range becomes a bound variable, which carries no level argument at

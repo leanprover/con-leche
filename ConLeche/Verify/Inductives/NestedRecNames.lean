@@ -138,6 +138,31 @@ theorem restoreRecTys_door {env : Env} {R : RestoreTbl} {lps : List Name} {F : N
       rw [List.getElem?_drop, Nat.add_comm]
       exact hnm
 
+/-- **THE RESTORED RECURSORS' NAMES ARE THE NAMES ASKED FOR**, as a
+membership (task #315 M7-3 session 21): `restoreRecTys_door` reads the
+name off position `i`, and a restored constant is AT some position, so
+a name list at least as long as the output pins down every restored
+name.  The length side condition is not idle — `restoreRecTys` walks
+the AUXILIARY records and falls back to the auxiliary recursor's own
+name once the caller's list runs out (`names.headD a.cvRa.name`), so
+nothing is known past `names.length`; both real calls hand it a list of
+exactly the output's length.
+
+The consumer is the nested route's `nestedMimN`
+(`Model/Inductives/EnvModelBStages.lean`): a MIMIC-shaped recursor name
+the install conses is one of the mimics', which is what tells the
+own-pin crossing that a mimic under an OLD container is never new. -/
+theorem restoreRecTys_names_of_mem {env : Env} {R : RestoreTbl} {lps : List Name} {F : Nat}
+    {names : List Name} {as : List AuxStored} {out : List ConstantVal}
+    (h : restoreRecTys (m := CheckM) (fueledOps mode F) env R lps names as = .ok out)
+    (hlen : out.length ≤ names.length) : ∀ o ∈ out, o.name ∈ names := by
+  intro o ho
+  obtain ⟨i, hi⟩ := List.getElem?_of_mem ho
+  have hlt : i < names.length := Nat.lt_of_lt_of_le (List.getElem?_eq_some_iff.mp hi).1 hlen
+  obtain ⟨hname, -, -, -⟩ := restoreRecTys_door h i names[i] o (List.getElem?_eq_getElem hlt) hi
+  rw [hname]
+  exact List.getElem_mem hlt
+
 /-! ## The minted names' shape -/
 
 /-- The shape of every name the elimination mints: the `_nested`

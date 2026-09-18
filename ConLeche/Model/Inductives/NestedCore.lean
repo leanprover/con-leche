@@ -1708,6 +1708,20 @@ Consumer: `nestedStageFacts_of` → `nestedCoreModeled_of`. -/
       ConLeche.nestedOrdNorms (m := ConLeche.CheckM) (fueledOps μ F)
           (ConLeche.consNestedFormers (stored.take p.k) env) b.memberNames jobs = .ok ws ∧
       ws = jobs.map (·.2.2)) →
+    -- **THE SAME WALK AT A PIN TARGET, REWRITTEN** (K.51, task #315,
+    -- lane L-B): a copy field whose target is a MIMIC has a stored
+    -- domain headed by that mimic, so the normalisation of the MINTED
+    -- domain is rewritten before the comparison — which lets the
+    -- `ordF`-RIGHT arm read a pin target off the minted domain with no
+    -- `pinLeaf` anywhere (lane L-B's `NestedPinsShape`)
+    (∃ (params : List Expr) (pbs₀ : List (Expr × BinderMeta))
+      (jobsP : List (Nat × Expr × Expr)) (wsP : List Expr),
+      ConLeche.nestedRewriteData p st = some (params, pbs₀) ∧
+      ConLeche.nestedPinDomPairs env p st stored
+          (ConLeche.nestedPinKinds p b stored) = some jobsP ∧
+      ConLeche.nestedPinNorms (m := ConLeche.CheckM) (fueledOps μ F)
+          (ConLeche.consNestedFormers (stored.take p.k) env) b.memberNames jobsP = .ok wsP ∧
+      ConLeche.nestedPinRewrites env p st params pbs₀ jobsP wsP = true) →
     -- POST-CHECK (a) A THIRD TIME (K.30): the pins typed at the prefix
     -- formers' environment (`consNestedFormers_take_eq`)
     ConLeche.nestedPinsOk (m := ConLeche.CheckM) (fueledOps μ F)
@@ -1804,6 +1818,14 @@ theorem nestedStageFacts_of (hst : NestedCtorsStaged V μ F) (hμ : μ.verifiedC
       ConLeche.nestedOrdNorms (m := ConLeche.CheckM) (fueledOps μ F)
           (ConLeche.consNestedFormers (stored.take p.k) env) b.memberNames jobs = .ok ws ∧
       ws = jobs.map (·.2.2))
+    (hK51 : ∃ (params : List Expr) (pbs₀ : List (Expr × BinderMeta))
+      (jobsP : List (Nat × Expr × Expr)) (wsP : List Expr),
+      ConLeche.nestedRewriteData p st = some (params, pbs₀) ∧
+      ConLeche.nestedPinDomPairs env p st stored
+          (ConLeche.nestedPinKinds p b stored) = some jobsP ∧
+      ConLeche.nestedPinNorms (m := ConLeche.CheckM) (fueledOps μ F)
+          (ConLeche.consNestedFormers (stored.take p.k) env) b.memberNames jobsP = .ok wsP ∧
+      ConLeche.nestedPinRewrites env p st params pbs₀ jobsP wsP = true)
     (hpins₁ : ConLeche.nestedPinsOk (m := ConLeche.CheckM) (fueledOps μ F)
       (ConLeche.consMutualFormers (fms.take p.k) env) p.nP st.pins = .ok ())
     (hnd : b.blockNames.Nodup) (h3 : ConLeche.mutualCtorsGrouped b.ctors = true)
@@ -1875,7 +1897,7 @@ theorem nestedStageFacts_of (hst : NestedCtorsStaged V μ F) (hμ : μ.verifiedC
   obtain ⟨mp₂, dsR, xFvsR, pinsS, L⟩ := hst hμ mp hE p st b envAux stored ctorsR fmsA ctorsA₀ fms f₀
     ctorsA sortss kinds mp₁ ppsF W idxF dsF esF srcsF fvsPF xFvsF xrestF eissF tssF mp₁' hPM h0 h1
     hfA hcA helim hcount hfresh hcont hb haux hstored hclosed hpinsAux hcaps hsrc hgrp hsc hK32
-    hkinds hrank hK42 hpins₁ hformers h hbk h3 hnd hctorsA hleafM' hoff' hfind' hctors
+    hkinds hrank hK42 hK51 hpins₁ hformers h hbk h3 hnd hctorsA hleafM' hoff' hfind' hctors
   -- the names
   have hnames : (fms.take p.k).map (·.cvTa.name) = p.memberNames := by
     rw [List.map_take, h.names]
