@@ -4407,6 +4407,38 @@ theorem nestedPinInstLe (hμ : μ.verifiedChecks = true)
 
 /-! ## Step (iii)'s INDUCTION: the rank orders the instances (K.37) -/
 
+/-- **STRONG INDUCTION OVER A NUMERIC MEASURE ON THE PINS** (task #315
+L-E): if each pin's goal follows from the goal at every pin of strictly
+smaller measure, it holds at every pin.  `Q` is arbitrary and `ord` is
+arbitrary; this lemma knows nothing about either, and it is the ONE
+piece of induction machinery the restated step needs.
+
+**Two consumers, deliberately.**  `pins_le_of_declOrder` instantiates it
+at the declaration order with `Q q := FamLe …` — the inclusion of step
+(iii).  G1's candidate-to-true bridge instantiates it at the pin
+expression's TERM SIZE with `Q q :=` the frame equality at pin `q`,
+because "pin `q`'s components contain pin `q'`'s expression" strictly
+decreases that size (measured on every corpus).
+
+The two instantiations must stay SEPARATE and SEQUENCED — the bridge
+runs after the inclusion is established at every pin, consuming its
+finished conclusion rather than its hypothesis.  They cannot be merged
+into one induction: at `tests/e2e/nested_p22.ndjson` the declaration
+order puts pin 0 before pin 1 and the containment order puts pin 1
+before pin 0, so the UNION of the two relations is cyclic and no
+well-founded induction over it exists. -/
+theorem pins_all_of_measure {n : Nat} {Q : Nat → Prop} {ord : Nat → Nat}
+    (hstep : ∀ q, q < n → (∀ q', q' < n → ord q' < ord q → Q q') → Q q) :
+    ∀ q, q < n → Q q := by
+  have key : ∀ r q, ord q < r → q < n → Q q := by
+    intro r
+    induction r with
+    | zero => intro q hr; exact absurd hr (Nat.not_lt_zero _)
+    | succ r ih =>
+      intro q hr hq
+      exact hstep q hq fun q' hq' hlt => ih q' (by omega) hq'
+  exact fun q hq => key (ord q + 1) q (Nat.lt_succ_self _) hq
+
 /-- **THE DECLARATION-ORDER INDUCTION** (task #315 L-E, DESIGN "the
 restatement written"): the measure the candidate-frame statement
 inducts on, stated ABSTRACTLY in the ordering — `ord q` is meant to be
@@ -4438,15 +4470,8 @@ theorem pins_le_of_declOrder {n k : Nat} {Is P L : Nat → V} {ord : Nat → Nat
     (hstep : ∀ q, q < n →
       (∀ q', q' < n → ord q' < ord q → FamLe (Is (k + q')) (P q') (L (k + q'))) →
       FamLe (Is (k + q)) (P q) (L (k + q))) :
-    ∀ q, q < n → FamLe (Is (k + q)) (P q) (L (k + q)) := by
-  have key : ∀ r q, ord q < r → q < n → FamLe (Is (k + q)) (P q) (L (k + q)) := by
-    intro r
-    induction r with
-    | zero => intro q hr; exact absurd hr (Nat.not_lt_zero _)
-    | succ r ih =>
-      intro q hr hq
-      exact hstep q hq fun q' hq' hlt => ih q' (by omega) hq'
-  exact fun q hq => key (ord q + 1) q (Nat.lt_succ_self _) hq
+    ∀ q, q < n → FamLe (Is (k + q)) (P q) (L (k + q)) :=
+  pins_all_of_measure hstep
 
 /-- **The rank induction, over K.37's four clauses** (task #315 L-E,
 DESIGN §U.55): if every reference LEAVING a container instance goes to

@@ -105838,3 +105838,162 @@ the declaration-order row was: its measure is machinery nobody has
 written.  That row should be taken early, as the last one was.
 
 Nothing in this section changes the tree.
+
+#### (number at the integrator's sync) — L-E: THE SPLIT COLLAPSES — the head distinction is the frame problem one layer out, and K.51 is the recorded fact that dissolves it (lane L-E, 2026-09-18)
+
+The question was whether the pin-target arms can be stated as one, over
+the domain's image under the substitution the elimination recorded,
+rather than over its syntactic head.  **Yes.  And the fact that makes it
+so is already a kernel record, already threaded into the run's bundle by
+this lane.**
+
+##### (a) THE RECORD — K.51, `nestedPinRewrites`
+
+`ConLeche/Kernel/Inductives/NestedInstall.lean:2087`, quoted rather than
+paraphrased because the whole answer is in it:
+
+> **THE REWRITE AFTER THE NORMALISATION** (K.51): each normalised MINTED
+> domain, rewritten by the elimination's own `replaceAllNested` at the
+> FINAL state, IS the stored one … At a pin target the stored domain is
+> headed by the MIMIC while the minted one is headed by the CONTAINER,
+> so the two legs differ by exactly this rewrite.
+
+Its jobs are, verbatim, "a copy field classified recursive or reflexive
+at a target AT OR ABOVE `p.k`" — **exactly the edge set the probe
+enumerates, and exactly the arm that was splitting three ways**.  (The
+apparent mismatch between "ordinary-field arm" and "recursive field" is
+not one: the aux kinds are recomputed on the INSTANTIATED constructors,
+so a container-ORDINARY field becomes aux-RECURSIVE at a pin.  `P22T`'s
+`v : f n` is ordinary in `P22T` and recursive in the copy.  The edges
+are the intersection, which is what K.51 is about.)
+
+So the kernel certifies, per pin-target field and with no head analysis
+anywhere, that the container-side domain and the auxiliary-side domain
+are the two ends of ONE uniform walk.  The probe's own table is that
+record made visible: `(#1 #0)`, `(List #0)` and `#0` all arrive at a
+copy constant, and they arrive there by the same `replaceAllNested`.
+
+##### (b) WHY THE THREE ARMS EXISTED, AND WHY THEY DO NOT
+
+Each arm was answering the same question — "what does this field's
+domain evaluate to at the candidate frame?" — by recomputing it from the
+container's syntax, and the recomputation is what branched.  Stated over
+the image instead, the answer is read off rather than recomputed: the
+stored domain is headed by an auxiliary member in EVERY case
+(`BlockOpened.recF`, K.32), and an auxiliary member's former denotes a
+component of the one auxiliary `lfpTuple`.  The arm becomes
+
+> the field's domain at the candidate frame is `L⁺` at the field's
+> recorded target
+
+with the target an INDEX, not a case.  Member and pin differ in which
+component of the same tuple they name, which is not a case distinction
+either — `ofNested_lfp`'s member case and the pin case are the same
+statement at different indices.
+
+**This is the same move that dissolved §U.101's obstruction, one layer
+out, and the diagnosis was right both times**: a distinction that looked
+structural was an artefact of where the statement stood.  The two
+parameter buckets merging under β was the visible half of it; the
+parameter/constant distinction is the other half, and it merges under
+the same substitution.
+
+##### (c) THE PRICE, NAMED — one lemma, head-free
+
+The collapse is not free; it relocates the work into a single statement:
+
+> `interp` of the container's field domain, at the frame sending the
+> container's parameters to the CANDIDATE components, equals `interp` of
+> the STORED auxiliary domain at the block's frame with the copies
+> interpreted as the auxiliary carrier.
+
+Its proof is the substitution/interpretation commutation plus
+whnf-preservation, with K.51 supplying the syntactic chain
+(substitute → normalise → rewrite) as a certified equality rather than
+something the tier re-derives.  Both ingredients dispatch on the WALK's
+own recursion — congruence at every node but the replaced one — so
+neither introduces a case on the domain's head.
+
+**The honest caveat.**  K.51 is a syntactic identity between two terms
+whose interpretations differ according to how the copy constants are
+read.  Reading them as the auxiliary carrier is what makes the left side
+the candidate frame; reading them as the containers' least tuples is the
+true frame.  So K.51 gives the collapse at the candidate frame and gives
+G1's bridge nothing — the two are still separate, and (b) does not touch
+G1's argument.
+
+##### (d) THREE CONSEQUENCES
+
+1. **The exhaustiveness question dissolves rather than being answered.**
+   A formulation that never inspects the container domain's head has no
+   head constructors to dispatch over, so there is no case to discharge
+   by an invariant and none to measure.  The corpus sweep leaves the
+   critical path; it was a way of noticing the structure, and the
+   structure turned out not to be in the proof.
+2. **The declaration-order induction may be unnecessary for step (iii).**
+   The constant-headed arm was the one that consumed the hypothesis, and
+   in the collapsed form it consumes nothing: the stored domain is the
+   copy constant, not a container applied to something needing `P q'`.
+   **FLAGGED, NOT CLAIMED** — three of this lane's estimates were
+   withdrawn for exactly this kind of "too good", and the claim is only
+   safe once the lemma of (c) is written.  `pins_all_of_measure` is
+   retained regardless: G1's bridge needs it at the size measure.
+3. **`candDs` is still owed and its shape is unchanged** — the
+   substitution descending into the component term.  What changes is that
+   its CONSUMER no longer branches on what it produced.
+
+##### (e) THE ANSWER TO "IS IT NECESSARY", IN ONE LINE
+
+It is not necessary: the pin-target arms are one situation observed
+before and after a rewrite the install has already performed and
+certified, and K.51 is the certificate.
+
+Nothing in this section changes the tree.
+
+#### (number at the integrator's sync) — L-E: the probe's memory shape, and the corpus harness that already exists (lane L-E, 2026-09-18)
+
+Two housekeeping answers, both owed with the sweep.
+
+##### (a) THE HARNESS EXISTS — do not build a second one
+
+The M5/M8 lane's `_tmp/m8/k56-big.sh` (its worktree, not this one) is
+the pattern, and it is the right one: a PATCHED `con-leche` binary
+that prints one tagged line (`K56FIRE`) from inside the checker, run by
+the real driver over `init-full.ndjson` and `mathlib-full.ndjson` with
+`--jobs=4` / `--jobs=8`, `timeout`, and a memory cap; the result is
+`grep -c` over the tagged lines.  Counters only, the driver's own worker
+pool, nothing retained.
+
+That is the instrument any corpus classification should use — including
+the kernel record's per-component classification and G1's measure when
+they run at scale.  This lane should not scale up its fixture probe into
+a corpus tool, and the work should be routed to whoever owns that
+harness.
+
+##### (b) THE MEMORY SHAPE — two structural, one a defect
+
+The probe folds the install in process, serially, and holds:
+
+* **the accumulated environment** (`FEnv` plus the cached state) —
+  structural, and exactly what the checker holds;
+* **the whole `Array Declaration`**, materialised by the parser before
+  the fold — also structural, and also what the driver does
+  (`checkDecls` takes the array);
+* **the in-process modeller's generated records** — `parseExportStreamD
+  path true false`.  This lane turned the modeller ON so that the fold
+  would continue past a nested block instead of stopping at the first
+  one, and for a classification question that reads the block BEFORE the
+  install it buys nothing.  **That is the defect**, and it is the one
+  that scales worst: the modeller generates a model block per nested
+  block and those records join the array.
+
+Nothing is retained per edge or per block — each report is a `String`
+printed and dropped.  So the instrument is sound at fixture scale and
+wrong at corpus scale for a structural reason (a serial in-process fold
+with no pool), not because it leaks.
+
+The right-sized form of this question, had it stayed on the critical
+path, is (a)'s: one tagged line per edge from inside the install, the
+real driver, one process per input, counters in the shell.
+
+Nothing in this section changes the tree.
