@@ -2183,6 +2183,48 @@ def nestedPinRewrites (env : Env) (p : NestedParts) (st : ElimState)
         st'.pins.length == st.pins.length
     | .error _ => false
 
+/-- **THE PINS' COMPONENTS, REWRITTEN** (task #315, lane L-E's request):
+every component of a pin's argument spine, rewritten by the
+elimination's own `replaceAllNested` at the FINAL state — and the state
+does not grow, which says the re-run minted nothing.  This is K.51's
+clause at the spine's COMPONENTS instead of at the copies' field
+domains, and it is what three of the model's arms (`recF`, `es`,
+`ordF`-left) read: without it they hold terms mentioning constants they
+cannot interpret.
+
+The carrier is the walk itself, RECOMPUTED, exactly as K.51's
+(`nestedPinRewrites`): no field is added to `NestedPin` and no
+parameter to the elimination.  A field would mean touching `mkCopies`
+and every `ElimState` literal, which is where the `mintedAt` trap bit
+(`NestedElim.lean`: a literal naming three fields reset the fourth on
+every mint, silently, on two Mathlib blocks).
+
+The COPY-NAME correspondence the consumers also need — which copy name
+belongs to which auxiliary index — costs nothing here: `nestedCopyNames
+k st` is `(st.types.drop k).flatMap …`, so the `j`-th copy's block IS
+`st.types[k + j]` positionally, and that ships as a lemma rather than
+as a Bool. -/
+def nestedPinCompRewrites (env : Env) (p : NestedParts) (st : ElimState)
+    (params : List Expr) (pbs₀ : List (Expr × BinderMeta)) :
+    Option (List (List Expr)) :=
+  st.pins.mapM fun q =>
+    q.pin.getAppArgs.mapM fun c =>
+      match replaceAllNested env (p.lps.map Level.param) params pbs₀ st c with
+      | .ok (c', st') =>
+        if st'.types.length == st.types.length && st'.pins.length == st.pins.length then
+          some c'
+        else none
+      | .error _ => none
+
+/-- The Bool the route records: the rewrite runs at every component of
+every pin.  **Unconditional** — not one of `nestedPinChecks`' clauses,
+which are entered only at `mode.verifiedChecks`: the consumers need this
+in every mode, and a gated check is `true` in the trusted one. -/
+def nestedPinCompsOk (env : Env) (p : NestedParts) (st : ElimState) : Bool :=
+  match nestedRewriteData p st with
+  | some (params, pbs₀) => (nestedPinCompRewrites env p st params pbs₀).isSome
+  | none => false
+
 /-- The second run: the positivity normalisation of every minted
 ordinary domain, at the environment holding the block's own FORMERS —
 the one the model's readings are taken in.
@@ -2336,6 +2378,15 @@ def checkNested (ops : CheckerOps m) (env : Env) (p : NestedParts) : m Env := do
   unless certOnly ops.mode (nestedContainersOk env st.pins) do
     throw (.internal "nested: a container the elimination pinned fails a fact its own \
       install established")
+  -- **THE PINS' COMPONENTS REWRITE** (task #315, lane L-E's request):
+  -- every component of every pin's argument spine goes through the
+  -- elimination's own `replaceAllNested` at the FINAL state, and the
+  -- state does not grow.  UNCONDITIONAL, and `.internal`: three of the
+  -- model's arms read the rewritten components, and a `certOnly` check
+  -- is `true` in trusted mode.  See DESIGN "#### The next row, priced:
+  -- the pins' COMPONENTS, rewritten".
+  unless nestedPinCompsOk env p st do
+    throw (.internal "nested: a pin's components do not rewrite at the final state")
   -- 2. the auxiliary mutual block, checked in a SCRATCH environment
   let b ← unwrapOr (auxBlock p st)
     (.invalid "invalid nested inductive datatype, ill-formed declaration")

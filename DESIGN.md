@@ -105321,3 +105321,74 @@ firing control and the reachability count, AND — because this check is
 unconditional and walks every pin component — an instruction-count
 measurement (`perf stat -e instructions:u`) in both modes, since the
 cost lands in trusted mode too.
+
+#### The pins' COMPONENTS, rewritten — landed, with its cost measured (2026-09-18, task #315, `agent/uniform-m5`)
+
+Lane L-E's request, implemented as priced.  Three model arms (`recF`,
+`es`, `ordF`-left) had no route until the install recorded that every
+component of a pin's argument spine rewrites, at the final state, by
+the elimination's own `replaceAllNested`.
+
+**WHAT THE ROUTE RECORDS.**  `nestedPinCompRewrites` runs the rewrite at
+every component of every pin and returns the answers (per pin, in SPINE
+ORDER — which is what the model reads: it consumes them positionally
+against `DsE`, and `DenoteMetaSpine` is positional); `nestedPinCompsOk`
+is its `isSome` under `nestedRewriteData`.  Both routes check it
+**unconditionally**, `.internal` on failure — deliberately NOT inside
+`nestedPinChecks`, which is entered only at `mode.verifiedChecks`: a
+gated check is `true` in trusted mode and could not serve a consumer
+that needs the fact in every mode.
+
+**CARRIER: recompute-and-certify, K.51's shape.  No new field on
+`NestedPin`, no new parameter on the elimination.**  A field would mean
+touching `mkCopies` and every `ElimState` literal — which is exactly
+where the `mintedAt` trap bit: a literal naming three fields reset the
+fourth on every mint, silently, and two Mathlib cone blocks carried a
+wrong parent for a session.
+
+**THE CORRESPONDENCE COSTS NOTHING.**  Which copy name belongs to which
+auxiliary index is definitional — `nestedCopyNames k st` flatMaps over
+`st.types.drop k`, so the `j`-th copy IS `st.types[k + j]`.  It ships as
+`nestedCopyNames_at`, a lemma, not as a Bool.  Recording as a check what
+construction already gives is a cost with no content.
+
+**THE MEASUREMENT.**
+
+| corpus | shadow blocks | fires |
+|---|---|---|
+| `tests/e2e/*` + `_tmp/arena-tests/{good,bad}` (243 files) | 45 | 0 |
+| Mathlib (654 504 accepted) | 42 | 0 |
+
+*Firing control*: the same check demanding a wrong answer fires at **43
+of the 45** e2e/arena blocks — the two that do not are blocks whose
+shadow run fails an earlier guard, so the check is never reached there.
+*Reachability*: 43 blocks reach it with content.
+
+**THE COST, IN INSTRUCTIONS (`perf stat -e instructions:u`).**
+
+| run | without | with | delta |
+|---|---|---|---|
+| `init-full --verified` (no shadow) | 539.247 G | 539.233 G | −0.003 % |
+| `init-full --trusted` (no shadow) | 521.922 G | 521.936 G | +0.003 % |
+| `init-full --verified --nested-shadow` | 539.299 G | 539.358 G | +0.011 % (1 block) |
+| Mathlib `--verified --nested-shadow` | 12 196.88 G | 12 199.90 G | **+0.025 %** (42 blocks) |
+
+**Trusted mode pays nothing today**, and the two no-shadow rows say so
+by measurement rather than by argument: the nested route is not
+dispatched, so the check runs only under `--nested-shadow`, and both
+no-shadow deltas are inside run-to-run noise.  **The forecast for when
+the dispatch arm lands is +0.025 % of a Mathlib run** — about 72 M
+instructions per nested block.
+
+**LEDGER ROW.**  Not certification-only: an unconditional check in both
+routes whose failure is `.internal`.  Category **(B)**,
+by-construction-only — official computes nothing of the kind; the
+rewrite is our elimination's own, and the fact is true by construction
+of `mkCopies`.  **It cannot fire**, which is what (B) means, and it
+therefore costs the fast mode real instructions for a fact that needs
+no proving against the input — 0.025 % of a Mathlib run when the route
+is dispatched, nothing today.  It is still the right design: the fact
+has nothing to be proved against and three model arms need it in every
+mode.  **If it ever fires, the answer is that the elimination's rewrite
+is not reproducible at the final state — a defect in the route, not in
+the stream; do not relax the check.**

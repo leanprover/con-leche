@@ -1122,6 +1122,12 @@ theorem checkNested_inv {env envOut : Env} {p : NestedParts} {F : Nat}
       -- the CONTAINERS' facts (K.14): uniform occurrences of the group in
       -- the stored constructors, and the two recursor facts at every member
       certOnly mode (nestedContainersOk env st.pins) = true ∧
+      -- **THE PINS' COMPONENTS REWRITE** (lane L-E's request): every
+      -- component of every pin's argument spine goes through the
+      -- elimination's own `replaceAllNested` at the final state.
+      -- UNCONDITIONAL: the model's `recF`, `es` and `ordF`-left arms
+      -- read the rewritten components in every mode
+      nestedPinCompsOk env p st = true ∧
       -- the auxiliary mutual block, checked in a SCRATCH environment
       auxBlock p st = some b ∧
       checkMutualCore (m := CheckM) (fueledOps mode F) env b none true = .ok envAux ∧
@@ -1334,6 +1340,10 @@ theorem checkNested_inv {env envOut : Env} {p : NestedParts} {F : Nat}
   case neg => rw [if_neg hcont] at h; close_throw
   rw [if_pos hcont] at h
   try simp only [bind, Except.bind] at h
+  by_cases hcomp : nestedPinCompsOk env p st = true
+  case neg => rw [if_neg hcomp] at h; close_throw
+  rw [if_pos hcomp] at h
+  try simp only [bind, Except.bind] at h
   obtain ⟨b, hb, h⟩ := exceptBind_ok h
   have hb' := unwrapOr_ok hb
   try simp only at h
@@ -1456,7 +1466,7 @@ theorem checkNested_inv {env envOut : Env} {p : NestedParts} {F : Nat}
     simpa [pure, Except.pure] using h
   subst henv
   exact ⟨st, b, envAux, stored, ctorsR, cvRms, cvRns, rulesM, rulesN, fmsA, ctorsA,
-    hfmsA, hctorsA, helim', beq_iff_eq.mp hcnt, hfresh, hcont, hb', haux, hst', hpc,
+    hfmsA, hctorsA, helim', beq_iff_eq.mp hcnt, hfresh, hcont, hcomp, hb', haux, hst', hpc,
     (by cases uA; exact hpinsAux), hcaps, hsrc,
     certOnly_and_left hcont, hgrp, hmn, hsc, hpl, htg, hkd, haa, hrk, hpa, hrh, hordC, hord, hpinN,
     (by cases uP₁; exact hpins₁), hctors, hrm, hrn, hnd, hdj, hrlm, hrln, hrb2, htbl,
@@ -2779,6 +2789,71 @@ theorem restoreWalk_getAppFn_const {R : RestoreTbl} (hp : R.PinsHeaded) :
   | letE _ _ _ _ _ _ => intro d e' n us _ hfn; exact absurd hfn (by simp [Expr.getAppFn])
   | lit _ => intro d e' n us _ hfn; exact absurd hfn (by simp [Expr.getAppFn])
   | proj _ _ _ _ => intro d e' n us _ hfn; exact absurd hfn (by simp [Expr.getAppFn])
+
+/-- **THE PINS' COMPONENTS, INVERTED** (task #315, lane L-E's request):
+what the recorded Bool stands for — at every pin, at every component of
+its argument spine, the elimination's own rewrite RUNS at the final
+state, its answer is the recorded one, and the state does not grow. -/
+theorem nestedPinCompsOk_inv {env : Env} {p : NestedParts} {st : ElimState}
+    (h : nestedPinCompsOk env p st = true) :
+    ∃ (params : List Expr) (pbs₀ : List (Expr × BinderMeta)) (comps : List (List Expr)),
+      nestedRewriteData p st = some (params, pbs₀) ∧
+      nestedPinCompRewrites env p st params pbs₀ = some comps ∧
+      ∀ (q : Nat) (qn : NestedPin), st.pins[q]? = some qn →
+        ∃ cs, comps[q]? = some cs ∧
+          ∀ (i : Nat) (c : Expr), qn.pin.getAppArgs[i]? = some c →
+            ∃ (c' : Expr) (st' : ElimState),
+              replaceAllNested env (p.lps.map Level.param) params pbs₀ st c = .ok (c', st') ∧
+              cs[i]? = some c' ∧
+              st'.types.length = st.types.length ∧ st'.pins.length = st.pins.length := by
+  unfold nestedPinCompsOk at h
+  cases hdata : nestedRewriteData p st with
+  | none => simp only [hdata] at h; exact nomatch h
+  | some pd =>
+    obtain ⟨params, pbs₀⟩ := pd
+    simp only [hdata] at h
+    cases hcomps : nestedPinCompRewrites env p st params pbs₀ with
+    | none => simp only [hcomps] at h; exact nomatch h
+    | some comps =>
+      refine ⟨params, pbs₀, comps, rfl, hcomps, ?_⟩
+      intro q qn hqn
+      unfold nestedPinCompRewrites at hcomps
+      obtain ⟨cs, hcs, hstep⟩ := mapM_option_inv hcomps q qn hqn
+      refine ⟨cs, hcs, ?_⟩
+      intro i c hc
+      obtain ⟨c', hc', hstep'⟩ := mapM_option_inv hstep i c hc
+      refine ⟨c', ?_⟩
+      cases hr : replaceAllNested env (p.lps.map Level.param) params pbs₀ st c with
+      | error e => simp only [hr] at hstep'; exact nomatch hstep'
+      | ok r =>
+        obtain ⟨c'', st'⟩ := r
+        simp only [hr] at hstep'
+        split at hstep'
+        · rename_i hlen
+          simp only [Option.some.injEq] at hstep'
+          subst hstep'
+          simp only [Bool.and_eq_true, beq_iff_eq] at hlen
+          exact ⟨st', rfl, hc', hlen.1, hlen.2⟩
+        · exact nomatch hstep'
+
+/-- **AND WHICH COPY NAME IS WHICH AUXILIARY INDEX**: no check records
+it, because `nestedCopyNames` is POSITIONAL in the elimination's type
+list by construction — the `j`-th copy is the `k + j`-th type, and its
+three name kinds are in the flattened list.  Recording as a Bool what
+construction already gives is a cost with no content. -/
+theorem nestedCopyNames_at {k j : Nat} {st : ElimState} {t : AuxType}
+    (ht : st.types[k + j]? = some t) :
+    (st.types.drop k)[j]? = some t ∧
+      t.name ∈ nestedCopyNames k st ∧ t.name.str "rec" ∈ nestedCopyNames k st ∧
+      ∀ c ∈ t.ctors, c.1 ∈ nestedCopyNames k st := by
+  have hdrop : (st.types.drop k)[j]? = some t := by
+    rw [List.getElem?_drop]; exact ht
+  have hmem : t ∈ st.types.drop k := List.mem_of_getElem? hdrop
+  refine ⟨hdrop, ?_, ?_, ?_⟩
+  · exact List.mem_flatMap.mpr ⟨t, hmem, by simp⟩
+  · exact List.mem_flatMap.mpr ⟨t, hmem, by simp⟩
+  · intro c hc
+    exact List.mem_flatMap.mpr ⟨t, hmem, by simp [List.mem_map.mpr ⟨c, hc, rfl⟩]⟩
 
 /-- **THE RESTORED RULES' CONSTRUCTORS ARE THE RECORD'S** (task #315
 M8): post-check (c) compares the stream's rules with the restored ones

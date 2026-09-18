@@ -357,6 +357,15 @@ def checkNestedS (fe : FEnv) (p : NestedParts) : CheckCM FEnv := do
   unless certOnly mode (nestedContainersOk fe.env st.pins) do
     throw (.internal "nested: a container the elimination pinned fails a fact its own \
       install established")
+  -- **THE PINS' COMPONENTS REWRITE** (task #315, lane L-E's request):
+  -- every component of every pin's argument spine goes through the
+  -- elimination's own `replaceAllNested` at the FINAL state, and the
+  -- state does not grow.  UNCONDITIONAL, and `.internal`: three of the
+  -- model's arms read the rewritten components, and a `certOnly` check
+  -- is `true` in trusted mode.  See DESIGN "#### The next row, priced:
+  -- the pins' COMPONENTS, rewritten".
+  unless nestedPinCompsOk fe.env p st do
+    throw (.internal "nested: a pin's components do not rewrite at the final state")
   let b ← unwrapOr (auxBlock p st)
     (.invalid "invalid nested inductive datatype, ill-formed declaration")
   -- **THE BLOCK'S MEMBER INDEX COUNTS ARE THE RECORD'S** (task #315

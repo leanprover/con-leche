@@ -1298,6 +1298,7 @@ theorem checkNestedS_push (mode : CheckMode) {env : Env} {fe : FEnv}
   refine Yields.ofDecCases (fun _ => Yields.ofThrowBind) (fun hcnt => ?_)
   refine Yields.ofDecCases (fun _ => Yields.ofThrowBind) (fun hfresh => ?_)
   refine Yields.ofDecCases (fun _ => Yields.ofThrowBind) (fun hcont => ?_)
+  refine Yields.ofDecCases (fun _ => Yields.ofThrowBind) (fun _ => ?_)
   refine Yields.bind' Yields.ofUnwrapOr fun b hb => ?_
   refine Yields.ofDecCases (fun _ => Yields.ofThrowBind) (fun _ => ?_)
   refine Yields.bind' (Yields.and (Yields.and (checkMutualCoreS_nodup mode fe b none true)
@@ -1519,6 +1520,7 @@ theorem checkNestedS_skels (mode : CheckMode) {fe : FEnv} {sk : List InstallSkel
   refine Yields.bind' (nestedAnnotCtorsF_names _ _ _) fun ctorsA hctorsA => ?_
   refine Yields.bind' Yields.ofNestedLift fun st hst0 => ?_
   refine Yields.ofDecCases (fun _ => Yields.ofThrowBind) (fun hcnt => ?_)
+  refine Yields.ofDecCases (fun _ => Yields.ofThrowBind) (fun _ => ?_)
   refine Yields.ofDecCases (fun _ => Yields.ofThrowBind) (fun _ => ?_)
   refine Yields.ofDecCases (fun _ => Yields.ofThrowBind) (fun _ => ?_)
   refine Yields.bind' Yields.ofUnwrapOr fun b hb => ?_

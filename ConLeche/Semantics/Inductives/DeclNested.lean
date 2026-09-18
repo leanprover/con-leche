@@ -174,6 +174,10 @@ def DeclNestedRun (μ : CheckMode) (F : Nat) (env : Env)
     -- the CONTAINERS' facts (K.14): uniform occurrences of the group in
     -- the stored constructors, and the two recursor facts at every member
     ConLeche.certOnly μ (ConLeche.nestedContainersOk env st.pins) = true ∧
+    -- **THE PINS' COMPONENTS REWRITE** (lane L-E's request), and
+    -- UNCONDITIONALLY: the model reads the rewritten components in
+    -- every mode, so this is not one of the gated clauses
+    ConLeche.nestedPinCompsOk env p st = true ∧
     -- the auxiliary mutual block, checked in a SCRATCH environment
     auxBlock p st = some b ∧
     checkMutualCore (m := CheckM) (fueledOps μ F) env b none true = .ok envAux ∧
@@ -541,7 +545,7 @@ theorem declNestedRun_etaClosed {μ : CheckMode} {F : Nat} {env envOut : Env}
     {p : NestedParts} (hE : EtaFamiliesClosed env)
     (h : DeclNestedRun μ F env p envOut) : EtaFamiliesClosed envOut := by
   obtain ⟨-, -, st, b, envAux, stored, ctorsR, cvRms, cvRns, rulesM, rulesN, fmsA, ctorsA,
-    -, -, -, -, -, -, -, -, -, -, -, hcaps, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, hctors, hrm, hrn, -, -, -, -, -, htbl,
+    -, -, -, -, -, -, -, -, -, -, -, -, hcaps, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, hctors, hrm, hrn, -, -, -, -, -, htbl,
     -, -, -, -, -, -⟩ := h
   refine EtaFamiliesClosed.ofFreshExt hE ?_
   -- the formers
