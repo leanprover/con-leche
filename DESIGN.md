@@ -94521,16 +94521,34 @@ step.  **The refuted direction (stripped-free ⟹ opened-free) is the one
 this lane does NOT need**, so the cut does not have to move and
 §U.87 (c)'s fourth row keeps its shape.
 
-What is not literally in the tree is the MULTI-STEP form at a field
-position — the opened field is the binder with the parameter openers
-and the earlier field openers instantiated, so it is several
-`instantiate1`s and wants a short induction over the opening, in the
-same shape as `mentionsMember_openPisAtFvars_false` beside it (which is
-`private` and runs whole-tower-to-field, a different statement).  **The
-other lane's use is at the same level as this lane's cut, at the run
-with the instantiation equation in hand, and is already discharged
-there — so this is very likely ONE obligation, already met, and this
-lane CONSUMES it rather than writing a second.**
+**And it is already proved AT A FIELD POSITION, so there is no gap and
+nothing to consume from anywhere** — `ConLeche/Verify/Inductives/NestedOpenSpine.lean`,
+public, on this branch:
+
+* `os_field_domain_mentions` (:278) — stripped mentions ⟹ opened
+  mentions;
+* **`os_field_domain_free` (:298) — opened free ⟹ stripped free**, which
+  is this lane's direction.  It takes the parameter count, the field
+  count and the field INDEX, the opening and the strip each split into
+  parameter and field parts (`fvsP ++ xFvs`, `pcs ++ fcs`), the opened
+  field `xFvs[l]? = some x` and the stripped binder `fcs[l]? = some b`,
+  and turns `x.fvarTypeD.mentionsConst m = false` into
+  `b.1.mentionsConst m = false`.  Its own docstring names
+  `ContainerModeled.ordFree` as the form it is read at.
+
+So the earlier expectation of a single-step lemma plus an induction
+over the opening was wrong: no multi-step form is needed.  What remains
+inside this row is two lines of bookkeeping, not an obligation: the
+`List.any` lift from `mentionsConst` to `mentionsMember`, and the two
+name lists being ONE list — `ordFree` is at `d.memberNames` while the
+edge bit is at `ci.members.map (·.name)`, which `ContainerModeled`'s
+`k`, `namesLen` and `member` make equal entrywise.
+
+(Recorded because it cost a search: the coordinates first reached this
+lane as a description — "the same file as the structural bridge" — and
+this lane had named the structural bridge as `Verify/Denote/TeleOpen.lean`,
+so the search went there and came back empty.  A location given by
+description is a hint; a citation is a path and a line.)
 
 ##### U.88 (h) — SPELLING: the pin accessor is a field read, not an unfolding
 
