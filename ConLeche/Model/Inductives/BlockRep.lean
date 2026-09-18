@@ -1222,6 +1222,41 @@ variable {m : EnvModel V env} {T : Name} {cvT cvR : ConstantVal} {mI rP : Nat}
   (h : IsBlockModel m T cvT cvR mI rP rules d mm)
 include h
 
+/-- **TWO CLASSES WITH THE SAME READERS HAVE THE SAME ROW** (task #315,
+Resolution 1, WIDE (f1) step 2): if two components of the WIDE operator
+are read by the same index-tuple set, the same number of constructors,
+the same class fit and the same injection, then the wide operator's rows
+there are equal — at every tuple of the wide space.
+
+This is the whole of "the wide operator factors through a collapse".
+When the block being installed identifies two of a CONTAINER's classes
+— its expansion mints one copy per distinct pin EXPRESSION, so two own
+pins instantiated alike arrive at one copy — the identification's
+fixpoint theory needs the container's operator to be constant on those
+fibres (`FibreConst`), and `auxFibre` is what turns that into a
+statement about the two classes' CONSTRUCTOR DATA, which is where the
+run can meet it.  Nothing about `σ` or about pins enters here: it is the
+fibre law of the stored wide operator, read off its own sealed fibre. -/
+theorem row_congr {ψ : Name → Nat} {ρp : Nat → V} (hρp : Sat V (d.params ψ).reverse ρp)
+    {Z : Nat → V} (hZ : InTupleSpace (d.w ψ) (d.k + d.nPins) (d.idx ψ ρp) Z)
+    {c c' : Nat} (hc : c < d.k + d.nPins) (hc' : c' < d.k + d.nPins)
+    (hidx : d.idx ψ ρp c = d.idx ψ ρp c')
+    (hcnt : (d.ctorsT d.pinCtors c).length = (d.ctorsT d.pinCtors c').length)
+    (hfit : ∀ t j fs, d.ChainFitT d.pinCtors ψ ρp Z t c j fs
+      ↔ d.ChainFitT d.pinCtors ψ ρp Z t c' j fs)
+    (hinj : ∀ j fs, d.injT d.pinCtors ψ c j fs = d.injT d.pinCtors ψ c' j fs) :
+    d.Ψaux ψ ρp Z c = d.Ψaux ψ ρp Z c' := by
+  have hmaps := (h.auxFunctor ψ ρp hρp).2.1
+  refine famSpace_ext (hmaps Z hZ c hc) (by rw [hidx]; exact hmaps Z hZ c' hc') fun t ht => ?_
+  have ht' : t ∈ˢ d.idx ψ ρp c' := by rw [← hidx]; exact ht
+  refine SetTheory.ext fun x => ?_
+  rw [h.auxFibre ψ ρp hρp Z hZ c hc t ht x, h.auxFibre ψ ρp hρp Z hZ c' hc' t ht' x]
+  constructor
+  · rintro ⟨j, fs, hj, hF, rfl⟩
+    exact ⟨j, fs, hcnt ▸ hj, (hfit t j fs).mp hF, hinj j fs⟩
+  · rintro ⟨j, fs, hj, hF, rfl⟩
+    exact ⟨j, fs, hcnt ▸ hj, (hfit t j fs).mpr hF, (hinj j fs).symm⟩
+
 /-- The carrier's fixed-point equation at a member, fibrewise. -/
 theorem carrier_app_eq {ψ : Name → Nat} {ρp : Nat → V} (hρp : Sat V (d.params ψ).reverse ρp)
     {mm' : Nat} (hmm : mm' < d.k) {t : V} (ht : t ∈ˢ d.idx ψ ρp mm') :

@@ -113581,3 +113581,64 @@ failed)"; a preceding COLD `lake build` of everything downstream of
 `LfpCompose` (724 jobs) logged 0 warning lines and exit 0.
 `tests/proofdeps.sh` doors `0`.  The accept set is untouched: no
 consumer has moved to the wide route.
+
+#### WIDE (f1) step 2: THE ROW LAW — `IsBlockModel.row_congr`, and the reader congruence priced (lane WIDE, 2026-09-18)
+
+The model half of the ruling.  `hrowsσ` — the container's wide
+operator's rows constant on the collapse's fibres — splits in two, and
+the half that is a law of the STORED model landed.
+
+##### (a) What landed
+
+**`IsBlockModel.row_congr`** (`BlockRep.lean`): two components of
+`Ψaux` read by the same index-tuple set, the same constructor count,
+the same class fit and the same injection have the SAME ROW, at every
+tuple of the wide space.  `famSpace_ext` with `auxFibre` opened at both
+classes; ~25 lines, and nothing about `σ` or about pins enters it —
+it is the fibre law of the stored wide operator, read off its own
+sealed fibre.  This is what "the rows are read off the same constructor
+data" means as a theorem, and it is what turns `hrowsσ` from a
+statement about an abstract field into a statement about the two
+classes' CONSTRUCTOR DATA, where the run can meet it.
+
+##### (b) The other half, priced — the reader congruence at two of the
+container's OWN pin classes
+
+What `row_congr` now asks, at `c = dJ.k + qK` and `c' = dJ.k + qK'`
+with `σ c = σ c'`, and where each comes from:
+
+| `row_congr` premise | source |
+|---|---|
+| `hidx` | `auxPinIdx` twice, then `pinIdx`'s three data: `PinCorr` at the ONE block target gives the two pins one `u`, one `Ids`, and components whose `instAll Ds 0` images are equal — hence equal READINGS at `ρJ` by `interp_instAll`, which is `pinFrame` |
+| `hcnt` | `ctorsT_of_pin` twice, then `PinShapes`' COUNT conjunct on both sides against `((B ci).ctorsM i).length` — one `ci`, because `PinCorr` gives one container NAME |
+| `hfit` | `copyTransfer_iff` at the two `PinShapes` records, both sides container-side this time.  The theorem is already SYMMETRIC in its two sides, so no new combinator: `hψ`/`hρ`/`hwK`/`huT`/`hIdsLen` from `PinGroupView` and `PinCorr`, `h₁`/`h₂` the two `PinShapes`, `hdom₁`/`hdom₂` from `real_dom_eq` as at the member half, `hent₁`/`hent₂` each side's own residue, and `hrel` TRIVIAL — both sides read the same `Y` at the same targets, so it is `rfl` where the member half needed `σ` |
+| `hinj` | `PinRecLaws`' `injW` on both sides: each is `injW (dJ.w ψJ) j (mkTower (fs ++ [pt]))` |
+
+**The member-index identification is NOT a missing record.**
+`copyTransfer_iff` runs at ONE member `i` of the pin's container, so the
+two pins must be the same member of it; that is
+`ContainerModeled.memberName_inj` (`ContainerCross.lean`) — a group's
+member-name list is `Nodup` by `containerInfo?_inv` and
+`ContainerModeled.member` reads the members off it positionally — applied
+to `PinGroupView.name` on both sides.  It exists and is consumed
+elsewhere already, so this half is PLUMBING, not a statement question.
+
+Estimate: one session, of the same shape and size as WIDE (2)'s
+re-pointing.  It lands beside `pinClassFit_of_transfer` in
+`NestedPinLeafAll.lean`, since that is where the transfer lives and
+where its premises are already assembled once.
+
+##### (c) Why `hrowsσ` is a hypothesis and not yet a field
+
+`ofNested_pin_block_of_wide_inst` takes `hrowsσ` as a premise, exactly
+as it takes `hpin`: both are facts about the CONTAINER's own record
+that live downstream of `NestedFit.lean`, and both meet the assembly at
+`NestedRecFibre.lean`.  No new clause on `IsBlockModel` is needed or
+wanted — `auxFibre` already determines the rows, and `row_congr` is the
+derivation.
+
+##### (d) Green
+
+`lake build` exit 0, 0 warning lines (full tree).  Nothing consumes
+`row_congr` yet — it is (2)'s product, which (2)'s remainder consumes.
+The accept set is untouched.
