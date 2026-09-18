@@ -104828,7 +104828,7 @@ its reading and its grading, and `copyFieldReadCore` is the thin
 wrapper at `Q x' w := w = x'.fvarTypeD`, which is K.42's shape — so the
 three existing arms are untouched and the pin arm spends the same body.
 
-`copyFieldReadPin` (commit `a5f0e1a2`) is that instantiation at K.51's
+`copyFieldReadPin` (commit `883d1c4c`) is that instantiation at K.51's
 answer: **the container's field domain, instantiated at the pin's
 components and read at the copy's frame, IS the reading of `w`** — the
 container-headed pre-image of the stored domain under the
