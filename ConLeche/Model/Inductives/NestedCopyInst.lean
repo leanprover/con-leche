@@ -6332,7 +6332,7 @@ theorem NestedPinsRun.copyFieldReadPin {pbs : List (Expr × ConLeche.BinderMeta)
             xI.fvarTypeD
           = .ok w ∧
         ConLeche.replaceAllNested env (p.lps.map Level.param) params pbs₀ st w
-          = .ok (x'.fvarTypeD, st'))
+          = .ok (x'.fvarTypeD, st') ∧ st'.pins.length ≤ st.pins.length)
     (ψ : Name → Nat) (ρp : Nat → V)
     (hsat : Sat V (((ppsF 0 ψ).take b.nP).map (·.2.2)).reverse ρp)
     (fs₁ : List V) (hfs : fs₁.length = l)
@@ -6343,7 +6343,7 @@ theorem NestedPinsRun.copyFieldReadPin {pbs : List (Expr × ConLeche.BinderMeta)
       (xFvsF (b.ownOffset (p.k + q₀ + i') + j))[l]? = some x' ∧
       ConLeche.nestedRewriteData p st = some (params, pbs₀) ∧
       ConLeche.replaceAllNested env (p.lps.map Level.param) params pbs₀ st w
-        = .ok (x'.fvarTypeD, st') ∧
+        = .ok (x'.fvarTypeD, st') ∧ st'.pins.length ≤ st.pins.length ∧
       denoteMeta mp₁'.base2.acval (ConLeche.consMutualFormers (fms.take p.k) env) ψ (b.nP + l) w
         = some ea' ∧
       interp V (consList fs₁ ρp)
@@ -6358,15 +6358,15 @@ theorem NestedPinsRun.copyFieldReadPin {pbs : List (Expr × ConLeche.BinderMeta)
         (st' : ConLeche.ElimState),
         ConLeche.nestedRewriteData p st = some (params, pbs₀) ∧
         ConLeche.replaceAllNested env (p.lps.map Level.param) params pbs₀ st w
-          = .ok (x'.fvarTypeD, st'))
+          = .ok (x'.fvarTypeD, st') ∧ st'.pins.length ≤ st.pins.length)
       SF S hPD hi' hj hlF
       (fun ci J cI xfvs' restM xI x'' h1 h2 h3 h4 h5 h6 h7 => by
-        obtain ⟨params, pbs₀, w, st', hrwd, hrun, hrep⟩ :=
+        obtain ⟨params, pbs₀, w, st', hrwd, hrun, hrep, hst⟩ :=
           hrunAll ci J cI xfvs' restM xI x'' h1 h2 h3 h4 h5 h6 h7
-        exact ⟨w, hrun, params, pbs₀, st', hrwd, hrep⟩)
+        exact ⟨w, hrun, params, pbs₀, st', hrwd, hrep, hst⟩)
       ψ ρp hsat fs₁ hfs hfit
-  obtain ⟨params, pbs₀, st', hrwd, hrep⟩ := hQ
-  exact ⟨x', w, ea', params, pbs₀, st', hx', hrwd, hrep, hea', heq, hok⟩
+  obtain ⟨params, pbs₀, st', hrwd, hrep, hst⟩ := hQ
+  exact ⟨x', w, ea', params, pbs₀, st', hx', hrwd, hrep, hst, hea', heq, hok⟩
 
 /-! ## The `ordF`-RIGHT field's PIN TARGET, IDENTIFIED (task #315 L-B,
 DESIGN "the backwards inversion")
@@ -6763,6 +6763,104 @@ theorem NestedPinsRun.copyOrdFRightPinRead {pbs : List (Expr × ConLeche.BinderM
     rw [hIds, hfr]
     exact hfitFull
 
+/-- **`CopyCtorShape.ordF`'s RIGHT arm AT A PIN TARGET** (task #315 L-B,
+step (iv) assembled): at a container-ordinary field the auxiliary block
+classified `.recursive` at a target AT OR ABOVE `p.k` — a MIMIC — the
+copy's entry is the BLOCK PIN's stored reading applied to the copy's
+index expressions, and those fit the pin's index telescope at the pin's
+frame.
+
+**The member arm's twin, and every step has a counterpart.**  Where
+`copyOrdFRightReadM` reads the target off `BlockCtorData.recEntry` and
+gets its fit from `leafSpineFit` (a block member's LEAF applied to the
+parameter variables), this arm reads it off the rewrite's backwards
+inversion (`copyOrdFRightPinCorr`) and its reading
+(`copyOrdFRightPinRead`), and gets the fit from
+`blockFormer_ids_fit_gen` — because at a pin the head is the
+CONTAINER's reading applied to the pin's COMPONENTS, not a leaf applied
+to parameter variables.
+
+The left-hand side is `copyFieldReadPin`'s: the container's field domain
+instantiated at the pin's components reads as `w`, the CONTAINER-headed
+normalisation, which is where the target is read off (the stored domain
+is headed by the mimic, and identifying the two is `pinLeaf`). -/
+theorem NestedPinsRun.copyOrdFRightReadP {pbs : List (Expr × ConLeche.BinderMeta)}
+    (hPD : ∀ q, q < st.pins.length → PinData env st p pbs q)
+    {i' : Nat} (hi' : i' < kJ) {j : Nat} {cAJ : ConstantVal × Nat}
+    (hj : (dJ.ctorsM i')[j]? = some cAJ) {l : Nat} (hlF : l < cAJ.2)
+    (hrunAll : ∀ (ci : ContainerInfo) (J : ContainerMember) (cI : Expr) (xfvs' : List Expr)
+        (restM xI x' : Expr),
+      ConLeche.containerInfo? env (pinsS.getD (q₀ + i') default).J = some ci →
+      J ∈ ci.members → J.name = (pinsS.getD (q₀ + i') default).J →
+      Expr.instPis (Expr.instantiateLevelParams J.lps
+        (pinsS.getD (q₀ + i') default).lvls cAJ.1.type) (srcAtE st p (q₀ + i')).2.2 = some cI →
+      ConLeche.openPisAtFvars cAJ.2 cI b.nP = some (xfvs', restM) →
+      xfvs'[l]? = some xI →
+      (xFvsF (b.ownOffset (p.k + q₀ + i') + j))[l]? = some x' →
+      ∃ (params : List Expr) (pbs₀ : List (Expr × ConLeche.BinderMeta)) (w : Expr)
+        (st' : ConLeche.ElimState),
+        ConLeche.nestedRewriteData p st = some (params, pbs₀) ∧
+        ConLeche.normPosDomM (m := ConLeche.CheckM) (ConLeche.fueledOps μ F)
+            (ConLeche.consMutualFormers (fms.take p.k) env) b.memberNames (b.nP + l) 1024
+            xI.fvarTypeD
+          = .ok w ∧
+        ConLeche.replaceAllNested env (p.lps.map Level.param) params pbs₀ st w
+          = .ok (x'.fvarTypeD, st') ∧ st'.pins.length ≤ st.pins.length)
+    (hkA : kindAt (mutKsOf kinds (b.ownOffset (p.k + q₀ + i') + j)) l = RecFieldKind.recursive)
+    (hpinT : ¬ ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+      (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0 < p.k)
+    (hnIdx : ∀ q, q < pinsS.length →
+      (fms.getD (p.k + q) default).nIdx = (pinsS.getD q default).nIdx)
+    (ψ : Name → Nat) (ρp : Nat → V)
+    (hsat : Sat V (((ppsF 0 ψ).take b.nP).map (·.2.2)).reverse ρp) :
+    EntryRead
+      (nestedTV b.nP p.k f₀.s ppsF W pinsS mp₁'.base2.acval
+        ((fms.take p.k).map (·.cvTa.name)) ψ)
+      dJ ((pinsS.getD (q₀ + i') default).ψJ ψ) ((pinsS.getD (q₀ + i') default).Ds ψ)
+      (fun l => ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+        (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0)
+      ((mutTlss ctorsA.length tssF ψ).getD (b.ownOffset (p.k + q₀ + i') + j) [])
+      ((mutEiss0 ctorsA.length eissF ψ).getD (b.ownOffset (p.k + q₀ + i') + j) []) ρp i' j l := by
+  classical
+  obtain ⟨_cc, _J, _ci, _cI, cA, _cname, -, -, -, -, -, hnf, -, -, -, hcA, -, hnF⟩ :=
+    R.ctorPair SF S hPD hi' hj
+  have hGlt : b.ownOffset (p.k + q₀ + i') + j < ctorsA.length :=
+    (List.getElem?_eq_some_iff.mp hcA).1
+  have hCD := R.h.CD _ _ hcA
+  have hlcc : l < _cc.nFields := by rw [← hnf]; exact hlF
+  have hlA : l < cA.2 := by rw [hnF]; exact hlcc
+  -- the copy's telescope is EMPTY at a finitary recursive field
+  have htls : ((mutTlss ctorsA.length tssF ψ).getD (b.ownOffset (p.k + q₀ + i') + j) []).getD l []
+      = [] := by
+    rw [mutTlss_getD hGlt, hCD.tssNone ψ l (by rw [hkA]; exact fun h => nomatch h)]
+  have hEis : ((mutEiss0 ctorsA.length eissF ψ).getD (b.ownOffset (p.k + q₀ + i') + j) []).getD l []
+      = (eissF (b.ownOffset (p.k + q₀ + i') + j) ψ).getD l [] := by
+    rw [mutEiss0_getD hGlt]
+  intro Z hZ
+  intro fs₁ hfs hfit
+  -- the reading of the CONTAINER's field domain, and the pin it lands on
+  obtain ⟨x', w, ea', params, pbs₀, st', hx', hrwd, hrep, hstable, hea', heq, hok⟩ :=
+    R.copyFieldReadPin SF S hPD hi' hj hlF hrunAll ψ ρp hsat fs₁ hfs hfit
+  obtain ⟨qq, hidx, hread, hfitI⟩ :=
+    R.copyOrdFRightPinRead SF S hPD hi' hj hlF hkA hpinT hx' hrwd hrep hstable hnIdx hea'
+      ρp fs₁ hfs hok
+  simp only [htls, hEis]
+  rw [slotSet_nil]
+  have hfitZ : SpineFit
+      ((nestedTV (V := V) b.nP p.k f₀.s ppsF W pinsS mp₁'.base2.acval
+        ((fms.take p.k).map (·.cvTa.name)) ψ).frame ρp
+        (((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+          (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0))
+      ((nestedTV (V := V) b.nP p.k f₀.s ppsF W pinsS mp₁'.base2.acval
+        ((fms.take p.k).map (·.cvTa.name)) ψ).Ids
+        (((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+          (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0))
+      (((eissF (b.ownOffset (p.k + q₀ + i') + j) ψ).getD l []).map
+        (interp V (consList fs₁ ρp))) := by
+    rw [hidx]; exact hfitI
+  rw [hZ _ hfitZ]
+  simp only [hidx]
+  rw [← interp_instAll _ fs₁ ρp _, hfs, heq, hread]
 /-- **`CopyCtorShape.ordF`'s LEFT arm, SEMANTICALLY** (task #315 L-B):
 at every field the auxiliary block classifies ordinary, the copy's
 STORED field domain and the CONTAINER's field domain instantiated at
