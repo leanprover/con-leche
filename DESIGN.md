@@ -104639,3 +104639,45 @@ with a `_skels` lemma at each of the four conses (three exist;
 `nestedTablesF` needs its own), and the four data bridges read off the
 scratch skeleton.  The DAG falsifier is clean at every step so far
 (112.13 M instructions, unchanged).
+
+##### THE PUSH ASSEMBLY: two findings, and why it is not the small item
+
+**(1) The driving idiom has to change, and the reason is mechanical.**
+`checkNestedS`'s body has twenty-two guards and a dozen binds, and the
+`split` tactic — which every other cached assembly uses — **does not
+scale to it**: `split`'s internal `simp` exceeds its step budget on a
+do-block this size, because each guard duplicates the continuation.
+Raising the budget does not help (the blow-up is in the join-point
+duplication, not the step count).
+
+The idiom that DOES work is the one `checkNativeS_push` already uses
+and that nothing documented: **`Yields.ofDecCases (fun _ =>
+Yields.ofThrowBind) (fun hg => ?_)` per guard**, which matches the
+`Decidable.casesOn` form `unless` elaborates to and needs **no
+condition spelled out** — so a twenty-two-guard walk is twenty-two
+identical lines rather than twenty-two transcriptions of a Bool.  The
+one prerequisite is NOT to `simp only []` first: that turns the
+`casesOn` into an `ite`, after which only `split` applies, and `split`
+is what does not scale.
+
+**(2) The scratch install runs at grade `true`, and every cached
+skeleton lemma is stated at `false`.**  The read-back bridge this
+assembly needs
+(`auxStoredAll_cvTa_name`/`auxStoredAll_ctor_name`) is fed by
+`checkMutualCoreS_skels`, which is stated at the annotation grade
+`false`; the nested route's scratch install is the one call in the tree
+that passes `true` (K.12's opt-in).  Generalising is not a signature
+change: `mutualFormerChecksS`' body BRANCHES on the grade (the front
+door differs), so the generalisation is a case split in each of
+`mutualFormerChecksS_names`, `mutualFormersS_skels`,
+`checkMutualCtorsF_names` and `checkMutualCoreS_skels` — the same shape
+as `mutualFormerChecks_length`'s grade generalisation earlier in this
+arc, but four lemmas deep.
+
+**So the push is one session too, not the small item the queue
+assumed**, and its first half is that grade generalisation.  What is
+landed and green: `checkMutualCoreS_nodup` (the scratch call's
+`blockNames.Nodup`, read out of the whole call), `Yields.ofUnwrapOr`,
+`skFind?_name`, `skels_find?_name`, and the two read-back bridges.  The
+walk's scaffold — nine steps in, with the idiom validated — is parked
+at `_tmp/m8/checkNestedS_push.scaffold.lean`.

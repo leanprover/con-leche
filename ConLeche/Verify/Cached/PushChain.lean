@@ -4,6 +4,11 @@ public import ConLeche.Verify.Cached.AgreeFloor
 public import ConLeche.Verify.EnvBound
 import ConLeche.Verify.EnvWF
 import ConLeche.Verify.CheckerF
+-- the read-back's inversions (task #315 M8): the nested assemblies read
+-- the SCRATCH index through `auxStored?`, and what it reads is what the
+-- scratch install's own skeleton pins
+import ConLeche.Verify.Inductives.NestedInv
+import ConLeche.Verify.Inductives.NestedAuxInv
 
 public section
 
@@ -971,6 +976,35 @@ theorem checkMutualS_push (mode : CheckMode) {env : Env} {fe : FEnv}
   · intro m x hx
     exact mutualRecPin_name (by rw [← hpin]; exact hrp) hx
 
+/-- **THE READ-BACK'S FORMER CARRIES ITS KEY'S NAME** (task #315 M8):
+`auxStored?` looks the member up by the block's own name, and what the
+lookup returns carries that name — which the SKELETON pins, so a walk
+that never sees the scratch install's run gets it anyway. -/
+theorem auxStoredAll_cvTa_name {feAux : FEnv} {sk : List InstallSkel}
+    (hsk : SkelIs feAux sk) {b : MutualBlock} {stored : List AuxStored}
+    (hst : auxStoredAll feAux.env b b.k = some stored) :
+    ∀ (m : Nat) (a : AuxStored), stored[m]? = some a →
+      ∃ cv : ConstantVal, b.formers[m]? = some (cv, a.nIdx) ∧ a.cvTa.name = cv.name := by
+  intro m a ha
+  obtain ⟨-, hget⟩ := auxStoredAll_get hst
+  obtain ⟨cv, hfm, hfind⟩ := auxStored?_inv (hget m a ha)
+  exact ⟨cv, hfm, skels_find?_name hsk hfind⟩
+
+/-- **AND ITS CONSTRUCTORS CARRY THEIRS**, by the same lookup and the
+same pin. -/
+theorem auxStoredAll_ctor_name {feAux : FEnv} {sk : List InstallSkel}
+    (hsk : SkelIs feAux sk) {b : MutualBlock} {stored : List AuxStored}
+    (hst : auxStoredAll feAux.env b b.k = some stored) :
+    ∀ (m : Nat) (a : AuxStored), stored[m]? = some a →
+      ∀ (j : Nat) (c : ConstantVal × Nat × Nat), a.ctors[j]? = some c →
+        ∃ (J : Nat) (mc : MutualCtor), (b.ownCtors m)[j]? = some (J, mc) ∧
+          c.1.name = mc.cv.name := by
+  intro m a ha j c hc
+  obtain ⟨-, hget⟩ := auxStoredAll_get hst
+  obtain ⟨-, hall⟩ := auxStored?_ctors (hget m a ha)
+  obtain ⟨J, mc, hown, hfind⟩ := hall j c hc
+  exact ⟨J, mc, hown, skels_find?_name hsk hfind⟩
+
 /-! ## The nested route's four conses (task #315 M8)
 
 `checkNestedS` pushes through four cons functions and nothing else, and
@@ -1026,6 +1060,29 @@ theorem storeNestedRecsF_push :
       exact hf.2 _ (by simp)
     exact storeNestedRecsF_push (rs := rest) (h.push hfr)
       (FreshNames.step (c := .recInfo cv mI rP rules) hf)
+
+/-- An `unwrapOr` yields its option's own answer. -/
+theorem Yields.ofUnwrapOr {α : Type} {o : Option α} {e : CheckError} :
+    Yields (unwrapOr (m := CheckCM) o e) (fun a => o = some a) := by
+  cases o with
+  | none => intro s a s' hr; exact nomatch hr
+  | some x =>
+    intro s a s' hr
+    have : a = x := by
+      unfold ConLeche.unwrapOr at hr
+      simp only [Pure.pure, StateT.pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at hr
+      exact hr.1.symm
+    rw [this]
+
+/-- The scratch install's shape check, read out of the whole call: the
+block's names are pairwise distinct, whatever else the install does. -/
+theorem checkMutualCoreS_nodup (mode : CheckMode) (fe : FEnv) (b : MutualBlock)
+    (sr : Option (List (ConstantVal × List RecRule))) (g : Bool) :
+    Yields (checkMutualCoreS mode fe b sr g) (fun _ => b.blockNames.Nodup) := by
+  unfold checkMutualCoreS
+  simp only []
+  refine Yields.bind' (mutualShapeOk_nodup b) fun _ hnd => ?_
+  exact fun _ _ _ _ => hnd
 
 /-- The pre-normalisation front door REFUSES a taken name, so a success
 is the name's freshness at the index it was checked against. -/
