@@ -106217,3 +106217,105 @@ should not be started on this lane's own initiative.
 `[propext, Classical.choice, Quot.sound]`.
 
 Nothing in this section changes the tree.
+
+#### (number at the integrator's sync) — L-E: OPTION (0) HOLDS, in a corrected form — there is no constant environment, and none is needed (lane L-E, 2026-09-18)
+
+Asked before anything else, and the grep answered it in two files.  **The
+answer is yes, and it retires the REASON this lane gave for refuting its
+own `targetReadAt` an hour earlier** — while leaving the replacement
+correct.
+
+##### (a) `interp` HAS NO CONSTANT ENVIRONMENT — the proposed form fails
+
+`ConLeche/Semantics/Interp.lean:150`: `interp : (Nat → V) → AnnotTerm →
+V`, and its only constant case is `| _, .const c us => bval V c us` at a
+`BConst` — a BASIS constant.  `AnnotTerm` has no node for a declared
+constant at all.  A declared constant is resolved into its READING
+before interpretation; that is what `EnvModel.acval` is for.
+
+So there is nothing to re-point at interpretation time, and "interpret
+the copies at a constructed environment" is not available in that form.
+The precedent about `consNestedFormers` is about where pins are
+type-CHECKED, which is a different layer.
+
+##### (b) BUT THE COPIES ALREADY HAVE READINGS — they only lack NAMES
+
+`mutMemberLeaf` (`ConLeche/Model/Inductives/MutualCore.lean:70`) is
+`tupleLfpAV` over `b.k` members at index `t`, built from the AUXILIARY
+block's own data — `ppsF`, `fms`, `dsF`, `esF`, `eissF`, `tssF`, all of
+length `b.k = p.k + pinsS.length`.  **Nothing in it restricts `t` to the
+members.**  `hleafM` restricts to `t < p.k` only because those are the
+targets that have a NAME in the output environment for `acval` to answer
+at; the reading itself is defined at a copy exactly as at a member.
+
+And the lemma that gives such a reading its meaning is already
+index-generic: `tupleLfpAV_fold`
+(`ConLeche/Model/Inductives/TupleLfp.lean:373`) is stated at an
+arbitrary `m < k`, concluding
+
+```
+(as ++ is).foldl app (interp V ρ (tupleLfpAV … m)) = app (lfpTuple w k … m) (tupW (Ws m) is)
+```
+
+— members and copies alike, no case, no new recursion.
+
+##### (c) WHAT THIS CORRECTS, AND WHAT IT LEAVES STANDING
+
+**Corrected**: this lane wrote "no term of the output environment
+denotes a copy, so the term-level family cannot state the candidate
+frame".  That is true of CONSTANTS and false of READINGS, and the tier
+is built on readings — `hleafM` says a member's `acval` IS one of these
+derived-former terms.  The refutation's conclusion (use values) was a
+reasonable choice; its stated REASON was wrong, and a wrong reason
+recorded as a fact is how the next lane inherits a phantom obstacle.
+
+**Standing**: `targetValAt` and `TargetView.frameAt` are correct and
+conservative, and values remain the honest currency for a FRAME.  There
+is no need to churn them back.
+
+**Dissolved**: the well-foundedness worry on the READING side.  There is
+no recursion over containment to make well-founded, because
+`tupleLfpAV_fold`'s own index-generic statement does the work.  Both of
+the options this lane put up — a second interpreter, or an abstract
+carry — are unnecessary FOR THE READINGS.
+
+**Not dissolved, and stated precisely**: step (iii)'s subject is the
+CONTAINER's least tuple at a candidate PARAMETER frame, and a parameter
+frame is a list of values.  So a component family is still wanted there.
+Whether it survives depends on the closure step — by leastness, the
+obligation reduces to the auxiliary carrier being closed under the
+container's operator at the candidate frame, and if that operator is the
+auxiliary block's own section at the copy then the subject is an
+identity and the family goes too.  **That is exactly the kind of "too
+good" this lane has been wrong about three times, and it is NOT
+claimed.**
+
+##### (d) THE RULE, stated once instead of as four incidents
+
+**Never read a target's identity, or a field's classification, off a
+component's or a domain's HEAD; read it off the recorded POSITION.**
+
+Four incidents, one rule: §U.61 (lane L-B, the container taken from the
+component's head, refuted at `nested_lam_pin_prop`'s λ-redex); the
+three-way head split (this lane, collapsed by K.51); "the aux domain is
+the copy constant" (this lane, corrected by `nested_p26`, where it is
+the copy APPLIED); and "no term denotes a copy" (this lane, corrected
+here — the copies have readings, not names).  Three λ-component fixtures
+now teach the first form of it: `nested_lam_pin_prop`, `nested_p22`,
+`nested_p26`.
+
+The `PARAM-applied` bucket has two witnesses (`p22`, `p26`), so it is not
+a singleton and the worry about it being dropped as noise is retired.
+
+##### (e) THE CARRY, IF IT IS STILL WANTED — owed, with its size
+
+If a component family survives (c), it is carried abstractly with its
+run-level consumer named in the same session, per the consumer-first
+rule, and **the carry is not an end state**: a conditional form is not a
+close on this project.  Owed alongside it, and to be priced as its own
+row rather than absorbed into a step, is whatever produces the family —
+**1–2 sessions** if it is a specialisation of `tupleLfpAV_fold` at the
+component positions, more if it is not.  The re-price must be able to
+see this row.
+
+Nothing in this section changes the tree.
