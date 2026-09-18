@@ -114487,3 +114487,96 @@ guard.
   stands to `copyRecFRead`/`copyRecFReadRefl`.  So (iii) really is just
   the two READ lemmas on groundwork that exists;
 * **(iv)**, **(v)** unstarted apart from `docs/NESTED.md` §3, done.
+
+#### PINF: (iii) MEASURED AT THE PROOF AND STOPPED — the pin arm's stored-domain shape is not separable the way the member arm's is (lane PINF, 2026-09-18)
+
+The decision was (iii) first, on a price this lane had confirmed twice
+against the tree: "the two read lemmas, ~800 lines, on groundwork that
+exists".  **The groundwork check was right about the two lemmas it
+named and wrong about a third**, and the difference is structural
+rather than a line count.  Nothing of (iii) was built.
+
+##### (a) WHAT THE TREE REALLY HAS — and the second correction to my own grep
+
+`copyPinFDom` (`NestedCopyInst.lean:1658`) DOES exist; my first sweep
+missed it because it is declared `theorem copyPinFDom`, without the
+`NestedPinsRun.` prefix the sibling lemmas carry.  It is the honest pin
+analogue of `copyRecFDom`'s first three conjuncts: the target is a pin
+of the container's own block, the container field's head is that pin's
+container, its arity is `nPJ + nIdx`, and the instantiated form is that
+constant applied to the mapped arguments.  `copyPinF_shape` and
+`copyPinFCorr` exist.  So three of the four inputs are there.
+
+##### (b) THE FOURTH IS `Fl`, AND IT IS THE ONE THAT DOES NOT SEPARATE
+
+`copyRecFRead` opens with
+
+    obtain ⟨hshape, hcLen, hFl⟩ := R.copyRecFDom …
+
+and `hFl` — the shape of the STORED (rewritten) domain, the copy's
+field headed by the target's auxiliary at the block's parameters — is
+what gives `hxArgs`, the argument list the whole reading argument
+compares against.  **`copyPinFDom` has no `Fl` conjunct**, and the
+reason is not an oversight:
+
+* at a MEMBER target the rewrite's firing is decided SYNTACTICALLY —
+  the minted domain is headed by a member of the block, `replaceAllNested`
+  rewrites exactly that, and `copyRecFDom` can conclude `Fl`'s shape
+  from the DOM side alone;
+* at a PIN target the minted domain is headed by the CONTAINER's pin's
+  container, which is no member of the block, so nothing in the DOM
+  data says the rewrite fires.  `copyPinFCorr` establishes it **by
+  contradiction against the classification**: if the rewrite did not
+  fire, `replaceAllNested_head_const` keeps the container's head,
+  `normCtorValM_domHead` carries it to the stored domain, and
+  `mutualOpenedOk_recHead` at `hkA` says that head is the TARGET
+  MEMBER's — so the container would be a former of the block, which
+  `R.h.fresh` refutes.
+
+That argument needs `hkA`, the normalisation run (`hnorm`, `hbndC`),
+both stages of the opening (`hop1`, `hop2`, `hopP'`, `hopX'`), the two
+opened variables and `hxdom2` — the whole apparatus `copyPinFCorr`
+builds from `R.copyResid`.  **So the pin-side `Fl` fact is not a DOM
+lemma; it is entangled with `copyPinFCorr`'s own contradiction.**
+
+##### (c) WHAT (iii) THEREFORE COSTS
+
+Three routes, all more than the estimate:
+
+1. **extract** `copyPinFStored` from `copyPinFCorr` — the chain is
+   ~150 lines but it takes ~15 hypotheses, every one of them a local
+   that `copyPinFCorr` derives from `R.copyResid`;
+2. **extend** `copyPinFCorr`'s conclusion with the stored-domain shape
+   — additive in the proof, but `Fl`, `params` and `AS` are `obtain`ed
+   locals, so they cannot appear in its statement unless the lemma
+   gains `copyRecFDom`-style parameters (`{params} {pbs₀} {Fl} (hrun)
+   (hpre) (hmint)`): a signature change to a 785-line lemma with two
+   call sites;
+3. **duplicate** the chain inside each read twin — ~150 lines twice, in
+   a file that already carries the `Refl` duplication.
+
+Then the two read lemmas themselves, ~280 and ~520 lines on
+`copyRecFRead`/`copyRecFReadRefl`'s skeleton.  Route 2 is the least bad
+and is what a successor should take; the total is ~1.5–2× the estimate,
+which is at or past the line the standing rule draws.
+
+##### (d) WHY THE ESTIMATE MISSED IT, since that is the reusable part
+
+Both of this lane's bad prices this session have the same shape: a
+count of what the twin lemma LOOKS like, without checking what its
+first `obtain` consumes.  `copyRecFRead` is 280 lines because
+`copyRecFDom` hands it `hFl` in one line; the pin twin is 280 lines
+PLUS whatever hands it the same thing, and that is the part no line
+count sees.  **Price a proof by its INPUTS, not by its length** — the
+lesson the abstract twin taught two sections ago, applied to the item
+that was ordered because its price was "confirmed".
+
+##### (e) STATE
+
+* K.60 LANDED; its inversion still has no consumer;
+* the abstract twin: repriced, not started (three-tier carry);
+* **(iii)**: repriced at (c), not started — route 2 named for a
+  successor;
+* **(iv)**, **(v)** unstarted apart from `docs/NESTED.md` §3, done.
+
+Nothing in this section changes the tree.
