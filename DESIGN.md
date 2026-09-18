@@ -113950,10 +113950,18 @@ count, and `perf stat -e instructions:u` in BOTH modes.  Of that,
 **only the e2e leg is runnable here**: `tests/nested-shadow.sh` is
 present and is the conformance gate (a fire turns an `accept` line into
 an `error` line, so the gate reads it), but `_tmp/arena-tests`, an
-`init-full` stream and a Mathlib stream are NOT in this worktree —
+`init-full` stream and a Mathlib stream are not in THIS worktree —
 `_tmp/` holds this lane's directories and nothing else — and both perf
-legs need the last two.  Fetching them is a decision with a cost
-attached, not something to do silently inside a proof lane.
+legs need the last two.
+
+**CORRECTED, and the correction is the useful part: that was a
+LOCATION, not a decision.**  The corpora are in the MAIN CHECKOUT's
+`_tmp/` — the arena corpus self-provisions from
+`tests/arena/lean-arena-tests.tar.gz` when `tests/arena.sh` runs, the
+`init-full` and Mathlib streams are at fixed paths there, and K.59's
+own measurement scripts are the templates for the battery.  A lane that
+finds a corpus missing in its worktree looks in the main checkout
+before reporting a gate as unclearable.
 
 ##### (d) WHAT IS TRUE OF THE PRICE, now that it is measured rather than estimated
 
@@ -114010,7 +114018,10 @@ is NEGATIVE and travels the available direction.
 ##### (f) STATE
 
 * **(A)** LANDED `9a558b04`; **(B)** LANDED `dd44fbf0`;
-* **K.60** specified (a), built and reverted, blocked on (b) and (c);
+* **K.60** specified (a), built and reverted.  (c) is NOT a blocker —
+  see its correction.  (b) is, and it is its own row: split
+  `nestedCore_run_of` at the auxiliary install, then land K.60 on top
+  of the split, both from the spec in (a);
 * **(ii)** blocked on K.60;
 * **(iii)** unstarted, buildable standalone taking `hkA`;
 * **(iv)**, **(v)** unstarted.
