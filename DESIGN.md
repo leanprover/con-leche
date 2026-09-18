@@ -93495,3 +93495,132 @@ of the kind, and the exclusion rests on the pin's own freshness
 conjunct, so a fire would be a finding about the environment's history
 rather than about the stream.
 
+
+#### U.76 — M7-3 session 17: the five basis sites from K.49, the crossing PROVED, and the one premise it turned up (lane M7-3, session 17, 2026-09-18)
+
+##### (a) The merge, and what it was NOT
+
+Integration 3q had not landed, so `agent/uniform-m5` `ae0eecc7` was
+merged for **K.49 alone** and nothing else — lane L-B's
+`instPis_openers_subst` and lane L-E's session 18/19 work are still
+outside this lane.  Two conflicts: `Model/Fold.lean`, where the kernel
+lane edited a `basisStepAgree_of` that this lane had already RELOCATED
+to `Model/StepAgree.lean` (resolution: drop the block here, port the
+edit — `DeclBasisRun`'s new `μ` and K.49's `-` — to the relocated
+copy), and `DESIGN.md`, rebuilt as ours plus theirs' suffix.
+
+##### (b) THE FIVE PINNED BASIS SITES, PROVED
+
+`natBlock_ownPins`, `punitBlock_ownPins`, `eqBlock_ownPins` and
+`zeroCtorBlock_ownPins` (the last serves both `Empty` and `False`).
+Each is `ContainerOwnPinsSyn.of_noMimics` at K.49's Bool and the
+block's own singleton group.  Each takes the same `Env.find?` inputs
+its own `containerInfo?_*A` takes — one more than "just the former",
+because the group walk reads the recursor and the constructors too —
+and every call site already has them; the zero block is stated at the
+READ-BACK instead, its model being generic in the former's name.
+
+`basisStepB_of` gains `hμ` to open K.49's `certOnly` gate.  That is not
+a new hypothesis: `EnvModelB`/`EnvModelM` carry no mode, and all three
+callers (`declStepB_preserves`) already have one, so it threads an
+existing one down.
+
+**Seven of the nine sites are now proved**: native, mutual (§U.74 (f))
+and the five basis.
+
+##### (c) THE CROSSING, PROVED — §U.74 (d)'s design held
+
+`ContainerOwnPinsSyn.crossInd` (`ContainerCross.lean`), with
+`containerOwnPinsAtGo_ext` (the fuel induction) and
+`containerOwnPinsAt_inv`/`_eq` under it.  The design of §U.74 (d) was
+right as far as it went: `EnvBlocksOf.crossIndP` already carries FULL
+preservation (`hext`, `.recInfo`s included — it is `hF` that excludes
+them), so an old container's table can only GROW, and growth dies to
+`hnewN` plus one clause in `hrecN`'s pattern (`hmimN`) plus the
+member's oldness.  `hrecN` itself is needed too, in `crossIndP`'s own
+shape, because `containerInfo?_ext_ind_eq` wants it.
+
+##### (d) THE PREMISE THE CROSSING TURNED UP, and the two ways out
+
+One hypothesis beyond the frame was needed, and it is a FINDING:
+
+`ContainerOwnPinsSyn` quantifies over the reader's components `DsE`,
+and `containerOwnPinsAt` substitutes them into the mimic recursor's
+type with `Expr.instPis`.  A domain headed by a loose `bvar` — a
+recursor PARAMETER — therefore comes back headed by whatever `DsE` put
+there.  If that is a constant of the NEW block, `containerInfo? env₂ K`
+answers where `containerInfo? env₁ K` does not, and `env₂`'s table has
+an element `env₁`'s has not — which no fact about the OLD block can
+match.  Everything else in the `here` computation is the SAME stored
+`.recInfo` at both environments, so this is the ONLY way the two
+tables can differ.
+
+```lean
+@[expose] def RecMajorHeadStored (env : Env) : Prop :=
+  ∀ (n : Name) (cvR : ConstantVal) (mI rP : Nat) (rules : List RecRule)
+    (lps : List Name) (lvls : List Level) (args : List Expr)
+    (dom body : Expr) (bm : ConLeche.BinderMeta) (K : Name) (us : List Level),
+    env.find? n = some (.recInfo cvR mI rP rules) → args.length = mI →
+    Expr.instPis (cvR.type.instantiateLevelParams lps lvls) args = some (.forallE dom body bm) →
+    dom.getAppFn = .const K us → (env.find? K).isSome = true
+```
+
+It constrains `env₁` ALONE, it is the unguarded form of the shape
+`EnvWF`'s `ConstWF` already records for a recursor with a `.nested`
+rule, and it holds of every honestly built environment — a real
+recursor's major premise is `T params indices`.  No countermodel was
+built: an environment exhibiting the gap needs a mimic whose major
+premise is headed by one of the recursor's own parameters, which no
+install writes.
+
+**The two ways out, and the second looks better:**
+
+1. discharge `RecMajorHeadStored` per route — it is an environment
+   invariant, so this wants an `EnvWF`/`EnvModel` clause or a kernel
+   record, i.e. a fourth record on a lane whose kernel queue the
+   coordinator has just closed;
+2. **NARROW the clause's `DsE`** to components that resolve at the
+   environment the clause is stated over.  The consumer's `DsE` is a
+   RECORDED PIN's components (K.41's inversion hands
+   `nestedPinLvlsDs env (st.pins.getD i default)`), which are old by
+   construction, so the narrowing costs the consumer nothing and kills
+   the gap at its source.  **Check this against
+   `pinCorr_of_ownPins`/`classPin_of_pinCorr` before taking it** — it
+   is a change to a clause lane L-E consumes.
+
+##### (e) THE FIELD IS NOT IN, and what is left
+
+Seven sites proved, the crossing proved.  The field waits on exactly
+two things, neither of them algebra:
+
+* **the NESTED site** — K.47 plus `ContainerOwnPinsSyn.toReadOf` plus
+  lane L-B's `instPis_openers_subst`, which is NOT in this lane (it
+  comes with integration 3q).  Until then the ninth site has no proof,
+  and a `ContainerModeled` field must be discharged at all nine;
+* **(d)'s premise** — whichever way out is taken, `crossEnvP` cannot
+  carry the clause until one of them is.
+
+##### (f) Two notes from lane L-E, for the record
+
+The `PinShapes` constructor-count conjunct landed and touched NO basis
+and no M7-3 site (the nested route discharged it from
+`NestedPinGroupSyn.ctorCount`), so it is off this lane's list.
+`ContainerPinParams` grew from three parts to FOUR — the `pinF` arm
+spends two SYNTACTIC facts besides the `u`/`Ds`/`Ids` congruences (the
+pins' level arguments scoped in the group's level parameters, which is
+also `targetPin_corr`'s unsourced `hpd`, and the pins' components
+bounded at the container's parameters) — each with exactly one
+consumer, tabulated in lane L-E's own section.  It must land as a
+`ContainerModeled` CLAUSE, not a threaded premise, so that the
+assembly above gets it quantified over stored containers for free.
+This lane already carries a three-part `pinParams` field; the four-part
+version supersedes it, and the table is not in this tree yet.
+
+##### (g) Gates
+
+`lake build` 717 jobs warning-free; `lake test` warning-free; layering
+351 / 283 / 3 / 1, 0 base->lane and 0 impl->theory; trust 13/5 (648);
+overview-links 112; quote-gate 2; no-local-paths OK; **proofdeps 4965
+rows / 12 roots / 0 doors**; shake all allowlisted, pub-imports none
+demotable; `tests/arena.sh` **EXIT 0** (the merge carries K.49's
+checker code).  Standard axioms on every new theorem.
