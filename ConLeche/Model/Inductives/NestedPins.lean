@@ -935,6 +935,18 @@ structure NestedPinsRun (V : Type w) [SetTheory V] (μ : CheckMode) (F : Nat) {e
       ConLeche.nestedOrdNorms (m := ConLeche.CheckM) (fueledOps μ F)
           (ConLeche.consNestedFormers (stored.take p.k) env) b.memberNames jobs = .ok ws ∧
       ws = jobs.map (·.2.2)
+  /-- **THE SAME WALK AT A PIN TARGET, REWRITTEN** (K.51, task #315,
+  lane L-B): the pin-target twin of `hK42` — the stored domain is the
+  REWRITTEN normalisation of the minted one, which is what lets the
+  `ordF`-RIGHT arm read a pin target off the minted domain -/
+  hK51 : ∃ (params : List Expr) (pbs₀ : List (Expr × BinderMeta))
+      (jobsP : List (Nat × Expr × Expr)) (wsP : List Expr),
+      ConLeche.nestedRewriteData p st = some (params, pbs₀) ∧
+      ConLeche.nestedPinDomPairs env p st stored
+          (ConLeche.nestedPinKinds p b stored) = some jobsP ∧
+      ConLeche.nestedPinNorms (m := ConLeche.CheckM) (fueledOps μ F)
+          (ConLeche.consNestedFormers (stored.take p.k) env) b.memberNames jobsP = .ok wsP ∧
+      ConLeche.nestedPinRewrites env p st params pbs₀ jobsP wsP = true
   hpinsE : ConLeche.nestedPinsOk (m := ConLeche.CheckM) (fueledOps μ F)
       (ConLeche.consMutualFormers (fms.take p.k) env) p.nP st.pins = .ok ()
   hformers : ConLeche.mutualFormers (m := ConLeche.CheckM) (fueledOps μ F) b.nP b.formers env true
@@ -1855,12 +1867,12 @@ DESIGN §U.22.) -/
 theorem nestedPinsStaged_of {F : Nat} (hId : NestedPinsIdent V μ F) : NestedPinsStaged V μ F := by
   intro hμ env mp hE p st b envAux stored ctorsR fmsA ctorsA₀ fms f₀ ctorsA sortss kinds mp₁ ppsF W
     idxF dsF esF srcsF fvsPF xFvsF xrestF eissF tssF mp₁' hPM h0 h1 hfA hcA helim hcount hfresh hcont
-    hb haux hstored hclosed hpinsAux hcaps hsrc hgrp hscoped hK32 hkinds hrank hK42 hpinsE hformers h hbk
+    hb haux hstored hclosed hpinsAux hcaps hsrc hgrp hscoped hK32 hkinds hrank hK42 hK51 hpinsE hformers h hbk
     h3 hnd hctorsA hleafM' hoff' hfind' hctors
   have R : NestedPinsRun V μ F mp p st b envAux stored ctorsR fmsA ctorsA₀ fms f₀ ctorsA sortss kinds
       mp₁ ppsF W idxF dsF esF srcsF fvsPF xFvsF xrestF eissF tssF mp₁' :=
     ⟨hμ, hE, hPM, h0, h1, hfA, hcA, helim, hcount, hfresh, hcont, hb, haux, hstored, hclosed, hpinsAux,
-      hcaps, hsrc, hgrp, hscoped, hK32, hkinds, hrank, hK42, hpinsE, hformers, h, hbk, h3, hnd, hctorsA,
+      hcaps, hsrc, hgrp, hscoped, hK32, hkinds, hrank, hK42, hK51, hpinsE, hformers, h, hbk, h3, hnd, hctorsA,
       hleafM',
       hoff', hfind', hctors⟩
   obtain ⟨hpinsE, fvs, o, hop, hsc⟩ := R.scoped
