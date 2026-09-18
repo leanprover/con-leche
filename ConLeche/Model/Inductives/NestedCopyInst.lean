@@ -4173,6 +4173,166 @@ theorem NestedPinsRun.copyRecFReadRefl {pbs : List (Expr × ConLeche.BinderMeta)
     exact DenoteMetaSpine.unique hspineC
       (DenoteMetaSpine.erasedEq (R.crossUpSpine ψ (b.nP + l + TL.length) hspE) hlenPt hptEq)
 
+/-! ## The ordinary field, THE RUN'S OWN NORMALISATION (task #315 L-B, DESIGN §U.74)
+
+K.42's record — the kernel's `nestedOrdDomPairs`/`nestedOrdNorms` pair
+— says that at every ORDINARY field of every copy constructor the
+positivity normalisation of the MINTED domain returns the STORED one.
+Its two inversions (`nestedOrdDomPairs_mem`, `nestedOrdNorms_job`,
+`ConLeche/Verify/Inductives/NestedCopyNorm.lean`) address the record
+positionally, and every hypothesis they take is one of the kernel
+walk's own lookups.  This theorem discharges all of them from the
+run's own reads, at THIS pin, THIS constructor and THIS field:
+
+* the pin's type, its `src` record and its `mkCopy` call are
+  `PinData`'s (`ty`, `src`, `own`);
+* the field kinds are K.26's table (`nestedPinKindsOk_inv` +
+  `nestedPinKinds_get`), identified with the block's own
+  classification through `auxStored_ctor_eq` (the stored constructor
+  IS `ctorsA[b.ownOffset … + j]`) and `classifyMutualKinds_inv` — so
+  the arm's `kindAt (mutKsOf kinds …) l = .ordinary` IS the walk's
+  `kf[l]? = some (.ordinary, _)`;
+* the container's member and its `j`-th constructor are `copyResid`'s;
+* the STORED side's two openings are the constructors' stage's own
+  (`MutualFormersFacts.CD`'s `opens`), so the walk's `xS` is the
+  block's `xFvsF` at `l` — the arm's `x'` — by the openers'
+  determinism;
+* the environment is rewritten from the restore's spelling to the
+  model's with `consNestedFormers_take_eq`, and `b.nP = p.nP` is
+  `auxBlock_former`.
+
+**The member travels as a variable.**  `J.lps` cannot be recovered
+from the level assignment: `copyResid`'s clause equates two
+`Level.substFn`s, which is a statement about VALUATIONS, not about the
+name list, and two different `lps` lists can induce the same
+substitution function.  So the member itself is a binder here, with
+the two clauses that determine it — `J ∈ ci.members` and
+`J.name = the pin's container` — which is exactly what a caller that
+has just run `copyResid` holds; `containerInfo?_member_det` then
+identifies it with the walk's `find?` answer inside the proof. -/
+
+/-- **K.42 AT THE ARM'S OWN FIELD** (task #315 L-B): at the ordinary
+field `l` of the copy's constructor `j`, the positivity normalisation
+of the MINTED domain — the container's field at the pin's components,
+before `replaceAllNested` — returns the block's own stored domain,
+`xFvsF`'s field variable at `l`. -/
+theorem NestedPinsRun.copyOrdFLeftRun {pbs : List (Expr × ConLeche.BinderMeta)}
+    (hPD : ∀ q, q < st.pins.length → PinData env st p pbs q)
+    (hK42 : ∃ (jobs : List (Nat × Expr × Expr)) (ws : List Expr),
+      ConLeche.nestedOrdDomPairs env p st stored (ConLeche.nestedPinKinds p b stored) = some jobs ∧
+      ConLeche.nestedOrdNorms (m := ConLeche.CheckM) (ConLeche.fueledOps μ F)
+          (ConLeche.consNestedFormers (stored.take p.k) env) b.memberNames jobs = .ok ws ∧
+      ws = jobs.map (·.2.2))
+    {i' : Nat} (hi' : i' < kJ) {j : Nat} {cAJ : ConstantVal × Nat}
+    (hj : (dJ.ctorsM i')[j]? = some cAJ) {l : Nat} (hlF : l < cAJ.2)
+    (hordA : kindAt (mutKsOf kinds (b.ownOffset (p.k + q₀ + i') + j)) l = .ordinary)
+    {ci : ContainerInfo} {J : ContainerMember}
+    (hci : ConLeche.containerInfo? env (pinsS.getD (q₀ + i') default).J = some ci)
+    (hJmem : J ∈ ci.members) (hJn : J.name = (pinsS.getD (q₀ + i') default).J)
+    {cI : Expr}
+    (hinstCI : Expr.instPis (Expr.instantiateLevelParams J.lps
+      (pinsS.getD (q₀ + i') default).lvls cAJ.1.type) (srcAtE st p (q₀ + i')).2.2 = some cI)
+    {xfvs' : List Expr} {restM : Expr}
+    (hopM : ConLeche.openPisAtFvars cAJ.2 cI b.nP = some (xfvs', restM))
+    {xI : Expr} (hxI : xfvs'[l]? = some xI)
+    {x' : Expr} (hx' : (xFvsF (b.ownOffset (p.k + q₀ + i') + j))[l]? = some x') :
+    ConLeche.normPosDomM (m := ConLeche.CheckM) (ConLeche.fueledOps μ F)
+        (ConLeche.consMutualFormers (fms.take p.k) env) b.memberNames (b.nP + l) 1024
+        xI.fvarTypeD
+      = .ok x'.fvarTypeD := by
+  classical
+  obtain ⟨jobs, ws, hpairs, hnorms, heqws⟩ := hK42
+  have hnPb : b.nP = p.nP := (ConLeche.auxBlock_former R.hb).1
+  -- the container's constructor record at this position
+  obtain ⟨cc, J₂, ci₂, -, -, -, -, -, -, -, -, -, cA, -, -, -,
+    hciP₂, hJmem₂, hJcc, -, hty, hnf, hJname₂, -, -, -, -, -, -, -, -,
+    -, -, -, -, -, -, -, -, -, -, -,
+    -, -, -, -, hcA, hnF, -⟩ := R.copyResid SF S hPD hi' hj
+  obtain rfl : ci = ci₂ := Option.some.inj (hci.symm.trans hciP₂)
+  obtain rfl : J = J₂ :=
+    ConLeche.containerInfo?_member_det hci hci rfl hJmem hJmem₂ (hJn.trans hJname₂.symm)
+  -- the pin, and its records read at the elimination's own spelling
+  have hqS : q₀ + i' < pinsS.length := by have := S.seg; omega
+  have hqst : q₀ + i' < st.pins.length := by rw [← SF.pinsLen]; exact hqS
+  have PD := hPD _ hqst
+  obtain ⟨hJc, hpinS⟩ := SF.pinRec _ _ PD.pin
+  have hpin := PD.pinEq
+  rw [hpinS] at hpin
+  have hLv : (pinsS.getD (q₀ + i') default).lvls = (srcAtE st p (q₀ + i')).2.1 := by
+    have := congrArg Expr.getAppFn hpin
+    simp only [Expr.getAppFn_mkAppN, Expr.getAppFn] at this
+    exact (Expr.const.inj this).2
+  rw [hJc] at hci hJn
+  -- the member the walk's `find?` answers with IS the arm's
+  obtain ⟨ciP, hciP, -, -, -, -, J₀, hfindJ₀, hJ₀n, cpy, hmkc, -, -⟩ := PD.own
+  obtain rfl : ci = ciP := Option.some.inj (hci.symm.trans hciP)
+  obtain rfl : J = J₀ :=
+    ConLeche.containerInfo?_member_det hci hci rfl hJmem (List.mem_of_find?_eq_some hfindJ₀)
+      (hJn.trans hJ₀n.symm)
+  have hlvls : (srcAtE st p (q₀ + i')).2.1.length = J.lps.length := (ConLeche.mkCopy_inv hmkc).1
+  -- K.26's kinds table at the pin, and the stored copy's constructor
+  obtain ⟨kindsP, hkP, hkPlen⟩ := ConLeche.nestedPinKindsOk_inv R.hkinds
+  rw [hkP] at hpairs
+  have hkqlt : q₀ + i' < kindsP.length := by rw [hkPlen]; exact hqst
+  have hkq : kindsP[q₀ + i']? = some (kindsP[q₀ + i']'hkqlt) :=
+    List.getElem?_eq_getElem hkqlt
+  obtain ⟨a, ha, hkget⟩ := ConLeche.nestedPinKinds_get hkP hkq
+  have ha' : stored[p.k + q₀ + i']? = some a := by
+    rw [show p.k + q₀ + i' = p.k + (q₀ + i') from by omega]; exact ha
+  obtain ⟨hactor, hall⟩ :=
+    ConLeche.auxStored_ctor_eq R.haux R.hformers R.hctorsA R.h3 R.hstored ha'
+  have hjlt : j < (dJ.ctorsM i').length := (List.getElem?_eq_some_iff.mp hj).1
+  have hjA : j < a.ctors.length := by rw [hactor, ← S.ctorCount i' hi']; exact hjlt
+  obtain ⟨ac, hac⟩ : ∃ c, a.ctors[j]? = some c := ⟨_, List.getElem?_eq_getElem hjA⟩
+  obtain ⟨acv, acnP, acnF⟩ := ac
+  obtain ⟨cA', hcA', hcv, -, hnf'⟩ := hall j _ hac
+  have hcAeq : cA' = cA := Option.some.inj (hcA'.symm.trans hcA)
+  rw [hcAeq] at hcv hnf'
+  have hcvE : acv = cA.1 := hcv
+  have hnfE : acnF = cA.2 := hnf'
+  -- the aux block's classification at that position
+  obtain ⟨hmapM, -, -, -⟩ := ConLeche.classifyMutualKinds_inv R.h.classify
+  obtain ⟨ksG, hksG, hmk⟩ :=
+    ConLeche.mapM_option_inv hmapM (b.ownOffset (p.k + q₀ + i') + j) cA hcA
+  have hmutKs : mutKsOf kinds (b.ownOffset (p.k + q₀ + i') + j) = ksG := by
+    show kinds.getD _ [] = _
+    rw [List.getD_eq_getElem?_getD, hksG]; rfl
+  have hkfj : (kindsP[q₀ + i']'hkqlt)[j]? = some ksG := by
+    rw [hkget j acv acnP acnF hac, ← hmk, hcvE, hnfE]
+  -- the field's kind, at the walk's spelling
+  obtain ⟨hksLen, -, -⟩ := R.h.ksJ _ _ hcA
+  have hcAnF : cA.2 = cAJ.2 := by rw [hnF, hnf]
+  have hlks : l < ksG.length := by rw [← hmutKs, hksLen, hcAnF]; exact hlF
+  obtain ⟨rt, hrt⟩ : ∃ rt, ksG[l]? = some rt := ⟨_, List.getElem?_eq_getElem hlks⟩
+  obtain ⟨r, tt⟩ := rt
+  obtain rfl : r = RecFieldKind.ordinary := by
+    have h0 : kindAt ksG l = RecFieldKind.ordinary := by rw [← hmutKs]; exact hordA
+    simpa only [kindAt, List.getD_eq_getElem?_getD, hrt, Option.getD_some] using h0
+  -- the three telescopes: the MINTED one, and the STORED one's two stages
+  have hnFeq : acnF = cAJ.2 := by rw [hnfE, hnF, hnf]
+  have hcIw : Expr.instPis
+      (Expr.instantiateLevelParams J.lps (srcAtE st p (q₀ + i')).2.1 cc.type)
+      (srcAtE st p (q₀ + i')).2.2 = some cI := by
+    rw [← hLv, ← hty]; exact hinstCI
+  have hopMw : ConLeche.openPisAtFvars acnF cI p.nP = some (xfvs', restM) := by
+    rw [hnFeq, ← hnPb]; exact hopM
+  have hCD := R.h.CD _ _ hcA
+  obtain ⟨crest', hopP', hopX'⟩ := hCD.opens
+  have hopSw : ConLeche.openPisAtFvars p.nP acv.type 0
+      = some (fvsPF (b.ownOffset (p.k + q₀ + i') + j), crest') := by
+    rw [hcvE, ← hnPb]; exact hopP'
+  have hopS2w : ConLeche.openPisAtFvars acnF crest' p.nP
+      = some (xFvsF (b.ownOffset (p.k + q₀ + i') + j), xrestF (b.ownOffset (p.k + q₀ + i') + j)) := by
+    rw [hnfE, ← hnPb]; exact hopX'
+  -- the job, and the record's run at it
+  have hmem := ConLeche.nestedOrdDomPairs_mem hpairs hqst PD.ty PD.src ha hkq hci hfindJ₀ hlvls
+    hkfj hJcc hac hcIw hopMw hopSw hopS2w hrt hxI hx'
+  have hrun := ConLeche.nestedOrdNorms_job hnorms heqws hmem
+  obtain ⟨henv, -⟩ :=
+    ConLeche.consNestedFormers_take_eq R.haux R.hformers R.hstored p.k (by rw [R.hbk]; omega)
+  rw [henv, ← hnPb] at hrun
+  exact hrun
+
 /-! ## The ordinary field, LEFT arm (task #315 L-B, DESIGN §U.44 (f))
 
 `CopyCtorShape.ordF`'s left arm says a copy field the auxiliary block
