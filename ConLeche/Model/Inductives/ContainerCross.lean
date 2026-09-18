@@ -1097,4 +1097,43 @@ theorem ContainerModeled.params_congr {env : Env} {m : EnvModel V env} {ci : Con
   exact ⟨hI.uParams a ha ψ₁ ψ₂ hψ', (hI.former.params ψ₁ ψ₂ hψ').1⟩
 
 
+/-- **A member's level parameters ARE the group's** (task #315 L-E,
+DESIGN §U.77): `containerInfo?_inv` records every member's as the
+group's own constant's, and `ContainerModeled.member` asserts the
+member's `IsBlockModel` at that record. -/
+theorem ContainerModeled.memberLpsI {env : Env} {m : EnvModel V env} {ci : ContainerInfo}
+    {dK : BlockModel V} (h : ContainerModeled m ci dK) {I : Name}
+    (hci : ConLeche.containerInfo? env I = some ci)
+    {cvI : ConstantVal} {capsI : IndCaps} (hfI : env.find? I = some (.indInfo cvI capsI))
+    {a : Nat} (ha : a < dK.k) {cvA : ConstantVal} {capsA : IndCaps}
+    (hA : env.find? (dK.memberName a) = some (.indInfo cvA capsA)) :
+    cvA.levelParams = cvI.levelParams := by
+  obtain ⟨cvT, _caps, _cvR0, _mI0, _rP0, _rules0, hfind, _hfr0, _hmem0, _hnd0, hall⟩ :=
+    ConLeche.containerInfo?_inv hci
+  obtain rfl : cvT = cvI := (ConstantInfo.indInfo.inj (Option.some.inj (hfind.symm.trans hfI))).1
+  have ha' : a < ci.members.length := by rw [← h.k]; exact ha
+  have hmem : ci.members[a]? = some ci.members[a] := by rw [List.getElem?_eq_getElem ha']
+  have hname := (h.member a ci.members[a] hmem).1
+  obtain ⟨cvC, _capsC, _cvRc, _mIc, _rulesC, hf1, _hf2, _hlps, _hf4, hshare, _hf6, _hf7⟩ :=
+    hall ci.members[a] (List.getElem_mem ha')
+  rw [hname] at hA
+  obtain rfl : cvA = cvC := (ConstantInfo.indInfo.inj (Option.some.inj (hA.symm.trans hf1))).1
+  exact hshare
+
+/-- **A group's members share their level parameters** — so a level
+agreement taken at ONE member's constant is an agreement at EVERY
+member's.  What the WALK needs when it steps from the pair's member to
+the field's target member (task #315 L-E, DESIGN §U.77). -/
+theorem ContainerModeled.memberLps {env : Env} {m : EnvModel V env} {ci : ContainerInfo}
+    {dK : BlockModel V} (h : ContainerModeled m ci dK) {I : Name}
+    (hci : ConLeche.containerInfo? env I = some ci)
+    {cvI : ConstantVal} {capsI : IndCaps} (hfI : env.find? I = some (.indInfo cvI capsI))
+    {a b : Nat} (ha : a < dK.k) (hb : b < dK.k)
+    {cvA cvB : ConstantVal} {capsA capsB : IndCaps}
+    (hA : env.find? (dK.memberName a) = some (.indInfo cvA capsA))
+    (hB : env.find? (dK.memberName b) = some (.indInfo cvB capsB)) :
+    cvA.levelParams = cvB.levelParams := by
+  rw [h.memberLpsI hci hfI ha hA, h.memberLpsI hci hfI hb hB]
+
+
 end ConLeche.Model

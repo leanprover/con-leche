@@ -806,6 +806,16 @@ two post-checks — cons a model of the post-block environment —
         (ConLeche.restoreTbl p st) p.lps
         ((List.range p.numNested).map p.mimicRecName)
         (stored.drop p.k) = .ok cvRns →
+    -- K.39 and K.45, the run's own (lane M7-2's §U.29 (s)/(ll)): the
+    -- restored recursors' names are pairwise distinct, and no auxiliary
+    -- name is one of them — what the provision loop's conses and
+    -- `RestoreAgree.auxFresh` need, and what no freshness report at ONE
+    -- environment can give (both families are `.str X (s ++ "_" ++
+    -- toString i)`, so separating them needs `toString` injectivity)
+    ConLeche.certOnly μ
+      (decide ((cvRms.map (·.name) ++ cvRns.map (·.name)).Nodup)) = true →
+    ConLeche.certOnly μ ((ConLeche.restoreTbl p st).auxNames.all fun n =>
+      !((cvRms.map (·.name) ++ cvRns.map (·.name)).contains n)) = true →
     (cvRms.zip (stored.take p.k)).mapM (fun (cvRa, a) =>
         ConLeche.restoreRules (m := ConLeche.CheckM) (fueledOps μ F)
           (ConLeche.provisionNestedRecs
@@ -919,7 +929,8 @@ theorem declNested_of (hμ : μ.verifiedChecks = true) {F : Nat} {env envOut : E
   classical
   obtain ⟨h0, h1, st, b, envAux, stored, ctorsR, cvRms, cvRns, rulesM, rulesN, fmsA, ctorsA,
     hfA, hcA, helim, hcount, hfresh, hcont, hb, haux, hstored, hclosed, hpinsAux, hcaps, hsrc,
-    -, hgrp, hmn, hsc, hlv, hK32, hkinds, hauxApps, hrank, -, -, -, hpins₁, hctors, hrm, hrn, -, -,
+    -, hgrp, hmn, hsc, hlv, hK32, hkinds, hauxApps, hrank, -, -, -, hpins₁, hctors, hrm, hrn, hndR,
+    hdisj,
     hrulesM, hrulesN, htbl, hpinsOut, hcnt, hrecs, hrb, -, -⟩ := h
   -- the `-` after `hsrc` is K.31's `pinsDistinct` conjunct: named for the
   -- identities' discharge (`NestedPinsIdent`, lane L-B), not consumed here;
@@ -971,8 +982,8 @@ theorem declNested_of (hμ : μ.verifiedChecks = true) {F : Nat} {env envOut : E
     hcaps hsrc hgrp hsc hK32 hkinds hrank hpins₁ hctors
   obtain ⟨mpOut, T⟩ := htail hμ mp.toEnvModelM hE p envOut st b envAux stored ctorsR cvRms cvRns
     rulesM rulesN fmsA ctorsA hPM h0 h1 hfA hcA helim hcount hfresh hcont hb haux hstored hclosed
-    hpinsAux hcaps hsrc hgrp hkinds hauxApps hctors hrm hrn hrulesM hrulesN htbl hpinsOut hcnt
-    hrecs fms f₀
+    hpinsAux hcaps hsrc hgrp hkinds hauxApps hctors hrm hrn hndR hdisj hrulesM hrulesN htbl
+    hpinsOut hcnt hrecs fms f₀
     ctorsA' sortss kinds mp₁ ppsF W idxF dsF esF srcsF fvsPF xFvsF xrestF eissF tssF dsR xFvsR
     pinsS mp₂ henv O
   -- the lists' lengths, and the block's own reading

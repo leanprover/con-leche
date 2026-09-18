@@ -208,7 +208,7 @@ local notation "ENV₁" => (ConLeche.consMutualFormers (fms.take p.k) env)
 
 variable {pinsS : List PinSyn}
   (SF : NestedPinSynFacts (V := V) (p := p) (b := b) (fms := fms) (f₀ := f₀) (ctorsA := ctorsA)
-    (kinds := kinds) (env := env) (ppsF := ppsF) (W := W) (idxF := idxF) (dsF := dsF)
+    (kinds := kinds) (env := env) (mp := mp) (ppsF := ppsF) (W := W) (idxF := idxF) (dsF := dsF)
     (esF := esF) (srcsF := srcsF) (fvsPF := fvsPF) (xrestF := xrestF) (eissF := eissF)
     (tssF := tssF) (ctorsR := ctorsR) (pinsS := pinsS) st mp₁')
   {dsR : Nat → Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)} {xFvsR : Nat → Nat → List Expr}

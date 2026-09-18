@@ -400,6 +400,71 @@ theorem mutualRecTy_stripPis {lps : List Name} {elim : Name} {large : Bool} {nP 
       · rw [List.mem_singleton.mp ha]; rfl
   · exact nomatch h
 
+/-- **THE GENERATED RECURSOR TYPE'S MAJOR BINDER, SYNTACTICALLY**
+(task #315 M7-2): `mutualRecTy_stripPis` with the LAST binder named.
+The telescope's binder `nP + k + n + nIdx_m` — the one the major
+premise occupies — carries the domain `structFamI`, member `m`'s own
+former applied to the block's parameters and the index binders, and
+the elimination datum like every other.  The mimic recursors' fire
+shape reads THIS binder through the restore, which is why it has to be
+named. -/
+theorem mutualRecTy_major {lps : List Name} {elim : Name} {large : Bool} {nP mm : Nat}
+    {formers : List MutualFormer} {ctors : List MutualCtor4} {recTy : Expr}
+    (h : mutualRecTy lps elim large nP formers ctors mm = some recTy) :
+    ∃ (f : MutualFormer) (cbs₀ : List (Expr × BinderMeta)) (conc : Expr),
+      formers[mm]? = some f ∧
+      recTy.stripPis (nP + formers.length + ctors.length + f.nIdx + 1)
+        = some (cbs₀ ++ [(structFamI f.name lps nP f.nIdx (formers.length + ctors.length) 0,
+            (⟨Level.zeronessOf (structElimLevel elim large)⟩ : BinderMeta))], conc) ∧
+      cbs₀.length = nP + formers.length + ctors.length + f.nIdx := by
+  unfold mutualRecTy at h
+  split at h
+  · next f f₀ hf _hf₀ =>
+    simp only [Option.bind_eq_some_iff] at h
+    obtain ⟨q, hq, major, hmaj, minors, hmin, motives, hmot, hr⟩ := h
+    obtain ⟨bs1, body1, hbs1⟩ := replacePisPw_some_stripPis f.nIdx hmaj
+    have h2 := replacePisPw_stripPis f.nIdx hmaj hbs1
+    have h4 := stripPis_append f.nIdx h2 (m := 1) rfl
+    obtain ⟨bs2, hbs2, -⟩ := mutualMinorsPis_stripPis ctors hmin
+    have h5 := stripPis_append ctors.length hbs2 h4
+    obtain ⟨bs3, hbs3, -⟩ := mutualMotivesPis_stripPis formers hmot
+    have h6 := stripPis_append formers.length hbs3 h5
+    obtain ⟨bs0, body0, hbs0⟩ := replacePisPw_some_stripPis nP hr
+    have h7 := replacePisPw_stripPis nP hr hbs0
+    have h8 := stripPis_append nP h7 h6
+    rw [show nP + (formers.length + (ctors.length + (f.nIdx + 1)))
+      = nP + formers.length + ctors.length + f.nIdx + 1 from by omega] at h8
+    refine ⟨f, (bs0.map fun x => (x.1, (⟨Level.zeronessOf (structElimLevel elim large)⟩ :
+        BinderMeta))) ++ (bs3 ++ (bs2 ++ (bs1.map fun x => (x.1,
+          (⟨Level.zeronessOf (structElimLevel elim large)⟩ : BinderMeta))))),
+      Expr.mkAppN (.bvar (f.nIdx + ctors.length + formers.length - mm))
+        (structPsAt 1 f.nIdx ++ [.bvar 0]), hf, ?_, ?_⟩
+    · rw [show (bs0.map fun x => (x.1, (⟨Level.zeronessOf (structElimLevel elim large)⟩ :
+          BinderMeta))) ++ (bs3 ++ (bs2 ++ (bs1.map fun x => (x.1,
+            (⟨Level.zeronessOf (structElimLevel elim large)⟩ : BinderMeta)))))
+          ++ [(structFamI f.name lps nP f.nIdx (formers.length + ctors.length) 0,
+            (⟨Level.zeronessOf (structElimLevel elim large)⟩ : BinderMeta))]
+        = (bs0.map fun x => (x.1, (⟨Level.zeronessOf (structElimLevel elim large)⟩ :
+            BinderMeta))) ++ (bs3 ++ (bs2 ++ ((bs1.map fun x => (x.1,
+              (⟨Level.zeronessOf (structElimLevel elim large)⟩ : BinderMeta)))
+            ++ [(structFamI f.name lps nP f.nIdx (formers.length + ctors.length) 0,
+              (⟨Level.zeronessOf (structElimLevel elim large)⟩ : BinderMeta))]))) from by
+          simp only [List.append_assoc]]
+      exact h8
+    · have e0 : (bs0.map fun x => (x.1, (⟨Level.zeronessOf (structElimLevel elim large)⟩ :
+          BinderMeta))).length = nP := by
+        rw [List.length_map]
+        exact Expr.stripPis_length _ hbs0
+      have e1 : (bs1.map fun x => (x.1, (⟨Level.zeronessOf (structElimLevel elim large)⟩ :
+          BinderMeta))).length = f.nIdx := by
+        rw [List.length_map]
+        exact Expr.stripPis_length _ hbs1
+      have e2 : bs2.length = ctors.length := Expr.stripPis_length _ hbs2
+      have e3 : bs3.length = formers.length := Expr.stripPis_length _ hbs3
+      simp only [List.length_append, e0, e1, e2, e3]
+      omega
+  · exact nomatch h
+
 /-! ## The restore walk, per binder -/
 
 /-- **The restore walk's telescope, per binder**: the walk of a
@@ -603,5 +668,96 @@ theorem auxStored_rec_eq {env envAux : Env} {b : MutualBlock} {F : Nat}
     hlp, hres, hbv, hfv⟩
   rw [hgd]
   exact hrt
+
+/-- **AND ITS RULES ARE THE SCRATCH INSTALL'S GENERATED ONES**
+(`auxStored_rec_eq`'s twin at the RULES): the read-back's recursor
+record carries the rule list the recursors' store consed there, which
+is `mutualRules` of the member's own stage of `checkMutualAllRules`
+(`storeMutualRecs_find?_recInfo` again, the projection tables carrying
+the answer through, `mutualTables_find?_recInfo_inv`), together with
+the two argument sums the store computed (`a.mI`, `a.rP`) and the
+formers'/constructors'/kinds'/rules' runs, which the consumer
+identifies with its own by determinism. -/
+theorem auxStored_rules_eq {env envAux : Env} {b : MutualBlock} {F : Nat}
+    (h : checkMutualCore (fueledOps mode F) env b none true = .ok envAux)
+    {stored : List AuxStored} (hst : auxStoredAll envAux b b.k = some stored)
+    {mIdx : Nat} {a : AuxStored} (ha : stored[mIdx]? = some a) :
+    ∃ (fms : List MutualFormerA) (f₀ : MutualFormerA) (ctorsA : List (ConstantVal × Nat))
+      (sortss : List (List Level)) (kinds : List (List (RecFieldKind × Nat)))
+      (cvRas : List ConstantVal) (rulesOf : List (List (MutualCtor × Expr))),
+      mutualFormers (fueledOps mode F) b.nP b.formers env true
+        = .ok (consMutualFormers fms env, fms) ∧
+      fms[0]? = some f₀ ∧
+      checkMutualCtors (fueledOps mode F) (consMutualFormers fms env) b fms
+        (Level.isEquiv f₀.s .zero == some true) true b.ctors = .ok (ctorsA, sortss) ∧
+      classifyMutualKinds (m := CheckM) b.members3 b.lps b.nP ctorsA = .ok kinds ∧
+      checkMutualAllRules (m := CheckM)
+          (provisionMutualRecs b fms cvRas.zipIdx
+            (consMutualCtors b.nP ctorsA (consMutualFormers fms env)))
+          b (mutualGenData b fms ctorsA kinds).1 (mutualGenData b fms ctorsA kinds).2 none b.k
+        = .ok rulesOf ∧
+      a.mI = b.rulePrefix + (fms.getD mIdx default).nIdx ∧ a.rP = b.rulePrefix ∧
+      a.rules = mutualRules
+        (consMutualCtors b.nP ctorsA (consMutualFormers fms env)).find? a.cvRa.name b.nP
+          a.mI a.rP a.cvRa.type (rulesOf.getD mIdx []) := by
+  obtain ⟨hnd0, -, -, -, env₁, fms, f₀, _tq₀, ctorsA, sortss, kinds, formers4, ctors4, cvRas,
+    rulesOf, hformers, hf₀, -, -, -, hctors, hkinds, -, hgd, hrectys, hrules, htables, -⟩ :=
+    checkMutualCore_inv h
+  obtain ⟨-, rfl⟩ := mutualFormers_inv hformers
+  obtain ⟨hlenR, hallR⟩ := checkMutualRecTys_inv hrectys
+  -- the generated recursor constants' names, and their distinctness
+  have hnames : ∀ t, t < b.k → ∃ cvRa : ConstantVal, cvRas[t]? = some cvRa ∧
+      cvRa.name = b.recName t := by
+    intro t ht
+    obtain ⟨cvRa, hget, hrun⟩ := hallR t ht
+    obtain ⟨recTy, _sty, _u, -, -, -, -, -, -, -, -, hcv⟩ := checkMutualRecTy_shape hrun
+    exact ⟨cvRa, hget, by rw [hcv]⟩
+  have hmapEq : cvRas.map (·.name) = (List.range b.k).map b.recName := by
+    refine List.ext_getElem? fun t => ?_
+    rw [List.getElem?_map, List.getElem?_map]
+    by_cases ht : t < b.k
+    · obtain ⟨cvRa, hget, hcv⟩ := hnames t ht
+      rw [hget, List.getElem?_range ht]
+      simp only [Option.map_some, Option.some.injEq]
+      exact hcv
+    · rw [List.getElem?_eq_none (by rw [hlenR]; omega),
+        List.getElem?_eq_none (by rw [List.length_range]; omega)]
+      rfl
+  have hndZ : ((cvRas.zipIdx).map (·.1.name)).Nodup := by
+    rw [show (cvRas.zipIdx).map (fun x => x.1.name) = cvRas.map (·.name) from by
+      rw [show (fun x : ConstantVal × Nat => x.1.name)
+            = (fun c : ConstantVal => c.name) ∘ Prod.fst from rfl,
+        ← List.map_map, List.zipIdx_map_fst], hmapEq]
+    have h0' := hnd0
+    unfold MutualBlock.blockNames at h0'
+    exact (List.nodup_append.mp h0').2.1
+  -- the read-back at `mIdx`, and the record the store consed there
+  obtain ⟨hlenS, hgetS⟩ := auxStoredAll_get hst
+  have hmk : mIdx < b.k := by
+    have h1 := (List.getElem?_eq_some_iff.mp ha).1
+    rw [hlenS] at h1
+    exact h1
+  obtain ⟨cv, hfm, hrec⟩ := auxStored?_rec (hgetS mIdx a ha)
+  have hrn : b.recName mIdx = cv.name.str "rec" := by
+    unfold MutualBlock.recName
+    rw [List.getD_eq_getElem?_getD, hfm]
+    rfl
+  have hstore := mutualTables_find?_recInfo_inv fms.zipIdx htables hrec
+  obtain ⟨cvRa, hgetR, hcvn⟩ := hnames mIdx hmk
+  have hmem : (cvRa, mIdx) ∈ cvRas.zipIdx := by
+    refine List.mem_of_getElem? (i := mIdx) ?_
+    rw [List.getElem?_zipIdx, hgetR]
+    simp
+  have hfind := storeMutualRecs_find?_recInfo
+    (env₂ := consMutualCtors b.nP ctorsA (consMutualFormers fms env)) (b := b) (fms := fms)
+    (rulesOf := rulesOf) cvRas.zipIdx
+    (env := consMutualCtors b.nP ctorsA (consMutualFormers fms env)) hndZ cvRa mIdx hmem
+  rw [show cvRa.name = cv.name.str "rec" from by rw [hcvn, ← hrn], hstore,
+    Option.some.injEq] at hfind
+  obtain ⟨haq, hmI, hrP, hrules'⟩ := ConstantInfo.recInfo.inj hfind
+  refine ⟨fms, f₀, ctorsA, sortss, kinds, cvRas, rulesOf, hformers, hf₀, hctors, hkinds, ?_,
+    hmI, hrP, ?_⟩
+  · rw [hgd]; exact hrules
+  · rw [hrules', haq, hmI, hrP, show cvRa.name = cv.name.str "rec" from by rw [hcvn, ← hrn]]
 
 end ConLeche

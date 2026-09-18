@@ -122,6 +122,28 @@ FALLBACK = {
     # files' PUBLIC statements through these re-exports; the checker calls
     # the edges demotable after integration 2 changed the graph, the
     # compiler refuses ("unknown identifier" / "invalid field notation").
+    # task #315 M7-2 (item 5 step 2c): the rule's reading law added PLAIN
+    # imports to both of its files (`BlockRepCross`/`MutualRecsSwap`/
+    # `MutualRecsStore` for the provision crossings, `Verify.Denote.Install`
+    # for the `findProj?` API), and the coverage model then attributes the
+    # vocabulary to those private edges and calls the one re-export each
+    # file lives on demotable — the one-import-view class again, seen from
+    # the graph change.  Probed one at a time: the kit loses
+    # `Env`/`Name`/`Expr`/`Level`, `NestedRecRule` loses
+    # `NestedScratchOut`/`NestedCtorPinNames`/`NestedRecTysAuxOk` without
+    # `NestedRecEqs` and `nestedRecLeaf`/`nestedProvList`/`NestedTailIn`'s
+    # projections without `NestedRecsStore`.
+    ('ConLeche.Verify.Inductives.NestedRecRuleKit','ConLeche.Verify.Inductives.NestedInv'),
+    ('ConLeche.Model.Inductives.NestedRecRule','ConLeche.Model.Inductives.NestedRecEqs'),
+    # task #315 M7-2 (item 5 step 2d): the auxiliary rule's reading is
+    # stated at `BlockModel.ruleRhsAV` (MutualRecsLaw), which the PUBLIC
+    # statement of `NestedTailIn.auxRuleRead` projects by dot-notation off
+    # the scratch block model — the `MutualBlock.ownOffset` class above: no
+    # census row attributes a field projection, so the checker asks for the
+    # demotion and the compiler refuses it ("environment does not contain
+    # `BlockModel.ruleRhsAV`").
+    ('ConLeche.Model.Inductives.NestedRecRule','ConLeche.Model.Inductives.MutualRecsLaw'),
+    ('ConLeche.Model.Inductives.NestedRecRule','ConLeche.Model.Inductives.NestedRecsStore'),
     ('ConLeche.Verify.Inductives.NestedCopyInstU','ConLeche.Verify.Inductives.NestedRestoreOpen'),
     ('ConLeche.Verify.Inductives.NestedCopyKinds','ConLeche.Verify.Inductives.NestedRestoreOpen'),
     ('ConLeche.Verify.Inductives.NestedCopyProv','ConLeche.Verify.Inductives.NestedElimInv'),
@@ -214,6 +236,23 @@ FALLBACK = {
     # `lake build`.
     ('ConLeche.Model.Inductives.NestedOwnPinsRead','ConLeche.Model.Inductives.NestedPremise'),
     ('ConLeche.Model.Inductives.NestedOwnPinsRead','ConLeche.Verify.Inductives.NestedRestoreOpen'),
+    # task #315 M7-2 (§U.29 (yyy)): the store swap's two files hold ONLY
+    # theorems — bar the one `def nestedProvOf`, whose re-export the model
+    # DOES see and does not ask for.  A theorem's STATEMENT is public but
+    # its constants are attributed to the proof, so the model computes an
+    # empty public need for both files and proposes demoting every other
+    # re-export.  Each demotion is refused by the compiler, probed one at a
+    # time: without `Verify.EnvWF` the WF file's `EnvWF env` is an unknown
+    # identifier; in the swap file `Annot.EnvModelM` is where `SetTheory`
+    # reaches the public view, `IndBlockFacts` where `SwapNResS` does and
+    # `NestedRecsWF` where `ConLeche.provisionNestedRecs` does.  The fifth
+    # entry the lane recorded, `Extend.Recs`, is NOT one: re-probed on the
+    # union at integration 3q it demotes cleanly (whole-tree build), so it
+    # is a plain import here and no fallback is claimed for it.
+    ('ConLeche.Verify.Inductives.NestedRecsWF','ConLeche.Verify.EnvWF'),
+    ('ConLeche.Model.Inductives.NestedRecsSwap','ConLeche.Verify.Inductives.NestedRecsWF'),
+    ('ConLeche.Model.Inductives.NestedRecsSwap','ConLeche.Semantics.IndBlockFacts'),
+    ('ConLeche.Model.Inductives.NestedRecsSwap','ConLeche.Model.Annot.EnvModelM'),
 }
 
 files=[f for f in subprocess.check_output(['git','ls-files','*.lean']).decode().split()

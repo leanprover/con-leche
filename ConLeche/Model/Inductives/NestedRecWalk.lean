@@ -157,9 +157,24 @@ theorem instSeq_proj : ∀ (Vs : List Expr) (t : Nat) (sn : Name) (i : Nat) (x :
 environment's), a level assignment `φ`, the block's parameter count and its
 parameter telescope reading `params` (at `φ`):
 
-* off the auxiliary names the two environments answer alike (a found name
-  is found with the same level parameters, an absent one is absent) and the
-  leaves agree; the auxiliary names are absent from `envR`;
+* off the auxiliary names the two environments answer alike WHEREVER THE
+  AUXILIARY ONE FINDS THE NAME: it is found at the restored environment too,
+  with the same level parameters and the same leaf (`leafSome`); the
+  auxiliary names are absent from `envR`.
+
+  The agreement is stated at a name the auxiliary side FINDS, and not as two
+  unconditional `∀ n ∉ R.auxNames` clauses (an `envA.find? n = none →
+  envR.find? n = none` and a bare `acvalA n = acvalR n`), because the two
+  clauses are FALSE at the pair of PROVISIONED environments the rules' law
+  runs at (task #315 M7-2): the restored side stores the mimics' recursors
+  under `p.mimicRecName j` while the auxiliary side stores them under the
+  SCRATCH names `q.aux.str "rec"`, and `p.mimicRecName j` is no auxiliary
+  name — `R.auxNames`' third component is the `recMap`'s KEYS, not its
+  values.  So at `n = p.mimicRecName j` the restored environment finds a
+  recursor where the auxiliary one finds nothing, and its leaf is the
+  chosen tuple's projection where the auxiliary carrier's is arbitrary.
+  The walk never needs either: a name it reads is one the auxiliary
+  reading FOUND;
 * a `recMap` key's leaf is its restored name's, with the same level parameters;
 * a `pins` key `n` (levels `lps`, the copy's index count `arityOf n`): its
   abstracted pin is bounded at `nP`, re-opened at the parameters it reads at
@@ -176,9 +191,7 @@ structure RestoreAgree (R : RestoreTbl) (lps : List Name) (arityOf : Name → Op
   nPEq : R.nP = nP
   leafSome : ∀ n, n ∉ R.auxNames → ∀ ci : ConstantInfo, envA.find? n = some ci →
     ∃ ci' : ConstantInfo, envR.find? n = some ci' ∧
-      ci'.toConstantVal.levelParams = ci.toConstantVal.levelParams
-  leafNone : ∀ n, n ∉ R.auxNames → envA.find? n = none → envR.find? n = none
-  leaf : ∀ n, n ∉ R.auxNames → acvalA n = acvalR n
+      ci'.toConstantVal.levelParams = ci.toConstantVal.levelParams ∧ acvalA n = acvalR n
   auxFresh : ∀ n ∈ R.auxNames, envR.find? n = none
   recKey : ∀ n n', R.recMap.lookup n = some n' → ∀ ci : ConstantInfo, envA.find? n = some ci →
     ∃ ci' : ConstantInfo, envR.find? n' = some ci' ∧
@@ -370,7 +383,7 @@ theorem denoteMeta_congr_auxFree :
     cases hfA : envA.find? n with
     | none => rw [denoteMeta, hfA] at hA; exact nomatch hA
     | some ci =>
-      obtain ⟨ci', hfR, hlps⟩ := hag.leafSome n hnaux ci hfA
+      obtain ⟨ci', hfR, hlps, hleaf⟩ := hag.leafSome n hnaux ci hfA
       rw [denoteMeta, hfA] at hA
       rw [denoteMeta, hfR] at hA'
       dsimp only at hA hA'
@@ -379,7 +392,7 @@ theorem denoteMeta_congr_auxFree :
         rw [if_pos (by rw [hlps]; exact hl)] at hA'
         obtain rfl := Option.some.inj hA
         obtain rfl := Option.some.inj hA'
-        rw [hlps, hag.leaf n hnaux]
+        rw [hlps, hleaf]
       · rw [if_neg hl] at hA; exact nomatch hA
   | @bvar _ i =>
     intro _ Vs D _ hfv A A' hA hA'
@@ -761,7 +774,7 @@ theorem denoteMeta_restoreWalk :
       cases hfA : envA.find? n with
       | none => rw [denoteMeta, hfA] at hA; exact nomatch hA
       | some ci =>
-        obtain ⟨ci', hfR, hlps⟩ := hag.leafSome n hn ci hfA
+        obtain ⟨ci', hfR, hlps, hleafn⟩ := hag.leafSome n hn ci hfA
         rw [denoteMeta, hfA] at hA
         rw [denoteMeta, hfR] at hA'
         dsimp only at hA hA'
@@ -770,7 +783,7 @@ theorem denoteMeta_restoreWalk :
           rw [if_pos (by rw [hlps]; exact hl)] at hA'
           obtain rfl := Option.some.inj hA
           obtain rfl := Option.some.inj hA'
-          rw [hlps, hag.leaf n hn]
+          rw [hlps, hleafn]
         · rw [if_neg hl] at hA; exact nomatch hA
   | @bvar d i =>
     intro e' hw _ fvsP fvs hP hF A A' hA hA' as xs ρ₀ _ _ _
