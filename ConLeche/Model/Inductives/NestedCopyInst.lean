@@ -5106,19 +5106,8 @@ theorem NestedPinsRun.copyOrdFLeft {pbs : List (Expr × ConLeche.BinderMeta)}
     simp only [Nat.zero_add]
     rw [ConLeche.instSeq_abstractRange_fvs_at b.nP l params _ hFlBnd hplenB hidxP hFlLeaves]
   -- THE PRUNE: the rewrite left the domain alone
-  have hmClosed : ConLeche.mentionsMember b.memberNames (Fs'.getD l default).1 = false := by
-    rcases hM : ConLeche.mentionsMember b.memberNames (Fs'.getD l default).1 with _ | _
-    · rfl
-    · exfalso
-      obtain ⟨T, hT, hTm⟩ := List.any_eq_true.mp hM
-      have : ConLeche.mentionsMember b.memberNames x.fvarTypeD = true := by
-        refine List.any_eq_true.mpr ⟨T, hT, ?_⟩
-        rw [hxdom2]
-        rcases hc : (Expr.instSeq (xfvs.take l) (l - 1) (Fs'.getD l default).1).mentionsConst T with
-          _ | _
-        · rw [ConLeche.mentionsConst_instSeq_false _ _ hc] at hTm; exact nomatch hTm
-        · rfl
-      rw [hm] at this; exact nomatch this
+  have hmClosed : ConLeche.mentionsMember b.memberNames (Fs'.getD l default).1 = false :=
+    ConLeche.mentionsMember_instSeq_false _ _ (by rw [← hxdom2]; exact hm)
   have hquiet : (Fs'.getD l default).1
       = Expr.instSeq (srcAtE st p (q₀ + i')).2.2 (dJ.nP - 1 + l)
           (Expr.instantiateLevelParams J.lps (pinsS.getD (q₀ + i') default).lvls
