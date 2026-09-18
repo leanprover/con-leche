@@ -1242,8 +1242,8 @@ theorem row_congr {ψ : Name → Nat} {ρp : Nat → V} (hρp : Sat V (d.params 
     {c c' : Nat} (hc : c < d.k + d.nPins) (hc' : c' < d.k + d.nPins)
     (hidx : d.idx ψ ρp c = d.idx ψ ρp c')
     (hcnt : (d.ctorsT d.pinCtors c).length = (d.ctorsT d.pinCtors c').length)
-    (hfit : ∀ t j fs, d.ChainFitT d.pinCtors ψ ρp Z t c j fs
-      ↔ d.ChainFitT d.pinCtors ψ ρp Z t c' j fs)
+    (hfit : ∀ t j, j < (d.ctorsT d.pinCtors c).length → ∀ fs,
+      d.ChainFitT d.pinCtors ψ ρp Z t c j fs ↔ d.ChainFitT d.pinCtors ψ ρp Z t c' j fs)
     (hinj : ∀ j fs, d.injT d.pinCtors ψ c j fs = d.injT d.pinCtors ψ c' j fs) :
     d.Ψaux ψ ρp Z c = d.Ψaux ψ ρp Z c' := by
   have hmaps := (h.auxFunctor ψ ρp hρp).2.1
@@ -1253,9 +1253,10 @@ theorem row_congr {ψ : Name → Nat} {ρp : Nat → V} (hρp : Sat V (d.params 
   rw [h.auxFibre ψ ρp hρp Z hZ c hc t ht x, h.auxFibre ψ ρp hρp Z hZ c' hc' t ht' x]
   constructor
   · rintro ⟨j, fs, hj, hF, rfl⟩
-    exact ⟨j, fs, hcnt ▸ hj, (hfit t j fs).mp hF, hinj j fs⟩
+    exact ⟨j, fs, hcnt ▸ hj, (hfit t j hj fs).mp hF, hinj j fs⟩
   · rintro ⟨j, fs, hj, hF, rfl⟩
-    exact ⟨j, fs, hcnt ▸ hj, (hfit t j fs).mpr hF, (hinj j fs).symm⟩
+    have hj' : j < (d.ctorsT d.pinCtors c).length := by omega
+    exact ⟨j, fs, hj', (hfit t j hj' fs).mpr hF, (hinj j fs).symm⟩
 
 /-- The carrier's fixed-point equation at a member, fibrewise. -/
 theorem carrier_app_eq {ψ : Name → Nat} {ρp : Nat → V} (hρp : Sat V (d.params ψ).reverse ρp)

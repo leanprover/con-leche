@@ -376,8 +376,13 @@ each checked against the tree:
   the index-set form of Bekić, which is stated for an injection, does
   not apply as it stands.  What it wants instead is the tuples that are
   constant on the matching's fibres, and the container's operator
-  preserving them; the two classes do agree there, because a shared copy
-  means one container, one instantiation and hence one row.
+  preserving them.  It does preserve them, but only THERE: at a tuple
+  that tells two identified classes apart their rows genuinely differ,
+  as soon as the classes' own container is recursive, so the fibres are
+  not a convenience but the exact domain of the agreement.  What makes
+  the two rows agree on them is that the two classes share their copy
+  in the block: one copy is one constructor list read once, hence one
+  row.
 * *Contiguity is not required.*  The kernel's worklist does interleave
   instances (two nested containers in one constructor mint both roots
   before expanding either — an accepted input), and Bekić's segment
@@ -589,16 +594,27 @@ facts about where that map sends a field's target, and the own-pin
 half's own premises — so the tree still takes the long way round
 (Resolution 3) at the one site that consumes the identification.
 
-**And one of those inputs is not the shape the assembled theorem
-takes.**  It asks the instance map to be an injection; the expansion's
-dedup by pin expression makes it one only when no two of the
-container's own pins instantiate alike, and a three-line block exhibits
-the collapse.  So the identification's set-theoretic layer has one more
-restatement in front of it — the comparison stated on the tuples
-constant along the matching's fibres rather than on an injective
-segment — before its inputs are worth reading off the run at all.  The
-container's side of that is a fact about a type already installed: two
-classes sharing a copy share a container, an instantiation and a row.
+**The instance map is not an injection, and the identification no
+longer asks it to be.**  The expansion's dedup by pin expression
+identifies two of the container's own pins whenever they instantiate
+alike, and a three-line block exhibits it.  The comparison is
+therefore stated on the tuples constant along the matching's fibres
+rather than on an injective segment, and the container's operator's
+rows are constant there — a fact about a type already installed,
+proved from the copies' constructor data and produced from the same
+two inputs as the fit at those classes.
+
+That agreement is exact in its domain, and the domain is where the
+fixpoint theory reads it: the tuples of the container's own wide
+space, constant along the fibres, below the container's own carrier —
+the same three conditions the fit carries.  Outside them it is FALSE
+rather than merely unproved, so the earlier free-tuple form of the
+hypothesis could have had no producer.  One consequence survives as an
+obligation of its own: the container's carrier's own fibre-constancy,
+which the fixpoint law used to hand back for free and which now needs
+either a meet over each fibre or the pins' entry law at the two
+identified pins.
+
 (The colliding shape is also one this checker rejects today, in its
 model generator rather than in its kernel, so no accepted stream
 exhibits it yet.)

@@ -574,14 +574,16 @@ theorem fibreConst_setSec (Z Y : Nat → V) : FibreConst σ s (setSec Ψ σ s Z 
 
 /-- **An operator that factors through the quotient has a
 fibre-constant least tuple** — by its own fixpoint law, with nothing
-assumed of `σ`. -/
+assumed of `σ`.  The agreement is asked of the tuples of the SPACE
+only, which is where the fixpoint law reads it. -/
 theorem fibreConst_lfpTuple {Is' : Nat → V} {Φ : (Nat → V) → Nat → V}
     (h : ∃ L, IsClosedTuple w s Is' Φ L) (hmono : MonoTuple w s Is' Φ)
-    (hmaps : MapsTuple w s Is' Φ) (hfc : ∀ Y, FibreConst σ s (Φ Y)) :
+    (hmaps : MapsTuple w s Is' Φ)
+    (hfc : ∀ Y, InTupleSpace w s Is' Y → FibreConst σ s (Φ Y)) :
     FibreConst σ s (lfpTuple w s Is' Φ) := by
   intro i i' hi hi' he
   rw [← lfpTuple_eq h hmono hmaps hi, ← lfpTuple_eq h hmono hmaps hi']
-  exact hfc _ i i' hi hi' he
+  exact hfc _ (lfpTuple_mem w s Is' Φ) i i' hi hi' he
 
 /-- A closed tuple's picked positions are a closed tuple of the
 section at it. -/
@@ -620,7 +622,7 @@ theorem lfpTuple_set (hσ : ∀ i, i < s → σ i < N)
   have hSmem := lfpTuple_mem w s (fun i => Is (σ i)) (setSec Ψ σ s (lfpTuple w N Is Ψ))
   have hSfc : FibreConst σ s
       (lfpTuple w s (fun i => Is (σ i)) (setSec Ψ σ s (lfpTuple w N Is Ψ))) :=
-    fibreConst_lfpTuple hsecCl hsecMono hsecMaps (fun Y => fibreConst_setSec _ Y)
+    fibreConst_lfpTuple hsecCl hsecMono hsecMaps (fun Y _ => fibreConst_setSec _ Y)
   have hSle : TupleLe s (fun i => Is (σ i))
       (lfpTuple w s (fun i => Is (σ i)) (setSec Ψ σ s (lfpTuple w N Is Ψ)))
       (setPick σ (lfpTuple w N Is Ψ)) :=
@@ -647,11 +649,20 @@ least tuple** — when it too factors through `σ`'s fibres.  This is what
 lets the congruence be stated at the projection `fcNorm` and still
 conclude about `Φ'` itself: `Φ' ∘ fcNorm`'s least tuple is `Φ'`-closed
 (both are fibre-constant, so the projection changes nothing below
-them), and `Φ'`'s is `Φ' ∘ fcNorm`-closed for the same reason. -/
+them), and `Φ'`'s is `Φ' ∘ fcNorm`-closed for the same reason.
+
+`hfc'` is asked only of the tuples that are in the space AND already
+fibre-constant — which is the strength an operator reading its
+argument at the classes' own positions can have, and all the composite
+ever hands it (`fcNorm`'s images are both).  What the weaker
+hypothesis no longer produces is `Φ'`'s own least tuple's
+fibre-constancy, so that is `hL'fc`, a hypothesis of its own. -/
 theorem lfpTuple_fcNorm_comp {Is' : Nat → V} {Φ' : (Nat → V) → Nat → V}
     (hIs' : ∀ i i', i < s → i' < s → σ i = σ i' → Is' i = Is' i')
     (hmono' : MonoTuple w s Is' Φ') (hmaps' : MapsTuple w s Is' Φ')
-    (hcl' : ∃ L, IsClosedTuple w s Is' Φ' L) (hfc' : ∀ Y, FibreConst σ s (Φ' Y))
+    (hcl' : ∃ L, IsClosedTuple w s Is' Φ' L)
+    (hfc' : ∀ Y, InTupleSpace w s Is' Y → FibreConst σ s Y → FibreConst σ s (Φ' Y))
+    (hL'fc : FibreConst σ s (lfpTuple w s Is' Φ'))
     {i : Nat} (hi : i < s) :
     lfpTuple w s Is' (fun Y => Φ' (fcNorm σ s Y)) i = lfpTuple w s Is' Φ' i := by
   have hmonoN : MonoTuple w s Is' (fun Y => Φ' (fcNorm σ s Y)) := fun Y Y' hY hY' hle =>
@@ -659,7 +670,8 @@ theorem lfpTuple_fcNorm_comp {Is' : Nat → V} {Φ' : (Nat → V) → Nat → V}
       (tupleLe_fcNorm hIs' hle)
   have hmapsN : MapsTuple w s Is' (fun Y => Φ' (fcNorm σ s Y)) :=
     fun _ hY => hmaps' _ (inTupleSpace_fcNorm hIs' hY)
-  have hfcN : ∀ Y, FibreConst σ s (Φ' (fcNorm σ s Y)) := fun Y => hfc' _
+  have hfcN : ∀ Y, InTupleSpace w s Is' Y → FibreConst σ s (Φ' (fcNorm σ s Y)) :=
+    fun Y hY => hfc' _ (inTupleSpace_fcNorm hIs' hY) (fibreConst_fcNorm Y)
   -- the projection is the identity, both ways, at a fibre-constant tuple
   have hid : ∀ X : Nat → V, FibreConst σ s X →
       TupleLe s Is' (fcNorm σ s X) X ∧ TupleLe s Is' X (fcNorm σ s X) := by
@@ -668,8 +680,6 @@ theorem lfpTuple_fcNorm_comp {Is' : Nat → V} {Φ' : (Nat → V) → Nat → V}
       rw [fcNorm_apply X m, hX _ _ (fcRep_lt hm) hm (fcRep_eq hm)] <;>
       exact FamLe.refl _ _
   -- `Φ'`'s least tuple is closed under the composite
-  have hL'fc : FibreConst σ s (lfpTuple w s Is' Φ') :=
-    fibreConst_lfpTuple hcl' hmono' hmaps' hfc'
   have hclN : IsClosedTuple w s Is' (fun Y => Φ' (fcNorm σ s Y)) (lfpTuple w s Is' Φ') := by
     refine ⟨lfpTuple_mem w s Is' Φ', TupleLe.trans ?_ (lfpTuple_closed hcl' hmono')⟩
     exact hmono' _ _ (inTupleSpace_fcNorm hIs' (lfpTuple_mem w s Is' Φ'))
@@ -926,7 +936,13 @@ congruence's correct strength.  The agreement `hΦ` is asked only of the
 tuples of the instance's space that lie below `C`, and `C` — the other
 presentation's own carrier at the call site — must be closed under
 both, which for `Φ'` is its fixpoint law and for the section follows
-from the agreement AT `C`. -/
+from the agreement AT `C`.
+
+`hfc'` — that `Φ'` factors through `σ`'s fibres — is likewise asked
+only of the tuples of the space that are already fibre-constant, which
+is the strength an operator whose rows read the classes' own positions
+can have; `hL'fc`, `Φ'`'s own least tuple's fibre-constancy, is then a
+hypothesis rather than a consequence. -/
 theorem lfpTuple_set_congr_le {w N s : Nat} {Is Is' : Nat → V} {Ψ Φ' : (Nat → V) → Nat → V}
     {σ : Nat → Nat} (hσ : ∀ i, i < s → σ i < N)
     (h : ∃ L, IsClosedTuple w N Is Ψ L) (hmono : MonoTuple w N Is Ψ)
@@ -934,7 +950,9 @@ theorem lfpTuple_set_congr_le {w N s : Nat} {Is Is' : Nat → V} {Ψ Φ' : (Nat 
     (hIs : ∀ i, i < s → Is (σ i) = Is' i)
     (hmono' : MonoTuple w s (fun i => Is (σ i)) Φ')
     (hmaps' : MapsTuple w s (fun i => Is (σ i)) Φ')
-    (hfc' : ∀ Y, FibreConst σ s (Φ' Y))
+    (hfc' : ∀ Y, InTupleSpace w s (fun i => Is (σ i)) Y → FibreConst σ s Y →
+      FibreConst σ s (Φ' Y))
+    (hL'fc : FibreConst σ s (lfpTuple w s (fun i => Is (σ i)) Φ'))
     {C : Nat → V}
     (hC : IsClosedTuple w s (fun i => Is (σ i)) (setSec Ψ σ s (lfpTuple w N Is Ψ)) C)
     (hC' : IsClosedTuple w s (fun i => Is (σ i)) Φ' C)
@@ -964,7 +982,7 @@ theorem lfpTuple_set_congr_le {w N s : Nat} {Is Is' : Nat → V} {Ψ Φ' : (Nat 
     (fun Y Y' hY hY' hle => hmono' _ _ (inTupleSpace_fcNorm hIsFC hY)
       (inTupleSpace_fcNorm hIsFC hY') (tupleLe_fcNorm hIsFC hle))
     hC hC'N hagree hi).trans ?_
-  exact (lfpTuple_fcNorm_comp hIsFC hmono' hmaps' ⟨C, hC'⟩ hfc' hi).trans
+  exact (lfpTuple_fcNorm_comp hIsFC hmono' hmaps' ⟨C, hC'⟩ hfc' hL'fc hi).trans
     (lfpTuple_congr hIs (fun _ _ _ _ => rfl) hi)
 
 end CongrLe

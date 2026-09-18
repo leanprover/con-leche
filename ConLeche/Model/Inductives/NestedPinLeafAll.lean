@@ -3429,7 +3429,12 @@ theorem hfit_wide_pin_of_class {nP k : Nat} {resSort : Level}
     (hcnt : ∀ c, ¬ c < dJ.k → c < dJ.k + dJ.nPins → ∀ j,
       (offs (σ c) + j < (Fss₀ ψ).length ∧ mems.getD (offs (σ c) + j) 0 = σ c)
         ↔ j < (dJ.pinCtors (c - dJ.k)).ctors.length)
-    (hfitc : ∀ Y : Nat → V, ∀ c, ¬ c < dJ.k → c < dJ.k + dJ.nPins → ∀ t : V, ∀ j,
+    (hfitc : ∀ Y : Nat → V,
+      InTupleSpace (resSort.eval ψ) (dJ.k + dJ.nPins) (dJ.idx ψJ ρJ) Y →
+      FibreConst σ (dJ.k + dJ.nPins) Y →
+      TupleLe (dJ.k + dJ.nPins) (dJ.idx ψJ ρJ) Y
+        (lfpTuple (resSort.eval ψ) (dJ.k + dJ.nPins) (dJ.idx ψJ ρJ) (dJ.Ψaux ψJ ρJ)) →
+      ∀ c, ¬ c < dJ.k → c < dJ.k + dJ.nPins → ∀ t : V, ∀ j,
       j < (dJ.pinCtors (c - dJ.k)).ctors.length → ∀ fs : List V,
       (FitsFrom (rss.getD (offs (σ c) + j) []) (fun i' ρ => slotSet (resSort.eval ψ)
           (nestedU k W pins ψ ((tgtsG.getD (offs (σ c) + j) []).getD i' 0)) ρ
@@ -3441,7 +3446,12 @@ theorem hfit_wide_pin_of_class {nP k : Nat} {resSort : Level}
           interp V (consList fs ρp) (((Ess₀ ψ).getD (offs (σ c) + j) []).getD l default)
             = projS l t))
       ↔ dJ.ChainFitT dJ.pinCtors ψJ ρJ Y t c j fs) :
-    ∀ Y : Nat → V, ∀ c, ¬ c < dJ.k → c < dJ.k + dJ.nPins → ∀ t : V, ∀ j, ∀ fs : List V,
+    ∀ Y : Nat → V,
+      InTupleSpace (resSort.eval ψ) (dJ.k + dJ.nPins) (dJ.idx ψJ ρJ) Y →
+      FibreConst σ (dJ.k + dJ.nPins) Y →
+      TupleLe (dJ.k + dJ.nPins) (dJ.idx ψJ ρJ) Y
+        (lfpTuple (resSort.eval ψ) (dJ.k + dJ.nPins) (dJ.idx ψJ ρJ) (dJ.Ψaux ψJ ρJ)) →
+      ∀ c, ¬ c < dJ.k → c < dJ.k + dJ.nPins → ∀ t : V, ∀ j, ∀ fs : List V,
       (offs (σ c) + j < (Fss₀ ψ).length ∧ mems.getD (offs (σ c) + j) 0 = σ c ∧
         FitsFrom (rss.getD (offs (σ c) + j) []) (fun i' ρ => slotSet (resSort.eval ψ)
             (nestedU k W pins ψ ((tgtsG.getD (offs (σ c) + j) []).getD i' 0)) ρ
@@ -3453,11 +3463,11 @@ theorem hfit_wide_pin_of_class {nP k : Nat} {resSort : Level}
           interp V (consList fs ρp) (((Ess₀ ψ).getD (offs (σ c) + j) []).getD l default)
             = projS l t))
       ↔ (j < (dJ.ctorsT dJ.pinCtors c).length ∧ dJ.ChainFitT dJ.pinCtors ψJ ρJ Y t c j fs) := by
-  intro Y c hc hcl t j fs
+  intro Y hY hYfc hYC c hc hcl t j fs
   rw [BlockModel.ctorsT_of_pin hc]
   by_cases hj : j < (dJ.pinCtors (c - dJ.k)).ctors.length
   · obtain ⟨h1, h2⟩ := (hcnt c hc hcl j).mpr hj
-    have hfit := hfitc Y c hc hcl t j hj fs
+    have hfit := hfitc Y hY hYfc hYC c hc hcl t j hj fs
     constructor
     · rintro ⟨-, -, h3, h4⟩
       exact ⟨hj, hfit.mp ⟨h3, h4⟩⟩
@@ -3469,6 +3479,103 @@ theorem hfit_wide_pin_of_class {nP k : Nat} {resSort : Level}
       exact absurd ((hcnt c hc hcl j).mp ⟨h1, h2⟩) hj
     · rintro ⟨h', -⟩
       exact absurd h' hj
+
+/-- **THE ROWS AT TWO CLASSES THE INSTANCE MAP IDENTIFIES** (task #315,
+Resolution 1, WIDE (f1) step 2): `ofNested_pin_block_of_wide_inst`'s
+`hrowsσ`, from the SAME two inputs the own-pin half of `hfit` already
+takes.
+
+The expansion mints one copy per distinct pin EXPRESSION, so two of
+the container's own pins instantiated alike arrive at ONE block pin
+and the fixpoint theory asks the container's wide operator to be
+constant on that collapse's fibres (`FibreConst`).  `row_congr` turns
+that into four statements about the two classes' CONSTRUCTOR DATA, and
+three of them are free here because the two classes share their block
+copy: `σ c = σ c'` makes `hcnt`'s and `hfitc`'s LEFT-HAND sides at the
+two classes the SAME proposition — one `offs (σ c) + j`, one target
+list, one joined tuple — so the counts agree and the two class fits
+are each equivalent to it, hence to each other.  No second transfer and
+no relation between the two records' targets is needed: the block copy
+is the mediator, exactly as it is for the fit itself.
+
+What is NOT free is that `σ` identifies no member class with a pin
+class (`hmemσ`) and that it gives two identified pin classes one
+index-tuple set (`hidxσ`).  Both are facts about the instance map,
+which is the run's; at the members `hroot` makes the map injective by
+itself. -/
+theorem rowsσ_of_pin_class {nP k q₀ : Nat} {resSort : Level}
+    {ppsA : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)} {W : (Name → Nat) → Nat}
+    {pins : List PinSyn} {offs : Nat → Nat} {mems : List Nat} {tgtsG : List (List Nat)}
+    {rss : List (List Bool)}
+    {tlss : (Name → Nat) → List (List (List (Nat × Nat × AnnotTerm)))}
+    {Eiss₀ : (Name → Nat) → List (List (List AnnotTerm))}
+    {Fss₀ Ess₀ : (Name → Nat) → List (List AnnotTerm)}
+    {ψ : Name → Nat} {ρp : Nat → V} {env : Env} {m : EnvModel V env}
+    {dJ : BlockModel V} {ψJ : Name → Nat} {ρJ : Nat → V}
+    {σ : Nat → Nat} {L : Nat → V}
+    (hreps : IsBlockModels m dJ) (hkpos : 0 < dJ.k)
+    (hρJ : Sat V (dJ.params ψJ).reverse ρJ)
+    (hw : dJ.w ψJ = resSort.eval ψ)
+    (hroot : ∀ i, i < dJ.k → σ i = k + q₀ + i)
+    (hmemσ : ∀ c c', c < dJ.k → ¬ c' < dJ.k → c' < dJ.k + dJ.nPins → σ c ≠ σ c')
+    (hidxσ : ∀ c c', ¬ c < dJ.k → c < dJ.k + dJ.nPins → ¬ c' < dJ.k → c' < dJ.k + dJ.nPins →
+      σ c = σ c' → dJ.idx ψJ ρJ c = dJ.idx ψJ ρJ c')
+    (hinjJ : ∀ c j fs, dJ.injT dJ.pinCtors ψJ c j fs
+      = injW (resSort.eval ψ) j (mkTower (fs ++ [pt])))
+    (hcnt : ∀ c, ¬ c < dJ.k → c < dJ.k + dJ.nPins → ∀ j,
+      (offs (σ c) + j < (Fss₀ ψ).length ∧ mems.getD (offs (σ c) + j) 0 = σ c)
+        ↔ j < (dJ.pinCtors (c - dJ.k)).ctors.length)
+    (hfitc : ∀ Y : Nat → V,
+      InTupleSpace (resSort.eval ψ) (dJ.k + dJ.nPins) (dJ.idx ψJ ρJ) Y →
+      FibreConst σ (dJ.k + dJ.nPins) Y →
+      TupleLe (dJ.k + dJ.nPins) (dJ.idx ψJ ρJ) Y
+        (lfpTuple (resSort.eval ψ) (dJ.k + dJ.nPins) (dJ.idx ψJ ρJ) (dJ.Ψaux ψJ ρJ)) →
+      ∀ c, ¬ c < dJ.k → c < dJ.k + dJ.nPins → ∀ t : V, ∀ j,
+      j < (dJ.pinCtors (c - dJ.k)).ctors.length → ∀ fs : List V,
+      (FitsFrom (rss.getD (offs (σ c) + j) []) (fun i' ρ => slotSet (resSort.eval ψ)
+          (nestedU k W pins ψ ((tgtsG.getD (offs (σ c) + j) []).getD i' 0)) ρ
+          (((tlss ψ).getD (offs (σ c) + j) []).getD i' [])
+          (((Eiss₀ ψ).getD (offs (σ c) + j) []).getD i' [])
+          (setJoin σ (dJ.k + dJ.nPins) L Y ((tgtsG.getD (offs (σ c) + j) []).getD i' 0)))
+        0 ρp ((Fss₀ ψ).getD (offs (σ c) + j) []) fs ∧
+        (∀ l, l < (blockIds nP ppsA ψ (σ c)).length →
+          interp V (consList fs ρp) (((Ess₀ ψ).getD (offs (σ c) + j) []).getD l default)
+            = projS l t))
+      ↔ dJ.ChainFitT dJ.pinCtors ψJ ρJ Y t c j fs) :
+    ∀ Y : Nat → V,
+      InTupleSpace (resSort.eval ψ) (dJ.k + dJ.nPins) (dJ.idx ψJ ρJ) Y →
+      FibreConst σ (dJ.k + dJ.nPins) Y →
+      TupleLe (dJ.k + dJ.nPins) (dJ.idx ψJ ρJ) Y
+        (lfpTuple (resSort.eval ψ) (dJ.k + dJ.nPins) (dJ.idx ψJ ρJ) (dJ.Ψaux ψJ ρJ)) →
+      FibreConst σ (dJ.k + dJ.nPins) (dJ.Ψaux ψJ ρJ Y) := by
+  obtain ⟨cvT, cvR, mI, rP, rules, hI⟩ := hreps 0 hkpos
+  intro Y hY hYfc hYC c c' hc hc' he
+  by_cases hm : c < dJ.k
+  · by_cases hm' : c' < dJ.k
+    · have : c = c' := by
+        have h1 := hroot c hm
+        have h2 := hroot c' hm'
+        omega
+      rw [this]
+    · exact absurd he (hmemσ c c' hm hm' hc')
+  · by_cases hm' : c' < dJ.k
+    · exact absurd he.symm (hmemσ c' c hm' hm hc)
+    · -- the two classes share their block copy, so the readers meet through it
+      have hkey : ∀ j, j < (dJ.pinCtors (c - dJ.k)).ctors.length
+          ↔ j < (dJ.pinCtors (c' - dJ.k)).ctors.length := fun j => by
+        rw [← hcnt c hm hc j, ← hcnt c' hm' hc' j, he]
+      have hlen : (dJ.pinCtors (c - dJ.k)).ctors.length
+          = (dJ.pinCtors (c' - dJ.k)).ctors.length :=
+        Nat.le_antisymm (Nat.not_lt.mp fun hlt => absurd ((hkey _).mp hlt) (Nat.lt_irrefl _))
+          (Nat.not_lt.mp fun hlt => absurd ((hkey _).mpr hlt) (Nat.lt_irrefl _))
+      refine hI.row_congr hρJ (by rw [hw]; exact hY) hc hc'
+        (hidxσ c c' hm hc hm' hc' he) ?_ ?_ (fun j fs => (hinjJ c j fs).trans (hinjJ c' j fs).symm)
+      · rw [BlockModel.ctorsT_of_pin hm, BlockModel.ctorsT_of_pin hm']; exact hlen
+      · intro t j hj fs
+        rw [BlockModel.ctorsT_of_pin hm] at hj
+        refine Iff.trans (hfitc Y hY hYfc hYC c hm hc t j hj fs).symm ?_
+        rw [he]
+        exact hfitc Y hY hYfc hYC c' hm' hc' t j (by omega) fs
 
 /-- **`classPin_of_pinCorr` at the BLOCK's pin table** (task #315 L-E,
 DESIGN §U.72): the premises read off the pin groups and the root

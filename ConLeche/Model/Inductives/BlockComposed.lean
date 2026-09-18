@@ -432,7 +432,9 @@ theorem ofNested_pin_block_wide {q₀ kJ nJ : Nat} (hseg : q₀ + kJ ≤ pins.le
     (hmonoJ : MonoTuple ((D).w ψ) (kJ + nJ) IsJ ΨJ)
     (hmapsJ : MapsTuple ((D).w ψ) (kJ + nJ) IsJ ΨJ)
     (hclJ : ∃ L, IsClosedTuple ((D).w ψ) (kJ + nJ) IsJ ΨJ L)
-    (hfcJ : ∀ Y, FibreConst σ (kJ + nJ) (ΨJ Y))
+    (hfcJ : ∀ Y, InTupleSpace ((D).w ψ) (kJ + nJ) IsJ Y → FibreConst σ (kJ + nJ) Y →
+      FibreConst σ (kJ + nJ) (ΨJ Y))
+    (hCfcJ : FibreConst σ (kJ + nJ) (lfpTuple ((D).w ψ) (kJ + nJ) IsJ ΨJ))
     (hIs : ∀ i, i < kJ + nJ → (D).idx ψ ρp (σ i) = IsJ i)
     (hΦ : ∀ Y, InTupleSpace ((D).w ψ) (kJ + nJ) (fun i => (D).idx ψ ρp (σ i)) Y →
       FibreConst σ (kJ + nJ) Y →
@@ -458,10 +460,17 @@ theorem ofNested_pin_block_wide {q₀ kJ nJ : Nat} (hseg : q₀ + kJ ≤ pins.le
     ⟨hLmem, (tupleLe_congr hIs).mpr (lfpTuple_closed hclJ hmonoJ)⟩
   have hmapsJ' : MapsTuple ((D).w ψ) (kJ + nJ) (fun i => (D).idx ψ ρp (σ i)) ΨJ := fun X hX =>
     (inTupleSpace_congr hIs).mpr (hmapsJ X ((inTupleSpace_congr hIs).mp hX))
-  -- the container's own carrier is constant on the collapse's fibres, by its
-  -- own fixpoint law: its operator's rows are
-  have hCfc : FibreConst σ (kJ + nJ) (lfpTuple ((D).w ψ) (kJ + nJ) IsJ ΨJ) :=
-    fibreConst_lfpTuple hclJ hmonoJ hmapsJ hfcJ
+  -- the container's own carrier is constant on the collapse's fibres: two
+  -- classes with one block image have one row, hence one carrier
+  have hCfc : FibreConst σ (kJ + nJ) (lfpTuple ((D).w ψ) (kJ + nJ) IsJ ΨJ) := hCfcJ
+  have hfcJ' : ∀ Y, InTupleSpace ((D).w ψ) (kJ + nJ) (fun i => (D).idx ψ ρp (σ i)) Y →
+      FibreConst σ (kJ + nJ) Y → FibreConst σ (kJ + nJ) (ΨJ Y) :=
+    fun Y hY hfc => hfcJ Y ((inTupleSpace_congr hIs).mp hY) hfc
+  have hL'fc : FibreConst σ (kJ + nJ)
+      (lfpTuple ((D).w ψ) (kJ + nJ) (fun i => (D).idx ψ ρp (σ i)) ΨJ) := by
+    intro a b ha hb hab
+    rw [lfpTuple_congr hIs (fun _ _ _ _ => rfl) ha, lfpTuple_congr hIs (fun _ _ _ _ => rfl) hb]
+    exact hCfc a b ha hb hab
   -- and it is closed under the copies' section, by the agreement AT it
   have hC : IsClosedTuple ((D).w ψ) (kJ + nJ) (fun i => (D).idx ψ ρp (σ i))
       (setSec (ΨA ψ ρp) σ (kJ + nJ)
@@ -472,7 +481,8 @@ theorem ofNested_pin_block_wide {q₀ kJ nJ : Nat} (hseg : q₀ + kJ ≤ pins.le
     exact hC'.2 m hm
   rw [ofNested_pinCar_lfp h (by omega), lfpTuple_composeΦ hmonoJ hclJ hi,
     ← Nat.add_assoc, ← hroot i hi]
-  exact lfpTuple_set_congr_le hσ hΨ.2.2 hΨ.1 hΨ.2.1 hIs hmonoJ' hmapsJ' hfcJ hC hC' hCfc hΦ hi'
+  exact lfpTuple_set_congr_le hσ hΨ.2.2 hΨ.1 hΨ.2.1 hIs hmonoJ' hmapsJ' hfcJ' hL'fc hC hC' hCfc
+    hΦ hi'
 
 /-- **The container's side of the wide identification, read off its
 STORED block model.**  `ofNested_pin_block_wide` against the container's
@@ -498,7 +508,10 @@ theorem ofNested_pin_block_of_wide {dJ : BlockModel V} {ψJ : Name → Nat} {ρJ
     (hclJ : ∃ L, IsClosedTuple ((D).w ψ) (dJ.k + dJ.nPins) (dJ.idx ψJ ρJ) (dJ.Ψaux ψJ ρJ) L)
     (hcomp : dJ.Φ ψJ ρJ = composeΦ ((D).w ψ) dJ.k dJ.nPins (dJ.idx ψJ ρJ) (dJ.Ψaux ψJ ρJ))
     {σ : Nat → Nat}
-    (hfcJ : ∀ Y, FibreConst σ (dJ.k + dJ.nPins) (dJ.Ψaux ψJ ρJ Y))
+    (hfcJ : ∀ Y, InTupleSpace ((D).w ψ) (dJ.k + dJ.nPins) (dJ.idx ψJ ρJ) Y →
+      FibreConst σ (dJ.k + dJ.nPins) Y → FibreConst σ (dJ.k + dJ.nPins) (dJ.Ψaux ψJ ρJ Y))
+    (hCfcJ : FibreConst σ (dJ.k + dJ.nPins)
+      (lfpTuple ((D).w ψ) (dJ.k + dJ.nPins) (dJ.idx ψJ ρJ) (dJ.Ψaux ψJ ρJ)))
     (hσ : ∀ i, i < dJ.k + dJ.nPins → σ i < k + pins.length)
     (hroot : ∀ i, i < dJ.k → σ i = k + q₀ + i)
     (hIs : ∀ i, i < dJ.k + dJ.nPins → (D).idx ψ ρp (σ i) = dJ.idx ψJ ρJ i)
@@ -514,7 +527,7 @@ theorem ofNested_pin_block_of_wide {dJ : BlockModel V} {ψJ : Name → Nat} {ρJ
     (D).pinCar ψ ρp (lfpTuple ((D).w ψ) k ((D).idx ψ ρp) ((D).Φ ψ ρp)) (q₀ + i)
       = lfpTuple ((D).w ψ) dJ.k (dJ.idx ψJ ρJ) (dJ.Φ ψJ ρJ) i := by
   rw [hcomp]
-  exact ofNested_pin_block_wide h hseg hσ hroot hmonoJ hmapsJ hclJ hfcJ hIs hΦ hi
+  exact ofNested_pin_block_wide h hseg hσ hroot hmonoJ hmapsJ hclJ hfcJ hCfcJ hIs hΦ hi
 
 /-- **THE WHOLE-SPACE AGREEMENT `hΦ`, REDUCED TO THE FITS** (task #315,
 Resolution 1): `ofNested_pin_block_of_wide`'s hypothesis is a

@@ -116074,3 +116074,201 @@ allowlisted, none demotable); `tests/nested-shadow.sh` 41/41;
 nothing left — which is the session's only new declaration without a
 consumer and is step 2's own product.  The accept set is untouched: no
 consumer has moved to the wide route.
+
+#### WIDE (f1) step 2 (a): THE ROW HYPOTHESIS WAS UNSATISFIABLE — `hfcJ` at a free tuple is FALSE, and the third restatement (lane WIDE, 2026-09-18)
+
+Step 2's remainder — the producer of `hrowsσ` — begins with a finding
+about `hrowsσ`'s own statement, and the finding is of the same shape as
+"WIDE (e) step 2" and "WIDE (f1)" before it: a hypothesis this thread
+landed quantifies over MORE tuples than the fact holds at.
+
+##### (a) The counterexample
+
+`hfcJ` (and the assembly's `hrowsσ`) read
+
+    ∀ Y, FibreConst σ (kJ + nJ) (ΨJ Y)
+
+— the container's wide operator's rows constant on `σ`'s fibres at
+EVERY tuple `Y`.  That is false as soon as the collapse is non-trivial
+and the collapsing classes' container is itself recursive:
+
+```lean
+inductive Pair (α : Type) (β : Type) where | mk (a : α) (b : β)
+inductive J (α : Type) (β : Type) where
+  | node (x : List (Pair α (J α β))) (y : List (Pair β (J α β)))
+```
+
+`J`'s own pins are `Pair α (J α β)`, `Pair β (J α β)`,
+`List (Pair α (J α β))` and `List (Pair β (J α β))`; a block that
+instantiates `α` and `β` alike collapses them in pairs.  At the two
+`List` classes the rows are
+`{nil} ∪ {cons(h,t) | h ∈ Y p₀, t ∈ Y p₂}` and
+`{nil} ∪ {cons(h,t) | h ∈ Y p₁, t ∈ Y p₃}`, which differ at any `Y`
+that separates `p₂` from `p₃`.  So the rows agree exactly on the
+tuples that do not tell the collapsed classes apart — the
+FIBRE-CONSTANT ones — and, because the rows are read off `auxFibre`,
+only at tuples of the wide SPACE (`auxFibre` and `row_congr` both take
+`InTupleSpace`, so no producer could have met the free form anyway).
+
+##### (b) The restatement, the same shape as the two before it
+
+`SetTheory/Derive/LfpCompose.lean`:
+
+* `fibreConst_lfpTuple`'s `hfc` is asked of the tuples of the SPACE
+  (it reads it at the least tuple and nowhere else);
+* `lfpTuple_fcNorm_comp` and `lfpTuple_set_congr_le` take
+  `hfc' : ∀ Y, InTupleSpace … Y → FibreConst σ s Y → FibreConst σ s (Φ' Y)`
+  — the composite only ever hands it `fcNorm`'s images, which are both
+  in the space and fibre-constant.  What the weaker hypothesis no
+  longer PRODUCES is `Φ'`'s own least tuple's fibre-constancy (the
+  fixpoint law is circular at that strength), so that is `hL'fc`, a
+  hypothesis of its own.
+
+`Model/Inductives/BlockComposed.lean` and `NestedFit.lean`:
+`ofNested_pin_block_wide`, `ofNested_pin_block_of_wide` and
+`ofNested_pin_block_of_wide_inst` take the weakened rows hypothesis
+and, in its place, the CARRIER's fibre-constancy `hCfcJ`/`hcarσ`
+(`FibreConst σ (kJ + nJ) (lfpTuple … ΨJ)`), which the congruence used
+to derive from the free form.
+
+##### (c) `hcarσ` — where it comes from, priced
+
+It is NOT derivable from the weakened rows law: the fixpoint argument
+needs the rows at a tuple that is not yet known fibre-constant.  Two
+routes, neither taken here:
+
+* **the fibre meet, in set theory** — `L' i := ⨅ { L i' | σ i' = σ i }`
+  is fibre-constant and below `L`, so `Ψ L' ≤ Ψ L = L` pointwise and
+  `Ψ L'` is fibre-constant by the weakened law, hence `Ψ L' ≤ L'` and
+  `L ≤ L'` by leastness.  It needs a finite meet of families over a
+  fibre (the tree has the binary `meetT` only).  ~1/3 session;
+* **`pinLeaf`, at the run** — the wide carrier at a pin class is the
+  pin's carrier (`auxLfp_eq_famAt`), and `pinLeaf` reads that as the
+  CONTAINER at the pin's components; two classes that `σ` collapses
+  have one container name, one level assignment and one component
+  READING, so the two carriers are equal.  Its inputs are the same
+  `PinCorr` pair that `hidxσ` below wants.
+
+##### (d) Green
+
+`lake build` exit 0, 725 jobs, 0 warning lines.  The accept set is
+untouched: no consumer has moved to the wide route.
+
+#### WIDE (f1) step 2 (b): THE ROWS PRODUCER — `rowsσ_of_pin_class`, and why the collapsed classes need no second transfer (lane WIDE, 2026-09-18)
+
+Step 2's remainder, landed.  `hrowsσ` is produced from the SAME two
+inputs the own-pin half of `hfit` already takes, and the premise-by-
+premise pricing of the previous entry was pessimistic in one important
+way.
+
+##### (a) The block copy is the mediator — `hrel` never arises
+
+The previous entry priced `hfit` at two collapsed own-pin classes as
+`copyTransfer_iff` "at the two `PinShapes` records, both sides
+container-side", with `hrel` trivial.  Both halves of that are wrong
+and the correction makes the step cheaper, not dearer:
+
+* `hrel` would NOT have been trivial.  `CopyCtorShape.recF` fixes a
+  copy's target as `base + dK.tgts i j l`, and two collapsed own pins
+  of `dJ` are copies of the same container `dK` at DIFFERENT group
+  bases, so their records' recursive targets are two different classes
+  of `dJ`.  `hrel` there is `Y` at two classes, not `rfl`;
+* it is not needed, because the two classes share their BLOCK copy.
+  `σ c = σ c'` makes `hcnt`'s and `hfitc`'s left-hand sides at the two
+  classes the SAME proposition — one `offs (σ c) + j`, one target list,
+  one joined tuple — so the counts agree and each class fit is
+  equivalent to it, hence to the other.  The own-pin half's existing
+  hypothesis `hfitc` (`pinClassFit_of_transfer`'s conclusion, which the
+  block's copy already mediates once per class) is applied twice at one
+  `Y` and that is the whole of `row_congr`'s `hfit`.
+
+`hinj` is likewise free: both sides are `injW` by `PinRecLaws`'
+`injW`, which the assembly already holds as `hinjJ`.
+
+##### (b) What landed
+
+* **`IsBlockModel.row_congr`**'s `hfit` is asked only at
+  `j < (d.ctorsT d.pinCtors c).length` — the range its own proof reads
+  it at, and the range the class-fit producers are stated on;
+* **`hfit_wide_pin_of_class`**'s `hfitc` and conclusion carry `hpin`'s
+  three premises on `Y` (in the space, fibre-constant, below the
+  container's wide carrier).  Its free `∀ Y` was not producible for the
+  same reason (a) gives: the producer reads the joined tuple back with
+  `setJoin_at_fc`;
+* **`rowsσ_of_pin_class`** (`NestedPinLeafAll.lean`, beside
+  `hfit_wide_pin_of_class`) — `ofNested_pin_block_of_wide_inst`'s
+  `hrowsσ` VERBATIM, from `hcnt` and `hfitc` (shared with the fit half,
+  verbatim), the block model (`row_congr`), `hroot`, `hinjJ`, and two
+  facts about the instance map: `hmemσ` (no member class is identified
+  with a pin class) and `hidxσ` (two identified pin classes have one
+  index-tuple set).  At the members the map is injective by `hroot`
+  alone.
+
+`tests/unconsumed.sh`: `row_congr` LEFT the list (this is its
+consumer); `rowsσ_of_pin_class` entered it, the step's product, which
+(f3) consumes.
+
+##### (c) `hmemσ` and `hidxσ` are the instance map's, not the model's
+
+Neither is readable off `dJ`'s stored model — both are statements about
+`σ`, which K.61 defines:
+
+* `hmemσ` — that no member class shares a block pin with a pin class.
+  True because a container's own pin's container is declared strictly
+  earlier than the container, so its mimic's expression cannot be the
+  container's own; nothing in the model tier records it;
+* `hidxσ` — two identified pin classes have one index-tuple set.  The
+  route is the previous entry's `hidx` row: two `PinCorr`s at the ONE
+  block target give the two pins one `u`, one `Ids` and components
+  with equal readings at `ρJ`, hence `auxPinIdx` twice and
+  `BlockModel.pinIdx_of_view`.  Its inputs are K.61's `PinCorr` pair.
+
+The same `PinCorr` pair is what `hcarσ` (WIDE (f1) step 2 (a)) wants.
+So the container-side of the whole rows obligation is ONE run-level
+record — the instance map with its two `PinCorr`s — and nothing else.
+
+##### (d) Green
+
+`lake build` exit 0, 0 warning lines.  No consumer has moved to the
+wide route; the accept set is untouched.
+
+#### (f3)'s BRIEF: what `NestedTailIn.pinSegAt` can supply today (lane WIDE, 2026-09-18)
+
+The switch's consuming site is `NestedRecFibre.lean`'s
+`NestedTailIn.pinSegAt`, which calls the NARROW
+`ofNested_pin_block_of_inst` with the pin group `G : NestedPinGroup`
+and the run's `NestedLfpOk`.  Read hypothesis by hypothesis against
+`ofNested_pin_block_of_wide_inst`:
+
+**Available at the site today, unchanged from the narrow call** —
+`h` (`hOk'`), `hS` (`nestedShape_of_formers`), `hseg` (`G.seg`),
+`hreps` (`G.reps`), `hfT` (`G.typed`), `hPT` (`G.pinsTyped`),
+`hw` (`G.w`), `hu` (`nestedU_pin_group`), `hρJ` (`G.DsFit`),
+`hidx` (`G.idx`), `hgrp` (`G.grp`), `hsh` (`G.shape`),
+`hent` (`G.entry`); `hkpos` is `G.kEq` with the caller's `hi`.
+`hroot` is the group's own, once `σ` is defined to be `k + q₀ + i` on
+the members.
+
+**Half available** — `hinjJ` (`dJ.injT` is `injW` at every class):
+at the members it is `G.inj` through `injT_of_mem`; at the pin classes
+it is `PinRecLaws`' `injW` off `BlockAt`, which the site holds but
+has never opened for this.  No new record.
+
+**K.61's, and nothing at the site produces them** — `σ` itself (the
+instance map), `hσ` (its range) and its TOTALITY; `hstgt` (a
+container-recursive field at one of the container's own pins lands on
+`σ` of that class); `hmemσ` and `hidxσ` (`rowsσ_of_pin_class`'s two,
+above) and, with them, `hcarσ`.  `hIsσ` is half K.61's: at the members
+it is the narrow `hIs` bullet, at the pin classes `ClassPin.idx`
+composed with `auxPinIdx`.
+
+**K.62's** — `houtσ` (a rewritten container-ordinary field lands
+outside the instance).
+
+**Gated on both** — `hpin`, whose `hfitc` is
+`pinClassFit_of_transfer`'s premises and whose `hrel` is `σ`'s.
+
+So (f3) is exactly: K.61 (σ, its totality, `hstgt`, and the `PinCorr`
+pair that gives `hidxσ`/`hcarσ`/`hmemσ`) + K.62 (`houtσ`) + the
+pin-class `injW` + `hfitc`'s own plumbing.  Nothing else in the list
+is missing, and no statement question remains in it.
