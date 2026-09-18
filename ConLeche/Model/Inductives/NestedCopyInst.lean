@@ -5946,22 +5946,15 @@ theorem NestedPinsRun.copyOrdFRightReadM {pbs : List (Expr × ConLeche.BinderMet
     rw [mutEiss0_getD hGlt]
   have hentry := hCD.recEntry ψ l hrecA hlA
   rw [hnameT] at hentry
-  refine ⟨[], ((dJ.Fss i' ((pinsS.getD (q₀ + i') default).ψJ ψ)).getD j []).getD l default,
-    rfl, ?_, ?_, ?_, ?_⟩
-  · rw [htls]
-    rfl
-  · rw [htls]
-    intro e he
-    exact nomatch he
-  · intro e he
-    exact nomatch he
-  · intro fs₁ bs hfs hfit hbs
-    rw [htls, List.map_nil] at hbs
-    obtain rfl : bs = [] := by
-      cases bs with
-      | nil => rfl
-      | cons c cs => exact hbs.elim
-    simp only [consList_nil]
+  -- **THE PREDICATE, APPLIED** (integration 3r): lane L-E's repaired
+  -- `EntryRead` takes the tuple and its reading law and asks for the
+  -- ENTRY IDENTITY, so what this arm proves — the reading and the index
+  -- FIT — is consumed the other way round: at the copy's EMPTY
+  -- telescope the slot is one application (`slotSet_nil`), `hZ` turns it
+  -- into the target's stored reading applied to the copy's index
+  -- expressions, and its own hypothesis IS the fit.
+  intro Z hZ
+  · intro fs₁ hfs hfit
     -- the core: the two readings, and the stored one's GRADING
     have hcore := R.copyFieldReadCore SF S hPD hi' hj hlF hrunAll ψ ρp hsat fs₁ hfs hfit
     -- the parameter spines read alike at the two cuts
@@ -6000,15 +5993,20 @@ theorem NestedPinsRun.copyOrdFRightReadM {pbs : List (Expr × ConLeche.BinderMet
           ((fms.take p.k).map (·.cvTa.name)) ψ).frame ρp
           (tgtAt (mutKsOf kinds (b.ownOffset (p.k + q₀ + i') + j)) l) = ρp :=
       TargetView.frame_of_mem _ _ hTk
-    refine ⟨?_, ?_⟩
-    · -- the reading: the container's field domain IS the target's leaf applied
-      rw [htgt, hEA, hnameTake, hEis, ← interp_instAll _ fs₁ ρp _, hfs, hcore.1, hentry,
+    rw [htls, slotSet_nil, hZ]
+    · -- the reading: the container's field domain IS the target's leaf
+      -- applied (the `simp only` is a BETA step: the predicate's `tg` is a
+      -- λ and `rw` matches syntactically)
+      simp only [htgt]
+      rw [hEA, hnameTake, hEis, ← interp_instAll _ fs₁ ρp _, hfs, hcore.1, hentry,
         interp_mkAppN_foldl, List.map_append, List.foldl_append, hpar1, hhead,
         interp_mkAppN_foldl, hpar0]
-    · -- the index fit: `WellDenoted` of the application IS the fit
+    · -- the index fit: `WellDenoted` of the application IS the fit, and it
+      -- is `hZ`'s own hypothesis
       have hokA := hcore.2.1
       rw [hentry] at hokA
-      rw [htgt, hfr, hIds, hEis]
+      simp only [htgt]
+      rw [hfr, hIds, hEis]
       simp only [blockIds]
       exact (leafSpineFit ((R.h.FD _ _ hft).len ψ) (mp₁.base2.cval_closedL _ ψ)
         (R.h.leafT hft ψ) hfs
@@ -6023,48 +6021,10 @@ of a pin group.  Its five fields are the arms proved above — `len`
 (`copyLen`), `recF` (`copyRecF`/`copyRecFRefl` with their readings),
 `ordF`'s left arm (`copyOrdFLeft`), `ordF`'s right arm and `pinF`
 (their target conjuncts, `copyOrdFRight_shape`/`copyPinF_shape`) and
-`es` (`copyEs`) — with four residuals, each named below at exactly
-the conjunct that is open. -/
-
-/-- **RESIDUAL 1 — K.42's CONJUNCT, until the run record carries it**
-(task #315 L-B, DESIGN §U.78): the kernel's own record — at every
-ORDINARY field of every copy's constructor, the positivity
-normalisation of the MINTED domain (the container's field at the pin's
-components, `mkCopy`'s output before the elimination's rewrite)
-returns the STORED one — read at the run.
-
-This is NOT a proof obligation.  It is a `certOnly` conjunct of
-`DeclNestedRun` that `nestedPinChecks_inv` already inverts, and the
-arm that consumes it (`NestedPinsRun.copyOrdFLeftRead` above) is
-PROVED: §U.62 (b)'s `NestedPinsShapeNoLam` — the λ-pin case stated on
-the block's own data, which no model-tier argument could reach — is
-gone.  What is left is PLUMBING: the conjunct reaches `NestedPinsRun`
-only through `NestedPinsStaged` (`NestedLoop.lean`) and
-`declNested_of` (`DeclNestedCore.lean`, lane L-E's), so this lane
-states it here rather than reach into another lane's file.  The moment
-the field lands, `nestedPinsShape_of` reads `R.hK42` and this
-disappears; nothing else changes. -/
-@[expose] def NestedPinsShapeK42 (V : Type w) [SetTheory V] (μ : CheckMode) (F : Nat) : Prop :=
-  ∀ {env : Env} (mp : EnvModelM V μ env) (p : NestedParts) (st : ElimState) (b : MutualBlock)
-    (envAux : Env) (stored : List AuxStored) (ctorsR : List (List (ConstantVal × Nat × Nat)))
-    (fmsA ctorsA₀ : List ConstantVal)
-    (fms : List MutualFormerA) (f₀ : MutualFormerA) (ctorsA : List (ConstantVal × Nat))
-    (sortss : List (List Level)) (kinds : List (List (RecFieldKind × Nat)))
-    (mp₁ : EnvModelM V μ (ConLeche.consMutualFormers fms env))
-    (ppsF : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)) (W : (Name → Nat) → Nat)
-    (idxF : Nat → List Expr) (dsF : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm))
-    (esF : Nat → (Name → Nat) → List AnnotTerm) (srcsF : Nat → List (Option Nat))
-    (fvsPF xFvsF : Nat → List Expr) (xrestF : Nat → Expr)
-    (eissF : Nat → (Name → Nat) → List (List AnnotTerm))
-    (tssF : Nat → (Name → Nat) → List (List (Nat × Nat × AnnotTerm)))
-    (mp₁' : EnvModelM V μ (ConLeche.consMutualFormers (fms.take p.k) env)),
-    NestedPinsRun V μ F mp p st b envAux stored ctorsR fmsA ctorsA₀ fms f₀ ctorsA sortss kinds mp₁
-      ppsF W idxF dsF esF srcsF fvsPF xFvsF xrestF eissF tssF mp₁' →
-    ∃ (jobs : List (Nat × Expr × Expr)) (ws : List Expr),
-      ConLeche.nestedOrdDomPairs env p st stored (ConLeche.nestedPinKinds p b stored) = some jobs ∧
-      ConLeche.nestedOrdNorms (m := ConLeche.CheckM) (ConLeche.fueledOps μ F)
-          (ConLeche.consNestedFormers (stored.take p.k) env) b.memberNames jobs = .ok ws ∧
-      ws = jobs.map (·.2.2)
+`es` (`copyEs`) — with THREE residuals, each named below at exactly
+the conjunct that is open.  K.42's own conjunct is no residual any
+more: lane L-E threaded it onto the run's bundle and
+`nestedPinsShape_of` reads `R.hK42` (integration 3r). -/
 
 /-- **RESIDUAL 2 — `ordF`'s right arm at the READING, at a FINITARY
 copy field** (lane L-E's `EntryRead`, DESIGN §U.36/§U.51): at a
@@ -6256,16 +6216,17 @@ every pin group — from the arms proved above.  `len` is `copyLen`;
 `copyRecFReadRefl` at the two field kinds; `ordF` splits on the
 AUXILIARY block's kind at the field (`kindAt_ne_of` excludes the two
 rejecting kinds) into `copyOrdFLeft` and `copyOrdFRight_shape`; `pinF`
-is `copyPinF_shape`; `es` is `copyEs`.  FOUR residuals remain, one per
-open conjunct (`NestedPinsShapeK42`, `NestedPinsShapeOrdRight` and its
-reflexive half `NestedPinsShapeOrdRightRefl` — which DESIGN "the
-telescope the positivity `whnf` MAKES" REFUTES — and
-`NestedPinsShapePinF`).  K.32's `nestedCopyTargetsOk`, which the
+is `copyPinF_shape`; `es` is `copyEs`.  THREE residuals remain, one per
+open conjunct (`NestedPinsShapeOrdRight` and its reflexive half
+`NestedPinsShapeOrdRightRefl` — which DESIGN "the telescope the
+positivity `whnf` MAKES" refuted on the OLD `EntryRead`, and whose
+refutation lane L-E's repair of that predicate has since removed — and
+`NestedPinsShapePinF`).  K.42's record is read off the run
+(`NestedPinsRun.hK42`, lane L-E), and K.32's `nestedCopyTargetsOk`, which the
 bookkeeping predicate `NestedPinsKindsRun` stood for until lane L-E
 threaded it (`NestedPinsRun.hK32`, DESIGN §U.64 (f)), is now read off
 the run record itself. -/
 theorem nestedPinsShape_of {F : Nat}
-    (hK42 : NestedPinsShapeK42 V μ F)
     (hOrd : NestedPinsShapeOrdRight V μ F)
     (hOrdR : NestedPinsShapeOrdRightRefl V μ F) (hPin : NestedPinsShapePinF V μ F) :
     NestedPinsShape V μ F := by
@@ -6274,8 +6235,7 @@ theorem nestedPinsShape_of {F : Nat}
   intro i hi cvT caps hfind ψ ρp hsat i' hi' j hj
   have hK32 := R.hK32
   have hkindsRun := R.h.classify
-  have hres1 := hK42 mp p st b envAux stored ctorsR fmsA ctorsA₀ fms f₀ ctorsA sortss kinds mp₁
-    ppsF W idxF dsF esF srcsF fvsPF xFvsF xrestF eissF tssF mp₁' R
+  have hres1 := R.hK42
   have hres2 := hOrd mp p st b envAux stored ctorsR fmsA ctorsA₀ fms f₀ ctorsA sortss kinds mp₁
     ppsF W idxF dsF esF srcsF fvsPF xFvsF xrestF eissF tssF mp₁' R pinsS SF dsR xFvsR q₀ kJ dJ S
     i hi cvT caps hfind ψ ρp hsat i' hi' j hj

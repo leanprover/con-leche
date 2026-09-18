@@ -337,6 +337,24 @@ omit [SetTheory V] in
 theorem famAt_of_pin {ψ : Name → Nat} {ρp : Nat → V} {X : Nat → V} {c : Nat} (hc : ¬ c < d.k) :
     d.famAt ψ ρp X c = d.pinCar ψ ρp X (c - d.k) := by simp only [famAt, if_neg hc]
 
+/-- **`ChainFitT` at a PIN class, read off the pin's constructors**
+(task #315 L-E, DESIGN §U.86): every reader is the pin's
+(`rssT_of_pin` and friends), so the fit is the one
+`copyTransfer_via` takes, at the pin's own lists. -/
+theorem chainFitT_of_pin {d : BlockModel V} {pc : Nat → PinCtors V} {ψ : Name → Nat}
+    {ρp : Nat → V} {Y : Nat → V} {t : V} {c j : Nat} {fs : List V} (hc : ¬ c < d.k) :
+    d.ChainFitT pc ψ ρp Y t c j fs ↔
+      (FitsFrom ((pc (c - d.k)).rss.getD j [])
+          (fun i' ρ => slotSet (d.w ψ) (d.uT ((pc (c - d.k)).tgts j i') ψ) ρ
+            ((((pc (c - d.k)).tlss ψ).getD j []).getD i' [])
+            ((((pc (c - d.k)).Eiss ψ).getD j []).getD i' [])
+            (Y ((pc (c - d.k)).tgts j i'))) 0 ρp (((pc (c - d.k)).Fss ψ).getD j []) fs ∧
+        ∀ l, l < ((d.pinAt (c - d.k)).Ids ψ).length →
+          interp V (consList fs ρp) ((((pc (c - d.k)).Ess ψ).getD j []).getD l default)
+            = projS l t) := by
+  unfold ChainFitT slotAtT teleAtT eisAtT
+  simp only [rssT, FssT, tlssT, EissT, EssT, tgtsT, IdsT, if_neg hc]
+
 /-! ### The kit -/
 
 /-- **The predecessor relation over the classes**: `tagged c i (injT c

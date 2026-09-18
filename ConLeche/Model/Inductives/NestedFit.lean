@@ -489,24 +489,49 @@ now that `targetPin_corr` replaces the refuted `targetHead_corr`. -/
 variable (tg : Nat → Nat) (tls : List (List (Nat × Nat × AnnotTerm))) (Eis : List (List AnnotTerm))
   (ρp : Nat → V) (i j : Nat)
 
+/-- **The entry identity at a tuple `Z`**, at one field: at a prefix
+fitting the container's real domains, the CONTAINER's domain read at
+the pin's frame IS the copy's slot at `Z`, taken at the field's target
+(`CopyEntry` of DESIGN §U.23, re-based on the container's prefix fit
+and generic in the tuple, task #315 L-E). -/
+@[expose] def CopyEntryAt (w : Nat) (u : Nat → Nat) (Z : Nat → V) (l : Nat) : Prop :=
+  ∀ fs₁ : List V, fs₁.length = l →
+    SpineFit (consList (Ds.map (interp V ρp)) ρp) (((dJ.Fss i ψJ).getD j []).take l) fs₁ →
+    interp V (consList fs₁ (consList (Ds.map (interp V ρp)) ρp)) (((dJ.Fss i ψJ).getD j []).getD l default)
+      = slotSet w (u (tg l)) (consList fs₁ ρp) (tls.getD l []) (Eis.getD l []) (Z (tg l))
+
 /-- **The entry at the STORED READING** (task #315 L-E, DESIGN §U.36):
 the shape of a container-ordinary field the elimination rewrote — the
-copy's field is recursive at a target `tg l` outside the group — reads
-the container's domain as a Π-tower (`mkPisAV tlsJ body`, the field's
-own telescope) whose BODY, under the telescope at a prefix fitting the
-container's real domains, reads as the TARGET's stored reading
-(`TargetView.EA`) applied to the copy's index expressions' readings —
-stated at the body, FIBRE-wise, not at the tower: equal towers do not
-give equal fibres (an empty fibre empties the tower), and the transfer
-between a container's pin constructors and the block's copies
-(DESIGN §U.48) identifies the two targets' readings fibre-wise; the
-copy's telescope is the container's instantiated (`instTele`), the
-telescopes' bits are the block's regime, and the index expressions'
-readings fit the target's index telescope at the target's frame.  The
-facts turn the reading into the copy's SLOT at any tuple whose target
-families read as the stored readings (`copyEntryAt_of_read`) — the
-entry at the auxiliary carrier is then a theorem of the WHOLE block,
-not a per-group obligation.
+copy's field is recursive at a target `tg l` outside the group — is
+the ENTRY IDENTITY at every tuple whose family at the target reads as
+the target's stored reading: the container's domain, read at the pin's
+frame under a prefix fitting the container's real domains, IS the
+copy's SLOT at that tuple.
+
+**Stated as what its consumer produces** (task #315, lane L-B's
+refutation of 2026-09-18, DESIGN "the telescope the positivity `whnf`
+MAKES"): until that day the arm exhibited the container's domain as a
+SYNTACTIC Π-tower `mkPisAV tlsJ body` whose telescope the copy's was
+an `instTele` of, and BOTH clauses are FALSE at a block this checker
+ACCEPTS (`tests/e2e/nested_lam_pin_refl.ndjson`).  The witness: a
+container whose field is an application of a function PARAMETER,
+nested at an instantiation whose body is an arrow.  The elimination's
+rewrite is the identity on the minted redex, the positivity
+normalisation beta-reduces it to that arrow, and the copy's field is
+therefore REFLEXIVE with a one-entry telescope where the container's
+own field is ORDINARY and an APPLICATION.  The telescope clause forces
+`tlsJ.length = 1` (`instTele_length`), and the first clause then asks
+an application to equal a `.pi`-headed term: no witness exists.
+
+What was wrong is the SHAPE, not the route — the slot is a Π-set over
+a telescope the COPY really has, and only the demand that the
+CONTAINER exhibit the same telescope SYNTACTICALLY was false.  So the
+predicate now quantifies over the tuple and asks for the identity
+directly, and the arm's obligation is the ONE reading identity it can
+prove.  Nothing syntactic survives on the container's side: whether a
+copy telescope is always an `instTele` of a container-side one is NOT
+established — lane L-B could not establish it, and this lane does not
+assume it.
 
 Since DESIGN §U.61 the arm carries the reading and NOTHING about the
 target's head: the `TargetHead` conjunct — the target's container read
@@ -518,30 +543,11 @@ entry is its own reading law, which is all the transfer's fit needs;
 what the WALK loses is the correspondence at such a field (DESIGN
 §U.61 (c)). -/
 @[expose] def EntryRead (l : Nat) : Prop :=
-  ∃ (tlsJ : List (Nat × Nat × AnnotTerm)) (body : AnnotTerm),
-    ((dJ.Fss i ψJ).getD j []).getD l default = mkPisAV tlsJ body ∧
-    (tls.getD l []).map (·.2.2) = instTele Ds l (tlsJ.map (·.2.2)) ∧
-    (∀ e ∈ tls.getD l [], (e.2.1 = 0 ↔ TV.w = 0)) ∧
-    (∀ e ∈ tlsJ, (e.2.1 = 0 ↔ TV.w = 0)) ∧
-    (∀ fs₁ bs : List V, fs₁.length = l →
-      SpineFit (consList (Ds.map (interp V ρp)) ρp) (((dJ.Fss i ψJ).getD j []).take l) fs₁ →
-      SpineFit (consList fs₁ ρp) ((tls.getD l []).map (·.2.2)) bs →
-      interp V (consList bs (consList fs₁ (consList (Ds.map (interp V ρp)) ρp))) body
-          = ((Eis.getD l []).map (interp V (consList bs (consList fs₁ ρp)))).foldl SetTheory.app
-              (interp V ρp (TV.EA (tg l))) ∧
-        SpineFit (TV.frame ρp (tg l)) (TV.Ids (tg l))
-          ((Eis.getD l []).map (interp V (consList bs (consList fs₁ ρp)))))
-
-/-- **The entry identity at a tuple `Z`**, at one field: at a prefix
-fitting the container's real domains, the CONTAINER's domain read at
-the pin's frame IS the copy's slot at `Z`, taken at the field's target
-(`CopyEntry` of DESIGN §U.23, re-based on the container's prefix fit
-and generic in the tuple, task #315 L-E). -/
-@[expose] def CopyEntryAt (w : Nat) (u : Nat → Nat) (Z : Nat → V) (l : Nat) : Prop :=
-  ∀ fs₁ : List V, fs₁.length = l →
-    SpineFit (consList (Ds.map (interp V ρp)) ρp) (((dJ.Fss i ψJ).getD j []).take l) fs₁ →
-    interp V (consList fs₁ (consList (Ds.map (interp V ρp)) ρp)) (((dJ.Fss i ψJ).getD j []).getD l default)
-      = slotSet w (u (tg l)) (consList fs₁ ρp) (tls.getD l []) (Eis.getD l []) (Z (tg l))
+  ∀ Z : Nat → V,
+    (∀ is : List V, SpineFit (TV.frame ρp (tg l)) (TV.Ids (tg l)) is →
+      SetTheory.app (Z (tg l)) (tupW (TV.u (tg l)) is)
+        = is.foldl SetTheory.app (interp V ρp (TV.EA (tg l)))) →
+    CopyEntryAt dJ ψJ Ds tg tls Eis ρp i j TV.w TV.u Z l
 
 variable (base kJ : Nat) (Fs : List AnnotTerm) (rs : List Bool)
 
@@ -761,11 +767,11 @@ theorem IsBlockModel.ctor_params {env : Env} {m : EnvModel V env} {d : BlockMode
 /-! ## The entry at a tuple, from the reading -/
 
 /-- **The entry at a tuple whose target family reads the stored
-reading**: from `EntryRead` at a field and the law "the target's family
-at a fitting index tuple is the stored reading applied to the spine",
-the container's domain read at the pin's frame IS the copy's slot at
-that tuple (`interp_mkPisAV_piTele` over the copy's telescope, the
-reading identity, the lift law and the index fit). -/
+reading**: `EntryRead` IS this statement since lane L-B refuted its
+Π-tower clauses (see `EntryRead`), so the lemma is the predicate
+applied.  Kept as a named theorem because it, and not the predicate,
+is what the shape's three consumers (`NestedPinLeafAll.lean`) read —
+the repair moved no signature. -/
 theorem copyEntryAt_of_read {TV : TargetView V} {dJ : BlockModel V} {ψJ : Name → Nat}
     {Ds : List AnnotTerm}
     {tg : Nat → Nat} {tls : List (List (Nat × Nat × AnnotTerm))}
@@ -774,32 +780,8 @@ theorem copyEntryAt_of_read {TV : TargetView V} {dJ : BlockModel V} {ψJ : Name 
     (hZ : ∀ is : List V, SpineFit (TV.frame ρp (tg l)) (TV.Ids (tg l)) is →
       SetTheory.app (Z (tg l)) (tupW (TV.u (tg l)) is)
         = is.foldl SetTheory.app (interp V ρp (TV.EA (tg l)))) :
-    CopyEntryAt dJ ψJ Ds tg tls Eis ρp i j TV.w TV.u Z l := by
-  intro fs₁ hl₁ hsp
-  obtain ⟨tlsJ, body, hF, htl, hbits, hbitsJ, hbody⟩ := hread
-  subst hl₁
-  rw [hF]
-  unfold slotSet
-  rw [htl]
-  rw [ConLeche.Semantics.interp_mkPisAV_piTele (v := TV.w) (acc := []) (fun d' hd' => hbitsJ d' hd')]
-  have key : ∀ bs : List V,
-      SpineFit (consList fs₁ (consList (Ds.map (interp V ρp)) ρp)) (tlsJ.map (·.2.2)) bs →
-      SetTheory.app (Z (tg fs₁.length)) (tupW (TV.u (tg fs₁.length))
-          ((Eis.getD fs₁.length []).map (interp V (consList ([] ++ bs) (consList fs₁ ρp)))))
-        = interp V (consList ([] ++ bs) (consList fs₁ (consList (Ds.map (interp V ρp)) ρp))) body := by
-    intro bs hbs
-    rw [List.nil_append]
-    have hbs' : SpineFit (consList fs₁ ρp) ((tls.getD fs₁.length []).map (·.2.2)) bs := by
-      rw [htl]; exact (spineFit_instTele Ds ρp (tlsJ.map (·.2.2)) fs₁ bs).mpr hbs
-    obtain ⟨hb, hfit⟩ := hbody fs₁ bs rfl hsp hbs'
-    rw [hZ _ hfit, hb]
-  exact (piTele_instTele
-    (B := fun bs => SetTheory.app (Z (tg fs₁.length)) (tupW (TV.u (tg fs₁.length))
-      ((Eis.getD fs₁.length []).map (interp V (consList bs (consList fs₁ ρp))))))
-    (B' := fun bs => interp V (consList bs (consList fs₁ (consList (Ds.map (interp V ρp)) ρp))) body)
-    Iff.rfl Ds ρp (tlsJ.map (·.2.2)) fs₁ [] key).symm
-  intro as _
-  rw [List.nil_append]
+    CopyEntryAt dJ ψJ Ds tg tls Eis ρp i j TV.w TV.u Z l :=
+  hread Z hZ
 
 /-! ## The fits at one constructor -/
 
@@ -1336,14 +1318,13 @@ theorem CopyCtorShape.of_EA {TV : TargetView V} {acval acval' : Name → (Name �
   len := h.len
   recF := h.recF
   ordF := fun l hl hr => by
-    rcases h.ordF l hl hr with hL | ⟨h1, h2, h3, tlsJ, body, hF, htl, hb, hbJ, hr⟩
+    rcases h.ordF l hl hr with hL | ⟨h1, h2, h3, hr⟩
     · exact Or.inl hL
-    · refine Or.inr ⟨h1, h2, h3, tlsJ, body, hF, htl, hb, hbJ, fun fs₁ bs hl₁ hsp hbs => ?_⟩
-      obtain ⟨hr1, hr2⟩ := hr fs₁ bs hl₁ hsp hbs
-      refine ⟨?_, hr2⟩
-      rw [hr1]
-      show _ = List.foldl _ (interp V ρp (EA' (tg l))) _
-      rw [hEA _ h3]
+    · refine Or.inr ⟨h1, h2, h3, fun Z hZ => hr Z fun is his => ?_⟩
+      have hz := hZ is his
+      show _ = List.foldl _ (interp V ρp (TV.EA (tg l))) _
+      rw [← hEA _ h3]
+      exact hz
   pinF := fun l hl hr hnt => by
     obtain ⟨h1, h2, h3, h4, ⟨hp1, hp2, hp3, hp4, hp5, hp6⟩, h5, h6⟩ := h.pinF l hl hr hnt
     refine ⟨h1, h2, h3, h4, ⟨?_, hp2, hp3, hp4, hp5, hp6⟩, h5, h6⟩
