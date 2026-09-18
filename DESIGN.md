@@ -93026,3 +93026,131 @@ demotable; nested-shadow 28/28.  `tests/arena.sh` not re-run: the
 session touches no checker code.  Standard axioms on `normPosDomM_reads`,
 `normPosDomM_readEq_of`, `copyFieldReadCore`, `copyOrdFRightReadM`,
 `nestedPinsShape_of` and the chain probe.
+
+#### U.77 — L-B session 19: the pin route's step one, and step two RE-SIZED — its conclusion is already a theorem (lane L-B, 2026-09-18)
+
+`CopyCtorShape.pinF`'s four-step route (DESIGN "the telescope the
+positivity `whnf` MAKES" (d)) begins here.  Step one is landed (b).
+Step two — the FIRE, which this lane flagged as the route's risk — was
+read but not begun, and reading it changed its size: **the fire's
+CONCLUSION is `replaceAllNested_occurrence`, which is in the tree and
+fully general**, so step two is not an inversion to write but five
+hypotheses to discharge, four of them cheap (c).
+
+##### (a) THE MINT DEFECT — what this lane's record does and does not rest on
+
+The kernel lane's finding (the copy-minting successor state built by a
+literal that omitted the worklist-position field, which defaults to
+zero) prompts a check of this lane's claims.  Counted, not sampled:
+
+* **nothing this lane has PROVED rests on a measurement at all.**  The
+  arms read recorded data — `copyResid`'s package, the block's
+  `BlockCtorData`, the container's `IsBlockModel` — and the proofs are
+  hypothesis-to-conclusion;
+* **one corpus measurement exists in this lane's record**: §U.62 (d),
+  the λ-pin residue, measured with a temporary throw inside
+  `normFieldDomsM` keyed on `mentionsMember dom && !mentionsMember
+  dom'`.  It reads no worklist position, no `grpBase`/`grpSize` and no
+  parent or root relation.  Its POSITIVE half (`tests/e2e/nested_p20`
+  exhibits the residue) is a single accepted fixture and stands.  Its
+  NEGATIVE half — "no hit on init-full, no hit on Mathlib" — is a
+  negative over corpora whose nested blocks the mint touches, so a
+  mis-stamped block could have been processed differently and left a
+  field unmeasured.  **That half should be re-run after the fix**, and
+  it matters because DESIGN "the member-target arm…" (b) tells the
+  kernel lane the widened filter "carries K.42's own measurement";
+* **the refutation witness is immune**: `tests/e2e/nested_lam_pin_refl`
+  has ONE nested occurrence (`numNested` is `1` on the block, one
+  `nested-shadow` line, one `Wrap (fun …)` in the source), so its group
+  has one copy and there is no second mint in the step for a position
+  to be reset on;
+* **the lesson about defaulted fields does not bite here**: the four
+  files this lane owns (`Model/Inductives/NestedCopyInst`,
+  `Model/Inductives/MutualNorm`, `Verify/Inductives/NestedCopyNorm`,
+  `Verify/Inductives/NestedCopyInstU`) declare ZERO structures and
+  therefore zero defaulted fields.
+
+##### (b) STEP ONE, LANDED — `copyPinFDom` (commit `171fc9d1`)
+
+`copyRecFDom`'s twin at a field nested at one of the CONTAINER's own
+pins, and shorter than it: at a nested field the container's own record
+says the head outright.  `BlockOpened.nestF` gives the head
+`(pinAt q).J` WITH its level arguments and the argument count
+`nPJ + nIdx`, where the member case had to reconstruct the head from
+K.14's uniformity.  B1 carries head and arity from the OPENED domain to
+the CLOSED one (`blockCtorFieldHead`, `blockCtorFieldArgs`), and the
+mint's two substitutions distribute over the spine (`ilp_mkAppN`,
+`instSeq_mkAppN_const`) leaving the head's NAME fixed and its level
+arguments substituted — stated for ANY components, level assignment
+and cut, which is the shape step two consumes.
+
+##### (c) STEP TWO, RE-SIZED — five discharges, one of them new
+
+§U.75 (d) called step two "the one step whose premise lives on the
+CONTAINER's side and has to be moved across the instantiation", and
+sized the route at 3–5 sessions on that.  Reading
+`replaceIfNested`'s cascade against `Verify/Inductives/NestedCopyRewrite`
+re-sizes it, because the conclusion is already proved:
+
+```lean
+theorem replaceAllNested_occurrence
+    (he : e = Expr.mkAppN (.const I us) args)
+    (hfind : env.find? I = some (.indInfo cv caps))
+    (hci : containerInfo? env I = some ci)
+    (hnP : ci.nP ≤ args.length)
+    (hment : ((args.take ci.nP).any fun a => st.newNames.any fun T => a.mentionsConst T) = true)
+    (hloose : ∀ a ∈ args.take ci.nP, a.looseBVarsBounded 0 = true)
+    (hrun : replaceAllNested env blvls params pbs₀ st e = .ok (e', st')) :
+    ∃ q : NestedPin, q ∈ st'.pins ∧
+      q.pin = Expr.mkAppN (.const I us) (args.take ci.nP) ∧
+      e' = Expr.mkAppN (Expr.mkAppN (.const q.aux blvls) params) (args.drop ci.nP)
+```
+
+— the pin the fire lands on, its `pin` expression, and the rewritten
+domain.  That IS step two's statement.  What it costs:
+
+* `he` — **step one**, landed (b);
+* `hloose` — the pin's components are loose-`bvar`-free; `copyResid`
+  already hands the arm that (`hDsB`), and the container's own
+  parameter arguments are closed under the instantiation;
+* `hnP` — the arity, (b)'s second conjunct, with `ci.nP = (pinAt q).nPJ`
+  from `ContainerModeled.pinNP`;
+* `hfind` — the pin's container is a stored inductive:
+  `IsBlockModel.pinsFound` at the container, with the environment step
+  to the elimination's own `env` to check;
+* `hci` — **read off the RUN, not off a record**: when
+  `containerInfo?` answers `none`, `replaceIfNested` ERRORS
+  (`.notImplemented`, "the block of the container is not recorded")
+  exactly when some argument mentions a new name, and the run returned
+  `.ok`.  So `hci` costs nothing beyond `hment`, which subsumes its
+  test (a mention at a PARAMETER argument is a mention at an argument);
+* `hment` — **the only new work**, and the chain §U.62 (e) named:
+  `ContainerModeled.nestMention` gives a parameter argument of the
+  CONTAINER's field mentioning a member of the CONTAINER's group;
+  `nestedContainersOk_uniform` + `uniformIndOccsE_stripPis` (both in
+  the tree, and the second descends to the `l`-th binder at offset
+  `0 + l`) say that member occurrence carries the container's whole
+  parameter spine; the mint substitutes the pin's components for that
+  spine, and `copyResid`'s `hmint` says one of them mentions a new
+  name.  What has to be written is the inversion of `uniformIndOccsE`
+  at the occurrence and the substitution lemma "a term carrying bvar
+  `i < nP` mentions, after `instSeq Ds`, whatever `Ds[i]` mentions".
+
+**So step two is ONE chain and four discharges, not an inversion.**
+This lane did not begin it: it is the step the brief says to stop
+before, and the re-sizing is worth more than a half-written chain.
+Steps three and four (`PinCorr`'s six clauses off the elimination's own
+pin record, and the telescope/index-expression instantiation in
+`copyRecFRead`'s idiom) are unchanged.
+
+##### (d) GATES
+
+`lake build` 716 jobs warning-free; `lake build ConLecheTests` 572 jobs
+warning-free; layering base 351 / model 282 / caps 3 / umbrella 1, 0
+base->lane and 0 impl->theory; trust surface 13/5 (648 scanned);
+no-local-paths OK; overview-links 112, no anchor moved; quote-gate 2;
+**proofdeps 4965 rows / 12 roots / 0 doors** (the baseline, unmoved);
+shake 511 removals all allowlisted; pub-imports 1315 of 2147, none
+demotable; nested-shadow 28/28.  `tests/arena.sh` not re-run: the
+session touches no checker code.  Standard axioms on `copyPinFDom` and
+on the chain probe over the five residuals.
