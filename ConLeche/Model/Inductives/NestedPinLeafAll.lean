@@ -4306,6 +4306,50 @@ theorem pins_le_of_instanceLe {n k : Nat} {Is P L : Nat → V}
         omega
   exact fun q hq => key (rank q + 1) q (Nat.lt_succ_self _) hq
 
+
+/-- **The rank induction AT THE RUN** (task #315 L-E, DESIGN §U.78):
+`pins_le_of_instanceLe` with `hedge` and `hhom` — K.37's clauses (2)
+and (3) — DISCHARGED from the kernel lane's K.52
+(`nestedPinRankOk_inv`), at the two lists the model reads
+(`nestedPinInstOf`/`nestedPinRankOf`) and the edge relation
+`∃ own, (q, q', own) ∈ edges`.
+
+**The ownership bit is never read**, which is what makes the edge
+relation existential in it: at an own edge K.37 gives the instance
+equality, at a not-own edge the disjunction, and `hedge`'s conclusion
+is the disjunction either way, so `mentionsMember` is never computed
+on this side.
+
+What is left is `hinst` — a container instance is closed once the pins
+it references OUTSIDE itself are — which is `nestedPinInstLe` at the
+instance's root, and which is stated here against the edge list the
+inversion produces so that the run-level assembly (where
+`NestedPinsRun` is in scope) is the only place that ever has to
+exhibit an edge.  This lane produces none. -/
+theorem nestedPinsLe_of_rank {env : Env} {p : NestedParts} {b : MutualBlock} {st : ElimState}
+    {stored : List AuxStored} (hrank : ConLeche.nestedPinRankOk env p b st stored = true)
+    {k : Nat} {Is P L : Nat → V}
+    (hinst : ∀ edges : List (Nat × Nat × Bool),
+      ConLeche.nestedPinEdges env p b st stored = some edges →
+      ∀ q, q < st.pins.length →
+      (∀ q₀ q', q₀ < st.pins.length → q' < st.pins.length →
+        (ConLeche.nestedPinInstOf env p b st stored).getD q₀ 0
+          = (ConLeche.nestedPinInstOf env p b st stored).getD q 0 →
+        (∃ own : Bool, (q₀, q', own) ∈ edges) →
+        (ConLeche.nestedPinInstOf env p b st stored).getD q' 0
+          ≠ (ConLeche.nestedPinInstOf env p b st stored).getD q 0 →
+        FamLe (Is (k + q')) (P q') (L (k + q'))) →
+      FamLe (Is (k + q)) (P q) (L (k + q))) :
+    ∀ q, q < st.pins.length → FamLe (Is (k + q)) (P q) (L (k + q)) := by
+  obtain ⟨edges, hed, h12, h3, h4⟩ := ConLeche.nestedPinRankOk_inv hrank
+  exact pins_le_of_instanceLe
+    (Edge := fun q q' => ∃ own : Bool, (q, q', own) ∈ edges)
+    (inst := fun q => (ConLeche.nestedPinInstOf env p b st stored).getD q 0)
+    (rank := fun q => (ConLeche.nestedPinRankOf env p b st stored).getD q 0)
+    (fun _ _ _ _ he => (h12 _ he.choose_spec).imp Eq.symm id)
+    (fun q q' hq hq' hqq => h3 q q' hq hq' hqq)
+    (hinst edges hed)
+
 end Assembly
 
 end ConLeche.Model
