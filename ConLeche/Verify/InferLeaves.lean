@@ -4,6 +4,9 @@ public import ConLeche.Verify.InferLemmas
 import ConLeche.Verify.Leaves
 import ConLeche.Verify.Subst
 import ConLeche.Verify.Abstract
+-- `natLitSupported_inv` (task #315 M8): the literal basis's three slots,
+-- which the reduction's own guard hands the resolution preservation
+import ConLeche.Verify.EnvGuards
 
 public section
 
@@ -1205,5 +1208,43 @@ theorem inferTypeCore_looseBVars {env : Env} (henv : EnvWF env) :
       simp [inferBody, throw, throwThe, MonadExceptOf.throw] at h
     | letE t' v' b' =>
       exact (inferTypeCore_letE_inv h).elim
+
+/-- A `Nat` literal resolves wherever the literal basis is stored. -/
+theorem natLit_constsResolve {env : Env} {n : Nat} (h : natLitSupported env = true) :
+    (Expr.lit (.natVal n)).constsResolve env = true := by
+  obtain ⟨cv, caps, cv0, i0, j0, cv1, i1, j1, hN, hZ, hS, -, -, -, -, -, -⟩ :=
+    natLitSupported_inv h
+  simp only [Expr.constsResolve, Bool.and_eq_true, hN, hZ, hS, Option.isSome_some]
+  simp
+
+/-- The nat-op guard's first conjunct. -/
+theorem natOpGuard_lit {env : Env} {c : Name} (h : natOpGuard env c = true) :
+    natLitSupported env = true := by
+  simp only [natOpGuard, Bool.and_eq_true] at h
+  exact h.1.1
+
+/-- The nat-op guard's `Bool` conjunct, at the two comparisons. -/
+theorem natOpGuard_bool {env : Env} {c : Name} (h : natOpGuard env c = true)
+    (hc : c = natBeqName ∨ c = natBleName) :
+    (Expr.const boolTrueName []).constsResolve env = true ∧
+      (Expr.const boolFalseName []).constsResolve env = true := by
+  simp only [natOpGuard, Bool.and_eq_true] at h
+  have hcond : (c == natBeqName || c == natBleName ||
+      natDivModNames.contains c) = true := by
+    rcases hc with rfl | rfl <;> simp
+  rw [if_pos (by simpa using hcond)] at h
+  obtain ⟨-, hb⟩ := h
+  simp only [Bool.and_eq_true] at hb
+  constructor
+  · simp only [Expr.constsResolve]
+    revert hb
+    cases hT : env.find? boolTrueName with
+    | none => intro hb; simp [hT] at hb
+    | some ci => intro _; simp
+  · simp only [Expr.constsResolve]
+    revert hb
+    cases hF : env.find? boolFalseName with
+    | none => intro hb; simp [hF] at hb
+    | some ci => intro _; simp
 
 end ConLeche

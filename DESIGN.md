@@ -104351,3 +104351,52 @@ result, or a stored guarded `c` with `natOpResult c a b = some e₂`),
 so that the guard can be applied at that `c`.  That inversion is what
 makes the chosen shape usable, and it is the reason the shape was
 checked before being reported rather than after.
+
+##### THE INVERSION HELD; THE INDUCTION HIT A DIFFERENT WALL, one case deep
+
+**The load-bearing piece works.**  `reduceNat_basis`
+(`Verify/InferLemmas.lean`) exposes which branch fired and, for the
+binary one, AT WHICH OPERATION — so the consumer's guard applies at the
+name that produced the result.  `natOpResult_shape'` names the `Bool`
+branch (the two comparisons are the only operations answering with a
+constant, and it is one of the two constructors), which is what makes
+the guard's own `Bool` clause applicable.  Both compiled on the first
+attempt, and with them the chosen hypothesis is confirmed usable.
+
+**The induction then compiles on every case but one.**  The
+transformation of `whnfPres_looseBVars` goes through for the sorts, the
+binders, β, δ, ι at a real rule, the literals, `reduceNat` and `proj`.
+The case that does not is the **K/η RESCUE** inside `prepareMajor`:
+`majorToCtor` FABRICATES a constructor application
+`mkAppN (.const rl.ctor ust) (tmaj.getAppArgs.take cnP)` — where
+`tmaj` is the whnf of the major's INFERRED type — and
+`majorToCtor_inv` reports three preservation facts about that
+fabrication (`wscopedB`, `looseBVarsBounded`, `fvarLeaves ⊆`) and no
+resolution.
+
+**The naive repair is mutual and should not be taken**: proving that
+`tmaj` resolves needs inference's output to resolve, which needs whnf's
+to resolve, which is the property being proved.
+
+**The repair that is not mutual** is the other direction, and it is the
+one to write: **inference SUCCEEDS ONLY ON RESOLVING INPUT.**
+`inferTypeCoreIO` looks up every constant it walks past — `.const` is a
+`find?`, a literal checks the basis, an application infers both sides —
+so "`inferTypeIO … e = .ok t → e.constsResolve env = true`" is a
+one-directional induction over that walk, with no whnf obligation at
+all.  The rescue branch already carries
+`inferTypeIO … major' = .ok tfab`, so the fabricated major's resolution
+follows immediately.  It is a **fourth twin** beside the three
+preservation inductions in `Verify/InferIOLeaves.lean`
+(`inferTypeCoreIO_WScoped`, `_fvarLeaves`, `_looseBVars`), each about
+120 lines, and it is a lemma worth having on its own terms.
+
+**So the conjunct is one induction away, and the shape of that
+induction is a scope question rather than an implementation
+difficulty** — which is why it is reported here rather than written.
+The tree is green: the helper family, `reduceNat_basis` and
+`natOpResult_shape'` are landed and consumed by nothing yet; the
+induction's 135 lines are parked at
+`_tmp/m8/whnfPres-constsResolve.parked.lean` (gitignored) and are a
+mechanical transformation of `whnfPres_looseBVars`, cheap to regenerate
+if that file is lost.

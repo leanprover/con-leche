@@ -3364,6 +3364,228 @@ theorem reduceNat_inv {env : Env} {fuel d : Nat} {e e₂ : Expr}
           | none => intro h; simp [pure, Except.pure] at h
       · intro h; simp [pure, Except.pure] at h
 
+/-- **`natOpResult`'s shape, with the `Bool` branch NAMED** (task #315
+M8): the two comparisons are the only operations that answer with a
+constant, and the constant is one of the two `Bool` constructors — so
+the nat-op guard's own `Bool` clause, which is conditional on exactly
+those two names, applies wherever this branch is taken. -/
+theorem natOpResult_shape' {c : Name} {a b : Nat} {e₂ : Expr}
+    (h : natOpResult c a b = some e₂) :
+    (∃ n, e₂ = .lit (.natVal n)) ∨
+      ((e₂ = .const boolTrueName [] ∨ e₂ = .const boolFalseName []) ∧
+        (c = natBeqName ∨ c = natBleName)) := by
+  unfold natOpResult at h
+  by_cases h1 : c = natPredName
+  · rw [if_pos h1] at h
+    exact Or.inl ⟨_, (Option.some.inj h).symm⟩
+  rw [if_neg h1] at h
+  by_cases h2 : c = natAddName
+  · rw [if_pos h2] at h
+    exact Or.inl ⟨_, (Option.some.inj h).symm⟩
+  rw [if_neg h2] at h
+  by_cases h3 : c = natSubName
+  · rw [if_pos h3] at h
+    exact Or.inl ⟨_, (Option.some.inj h).symm⟩
+  rw [if_neg h3] at h
+  by_cases h4 : c = natMulName
+  · rw [if_pos h4] at h
+    exact Or.inl ⟨_, (Option.some.inj h).symm⟩
+  rw [if_neg h4] at h
+  by_cases h5 : c = natPowName
+  · rw [if_pos h5] at h
+    split at h
+    · exact nomatch h
+    · exact Or.inl ⟨_, (Option.some.inj h).symm⟩
+  rw [if_neg h5] at h
+  by_cases h6 : c = natDivName
+  · rw [if_pos h6] at h
+    exact Or.inl ⟨_, (Option.some.inj h).symm⟩
+  rw [if_neg h6] at h
+  by_cases h7 : c = natModName
+  · rw [if_pos h7] at h
+    exact Or.inl ⟨_, (Option.some.inj h).symm⟩
+  rw [if_neg h7] at h
+  by_cases h8 : c = natGcdName
+  · rw [if_pos h8] at h
+    exact Or.inl ⟨_, (Option.some.inj h).symm⟩
+  rw [if_neg h8] at h
+  by_cases h9 : c = natLandName
+  · rw [if_pos h9] at h
+    exact Or.inl ⟨_, (Option.some.inj h).symm⟩
+  rw [if_neg h9] at h
+  by_cases h10 : c = natLorName
+  · rw [if_pos h10] at h
+    exact Or.inl ⟨_, (Option.some.inj h).symm⟩
+  rw [if_neg h10] at h
+  by_cases h11 : c = natXorName
+  · rw [if_pos h11] at h
+    exact Or.inl ⟨_, (Option.some.inj h).symm⟩
+  rw [if_neg h11] at h
+  by_cases h12 : c = natShiftLeftName
+  · rw [if_pos h12] at h
+    exact Or.inl ⟨_, (Option.some.inj h).symm⟩
+  rw [if_neg h12] at h
+  by_cases h13 : c = natShiftRightName
+  · rw [if_pos h13] at h
+    exact Or.inl ⟨_, (Option.some.inj h).symm⟩
+  rw [if_neg h13] at h
+  by_cases h15 : c = natBeqName
+  · rw [if_pos h15] at h
+    refine Or.inr ⟨?_, Or.inl h15⟩
+    by_cases hab : a = b
+    · exact Or.inl (by rw [← Option.some.inj h, if_pos hab])
+    · exact Or.inr (by rw [← Option.some.inj h, if_neg hab])
+  rw [if_neg h15] at h
+  by_cases h16 : c = natBleName
+  · rw [if_pos h16] at h
+    refine Or.inr ⟨?_, Or.inr h16⟩
+    by_cases hab : a ≤ b
+    · exact Or.inl (by rw [← Option.some.inj h, if_pos hab])
+    · exact Or.inr (by rw [← Option.some.inj h, if_neg hab])
+  rw [if_neg h16] at h
+  exact nomatch h
+
+/-- **`reduceNat`'s BASIS, exposed** (task #315 M8, lane L-B's
+preservation conjunct): which branch fired, and — for the binary one —
+AT WHICH OPERATION.
+
+The succ branch is guarded by `natLitSupported`, so its literal result
+resolves outright.  The binary branch is guarded by `natOpStored` at one
+of the sixteen guarded names, so the environment's own nat-op guard
+applies AT THAT NAME — which is what a resolution property needs, since
+`natOpResult` answers `Nat.beq`/`Nat.ble` with a `Bool` constructor
+that the reduction never consults the environment about.
+
+`reduceNat_inv` is this without the basis: it reports the result's
+shape and forgets which operation produced it. -/
+theorem reduceNat_basis {env : Env} {fuel d : Nat} {e e₂ : Expr}
+    (h : reduceNatFueled mode env fuel d e = .ok (some e₂)) :
+    (natLitSupported env = true ∧ ∃ n, e₂ = .lit (.natVal n)) ∨
+    (∃ (c : Name) (n₁ n₂ : Nat), natOpStored env c = true ∧
+      (c ∈ natOpNames ∨ c ∈ natDivModNames) ∧ natOpResult c n₁ n₂ = some e₂) := by
+  dsimp only [reduceNatFueled] at h
+  revert h
+  match e with
+  | .app (.const c []) a => ?_
+  | .app (.app (.const c []) a) b => ?_
+  | .bvar _ | .fvar _ _ | .sort _ | .lam _ _ _ | .forallE _ _ _
+  | .letE _ _ _ | .lit _ | .proj _ _ _ | .const _ _ =>
+    intro h; simp [reduceNat, pure, Except.pure] at h
+  | .app (.bvar _) _ | .app (.fvar _ _) _ | .app (.sort _) _
+  | .app (.lam _ _ _) _ | .app (.forallE _ _ _) _
+  | .app (.letE _ _ _) _ | .app (.lit _) _ | .app (.proj _ _ _) _ =>
+    intro h; simp [reduceNat, pure, Except.pure] at h
+  | .app (.const c (_ :: _)) _ =>
+    intro h; simp [reduceNat, pure, Except.pure] at h
+  | .app (.app (.bvar _) _) _ | .app (.app (.fvar _ _) _) _
+  | .app (.app (.sort _) _) _ | .app (.app (.app _ _) _) _
+  | .app (.app (.lam _ _ _) _) _ | .app (.app (.forallE _ _ _) _) _
+  | .app (.app (.letE _ _ _) _) _ | .app (.app (.lit _) _) _
+  | .app (.app (.proj _ _ _) _) _ =>
+    intro h; simp [reduceNat, pure, Except.pure] at h
+  | .app (.app (.const c (_ :: _)) _) _ =>
+    intro h; simp [reduceNat, pure, Except.pure] at h
+  · -- the `succ` branch: guarded by `natLitSupported`
+    intro h
+    simp only [reduceNat, Bind.bind, Except.bind, whnf_def] at h
+    revert h
+    split
+    · rename_i hg
+      intro h
+      revert h
+      cases hw0 : whnf mode env fuel d a with
+      | error err => intro h; exact nomatch h
+      | ok a0 =>
+      intro h
+      dsimp only at h
+      revert h
+      match rawNatLit? a0 with
+      | some n =>
+        intro h
+        simp only [pure, Except.pure, Except.ok.injEq, Option.some.injEq] at h
+        exact Or.inl ⟨hg.2, n + 1, h.symm⟩
+      | none => intro h; simp [pure, Except.pure] at h
+    · intro h; simp [pure, Except.pure] at h
+  · -- the binary branch: guarded by `natOpStored` at the fired name
+    intro h
+    simp only [reduceNat, Bind.bind, Except.bind, whnf_def] at h
+    revert h
+    split
+    · rename_i hg
+      intro h
+      revert h
+      cases hw1 : whnf mode env fuel d a with
+      | error err => intro h; exact nomatch h
+      | ok a' =>
+      intro h
+      dsimp only at h
+      revert h
+      match rawNatLit? a' with
+      | none => intro h; simp [pure, Except.pure] at h
+      | some n₁ =>
+        intro h
+        revert h
+        cases hw2 : whnf mode env fuel d b with
+        | error err => intro h; exact nomatch h
+        | ok b' =>
+        intro h
+        dsimp only at h
+        revert h
+        match rawNatLit? b' with
+        | some n₂ =>
+          intro h
+          dsimp only at h
+          cases hres : natOpResult c n₁ n₂ with
+          | none => rw [hres] at h; simp [pure, Except.pure] at h
+          | some r =>
+            rw [hres] at h
+            simp only [pure, Except.pure, Except.ok.injEq,
+              Option.some.injEq] at h
+            refine Or.inr ⟨c, n₁, n₂, hg.2, ?_, by rw [hres, h]⟩
+            rcases hg.1 with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl |
+              rfl | rfl | rfl
+            · exact Or.inl (by decide)
+            · exact Or.inl (by decide)
+            · exact Or.inl (by decide)
+            · exact Or.inl (by decide)
+            · exact Or.inl (by decide)
+            · exact Or.inl (by decide)
+            · exact Or.inr (by decide)
+            · exact Or.inr (by decide)
+            · exact Or.inr (by decide)
+            · exact Or.inr (by decide)
+            · exact Or.inr (by decide)
+            · exact Or.inr (by decide)
+            · exact Or.inr (by decide)
+            · exact Or.inr (by decide)
+        | none => intro h; simp [pure, Except.pure] at h
+    · -- the WF-op decline branch never returns a reduct
+      split
+      · intro h
+        revert h
+        cases hw1 : whnf mode env fuel d a with
+        | error err => intro h; exact nomatch h
+        | ok a' =>
+        intro h
+        dsimp only at h
+        revert h
+        match rawNatLit? a' with
+        | none => intro h; simp [pure, Except.pure] at h
+        | some _ =>
+          intro h
+          revert h
+          cases hw2 : whnf mode env fuel d b with
+          | error err => intro h; exact nomatch h
+          | ok b' =>
+          intro h
+          dsimp only at h
+          revert h
+          match rawNatLit? b' with
+          | some _ => intro h; exact nomatch h
+          | none => intro h; simp [pure, Except.pure] at h
+      · intro h; simp [pure, Except.pure] at h
+
+
 /-- Unfolding a definition at the head preserves well-scopedness (the
 stored value is closed by environment well-formedness). -/
 theorem unfoldDefinition_WScoped {env : Env} (henv : EnvWF env)
