@@ -106,7 +106,7 @@ theorem recRuleLaw_cons_prefix (mp : EnvModelM V μ env)
   obtain ⟨hrPle, hlaw0⟩ := mp.rec_rules φ n cv mI rP rules hfE rl hmem hfire
   refine ⟨hrPle, fun us hlen => ?_⟩
   obtain ⟨Ra, hRa0, hokRa, hpinsOk, hlaw⟩ := hlaw0 us hlen
-  obtain ⟨-, -, -, -, -, hrec', -⟩ :=
+  obtain ⟨-, -, -, -, -, -, hrec', -⟩ :=
     mp.base2.wf _ (ConLeche.Semantics.Env.find?_mem hfE)
   obtain ⟨-, -, hRres, -, hnest⟩ := hrec' cv mI rP rules rfl rl hmem
   refine ⟨Ra, ?_, hokRa, ?_, ?_⟩

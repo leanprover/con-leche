@@ -1761,7 +1761,7 @@ theorem checkProjLookups_ctor {env' : Env} {T ctorName : Name}
 /-- Well-formedness of a successfully checked projection type. -/
 theorem checkProjTy_wf {env' : Env} {T ctorName : Name}
     {lps : List Name} {mty pty : Expr} {nP nF : Nat}
-    (h : (checkProjTy env' T ctorName lps mty nP nF : CheckM Expr) =
+    (h : (checkProjTy mode env' T ctorName lps mty nP nF : CheckM Expr) =
       .ok pty) :
     pty.hasFvar = false ∧ pty.looseBVarsBounded 0 = true := by
   unfold checkProjTy at h
@@ -1774,11 +1774,15 @@ theorem checkProjTy_wf {env' : Env} {T ctorName : Name}
       next hwf =>
         split at h
         next =>
-          simp only [pure, Except.pure, Except.ok.injEq] at h
-          simp only [Bool.and_eq_true, Bool.not_eq_eq_eq_not,
-            Bool.not_true] at hwf
-          rw [← h]
-          exact ⟨hwf.1.2, hwf.1.1⟩
+          -- K.56's guard is one more `unless` before the `pure`
+          split at h
+          next =>
+            simp only [pure, Except.pure, Except.ok.injEq] at h
+            simp only [Bool.and_eq_true, Bool.not_eq_eq_eq_not,
+              Bool.not_true] at hwf
+            rw [← h]
+            exact ⟨hwf.1.2, hwf.1.1⟩
+          next => exact nomatch h
         next => exact nomatch h
       next => exact nomatch h
     next => exact nomatch h
@@ -1945,7 +1949,7 @@ theorem checkProjFn_wfimp {env' : Env} (henv' : EnvWF env')
   simp only [Bind.bind, Except.bind]
   obtain ⟨pty, hty, h⟩ := atF_bind_ok h
   rw [checkProjTy_datF] at hty
-  show ((checkProjTy env' T ctorName lps mcv.type nP nF :
+  show ((checkProjTy mode env' T ctorName lps mcv.type nP nF :
     CheckM Expr) >>= _) = _
   rw [hty]
   simp only [Bind.bind, Except.bind]

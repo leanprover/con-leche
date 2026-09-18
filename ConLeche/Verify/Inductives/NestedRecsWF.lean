@@ -98,6 +98,14 @@ theorem nested_recs_wf {env : Env} (henv : EnvWF env)
     (htys : ∀ x ∈ l, x.1.type.hasFvar = false ∧
       x.1.type.allLevelParamsDefined x.1.levelParams = true ∧
       x.1.type.constsResolve env = true ∧ x.1.type.looseBVarsBounded 0 = true)
+    -- **THE MAJOR PREMISE'S HEAD** (task #315): `ConstWF` asks it of
+    -- every stored recursor UNCONDITIONALLY, so it cannot come off the
+    -- rules' `.nested` fire below — a recursor with no nested-firing
+    -- rule has no guard to hang it on.  On this route the stored type
+    -- is the RESTORE's output, and the fact is
+    -- `restoreNested_major` at the scratch recursor's own shape
+    -- (`auxStored_rec_eq`), which the caller supplies per entry.
+    (hmaj : ∀ x ∈ l, Expr.recMajorHeadOk x.1.type x.2.1 = true)
     (hrules : ∀ x ∈ l, ∀ r ∈ x.2.2.2,
       (RecRule.rhs r).hasFvar = false ∧
       (RecRule.rhs r).allLevelParamsDefined x.1.levelParams = true ∧
@@ -129,7 +137,11 @@ theorem nested_recs_wf {env : Env} (henv : EnvWF env)
   obtain ⟨hfv, hlp, hres, hbv⟩ := htys x hx
   refine structConstWF hfv hlp
     (Expr.constsResolve_le (fun n => storeNestedRecs_le n) hres) hbv
-    (fun _ _ _ heq => nomatch heq) ?_
+    (fun _ _ _ heq => nomatch heq) ?_ (hmaj := ?maj)
+  case maj =>
+    intro cv mI rP rules heq
+    obtain ⟨rfl, rfl, -, -⟩ := ConstantInfo.recInfo.inj heq
+    exact hmaj x hx
   intro cvR' mI' rP' rules' heq r hr
   injection heq with e1 e2 e3 e4
   subst e1

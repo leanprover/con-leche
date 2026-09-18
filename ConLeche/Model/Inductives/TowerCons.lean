@@ -47,14 +47,14 @@ theorem noProjEnv_of_fresh (hwf : ConLeche.EnvWF env) {T : Name}
     ConLeche.Expr.noProjAt_of_constsResolve hT _
       ((hwf _ hc).2.2.2.2.1 cv v hint rfl).2.2.1
   rule cv mI rP rules hc r hr := by
-    obtain ⟨-, -, -, -, -, hrec, -, -⟩ := hwf _ hc
+    obtain ⟨-, -, -, -, -, -, hrec, -, -⟩ := hwf _ hc
     obtain ⟨-, -, hres, -, hnest⟩ := hrec cv mI rP rules rfl r hr
     refine ⟨ConLeche.Expr.noProjAt_of_constsResolve hT _ hres, ?_⟩
     intro lvls pins hn pin hp
     obtain ⟨-, -, hpins, -⟩ := hnest lvls pins hn
     exact ConLeche.Expr.noProjAt_of_constsResolve hT _ (hpins pin hp).2.2.1
   table tbl hc j hj := by
-    obtain ⟨-, -, -, -, -, -, htbl, -⟩ := hwf _ hc
+    obtain ⟨-, -, -, -, -, -, -, htbl, -⟩ := hwf _ hc
     obtain ⟨hsize, hb⟩ := htbl tbl rfl
     have hlt : j < tbl.bodies.size := by rw [hsize]; exact hj
     have := hb j (tbl.bodies[j]'hlt) (Array.getElem?_eq_getElem hlt)

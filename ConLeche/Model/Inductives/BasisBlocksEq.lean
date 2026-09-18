@@ -502,12 +502,28 @@ theorem containerInfo?_eqA {env : Env}
 
 /-! ## The group -/
 
+/-- **`Eq`'S OWN-PIN TABLE IS EMPTY** (task #315 M7-3 session 17,
+K.49) — `natBlock_ownPins` at the two-parameter block.  `Eq` has no
+mimic recursor either; `hmim` is `checkBasisDecl`'s own certification
+(`basisOwnMimicsOk`, the last conjunct of `DeclBasisRun`) at `Eq`. -/
+theorem eqBlock_ownPins {env : Env}
+    (hT : env.find? ConLeche.eqName = some ConLeche.eqA)
+    (hR : env.find? (ConLeche.eqName.str "rec") = some ConLeche.eqRecA)
+    (hC : env.find? ConLeche.eqReflName = some ConLeche.eqReflA)
+    (hmim : ConLeche.blockOwnMimicsOk env ConLeche.eqName 0 = true) :
+    ContainerOwnPinsSyn (V := V) env (eqBlock (V := V)) :=
+  ContainerOwnPinsSyn.of_noMimics hmim fun i hi => by
+    obtain rfl : i = 0 := Nat.lt_one_iff.mp (show i < 1 from hi)
+    exact ⟨_, _, containerInfo?_eqA hT hR hC, rfl, rfl⟩
+
 /-- **`Eq`'s group carries its block model**.  The `inj` clause is the
 one a pinned block CAN carry: `Eq` is `Prop`-valued, so `injW 0 j _`
 IS the point, which is `Eq.refl`'s value. -/
 theorem eqBlock_containerModeled {env : Env} {m : EnvModel V env}
     (hE : env.find? ConLeche.eqName = some ConLeche.eqA)
     (hR : env.find? ConLeche.eqReflName = some ConLeche.eqReflA)
+    (hRec : env.find? (ConLeche.eqName.str "rec") = some ConLeche.eqRecA)
+    (hmim : ConLeche.blockOwnMimicsOk env ConLeche.eqName 0 = true)
     (heq : EqLaw m)
     (hformerTy : ∀ (ψ : Name → Nat) (ρ : Nat → V),
       interp V ρ (m.acval ConLeche.eqName ψ)
@@ -555,22 +571,9 @@ theorem eqBlock_containerModeled {env : Env} {m : EnvModel V env}
   pinsNotMembers := fun _ h => (nomatch h)
   pinNP := fun _ h => (nomatch h)
   pinConts := fun _ h => (nomatch h)
+  ownPins := eqBlock_ownPins hE hRec hR hmim
   pinψ := fun _ h => (nomatch h)
-  pinParams := fun _ _ _ _ h => (nomatch h)
-
-/-- **`Eq`'S OWN-PIN TABLE IS EMPTY** (task #315 M7-3 session 17,
-K.49) — `natBlock_ownPins` at the two-parameter block.  `Eq` has no
-mimic recursor either; `hmim` is `checkBasisDecl`'s own certification
-(`basisOwnMimicsOk`, the last conjunct of `DeclBasisRun`) at `Eq`. -/
-theorem eqBlock_ownPins {env : Env}
-    (hT : env.find? ConLeche.eqName = some ConLeche.eqA)
-    (hR : env.find? (ConLeche.eqName.str "rec") = some ConLeche.eqRecA)
-    (hC : env.find? ConLeche.eqReflName = some ConLeche.eqReflA)
-    (hmim : ConLeche.blockOwnMimicsOk env ConLeche.eqName 0 = true) :
-    ContainerOwnPinsSyn (V := V) env (eqBlock (V := V)) :=
-  ContainerOwnPinsSyn.of_noMimics hmim fun i hi => by
-    obtain rfl : i = 0 := Nat.lt_one_iff.mp (show i < 1 from hi)
-    exact ⟨_, _, containerInfo?_eqA hT hR hC, rfl, rfl⟩
+  pinParams := fun _ _ _ => ContainerPinParams.of_noPins rfl
 
 /-- **`Eq`'s pins' laws**: no pins. -/
 theorem eqBlock_pinRecLaws {env : Env} {m : EnvModel V env} :
@@ -590,6 +593,8 @@ its `eq_law`. -/
 theorem eqBlockAt {env : Env} (mp : EnvModelM V μ env)
     (hE : env.find? ConLeche.eqName = some ConLeche.eqA)
     (hR : env.find? ConLeche.eqReflName = some ConLeche.eqReflA)
+    (hRec : env.find? (ConLeche.eqName.str "rec") = some ConLeche.eqRecA)
+    (hmim : ConLeche.blockOwnMimicsOk env ConLeche.eqName 0 = true)
     {B : ContainerInfo → BlockModel V}
     (hB : B ⟨2, [⟨ConLeche.eqName, [ConLeche.uN], ConLeche.eqA.toConstantVal.type,
         [⟨ConLeche.eqReflName, ConLeche.eqReflA.toConstantVal.type, 0⟩]⟩]⟩
@@ -608,7 +613,7 @@ theorem eqBlockAt {env : Env} (mp : EnvModelM V μ env)
             (ctorBodyAVI mp.base2 ConLeche.eqName 2 0 ψ ((eqBlock (V := V)).esF 0 0 ψ))) := by
     intro ψ ρ
     exact mp.mem_type ConLeche.eqReflA (ConLeche.find?_mem hR) ψ _ (eqReflA_type_read hE ψ) ρ
-  refine ⟨hB ▸ eqBlock_containerModeled hE hR (mp.eq_law) hformerTy hctorTy,
+  refine ⟨hB ▸ eqBlock_containerModeled hE hR hRec hmim (mp.eq_law) hformerTy hctorTy,
     ⟨fun _ => default, ?_, ?_⟩⟩
   · exact hB ▸ eqBlock_pinRecLaws
   · rw [hB]; exact fun q hq => (nomatch hq)

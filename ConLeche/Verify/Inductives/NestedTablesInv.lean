@@ -81,6 +81,54 @@ theorem nestedTables_inv {T : Name} {tbl? : Option ProjTable}
   obtain ⟨envI, hI, h⟩ := exceptBind_ok h
   exact ⟨envI, hI, h⟩
 
+/-- A `projTableName` free after one member's table stage was free
+before it: the stage conses nothing, or exactly one table. -/
+theorem nestedMemberTable_find?_none {T : Name} {tbl? : Option ProjTable}
+    {cs : List (ConstantVal × Nat × Nat)} {env env' : Env} {n : Name}
+    (h : nestedMemberTable (m := CheckM) T tbl? cs env = .ok env')
+    (hn : env'.find? n = none) : env.find? n = none := by
+  rcases nestedMemberTable_inv h with rfl | ⟨tbl, cvCa, nP, nF, -, -, htbl⟩
+  · exact hn
+  · obtain ⟨bodies, -, -, -, -, rfl⟩ := checkStructProjTable_inv htbl
+    rw [Env.find?_cons] at hn
+    split at hn
+    · exact nomatch hn
+    · exact hn
+
+/-- **A MEMBER WHOSE TABLE THE STAGE CONSES HAD NO TABLE BEFORE THE
+STAGE** (task #315 M7-2): at every entry of the stage's list that is
+structure-like — a recorded table and exactly one restored
+constructor — the member's `projTableName` is free at the environment
+the STAGE STARTED FROM.  It is `checkStructProjTable`'s own guard,
+carried back across the earlier members' conses
+(`nestedMemberTable_find?_none`).
+
+The consumer is the recorded tables' read-back: `auxStored_tbl_eq`
+leaves the disjunct "the table stood at the PRE-BLOCK environment
+already", and this is what refutes it — the nested stage found the
+name free at an environment the pre-block one is a prefix of. -/
+theorem nestedTables_projTable_fresh :
+    ∀ {l : List (Name × Option ProjTable × List (ConstantVal × Nat × Nat))} {env env' : Env},
+      nestedTables (m := CheckM) l env = .ok env' →
+      ∀ e ∈ l, ∀ (tbl : ProjTable) (cvCa : ConstantVal) (nP nF : Nat),
+        e.2.1 = some tbl → e.2.2 = [(cvCa, nP, nF)] →
+        env.find? (projTableName e.1) = none := by
+  intro l
+  induction l with
+  | nil => intro env env' _ e he; exact nomatch he
+  | cons hd rest ih =>
+    intro env env' h e he tbl cvCa nP nF htbl hcs
+    obtain ⟨T, tbl?, cs⟩ := hd
+    obtain ⟨envI, hI, hrest⟩ := nestedTables_inv h
+    rcases List.mem_cons.mp he with rfl | he'
+    · simp only [] at htbl hcs
+      subst htbl
+      subst hcs
+      simp only [nestedMemberTable] at hI
+      obtain ⟨bodies, -, -, -, hfresh, -⟩ := checkStructProjTable_inv hI
+      exact hfresh
+    · exact nestedMemberTable_find?_none hI (ih hrest e he' tbl cvCa nP nF htbl hcs)
+
 /-! ## Well-formedness -/
 
 /-- One member's table stage keeps the environment well-formed: it
@@ -103,5 +151,35 @@ theorem nestedTables_wf :
   | (T, tbl?, cs) :: rest, env, env', henv, h => by
     obtain ⟨envI, hI, hrest⟩ := nestedTables_inv h
     exact nestedTables_wf (nestedMemberTable_wf henv hI) hrest
+
+/-! ## What the stage adds -/
+
+/-- **THE TABLE STAGE ADDS PROJECTION TABLES AND NOTHING ELSE** (task
+#315 M7-3 session 21): a constant the stage's output stores is the
+input's own or one of the members' tables — each step conses nothing
+(`nestedMemberTable_inv`) or exactly one `projInfo`
+(`checkStructProjTable_inv`).
+
+Stated on the CONSTANT LISTS rather than on `find?`, because that is
+what the consumer needs: the nested route's `nestedMimN` asks where a
+`.recInfo` answer of the whole install's output came from, and this
+clause is what carries it past the last stage. -/
+theorem nestedTables_mem_inv :
+    ∀ {l : List (Name × Option ProjTable × List (ConstantVal × Nat × Nat))} {env env' : Env},
+      nestedTables (m := CheckM) l env = .ok env' →
+      ∀ c ∈ env'.consts, c ∈ env.consts ∨ ∃ tbl : ProjTable, c = .projInfo tbl
+  | [], env, env', h, c, hc => by
+    obtain rfl := nestedTables_nil_inv h
+    exact Or.inl hc
+  | (T, tbl?, cs) :: rest, env, env', h, c, hc => by
+    obtain ⟨envI, hI, hrest⟩ := nestedTables_inv h
+    rcases nestedTables_mem_inv hrest c hc with hcI | hproj
+    · rcases nestedMemberTable_inv hI with rfl | ⟨tbl, cvCa, nP, nF, -, -, htbl⟩
+      · exact Or.inl hcI
+      · obtain ⟨bodies, -, -, -, -, rfl⟩ := checkStructProjTable_inv htbl
+        rcases List.mem_cons.mp hcI with rfl | hc'
+        · exact Or.inr ⟨_, rfl⟩
+        · exact Or.inl hc'
+    · exact Or.inr hproj
 
 end ConLeche

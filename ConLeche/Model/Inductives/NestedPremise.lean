@@ -2,6 +2,9 @@ module
 
 public import ConLeche.Semantics.Inductives.DeclNested
 public import ConLeche.Model.Inductives.NestedFit
+-- `containerInfo?_inv`, for `ContainerModeled.pinParamsOf`'s re-indexing:
+-- proof-only, hence a plain import (task #315 M7-3 session 22).
+import ConLeche.Verify.Inductives.NestedGroupInv
 public section
 
 /-!
@@ -50,6 +53,126 @@ variable {V : Type w} [SetTheory V]
 variable {μ : CheckMode}
 
 /-! ## The premise: the containers' block models -/
+
+/-- **A stored container's PIN data are a congruence in the level
+assignment** (task #315 L-E, DESIGN §U.72 (e) — REQUESTED of M7-3 as a
+`ContainerModeled` clause, and carried as a premise until it lands):
+two assignments agreeing on the group's own constant's level parameters
+give ONE index universe, ONE component list and ONE index telescope at
+every pin of the block.
+
+`IsBlockModel.uParams` and `FormerData.params` are the same fact at the
+MEMBERS; nothing in the tier says it at the pins, and the PIN class of
+the container instance transfer needs it twice — at `copyTransfer_via`'s
+`huT` (the two copies' targets' index universes, `copyTarget_u`, when
+the target is one of the container's OWN pins) and at the `pinF` arm of
+the WALK (the two sides' `PinCorr` are at the same own pin, so
+`ClassPin`'s `frame` and `idx` come down to that pin's `Ds`/`Ids` at the
+two assignments).
+
+Four parts, and the WALK at a PIN class spends each exactly once
+(DESIGN §U.86): the pins' level ARGUMENTS scoped in the group's own
+level parameters (`ClassPin`'s `psi`, through `Level.substFn_ext` —
+this is also `targetPin_corr`'s `hpd`), the pins' COMPONENTS bounded at
+the container's parameters (`frame`, through `interp_congr_below`: the
+two sides read one component at two frames that agree only below
+`d.nP`), and the `u`/`Ds`/`Ids` congruences (`frame` and `idx`).
+
+It is true of every pin this checker records — a pin's level arguments
+and components are read off the block's own opened constructor, so they
+mention only the block's level parameters and its parameter context —
+and vacuous at a pins-free container. -/
+@[expose] def ContainerPinParams (cvI : ConstantVal) (d : BlockModel V) : Prop :=
+  ∀ q, q < d.nPins →
+    (∀ v ∈ (d.pinAt q).lvls, v.allParamsDefined cvI.levelParams = true) ∧
+    (∀ (ψ : Name → Nat) (e : AnnotTerm), e ∈ (d.pinAt q).Ds ψ →
+      ConLeche.Term.Term.bvarsBelow d.nP e.erase) ∧
+    ∀ ψ₁ ψ₂ : Name → Nat, (∀ pp ∈ cvI.levelParams, ψ₁ pp = ψ₂ pp) →
+      (d.pinAt q).u ψ₁ = (d.pinAt q).u ψ₂ ∧
+      (d.pinAt q).Ds ψ₁ = (d.pinAt q).Ds ψ₂ ∧
+      (d.pinAt q).Ids ψ₁ = (d.pinAt q).Ids ψ₂
+
+omit [SetTheory V] in
+/-- At a pins-free container the clause is vacuous. -/
+theorem ContainerPinParams.of_noPins {cvI : ConstantVal} {d : BlockModel V} (hnp : d.pins = []) :
+    ContainerPinParams (V := V) cvI d := by
+  intro q hq
+  simp only [BlockModel.nPins, hnp, List.length_nil] at hq
+  exact absurd hq (Nat.not_lt_zero _)
+
+/-- **A PIN, SPELLED AT ANOTHER INSTANTIATION** (task #315 M7-3
+session 14, DESIGN §U.73 (a)): the recorded pin `q` — its container
+applied to components that stand at the BLOCK's own parameter
+openers — written out at the level arguments `lvls` and components
+`DsE` a reader was asked for.
+
+The components are CLOSED first (`Expr.abstractRange x 0 nP 0`, which
+is the restore table's own closing of a pin, `restoreTbl`), then level
+-instantiated, then re-opened at `DsE`; so the whole form is a
+FUNCTION of the recorded OPENED components and needs no new `PinSyn`
+field.  The level arguments are substituted syntactically, at the
+container's own level parameters.
+
+This is the shape `containerOwnPinsAt` produces: it instantiates the
+mimic recursor's binders with `Expr.instPis ty (Ds ++ pad)` AFTER
+`instantiateLevelParams`, and the restore wrote each mimic recursor's
+major premise FROM the recorded pin (`restoreNode`), so the pin comes
+back closed, level-instantiated and re-opened exactly here. -/
+@[expose] def PinSyn.ownAt (q : PinSyn) (nP : Nat) (lps : List Name) (lvls : List Level)
+    (DsE : List Expr) : Expr :=
+  Expr.mkAppN (.const q.J (q.lvls.map (Level.subst lps lvls)))
+    (q.DsE.map fun x =>
+      Expr.instSeq DsE (DsE.length - 1)
+        ((Expr.abstractRange x 0 nP 0).instantiateLevelParams lps lvls))
+
+/-- **THE FIELD SHAPE: EVERY OWN PIN THE MIMICS SPELL IS ONE OF THE
+BLOCK MODEL'S RECORDED PINS, SPELLED AT THAT INSTANTIATION** (task
+#315 M7-3 session 14, DESIGN §U.73 (a)) — the form
+`ContainerModeled.ownPins` must take, and the reason is the CROSSING.
+
+`ContainerModeled` is proved where a container is INSTALLED and
+consumed where a LATER block is checked, so every clause crosses
+`ContainerModeled.crossEnvP`.  The reading form below does NOT cross:
+its `DenoteMetaSpine` premise is CONTRAVARIANT (reading monotonicity
+runs `env₁ → env₂`, and the clause would have to pull a reading at
+`env₂` back to `env₁`).  This one mentions no model at all — only the
+environment the table is read at and the block model's own recorded
+pins — so it crosses as soon as the TABLE does, which is the one thing
+`crossEnvP`'s `hF` does not give (it deliberately does not preserve
+`.recInfo`s, and the own-pin table is read off exactly those).  That
+residue is the queued kernel record K.43: a per-install Bool pinning
+the number of mimics under a container is what makes the table
+invariant under a later install.
+
+`ContainerOwnPinsSyn.toReadOf` (`NestedOwnPinsRead.lean`, which is
+above this file) is the bridge to the reading form the
+consumer (`pinCorr_of_ownPins`) wants.
+
+**THE COMPONENTS MUST BE CLOSED, and the clause is FALSE without it**
+(task #315 M7-3 session 18, DESIGN §U.104 (a) — REFUTED on two real
+runs, not argued).  `containerOwnPinsAtGo` instantiates the mimic
+recursor at `Ds ++ pad`, and `Expr.instPis` peels ONE binder per
+argument at cursor 0 — so the PAD substitutions run on the
+already-inserted components, at descending cursors, and a component
+carrying a LOOSE BOUND VARIABLE is eaten by the pad.  `PinSyn.ownAt`
+re-opens the recorded (openers-instantiated, hence pad-processed) pin
+at `DsE` afterwards, so the same bvar survives there.  At
+`tests/e2e/nested_rec.ndjson`'s `Tree` the reader answers
+`[List (Tree Sort)]` where `ownAt` predicts `[List (Tree #0)]`, at
+`DsE = [Expr.bvar 0]`; `nested_p30`'s `P30` is the same.  Lane L-B's
+`instPis_openers_subst` carries `hDcl : ∀ a ∈ Ds, a.looseBVarsBounded 0`
+for exactly this reason — that hypothesis is not a proof artefact, it
+is the gap.
+
+The closedness costs no consumer: `toReadOf` already takes it (inside
+its `hDsE`), and the seven pins-free sites go through `of_noMimics`,
+which only gains an `intro`. -/
+@[expose] def ContainerOwnPinsSyn (env : Env) (d : BlockModel V) : Prop :=
+  ∀ (i : Nat) (cvC : ConstantVal) (caps : IndCaps) (lvls : List Level) (DsE ps : List Expr),
+    i < d.k → env.find? (d.memberName i) = some (.indInfo cvC caps) →
+    (∀ a ∈ DsE, a.looseBVarsBounded 0 = true) →
+    ConLeche.containerOwnPinsAt env (d.memberName i) lvls DsE = some ps →
+    ∀ e ∈ ps, ∃ qK, qK < d.nPins ∧ e = (d.pinAt qK).ownAt d.nP cvC.levelParams lvls DsE
 
 /-- **A container's block model, in the container's own terms** (task
 #315 M6 s9, DESIGN §U.21 (a) — the strengthening §U.19 (e) asked for):
@@ -173,6 +296,28 @@ structure ContainerModeled {env : Env} (m : EnvModel V env) (ci : ContainerInfo)
   pinConts : ∀ q, q < d.nPins → ∀ ci' : ContainerInfo,
     ConLeche.containerInfo? d.env₀ (d.pinAt q).J = some ci' →
     ConLeche.containerInfo? env (d.pinAt q).J = some ci'
+  /-- **EVERY OWN PIN THE BLOCK'S MIMICS SPELL IS ONE OF ITS RECORDED
+  PINS, AT THAT INSTANTIATION** (task #315 M7-3, the lane record "the
+  field shape: every own pin the mimics spell is one of the block
+  model's recorded pins, spelled at that instantiation").
+
+  `containerOwnPinsAt` reads a stored container's own pins off its
+  MIMIC recursors and hands back `Expr`s; `classPin_of_pinCorr`, on the
+  other side, wants a `PinCorr` at a pin the BLOCK MODEL RECORDS.
+  Nothing else in `ContainerModeled`/`BlockAt` relates the two, and this
+  clause is what does.
+
+  Carried in the SYNTACTIC form (`ContainerOwnPinsSyn`) and not in the
+  reading form (`ContainerOwnPins`) because the record is proved where a
+  container is INSTALLED and consumed where a LATER block is checked, so
+  every clause has to cross `ContainerModeled.crossEnvP` — and the
+  reading form does not: its `DenoteMetaSpine` premise is CONTRAVARIANT
+  (reading monotonicity runs `env₁ → env₂`, and the clause would have to
+  pull a reading at `env₂` back to `env₁`).  `ContainerOwnPinsSyn.toReadOf`
+  (`NestedOwnPinsRead.lean`) is the bridge to the form the consumer
+  wants; see `ContainerOwnPinsSyn`'s own docstring for why the
+  components must be closed. -/
+  ownPins : ContainerOwnPinsSyn (V := V) env d
   /-- **a pin's level assignment is the substitution of its level
   arguments for its container's level parameters** (task #315 L-E,
   DESIGN §U.39): the syntactic form every pin this checker records has
@@ -194,71 +339,26 @@ structure ContainerModeled {env : Env} (m : EnvModel V env) (ci : ContainerInfo)
 
   A record and not a derivation, and lane L-E checked before asking:
   `IsBlockModel.uParams` and `FormerData.params` are the MEMBERS'
-  congruences; the `u` and `Ids` halves reduce (through the container's
-  own `PinShapes` view, `ContainerModeled.params_congr` and `pinψ`) to
-  "the pins' level ARGUMENTS are `allParamsDefined` in the group's
-  level parameters", which `targetPin_corr` already takes as an
-  unsourced premise and which no record carries; and the `Ds` half does
-  not reduce at all — a `PinSyn`'s components are an abstract
-  `(Name → Nat) → List AnnotTerm`.  Consumers: `huT`'s pin branch
-  inside `copyTransfer_via`, and the `pinF` arm of the walk.
+  congruences; the `u` and `Ids` congruences reduce (through the
+  container's own `PinShapes` view, `ContainerModeled.params_congr` and
+  `pinψ`) to the FIRST part, which no other record carries; and the
+  `Ds` parts do not reduce at all — a `PinSyn`'s components are an
+  abstract `(Name → Nat) → List AnnotTerm`, so both their BOUND (the
+  walk's `frame` at a pin class reads one component at two frames that
+  agree only below `d.nP`) and their congruence have to be recorded.
+  Consumers: `huT`'s pin branch inside `copyTransfer_via`, and the
+  `pinF` arm of the walk.
 
   Stated over the GROUP's member record (`ci.members[i]?`), not over an
-  `env.find?` as `pinψ` is: the clause then mentions the environment
-  nowhere and crosses an extension for free.  Vacuous at a pins-free
-  container, like its neighbours. -/
+  `env.find?` as `pinψ` is: `M.lps` IS the `cvI.levelParams` the
+  definition asks for, which is what makes the member record the right
+  carrier and lets the clause mention no environment at all — hence it
+  crosses an extension VERBATIM (`crossEnvP` passes it through
+  unchanged).  A consumer holding the stored constant instead re-indexes
+  it by `pinParamsOf` below.  Vacuous at a pins-free container, like its
+  neighbours. -/
   pinParams : ∀ (i : Nat) (M : ConLeche.ContainerMember), ci.members[i]? = some M →
-    ∀ q, q < d.nPins → ∀ ψ₁ ψ₂ : Name → Nat,
-      (∀ pp ∈ M.lps, ψ₁ pp = ψ₂ pp) →
-      (d.pinAt q).u ψ₁ = (d.pinAt q).u ψ₂ ∧
-      (d.pinAt q).Ds ψ₁ = (d.pinAt q).Ds ψ₂ ∧
-      (d.pinAt q).Ids ψ₁ = (d.pinAt q).Ids ψ₂
-
-/-- **A stored container's PIN data are a congruence in the level
-assignment** (task #315 L-E, DESIGN §U.72 (e) — REQUESTED of M7-3 as a
-`ContainerModeled` clause, and carried as a premise until it lands):
-two assignments agreeing on the group's own constant's level parameters
-give ONE index universe, ONE component list and ONE index telescope at
-every pin of the block.
-
-`IsBlockModel.uParams` and `FormerData.params` are the same fact at the
-MEMBERS; nothing in the tier says it at the pins, and the PIN class of
-the container instance transfer needs it twice — at `copyTransfer_via`'s
-`huT` (the two copies' targets' index universes, `copyTarget_u`, when
-the target is one of the container's OWN pins) and at the `pinF` arm of
-the WALK (the two sides' `PinCorr` are at the same own pin, so
-`ClassPin`'s `frame` and `idx` come down to that pin's `Ds`/`Ids` at the
-two assignments).
-
-Four parts, and the WALK at a PIN class spends each exactly once
-(DESIGN §U.86): the pins' level ARGUMENTS scoped in the group's own
-level parameters (`ClassPin`'s `psi`, through `Level.substFn_ext` —
-this is also `targetPin_corr`'s `hpd`), the pins' COMPONENTS bounded at
-the container's parameters (`frame`, through `interp_congr_below`: the
-two sides read one component at two frames that agree only below
-`d.nP`), and the `u`/`Ds`/`Ids` congruences (`frame` and `idx`).
-
-It is true of every pin this checker records — a pin's level arguments
-and components are read off the block's own opened constructor, so they
-mention only the block's level parameters and its parameter context —
-and vacuous at a pins-free container. -/
-@[expose] def ContainerPinParams (cvI : ConstantVal) (d : BlockModel V) : Prop :=
-  ∀ q, q < d.nPins →
-    (∀ v ∈ (d.pinAt q).lvls, v.allParamsDefined cvI.levelParams = true) ∧
-    (∀ (ψ : Name → Nat) (e : AnnotTerm), e ∈ (d.pinAt q).Ds ψ →
-      ConLeche.Term.Term.bvarsBelow d.nP e.erase) ∧
-    ∀ ψ₁ ψ₂ : Name → Nat, (∀ pp ∈ cvI.levelParams, ψ₁ pp = ψ₂ pp) →
-      (d.pinAt q).u ψ₁ = (d.pinAt q).u ψ₂ ∧
-      (d.pinAt q).Ds ψ₁ = (d.pinAt q).Ds ψ₂ ∧
-      (d.pinAt q).Ids ψ₁ = (d.pinAt q).Ids ψ₂
-
-omit [SetTheory V] in
-/-- At a pins-free container the clause is vacuous. -/
-theorem ContainerPinParams.of_noPins {cvI : ConstantVal} {d : BlockModel V} (hnp : d.pins = []) :
-    ContainerPinParams (V := V) cvI d := by
-  intro q hq
-  simp only [BlockModel.nPins, hnp, List.length_nil] at hq
-  exact absurd hq (Nat.not_lt_zero _)
+    ContainerPinParams (V := V) ⟨M.name, M.lps, M.type⟩ d
 
 /-- **A member's index telescope is bounded at the parameters** — the
 MEMBER twin of `pinIds_below` (task #315 L-E, DESIGN §U.77). -/
@@ -269,6 +369,40 @@ theorem memberIds_below {env : Env} {m : EnvModel V env} {dJ : BlockModel V}
   refine DomsBelow.fields ?_
   have := DomsBelow.drop dJ.nP (hI.former.below ψ)
   simpa using this
+
+/-- **The pins' congruence, re-indexed by the STORED constant** (task
+#315 M7-3 session 22, for lane L-E's quantified premise): the clause
+`pinParams` is carried at the group's MEMBER record, a consumer that
+has looked the container's name up in the environment has its
+`ConstantVal` instead, and the two agree because `containerInfo?`
+CHECKS every member's level parameters against the queried constant's
+(`containerInfo?_inv`: `M.lps = cvC.levelParams` and
+`cvC.levelParams = cvT.levelParams`) — the same step
+`nestedOwnPins_of` makes for its two walks.
+
+The member is the one NAMED by `J`, which `containerInfo?_inv` puts in
+the group (`J ∈ ci.members.map (·.name)`), so no index and no
+non-emptiness hypothesis is needed. -/
+theorem ContainerModeled.pinParamsOf {env : Env} {m : EnvModel V env} {ci : ContainerInfo}
+    {d : BlockModel V} (C : ContainerModeled m ci d) {J : Name} {cv : ConstantVal}
+    {caps : IndCaps} (hci : ConLeche.containerInfo? env J = some ci)
+    (hf : env.find? J = some (.indInfo cv caps)) :
+    ContainerPinParams (V := V) cv d := by
+  -- every name is bound: a `-` here would clear a variable the LATER
+  -- conjuncts depend on, and rcases then eats them too
+  obtain ⟨cvT, _capsT, _cvR, _mI, _rP, _rules, hfT, _hfR, hmemJ, _hnd, hmems⟩ :=
+    ConLeche.containerInfo?_inv hci
+  obtain ⟨M, hM, -⟩ := List.mem_map.mp hmemJ
+  obtain ⟨i, hi⟩ := List.getElem?_of_mem hM
+  obtain ⟨cvC, _capsC, _cvRc, _mIc, _rulesC, _hfM, _hfMr, hMlps, _hMty, hlpsEq, _hlen, _hct⟩ :=
+    hmems M hM
+  have hcvT : cvT = cv :=
+    (ConLeche.ConstantInfo.indInfo.inj (Option.some.inj (hfT.symm.trans hf))).1
+  have hlps : M.lps = cv.levelParams := by rw [hMlps, hlpsEq, hcvT]
+  intro q hq
+  obtain ⟨hlvls, hbelow, hcongr⟩ := C.pinParams i M hi q hq
+  refine ⟨fun v hv => by rw [← hlps]; exact hlvls v hv, hbelow, fun ψ₁ ψ₂ hag => ?_⟩
+  exact hcongr ψ₁ ψ₂ fun pp hpp => hag pp (hlps ▸ hpp)
 
 /-! ## The correspondence a container instance is compared along -/
 
@@ -653,6 +787,63 @@ theorem PinShapes.congrB {env : Env} {m : EnvModel V env} {B B' : ContainerInfo 
   rw [← hBB q hq ci hci] at hgv hsh
   exact ⟨q₀, kJ, i, ci, hqe, hi, hci, hgv, hsh⟩
 
+/-- **A STORED CONTAINER'S OWN PIN, READ AGAINST ITS PIN'S CONTAINER AT
+THE ABSTRACT ASSIGNMENT** (task #315 M7-3): at a pin `q` of the block
+model `B ci` of a stored container group, the pin's own container is
+some group `ci'`, and the pin's index data — the member NAME, the
+parameter count `nPJ`, the parameter-and-index telescope `pps`, and the
+index-tuple sort `u` — is `B ci'`'s at one member index `i`, the
+member's own, at the PIN's level assignment.
+
+**Why it exists, and why it is not a clause.**  Another lane needed the
+container half of a pin's index data at the ABSTRACT assignment `B`
+(not at a concrete, already-constructed block model), checked every
+record it was holding, and found the view only at concrete models — so
+it was about to ask for a new clause on `ContainerModeled`.  It needs
+none: `PinShapes`, which `EnvBlocksOf` already carries at every stored
+container through `BlockAt`, states exactly this, at the abstract `B`,
+and its `PinGroupView` has the four consequences as fields
+(`name`, `pinNP`, `pinPps`, `pinU`, with `kEq` for the bound).  A
+clause was therefore considered and REJECTED: the fact DERIVES, so no
+producer is burdened with it — including producers that do not exist
+yet, which is the argument a site-by-site enumeration cannot make.
+This is the move L-E's record *the pins' semantic data, exposed per
+pin — DERIVED, so no producer owes anything* made for the nested run's
+own syntactic record; here it is made for a STORED container's, at the
+global assignment L-E's record *the structure change and the global
+entry theorem* introduced.
+
+**Two points of care.**  The sort equation is stated at the pin's OWN
+level assignment `((B ci).pinAt q).ψJ ψ`, not at its group base's: the
+consumer holds the pin, not the base, and `PinGroupView.same` moving
+one to the other is the only real step of the proof.  And the member
+index is forced by the NAME (`PinGroupView.name`), which is the point
+of the lemma — no positional matching is needed, and none appears in
+the statement; the container `ci'` comes out of `PinShapes`'
+existential and is identified with the caller's by `Option.some.inj`. -/
+theorem ownPinView_of_blocks {env : Env} {m : EnvModel V env}
+    {B : ContainerInfo → BlockModel V} (hb : EnvBlocksOf m B)
+    {J : Name} {ci : ContainerInfo} (hci : ConLeche.containerInfo? env J = some ci)
+    {q : Nat} (hq : q < (B ci).nPins)
+    {ci' : ContainerInfo}
+    (hci' : ConLeche.containerInfo? env ((B ci).pinAt q).J = some ci') :
+    ∃ i, i < (B ci').k ∧
+      ((B ci).pinAt q).J = (B ci').memberName i ∧
+      ((B ci).pinAt q).nPJ = (B ci').nP ∧
+      ((B ci).pinAt q).pps = (B ci').ppsM i ∧
+      ∀ ψ : Name → Nat, ((B ci).pinAt q).u ψ = (B ci').uM i (((B ci).pinAt q).ψJ ψ) := by
+  obtain ⟨-, pc, -, hsh⟩ := hb J ci hci
+  obtain ⟨q₀, kJ, i, ciq, hqe, hi, hciq, hgv, -⟩ := hsh q hq
+  obtain rfl := Option.some.inj (hciq.symm.trans hci')
+  refine ⟨i, ?_, ?_, ?_, ?_, ?_⟩
+  · rw [hgv.kEq]; exact hi
+  · rw [hqe]; exact hgv.name i hi
+  · rw [hqe]; exact hgv.pinNP i hi
+  · rw [hqe]; exact hgv.pinPps i hi
+  · intro ψ
+    rw [hqe, (hgv.same i hi ψ).1]
+    exact hgv.pinU i hi ψ
+
 /-- **The leastness law is not vacuous** (the check DESIGN §U.36 records
 against the `Prop` countermodel of the maintainer's plan, `PLAN` §5): at
 a tuple `X` at which NO spine fits any of pin `q`'s constructors, the
@@ -696,85 +887,11 @@ theorem DenoteMetaSpine.det {acval : Name → (Name → Nat) → AnnotTerm} {env
     cases h' with
     | cons ha' h'' => rw [Option.some.inj (ha.symm.trans ha'), DenoteMetaSpine.det h h'']
 
-/-- **A PIN, SPELLED AT ANOTHER INSTANTIATION** (task #315 M7-3
-session 14, DESIGN §U.73 (a)): the recorded pin `q` — its container
-applied to components that stand at the BLOCK's own parameter
-openers — written out at the level arguments `lvls` and components
-`DsE` a reader was asked for.
-
-The components are CLOSED first (`Expr.abstractRange x 0 nP 0`, which
-is the restore table's own closing of a pin, `restoreTbl`), then level
--instantiated, then re-opened at `DsE`; so the whole form is a
-FUNCTION of the recorded OPENED components and needs no new `PinSyn`
-field.  The level arguments are substituted syntactically, at the
-container's own level parameters.
-
-This is the shape `containerOwnPinsAt` produces: it instantiates the
-mimic recursor's binders with `Expr.instPis ty (Ds ++ pad)` AFTER
-`instantiateLevelParams`, and the restore wrote each mimic recursor's
-major premise FROM the recorded pin (`restoreNode`), so the pin comes
-back closed, level-instantiated and re-opened exactly here. -/
-@[expose] def PinSyn.ownAt (q : PinSyn) (nP : Nat) (lps : List Name) (lvls : List Level)
-    (DsE : List Expr) : Expr :=
-  Expr.mkAppN (.const q.J (q.lvls.map (Level.subst lps lvls)))
-    (q.DsE.map fun x =>
-      Expr.instSeq DsE (DsE.length - 1)
-        ((Expr.abstractRange x 0 nP 0).instantiateLevelParams lps lvls))
-
-/-- **THE FIELD SHAPE: EVERY OWN PIN THE MIMICS SPELL IS ONE OF THE
-BLOCK MODEL'S RECORDED PINS, SPELLED AT THAT INSTANTIATION** (task
-#315 M7-3 session 14, DESIGN §U.73 (a)) — the form
-`ContainerModeled.ownPins` must take, and the reason is the CROSSING.
-
-`ContainerModeled` is proved where a container is INSTALLED and
-consumed where a LATER block is checked, so every clause crosses
-`ContainerModeled.crossEnvP`.  The reading form below does NOT cross:
-its `DenoteMetaSpine` premise is CONTRAVARIANT (reading monotonicity
-runs `env₁ → env₂`, and the clause would have to pull a reading at
-`env₂` back to `env₁`).  This one mentions no model at all — only the
-environment the table is read at and the block model's own recorded
-pins — so it crosses as soon as the TABLE does, which is the one thing
-`crossEnvP`'s `hF` does not give (it deliberately does not preserve
-`.recInfo`s, and the own-pin table is read off exactly those).  That
-residue is the queued kernel record K.43: a per-install Bool pinning
-the number of mimics under a container is what makes the table
-invariant under a later install.
-
-`ContainerOwnPinsSyn.toReadOf` (`NestedOwnPinsRead.lean`, which is
-above this file) is the bridge to the reading form the
-consumer (`pinCorr_of_ownPins`) wants.
-
-**THE COMPONENTS MUST BE CLOSED, and the clause is FALSE without it**
-(task #315 M7-3 session 18, DESIGN §U.104 (a) — REFUTED on two real
-runs, not argued).  `containerOwnPinsAtGo` instantiates the mimic
-recursor at `Ds ++ pad`, and `Expr.instPis` peels ONE binder per
-argument at cursor 0 — so the PAD substitutions run on the
-already-inserted components, at descending cursors, and a component
-carrying a LOOSE BOUND VARIABLE is eaten by the pad.  `PinSyn.ownAt`
-re-opens the recorded (openers-instantiated, hence pad-processed) pin
-at `DsE` afterwards, so the same bvar survives there.  At
-`tests/e2e/nested_rec.ndjson`'s `Tree` the reader answers
-`[List (Tree Sort)]` where `ownAt` predicts `[List (Tree #0)]`, at
-`DsE = [Expr.bvar 0]`; `nested_p30`'s `P30` is the same.  Lane L-B's
-`instPis_openers_subst` carries `hDcl : ∀ a ∈ Ds, a.looseBVarsBounded 0`
-for exactly this reason — that hypothesis is not a proof artefact, it
-is the gap.
-
-The closedness costs no consumer: `toReadOf` already takes it (inside
-its `hDsE`), and the seven pins-free sites go through `of_noMimics`,
-which only gains an `intro`. -/
-@[expose] def ContainerOwnPinsSyn (env : Env) (d : BlockModel V) : Prop :=
-  ∀ (i : Nat) (cvC : ConstantVal) (caps : IndCaps) (lvls : List Level) (DsE ps : List Expr),
-    i < d.k → env.find? (d.memberName i) = some (.indInfo cvC caps) →
-    (∀ a ∈ DsE, a.looseBVarsBounded 0 = true) →
-    ConLeche.containerOwnPinsAt env (d.memberName i) lvls DsE = some ps →
-    ∀ e ∈ ps, ∃ qK, qK < d.nPins ∧ e = (d.pinAt qK).ownAt d.nP cvC.levelParams lvls DsE
-
 omit [SetTheory V] in
 /-- **THE SYNTACTIC CLAUSE AT A PINS-FREE BLOCK, AGAINST K.43's
 `_inv`** (task #315 M7-3 session 14): `ContainerOwnPins.of_noOwn`'s
 twin at the field's own shape.  The wiring at the native, mutual and
-five pinned basis sites is one line each once K.43 lands. -/
+five pinned basis sites is one line each. -/
 theorem ContainerOwnPinsSyn.of_noOwn {env : Env} {d : BlockModel V}
     (hempty : ∀ (i : Nat) (lvls : List Level) (DsE ps : List Expr), i < d.k →
       ConLeche.containerOwnPinsAt env (d.memberName i) lvls DsE = some ps → ps = []) :

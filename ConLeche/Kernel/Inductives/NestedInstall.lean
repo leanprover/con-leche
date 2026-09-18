@@ -314,7 +314,22 @@ def nestedContainersOk (env : Env) (pins : List NestedPin) : Bool :=
   pinsDistinct pins &&
   pins.all fun q =>
     match containerInfo? env q.container with
-    | some ci => containerFactsOk env ci
+    -- **THE CONTAINER'S CONSTRUCTOR NAMES ROUND-TRIP** (task #315,
+    -- lane M7-2's request, DESIGN `#### K.53`): the mint renames a
+    -- container constructor by `replacePrefix J.name q.aux` and the
+    -- restore renames it back by `replacePrefix q.aux q.container`, so
+    -- the model's copy-constructor reading needs the two to compose to
+    -- the identity ON THE CONTAINER'S OWN NAMES.  It is a fact of the
+    -- container's namespace, not of the mint, and no stored record
+    -- exposes it — so it is recorded here, at the pin whose
+    -- `containerInfo?` is already in hand and whose `q.aux` is already
+    -- minted.  It adds NO environment lookup: the work is name
+    -- comparisons on records this clause already read.
+    | some ci => containerFactsOk env ci &&
+        ci.members.all fun J => !(J.name == q.container) ||
+          J.ctors.all fun cc =>
+            Name.replacePrefix q.aux q.container
+              (Name.replacePrefix J.name q.aux cc.name) == cc.name
     | none => false
 
 /-! ## The install -/
@@ -2016,6 +2031,82 @@ def nestedOrdDomPairs (env : Env) (p : NestedParts) (st : ElimState)
     pure perCtor.flatten
   pure rows.flatten
 
+/-- **THE PIN-TARGET FIELDS' TWO DOMAINS** (task #315 K.51, lane L-B's
+request): the jobs `nestedOrdDomPairs` deliberately leaves out — a copy
+field classified recursive or reflexive at a target AT OR ABOVE `p.k`,
+which points at a MIMIC rather than at a member of the block being
+installed.  Same addressing, same triple `(depth, MINTED, STORED)`, so
+the model reaches a field with the same `mapM_option_inv` idiom.
+
+The two lists together cover every constructor field of every copy: a
+field is ordinary, or a member target, or one of these. -/
+def nestedPinDomPairs (env : Env) (p : NestedParts) (st : ElimState)
+    (stored : List AuxStored)
+    (kinds? : Option (List (List (List (RecFieldKind × Nat))))) :
+    Option (List (Nat × Expr × Expr)) := do
+  let kinds ← kinds?
+  let rows ← (List.range st.pins.length).mapM fun q => do
+    let t ← st.types[p.k + q]?
+    let (Jn, lvls, Ds) ← t.src
+    let a ← stored[p.k + q]?
+    let ks ← kinds[q]?
+    let ci ← containerInfo? env Jn
+    let J ← ci.members.find? (fun J => J.name == Jn)
+    if lvls.length != J.lps.length then none else
+    let perCtor ← (List.range ks.length).mapM fun j => do
+      let kf ← ks[j]?
+      let cJ ← J.ctors[j]?
+      let (cvS, _, nF) ← a.ctors[j]?
+      let cI ← Expr.instPis (Expr.instantiateLevelParams J.lps lvls cJ.type) Ds
+      let (xsM, _) ← openPisAtFvars nF cI p.nP
+      let (_, crestS) ← openPisAtFvars p.nP cvS.type 0
+      let (xsS, _) ← openPisAtFvars nF crestS p.nP
+      let perField ← (List.range kf.length).mapM fun l => do
+        let (r, t) ← kf[l]?
+        if r == RecFieldKind.ordinary || t < p.k then pure ([] : List (Nat × Expr × Expr))
+        else do
+          let xM ← xsM[l]?
+          let xS ← xsS[l]?
+          pure [(p.nP + l, xM.fvarTypeD, xS.fvarTypeD)]
+      pure perField.flatten
+    pure perCtor.flatten
+  pure rows.flatten
+
+/-- **THE ELIMINATION'S OWN REWRITE DATA, recovered from the FINAL
+state** (task #315 K.51): `elimNested` starts its loop at the block's
+FIRST former's parameter openers and binders (premise B, K.8), and the
+loop rewrites CONSTRUCTORS only — a type's own `type` field is never
+touched — so the final state carries them still. -/
+def nestedRewriteData (p : NestedParts) (st : ElimState) :
+    Option (List Expr × List (Expr × BinderMeta)) := do
+  let t₀ ← st.types.head?
+  let (params, _) ← openPisAtFvars p.nP t₀.type 0
+  let (pbs₀, _) ← t₀.type.stripPis p.nP
+  pure (params, pbs₀)
+
+/-- **THE REWRITE AFTER THE NORMALISATION** (task #315 K.51): each
+normalised MINTED domain, rewritten by the elimination's own
+`replaceAllNested` at the FINAL state, IS the stored one — and the
+state does not grow, which says the re-run minted nothing.
+
+This is the clause the pin targets need and the ordinary fields do not:
+there the stored domain mentions no member at all, so the minted and
+the rewritten walk end at the same term (K.42).  At a pin target the
+stored domain is headed by the MIMIC while the minted one is headed by
+the CONTAINER, so the two legs differ by exactly this rewrite — and the
+model reads the target off the minted domain, where the container
+application still stands, instead of off the stored one, which is what
+`pinLeaf` would need and is circular. -/
+def nestedPinRewrites (env : Env) (p : NestedParts) (st : ElimState)
+    (params : List Expr) (pbs₀ : List (Expr × BinderMeta))
+    (jobs : List (Nat × Expr × Expr)) (ws : List Expr) : Bool :=
+  (jobs.zip ws).all fun (je, w) =>
+    match replaceAllNested env (p.lps.map Level.param) params pbs₀ st w with
+    | .ok (w', st') =>
+      w' == je.2.2 && st'.types.length == st.types.length &&
+        st'.pins.length == st.pins.length
+    | .error _ => false
+
 /-- The second run: the positivity normalisation of every minted
 ordinary domain, at the environment holding the block's own FORMERS —
 the one the model's readings are taken in.
@@ -2033,6 +2124,16 @@ def nestedOrdNorms (ops : CheckerOps m) (env : Env) (memberNames : List Name)
     tryCatchThe CheckError (normPosDomM ops env memberNames je.1 1024 je.2.1)
       (fun _ => throw (.internal "nested: the positivity normalisation of a minted copy \
         field does not run"))
+
+/-- The pin-target jobs' second run, `nestedOrdNorms` verbatim at the
+other job list (task #315 K.51): any error of the inner walk becomes
+`.internal`, for the same reason. -/
+def nestedPinNorms (ops : CheckerOps m) (env : Env) (memberNames : List Name)
+    (jobs : List (Nat × Expr × Expr)) : m (List Expr) :=
+  jobs.mapM fun je =>
+    tryCatchThe CheckError (normPosDomM ops env memberNames je.1 1024 je.2.1)
+      (fun _ => throw (.internal "nested: the positivity normalisation of a minted copy \
+        field at a pin target does not run"))
 
 /-- **THE PINS' CERTIFICATION-ONLY CHECKS, ON ONE WALK** (task #315
 K.46).  K.26, K.32, K.37 and K.41 each ask a question about the copies.
@@ -2094,6 +2195,20 @@ def nestedPinChecks (ops : CheckerOps m) (env envN : Env) (p : NestedParts) (b :
     let ws ← nestedOrdNorms ops envN b.memberNames jobs
     unless ws == jobs.map (·.2.2) do
       throw (.internal "nested: an ordinary copy field's stored domain is not the         positivity normalisation of the minted one")
+    -- **THE SAME WALK AT A PIN TARGET, REWRITTEN** (K.51): there the
+    -- stored domain is headed by the mimic and the minted one by the
+    -- container, so the normalisation's output has to be rewritten
+    -- before the comparison — by the elimination's own
+    -- `replaceAllNested`, at the FINAL state, which therefore mints
+    -- nothing
+    let (params, pbs₀) ← unwrapOr (nestedRewriteData p st)
+      (.internal "nested: the elimination's rewrite data is not readable")
+    let jobsP ← unwrapOr (nestedPinDomPairs env p st stored kinds?)
+      (.internal "nested: the minted copies' pin-target field domains are not readable")
+    let wsP ← nestedPinNorms ops envN b.memberNames jobsP
+    unless nestedPinRewrites env p st params pbs₀ jobsP wsP do
+      throw (.internal "nested: a pin-target copy field's stored domain is not the \
+        rewrite of the positivity normalisation of the minted one")
 
 /-- **Check and install a recognised NESTED block** (see the module
 docstring): official's two syntactic front guards, the elimination, the

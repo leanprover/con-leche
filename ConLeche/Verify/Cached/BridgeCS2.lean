@@ -847,8 +847,8 @@ theorem checkProjLookupsS_sim {env' : Env} {T ctorName : Name}
 theorem checkProjTyS_sim {env' : Env} {T ctorName : Name}
     {lps : List Name} {mty : Expr} {nP nF : Nat} (hs : CSOK mode env s₀) :
     SimC mode env s₀ RelVC
-      (checkProjTy env' T ctorName lps mty nP nF : CheckCM _)
-      (checkProjTy env' T ctorName lps mty nP nF : FueledM _) := by
+      (checkProjTy mode env' T ctorName lps mty nP nF : CheckCM _)
+      (checkProjTy mode env' T ctorName lps mty nP nF : FueledM _) := by
   unfold checkProjTy
   dsimp only
   by_cases h1 : ((mty.renameConsts (projBack T ctorName nF)).renameConsts
@@ -870,6 +870,11 @@ theorem checkProjTyS_sim {env' : Env} {T ctorName : Name}
       (projBack T ctorName nF)).stripPis (nP + 1)).isSome = true
   case neg => simp only [if_neg h4]; exact SimC.throw_bind
   simp only [if_pos h4]
+  -- K.56: a pure Bool, so both drivers take the same branch
+  by_cases h5 : certOnly mode (Expr.recMajorHeadOk
+      (mty.renameConsts (projBack T ctorName nF)) nP) = true
+  case neg => simp only [if_neg h5]; exact SimC.throw_bind
+  simp only [if_pos h5]
   exact SimC.pure hs rfl
 
 /-- `checkProjShape` (operation-free) as a `SimC`. -/

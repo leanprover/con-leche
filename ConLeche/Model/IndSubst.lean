@@ -178,6 +178,21 @@ theorem inst_liftN_comm : ∀ (e : AnnotTerm) {j k m : Nat}, j + m ≤ k →
     intro j k m hjk a
     simp only [liftN_snd, inst_snd, ihe hjk a]
 
+/-- **A LIFT AT THE BOTTOM CUT IS INJECTIVE** (task #315 L-B):
+`inst_liftN_absorb` at `j = k = 0` peels one unit of a lift, so
+iterating it recovers the term and `liftN · 0` has a left inverse.
+Its consumer compares two readings taken at DIFFERENT depths:
+`denoteMeta_lift` presents the deeper one as a lift of the shallower,
+and the shallower is what a pin's components are stated at. -/
+theorem liftN0_inj : ∀ (m : Nat) {e e' : AnnotTerm}, liftN m e 0 = liftN m e' 0 → e = e'
+  | 0, e, e', h => by rwa [AnnotTerm.liftN_zero, AnnotTerm.liftN_zero] at h
+  | m + 1, e, e', h => by
+    have h2 : inst (liftN (m + 1) e 0) (.sort 0) 0 = inst (liftN (m + 1) e' 0) (.sort 0) 0 := by
+      rw [h]
+    rw [inst_liftN_absorb e (Nat.le_refl 0) (Nat.zero_le _) (.sort 0),
+      inst_liftN_absorb e' (Nat.le_refl 0) (Nat.zero_le _) (.sort 0)] at h2
+    exact liftN0_inj m h2
+
 /-- Two instantiations commute, with the cuts adjusted
 (`Term.inst_inst_comm`). -/
 theorem inst_inst_comm : ∀ (e : AnnotTerm) {j k : Nat}, j ≤ k →

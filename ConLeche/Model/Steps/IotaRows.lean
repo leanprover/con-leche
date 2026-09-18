@@ -307,7 +307,7 @@ theorem recRhs_depth {m : EnvModel V env}
         us).hasFvar = false ∧
       ((RecRule.rhs rl).instantiateLevelParams cv.levelParams
         us).looseBVarsBounded 0 = true := by
-  obtain ⟨-, -, -, -, -, hrec', -⟩ :=
+  obtain ⟨-, -, -, -, -, -, hrec', -⟩ :=
     m.wf _ (ConLeche.Semantics.Env.find?_mem hf)
   obtain ⟨hRnf, -, -, hRbd, -⟩ := hrec' cv mI rP rules rfl rl hmem
   have hnf : ((RecRule.rhs rl).instantiateLevelParams cv.levelParams
@@ -737,7 +737,7 @@ theorem iotaStep_of {m : EnvModel V env}
             = interp V ρ (AnnotTerm.instRevChain ((xs.take mI).take rP) vpa) := by
       intro lvls pins hn i hi vpa hvpa
       have hdefP' := hdefP (RecRule.compareParams_nested hn)
-      obtain ⟨-, -, -, -, -, hrec', -⟩ :=
+      obtain ⟨-, -, -, -, -, -, hrec', -⟩ :=
         m.wf _ (ConLeche.Semantics.Env.find?_mem hfrec)
       obtain ⟨-, -, -, -, hnest⟩ := hrec' cv mI rP rules rfl r hrmem
       obtain ⟨-, -, hpinsWf, -⟩ := hnest lvls pins hn

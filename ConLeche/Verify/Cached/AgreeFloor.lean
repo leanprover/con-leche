@@ -787,6 +787,9 @@ theorem provisionRecsS_spec (mode : CheckMode) (blockNames : List Name) :
       refine Yields.bind'
         (checkMemberValF_name (sharedOpsC mode feAcc) blockNames feAcc _)
         fun cvA hcvA => ?_
+      -- K.55's guard is a pure Bool: the throwing branch yields nothing
+      refine Yields.ofDecCases (fun _ => Yields.ofThrowBind) (fun _ => ?_)
+      try simp only []
       refine Yields.bind' (ih _) fun q hq => ?_
       obtain ⟨feSelf, others⟩ := q
       refine Yields.pure ?_

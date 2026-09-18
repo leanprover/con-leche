@@ -3,6 +3,7 @@ module
 public import ConLeche.Model.Inductives.MutualRecData
 public import ConLeche.Model.Inductives.MutualCore
 import ConLeche.Model.Inductives.MutualRecsProvision
+import ConLeche.Verify.Inductives.MutualWF
 import ConLeche.Model.Inductives.FixStageRec
 import ConLeche.Model.Inductives.BlockRecKit
 import ConLeche.Model.Inductives.BlockRecLeaf
@@ -563,6 +564,20 @@ theorem mutualRecsProvision (hμ : μ.verifiedChecks = true) {env₂ : Env}
         (fun mm hmm ρ => ((hRD mm hmm).1.okTy _ ρ).1) ρ hlen hrs hc hj,
       hreps.blockEq_valid hd.pins (htyped _).1 (htyped _).2 (fun n ρ => mp₂.acval_validV n _ ρ) (hR _)
         (fun mm hmm ρ => (hRD mm hmm).1.okTy _ ρ) ρ hlen hrs hc hj⟩
+  -- the arity facts for the recursors' major premises, off
+  -- `mutualGenData`'s equation (task #315)
+  obtain ⟨hf4, hc4⟩ := Prod.mk.inj hgd
+  have hmajF : b.k = formers4.length := by rw [← hf4, List.length_map, hlenF]
+  have hmajC : b.n = ctors4.length := by
+    rw [← hc4]
+    simp only [List.length_zipWith, List.length_zip, hlenA, hlenK, ConLeche.MutualBlock.n]
+    omega
+  have hmajI : ∀ m f, formers4[m]? = some f → (fms.getD m default).nIdx = f.nIdx := by
+    intro m f hm
+    rw [← hf4, List.getElem?_map] at hm
+    obtain ⟨g, hg, rfl⟩ := Option.map_eq_some_iff.mp hm
+    rw [List.getD_eq_getElem?_getD, hg]
+    rfl
   -- **the conses**
   obtain ⟨mpP, hEP, -, hRDP, hleafP, hagP⟩ :=
     recsProvision (k := d.k) (nP := d.nP) (n := d.nCtors) (nIdxOf := d.nIdxAt)
@@ -573,6 +588,14 @@ theorem mutualRecsProvision (hμ : μ.verifiedChecks = true) {env₂ : Env}
       (fun t ht => by rw [(hshape t ht).1]; exact (hrecNames t (by rw [← hd.k]; exact ht)).2.2)
       (fun t ht => ⟨(hshape t ht).2.2.1,
         by rw [(hshape t ht).2.1]; exact (hshape t ht).2.2.2.1, (hshape t ht).2.2.2.2.1⟩)
+      -- **THE MAJOR PREMISE'S HEAD** (task #315): the generated type's
+      -- own shape, at the stored major index
+      (fun t ht => ConLeche.checkMutualRecTys_majorHead hrectys hmajF hmajC hmajI t _
+        (by rw [← hd.k]; exact ht)
+        (by
+          have hlt : t < cvRas.length := by rw [hlenR]; exact ht
+          rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hlt]
+          rfl))
       hnd (fun t ht => by rw [(hshape t ht).1]; exact (hrecNames t (by rw [← hd.k]; exact ht)).1)
       (fun t ht => (hshape t ht).2.2.2.2.2) hE₂ (fun t ht => (hRD t ht).1)
   refine ⟨mpP, hEP, hlenR, fun t ht => ⟨(hshape t ht).1, (hshape t ht).2.1⟩, hleafP, hagP, hRDP,
