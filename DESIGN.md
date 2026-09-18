@@ -84965,6 +84965,107 @@ trust surface 13 escapes in 5 allowlisted files (652 scanned), 0
 outside; no-local-paths OK; overview-links 112; quote-gate 2;
 proofdeps 4965 rows / 12 roots / **0 doors**.
 
+##### (ffff) CONTINUATION 23 (lane session 23) — the scratch provision FOUND, the store's list at the run, and the K/η finding
+
+Base: this lane's bfca8f6e.  No checker code changed; no `sorry`, no
+axioms, no `maxHeartbeats`; `#print axioms` of every new theorem is
+`[propext, Classical.choice, Quot.sound]` or less.
+
+*The scratch provision was already in the tree* (338cadce).  (dddd) 2
+called `mpAP` "the largest of the three" and said it had no producer.
+**It had one**: `NestedTailIn.scratchProv`, landed by this lane at
+725136ea ("item 5 step 2a") and never consumed — `recsProvision` at
+`A := nestedRecLeaf …`, with `hleaf` through `nestedRecLeaf_typed` and
+`towerAgree` exactly as session 12's F6 designed it, the front door
+through `checkMutualRecTys_inv`/`checkMutualRecTy_shape`, `hE := S.etaA`
+and `hRDs := S.recData`.  So the work was to WIRE it, not to write it:
+`recRuleLawsAt` now `obtain`s `mpAP`, `hshapeA`, `hleafA` and `hagA`
+from it and has lost four more hypotheses.  **The correction is mine to
+own**: (dddd) 2 was written from the consumer's signature without
+grepping for a producer, and a hypothesis with no call site looks
+exactly like a hypothesis with no proof.
+
+*The store's list at the run* (2064cbd4), in a new file
+`ConLeche/Model/Inductives/NestedStoreRun.lean`:
+
+* `nestedStoreList` names the quadruple list `checkNested` conses, and
+  **`nestedProvOf_nestedStoreList`** says its projection IS
+  `nestedProvList` — THE fact tying `storeNestedRecs` to the
+  `provisionNestedRecs` every restored rule was scoped at.  Both `zip`s
+  truncate, so it needs the rule rows to be as many as the stored
+  records, which the two `mapM`s give.  (yyy) kept the swap free of
+  this algebra on purpose; this is where it is paid, once.
+* `nestedStoreList_mem` describes an entry, over the two recursor
+  lists' own lengths — neither the block nor the tail.
+* `NestedTailIn.storeDoor` is `nestedRecsStore`'s `hfresh`, `hnres` and
+  `htys` in one, off `recCvDoor`.
+
+##### (gggg) FINDING — the restored rules' K and η bits are NOT transported, and nothing says they are
+
+`nestedRecsStore`'s `hctorStored` premise has three conjuncts.  The
+first — the rule's constructor is stored at the provision — is
+`restoreRules_at`'s, verbatim.  **The other two are not available, and
+the reason is structural.**
+
+`restoreRules` builds the restored rule as `{ rl with ctor := ctor,
+ctorParams := cnP, fire := fire, rhs := rhsA, paramsBlind := !isMimic }`
+— so `r.k` and `r.eta` are the SCRATCH rule's, unchanged, while
+`r.ctor` at a MIMIC is the RESTORED constructor.  What the scratch
+rule's bits mean is `mutualRules_bits` at the auxiliary install:
+`rl.k = recRuleKOf envAux.find? rl.ctor` (and the η twin).  What
+`ConstWF` asks of the stored rule is
+`r.k = true → recRuleKOf (provision).find? r.ctor = true`.  The two
+differ in BOTH arguments — a different constructor name and a different
+environment — so the obligation is a transport:
+
+> if the SCRATCH constructor `rl.ctor` carries K at `envAux`, then the
+> RESTORED constructor `r.ctor` carries K at the provision
+
+and `recRuleKOf` reads the constructor's field count and its
+inductive's `caps.ruleK` (`Kernel/Core.lean:1531`), so the transport is
+a statement about what `consNestedCtors` stores for a copy's
+constructor against what the auxiliary install stored — the copies'
+capability records, which no lemma in the tree relates.  It is not
+vacuous in principle: a copy of a K-eligible container member is
+K-eligible.
+
+Three ways out, in increasing cost: (i) a run-level `certOnly` Bool
+asking the restored rules' bits to be `false` (they are, on every
+fixture measured so far — the mimics' constructors have fields), which
+is a kernel request of K.39's shape and ¼ session; (ii) the transport
+proved from `consNestedCtors`' own records, unsized because nobody has
+read them for this; (iii) `nestedRecsStore` weakened to take the bits
+as data, which only moves the obligation.  **Recommendation: (i)** —
+the bits are a rescue path the nested route never uses, and a recorded
+`false` is exactly the "containers' facts are recorded, never inferred
+from a copy" discipline.
+
+##### (hhhh) FILES AND GATES (session 23's HEAD)
+
+Touched: `ConLeche/Model/Inductives/NestedRecRule.lean` (the four
+hypotheses discharged) and one NEW file
+`ConLeche/Model/Inductives/NestedStoreRun.lean` (225), plus one line
+of `ConLeche/Model.lean`.  No allowlist line, no new FALLBACK entry (the
+new file's one re-export the plan accepted), no checker code.  Shake
+proposed a RELOCATION on the new file — `NestedRecsSwap` for
+`Verify.Inductives.NestedRecsWF` — and its own minimisation was applied.
+
+`lake build` warning-free EXIT 0; `lake test` warning-free EXIT 0;
+shake 510 removals all allowlisted / pub-imports 1331 of 2186 public,
+none demotable (50 dot-notation fallbacks); layering base 353 / model
+285 / caps 3 / umbrella 1, 0 base→lane, 0 impl→theory (the base clause
+is vacuous, §U.29 (mm)); trust surface 13 escapes in 5 allowlisted
+files (653 scanned), 0 outside; no-local-paths OK; overview-links 112;
+quote-gate 2; proofdeps 4965 rows / 12 roots / **0 doors**.
+
+**Item 5 from here: 1½–3 sessions** ((dddd) said 2½–4).  `mpAP` cost
+nothing it had not already been paid, and the store's list algebra is
+done; what is left is the ASSEMBLY ((dddd) 1), the rules' half of the
+store's per-entry premises, and (gggg)'s K/η transport — the last of
+which is a ¼-session KERNEL request on the recommendation above, or an
+unsized model proof if the maintainer prefers no new record.
+
+
 
 #### U.30 — L-B session 2: `CopyCtorInst.ordF` at the READING, the normalisation's reading law PROVED, `ContainerModeled`'s three clauses (lane L-B, 2026-09-16)
 

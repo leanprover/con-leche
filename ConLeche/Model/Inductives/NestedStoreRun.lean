@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Model.Inductives.NestedRecRule
-public import ConLeche.Model.Inductives.NestedRecsSwap
+public import ConLeche.Verify.Inductives.NestedRecsWF
 public section
 
 /-!
