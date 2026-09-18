@@ -113618,3 +113618,153 @@ about a `.proj` node's structure name and were never meant to.
 `docs/NESTED.md` §3's stored-versus-derived note now names the landed
 clause, faithfully: a MENTION, carried from the restore, because the
 opened form drops the parameter part.
+
+#### PINF: (B) the proj-freeness clause LANDED — and (ii)'s existence input is on the WRONG SIDE of the opening (lane PINF, 2026-09-18)
+
+Piece 1 of the order, at its price.  Piece 2 was then measured against
+its consumer before a line was written for it, and the measurement says
+the input the order names cannot reach it.  **Nothing of (ii) was
+built.**
+
+##### (a) THE MEASUREMENT THE ORDER ASKED FOR, first
+
+*Does `ProjSlotsOk` at ENV₁ forbid `.proj M …` for a member `M`?*  YES,
+and the two halves are one read each.  `ProjSlotsOk env (.proj s j e)`
+is `(∃ entry, env.findProj? s j = some entry) ∧ ProjSlotsOk env e`
+(`Verify/ProjSlots.lean`), and `Env.findProj? env T i` reads
+`env.find? (projTableName T)` and answers `none` unless it is a
+`.projInfo` — so an EMPTY slot contradicts the clause at every field
+index.  `Expr.ProjSlotsOk.noProjAt` is the implication already written,
+and `findProj?_none_of_indFresh` (`MutualNoProj.lean`) is the empty
+slot, out of `ProjOkT` at the pre-block environment and the member's
+freshness there.
+
+##### (b) (B) LANDED — `ContainerModeled.ctorProjFree`
+
+Stated on the container's STORED CONSTRUCTOR TYPES, not on the opened
+field domains, because that is the form all three sources hand and the
+form `copyResid` delivers to the consumer (`cAJ.1.type = cc.type`); the
+`ProjFree` kit (`BlockRepCross.lean`) descends from it.
+
+The nine sites, and what each one spends — **`unconsumed.sh`-checked,
+and each route's door-fact term named**:
+
+* the four BASIS blocks: the annotated constructor types are concrete
+  and `.proj`-free, so `simp [natZeroA, ConstantInfo.toConstantVal]`
+  and its three twins close them.  Not vacuous, and a guard by
+  `0 < d.nPins` would have made them (and the mutual and native sites)
+  vacuous — NOT taken, because the fact is true of every container and
+  the sites came in at four one-liners;
+* `of_readBack` and `crossEnvP`: a pass-through, as `ordFree` is;
+* `mutualContainerModeled`: the term is the one its caller already
+  builds for `IsBlockModel.crossEnvG`,
+  `ProjFree.of_noProjEnv hnpT (Env.find?_mem (hI.ctors …).1)` out of
+  `mutualNoProj`, hoisted out of `hrepsOut`'s proof;
+* `nativeContainerModeled`: `nativeCtorProjFree mb.base2.proj_ok hf hj`
+  — already in the tree (`EnvModelBStages.lean:1249`), already passed to
+  `crossEnvG`, and it is `checkConstantVal`'s `annotateCore_noProjAt`
+  against the member's empty slot at `env₁`;
+* `nestedContainerModeled`: the only new carrier.
+  `RestoredCtor.hfd.slots` rides as `ctorSlots` through
+  `NestedCtorRead` → `NestedLoopFacts` → `NestedStageFacts` (raw, as
+  `ProjSlotsOk ENV₁ c.1.type`, because turning it into a `NoProjAt`
+  needs `ProjOkT env` and the members' freshness, and those are the
+  consumer's); at the consumer `mp.base2.proj_ok` and `hfreshMem` meet
+  it, through `findProj?_none_of_indFresh` and
+  `findProj?_none_consMutualFormers`.
+
+No `ConstWF` change, no kernel Bool, no `BlockOpened` strengthening.
+
+##### (c) (ii) — `nestArgsMention` IS ON THE OPENED LIST AND THE CONSUMER NEEDS THE ABSTRACT ONE
+
+This is the stop, and it is three reads.
+
+**Where `hment` lives.**  `copyPinFCorr`'s `hment` is about
+`AS.take ci'.nP`, and `AS` is
+
+```
+  ((fcs.getD l default).1.getAppArgs.map (instantiateLevelParams J.lps lvls)).map
+    (Expr.instSeq (srcAtE st p (q₀ + i')).2.2 (dJ.nP - 1 + l))
+```
+
+— built from `fcs`, which `copyResid` gets from
+`cc.type.stripPis (dJ.nP + cc.nFields)` at a type with
+`cc.type.hasFvar = false`.  So its entries carry BVARS for the
+parameters and for the earlier fields: the ABSTRACT list.
+
+**Where the landed clause lives.**  `ContainerModeled.nestArgsMention`
+is on `(d.xFvsF i j)[l]?.fvarTypeD.getAppArgs` — and `BlockCtorData.opens`
+says `xFvsF` is the TWO-STAGE OPENING of that same `cc.type`, so the
+domain there is `Expr.instSeq (fvsP ++ xFvs.take l) (nP + l - 1)` of the
+abstract one (`os_field_domain`, which `copyPinFCorr` already spends on
+the AUXILIARY side as `hxdom`/`hxdom2`).
+
+**Which way a mention travels.**  `mentionsMember_instSeq`
+(`NestedRestoreOpen.lean`) is ABSTRACT ⇒ OPENED, and
+`mentionsMember_instSeq_false` is its contrapositive; those are the two
+the tree has, and the missing direction is **false in general** —
+`Expr.mentionsConst (.fvar _ ty)` reads the ANNOTATION, and a RECURSIVE
+earlier field's opened domain mentions a member by definition, so an
+opener substituted into a member-free abstract argument can carry the
+mention in.
+
+So (A)'s existence fact is on the far side of a one-way street.  The
+contrast with `ordFree` is the whole of it: `ordFree` is a NEGATIVE
+statement and travels the direction the tree has, which is exactly how
+`NestedCopyInst.lean:1538` spends it.
+
+##### (d) THE REPAIR, MEASURED TO THE DEPTH ONE READ ALLOWS — and it is a new clause either way
+
+The transport opened ⇒ abstract is provable, and its missing input is
+nameable.  The openers that can occur in a nested field's abstract
+domain are the PARAMETER openers and the ORDINARY earlier field
+openers: `BlockOpened.recF`/`reflF`/`nestF` each carry
+`∀ y ∈ xFvs.drop (i + 1), y.fvarTypeD.mentionsFvar (nP + i) = false`, so
+a RECURSIVE, REFLEXIVE or NESTED earlier field's opener occurs in no
+later domain at all, and `ContainerModeled.ordFree` makes the ordinary
+ones member-free.  **The parameter openers are not covered**:
+`BlockCtorData` records only `pLen` and `pIdx` of `fvsP`, and
+`BlockOpened.ord`'s `constsResolve env₀` does not give member-freeness
+— which is the recorded reason `ordFree` exists at all.
+
+* **(R1)** one more `ContainerModeled` clause — `ordFree`'s PARAMETER
+  twin, `∀ x ∈ d.fvsPF i j, mentionsMember d.memberNames x.fvarTypeD = false`
+  — plus the `mentionsFvar`/`instSeq` transport at the consumer.  The
+  clause has `ordFree`'s shape and `ordFree`'s discharge at all nine
+  sites (none vacuous);
+* **(R2)** restate `nestArgsMention` on the abstract list.  Its
+  producer's own input (`NestedStageFacts.pinArgs`) is on the OPENED
+  list, so the producer needs the same transport: R2 = R1 plus a
+  re-statement and nine more sites moved.
+
+R1 is the cheaper, and the number is a clause-plus-nine-sites (piece
+1's own shape, one session) BEFORE (ii)'s three steps start.  **That
+doubles (ii)'s 1–2 sessions, which is the order's stop condition**, so
+the lane stops here rather than absorbing it.
+
+##### (e) STATE
+
+* **(A)** LANDED `9a558b04` — `nestArgsMention` and its carriers;
+* **(B)** LANDED `dd44fbf0` — `ctorProjFree`, its carrier `ctorSlots`
+  and the nine sites;
+* **(ii)** BLOCKED on (d)'s choice.  Its other two inputs are in hand
+  (`hmint`, and the `uniformIndOccsE` mention induction whose two edge
+  arms are now BOTH answered — `.fvar` by `ConstWF`'s first conjunct,
+  `.proj` by (B));
+* **(iii)** unstarted, buildable standalone taking `hkA`, as measured;
+* **(iv)**, **(v)** unstarted.
+
+`tests/warning-free.sh 07ca2938`:
+
+```
+warning-free: 11 changed module(s) since 07ca2938
+warning-free: lake build — 11 module(s) recompiled, 0 warning line(s)
+warning-free: lake test — 2 module(s) recompiled, 0 warning line(s)
+warning-free: OK (a run that could have failed)
+```
+
+`lake build` 724 jobs, 0 errors/warnings; `lake test` exit 0;
+`tests/proofdeps.sh` 4965 rows / 12 roots / **doors 0**;
+`tests/shake.sh` 510 removals all allowlisted, no demotable public
+imports; `tests/no-local-paths.sh` OK.  This section changes no accept
+set.
