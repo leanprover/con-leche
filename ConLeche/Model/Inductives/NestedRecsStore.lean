@@ -505,6 +505,41 @@ theorem NestedTailIn.recCvDoor {c : Nat} (hc : c < b.k) :
     exact ⟨by rw [hname]; exact hfr, by rw [hname]; exact hnres, by rw [hname]; exact hpsh,
       hfv, hlp, hbv, hres⟩
 
+/-- **CLASS `c`'s RESTORED RECURSOR TYPE MENTIONS ONLY STORED
+PROJECTION SLOTS** (task #315 M7-2): `restoreRecTys_slots` at the same
+two lists `recCvDoor` reads, and the fact the resolution predicate
+cannot give — at the restored environment every MEMBER is stored, so
+`constsResolve` says nothing about a `.proj` node at a member.
+
+Consumer: `NoProjEnv` at the recursors' store, hence the projection
+tables' face. -/
+theorem NestedTailIn.recCvSlots {c : Nat} (hc : c < b.k) :
+    ConLeche.Expr.ProjSlotsOk (ENV₂) (nestedRecCvAt p.k cvRms cvRns c).type := by
+  by_cases hck : c < p.k
+  · obtain ⟨o, ho⟩ : ∃ o, cvRms[c]? = some o :=
+      ⟨_, List.getElem?_eq_getElem (by rw [I.lenM]; exact hck)⟩
+    have hcv : nestedRecCvAt p.k cvRms cvRns c = o := by
+      unfold nestedRecCvAt
+      rw [if_pos hck, List.getD_eq_getElem?_getD, ho]
+      rfl
+    have hsl := ConLeche.restoreRecTys_slots I.hrm c o ho
+    rw [I.henv] at hsl
+    rw [hcv]
+    exact hsl
+  · have hq : c - p.k < pinsS.length := by
+      have := I.out.bk
+      omega
+    obtain ⟨o, ho⟩ : ∃ o, cvRns[c - p.k]? = some o :=
+      ⟨_, List.getElem?_eq_getElem (by rw [I.lenN]; exact hq)⟩
+    have hcv : nestedRecCvAt p.k cvRms cvRns c = o := by
+      unfold nestedRecCvAt
+      rw [if_neg hck, List.getD_eq_getElem?_getD, ho]
+      rfl
+    have hsl := ConLeche.restoreRecTys_slots I.hrn (c - p.k) o ho
+    rw [I.henv] at hsl
+    rw [hcv]
+    exact hsl
+
 omit I in
 /-- A zip against a long enough list keeps the left list. -/
 theorem zip_map_fst_of_le {α β : Type} :

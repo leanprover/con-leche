@@ -112,6 +112,36 @@ def FieldsBound (w : Nat) (ρ : Nat → V) : List AnnotTerm → Prop
   | F :: Fs => interp V ρ F ∈ˢ (univ w : V) ∧
       ∀ a, a ∈ˢ interp V ρ F → FieldsBound w (cons a ρ) Fs
 
+/-- Field `j`'s reading is bounded at every fitting prefix — the
+per-position half of `FieldsBound` (`fieldsOkB_getD`'s twin). -/
+theorem fieldsBound_getD {w : Nat} :
+    ∀ {Fs : List AnnotTerm} {ρ : Nat → V}, FieldsBound w ρ Fs →
+      ∀ j, j < Fs.length → ∀ bs : List V, SpineFit ρ (Fs.take j) bs →
+        interp V (consList bs ρ) (Fs.getD j default) ∈ˢ (univ w : V)
+  | [], _, _, _, hj, _, _ => absurd hj (Nat.not_lt_zero _)
+  | _ :: _, ρ, h, 0, _, [], _ => by
+    simpa only [consList_nil, List.getD_cons_zero] using h.1
+  | _ :: _, _, _, 0, _, _ :: _, hsp => hsp.elim
+  | _ :: _, _, _, _ + 1, _, [], hsp => hsp.elim
+  | _ :: Fs, _, h, j + 1, hj, a :: bs, hsp => by
+    simp only [consList_cons, List.getD_cons_succ]
+    exact fieldsBound_getD (h.2 a hsp.1) j (by simpa using hj) bs hsp.2
+
+/-- `FieldsBound` from the per-position bounds at every fitting prefix
+(`fieldsOkB_of_pointwise`'s twin). -/
+theorem fieldsBound_of_pointwise {w : Nat} :
+    ∀ {Fs : List AnnotTerm} {ρ : Nat → V},
+      (∀ i, i < Fs.length → ∀ as : List V, SpineFit ρ (Fs.take i) as →
+        interp V (consList as ρ) (Fs.getD i default) ∈ˢ (univ w : V)) →
+      FieldsBound w ρ Fs
+  | [], _, _ => trivial
+  | _ :: Fs, ρ, h => by
+    have h0 := h 0 (by simp) [] trivial
+    simp only [consList_nil, List.getD_cons_zero] at h0
+    refine ⟨h0, fun a ha => fieldsBound_of_pointwise fun i hi as hsp => ?_⟩
+    have := h (i + 1) (by simpa using hi) (a :: as) ⟨ha, hsp⟩
+    simpa only [consList_cons, List.getD_cons_succ] using this
+
 /-- `FieldsGraded ρ Ds`: the per-field grading — field `i`'s
 interpretation lives in `univ uᵢ` at its own sort numeral `uᵢ`,
 hereditarily.  `Ds` is the `(sort, domain)` zip the O5/O4 checks

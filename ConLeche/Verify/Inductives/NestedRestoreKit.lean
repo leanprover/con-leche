@@ -1512,4 +1512,99 @@ theorem rg_structProjGuards_of_run {env envAux : Env} {p : NestedParts} {F : Nat
   exact rg_structProjGuards_restoreNested (by rw [restoreTbl_nP, (auxBlock_fields hb).1])
     hstrip hres hdoms hresid sorts
 
+/-! ## `NoProjAt` along a telescope and a spine
+
+The projection-table face needs the `.nested` fire's PINS to mention
+no member projection, and the pins are read off the restored recursor
+TYPE: they are the lowered first arguments of the major domain, which
+sits under `stripPis`.  So `NoProjAt` has to travel the same three
+steps the shape report takes — the telescope, the spine, and the lift
+— and no module states them (the `constsResolve` twins are
+`Expr.constsResolve_stripPis` and `rg_constsResolve_getAppArgs`). -/
+
+/-- A lift adds no `.proj` node, so a lifted term without one comes
+from a term without one. -/
+theorem rg_noProjAt_of_lift {T : Name} {i n : Nat} :
+    ∀ (e : Expr) (c : Nat), Expr.NoProjAt T i (e.liftLooseBVars n c) →
+      Expr.NoProjAt T i e := by
+  intro e
+  induction e with
+  | bvar _ => intro _ _; simp
+  | sort _ => intro _ _; simp
+  | lit _ => intro _ _; simp
+  | const _ _ => intro _ _; simp
+  | fvar _ ty ih =>
+    intro c h
+    simp only [Expr.liftLooseBVars, Expr.noProjAt_fvar] at h ⊢
+    exact h
+  | app f a ihf iha =>
+    intro c h
+    simp only [Expr.liftLooseBVars, Expr.noProjAt_app] at h ⊢
+    exact ⟨ihf c h.1, iha c h.2⟩
+  | lam ty body _ ihty ihb =>
+    intro c h
+    simp only [Expr.liftLooseBVars, Expr.noProjAt_lam] at h ⊢
+    exact ⟨ihty c h.1, ihb (c + 1) h.2⟩
+  | forallE ty body _ ihty ihb =>
+    intro c h
+    simp only [Expr.liftLooseBVars, Expr.noProjAt_forallE] at h ⊢
+    exact ⟨ihty c h.1, ihb (c + 1) h.2⟩
+  | letE ty v body ihty ihv ihb =>
+    intro c h
+    simp only [Expr.liftLooseBVars, Expr.noProjAt_letE] at h ⊢
+    exact ⟨ihty c h.1, ihv c h.2.1, ihb (c + 1) h.2.2⟩
+  | proj s j e ih =>
+    intro c h
+    simp only [Expr.liftLooseBVars, Expr.noProjAt_proj] at h ⊢
+    exact ⟨h.1, ih c h.2⟩
+
+/-- The domains and the body of a `∀`-telescope inherit `NoProjAt`
+(`Expr.constsResolve_stripPis`' twin). -/
+theorem rg_noProjAt_stripPis {T : Name} {i : Nat} :
+    ∀ (k : Nat) {e : Expr} {bs : List (Expr × BinderMeta)} {body : Expr},
+      e.stripPis k = some (bs, body) → Expr.NoProjAt T i e →
+      (∀ x ∈ bs, Expr.NoProjAt T i x.1) ∧ Expr.NoProjAt T i body := by
+  intro k
+  induction k with
+  | zero =>
+    intro e bs body h hnp
+    simp only [Expr.stripPis, Option.some.injEq, Prod.mk.injEq] at h
+    obtain ⟨rfl, rfl⟩ := h
+    exact ⟨fun x hx => absurd hx (List.not_mem_nil), hnp⟩
+  | succ k ih =>
+    intro e bs body h hnp
+    match e, h with
+    | .forallE ty b m, h =>
+      simp only [Expr.stripPis] at h
+      cases hs : b.stripPis k with
+      | none => rw [hs] at h; exact nomatch h
+      | some pr =>
+        rw [hs] at h
+        obtain ⟨bs', body'⟩ := pr
+        simp only [Option.map_some, Option.some.injEq, Prod.mk.injEq] at h
+        obtain ⟨rfl, rfl⟩ := h
+        rw [Expr.noProjAt_forallE] at hnp
+        obtain ⟨hall, hbody⟩ := ih hs hnp.2
+        refine ⟨fun x hx => ?_, hbody⟩
+        rcases List.mem_cons.mp hx with rfl | hx'
+        · exact hnp.1
+        · exact hall x hx'
+
+/-- A spine's arguments inherit `NoProjAt`
+(`rg_constsResolve_getAppArgs`' twin). -/
+theorem rg_noProjAt_getAppArgs {T : Name} {i : Nat} :
+    ∀ {e : Expr}, Expr.NoProjAt T i e → ∀ a ∈ e.getAppArgs, Expr.NoProjAt T i a := by
+  intro e
+  induction e with
+  | app f a ihf _ =>
+    intro h x hx
+    rw [Expr.noProjAt_app] at h
+    rw [show (Expr.app f a).getAppArgs = f.getAppArgs ++ [a] from rfl,
+      List.mem_append] at hx
+    rcases hx with hx' | hx'
+    · exact ihf h.1 x hx'
+    · obtain rfl := List.mem_singleton.mp hx'
+      exact h.2
+  | _ => intro _ x hx; simp only [Expr.getAppArgs] at hx; exact absurd hx (List.not_mem_nil)
+
 end ConLeche
