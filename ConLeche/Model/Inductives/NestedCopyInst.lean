@@ -2686,7 +2686,10 @@ theorem copyPinFCorr {pbs : List (Expr × ConLeche.BinderMeta)}
       qn.pin.getAppFn = Expr.const (dJ.pinAt (dJ.tgts i' j l - dJ.k)).J
         ((dJ.pinAt (dJ.tgts i' j l - dJ.k)).lvls.map
           (Level.subst J.lps (pinsS.getD (q₀ + i') default).lvls)) ∧
-      qn.pin.getAppArgs.length = ci'.nP := by
+      qn.pin.getAppArgs.length = ci'.nP ∧
+      (pinsS.getD qq default).J = (dJ.pinAt (dJ.tgts i' j l - dJ.k)).J ∧
+      (pinsS.getD qq default).lvls = ((dJ.pinAt (dJ.tgts i' j l - dJ.k)).lvls).map
+        (Level.subst J.lps (pinsS.getD (q₀ + i') default).lvls) := by
   classical
   obtain ⟨cc, JR, ciR, lpsJ, pcs, fcs, Fs', esJ, cbody', o, params, pbs₀, cA, cname, qn, usJ,
     hciPR, hJmemR, hJccR, hn, hty, hnf, hJnameR, hDsnP, hstripJ, hpl, hfl, hesJ, hccf, hccb, hksJ,
@@ -2951,15 +2954,28 @@ theorem copyPinFCorr {pbs : List (Expr × ConLeche.BinderMeta)}
     refine nodup_getElem?_inj hmemNd (a := ft.cvTa.name) ?_ ?_
     · rw [List.getElem?_map, hft]; rfl
     · rw [List.getElem?_map, hfM, hnameEq]; rfl
-  refine ⟨qn', qq, hci'₀, hnPeq, hqq, ?_, ?_, ?_⟩
+  -- the BLOCK pin's own record at that index: its container and its level
+  -- arguments are `PinCorr`'s two syntactic clauses
+  obtain ⟨hJsyn, hpinSyn⟩ := SF.pinRec _ _ hqq
+  have hhead : qn'.pin.getAppFn = Expr.const (dJ.pinAt (dJ.tgts i' j l - dJ.k)).J
+      ((dJ.pinAt (dJ.tgts i' j l - dJ.k)).lvls.map
+        (Level.subst J.lps (pinsS.getD (q₀ + i') default).lvls)) := by
+    rw [hqnPin, Expr.getAppFn_mkAppN]
+    rfl
+  have hheadS : qn'.pin.getAppFn
+      = Expr.const qn'.container (pinsS.getD qq default).lvls := by
+    rw [hpinSyn, Expr.getAppFn_mkAppN]
+    rfl
+  obtain ⟨hcname, hclvls⟩ := ConLeche.Expr.const.inj (hheadS.symm.trans hhead)
+  refine ⟨qn', qq, hci'₀, hnPeq, hqq, ?_, hhead, ?_, ?_, hclvls⟩
   · rw [mutTgts_getD hGlt hnFs]
     exact hidx
-  · rw [hqnPin, Expr.getAppFn_mkAppN]
-    rfl
   · rw [hqnPin, Expr.getAppArgs_mkAppN]
     simp only [Expr.getAppArgs, List.nil_append, List.length_take]
     rw [hASlen, ← hnPeq]
     omega
+  · rw [hJsyn]
+    exact hcname
 
 /-- **THE AUXILIARY BLOCK'S KIND AT A COPY'S RECURSIVE FIELD** (task
 #315 L-B): a container field that is FINITARY RECURSIVE at one of the
