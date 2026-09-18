@@ -2614,7 +2614,22 @@ theorem copyPinFCorr {pbs : List (Expr × ConLeche.BinderMeta)}
       (pinsS.getD qq default).Ds ψ
         = ((dJ.pinAt (dJ.tgts i' j l - dJ.k)).Ds
             ((pinsS.getD (q₀ + i') default).ψJ ψ)).map
-            (AnnotTerm.instAll ((pinsS.getD (q₀ + i') default).Ds ψ) 0) := by
+            (AnnotTerm.instAll ((pinsS.getD (q₀ + i') default).Ds ψ) 0) ∧
+      (∃ (cvQ : ConstantVal) (capsQ : IndCaps),
+        (ConLeche.consMutualFormers (fms.take p.k) env).find?
+            (dJ.pinAt (dJ.tgts i' j l - dJ.k)).J = some (.indInfo cvQ capsQ) ∧
+        ∀ pp ∈ cvQ.levelParams,
+          (pinsS.getD qq default).ψJ ψ pp
+            = (dJ.pinAt (dJ.tgts i' j l - dJ.k)).ψJ
+                ((pinsS.getD (q₀ + i') default).ψJ ψ) pp) ∧
+      (nestedTV (V := V) b.nP p.k f₀.s ppsF W pinsS mp₁'.base2.acval
+            ((fms.take p.k).map (·.cvTa.name)) ψ).EA (p.k + qq)
+        = AnnotTerm.mkAppN (mp₁'.base2.acval (dJ.pinAt (dJ.tgts i' j l - dJ.k)).J
+            ((dJ.pinAt (dJ.tgts i' j l - dJ.k)).ψJ
+              ((pinsS.getD (q₀ + i') default).ψJ ψ)))
+            (((dJ.pinAt (dJ.tgts i' j l - dJ.k)).Ds
+              ((pinsS.getD (q₀ + i') default).ψJ ψ)).map
+              (AnnotTerm.instAll ((pinsS.getD (q₀ + i') default).Ds ψ) 0)) := by
   classical
   obtain ⟨cc, JR, ciR, lpsJ, pcs, fcs, Fs', esJ, cbody', o, params, pbs₀, cA, cname, qn, usJ,
     hciPR, hJmemR, hJccR, hn, hty, hnf, hJnameR, hDsnP, hstripJ, hpl, hfl, hesJ, hccf, hccb, hksJ,
@@ -2957,7 +2972,7 @@ theorem copyPinFCorr {pbs : List (Expr × ConLeche.BinderMeta)}
   -- the minted domain's reading, at the container's NESTED-FIELD form
   have hmfr := mintFieldRead S hi' hj hksJ (by rw [hty]; exact hccf) (by rw [hty]; exact hccb)
     hDsScO ψ hspineO (by rw [hty]; exact hinstCI) (by rw [hnf]; exact hopM) hlF hxI
-  obtain ⟨cvTJ, capsJ, cvRJ, mIJ, rPJ, rulesJ, -, hIJ, -⟩ := S.stored i' hi'
+  obtain ⟨cvTJ, capsJ, cvRJ, mIJ, rPJ, rulesJ, hfindJ₂, hIJ, hψJ⟩ := S.stored i' hi'
   obtain ⟨-, -, hCDJ⟩ := hIJ.ctors i' j cAJ hIJ.memberLt hj
   have hnestOf : dJ.nestOf i' j l = some (dJ.tgts i' j l - dJ.k) := dJ.nestOf_some hnest
   rw [hCDJ.nestEntry ((pinsS.getD (q₀ + i') default).ψJ ψ) l _ hnestOf hrec hlF,
@@ -3034,25 +3049,14 @@ theorem copyPinFCorr {pbs : List (Expr × ConLeche.BinderMeta)}
     simp only [List.getElem?_map, List.getElem?_eq_getElem h1,
       List.getElem?_eq_getElem h2, Option.map_some, Option.some.injEq] at h0
     exact h0
-  refine ⟨qn', qq, hci'₀, hnPeq, hqq, ?_, hhead, ?_, ?_, hclvls, ?_, ?_, ?_⟩
-  · rw [mutTgts_getD hGlt hnFs]
-    exact hidx
-  · rw [hqnPin, Expr.getAppArgs_mkAppN]
-    simp only [Expr.getAppArgs, List.nil_append, List.length_take]
-    rw [hASlen, ← hnPeq]
-    omega
-  · rw [hJsyn]
-    exact hcname
-  · rw [hpinSyn, Expr.getAppArgs_mkAppN]
-    simp only [Expr.getAppArgs, List.nil_append]
-  · intro cvT caps hfindT
-    rw [ConLeche.consMutualFormers_find?_of_ne hneJ] at hfindT
-    obtain rfl : cvT = cvT₀ := by
-      have h := hfI.symm.trans hfindT
-      simp only [Option.some.injEq, ConLeche.ConstantInfo.indInfo.injEq] at h
-      exact h.1.symm
-    rw [hlpsJ, hlpsT]
-  · -- the components' reading: the lift cancels on both sides
+  -- the block pin's container, and its components' reading
+  have hJQ : (pinsS.getD qq default).J = (dJ.pinAt (dJ.tgts i' j l - dJ.k)).J := by
+    rw [hJsyn]; exact hcname
+  have hDsQ : (pinsS.getD qq default).Ds ψ
+      = ((dJ.pinAt (dJ.tgts i' j l - dJ.k)).Ds
+          ((pinsS.getD (q₀ + i') default).ψJ ψ)).map
+          (AnnotTerm.instAll ((pinsS.getD (q₀ + i') default).Ds ψ) 0) := by
+    -- the components' reading: the lift cancels on both sides
     refine (hmapInj _ _ ?_).symm
     have hlen₁ : ((((dJ.pinAt (dJ.tgts i' j l - dJ.k)).Ds ((pinsS.getD (q₀ + i') default).ψJ ψ)).map (·.liftN l 0)).map (AnnotTerm.instAll ((pinsS.getD (q₀ + i') default).Ds ψ) l)).length
         = vs₁.length := by
@@ -3063,6 +3067,92 @@ theorem copyPinFCorr {pbs : List (Expr × ConLeche.BinderMeta)}
     rw [← hcomp, ← hfirst, List.map_map, List.map_map]
     refine List.map_congr_left (fun X _ => ?_)
     exact (instAll_liftN0 ((pinsS.getD (q₀ + i') default).Ds ψ) l X).symm
+  -- ==== THE TWO PINS' LEVEL ASSIGNMENTS ====
+  -- the pin's container is stored at `env`, so at the formers' environment too
+  have hneQ : ∀ g ∈ fms.take p.k, g.cvTa.name ≠ (dJ.pinAt (dJ.tgts i' j l - dJ.k)).J := by
+    intro g hg heq
+    obtain ⟨t, ht⟩ := List.getElem?_of_mem (List.mem_of_mem_take hg)
+    have hfr := R.h.fresh t g ht
+    rw [heq, hfindq] at hfr
+    exact nomatch hfr
+  have hfindq₂ : (ConLeche.consMutualFormers (fms.take p.k) env).find?
+      (dJ.pinAt (dJ.tgts i' j l - dJ.k)).J = some (.indInfo cvq capsq) := by
+    rw [ConLeche.consMutualFormers_find?_of_ne hneQ]; exact hfindq
+  -- the CONTAINER's own pin: its assignment is the substitution at its
+  -- container's level parameters (`ContainerModeled.pinψ`)
+  obtain ⟨hlenQ, hψQ⟩ := (CM ci hciPR).pinψ _ hqlt cvq capsq hfindq₂
+  -- the BLOCK's pin: the same, off ITS OWN group's record
+  obtain ⟨q₀', kJ', i'', hqqEq, hi'', S'⟩ := SF.groupsAt dsR xFvsR qq hqSq ci'
+    (by rw [hJQ]; exact hci'₀)
+  obtain ⟨cvQ', capsQ', -, -, -, -, hfindQ'₀, -, hψQ'₀⟩ := S'.stored i'' hi''
+  -- the group record spells the pin through the block model's `pinAt`,
+  -- which is `pinsS.getD` by definition; `rw` needs the spelling the
+  -- consumers use
+  have hfindQ' : (ConLeche.consMutualFormers (fms.take p.k) env).find?
+      (pinsS.getD (q₀' + i'') default).J = some (.indInfo cvQ' capsQ') := hfindQ'₀
+  have hψQ' : ∀ ψ : Name → Nat, (pinsS.getD (q₀' + i'') default).ψJ ψ
+      = Level.substFn ψ cvQ'.levelParams (pinsS.getD (q₀' + i'') default).lvls := hψQ'₀
+  rw [← hqqEq] at hfindQ' hψQ'
+  have hcvQ : cvQ' = cvq := by
+    have hfq : (ConLeche.consMutualFormers (fms.take p.k) env).find?
+        (pinsS.getD qq default).J = some (.indInfo cvq capsq) := by
+      rw [hJQ]; exact hfindq₂
+    have h := hfindQ'.symm.trans hfq
+    simp only [Option.some.injEq, ConLeche.ConstantInfo.indInfo.injEq] at h
+    exact h.1
+  rw [hcvQ] at hψQ'
+  -- the group's OWN pin's assignment, and the container member's level
+  -- parameters (ITS constant's)
+  have hψJ' : ∀ ψ : Name → Nat, (pinsS.getD (q₀ + i') default).ψJ ψ
+      = Level.substFn ψ cvTJ.levelParams (pinsS.getD (q₀ + i') default).lvls := hψJ
+  have hlpsQ : J.lps = cvTJ.levelParams := by
+    have hfindT : (ConLeche.consMutualFormers (fms.take p.k) env).find?
+        (pinsS.getD (q₀ + i') default).J = some (.indInfo cvTJ capsJ) := hfindJ₂
+    rw [ConLeche.consMutualFormers_find?_of_ne hneJ] at hfindT
+    obtain rfl : cvTJ = cvT₀ := by
+      have h := hfI.symm.trans hfindT
+      simp only [Option.some.injEq, ConLeche.ConstantInfo.indInfo.injEq] at h
+      exact h.1.symm
+    rw [hlpsJ, hlpsT]
+  -- the two assignments agree AT the container's own level parameters —
+  -- `Level.substFn_map_subst`, which is pointwise and not an equality of
+  -- assignments (the copies' level arguments are the container's pin's
+  -- SUBSTITUTED, so the composition is the group's own assignment)
+  have hagree : ∀ pp ∈ cvq.levelParams,
+      (pinsS.getD qq default).ψJ ψ pp
+        = (dJ.pinAt (dJ.tgts i' j l - dJ.k)).ψJ
+            ((pinsS.getD (q₀ + i') default).ψJ ψ) pp := by
+    intro pp hpp
+    rw [hψQ' ψ, hclvls, Level.substFn_map_subst hlenQ hpp, hψQ, hψJ' ψ, hlpsQ]
+  refine ⟨qn', qq, hci'₀, hnPeq, hqq, ?_, hhead, ?_, hJQ, hclvls, ?_, ?_, hDsQ,
+    ⟨cvq, capsq, hfindq₂, hagree⟩, ?_⟩
+  · rw [mutTgts_getD hGlt hnFs]
+    exact hidx
+  · rw [hqnPin, Expr.getAppArgs_mkAppN]
+    simp only [Expr.getAppArgs, List.nil_append, List.length_take]
+    rw [hASlen, ← hnPeq]
+    omega
+  · rw [hpinSyn, Expr.getAppArgs_mkAppN]
+    simp only [Expr.getAppArgs, List.nil_append]
+  · intro cvT caps hfindT
+    rw [ConLeche.consMutualFormers_find?_of_ne hneJ] at hfindT
+    obtain rfl : cvT = cvT₀ := by
+      have h := hfI.symm.trans hfindT
+      simp only [Option.some.injEq, ConLeche.ConstantInfo.indInfo.injEq] at h
+      exact h.1.symm
+    rw [hlpsJ, hlpsT]
+  · -- the TARGET'S READING at the block pin: the pin branch of
+    -- `targetRead`, with the head's assignment moved by `acval_params`
+    have hheadEA : mp₁'.base2.acval (dJ.pinAt (dJ.tgts i' j l - dJ.k)).J
+          ((pinsS.getD qq default).ψJ ψ)
+        = mp₁'.base2.acval (dJ.pinAt (dJ.tgts i' j l - dJ.k)).J
+          ((dJ.pinAt (dJ.tgts i' j l - dJ.k)).ψJ
+            ((pinsS.getD (q₀ + i') default).ψJ ψ)) :=
+      mp₁'.base2.acval_params _ _ hfindq₂ _ _ (fun pp hpp => hagree pp hpp)
+    show targetRead mp₁'.base2.acval ((fms.take p.k).map (·.cvTa.name)) pinsS b.nP p.k ψ
+        (p.k + qq) = _
+    rw [targetRead_of_pin (by omega), show p.k + qq - p.k = qq from by omega, hJQ, hDsQ,
+      hheadEA]
 
 /-- **THE AUXILIARY BLOCK'S KIND AT A COPY'S RECURSIVE FIELD** (task
 #315 L-B): a container field that is FINITARY RECURSIVE at one of the
