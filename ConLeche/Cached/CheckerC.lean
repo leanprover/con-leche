@@ -452,6 +452,17 @@ def checkNestedS (fe : FEnv) (p : NestedParts) : CheckCM FEnv := do
   nestedPinsOk (sharedOpsC mode fe₄) fe₄.env p.nP st.pins
   unless p.memberRecs.length == cvRms.length && p.mimicRecs.length == cvRns.length do
     throw (.invalid "nested: the block's recursor records are not the generated ones")
+  -- **THE RECORDS' ARGUMENT SUMS ARE THE INSTALL'S** (task #315 K.54):
+  -- the stream's `(mI, rP)` per recursor against the read-back's, so the
+  -- numbers the route STORES are a function of the record the driver was
+  -- handed.  Not `certOnly`: the cached mirror's skeleton must be that
+  -- function in EVERY mode, and a gated check is `true` in the trusted
+  -- one.  See DESIGN `#### K.54` for the measurement (298 compared pairs
+  -- over three corpora, zero differences, with a reachability control).
+  unless p.memberRecNums == (members.map fun a => (a.mI, a.rP)) &&
+      p.mimicRecNums == (mimics.map fun a => (a.mI, a.rP)) do
+    throw (.invalid "nested: a recursor record's argument sums are not the ones the \
+      auxiliary install computed")
   let ownOf : Nat → List (Nat × Nat) := fun mIdx =>
     (b.ownCtors mIdx).map fun (J, c) => (J, c.nF)
   let mRows := ((p.memberRecs.zip cvRms).zip rulesM).zipIdx.map

@@ -103992,3 +103992,64 @@ scratch install's shape check and `auxBlock_memberNames` at all.
   AUXILIARY block's argument sums, so the stream's numbers should BE the
   stored ones, but that is an argument until measured — and a ledger
   row), and the skeleton assembly cannot be stated before it.
+
+#### K.54 — the recursor records' argument sums, pinned (2026-09-18, task #315 M8, `agent/uniform-m5`)
+
+The cached mirror's SKELETON assembly could not be STATED: a stored
+recursor's skeleton row is `.recr name mI rP ctors`, and on the nested
+route those two numbers come from the READ-BACK of the scratch install
+(`stored`'s `a.mI`, `a.rP`) — a function of the elimination, not of the
+block the driver was handed.  The ruling was option one: keep the
+numbers in `NestedParts` and pin them.
+
+**What changed.**  `nestedParts?` was dropping them — it built
+`memberRecs`/`mimicRecs` as `(r.1, r.2.2.2)`, keeping the constant and
+the rules and discarding `r.2.1`/`r.2.2.1`.  It now keeps them in two
+new fields, `memberRecNums`/`mimicRecNums`, and both routes check
+
+```lean
+  unless p.memberRecNums == (members.map fun a => (a.mI, a.rP)) &&
+      p.mimicRecNums == (mimics.map fun a => (a.mI, a.rP)) do
+    throw (.invalid "nested: a recursor record's argument sums are not the ones the
+      auxiliary install computed")
+```
+
+**NOT `certOnly`, deliberately, and for the same reason Blocker 2 could
+not use K.39**: the skeleton has to be that function in EVERY mode, and
+a gated check is `true` in the trusted one.  So this is a REJECT-level
+commitment and the accept set is on the line — which is exactly why the
+measurement came first.
+
+**THE MEASUREMENT, before the check was written.**
+
+| corpus | blocks compared | (mI, rP) pairs | differences |
+|---|---|---|---|
+| the 37 shadow rows | 47 | 118 | 0 |
+| `init-full` | 1 (`Lean.Syntax`) | 3 | 0 |
+| Mathlib | 41 | 177 | 0 |
+
+**298 compared pairs, zero differences**, with a reachability control —
+comparing against `a.mI + 1` fires at `nested_p01`, so the instrument
+can fail and the equality is not vacuous.  The counts are the
+non-vacuity half: every nested block in every corpus compares at least
+one pair, and the blocks are 89 runs' worth.
+
+**Why the numbers agree, now that we know they do.**  A nested block's
+exported recursor records carry the AUXILIARY block's argument sums —
+which is why the recogniser reads the index counts off the formers'
+telescopes instead (`nestedParts?`'s docstring) — and the auxiliary
+block is what our scratch install builds and reads back.  So the two
+sides are computing the same quantity from the same declaration.  What
+the check adds is that this is now RECORDED rather than believed.
+
+**Ledger row.**  Not certification-only: a plain check, in both routes,
+whose failure is `.invalid`.  The nearest category is (A) — official's
+replay compares the exported recursor against the generated one, and
+these two fields are part of that record — but the honest statement is
+narrower than that: we have not verified official's comparison field by
+field, so the row stands as **a measured narrowing risk of zero over
+298 pairs**, and a fire would be a stream whose recursor record's
+argument sums disagree with the auxiliary install's while its type is
+still `isDefEq` to the generated one.  If one is ever found, the answer
+is to widen the skeleton (carry the numbers existentially and prove the
+two drivers agree on them) rather than to keep rejecting.

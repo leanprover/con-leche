@@ -353,6 +353,12 @@ def DeclNestedRun (μ : CheckMode) (F : Nat) (env : Env)
     -- POST-CHECK (a): the same pins at the RESTORED environment
     nestedPinsOk (m := CheckM) (fueledOps μ F) envOut p.nP st.pins = .ok () ∧
     -- POST-CHECK (c): the stream's records against the generated ones
+    -- THE RECORDS' ARGUMENT SUMS ARE THE INSTALL'S (K.54): the stored
+    -- `(mI, rP)` per recursor IS the stream record's, which is what
+    -- makes the cached mirror's SKELETON a function of the block the
+    -- driver was handed
+    (p.memberRecNums == ((stored.take p.k).map fun a => (a.mI, a.rP)) &&
+      p.mimicRecNums == ((stored.drop p.k).map fun a => (a.mI, a.rP))) = true ∧
     (p.memberRecs.length == cvRms.length && p.mimicRecs.length == cvRns.length) = true ∧
     nestedRecsOk (m := CheckM) (fueledOps μ F)
         (consNestedCtors ctorsR.flatten

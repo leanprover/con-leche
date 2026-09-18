@@ -1236,6 +1236,12 @@ theorem checkNested_inv {env envOut : Env} {p : NestedParts} {F : Nat}
               (consNestedFormers (stored.take p.k) env))) = .ok envOut ∧
       -- POST-CHECK (a): the same pins at the RESTORED environment
       nestedPinsOk (m := CheckM) (fueledOps mode F) envOut p.nP st.pins = .ok () ∧
+      -- **THE RECORDS' ARGUMENT SUMS ARE THE INSTALL'S** (K.54): the
+      -- stored `(mI, rP)` per recursor IS the stream record's, so the
+      -- cached mirror's skeleton is a function of the block the driver
+      -- was handed rather than of the elimination's output
+      (p.memberRecNums == ((stored.take p.k).map fun a => (a.mI, a.rP)) &&
+        p.mimicRecNums == ((stored.drop p.k).map fun a => (a.mI, a.rP))) = true ∧
       -- POST-CHECK (c): the stream's records against the generated ones
       (p.memberRecs.length == cvRms.length && p.mimicRecs.length == cvRns.length) = true ∧
       nestedRecsOk (m := CheckM) (fueledOps mode F)
@@ -1382,6 +1388,11 @@ theorem checkNested_inv {env envOut : Env} {p : NestedParts} {F : Nat}
   try simp only at h
   obtain ⟨u₀, hpins, h⟩ := exceptBind_ok h
   try simp only at h
+  by_cases hnums : (p.memberRecNums == ((stored.take p.k).map fun a => (a.mI, a.rP)) &&
+      p.mimicRecNums == ((stored.drop p.k).map fun a => (a.mI, a.rP))) = true
+  case neg => rw [if_neg hnums] at h; close_throw
+  rw [if_pos hnums] at h
+  try simp only [bind, Except.bind] at h
   by_cases hlen : (p.memberRecs.length == cvRms.length &&
       p.mimicRecs.length == cvRns.length) = true
   case neg => rw [if_neg hlen] at h; close_throw
@@ -1411,7 +1422,7 @@ theorem checkNested_inv {env envOut : Env} {p : NestedParts} {F : Nat}
     (by cases uA; exact hpinsAux), hcaps, hsrc,
     certOnly_and_left hcont, hgrp, hmn, hsc, hpl, htg, hkd, haa, hrk, hpa, hrh, hord, hpinN,
     (by cases uP₁; exact hpins₁), hctors, hrm, hrn, hnd, hdj, hrlm, hrln, hrb2, htbl,
-    (by cases u₀; exact hpins), hlen, (by cases u₁; exact hrecs), hrb, hop, hom⟩
+    (by cases u₀; exact hpins), hnums, hlen, (by cases u₁; exact hrecs), hrb, hop, hom⟩
 
 /-! ## The restore, syntactically (task #315)
 

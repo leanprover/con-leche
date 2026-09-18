@@ -460,6 +460,17 @@ structure NestedParts where
   memberRecs : List (ConstantVal × List RecRule)
   /-- the mimic recursors `T₁.rec_1, T₁.rec_2, …`, in order -/
   mimicRecs : List (ConstantVal × List RecRule)
+  /-- **THE RECORDS' ARGUMENT SUMS** (task #315 K.54), in the same two
+  orders: the stream's own `(mI, rP)` per member recursor and per
+  mimic.  They were dropped until now, and the cached mirror's
+  SKELETON needs them: a stored recursor's skeleton row is
+  `.recr name mI rP ctors`, and on this route the two numbers come from
+  the READ-BACK of the scratch install — a function of the elimination
+  rather than of the record.  Carrying them here, and pinning the
+  stored ones to them, is what makes the skeleton a function of the
+  block the driver was handed. -/
+  memberRecNums : List (Nat × Nat)
+  mimicRecNums : List (Nat × Nat)
   deriving Repr, Inhabited
 
 def NestedParts.k (p : NestedParts) : Nat := p.formers.length
@@ -502,14 +513,18 @@ def nestedParts? (nPd : Nat) (block : List ConstantInfo) : Option NestedParts :=
       | none => none
       | some fs =>
         let n := recs.length - k
-        let recName : Name → Option (ConstantVal × List RecRule) := fun nm =>
-          (recs.find? fun r => r.1.name == nm).map fun r => (r.1, r.2.2.2)
-        let memberRecs? := (formers.map (·.name.str "rec")).mapM recName
+        let recFull : Name → Option (ConstantVal × Nat × Nat × List RecRule) := fun nm =>
+          recs.find? fun r => r.1.name == nm
+        let memberRecs? := (formers.map (·.name.str "rec")).mapM recFull
         let mimicName : Nat → Name := fun j =>
           Name.appendIndexAfter ((formers.headD default).name.str "rec") (j + 1)
-        let mimicRecs? := ((List.range n).map mimicName).mapM recName
+        let mimicRecs? := ((List.range n).map mimicName).mapM recFull
         match memberRecs?, mimicRecs? with
-        | some mrs, some nrs =>
+        | some mrsF, some nrsF =>
+        let mrs := mrsF.map fun r => (r.1, r.2.2.2)
+        let nrs := nrsF.map fun r => (r.1, r.2.2.2)
+        let mnums := mrsF.map fun r => (r.2.1, r.2.2.1)
+        let nnums := nrsF.map fun r => (r.2.1, r.2.2.1)
           -- every record accounted for: the members' and the mimics'
           -- names are distinct and exhaust the block's recursors
           if (mrs.map (·.1.name) ++ nrs.map (·.1.name)).Nodup &&
@@ -520,9 +535,9 @@ def nestedParts? (nPd : Nat) (block : List ConstantInfo) : Option NestedParts :=
             match cvR₀.levelParams with
             | elim :: relps =>
               if relps == lps && !lps.contains elim then
-                some ⟨fs, ctors, nPd, lps, true, elim, mrs, nrs⟩
-              else some ⟨fs, ctors, nPd, lps, false, .anonymous, mrs, nrs⟩
-            | [] => some ⟨fs, ctors, nPd, lps, false, .anonymous, mrs, nrs⟩
+                some ⟨fs, ctors, nPd, lps, true, elim, mrs, nrs, mnums, nnums⟩
+              else some ⟨fs, ctors, nPd, lps, false, .anonymous, mrs, nrs, mnums, nnums⟩
+            | [] => some ⟨fs, ctors, nPd, lps, false, .anonymous, mrs, nrs, mnums, nnums⟩
           else none
         | _, _ => none
   | none => none

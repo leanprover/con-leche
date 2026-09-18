@@ -2437,6 +2437,16 @@ def checkNested (ops : CheckerOps m) (env : Env) (p : NestedParts) : m Env := do
   -- from the re-mint)
   nestedPinsOk ops env₄ p.nP st.pins
   -- 9. POST-CHECK (c): the stream's records against the generated ones
+  -- **THE RECORDS' ARGUMENT SUMS ARE THE INSTALL'S** (task #315 K.54):
+  -- the stream's `(mI, rP)` per recursor against the read-back's.  The
+  -- CACHED mirror's skeleton needs the stored numbers to be a function
+  -- of the record rather than of the elimination, and the pure route
+  -- carries the same check so that the two routes' accept sets stay
+  -- identical.
+  unless p.memberRecNums == (members.map fun a => (a.mI, a.rP)) &&
+      p.mimicRecNums == (mimics.map fun a => (a.mI, a.rP)) do
+    throw (.invalid "nested: a recursor record's argument sums are not the ones the \
+      auxiliary install computed")
   unless p.memberRecs.length == cvRms.length && p.mimicRecs.length == cvRns.length do
     throw (.invalid "nested: the block's recursor records are not the generated ones")
   -- the stream's records are checked at the environment BEFORE the
