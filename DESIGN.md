@@ -104866,3 +104866,130 @@ alternative placement (on `NestedPinSynFacts`, which already carries
 group record, for the reason above.
 
 Nothing here touches the hole or the obstruction, and no theorem moved.
+
+#### (number at the integrator's sync) — L-E: the adversarial review ATTACKED — one concession, one weak attack, one sharp measurable attack (lane L-E, 2026-09-18)
+
+Asked to break the review rather than defend the obstruction.  **I
+could not break its central move, and I think the honest report is
+that this lane's ten sessions bounded a ROUTE and not the problem.**
+Two attacks survive as named conditions, one of them measurable and
+sharp.  Everything below was checked at the tree, not granted.
+
+##### (a) THE CONCESSION — the central move is sound, and my own wall says why
+
+§U.101 (c) established, generally, that `ChainFit` is
+`FitsFrom (rss) …` and so constrains the tuple ONLY where the field is
+recursive; at an ordinary position the element is pinned to
+`interp V ρ F`, **a fixed set independent of the candidate tuple**.  I
+concluded that no leastness from the block models can place a
+requirement there.
+
+That statement is still true.  **It is not the obstruction**, and the
+review's move is exactly the gap in my reasoning: if the FRAME's
+component at that position IS the candidate, then `interp V ρ F` —
+the fixed set — is *already* the candidate, and nothing needs to be
+placed.  I inducted over the container's least fixed point at the TRUE
+frame because that is where the entry law is stated, and never asked
+whether the induction had to be at that frame.  §U.99's re-pointing
+attempt is not a counter-example to the review either, and for the
+reason it gives: that attempt re-pointed the FIT while leaving the
+left-hand side at the true frame, so it still imported the inclusion
+it was proving.
+
+##### (b) ATTACK 1 — the parameter fit at a candidate frame: CHECKED, and it is a side condition, not a refutation
+
+The review says the fit at the parameter telescope comes from the
+auxiliary block's own typing.  Checked:
+
+* the TRUE-frame fit is `PinGroupView.DsFit` — a RECORDED clause, which
+  is itself evidence that this fit is not derived;
+* `PinsTyped` (`BlockRecKit.lean:217`) gives
+  `interp ρ (acval (pinAt q).J ψJ) ∈ˢ interp ρ (mkPisAV pps (.sort (d.w ψ)))`
+  — membership in the pin's own Π-type over its SORT, and
+  `FormersTyped` likewise.  That is membership in a SORT, not
+  satisfaction of the CONTAINER's parameter domains.
+
+For a bare type parameter the two coincide and the review's "costs
+nothing" is right.  For a **dependent** parameter telescope they do
+not: `SpineFit` interprets each later domain at the EARLIER values, so
+a frame mixing candidate and true entries changes the later domains,
+and the fit has to be re-established rather than transported.  **Named
+as a side condition on the candidate-frame statement, not as a
+refutation.**
+
+##### (c) ATTACK 2 — the INDEX SET, and this one is sharp and measurable
+
+The chain's conclusion is a `FamLe` **indexed by the block's own index
+set at the pin**, `(D).idx ψ ρp (p.k + q)`, and `nestedIdx_of_group`
+ties that to the CONTAINER's `idx` at the TRUE pin frame.  And the
+index set reads the frame:
+
+```lean
+idx ψ ρp mm = idxSet (d.uM mm ψ) ρp (d.IdsM mm ψ)
+pinIdx q ψ ρp = idxSet ((d.pinAt q).u ψ) (d.pinFrame q ψ ρp) ((d.pinAt q).Ids ψ)
+```
+
+with the index telescope bounded exactly below `nP` (`pinIds_below`) —
+that is, on the COMPONENTS, which are the entries the candidate frame
+replaces.  So a candidate-frame proof concludes at `idx ψ ρ_cand`, and
+identifying that with the true index set needs the components' values
+to agree — **which is the inclusion being proved.**
+
+**Scope, stated so it can be tested.**  The attack is EMPTY whenever
+the container's index telescope does not mention a replaced parameter:
+at `List`, `Array`, `Subtype` the telescope is empty, the index set is
+a singleton either way, and the transport is free.  It bites only for a
+nested container whose INDEX telescope mentions a parameter the
+elimination rewrites.  So:
+
+> **Does any accepted block nest a container whose INDEX telescope
+> mentions a parameter that the rewriting replaces?**
+
+If none, the review's route is clean on this point.  If some, the
+transport at those blocks is the same circularity in a new place —
+and that would be a second configuration to measure beside the
+parameter-headed / constant-headed one already running.
+
+##### (d) ITS READING OF MY STATEMENTS — correct
+
+Checked: the hole's third hypothesis is literally
+`(((dJf q₀).rss iq).getD j []).getD l false = false` — the CONTAINER's
+recursive-bit list.  So the review is right that the hole gates on the
+container's flags.  I have no correction to offer on that point.
+
+##### (e) IF IT SURVIVES: what changes, in this lane's terms — and NO number
+
+Its three predictions match what I see:
+
+* `pinLfp` would take the component VALUES as an argument; today it
+  computes them from `pinsS.getD q` and the block frame, which is what
+  fixes it to the true frame;
+* every theorem of this lane stated at `pinFrame q ψ ρp` gains a frame
+  parameter — `nestedPinPairAt_mem`/`_pin`/`nestedPinPairAt`,
+  `nestedInstanceLe`, `nestedPinFam_of_classPin`, `nestedPinInstLe`.
+  These are RE-BASED, not rebuilt: their proofs use the frame only
+  through `DsFit` and the index identities, which is (b) and (c);
+* `nestedIdx_of_group` / `nestedIdx_eq_pinIdx` need candidate-frame
+  twins, and by (c) that is where the work actually is;
+* steps (i)/(ii) and step (iv) are stated at the true frame and would
+  need transport or re-basing;
+* the entry predicate losing its condition on the stored reading, and
+  the ordinary-field arm splitting by the domain's head, are both
+  consistent with what the arm reads today.
+
+**No estimate.**  Three of this lane's four numbers were withdrawn, and
+the shape is not settled while (b) and (c) are open.  The honest
+statement is "a re-basing rather than a rebuild, with (c)'s transport
+as the unknown".
+
+##### (f) WHAT WOULD RESTORE THE OBSTRUCTION
+
+The review's order needs every problematic edge to be parameter-headed,
+or constant-headed at a container declared strictly EARLIER.  If the
+running measurement finds a constant-headed edge at a LATER container,
+the two relations are not oppositely directed, the union is a genuine
+cycle, and §U.101 (d) stands unchanged.
+
+Nothing in this section changes the tree.  Everything this lane landed
+stays landed and is at the true frame; the out-of-instance case, both
+assembly steps and the residual's discharge are unaffected either way.
