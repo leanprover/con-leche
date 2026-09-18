@@ -101669,3 +101669,96 @@ The section's number is this lane's third in the arc: 3r had given the
 number this session first used to another lane, and the lane's three
 previous sections were renumbered mechanically.  Cited by TITLE
 throughout, which is why nothing inside needed changing.
+
+#### U.112 — M7-3 session 23: `RecMajorHeadStored` PROVED, the head-preservation step named for another lane, and why the clause itself needs the integrator (lane M7-3, session 23, 2026-09-18)
+
+##### (a) THE MERGE IS BROAD — measured, not asserted
+
+The kernel lane's unconditional `ConstWF` conjunct landed on its own
+branch, which is the one lane not carrying the last integration.
+Taking it here directly was tested rather than estimated:
+`git apply --check` of the commit alone FAILS on four files —
+`Semantics/Bridge/DeclIndRun.lean`, `Verify/Cached/BridgeCS4.lean`,
+`Verify/Inductives/NestedRecDoor.lean` (which the commit DELETES, 272
+lines) and `DESIGN.md` — and the commit is 40 files / 812 insertions,
+while merging the branch is 13 commits / 58 files / 1698 insertions
+across Kernel, Cached, Semantics, Verify and Model, including checker
+code that is not this lane's.  There is no narrower prefix: the
+conjunct arrives in that single commit, which is the only one touching
+`Verify/EnvWF.lean`.  So the clause comes through the integrator, by
+the standing rule.
+
+##### (b) THE BRIDGE, PROVED WITHOUT THE MERGE
+
+`recMajorHeadStored_of_stripPis` (`ContainerCross.lean`) takes the
+conjunct's content UNFOLDED — at every stored recursor, `stripPis mI`
+of its type gives a `.forallE` whose domain is const-headed — plus
+`EnvWF`, and concludes `RecMajorHeadStored`.  `Expr.recMajorHeadOk` is
+not yet a name in this tree; when it arrives, `hmaj` is one `obtain`
+off the Bool.
+
+The asymmetry is deliberate and was checked with the kernel lane rather
+than worked around: the conjunct is a Bool over the STORED type because
+every route stores what it generates, so that is the cheapest place to
+state it, and the instantiated side pays for it exactly once — here.
+
+Step 3 (the head RESOLVES) is `ConstWF`'s GENERIC `constsResolve`
+conjunct through `mentionsConst_of_constsResolve`, the same step
+`ContainerFrame` takes.  One local helper was needed because
+`ContainerFrame`'s own `mentionsConst_stripPis` is `private` there.
+
+##### (c) THE HEAD-PRESERVATION STEP IS A NAMED VERIFY-TIER LEMMA
+
+Requested by the lane that is about to build the nested route's
+major-premise producer, so it can CITE the step rather than re-derive
+it — **two lanes on this task have already written one theorem twice,
+and it merged only because the two versions happened to be
+byte-identical.**
+
+```lean
+theorem instPis_ilp_major_head {D : Name} {T : Expr} {mI : Nat} {args : List Expr}
+    {ks : List Name} {vs : List Level} {pre : List (Expr × BinderMeta)}
+    {dom₀ body₀ dom body : Expr} {bm₀ bm : BinderMeta} {us₀ : List Level}
+    (hstrip : T.stripPis mI = some (pre, .forallE dom₀ body₀ bm₀))
+    (hhead : dom₀.getAppFn = .const D us₀)
+    (hlen : args.length = mI)
+    (hinst : Expr.instPis (T.instantiateLevelParams ks vs) args
+      = some (.forallE dom body bm)) :
+    ∃ us', dom.getAppFn = .const D us'
+```
+
+`Verify/Inductives/NestedCopyInstU.lean`, beside `instPis_ilp` — the
+VERIFY tier, so the requesting lane can import it; `ContainerCross` is
+Model and it could not.  Stated in `Expr`/`Name`/`Level`/`BinderMeta`
+alone.  Under it, three reusable pieces, the `.forallE`-with-const-head
+twins of `NestedCopySort`'s `sort` kit and written to mirror those
+proofs: `Expr.stripPis_instantiate1_constHead`,
+`Expr.stripPis_instantiateLevelParams_constHead` and
+`Expr.instPis_stripPis_constHead` — the last in the more general
+spelling (any residual arity, returning the residual `∀` itself) for a
+consumer that wants the binders rather than just the head.
+
+##### (d) ONE FINDING: `instPis_ilp` is NOT the move here
+
+This lane's own `instPis_ilp`, proved for the ninth site, commutes level
+instantiation with `instPis` at MAPPED arguments — and the premise's
+arguments are the CALLER's raw ones.  The stored `stripPis` shape is
+what must be pushed forward, not the reader's `instPis` pushed back.
+Recorded because the two look interchangeable and are not.
+
+##### (e) WHERE THE FIELD STANDS
+
+Nine sites proved; the crossing pre-threaded to one premise; that
+premise now proved from well-formedness.  **The field's landing is the
+field, nine one-liners and one `exact` — and the only thing it waits on
+is the integrator bringing the conjunct.**
+
+##### (f) Gates
+
+`lake build` and `lake test` warning-free; layering 353 / 286 / 3 / 1,
+0 base->lane and 0 impl->theory; trust 13/5; overview-links 112;
+quote-gate 2; no-local-paths OK; shake 510 removals all allowlisted;
+pub-imports 1334 of 2227, none demotable; **proofdeps 4965 rows / 12
+roots / 0 doors**; `tests/arena.sh` **EXIT 0** — nested-shadow 37/37,
+e2e 196/196, the arena's 90/92, all four sweeps, axiom pin 20.
+Standard axioms on all six new results.
