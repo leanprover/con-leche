@@ -145,6 +145,17 @@ head-reading, `nestedPinsFixed` for the section agreement, and
 piece of work by first naming what would discharge it and grepping for
 that name.
 
+**AND A HIGHER-ORDER TRAP, WITH ITS REMEDY AS A DEFAULT.**  When one of
+these generalisations abstracts an INDEX-INDEXED family — `Af : Nat →
+List V` replacing a term like `((d.pinAt (q₀ + i)).Ds ψ).map (interp V
+ρp)` inside a hypothesis — leaving `Af` implicit makes unification invert
+the index expression `q₀ + i` to solve it.  That surfaces not as a type
+error but as a **`(deterministic) timeout at whnf, maximum number of
+heartbeats (200000)`**, which the error text gives no way to diagnose.
+**Pass such a family EXPLICITLY at call sites from the start**
+(`(Af := fun q => …)`); doing so removed the timeout outright when this
+lane hit it.
+
 **A mechanical trap that recurs at every one of these generalisations.**
 When the generic form stops mentioning an object the specific one
 mentions (`CopyEntryAtF` does not mention `Ds`), their auto-bound

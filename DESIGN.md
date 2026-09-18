@@ -107225,3 +107225,63 @@ Green at the reverted state: `lake build` 0 errors/warnings, **722
 jobs**.
 
 Nothing in this section changes the tree.
+
+#### (number at the integrator's sync) — L-E: `memberTarget_reads` is now DERIVED from the collapse lemma, and that was the one unblocked row (lane L-E, 2026-09-18)
+
+##### (a) LANDED — the special case falls out of the general one
+
+`auxTarget_reads` was landed with no consumer, which this project has
+retired more than once as a liability.  It has one now, and it is the
+theorem it generalises:
+
+```lean
+  have haux := auxTarget_reads h hbk hρp hOk (by omega) his
+  rw [nestedU_mem ht] at haux
+  rw [hEA, ← haux]
+  exact congrArg (fun X => SetTheory.app X (tupW (W ψ) is)) (ofNested_lfp hOk ht)
+```
+
+with `hEA` the observation that at a member the two READINGS coincide —
+`targetRead`'s member branch is `auxTargetRead`, because `hleafM` says
+`m.acval` at a member IS `mutMemberLeaf`.  Everything else is the two
+steps the general lemma deliberately omits: `nestedU_mem` for the
+universe and `ofNested_lfp` (Bekić) for the carrier.
+
+**Net −15 lines**, and the forty-line proof that was duplicated between
+the two is now written once.  This is the shape the collapse claimed:
+the general statement is shorter than the special case, and the special
+case is the general one plus the two steps that make it special.
+
+##### (b) THE UNBLOCKED-ROW AUDIT
+
+Asked for plainly, so answered plainly.  On this lane's surface:
+
+| row | state |
+| --- | --- |
+| the spanning edit (chain + entry layer) | **HELD** — coordinated, waiting on L-B's assembly |
+| G1's bridge | blocked: its step is the frame equality, which needs a particular family |
+| the component family's producer | blocked: the scope call is held |
+| `nestedPinInstLe`'s conclusion | not work — abstraction for symmetry, ruled out |
+| `memberTarget_reads` from `auxTarget_reads` | **was unblocked; done, above** |
+
+`EntryReadF`, `CopyEntryAtF` and `copyEntryAtF_of_read` remain landed
+WITHOUT consumers, and this lane records that as a live liability rather
+than letting it pass: their consumer is the closure step, which is the
+held row.  If the spanning edit is re-scoped away from them they should
+be deleted rather than kept.
+
+**With (a) done, this lane has no further unblocked row.**  That is a
+scheduling fact, not a failure, and this lane is not going to invent one
+— the two candidates it could have invented (tidying the last
+conclusion, and generalising the entry layer ahead of L-B) are both
+things the coordinator has already ruled out or held.
+
+##### (c) GREEN
+
+* `lake build` — 0 errors/warnings, **722 jobs**
+* `lake test` — 0 errors/warnings
+* `tests/proofdeps.sh` — 4965 rows as pinned, **doors 0**
+* `tests/no-local-paths.sh` — OK
+* `memberTarget_reads` — `[propext, Classical.choice, Quot.sound]`
+
+Nothing in this section changes the tree's accept set.
