@@ -8410,6 +8410,59 @@ group) is `copyPinF_shape`. -/
               (l + (((dJ.tlss i' ((pinsS.getD (q₀ + i) default).ψJ ψ)).getD j []).getD l
                 []).length))
 
+/-- **THE PIN ARM'S REMAINDER: the REFLEXIVE nested field** (task #315
+PINF): `NestedPinsShapePinF` narrowed to a container field that is
+REFLEXIVE at one of the container's own pins.  The FINITARY half is a
+theorem (`nestedPinsShapePinF_of` below, off
+`NestedPinsRun.copyPinFPinCorr` for conjuncts 1-3 and
+`NestedPinsRun.copyPinFRead` for 4-5), so this is exactly what is left
+of residual 3.
+
+**What it waits on is a KERNEL RECORD, not a model proof.**  The
+finitary arm's conjunct 1 and `copyPinFCorr`'s `hkA` come from K.60
+(`nestedCopyPinFieldsOk`), whose guard dispatches on the CONTAINER
+field's stored domain being `.const K …`.  A reflexive nested field's
+stored domain is a `Π`, so `getAppFn` is not a `.const` and K.60's
+traversal claims NOTHING there — by construction, as its own docstring
+records.  The model cannot supply the kind in its place: the copy's
+stored domain is mimic-headed only if the rewrite FIRED, the fire needs
+the mention, and the mention is read off the kind — the circle K.60
+exists to break.  So the reflexive arm needs K.60's reflexive twin,
+requested in DESIGN "PINF: (iii) LANDED at the finitary field". -/
+@[expose] def NestedPinsShapePinFRefl (V : Type w) [SetTheory V] (μ : CheckMode) (F : Nat) : Prop :=
+  NestedPinsIdsAt V μ F fun {env} _ p _ b fms f₀ ctorsA kinds ppsF W _ _ _ _ _ _ eissF tssF _
+      _ _ pinsS mp₁' q₀ kJ dJ =>
+    ∀ i, i < kJ → ∀ (cvT : ConstantVal) (caps : IndCaps),
+      (ConLeche.consMutualFormers (fms.take p.k) env).find? (pinsS.getD (q₀ + i) default).J
+        = some (.indInfo cvT caps) →
+      ∀ (ψ : Name → Nat) (ρp : Nat → V),
+      Sat V (((ppsF 0 ψ).take b.nP).map (·.2.2)).reverse ρp →
+      ∀ i', i' < kJ → ∀ j, j < (dJ.ctorsM i').length →
+      ∀ l, l < ((dJ.Fss i' ((pinsS.getD (q₀ + i) default).ψJ ψ)).getD j []).length →
+      ((dJ.rss i').getD j []).getD l false = true → ¬ dJ.tgts i' j l < dJ.k →
+      (dJ.ksF i' j).getD l .ordinary = RecFieldKind.reflexive →
+      ((blkRss ctorsA kinds).getD (b.ownOffset (p.k + q₀ + i') + j) []).getD l false = true ∧
+      p.k ≤ ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+          (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0 ∧
+      PinCorr
+        (nestedTV b.nP p.k f₀.s ppsF W pinsS mp₁'.base2.acval
+          ((fms.take p.k).map (·.cvTa.name)) ψ)
+        mp₁'.base2.acval dJ ((pinsS.getD (q₀ + i) default).ψJ ψ)
+        ((pinsS.getD (q₀ + i) default).Ds ψ)
+        cvT.levelParams (pinsS.getD (q₀ + i) default).lvls
+        (((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+          (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0) (dJ.tgts i' j l - dJ.k) ∧
+      (((mutTlss ctorsA.length tssF ψ).getD (b.ownOffset (p.k + q₀ + i') + j) []).getD l []).map
+          (·.2.2)
+        = instTele ((pinsS.getD (q₀ + i) default).Ds ψ) l
+            ((((dJ.tlss i' ((pinsS.getD (q₀ + i) default).ψJ ψ)).getD j []).getD l []).map
+              (·.2.2)) ∧
+      ((mutEiss0 ctorsA.length eissF ψ).getD (b.ownOffset (p.k + q₀ + i') + j) []).getD l []
+        = (((dJ.Eiss i' ((pinsS.getD (q₀ + i) default).ψJ ψ)).getD j []).getD l []).map
+            (AnnotTerm.instAll ((pinsS.getD (q₀ + i) default).Ds ψ)
+              (l + (((dJ.tlss i' ((pinsS.getD (q₀ + i) default).ψJ ψ)).getD j []).getD l
+                []).length))
+
 omit [SetTheory V] in
 /-- The classification rejects a negative or unsupported field, so no
 kind entry of an accepted block carries one. -/
@@ -8503,6 +8556,103 @@ theorem nestedPinsShapeOrdRight_of {F : Nat} : NestedPinsShapeOrdRight V μ F :=
             (by rw [hkA]; exact fun hc => nomatch hc) hpinT h1 h2 h3 h4 h5 h6 h7
         exact ⟨prms, pb₀, ww, stt, hA, hB, hC, Nat.le_of_eq hE⟩)
       hkA hpinT SF.pinNIdx ψ ρp hsat
+
+/-- **RESIDUAL 3's FINITARY HALF, DISCHARGED** (task #315 PINF):
+`NestedPinsShapePinF` — the `pinF` arm at a container field nested at
+one of the CONTAINER's own pins — from the REFLEXIVE half alone.
+
+The dispatch is by the CONTAINER field's kind, which is what the
+predicate's `rss` bit says (`IsBlockModel.rss_getD`).  At a FINITARY
+recursive field both halves of the arm are theorems:
+`NestedPinsRun.copyPinFPinCorr` gives conjuncts 1-3 (the copy's field
+is recursive-or-reflexive, its target is a block pin, and the pin
+correspondence) off K.60's inversion, and
+`NestedPinsRun.copyPinFRead` gives conjuncts 4 and 5 (the telescope and
+the index expressions) off `copyPinFStored`'s stored-domain shape.
+
+**The three transports across the group.**  The predicate binds the
+container's constant at pin `i` and the field at pin `i'`, and the two
+arms are stated at `i'`: the level ASSIGNMENT moves by
+`NestedPinGroupSyn.ψJEq`, the components' READINGS by `sameDs` and the
+level ARGUMENTS by `same`.  The fourth, the constant's LEVEL
+PARAMETERS, has no clause of its own and does not need one — a
+constructor of the group carries them (`BlockCtorFacts`' second
+conjunct, `cAJ.1.levelParams = lps`), so reading `IsBlockModel.ctors`
+at the SAME constructor off each pin's own record identifies them in
+two lines. -/
+theorem nestedPinsShapePinF_of {F : Nat}
+    (hRefl : NestedPinsShapePinFRefl V μ F) :
+    NestedPinsShapePinF V μ F := by
+  intro env mp p st b envAux stored ctorsR fmsA ctorsA₀ fms f₀ ctorsA sortss kinds mp₁ ppsF W idxF
+    dsF esF srcsF fvsPF xFvsF xrestF eissF tssF mp₁' R pinsS SF dsR xFvsR q₀ kJ dJ S
+  intro i hi cvT caps hfind ψ ρp hsat i' hi' j hj l hl hrs hnest
+  classical
+  have hpinAt : ∀ n : Nat, (nestedBlockModel (V := V) p b fms f₀ ctorsA kinds env ppsF W idxF dsF
+      esF srcsF fvsPF xrestF eissF tssF ctorsR dsR xFvsR pinsS).pinAt n = pinsS.getD n default :=
+    fun _ => rfl
+  obtain ⟨cAJ, hj'⟩ : ∃ cAJ, (dJ.ctorsM i')[j]? = some cAJ :=
+    ⟨_, List.getElem?_eq_getElem hj⟩
+  -- the two pins' own constants, and the level parameters they share
+  obtain ⟨cvTi, capsi, cvRi, mIi, rPi, rulesi, hfindi, hIi, -⟩ := S.stored i hi
+  rw [hpinAt] at hfindi hIi
+  obtain ⟨cvT', caps', cvR', mI', rP', rules', hfind', hI, -⟩ := S.stored i' hi'
+  rw [hpinAt] at hfind' hI
+  have hcv : cvT = cvTi := by
+    have h := hfind.symm.trans hfindi
+    simp only [Option.some.injEq, ConLeche.ConstantInfo.indInfo.injEq] at h
+    exact h.1
+  have hi'k : i' < dJ.k := by rw [S.kEq]; exact hi'
+  obtain ⟨-, hlpsI, -⟩ := hIi.ctors i' j cAJ hi'k hj'
+  obtain ⟨-, hlpsI', hCDJ⟩ := hI.ctors i' j cAJ hI.memberLt hj'
+  have hlvlp : cvT.levelParams = cvT'.levelParams := by
+    rw [hcv]; exact hlpsI.symm.trans hlpsI'
+  -- the group's shared assignment, components and level arguments
+  have hψ := S.ψJEq i i' hi hi' ψ
+  rw [hpinAt, hpinAt] at hψ
+  have hDs : (pinsS.getD (q₀ + i) default).Ds ψ = (pinsS.getD (q₀ + i') default).Ds ψ := by
+    have a := S.sameDs i hi ψ
+    have bb := S.sameDs i' hi' ψ
+    rw [hpinAt, hpinAt] at a
+    rw [hpinAt, hpinAt] at bb
+    rw [a, bb]
+  have hlvls : (pinsS.getD (q₀ + i) default).lvls = (pinsS.getD (q₀ + i') default).lvls := by
+    have a := (S.same i hi).1
+    have bb := (S.same i' hi').1
+    rw [hpinAt, hpinAt] at a
+    rw [hpinAt, hpinAt] at bb
+    rw [a, bb]
+  -- the container's field kind, off the predicate's own bit
+  have hFssLen : ∀ ψJ : Name → Nat, ((dJ.Fss i' ψJ).getD j []).length = cAJ.2 :=
+    fun ψJ => hI.Fss_length hj' ψJ
+  have hlF : l < cAJ.2 := by rw [hFssLen] at hl; exact hl
+  have hkind : (dJ.ksF i' j).getD l .ordinary = .recursive ∨
+      (dJ.ksF i' j).getD l .ordinary = .reflexive := by
+    rw [IsBlockModel.rss_getD hj,
+      rsOf_getD (show l < (dJ.ksF i' j).length from by rw [hCDJ.ksLen]; exact hlF),
+      decide_eq_true_eq] at hrs
+    exact hrs
+  rcases hkind with hk | hk
+  · -- the FINITARY arm: both halves are theorems
+    obtain ⟨pbs, hpbs, hpfree, hPD⟩ := R.pinDataFree
+    obtain ⟨hgb, -⟩ := S.grp i' hi'
+    rw [← pinAtE_eq] at hgb
+    have CM : ∀ ciJ : ContainerInfo,
+        ConLeche.containerInfo? env (pinsS.getD (q₀ + i') default).J = some ciJ →
+        ContainerModeled mp₁'.base2 ciJ dJ :=
+      fun ciJ hciJ => S.modeled i' hi' ciJ (by rw [hpinAt]; exact hciJ)
+    obtain ⟨cc, J, ci, cI, cA, cname, hciP, hJmem, hJcc, hn, hty, hnf, hJname, hinst, hcj,
+      hcA, hbc, hnF⟩ := R.ctorPair SF S hPD hi' hj'
+    obtain ⟨h1, h2, h3⟩ :=
+      R.copyPinFPinCorr SF S hPD R.h.classify hi' hgb CM hj' hlF hk hnest hfind' ψ
+    obtain ⟨h4, h5⟩ :=
+      R.copyPinFRead SF S hPD hi' hj' hlF hnest hk
+        (R.copyPinFKind SF S hPD R.h.classify hi' hgb CM hj' hlF hk hnest).1
+        hciP hJmem hJname CM ψ
+    rw [hψ, hDs, hlvls, hlvlp]
+    exact ⟨h1, h2, h3, h4, h5⟩
+  · exact hRefl mp p st b envAux stored ctorsR fmsA ctorsA₀ fms f₀ ctorsA sortss kinds mp₁
+      ppsF W idxF dsF esF srcsF fvsPF xFvsF xrestF eissF tssF mp₁' R pinsS SF dsR xFvsR q₀ kJ dJ S
+      i hi cvT caps hfind ψ ρp hsat i' hi' j hj l hl hrs hnest hk
 
 /-- **THE COPIES' SHAPES, ASSEMBLED** (task #315 L-B, DESIGN §U.60):
 `NestedPinsShape` — `CopyShapeA` at every constructor of every copy of
