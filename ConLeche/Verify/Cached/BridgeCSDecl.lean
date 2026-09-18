@@ -270,6 +270,9 @@ theorem checkNativePassS_run (hμ : mode.verifiedChecks = true) {env : Env} (hen
     (h : checkNativePassS mode (mkFEnv env) p₀ isRec s₀ = .ok ((q, b), s')) :
     ∃ env₁ : Env, q.env₁ = mkFEnv env₁ ∧ CSOK mode env₁ s' ∧ EnvWF env₁ ∧
       q.cvTa.type.hasFvar = false ∧ EnvWF (consSumCtors q.p.nP q.ctorsA env₁) ∧
+      -- the pass's arity facts (task #315), which the tail's recursor
+      -- cons needs to line the major index up with the generator's call
+      q.ctorsA.length = q.p.ctors.length ∧ q.p.kinds.length = q.ctorsA.length ∧
       ∃ F, (checkNativePass (fueledOpsM mode) env p₀ isRec).val F
         = .ok (⟨env₁, q.cvTa, q.p, q.ctorsA, q.sortss⟩, b) := by
   unfold checkNativePassS at h
@@ -322,7 +325,11 @@ theorem checkNativePassS_run (hμ : mode.verifiedChecks = true) {env : Env} (hen
     obtain ⟨-, sorts, -, hrun⟩ := hall j ((p₀.complete p₁).ctors[j]) c
       (List.getElem?_eq_getElem hj') hj
     exact direct_sum_ctor_typeWF hrun
-  refine ⟨env₁, rfl, hs₂, henv₁, hTf, henv₂, max F₁ F₂, ?_⟩
+  refine ⟨env₁, rfl, hs₂, henv₁, hTf, henv₂,
+    -- the two arity facts (task #315): the constructors' stage is
+    -- length-preserving and the classification is length-preserving
+    (checkSumCtors_inv hF₂p).1, (classifyFixKinds_inv hKp).2.2.2,
+    max F₁ F₂, ?_⟩
   have g₁ : checkSumInd (fueledOps mode (max F₁ F₂)) env p₀.toInductiveShape
       (fun p₁ => nativeCapsAt p₁ isRec) = .ok (env₁, cvTa, p₁) := by
     rw [← checkSumInd_datF]; exact FueledM.up (Nat.le_max_left _ _) hF₁
@@ -346,6 +353,10 @@ theorem checkNativeTailS_run (hμ : mode.verifiedChecks = true) {env env₁ : En
     (henv₁ : EnvWF env₁) {cvTa : ConstantVal} {p : NativeParts}
     {ctorsA : List (ConstantVal × Nat)} {sortss : List (List Level)}
     (hTf : cvTa.type.hasFvar = false) (henv₂ : EnvWF (consSumCtors p.nP ctorsA env₁))
+    -- the pass's arity facts (task #315): the stored recursor's major
+    -- index is `p.majorIdx` while the generator is called at
+    -- `nativeCtors4 ctorsA p.kinds`
+    (hlenA : ctorsA.length = p.ctors.length) (hlenK : p.kinds.length = ctorsA.length)
     {s₀ : CState} (hs : CSOK mode env₁ s₀) {feOut : FEnv} {s' : CState}
     (h : checkNativeTailS mode (mkFEnv env) ⟨mkFEnv env₁, cvTa, p, ctorsA, sortss⟩ s₀
       = .ok (feOut, s')) :
@@ -408,7 +419,7 @@ theorem checkNativeTailS_run (hμ : mode.verifiedChecks = true) {env env₁ : En
   have hF₃p : checkNativeRec (fueledOps mode F₃) (consSumCtors p.nP ctorsA env₁)
       p cvTa ctorsA = .ok (cvRa, rhss) := by
     rw [← checkNativeRec_datF]; exact hF₃
-  have henv₃ := direct_fix_rec_wf henv₂ hF₃p
+  have henv₃ := direct_fix_rec_wf henv₂ hlenA hlenK hF₃p
   -- the projection table at a structure-like block (task #210 Part A)
   rw [push_mkFEnv, show FEnv.find? (mkFEnv (consSumCtors p.nP ctorsA env₁))
     = (consSumCtors p.nP ctorsA env₁).find? from
@@ -480,7 +491,7 @@ theorem checkNativeS_run (hμ : mode.verifiedChecks = true) {env : Env} (henv : 
   -- the pass at the syntactic reading
   obtain ⟨r, s₁, hP, h⟩ := bindC_ok h
   obtain ⟨⟨fe₁, cvTa, p, ctorsA, sortss⟩, settled⟩ := r
-  obtain ⟨env₁, hq₁, hs₁, henv₁, hTf, henv₂, F₁, hF₁⟩ :=
+  obtain ⟨env₁, hq₁, hs₁, henv₁, hTf, henv₂, hlenA, hlenK, F₁, hF₁⟩ :=
     checkNativePassS_run hμ henv (flushC_csok hwf) hP
   simp only at hq₁ hs₁ henv₁ hTf henv₂ hF₁
   subst hq₁
@@ -488,7 +499,8 @@ theorem checkNativeS_run (hμ : mode.verifiedChecks = true) {env : Env} (henv : 
   cases settled with
   | true =>
     simp only [↓reduceIte] at h
-    obtain ⟨hwfO, hfeO, F₂, hF₂⟩ := checkNativeTailS_run hμ henv₁ hTf henv₂ hs₁ h
+    obtain ⟨hwfO, hfeO, F₂, hF₂⟩ :=
+      checkNativeTailS_run hμ henv₁ hTf henv₂ hlenA hlenK hs₁ h
     refine ⟨hwfO, hfeO, max F₁ F₂, ?_⟩
     have g₁ : checkNativePass (fueledOps mode (max F₁ F₂)) env p₀ (nativeRawRec p₀)
         = .ok (⟨env₁, cvTa, p, ctorsA, sortss⟩, true) := by
@@ -511,7 +523,7 @@ theorem checkNativeS_run (hμ : mode.verifiedChecks = true) {env : Env} (henv : 
   obtain rfl : s₁.flushed = sB := congrArg Prod.snd hfl1
   obtain ⟨r', s₂, hP', h⟩ := bindC_ok h
   obtain ⟨⟨fe₁', cvTa', p', ctorsA', sortss'⟩, settled'⟩ := r'
-  obtain ⟨env₁', hq₁', hs₁', henv₁', hTf', henv₂', F₂, hF₂⟩ :=
+  obtain ⟨env₁', hq₁', hs₁', henv₁', hTf', henv₂', hlenA', hlenK', F₂, hF₂⟩ :=
     checkNativePassS_run hμ henv (flushC_csok hs₁.residue) hP'
   simp only at hq₁' hs₁' henv₁' hTf' henv₂' hF₂
   subst hq₁'
@@ -522,7 +534,7 @@ theorem checkNativeS_run (hμ : mode.verifiedChecks = true) {env : Env} (henv : 
     exact absurd h throwC_bind_ok
   | true =>
   simp only [↓reduceIte] at h
-  obtain ⟨hwfO, hfeO, F₃, hF₃⟩ := checkNativeTailS_run hμ henv₁' hTf' henv₂' hs₁' h
+  obtain ⟨hwfO, hfeO, F₃, hF₃⟩ := checkNativeTailS_run hμ henv₁' hTf' henv₂' hlenA' hlenK' hs₁' h
   obtain ⟨G, hle₁, hle₂, hle₃⟩ : ∃ G, F₁ ≤ G ∧ F₂ ≤ G ∧ F₃ ≤ G :=
     ⟨max F₁ (max F₂ F₃), by omega, by omega, by omega⟩
   refine ⟨hwfO, hfeO, G, ?_⟩
@@ -1232,7 +1244,27 @@ theorem checkMutualCoreS_run (hμ : mode.verifiedChecks = true) {env : Env} (hen
       = .ok rulesOf := by
     rw [← checkMutualAllRules_datF]; exact hF₆
   have henv₃ : EnvWF (storeMutualRecs (consMutualCtors b.nP ctorsA fe₁.env) b fms rulesOf
-      cvRas.zipIdx (consMutualCtors b.nP ctorsA fe₁.env)) := mutual_recs_wf henv₂ hF₅p hF₆p
+      cvRas.zipIdx (consMutualCtors b.nP ctorsA fe₁.env)) :=
+    mutual_recs_wf henv₂ hF₅p hF₆p
+      -- the three arity facts, as in `checkMutualCore_wf`: `mutualGenData`'s
+      -- first component is `fms.map fun f => ⟨f.cvTa.name, f.nIdx, f.cvTa.type⟩`
+      -- (so the former count is `fms.length` and the index counts are
+      -- COPIED) and its second is the constructors' zip
+      (by
+        simp only [mutualGenData, List.length_map,
+          mutualFormerChecks_length (mutualFormers_inv hF₁).1]
+        rfl)
+      (by
+        simp only [mutualGenData, List.length_zipWith, List.length_zip,
+          (checkMutualCtors_inv hF₃p).1, (classifyMutualKinds_inv hkindsP).2.2.2,
+          MutualBlock.n]
+        omega)
+      (by
+        intro m f hm
+        simp only [mutualGenData, List.getElem?_map] at hm
+        obtain ⟨g, hg, rfl⟩ := Option.map_eq_some_iff.mp hm
+        rw [List.getD_eq_getElem?_getD, hg]
+        rfl)
   -- 5. the projection tables
   rw [storeMutualRecsF_mkFEnv] at h
   obtain ⟨u7, sD, hfl3, h⟩ := bindC_ok h

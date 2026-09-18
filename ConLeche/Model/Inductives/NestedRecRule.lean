@@ -499,6 +499,32 @@ theorem NestedTailIn.scratchProv {mpA : EnvModelM V μ ENVA} {cvRas : List Const
       (fun c hc => ⟨(hshape c (hlt c hc)).2.2.1,
         by rw [(hshape c (hlt c hc)).2.1]; exact (hshape c (hlt c hc)).2.2.2.1,
         (hshape c (hlt c hc)).2.2.2.2.1⟩)
+      -- **THE MAJOR PREMISE'S HEAD** at the SCRATCH provision (task
+      -- #315): the scratch install generates these types, so the fact is
+      -- `mutualRecTy`'s own shape (`checkMutualRecTys_majorHead`), with
+      -- the three arity facts off `mutualGenData`'s components
+      (fun c hc => by
+        have hkf : b.k = (ConLeche.mutualGenData b fms ctorsA kinds).1.length := by
+          simp only [ConLeche.mutualGenData, List.length_map,
+            ConLeche.mutualFormerChecks_length (ConLeche.mutualFormers_inv I.out.formers).1]
+          rfl
+        have hnc : b.n = (ConLeche.mutualGenData b fms ctorsA kinds).2.length := by
+          simp only [ConLeche.mutualGenData, List.length_zipWith, List.length_zip,
+            (ConLeche.checkMutualCtors_inv I.out.ctors).1,
+            (ConLeche.classifyMutualKinds_inv I.out.kindsRun).2.2.2, ConLeche.MutualBlock.n]
+          omega
+        have hnIdxs : ∀ m f, (ConLeche.mutualGenData b fms ctorsA kinds).1[m]? = some f →
+            (fms.getD m default).nIdx = f.nIdx := by
+          intro m f hm
+          simp only [ConLeche.mutualGenData, List.getElem?_map] at hm
+          obtain ⟨g, hg, rfl⟩ := Option.map_eq_some_iff.mp hm
+          rw [List.getD_eq_getElem?_getD, hg]
+          rfl
+        have hget : cvRas[c]? = some (cvRas.getD c default) := by
+          rw [List.getD_eq_getElem?_getD,
+            List.getElem?_eq_getElem (by rw [S.cvLen]; exact hlt c hc)]
+          rfl
+        exact ConLeche.checkMutualRecTys_majorHead S.rectys hkf hnc hnIdxs c _ (hlt c hc) hget)
       hnd
       (fun c hc => by rw [(hshape c (hlt c hc)).1]; exact (hrecNames c (hlt c hc)).1)
       (fun c hc => (hshape c (hlt c hc)).2.2.2.2.2)
@@ -2207,7 +2233,7 @@ theorem NestedTailIn.auxRecMajor {c : Nat} (hc : c < b.k) :
   obtain ⟨a, ha⟩ : ∃ a, stored[c]? = some a :=
     ⟨_, List.getElem?_eq_getElem (by rw [hlenS]; exact hc)⟩
   obtain ⟨-, -, fms', f₀', ctorsA', sortss', kinds', hformers', hf₀', hctors', hkinds',
-    hgen, -, -, -, -⟩ := ConLeche.auxStored_rec_eq I.haux I.hstored ha
+    hgen, -, -, -, -, -, -⟩ := ConLeche.auxStored_rec_eq I.haux I.hstored ha
   have hfms : fms = fms' := congrArg Prod.snd (Except.ok.inj (I.out.formers.symm.trans hformers'))
   subst hfms
   have hf0 : f₀ = f₀' := Option.some.inj (I.out.facts.first.symm.trans hf₀')

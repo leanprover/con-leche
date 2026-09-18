@@ -10,6 +10,12 @@ import ConLeche.Model.RecRulesCons
 import ConLeche.Verify.Inductives.StructWF
 import ConLeche.Verify.Inductives.NestedRecNames
 import ConLeche.Verify.Inductives.NestedRecDoor
+import ConLeche.Verify.Inductives.NestedRestoreKit
+import ConLeche.Verify.Inductives.NestedRestoreTbl
+import ConLeche.Verify.Inductives.NestedElimInv
+import ConLeche.Verify.Inductives.NestedInv
+import ConLeche.Verify.Inductives.NestedCopyKinds
+import ConLeche.Verify.Inductives.NestedRecCtorPin
 public section
 
 /-!
@@ -219,6 +225,11 @@ theorem nestedRecsProvisionGo {kT : Nat} {T A : Nat → (Name → Nat) → Annot
       (∀ c, c < kT → (cvOf c).type.constsResolve env = true) →
       ConLeche.EtaFamiliesClosed env →
       (rest.map (·.1.1.name)).Nodup →
+      -- **THE MAJOR PREMISE'S HEAD** (task #315): the cons is a
+      -- recursor, so `ConstWF` asks for the stored type's major premise
+      -- to have a `const` head at the STORED major index — per ENTRY,
+      -- because the index is the triple's, not the class's
+      (∀ x ∈ rest, ConLeche.Expr.recMajorHeadOk x.1.1.type x.1.2.1 = true) →
       (∀ c, c < kT → ∀ ψ : Name → Nat,
         denoteMeta _mp.base2.acval env ψ 0 (cvOf c).type = some (T c ψ)) →
       ∃ mp' : EnvModelM V μ (ConLeche.provisionNestedRecs (rest.map (·.1)) env),
@@ -230,9 +241,9 @@ theorem nestedRecsProvisionGo {kT : Nat} {T A : Nat → (Name → Nat) → Annot
             (cvOf c).type = some (T c ψ)) ∧
         (∀ x ∈ rest, ∀ ψ : Name → Nat, mp'.base2.acval x.1.1.name ψ = A x.2 ψ) ∧
         (∀ nm : Name, (∀ x ∈ rest, nm ≠ x.1.1.name) → mp'.base2.acval nm = _mp.base2.acval nm)
-  | [], env, mp, _, _, hres, hE, _, hreads =>
+  | [], env, mp, _, _, hres, hE, _, _, hreads =>
     ⟨mp, hE, hres, hreads, fun x hx => absurd hx (by simp), fun _ _ => rfl⟩
-  | ((cvRa, mI, rP), c) :: rest, env, mp, hmem, hfr, hres, hE, hnd, hreads => by
+  | ((cvRa, mI, rP), c) :: rest, env, mp, hmem, hfr, hres, hE, hnd, hmaj, hreads => by
     obtain ⟨hcT, hcv⟩ := hmem ((cvRa, mI, rP), c) List.mem_cons_self
     dsimp only at hcT hcv
     subst hcv
@@ -242,7 +253,12 @@ theorem nestedRecsProvisionGo {kT : Nat} {T A : Nat → (Name → Nat) → Annot
     -- the cons's head and its well-formedness
     have hwf : ConLeche.EnvWF ⟨.recInfo (cvOf c) mI rP [] :: env.consts⟩ := by
       refine ConLeche.EnvWF.cons mp.base2.wf (ConLeche.structConstWF hfv hlp
-        (Expr.constsResolve_mono (hres c hcT)) hbv (fun _ _ _ heq => nomatch heq) ?_)
+        (Expr.constsResolve_mono (hres c hcT)) hbv (fun _ _ _ heq => nomatch heq) ?_
+        (hmaj := ?maj))
+      case maj =>
+        intro cv mI' rP' rules heq
+        obtain ⟨rfl, rfl, -, -⟩ := ConstantInfo.recInfo.inj heq
+        exact hmaj ((cvOf c, mI, rP), c) List.mem_cons_self
       intro cv mI' rP' rules heq r hr
       injection heq with _ _ _ hrules
       rw [← hrules] at hr
@@ -275,7 +291,8 @@ theorem nestedRecsProvisionGo {kT : Nat} {T A : Nat → (Name → Nat) → Annot
         (fun x hx => by
           rw [ConLeche.Env.find?_cons, if_neg (fun h => hneRest x hx h.symm)]
           exact hfr x (List.mem_cons_of_mem _ hx))
-        hres' hE' (by simpa using hndc.2) hreads'
+        hres' hE' (by simpa using hndc.2)
+        (fun x hx => hmaj x (List.mem_cons_of_mem _ hx)) hreads'
     refine ⟨mp', hE'', hres'', hreads'', ?_, ?_⟩
     · intro x hx ψ
       rcases List.mem_cons.mp hx with heq | hx'
@@ -309,6 +326,9 @@ theorem nestedRecsProvision {kT : Nat} {T A : Nat → (Name → Nat) → AnnotTe
       (cvOf c).type.allLevelParamsDefined (cvOf c).levelParams = true ∧
       (cvOf c).type.looseBVarsBounded 0 = true)
     (hnd : (L.map (·.1.name)).Nodup)
+    -- **THE MAJOR PREMISE'S HEAD** (task #315), per entry (the major
+    -- index is the triple's)
+    (hmaj : ∀ x ∈ L, ConLeche.Expr.recMajorHeadOk x.1.type x.2.1 = true)
     (hfresh : ∀ c, c < kT → env₂.find? (cvOf c).name = none)
     (hres : ∀ c, c < kT → (cvOf c).type.constsResolve env₂ = true)
     (hE : ConLeche.EtaFamiliesClosed env₂)
@@ -339,7 +359,11 @@ theorem nestedRecsProvision {kT : Nat} {T A : Nat → (Name → Nat) → AnnotTe
   obtain ⟨mp₃, hE₃, hres₃, hreads₃, hleaf₃, hag⟩ :=
     nestedRecsProvisionGo (cvOf := cvOf) (T := T) (A := A) hokTy hleaf hAcl hAparams hnres hpshape
       htyWF L.zipIdx env₂ mp₂ hzip
-      (fun x hx => by rw [(hzip x hx).2]; exact hfresh x.2 (hzip x hx).1) hres hE hndZ hreads
+      (fun x hx => by rw [(hzip x hx).2]; exact hfresh x.2 (hzip x hx).1) hres hE hndZ
+      (fun x hx => hmaj x.1 (by
+        have := List.mem_map_of_mem (f := fun y : (ConstantVal × Nat × Nat) × Nat => y.1) hx
+        rwa [hmapFst] at this))
+      hreads
   refine ⟨mp₃, hE₃, hres₃, hreads₃, ?_, ?_⟩
   · intro c hc ψ
     have hmem : (L.getD c default, c) ∈ L.zipIdx := by
@@ -419,6 +443,49 @@ theorem zip_getElem?_fst {α β : Type} :
   | _ :: l₁, _ :: l₂, i + 1, x, h => by
     simp only [List.zip_cons_cons, List.getElem?_cons_succ] at h
     exact zip_getElem?_fst l₁ l₂ i x h
+
+omit I in
+/-- A zipped list's entry carries the right list's. -/
+theorem zip_getElem?_snd {α β : Type} :
+    ∀ (l₁ : List α) (l₂ : List β) (i : Nat) (x : α × β),
+      (l₁.zip l₂)[i]? = some x → l₂[i]? = some x.2
+  | [], _, _, _, h => by simp [List.zip] at h
+  | _ :: _, [], _, _, h => by simp [List.zip] at h
+  | _ :: _, _ :: _, 0, _, h => by
+    simp only [List.zip_cons_cons, List.getElem?_cons_zero, Option.some.injEq] at h
+    rw [← h]
+    rfl
+  | _ :: l₁, _ :: l₂, i + 1, x, h => by
+    simp only [List.zip_cons_cons, List.getElem?_cons_succ] at h
+    exact zip_getElem?_snd l₁ l₂ i x h
+
+omit I in
+/-- Class `c`'s entry of the provision list carries the READ-BACK's own
+argument sums — the stored recursor's major index and rule prefix. -/
+theorem nestedProvList_snd (hm : cvRms.length = p.k) (hn : cvRns.length = pinsS.length)
+    (hs : stored.length = b.k) (hbk : b.k = p.k + pinsS.length)
+    (c : Nat) (x : ConstantVal × Nat × Nat)
+    (hx : (nestedProvList p stored cvRms cvRns)[c]? = some x) :
+    ∃ a, stored[c]? = some a ∧ x.2 = (a.mI, a.rP) := by
+  have hlenM : (cvRms.zip ((stored.take p.k).map fun a => (a.mI, a.rP))).length = p.k := by
+    rw [List.length_zip, List.length_map, List.length_take, hm, hs, hbk]
+    omega
+  unfold nestedProvList at hx
+  by_cases hc : c < p.k
+  · rw [List.getElem?_append_left (by omega)] at hx
+    have h1 := zip_getElem?_snd _ _ _ _ hx
+    rw [List.getElem?_map] at h1
+    obtain ⟨a, ha, hxa⟩ := Option.map_eq_some_iff.mp h1
+    rw [List.getElem?_take_of_lt hc] at ha
+    exact ⟨a, ha, hxa.symm⟩
+  · rw [List.getElem?_append_right (by omega), hlenM] at hx
+    have h1 := zip_getElem?_snd _ _ _ _ hx
+    rw [List.getElem?_map] at h1
+    obtain ⟨a, ha, hxa⟩ := Option.map_eq_some_iff.mp h1
+    rw [List.getElem?_drop] at ha
+    refine ⟨a, ?_, hxa.symm⟩
+    rw [show p.k + (c - p.k) = c from by omega] at ha
+    exact ha
 
 omit I in
 /-- Class `c`'s entry of the provision list carries class `c`'s restored
@@ -504,6 +571,67 @@ theorem NestedTailIn.recCvDoor {c : Nat} (hc : c < b.k) :
     rw [hcv]
     exact ⟨by rw [hname]; exact hfr, by rw [hname]; exact hnres, by rw [hname]; exact hpsh,
       hfv, hlp, hbv, hres⟩
+
+/-- **THE RESTORE TABLE'S PINS ARE CONSTANT-HEADED** (task #315): a
+recorded pin IS the source spelled out — `nestedCopySrcOk_inv`, K.28's
+record, gives `q.pin = I lvls Ds` — and neither abstracting the block's
+parameters nor lifting can change an application's head.  This is the
+one case of `restoreWalk_getAppFn_const` with content: at a `ctorPins`
+key the replacement is `newName`, at a `recMap` key the renamed
+constant, and both are `const` by construction. -/
+theorem NestedTailIn.pinsHeaded : (ConLeche.restoreTbl p st).PinsHeaded := by
+  intro n pin hlk
+  obtain ⟨q, hq, -, rfl⟩ := ConLeche.rk_restoreTbl_pins_lookup_inv hlk
+  obtain ⟨i, hi⟩ := List.getElem?_of_mem hq
+  obtain ⟨t₀, pbs, body, -, -, hall⟩ := ConLeche.nestedCopySrcOk_inv I.hsrc
+  obtain ⟨t, Jn, lvls, Ds, ci, J, cc, -, -, -, hpin, -, -, -, -, -, -, -⟩ := hall i q hi
+  refine ⟨Jn, lvls, fun d => ?_⟩
+  rw [hpin, ConLeche.abstractRange_mkAppN, ConLeche.abstractRange_const,
+    ConLeche.liftLooseBVars_mkAppN, Expr.getAppFn_mkAppN]
+  rfl
+
+/-- **CLASS `c`'s RESTORED RECURSOR'S MAJOR PREMISE IS CONSTANT-HEADED**
+(task #315): what `ConstWF` asks of every stored recursor, at the
+nested route's own entries.  The scratch recursor's type is
+`mutualRecTy`'s output and its stored major index is the scratch
+store's (`auxStored_rec_eq`), and the restore carries a constant head
+across the walk (`restoreNested_majorOk`, over the verbatim parameter
+prefix).  Unlike the rules' clause this is UNCONDITIONAL: a restored
+recursor with no nested-firing rule still declares a major premise. -/
+theorem NestedTailIn.recCvMajor {c : Nat} (hc : c < b.k) {a : AuxStored}
+    (ha : stored[c]? = some a) :
+    Expr.recMajorHeadOk (nestedRecCvAt p.k cvRms cvRns c).type a.mI = true := by
+  obtain ⟨-, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, hle, hmajA⟩ :=
+    ConLeche.auxStored_rec_eq I.haux I.hstored ha
+  have hnP : (ConLeche.restoreTbl p st).nP ≤ a.mI := by
+    rw [ConLeche.restoreTbl_nP, ← (ConLeche.auxBlock_former I.hb).1]
+    exact hle
+  by_cases hck : c < p.k
+  · obtain ⟨o, ho⟩ : ∃ o, cvRms[c]? = some o :=
+      ⟨_, List.getElem?_eq_getElem (by rw [I.lenM]; exact hck)⟩
+    have hasa : (stored.take p.k)[c]? = some a := by
+      rw [List.getElem?_take_of_lt hck]; exact ha
+    have hcv : nestedRecCvAt p.k cvRms cvRns c = o := by
+      unfold nestedRecCvAt
+      rw [if_pos hck, List.getD_eq_getElem?_getD, ho]
+      rfl
+    obtain ⟨-, hres, -, -, -, -, -⟩ := ConLeche.restoreRecTys_at I.hrm c a o hasa ho
+    rw [hcv]
+    exact ConLeche.restoreNested_majorOk I.pinsHeaded hnP hmajA hres
+  · have hq : c - p.k < pinsS.length := by
+      have := I.out.bk
+      omega
+    obtain ⟨o, ho⟩ : ∃ o, cvRns[c - p.k]? = some o :=
+      ⟨_, List.getElem?_eq_getElem (by rw [I.lenN]; exact hq)⟩
+    have hasa : (stored.drop p.k)[c - p.k]? = some a := by
+      rw [List.getElem?_drop, show p.k + (c - p.k) = c from by omega]; exact ha
+    have hcv : nestedRecCvAt p.k cvRms cvRns c = o := by
+      unfold nestedRecCvAt
+      rw [if_neg hck, List.getD_eq_getElem?_getD, ho]
+      rfl
+    obtain ⟨-, hres, -, -, -, -, -⟩ := ConLeche.restoreRecTys_at I.hrn (c - p.k) a o hasa ho
+    rw [hcv]
+    exact ConLeche.restoreNested_majorOk I.pinsHeaded hnP hmajA hres
 
 /-- **CLASS `c`'s RESTORED RECURSOR TYPE MENTIONS ONLY STORED
 PROJECTION SLOTS** (task #315 M7-2): `restoreRecTys_slots` at the same
@@ -684,6 +812,19 @@ theorem NestedTailIn.provisioned
       (fun c hc => ⟨(I.recCvDoor (hlt c hc)).2.2.2.1, (I.recCvDoor (hlt c hc)).2.2.2.2.1,
         (I.recCvDoor (hlt c hc)).2.2.2.2.2.1⟩)
       (by rw [nestedProvList_names I.lenM I.lenN I.storedLen hbk]; exact hnd)
+      -- **THE MAJOR PREMISE'S HEAD**, per ENTRY (task #315): the entry's
+      -- major index is the read-back's own, and its type is the restore
+      -- of the scratch recursor's
+      (fun x hx => by
+        obtain ⟨c, hcx⟩ := List.getElem?_of_mem hx
+        have hclt : c < b.k := by
+          have := (List.getElem?_eq_some_iff.mp hcx).1
+          rw [nestedProvList_length I.lenM I.lenN I.storedLen hbk, ← hbk] at this
+          exact this
+        obtain ⟨a, ha, hsnd⟩ :=
+          nestedProvList_snd I.lenM I.lenN I.storedLen hbk c x hcx
+        rw [nestedProvList_fst I.lenM I.lenN I.storedLen hbk c x hcx, hsnd]
+        exact I.recCvMajor hclt ha)
       (fun c hc => (I.recCvDoor (hlt c hc)).1)
       (fun c hc => (I.recCvDoor (hlt c hc)).2.2.2.2.2.2)
       I.etaEnv₂

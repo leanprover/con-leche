@@ -82,7 +82,7 @@ theorem NestedTailIn.auxRecTy {c : Nat} (hc : c < b.k) :
   obtain ⟨a, ha⟩ : ∃ a, stored[c]? = some a :=
     ⟨_, List.getElem?_eq_getElem (by rw [hlenS]; exact hc)⟩
   obtain ⟨-, hlpsA, fms', f₀', ctorsA', sortss', kinds', hformers', hf₀', hctors', hkinds',
-    hgen, -, -, hbv, hfv⟩ := ConLeche.auxStored_rec_eq I.haux I.hstored ha
+    hgen, -, -, hbv, hfv, -, -⟩ := ConLeche.auxStored_rec_eq I.haux I.hstored ha
   -- the runs are the tail's own
   have hfms : fms = fms' := by
     have h := Except.ok.inj (I.out.formers.symm.trans hformers')

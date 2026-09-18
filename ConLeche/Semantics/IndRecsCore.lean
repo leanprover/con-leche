@@ -192,8 +192,8 @@ theorem swapEnvFacts {envSelf env₃ : Env} {cvalSelf : TConstVal}
   · -- `EnvWF`
     intro c hc
     rcases hentR c hc with hcS | ⟨cv, mI, rP, rules, rfl, hfacts⟩
-    · obtain ⟨hSw, hSlp, hSres, hSb, hSdef, hSrec, hStbl, hScaps⟩ := hwfS c hcS
-      refine ⟨hSw, hSlp, hres₃ _ hSres, hSb, ?_, ?_, ?_, hScaps⟩
+    · obtain ⟨hSw, hSlp, hSres, hSb, hSdef, hSmaj0, hSrec, hStbl, hScaps⟩ := hwfS c hcS
+      refine ⟨hSw, hSlp, hres₃ _ hSres, hSb, ?_, hSmaj0, ?_, ?_, hScaps⟩
       · intro cv v hint heq
         obtain ⟨d1, d2, d3, d4⟩ := hSdef cv v hint heq
         exact ⟨d1, d2, hres₃ _ d3, d4⟩
@@ -212,15 +212,34 @@ theorem swapEnvFacts {envSelf env₃ : Env} {cvalSelf : TConstVal}
         obtain ⟨t1, t2, t3, t4⟩ := g i b hb
         exact ⟨t1, t2, hres₃ _ t3, t4⟩
     · obtain ⟨c₀, hc₀, hpair⟩ := swapSh_mem_corr hswR _ hc
-      obtain ⟨hSw, hSlp, hSres, hSb, -, -, -, -⟩ := hwfS c₀ hc₀
+      obtain ⟨hSw, hSlp, hSres, hSb, -, hSmaj, -, -, -⟩ := hwfS c₀ hc₀
       have hcvt : c₀.toConstantVal = cv := by
         rcases hpair with rfl | ⟨cv', mI', rP', rules', rfl, heq⟩
         · rfl
         · obtain ⟨rfl, -, -, -⟩ := ConstantInfo.recInfo.inj heq
           rfl
+      -- **THE MAJOR PREMISE'S HEAD** (task #315): the swap replaces a
+      -- recursor's RULE LIST and nothing else, so the corresponding
+      -- constant in `envSelf` is `.recInfo cv mI rP rules'` at the same
+      -- `cv` and `mI`, and the clause comes off `hwfS` there.  The
+      -- pair's injection identifies all four components; `hcvt` above
+      -- needed only the first.
+      have hmaj₃ : ∀ cv₂ mI₂ rP₂ rules₂,
+          (ConstantInfo.recInfo cv mI rP rules) = .recInfo cv₂ mI₂ rP₂ rules₂ →
+          ConLeche.Expr.recMajorHeadOk cv₂.type mI₂ = true := by
+        intro cv₂ mI₂ rP₂ rules₂ heq₂
+        obtain ⟨hc1, hc2, -, -⟩ := ConstantInfo.recInfo.inj heq₂
+        subst hc1
+        subst hc2
+        rcases hpair with rfl | ⟨cv', mI', rP', rules', rfl, heq⟩
+        · exact hSmaj _ _ _ _ rfl
+        · obtain ⟨he1, he2, -, -⟩ := ConstantInfo.recInfo.inj heq
+          subst he1
+          subst he2
+          exact hSmaj _ _ _ _ rfl
       rw [hcvt] at hSw hSlp hSres hSb
       refine ⟨hSw, hSlp, hres₃ _ hSres, hSb,
-        fun _ _ _ hcon => ConstantInfo.noConfusion hcon, ?_,
+        fun _ _ _ hcon => ConstantInfo.noConfusion hcon, hmaj₃, ?_,
         fun _ hcon => ConstantInfo.noConfusion hcon,
         fun _ _ hcon => ConstantInfo.noConfusion hcon⟩
       intro cv' mI' rP' rules' heq r hr

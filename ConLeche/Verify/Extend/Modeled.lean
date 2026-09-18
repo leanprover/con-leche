@@ -123,6 +123,9 @@ theorem provisionRecs_cons_inv {blockNames : List Name}
       ci = .recInfo cv mI rP rules ∧
       checkMemberVal (fueledOps mode F) blockNames envAcc ci.toConstantVal =
         .ok cvA ∧
+      -- K.55: the stored recursor's major premise is an application of a
+      -- constant, recorded because this route does not GENERATE the type
+      certOnly (fueledOps mode F).mode (Expr.recMajorHeadOk cvA.type mI) = true ∧
       provisionRecs (fueledOps mode F) blockNames
         ⟨.recInfo cvA mI rP [] :: envAcc.consts⟩ rest = .ok p' ∧
       p = (p'.1, (cvA, mI, rP, rules) :: p'.2) := by
@@ -143,12 +146,18 @@ theorem provisionRecs_cons_inv {blockNames : List Name}
   | ok cvA =>
   rw [hcmv] at h
   try dsimp only at h
+  by_cases hmh : certOnly (fueledOps mode F).mode (Expr.recMajorHeadOk cvA.type mI) = true
+  case neg =>
+    rw [if_neg hmh] at h
+    exact absurd h (by simp [throw, throwThe, MonadExceptOf.throw])
+  rw [if_pos hmh] at h
+  try dsimp only at h
   cases hrec : provisionRecs (fueledOps mode F) blockNames
       ⟨.recInfo cvA mI rP [] :: envAcc.consts⟩ rest with
   | error e => rw [hrec] at h; exact nomatch h
   | ok p' =>
   rw [hrec] at h
   simp only [pure, Except.pure, Except.ok.injEq] at h
-  exact ⟨cv, mI, rP, rules, cvA, p', rfl, rfl, hrec, h.symm⟩
+  exact ⟨cv, mI, rP, rules, cvA, p', rfl, rfl, hmh, hrec, h.symm⟩
 
 end ConLeche

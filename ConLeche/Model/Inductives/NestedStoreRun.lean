@@ -120,6 +120,8 @@ theorem nestedRecsStore_at {env₂ : Env} {l : List (ConstantVal × Nat × Nat �
     (htys : ∀ x ∈ l, x.1.type.hasFvar = false ∧
       x.1.type.allLevelParamsDefined x.1.levelParams = true ∧
       x.1.type.constsResolve env₂ = true ∧ x.1.type.looseBVarsBounded 0 = true)
+    -- **THE MAJOR PREMISE'S HEAD** (task #315), as at `nestedRecsStore`
+    (hmaj : ∀ x ∈ l, ConLeche.Expr.recMajorHeadOk x.1.type x.2.1 = true)
     (hrulesWF : ∀ x ∈ l, ∀ r ∈ x.2.2.2,
       (RecRule.rhs r).hasFvar = false ∧
       (RecRule.rhs r).allLevelParamsDefined x.1.levelParams = true ∧
@@ -153,7 +155,7 @@ theorem nestedRecsStore_at {env₂ : Env} {l : List (ConstantVal × Nat × Nat �
     ∃ mp₃ : EnvModelM V μ (ConLeche.storeNestedRecs l env₂),
       mp₃.base2.acval = mpP.base2.acval ∧ mp₃.base2.cvalE = mpP.base2.cvalE := by
   subst hprov
-  exact nestedRecsStore henv₂ mpP hfresh hnres htys hrulesWF hctorStored hlaws
+  exact nestedRecsStore henv₂ mpP hfresh hnres htys hmaj hrulesWF hctorStored hlaws
 
 /-! ## `NoProjEnv` across the nested install's conses
 
@@ -1646,6 +1648,16 @@ theorem nestedRecsStored_of {F : Nat}
     (fun x hx => (I.storeDoor x hx).1) (fun x hx => (I.storeDoor x hx).2.1)
     (fun x hx => ⟨(I.storeDoor x hx).2.2.1, (I.storeDoor x hx).2.2.2.1,
       (I.storeDoor x hx).2.2.2.2.1, (I.storeDoor x hx).2.2.2.2.2⟩)
+    -- **THE MAJOR PREMISE'S HEAD** (task #315), per entry
+    (fun x hx => by
+      obtain ⟨c, hc, hcv, hmIx, -, -⟩ := nestedStoreList_mem I.lenM hx
+      have hclt : c < b.k := by rw [I.out.bk, ← I.lenN]; exact hc
+      have ha : stored[c]? = some (stored.getD c default) := by
+        rw [List.getD_eq_getElem?_getD,
+          List.getElem?_eq_getElem (by rw [I.storedLen]; exact hclt)]
+        rfl
+      rw [hcv, hmIx]
+      exact I.recCvMajor hclt ha)
     I.storeRules (I.storeCtors hbits') hlaws
   have hag₃ : ∀ n : Name, (∀ c, c < b.k → n ≠ (nestedRecCvAt p.k cvRms cvRns c).name) →
       mp₃.base2.acval n = mp₂.base2.acval n := by

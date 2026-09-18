@@ -226,6 +226,9 @@ theorem provisionRecsS_fresh (mode : CheckMode) (blockNames : List Name) :
         fun cvA hcvA => ?_
       obtain ⟨hn, hfr⟩ := hcvA
       have hfr' : feAcc.find? cvA.name = none := by rw [hn]; exact hfr
+      -- K.55's guard is a pure Bool: the throwing branch yields nothing
+      refine Yields.ofDecCases (fun _ => Yields.ofThrowBind) (fun _ => ?_)
+      try simp only []
       refine Yields.bind'
         (provisionRecsS_fresh mode blockNames rest
           (feAcc.push (.recInfo cvA mI rP [])) (h.push hfr'))

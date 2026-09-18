@@ -628,7 +628,21 @@ theorem mutualRecsStore_of (mp₂ : EnvModelM V μ env₂)
       (fun ψ => by rw [hac]; exact hP.leaves t ht ψ) hfC₃ (fun ψ => hcd₃.read ψ) hlpsRhs hread
       hmI hrP hrule φ
   -- **the store**
-  obtain ⟨mp₃, hac, -⟩ := mutualRecsStore (k := d.k) mp₂.base2.wf hrectys hrules mpP hP.lenR hfresh
+  -- the arity facts for the store's `EnvWF`, off `mutualGenData`'s equation
+  obtain ⟨hf4, hc4⟩ := Prod.mk.inj hgd
+  obtain ⟨mp₃, hac, -⟩ := mutualRecsStore (k := d.k) mp₂.base2.wf hrectys hrules
+    (by rw [← hf4, List.length_map, hlenF])
+    (by
+      rw [← hc4]
+      simp only [List.length_zipWith, List.length_zip, hlenA, hlenK, ConLeche.MutualBlock.n]
+      omega)
+    (by
+      intro m f hm
+      rw [← hf4, List.getElem?_map] at hm
+      obtain ⟨g, hg, rfl⟩ := Option.map_eq_some_iff.mp hm
+      rw [List.getD_eq_getElem?_getD, hg]
+      rfl)
+    mpP hP.lenR hfresh
     hnres hctorStored hlaws
   refine ⟨mp₃, fun n hn ψ => ?_, ?_, fun ψ => ?_, fun t f hf => ?_⟩
   · rw [hac]

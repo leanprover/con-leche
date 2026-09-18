@@ -172,6 +172,9 @@ theorem nestedRecsStore {env₂ : Env} {l : List (ConstantVal × Nat × Nat × L
     (htys : ∀ x ∈ l, x.1.type.hasFvar = false ∧
       x.1.type.allLevelParamsDefined x.1.levelParams = true ∧
       x.1.type.constsResolve env₂ = true ∧ x.1.type.looseBVarsBounded 0 = true)
+    -- **THE MAJOR PREMISE'S HEAD** (task #315): `nested_recs_wf`'s, asked
+    -- of every stored recursor unconditionally
+    (hmaj : ∀ x ∈ l, ConLeche.Expr.recMajorHeadOk x.1.type x.2.1 = true)
     (hrulesWF : ∀ x ∈ l, ∀ r ∈ x.2.2.2,
       (RecRule.rhs r).hasFvar = false ∧
       (RecRule.rhs r).allLevelParamsDefined x.1.levelParams = true ∧
@@ -252,7 +255,7 @@ theorem nestedRecsStore {env₂ : Env} {l : List (ConstantVal × Nat × Nat × L
     · obtain ⟨rfl, rfl, rfl, rfl⟩ := ConstantInfo.recInfo.inj hc
       rw [← hn]
       exact hlaws m₃ hac φ x hx rl hrl hfire
-  exact EnvModelM.swapP mpP hsw (ConLeche.nested_recs_wf henv₂ htys hrulesWF) hctors₃ hbp₃
+  exact EnvModelM.swapP mpP hsw (ConLeche.nested_recs_wf henv₂ htys hmaj hrulesWF) hctors₃ hbp₃
     hproj₃ hrecP
 
 end ConLeche.Model

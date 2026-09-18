@@ -133,7 +133,13 @@ theorem recsProvisionGo {k nP n : Nat} {nIdxOf : Nat → Nat} {elimL : Level}
     (hpshape : ∀ t, t < k → (cvRaOf t).name.isProjFnShape = false)
     (htyWF : ∀ t, t < k → (cvRaOf t).type.hasFvar = false ∧
       (cvRaOf t).type.allLevelParamsDefined (cvRaOf t).levelParams = true ∧
-      (cvRaOf t).type.looseBVarsBounded 0 = true) :
+      (cvRaOf t).type.looseBVarsBounded 0 = true)
+    -- **THE MAJOR PREMISE'S HEAD** (task #315): the cons is a recursor,
+    -- so `ConstWF` asks for the stored type's major premise to have a
+    -- `const` head at the stored major index; on this route the type is
+    -- `mutualRecTy`'s output (`checkMutualRecTys_majorHead`)
+    (hmaj : ∀ t, t < k → ConLeche.Expr.recMajorHeadOk (cvRaOf t).type
+      (b.rulePrefix + (fms.getD t default).nIdx) = true) :
     ∀ (rest : List (ConstantVal × Nat)) (env : Env) (_mp : EnvModelM V μ env),
       (∀ x ∈ rest, x.2 < k ∧ x.1 = cvRaOf x.2) →
       (∀ x ∈ rest, env.find? x.1.name = none) →
@@ -163,7 +169,11 @@ theorem recsProvisionGo {k nP n : Nat} {nIdxOf : Nat → Nat} {elimL : Level}
         (b.rulePrefix + (fms.getD mIdx default).nIdx) b.rulePrefix [] :: env.consts⟩ := by
       refine ConLeche.EnvWF.cons mp.base2.wf (ConLeche.structConstWF hfv hlp
         (Expr.constsResolve_mono (hres mIdx hmIdx)) hbv
-        (fun _ _ _ heq => nomatch heq) ?_)
+        (fun _ _ _ heq => nomatch heq) ?_ (hmaj := ?maj))
+      case maj =>
+        intro cv mI' rP' rules heq
+        obtain ⟨rfl, rfl, -, -⟩ := ConstantInfo.recInfo.inj heq
+        exact hmaj mIdx hmIdx
       intro cv mI' rP' rules heq r hr
       injection heq with _ _ _ hrules
       rw [← hrules] at hr
@@ -193,7 +203,7 @@ theorem recsProvisionGo {k nP n : Nat} {nIdxOf : Nat → Nat} {elimL : Level}
           (b.rulePrefix + (fms.getD mIdx default).nIdx) b.rulePrefix [])
         hfresh (hcross _) (constsBound_of_constsResolve _ (hres t ht)) mpR.base2 hacR
     obtain ⟨mp', hE'', hres'', hRDs'', hleaf'', hag⟩ :=
-      recsProvisionGo hleaf hAcl hAparams hnres hpshape htyWF rest _ mpR
+      recsProvisionGo hleaf hAcl hAparams hnres hpshape htyWF hmaj rest _ mpR
         (fun x hx => hmem x (List.mem_cons_of_mem _ hx))
         (fun x hx => by
           rw [ConLeche.Env.find?_cons, if_neg (fun h => hneRest x hx h.symm)]
@@ -231,6 +241,9 @@ theorem recsProvision {k nP n : Nat} {nIdxOf : Nat → Nat} {elimL : Level}
       (cvRas.getD t default).type.allLevelParamsDefined
         (cvRas.getD t default).levelParams = true ∧
       (cvRas.getD t default).type.looseBVarsBounded 0 = true)
+    -- **THE MAJOR PREMISE'S HEAD** (task #315), as in `recsProvisionGo`
+    (hmaj : ∀ t, t < k → ConLeche.Expr.recMajorHeadOk (cvRas.getD t default).type
+      (b.rulePrefix + (fms.getD t default).nIdx) = true)
     (hnd : (cvRas.map (·.name)).Nodup)
     (hfresh : ∀ t, t < k → env₂.find? (cvRas.getD t default).name = none)
     (hres : ∀ t, t < k → (cvRas.getD t default).type.constsResolve env₂ = true)
@@ -259,7 +272,7 @@ theorem recsProvision {k nP n : Nat} {nIdxOf : Nat → Nat} {elimL : Level}
     exact hnd
   obtain ⟨mp₃, hE₃, hres₃, hRDs₃, hleaf₃, hag⟩ :=
     recsProvisionGo (cvRaOf := fun t => cvRas.getD t default) hleaf hAcl hAparams hnres hpshape
-      htyWF cvRas.zipIdx env₂ mp₂
+      htyWF hmaj cvRas.zipIdx env₂ mp₂
       hzip (fun x hx => by rw [(hzip x hx).2]; exact hfresh x.2 (hzip x hx).1) hres hE hzipNd hRDs
   refine ⟨mp₃, hE₃, hres₃, hRDs₃, ?_, ?_⟩
   · intro t ht ψ

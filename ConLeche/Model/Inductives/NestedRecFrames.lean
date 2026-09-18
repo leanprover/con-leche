@@ -465,7 +465,7 @@ theorem NestedTailIn.auxRecParamDoms {c : Nat} {a : AuxStored} (ha : stored[c]? 
     ∃ (qbs : List (Expr × BinderMeta)) (bodyF : Expr),
       f₀.cvTa.type.stripPis b.nP = some (qbs, bodyF) ∧ pbs.map (·.1) = qbs.map (·.1) := by
   obtain ⟨-, -, fms', f₀', ctorsA', sortss', kinds', hformers', hf₀', hctors', hkinds',
-    hgen, -, -, -, -⟩ := ConLeche.auxStored_rec_eq I.haux I.hstored ha
+    hgen, -, -, -, -, -, -⟩ := ConLeche.auxStored_rec_eq I.haux I.hstored ha
   have hfms : fms = fms' := congrArg Prod.snd (Except.ok.inj (I.out.formers.symm.trans hformers'))
   subst hfms
   have hf0 : f₀ = f₀' := Option.some.inj (I.out.facts.first.symm.trans hf₀')

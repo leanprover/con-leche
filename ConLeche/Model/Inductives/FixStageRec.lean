@@ -687,7 +687,16 @@ theorem stageFixRec {p : NativeParts} (hE : ConLeche.EtaFamiliesClosedExcept env
   have hfresh : env.find? cvRa.name = none := by rw [hRname]; exact hfind
   have htrR' : cvRa.type.constsResolve env = true := by rw [hRtype]; exact htrR
   have hcbR : ConstsBound env cvRa.type := constsBound_of_constsResolve _ htrR'
-  have hwf := ConLeche.direct_fix_rec_wf (mode := μ) mp.base2.wf hRec
+  -- the two arity facts (task #315): `ctorsA.length = p.ctors.length`
+  -- comes off `hmIp`/`hmI` — the major index is `p.majorIdx` and it is
+  -- also `p.nP + 1 + ctorsA.length + p.nIdx` — and the kinds' length is
+  -- `hlenK`
+  have hlenA : ctorsA.length = p.ctors.length := by
+    have h1 : p.majorIdx = p.nP + 1 + ctorsA.length + p.nIdx := by rw [hmIp, hmI]
+    simp only [ConLeche.InductiveShape.majorIdx,
+      ConLeche.InductiveShape.rulePrefix] at h1
+    omega
+  have hwf := ConLeche.direct_fix_rec_wf (mode := μ) mp.base2.wf hlenA hlenK hRec
   rw [hmIp, hrPp] at hwf
   have hTR : p.cvT.name ≠ cvRa.name := by
     intro h; rw [h, hfresh] at hfT; exact nomatch hfT

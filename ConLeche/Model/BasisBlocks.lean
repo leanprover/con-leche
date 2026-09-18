@@ -605,6 +605,7 @@ theorem declBasisPB_punitK {env₂ : Env} (mp : EnvModelM V μ env)
   have hwf1 : EnvWF ⟨punitA :: env.consts⟩ :=
     EnvWF.cons mp.base2.wf ⟨rfl, rfl, rfl, rfl,
       (fun _ _ _ heq => nomatch heq), (fun _ _ _ _ heq => nomatch heq),
+      (fun _ _ _ _ heq => nomatch heq),
       (fun _ heq => nomatch heq),
       (by first
         | (refine ConLeche.IndCapsWF.of_caps ?_ ?_ <;> intro h <;>
@@ -619,6 +620,7 @@ theorem declBasisPB_punitK {env₂ : Env} (mp : EnvModelM V μ env)
   have hwf2 : EnvWF ⟨punitUnitA :: punitA :: env.consts⟩ := by
     refine EnvWF.cons hwf1 ⟨rfl, rfl, ?_, rfl,
       (fun _ _ _ heq => nomatch heq), (fun _ _ _ _ heq => nomatch heq),
+      (fun _ _ _ _ heq => nomatch heq),
       (fun _ heq => nomatch heq),
       (by first
         | (refine ConLeche.IndCapsWF.of_caps ?_ ?_ <;> intro h <;>
@@ -650,7 +652,11 @@ theorem declBasisPB_punitK {env₂ : Env} (mp : EnvModelM V μ env)
   have hwf3 : EnvWF
       ⟨punitRecA :: punitUnitA :: punitA :: env.consts⟩ := by
     refine EnvWF.cons hwf2 ⟨rfl, rfl, ?_, rfl,
-      (fun _ _ _ heq => nomatch heq), ?_,
+      (fun _ _ _ heq => nomatch heq),
+      (fun _ _ _ _ heq => by
+        first
+          | (injection heq with hq1 hq2 _ _; subst hq1; subst hq2; rfl)
+          | exact nomatch heq), ?_,
       (fun _ heq => nomatch heq),
       (by first
         | (refine ConLeche.IndCapsWF.of_caps ?_ ?_ <;> intro h <;>
@@ -1934,6 +1940,7 @@ theorem declBasisPB_natK {env₁ : Env} (mp : EnvModelM V μ env)
   have hwf1 : EnvWF ⟨natA :: env.consts⟩ :=
     EnvWF.cons mp.base2.wf ⟨rfl, rfl, rfl, rfl,
       (fun _ _ _ heq => nomatch heq), (fun _ _ _ _ heq => nomatch heq),
+      (fun _ _ _ _ heq => nomatch heq),
       (fun _ heq => nomatch heq),
       (by first
         | (refine ConLeche.IndCapsWF.of_caps ?_ ?_ <;> intro h <;>
@@ -1951,6 +1958,7 @@ theorem declBasisPB_natK {env₁ : Env} (mp : EnvModelM V μ env)
   have hwf2 : EnvWF ⟨natZeroA :: natA :: env.consts⟩ := by
     refine EnvWF.cons hwf1 ⟨rfl, rfl, ?_, rfl,
       (fun _ _ _ heq => nomatch heq), (fun _ _ _ _ heq => nomatch heq),
+      (fun _ _ _ _ heq => nomatch heq),
       (fun _ heq => nomatch heq),
       (by first
         | (refine ConLeche.IndCapsWF.of_caps ?_ ?_ <;> intro h <;>
@@ -1978,6 +1986,7 @@ theorem declBasisPB_natK {env₁ : Env} (mp : EnvModelM V μ env)
   have hwf3 : EnvWF ⟨natSuccA :: natZeroA :: natA :: env.consts⟩ := by
     refine EnvWF.cons hwf2 ⟨rfl, rfl, ?_, rfl,
       (fun _ _ _ heq => nomatch heq), (fun _ _ _ _ heq => nomatch heq),
+      (fun _ _ _ _ heq => nomatch heq),
       (fun _ heq => nomatch heq),
       (by first
         | (refine ConLeche.IndCapsWF.of_caps ?_ ?_ <;> intro h <;>
@@ -2016,7 +2025,11 @@ theorem declBasisPB_natK {env₁ : Env} (mp : EnvModelM V μ env)
         :: env.consts⟩ : Env).find? natSuccName = some natSuccA := by
       rw [ConLeche.Env.find?_cons, if_neg (by decide)]; exact hS3
     refine EnvWF.cons hwf3 ⟨rfl, rfl, ?_, rfl,
-      (fun _ _ _ heq => nomatch heq), ?_,
+      (fun _ _ _ heq => nomatch heq),
+      (fun _ _ _ _ heq => by
+        first
+          | (injection heq with hq1 hq2 _ _; subst hq1; subst hq2; rfl)
+          | exact nomatch heq), ?_,
       (fun _ heq => nomatch heq),
       (by first
         | (refine ConLeche.IndCapsWF.of_caps ?_ ?_ <;> intro h <;>
