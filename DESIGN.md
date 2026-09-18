@@ -113108,3 +113108,109 @@ package, then the clause, then (ii), then (iii)–(v) — and the doc
 sentence last, when the clause it describes exists.
 
 Nothing in this section changes the tree.
+
+#### PINF: THE BRIDGE ALREADY EXISTS AND IS ALREADY CONSUMED — my measurement was wrong twice, both favourably (lane PINF, 2026-09-18)
+
+Correcting it before a line is written against it.  **Nothing built**,
+and the row is much cheaper than the section above priced.
+
+##### (a) (c) IS IN THE TREE, PROVED — `restoreNested_opened`
+
+`NestedRestoreOpen.lean`'s final theorem is the join lemma, and its
+statement is the one the previous section wrote out, name for name:
+
+```lean
+theorem restoreNested_opened {R : RestoreTbl} (hk : R.KeysInAux) {nP nF : Nat}
+    (hnP : R.nP = nP)
+    (hpinB : ∀ n pin, R.pins.lookup n = some pin → pin.looseBVarsBounded nP = true)
+    … (hopP : openPisAtFvars nP tyA 0 = some (fvsP, crestA))
+    (hopX : openPisAtFvars nF crestA nP = some (xFvsA, xrest))
+    (hres : restoreNested R tyA = .ok tyR) … :
+    ∃ (crestR : Expr) (xFvsR : List Expr),
+      openPisAtFvars nP tyR 0 = some (fvsP, crestR) ∧ … ∧
+      ∀ i x, xFvsA[i]? = some x → ∃ ty', xFvsR[i]? = some (.fvar (nP + i) ty') ∧ … ∧
+        (∀ n us pin is, x.fvarTypeD = Expr.mkAppN (.const n us) (fvsP ++ is) →
+          R.pins.lookup n = some pin → R.recMap.lookup n = none →
+          ty' = Expr.mkAppN (Expr.instSeq fvsP (nP - 1) pin) is) ∧ …
+```
+
+It even takes `restoreNested` directly, which is what `restoreCtors_id`
+hands over.  **The 120–160 lines priced for (c) are zero.**
+
+##### (b) AND ITS PACKAGE IS BUILT — at `NestedCtorRead.lean`
+
+`restoreNested_opened` is CONSUMED, in the Model tier, inside
+`ReadCtx.restoredOpened` (`NestedCtorRead.lean`).  Every premise the
+previous section priced at 150–250 lines is assembled there:
+`restoreTbl_keysInAux`, `C.hpinB`, the two openings, `hres`, `hxrest`
+— and `hnodep`, **including the one sub-argument I called "genuinely
+new"**: the conversion from `restoreOpenFields`' "mentions an aux name"
+trigger to the model's kind dispatch is written out, `hO.ord` at an
+ordinary field (through `auxFree_of_resolve₀`) and `hO.recF`/`hO.reflF`
+at the other two.  It was not new; it was already there.
+
+##### (c) AND THE PIN CASE IS RETAINED, one rewrite from the clause
+
+`ReadCtx.restoredOpened` keeps the per-field data, and its `RestoredField`
+shape carries the pin case spelled with the ELIMINATION's recorded pin
+term:
+
+```
+  ty'.stripPis … = some (tbs,
+    Expr.mkAppN (Expr.instSeq fvsP (b.nP - 1) (Expr.abstractRange qn.pin 0 p.nP 0)) is₀)
+```
+
+and `qn.pin = Expr.mkAppN (.const J lvls) DsE` is
+`NestedPinSynFacts.pinRec` / `NestedBlockModelOf.pin`.  So the clause's
+content is one rewrite away from a record the producer already builds.
+
+##### (d) THE ERROR, OWNED — and it is this row's own rule, broken by me
+
+I reported "no lemma joins the two" and "both restore lemmas have stood
+unconsumed", and built a 400–550-line estimate on them.  Both are false,
+and the second is why the first was believed.  The grep behind them
+excluded the file itself:
+
+```
+grep -rn "restoreOpen_pin_domain\|restoreOpenFields" … | grep -v NestedRestoreOpen.lean
+```
+
+— which asks after two INTERNAL lemmas and is silent about the file's
+top-level theorem, the only one anybody would consume.  Empty output
+was read as "unconsumed", and "unconsumed" as "no bridge".
+
+**That is `tests/warning-free.sh`'s own lesson — A NEGATIVE CLAIM NEEDS
+A COMMAND THAT CAN EXPRESS THE NEGATIVE — applied to declarations
+instead of warnings, and this lane taught it to itself two sections
+ago.**  The advisory `tests/unconsumed.sh` exists precisely to answer
+this question and was not run until after the estimate was published.
+**RULE: before reporting a declaration unconsumed, run
+`tests/unconsumed.sh`, not a grep.**
+
+##### (e) THE ROW'S STATE, for the handover
+
+* **(i) LANDED, green, consumed** — `NestedPinGroupSyn.pinOwn`,
+  `pinOwn_core`, the producer, `copyPinFUIdsCorr` (commit `829f8ebd`).
+* **(c) the bridge — ALREADY IN THE TREE**, `restoreNested_opened`, and
+  already consumed with its full package at `ReadCtx.restoredOpened`.
+  Nothing to build.
+* **the clause** — the one read left is whether `BlockCtorData` (what
+  `ContainerModeled` sees) RETAINS the per-field pin case, or whether
+  `ReadCtx.restoredOpened`'s field data is spent and dropped when
+  `NestedStageFacts.ctorFacts` builds `BlockCtorData`.  **If retained,
+  the clause may be derivable and not recorded at all** — which the
+  standing rule prefers — and this row's (2) would be a theorem rather
+  than a sixteenth field.  If dropped, the clause is stated in the
+  opened form and discharged at `nestedContainerModeled` from
+  `restoredOpened`, with eight vacuous sites.
+* **(ii)** — `hment` from that, plus `nestMention`, via
+  `mentionsConst_instSeq_false`'s contrapositive.
+* **(iii)–(v)** — unpriced, and not to be priced until (ii) lands: the
+  last four prices on this row were all wrong, three of them because a
+  producer was not read.
+
+**The remaining row is plausibly ONE session**, and the number is
+deliberately not sharpened: this section exists because the previous
+one's number was built on an unrun check.
+
+Nothing in this section changes the tree.
