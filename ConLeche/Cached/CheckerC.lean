@@ -433,6 +433,10 @@ def checkNestedS (fe : FEnv) (p : NestedParts) : CheckCM FEnv := do
   let rulesN ← (cvRns.zip mimics).mapM fun (cvRa, a) =>
     restoreRulesF (sharedOpsC mode feR) feR R cvRa.levelParams cvRa.name true cvRa.type
       a.mI a.rP a.rules
+  -- the restored rules' rescue bits (K.50), as in the pure route
+  unless certOnly mode
+      (nestedRuleBitsOk feR.find? (cvRms.zip rulesM ++ cvRns.zip rulesN)) do
+    throw (.internal "nested: a restored rule carries a K or eta rescue bit")
   let fe₃ := storeNestedRecsF
     ((cvRms.zip (members.zip rulesM)).map (fun (cv, a, rs) => (cv, a.mI, a.rP, rs))
       ++ (cvRns.zip (mimics.zip rulesN)).map (fun (cv, a, rs) => (cv, a.mI, a.rP, rs))) fe₂

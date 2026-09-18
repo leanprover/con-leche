@@ -1338,7 +1338,7 @@ theorem checkModeledOrNativeSF_run (hμ : mode.verifiedChecks = true) {env : Env
   -- the two drivers: `hok` is the branch both take
   show CSOKF s' ∧ feOut = mkFEnv feOut.env ∧
     ∃ F, (match basisPinHit block with
-      | some kind => checkBasisDecl (m := CheckM) env kind
+      | some kind => checkBasisDecl (m := CheckM) mode env kind
       | none =>
         if indParamsOk nP block = true then
           (match nativeParts? nP block with

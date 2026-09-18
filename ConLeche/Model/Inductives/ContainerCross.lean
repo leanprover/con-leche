@@ -5,6 +5,8 @@ public import ConLeche.Model.Inductives.BlockRepCross
 import ConLeche.Model.Install
 import ConLeche.Verify.Inductives.ContainerFrame
 import ConLeche.Verify.Inductives.NestedGroupInv
+import ConLeche.Verify.Inductives.NestedCopyInstU
+import ConLeche.Verify.Inductives.NestedCopyKinds
 public section
 
 /-!
@@ -94,7 +96,10 @@ representation (`IsBlockModels`), the per-member `IsBlockModel` of the
 `member` clause and the three typing clauses travel by
 `BlockRepCross.lean`'s four hypotheses; every other clause is
 model-free (`pinNP` reads `containerInfo?` at `d.env₀`, the block's own
-pre-block environment, not at the model's). -/
+pre-block environment, not at the model's).  `pinConts` is the one
+clause that names BOTH environments, and `hci` — the pins' containers'
+groups read the same at the new one, which every caller already holds
+for the pins' shapes — is what carries it. -/
 theorem ContainerModeled.crossEnvP {Ts : List Name} {env₁ env₂ : Env}
     {m₁ : EnvModel V env₁} {m₂ : EnvModel V env₂}
     {ci : ContainerInfo} {d : BlockModel V}
@@ -107,7 +112,11 @@ theorem ContainerModeled.crossEnvP {Ts : List Name} {env₁ env₂ : Env}
       denoteMeta m₁.acval env₁ ψ dp e = some ea → denoteMeta m₂.acval env₂ ψ dp e = some ea)
     (hfresh : ∀ T ∈ Ts, env₁.find? T = none)
     (hnpMem : ∀ M ∈ ci.members, ProjFree Ts M.type)
-    (hk : 0 < d.k) (C : ContainerModeled m₁ ci d) : ContainerModeled m₂ ci d := by
+    (hk : 0 < d.k)
+    (hci : ∀ q, q < d.nPins → ∀ ci' : ContainerInfo,
+      ConLeche.containerInfo? env₁ (d.pinAt q).J = some ci' →
+      ConLeche.containerInfo? env₂ (d.pinAt q).J = some ci')
+    (C : ContainerModeled m₁ ci d) : ContainerModeled m₂ ci d := by
   -- the member clause crosses at the STORED constant, whose type is
   -- guarded; `IsBlockModels` is then READ OFF it (the `member` clause
   -- is the stronger one — DESIGN §U.31 (e) 2)
@@ -140,6 +149,8 @@ theorem ContainerModeled.crossEnvP {Ts : List Name} {env₁ env₂ : Env}
       nestMention := C.nestMention
       pinsNotMembers := C.pinsNotMembers
       pinNP := C.pinNP
+      pinConts := fun q hq ci' h => hci q hq ci' (C.pinConts q hq ci' h)
+      pinParams := C.pinParams
       pinψ := fun q hq cvT caps hf => by
         obtain ⟨cvT', cvR', mI', rP', rules', h0⟩ := C.reps 0 hk
         obtain ⟨cv, caps', hf₁⟩ := h0.pinsFound q hq
@@ -161,9 +172,13 @@ theorem ContainerModeled.crossEnv {env₁ env₂ : Env} {m₁ : EnvModel V env�
     (hag : ∀ n : Name, (env₁.find? n).isSome = true → m₂.acval n = m₁.acval n)
     (hde : ∀ (ψ : Name → Nat) (dp : Nat) (e : Expr) {ea : AnnotTerm},
       denoteMeta m₁.acval env₁ ψ dp e = some ea → denoteMeta m₂.acval env₂ ψ dp e = some ea)
-    (hk : 0 < d.k) (C : ContainerModeled m₁ ci d) : ContainerModeled m₂ ci d :=
+    (hk : 0 < d.k)
+    (hci : ∀ q, q < d.nPins → ∀ ci' : ContainerInfo,
+      ConLeche.containerInfo? env₁ (d.pinAt q).J = some ci' →
+      ConLeche.containerInfo? env₂ (d.pinAt q).J = some ci')
+    (C : ContainerModeled m₁ ci d) : ContainerModeled m₂ ci d :=
   C.crossEnvP (Ts := []) hF hres hag (fun ψ dp e _ {_ea} hr => hde ψ dp e hr)
-    (fun _ hT => nomatch hT) (fun M _ => ProjFree.nil M.type) hk
+    (fun _ hT => nomatch hT) (fun M _ => ProjFree.nil M.type) hk hci
 
 /-- **A stored container's member types are guarded at names the
 environment does not carry**: `containerInfo?` returns the members'
@@ -205,8 +220,9 @@ theorem PinShapes.crossEnv {env₁ env₂ : Env} {m₁ : EnvModel V env₁} {m�
       ConLeche.containerInfo? env₂ (d.pinAt q).J = some ci)
     (h : PinShapes m₁ B d pc) : PinShapes m₂ B d pc := by
   intro q hq
-  obtain ⟨q₀, kJ, i, ci, hqe, hi, hcont, hgv, hsh⟩ := h q hq
-  refine ⟨q₀, kJ, i, ci, hqe, hi, hci q hq ci hcont, hgv, fun ψ ρp hρp i' j hi' hj cvT₂ caps₂ hf₂ => ?_⟩
+  obtain ⟨q₀, kJ, i, ci, hqe, hi, hcont, hgv, hct, hsh⟩ := h q hq
+  refine ⟨q₀, kJ, i, ci, hqe, hi, hci q hq ci hcont, hgv, hct,
+    fun ψ ρp hρp i' j hi' hj cvT₂ caps₂ hf₂ => ?_⟩
   obtain ⟨cvT, cvR, mI, rP, rules, h0⟩ := hd 0 hk
   -- the pin's container at the new environment is the one at the old
   obtain ⟨cv₁, caps₁, hf₁⟩ := h0.pinsFound (q₀ + i') (by
@@ -265,7 +281,7 @@ theorem BlockAt.crossEnvP {Ts : List Name} {env₁ env₂ : Env}
       ConLeche.containerInfo? env₂ ((B ci).pinAt q).J = some ci')
     (h : BlockAt m₁ B ci) : BlockAt m₂ B ci := by
   obtain ⟨C, pc, hL, hS⟩ := h
-  exact ⟨C.crossEnvP hF hres hag hde hfresh hnpMem hk, pc, hL.cross,
+  exact ⟨C.crossEnvP hF hres hag hde hfresh hnpMem hk hci, pc, hL.cross,
     hS.crossEnv hF hag hk C.reps hB hci⟩
 
 /-- **A container group's obligation crosses an environment change**
@@ -290,7 +306,8 @@ theorem BlockAt.crossEnv {env₁ env₂ : Env} {m₁ : EnvModel V env₁} {m₂ 
       ConLeche.containerInfo? env₂ ((B ci).pinAt q).J = some ci')
     (h : BlockAt m₁ B ci) : BlockAt m₂ B ci := by
   obtain ⟨C, pc, hL, hS⟩ := h
-  exact ⟨C.crossEnv hF hres hag hde hk, pc, hL.cross, hS.crossEnv hF hag hk C.reps hB hci⟩
+  exact ⟨C.crossEnv hF hres hag hde hk hci, pc, hL.cross,
+    hS.crossEnv hF hag hk C.reps hB hci⟩
 
 /-! ## The field across an extension -/
 
@@ -542,6 +559,602 @@ theorem EnvBlockModels.crossInd {env₁ env₂ : Env} {m₁ : EnvModel V env₁}
   obtain ⟨B', hold, hnew'⟩ := hnew B hB
   exact ⟨B', hB.crossInd hext hnewN hfreshN hrecN hwf hrc hF hres hag hde hold hnew'⟩
 
+/-! ## The own-pin table across an inductive install -/
+
+/-- **A STORED RECURSOR'S MAJOR PREMISE IS HEADED BY A STORED
+CONSTANT** (task #315 M7-3 session 17) — the one premise
+`ContainerOwnPinsSyn.crossInd` needs beyond the frame's, and the reason
+it needs one.
+
+`containerOwnPinsAt` reads a container's own pins off its MIMIC
+recursors: it instantiates `T₁.rec_j`'s `mI` binders at the caller's
+components `Ds` (padded with sorts), takes the next domain — the major
+premise — and keeps it when its head is a stored container.  Every
+other ingredient of that computation is the recursor's STORED type, so
+an environment extension cannot move it; the head is the one place
+where the CALLER's components can enter, because `Expr.instPis`
+substitutes them and a domain headed by a loose `bvar` comes back
+headed by whatever the substitution put there.  A head that comes from
+the stored type is a constant that `constsResolve` guarantees is
+stored (`EnvWF`), hence old; a head that comes from `Ds` need not be,
+and a NEW container there is exactly an own pin the extended
+environment reads and the old one does not.
+
+This premise excludes that: the major premise's head is a constant the
+environment has.  It is the unguarded form of the shape `EnvWF` already
+records for a recursor with a NESTED rule (`ConstWF`'s
+`nestedRuleShape` clause: `cv.type.stripPis mI = some (pre, .forallE dom body bm)`
+with `dom.getAppFn = .const D lvls`, `D` resolving in the environment),
+which is why every real mimic satisfies it — a mimic recursor exists
+only to carry the nested rules whose shape that clause pins down.  The
+`args.length = mI` side condition is what makes this the MAJOR PREMISE
+and not an arbitrary binder's domain: an index binder's domain may
+perfectly well be a parameter. -/
+@[expose] def RecMajorHeadStored (env : Env) : Prop :=
+  ∀ (n : Name) (cvR : ConstantVal) (mI rP : Nat) (rules : List RecRule)
+    (lps : List Name) (lvls : List Level) (args : List Expr)
+    (dom body : Expr) (bm : ConLeche.BinderMeta) (K : Name) (us : List Level),
+    env.find? n = some (.recInfo cvR mI rP rules) →
+    args.length = mI →
+    Expr.instPis (cvR.type.instantiateLevelParams lps lvls) args = some (.forallE dom body bm) →
+    dom.getAppFn = .const K us →
+    (env.find? K).isSome = true
+
+/-- `containerOwnPinsAt`, inverted: a successful read is the mimic walk
+at the group's own first member, from the container's stored level
+parameters and the group's parameter count.
+
+Public since task #315 M7-3 session 18: the nested route's own
+discharge of the clause (`nestedOwnPins_of`) reduces BOTH tables — the
+one the reader asks for and the one K.47 records — to the walk through
+this, and the three walk lemmas here are shared rather than
+duplicated. -/
+theorem containerOwnPinsAt_inv {env : Env} {C : Name} {lvls : List Level}
+    {Ds ps : List Expr} (h : ConLeche.containerOwnPinsAt env C lvls Ds = some ps) :
+    ∃ (cv : ConstantVal) (caps : IndCaps) (ci : ContainerInfo) (M : ConLeche.ContainerMember),
+      env.find? C = some (.indInfo cv caps) ∧ ConLeche.containerInfo? env C = some ci ∧
+      ci.members.head? = some M ∧
+      ps = ConLeche.containerOwnPinsAtGo env (M.name.str "rec") cv.levelParams lvls Ds
+        ci.nP 64 0 := by
+  unfold ConLeche.containerOwnPinsAt at h
+  cases hf : env.find? C with
+  | none => rw [hf] at h; exact nomatch h
+  | some c =>
+    rw [hf] at h
+    cases c with
+    | indInfo cv caps =>
+      cases hci : ConLeche.containerInfo? env C with
+      | none => simp [hci, bind, Option.bind] at h
+      | some ci =>
+        cases hM : ci.members.head? with
+        | none => simp [hci, hM, bind, Option.bind] at h
+        | some M =>
+          refine ⟨cv, caps, ci, M, rfl, rfl, hM, ?_⟩
+          simp [hci, hM, bind, Option.bind, pure] at h
+          exact h.symm
+    | _ => simp [bind, Option.bind] at h
+
+/-- `containerOwnPinsAt_inv`, read forwards (public with it). -/
+theorem containerOwnPinsAt_eq {env : Env} {C : Name} {cv : ConstantVal} {caps : IndCaps}
+    {ci : ContainerInfo} {M : ConLeche.ContainerMember} {lvls : List Level} {Ds : List Expr}
+    (hf : env.find? C = some (.indInfo cv caps))
+    (hci : ConLeche.containerInfo? env C = some ci) (hM : ci.members.head? = some M) :
+    ConLeche.containerOwnPinsAt env C lvls Ds =
+      some (ConLeche.containerOwnPinsAtGo env (M.name.str "rec") cv.levelParams lvls Ds
+        ci.nP 64 0) := by
+  unfold ConLeche.containerOwnPinsAt
+  rw [hf]
+  simp only [bind, Option.bind, hci, hM, pure]
+
+/-- **THE MIMIC WALK DOES NOT MOVE** (task #315 M7-3 session 17): the
+table `containerOwnPinsAtGo` reads is the same at both environments.
+
+The walk stops at the first name under `base` that is not a stored
+recursor, and reads each one it finds.  An extension cannot SHORTEN it
+(`hext` keeps every stored recursor, with its very type) and cannot
+LENGTHEN it either: a mimic name that is a recursor at `env₂` and not
+at `env₁` is one of the new names, and `hmimOld` excludes exactly that
+for this container's mimics.  What each step reads is then a function
+of the SAME stored type, save for the container lookup at the major
+premise's head, which `hhead` places in the old environment and
+`hciEq` therefore leaves alone.
+
+Public with `containerOwnPinsAt_inv` above (task #315 M7-3
+session 18). -/
+theorem containerOwnPinsAtGo_ext {env₁ env₂ : Env} {N : List Name} {base : Name}
+    {lps : List Name} {lvls : List Level} {Ds : List Expr} {nPr : Nat}
+    (hext : ∀ (n : Name) (c : ConstantInfo), env₁.find? n = some c → env₂.find? n = some c)
+    (hnewN : ∀ (n : Name) (c : ConstantInfo), env₂.find? n = some c →
+      env₁.find? n = some c ∨ n ∈ N)
+    (hmimOld : ∀ (j : Nat) (cv : ConstantVal) (mI rP : Nat) (rules : List RecRule),
+      env₂.find? (Name.appendIndexAfter base j) = some (.recInfo cv mI rP rules) →
+      Name.appendIndexAfter base j ∉ N)
+    (hciEq : ∀ K : Name, (env₁.find? K).isSome = true →
+      ConLeche.containerInfo? env₂ K = ConLeche.containerInfo? env₁ K)
+    (hhead : RecMajorHeadStored env₁) :
+    ∀ (fuel j : Nat),
+      ConLeche.containerOwnPinsAtGo env₂ base lps lvls Ds nPr fuel j
+        = ConLeche.containerOwnPinsAtGo env₁ base lps lvls Ds nPr fuel j := by
+  intro fuel
+  induction fuel with
+  | zero => intro j; rfl
+  | succ fuel ih =>
+    intro j
+    cases h₁ : env₁.find? (Name.appendIndexAfter base (j + 1)) with
+    | none =>
+      cases h₂ : env₂.find? (Name.appendIndexAfter base (j + 1)) with
+      | none => simp only [ConLeche.containerOwnPinsAtGo, h₁, h₂]
+      | some c =>
+        cases c with
+        | recInfo cvR mI rP rules =>
+          refine absurd ((hnewN _ _ h₂).resolve_left ?_) (hmimOld (j + 1) cvR mI rP rules h₂)
+          rw [h₁]; exact fun hh => nomatch hh
+        | _ => simp only [ConLeche.containerOwnPinsAtGo, h₁, h₂]
+    | some c =>
+      have h₂ := hext _ _ h₁
+      cases c with
+      | recInfo cvR mI rP rules =>
+        simp only [ConLeche.containerOwnPinsAtGo, h₁, h₂]
+        rw [ih (j + 1)]
+        refine congrArg (· ++ _) ?_
+        by_cases hcond : (decide (nPr ≤ mI) && (Ds.length == nPr)) = true
+        · rw [if_pos hcond, if_pos hcond]
+          have hlen : (Ds ++ (List.range (mI - nPr)).map fun _ => Expr.sort Level.zero).length
+              = mI := by
+            simp only [List.length_append, List.length_map, List.length_range]
+            simp only [Bool.and_eq_true, decide_eq_true_eq, beq_iff_eq] at hcond
+            rw [hcond.2]
+            exact Nat.add_sub_cancel' hcond.1
+          cases hI : Expr.instPis (cvR.type.instantiateLevelParams lps lvls)
+              (Ds ++ (List.range (mI - nPr)).map fun _ => Expr.sort Level.zero) with
+          | none => simp only
+          | some ty =>
+            cases ty with
+            | forallE dom body bm =>
+              cases hfn : dom.getAppFn with
+              | const K us =>
+                simp only [hfn]
+                rw [hciEq K (hhead _ _ _ _ _ _ _ _ _ _ _ _ _ h₁ hlen hI hfn)]
+              | _ => simp only [hfn]
+            | _ => simp only
+        · rw [if_neg hcond, if_neg hcond]
+      | _ => simp only [ConLeche.containerOwnPinsAtGo, h₁, h₂]
+
+omit [SetTheory V] in
+/-- **A BLOCK'S OWN-PIN CLAUSE CROSSES AN INDUCTIVE INSTALL** (task
+#315 M7-3 session 17): `ContainerOwnPinsSyn` is a statement about the
+environment's own-pin TABLE at the block's members, and an install that
+touches none of them leaves that table where it was.
+
+The frame hypotheses are `EnvBlocksOf.crossIndP`'s, plus `hmimN` — the
+mimic twin of `hrecN`: a NEW recursor named `T₁.rec_j` belongs to a NEW
+`T₁`.  With it, the walk cannot grow at an OLD container (the members
+are old by `hold`, and the group's first member — where the walk starts
+— is stored, hence old too), and `containerInfo?_ext_ind_eq` keeps both
+the group's reading and the per-step container lookups fixed.
+
+`RecMajorHeadStored` is the one premise that is NOT frame, and it is
+not cosmetic: the components `DsE` the clause quantifies over are the
+CALLER's, a major-premise domain headed by a loose `bvar` reads back
+headed by whatever the substitution put there, and a NEW container
+there is an own pin `env₂`'s table carries and `env₁`'s does not —
+which no fact about the OLD block can match, so the crossing is
+genuinely unavailable without it.  (No countermodel is built here: an
+environment exhibiting the gap needs a stored group whose mimic's
+major premise is headed by one of the recursor's own PARAMETERS, which
+no install writes — which is also why every route can discharge the
+premise.)  See its docstring. -/
+theorem ContainerOwnPinsSyn.crossInd {env₁ env₂ : Env} {N : List Name} {d : BlockModel V}
+    (hext : ∀ (n : Name) (c : ConstantInfo), env₁.find? n = some c → env₂.find? n = some c)
+    (hnewN : ∀ (n : Name) (c : ConstantInfo), env₂.find? n = some c →
+      env₁.find? n = some c ∨ n ∈ N)
+    (hfreshN : ∀ n ∈ N, env₁.find? n = none)
+    (hrecN : ∀ (n : Name) (cv : ConstantVal) (mI rP : Nat) (rules : List RecRule),
+      env₂.find? (n.str "rec") = some (.recInfo cv mI rP rules) → n.str "rec" ∈ N → n ∈ N)
+    (hmimN : ∀ (n : Name) (j : Nat) (cv : ConstantVal) (mI rP : Nat) (rules : List RecRule),
+      env₂.find? (Name.appendIndexAfter (n.str "rec") j) = some (.recInfo cv mI rP rules) →
+      Name.appendIndexAfter (n.str "rec") j ∈ N → n ∈ N)
+    (hold : ∀ i, i < d.k → (d.memberName i) ∉ N)
+    (hwf : ConLeche.EnvWF env₁) (hrc : ConLeche.RecCtorsStored env₁)
+    (hhead : RecMajorHeadStored env₁)
+    (h : ContainerOwnPinsSyn (V := V) env₁ d) :
+    ContainerOwnPinsSyn (V := V) env₂ d := by
+  -- a name stored at the old environment is not a new one
+  have hstored : ∀ n : Name, (env₁.find? n).isSome = true → n ∉ N := by
+    intro n hn hmem
+    rw [hfreshN n hmem] at hn
+    exact nomatch hn
+  have hciEq : ∀ K : Name, (env₁.find? K).isSome = true →
+      ConLeche.containerInfo? env₂ K = ConLeche.containerInfo? env₁ K := fun K hK =>
+    ConLeche.containerInfo?_ext_ind_eq hext hnewN hfreshN hrecN hwf hrc (hstored K hK)
+  intro i cvC caps lvls DsE ps hi hf₂ hcl hps e he
+  -- the member is old, so it is stored as it was
+  have hf₁ : env₁.find? (d.memberName i) = some (.indInfo cvC caps) :=
+    (hnewN _ _ hf₂).resolve_right (hold i hi)
+  obtain ⟨cv, caps', ci, M, hfc, hci₂, hM, rfl⟩ := containerOwnPinsAt_inv hps
+  obtain ⟨rfl, rfl⟩ := ConstantInfo.indInfo.inj (Option.some.inj (hfc.symm.trans hf₂))
+  have hci₁ : ConLeche.containerInfo? env₁ (d.memberName i) = some ci := by
+    rw [← hciEq _ (by rw [hf₁]; rfl)]; exact hci₂
+  -- the group's first member is stored, hence old, hence so are its mimics
+  have hMmem : M ∈ ci.members := List.mem_of_mem_head? (by rw [hM]; exact rfl)
+  obtain ⟨_, _, _, _, _, _, _, _, _, _, hall⟩ := ConLeche.containerInfo?_inv hci₁
+  obtain ⟨_, _, _, _, _, hfM, _⟩ := hall M hMmem
+  have hMold : M.name ∉ N := hstored _ (by rw [hfM]; rfl)
+  rw [containerOwnPinsAtGo_ext hext hnewN
+    (fun j cv' mI rP rules h2 hmem => hMold (hmimN M.name j cv' mI rP rules h2 hmem))
+    hciEq hhead 64 0] at he
+  exact h i _ _ lvls DsE _ hi hf₁ hcl (containerOwnPinsAt_eq hf₁ hci₁ hM) e he
+
+/-! ## The own-pin table at ANOTHER instantiation (task #315 M7-3
+session 18, DESIGN §U.104)
+
+`containerOwnPinsAt` reads a container's own pins AT AN INSTANTIATION —
+the level arguments and the components the caller asks for — and K.47
+records the answer at ONE of them: the block's own levels
+(`p.lps.map Level.param`, the identity substitution) and its parameter
+OPENERS.  `ContainerOwnPinsSyn` is quantified over all of them, so the
+recorded answer has to be TRANSPORTED, and that is what this section
+does: one step of the walk (`ownPinsStep_subst`, on lane L-B's
+`instPis_openers_subst` and the two level-instantiation commutations),
+the walk's LENGTH (`containerOwnPinsAtGo_length_le`, which is what K.43
+pins down), and the walk itself (`containerOwnPinsAtGo_subst`).
+
+**Why the length is needed at all.**  The transport carries a step that
+SUCCEEDS at the openers to the same step at the components; it says
+nothing about a step that fails there, and such a step can succeed at
+other components — a major premise headed by one of the recursor's own
+PARAMETERS reads back headed by whatever the substitution put there
+(`RecMajorHeadStored`'s discussion above).  K.43 makes the walk visit
+exactly `numNested` names and K.47 makes it read exactly the
+`st.pins.length` recorded pins; with one entry per step at most, the
+two counts force EVERY step to succeed at the openers, and the
+pathology is excluded rather than assumed.
+
+**The components must be closed** (`hDcl`) — the clause's new
+hypothesis, and not a convenience: the pad the reader instantiates the
+mimic's motives, minors and indices at runs AFTER the components, so a
+component carrying a loose bound variable is eaten by it.  See
+`ContainerOwnPinsSyn`'s own docstring for the two real-run
+counterexamples. -/
+
+/-- **A TABLE ENTRY, RE-SPELLED AT ANOTHER INSTANTIATION**: the head's
+level arguments substituted, and each component closed at the block's
+parameter openers, level-instantiated and re-opened at the components
+the reader was asked for.
+
+At a constant-headed spine — which every entry of the table is, the
+reader keeps no other — this IS `PinSyn.ownAt` of the pin the entry
+records (`nestedOwnPins_of`); it is spelled here without a `PinSyn` so
+that the walk's lemmas stay about `Expr`s. -/
+@[expose] def ownSubst (nP : Nat) (lps : List Name) (lvls : List Level) (DsE : List Expr)
+    (e : Expr) : Expr :=
+  Expr.mkAppN (Expr.instantiateLevelParams lps lvls e.getAppFn)
+    (e.getAppArgs.map fun x =>
+      Expr.instSeq DsE (DsE.length - 1)
+        ((x.abstractRange 0 nP 0).instantiateLevelParams lps lvls))
+
+/-- **ONE STEP OF THE OWN-PIN WALK**: what the mimic recursor whose
+stored type is `ty` contributes to the table — `containerOwnPinsAtGo`'s
+own `here`, named so that the step and the walk can be reasoned about
+apart. -/
+@[expose] def ownPinsStep (env : Env) (lps : List Name) (lvls : List Level) (Ds : List Expr)
+    (nPr mI : Nat) (ty : Expr) : List Expr :=
+  if nPr ≤ mI && Ds.length == nPr then
+    match Expr.instPis (ty.instantiateLevelParams lps lvls)
+        (Ds ++ (List.range (mI - nPr)).map fun _ => Expr.sort Level.zero) with
+    | some (.forallE dom _ _) =>
+      match dom.getAppFn with
+      | .const K _ =>
+        match ConLeche.containerInfo? env K with
+        | some ciK => [Expr.mkAppN dom.getAppFn (dom.getAppArgs.take ciK.nP)]
+        | none => []
+      | _ => []
+    | _ => []
+  else []
+
+/-- A step reads at most one pin: every branch of the walk's `here` is
+empty or a singleton. -/
+theorem ownPinsStep_length_le_one (env : Env) (lps : List Name) (lvls : List Level)
+    (Ds : List Expr) (nPr mI : Nat) (ty : Expr) :
+    (ownPinsStep env lps lvls Ds nPr mI ty).length ≤ 1 := by
+  unfold ownPinsStep
+  repeat' split
+  all_goals simp
+
+/-- The walk, unfolded at a name that IS a stored recursor: this step's
+entry, then the walk from the next name. -/
+theorem containerOwnPinsAtGo_cons {env : Env} {base : Name} {lps : List Name}
+    {lvls : List Level} {Ds : List Expr} {nPr : Nat} {cvR : ConstantVal} {mI rP : Nat}
+    {rules : List RecRule} (fuel j : Nat)
+    (h : env.find? (Name.appendIndexAfter base (j + 1)) = some (.recInfo cvR mI rP rules)) :
+    ConLeche.containerOwnPinsAtGo env base lps lvls Ds nPr (fuel + 1) j
+      = ownPinsStep env lps lvls Ds nPr mI cvR.type
+        ++ ConLeche.containerOwnPinsAtGo env base lps lvls Ds nPr fuel (j + 1) := by
+  simp only [ConLeche.containerOwnPinsAtGo, h]
+  rfl
+
+/-- The walk, at a name that is NOT a stored recursor: it stops, at any
+fuel. -/
+theorem containerOwnPinsAtGo_stop {env : Env} {base : Name} {lps : List Name}
+    {lvls : List Level} {Ds : List Expr} {nPr : Nat} (fuel j : Nat)
+    (h : ConLeche.isRecInfoAt env (Name.appendIndexAfter base (j + 1)) = false) :
+    ConLeche.containerOwnPinsAtGo env base lps lvls Ds nPr fuel j = [] := by
+  cases fuel with
+  | zero => rfl
+  | succ f =>
+    unfold ConLeche.isRecInfoAt at h
+    unfold ConLeche.containerOwnPinsAtGo
+    split
+    · rename_i cvR mI rP rules hfind
+      rw [hfind] at h
+      exact nomatch h
+    · rfl
+
+/-- **THE WALK'S LENGTH IS THE NUMBER OF MIMICS** (the half K.43
+records): a walk that reaches a name which is not a stored recursor
+after `n` steps reads at most `n` entries, since a step reads at most
+one. -/
+theorem containerOwnPinsAtGo_length_le {env : Env} {base : Name} {lps : List Name}
+    {lvls : List Level} {Ds : List Expr} {nPr : Nat} :
+    ∀ (fuel n j : Nat),
+      ConLeche.isRecInfoAt env (Name.appendIndexAfter base (j + n + 1)) = false →
+      (ConLeche.containerOwnPinsAtGo env base lps lvls Ds nPr fuel j).length ≤ n := by
+  intro fuel
+  induction fuel with
+  | zero => intro n j _; simp [ConLeche.containerOwnPinsAtGo]
+  | succ f ih =>
+    intro n j hstop
+    cases hfind : env.find? (Name.appendIndexAfter base (j + 1)) with
+    | none =>
+      rw [containerOwnPinsAtGo_stop (f + 1) j (by unfold ConLeche.isRecInfoAt; rw [hfind])]
+      simp
+    | some c =>
+      cases c with
+      | recInfo cvR mI rP rules =>
+        cases n with
+        | zero =>
+          exfalso
+          unfold ConLeche.isRecInfoAt at hstop
+          rw [show j + 0 + 1 = j + 1 from rfl, hfind] at hstop
+          exact nomatch hstop
+        | succ n' =>
+          rw [containerOwnPinsAtGo_cons f j hfind, List.length_append]
+          have h1 := ownPinsStep_length_le_one env lps lvls Ds nPr mI cvR.type
+          have h2 := ih n' (j + 1)
+            (by rw [show j + 1 + n' + 1 = j + (n' + 1) + 1 from by omega]; exact hstop)
+          omega
+      | _ =>
+        rw [containerOwnPinsAtGo_stop (f + 1) j (by unfold ConLeche.isRecInfoAt; rw [hfind])]
+        simp
+
+/-- **A STEP THAT READ A PIN, INVERTED**: the guard held, the mimic's
+telescope instantiated to a `∀`, its domain is a constant-headed spine
+and the head is a stored container — the data the transport moves. -/
+theorem ownPinsStep_inv {env : Env} {lps : List Name} {lvls : List Level} {Ds : List Expr}
+    {nPr mI : Nat} {ty e₀ : Expr}
+    (h : ownPinsStep env lps lvls Ds nPr mI ty = [e₀]) :
+    ∃ (dom body : Expr) (bm : ConLeche.BinderMeta) (K : Name) (us : List Level)
+      (ciK : ContainerInfo),
+      nPr ≤ mI ∧ Ds.length = nPr ∧
+      Expr.instPis (ty.instantiateLevelParams lps lvls)
+          (Ds ++ (List.range (mI - nPr)).map fun _ => Expr.sort Level.zero)
+        = some (.forallE dom body bm) ∧
+      dom.getAppFn = Expr.const K us ∧
+      ConLeche.containerInfo? env K = some ciK ∧
+      e₀ = Expr.mkAppN (Expr.const K us) (dom.getAppArgs.take ciK.nP) := by
+  unfold ownPinsStep at h
+  split at h
+  · rename_i hg
+    simp only [Bool.and_eq_true, decide_eq_true_eq, beq_iff_eq] at hg
+    split at h
+    · rename_i dom body bm heq
+      split at h
+      · rename_i K us hfn
+        split at h
+        · rename_i ciK hK
+          refine ⟨dom, body, bm, K, us, ciK, hg.1, hg.2, heq, hfn, hK, ?_⟩
+          rw [← hfn]
+          simpa using h.symm
+        · exact nomatch h
+      · exact nomatch h
+    · exact nomatch h
+  · exact nomatch h
+
+/-- **ONE STEP, TRANSPORTED** (task #315 M7-3 session 18, DESIGN §U.104
+(b)): a step that reads a pin at the block's own levels and parameter
+OPENERS reads the SAME pin, re-spelled (`ownSubst`), at any level
+arguments and any CLOSED components of the same number.
+
+The stored type is closed (`hf`, `hb`: it is a stored recursor's), so
+lane L-B's `instPis_openers_subst` carries the whole telescope
+instantiation from the openers to the components; the level arguments
+move first, by `instPis_ilp` at the IDENTITY substitution K.47 records
+(`Expr.instantiateLevelParams_self`); and the entry is a
+constant-headed spine, which the two transports pass through component
+by component (`ilp_mkAppN`, `abstractRange_mkAppN`,
+`instSeq_mkAppN_const`). -/
+theorem ownPinsStep_subst {env : Env} {lps : List Name} {lvls : List Level}
+    {params DsE : List Expr} {nP mI : Nat} {ty e₀ : Expr}
+    (hf : ty.hasFvar = false) (hb : ty.looseBVarsBounded 0 = true)
+    (hplen : params.length = nP)
+    (hidx : ∀ j, j < nP → ∃ t, params[j]? = some (Expr.fvar j t))
+    (hDlen : DsE.length = nP) (hDcl : ∀ a ∈ DsE, a.looseBVarsBounded 0 = true)
+    (hbase : ownPinsStep env lps (lps.map Level.param) params nP mI ty = [e₀]) :
+    ownPinsStep env lps lvls DsE nP mI ty = [ownSubst nP lps lvls DsE e₀] := by
+  obtain ⟨dom, body, bm, K, us, ciK, hle, -, h0, hfn, hK, he₀⟩ := ownPinsStep_inv hbase
+  rw [Expr.instantiateLevelParams_self] at h0
+  -- the pad is closed and carries no free variable
+  have hpadMem : ∀ a ∈ (List.range (mI - nP)).map (fun _ => Expr.sort Level.zero),
+      a = Expr.sort Level.zero := by
+    intro a ha
+    obtain ⟨_, _, rfl⟩ := List.mem_map.mp ha
+    rfl
+  have hpadb : ∀ a ∈ (List.range (mI - nP)).map (fun _ => Expr.sort Level.zero),
+      a.looseBVarsBounded 0 = true := fun a ha => by rw [hpadMem a ha]; rfl
+  have hpadf : ∀ a ∈ (List.range (mI - nP)).map (fun _ => Expr.sort Level.zero),
+      a.hasFvar = false := fun a ha => by rw [hpadMem a ha]; rfl
+  -- the run at the components: the levels first (K.47 records the identity
+  -- substitution), then the openers
+  have hilp := ConLeche.instPis_ilp lps lvls
+    (params ++ (List.range (mI - nP)).map fun _ => Expr.sort Level.zero) ty
+    (.forallE dom body bm) h0
+  have hmap : (params ++ (List.range (mI - nP)).map fun _ => Expr.sort Level.zero).map
+        (Expr.instantiateLevelParams lps lvls)
+      = params.map (Expr.instantiateLevelParams lps lvls)
+        ++ (List.range (mI - nP)).map fun _ => Expr.sort Level.zero := by
+    rw [List.map_append]
+    refine congrArg _ (List.ext_getElem (by simp) (fun n _ h2 => ?_))
+    rw [List.getElem_map, hpadMem _ (List.getElem_mem h2)]
+    rfl
+  rw [hmap] at hilp
+  have hgen := ConLeche.instPis_openers_subst
+    (T := ty.instantiateLevelParams lps lvls) (nP := nP)
+    (params := params.map (Expr.instantiateLevelParams lps lvls))
+    (pad := (List.range (mI - nP)).map fun _ => Expr.sort Level.zero) (Ds := DsE)
+    (R₀ := (Expr.forallE dom body bm).instantiateLevelParams lps lvls)
+    (by rw [Expr.hasFvar_instantiateLevelParams]; exact hf)
+    (by rw [Expr.looseBVarsBounded_instantiateLevelParams]; exact hb)
+    (by rw [List.length_map]; exact hplen)
+    (fun j hj => by
+      obtain ⟨t, ht⟩ := hidx j hj
+      exact ⟨t.instantiateLevelParams lps lvls, by rw [List.getElem?_map, ht]; rfl⟩)
+    hDlen hDcl hpadb hpadf hilp
+  -- the residual is a `∀` whose domain is the pin, re-spelled
+  have hshape : Expr.instSeq DsE (nP - 1)
+        (((Expr.forallE dom body bm).instantiateLevelParams lps lvls).abstractRange 0 nP 0)
+      = Expr.forallE
+          (Expr.instSeq DsE (nP - 1)
+            ((dom.instantiateLevelParams lps lvls).abstractRange 0 nP 0))
+          (Expr.instSeq DsE (nP - 1 + 1)
+            ((body.instantiateLevelParams lps lvls).abstractRange 0 nP 1))
+          ⟨Level.substPW lps lvls bm.pw⟩ := by
+    show Expr.instSeq DsE (nP - 1) (Expr.forallE _ _ _) = _
+    exact Expr.instSeq_forallE DsE (nP - 1) _ _ _ (by rw [hDlen]; omega)
+  -- the domain's spine, component by component
+  have hdomEq : dom = Expr.mkAppN (Expr.const K us) dom.getAppArgs := by
+    conv => lhs; rw [← Expr.mkAppN_getApp dom]
+    rw [hfn]
+  have hDgen : Expr.instSeq DsE (nP - 1)
+        ((dom.instantiateLevelParams lps lvls).abstractRange 0 nP 0)
+      = Expr.mkAppN (Expr.const K (us.map (Level.subst lps lvls)))
+          (dom.getAppArgs.map fun x => Expr.instSeq DsE (DsE.length - 1)
+            ((x.abstractRange 0 nP 0).instantiateLevelParams lps lvls)) := by
+    conv => lhs; rw [hdomEq]
+    rw [ConLeche.ilp_mkAppN]
+    show Expr.instSeq DsE (nP - 1)
+      ((Expr.mkAppN (Expr.const K (us.map (Level.subst lps lvls)))
+        (dom.getAppArgs.map (Expr.instantiateLevelParams lps lvls))).abstractRange 0 nP 0) = _
+    rw [ConLeche.abstractRange_mkAppN, ConLeche.abstractRange_const,
+      ConLeche.instSeq_mkAppN_const, hDlen]
+    simp only [List.map_map, Function.comp_def]
+    refine congrArg _ (List.map_congr_left (fun x _ => ?_))
+    rw [ConLeche.abstractRange_ilp]
+  -- and the step at the components reads exactly that
+  unfold ownPinsStep
+  rw [if_pos (by simp only [hDlen, beq_self_eq_true, Bool.and_true, decide_eq_true_eq]; exact hle)]
+  simp only [hgen, hshape, hDgen, Expr.getAppFn_mkAppN, Expr.getAppArgs_mkAppN, Expr.getAppFn,
+    Expr.getAppArgs, List.nil_append, hK, he₀, ownSubst, List.map_take]
+  simp only [Expr.instantiateLevelParams]
+
+/-- A step at the WRONG NUMBER of components reads nothing: the
+reader's guard compares the components' length with the group's
+parameter count. -/
+theorem ownPinsStep_nil_of_len {env : Env} {lps : List Name} {lvls : List Level} {Ds : List Expr}
+    {nPr mI : Nat} {ty : Expr} (h : Ds.length ≠ nPr) :
+    ownPinsStep env lps lvls Ds nPr mI ty = [] := by
+  unfold ownPinsStep
+  rw [if_neg (by simp [h])]
+
+/-- …and so does the whole walk, at every name and every fuel. -/
+theorem containerOwnPinsAtGo_nil_of_len {env : Env} {base : Name} {lps : List Name}
+    {lvls : List Level} {Ds : List Expr} {nPr : Nat} (h : Ds.length ≠ nPr) :
+    ∀ (fuel j : Nat), ConLeche.containerOwnPinsAtGo env base lps lvls Ds nPr fuel j = [] := by
+  intro fuel
+  induction fuel with
+  | zero => intro j; rfl
+  | succ f ih =>
+    intro j
+    cases hfind : env.find? (Name.appendIndexAfter base (j + 1)) with
+    | none =>
+      exact containerOwnPinsAtGo_stop (f + 1) j (by unfold ConLeche.isRecInfoAt; rw [hfind])
+    | some c =>
+      cases c with
+      | recInfo cvR mI rP rules =>
+        rw [containerOwnPinsAtGo_cons f j hfind, ownPinsStep_nil_of_len h, ih (j + 1)]
+        rfl
+      | _ =>
+        exact containerOwnPinsAtGo_stop (f + 1) j (by unfold ConLeche.isRecInfoAt; rw [hfind])
+
+/-- **THE TABLE, TRANSPORTED** (task #315 M7-3 session 18, DESIGN §U.104
+(b)): the own-pin table at any level arguments and any CLOSED
+components of the right number is the table at the block's own levels
+and parameter openers, entry by entry re-spelled.
+
+`hstop` is K.43's second half — the walk reaches a name that is not a
+stored recursor after `n` steps — and `hlen` is K.47's: the table read
+there has one entry per step.  Together they make every step of the
+walk succeed AT THE OPENERS, which is what lets the step transport
+apply to all of them (see the section's preamble). -/
+theorem containerOwnPinsAtGo_subst {env : Env} {base : Name} {lps : List Name}
+    {lvls : List Level} {params DsE : List Expr} {nP : Nat}
+    (hwf : ConLeche.EnvWF env)
+    (hplen : params.length = nP)
+    (hidx : ∀ j, j < nP → ∃ t, params[j]? = some (Expr.fvar j t))
+    (hDlen : DsE.length = nP) (hDcl : ∀ a ∈ DsE, a.looseBVarsBounded 0 = true) :
+    ∀ (n fuel j : Nat),
+      ConLeche.isRecInfoAt env (Name.appendIndexAfter base (j + n + 1)) = false →
+      (ConLeche.containerOwnPinsAtGo env base lps (lps.map Level.param) params nP
+        fuel j).length = n →
+      ConLeche.containerOwnPinsAtGo env base lps lvls DsE nP fuel j
+        = (ConLeche.containerOwnPinsAtGo env base lps (lps.map Level.param) params nP
+            fuel j).map (ownSubst nP lps lvls DsE) := by
+  intro n
+  induction n with
+  | zero =>
+    intro fuel j hstop _
+    have hstop0 : ConLeche.isRecInfoAt env (Name.appendIndexAfter base (j + 1)) = false := by
+      rw [show j + 1 = j + 0 + 1 from rfl]
+      exact hstop
+    simp only [containerOwnPinsAtGo_stop fuel j hstop0, List.map_nil]
+  | succ n ih =>
+    intro fuel j hstop hlen
+    cases fuel with
+    | zero => simp [ConLeche.containerOwnPinsAtGo] at hlen
+    | succ f =>
+      cases hfind : env.find? (Name.appendIndexAfter base (j + 1)) with
+      | none =>
+        rw [containerOwnPinsAtGo_stop (f + 1) j (by unfold ConLeche.isRecInfoAt; rw [hfind])]
+          at hlen
+        exact nomatch hlen
+      | some c =>
+        cases c with
+        | recInfo cvR mI rP rules =>
+          rw [containerOwnPinsAtGo_cons f j hfind] at hlen ⊢
+          rw [containerOwnPinsAtGo_cons f j hfind]
+          -- one entry per step: the step reads at most one and the tail at most `n`
+          have h1 := ownPinsStep_length_le_one env lps (lps.map Level.param) params nP mI cvR.type
+          have hstop' : ConLeche.isRecInfoAt env
+              (Name.appendIndexAfter base (j + 1 + n + 1)) = false := by
+            rw [show j + 1 + n + 1 = j + (n + 1) + 1 from by omega]; exact hstop
+          have h2 := containerOwnPinsAtGo_length_le (env := env) (base := base) (lps := lps)
+            (lvls := lps.map Level.param) (Ds := params) (nPr := nP) f n (j + 1) hstop'
+          rw [List.length_append] at hlen
+          have hstep : (ownPinsStep env lps (lps.map Level.param) params nP mI cvR.type).length
+              = 1 := by omega
+          have htail : (ConLeche.containerOwnPinsAtGo env base lps (lps.map Level.param) params
+              nP f (j + 1)).length = n := by omega
+          obtain ⟨e₀, he₀⟩ := List.length_eq_one_iff.mp hstep
+          have hclosed := hwf _ (List.mem_of_find?_eq_some hfind)
+          rw [he₀, ownPinsStep_subst (env := env) (lps := lps) (lvls := lvls) (params := params)
+            (DsE := DsE) (nP := nP) (mI := mI) (ty := cvR.type) (e₀ := e₀)
+            hclosed.1 hclosed.2.2.2.1 hplen hidx hDlen hDcl he₀,
+            ih f (j + 1) hstop' htail, List.map_append]
+          rfl
+        | _ =>
+          rw [containerOwnPinsAtGo_stop (f + 1) j (by unfold ConLeche.isRecInfoAt; rw [hfind])]
+            at hlen
+          exact nomatch hlen
+
 /-! ## What the crossing cannot be asked across a projection table -/
 
 /-- Every TOWER reading of a field is headed by `fst`
@@ -702,10 +1315,18 @@ theorem ContainerModeled.of_readBack {env : Env} {m : EnvModel V env} {nP : Nat}
     (hpinsNotMembers : ∀ q, q < d.nPins → (d.pinAt q).J ∉ d.memberNames)
     (hpinNP : ∀ q, q < d.nPins → ∃ ci' : ContainerInfo,
       ConLeche.containerInfo? d.env₀ (d.pinAt q).J = some ci' ∧ (d.pinAt q).nPJ = ci'.nP)
+    (hpinConts : ∀ q, q < d.nPins → ∀ ci' : ContainerInfo,
+      ConLeche.containerInfo? d.env₀ (d.pinAt q).J = some ci' →
+      ConLeche.containerInfo? env (d.pinAt q).J = some ci')
     (hpinψ : ∀ q, q < d.nPins → ∀ (cvT : ConstantVal) (caps : IndCaps),
       env.find? (d.pinAt q).J = some (.indInfo cvT caps) →
       (d.pinAt q).lvls.length = cvT.levelParams.length ∧
       ∀ ψ : Name → Nat, (d.pinAt q).ψJ ψ = Level.substFn ψ cvT.levelParams (d.pinAt q).lvls)
+    (hpinParams : ∀ (i : Nat), i < members.length → ∀ q, q < d.nPins → ∀ ψ₁ ψ₂ : Name → Nat,
+      (∀ pp ∈ (members.getD i default).1.levelParams, ψ₁ pp = ψ₂ pp) →
+      (d.pinAt q).u ψ₁ = (d.pinAt q).u ψ₂ ∧
+      (d.pinAt q).Ds ψ₁ = (d.pinAt q).Ds ψ₂ ∧
+      (d.pinAt q).Ids ψ₁ = (d.pinAt q).Ids ψ₂)
     (hmember : ∀ i, i < d.k → ∃ (cvR : ConstantVal) (mI rP : Nat) (rules : List RecRule),
       IsBlockModel m (members.getD i default).1.name (members.getD i default).1 cvR mI rP rules
         d i) :
@@ -721,7 +1342,28 @@ theorem ContainerModeled.of_readBack {env : Env} {m : EnvModel V env} {nP : Nat}
   nestMention := hnestMention
   pinsNotMembers := hpinsNotMembers
   pinNP := hpinNP
+  pinConts := hpinConts
   pinψ := hpinψ
+  pinParams := by
+    -- the group's member `i` IS the route's `i`-th member
+    -- (`blockContainerInfo` copies the stored `ConstantVal` field by
+    -- field), so its level parameters are that member's
+    intro i M hM q hq ψ₁ ψ₂ hag
+    have hMl : (members.map fun (cvT, cs) =>
+        (⟨cvT.name, cvT.levelParams, cvT.type,
+          cs.map fun (cv, nF) => ⟨cv.name, cv.type, nF⟩⟩ : ConLeche.ContainerMember))[i]?
+        = some M := hM
+    rw [List.getElem?_map] at hMl
+    cases hc : members[i]? with
+    | none => rw [hc] at hMl; exact nomatch hMl
+    | some c =>
+      rw [hc] at hMl
+      obtain rfl : M = ⟨c.1.name, c.1.levelParams, c.1.type,
+          c.2.map fun (cv, nF) => ⟨cv.name, cv.type, nF⟩⟩ := (Option.some.inj hMl).symm
+      have hcD : members.getD i default = c := by
+        rw [List.getD_eq_getElem?_getD, hc]; rfl
+      exact hpinParams i (List.getElem?_eq_some_iff.mp hc).1 q hq ψ₁ ψ₂
+        (by rw [hcD]; exact hag)
   member := fun i M hM => by
     -- the `i`-th entry is the `i`-th member of the route's list
     have hMl : (members.map fun (cvT, cs) =>
@@ -838,7 +1480,7 @@ theorem ContainerModeled.params_congr {env : Env} {m : EnvModel V env} {ci : Con
     (hci : ConLeche.containerInfo? env I = some ci)
     {cvI : ConstantVal} {capsI : IndCaps} (hfI : env.find? I = some (.indInfo cvI capsI))
     {ψ₁ ψ₂ : Name → Nat} (hψ : ∀ p ∈ cvI.levelParams, ψ₁ p = ψ₂ p) {a : Nat} (ha : a < dK.k) :
-    dK.uM a ψ₁ = dK.uM a ψ₂ ∧ dK.ppsM a ψ₁ = dK.ppsM a ψ₂ := by
+    dK.uM a ψ₁ = dK.uM a ψ₂ ∧ dK.ppsM a ψ₁ = dK.ppsM a ψ₂ ∧ dK.w ψ₁ = dK.w ψ₂ := by
   obtain ⟨cvT, _caps, _cvR0, _mI0, _rP0, _rules0, hfind, _hfr0, _hmem0, _hnd0, hall⟩ :=
     ConLeche.containerInfo?_inv hci
   have hcvT : cvT = cvI := (ConstantInfo.indInfo.inj (Option.some.inj (hfind.symm.trans hfI))).1
@@ -851,7 +1493,47 @@ theorem ContainerModeled.params_congr {env : Env} {m : EnvModel V env} {ci : Con
       : ConstantVal).levelParams, ψ₁ p = ψ₂ p := by
     intro p hp
     exact hψ p (by rw [← hcvT, ← hshare, ← hlps]; exact hp)
-  exact ⟨hI.uParams a ha ψ₁ ψ₂ hψ', (hI.former.params ψ₁ ψ₂ hψ').1⟩
+  exact ⟨hI.uParams a ha ψ₁ ψ₂ hψ', (hI.former.params ψ₁ ψ₂ hψ').1,
+    (hI.former.params ψ₁ ψ₂ hψ').2⟩
+
+
+/-- **A member's level parameters ARE the group's** (task #315 L-E,
+DESIGN §U.77): `containerInfo?_inv` records every member's as the
+group's own constant's, and `ContainerModeled.member` asserts the
+member's `IsBlockModel` at that record. -/
+theorem ContainerModeled.memberLpsI {env : Env} {m : EnvModel V env} {ci : ContainerInfo}
+    {dK : BlockModel V} (h : ContainerModeled m ci dK) {I : Name}
+    (hci : ConLeche.containerInfo? env I = some ci)
+    {cvI : ConstantVal} {capsI : IndCaps} (hfI : env.find? I = some (.indInfo cvI capsI))
+    {a : Nat} (ha : a < dK.k) {cvA : ConstantVal} {capsA : IndCaps}
+    (hA : env.find? (dK.memberName a) = some (.indInfo cvA capsA)) :
+    cvA.levelParams = cvI.levelParams := by
+  obtain ⟨cvT, _caps, _cvR0, _mI0, _rP0, _rules0, hfind, _hfr0, _hmem0, _hnd0, hall⟩ :=
+    ConLeche.containerInfo?_inv hci
+  obtain rfl : cvT = cvI := (ConstantInfo.indInfo.inj (Option.some.inj (hfind.symm.trans hfI))).1
+  have ha' : a < ci.members.length := by rw [← h.k]; exact ha
+  have hmem : ci.members[a]? = some ci.members[a] := by rw [List.getElem?_eq_getElem ha']
+  have hname := (h.member a ci.members[a] hmem).1
+  obtain ⟨cvC, _capsC, _cvRc, _mIc, _rulesC, hf1, _hf2, _hlps, _hf4, hshare, _hf6, _hf7⟩ :=
+    hall ci.members[a] (List.getElem_mem ha')
+  rw [hname] at hA
+  obtain rfl : cvA = cvC := (ConstantInfo.indInfo.inj (Option.some.inj (hA.symm.trans hf1))).1
+  exact hshare
+
+/-- **A group's members share their level parameters** — so a level
+agreement taken at ONE member's constant is an agreement at EVERY
+member's.  What the WALK needs when it steps from the pair's member to
+the field's target member (task #315 L-E, DESIGN §U.77). -/
+theorem ContainerModeled.memberLps {env : Env} {m : EnvModel V env} {ci : ContainerInfo}
+    {dK : BlockModel V} (h : ContainerModeled m ci dK) {I : Name}
+    (hci : ConLeche.containerInfo? env I = some ci)
+    {cvI : ConstantVal} {capsI : IndCaps} (hfI : env.find? I = some (.indInfo cvI capsI))
+    {a b : Nat} (ha : a < dK.k) (hb : b < dK.k)
+    {cvA cvB : ConstantVal} {capsA capsB : IndCaps}
+    (hA : env.find? (dK.memberName a) = some (.indInfo cvA capsA))
+    (hB : env.find? (dK.memberName b) = some (.indInfo cvB capsB)) :
+    cvA.levelParams = cvB.levelParams := by
+  rw [h.memberLpsI hci hfI ha hA, h.memberLpsI hci hfI hb hB]
 
 
 end ConLeche.Model

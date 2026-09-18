@@ -547,16 +547,16 @@ theorem instPisILP_frame {ks : List Name} {us : List Level} {T : Expr}
     exact nomatch hl'
   · exact hlv a ha l hal
 
-/-! ## The openers, replaced by the components (task #315 L-B, DESIGN §U.73)
+/-! ## The openers, replaced by the components (task #315 L-B, DESIGN §U.76)
 
 `mkCopy` instantiates a container constructor's parameter telescope at
 a pin's COMPONENTS, while the restore table closes a recorded pin at
 the block's parameter OPENERS (`restoreTbl`:
 `Expr.abstractRange q.pin 0 p.nP 0`).  Lane M7-3's
-`ContainerOwnPinsSyn.toRead` reads a recorded pin at ANOTHER
+`ContainerOwnPinsSyn.toReadOf` reads a recorded pin at ANOTHER
 instantiation, and needs the two to be one substitution: **the
 identity run, closed at the openers and re-opened at an argument
-list, is the run at that list** (DESIGN §U.70 (d) (C), the law lane
+list, is the run at that list** (DESIGN §U.73 (d) (C), the law lane
 M7-3 asked for).
 
 The bridge is a simultaneous `fvar` substitution.  `substFvarList` is
@@ -573,7 +573,7 @@ put, annotation and all.  As in `Expr.abstractRange` (and
 `Expr.abstract1`) the walk does not descend into a `fvar`'s type
 annotation — which is what makes it the composite of the two.
 
-`@[expose]`: lane M7-3's `ContainerOwnPinsSyn.toRead` reads a pin off
+`@[expose]`: lane M7-3's `ContainerOwnPinsSyn.toReadOf` reads a pin off
 the instantiated recursor type node by node, so the consumer unfolds
 this walk. -/
 @[expose] def substFvarList (as : List Expr) : Expr → Expr
@@ -762,7 +762,7 @@ private theorem substFvarList_nil : ∀ e : Expr, substFvarList [] e = e := by
   | _ => simp_all [substFvarList]
 
 /-- **THE ROUND TRIP AT ANOTHER ARGUMENT LIST** (task #315 L-B, DESIGN
-§U.73): closing the leading `nP` free variables above `c` loose
+§U.76): closing the leading `nP` free variables above `c` loose
 binders and re-opening them at `as` IS the simultaneous substitution
 of `as` for them — `instSeq_abstractRange_fvs` at `as` the openers
 themselves is the special case where the substitution is the identity.
@@ -854,8 +854,8 @@ theorem instSeq_abstractRange_substFvarList (as : List Expr) (nP : Nat)
     rfl
 
 /-- **THE IDENTITY RUN, RE-OPENED AT THE COMPONENTS, IS THE RUN AT THE
-COMPONENTS** (task #315 L-B, DESIGN §U.73 — the law lane M7-3's
-`ContainerOwnPinsSyn.toRead` consumes, DESIGN §U.70 (d) (C)):
+COMPONENTS** (task #315 L-B, DESIGN §U.76 — the law lane M7-3's
+`ContainerOwnPinsSyn.toReadOf` consumes, DESIGN §U.73 (d) (C)):
 instantiating a closed `∀`-telescope at the block's parameter OPENERS
 (and a closed pad), closing the openers again and re-opening at `Ds`
 is instantiating it at `Ds` (and the same pad) in the first place.
@@ -915,5 +915,71 @@ theorem instPis_openers_subst {T : Expr} {nP : Nat} {params pad Ds : List Expr} 
   have := instSeq_abstractRange_substFvarList Ds nP hDlen hDcl R₀ 0 hb0
   rw [show nP + 0 - 1 = nP - 1 from by omega] at this
   rw [this]
+
+/-! ### Level instantiation, across the same two walks (task #315 M7-3
+session 18)
+
+K.47 records the own-pin table at the block's OWN level arguments —
+`p.lps.map Level.param`, the IDENTITY substitution — and a reader asks
+for it at some other `lvls`.  So the recorded run has to move across
+`Expr.instantiateLevelParams` before `instPis_openers_subst` moves it
+across the components, and the closing of the openers has to commute
+with it as well. -/
+
+/-- **LEVEL INSTANTIATION COMMUTES WITH A TELESCOPE INSTANTIATION**:
+the same `∀`-binders are peeled on both sides, and each argument is
+substituted level-instantiated.  The twin of `instPis_substFvarList`
+for `Expr.instantiateLevelParams`. -/
+theorem instPis_ilp (ks : List Name) (us : List Level) :
+    ∀ (args : List Expr) (e r : Expr), Expr.instPis e args = some r →
+      Expr.instPis (Expr.instantiateLevelParams ks us e)
+          (args.map (Expr.instantiateLevelParams ks us))
+        = some (Expr.instantiateLevelParams ks us r) := by
+  intro args
+  induction args with
+  | nil =>
+    intro e r h
+    simp only [Expr.instPis, Option.some.injEq] at h
+    subst h
+    rfl
+  | cons a args ih =>
+    intro e r h
+    match e with
+    | .forallE ty body m =>
+      show Expr.instPis (Expr.forallE (Expr.instantiateLevelParams ks us ty)
+          (Expr.instantiateLevelParams ks us body) ⟨Level.substPW ks us m.pw⟩)
+        ((a :: args).map (Expr.instantiateLevelParams ks us)) = _
+      show Expr.instPis ((Expr.instantiateLevelParams ks us body).instantiate1
+        (Expr.instantiateLevelParams ks us a)) (args.map (Expr.instantiateLevelParams ks us)) = _
+      rw [← ilp_instantiate1 ks us body 0]
+      exact ih _ r h
+    | .bvar _ | .fvar .. | .sort _ | .const .. | .app .. | .lam .. | .letE .. | .lit _
+    | .proj .. => exact nomatch h
+
+/-- **CLOSING A RANGE OF FREE VARIABLES COMMUTES WITH LEVEL
+INSTANTIATION**: neither walk touches the other's data.  A variable in
+the range becomes a bound variable, which carries no level argument at
+all, and a variable outside it keeps its annotation — which is the only
+place `instantiateLevelParams` acts on a `fvar`, and the one
+`Expr.abstractRange` does not descend into. -/
+theorem abstractRange_ilp (ks : List Name) (us : List Level) (d k : Nat) :
+    ∀ (e : Expr) (c : Nat),
+      (Expr.instantiateLevelParams ks us e).abstractRange d k c
+        = Expr.instantiateLevelParams ks us (e.abstractRange d k c) := by
+  intro e
+  induction e with
+  | fvar idx ty _ =>
+    intro c
+    show (if d ≤ idx ∧ idx < d + k then Expr.bvar (c + (d + k - 1 - idx))
+        else Expr.fvar idx (Expr.instantiateLevelParams ks us ty))
+      = Expr.instantiateLevelParams ks us
+        (if d ≤ idx ∧ idx < d + k then Expr.bvar (c + (d + k - 1 - idx))
+          else Expr.fvar idx ty)
+    by_cases h : d ≤ idx ∧ idx < d + k
+    · rw [if_pos h, if_pos h]
+      rfl
+    · rw [if_neg h, if_neg h]
+      rfl
+  | _ => intro c <;> simp_all [Expr.abstractRange, Expr.instantiateLevelParams]
 
 end ConLeche

@@ -149,6 +149,14 @@ structure NestedPinFacts (st : ElimState) (mp₁ : EnvModelM V μ ENV₁) : Prop
   pinDs : ∀ q, q < pinsS.length → ∀ ψ : Name → Nat,
     DenoteMetaSpine mp₁.base2.acval ENV₁ ψ b.nP (pinsS.getD q default).DsE
       ((pinsS.getD q default).Ds ψ)
+  /-- **the pins' components are GRADED at the block's parameter frame**
+  (task #315 M7-2): `nestedPinsOk`'s own `inferType` runs at the
+  block's PARAMETER context, which is the guard a grading needs; the
+  nested rule's pin conjunct spends the clause at the recursor's
+  padded frame -/
+  pinWd : ∀ q, q < pinsS.length → ∀ (ψ : Name → Nat) (ρ : Nat → V),
+    Sat V ((((ppsF 0 ψ).take b.nP).map (·.2.2)).reverse) ρ →
+    ∀ A ∈ (pinsS.getD q default).Ds ψ, WellDenotedV V ρ A
   /-- the container's level assignment at the pin is the pin's level
   arguments substituted for the container's parameters, and the two
   lists have one length (what `denoteMeta_const` reads at the head
@@ -183,6 +191,27 @@ structure NestedPinFacts (st : ElimState) (mp₁ : EnvModelM V μ ENV₁) : Prop
         (esF := esF) (srcsF := srcsF) (fvsPF := fvsPF) (xrestF := xrestF) (eissF := eissF)
         (tssF := tssF) (ctorsR := ctorsR) (dsR := dsR') (xFvsR := xFvsR') (pinsS := pinsS)
         mp₁.base2 q₀ kJ dJ
+  /-- **the groups with their block model NAMED by the environment
+  model's own assignment** (task #315 M7-3 session 12): `groups` keyed
+  by the reading `containerInfo?` makes of the pin's container at the
+  PRE-BLOCK environment, at `blockOf mp.base2` — the form
+  `NestedTailOut.groups` used to assume, and the pins' shapes' own
+  (`nestedPinShapes_of` at ONE assignment, DESIGN §U.36 (d)).  The
+  construction has it: `NestedPinsRun.groupSyn` instantiates the group
+  at `blockOf mp.base2 (baseInfo env st q)` and the pin's own reading
+  IS its group's base's (`containerInfo?_eq_of_names` at K.14's two
+  agreements), so the field costs the core nothing and the existential
+  `groups` above is its projection. -/
+  groupsAt : ∀ (dsR' : Nat → Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm))
+    (xFvsR' : Nat → Nat → List Expr) (q : Nat), q < pinsS.length →
+    ∀ ci : ConLeche.ContainerInfo,
+    ConLeche.containerInfo? env (pinsS.getD q default).J = some ci →
+    ∃ (q₀ kJ i : Nat), q = q₀ + i ∧ i < kJ ∧
+      NestedPinGroup (V := V) (p := p) (b := b) (fms := fms) (f₀ := f₀) (ctorsA := ctorsA)
+        (kinds := kinds) (env := env) (ppsF := ppsF) (W := W) (idxF := idxF) (dsF := dsF)
+        (esF := esF) (srcsF := srcsF) (fvsPF := fvsPF) (xrestF := xrestF) (eissF := eissF)
+        (tssF := tssF) (ctorsR := ctorsR) (dsR := dsR') (xFvsR := xFvsR') (pinsS := pinsS)
+        mp₁.base2 q₀ kJ (blockOf mp.base2 ci)
 
 /-- **THE RESTORE READING LAW at one constructor** (`NestedReadLaw`'s
 conclusion, per restored constructor `(ctorsR.getD mm [])[j]? = some c`
@@ -276,6 +305,16 @@ container block model per group. -/
     ConLeche.nestedCopyTargetsOk env p b st stored = true →
     ConLeche.nestedPinKindsOk p b st stored = true →
     ConLeche.nestedPinRankOk env p b st stored = true →
+    -- **THE POSITIVITY NORMALISATION ON THE MINTED COPY** (K.42, task
+    -- #315, lane L-B): at every ORDINARY field of every copy's
+    -- constructor, the stored domain IS the positivity normalisation of
+    -- the MINTED one, which the copies' identities read on the
+    -- `ordF`-LEFT arm (lane L-B's `NestedPinsShape`)
+    (∃ (jobs : List (Nat × Expr × Expr)) (ws : List Expr),
+      ConLeche.nestedOrdDomPairs env p st stored (ConLeche.nestedPinKinds p b stored) = some jobs ∧
+      ConLeche.nestedOrdNorms (m := ConLeche.CheckM) (fueledOps μ F)
+          (ConLeche.consNestedFormers (stored.take p.k) env) b.memberNames jobs = .ok ws ∧
+      ws = jobs.map (·.2.2)) →
     -- POST-CHECK (a) A THIRD TIME (K.30): the pins typed at the prefix
     -- formers' environment
     ConLeche.nestedPinsOk (m := ConLeche.CheckM) (fueledOps μ F)
@@ -308,7 +347,7 @@ container block model per group. -/
           a.ctors)
       = .ok ctorsR →
     ∃ pinsS : List PinSyn,
-      NestedPinFacts (V := V) (p := p) (b := b) (fms := fms) (f₀ := f₀) (ctorsA := ctorsA)
+      NestedPinFacts (V := V) (mp := mp) (p := p) (b := b) (fms := fms) (f₀ := f₀) (ctorsA := ctorsA)
         (kinds := kinds) (env := env) (ppsF := ppsF) (W := W) (idxF := idxF) (dsF := dsF)
         (esF := esF) (srcsF := srcsF) (fvsPF := fvsPF) (xrestF := xrestF) (eissF := eissF)
         (tssF := tssF) (ctorsR := ctorsR) (pinsS := pinsS) st mp₁'
@@ -390,7 +429,7 @@ annotation erasure). -/
           a.ctors)
       = .ok ctorsR →
     ∀ pinsS : List PinSyn,
-      NestedPinFacts (V := V) (p := p) (b := b) (fms := fms) (f₀ := f₀) (ctorsA := ctorsA)
+      NestedPinFacts (V := V) (mp := mp) (p := p) (b := b) (fms := fms) (f₀ := f₀) (ctorsA := ctorsA)
         (kinds := kinds) (env := env) (ppsF := ppsF) (W := W) (idxF := idxF) (dsF := dsF)
         (esF := esF) (srcsF := srcsF) (fvsPF := fvsPF) (xrestF := xrestF) (eissF := eissF)
         (tssF := tssF) (ctorsR := ctorsR) (pinsS := pinsS) st mp₁' →
@@ -457,6 +496,11 @@ theorem nestedLoopFacts_of (hpins : NestedPinsStaged V μ F) (hread : NestedRead
     (hK32 : ConLeche.nestedCopyTargetsOk env p b st stored = true)
     (hkinds : ConLeche.nestedPinKindsOk p b st stored = true)
     (hrank : ConLeche.nestedPinRankOk env p b st stored = true)
+    (hK42 : ∃ (jobs : List (Nat × Expr × Expr)) (ws : List Expr),
+      ConLeche.nestedOrdDomPairs env p st stored (ConLeche.nestedPinKinds p b stored) = some jobs ∧
+      ConLeche.nestedOrdNorms (m := ConLeche.CheckM) (fueledOps μ F)
+          (ConLeche.consNestedFormers (stored.take p.k) env) b.memberNames jobs = .ok ws ∧
+      ws = jobs.map (·.2.2))
     (hpins₁ : ConLeche.nestedPinsOk (m := ConLeche.CheckM) (fueledOps μ F) ENV₁ p.nP st.pins = .ok ())
     (hformers : ConLeche.mutualFormers (m := ConLeche.CheckM) (fueledOps μ F) b.nP b.formers env true
       = .ok (ConLeche.consMutualFormers fms env, fms))
@@ -483,13 +527,13 @@ theorem nestedLoopFacts_of (hpins : NestedPinsStaged V μ F) (hread : NestedRead
     ∃ (mp₂ : EnvModelM V μ ENV₂)
       (dsR : Nat → Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm))
       (xFvsR : Nat → Nat → List Expr) (pinsS : List PinSyn),
-      NestedLoopFacts (V := V) (p := p) (b := b) (fms := fms) (f₀ := f₀) (ctorsA := ctorsA)
+      NestedLoopFacts (V := V) (mp := mp) (p := p) (b := b) (fms := fms) (f₀ := f₀) (ctorsA := ctorsA)
         (kinds := kinds) (env := env) (ppsF := ppsF) (W := W) (idxF := idxF) (dsF := dsF)
         (esF := esF) (srcsF := srcsF) (fvsPF := fvsPF) (xrestF := xrestF) (eissF := eissF)
         (tssF := tssF) (ctorsR := ctorsR) (dsR := dsR) (xFvsR := xFvsR) (pinsS := pinsS) st mp₁' mp₂ := by
   obtain ⟨pinsS, PF⟩ := hpins hμ mp hE p st b envAux stored ctorsR fmsA ctorsA₀ fms f₀ ctorsA sortss kinds mp₁ ppsF W idxF dsF
     esF srcsF fvsPF xFvsF xrestF eissF tssF mp₁' hPM h0 h1 hfA hcA helim hcount hfresh hcont hb haux
-    hstored hclosed hpinsAux hcaps hsrc hgrp hsc hK32 hkinds hrank hpins₁ hformers h hbk h3 hnd
+    hstored hclosed hpinsAux hcaps hsrc hgrp hsc hK32 hkinds hrank hK42 hpins₁ hformers h hbk h3 hnd
     hctorsA hleafM' hoff' hfind' hctors
   obtain ⟨dsR, xFvsR, hR⟩ := hread hμ mp hE p st b envAux stored ctorsR fmsA ctorsA₀ fms f₀ ctorsA sortss kinds mp₁ ppsF W idxF dsF
     esF srcsF fvsPF xFvsF xrestF eissF tssF mp₁' hPM h0 h1 hfA hcA helim hcount hfresh hcont hb haux
@@ -587,11 +631,19 @@ theorem nestedLoopFacts_of (hpins : NestedPinsStaged V μ F) (hread : NestedRead
     intro t ht
     rw [hName t ht, (hfind' t _ ht (fms_get (Nat.lt_of_lt_of_le ht hkle))).1]
     rfl
+  have hfoundP : ∀ q, q < pinsS.length → ((ENV₁).find? ((nestedBlockModel (V := V) p b fms f₀ ctorsA kinds env ppsF W idxF dsF esF srcsF fvsPF xrestF eissF tssF ctorsR dsR xFvsR pinsS).pinAt q).J).isSome = true := by
+    intro q' hq'
+    obtain ⟨q₀', kJ', i', dJ', hqe', hi', G'⟩ := PF.groups dsR xFvsR q' hq'
+    obtain ⟨cv, caps, hf⟩ := G'.found hi'
+    rw [hqe', hf]
+    rfl
   refine ⟨mp₂, dsR, xFvsR, pinsS,
     { pinsLen := PF.pinsLen, pinRec := PF.pinRec, pinNP := PF.pinNP
       pinDs := fun q hq ψ => DenoteMetaSpine.transfer (fun e _ h => hde₂ ψ b.nP e h) (PF.pinDs q hq ψ)
+      pinWd := PF.pinWd
       find := hF₂, pinψ := PF.pinψ, pinNIdx := PF.pinNIdx, hde := hde₂
-      leafKeep := ?_, agreeC := hag₂, ctorFacts := ?_, domFacts := ?_, groups := ?_ }⟩
+      leafKeep := ?_, agreeC := hag₂, ctorFacts := ?_, domFacts := ?_, groups := ?_
+      groupsAt := ?_ }⟩
   · -- the members' leaves
     intro t f ht hft
     exact hag₂ f.cvTa.name (hneR _ (by rw [(hfind' t f ht hft).1]; rfl))
@@ -639,11 +691,12 @@ theorem nestedLoopFacts_of (hpins : NestedPinsStaged V μ F) (hread : NestedRead
   · -- the groups, crossed
     intro q hq
     obtain ⟨q₀, kJ, i, dJ, hqe, hi, G⟩ := PF.groups dsR xFvsR q hq
-    refine ⟨q₀, kJ, i, dJ, hqe, hi, G.crossEnv hFne hres hagE hde₂ hfoundM (fun q' hq' => ?_)⟩
-    obtain ⟨q₀', kJ', i', dJ', hqe', hi', G'⟩ := PF.groups dsR xFvsR q' hq'
-    obtain ⟨cv, caps, hf⟩ := G'.found hi'
-    rw [hqe', hf]
-    rfl
+    exact ⟨q₀, kJ, i, dJ, hqe, hi, G.crossEnv hFne hres hagE hde₂ hfoundM hfoundP⟩
+  · -- the groups at the container's reading, crossed the same way
+    -- (task #315 M7-3 session 12)
+    intro q hq ci hci
+    obtain ⟨q₀, kJ, i, hqe, hi, G⟩ := PF.groupsAt dsR xFvsR q hq ci hci
+    exact ⟨q₀, kJ, i, hqe, hi, G.crossEnv hFne hres hagE hde₂ hfoundM hfoundP⟩
 
 end Consumer
 
@@ -656,10 +709,10 @@ the reading law and the groups crossed to the loop's model. -/
 theorem nestedCtorsStaged_of {F : Nat} (hpins : NestedPinsStaged V μ F)
     (hread : NestedReadLaw V μ F) : NestedCtorsStaged V μ F :=
   fun hμ _ mp hE _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ mp₁' hPM h0 h1 hfA hcA helim
-    hcount hfresh hcont hb haux hstored hclosed hpinsAux hcaps hsrc hgrp hsc hK32 hkinds hrank hpins₁
-    hformers h hbk h3 hnd hctorsA hleafM' hoff' hfind' hctors =>
+    hcount hfresh hcont hb haux hstored hclosed hpinsAux hcaps hsrc hgrp hsc hK32 hkinds hrank hK42
+    hpins₁ hformers h hbk h3 hnd hctorsA hleafM' hoff' hfind' hctors =>
   nestedLoopFacts_of hpins hread hμ hE (mp := mp) mp₁' hPM h0 h1 hfA hcA helim hcount hfresh hcont
-    hb haux hstored hclosed hpinsAux hcaps hsrc hgrp hsc hK32 hkinds hrank hpins₁ hformers h hbk h3
-    hnd hctorsA hleafM' hoff' hfind' hctors
+    hb haux hstored hclosed hpinsAux hcaps hsrc hgrp hsc hK32 hkinds hrank hK42 hpins₁ hformers h hbk
+    h3 hnd hctorsA hleafM' hoff' hfind' hctors
 
 end ConLeche.Model

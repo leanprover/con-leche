@@ -71,6 +71,60 @@ theorem mutualRecTy_paramPrefix {lps : List Name} {elim : Name} {large : Bool} {
     rw [List.map_map]
     rfl
 
+/-! ## A — the rule's λ prefix -/
+
+/-- A `pisToLamsPw` walk that succeeds has walked a `∀`-telescope, and
+its result strips the SAME domains as `λ`s (`replacePisPw_stripPis`'s
+twin: the conversion keeps every domain and puts the datum `pw` on
+every binder). -/
+theorem pisToLamsPw_stripLams {pw : PropWhen} :
+    ∀ (k : Nat) {e b r : Expr}, Expr.pisToLamsPw pw k e b = some r →
+      ∃ (bs : List (Expr × BinderMeta)) (body : Expr),
+        e.stripPis k = some (bs, body) ∧
+        r.stripLams k = some (bs.map fun x => (x.1, (⟨pw⟩ : BinderMeta)), b)
+  | 0, e, b, r, h => by
+    simp only [Expr.pisToLamsPw, Option.some.injEq] at h
+    subst h
+    exact ⟨[], e, rfl, rfl⟩
+  | k + 1, e, b, r, h => by
+    match e, h with
+    | .forallE ty rest m, h =>
+      simp only [Expr.pisToLamsPw, Option.map_eq_some_iff] at h
+      obtain ⟨r', hr', rfl⟩ := h
+      obtain ⟨bs, body, hs, hl⟩ := pisToLamsPw_stripLams k hr'
+      exact ⟨(ty, m) :: bs, body, by simp only [Expr.stripPis, hs, Option.map_some],
+        by simp only [Expr.stripLams, hl, Option.map_some, List.map_cons]⟩
+    | .bvar _, h | .fvar _ _, h | .sort _, h | .const _ _, h
+    | .app _ _, h | .lam _ _ _, h | .letE _ _ _, h | .lit _, h
+    | .proj _ _ _, h => simp [Expr.pisToLamsPw] at h
+
+/-- **THE GENERATED RULE'S λ PREFIX IS THE FIRST FORMER'S PARAMETER
+TELESCOPE** (`mutualRecTy_paramPrefix`'s twin at the rules):
+`mutualRecRhs` closes with `Expr.pisToLamsPw pw nP f₀.tty motives`, so
+its outermost `nP` λ-binders carry the first former's domains and the
+elimination's datum — the same domains the recursor type's parameter
+prefix carries. -/
+theorem mutualRecRhs_paramPrefix {lps : List Name} {elim : Name} {large : Bool} {nP : Nat}
+    {formers : List MutualFormer} {ctors : List MutualCtor4} {recOf : Nat → Name}
+    {rlvls : List Level} {J : Nat} {rhs : Expr} {f₀ : MutualFormer}
+    (hrhs : mutualRecRhs lps elim large nP formers ctors recOf rlvls J = some rhs)
+    (hf₀ : formers[0]? = some f₀) :
+    ∃ (pbs : List (Expr × BinderMeta)) (bodyF motives : Expr),
+      f₀.tty.stripPis nP = some (pbs, bodyF) ∧
+      rhs.stripLams nP
+        = some (pbs.map fun x =>
+            (x.1, (⟨Level.zeronessOf (structElimLevel elim large)⟩ : BinderMeta)), motives) := by
+  unfold mutualRecRhs at hrhs
+  rw [hf₀] at hrhs
+  cases hc : ctors[J]? with
+  | none => rw [hc] at hrhs; exact nomatch hrhs
+  | some c =>
+    rw [hc] at hrhs
+    simp only [Option.bind_eq_some_iff] at hrhs
+    obtain ⟨q, -, inner, -, minors, -, motives, -, hrep⟩ := hrhs
+    obtain ⟨pbs, bodyF, hs, hl⟩ := pisToLamsPw_stripLams nP hrep
+    exact ⟨pbs, bodyF, motives, hs, hl⟩
+
 /-! ## The walk's shape, inverted along a `∀`-telescope -/
 
 /-- A spine is its head or an application. -/

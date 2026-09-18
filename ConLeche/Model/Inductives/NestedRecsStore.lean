@@ -531,6 +531,35 @@ theorem nestedProvList_names (hm : cvRms.length = p.k) (hn : cvRns.length = pins
         = (fun c : ConstantVal => c.name) ∘ Prod.fst from rfl, ← List.map_map,
       zip_map_fst_of_le _ _ (by rw [hn, List.length_map, List.length_drop, hs, hbk]; omega)]
 
+/-- **THE RESTORED RECURSORS' NAMES ARE PAIRWISE DISTINCT** (K.39 at
+the tail): the run's `certOnly` Bool, read at the verified mode the
+tail runs in.  The provision loop's conses are its consumer. -/
+theorem NestedTailIn.recNodup : (cvRms.map (·.name) ++ cvRns.map (·.name)).Nodup :=
+  of_decide_eq_true (ConLeche.certOnly_elim I.hndR I.hμ)
+
+/-- **NO AUXILIARY NAME IS A RESTORED RECURSOR'S** (K.45 at the tail —
+`restoreAgreeP`'s `hauxNe`, discharged): the run's `certOnly` Bool says
+no auxiliary name is in the two restored lists, and
+`nestedProvList_names`/`nestedProvList_fst` put class `c`'s recursor at
+position `c` of exactly that concatenation. -/
+theorem NestedTailIn.auxNe : ∀ n ∈ (ConLeche.restoreTbl p st).auxNames, ∀ c, c < b.k →
+    n ≠ (nestedRecCvAt p.k cvRms cvRns c).name := by
+  intro n hn c hc heq
+  have hbk : b.k = p.k + pinsS.length := I.out.bk
+  have hlen : (nestedProvList p stored cvRms cvRns).length = p.k + pinsS.length :=
+    nestedProvList_length I.lenM I.lenN I.storedLen hbk
+  obtain ⟨x, hx⟩ : ∃ x, (nestedProvList p stored cvRms cvRns)[c]? = some x :=
+    ⟨_, List.getElem?_eq_getElem (by rw [hlen, ← hbk]; exact hc)⟩
+  have hxc : x.1 = nestedRecCvAt p.k cvRms cvRns c :=
+    nestedProvList_fst I.lenM I.lenN I.storedLen hbk c x hx
+  have hmem : n ∈ cvRms.map (·.name) ++ cvRns.map (·.name) := by
+    rw [← nestedProvList_names I.lenM I.lenN I.storedLen hbk]
+    exact List.mem_map.mpr ⟨x, List.mem_of_getElem? hx, by rw [hxc, ← heq]⟩
+  have hall := List.all_eq_true.mp (ConLeche.certOnly_elim I.hdisj I.hμ) n hn
+  simp only [Bool.not_eq_true'] at hall
+  rw [List.contains_eq_mem, decide_eq_false_iff_not] at hall
+  exact hall hmem
+
 /-- The restored environment is η-closed (the formers and the
 constructors are fresh non-η families, as `declNested`'s own η lemma
 argues for the whole route). -/

@@ -243,7 +243,29 @@ theorem zeroCtorBlock_containerModeled {env : Env} {m : EnvModel V env}
   nestMention := fun _ h => nomatch h
   pinsNotMembers := fun _ h => nomatch h
   pinNP := fun _ h => nomatch h
+  pinConts := fun _ h => nomatch h
   pinψ := fun _ h => nomatch h
+  pinParams := fun _ _ _ _ h => nomatch h
+
+/-- **A ZERO-CONSTRUCTOR PINNED BLOCK'S OWN-PIN TABLE IS EMPTY**
+(task #315 M7-3 session 17, K.49 and DESIGN §U.74) — the clause
+`ContainerOwnPinsSyn` at `Empty`'s and `False`'s block model.
+
+Stated at the READ-BACK rather than at `Env.find?` results because the
+block model itself is generic in the former's name: the two
+instantiations supply `containerInfo?_emptyA` and
+`containerInfo?_falseA`.  `hmim` is `checkBasisDecl`'s own
+certification (`basisOwnMimicsOk`, the last conjunct of
+`DeclBasisRun`) at the block's former, which is where
+`containerOwnPinsAt`'s walk starts. -/
+theorem zeroCtorBlock_ownPins {env env₀ : Env} {T : Name} {resSort : Level}
+    {lps : List Name} {ty : Expr}
+    (hci : ConLeche.containerInfo? env T = some ⟨0, [⟨T, lps, ty, []⟩]⟩)
+    (hmim : ConLeche.blockOwnMimicsOk env T 0 = true) :
+    ContainerOwnPinsSyn (V := V) env (zeroCtorBlock (V := V) T resSort env₀) :=
+  ContainerOwnPinsSyn.of_noMimics hmim fun i hi => by
+    obtain rfl : i = 0 := Nat.lt_one_iff.mp (show i < 1 from hi)
+    exact ⟨_, _, hci, rfl, rfl⟩
 
 /-! ## The read-back at `Empty` -/
 

@@ -1181,6 +1181,16 @@ theorem checkNested_inv {env envOut : Env} {p : NestedParts} {F : Nat}
                 (consNestedFormers (stored.take p.k) env)))
             (restoreTbl p st) cvRa.levelParams cvRa.name true cvRa.type a.mI a.rP a.rules)
         = .ok rulesN ∧
+      -- THE RESTORED RULES' RESCUE BITS (K.50): a set bit IS the
+      -- provisioned environment's own verdict — `hctorStored`'s other
+      -- two conjuncts, which `restoreRules` cannot transport
+      certOnly mode (nestedRuleBitsOk
+        (provisionNestedRecs
+            ((cvRms.zip ((stored.take p.k).map fun (a : AuxStored) => (a.mI, a.rP)))
+              ++ (cvRns.zip ((stored.drop p.k).map fun (a : AuxStored) => (a.mI, a.rP))))
+            (consNestedCtors ctorsR.flatten
+              (consNestedFormers (stored.take p.k) env))).find?
+        (cvRms.zip rulesM ++ cvRns.zip rulesN)) = true ∧
       -- the projection tables, on the stored recursors
       nestedTables (m := CheckM)
           (((stored.take p.k).zip ctorsR).zipIdx.map fun ((a, cs), mIdx) =>
@@ -1326,6 +1336,16 @@ theorem checkNested_inv {env envOut : Env} {p : NestedParts} {F : Nat}
   try simp only at h
   obtain ⟨rulesN, hrln, h⟩ := exceptBind_ok h
   try simp only at h
+  by_cases hrb2 : certOnly (fueledOps mode F).mode (nestedRuleBitsOk
+      (provisionNestedRecs
+            ((cvRms.zip ((stored.take p.k).map fun (a : AuxStored) => (a.mI, a.rP)))
+              ++ (cvRns.zip ((stored.drop p.k).map fun (a : AuxStored) => (a.mI, a.rP))))
+            (consNestedCtors ctorsR.flatten
+              (consNestedFormers (stored.take p.k) env))).find?
+      (cvRms.zip rulesM ++ cvRns.zip rulesN)) = true
+  case neg => rw [if_neg hrb2] at h; close_throw
+  rw [if_pos hrb2] at h
+  try simp only [bind, Except.bind] at h
   obtain ⟨env₄, htbl, h⟩ := exceptBind_ok h
   try simp only at h
   obtain ⟨u₀, hpins, h⟩ := exceptBind_ok h
@@ -1358,7 +1378,7 @@ theorem checkNested_inv {env envOut : Env} {p : NestedParts} {F : Nat}
     hfmsA, hctorsA, helim', beq_iff_eq.mp hcnt, hfresh, hcont, hb', haux, hst', hpc,
     (by cases uA; exact hpinsAux), hcaps, hsrc,
     certOnly_and_left hcont, hgrp, hmn, hsc, hpl, htg, hkd, haa, hrk, hpa, hrh, hord,
-    (by cases uP₁; exact hpins₁), hctors, hrm, hrn, hnd, hdj, hrlm, hrln, htbl,
+    (by cases uP₁; exact hpins₁), hctors, hrm, hrn, hnd, hdj, hrlm, hrln, hrb2, htbl,
     (by cases u₀; exact hpins), hlen, (by cases u₁; exact hrecs), hrb, hop, hom⟩
 
 /-! ## The restore, syntactically (task #315)
@@ -1663,7 +1683,7 @@ made once; `restoreNode_eq_head` and `restoreNode_const` pin this copy to
 the kernel's by `rfl`. -/
 
 /-- The head half of `restoreNode`'s step (its `let head`), restated. -/
-def restoreHead (R : RestoreTbl) (d : Nat) (e : Expr) : Except CheckError (Option Expr) :=
+@[expose] def restoreHead (R : RestoreTbl) (d : Nat) (e : Expr) : Except CheckError (Option Expr) :=
   match e.getAppFn with
   | .const n _ =>
     let args := e.getAppArgs
@@ -2473,5 +2493,85 @@ theorem nestedPinRootPairOk_inv {env : Env} {p : NestedParts} {b : MutualBlock}
           containerOwnPinsAt env (st.pins.getD i default).container lvls Ds = some own ∧
           (st.pins.getD q default).pin ∈ own) :=
   nestedPinRootPairAt_inv h hq
+
+/-! ## K.37's rank clauses, inverted (task #315, lane L-E's request)
+
+`nestedPinRankOk` (`Kernel/Inductives/NestedInstall.lean`) had ONE use —
+`nestedPinChecks_inv`, which stops at the Bool being `true`.  This is the
+way in: the edge list EXISTS (the Bool is `false` at `none`, so the
+existence is part of the statement, not a side condition), and the four
+clauses hold at `nestedPinInstOf`/`nestedPinRankOf`, the two lists the
+model reads.
+
+**Clauses (1) and (2) are folded into ONE disjunction on purpose**: the
+model never reads an edge's OWNERSHIP bit.  An own edge gives the
+instance equality, a not-own edge gives the disjunction, and the
+consumer's conclusion is the disjunction either way — so the edge
+relation may be `∃ own, (q, q', own) ∈ edges` and `mentionsMember` is
+never computed on the model side.  That is what keeps this a boolean
+inversion with no term traversal, in `nestedPinRootPairAt_inv`'s idiom. -/
+
+theorem nestedPinRankAt_inv {st : ElimState} {edges? : Option (List (Nat × Nat × Bool))}
+    (h : nestedPinRankAt st edges? = true) :
+    ∃ edges, edges? = some edges ∧
+      -- (1)+(2) an edge stays in the instance or DROPS the rank
+      (∀ e ∈ edges,
+        (nestedPinInstAt st edges?).getD e.1 0 = (nestedPinInstAt st edges?).getD e.2.1 0 ∨
+          (nestedPinRankListAt st edges?).getD e.2.1 0
+            < (nestedPinRankListAt st edges?).getD e.1 0) ∧
+      -- (3) the rank is a function of the instance
+      (∀ q t, q < st.pins.length → t < st.pins.length →
+        (nestedPinInstAt st edges?).getD q 0 = (nestedPinInstAt st edges?).getD t 0 →
+        (nestedPinRankListAt st edges?).getD q 0 = (nestedPinRankListAt st edges?).getD t 0) ∧
+      -- (4) a mint group is one instance
+      (∀ q, q < st.pins.length →
+        (nestedPinInstAt st edges?).getD q 0
+          = (nestedPinInstAt st edges?).getD (st.pins.getD q default).grpBase 0) := by
+  cases hed : edges? with
+  | none => rw [hed] at h; simp [nestedPinRankAt] at h
+  | some edges =>
+  rw [hed] at h
+  simp only [nestedPinRankAt, Bool.and_eq_true, beq_iff_eq, List.all_eq_true] at h
+  obtain ⟨⟨⟨-, h3⟩, h4⟩, h12⟩ := h
+  refine ⟨edges, rfl, ?_, ?_, ?_⟩
+  · intro e he
+    have hb := h12 e he
+    simp only [nestedPinInstAt, nestedPinRankListAt]
+    split at hb
+    · exact Or.inl (by simpa using hb)
+    · rcases Bool.or_eq_true _ _ |>.mp hb with hb' | hb'
+      · exact Or.inl (by simpa using hb')
+      · exact Or.inr (by simpa using hb')
+  · intro q t hq ht hqt
+    simp only [nestedPinInstAt, nestedPinRankListAt] at hqt ⊢
+    have hb := h3 q (List.mem_range.mpr hq) t (List.mem_range.mpr ht)
+    rcases Bool.or_eq_true _ _ |>.mp hb with hb' | hb'
+    · exact absurd (by simpa using hqt) (by simpa using hb')
+    · simpa using hb'
+  · intro q hq
+    have hb := h4 q (List.mem_range.mpr hq)
+    simp only [nestedPinInstAt]
+    simpa using hb
+
+/-- K.37's clauses at the lists the model reads. -/
+theorem nestedPinRankOk_inv {env : Env} {p : NestedParts} {b : MutualBlock}
+    {st : ElimState} {stored : List AuxStored}
+    (h : nestedPinRankOk env p b st stored = true) :
+    ∃ edges, nestedPinEdges env p b st stored = some edges ∧
+      (∀ e ∈ edges,
+        (nestedPinInstOf env p b st stored).getD e.1 0
+            = (nestedPinInstOf env p b st stored).getD e.2.1 0 ∨
+          (nestedPinRankOf env p b st stored).getD e.2.1 0
+            < (nestedPinRankOf env p b st stored).getD e.1 0) ∧
+      (∀ q t, q < st.pins.length → t < st.pins.length →
+        (nestedPinInstOf env p b st stored).getD q 0
+          = (nestedPinInstOf env p b st stored).getD t 0 →
+        (nestedPinRankOf env p b st stored).getD q 0
+          = (nestedPinRankOf env p b st stored).getD t 0) ∧
+      (∀ q, q < st.pins.length →
+        (nestedPinInstOf env p b st stored).getD q 0
+          = (nestedPinInstOf env p b st stored).getD
+              (st.pins.getD q default).grpBase 0) :=
+  nestedPinRankAt_inv h
 
 end ConLeche
