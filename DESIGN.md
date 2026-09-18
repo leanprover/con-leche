@@ -92870,3 +92870,159 @@ off).  `tests/arena.sh` not re-run: the session touches no checker
 code, and the new fixture is in the shadow gate only — like
 `nested_lam_pin_prop`, it has no `tests/e2e-expected.txt` row.
 Standard axioms on `nestedPinsShape_of` and the chain probe.
+
+#### U.76 — L-B session 18: `ordF`-right at a MEMBER target is PROVED, the requested record CUT DOWN, and the grading the walk was already computing (lane L-B, 2026-09-18)
+
+The previous session refuted `EntryRead`'s Π-tower clauses and left
+`NestedPinsShapeOrdRight` narrowed to the finitary copy field.  This
+one closes half of what was left: at a MEMBER target the arm is a
+theorem (d), and the residual takes the PIN-target hypothesis.  Two
+things had to be got right first, and both correct this lane's own
+§U.75: the kernel record it requested is SMALLER than §U.75 said and
+is needed EARLIER (b), and the clause §U.75 never looked at — the
+index FIT — needed a law that was not in the tree, though the
+induction that proves it was already computing it (c).
+
+##### (a) The correction — the request is cited by TITLE (commit `3fb810f7`)
+
+§U.75 wrote its kernel request down as "K.43", which was taken
+(`blockOwnMimicsOk`, the own-pin table record).  The number is the
+integrator's; the section now cites the request by its title, "the
+minted domain's normalisation, REWRITTEN", and carries none.
+
+##### (b) FINDING — the member-target half needs the record TOO, and the record it needs is K.42's own Bool
+
+§U.75 (c) sized the member-target case as "ONE session on §U.74 (b)'s
+chain with the grading free", on the ground that at a
+container-ORDINARY field the elimination's rewrite is the identity.
+**That ground is wrong**, and `copyOrdFLeft`'s own proof says so: the
+prune it runs (`replaceAllNested_unchanged_or_aux` against
+`mentionsMember b.memberNames`) needs the GIVEN domain to mention no
+MIMIC, and `ContainerModeled.ordFree` gives no such thing — it says the
+container's field mentions no member of the CONTAINER's block, while
+the instantiation at the pin's components can put a nested container
+occurrence in it, which the rewrite then fires on.  `nested_p20` is
+that shape at an ordinary copy field; the same shape with a
+member-headed `whnf` result lands at a member-target RECURSIVE one.
+
+So the member-target case also needs the run on the MINTED domain.
+What it does NOT need is §U.75 (c)'s heavier form:
+
+* **at a MEMBER target the stored domain is MIMIC-FREE.**
+  `mutualPositivity` accepts a member-headed application only when its
+  telescope binder domains and its index arguments mention no member
+  at all (`normPosDomM_piDomsFree`, and the walk's own
+  `(getAppArgs.drop nP).all (!mentionsMember …)`), so the only member
+  occurrence in the stored domain is the head, and at a member target
+  that head is a REAL member.  The minted and the rewritten walks run
+  in lockstep — the kernel's own `nestedOrdNorms` docstring says why,
+  "a mimic is a member of the auxiliary block too, so the two walks see
+  a member at exactly the same nodes" — so where the rewritten walk
+  ends mimic-free the minted one ends at the SAME term.  The
+  comparison is therefore K.42's own `w == stored`;
+* **the widening is the FILTER.**  `nestedOrdDomPairs` builds its job
+  list with `if r == RecFieldKind.ordinary`; the member-target fields
+  ask for `r == .ordinary || m' < p.k` in its place, with the job
+  triple, `nestedOrdNorms` and the `ws = jobs.map (·.2.2)` comparison
+  all unchanged.  That is the whole kernel change for this half;
+* **the heavier form is the PIN target's alone.**  There the stored
+  domain's head IS a mimic, `w` carries the container application, and
+  the record has to say how they correspond — §U.75 (c)'s
+  `replaceAllNested … w = stored` at the final elimination state, with
+  the measurement that section already asks for.  Nothing in this
+  session makes that one cheaper.
+
+**So the request splits in two, and the cheap half unblocks a proved
+arm today** — which is why this session states the cheap half as a
+residual in the consumer's shape and consumes it (e).
+
+##### (c) THE LAW THE FIT NEEDED — `normPosDomM_reads`, strengthened (commit `4f384346`)
+
+`EntryRead`'s last clause has two conjuncts and §U.75 only ever
+examined the first.  The second is a FIT: the copy's index expressions
+must fit the target's index telescope, at the CONTAINER's own prefix
+frame.  Its only possible source is the grading of the STORED domain's
+reading at that frame — `WellDenoted` of an application IS the fit of
+its arguments (`leafSpineFit`) — and the block's own record grades the
+stored domains at the SHADOW context (`mutualShadowGrading`), which is
+a different frame and does not transport.
+
+The grading at the right frame comes across the positivity walk, and
+the walk was already computing it: `WhnfClaim` returns the reduct's
+grading beside the interp equality, and `normPosDomM_read`'s induction
+discards it at every step.  `normPosDomM_reads` now returns it, and
+`normPosDomM_readEq_of` passes it on.  The `Π` case needs one thing the
+reading version did not — `AnnotValid`'s PROP clause at the output
+binder is the input's, moved across by `normPosDomM_read` at the body's
+own run — and nothing else.
+
+**This retires the risk §U.75 could not size.**  The fit clause is
+provable, `EntryRead` does not have to change for it, and lane L-E's
+repair can ignore it.
+
+##### (d) The arm, and the factoring it wanted (commits `cd4ea03b`, `8c07f083`)
+
+* **`copyFieldReadCore`** — `copyOrdFLeftRead` and the right arm differ
+  in TWO lines, where the run comes from and how the equation is
+  packaged; everything between (the minted constructor's opening, the
+  pin's components scoped and read, the first former's opened context,
+  the CONTAINER's grading carried across the instantiation, the `CtxOk`
+  tower) never looks at the field's kind.  It is one theorem now, with
+  the run as a hypothesis in the shape the arms deliver it, returning
+  the reading equality AND the stored reading's grading.
+  `copyOrdFLeftRead` keeps its statement to the character;
+* **`copyOrdFRightReadM`** — the arm.  `tlsJ := []` (the copy's
+  telescope is empty at a finitary recursive field), the reading is the
+  core's composed with `BlockCtorData.recEntry` and
+  `targetRead_of_mem` — the same member leaf at two cuts, whose
+  parameter spines read alike (`map_paramBvarsAt_interp`) and whose
+  two models agree (`NestedPinsRun.hleafM'` and
+  `MutualFormersFacts.leaf` are one `mutMemberLeaf`) — and the fit is
+  `leafSpineFit` on (c)'s grading.
+
+##### (e) The residual ledger, after this session
+
+`nestedPinsShape_of` takes FIVE, and the chain probe typechecks over
+them (`nestedPinsStaged_of (nestedPinsIdent_of (nestedPinsShape_of
+hK42 hRunM hOrd hOrdR hPin) hEn)`, standard axioms):
+
+* `NestedPinsShapeK42` — PLUMBING, the kernel's conjunct verbatim,
+  waiting on lane L-E's field (§U.74 (c)); unchanged;
+* `NestedPinsShapeRunM` — **NEW, and also plumbing**: (b)'s widened
+  filter, stated in the CONSUMER's shape because the kernel function it
+  will be read off does not exist yet.  When it lands this becomes a
+  theorem by `copyOrdFLeftRun`'s recipe and disappears.  It is consumed
+  at the run, in the assembly's own member-target branch, this session;
+* `NestedPinsShapeOrdRight` — now the PIN-target case of the finitary
+  copy field, and nothing else;
+* `NestedPinsShapeOrdRightRefl` — REFUTED (§U.75), lane L-E repairing;
+* `NestedPinsShapePinF` — untouched, routed in §U.75 (d), not started.
+
+##### (f) TWO THINGS THE OTHER LANES NEED
+
+* **lane L-E, mid-repair**: the arm landed here builds `EntryRead` with
+  `tlsJ := []`, so under §U.75 (b)'s MINIMAL repair (clause 1 stated at
+  the reading) it goes through verbatim — the body is the container's
+  own domain and the equation is `rfl`.  Under the SAFE repair
+  (`EntryRead` becomes `∀ Z, hZ → CopyEntryAt …`) the arm must be
+  re-packaged, and the re-packaging is mechanical: what it proves IS
+  the reading and the fit that `copyEntryAt_of_read` consumes, in that
+  order.  Either repair is fine by this lane; the safe one costs it one
+  short edit;
+* **the kernel lane**: build (b)'s FILTER widening first — it is two
+  lines in `nestedOrdDomPairs`, it carries K.42's own measurement, and
+  a proved arm is already waiting on it.  The heavier rewritten form is
+  the pin target's and can follow.
+
+##### (g) GATES
+
+`lake build` 716 jobs warning-free; `lake build ConLecheTests` 572 jobs
+warning-free; layering base 351 / model 282 / caps 3 / umbrella 1, 0
+base->lane and 0 impl->theory; trust surface 13/5 (648 scanned);
+no-local-paths OK; overview-links 112, no anchor moved; quote-gate 2;
+**proofdeps 4965 rows / 12 roots / 0 doors** (the baseline, unmoved);
+shake 511 removals all allowlisted; pub-imports 1315 of 2147, none
+demotable; nested-shadow 28/28.  `tests/arena.sh` not re-run: the
+session touches no checker code.  Standard axioms on `normPosDomM_reads`,
+`normPosDomM_readEq_of`, `copyFieldReadCore`, `copyOrdFRightReadM`,
+`nestedPinsShape_of` and the chain probe.
