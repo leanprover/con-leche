@@ -1855,9 +1855,13 @@ holds. -/
 
 /-- Each pin's instance ENTRY GROUP: the mint-group base of the unique
 group of its container instance whose parent lies OUTSIDE the instance.
-`none` at a pin whose instance has no unique entry group — which K.40's
-measurement found of no instance in either corpus, and which this Bool's
-first clause refuses. -/
+`none` at a pin whose instance has no unique entry group, which K.41's
+first clause refuses.  K.40's measurement found no such instance in
+either corpus — but that corpus was the 27 shadow rows and the 41-block
+Mathlib cone, and `tests/e2e/inmodel_groups.ndjson` was in NEITHER: at
+its `InModelGroups.H` there are two entry groups, because the `mintedAt`
+stamp two of the three pins carry is wrong (DESIGN "THE `mintedAt`
+STAMP IS RESET BY ITS OWN MINT"). -/
 def nestedPinRootGroupAt (p : NestedParts) (st : ElimState) (inst : List Nat) :
     List (Option Nat) :=
   let par := nestedPinParent p st
@@ -1892,10 +1896,17 @@ accepted fixture `nested_lam_pin_prop`, where the positivity `whnf`
 turns `(fun _ => T) trivial` into a member and the component's head is
 a λ.
 
-**It cannot fire**, and a failure is `.internal`: the block's
-elimination mints a pin only while rewriting a copy, and the copy is the
-root container's — whose own elimination pinned the same occurrence, at
-the components the copy was made at.  CERTIFICATION-ONLY: gated. -/
+**IT CAN FIRE, and it HAS** (task #315 M8 session 2; DESIGN "THE
+`mintedAt` STAMP IS RESET BY ITS OWN MINT").  The argument that stood
+here — the block's elimination mints a pin only while rewriting a copy,
+and that copy is the root container's — is sound about the MINT and says
+nothing about the RECORD the pairing is computed from.  At
+`tests/e2e/inmodel_groups.ndjson`'s `InModelGroups.H` this Bool is
+`false`, on a stream official accepts, because `mkCopies` resets
+`mintedAt` and two pins of one instance then both claim to be
+parentless.  A failure stays `.internal` and the ledger category stays
+(S) — a fire IS a defect in our own generator, and this one was.
+CERTIFICATION-ONLY: gated. -/
 def nestedPinRootPairAt (env : Env) (st : ElimState) (roots : List (Option Nat)) : Bool :=
   (List.range st.pins.length).all fun q =>
     match roots.getD q none with

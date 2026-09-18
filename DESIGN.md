@@ -88856,3 +88856,140 @@ The plan sized the kernel's share at 3–5 sessions and the whole of M8 at
 **6–10 sessions after the nested chain's residual closes**, against the
 plan's 5–8, and with one item (K.41) whose size is not yet knowable.
 None of it is landable before `declNestedB`.
+
+#### THE `mintedAt` STAMP IS RESET BY ITS OWN MINT — K.41's fire DIAGNOSED, and the check was right (2026-09-18, task #315 M8 session 2, `agent/uniform-m5`)
+
+Session 1 found `nestedPinRootPairOk` (K.41) firing at
+`tests/e2e/inmodel_groups.ndjson`'s `InModelGroups.H`, on an ACCEPTING
+row, with the untrusted modeller off, on our own mint.  The two possible
+explanations had opposite consequences.  **It is the second one: the
+route is wrong and the check caught it.**  The defect is not being fixed
+in this session — the maintainer sees it described first.
+
+##### (a) THE DATA, at the block
+
+`H` is `inductive H | mk : TT (List H) → H`, with
+`TT α | text : α → TT α | node : List (TT α) → TT α`.  Instrumented
+(`dbg_trace` in `nestedPinChecks`, reverted):
+
+```
+types = [H, _nested.InModelGroups.TT_1, _nested.List_2, _nested.List_3]
+edges = [(0,1,false), (0,2,true), (1,1,true), (2,0,false), (2,2,true)]
+ q=0 aux=TT_1   pin=TT (List H)        grp=0 mintedAt=0 par=none inst=0 root=none
+ q=1 aux=List_2 pin=List H             grp=1 mintedAt=1 par=some 0 inst=1 root=some 1
+ q=2 aux=List_3 pin=List (TT (List H)) grp=2 mintedAt=0 par=none inst=0 root=none
+```
+
+K.41 fails at its FIRST clause, not at the pool membership: `roots` is
+`none` at q = 0 and q = 2.  `nestedPinRootGroupAt` gives `none` because
+the instance `{0, 2}` has TWO entry groups — both pins say they have no
+parent, so both are entries.
+
+**And q = 2's `mintedAt` is WRONG.**  `List (TT (List H))` cannot come
+from `H`'s own constructor: `H`'s constructor is `TT (List H) → H` and
+`replaceAllNested` is TOP-DOWN, so the descent stops at `TT (List H)`
+and never sees the inner term.  That pin is minted while rewriting
+`types[1]` — `TT_1`'s `node : List (TT α) → TT α` at `α := List H` — so
+its worklist position is 1 and its parent is pin 0, exactly as q = 1's
+is.
+
+##### (b) THE CAUSE: one omitted field in a structure literal
+
+`mkCopies` (`Kernel/Inductives/NestedElim.lean`) builds the successor
+state as
+
+```lean
+    let st' : ElimState :=
+      { types := st.types ++ [copy]
+        pins := st.pins ++
+          [⟨auxName, J.name, Expr.mkAppN (.const J.name lvls) Ds, base, size, st.curType⟩]
+        nextIdx := nextIdx }
+```
+
+— a literal that does NOT mention `curType`, which is declared with a
+default (`curType : Nat := 0`).  So **every mint resets the worklist
+position to 0**.  `elimLoop` sets `curType := qhead` once per worklist
+step, so within a step the FIRST pin minted carries the true position
+and every later one carries `0` — including the second and further
+members of a single container `all`-group, which `mkCopies` appends in
+one recursion.
+
+`nestedPinParent` reads `mintedAt < p.k` as "no parent", so a
+mis-stamped pin is recorded as a parentless ROOT.  K.40's
+`nestedPinParentOk` cannot catch it: it asks that a parent be an EARLIER
+pin, and a stamp of 0 below `k` claims there is no parent at all.  K.41
+is the check that notices, because two parentless pins in one instance
+are two entry groups.
+
+**The confirmation, and it is decisive.**  Adding `curType := st.curType`
+to that literal — nothing else — makes `InModelGroups.H` ACCEPT, the
+stamp read `[0,1,1]`, and the shadow gate go 36/36 but for the row that
+pins the failure.  The change is NOT landed here.
+
+##### (c) THE BLAST RADIUS, measured
+
+The stamp table of every nested block, dumped from both binaries and
+diffed:
+
+* **the e2e corpus** — 27 nested blocks across 196 rows: **ONE**
+  differs, `InModelGroups.H` `[0,1,0]` → `[0,1,1]`;
+* **the 41-block Mathlib nested cone**: **TWO** differ —
+  `Lean.Elab.InfoTree` `[0,1,0,2,3,4]` → `[0,1,1,2,3,4]` and
+  `Lean.Meta.Grind.Arith.Cutsat.EqCnstr` `[1,0,3,…]` → `[1,1,3,…]`.
+  Both ACCEPT either way: there the wrong parent is SILENT, and the
+  model tier would consume it;
+* **verdicts**: 196 e2e + 138 arena rows, both binaries, **zero
+  differences** — the defect does not move the accept set anywhere, and
+  the one place it shows is an exit 3 that the corpus expects to be 0.
+
+So three blocks are known mis-stamped, one loud and two silent.  The
+shape that triggers it is a worklist step that mints TWICE — a
+container whose own copy nests more than once (`TT`'s `text`/`node` at
+`α := List H`, `InfoTree`'s two, `EqCnstr`'s).
+
+##### (d) THE LEDGER ROW AND TWO DOCSTRINGS ARE WRONG TODAY
+
+Corrected in the same commit as this section, with no behaviour change:
+
+* `nestedPinRootPairAt`'s "**It cannot fire**" is FALSE.  It fires, on
+  an officially-accepted stream, through a defect in our own mint's
+  RECORDS.  The ledger CATEGORY does not change and is in fact
+  vindicated: **(S)** says a fire is a bug in our own generator, and it
+  was.  This is the first certification-only check on this task to earn
+  its place by catching something, which is the ledger's stated purpose
+  (a quality measure and a bug lens, not a cost line);
+* `nestedPinRootGroupAt`'s "`none` … which K.40's measurement found of
+  no instance in either corpus" is FALSE for the same reason: that
+  measurement's corpus was the 27 shadow rows and the 41 cone blocks,
+  and `inmodel_groups` was in neither — the coverage hole session 1
+  closed.
+
+##### (e) WHAT THE FIX SESSION OWES
+
+One token in `mkCopies`, and then: the `mintedAt` field's docstring
+should say that the state literal must carry it (a defaulted field in a
+literal is how it was lost); `tests/nested-shadow-expected.txt`'s
+`InModelGroups.H=error` becomes `=accept`; the two docstrings in (d)
+lose their "cannot fire" claims for the right reason rather than this
+one; and the model lane should be told that `nestedPinParent` was
+returning `none` at three known pins, because any reasoning already
+built on the parent chain at `InfoTree` or `EqCnstr` was built on the
+wrong chain.  Regression coverage exists already — `inmodel_groups` is
+now a gate row.
+
+##### (f) THE COVERAGE QUESTION, in one paragraph
+
+The hole session 1 closed was one instance of a general shape, and there
+is one more of it: **`tests/e2e/` holds 220 fixture streams and
+`tests/e2e-expected.txt` has 196 rows.**  Twenty-one of the twenty-four
+unlisted files are the nested probes, which the shadow gate runs and
+which step 6 (ii) already plans to move into the arena; three are the
+`nat_*_bad_base` exports, which are SOURCES the `nat_*_wrong` rows were
+hand-patched from and not fixtures in their own right.  So that gap is
+accounted for.  The one worth a look is the arena: `_tmp/arena-tests`
+holds **182** fixture files and `tests/arena-expected.txt` pins
+**138** — forty-four vendored tutorial tests are in no row, and the
+arena half iterates the ROW file, so nothing runs them.  They may be
+upstream additions since the vendoring or tests for features declined
+by design; that is not established here, and it is recorded as a
+question rather than as a hole.
