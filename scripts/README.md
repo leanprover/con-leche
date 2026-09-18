@@ -4,8 +4,9 @@ Instruments, not checker code: fixture generators (`mk_*.py`), the
 census and slicing tools (`dead-census.*`, `slice-cone.py`,
 `stream-census.py`), the perf-table renderer, `selfcheck.sh`, and the
 pin-prefix recipe (`extract_natop_prefix.py`,
-`diagnose_natop_prefix.py`, `natop_prefix.json`) and the pin-drift
-probe (`natop-matrix.sh`).  Nothing here is on the build's critical
+`diagnose_natop_prefix.py`, `natop_prefix.json`), the pin-drift
+probe (`natop-matrix.sh`) and the nested elimination's pin-table probe
+(`nested-pin-probe.lean`).  Nothing here is on the build's critical
 path; each file's header says who consumes it.
 
 ## `natop-matrix.sh` — the pin-drift probe (task #274)

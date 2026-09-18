@@ -50,6 +50,7 @@ tests/e2e/nested_pin_names.ndjson 1 PTree=accept,
 tests/e2e/indexed_nested_aux.ndjson 1 TV=accept,
 tests/e2e/ind_mutual_idxsort.ndjson 1 IdxSort.NT=accept,IdxSort.NU=accept,
 tests/e2e/ind_nest_two_pins.ndjson 1 TwoPins=accept,
+tests/e2e/ind_nest_straddle.ndjson 1 Straddle=accept,
 tests/e2e/ind_nest_prop.ndjson 1 PNonempty=accept,PAnd=accept,
 tests/e2e/ind_rec_struct_proj_raw.ndjson 1 NT=accept,
 # **THE `mintedAt` REGRESSION ROW.**  `InModelGroups.H` nests through
