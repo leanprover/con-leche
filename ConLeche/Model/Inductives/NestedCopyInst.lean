@@ -2592,7 +2592,7 @@ theorem copyPinFCorr {pbs : List (Expr × ConLeche.BinderMeta)}
     (CM : ∀ ciJ : ContainerInfo,
       ConLeche.containerInfo? env (pinsS.getD (q₀ + i') default).J = some ciJ →
       ContainerModeled mp₁'.base2 ciJ dJ)
-    (henv₀ : dJ.env₀ = env) :
+    (henv₀ : dJ.env₀ = env) (ψ : Name → Nat) :
     ∃ (ci' : ContainerInfo) (qn : ConLeche.NestedPin) (qq : Nat),
       ConLeche.containerInfo? env (dJ.pinAt (dJ.tgts i' j l - dJ.k)).J = some ci' ∧
       (dJ.pinAt (dJ.tgts i' j l - dJ.k)).nPJ = ci'.nP ∧
@@ -2610,7 +2610,11 @@ theorem copyPinFCorr {pbs : List (Expr × ConLeche.BinderMeta)}
       (∀ (cvT : ConstantVal) (caps : IndCaps),
         (ConLeche.consMutualFormers (fms.take p.k) env).find?
             (pinsS.getD (q₀ + i') default).J = some (.indInfo cvT caps) →
-        J.lps = cvT.levelParams) := by
+        J.lps = cvT.levelParams) ∧
+      (pinsS.getD qq default).Ds ψ
+        = ((dJ.pinAt (dJ.tgts i' j l - dJ.k)).Ds
+            ((pinsS.getD (q₀ + i') default).ψJ ψ)).map
+            (AnnotTerm.instAll ((pinsS.getD (q₀ + i') default).Ds ψ) 0) := by
   classical
   obtain ⟨cc, JR, ciR, lpsJ, pcs, fcs, Fs', esJ, cbody', o, params, pbs₀, cA, cname, qn, usJ,
     hciPR, hJmemR, hJccR, hn, hty, hnf, hJnameR, hDsnP, hstripJ, hpl, hfl, hesJ, hccf, hccb, hksJ,
@@ -2899,7 +2903,138 @@ theorem copyPinFCorr {pbs : List (Expr × ConLeche.BinderMeta)}
     have hfr := R.h.fresh t g ht
     rw [heq, hfI] at hfr
     exact nomatch hfr
-  refine ⟨qn', qq, hci'₀, hnPeq, hqq, ?_, hhead, ?_, ?_, hclvls, ?_, ?_⟩
+  -- ==== THE COMPONENTS' READING ====
+  -- the minted constructor, opened at its field binders
+  obtain ⟨resM, hstripCI'⟩ : ∃ r, cI.stripPis cc.nFields = some (fcs', r) := ⟨_, hstripCI⟩
+  have hfcs'len : fcs'.length = cc.nFields := Expr.stripPis_length _ hstripCI'
+  obtain ⟨xfvs', hxf'len, -, hlawX'⟩ :=
+    ConLeche.openPisAtFvars_mkPisB cc.nFields fcs' hfcs'len b.nP
+  have hopM : ConLeche.openPisAtFvars cc.nFields cI b.nP
+      = some (xfvs', Expr.instSeq xfvs' (cc.nFields - 1) resM) := by
+    rw [ConLeche.stripPis_mkPisB _ hstripCI']; exact hlawX' _
+  obtain ⟨xI, hxI⟩ : ∃ x, xfvs'[l]? = some x :=
+    ⟨_, List.getElem?_eq_getElem (by rw [hxf'len]; exact hlcc)⟩
+  have hfcsl' : fcs'[l]? = some (fcs'.getD l default) := by
+    rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem (by rw [hfcs'len]; exact hlcc)]
+    rfl
+  have hxIdom : xI.fvarTypeD = Expr.instSeq (xfvs'.take l) (l - 1) (fcs'.getD l default).1 :=
+    Verify.openPisAtFvars_domain cc.nFields hopM hstripCI' l xI (fcs'.getD l default) hxI hfcsl'
+  -- the two pins' components, scoped and read
+  have hqstO : q₀ + i' < st.pins.length := by rw [← SF.pinsLen]; have := S.seg; omega
+  have hqSO : q₀ + i' < pinsS.length := by have := S.seg; omega
+  have hqSq : qq < pinsS.length := by rw [SF.pinsLen]; exact hqqLt
+  have PDo := hPD _ hqstO
+  obtain ⟨hJcO, hpinSO⟩ := SF.pinRec _ _ PDo.pin
+  have hpinO := PDo.pinEq
+  rw [hpinSO] at hpinO
+  have hDsEO : (pinsS.getD (q₀ + i') default).DsE = (srcAtE st p (q₀ + i')).2.2 := by
+    have hA := congrArg Expr.getAppArgs hpinO
+    simp only [Expr.getAppArgs_mkAppN, Expr.getAppArgs, List.nil_append] at hA
+    exact hA
+  have hspineO := SF.pinDs _ hqSO ψ
+  rw [hDsEO] at hspineO
+  obtain ⟨-, hcl₀, hbt₀, hFD₀⟩ := R.former0
+  obtain ⟨hpinsE, fvsS, oS, hopS, hsc⟩ := R.scoped
+  obtain ⟨hbndO, hleafO⟩ := hsc _ (List.mem_of_getElem? PDo.pin)
+  have hwsO := WScoped_of_openers mp₁' hFD₀ hcl₀ hbt₀ hopS hleafO ψ
+  rw [PDo.pinEq] at hbndO hwsO
+  obtain ⟨-, hwsDO⟩ := ConLeche.WScoped_of_mkAppN hwsO
+  obtain ⟨-, hbndDO⟩ := ConLeche.looseBVarsBounded_of_mkAppN hbndO
+  have hDsScO : ∀ a ∈ (srcAtE st p (q₀ + i')).2.2,
+      Expr.WScoped b.nP a ∧ a.looseBVarsBounded 0 = true :=
+    fun a ha => ⟨hwsDO a ha, hbndDO a ha⟩
+  -- the BLOCK pin's components ARE the minted spine's first arguments
+  have hDsEq : (pinsS.getD qq default).DsE = AS.take ci'.nP := by
+    have h1 := congrArg Expr.getAppArgs (hpinSyn.symm.trans hqnPin)
+    simp only [Expr.getAppArgs_mkAppN, Expr.getAppArgs, List.nil_append] at h1
+    exact h1
+  -- the BLOCK pin's own components, scoped the same way
+  obtain ⟨hbndQ, hleafQ⟩ := hsc _ (List.mem_of_getElem? hqq)
+  have hwsQ := WScoped_of_openers mp₁' hFD₀ hcl₀ hbt₀ hopS hleafQ ψ
+  rw [hpinSyn] at hbndQ hwsQ
+  obtain ⟨-, hwsDQ⟩ := ConLeche.WScoped_of_mkAppN hwsQ
+  have hDsScQ : ∀ a ∈ (pinsS.getD qq default).DsE, Expr.WScoped b.nP a := hwsDQ
+  -- the minted domain's reading, at the container's NESTED-FIELD form
+  have hmfr := mintFieldRead S hi' hj hksJ (by rw [hty]; exact hccf) (by rw [hty]; exact hccb)
+    hDsScO ψ hspineO (by rw [hty]; exact hinstCI) (by rw [hnf]; exact hopM) hlF hxI
+  obtain ⟨cvTJ, capsJ, cvRJ, mIJ, rPJ, rulesJ, -, hIJ, -⟩ := S.stored i' hi'
+  obtain ⟨-, -, hCDJ⟩ := hIJ.ctors i' j cAJ hIJ.memberLt hj
+  have hnestOf : dJ.nestOf i' j l = some (dJ.tgts i' j l - dJ.k) := dJ.nestOf_some hnest
+  rw [hCDJ.nestEntry ((pinsS.getD (q₀ + i') default).ψJ ψ) l _ hnestOf hrec hlF,
+    AnnotTerm.instAll_mkAppN, List.map_append] at hmfr
+  -- the minted domain IS step one's spine; the SECOND instantiation layer is
+  -- the identity on the pin's components, which is step two's `hloose`
+  have hxIspine : xI.fvarTypeD
+      = Expr.mkAppN (Expr.const (dJ.pinAt (dJ.tgts i' j l - dJ.k)).J
+          ((dJ.pinAt (dJ.tgts i' j l - dJ.k)).lvls.map
+            (Level.subst J.lps (pinsS.getD (q₀ + i') default).lvls))) (AS.map (Expr.instSeq (xfvs'.take l) (l - 1))) := by
+    rw [hxIdom, hfcs' l hlcc, hshape J.lps (pinsS.getD (q₀ + i') default).lvls
+      (srcAtE st p (q₀ + i')).2.2 (dJ.nP - 1 + l), ← hAS, ConLeche.instSeq_mkAppN_const]
+  have htakeId : (AS.take ci'.nP).map (Expr.instSeq (xfvs'.take l) (l - 1))
+      = AS.take ci'.nP := by
+    have h1 : (AS.take ci'.nP).map (Expr.instSeq (xfvs'.take l) (l - 1))
+        = (AS.take ci'.nP).map id :=
+      List.map_congr_left (fun a ha => Expr.instSeq_eq_self _ _ (hloose a ha))
+    rw [h1, List.map_id]
+  rw [hxIspine] at hmfr
+  obtain ⟨fa, vs, -, hspM, heaM⟩ := denoteMeta_mkAppN_inv hmfr
+  have hsplen : ∀ {as : List Expr} {vs' : List AnnotTerm},
+      DenoteMetaSpine mp₁'.base2.acval (ConLeche.consMutualFormers (fms.take p.k) env) ψ
+        (b.nP + l) as vs' → as.length = vs'.length := by
+    intro as vs' h
+    induction h with
+    | nil => rfl
+    | cons _ _ ih => simp only [List.length_cons, ih]
+  have hcompsLen : ((dJ.pinAt (dJ.tgts i' j l - dJ.k)).Ds ((pinsS.getD (q₀ + i') default).ψJ ψ)).length = ci'.nP := by
+    rw [(hIJ.pinShape _ hqlt _).2.1, hnPeq]
+  have hvsLen : ((((dJ.pinAt (dJ.tgts i' j l - dJ.k)).Ds ((pinsS.getD (q₀ + i') default).ψJ ψ)).map (·.liftN l 0)).map (AnnotTerm.instAll ((pinsS.getD (q₀ + i') default).Ds ψ) l)
+      ++ ((dJ.eissF i' j ((pinsS.getD (q₀ + i') default).ψJ ψ)).getD l []).map
+          (AnnotTerm.instAll ((pinsS.getD (q₀ + i') default).Ds ψ) l)).length = vs.length := by
+    rw [List.length_append, List.length_map, List.length_map, List.length_map, hcompsLen,
+      hCDJ.nestEisLen _ l _ hnestOf hrec hlF, ← hsplen hspM, List.length_map, hASlen, ← hnPeq]
+  obtain ⟨-, hvs⟩ := AnnotTerm.mkAppN_inj heaM hvsLen
+  -- the spine splits at the components, and the block pin's reading LIFTS
+  rw [← List.take_append_drop ci'.nP AS, List.map_append] at hspM
+  obtain ⟨vs₁, vs₂, hvsSplit, hsp₁, -⟩ := DenoteMetaSpine.append_inv hspM
+  rw [htakeId] at hsp₁
+  have hspQ : DenoteMetaSpine mp₁'.base2.acval
+      (ConLeche.consMutualFormers (fms.take p.k) env) ψ (b.nP + l) (AS.take ci'.nP)
+      (((pinsS.getD qq default).Ds ψ).map (fun X => AnnotTerm.liftN l X 0)) := by
+    have hbase := SF.pinDs _ hqSq ψ
+    rw [hDsEq] at hbase
+    have hstep : ∀ (a : Expr) (v : AnnotTerm), a ∈ AS.take ci'.nP →
+        denoteMeta mp₁'.base2.acval (ConLeche.consMutualFormers (fms.take p.k) env) ψ b.nP
+            (id a) = some v →
+        denoteMeta mp₁'.base2.acval (ConLeche.consMutualFormers (fms.take p.k) env) ψ
+            (b.nP + l) (id a) = some (AnnotTerm.liftN l v 0) := by
+      intro a v ha hv
+      have hl := denoteMeta_lift (acval := mp₁'.base2.acval)
+        (env := ConLeche.consMutualFormers (fms.take p.k) env) (φ := ψ)
+        mp₁'.base2.acval_closed (hDsScQ a (by rw [hDsEq]; exact ha)) (b.nP + l) (by omega)
+      simp only [id] at hv ⊢
+      rw [hv] at hl
+      simp only [Option.map_some, Nat.add_sub_cancel_left] at hl
+      exact hl
+    have hmm := DenoteMetaSpine.map_map (f := id) (g := id)
+      (h := fun X => AnnotTerm.liftN l X 0) (by rw [List.map_id]; exact hbase) hstep
+    rw [List.map_id] at hmm
+    exact hmm
+  have hcomp := DenoteMetaSpine.unique hsp₁ hspQ
+  -- the lift cancels
+  have hmapInj : ∀ L₁ L₂ : List AnnotTerm,
+      L₁.map (fun X => AnnotTerm.liftN l X 0) = L₂.map (fun X => AnnotTerm.liftN l X 0) →
+      L₁ = L₂ := by
+    intro L₁ L₂ h
+    have hlen : L₁.length = L₂.length := by
+      have h0 := congrArg List.length h
+      simpa using h0
+    refine List.ext_getElem hlen (fun n h1 h2 => ?_)
+    refine AVExprSubst.liftN0_inj l ?_
+    have h0 := congrArg (fun L => L[n]?) h
+    simp only [List.getElem?_map, List.getElem?_eq_getElem h1,
+      List.getElem?_eq_getElem h2, Option.map_some, Option.some.injEq] at h0
+    exact h0
+  refine ⟨qn', qq, hci'₀, hnPeq, hqq, ?_, hhead, ?_, ?_, hclvls, ?_, ?_, ?_⟩
   · rw [mutTgts_getD hGlt hnFs]
     exact hidx
   · rw [hqnPin, Expr.getAppArgs_mkAppN]
@@ -2917,6 +3052,17 @@ theorem copyPinFCorr {pbs : List (Expr × ConLeche.BinderMeta)}
       simp only [Option.some.injEq, ConLeche.ConstantInfo.indInfo.injEq] at h
       exact h.1.symm
     rw [hlpsJ, hlpsT]
+  · -- the components' reading: the lift cancels on both sides
+    refine (hmapInj _ _ ?_).symm
+    have hlen₁ : ((((dJ.pinAt (dJ.tgts i' j l - dJ.k)).Ds ((pinsS.getD (q₀ + i') default).ψJ ψ)).map (·.liftN l 0)).map (AnnotTerm.instAll ((pinsS.getD (q₀ + i') default).Ds ψ) l)).length
+        = vs₁.length := by
+      rw [List.length_map, List.length_map, hcompsLen, ← hsplen hsp₁, List.length_take]
+      omega
+    have hsplit := hvs.trans hvsSplit
+    obtain ⟨hfirst, -⟩ := List.append_inj hsplit hlen₁
+    rw [← hcomp, ← hfirst, List.map_map, List.map_map]
+    refine List.map_congr_left (fun X _ => ?_)
+    exact (instAll_liftN0 ((pinsS.getD (q₀ + i') default).Ds ψ) l X).symm
 
 /-- **THE AUXILIARY BLOCK'S KIND AT A COPY'S RECURSIVE FIELD** (task
 #315 L-B): a container field that is FINITARY RECURSIVE at one of the
