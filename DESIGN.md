@@ -113332,9 +113332,67 @@ previous count assumed (ii) was a refactor of an existing proof; it is
 not, and the proof that exists reaches conjunct 1's premise by
 contradiction FROM `hkA`, which is why it cannot be run backwards.
 
-##### (e) WHAT THIS SESSION BUILT
+##### (e) STEP 2'S LEMMA, STATED — AND THE TWO NODES AT WHICH IT IS FALSE
 
-Step 2's lemma — the one piece of the corrected route that is
-independent of both the clause's statement question (b) and of (iii)'s
-`hkA`, and the piece that carried the route's named risk.
+The intended statement, and it is worth writing out because two of its
+cases are not provable and both were found by reading the definitions
+rather than by hitting them mid-proof:
+
+```
+theorem uniformIndOccsE_mention_instSeq {names : List Name} {lvls : List Level} {nP : Nat}
+    {σ : List Expr} (hlen : σ.length = nP) (hcl : ∀ a ∈ σ, a.looseBVarsBounded 0 = true)
+    {T : Name} {a : Expr} (ha : a ∈ σ) (haT : a.mentionsConst T = true) :
+    ∀ (o : Nat) (e : Expr), uniformIndOccsE names lvls nP o e = true →
+      mentionsMember names e = true →
+      (Expr.instSeq σ (o - 1) e).mentionsConst T = true
+```
+
+The good cases are all there.  The prune arm is vacuous against
+`mentionsMember`; `uniformOccNode = none` contradicts the walk
+(`uniformIndOccsE_of_node_none`); at `some true` the node is
+`mkAppN (.const M us) args` with `args.length = nP` and
+`args[i]? = bvar (o-1-i)` — which is `structPsAt (o - nP) nP`, so
+`instSeq_structPsAt` (`NestedCopyInstU.lean:172`, whose `hcl` is exactly
+`copyResid`'s `hDsB`) turns the spine INTO `σ`, and
+`mentionsConst_mkAppN_of_arg` finishes; at `some false` the
+`.bvar`/`.sort`/`.lit` arms contradict `mentionsMember` and the
+`.const` arm does too (`names.contains n` would have forced `none` or
+`some true`); `.app`, `.lam`, `.forallE`, `.letE` are the induction,
+with `instantiate1`'s own `d + 1` under a binder matching the walk's
+`o + 1`.
+
+**The two arms that fail.**
+
+* `.fvar _ ty`: the walk DESCENDS into the annotation
+  (`uniformIndOccsE`'s `.fvar` arm) and `mentionsConst` reads it
+  (`Expr.mentionsConst (.fvar _ ty) = ty.mentionsConst`), but
+  `instantiate1` does NOT — `| .fvar idx ty => .fvar idx ty`
+  (`ExprOps.lean:36`).  A member mention living only in an annotation
+  is therefore not carried by the substitution;
+* `.proj s _ x`: `mentionsConst` counts the STRUCTURE NAME
+  (`s == T`) and `uniformOccNode` answers `some false` there (a `.proj`
+  node's `getAppFn` is not a `.const`), so the walk constrains only
+  `x`.  A member mention that IS the `proj`'s structure name is not
+  carried either.
+
+Both are dischargeable at the consumer, and neither is free: the
+`.fvar` arm is vacuous on a STORED constructor type (the container's
+`cc.type`, which has no free variables at all) — so the lemma wants an
+`e.fvarLeaves = []`-style hypothesis and the consumer wants the
+container's closedness, which `copyResid` carries for the AUXILIARY
+body (`hcbl`) and not for the container's; the `.proj` arm needs a
+`.proj`-freeness of the container's stored constructor types, for which
+this lane found no fact in the tree.
+
+**So step 2 is 0.5–1 session for the induction plus an unmeasured
+closedness/`proj`-freeness input at its consumer**, and it was not
+started: a lemma whose two edge arms are false as stated is exactly the
+shape this row has twice paid for by building first and reading after.
+
+##### (f) WHAT THIS SESSION BUILT
+
+Nothing in the tree.  The deliverable is (a)–(e): (A) answered, the
+clause's true statement corrected, (ii)'s route refuted and rebuilt,
+and step 2 stated down to the two arms that need an input.  The gates
+were run and are green on the unchanged tree.
 
