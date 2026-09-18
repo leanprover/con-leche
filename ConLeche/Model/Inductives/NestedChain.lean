@@ -1,8 +1,6 @@
 module
 
-public import ConLeche.Semantics.Inductives.DeclNested
-public import ConLeche.Model.Inductives.NestedPins
-public import ConLeche.Model.Inductives.NestedCopyIdx
+import ConLeche.Semantics.Inductives.DeclNested
 public import ConLeche.Model.Inductives.NestedCopyInst
 public import ConLeche.Model.Inductives.NestedPinLeafAll
 import ConLeche.Model.Inductives.NestedStoreRun
