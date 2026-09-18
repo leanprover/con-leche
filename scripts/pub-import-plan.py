@@ -205,6 +205,15 @@ FALLBACK = {
     ('ConLeche.Model.Inductives.NestedRecFrames','ConLeche.Model.Inductives.NestedRecCtor'),
     ('ConLeche.Model.Inductives.NestedRecFrames','ConLeche.Model.Inductives.NestedRecTypes'),
     ('ConLeche.Model.Inductives.NestedRecFrames','ConLeche.Verify.Inductives.NestedRestoreTbl'),
+    # task #315 M7-3 session 16: `NestedOwnPinsRead`'s two re-exports are
+    # its whole public view, and the compiler refuses both demotions —
+    # the `MutualIdxUniv`/`InstAll` class.  Without `NestedPremise` the
+    # file's own `variable [SetTheory V]` fails to resolve (`unknown
+    # identifier SetTheory`); without `NestedRestoreOpen` the dummy
+    # telescope's `ConLeche.mkPisB` does.  Both verified by a failing
+    # `lake build`.
+    ('ConLeche.Model.Inductives.NestedOwnPinsRead','ConLeche.Model.Inductives.NestedPremise'),
+    ('ConLeche.Model.Inductives.NestedOwnPinsRead','ConLeche.Verify.Inductives.NestedRestoreOpen'),
 }
 
 files=[f for f in subprocess.check_output(['git','ls-files','*.lean']).decode().split()

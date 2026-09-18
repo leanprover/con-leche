@@ -553,7 +553,7 @@ theorem instPisILP_frame {ks : List Name} {us : List Level} {T : Expr}
 a pin's COMPONENTS, while the restore table closes a recorded pin at
 the block's parameter OPENERS (`restoreTbl`:
 `Expr.abstractRange q.pin 0 p.nP 0`).  Lane M7-3's
-`ContainerOwnPinsSyn.toRead` reads a recorded pin at ANOTHER
+`ContainerOwnPinsSyn.toReadOf` reads a recorded pin at ANOTHER
 instantiation, and needs the two to be one substitution: **the
 identity run, closed at the openers and re-opened at an argument
 list, is the run at that list** (DESIGN §U.73 (d) (C), the law lane
@@ -573,7 +573,7 @@ put, annotation and all.  As in `Expr.abstractRange` (and
 `Expr.abstract1`) the walk does not descend into a `fvar`'s type
 annotation — which is what makes it the composite of the two.
 
-`@[expose]`: lane M7-3's `ContainerOwnPinsSyn.toRead` reads a pin off
+`@[expose]`: lane M7-3's `ContainerOwnPinsSyn.toReadOf` reads a pin off
 the instantiated recursor type node by node, so the consumer unfolds
 this walk. -/
 @[expose] def substFvarList (as : List Expr) : Expr → Expr
@@ -855,7 +855,7 @@ theorem instSeq_abstractRange_substFvarList (as : List Expr) (nP : Nat)
 
 /-- **THE IDENTITY RUN, RE-OPENED AT THE COMPONENTS, IS THE RUN AT THE
 COMPONENTS** (task #315 L-B, DESIGN §U.76 — the law lane M7-3's
-`ContainerOwnPinsSyn.toRead` consumes, DESIGN §U.73 (d) (C)):
+`ContainerOwnPinsSyn.toReadOf` consumes, DESIGN §U.73 (d) (C)):
 instantiating a closed `∀`-telescope at the block's parameter OPENERS
 (and a closed pad), closing the openers again and re-opening at `Ds`
 is instantiating it at `Ds` (and the same pad) in the first place.
