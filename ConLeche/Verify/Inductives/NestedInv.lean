@@ -377,6 +377,25 @@ theorem mapM_option_inv {α β : Type} {f : α → Option β} :
       obtain ⟨b, hb, hfb⟩ := mapM_option_inv hbs k a hi
       exact ⟨b, by simpa using hb, hfb⟩
 
+/-- A syntactic telescope ending in a sort IS the greedy `∀`-walk
+(task #315 M8): the converse the walk's index-count bridge needs. -/
+theorem piBinders_of_stripPis_sort :
+    ∀ {n : Nat} {e : Expr} {bs : List (Expr × BinderMeta)} {u : Level},
+      e.stripPis n = some (bs, Expr.sort u) → e.piBinders = (bs, Expr.sort u)
+  | 0, e, bs, u, h => by
+      simp only [Expr.stripPis, Option.some.injEq, Prod.mk.injEq] at h
+      obtain ⟨rfl, rfl⟩ := h
+      rfl
+  | n + 1, e, bs, u, h => by
+      cases e with
+      | forallE ty body mb =>
+        simp only [Expr.stripPis, Option.map_eq_some_iff] at h
+        obtain ⟨⟨bs', r⟩, hr, hbs⟩ := h
+        simp only [Prod.mk.injEq] at hbs
+        obtain ⟨rfl, rfl⟩ := hbs
+        simp only [Expr.piBinders, piBinders_of_stripPis_sort hr]
+      | _ => exact nomatch h
+
 /-- The greedy `∀`-walk, read back as a `stripPis`: a `piBinders` ending
 in a sort is a syntactic telescope of its own length (the converse of
 `piBinders_of_stripPis_sort`). -/

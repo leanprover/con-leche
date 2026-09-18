@@ -13,6 +13,8 @@ import ConLeche.Verify.Inductives.NestedAuxInv
 -- member count and member names, and K.39 as a theorem
 import ConLeche.Verify.Inductives.NestedElimInv
 import ConLeche.Verify.Inductives.NestedRecNames
+-- member m's auxiliary constructors are its own (task #315 M8)
+import ConLeche.Verify.Inductives.NestedCopyGlue
 
 public section
 
@@ -1025,6 +1027,27 @@ theorem auxStoredAll_ctor_name {feAux : FEnv} {sk : List InstallSkel}
   obtain ⟨J, mc, hown, hfind⟩ := hall j c hc
   exact ⟨J, mc, hown, skels_find?_name hsk hfind⟩
 
+/-- **AND ITS CONSTRUCTORS' NUMBERS TOO** (task #315 M8): the same
+lookup, read against the scratch install's own skeleton, gives the
+block's parameter count and the constructor's declared field count —
+the two numbers the restored constructor's cons carries. -/
+theorem auxStoredAll_ctor_data {feAux : FEnv} {sk : List InstallSkel} {b : MutualBlock}
+    (hsk : SkelIs feAux (mutualBlockSkels b sk)) (hnd : b.blockNames.Nodup)
+    {stored : List AuxStored} (hst : auxStoredAll feAux.env b b.k = some stored) :
+    ∀ (m : Nat) (a : AuxStored), stored[m]? = some a →
+      ∀ (j : Nat) (c : ConstantVal × Nat × Nat), a.ctors[j]? = some c →
+        ∃ (J : Nat) (mc : MutualCtor), (b.ownCtors m)[j]? = some (J, mc) ∧
+          c.1.name = mc.cv.name ∧ c.2.1 = b.nP ∧ c.2.2 = mc.nF := by
+  intro m a ha j c hc
+  obtain ⟨-, hget⟩ := auxStoredAll_get hst
+  obtain ⟨-, hall⟩ := auxStored?_ctors (hget m a ha)
+  obtain ⟨J, mc, hown, hfind⟩ := hall j c hc
+  have hskf := hsk.env_find? mc.cv.name
+  rw [hfind] at hskf
+  obtain ⟨h1, h2⟩ := mutualBlockSkels_ctor_data hnd (ownCtors_getElem?_ctors hown).1
+    (by simpa using hskf.symm)
+  exact ⟨J, mc, hown, skels_find?_name hsk hfind, h1, h2⟩
+
 /-! ## The nested route's four conses (task #315 M8)
 
 `checkNestedS` pushes through four cons functions and nothing else, and
@@ -1341,7 +1364,7 @@ theorem checkNestedS_push (mode : CheckMode) {env : Env} {fe : FEnv}
     refine restoredCtors_nodup_of_key (b := b) (N := b.ctors.map (·.cv.name))
       (nodup_ctors_of_blockNames hnd) ?_
     intro mm j l c hl hc
-    obtain ⟨a, ha, -, hnames⟩ := hctorsR mm l hl
+    obtain ⟨a, ha, -, hnames⟩ := hctorsR.2 mm l hl
     obtain ⟨c', hc', heq⟩ := getElem?_of_map_eq hnames hc
     have hname : c.1.name = c'.1.name := congrArg (·.1) heq
     obtain ⟨J, mc, hown, hnm⟩ := hbridgeC mm a (htake mm a ha) j c' hc'
@@ -1355,7 +1378,7 @@ theorem checkNestedS_push (mode : CheckMode) {env : Env} {fe : FEnv}
     obtain ⟨c, hc, rfl⟩ := List.mem_map.mp hn
     obtain ⟨l, hl, hcl⟩ := List.mem_flatten.mp hc
     obtain ⟨mm, hmm⟩ := List.getElem?_of_mem hl
-    obtain ⟨-, -, hfresh, -⟩ := hctorsR mm l hmm
+    obtain ⟨-, -, hfresh, -⟩ := hctorsR.2 mm l hmm
     rw [← h₁.find?]
     exact hfresh c hcl
   have h₂ : PushChain env

@@ -331,7 +331,9 @@ def skelName : InstallSkel → Name
   | .ctor n _ _ | .recr n _ _ _ | .proj n => n
 
 /-- The skeleton of an installed constant. -/
-def ciSkel : ConstantInfo → InstallSkel
+-- exposed: the tiers above read a stored constant's skeleton
+-- definitionally (task #315 M8, the nested walk's read-back bridges)
+@[expose] def ciSkel : ConstantInfo → InstallSkel
   | .axiomInfo cv => .ax cv.name
   | .defnInfo cv _ _ => .defn cv.name
   | .thmInfo cv _ => .thm cv.name
@@ -339,6 +341,15 @@ def ciSkel : ConstantInfo → InstallSkel
   | .ctorInfo cv nP nF => .ctor cv.name nP nF
   | .recInfo cv mI rP rules => .recr cv.name mI rP (rules.map (·.ctor))
   | .projInfo tbl => .proj (projTableName tbl.structName)
+
+/-- The skeleton of a stored constructor (the tiers above read it
+without unfolding `ciSkel`, whose body is private here). -/
+@[simp] theorem ciSkel_ctorInfo (cv : ConstantVal) (nP nF : Nat) :
+    ciSkel (.ctorInfo cv nP nF) = .ctor cv.name nP nF := rfl
+
+/-- … and of a stored projection table. -/
+@[simp] theorem ciSkel_projInfo (tbl : ProjTable) :
+    ciSkel (.projInfo tbl) = .proj (projTableName tbl.structName) := rfl
 
 @[simp] theorem skelName_ciSkel (ci : ConstantInfo) :
     skelName (ciSkel ci) = ci.name := by
@@ -402,6 +413,14 @@ theorem SkelIs.find? {fe : FEnv} {sk : List InstallSkel} (h : SkelIs fe sk)
     (n : Name) : (fe.find? n).map ciSkel = skFind? sk n := by
   rw [canon_find? h.1 n, ← h.2]
   exact skFind?_map _ n
+
+/-- The same lookup through the index's ENVIRONMENT (the read-back's
+form).  `SkelIs`'s body is private to this module, so the tiers above
+take their canonicity from here. -/
+theorem SkelIs.env_find? {fe : FEnv} {sk : List InstallSkel} (h : SkelIs fe sk)
+    (n : Name) : (fe.env.find? n).map ciSkel = skFind? sk n := by
+  rw [← canon_find? h.1 n]
+  exact h.find? n
 
 theorem SkelIs.push {fe : FEnv} {sk : List InstallSkel} (h : SkelIs fe sk)
     (ci : ConstantInfo) : SkelIs (fe.push ci) (ciSkel ci :: sk) :=
@@ -643,7 +662,7 @@ def mutualSkels (p : MutualParts) (sk : List InstallSkel) : List InstallSkel :=
 restored constructors of member `mm`, which are the block's own — the
 restore keeps the name, the parameter count is the block's and the
 field count the declared one. -/
-def nestedCtorSkelsAt (p : NestedParts) (mm : Nat) (sk : List InstallSkel) :
+@[expose] def nestedCtorSkelsAt (p : NestedParts) (mm : Nat) (sk : List InstallSkel) :
     List InstallSkel :=
   (p.ctors.filter (fun c => c.member == mm)).foldl
     (fun acc c => .ctor c.cv.name p.nP c.nF :: acc) sk
@@ -652,7 +671,7 @@ def nestedCtorSkelsAt (p : NestedParts) (mm : Nat) (sk : List InstallSkel) :
 structure-like member (one own constructor, no index), nothing
 otherwise — the condition `mutualMemberTable` itself tests, at the
 block the nested route hands the mutual installer. -/
-def nestedTableSkelAt (p : NestedParts) (mm : Nat) (sk : List InstallSkel) :
+@[expose] def nestedTableSkelAt (p : NestedParts) (mm : Nat) (sk : List InstallSkel) :
     List InstallSkel :=
   match p.ctors.filter (fun c => c.member == mm) with
   | [_] =>
@@ -671,7 +690,7 @@ with the rule constructor names the record carries
 Everything in the list is a function of the recognised block: the
 elimination's own output reaches the skeleton only through data the
 route pins to the record. -/
-def nestedSkels (p : NestedParts) (sk : List InstallSkel) : List InstallSkel :=
+@[expose] def nestedSkels (p : NestedParts) (sk : List InstallSkel) : List InstallSkel :=
   let formers := (List.range p.k).foldl
     (fun acc m => .ind (p.formers.getD m default).1.name :: acc) sk
   let ctors := (List.range p.k).foldl (fun acc m => nestedCtorSkelsAt p m acc) formers
@@ -926,23 +945,115 @@ These are the four cons steps, each the exact twin of its mutual
 counterpart; the route's own skeleton is assembled from them. -/
 
 /-- The restored formers at the skeleton level. -/
-def nestedIndSkels (as : List AuxStored) (sk : List InstallSkel) : List InstallSkel :=
+@[expose] def nestedIndSkels (as : List AuxStored) (sk : List InstallSkel) : List InstallSkel :=
   as.foldl (fun acc a => .ind a.cvTa.name :: acc) sk
 
 /-- The restored constructors at the skeleton level. -/
-def nestedCtorSkels (cs : List (ConstantVal × Nat × Nat)) (sk : List InstallSkel) :
+@[expose] def nestedCtorSkels (cs : List (ConstantVal × Nat × Nat)) (sk : List InstallSkel) :
     List InstallSkel :=
   cs.foldl (fun acc c => .ctor c.1.name c.2.1 c.2.2 :: acc) sk
 
 /-- The rule-less provision at the skeleton level. -/
-def nestedProvSkels (rs : List (ConstantVal × Nat × Nat)) (sk : List InstallSkel) :
+@[expose] def nestedProvSkels (rs : List (ConstantVal × Nat × Nat)) (sk : List InstallSkel) :
     List InstallSkel :=
   rs.foldl (fun acc r => .recr r.1.name r.2.1 r.2.2 [] :: acc) sk
 
 /-- The stored recursors at the skeleton level. -/
-def nestedRecSkels (rs : List (ConstantVal × Nat × Nat × List RecRule))
+@[expose] def nestedRecSkels (rs : List (ConstantVal × Nat × Nat × List RecRule))
     (sk : List InstallSkel) : List InstallSkel :=
   rs.foldl (fun acc r => .recr r.1.name r.2.1 r.2.2.1 (r.2.2.2.map (·.ctor)) :: acc) sk
+
+/-! ### The skeleton algebra the nested walk needs
+
+The route's conses run over the READ-BACK's lists; the specification
+runs over the RECOGNISED BLOCK's.  Every transport between them is one
+of these three shapes: a cons fold along a map equality, a fold over a
+flattened list, and a fold over an append. -/
+
+/-- A cons fold only ever GROWS the list it started from. -/
+theorem foldl_cons_append {α : Type} (f : α → InstallSkel) :
+    ∀ (l : List α) (sk : List InstallSkel),
+      ∃ pre, l.foldl (fun acc a => f a :: acc) sk = pre ++ sk
+  | [], _ => ⟨[], rfl⟩
+  | a :: l, sk => by
+      obtain ⟨pre, hpre⟩ := foldl_cons_append f l (f a :: sk)
+      exact ⟨pre ++ [f a], by rw [List.foldl_cons, hpre, List.append_assoc, List.cons_append,
+        List.nil_append]⟩
+
+/-- The nested route's three cons folds, as growth of the pre-block
+list: what the walk needs to push a freshness fact down to the
+skeleton the restore started from. -/
+theorem nestedSkels_append (as : List AuxStored) (cs : List (ConstantVal × Nat × Nat))
+    (rs : List (ConstantVal × Nat × Nat × List RecRule)) (sk : List InstallSkel) :
+    ∃ pre, nestedRecSkels rs (nestedCtorSkels cs (nestedIndSkels as sk)) = pre ++ sk := by
+  obtain ⟨p₁, h₁⟩ := foldl_cons_append (fun a : AuxStored => InstallSkel.ind a.cvTa.name) as sk
+  obtain ⟨p₂, h₂⟩ := foldl_cons_append
+    (fun c : ConstantVal × Nat × Nat => InstallSkel.ctor c.1.name c.2.1 c.2.2) cs (p₁ ++ sk)
+  obtain ⟨p₃, h₃⟩ := foldl_cons_append
+    (fun r : ConstantVal × Nat × Nat × List RecRule =>
+      InstallSkel.recr r.1.name r.2.1 r.2.2.1 (r.2.2.2.map (·.ctor))) rs (p₂ ++ (p₁ ++ sk))
+  refine ⟨p₃ ++ (p₂ ++ p₁), ?_⟩
+  show nestedRecSkels rs (nestedCtorSkels cs (nestedIndSkels as sk)) = _
+  unfold nestedRecSkels nestedCtorSkels nestedIndSkels
+  rw [h₁, h₂, h₃]
+  simp [List.append_assoc]
+
+/-- Two folds agree when they have the same length and their STEPS
+agree position for position — the shape every transport from the
+read-back's lists to the block record's takes. -/
+theorem foldl_step_congr {α β : Type} {F : α → List InstallSkel → List InstallSkel}
+    {G : β → List InstallSkel → List InstallSkel} :
+    ∀ {l : List α} {l' : List β}, l.length = l'.length →
+      (∀ (i : Nat) (a : α) (bb : β), l[i]? = some a → l'[i]? = some bb →
+        ∀ acc, F a acc = G bb acc) →
+      ∀ sk, l.foldl (fun acc a => F a acc) sk = l'.foldl (fun acc b => G b acc) sk
+  | [], [], _, _, _ => rfl
+  | [], _ :: _, hlen, _, _ => by simp at hlen
+  | _ :: _, [], hlen, _, _ => by simp at hlen
+  | a :: l, b :: l', hlen, hstep, sk => by
+    simp only [List.length_cons, Nat.add_right_cancel_iff] at hlen
+    simp only [List.foldl_cons, hstep 0 a b rfl rfl sk]
+    exact foldl_step_congr hlen
+      (fun i x y hx hy acc => hstep (i + 1) x y (by simpa using hx) (by simpa using hy) acc) _
+
+/-- A cons fold transported along an equality of maps. -/
+theorem foldl_cons_congr {α β γ : Type} (F : γ → List InstallSkel → List InstallSkel) :
+    ∀ {l : List α} {l' : List β} {f : α → γ} {g : β → γ}, l.map f = l'.map g →
+      ∀ sk, l.foldl (fun acc a => F (f a) acc) sk = l'.foldl (fun acc b => F (g b) acc) sk
+  | [], [], _, _, _, _ => rfl
+  | [], _ :: _, _, _, h, _ => by simp at h
+  | _ :: _, [], _, _, h, _ => by simp at h
+  | a :: l, b :: l', f, g, h, sk => by
+    simp only [List.map_cons, List.cons.injEq] at h
+    simp only [List.foldl_cons, h.1]
+    exact foldl_cons_congr F h.2 _
+
+/-- The index range of a list, mapped through `getD`, is the list. -/
+theorem map_range_getD {α β : Type} [Inhabited α] (f : α → β) (l : List α) :
+    (List.range l.length).map (fun i => f (l.getD i default)) = l.map f := by
+  refine List.ext_getElem (by simp) ?_
+  intro i hi _
+  simp only [List.getElem_map, List.getElem_range, List.getD_eq_getElem?_getD]
+  rw [List.getElem?_eq_getElem (by simpa using hi)]
+  rfl
+
+/-- A cons fold over a flattened list is the fold of the folds. -/
+theorem nestedCtorSkels_flatten :
+    ∀ (ls : List (List (ConstantVal × Nat × Nat))) (sk : List InstallSkel),
+      nestedCtorSkels ls.flatten sk = ls.foldl (fun acc l => nestedCtorSkels l acc) sk
+  | [], _ => rfl
+  | l :: ls, sk => by
+      simp only [List.flatten_cons, List.foldl_cons]
+      rw [show nestedCtorSkels (l ++ ls.flatten) sk
+          = nestedCtorSkels ls.flatten (nestedCtorSkels l sk) from by
+        simp only [nestedCtorSkels, List.foldl_append]]
+      exact nestedCtorSkels_flatten ls _
+
+/-- … and a cons fold over an append is the fold of the two. -/
+theorem nestedRecSkels_append (rs rs' : List (ConstantVal × Nat × Nat × List RecRule))
+    (sk : List InstallSkel) :
+    nestedRecSkels (rs ++ rs') sk = nestedRecSkels rs' (nestedRecSkels rs sk) := by
+  simp only [nestedRecSkels, List.foldl_append]
 
 theorem consNestedFormersF_skels :
     ∀ {as : List AuxStored} {fe : FEnv} {sk : List InstallSkel}, SkelIs fe sk →
@@ -972,7 +1083,7 @@ theorem provisionNestedRecsF_skels :
 /-- A restored member's projection table at the skeleton level: one at a
 member the scratch install gave a table and exactly one constructor,
 nothing otherwise. -/
-def nestedTableSkel (T : Name) (tbl? : Option ProjTable)
+@[expose] def nestedTableSkel (T : Name) (tbl? : Option ProjTable)
     (cs : List (ConstantVal × Nat × Nat)) (sk : List InstallSkel) : List InstallSkel :=
   match tbl?, cs with
   | some _, [_] => .proj (projTableName T) :: sk
@@ -1857,15 +1968,16 @@ twin, for the case where the relation is an equation of maps.) -/
 theorem Yields.mapM_getElem {α β : Type} {f : α → CheckCM β} {P : α → β → Prop}
     (hf : ∀ a, Yields (f a) (P a)) :
     ∀ l : List α, Yields (l.mapM f)
-      (fun l' => ∀ (i : Nat) (x : β), l'[i]? = some x → ∃ a, l[i]? = some a ∧ P a x)
+      (fun l' => l'.length = l.length ∧
+        ∀ (i : Nat) (x : β), l'[i]? = some x → ∃ a, l[i]? = some a ∧ P a x)
   | [] => by
       rw [List.mapM_nil]
-      exact Yields.pure (by intro i x hx; simp at hx)
+      exact Yields.pure ⟨rfl, by intro i x hx; simp at hx⟩
   | a :: l => by
       rw [List.mapM_cons]
       refine Yields.bind' (hf a) fun y hy => ?_
       refine Yields.bind' (Yields.mapM_getElem hf l) fun l' hl' => ?_
-      refine Yields.pure ?_
+      refine Yields.pure ⟨by simp [hl'.1], ?_⟩
       intro i x hx
       cases i with
       | zero =>
@@ -1874,8 +1986,42 @@ theorem Yields.mapM_getElem {α β : Type} {f : α → CheckCM β} {P : α → �
         exact ⟨a, rfl, hy⟩
       | succ n =>
         simp only [List.getElem?_cons_succ] at hx
-        obtain ⟨a', ha', hP⟩ := hl' n x hx
+        obtain ⟨a', ha', hP⟩ := hl'.2 n x hx
         exact ⟨a', by simpa using ha', hP⟩
+
+/-- `List.mapM` keeps the list's length. -/
+theorem Yields.mapM_length {α β : Type} {f : α → CheckCM β} (l : List α) :
+    Yields (l.mapM f) (fun l' => l'.length = l.length) :=
+  Yields.mono (Yields.mapM_getElem (P := fun _ _ => True) (fun _ _ _ _ _ => trivial) l)
+    (fun _ h => h.1)
+
+/-- A `zip` read at one index: both sides answer there. -/
+theorem zip_getElem? {α β : Type} :
+    ∀ (l₁ : List α) (l₂ : List β) (i : Nat) (x : α × β),
+      (l₁.zip l₂)[i]? = some x → l₁[i]? = some x.1 ∧ l₂[i]? = some x.2
+  | [], _, _, _, h => by simp at h
+  | _ :: _, [], _, _, h => by simp at h
+  | a :: l₁, b :: l₂, 0, x, h => by
+      simp only [List.zip_cons_cons, List.getElem?_cons_zero, Option.some.injEq] at h
+      subst h
+      exact ⟨rfl, rfl⟩
+  | a :: l₁, b :: l₂, i + 1, x, h => by
+      simp only [List.zip_cons_cons, List.getElem?_cons_succ] at h ⊢
+      exact zip_getElem? l₁ l₂ i x h
+
+/-- … and the converse: two lists that answer at an index zip there. -/
+theorem zip_getElem?_of {α β : Type} :
+    ∀ (l₁ : List α) (l₂ : List β) (i : Nat) (a : α) (bb : β),
+      l₁[i]? = some a → l₂[i]? = some bb → (l₁.zip l₂)[i]? = some (a, bb)
+  | [], _, _, _, _, h, _ => by simp at h
+  | _ :: _, [], _, _, _, _, h => by simp at h
+  | _ :: _, _ :: _, 0, _, _, h₁, h₂ => by
+      simp only [List.getElem?_cons_zero, Option.some.injEq] at h₁ h₂
+      simp only [List.zip_cons_cons, List.getElem?_cons_zero, h₁, h₂]
+  | a :: l₁, b :: l₂, i + 1, x, y, h₁, h₂ => by
+      simp only [List.getElem?_cons_succ] at h₁ h₂
+      simp only [List.zip_cons_cons, List.getElem?_cons_succ]
+      exact zip_getElem?_of l₁ l₂ i x y h₁ h₂
 
 /-- An equation of maps, read at ONE index. -/
 theorem getElem?_of_map_eq {α β γ : Type} {f : α → γ} {g : β → γ}

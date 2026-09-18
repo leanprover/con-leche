@@ -104936,3 +104936,61 @@ at `bbdf5c76` was verified by DELETING `.lake/build/lib/lean/ConLeche*`
 and rebuilding — 640 modules compiled, zero warnings, exit 0; `lake
 test` likewise after deleting its artifacts, 5 modules compiled, zero
 warnings.
+
+#### The walk's table clause: an index count nothing checks
+
+The nested skeleton walk is complete except for its TABLE clause, and
+what blocks that clause is not proof effort — it is a statement
+question with a finding behind it.
+
+`nestedTableSkelAt` decides "structure-like" the way the RECORD reads:
+one own constructor and `(p.formers.getD m default).2 = 0`, the index
+count the RECOGNISER read off the stream's former type.  The route
+decides it elsewhere: the auxiliary block's member carries
+`auxIdxCount p.nP t.type` where `t.type` is the ANNOTATED former's
+type (`auxBlock_former`), and `mutualTableSkel`/`mutualMemberTableF`
+test that.  The two agree because `checkSumTele` leaves a type of
+depth `nP + nIdx` in both branches (the first by its own guard, the
+second by `whnfTelescope`) **and because annotation preserves a type's
+pi-depth**.
+
+That last conjunct is exactly what the agreement floor is built not to
+know.  The annotated type is class-1 divergent data, "deliberately
+forgotten" so the floor stays free of core reasoning, and the tree has
+no shape lemma for the annotating door: `checkConstantValPre_shape`
+covers only the PRE door, which returns its input.
+
+**The finding is worth more than the proof obligation: the route never
+CHECKS that the auxiliary block's member index counts are the ones the
+recogniser read.**  They agree by a property of the annotation walk,
+not by a guard the route runs — the same gap K.54 closed for the
+recursors' `(mI, rP)` before anything depended on it.
+
+Three ways to close it, and the choice is a ruling, not a preference:
+
+* **(A) import the shape fact.**  Prove that the annotating door
+  preserves pi-depth and let the floor consume it.  Cost: the floor's
+  first core-facing dependency, against its stated design.
+* **(B) pin the counts, the K.54 way.**  One unconditional check where
+  `b` is first available — the block's member counts against the
+  record's — not `certOnly`, since the skeleton must be that function
+  in every mode.  Cost: one `==` per nested block plus the usual
+  conjunct in the inversions, the run relation and the model's
+  destructurings.  Keeps the skeleton a function of the record.
+* **(C) weaken the spec.**  Let the table clause name the AUXILIARY
+  block's count.  Cheapest, and it gives up "the nested skeleton is a
+  function of the recognised block" for the tables alone.
+
+**Recommended: (B)**, with the measurement first, as K.54 had it — the
+recogniser's counts against the auxiliary block's over the 37 shadow
+rows, the e2e corpus, `init-full` and Mathlib, with a control that the
+instrument fires (a deliberately perturbed count) and one that the
+comparison is non-vacuous (the pairs actually reached).
+
+Everything else in the walk is landed and green: the four guards'
+readings, the formers' and constructors' folds (E1, E2), both
+recursor folds with the record's names, argument sums and rule
+constructors (E3a, E3b), and the tables' fold machinery with its
+freshness bridge.  The walk itself is parked at
+`_tmp/m8/checkNestedS_skels.scaffold.lean`, ~200 lines, wanting only
+this clause and the final rewrite.
