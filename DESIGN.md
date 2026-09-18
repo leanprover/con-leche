@@ -105243,3 +105243,92 @@ constant-headed case's induction on declaration order is machinery
 nobody has written, and if it runs long that is the row to revisit.
 
 Nothing in this section changes the tree.
+
+#### (number at the integrator's sync) — L-E: the least-evidenced row, taken FIRST — the induction lands and the row turns out to be a RE-BASING (lane L-E, 2026-09-18)
+
+Row three of the restatement's table, taken out of order because it is
+the row that decides whether the rest of the estimate means anything.
+**It behaves, and it is smaller than this lane priced it.**
+
+##### (a) LANDED — `pins_le_of_declOrder`, abstract in the ordering
+
+```lean
+theorem pins_le_of_declOrder {n k : Nat} {Is P L : Nat → V} {ord : Nat → Nat}
+    (hstep : ∀ q, q < n →
+      (∀ q', q' < n → ord q' < ord q → FamLe (Is (k + q')) (P q') (L (k + q'))) →
+      FamLe (Is (k + q)) (P q) (L (k + q))) :
+    ∀ q, q < n → FamLe (Is (k + q)) (P q) (L (k + q))
+```
+
+Eight lines, standard axioms.  `ord q` is MEANT to be the declaration
+position of pin `q`'s container, and the lemma does not know that: the
+run-level assembly supplies `ord`, exactly as it supplies the edge
+relation for `pins_le_of_instanceLe`.  **This lane produces neither an
+edge nor an order**, and K.57 plugs in underneath without any statement
+here moving.
+
+##### (b) THE FINDING — the row is a re-basing, not new machinery
+
+The induction is the easy half; the substance is the step, and working
+out what the step owes shrinks it.  At a pin `q` the step is one
+leastness of `P_cand q` against `L`, whose closure obligation splits by
+the domain's head, and only ONE arm consumes the hypothesis:
+
+* MEMBER-headed — nothing (`ofNested_lfp`);
+* PARAMETER-headed — nothing, and this is the whole point of the
+  candidate frame: the domain at that position IS the block-side slot's
+  tuple, so the fit pins the element with no hypothesis at all;
+* CONSTANT-headed at an earlier container — the domain's value is
+  `P_cand` at the TARGET pin, so the arm is
+  **(i)** a candidate-frame twin of `pinTarget_reads` and **(ii)** the
+  induction hypothesis at that pin.
+
+And (i) is a re-basing rather than new: `pinTarget_reads` is proved from
+`S.stored`, `S.pinIds`, `IsBlockModel.leaf`, `S.w`, `S.pinU` and
+`S.DsFit` — every one frame-generic **except `DsFit`, which is side
+condition one**.  So the candidate-frame twin is the same proof with
+the parameter fit supplied by the statement instead of by the recorded
+clause.
+
+**So "machinery nobody has written" was too pessimistic.**  Row three
+now looks like one session rather than one to two.  I am NOT re-cutting
+the 7–10 on one row's evidence; what changes is that the row this lane
+flagged as least-evidenced is now the best-evidenced, and the range's
+lower end firms up.
+
+##### (c) WHY "STRICTLY EARLIER" IS LOAD-BEARING
+
+The step's hypothesis reaches only pins of a strictly earlier
+container, so pins sharing one container never appear in it.  A
+constant-headed target at the SAME container — `K (K X)` — would leave
+the step with nothing to use, and the induction would not close.  The
+corpus has none: all 59 constant-headed edges of the 94 measured point
+strictly earlier.  **That measurement is a hypothesis of the route, not
+a convenience**, and K.57 is what certifies it.
+
+##### (d) THE TABLE, kept current
+
+**LANDED this session**: `pins_le_of_declOrder`.
+
+**RE-BASED** (frame argument, proofs carry over): the ten of the
+restatement's (f), **plus `pinTarget_reads`**, newly identified — it is
+frame-generic except through `DsFit`.
+
+**UNNECESSARY FOR THIS STEP, NOT DELETED**: `pins_le_of_instanceLe`,
+`nestedPinsLe_of_rank`.  K.37 and K.52 stay, consumed elsewhere.
+
+**STILL OPEN**: whether the covering apparatus is needed at all.  Not
+claimed.
+
+##### (e) AND ONE THING WORTH SAYING PLAINLY
+
+The entry predicate's condition on the stored reading — the one this
+lane repaired after lane L-B refuted its Π-tower clauses, and then
+consumed at three call sites — turns out to be an **artefact of the
+frame**, not a fact about the entry: at the candidate frame the domain
+is already the target's block-side slot and the condition is not there
+to repair.  The repair was correct for the statement it repaired.  The
+statement is the thing that was wrong.
+
+Gates: `lake build` and `lake test` warning-free, full gate set green;
+standard axioms on the new theorem.

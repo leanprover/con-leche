@@ -4289,6 +4289,47 @@ theorem nestedPinInstLe (hμ : μ.verifiedChecks = true)
 
 /-! ## Step (iii)'s INDUCTION: the rank orders the instances (K.37) -/
 
+/-- **THE DECLARATION-ORDER INDUCTION** (task #315 L-E, DESIGN "the
+restatement written"): the measure the candidate-frame statement
+inducts on, stated ABSTRACTLY in the ordering — `ord q` is meant to be
+the declaration position of pin `q`'s CONTAINER, but this lemma does
+not know that and does not care how the order is certified.  The
+run-level assembly supplies `ord`, exactly as it supplies the edge
+relation for `pins_le_of_instanceLe`: **this lane produces neither an
+edge nor an order.**
+
+What the step is handed is the conclusion at every pin whose container
+is declared STRICTLY EARLIER, which is what the three arms of the
+restated ordinary-field case need:
+
+* a MEMBER-headed domain needs nothing — the carrier's member segment
+  IS the block's own least tuple (`ofNested_lfp`);
+* a PARAMETER-headed domain needs nothing either, and that is the whole
+  point of the candidate frame: the domain at that position IS the
+  block-side slot's tuple, so the fit pins the element without any
+  hypothesis (35 of the 94 measured edges);
+* a CONSTANT-headed domain at a container declared strictly earlier is
+  the one arm that consumes the hypothesis (59 of 94, all measured
+  strictly earlier, K.57).
+
+Pins sharing one container never appear in the step's hypothesis, which
+is why the measurement's "strictly earlier" is load-bearing rather than
+decorative: a constant-headed target at the SAME container — `K (K X)`
+— would leave the step with nothing, and the corpus has none. -/
+theorem pins_le_of_declOrder {n k : Nat} {Is P L : Nat → V} {ord : Nat → Nat}
+    (hstep : ∀ q, q < n →
+      (∀ q', q' < n → ord q' < ord q → FamLe (Is (k + q')) (P q') (L (k + q'))) →
+      FamLe (Is (k + q)) (P q) (L (k + q))) :
+    ∀ q, q < n → FamLe (Is (k + q)) (P q) (L (k + q)) := by
+  have key : ∀ r q, ord q < r → q < n → FamLe (Is (k + q)) (P q) (L (k + q)) := by
+    intro r
+    induction r with
+    | zero => intro q hr; exact absurd hr (Nat.not_lt_zero _)
+    | succ r ih =>
+      intro q hr hq
+      exact hstep q hq fun q' hq' hlt => ih q' (by omega) hq'
+  exact fun q hq => key (ord q + 1) q (Nat.lt_succ_self _) hq
+
 /-- **The rank induction, over K.37's four clauses** (task #315 L-E,
 DESIGN §U.55): if every reference LEAVING a container instance goes to
 a strictly smaller rank (`hedge`), the rank is a function of the
