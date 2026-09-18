@@ -108367,3 +108367,109 @@ The next step is a single check — does `EnvBlocksOf` reach
 because the instruction was to answer before starting.
 
 Nothing in this section changes the tree.
+
+#### (number at the integrator's sync) — L-E: residual 3's two checks, both ANSWERED — and the gap is a structure parameter, not `EnvBlocksOf` (lane L-E, 2026-09-18)
+
+Both checks run.  **Nothing built**; one attempt made and reverted to
+green, which is where the tree stands.
+
+##### (a) CONJUNCT 1 — NO SECOND KERNEL REQUEST
+
+Settled before building on it, as instructed, and the answer is that it
+derives from pieces already in the tree:
+
+1. the container's own pin, instantiated at the block's components, IS a
+   block pin — `pinCorr_of_ownPins`'s `hmem` premise, off
+   `ContainerOwnPins`;
+2. so `replaceAllNested` put a COPY where that pin was —
+   `replaceAllNested_occurrence` is the spec for this;
+3. so the copy's field domain MENTIONS an aux member, hence is **not**
+   `.ordinary` — definitional, `mutualCtorKinds`'s first branch is
+   `if !mentionsMember … then .ordinary`, the same fact this lane
+   established this morning;
+4. and `nestedPinKindsAt` excludes `.negative`/`.unsupported`, so it is
+   `.recursive` or `.reflexive` — which is the bit `blkRss` records.
+
+**K.47 is NOT the fact** — `nestedOwnPinsOk` is about the BLOCK's first
+former's own pins (`containerOwnPinsAt env (p.formers.headD default) …
+= st.pins.map (·.pin)`), one level up from a CONTAINER's own pins.
+Checking that saved writing a request for a record that would not have
+served.
+
+##### (b) CONJUNCT 3 — the producer exists and its open premise is named
+
+`pinCorr_of_ownPins` (`NestedPremise.lean:1074`) is **proved** and
+concludes `∃ qK, qK < dR.nPins ∧ PinCorr …`.  `NestedCopyInst.lean:3184`
+says its `huIds` premise "is meant to be discharged", and `:3175` says
+`huIds` IS the two `PinGroupView` clauses.  So the chain is
+
+```
+pinViews  →  huIds  →  pinCorr_of_ownPins  →  PinCorr
+```
+
+##### (c) THE GAP, CORRECTED — it is not `EnvBlocksOf`
+
+This lane reported the gap as "`pinViews` omits the `IsBlockModels`
+conjunct, which would need `EnvBlocksOf`".  **Both halves of that were
+wrong**, and the producer says so:
+
+```lean
+pinViews := by
+  obtain ⟨-, pc, -, hSh⟩ := R.hPM _ hbaseMem _ PD.base
+  intro qq hqq
+  obtain ⟨a, kk, i', ci', hqe, hi', -, hview, -, -⟩ := hSh qq hqq
+  exact ⟨a, kk, i', blockOf mp.base2 ci', hqe, hi', hview⟩
+```
+
+The witness is **already the named `blockOf mp.base2 ci'`**; what the
+statement drops is the `containerInfo?` equation naming `ci'`, and
+`PinShapes` has no `IsBlockModels` conjunct to omit.  No `EnvBlocksOf` is
+involved anywhere.
+
+**The real gap is that `mp` is not a binder of `NestedPinGroupSyn`.**
+The structure carries `m : EnvModel V env₂`, which at every use site is
+`mp₁'.base2` — a DIFFERENT model at a DIFFERENT environment from the
+`mp.base2` the witness is built with.  So the named form cannot be
+stated in the structure as it stands.  Attempted, and it fails exactly
+there (`containerInfo? env … ` versus `env₂`, `blockOf mp.base2` versus
+`blockOf m`); reverted.
+
+##### (d) WHAT IT ACTUALLY COSTS
+
+`NestedPinGroupSyn` must carry the block-model-of function, as
+`PinShapes` and `BlockAt` already do
+(`NestedPremise.lean:687, 712`: `(B : ContainerInfo → BlockModel V)`),
+and `pinViews` then reads `PinGroupView dJ (B ci') a kk`.
+
+That is a **structure-parameter change**, and this route has a recorded
+hazard for exactly that: a structure that gains a parameter breaks
+NAMED-argument call sites SILENTLY — the argument becomes a
+metavariable and the failure surfaces somewhere else.
+`NestedPinGroupSyn` has many such sites.
+
+**Revised cost: about half a session for the parameter and its call
+sites, then the assembly.**  Still one session in total, still no kernel
+request, and still nobody else's dependency — but the shape is a
+threading change rather than the one-line statement fix this lane
+implied.
+
+##### (e) FOR THE KERNEL LANE — the carrier question, answered
+
+**Per-pin list in spine order is exactly right.**  The spec asked for
+"every component of `st.pins[q]!.pin`'s argument spine", the model
+consumes them positionally against `(pinsS.getD q default).DsE` — which
+`NestedPinSynFacts.pinRec` already pins to that same spine
+(`pin.pin = mkAppN (.const container lvls) DsE`) — and
+`DenoteMetaSpine` is itself positional.  **No other addressing is
+wanted.**
+
+Choosing the recompute carrier so this lane reads K.51's idiom twice
+rather than learning a second one is the right call, and shipping the
+copy-name-to-aux-index correspondence as a Verify lemma off
+`nestedCopyNames`' positionality rather than as a recorded Bool is
+better than what was asked for — recording what construction already
+gives is a failure mode this route has committed before.
+
+`lake build` 0 errors/warnings, **722 jobs**, at the reverted state.
+
+Nothing in this section changes the tree.
