@@ -113877,3 +113877,41 @@ unconsumed are `pins_le_of_declOrder`, `nestedPinsLe_of_rank`,
 `hfit_le_of_inst` and by each other, and leaves when the switch lands.
 Nothing in (c) should move then; if something in (c) DOES leave the
 list at the switch, that is a finding, not a tidy-up.
+
+#### WIDE (f1): STATE AT THE CLOSE (lane WIDE, 2026-09-18)
+
+Landed this session: the finding (the instance map is not an
+injection, measured on three streams with a control); the three
+witnesses as sources AND streams, with rows in the SHADOW gate — where
+the uniform route is measured — and none in `tests/e2e-expected.txt`;
+(R1) step 1, the set theory (`FibreConst`, `fcNorm`, the index-set
+Bekić with no hypothesis on `σ`, the two set congruences and the three
+wide theorems restated); (R1) step 2's law (`IsBlockModel.row_congr`);
+(R1) step 3, K.61 and K.62 in request form; and the corrected `hle`
+lists.
+
+Open, in order:
+
+1. **step 2's remainder** — the reader congruence between two of the
+   container's own pin classes, priced premise by premise in "WIDE (f1)
+   step 2 (b)".  Plumbing, one session, beside
+   `pinClassFit_of_transfer`;
+2. **K.61 and K.62** — after the heartbeat split on `nestedCore_run_of`;
+3. **(f3), the switch** — `NestedRecFibre.lean`'s `NestedTailIn.pinSegAt`
+   moving from `ofNested_pin_block_of_inst` to
+   `ofNested_pin_block_of_wide_inst`, with `hfit_le_of_inst`/`hfitLe`
+   deleted.  It waits on BOTH 1 and 2: `hrowsσ` is 1's product and
+   `hstgt`/`houtσ`/`σ` are 2's.
+
+**Green, at the close.**  `tests/warning-free.sh 5e30d28f`: "7 changed
+module(s) since 5e30d28f", "lake build — 4 module(s) recompiled, 0
+warning line(s)", "lake test — 2 module(s) recompiled, 0 warning
+line(s)", "OK (a run that could have failed)".  `lake test` exit 0;
+`tests/proofdeps.sh` doors `0`; `tests/shake.sh` OK (513 removals, all
+allowlisted, none demotable); `tests/nested-shadow.sh` 41/41;
+`tests/layering.sh`, `tests/overview-links.sh`, `tests/quote-gate.sh`,
+`tests/no-local-paths.sh`, `tests/trust-surface.sh` OK.
+`tests/unconsumed.sh` moved by exactly one line — `row_congr` entered,
+nothing left — which is the session's only new declaration without a
+consumer and is step 2's own product.  The accept set is untouched: no
+consumer has moved to the wide route.
