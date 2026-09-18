@@ -2,6 +2,7 @@ module
 
 public import ConLeche.Model.Inductives.NestedRecRule
 public import ConLeche.Verify.Inductives.NestedRecsWF
+import ConLeche.Verify.Inductives.NestedRecRuleKit
 public section
 
 /-!
@@ -219,6 +220,124 @@ theorem NestedTailIn.storeDoor :
   obtain ⟨hfr, hnres, -, hfv, hlp, hbv, hres⟩ := I.recCvDoor hcb
   rw [hcv]
   exact ⟨hfr, hnres, hfv, hlp, hres, hbv⟩
+
+/-- **THE STORE'S RULES, AT THE PROVISION** — `nestedRecsStore`'s
+`hrulesWF`: every restored rule's right-hand side is closed, fvar-free,
+level-complete and resolves at the environment `restoreRules` ran at
+(`restoreRules_at`), and a `.nested` fire carries exactly the shape
+`nestedFireShape` certified (`nestedFireShape_inv`) — which is
+`ConstWF`'s nested clause conjunct for conjunct.  Only a MIMIC fires
+`.nested`; a member's fire is `.plain`-or-`.inert` and the clause is
+vacuous there.
+
+Stated at `nestedProvList` (the environment the rules were checked at);
+`nestedProvOf_nestedStoreList` is the caller's one rewrite. -/
+theorem NestedTailIn.storeRules :
+    ∀ x ∈ nestedStoreList p stored cvRms cvRns rulesM rulesN, ∀ r ∈ x.2.2.2,
+      (RecRule.rhs r).hasFvar = false ∧
+      (RecRule.rhs r).allLevelParamsDefined x.1.levelParams = true ∧
+      (RecRule.rhs r).constsResolve
+        (ConLeche.provisionNestedRecs (nestedProvList p stored cvRms cvRns) (ENV2)) = true ∧
+      (RecRule.rhs r).looseBVarsBounded 0 = true ∧
+      ∀ lvls pins, RecRule.fire r = .nested lvls pins →
+        x.2.2.1 ≤ x.2.1 ∧
+        (∀ u ∈ lvls, u.allParamsDefined x.1.levelParams = true) ∧
+        (∀ pin ∈ pins, pin.hasFvar = false ∧
+          pin.allLevelParamsDefined x.1.levelParams = true ∧
+          pin.constsResolve
+            (ConLeche.provisionNestedRecs (nestedProvList p stored cvRms cvRns) (ENV2)) = true ∧
+          pin.looseBVarsBounded x.2.2.1 = true) ∧
+        ∃ pre dom body bm D,
+          x.1.type.stripPis x.2.1 = some (pre, .forallE dom body bm) ∧
+          dom.getAppFn = .const D lvls ∧
+          dom.getAppArgs =
+            pins.map (Expr.liftLooseBVars (x.2.1 - x.2.2.1) 0) ++
+              (List.range (x.2.1 - x.2.2.1)).map
+                (fun i => Expr.bvar (x.2.1 - x.2.2.1 - 1 - i)) := by
+  intro x hx r hr
+  obtain ⟨c, hc, hcv, hmI, hrP, hrs⟩ := nestedStoreList_mem I.lenM hx
+  have hcb : c < b.k := by rw [I.out.bk, ← I.lenN] at *; exact hc
+  obtain ⟨a, ha⟩ : ∃ a, stored[c]? = some a :=
+    ⟨_, List.getElem?_eq_getElem (by rw [I.storedLen]; exact hcb)⟩
+  have haD : stored.getD c default = a := by rw [List.getD_eq_getElem?_getD, ha]; rfl
+  rw [haD] at hmI hrP
+  obtain ⟨hlenR, hallR⟩ := ConLeche.restoreRules_at (I.restRulesRun hcb ha)
+  rw [hrs] at hr
+  obtain ⟨ii, hoAt⟩ := List.getElem?_of_mem hr
+  obtain ⟨rl, hrlAt⟩ : ∃ rl, a.rules[ii]? = some rl :=
+    ⟨_, List.getElem?_eq_getElem (by
+      rw [← hlenR]; exact (List.getElem?_eq_some_iff.mp hoAt).1)⟩
+  obtain ⟨-, hlps, hres, hbv, hfv, -, -, -, -, -, hMem, hMim⟩ := hallR ii rl r hrlAt hoAt
+  refine ⟨hfv, by rw [hcv]; exact hlps, hres, hbv, ?_⟩
+  intro lvls pins hfire
+  by_cases hck : p.k ≤ c
+  · -- a MIMIC: the fire IS `nestedFireShape`, and its inversion is the clause
+    obtain ⟨-, hfireN⟩ := hMim (by simp only [decide_eq_true_eq]; exact hck)
+    rcases hsh : ConLeche.nestedFireShape
+        (ConLeche.provisionNestedRecs (nestedProvList p stored cvRms cvRns) (ENV2))
+        (nestedRecCvAt p.k cvRms cvRns c).levelParams
+        (nestedRecCvAt p.k cvRms cvRns c).type a.mI a.rP (RecRule.ctorParams r) with _ | lp
+    · rw [hsh] at hfireN; rw [hfireN] at hfire; exact nomatch hfire
+    · rw [hsh] at hfireN
+      rw [hfireN] at hfire
+      obtain ⟨rfl, rfl⟩ : lvls = lp.1 ∧ pins = lp.2 := by
+        injection hfire with h1 h2
+        exact ⟨h1.symm, h2.symm⟩
+      obtain ⟨hle, pre, dom, body, bm, Dn, hstrip, hhead, -, -, hlift, hdrop, hpins, hlvls⟩ :=
+        ConLeche.nestedFireShape_inv (by rw [hsh])
+      rw [hcv, hmI, hrP]
+      refine ⟨hle, hlvls, fun pin hpin => ?_, pre, dom, body, bm, Dn, hstrip, hhead, ?_⟩
+      · obtain ⟨p1, p2, p3, p4⟩ := hpins pin hpin
+        exact ⟨p1, p4, p3, p2⟩
+      · rw [← hlift, ← hdrop, List.take_append_drop]
+  · -- a MEMBER: the fire is `.plain` or `.inert`, never `.nested`
+    obtain ⟨-, hfireP⟩ := hMem (by simp only [decide_eq_false_iff_not]; exact hck)
+    rw [hfireP] at hfire
+    split at hfire <;> exact nomatch hfire
+
+/-- **THE STORE'S RULES' CONSTRUCTORS, AND THEIR RESCUE BITS** —
+`nestedRecsStore`'s `hctorStored`.  The first conjunct is
+`restoreRules_at`'s verbatim: a restored rule whose constructor is not
+stored at the provision is INVALID (task #279 K.24), so the lookup is
+the run's own verdict.
+
+The other two are **K.50's**, taken here in the shape its inversion
+will have (DESIGN §U.29 (gggg)): `restoreRules` copies `k` and `eta`
+from the SCRATCH rule while RENAMING the constructor, so what
+`mutualRules_bits` says about the scratch rule at `envAux` and what
+`ConstWF` asks of the stored rule at the provision differ in BOTH
+arguments, and no lemma in the tree relates them across the copies'
+capability records.  With the bits recorded `false` the two conjuncts
+are vacuous, and this hypothesis becomes `I.hbits`' one rewrite. -/
+theorem NestedTailIn.storeCtors
+    (hbits : ∀ c, c < b.k → ∀ r ∈ nestedRulesAt p.k rulesM rulesN c,
+      RecRule.k r = false ∧ RecRule.eta r = false) :
+    ∀ x ∈ nestedStoreList p stored cvRms cvRns rulesM rulesN, ∀ r ∈ x.2.2.2,
+      (∃ cvj cnP cnF,
+        (ConLeche.provisionNestedRecs (nestedProvList p stored cvRms cvRns) (ENV2)).find?
+          (RecRule.ctor r) = some (.ctorInfo cvj cnP cnF)) ∧
+      (RecRule.k r = true → ConLeche.recRuleKOf
+        (ConLeche.provisionNestedRecs (nestedProvList p stored cvRms cvRns) (ENV2)).find?
+        (RecRule.ctor r) = true) ∧
+      (RecRule.eta r = true → ConLeche.recRuleEtaOf
+        (ConLeche.provisionNestedRecs (nestedProvList p stored cvRms cvRns) (ENV2)).find?
+        x.1.name (RecRule.ctor r) = true) := by
+  intro x hx r hr
+  obtain ⟨c, hc, -, -, -, hrs⟩ := nestedStoreList_mem I.lenM hx
+  have hcb : c < b.k := by rw [I.out.bk, ← I.lenN] at *; exact hc
+  obtain ⟨a, ha⟩ : ∃ a, stored[c]? = some a :=
+    ⟨_, List.getElem?_eq_getElem (by rw [I.storedLen]; exact hcb)⟩
+  obtain ⟨hlenR, hallR⟩ := ConLeche.restoreRules_at (I.restRulesRun hcb ha)
+  rw [hrs] at hr
+  obtain ⟨hk0, he0⟩ := hbits c hcb r hr
+  obtain ⟨ii, hoAt⟩ := List.getElem?_of_mem hr
+  obtain ⟨rl, hrlAt⟩ : ∃ rl, a.rules[ii]? = some rl :=
+    ⟨_, List.getElem?_eq_getElem (by
+      rw [← hlenR]; exact (List.getElem?_eq_some_iff.mp hoAt).1)⟩
+  obtain ⟨-, -, -, -, -, -, -, hfindC, -, -, -, -⟩ := hallR ii rl r hrlAt hoAt
+  obtain ⟨cvj, cnF, hfc⟩ := hfindC
+  exact ⟨⟨cvj, RecRule.ctorParams r, cnF, hfc⟩,
+    fun hb => absurd (hk0 ▸ hb) (by simp), fun hb => absurd (he0 ▸ hb) (by simp)⟩
 
 end Run
 
