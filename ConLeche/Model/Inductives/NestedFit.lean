@@ -79,6 +79,37 @@ pin's level assignment (`hw`, `mutualCrossChecks`' `isEquiv` at the
 copy's sort); the block's index universe at a group component IS the
 container's (`hu`, the pins' recorded universes — `nestedU`, DESIGN
 §U.22).
+
+## THE FRAME-GENERIC FORMS, and the one sentence that explains them
+
+`CopyEntryAtF`, `TargetView.frameAt`, `targetValAt` and `pinLfpAt` take
+the pin's components — or the frame they induce — as an ARGUMENT rather
+than reading them off the recorded pin.  The reason is one asymmetry,
+and it is the central idea of this route rather than a technical
+convenience:
+
+> **The copy's SLOT reads at the block's own frame `ρp` and does not
+> move.  The CONTAINER's side — its spine fit and the interpretation of
+> its field domain — reads at the frame that varies.  That asymmetry is
+> what a candidate frame IS.**
+
+`CopyCtorShape` keeps the components `Ds` untouched throughout, because
+the copy IS the container at `Ds` syntactically whatever frame one reads
+it at; the frame and the shape are separable, and only the frame moves.
+
+It is also, in one line, why the original impasse was an artefact:
+stating the obligation at the TRUE frame forces both sides to move
+together, and the circularity that appeared then was the cost of tying
+them.
+
+**A mechanical trap that recurs at every one of these generalisations.**
+When the generic form stops mentioning an object the specific one
+mentions (`CopyEntryAtF` does not mention `Ds`), their auto-bound
+section variables differ and the two signatures do NOT line up
+positionally — so defining the specific one as an application of the
+generic one fails with an argument-order mismatch.  State the bridge as
+a separate `Iff.rfl`/`rfl` theorem with explicit named arguments
+instead (`copyEntryAt_iff_F`).
 -/
 
 namespace ConLeche.Model
@@ -708,6 +739,41 @@ what the WALK loses is the correspondence at such a field (DESIGN
         = is.foldl SetTheory.app (interp V ρp (TV.EA (tg l)))) →
     CopyEntryAt dJ ψJ Ds tg tls Eis ρp i j TV.w TV.u Z l
 
+/-- **THE READING LAW, FRAME-GENERIC** (task #315 L-E, clause two).
+Three things move together, and they are exactly the three places a
+frame appears in `EntryRead`:
+
+* `cAs` — the component family, which fixes the TARGET's frame through
+  `TargetView.frameAt`;
+* `EAv` — the target's reading as a VALUE, because at a candidate frame
+  the target reads as the container's former at the candidate components
+  (`targetValAt`) and not as `interp` of a recorded term;
+* `frSelf` — this copy's OWN frame, which is what `CopyEntryAtF` reads
+  the container's side at.
+
+`entryRead_iff_F` is `Iff.rfl`, so no consumer moves. -/
+@[expose] def EntryReadF (cAs : Nat → List V) (EAv : Nat → V) (frSelf : Nat → V) (l : Nat) :
+    Prop :=
+  ∀ Z : Nat → V,
+    (∀ is : List V, SpineFit (TV.frameAt cAs ρp (tg l)) (TV.Ids (tg l)) is →
+      SetTheory.app (Z (tg l)) (tupW (TV.u (tg l)) is)
+        = is.foldl SetTheory.app (EAv (tg l))) →
+    CopyEntryAtF dJ ψJ tg tls Eis ρp i j frSelf TV.w TV.u Z l
+
+/-- **Today's reading law IS the frame-generic one at the recorded
+data** (task #315 L-E).  `Iff.rfl`; the bridge is a theorem and not a
+definitional alias for the signature reason recorded in this file's
+header. -/
+theorem entryRead_iff_F (l : Nat) :
+    EntryRead (V := V) TV dJ ψJ Ds tg tls Eis ρp i j l
+      ↔ EntryReadF (V := V) TV dJ ψJ tg tls Eis ρp i j
+          (fun q => (TV.Ds (TV.k + q)).map (interp V ρp))
+          (fun t => interp V ρp (TV.EA t))
+          (consList (Ds.map (interp V ρp)) ρp) l := by
+  unfold EntryRead EntryReadF
+  simp only [TargetView.frameAt_recorded]
+  rfl
+
 variable (base kJ : Nat) (Fs : List AnnotTerm) (rs : List Bool)
 
 /-- **The entry identities at every copy-recursive field OUTSIDE the
@@ -940,6 +1006,27 @@ theorem copyEntryAt_of_read {TV : TargetView V} {dJ : BlockModel V} {ψJ : Name 
       SetTheory.app (Z (tg l)) (tupW (TV.u (tg l)) is)
         = is.foldl SetTheory.app (interp V ρp (TV.EA (tg l)))) :
     CopyEntryAt dJ ψJ Ds tg tls Eis ρp i j TV.w TV.u Z l :=
+  hread Z hZ
+
+/-- **The entry at a tuple whose target family reads the target's value,
+FRAME-GENERIC** (task #315 L-E, clause two).  `copyEntryAt_of_read` with
+the target's frame, the target's reading VALUE and this copy's own frame
+all supplied — the same one-line proof, because `EntryReadF` is already
+the implication this states.
+
+At the candidate frame the caller supplies `EAv := targetValAt …` and
+`hZ` from `tupleLfpAV_fold` at the field's target, which is
+index-generic: members and copies alike, no case on the target and no
+hypothesis at another pin. -/
+theorem copyEntryAtF_of_read {TV : TargetView V} {dJ : BlockModel V} {ψJ : Name → Nat}
+    {tg : Nat → Nat} {tls : List (List (Nat × Nat × AnnotTerm))}
+    {Eis : List (List AnnotTerm)} {ρp : Nat → V} {i j l : Nat}
+    {cAs : Nat → List V} {EAv : Nat → V} {frSelf : Nat → V}
+    (hread : EntryReadF TV dJ ψJ tg tls Eis ρp i j cAs EAv frSelf l) {Z : Nat → V}
+    (hZ : ∀ is : List V, SpineFit (TV.frameAt cAs ρp (tg l)) (TV.Ids (tg l)) is →
+      SetTheory.app (Z (tg l)) (tupW (TV.u (tg l)) is)
+        = is.foldl SetTheory.app (EAv (tg l))) :
+    CopyEntryAtF dJ ψJ tg tls Eis ρp i j frSelf TV.w TV.u Z l :=
   hread Z hZ
 
 /-! ## The fits at one constructor -/

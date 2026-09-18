@@ -106487,3 +106487,69 @@ index-generic.  **Nothing cross-pin is visible on the surface, and this
 lane still does not claim it.**  K.57 untouched.
 
 Nothing in this section changes the tree.
+
+#### (number at the integrator's sync) — L-E: three more frame-generalisations, and `fit_iff_at` sized at 216 lines (lane L-E, 2026-09-18)
+
+##### (a) THE SENTENCE IS WHERE IT BELONGS
+
+`ConLeche/Model/Inductives/NestedFit.lean`'s module header now carries
+the asymmetry as a displayed rule, not as prose in a session record:
+
+> **The copy's SLOT reads at the block's own frame `ρp` and does not
+> move.  The CONTAINER's side — its spine fit and the interpretation of
+> its field domain — reads at the frame that varies.  That asymmetry is
+> what a candidate frame IS.**
+
+with the two consequences a reader needs beside it: `CopyCtorShape`
+keeps `Ds` untouched because the copy IS the container at `Ds` whatever
+frame one reads it at; and stating the obligation at the TRUE frame
+forces both sides to move together, which is why the original
+circularity was an artefact of where the statement stood.
+
+The signature trap is in the same header, for the same reason — it
+recurs at every one of these generalisations and the record means
+nobody pays for it twice.
+
+##### (b) LANDED — three more, all conservative
+
+| generic form | bridge |
+| --- | --- |
+| `CopyEntryAtF` — the entry identity, container-side frame an argument | `copyEntryAt_iff_F`, `Iff.rfl` |
+| `EntryReadF` — the reading law | `entryRead_iff_F`, `Iff.rfl` |
+| `copyEntryAtF_of_read` — the consumer | the same one-line proof |
+
+`EntryReadF` moves three things, and they are exactly the three places a
+frame appears in `EntryRead`: `cAs` (the component family, fixing the
+TARGET's frame through `TargetView.frameAt`), `EAv` (the target's
+reading as a VALUE — at a candidate frame a target reads as the
+container's former at the candidate components, `targetValAt`, not as
+`interp` of a recorded term), and `frSelf` (this copy's own frame, which
+is what the container's side is read at).
+
+Five frame-generalisations now, all landing first or second try:
+`pinLfpAt`, `pinTarget_reads_at`, `targetValAt`, `TargetView.frameAt`,
+`CopyEntryAtF`/`EntryReadF`/`copyEntryAtF_of_read`.
+
+##### (c) `fit_iff_at` IS THE SUBSTANTIAL PIECE — 216 lines
+
+Measured rather than guessed: `CopyCtorShape.fit_iff_at` spans
+`NestedFit.lean:1040–1256`.  Its frame enters through `hρJ`, through
+`IsBlockModels.real_dom_eq` and `slotAt_mono`, and through the local
+notation `LJ` (the container's least tuple), which becomes
+`pinLfpAt`-shaped.  That is a session's careful work on its own and it
+is deliberately NOT half-started here.
+
+The `hZ` it will be instantiated with at `Z := L⁺` is `tupleLfpAV_fold`
+at the field's target — index-generic, members and copies alike, no case
+and no hypothesis at another pin.
+
+##### (d) THE PRICE, UNCHANGED
+
+Clause two stays at 2–3: three of its four generalisations are done and
+cost a fraction of a session between them; `fit_iff_at` is the rest of
+it.  The 8–11 is unchanged and is now partly OVERLAPPED rather than
+sequential, because the frame is universally quantified and the ten
+theorems can be re-based against it while the family's producer is still
+owed.
+
+Nothing in this section changes the tree.
