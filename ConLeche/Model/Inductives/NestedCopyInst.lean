@@ -2710,7 +2710,12 @@ theorem copyPinFCorr {pbs : List (Expr × ConLeche.BinderMeta)}
       qn.pin.getAppArgs.length = ci'.nP ∧
       (pinsS.getD qq default).J = (dJ.pinAt (dJ.tgts i' j l - dJ.k)).J ∧
       (pinsS.getD qq default).lvls = ((dJ.pinAt (dJ.tgts i' j l - dJ.k)).lvls).map
-        (Level.subst J.lps (pinsS.getD (q₀ + i') default).lvls) := by
+        (Level.subst J.lps (pinsS.getD (q₀ + i') default).lvls) ∧
+      (pinsS.getD qq default).DsE = qn.pin.getAppArgs ∧
+      (∀ (cvT : ConstantVal) (caps : IndCaps),
+        (ConLeche.consMutualFormers (fms.take p.k) env).find?
+            (pinsS.getD (q₀ + i') default).J = some (.indInfo cvT caps) →
+        J.lps = cvT.levelParams) := by
   classical
   obtain ⟨cc, JR, ciR, lpsJ, pcs, fcs, Fs', esJ, cbody', o, params, pbs₀, cA, cname, qn, usJ,
     hciPR, hJmemR, hJccR, hn, hty, hnf, hJnameR, hDsnP, hstripJ, hpl, hfl, hesJ, hccf, hccb, hksJ,
@@ -2988,7 +2993,18 @@ theorem copyPinFCorr {pbs : List (Expr × ConLeche.BinderMeta)}
     rw [hpinSyn, Expr.getAppFn_mkAppN]
     rfl
   obtain ⟨hcname, hclvls⟩ := ConLeche.Expr.const.inj (hheadS.symm.trans hhead)
-  refine ⟨qn', qq, hci'₀, hnPeq, hqq, ?_, hhead, ?_, ?_, hclvls⟩
+  -- the container's group shares its level parameters, and the pin's
+  -- container is stored at `env` (so at the formers' environment too)
+  obtain ⟨cvT₀, caps₀, cvR₀, mI₀, rP₀, rules₀, hfI, -, -, -, hMall⟩ :=
+    ConLeche.containerInfo?_inv hci
+  obtain ⟨cvC, capsC, -, -, -, -, -, hlpsJ, -, hlpsT, -, -⟩ := hMall J hJmem
+  have hneJ : ∀ g ∈ fms.take p.k, g.cvTa.name ≠ (pinsS.getD (q₀ + i') default).J := by
+    intro g hg heq
+    obtain ⟨t, ht⟩ := List.getElem?_of_mem (List.mem_of_mem_take hg)
+    have hfr := R.h.fresh t g ht
+    rw [heq, hfI] at hfr
+    exact nomatch hfr
+  refine ⟨qn', qq, hci'₀, hnPeq, hqq, ?_, hhead, ?_, ?_, hclvls, ?_, ?_⟩
   · rw [mutTgts_getD hGlt hnFs]
     exact hidx
   · rw [hqnPin, Expr.getAppArgs_mkAppN]
@@ -2997,6 +3013,15 @@ theorem copyPinFCorr {pbs : List (Expr × ConLeche.BinderMeta)}
     omega
   · rw [hJsyn]
     exact hcname
+  · rw [hpinSyn, Expr.getAppArgs_mkAppN]
+    simp only [Expr.getAppArgs, List.nil_append]
+  · intro cvT caps hfindT
+    rw [ConLeche.consMutualFormers_find?_of_ne hneJ] at hfindT
+    obtain rfl : cvT = cvT₀ := by
+      have h := hfI.symm.trans hfindT
+      simp only [Option.some.injEq, ConLeche.ConstantInfo.indInfo.injEq] at h
+      exact h.1.symm
+    rw [hlpsJ, hlpsT]
 
 /-- **THE AUXILIARY BLOCK'S KIND AT A COPY'S RECURSIVE FIELD** (task
 #315 L-B): a container field that is FINITARY RECURSIVE at one of the
