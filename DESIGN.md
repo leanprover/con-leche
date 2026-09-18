@@ -104542,7 +104542,14 @@ existing chain is already built on this: `normCtorValM_domErased` and
 `normCtorValM_domHead` read heads off the erased equality rather than
 off a resolution fact.
 
-**(3) And the branch question, measured independently.**  With the
+**(3) And the branch question, measured independently — DIAGNOSTIC
+ONLY.**  The maintainer's standing ruling is that a proof's case
+analysis is exhaustive over the SYNTAX, never over a corpus: counts say
+where to aim, invariants close cases.  This count closed nothing and is
+recorded as what it is — it told us the rescue does not arise at those
+sites, while the identity above tells us the question never arose.  It
+is kept because a working instrument with a control is worth having on
+the record, not because anything rests on it.  With the
 three rescue success points instrumented and the sentinel caught at
 `normPosDomM`'s own `whnf` call, the K/η rescue fires **zero** times
 inside a positivity normalisation across the whole e2e corpus (200
