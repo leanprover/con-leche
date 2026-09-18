@@ -1707,6 +1707,22 @@ structure NestedStageFacts (st : ElimState) (mp₂ : EnvModelM V μ ENV₂) : Pr
     x.fvarTypeD.getAppArgs.take ((D).pinAt q).nPJ
       = (Expr.instSeq ((D).fvsPF mm j) ((D).nP - 1)
           (Expr.abstractRange pin 0 p.nP 0)).getAppArgs
+  /-- **AND THE SAME ON THE ABSTRACT DOMAIN** (task #315 PINF):
+  carried beside `pinArgs` because the transport between the two sides
+  runs only abstract ⟹ opened, and K.60's guard reads the abstract
+  one.  The depth is existential: the consumer's use is a MENTION and a
+  mention survives any lift. -/
+  pinArgsAbs : ∀ (mm j l : Nat) (c : ConstantVal × Nat × Nat)
+      (bs : List (Expr × BinderMeta)) (r : Expr) (dom : Expr × BinderMeta)
+      (pin : Expr) (q : Nat), mm < p.k →
+    (ctorsR.getD mm [])[j]? = some c →
+    c.1.type.stripPis ((D).nP + c.2.2) = some (bs, r) →
+    bs[(D).nP + l]? = some dom →
+    pin = Expr.mkAppN (.const ((D).pinAt q).J ((D).pinAt q).lvls) ((D).pinAt q).DsE →
+    (D).nestOf mm j l = some q →
+    ((D).ksF mm j).getD l .ordinary = .recursive →
+    ∃ d : Nat, dom.1.getAppArgs.take ((D).pinAt q).nPJ
+      = ((Expr.abstractRange pin 0 p.nP 0).liftLooseBVars d 0).getAppArgs
   /-- **THE RESTORED CONSTRUCTOR'S STORED TYPE HAS ITS `.proj` SLOTS AT
   THE MEMBERS' PREFIX ENVIRONMENT** (task #315 PINF): the front door's
   own `slots`, kept because it is the only place the fact is TRUE.
@@ -1822,6 +1838,22 @@ structure NestedLoopFacts (st : ElimState) (mp₁ : EnvModelM V μ ENV₁) (mp�
     x.fvarTypeD.getAppArgs.take ((D).pinAt q).nPJ
       = (Expr.instSeq ((D).fvsPF mm j) ((D).nP - 1)
           (Expr.abstractRange pin 0 p.nP 0)).getAppArgs
+  /-- **AND THE SAME ON THE ABSTRACT DOMAIN** (task #315 PINF):
+  carried beside `pinArgs` because the transport between the two sides
+  runs only abstract ⟹ opened, and K.60's guard reads the abstract
+  one.  The depth is existential: the consumer's use is a MENTION and a
+  mention survives any lift. -/
+  pinArgsAbs : ∀ (mm j l : Nat) (c : ConstantVal × Nat × Nat)
+      (bs : List (Expr × BinderMeta)) (r : Expr) (dom : Expr × BinderMeta)
+      (pin : Expr) (q : Nat), mm < p.k →
+    (ctorsR.getD mm [])[j]? = some c →
+    c.1.type.stripPis ((D).nP + c.2.2) = some (bs, r) →
+    bs[(D).nP + l]? = some dom →
+    pin = Expr.mkAppN (.const ((D).pinAt q).J ((D).pinAt q).lvls) ((D).pinAt q).DsE →
+    (D).nestOf mm j l = some q →
+    ((D).ksF mm j).getD l .ordinary = .recursive →
+    ∃ d : Nat, dom.1.getAppArgs.take ((D).pinAt q).nPJ
+      = ((Expr.abstractRange pin 0 p.nP 0).liftLooseBVars d 0).getAppArgs
   /-- **THE RESTORED CONSTRUCTOR'S STORED TYPE HAS ITS `.proj` SLOTS AT
   THE MEMBERS' PREFIX ENVIRONMENT** (task #315 PINF): the front door's
   own `slots`, kept because it is the only place the fact is TRUE.
@@ -1934,6 +1966,8 @@ Consumer: `nestedStageFacts_of` → `nestedCoreModeled_of`. -/
       ConLeche.nestedPinNorms (m := ConLeche.CheckM) (fueledOps μ F)
           (ConLeche.consNestedFormers (stored.take p.k) env) b.memberNames jobsP = .ok wsP ∧
       ConLeche.nestedPinRewrites env p st params pbs₀ jobsP wsP = true) →
+    -- K.60: a container's nested field lands on a block pin
+    ConLeche.nestedCopyPinFieldsOk env p b st stored = true →
     -- POST-CHECK (a) A THIRD TIME (K.30): the pins typed at the prefix
     -- formers' environment (`consNestedFormers_take_eq`)
     ConLeche.nestedPinsOk (m := ConLeche.CheckM) (fueledOps μ F)
@@ -2038,6 +2072,7 @@ theorem nestedStageFacts_of (hst : NestedCtorsStaged V μ F) (hμ : μ.verifiedC
       ConLeche.nestedPinNorms (m := ConLeche.CheckM) (fueledOps μ F)
           (ConLeche.consNestedFormers (stored.take p.k) env) b.memberNames jobsP = .ok wsP ∧
       ConLeche.nestedPinRewrites env p st params pbs₀ jobsP wsP = true)
+    (hK60 : ConLeche.nestedCopyPinFieldsOk env p b st stored = true)
     (hpins₁ : ConLeche.nestedPinsOk (m := ConLeche.CheckM) (fueledOps μ F)
       (ConLeche.consMutualFormers (fms.take p.k) env) p.nP st.pins = .ok ())
     (hnd : b.blockNames.Nodup) (h3 : ConLeche.mutualCtorsGrouped b.ctors = true)
@@ -2109,7 +2144,7 @@ theorem nestedStageFacts_of (hst : NestedCtorsStaged V μ F) (hμ : μ.verifiedC
   obtain ⟨mp₂, dsR, xFvsR, pinsS, L⟩ := hst hμ mp hE p st b envAux stored ctorsR fmsA ctorsA₀ fms f₀
     ctorsA sortss kinds mp₁ ppsF W idxF dsF esF srcsF fvsPF xFvsF xrestF eissF tssF mp₁' hPM h0 h1
     hfA hcA helim hcount hfresh hcont hb haux hstored hclosed hpinsAux hcaps hsrc hgrp hsc hK32
-    hkinds hrank hK42 hK51 hpins₁ hformers h hbk h3 hnd hctorsA hleafM' hoff' hfind' hctors
+    hkinds hrank hK42 hK51 hK60 hpins₁ hformers h hbk h3 hnd hctorsA hleafM' hoff' hfind' hctors
   -- the names
   have hnames : (fms.take p.k).map (·.cvTa.name) = p.memberNames := by
     rw [List.map_take, h.names]
@@ -2186,7 +2221,7 @@ theorem nestedStageFacts_of (hst : NestedCtorsStaged V μ F) (hμ : μ.verifiedC
       leafM := fun t f ht hft => (L.leafKeep t f ht hft).trans (hleafM' t f ht hft)
       FD := fun t f ht hft => FormerData.crossEnv' L.hde (hfind' t f ht hft).2
       ctorsLen := hctorsLen, ctorFacts := L.ctorFacts, domFacts := L.domFacts
-      pinArgs := L.pinArgs, ctorSlots := L.ctorSlots
+      pinArgs := L.pinArgs, pinArgsAbs := L.pinArgsAbs, ctorSlots := L.ctorSlots
       groups := L.groups, groupsAt := L.groupsAt }⟩
   intro n hn ψ
   have hnM : n ∉ p.memberNames := fun hm => hn (List.mem_append_left _ hm)

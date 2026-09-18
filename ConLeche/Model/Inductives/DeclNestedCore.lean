@@ -670,7 +670,7 @@ theorem nestedContainerModeled {F : Nat} {st : ElimState} {envAux : Env}
     (fun ψ => ⟨(O.typed ψ).1.crossEnv T.agree O.reps.toIsBlockModels,
       (O.typed ψ).2.1.crossEnv T.agree O.reps.toIsBlockModels,
       (O.typed ψ).2.2.crossEnv T.agree O.reps.toIsBlockModels ?_⟩)
-    (fun ψ mm' j fs => ofNested_inj ψ mm' j fs) ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ hown ?_ ?_ ?_
+    (fun ψ mm' j fs => ofNested_inj ψ mm' j fs) ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ hown ?_ ?_ ?_
   · -- `hk`
     rw [hdk, List.length_map, List.length_zip, List.length_take, hclen]
     omega
@@ -827,6 +827,98 @@ theorem nestedContainerModeled {F : Nat} {st : ElimState} {envAux : Env}
     obtain ⟨a, ha, ham⟩ := List.any_eq_true.mp hTm
     rw [hnP']
     exact ⟨a, ha, List.any_eq_true.mpr ⟨T, hT, ham⟩⟩
+  · -- `nestArgsMentionAbs`: THE SAME MENTION ON THE STORED
+    -- CONSTRUCTOR'S ABSTRACT DOMAIN (task #315 PINF).  K.60's Bool
+    -- reads that side and the transport from the opened one runs the
+    -- wrong way, so the fact is carried from the restore twice:
+    -- `NestedStageFacts.pinArgsAbs` hands the field's spine as the pin
+    -- LIFTED past the field binders (the abstract twin of the opened
+    -- form's close-and-reopen).  K.44 puts a member in a component, so
+    -- the pin mentions it; K.30's scope record licenses
+    -- `mentionsMember_abstractRange`; `mentionsConst_liftLooseBVars`
+    -- carries it across the lift; and the head it lands under is the
+    -- pin's CONTAINER, which is no member, so the mention is in an
+    -- argument.
+    intro i j l cA bs r dom q hi hcA hstrip hdom hn hq hk
+    have hql : q < st.pins.length := by rw [← O.record.nPins]; exact hq
+    have hpq : st.pins[q]? = some st.pins[q] := List.getElem?_eq_getElem hql
+    obtain ⟨hJ, hpin⟩ := O.record.pin q _ hpq
+    have hj' : ((ctorsR.getD i []).map (fun c => (c.1, c.2.2)))[j]? = some cA := by
+      rw [← O.record.ctors i (hdk ▸ hi)]; exact hcA
+    rw [List.getElem?_map] at hj'
+    cases hc : (ctorsR.getD i [])[j]? with
+    | none => rw [hc] at hj'; exact nomatch hj'
+    | some c =>
+      rw [hc] at hj'
+      obtain rfl : ((c.1, c.2.2) : ConstantVal × Nat) = cA := Option.some.inj hj'
+      obtain ⟨dd, hargs⟩ := O.stage.pinArgsAbs i j l c bs r dom st.pins[q].pin q (hdk ▸ hi) hc
+        hstrip hdom (by rw [hpin, hJ]) hn hk
+      -- K.30: the pin is closed and its variables are the first former's openers
+      obtain ⟨t₀, params, o, ht₀, hopen, hall⟩ := ConLeche.pinsScoped_inv hsc
+      have hty0 : st.types[0]? = some t₀ := by rw [← List.head?_eq_getElem?]; exact ht₀
+      have hnPb : b.nP = p.nP := (ConLeche.auxBlock_former hb).1
+      have hcvTa : f₀.cvTa = ⟨t₀.name, p.lps, t₀.type⟩ :=
+        nestedFormerType hb O O.facts.first hty0
+      have hop : ConLeche.openPisAtFvars b.nP f₀.cvTa.type 0 = some (params, o) := by
+        rw [hcvTa, hnPb]; exact hopen
+      obtain ⟨hchecks, -⟩ := ConLeche.mutualFormers_inv O.formers
+      obtain ⟨_cv', hd⟩ := ConLeche.mutualFormerChecksG_checked hchecks f₀
+        (List.mem_of_getElem? O.facts.first)
+      obtain ⟨hPres, -⟩ := ConLeche.rk_openPisAtFvars_constsResolve b.nP hop hd.resolve
+      have hfreshN : ∀ T ∈ (D).memberNames, (env.find? T).isNone := by
+        intro T hT; rw [hfreshMem _ hT]; rfl
+      obtain ⟨-, hleaf0⟩ := hall _ (List.mem_of_getElem? hpq)
+      have hlf : ∀ lf ∈ st.pins[q].pin.fvarLeaves,
+          ConLeche.mentionsMember (D).memberNames lf.2 = false := by
+        intro lf hlfm
+        exact ConLeche.mentionsMember_eq_false_of_constsResolve hfreshN
+          (hPres _ (hleaf0 lf hlfm))
+      -- K.44 at this pin: a component mentions a member, so the pin does
+      simp only [ConLeche.nestedPinMentionOk, List.all_eq_true, List.any_eq_true] at hmn
+      obtain ⟨e₀, he₀, hme₀⟩ := hmn _ (List.mem_of_getElem? hpq)
+      have hmemP : ConLeche.mentionsMember (D).memberNames st.pins[q].pin = true := by
+        rw [O.record.memberNames]
+        obtain ⟨T, hT, hTm⟩ := List.any_eq_true.mp hme₀
+        refine List.any_eq_true.mpr ⟨T, hT, ?_⟩
+        have h0 := ConLeche.rg_mentionsConst_mkAppN (n := T) st.pins[q].pin.getAppArgs
+          st.pins[q].pin.getAppFn
+        rw [Expr.mkAppN_getApp st.pins[q].pin] at h0
+        rw [h0]
+        exact Bool.or_eq_true_iff.mpr (Or.inr (List.any_eq_true.mpr ⟨e₀, he₀, hTm⟩))
+      -- the mention crosses the close and the lift
+      have hmemL : ConLeche.mentionsMember (D).memberNames
+          ((Expr.abstractRange st.pins[q].pin 0 p.nP 0).liftLooseBVars dd 0) = true :=
+        ConLeche.mentionsMember_liftLooseBVars dd 0
+          (ConLeche.mentionsMember_abstractRange 0 p.nP 0 hlf hmemP)
+      -- the head is the pin's container, which is no member of the block
+      have hfnP0 : st.pins[q].pin.getAppFn
+          = Expr.const st.pins[q].container ((D).pinAt q).lvls := by
+        rw [hpin, Expr.getAppFn_mkAppN]; rfl
+      have hfnL : ((Expr.abstractRange st.pins[q].pin 0 p.nP 0).liftLooseBVars dd 0).getAppFn
+          = Expr.const st.pins[q].container ((D).pinAt q).lvls :=
+        ConLeche.getAppFn_const_liftLooseBVars dd 0
+          (ConLeche.getAppFn_const_abstractRange 0 p.nP 0 hfnP0)
+      have hnotMem : ((D).pinAt q).J ∉ (D).memberNames := by
+        intro hmem
+        obtain ⟨ci, hci⟩ := hpinStored q hq
+        obtain ⟨cv, caps, hf⟩ := containerInfo?_found hci
+        rw [hfreshMem _ hmem] at hf
+        exact nomatch hf
+      rw [hargs]
+      obtain ⟨T, hT, hTm⟩ := List.any_eq_true.mp hmemL
+      have hsplit := ConLeche.rg_mentionsConst_mkAppN (n := T)
+        ((Expr.abstractRange st.pins[q].pin 0 p.nP 0).liftLooseBVars dd 0).getAppArgs
+        ((Expr.abstractRange st.pins[q].pin 0 p.nP 0).liftLooseBVars dd 0).getAppFn
+      rw [Expr.mkAppN_getApp ((Expr.abstractRange st.pins[q].pin 0 p.nP 0).liftLooseBVars dd 0),
+        hfnL] at hsplit
+      rw [hsplit] at hTm
+      have hhd : (Expr.const st.pins[q].container ((D).pinAt q).lvls).mentionsConst T = false := by
+        show (st.pins[q].container == T) = false
+        rw [← hJ]
+        exact beq_eq_false_iff_ne.mpr (fun heq => hnotMem (heq ▸ hT))
+      rw [hhd, Bool.false_or] at hTm
+      obtain ⟨a, ha, ham⟩ := List.any_eq_true.mp hTm
+      exact ⟨a, ha, List.any_eq_true.mpr ⟨T, hT, ham⟩⟩
   · -- `ctorProjFree`: the restored constructor's front-door
     -- `.proj`-slot fact, at the members' prefix environment, against
     -- the member's EMPTY slot there (task #315 PINF).  `ProjSlotsOk`
@@ -1198,6 +1290,8 @@ discharged modulo the loop by `nestedCoreModeled_of`. -/
       ConLeche.nestedPinNorms (m := ConLeche.CheckM) (fueledOps μ F)
           (ConLeche.consNestedFormers (stored.take p.k) env) b.memberNames jobsP = .ok wsP ∧
       ConLeche.nestedPinRewrites env p st params pbs₀ jobsP wsP = true) →
+    -- K.60: a container's nested field lands on a block pin
+    ConLeche.nestedCopyPinFieldsOk env p b st stored = true →
     -- POST-CHECK (a) A THIRD TIME (K.30): the pins typed at the
     -- environment holding the RESTORED formers
     ConLeche.nestedPinsOk (m := ConLeche.CheckM) (fueledOps μ F)
@@ -1410,7 +1504,7 @@ theorem declNested_of (hμ : μ.verifiedChecks = true) {F : Nat} {env envOut : E
   obtain ⟨h0, h1, st, b, envAux, stored, ctorsR, cvRms, cvRns, rulesM, rulesN, fmsA, ctorsA,
     hfA, hcA, helim, hcount, hfresh, hcont, hcomps, hb, haux, hstored, hclosed, hpinsAux,
     hcaps, hsrc,
-    -, hgrp, hmn, hsc, hlv, hK32, hkinds, hauxApps, hrank, -, -, -, hK42, hK51, -, hpins₁,
+    -, hgrp, hmn, hsc, hlv, hK32, hkinds, hauxApps, hrank, -, -, -, hK42, hK51, hK60, hpins₁,
     hctors,
     hrm, hrn,
     hndR, hdisj,
@@ -1443,10 +1537,11 @@ theorem declNested_of (hμ : μ.verifiedChecks = true) {F : Nat} {env envOut : E
   -- PIN targets — the normalisation of the minted domain REWRITTEN —
   -- which lane L-B's `ordF`-RIGHT arm reads at a pin target and nothing
   -- on this path does, so it is carried by the run relation and picked
-  -- up where that arm is assembled; the `-` after `hK51` is K.60's
+  -- up where that arm is assembled; `hK60` after `hK51` is K.60's
   -- `nestedCopyPinFieldsOk` — a container's nested field lands on a
   -- block pin, K.32's twin the other way round — which the copies'
-  -- `pinF` arm reads and nothing on this path does;
+  -- `pinF` arm reads and nothing on this path does, so it is carried
+  -- down to `NestedPinsRun` beside K.32 and K.51;
   -- then K.34's `blockReadBackOk` (`hrb`) — the route's own
   -- read-back, which the block this route stores needs and `mp.blocks`
   -- carries for the rest — and the LAST two `-` are K.47's
@@ -1486,7 +1581,7 @@ theorem declNested_of (hμ : μ.verifiedChecks = true) {F : Nat} {env envOut : E
   obtain ⟨fms, f₀, ctorsA', sortss, kinds, mp₁, ppsF, W, idxF, dsF, esF, srcsF, fvsPF, xFvsF, xrestF,
     eissF, tssF, dsR, xFvsR, pinsS, mp₂, henv, O⟩ := hcore hμ mp.toEnvModelM hE p st b envAux stored
     ctorsR fmsA ctorsA hPM h0 h1 hfA hcA helim hcount hfresh hcont hb haux hstored hclosed hpinsAux
-    hcaps hsrc hgrp hsc hK32 hkinds hrank hK42 hK51 hpins₁ hctors
+    hcaps hsrc hgrp hsc hK32 hkinds hrank hK42 hK51 hK60 hpins₁ hctors
   obtain ⟨mpOut, T⟩ := htail hμ mp.toEnvModelM hE p envOut st b envAux stored ctorsR cvRms cvRns
     rulesM rulesN fmsA ctorsA hPM h0 h1 hfA hcA helim hcount hfresh hcont hb haux hstored hclosed
     hpinsAux hcaps hsrc hgrp hkinds hauxApps hctors hrm hrn hndR hdisj hrulesM hrulesN htbl
@@ -1659,7 +1754,7 @@ theorem nestedCoreModeled_of {F : Nat} (hst : NestedCtorsStaged V μ F) :
     NestedCoreModeled V μ F := by
   intro hμ env mp hE p st b envAux stored ctorsR fmsA ctorsA₀ hPM h0 h1 hfA hcA helim hcount hfresh
     hcont hb haux hstored hclosed hpinsAux hcaps hsrc hgrp hsc hK32 hkinds hrank hK42 hK51
-    hpins₁
+    hK60 hpins₁
     hctors
   obtain ⟨hnd, hlp, hmem, h3, env₁, fms, f₀, tq₀, ctorsA, sortss, kinds, formers4, ctors4, cvRas,
     rulesOf, hformers, hf₀, htq₀, hcross, -, hctorsA, hkindsA, hfo, -, -, -, -⟩ :=
@@ -1672,7 +1767,7 @@ theorem nestedCoreModeled_of {F : Nat} (hst : NestedCtorsStaged V μ F) :
   rw [henv] at hctors hpins₁
   obtain ⟨mp₂, dsR, xFvsR, pinsS, S⟩ := nestedStageFacts_of hst hμ hE hPM h0 h1 hfA hcA helim hcount
     hfresh hcont hb haux hstored hclosed hpinsAux hcaps hsrc hgrp hsc hK32 hkinds hrank hK42 hK51
-    hpins₁
+    hK60 hpins₁
     hnd h3
     hformers hctorsA h hbk hctors
   have hbk' : b.k = p.k + pinsS.length := by rw [hbk, S.pinsLen]

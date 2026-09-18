@@ -194,6 +194,12 @@ the restore closes the pin over the parameters and reopens it at the
 constructor's own variables, and those differ from the block's by
 definitional unfolding, so the two spines need not be equal — but a
 mention survives both steps, and a mention is all the proof asks for.
+That mention is recorded twice over, on the field's *opened* spine and
+on the stored constructor's own: the opened spine is the one the
+readings work on, the stored one is what the checker's record about the
+classification is tested against, and a mention travels only from the
+stored form to the opened one — an opened variable's type annotation
+can carry a mention the stored form does not have.
 A third is recorded for a different reason again: that no projection
 node in a container's stored constructor type names one of that
 container's own members.  That is true, and the constant check is what

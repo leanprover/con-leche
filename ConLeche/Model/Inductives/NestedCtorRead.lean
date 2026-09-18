@@ -859,6 +859,67 @@ theorem ReadCtx.restoredOpened {mm j : Nat} {c : ConstantVal × Nat × Nat} (hmm
       refine Or.inr (Or.inr ⟨q, qn, tbs, is₀, afvs, _, hq, htq, hk, hopA, hstrip, his, ?_⟩)
       exact hc' _ tbs qn.aux (b.lps.map .param) _ is₀ hstrip htbs hpl hrl
 
+/-- **THE RESTORED ABSTRACT FIELD DOMAIN AT A PIN** (task #315 PINF):
+`restoredOpened` states the restore's per-field effect on the OPENED
+domains, which is what the reading law wants; K.60's guard reads the
+CLOSED ones — a container's stored constructor stripped, with bound
+variables where the parameters and the earlier fields stand — and the
+two are related only in the direction that loses the fact (an opener's
+annotation can carry a mention the abstract domain does not have).
+
+So the abstract side is proved here, directly off the walk:
+`restoreNested` strips the parameter binders itself
+(`restoreNested_pis`) and `restoreWalk_stripPis_pin` reads the field
+telescope at the depth the field stands under. -/
+theorem ReadCtx.restoredAbsPin {mm j : Nat} {c : ConstantVal × Nat × Nat}
+    {cA : ConstantVal × Nat} (hmm : mm < p.k) (hc : (ctorsR.getD mm [])[j]? = some c)
+    (hJ : ctorsA[b.ownOffset mm + j]? = some cA)
+    {cbsA cbs' : List (Expr × BinderMeta)} {rA r' : Expr}
+    (hstripA : cA.1.type.stripPis (b.nP + cA.2) = some (cbsA, rA))
+    (hstripR : c.1.type.stripPis (b.nP + cA.2) = some (cbs', r'))
+    {l : Nat} {domA dom' : Expr × BinderMeta}
+    (hdA : cbsA[b.nP + l]? = some domA) (hdR : cbs'[b.nP + l]? = some dom')
+    {n : Name} {us : List Level} {pin : Expr}
+    (hfn : domA.1.getAppFn = .const n us) (hlenA : b.nP ≤ domA.1.getAppArgs.length)
+    (hp : (ConLeche.restoreTbl p st).pins.lookup n = some pin)
+    (hrecm : (ConLeche.restoreTbl p st).recMap.lookup n = none) :
+    dom'.1 = Expr.mkAppN (pin.liftLooseBVars l 0) (domA.1.getAppArgs.drop b.nP) := by
+  have hres : ConLeche.restoreNested (ConLeche.restoreTbl p st) cA.1.type = .ok c.1.type := by
+    obtain ⟨-, cA', hJ', -, -, hres₀, -, -⟩ := C.ctorFacts hmm hc
+    obtain rfl : cA' = cA := Option.some.inj (hJ'.symm.trans hJ)
+    exact hres₀
+  have hRnP : (ConLeche.restoreTbl p st).nP = b.nP := by
+    rw [ConLeche.restoreTbl_nP, C.hnP]
+  obtain ⟨mid, hs1, hs2⟩ := ConLeche.rk_stripPis_split b.nP cA.2 hstripA
+  have hclA : cbsA.length = b.nP + cA.2 := Expr.stripPis_length _ hstripA
+  have htk : (cbsA.take b.nP).length = b.nP := by rw [List.length_take, hclA]; omega
+  have hs : cA.1.type.stripPis (ConLeche.restoreTbl p st).nP = some (cbsA.take b.nP, mid) := by
+    rw [hRnP]; exact hs1
+  have hpi : 0 < (ConLeche.restoreTbl p st).nP →
+      ∃ ty bb bm, cA.1.type = Expr.forallE ty bb bm := by
+    intro hlt
+    rw [hRnP] at hlt
+    obtain ⟨n₀, hn₀⟩ : ∃ n₀, b.nP = n₀ + 1 := ⟨b.nP - 1, by omega⟩
+    rw [hn₀] at hs1
+    cases hty : cA.1.type with
+    | forallE ty bb bm => exact ⟨ty, bb, bm, rfl⟩
+    | bvar _ | fvar _ _ | sort _ | const _ _ | app _ _
+    | lam _ _ _ | letE _ _ _ | lit _ | proj _ _ _ => rw [hty] at hs1; exact nomatch hs1
+  obtain ⟨body', hw, htyR⟩ := ConLeche.restoreNested_pis hs hpi hres
+  rw [ConLeche.mkPisB_eq_foldr] at htyR
+  obtain ⟨mid', hr1, hr2⟩ := ConLeche.rk_stripPis_split b.nP cA.2 hstripR
+  have hmk : c.1.type.stripPis b.nP = some (cbsA.take b.nP, body') := by
+    rw [htyR]
+    have h := ConLeche.rk_mkPisB_stripPis (cbsA.take b.nP) body'
+    rw [htk] at h; exact h
+  obtain rfl : mid' = body' := (Prod.mk.inj (Option.some.inj (hr1.symm.trans hmk))).2
+  have hA' : (cbsA.drop b.nP)[l]? = some domA := by rw [List.getElem?_drop]; exact hdA
+  have hR' : (cbs'.drop b.nP)[l]? = some dom' := by rw [List.getElem?_drop]; exact hdR
+  have hkey := ConLeche.restoreWalk_stripPis_pin (ConLeche.restoreTbl_keysInAux p st)
+    hw hs2 hr2 hA' hR' hfn (by rw [hRnP]; exact hlenA) hp hrecm
+  rw [Nat.zero_add, hRnP] at hkey
+  exact hkey
+
 /-- **The restored constructor's syntactic record** (`restoredOpened`'s
 conjuncts, named). -/
 structure RestoredCtor (mm j : Nat) (c : ConstantVal × Nat × Nat) (cA : ConstantVal × Nat)
@@ -887,6 +948,20 @@ structure RestoredCtor (mm j : Nat) (c : ConstantVal × Nat × Nat) (cA : Consta
   fields : ∀ (i : Nat) (x : Expr), (xFvsF (b.ownOffset mm + j))[i]? = some x →
     ∃ ty', xFvsRc[i]? = some (.fvar (b.nP + i) ty') ∧
       RestoredField p st b (mutKsOf kinds (b.ownOffset mm + j)) (fvsPF (b.ownOffset mm + j)) i x ty'
+  /-- **the ABSTRACT field domain at a pin** (task #315 PINF):
+  `fields` is on the OPENED domains, which is the reading law's side;
+  K.60's guard reads the closed ones and the transport between them
+  runs only abstract ⟹ opened, so the pin case is carried here in the
+  form `stripPis` leaves (`ReadCtx.restoredAbsPin`). -/
+  absPin : ∀ (cbsA cbs' : List (Expr × BinderMeta)) (rA r' : Expr) (l : Nat)
+      (domA dom' : Expr × BinderMeta) (n : Name) (us : List Level) (pin : Expr),
+    cA.1.type.stripPis (b.nP + cA.2) = some (cbsA, rA) →
+    c.1.type.stripPis (b.nP + cA.2) = some (cbs', r') →
+    cbsA[b.nP + l]? = some domA → cbs'[b.nP + l]? = some dom' →
+    domA.1.getAppFn = .const n us → b.nP ≤ domA.1.getAppArgs.length →
+    (ConLeche.restoreTbl p st).pins.lookup n = some pin →
+    (ConLeche.restoreTbl p st).recMap.lookup n = none →
+    dom'.1 = Expr.mkAppN (pin.liftLooseBVars l 0) (domA.1.getAppArgs.drop b.nP)
 
 theorem ReadCtx.restoredCtor {mm j : Nat} {c : ConstantVal × Nat × Nat} (hmm : mm < p.k)
     (hc : (ctorsR.getD mm [])[j]? = some c) :
@@ -896,7 +971,9 @@ theorem ReadCtx.restoredCtor {mm j : Nat} {c : ConstantVal × Nat × Nat} (hmm :
         (st := st) mm j c cA crestR xFvsRc := by
   obtain ⟨cA, crestR, xFvsRc, h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12, h13⟩ :=
     C.restoredOpened hmm hc
-  exact ⟨cA, crestR, xFvsRc, ⟨hmm, h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12, h13⟩⟩
+  exact ⟨cA, crestR, xFvsRc, ⟨hmm, h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12, h13,
+    fun _ _ _ _ _ _ _ _ _ _ hA hR hdA hdR hfn hlen hp hrec =>
+      C.restoredAbsPin hmm hc h1 hA hR hdA hdR hfn hlen hp hrec⟩⟩
 
 /-! ### The binder bits, shared -/
 
@@ -1835,7 +1912,7 @@ theorem ReadCtx.nestedCtorRead_of {mm j : Nat} {c : ConstantVal × Nat × Nat} {
   have hinput := C.input_of RC RS hagree
   have hName : (D).memberName mm = (fms.getD mm default).cvTa.name := C.dName RC
   have hNIdx : (D).nIdxAt mm = (fms.getD mm default).nIdx := C.dNIdx RC
-  refine ⟨?_, ?_, fun ψ => ?_, ?_, ?_⟩
+  refine ⟨?_, ?_, fun ψ => ?_, ?_, ?_, ?_⟩
   · rw [RC.hnF]; exact hinput
   · rw [RC.hnF]
     show BlockCtorData mp₁'.base2 env ((D).memberName mm) _ _ _ _ b.lps c.1 b.nP cA.2 ((D).nIdxAt mm) f₀.s
@@ -1902,6 +1979,114 @@ theorem ReadCtx.nestedCtorRead_of {mm j : Nat} {c : ConstantVal × Nat × Nat} {
         = (Expr.instSeq (fvsPF (b.ownOffset mm + j)) (b.nP - 1)
             (Expr.abstractRange qn.pin 0 p.nP 0)).getAppArgs
       rw [hty, Expr.getAppArgs_mkAppN, List.take_left' hPargs]
+    · rw [hk'] at hkr; exact nomatch hkr
+  · -- **the nested field's ABSTRACT parameter arguments**: the same
+    -- pin case read one step earlier, where `stripPis` leaves the
+    -- domain (task #315 PINF, `ReadCtx.restoredAbsPin`)
+    intro l bs r dom pin q hstripR hdom hpinE hn hk
+    have hCD := C.h.CD (b.ownOffset mm + j) cA RC.hJ
+    have hk' : kindAt (mutKsOf kinds (b.ownOffset mm + j)) l = .recursive := by
+      rw [← kindsOf_getD']; exact hk
+    have htg : tgtAt (mutKsOf kinds (b.ownOffset mm + j)) l = p.k + q := by
+      rcases Nat.lt_or_ge (tgtAt (mutKsOf kinds (b.ownOffset mm + j)) l) p.k with h | h
+      · rw [(D).nestOf_none h] at hn; exact nomatch hn
+      · rw [(D).nestOf_some (Nat.not_lt.mpr h)] at hn
+        have h2 : tgtAt (mutKsOf kinds (b.ownOffset mm + j)) l - p.k = q := Option.some.inj hn
+        omega
+    obtain ⟨cbsA, cbs', es, hstripA, hstripR₀, -, -⟩ := RC.resid
+    -- the two `stripPis` calls are the same call
+    have hnF : c.2.2 = cA.2 := RC.hnF
+    have hbsEq : bs = cbs' := by
+      have h := hstripR
+      rw [hnF] at h
+      exact (Prod.mk.inj (Option.some.inj (h.symm.trans hstripR₀))).1
+    -- the field index is in range
+    have hclR : bs.length = b.nP + cA.2 := by
+      rw [hbsEq]; exact Expr.stripPis_length _ hstripR₀
+    have hDnP : (D).nP = b.nP := rfl
+    have hlF : l < cA.2 := by
+      have hin := (List.getElem?_eq_some_iff.mp hdom).1
+      rw [hclR, hDnP] at hin
+      omega
+    have hclA : cbsA.length = b.nP + cA.2 := Expr.stripPis_length _ hstripA
+    obtain ⟨domA, hdomA⟩ : ∃ domA, cbsA[b.nP + l]? = some domA :=
+      ⟨_, List.getElem?_eq_getElem (by omega)⟩
+    -- the auxiliary field, opened: its head is the mimic
+    obtain ⟨x₀, hx₀⟩ : ∃ y, (xFvsF (b.ownOffset mm + j))[l]? = some y :=
+      ⟨_, List.getElem?_eq_getElem (by rw [hCD.xLen]; exact hlF)⟩
+    obtain ⟨ty', hxR, hRF⟩ := RC.fields l x₀ hx₀
+    unfold RestoredField at hRF
+    rcases hRF with ⟨hA, -⟩ | ⟨q', qn, hq', htg', -, hxdom, -⟩ |
+        ⟨-, -, -, -, -, -, -, -, hkr, -, -, -, -⟩
+    · exfalso
+      rcases hA with h | h
+      · rw [hk'] at h; exact nomatch h
+      · omega
+    · have hqq : q' = q := by omega
+      subst hqq
+      obtain ⟨hJn, hpin⟩ := C.PF.pinRec q' qn hq'
+      obtain ⟨hpl, hrl⟩ := C.pinLookup hq'
+      have hql : q' < pinsS.length := by
+        rw [C.PF.pinsLen]; exact (List.getElem?_eq_some_iff.mp hq').1
+      obtain rfl : pin = qn.pin := by
+        rw [hpinE, hpin]
+        show Expr.mkAppN (Expr.const (pinsS.getD q' default).J (pinsS.getD q' default).lvls)
+            (pinsS.getD q' default).DsE
+          = Expr.mkAppN (Expr.const qn.container (pinsS.getD q' default).lvls)
+            (pinsS.getD q' default).DsE
+        rw [hJn]
+      -- the two openings of the AUXILIARY constructor, and the bridge
+      obtain ⟨crestA, hopPA, hopXA⟩ := hCD.opens
+      obtain ⟨bodyA, hopAll⟩ : ∃ bodyA, openPisAtFvars (b.nP + cA.2) cA.1.type 0
+          = some (fvsPF (b.ownOffset mm + j) ++ xFvsF (b.ownOffset mm + j), bodyA) :=
+        ⟨_, openPisAtFvars_add b.nP hopPA (by rw [Nat.zero_add]; exact hopXA)⟩
+      obtain ⟨residA, hsplitA⟩ : ∃ residA, cA.1.type.stripPis (b.nP + cA.2)
+          = some (cbsA.take b.nP ++ cbsA.drop b.nP, residA) :=
+        ⟨_, by rw [List.take_append_drop]; exact hstripA⟩
+      have htkA : (cbsA.take b.nP).length = b.nP := by rw [List.length_take, hclA]; omega
+      have hdropA : (cbsA.drop b.nP)[l]? = some domA := by
+        rw [List.getElem?_drop]; exact hdomA
+      have hfnOp : x₀.fvarTypeD.getAppFn = Expr.const qn.aux (b.lps.map .param) := by
+        rw [hxdom, Expr.getAppFn_mkAppN]; rfl
+      have hfnA : domA.1.getAppFn = Expr.const qn.aux (b.lps.map .param) :=
+        ConLeche.os_field_domain_head b.nP cA.2 l hopAll hsplitA hCD.pLen htkA hx₀ hdropA hfnOp
+      have hargsA : x₀.fvarTypeD.getAppArgs
+          = domA.1.getAppArgs.map (Expr.instSeq (fvsPF (b.ownOffset mm + j)
+              ++ (xFvsF (b.ownOffset mm + j)).take l) (b.nP + l - 1) ·) :=
+        ConLeche.os_field_domain_args b.nP cA.2 l hopAll hsplitA hCD.pLen htkA hx₀ hdropA
+      have hlenA : b.nP ≤ domA.1.getAppArgs.length := by
+        have h1 : x₀.fvarTypeD.getAppArgs.length = domA.1.getAppArgs.length := by
+          rw [hargsA, List.length_map]
+        have h2 := congrArg Expr.getAppArgs hxdom
+        rw [Expr.getAppArgs_mkAppN] at h2
+        simp only [show (Expr.const qn.aux (b.lps.map Level.param)).getAppArgs = [] from rfl,
+          List.nil_append] at h2
+        have h5 := congrArg List.length h2
+        rw [List.length_append, hCD.pLen, List.length_drop] at h5
+        omega
+      -- the abstract restored domain, and its spine
+      have habs := RC.absPin cbsA bs _ r l domA dom qn.aux (b.lps.map .param) _
+        hstripA (by rw [hnF] at hstripR; exact hstripR) hdomA hdom hfnA hlenA hpl hrl
+      -- the pin's own arity
+      have hDs := C.PF.pinDs q' hql (fun _ => 0)
+      obtain ⟨q₀, kJ, i', dJ, hqe, hi', G⟩ := C.PF.groups dsR xFvsR q' hql
+      have hnp : (pinsS.getD q' default).nPJ = dJ.nP := by rw [hqe]; exact G.pinNP i' hi'
+      have hdl : ((pinsS.getD q' default).Ds (fun _ => 0)).length = dJ.nP := by
+        rw [hqe]; exact G.pinDsLen i' hi' (fun _ => 0)
+      have hDsLen : (pinsS.getD q' default).DsE.length = (pinsS.getD q' default).nPJ := by
+        rw [hDs.length, hdl, hnp]
+      have hPargs : ((Expr.abstractRange qn.pin 0 p.nP 0).liftLooseBVars l 0).getAppArgs.length
+          = (pinsS.getD q' default).nPJ := by
+        rw [ConLeche.getAppArgs_length_liftLooseBVars, ConLeche.getAppArgs_length_abstractRange,
+          hpin, Expr.getAppArgs_mkAppN]
+        show ((Expr.const qn.container (pinsS.getD q' default).lvls).getAppArgs
+          ++ (pinsS.getD q' default).DsE).length = _
+        rw [show (Expr.const qn.container (pinsS.getD q' default).lvls).getAppArgs = [] from rfl,
+          List.nil_append]
+        exact hDsLen
+      refine ⟨l, ?_⟩
+      show dom.1.getAppArgs.take (pinsS.getD q' default).nPJ = _
+      rw [habs, Expr.getAppArgs_mkAppN, List.take_left' hPargs]
     · rw [hk'] at hkr; exact nomatch hkr
   · -- the front door's own `.proj`-slot fact, at the members' prefix
     -- environment (task #315 PINF)

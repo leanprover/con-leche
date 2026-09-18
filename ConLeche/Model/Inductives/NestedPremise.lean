@@ -297,6 +297,38 @@ structure ContainerModeled {env : Env} (m : EnvModel V env) (ci : ContainerInfo)
     (d.ksF i j).getD l .ordinary = .recursive →
     ∃ e ∈ x.fvarTypeD.getAppArgs.take (d.pinAt q).nPJ,
       ConLeche.mentionsMember d.memberNames e = true
+  /-- **AND THE SAME ON THE STORED CONSTRUCTOR'S ABSTRACT DOMAIN**
+  (task #315 PINF, DESIGN "(ii)'s price MEASURED BEFORE IT WAS BUILT").
+
+  `nestArgsMention` is the OPENED spelling, which is the side
+  `BlockOpened` works on.  K.60's Bool
+  (`nestedCopyPinFieldsOk`) reads the CLOSED one — it strips the
+  container's stored constructor to `nP + nFields` binders and tests
+  `jbs[nP + l]`'s own argument spine — and it MUST: the classification
+  it concludes about is computed on that same stored type, and a member
+  mention that lives only in an opener's ANNOTATION mints no pin, so a
+  guard on the opened domain would claim something false.
+
+  The two do not derive from one another.  `Expr.mentionsConst`
+  descends into an `.fvar`'s annotation, so an earlier RECURSIVE
+  field's opener carries a member mention into the opened spine that
+  the abstract one does not have: abstract ⟹ opened
+  (`mentionsMember_instSeq`), never back.  So both sides are carried,
+  from the restore, where the field's spine is still visibly the pin —
+  here LIFTED past the field binders rather than closed and reopened
+  (`NestedStageFacts.pinArgsAbs`).
+
+  Recursive only and with `q < d.nPins`, in `nestArgsMention`'s own
+  idiom. -/
+  nestArgsMentionAbs : ∀ (i j l : Nat) (cA : ConstantVal × Nat)
+      (bs : List (Expr × ConLeche.BinderMeta)) (r : Expr)
+      (dom : Expr × ConLeche.BinderMeta) (q : Nat), i < d.k →
+    (d.ctorsM i)[j]? = some cA →
+    cA.1.type.stripPis (d.nP + cA.2) = some (bs, r) → bs[d.nP + l]? = some dom →
+    d.nestOf i j l = some q → q < d.nPins →
+    (d.ksF i j).getD l .ordinary = .recursive →
+    ∃ e ∈ dom.1.getAppArgs.take (d.pinAt q).nPJ,
+      ConLeche.mentionsMember d.memberNames e = true
   /-- **NO `.proj` NODE OF A STORED CONSTRUCTOR TYPE NAMES A MEMBER**
   (task #315 PINF, DESIGN "the `ConstWF` fifth clause does NOT deliver
   the derivation").
@@ -421,6 +453,32 @@ structure ContainerModeled {env : Env} (m : EnvModel V env) (ci : ContainerInfo)
   neighbours. -/
   pinParams : ∀ (i : Nat) (M : ConLeche.ContainerMember), ci.members[i]? = some M →
     ContainerPinParams (V := V) ⟨M.name, M.lps, M.type⟩ d
+
+/-- **The block model's member names ARE the container group's**, as
+lists (task #315 PINF): `k` and `namesLen` give the length and
+`member` the entries.  What a consumer needs to hand a
+`mentionsMember` of the model's list to a kernel record spelled on the
+group's (`nestedCopyPinFieldsOk`), and back. -/
+theorem ContainerModeled.memberNames_eq {env : Env} {m : EnvModel V env} {ci : ContainerInfo}
+    {d : BlockModel V} (C : ContainerModeled m ci d) :
+    d.memberNames = ci.members.map (·.name) := by
+  have hlen : d.memberNames.length = (ci.members.map (·.name)).length := by
+    rw [C.namesLen, C.k, List.length_map]
+  refine List.ext_getElem hlen ?_
+  intro i h1 h2
+  have hik : i < ci.members.length := by rw [List.length_map] at h2; exact h2
+  obtain ⟨M, hM⟩ : ∃ M, ci.members[i]? = some M := ⟨_, List.getElem?_eq_getElem hik⟩
+  have hname := (C.member i M hM).1
+  have hmn : d.memberNames[i] = d.memberName i := by
+    show _ = d.memberNames.getD i .anonymous
+    rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem h1]; rfl
+  have hml : (ci.members.map (·.name))[i] = M.name := by
+    have h := List.getElem?_map (f := fun M : ConLeche.ContainerMember => M.name)
+      (l := ci.members) (i := i)
+    rw [hM] at h
+    rw [List.getElem?_eq_getElem h2] at h
+    exact Option.some.inj h
+  rw [hmn, hml, hname]
 
 /-- **A member's index telescope is bounded at the parameters** — the
 MEMBER twin of `pinIds_below` (task #315 L-E, DESIGN §U.77). -/

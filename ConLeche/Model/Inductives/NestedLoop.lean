@@ -266,6 +266,28 @@ structure NestedCtorRead (mp₁ : EnvModelM V μ ENV₁) (mm j : Nat) (c : Const
     x.fvarTypeD.getAppArgs.take ((D).pinAt q).nPJ
       = (Expr.instSeq ((D).fvsPF mm j) ((D).nP - 1)
           (Expr.abstractRange pin 0 p.nP 0)).getAppArgs
+  /-- **AND THE SAME ON THE ABSTRACT DOMAIN** (task #315 PINF): the
+  clause above is on the OPENED spine, which is the side the reading
+  law works on.  K.60's guard reads the CLOSED one — the container's
+  stored constructor STRIPPED — and the transport between the two runs
+  only abstract ⟹ opened (an opener's annotation can carry a mention
+  the abstract domain does not have), so the pin case is carried on
+  BOTH sides from here.
+
+  The lift is the abstract twin of the opened form's reopening: the
+  pin lives in the parameter context, so under `l` field binders it
+  stands lifted by `l`.  The depth is existential because the
+  consumer's use of it is a MENTION, and a mention survives any lift
+  (`mentionsConst_liftLooseBVars`). -/
+  pinArgsAbs : ∀ (l : Nat) (bs : List (Expr × BinderMeta)) (r : Expr)
+      (dom : Expr × BinderMeta) (pin : Expr) (q : Nat),
+    c.1.type.stripPis ((D).nP + c.2.2) = some (bs, r) →
+    bs[(D).nP + l]? = some dom →
+    pin = Expr.mkAppN (.const ((D).pinAt q).J ((D).pinAt q).lvls) ((D).pinAt q).DsE →
+    (D).nestOf mm j l = some q →
+    ((D).ksF mm j).getD l .ordinary = .recursive →
+    ∃ d : Nat, dom.1.getAppArgs.take ((D).pinAt q).nPJ
+      = ((Expr.abstractRange pin 0 p.nP 0).liftLooseBVars d 0).getAppArgs
   /-- **THE RESTORED CONSTRUCTOR'S STORED TYPE HAS ITS `.proj` SLOTS AT
   THE MEMBERS' PREFIX ENVIRONMENT** (task #315 PINF): the front door's
   own `slots`, kept because it is the only place the fact is TRUE.
@@ -364,6 +386,8 @@ container block model per group. -/
       ConLeche.nestedPinNorms (m := ConLeche.CheckM) (fueledOps μ F)
           (ConLeche.consNestedFormers (stored.take p.k) env) b.memberNames jobsP = .ok wsP ∧
       ConLeche.nestedPinRewrites env p st params pbs₀ jobsP wsP = true) →
+    -- K.60: a container's nested field lands on a block pin
+    ConLeche.nestedCopyPinFieldsOk env p b st stored = true →
     -- POST-CHECK (a) A THIRD TIME (K.30): the pins typed at the prefix
     -- formers' environment
     ConLeche.nestedPinsOk (m := ConLeche.CheckM) (fueledOps μ F)
@@ -558,6 +582,7 @@ theorem nestedLoopFacts_of (hpins : NestedPinsStaged V μ F) (hread : NestedRead
       ConLeche.nestedPinNorms (m := ConLeche.CheckM) (fueledOps μ F)
           (ConLeche.consNestedFormers (stored.take p.k) env) b.memberNames jobsP = .ok wsP ∧
       ConLeche.nestedPinRewrites env p st params pbs₀ jobsP wsP = true)
+    (hK60 : ConLeche.nestedCopyPinFieldsOk env p b st stored = true)
     (hpins₁ : ConLeche.nestedPinsOk (m := ConLeche.CheckM) (fueledOps μ F) ENV₁ p.nP st.pins = .ok ())
     (hformers : ConLeche.mutualFormers (m := ConLeche.CheckM) (fueledOps μ F) b.nP b.formers env true
       = .ok (ConLeche.consMutualFormers fms env, fms))
@@ -590,7 +615,7 @@ theorem nestedLoopFacts_of (hpins : NestedPinsStaged V μ F) (hread : NestedRead
         (tssF := tssF) (ctorsR := ctorsR) (dsR := dsR) (xFvsR := xFvsR) (pinsS := pinsS) st mp₁' mp₂ := by
   obtain ⟨pinsS, PF⟩ := hpins hμ mp hE p st b envAux stored ctorsR fmsA ctorsA₀ fms f₀ ctorsA sortss kinds mp₁ ppsF W idxF dsF
     esF srcsF fvsPF xFvsF xrestF eissF tssF mp₁' hPM h0 h1 hfA hcA helim hcount hfresh hcont hb haux
-    hstored hclosed hpinsAux hcaps hsrc hgrp hsc hK32 hkinds hrank hK42 hK51 hpins₁ hformers h hbk h3
+    hstored hclosed hpinsAux hcaps hsrc hgrp hsc hK32 hkinds hrank hK42 hK51 hK60 hpins₁ hformers h hbk h3
     hnd
     hctorsA hleafM' hoff' hfind' hctors
   obtain ⟨dsR, xFvsR, hR⟩ := hread hμ mp hE p st b envAux stored ctorsR fmsA ctorsA₀ fms f₀ ctorsA sortss kinds mp₁ ppsF W idxF dsF
@@ -705,6 +730,8 @@ theorem nestedLoopFacts_of (hpins : NestedPinsStaged V μ F) (hread : NestedRead
       pinArgs := fun mm j l x pin q hmm hj hx hpinE hn hk => by
         obtain ⟨c, hc⟩ : ∃ c, (ctorsR.getD mm [])[j]? = some c := ⟨_, List.getElem?_eq_getElem hj⟩
         exact (hR mm j c hmm hc).pinArgs l x pin q hx hpinE hn hk
+      pinArgsAbs := fun mm j l c bs r dom pin q hmm hc hs hd hpinE hn hk =>
+        (hR mm j c hmm hc).pinArgsAbs l bs r dom pin q hs hd hpinE hn hk
       ctorSlots := fun mm j c hmm hc => (hR mm j c hmm hc).ctorSlots }⟩
   · -- the members' leaves
     intro t f ht hft
@@ -772,9 +799,9 @@ theorem nestedCtorsStaged_of {F : Nat} (hpins : NestedPinsStaged V μ F)
     (hread : NestedReadLaw V μ F) : NestedCtorsStaged V μ F :=
   fun hμ _ mp hE _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ mp₁' hPM h0 h1 hfA hcA helim
     hcount hfresh hcont hb haux hstored hclosed hpinsAux hcaps hsrc hgrp hsc hK32 hkinds hrank hK42
-    hK51 hpins₁ hformers h hbk h3 hnd hctorsA hleafM' hoff' hfind' hctors =>
+    hK51 hK60 hpins₁ hformers h hbk h3 hnd hctorsA hleafM' hoff' hfind' hctors =>
   nestedLoopFacts_of hpins hread hμ hE (mp := mp) mp₁' hPM h0 h1 hfA hcA helim hcount hfresh hcont
-    hb haux hstored hclosed hpinsAux hcaps hsrc hgrp hsc hK32 hkinds hrank hK42 hK51 hpins₁ hformers h
+    hb haux hstored hclosed hpinsAux hcaps hsrc hgrp hsc hK32 hkinds hrank hK42 hK51 hK60 hpins₁ hformers h
     hbk h3 hnd hctorsA hleafM' hoff' hfind' hctors
 
 end ConLeche.Model
