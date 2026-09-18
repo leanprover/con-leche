@@ -31,6 +31,20 @@ occurrence walk looks in two places the reading does *not*:
 performs, `mentionsConstProj` the one clause that separates it from
 `Expr.mentionsConst` once the leaves are excluded, and
 `mentionsConstRead_of_mentionsConst` the bridge between them.
+
+**A HAZARD THIS MODULE PAID FOR, and the reason its proofs unfold
+`Expr.getAppFn` through DEFEQ rather than by name** (task #315 L-B,
+2026-09-18).  `simp only [f]`/`unfold f`/`rw [f]` at a FOREIGN
+definition generates that definition's equation lemmas *in the module
+that first asks for them*; every later proof reusing them then names
+this module, and this module enters its proof term — even though
+nothing references a declaration written here.  Two theorems nobody
+consumed put `NestedCopyFound` into all ten capstones' closures that
+way, and `tests/proofdeps.sh` caught it on a merge rather than at the
+site.  **In a low-tier module, reduce someone else's definition through
+defeq** (`show`, `exact nomatch (h : …)`, a `have` at the reduced type)
+**or through a lemma its own module exports.**  The gate's header
+carries the full note.
 -/
 
 namespace ConLeche.Model
