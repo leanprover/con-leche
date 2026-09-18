@@ -422,4 +422,34 @@ theorem pinnedInfo_ctorInfo_cases {n : Name} {cv : ConstantVal} {nP nF : Nat}
   rw [if_neg h20] at h
   exact nomatch h
 
+
+/-! ## The pinned basis blocks' major premises (task #315 K.55's sibling)
+
+The crossing's premise asks of EVERY stored recursor that its type,
+stripped at the major index, has a domain headed by a `const`.  For the
+routes that GENERATE the type it is a property of the generator
+(`mutualRecTy_majorDom`, `structRecTyR_majorDom`); for the modeled route it is
+recorded (K.55).  For the pinned basis blocks the constants are
+LITERALS, so it is decided. -/
+
+/-- **EVERY PINNED BASIS RECURSOR'S MAJOR PREMISE IS AN APPLICATION OF A
+CONSTANT**, decided on the literals — `Quot.lift` and `Quot.ind`
+included, whose major premise is `Quot r` and whose head is therefore
+`Quot` even though neither is named `_.rec`. -/
+theorem basisDeclsA_recMajorHead (k : BasisKind) :
+    (k.declsA.all fun ci =>
+      match ci with
+      | .recInfo cv mI _ _ => Expr.recMajorHeadOk cv.type mI
+      | _ => true) = true := by
+  cases k <;> rfl
+
+/-- The same, in the shape `ConstWF`'s clause consumes. -/
+theorem basisDeclsA_recMajorHead_mem {k : BasisKind} {ci : ConstantInfo}
+    (hci : ci ∈ k.declsA) {cv : ConstantVal} {mI rP : Nat} {rules : List RecRule}
+    (heq : ci = .recInfo cv mI rP rules) :
+    Expr.recMajorHeadOk cv.type mI = true := by
+  have h := List.all_eq_true.mp (basisDeclsA_recMajorHead k) ci hci
+  rw [heq] at h
+  exact h
+
 end ConLeche

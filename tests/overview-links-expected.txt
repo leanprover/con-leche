@@ -361,10 +361,10 @@
    103    pw : PropWhen
    104    deriving DecidableEq, Repr, Hashable
 
-== ConLeche/Verify/Cached/AgreeFloor.lean#L2111-L2113
-  2111  theorem checkDecls_skels {mode : CheckMode} {ds : Array Declaration}
-  2112      {env : Env} (h : checkDecls mode pins ds = .ok env) :
-  2113      envSkels env = streamSkels ds.toList := by
+== ConLeche/Verify/Cached/AgreeFloor.lean#L2114-L2116
+  2114  theorem checkDecls_skels {mode : CheckMode} {ds : Array Declaration}
+  2115      {env : Env} (h : checkDecls mode pins ds = .ok env) :
+  2116      envSkels env = streamSkels ds.toList := by
 
 == ConLeche/Term/Syntax.lean#L176-L205
    176    deriving Repr, DecidableEq, Inhabited
@@ -749,8 +749,8 @@
 == ConLeche/Model/Inductives/DeclBlock.lean#L297
    297  theorem declBlock (hμ : μ.verifiedChecks = true) {F : Nat} {env envOut : Env}
 
-== ConLeche/Model/Inductives/MutualTables.lean#L305
-   305  theorem declMutual (hμ : μ.verifiedChecks = true) {F : Nat} {env envOut : Env}
+== ConLeche/Model/Inductives/MutualTables.lean#L310
+   310  theorem declMutual (hμ : μ.verifiedChecks = true) {F : Nat} {env envOut : Env}
 
 == ConLeche/Kernel/Inductives/Modeled.lean#L68-L79
     68  def checkIotaThm (ops : CheckerOps m) (env' envSelf : Env)

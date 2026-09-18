@@ -132,6 +132,11 @@ theorem memberInstallPM (hetaP : MemberEtaLaw V)
     (hkind : (∃ caps, c₀ = .indInfo cvA caps) ∨
       (∃ nP nF, c₀ = .ctorInfo cvA nP nF) ∨
       (∃ mI rP, c₀ = .recInfo cvA mI rP []))
+    -- **THE MAJOR PREMISE'S HEAD** (task #315): `EnvWF`'s clause at a
+    -- provisional recursor, which the caller has from its route (K.55 at
+    -- the modelled one)
+    (hmajP : ∀ mI rP, c₀ = .recInfo cvA mI rP [] →
+      ConLeche.Expr.recMajorHeadOk cvA.type mI = true)
     -- the capability arities of an inductive member
     (hicw : ConLeche.IndCapsWF c₀) :
     ∃ mp₁ : EnvModelM V μ ⟨c₀ :: env.consts⟩,
@@ -173,7 +178,7 @@ theorem memberInstallPM (hetaP : MemberEtaLaw V)
   -- cons consults no v1 install at all.
   obtain ⟨hwf₁, hI₁, hEC₁, hBP₁⟩ :=
     memberInstallInv mp.base2.wf hmv hI hbn hpins hEC hBP hc₀cv
-      hc₀name hkind hicw
+      hc₀name hkind hmajP hicw
   have hfresh0 : env.find? c₀.name = none := by
     rw [hc₀name]; exact hfreshA
   have hpshape0 : c₀.name.isProjFnShape = false := by
@@ -293,7 +298,8 @@ theorem indMembersPM (hetaP : MemberEtaLaw V)
           (fun caps₃ heq => by
             obtain ⟨-, -, -, rfl⟩ := ConstantInfo.indInfo.inj heq
             exact hp cv caps' List.mem_cons_self)
-          hEC hBP rfl rfl (Or.inl ⟨caps, rfl⟩) hicw
+          hEC hBP rfl rfl (Or.inl ⟨caps, rfl⟩)
+          (fun _ _ heq => ConstantInfo.noConfusion heq) hicw
       exact ih mp₁
         (fun ci' hci' => hbn ci' (List.mem_cons_of_mem _ hci'))
         (fun cv₂ caps₂ hmem => etaMemberData_step hfreshA
@@ -305,6 +311,7 @@ theorem indMembersPM (hetaP : MemberEtaLaw V)
         memberInstallPM hetaP hunitP mp hmv hI hIA hbnA
           (fun _ heq => ConstantInfo.noConfusion heq)
           hEC hBP rfl rfl (Or.inr (Or.inl ⟨nP, nF, rfl⟩))
+          (fun _ _ heq => ConstantInfo.noConfusion heq)
           (fun _ _ heq => ConstantInfo.noConfusion heq)
       exact ih mp₁
         (fun ci' hci' => hbn ci' (List.mem_cons_of_mem _ hci'))
@@ -327,7 +334,8 @@ at `TierInputsAt.ofEnvModelM` and there is no other way to get one at
 `envSelf`. -/
 theorem provisionRecsPM (hetaP : MemberEtaLaw V)
     (hunitP : MemberUnitLaw V)
-    {μ : CheckMode} {F : Nat} {blockNames : List Name} :
+    {μ : CheckMode} (hμ : μ.verifiedChecks = true)
+    {F : Nat} {blockNames : List Name} :
     ∀ (recs : List ConstantInfo) {envAcc : Env}
       (mp : EnvModelM V μ envAcc)
       {envSelf : Env}
@@ -352,7 +360,7 @@ theorem provisionRecsPM (hetaP : MemberEtaLaw V)
     exact ⟨mp, hI, hIA, hEC, hBP⟩
   | cons ci rest ih =>
     intro envAcc mp envSelf checked hbn h hI hIA hEC hBP
-    obtain ⟨cvA, mI, rP, rules, rest', hciE, hmv, hrec, -⟩ := h
+    obtain ⟨cvA, mI, rP, rules, rest', hciE, hmv, hmajK, hrec, -⟩ := h
     obtain ⟨type', hcv, hcvA, -⟩ := id hmv
     have hnameA : cvA.name = ci.toConstantVal.name := by rw [hcvA]
     obtain ⟨mp₁, -, -, hI₁, hIA₁, hEC₁, hBP₁⟩ :=
@@ -360,7 +368,12 @@ theorem provisionRecsPM (hetaP : MemberEtaLaw V)
         (by rw [hnameA]; exact hbn ci List.mem_cons_self)
         (fun _ heq => ConstantInfo.noConfusion heq)
         hEC hBP rfl rfl (Or.inr (Or.inr ⟨mI, rP, rfl⟩))
-        (fun _ _ heq => ConstantInfo.noConfusion heq)
+        -- K.55's record, off the provisioning run
+        (fun mI₂ rP₂ heq => by
+          obtain ⟨-, hq2, -, -⟩ := ConstantInfo.recInfo.inj heq
+          subst hq2
+          exact certOnly_elim hmajK hμ)
+        (by rintro _ _ ⟨⟩)
     exact ih mp₁
       (fun ci' hci' => hbn ci' (List.mem_cons_of_mem _ hci'))
       hrec hI₁ hIA₁ hEC₁ hBP₁

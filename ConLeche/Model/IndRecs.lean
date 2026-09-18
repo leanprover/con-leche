@@ -108,7 +108,7 @@ theorem indRecsFold (hμ : μ.verifiedChecks = true) {F : Nat}
     exact hentF
   | cons ci₀ rest ih =>
     intro envP envF env₃ checked hentF hbn hprov hfold
-    obtain ⟨cvA, mI, rP, rules, rest', hciE, hmv, hprov', rfl⟩ := hprov
+    obtain ⟨cvA, mI, rP, rules, rest', hciE, hmv, hmajK, hprov', rfl⟩ := hprov
     obtain ⟨rules', hiot, hfold'⟩ := hfold
     obtain ⟨type', hcv, hcvAdef, -⟩ := id hmv
     have hnameA : cvA.name = ci₀.toConstantVal.name := by rw [hcvAdef]
@@ -174,7 +174,7 @@ theorem indRecs (hμ : μ.verifiedChecks = true)
   · exact ⟨mp, hI, hIA⟩
   -- the provisioning, at both tiers
   obtain ⟨mS, hIS, hIAS, hECS, hBPS⟩ :=
-    provisionRecsPM hetaP hunitP recs mp hbn hprov hI hIA hEC hBP
+    provisionRecsPM hetaP hunitP hμ recs mp hbn hprov hI hIA hEC hBP
   -- every block member is stored in the provisional environment
   have hnames : ∀ n, blockNames.contains n = true →
       (envSelf.find? n).isSome = true := by

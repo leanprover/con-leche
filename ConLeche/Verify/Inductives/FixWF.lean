@@ -2,6 +2,7 @@ module
 
 public import ConLeche.Verify.Inductives.SumWF
 public import ConLeche.Verify.Inductives.FixInv
+import ConLeche.Verify.Inductives.FixRec
 
 public section
 
@@ -70,13 +71,39 @@ well-formed. -/
 theorem direct_fix_rec_wf {env : Env} (henv : EnvWF env)
     {p : NativeParts} {cvTa cvRa : ConstantVal} {ctorsA : List (ConstantVal × Nat)}
     {rhss : List Expr} {F : Nat}
+    -- **THE CHECKED CONSTRUCTORS ARE THE DECLARED ONES, POSITIONALLY**
+    -- (task #315): the pass's own fact, needed because the recursor's
+    -- MAJOR INDEX is `p.majorIdx = p.nP + 1 + p.ctors.length + p.nIdx`
+    -- while the generator is called at `nativeCtors4 ctorsA p.kinds`
+    (hlen : ctorsA.length = p.ctors.length)
+    (hkl : p.kinds.length = ctorsA.length)
     (h : checkNativeRec (fueledOps mode F) env p cvTa ctorsA = .ok (cvRa, rhss)) :
     EnvWF ⟨.recInfo cvRa p.majorIdx p.rulePrefix
       (sumRules env.find? cvRa.name p.nP p.majorIdx p.rulePrefix cvRa.type ctorsA rhss) :: env.consts⟩ := by
   obtain ⟨-, -, ⟨htf, htp, htr, htb⟩, -, hall⟩ := checkNativeRec_facts h
+  -- **THE MAJOR PREMISE'S HEAD** (task #315): this route STORES
+  -- `structRecTyR`'s output, so the clause is the generator's own shape
+  have hmaj : ∀ cv mI rP rules,
+      (ConstantInfo.recInfo cvRa p.majorIdx p.rulePrefix
+        (sumRules env.find? cvRa.name p.nP p.majorIdx p.rulePrefix cvRa.type ctorsA rhss))
+        = .recInfo cv mI rP rules →
+      Expr.recMajorHeadOk cv.type mI = true := by
+    intro cv mI rP rules heq
+    obtain ⟨rfl, rfl, -, -⟩ := ConstantInfo.recInfo.inj heq
+    obtain ⟨-, recTy, -, -, -, hgen, -, -, -, -, -, -, -, -, rfl⟩ :=
+      checkNativeRec_shape h
+    obtain ⟨bs0, dom0, body0, bm0, hs, hd⟩ := structRecTyR_majorDom hgen
+    have hmi : p.majorIdx = p.nP + 1 + (nativeCtors4 ctorsA p.kinds).length + p.nIdx := by
+      rw [nativeCtors4_length hkl.symm, hlen]
+      first
+        | rfl
+        | (simp only [InductiveShape.majorIdx, InductiveShape.rulePrefix]; omega)
+    show Expr.recMajorHeadOk recTy p.majorIdx = true
+    rw [hmi, Expr.recMajorHeadOk, hs]
+    simp only [hd]
   refine EnvWF.cons henv (structConstWF htf htp
     (Expr.constsResolve_mono htr) htb
-    (fun _ _ _ heq => nomatch heq) ?_)
+    (fun _ _ _ heq => nomatch heq) ?_ (hmaj := hmaj))
   intro cvR' mI' rP' rules' heq r hr
   injection heq with e1 e2 e3 e4
   subst e1

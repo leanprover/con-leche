@@ -295,4 +295,59 @@ theorem provisionNestedRecs_findProj?_eq {l : List (ConstantVal × Nat × Nat)} 
     obtain ⟨tbl, h0, hi, rfl⟩ := Env.findProj?_some h
     exact Env.findProj?_of_table (provisionNestedRecs_findPreserved hfresh _ _ h0) hi
 
+/-- **THE RESTORED RULES' TWO RESCUE BITS ARE THIS ENVIRONMENT'S OWN
+VERDICT** (task #315 M7-2): the stored rule's `k` and `eta` are
+`recRuleBits` at the environment `restoreRules` ran at, at the
+RESTORED constructor name and the restored recursor's name — the last
+line of `restoreRules` stamps them and `recRuleBits` OVERWRITES both
+fields, so neither is the scratch rule's.
+
+`restoreRules_at` reports the row's other seven data and drops these
+two; the drop is why the recursors' stage carried a named face for
+them.  With the report the face is a theorem, so this is
+`restoreRecTys_slots`' twin at the rules: a report the walk already
+justified, not a check anyone has to add. -/
+theorem restoreRules_bits {envR : Env} {R : RestoreTbl} {lps : List Name} {recName : Name}
+    {isMimic : Bool} {recTy : Expr} {mI rP F : Nat} :
+    ∀ {rules out : List RecRule},
+      restoreRules (m := CheckM) (fueledOps mode F) envR R lps recName isMimic recTy mI rP
+          rules = .ok out →
+      ∀ r ∈ out, RecRule.k r = recRuleKOf envR.find? (RecRule.ctor r) ∧
+        RecRule.eta r = recRuleEtaOf envR.find? recName (RecRule.ctor r) := by
+  intro rules
+  induction rules with
+  | nil =>
+    intro out h r hr
+    simp only [restoreRules, pure, Except.pure, Except.ok.injEq] at h
+    rw [← h] at hr
+    exact absurd hr (by simp)
+  | cons rl rest ih =>
+    intro out h r hr
+    unfold restoreRules at h
+    obtain ⟨rhsA, hrhs, h⟩ := exceptBind_ok h
+    by_cases h1 : (rhsA.allLevelParamsDefined lps && rhsA.constsResolve envR &&
+        rhsA.looseBVarsBounded 0 && !rhsA.hasFvar) = true
+    case neg => rw [if_neg h1] at h; close_throw
+    rw [if_pos h1] at h
+    try simp only [bind, Except.bind] at h
+    by_cases h2 : rhsA.projTablesOk envR = true
+    case neg => rw [if_neg h2] at h; close_throw
+    rw [if_pos h2] at h
+    try simp only [bind, Except.bind] at h
+    obtain ⟨ty, hty, h⟩ := exceptBind_ok h
+    try simp only at h
+    by_cases h3 : (!isMimic || (R.ctorPins.any fun q => q.1 == rl.ctor)) = true
+    case neg => rw [if_neg h3] at h; close_throw
+    rw [if_pos h3] at h
+    try simp only [bind, Except.bind] at h
+    split at h
+    case h_2 => close_throw
+    try simp only [pure, Except.pure] at h
+    obtain ⟨rest', hrest, h⟩ := exceptBind_ok h
+    simp only [Except.ok.injEq] at h
+    obtain rfl := h
+    rcases List.mem_cons.mp hr with rfl | hr'
+    · exact ⟨rfl, rfl⟩
+    · exact ih hrest r hr'
+
 end ConLeche

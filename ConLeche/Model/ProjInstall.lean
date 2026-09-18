@@ -82,7 +82,7 @@ theorem projFn (hμ : μ.verifiedChecks = true) {F : Nat} {env' env₁ : Env}
   have hRid := hR
   obtain ⟨cvj, mcv, mval, mhint, pty, rhsA, hctor, hfm, hmlps, hpnone,
     hTf, heqf, hptyB, hround, hptyres, hptyb, hptyf, hptylp, hstrip1,
-    hilt, hstripP, hbig, henv⟩ := hR
+    hmajPr, hilt, hstripP, hbig, henv⟩ := hR
   obtain ⟨cbinders, cbody, hCstrip, hcbodyArity, hcbodyHead, hrhsw,
     -- `-` at position 11: `ProjFnR`'s rule-rhs **derivation** row, no
     -- longer consumed (task #161 S10 — the reading comes from the run
@@ -258,7 +258,7 @@ theorem projFn (hμ : μ.verifiedChecks = true) {F : Nat} {env' env₁ : Env}
   -- constructor are `projFn_head`'s — both off `ProjFnR` alone.
   obtain ⟨hinv₁, hIB₁⟩ :=
     projFnInv (cval := mp.base2.cvalE) hRid hinv hIB hbshape
-  obtain ⟨hwf₁, hctors₁⟩ := projFn_head mp.base2.wf hRid
+  obtain ⟨hwf₁, hctors₁⟩ := projFn_head hμ mp.base2.wf hRid
   have hnotb : blockNames.contains (projFnName T i) = false := by
     cases hc : blockNames.contains (projFnName T i) with
     | false => rfl
@@ -448,7 +448,7 @@ theorem projInstall (hμ : μ.verifiedChecks = true) {F : Nat}
         hCblock hFields
     -- the block-level premises, re-established (v1's argument)
     obtain ⟨cvj, mcv, mval, mhint, pty, rhsA, hctor, hfm, hmlps,
-      hpnone, hTf, -, -, -, -, -, -, -, -, hilt, -, -, henv⟩ := hR
+      hpnone, hTf, -, -, -, -, -, -, -, -, -, hilt, -, -, henv⟩ := hR
     have hfresh : env'.find? (projFnName T i) = none :=
       Option.isNone_iff_eq_none.mp hpnone
     have hTne : T ≠ projFnName T i := by

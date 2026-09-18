@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Run the checker over the lean kernel arena tutorial tests and compare
+# Run the checker over the lean kernel arena tests and compare
 # against tests/arena-expected.txt (lines: "<expectation> <relative-path>").
 #
 # Exit codes of the checker: 0 accept, 1 reject, 2 decline, 3 error.
@@ -331,7 +331,7 @@ annot_half() {
 # stays and is now the pass's *negative* gate: the annot_decline_*
 # streams carry explicit wrong claims the pass must not overwrite.
 arena_half
-echo "arena tutorial: $accepted/$total_good good tests accepted"
+echo "arena suite: $accepted/$total_good good tests accepted"
 if [ -f "$E2E_EXPECTED" ]; then
   e2e_half
   echo "e2e: $e2e_ok/$e2e_total as expected"
