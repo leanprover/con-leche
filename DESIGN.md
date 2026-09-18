@@ -92722,3 +92722,165 @@ warning-free, layering / trust surface / no-local-paths /
 overview-links / quote-gate / proofdeps / shake and pub-imports /
 nested-shadow all green; standard axioms on `nestedPinPairAt` and
 `nestedInstanceLe`.
+
+#### U.77 — L-E session 22: `EntryRead` REPAIRED, the covering class's family, and the rank clauses re-sized (lane L-E, 2026-09-18)
+
+##### (a) A CORRECTION to §U.76 (c), and how the false claim was made
+
+§U.76 (c) reported that `git grep stripPis ConLeche/Model/Inductives`
+"returns NOTHING" and concluded that the vocabulary was new to the
+tier.  **That is false**: sixty-four files under
+`ConLeche/Model/Inductives/` use `stripPis`, and one of them —
+`CtorDataI.resid`, reached through `BlockCtorData` and
+`IsBlockModel.ctors` — is precisely the fact the sizing said was
+missing, a container constructor's type stripped at `nP + nF` with
+`Expr.stripPis_length` for the binder count.
+
+The cause is worth recording because it is not the one the obvious
+suspicion suggests.  It was **not** a wrong working directory: the
+command was `git grep -n stripPis -- ConLeche/Model | head -30`, run in
+the right worktree, and `git grep` orders its output by path.
+`ConLeche/Model/IndBottom*`, `IndProj*`, `IndTele` all sort BEFORE
+`ConLeche/Model/Inductives/`, and there are more than thirty hits among
+them — so the `head` cut the output exactly at the boundary, and
+"no `Inductives/` line in the first thirty" was read as "no
+`Inductives/` line".  **The rule this lane takes from it**: never
+conclude ABSENCE from a truncated listing.  A negative claim needs a
+counting command (`| wc -l`, or a path-restricted grep), never a
+`head`.
+
+##### (b) THE REPAIR: `EntryRead` is what its consumer produces
+
+Lane L-B refuted `EntryRead`'s first two clauses at a block this
+checker ACCEPTS (`tests/e2e/nested_lam_pin_refl.ndjson`; its own
+DESIGN section carries the witness).  A container whose field is an
+application of a function PARAMETER, nested at an instantiation whose
+body is an arrow: the elimination's rewrite is the identity on the
+minted redex, the positivity normalisation beta-reduces it to that
+arrow, and the COPY's field is REFLEXIVE with a one-entry telescope
+where the CONTAINER's own is ORDINARY and an APPLICATION.  The
+telescope clause forces `tlsJ.length = 1` and the first clause then
+asks an application to equal a `.pi`-headed term.
+
+The repair is L-B's recommended shape, and it is this lane's file:
+
+```lean
+@[expose] def EntryRead (l : Nat) : Prop :=
+  ∀ Z : Nat → V,
+    (∀ is : List V, SpineFit (TV.frame ρp (tg l)) (TV.Ids (tg l)) is →
+      SetTheory.app (Z (tg l)) (tupW (TV.u (tg l)) is)
+        = is.foldl SetTheory.app (interp V ρp (TV.EA (tg l)))) →
+    CopyEntryAt dJ ψJ Ds tg tls Eis ρp i j TV.w TV.u Z l
+```
+
+`CopyEntryAt` moves above it, `copyEntryAt_of_read` becomes the
+predicate applied (`hread Z hZ`) with its signature unmoved, and the
+three call sites in `NestedPinLeafAll.lean` are untouched — the whole
+tree built green with no other edit.  `CopyCtorShape.of_EA`'s `ordF`
+case transports the new form by rewriting the READING hypothesis
+instead of the tower.
+
+**Nothing syntactic survives on the container's side**, which was
+L-B's reason for preferring this shape over the minimal patch: whether
+a copy telescope is always an `instTele` of a container-side one is
+NOT established.  **This lane did not establish it either, and does
+not assume it** — the repaired predicate never mentions a
+container-side telescope, so the question is now unreachable from
+here rather than silently assumed.
+
+##### (c) THE NEGATIVE RESULT: the fixed point is not a congruence
+
+Stated on its own because it decides the route of every family
+identification in this tier, not only the one below.
+
+At a PIN class the transfer must identify two least tuples **of one
+container** taken at two level assignments that agree only on that
+container's own level parameters, and at two frames that agree only
+below its parameter count.  That is **not** a congruence of
+`lfpTuple`.  `BlockModel.Φ` is a field of the record — an arbitrary
+function `(Name → Nat) → (Nat → V) → …` — and no clause of
+`IsBlockModel`, `ContainerModeled` or `PinGroupView` makes it depend on
+the restrictions of its arguments alone.  Neither does `pinCar`.  So
+there is no route "rewrite the assignment, rewrite the frame, done",
+and adding one would mean a new recorded clause of exactly the kind
+§U.72 (e) already had to request for the pins' data.
+
+The way through is the LEAF, and it is why `ClassPin` has the four
+clauses it has: a family over an index set is determined by its fibres
+at the fitting spines (`fam_eq_of_leaf`), each fibre is ONE stored
+reading applied to the spine (`IsBlockModel.leaf`), and the two sides'
+readings are one because the pair says so — the container (`name`),
+the assignment at its level parameters (`psi`, through
+`EnvModel.acval_params`), the components' values (`frame`) and the
+index set (`idx`).  `fam_eq_of_leaf`'s own docstring anticipated this;
+what is new here is that it is not a preference but the ONLY route.
+
+##### (d) `nestedPinFam_of_classPin` and `nestedPinInstLe`
+
+* **`nestedPinFam_of_classPin`** — at a `ClassPinAt` pair `(c, q)` of
+  the root group, `pinLfp` at `q` and the root's extended carrier at
+  `c` are ONE family.  A MEMBER class is bookkeeping
+  (`grp`/`ψJEq`/`sameDs`); a PIN class is (c)'s route, with
+  `params_congr` making the two index universes and telescopes one,
+  `memberIds_below` bounding the telescope at the parameters (so the
+  two frames' agreement below `nP` carries `SpineFit` and `idxSet`),
+  and `map_range_reverse_consList` at both sides' parameter count
+  making the two component lists ONE list of values;
+* **`nestedPinInstLe`** — `pins_le_of_instanceLe`'s `hinst` at one
+  instance: the COVERING hands a class of the root,
+  `nestedInstanceLe` bounds the root's carrier there, and the family
+  identity says that carrier IS the pin's.  `InstanceCovered` is a
+  premise (`instanceCovered_of_others` builds it; its `hothers` is
+  M7-3's `ownPins` at the nested site), and `hIH`/`hout` are the rank
+  induction's.
+
+##### (e) THE RANK CLAUSES, RE-SIZED — and the request restated
+
+With (a)'s correction the sizing of §U.76 (c) is too large in two
+independent ways.
+
+1. **The binder-existence residue is not this lane's work at all.**
+   `nestedPinEdgesAt` is a `mapM` over the per-pin, per-constructor,
+   per-field lookups, and `cJ.type.stripPis (ci.nP + cJ.nFields)` and
+   `jbs[ci.nP + l]?` are TWO OF THEM.  So
+   `nestedPinEdges … = some edges` already says they succeeded, and a
+   restatement of `nestedPinEdges_mem` that inverts its own container
+   lookups out of `hedges` — concluding `∃ own, (q, t - p.k, own) ∈ edges`
+   from the KINDS alone — costs the model nothing and the kernel lane a
+   `mapM_option_inv` it has already written once.  Failing that, the
+   tier's own `CtorDataI.resid` + `containerInfo?_inv`'s
+   `cc.type = cvc.type` + `Expr.stripPis_length` give the same two
+   facts model-side, which is (a)'s idiom;
+2. **the model-side lookup plumbing already exists**, at
+   `NestedCopyInst.lean`'s K.32 consumer — `hqn`, `hks`, `ha`, `hci`,
+   `hJ`, `hkf`, `hc`, `hcJ`, the kind's recursive/reflexive bit and the
+   target read off `mutTgts`, all built from `NestedPinsRun` and the
+   group.  `nestedCopyTargetsOk_mentions` takes exactly
+   `nestedPinEdges_mem`'s list minus `hstrip`/`hdom`.  It is a proof
+   INSIDE that theorem rather than a reusable lemma, and it is keyed on
+   the RUN RECORD, which this lane's `hout` consumer (keyed on
+   `GroupFacts`) does not carry.
+
+So the clean cut is: **`pins_le_of_instanceLe` is abstract in `Edge`,
+and the run-level assembly supplies it**, one layer up where
+`NestedPinsRun` is in scope — this lane never produces an edge.  What
+this lane then needs from the kernel lane is unchanged in content and
+smaller in size than §U.76 (c) said:
+
+* `nestedPinRankOk_inv` — §U.76 (c)'s statement verbatim, the four
+  clauses at `nestedPinInstOf`/`nestedPinRankOf` with the edge list's
+  existence, a `List.all`/`Bool.and` inversion in
+  `nestedPinRootPairAt_inv`'s idiom;
+* optionally the restatement of `nestedPinEdges_mem` of (1), which
+  makes the edge production at the run a two-line consequence of the
+  kinds instead of a container-syntax argument.
+
+And the simplification of §U.76 (c) stands: **the model never reads the
+`own` bit** — an own edge gives instance equality, a not-own edge the
+disjunction, and `hedge`'s conclusion is the disjunction either way.
+
+Gates at the session's commits: `lake build` warning-free, `lake test`
+warning-free, layering / trust surface / no-local-paths /
+overview-links / quote-gate / proofdeps / shake and pub-imports /
+nested-shadow all green; standard axioms on `nestedPinFam_of_classPin`
+and `nestedPinInstLe`.
