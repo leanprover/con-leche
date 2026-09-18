@@ -3515,6 +3515,96 @@ theorem copyPinFUIdsCorr {pbs : List (Expr × ConLeche.BinderMeta)}
     rw [if_neg (by omega), show p.k + qq - p.k = qq from by omega]
     exact hown.2
 
+/-- **THE `pinF` ARM'S FIRST THREE CONJUNCTS** (task #315 PINF): at a
+container field that is FINITARY RECURSIVE at one of the container's
+own pins, the copy's corresponding field is recursive-or-reflexive
+(conjunct 1), its target is a PIN of the block (conjunct 2), and the
+pin it lands on CORRESPONDS to the container's (conjunct 3,
+`PinCorr`).
+
+The three come from three places and this is the joint: K.60's
+inversion `copyPinFKind` gives conjuncts 1 and 2 together with
+`copyPinFCorr`'s own `hkA` — the hypothesis that used to have no
+producer — `copyPinFCorr` gives `PinCorr`'s `EA`, `Ds`, `J` and `lvls`
+clauses off the fire, and `copyPinFUIdsCorr` gives its `u` and `Ids`
+through `NestedPinGroupSyn.pinOwn`.
+
+What `NestedPinsShapePinF` still wants beyond this is its telescope and
+index-expression conjuncts — the pin-target twins of
+`copyRecFRead`/`copyRecFReadRefl` — and the REFLEXIVE arm of all five. -/
+theorem NestedPinsRun.copyPinFPinCorr {pbs : List (Expr × ConLeche.BinderMeta)}
+    (hPD : ∀ q, q < st.pins.length → PinData env st p pbs q)
+    (hkindsRun : ConLeche.classifyMutualKinds (m := ConLeche.CheckM) b.members3 b.lps b.nP ctorsA
+      = .ok kinds)
+    {i' : Nat} (hi' : i' < kJ)
+    (hgb : (pinAtE st (q₀ + i')).grpBase = q₀)
+    (CM : ∀ ciJ : ContainerInfo,
+      ConLeche.containerInfo? env (pinsS.getD (q₀ + i') default).J = some ciJ →
+      ContainerModeled mp₁'.base2 ciJ dJ)
+    {j : Nat} {cAJ : ConstantVal × Nat} (hj : (dJ.ctorsM i')[j]? = some cAJ)
+    {l : Nat} (hlF : l < cAJ.2)
+    (hrecC : (dJ.ksF i' j).getD l .ordinary = .recursive)
+    (hpinT : ¬ dJ.tgts i' j l < dJ.k)
+    {cvT : ConstantVal} {caps : IndCaps}
+    (hfind : (ConLeche.consMutualFormers (fms.take p.k) env).find?
+      (pinsS.getD (q₀ + i') default).J = some (.indInfo cvT caps))
+    (ψ : Name → Nat) :
+    ((blkRss ctorsA kinds).getD (b.ownOffset (p.k + q₀ + i') + j) []).getD l false = true ∧
+    p.k ≤ ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+        (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0 ∧
+    PinCorr (nestedTV (V := V) b.nP p.k f₀.s ppsF W pinsS mp₁'.base2.acval
+        ((fms.take p.k).map (·.cvTa.name)) ψ)
+      mp₁'.base2.acval dJ ((pinsS.getD (q₀ + i') default).ψJ ψ)
+      ((pinsS.getD (q₀ + i') default).Ds ψ)
+      cvT.levelParams (pinsS.getD (q₀ + i') default).lvls
+      (((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+        (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0) (dJ.tgts i' j l - dJ.k) := by
+  classical
+  obtain ⟨hkA, hle⟩ := R.copyPinFKind SF S hPD hkindsRun hi' hgb CM hj hlF hrecC hpinT
+  obtain ⟨cc, J, ci, cI, cA, cname, hciP, hJmem, hJcc, hn, hty, hnf, hJname, hinst, hcj, hcA,
+    hbc, hnF⟩ := R.ctorPair SF S hPD hi' hj
+  have hGlt : b.ownOffset (p.k + q₀ + i') + j < ctorsA.length :=
+    (List.getElem?_eq_some_iff.mp hcA).1
+  have hcAnF : cA.2 = cAJ.2 := by rw [hnF, hnf]
+  have hksLen : (mutKsOf kinds (b.ownOffset (p.k + q₀ + i') + j)).length = cAJ.2 := by
+    rw [(R.h.ksJ _ _ hcA).1, hcAnF]
+  -- conjunct 1: the copy's field is recursive-or-reflexive
+  have hrss : ((blkRss ctorsA kinds).getD (b.ownOffset (p.k + q₀ + i') + j) []).getD l false
+      = true := by
+    rw [blkRss_getD hGlt,
+      rsOf_getD (show l < (kindsOf (mutKsOf kinds (b.ownOffset (p.k + q₀ + i') + j))).length from by
+        rw [kindsOf, List.length_map, hksLen]; exact hlF),
+      kindsOf_getD', decide_eq_true_eq]
+    exact Or.inl hkA
+  -- conjunct 3: the pin correspondence, off the fire and the own-pin tie
+  obtain ⟨ci', qn, qq, hci', hnPeq, hqq, hidx, hhead, hargsLen, hJQ, hclvls, hDsE, hlps, hDsQ,
+    ⟨cvQ, capsQ, hfindQ, hagree⟩, hEA⟩ :=
+    copyPinFCorr R SF S hPD hi' hj hlF hpinT hrecC hkA hciP hJmem hJname CM ψ
+  obtain ⟨qq', hidx', hu, hIds⟩ :=
+    copyPinFUIdsCorr R SF S hPD hi' hj hlF hpinT hrecC hkA hciP hJmem hJname CM ψ
+  have hqEq : qq' = qq := by omega
+  rw [hqEq] at hu hIds
+  refine ⟨hrss, by rw [hidx]; omega, ?_, ?_, ?_, ?_, ?_, ?_⟩
+  · rw [hidx]; exact hEA
+  · show (pinsS.getD ((((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+      (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0) - p.k) default).Ds ψ = _
+    rw [hidx, show p.k + qq - p.k = qq from by omega]
+    exact hDsQ
+  · rw [hidx]; exact hu
+  · rw [hidx]; exact hIds
+  · show (if (((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+        (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0) < p.k then _
+      else (pinsS.getD ((((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+        (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0) - p.k) default).J) = _
+    rw [hidx, if_neg (by omega), show p.k + qq - p.k = qq from by omega]
+    exact hJQ
+  · show (if (((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+        (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0) < p.k then ([] : List Level)
+      else (pinsS.getD ((((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+        (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0) - p.k) default).lvls) = _
+    rw [hidx, if_neg (by omega), show p.k + qq - p.k = qq from by omega, hclvls,
+      hlps cvT caps hfind]
+
 /-- **THE AUXILIARY BLOCK'S KIND AT A COPY'S RECURSIVE FIELD** (task
 #315 L-B): a container field that is FINITARY RECURSIVE at one of the
 container's own members `m` is classified by the auxiliary block's
