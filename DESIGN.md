@@ -94740,3 +94740,72 @@ theorem without changing any.  The OUT-OF-INSTANCE case, step (ii),
 step (iv) and the residual's discharge go through exactly as before.
 
 Standing down on the in-instance row.
+
+#### U.93 — L-E session 38: the pins' SEMANTIC data, exposed per pin — DERIVED, so no producer owes anything (lane L-E, 2026-09-18)
+
+Lane L-B asked for one clause giving, per pin, the level substitution
+at its container's level parameters and the container block model's
+sort and index data at the group-relative index.  **It is landed, and
+as a DERIVED lemma rather than a clause**, which is a better answer
+than the request asked for.
+
+`NestedPinSynFacts.pinSem` (`NestedPins.lean`): at every pin `q`,
+
+* `(ENV₁).find? ((D).pinAt q).J = some (.indInfo cvT caps)` and
+  `∀ ψ, ((D).pinAt q).ψJ ψ = Level.substFn ψ cvT.levelParams ((D).pinAt q).lvls`
+  — the level substitution, at the CONTAINER's own level parameters;
+* `∀ ψ, dJ.w (((D).pinAt q).ψJ ψ) = f₀.s.eval ψ` — the sort;
+* `∀ ψ, ((D).pinAt q).u ψ = dJ.uM i (((D).pinAt q).ψJ ψ)`,
+  `((D).pinAt q).pps = dJ.ppsM i` and `((D).pinAt q).nPJ = dJ.nP` — the
+  index data at the group-relative index;
+* with `i`, `q₀`, `kJ`, `dJ` existential and
+  `(st.pins.getD q default).grpBase = q₀` tying the group-relative
+  index to the pin table's own `grpBase`.
+
+##### THE CHECK THE REQUEST ASKED FOR, discharged the strong way
+
+The request rightly warned that "true at the construction site" is no
+reason to expect a clause, and asked for confirmation that all three
+come from the definition at EVERY producer.  **They are not read off
+any producer at all**: all of it comes off `groups`, a field
+`NestedPinSynFacts` ALREADY carries, through `NestedPinGroupSyn`'s
+`stored` (the constant and the level law), `w` (the sort), `pinU`,
+`pinPps`, `pinNP` (the index data) and `grp` (the base).
+
+So nothing is imposed on any producer, and the confirmation is
+stronger than an enumeration would have been: a producer that does not
+yet exist cannot fail it either.  This is the same move that made
+§U.92 subtractive — prefer a derived lemma over a recorded clause
+whenever the record already carries the data.
+
+##### ONE DISCREPANCY, REPORTED NOT ASSUMED
+
+The request described the target as a record of about eleven hundred
+lines in which the sort field occurs zero times and the index field
+once.  `NestedPins.lean` is 1620 lines and contains one `.w (`, two
+`IdsM` and eighteen `substFn` occurrences, so the counts do not match
+and L-B may have counted a different record or file.  What is exposed
+here is `NestedPinSynFacts` — the per-pin SYNTACTIC record that lane
+consumes as `SF`, whose fields are `pinsLen`, `pinRec`, `pinDs` and
+`groups`, and which carries exactly the syntactic data the request
+describes as already present.  **If a different record was meant, the
+coordinates are `ConLeche/Model/Inductives/NestedPins.lean:462` for the
+record and `:481` for the new lemma** — redirect against those and the
+same derivation will apply, since it only uses `groups`.
+
+##### THE REPAIR CONVERTED A REFUTATION INTO A ROUTE
+
+Recorded because it closes §U.77 (b)'s loop: L-B's refuted `ordF`-right
+arm was refuted against the OLD shape of `EntryRead`.  Under the safe
+repair this lane took — the one that lane recommended — the two
+clauses its witness broke no longer exist and the witness satisfies
+the clause that replaced them, so the refutation DISSOLVES and the arm
+is open with a named route.  A λ-redex respects a semantic equality and
+does not provide a syntactic tower, which is precisely why the old
+statement was wrong and the repaired one is right; that lane's fixture
+becomes an acceptance test rather than a witness.
+
+Axioms standard; `lake build`, `lake test` and the full gate set
+green.  Nothing landed is affected: this adds a lemma and changes no
+theorem, and the hole (§U.91 (a)) and the obstruction (§U.89 (d)) are
+untouched.
