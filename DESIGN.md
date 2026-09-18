@@ -104781,3 +104781,110 @@ as this lane reads them, not over the file: what was being counted was
 which CLAUSES name a pin's sort and index data, not occurrences in a
 source file.  The lemma that landed is against the right record either
 way.
+
+#### L-B session 30: K.51 CONSUMED at a field, and the `u`/`Ids` half needs one link the shape's context does not carry (lane L-B, 2026-09-18)
+
+*(No number taken: the title is the citation, the integrator numbers —
+the rule that follows this round's tie.)*
+
+##### (a) K.51's THREE INVERSIONS, AND THE RUN AT ONE FIELD
+
+The record landed with its Semantics conjunct but with no Verify-tier
+inversions, so those come first (commit `1649c739`,
+`Verify/Inductives/NestedCopyNorm.lean`, beside K.42's):
+
+* `nestedPinDomPairs_mem` — `nestedOrdDomPairs_mem` with the filter's
+  OTHER branch (not ordinary, target not below `p.k`).  The two job
+  lists cover every constructor field between them, which is what makes
+  the pair of records a partition rather than two overlapping checks.
+* `nestedPinNorms_job` — the normalisation's output AT THE JOB'S OWN
+  INDEX.  Unlike K.42's, this list's outputs are not the stored domains
+  (they are their pre-images under the rewrite), so the index, not an
+  equation, is what carries them to the next step.
+* `nestedPinRewrites_job` — the record's `all`-over-`zip` read at one
+  index: the output rewritten by the elimination's own
+  `replaceAllNested` at the FINAL state IS the stored domain, and the
+  state does not grow.
+
+Then `NestedPinsRun.copyOrdFRightPinRun` (commit `92b77a08`) is
+`copyOrdFLeftRun`'s twin: the same 130 lines of addressing — the pin's
+records at the elimination's own spelling, K.26's kinds table, the aux
+block's classification, the three telescopes — with the filter's other
+branch and a different answer.  Its conclusion carries the intermediate
+term `w`, the CONTAINER-headed normalisation of the minted domain,
+because that is what the model reads the target off: the stored domain
+is headed by the MIMIC and identifying the two is `pinLeaf`, which is
+downstream of this very shape.  That is K.51's own rationale, now
+spent.
+
+##### (b) WHAT THE ARM STILL NEEDS, AND WHY IT IS NOT TRANSCRIPTION
+
+The member-target arms read the copy's STORED domain through
+`BlockCtorData.recEntry`/`reflEntry` and land on the target member's
+leaf, which `TargetView.EA` is at a member.  At a PIN target the two
+sides part: `EA` is the CONTAINER's reading (`targetRead`'s pin branch)
+while `recEntry` still describes the mimic-headed stored domain.  So
+the chain is not the member arms' with two substitutions — it goes
+through (a)'s intermediate term instead: the container's field domain
+reads as the minted domain's normalisation, that term is
+container-headed (a `copyPinFDom`-shaped inversion), and its reading is
+`TargetView.EA` at the block pin.  One session's work, with (a) as its
+first step and `copyPinFCorr`'s `EA` clause as the model of its last.
+
+##### (c) THE MODEL-SIDE FIELD: A BOUNDARY QUESTION, NOT A REFUSAL
+
+The placement the kernel lane left is `NestedPinsRun`, and the
+threading is 16 sites across four files (`NestedPins.lean` 3,
+`NestedCore.lean` 2, `NestedLoop.lean` 4, `DeclNestedCore.lean` 7),
+three of which are on this lane's do-not-touch list.  The K.42
+precedent was arm-first, field-later — its consumers took the record as
+an explicit hypothesis and another lane threaded the field afterwards —
+and `copyOrdFRightPinRun` takes `hK51` the same way, so nothing waits
+on the threading except the final wiring of the residual.  **Ruling
+wanted**: this lane threads it (and the three files become its surface
+for one commit), or the owner does.  Either is one commit; what is not
+safe is a lane editing three active surfaces on its own reading of a
+brief.
+
+##### (d) THE `u`/`Ids` HALF: ONE LINK, AND THE EVIDENCE THAT IT IS THE RIGHT ONE
+
+The derived view arrived as `ownPinView_of_blocks`
+(`NestedPremise.lean`) and it is exactly the container half — at
+`(B ci).pinAt q` for a family `B` with `EnvBlocksOf m B`.  The shape
+predicate quantifies `dJ` with only `NestedPinGroupSyn` constraining
+it, and nothing in that record says `dJ` IS the assignment's model at
+its container.  So the arm needs
+
+    dJ = B ci   (for the group's container record `ci`)
+
+and nothing else: with it, `ownPinView_of_blocks` gives `nPJ`, `pps`
+and `u` at the pin's own assignment, the name forces the index, and
+`copyPinFUIds` closes both clauses.
+
+**Checked at the LEVEL, not only the record** (the lesson from the last
+elimination): the fact is not in `NestedPinGroupSyn`'s 25 fields, whose
+`modeled` gives `ContainerModeled m ci dJ` — a property of `dJ`, not an
+identification of it; and `NestedPinsRun.hPM` gives `BlockAt` at
+`blockOf`, for the container of a pin, which is the same view at a
+DIFFERENT model.
+
+**The evidence that this is the right link and not a lane's
+convenience**: lane L-E's own walk already carries it, as
+`nestedPinPairAt_mem`'s `hdJfB` (`NestedPinLeafAll.lean`), in exactly
+this form — `∀ q₀ kJ iq ci, iq < kJ → GF … (dJf q₀) → containerInfo? env₂ ((D).pinAt (q₀ + iq)).J = some ci → dJf q₀ = B ci`.
+So the consumer level has it and the shape level does not.
+
+**Cheapest fix, and it burdens nobody**: a clause on
+`NestedPinGroupSyn` (or a component of `NestedPinSynFacts.groups`)
+carrying `∃ B, EnvBlocksOf m B ∧ (∀ ci, containerInfo? env ((D).pinAt (q₀ + i)).J = some ci → dJ = B ci)`.
+Its single producer is `NestedPinsRun.groupSyn`, which builds `dJ` AS
+`blockOf mp.base2 ci`, and `blockOf_of_env mp.blocks` is the witness —
+so it is discharged where it is built, and no other producer exists.
+
+##### (e) GATES
+
+At `92b77a08`: `lake build` warning-free; `lake build ConLecheTests`
+warning-free; layering, trust-surface, no-local-paths, overview-links,
+quote-gate, proofdeps, shake and nested-shadow all pass.
+`tests/arena.sh` not re-run: no checker code touched — K.51's kernel
+side arrived with the integration.
