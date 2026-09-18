@@ -93355,6 +93355,13 @@ asks for `MonoTuple` outright.  That restriction is recorded in the
 tier for a reason and it is the first thing the construction would
 meet.
 
+**CORRECTED 2026-09-18 (§U.82): monotonicity is FREE and this paragraph
+named the wrong blocker.**  The clamp is on `fibre`'s ⟸ half; an
+operator needs only the total direction, whose monotonicity is
+`ChainFitT_mono`, already in the tier and already used here.  The real
+condition is that `Φ_T` EXIST as a function — set formation — which
+this tier records rather than derives.
+
 **No replacement estimate is offered.**  §U.80 (d)'s 6–10 is withdrawn
 as priced against an object that exists; the real figure depends on
 whether `Φ_T` is monotone, which is one further read-only question and
@@ -93362,3 +93369,106 @@ not this session's.  NOT STARTED, per the coordinator.
 
 Gates: no code changed this session; `lake build` and `lake test`
 warning-free at the session's commit, text gates green.
+
+#### U.82 — L-E session 27: monotonicity is NOT the obstruction; SET FORMATION is, and it is a recorded clause (lane L-E, 2026-09-18)
+
+One question, read-only: can an operator over the extended classes be
+both monotone and have the extended carrier as its least tuple, given
+that `fibre` holds only below the carrier?  **Answer (3): yes under a
+further condition — and §U.81 (d) named the wrong blocker.**
+
+##### (a) MONOTONICITY IS FREE, and §U.81 (d)'s worry was misplaced
+
+§U.81 (d) feared that an operator built from `PinRecLaws.fibre` could
+not be monotone, because `fibre` is stated only for tuples BELOW the
+carrier (§U.28's clamping).  That confuses two directions:
+
+* `fibre` is the pins' carriers' DECOMPOSITION — an `iff` — and the
+  clamp is on its ⟸ half ("above the carrier the ← direction is
+  false");
+* a constructor-generated OPERATOR needs only "a fit injects", the
+  total direction, and its monotonicity in the tuple is
+  `BlockModel.ChainFitT_mono`: at `X ≤ Y` pointwise every
+  `ChainFitT … X` is a `ChainFitT … Y`, under a target-bound side
+  condition that `IsBlockModel.tgtsLt` and `PinRecLaws.tgtsLt` supply.
+
+That lemma is not new and not hypothetical: `famAt_le_of_TClosed` and
+`instanceLe_of_transfer` both already use it at exactly these classes.
+So monotonicity of a constructor-generated `Φ_T` is free.
+
+##### (b) AND THE EQUALITY NEEDS NO MONOTONICITY AT ALL
+
+`lfpTuple` is not built by iteration — it is the INTERSECTION of the
+closed tuples:
+
+```lean
+mem_app_lfpTuple : x ∈ˢ app (lfpTuple w k Is Φ m) i ↔
+  ∀ X, IsClosedTuple w k Is Φ X → x ∈ˢ app (X m) i
+```
+
+so `lfpTuple_le` is UNCONDITIONAL.  Therefore, for any `Φ_T` whose
+closed tuples are exactly the `TClosed` ones,
+
+* `lfpTuple w kT idxT Φ_T ≤ famAt …` is `lfpTuple_le` at
+  `famAt_TClosed`;
+* `famAt … ≤ lfpTuple w kT idxT Φ_T` is `famAt_le_of_TClosed` read
+  through that same intersection.
+
+Both are already theorems and neither mentions monotonicity.  **The
+equality was never the hard part**; monotonicity is wanted only
+because `lfpTuple_le_of_rel` — the bisimulation form, the only shape
+that hands the step an induction hypothesis — asks for `MonoTuple` and
+`MapsTuple` outright.
+
+##### (c) THE CONDITION: the operator has to EXIST as a function, and this tier RECORDS such things
+
+What is missing is not a proof about `Φ_T` but `Φ_T` itself.  The tier
+never builds a constructor-generated operator by replacement.  For the
+MEMBERS it RECORDS one — `BlockModel.Φ` is a structure FIELD, and
+
+```lean
+  functor : ∀ ψ ρp, Sat V (d.params ψ).reverse ρp →
+    MonoTuple (d.w ψ) d.k (d.idx ψ ρp) (d.Φ ψ ρp) ∧
+    MapsTuple (d.w ψ) d.k (d.idx ψ ρp) (d.Φ ψ ρp) ∧
+    ∃ L, IsClosedTuple (d.w ψ) d.k (d.idx ψ ρp) (d.Φ ψ ρp) L
+```
+
+ASSERTS its functoriality rather than deriving it.  So the condition is
+a clause of the same kind, at the extended classes: a `Φ_T` with its
+`functor` and a `fibre`-analogue describing its fibres as the
+injections of the classes' constructors.
+
+**A substitute by separation does NOT obviously work**, and this is
+worth recording so nobody tries it twice: clamping `Φ_T`'s fibres to
+the carrier (`sep (app (F c) t) …`, the only bound the tier has to hand)
+makes the closure condition WEAKER, so `TClosed X → IsClosedTuple Φ_T X`
+but not conversely — and `famAt_le_of_TClosed`'s hypothesis is the
+stronger one, so the `famAt ≤ lfpTuple` half of (b) stops transferring.
+Whether some other bound works is a construction question and is not
+answered here.
+
+**Who supplies it**: every `BlockAt` producer, and it is VACUOUS at
+most of them — the five pinned basis blocks and M7-3's native and
+mutual sites are pins-free, so `kT = k` and `Φ_T = Φ`.  Real work
+falls only at the nested route's own block model, where `nestedPc`'s
+constructors generate the pins' part.
+
+##### (d) THE NUMBER, back in the slot — split, because it is two parties
+
+| piece | whose | sessions |
+| --- | --- | --- |
+| the `Φ_T` clause: field, `functor`, `fibre`-analogue; vacuous at the pins-free producers | the block-model producers (M7-3 at the nested site) | 1–2 |
+| `instanceLe_of_transfer` restated over `lfpTuple_le_of_rel` — the closure argument re-proved in bisimulation form, with the relation at `X` available | this lane | 1–2 |
+| the in-instance `hent₂` arm in `copyTransfer_via`, and `nestedPinPairAt_mem`/`_pin` and `nestedInstanceLe` re-proved above it | this lane | 2–3 |
+| re-wiring `nestedPinInstLe`, `nestedPinsLe_of_rank` and the assembly (signatures move, proofs do not) | this lane | 1 |
+
+**4–6 sessions for this lane after the clause lands, plus 1–2 for the
+clause.**  The piece I have least evidence about is the second row: the
+bisimulation form's `hrel` must be discharged at EVERY class, members
+and pins together, and nothing in the tree does that yet.  If that row
+runs long, the estimate is the one to revisit.
+
+NOT STARTED, per the coordinator.  No code changed this session.
+
+Gates: `lake build` and `lake test` warning-free at the session's
+commit; text gates green.
