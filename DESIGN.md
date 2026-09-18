@@ -87097,7 +87097,12 @@ cheapest place to produce it is where the elimination's own data lives.
 **`nestedPinRankOk`** checks the four clauses the model consumes: (1) an
 OWN reference stays inside its instance, (2) a reference that LEAVES the
 instance goes to a strictly smaller rank, (3) the rank is a function of
-the instance, (4) a mint group is one instance.  `.internal` on failure,
+the instance, (4) a mint group is one instance.  **Clause (2) is a
+DISJUNCTION and the Bool is the statement** — `inst q == inst t ||
+rank t < rank q` at a not-own edge — so it does NOT say that a not-own
+target leaves the instance; it says that one which does, decreases.  A
+reading that demands the target leave is refuted by fourteen not-own
+edges in eight accepted blocks (M8 session 3).  `.internal` on failure,
 CERTIFICATION-ONLY and `certOnly`-gated, one conjunct of
 `DeclNestedRun` and of `checkNested_inv`; `nestedPinInstOf` and
 `nestedPinRankOf` are the same functions off the run's data, which is
@@ -88993,3 +88998,140 @@ arena half iterates the ROW file, so nothing runs them.  They may be
 upstream additions since the vendoring or tests for features declined
 by design; that is not established here, and it is recorded as a
 question rather than as a hole.
+
+#### THE `mintedAt` FIX, AND TWO MEASUREMENTS (2026-09-18, task #315 M8 session 3, `agent/uniform-m5`)
+
+The stamp fix authorised in session 2, the corpus questions it
+invalidated re-measured on the corrected relation, and lane L-E's
+instance-label question answered.  The record of the defect itself is
+the previous section.
+
+##### (a) THE FIX, and what else named the literal
+
+`mkCopies` (`Kernel/Inductives/NestedElim.lean`) now carries
+`curType := st.curType` into its successor state.  `NestedPin.mintedAt`'s
+docstring says the literal must carry it and why: **a defaulted field
+every construction site is expected to override is a trap**, and the
+trap cost three blocks a wrong parent.
+
+One proof named the same literal in its STATEMENT — `cpStep_append`
+(`Verify/Inductives/NestedCopyProv.lean`) — and is generalised over the
+field; `CopyStep` says nothing about it.  Nothing else in the tree
+constructs an `ElimState` by literal (`elimLoop` and `elimNested` use
+`{ st with … }` and the explicit four-field constructor).
+
+`tests/nested-shadow-expected.txt`'s `InModelGroups.H` goes from the
+pinned `error` to `accept` and **is now the regression test for the
+stamp**: `H` nests through `TT (List H)`, so the copy of `TT` nests
+twice (`text` and `node` at `α := List H`) and its worklist step mints
+two pin groups.  A step that mints twice is the only shape that can see
+the reset, and this is the corpus's only one.
+
+##### (b) THE ACCEPT SETS DO NOT MOVE — confirmed, not assumed
+
+196 e2e rows and 138 arena rows, the pre-fix binary against the final
+one (fix + the Verify generalisation + the widened filter of (d)):
+**zero verdict differences**.  The Mathlib nested cone: exit 0, **4 926
+accepted**, all 41 shadow lines `accept`.  `tests/arena.sh` EXIT 0 with
+nested-shadow 36/36.
+
+##### (c) K.40 AND K.41, RE-MEASURED ON THE CORRECTED RELATION
+
+Both records' corpus claims were computed over the parent chain, which
+was wrong at three blocks, so both were re-run (probe, not committed):
+
+| question | pre-fix | post-fix |
+| --- | --- | --- |
+| instances with exactly ONE entry group | one instance failed (2 pins with no root) | **ALL** — 57 instances over the 36 shadow rows, 111 over the cone, zero rootless pins |
+| non-root pins that pair with their instance's root container | 13 of 13 | **14 of 14** (4 in the fixtures, 10 in the cone) |
+
+The record's earlier figure was "12 of 12"; the two new non-root pins
+are both from `inmodel_groups`, the fixture that was in no gate.  **Both
+claims survive the fix**, now on the corrected relation and over a
+strictly larger corpus — but they had to be re-run, not argued.
+
+##### (d) LANE L-B's CHEAP HALF: the job filter widened (no new measurement needed, and it is NOT vacuous)
+
+`nestedOrdDomPairs`' per-field filter was `r == .ordinary`; it is now
+`r == .ordinary || t < p.k`.  A field classified recursive or reflexive
+at a target BELOW `p.k` points at a MEMBER of the block, not at a mimic,
+and there the stored domain is mimic-free — positivity admits a member
+head only with member-free telescope domains and index arguments — so
+the minted and the rewritten walk end at the SAME term and the
+comparison is the one K.42 already makes.  The PIN targets (`p.k ≤ t`)
+are NOT widened; the heavier rewritten form belongs to them alone and
+keeps its measurement condition and its place in the queue.
+
+**Measured anyway, because a widened job set is a new set of
+comparisons**:
+
+* **fires: none.**  196 e2e + 138 arena verdicts unchanged; cone 4 926,
+  41 of 41 shadow accepts; nested-shadow 36/36;
+* **not vacuous, and by a wide margin**: the compared domains go from
+  **14 to 63** over the shadow corpus (43 block-runs, every one
+  widened — and only 13 of them had an ordinary-field job at all) and
+  from **45 to 91** over the cone (41 blocks, every one widened).  The
+  ordinary-only filter was doing NO work at 30 of the 43 shadow blocks;
+* **cost: none measurable.**  `tower_nested` 427 427 503 / 427 428 770
+  / 427 427 037 against 427 429 125 / 427 420 314 / 427 419 277
+  instructions:u; the cone 182 482 364 390 against 182 481 002 022
+  (−0.0007 %).  Each added job is one `normPosDomM` walk on one field
+  domain.
+
+**Ledger row** — the record is K.42's and the row does not split:
+CERT-ONLY, **(S)**.  The widened half compares the normalisation of a
+domain OUR mint produced with the domain OUR scratch install stored;
+official computes neither and no stream can violate it.  `certOnly`-
+gated with the rest of `nestedPinChecks`.
+
+##### (e) LANE L-E's QUESTION: the strengthening is OFF THE TABLE
+
+The question: does any accepted block have a NOT-OWN edge whose two
+endpoints carry EQUAL instance labels?  If none did, clause (2)'s
+disjunction could be dropped.  Measured over both corpora with the fix
+in (probe, not committed):
+
+* the shadow corpus: **4 such edges in 3 accepted blocks** —
+  `InModelGroups.H` (1 of its 2 not-own edges), `InModelGroups.M` (1 of
+  1), `P4` (2 of 2);
+* the Mathlib cone: **10 such edges in 5 accepted blocks** —
+  `Lean.Elab.InfoTree` (2 of 6) and the four `MsgEmbed`-shaped blocks
+  (2 of 3 each).
+
+**Fourteen not-own edges in eight accepted blocks carry equal instance
+labels.**  Dropping the alternative would make `nestedPinRankAt` false
+at every one of them and turn eight streams we accept into exit 3.  The
+strengthening is refused; the model side takes the other route.
+
+**AND IT IS WORSE THAN A COUNT — the strengthening is incompatible with
+the rank the checker COMPUTES.**  Lane L-E's observation that the
+machinery already branches on this bit is right, and it is the first
+line of `nestedRankPass`:
+
+```lean
+    if inst.getD e.1 0 == inst.getD e.2.1 0 then cur else …
+```
+
+— the relaxation SKIPS an edge whose endpoints share an instance label.
+So an equal-label not-own edge is precisely an edge along which the rank
+pass never relaxes, and `rank t < rank q` there is not merely unmeasured
+but something the computation deliberately never establishes: clause (3)
+then forces the two ranks EQUAL.  A check demanding the decrease would
+be demanding the negation of what its own rank function computes, at
+every one of the fourteen.  The disjunction is not a weakening of the
+clause; it is the clause the rank means.
+
+Keeping the bit rather than recomputing it is still the right shape for
+any FUTURE consumer — it costs nothing and the pass has it — but it buys
+no strengthening, and the measurement is the reason.
+
+**And the document was wrong, not the code.**  `nestedPinRankAt`'s own
+docstring reads "a reference that LEAVES the instance goes to a strictly
+smaller rank", which is exactly the disjunction (`same label ∨ smaller
+rank`, i.e. *if* it leaves, it decreases).  The reading that "not-own
+targets must LEAVE the instance" appears in lane L-E's sections and not
+in this document — this file's K.37 record states the clause correctly —
+so the correction belongs to that lane's text at the integration.  The
+general point is worth keeping: **when prose and code disagree, the code
+is the statement**, and the clause is now quoted verbatim beside its
+description in the K.37 record so the ambiguity cannot recur.

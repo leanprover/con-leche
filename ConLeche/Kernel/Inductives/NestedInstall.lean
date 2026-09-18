@@ -1996,8 +1996,18 @@ def nestedOrdDomPairs (env : Env) (p : NestedParts) (st : ElimState)
       let (_, crestS) ← openPisAtFvars p.nP cvS.type 0
       let (xsS, _) ← openPisAtFvars nF crestS p.nP
       let perField ← (List.range kf.length).mapM fun l => do
-        let (r, _) ← kf[l]?
-        if r == RecFieldKind.ordinary then
+        -- **ORDINARY, OR A MEMBER TARGET** (lane L-B's request, task
+        -- #315 M8 session 3): a field classified recursive or reflexive
+        -- at a target BELOW `p.k` points at a MEMBER of the block being
+        -- installed, not at a mimic, and there the stored domain is
+        -- mimic-free — positivity admits a member head only with
+        -- member-free telescope domains and index arguments — so the
+        -- minted and the rewritten walk end at the SAME term and the
+        -- comparison is the one this record already makes.  It is the
+        -- PIN targets (`p.k ≤ t`) that would need the heavier rewritten
+        -- form, and they are NOT widened here.
+        let (r, t) ← kf[l]?
+        if r == RecFieldKind.ordinary || t < p.k then
           let xM ← xsM[l]?
           let xS ← xsS[l]?
           pure [(p.nP + l, xM.fvarTypeD, xS.fvarTypeD)]
