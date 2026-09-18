@@ -357,38 +357,53 @@ theorem checkOpaqueValC_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env
 three of `checkDeclC`'s arms share this body). -/
 theorem checkBasisDeclC_sim (hs : CSOK mode env s₀) (kind : BasisKind) :
     SimC mode env s₀ (fun v w => v.env = w ∧ v = mkFEnv v.env)
-      (checkBasisDeclC (mkFEnv env) kind)
-      (checkBasisDecl (m := FueledM) env kind) := by
-  show SimC mode env s₀ _ (do
-      if kind = .quotK then
-        unless (mkFEnv env).find? eqName = some eqA do
-          throw (.notImplemented
-            "quotient basis requires the pinned Eq basis")
-      kind.declsA.foldlM installBasisDeclF (mkFEnv env) :
-      CheckCM FEnv) _
-  unfold checkBasisDecl
+      (checkBasisDeclC mode (mkFEnv env) kind)
+      (checkBasisDecl (m := FueledM) mode env kind) := by
+  -- the pinned conses and K.49's gate, once: both drivers run the fold
+  -- and then the SAME Bool, the cached one at `(mkFEnv e).env`, which is
+  -- `e`
+  have tail : ∀ {s₁ : CState}, CSOK mode env s₁ →
+      SimC mode env s₁ (fun v w => v.env = w ∧ v = mkFEnv v.env)
+        (do
+          let fe₂ ← (do
+            let e ← (kind.declsA.foldlM installBasisDecl env : CheckCM Env)
+            pure (mkFEnv e))
+          if certOnly mode (basisOwnMimicsOk fe₂.env kind.declsA) = true then pure fe₂
+          else do
+            throw (CheckError.internal "basis: the pinned block carries a mimic recursor")
+            pure fe₂)
+        (basisInstallWith (m := FueledM) mode env kind.declsA) := by
+    intro s₁ hs₁
+    unfold basisInstallWith basisOwnMimicsCheck
+    rw [← fueledM_bind_pure' (kind.declsA.foldlM installBasisDecl env : FueledM Env)]
+    refine SimC.bind
+      (SimC.bind (P := RelVC)
+        (Q := fun (v : FEnv) (w : Env) => v.env = w ∧ v = mkFEnv v.env)
+        (installBasisFoldS_sim _ env hs₁)
+        (fun s₂ e e' hs₂ hP => SimC.pure hs₂ ⟨hP, rfl⟩))
+      (fun s₃ fe₂ e'' hs₃ hP₂ => ?_)
+    obtain ⟨henv₂, hmk⟩ := hP₂
+    subst henv₂
+    by_cases hb : certOnly mode (basisOwnMimicsOk fe₂.env kind.declsA) = true
+    · rw [if_pos hb, if_neg (by simp [hb])]
+      exact SimC.pure hs₃ ⟨rfl, hmk⟩
+    · rw [if_neg hb]
+      exact SimC.throw
+  unfold checkBasisDeclC
   dsimp only
   rw [installBasisFoldF_pushC]
   simp only [mkFEnv_find?]
+  unfold checkBasisDecl
+  dsimp only
   by_cases hq : kind = .quotK
   · simp only [if_pos hq]
     by_cases he : env.find? eqName = some eqA
     · simp only [if_pos he]
-      rw [← fueledM_bind_pure'
-        (kind.declsA.foldlM installBasisDecl env : FueledM Env)]
-      refine SimC.bind (installBasisFoldS_sim _ env hs)
-        (fun s₁ e e' hs₁ hP => ?_)
-      obtain rfl : e = e' := hP
-      exact SimC.pure hs₁ ⟨rfl, rfl⟩
+      exact tail hs
     · simp only [if_neg he]
       exact SimC.throw_bind
   · simp only [if_neg hq]
-    rw [← fueledM_bind_pure'
-      (kind.declsA.foldlM installBasisDecl env : FueledM Env)]
-    refine SimC.bind (installBasisFoldS_sim _ env hs)
-      (fun s₁ e e' hs₁ hP => ?_)
-    obtain rfl : e = e' := hP
-    exact SimC.pure hs₁ ⟨rfl, rfl⟩
+    exact tail hs
 
 /-- The non-inductive branches of the converted-declaration driver
 `checkDeclC` simulate the generic `checkDecl` at the fueled families
@@ -633,7 +648,7 @@ theorem checkDeclStepC_run (hμ : mode.verifiedChecks = true) {env : Env} (henv 
     -- count (task #228) below it is a guard whose `false` throws on
     -- both sides, so only the passing branch reaches the bridge
     have hd : (match basisPinHit block with
-        | some kind => checkBasisDeclC (mkFEnv env) kind
+        | some kind => checkBasisDeclC mode (mkFEnv env) kind
         | none =>
           if indParamsOk nP block = true then
             (match nativeParts? nP block with

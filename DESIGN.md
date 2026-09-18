@@ -88381,3 +88381,121 @@ recorded.  Official mints the same way, keeps no pin list at all (a
 nested declaration RESTORES) and so cannot compare anything; a fire
 would be a finding about our restore, never about a stream.
 
+#### K.49 — the pinned basis blocks' own-pin table is empty (2026-09-17, task #315, lane M7-3's DESIGN §U.74)
+
+K.43 certifies the own-pin emptiness at the three INSTALL routes, and
+§U.69 (b) counted "native, mutual and the five pinned basis blocks"
+among its sites.  **That is wrong for the five.**  A pinned basis block
+is installed by `checkBasisDecl` — freshness checks and conses of fixed
+`ConstantInfo`s — which goes through no install route, so K.43's Bool is
+never evaluated for it and the basis theorems had no source for
+`ContainerModeled.ownPins`.  M7-3 checked the two candidates and refused
+both: `ConstWF` constrains types, values and rule bodies and says
+nothing about NAMES; `RecCtorsStored` ties a recursor's RULES to stored
+constructors, not its own name to a stored inductive.  A model
+hypothesis would land in `basisStepB_of`, which IS in the B fold.
+
+So the basis install certifies it, at every `.indInfo` the pinned list
+carries — one per kind:
+
+```lean
+def basisOwnMimicsOk (env₂ : Env) (l : List ConstantInfo) : Bool :=
+  l.all fun ci =>
+    match ci with
+    | .indInfo cv _ => blockOwnMimicsOk env₂ cv.name 0
+    | _ => true
+```
+
+`certOnly`-gated, `.internal` on failure, a conjunct of `DeclBasisRun`
+— which gains its `μ` for it, a one-word change at `DeclRun`'s three
+basis arms since `DeclRun` already carries the mode — and delivered by
+`declBasisRunOf`.  `checkBasisDecl` gains the mode as its first
+parameter (four call sites) and the conses-plus-gate become
+`basisInstallWith`, a named step, so that the inversion is one lemma
+about THAT function rather than a shape argument about the
+`do`-block.  **It cannot fire**: a `.recInfo` at `T.rec_1` for a pinned
+`T` would be the mimic of a nested block whose first former is `T`, and
+such a block installs `.indInfo T`, which the pin's own freshness
+conjunct refuses.
+
+**ONE DEVIATION FROM THE REQUEST, and it is the measurement's.**  The
+request said to use the driver's index and the `blockOwnMimicsOkF_eq`
+bridge, per K.43's lesson that a MISSING lookup scans the whole
+constant list.  **K.43's lesson does not transfer here, and the numbers
+say so.**  K.43's Bool runs once per INSTALLED BLOCK across a whole
+stream, at an environment that grows to 654 k constants; K.49's runs at
+most six times per stream — once per pinned kind — and at the very
+START of it, where `Env.find?`'s list is still a handful of constants.
+The pure Bool therefore costs nothing (below), and it keeps
+`checkBasisDeclC_sim` (`Verify/Cached/BridgeC.lean`) a one-`show`
+change: with the index form the cached side's Bool would be at the
+`FEnv` and the pure side's at the `Env`, and the simulation would need
+the index agreement threaded to a site whose invariant does not carry
+it.  The `basisOwnMimicsOkF` twin was written, measured against, and
+DELETED.
+
+**THE GENERAL RULE, which is what this deviation is really about**
+(coordinator, on accepting it): **the cost of a lookup is the
+environment's size AT THAT POINT, not the checker's worst case.**  A
+record at the HEAD of the stream and a record PER INSTALLED BLOCK are
+different animals, even when they ask the same question of the same
+function.  K.43 is the second kind and had to move to the index; K.49
+is the first and must not, because the index form would buy nothing and
+cost the cached↔pure simulation a threaded invariant.  Measure before
+transferring a performance lesson between records.
+
+**MEASURED, K.25-style** (zero fires everywhere):
+
+* `tests/e2e/tower_nested.ndjson` FIRST: **518 098 985 / 518 097 554 /
+  518 097 072 instructions:u against K.43's 518 081 759 / 518 077 934 /
+  518 089 153 — the same band**;
+* the Mathlib nested cone: exit 0, **4 926 accepted**, 41/41 `accept`,
+  **182 466 357 552 / 182 475 070 546 against K.43's 182 482 301 755 —
+  −0.009 %**;
+* **init-full**, exit 0, **53 093 accepted**: **539 225 900 681 against
+  K.43's 539 234 113 937 — −8.2 M, inside the noise**;
+* **Mathlib** (`--jobs=8`), the run that matters most here since the
+  basis step is on EVERY stream: exit 0, **654 504 accepted — master's
+  own count** — at **12 015 523 050 050 instructions:u against K.43's
+  12 015 570 983 439, −47.9 M (−0.0004 %)**, i.e. free at 12 000 G and
+  of the opposite sign to the check's direction, which is what "below
+  the noise" looks like;
+* nested-shadow **27/27**; `tests/arena.sh` **EXIT 0**.
+
+**A TACTIC TRAP, recorded here because it will cost the next record a
+session otherwise.**  Three cached-tier obligations walk
+`checkBasisDeclC`'s body with the `yields` tactic
+(`Verify/Cached/AgreeFloor.lean`'s skeletons,
+`Verify/Cached/PushChain.lean`'s chain).  `yields` is
+`all_goals (first | (yields_step; yields) | skip)`, and `yields_step`
+tries `Yields.bind` — the UNINFORMATIVE bind rule, `∀ a, Yields (f a) P`
+— so as soon as the body continues PAST the fold, the tactic peels the
+fold with a rule that discards the fold's own lemma and leaves a goal
+about an arbitrary result.  Before K.49 the body ENDED with the fold and
+`all_goals exact hfold fe sk h` closed everything; it no longer does.
+The fix, at both sites:
+
+* prove the tail as its own `have`, using `Yields.bind'` (the rule that
+  USES the bound action's lemma) on the fold and `yields` only inside;
+* then peel the guard with `refine Yields.letFun ?_` — `ylet` is
+  `with_reducible apply`, which does not see through the `do`-block's
+  `have __do_jp` join point — and finish with
+  `repeat' first | exact htail | yields_step`, i.e. the stock walk with
+  the tail tried BEFORE each step so that it stops there instead of
+  peeling it.
+
+**Negative control**, K.34's and K.43's own: `&& false` inside
+`basisOwnMimicsOk` turns the FIRST DECLARATION of every stream into
+`internal error: basis: the pinned block carries a mimic recursor [at
+inductive Eq, fold position 0]`, and nested-shadow to **0/27**.  Every
+stream reaches it, at its very first pinned block.  The patch was
+reverted by inverse string replacement and the rebuilt binary is
+byte-identical to the pre-control one.
+
+**Ledger row**: CERT-ONLY, category **(S)** — a self-check on the
+checker's own output environment, in K.43's own category and for its
+reason: official installs the pinned blocks without recording anything
+of the kind, and the exclusion rests on the pin's own freshness
+conjunct, so a fire would be a finding about the environment's history
+rather than about the stream.
+
