@@ -5124,38 +5124,45 @@ of a pin group.  Its five fields are the arms proved above — `len`
 `es` (`copyEs`) — with three residuals, each named below at exactly
 the conjunct that is open. -/
 
-/-- **RESIDUAL 1 — the λ-pin case of `ordF`'s left arm, at a field the
-auxiliary block's classification calls ORDINARY** (DESIGN §U.53 (c),
-§U.62): the constructor type the block's stage was GIVEN mentions no
-member there — the case `copyOrdFLeft` carries as its second disjunct,
-where the positivity normalisation's `whnf` DROPPED the mention (the
-λ-pin `(fun _ : List T => Nat) z`).
+/-- **RESIDUAL 1 — K.42's CONJUNCT, until the run record carries it**
+(task #315 L-B, DESIGN §U.74): the kernel's own record — at every
+ORDINARY field of every copy's constructor, the positivity
+normalisation of the MINTED domain (the container's field at the pin's
+components, `mkCopy`'s output before the elimination's rewrite)
+returns the STORED one — read at the run.
 
-**The ORDINARY hypothesis is load-bearing** (DESIGN §U.62 (b)):
-without it the statement is FALSE at an ACCEPTED block.
-`tests/e2e/nested_lam_pin_prop.ndjson` nests through
-`Wrap (f : True → Type) | mk : (f trivial) → Wrap f` at
-`f := fun _ : True => T`, so the copy's second field domain is
-`(fun _ : True => T) trivial`, which mentions the member `T` — and
-whose normalisation KEEPS it, so the field is classified RECURSIVE and
-`ordF`'s left arm is never asked about it.  With the hypothesis the
-residual is a DECIDABLE predicate of the run's own data, which is why
-it is the kernel record this lane requests rather than a model-tier
-obligation: the only semantic route through the elimination's rewrite
-is the mimic's own reading law, and that law is what the shape is used
-to prove (DESIGN §U.62 (a)). -/
-@[expose] def NestedPinsShapeNoLam (V : Type w) [SetTheory V] (μ : CheckMode) (F : Nat) : Prop :=
-  NestedPinsIdsAt V μ F fun {_env} _ p _ b _ _ _ kinds _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ q₀ kJ dJ =>
-    ∀ i', i' < kJ → ∀ j, j < (dJ.ctorsM i').length → ∀ (cAJ : ConstantVal × Nat),
-      (dJ.ctorsM i')[j]? = some cAJ → ∀ l, l < cAJ.2 →
-      kindAt (mutKsOf kinds (b.ownOffset (p.k + q₀ + i') + j)) l = .ordinary →
-      ¬ ∃ (fvs xFvs : List Expr) (crest xrest x : Expr),
-          ConLeche.openPisAtFvars b.nP
-              (b.ctors.getD (b.ownOffset (p.k + q₀ + i') + j) default).cv.type 0
-            = some (fvs, crest) ∧
-          ConLeche.openPisAtFvars cAJ.2 crest b.nP = some (xFvs, xrest) ∧
-          xFvs[l]? = some x ∧
-          ConLeche.mentionsMember b.memberNames x.fvarTypeD = true
+This is NOT a proof obligation.  It is a `certOnly` conjunct of
+`DeclNestedRun` that `nestedPinChecks_inv` already inverts, and the
+arm that consumes it (`NestedPinsRun.copyOrdFLeftRead` above) is
+PROVED: §U.62 (b)'s `NestedPinsShapeNoLam` — the λ-pin case stated on
+the block's own data, which no model-tier argument could reach — is
+gone.  What is left is PLUMBING: the conjunct reaches `NestedPinsRun`
+only through `NestedPinsStaged` (`NestedLoop.lean`) and
+`declNested_of` (`DeclNestedCore.lean`, lane L-E's), so this lane
+states it here rather than reach into another lane's file.  The moment
+the field lands, `nestedPinsShape_of` reads `R.hK42` and this
+disappears; nothing else changes. -/
+@[expose] def NestedPinsShapeK42 (V : Type w) [SetTheory V] (μ : CheckMode) (F : Nat) : Prop :=
+  ∀ {env : Env} (mp : EnvModelM V μ env) (p : NestedParts) (st : ElimState) (b : MutualBlock)
+    (envAux : Env) (stored : List AuxStored) (ctorsR : List (List (ConstantVal × Nat × Nat)))
+    (fmsA ctorsA₀ : List ConstantVal)
+    (fms : List MutualFormerA) (f₀ : MutualFormerA) (ctorsA : List (ConstantVal × Nat))
+    (sortss : List (List Level)) (kinds : List (List (RecFieldKind × Nat)))
+    (mp₁ : EnvModelM V μ (ConLeche.consMutualFormers fms env))
+    (ppsF : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)) (W : (Name → Nat) → Nat)
+    (idxF : Nat → List Expr) (dsF : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm))
+    (esF : Nat → (Name → Nat) → List AnnotTerm) (srcsF : Nat → List (Option Nat))
+    (fvsPF xFvsF : Nat → List Expr) (xrestF : Nat → Expr)
+    (eissF : Nat → (Name → Nat) → List (List AnnotTerm))
+    (tssF : Nat → (Name → Nat) → List (List (Nat × Nat × AnnotTerm)))
+    (mp₁' : EnvModelM V μ (ConLeche.consMutualFormers (fms.take p.k) env)),
+    NestedPinsRun V μ F mp p st b envAux stored ctorsR fmsA ctorsA₀ fms f₀ ctorsA sortss kinds mp₁
+      ppsF W idxF dsF esF srcsF fvsPF xFvsF xrestF eissF tssF mp₁' →
+    ∃ (jobs : List (Nat × Expr × Expr)) (ws : List Expr),
+      ConLeche.nestedOrdDomPairs env p st stored (ConLeche.nestedPinKinds p b stored) = some jobs ∧
+      ConLeche.nestedOrdNorms (m := ConLeche.CheckM) (ConLeche.fueledOps μ F)
+          (ConLeche.consNestedFormers (stored.take p.k) env) b.memberNames jobs = .ok ws ∧
+      ws = jobs.map (·.2.2)
 
 /-- **RESIDUAL 2 — `ordF`'s right arm at the READING** (lane L-E's
 `EntryRead`, DESIGN §U.36/§U.51): at a container-ORDINARY field the
@@ -5273,13 +5280,13 @@ every pin group — from the arms proved above.  `len` is `copyLen`;
 AUXILIARY block's kind at the field (`kindAt_ne_of` excludes the two
 rejecting kinds) into `copyOrdFLeft` and `copyOrdFRight_shape`; `pinF`
 is `copyPinF_shape`; `es` is `copyEs`.  Three residuals remain, one per
-open conjunct (`NestedPinsShapeNoLam`, `NestedPinsShapeOrdRight`,
+open conjunct (`NestedPinsShapeK42`, `NestedPinsShapeOrdRight`,
 `NestedPinsShapePinF`).  K.32's `nestedCopyTargetsOk`, which the
 bookkeeping predicate `NestedPinsKindsRun` stood for until lane L-E
 threaded it (`NestedPinsRun.hK32`, DESIGN §U.64 (f)), is now read off
 the run record itself. -/
 theorem nestedPinsShape_of {F : Nat}
-    (hLam : NestedPinsShapeNoLam V μ F) (hOrd : NestedPinsShapeOrdRight V μ F)
+    (hK42 : NestedPinsShapeK42 V μ F) (hOrd : NestedPinsShapeOrdRight V μ F)
     (hPin : NestedPinsShapePinF V μ F) :
     NestedPinsShape V μ F := by
   intro env mp p st b envAux stored ctorsR fmsA ctorsA₀ fms f₀ ctorsA sortss kinds mp₁ ppsF W idxF
@@ -5287,8 +5294,8 @@ theorem nestedPinsShape_of {F : Nat}
   intro i hi cvT caps hfind ψ ρp hsat i' hi' j hj
   have hK32 := R.hK32
   have hkindsRun := R.h.classify
-  have hres1 := hLam mp p st b envAux stored ctorsR fmsA ctorsA₀ fms f₀ ctorsA sortss kinds mp₁
-    ppsF W idxF dsF esF srcsF fvsPF xFvsF xrestF eissF tssF mp₁' R pinsS SF dsR xFvsR q₀ kJ dJ S
+  have hres1 := hK42 mp p st b envAux stored ctorsR fmsA ctorsA₀ fms f₀ ctorsA sortss kinds mp₁
+    ppsF W idxF dsF esF srcsF fvsPF xFvsF xrestF eissF tssF mp₁' R
   have hres2 := hOrd mp p st b envAux stored ctorsR fmsA ctorsA₀ fms f₀ ctorsA sortss kinds mp₁
     ppsF W idxF dsF esF srcsF fvsPF xFvsF xrestF eissF tssF mp₁' R pinsS SF dsR xFvsR q₀ kJ dJ S
     i hi cvT caps hfind ψ ρp hsat i' hi' j hj
@@ -5367,16 +5374,15 @@ theorem nestedPinsShape_of {F : Nat}
     have hlF : l < cAJ.2 := by rw [hFssLen] at hl; exact hl
     rcases hkA : kindAt (mutKsOf kinds (b.ownOffset (p.k + q₀ + i') + j)) l with
       _ | _ | _ | _ | _
-    · -- the copy's field is ordinary too: the LEFT arm
-      obtain ⟨hrsF, hcase⟩ := R.copyOrdFLeft SF S hPD hi' hj' hlF hkA ψ
+    · -- the copy's field is ordinary too: the LEFT arm, at the READING
+      -- (task #315 L-B, DESIGN §U.74): K.42's run carries the λ-pin case,
+      -- where the positivity `whnf` dropped the member mention and the two
+      -- domains are no longer the same term
+      obtain ⟨hrsF, -⟩ := R.copyOrdFLeft SF S hPD hi' hj' hlF hkA ψ
       refine Or.inl ⟨hrsF, ?_⟩
-      rcases hcase with heq | hb6
-      · -- the arm's fitting prefix (lane L-E, DESIGN §U.56) is not read: the
-        -- copy's domain reads as the container's instantiated unconditionally
-        intro fs₁ hfs _
-        rw [hψ, hDs]
-        exact congrArg (interp V (consList fs₁ ρp)) heq
-      · exact absurd hb6 (hres1 i' hi' j hj cAJ hj' l hlF hkA)
+      intro fs₁ hfs hfit
+      rw [hψ, hDs] at hfit ⊢
+      exact R.copyOrdFLeftRead SF S hPD hres1 hi' hj' hlF hkA ψ ρp hsat fs₁ hfs hfit
     · -- the copy's field is recursive: the RIGHT arm
       have hrsT : ((blkRss ctorsA kinds).getD (b.ownOffset (p.k + q₀ + i') + j) []).getD l false
           = true := by rw [hrsAt l hlF, hkA]; simp
