@@ -215,7 +215,7 @@ are recorded at the install, one each way.
 Uniqueness of models is never needed: semantic facts meet at the
 readings, and syntactic facts that no law fixes are recorded.
 
-The laws, of which two matter here:
+The laws, of which four matter here:
 
     leaf:     ⟦T_j(a⃗)⟧  =  (μX⃗. Φ_d(a⃗)(X⃗))_j                                      (the definition of §1)
     pinLeaf:  ⟦J_i(s⃗_i[a⃗, μΦ_d(a⃗)])⟧  =  pinCar_i(μΦ_d(a⃗))                       (the entry law)
