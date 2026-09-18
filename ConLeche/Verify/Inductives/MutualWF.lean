@@ -2,6 +2,8 @@ module
 
 public import ConLeche.Verify.Inductives.MutualInv
 import ConLeche.Verify.Inductives.SumWF
+import ConLeche.Verify.Inductives.FixRec
+import ConLeche.Verify.Inductives.StructRec
 
 public section
 
@@ -31,6 +33,263 @@ namespace ConLeche
 
 variable {mode : CheckMode}
 
+/-! ## The generated recursor type's syntactic telescope (moved from
+`NestedRecDoor` so that this module's own recursor cons can read it) -/
+
+/-- The motives' telescope's two steps, by `rfl`.  NOT `simp only
+[mutualMotivesPis]`: unfolding through the equation lemmas realizes
+`mutualMotivesPis.match_1.splitter` HERE, and this module sits below
+every capstone in the import order, so the splitter's attribution moves
+into it and the proof-term gate reads a door. -/
+private theorem doorMotivesPis_nil {lps : List Name} {nP : Nat} {ℓ : Level} {pw : PropWhen}
+    {i : Nat} {body : Expr} : mutualMotivesPis lps nP ℓ pw [] i body = some body := rfl
+
+private theorem doorMotivesPis_cons {lps : List Name} {nP : Nat} {ℓ : Level} {pw : PropWhen}
+    {f : MutualFormer} {fs : List MutualFormer} {i : Nat} {body : Expr} :
+    mutualMotivesPis lps nP ℓ pw (f :: fs) i body
+      = (mutualMotiveTy lps nP ℓ i f).bind fun mty =>
+          (mutualMotivesPis lps nP ℓ pw fs (i + 1) body).map fun rest =>
+            Expr.forallE mty rest ⟨pw⟩ := rfl
+
+/-- The minors' telescope's two steps, by `rfl` (same reason). -/
+private theorem doorMinorsPis_nil {lps : List Name} {nP : Nat} {pw : PropWhen} {o : Nat}
+    {body : Expr} : mutualMinorsPis lps nP pw [] o body = some body := rfl
+
+private theorem doorMinorsPis_cons {lps : List Name} {nP : Nat} {pw : PropWhen}
+    {c : MutualCtor4} {cs : List MutualCtor4} {o : Nat} {body : Expr} :
+    mutualMinorsPis lps nP pw (c :: cs) o body
+      = (mutualMinorTy lps nP o pw c).bind fun mty =>
+          (mutualMinorsPis lps nP pw cs (o + 1) body).map fun rest =>
+            Expr.forallE mty rest ⟨pw⟩ := rfl
+
+/-- The motives' telescope: one `∀` per former, meta `⟨pw⟩`, the body
+under them. -/
+theorem mutualMotivesPis_stripPis {lps : List Name} {nP : Nat} {ℓ : Level} {pw : PropWhen} :
+    ∀ (fs : List MutualFormer) {i : Nat} {body mots : Expr},
+      mutualMotivesPis lps nP ℓ pw fs i body = some mots →
+      ∃ bs : List (Expr × BinderMeta), mots.stripPis fs.length = some (bs, body) ∧
+        ∀ x ∈ bs, x.2 = (⟨pw⟩ : BinderMeta) := by
+  intro fs
+  induction fs with
+  | nil =>
+    intro i body mots h
+    rw [doorMotivesPis_nil, Option.some.injEq] at h
+    exact ⟨[], by rw [← h]; rfl, by simp⟩
+  | cons f fs ih =>
+    intro i body mots h
+    rw [doorMotivesPis_cons] at h
+    simp only [Option.bind_eq_some_iff, Option.map_eq_some_iff] at h
+    obtain ⟨mty, -, rest, hrest, rfl⟩ := h
+    obtain ⟨bs, hbs, hmeta⟩ := ih hrest
+    refine ⟨(mty, ⟨pw⟩) :: bs, ?_, ?_⟩
+    · simp only [List.length_cons, Expr.stripPis, hbs, Option.map_some]
+    · intro x hx
+      rcases List.mem_cons.mp hx with rfl | hx
+      · rfl
+      · exact hmeta x hx
+
+/-- The minors' telescope: one `∀` per constructor, meta `⟨pw⟩`, the
+body under them. -/
+theorem mutualMinorsPis_stripPis {lps : List Name} {nP : Nat} {pw : PropWhen} :
+    ∀ (cs : List MutualCtor4) {o : Nat} {body mins : Expr},
+      mutualMinorsPis lps nP pw cs o body = some mins →
+      ∃ bs : List (Expr × BinderMeta), mins.stripPis cs.length = some (bs, body) ∧
+        ∀ x ∈ bs, x.2 = (⟨pw⟩ : BinderMeta) := by
+  intro cs
+  induction cs with
+  | nil =>
+    intro o body mins h
+    rw [doorMinorsPis_nil, Option.some.injEq] at h
+    exact ⟨[], by rw [← h]; rfl, by simp⟩
+  | cons c cs ih =>
+    intro o body mins h
+    rw [doorMinorsPis_cons] at h
+    simp only [Option.bind_eq_some_iff, Option.map_eq_some_iff] at h
+    obtain ⟨mty, -, rest, hrest, rfl⟩ := h
+    obtain ⟨bs, hbs, hmeta⟩ := ih hrest
+    refine ⟨(mty, ⟨pw⟩) :: bs, ?_, ?_⟩
+    · simp only [List.length_cons, Expr.stripPis, hbs, Option.map_some]
+    · intro x hx
+      rcases List.mem_cons.mp hx with rfl | hx
+      · rfl
+      · exact hmeta x hx
+
+/-- A spine mentions a constant only through its head or an argument
+(the Verify copy of the Model tier's `mentionsConst_mkAppN_false`). -/
+private theorem doorMentionsConst_mkAppN_false {n : Name} :
+    ∀ (as : List Expr) (f : Expr), f.mentionsConst n = false →
+      (∀ a ∈ as, a.mentionsConst n = false) → (Expr.mkAppN f as).mentionsConst n = false
+  | [], _, hf, _ => hf
+  | a :: as, f, hf, has =>
+    doorMentionsConst_mkAppN_false as (.app f a)
+      (by simp only [Expr.mentionsConst, hf, has a List.mem_cons_self, Bool.or_self])
+      (fun x hx => has x (List.mem_cons_of_mem _ hx))
+
+/-- **THE MAJOR PREMISE'S DOMAIN IS AN APPLICATION OF A CONSTANT**
+(task #315, the crossing's premise): the generated recursor type of
+member `mm`, stripped at its MAJOR INDEX — one binder short of
+`mutualRecTy_stripPis`' strip — exposes the major premise itself, and
+its domain is the member's own family application, whose head is a
+`const`.
+
+This is the unconditional form: no rule, no fire, no `.nested` guard —
+the shape holds of the type the route GENERATES, and the stream's
+record is only required to be defeq to it, so what is STORED is this
+term.  `structFamI` is the family at the parameter and index openers,
+so the head is `.const f.name (lps.map .param)` by construction. -/
+theorem mutualRecTy_majorDom {lps : List Name} {elim : Name} {large : Bool} {nP mm : Nat}
+    {formers : List MutualFormer} {ctors : List MutualCtor4} {recTy : Expr}
+    (h : mutualRecTy lps elim large nP formers ctors mm = some recTy) :
+    ∃ (f : MutualFormer) (bs : List (Expr × BinderMeta)) (dom body : Expr) (bm : BinderMeta),
+      formers[mm]? = some f ∧
+      recTy.stripPis (nP + formers.length + ctors.length + f.nIdx)
+        = some (bs, .forallE dom body bm) ∧
+      dom.getAppFn = .const f.name (lps.map .param) := by
+  unfold mutualRecTy at h
+  split at h
+  · next f f₀ hf _hf₀ =>
+    simp only [Option.bind_eq_some_iff] at h
+    obtain ⟨q, hq, major, hmaj, minors, hmin, motives, hmot, hr⟩ := h
+    obtain ⟨bs1, body1, hbs1⟩ := replacePisPw_some_stripPis f.nIdx hmaj
+    have h2 := replacePisPw_stripPis f.nIdx hmaj hbs1
+    obtain ⟨bs2, hbs2, -⟩ := mutualMinorsPis_stripPis ctors hmin
+    have h5 := stripPis_append ctors.length hbs2 h2
+    obtain ⟨bs3, hbs3, -⟩ := mutualMotivesPis_stripPis formers hmot
+    have h6 := stripPis_append formers.length hbs3 h5
+    obtain ⟨bs0, body0, hbs0⟩ := replacePisPw_some_stripPis nP hr
+    have h7 := replacePisPw_stripPis nP hr hbs0
+    have h8 := stripPis_append nP h7 h6
+    rw [show nP + (formers.length + (ctors.length + f.nIdx))
+      = nP + formers.length + ctors.length + f.nIdx from by omega] at h8
+    refine ⟨f, _, _, _, _, hf, h8, ?_⟩
+    rw [structFamI, Expr.getAppFn_mkAppN]
+    rfl
+  · exact nomatch h
+
+/-- **The generated recursor type of member `mm` is a syntactic
+`∀`-telescope** of `nP + k + n + nIdx_m + 1` binders, every binder meta
+the elimination datum, whose residual is the conclusion `motive_m ı⃗ t`
+— an application of bound variables, mentioning no constant. -/
+theorem mutualRecTy_stripPis {lps : List Name} {elim : Name} {large : Bool} {nP mm : Nat}
+    {formers : List MutualFormer} {ctors : List MutualCtor4} {recTy : Expr}
+    (h : mutualRecTy lps elim large nP formers ctors mm = some recTy) :
+    ∃ (f : MutualFormer) (cbs : List (Expr × BinderMeta)),
+      formers[mm]? = some f ∧
+      recTy.stripPis (nP + formers.length + ctors.length + f.nIdx + 1)
+        = some (cbs, Expr.mkAppN (.bvar (f.nIdx + ctors.length + formers.length - mm))
+            (structPsAt 1 f.nIdx ++ [.bvar 0])) ∧
+      (∀ x ∈ cbs, x.2 = (⟨Level.zeronessOf (structElimLevel elim large)⟩ : BinderMeta)) ∧
+      ∀ n : Name, (Expr.mkAppN (.bvar (f.nIdx + ctors.length + formers.length - mm))
+        (structPsAt 1 f.nIdx ++ [.bvar 0])).mentionsConst n = false := by
+  unfold mutualRecTy at h
+  split at h
+  · next f f₀ hf _hf₀ =>
+    simp only [Option.bind_eq_some_iff] at h
+    obtain ⟨q, hq, major, hmaj, minors, hmin, motives, hmot, hr⟩ := h
+    -- the index telescope and the major, under the `f.nIdx + 1` binders
+    obtain ⟨bs1, body1, hbs1⟩ := replacePisPw_some_stripPis f.nIdx hmaj
+    have h2 := replacePisPw_stripPis f.nIdx hmaj hbs1
+    have h4 := stripPis_append f.nIdx h2 (m := 1) rfl
+    -- the minors, then the motives
+    obtain ⟨bs2, hbs2, hm2⟩ := mutualMinorsPis_stripPis ctors hmin
+    have h5 := stripPis_append ctors.length hbs2 h4
+    obtain ⟨bs3, hbs3, hm3⟩ := mutualMotivesPis_stripPis formers hmot
+    have h6 := stripPis_append formers.length hbs3 h5
+    -- the parameters
+    obtain ⟨bs0, body0, hbs0⟩ := replacePisPw_some_stripPis nP hr
+    have h7 := replacePisPw_stripPis nP hr hbs0
+    have h8 := stripPis_append nP h7 h6
+    rw [show nP + (formers.length + (ctors.length + (f.nIdx + 1)))
+      = nP + formers.length + ctors.length + f.nIdx + 1 from by omega] at h8
+    refine ⟨f, _, hf, h8, ?_, ?_⟩
+    · intro x hx
+      rcases List.mem_append.mp hx with hx | hx
+      · obtain ⟨y, -, rfl⟩ := List.mem_map.mp hx; rfl
+      rcases List.mem_append.mp hx with hx | hx
+      · exact hm3 x hx
+      rcases List.mem_append.mp hx with hx | hx
+      · exact hm2 x hx
+      rcases List.mem_append.mp hx with hx | hx
+      · obtain ⟨y, -, rfl⟩ := List.mem_map.mp hx; rfl
+      · rw [List.mem_singleton.mp hx]
+    · intro n
+      refine doorMentionsConst_mkAppN_false _ _ rfl ?_
+      intro a ha
+      rcases List.mem_append.mp ha with ha | ha
+      · obtain ⟨y, -, rfl⟩ := List.mem_map.mp ha; rfl
+      · rw [List.mem_singleton.mp ha]; rfl
+  · exact nomatch h
+
+/-- **THE GENERATED RECURSOR TYPE'S MAJOR BINDER, SYNTACTICALLY**
+(task #315 M7-2): `mutualRecTy_stripPis` with the LAST binder named.
+
+Relocated here at integration 3s: it consumes the telescope kit that
+M8 session 6 moved out of `NestedRecDoor.lean` into this file, so it
+follows the kit.  Its consumer, `Model/Inductives/NestedRecRule.lean`,
+already reaches this module, so the move adds no import edge.
+The telescope's binder `nP + k + n + nIdx_m` — the one the major
+premise occupies — carries the domain `structFamI`, member `m`'s own
+former applied to the block's parameters and the index binders, and
+the elimination datum like every other.  The mimic recursors' fire
+shape reads THIS binder through the restore, which is why it has to be
+named. -/
+theorem mutualRecTy_major {lps : List Name} {elim : Name} {large : Bool} {nP mm : Nat}
+    {formers : List MutualFormer} {ctors : List MutualCtor4} {recTy : Expr}
+    (h : mutualRecTy lps elim large nP formers ctors mm = some recTy) :
+    ∃ (f : MutualFormer) (cbs₀ : List (Expr × BinderMeta)) (conc : Expr),
+      formers[mm]? = some f ∧
+      recTy.stripPis (nP + formers.length + ctors.length + f.nIdx + 1)
+        = some (cbs₀ ++ [(structFamI f.name lps nP f.nIdx (formers.length + ctors.length) 0,
+            (⟨Level.zeronessOf (structElimLevel elim large)⟩ : BinderMeta))], conc) ∧
+      cbs₀.length = nP + formers.length + ctors.length + f.nIdx := by
+  unfold mutualRecTy at h
+  split at h
+  · next f f₀ hf _hf₀ =>
+    simp only [Option.bind_eq_some_iff] at h
+    obtain ⟨q, hq, major, hmaj, minors, hmin, motives, hmot, hr⟩ := h
+    obtain ⟨bs1, body1, hbs1⟩ := replacePisPw_some_stripPis f.nIdx hmaj
+    have h2 := replacePisPw_stripPis f.nIdx hmaj hbs1
+    have h4 := stripPis_append f.nIdx h2 (m := 1) rfl
+    obtain ⟨bs2, hbs2, -⟩ := mutualMinorsPis_stripPis ctors hmin
+    have h5 := stripPis_append ctors.length hbs2 h4
+    obtain ⟨bs3, hbs3, -⟩ := mutualMotivesPis_stripPis formers hmot
+    have h6 := stripPis_append formers.length hbs3 h5
+    obtain ⟨bs0, body0, hbs0⟩ := replacePisPw_some_stripPis nP hr
+    have h7 := replacePisPw_stripPis nP hr hbs0
+    have h8 := stripPis_append nP h7 h6
+    rw [show nP + (formers.length + (ctors.length + (f.nIdx + 1)))
+      = nP + formers.length + ctors.length + f.nIdx + 1 from by omega] at h8
+    refine ⟨f, (bs0.map fun x => (x.1, (⟨Level.zeronessOf (structElimLevel elim large)⟩ :
+        BinderMeta))) ++ (bs3 ++ (bs2 ++ (bs1.map fun x => (x.1,
+          (⟨Level.zeronessOf (structElimLevel elim large)⟩ : BinderMeta))))),
+      Expr.mkAppN (.bvar (f.nIdx + ctors.length + formers.length - mm))
+        (structPsAt 1 f.nIdx ++ [.bvar 0]), hf, ?_, ?_⟩
+    · rw [show (bs0.map fun x => (x.1, (⟨Level.zeronessOf (structElimLevel elim large)⟩ :
+          BinderMeta))) ++ (bs3 ++ (bs2 ++ (bs1.map fun x => (x.1,
+            (⟨Level.zeronessOf (structElimLevel elim large)⟩ : BinderMeta)))))
+          ++ [(structFamI f.name lps nP f.nIdx (formers.length + ctors.length) 0,
+            (⟨Level.zeronessOf (structElimLevel elim large)⟩ : BinderMeta))]
+        = (bs0.map fun x => (x.1, (⟨Level.zeronessOf (structElimLevel elim large)⟩ :
+            BinderMeta))) ++ (bs3 ++ (bs2 ++ ((bs1.map fun x => (x.1,
+              (⟨Level.zeronessOf (structElimLevel elim large)⟩ : BinderMeta)))
+            ++ [(structFamI f.name lps nP f.nIdx (formers.length + ctors.length) 0,
+              (⟨Level.zeronessOf (structElimLevel elim large)⟩ : BinderMeta))]))) from by
+          simp only [List.append_assoc]]
+      exact h8
+    · have e0 : (bs0.map fun x => (x.1, (⟨Level.zeronessOf (structElimLevel elim large)⟩ :
+          BinderMeta))).length = nP := by
+        rw [List.length_map]
+        exact Expr.stripPis_length _ hbs0
+      have e1 : (bs1.map fun x => (x.1, (⟨Level.zeronessOf (structElimLevel elim large)⟩ :
+          BinderMeta))).length = f.nIdx := by
+        rw [List.length_map]
+        exact Expr.stripPis_length _ hbs1
+      have e2 : bs2.length = ctors.length := Expr.stripPis_length _ hbs2
+      have e3 : bs3.length = formers.length := Expr.stripPis_length _ hbs3
+      simp only [List.length_append, e0, e1, e2, e3]
+      omega
+  · exact nomatch h
+
 /-! ## Monotone extension -/
 
 /-- One constant's well-formedness is monotone under lookup-preserving
@@ -38,10 +297,10 @@ extension (`EnvWF.cons`'s tail half, at an arbitrary extension). -/
 theorem ConstWF.le {envA envB : Env} {c : ConstantInfo}
     (hf : ∀ n, (envA.find? n).isSome = true → (envB.find? n).isSome = true)
     (hc : ConstWF envA c) : ConstWF envB c := by
-  obtain ⟨h1, h2, h3, h4, h5, h6, h8, h9⟩ := hc
+  obtain ⟨h1, h2, h3, h4, h5, hmaj, h6, h8, h9⟩ := hc
   refine ⟨h1, h2, Expr.constsResolve_le hf h3, h4, fun cv value hint heq =>
     let ⟨g1, g2, g3, g4⟩ := h5 cv value hint heq
-    ⟨g1, g2, Expr.constsResolve_le hf g3, g4⟩, ?_,
+    ⟨g1, g2, Expr.constsResolve_le hf g3, g4⟩, hmaj, ?_,
     fun tbl heq =>
       let ⟨g0, g⟩ := h8 tbl heq
       ⟨g0, fun i bd hb =>
@@ -97,6 +356,22 @@ theorem find?_isSome_cons_mono {c c' : ConstantInfo} {env env' : Env}
     exact hf n h
 
 /-! ## Stage 1: the formers -/
+
+/-- **The formers' fold is length-preserving** (task #315): needed
+because the stored recursor's major index is
+`b.rulePrefix + (fms.getD m default).nIdx` while `mutualRecTy` is called
+at `formers4 = fms.map …`. -/
+theorem mutualFormerChecks_length {nP F : Nat} {g : Bool} :
+    ∀ {l : List (ConstantVal × Nat)} {env : Env} {fms : List MutualFormerA},
+      mutualFormerChecks (fueledOps mode F) env nP g l = .ok fms →
+      fms.length = l.length
+  | [], _, _, h => by
+    obtain rfl := mutualFormerChecksG_nil_inv h
+    rfl
+  | (cv, nIdx) :: rest, env, fms, h => by
+    obtain ⟨cvTa₀, cvTa, s, bs, fs, -, -, -, hrest, rfl⟩ := mutualFormerChecksG_inv h
+    simp only [List.length_cons]
+    exact congrArg (· + 1) (mutualFormerChecks_length hrest)
 
 /-- The type-slot `ConstWF` facts of every checked former, AT THE
 PRE-BLOCK ENVIRONMENT (where the whole stage runs). -/
@@ -319,6 +594,35 @@ theorem storeMutualRecs_mem {env₂ : Env} {b : MutualBlock} {fms : List MutualF
       · exact Or.inl hm'
     · exact Or.inr ⟨cvRa', mIdx', List.mem_cons_of_mem _ hmem, rfl⟩
 
+/-- **The generated recursors' MAJOR-PREMISE HEADS** (task #315): each
+member's stored recursor type is `mutualRecTy`'s output, and that
+generator puts the member's own family application in the major
+premise's domain — a `const` head.  The three arity facts line the
+stored major index `b.rulePrefix + nIdx` up with the generator's
+`b.nP + formers.length + ctors.length + f.nIdx`. -/
+theorem checkMutualRecTys_majorHead {env₂ : Env} {b : MutualBlock}
+    {fms : List MutualFormerA} {formers4 : List MutualFormer} {ctors4 : List MutualCtor4}
+    {streamRecs : Option (List (ConstantVal × List RecRule))} {cvRas : List ConstantVal}
+    {F : Nat}
+    (hrectys : checkMutualRecTys (fueledOps mode F) env₂ b formers4 ctors4 streamRecs b.k
+      = .ok cvRas)
+    (hkf : b.k = formers4.length) (hnc : b.n = ctors4.length)
+    (hnIdxs : ∀ m f, formers4[m]? = some f → (fms.getD m default).nIdx = f.nIdx) :
+    ∀ (t : Nat) (cvRa : ConstantVal), t < b.k → cvRas[t]? = some cvRa →
+      Expr.recMajorHeadOk cvRa.type (b.rulePrefix + (fms.getD t default).nIdx) = true := by
+  intro t cvRa ht hget
+  obtain ⟨-, hallR⟩ := checkMutualRecTys_inv hrectys
+  obtain ⟨cvRa', hget', hrec⟩ := hallR t ht
+  obtain rfl := Option.some.inj (hget.symm.trans hget')
+  obtain ⟨recTy, sty, u, hgenM, -, -, -, -, -, -, -, rfl⟩ := checkMutualRecTy_shape hrec
+  obtain ⟨f, bs0, dom0, body0, bm0, hf, hs, hd⟩ := mutualRecTy_majorDom hgenM
+  have hmi : b.rulePrefix + (fms.getD t default).nIdx
+      = b.nP + formers4.length + ctors4.length + f.nIdx := by
+    rw [hnIdxs t f hf, MutualBlock.rulePrefix, hkf, hnc]
+  show Expr.recMajorHeadOk recTy (b.rulePrefix + (fms.getD t default).nIdx) = true
+  rw [hmi, Expr.recMajorHeadOk, hs]
+  simp only [hd]
+
 /-- **Stage 4 at the run level**: the `k` recursors stored as a group
 with their rules keep the environment well-formed. -/
 theorem mutual_recs_wf {env₂ : Env} (henv₂ : EnvWF env₂) {b : MutualBlock}
@@ -329,7 +633,15 @@ theorem mutual_recs_wf {env₂ : Env} (henv₂ : EnvWF env₂) {b : MutualBlock}
       = .ok cvRas)
     (hrules : checkMutualAllRules (m := CheckM)
       (provisionMutualRecs b fms cvRas.zipIdx env₂) b formers4 ctors4 streamRecs b.k
-      = .ok rulesOf) :
+      = .ok rulesOf)
+    -- **THE STAGE LISTS' LENGTHS AND THE MEMBERS' INDEX COUNTS** (task
+    -- #315): the pass's own facts, needed because the stored recursor's
+    -- MAJOR INDEX is `b.rulePrefix + (fms.getD mIdx default).nIdx =
+    -- b.nP + b.k + b.n + nIdx` while `mutualRecTy` is called at
+    -- `formers4`/`ctors4`
+    (hkf : b.k = formers4.length) (hnc : b.n = ctors4.length)
+    (hnIdxs : ∀ m f, formers4[m]? = some f →
+      (fms.getD m default).nIdx = f.nIdx) :
     EnvWF (storeMutualRecs env₂ b fms rulesOf cvRas.zipIdx env₂) := by
   obtain ⟨hlenR, hallR⟩ := checkMutualRecTys_inv hrectys
   obtain ⟨hlenU, hallU⟩ := checkMutualAllRules_inv hrules
@@ -352,9 +664,17 @@ theorem mutual_recs_wf {env₂ : Env} (henv₂ : EnvWF env₂) {b : MutualBlock}
   have hrlD : rulesOf.getD mIdx [] = rl := by
     rw [List.getD_eq_getElem?_getD, hrlget]; rfl
   rw [hrlD]
+  -- **THE MAJOR PREMISE'S HEAD** (task #315): this route STORES
+  -- `mutualRecTy`'s output, so the clause is the generator's own shape
   refine structConstWF hfv hlp
     (Expr.constsResolve_le (fun n => storeMutualRecs_le n) hres) hbv
-    (fun _ _ _ heq => nomatch heq) ?_
+    (fun _ _ _ heq => nomatch heq) ?_ (hmaj := ?maj)
+  case maj =>
+    -- **THE MAJOR PREMISE'S HEAD** (task #315): this route STORES
+    -- `mutualRecTy`'s output, so the clause is the generator's own shape
+    intro cv mI rP rules heq
+    obtain ⟨rfl, rfl, -, -⟩ := ConstantInfo.recInfo.inj heq
+    exact checkMutualRecTys_majorHead hrectys hkf hnc hnIdxs mIdx _ hlt hget
   intro cvR' mI' rP' rules' heq r hr
   injection heq with e1 e2 e3 e4
   subst e1
@@ -401,12 +721,32 @@ theorem checkMutualCore_wf {env envOut : Env} (henv : EnvWF env) {b : MutualBloc
     (h : checkMutualCore (fueledOps mode F) env b streamRecs = .ok envOut) :
     EnvWF envOut := by
   obtain ⟨-, -, -, -, env₁, fms, f₀, tq₀, ctorsA, sortss, kinds, formers4, ctors4,
-    cvRas, rulesOf, hformers, -, -, -, -, hctors, -, -, -, hrectys, hrules, htbl, -⟩ :=
+    cvRas, rulesOf, hformers, -, -, -, -, hctors, hkinds, -, hgd, hrectys, hrules, htbl, -⟩ :=
     checkMutualCore_inv h
   have henv₁ : EnvWF env₁ := envWF_mutualFormers henv hformers
   have henv₂ : EnvWF (consMutualCtors b.nP ctorsA env₁) :=
     envWF_consMutualCtors henv₁ (checkMutualCtors_typeWF hctors)
-  exact mutualTables_wf (mutual_recs_wf henv₂ hrectys hrules) htbl
+  -- the three arity facts come off `mutualGenData`'s equation, which the
+  -- inversion carries: its first component is `fms.map fun f =>
+  -- ⟨f.cvTa.name, f.nIdx, f.cvTa.type⟩`, so the former count is
+  -- `fms.length` and the index counts are COPIED; the constructor count
+  -- is the zip's
+  obtain ⟨hf4, hc4⟩ := Prod.mk.inj hgd
+  obtain ⟨hlenC, -, -⟩ := checkMutualCtors_inv hctors
+  obtain ⟨-, -, -, hlenK⟩ := classifyMutualKinds_inv hkinds
+  refine mutualTables_wf (mutual_recs_wf henv₂ hrectys hrules ?_ ?_ ?_) htbl
+  · rw [← hf4, List.length_map,
+      mutualFormerChecks_length (mutualFormers_inv hformers).1]
+    rfl
+  · rw [← hc4]
+    simp only [List.length_zipWith, List.length_zip, hlenC, hlenK]
+    simp only [MutualBlock.n]
+    omega
+  · intro m f hm
+    rw [← hf4, List.getElem?_map] at hm
+    obtain ⟨g, hg, rfl⟩ := Option.map_eq_some_iff.mp hm
+    rw [List.getD_eq_getElem?_getD, hg]
+    rfl
 
 /-- **The recognised mutual block's install keeps the environment
 well-formed.** -/

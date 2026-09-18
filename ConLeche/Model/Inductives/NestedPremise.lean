@@ -2,6 +2,9 @@ module
 
 public import ConLeche.Semantics.Inductives.DeclNested
 public import ConLeche.Model.Inductives.NestedFit
+-- `containerInfo?_inv`, for `ContainerModeled.pinParamsOf`'s re-indexing:
+-- proof-only, hence a plain import (task #315 M7-3 session 22).
+import ConLeche.Verify.Inductives.NestedGroupInv
 public section
 
 /-!
@@ -50,6 +53,52 @@ variable {V : Type w} [SetTheory V]
 variable {μ : CheckMode}
 
 /-! ## The premise: the containers' block models -/
+
+/-- **A stored container's PIN data are a congruence in the level
+assignment** (task #315 L-E, DESIGN §U.72 (e) — REQUESTED of M7-3 as a
+`ContainerModeled` clause, and carried as a premise until it lands):
+two assignments agreeing on the group's own constant's level parameters
+give ONE index universe, ONE component list and ONE index telescope at
+every pin of the block.
+
+`IsBlockModel.uParams` and `FormerData.params` are the same fact at the
+MEMBERS; nothing in the tier says it at the pins, and the PIN class of
+the container instance transfer needs it twice — at `copyTransfer_via`'s
+`huT` (the two copies' targets' index universes, `copyTarget_u`, when
+the target is one of the container's OWN pins) and at the `pinF` arm of
+the WALK (the two sides' `PinCorr` are at the same own pin, so
+`ClassPin`'s `frame` and `idx` come down to that pin's `Ds`/`Ids` at the
+two assignments).
+
+Four parts, and the WALK at a PIN class spends each exactly once
+(DESIGN §U.86): the pins' level ARGUMENTS scoped in the group's own
+level parameters (`ClassPin`'s `psi`, through `Level.substFn_ext` —
+this is also `targetPin_corr`'s `hpd`), the pins' COMPONENTS bounded at
+the container's parameters (`frame`, through `interp_congr_below`: the
+two sides read one component at two frames that agree only below
+`d.nP`), and the `u`/`Ds`/`Ids` congruences (`frame` and `idx`).
+
+It is true of every pin this checker records — a pin's level arguments
+and components are read off the block's own opened constructor, so they
+mention only the block's level parameters and its parameter context —
+and vacuous at a pins-free container. -/
+@[expose] def ContainerPinParams (cvI : ConstantVal) (d : BlockModel V) : Prop :=
+  ∀ q, q < d.nPins →
+    (∀ v ∈ (d.pinAt q).lvls, v.allParamsDefined cvI.levelParams = true) ∧
+    (∀ (ψ : Name → Nat) (e : AnnotTerm), e ∈ (d.pinAt q).Ds ψ →
+      ConLeche.Term.Term.bvarsBelow d.nP e.erase) ∧
+    ∀ ψ₁ ψ₂ : Name → Nat, (∀ pp ∈ cvI.levelParams, ψ₁ pp = ψ₂ pp) →
+      (d.pinAt q).u ψ₁ = (d.pinAt q).u ψ₂ ∧
+      (d.pinAt q).Ds ψ₁ = (d.pinAt q).Ds ψ₂ ∧
+      (d.pinAt q).Ids ψ₁ = (d.pinAt q).Ids ψ₂
+
+omit [SetTheory V] in
+/-- At a pins-free container the clause is vacuous. -/
+theorem ContainerPinParams.of_noPins {cvI : ConstantVal} {d : BlockModel V} (hnp : d.pins = []) :
+    ContainerPinParams (V := V) cvI d := by
+  intro q hq
+  simp only [BlockModel.nPins, hnp, List.length_nil] at hq
+  exact absurd hq (Nat.not_lt_zero _)
 
 /-- **A container's block model, in the container's own terms** (task
 #315 M6 s9, DESIGN §U.21 (a) — the strengthening §U.19 (e) asked for):
@@ -194,71 +243,26 @@ structure ContainerModeled {env : Env} (m : EnvModel V env) (ci : ContainerInfo)
 
   A record and not a derivation, and lane L-E checked before asking:
   `IsBlockModel.uParams` and `FormerData.params` are the MEMBERS'
-  congruences; the `u` and `Ids` halves reduce (through the container's
-  own `PinShapes` view, `ContainerModeled.params_congr` and `pinψ`) to
-  "the pins' level ARGUMENTS are `allParamsDefined` in the group's
-  level parameters", which `targetPin_corr` already takes as an
-  unsourced premise and which no record carries; and the `Ds` half does
-  not reduce at all — a `PinSyn`'s components are an abstract
-  `(Name → Nat) → List AnnotTerm`.  Consumers: `huT`'s pin branch
-  inside `copyTransfer_via`, and the `pinF` arm of the walk.
+  congruences; the `u` and `Ids` congruences reduce (through the
+  container's own `PinShapes` view, `ContainerModeled.params_congr` and
+  `pinψ`) to the FIRST part, which no other record carries; and the
+  `Ds` parts do not reduce at all — a `PinSyn`'s components are an
+  abstract `(Name → Nat) → List AnnotTerm`, so both their BOUND (the
+  walk's `frame` at a pin class reads one component at two frames that
+  agree only below `d.nP`) and their congruence have to be recorded.
+  Consumers: `huT`'s pin branch inside `copyTransfer_via`, and the
+  `pinF` arm of the walk.
 
   Stated over the GROUP's member record (`ci.members[i]?`), not over an
-  `env.find?` as `pinψ` is: the clause then mentions the environment
-  nowhere and crosses an extension for free.  Vacuous at a pins-free
-  container, like its neighbours. -/
+  `env.find?` as `pinψ` is: `M.lps` IS the `cvI.levelParams` the
+  definition asks for, which is what makes the member record the right
+  carrier and lets the clause mention no environment at all — hence it
+  crosses an extension VERBATIM (`crossEnvP` passes it through
+  unchanged).  A consumer holding the stored constant instead re-indexes
+  it by `pinParamsOf` below.  Vacuous at a pins-free container, like its
+  neighbours. -/
   pinParams : ∀ (i : Nat) (M : ConLeche.ContainerMember), ci.members[i]? = some M →
-    ∀ q, q < d.nPins → ∀ ψ₁ ψ₂ : Name → Nat,
-      (∀ pp ∈ M.lps, ψ₁ pp = ψ₂ pp) →
-      (d.pinAt q).u ψ₁ = (d.pinAt q).u ψ₂ ∧
-      (d.pinAt q).Ds ψ₁ = (d.pinAt q).Ds ψ₂ ∧
-      (d.pinAt q).Ids ψ₁ = (d.pinAt q).Ids ψ₂
-
-/-- **A stored container's PIN data are a congruence in the level
-assignment** (task #315 L-E, DESIGN §U.72 (e) — REQUESTED of M7-3 as a
-`ContainerModeled` clause, and carried as a premise until it lands):
-two assignments agreeing on the group's own constant's level parameters
-give ONE index universe, ONE component list and ONE index telescope at
-every pin of the block.
-
-`IsBlockModel.uParams` and `FormerData.params` are the same fact at the
-MEMBERS; nothing in the tier says it at the pins, and the PIN class of
-the container instance transfer needs it twice — at `copyTransfer_via`'s
-`huT` (the two copies' targets' index universes, `copyTarget_u`, when
-the target is one of the container's OWN pins) and at the `pinF` arm of
-the WALK (the two sides' `PinCorr` are at the same own pin, so
-`ClassPin`'s `frame` and `idx` come down to that pin's `Ds`/`Ids` at the
-two assignments).
-
-Four parts, and the WALK at a PIN class spends each exactly once
-(DESIGN §U.86): the pins' level ARGUMENTS scoped in the group's own
-level parameters (`ClassPin`'s `psi`, through `Level.substFn_ext` —
-this is also `targetPin_corr`'s `hpd`), the pins' COMPONENTS bounded at
-the container's parameters (`frame`, through `interp_congr_below`: the
-two sides read one component at two frames that agree only below
-`d.nP`), and the `u`/`Ds`/`Ids` congruences (`frame` and `idx`).
-
-It is true of every pin this checker records — a pin's level arguments
-and components are read off the block's own opened constructor, so they
-mention only the block's level parameters and its parameter context —
-and vacuous at a pins-free container. -/
-@[expose] def ContainerPinParams (cvI : ConstantVal) (d : BlockModel V) : Prop :=
-  ∀ q, q < d.nPins →
-    (∀ v ∈ (d.pinAt q).lvls, v.allParamsDefined cvI.levelParams = true) ∧
-    (∀ (ψ : Name → Nat) (e : AnnotTerm), e ∈ (d.pinAt q).Ds ψ →
-      ConLeche.Term.Term.bvarsBelow d.nP e.erase) ∧
-    ∀ ψ₁ ψ₂ : Name → Nat, (∀ pp ∈ cvI.levelParams, ψ₁ pp = ψ₂ pp) →
-      (d.pinAt q).u ψ₁ = (d.pinAt q).u ψ₂ ∧
-      (d.pinAt q).Ds ψ₁ = (d.pinAt q).Ds ψ₂ ∧
-      (d.pinAt q).Ids ψ₁ = (d.pinAt q).Ids ψ₂
-
-omit [SetTheory V] in
-/-- At a pins-free container the clause is vacuous. -/
-theorem ContainerPinParams.of_noPins {cvI : ConstantVal} {d : BlockModel V} (hnp : d.pins = []) :
-    ContainerPinParams (V := V) cvI d := by
-  intro q hq
-  simp only [BlockModel.nPins, hnp, List.length_nil] at hq
-  exact absurd hq (Nat.not_lt_zero _)
+    ContainerPinParams (V := V) ⟨M.name, M.lps, M.type⟩ d
 
 /-- **A member's index telescope is bounded at the parameters** — the
 MEMBER twin of `pinIds_below` (task #315 L-E, DESIGN §U.77). -/
@@ -269,6 +273,40 @@ theorem memberIds_below {env : Env} {m : EnvModel V env} {dJ : BlockModel V}
   refine DomsBelow.fields ?_
   have := DomsBelow.drop dJ.nP (hI.former.below ψ)
   simpa using this
+
+/-- **The pins' congruence, re-indexed by the STORED constant** (task
+#315 M7-3 session 22, for lane L-E's quantified premise): the clause
+`pinParams` is carried at the group's MEMBER record, a consumer that
+has looked the container's name up in the environment has its
+`ConstantVal` instead, and the two agree because `containerInfo?`
+CHECKS every member's level parameters against the queried constant's
+(`containerInfo?_inv`: `M.lps = cvC.levelParams` and
+`cvC.levelParams = cvT.levelParams`) — the same step
+`nestedOwnPins_of` makes for its two walks.
+
+The member is the one NAMED by `J`, which `containerInfo?_inv` puts in
+the group (`J ∈ ci.members.map (·.name)`), so no index and no
+non-emptiness hypothesis is needed. -/
+theorem ContainerModeled.pinParamsOf {env : Env} {m : EnvModel V env} {ci : ContainerInfo}
+    {d : BlockModel V} (C : ContainerModeled m ci d) {J : Name} {cv : ConstantVal}
+    {caps : IndCaps} (hci : ConLeche.containerInfo? env J = some ci)
+    (hf : env.find? J = some (.indInfo cv caps)) :
+    ContainerPinParams (V := V) cv d := by
+  -- every name is bound: a `-` here would clear a variable the LATER
+  -- conjuncts depend on, and rcases then eats them too
+  obtain ⟨cvT, _capsT, _cvR, _mI, _rP, _rules, hfT, _hfR, hmemJ, _hnd, hmems⟩ :=
+    ConLeche.containerInfo?_inv hci
+  obtain ⟨M, hM, -⟩ := List.mem_map.mp hmemJ
+  obtain ⟨i, hi⟩ := List.getElem?_of_mem hM
+  obtain ⟨cvC, _capsC, _cvRc, _mIc, _rulesC, _hfM, _hfMr, hMlps, _hMty, hlpsEq, _hlen, _hct⟩ :=
+    hmems M hM
+  have hcvT : cvT = cv :=
+    (ConLeche.ConstantInfo.indInfo.inj (Option.some.inj (hfT.symm.trans hf))).1
+  have hlps : M.lps = cv.levelParams := by rw [hMlps, hlpsEq, hcvT]
+  intro q hq
+  obtain ⟨hlvls, hbelow, hcongr⟩ := C.pinParams i M hi q hq
+  refine ⟨fun v hv => by rw [← hlps]; exact hlvls v hv, hbelow, fun ψ₁ ψ₂ hag => ?_⟩
+  exact hcongr ψ₁ ψ₂ fun pp hpp => hag pp (hlps ▸ hpp)
 
 /-! ## The correspondence a container instance is compared along -/
 

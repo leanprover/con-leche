@@ -125,6 +125,10 @@ def provisionRecsS (blockNames : List Name) :
       flushC
       let cvA ← checkMemberValF (sharedOpsC mode feAcc) blockNames feAcc
         ci.toConstantVal
+      -- K.55, as in the pure route
+      unless certOnly mode (Expr.recMajorHeadOk cvA.type mI) do
+        throw (.internal s!"recursor {cvA.name}: the major premise is not an \
+          application of a constant")
       let (feSelf, others) ← provisionRecsS blockNames
         (feAcc.push (.recInfo cvA mI rP [])) rest
       pure (feSelf, (cvA, mI, rP, rules) :: others)
@@ -158,7 +162,7 @@ def checkProjFnS (fe : FEnv) (T ctorName : Name) (lps : List Name)
     (nP nF i : Nat) : CheckCM FEnv := do
   let (cvj, mcv) ← checkProjLookupsF (m := CheckCM) fe T ctorName lps
     nP nF i
-  let pty ← checkProjTyF (m := CheckCM) fe T ctorName lps mcv.type nP nF
+  let pty ← checkProjTyF (m := CheckCM) mode fe T ctorName lps mcv.type nP nF
   checkProjShape (m := CheckCM) pty cvj.type nP nF
   unless i < nF do
     throw (.invalid "projection index out of range")

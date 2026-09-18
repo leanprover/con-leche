@@ -123,8 +123,14 @@ private theorem constWF_intro' {env : Env} {c : ConstantInfo}
         exact ConstantInfo.noConfusion h)
     (h9 : IndCapsWF c := by
         intro cv caps h
+        exact ConstantInfo.noConfusion h)
+    -- task #315: LAST, with a kind-refuting default (`structConstWF`'s
+    -- own shape)
+    (hmaj : ∀ cv mI rP rules, c = .recInfo cv mI rP rules →
+      Expr.recMajorHeadOk cv.type mI = true := by
+        intro cv mI rP rules h
         exact ConstantInfo.noConfusion h) :
-    ConstWF env c := ⟨h1, h2, h3, h4, h5, h6, h8, h9⟩
+    ConstWF env c := ⟨h1, h2, h3, h4, h5, hmaj, h6, h8, h9⟩
 
 /-- The four `ConstWF` type-slot facts of a checked constant. -/
 private theorem cvA_type_facts' {env : Env} {cv cvA : ConstantVal}
@@ -144,12 +150,21 @@ private theorem cvA_type_facts' {env : Env} {cv cvA : ConstantVal}
 /-- The provisioned (rule-less) recursor cons is well-formed. -/
 private theorem envWF_cons_provRec {env : Env} (henv : EnvWF env)
     {cvA : ConstantVal} {mI rP F : Nat} {cv : ConstantVal}
+    -- **K.55's record, consumed** (task #315): the modelled route stores
+    -- the STREAM's recursor type, so the invariant's major-premise
+    -- clause is the recorded Bool
+    (hmajR : Expr.recMajorHeadOk cvA.type mI = true)
     (hccv : checkConstantVal (fueledOps mode F) env cv = .ok cvA) :
     EnvWF ⟨.recInfo cvA mI rP [] :: env.consts⟩ := by
   obtain ⟨htf, htp, htr, htb⟩ := cvA_type_facts' hccv
   exact EnvWF.cons henv (constWF_intro' htf htp
     (Expr.constsResolve_mono htr) htb
     (fun _ _ _ heq => nomatch heq)
+    (hmaj := fun cvR mI' rP' rules' heq => by
+      injection heq with h1 h2 _ _
+      subst h1
+      subst h2
+      exact hmajR)
     (fun cvR mI' rP' rules' heq r hr => by
       injection heq with h1 h2 h3 h4
       subst h4
@@ -315,8 +330,18 @@ theorem provisionRecsS_run (hμ : mode.verifiedChecks = true) {blockNames : List
         (ConstantInfo.recInfo cv mI rP rules).toConstantVal = .ok cvA := by
       rw [← checkMemberVal_datF]; exact hFm
     obtain ⟨hccv, -⟩ := checkMemberVal_inv hFmp
+    -- K.55's guard: the cached run took the passing branch, and the pure
+    -- side takes the same one (the Bool is a function of `cvA.type`).
+    -- Taken BEFORE the cons, because the cons's own major-premise clause
+    -- is that very Bool (task #315).
+    by_cases hmh : certOnly mode (ConLeche.Expr.recMajorHeadOk cvA.type mI) = true
+    case neg =>
+      rw [if_neg hmh] at h
+      simp only [Bind.bind, StateT.bind, throw, throwThe, MonadExceptOf.throw] at h
+      exact nomatch h
+    rw [if_pos hmh] at h
     have henv₁ : EnvWF ⟨.recInfo cvA mI rP [] :: env.consts⟩ :=
-      envWF_cons_provRec henv hccv
+      envWF_cons_provRec henv (hmajR := certOnly_elim hmh hμ) hccv
     obtain ⟨p', s₃, hrec, h⟩ := bindC_ok h
     rw [show (mkFEnv env).push (.recInfo cvA mI rP []) =
       mkFEnv ⟨.recInfo cvA mI rP [] :: env.consts⟩ from rfl] at hrec
@@ -333,6 +358,9 @@ theorem provisionRecsS_run (hμ : mode.verifiedChecks = true) {blockNames : List
       (checkMemberVal (fueledOpsM mode) blockNames env _).property
         (Nat.le_max_left F₁ F₂) hFm]
     simp only [Bind.bind, Except.bind]
+    rw [show certOnly (fueledOpsM mode).mode
+        (ConLeche.Expr.recMajorHeadOk cvA.type mI) = true from hmh]
+    simp only [↓reduceIte]
     rw [(provisionRecs (fueledOpsM mode) blockNames
         ⟨.recInfo cvA mI rP [] :: env.consts⟩ rest).property
         (Nat.le_max_right F₁ F₂) hF₂]
@@ -343,8 +371,8 @@ private theorem constWF_le' {envA envB : Env}
     (hle : ∀ n, (envA.find? n).isSome = true →
       (envB.find? n).isSome = true)
     {c : ConstantInfo} (h : ConstWF envA c) : ConstWF envB c := by
-  obtain ⟨h1, h2, h3, h4, h5, h6, h8, h9⟩ := h
-  refine ⟨h1, h2, Expr.constsResolve_le hle h3, h4, ?_, ?_,
+  obtain ⟨h1, h2, h3, h4, h5, hmaj, h6, h8, h9⟩ := h
+  refine ⟨h1, h2, Expr.constsResolve_le hle h3, h4, ?_, hmaj, ?_,
     fun tbl heq =>
       let ⟨hs, hb⟩ := h8 tbl heq
       ⟨hs, fun i b hbi =>
@@ -555,13 +583,30 @@ theorem checkIndRecsS_run (hμ : mode.verifiedChecks = true) {blockNames : List 
       | some ci₂ =>
         rw [ProvFacts.find?_preserved hProv n ci₂ hf2]
         rfl
-    · have hz1 : z.1 ∈ zipped.map Prod.fst := List.mem_map_of_mem hz
+    · have hz1' : z.1 ∈ zipped.map Prod.fst := List.mem_map_of_mem hz
       obtain ⟨-, -, -, -, htyf, htyb, htlp, htres, -, -⟩ :=
-        ProvFacts.mem_facts hProv z.1 hz1
+        ProvFacts.mem_facts hProv z.1 hz1'
       have hkits0 := checkIotaRules_inv 0 _ _
         (RulesChain.mem_facts hchain z hz)
+      -- **THE MAJOR PREMISE'S HEAD** (task #315): the provisioning chain
+      -- stored this very recursor at `envSelf` (`ProvFacts.mem_facts`'s
+      -- last component), so the clause comes off the well-formedness
+      -- THERE rather than being re-derived here
+      have hmajZ : ∀ cv₂ mI₂ rP₂ rules₂,
+          (ConstantInfo.recInfo z.1.1 z.1.2.1 z.1.2.2.1 z.2)
+            = .recInfo cv₂ mI₂ rP₂ rules₂ →
+          Expr.recMajorHeadOk cv₂.type mI₂ = true := by
+        intro cv₂ mI₂ rP₂ rules₂ heqZ
+        obtain ⟨hz1, hz2, -, -⟩ := ConstantInfo.recInfo.inj heqZ
+        subst hz1
+        subst hz2
+        obtain ⟨-, -, -, -, -, -, -, -, -, hfS⟩ :=
+          ProvFacts.mem_facts hProv z.1 hz1'
+        obtain ⟨-, -, -, -, -, hmj, -, -, -⟩ :=
+          henvS _ (find?_mem hfS)
+        exact hmj _ _ _ _ rfl
       refine constWF_intro' htyf htlp ?_ htyb
-        (fun _ _ _ heq => nomatch heq) ?_
+        (fun _ _ _ heq => nomatch heq) ?_ (hmaj := hmajZ)
       · rw [← Expr.constsResolve_congr hisoSome]
         exact htres
       · intro cvR mI' rP' rules'' heq r hr
@@ -622,7 +667,7 @@ theorem checkProjFnS_run (hμ : mode.verifiedChecks = true) {env : Env} (henv : 
     exact absurd h throwC_bind_ok
   rw [if_pos hi] at h
   obtain ⟨rhsA, s₃, hrule, h⟩ := bindC_ok h
-  have hTYc0 : (checkProjTy env T ctorName lps mcv.type nP nF :
+  have hTYc0 : (checkProjTy mode env T ctorName lps mcv.type nP nF :
       CheckM _) = .ok pty := by
     rw [← checkProjTy_datF (F := F₀')]
     exact hFty
@@ -647,7 +692,7 @@ theorem checkProjFnS_run (hμ : mode.verifiedChecks = true) {env : Env} (henv : 
       CheckM _) = .ok (cvj, mcv) := by
     rw [← checkProjLookups_datF (F := F₀)]
     exact hFlk
-  have hTYc : (checkProjTy env T ctorName lps mcv.type nP nF :
+  have hTYc : (checkProjTy mode env T ctorName lps mcv.type nP nF :
       CheckM _) = .ok pty := by
     rw [← checkProjTy_datF (F := F₀')]
     exact hFty
@@ -676,7 +721,7 @@ theorem checkProjFnS_run (hμ : mode.verifiedChecks = true) {env : Env} (henv : 
       CheckM _) >>= _) = _
     rw [hLKc]
     simp only [Bind.bind, Except.bind]
-    show ((checkProjTy env T ctorName lps mcv.type nP nF :
+    show ((checkProjTy mode env T ctorName lps mcv.type nP nF :
       CheckM _) >>= _) = _
     rw [hTYc]
     simp only [Bind.bind, Except.bind]
@@ -707,7 +752,7 @@ theorem checkProjFnS_run (hμ : mode.verifiedChecks = true) {env : Env} (henv : 
   have heq' := heq
   simp only [Env.mk.injEq, List.cons.injEq] at heq'
   obtain ⟨hrecEq, -⟩ := heq'
-  obtain ⟨-, -, hres, hbv, hfv, hlp, -⟩ := checkProjTy_inv hty'
+  obtain ⟨-, -, hres, hbv, hfv, hlp, -, hmajC⟩ := checkProjTy_inv hty'
   obtain ⟨raw, rb, cb, cbody, hraw, hrf, hrb, hann, halp, hrres, hrbv,
     hrfv, hsl, hsp, hdm, -⟩ := checkProjRule_inv hrule'
   show EnvWF (⟨.recInfo ⟨projFnName T i, lps, pty⟩ nP nP
@@ -719,7 +764,12 @@ theorem checkProjFnS_run (hμ : mode.verifiedChecks = true) {env : Env} (henv : 
     from by rw [hrecEq]]
   refine EnvWF.cons henv (constWF_intro' hfv hlp
     (Expr.constsResolve_mono hres) hbv
-    (fun _ _ _ heq2 => nomatch heq2) ?_)
+    (fun _ _ _ heq2 => nomatch heq2) ?_
+    (hmaj := fun cv₂ mI₂ rP₂ rules₂ heq₂ => by
+      obtain ⟨hq1, hq2, -, -⟩ := ConstantInfo.recInfo.inj heq₂
+      subst hq1
+      subst hq2
+      exact certOnly_elim hmajC hμ))
   intro cvR mI' rP' rules'' heq2 r hr
   injection heq2 with e1 e2 e3 e4
   subst e1

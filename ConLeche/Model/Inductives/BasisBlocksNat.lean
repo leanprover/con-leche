@@ -755,7 +755,7 @@ theorem natBlock_containerModeled {env : Env} {m : EnvModel V env}
   pinNP := fun _ h => nomatch h
   pinConts := fun _ h => nomatch h
   pinψ := fun _ h => nomatch h
-  pinParams := fun _ _ _ _ h => nomatch h
+  pinParams := fun _ _ _ => ContainerPinParams.of_noPins rfl
 
 /-- **`Nat`'S OWN-PIN TABLE IS EMPTY** (task #315 M7-3 session 17,
 K.49 and DESIGN §U.74).  A pinned basis block installs no MIMIC

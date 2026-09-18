@@ -300,7 +300,7 @@ theorem provisionRecs_names {F : Nat} {blockNames : List Name} :
     ∀ ci ∈ recs, ∃ c ∈ p.2, c.1.name = ci.name
   | [], envAcc, p, h, ci, hci => nomatch hci
   | ci₀ :: rest, envAcc, p, h, ci, hci => by
-    obtain ⟨cv, mI, rP, rules, cvA, p', rfl, hcmv, hrec, rfl⟩ :=
+    obtain ⟨cv, mI, rP, rules, cvA, p', rfl, hcmv, -, hrec, rfl⟩ :=
       provisionRecs_cons_inv h
     obtain ⟨hccv, -, -, -, -, -, -⟩ := checkMemberVal_inv hcmv
     obtain ⟨-, -, -, -, -, -, tyA, stype, u, -, -, -, -, -, hcvA⟩ :=
@@ -323,7 +323,7 @@ theorem provisionRecs_mono {F : Nat} {blockNames : List Name} :
     subst h
     exact hn
   | ci :: rest, envAcc, p, h, n, hn => by
-    obtain ⟨cv, mI, rP, rules, cvA, p', rfl, hcmv, hrec, rfl⟩ :=
+    obtain ⟨cv, mI, rP, rules, cvA, p', rfl, hcmv, -, hrec, rfl⟩ :=
       provisionRecs_cons_inv h
     refine provisionRecs_mono rest _ p' hrec n ?_
     rw [Env.find?_cons]
@@ -342,7 +342,7 @@ theorem provisionRecs_fresh {F : Nat} {blockNames : List Name} :
     ∀ ci ∈ recs, envAcc.find? ci.name = none
   | [], _, _, _, ci, hci => nomatch hci
   | ci₀ :: rest, envAcc, p, h, ci, hci => by
-    obtain ⟨cv, mI, rP, rules, cvA, p', rfl, hcmv, hrec, rfl⟩ :=
+    obtain ⟨cv, mI, rP, rules, cvA, p', rfl, hcmv, -, hrec, rfl⟩ :=
       provisionRecs_cons_inv h
     obtain ⟨hccv, -, -, -, -, -, -⟩ := checkMemberVal_inv hcmv
     obtain ⟨hfind0, -, -, -, -, -, tyA, stype, u, -, -, -, -, -, -⟩ :=
@@ -364,7 +364,7 @@ theorem provisionRecs_modelfree {F : Nat} {blockNames : List Name} :
     ∀ ci ∈ recs, ci.name.isModelSuffix = false
   | [], _, _, _, ci, hci => nomatch hci
   | ci₀ :: rest, envAcc, p, h, ci, hci => by
-    obtain ⟨cv, mI, rP, rules, cvA, p', rfl, hcmv, hrec, rfl⟩ :=
+    obtain ⟨cv, mI, rP, rules, cvA, p', rfl, hcmv, -, hrec, rfl⟩ :=
       provisionRecs_cons_inv h
     rcases List.mem_cons.mp hci with rfl | hci
     · obtain ⟨hccv, hms, -⟩ := checkMemberVal_inv hcmv
@@ -388,7 +388,7 @@ theorem provisionRecs_facts {F : Nat} {blockNames : List Name} :
     subst h
     exact ProvFacts.nil
   | ci :: rest, envAcc, p, h, hbn => by
-    obtain ⟨cv, mI, rP, rules, cvA, p', rfl, hcmv, hrec, rfl⟩ :=
+    obtain ⟨cv, mI, rP, rules, cvA, p', rfl, hcmv, -, hrec, rfl⟩ :=
       provisionRecs_cons_inv h
     obtain ⟨hccv, hms, cvm, mval, hmcvm, hfm, hlps, hrenf⟩ :=
       checkMemberVal_inv hcmv
@@ -474,7 +474,7 @@ theorem provisionRecs_projshape {F : Nat} {blockNames : List Name} :
     ∀ ci ∈ recs, ci.name.isProjFnShape = false
   | [], _, _, _, ci, hci => nomatch hci
   | ci₀ :: rest, envAcc, p, h, ci, hci => by
-    obtain ⟨cv, mI, rP, rules, cvA, p', rfl, hcmv, hrec, rfl⟩ :=
+    obtain ⟨cv, mI, rP, rules, cvA, p', rfl, hcmv, -, hrec, rfl⟩ :=
       provisionRecs_cons_inv h
     rcases List.mem_cons.mp hci with rfl | hci
     · obtain ⟨hccv, hms, -⟩ := checkMemberVal_inv hcmv
@@ -496,7 +496,7 @@ theorem provisionRecs_find_new {F : Nat} {blockNames : List Name} :
     subst h
     exact Or.inl hf
   | ci₀ :: rest, envAcc, p, h, n, ci, hf => by
-    obtain ⟨cv, mI, rP, rules, cvA, p', rfl, hcmv, hrec, rfl⟩ :=
+    obtain ⟨cv, mI, rP, rules, cvA, p', rfl, hcmv, -, hrec, rfl⟩ :=
       provisionRecs_cons_inv h
     rcases provisionRecs_find_new rest _ p' hrec n ci hf with hf' | hk
     · rw [Env.find?_cons] at hf'
@@ -519,7 +519,7 @@ theorem provisionRecs_find_preserved {F : Nat} {blockNames : List Name} :
     subst h
     exact hf
   | ci₀ :: rest, envAcc, p, h, n, ci, hf => by
-    obtain ⟨cv, mI, rP, rules, cvA, p', rfl, hcmv, hrec, rfl⟩ :=
+    obtain ⟨cv, mI, rP, rules, cvA, p', rfl, hcmv, -, hrec, rfl⟩ :=
       provisionRecs_cons_inv h
     obtain ⟨hccv, -⟩ := checkMemberVal_inv hcmv
     obtain ⟨hfind0, -, -, -, -, -, tyA, stype, u, -, -, -, -, -,

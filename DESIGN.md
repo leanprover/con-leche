@@ -82094,9 +82094,653 @@ Present and checked: `nestedRuleBitsOk`, `nestedPinRankOk_inv`,
 the ten probe theorems, of `nestedPinsEntry_of_le_all` and of
 `copyPinFFire`: `[propext, Classical.choice, Quot.sound]`.
 
+###### (z-8) TWO FINDINGS ABOUT THE PROCESS, and they are the reusable ones
+
+**1. THE LANDED-OUTRANKS-ARRIVING RULE COVERS IDENTIFIERS, NOT ONLY
+SECTION NUMBERS.**  §U.27 (u)'s rule was written for DESIGN numbers;
+this integration needed it for a THEOREM NAME.  The kernel lane's M8
+session-5 lemma and lane M7-2's LANDED major-binder lemma both arrived
+as `mutualRecTy_major`, in ONE file, with different statements — so
+Lean refused the second declaration and the collision was visible.
+**Had the two statements been compatible it would have bound silently**,
+and the second lane's consumers would have been proving the first
+lane's proposition.  That this is not hypothetical is shown by the NEAR
+MISS in the same integration: lanes L-E and the kernel lane wrote
+`nestedPinRankAt_inv` and `nestedPinRankOk_inv` INDEPENDENTLY (K.52 was
+L-E's request and the kernel lane's delivery), and git merged the two
+copies only because they were BYTE-IDENTICAL.  One character of
+difference in either would have been a duplicate declaration; one
+character of difference in the STATEMENT with the same name would have
+been worse than that.  So: **a name that has landed outranks an
+arriving one, the arrival is renamed, and two lanes that expect to
+write the same lemma agree on its name BEFORE either writes it** — the
+same discipline as citing a section by title.
+
+**2. A GATE BATTERY RUN WITH A MERGE STAGED MEASURES THE MERGED TREE,
+NOT THE BRANCH.**  Lane M7-2 found this integrator's staged merge in
+its worktree mid-session; every build in that session had exited zero,
+so nothing was broken — but its battery numbers described the union of
+its branch with `agent/uniform-315`, not its branch.  The lane copied
+every working file out by absolute path, confirmed by diff that nothing
+was lost, aborted the merge, and **re-ran the whole battery**, which is
+the right response: the first run's numbers were not evidence about
+anything it could report.  The finding generalises past this incident —
+**if `MERGE_HEAD` exists, gate numbers do not describe the branch you
+think they describe**, and the check costs one `git status`.  It is the
+reason the integrator's sync pass must look for a live agent as well as
+a clean tree, and the reason a lane that finds a staged merge should
+neither continue nor commit on top of it.
+
 Cost: one session.  Next: L-B's three shape arms (the `ordF`-right
 reflexive half is no longer refuted), `NestedPinsLe`, K.36, the
 recorded tables' data — and `ModeledStepB`.
+
+#### THE ARENA HALF'S 44 UNLISTED FIXTURES, SETTLED — the row file IS the tutorial suite, and every one of the 44 is accounted for (2026-09-18, task #315, read-only audit)
+
+A lane recorded as a question that `_tmp/arena-tests` holds **182**
+streams while `tests/arena-expected.txt` pins **138** rows, and that
+`arena_half` iterates the ROW FILE (`done < "$EXPECTED"`) rather than
+the directory — so roughly forty-four vendored streams are run by
+nothing.  It did not claim it as a hole.  This is the answer, measured;
+**no gate, expectation file or fixture was changed.**
+
+##### (a) THE EXACT SET — it is not a ragged 44, it is four whole subtrees
+
+The row file is **exactly and completely the `tutorial` subtree**:
+
+| path | in directory | rows |
+| --- | --- | --- |
+| `bad/tutorial/` | 46 | **46** |
+| `good/tutorial/` | 92 | **92** |
+| `bad/` (top level) | 18 | 0 |
+| `bad/perf/` | 2 | 0 |
+| `good/` (top level) | 4 | 0 |
+| `good/perf/` | 16 | 0 |
+| `good/undecidability/` | 4 | 0 |
+
+138 rows against 138 tutorial files — **the tutorial suite is covered
+without a single gap**, and not one row names a file that is missing.
+The harness's own label already says which suite it measures ("arena
+tutorial: 90/92 good tests accepted").  So the gap is by construction
+and by name rather than by omission; what was open is whether the other
+four groups SHOULD be gated, and that is what the runs below decide.
+
+The vendored tarball carries **no manifest and no expectation of its
+own** — 182 entries, all `.ndjson` — so the only upstream verdict is
+the `good/`-versus-`bad/` path, which is the convention `arena_half`
+already enforces (`good/*` may not exit 1 or 3; `bad/*` may not exit 0).
+
+##### (b) WHAT THE CHECKER DOES ON ALL 44, and the headline is a negative
+
+Every one run at `--jobs=1` under `ulimit -v 16000000` and `timeout 900`:
+
+* **ZERO exit 3.**  Not one of the 44 crashes for unclear cause, which
+  is the code the convention reserves for that and the one this audit
+  was built to find.
+* **ZERO `bad/` accepts.**  All 20 `bad/` streams are refused: **18
+  REJECT (1)** and **2 DECLINE (2)** — `bad/proj-non-structure`
+  ("projection on a non-structure-like type") and `bad/rec-missing-ih`
+  ("direct rec: a nested occurrence of the block (not modeled here)").
+  A decline on a stream that ought to be rejected is the conservative
+  direction and carries no soundness risk.
+* **`good/`: 20 accept (0), 3 decline (2), 1 rejects (1).**
+
+The four non-accepting `good/` streams, each with its reason:
+
+1. **`good/undecidability/subject-reduction-redex` REJECTS**, and it is
+   RULED, not a regression.  Task #258 made theorems opaque to
+   reduction; §"Task #258" records this exact fixture flipping
+   accept → reject as "an accept-SUBSET of the reference kernels until
+   lean4#14896 lands".  **It is gated elsewhere**: the arena copy is
+   BYTE-IDENTICAL (sha256) to `tests/e2e/subject_reduction_redex.ndjson`,
+   which `tests/e2e-expected.txt` pins at `1` with the reasoning beside
+   it.  Adding an arena row would duplicate an existing pin.
+2. **`good/level-index-out-of-order`**, 3. **`good/proof-irrel`**,
+   4. **`good/sparse-name-index`** all DECLINE at
+   `non-standard axiom`, at fold position 12, before reaching the
+   feature they are named for.  That is the standing maintainer ruling
+   (a non-standard axiom is never accepted), and it is the same reason
+   the row file already documents for tutorial row 045.
+
+Two further streams are already spoken for in this document:
+`bad/proj-of-stuck-prop` and `bad/proj-of-subst-prop` are the "two
+`bad/` fixtures outside the expectations file" of the native-agree
+gate's record.  And `bad/nested-unused-param` is byte-identical to
+`tests/e2e/nested_unused_param.ndjson`, which IS a shadow row pinned at
+`E=reject` — so that one is gated twice over.
+
+`good/init-prelude` accepts 1 777 declarations in 1 s and
+`good/perf/grind-ring-5` 2 185 in 3 s.
+
+**A RECORDED BENCHMARK IS STALE IN OUR FAVOUR BY FIVE TIMES, AND ITS
+MEMORY FIGURE IS GONE ENTIRELY** — a finding in its own right, because
+the next person to cite the old number will be citing it against a
+checker that no longer behaves that way.  This document records
+`good/perf/app-lam` at **119 s / 7.6 GB peak RSS** (§"Measured", task
+#78's interning work).  Measured here, three runs under
+`ulimit -v 16000000`: **24.1 s / 24.7 s / 24.4 s wall, peak RSS
+2 787 MB every time.**  So it is **4.9× faster and uses 2.7× less
+memory than the figure on record** — and 7.6 GB was the number that
+made it look like a stream one could only run under a raised limit,
+which is no longer true at all.  Nothing in the arc set out to speed
+this stream up; it is the accumulated effect of the work since #78 on a
+DAG-shaped input, and it went unnoticed precisely because **the stream
+is in no gate** — the same reason the `mintedAt` defect went unnoticed,
+with the sign reversed.
+
+##### (c) DOES THE SAME GAP EXIST ELSEWHERE — every gate classified
+
+Row-file-driven (the pattern in question), with its corpus measured:
+
+* **`arena.sh` arena half** — 138 rows / 182 files; the 44 above.
+* **`arena.sh` e2e half** — 196 rows / 220 streams.  Of the 24
+  unlisted, **21 are nested-shadow rows** and **3 are vestigial
+  bases**: `nat_beq_bad_base`, `nat_ble_bad_base`, `nat_ops_bad_base`,
+  added by `7e761483` whose message says "the bad variants are patched
+  AFTER preprocessing so the preprocessor's own check doesn't mask
+  them".  The preprocessor is gone (#207) and the patched variants
+  (`nat_beq_wrong` etc., pinned at `1`) are the real rows.  **Nothing
+  in the tree references the three bases** and all three accept, so
+  their accept is the one verdict in either corpus that is pinned
+  NOWHERE.  Harmless — they are inputs to a generator that no longer
+  runs — but they are the honest residue of this question.
+* **`arena.sh` annot half** — 15 rows against 15 files in
+  `tests/annot/`, **exact, no gap either way**.
+* **`nested-shadow.sh`** — 37 rows.  Re-measured independently here by
+  running `--nested-shadow` over all 220 e2e streams: **31 fixtures
+  report a nested block (44 blocks), and every one of the 31 is a
+  row**; the remaining 6 rows are the `inmodel=0` ones, whose blocks
+  the modeller declines before the shadow runs, which is why the census
+  does not see them.  31 + 6 = 37 — **the gate covers its whole corpus
+  with no gap**, which confirms the closure M8 session 1 made after
+  finding nine blocks in no gate at all.
+
+Corpus-driven, so structurally immune:
+`layering.sh` (`os.walk('ConLeche')`), `trust-surface.sh` (scans the
+tree against an allowlist, 654 files), `no-local-paths.sh`
+(`git grep` over all tracked files), `shake.sh` (`lake shake` over the
+whole tree plus an allowlist), `overview-links.sh` and `quote-gate.sh`
+(both iterate `$DOCS` and parse what is there), `pindump.sh`
+(`pins/*.json`, `pinners/*/`).
+
+Two that are list-driven but whose list IS the contract:
+**`proofdeps.sh`** diffs a MEASURED set against the pin, so no row can
+hide a module — but its twelve roots are a hand-kept list in
+`tests/ProofDeps.lean`; checked, and `MainTheorem.lean` declares
+exactly two theorems, both of them roots.  **`challenge.sh`** takes its
+names from `comparator.json`, which is the challenge's own statement
+list.  **`inmodel.sh`** carries a hard-coded default of five nested
+fixtures with the reason for the choice written beside it.
+
+##### (d) WHAT SHOULD BECOME A ROW — a recommendation, for the maintainer to time
+
+Total cost of running all 44 is **34 s**, and **33 s of it is
+`good/perf/`** (24 s of that one stream, `app-lam`).  So the cheap and
+the expensive parts separate cleanly:
+
+* **The 20 `bad/` streams (18 top-level + 2 `perf/`) cost 0 s together
+  and are the ones worth rows.**  They are kernel-soundness negatives;
+  a row arms `arena_half`'s `bad/*` arm — which fails on exit 0 — over
+  eighteen more refusals for no measurable time.  This is the highest
+  value in the list by a wide margin.
+* **The 3 non-standard-axiom declines and `good/init-prelude`** (1 s
+  together) would be rows at `2`, `2`, `2`, `0`, documenting the axiom
+  ruling the way row 045 already does and pinning a 1 777-declaration
+  accept that is already a named benchmark here.
+* **`good/undecidability/`**: the three accepts are free; the fourth is
+  already pinned through its byte-identical e2e twin and a second row
+  would only duplicate it.
+* **`good/perf/`**: leave out, or take only the sub-second ones.  Their
+  value is throughput, which `tests/scale.sh` and PERF already measure,
+  and `app-lam` alone would add 24 s to the battery.
+
+
+##### (e) THE FULL LIST, with the measured exit code
+
+Exit codes are the arena convention (0 accept, 1 reject, 2 decline,
+3 error); `decls` is the accepted-declaration count where there is one.
+
+| exit | fixture | time | decls |
+| --- | --- | --- | --- |
+| 1 | `bad/bogus1.ndjson` | 0s | - |
+| 1 | `bad/constlevels.ndjson` | 0s | - |
+| 1 | `bad/ctor-num-fields.ndjson` | 0s | - |
+| 1 | `bad/extra-rec.ndjson` | 0s | - |
+| 1 | `bad/k-rec-conv.ndjson` | 0s | - |
+| 1 | `bad/large-elim-param.ndjson` | 0s | - |
+| 1 | `bad/level-imax-leq.ndjson` | 0s | - |
+| 1 | `bad/level-imax-normalization.ndjson` | 0s | - |
+| 1 | `bad/nat-rec-k-lie.ndjson` | 0s | - |
+| 1 | `bad/nat-rec-rules.ndjson` | 0s | - |
+| 1 | `bad/nested-unused-param.ndjson` | 0s | - |
+| 1 | `bad/perf/refute-cheap-first.ndjson` | 0s | - |
+| 1 | `bad/perf/refute-cheap-last.ndjson` | 0s | - |
+| 2 | `bad/proj-non-structure.ndjson` | 0s | - |
+| 1 | `bad/proj-of-imax-prop.ndjson` | 0s | - |
+| 1 | `bad/proj-of-prop.ndjson` | 0s | - |
+| 1 | `bad/proj-of-stuck-prop.ndjson` | 0s | - |
+| 1 | `bad/proj-of-subst-prop.ndjson` | 0s | - |
+| 1 | `bad/rec-k-lie.ndjson` | 0s | - |
+| 2 | `bad/rec-missing-ih.ndjson` | 0s | - |
+| 0 | `good/init-prelude.ndjson` | 1s | 1777 |
+| 2 | `good/level-index-out-of-order.ndjson` | 0s | - |
+| 0 | `good/perf/app-lam.ndjson` | 24s | 21 |
+| 0 | `good/perf/args-before-unfold.ndjson` | 0s | 5 |
+| 0 | `good/perf/beta-ladder.ndjson` | 5s | 11 |
+| 0 | `good/perf/church-numerals.ndjson` | 0s | 4 |
+| 0 | `good/perf/discarded-argument-match.ndjson` | 0s | 15 |
+| 0 | `good/perf/discarded-argument.ndjson` | 0s | 6 |
+| 0 | `good/perf/folded-constant-first.ndjson` | 0s | 9 |
+| 0 | `good/perf/folded-constant-last.ndjson` | 0s | 9 |
+| 0 | `good/perf/grind-ring-5.ndjson` | 3s | 2185 |
+| 0 | `good/perf/identical-nesting.ndjson` | 0s | 8 |
+| 0 | `good/perf/irrelevance-before-evaluation.ndjson` | 0s | 7 |
+| 0 | `good/perf/let-ladder.ndjson` | 1s | 13 |
+| 0 | `good/perf/repeated-subproblem.ndjson` | 0s | 5 |
+| 0 | `good/perf/shared-subterm.ndjson` | 0s | 8 |
+| 0 | `good/perf/shift-cascade.ndjson` | 0s | 5 |
+| 0 | `good/perf/unroll-versus-evaluate.ndjson` | 0s | 5 |
+| 2 | `good/proof-irrel.ndjson` | 0s | - |
+| 2 | `good/sparse-name-index.ndjson` | 0s | - |
+| 0 | `good/undecidability/alg-conv-trans-acc-left.ndjson` | 0s | 40 |
+| 0 | `good/undecidability/alg-conv-trans-acc-right.ndjson` | 0s | 40 |
+| 0 | `good/undecidability/alg-conv-trans-quot-right.ndjson` | 0s | 7 |
+| 1 | `good/undecidability/subject-reduction-redex.ndjson` | 0s | - |
+
+##### (f) WHAT WAS THEN PINNED (authorised 2026-09-18, and done BEFORE the flip)
+
+The maintainer authorised the recommendation immediately rather than
+after the deletion step, for a reason this audit supplied: **the flip
+changes decline behaviour across the board** — shapes that decline
+today through one path will decline at the dispatch with a different
+message — so every row expecting a decline has to be re-read.  Pinning
+these twenty-four BEFORE it means the flip's effect on them is
+MEASURED; pinning them after would have recorded post-flip behaviour as
+though it were the baseline.
+
+Purely additive, no existing row's expectation touched, no gate script
+and no corpus-selection change:
+
+* **`tests/arena-expected.txt`: +24 rows, 138 → 162.**  The twenty
+  `bad/` soundness negatives (18 top-level + the two `bad/perf/`
+  refutation streams) at the measured verdict — 18 at `1`, two at `2`
+  with the decline's reason on the line above — and the four cheap
+  `good/` ones (`init-prelude` at `0`, the three non-standard-axiom
+  declines at `2`).  `good/perf/` stays out.  `good/undecidability/`
+  stays out: three accepts free to add, and the fourth is already
+  pinned through its byte-identical e2e twin.
+* **`tests/e2e-expected.txt`: +3 rows, 196 → 199.**  The three
+  `nat_*_bad_base` patch sources at `0`, with the comment naming them
+  as the sources the `nat_*_wrong` rows were made from and recording
+  that the preprocessor they were built for is gone.  **The files are
+  KEPT**: they are the only way to regenerate the real rows, and
+  deleting test data to tidy a ledger is the wrong trade.
+
+**Verdict stability was checked before pinning anything**, because the
+battery re-runs the arena half four times: every one of the
+twenty-eight candidates gives the SAME exit code at the default mode,
+`--trusted`, `--jobs=1` and `--jobs=4`, so no
+`tests/trusted-expected.txt` override belongs with any of them and the
+sweeps stay green.
+
+**Cost, measured rather than asserted** (the arena half's loop
+replicated verbatim in a scratch script, median of 3 runs each, the
+gate itself untouched): **138 rows in 1.1 s → 162 rows in 1.5 s**, i.e.
+**+0.4 s**, and the three e2e rows add **0.04 s**.  The half runs four
+times in the full battery, so the whole cost of the audit's arming is
+**under two seconds**.
+
+**The summary label, then fixed narrowly.**  `arena_half` counts
+`good/*`, not `good/tutorial/*`, so its line reads **91/96** where it
+read 90/92 — and it used to say "arena tutorial" while counting more
+than the tutorial suite.  ONE WORD, text only, selection logic and
+counting untouched: `arena tutorial:` → **`arena suite:`**.  Nothing
+machine-readable consumes that string (CI names it only in comments;
+this document's ~90 occurrences are transcripts of past runs and stay
+as they were).  `tests/arena.sh`'s header comment carried the same
+stale claim — "the lean kernel arena tutorial tests", also narrower
+than the row file — and had the same one-word treatment on the same
+grounds: **a comment at the top of a gate script that misdescribes the
+corpus it guards is exactly the kind of stale claim that misleads the
+next reader.**  It reads "the lean kernel arena tests".  Two one-word
+text edits, and nothing about how either half selects its corpus
+changed at any point.  The transcripts of past runs in this document
+are left as they were: a record of what a run printed is accurate as a
+record.
+
+**The `bad/perf/` question, settled on a criterion worth keeping.**
+The authorisation read both "the twenty `bad/` streams" and "not the
+performance suite", which cannot both hold — the twenty is 18
+top-level plus 2 `bad/perf/`.  The maintainer's resolution is the
+general rule: **the exclusion is about the VALUE OF THE STREAM, not
+its directory.**  A TIMING test's value is throughput, which
+`tests/scale.sh` and PERF.md measure, so pinning its verdict buys
+little; a REFUTATION stream's value IS its verdict, wherever it sits.
+So `bad/perf/refute-cheap-{first,last}` belong with the eighteen.
+
+##### (g) THREE THINGS FROM THIS AUDIT THAT ARE METHOD, NOT CONTENT
+
+**1. The cost was MEASURED, not asserted.**  The arena half's loop was
+replicated verbatim in a scratch script — row-file iteration,
+`timeout 60`, no mode flag, the gate itself untouched — and timed at
+the median of three runs, before and after, reported per half AND per
+battery (the half runs four times).  1.1 s → 1.5 s is a fact; "zero
+measurable cost" would have been a claim.  **This is the standard for
+any future row addition**: replicate, do not modify; median, not one
+run; per battery, not per invocation.
+
+**2. Mode-dependence was checked BEFORE anything was pinned**, and
+nobody asked for it.  The battery re-runs the arena half at the
+default mode, `--trusted`, `--jobs=1` and `--jobs=4`; a candidate whose
+verdict moved between them would have broken the sweeps the moment its
+row landed, and `tests/trusted-expected.txt` would have needed an
+override nobody had measured.  All **28** candidates give the SAME exit
+code in all four modes.  That is what makes those rows safe rather than
+lucky, and it is cheap: four runs of a corpus that costs 0 s.
+
+**3. AN UNGATED FIXTURE HIDES IMPROVEMENTS EXACTLY AS IT HIDES
+DEFECTS.**  On the morning of this same day, a fixture in no gate was
+where the `mintedAt` mint defect had been sitting (K.41 refusing a
+stream official accepts, found only by a census).  On the afternoon of
+it, a fixture in no gate was where a **4.9× speed-up and a 2.7× memory
+reduction** had been sitting unnoticed.  Same hole, opposite sign.
+**A gate is not only a guard against regression; it is the only thing
+that tells you when you have won.**
+
+**FOR WHOEVER WRITES THE NEXT PERFORMANCE PASS** — `good/perf/` remains
+outside every gate by design (its value is throughput, see (f)), so
+this is the one place the figures are recorded: **do not cite task
+#78's `good/perf/app-lam` figure of 119 s / 7.6 GB peak RSS.  It is
+wrong by 4.9× in time and 2.7× in memory.**  Measured 2026-09-18,
+three runs under `ulimit -v 16000000`: **24.1 / 24.7 / 24.4 s wall,
+peak RSS 2 787 MB.**  The memory number matters most: 7.6 GB was what
+made this stream look like one that needs a raised limit, and it does
+not.  PERF.md tracks `app-lam` by INSTRUCTIONS (29.41 G) and is
+regenerated, so it is not stale — only this document's wall/RSS pair
+was, and it is corrected in (b).
+
+**The honest summary is that the question closes without a defect.**
+Nothing exits 3, nothing unsound accepts, the one `good/` reject is a
+recorded ruling gated under another name, and the shadow gate's corpus
+is fully covered on re-measurement.  What the audit changes is the
+ledger, not the tree: *the arena gate measures the tutorial suite, and
+says so*, and the twenty `bad/` streams outside it are refused today by
+a checker that nothing asks to keep refusing them.
+
+##### (aa) INTEGRATION 3s — THE MERGE THAT STOPPED AT ITS FIRST ITEM: a clause complete on its own tree meets a producer that exists only here (session U-41)
+
+Five merges were pinned.  **Merge 1 was resolved, built, FAILED, and
+REVERTED**; merges 2, 3 and 5 landed; merges 1 and 4 are deferred to
+3t by the maintainer, because 4's lane waits on 1's clause.  The
+branch never left a green state: the abort put it back at 4f66960d and
+a full rebuild confirmed 722 jobs warning-free before anything else
+was attempted.
+
+* `agent/uniform-ident` **200d6c00** (L-B sessions 24–28) at **89aeb280**;
+* `agent/uniform-entry` **7e6135e6** (L-E sessions 36–38) at **36bc39cf**;
+* `agent/uniform-m7read` **33987379** (M7-2 sessions 28–29) at **c37a6b0e**.
+
+**FOUR RESIDUALS LEFT THE LIST IN ONE INTEGRATION**, which is the most
+any has cleared: the nested route closed over SEVEN named facts after
+3r and closes over **FOUR** now.
+
+###### (aa-1) WHY MERGE 1 STOPPED — a census sees only the producers in the tree it runs on
+
+The kernel lane's `ConstWF` major-premise clause is **complete and
+unconditional on its own branch**, and its own record says so: *"No new
+lemma is needed anywhere: every generator fact is proved, K.55 and K.56
+are recorded, and what is left is passing lengths through five
+signatures."*  That was true of the tree it was measured on.  It is
+**false of this one**, and the reason is structural rather than a
+mistake in the census:
+
+**`ConLeche/Verify/Inductives/NestedRecsWF.lean` does not exist on
+`agent/uniform-m5`** (verified with `git cat-file`).  It is lane M7-2's
+restored-recursor producer and has been on the integration branch since
+3q.  So the lane enumerated SIX producers; the integration branch has a
+**SEVENTH**, and the seventh is precisely the one the lane had already
+measured and deferred — §"THE RESTORE KEEPS THE HEAD A CONSTANT —
+MEASURED, and the proof's two missing pieces named": 284 restored
+recursors, zero bad heads, ~120–150 lines, with the `pins`-key case
+named as "the only case with content".
+
+`structConstWF` now demands `hmaj : ∀ cv mI rP rules, c = .recInfo … →
+Expr.recMajorHeadOk cv.type mI = true` **unconditionally**, while
+`nested_recs_wf`'s hypothesis supplies exactly that shape —
+`x.1.type.stripPis x.2.1 = some (pre, .forallE dom body bm) ∧
+dom.getAppFn = .const D lvls` — **only under
+`RecRule.fire r = .nested lvls pins`, per rule**.  That is not an
+adaptation an integrator can write; it is the lane's own sized proof,
+and it was left alone.
+
+**THE RULE, and it extends the one that lane already had.**  That lane
+learned *a census sees only the first error per file*.  This is
+different in kind: **a census sees only the PRODUCERS THAT EXIST in the
+tree it runs on.**  A lane completing a tier-wide invariant clause
+off-integration will enumerate the producers on its branch and no
+others, and its "no new lemma is needed" will be true locally and false
+globally.  **The remedy is ordering: sync a lane BEFORE it closes
+something tier-wide, not after.**
+
+A second failure in the same merge is the ordinary shape of that
+hazard: `Model/Inductives/NestedRecsStore.lean` exists on BOTH sides,
+git merged the two edits with no conflict, and the result is off by
+one — `ConstWF` went from eight conjuncts to nine with the new one
+**sixth**, so every projection chain reaching past the fifth shifts
+(`I.recCvDoor`'s seven-step chain becomes eight), and an `hlt` arity
+moves with it.  **A structure that gains a field in the middle breaks
+every positional consumer silently**, and a clean auto-merge is exactly
+when nobody looks.
+
+###### (aa-2) WHAT WAS RESCUED FROM THE REVERTED MERGE
+
+The resolutions are kept at `_tmp/uniform-315/3s-m1-*.bak` so 3t need
+not redo them.  One is load-bearing: the kernel lane's commit DELETES
+the region of `Verify/Inductives/NestedRecDoor.lean` holding its
+telescope kit (moved to `MutualWF.lean`), and lane M7-2's
+`mutualRecTy_major` — the major-BINDER lemma, HEAD-only, with a live
+consumer at `NestedRecRule.lean` — sits INSIDE that region.  Taking the
+deletion wholesale loses it.  It was relocated into `MutualWF.lean`
+beside the kit it consumes, after checking that `NestedRecRule` already
+reaches that module (so no import edge is added) and that `MutualWF`
+does not reach `NestedRecDoor` (so no cycle).  **A deletion that is
+correct on one side and destructive on the other is what a merge is
+for.**
+
+The lane had independently ADOPTED integration 3r's
+`mutualRecTy_majorDom` rename, so the name collision 3r resolved did
+not recur — the first time a rename made at integration came back
+already applied.
+
+###### (aa-3) THE THREE MERGES, and the numbering
+
+**Merge 2 (L-B).**  The REFLEXIVE `ordF`-right arm is written
+(`copyOrdFRightReadRefl`, at a MEMBER target) and the two
+ordinary-field residuals are merged into ONE carrying a disjunction
+over both field kinds, so `nestedPinsShape_of` takes `hOrd` and `hPin`
+and nothing else.  `NestedPinsShapeOrdRightRefl` — which 3r recorded as
+"no longer refuted, merely open" — is gone.
+
+**Merge 3 (L-E).**  `NestedReadLaw` PROVED and UNWIRED, a residual
+retired; and `NestedPinSynFacts.pinSem`, the per-pin lemma lane L-B
+needs for its last clauses, **DERIVED off `groups` rather than
+recorded**, so no producer of that record owes anything new.
+
+**Merge 5 (M7-2).**  `NestedTablesDataOf` and `NestedRuleBitsOf` are
+both theorems now (K.50's face needed no record at all — the rescue
+bits are `recRuleBits`' own verdict), so `nestedTailModeled_of_face`
+closes `NestedTailModeled` from **K.36 alone**, where 3r's chain took
+three named facts.
+
+**ONE NUMBER MOVED, and the fault is the integrator's.**  Lane L-B
+numbered sessions 24–27 as §U.106–§U.109 — the 3r sync's own
+assignment — and then took **§U.110** for session 28.  §U.110 had been
+reserved at that sync for lane M7-3's session 21, **on that lane's
+branch only**.  Landed-outranks-arriving does not decide it, since
+neither has landed here; the reservation stands because it is recorded
+in three places and M7-3's branch already carries it, so session 28
+becomes **§U.114** (§U.111–§U.113 being lane L-E's, merged next).  One
+header, no citation anywhere.  **The lesson: a number reserved on a
+lane branch is invisible to every other lane, so a reservation that is
+not also recorded on the integration branch WILL be taken again.**
+
+Merges 3 and 5 needed no renumbering at all: L-E's §U.111–§U.113 are
+exactly what the sync assigned, with its citation corrections already
+applied, and M7-2's §U.29 letters (xxxx)–(eeeee) collide with nothing.
+
+###### (aa-4) THE RESIDUAL AFTER 3s
+
+* **`NestedPinsShape V μ F`** — `nestedPinsShape_of` over **TWO**:
+  `NestedPinsShapeOrdRight` (now over both field kinds) and
+  `NestedPinsShapePinF`, both lane L-B's.
+* **`NestedPinsEntry V μ F`** — the shape plus **`NestedPinsLe`**
+  (lane L-E).
+* **`NestedTailModeled V μ F`** — **`NestedCtorPinNamesOf` (K.36)
+  ALONE**.
+* **M8** — `ModeledStepB`.
+
+Seven after 3r, four now.
+
+###### (aa-5) GATES
+
+At all three merge commits: `lake build` **722 jobs** warning-free,
+`lake test` warning-free, layering base 353 / model 286 / caps 3 /
+umbrella 1 with 0 base→lane and 0 impl→theory, trust surface 13 escapes
+in 5 allowlisted files (654 scanned), no-local-paths OK, overview-links
+**112**, quote-gate **2**, proofdeps **4965 rows / 12 roots / 0 doors**
+— the baseline, unmoved — shake 510/510 allowlisted, pub-imports none
+demotable (1334 of 2221, 2225 after merge 5), **nested-shadow 37/37**.
+`tests/arena.sh` was not re-run: none of the three merges moves checker
+code.  No `sorry`, no axioms, no `maxHeartbeats`.
+
+**The chain, verified** (`_tmp/uniform-315/chain-probe-u41.lean`,
+outside the build): `probe_decl_all` closes over EXACTLY `hOrd`,
+`hPin`, `hLe` and `hK36` plus the run; `declMutualB`, `declNativeB` and
+`basisStepB_of` over nothing beyond their runs;
+`checkDeclsPure_soundB_of` over `ModeledStepB` alone.  `#print axioms`
+of the ten probe theorems, of `nestedPinsEntry_of_le_all` and of
+`copyPinFCorr`: `[propext, Classical.choice, Quot.sound]`.
+
+Cost: one session.  Next: the kernel lane closes the seventh producer
+on the synced tree, then 3t takes merges 1 and 4.
+
+##### (bb) INTEGRATION 3t — the two merges 3s deferred, and the circularity resolved by SYNCING FIRST (session U-42)
+
+Integration 3s stopped at its first item and reverted it: the kernel
+lane's `ConstWF` major-premise clause was complete against the SIX
+producers on its own branch, and the integration branch had a SEVENTH.
+3s then synced the integration branch INTO that lane, and **the lane
+closed the seventh producer in one commit on top of that sync**.  Both
+deferred merges land here, in the pinned order:
+
+* `agent/uniform-m5` **997a999a** (M8: the clause, K.55, K.56, the
+  seventh producer) at **94b9e668**;
+* `agent/uniform-m7env` **71e7f932** (M7-3 sessions 21–23) at
+  **ca1f0d27**.
+
+**MERGE 1 WAS CONFLICT-FREE**, which is the whole point: the lane's
+history already contained integration 3s's own resolutions, so nothing
+was re-applied and nothing was re-decided.  Verified rather than
+assumed before merging — the rescued `mutualRecTy_major` is still in
+`Verify/Inductives/MutualWF.lean` with its relocation note, and the
+shake allowlist still carries both sides of 3s's union.
+
+###### (bb-1) THE RULE, CONFIRMED BY ITS OWN REMEDY
+
+§U.27 (aa-1) stated it: **a census sees only the producers that exist
+in the tree it runs on.**  3t is the confirmation, because the remedy
+worked exactly as the rule predicts.  The lane could not close a
+producer it had never seen; one sync put the producer in front of it;
+it closed it in a single commit; the merge that had failed then went
+through with no conflict at all.  **Sync a lane BEFORE it closes
+something tier-wide, not after** is now a fact about this task and not
+a prediction.
+
+And the lane's second census found **an EIGHTH site — a CALL rather
+than a producer** — which is why a kernel-lane merge touches seven
+model-tier files.  A census keyed on producers will miss call sites by
+construction; it took a second pass to see it.
+
+###### (bb-2) A CORRECTION TO (aa-1), from the lane that owns the file
+
+(aa-1) attributed the silently mis-merged `NestedRecsStore.lean` to the
+invariant's own tuple — `ConstWF` going from eight conjuncts to nine
+with the new one SIXTH, so every projection chain past the fifth shifts.
+**That shift is real, the lane verified it per site, and it is NOT what
+broke that file.**  The badly merged thing was the CALL to the
+provision, whose POSITIONAL arguments moved when the lane added a
+per-entry premise; two lanes edited the same call, the edits merged
+cleanly, and the arguments misaligned.
+
+Right in kind, wrong in place — and the kind is the part worth keeping:
+**a positional interface that gains an argument in the middle breaks
+its callers silently, and a clean auto-merge is exactly the moment
+nobody looks.**  It is the same shape as the structure that gained a
+parameter and broke named-argument sites off-branch (§U.27 (z-8) 1's
+neighbourhood), one position-based and one name-based.
+
+###### (bb-3) NUMBERING — two moved, one honoured, and the rule now lives HERE
+
+Lane M7-3's session 21 keeps **§U.110**, the number integration 3s
+reserved for it.  That reservation is the one 3s recorded ONLY on a
+lane branch, where no other lane could see it — so lane L-B took it at
+3s and had to be moved to §U.114.  Sessions 22 and 23 arrived as
+§U.111/§U.112, which had LANDED at 3s as lane L-E's sessions 37–38, so
+landed-outranks-arriving moves them to **§U.115** and **§U.116**.  Two
+headers, neither cited anywhere.
+
+**THE NEXT FREE NUMBER IS §U.117, AND THIS SENTENCE IS THE RECORD OF
+IT** — on the integration branch, which is the only place every lane
+can see.  There are no outstanding reservations.  The rule 3s's
+collision produced: *a number reserved on a lane branch is invisible to
+every other lane and will be taken again.*
+
+The citation audit found nothing to repoint: lane M7-3's own landed
+sections are cited correctly under 3r's renumbering (`§U.104 (b)` is
+its session 18), and its five new in-tree `.lean` citations name landed
+sections only — among them `§U.86`, the repoint integration 3r made on
+this lane's behalf, which arrived already applied.
+
+###### (bb-4) THE RESIDUAL AFTER 3t — unchanged, and that is expected
+
+* **`NestedPinsShape V μ F`** — `NestedPinsShapeOrdRight` and
+  `NestedPinsShapePinF` (lane L-B).
+* **`NestedPinsEntry V μ F`** — the shape plus **`NestedPinsLe`**
+  (lane L-E).
+* **`NestedTailModeled V μ F`** — **`NestedCtorPinNamesOf` (K.36)
+  ALONE**.
+* **M8** — `ModeledStepB`.
+
+Four, as after 3s.  Lane M7-3's field — the one the clause unblocks —
+lands in that lane's NEXT commit, not in the pin merged here, and it is
+the covering premise that stands behind one of these four.
+
+###### (bb-5) GATES
+
+At both merge commits: `lake build` **722 jobs** warning-free, `lake
+test` warning-free, layering base 353 / model 286 / caps 3 / umbrella 1
+with 0 base→lane and 0 impl→theory, trust surface 13 escapes in 5
+allowlisted files (654 scanned), no-local-paths OK, overview-links
+**112**, quote-gate **2**, proofdeps **4965 rows / 12 roots / 0 doors**
+— the baseline, unmoved through eleven merges across 3r, 3s and 3t —
+shake 510/510 allowlisted, pub-imports none demotable (1334 of 2236 at
+merge 1, 2242 at merge 4), **nested-shadow 37/37**.
+
+**`tests/arena.sh` EXIT 0 at merge 1**, the only one moving checker
+code (`Kernel/ExprOps`, `Kernel/DeclCheck`,
+`Kernel/Inductives/Modeled`, `Cached/CheckerC`): arena suite 91/96, e2e
+199/199, annot 15/15, nested-shadow 37/37, axiom pin 20 theorems,
+trusted and both `--jobs` sweeps at 162 + 199 + 15 with the same three
+recorded divergences.
+
+**The chain, verified** (`_tmp/uniform-315/chain-probe-u42.lean`,
+outside the build): `probe_decl_all` closes over exactly `hOrd`,
+`hPin`, `hLe` and `hK36` plus the run; `#print axioms` of the ten probe
+theorems, of `nestedPinsEntry_of_le_all` and of `copyPinFCorr`:
+`[propext, Classical.choice, Quot.sound]`.  Present and checked:
+`Expr.recMajorHeadOk` and `RecMajorHeadStored`.
+
+Cost: one session.  Next: lane M7-3's field once it has this tree.
 
 #### K.32 — the copies' recursive targets come from the container's own recursion (2026-09-16, task #315, lane L-B's DESIGN §U.23 (e))
 
@@ -86180,6 +86824,328 @@ which produces whatever fields the record has.  3q already moved that
 record from seven fields to six under this lane with a one-goal
 adaptation ((oooo)); a growth would be the same shape of change.
 
+##### (xxxx) THE TABLES' FACE — items 1–3 landed, 4–5 open, and a CORRECTION to the residue claim
+
+(c1d7d25f, a9a81f11.)  Three of (uuuu)'s five rows are closed.
+
+1. `NestedTailIn.tblCtor` (`NestedStoreRun.lean:648`) — and it paid a
+   debt (nnnn) left the consumer: `auxStored_tbl_eq`'s LEFT disjunct is
+   now REFUTED, by `nestedTables_projTable_fresh`
+   (`NestedTablesInv.lean:110`) and the missing third cons-chain
+   "only adds" lemma `storeNestedRecs_find?_none`
+   (`NestedRecsSwap.lean:91`) — the other two existed.
+2. `tableMember_of` (`MutualTables.lean:54`) off `d.pins = []` to
+   `∀ ψ, PinsTyped m d ψ`, the clause `table_fibreAt` actually spends;
+   the MUTUAL arm supplies it by `PinsTyped.of_noPins`.  One proof, two
+   routes, cut at one place.
+3. `NestedTailIn.tableFacts` (`:512`) — the largest row.  `inj` is
+   `rfl`, `frame` is `MutualFormersFacts.frame` verbatim, and `sorts`
+   was the content.  **The `dsR` transport is unconditional**:
+   `nestedDomAgree_of` (`NestedCore.lean:668`) is `ReadCtx.agree_of`'s
+   body EXTRACTED and restated at any model carrying the pin groups —
+   `ReadCtx.agree_of` is now its wrapper and the loop's proof is
+   unchanged.  The two halves no agreement can give (the restored
+   domains' `WellDenoted` and `AnnotValid`) come from `CtorDataI.okTy`.
+
+*What is open, and both are derivable with no kernel request.*
+**Item 4** (~1): `MemberStored`/typed at `mp₃`, the nested `NoProjEnv`,
+the restored constructors' conditions.  Audited, not started.  The
+crossings have their machinery; `NoProjEnv` wants two cons-lemmas and
+one door report, with the closed-form witnesses already local to
+`nestedRecsStored_of`.  **The one gap**: `restoreRecTys_at` reports no
+projection fact for the restored recursor TYPES, and `constsResolve`
+cannot supply one — its `.proj s _ e` clause only tests
+`(env.find? s).isSome`, and the member IS stored at `ENV₂`.  Its proof
+already holds the `checkConstantValPre` witness, so the fix is a
+`restoreCtors_door`-shaped report exposing `FrontDoorFacts.slots`, in
+`NestedRecDoor.lean` — Verify-side, not a record.
+**Item 5** (~0.5–1): the assembly.  Confirmed concretely: `hreps₃` sits
+at `NestedStoreRun.lean:1266`, AFTER the `htbls` call at `:797`, so the
+restatement is to hoist that derivation above the call.
+
+##### (yyyy) A CORRECTION — the two remaining faces are NOT one residue
+
+Session 28's report asked whether, once the tables' face closes, the
+stage's remaining two faces are the SAME residue — the unnumbered
+kernel request and the face it retires.  **They are not, and the
+framing was this lane's error.**  The request ("the container's
+constructor names round-trip") retires `NestedCtorPinNamesOf` ALONE.
+`NestedRuleBitsOf` is the restored rules' two K/η rescue conjuncts at
+the provision — a separate record, already queued on the kernel lane
+since (jjjj) — and nothing about container constructor names touches
+it.  So the stage will stand on TWO faces needing TWO different
+records, both already requested; it is not "one record from standing
+alone".
+
+##### (zzzz) FILES AND GATES (session 28's HEAD)
+
+The matcher pair is written for `CLAUDE.md` at (vvvv) and NOT applied:
+an agent's message is not authorisation to edit that file.  Nothing
+here assumes the entry lane's deletion ((wwww), checked).
+
+Touched: `NestedStoreRun.lean`, `NestedCore.lean`, `NestedRecsSwap.lean`,
+`NestedTablesInv.lean`, `MutualTables.lean`, `NestedCtorRead.lean`,
+`Semantics/Tower/TowerIntro.lean`; one OVERVIEW anchor repointed
+(`declMutual` L305→L310, a docstring above it grew; the citing
+paragraph's claim unchanged).  No new file.
+
+`lake build` warning-free EXIT 0; `lake test` warning-free EXIT 0;
+shake 510 all allowlisted / pub-imports 1334 of 2217, none demotable
+(55 fallbacks); layering base 353 / model 286 / caps 3 / umbrella 1,
+0 base→lane, 0 impl→theory; trust surface 13 escapes in 5 allowlisted
+files, 0 outside; no-local-paths OK; overview-links 112; quote-gate 2;
+proofdeps 4965 rows / 12 roots / **0 doors**.  `#print axioms` of all
+fourteen new theorems, and of the re-proved `tableMember_of` and
+`ReadCtx.agree_of`, is `[propext, Classical.choice, Quot.sound]`.
+`tests/arena.sh` not run: no checker code changed.
+
+**The tables' face from here: 1½–2 sessions** ((uuuu) said 2½–4½) —
+items 4 and 5 only, both audited and both derivable.
+
+
+##### (aaaaa) THE TABLES' FACE IS CLOSED — items 4 and 5, the named gap, and the face turned into a theorem
+
+(Session 29; commits below.)  `NestedTablesDataOf` is **no longer a
+named premise**: `nestedTablesData_of` proves it, and
+`nestedTailModeled_of_two` replaces `nestedTailModeled_of_three`.  The
+stage now stands on TWO faces, and they are exactly the two (yyyy)
+said need two different records — `NestedRuleBitsOf` (the restored
+rules' rescue conjuncts) and `NestedCtorPinNamesOf` (the readings' and
+equations' model face).  *(Superseded later in the same session:
+(ddddd) proves `NestedRuleBitsOf`, so the stage stands on ONE face and
+one of the two needed no record at all.)*  (yyyy)'s correction is confirmed, not
+weakened: closing the tables' face retired a face, not a record.
+
+**Item 4, and THE NAMED GAP (xxxx) located, closed where it said.**
+`restoreRecTys_at` reports the pre-annotated door's scope guards and
+its sort inference and DROPS the `projTablesOk` guard, and
+`constsResolve` cannot replace it — its `.proj s _ e` clause only asks
+that `s` be stored, and at the restored environment every MEMBER is.
+The fix is the same shape `restoreCtors_door` already hands the
+constructors: `restoreRecTys_slots`
+(`Verify/Inductives/NestedRecDoor.lean:125`) projects
+`FrontDoorFacts.slots` out of the `checkConstantValPre` witness the
+proof already held, and `NestedTailIn.recCvSlots`
+(`NestedRecsStore.lean:516`) is it at the two lists `recCvDoor` reads.
+No kernel request, as (xxxx) predicted.
+
+**The clause that is NOT the mutual route's, and the only real
+content of item 4.**  A nested block's stored rules FIRE `.nested`, so
+`NoProjEnv`'s rule clause asks for the fire's PINS as well as the
+right-hand side — the mutual route's `mutualRules_shape` refutes that
+case, the nested route cannot.  The pins are the major domain's
+LOWERED LEADING ARGUMENTS, and `NestedTailIn.storeRules` already
+reports that shape (a `stripPis` to the major, `getAppArgs` split at
+the pin count), so they inherit the recursor type's own freedom
+through the three steps the shape takes: `rg_noProjAt_stripPis`,
+`rg_noProjAt_getAppArgs`, `rg_noProjAt_of_lift`
+(`NestedRestoreKit.lean`, the `constsResolve` twins' shape —
+`Expr.constsResolve_stripPis` and `rg_constsResolve_getAppArgs`).
+**The method rule paid again**: the fact was already reported, in a
+walk's own certificate, and the search was for the REPORT and not for
+a new lemma.
+
+`NestedTailIn.storeNoProj` (`NestedStoreRun.lean`) is the run-level
+fact — four conses, four sources: pre-block freshness
+(`nestedMembersFresh`-shaped, off `mutualFormers_nameFacts`), the
+members' resolution, the constructors' `FrontDoorFacts.slots`, and the
+recursors' three above.  The four cons lemmas
+(`findProj?_none_*`/`noProjEnv_*` at `consNestedFormers`,
+`consNestedCtors`, `provisionNestedRecs`, `storeNestedRecs`) are the
+mutual route's at the nested install's conses.
+
+**Item 5, the assembly, and the restatement (nnnn) asked for.**
+`NestedTailIn.tablesData` is `NestedMemberTableOk` per entry.  The
+recorded table is the SCRATCH install's (`auxStored_tbl_eq`, whose
+left disjunct is refuted as at `tblCtor`), so its constructor, its
+offset `1`, its level parameters, its parameter count and its result
+sort are that stage's data; its GUARDS are the auxiliary constructor
+type's, and they are the RESTORED type's by
+`rg_structProjGuards_of_run` — (rrrr)/(tttt)'s theorem, spent here for
+the first time, and the one step no agreement could give.  The bundle
+is `tableMember_of` at the nested block model.
+
+The face gained exactly TWO hypotheses, both (nnnn)'s: the
+representation at `mp₃` and the store environment's lookup
+preservation.  `nestedRecsStored_of` already derives both; the edit is
+the hoist (xxxx) measured — the install's conses and the
+representation block now sit ABOVE the `htbls` call instead of below
+it, which is a pure reordering with no new step.  `S` is keyed by NAME
+here where the mutual route's `MemberTableOk` is keyed by index
+(the nested table stage folds over a name-keyed list), and the
+inversion is the member list's own `Nodup`
+(`List.Nodup.idxOf_getElem`).
+
+*Two `subst` traps, both worth the next reader's time.*  `subst h`
+with `h : a = b` eliminates the RIGHT-hand variable when it can, so
+`subst` on `t = mIdx` deleted `mIdx` and on `ctorsA' = ctorsA` deleted
+the SECTION variable `ctorsA` — the error is `Unknown identifier` at
+every later use, which reads like a missing import.  Targeted
+`rw [h] at …` is the fix.  And a `restoreCtors_door` datum is
+`o.2 = c.2` at `o = (cv, nP, nF)`: `rw` cannot see `(nP, nF)` in it,
+`congrArg Prod.fst` can.
+
+##### (bbbbb) THE STAGED MERGE THIS SESSION DID NOT START — what the evidence covers
+
+A lane-sync merge of the integration branch (`31ad630b`, integration
+3r) was staged in this worktree, uncommitted, while this session was
+running; the coordinator's sequence was followed — every working file
+copied out by absolute path FIRST, then `git merge --abort` (which
+discards uncommitted work and so must never be run first), then the
+files back and diffed.  `HEAD` is a single-parent commit
+(`f2ec04ce`, parent `eac9d9cd`): the merge never entered this lane's
+history, and the integrator re-runs the sync.  *(The re-run landed
+mid-session and this lane's next commit consumed it — (eeeee).)*
+
+**The gate consequence, stated because it is easy to miss.**  Builds
+and gates run while a merge is staged measure the MERGED tree, not the
+lane's.  So this session's battery was re-run after the abort, on the
+lane's own tree, and only the post-abort figures are recorded below.
+
+##### (ccccc) FILES AND GATES (session 29's HEAD)
+
+Touched: `ConLeche/Verify/Inductives/NestedRestoreKit.lean` (the three
+`NoProjAt` travel lemmas), `ConLeche/Verify/Inductives/NestedRecDoor.lean`
+(`restoreRecTys_slots`), `ConLeche/Model/Inductives/NestedRecsStore.lean`
+(`recCvSlots`) and `ConLeche/Model/Inductives/NestedStoreRun.lean` (the
+cons lemmas, `storeRuleSlots`, `storeNoProj`, `tablesData`, the face's
+restatement, `nestedTablesData_of`, `nestedTailModeled_of_two`, and the
+hoist).  Two new plain imports there (`NestedRestoreKit`,
+`NestedElimInv`), both already transitive build dependencies and
+neither in any capstone's closure.  No new file — (rrrr)'s tier rule
+held again.
+
+`lake build` warning-free EXIT 0; `lake test` warning-free EXIT 0;
+shake 510 removals all allowlisted / pub-imports 1334 of 2219, none
+demotable (55 fallbacks); layering base 353 / model 286 / caps 3 /
+umbrella 1, 0 base→lane, 0 impl→theory; trust surface 13 escapes in 5
+allowlisted files, 0 outside; no-local-paths OK; overview-links 112;
+quote-gate 2; proofdeps 4965 rows / 12 roots / **0 doors**.
+`#print axioms` of all eighteen new theorems is
+`[propext, Classical.choice, Quot.sound]` (`zip_getElem?_pair`:
+`[propext]`).  `tests/arena.sh` not run: no checker code changed, so no
+fixture verdict can move.
+
+**The tables' face: CLOSED** ((zzzz) said 1½–2 sessions; it took one).
+What is left of the stage is the two faces above, and neither is this
+lane's to prove.
+
+##### (ddddd) K.50'S FACE IS NOT A RECORD — the rescue bits are `recRuleBits`' own verdict
+
+(`ca3bbbec`.)  The coordinator asked for the rules' face in a form the
+kernel lane could be handed.  **There is no request to hand it**: the
+face's stated premise is false about the kernel as it stands, and the
+face is a theorem (`nestedRuleBitsOf_of`).
+
+**What the record said, and what the code does.**
+`NestedRuleBitsOf`'s docstring — and (jjjj)'s request behind it — said
+`restoreRules` COPIES the scratch rule's `k` and `eta` while RENAMING
+the constructor, so that what the scratch block's own check says and
+what `ConstWF` asks of the stored rule differ in BOTH arguments, with
+no lemma relating them across the copies' capability records.  The last
+line of `restoreRules` (`Kernel/Inductives/NestedInstall.lean`) is
+
+    pure (recRuleBits envR.find? recName
+      { rl with ctor := ctor, ctorParams := cnP, fire := fire, rhs := rhsA,
+                paramsBlind := !isMimic } :: rest')
+
+and `recRuleBits` (`Kernel/Core.lean:1577`) sets
+`k := recRuleKOf find? rl.ctor` and
+`eta := recRuleEtaOf find? recName rl.ctor` — it **overwrites both
+fields**, at THIS environment, at the RESTORED constructor name (the
+record `{rl with ctor := ctor}` is what it is applied to) and at the
+restored recursor's name.  Those are exactly the two arguments the face
+asks about, and `envR` is exactly the provision environment the face
+names.  Neither bit is ever the scratch rule's.  `recRuleBits`'
+own docstring says as much for every route: *"the one place the K and
+η-rescue conditions are decided … the reduction then reads
+`RecRule.k`/`RecRule.eta` and re-derives nothing"*.
+
+**So the gap was a DROPPED REPORT, for the second time this session.**
+`restoreRules_at` reports the row's other seven data and drops these
+two; `restoreRules_bits` (`Verify/Inductives/NestedRecRuleKit.lean`) is
+the report, `restoreRecTys_slots`' twin at the rules, and
+`nestedRuleBitsOf_of` is the face — per class, member list and mimic
+list, a class with no rules vacuous, so no length premise beyond the
+run's own.
+
+> **The rule this hands the next reader.**  On this route a named face
+> has now TWICE been a report the walk already justified rather than a
+> check anyone had to add — the restored recursor types' `projTablesOk`
+> ((aaaaa)) and these two bits.  **Before a face becomes a kernel
+> request, read the kernel function's LAST LINE**: the request is only
+> real if the datum is absent from the code, not merely from the
+> inversion lemma.  Both of this session's faces were written from the
+> inversion lemma.
+
+**No check is added, so there is no certification-tax ledger row and no
+install cost**: `recRuleBits` is pre-existing behaviour on every route
+that stores rules, and this session added nothing to the kernel at all.
+The measurements in the old docstring (the record holds 27/27 shadow
+fixtures and 41/41 Mathlib cone blocks; recording the bits `false`
+would decline 7/27 and 35/41; dropping `!r.k` fails 24/27 and 41/41)
+stand as evidence about *recording* the bits, and are now moot for this
+face, which records nothing.
+
+**The stage stands on ONE face.**  `nestedTailModeled_of_face`
+replaces `nestedTailModeled_of_two`: `NestedCtorPinNamesOf` — the
+constructor-names request, already queued and numbered on the
+coordinator's side — is the whole of the recursors' stage's remaining
+premises.  (yyyy)'s correction is now fully resolved: of the two faces
+it said needed two different records, one needed no record at all.
+
+`lake build` warning-free EXIT 0; `lake test` warning-free EXIT 0;
+shake 510 all allowlisted / pub-imports 1334 of 2225, none demotable
+(54 fallbacks — the six new in-tree edges and the fallback that stops
+being one are this entry's own cross-module uses, chiefly
+`NestedStoreRun → NestedRecRuleKit`); layering base 353 / model 286 /
+caps 3 / umbrella 1, 0 base→lane, 0 impl→theory; trust surface 13
+escapes in 5 allowlisted files, 0 outside; no-local-paths OK;
+overview-links 112; quote-gate 2; proofdeps 4965 rows / 12 roots /
+**0 doors**.  `#print axioms` of `restoreRules_bits`,
+`nestedRuleBitsOf_of` and `nestedTailModeled_of_face` is
+`[propext, Classical.choice, Quot.sound]`.
+`tests/arena.sh` not run: no checker code changed.
+
+##### (eeeee) A CORRECTION TO (bbbbb) — the sync landed mid-session, and this lane's commit CONSUMED it
+
+(bbbbb) says the staged merge "never entered this lane's history".
+**That was true when it was written and is now false, and the second
+collision was not caught the way the first was.**  The integrator
+re-ran the sync while this session was still working; it staged a
+merge of `0b7fa889` in the worktree again, and this lane's next
+`git add -A && git commit` — the K.50 discharge — **consumed it**.
+So that commit is a MERGE (parents this lane's pre-merge commit
+`3b195443` and the integration's `0b7fa889`), and its message
+described only the proof.  The commit before it and the one after it
+are single-parent and this lane's alone.
+
+*The maintainer's ruling (and it is the whole repair): amend the
+MESSAGE, change nothing else* — no split, no reset, no restructuring.
+The content is right, the battery is green, and the only defect was a
+message that named a proof while the commit was also a merge; so the
+message now says both.  Rewriting history to tidy a message, when the
+commit carries a merge of work this lane did not write, would trade a
+real risk for a cosmetic gain.
+
+*What is and is not damaged.*  Nothing is lost: every theorem of this
+session is present, `lake build` is warning-free, and the whole gate
+battery was re-run AFTER that commit, so the figures in (ddddd)
+measure the merged tree, which is now legitimately this branch's
+content.  What is damaged is REVIEWABILITY, exactly as the coordinator
+predicted: a reader of `ca3bbbec`'s message cannot tell that a
+hundred-commit integration arrived with it.  Rewriting it is not this
+lane's call — the merge carries another lane's landed work — so it is
+recorded here and reported instead.
+
+> **The mechanical lesson, and it is the one that matters.**  `git add
+> -A` in a worktree that may receive a lane-sync is not a safe habit:
+> it silently turns a staged merge into a commit of yours.  Two
+> defences, either sufficient: check for `MERGE_HEAD` before every
+> commit, or stage by PATH (`git add <the files you edited>`), which
+> cannot pick up a merge's staged files.  The first incident was caught
+> by the coordinator's message; nothing in the tooling caught the
+> second, and a gate battery cannot — it passes either way.
 
 #### U.30 — L-B session 2: `CopyCtorInst.ordF` at the READING, the normalisation's reading law PROVED, `ContainerModeled`'s three clauses (lane L-B, 2026-09-16)
 
@@ -97457,10 +98423,11 @@ statement about the generators, and it holds by construction:
 
 ##### (b) LANDED: the mutual route's lemma, in thirty lines
 
-`mutualRecTy_majorDom` (`Verify/Inductives/NestedRecDoor.lean`; the
-lane wrote it as `mutualRecTy_major`, which lane M7-2's landed
-major-BINDER lemma in the same file already owns — renamed at
-integration 3r, no consumer yet) is
+`mutualRecTy_majorDom` (`Verify/Inductives/MutualWF.lean` since M8
+session 6 moved the telescope kit there; this lane wrote it as
+`mutualRecTy_major`, which lane M7-2's landed major-BINDER lemma
+already owns — renamed at integration 3r and the rename ADOPTED here,
+so the integrator's sync had no name left to resolve) is
 `mutualRecTy_stripPis`' sibling stopping ONE binder earlier — at
 `nP + k + n + f.nIdx` rather than `+ 1` — so the major premise itself is
 exposed as `.forallE dom body bm` with
@@ -97612,6 +98579,582 @@ closing arc `(2,0)` and the opening arc `(0,2)` are both not-own, and
 they only meet because the OWN edge `(0,1)` merges `P4C` with `Array`.
 A count over graph 2 would have reported "acyclic, the route is open at
 three to four sessions" and been wrong.
+
+#### K.55 — the major premise's head, RECORDED on the route that does not generate it (2026-09-18, task #315 M8 session 5, `agent/uniform-m5`)
+
+`Expr.recMajorHeadOk recTy mI` (`Kernel/ExprOps.lean`), beside
+`recRulePlain`: the recursor type stripped at its major index has a next
+binder whose DOMAIN is headed by a `const`.  One conjunct in
+`provisionRecs` (`Kernel/Inductives/Modeled.lean`) and its cached twin
+`provisionRecsS` (`Cached/CheckerC.lean`), `certOnly`-gated,
+`.internal` on failure.
+
+**Why HERE and nowhere else.**  No other route needs it: the native and
+mutual routes GENERATE the recursor type and require the stream's record
+to be defeq to it, the nested route RESTORES the auxiliary block's
+generated one, and the basis blocks and `Quot` are literals — so for
+them the shape is a property of the generator
+(`mutualRecTy_majorDom`, landed this session).  The MODELED route stores
+the STREAM's type through `checkMemberVal` with no generation and no
+head check, so there it is a property of the INPUT.  With this conjunct
+the environment invariant can ask for the shape UNCONDITIONALLY, at
+every stored recursor, instead of only inside the doubly-guarded
+nested-rule clause — which is what the crossing's premise needs.
+
+**MEASURED BEFORE COMMITTING, and it does not fire:**
+
+* every `tests/e2e` fixture and BOTH arena halves, good and bad: **0**;
+* `init-full`: **0**, 53 093 accepted;
+* Mathlib: **0**, 654 504 accepted.
+
+**Cost: none measurable.**  `tower_nested` 427 426 098 / 427 419 503
+against 427 420 196 / 427 430 753 instructions:u; `init-full`
+539 232 429 841 with the check.  It is one `stripPis` walk of `mI`
+binders per modeled recursor, on a route no accepted corpus stream
+reaches for its recursors except through the modeller's own generated
+blocks.
+
+**THE LEDGER ROW — category (B), and this is the second (B) row on the
+task.**  CERT-ONLY.  Official's `mk_rec_type` builds the major premise
+as the eliminated family applied to the parameters and indices, so a
+violating input would be **a stream the official kernel accepted whose
+recursor declares a major premise that is not an application of a
+constant**.  A fire is therefore a finding about the REFERENCE KERNEL
+rather than about us — unlike the (S) rows, where a fire means a bug in
+our own generator (as K.41's did).  It is not (A): official performs no
+such test, because it never reads a recursor type it did not build.
+
+**And it is cheap to retire.**  If the modeled arm leaves the dispatch
+(2e), the guard goes with it, because every remaining route proves the
+shape instead of recording it.
+
+##### The proof-tier ripple, for the next kernel check's benefit
+
+One kernel conjunct moved SEVEN proof sites, and the list is the cost
+model for any future guard inside `provisionRecs`:
+`Verify/Extend/Modeled.lean` (the inversion gains the conjunct — which
+is what makes the Bool usable downstream), `Verify/Extend/Recs.lean`
+(two destructurings), `Semantics/Bridge/DeclIndRun.lean` (the run-level
+inversion), `Verify/Cached/AgreeFloor.lean` and
+`Verify/Cached/PushChain.lean` (the cached provisioning's skeleton and
+chain, both by `Yields.ofDecCases`), `Verify/BridgeDecl.lean` (the fuel
+transport, hand-written: the `unless` makes a JOIN POINT that
+`rw [FueledM.atF_bind]` cannot see through, so the branch is `simp only`
+with the IH's specific instance and then `rfl` for the gate's two
+spellings of `ops.mode`), and `Verify/Cached/BridgeCS4.lean` (the
+cached simulation, where both sides take the same branch because the
+Bool is a function of `cvA.type` alone).
+
+#### THE FOURTH GRAPH: a NOT-OWN edge lies INSIDE a strongly connected component on eight accepted blocks (2026-09-18, task #315 M8 session 5)
+
+The question, which is strictly WEAKER than the contracted one and
+therefore settles it: in the **full directed edge graph** — every edge
+in its RECORDED direction, own and not-own alike, **no symmetrisation
+and no mint-group joins** — does any strongly connected component
+contain a NOT-OWN edge?
+
+**IT DOES, on eight accepted blocks.**
+
+| corpus | blocks | not-own edges inside an SCC | blocks with one |
+| --- | --- | --- | --- |
+| the 36 shadow rows | 42 runs | 4 | **3** |
+| the Mathlib nested cone | 41 | 10 | **5** |
+
+* `P4` (`nested_p04`) — arcs `0→1, 1→2, 2→0, 2→2`; the cycle
+  `0→1→2→0` contains the NOT-OWN edges `(1,2)` and `(2,0)`.  This is
+  the cycle the K.37 record already documents ("the three copies form a
+  CYCLE in which only one edge is own at its source") — in the recorded
+  directions, with no symmetrisation needed;
+* `InModelGroups.M` — arcs `0→1, 1→0, 1→1`; the 2-cycle `0↔1` contains
+  the not-own `(1,0)`;
+* `InModelGroups.H` — arcs `0→1, 0→2, 1→1, 2→0, 2→2`; the 2-cycle
+  `0↔2` contains the not-own `(2,0)`;
+* `Lean.Elab.InfoTree` — the cycle `1→3→5→1` contains the not-own
+  `(3,5)` and `(5,1)`;
+* the four `MsgEmbed`-shaped blocks — arcs `0→2, 0→0, 1→2, 2→3, 3→0,
+  3→3`; the cycle `0→2→3→0` contains the not-own `(2,3)` and `(3,0)`.
+
+##### What it settles
+
+**No per-pin measure exists either.**  A measure that decreases
+STRICTLY along not-own edges cannot exist when a not-own edge lies on a
+directed cycle, whatever it does on own edges — so the answer does not
+depend on the constancy clause, on the contraction, or on the
+homogeneity clause that forced it.  The impasse is FINAL, and the six
+contracted cycles reported earlier were **not** artefacts of the
+symmetrisation: the same conclusion holds on the weakest of the four
+graphs.
+
+**THE FOUR GRAPHS, and each gives a different answer** — the discipline
+that caught this is worth keeping:
+
+| graph | own edges | group joins | answer |
+| --- | --- | --- | --- |
+| augmented (`nestedPinArcs`; SCCs = the instances) | symmetrised | yes | 14 not-own edges at equal instance labels, 8 blocks |
+| bare not-own arcs | dropped | no | **acyclic**, 92 arcs, 0 cycles |
+| own-contracted | symmetrised, contracted | via the instance | **cyclic**, 6 blocks |
+| **full directed** | recorded direction | no | **not-own edge inside an SCC, 8 blocks** |
+
+A count over graph 2 alone would have reported the route open; a count
+over graph 3 alone would have left the symmetrisation as an excuse.
+Graph 4 is the weakest and it closes both.
+
+**AND THE ANSWER WAS DOCUMENTED BEFORE IT WAS MEASURED.**  The witness is
+`nested_p04`'s three-cycle, and the K.37 record above describes it in
+these very words — "the three copies form a CYCLE in which only one edge
+is own at its source" — in the recorded directions, needing no
+symmetrisation.  It has been in this document since that record landed,
+and nothing connected it to the order question until the count made it
+unavoidable.  A design record is evidence, and it is worth reading for
+answers before measuring for them.
+
+#### THE MAJOR-PREMISE SHAPE AT THE LIVE ROUTES: native PROVED, basis and `Quot` DECIDED (2026-09-18, task #315 M8 session 5/6, `agent/uniform-m5`)
+
+Continuing the sizing: three of the five live producers are now closed.
+
+* **mutual** — `mutualRecTy_majorDom` (previous section);
+* **native** — `structRecTyR_majorDom` (`Verify/Inductives/NestedRecDoor.lean`),
+  the twin at `structRecTyR`, whose output is what `checkNativeRec`
+  STORES (the stream's record is only required to be defeq).  The strip
+  is the parameters, the motive, the minors and the indices — exactly
+  `InductiveShape.majorIdx = nP + 1 + n + nIdx` — and it needed one new
+  telescope lemma, `structMinorsPisR_stripPis` (the recursive minors'
+  strip, `mutualMinorsPis_stripPis`' twin).  `NestedRecDoor` gains a
+  plain `import` of `FixRec` for the unfold; no cycle (FixRec imports
+  only `SumRec` and the kernel's `NativeParts`);
+* **the five pinned basis blocks and `Quot`** —
+  `basisDeclsA_recMajorHead` (`Verify/EnvPreds.lean`), `cases k <;> rfl`
+  over the literals, with `basisDeclsA_recMajorHead_mem` in the shape
+  the invariant's clause consumes.  **`Quot.lift` and `Quot.ind` pass**,
+  which was the one open question: neither is named `_.rec`, but each
+  major premise is `Quot r` and its head is the constant `Quot`.  All
+  seven pinned recursors satisfy the Bool.
+
+**WHAT REMAINS**: the NESTED route (the restored type — "the restore
+keeps the head a constant", about a session, and the place where the
+claim must be measured rather than asserted, because the restore is
+where the mint defect lived), the `ConstWF` clause itself with its
+per-route discharge, and the cached mirrors by transport.
+
+#### THE RESTORE KEEPS THE HEAD A CONSTANT — MEASURED, and the proof's two missing pieces named (2026-09-18, task #315 M8 session 6, `agent/uniform-m5`)
+
+The last of the five producers, and the one whose claim had to be
+measured rather than argued: the nested route stores
+`restoreNested R (the auxiliary block's generated recursor type)`, so
+the major premise's head survives only if the RESTORE keeps it a
+constant.  The restore is the function family the `mintedAt` defect
+lived in, and an argument that a walk preserves something looked sound
+there too.
+
+##### THE MEASUREMENT: 284 restored recursors, zero bad heads
+
+A probe at `checkNestedS`' `provisions` — per restored recursor, member
+and mimic, `Expr.recMajorHeadOk cv.type mI` on the term the route is
+about to STORE (reverted, not in the tree):
+
+| corpus | blocks | restored recursors | members | mimics | **bad heads** |
+| --- | --- | --- | --- | --- | --- |
+| the 36 shadow rows | 42 runs | 107 | 44 | 63 | **0** |
+| the Mathlib nested cone | 41 | 177 | 56 | 121 | **0** |
+
+**284 restored recursors and not one bad head**, and the number that
+matters is the **184 MIMICS** — the mimic is where `restoreNode`
+replaces the key-headed application by the PIN rather than renaming a
+constant, which is the case the argument was about.  (The large streams
+are not evidence here: `init-full` and Mathlib-full install their
+nested blocks through the modeller, so the nested route's restore never
+runs on them.  The cone is the library-scale evidence, and it is 41
+blocks of it.)
+
+##### THE PROOF, sized from the inside: two missing pieces, ~120–150 lines
+
+The engine EXISTS and is better than expected —
+`restoreWalk_stripPis_doms` (`Verify/Inductives/NestedRecDoor.lean`)
+already says that a walk of a `Π`-telescope keeps its length and walks
+the body, positionally.  Composed with `mutualRecTy_majorDom` on the
+AUXILIARY block's type it reduces the whole obligation to one step: **a
+walk of a `const`-headed application is `const`-headed**.  Four cases,
+from `restoreNode`'s own structure:
+
+* the PRUNE (the node mentions no auxiliary name) — the term is
+  returned unchanged (`restoreWalk_of_no_aux`);
+* a `recMap` key — the constant is RENAMED
+  (`restoreWalk_const_rec`): still a `const`;
+* a `ctorPins` key — the node becomes
+  `mkAppN (mkAppN (.const newName ilvls) …) …`
+  (`restoreWalk_ctorPin`): a `const` by inspection;
+* a `pins` key — the node becomes
+  `mkAppN (pin.liftLooseBVars d 0) (args.drop nP)`, so the head is the
+  PIN's head.  **This is the only case with content**, and it needs
+  that a table pin is `const`-headed: `restoreTbl`'s pins are
+  `Expr.abstractRange q.pin 0 p.nP 0`, and `abstractRange` replaces
+  free variables — it cannot change a `const` head — so the premise
+  reduces to `q.pin.getAppFn` being a `const`, which is exactly what
+  `nestedPinLvlsDs` returns `some` on;
+* otherwise the node declines and the walk is componentwise
+  (`restoreWalk_app_inv`), so the head follows the function part by
+  induction on the spine.
+
+**What is missing is two lemmas**, and the session that writes them
+should expect no more: `restoreWalk_pin` — the `pins`-key fire, the
+exact twin of the existing `restoreWalk_ctorPin` (~40 lines, and the
+model is beside it) — and `restoreWalk_getAppFn_const`, the spine
+induction over the five cases above (~40–60).  With those,
+`restoreNested_major` is the composition.  **~120–150 lines, most of a
+session**, which confirms the estimate from the outside.
+
+**LANDED, and the sizing was wrong in the cheapest possible direction:
+`restoreWalk_pin` ALREADY EXISTED** (`Verify/Inductives/NestedInv.lean`),
+with the statement I had just written, one file over from its sibling.
+I had grepped the file where the `ctorPins` twin lives instead of the
+tree.  That is the FOURTH time this arc that the tree already held what
+a lane was about to build — and the first where the lane was this one,
+which is the point: the standing first step is not a thing other lanes
+need.  What actually had to be written was
+`restoreHead_head_const` (the node step, three firing branches) and
+`restoreWalk_getAppFn_const` (the spine induction), both in
+`NestedInv.lean` because `restoreHead`'s body is private to that module
+— the module system's rule, not a preference — and `restoreWalk_major`
+in `NestedRecDoor.lean`, beside the engine it composes with.  **About
+110 lines instead of 150.**
+
+##### The producer census, complete
+
+| route | the stored recursor type | status |
+| --- | --- | --- |
+| mutual | `mutualRecTy`'s output | PROVED (`mutualRecTy_majorDom`) |
+| native | `structRecTyR`'s output | PROVED (`structRecTyR_majorDom`) |
+| basis (5) + `Quot` | literals | DECIDED (`basisDeclsA_recMajorHead`) |
+| modeled | the STREAM's, annotated | RECORDED (K.55) |
+| nested | `restoreNested` of the auxiliary one | **MEASURED**, proof sized at ~120–150 lines |
+
+Then the `ConstWF` clause itself, wired to these five, and the cached
+mirrors by transport.
+
+##### FOR THE DELETION STEP (2e), recorded now rather than discovered then
+
+The limit above is a fact about 2e's plan and not only about this
+measurement.  **The large corpora install their nested blocks through
+the route 2e removes**, so the restore has never run on them: `init-full`
+and Mathlib-full go through the modeller, and the 41-block cone is the
+whole of the library-scale evidence for every restore-side claim on this
+route — K.35's auxiliary applications, K.50's rescue bits, K.47's stored
+mimic types and the major-premise head measured here.
+
+Two things follow for that session:
+
+1. **the flip exposes this route to far more material than anything we
+   have measured it on.**  The census that licenses the deletion is
+   therefore not only "every block reaching the old arm is one
+   `nestedParts?` takes" — it is also the FIRST time the restore-side
+   claims meet the full streams;
+2. **re-run the restore-side probes on the full corpora as part of 2e**,
+   not as a follow-up: the major-premise head (this section), and the
+   cert-only Bools whose measurements were taken on the cone alone.  A
+   fire there is a finding about this route on material it has never
+   seen, which is exactly the kind of thing the deletion must not
+   discover after the fact.
+
+#### THE INVARIANT CLAUSE: the census, from actually adding it (2026-09-18, task #315 M8 session 6, `agent/uniform-m5`)
+
+The clause was added to `ConstWF` — one conjunct,
+`∀ cv mI rP rules, c = .recInfo cv mI rP rules →
+Expr.recMajorHeadOk cv.type mI = true`, sixth of nine, immediately
+before the doubly-guarded nested-rule clause that asks the same thing
+behind two guards — and the tree was built to take the census.  **The
+attempt is REVERTED and the tree is green**; what follows is what it
+found, which could not have been known without doing it.
+
+##### THE MECHANICAL HALF — thirteen sites, all done and all cheap
+
+Adding a conjunct in the middle of a nine-tuple moves every
+destructuring and every rebuild of it.  The sites, for the next author:
+`Verify/EnvWF.lean` (its own two: `EnvWF.indCaps`' projection chain and
+the cons's transport), `Verify/InferLemmas.lean` (two),
+`Verify/InferLeaves.lean` (two), `Verify/Deep.lean` (one projection
+chain, `.2.2.2.2.2.1` → `.2.2.2.2.2.2.1`), `Model/Steps/IotaRows.lean`
+and `Model/RecRulesCons.lean` (two destructurings),
+`Model/Caps.lean` (a literal tuple — one more `by rintro _ _ _ _ ⟨⟩`),
+`Verify/Cached/DiscC3.lean`, `Verify/Inductives/MutualWF.lean`
+(`ConstWF.le`, the monotone transport — the clause is
+environment-INDEPENDENT, so it carries unchanged, which is the useful
+observation), `Semantics/ProjFnFacts.lean` (a `projInfo` cons: vacuous
+by the kind) and `Verify/Inductives/StructWF.lean`'s `structConstWF`
+builder.
+
+**One design note that saves a round**: put the new argument LAST in
+`structConstWF`, with a default that refutes it by the kind, and every
+non-recursor call site is unchanged.  Inserting it in tuple order
+breaks each of them.
+
+##### THE REAL HALF — five producers, and what each needs
+
+| producer | what stores the recursor | what it needs |
+| --- | --- | --- |
+| `Verify/Inductives/FixWF.lean`'s `direct_fix_rec_wf` | `structRecTyR`'s output, which `checkNativeRec_shape` already exposes as `= some recTy` | `structRecTyR_majorDom` + `(nativeCtors4 ctorsA p.kinds).length = p.ctors.length` to line the strip count up with `p.majorIdx = p.nP + 1 + p.ctors.length + p.nIdx` |
+| `Verify/Inductives/MutualWF.lean`'s recursor cons | `mutualRecTy`'s output | `mutualRecTy_majorDom` + the same arity step |
+| `Semantics/IndRecsCore.lean` | the MODELED route's provisioned recursor | K.55's Bool, THREADED from `provisionRecs_cons_inv` (which now carries it) into this theorem's hypotheses — the only site needing new plumbing rather than a new proof |
+| `Verify/Cached/BridgeCS4.lean` | the cached mirror of the above | the transport, once the pure side has it |
+| `Semantics/EnvFactsCons.lean`'s `memberInstallInv` | a provisional `.recInfo cvA mI rP []` | one hypothesis on the theorem, discharged by the caller's route |
+
+So the remaining work is **two generator plumbings with their arity
+step, one hypothesis threaded through the modeled route, and two
+transports** — all five ingredients already proved
+(`mutualRecTy_majorDom`, `structRecTyR_majorDom`, `restoreWalk_major`,
+`basisDeclsA_recMajorHead`, K.55).  **One session**, and nothing in it
+is unknown.
+
+##### A FIFTH INSTANCE OF THE STANDING FIRST STEP
+
+`EnvFacts.consBlockMember` (`Semantics/EnvFactsCons.lean`) **has no
+call site**: three mentions in the tree, two of them in docstrings, and
+the third its own statement.  It is a `BlockMemberKind` cons — the
+shape a provisional recursor is consed at — so it looks load-bearing
+and is not.  That is the fifth instance this arc of the tree holding
+something nobody consumes (after the documented cycle, the three
+discarded walk facts, the other lane's already-proved residual, and my
+own `restoreWalk_pin`).  Whether it is deleted is not this lane's call;
+it is recorded because the next author will otherwise spend the same
+five minutes discovering it.
+
+#### THE CLAUSE'S PROJECTION HALF: a projection FUNCTION is stored as a `.recInfo` (2026-09-18, task #315 M8 session 6, `agent/uniform-m5`)
+
+The clause was taken further this session — the mechanical thirteen, the
+basis literals, the native producer discharged from
+`structRecTyR_majorDom`, the hypothesis threaded through
+`memberInstallInv` — and then stopped at something the census had
+missed, because the census read the FIRST error per file and this one
+was behind another.
+
+##### THE FINDING
+
+`projEntry T lps pty nP i rules = .recInfo ⟨projFnName T i, lps, pty⟩ nP nP rules`
+(`Semantics/ProjFnFacts.lean`).  **A projection FUNCTION is stored as a
+recursor**, so an UNCONDITIONAL clause about "every stored recursor" is
+also a statement about every projection function: at such an entry it
+reads `Expr.recMajorHeadOk pty nP` — strip the parameters and the
+SUBJECT binder's domain must be headed by a constant (the structure
+family).
+
+**And it is not currently establishable.**  `checkProjTy` (and its
+cached twin `checkProjTyF`) checks the roundtrip against the model
+projection's type, the four type-slot facts, and
+`(pty.stripPis (nP + 1)).isSome` — the telescope's LENGTH — but **not
+the subject binder's domain head**.  `pty` is
+`mcv.type.renameConsts (projBack …)` with `mcv` the untrusted
+modeller's `_model.proj_i`, and `renameConsts` maps constants to
+constants, so the head is a constant exactly when the MODEL's is —
+which nothing checks.  So there is no proof available, only a record.
+
+##### WHAT IT COSTS, and why it is K.55's situation again
+
+The guard is ONE line at a site that already strips the telescope:
+`unless certOnly mode (Expr.recMajorHeadOk pty nP)`, `.internal` on
+failure, at both `checkProjTy` and `checkProjTyF`.  Its ledger row is
+K.55's shape — the type comes from the modelled route's own generator,
+so a fire would be that generator's bug, and **it retires with that
+route** — and it needs a NUMBER, which this lane does not assign.
+
+It also carries a ripple the census did not: `checkProjTy`/`checkProjTyF`
+have no `mode` parameter today, so the gate threads `mode` through them
+and through `checkProjTyF_eq` (`Verify/CheckerF.lean`) and
+`Verify/Extend/Proj.lean`'s inversions — four further sites, mechanical
+but not free.
+
+##### WHERE THE CLAUSE STANDS, precisely
+
+DONE and reproducible in minutes from `_tmp/m8/clause-wip2.patch`
+(918 lines, kept):
+
+* the clause in `ConstWF` with its docstring;
+* the thirteen mechanical sites of the previous section;
+* the basis and `Quot` literals, including the recursor literals by
+  `rfl` (`emptyRecA` and its four siblings);
+* **the native producer discharged** — `direct_fix_rec_wf` gains the two
+  arity hypotheses (`ctorsA.length = p.ctors.length`,
+  `p.kinds.length = ctorsA.length`) and reads the clause off
+  `structRecTyR_majorDom`, with the strip count lined up against
+  `InductiveShape.majorIdx`.  The strip kit
+  (`replacePisPw_some_stripPis`, `structMinorsPisR_stripPis`,
+  `structRecTyR_majorDom`) MOVED from `NestedRecDoor` to `FixRec`,
+  because `FixWF` cannot see the former;
+* the hypothesis threaded through `memberInstallInv`.
+
+REMAINING: the projection guard above (a number and a measurement), the
+mutual producer (`mutualRecTy_majorDom` + the same arity step), the
+modeled route's threading into `IndRecsCore`, `BridgeCS4`'s transport,
+`IndMembers`/`TowerCons`' literals, and the two callers of
+`direct_fix_rec_wf`.
+
+##### THE RENAME, ADOPTED
+
+`mutualRecTy_major` is `mutualRecTy_majorDom` on the integrated tree — a
+landed theorem of another lane held the name — and this lane now writes
+the new one.  `structRecTyR_majorDom` is renamed to match, on this
+lane's own initiative and for the same collision risk: the two read as a
+pair and neither should be the next identifier collision.
+
+#### K.56 — the projection entry's major premise (2026-09-18, task #315 M8 session 6, `agent/uniform-m5`)
+
+A projection FUNCTION is stored as a recursor-kind entry —
+`projEntry T lps pty nP i rules = .recInfo ⟨projFnName T i, lps, pty⟩ nP nP rules`
+(`Semantics/ProjFnFacts.lean`) — so the environment invariant's
+UNCONDITIONAL major-premise clause is a statement about every projection
+function too: at such an entry it reads `Expr.recMajorHeadOk pty nP`,
+the SUBJECT binder's domain headed by a constant (the structure family).
+
+**It was not establishable.**  `checkProjTy` and its cached twin check
+the roundtrip against the model projection's type, the four type-slot
+facts and `(pty.stripPis (nP + 1)).isSome` — the telescope's LENGTH —
+but never that domain's head.  `pty` is
+`mcv.type.renameConsts (projBack …)` and `renameConsts` maps constants
+to constants, so the head is a constant exactly when `mcv.type`'s is,
+and nothing checks `mcv.type`.  One `unless` at both sites,
+`certOnly`-gated, `.internal` on failure, plus `mode` threaded through
+`checkProjTy`/`checkProjTyF` and the eight proof sites that name them
+(`Verify/Extend/Proj.lean`'s inversion — which gains the conjunct —
+`CheckerF`'s `_eq`, `BridgeDecl`'s `_datF`, `BridgeWfImp`'s `_wf`,
+`BridgeCS2`'s `SimC`, `BridgeCS4`, `Semantics/Bridge/DeclIndRun` and
+`Cached/CheckerC`).
+
+**MEASURED BEFORE COMMITTING, and it does not fire:**
+
+* every `tests/e2e` fixture and BOTH arena halves, good and bad — **242
+  streams, 0 fires**;
+* `init-full`: **0**, 53 093 accepted;
+* Mathlib: **0**, 654 504 accepted.
+
+**Cost: none measurable.**  `ind_rec_struct_proj` (a projection-carrying
+fixture) 22 326 669 / 22 323 556 without against 22 323 897 /
+22 323 854 with, instructions:u.  It is one `stripPis` of `nP` binders
+and a head read, at a site that has just stripped `nP + 1`.
+
+**THE LEDGER ROW — (S), and the category was determined rather than
+assumed.**  Where does `pty` come from?  `checkProjTy` is handed
+`mcv.type` for `mcv` looked up at `projModelName T i` — the in-process
+modeller's `_model.proj_i`.  So in every corpus run the type is OUR
+generator's and a fire is our generator's bug: **(S)**, the same
+category as K.41's, which is the row that fired this arc and caught a
+real defect in our own mint.
+
+**The honest boundary, which the category does not hide**: a `_model`
+name is NOT reserved (task #219 — the in-process modeller is the only
+model source, but a stream record named `X._model.proj_0` is an
+ordinary declaration, and three fixtures keep such names deliberately as
+the controls for exactly that).  So a stream CAN supply the definition
+this type is read from, and a fire on such a stream would say that
+stream's model is unusable rather than that our generator is buggy.
+It stays (S) because that is the only source any corpus exercises, and
+because official has no such generator at all — the (B) reading is
+unavailable here, unlike K.55's.  Like K.55 it **retires with the
+modelled route**.
+
+#### THE CLAUSE, SECOND ATTEMPT: five of six producers discharged, and the mutual one's three arity facts located (2026-09-18, task #315 M8 session 6, `agent/uniform-m5`)
+
+With K.56 in the tree the clause was written again, re-running the
+census after each fix as the previous section's rule requires.  **It is
+not landed**, and this record is what the second pass established that
+the first could not.
+
+##### FIVE OF SIX PRODUCERS ARE DISCHARGED (`_tmp/m8/clause-wip3.patch`, 1 210 lines)
+
+| producer | discharge | state |
+| --- | --- | --- |
+| the thirteen mechanical sites | destructurings, chains, the builder's LAST argument | DONE |
+| the basis blocks and `Quot` | the vacuous clause at the non-recursor literals, `rfl` at the recursor literals (`emptyRecA`, `falseRecA` and their siblings) | DONE |
+| **native** | `structRecTyR_majorDom` + two arity hypotheses on `direct_fix_rec_wf` | DONE |
+| **the projection entries** | **K.56's conjunct**, carried through `checkProjTy_inv` → `ProjFnRun`'s new conjunct → `consProjFn`'s `hmajP` | DONE — this is what K.56 bought |
+| `memberInstallInv` | one hypothesis, the caller's route's | DONE |
+| **mutual** | `mutualRecTy_majorDom`, and it compiles — modulo THREE arity facts | see below |
+
+The telescope kits moved where the module system puts them: the
+fixpoint kit (`replacePisPw_some_stripPis`,
+`structMinorsPisR_stripPis`, `structRecTyR_majorDom`) from
+`NestedRecDoor` to `FixRec`, because `FixWF` cannot see the former; the
+mutual kit (the motives'/minors' telescopes, `mutualRecTy_stripPis`,
+`mutualRecTy_majorDom`) from `NestedRecDoor` to `MutualWF`, for the same
+reason at `mutual_recs_wf`.
+
+##### THE MUTUAL PRODUCER'S THREE FACTS, and where they come from
+
+`mutual_recs_wf` stores `.recInfo` at
+`mI = b.rulePrefix + (fms.getD mIdx default).nIdx = b.nP + b.k + b.n + nIdx`
+while `mutualRecTy` is called at `formers4`/`ctors4`, so the clause needs
+
+* `b.k = formers4.length`,
+* `b.n = ctors4.length`,
+* `∀ m f, formers4[m]? = some f → (fms.getD m default).nIdx = f.nIdx`.
+
+All three follow from ONE equation the inversion already carries —
+`mutualGenData b fms ctorsA kinds = (formers4, ctors4)`
+(`MutualInv.lean`), whose first component is
+`fms.map fun f => ⟨f.cvTa.name, f.nIdx, f.cvTa.type⟩`, so the third is
+immediate and the first is `fms.length = b.k` from the formers' stage;
+the second needs `kinds.length = b.ctors.length` from
+`classifyMutualKinds`.  They are carried as hypotheses in the patch and
+must be discharged at **three** call sites — `checkMutualCore_wf`,
+`Model/Inductives/MutualRecsSwap.lean` and
+`Verify/Cached/BridgeCSDecl.lean` — plus the two callers of
+`direct_fix_rec_wf` for the native pair.
+
+##### WHAT REMAINS, and it is arity plumbing rather than proof
+
+The three facts at three sites, the native pair at two,
+`Semantics/IndRecsCore.lean`'s threading of K.55's Bool from
+`provisionRecs_cons_inv`, `Verify/Cached/BridgeCS4.lean`'s transport and
+`Model/IndMembers.lean`'s literal.  **No new lemma is needed anywhere**:
+every generator fact is proved, K.55 and K.56 are recorded, and what is
+left is passing lengths through five signatures.
+
+##### THE CENSUS RULE, APPLIED — and it worked
+
+The previous attempt's blind spot was reading the first error per file.
+This pass re-ran the census after every fix, which is how the projection
+half appeared as the FOURTH census rather than not at all, and how the
+count of real producers went from five to six.
+
+##### THE CLAUSE HAS LANDED, complete
+
+`ConstWF`'s sixth conjunct
+
+```lean
+    (∀ cv mI rP rules, c = .recInfo cv mI rP rules →
+      Expr.recMajorHeadOk cv.type mI = true) ∧
+```
+
+is in force unconditionally: `lake build` and `lake test` are green, the
+gate battery passes (layering 0/0, proofdeps doors 0, trust surface 13/5
+allowlisted, overview-links 112, quote-gate 2, nested-shadow 36/36,
+shake 510/510 allowlisted, arena 90/92 good tests, e2e 196/196), and no
+named hypothesis carries it anywhere.  Every recursor-storing route
+proves it from ITS OWN generator:
+
+* **mutual** — `checkMutualRecTys_majorHead` (new, in `MutualWF`): the
+  stored type IS `mutualRecTy`'s output, so the clause is
+  `mutualRecTy_majorDom` with the stored major index
+  `b.rulePrefix + nIdx` identified with the generator's
+  `b.nP + formers.length + ctors.length + f.nIdx`.  Three call sites
+  discharge its three arity facts off the ONE equation
+  `mutualGenData b fms ctorsA kinds = (formers4, ctors4)`:
+  `checkMutualCore_wf`, `mutualRecsStore_of` (through
+  `mutualRecsStore`'s new premises) and `checkMutualCoreS_run` at the
+  cached bridge.  The MODEL half needed the same at the PROVISION cons,
+  where the recursors go in rule-less: `recsProvisionGo`/`recsProvision`
+  carry a per-member `hmaj` and `mutualRecsProvision` discharges it with
+  the new helper.
+* **native** — `structRecTyR_majorDom` through `direct_fix_rec_wf`'s two
+  callers, with the constructor/kind lengths.
+* **basis and Quot** — `basisDeclsA_recMajorHead`, by `cases k <;> rfl`.
+* **nested (restore)** — `restoreWalk_major`; the restore's provisioning
+  loop (`nestedRecsProvisionGo`/`nestedRecsProvision`) carries the fact
+  PER ENTRY, because the major index is the stored triple's and not a
+  function of the class.
+* **modeled** — K.55's runtime Bool, gated on `verifiedChecks`, which the
+  route is being deleted with at step 2e.
+
+One import died with the move of the telescope kits and is deleted in the
+same arc: `NestedRecDoor` no longer needs `FixRec` (the shake gate found
+it; the #223 criterion holds — the tree builds without it).
 
 #### U.78 — L-B session 16: `NestedPinsShapeNoLam` DISCHARGED — the `ordF`-left arm reads K.42, and what is left of it is PLUMBING (lane L-B, 2026-09-18)
 
@@ -101813,7 +103356,434 @@ shake 511 removals all allowlisted; pub-imports 1315 of 2147, none
 demotable; nested-shadow 28/28.  `tests/arena.sh` not re-run: the
 session touches no checker code.
 
-#### U.110 — L-B session 28: the reflexive arm WRITTEN; the two ordinary-field residuals are ONE residual; and the pin-shape arm's `EA` clause needed no per-pin lemma (lane L-B, 2026-09-18)
+#### U.110 — M7-3 session 21: the `ownPins` crossing PRE-THREADED to one kernel premise, and the "free one level up" audit (lane M7-3, session 21, 2026-09-18)
+
+*(Numbered at the integrator's sync after integration 3r: this lane
+wrote it as §U.81, which on the integrated tree is lane L-B's session
+19.  §U.106–§U.109 are lane L-B's sessions 24–27, assigned on that
+lane's own branch at the same sync, so this one is §U.110.)*
+
+##### (a) The path, cleared to a single named input
+
+The field is held out by a kernel clause this lane does not own, so the
+session's work was to make its arrival a one-commit landing rather than
+a session.  Everything on the crossing path except that clause is now
+proved:
+
+* **`ContainerOwnPinsSyn.crossIndOf`** takes exactly
+  `EnvBlocksOf.crossIndP`'s own `hext`/`hnewN`/`hfreshN`/`hrecN`/
+  `hwf`/`hrc` — the rest of `crossIndP`'s list
+  (`hF`/`hres`/`hag`/`hde`/`hfresh`/`hold`/`hb`/`hnew`) is not needed
+  and not taken — plus `hmimN`, `RecMajorHeadStored env₁`, the
+  container's record and the `env₁` clause.  `crossInd`'s `hold` (the
+  block's members are not new) is DISCHARGED inside, off `C.reps`'
+  `memsFound` against `hfreshN`, and needed no `0 < d.k`: `reps` is
+  already indexed at the member;
+* **`BlockInstallExt.mimN`** gives `hmimN` at the NATIVE and MUTUAL
+  routes at once — both records are `BlockInstallExt` and both
+  `crossIndP` call sites already feed the composed one, so the landing
+  is `E.mimN` at each.  ONE lemma rather than two identical route
+  wrappers, which would have been two unconsumed clones.  There the
+  premise is UNSATISFIABLE: the record names every new `.recInfo`
+  `T.rec`, and `appendIndexAfter_rec_ne_rec` refutes a mimic-shaped
+  name being one;
+* **`nestedMimN`** gives it at the nested route.
+
+##### (b) THE FINDING: `NestedInstallExt` cannot decide `hmimN`
+
+The natural expectation was that the nested install's extension record
+would settle it as `BlockInstallExt` does.  It cannot, and the witness
+is cheap: `NestedInstallExt`'s recursor clause is conditional on
+`c.name = n.str "rec"`, which is VACUOUS at a mimic
+(`"rec_1" ≠ "rec"`), and nothing else in the record constrains
+mimic-shaped names — **a `new` list holding a single `.recInfo` named
+`X.rec_1` with `X` not a member satisfies the record and refutes
+`hmimN`.**
+
+So `nestedMimN` argues from the route's CONCRETE install chain instead
+of from a clause, taking `NestedTailIn`'s fields verbatim (so the
+landing is `I.hrm`, `I.hrn`, `I.htbl`, `I.lenM`, `I.lenN`/`I.hcount`,
+`nested_kpos`) plus the two abstract pieces the record does give
+(`hfreshN` and "every member is among the new names"):
+
+1. a `.recInfo` the OUTPUT stores is the input's own past the tables'
+   stage — `nestedTables_mem_inv`, the tables cons `projInfo`s only;
+2. hence either a RESTORED recursor or something from below the two
+   remaining cons stages, which add `indInfo`s and `ctorInfo`s only,
+   and therefore from `env` — contradicting the name's freshness;
+3. a restored recursor's name is the name the restore was ASKED for
+   (`restoreRecTys_names_of_mem`, which carries an
+   `out.length ≤ names.length` side condition because the restore falls
+   back to the auxiliary name past the list's end — both real calls are
+   exact): a member's `T.rec`, excluded by (a)'s string lemma, or
+   `p.mimicRecName i`, whose base is the FIRST former and hence a
+   member.
+
+**This is a case for strengthening `NestedInstallExt` rather than
+re-deriving the chain** if a second consumer ever wants the same fact:
+one conjunct saying the new `.recInfo`s are the members' `T.rec`s and
+the mimics `first.rec_j`, which the route proves anyway.  Recorded, not
+done — one consumer does not justify moving a record.
+
+##### (c) THE AUDIT: no second instance of the mistake
+
+Session 20's lesson was "check one level up before concluding a
+crossing is not free", after this lane had wrongly recorded `pinConts`'
+crossing as hard when `BlockAt.crossEnvP` already held the hypothesis.
+The other fourteen `ContainerModeled` clauses were audited for the same
+error.  **There is no second instance**, and the evidence is
+`crossEnvP`'s own body: ten clauses cross VERBATIM (`k`, `namesLen`,
+`nP`, `inj`, `frame`, `ordFree`, `nestMention`, `pinsNotMembers`,
+`pinNP`, `pinParams`) and are therefore already as cheap as a clause
+can be; the four that need work (`reps`, `typed`, `member`, `pinψ`)
+need it for MODEL-side reasons — the carrier's agreement and the
+stored constant's identification — not because a hypothesis was
+thought missing.
+
+The three clauses that LOOK defensive are each driven by a consumer,
+not by a crossing:
+
+* `pinNP` is at `d.env₀` because that is where `BlockOpened.nestF`
+  resolves a pin's index arguments and `replaceAllNested_occurrence`
+  splits at that count — a consumer's requirement.  `pinConts` exists
+  for the OTHER consumer, at the model's environment; both are needed,
+  neither is redundant;
+* `nestMention` is on `DsE` because the opened-domain spelling dies at
+  the `NestedCtorsStaged` boundary;
+* `pinParams` is over the group's member record rather than an
+  `env.find?` deliberately, so that it mentions no environment and
+  crosses verbatim — the opposite of the mistake.
+
+A negative audit result, recorded so it is not repeated.
+
+##### (d) What the field's landing now costs
+
+Add the field; nine one-liners (`of_readBack` one premise; native,
+mutual and the five basis vacuous or from their `*OwnPins`/`*_ownPins`
+theorem; nested from `nestedOwnPins_of`; `crossEnvP` from
+`crossIndOf` with `E.mimN`/`nestedMimN`); and discharge
+`RecMajorHeadStored env₁` from `hwf` once the environment invariant's
+recursor clause is unconditional (§U.104 (b)).  Nothing else.
+
+##### (e) Gates
+
+`lake build` and `lake test` warning-free; layering / trust /
+overview-links / quote-gate / no-local-paths / shake / pub-imports /
+proofdeps (0 doors) / `tests/arena.sh` — figures at the landing commit.
+Standard axioms on all seven new results.
+
+#### U.111 — L-E session 36: THE HOLE, minimal and exactly stated — and the chain WALKED, with the honest verdict (lane L-E, 2026-09-18)
+
+*(§U.111–§U.113 numbered at the integrator's sync after integration 3r:
+this lane wrote them as §U.91–§U.93, which on the integrated tree are
+lane L-E's OWN sessions 24–26 under 3r's renumbering.  §U.106–§U.109
+are lane L-B's sessions 24–27 and §U.110 is lane M7-3's session 21,
+both assigned on those lanes' branches at the same sync.  This lane's
+citations of its own earlier sessions were shifted with them:
+`§U.77`→`§U.89`, `§U.85`→`§U.97`, `§U.89`→`§U.101`.  **One of those is
+flagged rather than corrected**: "§U.85's measurement" is translated
+mechanically to `§U.97`, but §U.97 (session 30) ASKS for that test
+where the fourteen-edges count is recorded at `§U.92 (b)` (session 25)
+— the lane should say which it meant.)*
+
+The fourth count is negative on the weakest graph, so no measure of any
+kind exists and the route is closed.  §U.101 (d)'s obstruction is the
+statement that goes upward.  What follows is the two things the
+decision needs.
+
+##### (a) THE HOLE, in its tightest form
+
+The out-of-instance case is PROVED (`pins_le_of_instanceLe` over
+K.52).  What is missing is exactly the entry at an `ordF`-right target
+INSIDE the source's own instance:
+
+```lean
+-- at the run, with `tgt` abbreviating
+--   ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+--       (b.ownOffset (p.k + q₀ + iq) + j) []).getD l 0
+∀ (q₀ iq j l : Nat),
+  -- the field: copy-recursive, container-ORDINARY, target a PIN
+  l < ((blkFss0 b ctorsA kinds dsF ψ).getD (b.ownOffset (p.k + q₀ + iq) + j) []).length →
+  ((blkRss ctorsA kinds).getD (b.ownOffset (p.k + q₀ + iq) + j) []).getD l false = true →
+  (((dJf q₀).rss iq).getD j []).getD l false = false →
+  ¬ tgt < p.k →
+  -- and the target is IN THE SOURCE'S OWN INSTANCE
+  (ConLeche.nestedPinInstOf env p b st stored).getD (tgt - p.k) 0
+    = (ConLeche.nestedPinInstOf env p b st stored).getD (q₀ + iq) 0 →
+  -- then the entry holds there
+  pinLfp st pinsS dJf (f₀.s.eval ψ) ψ ρp (tgt - p.k)
+    = lfpTuple ((D).w ψ) (p.k + pinsS.length) ((D).idx ψ ρp) (ΨA ψ ρp)
+        (p.k + (tgt - p.k))
+```
+
+Three things make this the tightest form:
+
+* **the fifth hypothesis is the whole restriction.**  Without it this is
+  `hout` in full; with it, everything the rank induction already
+  discharges is excluded.  So the premise is INVOKED ONLY at the
+  configurations the measurement found;
+* **it is vacuous almost everywhere.**  Its hypothesis is exactly what
+  the measurement recorded at **§U.92 (b)** counted: `ordF`-right
+  (not-own) edges with equal instance labels — **fourteen such edges,
+  hence fourteen field positions, across eight accepted blocks** (four
+  in three fixture blocks, ten in five library-cone blocks).  (The
+  integrator's note at the head of this section flagged this citation
+  rather than guessing: the mechanical translation sent it to §U.97,
+  which only ASKS for a test.  §U.92 (b) is the section that carries
+  the count, and is what was meant.)  On the other seventy-five of the eighty-three block-runs
+  measured it is vacuously true.  (The fourth count's "eight blocks" is
+  a DIFFERENT property — a not-own edge inside a directed SCC — and the
+  two counts are not assumed to name the same eight;)
+* **its conclusion is the entry itself**, not a weakening: it is one
+  instance of the very identity step (ii)/(iv) produce elsewhere.
+
+**Not landed as a `def`.**  A named premise with no call site is what
+this project's own rule forbids (`consumer-first-hypotheses`), and
+wiring a call site is construction.  The statement lives here.
+
+##### (b) THE CHAIN, WALKED — and the claim is NOT "one hole"
+
+The coordinator asked to be able to say that one precisely-shaped hole
+is all that stands between this route and a closed proof, and asked for
+that claim to be TRUE.  **It is not true, and here is the walk.**
+Checked on this branch at this commit.
+
+| link | state |
+| --- | --- |
+| `NestedPinsEntry` ← `nestedPinsEntry_of_le_all` | **LANDED** (mine), axioms standard |
+| `NestedPinsShape` ← `nestedPinsShape_of` | landed, but from THREE OPEN residuals: `NestedPinsShapeNoLam`, `NestedPinsShapeOrdRight`, `NestedPinsShapePinF` — **lane L-B** (on its tip `NoLam` is discharged and `OrdRight` is split with the REFLEXIVE half REFUTED; not yet merged here) |
+| `NestedPinsLe` ← `nestedPinsLe_of_rank` | **LANDED** (mine) |
+| its `hrank` | K.37's Bool off `NestedPinsRun.hrank` — **unconditional** |
+| its `hinst` ← `nestedPinInstLe` | **LANDED** (mine) |
+| `InstanceCovered` ← `instanceCovered_of_others` | **LANDED** (mine); its `hothers` is **OPEN — M7-3's `ownPins` + K.41** |
+| `hB : EnvBlocksOf` | available (`PinsModeled`/`mp.blocks`) — **unconditional** |
+| `hppB : ContainerPinParams` | **OPEN — no producer anywhere in the tree** (`git grep` finds it only in its definition and this lane's uses).  M7-3's |
+| `hdJfB` | run-level, mechanical (`NestedTailOut.groups` already names the model `blockOf`) |
+| `hIH` ← `nestedPinsEq_of_le` ← `nestedPinsFixed` | **LANDED** (mine) — unconditional |
+| `hout`, out-of-instance | **PROVED** — `pins_le_of_instanceLe` over K.52 |
+| `hout`, in-instance | **THE HOLE** (a) — nobody's, undischargeable by the tier (§U.101 (d)) |
+| the run-level `Edge`/`EdgeOrd` production | mechanical; the mention bridge is `os_field_domain_free` (`Verify/Inductives/NestedOpenSpine.lean:298`) plus a `List.any` lift |
+| above: `nestedPinsIdent_of`, `nestedPinsStaged_of` | landed, unconditional given the two residuals |
+| `nestedCtorsStaged_of` | landed; it also takes `NestedReadLaw` — **CORRECTED 2026-09-18 (§U.112): that law IS proved unconditionally (`NestedReadLaw.lean`'s `nestedReadLaw`) and had no call site.  Now WIRED as `nestedCtorsStaged_of_pins`, so it is no longer a residual** |
+| `nestedCoreModeled_of`, `nestedTailModeled_of`, `declNested_of` | landed |
+
+**Verdict** (amended by §U.112).  On the route there are, besides the
+hole: three shape arms (L-B), `hothers`/`ownPins` (M7-3),
+`ContainerPinParams` (M7-3), and mechanical run-level plumbing.
+`NestedReadLaw` was in this list and is NOT a residual — it was proved
+and unwired (§U.112).  So the true statement is:
+
+> **one hole that nobody can discharge, plus THREE named residuals
+> belonging to other lanes — one of which itself contains a refuted
+> arm — plus mechanical plumbing.**
+
+That is what the maintainer should be told, and it is a different claim
+from the one I was asked to make true.  What IS true and worth saying
+beside it: **every link this lane owns is landed and unconditional
+except the hole**, and the hole's out-of-instance half is proved.
+
+##### (c) WHAT STANDS FINISHED BEHIND IT
+
+This lane's landed chain, all with standard axioms: `nestedPinPairAt_mem`,
+`nestedPinPairAt_pin`, `nestedPinPairAt` (`hpair`, both class kinds),
+`nestedInstanceLe`, `nestedPinFam_of_classPin`, `instanceCovered_of_others`,
+`nestedPinInstLe`, `pins_le_of_instanceLe`, `nestedPinsLe_of_rank`,
+`nestedPinsEq_of_le` (step ii), `nestedPinsEntry_at`/`_of`/`_of_le`
+(step iv) and `nestedPinsEntry_of_le_all` (the residual's discharge),
+plus the `EntryRead` repair and the K.42/K.52 threading.
+
+##### (d) STANDING DOWN on this row
+
+Ten read-only sessions bounded the route and five constructions were
+not started on the strength of them.  The in-instance row is closed as
+far as this lane can take it; §U.101 (d) is the obstruction and (a) is
+the hole.
+
+##### (e) UNAMBIGUOUSLY: nothing landed is affected
+
+Every theorem this lane has landed stays landed.  The OUT-OF-INSTANCE
+case, step (ii), step (iv) and the residual's discharge go through
+today exactly as they did before this arc began.  No line of the proof
+tree was touched in eleven sessions of this arc.
+
+Gates: `lake build` and `lake test` warning-free at the session's
+commit; text gates green.
+
+#### U.112 — L-E session 37: `NestedReadLaw` was PROVED and UNWIRED — the residual list loses an entry (lane L-E, 2026-09-18)
+
+§U.111 (b) listed `NestedReadLaw` as open with "no producer in the
+tree".  **That was wrong, and wrong in the way this project has a rule
+about.**  `ConLeche/Model/Inductives/NestedReadLaw.lean` proves
+
+```lean
+theorem nestedReadLaw {F : Nat} : NestedReadLaw V μ F
+```
+
+with NO premises — a complete, unconditional producer, sitting with no
+call site anywhere outside its own file.  My walk searched for
+`theorem nested<Name>_of`-shaped producers and for premise THREADING,
+and this producer matches neither pattern: it is named for the law, not
+for its consumer.
+
+**The rule, and the second instance of it on this task**: a hypothesis
+with no call site is indistinguishable from a hypothesis with no proof,
+so grep for a producer — by the law's own NAME, not only by the
+naming convention — before sizing an obligation.  Eleven sessions
+earlier another lane met this from the same side.  Here it cost this
+lane's own residual walk one of its four entries, in the same session
+in which it declined to land the hole as a `def` for exactly this
+reason.
+
+**Wired** (`NestedReadLaw.lean`, after the law):
+
+```lean
+theorem nestedCtorsStaged_of_pins {F : Nat} (hpins : NestedPinsStaged V μ F) :
+    NestedCtorsStaged V μ F :=
+  nestedCtorsStaged_of hpins nestedReadLaw
+```
+
+Strictly subtractive: `nestedCtorsStaged_of` keeps its two-premise
+form, and any consumer that reaches for `..._of_pins` carries only the
+pins' stage.  Axioms standard on both; `lake build`, `lake test` and
+the full gate set green.
+
+**The residual list afterwards** — besides the hole (§U.111 (a)):
+
+| residual | whose | state |
+| --- | --- | --- |
+| `NestedPinsShapeNoLam`, `NestedPinsShapeOrdRight`, `NestedPinsShapePinF` | lane L-B | open; on its tip `NoLam` discharged, `OrdRight` split with the reflexive half REFUTED |
+| `hothers` of `instanceCovered_of_others` (`ownPins` + K.41) | M7-3 | open; nine sites proved, held by one kernel premise |
+| `ContainerPinParams` | M7-3 | open; only its vacuous case exists, no general producer |
+| run-level plumbing (`hdJfB`, the `Edge`/`EdgeOrd` production, the `List.any` lift over `os_field_domain_free`) | the assembly | mechanical |
+
+So: **one hole nobody can discharge, plus THREE named residuals of
+other lanes, plus plumbing.**  Every link this lane owns is landed and
+unconditional except the hole, whose out-of-instance half is proved.
+
+##### UNAMBIGUOUSLY: nothing landed is affected
+
+Every theorem this lane has landed stays landed, and the wiring added a
+theorem without changing any.  The OUT-OF-INSTANCE case, step (ii),
+step (iv) and the residual's discharge go through exactly as before.
+
+Standing down on the in-instance row.
+
+#### U.113 — L-E session 38: the pins' SEMANTIC data, exposed per pin — DERIVED, so no producer owes anything (lane L-E, 2026-09-18)
+
+Lane L-B asked for one clause giving, per pin, the level substitution
+at its container's level parameters and the container block model's
+sort and index data at the group-relative index.  **It is landed, and
+as a DERIVED lemma rather than a clause**, which is a better answer
+than the request asked for.
+
+`NestedPinSynFacts.pinSem` (`NestedPins.lean`): at every pin `q`,
+
+* `(ENV₁).find? ((D).pinAt q).J = some (.indInfo cvT caps)` and
+  `∀ ψ, ((D).pinAt q).ψJ ψ = Level.substFn ψ cvT.levelParams ((D).pinAt q).lvls`
+  — the level substitution, at the CONTAINER's own level parameters;
+* `∀ ψ, dJ.w (((D).pinAt q).ψJ ψ) = f₀.s.eval ψ` — the sort;
+* `∀ ψ, ((D).pinAt q).u ψ = dJ.uM i (((D).pinAt q).ψJ ψ)`,
+  `((D).pinAt q).pps = dJ.ppsM i` and `((D).pinAt q).nPJ = dJ.nP` — the
+  index data at the group-relative index;
+* with `i`, `q₀`, `kJ`, `dJ` existential and
+  `(st.pins.getD q default).grpBase = q₀` tying the group-relative
+  index to the pin table's own `grpBase`.
+
+##### THE CHECK THE REQUEST ASKED FOR, discharged the strong way
+
+The request rightly warned that "true at the construction site" is no
+reason to expect a clause, and asked for confirmation that all three
+come from the definition at EVERY producer.  **They are not read off
+any producer at all**: all of it comes off `groups`, a field
+`NestedPinSynFacts` ALREADY carries, through `NestedPinGroupSyn`'s
+`stored` (the constant and the level law), `w` (the sort), `pinU`,
+`pinPps`, `pinNP` (the index data) and `grp` (the base).
+
+So nothing is imposed on any producer, and the confirmation is
+stronger than an enumeration would have been: a producer that does not
+yet exist cannot fail it either.  This is the same move that made
+§U.112 subtractive — prefer a derived lemma over a recorded clause
+whenever the record already carries the data.
+
+##### ONE DISCREPANCY, REPORTED NOT ASSUMED
+
+The request described the target as a record of about eleven hundred
+lines in which the sort field occurs zero times and the index field
+once.  `NestedPins.lean` is 1620 lines and contains one `.w (`, two
+`IdsM` and eighteen `substFn` occurrences, so the counts do not match
+and L-B may have counted a different record or file.  What is exposed
+here is `NestedPinSynFacts` — the per-pin SYNTACTIC record that lane
+consumes as `SF`, whose fields are `pinsLen`, `pinRec`, `pinDs` and
+`groups`, and which carries exactly the syntactic data the request
+describes as already present.  **If a different record was meant, the
+coordinates are `ConLeche/Model/Inductives/NestedPins.lean:462` for the
+record and `:481` for the new lemma** — redirect against those and the
+same derivation will apply, since it only uses `groups`.
+
+##### THE REPAIR CONVERTED A REFUTATION INTO A ROUTE
+
+Recorded because it closes §U.89 (b)'s loop: L-B's refuted `ordF`-right
+arm was refuted against the OLD shape of `EntryRead`.  Under the safe
+repair this lane took — the one that lane recommended — the two
+clauses its witness broke no longer exist and the witness satisfies
+the clause that replaced them, so the refutation DISSOLVES and the arm
+is open with a named route.  A λ-redex respects a semantic equality and
+does not provide a syntactic tower, which is precisely why the old
+statement was wrong and the repaired one is right; that lane's fixture
+becomes an acceptance test rather than a witness.
+
+Axioms standard; `lake build`, `lake test` and the full gate set
+green.  Nothing landed is affected: this adds a lemma and changes no
+theorem, and the hole (§U.111 (a)) and the obstruction (§U.101 (d)) are
+untouched.
+
+##### U.113 (addendum) — the two sync items, settled 2026-09-18
+
+**1. The explicit argument was ALREADY APPLIED, by the integrator, not
+by this lane.**  `NestedPinSynFacts` gained an `mp` parameter (lane
+M7-2's `groupsAt`, commit `93c7b39b`), and `NestedPinSynFacts.pinSem`
+was written against the shape without it.  The sync added
+`(mp := mp)` to the lemma's application of the record; the proof itself
+is untouched.  Verified rather than assumed: `b846b107`'s version of
+the lemma has no `(mp := mp)` and the tree's does, and `lake build`
+and `lake test` are green at the synced commit as it stands, so there
+was nothing left to fix.
+
+**The general form is worth carrying**, and it is the second time a
+version of it has cost a lane a broken call site: **a structure that
+gains a parameter breaks NAMED-ARGUMENT call sites silently rather
+than loudly** — the omitted parameter becomes a metavariable and the
+failure surfaces later, at a unification against one of the record's
+own fields, where it reads as a problem with the proof.  A call site
+that lists parameters by name is not protected by listing them; it is
+exposed by it.
+
+**2. The flagged citation is settled** at §U.111 (a): the
+fourteen-edges count is recorded at **§U.92 (b)**, not at §U.97, which
+only asks for a test.  The integrator translated the number
+mechanically and left the note rather than guessing, which was right —
+the two sections differ in exactly the way that matters, one carrying a
+measurement and the other requesting one.
+
+**And the numbering lesson, now twice-bitten.**  Citing by TITLE
+protects sections not yet numbered; it does nothing for a citation of a
+section that was ALREADY numbered when the citing line was written,
+because the number can still shift under a later integration.  This
+lane's §U.85 → §U.97 was exactly that case.  The rule that follows:
+**cite a section by title when it is new, and re-check numeric
+self-citations after any sync** — the integrator's rebuild-rather-than-
+union of this file is what made the shift visible at all.
+
+Nothing else changed: the hole (§U.111 (a)) and the obstruction
+(§U.101 (d)) are untouched, and no theorem moved.
+
+#### U.114 — L-B session 28: the reflexive arm WRITTEN; the two ordinary-field residuals are ONE residual; and the pin-shape arm's `EA` clause needed no per-pin lemma (lane L-B, 2026-09-18)
+
+*(Numbered at integration 3s: this lane wrote it as §U.110, which the
+3r sync had already reserved for lane M7-3's session 21 on that lane's
+own branch — a reservation this lane cannot see.  §U.111–§U.113 are
+lane L-E's sessions 36–38, merged just after this one, so session 28
+is §U.114.)*
 
 ##### (a) THE ARM THAT COULD NOT BE WRITTEN, WRITTEN (commit `338b37b2`)
 
@@ -101944,3 +103914,295 @@ links over 65 files, no anchor moved; quote-gate OK; **proofdeps 4965
 module rows / 12 roots / 0 doors** (the baseline, unmoved); shake 510
 removals all allowlisted; nested-shadow 37/37; layering base 353 / model 286 / caps 3 / umbrella 1, 0 base->lane and 0 impl->theory.
 `tests/arena.sh` not re-run: the session touches no checker code.
+
+##### THE SEVENTH PRODUCER, and what a census cannot see
+
+The integration carries a module this lane's tree never had:
+`Verify/Inductives/NestedRecsWF.lean`, the restored recursors' own
+`EnvWF` producer (`nested_recs_wf`, `mutual_recs_wf`'s twin at
+`provisionNestedRecs`/`storeNestedRecs`).  The clause's census, re-run
+four times, enumerated six producers and was correct **on the tree it
+ran on**; the integration has seven.  So the census rule gains a second
+clause, and it is not a refinement of the first: a census sees only the
+first error per file, AND it sees only the producers that exist in the
+tree it runs on.  The consequence is operational — **a lane closing
+something tier-wide should sync before the census, not after**.
+
+The seventh producer's hypothesis gave the constant-headed major
+premise only under the per-rule `.nested` fire guard, where the clause
+asks for it UNCONDITIONALLY: a restored recursor with no nested-firing
+rule still declares a major premise, and nothing under that guard
+speaks about it.  So `nested_recs_wf` gains `hmaj` per entry, and the
+route proves it.
+
+##### THE RESTORED RECURSORS' MAJOR PREMISE, proved
+
+Four links, three of which existed:
+
+* **the transport across the walk** — `restoreWalk_major`, which until
+  now had NO consumer, because the thing that would consume it did not
+  exist;
+* **the composition over the verbatim parameter prefix** —
+  `restoreNested_major` (new, ~25 lines): `restoreNested` is not
+  `restoreWalk`, it strips `R.nP` binders untouched, walks the body and
+  rebuilds the prefix, so the source's major premise at `nP + nF` is the
+  walked body's at `nF`.  `restoreNested_stripPis_doms` cannot serve:
+  it needs the residue to mention no auxiliary name, and the major
+  premise's domain is exactly where one sits.  `restoreNested_majorOk`
+  is the Bool-in/Bool-out form the invariant wants;
+* **the scratch recursor's own shape and index** — `auxStored_rec_eq`
+  gains two conjuncts, `b.nP ≤ a.mI` and
+  `Expr.recMajorHeadOk a.cvRa.type a.mI = true`.  Both come from data
+  the proof already had: the read-back's `mI` IS the store's
+  (`storeMutualRecs_find?_recInfo`, one projection of the `hfind` the
+  proof already inverts) and the stored type is `mutualRecTy`'s output
+  (`checkMutualRecTys_majorHead`).  `mutualFormerChecks_length` had to
+  be generalised from `auxRoute = false` to any grade, since the scratch
+  install runs the same fold at `true`;
+* **`PinsHeaded` at the route** — `NestedTailIn.pinsHeaded`, and this is
+  the one case of `restoreWalk_getAppFn_const` with content (at a
+  `ctorPins` key the replacement is `newName`, at a `recMap` key the
+  renamed constant, both `const` by construction).  It needed no new
+  check and no measurement: a recorded pin IS the source spelled out,
+  `q.pin = I lvls Ds`, which is K.28's own record read through
+  `nestedCopySrcOk_inv`, and neither `abstractRange` nor
+  `liftLooseBVars` can change an application's head.
+
+The mimics needed no second argument after all: the scratch block's
+members ARE the real members followed by the copies, so one `stored`
+list serves both halves and only the NAME lists differ.
+
+##### AND AN EIGHTH SITE, which is a call rather than a producer
+
+`NestedTailIn.scratchProv` (`Model/Inductives/NestedRecRule.lean`) calls
+the MUTUAL rule-less provision at the nested route's SCRATCH block, so
+it needs the mutual `hmaj` too — discharged from
+`checkMutualRecTys_majorHead` at `S.rectys` with the three arity facts
+off `mutualGenData`'s components, which the tail record carries
+(`I.out.formers`, `I.out.ctors`, `I.out.kindsRun`).
+
+**No runtime check was added anywhere in this arc**: the nested route's
+major-premise fact is a PROOF from the route's own generators and
+records, so no accept set can move by construction — which is what the
+battery confirms rather than establishes.
+
+#### U.115 — M7-3 session 22: `ContainerPinParams` becomes a CLAUSE — four parts, nine sites, and the bridge the consumer's indexing needed (lane M7-3, session 22, 2026-09-18)
+
+*(Numbered at integration 3t: this lane wrote sessions 22 and 23 as
+§U.111 and §U.112, which had LANDED as lane L-E's sessions 37–38 at
+integration 3s — landed outranks arriving, so they become §U.115 and
+§U.116.  Its session 21 keeps §U.110, the number 3s reserved for it.
+Neither header is cited anywhere, in DESIGN or the tree.)*
+
+##### (a) The definition, adopted VERBATIM
+
+Lane L-E's record of `ContainerPinParams`, completed to four parts, is
+the definition; this lane took it from that branch **byte-identical**
+(verified by `diff`, docstring included) and moved it above
+`structure ContainerModeled`, so that the clause and L-E's consumers
+are literally the same object.  That is deliberate: this task has
+already paid twice for two spellings of one datum, and adopting rather
+than restating removes the class.
+
+The field:
+
+```lean
+  pinParams : ∀ (i : Nat) (M : ConLeche.ContainerMember), ci.members[i]? = some M →
+    ContainerPinParams (V := V) ⟨M.name, M.lps, M.type⟩ d
+```
+
+`M.lps` IS the `cvI.levelParams` the definition asks for — which is
+what lets the clause mention no environment and therefore cross
+`crossEnvP` VERBATIM, exactly as the three-part field it replaces did.
+
+##### (b) The nine sites, counted before the work and confirmed
+
+Seven pins-free sites by `of_noPins`; `crossEnvP` `C.pinParams`
+unchanged; `of_readBack` one premise.  The NESTED site is the only real
+one, and **all four parts had sources already in the tree**:
+
+| part | source |
+| --- | --- |
+| the pins' level ARGUMENTS `allParamsDefined` | **K.48** (`pinsLevelsOk`) at the pin TERM, inverted by this lane's `allLevelParamsDefined_mkAppN`; `hlps` re-indexes `p.lps` to the stored auxiliary's `levelParams` |
+| the components' READINGS `bvarsBelow d.nP` | **K.30** (`pinsScoped`) → `WScoped_of_openers` → `bvarsBelow_of_reading` on each `NestedStageFacts.pinDs` reading |
+| the `Ds` congruence | `nestedPinParams_of` (`denoteMetaSpine_params_ext` + `DenoteMetaSpine.det`) |
+| the `u`/`Ids` congruences | `nestedPinParams_of` (`pinψ` + `Level.substFn_ext` + `IsBlockModel.uParams`/`FormerData.params`) |
+
+`nestedPinParams_of` gained `hsc` (K.30) and `hb`, both already bound in
+`declNested_of`, so **no new premise reaches the run**.
+
+**Two helpers the second part needed, and both are general**:
+`DenoteMetaSpine.memRead` — a READING traced back to the expression
+that produced it, where `DenoteMetaSpine.mem` gives only the source
+side; and `nestedFormerType` — K.30's openers live at the FIRST
+ELIMINATION TYPE while `FormerData` lives at `f₀`, and nothing in
+`NestedCoreOut` identified the two.  The second is the kind of gap that
+only shows up when a clause is proved rather than assumed.
+
+##### (c) THE INTEGRATION CHECK, done before landing
+
+The consuming lane's branch was read rather than guessed at.  Two
+findings:
+
+1. **its consumers use ONLY the four-part definition** — not one of
+   them reaches for the three-part field this replaces, so the
+   replacement is safe from that side;
+2. **but it carries the fact QUANTIFIED and indexed differently**: by
+   the STORED CONSTANT's `ConstantVal` at a container name
+   (`containerInfo? env J = some ci → env.find? J = some (.indInfo cv caps) → ContainerPinParams cv (B ci)`),
+   where the field is indexed by the group's MEMBER record.  Those
+   agree, but not by definition.
+
+`ContainerModeled.pinParamsOf` is the bridge, and it needed **no extra
+hypotheses** — no member index, no `0 < d.k`: `containerInfo?_inv` puts
+the queried name in the group, so the member is the one it names, and
+the record's own clauses give `M.lps = cv.levelParams` through the
+stored constant.  So the consumer's quantified premise is discharged
+from `EnvBlockModels` with nothing restated on its side.
+
+##### (d) A trap, recorded in the code
+
+In an `obtain`/`rcases` over `containerInfo?_inv` (and
+`mutualFormerChecksG_checked`), a `-` on an EXISTENTIAL WITNESS clears
+it and cascades into clearing the later conjuncts that mention it — the
+symptom is `Unknown identifier` for a name that was demonstrably bound.
+Both new sites name the witnesses with a `_` prefix instead.
+
+##### (e) Where the nested route stands from this lane's side
+
+Two of the three things between that route and a closed proof were
+this lane's: **this clause (done)** and the covering premise the
+`ownPins` field supplies (nine sites proved, path pre-threaded, held
+out only by the environment invariant's recursor clause).  The third is
+the other lane's arms.
+
+##### (f) Gates
+
+`lake build` and `lake test` warning-free; layering 353 / 285 / 3 / 1,
+0 base->lane and 0 impl->theory; trust 13/5 (648); overview-links 112;
+quote-gate 2; no-local-paths OK; shake 510 removals all allowlisted;
+pub-imports 1330 of 2206, none demotable; **proofdeps 4965 rows / 12
+roots / 0 doors**; `tests/arena.sh` **EXIT 0** — nested-shadow 27/27,
+e2e 196/196, the arena's 90/92, all four sweeps, axiom pin 20 theorems.
+Standard axioms on all thirteen theorems the clause touched.
+
+##### (g) The lane-sync merge, resolved from this side
+
+Integration 3r reached this worktree as a lane-sync started by the
+integrator, which correctly stopped at the two conflicts needing this
+lane's own knowledge and handed them back.  Both resolved here:
+
+* **`NestedPremise.lean`** — taken from the integration side (it
+  carries lane L-E's richer docstring on `ContainerPinParams` and the
+  `PinShapes` COUNT conjunct) with this session's three changes
+  re-applied on top: the definition and `of_noPins` moved ABOVE
+  `structure ContainerModeled`, the three-part field replaced by the
+  four-part clause-valued one, and `ContainerModeled.pinParamsOf`
+  added.  Two integration artefacts of the re-application were caught
+  by the build rather than by reading: a duplicated `memberIds_below`
+  (the block boundary I cut ran past it) and the missing proof-only
+  import of `containerInfo?_inv`, which the bridge needs and which the
+  integration side did not carry;
+* **`scripts/pub-import-plan.py`** — additive on both sides: the
+  integration's three `NestedStoreRun` entries and this lane's two
+  `NestedTablesInv` entries, all five kept, and the two that are this
+  lane's RE-VERIFIED against a failing demotion rather than trusted
+  from the merged list.
+
+The section's number is this lane's third in the arc: 3r had given the
+number this session first used to another lane, and the lane's three
+previous sections were renumbered mechanically.  Cited by TITLE
+throughout, which is why nothing inside needed changing.
+
+#### U.116 — M7-3 session 23: `RecMajorHeadStored` PROVED, the head-preservation step named for another lane, and why the clause itself needs the integrator (lane M7-3, session 23, 2026-09-18)
+
+##### (a) THE MERGE IS BROAD — measured, not asserted
+
+The kernel lane's unconditional `ConstWF` conjunct landed on its own
+branch, which is the one lane not carrying the last integration.
+Taking it here directly was tested rather than estimated:
+`git apply --check` of the commit alone FAILS on four files —
+`Semantics/Bridge/DeclIndRun.lean`, `Verify/Cached/BridgeCS4.lean`,
+`Verify/Inductives/NestedRecDoor.lean` (which the commit DELETES, 272
+lines) and `DESIGN.md` — and the commit is 40 files / 812 insertions,
+while merging the branch is 13 commits / 58 files / 1698 insertions
+across Kernel, Cached, Semantics, Verify and Model, including checker
+code that is not this lane's.  There is no narrower prefix: the
+conjunct arrives in that single commit, which is the only one touching
+`Verify/EnvWF.lean`.  So the clause comes through the integrator, by
+the standing rule.
+
+##### (b) THE BRIDGE, PROVED WITHOUT THE MERGE
+
+`recMajorHeadStored_of_stripPis` (`ContainerCross.lean`) takes the
+conjunct's content UNFOLDED — at every stored recursor, `stripPis mI`
+of its type gives a `.forallE` whose domain is const-headed — plus
+`EnvWF`, and concludes `RecMajorHeadStored`.  `Expr.recMajorHeadOk` is
+not yet a name in this tree; when it arrives, `hmaj` is one `obtain`
+off the Bool.
+
+The asymmetry is deliberate and was checked with the kernel lane rather
+than worked around: the conjunct is a Bool over the STORED type because
+every route stores what it generates, so that is the cheapest place to
+state it, and the instantiated side pays for it exactly once — here.
+
+Step 3 (the head RESOLVES) is `ConstWF`'s GENERIC `constsResolve`
+conjunct through `mentionsConst_of_constsResolve`, the same step
+`ContainerFrame` takes.  One local helper was needed because
+`ContainerFrame`'s own `mentionsConst_stripPis` is `private` there.
+
+##### (c) THE HEAD-PRESERVATION STEP IS A NAMED VERIFY-TIER LEMMA
+
+Requested by the lane that is about to build the nested route's
+major-premise producer, so it can CITE the step rather than re-derive
+it — **two lanes on this task have already written one theorem twice,
+and it merged only because the two versions happened to be
+byte-identical.**
+
+```lean
+theorem instPis_ilp_major_head {D : Name} {T : Expr} {mI : Nat} {args : List Expr}
+    {ks : List Name} {vs : List Level} {pre : List (Expr × BinderMeta)}
+    {dom₀ body₀ dom body : Expr} {bm₀ bm : BinderMeta} {us₀ : List Level}
+    (hstrip : T.stripPis mI = some (pre, .forallE dom₀ body₀ bm₀))
+    (hhead : dom₀.getAppFn = .const D us₀)
+    (hlen : args.length = mI)
+    (hinst : Expr.instPis (T.instantiateLevelParams ks vs) args
+      = some (.forallE dom body bm)) :
+    ∃ us', dom.getAppFn = .const D us'
+```
+
+`Verify/Inductives/NestedCopyInstU.lean`, beside `instPis_ilp` — the
+VERIFY tier, so the requesting lane can import it; `ContainerCross` is
+Model and it could not.  Stated in `Expr`/`Name`/`Level`/`BinderMeta`
+alone.  Under it, three reusable pieces, the `.forallE`-with-const-head
+twins of `NestedCopySort`'s `sort` kit and written to mirror those
+proofs: `Expr.stripPis_instantiate1_constHead`,
+`Expr.stripPis_instantiateLevelParams_constHead` and
+`Expr.instPis_stripPis_constHead` — the last in the more general
+spelling (any residual arity, returning the residual `∀` itself) for a
+consumer that wants the binders rather than just the head.
+
+##### (d) ONE FINDING: `instPis_ilp` is NOT the move here
+
+This lane's own `instPis_ilp`, proved for the ninth site, commutes level
+instantiation with `instPis` at MAPPED arguments — and the premise's
+arguments are the CALLER's raw ones.  The stored `stripPis` shape is
+what must be pushed forward, not the reader's `instPis` pushed back.
+Recorded because the two look interchangeable and are not.
+
+##### (e) WHERE THE FIELD STANDS
+
+Nine sites proved; the crossing pre-threaded to one premise; that
+premise now proved from well-formedness.  **The field's landing is the
+field, nine one-liners and one `exact` — and the only thing it waits on
+is the integrator bringing the conjunct.**
+
+##### (f) Gates
+
+`lake build` and `lake test` warning-free; layering 353 / 286 / 3 / 1,
+0 base->lane and 0 impl->theory; trust 13/5; overview-links 112;
+quote-gate 2; no-local-paths OK; shake 510 removals all allowlisted;
+pub-imports 1334 of 2227, none demotable; **proofdeps 4965 rows / 12
+roots / 0 doors**; `tests/arena.sh` **EXIT 0** — nested-shadow 37/37,
+e2e 196/196, the arena's 90/92, all four sweeps, axiom pin 20.
+Standard axioms on all six new results.

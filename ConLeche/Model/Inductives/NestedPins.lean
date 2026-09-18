@@ -577,6 +577,44 @@ structure NestedPinSynFacts (st : ElimState) (mp₁ : EnvModelM V μ ENV₁) : P
           (tssF := tssF) (ctorsR := ctorsR) (dsR := dsR') (xFvsR := xFvsR') (pinsS := pinsS)
           st mp₁.base2 q₀ kJ (blockOf mp.base2 ci)
 
+/-- **The pins' SEMANTIC data, PER PIN** (task #315 L-E, at lane L-B's
+request, DESIGN §U.113): at every pin `q` — at the pin, not at a group
+index — its level assignment is the substitution of its recorded level
+arguments for its CONTAINER's own level parameters, its container's
+block model carries the block's sort at that assignment, and its index
+universe and parameter telescope are that model's at the GROUP-RELATIVE
+index `i = q - grpBase`.
+
+**Derived, not recorded, and that is the point.**  All of it comes off
+`groups`, a field this record already has, through
+`NestedPinGroupSyn`'s `stored` (the container's constant and the level
+law), `w` (the sort), `pinU`, `pinPps` and `pinNP` (the index data),
+with `grp` identifying the group's base with the pin table's own
+`grpBase`.  So no new clause is added and NOTHING is imposed on any
+producer: the fact holds at EVERY producer of `NestedPinSynFacts` by
+construction, which is what the request's own check asked to be
+confirmed — and confirming it this way is stronger than enumerating
+producers, since a later producer cannot fail it either. -/
+theorem NestedPinSynFacts.pinSem {st : ElimState} {mpP : EnvModelM V μ ENV₁}
+    (SF : NestedPinSynFacts (V := V) (p := p) (b := b) (fms := fms) (f₀ := f₀) (ctorsA := ctorsA)
+      (kinds := kinds) (env := env) (mp := mp) (ppsF := ppsF) (W := W) (idxF := idxF) (dsF := dsF)
+      (esF := esF) (srcsF := srcsF) (fvsPF := fvsPF) (xrestF := xrestF) (eissF := eissF)
+      (tssF := tssF) (ctorsR := ctorsR) (pinsS := pinsS) st mpP)
+    (dsR' : Nat → Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm))
+    (xFvsR' : Nat → Nat → List Expr) (q : Nat) (hq : q < pinsS.length) :
+    ∃ (q₀ kJ i : Nat) (dJ : BlockModel V) (cvT : ConstantVal) (caps : IndCaps),
+      q = q₀ + i ∧ i < kJ ∧ (st.pins.getD q default).grpBase = q₀ ∧
+      (ENV₁).find? ((D).pinAt q).J = some (ConstantInfo.indInfo cvT caps) ∧
+      (∀ ψ : Name → Nat, ((D).pinAt q).ψJ ψ
+        = Level.substFn ψ cvT.levelParams ((D).pinAt q).lvls) ∧
+      (∀ ψ : Name → Nat, dJ.w (((D).pinAt q).ψJ ψ) = f₀.s.eval ψ) ∧
+      (∀ ψ : Name → Nat, ((D).pinAt q).u ψ = dJ.uM i (((D).pinAt q).ψJ ψ)) ∧
+      ((D).pinAt q).pps = dJ.ppsM i ∧ ((D).pinAt q).nPJ = dJ.nP := by
+  obtain ⟨q₀, kJ, i, dJ, rfl, hi, S⟩ := SF.groups dsR' xFvsR' q hq
+  obtain ⟨cvT, caps, -, -, -, -, hfind, -, hψJ⟩ := S.stored i hi
+  exact ⟨q₀, kJ, i, dJ, cvT, caps, rfl, hi, (S.grp i hi).1, hfind, hψJ,
+    fun ψ => S.w i hi ψ, fun ψ => S.pinU i hi ψ i hi, S.pinPps i hi, S.pinNP i hi⟩
+
 end Assembly
 
 /-! ## The construction: one `PinSyn` per pin, from the records

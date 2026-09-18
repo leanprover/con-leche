@@ -233,6 +233,11 @@ theorem mutualRecsStore {k : Nat}
     (hrules : ConLeche.checkMutualAllRules (m := ConLeche.CheckM)
       (ConLeche.provisionMutualRecs b fms cvRas.zipIdx env₂) b formers4 ctors4 streamRecs b.k
       = .ok rulesOf)
+    -- the stage lists' lengths and the members' index counts, which
+    -- `mutual_recs_wf` needs for the stored recursor's MAJOR PREMISE
+    -- (task #315)
+    (hkf : b.k = formers4.length) (hnc : b.n = ctors4.length)
+    (hnIdxs : ∀ m f, formers4[m]? = some f → (fms.getD m default).nIdx = f.nIdx)
     (mpP : EnvModelM V μ (ConLeche.provisionMutualRecs b fms cvRas.zipIdx env₂))
     (hk : cvRas.length = k)
     (hfresh : ∀ t, t < k → env₂.find? (cvRas.getD t default).name = none)
@@ -322,7 +327,7 @@ theorem mutualRecsStore {k : Nat}
       rw [← hn, hxv]
       rw [hxv] at hrl
       exact hlaws m₃ hac φ x.2 hxk rl hrl hfire
-  exact EnvModelM.swapP mpP hsw (ConLeche.mutual_recs_wf henv₂ hrectys hrules) hctors₃ hbp₃
-    hproj₃ hrecP
+  exact EnvModelM.swapP mpP hsw (ConLeche.mutual_recs_wf henv₂ hrectys hrules hkf hnc hnIdxs)
+    hctors₃ hbp₃ hproj₃ hrecP
 
 end ConLeche.Model

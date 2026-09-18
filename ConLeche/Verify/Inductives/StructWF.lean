@@ -95,8 +95,15 @@ theorem structConstWF {env : Env} {c : ConstantInfo}
         exact ConstantInfo.noConfusion h)
     (h9 : IndCapsWF c := by
         intro cv caps h
+        exact ConstantInfo.noConfusion h)
+    -- **THE MAJOR PREMISE'S HEAD** (task #315): LAST, with a default that
+    -- refutes it by the kind, so every non-recursor call site is
+    -- unchanged — inserting it in tuple order breaks each of them
+    (hmaj : ∀ cv mI rP rules, c = .recInfo cv mI rP rules →
+      Expr.recMajorHeadOk cv.type mI = true := by
+        intro cv mI rP rules h
         exact ConstantInfo.noConfusion h) :
-    ConstWF env c := ⟨h1, h2, h3, h4, h5, h6, h8, h9⟩
+    ConstWF env c := ⟨h1, h2, h3, h4, h5, hmaj, h6, h8, h9⟩
 
 /-- A checked inductive-kind cons is well-formed (its `ConstWF` is the
 four type-slot facts; every value clause is refuted by the kind). -/

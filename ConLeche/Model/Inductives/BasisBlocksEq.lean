@@ -556,7 +556,7 @@ theorem eqBlock_containerModeled {env : Env} {m : EnvModel V env}
   pinNP := fun _ h => (nomatch h)
   pinConts := fun _ h => (nomatch h)
   pinψ := fun _ h => (nomatch h)
-  pinParams := fun _ _ _ _ h => (nomatch h)
+  pinParams := fun _ _ _ => ContainerPinParams.of_noPins rfl
 
 /-- **`Eq`'S OWN-PIN TABLE IS EMPTY** (task #315 M7-3 session 17,
 K.49) — `natBlock_ownPins` at the two-parameter block.  `Eq` has no

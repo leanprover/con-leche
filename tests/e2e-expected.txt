@@ -1318,3 +1318,19 @@
 # accepting control) with the `.proj` node's `typeName` pointing at
 # another inductive.  Official: "invalid projection x.1".
 1 proj_typename_bad.ndjson
+
+# THE THREE PATCH SOURCES (2026-09-18, task #315, the arena audit).
+# `nat_*_bad_base` are the UNPATCHED bases the `nat_*_wrong` rows above
+# were made from: commit 7e761483 records that "the bad variants are
+# patched AFTER preprocessing so the preprocessor's own check doesn't
+# mask them".  That preprocessor is gone (task #207), so the bases are
+# no longer inputs to anything that runs — but they are the only way to
+# regenerate the real rows, so they stay, and they are pinned here
+# rather than deleted: the audit found their accept to be the one
+# verdict in either corpus pinned NOWHERE, and a row closes that
+# honestly.  They accept because they are correct streams; it is the
+# patched variants that must reject (`1 nat_beq_wrong.ndjson` and its
+# siblings above).
+0 nat_beq_bad_base.ndjson
+0 nat_ble_bad_base.ndjson
+0 nat_ops_bad_base.ndjson

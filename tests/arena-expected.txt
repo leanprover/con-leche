@@ -1,5 +1,7 @@
-# Expected exit codes for the vendored arena tutorial tests, read by
-# tests/arena.sh (0 accept, 1 reject, 2 decline, 3 error).
+# Expected exit codes for the vendored arena tests, read by
+# tests/arena.sh (0 accept, 1 reject, 2 decline, 3 error).  Rows 1-138
+# are the `tutorial` subtree; the block at the end of this file adds
+# the non-tutorial ones (task #315's arena audit, 2026-09-18).
 #
 # An expectation is a single exit code.
 #
@@ -244,3 +246,99 @@
 # tool gone (task #207) the sum route's pairwise guard is again what
 # rejects the stream ("invalid: direct sum: duplicate constructor").
 1 bad/tutorial/138_DupConCon.ndjson
+
+# ======================================================================
+# THE NON-TUTORIAL SUBTREES (2026-09-18, task #315, the arena audit).
+#
+# Everything above is `good/tutorial/` and `bad/tutorial/`: 92 + 46
+# rows against the 92 + 46 tutorial files in the vendored snapshot —
+# the tutorial suite covered exactly, which is what the harness's own
+# "arena tutorial: X/Y" line measures.  The snapshot also holds four
+# NON-tutorial subtrees, 44 streams that no row named, and the audit
+# ran every one of them: zero exit 3, zero `bad/` accept.  These are
+# the 24 the maintainer authorised pinning, at the verdict measured,
+# BEFORE the deletion step changes decline behaviour — so that the
+# flip's effect on them is measured rather than pinned as if it were
+# the baseline.  Every verdict below is stable across `--trusted`,
+# `--jobs=1` and `--jobs=4`, so no `tests/trusted-expected.txt`
+# override belongs with them.
+#
+# `good/perf/` (16 streams, all accept) is deliberately NOT here, and
+# the criterion is the VALUE OF THE STREAM, not its directory: a
+# TIMING test's value is throughput, which tests/scale.sh and PERF.md
+# already measure, so pinning its verdict buys little — and
+# `good/perf/app-lam` alone would add 24 s to a half that costs 1.1 s.
+# A REFUTATION stream's value IS its verdict, wherever it sits.  So the
+# two `bad/perf/` streams ARE here, with the eighteen top-level ones,
+# and that is the twenty.  (Recorded because the authorisation first
+# read "the twenty `bad/` streams" AND "not the performance suite",
+# which cannot both hold; the maintainer settled it on this criterion.)
+#
+# THE SUMMARY LABEL, and it was fixed rather than left wrong:
+# `arena_half` counts `good/*`, not `good/tutorial/*`, so with these
+# rows it reads 91/96 where it read 90/92 — and the line used to say
+# "arena tutorial", which was then counting more than the tutorial
+# suite.  One word changed, text only: it says **"arena suite"**.  The
+# selection logic and the counting are untouched.  The script's own
+# header comment carried the same stale claim ("the lean kernel arena
+# tutorial tests") and had the same one-word treatment: it reads "the
+# lean kernel arena tests".  Both were text; nothing about how either
+# half selects its corpus changed at any point.
+#
+# --- bad/ : kernel-soundness negatives (20) --------------------------
+# A row here arms `arena_half`'s `bad/*` arm, which fails on exit 0.
+1 bad/bogus1.ndjson
+1 bad/constlevels.ndjson
+1 bad/ctor-num-fields.ndjson
+1 bad/extra-rec.ndjson
+1 bad/k-rec-conv.ndjson
+1 bad/large-elim-param.ndjson
+1 bad/level-imax-leq.ndjson
+1 bad/level-imax-normalization.ndjson
+1 bad/nat-rec-k-lie.ndjson
+1 bad/nat-rec-rules.ndjson
+# `nested-unused-param` is BYTE-IDENTICAL to tests/e2e/nested_unused_param,
+# which is a nested-shadow row pinned at `E=reject`; this row gates the
+# stream's whole-fold verdict, the shadow row gates the block's.
+1 bad/nested-unused-param.ndjson
+1 bad/perf/refute-cheap-first.ndjson
+1 bad/perf/refute-cheap-last.ndjson
+# DECLINE (2), not reject: "projection on a non-structure-like type" is a
+# positively detected unsupported feature, so the stream is refused one
+# step earlier than the reference kernel refuses it — the conservative
+# direction, and no soundness risk on a `bad/` stream.
+2 bad/proj-non-structure.ndjson
+1 bad/proj-of-imax-prop.ndjson
+1 bad/proj-of-prop.ndjson
+# `proj-of-stuck-prop` and `proj-of-subst-prop` are the two `bad/`
+# fixtures the native-agree gate's record already named as sitting
+# outside this file; they are inside it now.
+1 bad/proj-of-stuck-prop.ndjson
+1 bad/proj-of-subst-prop.ndjson
+1 bad/rec-k-lie.ndjson
+# DECLINE (2), not reject: "direct rec: a nested occurrence of the block
+# (not modeled here)" — the block is refused at the nested occurrence
+# before the missing induction hypothesis is ever compared.
+2 bad/rec-missing-ih.ndjson
+#
+# --- good/ (top level): the four cheap ones (4) ----------------------
+# 1 777 declarations in 1 s.  Already a named benchmark stream in
+# DESIGN; this row pins the accept that the benchmark assumes.
+0 good/init-prelude.ndjson
+# DECLINE (2) at `non-standard axiom`, fold position 12, before the
+# feature each is named for is reached — the standing maintainer ruling
+# that a non-standard axiom is never accepted, the same reason row 045
+# above carries.  A `good/` decline is not a gate failure (the half
+# fails a `good/` row only at 1 or 3); these rows pin WHICH streams the
+# ruling costs us, so the flip cannot move them silently.
+2 good/level-index-out-of-order.ndjson
+2 good/proof-irrel.ndjson
+2 good/sparse-name-index.ndjson
+#
+# NOT pinned, deliberately: `good/undecidability/` (4).  Three accept
+# and are free to add; the fourth, `subject-reduction-redex`, is the
+# task #258 accept-subset (theorems opaque to reduction, pending
+# lean4#14896) and is BYTE-IDENTICAL to tests/e2e/subject_reduction_redex,
+# which tests/e2e-expected.txt already pins at 1 with the reasoning.  A
+# row here would duplicate that pin; the authorisation was for four
+# good rows and these are not among them.

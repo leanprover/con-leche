@@ -154,6 +154,19 @@ theorem stripPis_isSome_of_le :
     value.allLevelParamsDefined cv.levelParams = true ∧
     value.constsResolve env = true ∧
     value.looseBVarsBounded 0 = true) ∧
+  -- **THE MAJOR PREMISE IS AN APPLICATION OF A CONSTANT** (task #315):
+  -- UNCONDITIONALLY, at every stored recursor — no rule, no fire, no
+  -- `.nested` guard, which is what makes it usable to a walk that
+  -- matches on a recursor without inspecting its rules.  Every route
+  -- either GENERATES the recursor type (`mutualRecTy_majorDom`,
+  -- `structRecTyR_majorDom`), RESTORES a generated one
+  -- (`restoreWalk_major`), stores a LITERAL
+  -- (`basisDeclsA_recMajorHead`) or RECORDS the shape at install (K.55
+  -- at the modelled route's recursors, K.56 at its projection
+  -- entries — a projection FUNCTION is a `.recInfo` too).  The nested
+  -- rule clause below asks the same thing behind two guards.
+  (∀ cv mI rP rules, c = .recInfo cv mI rP rules →
+    Expr.recMajorHeadOk cv.type mI = true) ∧
   (∀ cv mI rP rules, c = .recInfo cv mI rP rules →
     ∀ r, r ∈ rules →
       (RecRule.rhs r).hasFvar = false ∧
@@ -206,7 +219,7 @@ theorem EnvWF.indCaps {env : Env} (henv : EnvWF env) {T : Name}
     (h : env.find? T = some (.indInfo cv caps)) :
     (caps.unitlike = true → (cv.type.stripPis caps.unitParams).isSome = true) ∧
     (caps.eta = true → (cv.type.stripPis caps.etaParams).isSome = true) :=
-  (henv _ (List.mem_of_find?_eq_some h)).2.2.2.2.2.2.2 cv caps rfl
+  (henv _ (List.mem_of_find?_eq_some h)).2.2.2.2.2.2.2.2 cv caps rfl
 
 /-- `find?` on a cons. -/
 theorem Env.find?_cons {c : ConstantInfo} {env : Env} {n : Name} :
@@ -455,10 +468,10 @@ theorem EnvWF.cons {c : ConstantInfo} {env : Env}
   intro c' hc'
   rcases List.mem_cons.mp hc' with rfl | hmem
   · exact hc
-  · obtain ⟨h1, h2, h3, h4, h5, h6, h8, h9⟩ := henv c' hmem
+  · obtain ⟨h1, h2, h3, h4, h5, hmaj, h6, h8, h9⟩ := henv c' hmem
     refine ⟨h1, h2, Expr.constsResolve_mono h3, h4, fun cv value hint heq =>
       let ⟨g1, g2, g3, g4⟩ := h5 cv value hint heq
-      ⟨g1, g2, Expr.constsResolve_mono g3, g4⟩, ?_,
+      ⟨g1, g2, Expr.constsResolve_mono g3, g4⟩, hmaj, ?_,
       fun tbl heq =>
         let ⟨g0, g⟩ := h8 tbl heq
         ⟨g0, fun i b hb =>

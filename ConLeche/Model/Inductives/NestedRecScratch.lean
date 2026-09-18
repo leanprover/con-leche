@@ -217,7 +217,7 @@ theorem NestedTailIn.scratch :
   obtain ⟨cvRa, hget, hrun⟩ := (ConLeche.checkMutualRecTys_inv hrectys').2 c hc
   obtain ⟨recTy, -, -, hrt, -, -, -, -, -, -, -, hcv⟩ := ConLeche.checkMutualRecTy_shape hrun
   obtain ⟨hnmA, hlpsA, fms', f₀', ctorsA', sortss', kinds', hformers'', hf₀'', hctors'', hkinds'',
-    hrtA, -, -, -, -⟩ := ConLeche.auxStored_rec_eq I.haux I.hstored ha
+    hrtA, -, -, -, -, -, -⟩ := ConLeche.auxStored_rec_eq I.haux I.hstored ha
   have hfms : fms = fms' :=
     congrArg Prod.snd (Except.ok.inj (I.out.formers.symm.trans hformers''))
   subst hfms

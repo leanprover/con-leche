@@ -290,6 +290,7 @@ theorem declBasisPB_emptyK {env₂ : Env} (mp : EnvModelM V μ env)
   have hwf1 : EnvWF ⟨emptyA :: env.consts⟩ :=
     EnvWF.cons mp.base2.wf ⟨rfl, rfl, rfl, rfl,
       (fun _ _ _ heq => nomatch heq), (fun _ _ _ _ heq => nomatch heq),
+      (fun _ _ _ _ heq => nomatch heq),
       (fun _ heq => nomatch heq),
       (by first
         | (refine ConLeche.IndCapsWF.of_caps ?_ ?_ <;> intro h <;>
@@ -304,6 +305,11 @@ theorem declBasisPB_emptyK {env₂ : Env} (mp : EnvModelM V μ env)
   have hwf2 : EnvWF ⟨emptyRecA :: emptyA :: env.consts⟩ := by
     refine EnvWF.cons hwf1 ⟨rfl, rfl, ?_, rfl,
       (fun _ _ _ heq => nomatch heq),
+      (fun _ _ _ _ heq => by
+        injection heq with hq1 hq2 _ _
+        subst hq1
+        subst hq2
+        rfl),
       (fun _ _ _ _ heq => by
         injection heq with _ _ _ h4
         subst h4
