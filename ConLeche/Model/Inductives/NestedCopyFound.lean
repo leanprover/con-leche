@@ -31,6 +31,20 @@ occurrence walk looks in two places the reading does *not*:
 performs, `mentionsConstProj` the one clause that separates it from
 `Expr.mentionsConst` once the leaves are excluded, and
 `mentionsConstRead_of_mentionsConst` the bridge between them.
+
+**A HAZARD THIS MODULE PAID FOR, and the reason its proofs unfold
+`Expr.getAppFn` through DEFEQ rather than by name** (task #315 L-B,
+2026-09-18).  `simp only [f]`/`unfold f`/`rw [f]` at a FOREIGN
+definition generates that definition's equation lemmas *in the module
+that first asks for them*; every later proof reusing them then names
+this module, and this module enters its proof term — even though
+nothing references a declaration written here.  Two theorems nobody
+consumed put `NestedCopyFound` into all ten capstones' closures that
+way, and `tests/proofdeps.sh` caught it on a merge rather than at the
+site.  **In a low-tier module, reduce someone else's definition through
+defeq** (`show`, `exact nomatch (h : …)`, a `have` at the reduced type)
+**or through a lemma its own module exports.**  The gate's header
+carries the full note.
 -/
 
 namespace ConLeche.Model
@@ -323,5 +337,46 @@ theorem denoteMeta_some_found_of_mentionsConst :
         (env.find? n).isSome = true := by
   intro d e ea h1 h2 h3 h4
   exact denoteMeta_some_found_aux d e ea h1 (mentionsConstRead_of_mentionsConst e h2 h3 h4)
+
+/-- The head of an application spine is a READ occurrence of its
+constant: `mentionsConstRead` stops at a variable but never at a
+`.const`, and the spine's head is reached through its `.app` nodes. -/
+theorem mentionsConstRead_getAppFn {us : List Level} :
+    ∀ (e : Expr), e.getAppFn = Expr.const n us → mentionsConstRead n e = true := by
+  intro e
+  induction e with
+  | app f a ihf _ =>
+    intro h
+    simp only [mentionsConstRead, Bool.or_eq_true]
+    exact Or.inl (ihf h)
+  | const m us' =>
+    intro h
+    have h' : Expr.const m us' = Expr.const n us := h
+    simp only [mentionsConstRead, (Expr.const.inj h').1, beq_self_eq_true]
+  | bvar i => intro h; exact nomatch (h : Expr.bvar i = Expr.const n us)
+  | sort u => intro h; exact nomatch (h : Expr.sort u = Expr.const n us)
+  | lit l => intro h; exact nomatch (h : Expr.lit l = Expr.const n us)
+  | fvar i ty _ => intro h; exact nomatch (h : Expr.fvar i ty = Expr.const n us)
+  | lam ty bo m _ _ => intro h; exact nomatch (h : Expr.lam ty bo m = Expr.const n us)
+  | forallE ty bo m _ _ => intro h; exact nomatch (h : Expr.forallE ty bo m = Expr.const n us)
+  | letE ty v bo _ _ _ => intro h; exact nomatch (h : Expr.letE ty v bo = Expr.const n us)
+  | proj sn i x _ => intro h; exact nomatch (h : Expr.proj sn i x = Expr.const n us)
+
+/-- **A TERM THE ENVIRONMENT READS IS NOT HEADED BY A NAME IT DOES NOT
+HAVE** (task #315 L-B): the copy-freeness side condition of the
+rewrite's backwards inversion (`replaceAllNested_container_head`,
+`Verify/Inductives/NestedCopyRewrite.lean`), and it costs nothing —
+the positivity walk's output READS at the members-only environment
+(`NestedPinsRun.copyFieldReadCoreQ` returns that conjunct), the copies
+are minted into a scratch environment the restore removes and are
+therefore not found there, and a spine head is a node the reading
+consults.  **No preservation property of `whnf` is involved.** -/
+theorem denoteMeta_head_ne_fresh {d : Nat} {e : Expr} {ea : AnnotTerm} {us : List Level}
+    (h : denoteMeta acval env φ d e = some ea) (hfresh : env.find? n = none) :
+    e.getAppFn ≠ Expr.const n us := by
+  intro hhd
+  have hfound := denoteMeta_some_found d e h (mentionsConstRead_getAppFn e hhd)
+  rw [hfresh] at hfound
+  exact nomatch hfound
 
 end ConLeche.Model

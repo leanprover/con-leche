@@ -51,6 +51,30 @@
 # no rows at all, which the diff reports as that root's whole row block
 # missing (~370 lines).
 #
+# A DOOR NOBODY WRITES ON PURPOSE — the hazard to check FIRST when a
+# module you did not expect appears in every capstone's closure (task
+# #315 L-B, 2026-09-18, and the ninth gate-blindness instance).
+#
+#     Normalising with a FOREIGN definition's NAME — `simp only [f]`,
+#     `unfold f`, `rw [f]` where `f` is defined in another module —
+#     GENERATES that definition's equation lemmas IN THE MODULE THAT
+#     FIRST ASKS FOR THEM.  Every later proof that reuses those equation
+#     lemmas then names YOUR module, and your module enters its proof
+#     term — even if nothing anywhere references a single declaration
+#     you wrote.
+#
+# It cost a failing run on a MERGE rather than at the site that caused
+# it: two theorems were added to `Model/Inductives/NestedCopyFound.lean`
+# that nothing referenced, and `NestedCopyFound` entered all ten
+# capstones' closures.  The cause was `simp only [Expr.getAppFn]` — a
+# `Kernel/ExprOps` definition — in a Model-tier proof.
+#
+# **The rule: in a low-tier module, do not unfold someone else's
+# definition by name; go through defeq** (`show`, `exact nomatch (h :
+# …)`, a `have` at the reduced type) or through a lemma the owning
+# module already exports.  An IMPORT gate cannot see this by
+# construction: the import was there all along and nothing moved.
+#
 # Usage: tests/proofdeps.sh [--list]   (--list prints the measured rows,
 # for regenerating the expectation after a batch).
 set -u

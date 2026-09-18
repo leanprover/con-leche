@@ -1625,4 +1625,200 @@ theorem nestedOrdNorms_job {ops : CheckerOps CheckM} {envN : Env}
   subst hww
   exact tryCatchThrow_ok hrun
 
+/-! ## THE PIN TARGETS' RUN, INVERTED (task #315 L-B, K.51)
+
+K.51's record is the twin of K.42's at the fields the latter's filter
+leaves out — a copy field classified recursive or reflexive at a target
+AT OR ABOVE `p.k`, pointing at a MIMIC rather than at a member of the
+block being installed.  `nestedPinDomPairs` collects the same triple
+`(depth, MINTED, STORED)` by the same three-layer `Option` walk, so the
+addressing lemma below is `nestedOrdDomPairs_mem` with the filter's
+other branch; what differs is the COMPARISON, which at a pin target
+runs the normalisation's output through the elimination's own
+`replaceAllNested` before matching the stored domain (and checks that
+the state does not grow, which says the re-run minted nothing).  So the
+record is inverted in three steps rather than two: the job, the run at
+it, and the rewrite at it. -/
+
+/-- **THE JOB AT A PIN-TARGET FIELD.**  `nestedOrdDomPairs_mem`'s twin:
+every hypothesis is one of `nestedPinDomPairs`' own lookups, in the
+order the walk makes them, and the conclusion is the walk's triple.
+
+`hpin` is the walk's filter at this list — the field is NOT ordinary and
+its target is NOT below `p.k` — which is exactly the complement of
+`nestedOrdDomPairs`', so the two lists together cover every field. -/
+theorem nestedPinDomPairs_mem {env : Env} {p : NestedParts} {st : ElimState}
+    {stored : List AuxStored} {kinds : List (List (List (RecFieldKind × Nat)))}
+    {jobs : List (Nat × Expr × Expr)}
+    (h : nestedPinDomPairs env p st stored (some kinds) = some jobs)
+    {q : Nat} (hq : q < st.pins.length)
+    {t : AuxType} (ht : st.types[p.k + q]? = some t)
+    {Jn : Name} {lvls : List Level} {Ds : List Expr} (hsrc : t.src = some (Jn, lvls, Ds))
+    {a : AuxStored} (ha : stored[p.k + q]? = some a)
+    {ks : List (List (RecFieldKind × Nat))} (hks : kinds[q]? = some ks)
+    {ci : ContainerInfo} (hci : containerInfo? env Jn = some ci)
+    {J : ContainerMember} (hJ : ci.members.find? (fun J => J.name == Jn) = some J)
+    (hlvls : lvls.length = J.lps.length)
+    {j : Nat} {kf : List (RecFieldKind × Nat)} (hkf : ks[j]? = some kf)
+    {cJ : ContainerCtor} (hcJ : J.ctors[j]? = some cJ)
+    {cvS : ConstantVal} {nI nF : Nat} (hcS : a.ctors[j]? = some (cvS, nI, nF))
+    {cI : Expr} (hcI : Expr.instPis (Expr.instantiateLevelParams J.lps lvls cJ.type) Ds = some cI)
+    {xsM : List Expr} {restM : Expr} (hopM : openPisAtFvars nF cI p.nP = some (xsM, restM))
+    {fvsS : List Expr} {crestS : Expr} (hopS : openPisAtFvars p.nP cvS.type 0 = some (fvsS, crestS))
+    {xsS : List Expr} {restS : Expr} (hopS2 : openPisAtFvars nF crestS p.nP = some (xsS, restS))
+    {l : Nat} {r : RecFieldKind} {n : Nat} (hkfl : kf[l]? = some (r, n))
+    (hpin : r ≠ RecFieldKind.ordinary ∧ ¬ n < p.k)
+    {xM xS : Expr} (hxM : xsM[l]? = some xM) (hxS : xsS[l]? = some xS) :
+    (p.nP + l, xM.fvarTypeD, xS.fvarTypeD) ∈ jobs := by
+  have hrange : ∀ {n i : Nat}, i < n → (List.range n)[i]? = some i := by
+    intro n i hi; simp [hi]
+  obtain ⟨hjlt, -⟩ := List.getElem?_eq_some_iff.1 hkf
+  obtain ⟨hllt, -⟩ := List.getElem?_eq_some_iff.1 hkfl
+  rw [nestedPinDomPairs] at h
+  simp only [bind, Option.bind] at h
+  split at h
+  case h_1 => exact absurd h (by simp)
+  rename_i rows hrows
+  simp only [pure, Option.some.injEq] at h
+  subst h
+  -- the row of pin `q`
+  obtain ⟨rowq, hrowq, hFq⟩ := mapM_option_inv hrows q q (hrange hq)
+  refine List.mem_flatten.mpr ⟨rowq, List.mem_of_getElem? hrowq, ?_⟩
+  simp only [ht, hsrc, ha, hks, hci, hJ, hlvls, bne_self_eq_false, Bool.false_eq_true,
+    if_false] at hFq
+  split at hFq
+  case h_1 => exact absurd hFq (by simp)
+  rename_i perCtor hperCtor
+  simp only [pure, Option.some.injEq] at hFq
+  subst hFq
+  -- the row of constructor `j`
+  obtain ⟨rowj, hrowj, hGj⟩ := mapM_option_inv hperCtor j j (hrange hjlt)
+  refine List.mem_flatten.mpr ⟨rowj, List.mem_of_getElem? hrowj, ?_⟩
+  simp only [hkf, hcJ, hcS, hcI, hopM, hopS, hopS2] at hGj
+  split at hGj
+  case h_1 => exact absurd hGj (by simp)
+  rename_i perField hperField
+  simp only [pure, Option.some.injEq] at hGj
+  subst hGj
+  -- the row of field `l`, a singleton at a kind the filter leaves to
+  -- THIS list
+  obtain ⟨rowl, hrowl, hHl⟩ := mapM_option_inv hperField l l (hrange hllt)
+  refine List.mem_flatten.mpr ⟨rowl, List.mem_of_getElem? hrowl, ?_⟩
+  obtain ⟨hord, hlt⟩ := hpin
+  have hordB : (r == RecFieldKind.ordinary) = false := by
+    simp only [beq_eq_false_iff_ne]; exact hord
+  have hltB : decide (n < p.k) = false := by simp only [decide_eq_false_iff_not]; exact hlt
+  simp only [hkfl, hxM, hxS, hordB, hltB, Bool.or_self, Bool.false_eq_true, if_false,
+    pure, Option.some.injEq] at hHl
+  subst hHl
+  simp
+
+/-- **THE PIN-TARGET RUN AT ONE JOB.**  `nestedPinNorms` ran the
+positivity normalisation on every job's MINTED domain; unlike K.42's
+list its outputs are NOT the stored domains (they are rewritten first),
+so the lemma hands back the output AT THE JOB'S OWN INDEX, which is
+what `nestedPinRewrites` pairs it with. -/
+theorem nestedPinNorms_job {ops : CheckerOps CheckM} {envN : Env}
+    {memberNames : List Name} {jobs : List (Nat × Expr × Expr)} {ws : List Expr}
+    (h : nestedPinNorms (m := CheckM) ops envN memberNames jobs = .ok ws)
+    {i : Nat} {je : Nat × Expr × Expr} (hje : jobs[i]? = some je) :
+    ∃ w, ws[i]? = some w ∧
+      normPosDomM (m := CheckM) ops envN memberNames je.1 1024 je.2.1 = .ok w := by
+  obtain ⟨hilt, -⟩ := List.getElem?_eq_some_iff.1 hje
+  rw [nestedPinNorms] at h
+  obtain ⟨-, hall⟩ := mapM_except_inv h
+  obtain ⟨je', w, hje', hw, hrun⟩ := hall i hilt
+  rw [hje] at hje'
+  obtain rfl := Option.some.inj hje'
+  exact ⟨w, hw, tryCatchThrow_ok hrun⟩
+
+/-- **THE REWRITE AT ONE JOB.**  The record's `all` over the zipped
+lists, read at one index: the normalisation's output, rewritten by the
+elimination's own `replaceAllNested` at the FINAL state, IS the job's
+stored domain, and the state does not grow. -/
+theorem nestedPinRewrites_job {env : Env} {p : NestedParts} {st : ElimState}
+    {params : List Expr} {pbs₀ : List (Expr × BinderMeta)}
+    {jobs : List (Nat × Expr × Expr)} {ws : List Expr}
+    (h : nestedPinRewrites env p st params pbs₀ jobs ws = true)
+    {i : Nat} {je : Nat × Expr × Expr} {w : Expr}
+    (hje : jobs[i]? = some je) (hw : ws[i]? = some w) :
+    ∃ st' : ElimState,
+      replaceAllNested env (p.lps.map Level.param) params pbs₀ st w = .ok (je.2.2, st') ∧
+      st'.types.length = st.types.length ∧ st'.pins.length = st.pins.length := by
+  obtain ⟨hilt, -⟩ := List.getElem?_eq_some_iff.1 hje
+  obtain ⟨hiw, -⟩ := List.getElem?_eq_some_iff.1 hw
+  have hmem : (je, w) ∈ jobs.zip ws :=
+    List.mem_of_getElem? (i := i) (List.getElem?_zip_eq_some.mpr ⟨hje, hw⟩)
+  rw [nestedPinRewrites] at h
+  have hat := (List.all_eq_true.mp h) _ hmem
+  simp only at hat
+  cases hrep : replaceAllNested env (p.lps.map Level.param) params pbs₀ st w with
+  | error e => rw [hrep] at hat; exact nomatch hat
+  | ok pr =>
+    obtain ⟨w', st'⟩ := pr
+    rw [hrep] at hat
+    simp only [Bool.and_eq_true, beq_iff_eq] at hat
+    obtain ⟨⟨hw', htys⟩, hpins⟩ := hat
+    subst hw'
+    exact ⟨st', rfl, by simpa using htys, by simpa using hpins⟩
+
+/-! ## (R8) THE TWO NAME LISTS ARE ONE (task #315 L-B)
+
+The elimination's occurrence test looks for `st.newNames`; the auxiliary
+block's positivity walk looks for `b.memberNames`.  They are the same
+list — `auxBlock` reads its formers off `st.types`, name by name, and
+`newNames` is that same projection — but the route has twice found a
+real gap behind a same-set-by-two-names identity (K.58: two drivers
+computing one quantity with nothing checking they agreed).  So it is
+PROVED here rather than noted.
+
+Its consumer: a REFLEXIVE field's binder domain is certified
+member-free by the positivity walk (`normPosDomM_inv`'s Π arm), and the
+rewrite's PRUNE therefore returns it unchanged — which is what keeps a
+copy out of the copy's own telescope, and with it the circularity that
+would otherwise move from the target into the telescope. -/
+
+/-- **THE ELIMINATION'S GROWING NAMES ARE THE AUXILIARY BLOCK'S
+MEMBERS** (task #315 L-B): `auxBlock` builds one former per entry of
+`st.types`, keeping its name, and `ElimState.newNames` is that same
+projection. -/
+theorem auxBlock_newNames {p : ConLeche.NestedParts} {st : ConLeche.ElimState}
+    {b : ConLeche.MutualBlock} (h : ConLeche.auxBlock p st = some b) :
+    b.memberNames = st.newNames := by
+  obtain ⟨-, hat⟩ := ConLeche.auxBlock_former h
+  have hlen : b.formers.length = st.types.length := by
+    unfold ConLeche.auxBlock at h
+    simp only [bind, Option.bind_eq_some_iff, pure, Option.some.injEq] at h
+    obtain ⟨formers, hformers, rfl⟩ := h
+    exact ConLeche.mapM_option_length hformers
+  refine List.ext_getElem? (fun i => ?_)
+  show (b.formers.map (·.1.name))[i]? = (st.types.map (·.name))[i]?
+  rw [List.getElem?_map, List.getElem?_map]
+  cases hst : st.types[i]? with
+  | none =>
+    have hge : st.types.length ≤ i := by
+      rcases Nat.lt_or_ge i st.types.length with hlt | hge
+      · rw [List.getElem?_eq_getElem hlt] at hst; exact nomatch hst
+      · exact hge
+    rw [List.getElem?_eq_none (by omega)]
+    rfl
+  | some t =>
+    obtain ⟨nIdx, hfo, -⟩ := hat i t hst
+    rw [hfo]
+    rfl
+
+/-- **A MEMBER-FREE TERM IS PRUNED BY THE REWRITE** (task #315 L-B):
+the consumer form of `auxBlock_newNames`, stated exactly as
+`replaceAllNested_of_no_mention` wants it.  The positivity walk's Π arm
+certifies a reflexive field's binder domains member-free
+(`normPosDomM_inv`), and this turns that verdict into the rewrite's
+prune. -/
+theorem newNames_no_mention_of_memberFree {p : ConLeche.NestedParts}
+    {st : ConLeche.ElimState} {b : ConLeche.MutualBlock}
+    (h : ConLeche.auxBlock p st = some b) {e : ConLeche.Expr}
+    (hm : ConLeche.mentionsMember b.memberNames e = false) :
+    (st.newNames.any fun T => e.mentionsConst T) = false := by
+  rw [← auxBlock_newNames h]
+  exact hm
+
 end ConLeche
