@@ -113642,3 +113642,174 @@ derivation.
 `lake build` exit 0, 0 warning lines (full tree).  Nothing consumes
 `row_congr` yet — it is (2)'s product, which (2)'s remainder consumes.
 The accept set is untouched.
+
+#### The next rows, priced: THE CONTAINER INSTANCE MAP (lane WIDE's request — K.61 and K.62)
+
+Self-contained; a lane implementing this needs nothing else from the
+WIDE thread.
+
+##### (a) The fact, from scratch
+
+A nested block's expansion mints one mimic per distinct pin
+EXPRESSION (`replaceIfNested`: `st.pins.find? (fun q => q.pin == pin)`).
+When a pin's container `J` is ITSELF nested, `J`'s own pin table is
+part of `J`'s stored block model, and the block's worklist re-mints
+`J`'s own pins under the substitution at which `J` was instantiated.
+The **instance map** of a block pin `q` is the resulting map
+
+    J's own pin index  qK   ↦   the block pin index  σ q qK
+
+and it is what identifies a container INSTANCE's copies with the
+container's own wide fixpoint (`docs/NESTED.md` §5, Resolution 1).
+
+Three facts about it have no source in the run, and the model tier
+cannot manufacture any of them:
+
+1. **`hstgt`** — at a copy's field that is container-RECURSIVE at one of
+   the container's OWN pins, the field's recorded block target is
+   `σ q qK` of that own pin's class;
+2. **TOTALITY** — `σ q` is defined at every own pin of `q`'s container;
+3. **`houtσ`** — at a copy's field that is container-ORDINARY and which
+   the elimination rewrote into a recursive field, the recorded block
+   target is OUTSIDE the instance, i.e. not in `σ q`'s image.
+
+**Why K.41 does not already give them.**  `nestedPinRootPairOk` records
+the CONVERSE direction — every pin of a container instance is one the
+root container's own elimination minted — which is a covering, not a
+map: it says each block pin is *some* own pin's image, and says nothing
+about which, nor that every own pin has an image, nor where a field's
+target sits.  The model's existing `PinCorr` is no help either: it was
+deliberately stripped of its `DsE` clause, so it identifies what a
+target READS and not WHICH pin it is.
+
+**Why the map must be a function and not a relation.**  The
+identification is Bekić at the instance's index set, and the section
+there is indexed by the container's CLASSES.  The map may COLLAPSE —
+two own pins instantiated alike arrive at one mimic, which
+`tests/e2e/src/nested_pin_collide.lean` exhibits — and the set theory
+now allows that (`FibreConst`, `lfpTuple_set` without `InjOn`); what it
+does not allow is a relation with no chosen value, because the joined
+tuple reads ONE family at each position.
+
+##### (b) K.61 — the instance map, with the own-pin fields' targets
+
+**ONE record**, because totality is the same walk's `mapM` succeeding
+and the field clause is read off the same table.
+
+**CARRIER: recompute-and-certify, K.51/K.59's shape.  No new field on
+`NestedPin` and no new parameter on the elimination** — the `mintedAt`
+trap is the reason (a state literal naming three fields silently reset
+the fourth, and two Mathlib cone blocks carried a wrong parent for a
+session).
+
+```lean
+/-- pin `q`'s INSTANCE MAP: the block-pin index of each of `q`'s
+container's own pins, instantiated at `q`'s own level arguments and
+components.  `none` as soon as one of them is not a pin of the block. -/
+def nestedInstMapAt (env : Env) (st : ElimState) (q : Nat) : Option (List Nat) := do
+  let qn ← st.pins[q]?
+  let (lvls, Ds) ← nestedPinLvlsDs env qn
+  let own ← containerOwnPinsAt env qn.container lvls Ds
+  own.mapM fun e => st.pins.findIdx? (fun r => r.pin == e)
+```
+
+`containerOwnPinsAt` already hands back the container's recorded pin
+list VERBATIM, in pin order, instantiated at `Ds` — that is K.41's own
+reader, reused unchanged, and pin order is what the model indexes by.
+
+The field clause needs the own-pin INDEX of a field, which
+`nestedPinEdgesAt` does not produce: its rows are `(q, t - p.k, mentions)`
+— the pin, the block target and the Bool "the container's own domain
+mentions a member of the container's group", which is exactly the
+`pinF`/`ordF`-right split.  So extend that walk (do not write a new
+one; it already does the `stripPis`/`jbs[ci.nP + l]` addressing this
+needs) to emit, at a row with `mentions = true`, the triple
+`(q, qK, t - p.k)` where `qK` is the position of the field's own-pin
+term in `containerOwnPinsAt` of the container at ITS OWN parameters.
+**The one spelling the implementing lane must settle** is that term:
+the own pin table holds `replaceIfNested`'s `pin = Expr.mkAppN (.const I lvls) Ds`,
+so the field's domain must be cut to that shape before the match —
+`stripDomPis` then the head and `args.take ci.nP`, as
+`nestedPinOrderAt` already cuts it.
+
+The check is then
+
+```lean
+def nestedInstMapOk (env : Env) (p : NestedParts) (b : MutualBlock) (st : ElimState)
+    (stored : List AuxStored) : Bool :=
+  (List.range st.pins.length).all (fun q => (nestedInstMapAt env st q).isSome) &&
+  match nestedPinOwnEdges env p b st stored with
+  | none => false
+  | some rows => rows.all fun (q, qK, t) =>
+      ((nestedInstMapAt env st q).getD []).getD qK (st.pins.length) == t
+```
+
+**Unconditionally in BOTH routes, NOT inside `nestedPinChecks`** — that
+block is entered only at `mode.verifiedChecks`, and a gated check is
+`true` in trusted mode and cannot serve a consumer that needs the fact
+in every mode.  Failure is `.internal`.
+
+##### (c) K.62 — the rewritten ordinary fields leave the instance
+
+**A SECOND record**, and separate on purpose: it needs NO new walk (it
+is a predicate on `nestedPinEdges`' existing rows against K.61's table),
+its clause is a NEGATIVE one, and a fire in it means something
+different from a fire in K.61 — K.61 firing says the instance map is
+not what the mint produced; K.62 firing says a rewritten ordinary field
+re-entered the instance, which would refute the argument that such a
+target's container is not one of the container's classes.
+
+```lean
+def nestedOrdOutOk (env : Env) (p : NestedParts) (b : MutualBlock) (st : ElimState)
+    (stored : List AuxStored) : Bool :=
+  match nestedPinEdges env p b st stored with
+  | none => false
+  | some rows => rows.all fun (q, t, mentions) =>
+      mentions || !((nestedInstMapAt env st q).getD []).contains t
+```
+
+Same gating: unconditional in both routes, `.internal` on failure.
+
+##### (d) The ledger rows
+
+Both are category **(B)**, by-construction-only: official computes
+nothing of the kind — the instance map is OUR elimination's own, and
+both facts are true by construction of `mkCopies` and of
+`replaceIfNested`'s dedup.  **Neither can fire**, which is what (B)
+means, and both therefore cost the fast mode real instructions for
+facts that need no proving against the input.  They are still the right
+design: the wide identification needs all three facts in every mode and
+they have nothing to be proved against.  **If either fires, the answer
+is that the elimination's own table and its copies disagree — a defect
+in the route, not in the stream; do not relax the check.**
+
+##### (e) Price
+
+**1.5–2 sessions, K.59's shape throughout.**  (A) kernel ~60 lines — two
+defs, the `nestedPinEdgesAt` extension, the two checks in both routes,
+one `ofDecCases` line each in `checkNestedS_push` and
+`checkNestedS_skels`; (B) the consumer-side exposure, the same
+`Option`-`mapM` inversion idiom as `nestedOrdDomPairs_WScoped` and
+`nestedPinCompsOk_inv`, ~90 lines, plus the run-relation conjuncts;
+(C) the measurement, half a session, exactly K.59's table — conformance
+over `tests/e2e/*` + `_tmp/arena-tests/{good,bad}` and Mathlib with a
+FIRING CONTROL (the same check demanding a wrong answer must fire) and
+a reachability count, and `perf stat -e instructions:u` in BOTH modes,
+since an unconditional check that walks every pin's own-pin table costs
+trusted mode too.
+
+##### (f) Sequencing
+
+These land AFTER the heartbeat split another lane is doing on
+`nestedCore_run_of`: both records add conjuncts to the run relation, and
+adding them to the un-split version would be redone.
+
+##### (g) What consumes them, by name
+
+`NestedFit.lean`: `hstgt` and `houtσ` are hypotheses of
+`hfit_wide_mem_of_inst` and `hfit_wide_of_inst` verbatim; `hσ`, `hroot`
+and `hIsσ` are hypotheses of `ofNested_pin_block_of_wide_inst`, whose
+`σ` is `fun i => if i < dJ.k then k + q₀ + i else k + σ q (i - dJ.k)`
+at the group's own pin `q`.  The consuming site is
+`NestedRecFibre.lean`'s `NestedTailIn.pinSegAt`, which today calls the
+NARROW `ofNested_pin_block_of_inst`.
