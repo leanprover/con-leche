@@ -1,9 +1,9 @@
 module
 
 public import ConLeche.Model.Inductives.StructRecSpine
-public import ConLeche.Verify.Inductives.NestedCopyRewrite
+public import ConLeche.Kernel.Inductives.NestedInstall
+import ConLeche.Verify.Inductives.NestedCopyRewrite
 import ConLeche.Verify.Inductives.NestedInv
-import ConLeche.Verify.BridgeWfImp
 import ConLeche.Model.Annot.BitLemmas
 
 public section
@@ -570,5 +570,199 @@ theorem denoteMeta_of_rewriteRel {auxNames : List Name} {blvls : List Level}
     ∃ ea', denoteMeta acval env φ d e' = some ea' ∧
       ReadRel (PlantRead acval env φ auxNames blvls params) ea ea' :=
   denoteMeta_of_rewriteRel_aux hpb hplant e.sizeB e e' Nat.le.refl h d ea hd
+
+/-! ## The plant's own reading -/
+
+/-- **A PLANTED MIMIC DENOTES**: the plant is a constant the
+environment stores, applied to the walk's parameters, and the
+parameters are `.fvar`s, which read at every depth. -/
+theorem plant_denotes {blvls : List Level} {params : List Expr} {A : Name}
+    {ci : ConstantInfo} (hf : env.find? A = some ci)
+    (hlen : blvls.length = ci.toConstantVal.levelParams.length)
+    (hparams : ∀ a ∈ params, ∃ (i : Nat) (ty : Expr), a = Expr.fvar i ty) (d : Nat) :
+    ∃ u, denoteMeta acval env φ d (Expr.mkAppN (.const A blvls) params) = some u := by
+  obtain ⟨vs, hvs⟩ := denoteMetaSpine_of_all (acval := acval) (env := env) (φ := φ) (d := d)
+    params (fun a ha => by
+      obtain ⟨i, ty, rfl⟩ := hparams a ha
+      exact ⟨_, denoteMeta_fvar acval d i ty⟩)
+  exact ⟨_, denoteMeta_mkAppN_of params (denoteMeta_const hf hlen) hvs⟩
+
+/-- **AND IT READS AS THE AUXILIARY TARGET**: at the elimination's own
+parameter spine — `openPisAtFvars`' same-index `.fvar`s — the plant's
+reading is the mimic's leaf applied to the parameter variables, the
+shape `auxTargetRead` is built from (`NestedPinLeafAll.lean`).  So a
+fired position's reading is a carrier of the auxiliary block, on the
+nose, with no further computation. -/
+theorem plant_reads {blvls : List Level} {params : List Expr} {A : Name} {nP : Nat}
+    {ci : ConstantInfo} (hf : env.find? A = some ci)
+    (hlen : blvls.length = ci.toConstantVal.levelParams.length)
+    (hidx : ∀ (j : Nat) (x : Expr), params[j]? = some x → ∃ ty, x = Expr.fvar j ty)
+    (hplen : params.length = nP) (d : Nat) :
+    denoteMeta acval env φ d (Expr.mkAppN (.const A blvls) params)
+      = some (AnnotTerm.mkAppN (acval A (Level.substFn φ ci.toConstantVal.levelParams blvls))
+          (paramBvarsAt nP d)) := by
+  have hsp : DenoteMetaSpine acval env φ d params (paramBvarsAt nP d) := by
+    have h := denoteMetaSpine_fvars (acval := acval) (env := env) (φ := φ) d params 0
+      (fun k x hx => by
+        obtain ⟨ty, hty⟩ := hidx k x hx
+        exact ⟨ty, by rw [hty, Nat.zero_add]⟩)
+    rw [hplen] at h
+    have heq : ((List.range nP).map fun k => AnnotTerm.bvar (d - 1 - (0 + k)))
+        = paramBvarsAt nP d := by
+      unfold paramBvarsAt
+      exact List.map_congr_left (fun k _ => by rw [Nat.zero_add])
+    rwa [heq] at h
+  exact denoteMeta_mkAppN_of params (denoteMeta_const hf hlen) hsp
+
+/-! ## The candidate component family -/
+
+/-- **PIN `q`'S CANDIDATE COMPONENTS, AS READINGS**: K.59's rewritten
+components, read at the AUXILIARY formers' model — the family the
+entry theorem's step (iii) is stated at.  Total, in `pinOf`'s style
+(`NestedPins.lean`): the `getD` is discharged by `candDs_reads`. -/
+def candDsOf (acval : Name → (Name → Nat) → AnnotTerm) (envA : Env) (nP : Nat)
+    (comps : List (List Expr)) (ψ : Name → Nat) (q : Nat) : List AnnotTerm :=
+  (comps.getD q []).map fun c => (denoteMeta acval envA ψ nP c).getD default
+
+/-- **PIN `q`'S CANDIDATE COMPONENTS, AS VALUES**: `candDsOf`
+interpreted at a frame fitting the block's parameters — the `as : Nat →
+List V` that `pinLfpAt`, `pins_le_of_declOrder` and `pinLfpAt_le`
+(`NestedPinLeafAll.lean`, `NestedFit.lean`) take as given and that
+nothing produced. -/
+noncomputable def candAsOf (V : Type w) [SetTheory V]
+    (acval : Name → (Name → Nat) → AnnotTerm) (envA : Env) (nP : Nat)
+    (comps : List (List Expr)) (ψ : Name → Nat) (ρp : Nat → V) (q : Nat) : List V :=
+  (candDsOf acval envA nP comps ψ q).map (interp V ρp)
+
+/-- Every entry of a spine reading gives the spine's `getD` reading. -/
+private theorem denoteMetaSpine_map_getD {d : Nat} :
+    ∀ (as : List Expr), (∀ a ∈ as, ∃ v, denoteMeta acval env φ d a = some v) →
+      DenoteMetaSpine acval env φ d as
+        (as.map fun a => (denoteMeta acval env φ d a).getD default)
+  | [], _ => .nil
+  | a :: as, h => by
+    obtain ⟨v, hv⟩ := h a List.mem_cons_self
+    exact .cons (by simp only [hv, Option.getD_some])
+      (denoteMetaSpine_map_getD as (fun x hx => h x (List.mem_cons_of_mem _ hx)))
+
+/-- An `Option`-`mapM` keeps its list's length (`NestedElimInv`'s
+`mapM_option_length`, re-proved here: that module is not re-exported
+through this one's imports). -/
+private theorem mapM_option_len {α β : Type} {f : α → Option β} :
+    ∀ {l : List α} {r : List β}, l.mapM f = some r → r.length = l.length
+  | [], r, h => by
+    simp only [List.mapM_nil, pure, Option.some.injEq] at h
+    subst h; rfl
+  | a :: l, r, h => by
+    simp only [List.mapM_cons, bind, Option.bind_eq_some_iff, pure,
+      Option.some.injEq] at h
+    obtain ⟨b, -, bs, hbs, rfl⟩ := h
+    simp [mapM_option_len hbs]
+
+/-- A prefix of its own length is the whole list — K.59's no-growth
+clause, read as "the re-run's pin table IS the elimination's". -/
+private theorem pins_eq_of_no_growth {l l' : List NestedPin}
+    (hpre : l <+: l') (hlen : l'.length = l.length) : l' = l := by
+  obtain ⟨t, ht⟩ := hpre
+  have hnil : t = [] := by
+    have hl := congrArg List.length ht
+    simp only [List.length_append] at hl
+    exact List.eq_nil_of_length_eq_zero (by omega)
+  rw [← ht, hnil, List.append_nil]
+
+/-- **K.59 AT ONE PIN**, with the two facts the reading needs: the
+recorded component list has the pin's spine's length, and at every
+position the elimination's own walk runs at the FINAL state and leaves
+the pin table untouched. -/
+theorem nestedPinComps_at {p : NestedParts} {st : ElimState}
+    {params : List Expr} {pbs₀ : List (Expr × ConLeche.BinderMeta)} {comps : List (List Expr)}
+    (hrw : ConLeche.nestedPinCompRewrites env p st params pbs₀ = some comps)
+    {q : Nat} {qn : NestedPin} (hq : st.pins[q]? = some qn) :
+    ∃ cs, comps[q]? = some cs ∧ cs.length = qn.pin.getAppArgs.length ∧
+      ∀ (i : Nat) (c : Expr), qn.pin.getAppArgs[i]? = some c →
+        ∃ (c' : Expr) (st' : ElimState),
+          ConLeche.replaceAllNested env (p.lps.map Level.param) params pbs₀ st c
+            = .ok (c', st') ∧ cs[i]? = some c' ∧ st'.pins = st.pins := by
+  unfold ConLeche.nestedPinCompRewrites at hrw
+  obtain ⟨cs, hcs, hstep⟩ := ConLeche.mapM_option_inv hrw q qn hq
+  refine ⟨cs, hcs, mapM_option_len hstep, ?_⟩
+  intro i c hc
+  obtain ⟨c', hc', hstep'⟩ := ConLeche.mapM_option_inv hstep i c hc
+  refine ⟨c', ?_⟩
+  cases hr : ConLeche.replaceAllNested env (p.lps.map Level.param) params pbs₀ st c with
+  | error e => simp only [hr] at hstep'; exact nomatch hstep'
+  | ok r =>
+    obtain ⟨c'', st'⟩ := r
+    simp only [hr] at hstep'
+    split at hstep'
+    · rename_i hlen
+      simp only [Option.some.injEq] at hstep'
+      subst hstep'
+      simp only [Bool.and_eq_true, beq_iff_eq] at hlen
+      exact ⟨st', rfl, hc',
+        pins_eq_of_no_growth (ConLeche.replaceAllNested_pins_prefix _ hr).1 hlen.2⟩
+    · exact nomatch hstep'
+
+/-- **THE CANDIDATE COMPONENTS READ** (task #315 lane RW, obligation
+(i)): at every pin, K.59's rewritten components denote at the
+auxiliary formers' environment, so `candDsOf` is a reading spine and
+`candAsOf` is the family `pinLfpAt` wants.
+
+**Where recorded-ness enters.**  `hrw` is K.59 (`nestedPinCompsOk`),
+and BOTH of its halves are used: the rewrite RUNS at every component
+(so `replaceAllNested_rel` has a run to read), and the state does not
+GROW (so the plants are pins of the table the elimination finished
+with, which is what `hfind` is stated at).  `hfind` is the copies'
+resolution at `ENVA` — `MutualFormersFacts.find` and `.lps` at the copy
+formers, which `NestedPinsRun` carries.  `hparams` is
+`openPisAtFvars`' shape at `nestedRewriteData`'s spine.  `hDs` is the
+components' UNREWRITTEN reading, `NestedPinSynFacts.pinDs` composed
+with the prefix crossing. -/
+theorem candDs_reads {envA : Env} {p : NestedParts} {st : ElimState} {nP : Nat}
+    {params : List Expr} {pbs₀ : List (Expr × ConLeche.BinderMeta)} {comps : List (List Expr)}
+    (hrw : ConLeche.nestedPinCompRewrites env p st params pbs₀ = some comps)
+    (hparams : ∀ a ∈ params, ∃ (i : Nat) (ty : Expr), a = Expr.fvar i ty)
+    (hfind : ∀ qn ∈ st.pins, ∃ ci : ConstantInfo, envA.find? qn.aux = some ci ∧
+      (p.lps.map Level.param).length = ci.toConstantVal.levelParams.length)
+    {q : Nat} {qn : NestedPin} (hq : st.pins[q]? = some qn)
+    (hDs : ∀ c ∈ qn.pin.getAppArgs, ∃ ca, denoteMeta acval envA φ nP c = some ca) :
+    DenoteMetaSpine acval envA φ nP (comps.getD q [])
+      (candDsOf acval envA nP comps φ q) := by
+  obtain ⟨cs, hcs, hlen, hstep⟩ := nestedPinComps_at hrw hq
+  have hgetD : comps.getD q [] = cs := by
+    rw [List.getD_eq_getElem?_getD, hcs]; rfl
+  have hpb : ∀ a ∈ params, a.looseBVarsBounded 0 = true := by
+    intro a ha
+    obtain ⟨i, ty, rfl⟩ := hparams a ha
+    rfl
+  -- every plant of the elimination's own table reads at the auxiliary environment
+  have hplant : ∀ (d : Nat) (A : Name), A ∈ st.pins.map (·.aux) →
+      ∃ u, denoteMeta acval envA φ d
+        (Expr.mkAppN (.const A (p.lps.map Level.param)) params) = some u := by
+    intro d A hA
+    obtain ⟨z, hz, rfl⟩ := List.mem_map.mp hA
+    obtain ⟨ci, hci, hcl⟩ := hfind z hz
+    exact plant_denotes hci hcl hparams d
+  unfold candDsOf
+  rw [hgetD]
+  refine denoteMetaSpine_map_getD cs ?_
+  intro c' hc'
+  obtain ⟨i, hi⟩ := List.mem_iff_getElem?.mp hc'
+  have hics : i < cs.length := by
+    rcases Nat.lt_or_ge i cs.length with hlt | hge
+    · exact hlt
+    · rw [List.getElem?_eq_none hge] at hi; exact nomatch hi
+  have hilt : i < qn.pin.getAppArgs.length := by omega
+  obtain ⟨c, hc⟩ : ∃ c, qn.pin.getAppArgs[i]? = some c :=
+    ⟨_, List.getElem?_eq_getElem hilt⟩
+  obtain ⟨c'', st', hrun, hcsi, hpins⟩ := hstep i c hc
+  have hceq : c'' = c' := Option.some.inj (hcsi.symm.trans hi)
+  rw [hceq] at hrun
+  have hrel : RewriteRel (st.pins.map (·.aux)) (p.lps.map Level.param) params c c' := by
+    have := replaceAllNested_rel c hrun
+    rwa [hpins] at this
+  obtain ⟨ca, hca⟩ := hDs c (List.mem_of_getElem? hc)
+  obtain ⟨ca', hca', -⟩ := denoteMeta_of_rewriteRel hpb hplant hrel hca
+  exact ⟨ca', hca'⟩
 
 end ConLeche.Model
