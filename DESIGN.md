@@ -111708,8 +111708,10 @@ whose SHAPE comes from `A i` and whose block names come only from the
 substituted `Dsq` — a STRADDLE — fires on the left and does not exist on
 the right.
 
-**A straddle is reachable, and the route ACCEPTS it today.**  Witness
-(exported with the pinned toolchain; the stream is `_tmp/r2/straddle.ndjson`):
+**A straddle is reachable, and the route ACCEPTS it today.**  Witness,
+landed as `tests/e2e/ind_nest_straddle.ndjson` (source
+`tests/e2e/src/ind_nest_straddle.lean`, rows in `tests/e2e-expected.txt`
+and `tests/nested-shadow-expected.txt`):
 
 ```lean
 inductive Box (α : Type) where | mk (l : List (Option α))
@@ -111719,7 +111721,7 @@ inductive Straddle where       | node (b : Box Straddle)
 `con-leche --jobs=1 --nested-shadow` prints `nested-shadow Straddle accept`
 — the whole native check list, K.51/K.57/K.59 included, passes.  A probe
 that folds the prefix and runs the elimination
-(`_tmp/r2/probe.lean`) reads off:
+(`scripts/nested-pin-probe.lean`, landed with this row) reads off:
 
 ```
 pin 0  container=Box     pin=(Box Straddle)            comp[0]=Straddle

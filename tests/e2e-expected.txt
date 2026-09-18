@@ -1137,6 +1137,7 @@
 0 ind_idx_defhead_sort.ndjson
 0 ind_nest_two_pins.ndjson
 0 ind_nest_prop.ndjson
+0 ind_nest_straddle.ndjson
 #
 # --- S1 / crack C9: the `let` value/type checks.  `annotate`'s .letE
 # --- clause returns the zeta-reduct and the annotated term is let-free,
