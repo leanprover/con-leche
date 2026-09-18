@@ -107660,3 +107660,80 @@ the same obligation option (1) already carried.**  That is smaller than
 of it is spent, as asked.
 
 Nothing in this section changes the tree.
+
+#### (number at the integrator's sync) — L-E: T1 versus option (1) — PARTLY, and the partition is sharp; T3 turns out unnecessary (lane L-E, 2026-09-18)
+
+Answered from the statements.  The answer is **partly**, and the split
+is clean enough to act on; it also retires a piece of this lane's own
+costing an hour old.
+
+##### (a) T1 IS NOT A PREREQUISITE OF OPTION (1)'S PROOF — they are siblings
+
+`interp_congr_below`'s proof (`Semantics/Kit.lean:160–194`) is a BARE
+structural induction: `interp_app` + the two IHs at `app`, `interp_lam`
++ `lamR_congr` + the IH at an extended environment at `lam`,
+`interp_pi` + `piR_congr` at `pi`, and `rfl` at the leaves.  Its
+ingredients are the `interp` equations and an environment-quantified IH.
+
+Option (1)'s structural recursion over readings would be **the same
+induction with the same ingredients** — `interp_app`/`interp_lam`/… and
+an IH quantified over environments — replacing at the identified nodes
+instead of appealing to agreement.  So option (1) does not CONSUME T1;
+the two are siblings over one induction principle, and neither is built
+from the other.
+
+##### (b) BUT T1 IS A PREREQUISITE OF OPTION (1)'S CONSUMPTION
+
+Option (1) supplies the candidate component VALUES.  It does not supply,
+and cannot, the fact that a field whose domain reads NONE of the
+replaced components has the same value at both frames.  At `ordF`-left
+that is exactly the step:
+
+```
+interp V (consList fs₁ ρp) (copy's reading)          -- interp_instAll
+  = interp V (consList fs₁ ρJ)    (container's domain)
+  = interp V (consList fs₁ ρcand) (container's domain)   -- ← T1, and only T1
+```
+
+The second equation is a congruence, not a substitution.  **Option (1)
+closes `recF` and `es`, whose domains read the parameter spine; it does
+not close `ordF`-left, whose domain reads nothing that moved.**
+
+So the coordinator's dichotomy resolves as: **T1 is on the path under
+either option, and is not paid for twice.**  Spend it.
+
+##### (c) AND T3 IS UNNECESSARY — this lane over-built its own framing
+
+The earlier costing framed the third piece as "a relation under which the
+CHAIN FIT transports".  That assumed `hC` has to MOVE from the recorded
+frame to the candidate one.  It does not: instantiated wholesale, `hC` is
+STATED at the candidate frame, and its caller is the closure step, which
+needs `Φ` at that frame and therefore produces `ChainFit` at that frame
+directly.  **Nothing transports; the fit is born at the frame it is used
+at.**
+
+So the piece priced as T3 (`FrameAgree` + `FitsFrom` transport, ~40
+lines) is not needed at all.  What remains is the congruence pair:
+
+| piece | status |
+| --- | --- |
+| **T1** — positional `interp` congruence | **needed under either option**, ~40 lines, no dependency |
+| **T2** — the `slotSet`/`piTele` analogue | needed for the same arms, ~40–60 lines |
+| ~~T3~~ — chain-fit transport | **withdrawn — nothing transports** |
+
+##### (d) THE REVISED PRICE
+
+**Under a session for T1 + T2**, dependency-free, and both are on the
+path whether or not option (1) ever lands.  The obligation this lane
+reported an hour ago as "one to two sessions buying one arm of three"
+is better than that: **under a session, buying an arm that option (1)
+does NOT buy, and retiring a piece that was never needed.**
+
+That is the third time today a scope shrank on inspection.  The
+mechanism was the same each time: the framing carried an assumption —
+here, that the fit had to move — that nobody had made explicit until the
+statement was read for a different reason.
+
+Nothing landed; `d585d470` stands as the checkpoint.
+
+Nothing in this section changes the tree.
