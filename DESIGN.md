@@ -107003,3 +107003,71 @@ Green now: `lake build` → **0 errors/warnings, 722 jobs**, at the
 reverted state.
 
 Nothing in this section changes the tree.
+
+#### (number at the integrator's sync) — L-E: THE CONNECTED EDIT LANDED — the chain is generic in the family, and `pinLfp` is now one witness among many (lane L-E, 2026-09-18)
+
+One pass, bottom-up, in one session.  **It closed.**
+
+##### (a) WHAT CHANGED
+
+Seven theorems carried step (ii)'s conclusion as a premise written at the
+concrete `pinLfp`:
+
+```lean
+(hIH : ∀ q', q' < pinsS.length → S q' →
+  pinLfp st pinsS dJf (f₀.s.eval ψ) ψ ρp q' = lfpTuple … (p.k + q'))
+```
+
+All seven — `nestedTargetReads_L`, `nestedPinEntryOut`,
+`nestedPinPairAt_mem`, `nestedPinPairAt_pin`, `nestedPinPairAt`,
+`nestedInstanceLe`, `nestedPinInstLe` — now take an abstract family
+`{Pf : Nat → V}` and **the one property of `pinLfp` any of them actually
+used**:
+
+```lean
+(hPfGroup : ∀ q₀ kJ, GF st m q₀ kJ (dJf q₀) → ∀ i, i < kJ →
+  Pf (q₀ + i) = lfpTuple (f₀.s.eval ψ) (dJf q₀).k (…idx…) (…Φ…) i)
+```
+
+`pinLfp_group` is that property proved for `pinLfp` itself — the
+`unfold pinLfp; rw [(G.syn.grp i hi).1, …]; rfl` that used to sit inline
+inside `nestedTargetReads_L`'s proof, hoisted into a lemma so the
+consumers can take it as a hypothesis and stop mentioning `pinLfp`.
+
+**Six of the seven no longer mention `pinLfp` anywhere in their
+statements.**  The seventh, `nestedPinInstLe`, mentions it only in its
+CONCLUSION, which is its subject.
+
+##### (b) WHY THIS IS THE RE-BASING, AND IT IS BETTER THAN A FRAME ARGUMENT
+
+The plan was to add a frame parameter.  What the chain actually needed
+was to stop knowing how `P` is computed at all: with `hPfGroup` as a
+premise the chain is generic in the FAMILY, and `pinLfp` is one witness
+among the `pinLfpAt`s.  A candidate frame will be admitted by supplying a
+different `Pf` and its group law, with no further change to these seven.
+
+That is also why the two earlier attempts failed: they abstracted the
+hypothesis without supplying the property, and `nestedTargetReads_L`'s
+proof genuinely needs `P` to BE a container's least tuple — it feeds
+`pinTarget_reads`.  **The name occurred once; the dependency was a
+property, not an occurrence.**
+
+##### (c) THE OPERATIONAL NOTE
+
+Three failure modes were hit and cleared inside one pass: a premise
+inserted after the conclusion's `:` (syntax), the in-chain call sites
+needing the new argument threaded (four), and two top-level sites needing
+a witness, which `pinLfp_group` supplied.  Total: four build-read-fix
+cycles.  **Attempting the edit was, again, far cheaper than reasoning
+about it** — and the third attempt succeeded only because the two
+reverted ones had mapped the seven sites and shown which were special.
+
+##### (d) GREEN, in the corrected format
+
+* `lake build` — 0 errors/warnings, **722 jobs**
+* `lake test` — 0 errors/warnings
+* `tests/proofdeps.sh` — 4965 module rows as pinned across 12 roots,
+  **doors 0**
+* `tests/no-local-paths.sh` — OK
+
+Nothing in this section changes the tree's accept set.
