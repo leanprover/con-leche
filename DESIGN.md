@@ -95967,3 +95967,47 @@ i`.
 
 **Nine of nine.**  The `ContainerModeled` field is the next step and
 is deliberately not taken here: a partial field must not land.
+
+##### (h) THE `env₀` CLAUSE REQUESTED OF THIS RECORD: REFUSED, with the reason
+
+Lane L-B asked, through the coordinator, for a `ContainerModeled`
+clause naming the block model's own base environment as equal to the
+environment the run works at — `d.env₀ = env` — on the precedent of
+the mutual block-model record's field of that name
+(`BlockRepMutual.lean`), and on the strength of this lane's own
+comment that the parameter-count clause is discharged "at the pin's
+stored container, which is `d.env₀ = env`".
+
+**It cannot be a clause of this record, and the spelling is false at
+three of the nine sites.**  `ContainerModeled m ci d` knows exactly one
+environment — the model's — and `d.env₀` is deliberately a DIFFERENT,
+EARLIER one.  That is the whole reason `pinNP` is spelled at `d.env₀`
+rather than at the model's environment (this record's own docstring
+since M7-3 session 10: "`pinNP` reads `containerInfo?` at `d.env₀`, the
+block's own pre-block environment, not at the model's").  Concretely:
+
+* **the nested site** builds `ContainerModeled mpOut.base2 … (D)` — the
+  model is at `envOut` — while `D.env₀ = env`, the PRE-BLOCK
+  environment (`NestedBlockModelOf.env₀`).  `D.env₀ = envOut` is FALSE:
+  the install added the block's own constants;
+* **the mutual site** is the same shape (`ContainerModeled mpOut.base2 …`);
+* **the native site** builds `ContainerModeled m …` at the CONSTRUCTORS'
+  model while `BlockModel.ofNative`'s `env₀` is the route's pre-block
+  `env`;
+* **the four basis sites** would need a new hypothesis, not a free one:
+  `zeroCtorBlock T resSort env₀` takes `env₀` as a free parameter and
+  the four theorems are stated at an arbitrary `env` with `env₀`
+  unconstrained, so there is nothing to prove the equation from.
+
+The precedent does not transfer for exactly the reason the coordinator
+suspected: the mutual record is about the block BEING INSTALLED, whose
+`env₀` IS the run's environment; `ContainerModeled` is about a STORED
+container, read at a model of a LATER environment.
+
+**What is derivable, if that is what the consumer needs**, is a
+MONOTONICITY statement rather than an equation — the container's group
+reads the same at `d.env₀` and at the model's environment, because the
+container is stored at `d.env₀` and installs since then do not disturb
+it.  That is the shape `EnvBlocksOf.crossIndP` already proves
+(`containerInfo?_ext_ind_eq`), and it would be a different clause with
+a different discharge.  Reported rather than absorbed.
