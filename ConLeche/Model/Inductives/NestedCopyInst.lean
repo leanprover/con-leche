@@ -6297,6 +6297,75 @@ theorem NestedPinsRun.copyFieldReadCore {pbs : List (Expr × ConLeche.BinderMeta
     Option.some.inj (hcross.symm.trans (hCD.domRead ψ l x' hx'))
   exact ⟨heq, hok⟩
 
+/-- **THE COPY'S FIELD READING AT A PIN TARGET** (task #315 L-B, K.51):
+`copyFieldReadCoreQ` at the record's own answer — the positivity
+normalisation of the minted domain is `w`, and the STORED domain is
+`w`'s image under the elimination's own `replaceAllNested` at the final
+state (which therefore mints nothing).
+
+So what comes back is `w`'s reading, not the model's `dsF` entry: the
+container's field domain, instantiated at the pin's components and read
+at the copy's frame, IS the reading of `w`.  That is the term the arm
+reads the target off — it is headed by the CONTAINER (the mimic appears
+only after the rewrite), and identifying the mimic's leaf with the
+container's is `pinLeaf`, which is downstream of this very shape. -/
+theorem NestedPinsRun.copyFieldReadPin {pbs : List (Expr × ConLeche.BinderMeta)}
+    (hPD : ∀ q, q < st.pins.length → PinData env st p pbs q)
+    {i' : Nat} (hi' : i' < kJ) {j : Nat} {cAJ : ConstantVal × Nat}
+    (hj : (dJ.ctorsM i')[j]? = some cAJ) {l : Nat} (hlF : l < cAJ.2)
+    (hrunAll : ∀ (ci : ContainerInfo) (J : ContainerMember) (cI : Expr) (xfvs' : List Expr)
+        (restM xI x' : Expr),
+      ConLeche.containerInfo? env (pinsS.getD (q₀ + i') default).J = some ci →
+      J ∈ ci.members → J.name = (pinsS.getD (q₀ + i') default).J →
+      Expr.instPis (Expr.instantiateLevelParams J.lps
+        (pinsS.getD (q₀ + i') default).lvls cAJ.1.type) (srcAtE st p (q₀ + i')).2.2 = some cI →
+      ConLeche.openPisAtFvars cAJ.2 cI b.nP = some (xfvs', restM) →
+      xfvs'[l]? = some xI →
+      (xFvsF (b.ownOffset (p.k + q₀ + i') + j))[l]? = some x' →
+      ∃ (params : List Expr) (pbs₀ : List (Expr × ConLeche.BinderMeta)) (w : Expr)
+        (st' : ConLeche.ElimState),
+        ConLeche.nestedRewriteData p st = some (params, pbs₀) ∧
+        ConLeche.normPosDomM (m := ConLeche.CheckM) (ConLeche.fueledOps μ F)
+            (ConLeche.consMutualFormers (fms.take p.k) env) b.memberNames (b.nP + l) 1024
+            xI.fvarTypeD
+          = .ok w ∧
+        ConLeche.replaceAllNested env (p.lps.map Level.param) params pbs₀ st w
+          = .ok (x'.fvarTypeD, st'))
+    (ψ : Name → Nat) (ρp : Nat → V)
+    (hsat : Sat V (((ppsF 0 ψ).take b.nP).map (·.2.2)).reverse ρp)
+    (fs₁ : List V) (hfs : fs₁.length = l)
+    (hfit : SpineFit (consList (((pinsS.getD (q₀ + i') default).Ds ψ).map (interp V ρp)) ρp)
+      (((dJ.Fss i' ((pinsS.getD (q₀ + i') default).ψJ ψ)).getD j []).take l) fs₁) :
+    ∃ (x' w : Expr) (ea' : AnnotTerm) (params : List Expr)
+      (pbs₀ : List (Expr × ConLeche.BinderMeta)) (st' : ConLeche.ElimState),
+      (xFvsF (b.ownOffset (p.k + q₀ + i') + j))[l]? = some x' ∧
+      ConLeche.nestedRewriteData p st = some (params, pbs₀) ∧
+      ConLeche.replaceAllNested env (p.lps.map Level.param) params pbs₀ st w
+        = .ok (x'.fvarTypeD, st') ∧
+      denoteMeta mp₁'.base2.acval (ConLeche.consMutualFormers (fms.take p.k) env) ψ (b.nP + l) w
+        = some ea' ∧
+      interp V (consList fs₁ ρp)
+          (AnnotTerm.instAll ((pinsS.getD (q₀ + i') default).Ds ψ) l
+            (((dJ.Fss i' ((pinsS.getD (q₀ + i') default).ψJ ψ)).getD j []).getD l default))
+        = interp V (consList fs₁ ρp) ea' ∧
+      WellDenotedV V (consList fs₁ ρp) ea' := by
+  classical
+  obtain ⟨x', w, ea', hx', hQ, hea', heq, hok⟩ :=
+    R.copyFieldReadCoreQ
+      (Q := fun x' w => ∃ (params : List Expr) (pbs₀ : List (Expr × ConLeche.BinderMeta))
+        (st' : ConLeche.ElimState),
+        ConLeche.nestedRewriteData p st = some (params, pbs₀) ∧
+        ConLeche.replaceAllNested env (p.lps.map Level.param) params pbs₀ st w
+          = .ok (x'.fvarTypeD, st'))
+      SF S hPD hi' hj hlF
+      (fun ci J cI xfvs' restM xI x'' h1 h2 h3 h4 h5 h6 h7 => by
+        obtain ⟨params, pbs₀, w, st', hrwd, hrun, hrep⟩ :=
+          hrunAll ci J cI xfvs' restM xI x'' h1 h2 h3 h4 h5 h6 h7
+        exact ⟨w, hrun, params, pbs₀, st', hrwd, hrep⟩)
+      ψ ρp hsat fs₁ hfs hfit
+  obtain ⟨params, pbs₀, st', hrwd, hrep⟩ := hQ
+  exact ⟨x', w, ea', params, pbs₀, st', hx', hrwd, hrep, hea', heq, hok⟩
+
 /-- **`CopyCtorShape.ordF`'s LEFT arm, SEMANTICALLY** (task #315 L-B):
 at every field the auxiliary block classifies ordinary, the copy's
 STORED field domain and the CONTAINER's field domain instantiated at
