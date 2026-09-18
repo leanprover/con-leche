@@ -95,6 +95,9 @@ theorem EnvBlocksOf.extendBasis {env₁ env₂ : Env} {m₁ : EnvModel V env₁}
     (hfreshN : ∀ n ∈ N, env₁.find? n = none)
     (hrecN : ∀ (n : Name) (cv : ConstantVal) (mI rP : Nat) (rules : List RecRule),
       env₂.find? (n.str "rec") = some (.recInfo cv mI rP rules) → n.str "rec" ∈ N → n ∈ N)
+    (hmimN : ∀ (n : Name) (j : Nat) (cv : ConstantVal) (mI rP : Nat) (rules : List RecRule),
+      env₂.find? (Name.appendIndexAfter (n.str "rec") j) = some (.recInfo cv mI rP rules) →
+      Name.appendIndexAfter (n.str "rec") j ∈ N → n ∈ N)
     (hwf : ConLeche.EnvWF env₁) (hrc : ConLeche.RecCtorsStored env₁)
     (hF : ∀ (n : Name) (c : ConstantInfo),
       (∀ cv mI rP rules, c ≠ .recInfo cv mI rP rules) →
@@ -109,7 +112,7 @@ theorem EnvBlocksOf.extendBasis {env₁ env₂ : Env} {m₁ : EnvModel V env₁}
       ConLeche.containerInfo? env₂ J = some ci → ci = ci₀)
     (hAt : BlockAt m₂ (extendAt B ci₀ d₀) ci₀) :
     EnvBlocksOf m₂ (extendAt B ci₀ d₀) := by
-  refine EnvBlocksOf.crossInd hext hnewN hfreshN hrecN hwf hrc hF hres hag hde ?_ hb ?_
+  refine EnvBlocksOf.crossInd hext hnewN hfreshN hrecN hmimN hwf hrc hF hres hag hde ?_ hb ?_
   · exact fun J ci _ hci => extendAt_ne (containerInfo?_ne_of_fresh hci hfreshM)
   · intro J hJ ci hci
     rw [hnewG J hJ ci hci]
@@ -140,6 +143,9 @@ theorem EnvBlocksOf.extendBasisOf {env₁ env₂ : Env} {m₁ : EnvModel V env�
     (hfreshN : ∀ n ∈ N, env₁.find? n = none)
     (hrecN : ∀ (n : Name) (cv : ConstantVal) (mI rP : Nat) (rules : List RecRule),
       env₂.find? (n.str "rec") = some (.recInfo cv mI rP rules) → n.str "rec" ∈ N → n ∈ N)
+    (hmimN : ∀ (n : Name) (j : Nat) (cv : ConstantVal) (mI rP : Nat) (rules : List RecRule),
+      env₂.find? (Name.appendIndexAfter (n.str "rec") j) = some (.recInfo cv mI rP rules) →
+      Name.appendIndexAfter (n.str "rec") j ∈ N → n ∈ N)
     (hwf : ConLeche.EnvWF env₁) (hrc : ConLeche.RecCtorsStored env₁)
     (hF : ∀ (n : Name) (c : ConstantInfo),
       (∀ cv mI rP rules, c ≠ .recInfo cv mI rP rules) →
@@ -155,7 +161,7 @@ theorem EnvBlocksOf.extendBasisOf {env₁ env₂ : Env} {m₁ : EnvModel V env�
       ∃ c : ConstantInfo, env₂.find? J = some c ∧ ∀ cv caps, c ≠ .indInfo cv caps)
     (hAt : BlockAt m₂ (extendAt B ci₀ d₀) ci₀) :
     EnvBlocksOf m₂ (extendAt B ci₀ d₀) := by
-  refine EnvBlocksOf.extendBasis hext hnewN hfreshN hrecN hwf hrc hF hres hag hde hfreshM hb
+  refine EnvBlocksOf.extendBasis hext hnewN hfreshN hrecN hmimN hwf hrc hF hres hag hde hfreshM hb
     (fun J hJ ci hci => ?_) hAt
   by_cases hJ₀ : J = J₀
   · subst hJ₀
@@ -180,6 +186,10 @@ theorem emptyBlocksStep {env₁ env₂ : Env} {m₁ : EnvModel V env₁} {m₂ :
       env₂.find? (n.str "rec") = some (.recInfo cv mI rP rules) →
       n.str "rec" ∈ [ConLeche.emptyName, ConLeche.emptyName.str "rec"] →
       n ∈ [ConLeche.emptyName, ConLeche.emptyName.str "rec"])
+    (hmimN : ∀ (n : Name) (j : Nat) (cv : ConstantVal) (mI rP : Nat) (rules : List RecRule),
+      env₂.find? (Name.appendIndexAfter (n.str "rec") j) = some (.recInfo cv mI rP rules) →
+      Name.appendIndexAfter (n.str "rec") j ∈ [ConLeche.emptyName, ConLeche.emptyName.str "rec"] →
+      n ∈ [ConLeche.emptyName, ConLeche.emptyName.str "rec"])
     (hwf : ConLeche.EnvWF env₁) (hrc : ConLeche.RecCtorsStored env₁)
     (hF : ∀ (n : Name) (c : ConstantInfo),
       (∀ cv mI rP rules, c ≠ .recInfo cv mI rP rules) →
@@ -190,19 +200,20 @@ theorem emptyBlocksStep {env₁ env₂ : Env} {m₁ : EnvModel V env₁} {m₂ :
       denoteMeta m₁.acval env₁ ψ dp e = some ea → denoteMeta m₂.acval env₂ ψ dp e = some ea)
     (hb : EnvBlocksOf m₁ B)
     (hT : env₂.find? ConLeche.emptyName = some ConLeche.emptyA)
-    (hR : env₂.find? (ConLeche.emptyName.str "rec") = some ConLeche.emptyRecA) :
+    (hR : env₂.find? (ConLeche.emptyName.str "rec") = some ConLeche.emptyRecA)
+    (hmim : ConLeche.blockOwnMimicsOk env₂ ConLeche.emptyName 0 = true) :
     EnvBlocksOf m₂ (extendAt B
       ⟨0, [⟨ConLeche.emptyName, [], ConLeche.emptyA.toConstantVal.type, []⟩]⟩
       (zeroCtorBlock (V := V) ConLeche.emptyName (.succ .zero) ⟨[]⟩)) := by
-  refine EnvBlocksOf.extendBasisOf (J₀ := ConLeche.emptyName) hext hnewN hfreshN hrecN hwf hrc
-    hF hres hag hde ⟨_, List.mem_singleton.mpr rfl,
+  refine EnvBlocksOf.extendBasisOf (J₀ := ConLeche.emptyName) hext hnewN hfreshN hrecN hmimN hwf
+    hrc hF hres hag hde ⟨_, List.mem_singleton.mpr rfl,
       hfreshN ConLeche.emptyName (List.mem_cons.mpr (Or.inl rfl))⟩ hb
     (containerInfo?_emptyA hT hR) (fun J hJ hne => ?_) ?_
   · rcases List.mem_cons.mp hJ with rfl | hJ'
     · exact absurd rfl hne
     · rcases List.mem_singleton.mp hJ' with rfl
       exact ⟨ConLeche.emptyRecA, hR, fun _ _ h => nomatch h⟩
-  · exact emptyBlockAt hT (extendAt_self _ _ _)
+  · exact emptyBlockAt hT hR hmim (extendAt_self _ _ _)
 
 end ConLeche.Model
 

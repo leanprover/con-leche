@@ -164,6 +164,53 @@ theorem containerInfo?_consMutualFormers {fms : List MutualFormerA} {env : Env}
     · rw [hfreshN _ hmem] at h₁; exact nomatch h₁
     · exact nomatch hc
 
+/-- **A STORED CONTAINER'S OWN-PIN TABLE IS READ THE SAME AT THE PREFIX
+ENVIRONMENT** (task #315 M7-3): `ContainerOwnPinsSyn.crossIndOf` at the
+members' cons — `containerInfo?_consMutualFormers`' twin for the clause
+`ContainerModeled.ownPins`, and with the same frame.
+
+`consMutualFormers` conses `.indInfo`s only, so neither `hrecN` nor
+`hmimN` can fire: a name the cons answers with a recursor is the base's,
+and the base has nothing at a name the cons claims as new.  The walk
+therefore cannot grow at ANY container, which is what the crossing
+needs. -/
+theorem ownPinsSyn_consMutualFormers {fms : List MutualFormerA} {env : Env}
+    {m : EnvModel V env} {ci : ContainerInfo} {d : BlockModel V}
+    (hwf : ConLeche.EnvWF env) (hrc : ConLeche.RecCtorsStored env)
+    (hfresh : ∀ f ∈ fms, env.find? f.cvTa.name = none)
+    (C : ContainerModeled m ci d) (h : ContainerOwnPinsSyn (V := V) env d) :
+    ContainerOwnPinsSyn (V := V) (ConLeche.consMutualFormers fms env) d := by
+  have hfreshN : ∀ n ∈ fms.map (·.cvTa.name), env.find? n = none := by
+    intro n hn
+    obtain ⟨f, hf, rfl⟩ := List.mem_map.mp hn
+    exact hfresh f hf
+  have hne : ∀ n : Name, n ∉ fms.map (·.cvTa.name) →
+      (ConLeche.consMutualFormers fms env).find? n = env.find? n := by
+    intro n hn
+    exact consMutualFormers_find?_of_ne fun g hg heq => hn (heq ▸ List.mem_map_of_mem hg)
+  have hstored : ∀ n : Name, (env.find? n).isSome = true → n ∉ fms.map (·.cvTa.name) := by
+    intro n hn hmem
+    rw [hfreshN n hmem] at hn
+    exact nomatch hn
+  -- a consed constant is an `indInfo`, so no new name answers a recursor
+  have hnotRec : ∀ (n : Name) (cv : ConstantVal) (mI rP : Nat) (rules : List RecRule),
+      (ConLeche.consMutualFormers fms env).find? n = some (.recInfo cv mI rP rules) →
+      n ∈ fms.map (·.cvTa.name) → False := by
+    intro n cv mI rP rules hf hmem
+    rcases consMutualFormers_find?_cases hf with h₁ | ⟨f, -, hc⟩
+    · rw [hfreshN _ hmem] at h₁; exact nomatch h₁
+    · exact nomatch hc
+  refine ContainerOwnPinsSyn.crossIndOf (N := fms.map (·.cvTa.name))
+    (fun n c hf => by rw [hne n (hstored n (by rw [hf]; rfl))]; exact hf)
+    (fun n c hf => ?_) hfreshN
+    (fun n cv mI rP rules hf hmem => absurd hf (fun hf' => hnotRec _ cv mI rP rules hf' hmem))
+    (fun n j cv mI rP rules hf hmem =>
+      absurd hf (fun hf' => hnotRec _ cv mI rP rules hf' hmem))
+    hwf hrc (recMajorHeadStored_of_envWF hwf) C h
+  by_cases hn : n ∈ fms.map (·.cvTa.name)
+  · exact Or.inr hn
+  · rw [hne n hn] at hf; exact Or.inl hf
+
 /-! ## Kit: two small converses -/
 
 /-- **Well-scopedness from the leaves** (`WScoped_leaves`' converse):
@@ -1176,6 +1223,19 @@ theorem NestedPinsRun.contsCross {J : Name} {ci : ContainerInfo}
   rw [containerInfo?_consMutualFormers mp.base2.wf mp.base2.rec_ctors hfr (by rw [hf]; rfl)]
   exact h
 
+/-- **A STORED CONTAINER'S OWN PINS ARE READ THE SAME AT THE PREFIX
+ENVIRONMENT** — `ownPinsSyn_consMutualFormers` at the run, whose
+freshness is the members' own (`MutualFormersFacts.fresh`) and whose
+well-formedness is the pre-block model's.  `ContainerModeled.crossEnv`'s
+`hownCross` on this lane. -/
+theorem NestedPinsRun.ownCross {ci : ContainerInfo} {d : BlockModel V}
+    (C : ContainerModeled mp.base2 ci d) (h : ContainerOwnPinsSyn (V := V) env d) :
+    ContainerOwnPinsSyn (V := V) (ENV₁) d := by
+  refine ownPinsSyn_consMutualFormers mp.base2.wf mp.base2.rec_ctors ?_ C h
+  intro f hf'
+  obtain ⟨t, ht⟩ := List.getElem?_of_mem (List.mem_of_mem_take hf')
+  exact R.h.fresh t f ht
+
 /-- The block has a member; the first former's type is closed and
 bounded, and its data hold at the prefix model. -/
 theorem NestedPinsRun.former0 :
@@ -1311,7 +1371,7 @@ theorem NestedPinsRun.groupSyn
     blockOf_spec (R.hPM _ hbaseMem _ PD.base)
   have CM : ContainerModeled mp₁'.base2 (baseInfo env st q) (blockOf mp.base2 (baseInfo env st q)) :=
     CM₀.crossEnv hF hres hag hde (by rw [CM₀.k, PD.baseLen]; exact hkpos)
-      (fun _ _ _ h => R.contsCross h)
+      (fun _ _ _ h => R.contsCross h) (R.ownCross CM₀)
   have hkJ : (blockOf mp.base2 (baseInfo env st q)).k = (pinAtE st q).grpSize := by
     rw [CM.k, PD.baseLen]
   -- the group's pins, described
@@ -1664,7 +1724,7 @@ theorem NestedPinsRun.pinNIdx {pbs : List (Expr × ConLeche.BinderMeta)} (hpbs :
     blockOf_spec (R.hPM _ hbaseMem _ PD.base)
   have CM : ContainerModeled mp₁'.base2 (baseInfo env st q) (blockOf mp.base2 (baseInfo env st q)) :=
     CM₀.crossEnv hF hres hag hde (by rw [CM₀.k, PD.baseLen]; omega)
-      (fun _ _ _ h => R.contsCross h)
+      (fun _ _ _ h => R.contsCross h) (R.ownCross CM₀)
   obtain ⟨-, -, cvR, mI, rP, rules, hI⟩ := CM.member _ _ hmemE
   obtain ⟨bsM, sM, hstripM, -⟩ := hI.strip
   -- K.28 at the pin: the copy from the member `J`, whose type is the member's

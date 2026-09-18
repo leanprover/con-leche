@@ -618,7 +618,8 @@ theorem nestedContainerModeled {F : Nat} {st : ElimState} {envAux : Env}
       (srcsF := srcsF) (fvsPF := fvsPF) (xrestF := xrestF) (eissF := eissF) (tssF := tssF)
       (ctorsR := ctorsR) (dsR := dsR) (xFvsR := xFvsR) (pinsS := pinsS) mp stored mp₂ envOut mpOut)
     (hpinParams : ∀ (i : Nat), i < p.k →
-      ContainerPinParams (V := V) (stored.getD i default).cvTa (D)) :
+      ContainerPinParams (V := V) (stored.getD i default).cvTa (D))
+    (hown : ContainerOwnPinsSyn (V := V) envOut (D)) :
     ContainerModeled mpOut.base2 (ConLeche.blockContainerInfo p.nP
         (((stored.take p.k).zip ctorsR).map fun (a, cs) =>
           (a.cvTa, cs.map fun (cv, _, nF) => (cv, nF)))) (D) := by
@@ -662,7 +663,7 @@ theorem nestedContainerModeled {F : Nat} {st : ElimState} {envAux : Env}
     (fun ψ => ⟨(O.typed ψ).1.crossEnv T.agree O.reps.toIsBlockModels,
       (O.typed ψ).2.1.crossEnv T.agree O.reps.toIsBlockModels,
       (O.typed ψ).2.2.crossEnv T.agree O.reps.toIsBlockModels ?_⟩)
-    (fun ψ mm' j fs => ofNested_inj ψ mm' j fs) ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_
+    (fun ψ mm' j fs => ofNested_inj ψ mm' j fs) ?_ ?_ ?_ ?_ ?_ ?_ hown ?_ ?_ ?_
   · -- `hk`
     rw [hdk, List.length_map, List.length_zip, List.length_take, hclen]
     omega
@@ -1267,7 +1268,7 @@ theorem declNested_of (hμ : μ.verifiedChecks = true) {F : Nat} {env envOut : E
     hfA, hcA, helim, hcount, hfresh, hcont, hb, haux, hstored, hclosed, hpinsAux, hcaps, hsrc,
     -, hgrp, hmn, hsc, hlv, hK32, hkinds, hauxApps, hrank, -, -, hK42, hpins₁, hctors, hrm, hrn,
     hndR, hdisj,
-    hrulesM, hrulesN, -, htbl, hpinsOut, hcnt, hrecs, hrb, -, -⟩ := h
+    hrulesM, hrulesN, -, htbl, hpinsOut, hcnt, hrecs, hrb, hownP, hmimB⟩ := h
   -- the `-` after `hsrc` is K.31's `pinsDistinct` conjunct: named for the
   -- identities' discharge (`NestedPinsIdent`, lane L-B), not consumed here;
   -- `hmn` after `hgrp` is K.44's `nestedPinMentionOk`, which lane L-E's
@@ -1318,6 +1319,8 @@ theorem declNested_of (hμ : μ.verifiedChecks = true) {F : Nat} {env envOut : E
   replace hK42 := hK42 hμ
   replace hauxApps := ConLeche.certOnly_elim hauxApps hμ
   replace hrb := ConLeche.certOnly_elim hrb hμ
+  replace hownP := ConLeche.certOnly_elim hownP hμ
+  replace hmimB := ConLeche.certOnly_elim hmimB hμ
   have hPM : PinsModeled mp.base2 st.pins := pinsModeled_of_env mp.blocks hcont
   obtain ⟨fms, f₀, ctorsA', sortss, kinds, mp₁, ppsF, W, idxF, dsF, esF, srcsF, fvsPF, xFvsF, xrestF,
     eissF, tssF, dsR, xFvsR, pinsS, mp₂, henv, O⟩ := hcore hμ mp.toEnvModelM hE p st b envAux stored
@@ -1348,8 +1351,15 @@ theorem declNested_of (hμ : μ.verifiedChecks = true) {F : Nat} {env envOut : E
     obtain ⟨f, hf, hcveq, -, -⟩ := hcv i _ hik hsi
     rw [List.getD_eq_getElem?_getD, hsi, Option.getD_some, hcveq, O.facts.lps i f hf,
       (ConLeche.auxBlock_fields hb).2.1]
+  -- the block's own pins ARE its recorded pins, at every instantiation
+  -- (K.47 and K.43): the clause `ContainerModeled.ownPins` at the one
+  -- route whose block carries a mimic at all
+  have hown : ContainerOwnPinsSyn (V := V) envOut
+      (nestedBlockModel (V := V) p b fms f₀ ctorsA' kinds env ppsF W idxF dsF esF srcsF fvsPF
+        xrestF eissF tssF ctorsR dsR xFvsR pinsS) :=
+    nestedOwnPins_of mpOut hk0 hcount haux hstored hctors hrb hlps hownP hmimB O
   have hcm := nestedContainerModeled hcaps hcont hk0 hmn haux hstored hctors O T
-    (nestedPinParams_of hcaps hcont hlv hsc hb hPM hlps haux hstored O)
+    (nestedPinParams_of hcaps hcont hlv hsc hb hPM hlps haux hstored O) hown
   have hfreshMs : ∀ n ∈ p.memberNames, env.find? n = none := by
     rw [← O.record.memberNames]
     exact nestedMembersFresh hcaps haux hstored O
@@ -1434,8 +1444,22 @@ theorem declNested_of (hμ : μ.verifiedChecks = true) {F : Nat} {env envOut : E
         xrestF eissF tssF ctorsR dsR xFvsR pinsS
       else blockOf mp.base2 ci, ?_⟩⟩⟩
   obtain ⟨new, E, hMs⟩ := T.install
+  -- the restored recursors' counts, for `nestedMimN`: `restoreRecTys`
+  -- answers one constant per auxiliary record it walked
+  have hlenM : cvRms.length ≤ p.k := by
+    rw [(ConLeche.restoreRecTys_id hrm).1, List.length_take]
+    omega
+  have hlenN : cvRns.length ≤ p.numNested := by
+    have hp : pinsS.length = p.numNested := by
+      have hn := O.record.nPins
+      rw [hcount] at hn
+      exact hn
+    rw [(ConLeche.restoreRecTys_id hrn).1, List.length_drop, hslen, O.bk, hp]
+    omega
   refine (blockOf_of_env mp.blocks).crossIndP (Ts := p.memberNames) E.toConsExt.ext
-    E.toConsExt.newN E.toConsExt.freshN (E.recN hMs) mp.base2.wf mp.base2.rec_ctors
+    E.toConsExt.newN E.toConsExt.freshN (E.recN hMs)
+    (nestedMimN hk0 hrm hrn hlenM hlenN htbl E.toConsExt.freshN hMs)
+    mp.base2.wf mp.base2.rec_ctors
     (fun n c _ hf => E.toConsExt.ext n c hf)
     (constsResolve_of_findPreserved (fun hf => E.toConsExt.ext _ _ hf)) T.agree₀ ?_ hfreshMs
     (fun J ci _ hci => if_neg (hciNe J ci hci)) ?_
