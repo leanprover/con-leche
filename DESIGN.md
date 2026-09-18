@@ -105212,3 +105212,56 @@ as a hypothesis.
 Nothing in (1)–(3) needs a fact that is not already recorded; (2)'s
 tactic shape is the only thing that bit, and it is written down here so
 the next attempt does not rediscover it.
+
+#### DEFERRED (maintainer ruling): the cached simulation arm
+
+The maintainer's ruling — *"whatever we add to the checker has to be
+bridged. fine, but not where the risk is. work on that last, when the
+model side is actually working!"* — retires this arm from the schedule
+until the model side closes.  It is **deferred, not cancelled**:
+`checkNestedS_run`, the nested dispatch arm and the modeled arm's
+deletion all wait.  Everything landed keeps its value — `_skels`,
+`_push`, the three atoms, the stage tier, the scope chain, and the two
+findings (the `tryCatch` boundary and the grade tax).
+
+**THE HANDOVER — what is landed, what is next, and with which tool.**
+
+*Landed and green* (all on `agent/uniform-m5`):
+
+* `checkNestedS_skels` and `checkNestedS_push`, complete;
+* the three atoms (`projTablesOkF_eq`, `checkConstantValPreF_eq`,
+  `checkConstantValPreS_sim`);
+* the run family at any annotation grade, with `bindC_ite_ok`,
+  `iteBindE_eq`, `SimC.iteBind`, `mutualFormerChecks_frontDoor` and
+  `checkMutualCtors_typeWF` (both restated over `FrontDoorFacts`);
+* index equations for every nested stage, `checkSumTeleF_eq`, the four
+  cons functions' `mkFEnv` forms;
+* simulations: the two annotation stages, both restores, the restored
+  rules, the pins' loop, post-check (c); run lemmas: the tables, and
+  the two positivity walks (through `tryCatchC_ok` + `normsMapM_up`);
+* the jobs' scope: `nestedDomPair_WScoped`,
+  `nestedOrdDomPairs_WScoped`, `nestedPinDomPairs_WScoped`, and their
+  hypothesis discharged by `nestedCopySrc_Ds_WScoped` (which wants only
+  `pinsScoped`, `nestedCopySrcOk` and the first type's own scope — the
+  annotated former's, fvar-free from its door).
+
+*Next, in order, each with its tool:*
+
+1. **`nestedPinChecksS_run`** — six mode-only Bool guards, then the two
+   walks fed by `nestedOrdNormsS_run` / `nestedPinNormsS_run` with
+   `nestedCopySrc_Ds_WScoped` for their scope side-condition.  **The
+   tactic shape that bit**: the cascade's `ite`s sit under an
+   application to the state, so plain `split at h` cannot see them, and
+   `simp only [apply_ite]` LOOPS here.  Use `by_cases` per condition (six
+   of them), or peel the state application first.  `split_ifs` does not
+   exist in this tree (no Mathlib);
+2. **`checkNestedS_run`** — the assembly: twenty-odd stages in the order
+   `checkNestedS` runs them, each rewritten to its pure twin by its
+   `_eq` and then consumed by its `_sim`/`_run`; the fuels joined at the
+   end exactly as `checkMutualCoreS_run` does it (`atF_bind_intro`,
+   `FueledM.up`).  The state threading is `CSOKF`/`CSOK` as there;
+3. **the dispatch arm and the modeled arm's deletion** — unchanged from
+   §(e): the deletion is licensed by a measurement, and every corpus row
+   expecting exit 2 must be re-read before a line comes out.
+
+Nothing in (1)–(3) needs a fact that is not recorded today.

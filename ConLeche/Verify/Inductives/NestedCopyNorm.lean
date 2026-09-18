@@ -1245,6 +1245,41 @@ theorem nestedOrdDomPairs_mem {env : Env} {p : NestedParts} {st : ElimState}
     subst hHl
     simp
 
+/-- **THE COPIES' SOURCE ARGUMENTS ARE SCOPED AT THE BLOCK'S PARAMETERS**
+(task #315 M8): a copy's `src` records the container's arguments, and
+those ARE the pin's arguments (`nestedCopySrcOk`); the pin's free
+variables are the block's parameter openers (`pinsScoped`), so the
+arguments are scoped where the positivity walk needs them.  The first
+type's own scope is the caller's — it is the annotated former, whose
+door left it fvar-free. -/
+theorem nestedCopySrc_Ds_WScoped {env : Env} {p : NestedParts} {st : ElimState}
+    (hsrc : nestedCopySrcOk env p st = true) (hsc : pinsScoped p.nP st = true)
+    (ht₀w : ∀ t₀, st.types.head? = some t₀ → Expr.WScoped 0 t₀.type) :
+    ∀ (q : Nat), q < st.pins.length → ∀ t, st.types[p.k + q]? = some t →
+      ∀ Jn lvls Ds, t.src = some (Jn, lvls, Ds) → ∀ D ∈ Ds, Expr.WScoped p.nP D := by
+  intro q hq t ht Jn lvls Ds hsrceq D hD
+  obtain ⟨t₀, params, o, ht₀, hop, hpins⟩ := pinsScoped_inv hsc
+  obtain ⟨qn, hqn⟩ : ∃ qn, st.pins[q]? = some qn := ⟨_, List.getElem?_eq_getElem hq⟩
+  obtain ⟨t₀', pbs', body', h1', h2', hall⟩ := nestedCopySrcOk_inv hsrc
+  obtain ⟨t', Jn', lvls', Ds', ci, J, c, ht', hsrc', -, hpin, -, -, -, -, -, -, -⟩ :=
+    hall q qn hqn
+  obtain rfl : t' = t := by rw [ht] at ht'; exact (Option.some.inj ht').symm
+  obtain ⟨rfl, rfl, rfl⟩ : Jn' = Jn ∧ lvls' = lvls ∧ Ds' = Ds := by
+    rw [hsrceq] at hsrc'
+    simpa using hsrc'.symm
+  -- the pin is scoped at the parameters: its leaves are the openers
+  obtain ⟨-, hleaves⟩ := hpins qn (List.mem_of_getElem? hqn)
+  obtain ⟨hparams, -⟩ := openPisAtFvars_WScoped p.nP t₀.type 0 hop (ht₀w t₀ ht₀)
+  have hpinW : Expr.WScoped p.nP qn.pin := by
+    refine Expr.WScoped_of_leaves _ ?_
+    intro l hl
+    have hmem := hleaves l hl
+    have := hparams _ hmem
+    simp only [Expr.WScoped, Nat.zero_add] at this
+    exact this
+  rw [hpin] at hpinW
+  exact (WScoped_of_mkAppN hpinW).2 D hD
+
 /-- **EVERY ORDINARY-FIELD JOB IS SCOPED** (task #315 M8, the cached run
 obligation): the inversion of `nestedOrdDomPairs`' three `mapM`s, fed
 to `nestedDomPair_WScoped`.  The container's stored constructor types
@@ -1253,8 +1288,8 @@ with `nestedCopySrcOk_inv` supply them). -/
 theorem nestedOrdDomPairs_WScoped {env : Env} {p : NestedParts} {st : ElimState}
     {stored : List AuxStored} {kinds : List (List (List (RecFieldKind × Nat)))}
     {jobs : List (Nat × Expr × Expr)} (henv : EnvWF env)
-    (hDs : ∀ t ∈ st.types, ∀ Jn lvls Ds, t.src = some (Jn, lvls, Ds) →
-      ∀ D ∈ Ds, Expr.WScoped p.nP D)
+    (hDs : ∀ (q : Nat), q < st.pins.length → ∀ t, st.types[p.k + q]? = some t →
+      ∀ Jn lvls Ds, t.src = some (Jn, lvls, Ds) → ∀ D ∈ Ds, Expr.WScoped p.nP D)
     (h : nestedOrdDomPairs env p st stored (some kinds) = some jobs) :
     ∀ je ∈ jobs, Expr.WScoped je.1 je.2.1 := by
   intro je hje
@@ -1399,7 +1434,7 @@ theorem nestedOrdDomPairs_WScoped {env : Env} {p : NestedParts} {st : ElimState}
     rw [hcJty]
     exact (henv _ (List.mem_of_find?_eq_some hfindC)).1
   exact nestedDomPair_WScoped hctorF
-    (hDs t (List.mem_of_getElem? ht) Jn lvls Ds hsrceq) hcI hqM hxM
+    (hDs q hqlt t ht Jn lvls Ds hsrceq) hcI hqM hxM
 
 /-- **AND EVERY PIN-TARGET JOB** (K.51's list) (task #315 M8, the cached run
 obligation): the same
@@ -1408,8 +1443,8 @@ or reflexive at a MIMIC target. -/
 theorem nestedPinDomPairs_WScoped {env : Env} {p : NestedParts} {st : ElimState}
     {stored : List AuxStored} {kinds : List (List (List (RecFieldKind × Nat)))}
     {jobs : List (Nat × Expr × Expr)} (henv : EnvWF env)
-    (hDs : ∀ t ∈ st.types, ∀ Jn lvls Ds, t.src = some (Jn, lvls, Ds) →
-      ∀ D ∈ Ds, Expr.WScoped p.nP D)
+    (hDs : ∀ (q : Nat), q < st.pins.length → ∀ t, st.types[p.k + q]? = some t →
+      ∀ Jn lvls Ds, t.src = some (Jn, lvls, Ds) → ∀ D ∈ Ds, Expr.WScoped p.nP D)
     (h : nestedPinDomPairs env p st stored (some kinds) = some jobs) :
     ∀ je ∈ jobs, Expr.WScoped je.1 je.2.1 := by
   intro je hje
@@ -1554,7 +1589,7 @@ theorem nestedPinDomPairs_WScoped {env : Env} {p : NestedParts} {st : ElimState}
     rw [hcJty]
     exact (henv _ (List.mem_of_find?_eq_some hfindC)).1
   exact nestedDomPair_WScoped hctorF
-    (hDs t (List.mem_of_getElem? ht) Jn lvls Ds hsrceq) hcI hqM hxM
+    (hDs q hqlt t ht Jn lvls Ds hsrceq) hcI hqM hxM
 
 /-- A handler that always throws never produces the `.ok`: a successful
 `tryCatchThe` in `Except` is a successful body. -/
