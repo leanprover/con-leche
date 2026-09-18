@@ -104289,3 +104289,38 @@ of 2242, none demotable, no new FALLBACK needed; `tests/arena.sh`
 + 199 e2e + 15 annot, axiom pin 20.  (e2e 196 -> 199 and the trusted
 arena sweep 138 -> 162 are fixtures the last sync brought, not drift.)
 Standard axioms on all thirteen touched results.
+
+##### (e) THE PIN VIEW, DERIVED — a clause asked for and not needed
+
+Lane L-E needed, for a stored container's own pin, the pin's index data
+read against the pin's container's block model AT THE ABSTRACT
+assignment.  It had checked every record it holds — this record's six
+pin clauses are properties and a congruence, never an identification;
+the group-syntactic record's five run the other way, the block's pins
+against the container's members; the block-model clauses constrain a
+pin only through that model's own carriers; and the route through the
+leaf is circular — and found the view only at CONCRETE models.  It
+asked for a clause, preferring three consequences at the pin.
+
+**It derives.**  `PinShapes` — which `EnvBlocksOf` already carries,
+through `BlockAt` — states its group view at the SAME abstract `B` the
+consumer quantifies over.  The gap was one level out from where it was
+being looked for, which is why an otherwise exhaustive enumeration
+missed it.
+
+`ownPinView_of_blocks` is the derivation, and the three consequences
+are three FIELDS of `PinGroupView`: the parameter count is `pinNP`, the
+projection data `pinPps`, the universe `pinU` — the last stated at the
+group BASE's assignment and rewritten to the pin's OWN by `same`, which
+is the only real step.  `kEq` gives the index bound and `name` the
+identification, so **the index is forced by the pin's own name** and
+nothing is matched by position.  `PinShapes`' shape and count
+conjuncts are discarded: the lemma does not depend on the shape half.
+
+**This is the second request of this kind answered by a derived lemma
+off a field the record already carried**, and the reason to prefer that
+is structural rather than stylistic: a clause imposes on every
+producer, present and future, an obligation that nobody has to supply.
+Seven of nine sites were vacuous last time and that is what made a
+clause cheap; here the count never had to be taken, because no site
+pays anything.
