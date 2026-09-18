@@ -314,7 +314,22 @@ def nestedContainersOk (env : Env) (pins : List NestedPin) : Bool :=
   pinsDistinct pins &&
   pins.all fun q =>
     match containerInfo? env q.container with
-    | some ci => containerFactsOk env ci
+    -- **THE CONTAINER'S CONSTRUCTOR NAMES ROUND-TRIP** (task #315,
+    -- lane M7-2's request, DESIGN `#### K.53`): the mint renames a
+    -- container constructor by `replacePrefix J.name q.aux` and the
+    -- restore renames it back by `replacePrefix q.aux q.container`, so
+    -- the model's copy-constructor reading needs the two to compose to
+    -- the identity ON THE CONTAINER'S OWN NAMES.  It is a fact of the
+    -- container's namespace, not of the mint, and no stored record
+    -- exposes it — so it is recorded here, at the pin whose
+    -- `containerInfo?` is already in hand and whose `q.aux` is already
+    -- minted.  It adds NO environment lookup: the work is name
+    -- comparisons on records this clause already read.
+    | some ci => containerFactsOk env ci &&
+        ci.members.all fun J => !(J.name == q.container) ||
+          J.ctors.all fun cc =>
+            Name.replacePrefix q.aux q.container
+              (Name.replacePrefix J.name q.aux cc.name) == cc.name
     | none => false
 
 /-! ## The install -/
