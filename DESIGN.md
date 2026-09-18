@@ -85696,6 +85696,87 @@ field — so there is nothing of this shape to fix here.  Worth keeping
 as a review question for every new record: if a field has a default,
 can a construction site omit it and still type-check?
 
+##### (rrrr) THE GUARDS ARE INVARIANT UNDER THE RESTORE — proved, and two of (nnnn)'s fears were wrong
+
+(a5e09bc3.)  (nnnn)'s hazard is closed as a theorem, in
+`Verify/Inductives/NestedRestoreKit.lean`'s new section (:726–:1084):
+
+* `rg_structUsedLater_restoreNested` (:1016) — at `j < nF`,
+  `structUsedLater ctyR nP j = structUsedLater ctyA nP j` whenever
+  `restoreNested R ctyA = .ok ctyR`;
+* `rg_structProjGuards_restoreNested` (:1071) — the list form the
+  consumer needs, a full EQUALITY and not the inequality (nnnn) allowed
+  for.
+
+**The design point that made it tractable.**
+`RestoreKeepsLoose R d e := ∀ e', restoreWalk R d e = .ok e' →
+∀ q < d, e'.hasLooseBVar q = e.hasLooseBVar q` names the CONCLUSION,
+not a condition: no predicate mirroring the walk is needed, each
+per-shape fact establishes it, and it is closed under the Π node and so
+along a `stripPis` telescope.  Worth copying the next time a walk has
+to be shown to preserve something.
+
+**Two things (nnnn) got wrong, both in the safe direction.**
+
+1. *The "never adds" half needs NO hypothesis* — not `pinsClosed`, not
+   `NestedTailIn.hclosed`.  `pin.liftLooseBVars d 0` lifts at cutoff
+   `0`, so every loose index lands `≥ d` whatever the pin contains.
+   (nnnn) reached for the pin's closedness and did not need it.
+2. *The opened↔closed bridge (nnnn) budgeted for is not on the critical
+   path.*  Everything the discharge wants is already checked in CLOSED
+   form: `mutualCtorKinds`' `.ordinary` cell is `!mentionsMember dom`,
+   `mutualPositivity` (`MutualInstall.lean:361`) tests
+   `e.getAppArgs.take nP == structPsAt (o + k) nP`, and
+   `structCtorResidOk` (`:298`) tests the residual's.
+   `mutualOpenedOk`'s opened form was the wrong witness to pick.
+
+*What remains of the guards step*: producing `RestoreKeepsLoose` at the
+run for each field domain and the residual — the three closed-form
+checks above, inverted, with `rg_keepsLoose_spine` the entry point for
+the recursive/reflexive/residual case and `rg_keepsLoose_of_no_aux` for
+the ordinary one (~1 session, mechanical).  Beyond it TWO NAME FACTS,
+and both are (mmmm)'s class:
+
+* **(A)** no auxiliary CONSTRUCTOR or RECURSOR name occurs in a stored
+  scratch constructor type, so that `!mentionsMember` upgrades to
+  aux-free;
+* **(B)** a member name that is in `R.auxNames` is a `pins` key, not a
+  `ctorPins` or `recMap` key — `b.blockNames.Nodup` covers the
+  constructor half, the `auxJ.rec` half wants the recursor-name
+  freshness.
+
+**Neither is a kernel request.**  The lane did not conclude the fact is
+underivable; these are where the remaining work sits, and they are
+disjointness statements about names the route already mints and stores.
+
+*One deviation, with its reason*: no new file.  A new Verify module is
+reachable from no library root until its consumer exists — Verify
+modules reach the build only through the Model files that import them —
+so it would be an ORPHAN the gates never see.  `NestedRestoreKit.lean`
+already holds the telescope half and is imported by ten modules; it
+grows 723 → 1084.  **That is the general rule for this tier: a Verify
+proof with no consumer yet belongs in a file that already has one.**
+
+##### (ssss) FILES AND GATES (session 26's HEAD)
+
+Touched: `ConLeche/Verify/Inductives/NestedRestoreKit.lean` (the new
+section) and one `@[expose]` on `restoreHead` (`NestedInv.lean:1666`),
+whose `some` output the node lemma reads.  No new file, no allowlist
+line, no FALLBACK entry, no checker code.
+
+`lake build` warning-free EXIT 0; `lake test` warning-free EXIT 0;
+shake 510 removals all allowlisted / pub-imports 1334 of 2212, none
+demotable (55 fallbacks); layering base 353 / model 286 / caps 3 /
+umbrella 1, 0 base→lane, 0 impl→theory; trust surface 13 escapes in 5
+allowlisted files, 0 outside; no-local-paths OK; overview-links 112;
+quote-gate 2; proofdeps 4965 rows / 12 roots / **0 doors**.
+`#print axioms` of all thirteen new theorems is
+`[propext, Classical.choice, Quot.sound]`.
+
+**The tables' face from here: 3–5 sessions** ((oooo) said 4–6): the
+guards' invariance is proved and came in at the bottom of its range,
+and its remainder is ~1 mechanical session plus the two name facts.
+
 
 #### U.30 — L-B session 2: `CopyCtorInst.ordF` at the READING, the normalisation's reading law PROVED, `ContainerModeled`'s three clauses (lane L-B, 2026-09-16)
 
