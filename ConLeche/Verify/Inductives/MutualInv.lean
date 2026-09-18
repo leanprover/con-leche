@@ -549,6 +549,258 @@ theorem classifyMutualKinds_inv {members : List (Name × Nat × Nat)} {lps : Lis
   subst h
   exact ⟨rfl, by simpa using hneg, by simpa using hun, List.mapM_option_length hk⟩
 
+/-! ## The positivity walk and the field kinds, inverted (task #315 M7-2)
+
+`mutualPositivity` and `mutualCtorKinds`
+(`ConLeche/Kernel/Inductives/MutualInstall.lean`) are read FORWARD at
+known shapes by the nested lane's `NestedCopyKinds`.  What the
+projection guards' discharge needs is the INVERSION: at a run the
+classifier accepted, what shape does a field's domain have?  The three
+walk lemmas and `rg_mutualCtorKinds_at` answer that, and they sit here
+— beside `classifyMutualKinds_inv`, whose two `any = false` conjuncts
+they consume — rather than in the nested lane's kit, so that the
+`match`-splitter auxiliaries they force are declared in a module the
+capstones' proof terms already reach (`tests/proofdeps.sh`).
+-/
+
+/-- `any` distributes over a pointwise `||`. -/
+private theorem rgAnyOr {α : Type} (p q : α → Bool) :
+    ∀ l : List α, l.any (fun a => p a || q a) = (l.any p || l.any q)
+  | [] => rfl
+  | a :: l => by
+    simp only [List.any_cons, rgAnyOr p q l]
+    cases p a <;> cases q a <;> cases l.any p <;> cases l.any q <;> rfl
+
+/-- `mentionsMember` splits at a `∀`. -/
+theorem rg_mentionsMember_forallE (names : List Name) (d b : Expr) (bm : BinderMeta) :
+    mentionsMember names (.forallE d b bm)
+      = (mentionsMember names d || mentionsMember names b) := by
+  show names.any (fun T => (Expr.mentionsConst T d || Expr.mentionsConst T b)) = _
+  rw [rgAnyOr]
+  rfl
+
+/-- **`mutualPositivity` at a non-`Π` term**, unfolded once: the walk's
+second arm, which every constructor but `.forallE` takes. -/
+theorem rg_mutualPositivity_notPi (members : List (Name × Nat × Nat)) (lps : List Name)
+    (nP o k : Nat) : ∀ {e : Expr}, (∀ d bo bm, e ≠ Expr.forallE d bo bm) →
+      mutualPositivity members lps nP o e k
+        = (if !mentionsMember (members.map (·.1)) e then (RecFieldKind.ordinary, 0) else
+            match e.getAppFn with
+            | .const T' us =>
+              match members.find? (·.1 == T') with
+              | some (_, m', nIdx') =>
+                if us == lps.map .param && e.getAppArgs.length == nP + nIdx' &&
+                    e.getAppArgs.take nP == structPsAt (o + k) nP &&
+                    (e.getAppArgs.drop nP).all
+                      (fun a => !mentionsMember (members.map (·.1)) a) then
+                  ((if k == 0 then RecFieldKind.recursive else .reflexive), m')
+                else (.negative, 0)
+              | none => (.unsupported, 0)
+            | _ => (.unsupported, 0)) := by
+  intro e h
+  cases e
+  case forallE d bo bm => exact absurd rfl (h d bo bm)
+  all_goals rfl
+
+/-- **An `.ordinary` verdict means the domain mentions no member**: the
+walk answers `.ordinary` only at its second arm's member-free test, and
+each `Π` binder it peeled had a member-free domain. -/
+theorem rg_mutualPositivity_ordinary {members : List (Name × Nat × Nat)} {lps : List Name}
+    {nP : Nat} : ∀ (e : Expr) (o k : Nat) {m' : Nat},
+      mutualPositivity members lps nP o e k = (.ordinary, m') →
+      mentionsMember (members.map (·.1)) e = false := by
+  intro e
+  induction e with
+  | forallE dom bd bm _ ihb =>
+    intro o k m' h
+    rw [mutualPositivity] at h
+    split at h
+    · simp at h
+    · rename_i hm
+      rw [rg_mentionsMember_forallE, ihb o (k + 1) h]
+      simpa using hm
+  | _ =>
+    intro o k m' h
+    rw [rg_mutualPositivity_notPi members lps nP o k
+      (by intro d bo bm; exact Expr.noConfusion)] at h
+    split at h
+    · rename_i hm
+      simpa using hm
+    · exfalso
+      split at h
+      · split at h
+        · split at h
+          · split at h <;> simp at h
+          · simp at h
+        · simp at h
+      · simp at h
+
+/-- **`mutualPositivity` at a recursive or reflexive field, inverted**:
+the walk peeled a `∀`-prefix of member-free domains and stopped at an
+application of a MEMBER whose first `nP` arguments are the block's
+parameter spine at the frame it had reached, with index arguments free
+of the block.  That is the shape `rg_keepsLoose_spine` consumes. -/
+theorem rg_mutualPositivity_spine {members : List (Name × Nat × Nat)} {lps : List Name}
+    {nP : Nat} : ∀ (e : Expr) (o k : Nat) {kd : RecFieldKind} {m' : Nat},
+      mutualPositivity members lps nP o e k = (kd, m') →
+      (kd = .recursive ∨ kd = .reflexive) →
+      ∃ (j : Nat) (bs : List (Expr × BinderMeta)) (body : Expr) (T : Name) (us : List Level),
+        e.stripPis j = some (bs, body) ∧
+        (∀ d ∈ bs, mentionsMember (members.map (·.1)) d.1 = false) ∧
+        body.getAppFn = .const T us ∧ T ∈ members.map (·.1) ∧
+        body.getAppArgs.take nP = structPsAt (o + k + j) nP ∧
+        nP ≤ body.getAppArgs.length ∧
+        (∀ a ∈ body.getAppArgs.drop nP,
+          mentionsMember (members.map (·.1)) a = false) := by
+  intro e
+  induction e with
+  | forallE dom bd bm _ ihb =>
+    intro o k kd m' h hkd
+    rw [mutualPositivity] at h
+    split at h
+    · rcases hkd with rfl | rfl <;> simp at h
+    · rename_i hm
+      obtain ⟨j, bs, body, T, us, hs, hds, hfn, hT, htake, hlen, hidx⟩ := ihb o (k + 1) h hkd
+      refine ⟨j + 1, (dom, bm) :: bs, body, T, us, ?_, ?_, hfn, hT, ?_, hlen, hidx⟩
+      · rw [Expr.stripPis, hs]; rfl
+      · intro d hd
+        rcases List.mem_cons.mp hd with rfl | hd
+        · simpa using hm
+        · exact hds d hd
+      · rw [show o + k + (j + 1) = o + (k + 1) + j by omega]; exact htake
+  | _ =>
+    intro o k kd m' h hkd
+    rw [rg_mutualPositivity_notPi members lps nP o k
+      (by intro d bo bm; exact Expr.noConfusion)] at h
+    split at h
+    · rcases hkd with rfl | rfl <;> simp at h
+    · split at h
+      · rename_i T' us hfn
+        split at h
+        · rename_i nm mm nIdx' hfind
+          split at h
+          · rename_i hcond
+            simp only [Bool.and_eq_true, beq_iff_eq] at hcond
+            obtain ⟨⟨⟨-, hlen⟩, htake⟩, hall⟩ := hcond
+            have hTm : T' ∈ members.map (·.1) := by
+              have hmem := List.mem_of_find?_eq_some hfind
+              have hkey : nm = T' := by simpa using List.find?_some hfind
+              exact hkey ▸ List.mem_map.mpr ⟨(nm, mm, nIdx'), hmem, rfl⟩
+            refine ⟨0, [], _, T', us, rfl, by simp, hfn, hTm, htake, by omega, ?_⟩
+            intro a ha
+            simpa using List.all_eq_true.mp hall a ha
+          · rcases hkd with rfl | rfl <;> simp at h
+        · rcases hkd with rfl | rfl <;> simp at h
+      · rcases hkd with rfl | rfl <;> simp at h
+
+/-! ## The classifier's verdict at one field -/
+
+/-- **WHAT THE CLASSIFIER SAYS OF FIELD `i`**, at a run that accepted
+the block: the constructor's residual index arguments mention no
+member, and the field's domain either mentions no member at all or its
+positivity walk answered `.recursive`/`.reflexive`.  The `.negative`
+and `.unsupported` verdicts are the ones `classifyMutualKinds` throws
+on, and the walk's own `.ordinary` answer means the domain is
+member-free (`rg_mutualPositivity_ordinary`), so those are the only two
+shapes left. -/
+theorem rg_mutualCtorKinds_at {members : List (Name × Nat × Nat)} {lps : List Name} {nP : Nat}
+    {c : ConstantVal × Nat} {ks : List (RecFieldKind × Nat)}
+    {cbs : List (Expr × BinderMeta)} {resid : Expr}
+    (hks : mutualCtorKinds members lps nP c = some ks)
+    (hstrip : c.1.type.stripPis (nP + c.2) = some (cbs, resid))
+    (hneg : ks.any (·.1 == .negative) = false)
+    (hun : ks.any (·.1 == .unsupported) = false)
+    {i : Nat} (hi : i < c.2) :
+    (∀ a ∈ resid.getAppArgs.drop nP, mentionsMember (members.map (·.1)) a = false) ∧
+    (mentionsMember (members.map (·.1)) (cbs.getD (nP + i) default).1 = false ∨
+      ∃ m',
+        mutualPositivity members lps nP i (cbs.getD (nP + i) default).1 0 = (.recursive, m') ∨
+        mutualPositivity members lps nP i (cbs.getD (nP + i) default).1 0
+          = (.reflexive, m')) := by
+  have hmemNe : ∀ v ∈ ks, v.1 ≠ .negative := by
+    intro v hv hc
+    have hany : (ks.any fun x => x.1 == RecFieldKind.negative) = true :=
+      List.any_eq_true.mpr ⟨v, hv, by rw [hc]; rfl⟩
+    rw [hneg] at hany
+    exact absurd hany (by simp)
+  have hmemNu : ∀ v ∈ ks, v.1 ≠ .unsupported := by
+    intro v hv hc
+    have hany : (ks.any fun x => x.1 == RecFieldKind.unsupported) = true :=
+      List.any_eq_true.mpr ⟨v, hv, by rw [hc]; rfl⟩
+    rw [hun] at hany
+    exact absurd hany (by simp)
+  simp only [mutualCtorKinds, hstrip] at hks
+  split at hks
+  · rename_i hcond
+    have hks' : (List.range c.2).map (fun i =>
+        if !mentionsMember (members.map (·.1)) (cbs.getD (nP + i) default).1 then
+          (RecFieldKind.ordinary, 0)
+        else
+          match mutualPositivity members lps nP i (cbs.getD (nP + i) default).1 0 with
+          | (.recursive, m') =>
+            if structUsedLater c.1.type nP i then (RecFieldKind.unsupported, 0)
+            else (.recursive, m')
+          | (.reflexive, m') =>
+            if structUsedLater c.1.type nP i then (RecFieldKind.unsupported, 0)
+            else (.reflexive, m')
+          | k => k) = ks := Option.some.inj hks
+    have hmemi : (if !mentionsMember (members.map (·.1)) (cbs.getD (nP + i) default).1 then
+          (RecFieldKind.ordinary, 0)
+        else
+          match mutualPositivity members lps nP i (cbs.getD (nP + i) default).1 0 with
+          | (.recursive, m') =>
+            if structUsedLater c.1.type nP i then (RecFieldKind.unsupported, 0)
+            else (.recursive, m')
+          | (.reflexive, m') =>
+            if structUsedLater c.1.type nP i then (RecFieldKind.unsupported, 0)
+            else (.reflexive, m')
+          | k => k) ∈ ks := by
+      rw [← hks']
+      exact List.mem_map.mpr ⟨i, List.mem_range.mpr hi, rfl⟩
+    refine ⟨fun a ha => by simpa using List.all_eq_true.mp hcond a ha, ?_⟩
+    by_cases hmm : mentionsMember (members.map (·.1)) (cbs.getD (nP + i) default).1 = true
+    · rw [if_neg (by simpa using hmm)] at hmemi
+      rcases hpv : mutualPositivity members lps nP i (cbs.getD (nP + i) default).1 0 with ⟨kd, m'⟩
+      rw [hpv] at hmemi
+      cases kd with
+      | ordinary =>
+        exact absurd (rg_mutualPositivity_ordinary _ i 0 hpv) (by simpa using hmm)
+      | recursive =>
+        simp only at hmemi
+        by_cases hul : structUsedLater c.1.type nP i = true
+        · rw [if_pos hul] at hmemi
+          exact absurd rfl (hmemNu _ hmemi)
+        · exact Or.inr ⟨m', Or.inl rfl⟩
+      | reflexive =>
+        simp only at hmemi
+        by_cases hul : structUsedLater c.1.type nP i = true
+        · rw [if_pos hul] at hmemi
+          exact absurd rfl (hmemNu _ hmemi)
+        · exact Or.inr ⟨m', Or.inr rfl⟩
+      | negative =>
+        simp only at hmemi
+        exact absurd rfl (hmemNe _ hmemi)
+      | unsupported =>
+        simp only at hmemi
+        exact absurd rfl (hmemNu _ hmemi)
+    · exact Or.inl (by simpa using hmm)
+  · exfalso
+    have hks' : ((List.range c.2).map (fun i =>
+        if !mentionsMember (members.map (·.1)) (cbs.getD (nP + i) default).1 then
+          (RecFieldKind.ordinary, 0)
+        else
+          match mutualPositivity members lps nP i (cbs.getD (nP + i) default).1 0 with
+          | (.recursive, m') =>
+            if structUsedLater c.1.type nP i then (RecFieldKind.unsupported, 0)
+            else (.recursive, m')
+          | (.reflexive, m') =>
+            if structUsedLater c.1.type nP i then (RecFieldKind.unsupported, 0)
+            else (.reflexive, m')
+          | k => k)).map (fun _ => (RecFieldKind.negative, 0)) = ks := Option.some.inj hks
+    refine absurd rfl (hmemNe (RecFieldKind.negative, 0) ?_)
+    rw [← hks']
+    refine List.mem_map.mpr ⟨_, List.mem_map.mpr ⟨i, List.mem_range.mpr hi, rfl⟩, rfl⟩
+
 /-! ## Stage 4: the recursors -/
 
 /-- **One member's recursor type**: generated, scoped, inferred, and —
@@ -921,7 +1173,6 @@ theorem checkMutual_inv {env envOut : Env} {p : MutualParts} {F : Nat}
   case neg => rw [if_neg hp] at h; close_throw
   rw [if_pos hp] at h
   exact ⟨hp, h⟩
-
 
 /-! ## The stages at a GRADE (task #315 M6 s6, DESIGN §U.18 (a))
 

@@ -4,6 +4,9 @@ public import ConLeche.Verify.Inductives.NestedRestoreOpen
 public import ConLeche.Verify.Inductives.NestedRestoreTbl
 public import ConLeche.Verify.EraseAnnots
 import ConLeche.Verify.Inductives.NestedElimInv
+import ConLeche.Verify.Inductives.NestedAuxInv
+import ConLeche.Verify.Inductives.MutualInv
+import ConLeche.Verify.Inductives.NestedCopyKinds
 import ConLeche.Verify.Inductives.StructRec
 
 public section
@@ -1081,5 +1084,432 @@ theorem rg_structProjGuards_restoreNested {R : RestoreTbl} {nP nF : Nat} (hnP : 
   refine rg_foldl_congr _ _ (List.range i) _ (fun j hj c => ?_)
   rw [List.mem_range] at hj
   rw [rg_structUsedLater_restoreNested hnP (by omega) hstrip hres hdoms hresid]
+
+/-! ## The guards at the run (task #315 M7-2)
+
+`rg_structProjGuards_restoreNested` is stated over `RestoreKeepsLoose`
+at every field domain and at the constructor's residual.  This section
+produces those from the SCRATCH BLOCK'S OWN RECORDED CHECKS, so that
+the consumer spends the guards' invariance with nothing of its own to
+discharge.
+
+Two name facts carry the discharge, and both are derived here rather
+than assumed:
+
+* an auxiliary name that IS a member of the auxiliary block is a
+  `pins` key and no `recMap` key (`rg_restoreTbl_auxNames_split`,
+  `rg_auxName_member_pin`) — `blockNames.Nodup` keeps the copies'
+  CONSTRUCTOR and RECURSOR names off the member list, so the only
+  auxiliary name a member can be is a copy's own;
+* an auxiliary name that is NOT a member is absent from the
+  constructors' stage environment (`rg_auxFree_of_resolve`) — the
+  copies' freshness guard puts it outside the pre-block environment
+  and the formers' conses add only member names, so a STORED
+  constructor type, whose constants all resolve there, cannot mention
+  it.
+-/
+
+/-- **AN AUXILIARY NAME IS A PIN'S OR NO MEMBER AT ALL**: `auxNames`
+lists the copies' names, their constructors' names and their
+recursors'.  The first are members of the auxiliary block by
+construction; the other two are a CONSTRUCTOR name and a RECURSOR name
+of that same block, and `blockNames.Nodup` keeps both off the member
+list. -/
+theorem rg_restoreTbl_auxNames_split {p : NestedParts} {st : ElimState} {b : MutualBlock}
+    (hnd : b.blockNames.Nodup) (hal : PinsAligned p.k st) (hb : auxBlock p st = some b) :
+    ∀ n ∈ (restoreTbl p st).auxNames,
+      (∃ (q : Nat) (qn : NestedPin), st.pins[q]? = some qn ∧ qn.aux = n) ∨
+        n ∉ b.memberNames := by
+  rw [MutualBlock.blockNames] at hnd
+  have hdmc : ∀ a ∈ b.memberNames, ∀ c ∈ b.ctors.map (·.cv.name), a ≠ c :=
+    (List.nodup_append.mp (List.nodup_append.mp hnd).1).2.2
+  have hdr : ∀ a ∈ b.memberNames ++ b.ctors.map (·.cv.name),
+      ∀ c ∈ (List.range b.k).map b.recName, a ≠ c := (List.nodup_append.mp hnd).2.2
+  have hk : b.k = st.types.length := auxBlock_k hb
+  obtain ⟨-, hform⟩ := auxBlock_former hb
+  have hctors := (auxBlock_fields hb).2.2.2
+  have hctorName : ∀ (i : Nat) (t : AuxType), st.types[i]? = some t →
+      ∀ c ∈ t.ctors, c.1 ∈ b.ctors.map (·.cv.name) := by
+    intro i t hi c hc
+    rw [hctors]
+    refine List.mem_map.mpr ⟨⟨⟨c.1, p.lps, c.2.1⟩, c.2.2, i⟩, ?_, rfl⟩
+    refine List.mem_flatten.mpr ⟨t.ctors.map fun c =>
+      (⟨⟨c.1, p.lps, c.2.1⟩, c.2.2, i⟩ : MutualCtor), ?_, List.mem_map.mpr ⟨c, hc, rfl⟩⟩
+    exact List.mem_map.mpr ⟨(t, i), List.mk_mem_zipIdx_iff_getElem?.mpr hi, rfl⟩
+  have hrecName : ∀ (i : Nat) (t : AuxType), st.types[i]? = some t →
+      b.recName i = t.name.str "rec" := by
+    intro i t hi
+    obtain ⟨nIdx, hfo, -⟩ := hform i t hi
+    simp only [MutualBlock.recName, List.getD_eq_getElem?_getD, hfo, Option.getD_some]
+  intro n hn
+  simp only [restoreTbl] at hn
+  rcases List.mem_append.mp hn with hn | hn
+  · rcases List.mem_append.mp hn with hn | hn
+    · obtain ⟨q, hq, rfl⟩ := List.mem_map.mp hn
+      obtain ⟨j, hj⟩ := List.mem_iff_getElem?.mp hq
+      exact Or.inl ⟨j, q, hj, rfl⟩
+    · simp only [List.mem_flatMap] at hn
+      obtain ⟨t, htd, hnc⟩ := hn
+      obtain ⟨c, hc, rfl⟩ := List.mem_map.mp hnc
+      refine Or.inr (fun hmem => ?_)
+      obtain ⟨j, hj⟩ := List.mem_iff_getElem?.mp htd
+      rw [List.getElem?_drop] at hj
+      exact hdmc c.1 hmem c.1 (hctorName (p.k + j) t hj c hc) rfl
+  · obtain ⟨q, hq, rfl⟩ := List.mem_map.mp hn
+    obtain ⟨j, hj⟩ := List.mem_iff_getElem?.mp hq
+    obtain ⟨t, ht, htn⟩ := hal.2 j q hj
+    refine Or.inr (fun hmem => ?_)
+    have hrec : q.aux.str "rec" ∈ (List.range b.k).map b.recName := by
+      refine List.mem_map.mpr ⟨p.k + j, List.mem_range.mpr ?_, ?_⟩
+      · rw [hk]; exact (List.getElem?_eq_some_iff.mp ht).1
+      · rw [hrecName (p.k + j) t ht, htn]
+    exact hdr _ (List.mem_append_left _ hmem) _ hrec rfl
+
+/-- **THE PIN FIRES AT AN AUXILIARY NAME THAT IS A MEMBER**: such a
+name is a copy's own (`rg_restoreTbl_auxNames_split`), and at a copy's
+name the table's `pins` answers and its `recMap` does not
+(`restoreTbl_pins_lookup_run`, `restoreTbl_recMap_lookup_aux'`). -/
+theorem rg_auxName_member_pin {env envAux : Env} {p : NestedParts} {F : Nat}
+    {fmsA ctorsA₀ : List ConstantVal} {st : ElimState} {b : MutualBlock}
+    (hfA : nestedAnnotFormers (m := CheckM) (fueledOps mode F) env p.nP p.formers = .ok fmsA)
+    (helim : elimNested env p.nP p.lps (nestedTypes0 p fmsA ctorsA₀) = .ok st)
+    (hb : auxBlock p st = some b)
+    (haux : checkMutualCore (fueledOps mode F) env b none true = .ok envAux)
+    {n : Name} (hn : n ∈ (restoreTbl p st).auxNames) (hmem : n ∈ b.memberNames) :
+    ∃ pin, (restoreTbl p st).pins.lookup n = some pin ∧
+      (restoreTbl p st).recMap.lookup n = none := by
+  have hlen0 : (nestedTypes0 p fmsA ctorsA₀).length = p.k := by
+    rw [nestedTypes0_length, nestedAnnotFormers_length hfA, NestedParts.k]
+  have hal := elimNested_aligned hlen0 helim
+  rcases rg_restoreTbl_auxNames_split (checkMutualCore_inv haux).1 hal hb n hn with
+    ⟨q, qn, hq, rfl⟩ | hnm
+  · exact ⟨_, restoreTbl_pins_lookup_run hfA helim hb haux hq,
+      restoreTbl_recMap_lookup_aux' hfA helim hb haux hq⟩
+  · exact absurd hmem hnm
+
+/-- **A MEMBER-FREE STORED TERM MENTIONS NO AUXILIARY NAME**: the
+auxiliary names that are members are excluded by `mentionsMember`, and
+every other one is absent from the constructors' stage environment —
+the copies' freshness guard keeps it out of the pre-block environment
+(`rk_restoreTbl_auxNames_fresh`) and the formers' conses add member
+names only.  A term whose constants all resolve there can mention
+neither. -/
+theorem rg_auxFree_of_resolve {env : Env} {p : NestedParts} {F : Nat} {st : ElimState}
+    {b : MutualBlock} {fms : List MutualFormerA}
+    (hnd : b.blockNames.Nodup) (hal : PinsAligned p.k st) (hb : auxBlock p st = some b)
+    (hfresh : copiesFresh env p.k st = true)
+    (hchecks : mutualFormerChecks (fueledOps mode F) env b.nP true b.formers = .ok fms)
+    {e : Expr} (hres : e.constsResolve (consMutualFormers fms env) = true)
+    (hmm : mentionsMember b.memberNames e = false) :
+    ∀ n ∈ (restoreTbl p st).auxNames, e.mentionsConst n = false := by
+  have hnames : fms.map (·.cvTa.name) = b.memberNames := mutualFormerChecksG_names hchecks
+  intro n hn
+  by_cases hmem : n ∈ b.memberNames
+  · simp only [mentionsMember, List.any_eq_false] at hmm
+    simpa using hmm n hmem
+  · have hfr : env.find? n = none := (rk_restoreTbl_auxNames_fresh hnd hal hb hfresh n hn).1
+    have hne : ∀ g ∈ fms, g.cvTa.name ≠ n := by
+      intro g hg hc
+      exact hmem (hc ▸ hnames ▸ List.mem_map_of_mem (f := (·.cvTa.name)) hg)
+    exact rk_mentionsConst_false_of_constsResolve hres
+      (by rw [consMutualFormers_find?_of_ne hne]; exact hfr)
+
+/-! ## Constants and resolution along a spine -/
+
+/-- **A spine's constants** are its head's and its arguments'. -/
+theorem rg_mentionsConst_mkAppN {n : Name} : ∀ (args : List Expr) (f : Expr),
+    (Expr.mkAppN f args).mentionsConst n
+      = (f.mentionsConst n || args.any (fun a => a.mentionsConst n))
+  | [], f => by simp [Expr.mkAppN]
+  | a :: as, f => by
+    rw [show Expr.mkAppN f (a :: as) = Expr.mkAppN (.app f a) as from rfl,
+      rg_mentionsConst_mkAppN as]
+    simp only [Expr.mentionsConst, List.any_cons]
+    exact Bool.or_assoc _ _ _
+
+/-- **A spine resolves exactly when its head and arguments do.** -/
+theorem rg_constsResolve_mkAppN {env : Env} : ∀ (args : List Expr) (f : Expr),
+    (Expr.mkAppN f args).constsResolve env
+      = (f.constsResolve env && args.all (fun a => a.constsResolve env))
+  | [], f => by simp [Expr.mkAppN]
+  | a :: as, f => by
+    rw [show Expr.mkAppN f (a :: as) = Expr.mkAppN (.app f a) as from rfl,
+      rg_constsResolve_mkAppN as]
+    simp only [Expr.constsResolve, List.all_cons]
+    exact Bool.and_assoc _ _ _
+
+/-- A resolving term has resolving arguments. -/
+theorem rg_constsResolve_getAppArgs {env : Env} {e : Expr} (h : e.constsResolve env = true) :
+    ∀ a ∈ e.getAppArgs, a.constsResolve env = true := by
+  intro a ha
+  rw [← Expr.mkAppN_getApp e, rg_constsResolve_mkAppN] at h
+  simp only [Bool.and_eq_true, List.all_eq_true] at h
+  exact h.2 a ha
+
+/-! ## The fields and the residual, at the run -/
+
+/-- A successful `mapM` in `Option`, positionally. -/
+theorem rg_mapM_at {α β : Type} {f : α → Option β} :
+    ∀ {l : List α} {r : List β}, l.mapM f = some r →
+      ∀ (i : Nat) (a : α), l[i]? = some a → ∃ v, r[i]? = some v ∧ f a = some v
+  | [], _r, _h, _i, _a, hi => absurd hi (by simp)
+  | a₀ :: l, r, h, i, a, hi => by
+    simp only [List.mapM_cons, bind, Option.bind_eq_some_iff, pure,
+      Option.some.injEq] at h
+    obtain ⟨b₀, hb₀, bs, hbs, rfl⟩ := h
+    cases i with
+    | zero =>
+      simp only [List.getElem?_cons_zero, Option.some.injEq] at hi
+      obtain rfl := hi
+      exact ⟨b₀, rfl, hb₀⟩
+    | succ k =>
+      simp only [List.getElem?_cons_succ] at hi
+      obtain ⟨v, hb, hfb⟩ := rg_mapM_at hbs k a hi
+      exact ⟨v, by simpa using hb, hfb⟩
+
+/-- **A MEMBER APPLICATION AT THE PARAMETER FRAME KEEPS ITS
+VARIABLES**: either the term mentions no auxiliary name at all, and
+the walk is the identity on it (`rg_keepsLoose_of_no_aux`), or it
+does — and the only place an auxiliary name can sit is the HEAD: the
+first `nP` arguments are the parameter spine's bound variables and the
+rest are member-free and resolve at the constructors' stage
+environment (`rg_auxFree_of_resolve`).  A head that is both a member
+and an auxiliary name is a copy, where the pin fires and drops exactly
+that parameter prefix (`rg_auxName_member_pin`,
+`rg_keepsLoose_spine`). -/
+theorem rg_keepsLoose_memberApp {env envAux : Env} {p : NestedParts} {F : Nat}
+    {fmsA ctorsA₀ : List ConstantVal} {st : ElimState} {b : MutualBlock}
+    {fms : List MutualFormerA}
+    (hfA : nestedAnnotFormers (m := CheckM) (fueledOps mode F) env p.nP p.formers = .ok fmsA)
+    (helim : elimNested env p.nP p.lps (nestedTypes0 p fmsA ctorsA₀) = .ok st)
+    (hb : auxBlock p st = some b)
+    (hcore : checkMutualCore (fueledOps mode F) env b none true = .ok envAux)
+    (hfresh : copiesFresh env p.k st = true)
+    (hchecks : mutualFormerChecks (fueledOps mode F) env b.nP true b.formers = .ok fms)
+    {e : Expr} {T : Name} {us : List Level} {o d : Nat}
+    (hfn : e.getAppFn = .const T us) (hT : T ∈ b.memberNames)
+    (hres : e.constsResolve (consMutualFormers fms env) = true)
+    (hlen : b.nP ≤ e.getAppArgs.length)
+    (htake : e.getAppArgs.take b.nP = structPsAt o b.nP)
+    (hidx : ∀ a ∈ e.getAppArgs.drop b.nP, mentionsMember b.memberNames a = false)
+    (hd : d ≤ o) :
+    RestoreKeepsLoose (restoreTbl p st) d e := by
+  have hnd : b.blockNames.Nodup := (checkMutualCore_inv hcore).1
+  have hlen0 : (nestedTypes0 p fmsA ctorsA₀).length = p.k := by
+    rw [nestedTypes0_length, nestedAnnotFormers_length hfA, NestedParts.k]
+  have hal := elimNested_aligned hlen0 helim
+  have hnP : (restoreTbl p st).nP = b.nP := by
+    rw [restoreTbl_nP, (auxBlock_fields hb).1]
+  by_cases hfree : ∀ n ∈ (restoreTbl p st).auxNames, e.mentionsConst n = false
+  · exact rg_keepsLoose_of_no_aux hfree
+  · obtain ⟨n, hn, hmen⟩ : ∃ n ∈ (restoreTbl p st).auxNames, e.mentionsConst n = true := by
+      rcases Bool.eq_false_or_eq_true
+          ((restoreTbl p st).auxNames.any fun n => e.mentionsConst n) with h | h
+      · obtain ⟨n, hn, hm⟩ := List.any_eq_true.mp h
+        exact ⟨n, hn, hm⟩
+      · exact absurd (auxNames_mention_false h) hfree
+    have hargs : ∀ a ∈ e.getAppArgs, a.mentionsConst n = false := by
+      intro a ha
+      have ha' : a ∈ e.getAppArgs.take b.nP ++ e.getAppArgs.drop b.nP := by
+        rw [List.take_append_drop]; exact ha
+      rcases List.mem_append.mp ha' with hat | had
+      · rw [htake] at hat
+        simp only [structPsAt, List.mem_map, List.mem_range] at hat
+        obtain ⟨k, -, rfl⟩ := hat
+        rfl
+      · exact rg_auxFree_of_resolve hnd hal hb hfresh hchecks
+          (rg_constsResolve_getAppArgs hres a (List.mem_of_mem_drop had)) (hidx a had) n hn
+    have hhead : (Expr.const T us).mentionsConst n = true := by
+      have h1 : (Expr.mkAppN e.getAppFn e.getAppArgs).mentionsConst n = true := by
+        rw [Expr.mkAppN_getApp]; exact hmen
+      rw [rg_mentionsConst_mkAppN, hfn] at h1
+      simp only [Bool.or_eq_true, List.any_eq_true] at h1
+      rcases h1 with h | ⟨a, ha, h⟩
+      · exact h
+      · rw [hargs a ha] at h
+        exact absurd h (by simp)
+    obtain rfl : T = n := by simpa [Expr.mentionsConst] using hhead
+    obtain ⟨pin, hpin, hrecm⟩ := rg_auxName_member_pin hfA helim hb hcore hn hT
+    exact rg_keepsLoose_spine hfn hpin hrecm hn (by rw [hnP]; exact hlen) hd
+      (by rw [hnP]; exact htake)
+
+/-- **A RECURSIVE OR REFLEXIVE FIELD KEEPS ITS VARIABLES**: the
+positivity walk's own verdict hands over the field's shape
+(`rg_mutualPositivity_spine`) — a `∀`-prefix of member-free domains,
+on which the restore is the identity, over a member application at the
+frame the prefix reached, which `rg_keepsLoose_memberApp` settles.
+`rg_keepsLoose_stripPis` composes the two. -/
+theorem rg_keepsLoose_of_positivity {env envAux : Env} {p : NestedParts} {F : Nat}
+    {fmsA ctorsA₀ : List ConstantVal} {st : ElimState} {b : MutualBlock}
+    {fms : List MutualFormerA}
+    (hfA : nestedAnnotFormers (m := CheckM) (fueledOps mode F) env p.nP p.formers = .ok fmsA)
+    (helim : elimNested env p.nP p.lps (nestedTypes0 p fmsA ctorsA₀) = .ok st)
+    (hb : auxBlock p st = some b)
+    (hcore : checkMutualCore (fueledOps mode F) env b none true = .ok envAux)
+    (hfresh : copiesFresh env p.k st = true)
+    (hchecks : mutualFormerChecks (fueledOps mode F) env b.nP true b.formers = .ok fms)
+    {dom : Expr} {i : Nat} {kd : RecFieldKind} {m' : Nat}
+    (hkd : kd = .recursive ∨ kd = .reflexive)
+    (hpv : mutualPositivity b.members3 b.lps b.nP i dom 0 = (kd, m'))
+    (hres : dom.constsResolve (consMutualFormers fms env) = true) :
+    RestoreKeepsLoose (restoreTbl p st) i dom := by
+  have hnd : b.blockNames.Nodup := (checkMutualCore_inv hcore).1
+  have hlen0 : (nestedTypes0 p fmsA ctorsA₀).length = p.k := by
+    rw [nestedTypes0_length, nestedAnnotFormers_length hfA, NestedParts.k]
+  have hal := elimNested_aligned hlen0 helim
+  have hmem3 : b.members3.map (·.1) = b.memberNames := members3_map_fst b
+  obtain ⟨j, bs, body, T, usT, hs, hds, hfn, hT, htake, hlenA, hidx⟩ :=
+    rg_mutualPositivity_spine dom i 0 hpv hkd
+  have hbsLen : bs.length = j := stripPis_length _ hs
+  obtain ⟨hbsRes, hbodyRes⟩ := Expr.constsResolve_stripPis j hs hres
+  refine rg_keepsLoose_stripPis j hs (fun l hl => ?_) ?_
+  · have hmemL : bs.getD l default ∈ bs := by
+      rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem (by omega)]
+      exact List.getElem_mem _
+    exact rg_keepsLoose_of_no_aux (rg_auxFree_of_resolve hnd hal hb hfresh hchecks
+      (hbsRes _ hmemL) (by rw [← hmem3]; exact hds _ hmemL))
+  · exact rg_keepsLoose_memberApp hfA helim hb hcore hfresh hchecks hfn (hmem3 ▸ hT)
+      hbodyRes hlenA htake (fun a ha => by rw [← hmem3]; exact hidx a ha) (by omega)
+
+/-- **EVERY FIELD DOMAIN AND THE RESIDUAL OF A STORED SCRATCH
+CONSTRUCTOR KEEP THEIR VARIABLES** — `rg_structProjGuards_restoreNested`'s
+two premises, produced from the run.  The classifier's verdict at a
+field is either "mentions no member", where the restore is the
+identity, or "recursive/reflexive", where the field carries the
+parameter spine at its own frame (`rg_keepsLoose_of_positivity`); the
+residual carries it by `structCtorResidOk`, whose shape the
+constructor's stage already read back (`checkMutualCtorG_shape`). -/
+theorem rg_keepsLoose_ctor_of_run {env envAux : Env} {p : NestedParts} {F : Nat}
+    {fmsA ctorsA₀ : List ConstantVal} {st : ElimState} {b : MutualBlock}
+    {fms : List MutualFormerA}
+    (hfA : nestedAnnotFormers (m := CheckM) (fueledOps mode F) env p.nP p.formers = .ok fmsA)
+    (helim : elimNested env p.nP p.lps (nestedTypes0 p fmsA ctorsA₀) = .ok st)
+    (hb : auxBlock p st = some b)
+    (hcore : checkMutualCore (fueledOps mode F) env b none true = .ok envAux)
+    (hfresh : copiesFresh env p.k st = true)
+    (hchecks : mutualFormerChecks (fueledOps mode F) env b.nP true b.formers = .ok fms)
+    {isProp : Bool} {ctorsA : List (ConstantVal × Nat)} {sortss : List (List Level)}
+    (hctors : checkMutualCtors (fueledOps mode F) (consMutualFormers fms env) b fms isProp true
+      b.ctors = .ok (ctorsA, sortss))
+    {kinds : List (List (RecFieldKind × Nat))}
+    (hkinds : classifyMutualKinds (m := CheckM) b.members3 b.lps b.nP ctorsA = .ok kinds)
+    {J : Nat} {cA : ConstantVal × Nat} (hJ : ctorsA[J]? = some cA) :
+    ∃ (cbs : List (Expr × BinderMeta)) (resid : Expr),
+      cA.1.type.stripPis (b.nP + cA.2) = some (cbs, resid) ∧
+      (∀ i, i < cA.2 →
+        RestoreKeepsLoose (restoreTbl p st) i (cbs.getD (b.nP + i) default).1) ∧
+      RestoreKeepsLoose (restoreTbl p st) cA.2 resid := by
+  have hmem3 : b.members3.map (·.1) = b.memberNames := members3_map_fst b
+  have hnames : fms.map (·.cvTa.name) = b.memberNames := mutualFormerChecksG_names hchecks
+  have hfmsLen : fms.length = b.k := by
+    rw [mutualFormerChecksG_length hchecks]; rfl
+  obtain ⟨hlenA, -, hall⟩ := checkMutualCtors_inv hctors
+  have hJl : J < b.ctors.length := by
+    have h := (List.getElem?_eq_some_iff.mp hJ).1
+    omega
+  obtain ⟨c, hc⟩ : ∃ c, b.ctors[J]? = some c := ⟨_, List.getElem?_eq_getElem hJl⟩
+  obtain ⟨hnF, sorts, -, hrun⟩ := hall J c cA hc hJ
+  obtain ⟨⟨ty', hdoor⟩, ⟨cbs, es, hstrip, -⟩, -⟩ := checkMutualCtorG_shape hrun
+  rw [← hnF] at hstrip
+  have hcty : cA.1.type.constsResolve (consMutualFormers fms env) = true := hdoor.resolve
+  obtain ⟨hmapM, hnegA, hunA, -⟩ := classifyMutualKinds_inv hkinds
+  obtain ⟨ks, hksJ, hks⟩ := rg_mapM_at hmapM J cA hJ
+  have hksMem : ks ∈ kinds := List.mem_of_getElem? hksJ
+  have hnegJ : ks.any (·.1 == RecFieldKind.negative) = false := by
+    rcases Bool.eq_false_or_eq_true (ks.any (·.1 == RecFieldKind.negative)) with h | h
+    · have hany : (kinds.any fun l => l.any (·.1 == RecFieldKind.negative)) = true :=
+        List.any_eq_true.mpr ⟨ks, hksMem, h⟩
+      rw [hnegA] at hany
+      exact absurd hany (by simp)
+    · exact h
+  have hunJ : ks.any (·.1 == RecFieldKind.unsupported) = false := by
+    rcases Bool.eq_false_or_eq_true (ks.any (·.1 == RecFieldKind.unsupported)) with h | h
+    · have hany : (kinds.any fun l => l.any (·.1 == RecFieldKind.unsupported)) = true :=
+        List.any_eq_true.mpr ⟨ks, hksMem, h⟩
+      rw [hunA] at hany
+      exact absurd hany (by simp)
+    · exact h
+  obtain ⟨hcbsRes, hresidRes⟩ := Expr.constsResolve_stripPis (b.nP + cA.2) hstrip hcty
+  have hcbsLen : cbs.length = b.nP + cA.2 := stripPis_length _ hstrip
+  -- the member the constructor returns is a member of the block
+  have hmemT : (fms.getD c.member default).cvTa.name ∈ b.memberNames := by
+    have hmlt : c.member < fms.length := by
+      have hall' := (checkMutualCore_inv hcore).2.2.1
+      have := List.all_eq_true.mp hall' c (List.mem_of_getElem? hc)
+      simp only [decide_eq_true_eq] at this
+      omega
+    have : fms.getD c.member default ∈ fms := by
+      rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hmlt]
+      exact List.getElem_mem _
+    rw [← hnames]
+    exact List.mem_map_of_mem this
+  refine ⟨cbs, _, hstrip, fun i hi => ?_, ?_⟩
+  · have hdomMem : cbs.getD (b.nP + i) default ∈ cbs := by
+      rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem (by omega)]
+      exact List.getElem_mem _
+    obtain ⟨-, hcase⟩ := rg_mutualCtorKinds_at hks hstrip hnegJ hunJ hi
+    rcases hcase with hmf | ⟨m', h | h⟩
+    · exact rg_keepsLoose_of_no_aux (rg_auxFree_of_resolve (checkMutualCore_inv hcore).1
+        (elimNested_aligned (by
+          rw [nestedTypes0_length, nestedAnnotFormers_length hfA, NestedParts.k]) helim)
+        hb hfresh hchecks (hcbsRes _ hdomMem) (by rw [← hmem3]; exact hmf))
+    · exact rg_keepsLoose_of_positivity hfA helim hb hcore hfresh hchecks (Or.inl rfl) h
+        (hcbsRes _ hdomMem)
+    · exact rg_keepsLoose_of_positivity hfA helim hb hcore hfresh hchecks (Or.inr rfl) h
+        (hcbsRes _ hdomMem)
+  · rcases Nat.eq_zero_or_pos cA.2 with h0 | hpos
+    · rw [h0]
+      intro e' _ q hq
+      exact absurd hq (Nat.not_lt_zero q)
+    · obtain ⟨hidxfree, -⟩ := rg_mutualCtorKinds_at hks hstrip hnegJ hunJ hpos
+      have hargs : (Expr.mkAppN (.const (fms.getD c.member default).cvTa.name
+            (b.lps.map Level.param)) (structPsAt cA.2 b.nP ++ es)).getAppArgs
+          = structPsAt cA.2 b.nP ++ es := by
+        rw [Expr.getAppArgs_mkAppN]
+        rfl
+      have hpsLen : (structPsAt cA.2 b.nP).length = b.nP := structPsAt_length _ _
+      refine rg_keepsLoose_memberApp hfA helim hb hcore hfresh hchecks
+        (by rw [Expr.getAppFn_mkAppN]; rfl) hmemT hresidRes ?_ ?_ ?_ (Nat.le_refl _)
+      · rw [hargs, List.length_append, hpsLen]
+        omega
+      · rw [hargs, List.take_left' hpsLen]
+      · intro a ha
+        rw [← hmem3]
+        exact hidxfree a ha
+
+/-! ## The guards, discharged -/
+
+/-- **THE PROJECTION GUARDS OF A RESTORED SCRATCH CONSTRUCTOR ARE THE
+ONES THE SCRATCH BLOCK RECORDED** (task #315 M7-2), with nothing left
+for the consumer to discharge: the nested route re-uses the scratch
+block's `ProjTable`, whose `guards` were computed at the AUXILIARY
+constructor's type, and the model's table clause asks for the guards of
+the RESTORED one.  They are the same list —
+`rg_structProjGuards_restoreNested`'s two premises are the fields' and
+the residual's own shapes, and `rg_keepsLoose_ctor_of_run` reads both
+off the scratch block's recorded checks (the field classification, the
+positivity walk's verdict and the residual's return-type test). -/
+theorem rg_structProjGuards_of_run {env envAux : Env} {p : NestedParts} {F : Nat}
+    {fmsA ctorsA₀ : List ConstantVal} {st : ElimState} {b : MutualBlock}
+    {fms : List MutualFormerA}
+    (hfA : nestedAnnotFormers (m := CheckM) (fueledOps mode F) env p.nP p.formers = .ok fmsA)
+    (helim : elimNested env p.nP p.lps (nestedTypes0 p fmsA ctorsA₀) = .ok st)
+    (hb : auxBlock p st = some b)
+    (hcore : checkMutualCore (fueledOps mode F) env b none true = .ok envAux)
+    (hfresh : copiesFresh env p.k st = true)
+    (hchecks : mutualFormerChecks (fueledOps mode F) env b.nP true b.formers = .ok fms)
+    {isProp : Bool} {ctorsA : List (ConstantVal × Nat)} {sortss : List (List Level)}
+    (hctors : checkMutualCtors (fueledOps mode F) (consMutualFormers fms env) b fms isProp true
+      b.ctors = .ok (ctorsA, sortss))
+    {kinds : List (List (RecFieldKind × Nat))}
+    (hkinds : classifyMutualKinds (m := CheckM) b.members3 b.lps b.nP ctorsA = .ok kinds)
+    {J : Nat} {cA : ConstantVal × Nat} (hJ : ctorsA[J]? = some cA)
+    {ctyR : Expr} (hres : restoreNested (restoreTbl p st) cA.1.type = .ok ctyR)
+    (sorts : List Level) :
+    structProjGuards ctyR b.nP cA.2 sorts = structProjGuards cA.1.type b.nP cA.2 sorts := by
+  obtain ⟨cbs, resid, hstrip, hdoms, hresid⟩ :=
+    rg_keepsLoose_ctor_of_run hfA helim hb hcore hfresh hchecks hctors hkinds hJ
+  exact rg_structProjGuards_restoreNested (by rw [restoreTbl_nP, (auxBlock_fields hb).1])
+    hstrip hres hdoms hresid sorts
 
 end ConLeche
