@@ -82210,9 +82210,23 @@ gate's record.  And `bad/nested-unused-param` is byte-identical to
 `E=reject` — so that one is gated twice over.
 
 `good/init-prelude` accepts 1 777 declarations in 1 s and
-`good/perf/grind-ring-5` 2 185 in 3 s; `good/perf/app-lam` accepts in
-**24 s**, against the 119 s / 7.6 GB this document recorded for it at
-task #78 — the figure is stale in our favour.
+`good/perf/grind-ring-5` 2 185 in 3 s.
+
+**A RECORDED BENCHMARK IS STALE IN OUR FAVOUR BY FIVE TIMES, AND ITS
+MEMORY FIGURE IS GONE ENTIRELY** — a finding in its own right, because
+the next person to cite the old number will be citing it against a
+checker that no longer behaves that way.  This document records
+`good/perf/app-lam` at **119 s / 7.6 GB peak RSS** (§"Measured", task
+#78's interning work).  Measured here, three runs under
+`ulimit -v 16000000`: **24.1 s / 24.7 s / 24.4 s wall, peak RSS
+2 787 MB every time.**  So it is **4.9× faster and uses 2.7× less
+memory than the figure on record** — and 7.6 GB was the number that
+made it look like a stream one could only run under a raised limit,
+which is no longer true at all.  Nothing in the arc set out to speed
+this stream up; it is the accumulated effect of the work since #78 on a
+DAG-shaped input, and it went unnoticed precisely because **the stream
+is in no gate** — the same reason the `mintedAt` defect went unnoticed,
+with the sign reversed.
 
 ##### (c) DOES THE SAME GAP EXIST ELSEWHERE — every gate classified
 
@@ -82332,6 +82346,55 @@ Exit codes are the arena convention (0 accept, 1 reject, 2 decline,
 | 0 | `good/undecidability/alg-conv-trans-acc-right.ndjson` | 0s | 40 |
 | 0 | `good/undecidability/alg-conv-trans-quot-right.ndjson` | 0s | 7 |
 | 1 | `good/undecidability/subject-reduction-redex.ndjson` | 0s | - |
+
+##### (f) WHAT WAS THEN PINNED (authorised 2026-09-18, and done BEFORE the flip)
+
+The maintainer authorised the recommendation immediately rather than
+after the deletion step, for a reason this audit supplied: **the flip
+changes decline behaviour across the board** — shapes that decline
+today through one path will decline at the dispatch with a different
+message — so every row expecting a decline has to be re-read.  Pinning
+these twenty-four BEFORE it means the flip's effect on them is
+MEASURED; pinning them after would have recorded post-flip behaviour as
+though it were the baseline.
+
+Purely additive, no existing row's expectation touched, no gate script
+and no corpus-selection change:
+
+* **`tests/arena-expected.txt`: +24 rows, 138 → 162.**  The twenty
+  `bad/` soundness negatives (18 top-level + the two `bad/perf/`
+  refutation streams) at the measured verdict — 18 at `1`, two at `2`
+  with the decline's reason on the line above — and the four cheap
+  `good/` ones (`init-prelude` at `0`, the three non-standard-axiom
+  declines at `2`).  `good/perf/` stays out.  `good/undecidability/`
+  stays out: three accepts free to add, and the fourth is already
+  pinned through its byte-identical e2e twin.
+* **`tests/e2e-expected.txt`: +3 rows, 196 → 199.**  The three
+  `nat_*_bad_base` patch sources at `0`, with the comment naming them
+  as the sources the `nat_*_wrong` rows were made from and recording
+  that the preprocessor they were built for is gone.  **The files are
+  KEPT**: they are the only way to regenerate the real rows, and
+  deleting test data to tidy a ledger is the wrong trade.
+
+**Verdict stability was checked before pinning anything**, because the
+battery re-runs the arena half four times: every one of the
+twenty-eight candidates gives the SAME exit code at the default mode,
+`--trusted`, `--jobs=1` and `--jobs=4`, so no
+`tests/trusted-expected.txt` override belongs with any of them and the
+sweeps stay green.
+
+**Cost, measured rather than asserted** (the arena half's loop
+replicated verbatim in a scratch script, median of 3 runs each, the
+gate itself untouched): **138 rows in 1.1 s → 162 rows in 1.5 s**, i.e.
+**+0.4 s**, and the three e2e rows add **0.04 s**.  The half runs four
+times in the full battery, so the whole cost of the audit's arming is
+**under two seconds**.
+
+**One honesty note the script's own text now carries**: `arena_half`
+counts `good/*`, not `good/tutorial/*`, so its summary line reads
+**91/96** where it read 90/92 and the word "tutorial" in that label is
+no longer accurate.  Changing the script was not authorised and is not
+done; the count is right, the label is the script's.
 
 **The honest summary is that the question closes without a defect.**
 Nothing exits 3, nothing unsound accepts, the one `good/` reject is a
