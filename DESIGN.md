@@ -94023,7 +94023,13 @@ own-edge components", which is what the measure is.
 | the outer induction (probably `pins_le_of_instanceLe` at the component label) | this lane | 1 |
 | `hout` discharged from the induction hypothesis at `ordF`-right fields | this lane | 1 |
 
-**3–4 sessions for this lane, plus 1–2 for the kernel measure.**
+**3–4 sessions for this lane, plus 1–2 for the kernel measure** —
+**VOID 2026-09-18 (§U.89): premise (P1) is REFUTED by the count.**  The
+own-contracted not-own graph has a cycle in six accepted blocks (one
+fixture, five ordinary library blocks), so no measure constant along
+own edges and strictly decreasing along not-own ones exists.  The bare
+not-own graph IS acyclic everywhere — the contraction creates the
+cycles, which is why (P3) had to be surfaced before the count ran.
 
 Premises, named rather than assumed:
 
@@ -94252,3 +94258,109 @@ component-based measure and its two laws.  This section's (a) — (S1),
 (S2), (P2) — is exactly what that record would supply, stated on the
 model side; the collapse of (e) is what keeps today's statements valid
 while it does not exist.
+
+#### U.89 — L-E session 34: the simultaneous conjunction already exists, and the restriction bites it EQUALLY — the impasse is structural (lane L-E, 2026-09-18)
+
+The count came back CYCLIC, so (P1)/(P2) fail and §U.87's 3–4 is void.
+The last question — does the proof need an ORDER at all, or can the
+instance's entry laws be closed simultaneously, measure-free? — is
+answered: **the simultaneity is already there and is not the missing
+ingredient, and the plain-fits restriction bites the conjunction
+exactly as it bit the re-pointed operator.  The impasse is
+structural.**
+
+##### (a) THE SIMULTANEOUS STATEMENT IS TODAY'S
+
+`instanceLe_of_transfer`'s conclusion —
+`∀ c b, c < d.kT → b < kB → R c b → FamLe (d.idxT ψ ρp c) (d.famAt … c) (LB b)`
+— IS the conjunction over the instance's classes, and it is proved by
+ONE application of `famAt_le_of_TClosed` at `T := relMeet …`, with no
+measure anywhere.  The cyclic dependency is already internal to a
+single proof.
+
+So the coordinator's question is well posed and its answer is not
+"build the simultaneous version": we have it.  What we do not have is
+one premise of it.
+
+##### (b) THE GAP IS INSIDE, AT ONE PREMISE
+
+Showing the meet `TClosed` has two halves: the `famAt` half is
+`famAt_TClosed`, free; the `L⁺` half is `htrans`, which must build the
+BLOCK-side fit.  At an `ordF`-right field the block's copy is
+RECURSIVE, so its fit needs the element in `slotSet … (L⁺ q')`, while
+the element is in the container's DOMAIN — the full carrier at the
+covering class.  That is the only gap, and it is where every session
+since §U.83 has arrived.
+
+##### (c) IT BITES EQUALLY — and this is the general form of the wall
+
+§U.85 met the plain-fits restriction as a property of
+`PinRecLaws.ind`, which looked construction-specific.  It is not.  The
+restriction is a property of the FIT:
+
+```lean
+ChainFit … X t mm j fs :=
+  FitsFrom ((d.rss mm).getD j []) (d.slotAt ψ X mm j) 0 ρp ((d.Fss mm ψ).getD j []) fs ∧ …
+```
+
+and `FitsFrom` constrains the tuple ONLY where `rss = true`
+(§U.83 (b)).  Every fibre law in the tier is stated over it —
+`IsBlockModel.fibre` for the members, `PinRecLaws.fibre` for the
+pins — and therefore so is every leastness derived from them:
+`famAt_le_of_TClosed`, `PinRecLaws.ind`, `TClosed` itself.
+
+**Consequence, stated generally: no leastness obtainable from the block
+models can place a requirement at an ORDINARY field position.**  A
+simultaneous conjunction is proved by such a leastness or not at all,
+so simultaneity gives no purchase: the closure obligation is checked
+against fits that leave the `ordF`-right position unconstrained, and
+the element there ranges over the full carrier regardless of what the
+proof is conjoining or inducting over.
+
+That is why the two routes closed the same way.  Stratification failed
+because no order exists (the count); the conjunction fails because the
+only tool that proves conjunctions here cannot see the position that
+needs constraining.  **Both are the same wall, and it is in the
+abstraction, not in either construction.**
+
+##### (d) THE IMPASSE, in its most general form
+
+The in-instance case needs a leastness for the containers' carriers
+whose closure obligation CONSTRAINS ordinary positions.
+
+* the tier has none — (c);
+* and it cannot have one as block-model data — §U.84 (b): the class an
+  ordinary field's instantiated domain lands on is a function of the
+  pin's COMPONENTS, so a clause quantified over all frames would be
+  false.
+
+**These two findings close the space.**  Any fix has to come from
+outside the block-model abstraction: the transfer would have to carry
+its OWN inductive presentation of the containers' carriers rather than
+consume the block models' fibre laws, so that its induction can
+constrain ordinary positions.  That is re-deriving the containers'
+semantics inside the transfer — categorically larger than anything
+priced in this arc, and not something to estimate from here.
+
+##### (e) DONE WITH THIS ROUTE
+
+Seven read-only sessions have bounded it: the joint object already
+existed (§U.81), monotonicity was free (§U.82), the bisimulation form
+relocated the circle (§U.83), the re-pointing cannot be block-model
+data (§U.84), its leastness is unavailable (§U.85), the case cannot be
+stated away (§U.86), the stratification was priced (§U.87–§U.88) and
+its premise refuted by the count.  The obstruction of (d) is what to
+take upward.
+
+##### (f) UNAMBIGUOUSLY: nothing landed is affected
+
+Every theorem this lane has landed stays landed.  `hout` remains a
+named premise.  The OUT-OF-INSTANCE case, step (ii), step (iv) and the
+residual's discharge go through today exactly as they did before this
+arc began.  Eight read-only sessions, no line of the proof tree
+touched.
+
+NOT STARTED.  No code changed this session.
+
+Gates: `lake build` and `lake test` warning-free at the session's
+commit; text gates green.
