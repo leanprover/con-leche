@@ -104304,3 +104304,50 @@ need it**: what the induction needs is a well-founded order in which
 the constant-headed references decrease, and declaration order is one
 witness among others — while the same-container exclusion, which is the
 load-bearing half, is structural already.
+
+##### THE CONJUNCT'S HYPOTHESIS, CHOSEN BY WHAT THE CONSUMER ALREADY HOLDS
+
+Of the three shapes the finding named, the one to take is **(i), in the
+consumer's own words**:
+
+```lean
+    (hnat : ∀ c, (c ∈ natOpNames ∨ c ∈ natDivModNames) →
+      natOpStored env c = true → natOpGuard env c = true)
+```
+
+which is `EnvFacts.nat_op_guard` **verbatim** — the field `EnvS`
+supplies and that `checkDecl` establishes by declining a stream that
+stores one of the sixteen names unguarded.  The Model tier's
+`EnvModelM` derives it (`nat_op_guard := …` off `nat_ops`/`div_mod`),
+so every consumer of the normalisation's preservation lemma holds it
+already and discharges the new premise with a field projection.  **No
+new obligation on anyone.**
+
+It is also the WEAKER of the two candidates that qualify.  The
+unconditional form — "the `Nat` trio and the two `Bool` constructors
+resolve" — is what the proof consumes, but it is strictly stronger:
+where no guarded operation is stored, `reduceNat` cannot fire and
+nothing is needed.  The conditional form says exactly that, and the two
+facts the proof needs are `natOpGuard`'s own first and third conjuncts
+at the operation that fired.
+
+**What the proof needs, and where each piece comes from.**
+
+* the `Nat` trio, for a literal result — `natOpGuard`'s first conjunct
+  (`natLitSupported`).  It is NOT available from the reduced arguments:
+  `rawNatLit?` accepts `Nat.zero` as well as a literal, so
+  `Nat.add Nat.zero Nat.zero` reduces to a literal whose resolution
+  asks for `Nat` and `Nat.succ` that no argument mentioned;
+* the two `Bool` constructors, for a `Nat.beq`/`Nat.ble` result —
+  `natOpGuard`'s third conjunct, which is conditional on exactly those
+  two names plus the WF-pinned ones, and `natOpResult` produces a
+  `Bool` constant at exactly those two.
+
+**The remaining work is the induction**, a line-for-line twin of
+`whnfPres_looseBVars` with the substitutions the helper family already
+supplies, plus ONE new inversion: `reduceNat` sharpened to expose the
+operation that fired (`natLitSupported env = true` with a literal
+result, or a stored guarded `c` with `natOpResult c a b = some e₂`),
+so that the guard can be applied at that `c`.  That inversion is what
+makes the chosen shape usable, and it is the reason the shape was
+checked before being reported rather than after.
