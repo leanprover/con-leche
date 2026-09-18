@@ -308,7 +308,7 @@ theorem declNested_of (hμ : μ.verifiedChecks = true) {F : Nat} {env envOut : E
     Nonempty (EnvModelM V μ envOut) := by
   obtain ⟨h0, h1, st, b, envAux, stored, ctorsR, cvRms, cvRns, rulesM, rulesN, fmsA, ctorsA,
     hfA, hcA, helim, hcount, hfresh, hcont, hb, haux, hstored, hclosed, hpinsAux, hcaps, hsrc,
-    -, hgrp, -, hsc, -, -, hkinds, -, -, -, -, -, hpins₁, hctors, hrm, hrn, -, -, hrulesM, hrulesN, htbl,
+    -, hgrp, -, hsc, -, -, hkinds, -, -, -, -, -, hpins₁, hctors, hrm, hrn, -, -, hrulesM, hrulesN, -, htbl,
     hpinsOut, hcnt, hrecs, -, -, -⟩ := h
   -- the `-` after `hsrc` is K.31's `pinsDistinct` conjunct: named for the
   -- identities' discharge (`NestedPinsIdent`, lane L-B), not consumed here;
@@ -329,7 +329,8 @@ theorem declNested_of (hμ : μ.verifiedChecks = true) {F : Nat} {env envOut : E
   -- the two `-` after `hrn` are K.39's `Nodup` of the restored recursors'
   -- names and K.45's disjointness of those names from the auxiliary ones,
   -- which the provision loop's conses and the restore's agreement need,
-  -- and nothing on this path reads
+  -- and nothing on this path reads; the `-` after `hrulesN` is K.50's
+  -- `nestedRuleBitsOk`, which `nestedRecsStore`'s `hctorStored` reads
   -- THE CERTIFICATION-ONLY RECORDS (K.35's follow-up): the run carries them
   -- as `certOnly μ …`; this theorem is stated under `hμ`, at which the gate
   -- is the Bool the consumers below expect

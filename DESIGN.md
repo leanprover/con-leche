@@ -88499,3 +88499,137 @@ of the kind, and the exclusion rests on the pin's own freshness
 conjunct, so a fire would be a finding about the environment's history
 rather than about the stream.
 
+#### K.50 — the restored rules' rescue bits, and why they are NOT `false` (2026-09-18, task #315, lane M7-2's DESIGN §U.29 (gggg))
+
+##### (a) The obligation, and why it is a transport
+
+`nestedRecsStore`'s `hctorStored` has three conjuncts; the first is
+`restoreRules_at`'s verbatim and **the other two are not available, for
+a structural reason**.  `restoreRules` builds the restored rule as
+`{ rl with ctor := ctor, … }`, so `r.k` and `r.eta` are the SCRATCH
+rule's, unchanged, while `r.ctor` at a mimic is the RESTORED
+constructor.  What the scratch bits mean is `mutualRules_bits` at
+`envAux`; what `ConstWF` asks is
+`r.k = true → recRuleKOf (provision).find? r.ctor = true` and its η
+twin.  The two differ in BOTH arguments — a different constructor name
+AND a different environment — so the obligation is a transport across
+`consNestedCtors`' capability records, which no lemma in the tree
+relates.
+
+##### (b) THE REQUEST'S FORM IS REFUTED, and the measurement is the finding
+
+§U.29 (gggg) enumerated three ways out and recommended (i): a
+`certOnly` Bool asking the restored rules' bits to be **`false`**, "on
+the argument that a mimic's constructors have fields".
+
+**That argument is right about K and wrong about η, and the corpus says
+so loudly.**  The K condition is "this rule is its recursor's only one,
+its constructor has no fields, and that constructor's inductive is
+stored with the K capability" — field-counting, and it fails at every
+rule the route restores.  The η condition is nothing of the kind: it is
+about a STRUCTURE's single constructor and the recursor not being a
+projection function (`recRuleEtaOf`).  A copy of a structure-like
+container IS structure-like, so its restored rule legitimately carries
+η.  Measured, with the request's form in the tree:
+
+* nested-shadow **20/27** — SEVEN fixtures carry an η bit;
+* **35 of the 41** Mathlib cone blocks.
+
+Recording `false` would therefore have DECLINED 35 of 41 cone blocks,
+which the maintainer's standing rule forbids.
+
+##### (c) WHAT LANDED: the two conjuncts themselves, at the provision
+
+```lean
+def nestedRuleBitsOk (find? : Name → Option ConstantInfo)
+    (rows : List (ConstantVal × List RecRule)) : Bool :=
+  rows.all fun (cvRa, rs) => rs.all fun r =>
+    (!r.k || recRuleKOf find? r.ctor) &&
+      (!r.eta || recRuleEtaOf find? cvRa.name r.ctor)
+```
+
+— `hctorStored`'s other two conjuncts verbatim, recorded at the
+provisioned environment where `ConstWF` asks them, over
+`cvRms.zip rulesM ++ cvRns.zip rulesN`.  **It holds: nested-shadow
+27/27 and 41 of 41 cone blocks**, with zero fires.  `certOnly`-gated,
+`.internal` on failure, one conjunct of `DeclNestedRun` and of
+`checkNested_inv`.
+
+##### (d) IT TAKES THE LOOKUP FUNCTION, and that was measured, not assumed
+
+The coordinator's own caveat applied here ("this one's lookups are per
+restored rule at the provisioned environment, so measure before
+assuming which form is cheap"), and unlike K.49 the measurement said
+YES:
+
+* with `env.find?` on the pure `Env`: the Mathlib cone at
+  **182 562 247 315 / 182 559 327 101 against K.49's 182 466 357 552 —
+  +0.053 %**;
+* **attributed**: a stub keeping the list work and removing only the
+  lookups comes out at **182 472 584 311**, i.e. the list work is free
+  and ALL of it is the `find?`s;
+* so the Bool takes the LOOKUP FUNCTION rather than an environment, the
+  cached mirror hands it `feR.find?` (the driver's index) and the pure
+  route — which the run relation records — hands it `envR.find?`.  The
+  cone returns to **182 473 475 446 / 182 481 066 576 / 182 474 601 678
+  — +0.004 %, free**.
+
+**K.49 AND K.50 ARE THE PAIR TO CITE FOR THAT RULE.**  Same shape — a
+cert-only Bool whose lookups may miss or hit at a large environment —
+and OPPOSITE conclusions, for exactly the reason K.49's own rule gives:
+**the cost of a lookup is the environment's size AT THAT POINT, not the
+checker's worst case.**  K.49's lookups run six times per stream at its
+HEAD, where the constant list is a handful of entries, so the index
+would have bought nothing and cost the cached↔pure simulation a threaded
+invariant; K.50's run per η-carrying restored rule at a provisioned
+environment already holding the whole prefix, so the index is worth
+0.05 % of Mathlib-cone time.  Neither answer is transferable; both were
+measured.
+
+##### (e) MEASURED and CONTROLLED
+
+* `tests/e2e/tower_nested.ndjson` FIRST: **518 105 418 / 518 097 903 /
+  518 100 267 instructions:u against K.49's 518 098 985 / 518 097 554 /
+  518 097 072 — the same band**;
+* the Mathlib nested cone: exit 0, **4 926 accepted**, 41/41 `accept`,
+  the figures in (d) — **+0.004 %**;
+* **init-full**: exit 0, **53 093 accepted**, **539 232 587 077 against
+  K.49's 539 225 900 681 — +6.7 M, inside the noise**;
+* nested-shadow **27/27**; `tests/arena.sh` **EXIT 0**.
+
+**Two negative controls, and the second is a NULL result that belongs in
+the record:**
+
+* **the request's `false` form** (`!r.k && !r.eta`): nested-shadow
+  **20/27** and **35 of the 41** cone blocks — (b)'s refutation, and the
+  control that shows the η conjunct is carrying real content;
+* **the K disjunct dropped** (`recRuleKOf find? r.ctor` required
+  outright): nested-shadow **3/27** and **41 of 41** cone blocks.  So
+  `recRuleKOf` holds at essentially NO restored rule — which means the K
+  half of this record is carried entirely by `!r.k`, i.e. **the K
+  conjunct is vacuous on both corpora**.  It is kept because
+  `hctorStored` asks for it and because a future container could make it
+  say something; the record says plainly that today it does not.
+
+Both patches were reverted by inverse string replacement and the rebuilt
+binary is byte-identical to the pre-control one.
+
+**Ledger row**: CERT-ONLY, category **(S)** — the bits are stamped by
+OUR `recRuleBits` at OUR scratch install and re-checked against OUR
+provisioned environment; official stamps its own rules the same way and
+compares nothing across a restore, because official's restore has no
+second environment to compare with.  A fire would be a finding about
+`restoreRules` copying a bit that the restored constructor does not
+earn, never about a stream.
+
+**AND THE ROW CARRIES A CAVEAT, so that its presence is not mistaken for
+coverage: the K half of this record says NOTHING today.**  Control 2
+above measures it — `recRuleKOf` holds at essentially no restored rule,
+so the conjunct is discharged by `!r.k` at every rule of both corpora
+and would be discharged by it if `recRuleKOf` were replaced by `false`.
+Only the η half has content.  The K half is kept because `hctorStored`
+asks for it and because a container that made it say something would
+otherwise slip through unchecked — but anyone reading this row as
+evidence that the K rescue path is exercised would be reading it
+wrong.
+
