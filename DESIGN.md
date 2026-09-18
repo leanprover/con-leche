@@ -112637,3 +112637,81 @@ warning-free: OK (a run that could have failed)
 `tests/shake.sh` and `tests/no-local-paths.sh` OK.
 
 Residual 3 is still open; this section changes no accept set.
+
+#### PINF: the maintainer's question answered — (3), and the clause is on the record with ONE producer (lane PINF, 2026-09-18)
+
+*Do we need unique block models at all?  Can the expansion at the use
+site not be ONE valid model of the container, without being equal to any
+other?*  The principle is right and it is the one this row should be
+built on; it does not reach, and the reason is a single asymmetry
+between MEMBERS and PINS that is worth recording whatever is built next.
+
+##### (a) (1) — NO, and the structures were opened, not grepped
+
+`ContainerModeled`'s sixteen fields are `k namesLen nP reps typed inj
+member frame ordFree nestMention pinsNotMembers pinNP pinConts ownPins
+pinψ pinParams`; `modeled` reaches `IsBlockModel` through `reps`, whose
+pin clauses are `pinsFound pinShape pinMem pinMono pinLeaf`.  Four of
+these mention a pin's `u`/`pps`/`Ids` at all, and not one is an
+equation against the container's stored declaration:
+
+* `typed`'s `PinsTyped` — a MEMBERSHIP,
+  `interp ρ (acval J ψJ) ∈ˢ interp ρ (mkPisAV ((pinAt q).pps (ψJ ψ)) (.sort (w ψ)))`;
+* `pinShape` — LENGTHS and the Π-bits, nothing else;
+* `pinParams`' `ContainerPinParams` — a CONGRUENCE in the assignment
+  plus a bvar bound;
+* `pinNP` — the drop count `nPJ = ci'.nP`, not the telescope.
+
+`pinsFound` is an `env.find?` existence; `pinMem`/`pinMono`/`pinLeaf`
+are about carriers.
+
+##### (b) (2) — NO, and the asymmetry is the finding
+
+The derivation the question asks for DOES exist one level down, and
+seeing where it stops is the whole answer.  A MEMBER carries a READING
+EQUATION: `IsBlockModel.former` is `FormerData m cvT … (d.ppsM mm)`,
+whose `read` says `denoteMeta m.acval env ψ 0 cvT.type = some (mkPisAV (pps ψ) (.sort …))`.
+`denoteMeta` is a function and `mkPisAV _ (.sort _)` is injective, so
+**two valid models of one group have the same `ppsM` at each member,
+derivably, with no identification of records** — exactly the principle.
+
+A PIN carries no reading equation at all.  Its telescope is constrained
+only by a membership (`PinsTyped`), a length (`pinShape`) and a
+congruence (`pinParams`), and those do not determine it: two valid
+models can record different pin telescopes and both satisfy every
+clause.
+
+And `uM` is a bare field (`BlockModel.uM : Nat → (Name → Nat) → Nat`)
+whose only constraint is `idxOk`'s `IdxOk` membership — so even at a
+MEMBER the index-tuple SORT is not fixed by the declaration.  The
+derivation therefore fails on both halves of `PinCorr`'s remainder, and
+fails for a structural reason rather than for want of a lemma:
+**semantic agreement cannot fix a syntactic datum that no law reads off
+the declaration.**
+
+##### (c) (3) — and the clause wins, on the record with ONE producer
+
+So the choice is between recording and naming, and the standing
+preference ("a clause every producer discharges trivially" over "an
+identification with no uniqueness behind it") picks recording.  The
+comparison the question set up was *two clauses on `ContainerModeled`
+(nine producers)* against *naming the model (½ session, twelve
+named-argument sites)*.  **Neither is what this row needs**, and the
+third option is strictly cheaper than both:
+
+`NestedPinGroupSyn.pinOwn` (landed, `829f8ebd`) states the tie on the
+structure that BINDS `dJ`, which has **exactly one producer**
+(`NestedPinsRun.groupSyn`) — and that producer already holds
+`PinShapes` at the named family, so the discharge is the naming, done
+once, where it is free.  `NestedPinGroupSyn` gained **no parameter**,
+`pinViews` kept its statement, and none of the twelve call sites moved.
+
+It is also NARROWER than the `ContainerModeled` pair would be: it ties
+`dJ`'s pin only to the BLOCK pin that spells it, which is the only case
+the consumer has, so no producer is asked for anything it does not
+already have in hand.
+
+The hold arrived after the piece was built; nothing was reverted,
+because what the hold forbids — a model PARAMETER on
+`NestedPinGroupSyn` — is not what was built, and the answer to the
+question it was protecting is (3).
