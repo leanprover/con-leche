@@ -101773,3 +101773,82 @@ union of this file is what made the shift visible at all.
 
 Nothing else changed: the hole (§U.111 (a)) and the obstruction
 (§U.101 (d)) are untouched, and no theorem moved.
+
+#### (number at the integrator's sync) — L-E: the two threading items, checked before editing — one is already done and one cannot be placed where it was asked for without crossing a lane boundary (lane L-E, 2026-09-18)
+
+Both items are on surfaces this lane owns and both were checked against
+the tree before touching anything.  **Neither produced an edit, and in
+both cases that is the finding.**
+
+##### ITEM 1 — the positivity record's Bool is ALREADY threaded, by this lane
+
+There is exactly one positivity record in the kernel, K.42, THE
+POSITIVITY NORMALISATION ON THE MINTED COPY
+(`Kernel/Inductives/NestedInstall.lean:1932`, the `nestedOrdDomPairs` /
+`nestedOrdNorms` pair).  It is threaded through all four surfaces
+already, by this lane in its session 21:
+
+* `Model/Inductives/NestedPins.lean:869` — the field `NestedPinsRun.hK42`;
+* `Model/Inductives/NestedLoop.lean:499` — `NestedPinsStaged`'s hypothesis;
+* `Model/Inductives/NestedCore.lean:1552` — `NestedCtorsStaged`'s;
+* `Model/Inductives/DeclNestedCore.lean:1171`, `:1221` — named in
+  `declNested_of`'s destructuring and `μ`-eliminated there.
+
+Comparing `DeclNestedRun`'s Bools against `NestedPinsRun`'s fields, the
+conjuncts NOT threaded are K.31 `pinsDistinct`, K.44
+`nestedPinMentionOk`, K.48 `pinsLevelsOk`, K.40 `nestedPinParentOk`,
+K.41 `nestedPinRootPairOk`, K.47 `nestedOwnPinsOk`, K.43
+`blockOwnMimicsOk`, K.39, K.45 and K.50 `nestedRuleBitsOk` — **none of
+which is a positivity record**.
+
+So either the item is already satisfied, or a different Bool is meant.
+**This lane will not thread a guessed conjunct through three active
+surfaces**; one path and line settles it and the wiring is then a few
+minutes, exactly as it was twice before.  (This is the convention
+agreed after the last description-vs-citation exchange, now used in the
+other direction.)
+
+##### ITEM 2 — the clause cannot go on that record without adding a parameter to TWO files of the requesting lane
+
+The identification wanted is "the group's block model IS the
+assignment's model at its container", i.e. `dJ = blockOf mp.base2 ci`.
+Three facts about where it can live:
+
+1. **It needs the PRE-BLOCK model `mp`.**  `NestedPinGroupSyn` is
+   stated at `m : EnvModel V env₂` (the PREFIX model) and does not
+   mention `mp` at all today.  The producer
+   (`NestedPinsRun.groupSyn`, `NestedPins.lean:1275`) builds the model
+   as literally `blockOf mp.base2 ci`, so the clause is free THERE —
+   but it is against `mp`, not `m`;
+2. **and `blockOf m ci` will not substitute.**  `blockOf` is a
+   `Classical.epsilon` over `EnvBlocksOf`, so `blockOf mp.base2 ci` and
+   `blockOf mp₁'.base2 ci` are different choices at different
+   environments; the producer's `ContainerModeled mp₁'.base2 ci (blockOf mp.base2 ci)`
+   (built by `crossEnv`) says the first satisfies the second's
+   predicate, not that the two are equal.  Nothing in the tier gives
+   uniqueness — which is precisely why this lane's own §U.92 assembly
+   had to build its assignment with `Classical.epsilon` rather than
+   name it;
+3. **so the clause brings `mp` onto the structure**, and a structure
+   that gains a parameter breaks NAMED-ARGUMENT call sites silently
+   (§U.113 addendum, from the same week).  `NestedPinGroupSyn (V := V)`
+   has twelve such call sites across four files — and two of those
+   files, `NestedCopyIdx.lean` and `NestedCopyInst.lean`, are the
+   REQUESTING lane's.
+
+**The closest existing thing does not close it.**
+`NestedPinSynFacts.groupsAt` (`NestedPins.lean:569`, lane M7-2) already
+gives a group whose model is NAMED `blockOf mp.base2 ci`.  It does not
+serve a consumer holding an abstract `S : NestedPinGroupSyn … dJ`,
+because identifying that `dJ` with the named one needs uniqueness of a
+group's model at its base — the same gap as (2).
+
+So: this lane can do it, and the edit is mechanical and build-checked.
+**But it necessarily edits two files of the lane that deliberately did
+not edit this lane's three**, and that is a call for the coordinator,
+not for this lane to make silently.  Say the word and it lands; the
+alternative placement (on `NestedPinSynFacts`, which already carries
+`mp`) is cheaper but does not reach a consumer that holds only the
+group record, for the reason above.
+
+Nothing here touches the hole or the obstruction, and no theorem moved.
