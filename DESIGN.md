@@ -93271,3 +93271,107 @@ overview-links / quote-gate / shake / pub-imports / proofdeps (0 doors)
 axioms on `containerOwnPinsAt_nil`, `ContainerOwnPinsSyn.of_noMimics`,
 `nativeOwnPins_of`, `mutualOwnPins_of`, `declNativeB` and
 `declMutualB`.
+
+#### U.75 — M7-3 session 16: THE READING-LEVEL STEP, unconditional — `ownPins`' last own obstacle gone, and three placements (lane M7-3, session 16, 2026-09-18)
+
+##### (a) `ContainerOwnPinsSyn.toReadOf` — the law PROVED, the conditional form RETIRED
+
+§U.73 (b) landed `ContainerOwnPinsSyn.toRead` with the substitution law
+as an explicit hypothesis and said so.  The law is now proved and the
+conditional form is DELETED — not kept beside the real one, which is
+what the standing ruling on conditional forms asks.
+
+`NestedOwnPinsRead.lean` is a new file, and it has to be: the proof
+needs `instPisILP_read`, which lives in `NestedCopyRead.lean`, and that
+module is ABOVE `NestedPremise.lean` in the import order (the
+transitive closure goes one way only).  So the bridge cannot sit beside
+`ContainerOwnPinsSyn`.
+
+* `denoteMeta_ownAt_component` — the law at ONE component.  **The proof
+  is a wrapper, not new algebra**: the recorded component, closed by
+  the restore table's own closing, is put under `nP` DUMMY `∀`-binders
+  (`dummyPis`, domains `Sort 0`), at which point lane L-B's
+  `instPis_ilp_mkPisB` at `fcs := []` is the syntactic step and
+  `instPisILP_read` is the reading step, collapsing at
+  `Ds.length = pps.length = nP` (`instTeleP … [] = []`,
+  `mkPisAV [] e = e`, `nP - nP = 0`);
+* `denoteMetaSpine_ownAt` — its spine form;
+* `ContainerOwnPinsSyn.toReadOf` — `ContainerOwnPins m d`, with the law
+  DISCHARGED.  What it still takes are facts about the block's own
+  pins (K.30's `pinsScoped` shape and `NestedStageFacts.pinDs`) and
+  about the reader's arguments; it does NOT take the law.
+
+##### (b) Two findings from the proof
+
+1. **The open/close round trip could not go through
+   `instSeq_abstractRange_fvs`.**  That lemma is on-the-nose only when
+   the openers carry the component's RECORDED annotations, and
+   `denoteMeta` plants `Expr.fvar d (.sort .zero)` at a dummy binder,
+   so the trip returns the component only UP TO annotations.
+   `Expr.eraseAnnots_openAbstract` plus `denoteMeta_congr_eraseAnnots`
+   is the route, and it is the better one: it drops the openers'
+   `fvarConsistent` side condition entirely, so the scope hypotheses
+   are needed only to see that the closed component is fvar-free;
+2. **`instPisILP_read`'s `hC` did not have to become a hypothesis.**
+   It comes off the tower's own reading by the `mintRead` pattern
+   (`bvarsBelow_mkPisAV_inv` at `bvarsBelow_of_reading`).  Deriving it
+   from the component's reading instead would have wanted
+   `Expr.WScoped nP x`, which fvar-scopedness does NOT give
+   (`WScoped` is hereditary through annotations) — so the route
+   matters.
+
+##### (c) The import plan, computed
+
+The gate proposed one removal and three demotions; each was tested
+against the compiler.  `NestedCopyRead` demotes to a plain import (it
+is read in a proof, not a statement) and the removal proposal
+disappears with it.  `NestedPremise` and `NestedRestoreOpen` stay
+public — demoting the first loses the `ConLeche.SetTheory` namespace
+the file `open`s, the second `ConLeche.mkPisB` — both refused by a
+failing `lake build`, the `MutualIdxUniv`/`InstAll` class, so they are
+recorded in `scripts/pub-import-plan.py`'s FALLBACK table with their
+reason and repeated in the file's header.
+
+##### (d) `nestMention`'s citation, placed — and the rule written down
+
+`ContainerModeled.nestMention` cited "DESIGN §U.67 (b) B1".  That is
+rot: §U.67 is M7-3 session 10, whose (b) has no `nestMention`, no
+`DsE` and no B1/B2 naming.  The respelling it means is the merge
+record for M7-3's retry merge, finding
+"`ContainerModeled.nestMention` RESPELLED".  Cited now BY TITLE, with
+the rule the same audit produced written into the docstring so the
+next reader does not re-break it: **cite a DESIGN finding by title and
+let the integrator number it.**
+
+##### (e) THE NINE SITES, and what is left
+
+**Two of nine proved** (`nativeOwnPins_of`, `mutualOwnPins_of`, §U.74
+(f)); the field is NOT in.  What is left is no longer this lane's
+algebra:
+
+* **K.49** (kernel, requested §U.74 (c)) — the five pinned basis
+  sites.  Until it lands the field cannot be a field;
+* **the NESTED site** — lane L-B's `instPis_openers_subst` is the
+  Expr-level step and arrives through the integration (not merged
+  here); with it and K.47 the site is mechanical;
+* `of_readBack`, `crossEnvP` (§U.74 (d)'s one extra clause) and the
+  four basis theorems — one line each once the two above exist.
+
+Expected alongside the field, from lane L-E session 18: a
+constructor-count conjunct on `PinShapes` (vacuous at the pinned
+basis, `NestedPinGroupSyn.ctorCount` at the nested route, and a line
+each at the native and mutual sites), and `ContainerPinParams` with
+its `of_noPins` — whose shape is the `pinParams` field this lane
+already carries.
+
+##### (f) Gates
+
+`lake build` 717 jobs warning-free; `lake test` warning-free; layering
+351 / 283 / 3 / 1, 0 base->lane and 0 impl->theory; trust 13/5 (648);
+overview-links 112, no anchor moved; quote-gate 2; no-local-paths OK;
+**proofdeps 4965 rows / 12 roots / 0 doors** — the baseline, the new
+file reaching no capstone; shake 511 removals all allowlisted;
+pub-imports 1318 of 2156, none demotable (two new fallbacks, each
+verified by a failing demotion); `tests/arena.sh` **EXIT 0** —
+nested-shadow 27/27, e2e 196/196, the arena's 90/92, all four sweeps,
+axiom pin 20 theorems.  Standard axioms on all nine new declarations.
