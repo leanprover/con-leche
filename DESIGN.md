@@ -94637,15 +94637,16 @@ Checked on this branch at this commit.
 | `hout`, in-instance | **THE HOLE** (a) — nobody's, undischargeable by the tier (§U.89 (d)) |
 | the run-level `Edge`/`EdgeOrd` production | mechanical; the mention bridge is `os_field_domain_free` (`Verify/Inductives/NestedOpenSpine.lean:298`) plus a `List.any` lift |
 | above: `nestedPinsIdent_of`, `nestedPinsStaged_of` | landed, unconditional given the two residuals |
-| `nestedCtorsStaged_of` | landed, but also takes `NestedReadLaw` — **OPEN, no producer in the tree** |
+| `nestedCtorsStaged_of` | landed; it also takes `NestedReadLaw` — **CORRECTED 2026-09-18 (§U.92): that law IS proved unconditionally (`NestedReadLaw.lean`'s `nestedReadLaw`) and had no call site.  Now WIRED as `nestedCtorsStaged_of_pins`, so it is no longer a residual** |
 | `nestedCoreModeled_of`, `nestedTailModeled_of`, `declNested_of` | landed |
 
-**Verdict.**  On the route there are, besides the hole: three shape
-arms (L-B), `NestedReadLaw` (no producer), `hothers`/`ownPins` (M7-3),
-`ContainerPinParams` (M7-3), and mechanical run-level plumbing.  So the
-true statement is:
+**Verdict** (amended by §U.92).  On the route there are, besides the
+hole: three shape arms (L-B), `hothers`/`ownPins` (M7-3),
+`ContainerPinParams` (M7-3), and mechanical run-level plumbing.
+`NestedReadLaw` was in this list and is NOT a residual — it was proved
+and unwired (§U.92).  So the true statement is:
 
-> **one hole that nobody can discharge, plus four named residuals
+> **one hole that nobody can discharge, plus THREE named residuals
 > belonging to other lanes — one of which itself contains a refuted
 > arm — plus mechanical plumbing.**
 
@@ -94680,3 +94681,62 @@ tree was touched in eleven sessions of this arc.
 
 Gates: `lake build` and `lake test` warning-free at the session's
 commit; text gates green.
+
+#### U.92 — L-E session 37: `NestedReadLaw` was PROVED and UNWIRED — the residual list loses an entry (lane L-E, 2026-09-18)
+
+§U.91 (b) listed `NestedReadLaw` as open with "no producer in the
+tree".  **That was wrong, and wrong in the way this project has a rule
+about.**  `ConLeche/Model/Inductives/NestedReadLaw.lean` proves
+
+```lean
+theorem nestedReadLaw {F : Nat} : NestedReadLaw V μ F
+```
+
+with NO premises — a complete, unconditional producer, sitting with no
+call site anywhere outside its own file.  My walk searched for
+`theorem nested<Name>_of`-shaped producers and for premise THREADING,
+and this producer matches neither pattern: it is named for the law, not
+for its consumer.
+
+**The rule, and the second instance of it on this task**: a hypothesis
+with no call site is indistinguishable from a hypothesis with no proof,
+so grep for a producer — by the law's own NAME, not only by the
+naming convention — before sizing an obligation.  Eleven sessions
+earlier another lane met this from the same side.  Here it cost this
+lane's own residual walk one of its four entries, in the same session
+in which it declined to land the hole as a `def` for exactly this
+reason.
+
+**Wired** (`NestedReadLaw.lean`, after the law):
+
+```lean
+theorem nestedCtorsStaged_of_pins {F : Nat} (hpins : NestedPinsStaged V μ F) :
+    NestedCtorsStaged V μ F :=
+  nestedCtorsStaged_of hpins nestedReadLaw
+```
+
+Strictly subtractive: `nestedCtorsStaged_of` keeps its two-premise
+form, and any consumer that reaches for `..._of_pins` carries only the
+pins' stage.  Axioms standard on both; `lake build`, `lake test` and
+the full gate set green.
+
+**The residual list afterwards** — besides the hole (§U.91 (a)):
+
+| residual | whose | state |
+| --- | --- | --- |
+| `NestedPinsShapeNoLam`, `NestedPinsShapeOrdRight`, `NestedPinsShapePinF` | lane L-B | open; on its tip `NoLam` discharged, `OrdRight` split with the reflexive half REFUTED |
+| `hothers` of `instanceCovered_of_others` (`ownPins` + K.41) | M7-3 | open; nine sites proved, held by one kernel premise |
+| `ContainerPinParams` | M7-3 | open; only its vacuous case exists, no general producer |
+| run-level plumbing (`hdJfB`, the `Edge`/`EdgeOrd` production, the `List.any` lift over `os_field_domain_free`) | the assembly | mechanical |
+
+So: **one hole nobody can discharge, plus THREE named residuals of
+other lanes, plus plumbing.**  Every link this lane owns is landed and
+unconditional except the hole, whose out-of-instance half is proved.
+
+##### UNAMBIGUOUSLY: nothing landed is affected
+
+Every theorem this lane has landed stays landed, and the wiring added a
+theorem without changing any.  The OUT-OF-INSTANCE case, step (ii),
+step (iv) and the residual's discharge go through exactly as before.
+
+Standing down on the in-instance row.
