@@ -107650,3 +107650,83 @@ into the fit and reading machinery passes its families explicitly —
 how to synthesize implicit argument `V`" — a type error, not a timeout,
 because nothing had to be inverted.  **Pass them explicitly from the
 start.**
+
+#### L-B session 35: the reflexive half at a PIN target — the obstacle I expected is EXCLUDED BY THE POSITIVITY CHECK, and the price is corrected (lane L-B, 2026-09-18)
+
+*(No number taken: the title is the citation, the integrator numbers.
+Nothing in this section changes the tree.)*
+
+##### (a) THE OBSTACLE THAT WOULD HAVE BEEN FATAL, and the recorded fact that excludes it
+
+Before writing, one structural question: at a REFLEXIVE copy field the
+slot is a Π-set over the copy's TELESCOPE (`tssF`), and this lane's pin
+route reads everything through `w` at the PREFIX model (where the copies
+are absent).  **If the elimination's rewrite could fire inside a
+reflexive field's binder DOMAIN**, a telescope entry would be the
+MIMIC's reading, `w`'s corresponding domain would be the CONTAINER's,
+and bridging them would be `pinLeaf` — the same circularity the target
+side has, now in the telescope, and not removable by the same means.
+
+**It cannot.**  `normPosDomM`'s Π arm
+(`ConLeche/Kernel/Inductives/MutualInstall.lean:232`) reads
+
+    | .forallE dom body bm =>
+      if mentionsMember memberNames dom then
+        throw (.invalid "mutual: non positive occurrence …")
+      else do … pure (.forallE dom (body'.abstract1 d) bm)
+
+— it REJECTS a binder domain that mentions a member, and carries the
+domain through VERBATIM.  `normPosDomM_inv` (`Verify/Inductives/MutualInv.lean:256`)
+exposes both halves in its Π arm: `w = .forallE dom body bm` together
+with `mentionsMember memberNames dom = false`, and the output's domain
+is that same `dom`.
+
+So at an accepted run a reflexive field's binder domains mention no
+member of the auxiliary block, and the rewrite's PRUNE
+(`replaceAllNested_of_no_mention`) returns them unchanged.  **The copy's
+telescope entries are the container's, copy-free, and the circularity
+does not arise.**  This is the recorded fact the standing rule asks for
+— not a corpus observation.
+
+**The one link still to name**: the prune tests `st.newNames`, the
+ELIMINATION's growing type-name list, while the positivity walk tests
+`b.memberNames`, the auxiliary block's.  The two are the same set (the
+block's types are the elimination's), but the arm needs that as a named
+fact — `newNames_mono` and the `auxBlock`/`PinsAligned` clauses are
+where to look.  Cheap, and it is the first thing to settle.
+
+##### (b) THE ROUTE, with no unknown left in it
+
+1. `normPosDomM_inv`'s Π arm, iterated over the telescope's length,
+   gives `w` as a ∀-TOWER over a container application — from the WALK,
+   not from an inversion of the rewrite.  (A rewrite-reflection lemma —
+   "the output is a `∀` only if the input was" — would also work and is
+   about 50 lines; the walk route needs none of it.)
+2. The rewrite acts only in the BODY (by (a)), and
+   `replaceAllNested_mkPisB` carries it there.
+3. The body's inversion is this lane's existing
+   `replaceAllNested_container_head_stable`.
+4. The reading and the index fit then mirror `copyOrdFRightPinRead` at
+   depth `b.nP + l + tls.length`, with `MutualCtorDataI.reflOpen`'s
+   spine clause in place of `eisRead` (it is stated at exactly that
+   depth) and `eisLenRefl` in place of `eisLen`.
+5. The arm then mirrors `copyOrdFRightReadRefl`: `reflEntry` for
+   `recEntry`, `interp_mkPisAV_piTele` for `slotSet_nil`, and the
+   reading and fit one frame deeper.
+
+##### (c) THE PRICE, CORRECTED — 1.5–2 sessions, not one
+
+Session 34's addendum priced this at one session from the member arm's
+175 lines.  That was measured against the wrong thing: the member arm
+does not have to produce `w`'s tower, because at a member target K.42
+makes `w` the stored domain itself.  The pin arm does, and step (iv)'s
+reading needs its own reflexive twin at the deeper depth.  Measured
+against the pieces of (b): roughly 300–350 lines over two or three
+commits.
+
+**Recorded rather than started.**  The standing rule is not to
+half-start a long proof, and the corrected price is a scope fact the
+coordinator asked to be told rather than to discover when the row
+overran.  What (a) buys is that the route is now known to EXIST — the
+question I opened this row with was whether the reflexive half at a pin
+target is reachable at all by this lane's method, and it is.
