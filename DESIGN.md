@@ -82397,10 +82397,16 @@ than the tutorial suite.  ONE WORD, text only, selection logic and
 counting untouched: `arena tutorial:` → **`arena suite:`**.  Nothing
 machine-readable consumes that string (CI names it only in comments;
 this document's ~90 occurrences are transcripts of past runs and stay
-as they were).  `tests/arena.sh`'s header comment still calls the
-corpus "the lean kernel arena tutorial tests", which is now also
-narrower than the row file — outside the authorisation, left alone,
-and named here so the next reader does not take it for the scope.
+as they were).  `tests/arena.sh`'s header comment carried the same
+stale claim — "the lean kernel arena tutorial tests", also narrower
+than the row file — and had the same one-word treatment on the same
+grounds: **a comment at the top of a gate script that misdescribes the
+corpus it guards is exactly the kind of stale claim that misleads the
+next reader.**  It reads "the lean kernel arena tests".  Two one-word
+text edits, and nothing about how either half selects its corpus
+changed at any point.  The transcripts of past runs in this document
+are left as they were: a record of what a run printed is accurate as a
+record.
 
 **The `bad/perf/` question, settled on a criterion worth keeping.**
 The authorisation read both "the twenty `bad/` streams" and "not the

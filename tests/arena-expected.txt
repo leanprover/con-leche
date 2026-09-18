@@ -279,10 +279,11 @@
 # rows it reads 91/96 where it read 90/92 — and the line used to say
 # "arena tutorial", which was then counting more than the tutorial
 # suite.  One word changed, text only: it says **"arena suite"**.  The
-# selection logic and the counting are untouched.  (`tests/arena.sh`'s
-# own header comment still describes the corpus as "the lean kernel
-# arena tutorial tests", which is now also narrower than what the file
-# names; that line was outside the authorisation and is left alone.)
+# selection logic and the counting are untouched.  The script's own
+# header comment carried the same stale claim ("the lean kernel arena
+# tutorial tests") and had the same one-word treatment: it reads "the
+# lean kernel arena tests".  Both were text; nothing about how either
+# half selects its corpus changed at any point.
 #
 # --- bad/ : kernel-soundness negatives (20) --------------------------
 # A row here arms `arena_half`'s `bad/*` arm, which fails on exit 0.

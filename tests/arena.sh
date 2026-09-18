@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Run the checker over the lean kernel arena tutorial tests and compare
+# Run the checker over the lean kernel arena tests and compare
 # against tests/arena-expected.txt (lines: "<expectation> <relative-path>").
 #
 # Exit codes of the checker: 0 accept, 1 reject, 2 decline, 3 error.
