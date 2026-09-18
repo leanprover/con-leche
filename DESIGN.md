@@ -108887,3 +108887,84 @@ apply.
 `lake build` 0 errors/warnings, **722 jobs**; nothing half-applied.
 
 Nothing in this section changes the tree.
+
+#### (number at the integrator's sync) — L-E: MY INVERSION WAS TOO COARSE — `crossEnvP` already carries a denotation, and the original call was substantially right (lane L-E, 2026-09-18)
+
+**This lane persuaded the coordinator to reverse a call that was
+substantially correct, on a reading of the crossing note that was too
+coarse.**  Correcting it before anything is built on it.
+
+##### (a) THE NOTE IS ABOUT A PREMISE, AND THIS LANE READ IT AS ABOUT A FORM
+
+The docstring says, in terms:
+
+> The reading form below does NOT cross: **its `DenoteMetaSpine`
+> PREMISE is CONTRAVARIANT**
+
+`ContainerOwnPins` — the reading form — takes the denotation as a
+HYPOTHESIS (`… → DenoteMetaSpine … → ∀ e ∈ ps, …`), and a hypothesis is
+contravariant under crossing.  **That is a statement about where the
+denotation sits, not about denotations being uncrossable.**
+
+This lane generalised it to "reading-form facts cannot be stated at the
+container", and that is false.
+
+##### (b) `crossEnvP` ALREADY CARRIES A DENOTATION — it has the transport as a hypothesis
+
+`ContainerCross.lean:494`:
+
+```lean
+(hde : ∀ (ψ : Name → Nat) (dp : Nat) (e : Expr), ProjFree Ts e → ∀ {ea : AnnotTerm},
+  denoteMeta m₁.acval env₁ ψ dp e = some ea → denoteMeta m₂.acval env₂ ψ dp e = some ea)
+```
+
+So a **conclusion-shaped** per-pin denotation clause in
+`ContainerModeled` —
+
+```lean
+pinDsD : ∀ qK, qK < d.nPins → ∀ φ,
+  DenoteMetaSpine m.acval env φ d.nP (d.pinAt qK).DsE ((d.pinAt qK).Ds φ)
+```
+
+— crosses by `hde`, subject to `ProjFree Ts` on the pins' `DsE`, which
+is the same side condition `crossEnvP` already imposes on the members'
+types via `hnpMem`.  **The transport is already there; only an
+analogous `hnpPins` would be new.**
+
+##### (c) THE CORRECTED, FINER SPLIT
+
+| premise | shape | crosses? |
+| --- | --- | --- |
+| `hpinDs` | conclusion-shaped denotation | **yes**, by `hde` |
+| `hscope` | an `∃` of params with closedness — syntactic | **yes** |
+| `h0` | a denotation, conclusion-shaped as a clause | **yes**, by `hde` |
+| `hps`, `hmem` | syntactic | **yes** |
+| `hDsE` | has a `DenoteMetaSpine` in **hypothesis** position (`… → DsE.length = d.nP ∧ …`) | **no** — this is the one the note's objection really covers |
+
+So **five of the six go at the container** and cross, and exactly one —
+`hDsE` — resists, for precisely the reason the note gives.  The
+coordinator's original call (a) was right for five of six; this lane's
+inversion was right for one and stated for four.
+
+##### (d) WHAT THIS LANE IS DOING ABOUT IT
+
+Not building.  The decomposition has moved twice inside one exchange —
+once on this lane's argument and once on its correction — and a third
+opinion from the same lane in the same hour is worth less than an
+accurate report.  The escape the coordinator named was "settle who
+discharges them"; the answer is now **the container's own installation
+producers** (`mutualContainerModeled`, `nativeContainerModeled`) for the
+five, and **unsettled** for `hDsE`.
+
+##### (e) THE LESSON, and it is the day's sixth of the same kind
+
+A design note is a statement about a specific object, and this lane read
+it as a statement about a class.  That is the same error as "K.32 is
+adjacent", "of the shape is not available" and the ASCII-class
+extraction: **a fact about one thing, generalised to the kind of thing
+it is.**  The note said "its premise"; the premise was the whole
+content.
+
+`lake build` 0 errors/warnings, **722 jobs**; nothing half-applied.
+
+Nothing in this section changes the tree.
