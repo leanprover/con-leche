@@ -92381,3 +92381,89 @@ warning-free, layering / trust surface / no-local-paths /
 overview-links / quote-gate / proofdeps (0 doors) / shake and
 pub-imports / nested-shadow all green; standard axioms on every new
 theorem.
+
+#### U.74 — L-E session 19: the count conjunct landed, and THE WALK at a PIN class, both arms (lane L-E, 2026-09-18)
+
+##### (a) The pins' CONSTRUCTOR COUNT, a `PinShapes` conjunct (the maintainer's ruling on §U.73 (d))
+
+`(pc (q₀ + i')).ctors.length = ((B ci).ctorsM i').length`, with the
+docstring naming its three producer classes so nobody rediscovers
+them: the five PINNED BASIS blocks (vacuous — `d.pins = []`, so the
+quantifier is empty), the NESTED route
+(`NestedPinGroupSyn.ctorCount` through `nestedPc`'s own count, proved
+here), and M7-3's NATIVE and MUTUAL sites (pins-free for the same
+reason as the basis).  The transports (`PinShapes.crossEnv`,
+`PinShapes.congrB`) carry it unchanged — `crossEnv` needed one more
+component in its destructuring and nothing else, and the whole tree
+built green with no other producer touched.
+
+##### (b) `ContainerPinParams`, COMPLETED — four parts, one consumer each
+
+§U.72 (e) asked for three congruences.  Building the walk showed the
+`pinF` arm also spends two SYNTACTIC facts about the container's own
+pins, so the record is four parts and each is spent exactly once:
+
+| part | consumer |
+| --- | --- |
+| the pins' level ARGUMENTS scoped in the group's level parameters | `ClassPin`'s `psi`, through `Level.substFn_ext`.  This is also `targetPin_corr`'s `hpd` |
+| the pins' COMPONENTS bounded at the container's parameters | `ClassPin`'s `frame`, through `interp_congr_below`: the two sides read ONE component at two frames that agree only below `dK.nP` |
+| the `Ds` congruence | `frame` again — the two sides' components are one list |
+| the `u`/`Ids` congruences | `idx`, and `copyTransfer_via`'s `huT` at a target that is one of the container's own pins |
+
+All four are true of every pin this checker records (a pin's level
+arguments and components are read off the block's own opened
+constructor) and vacuous at a pins-free container.
+
+##### (c) THE WALK at a PIN class — both arms, and the combined step
+
+* `classPinAt_of_pairViews` (§U.73 (c)) is the `recF` arm: a MEMBER
+  target of the container, which needs NO `ContainerPinParams` —
+  member targets stay inside the congruences the tier already has;
+* **`classPinAt_of_pinCorrs`** is the `pinF` arm.  The two sides'
+  copies carry a `PinCorr` at the SAME own pin of the container, so
+  `name` is `PinCorr`'s `J` outright; `psi` is each side's pin law
+  spelling its target's assignment as the substitution of its recorded
+  level arguments, which `PinCorr`'s `lvls` makes the own pin's
+  substituted at the OUTER pin's — `Level.substFn_map_subst` twice,
+  then `Level.substFn_ext` at the scope part; `frame` is the own pin's
+  components read at the two container frames (`interp_instAll`), ONE
+  list by the `Ds` congruence and carried across the frames by
+  `interp_congr_below` at the boundedness part; `idx` is `PinCorr`'s
+  `u`/`Ids` with their congruences and `teleOfFields_congr_below`;
+* **`classPinAt_of_walk`** combines them at one container-recursive
+  field and also returns the block target's pin decomposition, which
+  the transfer's `hrel` needs to name the pin.  It is stated
+  GENERICALLY over the two `CopyCtorShape`s, so the run enters only
+  through the caller.
+
+With `BlockModel.chainFitT_of_pin` (every class reader at a pin class
+is the pin's, so `ChainFitT` there IS the `FitsFrom`
+`copyTransfer_via` takes) and `params_congr`'s new SORT half
+(`FormerData.params`' second conjunct, which `hwK` wants).
+
+##### (d) WHAT REMAINS
+
+The PIN class's mathematical content is done; what is left of it is
+ASSEMBLY — `nestedPinPairAt_pin`, the pin-side twin of §U.72 (d),
+which is `nestedPinPair_pin` with `hdom₁` by `copyEntryAt_pin` through
+`slotSet_mono_app`/`app_relMeet_subset`, `hent₂` by
+`nestedPinEntryOut` (already general in the group), `hrel` by (c)
+through `app_relMeet_le_rel`, and the numeric agreements by
+`params_congr` and `ContainerPinParams`.  It carries about
+twenty-five premises, every one of them sourced, and it is a session's
+work on its own.
+
+Then `hpair` is the case split over the two class kinds,
+`instanceLe_of_pair` gives `instanceLe`, and
+`pins_le_of_instanceLe` + step (ii) give `nestedPinsLe` — **modulo
+`hothers`**, which is not this lane's: it waits on M7-3's `ownPins` at
+the NESTED site (where L-B's substitution law closes the Expr-level
+step but not the reading-level statement `ContainerOwnPinsSyn.toRead`
+needs) and on K.49 for the pinned basis.  Step (iv) then gives
+`nestedPinsEntry_of`.
+
+Gates at the session's commits: `lake build` warning-free, `lake test`
+warning-free, layering / trust surface / no-local-paths /
+overview-links / quote-gate / proofdeps (0 doors) / shake and
+pub-imports / nested-shadow all green; standard axioms on every new
+theorem.
