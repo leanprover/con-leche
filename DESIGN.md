@@ -93685,8 +93685,13 @@ because there is no clause and no other party.
 
 ##### (d) A RANGE, and what it rests on
 
-**5–8 sessions for this lane**, and unlike the three withdrawn figures
-this one names its premise rather than assuming it: it holds IF (ii)'s
+**5–8 sessions for this lane** — **STRUCK 2026-09-18 (§U.85): the
+premise it named is FALSE.**  The open half does NOT go through by
+those ingredients: `PinRecLaws.ind` quantifies over PLAIN fits and a
+re-pointed-closed tuple closes only over re-pointed ones, so the bridge
+`famAt_le_of_TClosed` uses is unavailable and the circle reappears at
+the same field one level down.  The figure below is void, kept only to
+show what was priced.  Original wording: it holds IF (ii)'s
 open half goes through by the two simultaneous ingredients
 `famAt_le_of_TClosed` already uses.  Breakdown: (1)+(2) one session,
 (ii) two to four, (iii) plus the transfer's in-instance arm two to
@@ -93706,6 +93711,125 @@ through `pins_le_of_instanceLe` over K.52 exactly as it does today, as
 does step (ii), step (iv) and the residual's discharge.  What §U.83 and
 this section bear on is only the proposed route to the IN-INSTANCE
 case.
+
+NOT STARTED.  No code changed this session.
+
+Gates: `lake build` and `lake test` warning-free at the session's
+commit; text gates green.
+
+#### U.85 — L-E session 30: the open half CANNOT be discharged by the tier's means — the circle reappears one level down (lane L-E, 2026-09-18)
+
+The fourth question, answered: **NO.**  I would not start the
+construction, and §U.84 (d)'s 5–8 should be struck rather than
+recorded as conditional — its premise is false.
+
+##### (a) WHAT THE ONLY AVAILABLE LEASTNESS SAYS
+
+The pins' carriers have exactly one leastness principle in this tier,
+`PinRecLaws.ind`, and its closure hypothesis quantifies over PLAIN
+fits:
+
+```lean
+  ind : … → ∀ X, InTupleSpace … X → ∀ P : Nat → V → V → Prop,
+    (∀ q, q < d.nPins → ∀ t, … → ∀ j fs, j < (pc q).ctors.length →
+      d.ChainFitT pc ψ ρp (segJoin d.k d.nPins (d.famAt ψ ρp X) (d.sepPins ψ ρp X P)) t (d.k + q) j fs →
+      P q t ((pc q).inj ψ j fs)) → …
+```
+
+`d.ChainFitT` is the ordinary fit: at a non-recursive position the
+element is constrained by the field's DOMAIN (§U.83 (b)).
+
+##### (b) THE OBSTRUCTION, at the exact line
+
+`famAt_le_of_TClosed`'s first stage discharges that hypothesis like
+this: take the plain fit at the `segJoin` tuple, push it up to `T` by
+`ChainFitT_mono`, and hand it to `hT.2` — `T`'s closure **over plain
+fits**.
+
+With a `Φ_T⁺`-closed `T` that last step is gone: `T` closes only over
+RE-POINTED fits, which are FEWER, because the re-pointed requirement
+("element in `T (tgt⁺)`") is STRONGER than the plain one ("element in
+the domain") whenever `T ≤ famAt`.  And `ChainFitT_mono` cannot bridge
+it: monotonicity enlarges the tuple at RECURSIVE positions, while what
+is needed at the ordinary position is
+
+```
+    famAt (tgt⁺) ≤ T (tgt⁺)
+```
+
+— which is the inclusion being proved, at the re-pointing target.
+**The re-pointing does not break the circle; it moves it out of `hrel`
+and into the defining equality, one level down, at the same field.**
+
+Nor can `ind` be restated over re-pointed fits: `ind` is a
+`PinRecLaws` clause — block-model data — and §U.84 (b) established
+that the re-pointing is not block-model data in any formulation.  The
+two findings close on each other.
+
+##### (c) WHAT IS AND IS NOT ESTABLISHED
+
+**Established**: the open half cannot be discharged by this tier's
+means; the only leastness for the pins is stated over plain fits and
+the bridge the existing theorem uses is unavailable.
+
+**NOT established**: that the statement is FALSE.  I have no
+countermodel.  A `Φ_T⁺`-closed tuple strictly below `famAt` would be
+one, and constructing one runs into the same question from the other
+side — whether the re-pointing's cycles can be populated at all, given
+that a pin's frame is built from the BLOCK's parameter frame and not
+from another pin's carrier.  Settling that is a different and larger
+question than the one asked, and it would only tell us whether a
+DIFFERENT leastness could exist, not supply one.
+
+So this is an obstruction, not a refutation of the proposition — but
+it is an obstruction to every route the tier currently affords, which
+is what the session was asked to determine.
+
+##### (d) THE THREE WAYS OUT, and what each costs
+
+1. **Leave `hout` a premise.**  Rejected by the project's own rule: a
+   conditional theorem whose hypothesis nobody can discharge is a
+   `sorry` with extra steps.  Not an option, only a description of
+   today.
+2. **DECLINE the configuration.**  It is POSITIVELY DETECTABLE with
+   data the checker already computes: `nestedPinRankAt` has both
+   instance labels and the ownership bit in hand, so "some not-own
+   edge has equal instance labels" is a two-line test beside it.  By
+   the arena convention that is exit 2, a decline, not an error —
+   legitimate precisely because the feature is detected rather than
+   stumbled over.  **Cost: eight blocks, five of them in the library
+   cone**, measured by the kernel lane after the mint fix.  That is a
+   real coverage regression and it is the maintainer's call, not
+   mine.
+3. **A different model-side idea.**  None in sight from here.  What it
+   would need is a leastness for the pins' carriers stated over fits
+   that read the tuple at the ordinary positions — i.e. the very
+   clause §U.84 (b) showed cannot live on a block model.  Any such
+   idea has to come from a different decomposition of the transfer,
+   not from a clause.
+
+##### (e) HOW I WOULD PROCEED
+
+**Do not start.**  Bring option 2 to the maintainer with its measured
+cost, against option 3's unknown.  The question worth putting is
+narrow: are five library-cone blocks worth declining to keep the entry
+theorem unconditional, or is the in-instance case worth an open-ended
+model-side search?  I have no basis for preferring one and it is a
+scope decision.
+
+If the answer is to decline, this lane's remaining work is small and
+known: the residual loses its in-instance arm, `hout` is discharged by
+the rank induction alone (the out-of-instance case, already in the
+tree), and §U.80 (c)'s row 4 closes — one to two sessions, most of it
+the kernel-side test and its threading.
+
+##### (f) UNAMBIGUOUSLY: nothing landed is affected
+
+Every theorem this lane has landed stays landed.  `hout` remains a
+named premise.  The OUT-OF-INSTANCE case, step (ii), step (iv) and the
+residual's discharge go through today exactly as they did before this
+session.  Four sessions of read-only work have refuted a route without
+touching a line of the proof tree.
 
 NOT STARTED.  No code changed this session.
 
