@@ -108541,3 +108541,75 @@ and nothing marks it.**
 `lake build` 0 errors/warnings, **722 jobs**.
 
 Nothing in this section changes the tree's accept set.
+
+#### (number at the integrator's sync) — L-E: the check ANSWERS YES — no structure parameter, and residual 3's real size is the PREMISE GATHERING (lane L-E, 2026-09-18)
+
+##### (a) THE CHECK — `PinShapes` is reachable, so `pinViews` need not change
+
+`NestedPinsIdsAt` (`NestedPins.lean:1020`) binds
+
+```lean
+NestedPinsRun V μ F mp p st b envAux stored ctorsR fmsA ctorsA₀ fms f₀ ctorsA sortss kinds mp₁
+  ppsF W idxF dsF esF srcsF fvsPF xFvsF xrestF eissF tssF mp₁' → …
+```
+
+as a hypothesis of every predicate stated through it — and
+`NestedPinsShapePinF` is stated through it.  **So any discharger of
+residual 3 has the run `R` in scope, hence `R.hPM`, hence `PinShapes`
+at the abstract family `B`, directly.**
+
+**No structure parameter.  No twelve call sites.  `pinViews` stays as it
+is** — it remains a convenience for consumers that have the group syn
+but not the run, and residual 3 is not one of them.
+
+That is the cheaper branch of the two the coordinator authorised, and it
+removes the half-session the last costing carried.
+
+##### (b) BUT THE ASSEMBLY IS NOT THE SMALL PART, AND THIS IS THE "SAY SO AT ONCE"
+
+The pieces are all present and each was priced as a step.  What nobody
+has inspected — the coordinator said so explicitly — is the ASSEMBLY,
+and inspecting it now says the work is **premise gathering, not proof
+construction**.  `pinCorr_of_ownPins` (`NestedPremise.lean:1074`) takes
+**nine** premises besides `huIds`:
+
+`hown : ContainerOwnPins m dR` · `hi` · `hfind` · `hps` ·
+`h0 : DenoteMetaSpine …` · `hmem` · `hDsD : DenoteMetaSpine …` ·
+`hψD` · `hψK` · `hfoundK`
+
+and `hown` is itself reached through a bridge with its own premise
+package — `ContainerOwnPinsSyn.toReadOf`
+(`NestedOwnPinsRead.lean:359`) takes `hsyn`, a scope condition on every
+pin's `DsE` (`looseBVarsBounded` and `fvarLeaves` clauses) and
+`hpinDs`.
+
+So residual 3 is: three conjuncts whose PROOFS are each a short appeal
+to an existing theorem, wrapped in a premise-gathering layer across
+`ContainerOwnPins`, two `DenoteMetaSpine`s, the level-assignment
+clauses, and a scope package.  **That is the shape that makes an
+assembly larger than its pieces**, and it is exactly what the
+coordinator warned would be the uninspected part.
+
+##### (c) THE RE-PRICE, UPWARD — the first of the day
+
+**One session for the assembly stands only if the premise package is
+already threaded to the run.**  This lane has NOT established that:
+`hψD`, `hψK` and `hfoundK` are level-assignment and `find?` clauses of
+the shape `NestedPinGroupSyn.stored` carries, and the scope conditions
+are of the shape K.30 (`NestedPinsRun.scoped`) carries, but "of the
+shape" is not "available", and this lane has been wrong about exactly
+that distinction twice today.
+
+So the honest statement: **the three conjuncts are settled and cheap;
+the premise gathering is unmeasured and is the whole of the remaining
+risk.**  This is the first row today to be re-priced UPWARD rather than
+down, and it is being said before any of it is spent rather than after.
+
+The next step is to measure the package — walk `pinCorr_of_ownPins`'s
+nine premises and `toReadOf`'s three against what the run and the group
+syn actually carry, and report which are present, which are derivable
+and which are absent.  That is a read, not a build.
+
+`lake build` 0 errors/warnings, **722 jobs**.
+
+Nothing in this section changes the tree.
