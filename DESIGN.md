@@ -104817,6 +104817,24 @@ is headed by the MIMIC and identifying the two is `pinLeaf`, which is
 downstream of this very shape.  That is K.51's own rationale, now
 spent.
 
+##### (a2) THE CHAIN'S SECOND AND THIRD STEPS, LANDED
+
+The core that reads a copy's field (`copyFieldReadCore`, 480 lines) is
+independent of what the positivity run RETURNS — only its last fifteen
+lines identify the output with the model's stored-domain reading.  So
+it is now parametric (commit `d76fce01`): `copyFieldReadCoreQ` takes
+the run as "gives some `w`, with `Q x' w`" and returns that `w` with
+its reading and its grading, and `copyFieldReadCore` is the thin
+wrapper at `Q x' w := w = x'.fvarTypeD`, which is K.42's shape — so the
+three existing arms are untouched and the pin arm spends the same body.
+
+`copyFieldReadPin` (commit `a5f0e1a2`) is that instantiation at K.51's
+answer: **the container's field domain, instantiated at the pin's
+components and read at the copy's frame, IS the reading of `w`** — the
+container-headed pre-image of the stored domain under the
+elimination's own rewrite.  The chain's first three steps are therefore
+in: the record at the field, the run at it, and the reading.
+
 ##### (b) WHAT THE ARM STILL NEEDS, AND WHY IT IS NOT TRANSCRIPTION
 
 The member-target arms read the copy's STORED domain through
@@ -104828,8 +104846,20 @@ the chain is not the member arms' with two substitutions — it goes
 through (a)'s intermediate term instead: the container's field domain
 reads as the minted domain's normalisation, that term is
 container-headed (a `copyPinFDom`-shaped inversion), and its reading is
-`TargetView.EA` at the block pin.  One session's work, with (a) as its
-first step and `copyPinFCorr`'s `EA` clause as the model of its last.
+`TargetView.EA` at the block pin.  One session's work, with (a)/(a2) as its
+first three steps and `copyPinFCorr`'s `EA` clause as the model of its
+last.  What is left is exactly two steps:
+
+* **(iii) `w`'s HEAD.**  The rewrite sends `w` to the stored domain,
+  which the classification says is headed by the MIMIC at `p.k + qq`;
+  so `w` is headed by the CONTAINER application whose pin is `qq`.
+  Forward, this is `replaceAllNested_occurrence` (what `copyPinFCorr`
+  spends); here it is wanted backwards, from the rewrite's OUTPUT, and
+  that inversion is the one piece with no existing lemma.
+* **(iv) `w`'s READING is `TargetView.EA (p.k + qq)`** — `targetRead`'s
+  pin branch at the block pin, which is `copyPinFCorr`'s `EA` clause
+  with `w` in place of the minted spine.  Then `hZ` gives the slot and
+  the telescope and index conjuncts follow the member-target arms.
 
 ##### (c) THE MODEL-SIDE FIELD: A BOUNDARY QUESTION, NOT A REFUSAL
 
