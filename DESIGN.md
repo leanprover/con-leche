@@ -92467,3 +92467,87 @@ warning-free, layering / trust surface / no-local-paths /
 overview-links / quote-gate / proofdeps (0 doors) / shake and
 pub-imports / nested-shadow all green; standard axioms on every new
 theorem.
+
+#### U.75 — L-E session 20: `hpair` DISCHARGED at a PIN class, and a hand-over brief for the assembly (lane L-E, 2026-09-18)
+
+##### (a) `nestedPinPairAt_pin`
+
+The pin-side twin of §U.72 (d)'s `nestedPinPairAt_mem`, and the last
+brick with mathematical content in it: `nestedPinPair_pin` with every
+premise closed.
+
+| premise | discharged by |
+| --- | --- |
+| `hdom₁` | `copyEntryAt_pin` through `slotSet_mono_app`/`app_relMeet_subset` — the relational meet is below the extended carrier, at which the entry is an EQUALITY |
+| `hent₂` | `nestedPinEntryOut` (general in the group since §U.72), with the group scope read off `CopyCtorShape.ordF`'s right arm |
+| `hrel` | `classPinAt_of_walk` (§U.74) through `app_relMeet_le_rel` |
+| `hwK`, `huT` at a MEMBER target, `hIdsLen` | `ContainerModeled.params_congr` |
+| `huT` at one of the container's OWN pins | `ContainerPinParams`' `u` congruence; out of range both sides are `default` |
+| `hψ` | the pair's `ClassPin.psi` through `BlockCtorFacts`' `cA.1.levelParams = cvT.levelParams` and `memberLpsI` |
+| `hw₁`, `hu₁` | `PinGroupView.w` / `pinU` at the ROOT's group |
+| `hfit`, `hidx` | `chainFitT_of_pin`, with `(dR.pinAt (q₀'+iq)).Ids ψR = dK.IdsM iq ψ₁` by `pinPps`/`pinNP`/`same` |
+| the two `Fss` lists at the two assignments | `IsBlockModel.ctor_params` — they are ONE list, which is what makes `hl₂` free |
+| the index membership | `nestedIdx_eq_pinIdx` at the pair's own index clause |
+| the injections' identity | `PinRecLaws.injW` on the root's side, `NestedPinGroupSyn.inj` on the block's, at one sort (`hwR`/`hwK`) |
+
+What is left of it are `hIH` and `hout`, the two the rank induction
+owns — exactly as at a member class.  **Both class kinds of `hpair` are
+now proved.**
+
+##### (b) HAND-OVER BRIEF: the `hpair` case split, step by step
+
+The next brick is the case split that turns the two halves into
+`instanceLe_of_pair`'s `hpair`.  It is bookkeeping, and this is where
+every step comes from, so that nobody re-derives it.
+
+The setting: the root is the block's OWN pin group `r`, so `dR` is
+`dJf r`; `ψR := ((D).pinAt r).ψJ ψ`, `ρR := (D).pinFrame r ψ ρp`, and
+`Rel := ClassPinAt env₂ (D) dR ψ ψR ρp ρR r`.  Given `(c, q)` with
+`Rel c q`:
+
+1. `q < pinsS.length` is `ClassPin.qLt`; `hgroups q` gives the block's
+   group `(q₀, kJ, iq)` with `G`;
+2. **`c < dR.k` (a MEMBER class)** — `ClassPinAt`'s own conjunct gives
+   `q = r + c`, so `NestedPinGroupSyn.grp` reads `grpBase` off the pin
+   table on both sides and forces `q₀ = r` and `iq = c` (§U.71 (c)).
+   Then `nestedPinPairAt_mem` applies verbatim;
+3. **`¬ c < dR.k` (a PIN class)** — put `qK := c - dR.k`.  The root's
+   `PinShapes` at `qK` gives its group `(q₀', kK', i'', ci')` with
+   `containerInfo? env₂ (dR.pinAt qK).J = some ci'` and
+   `PinGroupView dR (B ci') q₀' kK'`.  `ClassPin.name` says
+   `(dR.pinAt qK).J = ((D).pinAt q).J`, so `containerInfo?` is taken at
+   ONE name and `hdJfB` gives `dJf q₀ = B ci'`; then
+   `ContainerModeled.memberName_inj` forces `iq = i''` and
+   `PinGroupView.kEq` on both sides forces `kK' = kJ`.  Then
+   `nestedPinPairAt_pin` applies, with `q₀'` its `q₀'` and the
+   container's record taken at `ci'`.
+
+The pin half's container-side premises (`CK`, `hciK`, `hfK`, `hpp`,
+`hOwn`) are per-container, so the assembly wants them quantified — one
+premise of the shape "every stored container carries its
+`ContainerPinParams` at the assignment `B`", beside `EnvBlocksOf`.
+That is how `ContainerPinParams` should reach `EnvModelB` when M7-3
+lands it as a `ContainerModeled` clause: the quantified form is then
+free.
+
+After `hpair`: `instanceLe_of_pair` gives `instanceLe`;
+`pins_le_of_instanceLe` wants `hedge`/`hhom` (K.37's
+`nestedPinRankOk` clauses (2) and (3), which the run record carries and
+which this lane has not yet threaded) and `hinst` (`instanceLe` +
+`InstanceCovered`); `InstanceCovered` is `instanceCovered_of_others`,
+whose `hothers` is the one genuine residual.  Step (ii) of §U.39 then
+gives `nestedPinsLe`, and step (iv) the entries.
+
+##### (c) WHAT `hothers` WAITS ON
+
+M7-3's `ownPins` at the NESTED site — where L-B's substitution law
+closes the Expr-level step but not the reading-level statement
+`ContainerOwnPinsSyn.toRead` needs.  K.49 is landed (ae0eecc7) and
+integration 3q carries it plus L-B's law to M7-3's tree, so the basis
+and the other sites are unblocked.
+
+Gates at the session's commits: `lake build` warning-free, `lake test`
+warning-free, layering / trust surface / no-local-paths /
+overview-links / quote-gate / proofdeps (0 doors) / shake and
+pub-imports / nested-shadow all green; standard axioms on every new
+theorem.
