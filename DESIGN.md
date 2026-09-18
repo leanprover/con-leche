@@ -93624,3 +93624,114 @@ shake 511 removals all allowlisted; pub-imports 1315 of 2147, none
 demotable; nested-shadow 28/28.  `tests/arena.sh` not re-run: the
 session touches no checker code.  Standard axioms on `copyPinFCorr`
 and the chain probe over the five residuals.
+
+#### U.82 — L-B session 24: the missing field-to-pin tie EXISTS at the reading, the components' clause's prerequisites, and the duplicate gone (lane L-B, 2026-09-18)
+
+##### (a) THE FINDING — what §U.78 (d) counted as missing is missing only SYNTACTICALLY
+
+§U.78 (d) counted zero clauses in the model tier tying a pin's
+components (`DsE`) to a field's `getAppArgs`, and concluded the record
+route for the mention was blocked.  That count was right and the
+conclusion was right for the MENTION, which is a syntactic Bool.  The
+COMPONENTS' clause is semantic, and at the reading the tie is there:
+
+```lean
+  nestEntry : ∀ ψ i q, nest i = some q → ks.getD i .ordinary = .recursive → i < nF →
+    ((ds ψ).getD (nP + i) default).2.2
+      = AnnotTerm.mkAppN (m.acval (pins q).J ((pins q).ψJ ψ))
+          (((pins q).Ds ψ).map (·.liftN i 0) ++ (Eiss ψ).getD i [])
+```
+
+— `BlockCtorData.nestEntry`: a container's nested field READS as its
+pin's container applied to the pin's components, lifted over the field
+binders, and the field's index readings.  So the components' clause is
+reachable, and the route is (c).  Worth stating plainly: a tie can be
+absent syntactically and present semantically, and which one a clause
+needs is decided by the clause, not by the tier.
+
+##### (b) THE DEPTHS, AND THE TWO PREREQUISITES (commit `08381aa8`)
+
+The clause compares readings taken at two DEPTHS.  The block pin's
+components are stated at the block's parameter depth `b.nP`
+(`NestedPinSynFacts.pinDs`); the container's nested-field reading lives
+under the field's `l` binders and lifts the pin's components over them.
+`denoteMeta_lift` (`Model/Annot/BitInst.lean`) presents the deeper
+reading as a lift of the shallower — `denoteMeta … D e =
+(denoteMeta … p e).map (liftN (D - p) · 0)` at `WScoped p e` — which
+leaves exactly two gaps, and both close on calculus already in the
+tree:
+
+* **`liftN0_inj`** — a lift at the bottom cut is injective:
+  `inst_liftN_absorb` at `j = k = 0` peels one unit, so iterating it
+  recovers the term and the lift has a left inverse;
+* **`instAll_liftN0`** — `inst_liftN_comm` iterated over the list:
+  instantiating a lift-of-`B` at the cut the lift made is the lift of
+  the instantiation at the bottom.
+
+A layering note: `instAll` is Semantics and the `inst`/`liftN` calculus
+is Model, so the second cannot sit beside the first.  It goes where
+both resolve, with the arm.
+
+##### (c) THE CHAIN THAT REMAINS, STEP BY STEP
+
+1. `mintFieldRead` — the minted domain's reading at depth `b.nP + l` is
+   `instAll Ds l` of the container's field reading;
+2. `nestEntry` (a) — that reading is the pin's container applied to the
+   components lifted and the index readings;
+3. `AnnotTerm.instAll_mkAppN` and `mkAppN_inj` split the spine, so the
+   first `nPJ` readings are the components' lifted, mapped by
+   `instAll Ds l`;
+4. `instAll_liftN0` (b) rewrites each as `(instAll Ds 0 ·).liftN l 0`;
+5. `pinDs` reads the block pin's components at `b.nP` — and its
+   components ARE the pin expression's arguments, which step two knows
+   are the minted domain's first `nPJ` (commit `fbea14bc`);
+6. `denoteMeta_lift` presents the depth-`(b.nP + l)` reading as the
+   lift, and `liftN0_inj` cancels it.
+
+That is `PinCorr`'s `Ds` clause; `EA` follows from it with the `J` and
+`lvls` clauses already carried, and `u`/`Ids` are the container's
+`pinShape`/`ContainerModeled` semantics at the same index.  One
+session, and no new records.
+
+##### (d) TWO SEEDS AND ONE IDENTIFICATION, LANDED (commit `fbea14bc`)
+
+`copyPinFCorr` now also carries, residue-free:
+
+* `(pinsS.getD qq).DsE = qn.pin.getAppArgs` — the block pin's
+  components are the pin expression's arguments, off `pinRec`;
+* the level-parameter list identified: `PinCorr` spells it
+  `cvT.levelParams` where this lane's binder is `J.lps`, and
+  `containerInfo?_inv` closes it (a container's group shares its level
+  parameters), with the environment descent by the formers' freshness.
+
+So four of the six clauses are carried, and both ends of the fifth.
+
+##### (e) THE CLEANUP, AND A MODULE-SYSTEM NOTE (commit `4bc9f9cc`)
+
+`copyOrdFLeft` re-proved the member-freedom transfer at an
+instantiation inline — `os_field_domain_free`'s content reached from
+the instantiation equation instead of the two openings.  The LIST-level
+statement now has a name beside the single-constant one it is built
+from (`mentionsMember_instSeq_false`), and the arm calls it: thirteen
+lines become two.  The list level is the form consumers want, which is
+why the inline version kept reappearing.
+
+**And the note the next lane will want**: `pinAtE`'s body is NOT
+exposed in this tier, so "the pin at index `q`" cannot be unfolded
+here — it is read off `PinData.pin`, whose statement is
+`st.pins[q]? = some (pinAtE st q)`.  `simp only [pinAtE, …]` fails with
+"expected a definition with an exposed body", and the fix is the
+record, not an `@[expose]`.
+
+##### (f) GATES
+
+`lake build` 716 jobs warning-free; `lake build ConLecheTests` 572 jobs
+warning-free; layering base 351 / model 282 / caps 3 / umbrella 1, 0
+base->lane and 0 impl->theory; trust surface 13/5 (648 scanned);
+no-local-paths OK; overview-links 112, no anchor moved; quote-gate 2;
+**proofdeps 4965 rows / 12 roots / 0 doors** (the baseline, unmoved);
+shake 511 removals all allowlisted; pub-imports 1315 of 2147, none
+demotable; nested-shadow 28/28.  `tests/arena.sh` not re-run: the
+session touches no checker code.  Standard axioms throughout
+(`liftN0_inj` and `instAll_liftN0` need only `propext` and
+`Quot.sound`).
