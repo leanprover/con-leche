@@ -104097,6 +104097,16 @@ corollary rather than a second copy of the proof: **a proof that exists
 twice is the thing that later diverges**, and this arc has already had
 one inline derivation lifted out for the same reason.
 
+**BRIDGE 4 IS LANDED** (2026-09-18): `mutualTables_find?_projInfo_of`
+— the converse of `mutualTables_find?_projInfo_inv` — with
+`mutualTables_projInfo_mono` beside it, which is the half that says a
+stored table survives the rest of the stage (a later member's cons at
+the same name is still a `.projInfo`).  The condition
+`mutualMemberTable` tests IS the skeleton's own
+(`b.ownCtors mIdx = [(J, c)]` with `f.nIdx = 0`), so the biconditional
+is now available and the nested route's table rows are a function of
+the block rather than of the read-back.
+
 **BRIDGES 2 AND 4, traced to their pieces.**  Bridge 2 is a
 composition of three lemmas that all exist: `restoreCtorsF_names`
 (restored `(name, nP, nF)` = the read-back's), `auxStored_ctor_eq`

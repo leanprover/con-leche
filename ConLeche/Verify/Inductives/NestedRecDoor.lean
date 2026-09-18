@@ -747,6 +747,69 @@ private theorem storeMutualRecs_find?_projInfo (env₂ : Env) (b : MutualBlock)
     · exact nomatch h'
     · exact h'
 
+/-- **A PROJECTION TABLE SURVIVES THE REST OF THE STAGE**: every later
+member conses a `.projInfo` too, so a shadow at the same name is still
+a table. -/
+theorem mutualTables_projInfo_mono {b : MutualBlock} {ctorsA : List (ConstantVal × Nat)}
+    {sortss : List (List Level)} :
+    ∀ (l : List (MutualFormerA × Nat)) {env env' : Env} {n : Name},
+      mutualTables (m := CheckM) b ctorsA sortss l env = .ok env' →
+      (∃ t, env.find? n = some (.projInfo t)) →
+      ∃ t, env'.find? n = some (.projInfo t) := by
+  intro l
+  induction l with
+  | nil =>
+    intro env env' n h hf
+    obtain rfl := mutualTables_nil_inv h
+    exact hf
+  | cons hd rest ih =>
+    intro env env' n h hf
+    obtain ⟨f, mIdx⟩ := hd
+    obtain ⟨envI, hI, hrest⟩ := mutualTables_inv h
+    refine ih hrest ?_
+    rcases mutualMemberTable_inv hI with rfl | ⟨J, c, -, -, htbl⟩
+    · exact hf
+    · obtain ⟨bodies, -, -, -, -, rfl⟩ := checkStructProjTable_inv htbl
+      rw [Env.find?_cons]
+      split
+      · exact ⟨_, rfl⟩
+      · exact hf
+
+/-- **THE STAGE STORES A TABLE AT EVERY STRUCTURE-LIKE MEMBER** (task
+#315 M8, the skeleton assembly's bridge 4): `mutualMemberTable` conses
+a `.projInfo` exactly when `b.ownCtors mIdx` is a singleton and the
+member has no indices, and the rest of the stage cannot remove it.  The
+CONVERSE of `mutualTables_find?_projInfo_inv`, and what makes the
+nested route's table rows a function of the block rather than of the
+read-back. -/
+theorem mutualTables_find?_projInfo_of {b : MutualBlock} {ctorsA : List (ConstantVal × Nat)}
+    {sortss : List (List Level)} :
+    ∀ (l : List (MutualFormerA × Nat)) {env env' : Env},
+      mutualTables (m := CheckM) b ctorsA sortss l env = .ok env' →
+      ∀ (f : MutualFormerA) (mIdx : Nat), (f, mIdx) ∈ l →
+        ∀ (J : Nat) (c : MutualCtor), b.ownCtors mIdx = [(J, c)] → f.nIdx = 0 →
+        ∃ t, env'.find? (projTableName f.cvTa.name) = some (.projInfo t) := by
+  intro l
+  induction l with
+  | nil => intro env env' h f mIdx hmem; exact absurd hmem (by simp)
+  | cons hd rest ih =>
+    intro env env' h f mIdx hmem J c hown hnIdx
+    obtain ⟨g, k⟩ := hd
+    obtain ⟨envI, hI, hrest⟩ := mutualTables_inv h
+    rcases List.mem_cons.mp hmem with heq | hmem'
+    · obtain ⟨rfl, rfl⟩ := Prod.mk.inj heq
+      refine mutualTables_projInfo_mono rest hrest ?_
+      -- the head's step takes the table branch, because the condition IS
+      -- the branch's test
+      unfold mutualMemberTable at hI
+      rw [hown] at hI
+      simp only [hnIdx, beq_self_eq_true, if_pos] at hI
+      obtain ⟨bodies, -, -, -, -, rfl⟩ := checkStructProjTable_inv hI
+      exact ⟨⟨f.cvTa.name, b.lps, b.nP, c.cv.name, c.nF, f.s, bodies,
+          structProjGuards (ctorsA.getD J default).1.type b.nP c.nF (sortss.getD J []), 1⟩,
+        by rw [Env.find?_cons]; simp [ConstantInfo.name, ConstantInfo.toConstantVal]⟩
+    · exact ih hrest f mIdx hmem' J c hown hnIdx
+
 /-- **The tables' stage conses a member's own table**: a `projInfo`
 answer at the stage's output either stood at its input already or is
 the table `mutualMemberTable` built at one of the members the stage
