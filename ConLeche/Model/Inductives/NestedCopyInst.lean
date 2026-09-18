@@ -16,6 +16,9 @@ import ConLeche.Verify.Inductives.NestedAuxFormers
 import ConLeche.Verify.Inductives.NestedRestoreKit
 import ConLeche.Model.Inductives.BlockRepCross
 import ConLeche.Model.Inductives.FixRecReadDefs
+import ConLeche.Model.Inductives.MutualNorm
+import ConLeche.Model.Inductives.BlockRecBridge
+import ConLeche.Model.Inductives.BlockRecValid
 public section
 
 /-!
@@ -4598,6 +4601,516 @@ theorem NestedPinsRun.copyOrdFLeft {pbs : List (Expr × ConLeche.BinderMeta)}
     IsBlockModel.Fss_getD hj, hmapGetD _ l (by rw [hlenDropJ]; exact hlF), getD_dropD]
   exact Option.some.inj ((hCD.domRead ψ l x' hx').symm.trans hread)
 
+
+/-! ## The ordinary field's LEFT arm, READ (task #315 L-B, DESIGN §U.74)
+
+`copyOrdFLeft` proves the arm's TERM equality at a field the
+positivity `whnf` left alone, and carries the other case as its second
+disjunct: the rewritten domain mentions a member the `whnf` then
+DROPPED, and there the copy's stored domain is no longer the minted
+one as a term.  It still READS the same, which is all the arm's
+consumer wants — so this is the arm's semantic half, stated at EVERY
+ordinary field, with no residue hypothesis.
+
+The route is `normPosDomM`'s own reading law at the run
+`copyOrdFLeftRun` names.  Its inputs are: the MINTED domain's reading
+(`mintFieldRead`); the frame — the block's parameter context with the
+earlier MINTED field readings on top, whose `CtxOk` is
+`ctxOk_of_openers` over the first former's openers followed by the
+minted constructor's; and the grading, which is the CONTAINER's own
+(`IsBlockModel.ctor_okB`/`ctor_validV` at the pin's parameter frame,
+`NestedPinGroupSyn.DsFit`) carried across the instantiation by
+`wellDenoted_instAll` and its `AnnotValid` twin.  The output's reading
+is then the run's own stored domain (`BlockCtorData.domRead` after
+`crossUp`), and the arm's left-hand side is rewritten onto it by
+`copyOrdFLeft`'s own tail. -/
+
+/-- **`CopyCtorShape.ordF`'s LEFT arm, SEMANTICALLY** (task #315 L-B):
+at every field the auxiliary block classifies ordinary, the copy's
+STORED field domain and the CONTAINER's field domain instantiated at
+the pin's components have the same interpretation at every prefix
+fitting the container's own earlier domains. -/
+theorem NestedPinsRun.copyOrdFLeftRead {pbs : List (Expr × ConLeche.BinderMeta)}
+    (hPD : ∀ q, q < st.pins.length → PinData env st p pbs q)
+    (hK42 : ∃ (jobs : List (Nat × Expr × Expr)) (ws : List Expr),
+      ConLeche.nestedOrdDomPairs env p st stored (ConLeche.nestedPinKinds p b stored) = some jobs ∧
+      ConLeche.nestedOrdNorms (m := ConLeche.CheckM) (ConLeche.fueledOps μ F)
+          (ConLeche.consNestedFormers (stored.take p.k) env) b.memberNames jobs = .ok ws ∧
+      ws = jobs.map (·.2.2))
+    {i' : Nat} (hi' : i' < kJ) {j : Nat} {cAJ : ConstantVal × Nat}
+    (hj : (dJ.ctorsM i')[j]? = some cAJ) {l : Nat} (hlF : l < cAJ.2)
+    (hordA : kindAt (mutKsOf kinds (b.ownOffset (p.k + q₀ + i') + j)) l = .ordinary)
+    (ψ : Name → Nat) (ρp : Nat → V)
+    (hsat : Sat V (((ppsF 0 ψ).take b.nP).map (·.2.2)).reverse ρp)
+    (fs₁ : List V) (hfs : fs₁.length = l)
+    (hfit : SpineFit (consList (((pinsS.getD (q₀ + i') default).Ds ψ).map (interp V ρp)) ρp)
+      (((dJ.Fss i' ((pinsS.getD (q₀ + i') default).ψJ ψ)).getD j []).take l) fs₁) :
+    interp V (consList fs₁ ρp)
+        (((mutFss0 b.nP ctorsA.length dsF (mutKsOf kinds) (mutNFOf ctorsA) ψ).getD
+          (b.ownOffset (p.k + q₀ + i') + j) []).getD l default)
+      = interp V (consList fs₁ ρp)
+          (AnnotTerm.instAll ((pinsS.getD (q₀ + i') default).Ds ψ) l
+            (((dJ.Fss i' ((pinsS.getD (q₀ + i') default).ψJ ψ)).getD j []).getD l default)) := by
+  classical
+  obtain ⟨cc, J, ci, lpsJ, pcs, fcs, Fs', esJ, cbody', o, params, pbs₀, cA, cname, qn, usJ,
+    hciP, hJmem, hJcc, hn, hty, hnf, hJname, hDsnP, hstripJ, hpl, hfl, hesJ, hccf, hccb, hksJ,
+    hopb, hplenB, hidxP, hpbs₀len, hpbs₀f, ⟨o', hstripF⟩, hcbb, hcbl, hDsB, hlenF, hfields,
+    hqnMem, hqnPin, ⟨cI, fcs', hinstCI, hstripCI, hfcs'⟩, hcb, hcA, hnF, hbc⟩ :=
+    R.copyResid SF S hPD hi' hj
+  have hlcc : l < cc.nFields := by rw [← hnf]; exact hlF
+  have hGlt : b.ownOffset (p.k + q₀ + i') + j < ctorsA.length :=
+    (List.getElem?_eq_some_iff.mp hcA).1
+  have hCD := R.h.CD _ _ hcA
+  have hlA : l < cA.2 := by rw [hnF]; exact hlcc
+  have hnFs : l < mutNFOf ctorsA (b.ownOffset (p.k + q₀ + i') + j) := by
+    show l < (ctorsA.getD _ default).2
+    rw [List.getD_eq_getElem?_getD, hcA, Option.getD_some]
+    exact hlA
+  have hlks : l < (mutKsOf kinds (b.ownOffset (p.k + q₀ + i') + j)).length := by
+    obtain ⟨hksLen, -, -⟩ := R.h.ksJ _ _ hcA
+    rw [hksLen]; exact hlA
+  -- ==== the MINTED constructor, opened at its field binders ====
+  obtain ⟨resM, hstripCI'⟩ : ∃ r, cI.stripPis cc.nFields = some (fcs', r) := ⟨_, hstripCI⟩
+  have hfcs'len : fcs'.length = cc.nFields := Expr.stripPis_length _ hstripCI'
+  obtain ⟨xfvs', hxf'len, -, hlawX'⟩ :=
+    ConLeche.openPisAtFvars_mkPisB cc.nFields fcs' hfcs'len b.nP
+  have hopM : ConLeche.openPisAtFvars cc.nFields cI b.nP
+      = some (xfvs', Expr.instSeq xfvs' (cc.nFields - 1) resM) := by
+    rw [ConLeche.stripPis_mkPisB _ hstripCI']; exact hlawX' _
+  obtain ⟨xI, hxI⟩ : ∃ x, xfvs'[l]? = some x :=
+    ⟨_, List.getElem?_eq_getElem (by rw [hxf'len]; exact hlcc)⟩
+  obtain ⟨x', hx'⟩ : ∃ x', (xFvsF (b.ownOffset (p.k + q₀ + i') + j))[l]? = some x' :=
+    ⟨_, List.getElem?_eq_getElem (by rw [hCD.xLen, hnF]; exact hlcc)⟩
+  -- ==== the pin: the components, scoped and read ====
+  have hqst : q₀ + i' < st.pins.length := by
+    rw [← SF.pinsLen]; have := S.seg; omega
+  have hqS : q₀ + i' < pinsS.length := by have := S.seg; omega
+  have PD := hPD _ hqst
+  obtain ⟨hJc, hpinS⟩ := SF.pinRec _ _ PD.pin
+  have hpin := PD.pinEq
+  rw [hpinS] at hpin
+  have hDsE : (pinsS.getD (q₀ + i') default).DsE = (srcAtE st p (q₀ + i')).2.2 := by
+    have hA := congrArg Expr.getAppArgs hpin
+    simp only [Expr.getAppArgs_mkAppN, Expr.getAppArgs, List.nil_append] at hA
+    exact hA
+  have hspine := SF.pinDs _ hqS ψ
+  rw [hDsE] at hspine
+  obtain ⟨-, hcl₀, hbt₀, hFD₀⟩ := R.former0
+  obtain ⟨hpinsE, fvsS, oS, hopS, hsc⟩ := R.scoped
+  have hfvsS : fvsS = params :=
+    congrArg Prod.fst (Option.some.inj (hopS.symm.trans hopb))
+  obtain ⟨hbnd, hleafPin⟩ := hsc _ (List.mem_of_getElem? PD.pin)
+  have hwsPin := WScoped_of_openers mp₁' hFD₀ hcl₀ hbt₀ hopS hleafPin ψ
+  rw [PD.pinEq] at hbnd hwsPin
+  obtain ⟨-, hwsD⟩ := ConLeche.WScoped_of_mkAppN hwsPin
+  obtain ⟨-, hbndD⟩ := ConLeche.looseBVarsBounded_of_mkAppN hbnd
+  have hDsSc : ∀ a ∈ (srcAtE st p (q₀ + i')).2.2,
+      Expr.WScoped b.nP a ∧ a.looseBVarsBounded 0 = true :=
+    fun a ha => ⟨hwsD a ha, hbndD a ha⟩
+  -- the minted constructor's scope and bounds
+  have hwsCI : Expr.WScoped b.nP cI :=
+    instPis_WScoped hinstCI
+      (Expr.WScoped.of_not_hasFvar
+        (by rw [ConLeche.Expr.hasFvar_instantiateLevelParams]; exact hccf))
+      (fun x hx => (hDsSc x hx).1)
+  have hbCI : cI.looseBVarsBounded 0 = true :=
+    looseBVarsBounded_instPis _ _ _
+      (by rw [ConLeche.Expr.looseBVarsBounded_instantiateLevelParams]; exact hccb)
+      (fun a ha => (hDsSc a ha).2) hinstCI
+  -- every field domain of the minted constructor, read
+  have hmfr : ∀ l₀ : Nat, l₀ < cAJ.2 → ∀ y : Expr, xfvs'[l₀]? = some y →
+      denoteMeta mp₁'.base2.acval (ConLeche.consMutualFormers (fms.take p.k) env) ψ (b.nP + l₀)
+          (Expr.fvarTypeD y)
+        = some (AnnotTerm.instAll ((pinsS.getD (q₀ + i') default).Ds ψ) l₀
+            ((dJ.dsF i' j ((pinsS.getD (q₀ + i') default).ψJ ψ)).getD (dJ.nP + l₀) default).2.2) :=
+    fun l₀ hl₀ y hy =>
+      mintFieldRead S hi' hj hksJ (by rw [hty]; exact hccf) (by rw [hty]; exact hccb)
+        hDsSc ψ hspine (by rw [hty]; exact hinstCI) (by rw [hnf]; exact hopM) hl₀ hy
+  -- ==== the first former's opened context ====
+  obtain ⟨Γ₀, R₀, htele, O⟩ := opened_of (V := V) hopb hcl₀ hbt₀ (hFD₀.read ψ) (hFD₀.okTy ψ)
+  have hΓeq : Γ₀ = (((ppsF 0 ψ).take b.nP).map (·.2.2)).reverse :=
+    (PiTeleAV.unique htele
+      (piTeleAV_mkPisAV_take (ppsF 0 ψ) (hFD₀.len ψ) (.sort (f₀.s.eval ψ)))).1
+  have hΓlen : Γ₀.length = b.nP := htele.length
+  rw [← hΓeq] at hsat
+  -- the pin's components are graded at every frame satisfying that context
+  obtain ⟨eaP, heaP, hokP⟩ := R.pinRead hpinsE hopS hsc hqst ψ
+  rw [← hΓeq] at hokP
+  rw [hpinS, hDsE] at heaP
+  obtain ⟨fa, vs, -, hsp, hea⟩ := denoteMeta_mkAppN_inv heaP
+  obtain rfl : vs = (pinsS.getD (q₀ + i') default).Ds ψ := DenoteMetaSpine.unique hsp hspine
+  have hDsGr : ∀ ρ : Nat → V, Sat V Γ₀ ρ →
+      ∀ d ∈ (pinsS.getD (q₀ + i') default).Ds ψ, WellDenoted V ρ d ∧ AnnotValid V ρ d := by
+    intro ρ hρ d hd
+    obtain ⟨hw, hv⟩ := hokP ρ hρ
+    rw [hea] at hw hv
+    exact ⟨wellDenoted_of_mkAppN_arg hw d hd, (AnnotValid.mkAppN_inv hv).2 d hd⟩
+  -- ==== the container's block model at this member ====
+  obtain ⟨cvT, caps, cvR, mI, rP, rules, -, hI, -⟩ := S.stored i' hi'
+  have hmapGetD : ∀ (L : List (Nat × Nat × AnnotTerm)) (n : Nat), n < L.length →
+      (L.map (·.2.2)).getD n default = (L.getD n default).2.2 := by
+    intro L n hn
+    rw [List.getD_eq_getElem?_getD, List.getElem?_map, List.getElem?_eq_getElem hn,
+      List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hn]
+    rfl
+  obtain ⟨-, -, hCDJ⟩ := hI.ctors i' j cAJ hI.memberLt hj
+  have hlenDropJ : ((dJ.dsF i' j ((pinsS.getD (q₀ + i') default).ψJ ψ)).drop dJ.nP).length
+      = cAJ.2 := by
+    rw [List.length_drop, hCDJ.len _]; omega
+  have hFsLen : ((dJ.Fss i' ((pinsS.getD (q₀ + i') default).ψJ ψ)).getD j []).length = cAJ.2 :=
+    hI.Fss_length hj _
+  have hFsEntry : ∀ l₀, l₀ < cAJ.2 →
+      ((dJ.Fss i' ((pinsS.getD (q₀ + i') default).ψJ ψ)).getD j []).getD l₀ default
+        = ((dJ.dsF i' j ((pinsS.getD (q₀ + i') default).ψJ ψ)).getD (dJ.nP + l₀) default).2.2 := by
+    intro l₀ hl₀
+    rw [IsBlockModel.Fss_getD hj, hmapGetD _ l₀ (by rw [hlenDropJ]; exact hl₀), getD_dropD]
+  -- ==== two pure kit facts: `instTele` commutes with `take`, and the
+  -- `AnnotValid` twin of `wellDenoted_instAll` ====
+  have hinstTeleTake : ∀ (ts : List AnnotTerm) (c n : Nat),
+      (instTele ((pinsS.getD (q₀ + i') default).Ds ψ) c ts).take n
+        = instTele ((pinsS.getD (q₀ + i') default).Ds ψ) c (ts.take n) := by
+    intro ts
+    induction ts with
+    | nil => intro c n; simp [instTele]
+    | cons t ts ih =>
+      intro c n
+      cases n with
+      | zero => simp [instTele]
+      | succ n => simp only [instTele, List.take_succ_cons, ih (c + 1) n]
+  have hAVinstAll : ∀ (ds : List AnnotTerm) (fsv : List V) (ρ : Nat → V) (e : AnnotTerm),
+      (∀ d ∈ ds, AnnotValid V ρ d) →
+      (AnnotValid V (consList fsv (consList (ds.map (interp V ρ)) ρ)) e ↔
+        AnnotValid V (consList fsv ρ) (AnnotTerm.instAll ds fsv.length e)) := by
+    intro ds
+    induction ds with
+    | nil => intro fsv ρ e _; exact Iff.rfl
+    | cons d ds ih =>
+      intro fsv ρ e hds
+      simp only [AnnotTerm.instAll, List.map_cons, consList_cons]
+      rw [← ih fsv ρ (e.inst d (fsv.length + ds.length))
+        (fun x hx => hds x (List.mem_cons_of_mem _ hx))]
+      have hsh : shiftE (fsv.length + ds.length) 0
+          (consList fsv (consList (ds.map (interp V ρ)) ρ)) = ρ := by
+        have h0 := shiftE_consList (ds.map (interp V ρ)) ρ
+        rw [List.length_map] at h0
+        rw [shiftE_consList_add, h0]
+      have hin := instE_consList (interp V ρ d) fsv (ds.map (interp V ρ)).length
+        (consList (ds.map (interp V ρ)) ρ)
+      rw [instE_consList', List.length_map] at hin
+      rw [AnnotValid_inst (V := V) e d (fsv.length + ds.length)
+        (consList fsv (consList (ds.map (interp V ρ)) ρ))
+        (by rw [hsh]; exact hds d List.mem_cons_self), hsh, hin]
+  -- ==== the grading of the minted field readings ====
+  have hpinAt : ∀ n, (nestedBlockModel (V := V) p b fms f₀ ctorsA kinds env ppsF W idxF dsF esF
+      srcsF fvsPF xrestF eissF tssF ctorsR dsR xFvsR pinsS).pinAt n = pinsS.getD n default :=
+    fun _ => rfl
+  have hDparams : (nestedBlockModel (V := V) p b fms f₀ ctorsA kinds env ppsF W idxF dsF esF
+      srcsF fvsPF xrestF eissF tssF ctorsR dsR xFvsR pinsS).params ψ
+      = ((ppsF 0 ψ).take b.nP).map (·.2.2) := rfl
+  have hparSat : ∀ ρ₀ : Nat → V, Sat V Γ₀ ρ₀ →
+      Sat V (dJ.params ((pinsS.getD (q₀ + i') default).ψJ ψ)).reverse
+        (consList (((pinsS.getD (q₀ + i') default).Ds ψ).map (interp V ρ₀)) ρ₀) := by
+    intro ρ₀ hρ₀
+    have hfitP : SpineFit (fun jj => ρ₀ (jj + b.nP))
+        ((nestedBlockModel (V := V) p b fms f₀ ctorsA kinds env ppsF W idxF dsF esF
+          srcsF fvsPF xrestF eissF tssF ctorsR dsR xFvsR pinsS).params ψ)
+        ((List.range b.nP).reverse.map ρ₀) := by
+      rw [hDparams]
+      refine spineFit_of_sat_len ?_ ?_
+      · have hlenP := hFD₀.len ψ
+        simp only [List.length_map, List.length_reverse, List.length_range, List.length_take]
+        omega
+      · rw [consList_range_reverse, ← hΓeq]
+        exact hρ₀
+    have hDf := S.DsFit i' hi' ψ (fun jj => ρ₀ (jj + b.nP)) ((List.range b.nP).reverse.map ρ₀) hfitP
+    rw [consList_range_reverse, hpinAt] at hDf
+    have hs := sat_of_spineFit (Δ₀ := []) (Sat_nil (V := V) _) hDf
+    rwa [List.append_nil] at hs
+  have hgrade : ∀ l₀, l₀ < cAJ.2 → ∀ ρ : Nat → V,
+      Sat V ((instTele ((pinsS.getD (q₀ + i') default).Ds ψ) 0
+          (((dJ.Fss i' ((pinsS.getD (q₀ + i') default).ψJ ψ)).getD j []).take l₀)).reverse
+        ++ Γ₀) ρ →
+      WellDenotedV V ρ (AnnotTerm.instAll ((pinsS.getD (q₀ + i') default).Ds ψ) l₀
+        (((dJ.Fss i' ((pinsS.getD (q₀ + i') default).ψJ ψ)).getD j []).getD l₀ default)) := by
+    intro l₀ hl₀ ρ hρ
+    have hTlen : (instTele ((pinsS.getD (q₀ + i') default).Ds ψ) 0
+        (((dJ.Fss i' ((pinsS.getD (q₀ + i') default).ψJ ψ)).getD j []).take l₀)).length = l₀ := by
+      rw [instTele_length, List.length_take, hFsLen]; omega
+    have hAlen : ((instTele ((pinsS.getD (q₀ + i') default).Ds ψ) 0
+        (((dJ.Fss i' ((pinsS.getD (q₀ + i') default).ψJ ψ)).getD j []).take l₀)).reverse).length
+        = l₀ := by rw [List.length_reverse]; exact hTlen
+    have hρ0 : Sat V Γ₀ (fun jj => ρ (jj + l₀)) := by
+      have hd := Sat_drop hρ l₀
+      rwa [List.drop_left' hAlen] at hd
+    have hsatA : Sat V ((instTele ((pinsS.getD (q₀ + i') default).Ds ψ) 0
+        (((dJ.Fss i' ((pinsS.getD (q₀ + i') default).ψJ ψ)).getD j []).take l₀)).reverse) ρ :=
+      fun n Aa hn =>
+        hρ n Aa (by rw [List.getElem?_append_left ((List.getElem?_eq_some_iff.mp hn).1)]; exact hn)
+    have hfsvlen : ((List.range l₀).reverse.map ρ).length = l₀ := by simp
+    have hcons : consList ((List.range l₀).reverse.map ρ) (fun jj => ρ (jj + l₀)) = ρ :=
+      consList_range_reverse l₀ ρ
+    have hfitI : SpineFit (fun jj => ρ (jj + l₀))
+        (instTele ((pinsS.getD (q₀ + i') default).Ds ψ) 0
+          (((dJ.Fss i' ((pinsS.getD (q₀ + i') default).ψJ ψ)).getD j []).take l₀))
+        ((List.range l₀).reverse.map ρ) :=
+      spineFit_of_sat_len (by rw [hfsvlen, hTlen]) (by rw [hcons]; exact hsatA)
+    have hfitF : SpineFit
+        (consList (((pinsS.getD (q₀ + i') default).Ds ψ).map (interp V (fun jj => ρ (jj + l₀))))
+          (fun jj => ρ (jj + l₀)))
+        (((dJ.Fss i' ((pinsS.getD (q₀ + i') default).ψJ ψ)).getD j []).take l₀)
+        ((List.range l₀).reverse.map ρ) := by
+      have h := (spineFit_instTele ((pinsS.getD (q₀ + i') default).Ds ψ) (fun jj => ρ (jj + l₀))
+        (((dJ.Fss i' ((pinsS.getD (q₀ + i') default).ψJ ψ)).getD j []).take l₀) []
+        ((List.range l₀).reverse.map ρ)).mp (by
+          simpa only [List.length_nil, consList_nil] using hfitI)
+      simpa only [consList_nil] using h
+    have hρp' := hparSat _ hρ0
+    have hfok := (hI.ctor_okB hj hρp').1
+    have hfvl := (hI.ctor_validV hj hρp').1
+    have hw := fieldsOkB_getD hfok (by rw [hFsLen]; exact hl₀) hfitF
+    have hv := fieldsValid_getD hfvl (by rw [hFsLen]; exact hl₀) hfitF
+    refine ⟨?_, ?_⟩
+    · have h1 := (wellDenoted_instAll ((pinsS.getD (q₀ + i') default).Ds ψ)
+        ((List.range l₀).reverse.map ρ) (fun jj => ρ (jj + l₀))
+        (((dJ.Fss i' ((pinsS.getD (q₀ + i') default).ψJ ψ)).getD j []).getD l₀ default)
+        (fun d hd => (hDsGr _ hρ0 d hd).1)).mp hw
+      rw [hfsvlen, hcons] at h1
+      exact h1
+    · have h1 := (hAVinstAll ((pinsS.getD (q₀ + i') default).Ds ψ)
+        ((List.range l₀).reverse.map ρ) (fun jj => ρ (jj + l₀))
+        (((dJ.Fss i' ((pinsS.getD (q₀ + i') default).ψJ ψ)).getD j []).getD l₀ default)
+        (fun d hd => (hDsGr _ hρ0 d hd).2)).mp hv
+      rw [hfsvlen, hcons] at h1
+      exact h1
+  -- ==== list kit, generically (the goals below carry `getD`s the
+  -- rewrites would otherwise confuse with the block model's own) ====
+  have hgetSome : ∀ (L : List AnnotTerm) (n : Nat), n < L.length →
+      L[n]? = some (L.getD n default) := by
+    intro L n hn
+    rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hn]
+    rfl
+  have htakeGetD : ∀ (L : List AnnotTerm) (n m : Nat), m < n →
+      (L.take n).getD m default = L.getD m default := by
+    intro L n m hm
+    rw [List.getD_eq_getElem?_getD, List.getD_eq_getElem?_getD, List.getElem?_take_of_lt hm]
+  have hrevdrop : ∀ (T : List AnnotTerm) (m : Nat),
+      T.reverse.drop (T.length - m) = (T.take m).reverse := by
+    intro T m
+    have hsplit : T.reverse = (T.drop m).reverse ++ (T.take m).reverse := by
+      rw [← List.reverse_append, List.take_append_drop]
+    rw [hsplit, List.drop_left' (by rw [List.length_reverse, List.length_drop])]
+  have hdropRevP : ∀ (T B : List AnnotTerm) (n m : Nat), T.reverse.length = n →
+      (T.reverse ++ B).drop (n + m) = B.drop m := by
+    intro T B n m hT
+    rw [← List.drop_drop, List.drop_left' hT]
+  have hdropRevN : ∀ (T B : List AnnotTerm) (n m : Nat), T.length = n → m ≤ n →
+      (T.reverse ++ B).drop (n - m) = (T.take m).reverse ++ B := by
+    intro T B n m hT hm
+    rw [List.drop_append_of_le_length (by rw [List.length_reverse, hT]; omega), ← hT, hrevdrop]
+  -- ==== the opened frame's `CtxOk` at the minted domain ====
+  have hwsxI : Expr.WScoped (b.nP + l) (Expr.fvarTypeD xI) :=
+    openPisAtFvars_typeWScoped cc.nFields hopM hwsCI l xI hxI
+  have hltXI := Expr.fvarLeaves_lt_of_wscoped hwsxI
+  have hbxI : (Expr.fvarTypeD xI).looseBVarsBounded 0 = true := by
+    have h := (openPisAtFvars_bounded cc.nFields hopM hbCI).2 _ (List.mem_of_getElem? hxI)
+    simpa [Expr.fvarTypeD] using h
+  have hcIleaf : ∀ lf ∈ cI.fvarLeaves, Expr.fvar lf.1 lf.2 ∈ params := by
+    intro lf hlf
+    obtain ⟨dsI, hdsI⟩ := instPis_instPisAt _ _ _ hinstCI
+    rcases instPisAt_leaves _ hdsI lf (Or.inr hlf) with h0 | ⟨a, ha, hla⟩
+    · rw [Expr.fvarLeaves_eq_nil_of_not_hasFvar
+        (by rw [ConLeche.Expr.hasFvar_instantiateLevelParams]; exact hccf)] at h0
+      exact absurd h0 List.not_mem_nil
+    · have hargs : a ∈ qn.pin.getAppArgs := by
+        rw [hqnPin]
+        simp only [Expr.getAppArgs_mkAppN, Expr.getAppArgs, List.nil_append]
+        exact ha
+      have hmemPin : lf ∈ qn.pin.fvarLeaves := fvarLeaves_getAppArgs hargs lf hla
+      have h1 := (hsc qn hqnMem).2 lf hmemPin
+      rw [hfvsS] at h1
+      exact h1
+  have hleafXI : ∀ lf ∈ (Expr.fvarTypeD xI).fvarLeaves,
+      Expr.fvar lf.1 lf.2 ∈ params ++ xfvs'.take l := by
+    intro lf hlf
+    have hxIfv : lf ∈ xI.fvarLeaves := by
+      obtain ⟨ty, hty'⟩ := ConLeche.openPisAtFvars_index cc.nFields cI b.nP hopM l xI hxI
+      rw [hty'] at hlf ⊢
+      simp only [Expr.fvarTypeD] at hlf
+      simp only [Expr.fvarLeaves]
+      exact List.mem_cons_of_mem _ hlf
+    rcases openPisAtFvars_leaves cc.nFields hopM lf
+      (Or.inr ⟨xI, List.mem_of_getElem? hxI, hxIfv⟩) with h0 | h0
+    · exact List.mem_append_left _ (hcIleaf lf h0)
+    · obtain ⟨pos, hpos⟩ := List.getElem?_of_mem h0
+      obtain ⟨ty, hty'⟩ := ConLeche.openPisAtFvars_index cc.nFields cI b.nP hopM pos _ hpos
+      have hpl' : lf.1 = b.nP + pos := by
+        have h1 := hty'
+        simp only [Expr.fvar.injEq] at h1
+        exact h1.1
+      have hlt : lf.1 < b.nP + l := hltXI lf hlf
+      have hpt : (xfvs'.take l)[pos]? = some (Expr.fvar lf.1 lf.2) := by
+        rw [List.getElem?_take_of_lt (show pos < l from by omega)]
+        exact hpos
+      exact List.mem_append_right _ (List.mem_of_getElem? hpt)
+  have hbdFvs : ∀ y ∈ params ++ xfvs'.take l,
+      (Expr.fvarTypeD y).looseBVarsBounded 0 = true := by
+    intro y hy
+    rcases List.mem_append.mp hy with hy | hy
+    · obtain ⟨pos, hpos⟩ := List.getElem?_of_mem hy
+      obtain ⟨-, -, hb2, -, -⟩ := O.var pos _ hpos
+      exact hb2
+    · have hy' : y ∈ xfvs' := List.mem_of_mem_take hy
+      have h := (openPisAtFvars_bounded cc.nFields hopM hbCI).2 _ hy'
+      simpa [Expr.fvarTypeD] using h
+  have hLxI : Expr.LeavesBounded (Expr.fvarTypeD xI) := by
+    intro lf hlf
+    have h := hbdFvs _ (hleafXI lf hlf)
+    simpa [Expr.fvarTypeD] using h
+  have hTlenL : (instTele ((pinsS.getD (q₀ + i') default).Ds ψ) 0
+      (((dJ.Fss i' ((pinsS.getD (q₀ + i') default).ψJ ψ)).getD j []).take l)).length = l := by
+    rw [instTele_length, List.length_take, hFsLen]; omega
+  have hArevlen : ((instTele ((pinsS.getD (q₀ + i') default).Ds ψ) 0
+      (((dJ.Fss i' ((pinsS.getD (q₀ + i') default).ψJ ψ)).getD j []).take l)).reverse).length
+      = l := by rw [List.length_reverse]; exact hTlenL
+  have hCtx : CtxOk mp₁'.base2 ψ (b.nP + l)
+      ((instTele ((pinsS.getD (q₀ + i') default).Ds ψ) 0
+        (((dJ.Fss i' ((pinsS.getD (q₀ + i') default).ψJ ψ)).getD j []).take l)).reverse ++ Γ₀)
+      (Expr.fvarTypeD xI) := by
+    refine ctxOk_of_openers mp₁'.base2.acval_closed (fvs := params ++ xfvs'.take l)
+      (Aa := fun i₀ => if i₀ < b.nP then Γ₀.getD (b.nP - 1 - i₀) default
+        else AnnotTerm.instAll ((pinsS.getD (q₀ + i') default).Ds ψ) (i₀ - b.nP)
+          (((dJ.Fss i' ((pinsS.getD (q₀ + i') default).ψJ ψ)).getD j []).getD (i₀ - b.nP) default))
+      (n := b.nP + l) ?_ ?_ ?_ ?_ hleafXI hltXI ?_ ?_
+    · rw [List.length_append, hArevlen, hΓlen]; omega
+    · -- the openers are indexed by position
+      intro i₀ x hx
+      by_cases hlt : i₀ < b.nP
+      · rw [List.getElem?_append_left (by omega)] at hx
+        obtain ⟨ty, hty'⟩ := ConLeche.openPisAtFvars_index b.nP f₀.cvTa.type 0 hopb i₀ x hx
+        exact ⟨ty, by rw [hty', Nat.zero_add]⟩
+      · rw [List.getElem?_append_right (by omega)] at hx
+        have hlt2 : i₀ - params.length < l := by
+          have h1 := (List.getElem?_eq_some_iff.mp hx).1
+          rw [List.length_take] at h1; omega
+        rw [List.getElem?_take_of_lt hlt2] at hx
+        obtain ⟨ty, hty'⟩ :=
+          ConLeche.openPisAtFvars_index cc.nFields cI b.nP hopM _ x hx
+        exact ⟨ty, by rw [hty']; congr 1; omega⟩
+    · -- the openers are well-scoped at the frame
+      intro x hx
+      rcases List.mem_append.mp hx with hx | hx
+      · obtain ⟨pos, hpos⟩ := List.getElem?_of_mem hx
+        have hposlt : pos < b.nP := by
+          have h1 := (List.getElem?_eq_some_iff.mp hpos).1
+          omega
+        obtain ⟨ty, hty'⟩ := ConLeche.openPisAtFvars_index b.nP f₀.cvTa.type 0 hopb pos x hpos
+        have hsc' := openPisAtFvars_typeWScoped b.nP hopb
+          (Expr.WScoped.of_not_hasFvar hcl₀) pos x hpos
+        rw [hty'] at hsc' ⊢
+        simp only [Expr.fvarTypeD, Nat.zero_add] at hsc' ⊢
+        simp only [Expr.WScoped]
+        exact ⟨by omega, hsc'⟩
+      · obtain ⟨pos, hpos⟩ := List.getElem?_of_mem hx
+        have hposlt : pos < l := by
+          have h1 := (List.getElem?_eq_some_iff.mp hpos).1
+          rw [List.length_take] at h1; omega
+        rw [List.getElem?_take_of_lt hposlt] at hpos
+        obtain ⟨ty, hty'⟩ := ConLeche.openPisAtFvars_index cc.nFields cI b.nP hopM pos x hpos
+        have hsc' := openPisAtFvars_typeWScoped cc.nFields hopM hwsCI pos x hpos
+        rw [hty'] at hsc' ⊢
+        simp only [Expr.fvarTypeD] at hsc' ⊢
+        simp only [Expr.WScoped]
+        exact ⟨by omega, hsc'⟩
+    · -- the openers' annotations read to the context's entries
+      intro i₀ x hx
+      by_cases hlt : i₀ < b.nP
+      · rw [if_pos hlt]
+        rw [List.getElem?_append_left (by omega)] at hx
+        exact O.doms i₀ x hx
+      · rw [if_neg hlt]
+        rw [List.getElem?_append_right (by omega)] at hx
+        have hlt2 : i₀ - params.length < l := by
+          have h1 := (List.getElem?_eq_some_iff.mp hx).1
+          rw [List.length_take] at h1; omega
+        rw [List.getElem?_take_of_lt hlt2] at hx
+        have h := hmfr (i₀ - b.nP) (by omega) x (by rw [← hplenB]; exact hx)
+        rw [show b.nP + (i₀ - b.nP) = i₀ from by omega] at h
+        rw [h, hFsEntry (i₀ - b.nP) (by omega)]
+    · -- the context's entries, positionally
+      intro i₀ hi₀
+      by_cases hlt : i₀ < b.nP
+      · rw [if_pos hlt,
+          List.getElem?_append_right (by rw [hArevlen]; omega), hArevlen,
+          show b.nP + l - 1 - i₀ - l = b.nP - 1 - i₀ from by omega]
+        exact hgetSome Γ₀ _ (by rw [hΓlen]; omega)
+      · have hidx : i₀ - b.nP < l := by omega
+        have hgetD : (instTele ((pinsS.getD (q₀ + i') default).Ds ψ) 0
+              (((dJ.Fss i' ((pinsS.getD (q₀ + i') default).ψJ ψ)).getD j []).take l)).getD
+                (i₀ - b.nP) default
+            = AnnotTerm.instAll ((pinsS.getD (q₀ + i') default).Ds ψ) (i₀ - b.nP)
+              (((dJ.Fss i' ((pinsS.getD (q₀ + i') default).ψJ ψ)).getD j []).getD
+                (i₀ - b.nP) default) := by
+          rw [instTele_getD _ 0 _ (i₀ - b.nP) (by rw [List.length_take, hFsLen]; omega),
+            Nat.zero_add, htakeGetD _ l (i₀ - b.nP) hidx]
+        rw [if_neg hlt,
+          List.getElem?_append_left (by rw [hArevlen]; omega),
+          List.getElem?_reverse (by rw [hTlenL]; omega), hTlenL,
+          show l - 1 - (b.nP + l - 1 - i₀) = i₀ - b.nP from by omega,
+          hgetSome _ _ (by rw [hTlenL]; exact hidx), hgetD]
+    · -- the entries are graded under the earlier ones
+      intro i₀ hi₀ ρ hρ
+      have hd := Sat_drop hρ (b.nP + l - i₀)
+      by_cases hlt : i₀ < b.nP
+      · rw [show b.nP + l - i₀ = l + (b.nP - i₀) from by omega,
+          hdropRevP _ _ l (b.nP - i₀) hArevlen] at hd
+        rw [if_pos hlt, show (fun jj => ρ (jj + (b.nP + l - 1 - i₀) + 1))
+            = (fun jj : Nat => ρ (jj + (l + (b.nP - i₀)))) from by funext jj; congr 1; omega]
+        exact O.okΓ i₀ hlt _ hd
+      · rw [show b.nP + l - i₀ = l - (i₀ - b.nP) from by omega,
+          hdropRevN _ _ l (i₀ - b.nP) hTlenL (by omega),
+          hinstTeleTake _ 0 (i₀ - b.nP), List.take_take,
+          show min (i₀ - b.nP) l = i₀ - b.nP from by omega] at hd
+        rw [if_neg hlt, show (fun jj => ρ (jj + (b.nP + l - 1 - i₀) + 1))
+            = (fun jj : Nat => ρ (jj + (l - (i₀ - b.nP)))) from by funext jj; congr 1; omega]
+        exact hgrade (i₀ - b.nP) (by omega) _ hd
+  -- ==== the run, and the reading law ====
+  have hrun := R.copyOrdFLeftRun SF S hPD hK42 hi' hj hlF hordA hciP hJmem hJname
+    (by rw [hty]; exact hinstCI) (by rw [hnf]; exact hopM) hxI hx'
+  obtain ⟨ea', hea', heq⟩ := normPosDomM_readEq_of R.hμ mp₁' ψ F hrun hwsxI hbxI hLxI hCtx
+    (hmfr l hlF xI hxI)
+    (by
+      have h := hgrade l hlF
+      intro ρ hρ
+      have h1 := h ρ hρ
+      rw [hFsEntry l hlF] at h1
+      exact h1)
+  -- the output's reading IS the run's own stored domain
+  have hcross := R.crossUp ψ (b.nP + l) _ hea'
+  obtain rfl : ea'
+      = ((dsF (b.ownOffset (p.k + q₀ + i') + j) ψ).getD (b.nP + l) default).2.2 :=
+    Option.some.inj (hcross.symm.trans (hCD.domRead ψ l x' hx'))
+  -- the frame: the theorem's own spine fits the instantiated telescope
+  have hsatΔ : Sat V ((instTele ((pinsS.getD (q₀ + i') default).Ds ψ) 0
+      (((dJ.Fss i' ((pinsS.getD (q₀ + i') default).ψJ ψ)).getD j []).take l)).reverse ++ Γ₀)
+      (consList fs₁ ρp) := by
+    refine sat_of_spineFit hsat ?_
+    have h := (spineFit_instTele ((pinsS.getD (q₀ + i') default).Ds ψ) ρp
+      (((dJ.Fss i' ((pinsS.getD (q₀ + i') default).ψJ ψ)).getD j []).take l) [] fs₁).mpr
+      (by simpa only [consList_nil] using hfit)
+    simpa only [List.length_nil, consList_nil] using h
+  have hkey := heq (consList fs₁ ρp) hsatΔ
+  -- the arm's left-hand side, rewritten onto the stored domain reading
+  have hlenDropA : (((dsF (b.ownOffset (p.k + q₀ + i') + j) ψ).drop b.nP)).length = cA.2 := by
+    rw [List.length_drop, hCD.len ψ]; omega
+  rw [mutFss0_getD hGlt, shadowFs_getD hnFs,
+    if_neg (show ¬ recAt b.nP (kindsOf (mutKsOf kinds (b.ownOffset (p.k + q₀ + i') + j)))
+        (b.nP + l) from by
+      intro hr
+      obtain ⟨-, hcase⟩ := hr
+      rw [Nat.add_sub_cancel_left, kindsOf_getD', hordA] at hcase
+      rcases hcase with h | h <;> exact nomatch h),
+    hmapGetD _ l (by rw [hlenDropA]; exact hlA), getD_dropD, hFsEntry l hlF]
+  exact hkey.symm
 end Assembly
 
 /-! ## THE FIVE ARMS, ASSEMBLED (task #315 L-B, DESIGN §U.58)
