@@ -17,9 +17,12 @@ are settled by the scope and resolution invariants, how the `∀`-telescope
 operators (`stripPis`, `mkPisB`, `piBinders`, `openPisAtFvars`) commute
 with the restore walk, what the restore table's `pins` lookup and
 `auxNames` say about the elimination state, and the head/argument shape
-of a pin re-opened at the block's parameters.
+of a pin re-opened at the block's parameters; and, in the last section,
+how the walk moves a bound variable, which is what makes the scratch
+block's recorded PROJECTION GUARDS the restored constructor's guards.
 
-Every name carries the `rk` prefix (the lane's namespace discipline).
+The names carry the lane's namespace discipline: `rk` for the kit's
+first sections, `rg` for the guards' (task #315 M7-2).
 -/
 
 namespace ConLeche
@@ -719,5 +722,364 @@ theorem rk_restoreTbl_auxNames_fresh {env : Env} {p : NestedParts} {st : ElimSta
       refine List.mem_map.mpr ⟨p.k + j, List.mem_range.mpr (by rw [hk]; omega), ?_⟩
       rw [hrecName (p.k + j) t ht, htn]
     exact hdr _ (List.mem_append_left _ (List.mem_of_mem_take hmem)) _ hrec rfl
+
+/-! ## The guards' invariance under the restore (task #315 M7-2)
+
+The nested route RE-USES the scratch block's recorded `ProjTable`, whose
+`guards` field was computed at the AUXILIARY constructor's type
+(`structProjGuards`, through `structUsedLater`); the model's table clause
+asks for the guards of the RESTORED constructor's type.  The two agree,
+and nothing in the tree said so.
+
+The invariance is a statement about ONE bound variable: `structUsedLater
+cty nP j` strips `nP + j + 1` binders and asks whether `bvar 0` — field
+`j`'s own variable — occurs loose in what is left.  So what has to be
+shown is that `restoreWalk` neither ADDS nor LOSES an occurrence of a
+variable bound BELOW its current depth `d`.
+
+* it can never ADD one, and that needs no hypothesis at all: every term
+  the node step produces is built from `pin.liftLooseBVars d 0`, whose
+  loose indices are all `≥ d`, and from arguments of the node it
+  replaced (`rg_restoreNode_hasLooseBVar`);
+* it can only LOSE one by dropping `args.take R.nP` at a fired pin, and
+  the scratch block's own field classification forbids exactly that — an
+  ORDINARY field's domain mentions no auxiliary name at all, so the walk
+  is the identity on it, and a RECURSIVE or REFLEXIVE field's domain (and
+  the constructor's residual) carries the block's PARAMETER spine in that
+  prefix, whose indices are `≥ d` too.
+
+`RestoreKeepsLoose` names the CONCLUSION rather than a condition, so the
+two halves compose: the shapes above each establish it, and it is closed
+under the node formers, hence under a `∀`-telescope
+(`rg_keepsLoose_stripPis`).  That is what carries it from the fields to
+the constructor type and so to `structProjGuards`. -/
+
+/-! ## Loose variables under a lift and along a spine -/
+
+/-- **A lift hides the variables it skips**: `liftLooseBVars d c` moves
+every loose index at or above `c` up by `d`, so no index in `[c, c + d)`
+survives — at `c = 0` the lifted term mentions nothing below `d`. -/
+theorem rg_hasLooseBVar_liftLooseBVars : ∀ (e : Expr) {d c q : Nat}, c ≤ q → q < c + d →
+    (e.liftLooseBVars d c).hasLooseBVar q = false := by
+  intro e
+  induction e with
+  | bvar i =>
+    intro d c q h1 h2
+    simp only [Expr.liftLooseBVars]
+    split
+    · rename_i hge
+      simp only [Expr.hasLooseBVar, beq_eq_false_iff_ne, ne_eq]
+      omega
+    · rename_i hlt
+      simp only [Expr.hasLooseBVar, beq_eq_false_iff_ne, ne_eq]
+      omega
+  | app f a ihf iha =>
+    intro d c q h1 h2
+    simp only [Expr.liftLooseBVars, Expr.hasLooseBVar, ihf h1 h2, iha h1 h2, Bool.or_self]
+  | lam ty b bm ihty ihb =>
+    intro d c q h1 h2
+    have hb := ihb (d := d) (c := c + 1) (q := q + 1) (by omega) (by omega)
+    simp only [Expr.liftLooseBVars, Expr.hasLooseBVar, ihty h1 h2, hb, Bool.or_self]
+  | forallE ty b bm ihty ihb =>
+    intro d c q h1 h2
+    have hb := ihb (d := d) (c := c + 1) (q := q + 1) (by omega) (by omega)
+    simp only [Expr.liftLooseBVars, Expr.hasLooseBVar, ihty h1 h2, hb, Bool.or_self]
+  | letE ty v b ihty ihv ihb =>
+    intro d c q h1 h2
+    have hb := ihb (d := d) (c := c + 1) (q := q + 1) (by omega) (by omega)
+    simp only [Expr.liftLooseBVars, Expr.hasLooseBVar, ihty h1 h2, ihv h1 h2, hb, Bool.or_self]
+  | proj s i pe ih =>
+    intro d c q h1 h2
+    simp only [Expr.liftLooseBVars, Expr.hasLooseBVar, ih h1 h2]
+  | fvar i ty => intro d c q _ _; rfl
+  | sort u => intro d c q _ _; rfl
+  | const n us => intro d c q _ _; rfl
+  | lit l => intro d c q _ _; rfl
+
+/-- **A spine's loose variables** are its head's and its arguments'. -/
+theorem rg_hasLooseBVar_mkAppN : ∀ (args : List Expr) (f : Expr) (q : Nat),
+    (Expr.mkAppN f args).hasLooseBVar q
+      = (f.hasLooseBVar q || args.any (fun a => a.hasLooseBVar q))
+  | [], f, q => by simp [Expr.mkAppN]
+  | a :: as, f, q => by
+    rw [show Expr.mkAppN f (a :: as) = Expr.mkAppN (.app f a) as from rfl,
+      rg_hasLooseBVar_mkAppN as]
+    simp only [Expr.hasLooseBVar, List.any_cons]
+    exact Bool.or_assoc _ _ _
+
+/-- A term free of `bvar q` has arguments free of it. -/
+theorem rg_hasLooseBVar_getAppArgs_false {e : Expr} {q : Nat} (h : e.hasLooseBVar q = false) :
+    ∀ a ∈ e.getAppArgs, a.hasLooseBVar q = false := by
+  intro a ha
+  rw [← Expr.mkAppN_getApp e, rg_hasLooseBVar_mkAppN] at h
+  simp only [Bool.or_eq_false_iff, List.any_eq_false] at h
+  simpa using h.2 a ha
+
+/-! ## The node step never adds an occurrence -/
+
+/-- **The head half never adds a variable bound below `d`**: what it
+produces is the lifted pin — free of every index below `d`
+(`rg_hasLooseBVar_liftLooseBVars`) — applied to arguments of the node it
+replaced. -/
+theorem rg_restoreHead_hasLooseBVar {R : RestoreTbl} {d q : Nat} {e x : Expr}
+    (h : restoreHead R d e = .ok (some x)) (hq : q < d) (he : e.hasLooseBVar q = false) :
+    x.hasLooseBVar q = false := by
+  have hargs : ∀ a ∈ e.getAppArgs, a.hasLooseBVar q = false :=
+    rg_hasLooseBVar_getAppArgs_false he
+  simp only [restoreHead] at h
+  have hlift : ∀ pin : Expr, (pin.liftLooseBVars d 0).hasLooseBVar q = false := fun pin =>
+    rg_hasLooseBVar_liftLooseBVars pin (Nat.zero_le _) (by omega)
+  split at h
+  · split at h
+    · split at h
+      · exact nomatch h
+      · obtain rfl := Option.some.inj (Except.ok.inj h)
+        rw [rg_hasLooseBVar_mkAppN, hlift _]
+        simp only [Bool.false_or, List.any_eq_false]
+        intro a ha
+        simpa using hargs a (List.mem_of_mem_drop ha)
+    · split at h
+      · split at h
+        · exact nomatch h
+        · split at h
+          · obtain rfl := Option.some.inj (Except.ok.inj h)
+            rw [rg_hasLooseBVar_mkAppN, rg_hasLooseBVar_mkAppN]
+            simp only [Expr.hasLooseBVar, Bool.false_or, Bool.or_eq_false_iff,
+              List.any_eq_false]
+            refine ⟨fun a ha => ?_, fun a ha => ?_⟩
+            · simpa using rg_hasLooseBVar_getAppArgs_false (hlift _) a ha
+            · simpa using hargs a (List.mem_of_mem_drop ha)
+          · exact nomatch h
+      · exact nomatch h
+  · exact nomatch h
+
+/-- **The node step never adds a variable bound below `d`.** -/
+theorem rg_restoreNode_hasLooseBVar {R : RestoreTbl} {d q : Nat} {e x : Expr}
+    (h : restoreNode R d e = .ok (some x)) (hq : q < d) (he : e.hasLooseBVar q = false) :
+    x.hasLooseBVar q = false := by
+  cases e with
+  | const n us =>
+    rw [restoreNode_const] at h
+    split at h
+    · obtain rfl := Option.some.inj (Except.ok.inj h)
+      rfl
+    · exact rg_restoreHead_hasLooseBVar h hq he
+  | _ =>
+    rw [restoreNode_eq_head (by intro n us hq'; exact Expr.noConfusion hq')] at h
+    exact rg_restoreHead_hasLooseBVar h hq he
+
+/-! ## `RestoreKeepsLoose` -/
+
+/-- **The restore is transparent to the variables bound below `d`**:
+whatever the walk makes of `e` at depth `d` has exactly the loose
+occurrences of `e` at every index below `d`.
+
+It names the CONCLUSION, not a condition, and that is the point: the two
+halves of the argument — the shapes at which the walk provably keeps
+every such occurrence — each establish it, and it is closed under the
+node formers, hence under a `∀`-telescope.  So the fields' local facts
+compose into the constructor type's. -/
+@[expose] def RestoreKeepsLoose (R : RestoreTbl) (d : Nat) (e : Expr) : Prop :=
+  ∀ e', restoreWalk R d e = .ok e' → ∀ q, q < d → e'.hasLooseBVar q = e.hasLooseBVar q
+
+/-- **An auxiliary-free term is its own restoration**, so it keeps
+every variable — this is the ORDINARY field's case: its domain
+`constsResolve`s at the pre-block environment, where no auxiliary name
+exists. -/
+theorem rg_keepsLoose_of_no_aux {R : RestoreTbl} {d : Nat} {e : Expr}
+    (h : ∀ n ∈ R.auxNames, e.mentionsConst n = false) : RestoreKeepsLoose R d e := by
+  intro e' hw q _
+  obtain rfl := Except.ok.inj ((restoreWalk_of_no_aux d e h).symm.trans hw)
+  rfl
+
+/-- **The Π node**: the domain is walked at the same depth and the body
+one deeper, and an index below `d` is an index below `d + 1` under the
+binder. -/
+theorem rg_keepsLoose_forallE {R : RestoreTbl} {d : Nat} {ty b : Expr} {bm : BinderMeta}
+    (hty : RestoreKeepsLoose R d ty) (hb : RestoreKeepsLoose R (d + 1) b) :
+    RestoreKeepsLoose R d (.forallE ty b bm) := by
+  intro e' hw q hq
+  obtain ⟨ty', b', hty', hb', rfl⟩ := restoreWalk_forallE_inv hw
+  simp only [Expr.hasLooseBVar, hty _ hty' q hq, hb _ hb' (q + 1) (by omega)]
+
+/-- **The parameter spine mentions nothing below its own frame**: the
+variables `structPsAt o nP` are the `nP` binders at `o`, so an index
+below `o` is none of them. -/
+theorem rg_hasLooseBVar_structPsAt {o nP q : Nat} (h : q < o) :
+    ∀ a ∈ structPsAt o nP, a.hasLooseBVar q = false := by
+  intro a ha
+  simp only [structPsAt, List.mem_map, List.mem_range] at ha
+  obtain ⟨k, hk, rfl⟩ := ha
+  simp only [Expr.hasLooseBVar, beq_eq_false_iff_ne, ne_eq]
+  omega
+
+/-- **A pin's fire keeps every variable below `d`**: the walk replaces
+the node by `pin.liftLooseBVars d 0` — free of every index below `d` —
+applied to `args.drop R.nP`, which it copies verbatim.  So the only
+occurrences that could be lost are those in `args.take R.nP`, and
+`htake` is exactly the classification's guarantee that there are none:
+at a recursive or reflexive field of the scratch block that prefix is
+the block's PARAMETER spine (`structCtorResidOk`, `mutualPositivity`). -/
+theorem rg_keepsLoose_pin {R : RestoreTbl} {d : Nat} {n : Name} {us : List Level}
+    {args : List Expr} {pin : Expr}
+    (hp : R.pins.lookup n = some pin) (hrec : R.recMap.lookup n = none)
+    (haux : n ∈ R.auxNames) (hlen : R.nP ≤ args.length)
+    (htake : ∀ a ∈ args.take R.nP, ∀ q, q < d → a.hasLooseBVar q = false) :
+    RestoreKeepsLoose R d (Expr.mkAppN (.const n us) args) := by
+  intro e' hw q hq
+  obtain rfl := Except.ok.inj ((restoreWalk_pin hp hrec haux hlen).symm.trans hw)
+  have htk : (args.take R.nP).any (fun a => a.hasLooseBVar q) = false := by
+    simp only [List.any_eq_false]
+    intro a ha
+    simpa using htake a ha q hq
+  have hall : (args.any fun a => a.hasLooseBVar q)
+      = (args.drop R.nP).any (fun a => a.hasLooseBVar q) := by
+    have h0 : ((args.take R.nP ++ args.drop R.nP).any fun a => a.hasLooseBVar q)
+        = (args.drop R.nP).any (fun a => a.hasLooseBVar q) := by
+      simp only [List.any_append, htk, Bool.false_or]
+    rwa [List.take_append_drop] at h0
+  rw [rg_hasLooseBVar_mkAppN, rg_hasLooseBVar_mkAppN,
+    rg_hasLooseBVar_liftLooseBVars pin (Nat.zero_le _) (by omega)]
+  simp only [Expr.hasLooseBVar, Bool.false_or, hall]
+
+/-- **A pin's fire at the block's parameter frame**, the form the
+scratch block's own checks leave behind: a recursive or reflexive
+field's residual and a constructor's residual are the member applied to
+`structPsAt o R.nP` first (`mutualPositivity`, `structCtorResidOk`),
+where `o` is the frame the walk has reached — so the dropped prefix is
+parameters, never a field variable. -/
+theorem rg_keepsLoose_spine {R : RestoreTbl} {d o : Nat} {n : Name} {us : List Level}
+    {e pin : Expr} (hfn : e.getAppFn = .const n us)
+    (hp : R.pins.lookup n = some pin) (hrec : R.recMap.lookup n = none)
+    (haux : n ∈ R.auxNames) (hlen : R.nP ≤ e.getAppArgs.length) (hd : d ≤ o)
+    (htake : e.getAppArgs.take R.nP = structPsAt o R.nP) :
+    RestoreKeepsLoose R d e := by
+  have he : Expr.mkAppN (.const n us) e.getAppArgs = e := by
+    rw [← hfn]; exact Expr.mkAppN_getApp e
+  rw [← he]
+  refine rg_keepsLoose_pin hp hrec haux hlen (fun a ha q hq => ?_)
+  rw [htake] at ha
+  exact rg_hasLooseBVar_structPsAt (by omega) a ha
+
+/-- **The telescope**: a `∀`-prefix whose domains each keep their
+variables, over a body that keeps its own, keeps every variable of the
+whole — `rg_keepsLoose_forallE` iterated along `stripPis`. -/
+theorem rg_keepsLoose_stripPis {R : RestoreTbl} :
+    ∀ (m : Nat) {d : Nat} {e : Expr} {bs : List (Expr × BinderMeta)} {body : Expr},
+      e.stripPis m = some (bs, body) →
+      (∀ i, i < m → RestoreKeepsLoose R (d + i) (bs.getD i default).1) →
+      RestoreKeepsLoose R (d + m) body → RestoreKeepsLoose R d e := by
+  intro m
+  induction m with
+  | zero =>
+    intro d e bs body hs _ hbody
+    simp only [Expr.stripPis, Option.some.injEq, Prod.mk.injEq] at hs
+    obtain ⟨-, rfl⟩ := hs
+    simpa using hbody
+  | succ m ih =>
+    intro d e bs body hs hdoms hbody
+    cases e with
+    | forallE ty b bm =>
+      rw [Expr.stripPis] at hs
+      cases hb : b.stripPis m with
+      | none => rw [hb] at hs; exact nomatch hs
+      | some pr =>
+        obtain ⟨bs₀, body₀⟩ := pr
+        rw [hb] at hs
+        simp only [Option.map_some, Option.some.injEq, Prod.mk.injEq] at hs
+        obtain ⟨rfl, rfl⟩ := hs
+        refine rg_keepsLoose_forallE ?_ (ih (d := d + 1) hb ?_ ?_)
+        · simpa using hdoms 0 (by omega)
+        · intro i hi
+          have h1 := hdoms (i + 1) (by omega)
+          simp only [List.getD_cons_succ] at h1
+          rw [show d + 1 + i = d + (i + 1) by omega]
+          exact h1
+        · rw [show d + 1 + m = d + (m + 1) by omega]
+          exact hbody
+    | bvar _ | fvar _ _ | sort _ | const _ _ | app _ _
+    | lam _ _ _ | letE _ _ _ | lit _ | proj _ _ _ => exact nomatch hs
+
+/-! ## The guards -/
+
+/-- **`structUsedLater` is invariant under the restore**: field `j`'s
+variable occurs in the remainder of the RESTORED constructor telescope
+exactly when it occurs in the remainder of the auxiliary one.
+
+The restore rebuilds the parameter prefix and walks the rest
+(`restoreNested_pis`, `rk_restoreWalk_stripPis`), so the remainder after
+binder `nP + j` is walked at depth `j + 1` — and `bvar 0` there is a
+variable bound below that depth, which `RestoreKeepsLoose` keeps.  The
+premises are the fields' and the residual's own shapes; at the scratch
+block they come from the classification (`mutualCtorKinds`) and the
+residual's check (`structCtorResidOk`). -/
+theorem rg_structUsedLater_restoreNested {R : RestoreTbl} {nP nF j : Nat} (hnP : R.nP = nP)
+    (hj : j < nF) {ctyA ctyR : Expr} {cbs : List (Expr × BinderMeta)} {resid : Expr}
+    (hstrip : ctyA.stripPis (nP + nF) = some (cbs, resid))
+    (hres : restoreNested R ctyA = .ok ctyR)
+    (hdoms : ∀ i, i < nF → RestoreKeepsLoose R i (cbs.getD (nP + i) default).1)
+    (hresid : RestoreKeepsLoose R nF resid) :
+    structUsedLater ctyR nP j = structUsedLater ctyA nP j := by
+  rw [show nP + nF = nP + j + 1 + (nF - j - 1) by omega] at hstrip
+  obtain ⟨mid, hs1, hs2⟩ := rk_stripPis_split (nP + j + 1) (nF - j - 1) hstrip
+  have hmid : RestoreKeepsLoose R (j + 1) mid := by
+    refine rg_keepsLoose_stripPis (nF - j - 1) hs2 (fun i hi => ?_) ?_
+    · have h1 := hdoms (j + 1 + i) (by omega)
+      have h2 : (cbs.drop (nP + j + 1)).getD i default = cbs.getD (nP + (j + 1 + i)) default := by
+        rw [show nP + (j + 1 + i) = nP + j + 1 + i by omega]
+        simp only [List.getD_eq_getElem?_getD, List.getElem?_drop]
+      rw [h2]
+      exact h1
+    · rw [show j + 1 + (nF - j - 1) = nF by omega]
+      exact hresid
+  obtain ⟨body₀, hsP, hsF⟩ := rk_stripPis_split nP (j + 1) hs1
+  have hsP' : ctyA.stripPis R.nP = some ((cbs.take (nP + j + 1)).take nP, body₀) := by
+    rw [hnP]; exact hsP
+  have hpi : 0 < R.nP → ∃ ty b bm, ctyA = Expr.forallE ty b bm := by
+    intro hlt
+    rw [hnP] at hlt
+    obtain ⟨u, rfl⟩ : ∃ u, nP = u + 1 := ⟨nP - 1, by omega⟩
+    cases ctyA with
+    | forallE ty b bm => exact ⟨ty, b, bm, rfl⟩
+    | bvar _ | fvar _ _ | sort _ | const _ _ | app _ _
+    | lam _ _ _ | letE _ _ _ | lit _ | proj _ _ _ => exact nomatch hsP
+  obtain ⟨body', hw, rfl⟩ := restoreNested_pis hsP' hpi hres
+  obtain ⟨bs', mid', hsb, hw', -, -⟩ := rk_restoreWalk_stripPis (j + 1) hw hsF
+  have hmk := rk_mkPisB_stripPis ((cbs.take (nP + j + 1)).take nP) body'
+  rw [stripPis_length nP hsP] at hmk
+  have hR : (mkPisB ((cbs.take (nP + j + 1)).take nP) body').stripPis (nP + j + 1)
+      = some ((cbs.take (nP + j + 1)).take nP ++ bs', mid') := stripPis_append nP hmk hsb
+  rw [mkPisB_eq_foldr]
+  simp only [structUsedLater, hR, hs1, Expr.hasLooseBVarB_eq]
+  exact hmid mid' (by simpa using hw') 0 (by omega)
+
+/-- A fold whose step agrees on every element of the list. -/
+theorem rg_foldl_congr {α β : Type} (f g : β → α → β) :
+    ∀ (l : List α) (b : β), (∀ a ∈ l, ∀ c, f c a = g c a) → l.foldl f b = l.foldl g b
+  | [], _, _ => rfl
+  | a :: as, b, h => by
+    simp only [List.foldl_cons, h a List.mem_cons_self b]
+    exact rg_foldl_congr f g as _ (fun x hx => h x (List.mem_cons_of_mem _ hx))
+
+/-- **THE PROJECTION GUARDS ARE INVARIANT UNDER THE RESTORE** (task
+#315).  The nested route re-uses the scratch block's recorded
+`ProjTable`, whose `guards` were computed at the AUXILIARY constructor's
+type; the model's table clause asks for the guards of the RESTORED
+constructor's type.  They are the same list: the guards are a fold over
+`structUsedLater` at the fields strictly below `nF`, and every one of
+those answers is invariant (`rg_structUsedLater_restoreNested`). -/
+theorem rg_structProjGuards_restoreNested {R : RestoreTbl} {nP nF : Nat} (hnP : R.nP = nP)
+    {ctyA ctyR : Expr} {cbs : List (Expr × BinderMeta)} {resid : Expr}
+    (hstrip : ctyA.stripPis (nP + nF) = some (cbs, resid))
+    (hres : restoreNested R ctyA = .ok ctyR)
+    (hdoms : ∀ i, i < nF → RestoreKeepsLoose R i (cbs.getD (nP + i) default).1)
+    (hresid : RestoreKeepsLoose R nF resid) (sorts : List Level) :
+    structProjGuards ctyR nP nF sorts = structProjGuards ctyA nP nF sorts := by
+  simp only [structProjGuards]
+  refine List.map_congr_left (fun i hi => ?_)
+  rw [List.mem_range] at hi
+  refine rg_foldl_congr _ _ (List.range i) _ (fun j hj c => ?_)
+  rw [List.mem_range] at hj
+  rw [rg_structUsedLater_restoreNested hnP (by omega) hstrip hres hdoms hresid]
 
 end ConLeche
