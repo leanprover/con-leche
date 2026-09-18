@@ -5,6 +5,8 @@ public import ConLeche.Model.Inductives.MutualTables
 public import ConLeche.Model.Inductives.DeclNative
 import ConLeche.Verify.Inductives.NestedGroupInv
 import ConLeche.Verify.Inductives.NestedRestoreKit
+import ConLeche.Verify.Inductives.NestedTablesInv
+import ConLeche.Verify.Inductives.NestedRecNames
 import ConLeche.Model.Inductives.MutualCore
 import ConLeche.Model.Inductives.MutualNoProj
 import ConLeche.Model.Inductives.MutualRecsStore
@@ -513,6 +515,43 @@ theorem noNewTables (h : ConsExt env envOut new)
 
 end ConsExt
 
+/-! ## A mimic recursor's name is neither a member's nor an old one's
+
+(task #315 M7-3 session 21: what `ContainerOwnPinsSyn.crossIndOf`'s
+`hmimN` needs of each install route.) -/
+
+omit [SetTheory V] in
+/-- **A MIMIC RECURSOR'S NAME IS NO MEMBER'S RECURSOR NAME**: the
+mimics are `Name.appendIndexAfter (T.str "rec") j`, whose last string
+component is `"rec" ++ "_" ++ toString j`, and a member's recursor's is
+`"rec"` — the two differ in LENGTH, `toString j` being non-empty.
+
+The whole content of `hmimN` at the routes whose `new` list conses only
+members' own recursors (`BlockInstallExt.mimN`, and so the NATIVE and
+MUTUAL routes): the premise is then unsatisfiable. -/
+theorem appendIndexAfter_rec_ne_rec (n n' : Name) (j : Nat) :
+    Name.appendIndexAfter (n.str "rec") j ≠ n'.str "rec" := by
+  intro h
+  have h' : Name.str n ("rec" ++ "_" ++ toString j) = Name.str n' "rec" := h
+  obtain ⟨-, hs⟩ := ConLeche.Name.str.inj h'
+  have hlen := congrArg String.length hs
+  rw [String.length_append, String.length_append] at hlen
+  simp only [show "rec".length = 3 from rfl, show "_".length = 1 from rfl] at hlen
+  omega
+
+omit [SetTheory V] in
+/-- **TWO MIMIC NAMES UNDER DIFFERENT BASES ARE DIFFERENT NAMES**: the
+base is the name's own prefix, which `Name.appendIndexAfter` leaves
+alone.  What the NESTED route's `hmimN` needs: its mimics are all named
+under the block's FIRST member, so a mimic-shaped name it conses has
+that member as its base. -/
+theorem appendIndexAfter_rec_base {n n' : Name} {i j : Nat}
+    (h : Name.appendIndexAfter (n.str "rec") i = Name.appendIndexAfter (n'.str "rec") j) :
+    n = n' := by
+  have h' : Name.str n ("rec" ++ "_" ++ toString i)
+      = Name.str n' ("rec" ++ "_" ++ toString j) := h
+  exact (ConLeche.Name.str.inj h').1
+
 namespace BlockInstallExt
 
 variable {Ms : List Name} {env envOut : Env} {new : List ConstantInfo}
@@ -576,6 +615,28 @@ theorem indMs (h : BlockInstallExt Ms env envOut new) {J : Name} {cv : ConstantV
   obtain ⟨hc, hname⟩ := newOf h hf (freshN h _ hJ)
   rw [← hname]
   exact h.2.2.1 _ hc cv caps rfl
+
+omit [SetTheory V] in
+/-- **NO MIMIC RECURSOR IS NEW** — the clause
+`ContainerOwnPinsSyn.crossIndOf` needs of an install whose recursors
+are all the block's members' own, which is the NATIVE route's
+(`nativeInstallExt`) and the MUTUAL route's (`mutualInstallExt`): the
+record's recursor clause says a `.recInfo` the install conses is named
+`T.rec` at a member `T`, and no `T.rec` is
+`Name.appendIndexAfter (n.str "rec") j`
+(`appendIndexAfter_rec_ne_rec`).  So the premise is unsatisfiable and
+the crossing's walk cannot grow at ANY container, old or new — the
+strongest form of `hmimN`, and the reason these two routes need no
+mimic bookkeeping of their own. -/
+theorem mimN (h : BlockInstallExt Ms env envOut new) :
+    ∀ (n : Name) (j : Nat) (cv : ConstantVal) (mI rP : Nat) (rules : List RecRule),
+      envOut.find? (Name.appendIndexAfter (n.str "rec") j) = some (.recInfo cv mI rP rules) →
+      Name.appendIndexAfter (n.str "rec") j ∈ new.map (·.name) → n ∈ new.map (·.name) := by
+  intro n j cv mI rP rules hf hmem
+  obtain ⟨hc, hname⟩ := newOf h hf (freshN h _ hmem)
+  obtain ⟨n', -, heq⟩ := h.2.2.2.1 _ hc cv mI rP rules rfl
+  rw [hname] at heq
+  exact absurd heq (appendIndexAfter_rec_ne_rec n n' j)
 
 end BlockInstallExt
 
@@ -715,6 +776,111 @@ theorem tableCross (h : NestedInstallExt Ms env envOut new) : TableCross Ms env 
       exact h.2.2.2 _ hc tbl rfl
 
 end NestedInstallExt
+
+omit [SetTheory V] in
+/-- **A NEW MIMIC RECURSOR'S BASE IS THE BLOCK'S FIRST MEMBER** — the
+clause `ContainerOwnPinsSyn.crossIndOf` needs of the NESTED route,
+whose install DOES cons mimic recursors and for which
+`BlockInstallExt.mimN`'s argument is therefore unavailable
+(`NestedInstallExt`'s recursor clause is conditional on `T.rec` and
+says nothing about `T₁.rec_j`, by design — DESIGN §U.66 (b)).
+
+The argument is the install's own name list instead of a kind clause:
+past the tables' stage (`nestedTables_mem_inv`, which conses only
+`projInfo`s) a `.recInfo` the output stores is one of the RESTORED
+recursors (`storeNestedRecs_consts`) or one the PRE-BLOCK environment
+already had — the two cons stages in between add `indInfo`s and
+`ctorInfo`s only.  The pre-block case is excluded by the name's
+freshness (`hfreshN` at a name the install claims as new); a restored
+recursor's name is the name the restore was ASKED for
+(`restoreRecTys_names_of_mem`), which is either a member's `T.rec` (no
+mimic's name, `appendIndexAfter_rec_ne_rec`) or `p.mimicRecName i`,
+whose base is the block's first former — a member, hence new
+(`hMs`).
+
+The two length side conditions are `NestedTailIn.lenM`/`lenN` at the
+run (with `hcnt`, the run's own count); `hk` is `nested_kpos`. -/
+theorem nestedMimN {envOut envR : Env} {p : ConLeche.NestedParts} {N : List Name}
+    {R : ConLeche.RestoreTbl} {stored : List ConLeche.AuxStored}
+    {ctorsR : List (List (ConstantVal × Nat × Nat))} {cvRms cvRns : List ConstantVal}
+    {rulesM rulesN : List (List RecRule)}
+    {l : List (Name × Option ConLeche.ProjTable × List (ConstantVal × Nat × Nat))}
+    (hk : 0 < p.k)
+    (hrm : ConLeche.restoreRecTys (m := ConLeche.CheckM) (fueledOps μ F) envR R p.lps
+      ((List.range p.k).map fun mIdx => ((p.formers.getD mIdx default).1.name.str "rec"))
+      (stored.take p.k) = .ok cvRms)
+    (hrn : ConLeche.restoreRecTys (m := ConLeche.CheckM) (fueledOps μ F) envR R p.lps
+      ((List.range p.numNested).map p.mimicRecName) (stored.drop p.k) = .ok cvRns)
+    (hlenM : cvRms.length ≤ p.k) (hlenN : cvRns.length ≤ p.numNested)
+    (htbl : ConLeche.nestedTables (m := ConLeche.CheckM) l
+      (ConLeche.storeNestedRecs
+        ((cvRms.zip ((stored.take p.k).zip rulesM)).map
+            (fun (cv, a, rs) => (cv, a.mI, a.rP, rs))
+          ++ (cvRns.zip ((stored.drop p.k).zip rulesN)).map
+            (fun (cv, a, rs) => (cv, a.mI, a.rP, rs)))
+        (ConLeche.consNestedCtors ctorsR.flatten
+          (ConLeche.consNestedFormers (stored.take p.k) env))) = .ok envOut)
+    (hfreshN : ∀ n ∈ N, env.find? n = none)
+    (hMs : ∀ n ∈ p.memberNames, n ∈ N) :
+    ∀ (n : Name) (j : Nat) (cv : ConstantVal) (mI rP : Nat) (rules : List RecRule),
+      envOut.find? (Name.appendIndexAfter (n.str "rec") j) = some (.recInfo cv mI rP rules) →
+      Name.appendIndexAfter (n.str "rec") j ∈ N → n ∈ N := by
+  intro n j cv mI rP rules hf hmem
+  have hfresh : env.find? (Name.appendIndexAfter (n.str "rec") j) = none := hfreshN _ hmem
+  have hnm : cv.name = Name.appendIndexAfter (n.str "rec") j := ConLeche.Env.find?_name hf
+  -- the answer is a constant the install's output stores; the tables' stage
+  -- conses projection tables only, so the store already had it
+  have hmemS := (ConLeche.nestedTables_mem_inv htbl _ (ConLeche.find?_mem hf)).resolve_right
+    (fun ⟨_, htblEq⟩ => nomatch htblEq)
+  -- the store's constants: the restored recursors, then the two cons stages'
+  rw [ConLeche.Semantics.storeNestedRecs_consts, List.mem_append, List.mem_reverse,
+    List.mem_map] at hmemS
+  rcases hmemS with ⟨x, hx, hxc⟩ | hbase
+  · -- a restored recursor: its name is the name the restore was asked for
+    have hxname : x.1.name = Name.appendIndexAfter (n.str "rec") j := by
+      rw [(ConstantInfo.recInfo.inj hxc).1, hnm]
+    have hlenM' : cvRms.length ≤ ((List.range p.k).map fun mIdx =>
+        ((p.formers.getD mIdx default).1.name.str "rec")).length := by
+      rw [List.length_map, List.length_range]; exact hlenM
+    have hlenN' : cvRns.length ≤ ((List.range p.numNested).map p.mimicRecName).length := by
+      rw [List.length_map, List.length_range]; exact hlenN
+    have hxmem : x.1 ∈ cvRms ∨ x.1 ∈ cvRns := by
+      rcases List.mem_append.mp hx with hx' | hx' <;>
+        obtain ⟨y, hy, rfl⟩ := List.mem_map.mp hx'
+      · exact Or.inl (List.of_mem_zip hy).1
+      · exact Or.inr (List.of_mem_zip hy).1
+    rcases hxmem with hx' | hx'
+    · -- a member's own recursor: no mimic carries that name
+      obtain ⟨i, -, hi⟩ :=
+        List.mem_map.mp (ConLeche.restoreRecTys_names_of_mem hrm hlenM' _ hx')
+      rw [hxname] at hi
+      exact absurd hi.symm (appendIndexAfter_rec_ne_rec n _ j)
+    · -- a mimic: its base is the block's first former, which is a member
+      obtain ⟨i, -, hi⟩ :=
+        List.mem_map.mp (ConLeche.restoreRecTys_names_of_mem hrn hlenN' _ hx')
+      rw [hxname] at hi
+      have hmimEq : p.mimicRecName i
+          = Name.appendIndexAfter ((p.formers.headD default).1.name.str "rec") (i + 1) := rfl
+      rw [hmimEq] at hi
+      refine hMs _ ?_
+      rw [appendIndexAfter_rec_base hi.symm]
+      show (p.formers.headD default).1.name ∈ p.formers.map (·.1.name)
+      have h0 : p.formers[0]? = some (p.formers.headD default) := by
+        cases hl : p.formers with
+        | nil => simp [ConLeche.NestedParts.k, hl] at hk
+        | cons f rest => rfl
+      exact List.mem_map_of_mem (List.mem_of_getElem? h0)
+  · -- the pre-block environment's own: then the name is not new
+    rw [ConLeche.Semantics.consNestedCtors_consts, List.mem_append, List.mem_reverse,
+      List.mem_map, ConLeche.Semantics.consNestedFormers_consts, List.mem_append,
+      List.mem_reverse, List.mem_map] at hbase
+    rcases hbase with ⟨y, -, hy⟩ | hbase'
+    · exact nomatch hy
+    rcases hbase' with ⟨y, -, hy⟩ | hbase''
+    · exact nomatch hy
+    refine absurd hfresh ?_
+    rw [← hnm]
+    exact fun hnone => nomatch (List.find?_eq_none.mp hnone _ hbase'' (by rw [beq_iff_eq]; rfl))
 
 /-! ### The mutual install's four stages -/
 

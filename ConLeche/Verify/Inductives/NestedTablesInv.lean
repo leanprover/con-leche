@@ -104,4 +104,34 @@ theorem nestedTables_wf :
     obtain ⟨envI, hI, hrest⟩ := nestedTables_inv h
     exact nestedTables_wf (nestedMemberTable_wf henv hI) hrest
 
+/-! ## What the stage adds -/
+
+/-- **THE TABLE STAGE ADDS PROJECTION TABLES AND NOTHING ELSE** (task
+#315 M7-3 session 21): a constant the stage's output stores is the
+input's own or one of the members' tables — each step conses nothing
+(`nestedMemberTable_inv`) or exactly one `projInfo`
+(`checkStructProjTable_inv`).
+
+Stated on the CONSTANT LISTS rather than on `find?`, because that is
+what the consumer needs: the nested route's `nestedMimN` asks where a
+`.recInfo` answer of the whole install's output came from, and this
+clause is what carries it past the last stage. -/
+theorem nestedTables_mem_inv :
+    ∀ {l : List (Name × Option ProjTable × List (ConstantVal × Nat × Nat))} {env env' : Env},
+      nestedTables (m := CheckM) l env = .ok env' →
+      ∀ c ∈ env'.consts, c ∈ env.consts ∨ ∃ tbl : ProjTable, c = .projInfo tbl
+  | [], env, env', h, c, hc => by
+    obtain rfl := nestedTables_nil_inv h
+    exact Or.inl hc
+  | (T, tbl?, cs) :: rest, env, env', h, c, hc => by
+    obtain ⟨envI, hI, hrest⟩ := nestedTables_inv h
+    rcases nestedTables_mem_inv hrest c hc with hcI | hproj
+    · rcases nestedMemberTable_inv hI with rfl | ⟨tbl, cvCa, nP, nF, -, -, htbl⟩
+      · exact Or.inl hcI
+      · obtain ⟨bodies, -, -, -, -, rfl⟩ := checkStructProjTable_inv htbl
+        rcases List.mem_cons.mp hcI with rfl | hc'
+        · exact Or.inr ⟨_, rfl⟩
+        · exact Or.inl hc'
+    · exact Or.inr hproj
+
 end ConLeche

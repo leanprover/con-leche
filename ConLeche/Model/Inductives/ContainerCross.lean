@@ -784,6 +784,52 @@ theorem ContainerOwnPinsSyn.crossInd {env₁ env₂ : Env} {N : List Name} {d : 
     hciEq hhead 64 0] at he
   exact h i _ _ lvls DsE _ hi hf₁ hcl (containerOwnPinsAt_eq hf₁ hci₁ hM) e he
 
+/-- **THE CROSSING, AT `EnvBlocksOf.crossIndP`'s OWN HYPOTHESES** (task
+#315 M7-3 session 21): `ContainerOwnPinsSyn.crossInd` with `hold` —
+"the block's members are not new" — DISCHARGED, so that the clause
+`ContainerModeled.ownPins` costs its call site nothing beyond the two
+inputs that are genuinely extra.
+
+Every hypothesis here is one the crossing's own site already has: the
+first six are `EnvBlocksOf.crossIndP`'s (the install's conses and the
+old environment's well-formedness), and the remaining two are the
+crossing's residue — `hmimN`, the mimic twin of `hrecN`, which each
+install route reads off its own `new` list
+(`BlockInstallExt.mimN` / `nestedMimN`, `EnvModelBStages.lean`), and
+`RecMajorHeadStored`, the kernel record the walk cannot do without
+(see its docstring).
+
+`hold` is not an assumption because the block is a container the OLD
+environment STORES: `ContainerModeled`'s representation says every
+member below `d.k` is a stored inductive there
+(`IsBlockModel.memsFound` off `reps`), and a name `env₁` answers is not
+one of the install's fresh names (`hfreshN`).  This is exactly the
+`hstored` dance `EnvBlocksOf.crossIndP` does for the pins' containers,
+at the members. -/
+theorem ContainerOwnPinsSyn.crossIndOf {env₁ env₂ : Env} {m₁ : EnvModel V env₁}
+    {N : List Name} {ci : ContainerInfo} {d : BlockModel V}
+    (hext : ∀ (n : Name) (c : ConstantInfo), env₁.find? n = some c → env₂.find? n = some c)
+    (hnewN : ∀ (n : Name) (c : ConstantInfo), env₂.find? n = some c →
+      env₁.find? n = some c ∨ n ∈ N)
+    (hfreshN : ∀ n ∈ N, env₁.find? n = none)
+    (hrecN : ∀ (n : Name) (cv : ConstantVal) (mI rP : Nat) (rules : List RecRule),
+      env₂.find? (n.str "rec") = some (.recInfo cv mI rP rules) → n.str "rec" ∈ N → n ∈ N)
+    (hmimN : ∀ (n : Name) (j : Nat) (cv : ConstantVal) (mI rP : Nat) (rules : List RecRule),
+      env₂.find? (Name.appendIndexAfter (n.str "rec") j) = some (.recInfo cv mI rP rules) →
+      Name.appendIndexAfter (n.str "rec") j ∈ N → n ∈ N)
+    (hwf : ConLeche.EnvWF env₁) (hrc : ConLeche.RecCtorsStored env₁)
+    (hhead : RecMajorHeadStored env₁)
+    (C : ContainerModeled m₁ ci d)
+    (h : ContainerOwnPinsSyn (V := V) env₁ d) :
+    ContainerOwnPinsSyn (V := V) env₂ d :=
+  h.crossInd hext hnewN hfreshN hrecN hmimN
+    (fun i hi hmem => by
+      obtain ⟨_, _, _, _, _, hb⟩ := C.reps i hi
+      obtain ⟨_, _, hf⟩ := hb.memsFound i hi
+      rw [hfreshN _ hmem] at hf
+      exact nomatch hf)
+    hwf hrc hhead
+
 /-! ## The own-pin table at ANOTHER instantiation (task #315 M7-3
 session 18, DESIGN §U.79)
 
