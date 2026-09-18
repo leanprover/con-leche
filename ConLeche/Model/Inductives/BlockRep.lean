@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Model.Inductives.FixStageRec
-public import ConLeche.SetTheory.Derive.LfpTuple
+public import ConLeche.SetTheory.Derive.LfpCompose
 public section
 
 /-!
@@ -400,6 +400,13 @@ structure BlockModel (V : Type w) where
   index-tuple set at the pin — the container at the pin's components
   with the members read as `X` (abstract, as `Φ` is) -/
   pinCar : (Name → Nat) → (Nat → V) → (Nat → V) → Nat → V
+  /-- **the wide operator**, at a level assignment and a parameter
+  frame: the `k + nPins`-tuple operator of the block TOGETHER with one
+  component per pin — the object `Φ` and `pinCar` are composed from
+  (`composeΦ`, `pinsCar`), and the one a CONTAINER's instance inside a
+  later block is identified with.  A block with no pins carries its own
+  `Φ` (`composeΦ` at zero pins is the identity). -/
+  Ψaux : (Name → Nat) → (Nat → V) → (Nat → V) → Nat → V
   /-- **the constructor injections**: member `mm`'s constructor `j`
   (member-local) at a field spine -/
   inj : (Name → Nat) → Nat → Nat → List V → V
@@ -676,6 +683,22 @@ structure IsBlockModel (m : EnvModel V env) (T : Name) (cvT cvR : ConstantVal) (
     ∀ X Y, InTupleSpace (d.w ψ) d.k (d.idx ψ ρp) X → InTupleSpace (d.w ψ) d.k (d.idx ψ ρp) Y →
       TupleLe d.k (d.idx ψ ρp) X Y → ∀ q, q < d.nPins →
       FamLe (d.pinIdx q ψ ρp) (d.pinCar ψ ρp X q) (d.pinCar ψ ρp Y q)
+  /-- **the wide operator is a tuple functor at width `k + nPins`**:
+  monotone, space-preserving and with a closed tuple on the tuple
+  space over the members' index-tuple sets FOLLOWED BY the pin
+  components' (`idx` at `k + q` is the copy's telescope) -/
+  auxFunctor : ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (d.params ψ).reverse ρp →
+    MonoTuple (d.w ψ) (d.k + d.nPins) (d.idx ψ ρp) (d.Ψaux ψ ρp) ∧
+    MapsTuple (d.w ψ) (d.k + d.nPins) (d.idx ψ ρp) (d.Ψaux ψ ρp) ∧
+    ∃ L, IsClosedTuple (d.w ψ) (d.k + d.nPins) (d.idx ψ ρp) (d.Ψaux ψ ρp) L
+  /-- **`Φ` is the wide operator composed**: the members' rows of
+  `Ψaux` with the pins solved internally at the members' tuple -/
+  auxCompose : ∀ (ψ : Name → Nat) (ρp : Nat → V),
+    d.Φ ψ ρp = composeΦ (d.w ψ) d.k d.nPins (d.idx ψ ρp) (d.Ψaux ψ ρp)
+  /-- **`pinCar` is the wide operator's pins' least tuple** at the
+  members' tuple -/
+  auxPinsCar : ∀ (ψ : Name → Nat) (ρp : Nat → V) (X : Nat → V) (q : Nat), q < d.nPins →
+    d.pinCar ψ ρp X q = pinsCar (d.w ψ) d.k d.nPins (d.idx ψ ρp) (d.Ψaux ψ ρp) X q
   /-- **a pin's leaf**: the container at the pin's components (read at
   fitting parameters) and fitting indices is the pin's carrier at the
   least tuple — the pin's stored reading IS `pinCar` at the carrier -/

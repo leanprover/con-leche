@@ -112333,3 +112333,86 @@ remains is declaration order, which is already recorded (K.57) and is
 acyclic by construction rather than by corpus.  **The candidate frame,
 the component producer and law (M) at cross-instance constant-headed
 edges are not moot.**
+
+#### WIDE (a): THE WIDE OPERATOR IS A STORED FIELD — `BlockModel.Ψaux` and its three laws (lane WIDE, 2026-09-18)
+
+Resolution 1 of `docs/NESTED.md`, step one: the block model now CARRIES
+the `k + nPins`-tuple operator a nested block is built from, instead of
+discarding it as a local of the construction.  Strictly additive: no
+clause weakens, no proof changes, the accept set is untouched.
+
+##### (a) The field and the laws
+
+`BlockModel` (`Model/Inductives/BlockRep.lean`) gains
+
+```lean
+  Ψaux : (Name → Nat) → (Nat → V) → (Nat → V) → Nat → V
+```
+
+and `IsBlockModel` three clauses, stated in `LfpCompose.lean`'s
+vocabulary at the block model's own spelling of the width and the
+index sets (`d.idx ψ ρp` is total, so position `k + q` is the pin
+component's telescope — no second index field is needed):
+
+* `auxFunctor` — `MonoTuple`/`MapsTuple`/`∃ L, IsClosedTuple` at width
+  `d.k + d.nPins` over `d.idx ψ ρp`, under the same `Sat` premise as
+  `functor`;
+* `auxCompose` — `d.Φ ψ ρp = composeΦ (d.w ψ) d.k d.nPins (d.idx ψ ρp) (d.Ψaux ψ ρp)`;
+* `auxPinsCar` — at `q < d.nPins`,
+  `d.pinCar ψ ρp X q = pinsCar (d.w ψ) d.k d.nPins (d.idx ψ ρp) (d.Ψaux ψ ρp) X q`.
+
+`auxPinsCar` is GUARDED by `q < d.nPins` (as `pinMem`/`pinMono`/`pinLeaf`
+are), which is what makes it vacuous at a pin-less route; the
+alternative — an unguarded law plus a "`pinsCar` at zero pins is
+empty" lemma — is FALSE as stated, since `lfpTuple w 0 …` is a graph
+over the index set, not `pt`.  One new set-theory lemma carries the
+other half: `composeΦ_zero : composeΦ w k 0 Is Ψ = Ψ` (with
+`extT_zero`), `LfpCompose.lean`.
+
+##### (b) The producers — one real, the rest free
+
+* **`BlockModel.ofNested`** (`BlockComposed.lean`): `Ψaux := nestedΨ …`,
+  the local promoted to a field.  `ofNested_auxCompose` and
+  `ofNested_auxPinsCar` are `rfl`; `ofNested_auxFunctor` IS
+  `nestedΨ_functor`, since `(D).k + (D).nPins`, `(D).idx` and `(D).w`
+  reduce to the auxiliary width, `nestedIs` and `resSort.eval` by
+  `rfl`;
+* **`BlockModel.ofNative`** (`BlockRepOne.lean`) and
+  **`BlockModel.ofMutual`** (`BlockRepMutual.lean`): `pins := []`, so
+  `Ψaux := Φ` (the operator term repeated; `ofNative_Ψaux` /
+  `ofMutual_Ψaux` are `rfl`), `auxCompose` is `composeΦ_zero.symm`
+  (`ofNative_auxCompose`, `ofMutual_auxCompose`), `auxFunctor` is
+  `functor` at `k + 0 ≡ k`, and `auxPinsCar` is vacuous;
+* the four pinned basis blocks (`BasisBlocks{Zero,Eq,Nat,Unit}`) build
+  their `BlockModel` literally, so each repeats its `Φ` as `Ψaux` and
+  discharges the three clauses the same way.  `BasisBlocksTag` builds
+  no `IsBlockModel` and is untouched — the reframing test's list of
+  five was one too many.
+
+##### (c) The law sites, all eight, verified by opening them
+
+`DeclNative.lean:1371` (native), `MutualCore.lean:2086` (mutual),
+`NestedCore.lean:1052` (nested), the four basis blocks, and the
+transport `BlockRepCross.lean:703` (`auxFunctor := h.auxFunctor` and
+its two siblings — the clauses are environment-free).  Every one is
+`rfl`, vacuous, or the route's own `functor` witness except the
+nested route's, which is `nestedΨ_functor`.  One site the reframing
+test did NOT list also needed the field: the `Nonempty (BlockModel V)`
+instance in `NestedPremise.lean:514`.
+
+##### (d) What it costs the gates
+
+**`tests/proofdeps.sh` records a DOOR, and it is the intended one.**
+`ConLeche.SetTheory.Derive.LfpCompose` ENTERS all ten capstones'
+proof-term closures, because `IsBlockModel`'s STATEMENT now names
+`composeΦ` and `pinsCar` and `BlockRep` is on every capstone's path
+(`BlockComposed` and the nested route are not, yet).  The entering
+module is a pure set-theory leaf over `LfpTuple` — no syntax, no
+checker code, no new axiom — and the dependency is the point of the
+change: the block model's datum is now stated in the composition's
+vocabulary.  The expectation is regenerated in this commit and the
+justification is this paragraph.  Nothing LEFT any closure.
+
+`tests/shake.sh` then demotes two now-redundant re-exports
+(`BlockComposed`, `NestedRecCand`): `BlockRep` public-imports
+`LfpCompose`, so theirs need not be public.

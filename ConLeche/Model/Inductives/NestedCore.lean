@@ -1050,6 +1050,9 @@ theorem nestedBlockReps_of (hμ : μ.verifiedChecks = true)
         rules := fun hne => absurd rfl hne, former := ?_, ctors := ?_, memsFound := ?_
         pinsFound := ?_, tgtsLt := ?_, idxRes := ?_, uParams := ?_, paramsIff := ?_, idxOk := ?_
         functor := ?_, fibre := ?_, pinShape := hpinShape, pinMem := ?_, pinMono := ?_
+        auxFunctor := fun ψ ρp hρp => ofNested_auxFunctor (hOk ψ ρp hρp)
+        auxCompose := fun ψ ρp => ofNested_auxCompose ψ ρp
+        auxPinsCar := fun ψ ρp X q _ => ofNested_auxPinsCar ψ ρp X q
         pinLeaf := hpinLeaf, leaf := ?_, ctor := ?_, mkZero := ofNested_mkZero, mkInj := ?_ }
     · -- strip
       obtain ⟨bs, hstrip⟩ := h.strip _ _ hft

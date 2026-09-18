@@ -1369,7 +1369,12 @@ theorem nativeIsBlockModel {env env₁ envC env₂ : Env} {m : EnvModel V envC} 
     { memberLt := ?_, member := ?_, strip := ?_, isProp := ?_, mI := ?_, rP := ?_, rules := ?_
       former := ?_, ctors := ?_, memsFound := ?_, pinsFound := ?_, tgtsLt := ?_, idxRes := ?_
       uParams := ?_, paramsIff := ?_, idxOk := ?_, functor := ?_, fibre := ?_, pinShape := ?_
-      pinMem := ?_, pinMono := ?_, pinLeaf := ?_, leaf := ?_, ctor := ?_, mkZero := ?_
+      pinMem := ?_, pinMono := ?_
+      auxFunctor := fun ψ ρp hρp =>
+        ofNative_functor (xChainsOk_congr (hf.fssAgree ψ) (hf.XR ψ ρp hρp).1)
+      auxCompose := fun ψ ρp => ofNative_auxCompose ψ ρp
+      auxPinsCar := fun _ _ _ q hq => absurd hq (Nat.not_lt_zero q)
+      pinLeaf := ?_, leaf := ?_, ctor := ?_, mkZero := ?_
       mkInj := ?_ }
   · exact Nat.zero_lt_one
   · rfl

@@ -503,6 +503,20 @@ theorem extT_eq_famAt {X : Nat → V} {tgt : Nat} (h : tgt < k + n) :
 theorem composeΦ_apply (X : Nat → V) (m : Nat) :
     composeΦ w k n Is Ψ X m = Ψ (extT w k n Is Ψ X) m := rfl
 
+/-- **At no pins the extension is the identity**: an empty segment
+joins nothing. -/
+theorem extT_zero (X : Nat → V) : extT w k 0 Is Ψ X = X := by
+  funext j; exact segJoin_out _ _ fun h => by omega
+
+/-- **At no pins the composition is the operator itself.**  This is
+what a block WITHOUT pins needs to present its own `k`-tuple operator
+as its wide operator (`BlockModel.ofNative`, `BlockModel.ofMutual`):
+there is nothing to solve internally. -/
+theorem composeΦ_zero : composeΦ w k 0 Is Ψ = Ψ := by
+  funext X
+  show Ψ (extT w k 0 Is Ψ X) = Ψ X
+  rw [extT_zero]
+
 /-- The pins' carriers are in the pins' tuple space, unconditionally. -/
 theorem pinsCar_mem (X : Nat → V) : InTupleSpace w n (fun q => Is (k + q)) (pinsCar w k n Is Ψ X) :=
   lfpTuple_mem _ _ _ _

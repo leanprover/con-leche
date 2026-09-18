@@ -1,7 +1,6 @@
 module
 
 public import ConLeche.Model.Inductives.BlockRecKit
-public import ConLeche.SetTheory.Derive.LfpCompose
 public section
 
 /-!

@@ -701,6 +701,9 @@ theorem IsBlockModel.crossEnvG {Ts : List Name} {env₁ env₂ : Env} {m₁ : En
       pinShape := h.pinShape
       pinMem := h.pinMem
       pinMono := h.pinMono
+      auxFunctor := h.auxFunctor
+      auxCompose := h.auxCompose
+      auxPinsCar := h.auxPinsCar
       pinLeaf := by
         intro q hq ψ ρ as is hsp hi
         obtain ⟨cv, caps, hf⟩ := h.pinsFound q hq

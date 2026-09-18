@@ -143,6 +143,8 @@ For every installed inductive the model keeps a *block model*
 * `k` members, `nP` parameters, index data;
 * **the operator `Φ_d`, at width `k`, as a function of a parameter frame**
   — this is the `Φ_T⃗(α⃗)` of §1;
+* **the wide operator `Ψ_d`, at width `k + n`** — one row per member and
+  one per pin, the pins still variables;
 * for a nested type, its **pin table**: for each of its own pins, the
   container's name and the components `s⃗` (both as syntax and as
   readings), and a *pin carrier* `pinCar_i(X⃗)` — the pin's slot as a
@@ -158,18 +160,20 @@ the true carrier, is exactly the pin's slot.  It is what makes the restored
 constructor `node : List Tree → Tree` well-typed against a carrier that was
 built from `J'`.
 
-**The crucial representational fact.**  `Φ_d` is the *narrow* operator.
-For a nested `T`, the model constructs `⟦T⃗⟧` via (aux) as a segment of the
-wide `μΨ`, and then *packages* the result at width `k`:
+**Narrow and wide.**  `Φ_d` is the *narrow* operator.  For a nested `T`
+the model constructs `⟦T⃗⟧` via (aux) as a segment of the wide `μΨ_d`, and
+then *packages* the result at width `k`:
 
-    Φ_d(a⃗)(X⃗)  =  Ψ_{0..k}( X⃗,  μY⃗. Ψ_{k..k+n}(X⃗, Y⃗) )                        (compose)
+    Φ_d(a⃗)(X⃗)     =  Ψ_d(a⃗)( X⃗, pinCar_d(a⃗)(X⃗) )_{0..k}                      (compose)
+    pinCar_d(a⃗)(X⃗) =  μY⃗. Ψ_d(a⃗)_{k..k+n}(X⃗, Y⃗)                              (pins)
 
-— the members' rows of `Ψ`, with the pins *solved internally* by an inner
-`μ` at each `X⃗`.  Bekić says `μΦ_d = (μΨ)_{0..k}`, so this is a correct
-definition.  But the wide operator `Ψ` is a *local of the construction*:
-once `T` is installed, a later block that uses `T` as a container sees only
-`Φ_d`, `pinCar`, and the laws — never `Ψ`.  Everything hard in §5 traces to
-this.
+— the members' rows of `Ψ_d`, with the pins *solved internally* by an
+inner `μ` at each `X⃗`, and the pins' carriers that inner `μ`.  Bekić says
+`μΦ_d = (μΨ_d)_{0..k}`, so this is a correct definition.  Both equations
+are *laws of the block model*, so the wide operator is not lost when the
+construction ends: a later block that uses `T` as a container reads
+`Ψ_d` off `T`'s stored model.  §5 is what that buys.  A block with no
+pins is its own wide operator, and both laws are trivial there.
 
 ## 4. The proof: discharging `pinLeaf`
 
@@ -272,14 +276,15 @@ fixpoint is one line, and `L_1 = ⟦Tree'⟧(L_0)` falls out by (compose) for
 `Tree'`.  This is what the pure-set-model experiment (`SegCopy`) proved,
 for this shape and for a copied instance instantiated at another copy.
 **What it needs is `Ψ^{Tree'}` — the container's wide operator — which the
-stored block model of `Tree'` does not carry (§3).**  Three things follow,
+stored block model of `Tree'` carries (§3).**  Three things follow,
 each checked against the tree:
 
-* *Giving the model the wide operator is cheap.*  One field `Ψaux` on the
-  block model with two laws (`Φ = compose(Ψaux)`, `pinCar = pinsCar(Ψaux)`);
-  the nested construction promotes its local and both laws are `rfl`; every
-  non-nested route has no pins, so `Ψaux := Φ` and the laws are trivial.
-  About ten sites, all but one vacuous.  No kernel change.
+* *The model has the wide operator.*  One field `Ψaux` on the block
+  model, carrying (compose) and (pins) of §3 as laws together with its
+  functor laws at width `k + n`; the nested construction promotes its
+  local and the two composition laws are `rfl`; every non-nested route
+  has no pins, so `Ψaux := Φ` and the laws are trivial.  Eight law
+  sites, all but one vacuous.  No kernel change.
 * *The instance is the* closure, *not the kernel's mint partition, and it
   is computable model-side.*  The container's own pins are a stored field
   of its block model; matching them against the block's pins is a pure
@@ -347,6 +352,7 @@ Resolution 1 needs.
 | (B-at) | `lfpTuple_seg_congr_at`, `lfpTuple_eq_of_at` |
 | (compose): narrow from wide | `composeΦ`, `pinsCar`, `lfpTuple_composeΦ`; `ofNested` in `Model/Inductives/BlockComposed.lean` |
 | the block model and its laws | `BlockModel`, `IsBlockModel` (`leaf`, `pinLeaf`, `functor`, `pinMono`) in `Model/Inductives/BlockRep.lean` |
+| the wide operator, stored | `BlockModel.Ψaux` with `auxFunctor`, `auxCompose`, `auxPinsCar` (same file) |
 | the expansion | `replaceIfNested`, `mkCopies`, the worklist `elimLoop` in `Kernel/Inductives/NestedElim.lean`; `checkNested` in `Kernel/Inductives/NestedInstall.lean` |
 | the pin table | `NestedPin` (`grpBase`, `grpSize`, components), read back as `NestedPinSynFacts` |
 | the aux block's install | `checkMutualCore` on `{T⃗, J'⃗}` in a scratch environment |

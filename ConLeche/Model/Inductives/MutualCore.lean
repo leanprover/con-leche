@@ -2084,6 +2084,9 @@ theorem blockReps_of (hμ : μ.verifiedChecks = true) (h0 : b.blockNames.Nodup)
         pinShape := fun q hq => absurd hq (Nat.not_lt_zero q)
         pinMem := fun _ _ _ _ _ q hq => absurd hq (Nat.not_lt_zero q)
         pinMono := fun _ _ _ _ _ _ _ _ q hq => absurd hq (Nat.not_lt_zero q)
+        auxFunctor := fun ψ ρp hρp => ofMutual_functor (hOk ψ ρp hρp)
+        auxCompose := fun ψ ρp => ofMutual_auxCompose ψ ρp
+        auxPinsCar := fun _ _ _ q hq => absurd hq (Nat.not_lt_zero q)
         pinLeaf := fun q hq => absurd hq (Nat.not_lt_zero q)
         leaf := ?_, ctor := ?_, mkZero := ofMutual_mkZero, mkInj := ?_ }
     · -- strip

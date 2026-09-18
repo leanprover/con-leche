@@ -1,7 +1,6 @@
 module
 
 public import ConLeche.Model.Inductives.BlockRepMutual
-public import ConLeche.SetTheory.Derive.LfpCompose
 public section
 
 /-!
@@ -166,6 +165,7 @@ tagged towers at the MEMBER-LOCAL position. -/
     pinsCar (resSort.eval ψ) k pins.length (nestedIs nP k ppsA W pins ψ ρp)
       (nestedΨ nP k resSort ppsA W pins offs mems nFs tgtsG rss tlss Eiss₀ Fss₀ Ess₀ ψ ρp)
       X q
+  Ψaux := nestedΨ nP k resSort ppsA W pins offs mems nFs tgtsG rss tlss Eiss₀ Fss₀ Ess₀
   inj := fun ψ _ j fs => injW (resSort.eval ψ) j (mkTower (fs ++ [pt]))
 
 section Nested
@@ -237,6 +237,23 @@ theorem ofNested_Φ (ψ : Name → Nat) (ρp : Nat → V) :
 theorem ofNested_pinCar (ψ : Name → Nat) (ρp : Nat → V) (X : Nat → V) (q : Nat) :
     (D).pinCar ψ ρp X q = pinsCar ((D).w ψ) k pins.length ((D).idx ψ ρp) (ΨA ψ ρp) X q := rfl
 
+/-- **The block model's WIDE operator** (task #315, Resolution 1): the
+auxiliary `k + n`-tuple operator, promoted from a local of the
+construction to a stored field — the object a LATER block identifies
+a copied instance of this container with. -/
+theorem ofNested_Ψaux (ψ : Name → Nat) (ρp : Nat → V) : (D).Ψaux ψ ρp = ΨA ψ ρp := rfl
+
+/-- **`auxCompose` for the block model**: the operator is the wide
+one composed (`rfl` — it is how it was defined). -/
+theorem ofNested_auxCompose (ψ : Name → Nat) (ρp : Nat → V) :
+    (D).Φ ψ ρp = composeΦ ((D).w ψ) (D).k (D).nPins ((D).idx ψ ρp) ((D).Ψaux ψ ρp) := rfl
+
+/-- **`auxPinsCar` for the block model**: the pins' carriers are the
+wide operator's pins' least tuple (`rfl`). -/
+theorem ofNested_auxPinsCar (ψ : Name → Nat) (ρp : Nat → V) (X : Nat → V) (q : Nat) :
+    (D).pinCar ψ ρp X q
+      = pinsCar ((D).w ψ) (D).k (D).nPins ((D).idx ψ ρp) ((D).Ψaux ψ ρp) X q := rfl
+
 /-- The block model's injections: the tagged towers at the MEMBER-LOCAL
 position. -/
 theorem ofNested_inj (ψ : Name → Nat) (mm j : Nat) (fs : List V) :
@@ -304,6 +321,14 @@ theorem nestedΨ_functor :
     ∃ L, IsClosedTuple (resSort.eval ψ) (k + pins.length) (nestedIs nP k ppsA W pins ψ ρp)
       (ΨA ψ ρp) L :=
   tupleLfpΦ_functor h
+
+/-- **`auxFunctor` for the block model**: the wide operator's laws, at
+the block model's own spelling of the width and the index sets. -/
+theorem ofNested_auxFunctor :
+    MonoTuple ((D).w ψ) ((D).k + (D).nPins) ((D).idx ψ ρp) ((D).Ψaux ψ ρp) ∧
+    MapsTuple ((D).w ψ) ((D).k + (D).nPins) ((D).idx ψ ρp) ((D).Ψaux ψ ρp) ∧
+    ∃ L, IsClosedTuple ((D).w ψ) ((D).k + (D).nPins) ((D).idx ψ ρp) ((D).Ψaux ψ ρp) L :=
+  nestedΨ_functor h
 
 /-- **`functor` for the block model**: the composed operator is a
 monotone, space-preserving tuple functor with a closed tuple, from the
