@@ -104097,6 +104097,16 @@ corollary rather than a second copy of the proof: **a proof that exists
 twice is the thing that later diverges**, and this arc has already had
 one inline derivation lifted out for the same reason.
 
+**THE DAG FALSIFIER, RUN AGAINST THIS SESSION'S THREE CHECKS.**
+`tests/e2e/tower_nested.ndjson` (the depth-60 doubling tower, built as
+the canonical falsifier for an unmemoised walk: baseline 0.046 s, and
+a tree walk over it does not finish in ten minutes) runs in **0.022 s**
+with K.51's rewrite run, K.53's name round-trip and K.57's
+declaration-order scan all in force.  So none of the three added a
+traversal that the DAG punishes — K.57's scan is per PIN rather than
+per edge for exactly that reason, and K.51 reuses the addressing K.42
+already walks.
+
 **BRIDGE 4 IS LANDED** (2026-09-18): `mutualTables_find?_projInfo_of`
 — the converse of `mutualTables_find?_projInfo_inv` — with
 `mutualTables_projInfo_mono` beside it, which is the half that says a
