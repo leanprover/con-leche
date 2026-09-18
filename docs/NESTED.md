@@ -422,8 +422,8 @@ then the reindexing lemma (pure set theory, general), then the
 identification at the instance closure (the step that can fail; if it
 does, the first two remain).  Resolution 3's machinery is not deleted
 until the third step lands.  In parallel, the two things every design
-needs: the reading of a rewritten term (§8, item 1) and the second
-residual's syntactic correspondence.
+needs: the reading of a rewritten term (§8, item 1 — landed, §6) and the
+second residual's syntactic correspondence.
 
 Not settled: the identification's own hypothesis `hΦ` — that the
 copies' section of the auxiliary operator IS the container's wide
@@ -453,9 +453,10 @@ are where the cost is:
    theorem about it is syntactic.  The reading of a rewritten term, as a
    relation transporting readings through the rewrite (congruence at every
    constructor plus one firing case, closed under binder opening), is a
-   new object every design needs.  This is why the whole-space agreement
-   that is definitional in the pure experiment is an *instantiation law* in
-   the tree.
+   new object every design needs; it now exists (`RewriteRel` and its
+   transport, §6).  This is why the whole-space agreement that is
+   definitional in the pure experiment is an *instantiation law* in the
+   tree.
 2. **Frames.**  `s⃗[L⃗]` is a substitution here.  In the tree a term is read
    at a frame (bound variables to sets); the container's frame is built
    from the components' readings at the block's frame; every transport
