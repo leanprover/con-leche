@@ -156,7 +156,7 @@ For every installed inductive the model keeps a *block model*
   function of the members' tuple;
 
 **Stored versus re-derived.**  Not everything the proof needs about a
-container is *fixed* by these laws, and the difference matters.  A
+container is *fixed* by the laws listed below, and the difference matters.  A
 *member*'s parameter telescope is determined: the law `former` carries a
 reading equation for the member's stored type, and readings are functions,
 so any two valid models of the same block agree on it — it is
