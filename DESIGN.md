@@ -93908,3 +93908,97 @@ no-local-paths OK; overview-links 112, no anchor moved; quote-gate 2;
 shake 511 removals all allowlisted; pub-imports 1315 of 2147, none
 demotable; nested-shadow 28/28.  `tests/arena.sh` not re-run: the
 session touches no checker code.  Standard axioms on `copyPinFCorr`.
+
+#### U.85 — L-B session 27: does the refutation survive the repair? NO — it DISSOLVES, and for the reason the repair was chosen (lane L-B, 2026-09-18)
+
+##### (a) THE ANSWER
+
+The repaired `EntryRead` on the integration branch
+(`agent/uniform-315` `6caefdf1`) is the shape this lane recommended in
+§U.75 (b) as "the safe one", to the character:
+
+```lean
+@[expose] def EntryRead (l : Nat) : Prop :=
+  ∀ Z : Nat → V,
+    (∀ is : List V, SpineFit (TV.frame ρp (tg l)) (TV.Ids (tg l)) is →
+      SetTheory.app (Z (tg l)) (tupW (TV.u (tg l)) is)
+        = is.foldl SetTheory.app (interp V ρp (TV.EA (tg l)))) →
+    CopyEntryAt dJ ψJ Ds tg tls Eis ρp i j TV.w TV.u Z l
+```
+
+There is no `tlsJ`, no `body`, and no syntactic Π-tower: what is asked
+is that the container's field domain, READ at the pin's frame, IS the
+copy's SLOT.  **The two clauses the witness broke no longer exist, and
+the witness satisfies the one that replaced them.**  At
+`nested_lam_pin_refl`'s field:
+
+* the container's domain is `f True.intro` and `f`'s value in the pin's
+  frame is the reading of `fun _ : True => True → T`, so the left side
+  denotes the function set from `True`'s carrier to `T`'s;
+* the copy's telescope is `[True]` and its index expressions are empty,
+  so the slot is the Π-set over `True` of `app (Z (tg l)) (tupW u [])`,
+  which `hZ` at the empty spine makes `interp ρp (TV.EA (tg l))` —
+  `T`'s carrier.
+
+Both sides are the same set.  **A λ-redex respects a semantic equality
+and does not provide a syntactic Π-tower**, which is exactly why the
+old statement was the wrong one and the new one is right.
+
+##### (b) THE OLD REFUTATION STILL STANDS, AND IT IS WHAT CAUSED THIS
+
+Nothing about §U.75 is withdrawn: against the shape then in the tree
+the arm was FALSE at an accepted block, and the fixture witnesses it.
+The refutation's value was never the counterexample — it was that the
+statement asked for something the checker does not produce, and the
+repair is the consequence.  A refutation that dissolves under the
+repair it caused is the intended life-cycle of one, not a retraction.
+
+##### (c) THE ARM'S ROUTE, AND WHY IT CANNOT BE WRITTEN IN THIS TREE
+
+The residual is OPEN now, and its route is `copyOrdFRightReadM`'s with
+three substitutions: `BlockCtorData.reflEntry` for `recEntry` (the
+copy's stored domain at a REFLEXIVE field reads as the Π-tower over its
+own telescope ending in the target applied),
+`interp_mkPisAV_piTele` for `slotSet_nil` (the tower's interpretation IS
+the slot, which is what the OLD `copyEntryAt_of_read` did before the
+repair absorbed it), and the index fit taken at the extended frame
+`consList bs (consList fs₁ ρp)` rather than at `consList fs₁ ρp`.
+Sizing: one session, the shape of `copyOrdFRightReadM` (which is some
+110 lines in the tree).
+
+**It cannot be written here**: the repaired predicate lives in lane
+L-E's `NestedFit.lean` and reaches this lane only through integration,
+and THIS tree still carries the old shape.  Merging the integration
+branch into the lane was considered and declined — 72 files changed on
+that side, two of them changed on both, one of those the 6000-line
+proof file this lane is writing in — because a botched merge costs more
+than a deferred arm and integration is the integrator's to run, not a
+lane's.  The docstrings now say which shape they speak of, so the tree
+is not left claiming a refutation that its own successor dissolves.
+
+##### (d) THE FIXTURE'S ROLE CHANGES, AND IT STAYS
+
+`tests/e2e/nested_lam_pin_refl.ndjson` was a WITNESS; under the repair
+it becomes an ACCEPTANCE TEST — the only block in the corpus that
+reaches a reflexive λ-pin (the positivity `whnf` making a telescope out
+of a redex), which nothing else exercises.  Its shadow row stays on
+those merits.
+
+##### (e) THE LEDGER
+
+Of the three residuals this lane still names: `NestedPinsShapeOrdRight`
+(the pin-target half) waits on a kernel record not started;
+`NestedPinsShapePinF` waits on the per-pin exposure routed in §U.84 (b);
+`NestedPinsShapeOrdRightRefl` is now OPEN with a named route and is the
+one this lane can write as soon as it sits on a merged tree.
+
+##### (f) GATES
+
+`lake build` 716 jobs warning-free; `lake build ConLecheTests` 572 jobs
+warning-free; layering base 351 / model 282 / caps 3 / umbrella 1, 0
+base->lane and 0 impl->theory; trust surface 13/5 (648 scanned);
+no-local-paths OK; overview-links 112, no anchor moved; quote-gate 2;
+**proofdeps 4965 rows / 12 roots / 0 doors** (the baseline, unmoved);
+shake 511 removals all allowlisted; pub-imports 1315 of 2147, none
+demotable; nested-shadow 28/28.  `tests/arena.sh` not re-run: the
+session touches no checker code.
