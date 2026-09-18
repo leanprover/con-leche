@@ -84861,6 +84861,110 @@ previously mention changes its signature.  That is the same trap
 `pinWd` met from the other side in (xxx): there the fix was to AVOID
 naming `dsR`, here the model genuinely has to be named.
 
+##### (cccc) THE TABLES' TWIN, and where the fold had to be cut
+
+(c45029c2, 0c784fed, 98629e0f, ed1e03a1.)  The nested install's last
+stage had nothing in the tree — not even its run inversions.  It has
+them now, and the stage with them:
+
+* `ConLeche/Verify/Inductives/NestedTablesInv.lean` (new) —
+  `nestedMemberTable_inv`, `nestedTables_nil_inv`, `nestedTables_inv`,
+  and the WF half `nestedMemberTable_wf`/`nestedTables_wf` through
+  `direct_table_wf`;
+* `ConLeche/Model/Inductives/NestedTables.lean` (new) —
+  `nestedTables_cross` (`TableCross` reused verbatim from
+  `MutualTables.lean`), `NestedMemberTableOk` with its `.cross`, and
+  the stage `stageNestedTables`.
+
+**`MemberTableOk` does not instantiate at the nested route, and the
+reason is structural.**  It reads a member's table data OFF THE BLOCK
+RECORD — `b.lps`, `b.nP`, the constructor at `b.ownCtors mIdx` indexed
+into `ctorsA`, the field sorts at `sortss.getD J` — because
+`mutualMemberTable` RECOMPUTES exactly those from the block.
+`nestedMemberTable` recomputes nothing but the bodies: it takes the
+scratch block's RECORDED `ProjTable` (`tbl.ctor`, `tbl.levelParams`,
+`tbl.structSort`, `tbl.guards`, `tbl.off`).  There is no `MutualBlock`
+at the nested site to project.
+
+So the fold was NOT copied.  The cut is one level up:
+`stageTablesGo` (`BlockStageTables.lean:343`) takes the route through
+four hypotheses — the two run inversions, the member step's shape, and
+the per-element clause's transport — and each route supplies its own
+per-element clause.  `stageBlockTablesGo` is now that lemma at the
+MUTUAL inversions, its statement unchanged, and `stageBlockTables` and
+`MutualTables.lean` are untouched: a generalisation and its arm's
+existing lemma cut at the same place, ONE proof of the transport and
+the `AcvalAgrees` bookkeeping, which is the whole content.
+`TableMember`, `TableMember.cross`, `BlockTableStep` and `TableCross`
+were already generic and are reused verbatim.
+
+*One accidental identification fell out on the way.*
+`TableMember.cross`/`MemberTableOk.cross` wrote the CONSED table's
+parameter count in `hbodies` as the SURVIVING member's `nP`.  The two
+coincide in a mutual block and nothing in either proof ties them — the
+bodies' `NoProjAt` walk is the consed structure's alone — so it was an
+identification, not a fact.  It is a fresh variable now, which is what
+a route whose elements carry their own counts needs.
+
+##### (dddd) WHAT `NestedRecsStored` STILL NEEDS — a correction to the sizing
+
+Sessions 21 and 22 landed four of item 5's five pieces: the fired
+equality at both arms ((xxx)), the store swap ((yyy)), §U.36 (d)'s
+`EnvModelB` supply ((bbbb)) and the tables ((cccc)).  **It does not
+follow that `NestedRecsStored` is discharged, and the difference is not
+small.**  Its conclusion is `∃ mpOut, NestedTailOut …` — SEVEN fields
+— and the four pieces are its INPUTS.  What is left, precisely:
+
+1. **The assembly** — one theorem from `NestedTailIn` to those seven
+   fields, wiring `NestedTailIn.provisioned` → `recRuleLawsAt` at every
+   class → `nestedRecsStore` → `stageNestedTables`, then reading off
+   `install`/`agree₀`/`agree`/`findR`/`repsAt`/`groups`/`conts`.
+   `groups` is `groupsAt` modulo `containerInfo?`'s move across the
+   block's conses (`conts`' own business); `repsAt` is `O.reps` crossed.
+2. **The SCRATCH provision with OUR leaves** — `recRuleLawsAt`'s
+   `mpAP`, with `hshapeA`/`hleafA`/`hagA`.  This has NO producer in the
+   tree: session 12's F6 designed it (`recsProvision` generic in the
+   leaf, at `A := nestedRecLeaf …`, legitimate because the leaf is
+   typed at the scratch reading too — `towerAgree`), but nobody has
+   built it.  It is the largest of the three.
+3. **`nestedRecsStore`'s premises at the run** — per-entry, from
+   `restoreRecTys_at`/`restoreRules_at` and `recCvDoor` (freshness and
+   the reserved-name check), plus `hctorStored` at the provision;
+   and **the tables' three recorded-table obligations**
+   (`tbl.ctor = cvCa.name`, `tbl.off = 1`,
+   `tbl.guards = structProjGuards cvCa.type nP nF sorts`), which should
+   fall out of the SCRATCH block's own table stage — that stage built
+   the table with exactly those — but the transfer is unproved.
+
+**Item 5 from here: 2½–4 sessions** (session 21 said 1–1½ for what it
+then saw, and that estimate covered (cccc) and (bbbb) alone).  The
+correction is the assembly and `mpAP`, neither of which was on the
+lane's list; the four landed pieces are what the assembly consumes, and
+nothing in them is conditional.
+
+##### (eeee) FILES AND GATES (session 22's HEAD)
+
+Merged `agent/uniform-315` 651413ab.  Touched beyond the merge:
+`ConLeche/Model/Inductives/NestedPins.lean`, `NestedLoop.lean`,
+`NestedCore.lean`, `NestedRecsStage.lean`, `NestedRecEqs.lean`,
+`NestedRecRule.lean`, `NestedRecsStore.lean`, `NestedCopyIdx.lean`,
+`NestedCopyInst.lean`, `NestedCtorRead.lean`, `BlockStageTables.lean`,
+`DeclNestedCore.lean`, plus two NEW files —
+`ConLeche/Verify/Inductives/NestedTablesInv.lean` (105) and
+`ConLeche/Model/Inductives/NestedTables.lean` (160) — and one line of
+`ConLeche/Model.lean`.  No allowlist line, no new FALLBACK entry (the
+table stage's `public import`s the plan accepted as they stand), no
+checker code.
+
+`lake build` warning-free EXIT 0; `lake test` warning-free EXIT 0;
+shake 510 removals all allowlisted / pub-imports 1328 of 2183 public,
+none demotable (50 dot-notation fallbacks); layering base 353 / model
+284 / caps 3 / umbrella 1, 0 base→lane, 0 impl→theory (the base clause
+is vacuous, §U.29 (mm), and a separate lane off master owns the fix);
+trust surface 13 escapes in 5 allowlisted files (652 scanned), 0
+outside; no-local-paths OK; overview-links 112; quote-gate 2;
+proofdeps 4965 rows / 12 roots / **0 doors**.
+
 
 #### U.30 — L-B session 2: `CopyCtorInst.ordF` at the READING, the normalisation's reading law PROVED, `ContainerModeled`'s three clauses (lane L-B, 2026-09-16)
 
