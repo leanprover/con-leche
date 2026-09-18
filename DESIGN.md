@@ -89755,3 +89755,65 @@ Two things follow for that session:
    fire there is a finding about this route on material it has never
    seen, which is exactly the kind of thing the deletion must not
    discover after the fact.
+
+#### THE INVARIANT CLAUSE: the census, from actually adding it (2026-09-18, task #315 M8 session 6, `agent/uniform-m5`)
+
+The clause was added to `ConstWF` — one conjunct,
+`∀ cv mI rP rules, c = .recInfo cv mI rP rules →
+Expr.recMajorHeadOk cv.type mI = true`, sixth of nine, immediately
+before the doubly-guarded nested-rule clause that asks the same thing
+behind two guards — and the tree was built to take the census.  **The
+attempt is REVERTED and the tree is green**; what follows is what it
+found, which could not have been known without doing it.
+
+##### THE MECHANICAL HALF — thirteen sites, all done and all cheap
+
+Adding a conjunct in the middle of a nine-tuple moves every
+destructuring and every rebuild of it.  The sites, for the next author:
+`Verify/EnvWF.lean` (its own two: `EnvWF.indCaps`' projection chain and
+the cons's transport), `Verify/InferLemmas.lean` (two),
+`Verify/InferLeaves.lean` (two), `Verify/Deep.lean` (one projection
+chain, `.2.2.2.2.2.1` → `.2.2.2.2.2.2.1`), `Model/Steps/IotaRows.lean`
+and `Model/RecRulesCons.lean` (two destructurings),
+`Model/Caps.lean` (a literal tuple — one more `by rintro _ _ _ _ ⟨⟩`),
+`Verify/Cached/DiscC3.lean`, `Verify/Inductives/MutualWF.lean`
+(`ConstWF.le`, the monotone transport — the clause is
+environment-INDEPENDENT, so it carries unchanged, which is the useful
+observation), `Semantics/ProjFnFacts.lean` (a `projInfo` cons: vacuous
+by the kind) and `Verify/Inductives/StructWF.lean`'s `structConstWF`
+builder.
+
+**One design note that saves a round**: put the new argument LAST in
+`structConstWF`, with a default that refutes it by the kind, and every
+non-recursor call site is unchanged.  Inserting it in tuple order
+breaks each of them.
+
+##### THE REAL HALF — five producers, and what each needs
+
+| producer | what stores the recursor | what it needs |
+| --- | --- | --- |
+| `Verify/Inductives/FixWF.lean`'s `direct_fix_rec_wf` | `structRecTyR`'s output, which `checkNativeRec_shape` already exposes as `= some recTy` | `structRecTyR_major` + `(nativeCtors4 ctorsA p.kinds).length = p.ctors.length` to line the strip count up with `p.majorIdx = p.nP + 1 + p.ctors.length + p.nIdx` |
+| `Verify/Inductives/MutualWF.lean`'s recursor cons | `mutualRecTy`'s output | `mutualRecTy_major` + the same arity step |
+| `Semantics/IndRecsCore.lean` | the MODELED route's provisioned recursor | K.55's Bool, THREADED from `provisionRecs_cons_inv` (which now carries it) into this theorem's hypotheses — the only site needing new plumbing rather than a new proof |
+| `Verify/Cached/BridgeCS4.lean` | the cached mirror of the above | the transport, once the pure side has it |
+| `Semantics/EnvFactsCons.lean`'s `memberInstallInv` | a provisional `.recInfo cvA mI rP []` | one hypothesis on the theorem, discharged by the caller's route |
+
+So the remaining work is **two generator plumbings with their arity
+step, one hypothesis threaded through the modeled route, and two
+transports** — all five ingredients already proved
+(`mutualRecTy_major`, `structRecTyR_major`, `restoreWalk_major`,
+`basisDeclsA_recMajorHead`, K.55).  **One session**, and nothing in it
+is unknown.
+
+##### A FIFTH INSTANCE OF THE STANDING FIRST STEP
+
+`EnvFacts.consBlockMember` (`Semantics/EnvFactsCons.lean`) **has no
+call site**: three mentions in the tree, two of them in docstrings, and
+the third its own statement.  It is a `BlockMemberKind` cons — the
+shape a provisional recursor is consed at — so it looks load-bearing
+and is not.  That is the fifth instance this arc of the tree holding
+something nobody consumes (after the documented cycle, the three
+discarded walk facts, the other lane's already-proved residual, and my
+own `restoreWalk_pin`).  Whether it is deleted is not this lane's call;
+it is recorded because the next author will otherwise spend the same
+five minutes discovering it.
