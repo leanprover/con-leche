@@ -112160,3 +112160,176 @@ not re-run: this session touches no checker code.
 *(`tests/shake.sh` needs the `meta` pin generators' `.olean`s, which
 `lake build` does not produce; `lake build ConLeche.PinGen{,.Prelude,
 .Certs,.Dump}` first, or its census half aborts before it starts.)*
+
+#### R2: THE REFRAMING TESTED — the maintainer is RIGHT about what is cyclic, and exposing the wide operator moots K.37's impasse (but not the candidate frame) (lane R2, 2026-09-18)
+
+Read-and-reason plus two probe runs.  Nothing but this record changed.
+The `TwoInst` stream of (b) is in `_tmp/r2/twoinst.ndjson`; everything
+else is read off the tree or off `tests/e2e/*`.
+
+##### (a) QUESTION 1 — YES, with the segment the instance CLOSURE, and the discharge is NOT `rfl`
+
+**What the tree actually stores, checked.**  `BlockModel` has `Φ` and
+`pinCar` but no wide operator: `ofNested` sets
+`Φ := composeΦ … (nestedΨ …)` and `pinCar := pinsCar … (nestedΨ …)`
+(`BlockComposed.lean:124`), so `nestedΨ` — the `k + n`-width operator —
+is a LOCAL of the definition, consumed twice and discarded.
+`IsBlockModel` exposes `func` at width `d.k`, `pinFam`, `pinMono` and
+`pinLeaf` (`BlockRep.lean:591`), i.e. `pinCar` abstractly plus its
+monotonicity and ONE identity at the carrier.  **Ψaux is not
+recoverable from that**: `Φ` and `pinCar` pin `Ψ` down only on extended
+tuples `extT X`, and whole-space agreement is exactly a statement about
+the tuples that are not of that form.
+
+**P4, worked.**  Probe (`scripts/nested-pin-probe.lean`): pins
+`0 = P4C P4` (P4C, declPos 51), `1 = Array (P4C P4)` (Array, 91),
+`2 = List (P4C P4)` (List, 95) — note pin 1 is `Array (P4C P4)`, not
+`Array (List (P4C P4))`.  `P4C`'s own install nests `Array (P4C α)`,
+whose expansion mints `List (P4C α)`, so P4C's own WIDE group is
+`{P4C, Array (P4C ·), List (P4C ·)}` and **our pins 0,1,2 are exactly
+that group instantiated at `α := P4`**.
+
+* **segment**: `a = p.k = 1`, `s = 3 = dJ.k + dJ.nPins` — the instance
+  closure, not `dJ.k`;
+* **`Φ'`**: `Ψaux` of P4C at `ψJ` and the frame `ρJ = consList [L⁺ 0] ρp`
+  — the block's own member's carrier, **no pin value, so no candidate
+  frame at this instance**;
+* **`hΦ`**, whole space: at `Y` over the segment, our copy `1+i`'s
+  section reads a target inside the instance as `Y (tgt-1)` and one
+  outside (here only the member `P4`) as `L⁺ 0`; P4C's wide operator
+  reads its own group's variables as `Y` and its parameter as `ρJ`'s
+  entry — the same value.  The two match FOR EVERY `Y`, which is what
+  `segOne_forces_const` (`SetModel/SegCopy.lean`, lane SEG) shows is
+  impossible at today's `s = dJ.k`: with the container's own pin's copy
+  OUTSIDE the segment the section is literally constant in `Y` while the
+  composed operator is not.
+
+**Its discharge is `hfit_at_of_inst`-shaped, NOT `rfl`.**  In SegCopy the
+two presentations share their constructor data, so the agreement is
+`rfl` after the positions are read off.  In the tree our copies'
+data are the container's INSTANTIATED (`mkCopy`) and REWRITTEN
+(`replaceAllNested`), and the bridge is `CopyShapeA`/`CopyEntryA` —
+exactly the inputs of `hfit_at_of_inst` (`NestedFit.lean:1877`).  What
+changes is the pin-target arm: today a container-recursive field at one
+of the container's OWN pins is read through `PinCorr`/`EntryRead` as the
+TARGET'S STORED READING at the carrier; at the wide width it reads the
+segment's VARIABLE.  So the work is a wide-width sibling of
+`hfit_at_of_inst`, and **`hfit_le_of_inst` — the `hle` of
+`lfpTuple_seg_congr_at` — is deleted, not re-proved.**
+
+##### (b) QUESTION 2 — the CLOSURE, computable from the run; contiguity FAILS and reindexing sidesteps it
+
+**The closure, not K.37's partition.**  K.37's instances are the
+own-edge components — `{0,1}` and `{2}` at P4 (DESIGN §K.37's table) —
+and the identification needs the container's whole instantiated wide
+group `{0,1,2}`.  The arc `1→2` is invisible to the own-edge graph
+because the two copies' CONTAINERS differ (`Array`, `List`) while both
+are pins of P4C's own install.  So the closure is read off the
+CONTAINER's own pin list — `BlockModel.pins`, a stored field, matched to
+our pins by `PinCorr` — a pure function of data the model already has,
+**no kernel change**.  (The mint tree is NOT the closure: at
+`ind_nest_straddle` pin 1 is minted while expanding Box's copy but
+belongs to `List`'s instance, since `Box` has no pins of its own.)
+
+**Contiguity fails.**  Witness, exported and probed this session, and
+accepted by the route (`nested-shadow A accept`, `B accept`,
+`TwoInst accept`):
+
+```lean
+inductive A (α : Type) where | mk (l : List (A α))
+inductive B (α : Type) where | mk (l : List (B α))
+inductive TwoInst where      | mk (a : A TwoInst) (b : B TwoInst)
+```
+
+```
+pin 0 = (A TwoInst)          container=A      rewritten comp[0] = TwoInst
+pin 1 = (B TwoInst)          container=B      rewritten comp[0] = TwoInst
+pin 2 = (List (A TwoInst))   container=List   rewritten comp[0] = _nested.A_1
+pin 3 = (List (B TwoInst))   container=List   rewritten comp[0] = _nested.B_2
+```
+
+A's instance is `{0,2}` and B's is `{1,3}` — **interleaved**, because
+the block's own constructor mints both roots before either is expanded.
+`lfpTuple_seg` is stated for `[a, a+s)`, so the segment lemmas do not
+apply as they stand.
+
+**Reindexing sidesteps it, and the tool is landed.**
+`lfpTuple_pullback` (`LfpCompose.lean:904`) transports a least tuple
+along any `σ : [0,k') → [0,k)`, renaming or duplicating, with `hpull`
+the agreement of the two operators at pulled-back tuples.  At a
+PERMUTATION `π` of `[0,N)` with `Φ' := fun Y j => Ψ (Y ∘ π⁻¹) (π j)`,
+`hpull` holds definitionally, so the big system may be permuted until
+the instance is contiguous and `lfpTuple_seg_congr` applies unchanged.
+Two cheaper-looking alternatives exist and are worth costing against
+it: generalising `lfpTuple_seg` from `[a, a+s)` to an INJECTION
+`σ : [0,s) → [0,N)` (the same proof, `segJoin` by the fibre), or
+`lfpTuple_eq_of_rel` (`:1048`), which needs no function between the
+variable sets at all.  **Contiguity is one reindexing lemma, not a
+blocker.**
+
+##### (c) QUESTION 3 — a new field plus two laws; free at every producer but the nested one
+
+`Ψaux : (Name → Nat) → (Nat → V) → (Nat → V) → Nat → V` on
+`BlockModel`, with `IsBlockModel` laws `func` at width `k + nPins`,
+`Φ ψ ρ = composeΦ … (Ψaux ψ ρ)` and `pinCar ψ ρ = pinsCar … (Ψaux ψ ρ)`.
+
+* **`BlockModel.ofNested`** (`BlockComposed.lean:124`) — `Ψaux := nestedΨ …`,
+  the local promoted to a field; both laws `rfl`;
+* **`BlockModel.ofNative`** (`BlockRepOne.lean:254`) and
+  **`BlockModel.ofMutual`** (`BlockRepMutual.lean:68`) — `pins := []`
+  (`:284`, `:104`), so `Ψaux := Φ` with two small lemmas
+  (`composeΦ` and `pinsCar` at `n = 0`);
+* the law sites: `DeclNative.lean:1372`, `MutualCore.lean:2086`,
+  `NestedCore.lean:1052`, the basis blocks
+  (`BasisBlocks{Zero,Eq,Nat,Unit,Tag}`, all `nomatch` at the pin
+  clauses) and the transport `BlockRepCross.lean:703`.  Every one of
+  them is vacuous or `rfl` except the nested route's.
+
+Cost shape: one structure field, two laws, ~10 sites, all mechanical —
+against `hfit_le_of_inst`, `pinMono`'s consumer, the candidate-frame
+domination and the ordered induction's `hle`, which the field deletes.
+
+##### (d) THE PLAIN ANSWER, both halves
+
+**The maintainer is right about what is cyclic.**  The cycle K.37
+measured — P4's contracted `{0,1} ↔ {2}`, plus `Lean.Elab.InfoTree` and
+the four `MsgEmbed` blocks — is WITHIN one container instance, and it is
+an artefact of identifying each copy against the container's `k`-width
+composed operator, which solves the container's own pins internally.
+With the instance closure as the segment and `Ψaux` as `Φ'`, those arcs
+are not arcs: they are reads of the segment's own variables.  **K.37's
+impasse ("no measure constant along own edges and strictly decreasing
+along not-own ones exists") is then moot** — not because a measure was
+found, but because the property it asked for is no longer needed.
+
+**Where it is not the whole story, exactly.**  Three things survive,
+and none of them is an ordering problem:
+
+1. **the candidate frame survives** — an instance's `Φ'` is taken at the
+   frame given by its ROOT pin's component VALUES, and those are
+   auxiliary-carrier components whenever the root's components mention
+   other pins (lane SEG's `bazBlk_*` shape, proved whole-space there).
+   So the producer this lane priced (`candAs` = the denotation of
+   K.59's rewritten components, and its reading lemma) is still needed,
+   and so are `CandParamFit`/`CandIdxAgree` at the root;
+2. **an induction over INSTANCES survives**, because an instance's
+   whole-space agreement still has to identify targets OUTSIDE its
+   segment — a copy of another instance, held at the carrier — with the
+   container's own reading there.  That is the cross-instance arc;
+3. **it is acyclic by an argument, not by a measurement.**  A
+   cross-instance arc is either PARAMETER-headed, where both sides are
+   the same constant and nothing is required, or CONSTANT-headed, where
+   the head is a constant of the source container's own declaration and
+   is therefore declared strictly earlier — K.57.  A cycle would need
+   two containers each mentioning the other, which in one environment
+   means one mutual group, i.e. ONE instance.  The straddle this lane
+   found is a cross-instance arc of the constant-headed kind and is
+   covered by the same fact and the same one cannot-fire clause
+   ("EARLIER-DECLARED DOMAIN CONSTANTS", previous row).
+
+So: **the measure question is moot in the sense that mattered** — the
+within-instance cycle that had no measure is dissolved, and what
+remains is declaration order, which is already recorded (K.57) and is
+acyclic by construction rather than by corpus.  **The candidate frame,
+the component producer and law (M) at cross-instance constant-headed
+edges are not moot.**
