@@ -112922,3 +112922,69 @@ satisfy a citation is how a wrong reason gets recorded as a fact, which
 is the failure this row has now catalogued five times.
 
 Nothing in this section changes the tree.
+
+#### PINF: the clause in the opened form is the right statement — and its producer needs a BRIDGE that does not exist (lane PINF, 2026-09-18)
+
+The call to state the tie in the opened form is taken.  **The clause is
+NOT added**, and the reason is a measurement rather than a judgement.
+
+##### (a) WHY NOTHING WAS ADDED
+
+The clause is cheap everywhere except the one place it matters.  At the
+five pinned basis blocks and the native and mutual sites it is vacuous
+(pins-free, in `nestMention`'s own `q < d.nPins` idiom — which the
+clause must therefore also carry, or a pins-free block cannot discharge
+it); `of_readBack` and the two transports carry it as `ownPins` is
+carried.  The real discharge is at `nestedContainerModeled`, and it
+needs a bridge that is not in the tree:
+
+* `restoreOpen_pin_domain` / `restoreOpenFields`
+  (`Verify/Inductives/NestedRestoreOpen.lean`) conclude about
+  `openPisAtFvars` outputs of the RESTORE's own walk;
+* the clause is stated about `BlockCtorData`'s `xFvsF`, which the
+  producer gets through `NestedStageFacts.ctorFacts`
+  (`NestedCore.lean`) — itself built from a `ReadCtx`
+  (`NestedCtorRead.lean`) and crossed by `BlockCtorData.crossEnv`;
+* **no lemma joins the two**, and the sharpest evidence that the join
+  is not a formality is that both restore lemmas have stood in the tree
+  UNCONSUMED: they were built for exactly this and never spent, which
+  is what an unbuilt bridge looks like from the far side.
+
+Starting that bridge now would leave a `ContainerModeled` clause
+half-applied across nine sites, which this route has agreed is its
+worst handover state — and the row's own rule was to stop rather than
+absorb when a piece's shape changes.  So the tree is exactly as it was
+after (i), plus the docs merge.
+
+##### (b) THE PRICE, SPLIT SO THE NEXT SESSION CAN START MID-ROW
+
+* **the bridge** — `restoreOpenFields`' conclusion to the restored
+  constructor's `BlockCtorData.xFvsF`, through `ReadCtx`: **UNMEASURED**,
+  and the one piece of this row that should be measured before it is
+  promised.  It is the whole of the producer's work;
+* **the clause and its eight other sites** — half a session, and
+  mechanical once the bridge exists;
+* **(ii) on top** — `hment` from the clause plus `nestMention`, with
+  `mentionsConst_instSeq_false`'s contrapositive
+  (`NestedRestoreOpen.lean`) carrying the mention across the opener
+  substitution; then conjunct 1.  Small, and its input is now named.
+
+##### (c) THE DOC SENTENCE, DELIBERATELY NOT ADDED
+
+`docs/NESTED.md` arrived with the merge, and its §3 already records
+this row's (2) finding in full — members re-derived from the `former`
+reading equation, pins recorded because their syntactic data are fixed
+by no law, uniqueness never needed.  The sentence asked for describes a
+SECOND recorded tie, and that tie is not in the tree yet.  A
+human-facing document that describes a clause the checker does not
+carry is worse than one that is a sentence short, so it waits for the
+clause it is about.
+
+##### (d) THE SMALL GOOD, noted as asked
+
+When the bridge lands, `restoreOpen_pin_domain` and `restoreOpenFields`
+get their first consumer.  Two Verify lemmas built for a purpose and
+never spent are a standing invitation to rebuild them by accident; this
+row should retire that risk rather than add to it.
+
+Nothing in this section changes the tree.
