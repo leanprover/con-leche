@@ -17,8 +17,9 @@ of `ProjFnR`).  What was owed is the **carrier** at the projection
 cons, and this module is it.
 
 **The one hard field is `ty_denotes` at the head.**  A block member's
-cons reads its head type's denotation straight off `ConstantValR`
-(`EnvFacts.consBlockMember`'s `hty`); a projection entry cannot, because
+cons reads its head type's denotation straight off `ConstantValR` (as
+the SetR bridge's deleted `consBlockMember` did, through an `hty`
+hypothesis); a projection entry cannot, because
 the entry's *stored* type is `pty = mcv.type.renameConsts (projBack T
 ctorName nF)` — the model projection's type read backwards.  Its
 denotation therefore has to come from the model projection's, through
