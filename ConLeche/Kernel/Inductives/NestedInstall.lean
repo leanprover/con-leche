@@ -2201,15 +2201,21 @@ first `ciK.nP` arguments mentioning a member of the group — so the two
 records constrain exactly the same fields and compose: K.60 says the
 copy's field is classified `.recursive` into a PIN, and this says WHICH
 pin — the instance map's value at the own-pin position the container's
-field sits at.  (The guard is read here off the telescope INSTANTIATED
-at the openers rather than off the raw binder list; substituting a bound
-variable changes neither a head nor a mentioned constant, so the two
-readings of the guard agree.)
+field sits at.  The guard is K.60's on the very same
+binder list, character for character.
 
 The own-pin position is `containerOwnPinsSelf`'s, and the field's domain
 is cut to the shape that table holds (`replaceIfNested`'s
-`pin = I lvls (args.take nP)`) before the match.  Both sides are
-instantiated at the SAME openers, so the comparison is exact.
+`pin = I lvls (args.take nP)`) and only THEN instantiated at the
+openers — the CUT is a pin, a small term, where the constructor's whole
+telescope is not.  Measured: instantiating the telescope instead
+(`Expr.instPisAtF` at the openers, the first form built) cost
+**+0.49 %** of a Mathlib shadow run where this form costs a fraction of
+that.  Both sides carry the same openers, so the comparison is exact:
+the cut sits under `ci.nP + l` binders whose outer `ci.nP` are the
+parameters, so `instantiateList … opens l` with the openers REVERSED
+maps `bvar (l + i)` to parameter `ci.nP - 1 - i`'s opener and leaves the
+earlier fields' variables alone.
 
 Reflexive nested fields fall outside the guard exactly as they do in
 K.60: their domain is a `Π`, so `getAppFn` is not a `.const`. -/
@@ -2224,32 +2230,30 @@ def nestedInstMapOkAt (env : Env) (p : NestedParts) (st : ElimState)
         match containerInfo? env qn.container with
         | none => false
         | some ci =>
-          let params := containerParamOpeners ci.nP
+          let opens := (containerParamOpeners ci.nP).reverse
           match ci.members[q - qn.grpBase]?, containerOwnPinsSelf env qn.container with
           | some J, some own0 =>
             let mems := ci.members.map (·.name)
             (List.range ks.length).all fun j =>
               match ks[j]?, J.ctors[j]? with
               | some kf, some cJ =>
-                match Expr.instPisAtF
-                    (params ++ (List.range cJ.nFields).map fun _ => Expr.sort Level.zero)
-                    cJ.type with
+                match cJ.type.stripPis (ci.nP + cJ.nFields) with
                 | none => false
-                | some (ds, _) =>
+                | some (jbs, _) =>
                   (List.range kf.length).all fun l =>
-                    match kf[l]?, ds[ci.nP + l]? with
+                    match kf[l]?, jbs[ci.nP + l]? with
                     | some (_, t), some domJ =>
-                      match domJ.getAppFn with
+                      match domJ.1.getAppFn with
                       | .const K _ =>
                         if mems.contains K then true
                         else
                           match containerInfo? env K with
                           | none => true
                           | some ciK =>
-                            if (domJ.getAppArgs.take ciK.nP).any (mentionsMember mems) then
+                            if (domJ.1.getAppArgs.take ciK.nP).any (mentionsMember mems) then
                               match own0.findIdx? (fun e => e ==
-                                  Expr.mkAppN domJ.getAppFn
-                                    (domJ.getAppArgs.take ciK.nP)) with
+                                  Expr.instantiateList (Expr.mkAppN domJ.1.getAppFn
+                                    (domJ.1.getAppArgs.take ciK.nP)) opens l) with
                               | some qK =>
                                 (maps.getD q []).getD qK st.pins.length == t - p.k
                               | none => false

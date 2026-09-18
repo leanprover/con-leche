@@ -629,22 +629,23 @@ theorem nestedInstMapOk_target {env : Env} {p : NestedParts} {b : MutualBlock}
     {j : Nat} (hj : j < ks.length)
     {kf : List (RecFieldKind × Nat)} (hkf : ks[j]? = some kf)
     {cJ : ContainerCtor} (hcJ : J.ctors[j]? = some cJ)
-    {ds : List Expr} {rJ : Expr}
-    (hds : Expr.instPisAtF (containerParamOpeners ci.nP
-        ++ (List.range cJ.nFields).map (fun _ => Expr.sort Level.zero)) cJ.type
-      = some (ds, rJ))
+    {jbs : List (Expr × BinderMeta)} {rJ : Expr}
+    (hsJ : cJ.type.stripPis (ci.nP + cJ.nFields) = some (jbs, rJ))
     {l : Nat} {r : RecFieldKind} {t : Nat} (hl : kf[l]? = some (r, t))
-    {domJ : Expr} (hdJ : ds[ci.nP + l]? = some domJ)
-    {K : Name} {us : List Level} (hhead : domJ.getAppFn = .const K us)
+    {domJ : Expr × BinderMeta} (hdJ : jbs[ci.nP + l]? = some domJ)
+    {K : Name} {us : List Level} (hhead : domJ.1.getAppFn = .const K us)
     (hnm : ((ci.members.map (·.name)).contains K) = false)
     {ciK : ContainerInfo} (hciK : containerInfo? env K = some ciK)
-    {a : Expr} (ha : a ∈ domJ.getAppArgs.take ciK.nP)
+    {a : Expr} (ha : a ∈ domJ.1.getAppArgs.take ciK.nP)
     (hmen : mentionsMember (ci.members.map (·.name)) a = true) :
     ∃ (qK : Nat) (e0 : Expr) (m : List Nat),
-      own0.findIdx? (fun x =>
-          x == Expr.mkAppN domJ.getAppFn (domJ.getAppArgs.take ciK.nP)) = some qK ∧
+      own0.findIdx? (fun x => x == Expr.instantiateList
+          (Expr.mkAppN domJ.1.getAppFn (domJ.1.getAppArgs.take ciK.nP))
+          (containerParamOpeners ci.nP).reverse l) = some qK ∧
         own0[qK]? = some e0 ∧
-        e0 = Expr.mkAppN domJ.getAppFn (domJ.getAppArgs.take ciK.nP) ∧
+        e0 = Expr.instantiateList
+          (Expr.mkAppN domJ.1.getAppFn (domJ.1.getAppArgs.take ciK.nP))
+          (containerParamOpeners ci.nP).reverse l ∧
         nestedInstMapAt env st q = some m ∧
         m.getD qK st.pins.length = t - p.k := by
   cases hms : nestedInstMaps env st with
@@ -666,7 +667,7 @@ theorem nestedInstMapOk_target {env : Env} {p : NestedParts} {b : MutualBlock}
   have hjv := hqv j hj
   rw [hkf, hcJ] at hjv
   simp only at hjv
-  rw [hds] at hjv
+  rw [hsJ] at hjv
   simp only [_root_.List.all_eq_true, _root_.List.mem_range] at hjv
   have hlLt : l < kf.length := (_root_.List.getElem?_eq_some_iff.mp hl).1
   have hlv := hjv l hlLt
@@ -680,8 +681,9 @@ theorem nestedInstMapOk_target {env : Env} {p : NestedParts} {b : MutualBlock}
     simp only [_root_.List.any_eq_true]
     exact ⟨a, ha, hmen⟩)] at hlv
   rw [← hhead] at hlv
-  cases hfi : own0.findIdx? (fun x =>
-      x == Expr.mkAppN domJ.getAppFn (domJ.getAppArgs.take ciK.nP)) with
+  cases hfi : own0.findIdx? (fun x => x == Expr.instantiateList
+      (Expr.mkAppN domJ.1.getAppFn (domJ.1.getAppArgs.take ciK.nP))
+      (containerParamOpeners ci.nP).reverse l) with
   | none => rw [hfi] at hlv; simp at hlv
   | some qK =>
     rw [hfi] at hlv
