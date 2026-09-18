@@ -107352,3 +107352,120 @@ At `ba75b242`: `lake build` warning-free; `lake test` warning-free;
 layering, trust-surface, no-local-paths, overview-links, quote-gate,
 proofdeps, shake and nested-shadow all pass.  `tests/arena.sh` not
 re-run: no checker code touched (every commit is Verify/Model tier).
+
+#### L-B session 33: step (iv) COMPLETE, the inversion re-shaped, and the equation-lemma hazard filed (lane L-B, 2026-09-18)
+
+*(No number taken: the title is the citation, the integrator numbers.)*
+
+##### (a) THE INVERSION NOW GIVES THE OUTPUT'S SHAPE — and three of this lane's own lemmas retired with it
+
+`replaceAllNested_container_head` (commit `b3b963c6`) concludes the
+OUTPUT's shape, not merely its head:
+
+    e' = mkAppN (mkAppN (.const q.aux blvls) params) (e.getAppArgs.drop ci.nP)
+
+**The fire an inversion finds at a PREFIX is a fire at the TOP.**
+`nestedOccOk`'s verdict depends only on `args.take ci.nP`, which every
+prefix long enough to be tested shares with the whole spine
+(`nestedOccOk_take_congr`), and shorter prefixes decline on the length
+test first.  The walk is top-down, so the whole spine was offered
+before any prefix: a prefix that fires means the top fired.  That turns
+the inversion into `replaceAllNested_occurrence` read backwards.
+
+**RETIRED, because this displaced them** (the rule: do not leave a piece
+of machinery standing that your own work has made unnecessary):
+
+* the two conjuncts session 32 added to `replaceAllNested_head_or_fire`
+  (the output's head, and the fire state's pin count) — both now
+  derivable from the shape;
+* `replaceIfNested_fire_pin`, whose only consumer was the inversion;
+* `mentionsConst_getAppFn`, since the side condition is stated at the
+  head.
+
+`nestedOccOk_verdicts` replaces an extraction that had been inlined.
+
+##### (b) STEP (iv), BOTH HALVES — the arm has its shape and its reading
+
+* `NestedPinsRun.copyOrdFRightPinCorr` (`ba75b242`, session 32) — the
+  SYNTACTIC half;
+* `NestedPinsRun.copyOrdFRightPinRead` (`7f7d82b6`) — the SEMANTIC half:
+  the reading of `w` IS the block pin's stored reading applied to the
+  field's recorded index readings.
+
+**`MutualCtorDataI.eisRead` is what made the semantic half short**, and
+it is the fifth time on this route that a deadlock dissolved into a
+lemma already in the tree.  The copy's recorded index expressions ARE
+the denotation spine of the stored domain's arguments past the
+parameters, so the index correspondence is READ OFF rather than
+reconstructed.  The alternative route — matching the two `mkAppN`s and
+discharging the length side condition — would have needed a reader for
+`mutualOpenedOk`'s arity clause; it was not written, and should not be.
+
+The other three inputs: `NestedPinSynFacts.pinDs` with `denoteMeta_lift`
+(the components one binder-depth down), `DenoteMetaSpine.unique` at both
+splits — through `crossUpSpine`, because the stored domain reads at the
+WHOLE block's model and `w` at the PREFIX's — and
+`NestedPinGroupSyn.stored` for the head's level assignment.
+
+**What is left of the arm** is the `EntryRead` assembly, which is
+`copyOrdFRightReadM`'s last twenty lines with `copyFieldReadPin` for the
+left-hand side and (b)'s two lemmas for the right.
+
+##### (c) THE RETIREMENT CHECK, done and NEGATIVE — and why that is the right answer
+
+Session 32 observed that the inversion subsumes `copyPinFCorr`'s forward
+argument (60 lines proving the mention BY CONTRADICTION off the
+classification).  Checked: **it does not displace it, and it must not be
+retired.**
+
+The two arms enter from OPPOSITE ends.  `copyPinFCorr` has the minted
+domain's SHAPE (`copyPinFDom`, available because the container's field
+is recursive at its own pin) and is missing only the mention, which it
+gets by contradiction.  This lane's inversion has the OUTPUT's head plus
+copy-freeness and derives the shape.  For the inversion to serve there,
+one would need the output's head FIRST — i.e. a transfer from the STORED
+domain's head to the OPENED constructor's — and `normCtorValM_domHead`
+runs the other way (opened → stored, `NestedCopyNorm.lean:1104`).  No
+such transfer exists.
+
+So the forward argument is a different route with different inputs, not
+a displaced one, and `replaceAllNested_head_const` keeps its consumer.
+Recorded because a negative retirement check is worth as much as a
+positive one and costs the next lane the same reading twice if it is not.
+
+##### (d) THE EQUATION-LEMMA HAZARD, FILED (commit `c7a233be`)
+
+`tests/proofdeps.sh`'s header and `NestedCopyFound.lean`'s now carry it,
+so a lane meets it where it bites rather than in a session record:
+normalising with a FOREIGN definition's NAME (`simp only [f]`,
+`unfold f`, `rw [f]`) generates that definition's equation lemmas IN THE
+MODULE THAT FIRST ASKS, and every later proof reusing them names that
+module — which then enters its proof term although nothing references a
+declaration written there.  **An import gate cannot see this by
+construction: the import was there all along and nothing moved.**  The
+rule at both sites: in a low-tier module, reduce someone else's
+definition through defeq or through a lemma its own module exports.
+
+##### (e) THE GREEN CLAIM, AND THE METHOD THAT BACKS IT
+
+Warm `lake build` logs do not re-emit an up-to-date module's warnings,
+so a grep over one proves nothing about a module that did not recompile
+— **a negative claim needs a command that can express the negative.**
+This lane's earlier reports had that shape in part: several targeted
+builds were grepped for `^error` only, and the full builds after them
+were warm for those modules.
+
+Re-verified by a method that could fail: the build artifacts (`.olean`,
+`.ilean`, `.trace`, `.c`) were DELETED for all twelve modules changed
+since the merge base `eb0affac`, then `lake build` and `lake test` run
+with an unanchored case-insensitive counting grep.  **16 modules
+actually recompiled; 0 warning lines.**  Each later step was checked on
+the log of the build that actually compiled the module it changed.
+
+##### (f) GATES
+
+At `7f7d82b6`: `lake build` and `lake test` warning-free by (e)'s
+method; layering, trust-surface, no-local-paths, overview-links,
+quote-gate, proofdeps, shake and nested-shadow all pass.
+`tests/arena.sh` not re-run: no checker code touched (every commit is
+Verify/Model tier or a gate-script comment).
