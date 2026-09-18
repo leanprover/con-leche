@@ -917,6 +917,112 @@ theorem nestedRecsOkF_eq (ops : CheckerOps m) (env : Env) (nP k n : Nat) :
 
 end NestedMirrors
 
+/-- The job list at more fuel: every job's walk succeeded, and the
+walk is monotone in the fuel. -/
+private theorem normsMapM_up {env : Env} {memberNames : List Name} {err : CheckError} :
+    ∀ (jobs : List (Nat × Expr × Expr)) {ws : List Expr} {F F' : Nat}, F ≤ F' →
+      (jobs.mapM fun je => tryCatchThe CheckError
+        (normPosDomM (fueledOps mode F) env memberNames je.1 1024 je.2.1)
+        (fun _ => throw err) : CheckM (List Expr)) = .ok ws →
+      (jobs.mapM fun je => tryCatchThe CheckError
+        (normPosDomM (fueledOps mode F') env memberNames je.1 1024 je.2.1)
+        (fun _ => throw err) : CheckM (List Expr)) = .ok ws
+  | [], ws, F, F', _, h => by rw [List.mapM_nil] at h ⊢; exact h
+  | je :: rest, ws, F, F', hle, h => by
+    rw [List.mapM_cons] at h ⊢
+    cases hw : normPosDomM (fueledOps mode F) env memberNames je.1 1024 je.2.1 with
+    | error e =>
+      rw [show (tryCatchThe CheckError
+          (normPosDomM (fueledOps mode F) env memberNames je.1 1024 je.2.1)
+          (fun _ => throw err) : CheckM Expr) = .error err from by
+        simp only [tryCatchThe, MonadExceptOf.tryCatch, hw, Except.tryCatch, throw,
+          throwThe, MonadExceptOf.throw]] at h
+      exact nomatch h
+    | ok w =>
+      have hw' : normPosDomM (fueledOps mode F') env memberNames je.1 1024 je.2.1 = .ok w := by
+        rw [← normPosDomM_datF]
+        exact FueledM.up hle (by rw [normPosDomM_datF]; exact hw)
+      rw [show (tryCatchThe CheckError
+          (normPosDomM (fueledOps mode F) env memberNames je.1 1024 je.2.1)
+          (fun _ => throw err) : CheckM Expr) = .ok w from by
+        simp only [tryCatchThe, MonadExceptOf.tryCatch, hw, Except.tryCatch]] at h
+      rw [show (tryCatchThe CheckError
+          (normPosDomM (fueledOps mode F') env memberNames je.1 1024 je.2.1)
+          (fun _ => throw err) : CheckM Expr) = .ok w from by
+        simp only [tryCatchThe, MonadExceptOf.tryCatch, hw', Except.tryCatch]]
+      simp only [bind, Except.bind] at h ⊢
+      cases hr : (rest.mapM fun je => tryCatchThe CheckError
+          (normPosDomM (fueledOps mode F) env memberNames je.1 1024 je.2.1)
+          (fun _ => throw err) : CheckM (List Expr)) with
+      | error e => rw [hr] at h; exact nomatch h
+      | ok rest' =>
+        rw [hr] at h
+        rw [normsMapM_up rest hle hr]
+        exact h
+
+/-- **THE POSITIVITY WALKS' JOB LIST** (task #315 M8): each job is the
+shared walk under a `tryCatch` whose handler throws, so a successful
+cached run is the walk's own — and the FUELED monad's `tryCatch` is a
+stub, so the wrapper is inverted here rather than simulated. -/
+private theorem normsMapM_run (hμ : mode.verifiedChecks = true) {env : Env} (henv : EnvWF env)
+    (memberNames : List Name) (err : CheckError) :
+    ∀ (jobs : List (Nat × Expr × Expr)) {s₀ : CState} {ws : List Expr} {s' : CState},
+      (∀ je ∈ jobs, Expr.WScoped je.1 je.2.1) → CSOK mode env s₀ →
+      (jobs.mapM fun je => tryCatchThe CheckError
+          (normPosDomM (sharedOpsC mode (mkFEnv env)) env memberNames je.1 1024 je.2.1)
+          (fun _ => throw err)) s₀ = .ok (ws, s') →
+      CSOK mode env s' ∧ ∃ F, (jobs.mapM fun je => tryCatchThe CheckError
+        (normPosDomM (fueledOps mode F) env memberNames je.1 1024 je.2.1)
+        (fun _ => throw err) : CheckM (List Expr)) = .ok ws
+  | [], s₀, ws, s', _, hs, h => by
+    rw [List.mapM_nil] at h
+    obtain ⟨rfl, rfl⟩ := pureC_ok h
+    exact ⟨hs, 0, rfl⟩
+  | je :: rest, s₀, ws, s', hw, hs, h => by
+    rw [List.mapM_cons] at h
+    obtain ⟨w, s₁, hstep, h⟩ := bindC_ok h
+    have hinner := tryCatchC_ok hstep
+    obtain ⟨hs₁, w', hP, F₁, hF₁⟩ :=
+      (normPosDomMS_sim hμ henv memberNames hs (hw je List.mem_cons_self)) w s₁ hinner
+    obtain rfl : w = w' := hP
+    obtain ⟨rest', s₂, hrest, h⟩ := bindC_ok h
+    obtain ⟨hs₂, F₂, hF₂⟩ :=
+      normsMapM_run hμ henv memberNames err rest
+        (fun x hx => hw x (List.mem_cons_of_mem _ hx)) hs₁ hrest
+    obtain ⟨rfl, rfl⟩ := pureC_ok h
+    refine ⟨hs₂, max F₁ F₂, ?_⟩
+    have g₁ : normPosDomM (fueledOps mode (max F₁ F₂)) env memberNames je.1 1024 je.2.1
+        = .ok w := by
+      rw [← normPosDomM_datF]; exact FueledM.up (Nat.le_max_left _ _) hF₁
+    have g₂ : (rest.mapM fun x => tryCatchThe CheckError
+        (normPosDomM (fueledOps mode (max F₁ F₂)) env memberNames x.1 1024 x.2.1)
+        (fun _ => throw err) : CheckM (List Expr)) = .ok rest' := by
+      exact normsMapM_up rest (Nat.le_max_right _ _) hF₂
+    rw [List.mapM_cons]
+    simp only [tryCatchThe, MonadExceptOf.tryCatch, Except.tryCatch] at g₂
+    simp only [bind, Except.bind, tryCatchThe, MonadExceptOf.tryCatch, Except.tryCatch,
+      g₁, g₂, pure, Except.pure]
+
+/-- K.42's walk over the ordinary-field jobs. -/
+theorem nestedOrdNormsS_run (hμ : mode.verifiedChecks = true) {env : Env} (henv : EnvWF env)
+    (memberNames : List Name) (jobs : List (Nat × Expr × Expr)) {s₀ : CState}
+    {ws : List Expr} {s' : CState}
+    (hw : ∀ je ∈ jobs, Expr.WScoped je.1 je.2.1) (hs : CSOK mode env s₀)
+    (h : nestedOrdNorms (sharedOpsC mode (mkFEnv env)) env memberNames jobs s₀ = .ok (ws, s')) :
+    CSOK mode env s' ∧ ∃ F, nestedOrdNorms (fueledOps mode F) env memberNames jobs = .ok ws := by
+  unfold nestedOrdNorms at h ⊢
+  exact normsMapM_run hμ henv memberNames _ jobs hw hs h
+
+/-- K.51's walk over the pin-target jobs, the same shape. -/
+theorem nestedPinNormsS_run (hμ : mode.verifiedChecks = true) {env : Env} (henv : EnvWF env)
+    (memberNames : List Name) (jobs : List (Nat × Expr × Expr)) {s₀ : CState}
+    {ws : List Expr} {s' : CState}
+    (hw : ∀ je ∈ jobs, Expr.WScoped je.1 je.2.1) (hs : CSOK mode env s₀)
+    (h : nestedPinNorms (sharedOpsC mode (mkFEnv env)) env memberNames jobs s₀ = .ok (ws, s')) :
+    CSOK mode env s' ∧ ∃ F, nestedPinNorms (fueledOps mode F) env memberNames jobs = .ok ws := by
+  unfold nestedPinNorms at h ⊢
+  exact normsMapM_run hμ henv memberNames _ jobs hw hs h
+
 /-- The nested route's table stage at one member, run-level: a table
 at a structure-like member (the direct structure's stage), the index
 unchanged otherwise. -/

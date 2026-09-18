@@ -105136,3 +105136,45 @@ itself and the DELETION of the modeled arm — which is licensed by a
 measurement, not a proof (instrument the modeled arm, run arena +
 `init-full` + Mathlib, and re-read every corpus row whose expectation
 is exit 2) — and then the capstones' side, which sees nothing new.
+
+#### The run obligation, part 1: the stage tier (and a shape that cannot be simulated)
+
+`checkNestedS_run`'s stage tier is most of the way in.  What landed
+this session, on top of the three atoms:
+
+* **the run family at any grade** — `mutualFormerChecksS_run`,
+  `mutualFormersS_run`, `checkMutualCoreS_run`, the three ctor
+  ops-equations and the three ctor simulations.  Three rules carry the
+  shape `do`-notation gives a graded front door: `bindC_ite_ok`
+  (cached), `iteBindE_eq` (pure), `SimC.iteBind` (simulation).  Two
+  well-formedness lemmas moved from "the annotating door ran" to "SOME
+  front door ran" (`mutualFormerChecks_frontDoor`, and
+  `checkMutualCtors_typeWF` through `checkMutualCtorG_shape`) —
+  `FrontDoorFacts` is what the two doors have in common, and that is
+  what makes them grade-generic;
+* **index equations** for every nested stage, plus `checkSumTeleF_eq`
+  and the four cons functions' `mkFEnv` forms;
+* **simulations** for the two annotation stages, both restores, the
+  restored rules, the pins' loop and post-check (c); **run lemmas** for
+  the tables (through `checkStructProjTableS_run`) and for the two
+  positivity walks.
+
+**A shape that cannot be simulated, and what it cost.**  The two
+positivity walks (K.42's and K.51's) wrap their inner run in
+`tryCatchThe … (fun _ => throw …)`, and **`FueledM`'s `tryCatch` is a
+stub that throws** ("tryCatch unsupported").  So the standard
+cached→fueled→pure route does not pass through them: a `SimC` for
+`nestedOrdNorms` would be a claim about a fueled run that always
+fails.  The fix is to invert the wrapper on the CACHED side instead —
+`tryCatchC_ok` (a successful cached `tryCatch` with a throwing handler
+IS the inner run) — simulate only the inner walk, and rebuild the pure
+side in `CheckM`, where `tryCatch` is the real one.  That needed the
+job list's own fuel monotonicity (`normsMapM_up`), which the `FueledM`
+route would have given for free.  **Any future stage that catches
+errors has the same cost**; the generic route stops at `tryCatch`.
+
+**What remains of the obligation**: `nestedPinChecks`'s cascade (six
+Bool guards and then the two walks, whose jobs need a scope
+side-condition traced to `nestedOrdDomPairs`), and the assembly itself
+(`checkNestedS_run`, whose twin `checkMutualCoreS_run` is 200 lines).
+The stage tier is otherwise complete.

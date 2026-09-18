@@ -89,6 +89,22 @@ theorem pureC_ok {α : Type} {a : α} {s₀ : CState} {v : α} {s' : CState}
     Prod.mk.injEq] at h
   exact h
 
+/-- **A CACHED `tryCatch` WHOSE HANDLER THROWS** (task #315 M8): the
+nested route's positivity walks wrap their inner run in
+`tryCatchThe … (fun _ => throw …)`, so a successful cached run IS the
+inner run's.  (The fueled monad's `tryCatch` is a stub that throws, so
+this shape cannot be simulated through `FueledM` — the inner run is
+simulated and the wrapper is inverted here.) -/
+theorem tryCatchC_ok {α : Type} {c : CheckCM α} {e : CheckError}
+    {s₀ : CState} {v : α} {s' : CState}
+    (h : (tryCatchThe CheckError c (fun _ => throw e) : CheckCM α) s₀ = .ok (v, s')) :
+    c s₀ = .ok (v, s') := by
+  revert h
+  simp only [tryCatchThe, MonadExceptOf.tryCatch]
+  cases hc : c s₀ with
+  | error e' => intro h; exact nomatch h
+  | ok pr => intro h; exact h
+
 /-- Compose fueled runs at the joined fuel. -/
 theorem atF_bind_intro {α β : Type} {x : FueledM α} {g : α → FueledM β}
     {F₁ F₂ : Nat} {a : α} {v : β} (hx : x.val F₁ = .ok a)
