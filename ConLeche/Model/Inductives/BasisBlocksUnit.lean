@@ -419,6 +419,13 @@ theorem punitBlock_containerModeled {env : Env} {m : EnvModel V env}
   ordFree := fun _ _ _ _ _ _ h => nomatch h
   nestMention := fun _ h => nomatch h
   nestArgsMention := fun _ _ _ _ _ _ _ _ _ h _ => nomatch h
+  ctorProjFree := fun i j cA hi hj T hT n => by
+    obtain rfl : i = 0 := Nat.lt_one_iff.mp hi
+    obtain rfl := List.mem_singleton.mp hT
+    match j, hj with
+    | 0, hj =>
+      obtain rfl : cA = (ConLeche.punitUnitA.toConstantVal, 0) := (Option.some.inj hj).symm
+      simp [ConLeche.punitUnitA, ConLeche.ConstantInfo.toConstantVal]
   pinsNotMembers := fun _ h => nomatch h
   pinNP := fun _ h => nomatch h
   pinConts := fun _ h => nomatch h

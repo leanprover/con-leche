@@ -1835,7 +1835,7 @@ theorem ReadCtx.nestedCtorRead_of {mm j : Nat} {c : ConstantVal × Nat × Nat} {
   have hinput := C.input_of RC RS hagree
   have hName : (D).memberName mm = (fms.getD mm default).cvTa.name := C.dName RC
   have hNIdx : (D).nIdxAt mm = (fms.getD mm default).nIdx := C.dNIdx RC
-  refine ⟨?_, ?_, fun ψ => ?_, ?_⟩
+  refine ⟨?_, ?_, fun ψ => ?_, ?_, ?_⟩
   · rw [RC.hnF]; exact hinput
   · rw [RC.hnF]
     show BlockCtorData mp₁'.base2 env ((D).memberName mm) _ _ _ _ b.lps c.1 b.nP cA.2 ((D).nIdxAt mm) f₀.s
@@ -1903,6 +1903,9 @@ theorem ReadCtx.nestedCtorRead_of {mm j : Nat} {c : ConstantVal × Nat × Nat} {
             (Expr.abstractRange qn.pin 0 p.nP 0)).getAppArgs
       rw [hty, Expr.getAppArgs_mkAppN, List.take_left' hPargs]
     · rw [hk'] at hkr; exact nomatch hkr
+  · -- the front door's own `.proj`-slot fact, at the members' prefix
+    -- environment (task #315 PINF)
+    exact RC.hfd.slots
 
 end Assembly
 

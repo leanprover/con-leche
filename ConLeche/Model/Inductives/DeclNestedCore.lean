@@ -13,6 +13,10 @@ import ConLeche.Verify.Inductives.NestedElimInv
 import ConLeche.Verify.Inductives.NestedCopyTele
 -- `WScoped_of_openers`: K.30's openers turned into a pin's scope
 import ConLeche.Model.Inductives.NestedCopyIdx
+-- `findProj?_none_of_indFresh`/`findProj?_none_consMutualFormers`: the
+-- members' EMPTY projection slot at the prefix environment, for
+-- `ContainerModeled.ctorProjFree` (task #315 PINF)
+import ConLeche.Model.Inductives.MutualNoProj
 public section
 
 /-!
@@ -665,7 +669,7 @@ theorem nestedContainerModeled {F : Nat} {st : ElimState} {envAux : Env}
     (fun ψ => ⟨(O.typed ψ).1.crossEnv T.agree O.reps.toIsBlockModels,
       (O.typed ψ).2.1.crossEnv T.agree O.reps.toIsBlockModels,
       (O.typed ψ).2.2.crossEnv T.agree O.reps.toIsBlockModels ?_⟩)
-    (fun ψ mm' j fs => ofNested_inj ψ mm' j fs) ?_ ?_ ?_ ?_ ?_ ?_ ?_ hown ?_ ?_ ?_
+    (fun ψ mm' j fs => ofNested_inj ψ mm' j fs) ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ hown ?_ ?_ ?_
   · -- `hk`
     rw [hdk, List.length_map, List.length_zip, List.length_take, hclen]
     omega
@@ -822,6 +826,27 @@ theorem nestedContainerModeled {F : Nat} {st : ElimState} {envAux : Env}
     obtain ⟨a, ha, ham⟩ := List.any_eq_true.mp hTm
     rw [hnP']
     exact ⟨a, ha, List.any_eq_true.mpr ⟨T, hT, ham⟩⟩
+  · -- `ctorProjFree`: the restored constructor's front-door
+    -- `.proj`-slot fact, at the members' prefix environment, against
+    -- the member's EMPTY slot there (task #315 PINF).  `ProjSlotsOk`
+    -- is not antitone in the environment — its `.proj` node is a
+    -- `findProj?` `.isSome` — so ENV₁ is where the fact is true and
+    -- this is where it is spent: `ProjOkT` at the pre-block
+    -- environment turns the member's freshness into the empty slot,
+    -- and the members' conses keep it empty.
+    intro i j cA hi hj T hT n
+    have hj' : ((ctorsR.getD i []).map (fun c => (c.1, c.2.2)))[j]? = some cA := by
+      rw [← O.record.ctors i (hdk ▸ hi)]; exact hj
+    rw [List.getElem?_map] at hj'
+    cases hc : (ctorsR.getD i [])[j]? with
+    | none => rw [hc] at hj'; exact nomatch hj'
+    | some c =>
+      rw [hc] at hj'
+      obtain rfl : ((c.1, c.2.2) : ConstantVal × Nat) = cA := Option.some.inj hj'
+      have hslot : (ConLeche.consMutualFormers (fms.take p.k) env).findProj? T n = none :=
+        findProj?_none_consMutualFormers
+          (findProj?_none_of_indFresh mp.base2.proj_ok (hfreshMem T hT) n)
+      exact ConLeche.Expr.ProjSlotsOk.noProjAt hslot _ (O.stage.ctorSlots i j c (hdk ▸ hi) hc)
   · -- `pinsNotMembers`
     intro q hq hmem
     obtain ⟨ci, hci⟩ := hpinStored q hq

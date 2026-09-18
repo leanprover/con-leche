@@ -1553,6 +1553,21 @@ structure NestedStageFacts (st : ElimState) (mp₂ : EnvModelM V μ ENV₂) : Pr
     x.fvarTypeD.getAppArgs.take ((D).pinAt q).nPJ
       = (Expr.instSeq ((D).fvsPF mm j) ((D).nP - 1)
           (Expr.abstractRange pin 0 p.nP 0)).getAppArgs
+  /-- **THE RESTORED CONSTRUCTOR'S STORED TYPE HAS ITS `.proj` SLOTS AT
+  THE MEMBERS' PREFIX ENVIRONMENT** (task #315 PINF): the front door's
+  own `slots`, kept because it is the only place the fact is TRUE.
+  `ProjSlotsOk` is not antitone in the environment — its `.proj` node is
+  a `findProj?` `.isSome` — so `ConstWF` at a later environment cannot
+  supply it, and at ENV₁ the block's members are `.indInfo` with no
+  projection table, which is what makes it say
+  "no `.proj` node names a member".
+
+  Carried raw rather than as the `NoProjAt` the consumer wants:
+  turning the empty slot into a `NoProjAt` needs `ProjOkT` at the
+  pre-block environment and the members' freshness, and those meet the
+  clause at `nestedContainerModeled`. -/
+  ctorSlots : ∀ (mm j : Nat) (c : ConstantVal × Nat × Nat), mm < p.k →
+    (ctorsR.getD mm [])[j]? = some c → ConLeche.Expr.ProjSlotsOk ENV₁ c.1.type
   groups : ∀ q, q < pinsS.length → ∃ (q₀ kJ i : Nat) (dJ : BlockModel V),
     q = q₀ + i ∧ i < kJ ∧ PG mp₂.base2 q₀ kJ dJ
   /-- **the groups with their block model NAMED by the environment
@@ -1653,6 +1668,21 @@ structure NestedLoopFacts (st : ElimState) (mp₁ : EnvModelM V μ ENV₁) (mp�
     x.fvarTypeD.getAppArgs.take ((D).pinAt q).nPJ
       = (Expr.instSeq ((D).fvsPF mm j) ((D).nP - 1)
           (Expr.abstractRange pin 0 p.nP 0)).getAppArgs
+  /-- **THE RESTORED CONSTRUCTOR'S STORED TYPE HAS ITS `.proj` SLOTS AT
+  THE MEMBERS' PREFIX ENVIRONMENT** (task #315 PINF): the front door's
+  own `slots`, kept because it is the only place the fact is TRUE.
+  `ProjSlotsOk` is not antitone in the environment — its `.proj` node is
+  a `findProj?` `.isSome` — so `ConstWF` at a later environment cannot
+  supply it, and at ENV₁ the block's members are `.indInfo` with no
+  projection table, which is what makes it say
+  "no `.proj` node names a member".
+
+  Carried raw rather than as the `NoProjAt` the consumer wants:
+  turning the empty slot into a `NoProjAt` needs `ProjOkT` at the
+  pre-block environment and the members' freshness, and those meet the
+  clause at `nestedContainerModeled`. -/
+  ctorSlots : ∀ (mm j : Nat) (c : ConstantVal × Nat × Nat), mm < p.k →
+    (ctorsR.getD mm [])[j]? = some c → ConLeche.Expr.ProjSlotsOk ENV₁ c.1.type
   groups : ∀ q, q < pinsS.length → ∃ (q₀ kJ i : Nat) (dJ : BlockModel V),
     q = q₀ + i ∧ i < kJ ∧ PG mp₂.base2 q₀ kJ dJ
   /-- **the groups with their block model NAMED by the environment
@@ -2002,7 +2032,7 @@ theorem nestedStageFacts_of (hst : NestedCtorsStaged V μ F) (hμ : μ.verifiedC
       leafM := fun t f ht hft => (L.leafKeep t f ht hft).trans (hleafM' t f ht hft)
       FD := fun t f ht hft => FormerData.crossEnv' L.hde (hfind' t f ht hft).2
       ctorsLen := hctorsLen, ctorFacts := L.ctorFacts, domFacts := L.domFacts
-      pinArgs := L.pinArgs
+      pinArgs := L.pinArgs, ctorSlots := L.ctorSlots
       groups := L.groups, groupsAt := L.groupsAt }⟩
   intro n hn ψ
   have hnM : n ∉ p.memberNames := fun hm => hn (List.mem_append_left _ hm)

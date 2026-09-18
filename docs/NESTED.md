@@ -172,6 +172,15 @@ the restore closes the pin over the parameters and reopens it at the
 constructor's own variables, and those differ from the block's by
 definitional unfolding, so the two spines need not be equal — but a
 mention survives both steps, and a mention is all the proof asks for.
+A third is recorded for a different reason again: that no projection
+node in a container's stored constructor type names one of that
+container's own members.  That is true, and the constant check is what
+makes it true — a member being declared has no projection table yet, so
+such a node is rejected at the block's own installation — but the fact
+is an *insertion-time* one, and a projection-slot check is satisfied
+more easily in a larger environment, so nothing a later reader knows
+about the environment it sees recovers it.  It rides on the block's
+record from the door the constructor came through.
 Uniqueness of models is never needed: semantic facts meet at the
 readings, and syntactic facts that no law fixes are recorded.
 

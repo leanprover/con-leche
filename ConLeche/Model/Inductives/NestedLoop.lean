@@ -266,6 +266,20 @@ structure NestedCtorRead (mp₁ : EnvModelM V μ ENV₁) (mm j : Nat) (c : Const
     x.fvarTypeD.getAppArgs.take ((D).pinAt q).nPJ
       = (Expr.instSeq ((D).fvsPF mm j) ((D).nP - 1)
           (Expr.abstractRange pin 0 p.nP 0)).getAppArgs
+  /-- **THE RESTORED CONSTRUCTOR'S STORED TYPE HAS ITS `.proj` SLOTS AT
+  THE MEMBERS' PREFIX ENVIRONMENT** (task #315 PINF): the front door's
+  own `slots`, kept because it is the only place the fact is TRUE.
+  `ProjSlotsOk` is not antitone in the environment — its `.proj` node is
+  a `findProj?` `.isSome` — so `ConstWF` at a later environment cannot
+  supply it, and at ENV₁ the block's members are `.indInfo` with no
+  projection table, which is what makes it say
+  "no `.proj` node names a member".
+
+  Carried raw rather than as the `NoProjAt` the consumer wants:
+  turning the empty slot into a `NoProjAt` needs `ProjOkT` at the
+  pre-block environment and the members' freshness, and those meet the
+  clause at `nestedContainerModeled`. -/
+  ctorSlots : ConLeche.Expr.ProjSlotsOk ENV₁ c.1.type
 
 end Assembly
 
@@ -690,7 +704,8 @@ theorem nestedLoopFacts_of (hpins : NestedPinsStaged V μ F) (hread : NestedRead
       groupsAt := ?_
       pinArgs := fun mm j l x pin q hmm hj hx hpinE hn hk => by
         obtain ⟨c, hc⟩ : ∃ c, (ctorsR.getD mm [])[j]? = some c := ⟨_, List.getElem?_eq_getElem hj⟩
-        exact (hR mm j c hmm hc).pinArgs l x pin q hx hpinE hn hk }⟩
+        exact (hR mm j c hmm hc).pinArgs l x pin q hx hpinE hn hk
+      ctorSlots := fun mm j c hmm hc => (hR mm j c hmm hc).ctorSlots }⟩
   · -- the members' leaves
     intro t f ht hft
     exact hag₂ f.cvTa.name (hneR _ (by rw [(hfind' t f ht hft).1]; rfl))
