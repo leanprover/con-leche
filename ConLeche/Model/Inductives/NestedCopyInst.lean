@@ -5765,7 +5765,8 @@ copy's STORED domain have the same interpretation at every prefix
 fitting the container's own earlier domains — and the stored domain's
 reading is GRADED there.  The positivity run is the hypothesis; the
 arms supply it. -/
-theorem NestedPinsRun.copyFieldReadCore {pbs : List (Expr × ConLeche.BinderMeta)}
+theorem NestedPinsRun.copyFieldReadCoreQ {pbs : List (Expr × ConLeche.BinderMeta)}
+    {Q : Expr → Expr → Prop}
     (hPD : ∀ q, q < st.pins.length → PinData env st p pbs q)
     {i' : Nat} (hi' : i' < kJ) {j : Nat} {cAJ : ConstantVal × Nat}
     (hj : (dJ.ctorsM i')[j]? = some cAJ) {l : Nat} (hlF : l < cAJ.2)
@@ -5778,22 +5779,25 @@ theorem NestedPinsRun.copyFieldReadCore {pbs : List (Expr × ConLeche.BinderMeta
       ConLeche.openPisAtFvars cAJ.2 cI b.nP = some (xfvs', restM) →
       xfvs'[l]? = some xI →
       (xFvsF (b.ownOffset (p.k + q₀ + i') + j))[l]? = some x' →
-      ConLeche.normPosDomM (m := ConLeche.CheckM) (ConLeche.fueledOps μ F)
-          (ConLeche.consMutualFormers (fms.take p.k) env) b.memberNames (b.nP + l) 1024
-          xI.fvarTypeD
-        = .ok x'.fvarTypeD)
+      ∃ w : Expr,
+        ConLeche.normPosDomM (m := ConLeche.CheckM) (ConLeche.fueledOps μ F)
+            (ConLeche.consMutualFormers (fms.take p.k) env) b.memberNames (b.nP + l) 1024
+            xI.fvarTypeD
+          = .ok w ∧ Q x' w)
     (ψ : Name → Nat) (ρp : Nat → V)
     (hsat : Sat V (((ppsF 0 ψ).take b.nP).map (·.2.2)).reverse ρp)
     (fs₁ : List V) (hfs : fs₁.length = l)
     (hfit : SpineFit (consList (((pinsS.getD (q₀ + i') default).Ds ψ).map (interp V ρp)) ρp)
       (((dJ.Fss i' ((pinsS.getD (q₀ + i') default).ψJ ψ)).getD j []).take l) fs₁) :
-    interp V (consList fs₁ ρp)
-        (AnnotTerm.instAll ((pinsS.getD (q₀ + i') default).Ds ψ) l
-          (((dJ.Fss i' ((pinsS.getD (q₀ + i') default).ψJ ψ)).getD j []).getD l default))
-      = interp V (consList fs₁ ρp)
-          (((dsF (b.ownOffset (p.k + q₀ + i') + j) ψ).getD (b.nP + l) default).2.2) ∧
-    WellDenotedV V (consList fs₁ ρp)
-      (((dsF (b.ownOffset (p.k + q₀ + i') + j) ψ).getD (b.nP + l) default).2.2) := by
+    ∃ (x' w : Expr) (ea' : AnnotTerm),
+      (xFvsF (b.ownOffset (p.k + q₀ + i') + j))[l]? = some x' ∧ Q x' w ∧
+      denoteMeta mp₁'.base2.acval (ConLeche.consMutualFormers (fms.take p.k) env) ψ (b.nP + l) w
+        = some ea' ∧
+      interp V (consList fs₁ ρp)
+          (AnnotTerm.instAll ((pinsS.getD (q₀ + i') default).Ds ψ) l
+            (((dJ.Fss i' ((pinsS.getD (q₀ + i') default).ψJ ψ)).getD j []).getD l default))
+        = interp V (consList fs₁ ρp) ea' ∧
+      WellDenotedV V (consList fs₁ ρp) ea' := by
   classical
   obtain ⟨cc, J, ci, lpsJ, pcs, fcs, Fs', esJ, cbody', o, params, pbs₀, cA, cname, qn, usJ,
     hciP, hJmem, hJcc, hn, hty, hnf, hJname, hDsnP, hstripJ, hpl, hfl, hesJ, hccf, hccb, hksJ,
@@ -6217,7 +6221,7 @@ theorem NestedPinsRun.copyFieldReadCore {pbs : List (Expr × ConLeche.BinderMeta
             = (fun jj : Nat => ρ (jj + (l - (i₀ - b.nP)))) from by funext jj; congr 1; omega]
         exact hgrade (i₀ - b.nP) (by omega) _ hd
   -- ==== the run, and the reading law ====
-  have hrun := hrunAll ci J cI xfvs' _ xI x' hciP hJmem hJname
+  obtain ⟨w, hrun, hQ⟩ := hrunAll ci J cI xfvs' _ xI x' hciP hJmem hJname
     (by rw [hty]; exact hinstCI) (by rw [hnf]; exact hopM) hxI hx'
   obtain ⟨ea', hea', hokOut, heq⟩ := normPosDomM_readEq_of R.hμ mp₁' ψ F hrun hwsxI hbxI hLxI hCtx
     (hmfr l hlF xI hxI)
@@ -6227,11 +6231,6 @@ theorem NestedPinsRun.copyFieldReadCore {pbs : List (Expr × ConLeche.BinderMeta
       have h1 := h ρ hρ
       rw [hFsEntry l hlF] at h1
       exact h1)
-  -- the output's reading IS the run's own stored domain
-  have hcross := R.crossUp ψ (b.nP + l) _ hea'
-  obtain rfl : ea'
-      = ((dsF (b.ownOffset (p.k + q₀ + i') + j) ψ).getD (b.nP + l) default).2.2 :=
-    Option.some.inj (hcross.symm.trans (hCD.domRead ψ l x' hx'))
   -- the frame: the theorem's own spine fits the instantiated telescope
   have hsatΔ : Sat V ((instTele ((pinsS.getD (q₀ + i') default).Ds ψ) 0
       (((dJ.Fss i' ((pinsS.getD (q₀ + i') default).ψJ ψ)).getD j []).take l)).reverse ++ Γ₀)
@@ -6241,9 +6240,62 @@ theorem NestedPinsRun.copyFieldReadCore {pbs : List (Expr × ConLeche.BinderMeta
       (((dJ.Fss i' ((pinsS.getD (q₀ + i') default).ψJ ψ)).getD j []).take l) [] fs₁).mpr
       (by simpa only [consList_nil] using hfit)
     simpa only [List.length_nil, consList_nil] using h
-  refine ⟨?_, hokOut (consList fs₁ ρp) hsatΔ⟩
-  rw [hFsEntry l hlF]
-  exact heq (consList fs₁ ρp) hsatΔ
+  exact ⟨x', w, ea', hx', hQ, hea',
+    by rw [hFsEntry l hlF]; exact heq (consList fs₁ ρp) hsatΔ,
+    hokOut (consList fs₁ ρp) hsatΔ⟩
+
+/-- **THE COPY'S FIELD READING, at a run whose output IS the stored
+domain** (task #315 L-B): `copyFieldReadCoreQ` at `Q x' w := w =
+x'.fvarTypeD` — the shape K.42's record has, where the positivity
+normalisation of the minted domain is the stored one on the nose, so
+the output's reading is the model's own `dsF` entry
+(`BlockCtorData.domRead`, crossed up).  The `ordF`-LEFT arm and the two
+member-target `ordF`-RIGHT arms read it. -/
+theorem NestedPinsRun.copyFieldReadCore {pbs : List (Expr × ConLeche.BinderMeta)}
+    (hPD : ∀ q, q < st.pins.length → PinData env st p pbs q)
+    {i' : Nat} (hi' : i' < kJ) {j : Nat} {cAJ : ConstantVal × Nat}
+    (hj : (dJ.ctorsM i')[j]? = some cAJ) {l : Nat} (hlF : l < cAJ.2)
+    (hrunAll : ∀ (ci : ContainerInfo) (J : ContainerMember) (cI : Expr) (xfvs' : List Expr)
+        (restM xI x' : Expr),
+      ConLeche.containerInfo? env (pinsS.getD (q₀ + i') default).J = some ci →
+      J ∈ ci.members → J.name = (pinsS.getD (q₀ + i') default).J →
+      Expr.instPis (Expr.instantiateLevelParams J.lps
+        (pinsS.getD (q₀ + i') default).lvls cAJ.1.type) (srcAtE st p (q₀ + i')).2.2 = some cI →
+      ConLeche.openPisAtFvars cAJ.2 cI b.nP = some (xfvs', restM) →
+      xfvs'[l]? = some xI →
+      (xFvsF (b.ownOffset (p.k + q₀ + i') + j))[l]? = some x' →
+      ConLeche.normPosDomM (m := ConLeche.CheckM) (ConLeche.fueledOps μ F)
+          (ConLeche.consMutualFormers (fms.take p.k) env) b.memberNames (b.nP + l) 1024
+          xI.fvarTypeD
+        = .ok x'.fvarTypeD)
+    (ψ : Name → Nat) (ρp : Nat → V)
+    (hsat : Sat V (((ppsF 0 ψ).take b.nP).map (·.2.2)).reverse ρp)
+    (fs₁ : List V) (hfs : fs₁.length = l)
+    (hfit : SpineFit (consList (((pinsS.getD (q₀ + i') default).Ds ψ).map (interp V ρp)) ρp)
+      (((dJ.Fss i' ((pinsS.getD (q₀ + i') default).ψJ ψ)).getD j []).take l) fs₁) :
+    interp V (consList fs₁ ρp)
+        (AnnotTerm.instAll ((pinsS.getD (q₀ + i') default).Ds ψ) l
+          (((dJ.Fss i' ((pinsS.getD (q₀ + i') default).ψJ ψ)).getD j []).getD l default))
+      = interp V (consList fs₁ ρp)
+          (((dsF (b.ownOffset (p.k + q₀ + i') + j) ψ).getD (b.nP + l) default).2.2) ∧
+    WellDenotedV V (consList fs₁ ρp)
+      (((dsF (b.ownOffset (p.k + q₀ + i') + j) ψ).getD (b.nP + l) default).2.2) := by
+  classical
+  obtain ⟨x', w, ea', hx', hQ, hea', heq, hok⟩ :=
+    R.copyFieldReadCoreQ (Q := fun x' w => w = x'.fvarTypeD) SF S hPD hi' hj hlF
+      (fun ci J cI xfvs' restM xI x'' h1 h2 h3 h4 h5 h6 h7 =>
+        ⟨x''.fvarTypeD, hrunAll ci J cI xfvs' restM xI x'' h1 h2 h3 h4 h5 h6 h7, rfl⟩)
+      ψ ρp hsat fs₁ hfs hfit
+  subst hQ
+  -- the output's reading IS the run's own stored domain
+  obtain ⟨_cc, _J, _ci, _cI, _cA, _cname, -, -, -, -, -, -, -, -, -, hcA, -, -⟩ :=
+    R.ctorPair SF S hPD hi' hj
+  have hCD := R.h.CD _ _ hcA
+  have hcross := R.crossUp ψ (b.nP + l) _ hea'
+  obtain rfl : ea'
+      = ((dsF (b.ownOffset (p.k + q₀ + i') + j) ψ).getD (b.nP + l) default).2.2 :=
+    Option.some.inj (hcross.symm.trans (hCD.domRead ψ l x' hx'))
+  exact ⟨heq, hok⟩
 
 /-- **`CopyCtorShape.ordF`'s LEFT arm, SEMANTICALLY** (task #315 L-B):
 at every field the auxiliary block classifies ordinary, the copy's
