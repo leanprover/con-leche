@@ -163,6 +163,34 @@ theorem Yields.ofDecCases {α : Type} {c : Prop} {d : Decidable c}
   | isFalse h => exact ha h
   | isTrue h => exact hb h
 
+/-- Two readings of the same action. -/
+theorem Yields.and {α : Type} {m : CheckCM α} {P Q : α → Prop}
+    (hP : Yields m P) (hQ : Yields m Q) : Yields m (fun a => P a ∧ Q a) :=
+  fun s a s' hr => ⟨hP s a s' hr, hQ s a s' hr⟩
+
+/-- An `unwrapOr` yields its option's own answer. -/
+theorem Yields.ofUnwrapOr {α : Type} {o : Option α} {e : CheckError} :
+    Yields (unwrapOr (m := CheckCM) o e) (fun a => o = some a) := by
+  cases o with
+  | none => intro s a s' hr; exact nomatch hr
+  | some x =>
+    intro s a s' hr
+    have : a = x := by
+      unfold ConLeche.unwrapOr at hr
+      simp only [Pure.pure, StateT.pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at hr
+      exact hr.1.symm
+    rw [this]
+
+/-- The first components a `zip` keeps are a sublist of the list they
+came from (the zip truncates at the shorter list). -/
+private theorem zip_fst_sublist {α β : Type} :
+    ∀ (l : List α) (l' : List β), ((l.zip l').map Prod.fst).Sublist l
+  | [], _ => by simp
+  | _ :: _, [] => by simp
+  | a :: l, _ :: l' => by
+      simp only [List.zip_cons_cons, List.map_cons]
+      exact (zip_fst_sublist l l').cons_cons a
+
 /-- The clause walker: step past join points and guards to the `pure`
 leaves of a driver clause.
 
@@ -390,6 +418,18 @@ theorem recr_of_ciSkel {ci : ConstantInfo} {n : Name} {mI rP : Nat}
       rules.map (·.ctor) = cs := by
   cases ci <;> simp only [ciSkel] at h <;> cases h <;>
     exact ⟨_, _, rfl, rfl, rfl⟩
+
+/-- A skeleton that is a projection table came from one. -/
+theorem proj_of_ciSkel {ci : ConstantInfo} {n : Name} (h : ciSkel ci = .proj n) :
+    ∃ tbl, ci = .projInfo tbl ∧ projTableName tbl.structName = n := by
+  cases ci <;> simp only [ciSkel] at h <;> cases h
+  exact ⟨_, rfl, rfl⟩
+
+/-- `projTableName` is injective (it wraps the name in a fixed
+`.str`/`.num` frame). -/
+theorem projTableName_inj {T T' : Name} (h : projTableName T = projTableName T') : T = T' := by
+  simp only [projTableName, Name.num.injEq, Name.str.injEq] at h
+  exact h.1.1
 
 /-! ## The specification fold
 
@@ -722,6 +762,105 @@ private theorem skFind?_tables_pass {b : MutualBlock} {n : Name} {s : InstallSke
              split at h'
              · exact absurd (Option.some.inj h').symm (hs _)
              · exact h')
+
+/-- **THE TABLES' FOLD, COMPUTED** (task #315 M8): at a name, the
+lookup is the table of a structure-like member carrying that name if
+the block has one, and otherwise falls through to the list the fold
+started from.  Both directions of the nested walk's table bridge read
+off this one equation. -/
+private theorem skFind?_tables_eq {b : MutualBlock} {n T : Name} :
+    ∀ (l : List ((ConstantVal × Nat) × Nat)) (sk : List InstallSkel),
+      (∀ f ∈ l, projTableName f.1.1.name = n → f.1.1.name = T) →
+      skFind? (l.foldl (fun acc f => mutualTableSkel b f.1.1.name f.1.2 f.2 acc) sk) n
+        = if l.any (fun f => projTableName f.1.1.name == n &&
+              (b.ownCtors f.2).length == 1 && f.1.2 == 0) then
+            some (.proj (projTableName T))
+          else skFind? sk n
+  | [], _, _ => rfl
+  | x :: l, sk, hname => by
+      rw [List.foldl_cons,
+        skFind?_tables_eq l _ (fun f hf => hname f (List.mem_cons_of_mem _ hf))]
+      by_cases hl : l.any (fun f => projTableName f.1.1.name == n &&
+          (b.ownCtors f.2).length == 1 && f.1.2 == 0)
+      · rw [if_pos hl, if_pos (by simp [hl])]
+      · rw [if_neg hl]
+        by_cases hx : (projTableName x.1.1.name == n) && ((b.ownCtors x.2).length == 1) &&
+            (x.1.2 == 0)
+        · rw [if_pos (by simp only [List.any_cons, hx, Bool.true_or])]
+          simp only [Bool.and_eq_true, beq_iff_eq] at hx
+          unfold mutualTableSkel
+          rw [show b.ownCtors x.2 = [(b.ownCtors x.2).headD default] from by
+            rcases hc : b.ownCtors x.2 with _ | ⟨y, ys⟩
+            · rw [hc] at hx; simp at hx
+            · cases ys with
+              | nil => rfl
+              | cons z zs => rw [hc] at hx; simp at hx]
+          rw [if_pos (by simpa using hx.2)]
+          simp only [skFind?, List.find?_cons, skelName, hx.1.1, beq_self_eq_true]
+          rw [← hx.1.1, hname x List.mem_cons_self hx.1.1]
+        · rw [if_neg (by simp only [List.any_cons, hl, Bool.or_false]; exact hx)]
+          unfold mutualTableSkel
+          split
+          · rename_i hown
+            split
+            · rename_i hidx
+              have hne : (skelName (InstallSkel.proj (projTableName x.1.1.name)) == n) = false := by
+                simp only [skelName, beq_eq_false_iff_ne]
+                intro he
+                exact hx (by
+                  simp only [Bool.and_eq_true, beq_iff_eq]
+                  exact ⟨⟨he, by rw [hown]; rfl⟩, by simpa using hidx⟩)
+              simp only [skFind?, List.find?_cons, hne]
+            · rfl
+          · rfl
+
+/-- **THE BLOCK'S OWN TABLE IS WHAT THE LOOKUP FINDS** (task #315 M8):
+a structure-like member's projection table sits at its own table name
+in the block's skeleton, whatever else the list carries. -/
+theorem mutualBlockSkels_proj_hit {b : MutualBlock} {sk : List InstallSkel} {m : Nat} {T : Name}
+    (hm : m < b.formers.length) (hT : (b.formers.getD m default).1.name = T)
+    (hown : (b.ownCtors m).length = 1) (hidx : (b.formers.getD m default).2 = 0) :
+    skFind? (mutualBlockSkels b sk) (projTableName T) = some (.proj (projTableName T)) := by
+  rw [mutualBlockSkels, skFind?_tables_eq (T := T) _ _
+    (fun f _ hf => projTableName_inj hf)]
+  refine if_pos (List.any_eq_true.mpr ⟨(b.formers[m], m), ?_, ?_⟩)
+  · exact List.mk_mem_zipIdx_iff_getElem?.mpr (List.getElem?_eq_getElem hm)
+  · have hget : b.formers.getD m default = b.formers[m] := by
+      rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hm]; rfl
+    rw [hget] at hT hidx
+    simp only [Bool.and_eq_true, beq_iff_eq]
+    exact ⟨⟨congrArg projTableName hT, hown⟩, hidx⟩
+
+/-- **… AND A TABLE IT FINDS IS THE BLOCK'S OWN OR WAS ALREADY THERE**:
+the recursors', constructors' and formers' folds cannot BE a table, so
+the only other source is the list the block was installed onto. -/
+theorem mutualBlockSkels_proj_cases {b : MutualBlock} {sk : List InstallSkel} {T n : Name}
+    (h : skFind? (mutualBlockSkels b sk) (projTableName T) = some (.proj n)) :
+    (∃ m, m < b.formers.length ∧ (b.formers.getD m default).1.name = T ∧
+        (b.ownCtors m).length = 1 ∧ (b.formers.getD m default).2 = 0)
+      ∨ skFind? sk (projTableName T) = some (.proj n) := by
+  rw [mutualBlockSkels, skFind?_tables_eq (T := T) _ _
+    (fun f _ hf => projTableName_inj hf)] at h
+  split at h
+  · rename_i hany
+    obtain ⟨f, hf, hcond⟩ := List.any_eq_true.mp hany
+    simp only [Bool.and_eq_true, beq_iff_eq] at hcond
+    have hfm : b.formers[f.2]? = some f.1 := List.mk_mem_zipIdx_iff_getElem?.mp hf
+    have hlt : f.2 < b.formers.length := (List.getElem?_eq_some_iff.mp hfm).1
+    have hget : b.formers.getD f.2 default = f.1 := by
+      rw [List.getD_eq_getElem?_getD, hfm]; rfl
+    exact Or.inl ⟨f.2, hlt, by rw [hget]; exact projTableName_inj hcond.1.1,
+      by rw [hget] at *; exact hcond.1.2, by rw [hget]; exact hcond.2⟩
+  · refine Or.inr ?_
+    unfold sumCtorSkels mutualIndSkels at h
+    have h1 := skFind?_foldl_cons_pass
+      (fun f : (ConstantVal × Nat) × Nat =>
+        mutualRecSkel b (f.1.1.name.str "rec") f.1.2 ((b.ownCtors f.2).map (·.2.cv.name)))
+      (fun _ => by simp [mutualRecSkel]) _ _ h
+    have h2 := skFind?_foldl_cons_pass
+      (fun c : Name × Nat => InstallSkel.ctor c.1 b.nP c.2) (fun _ => by simp) _ _ h1
+    exact skFind?_foldl_cons_pass
+      (fun f : ConstantVal × Nat => InstallSkel.ind f.1.name) (fun _ => by simp) _ _ h2
 
 /-- **A CONSTRUCTOR'S NUMBERS, READ OFF THE BLOCK'S SKELETON** (task
 #315 M8): whatever the scratch install stored at a block
@@ -1169,6 +1308,41 @@ theorem nestedMemberTableF_skels {w : StructWalkers} {fe : FEnv} {sk : List Inst
   | some _, [(cvCa, nP, nF)] => exact checkStructProjTableF_skels h _ _ _ _ _ _ _ _ _
   | some _, _ :: _ :: _ => exact Yields.pure h
 
+/-- A lookup that fails over a whole list fails over its tail. -/
+theorem skFind?_append_none {pre sk : List InstallSkel} {n : Name}
+    (h : skFind? (pre ++ sk) n = none) : skFind? sk n = none := by
+  simp only [skFind?, List.find?_append] at h ⊢
+  cases hp : pre.find? (fun s => skelName s == n) with
+  | none => rw [hp] at h; simpa using h
+  | some x => rw [hp] at h; exact nomatch h
+
+/-- **THE RESTORE'S TABLE STAGE REFUSES A TAKEN NAME** (task #315 M8):
+where the restore installs a member's projection table, that table's
+name was FREE at the index the stage ran on — `checkStructProjTableF`'s
+own guard.  This is the nested walk's ONE reading of the RESTORE's run:
+the skeleton cannot supply it, because the pre-block environment is
+arbitrary and nothing in the block record mentions the derived table
+name.  See DESIGN "#### The fourth bridge". -/
+theorem nestedMemberTableF_fresh {w : StructWalkers} (T : Name) (tbl? : Option ProjTable)
+    (cs : List (ConstantVal × Nat × Nat)) (fe : FEnv) :
+    Yields (nestedMemberTableF (m := CheckCM) w T tbl? cs fe)
+      (fun _ => ∀ tbl, tbl? = some tbl → ∀ c, cs = [c] →
+        fe.find? (projTableName T) = none) := by
+  unfold nestedMemberTableF
+  match tbl?, cs with
+  | none, _ => exact Yields.pure (by intro _ ht; exact nomatch ht)
+  | some _, [] => exact Yields.pure (by intro _ _ c hc; exact nomatch hc)
+  | some _, [(cvCa, nP, nF)] =>
+      unfold checkStructProjTableF
+      refine Yields.bind' Yields.ofUnwrapOr fun _ _ => ?_
+      refine Yields.ofDecCases (fun _ => Yields.ofThrowBind) (fun _ => ?_)
+      refine Yields.ofDecCases (fun _ => Yields.ofThrowBind) (fun _ => ?_)
+      refine Yields.ofDecCases (fun _ => Yields.ofThrowBind) (fun hfr => ?_)
+      exact Yields.pure (by
+        intro _ _ _ _
+        exact Option.isNone_iff_eq_none.mp (by simpa using hfr))
+  | some _, _ :: _ :: _ => exact Yields.pure (by intro _ _ c hc; exact nomatch hc)
+
 theorem nestedTablesF_skels (w : StructWalkers) :
     ∀ (l : List (Name × Option ProjTable × List (ConstantVal × Nat × Nat)))
       {fe : FEnv} {sk : List InstallSkel}, SkelIs fe sk →
@@ -1182,6 +1356,43 @@ theorem nestedTablesF_skels (w : StructWalkers) :
     unfold nestedTablesF
     refine Yields.bind' (nestedMemberTableF_skels h T tbl? cs) fun fe' h' => ?_
     simpa using nestedTablesF_skels w rest h'
+
+/-- **… AND SO NO ROW'S TABLE NAME WAS TAKEN BEFORE THE BLOCK**: the
+stage's guard, transported down the fold to the skeleton the restore
+started from.  The accumulator only ever GROWS by conses, so a lookup
+that fails at a row's index fails at the pre-block list too. -/
+theorem nestedTablesF_fresh (w : StructWalkers) {sk : List InstallSkel} :
+    ∀ (l : List (Name × Option ProjTable × List (ConstantVal × Nat × Nat)))
+      {fe : FEnv} {pre : List InstallSkel}, SkelIs fe (pre ++ sk) →
+      Yields (nestedTablesF (m := CheckCM) w l fe)
+        (fun _ => ∀ (T : Name) (tbl : ProjTable) (c : ConstantVal × Nat × Nat),
+          (T, some tbl, [c]) ∈ l → skFind? sk (projTableName T) = none)
+  | [], _, _, _ => by
+      unfold nestedTablesF
+      exact Yields.pure (by intro _ _ _ hm; exact nomatch hm)
+  | (T, tbl?, cs) :: rest, fe, pre, h => by
+    unfold nestedTablesF
+    refine Yields.bind' (Yields.and (nestedMemberTableF_skels h T tbl? cs)
+      (nestedMemberTableF_fresh T tbl? cs fe)) fun fe' hfe' => ?_
+    obtain ⟨hsk', hfr⟩ := hfe'
+    have hpre : ∃ pre', nestedTableSkel T tbl? cs (pre ++ sk) = pre' ++ sk := by
+      unfold nestedTableSkel
+      match tbl?, cs with
+      | none, _ => exact ⟨pre, rfl⟩
+      | some _, [] => exact ⟨pre, rfl⟩
+      | some _, [_] => exact ⟨.proj (projTableName T) :: pre, rfl⟩
+      | some _, _ :: _ :: _ => exact ⟨pre, rfl⟩
+    obtain ⟨pre', hpre'⟩ := hpre
+    rw [hpre'] at hsk'
+    refine Yields.mono (nestedTablesF_fresh w rest hsk') ?_
+    intro _ hrest T' tbl' c' hmem
+    rcases List.mem_cons.mp hmem with heq | hmem'
+    · obtain ⟨rfl, rfl, rfl⟩ := Prod.mk.injEq .. ▸ heq
+      have hnone := hfr _ rfl _ rfl
+      have hfind := h.find? (projTableName T')
+      rw [hnone] at hfind
+      exact skFind?_append_none (pre := pre) (by simpa using hfind.symm)
+    · exact hrest T' tbl' c' hmem'
 
 /-- The members-then-recursors phase, shared by both arms of
 `checkIndDeclSF`'s block match. -/

@@ -104813,3 +104813,91 @@ freshness and rejects — but that is a run fact of the RESTORE, and the
 bridge has to route through it rather than through the block record
 alone.  That, and the assembly of the twenty-two-guard walk itself, is
 what remains.
+
+#### A prior, from three evaporated premises in one session
+
+Three times today a premise was planned and then turned out to be
+already discharged by the checker: the restore theorem's premise, the
+nested provision's, and the push's recogniser `Nodup`.  In every case
+the fact was sitting in a guard the route already runs — the scratch
+install's shape check, its grouping guard, the read-back's own naming.
+State it as a prior rather than as three incidents:
+
+> **On this route, assume the obligation is already discharged
+> somewhere and go look for it before planning a premise for it.**
+> The checker's guards are dense and most of them are readable as
+> `Yields` facts about a call the proof already makes.
+
+The corollary is cheap to apply: before adding a hypothesis, grep the
+clause for a guard that decides it, and ask whether the datum is pinned
+to the RECORD (usable in every mode) or only to a `certOnly` check.
+
+#### A gated check is never load-bearing — the precedent
+
+K.39's recorded form is a certification-only Bool: the restored
+recursors' names are pairwise distinct, checked under `certOnly`, which
+means it is `true` in trusted mode and says nothing there.  The push
+chain needs that distinctness in EVERY mode, so the Bool could not
+serve it; the theorem `restoredRecNames_nodup_of` was proved and used
+instead.  **This is the rule for any `certOnly` datum reached for inside
+a chain, an invariant, or anything trusted mode must also satisfy: prove
+the theorem, do not lean on the gated check.**  `checkNestedS_push`'s
+recursor cons point is the worked precedent.
+
+#### The fourth bridge: what the skeleton could NOT supply, and the cost
+
+Before funding a run fact I checked, as instructed, whether the
+table-name freshness is available from the skeleton or from canonicity:
+
+* **canonicity** says the index is `mkFEnv` of an environment.  It says
+  nothing whatever about that environment's contents;
+* **the skeleton** `SkelIs fe sk` describes what `fe` holds, but the
+  walk cannot forbid a `.proj` entry at `projTableName T_m` inside
+  `sk`: the block record never mentions that derived name, and the
+  route's freshness guards cover the MEMBER names (`fe.find? T_m` is
+  none) and the elimination's copies (`copiesFresh`) — not the table
+  name;
+* **the scratch install** cannot supply it either, because the case at
+  issue is a single-constructor member with a NONZERO index count: the
+  scratch block has the same shape there, so its own table stage never
+  touches the name;
+* **`EnvWF`** does not help: its `.projInfo` clause constrains a
+  table's bodies, not the existence of the structure it names, so a
+  stale table for an absent type is well-formed.
+
+So the exclusion is genuinely a run fact, and the skeleton still does
+most of the work: `skFind?_tables_eq` computes the tables' fold, and
+`mutualBlockSkels_proj_cases` reduces the question to ONE residual
+branch — a table already present in the pre-block list.  Only that
+branch is closed by the restore's own guard, through
+`nestedMemberTableF_fresh` / `nestedTablesF_fresh`
+(`checkStructProjTableF`'s "projection table taken").
+
+**What it costs, explicitly.**  The nested skeleton walk is no longer
+free of the restore's execution: its TABLE bridge — and only that
+bridge — consumes a guard of `checkStructProjTableF`.  A walk that
+needs nothing from the run is strictly more robust than one that
+inverts it, and this spends exactly that property at one place.  If the
+restore's table stage changes shape (the guard moves, weakens, or the
+stage stops running per member), the lemma to revisit is
+`nestedMemberTableF_fresh`, and the walk's table case is the only thing
+that can break.  The other three bridges stay run-free.
+
+#### Debt: where the nested walk lives
+
+`checkNestedS_push` and (next) `checkNestedS_skels` sit in
+`ConLeche/Verify/Cached/PushChain.lean`, not beside the other routes'
+walks in `AgreeFloor.lean`, for one mechanical reason: `AgreeFloor`
+imports only `ConLeche.Cached.Installed` and `ConLeche.Verify.EnvBound`,
+while the nested walk needs `Verify.Inductives.NestedInv`,
+`NestedAuxInv`, `NestedElimInv`, `NestedRecNames` and `NestedCopyGlue`.
+
+This is owed, not settled.  When the nested route is dispatched in
+`checkIndDeclC`, `indDeclSkels`/`checkDeclC_skels`/`checkDecls_skels`
+will need the nested walk, and one of two things must happen: either
+`AgreeFloor` gains those five imports (Verify→Verify, allowed by the
+layering gate — the cost is the floor's import surface growing to the
+nested inversions), or the top-level assembly moves above them, into
+`PushChain` or a new capstone module.  **Whoever wires the dispatch owns
+this choice**; it is a layering question with two named options, not an
+archaeology exercise.

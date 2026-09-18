@@ -607,11 +607,6 @@ theorem checkNativeS_push (mode : CheckMode) {env : Env} {fe : FEnv}
 
 /-! ## The mutual route (task #278) -/
 
-/-- Two readings of the same action. -/
-theorem Yields.and {α : Type} {m : CheckCM α} {P Q : α → Prop}
-    (hP : Yields m P) (hQ : Yields m Q) : Yields m (fun a => P a ∧ Q a) :=
-  fun s a s' hr => ⟨hP s a s' hr, hQ s a s' hr⟩
-
 private theorem map_fst_zipIdx {α β : Type} (f : α → β) :
     ∀ (l : List α) (n : Nat), (l.zipIdx n).map (fun c => f c.1) = l.map f
   | [], _ => rfl
@@ -1085,29 +1080,6 @@ theorem storeNestedRecsF_push :
       exact hf.2 _ (by simp)
     exact storeNestedRecsF_push (rs := rest) (h.push hfr)
       (FreshNames.step (c := .recInfo cv mI rP rules) hf)
-
-/-- An `unwrapOr` yields its option's own answer. -/
-theorem Yields.ofUnwrapOr {α : Type} {o : Option α} {e : CheckError} :
-    Yields (unwrapOr (m := CheckCM) o e) (fun a => o = some a) := by
-  cases o with
-  | none => intro s a s' hr; exact nomatch hr
-  | some x =>
-    intro s a s' hr
-    have : a = x := by
-      unfold ConLeche.unwrapOr at hr
-      simp only [Pure.pure, StateT.pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at hr
-      exact hr.1.symm
-    rw [this]
-
-/-- The first components a `zip` keeps are a sublist of the list they
-came from (the zip truncates at the shorter list). -/
-private theorem zip_fst_sublist {α β : Type} :
-    ∀ (l : List α) (l' : List β), ((l.zip l').map Prod.fst).Sublist l
-  | [], _ => by simp
-  | _ :: _, [] => by simp
-  | a :: l, _ :: l' => by
-      simp only [List.zip_cons_cons, List.map_cons]
-      exact (zip_fst_sublist l l').cons_cons a
 
 /-- The names a row map keeps: a `zip` truncates and the row map keeps
 the constant, so the stored names are a sublist of the checked ones. -/
