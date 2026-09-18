@@ -93217,11 +93217,14 @@ held fixed.
 | the pins' carriers ARE least families closed under their constructors | YES — `PinRecLaws.ind`, and it is exactly the leastness the `Prop` countermodel of §U.36 forced us to record |
 | composition/Bekić kit for a joint tuple over two segments | YES — `LfpCompose.lean`, `segJoin`, `lfpTuple_le_of_rel` (step (i)/(ii) already use it) |
 | the component's value IS the covering class's carrier | YES — `nestedPinFam_of_classPin`, landed this week |
-| a `TClosed`/leastness statement over the INSTANCE's whole class set | NO — this is the new object |
+| a `TClosed`/leastness statement over the INSTANCE's whole class set | **CORRECTED 2026-09-18 (§U.81): YES, it exists and is load-bearing already** — `BlockModel.TClosed` is over `d.kT` classes and `famAt_le_of_TClosed` is the leastness; this row said NO on a false premise |
 | `copyTransfer_via`/`copyTransfer_mem` with an in-instance arm | NO — a re-cut of both, and of `nestedPinPairAt_mem`/`_pin` above them |
 | `instanceLe_of_pair`/`nestedInstanceLe` over the re-cut transfer | NO — mechanical once the transfer moves, but it is the whole chain |
 
-**Estimate: 6–10 sessions.**  The floor assumes the joint leastness is
+**Estimate: 6–10 sessions — WITHDRAWN 2026-09-18 (§U.81)**, because it
+priced building an object that already exists.  The replacement figure
+waits on §U.81's condition; no number is offered here in its place.
+The original reasoning, kept for the record:  The floor assumes the joint leastness is
 `LfpCompose`'s existing composition at a different segmentation and
 that the transfer's re-cut leaves `hrel`/`hdom₁` alone; the ceiling
 assumes the joint statement needs its own kit lemma and that the
@@ -93230,7 +93233,10 @@ joint tuple can be built at all from the pins' own leastness**: the
 instance's pins belong to DIFFERENT containers, so the joint least
 fixed point is over a family of operators that no single
 `IsBlockModel` supplies, and that is the piece to settle FIRST — one
-session, before committing to the rest.
+session, before committing to the rest.  **ANSWERED AND REFUTED at
+§U.81: that premise confuses the BLOCK's pins with the ROOT's classes.
+The joint object is over the ROOT's classes, where ONE container's
+records supply everything.**
 
 NOT STARTED, per the coordinator.
 
@@ -93239,3 +93245,120 @@ warning-free, layering / trust surface / no-local-paths /
 overview-links / quote-gate / proofdeps / shake and pub-imports /
 nested-shadow all green; standard axioms on
 `nestedPinsEntry_of_le_all`.
+
+#### U.81 — L-E session 26: the joint fixed point — the LEASTNESS exists, the OPERATOR does not, and that is the condition (lane L-E, 2026-09-18)
+
+One question, read-only: can the joint fixed point over a container
+instance be built at all?  **The answer is (3): only under a
+condition — and the condition is named below.  On the way, §U.80 (d)'s
+premise is REFUTED and its estimate withdrawn.**
+
+##### (a) THE PREMISE WAS FALSE: two different sets of pins
+
+§U.80 (d) said "the instance's pins belong to DIFFERENT containers, so
+the joint least fixed point is over a family of operators that no
+single `IsBlockModel` supplies".  That conflates two things:
+
+* the BLOCK's pins (`(D).pinAt q`) — these DO belong to different
+  containers;
+* the ROOT's classes (`dR`'s members and `dR`'s OWN pins) — and the
+  joint object is over THESE, because that is what the transfer is
+  stated over and what `InstanceCovered` asserts: every pin of the
+  instance is `ClassPin`-related to a class of the root.
+
+On the root's side ONE container's records supply every operator:
+`IsBlockModel.functor` for the members (`dR.Φ ψR ρR`), and
+`PinRecLaws.fibre`/`ind` for its own pins — `fibre` is the pins'
+carriers' unfolding at a member tuple `X` (recursive fields read at
+`famAt ψ ρ X`, so the pins are simultaneous in each other), and `ind`
+is their leastness at that `X`.  There is no family of operators from
+different containers anywhere in it.
+
+##### (b) THE LEASTNESS ALREADY EXISTS — and is load-bearing
+
+`BlockModel.TClosed d pc ψ ρp T` is a tuple over `d.kT = d.k + d.nPins`
+classes — MEMBERS AND OWN PINS — in the extended space and closed under
+every class's constructors, and
+
+```
+BlockModel.famAt_le_of_TClosed :
+  … → d.TClosed pc ψ ρp T →
+  TupleLe d.kT (d.idxT ψ ρp) (d.famAt ψ ρp (lfpTuple (d.w ψ) d.k (d.idx ψ ρp) (d.Φ ψ ρp))) T
+```
+
+is the joint leastness.  Its own docstring ends **"No set operator over
+the classes is needed."** — the pins go through `PinRecLaws.ind` at the
+property "in `T`", the members through `lfpTuple_le`.  It is not
+hypothetical: `instanceLe_of_transfer` already uses it at
+`T := relMeet …`, which is the whole of `instanceLe`.
+
+So the joint object EXISTS, has existed since §U.48 (h), and §U.80
+(d)'s "NO" row is corrected in place.
+
+##### (c) WHAT IS ACTUALLY MISSING, and why the leastness does not settle it
+
+The in-instance `hout` needs the step to have an INDUCTION HYPOTHESIS,
+and the two available shapes differ exactly there:
+
+* `famAt_le_of_TClosed` proves `famAt ≤ T` for `T` closed — the closure
+  obligation is about `T` alone, and the conclusion may NOT be assumed
+  while discharging it.  This is the route in the tree;
+* `lfpTuple_le_of_rel` (`LfpCompose.lean`) is the BISIMULATION form,
+  and its step hypothesis is
+
+  ```
+  hrel : ∀ X, … → TupleLe k Is X (lfpTuple w k Is Φ) →
+    (∀ a b, … → R a b → FamLe (Is a) (X a) (F' b)) →
+    ∀ a b, … → R a b → FamLe (Is a) (Φ X a) (Φ' F' b)
+  ```
+
+  — the relation AT `X` is handed to the step.  At an in-instance
+  `ordF`-right field whose target's covering class is `c''`, the
+  missing inclusion `X c'' ≤ L⁺ q'` is exactly an instance of that
+  hypothesis.  This is the shape the in-instance case needs.
+
+**The condition.**  `lfpTuple_le_of_rel` is stated over
+`lfpTuple w k Is Φ` — the least tuple of ONE operator over `k`
+classes.  The root's extended carrier is not of that form: it is
+`famAt ψ ρ (lfpTuple … Φ)`, members' least tuple with the pins'
+carriers at it, and `git grep` finds **no operator over `kT` classes
+anywhere in the tier** — the extended carrier is always spelled that
+way, and `famAt_le_of_TClosed` deliberately avoids one.
+
+So the joint fixed point can be built in the sense that matters ONLY
+IF there is a
+
+```
+Φ_T : (Nat → V) → Nat → V   over d.kT classes, with
+  lfpTuple (d.w ψ) d.kT (d.idxT ψ ρp) Φ_T
+    = d.famAt ψ ρp (lfpTuple (d.w ψ) d.k (d.idx ψ ρp) (d.Φ ψ ρp))
+```
+
+monotone and mapping the extended tuple space.
+
+##### (d) WHO WOULD SUPPLY IT, AND THE HONEST STATE OF IT
+
+This lane, from records that already exist: `PinRecLaws.fibre` gives
+the pins' fibre-wise description at a member tuple, which is what an
+operator's definition needs, and `IsBlockModel.functor` gives the
+members'; the equality would come from `ind` + `lfpTuple_le` in both
+directions.  Nothing external is required and no new kernel record is
+implicated.
+
+**What is NOT established** — and what makes this a condition rather
+than a plan: that `Φ_T` so defined is MONOTONE over the extended space.
+`fibre` is stated only for `X` BELOW the carrier (§U.28's clamping:
+"at the composed model the pins' operator reads the members CLAMPED, so
+above the carrier the ← direction is false"), so an operator built from
+it is not obviously monotone on the whole space, and `lfpTuple_le_of_rel`
+asks for `MonoTuple` outright.  That restriction is recorded in the
+tier for a reason and it is the first thing the construction would
+meet.
+
+**No replacement estimate is offered.**  §U.80 (d)'s 6–10 is withdrawn
+as priced against an object that exists; the real figure depends on
+whether `Φ_T` is monotone, which is one further read-only question and
+not this session's.  NOT STARTED, per the coordinator.
+
+Gates: no code changed this session; `lake build` and `lake test`
+warning-free at the session's commit, text gates green.
