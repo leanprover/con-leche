@@ -145,7 +145,17 @@ def checkBasisDeclC (fe : FEnv) (kind : BasisKind) : CheckCM FEnv := do
   if kind = .quotK then
     unless fe.find? eqName = some eqA do
       throw (.notImplemented "quotient basis requires the pinned Eq basis")
-  kind.declsA.foldlM installBasisDeclF fe
+  let fe₂ ← kind.declsA.foldlM installBasisDeclF fe
+  -- the own-pin table is empty (K.49), as in the pure route.  Unlike
+  -- K.43 this one does NOT go through the index: a pinned block is
+  -- installed at most six times per stream and at the very start of it,
+  -- where `Env.find?`'s list is still a handful of constants, so the
+  -- missing lookup costs nothing — and the pure Bool keeps
+  -- `checkBasisDeclC_sim` a one-line change instead of a new
+  -- index-agreement lemma
+  unless certOnly mode (basisOwnMimicsOk fe₂.env kind.declsA) do
+    throw (.internal "basis: the pinned block carries a mimic recursor")
+  pure fe₂
 
 /-- One converted declaration (mirrors `checkDeclSPPlain` branch by
 branch; inductive and basis blocks reuse the `Expr`-level drivers).
@@ -227,14 +237,14 @@ def checkDeclC (pins : List NatOpPinSet) (fe : FEnv) (pd : Declaration) :
         pure fe
       else
         throw (.notImplemented s!"non-standard axiom ({cv.name})")
-  | .basisDecl kind => checkBasisDeclC fe kind
+  | .basisDecl kind => checkBasisDeclC mode fe kind
   | .indDecl block nP =>
     -- **THE PINNED BASIS BLOCKS** (`checkDecl`'s twin, task #293): the
     -- stream's own `Nat` block, recognised here and installed as the
     -- pin; a block under a pinned name that does not match falls
     -- through and the reserved-name check rejects it.
     match basisPinHit block with
-    | some kind => checkBasisDeclC fe kind
+    | some kind => checkBasisDeclC mode fe kind
     | none =>
     -- TASK #228: the stream's DECLARED parameter count, checked before
     -- the dispatch and for both routes (`checkDecl`'s twin).
@@ -257,7 +267,7 @@ def checkDeclC (pins : List NatOpPinSet) (fe : FEnv) (pd : Declaration) :
     -- record that does not match its pin is a positive decline.
     if quotPinHit k cv then
       (match k with
-       | .type => checkBasisDeclC fe .quotK
+       | .type => checkBasisDeclC mode fe .quotK
        | _ => pure fe)
     else throw (.notImplemented (match k with
       | .sound => "quotient soundness axiom mismatch"

@@ -691,11 +691,11 @@ This is the basis tier's half of the M8 flip: every branch is one of
 the five instantiations above, and the agreement `basisStepAgree_of`
 now returns is exactly what they consume. -/
 theorem basisStepB_of {env : Env} (mb : EnvModelB V μ env)
-    {kind : ConLeche.BasisKind} {env₂ : Env} (h : DeclBasisRun env kind env₂) :
+    {kind : ConLeche.BasisKind} {env₂ : Env} (h : DeclBasisRun μ env kind env₂) :
     Nonempty (EnvModelB V μ env₂) := by
   obtain ⟨B, hb⟩ := mb.blocks
   obtain ⟨mp', hag⟩ := basisStepAgree_of mb.toEnvModelM h
-  obtain ⟨-, hchain⟩ := h
+  obtain ⟨-, hchain, -⟩ := h
   cases kind with
   | eqK => exact ⟨⟨mp', ⟨_, eqBlocksStepOf mp' hchain hag hb⟩⟩⟩
   | natK => exact ⟨⟨mp', ⟨_, natBlocksStepOf hchain hag hb⟩⟩⟩

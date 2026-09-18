@@ -831,5 +831,27 @@ def blockOwnMimicsOk (env : Env) (first : Name) (n : Nat) : Bool :=
   (List.range n).all (fun j => isRecInfoAt env (Name.appendIndexAfter (first.str "rec") (j + 1)))
     && !isRecInfoAt env (Name.appendIndexAfter (first.str "rec") (n + 1))
 
+/-- **A PINNED BASIS BLOCK'S OWN-PIN TABLE IS EMPTY** (task #315 K.49,
+lane M7-3's DESIGN §U.74).
+
+K.43 certifies the own-pin emptiness at the three INSTALL routes, and
+§U.69 (b) counted the five pinned basis blocks among its sites — which
+is wrong for them: a pinned block is installed by `checkBasisDecl`,
+which is freshness checks and conses of fixed `ConstantInfo`s, so K.43's
+Bool is never evaluated for it and the basis theorems had no source for
+the clause.  M7-3 checked the two candidates and refused both:
+`ConstWF` constrains types, values and rule bodies and says nothing
+about NAMES, and `RecCtorsStored` ties a recursor's RULES to stored
+constructors, not its own name to a stored inductive.  Making it a model
+hypothesis would put it in `basisStepB_of`, i.e. in the B fold.
+
+So the block's install certifies it, at every `.indInfo` the pinned list
+carries — one per kind, and `blockOwnMimicsOk … 0` at it. -/
+def basisOwnMimicsOk (env₂ : Env) (l : List ConstantInfo) : Bool :=
+  l.all fun ci =>
+    match ci with
+    | .indInfo cv _ => blockOwnMimicsOk env₂ cv.name 0
+    | _ => true
+
 
 end ConLeche

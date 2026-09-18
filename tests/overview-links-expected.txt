@@ -1034,9 +1034,9 @@
 
 >>> README.md
 
-== ConLeche/Cached/ParsedC.lean#L226-L227
-   226        else if cvA.name = sorryAxName then
-   227          pure fe
+== ConLeche/Cached/ParsedC.lean#L236-L237
+   236        else if cvA.name = sorryAxName then
+   237          pure fe
 
 == Main.lean#L747
    747    "                    gate skips per-redex argument certificates at",

@@ -74,9 +74,9 @@ constant as the prefix model did — the fact the block-model field
 needs `Eq` in the prefix, which is what the block's `Eq` bridge
 consumes. -/
 theorem basisStepAgree_of {env : Env} (mp : EnvModelM V μ env)
-    {kind : ConLeche.BasisKind} {env₂ : Env} (h : DeclBasisRun env kind env₂) :
+    {kind : ConLeche.BasisKind} {env₂ : Env} (h : DeclBasisRun μ env kind env₂) :
     ∃ mp' : EnvModelM V μ env₂, AcvalAgrees mp.base2 mp'.base2 := by
-  obtain ⟨hEq, hchain⟩ := h
+  obtain ⟨hEq, hchain, -⟩ := h
   cases kind with
   | eqK => exact declBasisPB_eqK mp hchain
   | natK => exact declBasisPB_natK mp hchain

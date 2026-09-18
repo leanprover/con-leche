@@ -982,7 +982,7 @@ theorem installBasisDeclF_push {env : Env} {fe : FEnv} (h : PushChain env fe)
 `checkDeclC`'s arms share this body). -/
 theorem checkBasisDeclC_push {env : Env} {fe : FEnv}
     (h : PushChain env fe) (kind : BasisKind) :
-    Yields (checkBasisDeclC fe kind) (fun fe' => PushChain env fe') := by
+    Yields (checkBasisDeclC mode fe kind) (fun fe' => PushChain env fe') := by
   have hfold : ∀ (fe' : FEnv), PushChain env fe' →
       Yields (kind.declsA.foldlM installBasisDeclF fe')
         (fun x => PushChain env x) :=
@@ -991,9 +991,22 @@ theorem checkBasisDeclC_push {env : Env} {fe : FEnv}
         (g := fun u _ => u)
         (fun acc ci _ hacc => installBasisDeclF_push hacc ci)
         kind.declsA fe' () h'
+  -- the fold by its OWN rule, then K.49's gate (which only throws)
+  have htail : Yields
+      (do
+        let fe₂ ← kind.declsA.foldlM installBasisDeclF fe
+        unless certOnly mode (basisOwnMimicsOk fe₂.env kind.declsA) do
+          throw (CheckError.internal "basis: the pinned block carries a mimic recursor")
+        pure fe₂)
+      (fun fe' => PushChain env fe') := by
+    refine Yields.bind' (hfold fe h) (fun fe₂ hfe₂ => ?_)
+    yields
+    all_goals exact Yields.pure hfe₂
   unfold checkBasisDeclC
-  yields
-  all_goals exact hfold fe h
+  refine Yields.letFun ?_
+  repeat' first
+    | exact htail
+    | yields_step
 
 theorem checkDeclC_push (mode : CheckMode) {env : Env} {fe : FEnv}
     (h : PushChain env fe) (pd : Declaration) :
