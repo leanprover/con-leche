@@ -107396,3 +107396,99 @@ at `whnf`; a missing family ERRORS immediately** with "don't know how to
 synthesize implicit argument".  Both were seen today, one per lane.
 
 Nothing in this section changes the tree.
+
+#### (number at the integrator's sync) — L-E: COSTING THE ABSTRACT CARRY — values only at the entry layer, syntax at two named arms below it (lane L-E, 2026-09-18)
+
+Costing only, entirely within this lane's own definitions.  **Nothing
+landed.**  No worktree but this one was read.
+
+##### (a) THE ENTRY LAYER NEEDS VALUES ONLY — checked at the definitions
+
+```lean
+CopyEntryAtF (fr : Nat → V) (w : Nat) (u : Nat → Nat) (Z : Nat → V) (l : Nat) : Prop
+EntryReadF   (cAs : Nat → List V) (EAv : Nat → V) (frSelf : Nat → V) (l : Nat) : Prop
+copyEntryAtF_of_read : EntryReadF … → (hZ …) → CopyEntryAtF …
+```
+
+**`Ds` occurs in none of the three.**  Every parameter that used to be
+syntax is now a value or a value family: the container-side frame
+(`fr`/`frSelf`), the target's frame family (`cAs`), the target's reading
+(`EAv`).  So the carry is available at the entry layer and is already
+landed there; `CopyEntryOutF` is the one piece still missing and is a
+ten-line transcription of `CopyEntryOut`.
+
+##### (b) BUT TWO ARMS BELOW IT READ THE SYNTAX, and they do not go through the entry
+
+`CopyCtorShape` mentions `AnnotTerm.instAll Ds` **four times** — in
+`recF`, `ordF`, `pinF` and `es` (`NestedFit.lean:894, 905, 918, 922`).
+Three of those are reachable through the entry and therefore carry;
+**the other two are not**:
+
+* **`recF`** — a container-recursive field at a MEMBER of the
+  container's OWN group.  Its target is inside the group, so
+  `segJoin base kJ L LJ` picks the container's own carrier, not `L⁺`,
+  and the entry is never consulted.  `fit_imp_T_le_dom` bridges it with
+  `slotSet_instTele Iff.rfl Iff.rfl Ds ρp fs₁ …`, whose conclusion is
+  forced to the frame `consList fs₁ (consList (Ds.map (interp V ρ)) ρ)`
+  — the RECORDED values, because `instAll Ds` on the copy's side is what
+  the lemma is about;
+* **the index equations** — `h.es l hl` then `interp_instAll`, with the
+  same forcing.
+
+So the frame at those two arms is not free: it is determined by the same
+syntactic instantiation that defines the copy.  **That is the identical
+boundary that refuted the spanning edit**, met from the other side, which
+is at least coherent.
+
+##### (c) THE INTERFACE, as a statement
+
+What `EntryReadF`'s consumers actually use, and all they use:
+
+```lean
+-- the carry, in full
+variable (cAs : Nat → List V) (EAv : Nat → V) (frSelf : Nat → V)
+
+CopyEntryOutF … (fr : Nat → V) (w : Nat) (u : Nat → Nat) (Z : Nat → V) : Prop :=
+  ∀ l, l < Fs.length → rs.getD l false = true → ¬ (base ≤ tg l ∧ tg l < base + kJ) →
+    CopyEntryAtF dJ ψJ tg tls Eis ρp i j fr w u Z l
+```
+
+— a family parameter and nothing else.  No syntax, no producer, no
+kernel record.
+
+##### (d) THE COSTING, PLAINLY
+
+**The carry works, is cheap, and does NOT move the producer obligation
+off the spanning edit.**  It moves it off the ENTRY arms — `ordF`-right
+and `pinF`, which are exactly the pin-target edges — and leaves it on
+`recF` and `es`, which reach the frame through `instAll Ds` directly.
+
+* cost of the carry itself: `CopyEntryOutF` plus threading, **well under
+  a session**, and three quarters of it is already landed;
+* what it buys: the entry layer stated at an arbitrary frame, with the
+  producer needed only where the frame is instantiated;
+* what it does NOT buy: `fit_imp_T_le_dom`'s conclusion, because a single
+  invocation has ONE frame — so stating the entry arms at a candidate
+  frame while `recF`/`es` require the recorded one is not a coherent
+  instantiation of that lemma as it stands.
+
+**So this is neither "the carry works" nor "the carry is refuted".**  It
+is: the carry is sound and cheap at the layer it was built for, and the
+layer below needs the frame CONSTRAINED relative to the recorded one
+rather than free — agreeing with it except where a field's domain reads
+it.  Naming that restriction is a different piece of work from either
+scope-call option, and this lane has not costed it because it has not
+been asked to and would have to guess at its shape.
+
+##### (e) THE TWO SIDES, NOW BOTH PRICED
+
+| option | cost | dependency |
+| --- | --- | --- |
+| (1) re-pointing interpretation | structural recursion over readings, no relative in the tree (eleven `replaceAllNested` theorems, zero mention `interp`) | **queued kernel record** — a cross-lane wait |
+| (2) abstract carry | `CopyEntryOutF` + threading, under a session, ¾ landed | none |
+
+and the thing that separates them is not the line count: (2) is cheap
+and BOUNDED — it does not reach the fit layer — while (1) is expensive
+and, once its record lands, does.
+
+Nothing in this section changes the tree.
