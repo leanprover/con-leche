@@ -1262,7 +1262,10 @@ the wide route buys and pays:
 * what is unchanged is the ordinary arm: `ordF`-left is the reading
   identity under instantiation, `ordF`-right the entry at a target
   OUTSIDE the group, which `hent` supplies at `Z` (at such a target the
-  joined tuple is the block's own carrier). -/
+  joined tuple is the block's own carrier).  The entries are asked at
+  that arm ALONE, so the hypothesis is `CopyEntryOrd` and not
+  `CopyEntryOut`: at a `pinF` field the target is INSIDE the instance,
+  where the tuple is free and no entry at the block's carrier holds. -/
 theorem CopyCtorShape.fit_iff_wide {env : Env} {m : EnvModel V env}
     (hreps : IsBlockModels m dJ) (hfT : FormersTyped m dJ ψJ) (hPT : PinsTyped m dJ ψJ)
     (hi : i < dJ.k)

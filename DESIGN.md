@@ -113175,6 +113175,44 @@ break the build, which is the sound form of the gate.
   handover's expectation is right in direction and premature in timing:
   the list is freed by (f), not by (2)/(3).
 
+##### (d2) State at the close — what (f) needs, by name
+
+The wide route is connected from the set theory to the assembly; what
+is open is one run-level session, and these are its obligations at
+`NestedRecFibre.lean:299`:
+
+1. **`σ` and its three facts** — the instance CLOSURE (the root group's
+   pins plus the block pins that `PinCorr`-match the container's own
+   pins), with `InjOn σ (dJ.k + dJ.nPins)`, `σ i < k + pins.length`,
+   and `hroot` (contiguous on the members, which the group gives);
+2. **`hIsσ`** — the block's index-tuple set at `σ i` is the container's
+   at class `i`.  At the members this is `hfit_at_of_inst`'s `hIs`; at
+   the pin classes it is `BlockModel.pinIdx_of_view` composed with the
+   container's `auxPinIdx`;
+3. **`hstgt`** — a container-recursive field at one of the container's
+   OWN pins lands on `σ` of that class.  This is `CopyCtorShape.pinF`'s
+   `PinCorr` read against the pin table that DEFINES `σ`, so it is
+   true by construction of `σ` and needs the matching to be stated as
+   a function rather than an existence;
+4. **`houtσ`** — a rewritten container-ordinary field lands outside the
+   instance.  Nothing in the tree states it yet; the shape of the
+   argument is that such a target's container is not one of `dJ`'s
+   classes;
+5. **`hinjJ`** — the container's class injections are towers.  At the
+   members it is its block model's `mkInj` shape; at the pin classes it
+   is `nestedPc`'s `inj` for a nested container and the analogue
+   elsewhere;
+6. **`hpin`** — `hfit_wide_pin_of_class` at the run: its count
+   hypothesis from `PinShapes`' COUNT conjunct against the block's own
+   group count, and `pinClassFit_of_transfer`'s premises from the two
+   groups' views (`h₁` the block's `PinShapes`, `h₂` the container's;
+   `hψ`/`hρ`/`hwK`/`huT`/`hIdsLen` from `PinCorr`/`targetPin_corr`;
+   `hrel` from `σ`; `hdom₁`/`hdom₂` from `real_dom_eq` and the bound;
+   `hent₁`/`hent₂` from the two sides' residues).
+
+Only when all six are in hand does `ofNested_pin_block_of_inst` become
+dead and `hfit_le_of_inst`/`hfitLe` deletable.
+
 ##### (e) Green
 
 `tests/warning-free.sh 884671f8`: "2 changed module(s) since 884671f8",
