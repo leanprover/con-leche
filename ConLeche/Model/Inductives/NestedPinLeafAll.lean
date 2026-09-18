@@ -4522,6 +4522,47 @@ theorem nestedPinsEntry_of (hμ : μ.verifiedChecks = true)
   rw [hψ, hDs]
   exact nestedPinsEntry_at hμ h hbk m hleafM dJf hgroups hρp heq G hi' hj
 
+
+/-- **THE TAIL, at ONE premise** (task #315 L-E, DESIGN §U.79): steps
+(ii) and (iv) chained — the copies' entries at the auxiliary carrier,
+for every group, from the single input `hle`: the containers' least
+tuples lie below the auxiliary carrier at every pin.
+
+`hle` is step (iii)'s conclusion, which `nestedPinsLe_of_rank`
+produces from K.52's rank clauses and `hinst`, and `hinst` is
+`nestedPinInstLe` at each instance's root.  So what the whole global
+entry theorem now rests on, beyond this lane, is that one premise and
+the two the rank induction carries. -/
+theorem nestedPinsEntry_of_le (hμ : μ.verifiedChecks = true)
+    (h : MutualFormersFacts V F g mp b fms f₀ ctorsA sortss kinds mp₁ ppsF W idxF dsF esF srcsF
+      fvsPF xFvsF xrestF eissF tssF)
+    (h3 : ConLeche.mutualCtorsGrouped b.ctors = true)
+    (hbk : b.k = p.k + pinsS.length)
+    (m : EnvModel V env₂)
+    (hleafM : ∀ (t : Nat) (f : MutualFormerA), t < p.k → fms[t]? = some f →
+      m.acval f.cvTa.name = mutMemberLeaf b fms f₀ ctorsA kinds ppsF W dsF esF eissF tssF t)
+    {st : ElimState} (dJf : Nat → BlockModel V)
+    (hgroups : ∀ q, q < pinsS.length → ∃ (q₀ kJ i : Nat),
+      q = q₀ + i ∧ i < kJ ∧ GF st m q₀ kJ (dJf q₀))
+    {ψ : Name → Nat} {ρp : Nat → V} (hρp : Sat V ((D).params ψ).reverse ρp)
+    (hle : ∀ q, q < pinsS.length →
+      FamLe ((D).idx ψ ρp (p.k + q)) (pinLfp st pinsS dJf (f₀.s.eval ψ) ψ ρp q)
+        (lfpTuple ((D).w ψ) (p.k + pinsS.length) ((D).idx ψ ρp) (ΨA ψ ρp) (p.k + q)))
+    {q₀ kJ : Nat} (G : GF st m q₀ kJ (dJf q₀)) {i : Nat} (hi : i < kJ)
+    {i' j : Nat} (hi' : i' < kJ) (hj : j < ((dJf q₀).ctorsM i').length) :
+    CopyEntryA (V := V) (nP := b.nP) (k := p.k) (resSort := f₀.s) (ppsA := ppsF) (W := W)
+      (pins := pinsS) (offs := b.ownOffset) (mems := mutMems ctorsA.length (mutMemF b))
+      (nFs := mutNFs ctorsA.length (mutNFOf ctorsA))
+      (tgtsG := mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA))
+      (rss := blkRss ctorsA kinds) (tlss := fun ψ => mutTlss ctorsA.length tssF ψ)
+      (Eiss₀ := fun ψ => mutEiss0 ctorsA.length eissF ψ)
+      (Fss₀ := fun ψ => blkFss0 b ctorsA kinds dsF ψ)
+      (Ess₀ := fun ψ => mutEss0 ctorsA.length esF ψ) (ψ := ψ) (ρp := ρp)
+      (dJf q₀) ((pinsS.getD (q₀ + i) default).ψJ ψ) ((pinsS.getD (q₀ + i) default).Ds ψ)
+      q₀ kJ i' j :=
+  nestedPinsEntry_of hμ h hbk m hleafM dJf hgroups hρp
+    (nestedPinsEq_of_le hμ h h3 hbk m hleafM dJf hgroups hρp hle) G hi hi' hj
+
 end Assembly
 
 end ConLeche.Model
