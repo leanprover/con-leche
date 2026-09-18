@@ -798,7 +798,9 @@ hit is a recorded pin, abstracted at the block's parameters and so
 bounded there; its copy is a member of the scratch block, stored with
 the block's level parameters, and the key's arity is the container's
 index count (`nestedArity_pin`); the restored pin reads as the
-container at the lifted components (`pinRead`); and the two readings
+container at the lifted components (`pinRead`), the container itself
+being STORED there (the conjunct the provisioned crossing needs, which
+the record's own field drops); and the two readings
 interpret alike — THE PIN IDENTITY `nestedIdent_of`, the copy's leaf
 being the scratch model's own (`NestedScratchOut.leafM` through
 `MutualFormersFacts.leaf`). -/
@@ -808,6 +810,7 @@ theorem NestedTailIn.pinArm {mpA : EnvModelM V μ ENVA} {cvRas : List ConstantVa
     ∀ (n : Name) (pin : Expr), (ConLeche.restoreTbl p st).pins.lookup n = some pin →
       pin.looseBVarsBounded b.nP = true ∧
       ∃ (ci : ConstantInfo) (J : Name) (ψJ : Name → Nat) (Ds : List AnnotTerm) (nIdx : Nat),
+        ((ENV₂).find? J).isSome = true ∧
         (ENVA).find? n = some ci ∧ ci.toConstantVal.levelParams = b.lps ∧
         nestedArity p st pinsS n = some nIdx ∧
         (∀ (fvsP : List Expr) (d : Nat), OpenersFrom fvsP 0 b.nP →
@@ -833,10 +836,15 @@ theorem NestedTailIn.pinArm {mpA : EnvModelM V μ ENVA} {cvRas : List ConstantVa
   obtain ⟨t₂, Jn, lvls, Ds₀, ci, J, cpy, ht₂, -, hJn, -, hci, -, -, -, -, -, -⟩ := hsrc q qn hqn
   rw [hJn] at hci
   refine ⟨?_, .indInfo f.cvTa {}, ((D).pinAt q).J, ((D).pinAt q).ψJ ψ, ((D).pinAt q).Ds ψ,
-    ((D).pinAt q).nIdx, ?_, ?_, ?_, I.pinRead hqn hq hci ψ, ?_⟩
+    ((D).pinAt q).nIdx, ?_, ?_, ?_, ?_, I.pinRead hqn hq hci ψ, ?_⟩
   · -- the abstracted pin is bounded at the block's parameters
     rw [hnP]
     exact (ConLeche.rk_pinsClosed_of I.hclosed qn hqnm).2
+  · -- the container is STORED at the restored constructors' environment
+    obtain ⟨hPJ, -⟩ := I.out.stage.pinRec q qn hqn
+    obtain ⟨cvT, caps, cvR, mI, rP, rules, hfindI, -, -, -, -⟩ := ConLeche.containerInfo?_inv hci
+    rw [hPJ, I.out.stage.find (I.findPre1 hfindI)]
+    rfl
   · rw [← hfn]
     exact (S.memberStored (p.k + q) f hf).find
   · show f.cvTa.levelParams = b.lps
@@ -1216,7 +1224,10 @@ theorem NestedTailIn.leafSome {mpA : EnvModelM V μ ENVA} {cvRas : List Constant
       exact hnf t g ht
 
 /-- **A NAME ABSENT FROM THE SCRATCH ENVIRONMENT IS ABSENT FROM THE
-RESTORED ONE** (`RestoreAgree.leafNone`), off the auxiliary names. -/
+RESTORED ONE**, off the auxiliary names.  No field of `RestoreAgree` any
+more (its `leafNone` is FALSE one environment later, see
+`NestedRecWalk.lean`'s note): a lemma, read here by `litAgree` and by the
+rule law's crossing (`NestedRecRule.lean`). -/
 theorem NestedTailIn.leafNone {mpA : EnvModelM V μ ENVA} {cvRas : List ConstantVal}
     (S : NestedScratchOut F env b fms f₀ ctorsA kinds mp₁ ppsF W idxF dsF esF srcsF fvsPF xFvsF
       xrestF eissF tssF stored mpA cvRas) :
@@ -1581,9 +1592,9 @@ theorem NestedTailIn.litAgree {mpA : EnvModelM V μ ENVA} {cvRas : List Constant
 /-- **THE WALK'S LEAF AGREEMENTS AT THE TAIL** (PLAN-M7 §1e B2):
 `RestoreAgree` at the restore table of the elimination, the scratch
 install's model `mpA` and the restored one `mp₂` — the parameter count
-(`tblNP`), the leaves off the auxiliary names (`leafSome`, `leafNone`,
-`leafAcval`), the auxiliary names' absence from the restored
-environment (`auxFresh`), the recursor map's two clauses (its keys are
+(`tblNP`), the leaves at a name the scratch environment FINDS
+(`leafSome` with `leafAcval`), the auxiliary names' absence from the
+restored environment (`auxFresh`), the recursor map's two clauses (its keys are
 absent from the scratch constructors' environment, its values fresh at
 the restored one), a key's distinctness from a recursor name
 (`keyNotRec`), THE PIN IDENTITY (`pinArm`, `nestedIdent_of`) and THE
@@ -1601,17 +1612,23 @@ theorem NestedTailIn.restoreAgree {mpA : EnvModelM V μ ENVA} {cvRas : List Cons
       mpA.base2.acval mp₂.base2.acval (ENVA) (ENV₂) ψ b.nP ((D).params ψ) := by
   refine
     { nPEq := I.tblNP
-      leafSome := I.leafSome S
-      leafNone := I.leafNone S
-      leaf := I.leafAcval S
+      leafSome := by
+        intro n hn ci hf
+        obtain ⟨ci', hfR, hlps⟩ := I.leafSome S n hn ci hf
+        exact ⟨ci', hfR, hlps, I.leafAcval S n hn⟩
       auxFresh := I.auxFresh
       recKey := ?_
       recNone := ?_
       keyNotRec := I.keyNotRec
       projEq := I.projAgree S
       litEq := fun dpt l => I.litAgree S ψ dpt l
-      pin := I.pinArm S ψ
-      ctor := I.ctorArm S hnames hctorsJ ψ }
+      pin := fun n pin h => by
+        obtain ⟨hbnd, ci, J, ψJ, Ds, nIdx, -, hrest⟩ := I.pinArm S ψ n pin h
+        exact ⟨hbnd, ci, J, ψJ, Ds, nIdx, hrest⟩
+      ctor := fun n pin newName h => by
+        obtain ⟨hbnd, hnone, ci, J, ilvls, ψJ, Ds, nF, -, hrest⟩ :=
+          I.ctorArm S hnames hctorsJ ψ n pin newName h
+        exact ⟨hbnd, hnone, ci, J, ilvls, ψJ, Ds, nF, hrest⟩ }
   · intro n n' hr ci hfind
     rw [I.recKeyNone hr] at hfind
     exact nomatch hfind
@@ -1910,13 +1927,5 @@ theorem nestedRecReadingsOf_of {F : Nat} (hfr : NestedRecFramesOf V μ F) :
   I.readingsOf (hfr mp p envOut st b envAux stored ctorsR cvRms cvRns rulesM rulesN fmsA ctorsA₀
     fms f₀ ctorsA sortss kinds mp₁ ppsF W idxF dsF esF srcsF fvsPF xFvsF xrestF eissF tssF dsR
     xFvsR pinsS mp₂ I)
-
-/-- **THE CONSUMER** (consumer-first): the frames feed the recursors'
-stage verbatim — `nestedTailModeled_of` at `nestedRecReadingsOf_of`'s
-output and the stage's other two named facts. -/
-theorem nestedTailModeled_of_frames {F : Nat} (hfr : NestedRecFramesOf V μ F)
-    (heqs : NestedRecEqsOf V μ F) (hst : NestedRecsStored V μ F) : NestedTailModeled V μ F :=
-  nestedTailModeled_of (nestedRecReadingsOf_of hfr) heqs hst
-
 
 end ConLeche.Model

@@ -148,6 +148,7 @@ public import ConLeche.Model.Inductives.NestedRecFrames
 public import ConLeche.Model.Inductives.NestedRecFrames2
 public import ConLeche.Model.Inductives.NestedRecEqs
 public import ConLeche.Model.Inductives.NestedRecsStore
+public import ConLeche.Model.Inductives.NestedRecsSwap
 public import ConLeche.Model.Inductives.NestedRecRule
 public import ConLeche.Model.Inductives.NestedRec
 public import ConLeche.Model.Inductives.NestedRecCand
@@ -155,6 +156,7 @@ public import ConLeche.Model.Inductives.NestedRecTyped
 public import ConLeche.Model.Inductives.NestedPinLaws
 public import ConLeche.Model.Inductives.NestedPinLeafAll
 public import ConLeche.Model.Inductives.NestedStageCtor
+public import ConLeche.Model.Inductives.NestedTables
 public import ConLeche.Model.Inductives.NestedLoop
 public import ConLeche.Model.Inductives.NestedPins
 public import ConLeche.Model.Inductives.NestedCopyIdx
