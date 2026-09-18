@@ -88633,3 +88633,226 @@ otherwise slip through unchecked — but anyone reading this row as
 evidence that the K rescue path is exercised would be reading it
 wrong.
 
+
+#### K.52 — K.37's rank clauses, inverted (2026-09-18, task #315 M8 session 1, lane L-E's request)
+
+`nestedPinRankOk` had exactly ONE use — `nestedPinChecks_inv`, which
+produces the `= true` Bool and stops there — so the model tier held the
+Bool with no way into it.  `nestedPinRankAt_inv` and its instance
+`nestedPinRankOk_inv` (`Verify/Inductives/NestedInv.lean`) are the way
+in.  The edge list's EXISTENCE is part of the statement, not a side
+condition: `nestedPinRankAt` is `false` at `none`, so a `true` Bool
+already carries `nestedPinEdges … = some edges`, and the four clauses
+are then stated at `nestedPinInstOf`/`nestedPinRankOf` — the two lists
+the model reads — rather than at the `…From` helpers.
+
+**Clauses (1) and (2) are folded into ONE disjunction on purpose.**  The
+model never reads an edge's OWNERSHIP bit: an own edge gives the
+instance equality, a not-own edge gives the disjunction, and the
+consumer's conclusion is the disjunction either way.  So the consumer's
+edge relation is `∃ own, (q, q', own) ∈ edges` and `mentionsMember` is
+never computed on the model side — which is what keeps this a boolean
+inversion in `nestedPinRootPairAt_inv`'s idiom, with no term traversal
+anywhere.  (A sharpened form at `e.2.2 = true` is available from the
+same `split`; nothing consumes it, so it is not stated.)
+
+**Numbering**: K.51 is RESERVED for lane L-B's request — the positivity
+normalisation generalised past ordinary fields, at every copy field,
+with the nested replacement at the FINAL elimination state.  That one
+carries a measurement before it is committed to (a delta step can expose
+a container application absent from the minted domain, so the
+commutation is an argument, not evidence) and is not this session's.
+
+#### THE M8 FLIP, MEASURED — the dispatch is ATOMIC, two plan premises REFUTED, and one hole found (2026-09-18, task #315 M8 session 1, `agent/uniform-m5`)
+
+The brief was "2a, 2b, 2c, then as much of 2d as remains prudent".  The
+three dispatch wirings were written, built and RUN; none of them is
+landable on its own, and the corpora say two things the plan did not
+predict.  The edits are reverted; what stands is the measurement.
+
+##### (a) REFUTED — 2a, 2b and 2c are not three quarter-sessions, they are one atomic commit WITH 2f
+
+The plan (its M8 audit, part 2) numbers the pure dispatch, the cached
+dispatch and the run-level dispatch as independent quarter-sessions.
+They are not independent, and the coupling is not a matter of taste:
+
+* the pure dispatch forces the run-level one.  `checkDeclRun_ofEnvFactsE`
+  (`Semantics/Bridge/Sound.lean`) case-splits on the `.indDecl` clause's
+  OWN dispatch and hands each arm to its inversion; a `checkNested`
+  success cannot produce `DeclIndRun`;
+* the cached dispatch forces the pure one and vice versa: the cached
+  driver's bridge is a SIMULATION (`Verify/Cached/BridgeCSDecl.lean`,
+  `BridgeC.lean`), so the two dispatches must take the same arm at the
+  same block;
+* **and the run-level dispatch forces the MODEL tier, which is 2f.**
+  `Model/Inductives/DeclInductive.lean`'s `declInductive` is a case
+  split over `DeclIndRunDispatch`'s arms at `EnvModelM`; a nested arm
+  there needs `Nonempty (EnvModelM V μ envOut)` from `DeclNestedRun`,
+  and the only producer is `declNested_of`, which takes `EnvModelB`
+  (strictly stronger than what `declInductive` has) and two OPEN named
+  facts (`NestedCoreModeled`, `NestedTailModeled`).  The A fold cannot
+  be given a hypothesis instead: `checkDeclsPure_sound_of` is the
+  capstones' input, and a conditional capstone is a sorry by another
+  name (the standing rule).
+
+Built to be sure, rather than argued.  With the three wirings applied
+and two stubs standing in for the first two Verify obligations, `lake
+build` fails at exactly five sites — `Verify/BridgeDecl.lean`,
+`Verify/Cached/{AgreeFloor,PushChain,BridgeCSDecl}.lean`,
+`Semantics/Bridge/Sound.lean`, `Semantics/Inductives/DeclSumEta.lean`
+and `Model/Inductives/DeclInductive.lean` — of which the last is the
+blocker above and the two Semantics ones are one line each (the
+inversion and the η closure are in the tree, as the plan said).
+
+**So M8's order is: the nested chain's residual FIRST, then ONE commit
+carrying 2a + 2b + 2c + 2d + 2e + 2f.**  Nothing smaller compiles.
+
+##### (b) A SIXTH obligation the plan does not list: the fuel transport
+
+`checkDecl_datF`'s `.indDecl` arm (`Verify/BridgeDecl.lean`) transports
+the dispatch from the fuelled monad to a fixed fuel, arm by arm.  The
+nested arm needs `checkNested_datF`, and the route's dozen stage
+functions need theirs — `nestedAnnotFormers`, `nestedAnnotCtors`,
+`nestedPinsOk`, `nestedPinChecks`, `restoreCtors`, `restoreRecTys`,
+`restoreRules`, `nestedTables`, `nestedRecsOk` — in the shape of
+`checkMutualCore_datF`, which is one `simp only` over its own stages'
+lemmas.  None exists (`git grep _datF` over the nested route returns
+nothing).  This is mechanical and is not free; call it a fifth
+obligation beside 2d's three, ½–1 session.
+
+##### (c) THE ACCEPTANCE FIXTURE: it accepts, but NOT at 2a–2c
+
+`_tmp/uniform-m5/nested_poly_pin.lean` exported through the arena's
+`lean4export` (367 records; three blocks — `List`, `Box` with
+`numNested = 1`, `T` with `numNested = 2`) and run on a binary carrying
+2a + 2b (the exe's import graph does not reach the Verify tier, so the
+binary builds while the proof tiers do not):
+
+| binary | modeller | verdict |
+| --- | --- | --- |
+| baseline | on (default) | 2, `in-process model of T: container Box: family member List at the pins is not among the mimics` |
+| baseline | off | 2, `no install route for inductive block Box` (shadow: `Box accept`) |
+| 2a+2b | on (default) | **2, the SAME modeller decline** |
+| 2a+2b | off | **0 — accepted, 3 declarations** |
+
+**The plan's prediction is half right and the other half matters.**  The
+decline does disappear and the block IS accepted by the nested route —
+so the level half of K.41's instantiation becomes exercised, as `####
+K.41` said it would.  But it does NOT disappear at the dispatch flip:
+the decline is issued at PARSE time by the in-process modeller, before
+the fold dispatches anything, so it survives 2a–2e untouched and goes
+only with step 6 (iii), the modeller's retirement.  The fixture is an
+acceptance test **for 2e + 6 (iii) together**, not for the dispatch.
+
+##### (d) THE CORPORA: three e2e rows move, and the plan expected none to
+
+Both binaries over all 196 e2e rows and all 138 arena rows, exit code
+against exit code.  **Arena: zero differences.**  **e2e: three.**
+
+1. `ind_rec_struct_proj_raw.ndjson` — expectation 2, base 2, flipped
+   **1**;
+2. `ind_proj_mutual_nested.ndjson` — expectation 2, base 2, flipped
+   **1**;
+3. `inmodel_groups.ndjson` — expectation **0**, base 0, flipped **3**.
+
+The first two are the W5 projection declines, and the reject is an
+ARTIFACT of the in-process modeller, not of the route.  With the
+modeller off the same flipped binary ACCEPTS both (exit 0 — which is
+what the rows' own `TODO(#206-A7) official: 0` says official does).
+What produces the reject is the frontend's projection-function rewrite
+("1 projection functions of non-direct structure-likes rewritten to
+recursor form"): the nested route installs a projection TABLE where the
+modelled route installed none, so `NT.lbl x = x.1` is no longer
+declined at the `.proj` but compared — against a `NT.lbl` the frontend
+has rewritten into recursor form, which is not defeq to the projection
+node.  **So both rows become `0` at 6 (iii), and DESIGN's "the decline
+may be the projection artifact and not the block, in which case the row
+stays at 2" is refuted in the third direction: the row goes to 0.**
+
+**3 is a HOLE, and it is the session's main finding.**
+`inmodel_groups.ndjson` is an ACCEPTING row (`H` nests through
+`TT (List H)` — "a group whose pin is another mimic's carrier"), and
+under the flip it exits **3**:
+
+```
+internal error: nested: a pin is not one the instance's root container
+pinned [at inductive InModelGroups.H]
+```
+
+That is K.41's `nestedPinRootPairOk`, whose docstring says **"It cannot
+fire"**.  It fires.  The modeller is not involved: with
+`CON_LECHE_INMODEL=0` and the flip, the same block fails at the same
+check.  A census of the WHOLE e2e corpus through `--nested-shadow`
+(15 fixtures carry nested blocks, 30 blocks in all) finds exactly this
+one failure and 29 accepts — and `inmodel_groups` is NOT one of
+`tests/nested-shadow-expected.txt`'s 27 rows, which is why the shadow
+gate never saw it.  **The gate's 27 rows are not the corpus**: step
+6 (ii) plans to move 21 shadow-only fixtures INTO the arena, and the
+converse move — the e2e fixtures with nested blocks that the shadow
+does not run — is what would have caught this.
+
+**Consequences.**  (i) 2e is blocked until K.41 is understood at this
+shape: a stream official accepts must not exit 3.  (ii) K.41's ledger
+row's "it cannot fire" must be re-read; the fire is on OUR OWN mint
+through two levels of nesting, with every container installed by the
+nested route, so it is not the modelled-route boundary the row names.
+(iii) The shadow gate should gain the nine e2e fixtures with nested
+blocks that it does not list, ahead of the flip and at a cost of nine
+checker runs.
+
+##### (e) The environment invariant's nested-rule clause at the flip (the coordinator's question)
+
+`ConstWF`'s recursor clause (`Verify/EnvWF.lean`) cites
+`nestedRuleShape` (`Kernel/Inductives/Modeled.lean`) as its producer,
+and 2e deletes that route.  Read end to end:
+
+* **the nested route has its own producer, and the guards match
+  conjunct for conjunct.**  `nestedFireShape`
+  (`Kernel/Inductives/NestedInstall.lean`) is documented as
+  "`nestedRuleShape` MINUS its `_model.iota_j` lookup … the syntactic
+  guards are the facts `EnvWF`'s stored-rule clause records", and it
+  is: `rP ≤ mI`; `lvls.all (Level.allParamsDefined lps)`; each pin
+  `!hasFvar`, `looseBVarsBounded rP`, `constsResolve envSelf`,
+  `allLevelParamsDefined lps`; and `tyA.stripPis mI = some (_, .forallE
+  dom _ _)` with `dom.getAppFn = .const _ lvls` and `dom.getAppArgs =
+  pins.map (liftLooseBVars (mI - rP)) ++ (range (mI - rP)).map (bvar …)`
+  — which is the clause verbatim.  So at 2e the comment repoint is
+  correct: the clause does not lose its meaning;
+* **but nothing in the tree turns that check into the clause.**  There
+  is no `nestedFireShape_inv` (its only consumers are the install and
+  its `F` twin), and there is no `NestedWF.lean` at all: the fixpoint,
+  mutual and struct routes each carry an `EnvWF envOut` theorem
+  (`FixWF.lean` 132 lines, `MutualWF.lean` 462, `StructWF.lean`), the
+  nested route carries none.  The obligation is not missing from the
+  checker, it is missing from the PROOF tier, and today it hides inside
+  the model lane's open `NestedCoreModeled`/`NestedTailModeled` (which
+  conclude `Nonempty (EnvModelM …)`, whose `base2.wf` IS `EnvWF`).
+
+**For lane M7-3**: a consumer that reads the clause off `EnvWF env` —
+i.e. off `EnvModelM.base2.wf`, for ANY stored recursor whatever route
+installed it — closes for free at all nine sites and survives the flip
+intact, because the clause is a property of the ENVIRONMENT and not of
+a route.  What it costs is on the producer side and is already owed:
+`nestedFireShape_inv` (½ session, in `nestedRuleShape_inv`'s idiom) and
+the nested route's `EnvWF` preservation (1–2 sessions by `MutualWF`'s
+462 lines), both inside the residual M8 consumes anyway.
+
+##### (f) THE HONEST RE-SIZING OF M8
+
+The plan sized the kernel's share at 3–5 sessions and the whole of M8 at
+5–8.  With (a), (b), (d) 3 and (e) measured:
+
+| item | plan | measured |
+| --- | --- | --- |
+| 2a + 2b + 2c (the wirings) | ¾ | ¼, but only inside the atomic commit |
+| 2d (skels, push, run) | 2–4 | 2–4 (unchanged; nothing of it exists) |
+| 2d′ the fuel transport (new) | — | ½–1 |
+| the nested route's `EnvWF` (new, or inside the residual) | — | 1–2 |
+| K.41 at `inmodel_groups.H` (new, BLOCKING) | — | 1–2, unknown until diagnosed |
+| 2e + the census | ½–1 | ½–1 |
+| 2f | ¼ | ¼ |
+| 5, 6 (i)–(iv) | 2–3 | 2–3 |
+
+**6–10 sessions after the nested chain's residual closes**, against the
+plan's 5–8, and with one item (K.41) whose size is not yet knowable.
+None of it is landable before `declNestedB`.
