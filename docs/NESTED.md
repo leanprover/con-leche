@@ -148,7 +148,23 @@ For every installed inductive the model keeps a *block model*
   readings), and a *pin carrier* `pinCar_i(X⃗)` — the pin's slot as a
   function of the members' tuple;
 
-and the laws it satisfies, of which two matter here:
+**Stored versus re-derived.**  Not everything the proof needs about a
+container is *fixed* by these laws, and the difference matters.  A
+*member*'s parameter telescope is determined: the law `former` carries a
+reading equation for the member's stored type, and readings are functions,
+so any two valid models of the same block agree on it — it is
+*re-derived* at the use site, never recorded.  A *pin*'s universe and
+index data are **not** determined: the laws constrain them only by a
+membership, a length, and a congruence, and the universe is a bare field.
+Two valid models of the same container may therefore differ on a pin's
+syntactic data, and no argument from the semantics can close that gap —
+which is why the block being installed *records* the tie between its
+own pins and the container's (one clause, on the one structure that
+binds the container's model, whose single producer holds the fact for
+free).  Uniqueness of models is never needed: semantic facts meet at the
+readings, and syntactic facts that no law fixes are recorded.
+
+The laws, of which two matter here:
 
     leaf:     ⟦T_j(a⃗)⟧  =  (μX⃗. Φ_d(a⃗)(X⃗))_j                                      (the definition of §1)
     pinLeaf:  ⟦J_i(s⃗_i[a⃗, μΦ_d(a⃗)])⟧  =  pinCar_i(μΦ_d(a⃗))                       (the entry law)
@@ -372,7 +388,63 @@ Resolution 3 outright, and leaves a smaller residue: the component family
 at instance roots, an induction over instances, and the declaration-order
 record for cross-instance constant-headed edges.
 
-Not settled: the decision to adopt it — Resolution 3 is what is being
-built today, and switching is a representation change to §3 that every
-install route touches, trivially for all but the nested one — and the
-exact cost of the residue either way.
+Decided: Resolution 1 is adopted, in stages so that each stands alone —
+first expose the wide operator on the block model (strictly additive),
+then the reindexing lemma (pure set theory, general), then the
+identification at the instance closure (the step that can fail; if it
+does, the first two remain).  Resolution 3's machinery is not deleted
+until the third step lands.  In parallel, the two things every design
+needs: the reading of a rewritten term (§8, item 1) and the second
+residual's syntactic correspondence.
+
+Not settled: the exact cost of the residue — the component family at
+instance roots, the induction over instances, and whether the closure's
+identification is as cheap as the experiment suggests once the readings
+are threaded.
+
+## 8. What the abstraction hides
+
+Everything above is stated at sets and operators.  The tree works with
+syntax — kernel expressions, their readings as annotated terms, and the
+interpretation of those at a frame — and the bulk of the proof engineering
+is showing that the syntax the kernel produces *reads as* the operator
+written here.  Five things live entirely below this document's level and
+are where the cost is:
+
+1. **Reading through the rewrite.**  "The copy's constructors are `J`'s at
+   the substitution" is one clause in §2.  In the tree the stored
+   constructor is the *rewrite* of the *normalisation* of the *minted*
+   copy, and there is no semantic theorem about the rewrite at all — every
+   theorem about it is syntactic.  The reading of a rewritten term, as a
+   relation transporting readings through the rewrite (congruence at every
+   constructor plus one firing case, closed under binder opening), is a
+   new object every design needs.  This is why the whole-space agreement
+   that is definitional in the pure experiment is an *instantiation law* in
+   the tree.
+2. **Frames.**  `s⃗[L⃗]` is a substitution here.  In the tree a term is read
+   at a frame (bound variables to sets); the container's frame is built
+   from the components' readings at the block's frame; every transport
+   between them is a lemma.  The rule that the copy's slot is read at the
+   block's frame and does not move while the container's side is read at
+   the frame that varies is real and this notation collapses it.
+3. **Environments and naming.**  §1 has one list of definitions.  The tree
+   has an environment model per environment, readings that cross
+   environments in one variance direction only, and a *choice* of block
+   model per container with no uniqueness — see §3's stored-versus-derived
+   note for what that costs and how it is paid.
+4. **Reflexive fields.**  `f_i ∈ ⟦D_i⟧` treats a function-space domain like
+   any other.  In the tree every reflexive case is a separate arm: the
+   reading opens a binder tower, and the rewrite must be shown inert on it.
+5. **Recorded versus derived facts.**  This document has no notion of a
+   certification check.  The tree obtains syntactic facts the model cannot
+   derive by having the kernel *check* them — each such check is a
+   recorded, numbered, measured obligation, and *deciding* whether a fact
+   needs one or can be derived from what the model already holds is a
+   recurring design question with a standing preference for deriving.
+
+Outside the document's scope altogether: the recursors and iota rules
+(large, and done for this route), the cached checker's simulation of the
+pure one (deferred until the model side is finished), the switch of the
+kernel's dispatch from the old route to this one with its accept-set
+re-measurement, and indices.
+
