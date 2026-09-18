@@ -1816,6 +1816,21 @@ theorem mutualFormersS_skels (mode : CheckMode) (nP : Nat)
   have := congrArg (List.map Prod.fst) hq
   simpa [List.map_map, Function.comp_def] using this
 
+/-- **THE ANNOTATED CONSTRUCTORS CARRY THE DECLARED NAMES** (task #315
+M8): the cached annotation stage is positional and name-preserving at
+the constructors too, which is what lets the elimination's input be
+read as the block's own. -/
+theorem nestedAnnotCtorsF_names (ops : CheckerOps CheckCM) (fe : FEnv) :
+    ∀ (cs : List MutualCtor),
+      Yields (nestedAnnotCtorsF ops fe cs)
+        (fun csA => csA.map (·.name) = cs.map (·.cv.name))
+  | [] => by unfold nestedAnnotCtorsF; exact Yields.pure rfl
+  | c :: rest => by
+    unfold nestedAnnotCtorsF
+    refine Yields.bind' (checkConstantValF_name ops fe c.cv) fun cvCa hn => ?_
+    refine Yields.bind' (nestedAnnotCtorsF_names ops fe rest) fun restA hrest => ?_
+    exact Yields.pure (by simp [hn, hrest])
+
 /-! ### The nested route's restore stages: the names they store
 
 The restore checks every constant it stores at ONE index — the

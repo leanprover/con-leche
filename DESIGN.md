@@ -104775,3 +104775,41 @@ clause" section), with this proof named as the worked example.
 No executable path changed: the assembly is proof-only, and the three
 refactors are restatements of existing Verify lemmas, so the DAG
 falsifier's instruction count is unchanged by construction.
+
+### The skeleton walk's data bridges (three of four)
+
+The nested walk's skeleton spec is a function of the RECOGNISED BLOCK,
+so every datum the restore conses has to be traced back to the record.
+Three of the four bridges are landed and green; each is stated without
+any run of the scratch install, so the mode-generic walk can use them.
+
+* **The constructors' numbers** come out of the scratch install's own
+  SKELETON list (`mutualBlockSkels_ctor_data`).  The machinery under it
+  is three structural facts about a built skeleton list: a cons fold
+  whose entries carry other names is passed over; a cons fold whose
+  entries cannot BE the answer is passed over whatever the names are —
+  which is how a projection table that shadowed a constructor's name is
+  excluded, by contradicting the read-back's own answer rather than by
+  a side condition; and the constructors' fold is computed outright at
+  a name the block's `Nodup` makes unique.
+* **Member `m`'s constructors are its own** (`auxBlock_ownCtors_pairs`):
+  the elimination's input selects them by the tag, the elimination
+  preserves exactly the `(name, nF)` pairs
+  (`elimNested_types_prefix`), and `auxBlock` tags them back.  The
+  cached side feeds it `nestedAnnotCtorsF_names`.
+* **The restored rules carry the RECORD's constructors**
+  (`nestedRulesOk_ctors`, read through `nestedRecOkF_ctors` /
+  `nestedRecsOkF_ctors`): post-check (c) compares stream and restored
+  rules position for position, and the constructor name is one of the
+  fields it compares.  Not `certOnly` — so the skeleton's rule-constructor
+  list is a function of the record in every mode.
+
+The fourth is the **projection tables**, and it is the one with a real
+subtlety: `auxStored?` reads a member's table by NAME out of the scratch
+index, so a stale `projTableName T_m` already in the pre-block
+environment would be read as the member's own.  On an accepted run it
+cannot survive — the restore's own table stage re-checks the name's
+freshness and rejects — but that is a run fact of the RESTORE, and the
+bridge has to route through it rather than through the block record
+alone.  That, and the assembly of the twenty-two-guard walk itself, is
+what remains.

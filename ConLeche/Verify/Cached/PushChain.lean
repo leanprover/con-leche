@@ -1471,6 +1471,42 @@ theorem checkNestedS_push (mode : CheckMode) {env : Env} {fe : FEnv}
   refine Yields.ofDecCases (fun _ => Yields.ofThrowBind) (fun _ => ?_)
   exact Yields.pure h₄
 
+/-! ## The nested route's skeleton (task #315 M8) -/
+
+/-- Post-check (c) at one recursor, read for the rules' constructor
+names: the restored rules carry the RECORD's constructors. -/
+theorem nestedRecOkF_ctors (ops : CheckerOps CheckCM) (fe : FEnv) (nP k n : Nat)
+    (sr : ConstantVal × List RecRule) (own : List (Nat × Nat)) (cvRa : ConstantVal)
+    (rules : List RecRule) :
+    Yields (nestedRecOkF ops fe nP k n sr own cvRa rules)
+      (fun _ => rules.map (·.ctor) = sr.2.map (·.ctor)) := by
+  unfold nestedRecOkF
+  obtain ⟨cvR, srules⟩ := sr
+  simp only []
+  refine Yields.ofDecCases (fun _ => Yields.ofThrowBind) (fun _ => ?_)
+  ybind
+  ybind
+  refine Yields.ofDecCases (fun _ => Yields.ofThrowBind) (fun _ => ?_)
+  refine Yields.ofDecCases (fun _ => Yields.ofThrow) (fun hok => ?_)
+  exact Yields.pure (nestedRulesOk_ctors (by simpa using hok))
+
+/-- … and over the whole row list. -/
+theorem nestedRecsOkF_ctors (ops : CheckerOps CheckCM) (fe : FEnv) (nP k n : Nat) :
+    ∀ (rows : List ((ConstantVal × List RecRule) × List (Nat × Nat) × ConstantVal ×
+        List RecRule)),
+      Yields (nestedRecsOkF ops fe nP k n rows)
+        (fun _ => ∀ (i : Nat) r, rows[i]? = some r →
+          r.2.2.2.map (·.ctor) = r.1.2.map (·.ctor))
+  | [] => by unfold nestedRecsOkF; exact Yields.pure (by intro i r hr; simp at hr)
+  | (sr, own, cvRa, rules) :: rest => by
+    unfold nestedRecsOkF
+    refine Yields.bind' (nestedRecOkF_ctors ops fe nP k n sr own cvRa rules) fun _ hhead => ?_
+    refine Yields.mono (nestedRecsOkF_ctors ops fe nP k n rest) ?_
+    intro _ hrest i r hr
+    cases i with
+    | zero => simp only [List.getElem?_cons_zero, Option.some.injEq] at hr; subst hr; exact hhead
+    | succ j => exact hrest j r (by simpa using hr)
+
 /-! ## The declaration clause and the two drivers' steps -/
 
 theorem installBasisDeclF_push {env : Env} {fe : FEnv} (h : PushChain env fe)

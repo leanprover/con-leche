@@ -5,6 +5,8 @@ public import ConLeche.Verify.Abstract
 import ConLeche.Verify.AbstractRange
 public import ConLeche.Verify.Subst
 public import ConLeche.Verify.Inductives.MutualGrouped
+-- the auxiliary block's own-constructor count (task #315 M8)
+import ConLeche.Verify.Inductives.NestedAuxFormers
 
 public section
 
@@ -401,5 +403,80 @@ theorem auxBlock_ctors_getElem? {p : NestedParts} {st : ElimState} {b : MutualBl
         some (⟨⟨c.1, p.lps, c.2.1⟩, c.2.2, mIdx⟩ : MutualCtor) := by
   intro mIdx j t c ht hcj
   exact (ownCtors_getElem?_ctors (auxBlock_ownCtors_getElem? hb hg mIdx j t c ht hcj)).1
+
+/-! ## The block's own constructors, positionally (task #315 M8)
+
+The nested route's SKELETON is a function of the recognised block, so
+the walk has to say that member `m`'s auxiliary constructors are `m`'s
+own constructors of the stream — names and field counts, in order.
+The elimination's input carries them (`nestedTypes0` selects by the
+tag), the elimination keeps them (`elimNested_types_prefix` preserves
+exactly the `(name, nF)` pairs), and `auxBlock` tags them back
+(`auxBlock_ownCtors_getElem?`). -/
+
+/-- The elimination's input at a member: the tag selection over the
+zipped annotated constructors is the block's own selection, read at
+the declared names. -/
+private theorem nestedTypes0_ctors_pairs {m : Nat} :
+    ∀ (cs : List MutualCtor) (csA : List ConstantVal),
+      csA.map (·.name) = cs.map (·.cv.name) →
+      ((cs.zip csA).filterMap (fun x =>
+          if x.1.member == m then some (x.2.name, x.2.type, x.1.nF) else none)).map
+            (fun c => (c.1, c.2.2))
+        = (cs.filter (fun c => c.member == m)).map (fun c => (c.cv.name, c.nF))
+  | [], [], _ => rfl
+  | [], _ :: _, h => by simp at h
+  | _ :: _, [], h => by simp at h
+  | c :: cs, cA :: csA, h => by
+    simp only [List.map_cons, List.cons.injEq] at h
+    simp only [List.zip_cons_cons, List.filterMap_cons, List.filter_cons]
+    by_cases hm : (c.member == m) = true
+    · simp only [hm, if_pos, List.map_cons, h.1]
+      exact congrArg _ (nestedTypes0_ctors_pairs cs csA h.2)
+    · simp only [hm, Bool.false_eq_true]
+      exact nestedTypes0_ctors_pairs cs csA h.2
+
+/-- **MEMBER `m`'s AUXILIARY CONSTRUCTORS ARE ITS OWN** (task #315 M8):
+the auxiliary block's `ownCtors m` carries the stream's own
+constructor names and field counts for member `m`, in declaration
+order. -/
+theorem auxBlock_ownCtors_pairs {env : Env} {p : NestedParts}
+    {fmsA ctorsA : List ConstantVal} {st : ElimState} {b : MutualBlock}
+    (hnames : ctorsA.map (·.name) = p.ctors.map (·.cv.name))
+    (he : elimNested env p.nP p.lps (nestedTypes0 p fmsA ctorsA) = .ok st)
+    (hb : auxBlock p st = some b) (hg : mutualCtorsGrouped b.ctors = true)
+    {m : Nat} {t₀ : AuxType} (ht₀ : (nestedTypes0 p fmsA ctorsA)[m]? = some t₀) :
+    (b.ownCtors m).map (fun x => (x.2.cv.name, x.2.nF))
+      = (p.ctors.filter (fun c => c.member == m)).map (fun c => (c.cv.name, c.nF)) := by
+  obtain ⟨t, ht, -, -, -, hct⟩ := elimNested_types_prefix he m t₀ ht₀
+  have hpairs : t.ctors.map (fun c => (c.1, c.2.2))
+      = (p.ctors.filter (fun c => c.member == m)).map (fun c => (c.cv.name, c.nF)) := by
+    rw [hct]
+    have h0 : t₀.ctors = (p.ctors.zip ctorsA).filterMap (fun x =>
+        if x.1.member == m then some (x.2.name, x.2.type, x.1.nF) else none) := by
+      unfold nestedTypes0 at ht₀
+      rw [List.getElem?_map, List.getElem?_zipIdx] at ht₀
+      cases hf : fmsA[m]? with
+      | none => rw [hf] at ht₀; simp at ht₀
+      | some cvT =>
+        rw [hf] at ht₀
+        simp only [Nat.zero_add, Option.map_some, Option.some.injEq] at ht₀
+        rw [← ht₀]
+    rw [h0]
+    exact nestedTypes0_ctors_pairs p.ctors ctorsA hnames
+  have hlen : (b.ownCtors m).length = t.ctors.length := auxBlock_ownCtors_length hb m t ht
+  have hmap : (b.ownCtors m).map (fun x => (x.2.cv.name, x.2.nF))
+      = t.ctors.map (fun c => (c.1, c.2.2)) := by
+    refine List.ext_getElem? ?_
+    intro j
+    rw [List.getElem?_map, List.getElem?_map]
+    cases hcj : t.ctors[j]? with
+    | some c => rw [auxBlock_ownCtors_getElem? hb hg m j t c ht hcj]; rfl
+    | none =>
+      have hj : t.ctors.length ≤ j := List.getElem?_eq_none_iff.mp hcj
+      rw [List.getElem?_eq_none_iff.mpr (by omega)]
+      rfl
+  rw [hmap]
+  exact hpairs
 
 end ConLeche

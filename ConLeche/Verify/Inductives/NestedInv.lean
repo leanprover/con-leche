@@ -2757,4 +2757,38 @@ theorem restoreWalk_getAppFn_const {R : RestoreTbl} (hp : R.PinsHeaded) :
   | lit _ => intro d e' n us _ hfn; exact absurd hfn (by simp [Expr.getAppFn])
   | proj _ _ _ _ => intro d e' n us _ hfn; exact absurd hfn (by simp [Expr.getAppFn])
 
+/-- **THE RESTORED RULES' CONSTRUCTORS ARE THE RECORD'S** (task #315
+M8): post-check (c) compares the stream's rules with the restored ones
+position for position, and the constructor name is one of the fields it
+compares — so the skeleton's rule-constructor list is a function of the
+RECORD, not of the restore. -/
+theorem nestedRulesOk_ctors {nP k n : Nat} {recTy : Expr} {own : List (Nat × Nat)}
+    {srules grules : List RecRule} (h : nestedRulesOk nP k n recTy own srules grules = true) :
+    grules.map (·.ctor) = srules.map (·.ctor) := by
+  unfold nestedRulesOk at h
+  simp only [Bool.and_eq_true, beq_iff_eq, List.all_eq_true] at h
+  obtain ⟨⟨hlen, hlen'⟩, hall⟩ := h
+  refine List.ext_getElem? ?_
+  intro j
+  rw [List.getElem?_map, List.getElem?_map]
+  by_cases hj : j < own.length
+  · have hstep := hall j (List.mem_range.mpr hj)
+    cases hs : srules[j]? with
+    | none =>
+      rw [hs] at hstep; simp at hstep
+    | some a =>
+      cases hgg : grules[j]? with
+      | none => rw [hs, hgg] at hstep; simp at hstep
+      | some g =>
+        cases ho : own[j]? with
+        | none => rw [hs, hgg, ho] at hstep; simp at hstep
+        | some q =>
+          rw [hs, hgg, ho] at hstep
+          simp only [Bool.and_eq_true, beq_iff_eq] at hstep
+          simp only [Option.map_some]
+          exact congrArg some hstep.1.1.1.1.symm
+  · have h1 : grules[j]? = none := List.getElem?_eq_none_iff.mpr (by omega)
+    have h2 : srules[j]? = none := List.getElem?_eq_none_iff.mpr (by omega)
+    rw [h1, h2]
+
 end ConLeche
