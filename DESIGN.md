@@ -94560,3 +94560,123 @@ the same phenomenon §U.80 (a) recorded from the other side: `pinAt` and
 `pinsS.getD _ default` are defeq only at DEFAULT transparency, so the
 anonymous constructor rejects the mismatch and the goal has to be built
 where `isDefEq` runs at default.
+
+#### U.91 — L-E session 36: THE HOLE, minimal and exactly stated — and the chain WALKED, with the honest verdict (lane L-E, 2026-09-18)
+
+The fourth count is negative on the weakest graph, so no measure of any
+kind exists and the route is closed.  §U.89 (d)'s obstruction is the
+statement that goes upward.  What follows is the two things the
+decision needs.
+
+##### (a) THE HOLE, in its tightest form
+
+The out-of-instance case is PROVED (`pins_le_of_instanceLe` over
+K.52).  What is missing is exactly the entry at an `ordF`-right target
+INSIDE the source's own instance:
+
+```lean
+-- at the run, with `tgt` abbreviating
+--   ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+--       (b.ownOffset (p.k + q₀ + iq) + j) []).getD l 0
+∀ (q₀ iq j l : Nat),
+  -- the field: copy-recursive, container-ORDINARY, target a PIN
+  l < ((blkFss0 b ctorsA kinds dsF ψ).getD (b.ownOffset (p.k + q₀ + iq) + j) []).length →
+  ((blkRss ctorsA kinds).getD (b.ownOffset (p.k + q₀ + iq) + j) []).getD l false = true →
+  (((dJf q₀).rss iq).getD j []).getD l false = false →
+  ¬ tgt < p.k →
+  -- and the target is IN THE SOURCE'S OWN INSTANCE
+  (ConLeche.nestedPinInstOf env p b st stored).getD (tgt - p.k) 0
+    = (ConLeche.nestedPinInstOf env p b st stored).getD (q₀ + iq) 0 →
+  -- then the entry holds there
+  pinLfp st pinsS dJf (f₀.s.eval ψ) ψ ρp (tgt - p.k)
+    = lfpTuple ((D).w ψ) (p.k + pinsS.length) ((D).idx ψ ρp) (ΨA ψ ρp)
+        (p.k + (tgt - p.k))
+```
+
+Three things make this the tightest form:
+
+* **the fifth hypothesis is the whole restriction.**  Without it this is
+  `hout` in full; with it, everything the rank induction already
+  discharges is excluded.  So the premise is INVOKED ONLY at the
+  configurations the measurement found;
+* **it is vacuous almost everywhere.**  Its hypothesis is exactly what
+  §U.85's measurement counted: `ordF`-right (not-own) edges with equal
+  instance labels — **fourteen field positions across eight accepted
+  blocks** (four in three fixture blocks, ten in five library-cone
+  blocks).  On the other seventy-five of the eighty-three block-runs
+  measured it is vacuously true.  (The fourth count's "eight blocks" is
+  a DIFFERENT property — a not-own edge inside a directed SCC — and the
+  two counts are not assumed to name the same eight;)
+* **its conclusion is the entry itself**, not a weakening: it is one
+  instance of the very identity step (ii)/(iv) produce elsewhere.
+
+**Not landed as a `def`.**  A named premise with no call site is what
+this project's own rule forbids (`consumer-first-hypotheses`), and
+wiring a call site is construction.  The statement lives here.
+
+##### (b) THE CHAIN, WALKED — and the claim is NOT "one hole"
+
+The coordinator asked to be able to say that one precisely-shaped hole
+is all that stands between this route and a closed proof, and asked for
+that claim to be TRUE.  **It is not true, and here is the walk.**
+Checked on this branch at this commit.
+
+| link | state |
+| --- | --- |
+| `NestedPinsEntry` ← `nestedPinsEntry_of_le_all` | **LANDED** (mine), axioms standard |
+| `NestedPinsShape` ← `nestedPinsShape_of` | landed, but from THREE OPEN residuals: `NestedPinsShapeNoLam`, `NestedPinsShapeOrdRight`, `NestedPinsShapePinF` — **lane L-B** (on its tip `NoLam` is discharged and `OrdRight` is split with the REFLEXIVE half REFUTED; not yet merged here) |
+| `NestedPinsLe` ← `nestedPinsLe_of_rank` | **LANDED** (mine) |
+| its `hrank` | K.37's Bool off `NestedPinsRun.hrank` — **unconditional** |
+| its `hinst` ← `nestedPinInstLe` | **LANDED** (mine) |
+| `InstanceCovered` ← `instanceCovered_of_others` | **LANDED** (mine); its `hothers` is **OPEN — M7-3's `ownPins` + K.41** |
+| `hB : EnvBlocksOf` | available (`PinsModeled`/`mp.blocks`) — **unconditional** |
+| `hppB : ContainerPinParams` | **OPEN — no producer anywhere in the tree** (`git grep` finds it only in its definition and this lane's uses).  M7-3's |
+| `hdJfB` | run-level, mechanical (`NestedTailOut.groups` already names the model `blockOf`) |
+| `hIH` ← `nestedPinsEq_of_le` ← `nestedPinsFixed` | **LANDED** (mine) — unconditional |
+| `hout`, out-of-instance | **PROVED** — `pins_le_of_instanceLe` over K.52 |
+| `hout`, in-instance | **THE HOLE** (a) — nobody's, undischargeable by the tier (§U.89 (d)) |
+| the run-level `Edge`/`EdgeOrd` production | mechanical; the mention bridge is `os_field_domain_free` (`Verify/Inductives/NestedOpenSpine.lean:298`) plus a `List.any` lift |
+| above: `nestedPinsIdent_of`, `nestedPinsStaged_of` | landed, unconditional given the two residuals |
+| `nestedCtorsStaged_of` | landed, but also takes `NestedReadLaw` — **OPEN, no producer in the tree** |
+| `nestedCoreModeled_of`, `nestedTailModeled_of`, `declNested_of` | landed |
+
+**Verdict.**  On the route there are, besides the hole: three shape
+arms (L-B), `NestedReadLaw` (no producer), `hothers`/`ownPins` (M7-3),
+`ContainerPinParams` (M7-3), and mechanical run-level plumbing.  So the
+true statement is:
+
+> **one hole that nobody can discharge, plus four named residuals
+> belonging to other lanes — one of which itself contains a refuted
+> arm — plus mechanical plumbing.**
+
+That is what the maintainer should be told, and it is a different claim
+from the one I was asked to make true.  What IS true and worth saying
+beside it: **every link this lane owns is landed and unconditional
+except the hole**, and the hole's out-of-instance half is proved.
+
+##### (c) WHAT STANDS FINISHED BEHIND IT
+
+This lane's landed chain, all with standard axioms: `nestedPinPairAt_mem`,
+`nestedPinPairAt_pin`, `nestedPinPairAt` (`hpair`, both class kinds),
+`nestedInstanceLe`, `nestedPinFam_of_classPin`, `instanceCovered_of_others`,
+`nestedPinInstLe`, `pins_le_of_instanceLe`, `nestedPinsLe_of_rank`,
+`nestedPinsEq_of_le` (step ii), `nestedPinsEntry_at`/`_of`/`_of_le`
+(step iv) and `nestedPinsEntry_of_le_all` (the residual's discharge),
+plus the `EntryRead` repair and the K.42/K.52 threading.
+
+##### (d) STANDING DOWN on this row
+
+Ten read-only sessions bounded the route and five constructions were
+not started on the strength of them.  The in-instance row is closed as
+far as this lane can take it; §U.89 (d) is the obstruction and (a) is
+the hole.
+
+##### (e) UNAMBIGUOUSLY: nothing landed is affected
+
+Every theorem this lane has landed stays landed.  The OUT-OF-INSTANCE
+case, step (ii), step (iv) and the residual's discharge go through
+today exactly as they did before this arc began.  No line of the proof
+tree was touched in eleven sessions of this arc.
+
+Gates: `lake build` and `lake test` warning-free at the session's
+commit; text gates green.
