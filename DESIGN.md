@@ -85784,6 +85784,103 @@ quote-gate 2; proofdeps 4965 rows / 12 roots / **0 doors**.
 guards' invariance is proved and came in at the bottom of its range,
 and its remainder is ~1 mechanical session plus the two name facts.
 
+##### (tttt) THE GUARDS' PREMISES, DISCHARGED AT THE RUN — and the matcher-auxiliary door
+
+(dc798eba.)  (rrrr)'s remainder is closed.  The entry point the face
+spends is `rg_structProjGuards_of_run`
+(`Verify/Inductives/NestedRestoreKit.lean:1492`): from the elimination,
+the scratch core's run, `copiesFresh`, the formers' checks, the
+constructors' stage, `classifyMutualKinds` and `ctorsA[J]? = some cA`,
+plus `restoreNested R cA.1.type = .ok ctyR`, it returns
+
+    structProjGuards ctyR b.nP cA.2 sorts = structProjGuards cA.1.type b.nP cA.2 sorts
+
+for every `sorts`, with **no residual premise**.
+`rg_keepsLoose_ctor_of_run` (:1382) is the same one step earlier.  The
+hypothesis shapes are the ones `nestedCopyCtorType_eq` already hands
+out, so the face needs one `mutualFormers_inv` and nothing else.
+
+**Both name facts DERIVED**, and (rrrr)'s two candidate routes resolved:
+
+* **(A)** `rg_auxFree_of_resolve` (:1197) — through `constsResolve` in
+  CLOSED form: `FrontDoorFacts.resolve` plus
+  `Expr.constsResolve_stripPis` pushes resolution to the domains,
+  `rk_restoreTbl_auxNames_fresh` puts every auxiliary name outside the
+  pre-block environment, and `mutualFormerChecksG_names` says the
+  formers' conses add MEMBER names only.  So `!mentionsMember` upgrades
+  to aux-free.  **The opened↔closed bridge (nnnn) budgeted for is used
+  nowhere** — that is now twice this step's cost was over-estimated by
+  picking the opened form as the witness.
+* **(B)** `rg_restoreTbl_auxNames_split` (:1118) with
+  `rg_auxName_member_pin` (:1172) — `blockNames.Nodup` kills both
+  non-pin summands of `auxNames` against the member list, so a member
+  that is an auxiliary name is a COPY, where
+  `restoreTbl_pins_lookup_run` answers and
+  `restoreTbl_recMap_lookup_aux'` declines.  **The recursor half needed
+  no extra freshness beyond `Nodup`** — (rrrr) expected to want the
+  recursor-name check and does not.
+
+The shared core is `rg_keepsLoose_memberApp` (:1280): either the term
+mentions no auxiliary name (prune ⇒ identity) or it does, and the only
+place one can sit is the HEAD, because the first `nP` arguments are the
+parameter spine's bound variables and the rest are member-free and
+resolving.  At `nF = 0` the residual premise is vacuous and the guards
+list is empty anyway.
+
+**THE DOOR, and it is a general trap.**  The four walk/kinds inversions
+were written in the kit first and `tests/proofdeps.sh` reported **TEN
+DOORS**, every one `<capstone> :: NestedRestoreKit`.  Cause: a `split`
+on `mutualPositivity`'s internal `match` **declares that matcher's
+`.splitter`/`.eq_n` auxiliaries in whichever module forces them
+FIRST**, and every later importer reuses them — so the capstones' proof
+terms reached into the kit.  A private-name prefix does not stop the
+reuse.  Fix: the four lemmas moved to `MutualInv.lean`
+(`rg_mentionsMember_forallE:575`, `rg_mutualPositivity_notPi:584`,
+`_ordinary:608`, `_spine:643`, `rg_mutualCtorKinds_at:706`), which all
+ten roots already reach, beside `classifyMutualKinds_inv` whose
+conjuncts they consume.  Doors back to 0, the pin untouched.
+
+> **The rule**: FORCING A MATCHER'S AUXILIARIES MOVES THAT MODULE INTO
+> EVERY PROOF TERM THAT LATER NEEDS THEM.  So a `split` on a
+> definition's internal `match` belongs in the module that already owns
+> that definition's inversions — not in a leaf kit that the capstones
+> do not otherwise reach.  This is the mirror image of the private-
+> matcher trap CLAUDE.md records for `rw`: there a `private` lemma's
+> matcher is NOT reused and a rewrite stops firing; here it IS reused
+> and a dependency edge appears.
+
+##### (uuuu) FILES AND GATES (session 27's HEAD)
+
+The lane's kernel request is repointed to NO NUMBER (b3bded2a): it had
+said K.51, which was reserved elsewhere, and this was the seventh
+collision on the task.  **A lane does not assign a kernel record
+number** — cite by title, the integrator numbers at queueing.  The rule
+is inline at (pppp) so the next reader does not repeat it.
+
+Touched: `ConLeche/Verify/Inductives/NestedRestoreKit.lean` and
+`ConLeche/Verify/Inductives/MutualInv.lean` (the four inversions, for
+the door above).  No new file — (rrrr)'s tier rule held: new Verify
+work goes where a consumer already is.
+
+`lake build` warning-free EXIT 0; `lake test` warning-free EXIT 0;
+shake 510 removals all allowlisted / pub-imports 1334 of 2215, none
+demotable (55 fallbacks); layering base 353 / model 286 / caps 3 /
+umbrella 1, 0 base→lane, 0 impl→theory; trust surface 13 escapes in 5
+allowlisted files, 0 outside; no-local-paths OK; overview-links 112;
+quote-gate 2; proofdeps 4965 rows / 12 roots / **0 doors**.
+`#print axioms` of all sixteen new theorems is
+`[propext, Classical.choice, Quot.sound]`.  `tests/arena.sh` not run:
+no checker code changed, so no fixture verdict can move.
+
+**The tables' face from here: 2½–4½ sessions** ((rrrr) said 3–5).  Left,
+in (oooo)'s names: `tableMember_of` off `d.pins = []` to `PinsTyped`
+(~0.2); `MutualTableFacts` at the nested block model, whose `sorts`
+field is about the RESTORED domains (1–2); `MemberStored`/`NoProjEnv`/
+the restored constructors' conditions (~1); `tbl.ctor = cvCa.name` (a
+few lines); and the assembly (~0.5–1) with (nnnn)'s restatement —
+passing `hreps₃` and the store environment's `FindPreserved` INTO the
+face instead of re-deriving them.
+
 
 #### U.30 — L-B session 2: `CopyCtorInst.ordF` at the READING, the normalisation's reading law PROVED, `ContainerModeled`'s three clauses (lane L-B, 2026-09-16)
 
