@@ -107568,3 +107568,85 @@ session — **pin-target (`copyOrdFRightReadP`)**.  What remains for
 `NestedPinsShapeOrdRight` itself is the dispatch: choosing the arm off
 the classification and the target's position, and threading the two
 hypotheses of (c).  No open mathematical question in it.
+
+#### L-B session 34 (addendum): the arm's CONCLUSION, stated for the cross-lane edit; and a CORRECTION to (f) (lane L-B, 2026-09-18)
+
+##### (a) `copyOrdFRightReadP`'s CONCLUSION, exactly — for lane L-E's re-basing
+
+**The UNPRIMED `EntryRead`, at the RECORDED frame, with the target read
+as a RECORDED TERM.**  Read back off the source, not from memory:
+
+* the predicate is `EntryRead` (not `EntryReadF`), at
+  `TV := nestedTV … pinsS mp₁'.base2.acval … ψ` and
+  `Ds := (pinsS.getD (q₀ + i') default).Ds ψ` — the RECORDED components;
+* `EntryRead`'s premise ends in `is.foldl app (interp V ρp (TV.EA (tg l)))`
+  — `interp` of a recorded `AnnotTerm` (`targetRead`'s pin branch), not
+  a value;
+* its conclusion `CopyEntryAt … Ds …` reads the container's side at
+  `consList (Ds.map (interp V ρp)) ρp`, the recorded frame;
+* step (iv)'s own reading concludes
+  `… = (eis.map …).foldl app (interp V ρp (TV.EA (p.k + qq)))` — again a
+  recorded term.
+
+**THE MEASUREMENT THAT MATTERS FOR THE SPANNING EDIT: the proof passes
+through the VALUE form one line before the end.**  Its penultimate form
+is `foldl app (interp V ρp fa) (((pinsS.getD qq default).Ds ψ).map (interp V ρp))`,
+which is exactly `targetValAt` at `cAs qq := the recorded components'
+values`; `hEA` plus `interp_mkAppN_foldl` folds it back into
+`interp V ρp (TV.EA …)`.  So the recorded-ness enters at exactly TWO
+places, both nameable:
+
+1. `hvs₁`/`hcomp` — the component VALUES come from
+   `NestedPinSynFacts.pinDs` at the RECORDED components
+   (`(pinsS.getD qq default).DsE`), lifted by `denoteMeta_lift`;
+2. the final `hEA` fold-back.
+
+Everything between is already value-shaped.  **A re-basing of this arm
+to the primed predicate at a candidate `cAs` would need candidate
+component values in place of (1) and the index fit at the candidate
+frame (currently `blockFormer_ids_fit_gen` at `σ := ρp`); it would NOT
+need the reading algebra rewritten.**  That is the honest size of this
+lane's half of a spanning edit — smaller than it looks, and NOT
+undertaken here: the arm stands as designed.
+
+##### (b) A CORRECTION to session 34 (f) — the dispatch is NOT wiring
+
+(f) said "All four of `CopyCtorShape`'s arms now have their `ordF`-right
+reading … pin-target".  **That overstates it, and the object is the one
+the rule this round produced says to name**: what landed is the
+pin-target arm at a `.recursive` copy field.  `NestedPinsShapeOrdRight`
+is ONE residual over BOTH kinds — its hypothesis is the DISJUNCTION
+`.recursive ∨ .reflexive` at a target at or above `p.k` — so
+discharging it needs the REFLEXIVE half at a pin target too, and that is
+not written.
+
+It is a further ARM, not wiring:
+
+* step (iv)'s reading needs a reflexive twin —
+  `MutualCtorDataI.eisRead` is stated at `.recursive`; the reflexive
+  clause is `reflOpen`'s, whose spine sits at depth
+  `nP + i + tele.length` rather than `nP + i`;
+* the arm then substitutes `reflEntry` for `recEntry` and
+  `interp_mkPisAV_piTele` for `slotSet_nil`, and takes the reading and
+  the fit one frame deeper — the same two substitutions that separated
+  the member-target arms (`copyOrdFRightReadM` vs
+  `copyOrdFRightReadRefl`, ~175 lines).
+
+**Size: one session**, on the pattern the member arms already set.  And
+it may not be skipped on corpus grounds: the standing rule is that case
+analysis is exhaustive over the SYNTAX, and no recorded fact excludes a
+reflexive field at a pin target (`mutualOpenedOk`'s reflexive clause
+constrains the target no more than its recursive one does).
+
+##### (c) THE EXPLICIT-FAMILY PRACTICE, confirmed from the other side
+
+Lane L-E's deterministic-timeout finding (unification inverting an index
+expression to solve an implicit family) did not bite here, and the
+reason is worth recording as the same practice seen working: every call
+into the fit and reading machinery passes its families explicitly —
+`(m := mp₁'.base2)`, `(t := i'')`, `(σ := ρp)`, `(ρ := consList fs₁ ρp)`,
+`(V := V)`.  The one place a family was left implicit
+(`nestedTV` in a `have`'s statement) failed immediately with "don't know
+how to synthesize implicit argument `V`" — a type error, not a timeout,
+because nothing had to be inverted.  **Pass them explicitly from the
+start.**
