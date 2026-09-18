@@ -5,6 +5,8 @@ public import ConLeche.Model.Inductives.BlockRepCross
 import ConLeche.Model.Install
 import ConLeche.Verify.Inductives.ContainerFrame
 import ConLeche.Verify.Inductives.NestedGroupInv
+import ConLeche.Verify.Inductives.NestedCopyInstU
+import ConLeche.Verify.Inductives.NestedCopyKinds
 public section
 
 /-!
@@ -586,8 +588,14 @@ perfectly well be a parameter. -/
 
 /-- `containerOwnPinsAt`, inverted: a successful read is the mimic walk
 at the group's own first member, from the container's stored level
-parameters and the group's parameter count. -/
-private theorem containerOwnPinsAt_inv {env : Env} {C : Name} {lvls : List Level}
+parameters and the group's parameter count.
+
+Public since task #315 M7-3 session 18: the nested route's own
+discharge of the clause (`nestedOwnPins_of`) reduces BOTH tables — the
+one the reader asks for and the one K.47 records — to the walk through
+this, and the three walk lemmas here are shared rather than
+duplicated. -/
+theorem containerOwnPinsAt_inv {env : Env} {C : Name} {lvls : List Level}
     {Ds ps : List Expr} (h : ConLeche.containerOwnPinsAt env C lvls Ds = some ps) :
     ∃ (cv : ConstantVal) (caps : IndCaps) (ci : ContainerInfo) (M : ConLeche.ContainerMember),
       env.find? C = some (.indInfo cv caps) ∧ ConLeche.containerInfo? env C = some ci ∧
@@ -612,8 +620,8 @@ private theorem containerOwnPinsAt_inv {env : Env} {C : Name} {lvls : List Level
           exact h.symm
     | _ => simp [bind, Option.bind] at h
 
-/-- `containerOwnPinsAt_inv`, read forwards. -/
-private theorem containerOwnPinsAt_eq {env : Env} {C : Name} {cv : ConstantVal} {caps : IndCaps}
+/-- `containerOwnPinsAt_inv`, read forwards (public with it). -/
+theorem containerOwnPinsAt_eq {env : Env} {C : Name} {cv : ConstantVal} {caps : IndCaps}
     {ci : ContainerInfo} {M : ConLeche.ContainerMember} {lvls : List Level} {Ds : List Expr}
     (hf : env.find? C = some (.indInfo cv caps))
     (hci : ConLeche.containerInfo? env C = some ci) (hM : ci.members.head? = some M) :
@@ -635,8 +643,11 @@ at `env₁` is one of the new names, and `hmimOld` excludes exactly that
 for this container's mimics.  What each step reads is then a function
 of the SAME stored type, save for the container lookup at the major
 premise's head, which `hhead` places in the old environment and
-`hciEq` therefore leaves alone. -/
-private theorem containerOwnPinsAtGo_ext {env₁ env₂ : Env} {N : List Name} {base : Name}
+`hciEq` therefore leaves alone.
+
+Public with `containerOwnPinsAt_inv` above (task #315 M7-3
+session 18). -/
+theorem containerOwnPinsAtGo_ext {env₁ env₂ : Env} {N : List Name} {base : Name}
     {lps : List Name} {lvls : List Level} {Ds : List Expr} {nPr : Nat}
     (hext : ∀ (n : Name) (c : ConstantInfo), env₁.find? n = some c → env₂.find? n = some c)
     (hnewN : ∀ (n : Name) (c : ConstantInfo), env₂.find? n = some c →
@@ -759,6 +770,376 @@ theorem ContainerOwnPinsSyn.crossInd {env₁ env₂ : Env} {N : List Name} {d : 
     (fun j cv' mI rP rules h2 hmem => hMold (hmimN M.name j cv' mI rP rules h2 hmem))
     hciEq hhead 64 0] at he
   exact h i _ _ lvls DsE _ hi hf₁ hcl (containerOwnPinsAt_eq hf₁ hci₁ hM) e he
+
+/-! ## The own-pin table at ANOTHER instantiation (task #315 M7-3
+session 18, DESIGN §U.79)
+
+`containerOwnPinsAt` reads a container's own pins AT AN INSTANTIATION —
+the level arguments and the components the caller asks for — and K.47
+records the answer at ONE of them: the block's own levels
+(`p.lps.map Level.param`, the identity substitution) and its parameter
+OPENERS.  `ContainerOwnPinsSyn` is quantified over all of them, so the
+recorded answer has to be TRANSPORTED, and that is what this section
+does: one step of the walk (`ownPinsStep_subst`, on lane L-B's
+`instPis_openers_subst` and the two level-instantiation commutations),
+the walk's LENGTH (`containerOwnPinsAtGo_length_le`, which is what K.43
+pins down), and the walk itself (`containerOwnPinsAtGo_subst`).
+
+**Why the length is needed at all.**  The transport carries a step that
+SUCCEEDS at the openers to the same step at the components; it says
+nothing about a step that fails there, and such a step can succeed at
+other components — a major premise headed by one of the recursor's own
+PARAMETERS reads back headed by whatever the substitution put there
+(`RecMajorHeadStored`'s discussion above).  K.43 makes the walk visit
+exactly `numNested` names and K.47 makes it read exactly the
+`st.pins.length` recorded pins; with one entry per step at most, the
+two counts force EVERY step to succeed at the openers, and the
+pathology is excluded rather than assumed.
+
+**The components must be closed** (`hDcl`) — the clause's new
+hypothesis, and not a convenience: the pad the reader instantiates the
+mimic's motives, minors and indices at runs AFTER the components, so a
+component carrying a loose bound variable is eaten by it.  See
+`ContainerOwnPinsSyn`'s own docstring for the two real-run
+counterexamples. -/
+
+/-- **A TABLE ENTRY, RE-SPELLED AT ANOTHER INSTANTIATION**: the head's
+level arguments substituted, and each component closed at the block's
+parameter openers, level-instantiated and re-opened at the components
+the reader was asked for.
+
+At a constant-headed spine — which every entry of the table is, the
+reader keeps no other — this IS `PinSyn.ownAt` of the pin the entry
+records (`nestedOwnPins_of`); it is spelled here without a `PinSyn` so
+that the walk's lemmas stay about `Expr`s. -/
+@[expose] def ownSubst (nP : Nat) (lps : List Name) (lvls : List Level) (DsE : List Expr)
+    (e : Expr) : Expr :=
+  Expr.mkAppN (Expr.instantiateLevelParams lps lvls e.getAppFn)
+    (e.getAppArgs.map fun x =>
+      Expr.instSeq DsE (DsE.length - 1)
+        ((x.abstractRange 0 nP 0).instantiateLevelParams lps lvls))
+
+/-- **ONE STEP OF THE OWN-PIN WALK**: what the mimic recursor whose
+stored type is `ty` contributes to the table — `containerOwnPinsAtGo`'s
+own `here`, named so that the step and the walk can be reasoned about
+apart. -/
+@[expose] def ownPinsStep (env : Env) (lps : List Name) (lvls : List Level) (Ds : List Expr)
+    (nPr mI : Nat) (ty : Expr) : List Expr :=
+  if nPr ≤ mI && Ds.length == nPr then
+    match Expr.instPis (ty.instantiateLevelParams lps lvls)
+        (Ds ++ (List.range (mI - nPr)).map fun _ => Expr.sort Level.zero) with
+    | some (.forallE dom _ _) =>
+      match dom.getAppFn with
+      | .const K _ =>
+        match ConLeche.containerInfo? env K with
+        | some ciK => [Expr.mkAppN dom.getAppFn (dom.getAppArgs.take ciK.nP)]
+        | none => []
+      | _ => []
+    | _ => []
+  else []
+
+/-- A step reads at most one pin: every branch of the walk's `here` is
+empty or a singleton. -/
+theorem ownPinsStep_length_le_one (env : Env) (lps : List Name) (lvls : List Level)
+    (Ds : List Expr) (nPr mI : Nat) (ty : Expr) :
+    (ownPinsStep env lps lvls Ds nPr mI ty).length ≤ 1 := by
+  unfold ownPinsStep
+  repeat' split
+  all_goals simp
+
+/-- The walk, unfolded at a name that IS a stored recursor: this step's
+entry, then the walk from the next name. -/
+theorem containerOwnPinsAtGo_cons {env : Env} {base : Name} {lps : List Name}
+    {lvls : List Level} {Ds : List Expr} {nPr : Nat} {cvR : ConstantVal} {mI rP : Nat}
+    {rules : List RecRule} (fuel j : Nat)
+    (h : env.find? (Name.appendIndexAfter base (j + 1)) = some (.recInfo cvR mI rP rules)) :
+    ConLeche.containerOwnPinsAtGo env base lps lvls Ds nPr (fuel + 1) j
+      = ownPinsStep env lps lvls Ds nPr mI cvR.type
+        ++ ConLeche.containerOwnPinsAtGo env base lps lvls Ds nPr fuel (j + 1) := by
+  simp only [ConLeche.containerOwnPinsAtGo, h]
+  rfl
+
+/-- The walk, at a name that is NOT a stored recursor: it stops, at any
+fuel. -/
+theorem containerOwnPinsAtGo_stop {env : Env} {base : Name} {lps : List Name}
+    {lvls : List Level} {Ds : List Expr} {nPr : Nat} (fuel j : Nat)
+    (h : ConLeche.isRecInfoAt env (Name.appendIndexAfter base (j + 1)) = false) :
+    ConLeche.containerOwnPinsAtGo env base lps lvls Ds nPr fuel j = [] := by
+  cases fuel with
+  | zero => rfl
+  | succ f =>
+    unfold ConLeche.isRecInfoAt at h
+    unfold ConLeche.containerOwnPinsAtGo
+    split
+    · rename_i cvR mI rP rules hfind
+      rw [hfind] at h
+      exact nomatch h
+    · rfl
+
+/-- **THE WALK'S LENGTH IS THE NUMBER OF MIMICS** (the half K.43
+records): a walk that reaches a name which is not a stored recursor
+after `n` steps reads at most `n` entries, since a step reads at most
+one. -/
+theorem containerOwnPinsAtGo_length_le {env : Env} {base : Name} {lps : List Name}
+    {lvls : List Level} {Ds : List Expr} {nPr : Nat} :
+    ∀ (fuel n j : Nat),
+      ConLeche.isRecInfoAt env (Name.appendIndexAfter base (j + n + 1)) = false →
+      (ConLeche.containerOwnPinsAtGo env base lps lvls Ds nPr fuel j).length ≤ n := by
+  intro fuel
+  induction fuel with
+  | zero => intro n j _; simp [ConLeche.containerOwnPinsAtGo]
+  | succ f ih =>
+    intro n j hstop
+    cases hfind : env.find? (Name.appendIndexAfter base (j + 1)) with
+    | none =>
+      rw [containerOwnPinsAtGo_stop (f + 1) j (by unfold ConLeche.isRecInfoAt; rw [hfind])]
+      simp
+    | some c =>
+      cases c with
+      | recInfo cvR mI rP rules =>
+        cases n with
+        | zero =>
+          exfalso
+          unfold ConLeche.isRecInfoAt at hstop
+          rw [show j + 0 + 1 = j + 1 from rfl, hfind] at hstop
+          exact nomatch hstop
+        | succ n' =>
+          rw [containerOwnPinsAtGo_cons f j hfind, List.length_append]
+          have h1 := ownPinsStep_length_le_one env lps lvls Ds nPr mI cvR.type
+          have h2 := ih n' (j + 1)
+            (by rw [show j + 1 + n' + 1 = j + (n' + 1) + 1 from by omega]; exact hstop)
+          omega
+      | _ =>
+        rw [containerOwnPinsAtGo_stop (f + 1) j (by unfold ConLeche.isRecInfoAt; rw [hfind])]
+        simp
+
+/-- **A STEP THAT READ A PIN, INVERTED**: the guard held, the mimic's
+telescope instantiated to a `∀`, its domain is a constant-headed spine
+and the head is a stored container — the data the transport moves. -/
+theorem ownPinsStep_inv {env : Env} {lps : List Name} {lvls : List Level} {Ds : List Expr}
+    {nPr mI : Nat} {ty e₀ : Expr}
+    (h : ownPinsStep env lps lvls Ds nPr mI ty = [e₀]) :
+    ∃ (dom body : Expr) (bm : ConLeche.BinderMeta) (K : Name) (us : List Level)
+      (ciK : ContainerInfo),
+      nPr ≤ mI ∧ Ds.length = nPr ∧
+      Expr.instPis (ty.instantiateLevelParams lps lvls)
+          (Ds ++ (List.range (mI - nPr)).map fun _ => Expr.sort Level.zero)
+        = some (.forallE dom body bm) ∧
+      dom.getAppFn = Expr.const K us ∧
+      ConLeche.containerInfo? env K = some ciK ∧
+      e₀ = Expr.mkAppN (Expr.const K us) (dom.getAppArgs.take ciK.nP) := by
+  unfold ownPinsStep at h
+  split at h
+  · rename_i hg
+    simp only [Bool.and_eq_true, decide_eq_true_eq, beq_iff_eq] at hg
+    split at h
+    · rename_i dom body bm heq
+      split at h
+      · rename_i K us hfn
+        split at h
+        · rename_i ciK hK
+          refine ⟨dom, body, bm, K, us, ciK, hg.1, hg.2, heq, hfn, hK, ?_⟩
+          rw [← hfn]
+          simpa using h.symm
+        · exact nomatch h
+      · exact nomatch h
+    · exact nomatch h
+  · exact nomatch h
+
+/-- **ONE STEP, TRANSPORTED** (task #315 M7-3 session 18, DESIGN §U.79
+(b)): a step that reads a pin at the block's own levels and parameter
+OPENERS reads the SAME pin, re-spelled (`ownSubst`), at any level
+arguments and any CLOSED components of the same number.
+
+The stored type is closed (`hf`, `hb`: it is a stored recursor's), so
+lane L-B's `instPis_openers_subst` carries the whole telescope
+instantiation from the openers to the components; the level arguments
+move first, by `instPis_ilp` at the IDENTITY substitution K.47 records
+(`Expr.instantiateLevelParams_self`); and the entry is a
+constant-headed spine, which the two transports pass through component
+by component (`ilp_mkAppN`, `abstractRange_mkAppN`,
+`instSeq_mkAppN_const`). -/
+theorem ownPinsStep_subst {env : Env} {lps : List Name} {lvls : List Level}
+    {params DsE : List Expr} {nP mI : Nat} {ty e₀ : Expr}
+    (hf : ty.hasFvar = false) (hb : ty.looseBVarsBounded 0 = true)
+    (hplen : params.length = nP)
+    (hidx : ∀ j, j < nP → ∃ t, params[j]? = some (Expr.fvar j t))
+    (hDlen : DsE.length = nP) (hDcl : ∀ a ∈ DsE, a.looseBVarsBounded 0 = true)
+    (hbase : ownPinsStep env lps (lps.map Level.param) params nP mI ty = [e₀]) :
+    ownPinsStep env lps lvls DsE nP mI ty = [ownSubst nP lps lvls DsE e₀] := by
+  obtain ⟨dom, body, bm, K, us, ciK, hle, -, h0, hfn, hK, he₀⟩ := ownPinsStep_inv hbase
+  rw [Expr.instantiateLevelParams_self] at h0
+  -- the pad is closed and carries no free variable
+  have hpadMem : ∀ a ∈ (List.range (mI - nP)).map (fun _ => Expr.sort Level.zero),
+      a = Expr.sort Level.zero := by
+    intro a ha
+    obtain ⟨_, _, rfl⟩ := List.mem_map.mp ha
+    rfl
+  have hpadb : ∀ a ∈ (List.range (mI - nP)).map (fun _ => Expr.sort Level.zero),
+      a.looseBVarsBounded 0 = true := fun a ha => by rw [hpadMem a ha]; rfl
+  have hpadf : ∀ a ∈ (List.range (mI - nP)).map (fun _ => Expr.sort Level.zero),
+      a.hasFvar = false := fun a ha => by rw [hpadMem a ha]; rfl
+  -- the run at the components: the levels first (K.47 records the identity
+  -- substitution), then the openers
+  have hilp := ConLeche.instPis_ilp lps lvls
+    (params ++ (List.range (mI - nP)).map fun _ => Expr.sort Level.zero) ty
+    (.forallE dom body bm) h0
+  have hmap : (params ++ (List.range (mI - nP)).map fun _ => Expr.sort Level.zero).map
+        (Expr.instantiateLevelParams lps lvls)
+      = params.map (Expr.instantiateLevelParams lps lvls)
+        ++ (List.range (mI - nP)).map fun _ => Expr.sort Level.zero := by
+    rw [List.map_append]
+    refine congrArg _ (List.ext_getElem (by simp) (fun n _ h2 => ?_))
+    rw [List.getElem_map, hpadMem _ (List.getElem_mem h2)]
+    rfl
+  rw [hmap] at hilp
+  have hgen := ConLeche.instPis_openers_subst
+    (T := ty.instantiateLevelParams lps lvls) (nP := nP)
+    (params := params.map (Expr.instantiateLevelParams lps lvls))
+    (pad := (List.range (mI - nP)).map fun _ => Expr.sort Level.zero) (Ds := DsE)
+    (R₀ := (Expr.forallE dom body bm).instantiateLevelParams lps lvls)
+    (by rw [Expr.hasFvar_instantiateLevelParams]; exact hf)
+    (by rw [Expr.looseBVarsBounded_instantiateLevelParams]; exact hb)
+    (by rw [List.length_map]; exact hplen)
+    (fun j hj => by
+      obtain ⟨t, ht⟩ := hidx j hj
+      exact ⟨t.instantiateLevelParams lps lvls, by rw [List.getElem?_map, ht]; rfl⟩)
+    hDlen hDcl hpadb hpadf hilp
+  -- the residual is a `∀` whose domain is the pin, re-spelled
+  have hshape : Expr.instSeq DsE (nP - 1)
+        (((Expr.forallE dom body bm).instantiateLevelParams lps lvls).abstractRange 0 nP 0)
+      = Expr.forallE
+          (Expr.instSeq DsE (nP - 1)
+            ((dom.instantiateLevelParams lps lvls).abstractRange 0 nP 0))
+          (Expr.instSeq DsE (nP - 1 + 1)
+            ((body.instantiateLevelParams lps lvls).abstractRange 0 nP 1))
+          ⟨Level.substPW lps lvls bm.pw⟩ := by
+    show Expr.instSeq DsE (nP - 1) (Expr.forallE _ _ _) = _
+    exact Expr.instSeq_forallE DsE (nP - 1) _ _ _ (by rw [hDlen]; omega)
+  -- the domain's spine, component by component
+  have hdomEq : dom = Expr.mkAppN (Expr.const K us) dom.getAppArgs := by
+    conv => lhs; rw [← Expr.mkAppN_getApp dom]
+    rw [hfn]
+  have hDgen : Expr.instSeq DsE (nP - 1)
+        ((dom.instantiateLevelParams lps lvls).abstractRange 0 nP 0)
+      = Expr.mkAppN (Expr.const K (us.map (Level.subst lps lvls)))
+          (dom.getAppArgs.map fun x => Expr.instSeq DsE (DsE.length - 1)
+            ((x.abstractRange 0 nP 0).instantiateLevelParams lps lvls)) := by
+    conv => lhs; rw [hdomEq]
+    rw [ConLeche.ilp_mkAppN]
+    show Expr.instSeq DsE (nP - 1)
+      ((Expr.mkAppN (Expr.const K (us.map (Level.subst lps lvls)))
+        (dom.getAppArgs.map (Expr.instantiateLevelParams lps lvls))).abstractRange 0 nP 0) = _
+    rw [ConLeche.abstractRange_mkAppN, ConLeche.abstractRange_const,
+      ConLeche.instSeq_mkAppN_const, hDlen]
+    simp only [List.map_map, Function.comp_def]
+    refine congrArg _ (List.map_congr_left (fun x _ => ?_))
+    rw [ConLeche.abstractRange_ilp]
+  -- and the step at the components reads exactly that
+  unfold ownPinsStep
+  rw [if_pos (by simp only [hDlen, beq_self_eq_true, Bool.and_true, decide_eq_true_eq]; exact hle)]
+  simp only [hgen, hshape, hDgen, Expr.getAppFn_mkAppN, Expr.getAppArgs_mkAppN, Expr.getAppFn,
+    Expr.getAppArgs, List.nil_append, hK, he₀, ownSubst, List.map_take]
+  simp only [Expr.instantiateLevelParams]
+
+/-- A step at the WRONG NUMBER of components reads nothing: the
+reader's guard compares the components' length with the group's
+parameter count. -/
+theorem ownPinsStep_nil_of_len {env : Env} {lps : List Name} {lvls : List Level} {Ds : List Expr}
+    {nPr mI : Nat} {ty : Expr} (h : Ds.length ≠ nPr) :
+    ownPinsStep env lps lvls Ds nPr mI ty = [] := by
+  unfold ownPinsStep
+  rw [if_neg (by simp [h])]
+
+/-- …and so does the whole walk, at every name and every fuel. -/
+theorem containerOwnPinsAtGo_nil_of_len {env : Env} {base : Name} {lps : List Name}
+    {lvls : List Level} {Ds : List Expr} {nPr : Nat} (h : Ds.length ≠ nPr) :
+    ∀ (fuel j : Nat), ConLeche.containerOwnPinsAtGo env base lps lvls Ds nPr fuel j = [] := by
+  intro fuel
+  induction fuel with
+  | zero => intro j; rfl
+  | succ f ih =>
+    intro j
+    cases hfind : env.find? (Name.appendIndexAfter base (j + 1)) with
+    | none =>
+      exact containerOwnPinsAtGo_stop (f + 1) j (by unfold ConLeche.isRecInfoAt; rw [hfind])
+    | some c =>
+      cases c with
+      | recInfo cvR mI rP rules =>
+        rw [containerOwnPinsAtGo_cons f j hfind, ownPinsStep_nil_of_len h, ih (j + 1)]
+        rfl
+      | _ =>
+        exact containerOwnPinsAtGo_stop (f + 1) j (by unfold ConLeche.isRecInfoAt; rw [hfind])
+
+/-- **THE TABLE, TRANSPORTED** (task #315 M7-3 session 18, DESIGN §U.79
+(b)): the own-pin table at any level arguments and any CLOSED
+components of the right number is the table at the block's own levels
+and parameter openers, entry by entry re-spelled.
+
+`hstop` is K.43's second half — the walk reaches a name that is not a
+stored recursor after `n` steps — and `hlen` is K.47's: the table read
+there has one entry per step.  Together they make every step of the
+walk succeed AT THE OPENERS, which is what lets the step transport
+apply to all of them (see the section's preamble). -/
+theorem containerOwnPinsAtGo_subst {env : Env} {base : Name} {lps : List Name}
+    {lvls : List Level} {params DsE : List Expr} {nP : Nat}
+    (hwf : ConLeche.EnvWF env)
+    (hplen : params.length = nP)
+    (hidx : ∀ j, j < nP → ∃ t, params[j]? = some (Expr.fvar j t))
+    (hDlen : DsE.length = nP) (hDcl : ∀ a ∈ DsE, a.looseBVarsBounded 0 = true) :
+    ∀ (n fuel j : Nat),
+      ConLeche.isRecInfoAt env (Name.appendIndexAfter base (j + n + 1)) = false →
+      (ConLeche.containerOwnPinsAtGo env base lps (lps.map Level.param) params nP
+        fuel j).length = n →
+      ConLeche.containerOwnPinsAtGo env base lps lvls DsE nP fuel j
+        = (ConLeche.containerOwnPinsAtGo env base lps (lps.map Level.param) params nP
+            fuel j).map (ownSubst nP lps lvls DsE) := by
+  intro n
+  induction n with
+  | zero =>
+    intro fuel j hstop _
+    have hstop0 : ConLeche.isRecInfoAt env (Name.appendIndexAfter base (j + 1)) = false := by
+      rw [show j + 1 = j + 0 + 1 from rfl]
+      exact hstop
+    simp only [containerOwnPinsAtGo_stop fuel j hstop0, List.map_nil]
+  | succ n ih =>
+    intro fuel j hstop hlen
+    cases fuel with
+    | zero => simp [ConLeche.containerOwnPinsAtGo] at hlen
+    | succ f =>
+      cases hfind : env.find? (Name.appendIndexAfter base (j + 1)) with
+      | none =>
+        rw [containerOwnPinsAtGo_stop (f + 1) j (by unfold ConLeche.isRecInfoAt; rw [hfind])]
+          at hlen
+        exact nomatch hlen
+      | some c =>
+        cases c with
+        | recInfo cvR mI rP rules =>
+          rw [containerOwnPinsAtGo_cons f j hfind] at hlen ⊢
+          rw [containerOwnPinsAtGo_cons f j hfind]
+          -- one entry per step: the step reads at most one and the tail at most `n`
+          have h1 := ownPinsStep_length_le_one env lps (lps.map Level.param) params nP mI cvR.type
+          have hstop' : ConLeche.isRecInfoAt env
+              (Name.appendIndexAfter base (j + 1 + n + 1)) = false := by
+            rw [show j + 1 + n + 1 = j + (n + 1) + 1 from by omega]; exact hstop
+          have h2 := containerOwnPinsAtGo_length_le (env := env) (base := base) (lps := lps)
+            (lvls := lps.map Level.param) (Ds := params) (nPr := nP) f n (j + 1) hstop'
+          rw [List.length_append] at hlen
+          have hstep : (ownPinsStep env lps (lps.map Level.param) params nP mI cvR.type).length
+              = 1 := by omega
+          have htail : (ConLeche.containerOwnPinsAtGo env base lps (lps.map Level.param) params
+              nP f (j + 1)).length = n := by omega
+          obtain ⟨e₀, he₀⟩ := List.length_eq_one_iff.mp hstep
+          have hclosed := hwf _ (List.mem_of_find?_eq_some hfind)
+          rw [he₀, ownPinsStep_subst (env := env) (lps := lps) (lvls := lvls) (params := params)
+            (DsE := DsE) (nP := nP) (mI := mI) (ty := cvR.type) (e₀ := e₀)
+            hclosed.1 hclosed.2.2.2.1 hplen hidx hDlen hDcl he₀,
+            ih f (j + 1) hstop' htail, List.map_append]
+          rfl
+        | _ =>
+          rw [containerOwnPinsAtGo_stop (f + 1) j (by unfold ConLeche.isRecInfoAt; rw [hfind])]
+            at hlen
+          exact nomatch hlen
 
 /-! ## What the crossing cannot be asked across a projection table -/
 

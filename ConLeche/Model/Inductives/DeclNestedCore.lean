@@ -665,6 +665,223 @@ theorem nestedContainerModeled {F : Nat} {st : ElimState} {envAux : Env}
     rw [hnamesS i (hdk ▸ hi)] at hI
     exact hI
 
+/-- **THE BLOCK'S OWN PINS ARE ITS RECORDED PINS, AT EVERY
+INSTANTIATION** (task #315 M7-3 session 18, DESIGN §U.79):
+`ContainerOwnPinsSyn` at the nested route — the ninth and last of the
+nine `ContainerModeled` construction sites, and the only one whose
+block carries a mimic at all (the other eight read the empty table,
+`ContainerOwnPinsSyn.of_noMimics`).
+
+The reader's table at a member is the walk at the GROUP's first member
+(`containerOwnPinsAt` reads `ci.members.head?`), and the read-back
+(K.34) says that group is this block's own — so the walk is the one
+K.47 recorded, at the block's own levels (`p.lps.map Level.param`, the
+identity substitution) and its parameter OPENERS.  K.43 fixes its
+LENGTH (`p.numNested` steps) and K.47 its CONTENT (`st.pins`), so with
+one entry per step at most, EVERY step reads a pin there;
+`containerOwnPinsAtGo_subst` then moves the whole table to the level
+arguments and components the reader asked for, entry by entry, and
+`NestedBlockModelOf.pin` reads each entry back as the block model's own
+recorded pin — at which `ownSubst` IS `PinSyn.ownAt`, which is the
+clause.
+
+Two side conditions are the reader's own and not assumptions: the
+components' CLOSEDNESS is the clause's hypothesis (and has to be — see
+`ContainerOwnPinsSyn`, whose docstring carries the two real-run
+counterexamples), and a reader that asks at the wrong NUMBER of
+components gets the empty table, which is vacuous. -/
+theorem nestedOwnPins_of {F : Nat} {st : ElimState} {envAux : Env}
+    {stored : List AuxStored} {sortss : List (List Level)} {xFvsF : Nat → List Expr}
+    {mp : EnvModelM V μ env} {mp₁ : EnvModelM V μ (ConLeche.consMutualFormers fms env)}
+    {mp₂ : EnvModelM V μ ENV₂} {envOut : Env} (mpOut : EnvModelM V μ envOut)
+    (hk0 : 0 < p.k) (hcount : st.pins.length = p.numNested)
+    (haux : ConLeche.checkMutualCore (m := ConLeche.CheckM) (fueledOps μ F) env b none true
+      = .ok envAux)
+    (hstored : ConLeche.auxStoredAll envAux b b.k = some stored)
+    (hctors : (stored.take p.k).mapM (fun a =>
+        ConLeche.restoreCtors (m := ConLeche.CheckM) (fueledOps μ F)
+          (ConLeche.consNestedFormers (stored.take p.k) env) (ConLeche.restoreTbl p st) p.lps
+          a.ctors) = .ok ctorsR)
+    (hrb : ConLeche.blockReadBackOk envOut p.nP
+      (((stored.take p.k).zip ctorsR).map fun (a, cs) =>
+        (a.cvTa, cs.map fun (cv, _, nF) => (cv, nF))) = true)
+    (hlps : ∀ i, i < p.k → (stored.getD i default).cvTa.levelParams = p.lps)
+    (hown : ConLeche.nestedOwnPinsOk envOut p st = true)
+    (hmim : ConLeche.blockOwnMimicsOk envOut (p.formers.headD default).1.name p.numNested = true)
+    (O : NestedCoreOut F mp p st b ctorsR fms f₀ ctorsA sortss kinds mp₁ ppsF W idxF dsF esF srcsF
+      fvsPF xFvsF xrestF eissF tssF dsR xFvsR pinsS mp₂) :
+    ContainerOwnPinsSyn (V := V) envOut (D) := by
+  -- the lists' lengths and the members' names (as `nestedContainerModeled` reads them)
+  have hslen : stored.length = b.k := (ConLeche.auxStoredAll_get hstored).1
+  have hkle : p.k ≤ b.k := by rw [O.bk]; omega
+  have hclen : ctorsR.length = p.k := by
+    rw [(ConLeche.mapM_except_inv hctors).1, List.length_take]
+    omega
+  have hdk : (D).k = p.k := rfl
+  have hcv := (ConLeche.consNestedFormers_take_eq haux O.formers hstored p.k hkle).2
+  have hmemEq : ∀ i, i < p.k → (stored.getD i default).cvTa = (fms.getD i default).cvTa := by
+    intro i hi
+    have hsi : stored[i]? = some stored[i] := List.getElem?_eq_getElem (by omega)
+    obtain ⟨f, hf, hcveq, -, -⟩ := hcv i _ hi hsi
+    rw [List.getD_eq_getElem?_getD, hsi, List.getD_eq_getElem?_getD, hf]
+    exact hcveq
+  have hnamesD : ∀ i, i < p.k → (D).memberName i = (fms.getD i default).cvTa.name := by
+    intro i hi
+    show ((fms.take p.k).map (·.cvTa.name)).getD i .anonymous = _
+    rw [List.getD_eq_getElem?_getD, List.getElem?_map, List.getElem?_take_of_lt hi,
+      List.getD_eq_getElem?_getD]
+    cases fms[i]? <;> rfl
+  have hnamesS : ∀ i, i < p.k → (D).memberName i = (stored.getD i default).cvTa.name := by
+    intro i hi
+    rw [hnamesD i hi, hmemEq i hi]
+  -- the block's FIRST member is the first former: that is where both walks start
+  have hC₀ : (D).memberName 0 = (p.formers.headD default).1.name := by
+    show (D).memberNames.getD 0 .anonymous = _
+    rw [O.record.memberNames]
+    have hk : 0 < p.formers.length := hk0
+    show (p.formers.map (·.1.name)).getD 0 .anonymous = (p.formers.headD default).1.name
+    cases hform : p.formers with
+    | nil => rw [hform] at hk; exact absurd hk (by simp)
+    | cons g gs => rfl
+  -- the read-back (K.34), packaged: ONE group at every member, its parameter
+  -- count the block's, and its first member the first former
+  obtain ⟨ciB, hciB, hnPB, hheadB, hheadL⟩ :
+      ∃ ciB : ContainerInfo,
+        (∀ i, i < p.k → ConLeche.containerInfo? envOut ((D).memberName i) = some ciB) ∧
+        ciB.nP = p.nP ∧
+        ciB.members.head?.map (·.name) = some ((p.formers.headD default).1.name) ∧
+        ciB.members.head?.map (·.lps) = some p.lps := by
+    have hmemAt : ∀ i, i < p.k →
+        (ConLeche.blockContainerInfo p.nP (((stored.take p.k).zip ctorsR).map fun (a, cs) =>
+            (a.cvTa, cs.map fun (cv, _, nF) => (cv, nF)))).members[i]?
+          = some ⟨(stored.getD i default).cvTa.name, (stored.getD i default).cvTa.levelParams,
+              (stored.getD i default).cvTa.type,
+              ((ctorsR.getD i []).map fun c => (c.1, c.2.2)).map
+                fun (cv, nF) => ⟨cv.name, cv.type, nF⟩⟩ := by
+      intro i hi
+      show (List.map _ _)[i]? = _
+      rw [List.getElem?_map, nestedReadBack_getElem? hi (by omega) hclen]
+      rfl
+    have hciAll : ∀ i, i < p.k → ConLeche.containerInfo? envOut ((D).memberName i)
+        = some (ConLeche.blockContainerInfo p.nP (((stored.take p.k).zip ctorsR).map
+            fun (a, cs) => (a.cvTa, cs.map fun (cv, _, nF) => (cv, nF)))) := by
+      intro i hi
+      unfold ConLeche.blockReadBackOk at hrb
+      simp only [List.all_eq_true] at hrb
+      have hcm := hrb _ (List.mem_of_getElem? (hmemAt i hi))
+      rw [show (⟨(stored.getD i default).cvTa.name, (stored.getD i default).cvTa.levelParams,
+        (stored.getD i default).cvTa.type,
+        ((ctorsR.getD i []).map fun c => (c.1, c.2.2)).map
+          fun (cv, nF) => ⟨cv.name, cv.type, nF⟩⟩ : ConLeche.ContainerMember).name
+          = (stored.getD i default).cvTa.name from rfl, ← hnamesS i hi] at hcm
+      exact eq_of_beq hcm
+    refine ⟨_, hciAll, rfl, ?_, ?_⟩
+    · rw [List.head?_eq_getElem?, hmemAt 0 hk0, Option.map_some]
+      show some (stored.getD 0 default).cvTa.name = _
+      rw [← hnamesS 0 hk0, hC₀]
+    · rw [List.head?_eq_getElem?, hmemAt 0 hk0, Option.map_some]
+      show some (stored.getD 0 default).cvTa.levelParams = _
+      rw [hlps 0 hk0]
+  -- K.47: the table at the block's own levels and parameter OPENERS IS the
+  -- recorded pin list
+  obtain ⟨params, rest, hty, ps₀, hbase, hps₀⟩ :
+      ∃ (params : List Expr) (rest : Expr),
+        st.types.head?.bind (fun t₀ => ConLeche.openPisAtFvars p.nP t₀.type 0)
+            = some (params, rest) ∧
+          ∃ ps₀, ConLeche.containerOwnPinsAt envOut (p.formers.headD default).1.name
+              (p.lps.map Level.param) params = some ps₀ ∧ ps₀ = st.pins.map (·.pin) := by
+    unfold ConLeche.nestedOwnPinsOk at hown
+    split at hown
+    · rename_i params rest hty
+      split at hown
+      · rename_i ps₀ hbase
+        exact ⟨params, rest, hty, ps₀, hbase, eq_of_beq hown⟩
+      · exact nomatch hown
+    · exact nomatch hown
+  -- the openers: one per parameter, at its own index
+  obtain ⟨t₀, -, hopen⟩ := Option.bind_eq_some_iff.mp hty
+  have hplen : params.length = p.nP := ConLeche.openPisAtFvars_len p.nP hopen
+  have hidx : ∀ j, j < p.nP → ∃ t, params[j]? = some (Expr.fvar j t) := by
+    intro j hj
+    obtain ⟨x, hx⟩ : ∃ x, params[j]? = some x :=
+      ⟨_, List.getElem?_eq_getElem (by rw [hplen]; exact hj)⟩
+    obtain ⟨t, ht⟩ := ConLeche.openPisAtFvars_index p.nP t₀.type 0 hopen j x hx
+    exact ⟨t, by rw [hx, ht, Nat.zero_add]⟩
+  -- the base walk, at the group the read-back names
+  obtain ⟨cv₀, caps₀, ci₀, M₀, hfc₀, hci₀, hM₀, hps₀Eq⟩ := containerOwnPinsAt_inv hbase
+  -- the clause
+  intro i cvC caps lvls DsE ps hi hfind hDcl hps e he
+  obtain ⟨cv, caps', ci, M, hfc, hci, hM, hpsEq⟩ := containerOwnPinsAt_inv hps
+  have hciEq : ci = ciB := Option.some.inj (hci.symm.trans (hciB i (hdk ▸ hi)))
+  rw [hciEq] at hci hM hpsEq
+  have hcvEq : cv = cvC := (ConstantInfo.indInfo.inj (Option.some.inj (hfc.symm.trans hfind))).1
+  rw [hcvEq] at hpsEq
+  -- the group's first member is the block's first former, where BOTH walks start
+  have hMname : M.name = (p.formers.headD default).1.name := by
+    have hh := hheadB
+    rw [hM, Option.map_some] at hh
+    exact Option.some.inj hh
+  have hci₀Eq : ci₀ = ciB :=
+    Option.some.inj (hci₀.symm.trans (by rw [← hC₀]; exact hciB 0 hk0))
+  rw [hci₀Eq] at hM₀ hps₀Eq
+  have hM₀Eq : M₀ = M := Option.some.inj (hM₀.symm.trans hM)
+  rw [hM₀Eq] at hps₀Eq
+  -- the two walks read at the same level parameters: `containerInfo?` checks
+  -- every member's against the queried constant's
+  have hMlps : M.lps = p.lps := by
+    have hh := hheadL
+    rw [hM, Option.map_some] at hh
+    exact Option.some.inj hh
+  obtain ⟨hlvEq, hlpsC⟩ : cv₀.levelParams = cvC.levelParams ∧ cvC.levelParams = p.lps := by
+    obtain ⟨cvT, capsT, cvR, mI, rP, rules, H⟩ := ConLeche.containerInfo?_inv hci
+    obtain ⟨cvM, capsM, cvRc, mIc, rulesC, hfM, -, hMl, -, hlp, -⟩ :=
+      H.2.2.2.2 M (List.mem_of_mem_head? hM)
+    have h1 : cvT = cvC := (ConstantInfo.indInfo.inj (Option.some.inj (H.1.symm.trans hfind))).1
+    have h2 : cvM = cv₀ := (ConstantInfo.indInfo.inj (Option.some.inj
+      (hfM.symm.trans (by rw [hMname]; exact hfc₀)))).1
+    refine ⟨by rw [← h2, ← h1]; exact hlp, ?_⟩
+    rw [← h1, ← hlp, ← hMl]
+    exact hMlps
+  rw [hnPB, hlvEq, hlpsC] at hps₀Eq
+  rw [hnPB, hlpsC] at hpsEq
+  -- K.47, as a statement about the walk the reader runs
+  have hbaseWalk : ConLeche.containerOwnPinsAtGo envOut (M.name.str "rec") p.lps
+      (p.lps.map Level.param) params p.nP 64 0 = st.pins.map (·.pin) := by
+    rw [← hps₀Eq]; exact hps₀
+  -- a reader at the wrong NUMBER of components reads nothing
+  by_cases hDlen : DsE.length = p.nP
+  · -- K.43: the walk stops after `p.numNested` names
+    have hstop : ConLeche.isRecInfoAt envOut
+        (Name.appendIndexAfter (M.name.str "rec") (0 + p.numNested + 1)) = false := by
+      simp only [ConLeche.blockOwnMimicsOk, Bool.and_eq_true, Bool.not_eq_true'] at hmim
+      rw [hMname, Nat.zero_add]
+      exact hmim.2
+    -- K.47: one entry per name, so every step reads a pin
+    have hlen : (ConLeche.containerOwnPinsAtGo envOut (M.name.str "rec") p.lps
+        (p.lps.map Level.param) params p.nP 64 0).length = p.numNested := by
+      rw [hbaseWalk, List.length_map, hcount]
+    rw [hpsEq, containerOwnPinsAtGo_subst mpOut.base2.wf hplen hidx hDlen hDcl
+      p.numNested 64 0 hstop hlen, hbaseWalk] at he
+    -- every entry is a recorded pin, re-spelled
+    obtain ⟨e₀, he₀mem, rfl⟩ := List.mem_map.mp he
+    obtain ⟨pin, hpin, rfl⟩ := List.mem_map.mp he₀mem
+    obtain ⟨q, hq⟩ := List.getElem?_of_mem hpin
+    have hqlt : q < st.pins.length := by
+      rcases Nat.lt_or_ge q st.pins.length with h | h
+      · exact h
+      · rw [List.getElem?_eq_none h] at hq; exact nomatch hq
+    obtain ⟨hJ, hpinEq⟩ := O.record.pin q _ hq
+    refine ⟨q, by rw [O.record.nPins]; exact hqlt, ?_⟩
+    rw [hpinEq, ← hJ, hlpsC]
+    show ownSubst p.nP p.lps lvls DsE
+        (Expr.mkAppN (Expr.const ((D).pinAt q).J ((D).pinAt q).lvls) ((D).pinAt q).DsE) = _
+    unfold ownSubst ConLeche.Model.PinSyn.ownAt
+    rw [Expr.getAppFn_mkAppN, Expr.getAppArgs_mkAppN, O.record.nP]
+    simp only [Expr.getAppFn, Expr.getAppArgs, List.nil_append, Expr.instantiateLevelParams]
+  · rw [containerOwnPinsAtGo_nil_of_len hDlen 64 0] at hpsEq
+    rw [hpsEq] at he
+    exact nomatch he
+
 end TailOut
 
 /-! ## The named facts -/

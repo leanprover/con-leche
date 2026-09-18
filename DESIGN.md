@@ -95898,10 +95898,11 @@ Sized against the tree: **about one session**, after (a)'s repair.
 ##### (e) STATUS
 
 **Seven of the nine sites proved** (native, mutual, the five basis);
-the crossing proved, modulo (b)'s premise; the ninth site open, and now
-with a correct clause to aim at.  **The field is not in**, and it
-cannot be until the ninth site is proved — a `ContainerModeled` field
-is discharged at all nine or at none.
+the crossing proved, modulo (b)'s premise; the ninth site open at the
+time of writing, and now with a correct clause to aim at — **(g) below
+closes it**.  **The field is not in**, and it cannot be until the ninth
+site is proved — a `ContainerModeled` field is discharged at all nine
+or at none.
 
 ##### (f) Gates
 
@@ -95909,3 +95910,60 @@ is discharged at all nine or at none.
 overview-links / quote-gate / no-local-paths / shake / pub-imports /
 proofdeps (0 doors) / `tests/arena.sh` — figures at the landing commit.
 Standard axioms on every theorem the repair touched.
+
+##### (g) THE NINTH SITE, PROVED — `nestedOwnPins_of` (same session, after (a))
+
+`ContainerOwnPinsSyn (V := V) envOut (D)` at the nested route is
+`nestedOwnPins_of` (`Model/Inductives/DeclNestedCore.lean`, in
+`section TailOut` beside `nestedContainerModeled`), against the
+REPAIRED clause.  (d)'s plan held with no surprises and nothing was
+weakened: the theorem's hypotheses are the route's own records and
+data — `hk0`, `hcount` (`st.pins.length = p.numNested`), `haux`,
+`hstored`, `hctors`, `hlps` (the members' level parameters are the
+block's, which `declNested_of` already computes for
+`nestedPinParams_of`), K.34 (`hrb`), K.47 (`hown`), K.43 (`hmim`),
+`O : NestedCoreOut` and the output model `mpOut` (for `EnvWF envOut`
+alone).  `NestedTailOut` is NOT needed.
+
+What landed, bottom up:
+
+* `instPis_ilp` and `abstractRange_ilp`
+  (`Verify/Inductives/NestedCopyInstU.lean`, beside their siblings):
+  the missing commutations (d) named — the first is the ten-line
+  induction mirroring `instPis_substFvarList`;
+* `ownSubst` and `ownPinsStep` (`Model/Inductives/ContainerCross.lean`,
+  new section "The own-pin table at ANOTHER instantiation"):
+  a table entry re-spelled at another instantiation, and the walk's own
+  `here` named so that the step and the walk can be reasoned about
+  apart.  `ownSubst` at a constant-headed spine IS `PinSyn.ownAt`,
+  which is what makes the last step of the route-level proof a
+  `simp only`;
+* `ownPinsStep_inv` / `ownPinsStep_subst` — a step that reads a pin at
+  the openers reads the same pin, re-spelled, at any level arguments
+  and any CLOSED components of the same number (this is where (a)'s
+  `hDcl` is consumed, through `instPis_openers_subst`);
+* `containerOwnPinsAtGo_cons` / `_stop` / `_length_le` / `_nil_of_len`
+  and `containerOwnPinsAtGo_subst` — the walk.  **The length argument
+  is the load-bearing one**: the transport carries a step that SUCCEEDS
+  at the openers and says nothing about one that fails there, and a
+  failing step can succeed at other components (a major premise headed
+  by a PARAMETER — (b)'s gap, seen from inside the route).  K.43 makes
+  the walk visit exactly `numNested` names, K.47 makes it read exactly
+  `st.pins.length` entries, a step reads at most one, and the two
+  counts force every step to succeed.  So the route needs no
+  `RecMajorHeadStored` of its own: (b) remains the CROSSING's debt, not
+  this site's;
+* `containerOwnPinsAt_inv`, `containerOwnPinsAt_eq` and
+  `containerOwnPinsAtGo_ext` made public (not duplicated), as (d)
+  asked.
+
+Two side conditions in the clause are discharged rather than assumed:
+a reader asking at the wrong NUMBER of components gets the empty table
+(`containerOwnPinsAtGo_nil_of_len`, vacuous), and the level parameters
+of the queried member and of the group's first member agree because
+`containerInfo?` checks them (`containerInfo?_inv`), which is what
+lets K.47's table — read at the FIRST former — answer for `memberName
+i`.
+
+**Nine of nine.**  The `ContainerModeled` field is the next step and
+is deliberately not taken here: a partial field must not land.
