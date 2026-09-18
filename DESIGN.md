@@ -113768,3 +113768,105 @@ warning-free: OK (a run that could have failed)
 `tests/shake.sh` 510 removals all allowlisted, no demotable public
 imports; `tests/no-local-paths.sh` OK.  This section changes no accept
 set.
+
+#### PINF: R1 MEASURED BEFORE IT WAS BUILT — the parameter twin is not dischargeable, and the fire wants K.32's TWIN instead (lane PINF, 2026-09-18)
+
+The decision was R1 (`ordFree`'s parameter twin, then the transport,
+then (ii)), with the instruction to measure it first and name the
+door-fact term at each of the three real sites.  **The measurement
+refutes it, in two reads, and nothing of R1 was built.**
+
+##### (a) THE REASON GIVEN IS TRUE OF THE FORMER AND FALSE OF THE CONSTRUCTOR
+
+"A container's parameter types are declared before its members exist,
+so they cannot mention them" is right about the FORMER's parameter
+telescope — its type is checked at the pre-block environment, where the
+members are fresh — and the tree already spends exactly that argument:
+`nestedContainerModeled`'s K.30 step runs
+`rk_openPisAtFvars_constsResolve b.nP hop hd.resolve` on the FIRST
+FORMER's type at `env` and turns it into member-freeness with
+`hfreshMem`.
+
+The clause is about a CONSTRUCTOR's parameter openers (`d.fvsPF i j`),
+and those reach the former's only through a DEFEQ check:
+
+* `checkMutualCtor` (`Kernel/Inductives/MutualInstall.lean:304`) runs
+  `checkStructDomsAt ops env 0 cq.1 (tq.1.map Expr.fvarTypeD) nP`, and
+  `checkStructDomsAt`'s body is `ops.isDefEq env (off + j) a.fvarTypeD b`
+  (`Kernel/Inductives/StructInstallF.lean:34`) — the same shape as
+  `mutualDomsOk`'s former-to-former check (`MutualInstall.lean:203`);
+* `normCtorValM` (`MutualInstall.lean:260`) normalises the FIELD
+  domains only: it rebuilds the parameter binders from `fvsP`/`cbs`
+  unchanged.
+
+So a constructor whose parameter annotation is a redex that *mentions a
+member* and reduces to the former's domain is ACCEPTED, by this checker
+and by official.  The parameter twin is therefore not a consequence of
+any check the checker runs, and the model tier has nothing either:
+`BlockOpened` and `FixOpened` record `residRes`/`ord`/`recF`/`reflF`/
+`nestF`/`nestReflF`/`kinds` and say NOTHING about `fvsP`'s annotations;
+`BlockCtorData` adds only `pLen` and `pIdx`.  (`ordFree`'s own discharge
+is `FixOpened.ord`'s `constsResolve env₀` — a fact the CLASSIFICATION
+produced by calling the field ordinary.  There is no classification of
+parameters, so there is no "one binder earlier" version of it.)
+
+Landing it would need a new kernel Bool (a syntactic `mentionsMember`
+test on the constructor's parameter binders) or a syntactic
+strengthening of `checkStructDomsAt`.  The first CAN FIRE on a stream
+official accepts, which `nestedPinKinds`' own docstring sets as the
+disqualifying property of a recorded check; the second is an accept-set
+SHRINK and a divergence from official.  **Neither is takeable.**
+
+##### (b) AND THE `mentionsFvar` RESTATEMENT HAS THE SAME HOLE
+
+The natural weakening — carry "a parameter OPENER occurs in the first
+`nPJ` arguments" instead of a member mention, since that is what the
+consumer's `instSeq σ` actually needs — does not escape it.
+`Expr.mentionsFvar q e` is `e.fvarLeaves.any (·.1 == q)`
+(`Kernel/Inductives/NativeInstall.lean:141`) and `Expr.fvarLeaves`
+descends HEREDITARILY into annotations (`Kernel/ExprOps.lean:823`,
+whose docstring says so), so an opener's annotation carries the
+occurrence across the opening exactly as a member mention does.
+
+##### (c) WHAT THE FIRE ACTUALLY WANTS — K.32's TWIN, and it is the cheapest shape left
+
+Conjunct 1 is a statement about `kinds`, the AUXILIARY block's own
+classification, at the copy's field; `hkA` is its sharpening to
+`.recursive`.  The row has been trying to DERIVE it from the container's
+field through the elimination's occurrence test.  The tree already
+records the OTHER direction of exactly that relation:
+`nestedCopyTargetsOk` (K.32, `Kernel/Inductives/NestedInstall.lean:967`)
+says a copy field the aux block classified recursive INTO the group
+comes from a container field that was that occurrence — and its
+docstring gives the standing reason for recording rather than deriving:
+"it is a property of `mkCopy` + `replaceAllNested`: the rewrite turns a
+group occurrence into the group's copy and touches nothing else", and
+"it cannot fire".
+
+The twin runs the other way — at a container field that is finitary
+recursive at one of the CONTAINER's OWN pins, the copy's corresponding
+field is classified `.recursive` at the block pin that pin maps to —
+and it has the same three properties: it is a fact about the
+elimination's own output, it cannot fire on an accepted stream for the
+same reason K.32 cannot, and it costs NO `ContainerModeled` clause and
+NO nine sites.  It discharges conjunct 1 and `copyPinFCorr`'s `hkA`
+together, which is (ii) entire.
+
+It is K.43's class — a new kernel record — and this lane is not taking
+that on its own: it is the coordinator's call, and it is offered
+because the two options that avoid a kernel record are now both
+measured and both refuted.
+
+##### (d) STATE
+
+* **(A)** LANDED `9a558b04`; **(B)** LANDED `dd44fbf0` — and (B)
+  remains right whatever (ii) becomes: it is step 2's `.proj` arm, not
+  the fire;
+* **(ii)** BLOCKED on the choice in (c).  `nestArgsMention` is on the
+  OPENED list and the fire test reads the ABSTRACT one; R1's bridge
+  between them needs a fact no check produces; R2 needs the same fact
+  at the producer;
+* **(iii)** unstarted, buildable standalone taking `hkA`;
+* **(iv)**, **(v)** unstarted.
+
+Nothing in this section changes the tree.
