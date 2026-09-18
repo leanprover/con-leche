@@ -193,6 +193,71 @@ theorem interp_congr_below :
     intro k ρ ρ' hb hag
     simp only [interp_snd, ihe k ρ ρ' hb hag]
 
+/-- **INTERPRETATION INVARIANCE AT A SET OF POSITIONS** (task #315 L-E,
+"T1"): two environments agreeing at every position the term READS give
+it the same value.
+
+`interp_congr_below` is this at a PREFIX predicate, and a prefix is what
+it cannot be for the use this was written for: a candidate parameter
+frame differs from the recorded one exactly at the components that were
+replaced, and those are scattered.  The proof is
+`interp_congr_below`'s verbatim with `k`/`k + 1` replaced by
+`P`/`shiftP P`; the shift is what makes the binder cases go through, and
+nothing else changes.
+
+**What it is FOR, stated so the next reader does not mistake it for a
+substitution lemma.**  At a container-ordinary field whose instantiation
+stays ordinary, the field's domain reads no replaced component, so its
+value is the same at the recorded and the candidate frame — and that is
+a congruence, which no amount of knowing the candidate component VALUES
+supplies. -/
+theorem interp_congr_on :
+    ∀ (e : AnnotTerm) (P : Nat → Prop) (ρ ρ' : Nat → V),
+      ConLeche.Term.Term.bvarsOn P e.erase →
+      (∀ i, P i → ρ i = ρ' i) →
+      interp V ρ e = interp V ρ' e := by
+  intro e
+  induction e with
+  | bvar i => intro P ρ ρ' hb hag; exact hag i hb
+  | sort u => intros; rfl
+  | const c us => intros; rfl
+  | prf => intros; rfl
+  | app f a ihf iha =>
+    intro P ρ ρ' hb hag
+    simp only [interp_app, ihf P ρ ρ' hb.1 hag, iha P ρ ρ' hb.2 hag]
+  | lam v A b ihA ihb =>
+    intro P ρ ρ' hb hag
+    simp only [interp_lam, ihA P ρ ρ' hb.1 hag]
+    refine lamR_congr fun x _ => ihb (ConLeche.Term.Term.shiftP P) _ _ hb.2 ?_
+    intro i hi
+    cases i with
+    | zero => rfl
+    | succ i => exact hag i hi
+  | pi u v A B ihA ihB =>
+    intro P ρ ρ' hb hag
+    simp only [interp_pi, ihA P ρ ρ' hb.1 hag]
+    refine piR_congr fun x _ => ihB (ConLeche.Term.Term.shiftP P) _ _ hb.2 ?_
+    intro i hi
+    cases i with
+    | zero => rfl
+    | succ i => exact hag i hi
+  | eqE a b iha ihb =>
+    intro P ρ ρ' hb hag
+    simp only [interp_eqE, iha P ρ ρ' hb.1 hag, ihb P ρ ρ' hb.2 hag]
+  | fst e ihe =>
+    intro P ρ ρ' hb hag
+    simp only [interp_fst, ihe P ρ ρ' hb hag]
+  | snd e ihe =>
+    intro P ρ ρ' hb hag
+    simp only [interp_snd, ihe P ρ ρ' hb hag]
+
+/-- `interp_congr_below` is `interp_congr_on` at a prefix predicate — the
+conservativity bridge, so no consumer of the bound form moves. -/
+theorem interp_congr_below_of_on (e : AnnotTerm) (k : Nat) (ρ ρ' : Nat → V)
+    (hb : ConLeche.Term.Term.bvarsBelow k e.erase) (hag : ∀ i, i < k → ρ i = ρ' i) :
+    interp V ρ e = interp V ρ' e :=
+  interp_congr_on (V := V) e (· < k) ρ ρ' (ConLeche.Term.Term.bvarsOn_of_bvarsBelow e.erase k hb) hag
+
 /-- A closed term interprets the same under every environment. -/
 theorem interp_closed {e : AnnotTerm}
     (he : ConLeche.Term.Term.bvarsBelow 0 e.erase) (ρ ρ' : Nat → V) :

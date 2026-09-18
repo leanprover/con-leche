@@ -50,6 +50,87 @@ namespace Term
   | n, .snd e => bvarsBelow n e
   | _, .prf => True
 
+/-- Under one binder: index `0` is bound and everything above shifts. -/
+@[expose] def shiftP (P : Nat → Prop) : Nat → Prop
+  | 0 => True
+  | i + 1 => P i
+
+/-- **The positional twin of `bvarsBelow`** (task #315 L-E): every loose
+de Bruijn index of `v` satisfies `P`.  `bvarsBelow n` is this at
+`P := (· < n)`.
+
+Why a predicate and not a bound: two environments that differ at
+SCATTERED positions — a candidate parameter frame differs from the
+recorded one exactly at the components that were replaced — are not
+described by any prefix, so `bvarsBelow`'s shape cannot express the
+agreement a congruence over them needs. -/
+@[expose] def bvarsOn : (Nat → Prop) → Term → Prop
+  | P, .bvar i => P i
+  | _, .sort _ => True
+  | _, .const _ _ => True
+  | P, .app f a => bvarsOn P f ∧ bvarsOn P a
+  | P, .lam A b => bvarsOn P A ∧ bvarsOn (shiftP P) b
+  | P, .pi A B => bvarsOn P A ∧ bvarsOn (shiftP P) B
+  | P, .eqE a b => bvarsOn P a ∧ bvarsOn P b
+  | P, .fst e => bvarsOn P e
+  | P, .snd e => bvarsOn P e
+  | _, .prf => True
+
+/-- Weakening the position predicate weakens the claim. -/
+theorem bvarsOn_mono : ∀ {v : Term} {P Q : Nat → Prop}, (∀ i, P i → Q i) →
+    bvarsOn P v → bvarsOn Q v := by
+  intro v
+  induction v with
+  | bvar i => intro P Q h hv; exact h i hv
+  | sort _ => intros; trivial
+  | const _ _ => intros; trivial
+  | app f a ihf iha => intro P Q h hv; exact ⟨ihf h hv.1, iha h hv.2⟩
+  | lam A b ihA ihb =>
+    intro P Q h hv
+    refine ⟨ihA h hv.1, ihb ?_ hv.2⟩
+    intro i hi
+    cases i with
+    | zero => trivial
+    | succ i => exact h i hi
+  | pi A B ihA ihB =>
+    intro P Q h hv
+    refine ⟨ihA h hv.1, ihB ?_ hv.2⟩
+    intro i hi
+    cases i with
+    | zero => trivial
+    | succ i => exact h i hi
+  | eqE a b iha ihb => intro P Q h hv; exact ⟨iha h hv.1, ihb h hv.2⟩
+  | fst e ihe => intro P Q h hv; exact ihe h hv
+  | snd e ihe => intro P Q h hv; exact ihe h hv
+  | prf => intros; trivial
+
+/-- `bvarsBelow` is `bvarsOn` at a prefix predicate. -/
+theorem bvarsOn_of_bvarsBelow : ∀ (v : Term) (n : Nat), bvarsBelow n v → bvarsOn (· < n) v := by
+  intro v
+  induction v with
+  | bvar i => intro n h; exact h
+  | sort _ => intros; trivial
+  | const _ _ => intros; trivial
+  | app f a ihf iha => intro n h; exact ⟨ihf n h.1, iha n h.2⟩
+  | lam A b ihA ihb =>
+    intro n h
+    refine ⟨ihA n h.1, bvarsOn_mono ?_ (ihb (n + 1) h.2)⟩
+    intro i hi
+    cases i with
+    | zero => trivial
+    | succ i => exact Nat.lt_of_succ_lt_succ hi
+  | pi A B ihA ihB =>
+    intro n h
+    refine ⟨ihA n h.1, bvarsOn_mono ?_ (ihB (n + 1) h.2)⟩
+    intro i hi
+    cases i with
+    | zero => trivial
+    | succ i => exact Nat.lt_of_succ_lt_succ hi
+  | eqE a b iha ihb => intro n h; exact ⟨iha n h.1, ihb n h.2⟩
+  | fst e ihe => intro n h; exact ihe n h
+  | snd e ihe => intro n h; exact ihe n h
+  | prf => intros; trivial
+
 /-- Closed: no loose de Bruijn variables at all. -/
 abbrev Closed (v : Term) : Prop := bvarsBelow 0 v
 

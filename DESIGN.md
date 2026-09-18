@@ -107737,3 +107737,91 @@ statement was read for a different reason.
 Nothing landed; `d585d470` stands as the checkpoint.
 
 Nothing in this section changes the tree.
+
+#### (number at the integrator's sync) — L-E: T1 LANDED; T2 withdrawn for want of a consumer; and `ordF`-left's side condition is NOT recorded (lane L-E, 2026-09-18)
+
+##### (a) T1 LANDED
+
+`ConLeche/Verify/Denote/VClosed.lean`: `shiftP`, `bvarsOn` — the
+positional twin of `bvarsBelow`, the same recursion with `n + 1`
+replaced by a shift — plus `bvarsOn_mono` and `bvarsOn_of_bvarsBelow`.
+`bvarsOn_of_bvarsBelow` **depends on no axioms at all.**
+
+`ConLeche/Semantics/Kit.lean`: `interp_congr_on` — two environments
+agreeing at every position the term READS give it the same value — and
+`interp_congr_below_of_on`, the conservativity bridge, so no consumer of
+the bound form moves.  The proof is `interp_congr_below`'s verbatim with
+`k`/`k + 1` replaced by `P`/`shiftP P`, exactly as costed.
+
+##### (b) T2 IS WITHDRAWN — it has no consumer
+
+Read at the branch structure rather than assumed.  In
+`CopyCtorShape.fit_iff_at` the fit splits on the CONTAINER's recursive
+bit:
+
+* `if_pos hr` — the recursive positions, `recF` and `pinF`, whose
+  obligations are `slotSet`-shaped;
+* `if_neg` — the ordinary positions, where the obligation is
+  `⟨Subset.refl _, …⟩` and then, at `ordF`-LEFT,
+  `rw [if_neg …, hF fs₁ rfl hsp, interp_instAll]` — **a pure `interp`
+  equation with no slot in it.**
+
+So `slotSet` appears only at recursive positions; of those, `pinF` and
+`ordF`-right are carried by the entry, and `recF` is not bought by a
+congruence at all.  **The one arm T1 buys has no slot, so the `slotSet`
+congruence has nobody to serve.**
+
+Fourth scope shrink today, same mechanism: the framing assumed a
+`slotSet` congruence was needed because slots occur in `FitsFrom`, and
+reading which BRANCH the bought arm sits in retired it.
+
+##### (c) AND THE SIDE CONDITION IS NOT RECORDED — said plainly
+
+T1 is the tool; what it needs supplied is
+
+> a container-ordinary field that stays ordinary in the copy reads no
+> REPLACED component.
+
+**K.32 is not that fact.**  `nestedCopyTargetsAt`
+(`Kernel/Inductives/NestedInstall.lean:967`) constrains only fields the
+aux block classified recursive **into this copy's OWN group** —
+`p.k + qn.grpBase ≤ t && t < p.k + qn.grpBase + qn.grpSize` — and is
+`true` otherwise.  It says nothing about an ordinary field's domain.
+
+The argument this lane can see is: a domain mentioning a parameter whose
+component is a pin reading would, after instantiation, mention a pin;
+mentioning it positively makes the field recursive (contradicting
+"stays ordinary"), mentioning it negatively is a non-positive occurrence
+the install rejects.  **That rests on the aux block's positivity check
+and the kinds computation, and it is an argument, not a record.**  It
+would need either a new kernel clause or a model-side derivation from
+`nestedPinKindsAt`.
+
+So: **`ordF`-left is NOT closed.**  It was reported as "bought,
+probably"; the probably was load-bearing and the answer is that the tool
+is now landed and the side condition is open and unrecorded.  Proving a
+weaker thing that happens to close the goal was the alternative and is
+not taken.
+
+##### (d) WHERE THE THREE ARMS STAND
+
+| arm | state |
+| --- | --- |
+| `ordF`-left | **tool landed (T1); side condition OPEN and unrecorded** — needs a kernel clause or a derivation from `nestedPinKindsAt` |
+| `recF` | needs the COLLAPSE — its domain is the container's member at the parameter spine, so it reads every replaced component; no congruence applies |
+| `es` | the same, for the same reason |
+
+`recF` and `es` remain option (1)'s, with option (1)'s kernel-record
+wait.  **T1's value stands regardless**: it is a general semantic
+congruence, it subsumes `interp_congr_below`, and it is the step option
+(1) cannot supply.
+
+##### (e) GREEN
+
+* `lake build` — 0 errors/warnings, **722 jobs**
+* `lake test` — 0 errors/warnings
+* `tests/proofdeps.sh` — 4965 rows as pinned, **doors 0**
+* `interp_congr_on`, `interp_congr_below_of_on` — standard axioms;
+  `bvarsOn_of_bvarsBelow` — **no axioms**
+
+Nothing in this section changes the tree's accept set.
