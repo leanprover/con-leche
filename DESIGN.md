@@ -105102,6 +105102,13 @@ positions, and that is why the ordinary field's domain at the candidate
 frame IS the block-side slot's tuple: the fit pins the element to
 `L⁺ q'` rather than to `P q'`.
 
+**REFUTED as written — see the G2 section below.**  "replaces exactly
+the pin-valued component positions" reads as a POINTWISE replacement of
+component values, and at `tests/e2e/nested_p22.ndjson` that is both
+ill-typed and insufficient: the component is a λ, not a pin reading.
+The substitution DESCENDS into the component term and replaces every
+pin-reading SUBTERM.  Everything else in this subsection stands.
+
 ##### (b) THE RESTATED INCLUSION
 
 The pin's fixed point takes the component VALUES as an argument —
@@ -105593,5 +105600,241 @@ which is what unblocks the consumers.
 
 `lake build`, `lake test` and the full arena gate green; every new
 theorem at `[propext, Classical.choice, Quot.sound]`.
+
+Nothing in this section changes the tree.
+
+#### (number at the integrator's sync) — L-E: G2 CONFIRMED against the kernel's own computation, and the substitution turns out to be the ELIMINATION'S OWN (lane L-E, 2026-09-18)
+
+The concrete-instantiation track's three findings were handed over as
+claims to confirm rather than as measurements, because it derived its
+fixture table by hand from the streams.  **This lane built the
+instrument and ran it.**  G2 is confirmed exactly, with one addition
+that makes the repair much cheaper than the finding suggests.
+
+##### (a) THE INSTRUMENT — the kernel's own edge computation, dumped
+
+`_tmp/le/probe.lean` (artefact, not repo content) parses a stream with
+the real frontend, folds the real install, and at every block the
+nested recogniser takes runs the FIRST HALF OF `checkNested` verbatim —
+`nestedAnnotFormers`, `nestedAnnotCtors`, `elimNested`, `auxBlock`,
+`checkMutualCore`, `auxStoredAll` — and then `nestedPinEdgesAt`'s own
+body, reporting at each edge the container's field domain and its head
+shape instead of only the own bit.  It is the kernel's computation on
+the kernel's data; nothing is re-derived by hand.
+
+It also prints, per edge, the AUXILIARY block's stored domain at the
+same field — which is what produced (c).
+
+##### (b) G2 IS CONFIRMED, at the edge and at the head
+
+`tests/e2e/nested_p22.ndjson`, block `P22` (`k = 1`, two pins):
+
+```
+    pin 0: container=P22T  pin=(P22T (fun _:Nat => (List P22)))
+    pin 1: container=List  pin=(List P22)
+    edge q=0(P22T) -> pin 1  own=false  ctor=0 field=1  dom=PARAM-applied/1(bvar 1)
+    edge q=1(List)  -> pin 1  own=true   ctor=1 field=1  dom=CONST-applied/1(List)
+```
+
+`P22T (f : Nat → Type)` has `mk : (n : Nat) → (v : f n) → P22T f`, and
+`P22.mk : P22T (fun _ => List P22) → P22`.  So pin 0's single component
+IS a λ whose body is pin 1's reading, exactly as claimed; the parameter
+`f` is a function type, so a carrier value cannot go there; and the
+edge's container domain is `f n` — **parameter-headed and APPLIED**.
+Every clause of G2 holds.
+
+##### (c) THE ADDITION: the substitution already exists, in `AuxStored`
+
+The probe prints the auxiliary side of the same field:
+
+| fixture, edge | container domain | AUXILIARY domain |
+| --- | --- | --- |
+| `p22` q=0 field 1 | `(#1 #0)` — `f n` | `_nested.List_2` |
+| `p04`/`P4` q=1 field 0 | `(List #0)` | `_nested.List_3` |
+| `p04`/`P4` q=2 field 0 | `#0` | `_nested.P4C_1` |
+| `nested_rec` q=0 field 1 | `(List #1)` | `(_nested.List_1 #1)` |
+
+The elimination has **already performed the descending substitution and
+β-reduced it**: `(fun x => List P22) n` is stored as the copy constant
+`_nested.List_2`.  That is the same repair G2 asks for, computed by the
+kernel, recorded in the auxiliary block, and validated by the install
+that type-checked that block.
+
+So the candidate frame is not a new construction to invent — it is the
+frame the elimination wrote down.  What the model tier owes is the
+SEMANTIC image of that substitution on the components, because a
+container's least tuple is taken at a frame on the CONTAINER's
+parameters and the auxiliary block has no term for "the λ whose body is
+`L⁺`" (its copies are the container already instantiated, with the
+block's parameters, not the container's).  The candidate component is
+therefore
+
+```
+candDs q ψ  :=  (pinsS.getD q default).Ds ψ  with every identified
+                pin-reading subterm replaced by that pin's COPY reading
+candAs q    :=  (candDs q ψ).map (interp V ρp)
+```
+
+— a substitution on AnnotTerms, whose interpretation is a value.  The
+copies' readings ARE terms (`m.acval` at the copy's name), so this is
+well defined; what is missing is the per-component identification, which
+is the kernel record being queued.
+
+##### (d) WHAT SURVIVES OF ROW ONE, AND WHAT DOES NOT
+
+**Survives, unchanged**: `pinLfpAt` takes `as : List V` — a list of
+VALUES, never a list of carriers — so a λ component's candidate value
+sits in it as comfortably as a carrier does.  `pinAs`,
+`pinLfp_eq_pinLfpAt`, `CandParamFit`, `CandIdxAgree` and
+`candIdxAgree_pinAs` are all stated over values and are untouched.
+`pinTarget_reads_at` is untouched.  Nothing landed is withdrawn.
+
+**Does not survive**: the restatement's (a) sentence "the candidate
+frame replaces exactly the pin-valued component positions", now marked
+refuted in place.  And the PRICE: row one was quoted as "`pinLfpAt`,
+`candAs`, and the two side conditions — 1 session", and `candAs` was the
+part this lane deliberately did not build.  Under the repaired reading
+`candAs` is a term substitution plus a kernel record, not a list
+comprehension, so **row one is two thirds landed and its remainder is a
+row of its own**.  That is the honest accounting; the landed two thirds
+were not mispriced, the unbuilt third was.
+
+##### (e) THE CLASSIFICATION QUESTION, SETTLED — it is three-valued
+
+The probe classifies every not-own pin-target edge by the head of the
+container's field domain, with a parameter/field discriminator (at field
+`l` of a constructor with `nP` parameters, `bvar j` is a PARAMETER
+exactly when `j ≥ l`).  Over the nested corpus the buckets are
+
+| bucket | example | not-own edges, 26 fixtures |
+| --- | --- | --- |
+| `PARAM-bare` | `#0` (`p04`'s `List` at `P4C`) | 8 |
+| `PARAM-applied` | `(#1 #0)` — `f n` (`p22`) | **1** |
+| `CONST-applied` | `(List #0)` (`p04`'s `Array`) | 5 |
+
+(14 not-own edges over the 26 fixtures the probe reached; 37 own edges
+beside them, all `CONST-applied` at the container's own group, which is
+the structural fact the same-container section proved.  The remaining
+handful of fixtures and the two large corpora are not in this tally —
+the numbers are a WITNESS that the third bucket is nonempty, not a
+recount of the 94.)
+
+And **no other head shape occurs** — no field-headed domain, no `letE`,
+`lam` or `proj` head.  So the answer to the coordinator's either/or is:
+
+* the classification IS three-valued, not two, and the third bucket is
+  nonempty on the accepted corpus;
+* therefore, if the earlier 35/59 split counted by "the head is a
+  parameter bvar", its 35 is heterogeneous and **the parameter-headed
+  arm's claim that it consumes nothing is false as stated** — true only
+  for the bare form, and true for the applied form only once the
+  substitution descends;
+* if instead it counted only bare domains, **35 + 59 is not exhaustive**
+  and the applied edges were in neither bucket.
+
+Either way the repair is forced, and under the repaired substitution the
+two parameter buckets MERGE again: the applied domain `f n` evaluates at
+the candidate frame to `L⁺` at pin 1 exactly as the bare one does, which
+is what the auxiliary domain `_nested.List_2` already records.  So the
+split stays three-way — member / parameter / constant-at-an-earlier —
+with the parameter arm's proof going through the substitution rather
+than through a bare lookup.
+
+Nothing in this section changes the tree.
+
+#### (number at the integrator's sync) — L-E: G1 is a SEPARATE induction, and it must be — the union of the two orders is cyclic at `nested_p22` (lane L-E, 2026-09-18)
+
+The question put was whether the candidate-to-true bridge folds into
+the induction this lane landed or needs one of its own.  **It needs one
+of its own, and the reason is not convenience: the union of the two
+relations is cyclic on an accepted fixture, so no single well-founded
+induction over it exists.**
+
+##### (a) THE TWO RELATIONS, AND THE CYCLE
+
+* **A, the step-(iii) order** — the declaration order `ord` of
+  `pins_le_of_declOrder`, a well-order on the containers.  At
+  `nested_p22` the stream declares `Nat`, `P22T`, `List`, `P22`, so
+  `ord(P22T-pin) < ord(List-pin)`: **pin 0 before pin 1**.
+* **B, the bridge's order** — "pin `q`'s components contain pin `q'`'s
+  expression".  At `nested_p22` pin 0's component is
+  `fun _ : Nat => List P22`, which contains pin 1's reading, so the
+  bridge at pin 0 needs pin 1 settled: **pin 1 before pin 0**.
+
+A ∪ B therefore contains `0 < 1` and `1 < 0`.  A single induction over
+the union is not available, and **sequencing is what keeps the two
+apart**: run A to completion, obtaining the candidate-frame inclusion at
+EVERY pin; then run B, which consumes A's finished conclusion rather
+than A's hypothesis.
+
+Bridging pin `q` needs `P q' = L⁺ (p.k + q')` for every `q'` its
+components mention — the ≤ half from A plus B at `q'`, the ≥ half from
+step (ii), which is unconditional.  So B's step reads only B's own
+predecessors and a global fact, which is exactly why it composes.
+
+##### (b) B IS WELL-FOUNDED, AND IS NEITHER OF THE OTHER TWO
+
+Well-founded by term size: `q'`'s reading is a proper subterm of one of
+`q`'s components, and `q'`'s own components are proper subterms of that
+reading, so B strictly decreases the pin expression's size.
+
+It is not the edge relation: at `tests/e2e/nested_p04.ndjson`'s `P4`
+the edges are `0→1` (own), `1→2`, `2→0`, `2→2` — a three-cycle — while
+B there is `0 ≺ 1`, `0 ≺ 2` and acyclic (pin 0's component is the
+member `P4`, mentioning no pin).  And it is not the pin-index order:
+`nested_p22` needs pin 1 before pin 0.  Both confirmed by the probe of
+the G2 section.
+
+##### (c) G3 — CONFIRMED, and the covering question is ANSWERED: still needed
+
+The self-nesting fixture's root pin is `P4`'s pin 0, `P4C P4`
+(`grpBase = 0`, `mintedAt = 0`), and the probe gives it exactly one
+edge:
+
+```
+    edge q=0(P4C) -> pin 1  own=true  ctor=1 field=0  dom=CONST-applied/1(Array)
+```
+
+— container-recursive, **own**, and so not an ordinary field at all.
+The three-way split refines the ordinary-field arm and therefore says
+nothing about it.  Its obligation is at an arbitrary tuple while every
+instrument this lane holds concludes at the container's own least
+tuple, and the one tuple-generic instrument carries a side condition
+whose candidate-frame twin is not on the re-basing list.
+
+**So the covering question this lane kept open has a concrete answer,
+and the answer is yes**: `instanceCovered_of_others` and the container
+instance apparatus are still needed, and two further theorems join the
+re-basing list for the same reason.  The restatement's (f) said the
+status was "not settled by the statement alone" and would not be
+claimed before the proof was written; the concrete instantiation wrote
+enough of it to settle it, and this lane accepts the settlement.
+
+##### (d) THE RE-PRICE
+
+Landed: `pins_le_of_declOrder`, row one's two thirds,
+`pinTarget_reads_at`.  Remaining, with the three findings folded in:
+
+| piece | sessions |
+| --- | --- |
+| `candDs` — the descending substitution and its semantics (gated on the new kernel record) | 2 |
+| re-basing the ten theorems, plus G3's two | 2–3 |
+| the entry identity and the three-way split, the parameter arm now going through the substitution | 2–3 |
+| G1's bridge — the second induction and the frame equality | 1–2 |
+| re-wiring the assembly and the residual's discharge | 1 |
+
+**8–11 sessions remaining here**, against the 5–8 that were left after
+the three landed rows — so **+3**, at the low end of the concrete
+check's "two to four on top", and the width comes from G1's measure,
+which nobody has built.  **Two to three kernel sessions**: the
+declaration-order record, and the new per-component classification
+record with G1's measure.
+
+The premises, named and unchanged except where the findings moved them:
+the two kernel records land; side condition one is dischargeable at the
+corpora's telescopes; side condition two is corpus-vacuous, measured.
+**The row with least evidence is now G1's bridge**, for the same reason
+the declaration-order row was: its measure is machinery nobody has
+written.  That row should be taken early, as the last one was.
 
 Nothing in this section changes the tree.
