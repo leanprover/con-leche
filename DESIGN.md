@@ -121869,3 +121869,42 @@ The surrounding mechanics are the two `nestedPc`/`getD_drop`
 normalisations the neighbouring bullets already do.
 
 Then: `rowTargetOrd`, the correspondence, `hslotOrd`, `hfitc`.
+
+#### WIDE (3) THE NINTH SITE — EVERYTHING BUT ONE PROJECTION (lane LE, 2026-09-19)
+
+The discharge is written and all of it elaborates except one step;
+the whole of it is in `_tmp/le2/clause3-wip.patch` (181 lines, the
+clause + `crossEnv` + the discharge).  What it does, in order:
+
+* `nestedPinShapes_of` takes `pinsDistinctAt` as a hypothesis (the
+  block's own, proved at its read-back) — its single caller supplies it;
+* the guard is normalised by `simp only [nestedPc, getD_drop,
+  ← Nat.add_assoc]`, as the neighbouring bullets do;
+* `hordσ`'s answer is a `findIdx?` value and the clause is stated at an
+  INDEX; `findIdx?` returns the FIRST match, so the two are identified
+  by `pinsDistinctAt` on the two entries — via
+  `List.findIdx?_eq_none_iff` for the `none` case (the matching element
+  refutes it) and `findIdx?_eq_some_iff_getElem` for the other;
+* the matched entry's container IS the head `M`, by `congrArg
+  Expr.getAppFn` on the term equality through `PinSyn.ownAt`'s own
+  `mkAppN` (`Expr.getAppFn_mkAppN` twice) — so `hcont z` hands back the
+  `ContainerInfo` `hordσ` asks for.
+
+Two traps paid on the way, both already in this file's list: `set` is
+Mathlib and unavailable (use `obtain ⟨e, he⟩ : ∃ e, e = … := ⟨_, rfl⟩`),
+and `a == b = true` needs its parentheses.
+
+##### THE ONE STEP LEFT
+
+`((D).pinAt z).nPJ = ciz.nP`.  `NestedPinGroup.pinNP` gives
+`nPJ = (B ciz).nP`; what is missing is `(B ciz).nP = ciz.nP`.  On
+`NestedPinGroupSyn` that is `modeled`, but **`NestedPinGroup` has no
+`modeled` field** — the same weakening that made `pinSegAt` unable to
+build a `GroupFacts`.  What it does have is `ctorsOf`, whose SECOND
+component is exactly `dJ.nP = ciJ.nP`, at the price of producing a
+member record (`ci.members[i]?` and the name conditions), which the
+surrounding proof already has at the group's own pin and has to repeat
+at `z`.
+
+That is the last step of the ninth site; after it, `rowTargetOrd`, the
+correspondence, `hslotOrd`, `hfitc`.  Tree left green and `sorry`-free.
