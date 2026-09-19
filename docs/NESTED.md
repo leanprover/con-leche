@@ -709,6 +709,17 @@ instances is the thing that must still supply them.  What the
 identification removes is the ordering WITHIN an instance, and nothing
 more.
 
+**The second residual is discharged.**  The syntactic correspondence at
+a container's own pins — that a copy's field lands on the pin the
+container's own field named, with that pin's reading and that pin's
+components — is now a theorem at both kinds of nested field: the
+finitary one, and the reflexive one, where the field's stored domain is
+itself a tower of binders and the finitary reading claimed nothing.
+That leaves the model side a single obligation, the inclusion — the
+containers' least tuples lie below the auxiliary carrier — and its
+expected shape is the induction over instances just described, taken at
+the true frame rather than at the candidate one.
+
 ## 8. What the abstraction hides
 
 Everything above is stated at sets and operators.  The tree works with
