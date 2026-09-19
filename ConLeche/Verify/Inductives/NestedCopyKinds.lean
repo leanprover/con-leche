@@ -1672,4 +1672,87 @@ theorem stripDomPis_instSeq :
     intro vs t K us hK _
     exact stripDomPis_instSeq_leaf _ vs t hK (fun _ _ _ h => nomatch h)
 
+
+/-- `stripPis` at a domain's OWN tower depth always succeeds, and its
+body is `stripDomPis`. -/
+theorem stripPis_domPiDepth : ∀ (e : Expr),
+    ∃ bs : List (Expr × BinderMeta),
+      e.stripPis (domPiDepth e) = some (bs, stripDomPis e) ∧ bs.length = domPiDepth e := by
+  intro e
+  induction e with
+  | forallE ty bo bm _ ihbo =>
+    obtain ⟨bs, hs, hlen⟩ := ihbo
+    refine ⟨(ty, bm) :: bs, ?_, ?_⟩
+    · show (Expr.stripPis (domPiDepth bo) bo).map (fun q => ((ty, bm) :: q.1, q.2))
+        = some ((ty, bm) :: bs, stripDomPis bo)
+      rw [hs]; rfl
+    · show bs.length + 1 = domPiDepth bo + 1
+      rw [hlen]
+  | _ => exact ⟨[], rfl, rfl⟩
+
+/-- **A DOMAIN OPENS AT ITS OWN TOWER DEPTH**: the openers are fresh
+variables and the leaf is `stripDomPis` at them. -/
+theorem openPis_domPiDepth (e : Expr) (d : Nat) :
+    ∃ fvs : List Expr,
+      openPisAtFvars (domPiDepth e) e d
+          = some (fvs, Expr.instSeq fvs (domPiDepth e - 1) (stripDomPis e)) ∧
+        fvs.length = domPiDepth e ∧ AllFvarsL fvs := by
+  obtain ⟨bs, hstrip, hlen⟩ := stripPis_domPiDepth e
+  obtain ⟨fvs, hfl, hallF, hlaw⟩ := openPisAtFvars_mkPisB (domPiDepth e) bs hlen d
+  refine ⟨fvs, ?_, hfl, hallF⟩
+  have h := hlaw (stripDomPis e)
+  rw [← stripPis_mkPisB _ hstrip] at h
+  exact h
+
+/-- **TWO OPENINGS AT CONSTANT-HEADED LEAVES PEEL THE SAME NUMBER OF
+BINDERS**: a constant-headed leaf is not a binder, so neither opening
+can be the other's proper prefix.  This is how the recomputation's
+`domPiDepth` meets the copy's RECORDED telescope length — both are an
+opening of the normalisation, and both end at the container's
+application. -/
+theorem openPisAtFvars_count_unique : ∀ (n m : Nat) {e : Expr} {d : Nat}
+    {fvs₁ fvs₂ : List Expr} {leaf₁ leaf₂ : Expr} {K K' : Name} {us us' : List Level},
+    openPisAtFvars n e d = some (fvs₁, leaf₁) → leaf₁.getAppFn = Expr.const K us →
+    openPisAtFvars m e d = some (fvs₂, leaf₂) → leaf₂.getAppFn = Expr.const K' us' →
+    n = m := by
+  intro n
+  induction n with
+  | zero =>
+    intro m e d fvs₁ fvs₂ leaf₁ leaf₂ K K' us us' h1 hK1 h2 hK2
+    simp only [openPisAtFvars, Option.some.injEq, Prod.mk.injEq] at h1
+    obtain ⟨-, rfl⟩ := h1
+    cases m with
+    | zero => rfl
+    | succ m =>
+      match e, h2, hK1 with
+      | .forallE ty rest bm, _, hK1 =>
+        simp only [Expr.getAppFn] at hK1
+        exact nomatch hK1
+  | succ n ih =>
+    intro m e d fvs₁ fvs₂ leaf₁ leaf₂ K K' us us' h1 hK1 h2 hK2
+    match e, h1 with
+    | .forallE ty rest bm, h1 =>
+      cases m with
+      | zero =>
+        simp only [openPisAtFvars, Option.some.injEq, Prod.mk.injEq] at h2
+        obtain ⟨-, rfl⟩ := h2
+        simp only [Expr.getAppFn] at hK2
+        exact nomatch hK2
+      | succ m =>
+        simp only [openPisAtFvars] at h1 h2
+        cases hq : openPisAtFvars n (rest.instantiate1 (Expr.fvar d ty) 0) (d + 1) with
+        | none => rw [hq] at h1; exact nomatch h1
+        | some q1 =>
+          cases hq2 : openPisAtFvars m (rest.instantiate1 (Expr.fvar d ty) 0) (d + 1) with
+          | none => rw [hq2] at h2; exact nomatch h2
+          | some q2 =>
+            obtain ⟨a1, b1⟩ := q1
+            obtain ⟨a2, b2⟩ := q2
+            rw [hq] at h1
+            rw [hq2] at h2
+            simp only [Option.some.injEq, Prod.mk.injEq] at h1 h2
+            obtain ⟨-, rfl⟩ := h1
+            obtain ⟨-, rfl⟩ := h2
+            exact congrArg (· + 1) (ih m hq hK1 hq2 hK2)
+
 end ConLeche
