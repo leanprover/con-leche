@@ -120522,3 +120522,72 @@ whoever takes it next:
 `1726c47e` left it; this is the "say which object is missing before
 building" the ruling asked for, and the object is `Y`'s lower bound,
 on the wide theorem's side.
+
+#### WIDE (3′) `hent₂` — ALL THREE WAYS OUT REFUTED, AND WHAT THE REFUTATIONS SAY (lane LE, 2026-09-19)
+
+Taken in the ruled order 1 → 3 → 2, each read at its consumer.  None
+closes, and nothing was built.
+
+##### (1) `hent₂` IS NOT SPENT THROUGH MONOTONICITY — REFUTED
+
+`copyTransfer_via` spends it in exactly one place
+(`NestedPinLeafAll.lean`, the `ordF` split):
+
+    · rw [if_pos hrC₂, hcdom]
+      exact hent₂ _ hl₂ hr' hrC₂ fs₁ rfl hsp₂
+
+— the RAW inclusion at `X₂`, with no monotonicity step and no carrier
+form anywhere near it.  The chain it serves is
+*side-1 slot ⊆ `dK`'s real domain ⊆ side-2 slot*, routed through the
+container's own domain, which is a set independent of both tuples.  So
+the premise is exactly as strong as it looks, and weakening it to a
+carrier form would break the composition rather than the statement.
+
+##### (3) `FibreConst σ` DOES NOT PIN `Y` — REFUTED
+
+`FibreConst σ` says `Y` is CONSTANT ON σ's FIBRES; it says nothing
+about `Y` being the carrier at any class.  And the classes side 2
+reads at an `ordF`-right field are `(dJ.pinCtors qK).tgts j l`, which
+`PinRecLaws.tgtsLt` keeps inside `dJ`'s own classes — so they are
+inside σ's image and there is no escape to pin them.  The coordinator's
+own condition ("only true if side 2's entry is asked at a class where
+`Y` is forced") is not met at any class.
+
+##### (2) (B-below) QUANTIFIES `X` WITH AN UPPER BOUND ONLY — REFUTED
+
+`lfpTuple_congr_le`'s agreement is
+
+    hΦ : ∀ X, InTupleSpace w k Is X → TupleLe k Is X C → ∀ m, m < k → Φ X m = Φ' X m
+
+and `lfpTuple_set_congr_le`'s is the same shape.  The tuples are those
+of the space BELOW `C`; there is no lower bound and none can be added
+without changing what (B-below) proves — the clamp argument
+(`meetT`, `hclamp`/`hclamp'`) needs the agreement at every closed
+tuple's clamp, which is exactly where the small tuples come from.  So
+`hfitc`'s `Y` cannot carry a lower bound.
+
+##### (4) WHAT THE THREE REFUTATIONS SAY TOGETHER
+
+They agree on where the asymmetry is, and it is not where the premise
+puts it.  At an `ordF`-right field — `dK`'s field ordinary, the copy's
+recursive — BOTH copies are recursive: the block's copy of `dJ`'s pin
+and `dJ`'s own copy fired the same rewrite one substitution apart.  So
+the two targets are σ-RELATED, and what the arm wants is `hrel`'s
+sentence (the two tuples agree at the target), not an ENTRY on either
+side.  The block-side entry is available only because K.62/K.66 make
+that target escape the block's instance — which is the MEMBER half's
+situation, where the container's side is an OPERATOR and not a copy,
+and it is a red herring here.
+
+**So the next move is at `pinClassFit_of_transfer`'s premise split,
+not at anybody's record**: the `ordF`-right arm of the PIN half should
+be carried by a target correspondence, the way the recursive arm is.
+What that costs is the same question K.61 answers for the block's
+pins, asked of `dJ`'s own copies — and, as with K.61 and `hstgt`, the
+container's own K.61-content is not on its model.  That is the shape
+of the next obstruction, and it is a statement about the transfer's
+premises rather than a missing kernel record.
+
+(`docs/NESTED.md` §7's "each side's own entries at its rewritten
+ordinary fields" is the sentence that hides this: it reads as
+symmetric and is not.)
