@@ -390,6 +390,82 @@ theorem denoteMeta_strLitToConstructor
   rfl
 
 
+/-! ## `projAV`'s grading under equal-valued subjects
+(`Model/Steps/ProjAVKit.lean` and `projAV_validV`, transplanted) -/
+
+namespace ProjAV
+
+/-- The subject of a graded projection spine is graded. -/
+theorem hoist :
+    ∀ {i : Nat} {e : AnnotTerm} {σ : Nat → V},
+      WellDenoted V σ (projAV i e) → WellDenoted V σ e
+  | 0, e, σ, h => ((WellDenoted_fst V σ e) ▸ h).1
+  | i + 1, e, σ, h =>
+    ((WellDenoted_snd V σ e) ▸ (hoist (i := i) (e := .snd e) h)).1
+
+/-- The subject of a bit-valid projection spine is bit-valid. -/
+theorem validHoist :
+    ∀ {i : Nat} {e : AnnotTerm} {σ : Nat → V},
+      AnnotValid V σ (projAV i e) → AnnotValid V σ e
+  | 0, e, σ, h => (AnnotValid_fst V σ e) ▸ h
+  | i + 1, e, σ, h =>
+    (AnnotValid_snd V σ e) ▸ (validHoist (i := i) (e := .snd e) h)
+
+/-- The uniform projection spelling is bit-valid whenever its subject
+is (`projAV_validV`, `Model/Inductives/StructIntro.lean:90`). -/
+theorem validV :
+    ∀ {i : Nat} {e : AnnotTerm} {σ : Nat → V},
+      AnnotValid V σ e → AnnotValid V σ (projAV i e)
+  | 0, e, σ, h => by
+    show AnnotValid V σ (.fst e)
+    rw [AnnotValid_fst]
+    exact h
+  | i + 1, e, σ, h => by
+    show AnnotValid V σ (projAV i (.snd e))
+    exact validV (by rw [AnnotValid_snd]; exact h)
+
+/-- **`projAV`'s truthfulness transfers to an equal-valued graded
+subject.** -/
+theorem congr :
+    ∀ {i : Nat} {e e' : AnnotTerm} {σ : Nat → V},
+      interp V σ e = interp V σ e' → WellDenoted V σ e' →
+      WellDenoted V σ (projAV i e) → WellDenoted V σ (projAV i e')
+  | 0, e, e', σ, heq, hok', hok => by
+    show WellDenoted V σ (.fst e')
+    have h : WellDenoted V σ (.fst e) := hok
+    rw [WellDenoted_fst] at h ⊢
+    obtain ⟨-, u, v, A, Bf, hs, hA, hB⟩ := h
+    exact ⟨hok', u, v, A, Bf, heq ▸ hs, hA, hB⟩
+  | i + 1, e, e', σ, heq, hok', hok => by
+    show WellDenoted V σ (projAV i (.snd e'))
+    have hok1 : WellDenoted V σ (.snd e) :=
+      hoist (i := i) (e := .snd e) hok
+    refine congr (i := i) (e := .snd e) (e' := .snd e') ?_ ?_ hok
+    · simp only [interp_snd, heq]
+    · rw [WellDenoted_snd] at hok1 ⊢
+      obtain ⟨-, u, v, A, Bf, hs, hA, hB⟩ := hok1
+      exact ⟨hok', u, v, A, Bf, heq ▸ hs, hA, hB⟩
+
+/-- `WellDenotedV` form of the congruence. -/
+theorem congrV {i : Nat} {e e' : AnnotTerm} {σ : Nat → V}
+    (heq : interp V σ e = interp V σ e') (hok' : WellDenotedV V σ e')
+    (hok : WellDenotedV V σ (projAV i e)) : WellDenotedV V σ (projAV i e') :=
+  ⟨congr heq hok'.1 hok.1, validV hok'.2⟩
+
+/-- `WellDenotedV` of the subject, off the spine's. -/
+theorem hoistV {i : Nat} {e : AnnotTerm} {σ : Nat → V}
+    (hok : WellDenotedV V σ (projAV i e)) : WellDenotedV V σ e :=
+  ⟨hoist hok.1, validHoist hok.2⟩
+
+/-- The interpretation of the spine, at equal-valued subjects. -/
+theorem interp_congr {i : Nat} {e e' : AnnotTerm} {σ : Nat → V}
+    (heq : interp V σ e = interp V σ e') :
+    interp V σ (projAV i e) = interp V σ (projAV i e') := by
+  rw [projAV_interp, projAV_interp, heq]
+
+end ProjAV
+
+
 /-! ## The δ identity (`delta_of`, `Steps/Whnf.lean:329`, transplanted) -/
 
 /-- The instantiated form of `DefnReads`, by the level crossing

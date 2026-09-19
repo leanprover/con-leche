@@ -49,16 +49,109 @@ theorem Red.trans_sound {d : Nat} {e₁ e₂ e₃ : Expr}
 
 /-- `whnfCore_app_claim`'s head-reduction half (`Steps/Whnf.lean:509`)
 + `frame_appFn` (`Stuck.lean:206`). -/
-theorem Red.appFn_sound (hin : RulesInputs V m φ) {d : Nat} {f f' a : Expr}
+theorem Red.appFn_sound (_hin : RulesInputs V m φ) {d : Nat} {f f' a : Expr}
     (hf : RedSem m φ d f f') : RedSem m φ d (.app f a) (.app f' a) := by
-  sorry
+  intro hf Δa ea hC hea hg
+  obtain ⟨hws, hb, hLb⟩ := hf
+  simp only [Expr.WScoped] at hws
+  simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
+  have hLf : Expr.LeavesBounded f := fun l hl =>
+    hLb l (by simp [Expr.fvarLeaves, hl])
+  have hLa : Expr.LeavesBounded a := fun l hl =>
+    hLb l (by simp [Expr.fvarLeaves, hl])
+  obtain ⟨fa, aa, hfa, haa, rfl⟩ := denoteMeta_app_inv hea
+  have hokf : Graded V Δa fa := by
+    intro ρ hρ
+    have hx := hg ρ hρ
+    exact ⟨by have h1 := hx.1; rw [WellDenoted_app] at h1; exact h1.1,
+      by have h2 := hx.2; rw [AnnotValid_app] at h2; exact h2.1⟩
+  have hoka : Graded V Δa aa := by
+    intro ρ hρ
+    have hx := hg ρ hρ
+    exact ⟨by have h1 := hx.1; rw [WellDenoted_app] at h1; exact h1.2.1,
+      by have h2 := hx.2; rw [AnnotValid_app] at h2; exact h2.2⟩
+  obtain ⟨⟨hwf', hbf', hLf'⟩, hsubf, fa', hfa', hgf', heqf⟩ :=
+    hf ⟨hws.1, hb.1, hLf⟩ hC.app_fn hfa hokf
+  refine ⟨⟨by simp only [Expr.WScoped]; exact ⟨hwf', hws.2⟩, by
+      simp only [Expr.looseBVarsBounded, Bool.and_eq_true]
+      exact ⟨hbf', hb.2⟩, fun l hl => ?_⟩, fun l hl => ?_,
+    .app fa' aa, by rw [denoteMeta_app, hfa', haa]; rfl, ?_, ?_⟩
+  · simp only [Expr.fvarLeaves, List.mem_append] at hl
+    rcases hl with hl | hl
+    · exact hLf' l hl
+    · exact hLa l hl
+  · simp only [Expr.fvarLeaves, List.mem_append] at hl ⊢
+    rcases hl with hl | hl
+    · exact Or.inl (hsubf l hl)
+    · exact Or.inr hl
+  · intro ρ hρ
+    have hx := hg ρ hρ
+    refine ⟨?_, ?_⟩
+    · have hx1 := hx.1
+      rw [WellDenoted_app] at hx1
+      obtain ⟨-, hoka1, v', A, B, h1, h2, h3⟩ := hx1
+      rw [WellDenoted_app]
+      exact ⟨(hgf' ρ hρ).1, hoka1, v', A, B, (heqf ρ hρ) ▸ h1, h2, h3⟩
+    · rw [AnnotValid_app]
+      exact ⟨(hgf' ρ hρ).2, (hoka ρ hρ).2⟩
+  · intro ρ hρ
+    rw [interp_app, interp_app, heqf ρ hρ]
+
 
 /-- The `.proj` clause's scrutinee reduction (`projStep_of_claims`'s
 stuck branch, `Steps/ProjRows.lean:278`; `WellDenotedV_projAV_congr`). -/
-theorem Red.projArg_sound (hin : RulesInputs V m φ) {d : Nat} {sn : Name}
+theorem Red.projArg_sound (_hin : RulesInputs V m φ) {d : Nat} {sn : Name}
     {i : Nat} {e e' : Expr} (he : RedSem m φ d e e') :
     RedSem m φ d (.proj sn i e) (.proj sn i e') := by
-  sorry
+  intro hf Δa ea hC hea hg
+  obtain ⟨hws, hb, hLb⟩ := hf
+  simp only [Expr.WScoped] at hws
+  simp only [Expr.looseBVarsBounded] at hb
+  have hsube : ∀ l ∈ e.fvarLeaves, l ∈ (Expr.proj sn i e).fvarLeaves :=
+    fun l hl => by simpa [Expr.fvarLeaves] using hl
+  have hLe : Expr.LeavesBounded e := fun l hl => hLb l (hsube l hl)
+  have hCe : CtxOk m φ d Δa e := hC.of_subset hsube
+  obtain ⟨vp, hvp, hrd⟩ := denoteMeta_proj_inv hea
+  have hokVp : Graded V Δa vp := by
+    intro σ hσ
+    rcases hrd with ⟨_, -, rfl⟩ | ⟨-, hdec⟩
+    · exact ProjAV.hoistV (hg σ hσ)
+    · rcases AnnotTerm.projPair?_cases hdec with rfl | rfl
+      · exact ⟨by have h1 := (hg σ hσ).1; rw [WellDenoted_fst] at h1; exact h1.1,
+          by have h2 := (hg σ hσ).2; rwa [AnnotValid_fst] at h2⟩
+      · exact ⟨by have h1 := (hg σ hσ).1; rw [WellDenoted_snd] at h1; exact h1.1,
+          by have h2 := (hg σ hσ).2; rwa [AnnotValid_snd] at h2⟩
+  obtain ⟨⟨hw', hb', hL'⟩, hsub, vp', hvp', hg', heq⟩ :=
+    he ⟨hws, hb, hLe⟩ hCe hvp hokVp
+  refine ⟨⟨by simp only [Expr.WScoped]; exact hw',
+      by simp only [Expr.looseBVarsBounded]; exact hb',
+      fun l hl => hL' l (by simpa [Expr.fvarLeaves] using hl)⟩,
+    fun l hl => hsube l (hsub l (by simpa [Expr.fvarLeaves] using hl)), ?_⟩
+  rcases hrd with ⟨entry, hfe, rfl⟩ | ⟨hnt, hdec⟩
+  · refine ⟨projAV (i + entry.off) vp', ?_,
+      fun σ hσ => ProjAV.congrV (heq σ hσ) (hg' σ hσ) (hg σ hσ),
+      fun σ hσ => ProjAV.interp_congr (heq σ hσ)⟩
+    rw [denoteMeta, hvp', hfe]; rfl
+  · obtain ⟨x', hx'⟩ :=
+      AnnotTerm.projPair?_exists_of_lt (AnnotTerm.lt_of_projPair? hdec) vp'
+    have hred : denoteMeta m.acval env φ d (.proj sn i e') = some x' := by
+      rw [denoteMeta, hvp', hnt]; exact hx'
+    rcases AnnotTerm.projPair?_cases₂ hdec hx' with ⟨rfl, rfl⟩ | ⟨rfl, rfl⟩
+    · refine ⟨.fst vp', hred, fun σ hσ => ?_,
+        fun σ hσ => by rw [interp_fst, interp_fst, heq σ hσ]⟩
+      refine ⟨?_, by rw [AnnotValid_fst]; exact (hg' σ hσ).2⟩
+      have h1 := (hg σ hσ).1
+      rw [WellDenoted_fst] at h1 ⊢
+      obtain ⟨-, u, v, A, Bf, hsig, hA, hfib⟩ := h1
+      exact ⟨(hg' σ hσ).1, u, v, A, Bf, (heq σ hσ) ▸ hsig, hA, hfib⟩
+    · refine ⟨.snd vp', hred, fun σ hσ => ?_,
+        fun σ hσ => by rw [interp_snd, interp_snd, heq σ hσ]⟩
+      refine ⟨?_, by rw [AnnotValid_snd]; exact (hg' σ hσ).2⟩
+      have h1 := (hg σ hσ).1
+      rw [WellDenoted_snd] at h1 ⊢
+      obtain ⟨-, u, v, A, Bf, hsig, hA, hfib⟩ := h1
+      exact ⟨(hg' σ hσ).1, u, v, A, Bf, (heq σ hσ) ▸ hsig, hA, hfib⟩
+
 
 /-- `WellDenotedV_beta_gate` (`Steps/Gate.lean:80`) + `denoteMeta_beta`. -/
 theorem Red.betaGate_sound (hin : RulesInputs V m φ) {d : Nat}
