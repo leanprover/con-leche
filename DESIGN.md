@@ -119471,3 +119471,177 @@ it.  The order, once clause 3 has a source:
 
 DESIGN-only session: no `.lean` file changed, so no gate could move and
 none was re-run.
+
+#### WIDE (4) STATED — step (4) is an induction over INSTANCES with NO candidate frame, and its one unpriced input is the ENTRY's ARM (lane LE4, 2026-09-19)
+
+Step (4) — the discharge of `NestedPinsLe`, the model tier's last
+residual — written out before it is built, with every input checked
+against the tree rather than named from memory, and with the assembly
+around the per-instance step COMPILED so that the statement is the
+elaborator's and not a reading.  Two theorems landed in a new module
+`ConLeche/Model/Inductives/NestedPinsLeInd.lean`; nothing the other
+lanes own was touched.
+
+##### (a) STEP (4), IN FIVE LINES
+
+1. **The measure** is K.52's recorded rank `nestedPinRankOf` over the
+   instance partition `nestedPinInstOf` and the edge list
+   `nestedPinEdges` (`Kernel/Inductives/NestedInstall.lean`), consumed
+   through `nestedPinsLe_of_rank` → `pins_le_of_instanceLe`
+   (`NestedPinLeafAll.lean:5104`, `:5061`).  `pins_le_of_declOrder`
+   /`pins_all_of_measure` (`:5039`, `:4982`) are the same skeleton at a
+   bare numeric order; the rank form is the one with a kernel record
+   behind it and is what step (4) uses.
+2. **The inductive hypothesis at a pin `q`** is `pinLfp q' = L⁺ (p.k + q')`
+   at every pin `q'` reached by an edge out of `q`'s own instance and
+   labelled by a DIFFERENT instance.  It arrives from the skeleton as a
+   `FamLe` and is upgraded per pin by `nestedPinEq_at_of_le`
+   (`:5146`), which consumes step (ii) (`nestedPinsFixed`) and nothing
+   else.
+3. **The per-instance step** is `ofNested_pin_block_of_wide_inst`
+   (`NestedFit.lean:2435`) at the group of `q`: it hands back
+   `(D).pinCar ψ ρp L_narrow (q₀+i) = lfpTuple (dJ.w ψJ) dJ.k …ᵢ`, an
+   EQUALITY, for every member `i` of the container at once.
+4. **The two ends are closed by Bekić and by the group's own reading**:
+   `ofNested_pinCar_lfp` (`BlockComposed.lean:398`) rewrites the left
+   side to `L⁺ (p.k + q₀ + i)`, `pinLfp_group` (`:2555`) rewrites the
+   right side to `pinLfp … (q₀+i)`, and `FamLe.refl` finishes.  No
+   ordering among the pins of one instance is used.
+5. **The frame is the TRUE one throughout.**  The container's side is
+   read at `consList ((pinAt (q₀+i)).Ds ψ |>.map (interp V ρp)) ρp`,
+   which is `ρJ`'s local notation in `NestedFit.lean`'s `Container`
+   section — not a variable.  `pinLfpAt`, `CandParamFit`,
+   `CandIdxAgree`, `hentR` and `nestedPinsLe_of_rank`'s candidate frame
+   do not occur in either theorem.
+
+##### (b) THE INPUT TABLE
+
+`nestedPinWideStep` is `ofNested_pin_block_of_wide_inst` at a
+`GroupFacts`; the "discharged" rows are proved inside it, the rest are
+its named hypotheses.
+
+| input | where | status |
+|---|---|---|
+| `nestedPinsLe_of_rank` (skeleton) | `NestedPinLeafAll.lean:5104` | exists, at `env` — K.52's `nestedPinRankOk_inv` |
+| `pins_le_of_instanceLe` | same file `:5061` | exists, abstract |
+| `nestedPinEq_at_of_le` (IH upgrade) | same file `:5146` | exists, at the run's `ψ`/`ρp` |
+| `ofNested_pin_block_of_wide_inst` | `NestedFit.lean:2435` | exists, at the RECORDED frame |
+| `ofNested_pinCar_lfp` | `BlockComposed.lean:398` | exists |
+| `pinLfp_group` | `NestedPinLeafAll.lean:2555` | exists |
+| `hfit_wide_mem_of_inst` (the `hent` consumer) | `NestedFit.lean:2138` | exists — narrows `hent` to `CopyEntryOrd` at `:2246` |
+| `NestedLfpOk` at the run | `nestedLfpOk_of_formers` (`NestedAux.lean:73`) + `nestedPinsBound` | discharged |
+| `TupleLfpShape` | `nestedShape_of_formers` (`NestedAux.lean:99`) | discharged |
+| `hseg`/`hkpos`/`hreps`/`hfT`/`hPT`/`hw` | `NestedPinGroupSyn` fields | discharged |
+| `hu` | `pinU` + `nestedU_pin` (`nestedU_pin_group`'s body) | discharged |
+| `hρJ` | `satOfSpine` ∘ `DsFit` ∘ `spineOfSat_params` | discharged |
+| `hidx` | `GroupFacts.idx` | discharged |
+| `hgrp` | `ownCtors_grp h3 h.lenA (G.syn.ctorCount …)` | discharged (`NestedPinGroup.grp`'s body, at `Syn`) |
+| `hsh` | `GroupFacts.shape` | discharged |
+| `hinjJ` (`injT` at the WIDE classes) | `injT_of_mem` at a member; the pin constructors' own at a pin | **missing at the pin classes** — not on `GroupFacts`, rides on `PinRecLaws`/`PinShapes` |
+| `hσ`/`hroot`/`hIsσ` (the closure) | the σ CLAUSE on `NestedPinGroupIds`/`NestedPinsIdent`'s 4th conjunct | **missing** — lane LE item (e) 3 |
+| `hrowsσ` | `rowsσ_of_pin_class` | **missing** — lane LE item (e) 2, waits on `hpin` |
+| `hstgt` | `NestedPinsRun.copyPinFInstTgt` (`NestedInstMap.lean:201`) | exists at `NestedPinsRun`, **concluding in `nestedInstMapAt`, not in an abstract `σ`** — the σ clause is the converter |
+| `houtσ` | `NestedPinsRun.copyOrdFOutside` (`NestedInstMap.lean:439`) | same |
+| `hpin` | `hfit_wide_pin_of_class` ∘ `pinClassFit_of_transfer` | **missing** — lane LE item (e) 1, blocked on K.64 + three `ContainerModeled` clauses |
+| `hent` (`CopyEntryA`) | `nestedPinsEntry_at` (`NestedPinLeafAll.lean:5229`) | exists, **UNUSABLE INSIDE THE INDUCTION** — see (d) |
+| the instance MAP vs the instance LABEL | `nestedInstMapAt` (K.60/K.61) vs `nestedPinInstOf` (K.37/K.52) | **not tied** — see (e) |
+
+##### (c) WHAT COMPILED
+
+* `nestedPinsLe_of_wide` — the assembly: from K.52's `hrank`, the
+  groups, and ONE per-instance hypothesis `hwide` (stated in exactly
+  `pins_le_of_instanceLe`'s `hinst` shape, with the IH as the EQUALITY),
+  `NestedPinsLe`'s conclusion at the run.  Proved, no `sorry`;
+* `nestedPinWideStep` — `hwide` at one group, from
+  `ofNested_pin_block_of_wide_inst`, with the table's "discharged" rows
+  proved and the rest named.  Proved, no `sorry`.
+
+`#print axioms` on both: `[propext, Classical.choice, Quot.sound]`.
+
+**The remaining named hypotheses, and the answer the coordinator
+asked for: NOT ONE OF THEM MENTIONS A CANDIDATE-FRAME OBJECT.**  Nine
+remain — `hinjJ`, `hrowsσ`, `hσ`, `hroot`, `hIsσ`, `hent`, `hstgt`,
+`houtσ`, `hpin` — and each is either the instance closure σ, a fact
+about a stored CONTAINER, or the entries.  `pinLfpAt`, `CandParamFit`,
+`CandIdxAgree`, `hentR` and G1's bridge do not appear in either
+statement or either proof.  So the expectation recorded in "WIDE (f3)
+step 1 … (d)" — that step (4) frees the whole candidate-frame
+apparatus — is CONFIRMED for the shape of the induction; what it is not
+yet confirmed for is the two gaps below, and neither of them is a
+candidate frame.
+
+##### (d) THE FINDING: the ENTRY hypothesis is asked at an arm the induction cannot reach
+
+`ofNested_pin_block_of_wide_inst`'s `hent` is `CopyEntryA`, i.e.
+`CopyEntryOut` — the entry identity at every copy-recursive field whose
+target leaves the mint GROUP `[p.k+q₀, p.k+q₀+kJ)`.  The copies of the
+container's OWN pins leave that group and stay inside the INSTANCE.
+Its only producer, `nestedPinsEntry_at`, reaches them through
+`nestedTargetReads_L`'s `S` at the `pinF` arm, and that lemma's own
+docstring says what `S` costs there: "At an in-instance target `S` is
+supplied by neither this lane nor the induction."  So `hent` as stated
+is CIRCULAR inside an induction over instances.
+
+It is also stronger than the wide route uses.
+`hfit_wide_mem_of_inst` (`NestedFit.lean:2246`) immediately narrows it
+with `CopyEntryOut.ord` to `CopyEntryOrd` — the `ordF`-RIGHT arm only —
+because at a container-recursive field targeting one of the container's
+own pins `CopyCtorShape.fit_iff_wide` reads the segment's own variable
+on BOTH sides and the entry is not consumed.  And `CopyEntryOrd`'s
+targets are exactly the ones `houtσ` (K.62) puts OUTSIDE the instance.
+
+So step (4) needs, beyond the lane's current list:
+
+1. `hfit_wide_mem_of_inst` / `hfit_wide_of_inst` /
+   `ofNested_pin_block_of_wide_inst` restated with `hent :
+   CopyEntryOrd …` in place of `CopyEntryA` (the proof already only
+   uses the narrowing, so this is a signature change and the deletion
+   of one `CopyEntryOut.ord` call);
+2. an Ord-only producer beside `nestedPinsEntry_at`: the same proof
+   with the `pinF` arm dropped and `S` instantiated to "the target's
+   instance label differs", discharged from `NestedPinsRun.copyOrdFOutside`.
+
+Neither is in `NestedFit.lean`'s or `NestedPinLeafAll.lean`'s current
+plan, and both are in files lane LE owns.  **This is the one item of
+step (4) that no DESIGN row has priced.**
+
+##### (e) THE SECOND GAP: two different "instances"
+
+`houtσ`'s run half (`NestedPinsRun.copyOrdFOutside`) concludes "the
+target is not in `nestedInstMapAt env st (q₀+i')`'s image" — the
+INSTANCE MAP, K.60/K.61's per-copy list of the container's own pins.
+`pins_le_of_instanceLe`'s `hinst` gives the IH at pins whose
+`nestedPinInstOf` LABEL differs — K.37/K.52's connected-component
+partition of the own-reference edges.  The two are different recorded
+objects and nothing in the tree ties them.  What step (4) needs is one
+direction: **not in the instance map's image ⇒ a different label**,
+which is K.37's clause (1) ("an own reference stays inside the
+instance") read backwards.  It is not a candidate frame and not a new
+kernel record, but it is a lemma, and it is the hinge between the
+per-instance step's `houtσ` and the induction's IH.
+
+##### (f) STATE AND ORDER
+
+Nothing of the lane's own list moved.  The order stands as "WIDE (3′)
+(a) ROUTE 1, PRICED AT THE PROOF" (d) left it, with two items added at
+the end, both for step (4) and neither blocking (3′):
+
+1. K.64 (`pinsResolve`), the three `ContainerModeled` clauses, the
+   producer beside `instMapPinOwn` — unchanged;
+2. `hρ` → `hpin` → `hrowsσ` → the σ clause → (4′) — unchanged;
+3. **(4a)** the entry's arm: `CopyEntryOrd` on the three wide
+   theorems, and the Ord-only producer beside `nestedPinsEntry_at`;
+4. **(4b)** the instance-map-to-instance-label lemma;
+5. **(4)** `nestedPinsLe_of_wide` ∘ `nestedPinWideStep`, whose
+   assembly is already compiled.
+
+##### (g) GATES
+
+`lake build` exit 0, 0 warning lines; `lake test` exit 0, 0 warning
+lines; `#print axioms` on both new theorems
+`[propext, Classical.choice, Quot.sound]`.  `tests/unconsumed.sh`
+(advisory) 185 of 3733 against the base's 184 of 3731 — the two new
+theorems are the new declarations and `nestedPinWideStep` is consumed
+by nothing yet, which is expected: its consumer is step (4) itself.
+No kernel file changed, so the accept set is untouched and
+`tests/arena.sh` was not re-run.

@@ -168,6 +168,7 @@ public import ConLeche.Model.Inductives.NestedCopyRead
 public import ConLeche.Model.Inductives.NestedOwnPinsRead
 public import ConLeche.Model.Inductives.NestedCopyInst
 public import ConLeche.Model.Inductives.NestedInstMap
+public import ConLeche.Model.Inductives.NestedPinsLeInd
 public import ConLeche.Model.Inductives.NestedTransfer
 public import ConLeche.Model.Inductives.NestedCtorRead
 public import ConLeche.Model.Inductives.NestedCtorOpened
