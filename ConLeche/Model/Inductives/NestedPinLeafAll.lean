@@ -3976,22 +3976,18 @@ theorem nestedPinFit_pin (m : EnvModel V env₂) {st : ElimState} {dJf : Nat →
     {dJ : BlockModel V} {ψJ : Name → Nat} {ρJ : Nat → V}
     {baseK qK c : Nat} {lvlsK : List Level} {Y X₁ : Nat → V}
     {cA : ConstantVal × Nat} (hj : ((dJf a).ctorsM i)[j]? = some cA)
-    (hc : ¬ c < dJ.k) (hcq : c - dJ.k = qK)
+    (hc : ¬ c < dJ.k) (hcq : c - dJ.k = qK) (hqK : qK = baseK + i)
+    (S₂ : PinGroupView dJ (dJf a) baseK kk)
+    {ciK : ContainerInfo} (CK : ContainerModeled m ciK (dJf a))
+    {IK : Name} (hciK : ConLeche.containerInfo? env₂ IK = some ciK)
+    {cvK : ConstantVal} {capsK : IndCaps} (hfK : env₂.find? IK = some (.indInfo cvK capsK))
+    (hpp : ContainerPinParams (V := V) cvK (dJf a))
+    (hψK : ∀ pp ∈ cvK.levelParams,
+      ((dJ.pinAt baseK).ψJ ψJ) pp = (((D).pinAt (a + i)).ψJ ψ) pp)
     (hψ : ∀ pp ∈ cA.1.levelParams,
       (((D).pinAt (a + i)).ψJ ψ) pp = (dJ.pinAt baseK).ψJ ψJ pp)
     (hρ : ∀ v, v < (dJf a).nP → (D).pinFrame (a + i) ψ ρp v
       = consList (((dJ.pinAt baseK).Ds ψJ).map (interp V ρJ)) ρJ v)
-    (hwK : (dJf a).w (((D).pinAt (a + i)).ψJ ψ)
-      = (dJf a).w ((dJ.pinAt baseK).ψJ ψJ))
-    (huT : ∀ l, (dJf a).uT ((dJf a).tgts i j l) (((D).pinAt (a + i)).ψJ ψ)
-      = (dJf a).uT ((dJf a).tgts i j l) ((dJ.pinAt baseK).ψJ ψJ))
-    (hIdsLen : ((dJf a).IdsM i (((D).pinAt (a + i)).ψJ ψ)).length
-      = ((dJf a).IdsM i ((dJ.pinAt baseK).ψJ ψJ)).length)
-    (hw₂ : (dJf a).w ((dJ.pinAt baseK).ψJ ψJ) = dJ.w ψJ)
-    (hu₂ : ∀ i', i' < kk → dJ.uT (dJ.k + baseK + i') ψJ
-      = (dJf a).uM i' ((dJ.pinAt baseK).ψJ ψJ))
-    (hnI₂ : ((dJ.pinAt qK).Ids ψJ).length
-      = ((dJf a).IdsM i ((dJ.pinAt baseK).ψJ ψJ)).length)
     (h₂ : CopyCtorShape (dJ.targetView m.acval ψJ) m.acval (dJf a)
       ((dJ.pinAt baseK).ψJ ψJ) ((dJ.pinAt baseK).Ds ψJ) cvT.levelParams lvlsK
       (fun l => (dJ.pinCtors qK).tgts j l) (((dJ.pinCtors qK).tlss ψJ).getD j [])
@@ -4075,6 +4071,39 @@ theorem nestedPinFit_pin (m : EnvModel V env₂) {st : ElimState} {dJf : Nat →
   have hnI : (blockIds b.nP ppsF ψ (p.k + a + i)).length
       = ((dJf a).IdsM i (((D).pinAt (a + i)).ψJ ψ)).length := by
     rw [G.idx i hi ψ i hi, instTele_length]
+  -- the numeric agreements, off the container's record and its pins'
+  -- parameter data (`nestedPinPairAt_pin`'s derivations, mirrored)
+  have hpar := CK.params_congr hciK hfK hψK hik
+  have hwK : (dJf a).w (((D).pinAt (a + i)).ψJ ψ)
+      = (dJf a).w ((dJ.pinAt baseK).ψJ ψJ) := hpar.2.2.symm
+  have huT : ∀ l, (dJf a).uT ((dJf a).tgts i j l) (((D).pinAt (a + i)).ψJ ψ)
+      = (dJf a).uT ((dJf a).tgts i j l) ((dJ.pinAt baseK).ψJ ψJ) := by
+    intro l
+    by_cases hnt : (dJf a).tgts i j l < (dJf a).k
+    · rw [BlockModel.uT_of_mem hnt, BlockModel.uT_of_mem hnt]
+      exact (CK.params_congr hciK hfK hψK hnt).1.symm
+    · rw [BlockModel.uT_of_pin hnt, BlockModel.uT_of_pin hnt]
+      by_cases hqq : (dJf a).tgts i j l - (dJf a).k < (dJf a).nPins
+      · exact ((hpp _ hqq).2.2 _ _ hψK).1.symm
+      · unfold BlockModel.pinAt
+        rw [List.getD_eq_getElem?_getD,
+          List.getElem?_eq_none (show (dJf a).pins.length ≤ _ from by
+            unfold BlockModel.nPins at hqq; omega)]
+        rfl
+  have hIdsLen : ((dJf a).IdsM i (((D).pinAt (a + i)).ψJ ψ)).length
+      = ((dJf a).IdsM i ((dJ.pinAt baseK).ψJ ψJ)).length := by
+    unfold BlockModel.IdsM; rw [hpar.2.1]
+  have hw₂ : (dJf a).w ((dJ.pinAt baseK).ψJ ψJ) = dJ.w ψJ := S₂.w ψJ
+  have hu₂ : ∀ i', i' < kk → dJ.uT (dJ.k + baseK + i') ψJ
+      = (dJf a).uM i' ((dJ.pinAt baseK).ψJ ψJ) := by
+    intro i' hi'
+    rw [Nat.add_assoc, BlockModel.uT_of_pin (by omega) ψJ, Nat.add_sub_cancel_left]
+    exact S₂.pinU i' hi' ψJ
+  have hnI₂ : ((dJ.pinAt qK).Ids ψJ).length
+      = ((dJf a).IdsM i ((dJ.pinAt baseK).ψJ ψJ)).length := by
+    rw [hqK]
+    unfold PinSyn.Ids BlockModel.IdsM
+    rw [S₂.pinPps i hi, S₂.pinNP i hi, (S₂.same i hi ψJ).1]
   exact pinClassFit_of_transfer G.syn.reps hik G.syn.kEq hj hc hcq hψ hρ hwK huT hIdsLen hwb hw₂
     (fun i' hi' => by
       show nestedU p.k W pinsS ψ (p.k + a + i') = _

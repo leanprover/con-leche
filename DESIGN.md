@@ -120410,7 +120410,39 @@ so they are `hfit_wide_mem_of_inst`'s `hentZ`/`hZY`/`hYle` at a PIN
 class rather than at a member — the run's `CopyEntryA` at the pin's own
 group, through `setJoin_out` and `setJoin_at_fc`.
 
-**Estimate from here: the alignment is ~120 lines of an existing
-template; the four entry premises are ~100 lines that have no
-template.**  The step is authorised as session-shaped and this is
-where the session ended, not where the route did.
+##### (c) THE ALIGNMENT IS NOW INSIDE `nestedPinFit_pin`, AND THE STOP IS `hdom₂`/`hent₂`
+
+Continued on the coordinator's ruling that ~220 lines is inside the
+authorised session.  The six NUMERIC agreements
+(`hwK`, `huT`, `hIdsLen`, `hw₂`, `hu₂`, `hnI₂`) are no longer premises:
+`nestedPinFit_pin` now takes the container's record instead — the pin
+group's view `S₂`, its `ContainerModeled` and its
+`ContainerPinParams`, and the two level agreements — and derives them
+by `ContainerModeled.params_congr` and `PinGroupView.w`/`pinU`/
+`pinPps`/`pinNP`, exactly as `nestedPinPairAt_pin` derives its own.
+Six premises became four inputs the caller already holds.
+
+**What stops it is one of the four entry premises, and the reason is
+not size.**  `pinClassFit_of_transfer` is SYMMETRIC: it wants each
+side's slot-versus-domain inclusion at the SAME tuple `Y`.  The block
+side is `hfit_wide_mem_of_inst`'s shape (`CopyEntryOut.ord` at the
+run's `CopyEntryA`, `setJoin_out` at `houtσ`).  The container side has
+a theorem — `BlockModel.copyEntryAt_pin` — but it concludes at
+`dR.famAt … (lfpTuple …)`, the container's OWN CARRIER, while `hfitc`
+quantifies `Y` over every tuple below that carrier.
+
+* `hdom₂` (slot ⊆ domain) should follow from the carrier form by
+  monotonicity (`slotSet_mono_app`) against `Y ≤ carrier`, which
+  `hfitc` has;
+* `hent₂` (domain ⊆ slot) does NOT: at a general `Y` it is false, and
+  it is asked exactly at the arm where the CONTAINER's field is
+  ordinary and the COPY's is recursive — the `ordF`-right arm, where
+  the block side's answer is "the target leaves the instance, so the
+  tuple there IS the carrier".  The container side needs the same
+  sentence about the CONTAINER's own instance, and that is a fact
+  about a stored container which no law named here provides.
+
+**So the next step is to find or record the container's own
+`ordF`-right escape**, the way K.62/K.66 record the block's.  Until
+that is named, `hfitc` cannot close, and the remaining ~100 lines are
+not the obstacle.
