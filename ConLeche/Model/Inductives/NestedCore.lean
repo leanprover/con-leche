@@ -375,12 +375,11 @@ records it sits beside. -/
       (∀ mm, (D).memberNames.findIdx? (· == M) = some mm →
           ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
             (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0 = mm) ∧
-      (∀ (ciM : ContainerInfo) (z : Nat), (D).memberNames.findIdx? (· == M) = none →
-        ConLeche.containerInfo? env M = some ciM →
+      (∀ z : Nat, z < (D).nPins → (D).memberNames.findIdx? (· == M) = none →
         ((D).ownPinTerms lps).findIdx? (fun e => e == Expr.mkAppN
             (ConLeche.ordTargetDom dJ.nP ((D).ownPinTerms lps) (q₀ + i') l dom.1).getAppFn
             ((ConLeche.ordTargetDom dJ.nP ((D).ownPinTerms lps) (q₀ + i') l
-              dom.1).getAppArgs.take ciM.nP)) = some z →
+              dom.1).getAppArgs.take ((D).pinAt z).nPJ)) = some z →
         ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
           (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0 = p.k + z))
 

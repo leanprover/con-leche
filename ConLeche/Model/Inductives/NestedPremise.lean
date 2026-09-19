@@ -1090,6 +1090,28 @@ unchanged. -/
           (d.pinAt q').Ds φ
               = (((B ci).pinAt ((B ci).tgts i' j l - (B ci).k)).Ds ((d.pinAt q₀).ψJ φ)).map
                   (AnnotTerm.instAll ((d.pinAt q₀).Ds φ) 0)) ∧
+    (∀ (ψ : Name → Nat) (i' : Nat), i' < kJ → ∀ j, j < ((B ci).ctorsM i').length → ∀ l,
+      l < (((B ci).Fss i' ((d.pinAt q₀).ψJ ψ)).getD j []).length →
+      (((B ci).rss i').getD j []).getD l false = false →
+      ((pc (q₀ + i')).rss.getD j []).getD l false = true →
+      ∀ (cA : ConstantVal × Nat) (bs : List (Expr × ConLeche.BinderMeta)) (rr : Expr)
+        (dom : Expr × ConLeche.BinderMeta) (lps : List Name),
+      ((B ci).ctorsM i')[j]? = some cA →
+      cA.1.type.stripPis ((B ci).nP + cA.2) = some (bs, rr) →
+      bs[(B ci).nP + l]? = some dom →
+      ∀ (M : Name) (us : List Level),
+      (ConLeche.ordTargetDom (B ci).nP (d.ownPinTerms lps) (q₀ + i') l dom.1).getAppFn
+          = .const M us →
+      (∀ mm, d.memberNames.findIdx? (· == M) = some mm → (pc (q₀ + i')).tgts j l = mm) ∧
+      (∀ z : Nat, z < d.nPins →
+        d.memberNames.findIdx? (· == M) = none →
+        (d.pinAt z).ownAt d.nP lps (lps.map Level.param)
+            (ConLeche.containerParamOpeners d.nP)
+          = Expr.mkAppN
+              (ConLeche.ordTargetDom (B ci).nP (d.ownPinTerms lps) (q₀ + i') l dom.1).getAppFn
+              ((ConLeche.ordTargetDom (B ci).nP (d.ownPinTerms lps) (q₀ + i') l
+                dom.1).getAppArgs.take (d.pinAt z).nPJ) →
+        (pc (q₀ + i')).tgts j l = d.k + z)) ∧
     ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (d.params ψ).reverse ρp →
       ∀ i' j, i' < kJ → j < ((B ci).ctorsM i').length →
       ∀ (cvT : ConstantVal) (caps : IndCaps),
@@ -1222,7 +1244,7 @@ theorem PinShapes.rowTarget {env : Env} {m : EnvModel V env} {B : ContainerInfo 
           (d.targetView m.acval φ).Ds ((pc (q₀ + i')).tgts j l)
               = (((B ci).pinAt ((B ci).tgts i' j l - (B ci).k)).Ds ((d.pinAt q₀).ψJ φ)).map
                   (AnnotTerm.instAll ((d.pinAt q₀).Ds φ) 0) := by
-  obtain ⟨q₀, kJ, i, ci', hqe, hi, hci', hgv, -, hrow, -⟩ := h q hq
+  obtain ⟨q₀, kJ, i, ci', hqe, hi, hci', hgv, -, hrow, -, -⟩ := h q hq
   obtain rfl : ci' = ci := Option.some.inj (hci'.symm.trans hci)
   refine ⟨q₀, kJ, i, hqe, hi, hgv, fun ψ i' hi' j hj l hl hrs hpinT => ?_⟩
   obtain ⟨q', -, htg, hJ, hrest⟩ := hrow ψ i' hi' j hj l hl hrs hpinT

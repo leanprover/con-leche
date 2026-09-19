@@ -2252,7 +2252,8 @@ theorem declNested_of (hμ : μ.verifiedChecks = true) {F : Nat} {env envOut : E
       (fun q hq ci hci => by
         obtain ⟨q₀, kJ, i, hqe, hi, G⟩ := hGroups q hq ci hci
         exact ⟨q₀, kJ, i, hqe, hi, G, G.sameE⟩)
-      (fun q hq => (T.conts q hq).imp fun _ hh => hh.1)).crossEnv T.findR T.agree hk0
+      (fun q hq => (T.conts q hq).imp fun _ hh => hh.1)
+      hcm.pinsDistinctAt).crossEnv T.findR T.agree hk0
     O.reps.toIsBlockModels
     hBreps (fun q hq ci hci => by
       obtain ⟨ci', h₂, hOut, -⟩ := T.conts q hq

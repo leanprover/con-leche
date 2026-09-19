@@ -2179,9 +2179,56 @@ theorem NestedPinsRun.pinGroupInst_of {pbs : List (Expr × ConLeche.BinderMeta)}
       · exact absurd (Or.inr hrf) hne
     rw [R.ownPinTerms_eq SF lps] at hhead ⊢
     rw [hnames]
-    exact R.instOrdSelfAt SF S hPD hkindsRun hi' (hgb i' hi') (fun ciJ hh => by
+    have hbase := R.instOrdSelfAt SF S hPD hkindsRun hi' (hgb i' hi') (fun ciJ hh => by
         rw [hciP] at hh; obtain rfl := Option.some.inj hh; exact CM)
       hjA hlF hordC hrss hstrip hdom hhead
+    refine ⟨hbase.1, fun z hz hnm hfi => ?_⟩
+    -- the matched entry's container IS the head `M`, and `pinNP` at
+    -- that pin turns the clause's `nPJ` into the `ContainerInfo`'s own
+    -- parameter count, which is what K.68's row is stated at
+    obtain ⟨hzlt, hm₀, -⟩ := List.findIdx?_eq_some_iff_getElem.mp hfi
+    have hzS : z < pinsS.length := by
+      have : z < (ConLeche.nestedPinTermsSelf p st).length := hzlt
+      unfold ConLeche.nestedPinTermsSelf at this
+      rw [SF.pinsLen]; simpa using this
+    have hzD : z < (D).nPins := by show z < pinsS.length; exact hzS
+    have hentry : (ConLeche.nestedPinTermsSelf p st).getD z default
+        = ((D).pinAt z).ownAt b.nP lps (lps.map Level.param)
+            (ConLeche.containerParamOpeners b.nP) := by
+      rw [← R.ownPinTerms_eq SF lps]
+      unfold BlockModel.ownPinTerms
+      rw [List.getD_eq_getElem?_getD, List.getElem?_map, List.getElem?_range hzD]
+      rfl
+    have hterm : (((D).pinAt z).ownAt b.nP lps (lps.map Level.param)
+        (ConLeche.containerParamOpeners b.nP) == Expr.mkAppN
+          (ConLeche.ordTargetDom dJ.nP (ConLeche.nestedPinTermsSelf p st)
+            (q₀ + i') l dom.1).getAppFn
+          ((ConLeche.ordTargetDom dJ.nP (ConLeche.nestedPinTermsSelf p st)
+            (q₀ + i') l dom.1).getAppArgs.take ((D).pinAt z).nPJ)) = true := by
+      rw [← hentry, show (ConLeche.nestedPinTermsSelf p st).getD z default
+          = (ConLeche.nestedPinTermsSelf p st)[z]'hzlt from by
+        rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hzlt]; rfl]
+      exact hm₀
+    have hJM : ((D).pinAt z).J = M := by
+      have hfn := congrArg Expr.getAppFn (of_decide_eq_true hterm)
+      unfold ConLeche.Model.PinSyn.ownAt at hfn
+      rw [Expr.getAppFn_mkAppN, Expr.getAppFn_mkAppN, hhead] at hfn
+      exact (Expr.const.inj hfn).1
+    obtain ⟨ciz, hciz, -⟩ := (hPD z (by rw [← SF.pinsLen]; exact hzS)).own
+    have hcizJ : ConLeche.containerInfo? env ((D).pinAt z).J = some ciz := by
+      show ConLeche.containerInfo? env (pinsS.getD z default).J = some ciz
+      rw [(SF.pinRec z _ (hPD z (by rw [← SF.pinsLen]; exact hzS)).pin).1]; exact hciz
+    have hnPz : ((D).pinAt z).nPJ = ciz.nP := by
+      obtain ⟨q₀z, kJz, iz, hqez, hiz, Sz⟩ := SF.groupsAt dsR xFvsR z hzS ciz hcizJ
+      have hp := Sz.pinNP iz hiz
+      have hm := (Sz.modeled iz hiz ciz (by
+        show ConLeche.containerInfo? env (pinsS.getD (q₀z + iz) default).J = some ciz
+        rw [← hqez]; exact hcizJ)).nP
+      show (pinsS.getD z default).nPJ = ciz.nP
+      rw [hqez]
+      exact hp.trans hm
+    refine hbase.2 ciz z hnm (by rw [← hJM]; exact hcizJ) ?_
+    rw [← hnPz]; exact hfi
 
 end Assembly
 
