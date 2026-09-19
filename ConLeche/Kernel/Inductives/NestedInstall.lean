@@ -2495,19 +2495,32 @@ container is not one of the container's own classes.
 "the CONTAINER's stored field at that position already mentioned a
 member of the container's own group" — is exactly the `pinF`/`ordF`-right
 split.  At an `ordF`-right row the recorded target must be OUTSIDE
-`σ q`'s image. -/
-def nestedOrdOutsideAt (maps? : Option (List (List Nat)))
+`σ q`'s image.
+
+**AND OUTSIDE THE MINT GROUP** (task #315 K.66).  `σ q`'s image is the
+container's OWN PINS' classes; the container's MEMBERS' classes are the
+mint group `[grpBase, grpBase + grpSize)`, which the map does not
+mention, so the first conjunct alone leaves half the instance
+uncovered.  The consumer (`houtσ`) quantifies over BOTH halves, so the
+row carries both.  No walk of its own either: the group's bounds are
+the pin's own record. -/
+def nestedOrdOutsideAt (st : ElimState) (maps? : Option (List (List Nat)))
     (edges? : Option (List (Nat × Nat × Bool))) : Bool :=
   match maps?, edges? with
   | some maps, some rows =>
-    rows.all fun (q, t, mentions) => mentions || !((maps.getD q []).contains t)
+    rows.all fun (q, t, mentions) =>
+      mentions ||
+        (!((maps.getD q []).contains t) &&
+          (match st.pins[q]? with
+           | some qn => decide (t < qn.grpBase) || decide (qn.grpBase + qn.grpSize ≤ t)
+           | none => false))
   | _, _ => false
 
 /-- The Bool the route records (task #315 K.62), on the same edge list
 `nestedPinEdges` computes for K.37 and K.41. -/
 @[inline] def nestedOrdOutsideOk (env : Env) (p : NestedParts) (b : MutualBlock)
     (st : ElimState) (stored : List AuxStored) : Bool :=
-  nestedOrdOutsideAt (nestedInstMaps env st) (nestedPinEdges env p b st stored)
+  nestedOrdOutsideAt st (nestedInstMaps env st) (nestedPinEdges env p b st stored)
 
 /-! ## THE POSITIVITY NORMALISATION ON THE MINTED COPY (task #315 K.42)
 
@@ -2835,17 +2848,19 @@ def nestedPinChecks (ops : CheckerOps m) (env envN : Env) (p : NestedParts) (b :
     throw (.internal "nested: a container's own pin is not the block pin the copy's \
       field records")
   -- **A REWRITTEN ORDINARY FIELD LEAVES THE INSTANCE** (task #315
-  -- K.62): at an `ordF`-right edge — a reference whose container-side
-  -- field mentions no member of the container's own group — the
-  -- recorded target is OUTSIDE the instance map's image.  A negative
-  -- clause on K.61's table, with no walk of its own.  UNCONDITIONAL and
-  -- `.internal`, for K.61's reason.
+  -- K.62, extended by K.66): at an `ordF`-right edge — a reference
+  -- whose container-side field mentions no member of the container's
+  -- own group — the recorded target is OUTSIDE the instance map's
+  -- image (K.62, the container's own pins' half) AND outside the mint
+  -- GROUP (K.66, the container's members' half).  A negative clause on
+  -- K.61's table and on the pin's own record, with no walk of its own.
+  -- UNCONDITIONAL and `.internal`, for K.61's reason.
   --
   -- **IF THIS EVER FIRES** a rewritten ordinary field re-entered the
   -- instance, which refutes the argument that such a target's container
   -- is not one of the container's own classes — again a defect in the
   -- ROUTE.  See DESIGN "#### K.62".
-  else if !nestedOrdOutsideAt maps? edges? then
+  else if !nestedOrdOutsideAt st maps? edges? then
     throw (.internal "nested: a rewritten ordinary field's target is inside the \
       container instance")
   else if !ops.mode.verifiedChecks then pure () else

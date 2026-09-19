@@ -427,11 +427,13 @@ theorem NestedPinsRun.copyPinFInstTgt {pbs : List (Expr × ConLeche.BinderMeta)}
     rw [hmutKs, List.getD_eq_getElem?_getD, hrt]; rfl
   exact ⟨mm, hmapAt, by rw [htg, ← hqKeq]; exact hmapVal⟩
 
-/-- **K.62 AT THE COPY'S FIELD** (task #315 WIDE (3′)): at a field of
-the container that is ORDINARY and whose COPY the auxiliary block
-classifies recursive-or-reflexive at a target outside the block's own
-members — the `ordF`-RIGHT arm — that target is OUTSIDE the instance
-map's image.
+/-- **K.62 AND K.66 AT THE COPY'S FIELD** (task #315 WIDE (3′)): at a
+field of the container that is ORDINARY and whose COPY the auxiliary
+block classifies recursive-or-reflexive at a target outside the block's
+own members — the `ordF`-RIGHT arm — that target is OUTSIDE the
+instance map's image (K.62, the container's own pins' classes) AND
+outside the mint GROUP (K.66, its members' classes).  `houtσ`
+quantifies over both halves, which is why the record carries both.
 
 The edge list is K.37's, unchanged: `nestedPinEdges_mem` says the field
 IS a row of it, with the bit `mentionsMember` computes on the
@@ -457,7 +459,11 @@ theorem NestedPinsRun.copyOrdFOutside {pbs : List (Expr × ConLeche.BinderMeta)}
       (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0) :
     ∃ mm : List Nat, ConLeche.nestedInstMapAt env st (q₀ + i') = some mm ∧
       mm.contains (((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
-        (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0 - p.k) = false := by
+        (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0 - p.k) = false ∧
+      (((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+          (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0 - p.k < q₀ ∨
+        q₀ + kJ ≤ ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+          (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0 - p.k) := by
   classical
   have hq : q₀ + i' < st.pins.length := by
     rw [← SF.pinsLen]; have := S.seg; omega
@@ -582,7 +588,12 @@ theorem NestedPinsRun.copyOrdFOutside {pbs : List (Expr × ConLeche.BinderMeta)}
       (show j < (kindsP[q₀ + i']'hkqlt).length from (List.getElem?_eq_some_iff.mp hkfj).1)
       hkfj hac hcJ hsJ hlks hrt hrecB hge (by rw [hnPci]; exact hdomJ)
     rw [hmenAbs] at hmem
-    exact ConLeche.nestedOrdOutsideOk_at R.hK62 hed hq hmem rfl
+    obtain ⟨mm, hmap, hcon, hgrpOut⟩ :=
+      ConLeche.nestedOrdOutsideOk_at R.hK62 hed hq PD.pin hmem rfl
+    obtain ⟨hgb', hgs'⟩ := S.grp i' hi'
+    rw [← pinAtE_eq] at hgb' hgs'
+    rw [hgb', hgs'] at hgrpOut
+    exact ⟨mm, hmap, hcon, hgrpOut⟩
 
 omit R SF S in
 /-- The function part of a closed application is closed. -/

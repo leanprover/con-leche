@@ -816,16 +816,20 @@ theorem nestedInstMapOk_target {env : Env} {p : NestedParts} {b : MutualBlock}
   rw [hnf.1, hnf.2, Nat.add_zero] at hres
   exact hres
 
-/-- **K.62 at one edge**: an `ordF`-right reference leaves the instance. -/
+/-- **K.62 at one edge, WITH K.66's SECOND HALF**: an `ordF`-right
+reference leaves the instance — both the container's own pins' classes
+(the instance map's image) and its members' (the mint group). -/
 theorem nestedOrdOutsideOk_at {env : Env} {p : NestedParts} {b : MutualBlock}
     {st : ElimState} {stored : List AuxStored}
     (h : nestedOrdOutsideOk env p b st stored = true)
     {edges : List (Nat × Nat × Bool)}
     (hedges : nestedPinEdges env p b st stored = some edges)
     {q t : Nat} (hq : q < st.pins.length)
+    {qn : NestedPin} (hqn : st.pins[q]? = some qn)
     {mentions : Bool} (hmem : (q, t, mentions) ∈ edges)
     (hno : mentions = false) :
-    ∃ m : List Nat, nestedInstMapAt env st q = some m ∧ m.contains t = false := by
+    ∃ m : List Nat, nestedInstMapAt env st q = some m ∧ m.contains t = false ∧
+      (t < qn.grpBase ∨ qn.grpBase + qn.grpSize ≤ t) := by
   subst hno
   cases hms : nestedInstMaps env st with
   | none =>
@@ -836,11 +840,14 @@ theorem nestedOrdOutsideOk_at {env : Env} {p : NestedParts} {b : MutualBlock}
   rw [hms, hedges] at h
   simp only [_root_.List.all_eq_true] at h
   have hb := h _ hmem
-  simp only [Bool.false_or, Bool.not_eq_eq_eq_not, Bool.not_true] at hb
+  rw [Bool.false_or, hqn] at hb
+  simp only [Bool.and_eq_true, Bool.or_eq_true, decide_eq_true_eq,
+    Bool.not_eq_eq_eq_not, Bool.not_true] at hb
+  obtain ⟨hb1, hb2⟩ := hb
   obtain ⟨m, hmq, hm⟩ := mapM_option_inv hms q q (by simp [hq])
-  refine ⟨m, hm, ?_⟩
-  rw [show maps.getD q [] = m from by rw [List.getD_eq_getElem?_getD, hmq]; rfl] at hb
-  simpa using hb
+  refine ⟨m, hm, ?_, hb2⟩
+  rw [show maps.getD q [] = m from by rw [List.getD_eq_getElem?_getD, hmq]; rfl] at hb1
+  simpa using hb1
 
 
 end ConLeche
