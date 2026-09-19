@@ -2466,7 +2466,8 @@ theorem ofNested_pin_block_of_wide_inst {env : Env} {m : EnvModel V env} {q₀ :
     (hroot : ∀ i, i < dJ.k → σ i = k + q₀ + i)
     (hIsσ : ∀ i, i < dJ.k + dJ.nPins →
       idxSet (nestedU k W pins ψ (σ i)) ρp (blockIds nP ppsA ψ (σ i)) = dJ.idx ψJ ρJ i)
-    (hinjJ : ∀ i j fs, dJ.injT dJ.pinCtors ψJ i j fs = injW (resSort.eval ψ) j (mkTower (fs ++ [pt])))
+    (hinjJ : ∀ i, i < dJ.k + dJ.nPins → ∀ j fs,
+      dJ.injT dJ.pinCtors ψJ i j fs = injW (resSort.eval ψ) j (mkTower (fs ++ [pt])))
     (hu : ∀ i', i' < dJ.k → nestedU k W pins ψ (k + q₀ + i') = dJ.uM i' ψJ)
     (hρJ : Sat V (dJ.params ψJ).reverse ρJ)
     (hidx : ∀ i, i < dJ.k → blockIds nP ppsA ψ (k + q₀ + i) = instTele Ds 0 (dJ.IdsM i ψJ))

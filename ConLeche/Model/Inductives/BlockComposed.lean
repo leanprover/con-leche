@@ -557,7 +557,7 @@ theorem ofNested_hΦ_of_fit (hS : TupleLfpShape (k + pins.length) (blockIds nP p
     (hmapsJ : MapsTuple ((D).w ψ) s IsJ ΨJ)
     {nCJ : Nat → Nat} {FitJ : (Nat → V) → V → Nat → Nat → List V → Prop}
     {injJ : Nat → Nat → List V → V}
-    (hinjJ : ∀ i j fs, injJ i j fs = injW ((D).w ψ) j (mkTower (fs ++ [pt])))
+    (hinjJ : ∀ i, i < s → ∀ j fs, injJ i j fs = injW ((D).w ψ) j (mkTower (fs ++ [pt])))
     {C : Nat → V}
     (hfibJ : ∀ Y, InTupleSpace ((D).w ψ) s IsJ Y → ∀ i, i < s → ∀ t, t ∈ˢ IsJ i → ∀ x,
       x ∈ˢ SetTheory.app (ΨJ Y i) t ↔ ∃ j fs, j < nCJ i ∧ FitJ Y t i j fs ∧ x = injJ i j fs)
@@ -608,10 +608,10 @@ theorem ofNested_hΦ_of_fit (hS : TupleLfpShape (k + pins.length) (blockIds nP p
   refine Subset.antisymm (fun x hx => ?_) (fun x hx => ?_)
   · obtain ⟨j, fs, h1, h2, h3, h4, rfl⟩ := (hL x).mp hx
     obtain ⟨hj, hF⟩ := (hfit Y hYJ hYfc hYCJ i hi t ht j fs).mp ⟨h1, h2, h3, h4⟩
-    exact (hR _).mpr ⟨j, fs, hj, hF, (hinjJ i j fs).symm⟩
+    exact (hR _).mpr ⟨j, fs, hj, hF, (hinjJ i hi j fs).symm⟩
   · obtain ⟨j, fs, hj, hF, rfl⟩ := (hR x).mp hx
     obtain ⟨h1, h2, h3, h4⟩ := (hfit Y hYJ hYfc hYCJ i hi t ht j fs).mpr ⟨hj, hF⟩
-    rw [hinjJ]
+    rw [hinjJ i hi]
     exact (hL _).mpr ⟨j, fs, h1, h2, h3, h4, rfl⟩
 
 /-- **A pin's carrier at the block's carrier is the least tuple of ITS

@@ -120832,17 +120832,20 @@ at `c < d.k + d.nPins`.  Step (4)'s `hinjJ` is stated UNBOUNDED, and it
 is unbounded because `ofNested_hΦ_of_fit`'s own `hinjJ` is
 (`BlockComposed.lean`).  Two ways to close the gap, neither taken here:
 
-* bound `ofNested_hΦ_of_fit`'s `hinjJ` by the container's width.  Both
-  of its uses sit under `intro i hi` with `hi : i < s`, so this is two
-  tokens (`hinjJ i j fs` → `hinjJ i hi j fs`, `rw [hinjJ]` →
-  `rw [hinjJ i hi]`) and no proof restructuring — but it is a
-  signature change on the wide theorem's `hΦ`, which this lane is told
-  to leave alone;
+* **TAKEN**: bound `ofNested_hΦ_of_fit`'s `hinjJ` by the container's
+  width.  Both of its uses sit under `intro i hi` with `hi : i < s`,
+  so it is two tokens (`hinjJ i j fs` → `hinjJ i hi j fs`,
+  `rw [hinjJ]` → `rw [hinjJ i hi]`) and no proof restructuring; the
+  prohibition on the wide theorem's `hΦ` is on its quantification over
+  tuples, not on a hypothesis whose own uses are already bounded.
+  `ofNested_pin_block_of_wide_inst`'s `hinjJ` carries the same bound,
+  so `injT_wide_of_pinRecLaws` now discharges it as it stands, and
+  step (4)'s `hinjJ` takes the bound when le4 merges;
 * drop `PinRecLaws.injW`'s guard.  Its producers are
   `BasisBlocksUnit.lean` and `BasisBlocksZero.lean`, which discharge it
   vacuously at `nPins = 0` (`fun _ _ h => nomatch h`) and would then
-  need real proofs.  Both files belong to the parallel carry lane, so
-  this route is closed to this lane for now.
+  need real proofs.  Both files belong to the parallel carry lane, and
+  the guard stays.
 
 The bounded theorem is the real content either way; only the last
 `∀ i'` has to move.
