@@ -19,3 +19,21 @@ init-full	verified	538456129501	50.26	0	53088	2.42	con-leche: 1 inductive blocks
 mathlib-full	official	10536734049626	1843.78	0	670627	2.29	Accepted 670627 declarations.	9607380
 mathlib-full	trusted	11158247938832	1048.20	0	654499	1.89	con-leche: accepted 654499 declarations (--trusted)	8251984
 mathlib-full	verified	12013580800847	1140.33	0	654499	2.43	con-leche: accepted 654499 declarations (--verified)	8257232
+let-ladder	official	6130994850	0.50	0	22	3.28	Accepted 22 declarations.	
+let-ladder	trusted	8012353607	1.03	0	13	3.28	con-leche: accepted 13 declarations (--trusted)	
+let-ladder	verified	8012521928	1.00	0	13	3.28	con-leche: accepted 13 declarations (--verified)	
+beta-ladder	official	10128531672	1.14	0	20	3.28	Accepted 20 declarations.	
+beta-ladder	trusted	39746345102	5.24	0	11	4.70	con-leche: accepted 11 declarations (--trusted)	
+beta-ladder	verified	39749924438	5.19	0	11	5.60	con-leche: accepted 11 declarations (--verified)	
+init-prelude	official	2207398687	0.20	0	2056	5.40	Accepted 2056 declarations.	
+init-prelude	trusted	2740686220	0.27	0	1777	5.40	con-leche: 1 inductive blocks modelled in-process: Lean.Syntax (30 generated records, chec	
+init-prelude	verified	2885287655	0.27	0	1777	5.40	con-leche: 1 inductive blocks modelled in-process: Lean.Syntax (30 generated records, chec	
+grind-ring-5	official	13405717964	1.35	0	2429	5.40	Accepted 2429 declarations.	
+grind-ring-5	trusted	19057735528	2.06	0	2185	5.40	con-leche: 1 inductive blocks modelled in-process: Lean.Syntax (30 generated records, chec	
+grind-ring-5	verified	20185581485	2.21	0	2185	5.20	con-leche: 1 inductive blocks modelled in-process: Lean.Syntax (30 generated records, chec	
+app-lam	official	29425593706	3.37	0	34	5.20	Accepted 34 declarations.	
+app-lam	trusted	157076799755	24.60	0	21	5.51	con-leche: accepted 21 declarations (--trusted)	
+app-lam	verified	157081144713	24.58	0	21	4.79	con-leche: accepted 21 declarations (--verified)	
+init-full	official	439877141546	54.66	0	59430	3.72	Accepted 59430 declarations.	
+init-full	trusted	491834513662	45.47	0	57977	2.92	con-leche: 1 inductive blocks modelled in-process: Lean.Syntax (30 generated records, chec	
+init-full	verified	510080976184	47.04	0	57977	2.47	con-leche: 1 inductive blocks modelled in-process: Lean.Syntax (30 generated records, chec	

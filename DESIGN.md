@@ -75758,3 +75758,311 @@ checked against its prefix from a fresh memo state, which is what lets
 the worker pool hand them out) and would make parallelism harder.  The
 item is off the table; what remains of §312's recommendation is the
 shipped core's per-step price.
+
+## TASK #313 — THE PER-STEP PRICE OF THE SHIPPED CORE (2026-09-19, `agent/perstep-313`)
+
+**The ask.**  #312 attributed the shipped core's distance from nanoda
+— the same β/δ/ι steps, within 2–5 %, at 12 357 instructions per
+step against 4 783 — to the Lean runtime's price for the syntactic
+representation: allocation and reference counting 35 %, the
+substitution walks and their per-walk memo maps 16 %, `Expr.beq` 8 %.
+The maintainer's direction: look there, inside the single-declaration
+memo discipline (no cross-declaration caches, #312's ruling), one
+measured step at a time, each landing with its verification intact;
+acceptance ≥ 2 % on `init-full` or ≥ 20 % on a ladder row with no
+stream worse than 1 %, and a measured "no" is a deliverable.
+
+### 1. The day-one profile, and the ranked list
+
+`perf record -e instructions:u` of the shipped binary at `b9737075`
+(`--verified --jobs=1`; `-F 999`, `init-full` `-F 499`, the Mathlib
+prefix `-F 199`), symbols bucketed by name (`_tmp/bucket.py`; the
+buckets of #307 §1, with the per-walk memo's `Std.DHashMap`
+specialisation sites — all named after their first site,
+`…_at_instantiate1GoC_spec_…`, though EVERY walk shares them — as
+*walk memos*, and the `Expr.app`/`lam` constructor overrides as
+*ctor*):
+
+| stream | alloc/RC | core | walks | walk memos | `beq` | knot memos | ctor |
+|---|---|---|---|---|---|---|---|
+| `app-lam` | 39.1 % | 0.1 % | 15.8 % | **37.6 %** | 2.9 % | 0 | 3.8 % |
+| `beta-ladder` | 40.1 % | 0.3 % | 14.3 % | **32.9 %** | 6.5 % | 0 | 5.0 % |
+| `grind-ring-5` | 41.0 % | 16.6 % | 8.2 % | 5.3 % | 11.5 % | 6.4 % | 4.1 % |
+| `magma-list-deep-n36` | 40.6 % | 15.4 % | 10.1 % | 9.2 % | 8.1 % | 6.8 % | 5.4 % |
+| `init-full` | 41.2 % | 13.7 % | 10.7 % | 7.3 % | 9.2 % | 6.9 % | 3.1 % |
+| Mathlib prefix | 41.7 % | 12.8 % | 11.2 % | 7.4 % | 8.7 % | 7.0 % | 2.9 % |
+
+On `init-full` the walks are `instantiateListGoC` 4.95 % (the β
+step's `instListM`), `instantiateRevGo` 2.5 % (the binder loops),
+`instLevelParamsGo` 0.9 %, `abstractRangeGoC` 0.7 %; their memo's
+`insert` 2.7 %, rehash (`expand`/`foldlM`) 2.3 %, `contains` 1.2 %,
+`get?` 1.0 %; `beqGo` 7.3 %; the knot memos' `get?` 1.4 %, `insert`
+0.5 %, rehash 0.7 %.  One correction to #307 §1's reading: the
+"`instantiate1GoC` hash map" of `app-lam` is the ONE `Std.HashMap
+(Expr × Nat) Expr` specialisation every walk uses (the compiler names
+it after its first site) — on `app-lam` the walks underneath are
+`instantiateRevGo` 10.4 % and `abstractRangeGoC` 5.4 %, the infer and
+annotate telescope loops, not `instantiate1`.
+
+**The ranked list** (expected gain × confidence, written before any
+code):
+
+1. **A plain descent on a node budget in front of every substitution
+   walk's memo** — the walks' memo cost is paid per node whether or
+   not any node is shared, and two budgeted plain descents already
+   exist in the tree (`beqB`, `instantiate1LiftBC`).  Expected 5–10 %
+   on `init-full`, more on the ladders; high confidence.
+2. **Reuse of `inst1M`'s results within a declaration** — `inst1M` is
+   the one substitution wrapper with no memo, and a body opened twice
+   at the same variable is two objects, so every later probe on it is
+   a structural `beq` (`beqGo` 7.3 %).  Expected 2–5 %; medium.
+3. **The knot record built per cache-missing call** — `coreKnotI fe
+   fuel` allocates eleven closures and a record at every miss (the
+   generated C: six field closures plus five inner ones, `lean_inc_n
+   (n, 5)`, `lean_inc_ref_n (fe, 5)`); #179 tried a `Thunk` and hit
+   `mark_mt`.  Expected 1–3 %; low-medium, and the knot is the proofs'
+   spine.
+4. The constructor overrides (`Expr.app` 2.3 %: a seven-way tag switch
+   per child to read the packed word, then inline shift/add — nothing
+   to take) and `instLevelParamsGo` (~2 % with its memo, on definition
+   bodies whose sharing must survive) — below the acceptance line on
+   their own; not attempted.
+
+### 2. Step 1 — LANDED: the budgeted plain descent in front of the memoised walks
+
+**The change** (`ConLeche/Cached/ExprOpsC.lean`).  Each of the five
+substitution walks — `instantiate1C`, `instantiateListC`,
+`instantiateRev`, `abstract1C`, `abstractRangeC` — now runs a PLAIN
+rebuild first (`instantiate1BC`, `instantiateListBC`,
+`instantiateRevBC`, `abstract1BC`, `abstractRangeBC`: no memo table,
+no key allocation, no bucket probe) on a node budget, and the
+memoised walk (`…GoC`, unchanged) only when the budget runs out —
+from scratch, on a table pre-sized to the budget.  The budget is a
+fuel threaded through the result pair: a compound node needs two
+units and hands one fewer to its children, a leaf hands its fuel back
+unchanged, a returned `0` means "abandoned"; a completed descent
+always returns `≥ 1` (every child of a node that proceeds receives
+`≥ 1`), so the pair carries no `Option` — one `Prod` per node, which
+the generated C recycles through reset/reuse up the spine (checked:
+`lean_is_exclusive` on each child's pair, `lean_alloc_ctor(0, 2, 0)`
+only at the leaves).  The five completion lemmas (`…BC_spec`: a
+returned fuel `≠ 0` means the value is the pure specification's) and
+the five wrapper specs (statements unchanged) are in
+`Verify/Cached/OpsC.lean`; nothing above it moved.
+
+**The sweep** (`_tmp/bin-s1env`, the budget read from
+`CL_WALK_BUDGET` in a throwaway build; `--verified --jobs=1`, one run
+per cell, G instructions; base = `b9737075`):
+
+| budget | `init-full` | Mathlib prefix | `grind-ring-5` | `init-prelude` | `app-lam` | `beta-ladder` | `let-ladder` | `magma-deep` | `magma-pair` |
+|---|---|---|---|---|---|---|---|---|---|
+| base | 585.84 | 848.51 | 22.61 | 3.197 | 157.30 | 39.94 | 8.059 | 324.55 | 199.17 |
+| 64 | 518.48 | – | – | – | – | – | – | – | – |
+| 128 | **509.03** | – | 20.14 | 2.887 | 157.19 | 39.83 | 8.001 | – | – |
+| **256** | 509.44 | **742.23** | 20.15 | 2.869 | 157.08 | 39.71 | 8.007 | 241.66 | 155.62 |
+| 512 | 512.25 | 745.56 | 20.20 | 2.854 | 156.89 | 39.49 | – | 241.67 | 155.62 |
+| 1024 | 518.24 | – | 20.37 | 2.849 | 156.55 | 39.08 | 8.047 | 241.67 | 155.62 |
+| 2048 | 527.77 | – | 20.70 | 2.856 | 156.16 | 38.01 | 7.997 | 241.68 | 155.62 |
+| 4096 | 541.33 | – | 21.27 | 2.869 | 156.40 | **15.69** | – | 241.70 | 155.63 |
+| 32768 | – | – | 23.05 | 2.862 | **274.69** | 15.69 | – | – | – |
+
+Two effects, pulling opposite ways.  A SMALL budget loses the memo
+for the small walks only, and those are the majority: `init-full`
+is −13 % at 128–256 and the gain shrinks monotonically above (−7.6 %
+at 4096) — the plain rebuild of a 1 000-node DAG-shaped body
+duplicates its shared subterms, and the copies cost downstream (every
+probe on them a structural `beq`, every later walk over both).  A
+LARGE budget clears the ladders' chain-shaped walks (`beta-ladder`'s
+2–4 k-node bodies: −61 % from 4096 up) and, past the point where the
+walks are DAGs, loses outright: `app-lam` +75 % at 32 768.  The
+budget is set at 256 — the `init-full`/prefix optimum; `beta-ladder`'s
+cliff is left on the table, recorded in §6.
+
+**The variant that lost: switching to the memo mid-walk.**  A single
+pass that materialises the table when the budget is spent and
+continues (no restart, nothing rebuilt twice; `_tmp/bin-s1b`,
+`_tmp/ExprOpsC-variantB.lean`) was measured against the restart:
+`init-full` 532.75 G at 512 against the restart's 512.25; `app-lam`
+166.9 G at 512 (+6 % over base), 210 G at 4096, **1 133 G at 32 768
+(7.2×)** against the restart's 156.4/274.7; `grind-ring-5` 20.47
+against 20.20.  The plain prefix's duplicated nodes are KEPT in that
+design, and on `app-lam` — whose walks are all larger than any
+budget and DAG-shaped — that is #240's disease in a new coat: the
+restart discards the duplicates and hands back a fully shared
+result, at the price of the budget's worth of wasted work, which
+`app-lam` shows as −0.6 % at 4096 rather than 7×.  Sharing in the
+OUTPUT is what matters; wasted work is second order.
+
+**The table** (`--jobs=1`, one run per cell, `perf stat -e
+instructions:u`, `ulimit -v 16000000` / 22 GB on the prefix, RSS by
+`time -v`; before = master `b9737075`, after = `090deb3e`):
+
+| stream | verified before → after | Δ | trusted before → after | Δ | RSS before → after (MB) |
+|---|---|---|---|---|---|
+| `app-lam` | 157.30 → **157.08 G** | -0.1 % | 157.29 → 157.08 G | -0.1 % | 2722 → 2723 |
+| `beta-ladder` | 39.94 → **39.72 G** | -0.6 % | 39.94 → 39.71 G | -0.6 % | 716 → 708 |
+| `let-ladder` | 8.06 → **8.01 G** | -0.6 % | 8.06 → 8.01 G | -0.6 % | 231 → 230 |
+| `fueled-chain` | 1.09 → **1.08 G** | -0.8 % | 1.08 → 1.07 G | -0.7 % | 24 → 24 |
+| `init-prelude` | 3.20 → **2.87 G** | -10.2 % | 3.04 → 2.73 G | -10.3 % | 29 → 29 |
+| `grind-ring-5` | 22.61 → **20.15 G** | -10.9 % | 21.47 → 19.02 G | -11.4 % | 219 → 216 |
+| `magma-list-pair-n21` | 199.17 → **155.61 G** | -21.9 % | 194.28 → 150.74 G | -22.4 % | 5344 → 6232 |
+| `magma-list-deep-n36` | 324.55 → **241.65 G** | -25.5 % | 316.51 → 233.77 G | -26.1 % | 7347 → 7407 |
+| `init-full` | 585.84 → **509.41 G** | -13.0 % | 567.25 → 491.24 G | -13.4 % | 466 → 477 |
+| `mathlib-prefix` | 848.51 → **742.21 G** | -12.5 % | 816.81 → 711.79 G | -12.9 % | 918 → 942 |
+
+**Where the gain is** (the profile after, `init-full`): the walk
+memos' bucket 7.3 % → 1.6 %, the walks' own 10.7 % → 4.3 % (now
+`instantiateListBC` 4.0 %, `instantiateRevBC` 2.2 %,
+`abstractRangeBC` 0.7 %: the plain rebuild's per-node cost is the
+`data` read, the cutoff compare, one `Prod` and the node), the
+allocator's share unchanged at 40 % of a smaller total (fewer
+objects: no keys, no bucket cells, no bucket arrays), `beqGo` 7.3 %
+→ 7.9 % of the smaller total (the same absolute work: the plain
+descent's duplicates cost nothing measurable there at 256).  RSS:
+`magma-list-pair-n21` +17 % (5.34 → 6.23 GB) — the duplicated
+subterms of the plain rebuilds, the one stream where they show;
+`init-full` +2 %, the prefix +3 %, the rest flat.
+
+**Linearity.**  Nothing threads a mutable structure: the plain descent
+returns a pair and the memo walk is unchanged; `e` stays live across
+the plain descent for the restart (read-only, no copy site).  The
+generated C of the `app` arm was read: `lean_is_exclusive` on each
+child's pair with reuse of the cell, `lean_alloc_ctor(0, 2, 0)` only
+at the leaves.  No incident.
+
+**Gates.**  `lake build`/`lake test` warning-free; `#print axioms` on
+the ten new/changed theorems: `[propext, Classical.choice, Quot.sound]`;
+`tests/arena.sh` (both sweeps, `--jobs=1/4`): every verdict as
+expected, 90/92 tutorial, 195/195 e2e, 15/15 annot.
+
+### 3. Step 2 — REVERTED: `inst1M` through the persistent bulk memo
+
+**The candidate.**  `inst1M` is the one substitution wrapper with no
+memo (`instListM` has `instC`, keyed by the whole argument tuple).  A
+body opened at `fvar depth ty` by `infer`, again by `annotate`, again
+by the ∀/λ congruence of `defeq` is three objects, and every probe on
+them downstream (the knot memos, `defeqC`'s pairs) is a structural
+descent where a shared object would be a pointer hit — `beqGo` is
+7.9 % after step 1.  The change: `inst1M e v d` probes `instC` at
+`(e, [v], d)` and stores its result, so a second opening returns the
+first's object; the proof is `instListM_eff`'s shape with
+`instantiateList_cons`/`_nil` reading the singleton list as
+`instantiate1` (`inst1M_eff`'s statement unchanged; the patches are
+`_tmp/step2-stateC.patch.py`, `_tmp/step2-simceff.patch.py`).
+
+**Measured** (`_tmp/bin-s2`, verified, against step 1): `init-full`
+509.41 → 510.09 G (**+0.1 %**), `grind-ring-5` 20.15 → 20.18 G
+(+0.2 %), `init-prelude` 2.869 → 2.884 G (+0.5 %).  The profile
+says why: `beqGo` 7.92 % → 7.63 % — the memo does recover some
+identity — and the probe (two `Prod`s, a cons cell, a hash, a bucket
+compare per `inst1M`, plus the table's growth) costs exactly what
+that saves.  The re-opened bodies are not where the distinct-but-equal
+objects come from.  Reverted; a measured no.
+
+### 4. Step 3 — NOT ATTEMPTED: the knot record built per cache-missing call
+
+`coreKnotI fe (fuel + 1)` allocates, at every cache-missing call of
+any field, the previous level's record: six field closures (each
+capturing `mode`, `fe`, `fuel` and one closed inner closure) and the
+six-field record — seven allocations, `lean_inc_n (fuel, 5)`,
+`lean_inc_ref_n (fe, 5)` (the generated C, `CoreC.c`; the inner
+closures are closed constants).  Accounting from the step-1 profile:
+the knot memos' `insert` specialisation is 0.67 % of `init-full` at
+some 100–150 instructions per insert — 25–35 M misses — and seven
+objects per miss at 60–80 instructions each to allocate and free is
+2.5–3.3 % of the run, the whole of `coreKnotI`'s self share (0.44 %)
+and a slice of the allocator's.  The one sharing mechanism the
+language offers here — a `Thunk` per level, built once per parent
+miss instead of once per child miss — is #179's incident:
+`lean_thunk_get_core` marks the forced value multi-threaded
+UNCONDITIONALLY (`src/runtime/object.cpp:537`, re-read at v4.33.0),
+and the value's closures capture `fe`, so every `FEnv.push` after the
+first force copies the index.  A per-declaration cell in `CState`
+cannot hold the record (`CoreFnsI` mentions `CheckCM`, which mentions
+`CState`), and a record of fewer closures is a change of `CoreFnsI`'s
+shape, which every statement of the simulation tower spells out.  At
+a ≤ 3 % ceiling against that proof exposure: not attempted.
+
+### 5. The rest of the profile, priced
+
+After step 1 (`init-full`, verified): allocation and reference
+counting 40.6 %, the core bodies 23 %, `beq` 9.7 %, the knot memos
+7.7 %, the constructor overrides 4.7 %, the plain walks 4.3 %.  Items
+looked at and left, each below the 2 % line on its own:
+
+* **`beqGo` 7.9 %** — the structural descent on hash-equal, pointer-
+  distinct pairs, entered from the memo probes.  The `dwarf` call
+  graph attributes nothing (as #240 found: tail calls, no frame
+  pointers), and step 2 says the re-opened bodies are not the source.
+  The remedy for distinct-but-equal objects is a canonicalising table,
+  which is a hash-cons table, which `StateC.lean` rules out by design.
+  On `grind-ring-5` a further 3 % is `beqGo`'s OWN memo (`getD` 1.1 %,
+  `insert` 0.7 %, rehash 1.2 %): comparisons past the 4 096-node budget.
+* **The walks' `Prod` per node** (inside the 4.3 %): the fuel must
+  come back up the recursion; a fixed per-child share needs no
+  threading but bounds depth, not size (a 20-argument spine fails at
+  any budget); a sentinel result instead of a pair would still need
+  the fuel.  Reset/reuse already recycles the cell.
+* **`iotaArityOk`** 0.8 % + a share of `getAppFn` 1.2 % and
+  `FEnv.find?` 1.8 %: `whnfAppI` calls it at EVERY argument position
+  of a stuck spine, and each call walks the spine to its head
+  (`getAppFn`), probes the index and counts the arguments
+  (`iotaNumArgs`) — O(n²) per n-argument spine.  Computing the head's
+  ι-arity once per `whnfAppI` entry is a change of the loop's
+  arguments, visible to `BetaSpine`'s identification and `DiscC4`'s
+  `iotaArityOk_guard`; spines are short, so ≈ 2 % at most.
+* **`instLevelParamsGo`** 1.1 % + its memo ~1 %: the same budgeted
+  plain descent would apply, but its inputs are definition bodies
+  whose result is cached per `(name, levels)` and instantiated by
+  every later β — duplicates there compound where the walks' do not.
+* **The knot memos' rehash** ~1.1 %: six tables per declaration
+  grown from eight buckets; pre-sizing is one default in `CState` and
+  a `getElem?_emptyWithCapacity` in the invariants' empty lemmas.
+* **`constsResolveFCGo`** 0.6 % + memo 0.5 %: a per-declaration guard
+  walk returning `Bool` (a budget would cost no sharing).
+* **`lean_inc_heartbeat`** 2.0 %: the runtime's out-of-line call on
+  every small allocation; falls only with the allocation count.
+
+### 6. Where it stands, and what is left
+
+**`init-full` at `--verified --jobs=1`: 585.84 G → 509.41 G, −13.0 %;
+per β/δ/ι step (#312's 47.4 M steps, unchanged — the walks compute
+the same terms): 12 357 → 10 745 instructions.**  nanoda's 4 783 is
+2.25× away where it was 2.58×.  The Mathlib prefix 848.5 → 742.2 G
+(−12.5 %; 14 795 → 12 942 per step); `magma-list-deep-n36` −25.5 %,
+`magma-list-pair-n21` −21.9 %; the ladders within −0.1 … −0.8 %.
+
+Left on the table, with the reason each time: `beta-ladder`'s −61 %
+(a 4 096 budget clears its 2–4 k-node chain-shaped walks and costs
+`init-full` 5.4 points of the 13 — a per-call budget cannot tell a
+chain from a DAG); the knot record (§4, ≤ 3 %, the `Thunk` mark);
+`iotaArityOk`'s quadratic spine walk (§5, ≈ 2 %, a loop-shape
+change); the monad's own tax (every `CheckCM` bind allocates an
+`EStateM.Result` and a pair — a representation decision, out of
+scope).  The per-step price is now 40 % allocation and reference
+counting on a core whose bodies are 23 % — the next factor is not in
+any one function.
+
+**`PERF.md`** is regenerated for the six non-Mathlib rows by its own
+battery (`scripts/perf-tables.sh`, `PERF_APPEND=1` on a cache seeded
+from the tracked record; the official column from the arena's
+`checkers/official` at `leanprover/lean4:v4.33.0` with core's
+`Lean.Environment.replay`, rebuilt here since no earlier worktree
+kept the binary — it reproduces the tracked `init-prelude` cell,
+2.21 G / 2 056): `init-full` 439.88 / 491.83 / **510.08 G** — **1.16×
+verified, 1.12× trusted** against official, from 1.33× / 1.29×;
+`grind-ring-5` 1.51× / 1.42× from 1.69× / 1.61×; `init-prelude` 1.31×
+/ 1.24× from 1.45× / 1.38×.  Two provenance notes are in the header:
+the `mathlib-full` row is the previous battery's (its 5.6 GB stream
+is not on this machine), and the `init-full` stream is now the #307
+export the records measure (57 977 declarations; the official cell
+moved with it, 403.44 → 439.88 G).
+
+**Where everything is.**  Committed: `090deb3e` (step 1) and this
+record.  On the worktree (`_tmp/perstep-313/_tmp/`, gitignored):
+`runs/` (the base and step-1 tables, the budget sweeps
+`sweep-*.tsv`), `prof/` (the day-one, step-1, step-2 profiles and
+`bucket.py`), `bin-base`/`bin-s1env`/`bin-s1b`/`bin-s1`/`bin-s2`
+(the measured binaries), `ExprOpsC-variantB.lean` (the mid-walk
+variant), `step2-*.patch.py`, `genbc.py` (the generator the five
+descents were written with), `arena-s1.log`.
