@@ -31,7 +31,14 @@ Sections, in the order the rules consume them:
 * the two `Nat` constructor readings (`Steps/DefEq.lean:99`, `:119`)
   and the literal expansions' blindness (`Steps/Major.lean:66`,
   `Steps/Stuck.lean:540`);
-* the δ identity (`delta_of`, `Steps/Whnf.lean:329`).
+* the δ identity (`delta_of`, `Steps/Whnf.lean:329`);
+* **the shared spine/telescope kit** — `ReadSpine`'s list algebra,
+  `denoteMeta_mkAppN(_inv)`, `hoist_spine`, `frame_spine`,
+  `mkAppN_of_fitA`, the `PiChain` guard with `piChain_of_stripPis`
+  and `peelPis_of_piChain`, and the tower entry's reading
+  (`Steps/{Stuck,CapsRows,IotaKit,TowerKit}.lean`).  This is the
+  LOWEST kit of the four, so a fact more than one lane needs lives
+  here and nowhere else.
 -/
 
 namespace ConLeche.Model.Rules
@@ -647,6 +654,21 @@ theorem ReadSpine.getD_read {d : Nat} :
   | _, _, .cons _ hsp, k + 1, hk => by
     simpa [List.getD] using ReadSpine.getD_read hsp (Nat.lt_of_succ_lt_succ hk)
 
+/-- **The application spine reads**, constructing direction
+(`denoteMeta_mkAppN`; the inverse is below).  Shared: the ι lane reads
+its fabricated spines with it too. -/
+theorem denoteMeta_mkAppN {acval : Name → (Name → Nat) → AnnotTerm} {d : Nat}
+    {as : List Expr} {vs : List AnnotTerm}
+    (h : ReadSpine acval env φ d as vs) :
+    ∀ {f : Expr} {fa : AnnotTerm}, denoteMeta acval env φ d f = some fa →
+      denoteMeta acval env φ d (Expr.mkAppN f as)
+        = some (AnnotTerm.mkAppN fa vs) := by
+  induction h with
+  | nil => intro f fa hf; exact hf
+  | cons ha _ ih =>
+    intro f fa hf
+    exact ih (by rw [denoteMeta_app, hf, ha]; rfl)
+
 /-- **The application spine, inverted at the validated reading**
 (`denoteMeta_mkAppN_inv`, at `ReadSpine`). -/
 theorem denoteMeta_mkAppN_inv {d : Nat} :
@@ -692,6 +714,105 @@ theorem frame_spine {d : Nat} {Δa : List AnnotTerm} {a : Expr}
   ⟨⟨hf.1.getAppArgs x hx, ConLeche.looseBVarsBounded_getAppArgs hf.2.1 x hx,
       fun l hl => hf.2.2 l (ConLeche.fvarLeaves_getAppArgs hx l hl)⟩,
     hC.of_subset (fun l hl => ConLeche.fvarLeaves_getAppArgs hx l hl)⟩
+
+/-! ## The spine kit, completed (`Steps/CapsRows.lean:324-446`).
+Shared by all four lanes — `take`/`drop`/`append`/`map_list` and the
+tower entry's reading were transplanted three times over and are one
+copy here. -/
+
+theorem ReadSpine.take {acval : Name → (Name → Nat) → AnnotTerm}
+    {d : Nat} {as : List Expr} {vs : List AnnotTerm}
+    (h : ReadSpine acval env φ d as vs) :
+    ∀ n, ReadSpine acval env φ d (as.take n) (vs.take n) := by
+  induction h with
+  | nil => intro n; simpa using ReadSpine.nil
+  | @cons a v as vs ha _ ih =>
+    intro n
+    cases n with
+    | zero => exact ReadSpine.nil
+    | succ n => exact ReadSpine.cons ha (ih n)
+
+theorem ReadSpine.drop {acval : Name → (Name → Nat) → AnnotTerm}
+    {d : Nat} {as : List Expr} {vs : List AnnotTerm}
+    (h : ReadSpine acval env φ d as vs) :
+    ∀ n, ReadSpine acval env φ d (as.drop n) (vs.drop n) := by
+  induction h with
+  | nil => intro n; simpa using ReadSpine.nil
+  | @cons a v as vs ha htl ih =>
+    intro n
+    cases n with
+    | zero => exact ReadSpine.cons ha htl
+    | succ n => exact ih n
+
+theorem ReadSpine.append {acval : Name → (Name → Nat) → AnnotTerm}
+    {d : Nat} {as bs : List Expr} {vs ws : List AnnotTerm}
+    (h : ReadSpine acval env φ d as vs)
+    (h2 : ReadSpine acval env φ d bs ws) :
+    ReadSpine acval env φ d (as ++ bs) (vs ++ ws) := by
+  induction h with
+  | nil => exact h2
+  | cons ha _ ih => exact ReadSpine.cons ha ih
+
+/-- A spine of uniformly-reading expressions (the fabricated
+projection lists). -/
+theorem ReadSpine.map_list {acval : Name → (Name → Nat) → AnnotTerm} {d : Nat}
+    {β : Type _} (f : β → Expr) (g : β → AnnotTerm) :
+    ∀ (l : List β), (∀ x ∈ l, denoteMeta acval env φ d (f x) = some (g x)) →
+      ReadSpine acval env φ d (l.map f) (l.map g) := by
+  intro l
+  induction l with
+  | nil => intro _; exact ReadSpine.nil
+  | cons x xs ih =>
+    intro h
+    exact ReadSpine.cons (h x List.mem_cons_self)
+      (ih (fun y hy => h y (List.mem_cons_of_mem x hy)))
+
+/-! ## The tower entry's reading (`Steps/TowerKit.lean:46`, `:173`) -/
+
+/-- The clause at a stored entry: the uniform iterated projection. -/
+theorem denoteMeta_proj_tower {acval : Name → (Name → Nat) → AnnotTerm}
+    {d : Nat} {s : Name} {i : Nat} {e : Expr}
+    {entry : ProjEntry} {ia : AnnotTerm}
+    (hfe : env.findProj? s i = some entry)
+    (he : denoteMeta acval env φ d e = some ia) :
+    denoteMeta acval env φ d (.proj s i e)
+      = some (projAV (i + entry.off) ia) := by
+  rw [denoteMeta_proj, he]
+  show (match env.findProj? s i with
+    | some entry => some (projAV (i + entry.off) ia)
+    | none => AnnotTerm.projPair? i ia)
+      = some (projAV (i + entry.off) ia)
+  rw [hfe]
+
+/-- A stored tower entry's body telescope is closed. -/
+theorem towerEntry_tele_closed (hwf : ConLeche.EnvWF env) {T : Name} {i : Nat}
+    {entry : ProjEntry} (hfe : env.findProj? T i = some entry)
+    (us : List Level) :
+    (ConLeche.projTele (entry.numParams + 1)
+      (entry.body.instantiateLevelParams entry.levelParams us)).hasFvar = false ∧
+    (ConLeche.projTele (entry.numParams + 1)
+      (entry.body.instantiateLevelParams entry.levelParams us)).looseBVarsBounded 0
+      = true := by
+  rw [ConLeche.projTele_hasFvar, ConLeche.projTele_looseBVarsBounded,
+    Nat.zero_add]
+  exact ⟨ConLeche.projEntry_body_hasFvar hwf hfe us,
+    ConLeche.projEntry_body_looseBVars hwf hfe us⟩
+
+/-- **The body telescope's reading is depth-free.** -/
+theorem towerEntry_tele_at_depth {m : EnvModel V env} {T : Name} {i : Nat}
+    {entry : ProjEntry} (hfe : env.findProj? T i = some entry)
+    {us : List Level} {Ta : AnnotTerm}
+    (hTa : denoteMeta m.acval env φ 0
+      (ConLeche.projTele (entry.numParams + 1)
+        (entry.body.instantiateLevelParams entry.levelParams us)) = some Ta) :
+    (∀ d : Nat, denoteMeta m.acval env φ d
+      (ConLeche.projTele (entry.numParams + 1)
+        (entry.body.instantiateLevelParams entry.levelParams us)) = some Ta) ∧
+    ∀ k : Nat, Ta.liftN 1 k = Ta := by
+  obtain ⟨hnf, hb⟩ := towerEntry_tele_closed m.wf hfe us
+  have hcl : ∀ k : Nat, Ta.liftN 1 k = Ta := fun k =>
+    denoteMeta_closed m.acval_erase m.cval_closed hnf hb hTa 1 k
+  exact ⟨denoteMeta_depth_of_closed m.acval_closed hnf hcl hTa, hcl⟩
 
 /-- The inversion of a `.proj` reading at a stored entry
 (`denoteMeta_proj_inv_tower`). -/
@@ -760,6 +881,17 @@ theorem piChain_of_stripPis {acval : Name → (Name → Nat) → AnnotTerm} :
       obtain ⟨ta, ba, -, hba, rfl⟩ := denoteMeta_forallE_inv hd
       simp only [ConLeche.Expr.stripPis, Option.isSome_map] at hs
       exact ih (ConLeche.Expr.stripPis_instantiate1_isSome n 0 hs) hba
+
+/-- A ∀-chain of a list's length peels along it
+(`peelPis_of_piChain`).  Shared: the defeq and ι lanes both peel a
+stored telescope against a spine. -/
+theorem peelPis_of_piChain : ∀ (as : List AnnotTerm) {T : AnnotTerm},
+    PiChain as.length T →
+      ∃ rest, ConLeche.Model.AnnotTerm.peelPis T as = some rest
+  | [], T, _ => ⟨T, rfl⟩
+  | a :: as, T, h => by
+    obtain ⟨u, v, A, B, rfl, hB⟩ := piChain_succ_inv h
+    exact peelPis_of_piChain as (PiChain.inst a 0 hB)
 
 theorem teleFit_nil_inv {ρ : Nat → V} {T : AnnotTerm} {rest : V}
     (h : TeleFit V ρ T [] rest) : rest = interp V ρ T := by

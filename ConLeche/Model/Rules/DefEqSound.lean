@@ -434,8 +434,8 @@ theorem DefEq.structEta_sound (hin : RulesInputs V m φ) {d : Nat}
     ⟨hCa.1, fun l hl => by
       rw [ConLeche.Expr.fvarLeaves_eq_nil_of_not_hasFvar hnfT] at hl
       exact nomatch hl⟩
-  obtain ⟨hohT, hoT⟩ := Graded.mkAppN tsa hokW
-  obtain ⟨hohA, hoA⟩ := Graded.mkAppN asa hokA
+  obtain ⟨hohT, hoT⟩ := hoist_spine tsa hokW
+  obtain ⟨hohA, hoA⟩ := hoist_spine asa hokA
   -- the former's telescope fits the parameter spine, at whichever
   -- law's reading
   have hfitOf : ∀ TVa : AnnotTerm,
@@ -455,7 +455,7 @@ theorem DefEq.structEta_sound (hin : RulesInputs V m φ) {d : Nat}
         (ConLeche.Expr.stripPis_instantiateLevelParams_isSome
           cvT.levelParams us' caps.etaParams hstrip) hTVd
     obtain ⟨resta, hfitPA, -⟩ := hcerts (fa := TVa) hTF hTC hTVd
-      (fun σ _ => hokTVa σ) (Frame.getAppArgs hfW hCr) hspt hoT (by simp)
+      (fun σ _ => hokTVa σ) (frame_spine hfW hCr) hspt hoT (by simp)
     exact ⟨interp V ρ resta,
       teleFit_of_teleFitPA (by rw [← hspt.length]; exact hpcT) (hfitPA ρ hρ)⟩
   -- the fold form both sides are read in
@@ -478,7 +478,7 @@ theorem DefEq.structEta_sound (hin : RulesInputs V m φ) {d : Nat}
       Frame d x ∧ CtxOk m φ d Δa x := by
     intro x hx
     rcases List.mem_append.mp hx with hx' | hx'
-    · exact Frame.getAppArgs hfW hCr x hx'
+    · exact frame_spine hfW hCr x hx'
     · rcases List.mem_singleton.mp hx' with rfl
       exact ⟨hfb, hCb⟩
   have hokTb' : ∀ x ∈ tsa ++ [ba], Graded V Δa x := by
@@ -490,8 +490,8 @@ theorem DefEq.structEta_sound (hin : RulesInputs V m φ) {d : Nat}
   have htake : (asa.take caps.etaParams).map (interp V ρ)
       = tsa.map (interp V ρ) :=
     hparams.2
-      (fun x hx => Frame.getAppArgs hfa hCa x (List.mem_of_mem_take hx))
-      (Frame.getAppArgs hfW hCr) (hspa.take caps.etaParams) hspt
+      (fun x hx => frame_spine hfa hCa x (List.mem_of_mem_take hx))
+      (frame_spine hfW hCr) (hspa.take caps.etaParams) hspt
       (fun x hx => hoA x (List.mem_of_mem_take hx)) hoT ρ hρ
   rcases hkind with ⟨htow, h0⟩ | ⟨hrecs, htow0⟩
   · -- TOWER-BACKED SLOTS
@@ -573,9 +573,9 @@ theorem DefEq.structEta_sound (hin : RulesInputs V m φ) {d : Nat}
         = ((List.range caps.etaFields).map fun j =>
             projAV (j + e0.off) ba).map (interp V ρ) :=
       hfields.2
-        (fun x hx => Frame.getAppArgs hfa hCa x (List.mem_of_mem_drop hx))
+        (fun x hx => frame_spine hfa hCa x (List.mem_of_mem_drop hx))
         hframeProj (hspa.drop caps.etaParams)
-        (ReadSpine.map_list _ hprojden)
+        (ReadSpine.map_list _ _ _ hprojden)
         (fun x hx => hoA x (List.mem_of_mem_drop hx)) hokProj ρ hρ
     have hfab : asa.map (interp V ρ)
         = tsa.map (interp V ρ) ++ (List.range e0.numFields).map
@@ -692,9 +692,9 @@ theorem DefEq.structEta_sound (hin : RulesInputs V m φ) {d : Nat}
               (Level.substFn φ cvT.levelParams us')) (tsa ++ [ba])).map
           (interp V ρ) :=
       hfields.2
-        (fun x hx => Frame.getAppArgs hfa hCa x (List.mem_of_mem_drop hx))
+        (fun x hx => frame_spine hfa hCa x (List.mem_of_mem_drop hx))
         hframeProj (hspa.drop caps.etaParams)
-        (ReadSpine.map_list _ hprojden)
+        (ReadSpine.map_list _ _ _ hprojden)
         (fun x hx => hoA x (List.mem_of_mem_drop hx)) hokProj ρ hρ
     have hfab : asa.map (interp V ρ)
         = etaFabArgsV (fun n => interp V ρ
@@ -786,11 +786,11 @@ theorem DefEq.structUnit_sound (hin : RulesInputs V m φ) {d : Nat}
     exact piChain_of_stripPis caps.unitParams
       (ConLeche.Expr.stripPis_instantiateLevelParams_isSome
         cvT.levelParams us' caps.unitParams hstrip) hTVd
-  obtain ⟨hohT, hoT⟩ := Graded.mkAppN tsa hokWA
+  obtain ⟨hohT, hoT⟩ := hoist_spine tsa hokWA
   -- the certified parameter spine fits the former's telescope
   obtain ⟨resta, hfitPA, -⟩ := hcerts (fa := TVa) hTF hTC hTVd
     (fun σ _ => hokTVa σ)
-    (Frame.getAppArgs hfWA hCwa) hspt hoT (by simp)
+    (frame_spine hfWA hCwa) hspt hoT (by simp)
   have hfitT : TeleFit V ρ TVa (tsa.map (interp V ρ)) (interp V ρ resta) :=
     teleFit_of_teleFitPA (by rw [← hspt.length]; exact hpcT) (hfitPA ρ hρ)
   -- both members, at the folded family instance

@@ -1,8 +1,9 @@
 module
 
 public import ConLeche.Model.Rules.Inputs
--- lane S-red's kit: `ReadSpine.length`, `denoteMeta_mkAppN_inv`,
--- `denoteMeta_proj_inv_tower` and `teleFit_nil_inv` are transplanted there
+-- lane S-red's kit is the SHARED one: `ReadSpine`'s list algebra,
+-- `denoteMeta_mkAppN(_inv)`, `denoteMeta_proj_inv_tower`,
+-- `teleFit_nil_inv` and the tower entry's reading live there
 import ConLeche.Model.Rules.RedSoundKit
 
 public section
@@ -619,39 +620,6 @@ theorem denoteMeta_instPisAt_peel
       (Expr.WScoped.instantiate1_gen hwa 0 hbodyw)
       (fun x hx => hargs x (List.mem_cons_of_mem _ hx)) hbody' hsp'
     exact ⟨restA, hrestA, hpeel⟩
-
-/-! ## The stored body's telescope is closed (task #175 S1) -/
-
-/-- A stored tower entry's body telescope is closed: the body is
-fvar-free and scoped at the parameters and the subject (`EnvWF`'s
-table clause), and `projTele` binds exactly those. -/
-theorem towerEntry_tele_closed (hwf : ConLeche.EnvWF env) {T : Name} {i : Nat}
-    {entry : ProjEntry} (hfe : env.findProj? T i = some entry) (us : List Level) :
-    (ConLeche.projTele (entry.numParams + 1)
-      (entry.body.instantiateLevelParams entry.levelParams us)).hasFvar = false ∧
-    (ConLeche.projTele (entry.numParams + 1)
-      (entry.body.instantiateLevelParams entry.levelParams us)).looseBVarsBounded 0
-      = true := by
-  rw [ConLeche.projTele_hasFvar, ConLeche.projTele_looseBVarsBounded, Nat.zero_add]
-  exact ⟨ConLeche.projEntry_body_hasFvar hwf hfe us,
-    ConLeche.projEntry_body_looseBVars hwf hfe us⟩
-
-/-- **The body telescope's reading is depth-free** — closed subject,
-closed reading, `denoteMeta_depth_of_closed`. -/
-theorem towerEntry_tele_at_depth {m : EnvModel V env} {T : Name} {i : Nat}
-    {entry : ProjEntry} (hfe : env.findProj? T i = some entry)
-    {us : List Level} {Ta : AnnotTerm}
-    (hTa : denoteMeta m.acval env φ 0
-      (ConLeche.projTele (entry.numParams + 1)
-        (entry.body.instantiateLevelParams entry.levelParams us)) = some Ta) :
-    (∀ d : Nat, denoteMeta m.acval env φ d
-      (ConLeche.projTele (entry.numParams + 1)
-        (entry.body.instantiateLevelParams entry.levelParams us)) = some Ta) ∧
-    ∀ k : Nat, Ta.liftN 1 k = Ta := by
-  obtain ⟨hnf, hb⟩ := towerEntry_tele_closed m.wf hfe us
-  have hcl : ∀ k : Nat, Ta.liftN 1 k = Ta := fun k =>
-    denoteMeta_closed m.acval_erase m.cval_closed hnf hb hTa 1 k
-  exact ⟨denoteMeta_depth_of_closed m.acval_closed hnf hcl hTa, hcl⟩
 
 /-- **The checker's projection type reads as the telescope's peel**
 (task #175 S1): `ProjEntry.typeAt` is the `instPisAt` peel of the body

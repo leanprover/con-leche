@@ -129,15 +129,15 @@ theorem Red.iota_sound (hin : RulesInputs V m φ) {d : Nat} {e : Expr} {c : Name
   obtain ⟨Ra, hRa0, hokRa, hpinsOk, hlaw⟩ := hlaw0 us hus
   obtain ⟨hRaD, hRnf, hRbd⟩ := recRhs_depthK hrec hrmem hRa0
   -- the recursor spine, read
-  have hfrE := frame_spineK hf hC
+  have hfrE := frame_spine hf hC
   have hea' := hea
   rw [show e = Expr.mkAppN e.getAppFn e.getAppArgs from
     (ConLeche.Expr.mkAppN_getApp e).symm, hhead] at hea'
-  obtain ⟨vc, xs, hvc, hspx, rfl⟩ := readSpine_mkAppN_inv hea'
+  obtain ⟨vc, xs, hvc, hspx, rfl⟩ := denoteMeta_mkAppN_inv hea'
   rw [denoteMeta_const hrec (show us.length = _ from hus)] at hvc
   obtain rfl : vc = m.acval c (Level.substFn φ cv.levelParams us) :=
     (Option.some.inj hvc).symm
-  obtain ⟨-, hoX⟩ := hoist_spineK xs hg
+  obtain ⟨-, hoX⟩ := hoist_spine xs hg
   have hxsLen : xs.length = mI + 1 := by rw [← hspx.length]; exact hlen
   -- the prepared major: read, graded, and equal to the slot's reading
   have hmIlt : mI < e.getAppArgs.length := by rw [hlen]; omega
@@ -153,10 +153,10 @@ theorem Red.iota_sound (hin : RulesInputs V m φ) {d : Nat} {e : Expr} {c : Name
   have hvmaj := hvmajSave
   rw [show major = Expr.mkAppN major.getAppFn major.getAppArgs from
     (ConLeche.Expr.mkAppN_getApp major).symm, hmhead] at hvmaj
-  obtain ⟨vj, ys, hvj, hspy, rfl⟩ := readSpine_mkAppN_inv hvmaj
+  obtain ⟨vj, ys, hvj, hspy, rfl⟩ := denoteMeta_mkAppN_inv hvmaj
   obtain ⟨hlenUj, rfl⟩ := denoteMeta_const_arityK hctor hvj
-  have hfrC := frame_spineK hfmj hCmj
-  obtain ⟨-, hoY⟩ := hoist_spineK ys hokMj
+  have hfrC := frame_spine hfmj hCmj
+  obtain ⟨-, hoY⟩ := hoist_spine ys hokMj
   -- the two stored types
   obtain ⟨TVa, hTVaD, hokTVa, hmemR, hnfR, hbdR⟩ :=
     constTy_pkg hin.const_ty hrec rfl (show us.length = _ from hus)
@@ -227,16 +227,16 @@ theorem Red.iota_sound (hin : RulesInputs V m φ) {d : Nat} {e : Expr} {c : Name
       · exact ⟨restC, [], rfl, Or.inl hmr, fun i hi => absurd hi (by omega)⟩
       have hpres := hres hmr
       obtain ⟨hfRes, hCRes⟩ := piResidual_frameK hpres hfJ hCJ hfrC
-      have hfrRes := frame_spineK hfRes hCRes
+      have hfrRes := frame_spine hfRes hCRes
       have hresC : denoteMeta m.acval env φ d residual = some restC :=
         teleFitPA_residualK m.acval_closed (acval_inst_self m) major.getAppArgs
           hpres hfJ.1 (fun x hx => ⟨(hfrC x hx).1.1, (hfrC x hx).1.2.1⟩)
           (hTVjaD d) hspy (hfitC ρ hρ)
       rw [show residual = Expr.mkAppN residual.getAppFn residual.getAppArgs from
         (ConLeche.Expr.mkAppN_getApp residual).symm] at hresC
-      obtain ⟨Ha, cargsa, -, hspRes, hCeq⟩ := readSpine_mkAppN_inv hresC
+      obtain ⟨Ha, cargsa, -, hspRes, hCeq⟩ := denoteMeta_mkAppN_inv hresC
       obtain ⟨-, hoCargs⟩ :=
-        hoist_spineK cargsa (fun σ hσ => hCeq ▸ hokRestC σ hσ)
+        hoist_spine cargsa (fun σ hσ => hCeq ▸ hokRestC σ hσ)
       have hspIdx : ReadSpine m.acval env φ d ((e.getAppArgs.take mI).drop rP)
           ((xs.take mI).drop rP) := (hspx.take mI).drop rP
       have hmapI : (cargsa.drop (RecRule.ctorParams rl)).map (interp V ρ)
@@ -496,7 +496,7 @@ theorem Red.iota_sound (hin : RulesInputs V m φ) {d : Nat} {e : Expr} {c : Name
   refine ⟨frame_mkAppN ⟨ConLeche.Expr.WScoped.of_not_hasFvar hRnf, hRbd,
       ConLeche.Expr.LeavesBounded.of_not_hasFvar hRnf⟩ (fun y hy => ?_),
     leavesSub_mkAppN (leavesSub_of_not_hasFvar hRnf) (fun y hy => ?_),
-    _, readSpine_mkAppN hspOut (hRaD d), fun ρ hρ => (hmain ρ hρ).2,
+    _, denoteMeta_mkAppN hspOut (hRaD d), fun ρ hρ => (hmain ρ hρ).2,
     fun ρ hρ => (hmain ρ hρ).1⟩
   · rcases List.mem_append.mp hy with hy' | hy'
     · exact (hfrE y (List.mem_of_mem_take hy')).1
@@ -559,9 +559,9 @@ theorem Red.rescueK_sound (hin : RulesInputs V m φ) {d : Nat}
     (hCM.of_subset hsubT0).of_subset hsubTm
   rw [show tmaj = Expr.mkAppN tmaj.getAppFn tmaj.getAppArgs from
     (ConLeche.Expr.mkAppN_getApp tmaj).symm, hthead] at htmaja
-  obtain ⟨vT, tsa, hvT, hspt, rfl⟩ := readSpine_mkAppN_inv htmaja
-  have hfrT := frame_spineK hfTm hCTm
-  obtain ⟨-, hoTs⟩ := hoist_spineK tsa hgTm
+  obtain ⟨vT, tsa, hvT, hspt, rfl⟩ := denoteMeta_mkAppN_inv htmaja
+  have hfrT := frame_spine hfTm hCTm
+  obtain ⟨-, hoTs⟩ := hoist_spine tsa hgTm
   -- the constructor's stored type: read, graded, inhabited, closed
   obtain ⟨TVja, hTVjaD, hokTVja, hmemCj, hnfJ, hbdJ⟩ :=
     constTy_pkg hin.const_ty hctor rfl (show ust.length = _ from hlv.symm)
@@ -574,7 +574,7 @@ theorem Red.rescueK_sound (hin : RulesInputs V m φ) {d : Nat}
   have hdF : denoteMeta m.acval env φ d fab
       = some (AnnotTerm.mkAppN
         (m.acval rl.ctor (Level.substFn φ cvj.levelParams ust)) (tsa.take cnP)) := by
-    rw [hfab]; exact readSpine_mkAppN (hspt.take cnP) hheadCj
+    rw [hfab]; exact denoteMeta_mkAppN (hspt.take cnP) hheadCj
   -- and is graded: its own telescope certificate is the fit
   obtain ⟨resta, hfit, -⟩ :=
     hcerts (fa := m.acval rl.ctor (Level.substFn φ cvj.levelParams ust))
@@ -583,7 +583,7 @@ theorem Red.rescueK_sound (hin : RulesInputs V m φ) {d : Nat}
       (fun x hx => hoTs x (List.mem_of_mem_take hx)) (by simp)
   have hgF : Graded V Δa (AnnotTerm.mkAppN
       (m.acval rl.ctor (Level.substFn φ cvj.levelParams ust)) (tsa.take cnP)) :=
-    fun ρ hρ => (fitA_grades (tsa.take cnP) (hokTVja ρ)
+    fun ρ hρ => (mkAppN_of_fitA (tsa.take cnP) (hokTVja ρ)
       ⟨m.acval_wellDenoted _ _ ρ, hin.leaf_valid _ _ ρ⟩
       (fun x hx => hoTs x (List.mem_of_mem_take hx) ρ hρ) (hmemCj ρ)
       (hfit ρ hρ)).1
@@ -651,9 +651,9 @@ theorem Red.rescueEta_sound (hin : RulesInputs V m φ) {d : Nat}
     fun ρ hρ => (heqTm ρ hρ) ▸ hmemM0 ρ hρ
   rw [show tmaj = Expr.mkAppN tmaj.getAppFn tmaj.getAppArgs from
     (ConLeche.Expr.mkAppN_getApp tmaj).symm, hthead] at htmaja
-  obtain ⟨vT, tsa, hvT, hspt, rfl⟩ := readSpine_mkAppN_inv htmaja
-  have hfrT := frame_spineK hfTm hCTm
-  obtain ⟨-, hoTs⟩ := hoist_spineK tsa hgTm
+  obtain ⟨vT, tsa, hvT, hspt, rfl⟩ := denoteMeta_mkAppN_inv htmaja
+  have hfrT := frame_spine hfTm hCTm
+  obtain ⟨-, hoTs⟩ := hoist_spine tsa hgTm
   have hvT' : vT = m.acval T (Level.substFn φ cvT.levelParams ust) := by
     rw [denoteMeta_const hind (show ust.length
       = (ConLeche.ConstantInfo.indInfo cvT caps).toConstantVal.levelParams.length
@@ -685,7 +685,7 @@ theorem Red.rescueEta_sound (hin : RulesInputs V m φ) {d : Nat}
       obtain ⟨entry, hfe⟩ :=
         ConLeche.towerSlotsAll_slot htow j (List.mem_range.mp hj)
       rw [← ConLeche.Env.findProj?_off hfe]
-      exact denoteMeta_proj_towerK hfe hea
+      exact denoteMeta_proj_tower hfe hea
     have hokProj : ∀ j ∈ List.range caps.etaFields,
         Graded V Δa (projAV (j + env.projOff T) ea) := by
       intro j hj ρ hρ
@@ -706,14 +706,14 @@ theorem Red.rescueEta_sound (hin : RulesInputs V m φ) {d : Nat}
       have hgj : TowerGuardAt φ entry ust :=
         towerGuardAt_of hO5j (fun hp => by rw [hp] at hnpj; exact nomatch hnpj)
       obtain ⟨⟨Ta, hTa, hA⟩, -⟩ := hlawj ust (by rw [hlpe]; exact hlv)
-      have hTad := towerEntry_tele_at_depthK hfe hTa
+      have hTad := (towerEntry_tele_at_depth hfe hTa).1
       have hlenVs : tsa.length = entry.numParams := by
         rw [← hspt.length, hlen, hparj]
-      have hpc : PiChainK (tsa ++ [ea]).length Ta := by
+      have hpc : PiChain (tsa ++ [ea]).length Ta := by
         rw [List.length_append, List.length_singleton, hlenVs]
-        exact piChainK_of_stripPis _
+        exact piChain_of_stripPis _
           (by rw [ConLeche.projTele_stripPis]; rfl) (hTad d)
-      obtain ⟨restj, hpeel⟩ := peelPisK_of_piChain _ hpc
+      obtain ⟨restj, hpeel⟩ := peelPis_of_piChain _ hpc
       rw [hlpe, ← hvT'] at hA
       exact (hA hgj ρ tsa ea restj hlenVs (hgTm ρ hρ) (hgM ρ hρ)
         (hmemMW ρ hρ) hpeel).1
@@ -745,7 +745,7 @@ theorem Red.rescueEta_sound (hin : RulesInputs V m φ) {d : Nat}
           (m.acval rl.ctor (Level.substFn φ cvj.levelParams ust))
           (tsa ++ (List.range caps.etaFields).map fun j =>
             projAV (j + env.projOff T) ea)) := by
-      rw [hfab]; exact readSpine_mkAppN hspF hheadCj
+      rw [hfab]; exact denoteMeta_mkAppN hspF hheadCj
     obtain ⟨resta, hfit, -⟩ :=
       hcerts (fa := m.acval rl.ctor (Level.substFn φ cvj.levelParams ust))
         hfJ hCJ (hTVjaD d) (fun ρ _ => hokTVja ρ) hfrF hspF hoksF (by simp)
@@ -753,7 +753,7 @@ theorem Red.rescueEta_sound (hin : RulesInputs V m φ) {d : Nat}
         (m.acval rl.ctor (Level.substFn φ cvj.levelParams ust))
         (tsa ++ (List.range caps.etaFields).map fun j =>
           projAV (j + env.projOff T) ea)) :=
-      fun ρ hρ => (fitA_grades _ (hokTVja ρ)
+      fun ρ hρ => (mkAppN_of_fitA _ (hokTVja ρ)
         ⟨m.acval_wellDenoted _ _ ρ, hin.leaf_valid _ _ ρ⟩
         (fun x hx => hoksF x hx ρ hρ) (hmemCj ρ) (hfit ρ hρ)).1
     exact ⟨hfF, hsub, _, hdF, hgF,
@@ -800,7 +800,7 @@ theorem Red.rescueEta_sound (hin : RulesInputs V m φ) {d : Nat}
               (Level.substFn φ cvT.levelParams ust)) (tsa ++ [ea])) := by
       intro j hj
       obtain ⟨cvp, mIp, rPp, rulesp, hfp, hlpj, -, -⟩ := hslotR j hj
-      refine readSpine_mkAppN hspTb ?_
+      refine denoteMeta_mkAppN hspTb ?_
       have hden := denoteMeta_const (acval := m.acval) (φ := φ) (d := d) hfp
         (show ust.length = _ from by
           dsimp only [ConLeche.ConstantInfo.toConstantVal]
@@ -827,7 +827,7 @@ theorem Red.rescueEta_sound (hin : RulesInputs V m φ) {d : Nat}
         hicj (fa := m.acval (projFnName T j)
             (Level.substFn φ cvT.levelParams ust))
           hfP hCP (htpa d) (fun τ _ => hoktpa τ) hframeTb hspTb hokTb (by simp)
-      refine (fitA_grades (tsa ++ [ea]) (hoktpa σ)
+      refine (mkAppN_of_fitA (tsa ++ [ea]) (hoktpa σ)
         ⟨m.acval_wellDenoted _ _ σ, hin.leaf_valid _ _ σ⟩
         (fun y hy => hokTb y hy σ hσ) ?_ (hfitp σ hσ)).1
       have hmm := hmemp σ
@@ -868,7 +868,7 @@ theorem Red.rescueEta_sound (hin : RulesInputs V m φ) {d : Nat}
           (tsa ++ (List.range caps.etaFields).map fun j =>
             AnnotTerm.mkAppN (m.acval (projFnName T j)
               (Level.substFn φ cvT.levelParams ust)) (tsa ++ [ea]))) := by
-      rw [hfab]; exact readSpine_mkAppN hspF hheadCj
+      rw [hfab]; exact denoteMeta_mkAppN hspF hheadCj
     obtain ⟨resta, hfit, -⟩ :=
       hcerts (fa := m.acval rl.ctor (Level.substFn φ cvj.levelParams ust))
         hfJ hCJ (hTVjaD d) (fun ρ' _ => hokTVja ρ') hfrF hspF hoksF (by simp)
@@ -877,7 +877,7 @@ theorem Red.rescueEta_sound (hin : RulesInputs V m φ) {d : Nat}
         (tsa ++ (List.range caps.etaFields).map fun j =>
           AnnotTerm.mkAppN (m.acval (projFnName T j)
             (Level.substFn φ cvT.levelParams ust)) (tsa ++ [ea]))) :=
-      fun ρ hρ => (fitA_grades _ (hokTVja ρ)
+      fun ρ hρ => (mkAppN_of_fitA _ (hokTVja ρ)
         ⟨m.acval_wellDenoted _ _ ρ, hin.leaf_valid _ _ ρ⟩
         (fun x hx => hoksF x hx ρ hρ) (hmemCj ρ) (hfit ρ hρ)).1
     exact ⟨hfF, hsub, _, hdF, hgF,
@@ -930,9 +930,9 @@ theorem Red.rescueAnd_sound (hin : RulesInputs V m φ) {d : Nat}
     fun ρ hρ => (heqTm ρ hρ) ▸ hmemM0 ρ hρ
   rw [show tmaj = Expr.mkAppN tmaj.getAppFn tmaj.getAppArgs from
     (ConLeche.Expr.mkAppN_getApp tmaj).symm, hthead] at htmaja
-  obtain ⟨vT, tsa, hvT, hspt, rfl⟩ := readSpine_mkAppN_inv htmaja
-  have hfrT := frame_spineK hfTm hCTm
-  obtain ⟨-, hoTs⟩ := hoist_spineK tsa hgTm
+  obtain ⟨vT, tsa, hvT, hspt, rfl⟩ := denoteMeta_mkAppN_inv htmaja
+  have hfrT := frame_spine hfTm hCTm
+  obtain ⟨-, hoTs⟩ := hoist_spine tsa hgTm
   -- the constructor's stored type: read, graded, inhabited, closed
   obtain ⟨TVja, hTVjaD, hokTVja, hmemCj, hnfJ, hbdJ⟩ :=
     constTy_pkg hin.const_ty hctor rfl (show ust.length = _ from hlv.symm)
@@ -965,7 +965,7 @@ theorem Red.rescueAnd_sound (hin : RulesInputs V m φ) {d : Nat}
     intro j hj
     obtain ⟨entry, hfe, -, hnP, -, hfire⟩ := hslot j hj
     rw [← ConLeche.Env.findProj?_off hfe]
-    refine ⟨denoteMeta_proj_towerK hfe hea, ?_⟩
+    refine ⟨denoteMeta_proj_tower hfe hea, ?_⟩
     intro ρ hρ
     obtain ⟨-, -, -, ⟨cvTj, capsTj, hfTj, hlpsTj, -⟩, hO5j, cvCj, hfCj, hlpsCj,
       hlawj, -⟩ := hin.tower_ok andName j entry hfe
@@ -975,14 +975,14 @@ theorem Red.rescueAnd_sound (hin : RulesInputs V m φ) {d : Nat}
     have hlpe : entry.levelParams = cvT.levelParams := by rw [← hlpsTj, hcvTj]
     have hgj : TowerGuardAt φ entry ust := towerGuardAt_of_fireOk hO5j hfire
     obtain ⟨⟨Ta, hTa, hA⟩, -⟩ := hlawj ust (by rw [hlpe]; exact hlenus2)
-    have hTad := towerEntry_tele_at_depthK hfe hTa
+    have hTad := (towerEntry_tele_at_depth hfe hTa).1
     have hlenVs : tsa.length = entry.numParams := by
       rw [← hspt.length, hlen, hnP]
-    have hpc : PiChainK (tsa ++ [ea]).length Ta := by
+    have hpc : PiChain (tsa ++ [ea]).length Ta := by
       rw [List.length_append, List.length_singleton, hlenVs]
-      exact piChainK_of_stripPis _
+      exact piChain_of_stripPis _
         (by rw [ConLeche.projTele_stripPis]; rfl) (hTad d)
-    obtain ⟨restj, hpeel⟩ := peelPisK_of_piChain _ hpc
+    obtain ⟨restj, hpeel⟩ := peelPis_of_piChain _ hpc
     rw [hlpe, ← hvT'] at hA
     exact (hA hgj ρ tsa ea restj hlenVs (hgTm ρ hρ) (hgM ρ hρ)
       (hmemMW ρ hρ) hpeel).1
@@ -1026,7 +1026,7 @@ theorem Red.rescueAnd_sound (hin : RulesInputs V m φ) {d : Nat}
         (m.acval rl.ctor (Level.substFn φ cvj.levelParams ust))
         (tsa ++ [projAV (0 + env.projOff andName) ea,
           projAV (1 + env.projOff andName) ea])) := by
-    rw [hfab]; exact readSpine_mkAppN hspF hheadCj
+    rw [hfab]; exact denoteMeta_mkAppN hspF hheadCj
   obtain ⟨resta, hfit, -⟩ :=
     hcerts (fa := m.acval rl.ctor (Level.substFn φ cvj.levelParams ust))
       hfJ hCJ (hTVjaD d) (fun ρ _ => hokTVja ρ) hfrF hspF hoksF (by simp)
@@ -1034,7 +1034,7 @@ theorem Red.rescueAnd_sound (hin : RulesInputs V m φ) {d : Nat}
       (m.acval rl.ctor (Level.substFn φ cvj.levelParams ust))
       (tsa ++ [projAV (0 + env.projOff andName) ea,
         projAV (1 + env.projOff andName) ea])) :=
-    fun ρ hρ => (fitA_grades _ (hokTVja ρ)
+    fun ρ hρ => (mkAppN_of_fitA _ (hokTVja ρ)
       ⟨m.acval_wellDenoted _ _ ρ, hin.leaf_valid _ _ ρ⟩
       (fun x hx => hoksF x hx ρ hρ) (hmemCj ρ) (hfit ρ hρ)).1
   exact ⟨hfF, hsub, _, hdF, hgF,
