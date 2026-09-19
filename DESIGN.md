@@ -120808,3 +120808,125 @@ warning-free: OK (a run that could have failed)
 line.  `tests/unconsumed.sh` 182 of 3755; the diff against the base is
 EMPTY — the one new declaration (`instTgtPin`) is consumed by
 `instTgtAt` and does not appear on the list.
+
+#### WIDE (3′) (2) THE CARRY LANDED ON `PinShapes` — the row, its three sites, and the two `PinCorr` clauses that are deliberately absent (lane uniform-carry, 2026-09-19)
+
+The coordinator ruled the previous row's question: the home is
+`PinShapes`/`BlockAt`.  Built there, session-sized, and it came in at
+the estimate — because the home ruling removed both of the namings
+that had made `ContainerModeled` expensive.  **The five inline basis
+discharges and `BlockAt.of_noPins` needed NO edit at all** (they close
+`PinShapes` with `fun q hq => nomatch hq`, which absorbs a new
+conjunct), and `PinShapes.crossEnv` needed ONE word.
+
+##### (a) PRICED BY INPUTS, BEFORE BUILDING
+
+* **the `PinGroupInst` conjunct** — no inputs (a statement);
+* **its discharge at `pinGroupInst_of`** — `instTgtPin` (landed in the
+  previous row) at the same binders `hstgt` already uses, plus
+  `BlockModel.targetView`'s `Ds` field;
+* **the `PinShapes` conjunct** — no inputs (a statement);
+* **its discharge at `nestedPinShapes_of`** — `G.inst`'s two clauses
+  composed, plus the `nestedPc`/`← Nat.add_assoc` rewriting that
+  theorem already does for the count and the shape.  **The re-proof of
+  `copyPinFInstTgt`'s scaffolding, which the previous row priced at
+  that site, does NOT arise**: routed through `PinGroupInst`, the row
+  reaches `nestedPinShapes_of` on the group record, where it is two
+  `obtain`s;
+* **the vacuous sites and the transports** — `d.nPins = 0`, and a
+  model-free conjunct.
+
+##### (b) WHAT LANDED
+
+* `PinGroupInst.hpinσ` (`NestedCore.lean`), beside `hstgt`: the class
+  `σ` sends the container's own pin to IS a pin `q'` of the block, and
+  its container, index universe, index telescope and components are
+  the container's own pin's at the group's instantiation.  Discharged
+  at `NestedPinsRun.pinGroupInst_of` from `instTgtPin`;
+* the ROW on `PinShapes` (`NestedPremise.lean`): the same two facts in
+  the MODEL's spelling — `(pc (q₀ + i')).tgts j l = d.k + q'` with
+  `q'`'s data the container's own pin's — so that a LATER block reads
+  off a stored container which of ITS own pins each field of a pin's
+  copy lands on.  Discharged at `nestedPinShapes_of` by composing
+  `hstgt` with `hpinσ`;
+* `PinShapes.rowTarget` (`NestedPremise.lean`), the read-off: the row
+  as the TARGET VIEW's data at the field (`J`, `u`, `Ids`, `Ds` at
+  `(pc (q₀ + i')).tgts j l`).  That is the form
+  `copyTransfer_via_pin` reads a target in, and applying it on each
+  side at one field and rewriting is the correspondence.
+
+##### (c) WHY THE COMPARISON IS AT THE DATA AND NOT AT AN INDEX
+
+Worth stating once, because every shape question on this row turned on
+it.  The two sides index DIFFERENT pin lists — the block's and the
+container's — and the expansion's dedup is by pin EXPRESSION, so two
+of the container's own pins that collapse at one instantiation need
+not collapse at the other.  No equation between the two indices is
+therefore available, and none is wanted: `copyTransfer_via_pin` reads
+a target only through the target view, so the data ARE the handle.
+`instTgtPin` exists for the same reason one file up.
+
+##### (d) THE TWO `PinCorr` CLAUSES THAT ARE NOT ON THE ROW, AND WHAT THEY WOULD COST
+
+`instTgtPin` hands a full `PinCorr`; the row carries four of its six
+clauses.  `EA` (the target's reading) and `lvls` (its level arguments)
+are absent, and the reason is the crossing, not the proof: both are
+stated at the container's stored `levelParams`, so carrying them puts
+an `env.find?` guard on the row — and the row crosses
+`PinShapes.crossEnv` VERBATIM precisely because it names no
+environment and no model.  Adding them is not hard (the existing
+`CopyCtorShape` conjunct carries exactly such a guard, and
+`PinShapes.crossEnv` already runs the pull-back dance for it), but it
+is a separate half-session and it buys nothing until a consumer asks:
+`EA` is `targetRead_of_pin` away from the `J`/`Ds` clauses that ARE
+here, and `lvls` is `ContainerModeled.pinψ` at the two pins, which
+every consumer holds.
+
+##### (e) FOR THE `le` LANE — `hslotOrd` IS NOT THIS ROW'S, AND THE GUARD SAYS SO
+
+Checked at `copyTransfer_via_pin`'s own statement before building, and
+it corrects the sentence in its docstring ("the correspondence …
+`hslotOrd`, which is what K.61's rows on both sides give").
+
+`hslotOrd` is guarded by `((dK.rss i).getD j []).getD l false = false`
+— the container calls the field ORDINARY.  K.61's Bool fires only
+where the field's parameter part MENTIONS a member of the container's
+group, and a field that mentions one is not ordinary for that
+container (`mutualCtorKinds`, `ContainerModeled.ordFree`).  **So K.61's
+rows say nothing at `hslotOrd`'s fields**, on either side; what speaks
+there is K.62/K.66 (`houtσ`), and negatively.
+
+What this row DOES feed is `hrel`'s pin sub-case —
+`((dK.rss i).getD j []).getD l false = true` with
+`¬ dK.tgts i j l < dK.k`, where both sides' targets are the same own
+pin of `dK` at their own instantiations.  That is the case the row is
+stated at, and `rowTarget` is it in the transfer's own spelling.  The
+`ordF`-right arm needs a different record and it is still open.
+
+##### (f) GATES
+
+`tests/warning-free.sh 671cac19`:
+
+```
+warning-free: 5 changed module(s) since 671cac19
+warning-free: lake build — 5 module(s) recompiled, 0 warning line(s)
+warning-free: lake test — 0 module(s) recompiled, 0 warning line(s)
+warning-free: OK (a run that could have failed)
+```
+
+`lake build` EXIT 0 and `lake test` EXIT 0, no warning line in either;
+`tests/overview-links.sh` 112 links OK; `tests/quote-gate.sh` OK;
+`tests/no-local-paths.sh` OK.  `tests/unconsumed.sh` 183 of 3756: the
+diff against the base is ONE entry, `PinShapes.rowTarget`, whose
+consumer is the correspondence lemma the `le` lane is building; the
+other two new declarations (`instTgtPin`, and `hpinσ` as a structure
+conjunct) are consumed and invisible to the gate respectively.  No
+kernel, `Cached` or `Verify` file changed, so no accept set moved and
+`tests/arena.sh` was not re-run.
+
+**Merge note for the `le` lane**: `PinGroupInst` gained a seventh
+conjunct, so a positional destructuring of it takes one more `-`; the
+two in `NestedPinLeafAll.lean` (`hshR _ hqK`) and the one in
+`PinShapes.crossEnv` are already updated here.  `NestedInstMap.lean`
+was touched at `pinGroupInst_of`'s bullet list and at `instTgtAt`
+only.
