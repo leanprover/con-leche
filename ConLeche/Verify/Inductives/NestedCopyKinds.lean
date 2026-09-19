@@ -1530,4 +1530,73 @@ theorem ordTargetDom_eq_instSeq_const {lps : List Name} {nP l : Nat} {ownSelf : 
     | _ => exact ⟨rfl, rfl⟩
   rw [ordTargetDom_eq_instSeq hown hlen, hL, hstrip.1, hstrip.2, Nat.add_zero]
 
+/-! ### The block's own-pin table entry, at the run's pin record
+
+`ordTargetDom`'s components come from the table entry it is addressed
+at, and at the BLOCK's side that table is `nestedPinTermsSelf` — the
+recorded pin terms with the block's parameters abstracted and re-opened
+at `containerParamOpeners`.  Since those openers are the parameter
+FVARS themselves (at the placeholder annotation `sort 0`), the entry is
+the recorded pin with its components' fvar ANNOTATIONS normalised and
+nothing else moved: the head, the levels and the arity are the run's
+own.  That is what makes `ordTargetDom_eq_instSeq_const` applicable at
+the block's side with the run's `st.pins` record as its only input. -/
+
+/-- Bulk instantiation commutes with an application spine. -/
+theorem instantiateList_mkAppN (vs : List Expr) (d : Nat) :
+    ∀ (args : List Expr) (f : Expr),
+      Expr.instantiateList (Expr.mkAppN f args) vs d
+        = Expr.mkAppN (Expr.instantiateList f vs d)
+            (args.map fun a => Expr.instantiateList a vs d)
+  | [], _ => rfl
+  | a :: as, f => by
+    rw [show Expr.mkAppN f (a :: as) = Expr.mkAppN (.app f a) as from rfl,
+      instantiateList_mkAppN vs d as (.app f a), List.map_cons]
+    simp only [Expr.instantiateList]
+    rfl
+
+/-- **THE BLOCK'S OWN-PIN TABLE ENTRY IS THE RECORDED PIN** (task #315
+WIDE (3), lane LE): same head, same levels, same arity — the
+components carried through the abstraction and the openers, which move
+nothing but a component's free-variable annotations. -/
+theorem nestedPinTermsSelf_shape {p : NestedParts} {st : ElimState} {q : Nat}
+    {pn : NestedPin} {I : Name} {lvls : List Level} {Ds : List Expr}
+    (hq : st.pins[q]? = some pn) (hpin : pn.pin = Expr.mkAppN (.const I lvls) Ds) :
+    (nestedPinTermsSelf p st).getD q default
+      = Expr.mkAppN (.const I lvls)
+          (Ds.map fun a => Expr.instantiateList (Expr.abstractRange a 0 p.nP 0)
+            (containerParamOpeners p.nP).reverse 0) := by
+  unfold nestedPinTermsSelf
+  rw [List.getD_eq_getElem?_getD, List.getElem?_map, hq]
+  simp only [Option.map_some, Option.getD_some]
+  rw [hpin, abstractRange_mkAppN, abstractRange_const, instantiateList_mkAppN,
+    show Expr.instantiateList (.const I lvls) (containerParamOpeners p.nP).reverse 0
+      = .const I lvls from by simp only [Expr.instantiateList], List.map_map]
+  rfl
+
+/-- **K.69'S BLOCK SIDE, IN THE RUN'S IDIOM** (task #315 WIDE (3), lane
+LE): `ordTargetDom_eq_instSeq_const` addressed at the block's own
+table, with the run's pin record as its only input — the recomputation
+is the container's stored field domain at the pin's LEVELS, folded onto
+the pin's COMPONENTS at the field's own cut, which is the spelling
+`NestedPinsRun.copyResid`'s minted telescope carries.
+
+The components arrive through `nestedPinTermsSelf`'s abstraction and
+re-opening; that round trip normalises a component's free-variable
+annotations and moves nothing else, which is why the equation can be
+stated against the run's recorded `Ds` at all. -/
+theorem ordTargetDom_pinTermsSelf {p : NestedParts} {st : ElimState} {q : Nat}
+    {pn : NestedPin} {I : Name} {lvls : List Level} {Ds : List Expr}
+    {lps : List Name} {nP l : Nat} {dom : Expr} {K : Name} {usK : List Level}
+    (hq : st.pins[q]? = some pn) (hpin : pn.pin = Expr.mkAppN (.const I lvls) Ds)
+    (hlen : Ds.length = nP)
+    (hfin : (dom.instantiateLevelParams lps lvls).getAppFn = .const K usK) :
+    ordTargetDom lps nP (nestedPinTermsSelf p st) q l dom
+      = Expr.instSeq
+          (Ds.map fun a => Expr.instantiateList (Expr.abstractRange a 0 p.nP 0)
+            (containerParamOpeners p.nP).reverse 0)
+          (nP - 1 + l) (dom.instantiateLevelParams lps lvls) :=
+  ordTargetDom_eq_instSeq_const (nestedPinTermsSelf_shape hq hpin)
+    (by rw [List.length_map]; exact hlen) hfin
+
 end ConLeche
