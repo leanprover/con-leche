@@ -11,6 +11,7 @@ import ConLeche.Model.Inductives.ContainerCross
 import ConLeche.Model.Inductives.NestedOwnPinsRead
 import ConLeche.Verify.Inductives.NestedOpenSpine
 import ConLeche.Verify.Inductives.NestedRecCtorPin
+import ConLeche.Verify.Inductives.NestedElimInv
 import ConLeche.Verify.Inductives.NestedCopyInstU
 public import ConLeche.Model.Inductives.NestedCopyIdx
 public section
@@ -2051,7 +2052,7 @@ theorem NestedPinsRun.pinGroupInst_of {pbs : List (Expr × ConLeche.BinderMeta)}
     rw [← pinAtE_eq] at h
     exact h
   refine ⟨fun c => if c < dJ.k then p.k + q₀ + c else p.k + mm.getD (c - dJ.k) 0,
-    fun c hc => if_pos hc, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
+    fun c hc => if_pos hc, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
   · -- `hσ`
     intro c hc
     dsimp only
@@ -2149,6 +2150,38 @@ theorem NestedPinsRun.pinGroupInst_of {pbs : List (Expr × ConLeche.BinderMeta)}
         show _ = ((D).pinAt ((D).k + σq - (D).k)).Ds φ
         rw [Nat.add_sub_cancel_left]]
       exact hDs
+  · -- `hordσ`: K.68's row, `instOrdSelfAt` with the two tables and the
+    -- two member-name lists identified (`ownPinTerms_eq`, the block's
+    -- own names)
+    intro ψ i' hi' j hj l hl hord hrss cA bs rr dom lps hjA hstrip hdom M us hhead
+    obtain ⟨cvT', caps', cvR', mI', rP', rules', -, hI', -⟩ := S.stored i' hi'
+    have hlF : l < cA.2 := by rw [← hI'.Fss_length hjA ((pinsS.getD q₀ default).ψJ ψ)]; exact hl
+    obtain ⟨ci, hciP, CM⟩ := hci i' hi'
+    have hnames : (D).memberNames = p.memberNames := by
+      show (fms.take p.k).map (·.cvTa.name) = p.memberNames
+      rw [List.map_take, R.h.names]
+      exact ConLeche.auxBlock_memberNames R.hfA R.helim R.hb
+    -- the container's field is ORDINARY: `rss` false rules the other
+    -- two kinds out (`instOutAt`'s own conversion)
+    have hjlt : j < (dJ.ctorsM i').length := hj
+    obtain ⟨-, -, hCD⟩ := hI'.ctors i' j cA hI'.memberLt hjA
+    have hksl : l < (dJ.ksF i' j).length := by rw [hCD.ksLen]; exact hlF
+    have hordC : (dJ.ksF i' j).getD l .ordinary = .ordinary := by
+      have hh := hord
+      rw [show (dJ.rss i').getD j [] = rsOf (dJ.ksF i' j) from rssOfK_getD hjlt,
+        rsOf_getD hksl] at hh
+      have hne : ¬ ((dJ.ksF i' j).getD l .ordinary = .recursive
+          ∨ (dJ.ksF i' j).getD l .ordinary = .reflexive) := by
+        intro hc; rw [decide_eq_true hc] at hh; exact nomatch hh
+      rcases hCD.opened.kinds l (by rw [← hCD.ksLen]; exact hksl) with ho | hr | hrf
+      · exact ho
+      · exact absurd (Or.inl hr) hne
+      · exact absurd (Or.inr hrf) hne
+    rw [R.ownPinTerms_eq SF lps] at hhead ⊢
+    rw [hnames]
+    exact R.instOrdSelfAt SF S hPD hkindsRun hi' (hgb i' hi') (fun ciJ hh => by
+        rw [hciP] at hh; obtain rfl := Option.some.inj hh; exact CM)
+      hjA hlF hordC hrss hstrip hdom hhead
 
 end Assembly
 

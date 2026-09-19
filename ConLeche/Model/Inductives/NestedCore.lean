@@ -352,7 +352,37 @@ records it sits beside. -/
           ((D).pinAt q').Ids φ = (dJ.pinAt x).Ids (((D).pinAt q₀).ψJ φ) ∧
           ((D).pinAt q').Ds φ
             = ((dJ.pinAt x).Ds (((D).pinAt q₀).ψJ φ)).map
-                (AnnotTerm.instAll (((D).pinAt q₀).Ds φ) 0))
+                (AnnotTerm.instAll (((D).pinAt q₀).Ds φ) 0)) ∧
+    -- `hordσ`: K.68's ROW at the group (task #315 WIDE (3), session 2):
+    -- at a field the pin's container calls ORDINARY and the block's
+    -- rewrite made recursive, the block's target is the class the
+    -- BLOCK's own recomputation names — a member of the block by its
+    -- name, or one of the block's own pins by its term in the block's
+    -- own table.  It is what a LATER block reads of this one, and the
+    -- CONTAINER's side of the wide correspondence is built from it.
+    (∀ (ψ : Name → Nat) (i' : Nat), i' < kJ → ∀ j, j < (dJ.ctorsM i').length → ∀ l,
+      l < ((dJ.Fss i' (((D).pinAt q₀).ψJ ψ)).getD j []).length →
+      ((dJ.rss i').getD j []).getD l false = false →
+      ((blkRss ctorsA kinds).getD (b.ownOffset (p.k + q₀ + i') + j) []).getD l false = true →
+      ∀ (cA : ConstantVal × Nat) (bs : List (Expr × ConLeche.BinderMeta)) (rr : Expr)
+        (dom : Expr × ConLeche.BinderMeta) (lps : List Name),
+      (dJ.ctorsM i')[j]? = some cA →
+      cA.1.type.stripPis (dJ.nP + cA.2) = some (bs, rr) →
+      bs[dJ.nP + l]? = some dom →
+      ∀ (M : Name) (us : List Level),
+      (ConLeche.ordTargetDom dJ.nP ((D).ownPinTerms lps) (q₀ + i') l dom.1).getAppFn
+          = .const M us →
+      (∀ mm, (D).memberNames.findIdx? (· == M) = some mm →
+          ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+            (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0 = mm) ∧
+      (∀ (ciM : ContainerInfo) (z : Nat), (D).memberNames.findIdx? (· == M) = none →
+        ConLeche.containerInfo? env M = some ciM →
+        ((D).ownPinTerms lps).findIdx? (fun e => e == Expr.mkAppN
+            (ConLeche.ordTargetDom dJ.nP ((D).ownPinTerms lps) (q₀ + i') l dom.1).getAppFn
+            ((ConLeche.ordTargetDom dJ.nP ((D).ownPinTerms lps) (q₀ + i') l
+              dom.1).getAppArgs.take ciM.nP)) = some z →
+        ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+          (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0 = p.k + z))
 
 /-- **A pin group's facts** (NAMED, DESIGN §U.18 (d)): the copies
 `[q₀, q₀ + kJ)` of the auxiliary block are the members of ONE
