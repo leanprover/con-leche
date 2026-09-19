@@ -3225,6 +3225,268 @@ theorem copyTransfer_mem {env : Env} {m : EnvModel V env} {dK : BlockModel V}
     (BlockModel.slotDom_congr_mem hreps hi hj hψ hwK huT hρ hdom₁) hrel hentR t fs
     (BlockModel.chainFitT_congr_mem hreps hi hj hψ hwK huT hIdsLen hρ hfit)
 
+/-- **THE ONE-WAY TRANSFER, PIN HALF** (task #315 WIDE (3′)):
+`copyTransfer_via` with the `ordF`-right arm carried by a SLOT
+CORRESPONDENCE instead of by two entries.
+
+At a field the container `dK` calls ORDINARY whose copies are
+RECURSIVE, both sides contribute their tuple AT THEIR TARGET — neither
+is a fixed set — and the two targets are σ-related, so the arm is
+`hrel`'s sentence one level down.  What the recursive arm has and this
+one lacks is the NORMALISATION: `CopyCtorShape.slot_container` rewrites
+both slots' data into the CONTAINER's `tlss`/`Eiss`, and it is stated
+for container-recursive fields only — at a field the container calls
+ordinary there is no recursive datum of its own to normalise into.  So
+the correspondence is stated DIRECTLY between the two copies
+(`hslotOrd`), which is what K.61's rows on both sides give.
+
+`hfireOrd` is the other half of the same fact: the two copies fire
+together at such a field.  One direction is a mention surviving the
+block's further substitution; the other is what the rows say.
+
+`copyTransfer_via` is untouched and keeps serving the covering
+(`nestedPinPair_pin`); this twin serves the FIT's pin half alone. -/
+theorem copyTransfer_via_pin {env : Env} {m : EnvModel V env} {dK : BlockModel V}
+    {acval : Name → (Name → Nat) → AnnotTerm}
+    {TV₁ TV₂ : TargetView V} {ψ₁ ψ₂ : Name → Nat} {Ds₁ Ds₂ : List AnnotTerm}
+    {lpsK : List Name} {lvls₁ lvls₂ : List Level}
+    {tg₁ tg₂ : Nat → Nat} {tls₁ tls₂ : List (List (Nat × Nat × AnnotTerm))}
+    {Eis₁ Eis₂ : List (List AnnotTerm)} {ρ₁ ρ₂ : Nat → V} {base₁ base₂ kK i j : Nat}
+    {Fs₁ Fs₂ Es₁ Es₂ : List AnnotTerm} {rs₁ rs₂ : List Bool} {X₁ X₂ : Nat → V}
+    (hreps : IsBlockModels m dK) (hi : i < dK.k) (hkK : dK.k = kK)
+    {cA : ConstantVal × Nat} (hj : (dK.ctorsM i)[j]? = some cA)
+    (hψ : ∀ p ∈ cA.1.levelParams, ψ₁ p = ψ₂ p)
+    (hρ : ∀ v, v < dK.nP →
+      consList (Ds₁.map (interp V ρ₁)) ρ₁ v = consList (Ds₂.map (interp V ρ₂)) ρ₂ v)
+    (hwK : dK.w ψ₁ = dK.w ψ₂)
+    (huT : ∀ l, dK.uT (dK.tgts i j l) ψ₁ = dK.uT (dK.tgts i j l) ψ₂)
+    (hIdsLen : (dK.IdsM i ψ₁).length = (dK.IdsM i ψ₂).length)
+    (hw₁ : dK.w ψ₁ = TV₁.w) (hw₂ : dK.w ψ₂ = TV₂.w)
+    (hu₁ : ∀ i', i' < kK → TV₁.u (base₁ + i') = dK.uM i' ψ₁)
+    (hu₂ : ∀ i', i' < kK → TV₂.u (base₂ + i') = dK.uM i' ψ₂)
+    {nI₁ nI₂ : Nat} (hnI₁ : nI₁ = (dK.IdsM i ψ₁).length) (hnI₂ : nI₂ = (dK.IdsM i ψ₂).length)
+    (h₁ : CopyCtorShape TV₁ acval dK ψ₁ Ds₁ lpsK lvls₁ tg₁ tls₁ Eis₁ ρ₁ i j base₁ kK Fs₁ rs₁ Es₁)
+    (h₂ : CopyCtorShape TV₂ acval dK ψ₂ Ds₂ lpsK lvls₂ tg₂ tls₂ Eis₂ ρ₂ i j base₂ kK Fs₂ rs₂ Es₂)
+    (hdom₁ : ∀ l, l < ((dK.Fss i ψ₁).getD j []).length → rs₁.getD l false = true →
+      ∀ fs₁ : List V, fs₁.length = l →
+      SpineFit (consList (Ds₁.map (interp V ρ₁)) ρ₁) (((dK.Fss i ψ₁).getD j []).take l) fs₁ →
+      slotSet TV₁.w (TV₁.u (tg₁ l)) (consList fs₁ ρ₁) (tls₁.getD l []) (Eis₁.getD l [])
+          (X₁ (tg₁ l))
+        ⊆ˢ interp V (consList fs₁ (consList (Ds₁.map (interp V ρ₁)) ρ₁))
+            (((dK.Fss i ψ₁).getD j []).getD l default))
+    (hfireOrd : ∀ l, l < ((dK.Fss i ψ₁).getD j []).length →
+      ((dK.rss i).getD j []).getD l false = false →
+      (rs₁.getD l false = true ↔ rs₂.getD l false = true))
+    (hslotOrd : ∀ l, l < ((dK.Fss i ψ₁).getD j []).length →
+      ((dK.rss i).getD j []).getD l false = false →
+      rs₁.getD l false = true → rs₂.getD l false = true →
+      ∀ fs₁ : List V, fs₁.length = l →
+      slotSet TV₁.w (TV₁.u (tg₁ l)) (consList fs₁ ρ₁) (tls₁.getD l []) (Eis₁.getD l [])
+          (X₁ (tg₁ l))
+        ⊆ˢ slotSet TV₂.w (TV₂.u (tg₂ l)) (consList fs₁ ρ₂) (tls₂.getD l []) (Eis₂.getD l [])
+            (X₂ (tg₂ l)))
+    (hrel : ∀ l, l < ((dK.Fss i ψ₁).getD j []).length →
+      ((dK.rss i).getD j []).getD l false = true →
+      ∀ t', SetTheory.app (X₁ (tg₁ l)) t' ⊆ˢ SetTheory.app (X₂ (tg₂ l)) t')
+    (t : V) (fs : List V)
+    (hfit : FitsFrom rs₁ (fun i' ρ => slotSet TV₁.w (TV₁.u (tg₁ i')) ρ (tls₁.getD i' [])
+        (Eis₁.getD i' []) (X₁ (tg₁ i'))) 0 ρ₁ Fs₁ fs)
+    (hidx : ∀ l, l < nI₁ → interp V (consList fs ρ₁) (Es₁.getD l default) = projS l t) :
+    FitsFrom rs₂ (fun i' ρ => slotSet TV₂.w (TV₂.u (tg₂ i')) ρ (tls₂.getD i' []) (Eis₂.getD i' [])
+        (X₂ (tg₂ i'))) 0 ρ₂ Fs₂ fs ∧
+    (∀ l, l < nI₂ → interp V (consList fs ρ₂) (Es₂.getD l default) = projS l t) := by
+  obtain ⟨cvT, cvR, mI, rP, rules, hI⟩ := hreps i hi
+  obtain ⟨hF, hE, htl, hEs⟩ := hI.ctor_params hj hψ
+  have hcd := hI.ctorData hj
+  have hjl : j < (dK.ctorsM i).length := (List.getElem?_eq_some_iff.mp hj).1
+  have hwT : TV₁.w = TV₂.w := by rw [← hw₁, ← hw₂, hwK]
+  -- the two frames agree below the parameter depth, under any prefix
+  have hfrm : ∀ (as : List V) v, v < dK.nP + as.length →
+      consList as (consList (Ds₁.map (interp V ρ₁)) ρ₁) v
+        = consList as (consList (Ds₂.map (interp V ρ₂)) ρ₂) v :=
+    fun as v hv => consList_agree_above hρ as v (by omega)
+  -- a container-recursive field is copy-recursive on both sides
+  have hrs₁ : ∀ l, l < ((dK.Fss i ψ₁).getD j []).length →
+      ((dK.rss i).getD j []).getD l false = true → rs₁.getD l false = true := by
+    intro l hl hr
+    by_cases hnt : dK.tgts i j l < dK.k
+    · exact (h₁.recF l hl hr hnt).1
+    · exact (h₁.pinF l hl hr hnt).1
+  have hrs₂ : ∀ l, l < ((dK.Fss i ψ₂).getD j []).length →
+      ((dK.rss i).getD j []).getD l false = true → rs₂.getD l false = true := by
+    intro l hl hr
+    by_cases hnt : dK.tgts i j l < dK.k
+    · exact (h₂.recF l hl hr hnt).1
+    · exact (h₂.pinF l hl hr hnt).1
+  refine ⟨fitsFrom_imp_frames_via ((dK.Fss i ψ₁).getD j [])
+    (ρV := consList (Ds₁.map (interp V ρ₁)) ρ₁) h₁.len
+    (by rw [h₂.len, hF]) (fun l hl fs₁ hl₁ hsp => ?_) hfit, ?_⟩
+  · subst hl₁
+    have hl₂ : fs₁.length < ((dK.Fss i ψ₂).getD j []).length := by rw [← hF]; exact hl
+    -- the container's prefix fit at the SECOND frame
+    have hsp₂ : SpineFit (consList (Ds₂.map (interp V ρ₂)) ρ₂)
+        (((dK.Fss i ψ₂).getD j []).take fs₁.length) fs₁ := by
+      rw [← hF]
+      exact spineFit_congr_fields (fieldsBelow_take _ (hI.Fss_below hj ψ₁)) hρ hsp
+    -- the container's domain at the two frames
+    have hcdom : interp V (consList fs₁ (consList (Ds₁.map (interp V ρ₁)) ρ₁))
+          (((dK.Fss i ψ₁).getD j []).getD fs₁.length default)
+        = interp V (consList fs₁ (consList (Ds₂.map (interp V ρ₂)) ρ₂))
+          (((dK.Fss i ψ₂).getD j []).getD fs₁.length default) := by
+      rw [hF]
+      exact interp_congr_below V _ (dK.nP + fs₁.length) _ _
+        (fieldsBelow_getD _ (hI.Fss_below hj ψ₂) hl₂) (hfrm fs₁)
+    simp only [Nat.zero_add]
+    by_cases hr : ((dK.rss i).getD j []).getD fs₁.length false = true
+    · -- container-RECURSIVE: both sides recursive, the walk closes it
+      rw [if_pos (hrs₁ _ hl hr), if_pos (hrs₂ _ hl₂ hr)]
+      refine ⟨hdom₁ _ hl (hrs₁ _ hl hr) fs₁ rfl hsp, ?_⟩
+      rw [h₁.slot_container hl hr fs₁ rfl, h₂.slot_container hl₂ hr fs₁ rfl,
+        hwT, copyTarget_u h₁ h₂ hkK hu₁ hu₂ hl hl₂ hr (huT fs₁.length), htl, hE]
+      have hcongr : slotSet TV₂.w (TV₂.u (tg₂ fs₁.length))
+            (consList fs₁ (consList (Ds₁.map (interp V ρ₁)) ρ₁))
+            (((dK.tlss i ψ₂).getD j []).getD fs₁.length [])
+            (((dK.Eiss i ψ₂).getD j []).getD fs₁.length []) (X₁ (tg₁ fs₁.length))
+          = slotSet TV₂.w (TV₂.u (tg₂ fs₁.length))
+            (consList fs₁ (consList (Ds₂.map (interp V ρ₂)) ρ₂))
+            (((dK.tlss i ψ₂).getD j []).getD fs₁.length [])
+            (((dK.Eiss i ψ₂).getD j []).getD fs₁.length []) (X₁ (tg₁ fs₁.length)) := by
+        refine slotSet_congr_below (k := dK.nP + fs₁.length) ?_ (fun e he => ?_) (hfrm fs₁)
+        · rw [IsBlockModel.tlss_getD hj]
+          exact hcd.tssBelow ψ₂ fs₁.length
+        · have hmem : e ∈ (dK.eissF i j ψ₂).getD fs₁.length [] := by
+            rwa [IsBlockModel.Eiss_getD hj] at he
+          rw [IsBlockModel.tlss_getD hj]
+          exact hcd.eissBelow ψ₂ fs₁.length e hmem
+      rw [hcongr]
+      exact slotSet_mono_app (hrel _ hl hr)
+    · -- container-ORDINARY: the two copies FIRED TOGETHER (`hfireOrd`),
+      -- so the arm is the slot correspondence and not an entry — the
+      -- container's domain is not an intermediary here, because at a
+      -- field the container calls ordinary it has no recursive datum
+      -- to normalise both sides into (`slot_container` is stated for
+      -- container-recursive fields only)
+      have hr' : ((dK.rss i).getD j []).getD fs₁.length false = false := by simpa using hr
+      rcases h₁.ordF _ hl hr' with ⟨hrC₁, hFeq₁⟩ | ⟨hrC₁, -, -, -⟩
+      · -- neither copy fired: both read the container's own domain
+        have hrC₂ : rs₂.getD fs₁.length false = false := by
+          by_cases hb : rs₂.getD fs₁.length false = true
+          · rw [(hfireOrd _ hl hr').mpr hb] at hrC₁; exact nomatch hrC₁
+          · simpa using hb
+        rcases h₂.ordF _ hl₂ hr' with ⟨-, hFeq₂⟩ | ⟨hrC₂', -, -, -⟩
+        · rw [if_neg (by rw [hrC₁]; exact Bool.false_ne_true), hFeq₁ fs₁ rfl hsp,
+            interp_instAll, if_neg (by rw [hrC₂]; exact Bool.false_ne_true),
+            hFeq₂ fs₁ rfl hsp₂, interp_instAll, ← hcdom]
+          exact ⟨Subset.refl _, Subset.refl _⟩
+        · rw [hrC₂] at hrC₂'; exact nomatch hrC₂'
+      · -- both fired: the slot correspondence at the σ-related targets
+        have hrC₂ : rs₂.getD fs₁.length false = true := (hfireOrd _ hl hr').mp hrC₁
+        rw [if_pos hrC₁, if_pos hrC₂]
+        exact ⟨hdom₁ _ hl hrC₁ fs₁ rfl hsp, hslotOrd _ hl hr' hrC₁ hrC₂ fs₁ rfl⟩
+  · -- the index equations
+    intro l hl
+    rw [hnI₂] at hl
+    have hlenFs : fs.length = ((dK.Fss i ψ₁).getD j []).length := hfit.length_eq.trans h₁.len
+    have hlenE : ((dK.Ess i ψ₁).getD j []).length = (dK.IdsM i ψ₁).length := by
+      rw [IsBlockModel.Ess_getD hj, hcd.lenE, hI.IdsM_length ψ₁]
+    have hltE : l < ((dK.Ess i ψ₁).getD j []).length := by rw [hlenE, hIdsLen]; exact hl
+    have hgetD_mem : ∀ (L : List AnnotTerm), l < L.length → L.getD l default ∈ L := by
+      intro L hL
+      rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hL]
+      simp
+    have hmemE := hgetD_mem ((dK.Ess i ψ₁).getD j []) hltE
+    rw [h₂.es l hl, ← hF, ← hlenFs, interp_instAll]
+    rw [← hidx l (by rw [hnI₁, hIdsLen]; exact hl), h₁.es l (by rw [hIdsLen]; exact hl),
+      ← hlenFs, interp_instAll]
+    have hbE := hcd.belowE ψ₁ _ (by rwa [IsBlockModel.Ess_getD hj] at hmemE)
+    have hlencA : fs.length = cA.2 := by rw [hlenFs, hI.Fss_length hj ψ₁]
+    rw [← hEs]
+    refine (interp_congr_below V _ (dK.nP + fs.length) _ _ ?_ (hfrm fs)).symm
+    rw [hlencA, IsBlockModel.Ess_getD hj]
+    exact hbE
+/-- **THE TRANSFER BOTH WAYS, PIN HALF** (task #315 WIDE (3′)):
+`copyTransfer_iff` on `copyTransfer_via_pin`, so the `ordF`-right arm
+is the two copies' SLOT CORRESPONDENCE (`hslotOrd`, an equality here
+because the iff spends it in both directions) and their firing
+together (`hfireOrd`), rather than an entry on each side.
+
+`copyTransfer_iff` is untouched; this twin is what the FIT's pin half
+runs on. -/
+theorem copyTransfer_iff_pin {env : Env} {m : EnvModel V env} {dK : BlockModel V}
+    {acval : Name → (Name → Nat) → AnnotTerm}
+    {TV₁ TV₂ : TargetView V} {ψ₁ ψ₂ : Name → Nat} {Ds₁ Ds₂ : List AnnotTerm}
+    {lpsK : List Name} {lvls₁ lvls₂ : List Level}
+    {tg₁ tg₂ : Nat → Nat} {tls₁ tls₂ : List (List (Nat × Nat × AnnotTerm))}
+    {Eis₁ Eis₂ : List (List AnnotTerm)} {ρ₁ ρ₂ : Nat → V} {base₁ base₂ kK i j : Nat}
+    {Fs₁ Fs₂ Es₁ Es₂ : List AnnotTerm} {rs₁ rs₂ : List Bool} {X₁ X₂ : Nat → V}
+    (hreps : IsBlockModels m dK) (hi : i < dK.k) (hkK : dK.k = kK)
+    {cA : ConstantVal × Nat} (hj : (dK.ctorsM i)[j]? = some cA)
+    (hψ : ∀ p ∈ cA.1.levelParams, ψ₁ p = ψ₂ p)
+    (hρ : ∀ v, v < dK.nP →
+      consList (Ds₁.map (interp V ρ₁)) ρ₁ v = consList (Ds₂.map (interp V ρ₂)) ρ₂ v)
+    (hwK : dK.w ψ₁ = dK.w ψ₂)
+    (huT : ∀ l, dK.uT (dK.tgts i j l) ψ₁ = dK.uT (dK.tgts i j l) ψ₂)
+    (hIdsLen : (dK.IdsM i ψ₁).length = (dK.IdsM i ψ₂).length)
+    (hw₁ : dK.w ψ₁ = TV₁.w) (hw₂ : dK.w ψ₂ = TV₂.w)
+    (hu₁ : ∀ i', i' < kK → TV₁.u (base₁ + i') = dK.uM i' ψ₁)
+    (hu₂ : ∀ i', i' < kK → TV₂.u (base₂ + i') = dK.uM i' ψ₂)
+    {nI₁ nI₂ : Nat} (hnI₁ : nI₁ = (dK.IdsM i ψ₁).length) (hnI₂ : nI₂ = (dK.IdsM i ψ₂).length)
+    (h₁ : CopyCtorShape TV₁ acval dK ψ₁ Ds₁ lpsK lvls₁ tg₁ tls₁ Eis₁ ρ₁ i j base₁ kK Fs₁ rs₁ Es₁)
+    (h₂ : CopyCtorShape TV₂ acval dK ψ₂ Ds₂ lpsK lvls₂ tg₂ tls₂ Eis₂ ρ₂ i j base₂ kK Fs₂ rs₂ Es₂)
+    (hdom₁ : ∀ l, l < ((dK.Fss i ψ₁).getD j []).length → rs₁.getD l false = true →
+      ∀ fs₁ : List V, fs₁.length = l →
+      SpineFit (consList (Ds₁.map (interp V ρ₁)) ρ₁) (((dK.Fss i ψ₁).getD j []).take l) fs₁ →
+      slotSet TV₁.w (TV₁.u (tg₁ l)) (consList fs₁ ρ₁) (tls₁.getD l []) (Eis₁.getD l [])
+          (X₁ (tg₁ l))
+        ⊆ˢ interp V (consList fs₁ (consList (Ds₁.map (interp V ρ₁)) ρ₁))
+            (((dK.Fss i ψ₁).getD j []).getD l default))
+    (hdom₂ : ∀ l, l < ((dK.Fss i ψ₂).getD j []).length → rs₂.getD l false = true →
+      ∀ fs₁ : List V, fs₁.length = l →
+      SpineFit (consList (Ds₂.map (interp V ρ₂)) ρ₂) (((dK.Fss i ψ₂).getD j []).take l) fs₁ →
+      slotSet TV₂.w (TV₂.u (tg₂ l)) (consList fs₁ ρ₂) (tls₂.getD l []) (Eis₂.getD l [])
+          (X₂ (tg₂ l))
+        ⊆ˢ interp V (consList fs₁ (consList (Ds₂.map (interp V ρ₂)) ρ₂))
+            (((dK.Fss i ψ₂).getD j []).getD l default))
+    (hfireOrd : ∀ l, l < ((dK.Fss i ψ₁).getD j []).length →
+      ((dK.rss i).getD j []).getD l false = false →
+      (rs₁.getD l false = true ↔ rs₂.getD l false = true))
+    (hslotOrd : ∀ l, l < ((dK.Fss i ψ₁).getD j []).length →
+      ((dK.rss i).getD j []).getD l false = false →
+      rs₁.getD l false = true → rs₂.getD l false = true →
+      ∀ fs₁ : List V, fs₁.length = l →
+      slotSet TV₁.w (TV₁.u (tg₁ l)) (consList fs₁ ρ₁) (tls₁.getD l []) (Eis₁.getD l [])
+          (X₁ (tg₁ l))
+        = slotSet TV₂.w (TV₂.u (tg₂ l)) (consList fs₁ ρ₂) (tls₂.getD l []) (Eis₂.getD l [])
+            (X₂ (tg₂ l)))
+    (hrel : ∀ l, l < ((dK.Fss i ψ₁).getD j []).length →
+      ((dK.rss i).getD j []).getD l false = true → X₁ (tg₁ l) = X₂ (tg₂ l))
+    (t : V) (fs : List V) :
+    (FitsFrom rs₁ (fun i' ρ => slotSet TV₁.w (TV₁.u (tg₁ i')) ρ (tls₁.getD i' [])
+        (Eis₁.getD i' []) (X₁ (tg₁ i'))) 0 ρ₁ Fs₁ fs ∧
+      (∀ l, l < nI₁ → interp V (consList fs ρ₁) (Es₁.getD l default) = projS l t))
+    ↔ (FitsFrom rs₂ (fun i' ρ => slotSet TV₂.w (TV₂.u (tg₂ i')) ρ (tls₂.getD i' [])
+        (Eis₂.getD i' []) (X₂ (tg₂ i'))) 0 ρ₂ Fs₂ fs ∧
+      (∀ l, l < nI₂ → interp V (consList fs ρ₂) (Es₂.getD l default) = projS l t)) := by
+  obtain ⟨cvT, cvR, mI, rP, rules, hI⟩ := hreps i hi
+  obtain ⟨hF, -, -, -⟩ := hI.ctor_params hj hψ
+  constructor
+  · rintro ⟨hfit, hidx⟩
+    exact copyTransfer_via_pin hreps hi hkK hj hψ hρ hwK huT hIdsLen hw₁ hw₂ hu₁ hu₂ hnI₁ hnI₂
+      h₁ h₂ hdom₁ hfireOrd
+      (fun l hl hr h1 h2 fs₁ hl₁ => by rw [hslotOrd l hl hr h1 h2 fs₁ hl₁]; exact Subset.refl _)
+      (fun l hl hr t' => by rw [hrel l hl hr]; exact Subset.refl _) t fs hfit hidx
+  · rintro ⟨hfit, hidx⟩
+    exact copyTransfer_via_pin hreps hi hkK hj (fun p hp => (hψ p hp).symm)
+      (fun v hv => (hρ v hv).symm)
+      hwK.symm (fun l => (huT l).symm) hIdsLen.symm hw₂ hw₁ hu₂ hu₁ hnI₂ hnI₁ h₂ h₁ hdom₂
+      (fun l hl hr => (hfireOrd l (by rwa [hF]) hr).symm)
+      (fun l hl hr h2 h1 fs₁ hl₁ => by
+        rw [hslotOrd l (by rwa [hF]) hr h1 h2 fs₁ hl₁]; exact Subset.refl _)
+      (fun l hl hr t' => by
+        rw [← hrel l (by rwa [hF]) hr]
+        exact Subset.refl _) t fs hfit hidx
+
+
 /-- **THE CONTAINER INSTANCE TRANSFER, BOTH WAYS** (task #315,
 Resolution 1, item (2)): `copyTransfer_via` applied once per direction.
 
@@ -3332,8 +3594,14 @@ components — and at a pin class every class reader is that record's
 (`chainFitT_of_pin`), so the transfer's conclusion IS `dJ.ChainFitT`.
 Side 1 is the block's own copy of the same pin, whose group's container
 is `dK` too.  Neither side is a fact the run states about the other;
-`dK` is what they share, and `copyTransfer_iff` is the passage through
-it. -/
+`dK` is what they share, and `copyTransfer_iff_pin` is the passage
+through it.
+
+At an `ordF`-right field (ordinary for the container, recursive for
+both copies) neither side has an entry to spend, so the passage is not
+through `dK`'s domain there but DIRECTLY between the two copies:
+`hfireOrd` says they fire together and `hslotOrd` says their slots are
+the same set. -/
 theorem pinClassFit_of_transfer {env : Env} {m : EnvModel V env} {dK dJ : BlockModel V}
     {acval : Name → (Name → Nat) → AnnotTerm}
     {TV₁ : TargetView V} {ψ₁ ψJ : Name → Nat} {Ds₁ : List AnnotTerm}
@@ -3378,23 +3646,16 @@ theorem pinClassFit_of_transfer {env : Env} {m : EnvModel V env} {dK dJ : BlockM
           ((((dJ.pinCtors qK).Eiss ψJ).getD j []).getD l []) (Y ((dJ.pinCtors qK).tgts j l))
         ⊆ˢ interp V (consList fs₁ (consList (((dJ.pinAt baseK).Ds ψJ).map (interp V ρJ)) ρJ))
             (((dK.Fss i ((dJ.pinAt baseK).ψJ ψJ)).getD j []).getD l default))
-    (hent₁ : ∀ l, l < ((dK.Fss i ψ₁).getD j []).length →
-      ((dK.rss i).getD j []).getD l false = false → rs₁.getD l false = true →
-      ∀ fs₁ : List V, fs₁.length = l →
-      SpineFit (consList (Ds₁.map (interp V ρ₁)) ρ₁) (((dK.Fss i ψ₁).getD j []).take l) fs₁ →
-      interp V (consList fs₁ (consList (Ds₁.map (interp V ρ₁)) ρ₁))
-          (((dK.Fss i ψ₁).getD j []).getD l default)
-        ⊆ˢ slotSet TV₁.w (TV₁.u (tg₁ l)) (consList fs₁ ρ₁) (tls₁.getD l []) (Eis₁.getD l [])
-            (X₁ (tg₁ l)))
-    (hent₂ : ∀ l, l < ((dK.Fss i ((dJ.pinAt baseK).ψJ ψJ)).getD j []).length →
+    (hfireOrd : ∀ l, l < ((dK.Fss i ψ₁).getD j []).length →
       ((dK.rss i).getD j []).getD l false = false →
-      ((dJ.pinCtors qK).rss.getD j []).getD l false = true →
+      (rs₁.getD l false = true ↔ ((dJ.pinCtors qK).rss.getD j []).getD l false = true))
+    (hslotOrd : ∀ l, l < ((dK.Fss i ψ₁).getD j []).length →
+      ((dK.rss i).getD j []).getD l false = false →
+      rs₁.getD l false = true → ((dJ.pinCtors qK).rss.getD j []).getD l false = true →
       ∀ fs₁ : List V, fs₁.length = l →
-      SpineFit (consList (((dJ.pinAt baseK).Ds ψJ).map (interp V ρJ)) ρJ)
-        (((dK.Fss i ((dJ.pinAt baseK).ψJ ψJ)).getD j []).take l) fs₁ →
-      interp V (consList fs₁ (consList (((dJ.pinAt baseK).Ds ψJ).map (interp V ρJ)) ρJ))
-          (((dK.Fss i ((dJ.pinAt baseK).ψJ ψJ)).getD j []).getD l default)
-        ⊆ˢ slotSet (dJ.w ψJ) (dJ.uT ((dJ.pinCtors qK).tgts j l) ψJ) (consList fs₁ ρJ)
+      slotSet TV₁.w (TV₁.u (tg₁ l)) (consList fs₁ ρ₁) (tls₁.getD l []) (Eis₁.getD l [])
+          (X₁ (tg₁ l))
+        = slotSet (dJ.w ψJ) (dJ.uT ((dJ.pinCtors qK).tgts j l) ψJ) (consList fs₁ ρJ)
             ((((dJ.pinCtors qK).tlss ψJ).getD j []).getD l [])
             ((((dJ.pinCtors qK).Eiss ψJ).getD j []).getD l []) (Y ((dJ.pinCtors qK).tgts j l)))
     (hrel : ∀ l, l < ((dK.Fss i ψ₁).getD j []).length →
@@ -3406,8 +3667,8 @@ theorem pinClassFit_of_transfer {env : Env} {m : EnvModel V env} {dK dJ : BlockM
       (∀ l, l < nI₁ → interp V (consList fs ρ₁) (Es₁.getD l default) = projS l t))
     ↔ dJ.ChainFitT dJ.pinCtors ψJ ρJ Y t c j fs := by
   subst hcq
-  refine Iff.trans (copyTransfer_iff hreps hi hkK hj hψ hρ hwK huT hIdsLen hw₁ hw₂ hu₁
-    (fun i' hi' => hu₂ i' hi') hnI₁ hnI₂ h₁ h₂ hdom₁ hdom₂ hent₁ hent₂ hrel t fs) ?_
+  refine Iff.trans (copyTransfer_iff_pin hreps hi hkK hj hψ hρ hwK huT hIdsLen hw₁ hw₂ hu₁
+    (fun i' hi' => hu₂ i' hi') hnI₁ hnI₂ h₁ h₂ hdom₁ hdom₂ hfireOrd hslotOrd hrel t fs) ?_
   exact (BlockModel.chainFitT_of_pin (d := dJ) (pc := dJ.pinCtors) hc).symm
 
 /-- **THE OWN-PIN HALF IN `hfit_wide_of_inst`'s SHAPE**: the count and
@@ -4018,30 +4279,23 @@ theorem nestedPinFit_pin (m : EnvModel V env₂) {st : ElimState} {dJf : Nat →
           ((((dJ.pinCtors qK).Eiss ψJ).getD j []).getD l []) (Y ((dJ.pinCtors qK).tgts j l))
         ⊆ˢ interp V (consList fs₁ (consList (((dJ.pinAt baseK).Ds ψJ).map (interp V ρJ)) ρJ))
             ((((dJf a).Fss i ((dJ.pinAt baseK).ψJ ψJ)).getD j []).getD l default))
-    (hent₁ : ∀ l, l < (((dJf a).Fss i (((D).pinAt (a + i)).ψJ ψ)).getD j []).length →
+    (hfireOrd : ∀ l, l < (((dJf a).Fss i (((D).pinAt (a + i)).ψJ ψ)).getD j []).length →
+      (((dJf a).rss i).getD j []).getD l false = false →
+      (((blkRss ctorsA kinds).getD (b.ownOffset (p.k + a + i) + j) []).getD l false = true
+        ↔ ((dJ.pinCtors qK).rss.getD j []).getD l false = true))
+    (hslotOrd : ∀ l, l < (((dJf a).Fss i (((D).pinAt (a + i)).ψJ ψ)).getD j []).length →
       (((dJf a).rss i).getD j []).getD l false = false →
       ((blkRss ctorsA kinds).getD (b.ownOffset (p.k + a + i) + j) []).getD l false = true →
-      ∀ fs₁ : List V, fs₁.length = l →
-      SpineFit ((D).pinFrame (a + i) ψ ρp)
-        ((((dJf a).Fss i (((D).pinAt (a + i)).ψJ ψ)).getD j []).take l) fs₁ →
-      interp V (consList fs₁ ((D).pinFrame (a + i) ψ ρp))
-          ((((dJf a).Fss i (((D).pinAt (a + i)).ψJ ψ)).getD j []).getD l default)
-        ⊆ˢ slotSet (f₀.s.eval ψ)
-            (nestedU p.k W pinsS ψ (((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
-              (b.ownOffset (p.k + a + i) + j) []).getD l 0)) (consList fs₁ ρp)
-            (((mutTlss ctorsA.length tssF ψ).getD (b.ownOffset (p.k + a + i) + j) []).getD l [])
-            (((mutEiss0 ctorsA.length eissF ψ).getD (b.ownOffset (p.k + a + i) + j) []).getD l [])
-            (X₁ (((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
-              (b.ownOffset (p.k + a + i) + j) []).getD l 0)))
-    (hent₂ : ∀ l, l < (((dJf a).Fss i ((dJ.pinAt baseK).ψJ ψJ)).getD j []).length →
-      (((dJf a).rss i).getD j []).getD l false = false →
       ((dJ.pinCtors qK).rss.getD j []).getD l false = true →
       ∀ fs₁ : List V, fs₁.length = l →
-      SpineFit (consList (((dJ.pinAt baseK).Ds ψJ).map (interp V ρJ)) ρJ)
-        ((((dJf a).Fss i ((dJ.pinAt baseK).ψJ ψJ)).getD j []).take l) fs₁ →
-      interp V (consList fs₁ (consList (((dJ.pinAt baseK).Ds ψJ).map (interp V ρJ)) ρJ))
-          ((((dJf a).Fss i ((dJ.pinAt baseK).ψJ ψJ)).getD j []).getD l default)
-        ⊆ˢ slotSet (dJ.w ψJ) (dJ.uT ((dJ.pinCtors qK).tgts j l) ψJ) (consList fs₁ ρJ)
+      slotSet (f₀.s.eval ψ)
+          (nestedU p.k W pinsS ψ (((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+            (b.ownOffset (p.k + a + i) + j) []).getD l 0)) (consList fs₁ ρp)
+          (((mutTlss ctorsA.length tssF ψ).getD (b.ownOffset (p.k + a + i) + j) []).getD l [])
+          (((mutEiss0 ctorsA.length eissF ψ).getD (b.ownOffset (p.k + a + i) + j) []).getD l [])
+          (X₁ (((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+            (b.ownOffset (p.k + a + i) + j) []).getD l 0))
+        = slotSet (dJ.w ψJ) (dJ.uT ((dJ.pinCtors qK).tgts j l) ψJ) (consList fs₁ ρJ)
             ((((dJ.pinCtors qK).tlss ψJ).getD j []).getD l [])
             ((((dJ.pinCtors qK).Eiss ψJ).getD j []).getD l []) (Y ((dJ.pinCtors qK).tgts j l)))
     (hrel : ∀ l, l < (((dJf a).Fss i (((D).pinAt (a + i)).ψJ ψ)).getD j []).length →
@@ -4109,7 +4363,7 @@ theorem nestedPinFit_pin (m : EnvModel V env₂) {st : ElimState} {dJf : Nat →
       show nestedU p.k W pinsS ψ (p.k + a + i') = _
       rw [Nat.add_assoc, nestedU_pin]
       exact G.syn.pinU i hi ψ i' hi')
-    hu₂ hnI hnI₂ hsh h₂ hdom₁ hdom₂ hent₁ hent₂ hrel t fs
+    hu₂ hnI hnI₂ hsh h₂ hdom₁ hdom₂ hfireOrd hslotOrd hrel t fs
 
 /-- **`hpair` at a MEMBER class of the root** (task #315 L-E, DESIGN
 §U.72): `nestedPinPair_mem` with its three premises discharged —

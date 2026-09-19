@@ -120713,3 +120713,56 @@ container's own pins are wanted either way — but (1) as authorised
 cannot be built, and (3) presupposes (1).
 
 Nothing was built for this row.
+#### WIDE (3′) STEP (1) LANDED — the pin half's `ordF`-right arm is a SLOT CORRESPONDENCE between the two copies, not an entry on each side (lane LE, 2026-09-19)
+
+The previous row stopped step (1) on the reading that side 2's
+`ordF`-right contribution needs `Y` to read the container's stored
+reading.  Two checks against the tree decide it the other way, and
+both are recorded here because the abstraction hides them.
+
+##### (i) WHAT SIDE 2 CONTRIBUTES AT AN `ordF`-RIGHT FIELD
+
+At such a field `rs₂.getD l false = true`, so `CopyCtorShape`'s right
+arm puts side 2's contribution at
+`slotSet TV₂.w (TV₂.u (tg₂ l)) … (X₂ (tg₂ l))` — the TUPLE at `J`'s
+target class (and `pinClassFit_of_transfer` instantiates `X₂ := Y`),
+NOT a fixed parameter set read at `ρp`.  So the arm is `hrel`'s own
+sentence in shape; nothing about `Y` reading anything is required of
+it.
+
+##### (ii) WHY `copyTransfer_via` GOES THROUGH `dK`'s DOMAIN THERE
+
+In the container-RECURSIVE branch the two slots are first NORMALISED
+— `h₁.slot_container`/`h₂.slot_container`, `copyTarget_u`, `htl`/`hE`
+and `slotSet_congr_below` — and only then does `hrel` apply.  The
+passage through `dK`'s real domain exists because the two slots' index
+DATA differ, not because the targets are unknown to be σ-related.
+`slot_container` is stated for container-recursive fields only, so the
+`ordF`-right arm has no such normalisation, and that absence — not the
+carrier — is what the old `hent₁`/`hent₂` were standing in for.
+
+A container-ORDINARY field has no recursive datum in the container to
+normalise against, so the normalisation cannot be routed through `dK`
+at all: it must be stated DIRECTLY BETWEEN THE TWO COPIES.
+
+##### WHAT LANDED
+
+* `copyTransfer_via_pin` — `copyTransfer_via` with `hent₂` replaced by
+  `hfireOrd` (the two copies fire together at a container-ordinary
+  field) and `hslotOrd` (their slots are then in the stated
+  inclusion); the `ordF`-right branch splits on `h₁.ordF`, aligns the
+  two firings by `hfireOrd`, and closes with `hdom₁` and `hslotOrd`.
+  `copyTransfer_via` itself is untouched, and so is the covering
+  (`nestedPinPair_pin`).
+* `copyTransfer_iff_pin` — `copyTransfer_iff` on the twin, with
+  `hslotOrd` an EQUALITY (the iff spends it in both directions) and
+  `hfireOrd` symmetric.
+* `pinClassFit_of_transfer` and `nestedPinFit_pin` re-pointed at the
+  twin: `hent₁`/`hent₂` are gone from the pin half, replaced by
+  `hfireOrd`/`hslotOrd` at the consumers' spelling.
+
+`hslotOrd` is the correspondence lemma of step (3), left undischarged
+as a named hypothesis: its inputs are K.61's rows on BOTH sides, which
+is what the parallel lane's (2) carries onto `ContainerModeled`.
+Build and `lake test` green; no `Kernel/`, `Cached/` or `Verify/` file
+moved.
