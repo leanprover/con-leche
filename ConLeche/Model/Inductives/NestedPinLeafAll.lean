@@ -2157,6 +2157,35 @@ theorem nestedIdx_eq_pinIdx {st : ElimState} {m : EnvModel V env₂} {dJ : Block
   unfold BlockModel.pinFrame
   rw [G.syn.sameDs i hi ψ]
 
+/-- **`nestedIdx_of_group` at `NestedPinGroup`** (task #315 WIDE (4′)):
+the same equation off the run's own group record rather than
+`GroupFacts`.  The σ clause's consumers hold a `NestedPinGroup` —
+`pinSegAt` cannot build a `GroupFacts` — and the two fields the proof
+spends, `pinU` and `idx`, are the group's own. -/
+theorem nestedIdx_of_pinGroup {m : EnvModel V env₂} {dJ : BlockModel V}
+    {q₀ kJ : Nat} (G : PG m q₀ kJ dJ) {ψ : Name → Nat} {ρp : Nat → V} {i : Nat} (hi : i < kJ) :
+    (D).idx ψ ρp (p.k + q₀ + i)
+      = dJ.idx (((D).pinAt (q₀ + i)).ψJ ψ)
+          (consList ((((D).pinAt (q₀ + i)).Ds ψ).map (interp V ρp)) ρp) i := by
+  show idxSet (nestedU p.k W pinsS ψ (p.k + q₀ + i)) ρp (blockIds b.nP ppsF ψ (p.k + q₀ + i)) = _
+  rw [Nat.add_assoc, nestedU_pin]
+  change idxSet (((D).pinAt (q₀ + i)).u ψ) ρp (blockIds b.nP ppsF ψ (p.k + (q₀ + i))) = _
+  rw [G.pinU i hi ψ i hi, ← Nat.add_assoc, G.idx i hi ψ i hi, idxSet_instTele Iff.rfl]
+  rfl
+
+/-- The same, read as the block's own pin index set — `nestedIdx_eq_pinIdx`
+at `NestedPinGroup` (task #315 WIDE (4′)).  The frame change is
+`pinGroupView_of_group` at the group's own `sameE`, and the two pins'
+agreement is `same` rather than `NestedPinGroupSyn.ψJEq`/`sameDs`. -/
+theorem nestedIdx_eq_pinIdx_of_pinGroup {m : EnvModel V env₂} {dJ : BlockModel V}
+    {q₀ kJ : Nat} (G : PG m q₀ kJ dJ) {ψ : Name → Nat} {ρp : Nat → V} {i : Nat} (hi : i < kJ) :
+    (D).idx ψ ρp (p.k + q₀ + i) = (D).pinIdx (q₀ + i) ψ ρp := by
+  rw [nestedIdx_of_pinGroup G hi,
+    BlockModel.pinIdx_of_view (pinGroupView_of_group G G.sameE) ψ ρp hi,
+    (G.same i hi ψ).1]
+  unfold BlockModel.pinFrame
+  rw [(G.same i hi ψ).2]
+
 
 /-- **A fit at a container's own pin's frame is a fit at the
 corresponding block pin's frame** (task #315 L-E, step (i)): the two
@@ -3869,6 +3898,38 @@ theorem classPin_of_blockPinCorr (m : EnvModel V env₂) {st : ElimState}
       (ConstantInfo.indInfo.inj (Option.some.inj (hf'.symm.trans hfind))).1
     exact hψJ ψ'
   · rw [G.syn.pinNP i hi, ← G.syn.pinDsLen i hi ψ]
+    exact Nat.le_refl _
+
+/-- **`classPin_of_blockPinCorr` at `NestedPinGroup`** (task #315 WIDE
+(4′)): the same statement off the run's own group records.  Only three
+fields are spent — `stored` (the pin's container and its level
+assignment), `pinNP` and `pinDsLen` — and all three are the group's
+own, so the consumer that cannot build a `GroupFacts` still gets the
+`ClassPin`. -/
+theorem classPin_of_blockPinCorr_of_pinGroup (m : EnvModel V env₂)
+    {dJf : Nat → BlockModel V}
+    (hgroups : ∀ q, q < pinsS.length → ∃ (q₀ kJ i : Nat),
+      q = q₀ + i ∧ i < kJ ∧ PG m q₀ kJ (dJf q₀))
+    {dR dK : BlockModel V} {ciR : ContainerInfo} (CR : ContainerModeled m ciR dR)
+    {q₀' kK' i'' : Nat} (S' : PinGroupView dR dK q₀' kK') (hrepsK : IsBlockModels m dK)
+    (hi'' : i'' < kK')
+    {ψ ψR : Name → Nat} {ρp ρR : Nat → V} {Ds₀ : List AnnotTerm}
+    {lpsK : List Name} {lvlsK : List Level} {q : Nat}
+    (hq : q < pinsS.length) (hqK : q₀' + i'' < dR.nPins)
+    (hcorr : PinCorr ((D).targetView m.acval ψ) m.acval dR ψR Ds₀ lpsK lvlsK
+      (p.k + q) (q₀' + i''))
+    (hρR : ρR = consList (Ds₀.map (interp V ρp)) ρp)
+    (hψR : ψR = Level.substFn ψ lpsK lvlsK) :
+    ClassPin env₂ (D) dR ψ ψR ρp ρR (dR.k + (q₀' + i'')) q := by
+  obtain ⟨q₀, kJ, i, rfl, hi, G⟩ := hgroups q hq
+  obtain ⟨cvT, caps, hfind, hψJ⟩ := G.stored i hi
+  refine classPin_of_pinCorr hq hqK hcorr hρR hψR (fun cvT' caps' hf' ψ' => ?_)
+    (fun cvT' caps' hf' => CR.pinψ (q₀' + i'') hqK cvT' caps' hf') ?_
+    (pinIds_below S' hrepsK hi'' ψR ρR)
+  · obtain rfl : cvT' = cvT :=
+      (ConstantInfo.indInfo.inj (Option.some.inj (hf'.symm.trans hfind))).1
+    exact hψJ ψ'
+  · rw [G.pinNP i hi, ← G.pinDsLen i hi ψ]
     exact Nat.le_refl _
 
 /-- **`hIsσ` AT A PIN CLASS** (task #315 WIDE (3′)): the block's index

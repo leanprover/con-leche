@@ -120766,3 +120766,25 @@ as a named hypothesis: its inputs are K.61's rows on BOTH sides, which
 is what the parallel lane's (2) carries onto `ContainerModeled`.
 Build and `lake test` green; no `Kernel/`, `Cached/` or `Verify/` file
 moved.
+
+#### WIDE (4′) THE THREE `hIsσ` THEOREMS RESTATED AT `NestedPinGroup` (lane LE, 2026-09-19)
+
+Both consumers of the σ clause must prove `hIsσ` themselves, and
+`pinSegAt` cannot build a `GroupFacts` (§ above).  The three theorems
+`hIsσ` is assembled from are therefore restated at the run's own group
+record, at the minimal interface identified earlier — `pinU`, `idx`,
+`kpos`, `same`, `sameE`, `stored`, `pinNP`, `pinDsLen`, and
+`pinGroupView_of_group`:
+
+* `nestedIdx_of_pinGroup` — `pinU` and `idx`, nothing else;
+* `nestedIdx_eq_pinIdx_of_pinGroup` — the frame change, through
+  `pinGroupView_of_group G G.sameE` and `same` in place of
+  `NestedPinGroupSyn`'s `ψJEq`/`sameDs`;
+* `classPin_of_blockPinCorr_of_pinGroup` — `stored`, `pinNP`,
+  `pinDsLen`, with `st : ElimState` gone from the statement since the
+  group record does not mention it.
+
+The `GroupFacts` forms are UNCHANGED: six consumers still hold a
+`GroupFacts` and nothing is gained by routing them through a weaker
+record.  The three twins are unconsumed until (4′) switches the two
+sites, which is what they are for.
