@@ -1,6 +1,7 @@
 module
 
 public import ConLeche.Model.Rules.Inputs
+public import ConLeche.Model.Rules.DefEqSoundKit
 import ConLeche.Model.CtxOkKit
 
 public section
@@ -55,31 +56,55 @@ theorem DefEq.redL_sound {d : Nat} {a a' b : Expr}
 theorem DefEq.sort_sound {d : Nat} {u v : Level}
     (h : Level.isEquiv u v = some true) :
     DefEqSem m φ d (.sort u) (.sort v) := by
-  sorry
+  intro _ _ Δa aa ba _ _ haa hba _ _ ρ _
+  rw [denoteMeta_sort] at haa hba
+  obtain rfl : aa = AnnotTerm.sort (u.eval φ) := (Option.some.inj haa).symm
+  obtain rfl : ba = AnnotTerm.sort (v.eval φ) := (Option.some.inj hba).symm
+  rw [Level.isEquiv_sound h φ]
 
 /-- The `fvar` arm: the reading ignores the annotation. -/
 theorem DefEq.fvar_sound {d i : Nat} {ty₁ ty₂ : Expr} :
     DefEqSem m φ d (.fvar i ty₁) (.fvar i ty₂) := by
-  sorry
+  intro _ _ Δa aa ba _ _ haa hba _ _ ρ _
+  rw [denoteMeta_fvar] at haa hba
+  obtain rfl : aa = AnnotTerm.bvar (d - 1 - i) := (Option.some.inj haa).symm
+  obtain rfl : ba = AnnotTerm.bvar (d - 1 - i) := (Option.some.inj hba).symm
+  rfl
 
 /-- `acval_const_congr` (`Steps/DefEq.lean:844`) with `AcvalParams`
 (`Model/Annot/EnvModel.lean:164`, `acvalParams m`). -/
 theorem DefEq.const_sound {d : Nat} {n : Name} {us us' : List Level}
     (h : Level.isEquivList us us' = some true) :
     DefEqSem m φ d (.const n us) (.const n us') := by
-  sorry
+  intro _ _ Δa aa ba _ _ haa hba _ _ ρ _
+  obtain rfl : aa = ba := acval_const_congr' (acvalParams m) h haa hba
+  rfl
 
 /-- `denoteMeta_natZeroConst` (`Steps/DefEq.lean:99`). -/
 theorem DefEq.natZero_sound {d : Nat} :
     DefEqSem m φ d (.lit (.natVal 0)) (.const natZeroName []) := by
-  sorry
+  intro _ _ Δa aa ba _ _ haa hba _ _ ρ _
+  obtain ⟨hg, rfl⟩ := denoteMeta_natLit_inv haa
+  rw [denoteMeta_natZeroConst hg] at hba
+  obtain rfl : ba = m.acval ConLeche.natZeroName (Level.substFn φ [] []) :=
+    (Option.some.inj hba).symm
+  rfl
 
 /-- `denoteMeta_natSuccConst` (`Steps/DefEq.lean:119`): the packed
 successor reads as `succ` applied to the packed predecessor. -/
 theorem DefEq.natSucc_sound {d : Nat} {k : Nat} {x : Expr}
     (h : DefEqSem m φ d (.lit (.natVal k)) x) :
     DefEqSem m φ d (.lit (.natVal (k + 1))) (.app (.const natSuccName []) x) := by
-  sorry
+  intro hfa hfb Δa aa ba hCa hCb haa hba hga hgb ρ hρ
+  obtain ⟨hg, rfl⟩ := denoteMeta_natLit_inv haa
+  obtain ⟨fa, xa, hfa', hxa, rfl⟩ := denoteMeta_app_inv hba
+  rw [denoteMeta_natSuccConst hg] at hfa'
+  obtain rfl : fa = m.acval ConLeche.natSuccName (Level.substFn φ [] []) :=
+    (Option.some.inj hfa').symm
+  refine deqStep_appCong rfl (h (Frame.of_not_hasFvar rfl rfl) hfb.app_arg
+    (CtxOk.of_fvarLeaves_nil hCa.length (by simp [Expr.fvarLeaves]))
+    hCb.app_arg (denoteMeta_natLit hg) hxa ?_ (Graded.app hgb).2 ρ hρ)
+  exact (Graded.app (by simpa only [natLitAV] using hga)).2
 
 /-- `binder_congr` (`Steps/DefEq.lean:756`): equal domains, equal
 bodies opened at the right domain, equal bits (`piR_zero_agree`). -/
@@ -106,13 +131,35 @@ theorem DefEq.lam_sound {d : Nat} {ty₁ body₁ ty₂ body₂ : Expr}
 theorem DefEq.app_sound {d : Nat} {f₁ a₁ f₂ a₂ : Expr}
     (hf : DefEqSem m φ d f₁ f₂) (ha : DefEqSem m φ d a₁ a₂) :
     DefEqSem m φ d (.app f₁ a₁) (.app f₂ a₂) := by
-  sorry
+  intro hfa hfb Δa aa ba hCa hCb haa hba hga hgb ρ hρ
+  obtain ⟨fa₁, xa₁, hf₁, hx₁, rfl⟩ := denoteMeta_app_inv haa
+  obtain ⟨fa₂, xa₂, hf₂, hx₂, rfl⟩ := denoteMeta_app_inv hba
+  exact deqStep_appCong
+    (hf hfa.app_fn hfb.app_fn hCa.app_fn hCb.app_fn hf₁ hf₂
+      (Graded.app hga).1 (Graded.app hgb).1 ρ hρ)
+    (ha hfa.app_arg hfb.app_arg hCa.app_arg hCb.app_arg hx₁ hx₂
+      (Graded.app hga).2 (Graded.app hgb).2 ρ hρ)
 
 /-- `interp_projAV_congr` (`Steps/ProjAVKit.lean:85`). -/
 theorem DefEq.proj_sound {d : Nat} {s : Name} {i : Nat} {e₁ e₂ : Expr}
     (h : DefEqSem m φ d e₁ e₂) :
     DefEqSem m φ d (.proj s i e₁) (.proj s i e₂) := by
-  sorry
+  intro hfa hfb Δa aa ba hCa hCb haa hba hga hgb ρ hρ
+  obtain ⟨ia₁, he₁, hrd₁⟩ := denoteMeta_proj_inv haa
+  obtain ⟨ia₂, he₂, hrd₂⟩ := denoteMeta_proj_inv hba
+  rcases hrd₁ with ⟨entry, hfe, rfl⟩ | ⟨hnt, hdec₁⟩
+  · rcases hrd₂ with ⟨entry', hfe', rfl⟩ | ⟨hnt', -⟩
+    · obtain rfl : entry = entry' := Option.some.inj (hfe.symm.trans hfe')
+      exact interp_projAV_congr' (h hfa.proj_arg hfb.proj_arg hCa.proj_arg
+        hCb.proj_arg he₁ he₂ (Graded.projAV hga) (Graded.projAV hgb) ρ hρ)
+    · rw [hnt'] at hfe; exact nomatch hfe
+  · rcases hrd₂ with ⟨entry', hfe', -⟩ | ⟨-, hdec₂⟩
+    · rw [hnt] at hfe'; exact nomatch hfe'
+    · rcases AnnotTerm.projPair?_cases₂ hdec₁ hdec₂ with ⟨rfl, rfl⟩ | ⟨rfl, rfl⟩
+      · exact deqStep_fstCong (h hfa.proj_arg hfb.proj_arg hCa.proj_arg
+          hCb.proj_arg he₁ he₂ (Graded.fst hga) (Graded.fst hgb) ρ hρ)
+      · exact deqStep_sndCong (h hfa.proj_arg hfb.proj_arg hCa.proj_arg
+          hCb.proj_arg he₁ he₂ (Graded.snd hga) (Graded.snd hgb) ρ hρ)
 
 /-- η (`etaCertStep_of_claims`, `Steps/Stuck.lean:576`: `lamR_eta`,
 regime-uniform). -/
