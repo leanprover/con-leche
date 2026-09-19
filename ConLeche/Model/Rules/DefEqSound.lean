@@ -1,0 +1,209 @@
+module
+
+public import ConLeche.Model.Rules.Inputs
+import ConLeche.Model.CtxOkKit
+
+public section
+
+/-!
+# The soundness of the definitional-equality rules (task #305, lanes
+S-defeq / S-caps)
+
+One lemma per constructor of `DefEq`.  Lane S-defeq owns `refl` …
+`proofIrrel` (the structural rules, the recursive-structure rule, η,
+the two proof-irrelevance arms); lane S-caps owns `unitLike`,
+`structEta`, `structUnit` (the capability rows of
+`Model/Steps/CapsRows.lean` and `Irrel.lean`).
+-/
+
+namespace ConLeche.Model.Rules
+open ConLeche.Semantics
+open ConLeche.SetModel
+open ConLeche.Term ConLeche.Verify SetTheory
+open ConLeche.Semantics (AnnotTerm)
+open ConLeche (Env Expr Name)
+open ConLeche.Rules
+
+universe w
+
+variable {V : Type w} [SetTheory V] {env : Env} {m : EnvModel V env}
+  {φ : Name → Nat}
+
+theorem DefEq.refl_sound {d : Nat} {a : Expr} : DefEqSem m φ d a a := by
+  intro _ _ Δa aa ba _ _ haa hba _ _ ρ _
+  rw [haa] at hba
+  cases hba
+  rfl
+
+theorem DefEq.symm_sound {d : Nat} {a b : Expr} (h : DefEqSem m φ d a b) :
+    DefEqSem m φ d b a := by
+  intro hfb hfa Δa ba aa hCb hCa hba haa hgb hga ρ hρ
+  exact (h hfa hfb hCa hCb haa hba hga hgb ρ hρ).symm
+
+/-- **The recursive-structure rule is sound**: the reduct reads, is
+graded and framed (`RedSem`), so the continuation's motive applies at
+it (`dq_whnfCore_package`'s content, `Steps/DefEq.lean:460`). -/
+theorem DefEq.redL_sound {d : Nat} {a a' b : Expr}
+    (ha : RedSem m φ d a a') (hb : DefEqSem m φ d a' b) :
+    DefEqSem m φ d a b := by
+  intro hfa hfb Δa aa ba hCa hCb haa hba hga hgb ρ hρ
+  obtain ⟨hfa', hsub, aa', haa', hga', heq⟩ := ha hfa hCa haa hga
+  rw [heq ρ hρ]
+  exact hb hfa' hfb (hCa.of_subset hsub) hCb haa' hba hga' hgb ρ hρ
+
+/-- `defeqStuck_claim`'s sort arm (`Steps/DefEq.lean:873`). -/
+theorem DefEq.sort_sound {d : Nat} {u v : Level}
+    (h : Level.isEquiv u v = some true) :
+    DefEqSem m φ d (.sort u) (.sort v) := by
+  sorry
+
+/-- The `fvar` arm: the reading ignores the annotation. -/
+theorem DefEq.fvar_sound {d i : Nat} {ty₁ ty₂ : Expr} :
+    DefEqSem m φ d (.fvar i ty₁) (.fvar i ty₂) := by
+  sorry
+
+/-- `acval_const_congr` (`Steps/DefEq.lean:844`) with `AcvalParams`
+(`Model/Annot/EnvModel.lean:164`, `acvalParams m`). -/
+theorem DefEq.const_sound {d : Nat} {n : Name} {us us' : List Level}
+    (h : Level.isEquivList us us' = some true) :
+    DefEqSem m φ d (.const n us) (.const n us') := by
+  sorry
+
+/-- `denoteMeta_natZeroConst` (`Steps/DefEq.lean:99`). -/
+theorem DefEq.natZero_sound {d : Nat} :
+    DefEqSem m φ d (.lit (.natVal 0)) (.const natZeroName []) := by
+  sorry
+
+/-- `denoteMeta_natSuccConst` (`Steps/DefEq.lean:119`): the packed
+successor reads as `succ` applied to the packed predecessor. -/
+theorem DefEq.natSucc_sound {d : Nat} {k : Nat} {x : Expr}
+    (h : DefEqSem m φ d (.lit (.natVal k)) x) :
+    DefEqSem m φ d (.lit (.natVal (k + 1))) (.app (.const natSuccName []) x) := by
+  sorry
+
+/-- `binder_congr` (`Steps/DefEq.lean:756`): equal domains, equal
+bodies opened at the right domain, equal bits (`piR_zero_agree`). -/
+theorem DefEq.forallE_sound {d : Nat} {ty₁ body₁ ty₂ body₂ : Expr}
+    {m₁ m₂ : BinderMeta}
+    (hty : DefEqSem m φ d ty₁ ty₂)
+    (hbody : DefEqSem m φ (d + 1) (body₁.instantiate1 (.fvar d ty₂))
+      (body₂.instantiate1 (.fvar d ty₂)))
+    (hpw : m₁.pw = m₂.pw) :
+    DefEqSem m φ d (.forallE ty₁ body₁ m₁) (.forallE ty₂ body₂ m₂) := by
+  sorry
+
+/-- `binder_congr`, the λ half. -/
+theorem DefEq.lam_sound {d : Nat} {ty₁ body₁ ty₂ body₂ : Expr}
+    {m₁ m₂ : BinderMeta}
+    (hty : DefEqSem m φ d ty₁ ty₂)
+    (hbody : DefEqSem m φ (d + 1) (body₁.instantiate1 (.fvar d ty₂))
+      (body₂.instantiate1 (.fvar d ty₂)))
+    (hpw : m₁.pw = m₂.pw) :
+    DefEqSem m φ d (.lam ty₁ body₁ m₁) (.lam ty₂ body₂ m₂) := by
+  sorry
+
+/-- Per-node congruence (`spine_congr`'s one step, `Steps/Stuck.lean:270`). -/
+theorem DefEq.app_sound {d : Nat} {f₁ a₁ f₂ a₂ : Expr}
+    (hf : DefEqSem m φ d f₁ f₂) (ha : DefEqSem m φ d a₁ a₂) :
+    DefEqSem m φ d (.app f₁ a₁) (.app f₂ a₂) := by
+  sorry
+
+/-- `interp_projAV_congr` (`Steps/ProjAVKit.lean:85`). -/
+theorem DefEq.proj_sound {d : Nat} {s : Name} {i : Nat} {e₁ e₂ : Expr}
+    (h : DefEqSem m φ d e₁ e₂) :
+    DefEqSem m φ d (.proj s i e₁) (.proj s i e₂) := by
+  sorry
+
+/-- η (`etaCertStep_of_claims`, `Steps/Stuck.lean:576`: `lamR_eta`,
+regime-uniform). -/
+theorem DefEq.eta_sound (hin : RulesInputs V m φ) {d : Nat}
+    {ty₁ body₁ b tb ty₂ B : Expr} {m₁ m₂ : BinderMeta}
+    (htb : InferSemIO m φ d b tb) (hwtb : RedSem m φ d tb (.forallE ty₂ B m₂))
+    (hty : DefEqSem m φ d ty₂ ty₁)
+    (hbody : DefEqSem m φ (d + 1) (body₁.instantiate1 (.fvar d ty₁))
+      (.app b (.fvar d ty₁)))
+    (hpw : m₁.pw = m₂.pw) :
+    DefEqSem m φ d (.lam ty₁ body₁ m₁) b := by
+  sorry
+
+/-- `prf_of_isProofFast` twice (`Steps/IrrelFast.lean:303`). -/
+theorem DefEq.proofFast_sound (hin : RulesInputs V m φ) {d : Nat} {a b : Expr}
+    (ha : ConLeche.isProofFast env.find? a = true)
+    (hb : ConLeche.isProofFast env.find? b = true) :
+    DefEqSem m φ d a b := by
+  sorry
+
+/-- `prop_side_pt` twice (`Steps/Irrel.lean:71`): a term whose type's
+sort is zero-equivalent interprets to the point. -/
+theorem DefEq.proofIrrel_sound (hin : RulesInputs V m φ) {d : Nat}
+    {a ta tta b tb ttb : Expr} {u v : Level}
+    (hta : InferSemIO m φ d a ta) (htta : InferSemIO m φ d ta tta)
+    (hu : RedSem m φ d tta (.sort u)) (hu0 : Level.isEquiv u .zero = some true)
+    (htb : InferSemIO m φ d b tb) (httb : InferSemIO m φ d tb ttb)
+    (hv : RedSem m φ d ttb (.sort v)) (hv0 : Level.isEquiv v .zero = some true) :
+    DefEqSem m φ d a b := by
+  sorry
+
+/-- `unit_side_pt` twice (`unitIrrelPQ_of_claims`, `Steps/Irrel.lean:179`). -/
+theorem DefEq.unitLike_sound (hin : RulesInputs V m φ) {d : Nat}
+    {a ta wta b tb wtb : Expr}
+    (hta : InferSemIO m φ d a ta) (hwta : RedSem m φ d ta wta)
+    (hua : ConLeche.isUnitLikeTy env wta = true)
+    (htb : InferSemIO m φ d b tb) (hwtb : RedSem m φ d tb wtb)
+    (hub : ConLeche.isUnitLikeTy env wtb = true) :
+    DefEqSem m φ d a b := by
+  sorry
+
+/-- Structure η (`structEtaCertWithFueled_step`, `Steps/CapsRows.lean:501`,
+and `structEtaIrrel_of_claims`, `:897`): the stored η law at the
+certified type application. -/
+theorem DefEq.structEta_sound (hin : RulesInputs V m φ) {d : Nat}
+    {a b tb wtb : Expr} {c : Name} {us : List Level} {cvc : ConstantVal}
+    {cnP cnF : Nat} {T : Name} {us' : List Level} {cvT : ConstantVal}
+    {caps : IndCaps}
+    (htb : InferSemIO m φ d b tb) (hwtb : RedSem m φ d tb wtb)
+    (hhead : a.getAppFn = .const c us)
+    (hctor : env.find? c = some (.ctorInfo cvc cnP cnF))
+    (hlen : a.getAppArgs.length = cnP + cnF)
+    (hthead : wtb.getAppFn = .const T us')
+    (hind : env.find? T = some (.indInfo cvT caps))
+    (heta : caps.eta = true) (hetaCtor : caps.etaCtor = c)
+    (hresT : ConLeche.reservedBasisNames.contains T = false)
+    (hresc : ConLeche.reservedBasisNames.contains c = false)
+    (htlen : wtb.getAppArgs.length = caps.etaParams)
+    (hlv : us'.length = cvT.levelParams.length)
+    (hlps : cvc.levelParams = cvT.levelParams)
+    (hslots : (ConLeche.towerSlotsAll env T caps.etaFields ||
+      ConLeche.recSlotsAll env T caps.etaFields) = true)
+    (hus : Level.isEquivList us us' = some true)
+    (hcerts : CertsSem m φ d false
+      (cvT.type.instantiateLevelParams cvT.levelParams us') wtb.getAppArgs)
+    (hproj : ConLeche.towerSlotsAll env T caps.etaFields = false →
+      EtaProjCertsSem m φ d T us' wtb.getAppArgs b cvT.levelParams
+        (List.range caps.etaFields))
+    (hparams : DefEqListSem m φ d (a.getAppArgs.take caps.etaParams)
+      wtb.getAppArgs)
+    (hfields : DefEqListSem m φ d (a.getAppArgs.drop caps.etaParams)
+      (ConLeche.etaProjs env T us' wtb.getAppArgs b caps.etaFields)) :
+    DefEqSem m φ d a b := by
+  sorry
+
+/-- Unit-like structure (`structUnitIrrel_of_claims`, `Steps/CapsRows.lean:944`). -/
+theorem DefEq.structUnit_sound (hin : RulesInputs V m φ) {d : Nat}
+    {a ta wta b tb wtb : Expr} {T : Name} {us' : List Level}
+    {cvT : ConstantVal} {caps : IndCaps}
+    (hta : InferSemIO m φ d a ta) (hwta : RedSem m φ d ta wta)
+    (hthead : wta.getAppFn = .const T us')
+    (hind : env.find? T = some (.indInfo cvT caps))
+    (hunit : caps.unitlike = true)
+    (hresT : ConLeche.reservedBasisNames.contains T = false)
+    (htlen : wta.getAppArgs.length = caps.unitParams)
+    (hlv : us'.length = cvT.levelParams.length)
+    (htb : InferSemIO m φ d b tb) (hwtb : RedSem m φ d tb wtb)
+    (hd : DefEqSem m φ d wta wtb)
+    (hcerts : CertsSem m φ d false
+      (cvT.type.instantiateLevelParams cvT.levelParams us') wta.getAppArgs) :
+    DefEqSem m φ d a b := by
+  sorry
+
+end ConLeche.Model.Rules
