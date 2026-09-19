@@ -1077,7 +1077,11 @@ theorem nestedPinChecks_inv {ops : CheckerOps CheckM} {env envN : Env} {p : Nest
       -- **K.67**: and it IS the owning container's own class, imaged.
       -- K.62's positive twin at the same guard; UNCONDITIONAL, for
       -- K.60's reason
-      nestedOrdTargetOk env p b st stored = true := by
+      nestedOrdTargetOk env p b st stored = true ∧
+      -- **K.68**: and it is THIS block's own class, by its own
+      -- recomputation — K.67's self-relative twin, the half a LATER
+      -- block reads of this one
+      nestedOrdSelfTargetOk env p b st stored = true := by
   unfold nestedPinChecks at h
   simp only at h
   by_cases hcpf : (nestedCopyFieldsAt env p st (nestedPinKinds p b stored)).1 = true
@@ -1098,6 +1102,9 @@ theorem nestedPinChecks_inv {ops : CheckerOps CheckM} {env envN : Env} {p : Nest
       (nestedPinKinds p b stored) = true
   case neg => rw [if_pos (by simpa using htgt)] at h; close_throw
   rw [if_neg (by simpa using htgt)] at h
+  by_cases hstgt : nestedOrdSelfTargetAt env p st (nestedPinKinds p b stored) = true
+  case neg => rw [if_pos (by simpa using hstgt)] at h; close_throw
+  rw [if_neg (by simpa using hstgt)] at h
   rcases Bool.eq_false_or_eq_true ops.mode.verifiedChecks with hv | hv
   · -- `.verified`: each `unless` is its own clause, as before
     simp only [hv, Bool.not_true, Bool.false_eq_true, if_false] at h
@@ -1148,12 +1155,12 @@ theorem nestedPinChecks_inv {ops : CheckerOps CheckM} {env envN : Env} {p : Nest
               by simp [certOnly, nestedPinOrderOk, hord'],
               fun _ => ⟨jobs, ws, unwrapOr_ok hjobs, hws, by simpa using hcmp⟩,
               fun _ => ⟨pd.1, pd.2, jobsP, wsP, unwrapOr_ok hpd, unwrapOr_ok hjobsP,
-                hwsP, hrw⟩, hcpf, hcrf, him, hout, htgt⟩
+                hwsP, hrw⟩, hcpf, hcrf, him, hout, htgt, hstgt⟩
   · -- `.trusted`: the group does not run, and every `certOnly` is `true`
     exact ⟨by simp [certOnly, hv], by simp [certOnly, hv], by simp [certOnly, hv],
       by simp [certOnly, hv], by simp [certOnly, hv],
       fun hv' => absurd hv' (by simp [hv]),
-      fun hv' => absurd hv' (by simp [hv]), hcpf, hcrf, him, hout, htgt⟩
+      fun hv' => absurd hv' (by simp [hv]), hcpf, hcrf, him, hout, htgt, hstgt⟩
 
 /-- **The nested chain's FRONT half**: official's two syntactic guards,
 the elimination on the annotated inputs, the mimic count, the minted
@@ -1367,6 +1374,9 @@ private theorem checkNested_inv_rest {env envOut : Env} {p : NestedParts} {F : N
       -- K.62's positive twin at the same guard, recomputed from the
       -- container's stored constructor at the owner's own components
       nestedOrdTargetOk env p b st stored = true ∧
+      -- **K.68**: and it is THIS block's own class, by its own
+      -- recomputation
+      nestedOrdSelfTargetOk env p b st stored = true ∧
       -- POST-CHECK (a) A THIRD TIME (K.30): the pins typed at the
       -- environment holding the RESTORED formers
       nestedPinsOk (m := CheckM) (fueledOps mode F)
@@ -1519,7 +1529,7 @@ private theorem checkNested_inv_rest {env envOut : Env} {p : NestedParts} {F : N
   rw [if_pos hpa] at h
   try simp only [bind, Except.bind] at h
   obtain ⟨uPC, hpc4, h⟩ := exceptBind_ok h
-  obtain ⟨htg, hkd, hrk, hrh, hordC, hord, hpinN, hcpf, hcrf, him, hout, htgt⟩ :=
+  obtain ⟨htg, hkd, hrk, hrh, hordC, hord, hpinN, hcpf, hcrf, him, hout, htgt, hstgt⟩ :=
     nestedPinChecks_inv hpc4
   try simp only at h
   obtain ⟨uP₁, hpins₁, h⟩ := exceptBind_ok h
@@ -1597,7 +1607,7 @@ private theorem checkNested_inv_rest {env envOut : Env} {p : NestedParts} {F : N
   exact ⟨stored, ctorsR, cvRms, cvRns, rulesM, rulesN,
     hst', hpc, (by cases uA; exact hpinsAux), hcaps, hsrc,
     certOnly_and_left hcont, hgrp, hmn, hsc, hpl, htg, hkd, haa, hrk, hpa, hrh, hordC,
-    hord, hpinN, hcpf, hcrf, him, hout, htgt, (by cases uP₁; exact hpins₁), hres, hctors,
+    hord, hpinN, hcpf, hcrf, him, hout, htgt, hstgt, (by cases uP₁; exact hpins₁), hres, hctors,
     hrm, hrn,
     hnd, hdj,
     hrlm, hrln, hrb2, htbl, (by cases u₀; exact hpins), hnums, hlen,
@@ -1741,6 +1751,9 @@ theorem checkNested_inv {env envOut : Env} {p : NestedParts} {F : Nat}
       -- K.62's positive twin at the same guard, recomputed from the
       -- container's stored constructor at the owner's own components
       nestedOrdTargetOk env p b st stored = true ∧
+      -- **K.68**: and it is THIS block's own class, by its own
+      -- recomputation
+      nestedOrdSelfTargetOk env p b st stored = true ∧
       -- POST-CHECK (a) A THIRD TIME (K.30): the pins typed at the
       -- environment holding the RESTORED formers
       nestedPinsOk (m := CheckM) (fueledOps mode F)
@@ -1852,12 +1865,12 @@ theorem checkNested_inv {env envOut : Env} {p : NestedParts} {F : Nat}
     hcont, hcomp, hb, haux, hrest⟩ := checkNested_inv_front h
   obtain ⟨stored, ctorsR, cvRms, cvRns, rulesM, rulesN, hst, hpc, hpinsAux, hcaps, hsrc,
     hdist, hgrp, hmn, hsc, hpl, htg, hkd, haa, hrk, hpa, hrh, hordC, hord, hpinN, hcpf,
-    hcrf, him, hout, htgt, hpins₁, hctors, hrm, hrn, hnd, hdj, hrlm, hrln, hrb2, htbl, hpins,
+    hcrf, him, hout, htgt, hstgt, hpins₁, hctors, hrm, hrn, hnd, hdj, hrlm, hrln, hrb2, htbl, hpins,
     hnums, hlen, hrecs, hrb, hop, hom⟩ := checkNested_inv_rest hcont hrest
   exact ⟨hg₀, hg₁, st, b, envAux, stored, ctorsR, cvRms, cvRns, rulesM, rulesN, fmsA,
     ctorsA, hfmsA, hctorsA, helim, hcnt, hfresh, hcont, hcomp, hb, haux, hst, hpc,
     hpinsAux, hcaps, hsrc, hdist, hgrp, hmn, hsc, hpl, htg, hkd, haa, hrk, hpa, hrh,
-    hordC, hord, hpinN, hcpf, hcrf, him, hout, htgt, hpins₁, hctors, hrm, hrn, hnd, hdj, hrlm,
+    hordC, hord, hpinN, hcpf, hcrf, him, hout, htgt, hstgt, hpins₁, hctors, hrm, hrn, hnd, hdj, hrlm,
     hrln, hrb2, htbl, hpins, hnums, hlen, hrecs, hrb, hop, hom⟩
 
 

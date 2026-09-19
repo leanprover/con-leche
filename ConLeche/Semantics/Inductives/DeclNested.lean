@@ -320,6 +320,12 @@ def DeclNestedRun (μ : CheckMode) (F : Nat) (env : Env)
     -- leaves no `_nested` constant to read.  UNCONDITIONAL for K.61's
     -- reason
     ConLeche.nestedOrdTargetOk env p b st stored = true ∧
+    -- **AND IT IS THIS BLOCK'S OWN CLASS, BY ITS OWN RECOMPUTATION**
+    -- (K.68): K.67's self-relative twin — no owner, no parent, no
+    -- instance map — which is the half a LATER block reads of this
+    -- one, and the half the CONTAINER's side of the wide
+    -- correspondence is built from
+    ConLeche.nestedOrdSelfTargetOk env p b st stored = true ∧
     -- POST-CHECK (a) A THIRD TIME (K.30): the pins typed at the
     -- environment holding the RESTORED formers — the model tier's own
     ConLeche.nestedPinsOk (m := CheckM) (fueledOps μ F)
@@ -592,7 +598,7 @@ theorem declNestedRun_etaClosed {μ : CheckMode} {F : Nat} {env envOut : Env}
     (h : DeclNestedRun μ F env p envOut) : EtaFamiliesClosed envOut := by
   obtain ⟨-, -, st, b, envAux, stored, ctorsR, cvRms, cvRns, rulesM, rulesN, fmsA, ctorsA,
     -, -, -, -, -, -, -, -, -, -, -, -, hcaps,
-    -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -,
+    -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -,
     hctors, hrm, hrn, -, -, -, -, -, htbl,
     -, -, -, -, -, -⟩ := h
   refine EtaFamiliesClosed.ofFreshExt hE ?_

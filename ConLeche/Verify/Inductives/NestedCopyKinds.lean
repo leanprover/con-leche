@@ -1010,4 +1010,128 @@ theorem nestedOrdTargetOk_at {env : Env} {p : NestedParts} {b : MutualBlock}
   exact nestedOrdTargetOk_at_refl h hk hg hgn hciJ hown hmapR hqK hq hqn hks hci hJm hj hkf hcJ
     hsJ hl hdJ hrec hkt hord hhead
 
+
+/-! ## THE BLOCK'S OWN CLASS AT A REWRITTEN ORDINARY FIELD (task #315 K.68)
+
+K.67 inverted answers about a copy that is another container's own pin.
+This answers about the block's OWN pins, in the block's own vocabulary:
+the recorded target is the class the block's own recomputation names —
+a MEMBER by its name among `p.memberNames`, or a PIN by its term among
+`nestedPinTermsSelf`, the same table the recomputation instantiates in.
+
+Two implications rather than a disjunction, for K.67's reason: the
+consumer always knows which case it is in. -/
+
+/-- **K.68 at one pin, one constructor and one field.** -/
+theorem nestedOrdSelfTargetOk_at_refl {env : Env} {p : NestedParts} {b : MutualBlock}
+    {st : ElimState} {stored : List AuxStored}
+    (h : nestedOrdSelfTargetOk env p b st stored = true)
+    {kinds : List (List (List (RecFieldKind × Nat)))}
+    (hk : nestedPinKinds p b stored = some kinds)
+    {q : Nat} (hq : q < st.pins.length) {qn : NestedPin} (hqn : st.pins[q]? = some qn)
+    {ks : List (List (RecFieldKind × Nat))} (hks : kinds[q]? = some ks)
+    {ci : ContainerInfo} (hci : containerInfo? env qn.container = some ci)
+    {Jm : ContainerMember} (hJm : ci.members[q - qn.grpBase]? = some Jm)
+    {j : Nat} (hj : j < ks.length)
+    {kf : List (RecFieldKind × Nat)} (hkf : ks[j]? = some kf)
+    {cJ : ContainerCtor} (hcJ : Jm.ctors[j]? = some cJ)
+    {jbs : List (Expr × BinderMeta)} {rJ : Expr}
+    (hsJ : cJ.type.stripPis (ci.nP + cJ.nFields) = some (jbs, rJ))
+    {l : Nat} {r : RecFieldKind} {t : Nat} (hl : kf[l]? = some (r, t))
+    {domJ : Expr × BinderMeta} (hdJ : jbs[ci.nP + l]? = some domJ)
+    (hrec : (r == RecFieldKind.recursive || r == RecFieldKind.reflexive) = true)
+    (hord : mentionsMember (ci.members.map (·.name)) domJ.1 = false)
+    {M : Name} {us : List Level}
+    (hhead : (ordTargetDom ci.nP (nestedPinTermsSelf p st) q l domJ.1).getAppFn = .const M us) :
+    (∀ mm, p.memberNames.findIdx? (· == M) = some mm → t = mm) ∧
+    (∀ (ciM : ContainerInfo) (z : Nat),
+      p.memberNames.findIdx? (· == M) = none →
+      containerInfo? env M = some ciM →
+      (nestedPinTermsSelf p st).findIdx? (fun e => e == Expr.mkAppN
+          (ordTargetDom ci.nP (nestedPinTermsSelf p st) q l domJ.1).getAppFn
+          ((ordTargetDom ci.nP (nestedPinTermsSelf p st) q l
+            domJ.1).getAppArgs.take ciM.nP)) = some z →
+      t = p.k + z) := by
+  unfold nestedOrdSelfTargetOk nestedOrdSelfTargetAt at h
+  rw [hk] at h
+  simp only [_root_.List.all_eq_true, _root_.List.mem_range] at h
+  have hqv := h q hq
+  rw [hqn, hks] at hqv
+  simp only at hqv
+  rw [hci] at hqv
+  simp only at hqv
+  rw [hJm] at hqv
+  simp only [_root_.List.all_eq_true, _root_.List.mem_range] at hqv
+  have hjv := hqv j hj
+  rw [hkf, hcJ] at hjv
+  simp only at hjv
+  rw [hsJ] at hjv
+  simp only [_root_.List.all_eq_true, _root_.List.mem_range] at hjv
+  have hlLt : l < kf.length := (_root_.List.getElem?_eq_some_iff.mp hl).1
+  have hlv := hjv l hlLt
+  rw [hl, hdJ] at hlv
+  simp only at hlv
+  rw [if_neg (by simp [hrec]), if_neg (by simp [hord])] at hlv
+  rw [hhead] at hlv
+  simp only at hlv
+  refine ⟨fun mm hmm => ?_, fun ciM z hnm hciM hfi => ?_⟩
+  · rw [hmm] at hlv
+    simpa using hlv
+  · rw [hnm, hciM] at hlv
+    simp only at hlv
+    rw [← hhead] at hlv
+    rw [hfi] at hlv
+    simpa using hlv
+
+/-- **K.68 at a FINITARY field**, where the cut is the identity. -/
+theorem nestedOrdSelfTargetOk_at {env : Env} {p : NestedParts} {b : MutualBlock}
+    {st : ElimState} {stored : List AuxStored}
+    (h : nestedOrdSelfTargetOk env p b st stored = true)
+    {kinds : List (List (List (RecFieldKind × Nat)))}
+    (hk : nestedPinKinds p b stored = some kinds)
+    {q : Nat} (hq : q < st.pins.length) {qn : NestedPin} (hqn : st.pins[q]? = some qn)
+    {ks : List (List (RecFieldKind × Nat))} (hks : kinds[q]? = some ks)
+    {ci : ContainerInfo} (hci : containerInfo? env qn.container = some ci)
+    {Jm : ContainerMember} (hJm : ci.members[q - qn.grpBase]? = some Jm)
+    {j : Nat} (hj : j < ks.length)
+    {kf : List (RecFieldKind × Nat)} (hkf : ks[j]? = some kf)
+    {cJ : ContainerCtor} (hcJ : Jm.ctors[j]? = some cJ)
+    {jbs : List (Expr × BinderMeta)} {rJ : Expr}
+    (hsJ : cJ.type.stripPis (ci.nP + cJ.nFields) = some (jbs, rJ))
+    {l : Nat} {r : RecFieldKind} {t : Nat} (hl : kf[l]? = some (r, t))
+    {domJ : Expr × BinderMeta} (hdJ : jbs[ci.nP + l]? = some domJ)
+    (hrec : (r == RecFieldKind.recursive || r == RecFieldKind.reflexive) = true)
+    (hord : mentionsMember (ci.members.map (·.name)) domJ.1 = false)
+    {K : Name} {usK : List Level} (hfin : domJ.1.getAppFn = .const K usK)
+    {M : Name} {us : List Level}
+    (hhead : (Expr.instantiateList domJ.1
+        ((((nestedPinTermsSelf p st).getD q default).getAppArgs.take ci.nP).reverse)
+        l).getAppFn = .const M us) :
+    (∀ mm, p.memberNames.findIdx? (· == M) = some mm → t = mm) ∧
+    (∀ (ciM : ContainerInfo) (z : Nat),
+      p.memberNames.findIdx? (· == M) = none →
+      containerInfo? env M = some ciM →
+      (nestedPinTermsSelf p st).findIdx? (fun e => e == Expr.mkAppN
+          (Expr.instantiateList domJ.1
+            ((((nestedPinTermsSelf p st).getD q default).getAppArgs.take ci.nP).reverse)
+            l).getAppFn
+          ((Expr.instantiateList domJ.1
+            ((((nestedPinTermsSelf p st).getD q default).getAppArgs.take ci.nP).reverse)
+            l).getAppArgs.take ciM.nP)) = some z →
+      t = p.k + z) := by
+  have hnf : stripDomPis domJ.1 = domJ.1 ∧ domPiDepth domJ.1 = 0 := by
+    cases hd : domJ.1 with
+    | forallE ty bo bm =>
+      rw [hd] at hfin
+      have hc : Expr.forallE ty bo bm = Expr.const K usK := hfin
+      exact nomatch hc
+    | _ => exact ⟨rfl, rfl⟩
+  have hdm : ordTargetDom ci.nP (nestedPinTermsSelf p st) q l domJ.1
+      = Expr.instantiateList domJ.1
+          ((((nestedPinTermsSelf p st).getD q default).getAppArgs.take ci.nP).reverse) l := by
+    unfold ordTargetDom
+    rw [hnf.1, hnf.2, Nat.add_zero]
+  rw [← hdm] at hhead ⊢
+  exact nestedOrdSelfTargetOk_at_refl h hk hq hqn hks hci hJm hj hkf hcJ hsJ hl hdJ hrec hord hhead
+
 end ConLeche

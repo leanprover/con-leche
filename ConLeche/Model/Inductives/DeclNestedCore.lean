@@ -1838,6 +1838,10 @@ discharged modulo the loop by `nestedCoreModeled_of`. -/
     -- positive twin at the same guard, which the wide identification's
     -- PIN half needs where `houtσ` only says the target is outside
     ConLeche.nestedOrdTargetOk env p b st stored = true →
+    -- K.68: and it is THIS block's own class, by its own recomputation
+    -- — K.67's self-relative twin, which the CONTAINER's side of the
+    -- wide correspondence is built from
+    ConLeche.nestedOrdSelfTargetOk env p b st stored = true →
     -- POST-CHECK (a) A THIRD TIME (K.30): the pins typed at the
     -- environment holding the RESTORED formers
     ConLeche.nestedPinsOk (m := ConLeche.CheckM) (fueledOps μ F)
@@ -2054,7 +2058,7 @@ theorem declNested_of (hμ : μ.verifiedChecks = true) {F : Nat} {env envOut : E
   obtain ⟨h0, h1, st, b, envAux, stored, ctorsR, cvRms, cvRns, rulesM, rulesN, fmsA, ctorsA,
     hfA, hcA, helim, hcount, hfresh, hcont, hcomps, hb, haux, hstored, hclosed, hpinsAux,
     hcaps, hsrc,
-    -, hgrp, hmn, hsc, hlv, hK32, hkinds, hauxApps, hrank, -, -, -, hK42, hK51, hK60, hK63, hK61, hK62, hK67,
+    -, hgrp, hmn, hsc, hlv, hK32, hkinds, hauxApps, hrank, -, -, -, hK42, hK51, hK60, hK63, hK61, hK62, hK67, hK68,
     hpins₁, hK64,
     hctors,
     hrm, hrn,
@@ -2142,7 +2146,7 @@ theorem declNested_of (hμ : μ.verifiedChecks = true) {F : Nat} {env envOut : E
   obtain ⟨fms, f₀, ctorsA', sortss, kinds, mp₁, ppsF, W, idxF, dsF, esF, srcsF, fvsPF, xFvsF, xrestF,
     eissF, tssF, dsR, xFvsR, pinsS, mp₂, henv, O⟩ := hcore hμ mp.toEnvModelM hE p st b envAux stored
     ctorsR fmsA ctorsA hPM h0 h1 hfA hcA helim hcount hfresh hcont hb haux hstored hclosed hpinsAux
-    hcaps hsrc hgrp hsc hK32 hkinds hrank hK42 hK51 hK60 hK63 hK61 hK62 hK67 hpins₁ hK64 hctors
+    hcaps hsrc hgrp hsc hK32 hkinds hrank hK42 hK51 hK60 hK63 hK61 hK62 hK67 hK68 hpins₁ hK64 hctors
   obtain ⟨mpOut, T⟩ := htail hμ mp.toEnvModelM hE p envOut st b envAux stored ctorsR cvRms cvRns
     rulesM rulesN fmsA ctorsA hPM h0 h1 hfA hcA helim hcount hfresh hcont hb haux hstored hclosed
     hpinsAux hcaps hsrc hgrp hkinds hauxApps hctors hrm hrn hndR hdisj hrulesM hrulesN htbl
@@ -2315,7 +2319,7 @@ theorem nestedCoreModeled_of {F : Nat} (hst : NestedCtorsStaged V μ F) :
     NestedCoreModeled V μ F := by
   intro hμ env mp hE p st b envAux stored ctorsR fmsA ctorsA₀ hPM h0 h1 hfA hcA helim hcount hfresh
     hcont hb haux hstored hclosed hpinsAux hcaps hsrc hgrp hsc hK32 hkinds hrank hK42 hK51
-    hK60 hK63 hK61 hK62 hK67 hpins₁ hK64
+    hK60 hK63 hK61 hK62 hK67 hK68 hpins₁ hK64
     hctors
   obtain ⟨hnd, hlp, hmem, h3, env₁, fms, f₀, tq₀, ctorsA, sortss, kinds, formers4, ctors4, cvRas,
     rulesOf, hformers, hf₀, htq₀, hcross, -, hctorsA, hkindsA, hfo, -, -, -, -⟩ :=
@@ -2328,7 +2332,7 @@ theorem nestedCoreModeled_of {F : Nat} (hst : NestedCtorsStaged V μ F) :
   rw [henv] at hctors hpins₁ hK64
   obtain ⟨mp₂, dsR, xFvsR, pinsS, S⟩ := nestedStageFacts_of hst hμ hE hPM h0 h1 hfA hcA helim hcount
     hfresh hcont hb haux hstored hclosed hpinsAux hcaps hsrc hgrp hsc hK32 hkinds hrank hK42 hK51
-    hK60 hK63 hK61 hK62 hK67 hpins₁ hK64
+    hK60 hK63 hK61 hK62 hK67 hK68 hpins₁ hK64
     hnd h3
     hformers hctorsA h hbk hctors
   have hbk' : b.k = p.k + pinsS.length := by rw [hbk, S.pinsLen]

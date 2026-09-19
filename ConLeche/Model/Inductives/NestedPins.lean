@@ -1152,6 +1152,12 @@ structure NestedPinsRun (V : Type w) [SetTheory V] (μ : CheckMode) (F : Nat) {e
   image of.  The wide identification's PIN half reads it; the member
   half reads only `hK62`. -/
   hK67 : ConLeche.nestedOrdTargetOk env p b st stored = true
+  /-- **and it is THIS block's own class, by its own recomputation**
+  (task #315 K.68): K.67's SELF-RELATIVE twin — no owner, no parent,
+  no instance map.  `hK67` is what the block's OWN side of the wide
+  correspondence reads; this is what a LATER block reads of this one,
+  carried onto the container's model through `PinShapes`. -/
+  hK68 : ConLeche.nestedOrdSelfTargetOk env p b st stored = true
   hpinsE : ConLeche.nestedPinsOk (m := ConLeche.CheckM) (fueledOps μ F)
       (ConLeche.consMutualFormers (fms.take p.k) env) p.nP st.pins = .ok ()
   /-- **THE PINS' CONSTANTS RESOLVE** (K.64, task #315, lane LE): at the
@@ -2192,12 +2198,12 @@ DESIGN §U.22.) -/
 theorem nestedPinsStaged_of {F : Nat} (hId : NestedPinsIdent V μ F) : NestedPinsStaged V μ F := by
   intro hμ env mp hE p st b envAux stored ctorsR fmsA ctorsA₀ fms f₀ ctorsA sortss kinds mp₁ ppsF W
     idxF dsF esF srcsF fvsPF xFvsF xrestF eissF tssF mp₁' hPM h0 h1 hfA hcA helim hcount hfresh hcont
-    hb haux hstored hclosed hpinsAux hcaps hsrc hgrp hscoped hK32 hkinds hrank hK42 hK51 hK60 hK63 hK61 hK62 hK67 hpinsE hK64 hformers h hbk
+    hb haux hstored hclosed hpinsAux hcaps hsrc hgrp hscoped hK32 hkinds hrank hK42 hK51 hK60 hK63 hK61 hK62 hK67 hK68 hpinsE hK64 hformers h hbk
     h3 hnd hctorsA hleafM' hoff' hfind' hctors
   have R : NestedPinsRun V μ F mp p st b envAux stored ctorsR fmsA ctorsA₀ fms f₀ ctorsA sortss kinds
       mp₁ ppsF W idxF dsF esF srcsF fvsPF xFvsF xrestF eissF tssF mp₁' :=
     ⟨hμ, hE, hPM, h0, h1, hfA, hcA, helim, hcount, hfresh, hcont, hb, haux, hstored, hclosed, hpinsAux,
-      hcaps, hsrc, hgrp, hscoped, hK32, hkinds, hrank, hK42, hK51, hK60, hK63, hK61, hK62, hK67, hpinsE, hK64, hformers, h, hbk, h3, hnd, hctorsA,
+      hcaps, hsrc, hgrp, hscoped, hK32, hkinds, hrank, hK42, hK51, hK60, hK63, hK61, hK62, hK67, hK68, hpinsE, hK64, hformers, h, hbk, h3, hnd, hctorsA,
       hleafM',
       hoff', hfind', hctors⟩
   obtain ⟨hpinsE, fvs, o, hop, hsc⟩ := R.scoped

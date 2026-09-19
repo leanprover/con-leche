@@ -2648,6 +2648,108 @@ computes. -/
     (st : ElimState) (stored : List AuxStored) : Bool :=
   nestedOrdTargetAt env p st (nestedInstMaps env st) (nestedPinKinds p b stored)
 
+/-- **THE BLOCK'S OWN PINS AS THE MODEL SPELLS THEM** (task #315 K.68):
+each recorded pin term with the block's PARAMETERS abstracted and
+re-opened at the parameter openers.
+
+This is `PinSyn.ownAt` at the identity level instantiation, and the
+tree already proves the two equal — `hownAtSelf` (the nested route's own
+bridge in `DeclNestedCore.lean`) composed with
+`instantiateList_openers_eq_instSeq` at cut `0`, the Verify-tier
+identity of the two substitution idioms.  The KERNEL spelling has to be
+`instantiateList` and not `instSeq`: `instSeq` lives in `Verify`, which
+the implementation may not import. -/
+def nestedPinTermsSelf (p : NestedParts) (st : ElimState) : List Expr :=
+  st.pins.map fun s =>
+    Expr.instantiateList (Expr.abstractRange s.pin 0 p.nP 0)
+      (containerParamOpeners p.nP).reverse 0
+
+/-- **A REWRITTEN ORDINARY FIELD'S TARGET IS THE BLOCK'S OWN CLASS**
+(task #315 K.68) — K.67's SELF-RELATIVE twin, and the half the
+CONTAINER's side of the correspondence needs.
+
+K.67 answers about a copy that is some OTHER container's own pin,
+keyed by the instance map, and that is the block's own side of the
+transfer.  The other side is what a LATER block must know of THIS
+block's pins: which of THIS block's classes its own elimination gave a
+field its pin's container calls ordinary.  At this block's install that
+pin was minted from this block's own nesting and has no owner at all,
+so K.67's guard is vacuous there and says nothing.  Hence a second
+record — cheaper than K.67, since no owner, no parent and no instance
+map appear.
+
+**The two compose with nothing in between.**  K.67 recomputes at the
+`qK`-th entry of `containerOwnPinsSelf env J`; K.68, at `J`'s own
+install, recomputes at `J`'s pin `qK`'s components through
+`nestedPinTermsSelf` — and `ContainerOwnPinsSyn`'s second clause says
+the table's entry at a recorded pin's own index IS that pin at the
+instantiation, so the two are the SAME term and the head `M` agrees.
+Nothing has to be pushed across a substitution.
+
+The guard is K.67's minus the `p.k ≤ t` bound: the block's own
+recomputation may name a MEMBER of the block as easily as one of its
+pins — `Tree α := node (List (Tree α))` names the member — so both
+halves are recorded, the member by its name among `p.memberNames` and
+the pin by its term among the same table the head is recomputed in.
+
+**It cannot fire by construction**, category (B): the elimination's
+rewrite of the copy IS the substitution this row recomputes, followed
+by the replacement of the occurrence it finds, so the recorded target
+is the class the recomputation names.  UNCONDITIONAL and `.internal`
+for K.61's reason. -/
+def nestedOrdSelfTargetAt (env : Env) (p : NestedParts) (st : ElimState)
+    (kinds? : Option (List (List (List (RecFieldKind × Nat))))) : Bool :=
+  match kinds? with
+  | some kinds =>
+    let terms := nestedPinTermsSelf p st
+    (List.range st.pins.length).all fun q =>
+      match st.pins[q]?, kinds[q]? with
+      | some qn, some ks =>
+        match containerInfo? env qn.container with
+        | none => false
+        | some ci =>
+          match ci.members[q - qn.grpBase]? with
+          | none => false
+          | some Jm =>
+            let memsK := ci.members.map (·.name)
+            (List.range ks.length).all fun j =>
+              match ks[j]?, Jm.ctors[j]? with
+              | some kf, some cJ =>
+                match cJ.type.stripPis (ci.nP + cJ.nFields) with
+                | none => false
+                | some (jbs, _) =>
+                  (List.range kf.length).all fun l =>
+                    match kf[l]?, jbs[ci.nP + l]? with
+                    | some (r, t), some domJ =>
+                      if !(r == .recursive || r == .reflexive) then true
+                      else if mentionsMember memsK domJ.1 then true
+                      else
+                        let dmJ := ordTargetDom ci.nP terms q l domJ.1
+                        match dmJ.getAppFn with
+                        | .const M _ =>
+                          match p.memberNames.findIdx? (· == M) with
+                          | some mm => t == mm
+                          | none =>
+                            match containerInfo? env M with
+                            | none => true
+                            | some ciM =>
+                              match terms.findIdx? (fun e => e ==
+                                  Expr.mkAppN dmJ.getAppFn
+                                    (dmJ.getAppArgs.take ciM.nP)) with
+                              | some z => t == p.k + z
+                              | none => true
+                        | _ => true
+                    | _, _ => false
+              | _, _ => false
+      | _, _ => false
+  | _ => false
+
+/-- The Bool the route records (task #315 K.68), on the same field kinds
+`nestedPinKinds` computes for K.26, K.32, K.60, K.61 and K.67. -/
+@[inline] def nestedOrdSelfTargetOk (env : Env) (p : NestedParts) (b : MutualBlock)
+    (st : ElimState) (stored : List AuxStored) : Bool :=
+  nestedOrdSelfTargetAt env p st (nestedPinKinds p b stored)
+
 /-! ## THE POSITIVITY NORMALISATION ON THE MINTED COPY (task #315 K.42)
 
 Lane L-B's `ordF`-LEFT arm (DESIGN §U.62) needs, at an ORDINARY field of
@@ -3005,6 +3107,20 @@ def nestedPinChecks (ops : CheckerOps m) (env envN : Env) (p : NestedParts) (b :
   else if !nestedOrdTargetAt env p st maps? kinds? then
     throw (.internal "nested: a rewritten ordinary field's target is not the owning \
       container's own class")
+  -- **AND IT IS THIS BLOCK'S OWN CLASS, BY ITS OWN RECOMPUTATION**
+  -- (task #315 K.68): K.67's SELF-RELATIVE twin, the half a LATER
+  -- block reads of this one.  No owner, no parent, no instance map;
+  -- the same walk and the same guard, minus K.67's `p.k ≤ t` bound,
+  -- because this block's own recomputation may name a MEMBER as
+  -- easily as a pin.  UNCONDITIONAL and `.internal`, for K.61's
+  -- reason.
+  --
+  -- **IF THIS EVER FIRES** the elimination's rewrite of a copy names a
+  -- class its own substitution does not — a defect in the ROUTE, not
+  -- in the stream.  See DESIGN "#### K.68".
+  else if !nestedOrdSelfTargetAt env p st kinds? then
+    throw (.internal "nested: a rewritten ordinary field's target is not the block's own \
+      class")
   else if !ops.mode.verifiedChecks then pure () else
   let roots := nestedPinRootGroupAt p st (nestedPinInstAt st edges?)
   -- **THE COPIES' RECURSIVE TARGETS** (K.32): a copy field the aux

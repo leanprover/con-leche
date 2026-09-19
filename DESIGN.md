@@ -107129,6 +107129,101 @@ written.
 
 (The guard table that makes it a record is the row's own, above.)
 
+#### K.68 — a rewritten ordinary field's target is THE BLOCK'S OWN class (2026-09-19, task #315, lane LE's request)
+
+K.67's SELF-RELATIVE twin, and the half the CONTAINER's side of the
+wide correspondence is built from.
+
+K.67 answers about a copy that is some OTHER container's own pin, keyed
+by the instance map: that is the block's own side of the transfer.  The
+other side is what a LATER block must know of THIS block's pins —
+which of THIS block's classes its own elimination gave a field the
+pin's container calls ordinary.  At this block's install that pin was
+minted from this block's own nesting and has no owner at all, so
+K.67's guard is VACUOUS there and says nothing.  Hence a second record,
+and a cheaper one: no owner, no parent, no instance map.
+
+##### THE COMPOSITION, WHICH IS THE WHOLE POINT
+
+K.67 recomputes at the `qK`-th entry of `containerOwnPinsSelf env J`;
+K.68, at `J`'s own install, recomputes at `J`'s pin `qK`'s components
+through `nestedPinTermsSelf`.  `ContainerOwnPinsSyn`'s SECOND clause —
+the table's entry at a recorded pin's own index IS that pin, at any
+instantiation — says those are the SAME term.  So the head `M` agrees
+on both sides and **nothing has to be pushed across a substitution**;
+without K.68 the alternative is relating the two recomputations at the
+`Expr` level, which is the injectivity-flavoured work this lane has
+refused twice.
+
+`nestedPinTermsSelf` is the recorded pin term with the block's
+PARAMETERS abstracted and re-opened at the parameter openers — which is
+`PinSyn.ownAt` at the identity level instantiation, by the tree's own
+`hownAtSelf` composed with `instantiateList_openers_eq_instSeq` at cut
+`0`.  The KERNEL spelling has to be `instantiateList`, not `instSeq`:
+`instSeq` lives in `Verify`, which the implementation may not import.
+
+##### THE SHAPE
+
+K.67's guard minus its `p.k ≤ t` bound, because the block's own
+recomputation may name a MEMBER as easily as a pin —
+`Tree α := node (List (Tree α))` names the member.  Both halves are
+recorded: the member by its name among `p.memberNames`, the pin by its
+term among the same table the head is recomputed in.  Both `Π`-arms
+come free, as always, from `stripDomPis` / `domPiDepth`.
+
+Placement is K.67's: inside `nestedPinChecks`, ABOVE the
+`verifiedChecks` gate, UNCONDITIONAL in both routes, `.internal`.
+**No `PushChain` change** — the cached simulation names only K.64.
+Inversions `nestedOrdSelfTargetOk_at_refl` and `nestedOrdSelfTargetOk_at`;
+run conjunct through `nestedPinChecks_inv` → `checkNested_inv_rest` →
+`checkNested_inv` → `DeclNestedRun`; `NestedPinsRun.hK68`.
+
+**IT CANNOT FIRE BY CONSTRUCTION**, category (B): the elimination's
+rewrite of the copy IS the substitution this row recomputes, followed
+by the replacement of the occurrence it finds, so the recorded target
+is the class the recomputation names.  **IF IT EVER FIRES** the rewrite
+names a class its own substitution does not — a defect in the ROUTE.
+
+##### (a) THE MEASUREMENT
+
+`tests/arena.sh` EXIT 0 with the K.68 binary: `e2e: 200/200`,
+`nested-shadow: 42/42`, `arena suite: 91/96 good tests accepted`,
+`axioms: pinned`, sweeps unchanged — the accept set did not move.  The
+binary that ran it is byte-identical to the landed one (`cmp`).
+
+| corpus | shadow blocks | accepting | fires |
+|---|---|---|---|
+| `init-full` (53 093 accepted), both modes | 1 | 1 | 0 |
+| Mathlib (654 504 accepted), both modes | 41 | 41 | 0 |
+
+**The control reaches the arm almost everywhere**, which is the
+difference from K.67 and confirms the scope reading:
+
+| corpus | K.68's control | K.67's control |
+|---|---|---|
+| e2e (`tests/nested-shadow.sh`) | 34 of 42 rows (8/42 as expected) | 4 of 42 |
+| `init-full` | 1 of 1 | 0 of 1 |
+| Mathlib | 40 of 41 | 5 of 41 |
+
+K.67 asks about nested-in-nested and is rare; K.68 asks about every
+block with a rewritten ordinary field and is the ordinary case of
+nesting.  `init-full`'s `Lean.Syntax`, silent under K.67's control,
+fires under K.68's.
+
+##### (b) THE COST — NOISE, AT INIT-FULL
+
+`perf stat -e instructions:u`, one run per cell, `--nested-shadow
+--jobs=1`, the same binary with the check's call site removed.
+
+| run | without | with | delta |
+|---|---|---|---|
+| `init-full --verified --nested-shadow` | 538.2348 G | 538.2350 G | +0.00005 % |
+| `init-full --trusted --nested-shadow` | 520.8752 G | 520.8801 G | +0.0009 % |
+
+Four orders below K.62's +0.436 %: one stored-constructor read per pin
+field on a telescope K.61, K.62 and K.67 already walk, and one
+`nestedPinTermsSelf` per block.  No Mathlib perf cell, per the ruling.
+
 #### WIDE (3′) (a) ROUTE 1 STEP 1 — the three clauses, and the ONE site that needs a fourth fact (lane LE, 2026-09-19)
 
 K.64 landed, so clause 3 has its source.  **TWO of the three clauses
