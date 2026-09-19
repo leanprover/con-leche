@@ -122068,3 +122068,59 @@ owner classified that field into one of its classes, which is what
 `nestedPinKinds` records at the owner — but it is a fact, it has to
 come from somewhere, and it should be priced before it is built.  The
 member branch is closed either way.
+
+#### K.68's STRENGTHENING — ONE HALF IS FREE, THE OTHER FIRES AT FIVE ACCEPTED BLOCKS (lane LE, 2026-09-19)
+
+Both `| none => true` arms were flipped to `false` and the battery run.
+**`tests/arena.sh` EXIT 1: `nested-shadow: 37/42`**, five accepted
+blocks turned into `error`:
+
+| fixture | block |
+|---|---|
+| `tests/e2e/nested_p03.ndjson` | `P3` |
+| `tests/e2e/nested_p04.ndjson` | `P4C` and `P4` |
+| `tests/e2e/nested_p31.ndjson` (inmodel=0) | `P31` |
+| `tests/e2e/let_rec_rhs.ndjson` | `Lean.Syntax` |
+| `tests/e2e/presieve_ofarrows_cone.ndjson` | `Lean.Syntax` |
+
+`e2e: 200/200` and `arena suite: 91/96` are unchanged — the ACCEPT set
+does not move, because the row is `.internal` and the shadow only
+observes.  `Lean.Syntax` firing means init-full would have fired too.
+
+##### WHICH ARM — MEASURED, NOT GUESSED
+
+The two arms were flipped SEPARATELY.  With only the
+`containerInfo? env M` arm at `false` and the `findIdx?` arm left at
+`true`: **`nested-shadow: 42/42`**.  So
+
+* **the head's container lookup ALWAYS SUCCEEDS** — that half of the
+  strengthening is free, and it is one of the two lookups the
+  correspondence's pin branch needs;
+* **the `findIdx?` lookup does NOT** — the recomputed term is not
+  found in `nestedPinTermsSelf`, at five accepted blocks.
+
+##### WHAT THAT SAYS, AND WHERE THE FIX IS
+
+Exactly what the authorisation predicted: the recomputed term is not
+SYNTACTICALLY the minted pin.  The likely difference is the LEVELS.
+`nestedPinTermsSelf`'s entry carries the recorded pin's own `lvls`
+(`s.pin = mkAppN (.const container lvls) DsE`), while the
+recomputation's head is `dmJ.getAppFn`, which is the head of the
+CONTAINER's stored constructor domain after substitution — its level
+arguments are the stored constructor's, at the container's own level
+parameters.  `replaceIfNested` dedups by expression AFTER its own
+instantiation, so the two agree up to that instantiation and not
+before.
+
+So the fix is in the recomputation's spelling, not in weakening the
+row — as ruled.  The candidates, in the order they should be tried:
+compare at the head NAME and the parameter spine only (dropping the
+level arguments from the `findIdx?` predicate, since `ordTargetDom`'s
+consumer reads `J`, `u`, `Ids` and `Ds`, never the level list); or
+instantiate the recomputed head's levels at the pin's own `lvls`
+before comparing.  The first is cheaper and matches what the model
+actually consumes.
+
+**Nothing was landed.**  The tree is back at the committed K.68
+(`cmp` on the binary), and the strengthening is kept at
+`_tmp/le2/k68-strengthen.patch`.
