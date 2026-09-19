@@ -3,6 +3,9 @@ module
 public import ConLeche.Verify.Inductives.NestedRestoreOpen
 import ConLeche.Verify.AbstractRange
 import ConLeche.Verify.Inductives.NestedCopyTele
+-- the exact open/close round trip, and `abstractRange`'s bound (task #315 WIDE (3))
+import ConLeche.Verify.Inductives.NestedCopyGlue
+import ConLeche.Verify.Inductives.NestedRecCtorPin
 import ConLeche.Verify.Subst
 import ConLeche.Verify.InstLevels
 import ConLeche.Verify.Level
@@ -1301,5 +1304,62 @@ theorem abstractRange_ilp (ks : List Name) (us : List Level) (d k : Nat) :
     · rw [if_neg h, if_neg h]
       rfl
   | _ => intro c <;> simp_all [Expr.abstractRange, Expr.instantiateLevelParams]
+
+
+/-! ### The own-pin table's round trip, up to annotations (task #315 WIDE (3), step 1)
+
+`nestedPinTermsSelf` records a pin's components with the block's
+parameters ABSTRACTED and re-opened at `containerParamOpeners` — the
+parameter free variables at the placeholder annotation `sort 0`.  A
+reading never looks at a free variable's annotation
+(`denoteMeta_erasedEq`), so what the round trip owes its consumers is
+not an equation but an `ErasedEq`, and that is what this is: the
+openers' round trip is the run's own parameter openers' round trip
+(`instSeq_abstractRange_fvs`, exact) composed with the pointwise
+erasure between two opener lists (`instSeq_erasedEq_args`).  -/
+
+/-- The parameter openers carry the parameter index at each position. -/
+theorem containerParamOpeners_getElem? {nP j : Nat} (hj : j < nP) :
+    (containerParamOpeners nP)[j]? = some (Expr.fvar j (Expr.sort Level.zero)) := by
+  unfold containerParamOpeners
+  rw [List.getElem?_map, List.getElem?_range hj]
+  rfl
+
+/-- **THE OWN-PIN TABLE'S ROUND TRIP IS THE IDENTITY UP TO ANNOTATIONS**
+(task #315 WIDE (3), lane LE): abstracting the leading `nP` free
+variables of a closed term whose `fvar` leaves all occur in a run's
+parameter opener list, and re-opening at `containerParamOpeners nP`,
+returns the term with its leaves' ANNOTATIONS replaced by the
+placeholder — `ErasedEq`, which is all a reading can tell apart. -/
+theorem instantiateList_openers_abstractRange_erasedEq (nP : Nat) (fvs : List Expr) (e : Expr)
+    (hb : e.looseBVarsBounded 0 = true) (hlen : fvs.length = nP)
+    (hidx : ∀ j, j < nP → ∃ ty, fvs[j]? = some (Expr.fvar j ty))
+    (hlv : ∀ l ∈ e.fvarLeaves, Expr.fvar l.1 l.2 ∈ fvs) :
+    Expr.ErasedEq
+      (Expr.instantiateList (Expr.abstractRange e 0 nP 0)
+        (containerParamOpeners nP).reverse 0) e := by
+  have hA : (Expr.abstractRange e 0 nP 0).looseBVarsBounded nP = true := by
+    simpa using looseBVarsBounded_abstractRange e 0 nP 0 hb
+  have hstep := instantiateList_openers_eq_instSeq nP 0 hA
+  rw [Expr.liftLooseBVars_zero] at hstep
+  have hexact : Expr.instSeq fvs (nP - 1) (Expr.abstractRange e 0 nP 0) = e :=
+    instSeq_abstractRange_fvs nP fvs e hb hlen hidx hlv
+  rw [hstep]
+  refine Expr.ErasedEq.trans
+    (Expr.instSeq_erasedEq_args _ _ (nP - 1) (Expr.ErasedEq.rfl _) ?_ ?_)
+    (Expr.ErasedEq.of_eq hexact)
+  · intro k a₁ a₂ h1 h2
+    have hk : k < nP := by
+      rcases Nat.lt_or_ge k nP with h | h
+      · exact h
+      · rw [List.getElem?_eq_none (by simp [containerParamOpeners, h])] at h1
+        exact nomatch h1
+    rw [containerParamOpeners_getElem? hk] at h1
+    obtain ⟨ty, hty⟩ := hidx k hk
+    rw [hty] at h2
+    obtain rfl : a₁ = Expr.fvar k (Expr.sort Level.zero) := (Option.some.inj h1).symm
+    obtain rfl : a₂ = Expr.fvar k ty := (Option.some.inj h2).symm
+    rfl
+  · rw [hlen]; simp [containerParamOpeners]
 
 end ConLeche
