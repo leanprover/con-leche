@@ -106387,6 +106387,83 @@ of `nestedPinChecks_inv` (two more `by_cases`) rather than out of a new
 `by_cases` in `checkNested_inv_rest`, which is why the tail moved so
 little.
 
+#### TWO FINDINGS ABOUT THE OWN-PIN TABLE, for whoever reads it next (2026-09-19, task #315, lane K61)
+
+Both cost this lane a build and a measurement; neither is obvious from
+the code, and K.61's row (a) is where they were learned.
+
+**`Expr.instPis` RE-CAPTURES A LOOSE `bvar` AS PADDING.**
+`containerOwnPinsAt` instantiates a mimic recursor's WHOLE telescope
+with `Expr.instPis`, a fold of `instantiate1`, and `instantiate1` lowers
+the binders above each substitution.  So a value handed to it with loose
+bound variables — the natural spelling of "the container at its own
+parameters", since a stored constructor's `stripPis` binder list leaves
+the parameters as bvars — is re-captured by the NEXT binder and comes
+back as whatever that binder is instantiated at, which here is the
+`Expr.sort Level.zero` padding.  The instrument that works is a
+SYNTHETIC FREE VARIABLE per parameter (`containerParamOpeners`): a
+stored constant's type carries no `fvar` at all, so an `fvar` is a
+marker that cannot collide, and the two sides of any such comparison
+are then two substitutions by the same list, which is all a syntactic
+comparison needs.  **Any reader of `containerOwnPinsAt` at a
+non-identity instantiation wants the openers, not bvars.**
+
+**AN OWN-PIN INDEX IS FIXED IN THE CONTAINER'S OWN SCOPE.**  The
+instance map may COLLAPSE — two of a container's own pins instantiated
+alike arrive at one mimic of the block — so the own-pin table read AT
+THE PIN'S COMPONENTS cannot separate them, and a `findIdx?` there
+answers the first of the two.  For an EQUATION about the block target
+that is harmless (the two collapse to one target anyway); for an INDEX
+into the container's own pin table, which is what the model quantifies
+over, it is wrong.  The identity-instantiated table
+(`containerOwnPinsSelf`) is where the two are still two.  **Anything
+that names a container's own pin by POSITION must read that position in
+the container's own scope.**
+
+#### DOCKET — THE NESTED HELPERS SHOULD TAKE A LOOKUP FUNCTION (2026-09-19, task #315, coordinator's ruling on K.61's cost)
+
+**The root cause of every "this record costs its own traversal" row on
+this route**, ruled after K.61/K.62's ablation: the traversal is cheap
+and the LOOKUPS inside it are not.
+
+`Env.find?` is `env.consts.find? (·.name == n)` — a linear scan of the
+constant list — and `containerInfo?` costs a handful of them (the type,
+the recursor, then two per member and one per constructor).  The pure
+`Env` is the SPEC and stays a list; that is not the problem.  The
+problem is that `checkNestedS`, the CACHED route — the one that ships —
+hands the nested helpers the pure `fe.env` at every site
+(`ConLeche/Cached/CheckerC.lean`, the `nestedContainersOk`,
+`nestedPinCompsOk`, `nestedCopySrcOk`, `nestedGroupsOk` and
+`nestedPinChecks` calls), while `FEnv.find?` beside it is an O(1) index
+lookup.  So K.41, K.57, K.59, K.60, K.61 and K.62 each pay a linear
+scan per container lookup in the route that ships.
+
+**THE FIX**: the nested helpers take a LOOKUP FUNCTION
+`fnd : Name → Option ConstantInfo` instead of an `Env`, the pure route
+passes `env.find?` and the cached route passes `fe.find?`.  K.50's
+`nestedRuleBitsOk` is the precedent — it already takes `find?` for
+exactly this reason, and its row records the measurement that forced
+it.
+
+**IT RESTS ON ONE PROOF-SIDE FACT, WHICH EXISTS**:
+`mkFEnv_find?_fun : FEnv.find? (mkFEnv env) = env.find?`
+(`ConLeche/Verify/CheckerF.lean`).  Everything else is mechanical
+re-threading — `env.find?` ↦ `fnd` through the definitions and through
+the inversions' statements, which mention the environment only inside
+`containerInfo?`.
+
+**WHAT IT PAYS BACK**: all six records at once.  K.61/K.62 alone are
++0.326 %/+0.434 % of a Mathlib shadow run and K.60 is
++0.128 %/+0.142 %; the class of the cost is the same for K.41, K.57 and
+K.59.  Lever (1) of K.61's row — fusing two `containerInfo?` calls
+inside `nestedInstMapAt` — would trim one record's share and leave the
+class, which is why it is NOT taken.
+
+**WHEN**: with the flip's re-measurement.  The nested route is not
+dispatched today, so the production cost of all six is ZERO; the first
+moment it matters is the moment the dispatch arm lands, and that is the
+measurement this work belongs to.  **Do not build it before then.**
+
 #### U.117 — M7-3 session 24: **`ContainerModeled.ownPins` LANDED at all nine sites** — the covering premise closed (lane M7-3, session 24, 2026-09-18)
 
 The field lane L-E's covering premise waits on.  Every ingredient was
