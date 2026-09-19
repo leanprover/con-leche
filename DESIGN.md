@@ -124050,3 +124050,118 @@ and nothing of the `pins_le_*` / `NestedPinsLe`-producer family moved
 (`pins_le_of_declOrder` stands where it stood).  `#print axioms` on the
 deliverable and on all six new Verify laws: `propext`,
 `Classical.choice`, `Quot.sound`.
+
+#### WIDE (3) STEP 1(a) — THE BLOCK SIDE WAS STATED AT AN ENVIRONMENT NO CONSUMER CAN REACH; THE FIX IS FOUR LINES, AND THE WRAPPERS ARE THE REST OF THE OWNER'S HALF (lane LE, 2026-09-19)
+
+Step 1's two landed lemmas were read against their intended consumer
+for the first time this session, and two things were found before any
+of the clause could be written.  Both are now closed; what is left of
+step 1(a) is priced at the end, and it is not one session.
+
+##### (a) THE ENVIRONMENT — THE FINDING
+
+`copyOrdFRightPinOrdTargetRead` and `…Refl` concluded at
+`mp₁.base2.acval` over `consMutualFormers fms env`: the model of the
+environment holding ALL the block's formers, the copies' included.
+**No consumer of the clause can be there.**  The `PinShapes` clause is
+produced by `nestedPinShapes_of`, which is instantiated at the
+RESTORED environment `consNestedCtors ctorsR.flatten
+(consMutualFormers (fms.take p.k) env)`; the group structure that
+would carry the fact to it (`NestedPinGroupIds`, `NestedPinGroup`) is
+at the PREFIX environment `consMutualFormers (fms.take p.k) env`; and
+`NestedPinsRun.crossUp` runs prefix → whole block and has no converse
+(none is true: the copies' formers are fresh in the prefix).  Neither
+target environment contains the full-formers one.
+
+The fix is that the statement never needed that model.  The term read
+is a PRE-BLOCK one — the container's stored constructor field domain
+and the pins' components — and the premise `hea'` the lemma already
+takes is at the prefix model.  The index expressions are still
+identified at the whole block's model, where `MutualCtorDataI.eisRead`
+lives, but what that yields is an equation between ANNOTTERMS, which
+names no environment, so it crosses for free.  Four lines: the two
+conclusions and the two closing rewrites (`heaW` → `hea'`/`hbW`);
+commit `f00f0e7f`.
+
+##### (b) THE RESIDUALS — AND THE WRAPPERS THAT DISCHARGE THEM
+
+The two lemmas take the field's whole syntactic residual as
+hypotheses — the minted constructor `cI`, its opening `xfvs'`, the
+opened field variable `xI`, the positivity walk's output `w`, the
+rewrite, and the reading of `w`.  A consumer holds none of those: what
+it holds at an `ordF`-right field is the run, the group, a frame and a
+fitting prefix, exactly as at every other arm of the shape.
+
+`copyOrdFRightPinOrdTargetReadAt` and `…AtRefl`
+(`Model/Inductives/NestedCopyInst.lean`, end of `section Assembly`)
+close it the way `copyOrdFRightReadP` does, and the mechanism is
+`copyFieldReadCoreQ`'s `Q` parameter: `copyFieldReadPin`'s FIXED `Q`
+drops exactly the four pieces the target reading needs, so these
+instantiate `Q` themselves and capture them.  The reading of `w` is
+the core's own last component, which is why `ψ`, `ρp`, the `Sat` and a
+fitting prefix `fs₁` are INPUTS here and absent from the conclusion —
+and why the `PinShapes` clause will carry them too, the way conjunct 6
+already does.  `hfin`/`hciK` stay hypotheses: they are K.69's own
+dispatch — the head of the owner's recomputation and its container —
+and no clause of the run produces them.  Commit `84bb4628`.
+
+##### (c) WHAT IS LEFT OF STEP 1(a), PRICED BY INPUTS
+
+Three pieces, none started:
+
+* **the carrier.**  A new field on `NestedPinGroupIds` (beside
+  `shape`/`entry`/`inst`), copied onto `NestedPinGroup` through
+  `NestedPinGroupSyn.ofParts` and carried by
+  `NestedPinGroup.crossEnv` (which already takes the `hde` a
+  denotational field needs).  Mechanical, but it is four files;
+* **its discharge at the run.**  The wrappers' `hrunAll` is
+  `copyOrdFRightPinRun` (`nestedPinsShapeOrdRight_of`'s own, stated at
+  either kind); what is NOT free is the bridge from the clause's guard
+  to the wrappers' — the clause is keyed by the CONTAINER's `rss` and
+  the block's `blkRss` bit, the wrappers by `kindAt`, and the
+  container's own `ordTargetDom` table is `(D).ownPinTerms lps` while
+  the run's is `nestedPinTermsSelf p st` (`R.ownPinTerms_eq`), with
+  `lpsC`/`J.lps` and `dJ.nP`/`ci.nP` to identify.  That is `hordσ`'s
+  preamble again, a file-section;
+* **the clause and its transports.**  The conjunct on `PinShapes`
+  (`NestedPremise.lean`), its proof in `nestedPinShapes_of`, the
+  vacuous producers (the five pinned basis blocks and M7-3's
+  pins-free sites), `PinShapes.congrB` — and `PinShapes.crossEnv`,
+  which **does not currently take `hde` at all**: it is called from
+  `BlockAt.crossEnvP`, `BlockAt.crossEnv` and `DeclNestedCore.lean`,
+  and the guarded call site is the one that needs `ProjFree` of
+  `instSeq (openFvars d.nP l) (l-1) (ordTargetDom …)` — the
+  container's stored constructor domain from K.64's `projTablesOk`
+  (`ProjSlotsOk.noProjAt`, `ContainerModeled.ctorProjFree`) and the
+  own-pin entries from `ContainerModeled.pinDsRes`.
+
+**A fourth thing the guard costs, recorded so it is not rediscovered.**
+The clause's natural guard names the head of `ordTargetDom(…)`
+(`hhd`, the way the `ordF` row already does), while the wrappers want
+it on the level-instantiated stored DOMAIN (`hfin`) — and at the
+reflexive arm on that domain's `stripDomPis`.  `instSeq_getAppFn_const`
+carries a constant head FORWARD through the components' instantiation;
+the converse is false in general (an instantiation can plant a head
+where a `bvar` stood), so either the clause is stated at `hfin` or the
+converse is bought. Stating it at `hfin` is the cheaper of the two and
+is what the next session should do.
+
+So step 1(a) alone is two further sessions at this pricing, and step
+1(b) — the `PinGroupInst` conjunct, which needs `PinShapes` of the
+CONTAINER `dJ` and `NestedPinGroupSyn` carries only `modeled :
+ContainerModeled` — a third.  **The budget for steps 1–2 together was
+ONE session and the doubling stop was already reached at `33a42656`;
+this session spent itself on 1(a)'s two bricks and stops there.**
+
+##### (d) THE GATES
+
+`tests/warning-free.sh 33a42656`: 1 changed module, `lake build` 1
+recompiled and 0 warning lines, `lake test` 0 warning lines.
+`tests/unconsumed.sh` 198/3816 against 198/3814; the diff read: the two
+wrappers ENTER and the two lemmas they consume LEAVE, net zero, and
+nothing else can have moved — the only file touched is
+`NestedCopyInst.lean` (`pins_le_of_declOrder` and `nestedPinsLe_of_rank`
+stand where they stood).  `tests/arena.sh` not run and not owed: no
+`Kernel/`, `Cached/` or `Verify/` file changed.  `#print axioms` on the
+two wrappers and on the two retargeted lemmas: `propext`,
+`Classical.choice`, `Quot.sound`.
