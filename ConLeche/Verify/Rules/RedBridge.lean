@@ -169,7 +169,15 @@ theorem projCertAt_bridge (hd : DefEqBridge env fuel) (hio : InferIOBridge env f
 /-- `majorToCtor` ⇒ `Red.refl` or one of the three rescues
 (`majorToCtor_inv`; the rescue's proof-irrelevance / structure-η
 certificate becomes the `DefEq fab major` premise through
-`proofIrrel_bridge` / `structEtaCertWith_bridge`). -/
+`proofIrrel_bridge` / `structEtaCertWith_bridge`).
+
+**`hrec`**: the three `Red.rescue*` rules open with `env.find? recName
+= some (.recInfo cv mI rP [rl])` — the rule bits `rl.k`/`rl.eta` are
+honest only at a stored recursor, which is what the soundness lane
+reads them from.  `majorToCtor` itself ignores its `_recName` argument
+(`Core.lean:556`), so the inversion cannot supply the fact and the
+caller must: `iotaRec_inv` hands it over at the one site that runs the
+chain (through `prepareMajor_bridge`, which passes it through). -/
 theorem majorToCtor_bridge (hw : WhnfBridge env fuel)
     (hd : DefEqBridge env fuel) (hio : InferIOBridge env fuel)
     {d : Nat} {recName : Name} {rules : List RecRule} {major major' : Expr}
@@ -196,7 +204,8 @@ theorem majorToCtor_bridge (hw : WhnfBridge env fuel)
       (inferTypeIO_bridge hio htf) (hd hdq) (proofIrrel_bridge hw hio hpirr)
 
 /-- `prepareMajor` ⇒ a `Red` chain (`prepareMajorFueled_ind` with the
-motive `Red env d a ·`: each of the three steps is a `Red.trans`). -/
+motive `Red env d a ·`: each of the three steps is a `Red.trans`).
+`hrec` is `majorToCtor_bridge`'s, passed through. -/
 theorem prepareMajor_bridge (hw : WhnfBridge env fuel)
     (hd : DefEqBridge env fuel) (hio : InferIOBridge env fuel)
     {d : Nat} {recName : Name} {rules : List RecRule} {a m : Expr}
