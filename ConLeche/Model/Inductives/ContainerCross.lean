@@ -532,9 +532,11 @@ theorem ContainerModeled.crossEnvP {Ts : List Name} {env₁ env₂ : Env}
       ordFree := C.ordFree
       nestMention := C.nestMention
       pinsDistinct := C.pinsDistinct
+      pinsDistinctAt := C.pinsDistinctAt
       nestArgsMention := C.nestArgsMention
       nestArgsMentionAbs := C.nestArgsMentionAbs
       nestArgsMentionAbsRefl := C.nestArgsMentionAbsRefl
+      nestPinSpineAbs := C.nestPinSpineAbs
       ctorProjFree := C.ctorProjFree
       pinsNotMembers := C.pinsNotMembers
       pinNP := C.pinNP
@@ -1557,6 +1559,18 @@ theorem ContainerModeled.of_readBack {env : Env} {m : EnvModel V env} {nP : Nat}
       (d.ksF i j).getD l .ordinary = .reflexive →
       ∃ e ∈ (ConLeche.stripDomPis dom.1).getAppArgs.take (d.pinAt q).nPJ,
         ConLeche.mentionsMember d.memberNames e = true)
+    (hnestPinSpineAbs : ∀ (i j l : Nat) (cA : ConstantVal × Nat)
+      (bs : List (Expr × ConLeche.BinderMeta)) (r : Expr)
+      (dom : Expr × ConLeche.BinderMeta) (q : Nat) (lps : List Name), i < d.k →
+      (d.ctorsM i)[j]? = some cA →
+      cA.1.type.stripPis (d.nP + cA.2) = some (bs, r) → bs[d.nP + l]? = some dom →
+      d.nestOf i j l = some q → q < d.nPins →
+      (d.ksF i j).getD l .ordinary = .recursive →
+      Expr.instantiateList
+          (Expr.mkAppN dom.1.getAppFn (dom.1.getAppArgs.take (d.pinAt q).nPJ))
+          (ConLeche.containerParamOpeners d.nP).reverse l
+        = (d.pinAt q).ownAt d.nP lps (lps.map Level.param)
+            (ConLeche.containerParamOpeners d.nP))
     (hctorProjFree : ∀ (i j : Nat) (cA : ConstantVal × Nat), i < d.k →
       (d.ctorsM i)[j]? = some cA →
       ∀ T ∈ d.memberNames, ∀ n : Nat, ConLeche.Expr.NoProjAt T n cA.1.type)
@@ -1578,7 +1592,12 @@ theorem ContainerModeled.of_readBack {env : Env} {m : EnvModel V env} {nP : Nat}
         d i)
     (hpinsDistinct : ∀ q q', q < d.nPins → q' < d.nPins →
       Expr.mkAppN (.const (d.pinAt q).J (d.pinAt q).lvls) (d.pinAt q).DsE
-        = Expr.mkAppN (.const (d.pinAt q').J (d.pinAt q').lvls) (d.pinAt q').DsE → q = q') :
+        = Expr.mkAppN (.const (d.pinAt q').J (d.pinAt q').lvls) (d.pinAt q').DsE → q = q')
+    (hpinsDistinctAt : ∀ q q' (lps : List Name), q < d.nPins → q' < d.nPins →
+      (d.pinAt q).ownAt d.nP lps (lps.map Level.param)
+          (ConLeche.containerParamOpeners d.nP)
+        = (d.pinAt q').ownAt d.nP lps (lps.map Level.param)
+            (ConLeche.containerParamOpeners d.nP) → q = q') :
     ContainerModeled m (ConLeche.blockContainerInfo nP members) d where
   k := by rw [hk]; show _ = (members.map _).length; rw [List.length_map]
   namesLen := hnamesLen
@@ -1590,9 +1609,11 @@ theorem ContainerModeled.of_readBack {env : Env} {m : EnvModel V env} {nP : Nat}
   ordFree := hordFree
   nestMention := hnestMention
   pinsDistinct := hpinsDistinct
+  pinsDistinctAt := hpinsDistinctAt
   nestArgsMention := hnestArgsMention
   nestArgsMentionAbs := hnestArgsMentionAbs
   nestArgsMentionAbsRefl := hnestArgsMentionAbsRefl
+  nestPinSpineAbs := hnestPinSpineAbs
   ctorProjFree := hctorProjFree
   pinsNotMembers := hpinsNotMembers
   pinNP := hpinNP

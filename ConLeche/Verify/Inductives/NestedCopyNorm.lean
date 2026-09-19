@@ -344,58 +344,6 @@ theorem openPisAtFvars_fvarsBelow :
           rw [show d + (i + 1) = d + 1 + i from by omega]
           exact hdoms i x hx
 
-/-- Opening a binder with a fresh variable and closing it again is the
-identity (`Verify/Cached/StreamConsts`' `instantiate1_abstract1_self`,
-reproved here: that module is the cached checker's and this one must
-not depend on it). -/
-private theorem instantiate1_abstract1_selfD {d : Nat} {T : Expr} :
-    ∀ (e : Expr) (k : Nat), Expr.fvarsBelow d e → e.looseBVarsBounded (k + 1) = true →
-      (e.instantiate1 (.fvar d T) k).abstract1 d k = e := by
-  intro e
-  induction e with
-  | bvar i =>
-    intro k hf hb
-    simp only [Expr.looseBVarsBounded, decide_eq_true_eq] at hb
-    simp only [Expr.instantiate1]
-    by_cases h1 : i = k
-    · simp [h1, Expr.abstract1]
-    · rw [if_neg h1, if_neg (by omega)]
-      simp [Expr.abstract1]
-  | fvar idx ty ih =>
-    intro k hf hb
-    simp only [Expr.fvarsBelow] at hf
-    simp only [Expr.instantiate1, Expr.abstract1]
-    rw [if_neg (by omega)]
-  | app f a ihf iha =>
-    intro k hf hb
-    simp only [Expr.fvarsBelow] at hf
-    simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
-    simp only [Expr.instantiate1, Expr.abstract1, ihf k hf.1 hb.1, iha k hf.2 hb.2]
-  | lam ty b m ihty ihb =>
-    intro k hf hb
-    simp only [Expr.fvarsBelow] at hf
-    simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
-    simp only [Expr.instantiate1, Expr.abstract1, ihty k hf.1 hb.1, ihb (k + 1) hf.2 hb.2]
-  | forallE ty b m ihty ihb =>
-    intro k hf hb
-    simp only [Expr.fvarsBelow] at hf
-    simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
-    simp only [Expr.instantiate1, Expr.abstract1, ihty k hf.1 hb.1, ihb (k + 1) hf.2 hb.2]
-  | letE ty v b ihty ihv ihb =>
-    intro k hf hb
-    simp only [Expr.fvarsBelow] at hf
-    simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
-    simp only [Expr.instantiate1, Expr.abstract1, ihty k hf.1 hb.1.1, ihv k hf.2.1 hb.1.2,
-      ihb (k + 1) hf.2.2 hb.2]
-  | proj s i e ih =>
-    intro k hf hb
-    simp only [Expr.fvarsBelow] at hf
-    simp only [Expr.looseBVarsBounded] at hb
-    simp only [Expr.instantiate1, Expr.abstract1, ih k hf hb]
-  | sort u => intro k _ _; rfl
-  | const n us => intro k _ _; rfl
-  | lit l => intro k _ _; rfl
-
 /-- `ErasedEq` is a congruence for `abstract1`: the closing reads an
 `fvar`'s INDEX and nothing else, which is exactly what an erasure
 equality keeps. -/
@@ -503,7 +451,7 @@ theorem normPosDomM_piIndApp {env : Env} {memberNames : List Name} {F : Nat}
           (looseBVarsBounded_instantiate1 rest 0 hbrest) hrec
         refine ⟨rfl, Expr.ErasedEq.rfl _, ?_⟩
         have h1 := erasedEq_abstract1 (d := d) 0 hIH
-        rwa [instantiate1_abstract1_selfD rest 0 hrest hbrest] at h1
+        rwa [ConLeche.instantiate1_abstract1_self rest 0 hrest hbrest] at h1
 
 
 /-- `openPisAtFvars_erasedEq` with the OPENERS: the two runs plant

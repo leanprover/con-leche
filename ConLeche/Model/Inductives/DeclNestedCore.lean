@@ -14,6 +14,20 @@ import ConLeche.Verify.Inductives.NestedElimInv
 import ConLeche.Verify.Inductives.NestedCopyTele
 -- `WScoped_of_openers`: K.30's openers turned into a pin's scope
 import ConLeche.Model.Inductives.NestedCopyIdx
+-- `instantiateList_openers_eq_instSeq`: the own-pin reader's cut and
+-- `PinSyn.ownAt` are the same substitution, for
+-- `ContainerModeled.nestPinSpineAbs` (task #315 WIDE (1′))
+import ConLeche.Verify.Inductives.NestedCopyInstU
+-- `looseBVarsBounded_abstractRange`: a closed pin, closed over the
+-- parameters, is bounded at their number (same clause)
+import ConLeche.Verify.Inductives.NestedRecCtorPin
+-- `abstractRange_mkAppN`/`abstractRange_const`: the closed pin, read
+-- component by component (same clause)
+import ConLeche.Verify.Inductives.NestedCopyKinds
+-- `instSeq_abstractRange_fvs`: the pin, recovered from its abstraction
+-- at the REAL openers, for `ContainerModeled.pinsDistinctAt`
+-- (task #315 WIDE (2″))
+import ConLeche.Verify.Inductives.NestedCopyGlue
 -- `findProj?_none_of_indFresh`/`findProj?_none_consMutualFormers`: the
 -- members' EMPTY projection slot at the prefix environment, for
 -- `ContainerModeled.ctorProjFree` (task #315 PINF)
@@ -666,11 +680,44 @@ theorem nestedContainerModeled {F : Nat} {st : ElimState} {envAux : Env}
     obtain ⟨hJ, -⟩ := O.record.pin q _ hpq
     obtain ⟨ci, hci, -⟩ := (ConLeche.nestedContainersOk_group hcont).2 _ (List.mem_of_getElem? hpq)
     exact ⟨ci, by rw [hJ]; exact hci⟩
+  -- K.31 at the RECORDED pins (the elimination's dedup by pin
+  -- EXPRESSION) and the own-pin TABLE's own spelling of a recorded pin
+  -- — shared by `pinsDistinct`, by its twin at that spelling
+  -- (`pinsDistinctAt`, task #315 WIDE (2″)) and by `nestPinSpineAbs`
+  have hpinsInj : ∀ (q q' : Nat) (hql : q < st.pins.length) (hql' : q' < st.pins.length),
+      (st.pins[q]'hql).pin = (st.pins[q']'hql').pin → q = q' := by
+    intro q q' hql hql' hterm
+    have hnd : (st.pins.map (·.pin)).Nodup := (ConLeche.nestedContainersOk_group hcont).1
+    have h1 : (st.pins.map (·.pin))[q]? = some (st.pins[q]'hql).pin := by
+      rw [List.getElem?_map, List.getElem?_eq_getElem hql]; rfl
+    have h2 : (st.pins.map (·.pin))[q']? = some (st.pins[q]'hql).pin := by
+      rw [List.getElem?_map, List.getElem?_eq_getElem hql', hterm]; rfl
+    exact (List.getElem?_inj (List.getElem?_eq_some_iff.mp h1).1 hnd).mp (h1.trans h2.symm)
+  have hownAtSelf : ∀ (q : Nat) (lps : List Name) (pn : ConLeche.NestedPin),
+      st.pins[q]? = some pn →
+      ((D).pinAt q).ownAt p.nP lps (lps.map Level.param)
+          (ConLeche.containerParamOpeners p.nP)
+        = Expr.instSeq (ConLeche.containerParamOpeners p.nP) (p.nP - 1)
+            (Expr.abstractRange pn.pin 0 p.nP 0) := by
+    intro q lps pn hpq
+    obtain ⟨hJ, hpin⟩ := O.record.pin q _ hpq
+    have hlvlId : ∀ us : List Level,
+        us.map (Level.subst lps (lps.map Level.param)) = us := by
+      intro us
+      have h := Expr.instantiateLevelParams_self lps (Expr.const .anonymous us)
+      simpa [Expr.instantiateLevelParams] using h
+    unfold ConLeche.Model.PinSyn.ownAt
+    rw [hpin, ← hJ, ConLeche.abstractRange_mkAppN, ConLeche.abstractRange_const,
+      ConLeche.instSeq_mkAppN_const, hlvlId,
+      show (ConLeche.containerParamOpeners p.nP).length = p.nP from by
+        simp [ConLeche.containerParamOpeners]]
+    simp only [List.map_map, Function.comp_def, Expr.instantiateLevelParams_self]
   refine ContainerModeled.of_readBack ?_ O.record.nP ?_ ?_ ?_ T.repsAt.toIsBlockModels
     (fun ψ => ⟨(O.typed ψ).1.crossEnv T.agree O.reps.toIsBlockModels,
       (O.typed ψ).2.1.crossEnv T.agree O.reps.toIsBlockModels,
       (O.typed ψ).2.2.crossEnv T.agree O.reps.toIsBlockModels ?_⟩)
-    (fun ψ mm' j fs => ofNested_inj ψ mm' j fs) ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ hown ?_ ?_ ?_ ?_
+    (fun ψ mm' j fs => ofNested_inj ψ mm' j fs) ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ hown
+    ?_ ?_ ?_ ?_ ?_
   · -- `hk`
     rw [hdk, List.length_map, List.length_zip, List.length_take, hclen]
     omega
@@ -851,8 +898,13 @@ theorem nestedContainerModeled {F : Nat} {st : ElimState} {envAux : Env}
     | some c =>
       rw [hc] at hj'
       obtain rfl : ((c.1, c.2.2) : ConstantVal × Nat) = cA := Option.some.inj hj'
-      obtain ⟨dd, hargs⟩ := O.stage.pinArgsAbs i j l c bs r dom st.pins[q].pin q (hdk ▸ hi) hc
-        hstrip hdom (by rw [hpin, hJ]) hn hk
+      obtain ⟨rest, hPar, hspine⟩ := O.stage.pinArgsAbs i j l c bs r dom st.pins[q].pin q
+        (hdk ▸ hi) hc hstrip hdom (by rw [hpin, hJ]) hn hk
+      -- the SPINE, read back as the mention form: the lifted pin's own
+      -- argument list is the domain's first `nPJ` (task #315 WIDE (1′))
+      obtain ⟨dd, hargs⟩ : ∃ dd, dom.1.getAppArgs.take ((D).pinAt q).nPJ
+          = ((Expr.abstractRange st.pins[q].pin 0 p.nP 0).liftLooseBVars dd 0).getAppArgs :=
+        ⟨l, by rw [hspine, Expr.getAppArgs_mkAppN, List.take_left' hPar]⟩
       -- K.30: the pin is closed and its variables are the first former's openers
       obtain ⟨t₀, params, o, ht₀, hopen, hall⟩ := ConLeche.pinsScoped_inv hsc
       have hty0 : st.types[0]? = some t₀ := by rw [← List.head?_eq_getElem?]; exact ht₀
@@ -941,8 +993,11 @@ theorem nestedContainerModeled {F : Nat} {st : ElimState} {envAux : Env}
     | some c =>
       rw [hc] at hj'
       obtain rfl : ((c.1, c.2.2) : ConstantVal × Nat) = cA := Option.some.inj hj'
-      obtain ⟨dd, hargs⟩ := O.stage.pinArgsAbsRefl i j l c bs r dom st.pins[q].pin q (hdk ▸ hi) hc
-        hstrip hdom (by rw [hpin, hJ]) hn hk
+      obtain ⟨dep, rest, hPar, hspine⟩ := O.stage.pinArgsAbsRefl i j l c bs r dom st.pins[q].pin q
+        (hdk ▸ hi) hc hstrip hdom (by rw [hpin, hJ]) hn hk
+      obtain ⟨dd, hargs⟩ : ∃ dd, (ConLeche.stripDomPis dom.1).getAppArgs.take ((D).pinAt q).nPJ
+          = ((Expr.abstractRange st.pins[q].pin 0 p.nP 0).liftLooseBVars dd 0).getAppArgs :=
+        ⟨l + dep, by rw [hspine, Expr.getAppArgs_mkAppN, List.take_left' hPar]⟩
       -- K.30: the pin is closed and its variables are the first former's openers
       obtain ⟨t₀, params, o, ht₀, hopen, hall⟩ := ConLeche.pinsScoped_inv hsc
       have hty0 : st.types[0]? = some t₀ := by rw [← List.head?_eq_getElem?]; exact ht₀
@@ -1009,6 +1064,41 @@ theorem nestedContainerModeled {F : Nat} {st : ElimState} {envAux : Env}
       rw [hhd, Bool.false_or] at hTm
       obtain ⟨a, ha, ham⟩ := List.any_eq_true.mp hTm
       exact ⟨a, ha, List.any_eq_true.mpr ⟨T, hT, ham⟩⟩
+  · -- `nestPinSpineAbs`: NOT ONLY A MENTION BUT THE SPINE (task #315
+    -- WIDE (1′)).  `NestedStageFacts.pinArgsAbs` now hands the whole
+    -- abstract domain as the recorded pin CLOSED over the parameters
+    -- and LIFTED past the field's own binders, applied to a
+    -- remainder, with the pin's argument count beside it — so the cut
+    -- at the container's parameter count IS that lifted pin, and the
+    -- two substitution idioms agree on it
+    -- (`instantiateList_openers_eq_instSeq`).  K.30 supplies the one
+    -- semantic input, that a recorded pin is bvar-closed.
+    intro i j l cA bs r dom q lps hi hcA hstrip hdom hn hq hk
+    have hql : q < st.pins.length := by rw [← O.record.nPins]; exact hq
+    have hpq : st.pins[q]? = some st.pins[q] := List.getElem?_eq_getElem hql
+    obtain ⟨hJ, hpin⟩ := O.record.pin q _ hpq
+    have hj' : ((ctorsR.getD i []).map (fun c => (c.1, c.2.2)))[j]? = some cA := by
+      rw [← O.record.ctors i (hdk ▸ hi)]; exact hcA
+    rw [List.getElem?_map] at hj'
+    cases hc : (ctorsR.getD i [])[j]? with
+    | none => rw [hc] at hj'; exact nomatch hj'
+    | some c =>
+      rw [hc] at hj'
+      obtain rfl : ((c.1, c.2.2) : ConstantVal × Nat) = cA := Option.some.inj hj'
+      obtain ⟨rest, hPar, hspine⟩ := O.stage.pinArgsAbs i j l c bs r dom st.pins[q].pin q
+        (hdk ▸ hi) hc hstrip hdom (by rw [hpin, hJ]) hn hk
+      -- K.30: a recorded pin carries no loose bound variable
+      obtain ⟨t₀, params, o, ht₀, hopen, hall⟩ := ConLeche.pinsScoped_inv hsc
+      obtain ⟨hbndPin, -⟩ := hall _ (List.mem_of_getElem? hpq)
+      -- the cut is the closed pin, lifted past the field's binders
+      have hcut : Expr.mkAppN dom.1.getAppFn (dom.1.getAppArgs.take ((D).pinAt q).nPJ)
+          = (Expr.abstractRange st.pins[q].pin 0 p.nP 0).liftLooseBVars l 0 := by
+        rw [hspine, Expr.getAppFn_mkAppN, Expr.getAppArgs_mkAppN, List.take_left' hPar,
+          Expr.mkAppN_getApp]
+      rw [hcut, O.record.nP,
+        ConLeche.instantiateList_openers_eq_instSeq p.nP l
+          (by simpa using ConLeche.looseBVarsBounded_abstractRange _ 0 p.nP 0 hbndPin)]
+      exact (hownAtSelf q lps _ hpq).symm
   · -- `ctorProjFree`: the restored constructor's front-door
     -- `.proj`-slot fact, at the members' prefix environment, against
     -- the member's EMPTY slot there (task #315 PINF).  `ProjSlotsOk`
@@ -1095,18 +1185,86 @@ theorem nestedContainerModeled {F : Nat} {st : ElimState} {envAux : Env}
     have hpq' : st.pins[q']? = some st.pins[q'] := List.getElem?_eq_getElem hql'
     obtain ⟨hJ, hpe⟩ := O.record.pin q _ hpq
     obtain ⟨hJ', hpe'⟩ := O.record.pin q' _ hpq'
-    have hterm : st.pins[q].pin = st.pins[q'].pin := by
-      rw [hpe, hpe', ← hJ, ← hJ']; exact heq
-    have hnd : (st.pins.map (·.pin)).Nodup := (ConLeche.nestedContainersOk_group hcont).1
-    have hm : ∀ (n : Nat) (hn : n < st.pins.length),
-        (st.pins.map (·.pin))[n]? = some (st.pins[n]'hn).pin := by
-      intro n hn
-      rw [List.getElem?_map, List.getElem?_eq_getElem hn]
+    exact hpinsInj q q' hql hql' (by rw [hpe, hpe', ← hJ, ← hJ']; exact heq)
+  · -- `pinsDistinctAt`: THE SAME DISTINCTNESS AT THE OWN-PIN TABLE'S
+    -- SPELLING (task #315 WIDE (2″)).  The table's entry is the
+    -- recorded pin with every parameter `fvar`'s ANNOTATION replaced by
+    -- a synthetic one, and annotation-erasure is not injective in
+    -- general — so `pinsDistinct` does not give this.  What makes it
+    -- true here is K.30: a recorded pin's `fvar` leaves are the first
+    -- former's openers, so the abstraction leaves NO free variable
+    -- behind and the synthetic reopening is undone exactly
+    -- (`abstractRange_instSeq_fvs`), after which re-opening at the REAL
+    -- openers returns the pin (`instSeq_abstractRange_fvs`).
+    intro q q' lps hq hq' heq
+    have hql : q < st.pins.length := by rw [← O.record.nPins]; exact hq
+    have hql' : q' < st.pins.length := by rw [← O.record.nPins]; exact hq'
+    have hpq : st.pins[q]? = some st.pins[q] := List.getElem?_eq_getElem hql
+    have hpq' : st.pins[q']? = some st.pins[q'] := List.getElem?_eq_getElem hql'
+    rw [O.record.nP, hownAtSelf q lps _ hpq, hownAtSelf q' lps _ hpq'] at heq
+    -- K.30: the pins are closed and their variables are the openers
+    obtain ⟨t₀, prms, o, ht₀, hopenP, hallP⟩ := ConLeche.pinsScoped_inv hsc
+    have hlenP : prms.length = p.nP := openPisAtFvars_length p.nP hopenP
+    have hidxP : ∀ (j : Nat) (x : Expr), prms[j]? = some x → ∃ ty, x = Expr.fvar j ty := by
+      intro j x hx
+      obtain ⟨ty, hty⟩ := ConLeche.openPisAtFvars_index p.nP t₀.type 0 hopenP j x hx
+      exact ⟨ty, by rw [hty, Nat.zero_add]⟩
+    have hidxP' : ∀ j, j < p.nP → ∃ ty, prms[j]? = some (Expr.fvar j ty) := by
+      intro j hj
+      have hx : prms[j]? = some prms[j] := List.getElem?_eq_getElem (by omega)
+      obtain ⟨ty, hty⟩ := hidxP j _ hx
+      exact ⟨ty, by rw [hx, hty]⟩
+    -- the SYNTHETIC openers: closed, and the `j`-th is `fvar j`
+    have hlenO : (ConLeche.containerParamOpeners p.nP).length = p.nP := by
+      simp [ConLeche.containerParamOpeners]
+    have hclO : ∀ a ∈ ConLeche.containerParamOpeners p.nP,
+        a.looseBVarsBounded 0 = true := by
+      intro a ha
+      obtain ⟨i, -, rfl⟩ := List.mem_map.mp ha
       rfl
-    have h1 : (st.pins.map (·.pin))[q]? = some st.pins[q].pin := hm q hql
-    have h2 : (st.pins.map (·.pin))[q']? = some st.pins[q].pin := by
-      rw [hm q' hql', hterm]
-    exact (List.getElem?_inj (List.getElem?_eq_some_iff.mp h1).1 hnd).mp (h1.trans h2.symm)
+    have hidxO : ∀ j, j < p.nP →
+        ∃ ty, (ConLeche.containerParamOpeners p.nP)[j]? = some (Expr.fvar j ty) :=
+      fun j hj => ⟨Expr.sort Level.zero, by
+        simp [ConLeche.containerParamOpeners, hj]⟩
+    have hpinFacts : ∀ (n : Nat) (hn : n < st.pins.length),
+        (st.pins[n]'hn).pin.looseBVarsBounded 0 = true ∧
+        (∀ l ∈ (st.pins[n]'hn).pin.fvarLeaves, Expr.fvar l.1 l.2 ∈ prms) :=
+      fun n hn => hallP _ (List.mem_of_getElem? (List.getElem?_eq_getElem hn))
+    have hfvb : ∀ (n : Nat) (hn : n < st.pins.length),
+        Expr.fvarsBelow p.nP (st.pins[n]'hn).pin := by
+      intro n hn
+      refine ConLeche.fvarsBelow_of_fvarLeaves _ (fun l hl => ?_)
+      obtain ⟨pos, hpos⟩ := List.getElem?_of_mem ((hpinFacts n hn).2 l hl)
+      have hposlt : pos < p.nP := by
+        rcases Nat.lt_or_ge pos prms.length with h | h
+        · omega
+        · rw [List.getElem?_eq_none h] at hpos; exact nomatch hpos
+      obtain ⟨ty, hty⟩ := hidxP pos _ hpos
+      have hl1 : l.1 = pos := by injection hty with a _
+      omega
+    -- the synthetic round trip, and the real one
+    have hround : ∀ (n : Nat) (hn : n < st.pins.length),
+        (Expr.instSeq (ConLeche.containerParamOpeners p.nP) (p.nP - 1)
+            (Expr.abstractRange (st.pins[n]'hn).pin 0 p.nP 0)).abstractRange 0 p.nP 0
+          = Expr.abstractRange (st.pins[n]'hn).pin 0 p.nP 0 := by
+      intro n hn
+      have h := ConLeche.abstractRange_instSeq_fvs p.nP
+        (ConLeche.containerParamOpeners p.nP)
+        (Expr.abstractRange (st.pins[n]'hn).pin 0 p.nP 0) 0 hlenO hidxO hclO
+        (ConLeche.fvarsBelow_abstractRange _ 0 (hfvb n hn))
+        (by simpa using
+          ConLeche.looseBVarsBounded_abstractRange _ 0 p.nP 0 (hpinFacts n hn).1)
+      rwa [show p.nP + 0 - 1 = p.nP - 1 from by omega] at h
+    have hback : ∀ (n : Nat) (hn : n < st.pins.length),
+        Expr.instSeq prms (p.nP - 1) (Expr.abstractRange (st.pins[n]'hn).pin 0 p.nP 0)
+          = (st.pins[n]'hn).pin :=
+      fun n hn => ConLeche.instSeq_abstractRange_fvs p.nP prms _ (hpinFacts n hn).1 hlenP
+        hidxP' (hpinFacts n hn).2
+    refine hpinsInj q q' hql hql' ?_
+    have hA : Expr.abstractRange (st.pins[q]'hql).pin 0 p.nP 0
+        = Expr.abstractRange (st.pins[q']'hql').pin 0 p.nP 0 := by
+      rw [← hround q hql, ← hround q' hql', heq]
+    rw [← hback q hql, ← hback q' hql', hA]
 
 /-- **THE BLOCK'S OWN PINS ARE ITS RECORDED PINS, AT EVERY
 INSTANTIATION** (task #315 M7-3 session 18, DESIGN §U.104):
@@ -1420,6 +1578,18 @@ discharged modulo the loop by `nestedCoreModeled_of`. -/
       ConLeche.nestedPinRewrites env p st params pbs₀ jobsP wsP = true) →
     -- K.60: a container's nested field lands on a block pin
     ConLeche.nestedCopyPinFieldsOk env p b st stored = true →
+    -- K.63: the same, one `Π`-tower down — a container's REFLEXIVE
+    -- nested field lands on a block pin, where K.60's guard (a `.const`
+    -- head on the stored domain) claims nothing
+    ConLeche.nestedCopyReflFieldsOk env p b st stored = true →
+    -- K.61: the container instance map — a pin's container's own pins,
+    -- instantiated at that pin's levels and components, ARE pins of the
+    -- block, and a copy's field sitting at one of those own pins records
+    -- the map's value as its target (the wide identification's σ)
+    ConLeche.nestedInstMapOk env p b st stored = true →
+    -- K.62: a rewritten ORDINARY field's target is OUTSIDE that map's
+    -- image (the wide identification's `houtσ`)
+    ConLeche.nestedOrdOutsideOk env p b st stored = true →
     -- POST-CHECK (a) A THIRD TIME (K.30): the pins typed at the
     -- environment holding the RESTORED formers
     ConLeche.nestedPinsOk (m := ConLeche.CheckM) (fueledOps μ F)
@@ -1632,7 +1802,7 @@ theorem declNested_of (hμ : μ.verifiedChecks = true) {F : Nat} {env envOut : E
   obtain ⟨h0, h1, st, b, envAux, stored, ctorsR, cvRms, cvRns, rulesM, rulesN, fmsA, ctorsA,
     hfA, hcA, helim, hcount, hfresh, hcont, hcomps, hb, haux, hstored, hclosed, hpinsAux,
     hcaps, hsrc,
-    -, hgrp, hmn, hsc, hlv, hK32, hkinds, hauxApps, hrank, -, -, -, hK42, hK51, hK60, -, -, -,
+    -, hgrp, hmn, hsc, hlv, hK32, hkinds, hauxApps, hrank, -, -, -, hK42, hK51, hK60, hK63, hK61, hK62,
     hpins₁,
     hctors,
     hrm, hrn,
@@ -1670,16 +1840,17 @@ theorem declNested_of (hμ : μ.verifiedChecks = true) {F : Nat} {env envOut : E
   -- `nestedCopyPinFieldsOk` — a container's nested field lands on a
   -- block pin, K.32's twin the other way round — which the copies'
   -- `pinF` arm reads and nothing on this path does, so it is carried
-  -- down to `NestedPinsRun` beside K.32 and K.51; the THREE `-` after
-  -- `hK60` are K.63's `nestedCopyReflFieldsOk` (K.60's guard one
-  -- `Π`-tower down, at a REFLEXIVE nested field — computed by the same
-  -- walk, read by the copies' `pinF` arm), K.61's `nestedInstMapOk`
-  -- (the container instance map: a pin's container's own pins,
-  -- instantiated, ARE block pins, and a copy's field at such an own pin
-  -- records the map's value) and K.62's `nestedOrdOutsideOk` (a
-  -- rewritten ORDINARY field's target is outside that map's image) —
-  -- all three read where lane L-E's `ordF`/`pinF` arms are assembled,
-  -- none on this path;
+  -- down to `NestedPinsRun` beside K.32 and K.51; `hK63`, `hK61` and
+  -- `hK62` after it are K.63's `nestedCopyReflFieldsOk` (K.60's guard
+  -- one `Π`-tower down, at a REFLEXIVE nested field — computed by the
+  -- same walk, read by the copies' `pinF` arm), K.61's
+  -- `nestedInstMapOk` (the container instance map: a pin's container's
+  -- own pins, instantiated, ARE block pins, and a copy's field at such
+  -- an own pin records the map's value) and K.62's
+  -- `nestedOrdOutsideOk` (a rewritten ORDINARY field's target is
+  -- outside that map's image) — all three carried down to
+  -- `NestedPinsRun`, where lane L-E's `ordF`/`pinF` arms and the wide
+  -- identification's `σ` read them, none on this path;
   -- then K.34's `blockReadBackOk` (`hrb`) — the route's own
   -- read-back, which the block this route stores needs and `mp.blocks`
   -- carries for the rest — and the LAST two `-` are K.47's
@@ -1719,7 +1890,7 @@ theorem declNested_of (hμ : μ.verifiedChecks = true) {F : Nat} {env envOut : E
   obtain ⟨fms, f₀, ctorsA', sortss, kinds, mp₁, ppsF, W, idxF, dsF, esF, srcsF, fvsPF, xFvsF, xrestF,
     eissF, tssF, dsR, xFvsR, pinsS, mp₂, henv, O⟩ := hcore hμ mp.toEnvModelM hE p st b envAux stored
     ctorsR fmsA ctorsA hPM h0 h1 hfA hcA helim hcount hfresh hcont hb haux hstored hclosed hpinsAux
-    hcaps hsrc hgrp hsc hK32 hkinds hrank hK42 hK51 hK60 hpins₁ hctors
+    hcaps hsrc hgrp hsc hK32 hkinds hrank hK42 hK51 hK60 hK63 hK61 hK62 hpins₁ hctors
   obtain ⟨mpOut, T⟩ := htail hμ mp.toEnvModelM hE p envOut st b envAux stored ctorsR cvRms cvRns
     rulesM rulesN fmsA ctorsA hPM h0 h1 hfA hcA helim hcount hfresh hcont hb haux hstored hclosed
     hpinsAux hcaps hsrc hgrp hkinds hauxApps hctors hrm hrn hndR hdisj hrulesM hrulesN htbl
@@ -1892,7 +2063,7 @@ theorem nestedCoreModeled_of {F : Nat} (hst : NestedCtorsStaged V μ F) :
     NestedCoreModeled V μ F := by
   intro hμ env mp hE p st b envAux stored ctorsR fmsA ctorsA₀ hPM h0 h1 hfA hcA helim hcount hfresh
     hcont hb haux hstored hclosed hpinsAux hcaps hsrc hgrp hsc hK32 hkinds hrank hK42 hK51
-    hK60 hpins₁
+    hK60 hK63 hK61 hK62 hpins₁
     hctors
   obtain ⟨hnd, hlp, hmem, h3, env₁, fms, f₀, tq₀, ctorsA, sortss, kinds, formers4, ctors4, cvRas,
     rulesOf, hformers, hf₀, htq₀, hcross, -, hctorsA, hkindsA, hfo, -, -, -, -⟩ :=
@@ -1905,7 +2076,7 @@ theorem nestedCoreModeled_of {F : Nat} (hst : NestedCtorsStaged V μ F) :
   rw [henv] at hctors hpins₁
   obtain ⟨mp₂, dsR, xFvsR, pinsS, S⟩ := nestedStageFacts_of hst hμ hE hPM h0 h1 hfA hcA helim hcount
     hfresh hcont hb haux hstored hclosed hpinsAux hcaps hsrc hgrp hsc hK32 hkinds hrank hK42 hK51
-    hK60 hpins₁
+    hK60 hK63 hK61 hK62 hpins₁
     hnd h3
     hformers hctorsA h hbk hctors
   have hbk' : b.k = p.k + pinsS.length := by rw [hbk, S.pinsLen]

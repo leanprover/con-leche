@@ -276,9 +276,14 @@ structure NestedCtorRead (mp₁ : EnvModelM V μ ENV₁) (mm j : Nat) (c : Const
 
   The lift is the abstract twin of the opened form's reopening: the
   pin lives in the parameter context, so under `l` field binders it
-  stands lifted by `l`.  The depth is existential because the
-  consumer's use of it is a MENTION, and a mention survives any lift
-  (`mentionsConst_liftLooseBVars`). -/
+  stands lifted by `l`, and the depth is stated as that DEFINITE `l`:
+  the mention the `nestArgsMentionAbs` consumer wants survives any
+  lift, but the wide identification's consumer is an EQUATION under
+  `instantiateList … l`, which does not.  Carried at the SPINE — the
+  whole domain as the lifted pin applied to a remainder, with the
+  arity of the pin's own argument list beside it — so that the
+  `getAppArgs.take` form is one `List.take_left'` away (task #315 WIDE
+  (1′)). -/
   pinArgsAbs : ∀ (l : Nat) (bs : List (Expr × BinderMeta)) (r : Expr)
       (dom : Expr × BinderMeta) (pin : Expr) (q : Nat),
     c.1.type.stripPis ((D).nP + c.2.2) = some (bs, r) →
@@ -286,8 +291,10 @@ structure NestedCtorRead (mp₁ : EnvModelM V μ ENV₁) (mm j : Nat) (c : Const
     pin = Expr.mkAppN (.const ((D).pinAt q).J ((D).pinAt q).lvls) ((D).pinAt q).DsE →
     (D).nestOf mm j l = some q →
     ((D).ksF mm j).getD l .ordinary = .recursive →
-    ∃ d : Nat, dom.1.getAppArgs.take ((D).pinAt q).nPJ
-      = ((Expr.abstractRange pin 0 p.nP 0).liftLooseBVars d 0).getAppArgs
+    ∃ rest : List Expr,
+      ((Expr.abstractRange pin 0 p.nP 0).liftLooseBVars l 0).getAppArgs.length
+          = ((D).pinAt q).nPJ ∧
+      dom.1 = Expr.mkAppN ((Expr.abstractRange pin 0 p.nP 0).liftLooseBVars l 0) rest
   /-- **AND THE SAME AT A REFLEXIVE NESTED FIELD** (task #315 K.63):
   `pinArgsAbs` one `Π`-tower down.  A reflexive nested field's stored
   domain is a telescope whose BODY carries the pin, which is the shape
@@ -295,8 +302,9 @@ structure NestedCtorRead (mp₁ : EnvModelM V μ ENV₁) (mm j : Nat) (c : Const
   construction — a `Π`'s `getAppFn` is never a `.const`, so K.60 claims
   nothing here and K.63 claims nothing at a finitary field.
 
-  The lift's depth is existential for `pinArgsAbs`' reason: the
-  consumer's use is a MENTION and a mention survives any lift. -/
+  At `pinArgsAbs`' strength: the SPINE, with the pin lifted past both
+  towers — the field binders (`l`) and the domain's own (`dep`) — and
+  the pin's argument count beside it. -/
   pinArgsAbsRefl : ∀ (l : Nat) (bs : List (Expr × BinderMeta)) (r : Expr)
       (dom : Expr × BinderMeta) (pin : Expr) (q : Nat),
     c.1.type.stripPis ((D).nP + c.2.2) = some (bs, r) →
@@ -304,8 +312,11 @@ structure NestedCtorRead (mp₁ : EnvModelM V μ ENV₁) (mm j : Nat) (c : Const
     pin = Expr.mkAppN (.const ((D).pinAt q).J ((D).pinAt q).lvls) ((D).pinAt q).DsE →
     (D).nestOf mm j l = some q →
     ((D).ksF mm j).getD l .ordinary = .reflexive →
-    ∃ d : Nat, (ConLeche.stripDomPis dom.1).getAppArgs.take ((D).pinAt q).nPJ
-      = ((Expr.abstractRange pin 0 p.nP 0).liftLooseBVars d 0).getAppArgs
+    ∃ (dep : Nat) (rest : List Expr),
+      ((Expr.abstractRange pin 0 p.nP 0).liftLooseBVars (l + dep) 0).getAppArgs.length
+          = ((D).pinAt q).nPJ ∧
+      ConLeche.stripDomPis dom.1
+        = Expr.mkAppN ((Expr.abstractRange pin 0 p.nP 0).liftLooseBVars (l + dep) 0) rest
   /-- **THE RESTORED CONSTRUCTOR'S STORED TYPE HAS ITS `.proj` SLOTS AT
   THE MEMBERS' PREFIX ENVIRONMENT** (task #315 PINF): the front door's
   own `slots`, kept because it is the only place the fact is TRUE.
@@ -406,6 +417,18 @@ container block model per group. -/
       ConLeche.nestedPinRewrites env p st params pbs₀ jobsP wsP = true) →
     -- K.60: a container's nested field lands on a block pin
     ConLeche.nestedCopyPinFieldsOk env p b st stored = true →
+    -- K.63: the same, one `Π`-tower down — a container's REFLEXIVE
+    -- nested field lands on a block pin, where K.60's guard (a `.const`
+    -- head on the stored domain) claims nothing
+    ConLeche.nestedCopyReflFieldsOk env p b st stored = true →
+    -- K.61: the container instance map — a pin's container's own pins,
+    -- instantiated at that pin's levels and components, ARE pins of the
+    -- block, and a copy's field sitting at one of those own pins records
+    -- the map's value as its target (the wide identification's σ)
+    ConLeche.nestedInstMapOk env p b st stored = true →
+    -- K.62: a rewritten ORDINARY field's target is OUTSIDE that map's
+    -- image (the wide identification's `houtσ`)
+    ConLeche.nestedOrdOutsideOk env p b st stored = true →
     -- POST-CHECK (a) A THIRD TIME (K.30): the pins typed at the prefix
     -- formers' environment
     ConLeche.nestedPinsOk (m := ConLeche.CheckM) (fueledOps μ F)
@@ -601,6 +624,9 @@ theorem nestedLoopFacts_of (hpins : NestedPinsStaged V μ F) (hread : NestedRead
           (ConLeche.consNestedFormers (stored.take p.k) env) b.memberNames jobsP = .ok wsP ∧
       ConLeche.nestedPinRewrites env p st params pbs₀ jobsP wsP = true)
     (hK60 : ConLeche.nestedCopyPinFieldsOk env p b st stored = true)
+    (hK63 : ConLeche.nestedCopyReflFieldsOk env p b st stored = true)
+    (hK61 : ConLeche.nestedInstMapOk env p b st stored = true)
+    (hK62 : ConLeche.nestedOrdOutsideOk env p b st stored = true)
     (hpins₁ : ConLeche.nestedPinsOk (m := ConLeche.CheckM) (fueledOps μ F) ENV₁ p.nP st.pins = .ok ())
     (hformers : ConLeche.mutualFormers (m := ConLeche.CheckM) (fueledOps μ F) b.nP b.formers env true
       = .ok (ConLeche.consMutualFormers fms env, fms))
@@ -633,7 +659,7 @@ theorem nestedLoopFacts_of (hpins : NestedPinsStaged V μ F) (hread : NestedRead
         (tssF := tssF) (ctorsR := ctorsR) (dsR := dsR) (xFvsR := xFvsR) (pinsS := pinsS) st mp₁' mp₂ := by
   obtain ⟨pinsS, PF⟩ := hpins hμ mp hE p st b envAux stored ctorsR fmsA ctorsA₀ fms f₀ ctorsA sortss kinds mp₁ ppsF W idxF dsF
     esF srcsF fvsPF xFvsF xrestF eissF tssF mp₁' hPM h0 h1 hfA hcA helim hcount hfresh hcont hb haux
-    hstored hclosed hpinsAux hcaps hsrc hgrp hsc hK32 hkinds hrank hK42 hK51 hK60 hpins₁ hformers h hbk h3
+    hstored hclosed hpinsAux hcaps hsrc hgrp hsc hK32 hkinds hrank hK42 hK51 hK60 hK63 hK61 hK62 hpins₁ hformers h hbk h3
     hnd
     hctorsA hleafM' hoff' hfind' hctors
   obtain ⟨dsR, xFvsR, hR⟩ := hread hμ mp hE p st b envAux stored ctorsR fmsA ctorsA₀ fms f₀ ctorsA sortss kinds mp₁ ppsF W idxF dsF
@@ -819,9 +845,9 @@ theorem nestedCtorsStaged_of {F : Nat} (hpins : NestedPinsStaged V μ F)
     (hread : NestedReadLaw V μ F) : NestedCtorsStaged V μ F :=
   fun hμ _ mp hE _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ mp₁' hPM h0 h1 hfA hcA helim
     hcount hfresh hcont hb haux hstored hclosed hpinsAux hcaps hsrc hgrp hsc hK32 hkinds hrank hK42
-    hK51 hK60 hpins₁ hformers h hbk h3 hnd hctorsA hleafM' hoff' hfind' hctors =>
+    hK51 hK60 hK63 hK61 hK62 hpins₁ hformers h hbk h3 hnd hctorsA hleafM' hoff' hfind' hctors =>
   nestedLoopFacts_of hpins hread hμ hE (mp := mp) mp₁' hPM h0 h1 hfA hcA helim hcount hfresh hcont
-    hb haux hstored hclosed hpinsAux hcaps hsrc hgrp hsc hK32 hkinds hrank hK42 hK51 hK60 hpins₁ hformers h
+    hb haux hstored hclosed hpinsAux hcaps hsrc hgrp hsc hK32 hkinds hrank hK42 hK51 hK60 hK63 hK61 hK62 hpins₁ hformers h
     hbk h3 hnd hctorsA hleafM' hoff' hfind' hctors
 
 end ConLeche.Model

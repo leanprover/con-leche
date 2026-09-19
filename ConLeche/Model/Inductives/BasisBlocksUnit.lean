@@ -436,6 +436,7 @@ theorem punitBlock_containerModeled {env : Env} {m : EnvModel V env}
   nestArgsMention := fun _ _ _ _ _ _ _ _ _ h _ => nomatch h
   nestArgsMentionAbs := fun _ _ _ _ _ _ _ _ _ _ _ _ _ h _ => nomatch h
   nestArgsMentionAbsRefl := fun _ _ _ _ _ _ _ _ _ _ _ _ _ h _ => nomatch h
+  nestPinSpineAbs := fun _ _ _ _ _ _ _ _ _ _ _ _ _ _ h _ => nomatch h
   ctorProjFree := fun i j cA hi hj T hT n => by
     obtain rfl : i = 0 := Nat.lt_one_iff.mp hi
     obtain rfl := List.mem_singleton.mp hT
@@ -449,6 +450,7 @@ theorem punitBlock_containerModeled {env : Env} {m : EnvModel V env}
   ownPins := punitBlock_ownPins hT hR hU hmim
   pinψ := fun _ h => nomatch h
   pinsDistinct := fun _ _ h _ _ => nomatch h
+  pinsDistinctAt := fun _ _ _ h _ _ => nomatch h
   pinParams := fun _ _ _ => ContainerPinParams.of_noPins rfl
 
 /-- **`PUnit` carries its block's model** at any assignment that sends

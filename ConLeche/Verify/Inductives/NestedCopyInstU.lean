@@ -476,6 +476,196 @@ theorem looseBVarsBounded_instSeq (as : List Expr) (t : Nat) (e : Expr)
   have h := looseBVarsBounded_instSeq_gen as t e hcl he (by omega)
   rwa [hlen, Nat.sub_self] at h
 
+/-- Every reachable `fvar` index bounded is `fvarsBelow` (the leaf
+list's spelling of the same fact; `fvarsBelow` does not descend into an
+`fvar`'s annotation, so the leaf's own head is all the `fvar` case
+needs). -/
+theorem fvarsBelow_of_fvarLeaves {k : Nat} :
+    ∀ (e : Expr), (∀ l ∈ e.fvarLeaves, l.1 < k) → Expr.fvarsBelow k e := by
+  intro e
+  induction e with
+  | fvar idx ty _ =>
+    intro h
+    exact h (idx, ty) (by rw [Expr.fvarLeaves]; exact List.mem_cons_self)
+  | app f a ihf iha =>
+    intro h
+    rw [Expr.fvarLeaves] at h
+    exact ⟨ihf (fun l hl => h l (List.mem_append_left _ hl)),
+      iha (fun l hl => h l (List.mem_append_right _ hl))⟩
+  | lam ty b m ihty ihb =>
+    intro h
+    rw [Expr.fvarLeaves] at h
+    exact ⟨ihty (fun l hl => h l (List.mem_append_left _ hl)),
+      ihb (fun l hl => h l (List.mem_append_right _ hl))⟩
+  | forallE ty b m ihty ihb =>
+    intro h
+    rw [Expr.fvarLeaves] at h
+    exact ⟨ihty (fun l hl => h l (List.mem_append_left _ hl)),
+      ihb (fun l hl => h l (List.mem_append_right _ hl))⟩
+  | letE ty v b ihty ihv ihb =>
+    intro h
+    rw [Expr.fvarLeaves] at h
+    exact ⟨ihty (fun l hl => h l (List.mem_append_left _ (List.mem_append_left _ hl))),
+      ihv (fun l hl => h l (List.mem_append_left _ (List.mem_append_right _ hl))),
+      ihb (fun l hl => h l (List.mem_append_right _ hl))⟩
+  | proj sn i pe ih =>
+    intro h
+    rw [Expr.fvarLeaves] at h
+    exact ih h
+  | _ => intro _; trivial
+
+/-- Closing the leading `k` variable levels leaves no free variable
+behind. -/
+theorem fvarsBelow_abstractRange {k : Nat} :
+    ∀ (e : Expr) (c : Nat), Expr.fvarsBelow k e →
+      Expr.fvarsBelow 0 (e.abstractRange 0 k c) := by
+  intro e
+  induction e with
+  | fvar idx ty _ =>
+    intro c h
+    show Expr.fvarsBelow 0 (Expr.abstractRange (.fvar idx ty) 0 k c)
+    have hlt : idx < k := h
+    rw [Expr.abstractRange, if_pos (⟨Nat.zero_le _, by omega⟩)]
+    trivial
+  | app f a ihf iha => intro c h; exact ⟨ihf c h.1, iha c h.2⟩
+  | lam ty b m ihty ihb => intro c h; exact ⟨ihty c h.1, ihb (c + 1) h.2⟩
+  | forallE ty b m ihty ihb => intro c h; exact ⟨ihty c h.1, ihb (c + 1) h.2⟩
+  | letE ty v b ihty ihv ihb => intro c h; exact ⟨ihty c h.1, ihv c h.2.1, ihb (c + 1) h.2.2⟩
+  | proj sn i pe ih => intro c h; exact ih c h
+  | _ => intro _ _; trivial
+
+/-- `fvarsBelow` survives a whole instantiation sequence. -/
+theorem fvarsBelow_instSeq {d : Nat} :
+    ∀ (as : List Expr) (t : Nat) {e : Expr},
+      (∀ a ∈ as, Expr.fvarsBelow d a) → Expr.fvarsBelow d e →
+      Expr.fvarsBelow d (Expr.instSeq as t e) := by
+  intro as
+  induction as with
+  | nil => intro _ _ _ he; exact he
+  | cons a as ih =>
+    intro t e ha he
+    exact ih (t - 1) (fun b hb => ha b (List.mem_cons_of_mem _ hb))
+      (Expr.fvarsBelow_instantiate1_gen (ha a List.mem_cons_self) t he)
+
+/-- **THE ROUND TRIP THE OTHER WAY** (task #315 WIDE (2″)): opening a
+body that has NO free variable of its own at a variable list whose
+`j`-th entry is an `fvar` with index `j`, and closing the leading `k`
+levels again, returns the body ON THE NOSE — annotations included,
+because `abstractRange` never reads an `fvar`'s annotation.
+
+`instSeq_abstractRange_fvs_at` (`NestedCopyGlue.lean`) is the same trip
+started from the other end, and it needs the openers' annotations
+PINNED (`fvarConsistent`) because the body's own leaves carry
+annotations of their own.  This direction needs no such hypothesis, and
+needs instead that the body carry no `fvar` the abstraction could
+capture — which is what `fvarsBelow 0` says.
+
+Its consumer is the one fact `ContainerModeled.pinsDistinct` is short
+of: the own-pin TABLE's entries are the recorded pins with every
+parameter `fvar`'s annotation replaced by a SYNTHETIC one, so
+annotation-erasure stands between "the recorded pins are distinct" and
+"the table's entries are distinct" — and erasure is not injective in
+general.  This trip is what puts the annotations back. -/
+theorem abstractRange_instSeq_fvs :
+    ∀ (k : Nat) (fvs : List Expr) (e : Expr) (c : Nat), fvs.length = k →
+      (∀ j, j < k → ∃ ty, fvs[j]? = some (Expr.fvar j ty)) →
+      (∀ a ∈ fvs, a.looseBVarsBounded 0 = true) →
+      Expr.fvarsBelow 0 e → e.looseBVarsBounded (k + c) = true →
+      (Expr.instSeq fvs (k + c - 1) e).abstractRange 0 k c = e := by
+  intro k
+  induction k with
+  | zero =>
+    intro fvs e c hlen _ _ _ _
+    obtain rfl : fvs = [] := List.eq_nil_of_length_eq_zero hlen
+    show (e).abstractRange 0 0 c = e
+    exact abstractRange_zero e 0 c
+  | succ k ih =>
+    intro fvs e c hlen hidx hcl hfv hb
+    obtain ⟨fvs', x, rfl⟩ : ∃ fvs' x, fvs = fvs' ++ [x] := by
+      rcases List.eq_nil_or_concat fvs with rfl | ⟨l', b, rfl⟩
+      · simp at hlen
+      · exact ⟨l', b, by simp⟩
+    have hlen' : fvs'.length = k := by simpa using hlen
+    have hlast : (fvs' ++ [x])[k]? = some x := by
+      rw [List.getElem?_append_right (by omega), hlen']
+      simp
+    obtain ⟨tyk, htyk⟩ := hidx k (by omega)
+    obtain rfl : x = Expr.fvar k tyk := by
+      rw [hlast] at htyk; exact Option.some.inj htyk
+    have hidx' : ∀ j, j < k → ∃ ty, fvs'[j]? = some (Expr.fvar j ty) := by
+      intro j hj
+      obtain ⟨ty, hty⟩ := hidx j (by omega)
+      refine ⟨ty, ?_⟩
+      rwa [List.getElem?_append_left (by omega)] at hty
+    have hcl' : ∀ a ∈ fvs', a.looseBVarsBounded 0 = true :=
+      fun a ha => hcl a (List.mem_append_left _ ha)
+    have hfvs' : ∀ a ∈ fvs', Expr.fvarsBelow k a := by
+      intro a ha
+      obtain ⟨j, hj⟩ := List.getElem?_of_mem ha
+      have hjlt : j < k := by
+        rcases Nat.lt_or_ge j fvs'.length with h | h
+        · omega
+        · rw [List.getElem?_eq_none h] at hj; exact nomatch hj
+      obtain ⟨ty, hty⟩ := hidx' j hjlt
+      rw [hj] at hty
+      obtain rfl : a = Expr.fvar j ty := Option.some.inj hty
+      show j < k
+      exact hjlt
+    have hbmid : (Expr.instSeq fvs' (k + c) e).looseBVarsBounded (c + 1) = true := by
+      have h := looseBVarsBounded_instSeq_gen fvs' (k + c) e hcl'
+        (by rw [show k + c + 1 = k + 1 + c from by omega]; exact hb) (by omega)
+      rwa [hlen', show k + c + 1 - k = c + 1 from by omega] at h
+    have hfvmid : Expr.fvarsBelow k (Expr.instSeq fvs' (k + c) e) :=
+      fvarsBelow_instSeq fvs' (k + c) hfvs' (Expr.fvarsBelow_mono (Nat.zero_le k) hfv)
+    have hstep : Expr.instSeq (fvs' ++ [Expr.fvar k tyk]) (k + 1 + c - 1) e
+        = (Expr.instSeq fvs' (k + c) e).instantiate1 (Expr.fvar k tyk) c := by
+      rw [Expr.instSeq_append, hlen', show k + 1 + c - 1 = k + c from by omega,
+        show k + c - k = c from by omega]
+      rfl
+    rw [hstep, abstractRange_succ, Nat.zero_add,
+      instantiate1_abstract1_self _ c hfvmid hbmid]
+    have hih := ih fvs' e (c + 1) hlen' hidx' hcl' hfv
+      (by rw [show k + (c + 1) = k + 1 + c from by omega]; exact hb)
+    rwa [show k + (c + 1) - 1 = k + c from by omega] at hih
+
+/-- **THE TWO SPELLINGS OF "THE CONTAINER'S OWN SCOPE" AGREE** (task
+#315 WIDE (1′)).
+
+The own-pin reader's cut (`nestedInstMapOkAt`, and K.61's inversion)
+instantiates a field's spine with the parameter openers REVERSED, from
+the cut `l` the field's earlier binders add; the model's
+`PinSyn.ownAt` closes the recorded pin over the parameters and reopens
+it with `instSeq` at the descending cuts `nP - 1 … 0`.  Both send the
+parameter variable `i` to `containerParamOpeners nP`'s `i`-th entry, so
+on a body bounded at `nP` — a pin closed over the parameters, lifted
+past the field binders — they compute the same expression.
+
+Three steps: the bulk form at cut `l` IS the `instantiate1` fold at the
+descending cuts (`instSpine_eq_instantiateList_at`); the fold drops past
+the lift because every opener is closed (`instSeq_liftLooseBVars`); and
+what is left is closed — a full argument list closes a body bounded at
+its length — so the lift that comes back is the identity. -/
+theorem instantiateList_openers_eq_instSeq (nP l : Nat) {A : Expr}
+    (hA : A.looseBVarsBounded nP = true) :
+    Expr.instantiateList (A.liftLooseBVars l 0) (containerParamOpeners nP).reverse l
+      = Expr.instSeq (containerParamOpeners nP) (nP - 1) A := by
+  have hlenO : (containerParamOpeners nP).length = nP := by
+    simp [containerParamOpeners]
+  have hclO : ∀ a ∈ containerParamOpeners nP, a.looseBVarsBounded 0 = true := by
+    intro a ha
+    obtain ⟨i, -, rfl⟩ := List.mem_map.mp ha
+    rfl
+  rw [← Expr.instSpine_eq_instantiateList_at, Expr.instSpine_eq_instSeq, hlenO,
+    Expr.instSeq_liftLooseBVars (kL := l) (c := 0) _ (l + nP - 1) hclO (by rw [hlenO]; omega),
+    show l + nP - 1 - l = nP - 1 from by omega]
+  refine Expr.liftLooseBVars_eq_self ?_
+  cases nP with
+  | zero =>
+    rw [show containerParamOpeners 0 = [] from by simp [containerParamOpeners]]
+    exact hA
+  | succ n =>
+    exact looseBVarsBounded_instSeq _ n _ hclO (by simpa using hA) (by rw [hlenO])
+
 /-! ## The copy's constructor telescope, in one step (task #315 L-B) -/
 
 /-- **`mkCopy`'s constructor body, as a telescope**: the container

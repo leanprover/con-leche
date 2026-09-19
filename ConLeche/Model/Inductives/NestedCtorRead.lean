@@ -2164,9 +2164,7 @@ theorem ReadCtx.nestedCtorRead_of {mm j : Nat} {c : ConstantVal × Nat × Nat} {
         rw [show (Expr.const qn.container (pinsS.getD q' default).lvls).getAppArgs = [] from rfl,
           List.nil_append]
         exact hDsLen
-      refine ⟨l, ?_⟩
-      show dom.1.getAppArgs.take (pinsS.getD q' default).nPJ = _
-      rw [habs, Expr.getAppArgs_mkAppN, List.take_left' hPargs]
+      exact ⟨_, hPargs, habs⟩
     · rw [hk'] at hkr; exact nomatch hkr
   · -- **the REFLEXIVE nested field's ABSTRACT parameter arguments**:
     -- the same pin case one `Π`-tower down, where K.63's guard reads
@@ -2334,9 +2332,7 @@ theorem ReadCtx.nestedCtorRead_of {mm j : Nat} {c : ConstantVal × Nat × Nat} {
         rw [show (Expr.const qn.container (pinsS.getD q' default).lvls).getAppArgs = [] from rfl,
           List.nil_append]
         exact hDsLen
-      refine ⟨l + (domA.1.piBinders).1.length, ?_⟩
-      show (ConLeche.stripDomPis dom.1).getAppArgs.take (pinsS.getD q' default).nPJ = _
-      rw [hsd, Expr.getAppArgs_mkAppN, List.take_left' hPargs]
+      exact ⟨(domA.1.piBinders).1.length, _, hPargs, hsd⟩
   · -- the front door's own `.proj`-slot fact, at the members' prefix
     -- environment (task #315 PINF)
     exact RC.hfd.slots

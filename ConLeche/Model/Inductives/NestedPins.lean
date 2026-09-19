@@ -1087,6 +1087,26 @@ structure NestedPinsRun (V : Type w) [SetTheory V] (μ : CheckMode) (F : Nat) {e
   copies' `pinF` arm reads for its conjunct 1 and for `copyPinFCorr`'s
   `hkA` -/
   hK60 : ConLeche.nestedCopyPinFieldsOk env p b st stored = true
+  /-- **A CONTAINER'S REFLEXIVE NESTED FIELD LANDS ON A BLOCK PIN**
+  (K.63, task #315, lane PINF): `hK60`'s guard one `Π`-tower down,
+  where a reflexive field's stored domain is a `Π` and `hK60` therefore
+  claims nothing.  The two are computed by ONE walk; the copies' `pinF`
+  arm reads this one at a reflexive nested field -/
+  hK63 : ConLeche.nestedCopyReflFieldsOk env p b st stored = true
+  /-- **THE CONTAINER INSTANCE MAP** (K.61, task #315, lane WIDE): every
+  own pin of a pin's container, instantiated at that pin's own level
+  arguments and components, IS a pin of the block (totality), and a
+  copy's field sitting at one of those own pins records the map's value
+  as its target.  The wide identification's `σ` runs on this map; it may
+  COLLAPSE and is not checked injective -/
+  hK61 : ConLeche.nestedInstMapOk env p b st stored = true
+  /-- **A REWRITTEN ORDINARY FIELD LEAVES THE INSTANCE** (K.62, task
+  #315, lane WIDE): at an `ordF`-right edge — one whose container-side
+  field mentions no member of the container's own group — the recorded
+  target is OUTSIDE `hK61`'s image.  The wide identification's `houtσ`,
+  which `nestedPinEdges_mem` may only exhibit where this record is in
+  scope -/
+  hK62 : ConLeche.nestedOrdOutsideOk env p b st stored = true
   hpinsE : ConLeche.nestedPinsOk (m := ConLeche.CheckM) (fueledOps μ F)
       (ConLeche.consMutualFormers (fms.take p.k) env) p.nP st.pins = .ok ()
   hformers : ConLeche.mutualFormers (m := ConLeche.CheckM) (fueledOps μ F) b.nP b.formers env true
@@ -2065,12 +2085,12 @@ DESIGN §U.22.) -/
 theorem nestedPinsStaged_of {F : Nat} (hId : NestedPinsIdent V μ F) : NestedPinsStaged V μ F := by
   intro hμ env mp hE p st b envAux stored ctorsR fmsA ctorsA₀ fms f₀ ctorsA sortss kinds mp₁ ppsF W
     idxF dsF esF srcsF fvsPF xFvsF xrestF eissF tssF mp₁' hPM h0 h1 hfA hcA helim hcount hfresh hcont
-    hb haux hstored hclosed hpinsAux hcaps hsrc hgrp hscoped hK32 hkinds hrank hK42 hK51 hK60 hpinsE hformers h hbk
+    hb haux hstored hclosed hpinsAux hcaps hsrc hgrp hscoped hK32 hkinds hrank hK42 hK51 hK60 hK63 hK61 hK62 hpinsE hformers h hbk
     h3 hnd hctorsA hleafM' hoff' hfind' hctors
   have R : NestedPinsRun V μ F mp p st b envAux stored ctorsR fmsA ctorsA₀ fms f₀ ctorsA sortss kinds
       mp₁ ppsF W idxF dsF esF srcsF fvsPF xFvsF xrestF eissF tssF mp₁' :=
     ⟨hμ, hE, hPM, h0, h1, hfA, hcA, helim, hcount, hfresh, hcont, hb, haux, hstored, hclosed, hpinsAux,
-      hcaps, hsrc, hgrp, hscoped, hK32, hkinds, hrank, hK42, hK51, hK60, hpinsE, hformers, h, hbk, h3, hnd, hctorsA,
+      hcaps, hsrc, hgrp, hscoped, hK32, hkinds, hrank, hK42, hK51, hK60, hK63, hK61, hK62, hpinsE, hformers, h, hbk, h3, hnd, hctorsA,
       hleafM',
       hoff', hfind', hctors⟩
   obtain ⟨hpinsE, fvs, o, hop, hsc⟩ := R.scoped

@@ -278,6 +278,7 @@ theorem zeroCtorBlock_containerModeled {env : Env} {m : EnvModel V env}
   nestArgsMention := fun _ _ _ _ _ _ _ _ _ h _ => nomatch h
   nestArgsMentionAbs := fun _ _ _ _ _ _ _ _ _ _ _ _ _ h _ => nomatch h
   nestArgsMentionAbsRefl := fun _ _ _ _ _ _ _ _ _ _ _ _ _ h _ => nomatch h
+  nestPinSpineAbs := fun _ _ _ _ _ _ _ _ _ _ _ _ _ _ h _ => nomatch h
   ctorProjFree := fun _ _ _ _ hj => nomatch hj
   pinsNotMembers := fun _ h => nomatch h
   pinNP := fun _ h => nomatch h
@@ -285,6 +286,7 @@ theorem zeroCtorBlock_containerModeled {env : Env} {m : EnvModel V env}
   ownPins := zeroCtorBlock_ownPins hci hmim
   pinψ := fun _ h => nomatch h
   pinsDistinct := fun _ _ h _ _ => nomatch h
+  pinsDistinctAt := fun _ _ _ h _ _ => nomatch h
   pinParams := fun _ _ _ => ContainerPinParams.of_noPins rfl
 
 /-! ## The read-back at `Empty` -/

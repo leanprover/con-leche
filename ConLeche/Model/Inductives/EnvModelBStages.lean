@@ -289,6 +289,7 @@ theorem mutualContainerModeled {env envR : Env} {m : EnvModel V envR}
     (fun _ _ _ _ _ _ _ _ _ hq _ => absurd hq (by rw [hnoPins]; omega))
     (fun _ _ _ _ _ _ _ _ _ _ _ _ _ hq _ => absurd hq (by rw [hnoPins]; omega))
     (fun _ _ _ _ _ _ _ _ _ _ _ _ _ hq _ => absurd hq (by rw [hnoPins]; omega))
+    (fun _ _ _ _ _ _ _ _ _ _ _ _ _ _ hq _ => absurd hq (by rw [hnoPins]; omega))
     (fun i j cA hi hj T hT n => hnpC i j cA hi hj T (hd.memberNames ▸ hT) n)
     (fun q hq => absurd hq (by rw [hnoPins]; omega))
     (fun q hq => absurd hq (by rw [hnoPins]; omega))
@@ -297,6 +298,7 @@ theorem mutualContainerModeled {env envR : Env} {m : EnvModel V envR}
     (fun q hq => absurd hq (by rw [hnoPins]; omega))
     (fun _ _ => ContainerPinParams.of_noPins hd.pins) (fun i hi => ?_)
     (fun _ _ hq _ _ => absurd hq (by rw [hnoPins]; omega))
+    (fun _ _ _ hq _ _ => absurd hq (by rw [hnoPins]; omega))
   · rw [List.length_map, List.length_zipIdx, hkF]
   · rw [mutualReadBack_getD (by rw [← hkF]; exact hi), hnames i hi]
   · rw [mutualReadBack_getD (by rw [← hkF]; exact hi)]
@@ -1201,6 +1203,7 @@ theorem nativeContainerModeled {envO : Env} {m : EnvModel V envO} {mC : EnvModel
     (fun _ _ _ _ _ _ _ _ _ hq _ => absurd hq (Nat.not_lt_zero _))
     (fun _ _ _ _ _ _ _ _ _ _ _ _ _ hq _ => absurd hq (Nat.not_lt_zero _))
     (fun _ _ _ _ _ _ _ _ _ _ _ _ _ hq _ => absurd hq (Nat.not_lt_zero _))
+    (fun _ _ _ _ _ _ _ _ _ _ _ _ _ _ hq _ => absurd hq (Nat.not_lt_zero _))
     (fun i j cA hi hj => by
       obtain rfl : i = 0 := Nat.lt_one_iff.mp hi
       exact hnpC j cA hj)
@@ -1210,6 +1213,7 @@ theorem nativeContainerModeled {envO : Env} {m : EnvModel V envO} {mC : EnvModel
     (fun q hq => absurd hq (Nat.not_lt_zero q))
     (fun _ _ => ContainerPinParams.of_noPins rfl) (fun i hi => ?_)
     (fun _ _ hq _ _ => absurd hq (Nat.not_lt_zero _))
+    (fun _ _ _ hq _ _ => absurd hq (Nat.not_lt_zero _))
   · obtain rfl : i = 0 := Nat.lt_one_iff.mp hi
     exact hf.Tname.symm
   · obtain rfl : i = 0 := Nat.lt_one_iff.mp hi
