@@ -122124,3 +122124,57 @@ actually consumes.
 **Nothing was landed.**  The tree is back at the committed K.68
 (`cmp` on the binary), and the strengthening is kept at
 `_tmp/le2/k68-strengthen.patch`.
+
+#### WIDE (3) OPTION 2's SPELLING — THE KERNEL HALF IS DONE, AND THE MODEL HALF NEEDS THE MEMBER'S `lps` NAMED (lane LE, 2026-09-19)
+
+The ruling is implemented on the kernel side and it is uniform, which
+is the good news: `ordTargetDom` reads the level arguments off THE SAME
+pin term whose components it substitutes —
+
+    let pin := ownSelf.getD qK default
+    let lvls := match pin.getAppFn with | .const _ us => us | _ => []
+    let dom' := dom.instantiateLevelParams lps lvls
+    instantiateList (stripDomPis dom') ((pin.getAppArgs.take nP).reverse)
+      (l + domPiDepth dom')
+
+so ONE definition serves both records: at K.68 the table is
+`nestedPinTermsSelf` and the levels are the recorded pin's own; at
+K.67 it is `containerOwnPinsSelf` and they are the owner's own pin's.
+Both call sites pass `Jm.lps`, the container MEMBER's level
+parameters, which both walks already hold.  Both records' `none` arms
+are flipped in the same patch (`_tmp/le2/k68-levels.patch`, 304 lines).
+
+##### WHAT THE MODEL HALF COSTS, AND THE ONE DECISION IN IT
+
+`ordTargetDom` now takes `lps`, so every model-tier occurrence does
+too: the two inversions (`NestedCopyKinds`, where `Jm` is already a
+parameter — free), the two run lemmas (`NestedInstMap`), the ninth
+`PinGroupInst` conjunct (`NestedCore`), the `PinShapes` clause and
+`rowTargetOrd` (`NestedPremise`), and `GroupFacts.ordTgt`
+(`NestedPinLeafAll`).
+
+The run lemmas derive the member record `J₂` INTERNALLY (off
+`R.ctorPair` and `ContainerModeled.member`), so they can only prove the
+row at `J₂.lps`, while the model clauses quantify `lps`.  The two meet
+in one of three ways, and this is the decision:
+
+1. the clauses take `∀ lpsC (Jm : ContainerMember), ci.members[i']?
+   = some Jm → Jm.lps = lpsC → …` — nameable everywhere (`ci` is
+   already a `PinShapes` parameter and can be added to
+   `GroupFacts.ordTgt`), and the consumer discharges it from
+   `ContainerModeled.member`, which it holds;
+2. the run lemmas EXPOSE the member existentially (`∃ J₂,
+   ci.members[i']? = some J₂ ∧ <row at J₂.lps>`) and the clauses stay
+   universally quantified — fewer parameters, but the consumer must
+   destructure before it can align the two sides' `lps`;
+3. the clauses quantify `∃ lps` — REFUSED: the two sides would each
+   get their own witness and nothing would tie them, which is the same
+   trap the `∀ n` spelling fell into.
+
+(1) is the one to build: it keeps both sides universally quantified in
+`lps`, so `ordTgt_corr` can instantiate them at ONE list, which is
+exactly what the correspondence needs.
+
+Nothing landed; the tree is back at the committed K.67/K.68 (`cmp` on
+the binary) and the patch is kept.  The battery has NOT been run — it
+is one battery for the pair once the model half is threaded.
