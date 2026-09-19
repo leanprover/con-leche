@@ -11,6 +11,8 @@ import ConLeche.Model.Inductives.StructData
 import ConLeche.Verify.Inductives.NestedCopyTele
 import ConLeche.Verify.InstSpine
 import ConLeche.Verify.InstList
+import ConLeche.Verify.Inductives.NestedCopyInstU
+import ConLeche.Model.Steps.CapsRows
 public section
 
 /-!
@@ -479,6 +481,56 @@ theorem denoteMeta_ordRootInst_read {env : Env} (m : EnvModel V env) {ψ : Name 
     | succ n => rw [show cut + (n + 1) - 1 = n + 1 - 1 + cut from by omega]
   rw [hbulk]
   exact denoteMeta_ownAt_component_at m hplen hidx hxb hxlv hDlen hDs hspine hread
+
+/-- **THE REWRITTEN DOMAIN, READ AT THE OPENERS, IN TERMS OF ITS
+ARGUMENTS' READINGS** (task #315 WIDE (3), lane LE) — what the pin
+half's `Eis` clause consumes.
+
+A copy-field domain the owner's elimination REWROTE is headed by a
+constant: the pin the rewrite planted (`replaceIfNested` always writes
+one), or a member of the owner's own group.  Read at the owner's
+parameter openers under the field's `cut` binders, such a domain is
+that head's reading applied to its arguments' — and carried to the
+block's scope by `ordRootInst`, it is the SAME head applied to those
+readings INSTANTIATED at the components, position by position.
+
+The head does not move (`AnnotTerm.instAll_eq_self` at `hfa`, which a
+constant's value satisfies — `EnvModel.acval_inst_self`), which is
+what makes the equation an equation between SPINES: the block's side's
+index expressions are the owner's, `AnnotTerm.instAll Ds cut` applied. -/
+theorem denoteMeta_ordRootInst_mkAppN_read {env : Env} (m : EnvModel V env) {ψ : Name → Nat}
+    {lps : List Name} {lvls : List Level} {nP dp cut : Nat}
+    {params DsE : List Expr} {Ds : List AnnotTerm}
+    {J : Name} {lvlsJ : List Level} {es : List Expr}
+    {fa : AnnotTerm} {Eis : List AnnotTerm}
+    (hplen : params.length = nP)
+    (hidx : ∀ j, j < nP → ∃ ty, params[j]? = some (Expr.fvar j ty))
+    (hxb : (Expr.mkAppN (Expr.const J lvlsJ) es).looseBVarsBounded cut = true)
+    (hxlv : ∀ l ∈ (Expr.mkAppN (Expr.const J lvlsJ) es).fvarLeaves,
+      Expr.fvar l.1 l.2 ∈ params)
+    (hDlen : DsE.length = nP)
+    (hDs : ∀ a ∈ DsE, Expr.WScoped dp a ∧ a.looseBVarsBounded 0 = true)
+    (hspine : DenoteMetaSpine m.acval env ψ dp DsE Ds)
+    (hhead : denoteMeta m.acval env (Level.substFn ψ lps lvls) (nP + cut)
+      (Expr.const J lvlsJ) = some fa)
+    (hfa : ∀ (y : AnnotTerm) (k : Nat), fa.inst y k = fa)
+    (hargs : DenoteMetaSpine m.acval env (Level.substFn ψ lps lvls) (nP + cut)
+      (es.map (Expr.instSeq (Verify.openFvars nP cut) (cut - 1))) Eis) :
+    denoteMeta m.acval env ψ (dp + cut)
+        (Expr.instSeq (Verify.openFvars dp cut) (cut - 1)
+          (Expr.instantiateList
+            (Expr.abstractRange (Expr.instantiateLevelParams lps lvls
+              (Expr.mkAppN (Expr.const J lvlsJ) es)) 0 nP cut)
+            DsE.reverse cut))
+      = some (AnnotTerm.mkAppN fa (Eis.map (AnnotTerm.instAll Ds cut))) := by
+  have hx : denoteMeta m.acval env (Level.substFn ψ lps lvls) (nP + cut)
+      (Expr.instSeq (Verify.openFvars nP cut) (cut - 1)
+        (Expr.mkAppN (Expr.const J lvlsJ) es))
+      = some (AnnotTerm.mkAppN fa Eis) := by
+    rw [ConLeche.instSeq_mkAppN_const]
+    exact denoteMeta_mkAppN hargs hhead
+  rw [denoteMeta_ordRootInst_read m hplen hidx hxb hxlv hDlen hDs hspine hx,
+    AnnotTerm.instAll_mkAppN, AnnotTerm.instAll_eq_self hfa]
 
 /-- **THE LIST FORM** (task #315 WIDE (3), lane LE): the spine version
 of `denoteMeta_ownAt_component_at`, which is the shape the arguments of
