@@ -3,6 +3,7 @@ module
 public import ConLeche.Model.IndPlainParam
 import ConLeche.Model.IndZipField
 import ConLeche.Model.IndStageKit
+import ConLeche.Model.Annot.BitInst
 public section
 
 /-!

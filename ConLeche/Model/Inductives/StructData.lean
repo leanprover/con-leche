@@ -4,6 +4,7 @@ public import ConLeche.Model.Inductives.StructLaws
 import ConLeche.Model.Inductives.StructRows
 import ConLeche.Verify.InstLevels
 public import ConLeche.Semantics.Tower.TowerWire
+import ConLeche.Model.Annot.BitLevels
 public section
 
 /-!

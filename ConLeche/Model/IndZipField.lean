@@ -2,6 +2,8 @@ module
 
 public import ConLeche.Model.IndCross
 public import ConLeche.Verify.BridgeWfImp
+import ConLeche.Model.Annot.BitInst
+import ConLeche.Verify.Denote.OpenRevDenote
 
 public section
 

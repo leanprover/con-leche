@@ -4,6 +4,8 @@ public import ConLeche.Model.Inductives.FixEntryLaw
 public import ConLeche.Model.Inductives.FixAssemblyKit
 import ConLeche.Model.Inductives.StructStageTable
 import ConLeche.Verify.Inductives.FixParts
+import ConLeche.Model.Annot.BitLevels
+import ConLeche.Model.Annot.BitInst
 public section
 
 /-!

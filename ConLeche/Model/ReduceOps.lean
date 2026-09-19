@@ -337,7 +337,7 @@ theorem reduceOps_install (hμ : μ.verifiedChecks = true)
     rfl
   -- the claims at the prefix environment
   have hclaims := fun ψ =>
-    checkSoundAt (V := V) hμ (TierInputsAt.ofSem mp ψ) F
+    checkSoundAt (V := V) hμ (Rules.RulesInputs.ofSem mp ψ) F
   refine ⟨?_, fun ψ ρ x hx => ?_⟩
   · rw [ConLeche.Env.find?_cons, if_neg (fun h => hneE h.symm), hfE]; rfl
   obtain ⟨-, -, ihd, -⟩ := hclaims ψ

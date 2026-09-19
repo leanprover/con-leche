@@ -2,6 +2,7 @@ module
 
 public import ConLeche.Model.IndProjCaps
 public import ConLeche.Model.IndEtaLaw
+import ConLeche.Model.Annot.BitLevels
 public section
 
 /-!

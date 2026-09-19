@@ -12,10 +12,9 @@
 #                    `#print axioms` guards pin the consistency
 #                    capstones at exactly
 #                    [propext, Classical.choice, Quot.sound].
-#   tests/arena.sh   the standard battery, which is itself ten gates
+#   tests/arena.sh   the standard battery, which is itself nine gates
 #                    plus four suites:
 #                      * tests/layering.sh       import fence
-#                      * tests/proofdeps.sh      proof-term module pin
 #                      * tests/pindump.sh        committed-generator
 #                                                freshness
 #                      * tests/trust-surface.sh  compiler-escape

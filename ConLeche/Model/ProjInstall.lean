@@ -2,6 +2,8 @@ module
 
 import ConLeche.Semantics.IndBlockRun
 public import ConLeche.Model.ProjCons
+import ConLeche.Model.Annot.BitLevels
+import ConLeche.Model.Capstone
 public section
 
 /-!
@@ -188,13 +190,13 @@ theorem projFn (hμ : μ.verifiedChecks = true) {F : Nat} {env' env₁ : Env}
     simpa using h
   -- the four claims and the reads, at every assignment
   have hclaims := fun ψ =>
-    checkSoundAt (V := V) hμ (TierInputsAt.ofSem mp ψ) F
+    checkSoundAt (V := V) hμ (Rules.RulesInputs.ofSem mp ψ) F
   have hdeq : ∀ ψ : Name → Nat, DefEqClaim μ mp.base2 ψ F :=
     fun ψ => (hclaims ψ).2.2.1
   have hinf : ∀ ψ : Name → Nat, InferClaim μ mp.base2 ψ F :=
     fun ψ => (hclaims ψ).2.2.2
   have hreadsP : ∀ ψ : Name → Nat, InferReads mp.base2 μ ψ F :=
-    fun ψ => inferReads_of (TierInputsAt.ofSem mp ψ).reads
+    fun ψ => inferReads_of hμ (Rules.RulesInputs.ofSem mp ψ)
   -- ===== the rule rhs's front door, at the reading (the H1 exposure,
   -- fourth widening — `iotaRulePlain`'s three-part construction)
   have hrhsLeafNil : ∀ l ∈ rhsA.fvarLeaves, False := by
@@ -223,7 +225,7 @@ theorem projFn (hμ : μ.verifiedChecks = true) {F : Nat} {env' env₁ : Env}
     have hctx : CtxOk mp.base2 ψ 0 [] rhsA :=
       ⟨rfl, fun l hl => absurd hl (fun h => hrhsLeafNil l h)⟩
     obtain ⟨ta, hta⟩ := hreadsP ψ hrun hrhsWs hrhsb hrhsLb
-      (LeafReads.of_ctxOk hctx) hRa
+      hctx hRa
     obtain ⟨hokRa, -, hmemRa⟩ :=
       hinf ψ hrun hrhsWs hrhsb hrhsLb hctx hRa hta
     exact ⟨Ra, ta, hRa, fun ρ =>

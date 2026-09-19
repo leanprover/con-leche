@@ -77,6 +77,15 @@ FALLBACK = {
     # import is invisible to a public statement — the build says
     # `unknown identifier NRes`.
     ('ConLeche.Verify.Frontend.Local','ConLeche.Frontend.Scan.Naive'),
+    # task #305 closing: `FixRecRead`'s public signatures resolve
+    # `SetTheory`, `AnnotTerm`, `denoteMeta`, `EnvModel` and `openFvars`
+    # only through `FixRecReadDefs`'s re-export; the model calls the edge
+    # demotable once the file's two new plain imports (`Annot/BitInst`,
+    # `Annot/BitRename`, needed after `Model/Steps/*`'s re-exports went)
+    # cover the constants, but a plain import is invisible to a public
+    # statement (the #290 class) — the build says so for every substitute
+    # tried.
+    ('ConLeche.Model.Inductives.FixRecRead','ConLeche.Model.Inductives.FixRecReadDefs'),
 }
 
 files=[f for f in subprocess.check_output(['git','ls-files','*.lean']).decode().split()

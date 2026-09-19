@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Model.Claims
+public import ConLeche.Model.Currency
 public import ConLeche.Semantics.DenoteClosed
 public section
 

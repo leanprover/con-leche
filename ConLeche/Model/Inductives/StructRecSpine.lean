@@ -2,6 +2,7 @@ module
 
 public import ConLeche.Model.Inductives.StructStageCtor
 public import ConLeche.Model.IndProjKit
+import ConLeche.Model.Annot.BitRename
 public section
 
 /-!

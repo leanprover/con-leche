@@ -3,6 +3,8 @@ module
 import ConLeche.Semantics.IndBlockRun
 public import ConLeche.Model.IndTele
 public import ConLeche.Model.BasisEq
+import ConLeche.Model.Annot.BitRename
+import ConLeche.Model.Annot.BitLevels
 
 public section
 

@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Model.Steps.Tiers
+public import ConLeche.Model.Tiers
 public import ConLeche.Model.Annot.BitExtend
 public import ConLeche.Model.Annot.BitConsCross
 public import ConLeche.Semantics.ConstsBound

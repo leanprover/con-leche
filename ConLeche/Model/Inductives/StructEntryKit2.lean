@@ -1,6 +1,7 @@
 module
 
 public import ConLeche.Model.Inductives.StructEntryKit
+import ConLeche.Model.Inductives.StructIntro
 public section
 
 /-!

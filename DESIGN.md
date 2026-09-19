@@ -64,13 +64,23 @@ nothing else — the `Empty` statement lives with the letters, and the
 The axiom footprint is **pinned in the tree, not only claimed**:
 `tests/ConLecheTests/Axioms.lean` (built by `lake test`, reported by `tests/arena.sh`
 as the `axioms:` line) carries a `#guard_msgs in #print axioms` for each
-of the eleven, so a drifting axiom footprint is a test failure. Seven
-of them — the main theorem, `no_proof_of_{False,Empty}_cached`,
-`checkDecls_sound`, `fold_preserves` and
-`no_proof_of_{False,Empty}_pure` — additionally have their
-module-level dependency closure pinned by `tests/proofdeps.sh`; the
-two gates measure different things (what a proof term ASSUMES vs which
-modules it REACHES) and neither implies the other.
+of the eleven, so a drifting axiom footprint is a test failure. (Until task #305
+seven of them additionally had their module-level dependency closure
+pinned by `tests/proofdeps.sh`; under the module system what a proof
+term can REACH is exactly its module's import closure along `public
+import` edges, which `tests/layering.sh` now computes from source for
+the rules tier, so the pin retired — see the task #305 closing record.)
+
+**Where the claims are proved** (task #305): the four claims of
+`Model/Claims.lean` are proved through the RULES TIER — a relational
+description of the core checker (`ConLeche/Rules/Rel.lean`), the
+bridge from an accepting run to a derivation
+(`ConLeche/Verify/Rules/Bridge.lean`), the soundness of a derivation
+by structural induction (`ConLeche/Model/Rules/Sound.lean`), and the
+recomposition `checkSoundAtP5` (`ConLeche/Model/Rules/Recompose.lean`,
+under `RulesInputs`, the environment-level inputs of
+`Model/Rules/Inputs.lean`); the declaration fold consumes it through
+`Model/Tiers.lean`.
 
 **THE PROGRESS LANE IS A SECOND, UNVERIFIED FOLD** (user ruling,
 2026-09-07).  A default run calls `checkDecls` — the function
@@ -71831,3 +71841,1030 @@ closure of ANY capstone — `main_model` and `main_file_False`, the main
 theorem and the main corollary, included.  Before this task it was in
 all twelve, because the fold they are about named the committed list.
 It is still in the BINARY, of course: `Main.lean` passes it.
+
+## TASK #305 (prep) — `Core.lean` SPLIT: the fuel-free helpers move to `Kernel/CoreDefs.lean` (2026-09-19, `agent/coredefs-305`)
+
+The preparatory lane of task #305.  That task introduces an inductive,
+relational description of the core checker's moves (reduction,
+definitional equality, inference) under `ConLeche/Rules/*` and
+`ConLeche/Model/Rules/*`, with the layering rule that those directories
+may import the syntax and the environment (`Kernel/Expr`, `Level`,
+`Name`, `Env`, `PropWhen`, `PropRead`, …) but NOT the executable
+checker bodies (`Kernel/Core`, `Kernel/TypeChecker`, `Kernel/CoreIO`,
+`Kernel/Checker*`, `Kernel/DeclCheck`, `Cached/*`).  A relation over
+`Expr` and `Env` still has to *name* the delta step, the literal
+guards, the certified `Nat` tables, the η fabrications and the rule
+bits — and until this lane every one of them lived in the same 2943-line
+file as `whnfCoreBody`, `inferBody`, `defeqStep` and the knot.
+
+**The criterion.**  A definition of `ConLeche/Kernel/Core.lean` moved
+iff its statement and body mention **no monad `m`, no `CoreFns`
+record, no `CheckM`/`CheckError`, and no fuel**.  Everything that
+passes the test is exactly what a relation over `Expr` and `Env` would
+need, and nothing that fails it is: the bodies (`whnfCoreBody`,
+`whnfStep`/`whnfLoop`/`whnfBody`, `inferBody`, `inferBodyIO`,
+`defeqStep`/`defeqLoop`/`defeqBody`, `annotateBody`, `annotPwPi`,
+`annotPwLam`, `isPropType`, `ensureSort`, `reduceNat`, `iotaRec`,
+`prepareMajor`, `majorToCtor`, `litMajorToCtor`, `projLitToCtor`,
+`projCert`/`projCertAt`, `iotaCerts`, `iotaIndexOk`, `defEqList`,
+`proofIrrel`, `propIrrel`, `structEtaCert{,With}`, `structEtaProjCerts`,
+`structUnitCert`, `etaCert`, `stuckIrrel`, `boolTrueShortcut`,
+`defeqSpine`), the record (`CoreFns`, `CoreFns.ioView`), the error type
+(`CheckError`, `CheckM`, `unknownConstError`, `liftFueled`), the knot
+(`coreKnot`) and the four fuel constants (`whnfCoreLoopFuel`,
+`whnfLoopFuel`, `defeqLoopFuel`, `checkFuel`) stay in `Core.lean`.
+
+**What moved** (ten contiguous line ranges, 985 lines; every name,
+namespace, docstring, attribute and the relative order kept; no body
+rewritten), in the new file's order: `projModelName`, `isCtorApp`,
+`piResultIsProp`, `piResultZ`, `piResultNeverZero`, `capsNeverZero`,
+`isUnitLikeTy`, `unfoldDefinition`, `unfoldableHead`, `headHint`,
+`sameConstHeads`, `natLitToConstructor`, `natIndOk`, `natZeroOk`,
+`natSuccOk`, `natLitSupported`, `Expr.constsResolve`, `litToCtorIfNat`,
+`rawNatLit?`; the `## String literals` block — `strLitToConstructor`,
+`stringTyOk`, `charTyOk`, `listTyOk`, `listNilTyOk`, `listConsTyOk`,
+`charOfNatTyOk`, `stringOfListTyOk`, `strLitSupported`; the
+`## Structural-Nat literal acceleration` block — the eighteen
+`nat*Name`/`bool*Name` constants, `Expr.isBoolTrue`, `Expr.quickPair`,
+`natOpNames`, `natDivModNames`, `natOpDeps`, `natOpEquations`,
+`natOpResult`, `natOpGuard`, `natOpWfNames`, `Expr.substConst0`,
+`Expr.substConstAll`, `natOpCod`, `natOpTyPinned`, `natOpStoredOk`,
+`natOpStored`; then `piResidual`, `towerSlotsAll`, `recSlotsAll`,
+`etaProjs`, `etaCtorShape`, `etaFabArgs`, `etaFabArgsE`,
+`ProjEntry.fireOk`, `andRescueSlotsOf`, `andRescueSlots`, `recRuleKOf`,
+`recRuleEtaOf`, `recRuleBits` with its nine `@[simp]` lemmas
+(`recRuleBits_*`, `map_ctor_recRuleBits`), `projFnRule` with its four,
+`recRuleK`, `recFireComparands`, `ProjEntry.typeAt`, `betaGateFires`,
+`pwWritten`, `annotBinderMeta`.  `CoreDefs.lean` is a `module` with
+`@[expose] public section` in `namespace ConLeche` and carries the
+import set `Core.lean` had; `Core.lean` gains
+`public import ConLeche.Kernel.CoreDefs`, so every importer of `Core`
+sees the names unchanged and **no file outside the two needed an edit
+for the build** — no `unfold`, `rfl` or `simp only` anywhere noticed
+the move.
+
+**The borderline decisions**, by the rule "would a relation over
+`Expr` and `Env` need it":
+* `betaGateFires (mode : CheckMode) (pw : PropWhen)` moved: it takes
+  the mode as an ordinary argument, reads no monad and no record, and
+  a β rule stated at the verified mode must name it.
+* `pwWritten` and `annotBinderMeta` moved (an annotation relation needs
+  the datum a rebuilt binder ends up with); the `### The untrusted
+  annotation writes` comment that headed them stays in `Core.lean`,
+  before `annotPwPi`, because it describes the pass's ∀/λ *clauses*.
+* `Expr.constsResolve` moved: fuel-free, monad-free, and the
+  environment invariant is stated with it.
+* `natOpWfNames` and the `*TyOk` shape readers moved with the tables
+  they belong to.
+* The four `@[irreducible]` loop-fuel constants and `checkFuel` stay:
+  a relation has no fuel, and the brief pinned them to `Core.lean`.
+* `ConLeche.lean` (the umbrella) lists `TypeChecker` and not `Core`, so
+  it does not list `CoreDefs` either; the module is reached through
+  `TypeChecker → Core → CoreDefs`.
+
+**Outside the two files.**  Three things, none of them Lean:
+* `OVERVIEW.md`: the six anchors into `Core.lean` were re-pointed by
+  hand and their paragraphs re-read.  Three now name
+  `ConLeche/Kernel/CoreDefs.lean` in text and link (`natOpNames`, the
+  certified-fast-path account, `natDivModNames`); three stay in
+  `Core.lean` at their new lines (`whnfBody`, `annotateBody`, the
+  knot's base case).  Two of those had already drifted before this
+  task and were re-anchored to what the prose names: the "function
+  `annotateBody`" link pointed five lines inside the body and now
+  points at its `def` line; the "fuel knot's base case" link covered
+  two lines of the successor case and now covers exactly the `| 0 =>`
+  arm.  `README.md` has no link into `Core.lean`; untouched.
+* `tests/proofdeps-expected.txt` regenerated (`tests/proofdeps.sh
+  --list`): `ConLeche.Kernel.CoreDefs` ENTERED all twelve capstone
+  closures, as a module split must — every capstone reaches
+  `unfoldDefinition` and the literal guards — and the gate reported it
+  as twelve doors.  Not a new dependency: the same constants, in a
+  module of their own.
+* `tests/shake-allowlist.txt` (eleven lines added, one deleted) and
+  `Core.lean`'s import header, which the shake gate rewrote in three
+  rounds.  (i) `Core.lean`'s `import ConLeche.Kernel.Env` became an
+  UNCOMPENSATED proposal — the `--only` run diffs the noise floor by
+  that one `remove` and no `add` — so by the task #223 criterion it
+  was deleted.  (ii) The pub-import plan then reported `Core.lean`'s
+  `public import PropRead` and `public import Basis` DEMOTABLE:
+  `CoreDefs` re-exports both, and a `public import` is for a
+  re-export something else's public statement needs.  Demoted to plain
+  `import`, they became uncompensated removals in their turn (the
+  names reach `Core.lean` through `public import CoreDefs`), so they
+  went too, and the allowlist's `Core.lean public import Basis` line
+  of task #235 went with them (no longer proposed).  `Core.lean` now
+  imports `Level`, `ExprOps` and `CoreDefs`, nothing else.  (iii)
+  `CoreDefs.lean`'s `public import PropRead`/`Basis` are compensated
+  (`+Basis.Names`, `+Env`, `+ExprOps` as public imports of the same
+  file) — the exact shape `Core.lean`'s own `Basis` entry had — so
+  they are allowlisted the same way.  (iv) Nine importers of `Core` —
+  `Kernel/FEnv`, `Kernel/TrustAxioms`, `Verify/BetaGate`,
+  `Verify/EnvWF`, `Verify/StrLitExpr`, `Semantics/LitParams`,
+  `Semantics/ConstsBound`, `Denotes`, `Frontend/NatOpGround` — read
+  only names that moved, and shake proposes replacing their `import
+  Core` by `import CoreDefs`.  That is a compensated removal
+  (allowlisted by the criterion), and it is also the narrowing task
+  #305 proper exists to make, so this lane records it and leaves the
+  nine edits to that lane.
+
+Docstrings elsewhere that cite `Kernel/Core.lean:<line>` for a moved
+name (`Model/Steps/Stuck.lean`'s `strLitToConstructor`,
+`Model/Steps/Irrel.lean`'s `isUnitLikeTy`) were already stale by
+hundreds of lines and are historical citations; not chased.
+
+### Gates
+
+Every run in the `coredefs-305` worktree, in the foreground with a
+timeout.  The binary is unchanged in behaviour: nothing executable
+moved, only where it is defined.
+
+| gate | result |
+| --- | --- |
+| `lake build` | **562 jobs, warning-free** (four times: the split, then each shake-driven import edit) |
+| `lake test` | 482 jobs, warning-free |
+| `tests/layering.sh` | base 295 / model 190 / caps 3 / umbrella 1; 0 base→lane, 0 impl→theory (295 = 294 + `CoreDefs`) |
+| `tests/proofdeps.sh` | **regenerated: 4351 → 4363 rows**, `ConLeche.Kernel.CoreDefs` ENTERED **all twelve** capstone closures (the split's twelve doors, expected) |
+| `tests/pindump.sh` | 3 pinners reproduce their committed JSON byte-for-byte |
+| `tests/trust-surface.sh` | 13 escapes in 5 allowlisted files (500 scanned); 0 outside |
+| `tests/overview-links.sh` | 103 links / 58 files / 2 documents, re-anchored (58 = 57 + `CoreDefs.lean`) |
+| `tests/quote-gate.sh` | 2 quoted statements match |
+| `tests/no-local-paths.sh` | OK |
+| `tests/challenge.sh` | OK — statements identical for both advertised names |
+| `tests/shake.sh` | 466 removals proposed, all 466 allowlisted, 0 new / 0 stale (456 + 11 − 1); pub-imports 971 of 1335 public, none demotable |
+| `tests/inmodel.sh` | OK |
+| axioms | pinned (20 theorems at `[propext, Classical.choice, Quot.sound]`) |
+| arena | tutorial 90/92, e2e 195/195, annot 15/15, prelude counts 3/3, progress lane 15/15, worker pool 15/15, DAG-tower 14/14; trusted / `--jobs=1` / `--jobs=4` sweeps as expected — **exit 0**, every verdict identical to master's |
+
+One note for the next runner: `tests/arena.sh` must NOT be run under
+`ulimit -v 16000000` on this machine — the checker's worker pool
+(`--jobs`) and the `#check` of `tests/challenge.sh` fail with
+`failed to create thread` under a virtual-memory cap, and the whole
+battery reports 134s.  The limit is for a single checker run on a
+large input; the battery runs its own per-fixture timeouts.
+
+## TASK #305 — THE RULES TIER: a relational description of the core checker (2026-09-19, `agent/rules-305`, design)
+
+**The ask** (the maintainer, verbatim): *"I think it would be desirable
+to have an inductive description of the moves the core checker does
+(e.g. "delta-unfold", "beta reduce"), and factor the proof through
+that.  It is really a relational description of the checker, with
+things like fuel, delta unfolding heuristics etc. out of sight.  As
+usual, the inductive should have fewer rules and some moves may be
+derived from others.  For example, I could imagine we add a rule that
+swaps the defeq sides, and then have constructors only for doing
+something on the left hand side (reduce, unfold), and derive the
+other one.  This way the proof of the Claims layer needs less
+redundant cases.  Ideally the module structure enforces the layering.
+The proof of the Claims should depend on the Expr syntax and the
+inductive description of the core checker, but not the actual pure
+impl."*
+
+**The rulings** (binding).  (1) **No `DefEq.trans` constructor**;
+non-leaf `DefEq` rules carry a further `DefEq` premise modelling the
+recursive structure of `isDefEq` — "unfold the left head, then the
+continuation is definitionally equal".  A `trans` experiment is a
+follow-up, after everything works.  (2) **Premise-exact at the level
+of the derived rules**: the run ⇒ derivation proof is mechanical, each
+checker site lands on one rule whose premises are exactly the
+certificates the verified checker ran there; slack between
+constructors and derived rules is fine if small.  (3) Directory
+`ConLeche/Rules/`, namespace `ConLeche.Rules`.  (4) Only the four
+claims and the io claim move; the annotation pass and the declaration
+fold stay; the forty-odd Model files above `Tiers.lean` do not change.
+(5) `sorry` is fine on the branch.
+
+This section is the **design and skeleton** landing: the relations,
+the derived rules (proved), the bridge and soundness STATEMENTS with
+the mechanical parts proved and the semantic parts `sorry`, the
+recomposition of `checkSoundAtP5` (proved modulo one named residue),
+the gates, and the lane partition for the proof phase.  Nothing on
+master changes meaning; `Model/Steps/*` is untouched and still what
+the fold consumes.
+
+### The architecture: three tiers and a recomposition
+
+```
+   ConLeche/Rules/*            the relations over Expr, the derived rules
+        ↑ imports Kernel/CoreDefs only (the fuel-free helpers)
+   ConLeche/Verify/Rules/*     THE BRIDGE: run at fuel ⇒ derivation
+        ↑ imports Kernel/TypeChecker, Kernel/CoreIO, Verify/* inversions
+   ConLeche/Model/Rules/*      THE SOUNDNESS: derivation ⇒ P currency
+        ↑ imports Rules/*, Model/Claims, Model/Annot/EnvModelM — NOT the impl
+   ConLeche/Model/Rules/Recompose.lean   bridge ∘ soundness = checkSoundAtP5
+```
+
+* **`Rules/Rel.lean`** — six mutually inductive relations over the
+  checker's own `Expr`, parametrised by `env : Env`, indexed by the
+  opening depth `d` (an `fvar` carries its type: no context list; a
+  binder opens with `.fvar d ty` at `d + 1`, exactly as the checker
+  does): `Red env d e e'` (one relation for `whnfCore` and the `whnf`
+  loop, with `refl` and `trans`), `DefEq env d a b` (with `symm`,
+  without `trans`), `Infer env g d e t` at a grade `g : Grade`
+  (`full` for the front door, `io` for the infer-only lane; the grade
+  propagates to the recursive premises as `CoreFns.ioView` does), and
+  three list walks: `Certs` (`iotaCerts`, licensed or not),
+  `DefEqList` (`defEqList`), `EtaProjCerts` (`structEtaProjCerts`).
+  No mode index: the relations describe the `.verified` checker
+  (`betaGate = verifiedChecks = true`).  51 constructors.
+* **`Rules/Derived.lean`** — 20 derived rules, PROVED: the right-hand
+  variants via `symm`, the spine congruence from the per-node one, the
+  `Bool.true` shortcut as refl-after-reduction, the δ continuations,
+  the string-literal arms, `litToCtorIfNat` as a reduction, and the
+  one shape fact the λ clause reads off a derivation
+  (`Infer.lam_shape`).
+* **`Verify/Rules/{Defs,Certs,RedBridge,DefEqBridge,InferBridge,Bridge}.lean`**
+  — the five bridge predicates `WhnfCoreBridge`, `WhnfBridge`,
+  `DefEqBridge`, `InferBridge`, `InferIOBridge` (`run = .ok … →
+  derivation`, at every fuel, stated at `.verified`), the zero cases
+  (proved), the certificate bridges and the four step theorems (the
+  lanes' work), and `ConLeche.Rules.bridge`: the mutual fuel induction
+  in the shape of `checkSoundAtP5`'s, PROVED from the step theorems.
+  Also proved now: `whnfStep_bridge`, `whnfLoop_bridge`,
+  `whnf_bridge_succ`, `defeqLoop_bridge`, `defeq_bridge_succ`,
+  `prepareMajor_bridge`, `litMajorToCtor_bridge`,
+  `projLitToCtor_bridge`, `projCertAt_bridge`, `structEtaCert_bridge`,
+  `defeqSpine_bridge`, `ensureSort_bridge`, `inferTypeIO_bridge` — the
+  ones that are one inversion lemma away.
+* **`Model/Rules/{Motive,Inputs,RedSound,DefEqSound,InferSound,CertsSound,Sound}.lean`**
+  — the six motives (`RedSem`, `DefEqSem`, `InferSemFull`/`InferSemIO`
+  dispatched by `InferSem`, `CertsSem`, `DefEqListSem`,
+  `EtaProjCertsSem`), the environment-level inputs `RulesInputs`, one
+  per-rule soundness lemma per constructor (the lanes' work; the
+  structural ones proved), and `red_sound`/`defeq_sound`/`infer_sound`/
+  `certs_sound`/`defEqList_sound`/`etaProjCerts_sound`: ONE mutual
+  structural recursion over the derivation, every case one per-rule
+  lemma applied to the recursive calls — PROVED, and it elaborates,
+  which is the design's main sanity check: the motive shapes close.
+* **`Model/Rules/Recompose.lean`** — `checkSoundAtP5_rules` /
+  `checkSoundAt_rules`, statement-identical to `Tiers.lean`'s, proved
+  in five four-line cases from `bridge` and `*_sound`; the one `sorry`
+  is `RulesInputs.ofTier`'s two literal rows (below).
+
+**Statement shapes decided.**  Per-relation motives, not one bundled
+motive — the master induction needs one motive per relation anyway,
+and the per-rule lemmas read better against a named motive.  Three
+deliberate strengthenings over the claims (`Model/Rules/Motive.lean`'s
+docstring): (i) **existence form** — `RedSem` and both `InferSem`s
+conclude the reduct's / the type's reading (`∃ ea', denoteMeta … e' =
+some ea'`) instead of taking it as a premise, because the
+recursive-structure rules need the middle term's reading and nothing
+else can supply it; (ii) **the frame in the conclusion** — they also
+conclude `WScoped`/`looseBVarsBounded`/`LeavesBounded` and leaf
+inclusion for the reduct / the type, so the continuation's `CtxOk` is
+`CtxOk.of_subset`; (iii) **the grade splits the inference motive** —
+full grade establishes the subject's grading (`InferClaim`'s shape),
+io grade consumes it (`InferClaimIO`'s premise form).  The
+dual-success claims are recovered by `Option.some.inj`.
+
+**Derived rules must carry the frame too**: an earlier draft kept a
+separate "derivations preserve scoping" lemma family
+(`Rules/Scoping.lean`, under `EnvWF`); it was dropped in favour of
+(ii), since every semantic case needs the frame of exactly the terms
+whose reading it also needs, and one induction beats two.  The
+per-rule lemmas therefore prove the syntactic conjuncts alongside the
+semantic ones, mining `Verify/InferLeaves.lean` and
+`Verify/InferLemmas.lean:3033-3216` (`unfoldDefinition_WScoped`,
+`whnfPres_*`, `prepareMajorFueled_WScoped`) for the arguments.
+
+### The rule inventory
+
+Checker sites are `ConLeche/Kernel/Core.lean` at the merge `af1cc4cc`
+(after the CoreDefs split); "carries it today" names the
+`Model/Steps/*` row whose semantic content becomes the rule's
+soundness.  Premise column: `S` = sub-derivation, `G` = a Boolean
+guard / stored-data read.
+
+**`Red`** (16 constructors)
+
+| rule | site | premises | carries it today |
+|---|---|---|---|
+| `refl` | every `pure e` exit: values `:970-975`, stuck `:1003`, `:1033-1035`, `whnfStep` fixpoint `:1088` | — | `whnfCore_leaf_claim` (`Whnf.lean:478`) |
+| `trans` | the `whnfCore` continuations `:990`,`:997`,`:1002`,`:1033`; `whnfLoop` `:1091-1095`; `prepareMajor` `:785-807` | S `Red`, S `Red` | `whnfLoop_claim` (`Whnf.lean:685`) — `interpC_trans` |
+| `appFn` | `.app` clause `:976-977` (`whnfCore f`) | S `Red f f'` | `whnfCore_app_claim` (`:509`), `frame_appFn` |
+| `projArg` | `.proj` clause `:1004-1006` (`whnf pe`) | S `Red` | `projStep_of_claims` stuck branch (`ProjRows.lean:278`) |
+| `betaGate` | `:989-990` | G `mb.pw.isNever` | `WellDenotedV_beta_gate` (`Gate.lean:80`) |
+| `beta` | `:996-998` | S `Infer io a ta`, S `DefEq ta ty` | `betaCert_of_claims` (`Whnf.lean:424`), `WellDenotedV_beta_{pos,zero}` |
+| `delta` | `whnfStep` `:1084-1085`; every lazy-δ continuation `:1537-1577` | G `unfoldDefinition env e = some e'` | `delta_of` (`Whnf.lean:329`) = `DenoteMetaDelta` |
+| `natLit` | `litMajorToCtor` `:739` | G `natLitSupported` | `denoteMeta_litToCtorIfNat` (`Major.lean:66`) |
+| `strLit` | `litMajorToCtor` `:736-738`, `projLitToCtor` `:752-754`, defeq string arms `:1610-1617` | G `strLitSupported` | `denotePStrLit_of_guard` (`Stuck.lean:540`) |
+| `natSucc` | `reduceNat` `:171-178` | G, S `Red a w`, G `rawNatLit? w = some n` | `ReduceNatStep` (run row) → `NatSuccRow` |
+| `natOp` | `reduceNat` `:180-201` | G `c ∈ natBinOpNames`, G `natOpStored`, S `Red a wa`, G, S `Red b wb`, G, G `natOpResult` | `ReduceNatStep`/`ReduceNatStepPQ` → `NatOpRow` |
+| `proj` | `.proj` clause `:1013-1035`, `projCert` `:940-965` | G ×6 (entry, head, arity, levels, `fireOk`), G ctor stored, S `Certs true` | `projStep_of_claims` firing branch, `certs_teleLic` |
+| `iota` | `iotaRec` `:809-938` | G ×4, S `Red major`, G ×5, G levels, S `DefEqList` (params, under `compareParams`), S `Certs true` ×2, G residual, S `DefEqList` (indices, under `mI ≠ rP`) | `iotaStep_of` + `iotaReads_of` (`IotaRows.lean:492`, `:332`) |
+| `rescueK` | `majorToCtor` K branch `:570-620` | G ×5 (rule, ctor, family), S `Infer io major tm`, S `Red tm tmaj`, G ×3, G fab shape, G scope ×3, S `Certs false`, S `Infer io fab tf`, S `DefEq tmaj tf`, S `DefEq fab major` | `majorToCtorFueled_step` K arm + `majorToCtorFueled_reads` (`Major.lean:383`, `:178`) |
+| `rescueEta` | η branch `:621-672` | as `rescueK` with `capsNeverZero`, `etaFabArgsE`, and only `DefEq fab major` | `majorToCtorFueled_step` η arm; `structEtaCertWithFueled_step` (`CapsRows.lean:501`) |
+| `rescueAnd` | `And` branch `:673-732` | as `rescueK` with `andRescueSlots`, the two `.proj` fields | `majorToCtorFueled_step` `And` arm |
+
+**`DefEq`** (18 constructors)
+
+| rule | site | premises | carries it today |
+|---|---|---|---|
+| `refl` | `a == b` `:1463`, `a' == b'` `:1472`, `lit`/`lit` `:1582` | — | trivial |
+| `symm` | (not a move) | S `DefEq` | trivial |
+| `redL` | `whnfCore` both `:1466-1467` (with `symm`), literal acceleration `:1517-1529`, lazy δ `:1537-1577`, the string arms | S `Red a a'`, S `DefEq a' b` | `dq_whnfCore_package`, `dq_delta_package` (`DefEq.lean:460`, `:485`) |
+| `sort` | `:1581` | G `isEquiv` | `defeqStuck_claim` sort arm |
+| `fvar` | `:1618-1620` | — | `defeqStuck_claim` fvar arm |
+| `const` | `:1621-1626` | G `isEquivList` | `acval_const_congr` (`DefEq.lean:844`) with `AcvalParams` |
+| `natZero` | `:1586-1591` | — | `denoteMeta_natZeroConst` (`:99`) |
+| `natSucc` | `:1592-1597` | S `DefEq (lit k) x` | `denoteMeta_natSuccConst` (`:119`) |
+| `forallE` | `:1627-1643` | S `DefEq ty₁ ty₂`, S `DefEq` bodies opened at `ty₂`, G `m₁.pw = m₂.pw` | `binder_congr` (`:756`) |
+| `lam` | `:1644-1651` | as `forallE` | `binder_congr` |
+| `app` | per node (the spine arm `:1652-1678` is derived) | S, S | `spine_congr` (`Stuck.lean:270`) |
+| `proj` | `:1679-1689` | S `DefEq e₁ e₂` | `interp_projAV_congr` (`ProjAVKit.lean:85`) |
+| `eta` | `etaCert` `:508-534` at `:1690-1692` | S `Infer io b tb`, S `Red tb (∀ ty₂ B m₂)`, S `DefEq ty₂ ty₁`, S `DefEq` body vs `app b`, G `m₁.pw = m₂.pw` | `etaCertStep_of_claims` (`Stuck.lean:576`) |
+| `proofFast` | `propIrrel` yes-arm `:331-332` | G `isProofFast a`, G `isProofFast b` | `prf_of_isProofFast` (`IrrelFast.lean:303`) |
+| `proofIrrel` | `propIrrel` `:338-356`, `proofIrrel` Prop arm `:295-325` | S `Infer io a ta`, S `Infer io ta tta`, S `Red tta (sort u)`, G `u ≡ 0`, and the same for `b` | `prop_side_pt` ×2 (`Irrel.lean:71`) |
+| `unitLike` | `proofIrrel` unit arm `:287-294` | S `Infer io`, S `Red`, G `isUnitLikeTy`, ×2 | `unit_side_pt` ×2 (`unitIrrelPQ_of_claims`, `Irrel.lean:179`) |
+| `structEta` | `structEtaCert` `:460-476` → `structEtaCertWith` `:379-458` | S `Infer io b tb`, S `Red tb wtb`, G ×14, S `Certs false` (the former's telescope), S `EtaProjCerts` (under `¬towerSlotsAll`), S `DefEqList` params, S `DefEqList` fields vs `etaProjs` | `structEtaIrrel_of_claims` (`CapsRows.lean:897`) |
+| `structUnit` | `structUnitCert` `:478-506` | S `Infer io a ta`, S `Red ta wta`, G ×5, S `Infer io b tb`, S `Red tb wtb`, S `DefEq wta wtb`, S `Certs false` | `structUnitIrrel_of_claims` (`:944`) |
+
+**`Infer`** (10 constructors; `full` sites / `io` sites)
+
+| rule | site | premises | carries it today |
+|---|---|---|---|
+| `sort` | `:1114` / `:1294` | — | `infer_sort_claim(IO)` |
+| `fvar` | `:1115-1123` / `:1295-1297` | G `idx < d` | `infer_fvar_claim(IO)` |
+| `const` | `:1125-1136` / `:1298-1309` | G stored, G not a table, G arity | `infer_const_claim(IO)` (`ConstType`, `AcvalValid`) |
+| `natLit` | `:1137-1139` / `:1310-1312` | G `natLitSupported` | `infer_natLit_claim(IO)` (`NatHeads`) |
+| `strLit` | `:1140-1146` / `:1313-1316` | G `strLitSupported` | `inferStrLitStep_of_claims` (`StrLit.lean:451`) |
+| `forallE` | `:1147-1163` / `:1317-1326` | S `Infer g ty s`, S `Red s (sort u)`, S `Infer g` body, S `Red bs (sort v)`, G `zeronessOf v = mb.pw` | `infer_forallE_claim(IO)` (`Infer.lean:254`, `InferIO.lean:339`) |
+| `lam` | `:1164-1214` / `:1327-1348` | (`g = full →`) S `Infer full ty s`, S `Red s (sort u)`; S `Infer g` body; G chain agreement; (`lamPw = none →`) S `Infer io bt btt`, S `Red btt (sort v)`, G `zeronessOf v = mb.pw` | `infer_lam_claim(IO)` (`Infer.lean:358`, `InferIO.lean:456`) |
+| `app` | `:1215-1227` / `:1367-1370` | S `Infer g f tf`, S `Red tf (∀ ty body mt)`, S `Infer g a ta`, S `DefEq ta ty` | `infer_app_claim` (`Infer.lean:842`), `infer_app_claimIO` kept arm |
+| `appSkip` | THE io SITE `:1349-1372` | S `Infer io f tf`, S `Red tf (∀ …)`, G `mt.pw.isNever` | `infer_app_claimIO` gated arm — `io_domain_transfer` (`InferIO.lean:609`) |
+| `proj` | `:1228-1289` / `:1373-1409` | S `Infer g pe tpe`, S `Red tpe te`, G head = node's name, G entry, G ×2 arities, G the `Prop` restriction | `inferProjStep(IO)_of_claims` (`ProjRows.lean:71`, `:160`) |
+
+**The walks** (7 constructors): `Certs.nil/skip/cert` (`iotaCerts`
+`:230-244`; `skip` under `lic = true ∧ isNever` — `certs_teleLic`,
+`IotaGate.lean:123`; `cert` = S `Infer io arg ta`, S `DefEq ta ty` —
+`certs_telePA`, `IotaKit.lean:246`), `DefEqList.nil/cons`
+(`defEqList` `:246-252`; `map_interp_of_defEqListFueled`,
+`Stuck.lean:223`), `EtaProjCerts.nil/cons` (`structEtaProjCerts`
+`:358-377`).
+
+**The derived rules** (`Rules/Derived.lean`, all proved)
+
+| derived | from | site |
+|---|---|---|
+| `Red.strLitWhnf` | `trans (strLit)` | the two literal-major/proj expansions that re-reduce |
+| `Red.litToCtorIfNat` | `natLit`/`refl` | `litMajorToCtor`'s non-string arm |
+| `DefEq.ofRed` | `redL … refl` | — |
+| `DefEq.redR`, `redBoth` | `symm ∘ redL` | `whnfCore b`, both sides |
+| `DefEq.deltaL`, `deltaR`, `deltaBoth` | `redL (delta)` | the lazy-δ continuations `:1537-1577` |
+| `DefEq.boolTrue` | `ofRed` + `isBoolTrue` inversion | `boolTrueShortcut` `:1415-1424` at `:1468-1471` |
+| `DefEq.lit` | `refl` | `:1582` |
+| `DefEq.natZeroR`, `natSuccR` | `symm` | `:1589-1591`, `:1598-1603` |
+| `DefEq.strLitL`, `strLitR` | `redL/redR (strLit)` | `:1610-1617` |
+| `DefEq.etaR` | `symm ∘ eta` | `:1693-1696` |
+| `DefEq.mkAppN`, `spine` | induction on `DefEqList` over `app` | the spine arm `:1652-1678` |
+| `DefEq.constSpine` | `spine` + `const` | `defeqSpine` `:1426-1458` at `:1570` |
+| `DefEq.structEtaR` | `symm` | `stuckIrrel`'s second arm `:539` |
+| `Infer.lam_shape` | `cases` | the λ chain case's shape fact |
+| `DefEqList.length/refl/symm` | kit | — |
+
+**Slack between constructors and the run relation** (ruling 2): pure
+dispatch guards are not premises — `a == b`, `a' == b'`, `quickPair`,
+`notProofFast`, `isCtorApp`, the `rl.k = false` before the η branch,
+`etaCtorShape`, the `pi` entry flag — so a derivation exists wherever a
+run exists and the rules are individually sound.  `Certs.cert` fires
+also where the checker would have skipped (the walk is a superset).
+Nothing bigger.
+
+**Completeness against the checker** (every `.ok` path walked):
+`whnfCoreBody` — 6 values (`refl`), `.app`: β gated / β certified /
+ι / stuck (`appFn` + `betaGate`/`beta`/`iota` + `trans`, or `refl`),
+`.proj`: reduce, expand, fire / stuck (`projArg`, `strLitWhnf`,
+`proj`, `trans`), `.letE`/`.bvar` throw; `whnfStep` — `whnfCore`,
+`reduceNat` (`natSucc`/`natOp`; the WF-names safety net throws or
+answers `none`), δ (`delta`), fixpoint; `defeqStep` — the 17 exits of
+`DefEqBridge.lean`'s table; `inferBody`/`inferBodyIO` — 11 shapes each
+(`.letE` throws, `.bvar` throws); the helpers `iotaRec`,
+`prepareMajor` (both orders are `trans` chains), `majorToCtor` (3
+rescues + identity), `litMajorToCtor`, `projLitToCtor`, `projCertAt`,
+`iotaCerts`, `defEqList`, `iotaIndexOk` (folded into `iota`'s two
+`mI ≠ rP →` premises), `proofIrrel`, `propIrrel`, `structEtaCert`,
+`structEtaCertWith`, `structEtaProjCerts`, `structUnitCert`,
+`etaCert`, `stuckIrrel`, `defeqSpine`, `boolTrueShortcut`,
+`ensureSort`.  **No path without a rule.**  Two sites are worth a
+note: `defeqStep`'s `.lit (.natVal n)` vs `.const natZeroName []` arm
+reads NO support guard, and the rule (`natZero`) has none either — its
+soundness rests on the readings being premises (the literal reads only
+under `natLitSupported`); and the `fvar` arm never compares the two
+annotations, so `DefEq.fvar` has no premise — the reading ignores the
+annotation (`Model/Steps/DefEq.lean`'s fvar arm carries it today).
+
+### The fence
+
+`tests/layering.sh` gains a third clause: a module under
+`ConLeche/Rules/` or `ConLeche/Model/Rules/` may not DIRECTLY import
+`ConLeche.Kernel.{Core,TypeChecker,CoreIO,Checker*,DeclCheck}` or
+`ConLeche.Cached.*`; `ConLeche.Model.Rules.Recompose` is exempt by
+name (it is the recomposition).  With the CoreDefs split merged
+(`agent/coredefs-305`, `ccf4ba03`…`de319fda`) the rules tier imports
+`Kernel/CoreDefs` and nothing else of the kernel beyond
+`Expr`/`Env`/`PropRead`/`Basis`, and the clause reads `0 rules->impl`.
+
+The proof-term criterion is the stronger statement, and it is pinned:
+`tests/ProofDeps.lean` gains three roots, `rules_bridge`
+(`ConLeche.Rules.bridge`), `rules_sound`
+(`ConLeche.Model.Rules.red_sound`, the mutual block's first member —
+one proof term), `rules_recomposed`
+(`ConLeche.Model.Rules.checkSoundAtP5_rules`).  The regenerated
+expectation shows **`rules_sound` reaching `ConLeche.Kernel.CoreDefs`
+and no `Kernel.Core`, no `Kernel.TypeChecker`, no `Kernel.CoreIO`, and
+no `Model.Steps.*`** — the maintainer's layering ask, stated at the
+proof term.  (Today the per-rule lemmas are `sorry`, so the closure is
+the statements'; as the lanes land, a lemma that reaches into a
+`Model/Steps` proof will show up as a DOOR, which is the ratchet
+working: a lane must transplant the argument, not import the row.)
+
+**What the direct fence does not say.**  `Model/Claims.lean` (for
+`CtxOk`/`WellDenotedV`) imports `Verify/InferLeaves` → `Verify/InferLemmas`
+→ `Kernel/TypeChecker`, and `Model/Annot/EnvModelM.lean` (for
+`TowerOk`/`RecRules`/`CapsOk`) imports `Model/Steps/{Whnf,Infer,InferIO,DefEq}`.
+So the rules tier's TRANSITIVE import closure reaches the impl and the
+Steps tier through two definitions' homes.  The proof-term pin says it
+does not USE them.  The durable fix is part of the deletion lane
+(below): `LeavesBounded` and the `CtxOk` package move to an impl-free
+module, and the environment laws move out of `EnvModelM.lean` into
+`Model/Annot/Laws.lean`, both re-exported where they are today.
+
+### The totality / readability question, resolved
+
+Today `Model/Steps/Reads.lean` + `ReadsIO.lean` run a separate
+four-way induction (`readsAll4_of`) for the middle terms' readings,
+because the claims are dual-success and a chained run needs the next
+subject's reading; twelve `*Reads`/`*Exists` residues route it.  In the
+rules tier the question is answered once, at the motive: `RedSem` and
+`InferSem` are in EXISTENCE FORM.  `DefEq.redL`'s soundness
+(`Model/Rules/DefEqSound.lean`, proved) is the whole mechanism in four
+lines: the reduct reads, is graded and framed, so the continuation's
+motive applies at it.  `Reads.lean`'s FINDING (the `LeafReads` premise
+— `inferBody`'s `.fvar` clause returns the stored annotation, which
+the reading ignores) is absorbed because the motives carry `CtxOk`,
+which contains it.  `Accepted.lean`'s subject-side walk survives only
+where a lane needs it (the ι rule's major-side spine is framed by
+`Red`'s conclusion instead).
+
+### The environment inputs, and the one residue
+
+`RulesInputs V m φ` (`Model/Rules/Inputs.lean`) is what the soundness
+reads about the environment: `ConstTy`, `LeafValid`, `NatLeafHeads`,
+`DefnReads` (the four install-tier residues of `Model/Steps/*`
+restated verbatim so that no rules module imports a file stated over
+runs), `TowerOk`, `RecRules`, `CapsOk` (imported from `EnvModelM`),
+and two NEW shapes `NatSuccRow`/`NatOpRow` — the literal
+accelerations' semantic content at the shapes `reduceNat` fires on,
+with the subject's reading a premise.
+
+**The residue, and the ruling that removed it** (lane R-nat, landed).
+`checkSoundAtP5`'s hypothesis is `TierInputsAt`, whose two literal
+fields USED TO BE run rows (`nat_step : ∀ fuel, WhnfClaim fuel →
+ReduceNatStep fuel`).  Seven of `RulesInputs`' fields are projections
+of `TierInputsAt` (definitional); those two were not, and
+`RulesInputs.ofTier` carried them as `sorry`.  The maintainer ruled
+for the durable fix rather than for recovering the rows at the
+literal run: **`TierInputsAt.nat_step`/`nat_stepQ` are now the
+SEMANTIC fields `nat_succ : Rules.NatSuccRow` / `nat_op :
+Rules.NatOpRow`**, and all nine `RulesInputs` fields are projections.
+`checkSoundAtP5`'s statement changed textually, not in meaning.
+
+The content MOVED; nothing was re-proved.  `reduceNatSem_binary` was
+(1) the app spine's reading inversion, (2) the run unfolding with the
+cases on `whnf a` / `rawNatLit?` / `whnf b` / `rawNatLit?` /
+`natOpResult`, (3) the arguments' identification through the whnf IH,
+(4) the fourteen-way `natOpV_*` split from
+`EnvModelM.nat_ops`/`div_mod` at the two numerals.  The cut is at the
+seam after (2)+(3):
+
+* **`Model/NatStep.lean`** keeps (1) and (4) as `natSuccRow_of` /
+  `natOpRow_of` — the `natOpV_*` case split now exists in exactly one
+  place in the tree;
+* **`Model/Steps/Tiers.lean`** keeps (2)+(3) as
+  `reduceNatCore_unary`/`_binary` and
+  `reduceNatStep_of_rows`/`reduceNatStepPQ_of_rows`, the only place in
+  the literal tier that consumes a `WhnfClaim`;
+* `reduceNatSem*`/`reduceNatStep_of`/`reduceNatStepPQ_of` are gone —
+  after the field change nothing consumed them.
+
+**Two placement findings.**  (a) The glue could NOT go in
+`Model/NatStep.lean`: that file already sits ABOVE `Steps/Tiers.lean`
+(`NatStep → NatWf → DivMod → NatSem → NatEqs → Install → Tiers`), so
+`Tiers.lean` cannot import it and `TierInputsAt.ofEnvModelM` keeps the
+two rows as ARGUMENTS (supplied at its one call site,
+`Model/Capstone.lean`'s `TierInputsAt.ofSem`, from `natSuccRow_of mp φ`
+/ `natOpRow_of mp φ`).  For the same reason the glue may not use the
+numeral spine `natLit` at all.  (b) The run side therefore reads the
+whnf'd arguments through `WhnfReads` (`hwreads`, already derived from
+`h.reads` in `checkSoundAtP5`) instead of `denoteMeta_rawNatLit`:
+`reduceNatStep_of_rows` takes `NatSuccRow → NatOpRow → WhnfReads →
+WhnfClaim → ReduceNatStep`.  The alternative — `NatOpGuardLaw env`,
+which is what supplied `natLitSupported` before — is an `EnvModelM`
+fact that `TierInputsAt` does not carry, so taking it would have meant
+a third new field.
+
+`Model/Steps/Tiers.lean` now `import`s `Model/Rules/Inputs.lean` (no
+cycle: the rules tier's closure reaches `Steps/{Whnf,DefEq,Infer,
+InferIO,…}` through `EnvModelM`, never `Tiers`).  The proofdeps
+expectation gains the rules-tier modules on the model-side roots for
+that reason — rows ENTERING, against the deletion lane's usual
+direction, because `TierInputsAt`'s own statement now mentions the
+rules tier's two shapes.
+
+### Risks and findings
+
+1. **`EnvModelM.lean` sits above `Model/Steps/*`.**  The environment
+   laws the soundness consumes (`CapsOk`, `RecRules`, `TowerOk`,
+   `TeleFitPA`, `RecRuleLaw`, `TowerEntryLaw`, `EtaLaw`) are defined in
+   a file that imports four Steps files.  Deleting Steps requires
+   moving the law definitions down first (into `Model/Annot/Laws.lean`,
+   re-exported by `EnvModelM`).  Bounded, mechanical, in the deletion
+   lane.
+2. **The λ chain case.**  `Infer.lam` is ONE constructor (premise-exact
+   against `inferTypeCore_lam_inv`, with `g = .full →` and `body.lamPw
+   = none →` premises and junk witnesses where vacuous); its chain
+   case needs the body type's SHAPE (`.forallE _ _ mbI`), which the
+   per-rule lemma cannot see.  Resolved: `Infer.lam_shape` (proved)
+   read off the premise derivation in the master induction and handed
+   to `Infer.lam_sound` as `hshape`.  Verified to elaborate.
+3. **The rescue rules are three, not one.**  A single "fabricate and
+   certify" rule was considered (the three sites differ only in the
+   fabricated spine); rejected because the fabrication's READABILITY
+   in the existence-form motive comes from the spine's shape (the type
+   application's own arguments, `.proj` nodes over the major) and a
+   general rule would need it as a premise — which is semantic and may
+   not enter the inductive.
+4. **Soundness under the recursive-structure premises** (ruling 1):
+   every non-leaf `DefEq` rule was checked against its `Model/Steps`
+   row.  `redL` is proved.  `natSucc` (unpack and continue), `eta`,
+   `forallE`/`lam` (opened at the RIGHT domain), `app`, `proj`,
+   `structUnit`'s inner `DefEq wta wtb`: each row today already
+   consumes exactly "the continuation's `interp` equality", so no rule
+   shape needs changing.  One rule is EXPECTED to need care: `structEta`
+   at a projection-function family consumes `EtaProjCertsSem`, whose
+   per-field fits `structEtaCertWithFueled_step` obtains from
+   `certs_telePA` at the projection function's telescope — the motive
+   `CertsSem` is `certs_telePA`'s conclusion verbatim, so it should
+   fit; flagged, not blocked.  **Resolved** (lane S-defeq and the
+   fix-up): every non-leaf rule's soundness is proved at its
+   recursive-structure premise, and `structEta` at a projection-function
+   family consumes `EtaProjCertsSem` exactly as predicted — the one
+   shape repair needed was on the OTHER η site (`Red.rescueEta`, see
+   the closing record).
+5. **`trust-surface.sh` is red on this branch by construction**: it
+   counts `sorry` as an escape (61 = the 60 sorries plus one docstring
+   mention); it goes green when the lanes land.  NOT allowlisted.
+6. **Shake and the module system**: `lake shake` proposed demoting
+   every `public import` in the new files that only a proof uses; they
+   were demoted rather than allowlisted (the imports the lanes' proofs
+   will need are added by the lanes, as usual).
+7. **Line citations** in the rule docstrings are against `Core.lean`
+   at `af1cc4cc`; the CoreDefs split moved 981 lines out and every
+   citation was remapped and spot-checked.  They rot like any other
+   line citation; the function names beside them are the durable
+   anchor.
+
+### The lane partition for the proof phase
+
+Seven lanes, disjoint owned files, each closable by `lake build` of
+its modules with no `sorry` left in them.  Every lane mines the named
+`Model/Steps` proofs by TRANSPLANT (the argument, restated at the
+motive), never by import: the proofdeps pin turns an import into a
+door.
+
+| lane | owns | closes | mines | acceptance |
+|---|---|---|---|---|
+| **B1 certificates** | `Verify/Rules/Certs.lean` | `iotaCerts_bridge`, `defEqList_bridge`, `structEtaProjCerts_bridge`, `proofIrrel_bridge`, `propIrrel_bridge`, `structEtaCertWith_bridge`, `structUnitCert_bridge`, `etaCert_bridge`, `stuckIrrel_bridge`, `boolTrueShortcut_bridge` | the `_inv` lemmas of `Verify/InferLemmas.lean` §6-§11; `stuckIrrelFueled_of_claims` (`Stuck.lean:395`) for the four-arm inversion | `lake build ConLeche.Verify.Rules.Certs`, 0 sorry |
+| **B2 reduction bridge** | `Verify/Rules/RedBridge.lean` | `reduceNat_bridge`, `majorToCtor_bridge`, `iotaRec_bridge`, `whnfCore_bridge_succ` | `whnf_app_inv`, `whnf_proj_inv`, `iotaRec_inv`, `iotaIndexOk_inv`, `majorToCtor_inv`, `Nat.lean`'s `natLeaf_unary/binary` case analysis | `lake build ConLeche.Verify.Rules.RedBridge`, 0 sorry |
+| **B3 defeq + infer bridges** | `Verify/Rules/DefEqBridge.lean`, `Verify/Rules/InferBridge.lean` | `defeqStep_bridge`, `infer_bridge_succ`, `inferIO_bridge_succ` | `defeqStep_claim` (`DefEq.lean:514`) for the inline inversion of `defeqStep` — a `defeqStep_inv` in `Verify/InferLemmas.lean` is the right by-product; `inferTypeCore_*_inv`, `inferTypeCoreIO_*_inv`, `Accepted.lean:70-109` | `lake build ConLeche.Verify.Rules.Bridge`, 0 sorry |
+| **S-red** | `Model/Rules/RedSound.lean` (`appFn` … `proj`), `Model/Rules/CertsSound.lean` | 12 lemmas + `Certs.skip/cert_sound`, `DefEqList.cons_sound` | `whnfCore_app_claim`, `Gate.lean`, `Whnf.lean:117-161`, `delta_of`, `Major.lean:66-119`, `Stuck.lean:206-270`, `ProjRows.lean:278`, `certs_telePA`/`certs_teleLic`, `map_interp_of_defEqListFueled`; the frame conjuncts from `Verify/InferLeaves.lean` | `lake build ConLeche.Model.Rules.RedSound ConLeche.Model.Rules.CertsSound`, 0 sorry |
+| **S-iota** | `Model/Rules/IotaSound.lean` (NEW: `Red.iota_sound`, the three `rescue*_sound` move there from `RedSound.lean` at the lane's start) | 4 lemmas | `iotaStep_of`, `iotaReads_of`, `IotaKit.lean`, `IotaGate.lean`, `majorToCtorFueled_step/_reads`, `CapsRows.lean:501` | `lake build ConLeche.Model.Rules.IotaSound`, 0 sorry |
+| **S-defeq + S-infer** | `Model/Rules/DefEqSound.lean`, `Model/Rules/InferSound.lean` | 16 + 10 lemmas | `defeqStuck_claim`, `binder_congr`, `acval_const_congr`, `DefEq.lean:99-177`, `Irrel.lean`, `IrrelFast.lean`, `etaCertStep_of_claims`, `CapsRows.lean:897`, `:944`; `Infer.lean` and `InferIO.lean` clause lemmas, `StrLit.lean`, `ProjRows.lean:71`, `:160`, `IOLicense.lean` | `lake build ConLeche.Model.Rules.Sound`, 0 sorry (this lane may be split S-defeq / S-infer if staffing allows: the files are disjoint) |
+| **R-nat + deletion** | `Model/Rules/Recompose.lean`, `Model/Steps/Tiers.lean`, then `Model/Steps/*`, `Model/Annot/EnvModelM.lean` (law extraction), the two definition moves of the fence note | `RulesInputs.ofTier`'s two rows (or the durable fix, on ruling); then `Tiers.lean` re-exports `checkSoundAtP5_rules` as `checkSoundAtP5`, `Steps/*` deleted, `proofdeps-expected` regenerated (rows LEAVE, never enter), the DESIGN record | `Model/NatStep.lean`, `Model/Steps/Whnf.lean:685-760` | full battery green, `trust-surface` green, `Model/Steps` gone |
+
+Ordering: B1 before B2/B3 (they consume its bridges — but they can
+start on their `sorry`-free statements now); S-red before S-iota is
+not required (disjoint files).  The recomposition already closes, so
+every lane's landing is visible in `checkSoundAtP5_rules`'s `sorry`
+count going down, never in its statement.
+
+### Follow-ups
+
+* **The `DefEq.trans` experiment** (the maintainer's, after everything
+  works): add `trans`, drop the recursive-structure premises from
+  `natSucc`, `redL`, `eta`, `structUnit`, and prove the present rules
+  as derived rules.  The soundness of `trans` at `interp` is
+  `Eq.trans`; the price is in the bridge (nothing) and in the
+  premise-exactness story (the derived rules keep it).
+* **Restating the declaration fold's run records**
+  (`Semantics/DeclRun.lean`) in derivation language: `DeclDefnRun`
+  etc. carry `inferTypeCore … = .ok t ∧ isDefEqCore … = .ok true`
+  pairs; with the bridge they become `Infer … ∧ DefEq …`, and
+  `Model/Fold.lean`'s consumers read derivations instead of runs.
+* **The two definition moves** (fence note) and the law extraction
+  from `EnvModelM.lean`, so the rules tier's transitive closure is
+  impl-free, not only its proof terms.
+* **A `defeqStep_inv` and a `stuckIrrel_inv`** in
+  `Verify/InferLemmas.lean` (B1/B3's by-products), so the model tier
+  never inverts `defeqStep` inline again.
+
+### Gates (worktree `rules-305`, at `af1cc4cc` + this landing)
+
+| gate | result |
+| --- | --- |
+| `lake build` | EXIT 0, **60 `sorry` warnings, all in the new files**, no other warning |
+| `lake test` | EXIT 0 |
+| `tests/layering.sh` | base 303 / model 198 / caps 3 / umbrella 1; 0 base→lane, 0 impl→theory, **0 rules→impl** (the new clause) |
+| `tests/proofdeps.sh` | regenerated: 4363 → 4518 rows, 12 → **15 roots**; `rules_sound` reaches `Kernel.CoreDefs` and no `Kernel.Core`/`TypeChecker`/`CoreIO`/`Model.Steps.*`; 0 doors |
+| `tests/shake.sh` | 466 removals proposed, all 466 allowlisted (none new: the new files' `public import`s were demoted to what a public statement needs); pub-imports 983 of 1359 public, none demotable |
+| `tests/overview-links.sh` | 103 links / 58 files / 2 documents, OK |
+| `tests/quote-gate.sh` | OK |
+| `tests/no-local-paths.sh`, `tests/inmodel.sh`, `tests/challenge.sh` | OK |
+| `tests/trust-surface.sh` | **RED by construction** (finding 5): 61 escapes = the branch's `sorry`s |
+| arena | not run: the binary is unchanged by this landing (the CoreDefs lane ran it at its merge base) |
+
+**Files** (line counts): `ConLeche/Rules/Rel.lean` 585,
+`Rules/Derived.lean` 224; `Verify/Rules/{Defs,Certs,RedBridge,DefEqBridge,InferBridge,Bridge}.lean`
+580 together; `Model/Rules/{Motive,Inputs,RedSound,DefEqSound,InferSound,CertsSound,Sound,Recompose}.lean`
+1302 together (2691 lines in all).  Rule counts: **51 constructors** (Red 16, DefEq 18, Infer
+10, walks 7), **20 derived rules** proved.
+
+## TASK #305 — THE RULES TIER, LANDED (2026-09-19, `agent/rules-305`)
+
+The design section above (same date) is the skeleton; this is the
+landing: the seven proof lanes, the fix-up, and the closing lane that
+deleted the old route.  Nothing executable changed in the whole task
+except the `Core.lean` split (`agent/coredefs-305`, its own record),
+so every arena verdict is master's — the measurement row is at the
+end.
+
+### What landed
+
+The four claims of `Model/Claims.lean` (and the io claim of
+`ClaimsIO.lean`) are proved through three tiers and a recomposition:
+
+* **`ConLeche/Rules/{Rel,Derived}.lean`** — the relational description:
+  six mutually inductive relations over the checker's `Expr`, **51
+  constructors** (`Red` 16, `DefEq` 18, `Infer` 10, the three walks
+  7), and **20 derived rules**, proved.  Imports `Kernel/CoreDefs` and
+  nothing else of the kernel.
+* **`ConLeche/Verify/Rules/*.lean`** — the bridge: `ConLeche.Rules.bridge`
+  (`Bridge.lean`), one fuel induction, from `whnfCore_bridge_succ`,
+  `whnf_bridge_succ`, `defeq_bridge_succ`, `infer_bridge_succ`,
+  `inferIO_bridge_succ` and the ten certificate bridges of
+  `Certs.lean`; `DefEqStepInv.lean`'s `defeqStep_inv` is the
+  by-product that outlives the task.
+* **`ConLeche/Model/Rules/*.lean`** — the soundness: the six motives
+  (`Motive.lean`), the environment inputs `RulesInputs`
+  (`Inputs.lean`), one lemma per rule in `RedSound`/`IotaSound`/
+  `DefEqSound`/`InferSound`/`CertsSound.lean` over the four kits, and
+  `red_sound`/`defeq_sound`/`infer_sound`/`certs_sound`/
+  `defEqList_sound`/`etaProjCerts_sound` — ONE mutual structural
+  induction (`Sound.lean`).
+* **`ConLeche/Model/Rules/Recompose.lean`** — `checkSoundAtP5` and
+  `checkSoundAt` under their landed names, hypothesis
+  `RulesInputs V m φ`, each claim a few lines of bridge-then-soundness;
+  `Model/Tiers.lean` above it is what the declaration fold reads.
+
+`Model/Steps/*` (23 files) is **deleted**; `TierInputsAt` retired.
+
+### The lanes
+
+* **B1 (certificates)** — the ten certificate bridges
+  (`iotaCerts`, `defEqList`, `structEtaProjCerts`, `proofIrrel`,
+  `propIrrel`, `structEtaCertWith`, `structUnitCert`, `etaCert`,
+  `stuckIrrel`, `boolTrueShortcut`), each one `_inv` lemma of
+  `Verify/InferLemmas.lean` away.
+* **B2 (reduction bridge)** — `reduceNat_bridge` (the two accelerated
+  shapes; the WF-names safety net is dead on the `.ok` path),
+  `majorToCtor_bridge`, `iotaRec_bridge` (the two index premises split
+  on `mI = rP`), `whnfCore_bridge_succ` (the eleven shapes of
+  `whnfCoreBody`).  **Its premise finding**: the three `Red.rescue*`
+  rules open with `env.find? recName = some (.recInfo cv mI rP [rl])`
+  because the rule bits `rl.k`/`rl.eta` are honest only at a stored
+  recursor — but `majorToCtor` ignores its `_recName` argument, so the
+  inversion cannot supply the fact and the bridge takes it as `hrec`,
+  handed down from `iotaRec_inv` through `prepareMajor_bridge`.
+* **B3 (defeq and inference bridges)** — `defeqStep_bridge` from the
+  NEW `defeqStep_inv` (`Verify/Rules/DefEqStepInv.lean`: `DefeqStuckExit`,
+  the seventeen exits of the stuck tree as an inductive, and the whole
+  body read back — the model tier had inverted `defeqStep` inline
+  against its own continuation contract, and nothing in `Verify/` did),
+  then `infer_bridge_succ`/`inferIO_bridge_succ`.  The lane's two
+  tactic notes, kept: a `cases h : e with` whose equation the
+  continuation needs, and a `split at h` on a nested `match` in a
+  hypothesis, each lose information the inline inversion needs; the
+  fix in both cases was the case-tree lemma — invert once, in
+  `Verify/`, and never split `defeqStep` in a model proof again.
+* **S-red** — `appFn`, `projArg`, `betaGate`, `beta`, `delta`, `natLit`,
+  `strLit`, `natSucc`, `natOp`, `proj` and the two walks, with the
+  level crossing, the literal readings and the δ identity transplanted
+  into `RedSoundKit.lean`.  The δ transplant had to use `unfold`, not
+  `rw` — the first equation-lemma door (below).
+* **S-iota** — `Red.iota_sound` and the three rescues (`rescueK`,
+  `rescueEta`, `rescueAnd`), with the ι kit (the list algebra, the
+  redex's slots, the residual, the reverse opening) in
+  `IotaSoundKit.lean`; the lane's own finding was the η-rescue shape
+  repair below.
+* **S-defeq** — the eighteen `DefEq` rules: the structural congruences,
+  the binder congruences, the three proof-irrelevance rules, η, the
+  structure-η and unit-like rules, over `DefEqSoundKit.lean`.
+* **S-infer** — the ten `Infer` rules at BOTH grades from ONE argument
+  each: `InferSem.apply` reads a premise derivation's motive uniformly
+  and `InferSem.of_uniform` builds the conclusion's, so the `full`/`io`
+  twin proofs of `Model/Steps/{Infer,InferIO}.lean` (1,075 + 844 lines)
+  collapsed into one lemma per rule — the io grade is where the
+  subject's grading sits (premise at `.io`, conclusion at `.full`) and
+  nothing else.
+* **R-nat** — the two literal rows became SEMANTIC (`NatSuccRow`,
+  `NatOpRow`; the record above), which is what let the closing delete
+  the run-side glue with the old route.
+* **The fix-up** — two design repairs and the kit dedup:
+  (i) **`Red.rescueEta` gains an `EtaProjCerts` premise** under
+  `towerSlotsAll env T caps.etaFields = false`: at a projection-function
+  family the fabricated arguments are `mkAppN (.const (projFnName T j)
+  ust) (targs ++ [major])` nodes, whose reading and grading need the
+  slot's storage and telescope certificate; in the old route both came
+  from inverting the η certificate's own run, which at the motive is
+  the opaque `DefEq fab major`.  Premise-exact: the η branch runs
+  `structEtaCertWith`, which runs exactly this walk.  (ii)
+  **`DefEqListSem` concludes the walk's length** — `Red.iota_sound`'s
+  `.nested` fire needs `pins.length = ctorParams` before it can build
+  a read spine at all, and the motive concluded only the pointwise
+  equality.  (iii) **One copy of the shared kit, in the lowest one**:
+  four lanes had transplanted the same spine/frame/fit/tower lemmas up
+  to three times, twice under the SAME NAME in sibling modules
+  (`ReadSpine.take/drop/append/map_list` in two kits with incompatible
+  `map_list` signatures) — everything shared moved to `RedSoundKit`,
+  the duplicates deleted, no statement changed.
+
+### Findings worth keeping
+
+1. **The equation-lemma doors.**  `rw [<checker def>]` names the
+   auto-generated `<def>.eq_1`, which is OWNED by the module that
+   first forced it — for `unfoldDefinition.eq_1`, `etaProjs.eq_1`,
+   `etaFabArgsV.eq_1` that was a `Model/Steps` module — so a rules
+   proof that rewrote with a checker definition silently depended on
+   the old route, and only the proof-term pin saw it.  Fixed by
+   `unfold`, or by a `rfl` clause lemma stated in the tier's own
+   module.  With `Model/Steps/*` gone the owners are now the rules
+   modules themselves, so the class cannot recur in this shape; the
+   habit (`unfold`/own clause lemma, never `rw [<def>]` on a definition
+   another tier may have unfolded first) is the durable lesson.
+2. **Same-name collisions across privately separate kits are invisible
+   to `lake build`.**  Two lanes each declared
+   `ConLeche.Model.Rules.ReadSpine.length`; a `module` only imports the
+   public interface it needs, so the tree built — and the first
+   classic full-view import (`tests/ProofDeps.lean` under `lake env
+   lean`) failed with "environment already contains".  A gate that
+   cannot run measures nothing.  Lanes that share a namespace must
+   share a kit (the fix-up's dedup rule).
+3. **The unused `RulesInputs` binders.**  Thirteen per-rule lemmas
+   needed no environment input at all (`Red.appFn/projArg/betaGate/beta`,
+   `DefEq.eta/proofIrrel/unitLike`, `Infer.forallE/lam/app/appSkip`,
+   `Certs.skip/cert`) — their soundness
+   is the frame, the reading and the recursive premise.  The closing
+   DROPPED the parameter from those statements; `Sound.lean`'s
+   master induction passes `hin` only where a rule reads the
+   environment.
+4. **The io grade collapses the twin proofs** (S-infer, above): the
+   grade is a parameter of the relation, not a second relation, and
+   one lemma per rule serves both — 1,919 lines of twinned `Steps`
+   inference proofs are 805 + 646 lines of `InferSound` and its kit.
+
+### The closing lane (what moved where)
+
+Maintainer rulings: delete `Model/Steps/*` entirely, relocating what
+is still consumed by transplant to impl-free homes; retire
+`TierInputsAt` in favour of `RulesInputs`; split the P currency out of
+`Claims.lean`; state the rules fence on the elaboration closure; retire
+the proofdeps pin; the documents.
+
+**The relocation map** (what the deletion had to keep, and where it
+went; a docstring at each item says where it came from):
+
+| moved | from | to | lines |
+|---|---|---|---|
+| `WellDenotedV`, `CtxOk` | `Model/Claims.lean` | `Model/Currency.lean` (NEW; re-exported by `Claims.lean`; `WellDenotedTransport`/`CtxOkKit` repointed to it) | 51 |
+| the environment laws (`NatOps`, `DivMod`, `EqLaw`, `ReduceOps`, `TeleFit`, `EtaLaw`, `UnitLaw`, `CapsOk`, `TeleFitPA`, `instRevChain`, `IotaIndexPin`, `RecRuleLaw`, `RecRules`, `peelPis`, `TowerEtaLaw`, `TowerGuardAt`, `TowerO5`, `TowerEntryLaw`, `TowerOk`) | `Model/Annot/EnvModelM.lean` (976 → 306 lines) | `Model/Annot/Laws.lean` (NEW, re-exported by `EnvModelM`) | 757 (a move within the model tier, not Steps content) |
+| `AcvalValid`, `ConstType`, `NatHeads`, `AcvalDefnInst`, `teleFit_nil_inv` | `Steps/Infer.lean`, `Steps/Whnf.lean`, `Steps/CapsRows.lean` | `Model/Annot/Laws.lean` | 65 |
+| the level crossing (`denotePInstLevels`, `denoteMeta_params_ext`, the five `acval_*` slot lemmas) | `Steps/BitLevels.lean` | `Model/Annot/BitLevels.lean` (`git mv`, whole file) | 390 |
+| the `denoteMeta` spine kit (`DenoteMetaSpine` with `.mem/.length/.take/.drop/.append/.map_list/.getD/.snoc/.getD_read`, `denoteMeta_mkAppN`, `denoteMeta_mkAppN_inv`, `denoteMeta_proj_tower`, `denoteMeta_proj_inv_tower`) | `Steps/{Stuck,CapsRows,IotaRows,TowerKit}.lean` | `Model/Annot/BitLemmas.lean` (beside `denoteMeta_app_inv`; the kits' `ReadSpine` twin renamed to it, their copies deleted) | 182 |
+| `NatOpGuardLaw`, `natOpGuardLaw_of` | `Steps/Nat.lean` | `Model/Annot/EnvModelM.lean` | 31 |
+| `denoteMeta_openRev`, `denoteMeta_openRev_base` | `Steps/IotaKit.lean` | `Model/Rules/IotaSoundKit.lean` (read from `IndOpenRev`/`IndBottomNested` as `Rules.…`; the kit's `K` twins are one-liners over them) | ≈100 |
+| `InferReads` (restated at `CtxOk`), `inferReads_of` (NEW, from the rules tier), `SortSemAt`, `sortSemAt_of_claims`, `denoteMeta_sortQ`; `inferTypeCore_{const_inv_len,natLit_inv,strLit_inv}`, `acceptedReads_aux`, `acceptedReads_of` | `Steps/Infer.lean`, `Steps/Accepted.lean` | `Model/Tiers.lean` (NEW; re-exports `Recompose`'s `checkSoundAtP5`/`checkSoundAt`) | 339 |
+| `checkSoundAtP5`, `checkSoundAt` (under `RulesInputs`), `RulesInputs.ofEnvModelM`, `RulesInputs.ofSem` | `Steps/Tiers.lean`, `Capstone.lean` | `Model/Rules/Recompose.lean`, `Model/Rules/Inputs.lean`, `Model/Capstone.lean` | — |
+| `denoteMeta_instPisAt_peel` (read from `StructBodyFrames` as `Rules.…`) | `Steps/TowerKit.lean` | already in `Model/Rules/InferSoundKit.lean` | 0 |
+
+Retired without successor (the run-stated old route): `TierInputsAt`,
+`ReadsInputs`, `LeafReads`, `WhnfReads`/`InferReadsIO`/the twelve
+`*Reads`/`*Exists` residues and the four-way walk (`Reads.lean`,
+`ReadsIO.lean`), `ReduceNatStep`/`ReduceNatStepPQ` and
+`reduceNatStep_of_rows`, every `*_claim`/`*_of_claims` row of
+`Whnf`/`DefEq`/`Infer`/`InferIO`/`Irrel`/`IrrelFast`/`Stuck`/`Gate`/
+`Major`/`Nat`/`ProjRows`/`ProjAVKit`/`StrLit`/`CapsRows`/`IotaRows`/
+`IotaKit`/`IotaGate`/`TowerKit`, and the umbrella's twenty-three
+`Model/Steps` imports.  Forty-odd install-tier files that had read
+`denoteMeta_beta`, `denoteMeta_lift`, `denotePInstLevels`,
+`frame_open2`, `natLit_factsAV`, … through `EnvModelM`'s re-export of
+two Steps modules now import the declaring module directly; the shake
+gate's allowlist lost its `Model/Steps` lines and gained eighteen
+criterion-checked ones, and seven edges the `--only` criterion cleared
+were deleted.  The kernel's own docstrings that cited a Steps lemma
+(`Kernel/Core.lean`, `CoreDefs.lean`, `PropRead.lean`) now cite the
+rule's soundness lemma.
+
+**Decisions taken by the closing lane.**
+
+* **`checkSoundAtP5`/`checkSoundAt` live in `Model/Rules/Recompose.lean`**
+  under the landed names, not in a new `Model/Tiers.lean`: the
+  recomposition IS the theorem, the module is the one exempt from the
+  fence by design, and a re-export layer would have been a second
+  name for the same statement.  `Model/Tiers.lean` exists for the
+  RUN-STATED remainder the fold's consumers read (`InferReads`,
+  `SortSemAt`, `acceptedReads_of`) — facts about `inferTypeCore` runs
+  that cannot be in the rules tier and whose supply is now the rules
+  tier (`inferReads_of` is `inferTypeCore_bridge` then `infer_sound`'s
+  existence form) or the checker's own clause structure
+  (`acceptedReads_of`: the SUBJECT reads, which no derivation supplies
+  because the motives take the subject's reading as a premise).
+* **`InferReads` is stated at `CtxOk`, not `LeafReads`.**  The Steps
+  version's leaf premise was the residue of a separate four-way
+  readability walk (`Reads.lean` + `ReadsIO.lean`, 1,282 lines);
+  the rules tier answers readability at the motive, whose premise is
+  the context.  Every consumer held a context and wrote
+  `LeafReads.of_ctxOk hC` at the call — those twenty sites now pass
+  `hC`, the consumers' STATEMENTS are textually unchanged, and
+  `LeafReads` retired with the walk.
+* **`RulesInputs.ofEnvModelM`** (`Inputs.lean`) takes the two literal
+  rows as arguments for the same import reason `TierInputsAt.ofEnvModelM`
+  did (`Model/NatStep.lean` sits above); `Model/Capstone.lean`'s
+  `RulesInputs.ofSem` supplies them.  The seven other fields are
+  `EnvModelM` projections, and the four install-tier residues are the
+  Steps definitions under their own names (`AcvalValid`, `ConstType`,
+  `NatHeads`, `AcvalDefnInst`, now in `Laws.lean`) — the rules tier's
+  restatements (`LeafValid`, `ConstTy`, …) were deleted rather than
+  kept as a second spelling.
+* **`DenoteMetaSpine` lives in `Model/Annot/BitLemmas.lean`** (beside
+  `denoteMeta_app_inv`), not in a kit and not in `Semantics/*`: it is
+  `denoteMeta`-only, so it belongs below the kits, and twenty-five
+  install-tier files declare `DenoteMetaSpine.*` lemmas in
+  `namespace ConLeche.Model` and use them by dot-notation
+  (`hsp.length`), which pins the inductive's namespace.  The kits'
+  `ReadSpine` twin was renamed to it and its copies of the spine
+  lemmas deleted.
+* **Two lemmas stay in a kit and are read from outside it**:
+  `denoteMeta_instPisAt_peel` (`InferSoundKit`, one consumer) and the
+  `denoteMeta_openRev` pair (`IotaSoundKit`, two consumers), as
+  `Rules.<name>` — the ruling's "into the existing kits", taken where
+  the consumer count made a lower home pointless.
+
+### The public-import fence, and the finding under it
+
+Ruling 2 asked for the closure clause and assumed two moves (the
+`Currency` split and the law extraction) would make the rules tier's
+elaboration closure impl-free.  The closing computed the closure and
+found the premise false: the implementation enters every model module
+through the BASE tiers' own public re-exports, not through the two
+homes the design record had traced.  Measured chains (one witness per
+door, from `tests/layering.sh --list`):
+
+```
+Kernel.Core        <- Verify.EnvWF <- Verify.Denote <- Verify.Denote.Shift
+                   <- Verify.Denote.Inst <- Model.Annot.BitInst <- (every rules module)
+Kernel.Checker     <- Verify.Denote <- … (the same chain)
+Kernel.CheckerBase <- Kernel.Inductives.Modeled <- … <- Kernel.Checker <- Verify.Denote <- …
+Kernel.TypeChecker <- Kernel.CheckerBase <- … (the same chain)
+Kernel.CoreIO      <- Verify.Knot <- Verify.Abstract <- Verify.Leaves <- Verify.InstSpine
+                   <- Verify.InferLemmas <- Semantics.EnvFacts <- Model.Annot.EnvModelM <- Model.Rules.Motive
+```
+
+Behind those witnesses stand the other chains the closing traced
+(`Model/Annot/Bit → Semantics/Canon → Verify/Denote`, `EnvModelM →
+Verify/ProjTele → ProjSlots → Abstract → Knot`, `EnvModelM →
+Semantics/DivModEval → Verify/DivModInv → Verify/Extend/Inversions →
+Kernel/Checker`, `Verify/EnvPreds → Kernel/BasisA`, `Semantics/Frame →
+Verify/InferLeaves`): cutting one witness exposes the next.
+
+Of the ~80 public edges on the paths, most are OVER-PUBLIC — the
+source's public interface does not need the target (`Verify/EnvWF →
+Kernel/Core`, `Verify/Denote → Kernel/Checker`, `Verify/BetaGate →
+Kernel/Core`, `Semantics/LitParams → Kernel/Core`, `Verify/StrLitExpr →
+Kernel/Core`, `Semantics/EnvFacts → Verify/InferLemmas`, `Verify/ProjTele
+→ Verify/InferLemmas`, …; `scripts/pub-iface.lean` says `EnvWF`'s,
+`Denote`'s and `EnvPreds`' public interfaces need `Kernel/CoreDefs`
+and nothing of `Core`) and would demote with compensating direct
+imports at their importers (`scripts/pub-import-plan.py`'s coverage
+constraint is what has kept them public: some importer mentions the
+target's constants in a proof and has no direct import of its own).
+But at least one chain is public-NEEDED at every edge —
+`EnvModelM →(DivModClausesV) Semantics/DivModEval →
+Verify/DivModInv → Verify/Extend/Inversions → Kernel/Checker` — and
+`EnvModelM → Verify/ProjTele → ProjSlots → Abstract → Knot →
+Kernel/CoreIO` and `Model/Annot/Bit → Semantics/Canon → Verify/Denote`
+are of the same kind: closing them means SPLITTING `DivModClausesV`
+out of `DivModEval`, `projTele` out of `ProjTele`, and the
+`Bit`-facing part out of `Canon`, below their run-stated halves.  That
+is a base-tier campaign with whole-tree rebuilds per step, not a
+closing lane's mechanical move, and it was not started here.
+
+**What the gate does instead** (`tests/layering.sh`, the closure
+clause): it computes the closure exactly as ruled — direct imports,
+then transitively `public import`s; `meta import`s excluded, being
+invisible to a proof — and fences it against the ruled set, with the
+five impl modules the base re-exports still carry in listed as
+`RULES_CLOSURE_DOORS`, exact in both directions: a door not listed
+fails as a regression, a listed door no longer reached fails until
+the line is deleted and recorded.  So the clause is green today, says
+precisely what is true, and ratchets toward empty as the base campaign
+lands.  The two moves the ruling asked for were made regardless
+(`Model/Currency.lean` with `WellDenotedV`/`CtxOk`, re-exported by
+`Claims.lean`; `WellDenotedTransport`/`CtxOkKit` repointed to it;
+`Model/Annot/Laws.lean` with every law `EnvModelM`'s fields are stated
+over) — they are the right structure and they shortened every chain
+by the two hops the record had seen.
+
+### The proofdeps pin, retired
+
+`tests/proofdeps.sh`, `tests/ProofDeps.lean` and the 4,500-row
+`tests/proofdeps-expected.txt` are gone, with their row in
+`tests/arena.sh` and their CI step.  The rationale: under the module
+system the environment a proof elaborates in is exactly the closure
+along `public import` edges, so a proof term cannot reach a module
+outside that closure; the layering gate on that closure plus the
+shake gate on the edges (`tests/shake.sh`: no `public import` that no
+public statement needs) is the same bound, computed from source.  The
+pin, by contrast, turned every lane landing red (rows LEAVING as the
+old route stopped being used, rows ENTERING as the new one was),
+induced the `rw`-on-implementation contortions (finding 1: an `.eq_1`
+owned by a `Model/Steps` module entering a proof term was a "door" to
+be engineered around rather than a fact about the proof), and its
+classic full-view instrument collided on privately separate kits
+(finding 2).  The axiom pin (`lake test`) is unchanged and measures
+the other thing — what a proof ASSUMES.
+
+### The line-count comparison
+
+Per tier, `wc -l` at the closing (master's `Model/Steps/*` was 23 files):
+
+| | master | landed |
+|---|---|---|
+| the old route, `Model/Steps/*` | 13,114 | 0 (deleted) |
+| `Model/NatStep.lean` (the literal rows) | 483 | 269 |
+| `ConLeche/Rules/*` — the relations and the derived rules | — | 816 |
+| `ConLeche/Verify/Rules/*` — the bridge (with `DefEqStepInv.lean`, 505) | — | 1,631 |
+| `ConLeche/Model/Rules/*` — the soundness: motives + inputs + recomposition 404, per-rule lemmas 3,377, the four kits 2,631, `Sound.lean` 180 | — | 6,592 |
+| Steps content relocated for the OTHER consumers (the table above: `BitLevels` 390, the spine kit 182, the residues 65, `NatOpGuardLaw` 31, the `openRev` pair ≈100, `Model/Tiers.lean` 339) — kept, not saved | — | ≈1,107 |
+| **total** | **13,597** | **≈10,415** |
+
+So the four claims cost about 3,200 lines less than before, with the
+proof now stated over an inductive description rather than over the
+bodies; the honest reading is that `Rules/*` + `Verify/Rules/*` (2,447
+lines) is NEW surface — the price of the layering — and
+`Model/Rules/*` alone (6,592) is what replaced the 13,114-line route's
+semantic content, the io twin proofs' collapse (finding 4) and the
+disappearance of the readability walk being where the difference is.
+Whole-tree delta, `git diff --stat master` at the last commit:
+124 files changed, 11,997 insertions, 18,920 deletions — a net 6,923 lines fewer, at `4828c67b`, before this record.
+
+### Gates
+
+At `4828c67b` + this record, worktree `rules-305`:
+
+| gate | result |
+| --- | --- |
+| `lake build` | EXIT 0, 565 jobs, **0 warnings, 0 `sorry`** |
+| `lake test` | EXIT 0, 0 warnings; axioms pinned (20 theorems at `[propext, Classical.choice, Quot.sound]`) |
+| `tests/layering.sh` | base 304 / model 184 / caps 3 / umbrella 1; 0 base→lane, 0 impl→theory, 0 rules→impl; **rules closure: 14 modules, 5 doors as listed** (`--list` prints each closure and one chain per door) |
+| `tests/shake.sh` | 445 removals proposed, all 445 allowlisted (the `Model/Steps` lines gone, 18 criterion-checked lines added, 7 cleared edges deleted); pub-imports 949 of 1,415 public, none demotable, 9 dot-notation fallbacks (one new: `FixRecRead → FixRecReadDefs`) |
+| `tests/trust-surface.sh` | 13 escapes in 5 allowlisted files, 0 outside |
+| `tests/overview-links.sh` | 104 links / 59 files / 2 documents, OK (`--update` after the §4 repoint) |
+| `tests/quote-gate.sh`, `tests/no-local-paths.sh`, `tests/challenge.sh`, `tests/inmodel.sh`, `tests/pindump.sh` | OK |
+| `tests/proofdeps.sh` | retired (above) |
+| **`tests/arena.sh`, full** | EXIT 0: arena tutorial 90/92 good tests accepted, e2e 195/195, annot 15/15, mode flags 10/10, prelude counts 3/3, progress lane 15/15, worker pool 15/15, DAG-tower 14/14, trusted sweep 138 + 195 + 15 (3 recorded divergences), `--jobs=1`/`--jobs=4` sweeps as at the default |
+
+**Measurement row.**  Nothing executable changed in task #305 except
+the `Core.lean` split (a pure move of fuel-free helpers, its own
+record); every verdict above is master's, fixture for fixture — the
+same 90/92, 195/195, 15/15 and the same three recorded trusted-mode
+divergences.
+
+### Follow-ups
+
+* **The base-tier re-export campaign** (above): demote the over-public
+  edges with their compensating imports, split `DivModClausesV`,
+  `projTele` and `Canon`'s bit-facing part below their run-stated
+  halves; `RULES_CLOSURE_DOORS` shrinks to empty and the clause is the
+  ruling's verbatim.  `Expr.LeavesBounded` (`Verify/InferLeaves.lean`,
+  used by the motives' `Frame`) belongs in the same move.
+* **The `DefEq.trans` experiment** (the maintainer's): add `trans`,
+  drop the recursive-structure premises from `natSucc`, `redL`, `eta`,
+  `structUnit`, prove the present rules as derived rules.
+* **`Semantics/DeclRun.lean`'s run records in derivation language**:
+  `DeclDefnRun` etc. carry `inferTypeCore … = .ok t ∧ isDefEqCore … =
+  .ok true` pairs; with the bridge they become `Infer … ∧ DefEq …`,
+  and `Model/Fold.lean`'s consumers read derivations instead of runs —
+  which would also let `Model/Tiers.lean`'s `acceptedReads_of` go.
+* **Two relevance-skip rules for task #307's spike**, `DefEq.appIrrel`
+  and `DefEq.absentArg`, belong in `Rel.lean` when that spike lands
+  (the checker sites do not exist yet; the rules would be premise-exact
+  against them).

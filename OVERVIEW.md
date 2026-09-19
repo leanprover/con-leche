@@ -357,7 +357,7 @@ Read from the outside in:
    parameter
    ([the entry points in `ConLeche/Kernel/TypeChecker.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/TypeChecker.lean#L28-L54));
    on exhaustion every operation throws
-   ([the fuel knot's base case in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Core.lean#L2908-L2917)).
+   ([the fuel knot's base case in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Core.lean#L1927-L1933)).
    Its declaration fold is what the model tier proves things about
    ([theorem `no_proof_of_False_pure` in `ConLeche/Model/Fold.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Fold.lean#L308-L315)).
 5. **The model tier** (`ConLeche/Model/*`, the graded set model)
@@ -393,7 +393,7 @@ official one: `whnfCore` does β/ι/projection/quotient reduction,
 reduction: its value is never unfolded, so whether a declaration
 type-checks never depends on a theorem's value — and the literal fast
 paths
-([function `whnfBody` in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Core.lean#L2065)),
+([function `whnfBody` in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Core.lean#L1097)),
 `inferType` computes a type, and `isDefEq` decides conversion with lazy
 unfolding, η, proof irrelevance, structure η, unit-likeness and K-like
 reduction as the environment's capability flags permit; one
@@ -404,7 +404,7 @@ differ from a textbook presentation and matter for the proof:
 
 * **Annotation.** Before a declaration's terms are checked, an
   annotation pass
-  ([function `annotateBody` in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Core.lean#L2788))
+  ([function `annotateBody` in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Core.lean#L1804))
   records at every binder the sort of its codomain as a "Prop-when"
   datum, a function of the level parameters
   ([the `PropWhen` module's account in `ConLeche/Kernel/PropWhen.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/PropWhen.lean#L1-L40)),
@@ -484,11 +484,30 @@ direction only
 * `inferType` returns a type such that the term's denotation is a
   member of the type's denotation.
 
-They are proved by one simultaneous induction on fuel, clause by
-clause
-([the reduction step in `ConLeche/Model/Steps/Whnf.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Steps/Whnf.lean#L831-L832),
-[the definitional-equality step in `ConLeche/Model/Steps/DefEq.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Steps/DefEq.lean#L1338-L1347),
-[the inference step in `ConLeche/Model/Steps/Infer.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Steps/Infer.lean#L1036-L1043)).
+They are proved through a *relational description* of the checker.
+Six mutually inductive relations over the checker's own terms say what
+moves the core makes — a reduction step, a definitional-equality
+decision, an inference at one of two grades, and three certificate
+walks — with the fuel, the unfolding heuristics and the dispatch order
+out of sight; a rule's premises are exactly the certificates the
+checker ran at that site, and the symmetric and derived variants are
+theorems, not constructors
+([the relations in `ConLeche/Rules/Rel.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Rules/Rel.lean#L92-L96)).
+The proof then has three parts. The *bridge*: an accepting run of any
+kernel entry point, at any fuel, yields a derivation — one induction
+on fuel, mechanical, each checker site landing on one rule
+([theorem `bridge` in `ConLeche/Verify/Rules/Bridge.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Rules/Bridge.lean#L22-L27)).
+The *soundness*: a derivation implies the claim's conclusion — one
+structural induction over the six relations, every case one lemma
+about one rule, stated over the environment's laws and never over the
+implementation
+([the master induction in `ConLeche/Model/Rules/Sound.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Rules/Sound.lean#L41-L44)).
+And the *recomposition*, which is a few lines per claim: bridge the
+run, apply the soundness
+([theorem `checkSoundAtP5` in `ConLeche/Model/Rules/Recompose.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Rules/Recompose.lean#L49-L54)).
+The modules that state the relations and prove them sound import the
+term syntax and the environment, not the implementation; the fence
+of §12 checks it.
 This is where the usual difficulty of intensional soundness proofs, the
 injectivity of Π needed to invert the typing of `f` in an application,
 does not arise: `inferType` itself reduces `f`'s type to a syntactic Π,
@@ -597,14 +616,14 @@ instead of trusting the operation's name.
 
 * **Structural operations** (`Nat.add`, `sub`, `mul`, `pow`, `beq`,
   `ble`, and `pred` as a dependency;
-  [the list `natOpNames` in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Core.lean#L582-L590)):
+  [the list `natOpNames` in `ConLeche/Kernel/CoreDefs.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/CoreDefs.lean#L473-L481)):
   when a definition under one of these names arrives, the install
   certifies its defining recurrence equations by definitional
   equality, in the environment *before* the operation is stored, with
   the operation's self-references replaced by its definition value, so
   the not-yet-enabled fast path cannot discharge its own equations
   vacuously
-  ([the account of the certified fast path in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Core.lean#L514-L531),
+  ([the account of the certified fast path in `ConLeche/Kernel/CoreDefs.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/CoreDefs.lean#L405-L422),
   [function `certifyNatEqs` in `ConLeche/Kernel/Checker.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Checker.lean#L110-L117)).
   A nonstandard definition is rejected; presence in the store is the
   certificate, and `whnf` folds literals for stored operations only.
@@ -614,7 +633,7 @@ instead of trusting the operation's name.
   ([theorem `natOps_install` in `ConLeche/Model/NatEqs.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/NatEqs.lean#L1100)).
 * **Well-founded operations** (`Nat.div`, `mod`, `gcd`, `land`, `lor`,
   `xor`, `shiftLeft`, `shiftRight`;
-  [the list `natDivModNames` in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Core.lean#L592-L607))
+  [the list `natDivModNames` in `ConLeche/Kernel/CoreDefs.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/CoreDefs.lean#L483-L498))
   are defined by well-founded recursion and have no recurrence the
   kernel can check directly. The binary embeds *pinned* copies of
   several supported toolchains' own definitions of each operation,
@@ -764,12 +783,8 @@ declare it.)
 
 ## 10. Naming conventions
 
-The tree once carried a suffix per verification tier. Those tiers are
-gone — the collapsed set model, the declarative type-theory lane and
-the "tier B" two-regime interpretation were all deleted — and with them
-their markers: **no `2`, `P`, `S2` or `Direct` suffix survives**, and
-**no suffix not listed here carries meaning**. What a reader still has
-to know is short:
+Every marker a reader has to know is in this table; **no suffix not
+listed here carries meaning**.
 
 | marker | reading |
 |---|---|
@@ -823,20 +838,27 @@ ConLeche.Kernel.PropWhen`, and every such line carries its reason.
 | `ConLeche/SetTheory/` | The `SetTheory` class and the derived set operations. |
 | `ConLeche/SetModel/` | Pure set constructions with no expressions in sight: tuples and tuple towers, tagged sums, the fixpoint iteration, the recursor's graph, member containers. |
 | `ConLeche/Semantics/` | The annotated term language, the interpretation, the semantic invariant, the tower semantics of inductive blocks, the declaration-level facts. |
-| `ConLeche/Model/` | The graded set model of the checker: the environment invariant, the claims and their proofs per kernel function (`Steps/`), the declaration step, the inductive installs (`Inductives/`, `Ind*`), the Nat-op certification, the capstones, and the model read through the statement's relation (`Denotes.lean`). |
+| `ConLeche/Rules/` | The relational description of the core checker: six mutually inductive relations over the checker's own `Expr` — reduction, definitional equality, type inference at two grades, and three certificate walks — with fuel, unfolding heuristics and dispatch order out of sight (`Rel.lean`), and the derived rules (`Derived.lean`). Imports the fuel-free helpers of the kernel and nothing else of it. |
+| `ConLeche/Verify/Rules/` | The bridge: an accepting run of a kernel function, at any fuel, yields a derivation (`Bridge.lean`, from one step theorem per entry point and the certificate bridges). |
+| `ConLeche/Model/` | The graded set model of the checker: the environment invariant and its laws (`Annot/`), the claims, the soundness of the rules tier's derivations (`Rules/`: the motives, the environment inputs, one lemma per rule over shared kits, the master induction, and the recomposition of the claims from the bridge), the run-stated remainder the declaration fold reads (`Tiers.lean`), the declaration step, the inductive installs (`Inductives/`, `Ind*`), the Nat-op certification, the capstones, and the model read through the statement's relation (`Denotes.lean`). |
 | `ConLeche/Verify/` | Proofs about kernel functions that need no model: well-formedness, scoping, the cached-to-pure simulation (`Cached/`), the native route's kernel-side invariants (`Inductives/`), and the parser's (`Frontend/`: line locality, the parse as a line fold, chunk independence, what a line does to the parse state, the template's lines). |
 | `ConLeche/Accepts.lean` | The file-level vocabulary of the statement: `jsonWithTheoremFalse`, the whole-file template of one JSON file that declares a theorem of type `False`. |
 | `ConLeche/Denotes.lean` | The statement's semantics: what a term denotes (`Denotes`) and what a model of an environment is (`Model`); imports nothing from the proof tiers. |
 | `ConLeche/MainTheorem.lean`, `ConLeche/Challenge.lean` | The main theorem and the main corollary — about the environment the fold returns and about the chunks the binary reads — and the challenge module stating both with `sorry`, kept as its own library and compared with the solution by `tests/challenge.sh`. |
 | `bridge/lean4lean-model/` | The Mathlib bridge instantiating the interface. |
-| `tests/` | The Lean test library (axiom pin, proof-dependency roots), the arena and end-to-end fixtures with their expectation files, and the gate scripts. |
+| `tests/` | The Lean test library (the axiom pin), the arena and end-to-end fixtures with their expectation files, and the gate scripts. |
 | `scripts/` | Fixture generators, the PERF battery, stream tools. |
 
 ## 12. Gates
 
-`tests/arena.sh` is the standard battery: the layering fence, the
-proof-term module pin (`tests/proofdeps.sh`, which fails if a new
-module enters a capstone's closure), the compiler-escape scan, the pin
+`tests/arena.sh` is the standard battery: the layering fence
+(`tests/layering.sh`: no base module imports the model lane, no
+implementation module imports the theory, and no module of the
+rules tier of §4 has the pure implementation in the environment it
+elaborates in — its direct imports plus, transitively, their
+`public import`s, computed from source; the implementation modules
+that the base tiers' own re-exports still carry in are listed in the
+script and the list may only shrink), the compiler-escape scan, the pin
 dump freshness, the Comparator pair (`tests/challenge.sh`: the
 challenge module builds with its `sorry` warnings and nothing else,
 and every statement it makes is token-identical to the solution's),

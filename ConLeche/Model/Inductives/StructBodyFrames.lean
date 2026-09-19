@@ -7,6 +7,8 @@ import ConLeche.Verify.Inductives.StructBody
 `@[expose]`d, so a `cases`-then-`rfl` proof cannot see the reduct.
 `import all` restores that view HERE only. -/
 import all ConLeche.Kernel.PropWhen
+import ConLeche.Model.Rules.InferSoundKit
+import ConLeche.Model.Inductives.StructIntro
 
 public section
 
@@ -28,7 +30,7 @@ law needs:
   head domain of the constructor telescope peeled at the variables and
   the subject's earlier projections, so its reading is the field
   domain's instantiation sequence along the readings of those
-  arguments (`denoteMeta_instPisAt_peel`), which at the frame — the
+  arguments (`Rules.denoteMeta_instPisAt_peel`), which at the frame — the
   subject a member of the family at the parameters — agrees with the
   field domain read at the subject's projection spine
   (`chain_entry_agree`) and is graded there (the graph regime by the
@@ -215,7 +217,7 @@ theorem bodyFrames {env : Env} (m : EnvModel V env)
   have hsp : DenoteMetaSpine m.acval env ψ (nP + 1) (ConLeche.fvsD nP ++ ConLeche.projArgsD T i nP)
       (entryParamBvars nP ++ entryProjAVs off i) :=
     DenoteMetaSpine.append hspP hspX
-  obtain ⟨restA, hrest, hpeel⟩ := denoteMeta_instPisAt_peel m.acval_closed
+  obtain ⟨restA, hrest, hpeel⟩ := Rules.denoteMeta_instPisAt_peel m.acval_closed
     (acval_inst_self m) _ hcf hctyW hargs hctyRead hsp
   obtain ⟨fdomA, ba, hfdA, -, rfl⟩ := denoteMeta_forallE_inv hrest
   -- the peel is the instantiation sequence of the field domain

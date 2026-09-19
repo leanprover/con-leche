@@ -4,6 +4,7 @@ public import ConLeche.Model.IndUnitLaw
 import ConLeche.Verify.Denote
 import ConLeche.Verify.Denote.OpenVars
 import ConLeche.Verify.Denote.VClosed
+import ConLeche.Model.Annot.BitLevels
 public section
 
 /-!

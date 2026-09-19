@@ -4,6 +4,7 @@ import ConLeche.Model.Inductives.StructCtorFrames
 public import ConLeche.Model.Inductives.SumIntro
 public import ConLeche.Model.Inductives.SumRecRead
 public import ConLeche.Verify.Inductives.SumInv
+import ConLeche.Model.Annot.BitLevels
 public section
 
 /-!

@@ -1,6 +1,7 @@
 module
 
 public import ConLeche.Model.Inductives.FixStageTable
+import ConLeche.Model.Annot.BitLevels
 public section
 
 /-!

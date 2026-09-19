@@ -2,7 +2,7 @@ module
 
 public import ConLeche.Model.Inductives.StructFrame
 public import ConLeche.Model.Capstone
-import ConLeche.Model.Steps.ReadsIO
+import ConLeche.Model.Tiers
 public section
 
 /-!
@@ -42,9 +42,9 @@ structure ClaimsAt (μ : CheckMode) {env : Env} (m : EnvModel V env)
 /-- A P carrier answers them (the sealed capstone). -/
 theorem claimsAt_of (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ env)
     (φ : Name → Nat) (F : Nat) : ClaimsAt μ mp.base2 φ F :=
-  have h := checkSoundAt (V := V) hμ (TierInputsAt.ofSem mp φ) F
+  have h := checkSoundAt (V := V) hμ (Rules.RulesInputs.ofSem mp φ) F
   have hr : InferReads mp.base2 μ φ F :=
-    inferReads_of (TierInputsAt.ofSem mp φ).reads
+    inferReads_of hμ (Rules.RulesInputs.ofSem mp φ)
   ⟨h.2.1, h.2.2.1, h.2.2.2, hr, sortSemAt_of_claims h.2.1 h.2.2.2 hr⟩
 
 namespace ClaimsAt
@@ -63,7 +63,7 @@ theorem inferRow (hc : ClaimsAt μ m φ F) {d : Nat} {e t : Expr}
       (∀ ρ : Nat → V, Sat V Δ ρ → WellDenotedV V ρ ea) ∧
       (∀ ρ : Nat → V, Sat V Δ ρ → WellDenotedV V ρ ta) ∧
       ∀ ρ : Nat → V, Sat V Δ ρ → interp V ρ ea ∈ˢ interp V ρ ta := by
-  obtain ⟨ta, hta⟩ := hc.reads hi hws hb hL (LeafReads.of_ctxOk hC) hea
+  obtain ⟨ta, hta⟩ := hc.reads hi hws hb hL hC hea
   obtain ⟨h1, h2, h3⟩ := hc.infer hi hws hb hL hC hea hta
   exact ⟨ta, hta, h1, h2, h3⟩
 

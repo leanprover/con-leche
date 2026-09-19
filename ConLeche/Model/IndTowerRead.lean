@@ -1,6 +1,7 @@
 module
 
 public import ConLeche.Model.IndPoint
+import ConLeche.Model.Annot.BitRename
 public section
 
 /-!

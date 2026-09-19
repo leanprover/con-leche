@@ -1,6 +1,7 @@
 module
 
 public import ConLeche.Model.IndAnnotKit
+import ConLeche.Model.Annot.BitInst
 public section
 
 /-!

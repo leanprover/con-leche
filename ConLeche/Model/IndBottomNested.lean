@@ -2,6 +2,11 @@ module
 
 import ConLeche.Model.IndNestedParam
 public import ConLeche.Model.IndOpenerGrade
+import ConLeche.Model.Rules.IotaSoundKit
+import ConLeche.Model.Annot.BitInst
+import ConLeche.Model.Annot.BitLevels
+import ConLeche.Model.Annot.BitRename
+import ConLeche.Verify.Denote.OpenRevDenote
 public section
 
 /-!
@@ -27,8 +32,8 @@ readings are taken from the only other place the checked statement
 mentions the pins: its own **major argument**, which `IotaThmNR` pins
 to the pin application up to `ErasedEq`.  `denoteMeta_erasedEq` crosses
 the pin, `denoteMeta_mkAppN_inv` decomposes it, and the spine's readings
-fall out — after which `denoteMeta_openRev`/`denoteMeta_openRev_base` read
-each pin back to its canonical `openRev` form and `pinCross` (part 7,
+fall out — after which `Rules.denoteMeta_openRev` and
+`Rules.denoteMeta_openRev_base` read each pin back to its canonical `openRev` form and `pinCross` (part 7,
 generalized here to an unpadded fired spine) supplies the crossing
 datum `RecRuleLaw`'s parameter premise is quantified over.
 -/
@@ -793,7 +798,7 @@ theorem indBottomNested {μ : CheckMode} {env : Env}
         = some vpa := by
     intro q hq
     obtain ⟨w, hw⟩ := hpinRead q hq
-    have hkey := denoteMeta_openRev (acval := mp.base2.acval) (env := env)
+    have hkey := Rules.denoteMeta_openRev (acval := mp.base2.acval) (env := env)
       (φ := Level.substFn φ lps us) mp.base2.acval_closed hainst
       (fvs.take rP) (e := (pins.getD q default).renameConsts f)
       (d := rP + cnF)
@@ -813,7 +818,7 @@ theorem indBottomNested {μ : CheckMode} {env : Env}
     · refine ⟨W, ?_⟩
       rw [openRev_instantiateLevelParams lps us 0 rP, denotePInstLevels,
         ← denoteMeta_renameConsts hroT, ← openRev_renameConsts,
-        ← denoteMeta_openRev_base (acval := mp.base2.acval)
+        ← Rules.denoteMeta_openRev_base (acval := mp.base2.acval)
           (cval := mp.base2.cvalE) (env := env)
           (φ := Level.substFn φ lps us) mp.base2.acval_closed
           mp.base2.acval_erase mp.base2.cval_closed
@@ -1034,9 +1039,9 @@ theorem indBottomNested {μ : CheckMode} {env : Env}
   have hLTr : Expr.LeavesBounded tr := fun l hl =>
     hlbFvs l.1 l.2 (hleafTr l hl)
   obtain ⟨tla, htla⟩ := hreadsP (Level.substFn φ lps us) hInfL hwsL hbL
-    hLL (LeafReads.of_ctxOk (hctxOf lhsS hleafL hltL)) hvl0
+    hLL (hctxOf lhsS hleafL hltL) hvl0
   obtain ⟨tra, htra⟩ := hreadsP (Level.substFn φ lps us) hInfR hwsR hbR
-    hLR (LeafReads.of_ctxOk (hctxOf rhsS hleafR hltR)) hvr0
+    hLR (hctxOf rhsS hleafR hltR) hvr0
   obtain ⟨hokVL, hokVR, hmemLR⟩ := sidesMem (hinf _) (hdeq _)
     (hctxOf αS hleafα hltα) (hctxOf lhsS hleafL hltL)
     (hctxOf rhsS hleafR hltR) hwsα hbα hLα hwsL hbL hLL hwsR hbR hLR
