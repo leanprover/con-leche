@@ -119639,9 +119639,23 @@ the end, both for step (4) and neither blocking (3′):
 
 `lake build` exit 0, 0 warning lines; `lake test` exit 0, 0 warning
 lines; `#print axioms` on both new theorems
-`[propext, Classical.choice, Quot.sound]`.  `tests/unconsumed.sh`
-(advisory) 185 of 3733 against the base's 184 of 3731 — the two new
-theorems are the new declarations and `nestedPinWideStep` is consumed
-by nothing yet, which is expected: its consumer is step (4) itself.
+`[propext, Classical.choice, Quot.sound]`.  `tests/proofdeps.sh` 4975 rows / 12
+roots / doors 0; `tests/shake.sh` 513 removals all allowlisted,
+pub-imports 1341 of 2283 none demotable; `tests/layering.sh`,
+`tests/quote-gate.sh`, `tests/overview-links.sh`,
+`tests/no-local-paths.sh`, `tests/trust-surface.sh` OK.
+
+`tests/unconsumed.sh` (advisory) **185 of 3735 against the base's 185
+of 3733**, and the diff is worth reading rather than counting: the two
+new theorems JOINED the list (their consumer is step (4) itself), and
+**two declarations LEFT it — `ofNested_pin_block_of_wide_inst`
+(`NestedFit.lean:2435`) and `nestedPinsLe_of_rank`
+(`NestedPinLeafAll.lean:5104`)**.  Those are Resolution 1's
+identification and the induction skeleton, and this is their FIRST
+consumer in the tree.  It is also exactly the movement "WIDE (f3) step
+1 … (d)" reserved for step (4): nothing from the
+`pins_le_*`/`NestedPinsLe`-producer family may leave at the SWITCH, and
+step (4) is the one entitled to take it.
+
 No kernel file changed, so the accept set is untouched and
 `tests/arena.sh` was not re-run.
