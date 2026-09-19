@@ -10615,6 +10615,119 @@ theorem nestedPinsShapeOrdRight_of {F : Nat} : NestedPinsShapeOrdRight V μ F :=
         exact ⟨prms, pb₀, ww, stt, hA, hB, hC, Nat.le_of_eq hE⟩)
       hkA hpinT SF.pinNIdx ψ ρp hsat
 
+
+/-- **K.63, READ OFF THE RUN** (task #315 PINF): the record the wide
+lane's `NestedPinsRun.hK63` field will be, named so that what is still
+open on the `pinF` arm can be said in one word.
+
+The run relation already CARRIES K.63 one level up —
+`DeclNestedRun`'s conjunct after K.60 — and the four edits that thread
+it down to `NestedPinsRun` are listed in DESIGN; until they land this
+predicate stands in for the field, and the moment it is there this
+becomes `fun R => R.hK63` and every consumer's hypothesis goes away. -/
+@[expose] def NestedPinsK63 (V : Type w) [SetTheory V] (μ : CheckMode) (F : Nat) : Prop :=
+  ∀ {env : Env} {mp : EnvModelM V μ env} {p : NestedParts} {st : ElimState}
+    {b : MutualBlock} {envAux : Env} {stored : List AuxStored}
+    {ctorsR : List (List (ConstantVal × Nat × Nat))} {fmsA ctorsA₀ : List ConstantVal}
+    {fms : List MutualFormerA} {f₀ : MutualFormerA} {ctorsA : List (ConstantVal × Nat)}
+    {sortss : List (List Level)} {kinds : List (List (RecFieldKind × Nat))}
+    {mp₁ : EnvModelM V μ (ConLeche.consMutualFormers fms env)}
+    {ppsF : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)} {W : (Name → Nat) → Nat}
+    {idxF : Nat → List Expr} {dsF : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)}
+    {esF : Nat → (Name → Nat) → List AnnotTerm} {srcsF : Nat → List (Option Nat)}
+    {fvsPF xFvsF : Nat → List Expr} {xrestF : Nat → Expr}
+    {eissF : Nat → (Name → Nat) → List (List AnnotTerm)}
+    {tssF : Nat → (Name → Nat) → List (List (Nat × Nat × AnnotTerm))}
+    {mp₁' : EnvModelM V μ (ConLeche.consMutualFormers (fms.take p.k) env)},
+    NestedPinsRun V μ F mp p st b envAux stored ctorsR fmsA ctorsA₀ fms f₀ ctorsA sortss kinds
+      mp₁ ppsF W idxF dsF esF srcsF fvsPF xFvsF xrestF eissF tssF mp₁' →
+    ConLeche.nestedCopyReflFieldsOk env p b st stored = true
+
+/-- **THE PIN ARM'S REMAINDER, DISCHARGED** (task #315 PINF):
+`NestedPinsShapePinFRefl` — the `pinF` arm at a container field that is
+REFLEXIVE at one of the container's own pins — from the reflexive
+twins.
+
+The assembly is `nestedPinsShapePinF_of`'s finitary branch with every
+lemma replaced by its twin: `copyPinFPinCorrRefl` gives conjuncts 1-3
+(the copy's field is reflexive, its target is a block pin, and the pin
+correspondence) and `copyPinFReadRefl` gives conjuncts 4 and 5 (the
+telescope and the index expressions).  The three transports across the
+group — the level ASSIGNMENT by `NestedPinGroupSyn.ψJEq`, the
+components' READINGS by `sameDs`, the level ARGUMENTS by `same`, and
+the constant's level PARAMETERS off each pin's own `IsBlockModel.ctors`
+— are the finitary branch's, unchanged: they do not look at the
+field's kind.
+
+**`hK63` IS A PARAMETER, and it is the ONLY thing between this theorem
+and an unconditional one.**  The run relation carries the record
+(`DeclNestedRun`'s conjunct after K.60), but the field that would put
+it in `NestedPinsRun`'s hands is the wide lane's to add; the hypothesis
+here is exactly that field, read off the run, so when it lands the
+whole of this lemma's dependence on it is the single application
+`hK63 R` below — replace it by `R.hK63` and delete the hypothesis. -/
+theorem nestedPinsShapePinFRefl_of {F : Nat}
+    (hK63 : NestedPinsK63 V μ F) :
+    NestedPinsShapePinFRefl V μ F := by
+  intro env mp p st b envAux stored ctorsR fmsA ctorsA₀ fms f₀ ctorsA sortss kinds mp₁ ppsF W idxF
+    dsF esF srcsF fvsPF xFvsF xrestF eissF tssF mp₁' R pinsS SF dsR xFvsR q₀ kJ dJ S
+  intro i hi cvT caps hfind ψ ρp hsat i' hi' j hj l hl hrs hnest hk
+  classical
+  have hpinAt : ∀ n : Nat, (nestedBlockModel (V := V) p b fms f₀ ctorsA kinds env ppsF W idxF dsF
+      esF srcsF fvsPF xrestF eissF tssF ctorsR dsR xFvsR pinsS).pinAt n = pinsS.getD n default :=
+    fun _ => rfl
+  obtain ⟨cAJ, hj'⟩ : ∃ cAJ, (dJ.ctorsM i')[j]? = some cAJ :=
+    ⟨_, List.getElem?_eq_getElem hj⟩
+  -- the two pins' own constants, and the level parameters they share
+  obtain ⟨cvTi, capsi, cvRi, mIi, rPi, rulesi, hfindi, hIi, -⟩ := S.stored i hi
+  rw [hpinAt] at hfindi hIi
+  obtain ⟨cvT', caps', cvR', mI', rP', rules', hfind', hI, -⟩ := S.stored i' hi'
+  rw [hpinAt] at hfind' hI
+  have hcv : cvT = cvTi := by
+    have h := hfind.symm.trans hfindi
+    simp only [Option.some.injEq, ConLeche.ConstantInfo.indInfo.injEq] at h
+    exact h.1
+  have hi'k : i' < dJ.k := by rw [S.kEq]; exact hi'
+  obtain ⟨-, hlpsI, -⟩ := hIi.ctors i' j cAJ hi'k hj'
+  obtain ⟨-, hlpsI', hCDJ⟩ := hI.ctors i' j cAJ hI.memberLt hj'
+  have hlvlp : cvT.levelParams = cvT'.levelParams := by
+    rw [hcv]; exact hlpsI.symm.trans hlpsI'
+  -- the group's shared assignment, components and level arguments
+  have hψ := S.ψJEq i i' hi hi' ψ
+  rw [hpinAt, hpinAt] at hψ
+  have hDs : (pinsS.getD (q₀ + i) default).Ds ψ = (pinsS.getD (q₀ + i') default).Ds ψ := by
+    have a := S.sameDs i hi ψ
+    have bb := S.sameDs i' hi' ψ
+    rw [hpinAt, hpinAt] at a
+    rw [hpinAt, hpinAt] at bb
+    rw [a, bb]
+  have hlvls : (pinsS.getD (q₀ + i) default).lvls = (pinsS.getD (q₀ + i') default).lvls := by
+    have a := (S.same i hi).1
+    have bb := (S.same i' hi').1
+    rw [hpinAt, hpinAt] at a
+    rw [hpinAt, hpinAt] at bb
+    rw [a, bb]
+  have hFssLen : ∀ ψJ : Name → Nat, ((dJ.Fss i' ψJ).getD j []).length = cAJ.2 :=
+    fun ψJ => hI.Fss_length hj' ψJ
+  have hlF : l < cAJ.2 := by rw [hFssLen] at hl; exact hl
+  -- the REFLEXIVE arm: both halves are theorems
+  obtain ⟨pbs, hpbs, hpfree, hPD⟩ := R.pinDataFree
+  obtain ⟨hgb, -⟩ := S.grp i' hi'
+  rw [← pinAtE_eq] at hgb
+  have CM : ∀ ciJ : ContainerInfo,
+      ConLeche.containerInfo? env (pinsS.getD (q₀ + i') default).J = some ciJ →
+      ContainerModeled mp₁'.base2 ciJ dJ :=
+    fun ciJ hciJ => S.modeled i' hi' ciJ (by rw [hpinAt]; exact hciJ)
+  obtain ⟨cc, J, ci, cI, cA, cname, hciP, hJmem, hJcc, hn, hty, hnf, hJname, hinst, hcj,
+    hcA, hbc, hnF⟩ := R.ctorPair SF S hPD hi' hj'
+  obtain ⟨h1, h2, h3⟩ :=
+    R.copyPinFPinCorrRefl SF S hPD R.h.classify (hK63 R) hi' hgb CM hj' hlF hk hnest hfind' ψ
+  obtain ⟨h4, h5⟩ :=
+    R.copyPinFReadRefl SF S hPD hi' CM hj' hlF hnest hk
+      (R.copyPinFKindRefl SF S hPD R.h.classify (hK63 R) hi' hgb CM hj' hlF hk hnest).1 ψ
+  rw [hψ, hDs, hlvls, hlvlp]
+  exact ⟨h1, h2, h3, h4, h5⟩
+
 /-- **RESIDUAL 3's FINITARY HALF, DISCHARGED** (task #315 PINF):
 `NestedPinsShapePinF` — the `pinF` arm at a container field nested at
 one of the CONTAINER's own pins — from the REFLEXIVE half alone.

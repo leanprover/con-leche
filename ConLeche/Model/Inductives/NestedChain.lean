@@ -14,7 +14,8 @@ Nothing new is proved here.  This file exists so that the ELABORATOR,
 and not a reading of seven statements in seven files, is what certifies
 that the nested route's model side composes: the links
 
-* `nestedPinsShapePinF_of`, `nestedPinsShape_of` (`NestedCopyInst.lean`),
+* `nestedPinsShapePinFRefl_of`, `nestedPinsShapePinF_of`,
+  `nestedPinsShape_of` (`NestedCopyInst.lean`),
 * `nestedPinsEntry_of_le_all` (`NestedPinLeafAll.lean`),
 * `nestedPinsIdent_of`     (`NestedCopyIdx.lean`),
 * `nestedPinsStaged_of`    (`NestedPins.lean`),
@@ -40,26 +41,25 @@ universe w
 variable {V : Type w} [SetTheory V] {μ : CheckMode} {F : Nat} {env envOut : Env}
   {p : NestedParts}
 
-/-- **WHAT REMAINS ON THE MODEL SIDE OF THE NESTED ROUTE**: a nested
-block's install carries the environment's model across, from exactly
-TWO open hypotheses and nothing else —
+/-- **THE COMPOSITION, AT THE TWO SHAPES IT TAKES ITS ARMS FROM**: a
+nested block's install carries the environment's model across, given
 
 * `NestedPinsShapePinFRefl` (`NestedCopyInst.lean`): the `F`-side half
-  of a copied constructor's field shape AT A REFLEXIVE nested field,
-  which waits on a kernel record — K.60's reflexive twin.  The
-  FINITARY half is a theorem (`nestedPinsShapePinF_of`), so what is
-  open here is the arm at a container field whose domain is a `Π`,
-  which is exactly where K.60's guard claims nothing by construction;
+  of a copied constructor's field shape AT A REFLEXIVE nested field;
 * `NestedPinsLe` (`NestedPinLeafAll.lean`): the pins' rank order.
+
+The first is no longer open: `nestedPinsShapePinFRefl_of` proves it
+from the kernel record K.60's reflexive twin K.63, which landed, and
+`nestedModeled_of_le` below is this theorem with that lemma plugged in.
 
 Everything else the chain needs is a theorem in this tree.  The other
 half of the field shape, `NestedPinsShapeOrdRight`, was the third
 hypothesis until lane R3 discharged it unconditionally
-(`nestedPinsShapeOrdRight_of`), and `nestedPinsShape_of` now takes
-`hPin` alone, through `nestedPinsShapePinF_of` (task #315 PINF), which
+(`nestedPinsShapeOrdRight_of`), and `nestedPinsShape_of` takes `hPin`
+alone, through `nestedPinsShapePinF_of` (task #315 PINF), which
 discharges the `pinF` arm at a FINITARY nested field from
-`NestedPinsRun.copyPinFPinCorr` and `NestedPinsRun.copyPinFRead` and
-leaves the reflexive one; the tail's last model face K.36 is the run's own
+`NestedPinsRun.copyPinFPinCorr` and `NestedPinsRun.copyPinFRead`; the
+tail's last model face K.36 is the run's own
 `nestedContainersOk` Bool (`nestedCtorPinNamesOf_of_containersOk`,
 K.53), and the core's stages come out of the two residuals by
 `nestedPinsShape_of`, `nestedPinsEntry_of_le_all`,
@@ -82,5 +82,26 @@ theorem nestedModeled_of_two
         (nestedPinsEntry_of_le_all (nestedPinsShape_of (nestedPinsShapePinF_of hPin))
           hLe)))))
     nestedTailModeled h
+
+/-- **THE CHAIN AT ONE MODEL-TIER HYPOTHESIS** (task #315 PINF): the
+reflexive `pinF` arm is a theorem (`nestedPinsShapePinFRefl_of`), so
+`nestedModeled_of_two`'s first hypothesis is discharged here and what
+is left of the MODEL tier is `NestedPinsLe` alone.
+
+`NestedPinsK63` is not a model-tier residual: it is the RUN's own
+record, which `DeclNestedRun` already carries one level up and which
+four edits listed in DESIGN thread down to `NestedPinsRun`.  When they
+land it is `fun R => R.hK63`, the hypothesis disappears from here and
+from `nestedPinsShapePinFRefl_of`, and this theorem becomes
+`nestedModeled_of_one` — the chain from `NestedPinsLe` and nothing
+else.  Stated as the composition for the same reason
+`nestedModeled_of_two` is: the residual count is elaborator-checked. -/
+theorem nestedModeled_of_le
+    (hK63 : NestedPinsK63 V μ F) (hLe : NestedPinsLe V μ F)
+    (hμ : μ.verifiedChecks = true) (mp : EnvModelB V μ env)
+    (hE : ConLeche.EtaFamiliesClosed env)
+    (h : ConLeche.Semantics.DeclNestedRun μ F env p envOut) :
+    Nonempty (EnvModelB V μ envOut) :=
+  nestedModeled_of_two (nestedPinsShapePinFRefl_of hK63) hLe hμ mp hE h
 
 end ConLeche.Model
