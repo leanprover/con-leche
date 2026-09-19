@@ -915,6 +915,112 @@ theorem NestedPinsRun.instMapPinOwn {pbs : List (Expr × ConLeche.BinderMeta)}
   rw [hψJC φ, hcvTC]
   exact hc
 
+/-- **THE TWO σ-FACTS, AND THE MAP'S RANGE** (task #315 WIDE (3′)):
+`rowsσ_of_pin_class`'s `hmemσ` and `hidxσ` at the run's instance map,
+read off `instMapPinOwn` at the group's BASE member and nothing else.
+
+* `hσ` at the pin classes — the map's value is a pin of the block;
+* `hmemσ` — no member class shares a block pin with a pin class: the
+  block pin a pin class maps to has the container's OWN pin for its
+  container (`instMapPinOwn`), a member class's block pin is the mimic
+  of the container's member `c` and so has `dJ.memberName c` for its
+  container (`IsBlockModel.member`), and a container's own pin is no
+  member of its own group (`ContainerModeled.pinsNotMembers`);
+* `hidxσ` at a COLLAPSED pair — two own pins with ONE block pin.  The
+  `PinCorr` `instMapPinOwn` now hands is what closes it, and it takes
+  all three of its data clauses, not the two the earlier reading
+  counted: `u` and `Ids` are the pin's index sort and telescope, and
+  `Ds` is the pin's FRAME, which `BlockModel.pinIdx` reads through
+  `pinFrame`.  The two classes' components are equal only after the
+  outer instantiation (`AnnotTerm.instAll`), which is exactly what
+  `interp_instAll` removes at the pin's own frame. -/
+theorem NestedPinsRun.instMapSigmaFacts {pbs : List (Expr × ConLeche.BinderMeta)}
+    (hPD : ∀ q, q < st.pins.length → PinData env st p pbs q)
+    (hci : ∀ i', i' < kJ → ∃ ci : ContainerInfo,
+      ConLeche.containerInfo? env (pinsS.getD (q₀ + i') default).J = some ci ∧
+      ContainerModeled mp₁'.base2 ci dJ)
+    {cvT : ConstantVal} {caps : IndCaps}
+    (hfind : (ConLeche.consMutualFormers (fms.take p.k) env).find?
+      (pinsS.getD (q₀ + 0) default).J = some (.indInfo cvT caps))
+    {mm : List Nat} (hmm : ConLeche.nestedInstMapAt env st (q₀ + 0) = some mm) :
+    (∀ qK, qK < dJ.nPins → mm.getD qK 0 < pinsS.length) ∧
+    (∀ c qK, c < dJ.k → qK < dJ.nPins → q₀ + c ≠ mm.getD qK 0) ∧
+    (∀ qK qK', qK < dJ.nPins → qK' < dJ.nPins → mm.getD qK 0 = mm.getD qK' 0 →
+      ∀ (φ : Name → Nat) (ρp : Nat → V),
+        dJ.idx ((pinsS.getD (q₀ + 0) default).ψJ φ) ((D).pinFrame (q₀ + 0) φ ρp) (dJ.k + qK)
+          = dJ.idx ((pinsS.getD (q₀ + 0) default).ψJ φ) ((D).pinFrame (q₀ + 0) φ ρp)
+              (dJ.k + qK')) := by
+  classical
+  have hk0 : 0 < kJ := S.kpos
+  obtain ⟨ci, hciP, CM⟩ := hci 0 hk0
+  -- the map's entries, at every own pin
+  have hat : ∀ qK, qK < dJ.nPins → ∃ σq, mm[qK]? = some σq ∧ σq < pinsS.length ∧
+      (pinsS.getD σq default).J = (dJ.pinAt qK).J ∧
+      ∀ φ : Name → Nat,
+        PinCorr ((D).targetView mp₁'.base2.acval φ) mp₁'.base2.acval dJ
+          ((pinsS.getD (q₀ + 0) default).ψJ φ) ((pinsS.getD (q₀ + 0) default).Ds φ)
+          cvT.levelParams ((pinsS.getD (q₀ + 0) default).lvls) (p.k + σq) qK := by
+    intro qK hqK
+    obtain ⟨mm', σq, hmm', hmmqK, hσS, hJeq, hrest⟩ :=
+      R.instMapPinOwn SF S hPD hk0 hciP CM hqK hfind
+    obtain rfl : mm' = mm := Option.some.inj (hmm'.symm.trans hmm)
+    exact ⟨σq, hmmqK, hσS, hJeq, fun φ => (hrest φ).2⟩
+  have hgetD : ∀ qK, qK < dJ.nPins → ∀ σq, mm[qK]? = some σq → mm.getD qK 0 = σq := by
+    intro qK _ σq h
+    rw [List.getD_eq_getElem?_getD, h]; rfl
+  refine ⟨fun qK hqK => ?_, fun c qK hc hqK => ?_, fun qK qK' hqK hqK' heq φ ρp => ?_⟩
+  · obtain ⟨σq, hq, hlt, -, -⟩ := hat qK hqK
+    rw [hgetD qK hqK σq hq]; exact hlt
+  · -- a member class and a pin class never share a block pin
+    obtain ⟨σq, hq, -, hJ, -⟩ := hat qK hqK
+    rw [hgetD qK hqK σq hq]
+    intro hcontra
+    have hck : c < kJ := by rw [← S.kEq]; exact hc
+    obtain ⟨cvTc, capsc, cvRc, mIc, rPc, rulesc, -, hIc, -⟩ := S.stored c hck
+    have hname : (pinsS.getD (q₀ + c) default).J = dJ.memberName c := hIc.member.symm
+    rw [← hcontra] at hJ
+    have hmemName : (dJ.pinAt qK).J ∈ dJ.memberNames := by
+      rw [← hJ, hname]
+      show dJ.memberNames.getD c .anonymous ∈ dJ.memberNames
+      rw [List.getD_eq_getElem?_getD,
+        List.getElem?_eq_getElem (show c < dJ.memberNames.length from by
+          rw [CM.namesLen]; exact hc)]
+      exact List.getElem_mem _
+    exact CM.pinsNotMembers qK hqK hmemName
+  · -- a collapsed pair: one block pin, hence one index-tuple set
+    obtain ⟨σq, hq, -, -, hc⟩ := hat qK hqK
+    obtain ⟨σq', hq', -, -, hc'⟩ := hat qK' hqK'
+    obtain rfl : σq = σq' := by
+      rw [hgetD qK hqK σq hq, hgetD qK' hqK' σq' hq'] at heq; exact heq
+    obtain ⟨-, hDs, hu, hIds, -, -⟩ := hc φ
+    obtain ⟨-, hDs', hu', hIds', -, -⟩ := hc' φ
+    obtain ⟨cvT₀, cvR₀, mI₀, rP₀, rules₀, hI₀⟩ := S.reps 0 (by rw [← S.kEq] at hk0; exact hk0)
+    rw [hI₀.auxPinIdx qK hqK, hI₀.auxPinIdx qK' hqK']
+    show idxSet _ (dJ.pinFrame qK _ _) _ = idxSet _ (dJ.pinFrame qK' _ _) _
+    have hmapEq : ((dJ.pinAt qK).Ds ((pinsS.getD (q₀ + 0) default).ψJ φ)).map
+          (interp V ((D).pinFrame (q₀ + 0) φ ρp))
+        = ((dJ.pinAt qK').Ds ((pinsS.getD (q₀ + 0) default).ψJ φ)).map
+          (interp V ((D).pinFrame (q₀ + 0) φ ρp)) := by
+      have h := hDs.symm.trans hDs'
+      have h2 := congrArg (fun l => l.map (interp V ρp)) h
+      simp only [List.map_map] at h2
+      have hcomp : ∀ as : List AnnotTerm,
+          as.map ((interp V ρp) ∘ (AnnotTerm.instAll
+              ((pinsS.getD (q₀ + 0) default).Ds φ) 0))
+            = as.map (interp V ((D).pinFrame (q₀ + 0) φ ρp)) := by
+        intro as
+        refine List.map_congr_left fun e _ => ?_
+        show interp V ρp (AnnotTerm.instAll ((pinsS.getD (q₀ + 0) default).Ds φ) 0 e) = _
+        exact interp_instAll ((pinsS.getD (q₀ + 0) default).Ds φ) [] ρp e
+      rw [hcomp, hcomp] at h2
+      exact h2
+    have hframe : dJ.pinFrame qK ((pinsS.getD (q₀ + 0) default).ψJ φ)
+          ((D).pinFrame (q₀ + 0) φ ρp)
+        = dJ.pinFrame qK' ((pinsS.getD (q₀ + 0) default).ψJ φ)
+            ((D).pinFrame (q₀ + 0) φ ρp) :=
+      congrArg (fun l => consList l ((D).pinFrame (q₀ + 0) φ ρp)) hmapEq
+    rw [hframe, hu.symm.trans hu', hIds.symm.trans hIds']
+
 end Assembly
 
 end ConLeche.Model
