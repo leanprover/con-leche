@@ -573,6 +573,92 @@ theorem Infer.proj_sound (hin : RulesInputs V m φ) {g : Grade} {d : Nat}
       Level.isEquiv (Level.subst entry.levelParams us entry.fieldSort) .zero
         = some true) :
     InferSem m φ g d (.proj sn i pe) (entry.typeAt us te.getAppArgs pe) := by
-  sorry
+  refine InferSem.of_uniform ?_
+  intro Δa ea hfr hC hea hgr
+  obtain ⟨hws, hb, hLb⟩ := hfr
+  simp only [Expr.WScoped] at hws
+  simp only [Expr.looseBVarsBounded] at hb
+  have hLpe : Expr.LeavesBounded pe := fun l hl =>
+    hLb l (by simpa [Expr.fvarLeaves] using hl)
+  have hCpe : CtxOk m φ d Δa pe :=
+    hC.of_subset (fun l hl => by simpa [Expr.fvarLeaves] using hl)
+  obtain ⟨vp, hvp, rfl⟩ := denoteMeta_proj_inv_tower hent hea
+  -- the io grade's premise, hoisted through the projection spelling
+  have hoist : g = .io → Graded V Δa vp := fun hg ρ hρ =>
+    WellDenotedV_projAV_hoist ((hgr hg) ρ hρ)
+  -- the scrutinee's inferred type, and its reduct
+  obtain ⟨htpef, htpesub, hokPe, tpea, htpea, hokTpe, hmemPe⟩ :=
+    htpe.apply ⟨hws, hb, hLpe⟩ hCpe hvp hoist
+  obtain ⟨htef, htesub, tea, htea, hokTe, heqTe⟩ :=
+    hte htpef (hCpe.of_subset htpesub) htpea hokTpe
+  obtain ⟨hwte', hbte, hLte⟩ := htef
+  -- the tower law's typing clause
+  obtain ⟨-, -, -, ⟨cvT, capsT, hfT, hlpsT, -⟩, hO5, _, -, -, hlaw, -⟩ :=
+    hin.tower_ok sn i entry hent
+  obtain ⟨⟨Ta, hTa, hA⟩, -⟩ := hlaw us hus
+  -- the reduced type's spine, at the former's leaf
+  rw [show te = Expr.mkAppN te.getAppFn te.getAppArgs from
+    (Expr.mkAppN_getApp te).symm, hhead] at htea
+  obtain ⟨vT, vs, hvT, hspt, hteq⟩ := denoteMeta_mkAppN_inv htea
+  have hlenT : us.length
+      = (ConstantInfo.indInfo cvT capsT).toConstantVal.levelParams.length := by
+    show us.length = cvT.levelParams.length
+    rw [hlpsT]; exact hus
+  rw [denoteMeta_const hfT hlenT] at hvT
+  have hvT' : vT = m.acval sn (Level.substFn φ entry.levelParams us) := by
+    rw [← hlpsT]; exact (Option.some.inj hvT).symm
+  subst hvT'
+  subst hteq
+  -- the residual: the entry type's peel, read
+  have hframes : ∀ x ∈ te.getAppArgs ++ [pe],
+      Expr.WScoped d x ∧ x.looseBVarsBounded 0 = true := by
+    intro x hx
+    rcases List.mem_append.mp hx with hx' | hx'
+    · exact ⟨hwte'.getAppArgs x hx',
+        ConLeche.looseBVarsBounded_getAppArgs hbte x hx'⟩
+    · rcases List.mem_singleton.mp hx' with rfl
+      exact ⟨hws, hb⟩
+  obtain ⟨restA, hrest, hpeel⟩ :=
+    denoteMeta_typeAt_peel hent hTa hlen hframes (hspt.snoc hvp)
+  have hlenVs : vs.length = entry.numParams := by
+    rw [← hspt.length]; exact hlen
+  have hlaw' : ∀ σ : Nat → V, Sat V Δa σ →
+      WellDenotedV V σ (projAV (i + entry.off) vp) ∧
+        WellDenotedV V σ restA ∧
+        interp V σ (projAV (i + entry.off) vp) ∈ˢ interp V σ restA :=
+    fun σ hσ =>
+      hA (towerGuardAt_of hO5 (fun hp => by
+        simp only [beq_iff_eq] at hp ⊢
+        exact hprop hp)) σ vs vp restA hlenVs (hokTe σ hσ)
+        (hokPe σ hσ) ((heqTe σ hσ) ▸ hmemPe σ hσ) hpeel
+  -- the returned type's leaves: the spine's or the subject's
+  have hleaves : ∀ l ∈ (entry.typeAt us te.getAppArgs pe).fvarLeaves,
+      (∃ x ∈ te.getAppArgs, l ∈ x.fvarLeaves) ∨ l ∈ pe.fvarLeaves := by
+    intro l hl
+    rw [ProjEntry.typeAt_eq_instSpine entry us hlen pe] at hl
+    rcases fvarLeaves_instSpine _ hl with hty | ⟨a, ha, hla⟩
+    · rw [Expr.fvarLeaves_eq_nil_of_not_hasFvar
+        (ConLeche.projEntry_body_hasFvar m.wf hent us)] at hty
+      exact nomatch hty
+    · rcases List.mem_append.mp ha with ha | ha
+      · exact Or.inl ⟨a, ha, hla⟩
+      · rcases List.mem_singleton.mp ha with rfl
+        exact Or.inr hla
+  refine ⟨⟨ConLeche.projEntry_typeAt_WScoped m.wf hent us hlen
+      (fun a ha => hwte'.getAppArgs a ha) hws,
+    ConLeche.projEntry_typeAt_looseBVars m.wf hent us hlen
+      (fun a ha => ConLeche.looseBVarsBounded_getAppArgs hbte a ha) hb,
+    fun l hl => ?_⟩, fun l hl => ?_, ?_, restA, hrest, ?_, ?_⟩
+  · rcases hleaves l hl with ⟨x, hx, hlx⟩ | hlx
+    · exact hLte l (ConLeche.fvarLeaves_getAppArgs hx l hlx)
+    · exact hLpe l hlx
+  · rcases hleaves l hl with ⟨x, hx, hlx⟩ | hlx
+    · rw [Expr.fvarLeaves]
+      exact htpesub l (htesub l (ConLeche.fvarLeaves_getAppArgs hx l hlx))
+    · rw [Expr.fvarLeaves]
+      exact hlx
+  · exact fun σ hσ => (hlaw' σ hσ).1
+  · exact fun σ hσ => (hlaw' σ hσ).2.1
+  · exact fun σ hσ => (hlaw' σ hσ).2.2
 
 end ConLeche.Model.Rules

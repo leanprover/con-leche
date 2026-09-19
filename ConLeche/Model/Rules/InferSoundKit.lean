@@ -520,4 +520,200 @@ theorem strLitFacts {m : EnvModel V env} (hct : ConstTy m φ)
   have h2 := h.2
   rwa [hleafC ConLeche.stringName (Level.substFn φ [] []) _] at h2
 
+/-! ## `projAV`'s hoist (`Steps/ProjAVKit.lean:32`, `:41`, `:80`) -/
+
+/-- The subject of a graded projection spine is graded. -/
+theorem WellDenoted_projAV_hoist :
+    ∀ {i : Nat} {e : AnnotTerm} {σ : Nat → V},
+      WellDenoted V σ (projAV i e) → WellDenoted V σ e
+  | 0, e, σ, h => ((WellDenoted_fst V σ e) ▸ h).1
+  | i + 1, e, σ, h =>
+    ((WellDenoted_snd V σ e) ▸
+      (WellDenoted_projAV_hoist (i := i) (e := .snd e) h)).1
+
+/-- The subject of a bit-valid projection spine is bit-valid. -/
+theorem AnnotValid_projAV_hoist :
+    ∀ {i : Nat} {e : AnnotTerm} {σ : Nat → V},
+      AnnotValid V σ (projAV i e) → AnnotValid V σ e
+  | 0, e, σ, h => (AnnotValid_fst V σ e) ▸ h
+  | i + 1, e, σ, h =>
+    (AnnotValid_snd V σ e) ▸
+      (AnnotValid_projAV_hoist (i := i) (e := .snd e) h)
+
+/-- `WellDenotedV` of the subject, off the spine's. -/
+theorem WellDenotedV_projAV_hoist {i : Nat} {e : AnnotTerm} {σ : Nat → V}
+    (hok : WellDenotedV V σ (projAV i e)) : WellDenotedV V σ e :=
+  ⟨WellDenoted_projAV_hoist hok.1, AnnotValid_projAV_hoist hok.2⟩
+
+/-! ## The tower-entry kit (`Steps/TowerKit.lean`, `Steps/Stuck.lean`)
+
+The `.proj` rule's reading walk, transplanted: the spine inversion,
+the entry-kind inversion, and the fit-free residual — the checker's
+`instPisAt` peel of the stored entry type reads to the syntactic peel
+of its reading.  `DenoteMetaSpine` is `Motive.lean`'s `ReadSpine`. -/
+
+/-- A read spine has the length of its source. -/
+theorem ReadSpine.length {acval : Name → (Name → Nat) → AnnotTerm}
+    {d : Nat} {as : List Expr} {vs : List AnnotTerm}
+    (h : ReadSpine acval env φ d as vs) : as.length = vs.length := by
+  induction h with
+  | nil => rfl
+  | cons _ _ ih => simp [ih]
+
+/-- **The application spine, inverted at the validated reading**: the
+head and every argument read, and the value is their `AnnotTerm`
+application.  `denote_mkAppN_inv` without the fuel. -/
+theorem denoteMeta_mkAppN_inv {acval : Name → (Name → Nat) → AnnotTerm}
+    {d : Nat} : ∀ {as : List Expr} {f : Expr} {ea : AnnotTerm},
+    denoteMeta acval env φ d (Expr.mkAppN f as) = some ea →
+    ∃ fa vs, denoteMeta acval env φ d f = some fa ∧
+      ReadSpine acval env φ d as vs ∧ ea = AnnotTerm.mkAppN fa vs := by
+  intro as
+  induction as with
+  | nil => intro f ea h; exact ⟨ea, [], h, .nil, rfl⟩
+  | cons a as ih =>
+    intro f ea h
+    obtain ⟨fa, vs, hfa, hsp, rfl⟩ := ih h
+    obtain ⟨ff, aa, hff, haa, rfl⟩ := denoteMeta_app_inv hfa
+    exact ⟨ff, aa :: vs, hff, .cons haa hsp, rfl⟩
+
+
+/-- The inversion at a stored entry. -/
+theorem denoteMeta_proj_inv_tower {d : Nat} {s : Name} {i : Nat} {e : Expr}
+    {entry : ProjEntry} {ea : AnnotTerm}
+    (hfe : env.findProj? s i = some entry)
+    (h : denoteMeta acval env φ d (.proj s i e) = some ea) :
+    ∃ ia, denoteMeta acval env φ d e = some ia ∧ ea = projAV (i + entry.off) ia := by
+  obtain ⟨ia, hia, hcase⟩ := denoteMeta_proj_inv h
+  rcases hcase with ⟨entry', hfe', rfl⟩ | ⟨hnt, -⟩
+  · obtain rfl : entry = entry' := Option.some.inj (hfe.symm.trans hfe')
+    exact ⟨ia, hia, rfl⟩
+  · rw [hnt] at hfe; exact nomatch hfe
+
+/-- A read spine extended by one read argument. -/
+theorem ReadSpine.snoc {d : Nat} {as : List Expr} {vs : List AnnotTerm}
+    {a : Expr} {v : AnnotTerm}
+    (h : ReadSpine acval env φ d as vs)
+    (ha : denoteMeta acval env φ d a = some v) :
+    ReadSpine acval env φ d (as ++ [a]) (vs ++ [v]) := by
+  induction h with
+  | nil => exact .cons ha .nil
+  | cons h1 _ ih => exact .cons h1 ih
+
+
+/-- **The checker's `instPisAt` peel reads to the syntactic peel of
+the type's reading** — `teleFitPA_residual` without the fit: the two
+walks step in lockstep (`body.instantiate1 a` against `B.inst a`), and
+the per-step content is `denoteMeta_beta`, once. -/
+theorem denoteMeta_instPisAt_peel
+    (hacl : ∀ (n : Name) (ψ : Name → Nat) (k : Nat),
+      (acval n ψ).liftN 1 k = acval n ψ)
+    (hainst : ∀ (n : Name) (ψ : Name → Nat) (y : AnnotTerm) (k : Nat),
+      (acval n ψ).inst y k = acval n ψ)
+    {d : Nat} :
+    ∀ (args : List Expr) {ty rest : Expr} {ds : List Expr} {Ta : AnnotTerm}
+      {vs : List AnnotTerm},
+      Expr.instPisAt args ty = some (ds, rest) →
+      Expr.WScoped d ty →
+      (∀ a ∈ args, Expr.WScoped d a ∧ a.looseBVarsBounded 0 = true) →
+      denoteMeta acval env φ d ty = some Ta →
+      ReadSpine acval env φ d args vs →
+      ∃ restA, denoteMeta acval env φ d rest = some restA ∧
+        AnnotTerm.peelPis Ta vs = some restA := by
+  intro args
+  induction args with
+  | nil =>
+    intro ty rest ds Ta vs hpr _ _ hty hsp
+    obtain ⟨-, rfl⟩ : ds = [] ∧ rest = ty := by
+      simpa [Expr.instPisAt] using hpr.symm
+    cases hsp
+    exact ⟨Ta, hty, rfl⟩
+  | cons a as ih =>
+    intro ty rest ds Ta vs hpr hwty hargs hty hsp
+    match ty, hpr, hwty, hty with
+    | .bvar _, hpr, _, _ => exact nomatch hpr
+    | .fvar _ _, hpr, _, _ => exact nomatch hpr
+    | .sort _, hpr, _, _ => exact nomatch hpr
+    | .const _ _, hpr, _, _ => exact nomatch hpr
+    | .app _ _, hpr, _, _ => exact nomatch hpr
+    | .lam _ _ _, hpr, _, _ => exact nomatch hpr
+    | .letE _ _ _, hpr, _, _ => exact nomatch hpr
+    | .lit _, hpr, _, _ => exact nomatch hpr
+    | .proj _ _ _, hpr, _, _ => exact nomatch hpr
+    | .forallE dom body mb, hpr, hwty, hty => ?_
+    -- the peel's own step
+    simp only [Expr.instPisAt, Option.map_eq_some_iff] at hpr
+    obtain ⟨⟨ds', rest'⟩, hpr', heq⟩ := hpr
+    obtain ⟨-, rfl⟩ : dom :: ds' = ds ∧ rest' = rest := by
+      simpa using heq
+    cases hsp with | @cons _ va _ vs' ha hsp' => ?_
+    obtain ⟨hwa, hba⟩ := hargs a List.mem_cons_self
+    obtain ⟨hdomw, hbodyw⟩ : Expr.WScoped d dom ∧ Expr.WScoped d body := by
+      simpa [Expr.WScoped] using hwty
+    obtain ⟨doma, bodya, hdoma, hbodya, rfl⟩ := denoteMeta_forallE_inv hty
+    have hbody' : denoteMeta acval env φ d (body.instantiate1 a)
+        = some (bodya.inst va) := by
+      rw [denoteMeta_beta hacl hainst (ty := dom)
+        hbodyw.fvarsBelow hwa hba ha 0, hbodya]
+      rfl
+    obtain ⟨restA, hrestA, hpeel⟩ := ih hpr'
+      (Expr.WScoped.instantiate1_gen hwa 0 hbodyw)
+      (fun x hx => hargs x (List.mem_cons_of_mem _ hx)) hbody' hsp'
+    exact ⟨restA, hrestA, hpeel⟩
+
+/-! ## The stored body's telescope is closed (task #175 S1) -/
+
+/-- A stored tower entry's body telescope is closed: the body is
+fvar-free and scoped at the parameters and the subject (`EnvWF`'s
+table clause), and `projTele` binds exactly those. -/
+theorem towerEntry_tele_closed (hwf : ConLeche.EnvWF env) {T : Name} {i : Nat}
+    {entry : ProjEntry} (hfe : env.findProj? T i = some entry) (us : List Level) :
+    (ConLeche.projTele (entry.numParams + 1)
+      (entry.body.instantiateLevelParams entry.levelParams us)).hasFvar = false ∧
+    (ConLeche.projTele (entry.numParams + 1)
+      (entry.body.instantiateLevelParams entry.levelParams us)).looseBVarsBounded 0
+      = true := by
+  rw [ConLeche.projTele_hasFvar, ConLeche.projTele_looseBVarsBounded, Nat.zero_add]
+  exact ⟨ConLeche.projEntry_body_hasFvar hwf hfe us,
+    ConLeche.projEntry_body_looseBVars hwf hfe us⟩
+
+/-- **The body telescope's reading is depth-free** — closed subject,
+closed reading, `denoteMeta_depth_of_closed`. -/
+theorem towerEntry_tele_at_depth {m : EnvModel V env} {T : Name} {i : Nat}
+    {entry : ProjEntry} (hfe : env.findProj? T i = some entry)
+    {us : List Level} {Ta : AnnotTerm}
+    (hTa : denoteMeta m.acval env φ 0
+      (ConLeche.projTele (entry.numParams + 1)
+        (entry.body.instantiateLevelParams entry.levelParams us)) = some Ta) :
+    (∀ d : Nat, denoteMeta m.acval env φ d
+      (ConLeche.projTele (entry.numParams + 1)
+        (entry.body.instantiateLevelParams entry.levelParams us)) = some Ta) ∧
+    ∀ k : Nat, Ta.liftN 1 k = Ta := by
+  obtain ⟨hnf, hb⟩ := towerEntry_tele_closed m.wf hfe us
+  have hcl : ∀ k : Nat, Ta.liftN 1 k = Ta := fun k =>
+    denoteMeta_closed m.acval_erase m.cval_closed hnf hb hTa 1 k
+  exact ⟨denoteMeta_depth_of_closed m.acval_closed hnf hcl hTa, hcl⟩
+
+/-- **The checker's projection type reads as the telescope's peel**
+(task #175 S1): `ProjEntry.typeAt` is the `instPisAt` peel of the body
+telescope along the arguments and the subject, so its reading is the
+syntactic peel of the telescope's reading along the readings. -/
+theorem denoteMeta_typeAt_peel {m : EnvModel V env} {T : Name} {i : Nat}
+    {entry : ProjEntry} (hfe : env.findProj? T i = some entry)
+    {us : List Level} {Ta : AnnotTerm} {d : Nat}
+    (hTa : denoteMeta m.acval env φ 0
+      (ConLeche.projTele (entry.numParams + 1)
+        (entry.body.instantiateLevelParams entry.levelParams us)) = some Ta)
+    {targs : List Expr} {pe : Expr} (hlen : targs.length = entry.numParams)
+    (hframes : ∀ a ∈ targs ++ [pe], Expr.WScoped d a ∧ a.looseBVarsBounded 0 = true)
+    {vs : List AnnotTerm}
+    (hsp : ReadSpine m.acval env φ d (targs ++ [pe]) vs) :
+    ∃ restA, denoteMeta m.acval env φ d (entry.typeAt us targs pe) = some restA ∧
+      AnnotTerm.peelPis Ta vs = some restA := by
+  obtain ⟨hTad, -⟩ := towerEntry_tele_at_depth hfe hTa
+  exact denoteMeta_instPisAt_peel m.acval_closed (acval_inst_self m) (targs ++ [pe])
+    (ConLeche.instPisAt_typeAt entry us hlen pe)
+    (Expr.WScoped.of_not_hasFvar (towerEntry_tele_closed m.wf hfe us).1)
+    hframes (hTad d) hsp
+
 end ConLeche.Model.Rules
