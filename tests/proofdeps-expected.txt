@@ -21,6 +21,7 @@ main_model :: ConLeche.Kernel.Checker
 main_model :: ConLeche.Kernel.CheckerBase
 main_model :: ConLeche.Kernel.CheckerSplit
 main_model :: ConLeche.Kernel.Core
+main_model :: ConLeche.Kernel.CoreDefs
 main_model :: ConLeche.Kernel.CoreIO
 main_model :: ConLeche.Kernel.DeclCheck
 main_model :: ConLeche.Kernel.Env
@@ -475,6 +476,7 @@ main_file_False :: ConLeche.Kernel.Checker
 main_file_False :: ConLeche.Kernel.CheckerBase
 main_file_False :: ConLeche.Kernel.CheckerSplit
 main_file_False :: ConLeche.Kernel.Core
+main_file_False :: ConLeche.Kernel.CoreDefs
 main_file_False :: ConLeche.Kernel.CoreIO
 main_file_False :: ConLeche.Kernel.DeclCheck
 main_file_False :: ConLeche.Kernel.Env
@@ -918,6 +920,7 @@ stream_False :: ConLeche.Kernel.Checker
 stream_False :: ConLeche.Kernel.CheckerBase
 stream_False :: ConLeche.Kernel.CheckerSplit
 stream_False :: ConLeche.Kernel.Core
+stream_False :: ConLeche.Kernel.CoreDefs
 stream_False :: ConLeche.Kernel.CoreIO
 stream_False :: ConLeche.Kernel.DeclCheck
 stream_False :: ConLeche.Kernel.Env
@@ -1351,6 +1354,7 @@ False_cached :: ConLeche.Kernel.Checker
 False_cached :: ConLeche.Kernel.CheckerBase
 False_cached :: ConLeche.Kernel.CheckerSplit
 False_cached :: ConLeche.Kernel.Core
+False_cached :: ConLeche.Kernel.CoreDefs
 False_cached :: ConLeche.Kernel.CoreIO
 False_cached :: ConLeche.Kernel.DeclCheck
 False_cached :: ConLeche.Kernel.Env
@@ -1783,6 +1787,7 @@ Empty_cached :: ConLeche.Kernel.Checker
 Empty_cached :: ConLeche.Kernel.CheckerBase
 Empty_cached :: ConLeche.Kernel.CheckerSplit
 Empty_cached :: ConLeche.Kernel.Core
+Empty_cached :: ConLeche.Kernel.CoreDefs
 Empty_cached :: ConLeche.Kernel.CoreIO
 Empty_cached :: ConLeche.Kernel.DeclCheck
 Empty_cached :: ConLeche.Kernel.Env
@@ -2215,6 +2220,7 @@ sound_cached :: ConLeche.Kernel.Checker
 sound_cached :: ConLeche.Kernel.CheckerBase
 sound_cached :: ConLeche.Kernel.CheckerSplit
 sound_cached :: ConLeche.Kernel.Core
+sound_cached :: ConLeche.Kernel.CoreDefs
 sound_cached :: ConLeche.Kernel.CoreIO
 sound_cached :: ConLeche.Kernel.DeclCheck
 sound_cached :: ConLeche.Kernel.Env
@@ -2647,6 +2653,7 @@ fold_checked :: ConLeche.Kernel.Checker
 fold_checked :: ConLeche.Kernel.CheckerBase
 fold_checked :: ConLeche.Kernel.CheckerSplit
 fold_checked :: ConLeche.Kernel.Core
+fold_checked :: ConLeche.Kernel.CoreDefs
 fold_checked :: ConLeche.Kernel.DeclCheck
 fold_checked :: ConLeche.Kernel.Env
 fold_checked :: ConLeche.Kernel.Expr
@@ -2691,6 +2698,7 @@ checked_fold :: ConLeche.Kernel.Checker
 checked_fold :: ConLeche.Kernel.CheckerBase
 checked_fold :: ConLeche.Kernel.CheckerSplit
 checked_fold :: ConLeche.Kernel.Core
+checked_fold :: ConLeche.Kernel.CoreDefs
 checked_fold :: ConLeche.Kernel.DeclCheck
 checked_fold :: ConLeche.Kernel.Env
 checked_fold :: ConLeche.Kernel.Expr
@@ -2735,6 +2743,7 @@ False_checked :: ConLeche.Kernel.Checker
 False_checked :: ConLeche.Kernel.CheckerBase
 False_checked :: ConLeche.Kernel.CheckerSplit
 False_checked :: ConLeche.Kernel.Core
+False_checked :: ConLeche.Kernel.CoreDefs
 False_checked :: ConLeche.Kernel.CoreIO
 False_checked :: ConLeche.Kernel.DeclCheck
 False_checked :: ConLeche.Kernel.Env
@@ -3166,6 +3175,7 @@ fullyChecked_sound :: ConLeche.Kernel.Checker
 fullyChecked_sound :: ConLeche.Kernel.CheckerBase
 fullyChecked_sound :: ConLeche.Kernel.CheckerSplit
 fullyChecked_sound :: ConLeche.Kernel.Core
+fullyChecked_sound :: ConLeche.Kernel.CoreDefs
 fullyChecked_sound :: ConLeche.Kernel.CoreIO
 fullyChecked_sound :: ConLeche.Kernel.DeclCheck
 fullyChecked_sound :: ConLeche.Kernel.Env
@@ -3589,6 +3599,7 @@ False_pure :: ConLeche.Kernel.Canon
 False_pure :: ConLeche.Kernel.Checker
 False_pure :: ConLeche.Kernel.CheckerBase
 False_pure :: ConLeche.Kernel.Core
+False_pure :: ConLeche.Kernel.CoreDefs
 False_pure :: ConLeche.Kernel.CoreIO
 False_pure :: ConLeche.Kernel.Env
 False_pure :: ConLeche.Kernel.Expr
@@ -3976,6 +3987,7 @@ Empty_pure :: ConLeche.Kernel.Canon
 Empty_pure :: ConLeche.Kernel.Checker
 Empty_pure :: ConLeche.Kernel.CheckerBase
 Empty_pure :: ConLeche.Kernel.Core
+Empty_pure :: ConLeche.Kernel.CoreDefs
 Empty_pure :: ConLeche.Kernel.CoreIO
 Empty_pure :: ConLeche.Kernel.Env
 Empty_pure :: ConLeche.Kernel.Expr
