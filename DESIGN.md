@@ -122574,3 +122574,119 @@ content to feed them on either side, and `copyPinFRead` is not it.
 
 **Stopped here, as directed.**  Nothing was built for this row; the
 tree is at the correspondence (`ordTgt_corr`) and its price row.
+
+#### WIDE (3) THE RECOMPUTATION AS THE MIDDLE TERM — (i) HOLDS BUT IN THE OPENER SCOPE, AND (ii) IS REFUTED BY THE NORMALISATION (lane LE, 2026-09-19)
+
+Priced by inputs before building, as directed.  The coordinator's
+middle term is real and the lane did build it; what the five steps run
+into are two scope facts, one per side of the bridge from TERMS to
+READINGS.
+
+##### (i) THE MINT *IS* THE RECOMPUTATION — UP TO ONE SUBSTITUTION, AND THE TWO TERMS
+
+`mkCopy` (`Kernel/Inductives/NestedElim.lean:175`) builds a copy's
+constructor as
+
+    Expr.instPis (Expr.instantiateLevelParams J.lps lvls c.type) Ds
+
+so its `l`-th field domain, in the tree's own spelling
+(`copyPinFDom`/`copyPinFRead`'s `hshape`), is
+
+    Expr.instSeq Ds_real (dJ.nP - 1 + l)
+      (Expr.instantiateLevelParams J.lps lvls (fcs.getD l default).1)         (MINT)
+
+and `ordTargetDom` at the block's own pin `q` is
+
+    Expr.instantiateList (stripDomPis (ilp Jm.lps lvls (fcs.getD l default).1))
+      Ds_open.reverse (l + domPiDepth …)                                       (RECOMP)
+
+They agree term for term: the SOURCE is the same `(fcs.getD l
+default).1` (`jbs[ci.nP + l]` of `cJ.type.stripPis (ci.nP +
+cJ.nFields)` IS `fcs.getD l default`, since `jbs = pcs ++ fcs` and
+`pcs.length = nP`); the LEVELS agree because `ordTargetLvls` reads them
+off the pin term whose head is `.const J.name lvls` — that was the
+level fix's point; the CUT agrees because
+`instantiateList_openers_eq_instSeq`
+(`Verify/Inductives/NestedCopyInstU.lean:648`) is stated with exactly
+this lift and cut and turns `instantiateList … .reverse l` into
+`instSeq … (nP - 1)`; and `stripDomPis`/`domPiDepth` are the identity
+at a finitary field (the landed `_at` corollary).
+
+**The one difference is the substituted list, and it is not
+cosmetic.**  `Ds_real` are the pin's components as recorded, open at
+the BLOCK's own parameter binders.  `Ds_open` are
+`((nestedPinTermsSelf p st).getD q default).getAppArgs.take nP`, and
+`nestedPinTermsSelf` (`Kernel/Inductives/NestedInstall.lean:2674`) is
+
+    Expr.instantiateList (Expr.abstractRange s.pin 0 p.nP 0)
+      (containerParamOpeners p.nP).reverse 0
+
+— the components CLOSED over the block's parameters and REOPENED at
+the stand-in openers `Expr.fvar i (Expr.sort .zero)`.  K.67's table
+(`containerOwnPinsSelf`) is in the OWNER's opener scope for the same
+reason.  So **(i) holds, with `ordTargetDom` = the mint at the
+parameter openers**, and the recomputations on both sides live in an
+opener scope by construction.  That is deliberate: K.67 and K.68
+compare TERMS and never read one, and the openers exist so that the
+comparison is a substitution by one list on both sides
+(`containerParamOpeners`'s own docstring).
+
+##### (ii) IS REFUTED — TWO NON-SUBSTITUTIONS SIT BETWEEN THE MINT AND `Eis₁`
+
+`Eis` are `AnnotTerm`s, so (ii)–(v) need the opener-scope identity
+carried to READINGS, and `denoteMeta` descends into an `fvar`'s
+ANNOTATION, which at an opener is the stand-in `Expr.sort .zero`.  The
+tree has that bridge for the pin TABLE only
+(`ContainerOwnPinsSyn.toReadOf`, `NestedOwnPinsRead.lean`, whose
+docstring says why the components must be closed); a field DOMAIN has
+no counterpart, and building one is a second object of that file's
+size.
+
+But the harder obstruction is upstream of the scope.
+`copyOrdFRightPinCorr`'s `eisRead` characterises `Eis₁` against `xt` —
+and `xt` is not the mint.  Between them sit
+
+* `normPosDomM`, the positivity normalisation, which is a `whnf` and
+  **not a substitution**; and
+* `replaceAllNested`, the rewrite, about which "there is no semantic
+  theorem at all" (NESTED.md §8 item 1).
+
+`eisRead` reads `(Expr.instSeq fvs tsq xt).getAppArgs.drop b.nP`
+deliberately, i.e. the REWRITTEN NORMALISED domain's arguments.  So
+"with (i), `Eis₁` = the reading of `ordTargetDom`'s args at the block's
+pin" does not follow, and the reason is the one already recorded
+against `CopyCtorShape.ordF`'s `TargetHead` conjunct: that conjunct
+read the target off the CONTAINER's stored field and was REFUTED at an
+accepted block (`tests/e2e/nested_lam_pin_prop.ndjson`, where the
+positivity `whnf` turns `(fun _ => T) trivial` into a member).  An
+ARGUMENT-level claim is strictly stronger than the target-level one
+that refutation killed — the normalisation can leave the target class
+alone and still move the arguments — and K.67/K.68 were measured for
+the TARGET only.
+
+##### THE PRICE, ONE LINE EACH
+
+| step | inputs | price |
+|---|---|---|
+| (i) | `copyResid`'s `hstripJ`, `copyPinFDom`'s `hshape`, `instantiateList_openers_eq_instSeq`, the `_at` cut corollary | one Verify/Model lemma — **available**, in the OPENER scope |
+| (ii) | `eisRead` against `xt`, not against the mint | **REFUTED** — `normPosDomM` + `replaceAllNested` are not substitutions |
+| (iii) | the root's `pinCtors` provenance, a `PinShapes` clause + 7 producer sites + a `GroupFacts` conjunct | the carry lane's session, and it has nothing to carry until (ii) has content |
+| (iv) | `ordTargetDom_congr_at` extended from the head to the argument list | small, and it is the one piece (i) would consume |
+| (v) | (ii)+(iii)+(iv) through `interp_instAll`, plus an opener→reading bridge for a field domain (`toReadOf`'s twin) | blocked on (ii); the bridge alone is a `NestedOwnPinsRead`-sized object |
+
+**Stopped at (ii), as directed for a failing gate.**  (i) does not
+fail and its two terms are printed above; what fails is the step that
+would carry it to `Eis₁`.  Nothing was built.
+
+##### WHAT WOULD UNBLOCK IT, AND WHY IT IS A KERNEL QUESTION
+
+The only object that can state an argument-level correspondence across
+the normalisation is a record made by the checker at the block's own
+rewrite — K.61/K.62/K.67/K.68's family, one datum over: **the copy's
+recorded index expressions at a rewritten container-ordinary field are
+the owner's, instantiated**, recorded where both are still visible.
+That is a new numbered obligation with its own measurement (the
+`| _ => true` question, the fire counts, the `init-full`/Mathlib
+conformance cells), and it is the kernel's answer to the same question
+`TargetHead` asked and lost at the model tier.  It is not this lane's
+to authorise.
