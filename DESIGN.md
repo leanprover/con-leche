@@ -106659,6 +106659,189 @@ the check.  The message is "nested: a pin names a constant the block's
 environment does not store", and both routes carry it at the point of
 failure.
 
+#### K.65 — the container instance map at a REFLEXIVE nested field (2026-09-19, task #315, lane LE's request)
+
+K.61's arm one `Π`-tower down, FOLDED into K.61's own walk exactly as
+K.63 was folded into K.60's.  No new Bool, no new `DeclNestedRun`
+conjunct, no `PushChain` change — each confirmed rather than assumed:
+`nestedInstMapOk` is one of `nestedPinChecks`' clauses (K.59's
+arrangement) and `Verify/Cached/PushChain.lean` names only K.64, which
+is the one that sits outside.
+
+**THE THREE-LEVEL GAP THIS CLOSES** — found while pricing the σ clause's
+`hstgt`, whose hypothesis is `((dJ.rss i').getD j []).getD l false = true`
+and whose `rss` is `rsOf`, i.e. `.recursive ∨ .reflexive`:
+
+1. **the kernel arm** — `nestedInstMapOkAt` dispatched on
+   `domJ.1.getAppFn`, and a reflexive nested field's stored domain is a
+   `Π`, so `getAppFn` is a `forallE` and the field clause fell into
+   `| _ => true`.  That is K.60's shape verbatim, and it is why K.63
+   exists;
+2. **the Verify inversion** — `nestedInstMapOk_target`'s
+   `hhead : domJ.1.getAppFn = .const K us` is unsatisfiable at such a
+   field, so no consumer could have read the arm even had it fired;
+3. **the model clause** — `ContainerModeled.nestPinSpineAbs`, which is
+   what turns `findIdx?`'s position into the container's own pin INDEX
+   (with `pinsDistinctAt`), is RECURSIVE ONLY, while its MENTION twin
+   `nestArgsMentionAbsRefl` is carried.  That third level is the model
+   side's own follow-on and is NOT this record.
+
+**WHAT THE ROUTE RECORDS.**  The dispatch reads `stripDomPis domJ.1` —
+K.63's own helper — and the `findIdx?` comparison instantiates at
+`l + domPiDepth domJ.1`, where `domPiDepth` is the new one-line twin of
+`stripDomPis` counting the binders it removed.  Both are the IDENTITY
+on a domain that is not a `Π` (`stripDomPis e = e`, `domPiDepth e = 0`),
+so **a finitary field's verdict is unchanged character for character**
+and the change is purely additive on the reflexive arm.  `| _ => true`
+now keeps only a domain that is neither: one whose `Π`-stripped body is
+not headed by a constant.
+
+**WHY THE CUT MOVES.**  A finitary field's spine stands under the
+constructor's `ci.nP + l` binders, whose outer `ci.nP` are the
+parameters, so `instantiateList … opens l` maps `bvar (l + i)` to
+parameter `i`'s opener.  A reflexive field's spine sits under its own
+telescope as well, so the parameters are `domPiDepth domJ.1` further
+out and the cut has to follow.  The model tier already carries the
+matching form: `NestedStageFacts.pinArgsAbsRefl` concludes at
+`liftLooseBVars (l + dep) 0` on `stripDomPis dom.1` — with `dep`
+EXISTENTIAL, which is the one thing the follow-on clause will have to
+name (`(1′) (a)`'s lesson again: the producer knows the depth and
+throws it away).
+
+**THE VERIFY SIDE.**  `nestedInstMapOk_target_refl`
+(`Verify/Inductives/NestedCopyKinds.lean`) is the inversion stated
+after the strip, at either depth; `nestedInstMapOk_target` keeps its
+old statement and is that theorem at a const-headed domain, where
+`stripDomPis` is the identity and `domPiDepth` is `0` — a `Π`'s
+`getAppFn` is the `Π` itself, never a `.const`, so the const-headed
+hypothesis excludes the `Π` case outright.  Its existing consumer
+(`NestedPinsRun.copyPinFInstTgt`) is untouched.
+
+##### (a) THE MEASUREMENT
+
+| corpus | shadow blocks | accepting | fires |
+|---|---|---|---|
+| `tests/e2e/*` + `_tmp/arena-tests/{good,bad}`, each at both modes (454 runs) | 92 | 88 | 0 |
+| `init-full` (53 093 accepted), both modes | 1 | 1 | 0 |
+| Mathlib (654 504 accepted), both modes | 41 | 41 | 0 |
+
+`tests/arena.sh` EXIT 0 with `e2e: 200/200`, `nested-shadow: 42/42`,
+`arena suite: 91/96 good tests accepted` and the three sweeps
+unchanged — the accept set did not move.
+
+##### (b) THE REACHABILITY CONTROL — IT FIRES NOWHERE, AND THE REASON IS THE CORPUS
+
+The control is the reflexive arm forced to `false` (`domPiDepth domJ.1
+!= 0 → false`), which is strictly stronger than the wrong-depth one
+K.63's row used: it fires as soon as a reflexive nested field REACHES
+the guard, whatever the cut then does.  **It fires nowhere** — 92
+shadow lines over the e2e+arena sweep with the same 4 non-accepts as
+without it, `init-full`'s one block still accepting, and all 41 of
+Mathlib's.
+
+The reason is not the depth but the shape the arm needs: a block one of
+whose PINS has a CONTAINER with a reflexive nested field.
+`tests/e2e/src/nested_refl_pin.lean` is exactly that shape —
+`J.node : (Nat → Box (J α)) → J α` with `ReflPin.mk (j : J ReflPin)` —
+but the shadow there runs on `J` and not on `ReflPin`
+(`tests/nested-shadow-expected.txt` records `J=accept,` alone): with the
+modeller on, the stream declines at `J` ("reflexive member J"); with it
+off, `J`'s own block is the only one that reaches the install loop, and
+`J`'s own pin is `Box (J α)`, whose container `Box` has a bare
+PARAMETER for its field.  So **no accepted stream installs a block whose
+pin's container has a reflexive nested field**, and the guard is reached
+with content nowhere — K.63's situation exactly, one level up.
+
+It is recorded all the same, and for the consumer's reason rather than
+the measurement's: `hstgt` quantifies over `rss = true`, which is
+`.recursive ∨ .reflexive`, so without this arm the σ clause would be
+false-by-omission at the first such block the route is asked to
+install.
+
+##### (c) THE DEPTH IS NOT VALIDATED BY THE CORPUS, AND MUST NOT BE
+
+Because the arm is reached nowhere, a WRONG cut would be invisible to
+every measurement above: `findIdx?` would simply answer `none` and the
+Bool would go false at the first block that reached it, not here.  So
+the cut is not a thing the corpus can certify, and the model side must
+not try to: `ContainerModeled.nestPinSpineAbsRefl` has to be stated AT
+`domPiDepth dom.1` — the very function the kernel instantiates with —
+and proved against it, so that the two agree BY CONSTRUCTION.  (The
+project's standing ruling: a proof's case split is exhaustive over the
+syntax, never over a corpus; measurement is for conformance and
+diagnostics.)
+
+`NestedStageFacts.pinArgsAbsRefl` is one restatement short of that: it
+concludes at `liftLooseBVars (l + dep) 0` with `dep` EXISTENTIAL, and
+the producer — `restoreWalk_stripPis_pinRefl`, which takes the strip
+depth as an INPUT and lifts by it — is free to be called at the FULL
+tower.  So the follow-on states `pinArgsAbsRefl`'s conclusion at
+`domPiDepth dom.1` and reads the clause against the kernel's own
+function.  That is `(1′) (a)`'s lesson a second time: the producer
+knows the number and throws it away.
+
+**AND THE BRIDGE IS ALREADY IN THE TREE**, which makes that step
+cheaper than it looks.  `stripDomPis` is `Expr.piResult` under another
+name (same two lines) and `domPiDepth e` is `(e.piBinders).1.length`,
+so `Expr.stripPis_piBinders`
+(`Model/Inductives/FixRecReadDefs.lean`) — *`e.stripPis
+(e.piBinders).1.length = some e.piBinders`* — is exactly the
+`stripPis`-to-strip lemma the restatement wants, up to two one-line
+inductions identifying the pairs.  (`stripDomPis`'s duplication of
+`piResult` came in with K.63 and is worth collapsing when someone is
+in that file; it is not worth a commit of its own.)
+
+##### (d) THE COST — NOISE, AT INIT-FULL
+
+`perf stat -e instructions:u`, one run per cell, the SAME binary pair
+(the tree at this commit's parent and at it) over the same stream, both
+with `--nested-shadow --jobs=1`.
+
+| run | without | with | delta |
+|---|---|---|---|
+| `init-full --verified --nested-shadow` | 538.23 G | 538.21 G | -0.003 % |
+| `init-full --trusted --nested-shadow` | 520.87 G | 520.88 G | +0.003 % |
+
+**Mathlib perf is NOT part of a nested record's landing.**  A record of
+this family is not expected to show anything at Mathlib scale, so the
+cost a row carries at landing is init-full's, and the feature is
+measured at Mathlib ONCE, at its end, by a sweep of its own.  The
+argument that there is nothing to see here is structural rather than
+statistical: the added work is two walks — `stripDomPis` and
+`domPiDepth` — over the same stored domain K.60 and K.63 already walk,
+and BOTH ARE THE IDENTITY on a finitary domain, so on every field the
+corpus actually has, the walk is the old one plus a single constructor
+test; and the arm they feed is reached NOWHERE (§(b)), so no path can
+take the extra `containerOwnPinsSelf` lookup — K.61's real cost — that
+was not taken before.
+
+What Mathlib DOES carry at landing is the CONFORMANCE run above, which
+is a checker run and not a perf sweep: 41 shadow blocks, all
+accepting, 654 504 accepted, zero fires.  (A `--verified` Mathlib
+baseline of 12 232.33 G was measured before this ruling and is kept
+here as informational only.)
+
+Today the route is not dispatched and the production cost is zero in
+both modes; these are the forecast for when the dispatch arm lands.
+
+##### (e) LEDGER ROW — K.65
+
+Category **(B)**, by-construction-only: official computes nothing of
+the kind, and the fact is true by construction of the mint — a copy's
+field target is the class the mint made for the container's own pin,
+whatever tower the field's domain wears.  Not certification-only and
+not gated, for K.61's reason, which is the consumer's: the σ clause
+reads it in every mode, so a `certOnly` clause would be `true` in
+trusted mode and could serve nobody.  **It cannot fire**, and — unlike
+K.61's finitary arm — it is not even REACHED by any stream this tree
+accepts today.
+
+**IF IT EVER FIRES** a reflexive nested field of a pin's container
+lands on a block pin the instance map does not name, which is a defect
+in the ROUTE — the elimination minted a copy the map does not account
+for — and never a reason to relax the check.  The message is K.61's,
+unchanged: the two arms share one Bool and one point of failure.
+
 #### WIDE (3′) (a) ROUTE 1 STEP 1 — the three clauses, and the ONE site that needs a fourth fact (lane LE, 2026-09-19)
 
 K.64 landed, so clause 3 has its source.  **TWO of the three clauses
@@ -119844,3 +120027,94 @@ family moved.**
 
 No kernel file changed, so the accept set is untouched and
 `tests/arena.sh` was not re-run.
+
+#### WIDE (3′) `houtσ`'s MEMBER HALF, PRICED BY INPUTS — it is a RECORD, and the cheapest shape is one conjunct on K.62 (lane LE, 2026-09-19)
+
+**The one line.**  `houtσ` asks the target to be outside `σ`'s image
+over ALL classes; K.62 (`nestedOrdOutsideAt`) checks
+`mentions || !((maps.getD q []).contains t)`, and the map is the
+container's OWN PINS, so the MEMBER classes — whose images are the
+group's own mimics `p.k + q₀ + i'` — are not covered.  Closing them
+means turning "the COPY's classified target is the mimic at `q₀ + mm`"
+back into "the CONTAINER's stored domain mentions `J_mm`", which is the
+CONVERSE of the rewrite; the tree has that only as
+`replaceAllNested_unchanged_or_aux` — *unchanged, or mentions SOME
+pin's auxiliary* — and never per-pin.  So it is a record, not a lemma.
+
+The half that IS free is the one `copyOrdFOutside` already runs:
+`ContainerModeled.ordFree` through `blockCtorFieldDomain` and
+`mentionsMember_instSeq_false` gives mention-`false` on the container's
+stored domain.  What is missing is only the step back from the copy.
+
+**THE CHEAPEST SHAPE, for whoever takes it**: one extra conjunct on
+K.62's EXISTING rows — `nestedPinEdgesAt` already emits
+`(q, t - p.k, mentions)` per copy-recursive field, and the group's
+bounds are `st.pins[q].grpBase`/`grpSize`, so the record becomes
+`mentions || (!(maps.getD q []).contains t && (t < grpBase || grpBase +
+grpSize ≤ t))`.  No new walk, no new Bool, no new inversion beyond
+`nestedOrdOutsideOk_at`'s second conjunct.  It is a KERNEL change and
+therefore a second record, so it waits on the coordinator; it is not
+folded into K.65, which is K.61's arm and a different walk.
+
+#### WIDE (3′) K.65 LANDED, and `houtσ`'s member half PRICED — the σ clause's reflexive arm has its kernel record (lane LE, 2026-09-19)
+
+Two items of the coordinator's list: the cheap price first, then the
+authorised record.
+
+##### (a) `houtσ`'s MEMBER HALF — priced, and it is a record
+
+See the row above: the free half is `copyOrdFOutside`'s own
+(`ordFree` → `mentionsMember_instSeq_false`), and what is missing is
+the step back from the COPY's classified target to the CONTAINER's
+stored domain — the converse of the rewrite, which the tree carries
+only as `replaceAllNested_unchanged_or_aux`'s existential.  Cheapest
+shape: one extra conjunct on K.62's existing rows — which is what
+`#### K.66` then is.  It is NOT folded into K.65: K.65 is K.61's arm,
+a different walk and a different point of failure.
+
+##### (b) K.65 — built, measured, recorded
+
+`#### K.65` above carries the record, the measurement and the ledger
+row.  Two things are worth repeating here because they change the
+follow-on:
+
+* **the arm is reached by no stream this tree accepts**, so the
+  reachability control fires nowhere and the CUT cannot be validated
+  by the corpus.  The model-side clause therefore has to be stated at
+  `domPiDepth` and proved against it;
+* **`pinArgsAbsRefl` is one restatement away** from naming that depth,
+  and the bridge is already in the tree: `stripDomPis` is
+  `Expr.piResult` under another name and `domPiDepth e` is
+  `(e.piBinders).1.length`, so `Expr.stripPis_piBinders` is the
+  `stripPis`-to-strip lemma the restatement wants.
+
+##### (c) GATES
+
+`tests/arena.sh` EXIT 0 with the K.65 binary: `e2e: 200/200`,
+`nested-shadow: 42/42`, `arena suite: 91/96 good tests accepted`,
+`annot suite: 15/15`, `axioms: pinned`, and the trusted / `--jobs=1` /
+`--jobs=4` sweeps unchanged — the accept set did not move.
+
+`tests/warning-free.sh f5ccd94c`:
+
+```
+warning-free: 20 changed module(s) since f5ccd94c
+warning-free: lake build — 20 module(s) recompiled, 0 warning line(s)
+warning-free: lake test — 0 module(s) recompiled, 0 warning line(s)
+warning-free: OK (a run that could have failed)
+```
+
+`lake build` and `lake test` EXIT 0, zero warning lines;
+`tests/layering.sh` 353/290/3/1 with 0 base→lane and 0 impl→theory;
+`tests/shake.sh` 513 removals all allowlisted, pub-imports 1341 of
+2284, none demotable; `tests/proofdeps.sh` 4975 rows / 12 roots /
+**doors 0**; `tests/quote-gate.sh`, `tests/overview-links.sh` (112
+links), `tests/no-local-paths.sh`, `tests/trust-surface.sh` OK.
+
+`tests/unconsumed.sh` **185 of 3743** against the session base
+`5814fad4`'s **186 of 3736**: `ContainerModeled.ownPinsRead`,
+`pinCorr_of_ownPins_at` and `NestedPinsRun.instMapPinOwn` left the
+list, `NestedPinsRun.instMapGroup` and `instMapSigmaFacts` joined it
+(their consumer is the σ clause), and K.65's own
+`nestedInstMapOk_target_refl` is consumed by `nestedInstMapOk_target`.
+**Nothing from the `pins_le_*`/`NestedPinsLe`-producer family moved.**
