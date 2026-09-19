@@ -121563,3 +121563,75 @@ the `PinShapes` conjunct re-applied (its patch is measured and
 reproducible in minutes), the reader `rowTargetOrd`, then the
 correspondence and `hslotOrd`.  The tree is left clean and `sorry`-free;
 nothing conditional was committed.
+
+#### WIDE (3) THE `ordF` TWIN LANDED — AND THE CONTAINER SIDE NEEDS A SECOND RECORD, SELF-RELATIVE (lane LE, 2026-09-19)
+
+##### THE TWIN WAS CHEAP, AND THE REASON IS WORTH KEEPING
+
+`NestedPinsRun.instOrdTgtAt` cost a copy of `copyOrdFOutside`'s
+scaffolding and a TWELVE-LINE tail, not the ~300 lines priced.
+`copyPinFInstTgtRefl` was the wrong model to price against: its length
+is the `pinF` HEAD derivation (`nestReflF`, `piBinders_instSeq`,
+`os_instSeq_getAppFn_const_inv`), which the `ordF` arm does not need.
+What it needs is the `ordF` GUARD's bridge — `ContainerModeled.ordFree`
+on the opened domain carried to the stored one by
+`mentionsMember_instSeq_false` — and `copyOrdFOutside` already had it.
+Only K.62's edge tail had to be swapped for K.67's map-and-kinds one.
+
+`ordTargetDom` now takes the container's parameter COUNT rather than
+its `ContainerInfo`; it only ever used `ci.nP`, and the number makes
+the recomputation spellable on the model side with no environment.
+
+##### THE SCOPE FINDING, AND IT IS DECISIVE
+
+Writing the `PinShapes` producer showed that K.67 covers ONE of the two
+sides, and which one matters.
+
+* **Side 1** — the block's own copy of the root container `J`'s pin
+  `qK` — is a block pin `q` whose container is `K` and which IS `J`'s
+  own pin `qK` imaged.  That is exactly K.67's guard, and
+  `instOrdTgtAt` answers it: the target is the image of the class `J`
+  gave, recomputed at `containerOwnPinsSelf env J`'s `qK`-th entry,
+  i.e. at `J`'s OWN scope.  **Covered.**
+* **Side 2** — `(dJ.pinCtors qK).tgts j l`, `J`'s own record of the
+  same field — must be SELF-RELATIVE to `J`: which of `J`'s classes
+  `J`'s own elimination gave it.  K.67 at `J`'s install does not say
+  that.  Its guard asks that the pin be some OTHER container's own
+  pin; `J`'s pin `qK` was minted from `J`'s own nesting and has no such
+  owner, so at `J`'s install the row is VACUOUS there.  **Not
+  covered.**
+
+The two are not the same statement, and no rearrangement of the
+`PinShapes` clause makes K.67 produce the second: a row phrased in
+`d`'s own vocabulary is a fact about `d`'s own elimination.
+
+##### WHAT CLOSES IT — K.68, AND IT COMPOSES WITH K.67 EXACTLY
+
+The missing record is the SELF-RELATIVE twin: at a field the pin's
+container calls ordinary and the block's rewrite made recursive, the
+block's target is the class the block's OWN recomputation names —
+`ordTargetDom` at the PIN's own recorded components, head matched
+against the block's member names and its own recorded pin terms.  No
+owner, no parent, no instance map: strictly cheaper than K.67, same
+walk, same guard, same placement.
+
+**And the two compose with nothing in between**, which is the point:
+K.67 recomputes at `containerOwnPinsSelf env J`'s `qK`-th entry, and
+K.68 at `J`'s install recomputes at `J`'s own pin `qK`'s recorded
+components — the SAME term, by `ContainerOwnPinsSyn`'s second clause.
+So the head `M` is literally the same on both sides and no substitution
+lemma is needed anywhere.  Without K.68 the alternative is to relate
+the two recomputations across one substitution at the `Expr` level,
+which is the injectivity-flavoured work this lane has refused twice.
+
+Reachability differs from K.67's and should be measured: K.68's guard
+does not ask for nested-in-nested, so the control should fire at
+roughly every accepting nested block with a rewritten ordinary field —
+the count K.67's own control did NOT show (4 of 42, 0 of 1, 5 of 41).
+
+##### STATE
+
+Landed this session: `PinGroupInst`'s eighth conjunct (part 2),
+`ordTargetDom`'s signature, `instOrdTgtAt` (part 1's run-level half).
+Not built: the `PinShapes` conjunct, whose producer needs K.68, and
+everything downstream of it.  No new record added without asking.
