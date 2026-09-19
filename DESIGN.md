@@ -118730,3 +118730,188 @@ the syntactic correspondence at a container's own pins, at the finitary
 field and at the reflexive one — is discharged, and what remains is the
 single inclusion, whose expected shape is the induction over instances
 the same section already describes, taken at the true frame.
+
+#### WIDE (3′) PART-LANDED AND REPRICED — K.61/K.62 have consumers, `hcarσ` is a THEOREM, and `hpin`'s real input is a `PinCorr` at EVERY own pin (lane LE, 2026-09-19)
+
+(3′) was briefed as "about a session: `hcarσ` ~⅓, `hpin` ~18 premises,
+the rest transferring from the NARROW site".  Four of its items are
+built and green; the measurement says the brief is right about `hcarσ`,
+wrong about "the rest transfers", and silent about the one input that
+decides the remainder.  **Nothing of (4′) or (4) was started** — the
+switch is not made and `NestedPinsLe` is untouched.
+
+##### (a) WHAT LANDED
+
+* **`NestedPinsRun.copyPinFInstTgt`** (`Model/Inductives/NestedInstMap.lean`,
+  a new module) — K.61 at the copy's field: at a container field
+  finitary-recursive into one of the container's OWN pins, the
+  auxiliary block's classification TARGET for the copy's field is
+  `p.k +` the instance map's value at that pin.  `copyPinFKind`'s
+  sibling — the same guard, the same four model discharges (head
+  through `BlockOpened.nestF`/`blockCtorFieldHead`, non-membership
+  `pinsNotMembers`, further container `pinNP`/`contsEnv`, mention
+  `nestArgsMentionAbs`) — with `nestedInstMapOk_target` in K.60's
+  place.  **`hstgt`'s run half.**
+* **`NestedPinsRun.copyOrdFOutside`** — K.62 at the copy's field: an
+  `ordF`-RIGHT target leaves the instance.  `nestedPinEdges_mem` puts
+  the field on K.37's edge list with the bit `mentionsMember` computes
+  on the CONTAINER's stored domain; `ContainerModeled.ordFree` says
+  that bit is false on the OPENED domain, which is the stored one
+  substituted (`blockCtorFieldDomain`), so `mentionsMember_instSeq_false`
+  carries it back.  **`houtσ`'s run half.**
+* **`NestedPinsRun.instMapPinOwn`** — the instance map's value at an own
+  pin is a block pin with that own pin's container NAME, index universe
+  and index telescope.  **`hmemσ` and `hidxσ` are read off this and
+  nothing else.**
+* **`NestedPinsRun.ownPinsCross`** — the own-pin table is read the same
+  at the PREFIX environment (`contsCross`' twin), which is what lets
+  `ContainerModeled.ownPins` — stated at the prefix model's environment
+  — meet K.61's table, which the kernel reads at `env`.  Not optional:
+  every clause of `ContainerModeled` on this route is at `ENV₁` and
+  every kernel record is at `env`.
+* **`fibreConst_lfpTuple_of_fc`** (`SetTheory/Derive/LfpCompose.lean`)
+  and with it `famMeetList`/`fcFibre`/`fcMeet` — **`hcarσ` is a
+  theorem**, and the hypothesis is DELETED from
+  `ofNested_pin_block_wide`, `ofNested_pin_block_of_wide` and
+  `ofNested_pin_block_of_wide_inst`.
+
+##### (b) `hcarσ`: the fibre meet, as "WIDE (f1) step 2 (a)" priced it
+
+`fibreConst_lfpTuple` reads its hypothesis AT the least tuple, so it
+asks the rows to factor through σ's fibres at every tuple of the space;
+a block model's rows do not (the `Pair`/`J` counterexample), and at the
+WEAKENED law the fixpoint argument is circular.  The meet closes it:
+`L' i := ⨅ { L i' | σ i' = σ i }` is fibre-constant by construction and
+below `L`, so `Φ' L'` is fibre-constant by the weakened law and, at
+each `i'` of the fibre, below `Φ' L i' = L i'` — hence below the meet;
+`L'` is closed, `L ≤ L'` by leastness, and the two are equal.  The
+tree had the BINARY `meetT` only, so the session added the list meet
+over one index set (`famMeetList`) and the fibre as a list (`fcFibre`),
+based at `fcRep` so that the whole expression depends on the position
+only through σ.
+
+`ofNested_pin_block_wide` derives it from what it already takes: the
+index sets' own fibre-constancy is `hIs` read twice.  So the other
+route the row named — "the pins' entry law at the two identified pins"
+— is not needed, and `docs/NESTED.md` §7's sentence about it is
+rewritten to say what the meet is.
+
+##### (c) THE FINDING THAT MATTERS: the own-pin table's READING form is NOT reachable, and `hmemσ`/`hidxσ` do not need it
+
+`pinCorr_of_ownPins_at` is the obvious producer of the σ-facts at a
+collapsed pair.  It wants `ContainerOwnPins` — the READING form of the
+own-pin table — and its only producer, `ContainerOwnPinsSyn.toReadOf`,
+asks two facts about a STORED container:
+
+* `hscope` — the container's pins' components stand at ITS parameter
+  openers with no loose bound variable (K.30's twin at a container);
+* `hpinDs` — those components READ as the recorded readings at the
+  container's parameter depth (`NestedStageFacts.pinDs`' twin).
+
+**Neither is on `ContainerModeled`, neither is on `PinGroupView`, and
+neither follows from `IsBlockModel.pinShape`, which gives the
+LENGTHS.**  They are the fourth and fifth members of the family the
+2026-09-19 "(2″) (b)" row names, so the route costs two clauses and
+two nine-site rounds.
+
+It is not needed for `hmemσ` and `hidxσ`, and `instMapPinOwn` is the
+proof: what those two want is the SYNTACTIC clause `ownPins` to place
+the container's own pin at the table position, and
+`NestedPinGroupSyn.pinOwn` — the block's pin and the container's own
+pin are ONE pin's index data — to read `u` and `Ids` off the BLOCK's
+side.  `hmemσ` is then the container NAME (an own pin's container is no
+member of the container's group by `pinsNotMembers`, a group pin's IS a
+member), and `hidxσ` is the `u`/`Ids` pair at the shared block pin.
+
+##### (d) AND WHERE IT IS STILL NEEDED — `hpin`'s input, priced at the proof
+
+`hpin` is `hfit_wide_pin_of_class` at `hcnt` and `hfitc`, and `hfitc`
+is `pinClassFit_of_transfer` once per own-pin class.  Reading that
+lemma's premises rather than counting them:
+
+    (hρ : ∀ v, v < dK.nP → consList (Ds₁.map (interp V ρ₁)) ρ₁ v
+          = consList (((dJ.pinAt baseK).Ds ψJ).map (interp V ρJ)) ρJ v)
+
+— the two sides' components' READINGS agree below the pin's
+container's parameter count.  Side 1 is the BLOCK's copy of `dJ`'s own
+pin (the block pin `σ (dJ.k + qK)`), side 2 is `dJ`'s own record of it.
+That is a `PinCorr`-strength fact, **at every own-pin class**, and the
+level agreement `hψ` beside it is `instMapPinOwn`'s `hpsi` (in hand)
+while `hρ` is not.  Two candidate producers, and the choice is the next
+session's first decision:
+
+1. **`pinCorr_of_ownPins_at`** — through the reading form, hence (c)'s
+   two clauses and their nine-site rounds.  It answers at EVERY own
+   pin, which is what the class quantifier asks;
+2. **`copyPinFPinCorr` at a FIELD** — the `pinF` arm already hands a
+   `PinCorr` at `(tg l, dJ.tgts i j l - dJ.k)`, and `copyPinFInstTgt`
+   identifies `tg l` with `σ (dJ.k + qK)`.  It costs no new clause, but
+   it answers only at own pins that are the TARGET of some field of the
+   container — and that every own pin is such a target is true by
+   construction of the mint and recorded NOWHERE (`nestMention` says a
+   pin's components mention a member, not that a field points at it).
+   So this route trades (c)'s two clauses for ONE clause of the same
+   family.
+
+Route 2 looks cheaper by one clause; route 1 is the one whose
+consumers already exist.  **Either way (3′) is NOT "the rest transfers
+from the narrow site"**: the σ-facts' run halves were three new
+theorems on `copyPinFKind`'s skeleton plus an environment bridge, and
+`hpin` owes a clause of the carried family whichever route it takes.
+
+##### (e) STATE AND ORDER
+
+Built: (3′)'s K.61 half (`copyPinFInstTgt`), its K.62 half
+(`copyOrdFOutside`), the own-pin correspondence (`instMapPinOwn`), the
+prefix crossing (`ownPinsCross`), and `hcarσ` (deleted as a
+hypothesis).  Open, in order:
+
+1. **`hpin`'s `hρ`** — (d)'s decision, then `pinClassFit_of_transfer`
+   at the class quantifier.  Its other premises are the two groups'
+   `shape`/`entry` (the block's copy's group through `SF.groups`, the
+   container's own record through `PinShapes` at `blockOf mp.base2`),
+   which are in hand;
+2. **`hrowsσ`** — `rowsσ_of_pin_class` from `hcnt`, `hfitc`, `hmemσ`,
+   `hidxσ`: nothing new once 1 lands;
+3. **the σ CLAUSE** on `NestedPinGroupIds`/`NestedPinGroup` and the
+   fourth conjunct of `NestedPinsIdent`, discharged where
+   `NestedPinsRun` is in scope (`nestedPinsIdent_of`'s own site), with
+   σ defined as `fun c => if c < dJ.k then p.k + q₀ + c else
+   p.k + (instance map).getD (c - dJ.k)`.  `hσ`/`hroot`/`hIsσ`/`hinjJ`/
+   `hcnt` are the assembly's, and the four run halves above are its
+   inputs;
+4. **(4′)**, the switch at both sites, then **(4)**.
+
+##### (f) GATES
+
+`tests/warning-free.sh 9747403e`:
+
+```
+warning-free: 5 changed module(s) since 9747403e
+warning-free: lake build — 5 module(s) recompiled, 0 warning line(s)
+warning-free: lake test — 2 module(s) recompiled, 0 warning line(s)
+warning-free: OK (a run that could have failed)
+```
+
+`lake build` and `lake test` EXIT 0; `tests/proofdeps.sh` 4975 rows /
+12 roots / **doors 0**; `tests/shake.sh` 513 removals all allowlisted,
+pub-imports 1341 of 2283, none demotable — the new module's own
+imports were taken at the task #223 criterion (one line over the
+181-line floor) rather than allowlisted, so `NestedPins` is its public
+import and `NestedCopyInst` a plain one; `tests/layering.sh`,
+`tests/quote-gate.sh`, `tests/overview-links.sh` (112 links),
+`tests/no-local-paths.sh`, `tests/trust-surface.sh` OK.
+
+`tests/unconsumed.sh` **184 of 3731** against the base's 185 of 3725.
+The diff is exactly the hand-off: `nestedInstMapOk_at`,
+`nestedInstMapOk_target`, `nestedOrdOutsideOk_at` (K.61's and K.62's
+inversions) and `nestedPinEdges_mem` (K.37's edge reader, whose first
+consumer this is) LEFT the list; the three new run theorems joined it,
+their consumer being (e) 3.  `nestedInstMapOk_collapsed` is still on
+it, and that is the right reading of (c): the collapsed pair is read
+through `pinOwn` at the shared block pin, not through the table's two
+entries.  **Nothing from the `pins_le_*`/`NestedPinsLe`-producer family
+moved**, as it must not before (4′).
+
+No kernel file changed, so no accept set moved and `tests/arena.sh` was
+not re-run.
