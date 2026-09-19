@@ -872,7 +872,7 @@ theorem denoteMeta_unfoldDefinition {m : EnvModel V env} (hdi : DefnReads m)
     (hud : ConLeche.unfoldDefinition env e = some e')
     (hea : denoteMeta m.acval env φ d e = some ea) :
     denoteMeta m.acval env φ d e' = some ea := by
-  rw [ConLeche.unfoldDefinition] at hud
+  unfold ConLeche.unfoldDefinition at hud
   split at hud
   · next n us hfn =>
     split at hud
