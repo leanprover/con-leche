@@ -106796,6 +106796,40 @@ positional conjunct already was — after which `toReadOf` needs no
 side conditions.  The interface had no consumer, which is why the gap
 had never been exercised.
 
+##### (f) THE PRODUCER, ATTEMPTED AND STOPPED — what `hρ` still owes
+
+With the three clauses in, `pinCorr_of_ownPins_at` has ten of its
+eleven premises inside `instMapPinOwn`'s existing proof — `hown` is
+now `ContainerModeled.ownPinsRead` (unconditional), `hat` is the table
+entry K.61 hands rewritten by `hrnpin`, `hDlen`/`hclosed`/`hψσ'`/
+`CM.pinψ`/`IsBlockModel.pinsFound`/`S.pinOwn` are all there, and
+`h0`/`hDsD` are `NestedStageFacts.pinDs` twice.  The theorem's
+conclusion extended is the producer, and the session got it to the
+point where only three goals remained.  **One of them is not a line**,
+and it is the reason this stops here:
+
+* **the components' `WScoped`.**  `ContainerOwnPins`' scope premise
+  asks `Expr.WScoped dp a` of each component.  K.30 gives the pin's
+  LEAVES among the first former's openers, and `looseBVarsBounded` is
+  `lbb_mkAppN_args` away, but `WScoped` needs each leaf's own opener
+  data — the index below `nP` AND the annotation the opener carries —
+  which is `opened_of`'s `var` clause at the former's telescope, the
+  same machinery `pinRead_of_inferAt` runs for the pin as a whole.  It
+  is a small proof, not a step of this one;
+* the other two are lines: the table entry (`show`, then `hcnameσ` and
+  `hrnpin`), and `huIds` — which wants the pin identification at EVERY
+  own pin of the same container while `S.pinOwn` gives it at the one
+  the level arguments were read at.  `pinCorr_of_pinEq` spends it at
+  that one pin only, so weakening its `huIds` (and
+  `pinCorr_of_ownPins_at`'s with it, the membership form specialising
+  at its own existential) is the fix, and it is free.
+
+So `hρ`'s remaining input is: **a `WScoped`-at-the-components lemma
+for the run's pins, beside `NestedPinsRun.scoped`** — one `have` over
+`opened_of`'s `var`, reusable at every site that has to hand a pin's
+components to a reading premise.  Everything else the producer needs is
+in hand.
+
 ##### (d) THE CARRY THAT WAS NOT TAKEN — priced at the walk
 
 Pricing the plumbing step by inputs before opening it, as the rule
