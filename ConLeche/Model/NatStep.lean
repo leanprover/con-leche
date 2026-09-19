@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Model.NatWf
-public import ConLeche.Model.Rules.Inputs
+import ConLeche.Model.Rules.Inputs
 
 public section
 

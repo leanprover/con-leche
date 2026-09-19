@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Model.Rules.Inputs
+import ConLeche.Model.Rules.Inputs
 public import ConLeche.Model.Steps.Tiers
 import ConLeche.Model.Rules.Sound
 import ConLeche.Verify.Rules.Bridge
