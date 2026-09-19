@@ -1454,4 +1454,121 @@ theorem restoreWalk_stripPis_pin {R : RestoreTbl} (hk : R.KeysInAux) {m d : Nat}
   rw [hshape] at hfire
   exact Except.ok.inj (hwD.symm.trans hfire)
 
+/-- **`stripDomPis` sees through a `stripPis`**: peeling `n` binders
+first and then the rest peels the same tower (task #315 K.63).  It is
+what lets a record stated at `stripPis` meet K.63's guard, which is
+stated at `stripDomPis`. -/
+theorem stripDomPis_of_stripPis :
+    ∀ (n : Nat) {e : Expr} {bs : List (Expr × BinderMeta)} {body : Expr},
+      e.stripPis n = some (bs, body) → stripDomPis e = stripDomPis body := by
+  intro n
+  induction n with
+  | zero =>
+    intro e bs body h
+    simp only [Expr.stripPis, Option.some.injEq, Prod.mk.injEq] at h
+    obtain ⟨-, rfl⟩ := h
+    rfl
+  | succ n ih =>
+    intro e bs body h
+    cases e with
+    | forallE ty b bm =>
+      rw [Expr.stripPis] at h
+      cases hb : b.stripPis n with
+      | none => rw [hb] at h; exact nomatch h
+      | some pr =>
+        obtain ⟨bs₀, body₀⟩ := pr
+        rw [hb] at h
+        simp only [Option.map_some, Option.some.injEq, Prod.mk.injEq] at h
+        obtain ⟨-, rfl⟩ := h
+        show stripDomPis b = stripDomPis body₀
+        exact ih hb
+    | bvar _ | fvar _ _ | sort _ | const _ _ | app _ _
+    | lam _ _ _ | letE _ _ _ | lit _ | proj _ _ _ => exact nomatch h
+
+/-- **`stripDomPis` is the identity on a constant spine**: it peels
+only `.forallE` nodes, and a spine's head is read through its `.app`
+nodes (task #315 K.63). -/
+theorem stripDomPis_eq_self_of_getAppFn_const : ∀ {e : Expr} {c : Name} {us : List Level},
+    e.getAppFn = .const c us → stripDomPis e = e
+  | .app _ _, _, _, _ => rfl
+  | .const _ _, _, _, _ => rfl
+  | .bvar _, _, _, h => nomatch h
+  | .fvar _ _, _, _, h => nomatch h
+  | .sort _, _, _, h => nomatch h
+  | .lit _, _, _, h => nomatch h
+  | .lam _ _ _, _, _, h => nomatch h
+  | .forallE _ _ _, _, _, h => nomatch h
+  | .letE _ _ _, _, _, h => nomatch h
+  | .proj _ _ _, _, _, h => nomatch h
+
+/-- **The walk, at a telescope's BODY**: the body of a `∀`-telescope is
+walked at the depth its own binders add.  `restoreWalk_stripPis_domain`'s
+sibling, the same induction read at the body rather than at a domain.
+(`restoreWalk_stripPis_doms` is the two together, but it lives in
+`NestedRecDoor.lean`, which is downstream of this file.) -/
+theorem restoreWalk_stripPis_body {R : RestoreTbl} :
+    ∀ (m : Nat) {d : Nat} {e e' : Expr} {bs : List (Expr × BinderMeta)} {body : Expr},
+      restoreWalk R d e = .ok e' → e.stripPis m = some (bs, body) →
+      ∃ (bs' : List (Expr × BinderMeta)) (body' : Expr),
+        e'.stripPis m = some (bs', body') ∧ restoreWalk R (d + m) body = .ok body' := by
+  intro m
+  induction m with
+  | zero =>
+    intro d e e' bs body hw hs
+    simp only [Expr.stripPis, Option.some.injEq, Prod.mk.injEq] at hs
+    obtain ⟨rfl, rfl⟩ := hs
+    exact ⟨[], e', rfl, by rw [Nat.add_zero]; exact hw⟩
+  | succ m ih =>
+    intro d e e' bs body hw hs
+    cases e with
+    | forallE ty b bm =>
+      rw [Expr.stripPis] at hs
+      cases hb : b.stripPis m with
+      | none => rw [hb] at hs; exact nomatch hs
+      | some pr =>
+        obtain ⟨bs₀, body₀⟩ := pr
+        rw [hb] at hs
+        simp only [Option.map_some, Option.some.injEq, Prod.mk.injEq] at hs
+        obtain ⟨rfl, rfl⟩ := hs
+        obtain ⟨ty', b', -, hbw, rfl⟩ := restoreWalk_forallE_inv hw
+        obtain ⟨bs', body', hs', hw'⟩ := ih hbw hb
+        exact ⟨(ty', bm) :: bs', body', by rw [Expr.stripPis, hs']; rfl,
+          by rw [show d + (m + 1) = d + 1 + m from by omega]; exact hw'⟩
+    | bvar _ | fvar _ _ | sort _ | const _ _ | app _ _
+    | lam _ _ _ | letE _ _ _ | lit _ | proj _ _ _ => exact nomatch hs
+
+/-- **The restored ABSTRACT field domain at a REFLEXIVE nested field**
+(task #315 K.63): `restoreWalk_stripPis_pin` one `Π`-tower down.  Where
+the auxiliary telescope's `l`-th domain is ITSELF a `∀`-telescope whose
+BODY is headed by a pin key with at least `R.nP` arguments, the restored
+domain is a `∀`-telescope of the same depth whose body is that pin —
+lifted past the field binders AND the domain's own — applied to the
+arguments past the parameters.
+
+The lift's depth is `d + l + dep` and not `d + l`: the walk reaches the
+body under the domain's own binders, and `restoreWalk_pin` lifts the
+pin by whatever depth it fires at. -/
+theorem restoreWalk_stripPis_pinRefl {R : RestoreTbl} (hk : R.KeysInAux) {m d : Nat}
+    {e e' : Expr} {bs bs' : List (Expr × BinderMeta)} {body body' : Expr}
+    (hw : restoreWalk R d e = .ok e') (hs : e.stripPis m = some (bs, body))
+    (hs' : e'.stripPis m = some (bs', body'))
+    {l : Nat} {dA dR : Expr × BinderMeta} (hA : bs[l]? = some dA) (hR : bs'[l]? = some dR)
+    {dep : Nat} {tbs : List (Expr × BinderMeta)} {bdy : Expr}
+    (hstrip : dA.1.stripPis dep = some (tbs, bdy))
+    {n : Name} {us : List Level} {pin : Expr}
+    (hfn : bdy.getAppFn = .const n us) (hlen : R.nP ≤ bdy.getAppArgs.length)
+    (hp : R.pins.lookup n = some pin) (hrec : R.recMap.lookup n = none) :
+    ∃ tbs' : List (Expr × BinderMeta),
+      dR.1.stripPis dep = some (tbs',
+        Expr.mkAppN (pin.liftLooseBVars (d + l + dep) 0) (bdy.getAppArgs.drop R.nP)) := by
+  obtain ⟨dR₀, hR₀, hwD⟩ := restoreWalk_stripPis_domain m hw hs hs' l dA hA
+  obtain rfl : dR₀ = dR := Option.some.inj (hR₀.symm.trans hR)
+  obtain ⟨tbs', bdy', hs2, hw2⟩ := restoreWalk_stripPis_body dep hwD hstrip
+  have hshape : Expr.mkAppN (.const n us) bdy.getAppArgs = bdy := by
+    rw [← hfn]; exact Expr.mkAppN_getApp bdy
+  have hfire := restoreWalk_pin (R := R) (d := d + l + dep) (us := us) hp hrec
+    (hk.1 n pin hp) hlen
+  rw [hshape] at hfire
+  exact ⟨tbs', by rw [hs2, Except.ok.inj (hw2.symm.trans hfire)]⟩
+
 end ConLeche
