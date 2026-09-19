@@ -3610,6 +3610,56 @@ theorem classPin_of_blockPinCorr (m : EnvModel V env₂) {st : ElimState}
   · rw [G.syn.pinNP i hi, ← G.syn.pinDsLen i hi ψ]
     exact Nat.le_refl _
 
+/-- **`hIsσ` AT A PIN CLASS** (task #315 WIDE (3′)): the block's index
+set at the block pin the instance map names IS the container's at that
+own-pin class.  `ofNested_pin_block_of_wide_inst` reads `hIsσ` as
+`(D).idx ψ ρp (σ c) = dR.idx ψR ρR c`, so this is that equation at
+`¬ c < dR.k`.
+
+Four facts and no new one, which is why it is an assembly:
+
+* the block side changes FRAME by `nestedIdx_eq_pinIdx` at the block's
+  own group of the pin — `(D).idx` is read at `ρp` and `(D).pinIdx` at
+  the pin's frame, and the group's `idx` identity is what crosses
+  between them;
+* `classPin_of_blockPinCorr` at the `PinCorr` the run produces gives
+  `ClassPin`, whose `idx` clause IS the two sides met;
+* `BlockModel.idxT_of_pin` reads the container's class reader at a pin
+  class as `pinIdx`;
+* `IsBlockModel.auxPinIdx` reads the container's own `idx` there the
+  same way.
+
+The member classes are the narrow route's own bullet
+(`nestedIdx_of_group`) and are not this theorem's. -/
+theorem nestedIsSigma_pin (m : EnvModel V env₂) {st : ElimState}
+    {dJf : Nat → BlockModel V}
+    (hgroups : ∀ q, q < pinsS.length → ∃ (q₀ kJ i : Nat),
+      q = q₀ + i ∧ i < kJ ∧ GF st m q₀ kJ (dJf q₀))
+    {dR dK : BlockModel V} {ciR : ContainerInfo} (CR : ContainerModeled m ciR dR)
+    {q₀' kK' i'' : Nat} (S' : PinGroupView dR dK q₀' kK') (hrepsK : IsBlockModels m dK)
+    (hi'' : i'' < kK') (hrepsR : IsBlockModels m dR) (hkposR : 0 < dR.k)
+    {ψ ψR : Name → Nat} {ρp ρR : Nat → V} {Ds₀ : List AnnotTerm}
+    {lpsK : List Name} {lvlsK : List Level} {q : Nat}
+    (hq : q < pinsS.length) (hqK : q₀' + i'' < dR.nPins)
+    (hcorr : PinCorr ((D).targetView m.acval ψ) m.acval dR ψR Ds₀ lpsK lvlsK
+      (p.k + q) (q₀' + i''))
+    (hρR : ρR = consList (Ds₀.map (interp V ρp)) ρp)
+    (hψR : ψR = Level.substFn ψ lpsK lvlsK) :
+    (D).idx ψ ρp (p.k + q) = dR.idx ψR ρR (dR.k + (q₀' + i'')) := by
+  have hCP := classPin_of_blockPinCorr m hgroups CR S' hrepsK hi'' hq hqK hcorr hρR hψR
+  -- the block side, at the pin's own frame
+  obtain ⟨q₀, kJ, i, rfl, hi, G⟩ := hgroups q hq
+  have hblk : (D).idx ψ ρp (p.k + (q₀ + i)) = (D).pinIdx (q₀ + i) ψ ρp := by
+    rw [← Nat.add_assoc]; exact nestedIdx_eq_pinIdx G hi
+  -- the container side, at the pin class
+  obtain ⟨cvT, cvR, mI, rP, rules, hI⟩ := hrepsR 0 hkposR
+  have hcont : dR.idx ψR ρR (dR.k + (q₀' + i'')) = dR.pinIdx (q₀' + i'') ψR ρR :=
+    hI.auxPinIdx _ hqK ψR ρR
+  have hclass : dR.idxT ψR ρR (dR.k + (q₀' + i'')) = (D).pinIdx (q₀ + i) ψ ρp := hCP.idx
+  rw [BlockModel.idxT_of_pin (by omega) ψR ρR] at hclass
+  rw [show dR.k + (q₀' + i'') - dR.k = q₀' + i'' from by omega] at hclass
+  rw [hblk, hcont, ← hclass]
+
 /-- **The per-pair transfer at a MEMBER class of the root** (task #315
 L-E, DESIGN §U.72): the root container's own constructor `(c, j)` and
 the BLOCK's copy of it at the root GROUP's member `c` are the two sides
