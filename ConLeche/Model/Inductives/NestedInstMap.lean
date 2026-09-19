@@ -1,6 +1,7 @@
 module
 
-public import ConLeche.Model.Inductives.NestedCopyInst
+public import ConLeche.Model.Inductives.NestedPins
+import ConLeche.Model.Inductives.NestedCopyInst
 import ConLeche.Verify.Inductives.NestedCopyKinds
 import ConLeche.Verify.Inductives.NestedAuxInv
 import ConLeche.Verify.Inductives.NestedGroupInv
