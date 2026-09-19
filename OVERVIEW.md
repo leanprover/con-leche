@@ -493,6 +493,12 @@ out of sight; a rule's premises are exactly the certificates the
 checker ran at that site, and the symmetric and derived variants are
 theorems, not constructors
 ([the relations in `ConLeche/Rules/Rel.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Rules/Rel.lean#L92-L96)).
+Definitional equality has no transitivity rule, deliberately, and
+none can be added: the relation is the checker's verdict on terms
+that are well-formed together, which no rule states, and every
+premise's subject is a subterm of the conclusion or the product of a
+reduction or an inference
+([the docstring of `DefEq` in `ConLeche/Rules/Rel.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Rules/Rel.lean#L310-L333)).
 The proof then has three parts. The *bridge*: an accepting run of any
 kernel entry point, at any fuel, yields a derivation — one induction
 on fuel, mechanical, each checker site landing on one rule

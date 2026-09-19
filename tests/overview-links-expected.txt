@@ -658,6 +658,32 @@
     95  chained. -/
     96  inductive Red (env : Env) : Nat → Expr → Expr → Prop where
 
+== ConLeche/Rules/Rel.lean#L310-L333
+   310  /-- **Definitional equality**: the verdict `true` of `isDefEq`.
+   311  
+   312  **There is no `trans` rule, deliberately, and none can be added**
+   313  (task #309, the experiment recorded in DESIGN.md).  The relation is
+   314  not an equivalence on terms: it is the checker's verdict, and the
+   315  checker only ever compares terms that are well-formed *together* — a
+   316  fact the rules never state, because well-formedness (scoping, the
+   317  readability of annotations, the grading of the reading) is semantic
+   318  and may not enter this inductive.  Every rule respects one syntactic
+   319  discipline instead: **the subject of each `DefEq` premise is either a
+   320  subterm of the conclusion or is produced by an existence-form `Red` /
+   321  `Infer` premise** (a reduct, an inferred type), so the soundness proof
+   322  (`ConLeche/Model/Rules/Sound.lean`) always has the premise's terms in
+   323  hand.  `trans` is the unique rule that would break it: its middle
+   324  term comes from nowhere, and with it two rules that are each sound
+   325  alone meet — `fvar` compares free variables by index only (their
+   326  annotations are not compared, as the checker does not), while
+   327  `proofFast` *reads* an annotation to decide "definitely a proof" —
+   328  and derive `DefEq env d (.fvar i ty) (.fvar i' ty')` for every
+   329  `i`, `i'`, which no model satisfies.  The recursive-structure rules
+   330  (`redL`, `natSucc`, `eta`, `structUnit`) are therefore not a
+   331  proof-engineering convenience but what keeps the relation sound; the
+   332  one chaining that is sound, "reduce, then continue", is `redL`, and
+   333  its right-hand and δ variants are derived in `Derived.lean`. -/
+
 == ConLeche/Verify/Rules/Bridge.lean#L22-L27
     22  
     23  /-- **The bridge**: an accepting run of any of the five entry points

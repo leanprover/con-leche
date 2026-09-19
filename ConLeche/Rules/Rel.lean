@@ -307,7 +307,30 @@ inductive Red (env : Env) : Nat → Expr → Expr → Prop where
       DefEq env d fab major →
       Red env d major fab
 
-/-- **Definitional equality**: the verdict `true` of `isDefEq`. -/
+/-- **Definitional equality**: the verdict `true` of `isDefEq`.
+
+**There is no `trans` rule, deliberately, and none can be added**
+(task #309, the experiment recorded in DESIGN.md).  The relation is
+not an equivalence on terms: it is the checker's verdict, and the
+checker only ever compares terms that are well-formed *together* — a
+fact the rules never state, because well-formedness (scoping, the
+readability of annotations, the grading of the reading) is semantic
+and may not enter this inductive.  Every rule respects one syntactic
+discipline instead: **the subject of each `DefEq` premise is either a
+subterm of the conclusion or is produced by an existence-form `Red` /
+`Infer` premise** (a reduct, an inferred type), so the soundness proof
+(`ConLeche/Model/Rules/Sound.lean`) always has the premise's terms in
+hand.  `trans` is the unique rule that would break it: its middle
+term comes from nowhere, and with it two rules that are each sound
+alone meet — `fvar` compares free variables by index only (their
+annotations are not compared, as the checker does not), while
+`proofFast` *reads* an annotation to decide "definitely a proof" —
+and derive `DefEq env d (.fvar i ty) (.fvar i' ty')` for every
+`i`, `i'`, which no model satisfies.  The recursive-structure rules
+(`redL`, `natSucc`, `eta`, `structUnit`) are therefore not a
+proof-engineering convenience but what keeps the relation sound; the
+one chaining that is sound, "reduce, then continue", is `redL`, and
+its right-hand and δ variants are derived in `Derived.lean`. -/
 inductive DefEq (env : Env) : Nat → Expr → Expr → Prop where
   /-- The syntactic fast paths (`defeqStep`, `Core.lean:1463`, `:1472`),
   the literal leaf (`:1582`), a same-index `fvar` pair is `fvar`
@@ -325,8 +348,11 @@ inductive DefEq (env : Env) : Nat → Expr → Expr → Prop where
   /-- Two sorts (`Core.lean:1581`). -/
   | sort {d : Nat} {u v : Level} :
       Level.isEquiv u v = some true → DefEq env d (.sort u) (.sort v)
-  /-- Two free variables of the same index (`Core.lean:1618-1620`; the
-  annotations are not compared — the reading ignores them). -/
+  /-- Two free variables of the same index (`Core.lean:1618-1620`).  The
+  annotations are NOT compared, as the checker does not compare them:
+  at a well-formed call `CtxOk` pins every opened variable's
+  annotation, so the reading ignores them.  This is one half of why
+  the relation has no `trans` (see the inductive's docstring). -/
   | fvar {d i : Nat} {ty₁ ty₂ : Expr} :
       DefEq env d (.fvar i ty₁) (.fvar i ty₂)
   /-- Two constants of the same name at equivalent levels
