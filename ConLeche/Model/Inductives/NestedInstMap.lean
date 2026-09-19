@@ -422,6 +422,163 @@ theorem NestedPinsRun.copyPinFInstTgt {pbs : List (Expr × ConLeche.BinderMeta)}
     rw [hmutKs, List.getD_eq_getElem?_getD, hrt]; rfl
   exact ⟨mm, hmapAt, by rw [htg, ← hqKeq]; exact hmapVal⟩
 
+/-- **K.62 AT THE COPY'S FIELD** (task #315 WIDE (3′)): at a field of
+the container that is ORDINARY and whose COPY the auxiliary block
+classifies recursive-or-reflexive at a target outside the block's own
+members — the `ordF`-RIGHT arm — that target is OUTSIDE the instance
+map's image.
+
+The edge list is K.37's, unchanged: `nestedPinEdges_mem` says the field
+IS a row of it, with the bit `mentionsMember` computes on the
+CONTAINER's stored domain, and `ContainerModeled.ordFree` says that bit
+is `false` — stated on the field's OPENED domain, which is the stored
+one substituted (`blockCtorFieldDomain`), and a mention survives a
+substitution, so the opened `false` gives the stored one
+(`mentionsMember_instSeq_false`).  K.62 then answers at that row. -/
+theorem NestedPinsRun.copyOrdFOutside {pbs : List (Expr × ConLeche.BinderMeta)}
+    (hPD : ∀ q, q < st.pins.length → PinData env st p pbs q)
+    (hkindsRun : ConLeche.classifyMutualKinds (m := ConLeche.CheckM) b.members3 b.lps b.nP ctorsA
+      = .ok kinds)
+    {i' : Nat} (hi' : i' < kJ)
+    (hgb : (pinAtE st (q₀ + i')).grpBase = q₀)
+    (CM : ∀ ciJ : ContainerInfo,
+      ConLeche.containerInfo? env (pinsS.getD (q₀ + i') default).J = some ciJ →
+      ContainerModeled mp₁'.base2 ciJ dJ)
+    {j : Nat} {cAJ : ConstantVal × Nat} (hj : (dJ.ctorsM i')[j]? = some cAJ)
+    {l : Nat} (hlF : l < cAJ.2)
+    (hordC : (dJ.ksF i' j).getD l .ordinary = .ordinary)
+    (hrss : ((blkRss ctorsA kinds).getD (b.ownOffset (p.k + q₀ + i') + j) []).getD l false = true)
+    (hge : p.k ≤ ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+      (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0) :
+    ∃ mm : List Nat, ConLeche.nestedInstMapAt env st (q₀ + i') = some mm ∧
+      mm.contains (((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+        (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0 - p.k) = false := by
+  classical
+  have hq : q₀ + i' < st.pins.length := by
+    rw [← SF.pinsLen]; have := S.seg; omega
+  have PD := hPD _ hq
+  obtain ⟨cc, J, ci, cI, cA, cname, hciP, hJmem, hcc, hn, hty, hnf, hJname, hinst, hcj, hcA,
+    hbc, hnF⟩ := R.ctorPair SF S hPD hi' hj
+  have CMci : ContainerModeled mp₁'.base2 ci dJ := CM ci hciP
+  obtain ⟨cvT, caps, cvR, mI, rP, rules, -, hI, -⟩ := S.stored i' hi'
+  obtain ⟨-, -, hCD⟩ := hI.ctors i' j cAJ hI.memberLt hj
+  obtain ⟨cbs, esJ, hstripJ, -⟩ := hCD.resid
+  have hcbsLen : cbs.length = dJ.nP + cAJ.2 := Expr.stripPis_length _ hstripJ
+  have hjlt : j < (dJ.ctorsM i').length := (List.getElem?_eq_some_iff.mp hj).1
+  have hGlt : b.ownOffset (p.k + q₀ + i') + j < ctorsA.length :=
+    (List.getElem?_eq_some_iff.mp hcA).1
+  obtain ⟨kindsP, hkP, hkPlen⟩ := ConLeche.nestedPinKindsOk_inv R.hkinds
+  have hkqlt : q₀ + i' < kindsP.length := by rw [hkPlen]; exact hq
+  have hkq : kindsP[q₀ + i']? = some (kindsP[q₀ + i']'hkqlt) :=
+    List.getElem?_eq_getElem hkqlt
+  obtain ⟨a, ha, hkget⟩ := ConLeche.nestedPinKinds_get hkP hkq
+  have ha' : stored[p.k + q₀ + i']? = some a := by
+    rw [show p.k + q₀ + i' = p.k + (q₀ + i') from by omega]; exact ha
+  obtain ⟨hactor, hall⟩ :=
+    ConLeche.auxStored_ctor_eq R.haux R.hformers R.hctorsA R.h3 R.hstored ha'
+  have hjA : j < a.ctors.length := by rw [hactor, ← S.ctorCount i' hi']; exact hjlt
+  obtain ⟨ac, hac⟩ : ∃ c, a.ctors[j]? = some c := ⟨_, List.getElem?_eq_getElem hjA⟩
+  obtain ⟨acv, acnP, acnF⟩ := ac
+  obtain ⟨cA', hcA', hcv, -, hnf'⟩ := hall j _ hac
+  have hcAeq : cA' = cA := Option.some.inj (hcA'.symm.trans hcA)
+  rw [hcAeq] at hcv hnf'
+  obtain ⟨hmapM, -, -, -⟩ := ConLeche.classifyMutualKinds_inv hkindsRun
+  obtain ⟨ksG, hksG, hmk⟩ :=
+    ConLeche.mapM_option_inv hmapM (b.ownOffset (p.k + q₀ + i') + j) cA hcA
+  have hmutKs : mutKsOf kinds (b.ownOffset (p.k + q₀ + i') + j) = ksG := by
+    show kinds.getD _ [] = _
+    rw [List.getD_eq_getElem?_getD, hksG]; rfl
+  have hkfj : (kindsP[q₀ + i']'hkqlt)[j]? = some ksG := by
+    rw [hkget j acv acnP acnF hac, ← hmk]
+    simp only at hcv hnf' ⊢
+    rw [hcv, hnf']
+  obtain ⟨hksLen, -, -⟩ := R.h.ksJ _ _ hcA
+  have hcAnF : cA.2 = cAJ.2 := by rw [hnF, hnf]
+  have hlks : l < ksG.length := by rw [← hmutKs, hksLen, hcAnF]; exact hlF
+  obtain ⟨rt, hrt⟩ : ∃ rt, ksG[l]? = some rt := ⟨_, List.getElem?_eq_getElem hlks⟩
+  obtain ⟨r, t⟩ := rt
+  have htg : ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+      (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0 = t := by
+    rw [mutTgts_getD hGlt (show l < mutNFOf ctorsA (b.ownOffset (p.k + q₀ + i') + j) from by
+      show l < (ctorsA.getD _ default).2
+      rw [List.getD_eq_getElem?_getD, hcA, Option.getD_some, hcAnF]; exact hlF)]
+    show ((mutKsOf kinds (b.ownOffset (p.k + q₀ + i') + j)).getD l (.ordinary, 0)).2 = t
+    rw [hmutKs, List.getD_eq_getElem?_getD, hrt]; rfl
+  rw [htg] at hge ⊢
+  -- the copy's field is recursive or reflexive
+  have hrr : r = .recursive ∨ r = .reflexive := by
+    rw [blkRss_getD hGlt, rsOf_getD (by rw [kindsOf, List.length_map, hmutKs]; exact hlks),
+      decide_eq_true_eq, kindsOf_getD', hmutKs] at hrss
+    show r = _ ∨ r = _
+    have hka : kindAt ksG l = r := by
+      show (ksG.getD l (.ordinary, 0)).1 = r
+      rw [List.getD_eq_getElem?_getD, hrt]; rfl
+    rw [hka] at hrss
+    exact hrss
+  have hrecB : (r == RecFieldKind.recursive || r == RecFieldKind.reflexive) = true := by
+    rcases hrr with rfl | rfl <;> rfl
+  -- the container's member record at `i'`, positionally, and its constructor
+  have hik : i' < dJ.k := by rw [S.kEq]; exact hi'
+  have hcimem : i' < ci.members.length := by rw [← CMci.k]; exact hik
+  obtain ⟨J₂, hJ₂⟩ : ∃ J₂, ci.members[i']? = some J₂ :=
+    ⟨_, List.getElem?_eq_getElem hcimem⟩
+  have hJ₂name : J₂.name = J.name := by
+    rw [← (CMci.member i' J₂ hJ₂).1, hJname]
+    exact hI.member
+  have hJ₂mem : J₂ ∈ ci.members := List.mem_of_getElem? hJ₂
+  have hjJ₂ : j < J₂.ctors.length := by
+    have hmap := (CMci.member i' J₂ hJ₂).2.1
+    have hlen := congrArg List.length hmap
+    simp only [List.length_map] at hlen
+    omega
+  obtain ⟨cJ, hcJ⟩ : ∃ cJ, J₂.ctors[j]? = some cJ := ⟨_, List.getElem?_eq_getElem hjJ₂⟩
+  have hccJ : cc = cJ :=
+    (ConLeche.containerInfo?_member_ctor_det hciP hciP hJmem hJ₂mem hJ₂name.symm hcc hcJ).2.2.2
+  have hnPci : ci.nP = dJ.nP := CMci.nP.symm
+  have hcJty : cJ.type = cAJ.1.type := by rw [hty, hccJ]
+  have hcJnF : cJ.nFields = cAJ.2 := by rw [hnf, hccJ]
+  obtain ⟨residJ, hsJ⟩ : ∃ residJ, cJ.type.stripPis (ci.nP + cJ.nFields) = some (cbs, residJ) :=
+    ⟨_, by rw [hcJty, hcJnF, hnPci]; exact hstripJ⟩
+  -- the container's abstract field domain, and the opened one it substitutes to
+  obtain ⟨domJ, hdomJ⟩ : ∃ domJ, cbs[dJ.nP + l]? = some domJ :=
+    ⟨_, List.getElem?_eq_getElem (by omega)⟩
+  obtain ⟨x, hx⟩ : ∃ x, (dJ.xFvsF i' j)[l]? = some x :=
+    ⟨_, List.getElem?_eq_getElem (by rw [hCD.xLen]; exact hlF)⟩
+  have hdrop : (cbs.drop dJ.nP)[l]? = some domJ := by
+    rw [List.getElem?_drop]; exact hdomJ
+  have hopen : x.fvarTypeD
+      = Expr.instSeq (dJ.fvsPF i' j ++ (dJ.xFvsF i' j).take l) (dJ.nP + l - 1) domJ.1 :=
+    blockCtorFieldDomain hCD
+      (show cAJ.1.type.stripPis (dJ.nP + cAJ.2)
+          = some (cbs.take dJ.nP ++ cbs.drop dJ.nP, _) from by
+        rw [List.take_append_drop]; exact hstripJ)
+      (by rw [List.length_take]; omega) hx hdrop
+  -- an ordinary field mentions no member: on the opened domain, hence on the stored one
+  have hmenAbs : ConLeche.mentionsMember (ci.members.map (·.name)) domJ.1 = false := by
+    have hop := CMci.ordFree i' j l x hik hjlt hx hordC
+    rw [hopen] at hop
+    rw [← CMci.memberNames_eq]
+    exact ConLeche.mentionsMember_instSeq_false _ _ hop
+  -- the edge, and K.62 at it
+  have hpinJ : (pinAtE st (q₀ + i')).container = (pinsS.getD (q₀ + i') default).J :=
+    (SF.pinRec _ _ PD.pin).1.symm
+  cases hed : ConLeche.nestedPinEdges env p b st stored with
+  | none =>
+    have hK62 := R.hK62
+    unfold ConLeche.nestedOrdOutsideOk ConLeche.nestedOrdOutsideAt at hK62
+    rw [hed] at hK62
+    cases hms : ConLeche.nestedInstMaps env st with
+    | none => rw [hms] at hK62; simp at hK62
+    | some maps => rw [hms] at hK62; simp at hK62
+  | some edges =>
+    have hmem := ConLeche.nestedPinEdges_mem hed hkP hq PD.pin hkq ha
+      (by rw [hpinJ]; exact hciP)
+      (by rw [hgb, Nat.add_sub_cancel_left]; exact hJ₂)
+      (show j < (kindsP[q₀ + i']'hkqlt).length from (List.getElem?_eq_some_iff.mp hkfj).1)
+      hkfj hac hcJ hsJ hlks hrt hrecB hge (by rw [hnPci]; exact hdomJ)
+    rw [hmenAbs] at hmem
+    exact ConLeche.nestedOrdOutsideOk_at R.hK62 hed hq hmem rfl
+
 end Assembly
 
 end ConLeche.Model
