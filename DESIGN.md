@@ -71831,3 +71831,163 @@ closure of ANY capstone — `main_model` and `main_file_False`, the main
 theorem and the main corollary, included.  Before this task it was in
 all twelve, because the fold they are about named the committed list.
 It is still in the BINARY, of course: `Main.lean` passes it.
+
+## TASK #305 (prep) — `Core.lean` SPLIT: the fuel-free helpers move to `Kernel/CoreDefs.lean` (2026-09-19, `agent/coredefs-305`)
+
+The preparatory lane of task #305.  That task introduces an inductive,
+relational description of the core checker's moves (reduction,
+definitional equality, inference) under `ConLeche/Rules/*` and
+`ConLeche/Model/Rules/*`, with the layering rule that those directories
+may import the syntax and the environment (`Kernel/Expr`, `Level`,
+`Name`, `Env`, `PropWhen`, `PropRead`, …) but NOT the executable
+checker bodies (`Kernel/Core`, `Kernel/TypeChecker`, `Kernel/CoreIO`,
+`Kernel/Checker*`, `Kernel/DeclCheck`, `Cached/*`).  A relation over
+`Expr` and `Env` still has to *name* the delta step, the literal
+guards, the certified `Nat` tables, the η fabrications and the rule
+bits — and until this lane every one of them lived in the same 2943-line
+file as `whnfCoreBody`, `inferBody`, `defeqStep` and the knot.
+
+**The criterion.**  A definition of `ConLeche/Kernel/Core.lean` moved
+iff its statement and body mention **no monad `m`, no `CoreFns`
+record, no `CheckM`/`CheckError`, and no fuel**.  Everything that
+passes the test is exactly what a relation over `Expr` and `Env` would
+need, and nothing that fails it is: the bodies (`whnfCoreBody`,
+`whnfStep`/`whnfLoop`/`whnfBody`, `inferBody`, `inferBodyIO`,
+`defeqStep`/`defeqLoop`/`defeqBody`, `annotateBody`, `annotPwPi`,
+`annotPwLam`, `isPropType`, `ensureSort`, `reduceNat`, `iotaRec`,
+`prepareMajor`, `majorToCtor`, `litMajorToCtor`, `projLitToCtor`,
+`projCert`/`projCertAt`, `iotaCerts`, `iotaIndexOk`, `defEqList`,
+`proofIrrel`, `propIrrel`, `structEtaCert{,With}`, `structEtaProjCerts`,
+`structUnitCert`, `etaCert`, `stuckIrrel`, `boolTrueShortcut`,
+`defeqSpine`), the record (`CoreFns`, `CoreFns.ioView`), the error type
+(`CheckError`, `CheckM`, `unknownConstError`, `liftFueled`), the knot
+(`coreKnot`) and the four fuel constants (`whnfCoreLoopFuel`,
+`whnfLoopFuel`, `defeqLoopFuel`, `checkFuel`) stay in `Core.lean`.
+
+**What moved** (ten contiguous line ranges, 985 lines; every name,
+namespace, docstring, attribute and the relative order kept; no body
+rewritten), in the new file's order: `projModelName`, `isCtorApp`,
+`piResultIsProp`, `piResultZ`, `piResultNeverZero`, `capsNeverZero`,
+`isUnitLikeTy`, `unfoldDefinition`, `unfoldableHead`, `headHint`,
+`sameConstHeads`, `natLitToConstructor`, `natIndOk`, `natZeroOk`,
+`natSuccOk`, `natLitSupported`, `Expr.constsResolve`, `litToCtorIfNat`,
+`rawNatLit?`; the `## String literals` block — `strLitToConstructor`,
+`stringTyOk`, `charTyOk`, `listTyOk`, `listNilTyOk`, `listConsTyOk`,
+`charOfNatTyOk`, `stringOfListTyOk`, `strLitSupported`; the
+`## Structural-Nat literal acceleration` block — the eighteen
+`nat*Name`/`bool*Name` constants, `Expr.isBoolTrue`, `Expr.quickPair`,
+`natOpNames`, `natDivModNames`, `natOpDeps`, `natOpEquations`,
+`natOpResult`, `natOpGuard`, `natOpWfNames`, `Expr.substConst0`,
+`Expr.substConstAll`, `natOpCod`, `natOpTyPinned`, `natOpStoredOk`,
+`natOpStored`; then `piResidual`, `towerSlotsAll`, `recSlotsAll`,
+`etaProjs`, `etaCtorShape`, `etaFabArgs`, `etaFabArgsE`,
+`ProjEntry.fireOk`, `andRescueSlotsOf`, `andRescueSlots`, `recRuleKOf`,
+`recRuleEtaOf`, `recRuleBits` with its nine `@[simp]` lemmas
+(`recRuleBits_*`, `map_ctor_recRuleBits`), `projFnRule` with its four,
+`recRuleK`, `recFireComparands`, `ProjEntry.typeAt`, `betaGateFires`,
+`pwWritten`, `annotBinderMeta`.  `CoreDefs.lean` is a `module` with
+`@[expose] public section` in `namespace ConLeche` and carries the
+import set `Core.lean` had; `Core.lean` gains
+`public import ConLeche.Kernel.CoreDefs`, so every importer of `Core`
+sees the names unchanged and **no file outside the two needed an edit
+for the build** — no `unfold`, `rfl` or `simp only` anywhere noticed
+the move.
+
+**The borderline decisions**, by the rule "would a relation over
+`Expr` and `Env` need it":
+* `betaGateFires (mode : CheckMode) (pw : PropWhen)` moved: it takes
+  the mode as an ordinary argument, reads no monad and no record, and
+  a β rule stated at the verified mode must name it.
+* `pwWritten` and `annotBinderMeta` moved (an annotation relation needs
+  the datum a rebuilt binder ends up with); the `### The untrusted
+  annotation writes` comment that headed them stays in `Core.lean`,
+  before `annotPwPi`, because it describes the pass's ∀/λ *clauses*.
+* `Expr.constsResolve` moved: fuel-free, monad-free, and the
+  environment invariant is stated with it.
+* `natOpWfNames` and the `*TyOk` shape readers moved with the tables
+  they belong to.
+* The four `@[irreducible]` loop-fuel constants and `checkFuel` stay:
+  a relation has no fuel, and the brief pinned them to `Core.lean`.
+* `ConLeche.lean` (the umbrella) lists `TypeChecker` and not `Core`, so
+  it does not list `CoreDefs` either; the module is reached through
+  `TypeChecker → Core → CoreDefs`.
+
+**Outside the two files.**  Three things, none of them Lean:
+* `OVERVIEW.md`: the six anchors into `Core.lean` were re-pointed by
+  hand and their paragraphs re-read.  Three now name
+  `ConLeche/Kernel/CoreDefs.lean` in text and link (`natOpNames`, the
+  certified-fast-path account, `natDivModNames`); three stay in
+  `Core.lean` at their new lines (`whnfBody`, `annotateBody`, the
+  knot's base case).  Two of those had already drifted before this
+  task and were re-anchored to what the prose names: the "function
+  `annotateBody`" link pointed five lines inside the body and now
+  points at its `def` line; the "fuel knot's base case" link covered
+  two lines of the successor case and now covers exactly the `| 0 =>`
+  arm.  `README.md` has no link into `Core.lean`; untouched.
+* `tests/proofdeps-expected.txt` regenerated (`tests/proofdeps.sh
+  --list`): `ConLeche.Kernel.CoreDefs` ENTERED all twelve capstone
+  closures, as a module split must — every capstone reaches
+  `unfoldDefinition` and the literal guards — and the gate reported it
+  as twelve doors.  Not a new dependency: the same constants, in a
+  module of their own.
+* `tests/shake-allowlist.txt` (eleven lines added, one deleted) and
+  `Core.lean`'s import header, which the shake gate rewrote in three
+  rounds.  (i) `Core.lean`'s `import ConLeche.Kernel.Env` became an
+  UNCOMPENSATED proposal — the `--only` run diffs the noise floor by
+  that one `remove` and no `add` — so by the task #223 criterion it
+  was deleted.  (ii) The pub-import plan then reported `Core.lean`'s
+  `public import PropRead` and `public import Basis` DEMOTABLE:
+  `CoreDefs` re-exports both, and a `public import` is for a
+  re-export something else's public statement needs.  Demoted to plain
+  `import`, they became uncompensated removals in their turn (the
+  names reach `Core.lean` through `public import CoreDefs`), so they
+  went too, and the allowlist's `Core.lean public import Basis` line
+  of task #235 went with them (no longer proposed).  `Core.lean` now
+  imports `Level`, `ExprOps` and `CoreDefs`, nothing else.  (iii)
+  `CoreDefs.lean`'s `public import PropRead`/`Basis` are compensated
+  (`+Basis.Names`, `+Env`, `+ExprOps` as public imports of the same
+  file) — the exact shape `Core.lean`'s own `Basis` entry had — so
+  they are allowlisted the same way.  (iv) Nine importers of `Core` —
+  `Kernel/FEnv`, `Kernel/TrustAxioms`, `Verify/BetaGate`,
+  `Verify/EnvWF`, `Verify/StrLitExpr`, `Semantics/LitParams`,
+  `Semantics/ConstsBound`, `Denotes`, `Frontend/NatOpGround` — read
+  only names that moved, and shake proposes replacing their `import
+  Core` by `import CoreDefs`.  That is a compensated removal
+  (allowlisted by the criterion), and it is also the narrowing task
+  #305 proper exists to make, so this lane records it and leaves the
+  nine edits to that lane.
+
+Docstrings elsewhere that cite `Kernel/Core.lean:<line>` for a moved
+name (`Model/Steps/Stuck.lean`'s `strLitToConstructor`,
+`Model/Steps/Irrel.lean`'s `isUnitLikeTy`) were already stale by
+hundreds of lines and are historical citations; not chased.
+
+### Gates
+
+Every run in the `coredefs-305` worktree, in the foreground with a
+timeout.  The binary is unchanged in behaviour: nothing executable
+moved, only where it is defined.
+
+| gate | result |
+| --- | --- |
+| `lake build` | **562 jobs, warning-free** (four times: the split, then each shake-driven import edit) |
+| `lake test` | 482 jobs, warning-free |
+| `tests/layering.sh` | base 295 / model 190 / caps 3 / umbrella 1; 0 base→lane, 0 impl→theory (295 = 294 + `CoreDefs`) |
+| `tests/proofdeps.sh` | **regenerated: 4351 → 4363 rows**, `ConLeche.Kernel.CoreDefs` ENTERED **all twelve** capstone closures (the split's twelve doors, expected) |
+| `tests/pindump.sh` | 3 pinners reproduce their committed JSON byte-for-byte |
+| `tests/trust-surface.sh` | 13 escapes in 5 allowlisted files (500 scanned); 0 outside |
+| `tests/overview-links.sh` | 103 links / 58 files / 2 documents, re-anchored (58 = 57 + `CoreDefs.lean`) |
+| `tests/quote-gate.sh` | 2 quoted statements match |
+| `tests/no-local-paths.sh` | OK |
+| `tests/challenge.sh` | OK — statements identical for both advertised names |
+| `tests/shake.sh` | 466 removals proposed, all 466 allowlisted, 0 new / 0 stale (456 + 11 − 1); pub-imports 971 of 1335 public, none demotable |
+| `tests/inmodel.sh` | OK |
+| axioms | pinned (20 theorems at `[propext, Classical.choice, Quot.sound]`) |
+| arena | tutorial 90/92, e2e 195/195, annot 15/15, prelude counts 3/3, progress lane 15/15, worker pool 15/15, DAG-tower 14/14; trusted / `--jobs=1` / `--jobs=4` sweeps as expected — **exit 0**, every verdict identical to master's |
+
+One note for the next runner: `tests/arena.sh` must NOT be run under
+`ulimit -v 16000000` on this machine — the checker's worker pool
+(`--jobs`) and the `#check` of `tests/challenge.sh` fail with
+`failed to create thread` under a virtual-memory cap, and the whole
+battery reports 134s.  The limit is for a single checker run on a
+large input; the battery runs its own per-fixture timeouts.
