@@ -250,7 +250,7 @@ theorem Red.iota_sound (hin : RulesInputs V m φ) {d : Nat} {e : Expr} {c : Name
           ((xs.take mI).drop rP) := (hspx.take mI).drop rP
       have hmapI : (cargsa.drop (RecRule.ctorParams rl)).map (interp V ρ)
           = ((xs.take mI).drop rP).map (interp V ρ) :=
-        hidx hmr (fun x hx => hfrRes x (List.mem_of_mem_drop hx))
+        (hidx hmr).2 (fun x hx => hfrRes x (List.mem_of_mem_drop hx))
           (fun x hx => hfrE x (List.mem_of_mem_take (List.mem_of_mem_drop hx)))
           (hspRes.drop _) hspIdx
           (fun x hx => hoCargs x (List.mem_of_mem_drop hx))
@@ -283,7 +283,7 @@ theorem Red.iota_sound (hin : RulesInputs V m φ) {d : Nat} {e : Expr} {c : Name
       rw [show (ConLeche.recFireComparands rl cv.levelParams us cvj.levelParams
           e.getAppArgs rP).2 = e.getAppArgs.take (RecRule.ctorParams rl) from by
         unfold ConLeche.recFireComparands; rw [hp]] at hdefP'
-      have hmapP := hdefP'
+      have hmapP := hdefP'.2
         (fun x hx => hfrC x (List.mem_of_mem_take hx))
         (fun x hx => hfrE x (List.mem_of_mem_take hx))
         (hspy.take _) (hspx.take _)
@@ -326,17 +326,16 @@ theorem Red.iota_sound (hin : RulesInputs V m φ) {d : Nat} {e : Expr} {c : Name
         intro x hx
         obtain ⟨⟨hw2, hb2, -⟩, -⟩ := hfrE x (List.mem_of_mem_take hx)
         exact ⟨hw2, hb2⟩
-      -- **THE LANE'S SECOND FINDING** (see the module docstring): the
-      -- stored pin list's length is the checker's `defEqList` verdict,
-      -- and `DefEqListSem` — which concludes only the pointwise
-      -- `interp` equality, and only once BOTH lists are handed to it
-      -- as read spines — does not carry it.  Both directions are
-      -- needed here: `pins.length ≤ ctorParams` to build the
-      -- comparand list's read spine at all (the law reads the pins
-      -- only below `ctorParams`), and `ctorParams ≤ pins.length` to
-      -- select the `i`-th comparand.
+      -- The stored pin list's length is the walk's own, which
+      -- `DefEqListSem` concludes (`Motive.lean`'s first conjunct).
+      -- Both directions are needed here: `pins.length ≤ ctorParams`
+      -- to build the comparand list's read spine at all (the law
+      -- reads the pins only below `ctorParams`), and
+      -- `ctorParams ≤ pins.length` to select the `i`-th comparand.
       have hlenPins : pins.length = RecRule.ctorParams rl := by
-        sorry
+        have h1 := hdefP'.1
+        rw [hcmp, List.length_map, List.length_take, hmlen] at h1
+        omega
       -- the frames of the comparand list
       have hfrPin : ∀ (p : Expr), p ∈ pins →
           Frame d (Expr.instSpine (e.getAppArgs.take rP) (rP - 1)
@@ -456,7 +455,7 @@ theorem Red.iota_sound (hin : RulesInputs V m φ) {d : Nat} {e : Expr} {c : Name
         rw [← h1]
         exact hokChain vpa' j hjp hvpa'
       rw [hcmp] at hdefP'
-      have hmapN := hdefP'
+      have hmapN := hdefP'.2
         (fun x hx => hfrC x (List.mem_of_mem_take hx))
         (fun x hx => by
           obtain ⟨p, hp, rfl⟩ := List.mem_map.mp hx

@@ -186,6 +186,7 @@ theorem Certs.cert_sound (_hin : RulesInputs V m φ) {d : Nat} {lic : Bool}
     hbodya haa hfarg hCarg hokA hokBody hmemA
 
 theorem DefEqList.nil_sound {d : Nat} : DefEqListSem m φ d [] [] := by
+  refine ⟨rfl, ?_⟩
   intro Δa asa bsa _ _ hsa hsb _ _ _ _
   cases hsa
   cases hsb
@@ -194,6 +195,7 @@ theorem DefEqList.nil_sound {d : Nat} : DefEqListSem m φ d [] [] := by
 theorem DefEqList.cons_sound {d : Nat} {a b : Expr} {as bs : List Expr}
     (h : DefEqSem m φ d a b) (hs : DefEqListSem m φ d as bs) :
     DefEqListSem m φ d (a :: as) (b :: bs) := by
+  refine ⟨by simp [hs.1], ?_⟩
   intro Δa asa bsa hfa hfb hsa hsb hga hgb ρ hρ
   cases hsa with | @cons _ va _ vas hva hsa' =>
   cases hsb with | @cons _ vb _ vbs hvb hsb' =>
@@ -202,7 +204,7 @@ theorem DefEqList.cons_sound {d : Nat} {a b : Expr} {as bs : List Expr}
   simp only [List.map_cons, List.cons.injEq]
   refine ⟨h hfa1 hfb1 hCa1 hCb1 hva hvb (hga va List.mem_cons_self)
       (hgb vb List.mem_cons_self) ρ hρ,
-    hs (fun x hx => hfa x (List.mem_cons_of_mem a hx))
+    hs.2 (fun x hx => hfa x (List.mem_cons_of_mem a hx))
       (fun x hx => hfb x (List.mem_cons_of_mem b hx)) hsa' hsb'
       (fun x hx => hga x (List.mem_cons_of_mem va hx))
       (fun x hx => hgb x (List.mem_cons_of_mem vb hx)) ρ hρ⟩

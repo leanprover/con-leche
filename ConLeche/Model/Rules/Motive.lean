@@ -158,10 +158,15 @@ premises exactly there. -/
       (∀ ρ : Nat → V, Sat V Δa ρ → TeleFitPA V ρ Ta vs resta) ∧
         Graded V Δa resta
 
-/-- **`DefEqList`'s motive**: pointwise `interp` equality
-(`map_interp_of_defEqListFueled`, `Model/Steps/Stuck.lean:223`). -/
+/-- **`DefEqList`'s motive**: the walk's LENGTH, and pointwise `interp`
+equality (`map_interp_of_defEqListFueled`, `Model/Steps/Stuck.lean:223`,
+with `defEqListFueled_length`).  The length is a conclusion of its own
+because the pointwise equality is only available once both lists have
+been handed over as read spines — and a consumer (`Red.iota_sound`'s
+`.nested` pin block) needs the length to BUILD the second spine. -/
 @[expose] def DefEqListSem {env : Env} (m : EnvModel V env) (φ : Name → Nat)
     (d : Nat) (as bs : List Expr) : Prop :=
+  as.length = bs.length ∧
   ∀ {Δa : List AnnotTerm} {asa bsa : List AnnotTerm},
     (∀ x ∈ as, Frame d x ∧ CtxOk m φ d Δa x) →
     (∀ x ∈ bs, Frame d x ∧ CtxOk m φ d Δa x) →

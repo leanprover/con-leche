@@ -489,7 +489,7 @@ theorem DefEq.structEta_sound (hin : RulesInputs V m φ) {d : Nat}
   -- the parameter halves of the two certified lists, pointwise
   have htake : (asa.take caps.etaParams).map (interp V ρ)
       = tsa.map (interp V ρ) :=
-    hparams
+    hparams.2
       (fun x hx => Frame.getAppArgs hfa hCa x (List.mem_of_mem_take hx))
       (Frame.getAppArgs hfW hCr) (hspa.take caps.etaParams) hspt
       (fun x hx => hoA x (List.mem_of_mem_take hx)) hoT ρ hρ
@@ -572,7 +572,7 @@ theorem DefEq.structEta_sound (hin : RulesInputs V m φ) {d : Nat}
     have hdrop : (asa.drop caps.etaParams).map (interp V ρ)
         = ((List.range caps.etaFields).map fun j =>
             projAV (j + e0.off) ba).map (interp V ρ) :=
-      hfields
+      hfields.2
         (fun x hx => Frame.getAppArgs hfa hCa x (List.mem_of_mem_drop hx))
         hframeProj (hspa.drop caps.etaParams)
         (ReadSpine.map_list _ hprojden)
@@ -691,7 +691,7 @@ theorem DefEq.structEta_sound (hin : RulesInputs V m φ) {d : Nat}
             AnnotTerm.mkAppN (m.acval (projFnName T j)
               (Level.substFn φ cvT.levelParams us')) (tsa ++ [ba])).map
           (interp V ρ) :=
-      hfields
+      hfields.2
         (fun x hx => Frame.getAppArgs hfa hCa x (List.mem_of_mem_drop hx))
         hframeProj (hspa.drop caps.etaParams)
         (ReadSpine.map_list _ hprojden)
