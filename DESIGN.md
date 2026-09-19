@@ -123496,3 +123496,152 @@ the bridge exists:
    block's rewrite's reading = (K.69's `hK69`) the block's rewrite of
    `W[s]` = (`denoteMeta_of_rewriteRel`) `W[s]`'s reading = (this file)
    `W`'s reading instantiated = `Eis₂[s]` by 1.
+
+#### WIDE (3) (4) K.69 MEETS THE BRIDGE — THE CHAIN'S BACK HALF IS CLOSED, AND THE TIE THAT IS LEFT IS NAMED IN THREE PIECES (lane LE, 2026-09-19)
+
+The previous row named four steps for the reading clause and put its
+own step 4 last ("only then step 3").  Read at the tree, **step 4 is
+the cheap end and it is now built**, and the price of the row's step 1
+is not where the row put it.  Two objects landed; the rest is the
+re-pricing, and the doubling stop.
+
+##### (a) K.69 IS ALREADY A TERM EQUATION, AND IT IS NOT ABOUT A REWRITE
+
+The row's step 4 reads `hK69` as "the block's rewrite of `W[s]`".  The
+inversion says something else and something better:
+`nestedOrdNormOk_at` (`Verify/Inductives/NestedCopyKinds.lean`)
+concludes
+
+    ordTargetDom Jm.lps ci.nP (nestedPinTermsSelf p st) q l domJ.1 = Wb
+
+with `Wb` `ordRootInst`'s output at the OWNER's recomputation — an
+equation between the two RECOMPUTATIONS, with **no walk run on either
+side** and no rewrite anywhere in it.  Both copies' rewrites are on
+the OTHER side of the tie, which is exactly where the remaining price
+sits (c).
+
+What was missing is the REFLEXIVE arm, and only because of where the
+guard was written: `nestedOrdNormOk_at` asks the head test of the
+recomputation ITSELF, which a `Π`-tower cannot satisfy.
+`nestedOrdNormOk_at_pi` moves the guard onto the STRIPPED term — where
+`ordTargetDom` performs its own instantiation and where both cuts
+already sit (`stripDomPis`, `domPiDepth`) — and so covers BOTH kinds at
+once: at a finitary field `stripDomPis` is the identity and
+`domPiDepth` is `0`.  Its proof is `ordRootNorm_const` at each side
+(`getAppFn_instantiateList_const` carries the stripped head through the
+bulk instantiation) fed to `nestedOrdNormOk_at_refl`.  Twelve lines,
+and the `| none => true` arm for the sliver never comes near it.
+
+**`ordRootInst`'s output IS the bridge's input, character for
+character** — `Expr.instantiateList (Expr.abstractRange
+(Expr.instantiateLevelParams lps lvls x) 0 nP cut) DsE.reverse cut`, the
+left-hand side of `denoteMeta_ordRootInst_read`.  The kernel spelling
+and the model law were written one session apart and meet with nothing
+in between, which is what the previous row's `cut`-at-the-abstraction
+correction was for.
+
+##### (b) WHAT THAT CLOSES: EVERYTHING AFTER THE TWO READINGS
+
+`ordSpine_inst_of_reads` (`Model/Inductives/NestedFieldRead.lean`)
+composes the two: given the OWNER's reading of its rewritten
+copy-field domain as a head and an argument spine `Eis₂`, and the
+BLOCK's reading of ITS copy of the same field as a head and a spine
+`Eis₁`, and K.69's term equation between the two domains,
+
+    fb = fa ∧ Eis₁ = Eis₂.map (AnnotTerm.instAll Ds cut)
+
+— the head not moving (`AnnotTerm.instAll_eq_self`), the spines read
+off by `AnnotTerm.mkAppN_inj` at equal arity.  That is `hslotOrd`'s
+fifth part (`de051e52`'s row) in the form the consumer wants, and with
+it the fifth part is no longer "no clause on either side" but "two
+readings, and one application".
+
+Both readings are PREMISES and stay so.  Neither is derivable at the
+model: a copy's recorded index expressions are tied to its own
+rewritten domain by the install that made it, and at this guard no
+clause on either model carries that tie.
+
+##### (c) THE TIE, NAMED IN THREE PIECES — AND NONE OF THEM IS IN THE TREE
+
+The previous row priced its step 1 as "one new reading clause at the
+`ordF` guard, with its producer at the nested run", and its step 2 as
+"where `copyOrdFRightPinRead` already proves the block's half of the
+same statement at the run tier".  `copyOrdFRightPinRead` does not
+prove it: `heisRead` is one of its HYPOTHESES, supplied by the caller
+as `hCD.eisRead` (`NestedCopyInst.lean:9612`), and what `eisRead`
+(`MutualData.lean:214`) says is
+
+    DenoteMetaSpine … (nP + i) (x.fvarTypeD.getAppArgs.drop nP) ((Eiss ψ).getD i [])
+
+— the arguments of the copy's REWRITTEN, NORMALISED, OPENED field
+domain.  The clause must speak of `ordTargetDom`, which is the
+un-rewritten, un-normalised recomputation at the block model's own
+table.  Between them are three gaps, and the tree has a lemma for none:
+
+1. **the REWRITE.**  `denoteMeta_of_rewriteRel`
+   (`NestedRewriteRead.lean`) relates the two readings by `ReadRel`,
+   NOT by equality — `ReadRel.fire` replaces a fired occurrence's
+   reading by the mimic's.  At this guard the firing occurrence is the
+   HEAD (which `ordSpine_inst_of_reads` already keeps out of the
+   spine), so what is owed is that the walk fires at no ARGUMENT — a
+   fact about where `replaceAllNested` fires, not about what it does;
+2. **the NORMALISATION.**  The run's domain is `normPosDomM`'s OUTPUT
+   and `ordTargetDom` is its input.  Under a constant head the walk is
+   the identity (`normPosDomM_indApp`,
+   `Verify/Inductives/NestedCopyNorm.lean:269`) — but at the
+   environment the walk ran in, which is the block's own
+   (`consMutualFormers (fms.take p.k) env`) and not the one
+   `containerInfo?` answers at.  That is K.69's own owed
+   `nestedOrdNorm_norm_of`, named under WHAT IS OWED in the K.69 row
+   and still owed;
+3. **the OPENER-vs-CUT identification.**  The run's `xI.fvarTypeD` is
+   `openPisAtFvars` of `instPis` of the container's stored constructor
+   type; `ordTargetDom` is `instantiateList (stripDomPis
+   (instantiateLevelParams …)) ((ownSelf.getD qK default).getAppArgs.take
+   nP).reverse (l + domPiDepth …)`.  One term, two spellings, and
+   nothing relates them: K.67, K.68 and K.69 never need it, because
+   their Bools recompute INSIDE the kernel and compare only class
+   NUMBERS.  This is the same `cut`-vs-openers shape the bridge itself
+   handles, one level down.
+
+##### (d) AND THE PLUMBING IS ONE TRANSPORT MORE EXPENSIVE THAN PRICED
+
+A reading clause mentions `denoteMeta m.acval env`, so
+`PinShapes.crossEnv` (`ContainerCross.lean:613`) must transport it —
+and that theorem takes no reading hypothesis at all today
+(`hF`/`hag`/`hk`/`hd`/`hB`/`hci`; conjunct 6 is handled by
+`CopyCtorShape.of_EA` + `targetRead_congr`, which are about `acval`
+and not about readings).  It would gain `BlockAt.crossEnvP`'s `hde`,
+whose `ProjFree Ts e` guard then has to be discharged for the
+recomputation's arguments — the container's STORED constructor domain
+and the own-pin table's entries — which `projFree_members`
+(`ContainerCross.lean`) supplies for MEMBER types only.  Two resolve
+lemmas and three call sites, none of them in the previous row's four.
+
+##### (e) THE PRICE, AND THE STOP
+
+| piece | price |
+|---|---|
+| (c) 1–3, the tie | the bulk: a run-tier lemma over three gaps, one of them (3) of the bridge's own size |
+| the `PinShapes` clause + accessor + 5 full-arity destructurings + `congrB` | mechanical |
+| (d) `crossEnv` + `hde` + two resolve lemmas + call sites | a file-section |
+| the `PinGroupInst` conjunct and its producer at `pinGroupInst_of` | (c) again, at the second install |
+
+Two to four sessions, against the ONE the brief authorised for steps 1
+and 2 together.  **The doubling stop applies**: the two objects above
+are what a session's worth buys at this end of the chain, and the row
+stops with the tie named in three pieces rather than opening a
+`PinShapes` change on top of a producer that does not exist.  Step 2 of
+the brief (`hslotOrd`, `hfitc`) is downstream of the tie and is not
+started; (4′)'s switch and (4) are downstream of `hfitc` and are not
+started either.
+
+`tests/warning-free.sh 176bfa50`: 2 modules recompiled, 0 warning
+lines, `lake test` 0 warning lines.  `tests/unconsumed.sh` 194/3793
+against 193/3791 — two new declarations, one entry LEAVING
+(`denoteMeta_ordRootInst_mkAppN_read`, the previous session's
+deliverable, now consumed by `ordSpine_inst_of_reads`) and two
+entering (`nestedOrdNormOk_at_pi`, `ordSpine_inst_of_reads`), which is
+the chain's back half waiting on its front.  Nothing of the
+`pins_le_*` family moved.  `#print axioms` on both: `propext`,
+`Classical.choice`, `Quot.sound`.
