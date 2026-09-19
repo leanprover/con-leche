@@ -117975,3 +117975,44 @@ list and every tier below it is off, which is exactly the hand-off to
 the read twin.  The only kernel file touched is a DOCSTRING
 (`NestedInstall.lean`, the dead `_fst`/`_snd` citation), so no accept
 set moved and `tests/arena.sh` was not re-run.
+
+#### WIDE (3′) step 0: K.63, K.61 and K.62 THREADED to `NestedPinsRun` — and `copyPinFKindRefl`'s parameter can go (lane WIDE, 2026-09-19)
+
+The revised order's item 3 begins with plumbing, and the plumbing is
+now done: the three run conjuncts that had no field on the object their
+consumers hold have one.
+
+##### (a) WHAT LANDED
+
+`DeclNestedRun`'s three conjuncts after K.60 — in the merged order
+K.63 (`nestedCopyReflFieldsOk`), K.61 (`nestedInstMapOk`), K.62
+(`nestedOrdOutsideOk`) — were three `-` in `declNested_of`'s pattern.
+They are now `hK63`, `hK61`, `hK62` and travel K.60's own chain:
+
+    declNested_of  →  NestedCoreModeled  →  NestedCtorsStaged
+                   →  NestedPinsStaged   →  NestedPinsRun.hK63/.hK61/.hK62
+
+Six `∀`-prefixed definitions and thirteen intro/apply sites, in K.60's
+shape exactly (`NestedCoreModeled`, `NestedCtorsStaged`,
+`NestedPinsStaged` as hypotheses; `nestedCoreModeled_of`,
+`nestedStageFacts_of`, `nestedLoopFacts_of`, `nestedCtorsStaged_of`,
+`nestedPinsStaged_of` as parameters and applications; three new fields
+on `NestedPinsRun`).  All three are UNCONDITIONAL conjuncts, so no
+`certOnly_elim` line was added.  Mechanical, no proof content, `lake
+build` 725 jobs exit 0 on the first run.
+
+##### (b) THE HAND-OFF TO LANE PINF's FILE
+
+`NestedPinsRun.hK63` is what the PINF row's item (d) listed as edit 4,
+so `copyPinFKindRefl` (`NestedCopyInst.lean:1630`) may now drop its
+`hK63` PARAMETER and read `R.hK63` instead.  That file belongs to
+another lane this session and was not touched here; the change is one
+parameter and one occurrence.
+
+##### (c) WHAT IT DOES NOT DO
+
+Nothing of σ.  The fields are carried and unconsumed; the two facts the
+previous row measured as missing — (1′) the container member's abstract
+field spine IS its pin, and the container's own-pin distinctness (2′,
+landed as `ContainerModeled.pinsDistinct`) — are what σ's pin half still
+waits on.

@@ -1996,6 +1996,18 @@ Consumer: `nestedStageFacts_of` → `nestedCoreModeled_of`. -/
       ConLeche.nestedPinRewrites env p st params pbs₀ jobsP wsP = true) →
     -- K.60: a container's nested field lands on a block pin
     ConLeche.nestedCopyPinFieldsOk env p b st stored = true →
+    -- K.63: the same, one `Π`-tower down — a container's REFLEXIVE
+    -- nested field lands on a block pin, where K.60's guard (a `.const`
+    -- head on the stored domain) claims nothing
+    ConLeche.nestedCopyReflFieldsOk env p b st stored = true →
+    -- K.61: the container instance map — a pin's container's own pins,
+    -- instantiated at that pin's levels and components, ARE pins of the
+    -- block, and a copy's field sitting at one of those own pins records
+    -- the map's value as its target (the wide identification's σ)
+    ConLeche.nestedInstMapOk env p b st stored = true →
+    -- K.62: a rewritten ORDINARY field's target is OUTSIDE that map's
+    -- image (the wide identification's `houtσ`)
+    ConLeche.nestedOrdOutsideOk env p b st stored = true →
     -- POST-CHECK (a) A THIRD TIME (K.30): the pins typed at the prefix
     -- formers' environment (`consNestedFormers_take_eq`)
     ConLeche.nestedPinsOk (m := ConLeche.CheckM) (fueledOps μ F)
@@ -2101,6 +2113,9 @@ theorem nestedStageFacts_of (hst : NestedCtorsStaged V μ F) (hμ : μ.verifiedC
           (ConLeche.consNestedFormers (stored.take p.k) env) b.memberNames jobsP = .ok wsP ∧
       ConLeche.nestedPinRewrites env p st params pbs₀ jobsP wsP = true)
     (hK60 : ConLeche.nestedCopyPinFieldsOk env p b st stored = true)
+    (hK63 : ConLeche.nestedCopyReflFieldsOk env p b st stored = true)
+    (hK61 : ConLeche.nestedInstMapOk env p b st stored = true)
+    (hK62 : ConLeche.nestedOrdOutsideOk env p b st stored = true)
     (hpins₁ : ConLeche.nestedPinsOk (m := ConLeche.CheckM) (fueledOps μ F)
       (ConLeche.consMutualFormers (fms.take p.k) env) p.nP st.pins = .ok ())
     (hnd : b.blockNames.Nodup) (h3 : ConLeche.mutualCtorsGrouped b.ctors = true)
@@ -2172,7 +2187,8 @@ theorem nestedStageFacts_of (hst : NestedCtorsStaged V μ F) (hμ : μ.verifiedC
   obtain ⟨mp₂, dsR, xFvsR, pinsS, L⟩ := hst hμ mp hE p st b envAux stored ctorsR fmsA ctorsA₀ fms f₀
     ctorsA sortss kinds mp₁ ppsF W idxF dsF esF srcsF fvsPF xFvsF xrestF eissF tssF mp₁' hPM h0 h1
     hfA hcA helim hcount hfresh hcont hb haux hstored hclosed hpinsAux hcaps hsrc hgrp hsc hK32
-    hkinds hrank hK42 hK51 hK60 hpins₁ hformers h hbk h3 hnd hctorsA hleafM' hoff' hfind' hctors
+    hkinds hrank hK42 hK51 hK60 hK63 hK61 hK62 hpins₁ hformers h hbk h3 hnd hctorsA hleafM' hoff'
+    hfind' hctors
   -- the names
   have hnames : (fms.take p.k).map (·.cvTa.name) = p.memberNames := by
     rw [List.map_take, h.names]
