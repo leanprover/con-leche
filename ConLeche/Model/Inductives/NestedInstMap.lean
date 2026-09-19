@@ -1423,6 +1423,120 @@ theorem NestedPinsRun.instTgtAt {pbs : List (Expr × ConLeche.BinderMeta)}
   rw [← hdef, hval]
   omega
 
+/-- **`houtσ` AT THE RUN, OVER BOTH HALVES OF THE INSTANCE** (task
+#315 WIDE (3′), K.62 and K.66 consumed): a container-ORDINARY field
+whose COPY the auxiliary block classifies recursive-or-reflexive lands
+on no class of the container's instance at all — neither one of its
+own pins (K.62, the map's image) nor one of its members (K.66, the
+mint group).
+
+The three cases are the three ways a class can be missed.  A target
+BELOW `p.k` is a member of the block being installed, and every value
+of `σ` is a block PIN, so nothing to prove.  A MEMBER class of the
+container is the group's own mimic `p.k + q₀ + c` with `c < kJ`, which
+K.66's disjunction excludes.  A PIN class is `p.k + mm.getD _ 0`, and
+the map's entry at it is a member of the list
+(`instMapPinOwn`), so K.62's `contains … = false` excludes it. -/
+theorem NestedPinsRun.instOutAt {pbs : List (Expr × ConLeche.BinderMeta)}
+    (hPD : ∀ q, q < st.pins.length → PinData env st p pbs q)
+    (hkindsRun : ConLeche.classifyMutualKinds (m := ConLeche.CheckM) b.members3 b.lps b.nP ctorsA
+      = .ok kinds)
+    {i' : Nat} (hi' : i' < kJ)
+    (hgb : (pinAtE st (q₀ + i')).grpBase = q₀)
+    {ci : ContainerInfo}
+    (hciP : ConLeche.containerInfo? env (pinsS.getD (q₀ + i') default).J = some ci)
+    (CM : ContainerModeled mp₁'.base2 ci dJ)
+    {ci0 : ContainerInfo}
+    (hci0 : ConLeche.containerInfo? env (pinsS.getD (q₀ + 0) default).J = some ci0)
+    (CM0 : ContainerModeled mp₁'.base2 ci0 dJ)
+    {cvT : ConstantVal} {caps : IndCaps}
+    (hfind : (ConLeche.consMutualFormers (fms.take p.k) env).find?
+      (pinsS.getD (q₀ + 0) default).J = some (.indInfo cvT caps))
+    {j : Nat} {cAJ : ConstantVal × Nat} (hj : (dJ.ctorsM i')[j]? = some cAJ)
+    {l : Nat} (hlF : l < cAJ.2)
+    (hord : ((dJ.rss i').getD j []).getD l false = false)
+    (hrss : ((blkRss ctorsA kinds).getD (b.ownOffset (p.k + q₀ + i') + j) []).getD l false = true) :
+    ∃ mm : List Nat, ConLeche.nestedInstMapAt env st (q₀ + 0) = some mm ∧
+      ¬ ∃ c, c < dJ.k + dJ.nPins ∧
+        (if c < dJ.k then p.k + q₀ + c else p.k + mm.getD (c - dJ.k) 0)
+          = ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+              (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0 := by
+  classical
+  have hjlt : j < (dJ.ctorsM i').length := (List.getElem?_eq_some_iff.mp hj).1
+  obtain ⟨cvT', caps', cvR, mI, rP, rules, -, hI, -⟩ := S.stored i' hi'
+  obtain ⟨-, -, hCD⟩ := hI.ctors i' j cAJ hI.memberLt hj
+  have hksl : l < (dJ.ksF i' j).length := by rw [hCD.ksLen]; exact hlF
+  -- the container's field is ORDINARY: `rss` false rules the other two out
+  have hordC : (dJ.ksF i' j).getD l .ordinary = .ordinary := by
+    have h := hord
+    rw [show (dJ.rss i').getD j [] = rsOf (dJ.ksF i' j) from rssOfK_getD hjlt,
+      rsOf_getD hksl] at h
+    have hne : ¬ ((dJ.ksF i' j).getD l .ordinary = .recursive
+        ∨ (dJ.ksF i' j).getD l .ordinary = .reflexive) := by
+      intro hc; rw [decide_eq_true hc] at h; exact nomatch h
+    rcases hCD.opened.kinds l (by rw [← hCD.ksLen]; exact hksl) with ho | hr | hrf
+    · exact ho
+    · exact absurd (Or.inl hr) hne
+    · exact absurd (Or.inr hrf) hne
+  have hCMf : ∀ ciJ : ContainerInfo,
+      ConLeche.containerInfo? env (pinsS.getD (q₀ + i') default).J = some ciJ →
+      ContainerModeled mp₁'.base2 ciJ dJ := by
+    intro ciJ hciJ
+    obtain rfl : ciJ = ci := Option.some.inj (hciJ.symm.trans hciP)
+    exact CM
+  by_cases hge : p.k ≤ ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+      (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0
+  · obtain ⟨mm', hmap', hcon, hgrpOut⟩ :=
+      R.copyOrdFOutside SF S hPD hkindsRun hi' hgb hCMf hj hlF hordC hrss hge
+    have hmm0 : ConLeche.nestedInstMapAt env st (q₀ + 0) = some mm' := by
+      rw [NestedPinsRun.instMapGroup SF S hPD S.kpos hi' hci0 hciP CM0 CM]; exact hmap'
+    refine ⟨mm', hmm0, ?_⟩
+    rintro ⟨c, hclt, hceq⟩
+    by_cases hcm : c < dJ.k
+    · -- a MEMBER class: K.66's disjunction
+      rw [if_pos hcm] at hceq
+      have hck : c < kJ := by rw [← S.kEq]; exact hcm
+      omega
+    · -- a PIN class: K.62's `contains`
+      rw [if_neg hcm] at hceq
+      have hqq : c - dJ.k < dJ.nPins := by omega
+      obtain ⟨mm₂, σq, hmapAt, hmmqK, -, -, -⟩ :=
+        R.instMapPinOwn SF S hPD S.kpos hci0 CM0 hqq hfind
+      have hmmEq : mm₂ = mm' := Option.some.inj (hmapAt.symm.trans hmm0)
+      rw [hmmEq] at hmmqK
+      have hval : List.getD mm' (c - dJ.k) 0 = σq := by
+        rw [List.getD_eq_getElem?_getD, hmmqK]; rfl
+      have hmem : σq ∈ mm' := List.mem_of_getElem? hmmqK
+      rw [hval] at hceq
+      have hcontra : mm'.contains
+          (((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+            (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0 - p.k) = true := by
+        refine List.contains_iff_exists_mem_beq.mpr ⟨σq, hmem, ?_⟩
+        simp only [beq_iff_eq]
+        omega
+      rw [hcon] at hcontra
+      exact nomatch hcontra
+  · -- the target is a MEMBER of the block being installed, and every
+    -- value of `σ` is a block PIN
+    have hq0 : q₀ + 0 < st.pins.length := by
+      rw [← SF.pinsLen]; have := S.seg; have := S.kpos; omega
+    obtain ⟨mm', hmap'⟩ : ∃ mm : List Nat,
+        ConLeche.nestedInstMapAt env st (q₀ + 0) = some mm := by
+      cases hms : ConLeche.nestedInstMaps env st with
+      | none =>
+        have hK61 := R.hK61
+        unfold ConLeche.nestedInstMapOk ConLeche.nestedInstMapOkAt at hK61
+        rw [hms] at hK61; simp at hK61
+      | some maps =>
+        obtain ⟨m, -, hm⟩ := ConLeche.mapM_option_inv hms (q₀ + 0) (q₀ + 0)
+          (by rw [List.getElem?_range (by omega)])
+        exact ⟨m, hm⟩
+    refine ⟨mm', hmap', ?_⟩
+    rintro ⟨c, hclt, hceq⟩
+    by_cases hcm : c < dJ.k
+    · rw [if_pos hcm] at hceq; omega
+    · rw [if_neg hcm] at hceq; omega
+
 end Assembly
 
 end ConLeche.Model
