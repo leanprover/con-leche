@@ -10,6 +10,7 @@ import ConLeche.Verify.InferLeaves
 import ConLeche.Verify.Denote.StrLit
 public import ConLeche.Model.Annot.BitInst
 public import ConLeche.Model.WellDenotedTransport
+public import ConLeche.Model.IOLicense
 
 public section
 
@@ -557,6 +558,71 @@ theorem betaZeroV {A b a : AnnotTerm} {ρ : Nat → V}
   have hv2 := h.2
   rw [AnnotValid_app, AnnotValid_lam] at hv2
   exact (AnnotValid_inst0 V hv2.2).mpr (hv2.1.2 _ hmem)
+
+
+/-! ## The telescope walk's one-slot kit
+(`Model/Steps/IotaKit.lean:370`, `IotaGate.lean:63,77`, transplanted) -/
+
+/-- **A `TeleFitPA` fit plus the type's grading grades the applied
+spine**, and places it in the residual's reading
+(`wellDenotedV_mkAppN_of_fitA`). -/
+theorem mkAppN_of_fitA {ρ : Nat → V} :
+    ∀ (vs : List AnnotTerm) {Ta f rest : AnnotTerm},
+      WellDenotedV V ρ Ta → WellDenotedV V ρ f →
+      (∀ x ∈ vs, WellDenotedV V ρ x) →
+      interp V ρ f ∈ˢ interp V ρ Ta →
+      TeleFitPA V ρ Ta vs rest →
+      WellDenotedV V ρ (AnnotTerm.mkAppN f vs) ∧
+        interp V ρ (AnnotTerm.mkAppN f vs) ∈ˢ interp V ρ rest := by
+  intro vs
+  induction vs with
+  | nil =>
+    intro Ta f rest _ hf _ hmem hfit
+    cases hfit
+    exact ⟨hf, hmem⟩
+  | cons x xs ih =>
+    intro Ta f rest hokT hf hoks hmem hfit
+    cases hfit with
+    | @cons u v A B _ _ _ hx hfit' =>
+      have hokA : WellDenotedV V ρ A :=
+        ⟨((WellDenoted_pi V ρ u v A B) ▸ hokT.1).1,
+          ((AnnotValid_pi V ρ u v A B) ▸ hokT.2).1⟩
+      have hokB : ∀ y, y ∈ˢ interp V ρ A → WellDenotedV V (cons y ρ) B :=
+        fun y hy =>
+          ⟨((WellDenoted_pi V ρ u v A B) ▸ hokT.1).2 y hy,
+            ((AnnotValid_pi V ρ u v A B) ▸ hokT.2).2.1 y hy⟩
+      have hfib : v = 0 → ∀ y, y ∈ˢ interp V ρ A →
+          interp V (cons y ρ) B ∈ˢ (univZero : V) :=
+        ((AnnotValid_pi V ρ u v A B) ▸ hokT.2).2.2
+      rw [interp_pi] at hmem
+      have hokx : WellDenotedV V ρ x := hoks x List.mem_cons_self
+      have hstep : WellDenotedV V ρ (.app f x) := by
+        refine ⟨?_, ?_⟩
+        · rw [WellDenoted_app]
+          exact ⟨hf.1, hokx.1, v, interp V ρ A,
+            (fun y => interp V (cons y ρ) B), hmem, hx, hfib⟩
+        · rw [AnnotValid_app]; exact ⟨hf.2, hokx.2⟩
+      have hmem' : interp V ρ (.app f x) ∈ˢ interp V ρ (B.inst x) := by
+        rw [interp_inst0, interp_app]
+        exact app_mem_piR hmem hx hfib
+      exact ih ((WellDenotedV_inst0 hokx).mpr (hokB _ hx)) hstep
+        (fun y hy => hoks y (List.mem_cons_of_mem x hy)) hmem' hfit'
+
+/-- The head of a graded spine is graded (`wellDenotedV_mkAppN_head`). -/
+theorem mkAppN_head {ρ : Nat → V} :
+    ∀ (as : List AnnotTerm) {f : AnnotTerm},
+      WellDenotedV V ρ (AnnotTerm.mkAppN f as) → WellDenotedV V ρ f
+  | [], _, h => h
+  | a :: as, f, h => by
+    have h' : WellDenotedV V ρ (.app f a) := mkAppN_head as h
+    exact ⟨((WellDenoted_app V ρ f a) ▸ h'.1).1,
+      ((AnnotValid_app V ρ f a) ▸ h'.2).1⟩
+
+/-- **The ι-slot licence, one slot** (`iota_slot_transfer`). -/
+theorem slotTransfer {v v' : Nat} {A A' f a : V} {B B' : V → V}
+    (hv : v ≠ 0) (hf : f ∈ˢ piR v A B)
+    (hslot : f ∈ˢ piR v' A' B') (ha : a ∈ˢ A') : a ∈ˢ A :=
+  io_domain_transfer hv hslot ha hf
 
 
 /-! ## The δ identity (`delta_of`, `Steps/Whnf.lean:329`, transplanted) -/
