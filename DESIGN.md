@@ -107008,6 +107008,18 @@ never to relax the check.
 `annot suite: 15/15`, `axioms: pinned`, trusted / `--jobs=1` /
 `--jobs=4` sweeps unchanged — the accept set did not move.
 
+**AS OF THE OPTION-2 SPELLING** (task #315 WIDE (3), the row at the end
+of this file): `ordTargetDom` takes the container member's level
+parameters and instantiates the stored domain at the copy's own `lvls`
+before it cuts, and **both `| none => true` arms are `| none => false`**
+— the head's container lookup and the own-pin `findIdx?` are ASSERTED,
+not conceded.  That was measured, not assumed: without the level
+instantiation the `findIdx?` arm broke at five accepted blocks; with it
+`nested-shadow` is 42/42 again and the conformance below is re-run and
+unchanged (`init-full` 1/1/0 both modes, Mathlib 41/41/0 both modes).
+The inversions' `hfin`/`hhead` moved to the INSTANTIATED domain
+(`ordTargetDomL`) with it.
+
 | corpus | shadow blocks | accepting | fires |
 |---|---|---|---|
 | `init-full` (53 093 accepted), both modes | 1 | 1 | 0 |
@@ -107190,6 +107202,19 @@ names a class its own substitution does not — a defect in the ROUTE.
 `nested-shadow: 42/42`, `arena suite: 91/96 good tests accepted`,
 `axioms: pinned`, sweeps unchanged — the accept set did not move.  The
 binary that ran it is byte-identical to the landed one (`cmp`).
+
+**AS OF THE OPTION-2 SPELLING** (task #315 WIDE (3), the row at the end
+of this file): the recomputation instantiates the stored domain at the
+recorded pin's own `lvls` and **both `| none => true` arms are
+`| none => false`**.  Re-measured with that binary: `tests/arena.sh`
+EXIT 0, `nested-shadow: 42/42`, `e2e: 200/200`, `arena suite: 91/96`,
+`annot suite: 15/15`, `axioms: pinned`, all three sweeps unchanged; the
+conformance table below re-run and unchanged (`init-full` 1/1/0 both
+modes, Mathlib 41/41/0 both modes); cost at `init-full`
++0.00005 % verified and +0.0038 % trusted against the landed K.68
+binary.  **The strengthened arm is what makes the row POSITIVE**: the
+pin branch now PRODUCES the own-pin position rather than taking it as
+an input, which is what the model correspondence needs.
 
 | corpus | shadow blocks | accepting | fires |
 |---|---|---|---|
@@ -122216,3 +122241,101 @@ two run lemmas, the ninth conjunct, the `PinShapes` clause,
 The battery has NOT been run: it is one battery for the pair and it
 runs when the threading is finished.  The tree is back at the committed
 records (`cmp` on the binary) and every patch is kept in `_tmp/le2/`.
+
+#### WIDE (3) OPTION 2 LANDED — the levels fix is MEASURED, and the guard's container is named at ANY member of the group (lane LE, 2026-09-19)
+
+The strengthening's open question is answered, and the answer is the
+one the level reading predicted.
+
+##### (a) THE MEASUREMENT THAT DECIDED IT
+
+`ordTargetDom` now instantiates the stored domain's level parameters at
+the copy's own `lvls`, read off the same pin term whose components it
+substitutes, and BOTH records' `none` arms are `false`.  With that
+binary:
+
+**`tests/nested-shadow.sh`: 42/42**, and `tests/arena.sh` EXIT 0 —
+`e2e: 200/200`, `arena suite: 91/96 good tests accepted`,
+`annot suite: 15/15`, `axioms: pinned`, trusted / `--jobs=1` /
+`--jobs=4` sweeps unchanged.  So the five accepted blocks that broke
+under the unstrengthened spelling (`nested_p03` `P3`, `nested_p04`
+`P4C`/`P4`, `nested_p31` `P31`, `let_rec_rhs` and
+`presieve_ofarrows_cone` `Lean.Syntax`) were breaking on the LEVEL
+ARGUMENTS of the recomputed head and on nothing else.  The diagnosis in
+the row above is confirmed; the row was never weakened.
+
+| corpus | shadow blocks | accepting | fires |
+|---|---|---|---|
+| `init-full` (53 093 accepted), `--verified` | 1 | 1 | 0 |
+| `init-full` (53 093 accepted), `--trusted` | 1 | 1 | 0 |
+| Mathlib (654 504 accepted), `--verified` | 41 | 41 | 0 |
+| Mathlib (654 504 accepted), `--trusted` | 41 | 41 | 0 |
+
+##### (b) THE COST
+
+`perf stat -e instructions:u`, one run per cell, `--nested-shadow
+--jobs=1`; control is the LANDED K.68 binary, i.e. the delta is the
+level instantiation plus the two strengthened arms.
+
+| run | K.68 as landed | with the levels | delta |
+|---|---|---|---|
+| `init-full --verified --nested-shadow` | 538.2237 G | 538.2239 G | +0.00005 % |
+| `init-full --trusted --nested-shadow` | 520.8756 G | 520.8954 G | +0.0038 % |
+
+No Mathlib perf cell, per the standing ruling.
+
+##### (c) THE SPELLING, AND THE ONE CORRECTION THE TREE FORCED
+
+The cut is FACTORED (`ordTargetLvls` / `ordTargetDomL`) so that the
+`_at` corollaries can state `hfin` and `hhead` at the INSTANTIATED
+domain and rewrite the cut away; written with `let`-bindings it leaves
+`have`s in the goal and they cannot match.
+
+The model half threads `lpsC` through the six sites with guard form
+(1).  **The guard may NOT name the container at the clause's own member
+`i'`**, and the reason is the CROSSING: `PinShapes.crossEnv`'s `hci`
+carries `containerInfo?` from `env₁` to `env₂` only, and a guard is
+contravariant, so the `PinShapes` clause's guard has to be
+ENVIRONMENT-FREE — `ci.members[i']? = some Jm → Jm.lps = lpsC`, with
+`ci` the existential's own container.  Its producer
+`nestedPinShapes_of` then holds the container only at the group member
+its existential names, which is not `i'`.
+
+So `hordσ` and `GroupFacts.ordTgt` quantify the guard's container at an
+ARBITRARY group member:
+
+    ∀ lpsC i₀, i₀ < kJ → ∀ ciC Jm,
+      containerInfo? env ((D).pinAt (q₀ + i₀)).J = some ciC →
+      ciC.members[i']? = some Jm → Jm.lps = lpsC → …
+
+The consumer hands in the member it has; the two producers
+(`pinGroupInst_of`, `mkGF`'s bullet) identify that container with
+theirs from `NestedPinGroupSyn.modeled` at both indices plus
+`containerInfo?_eq_of_names` — a group's members model ONE block, so
+their containers have one member-name list and one parameter count.
+`nestedPinShapes_of` gains `hcontE` (the pin's container reads the same
+at the elimination's environment), supplied at the call site from
+`NestedTailIn.conts`, which already carries all three readings.
+
+##### (d) THE ROW GOES POSITIVE, AND INJECTIVITY IS RETIRED
+
+With the arms at `false` K.68's pin branch no longer has to be an
+implication keyed by a `findIdx?` answer the consumer supplies: the row
+PRODUCES the position.  All five sites of the K.68 chain carry
+
+    memberNames.findIdx? (· == M) = none →
+      ∃ z, z < nPins ∧ <term equality at z> ∧ tgt = k + z
+
+(`nestedOrdSelfTargetOk_at_refl` and its finitary corollary,
+`NestedPinsRun.instOrdSelfAt`, `hordσ`, the `PinShapes` `ordF` clause,
+`PinShapes.rowTargetOrd`).  K.67's side stays an implication on
+purpose: its two lookups are to be DERIVED from this `z`, which is
+exactly what the correspondence's pin branch was missing.
+
+A consequence to record: `nestedPinShapes_of` used the own-pin table's
+INJECTIVITY (`ContainerModeled.pinsDistinctAt`) only to turn the
+`findIdx?` answer into the clause's index.  The positive row hands the
+index over, so that use is gone — and `pinsDistinctAt` has no other
+consumer in the tree.  The hypothesis is kept as `_hdist` rather than
+removed, because retiring a `ContainerModeled` field is not this row's
+decision.
