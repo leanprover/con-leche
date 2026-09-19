@@ -1198,6 +1198,50 @@ theorem pinsModeled_of_env {env : Env} {m : EnvModel V env} (hm : EnvBlockModels
     PinsModeled m pins :=
   fun q _ ci hci => blockOf_of_env hm q.container ci hci
 
+/-- **K.68's ROW, READ AT ONE PIN** (task #315 WIDE (3)): `PinShapes`'
+`ordF` clause projected out at a pin, the way `rowTarget` projects the
+recursive one.
+
+At a field the pin's container calls ORDINARY and the copy made
+recursive, the copy's target is the class the CONTAINER's own
+recomputation names — a member of the container by its NAME among
+`d.memberNames`, or one of the container's own pins by its TERM in
+`d.ownPinTerms`, the container's own spelling of its pin table.  The
+block reading this runs the SAME recomputation (K.67's
+`ordTargetDom` at `containerOwnPinsSelf`'s entry, which is that same
+term by `ContainerOwnPinsSyn`), so the two sides name one class and
+nothing has to cross a substitution. -/
+theorem PinShapes.rowTargetOrd {env : Env} {m : EnvModel V env} {B : ContainerInfo → BlockModel V}
+    {d : BlockModel V} {pc : Nat → PinCtors V} (h : PinShapes m B d pc)
+    {q : Nat} (hq : q < d.nPins) {ci : ContainerInfo}
+    (hci : ConLeche.containerInfo? env (d.pinAt q).J = some ci) :
+    ∃ q₀ kJ i, q = q₀ + i ∧ i < kJ ∧ PinGroupView d (B ci) q₀ kJ ∧
+      ∀ (ψ : Name → Nat) (i' : Nat), i' < kJ → ∀ j, j < ((B ci).ctorsM i').length → ∀ l,
+        l < (((B ci).Fss i' ((d.pinAt q₀).ψJ ψ)).getD j []).length →
+        (((B ci).rss i').getD j []).getD l false = false →
+        ((pc (q₀ + i')).rss.getD j []).getD l false = true →
+        ∀ (cA : ConstantVal × Nat) (bs : List (Expr × ConLeche.BinderMeta)) (rr : Expr)
+          (dom : Expr × ConLeche.BinderMeta) (lps : List Name),
+        ((B ci).ctorsM i')[j]? = some cA →
+        cA.1.type.stripPis ((B ci).nP + cA.2) = some (bs, rr) →
+        bs[(B ci).nP + l]? = some dom →
+        ∀ (M : Name) (us : List Level),
+        (ConLeche.ordTargetDom (B ci).nP (d.ownPinTerms lps) (q₀ + i') l dom.1).getAppFn
+            = .const M us →
+        (∀ mm, d.memberNames.findIdx? (· == M) = some mm → (pc (q₀ + i')).tgts j l = mm) ∧
+        (∀ z : Nat, z < d.nPins →
+          d.memberNames.findIdx? (· == M) = none →
+          (d.pinAt z).ownAt d.nP lps (lps.map Level.param)
+              (ConLeche.containerParamOpeners d.nP)
+            = Expr.mkAppN
+                (ConLeche.ordTargetDom (B ci).nP (d.ownPinTerms lps) (q₀ + i') l dom.1).getAppFn
+                ((ConLeche.ordTargetDom (B ci).nP (d.ownPinTerms lps) (q₀ + i') l
+                  dom.1).getAppArgs.take (d.pinAt z).nPJ) →
+          (pc (q₀ + i')).tgts j l = d.k + z) := by
+  obtain ⟨q₀, kJ, i, ci', hqe, hi, hci', hgv, -, -, hord, -⟩ := h q hq
+  obtain rfl : ci' = ci := Option.some.inj (hci'.symm.trans hci)
+  exact ⟨q₀, kJ, i, hqe, hi, hgv, hord⟩
+
 /-- **THE ROW, READ AS THE TARGET VIEW'S DATA AT THE FIELD** (task
 #315 WIDE, lane `uniform-carry`): the shape the collapse-aware
 correspondence consumes.

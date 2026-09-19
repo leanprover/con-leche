@@ -121908,3 +121908,34 @@ at `z`.
 
 That is the last step of the ninth site; after it, `rowTargetOrd`, the
 correspondence, `hslotOrd`, `hfitc`.  Tree left green and `sorry`-free.
+
+#### WIDE (3) THE CONTAINER SIDE IS COMPLETE — and the correspondence needs a TENTH conjunct for K.67 (lane LE, 2026-09-19)
+
+`PinShapes.rowTargetOrd` reads the `ordF` clause at one pin, the way
+`rowTarget` reads the recursive one.  With it the CONTAINER's side of
+the correspondence is finished: at a field the pin's container calls
+ordinary and the copy made recursive, the copy's target is the class
+the container's own recomputation names — a member by its NAME among
+`d.memberNames`, or an own pin by its TERM in `d.ownPinTerms`.
+
+##### WHAT THE ASSEMBLY STILL NEEDS, AND IT IS SYMMETRIC
+
+The correspondence is side 1 (the block's copy) against side 2 (the
+root container's record).  Side 2 is `rowTargetOrd`.  Side 1 is K.67 —
+`NestedPinsRun.instOrdTgtAt` — and **that has no model-side carrier
+yet**: the ninth `PinGroupInst` conjunct carries K.68, the
+SELF-relative fact, because that is what a later block reads of this
+one.  K.67 is the block's own fact about its own copies and needs a
+TENTH conjunct of the same shape, quantified over the OWNER pin, so
+that `nestedPinFit_pin` — which holds a `GroupFacts`, not a run record
+— can read it.
+
+The two then compose with nothing in between, which is the whole point
+of K.68's design: K.67 recomputes at `containerOwnPinsSelf env J`'s
+`qK`-th entry and `rowTargetOrd` at `(d.pinAt z).ownAt …`, and
+`ContainerOwnPinsSyn`'s second clause says those are the same term, so
+the head `M` agrees and `tg₁ l = σ (tg₂ l)` follows from the two rows
+naming one class.
+
+So: the tenth conjunct (K.67 at the group, the ninth's twin), the
+correspondence, `hslotOrd`, `hfitc`.
