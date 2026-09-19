@@ -74907,3 +74907,509 @@ Commits on `agent/nbe-310`: `9f541067` (the variant: strict
 arguments, `whnfCoreV`, the lazy boundary, the strategy-split memos,
 the bridge), `c10a3761` (`EStateM`), `57efc5b6` (the sweep runs
 `nbe2`), `059a1b90` (the anchors), and this record.
+
+## TASK #311 — THE RELEVANCE SHORTCUT ON THE SHIPPED CORE (2026-09-19, `agent/irrel-311`)
+
+**The ask** (the maintainer, verbatim): *"Separately, spike and measure
+the irrelevance shortcut that you mentioned before; it seems
+independent of NbE?  I assume that it fires on defeq congr when the
+head is a constant, and pre-computes or memoizes for that constant
+which arguments are irrelevant?"*
+
+Yes on both counts, and it is entirely independent of NbE: the
+shortcut lives in the spine comparison, which both cores have.  This
+section reports the spike built to the assumption's own shape — the
+signature **pre-computed at the constant's install**, not memoized at
+first use, which is where it differs from the throwaway of task #307 —
+and the measurement, which says **drop it**.
+
+### 1. What was built
+
+**The per-constant relevance signature** (`ConLeche/Kernel/Relevance.lean`).
+For a stored constant `c`, one datum per *leading `∀` position of its
+stored type*: the zero-ness of that position's **domain**'s sort, as a
+`PropWhen` over `c`'s own level parameters (`RelSig.props`).  It is
+read off the *validated annotations* of the already-checked type by
+`typeSortPW` (`ConLeche/Kernel/PropRead.lean`) — the same pure
+head-symbol reader `propIrrel`'s two fast arms use: no inference, no
+reduction.  A position the reader cannot answer records `.never`,
+which never skips; so do positions past the *syntactic* telescope (a
+type whose further `∀`s appear only after `whnf`).  What that costs in
+coverage is measured, not guessed: §4's position census.
+
+The optional second half, `RelSig.absent`, is the "absent argument"
+skip: for a `defnInfo`, which λ-binders of its value the body never
+reads (`occursBVar` under the `O(1)` `Expr.bvarB` cut).
+
+**Stored at the install.**  The signature is computed ONCE, in
+`FEnv.push` (`ConLeche/Kernel/FEnv.lean`) — the moment the constant
+enters the environment — and kept in a new `FEnv.sigs : Std.HashMap
+Name RelSig`.  `mkFEnvGo` builds it in lockstep so that
+`(mkFEnv env).push ci = mkFEnv ⟨ci :: env.consts⟩` stays `rfl`
+(`ConLeche/Verify/CheckerF.lean`); `FEnv.find?`'s body was spelled
+apart as `idxFind? idx vis` so that the reader the two build is
+literally the same term.
+
+**The fire site** is the same-head spine comparison, in both cores'
+bodies: `defEqSpineArgs` (the `Expr`-level specification,
+`ConLeche/Kernel/Core.lean`) and `defEqSpineArgsI` (the cached twin,
+`ConLeche/Cached/CoreC.lean`), called from `defeqSpine`/`defeqSpineI`
+(the lazy-delta same-head short-circuit, official's
+`try_eq_const_app`) and from the stuck `.app`/`.app` congruence arm of
+`defeqStep`/`defeqStepI`.  Both heads must be the same constant; the
+mask is then read off the left head's levels, which is sound because
+the caller has just decided the heads definitionally equal, and two
+constants are that only at equivalent levels.  A marked position's
+argument pair is not compared (`defEqListSkip`/`defEqListSkipI`); the
+signature's instantiation at a use answers without touching
+`Level.substPW` in the common case (`isProp` — `Prop` at every
+valuation — or `isNever`), which is what the packed-datum census says
+the data look like.  The specification has no install-time table and
+recomputes the signature from the environment (`relSigAt`); the
+refinement obligation between the two is §6's first law.
+
+**Both switches are compile-time `abbrev`s and both are `false`.**
+At that setting each fire site whnf-reduces to the `defEqList` it
+replaced, so the verification tier sees the unchanged bodies and the
+compiler folds the branch out of the generated code.  Four places had
+to learn the new spelling and each says so, each `rfl` on the switch:
+`defEqSpineArgs_fold` (`Verify/Knot.lean`), `defEqSpineArgs_atF`
+(`Verify/Fueled.lean`), `defEqSpineArgs_fst`/`_snd`
+(`Verify/PairM.lean`) and `defEqSpineArgsI_off`
+(`Verify/Cached/KnotCongr.lean`).  A measurement build flips a switch
+and builds the executable alone (`lake build con-leche`; `Main.lean`
+imports no verification module), and nothing in the verified route
+claims anything about it.
+
+### 2. How this differs from task #307's throwaway, and why the numbers differ
+
+#307's skip measurement (branch `agent/nbe-307-skipmeasure`, commit
+`2221c1d9`) computed a `Sig` **lazily, per `(constant, levels)` pair**,
+memoised in a `CState.sigC : HashMap (Name × List Level) (Array Bool ×
+Array Bool)`, and walked the stored type on a miss.  This spike is the
+maintainer's own shape instead: **eager, per constant, at the
+install**, keyed by name alone, with the level instantiation done at
+the use (a `PropWhen`, not a `Bool`, is what is stored).
+
+Three differences follow, and two of them cost:
+
+1. **No `(Name × List Level)` hashing per comparison.**  #307 hashed a
+   level list at every same-head spine; this spike does one `Name`
+   lookup.  Measured: the fire site is free — a build that stores the
+   signature and *never consults it* (`relFireSwitch := false`) is
+   within 0.1 % of the build that consults it on every spine
+   (`init-full --trusted`: 628.53 G vs 627.91 G).
+2. **The install pays for every constant, whether or not anyone
+   asks.**  On `init-full` that is 57 977 signatures to answer 9 417
+   queries (§4).  The walk itself is cheap — `init-full --trusted`
+   +0.013 % — but it is paid 6 times more often than it is used.
+3. **A new field on the environment.**  `FEnv` gained `sigs`, and
+   carrying it costs ~0.04-0.07 % *even with both switches off*
+   (§3, the `master` column): one more pointer per `FEnv`, one more
+   `Std.HashMap` threaded through every install.
+
+The numbers therefore differ from #307's (+0.09 % irrel / +0.11 %
+absent on `init-full --verified`) mostly downward for the irrelevance
+skip (+0.005 % here) and upward for the absent skip (+0.16 % here),
+and the skip *counts* agree to within 15 % (9 417 here against #307's
+10 798 — the same positions, counted on the same stream by a
+differently-shaped signature; #307's count was of both switches
+together on a `--verified` run, this one is the irrelevance switch
+alone).
+
+### 2b. The incident on the way: an O(n²) copy, and the rule that catches it
+
+The first install-time implementation cost **+10.64 %** on
+`init-full --trusted` (627.91 G against 567.52 G).  The cause was not
+the signature walk: a build that stores an EMPTY signature per
+constant — no walk at all — cost the same 628.51 G.  It was
+`FEnv.push`'s **index insert**, copying the whole bucket array at
+every install.
+
+The generated C named the holder
+(`.lake/build/ir/ConLeche/Kernel/FEnv.c`, `FEnv_push`): a surviving
+`lean_inc_ref` on `idx` immediately before the insert, with
+`lean_alloc_closure(idxFind?, idx, visibleBelow)` built *after* it.
+The signature walk reads the environment through a CLOSURE over the
+index, and **a closure capture is an owned reference for the closure's
+whole lifetime** — built inline in `push`'s anonymous constructor, it
+held `idx` at RC 2 across the insert.  This is the task-#99 incident
+in a new place, and the lean-rc-linearity skill's rule 1
+(*use-then-consume*) is exactly the fix: hoist the signature into its
+own `let`, before the constructor, so the closure dies inside
+`relSigOf` and the insert mutates in place.  After the hoist:
+**+0.013 %** on the same cell, and the switches-off executable is
+BYTE-IDENTICAL to the pre-hoist one.
+
+Worth recording as a pattern: *any* new per-install side table that is
+computed from a reader over the index will reintroduce this, because
+the reader is a closure and the index is the thing being mutated.  The
+generated C is a 30-second check and it was decisive.
+
+### 3. The A/B table
+
+`perf stat -e instructions:u`, **one run per cell** (the project's own
+protocol, `scripts/perf-tables.sh`: the medians-of-3 round measured the
+spreads at 0.01-0.5 %, so the third significant figure is stable off a
+single run; a cell that looked wrong would be re-run, and none did),
+`--jobs=1`, `nice -n 5`, `ulimit -v 16 GB` (22 GB for `init-full` and
+the Mathlib prefix), `timeout`.  Four binaries from ONE tree, differing
+only in the two `abbrev`s: `base` (both off — the shipped setting),
+`irrel`, `absent`, `both`, all after §2b's linearity fix.  The streams
+are the arena's current tarball (fetched 2026-09-19) and the
+`init-full` export plus the Mathlib prefix (the cone of
+`Mathlib.Order.Filter.Basic` at mathlib4 `6f1ef4e5`) that task #307
+produced on this machine the same day — byte-for-byte the inputs its
+table used.
+
+Every cell accepted the same number of declarations in every column;
+no verdict moved anywhere.
+
+| stream | mode | `base` (G instr) | `irrel` | `absent` | `both` |
+|---|---|---|---|---|---|
+| `init-prelude` (1 777 decls) | `--trusted` | 3.04 | +0.398 % | +0.771 % | +0.951 % |
+|  | `--verified` | 3.20 | +0.327 % | +0.739 % | +0.909 % |
+| `app-lam` (21) | `--trusted` | 157.30 | +0.001 % | +0.001 % | +0.001 % |
+|  | `--verified` | 157.30 | +0.002 % | -0.000 % | +0.001 % |
+| `grind-ring-5` (2 185) | `--trusted` | 21.48 | +0.089 % | +0.094 % | +0.144 % |
+|  | `--verified` | 22.62 | +0.099 % | +0.100 % | +0.147 % |
+| `magma-list-pair-n21` (263) | `--trusted` | 194.37 | +0.001 % | +0.000 % | +0.002 % |
+|  | `--verified` | 199.26 | +0.001 % | +0.001 % | +0.002 % |
+| `magma-list-deep-n36` (479) | `--trusted` | 316.74 | +0.002 % | +0.004 % | +0.003 % |
+|  | `--verified` | 324.71 | -0.002 % | -0.001 % | -0.001 % |
+| **`init-full`** (57 977) | `--trusted` | 567.51 | +0.013 % | +0.174 % | +0.072 % |
+|  | `--verified` | 586.11 | +0.005 % | +0.161 % | +0.056 % |
+| **Mathlib prefix** (131 902) | `--trusted` | 817.19 | +0.498 % | — | — |
+|  | `--verified` | 848.85 | +0.471 % | — | — |
+
+Read it in three parts.  **The reduction-bound streams** (`app-lam`,
+the two `magma`s) do not notice either switch: they install a handful
+of declarations and spend everything in β/ι, so there is neither a
+signature to build nor a spine to skip — ±0.004 %, i.e. nothing.
+**The install-bound streams** (`init-prelude`, `grind-ring-5`, and the
+Mathlib prefix) pay for the signature walk in proportion to how much
+of the run is installing: +0.33 % on `init-prelude`, +0.10 % on
+`grind-ring-5`, **+0.47 to +0.50 % on the Mathlib prefix**, where the
+stored types are largest and `typeSortPW`'s per-domain walk is
+longest.  **`init-full`** sits between: +0.005 % verified, the best
+cell in the table and still a cost.
+
+**The cost of the field alone.**  `base` is not `master`: it carries
+the `FEnv.sigs` field and the folded-away branch at each fire site.
+Against a binary built from `master` (c9de006a), same streams, same
+day:
+
+| stream | mode | `master` (G) | `base` ÷ `master` |
+|---|---|---|---|
+| `init-prelude` (1 777 decls) | `--trusted` | 3.04 | +0.020 % |
+|  | `--verified` | 3.20 | +0.021 % |
+| `app-lam` (21) | `--trusted` | 157.30 | +0.003 % |
+|  | `--verified` | 157.30 | +0.004 % |
+| `grind-ring-5` (2 185) | `--trusted` | 21.47 | +0.038 % |
+|  | `--verified` | 22.62 | +0.033 % |
+| `magma-list-pair-n21` (263) | `--trusted` | 194.29 | +0.045 % |
+|  | `--verified` | 199.17 | +0.046 % |
+| `magma-list-deep-n36` (479) | `--trusted` | 316.51 | +0.072 % |
+|  | `--verified` | 324.56 | +0.046 % |
+| **`init-full`** (57 977) | `--trusted` | 567.28 | +0.043 % |
+|  | `--verified` | 585.84 | +0.047 % |
+
+**+0.02 to +0.07 %, switched off.**  One extra pointer per `FEnv`
+value and one extra `Std.HashMap` threaded through every install is
+not free, and that is the price of *keeping* the machinery even if
+nobody turns it on.
+
+### 4. The counts, and why there is nothing to win
+
+A counting build (the throwaway instrumentation in
+`_tmp/count-instrumentation.diff` on this branch's worktree: counters
+on `CState`, one `dbg_trace` line per checked record and per install
+step, the two `Installed.lean` lemmas the changed bodies broke
+`sorry`ed out) reports, per stream, the positions the signature marks,
+how many of those argument pairs were **not syntactically equal**, and
+the number of proof-irrelevance probes before and after.  Three
+binaries: `count-i0` (irrelevance marks, no skipping — the base
+trajectory), `count-a0` (absent marks, no skipping), `count-i1`
+(irrelevance, skipping).  `--verified`, `--jobs=1`.
+
+| stream | positions marked (check + install) | of those, pairs NOT syntactically equal | `propIrrel` probes before → after | of those, probes that would have reached INFERENCE (`propSlow`) before → after | `proofIrrel` probes before → after |
+|---|---|---|---|---|---|
+| Mathlib prefix (131 902 decls) | **12 610 + 118** | 9 719 + 19 | 1 735 040 → 1 725 041 (**−9 999**) | 1 985 → 1 950 (**−35**) | 8 087 → 7 528 |
+| `init-full` (57 977 decls) | **9 299 + 118** | 7 040 + 19 | 1 253 928 → 1 246 487 (**−7 441**) | 1 280 → 1 251 (**−29**) | 3 844 → 3 302 |
+| `grind-ring-5` | 19 + 58 | 14 + 7 | 21 418 → 21 397 (−21) | 98 → 98 (**0**) | 155 → 155 |
+| `init-prelude` | 8 + 36 | 7 + 5 | 2 705 → 2 693 (−12) | 46 → 46 (**0**) | 92 → 92 |
+| `magma-list-deep-n36` | 3 + 52 | 2 + 7 | 2 311 → 2 302 (−9) | 54 → 54 (**0**) | 35 → 35 |
+| `magma-list-pair-n21` | 1 + 16 | 1 + 2 | 930 → 927 (−3) | 26 → 26 (**0**) | 17 → 17 |
+| `app-lam` | 0 + 0 | 0 | 11 → 11 (0) | 0 → 0 | 0 → 0 |
+
+The absent-argument skip, separately: `init-full` 1 699 + 142
+positions of which only 506 + 0 were not syntactically equal;
+`grind-ring-5` 0 + 58, **all** syntactically equal; `init-prelude`
+0 + 0; `app-lam` 0 + 0.  (#307 measured `absentArg` at **zero**
+positions on the NbE core; on the shipped core it is not zero, but
+what it skips is pairs the pointer test decides in `O(1)` anyway.)
+
+**The position census: what the `.never` default gives up.**  A second
+counting build forces every constant-headed same-name spine through
+the masked loop (`isTrivial := false`) and counts, per position,
+whether the reader answered at all.  `--verified`, check phase +
+install phase:
+
+| stream | spine positions under a constant head | marked `Prop` | past the recorded telescope | **unknown** (`typeSortPW` answered `none`) |
+|---|---|---|---|---|
+| Mathlib prefix | 2 861 224 + 15 642 | 12 610 + 118 (0.44 %) | 3 026 + 82 (0.11 %) | 928 563 + 3 207 (**32.4 %**) |
+| `init-full` | 2 246 762 + 8 447 | 9 299 + 118 (0.41 %) | 1 900 + 82 (0.09 %) | 729 415 + 2 979 (**32.5 %**) |
+| `grind-ring-5` | 32 736 + 3 205 | 19 + 58 | 69 + 40 | 14 367 + 1 083 (43 %) |
+| `magma-list-deep-n36` | 907 + 2 873 | 3 + 52 | 0 + 28 | 311 + 976 (34 %) |
+| `init-prelude` | 1 492 + 1 447 | 8 + 36 | 0 + 8 | 621 + 497 (38 %) |
+| `app-lam` | 6 + 1 | 0 | 0 | 0 |
+
+So the "unknown" default is not a rounding error: **a third of all
+spine positions** get `.never` because the head-symbol reader declines
+(the domain's head is an fvar, a bound variable, a tower entry, or a
+type whose `∀`s appear only after `whnf`), and the shortcut passes on
+every one of them.  Positions genuinely *past* the syntactic telescope
+are negligible by comparison — 0.1 %.
+
+How many of that third are secretly proof positions cannot be known
+without running the inference the shortcut exists to avoid.  What
+*can* be bounded is the ceiling: a **perfect** relevance oracle would,
+at the very most, skip every position whose comparison ends in a
+proof-irrelevance probe — all 1 253 928 of them on `init-full`, of
+which 1 280 reach an inference.  Measured, removing 7 441 of those
+probes moved the run by less than the measurement's noise; 169× that
+is still a fraction of a percent.  **The ceiling on a perfect oracle
+is of order 0.3 %, and this signature reaches 0.6 % of the ceiling.**
+
+**Why the gain is zero, in one line.**  Skipping 9 417 positions on
+`init-full` removes 7 441 proof-irrelevance probes, of which
+**29** — three in ten thousand of the run's 1.25 M probes — would
+have reached the io-grade inferences that make a probe expensive.
+Every other avoided probe was already answered in `O(1)` by the
+head-symbol readers.  The shortcut's whole payload is therefore
+~7 400 `defeq` entries (a memo lookup, two `whnfCore`s, a syntactic
+compare) plus 29 avoided inference pairs — against a
+5.9 × 10¹¹-instruction run, which is below the measurement's own noise
+and, on every stream measured, below what the signature costs to
+build.
+
+Note the second column: most marked positions are pairs the caller
+would have decided *syntactically* (7 059 of 9 417 on `init-full` were
+NOT equal, so 2 358 were; on the small streams the ratio reverses).
+The "not equal" ones are the shortcut's real payload, and even those
+are answered by the fast readers.
+
+### 5. How the signature overlaps the `isProofFast`/`notProofFast` readers
+
+They are the same idea at two granularities, and the readers get there
+first.
+
+* `isProofFast`/`notProofFast` (`ConLeche/Kernel/PropRead.lean`, task
+  #168) are **per-term**: given a term `a`, read the zero-ness of the
+  sort of `a`'s type off `a`'s head symbol — one `find?`, one
+  `peelNeverPis` walk, one `PropWhen` comparison.  They sit inside
+  `propIrrel`, before the io inferences, and they decide both arms.
+* The relevance signature is **per-position**: given the head constant
+  `c` and a position `i`, is the *domain* at `i` a `Prop`?
+
+A skipped position is a position where the recursive `defeq` would
+have reached `propIrrel` and been answered "yes, both are proofs" by
+`isProofFast` — the same `PropWhen`, read off the argument's head
+instead of off the function's domain.  So the signature does not
+answer a question the readers cannot; it answers the same question one
+call earlier, saving the `defeq` entry and the two reader calls but
+not an inference.  The measurement is that accounting made concrete:
+−7 441 probes, −29 inferences.
+
+That is also why the `.never`-default positions (unknown domains, and
+everything past the syntactic telescope) cost nothing to give up: on
+those the readers still decide the pair at the probe, at their own
+`O(1)`.
+
+### 6. What the verified route would need
+
+Two things, and neither is deep; they are recorded, not proved.
+
+**The rule.**  `DefEq.appIrrel` in `ConLeche/Rules/Rel.lean`,
+premise-exact against the fire site as built.  The #306 study sketched
+it with three *inference* premises (`Infer .io f₁ tf → Red tf (∀ ty _ _)
+→ Infer .io ty (sort u) → u ≡ 0`); this spike's site runs no inference
+at all, so the premises are the stored datum instead — the shape of
+`DefEq.proofFast` (`Rel.lean:410`), which licenses a reader rather
+than a derivation:
+
+```lean
+  | appIrrel {d : Nat} {c : Name} {us : List Level} {ci : ConstantInfo}
+      {f₁ a₁ f₂ a₂ : Expr} {pw : PropWhen} :
+      DefEq env d f₁ f₂ →
+      f₁.getAppFn = .const c us → f₂.getAppFn = .const c us →
+      env.find? c = some ci →
+      (relSigOf env.find? ci).props[f₁.numArgs]? = some pw →
+      (Level.substPW ci.toConstantVal.levelParams us pw).isProp = true →
+      DefEq env d (.app f₁ a₁) (.app f₂ a₂)
+```
+
+(The checker compares the two heads' levels only up to `isEquiv`; the
+rule may either take `us` on both sides, as written — the head's own
+`DefEq` premise then supplies the equivalence — or carry `us'` with an
+`isEquivList us us' = some true` premise.  The zero-ness of a domain's
+sort is the same at equivalent levels either way.)
+
+**The law.**  The rule is sound only if the stored signature is
+truthful, which is an *environment* fact, exactly like `CapsOk` and
+`RecRules` in `ConLeche/Model/Annot/Laws.lean`: a field of the
+`EnvModel`, established at the install that computed the datum and
+consumed at the fire site.
+
+```lean
+  /-- **The relevance signatures are truthful** (`SigOkV`'s mirror;
+  established where `FEnv.push` computes the datum). -/
+  @[expose] def SigOk {V : Type w} [SetTheory V] {env : Env}
+      (m : EnvModel V env) : Prop :=
+    ∀ (c : Name) (ci : ConstantInfo) (i : Nat) (pw : PropWhen),
+      env.find? c = some ci →
+      (relSigOf env.find? ci).props[i]? = some pw →
+      ∀ φ' : Name → Nat, PropWhen.holds pw φ' →
+        SquashDomain m φ' ci i
+```
+
+where `SquashDomain m φ' ci i` says: peeling `i` binders off `ci`'s
+annotated stored type leaves `∀ (x : Aᵢ), _`, and `Aᵢ` denotes a
+squash-regime type at `φ'` — a set with at most one element, whose
+every member interprets as `pt`.  That is precisely what the install
+computed through `typeSortPW`, and the kit that relates a `typeSortPW`
+answer to the interpretation already exists: `prf_of_isProofFast`
+(`ConLeche/Model/Rules/DefEqSoundKit.lean:500`) with
+`neverChain_of_peel` (`:367`) and `io_domain_transfer` — the same
+telescope-peeling argument, applied to a *domain* of the telescope
+instead of to a term's own type.
+
+**The soundness argument.**  A `Prop`-typed domain denotes a set with
+at most one element; both arguments are members of it by the frame; so
+both interpret as `pt` and the two applications interpret equally
+(`interp_mkAppN_pt`).  The frame obligation — that `a₁` and `a₂`
+really inhabit `Aᵢ` — is **not** a premise of the rule, exactly as it
+is not a premise of `DefEq.proofIrrel` (which compares two proofs
+with no common-type check): the annotation-first discipline supplies
+it, since every subterm is checked before definitional equality
+compares it, and congruence reaches position `i` only after the
+earlier arguments matched.  The same discharge, the same paragraph of
+the design-review triage.
+
+**And one thing that would have to be re-stated.**  With a switch on,
+the cached core no longer reads its environment through `find?` alone
+— it also reads `FEnv.sigs`.  `coreKnotI_congr`
+(`ConLeche/Verify/Cached/KnotCongr.lean`) and the sentence of
+`OVERVIEW.md` that cites it would need the signature table as a second
+hypothesis, and the prefix-view argument (`restrictTo`) would have to
+say that the table agrees on the prefix.  That is real work in the
+simulation, not in the model — one more reason the gain would have to
+be real before starting.
+
+### 7. Parity
+
+`tests/arena.sh` (the full script, mode sweeps and worker sweeps
+included, no `ulimit -v`), with the shortcut ON — both switches, the
+`both2` build — against the same script with both switches off:
+
+| suite | switches off | both switches on |
+|---|---|---|
+| arena tutorial, `--verified` | 90/92 good tests accepted | **90/92** |
+| e2e | 195/195 as expected | **195/195** |
+| annot suite | 15/15 as expected | **15/15** |
+| mode flags / prelude counts / progress lane / worker pool / DAG-tower | 10/10, 3/3, 15/15, 15/15, 14/14 | **identical** |
+| `--trusted` sweep | 138 arena + 195 e2e + 15 annot, 3 recorded divergences | **identical** |
+| `--jobs=1` / `--jobs=4` sweeps | as at the default worker count | **identical** |
+| axiom pin | pinned (20 theorems) | **cannot run** |
+
+Every verdict is identical.  The one line that differs is the axiom
+pin, and for the expected reason: it builds `ConLecheTests`, which
+builds the verification tier, and with a switch on
+`defEqSpineArgs_fold` and `defEqSpineArgsI_off` are false — the build
+error names exactly those two.  That is the design (§1): a measurement
+build builds the executable alone.  The switches-off run of the same
+script is green on every line, axiom pin included (§ Gates).
+
+On the two large streams the verdict is unchanged as well: `init-full`
+accepts 57 977 declarations and the Mathlib prefix 131 902, at both
+modes, with every switch combination (the battery's `decls` column,
+§3).
+
+### 8. Recommendation: **drop it**
+
+Not "land it off" and not "land it on".  The reasons, in order:
+
+1. **There is no gain to license.**  The best cell in the battery is
+   `init-full --verified` at +0.005 % — a *cost*, at the edge of the
+   measurement — and the counts say why: the shortcut's entire payload
+   on the largest stream is 7 441 avoided `propIrrel` probes of which
+   29 would have needed an inference.  The per-term readers already do
+   this job in `O(1)`; the per-position signature only does it one
+   call earlier.
+2. **It is not free even switched off.**  The `FEnv.sigs` field costs
+   ~0.04-0.07 % on every stream measured, switches off, against
+   `master` — one more pointer per environment value and one more map
+   threaded through every install.  A feature with no upside should
+   not leave a field behind.
+3. **The verified route is not cheap.**  Two additions to
+   `Rules/Rel.lean` and `Model/Annot/Laws.lean` are small (§6), but
+   `coreKnotI_congr` — "the cached core reads its environment through
+   `find?` alone" — stops being true, and that sentence is load-bearing
+   in the cached simulation and in `OVERVIEW.md`.
+4. **It repeats #307's answer with a better-shaped experiment.**  The
+   #306 study's open question 2 ("are `DefEq.appIrrel` and
+   `DefEq.absentArg` acceptable additions?") is answered **"forgo
+   both"** for the second time, now on the shipped core, with the
+   signature built exactly as the maintainer described and with the
+   counts that explain the zero rather than merely reporting it.
+
+What to keep: the linearity finding of §2b is general and belongs in
+the project's memory whatever happens to the shortcut; and the shape
+of §6 is the template for any future rule whose premise is a stored
+datum rather than a derivation.
+
+If the maintainer wants it landed anyway (as a `--trusted`-only
+experiment, say), the branch is ready: the code is on
+`agent/irrel-311`, both switches off, all gates green, and turning it
+on is one `abbrev`.
+
+### 9. Where everything is
+
+* The implementation: `ConLeche/Kernel/Relevance.lean` (the signature,
+  the switches, the fire-site test), `ConLeche/Kernel/FEnv.lean` (the
+  install-time table, `idxFind?`, the use-then-consume hoist),
+  `ConLeche/Kernel/Core.lean` (`defEqListSkip`, `defEqSpineArgs`, the
+  two fire sites), `ConLeche/Cached/CoreC.lean` (the cached twins).
+* The `rfl`-on-the-switch equations the verification tier consumes:
+  `defEqSpineArgs_fold` (`Verify/Knot.lean`), `defEqSpineArgs_atF`
+  (`Verify/Fueled.lean`), `defEqSpineArgs_fst`/`_snd`
+  (`Verify/PairM.lean`), `defEqSpineArgsI_off`
+  (`Verify/Cached/KnotCongr.lean`); plus the `.2.1` re-spelling of
+  `mkFEnvGo_snd` in `Verify/EnvBound.lean`.
+* The measurement scaffolding (throwaway, on the worktree only, never
+  committed): `_tmp/count-instrumentation.diff` (the counters),
+  `_tmp/mkbin.sh`/`_tmp/mkcount.sh`/`_tmp/mkprobe.sh` (the binaries),
+  `_tmp/meas/run.sh`, `_tmp/counts.sh` and `_tmp/census.sh` (the
+  battery), the raw cells in `_tmp/meas/table*.tsv` and the logs
+  beside them; `_tmp/arena-off.log` / `_tmp/arena-on.log` are the
+  parity pair.
+
+### Gates
+
+At the closing commit, worktree `irrel-311`, both switches off:
+
+| gate | result |
+|---|---|
+| `lake build` | EXIT 0, 0 warnings, 0 `sorry` |
+| `lake test` | EXIT 0, 0 warnings |
+| `tests/layering.sh` | EXIT 0: base 305 / model 184 / caps 3 / umbrella 1; 0 base→lane, 0 impl→theory, 0 rules→impl (master's numbers plus `Kernel/Relevance.lean`) |
+| `tests/trust-surface.sh` | EXIT 0: 13 escapes in 5 allowlisted files, 0 outside |
+| `tests/shake.sh` | EXIT 0: 445 removals proposed, all allowlisted; pub-imports none demotable |
+| `tests/no-local-paths.sh` | EXIT 0 |
+| `tests/overview-links.sh` | EXIT 0 (four anchors repointed, §9's commit) |
+| `tests/quote-gate.sh` | EXIT 0 |
+| `tests/arena.sh` (full, both sweeps) | EXIT 0: axioms pinned (20 theorems); arena 90/92; e2e 195/195; annot 15/15; mode flags 10/10; prelude counts 3/3; progress 15/15; worker pool 15/15; DAG-tower 14/14; `--trusted` sweep and both `--jobs` sweeps as expected — master's numbers |
+
+Commits on `agent/irrel-311`: `c910f427` (the implementation behind
+the switch), `7e82150f` (the use-then-consume fix of §2b), `daf8d582`
+(the OVERVIEW anchors), and this record.
