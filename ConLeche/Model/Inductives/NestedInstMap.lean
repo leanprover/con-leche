@@ -9,6 +9,7 @@ import ConLeche.Verify.Inductives.NestedInv
 import ConLeche.Verify.Inductives.MutualInv
 import ConLeche.Model.Inductives.ContainerCross
 import ConLeche.Model.Inductives.NestedOwnPinsRead
+import ConLeche.Verify.Inductives.NestedOpenSpine
 public section
 
 /-!
@@ -202,6 +203,7 @@ recorded pin's own entry matches, so the position is at most the pin's
 index and hence itself below `d.nPins`; at two such positions the
 table's entries are the two pins at one scope, and
 `ContainerModeled.pinsDistinctAt` says equal entries are one pin. -/
+
 theorem NestedPinsRun.copyPinFInstTgt {pbs : List (Expr × ConLeche.BinderMeta)}
     (hPD : ∀ q, q < st.pins.length → PinData env st p pbs q)
     (hkindsRun : ConLeche.classifyMutualKinds (m := ConLeche.CheckM) b.members3 b.lps b.nP ctorsA
@@ -388,6 +390,305 @@ theorem NestedPinsRun.copyPinFInstTgt {pbs : List (Expr × ConLeche.BinderMeta)}
     (SF.pinRec _ _ PD.pin).1.symm
   obtain ⟨qK, e0, mm, hfi, he0, he0eq, hmapAt, hmapVal⟩ :=
     ConLeche.nestedInstMapOk_target R.hK61 hkP hq PD.pin hkq
+      (by rw [hpinJ]; exact hciP)
+      (by rw [hgb, Nat.add_sub_cancel_left]; exact hJ₂)
+      (by rw [hpinJ, ← hJ₂J]; exact hself)
+      (show j < (kindsP[q₀ + i']'hkqlt).length from (List.getElem?_eq_some_iff.mp hkfj).1)
+      hkfj hcJ hsJ hrt (by rw [hnPci]; exact hdomJ) hheadA hnm hciK he hme
+  -- `findIdx?` is minimal, so the position it answers is the pin's own index
+  obtain ⟨hqKlt, hqKp, hmin⟩ := List.findIdx?_eq_some_iff_getElem.mp hfi
+  obtain ⟨hclt, hcval⟩ := List.getElem?_eq_some_iff.mp hatq
+  have hqKle : qK ≤ dJ.tgts i' j l - dJ.k := by
+    refine Nat.not_lt.mp (fun hlt => ?_)
+    have hmin' := hmin _ hlt
+    simp [hcval] at hmin'
+  have hqKpin : qK < dJ.nPins := by omega
+  have hqKeq : qK = dJ.tgts i' j l - dJ.k := by
+    refine CMci.pinsDistinctAt qK (dJ.tgts i' j l - dJ.k) cvC.levelParams hqKpin hqq ?_
+    have hopen : ConLeche.containerParamOpeners dJ.nP
+        = ConLeche.containerParamOpeners ci.nP := by rw [hnPci]
+    have h1 : own0[qK]? = some ((dJ.pinAt qK).ownAt dJ.nP cvC.levelParams
+        (cvC.levelParams.map Level.param) (ConLeche.containerParamOpeners dJ.nP)) := by
+      rw [hopen]; exact hownAtPos _ hqKpin (by rw [hlenO])
+    have h2 : own0[dJ.tgts i' j l - dJ.k]? = some
+        ((dJ.pinAt (dJ.tgts i' j l - dJ.k)).ownAt dJ.nP cvC.levelParams
+          (cvC.levelParams.map Level.param) (ConLeche.containerParamOpeners dJ.nP)) := by
+      rw [hopen]; exact hownAtPos _ hqq (by rw [hlenO])
+    have h3 : own0[qK]? = own0[dJ.tgts i' j l - dJ.k]? := by
+      rw [hatq, List.getElem?_eq_getElem hqKlt]
+      exact congrArg some (by simpa using hqKp)
+    rw [h1, h2] at h3
+    exact Option.some.inj h3
+  -- the target read off the block's own tables
+  have htg : ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+      (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0 = t := by
+    rw [mutTgts_getD hGlt (show l < mutNFOf ctorsA (b.ownOffset (p.k + q₀ + i') + j) from by
+      show l < (ctorsA.getD _ default).2
+      rw [List.getD_eq_getElem?_getD, hcA, Option.getD_some, hcAnF]; exact hlF)]
+    show ((mutKsOf kinds (b.ownOffset (p.k + q₀ + i') + j)).getD l (.ordinary, 0)).2 = t
+    rw [hmutKs, List.getD_eq_getElem?_getD, hrt]; rfl
+  exact ⟨mm, hmapAt, by rw [htg, ← hqKeq]; exact hmapVal⟩
+
+/-- **K.61's ARM AT A REFLEXIVE NESTED FIELD** (task #315 K.65's model
+consumer): `copyPinFInstTgt` one `Π`-tower down.  Every step is the
+finitary one with the domain read after `stripDomPis` and the cut moved
+out by `domPiDepth`: the head comes from `BlockOpened.nestReflF`
+through `Expr.piBinders_instSeq` (`copyPinFKindRefl`'s derivation), the
+mention from `nestArgsMentionAbsRefl`, the spine from
+`nestPinSpineAbsRefl`, and K.61 answers through
+`nestedInstMapOk_target_refl`.
+
+`findIdx?`'s minimality and `pinsDistinctAt` then identify the position
+with the pin's own index exactly as they do on the finitary arm — the
+table is the same table, and the two arms differ only in which cut is
+looked up in it. -/
+theorem NestedPinsRun.copyPinFInstTgtRefl {pbs : List (Expr × ConLeche.BinderMeta)}
+    (hPD : ∀ q, q < st.pins.length → PinData env st p pbs q)
+    (hkindsRun : ConLeche.classifyMutualKinds (m := ConLeche.CheckM) b.members3 b.lps b.nP ctorsA
+      = .ok kinds)
+    {i' : Nat} (hi' : i' < kJ)
+    (hgb : (pinAtE st (q₀ + i')).grpBase = q₀)
+    (CM : ∀ ciJ : ContainerInfo,
+      ConLeche.containerInfo? env (pinsS.getD (q₀ + i') default).J = some ciJ →
+      ContainerModeled mp₁'.base2 ciJ dJ)
+    {j : Nat} {cAJ : ConstantVal × Nat} (hj : (dJ.ctorsM i')[j]? = some cAJ)
+    {l : Nat} (hlF : l < cAJ.2)
+    (hreflC : (dJ.ksF i' j).getD l .ordinary = .reflexive)
+    (hpinT : ¬ dJ.tgts i' j l < dJ.k) :
+    ∃ mm : List Nat, ConLeche.nestedInstMapAt env st (q₀ + i') = some mm ∧
+      mm.getD (dJ.tgts i' j l - dJ.k) st.pins.length
+        = ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+            (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0 - p.k := by
+  classical
+  have hq : q₀ + i' < st.pins.length := by
+    rw [← SF.pinsLen]; have := S.seg; omega
+  have PD := hPD _ hq
+  obtain ⟨cc, J, ci, cI, cA, cname, hciP, hJmem, hcc, hn, hty, hnf, hJname, hinst, hcj, hcA,
+    hbc, hnF⟩ := R.ctorPair SF S hPD hi' hj
+  have CMci : ContainerModeled mp₁'.base2 ci dJ := CM ci hciP
+  obtain ⟨cvT, caps, cvR, mI, rP, rules, -, hI, -⟩ := S.stored i' hi'
+  obtain ⟨-, -, hCD⟩ := hI.ctors i' j cAJ hI.memberLt hj
+  obtain ⟨cbs, esJ, hstripJ, -⟩ := hCD.resid
+  have hcbsLen : cbs.length = dJ.nP + cAJ.2 := Expr.stripPis_length _ hstripJ
+  have hjlt : j < (dJ.ctorsM i').length := (List.getElem?_eq_some_iff.mp hj).1
+  have hGlt : b.ownOffset (p.k + q₀ + i') + j < ctorsA.length :=
+    (List.getElem?_eq_some_iff.mp hcA).1
+  -- K.26's kinds table at the pin, and the stored copy's constructor
+  obtain ⟨kindsP, hkP, hkPlen⟩ := ConLeche.nestedPinKindsOk_inv R.hkinds
+  have hkqlt : q₀ + i' < kindsP.length := by rw [hkPlen]; exact hq
+  have hkq : kindsP[q₀ + i']? = some (kindsP[q₀ + i']'hkqlt) :=
+    List.getElem?_eq_getElem hkqlt
+  obtain ⟨a, ha, hkget⟩ := ConLeche.nestedPinKinds_get hkP hkq
+  have ha' : stored[p.k + q₀ + i']? = some a := by
+    rw [show p.k + q₀ + i' = p.k + (q₀ + i') from by omega]; exact ha
+  obtain ⟨hactor, hall⟩ :=
+    ConLeche.auxStored_ctor_eq R.haux R.hformers R.hctorsA R.h3 R.hstored ha'
+  have hjA : j < a.ctors.length := by rw [hactor, ← S.ctorCount i' hi']; exact hjlt
+  obtain ⟨ac, hac⟩ : ∃ c, a.ctors[j]? = some c := ⟨_, List.getElem?_eq_getElem hjA⟩
+  obtain ⟨acv, acnP, acnF⟩ := ac
+  obtain ⟨cA', hcA', hcv, -, hnf'⟩ := hall j _ hac
+  have hcAeq : cA' = cA := Option.some.inj (hcA'.symm.trans hcA)
+  rw [hcAeq] at hcv hnf'
+  -- the aux block's classification at that position
+  obtain ⟨hmapM, -, -, -⟩ := ConLeche.classifyMutualKinds_inv hkindsRun
+  obtain ⟨ksG, hksG, hmk⟩ :=
+    ConLeche.mapM_option_inv hmapM (b.ownOffset (p.k + q₀ + i') + j) cA hcA
+  have hmutKs : mutKsOf kinds (b.ownOffset (p.k + q₀ + i') + j) = ksG := by
+    show kinds.getD _ [] = _
+    rw [List.getD_eq_getElem?_getD, hksG]; rfl
+  have hkfj : (kindsP[q₀ + i']'hkqlt)[j]? = some ksG := by
+    rw [hkget j acv acnP acnF hac, ← hmk]
+    simp only at hcv hnf' ⊢
+    rw [hcv, hnf']
+  obtain ⟨hksLen, -, -⟩ := R.h.ksJ _ _ hcA
+  have hcAnF : cA.2 = cAJ.2 := by rw [hnF, hnf]
+  have hlks : l < ksG.length := by rw [← hmutKs, hksLen, hcAnF]; exact hlF
+  obtain ⟨rt, hrt⟩ : ∃ rt, ksG[l]? = some rt := ⟨_, List.getElem?_eq_getElem hlks⟩
+  obtain ⟨r, t⟩ := rt
+  -- the container's member record at `i'`, positionally
+  have hik : i' < dJ.k := by rw [S.kEq]; exact hi'
+  have hcimem : i' < ci.members.length := by rw [← CMci.k]; exact hik
+  obtain ⟨J₂, hJ₂⟩ : ∃ J₂, ci.members[i']? = some J₂ :=
+    ⟨_, List.getElem?_eq_getElem hcimem⟩
+  have hJ₂name : J₂.name = J.name := by
+    rw [← (CMci.member i' J₂ hJ₂).1, hJname]
+    exact hI.member
+  have hJ₂mem : J₂ ∈ ci.members := List.mem_of_getElem? hJ₂
+  have hjJ₂ : j < J₂.ctors.length := by
+    have hmap := (CMci.member i' J₂ hJ₂).2.1
+    have hlen := congrArg List.length hmap
+    simp only [List.length_map] at hlen
+    omega
+  obtain ⟨cJ, hcJ⟩ : ∃ cJ, J₂.ctors[j]? = some cJ := ⟨_, List.getElem?_eq_getElem hjJ₂⟩
+  have hccJ : cc = cJ :=
+    (ConLeche.containerInfo?_member_ctor_det hciP hciP hJmem hJ₂mem hJ₂name.symm hcc hcJ).2.2.2
+  -- the container's stored constructor, stripped
+  have hnPci : ci.nP = dJ.nP := CMci.nP.symm
+  have hcJty : cJ.type = cAJ.1.type := by rw [hty, hccJ]
+  have hcJnF : cJ.nFields = cAJ.2 := by rw [hnf, hccJ]
+  obtain ⟨residJ, hsJ⟩ : ∃ residJ, cJ.type.stripPis (ci.nP + cJ.nFields) = some (cbs, residJ) :=
+    ⟨_, by rw [hcJty, hcJnF, hnPci]; exact hstripJ⟩
+  -- the pin the container's own classification names
+  have hnestq : dJ.nestOf i' j l = some (dJ.tgts i' j l - dJ.k) := dJ.nestOf_some hpinT
+  have hFssLen : ((dJ.Fss i' (fun _ => 0)).getD j []).length = cAJ.2 :=
+    hI.Fss_length hj (fun _ => 0)
+  have hqq : dJ.tgts i' j l - dJ.k < dJ.nPins :=
+    CMci.reps.tgt_pin_lt hik hj l (by rw [hFssLen]; exact hlF) hpinT
+  -- the container's field domain, abstract, and its head
+  obtain ⟨domJ, hdomJ⟩ : ∃ domJ, cbs[dJ.nP + l]? = some domJ :=
+    ⟨_, List.getElem?_eq_getElem (by omega)⟩
+  obtain ⟨x, hx⟩ : ∃ x, (dJ.xFvsF i' j)[l]? = some x :=
+    ⟨_, List.getElem?_eq_getElem (by rw [hCD.xLen]; exact hlF)⟩
+  obtain ⟨afvs, bodyO, hopA, hafvs, -, hfnO, -, -, -, -⟩ :=
+    hCD.opened.nestReflF l x _ hx hnestq hreflC
+  have hdrop : (cbs.drop dJ.nP)[l]? = some domJ := by
+    rw [List.getElem?_drop]; exact hdomJ
+  -- **THE HEAD, ONE `Π`-TOWER DOWN** (task #315 K.65): `nestReflF`
+  -- gives the OPENED domain as a telescope with a pin-headed body, and
+  -- the tower's depth and body cross the opening because the openers
+  -- are variables (`Expr.piBinders_instSeq`) — `copyPinFKindRefl`'s
+  -- own derivation, at the same inputs.
+  have hdomEq : x.fvarTypeD
+      = Expr.instSeq (dJ.fvsPF i' j ++ (dJ.xFvsF i' j).take l) (dJ.nP + l - 1) domJ.1 :=
+    blockCtorFieldDomain hCD
+      (show cAJ.1.type.stripPis (dJ.nP + cAJ.2)
+          = some (cbs.take dJ.nP ++ cbs.drop dJ.nP, _) from by
+        rw [List.take_append_drop]; exact hstripJ)
+      (by rw [List.length_take]; omega) hx hdrop
+  obtain ⟨crestA, hopPA, hopXA⟩ := hCD.opens
+  obtain ⟨bodyA₀, hopAll⟩ : ∃ bodyA₀, ConLeche.openPisAtFvars (dJ.nP + cAJ.2) cAJ.1.type 0
+      = some (dJ.fvsPF i' j ++ dJ.xFvsF i' j, bodyA₀) :=
+    ⟨_, openPisAtFvars_add dJ.nP hopPA (by rw [Nat.zero_add]; exact hopXA)⟩
+  have hfvAll : ∀ v ∈ dJ.fvsPF i' j ++ dJ.xFvsF i' j,
+      ∃ (idx : Nat) (ty : Expr), v = Expr.fvar idx ty := by
+    obtain ⟨-, -, -, hlenO', hIdxO, -⟩ :=
+      ConLeche.Verify.openPisAtFvars_stripPis (dJ.nP + cAJ.2) hopAll
+    intro v hv
+    obtain ⟨iv, hiv, hvi⟩ := List.mem_iff_getElem.mp hv
+    obtain ⟨tyv, hjv⟩ := hIdxO iv (by rw [← hlenO']; exact hiv)
+    rw [List.getElem?_eq_getElem hiv] at hjv
+    exact ⟨0 + iv, tyv, by rw [← hvi]; exact Option.some.inj hjv⟩
+  have hfvL : ∀ v ∈ dJ.fvsPF i' j ++ (dJ.xFvsF i' j).take l,
+      ∃ (idx : Nat) (ty : Expr), v = Expr.fvar idx ty := by
+    intro v hv
+    refine hfvAll v ?_
+    rcases List.mem_append.mp hv with h | h
+    · exact List.mem_append_left _ h
+    · exact List.mem_append_right _ (List.mem_of_mem_take h)
+  have hlenL : (dJ.fvsPF i' j ++ (dJ.xFvsF i' j).take l).length ≤ dJ.nP + l - 1 + 1 := by
+    rw [List.length_append, hCD.pLen, List.length_take]; omega
+  have hafvsIdx : ∀ v ∈ afvs, ∃ (idx : Nat) (ty : Expr), v = Expr.fvar idx ty := by
+    obtain ⟨-, -, -, hlenA', hIdxA, -⟩ := ConLeche.Verify.openPisAtFvars_stripPis _ hopA
+    intro v hv
+    obtain ⟨iv, hiv, hvi⟩ := List.mem_iff_getElem.mp hv
+    obtain ⟨tyv, hjv⟩ := hIdxA iv (by rw [← hlenA']; exact hiv)
+    rw [List.getElem?_eq_getElem hiv] at hjv
+    exact ⟨dJ.nP + l + iv, tyv, by rw [← hvi]; exact Option.some.inj hjv⟩
+  obtain ⟨hdepEq, hbodyEq⟩ := ConLeche.Model.Expr.piBinders_instSeq
+    (dJ.fvsPF i' j ++ (dJ.xFvsF i' j).take l) (dJ.nP + l - 1) domJ.1 hfvL hlenL
+  rw [← hdomEq] at hdepEq hbodyEq
+  have hbodyO : bodyO
+      = Expr.instSeq afvs ((x.fvarTypeD.piBinders).1.length - 1) ((x.fvarTypeD.piBinders).2) :=
+    openPisAtFvars_instSeq _ hopA
+      (ConLeche.Model.Expr.stripPis_piBinders x.fvarTypeD)
+  have hfnPB : ((x.fvarTypeD.piBinders).2).getAppFn
+      = Expr.const (dJ.pinAt (dJ.tgts i' j l - dJ.k)).J
+          (dJ.pinAt (dJ.tgts i' j l - dJ.k)).lvls := by
+    refine ConLeche.os_instSeq_getAppFn_const_inv afvs hafvsIdx
+      ((x.fvarTypeD.piBinders).1.length - 1) _ ?_
+    rw [← hbodyO]; exact hfnO
+  have hheadPB : ((domJ.1.piBinders).2).getAppFn
+      = Expr.const (dJ.pinAt (dJ.tgts i' j l - dJ.k)).J
+          (dJ.pinAt (dJ.tgts i' j l - dJ.k)).lvls := by
+    refine ConLeche.os_instSeq_getAppFn_const_inv _ hfvL
+      (dJ.nP + l - 1 + (domJ.1.piBinders).1.length) _ ?_
+    rw [← hbodyEq]; exact hfnPB
+  have hsd : ConLeche.stripDomPis domJ.1 = (domJ.1.piBinders).2 := by
+    rw [ConLeche.stripDomPis_of_stripPis _ (ConLeche.Model.Expr.stripPis_piBinders domJ.1),
+      ConLeche.stripDomPis_eq_self_of_getAppFn_const hheadPB]
+  have hheadA : (ConLeche.stripDomPis domJ.1).getAppFn
+      = Expr.const (dJ.pinAt (dJ.tgts i' j l - dJ.k)).J
+          (dJ.pinAt (dJ.tgts i' j l - dJ.k)).lvls := by
+    rw [hsd]; exact hheadPB
+  -- the head is a FURTHER stored container, and no member of this group
+  obtain ⟨ciK, hciK₀, hnPK⟩ := CMci.pinNP _ hqq
+  have hciK : ConLeche.containerInfo? env (dJ.pinAt (dJ.tgts i' j l - dJ.k)).J = some ciK :=
+    S.contsEnv _ hqq ciK hciK₀
+  have hnm : ((ci.members.map (·.name)).contains
+      ((dJ.pinAt (dJ.tgts i' j l - dJ.k)).J)) = false := by
+    have hne : (dJ.pinAt (dJ.tgts i' j l - dJ.k)).J ∉ ci.members.map (·.name) := by
+      rw [← CMci.memberNames_eq]; exact CMci.pinsNotMembers _ hqq
+    simpa using hne
+  -- and its parameter part carries a member of the container's own group
+  obtain ⟨e, he, hme⟩ := CMci.nestArgsMentionAbsRefl i' j l cAJ cbs _ domJ _ hik hj hstripJ hdomJ
+    hnestq hqq hreflC
+  rw [hnPK] at he
+  rw [CMci.memberNames_eq] at hme
+  -- the container's own level parameters, and the group's first member
+  obtain ⟨cvT₀, caps₀, cvR₀, mI₀, rP₀, rules₀, -, -, -, -, hmembers⟩ :=
+    ConLeche.containerInfo?_inv hciP
+  have hmem0 : 0 < ci.members.length := by omega
+  obtain ⟨M₀, hM₀⟩ : ∃ M₀, ci.members[0]? = some M₀ :=
+    ⟨_, List.getElem?_eq_getElem hmem0⟩
+  obtain ⟨cvC₀, capsC₀, cvRc₀, mIc₀, rulesC₀, -, -, hlps₀, -, hlpsT₀, -, -⟩ :=
+    hmembers M₀ (List.mem_of_getElem? hM₀)
+  obtain ⟨cvC, capsC, cvRc, mIc, rulesC, hfindC, -, hlpsC, -, hlpsT, -, -⟩ :=
+    hmembers J₂ hJ₂mem
+  have hlvlsEq : M₀.lps = cvC.levelParams := by rw [hlps₀, hlpsT₀, hlpsT]
+  -- the own-pin table AT THE CONTAINER'S OWN SCOPE
+  have hmemJ₂ : dJ.memberName i' = J₂.name := (CMci.member i' J₂ hJ₂).1
+  have hJ₂J : J₂.name = (pinsS.getD (q₀ + i') default).J := by rw [hJ₂name, hJname]
+  have hciJ₂ : ConLeche.containerInfo? env J₂.name = some ci := by rw [hJ₂J]; exact hciP
+  have hhead0 : ci.members.head? = some M₀ := by
+    rw [List.head?_eq_getElem?]; exact hM₀
+  have hselfEq : ConLeche.containerOwnPinsSelf env J₂.name
+      = ConLeche.containerOwnPinsAt env J₂.name (cvC.levelParams.map Level.param)
+          (ConLeche.containerParamOpeners ci.nP) := by
+    rw [← hlvlsEq]
+    simp only [ConLeche.containerOwnPinsSelf, bind, Option.bind, hciJ₂, hhead0]
+  have hownAt0 : ConLeche.containerOwnPinsAt env J₂.name (cvC.levelParams.map Level.param)
+      (ConLeche.containerParamOpeners ci.nP)
+      = some (ConLeche.containerOwnPinsAtGo env (M₀.name.str "rec") cvC.levelParams
+          (cvC.levelParams.map Level.param) (ConLeche.containerParamOpeners ci.nP) ci.nP 64 0) :=
+    containerOwnPinsAt_eq hfindC hciJ₂ hhead0
+  obtain ⟨own0, hownAt⟩ : ∃ own0 : List Expr,
+      ConLeche.containerOwnPinsAt env J₂.name (cvC.levelParams.map Level.param)
+        (ConLeche.containerParamOpeners ci.nP) = some own0 := ⟨_, hownAt0⟩
+  have hself : ConLeche.containerOwnPinsSelf env J₂.name = some own0 := hselfEq.trans hownAt
+  -- the openers are closed
+  have hclO : ∀ a ∈ ConLeche.containerParamOpeners ci.nP,
+      a.looseBVarsBounded 0 = true := by
+    intro a ha
+    obtain ⟨i, -, rfl⟩ := List.mem_map.mp ha
+    rfl
+  have hlenO : (ConLeche.containerParamOpeners ci.nP).length = dJ.nP := by
+    rw [← hnPci]; simp [ConLeche.containerParamOpeners]
+  obtain ⟨hownMem, hownAtPos⟩ := CMci.ownPins i' cvC capsC (cvC.levelParams.map Level.param)
+    (ConLeche.containerParamOpeners ci.nP) own0 hik
+    (by rw [hmemJ₂]; exact R.cross.1 _ _ (fun _ _ _ _ hh => nomatch hh) hfindC) hclO
+    (by rw [hmemJ₂, R.ownPinsCross (C := J₂.name) (by rw [hfindC]; rfl)]; exact hownAt)
+  -- the container's own field spine, in the container's own scope
+  have hspine := CMci.nestPinSpineAbsRefl i' j l cAJ cbs _ domJ (dJ.tgts i' j l - dJ.k)
+    cvC.levelParams hik hj hstripJ hdomJ hnestq hqq hreflC
+  have hcut : Expr.instantiateList
+      (Expr.mkAppN (ConLeche.stripDomPis domJ.1).getAppFn
+        ((ConLeche.stripDomPis domJ.1).getAppArgs.take ciK.nP))
+      (ConLeche.containerParamOpeners ci.nP).reverse (l + ConLeche.domPiDepth domJ.1)
+      = (dJ.pinAt (dJ.tgts i' j l - dJ.k)).ownAt dJ.nP cvC.levelParams
+          (cvC.levelParams.map Level.param) (ConLeche.containerParamOpeners dJ.nP) := by
+    rw [hnPci, ← hnPK]; exact hspine
+  -- the table's entry at the pin's OWN index is that spine
+  have hatq : own0[dJ.tgts i' j l - dJ.k]? = some
+      (Expr.instantiateList (Expr.mkAppN (ConLeche.stripDomPis domJ.1).getAppFn
+        ((ConLeche.stripDomPis domJ.1).getAppArgs.take ciK.nP)) (ConLeche.containerParamOpeners ci.nP).reverse (l + ConLeche.domPiDepth domJ.1)) := by
+    rw [hcut, show ConLeche.containerParamOpeners dJ.nP
+        = ConLeche.containerParamOpeners ci.nP from by rw [hnPci]]
+    exact hownAtPos _ hqq (by rw [hlenO])
+  -- K.61 at this field
+  have hpinJ : (pinAtE st (q₀ + i')).container = (pinsS.getD (q₀ + i') default).J :=
+    (SF.pinRec _ _ PD.pin).1.symm
+  obtain ⟨qK, e0, mm, hfi, he0, he0eq, hmapAt, hmapVal⟩ :=
+    ConLeche.nestedInstMapOk_target_refl R.hK61 hkP hq PD.pin hkq
       (by rw [hpinJ]; exact hciP)
       (by rw [hgb, Nat.add_sub_cancel_left]; exact hJ₂)
       (by rw [hpinJ, ← hJ₂J]; exact hself)
