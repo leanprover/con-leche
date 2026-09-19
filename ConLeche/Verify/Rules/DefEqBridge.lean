@@ -1,7 +1,6 @@
 module
 
 public import ConLeche.Verify.Rules.Defs
-public import ConLeche.Verify.Knot
 import ConLeche.Verify.Rules.DefEqStepInv
 import ConLeche.Verify.Rules.Certs
 import ConLeche.Verify.Rules.RedBridge

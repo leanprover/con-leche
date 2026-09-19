@@ -1,8 +1,6 @@
 module
 
 public import ConLeche.Verify.Rules.Defs
-public import ConLeche.Verify.Knot
-import ConLeche.Rules.Derived
 import ConLeche.Verify.InferLemmas
 import ConLeche.Verify.InferIOLemmas
 
