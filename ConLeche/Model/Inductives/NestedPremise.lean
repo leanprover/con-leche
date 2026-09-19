@@ -477,6 +477,32 @@ structure ContainerModeled {env : Env} (m : EnvModel V env) (ci : ContainerInfo)
   neighbours. -/
   pinParams : ∀ (i : Nat) (M : ConLeche.ContainerMember), ci.members[i]? = some M →
     ContainerPinParams (V := V) ⟨M.name, M.lps, M.type⟩ d
+  /-- **THE CONTAINER'S OWN PINS ARE SPELLED DIFFERENTLY FROM ONE
+  ANOTHER** (task #315, lane WIDE's (f3)): two of the container's
+  recorded pins with ONE pin term are one pin.
+
+  **Why a container needs a clause for a fact the block being installed
+  has for free.**  The elimination dedupes by pin EXPRESSION —
+  `replaceIfNested` mints only on a miss — so a run's own pin list is
+  `pinsDistinct` (K.31, the left conjunct of `nestedContainersOk`), and
+  the run's consumers read it there.  A CONTAINER, however, is consumed
+  at a LATER block, where its own run is gone; and the checks a run
+  makes about its own elimination are exactly the facts that do not
+  travel, because nothing in a stored constant records them.  So a
+  consumer that has to IDENTIFY one of a container's own pins — by its
+  term, which is the only handle a table read gives — needs the fact
+  carried, and this clause carries it, the way `ownPins` carries the
+  table itself.
+
+  Stated as an INJECTION rather than as a `Nodup`, because that is the
+  consumer's shape: a table lookup answers a POSITION, and what the
+  identification needs is that the position is the pin's own.  It
+  mentions no environment and no model, so it crosses an extension
+  verbatim, and it is vacuous at a pins-free container, like its
+  neighbours. -/
+  pinsDistinct : ∀ q q', q < d.nPins → q' < d.nPins →
+    Expr.mkAppN (.const (d.pinAt q).J (d.pinAt q).lvls) (d.pinAt q).DsE
+      = Expr.mkAppN (.const (d.pinAt q').J (d.pinAt q').lvls) (d.pinAt q').DsE → q = q'
 
 /-- **The block model's member names ARE the container group's**, as
 lists (task #315 PINF): `k` and `namesLen` give the length and

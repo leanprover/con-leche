@@ -605,6 +605,7 @@ theorem eqBlock_containerModeled {env : Env} {m : EnvModel V env}
   pinConts := fun _ h => (nomatch h)
   ownPins := eqBlock_ownPins hE hRec hR hmim
   pinψ := fun _ h => (nomatch h)
+  pinsDistinct := fun _ _ h _ _ => nomatch h
   pinParams := fun _ _ _ => ContainerPinParams.of_noPins rfl
 
 /-- **`Eq`'s pins' laws**: no pins. -/

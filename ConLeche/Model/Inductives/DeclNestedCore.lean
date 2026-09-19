@@ -670,7 +670,7 @@ theorem nestedContainerModeled {F : Nat} {st : ElimState} {envAux : Env}
     (fun ψ => ⟨(O.typed ψ).1.crossEnv T.agree O.reps.toIsBlockModels,
       (O.typed ψ).2.1.crossEnv T.agree O.reps.toIsBlockModels,
       (O.typed ψ).2.2.crossEnv T.agree O.reps.toIsBlockModels ?_⟩)
-    (fun ψ mm' j fs => ofNested_inj ψ mm' j fs) ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ hown ?_ ?_ ?_
+    (fun ψ mm' j fs => ofNested_inj ψ mm' j fs) ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ hown ?_ ?_ ?_ ?_
   · -- `hk`
     rw [hdk, List.length_map, List.length_zip, List.length_take, hclen]
     omega
@@ -995,6 +995,28 @@ theorem nestedContainerModeled {F : Nat} {st : ElimState} {envAux : Env}
     rw [nestedReadBack_getD (hdk ▸ hi) (by omega) hclen]
     rw [hnamesS i (hdk ▸ hi)] at hI
     exact hI
+  · -- `pinsDistinct`: K.31, the elimination's dedup by pin EXPRESSION
+    -- (`nestedContainersOk`'s left conjunct), read back through the
+    -- block model's record of the pins
+    intro q q' hq hq' heq
+    have hql : q < st.pins.length := by rw [← O.record.nPins]; exact hq
+    have hql' : q' < st.pins.length := by rw [← O.record.nPins]; exact hq'
+    have hpq : st.pins[q]? = some st.pins[q] := List.getElem?_eq_getElem hql
+    have hpq' : st.pins[q']? = some st.pins[q'] := List.getElem?_eq_getElem hql'
+    obtain ⟨hJ, hpe⟩ := O.record.pin q _ hpq
+    obtain ⟨hJ', hpe'⟩ := O.record.pin q' _ hpq'
+    have hterm : st.pins[q].pin = st.pins[q'].pin := by
+      rw [hpe, hpe', ← hJ, ← hJ']; exact heq
+    have hnd : (st.pins.map (·.pin)).Nodup := (ConLeche.nestedContainersOk_group hcont).1
+    have hm : ∀ (n : Nat) (hn : n < st.pins.length),
+        (st.pins.map (·.pin))[n]? = some (st.pins[n]'hn).pin := by
+      intro n hn
+      rw [List.getElem?_map, List.getElem?_eq_getElem hn]
+      rfl
+    have h1 : (st.pins.map (·.pin))[q]? = some st.pins[q].pin := hm q hql
+    have h2 : (st.pins.map (·.pin))[q']? = some st.pins[q].pin := by
+      rw [hm q' hql', hterm]
+    exact (List.getElem?_inj (List.getElem?_eq_some_iff.mp h1).1 hnd).mp (h1.trans h2.symm)
 
 /-- **THE BLOCK'S OWN PINS ARE ITS RECORDED PINS, AT EVERY
 INSTANTIATION** (task #315 M7-3 session 18, DESIGN §U.104):

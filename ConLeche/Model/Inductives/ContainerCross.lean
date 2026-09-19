@@ -531,6 +531,7 @@ theorem ContainerModeled.crossEnvP {Ts : List Name} {env₁ env₂ : Env}
       frame := C.frame
       ordFree := C.ordFree
       nestMention := C.nestMention
+      pinsDistinct := C.pinsDistinct
       nestArgsMention := C.nestArgsMention
       nestArgsMentionAbs := C.nestArgsMentionAbs
       ctorProjFree := C.ctorProjFree
@@ -1564,7 +1565,10 @@ theorem ContainerModeled.of_readBack {env : Env} {m : EnvModel V env} {nP : Nat}
       ContainerPinParams (V := V) (members.getD i default).1 d)
     (hmember : ∀ i, i < d.k → ∃ (cvR : ConstantVal) (mI rP : Nat) (rules : List RecRule),
       IsBlockModel m (members.getD i default).1.name (members.getD i default).1 cvR mI rP rules
-        d i) :
+        d i)
+    (hpinsDistinct : ∀ q q', q < d.nPins → q' < d.nPins →
+      Expr.mkAppN (.const (d.pinAt q).J (d.pinAt q).lvls) (d.pinAt q).DsE
+        = Expr.mkAppN (.const (d.pinAt q').J (d.pinAt q').lvls) (d.pinAt q').DsE → q = q') :
     ContainerModeled m (ConLeche.blockContainerInfo nP members) d where
   k := by rw [hk]; show _ = (members.map _).length; rw [List.length_map]
   namesLen := hnamesLen
@@ -1575,6 +1579,7 @@ theorem ContainerModeled.of_readBack {env : Env} {m : EnvModel V env} {nP : Nat}
   frame := hframe
   ordFree := hordFree
   nestMention := hnestMention
+  pinsDistinct := hpinsDistinct
   nestArgsMention := hnestArgsMention
   nestArgsMentionAbs := hnestArgsMentionAbs
   ctorProjFree := hctorProjFree
