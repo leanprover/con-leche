@@ -72306,23 +72306,59 @@ and two NEW shapes `NatSuccRow`/`NatOpRow` — the literal
 accelerations' semantic content at the shapes `reduceNat` fires on,
 with the subject's reading a premise.
 
-**The residue.**  `checkSoundAtP5`'s hypothesis is `TierInputsAt`,
-whose two literal fields are RUN rows (`nat_step : ∀ fuel, WhnfClaim
-fuel → ReduceNatStep fuel`).  Seven of `RulesInputs`' fields are
-projections of `TierInputsAt` (definitional); the two rows are not:
-they must be recovered by instantiating the run row at the literal
-run (`whnf` at fuel `≥ 2` is the identity on a `rawNatLit?` shape, so
-`reduceNat` at fuel `2` fires outright), which needs `WhnfClaim μ m φ 2`
-— obtainable from the old assembly's `whnf_claims` at fuels `0`/`1`.
-`RulesInputs.ofTier`'s two fields are `sorry` for that reason (lane
-R-nat).  **The durable fix, proposed for the maintainer's ruling:**
-`TierInputsAt.nat_step`/`nat_stepQ` become SEMANTIC fields
-(`NatSuccRow`/`NatOpRow`), supplied by `Model/NatStep.lean` from
-`EnvModelM.nat_ops`/`div_mod` — which is where the content already
-lives (`reduceNatStep_of` inverts the run and applies exactly that
-semantic clause).  This changes `TierInputsAt`'s field types (a
-textual change to `checkSoundAtP5`'s statement, not to its meaning)
-and touches `TierInputsAt.ofEnvModelM`'s two call sites.
+**The residue, and the ruling that removed it** (lane R-nat, landed).
+`checkSoundAtP5`'s hypothesis is `TierInputsAt`, whose two literal
+fields USED TO BE run rows (`nat_step : ∀ fuel, WhnfClaim fuel →
+ReduceNatStep fuel`).  Seven of `RulesInputs`' fields are projections
+of `TierInputsAt` (definitional); those two were not, and
+`RulesInputs.ofTier` carried them as `sorry`.  The maintainer ruled
+for the durable fix rather than for recovering the rows at the
+literal run: **`TierInputsAt.nat_step`/`nat_stepQ` are now the
+SEMANTIC fields `nat_succ : Rules.NatSuccRow` / `nat_op :
+Rules.NatOpRow`**, and all nine `RulesInputs` fields are projections.
+`checkSoundAtP5`'s statement changed textually, not in meaning.
+
+The content MOVED; nothing was re-proved.  `reduceNatSem_binary` was
+(1) the app spine's reading inversion, (2) the run unfolding with the
+cases on `whnf a` / `rawNatLit?` / `whnf b` / `rawNatLit?` /
+`natOpResult`, (3) the arguments' identification through the whnf IH,
+(4) the fourteen-way `natOpV_*` split from
+`EnvModelM.nat_ops`/`div_mod` at the two numerals.  The cut is at the
+seam after (2)+(3):
+
+* **`Model/NatStep.lean`** keeps (1) and (4) as `natSuccRow_of` /
+  `natOpRow_of` — the `natOpV_*` case split now exists in exactly one
+  place in the tree;
+* **`Model/Steps/Tiers.lean`** keeps (2)+(3) as
+  `reduceNatCore_unary`/`_binary` and
+  `reduceNatStep_of_rows`/`reduceNatStepPQ_of_rows`, the only place in
+  the literal tier that consumes a `WhnfClaim`;
+* `reduceNatSem*`/`reduceNatStep_of`/`reduceNatStepPQ_of` are gone —
+  after the field change nothing consumed them.
+
+**Two placement findings.**  (a) The glue could NOT go in
+`Model/NatStep.lean`: that file already sits ABOVE `Steps/Tiers.lean`
+(`NatStep → NatWf → DivMod → NatSem → NatEqs → Install → Tiers`), so
+`Tiers.lean` cannot import it and `TierInputsAt.ofEnvModelM` keeps the
+two rows as ARGUMENTS (supplied at its one call site,
+`Model/Capstone.lean`'s `TierInputsAt.ofSem`, from `natSuccRow_of mp φ`
+/ `natOpRow_of mp φ`).  For the same reason the glue may not use the
+numeral spine `natLit` at all.  (b) The run side therefore reads the
+whnf'd arguments through `WhnfReads` (`hwreads`, already derived from
+`h.reads` in `checkSoundAtP5`) instead of `denoteMeta_rawNatLit`:
+`reduceNatStep_of_rows` takes `NatSuccRow → NatOpRow → WhnfReads →
+WhnfClaim → ReduceNatStep`.  The alternative — `NatOpGuardLaw env`,
+which is what supplied `natLitSupported` before — is an `EnvModelM`
+fact that `TierInputsAt` does not carry, so taking it would have meant
+a third new field.
+
+`Model/Steps/Tiers.lean` now `import`s `Model/Rules/Inputs.lean` (no
+cycle: the rules tier's closure reaches `Steps/{Whnf,DefEq,Infer,
+InferIO,…}` through `EnvModelM`, never `Tiers`).  The proofdeps
+expectation gains the rules-tier modules on the model-side roots for
+that reason — rows ENTERING, against the deletion lane's usual
+direction, because `TierInputsAt`'s own statement now mentions the
+rules tier's two shapes.
 
 ### Risks and findings
 

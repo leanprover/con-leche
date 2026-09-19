@@ -177,7 +177,6 @@ theorem TierInputsAt.ofSem (mp : EnvModelM V μ env) (φ : Name → Nat) :
     TierInputsAt V μ mp.base2 φ :=
   TierInputsAt.ofEnvModelM mp
     (fun fuel => reduceNatReads_of mp.base2 (natOpGuardLaw_of mp) φ fuel)
-    (fun _fuel ihw => reduceNatStep_of mp ihw)
-    (fun _fuel ihw => reduceNatStepPQ_of mp ihw)
+    (natSuccRow_of mp φ) (natOpRow_of mp φ)
 
 end ConLeche.Model
