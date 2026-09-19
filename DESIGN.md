@@ -123218,3 +123218,119 @@ recorded rather than guessed at.
 
 Build, `lake test` and `tests/warning-free.sh` green; no `Kernel/`,
 `Cached/` or `Verify/` file moved.
+
+#### WIDE (3) (2) THE ROOT SIDE AS DATA — PRICED AGAINST THE TREE, AND THE CUT-`l` BRIDGE IS WHAT STOPS IT (lane LE, 2026-09-19)
+
+With K.69's guard completed the SYNTAX half of `hslotOrd`'s field-data
+input is in hand at every field where the owner fired.  The next step
+is the other half: carry the owner's normalised copy-field domains as
+DATA on its model, so that `Eis₂ = (dR.pinCtors qK).Eiss` has a source
+and `Eis₁ = Eis₂[s]` can be assembled.  Priced by INPUTS against the
+tree before building, as ruled.  **The carry is cheap; the one new
+object is not, and it is where this row stops.**
+
+##### (a) THE CARRY — CHEAP, AND ONLY IF THE CLAUSE IS MODEL-FREE
+
+`PinCtors` (`Model/Inductives/BlockRep.lean:348`) already carries the
+copy's field domains as `Fss : (Name → Nat) → List (List AnnotTerm)`
+(`:352`) beside `tgts` (`:356`), `tlss` (`:358`) and `Eiss` (`:360`);
+the owner's own normalised domains at the OPENERS are a field of
+exactly that shape.  The wiring is four sites and no proof:
+
+* one field on `PinCtors` (`BlockRep.lean:348-365`);
+* one value in `nestedPc` (`Model/Inductives/NestedCore.lean:72`), off
+  the auxiliary block's global lists the other fields already drop
+  into;
+* one line in `BlockModel.ofNested` (`Model/Inductives/BlockComposed.lean:172`,
+  `pinCtors := pc`);
+* seven `pinCtors := fun _ => default` sites unchanged (the basis,
+  one-block, mutual and pins-free blocks).
+
+Then one conjunct on `PinShapes` (`Model/Inductives/NestedPremise.lean:1138`),
+discharged in its single nested producer `nestedPinShapes_of`
+(`Model/Inductives/NestedPinLeafAll.lean:1572`) and absurd at the
+pins-free one (`BlockAt.of_noPins`).
+
+**AND THE TRANSPORTS ARE FREE ONLY IF THE CLAUSE PRODUCES NO
+ENVIRONMENT FACT.**  `PinShapes.crossEnv`
+(`Model/Inductives/ContainerCross.lean:613`) reuses conjuncts 2-5
+VERBATIM — they are model-free and environment-free — and spends its
+whole 40-line proof on conjunct 6, the `CopyCtorShape` one, rebuilding
+the constructor at the new environment and proving three `acval`
+agreements.  So a clause stated SYNTACTICALLY (terms, `ordTargetDom`,
+`findIdx?`) costs one token in that `refine`; a clause that mentions
+`m.acval` or `interp` joins conjunct 6 and needs its own
+`targetRead_congr`-shaped argument.  **The clause must therefore be the
+TERMS, and the readings must be derived at the consumer** — which is
+the standing "a `PinShapes` clause may only PRODUCE environment facts,
+never consume one" rule, arriving here as a costing.
+
+##### (b) THE ONE NEW OBJECT — THE OPENER→READING BRIDGE AT A FIELD DOMAIN, AND ITS PRICE
+
+`ContainerOwnPinsSyn.toReadOf`
+(`Model/Inductives/NestedOwnPinsRead.lean:359`) is the existing bridge
+and it is CUT 0: a container's own pin is a CLOSED term at the
+parameter openers, and `ContainerOwnPins`
+(`Model/Inductives/NestedPremise.lean:1626`) hard-codes
+`AnnotTerm.instAll Ds 0` in both of its clauses (`:1638`, `:1644`).  A
+FIELD DOMAIN sits under the constructor's EARLIER BINDERS — cut `l`,
+and a `Π`-tower on top of that at a reflexive field — so the bridge has
+to commute the reading with a LIFT and with the opener substitution AT
+THE OPENER'S ANNOTATION (the stand-in `sort 0` against the real
+parameter type).  Measured against the file that solved cut 0:
+
+| piece | where | lines | at cut `l`? |
+|---|---|---|---|
+| `ContainerOwnPinsSyn.toReadOf` | `NestedOwnPinsRead.lean:359` | 28 (17 of proof) | restatable |
+| `denoteMetaSpine_ownAt` | `:307` | 30 | restatable |
+| `denoteMeta_ownAt_component` | `:214` | 93 | **must be redone** — the substitution law, `instAll … 0` throughout |
+| the `dummyPis` closure/scope kit (`dummyPis`, `mkPisB_dummyPis_instantiate1`, `hasFvar_abstractRange_of_leaves`, `denoteMeta_mkPisB_dummyPis`, …) | `:72-213` | ~140 | **must be generalised** — it is built for exactly `nP` DEAD binders, and cut `l` has `l` LIVE ones |
+| the whole file | `NestedOwnPinsRead.lean` | 404 | — |
+
+What already exists at cut > 0 does NOT cover it:
+
+* `denoteMeta_openPisAtFvars_dom` (`Model/Inductives/NestedCopyRead.lean:226`,
+  42 lines) is generic in the depth `d + l` but is purely syntactic —
+  it knows nothing of containers, pins or `instAll`;
+* `mintFieldRead` (`Model/Inductives/NestedCopyInst.lean:495`) IS the
+  wanted shape at cut `b.nP + l` WITH the instantiation — and it lives
+  inside `section Assembly` under the RUN bundles (`R : NestedPinsRun`,
+  `SF : NestedPinSynFacts`, `S : NestedPinGroupSyn`,
+  `NestedCopyInst.lean:214-245`).  It is a run-tier fact; the owner's
+  side needs a `ContainerModeled`-tier one, and a theorem of the right
+  shape at the wrong tier is not available;
+* `instPisILP_read` (`NestedCopyRead.lean:86`) is the substitution's
+  reading law and its `hDs : ∀ a ∈ Ds, Expr.WScoped nP a ∧ …` (`:94`)
+  is the HARD CONSTRAINT: the components must be scoped at exactly the
+  `nP` openers, which a field domain at cut `l` is not.
+
+##### (c) THE PRICE, AND THE STOP
+
+(a) is well under a session.  (b) is ~250-400 lines of new model
+machinery — `denoteMeta_ownAt_component`'s 93 lines redone plus the
+~140-line scope kit generalised, before the reflexive `Π`-tower arm —
+and it is a NEW LANE in the shape of `NestedOwnPinsRead.lean`, not an
+edit of it.  Against the brief's own rule (**if it doubles a session,
+stop and say what it needs**) this row STOPS at the pricing rather than
+starting the build.
+
+**WHAT IT NEEDS**, in the order a session would take it:
+
+1. the cut-`l` substitution law — `denoteMeta_ownAt_component` with
+   `AnnotTerm.instAll … 0` replaced by `instAll … l`, whose consumers
+   are already stated at arbitrary cut (`interp_instAll`,
+   `Semantics/Tower/InstAll.lean:73`, takes the cut as `fs.length`);
+2. a scope kit that tolerates LIVE binders below the cut — the
+   `WScoped nP` constraint relaxed to "scoped at `nP`, loose below
+   `l`", which is what `denoteMeta_openPisAtFvars_dom` already produces
+   and what `instPisILP_read` refuses;
+3. `ContainerOwnPins`' twin at a field domain, and `toReadOf`'s twin
+   over it;
+4. only then the `PinShapes` conjunct of (a), whose statement is the
+   TERMS and whose reading is derived at `hslotOrd` through
+   `denoteMeta_of_rewriteRel` (`Model/Inductives/NestedRewriteRead.lean:563`,
+   already cut-generic — its depth `d` is universally quantified) and
+   K.69.
+
+Step 3 of the brief (`hslotOrd` discharged, `hfitc` closed) consumes
+(b)'s output, so it is stopped by the same price and is NOT attempted.
