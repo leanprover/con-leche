@@ -122178,3 +122178,41 @@ exactly what the correspondence needs.
 Nothing landed; the tree is back at the committed K.67/K.68 (`cmp` on
 the binary) and the patch is kept.  The battery has NOT been run — it
 is one battery for the pair once the model half is threaded.
+
+#### WIDE (3) OPTION 2, THREADING IN PROGRESS — the cut must be FACTORED before the corollaries can see it (lane LE, 2026-09-19)
+
+Threading `lps` through the six files turned up one mechanical lesson
+worth keeping, and it is about how the corollaries reach the cut.
+
+`ordTargetDom` was first written with `let`-bindings for the pin, its
+levels and the instantiated domain.  Unfolding it then leaves
+`have pin := …; have lvls := …` in the goal, and the `_at` corollaries
+— which prove `stripDomPis dom = dom ∧ domPiDepth dom = 0` at a
+constant-headed domain and rewrite the cut away — cannot MATCH it.  The
+fix is to factor the instantiation into its own definition:
+
+    def ordTargetLvls (ownSelf : List Expr) (qK : Nat) : List Level :=
+      match (ownSelf.getD qK default).getAppFn with
+      | .const _ us => us | _ => []
+
+    def ordTargetDomL (lps : List Name) (ownSelf : List Expr) (qK : Nat)
+        (dom : Expr) : Expr :=
+      dom.instantiateLevelParams lps (ordTargetLvls ownSelf qK)
+
+so that `ordTargetDom` is `instantiateList (stripDomPis (ordTargetDomL …)) …
+(l + domPiDepth (ordTargetDomL …))` and the corollaries can state their
+`hnf` at `ordTargetDomL …` and rewrite.
+
+The corollaries' own hypotheses move with it: `_at`'s `hfin` and
+`hhead` must be about `ordTargetDomL lps ownSelf qK domJ.1`, not about
+`domJ.1` — the raw domain's head is the container's stored one, and it
+is the INSTANTIATED one whose cut is the identity at a constant head.
+Half of that restatement is done in `_tmp/le2/k68-levels-v2.patch`
+(327 lines: the kernel half complete and building, the inversions
+mid-restatement); the rest of the threading — the guard form (1) in the
+two run lemmas, the ninth conjunct, the `PinShapes` clause,
+`rowTargetOrd` and `GroupFacts.ordTgt` — is unstarted.
+
+The battery has NOT been run: it is one battery for the pair and it
+runs when the threading is finished.  The tree is back at the committed
+records (`cmp` on the binary) and every patch is kept in `_tmp/le2/`.
