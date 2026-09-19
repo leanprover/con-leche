@@ -106084,6 +106084,309 @@ stream, and the answer is never to relax the check.  The message is
 pin of the block", and both routes carry that instruction at the point
 of failure.
 
+#### K.61 — the container instance map, with the own-pin fields' targets (2026-09-19, task #315, lane WIDE's request)
+
+Lane WIDE's request, implemented as priced except in two places, which
+this row records — one of them a MATERIAL COST, measured, on which the
+lane stops for a decision.  The instance map of a block pin `q` is
+
+    q's container's own pin index  qK   ↦   the block pin index  σ q qK
+
+— what identifies a container INSTANCE's copies with the container's
+own wide fixpoint (`docs/NESTED.md` §5).  K.41 records the CONVERSE
+direction (every block pin is SOME own pin's image), which is a
+covering and not a map: it says nothing about WHICH, nor that every own
+pin has an image, nor where a field's target sits.
+
+**WHAT THE ROUTE RECORDS.**  `nestedInstMapAt env st q` is pin `q`'s
+map, off `containerOwnPinsAt` at the pin's own level arguments and
+components — K.41's own reader, reused unchanged, and pin order is what
+the model indexes by.  `nestedInstMaps` is the table over all pins, and
+its `mapM` succeeding is the **TOTALITY** clause.  `nestedInstMapOkAt`
+adds the **FIELD** clause, and `nestedInstMapOk` is the Bool the route
+records.
+
+**THE MAP IS A FUNCTION AND MAY COLLAPSE.**  Two own pins instantiated
+alike arrive at ONE mimic (`tests/e2e/src/nested_pin_collide.lean`), and
+the set theory allows that; injectivity is NOT checked.  What is checked
+is that a value exists at every own pin.
+
+##### (a) THE ONE SPELLING THE REQUEST LEFT OPEN, AND THE ANSWER
+
+The request said the field's own-pin INDEX is "the position of the
+field's own-pin term in `containerOwnPinsAt` of the container at ITS
+OWN parameters", and left the spelling of "its own parameters" to the
+implementing lane.  Two things had to be settled, and the first was
+settled by a FIRE.
+
+1. **Bound variables do not work, and the check said so.**  The obvious
+   spelling — the container's parameters as the bound variables of the
+   `stripPis` telescope the field's domain lives in — makes
+   `containerOwnPinsSelf` return the PADDING:
+   `containerOwnPinsAt` instantiates the mimic recursor's whole
+   telescope with `Expr.instPis`, whose `instantiate1` lowers the
+   binders above each substitution, so a loose `bvar` handed to it is
+   re-captured by the next binder and comes out as
+   `Expr.sort Level.zero`.  Measured, not argued: the first build fired
+   at three of the shadow gate's streams, and the probe showed
+   `own0 = [Pair (sort 0) (J (sort 0) (sort 0)), …]` — two entries,
+   equal, both padding — against the field's
+   `Pair (bvar 1) (J (bvar 1) (bvar 0))`.
+   The fix is `containerParamOpeners`: `nP` SYNTHETIC free variables.
+   A stored constant's type carries no free variable at all, so an
+   `fvar` is a marker that cannot collide, and both sides of the
+   comparison are two substitutions by the SAME list — which is all the
+   comparison needs.  The openers go into the field's CUT (a pin, a
+   small term) rather than into the constructor's whole telescope:
+   `Expr.instantiateList cut opens l` with the openers REVERSED maps
+   `bvar (l + i)` to parameter `ci.nP - 1 - i` and leaves the earlier
+   fields' variables standing.
+2. **The index is determined in the container's OWN scope, not at the
+   pin's components.**  Matching the field against the INSTANTIATED
+   own-pin table would be sound for the equation and wrong for the
+   INDEX: under collapse two distinct own pins become one expression
+   there and `findIdx?` would answer the first, so the model's `qK` and
+   the route's could differ.  `containerOwnPinsSelf` is the table at
+   the identity instantiation, where the two are still two.
+
+##### (b) THE CARRIER DEVIATES FROM THE REQUEST IN ONE PLACE
+
+The request said to extend `nestedPinEdgesAt`.  What landed is
+`nestedCopyPinFieldsAt`'s walk — **K.60's, with K.60's guard verbatim**
+— and four reasons decided it:
+
+* `nestedPinEdgesAt`'s `mentions` bit is `mentionsMember` of the
+  container's group over the WHOLE domain, so it is also `true` at the
+  container's OWN RECURSION, which has no own pin at all.  An
+  edges-based row list would have to add the head test to exclude it —
+  and that test is exactly K.60's guard;
+* with K.60's guard the two records constrain the SAME fields and
+  compose: K.60 says the copy's field is `.recursive` into a pin, K.61
+  says WHICH pin;
+* the inversion is then a LITERAL twin of `nestedCopyPinFieldsOk_head`
+  — same binders, same `hsJ`/`hdJ`/`hhead` lookups — which is the shape
+  the request itself names for the consumer;
+* `nestedPinEdgesAt`'s row shape stays untouched, and
+  `nestedPinEdges_mem`, the rank machinery and the model's readers of
+  it with it.
+
+K.62 reads `nestedPinEdges`' rows unchanged, which is why the edge list
+is hoisted out of the mode test even though K.61 does not need it.
+
+**CARRIER: recompute-and-certify, K.59/K.60's shape.  No field on
+`NestedPin`, no parameter on the elimination** — the `mintedAt` trap.
+UNCONDITIONAL in both routes, `.internal` on failure.  It sits INSIDE
+`nestedPinChecks`, in front of that function's mode test, beside K.60
+and sharing its `kinds?`; the edge list and the instance-map table are
+hoisted out of the test with it.  **Neither route's call site changes**,
+so the cached simulation walks in `Verify/Cached/PushChain.lean` absorb
+it with no `ofDecCases` at all — K.60's arrangement, for K.60's reason.
+
+##### (c) THE MEASUREMENT
+
+| corpus | shadow blocks | accepting | fires |
+|---|---|---|---|
+| `tests/e2e/*` + `_tmp/arena-tests/{good,bad}`, each at both `CON_LECHE_INMODEL` settings (190 runs) | 95 | 89 | 0 |
+| `init-full` (53 093 accepted) | 1 | 1 | 0 |
+| Mathlib (654 504 accepted), both modes | 41 | 41 | 0 |
+
+*Firing control* — the same check demanding `σ q qK + 1`, the wrong
+answer: **4 fires over the e2e+arena sweep**, at
+`tests/e2e/inmodel_groups.ndjson`'s `InModelGroups.M` and `H`,
+`nested_p04`'s `P4` and `nested_pin_nocollide`'s `NoCollide` — K.60's
+three plus the witness lane WIDE landed for this map — and **5 of
+Mathlib's 41** (`Lean.Elab.InfoTree`, `Lean.Widget.MsgEmbed`,
+`Lean.Widget.HighlightedMsgEmbed` and the two
+`Lean.Server.Test.Runner.Client` twins), which is K.60's own list.
+*Reachability*: those nine are every block at which the guard is
+reached with content; `init-full`'s single shadow block `Lean.Syntax`
+reaches it 0 times, exactly as for K.60 (`Array`'s `toList : List α` is
+headed by a container whose parameter is `Array`'s own, not a member).
+The control fires in `--trusted` as well as `--verified` (checked at
+`nested_p04`), which is the direct evidence that the check is live in
+both modes.  `nested_pin_collide` and `nested_pin_collide2` — the
+COLLAPSING arm — do not reach the outer block's shadow today: the fold
+stops at the generated model record `Collide._model._impl.pack_1`, so
+the collapse is exercised by the tree's witnesses but not yet by this
+check.
+
+##### (d) THE COST — MATERIAL, AND THE LANE STOPS ON IT
+
+`perf stat -e instructions:u`.  "with" is K.61 AND K.62 together; they
+share the hoisted instance-map table and were not measured apart.
+
+| run | without | with | delta |
+|---|---|---|---|
+| `init-full --verified` (no shadow) | 539.260 G | 539.227 G | −0.006 % |
+| `init-full --trusted` (no shadow) | 521.885 G | 521.900 G | +0.003 % |
+| `init-full --verified --nested-shadow` | 539.331 G | 539.317 G | −0.003 % |
+| `init-full --trusted --nested-shadow` | 521.962 G | 521.996 G | +0.007 % |
+| Mathlib `--verified --nested-shadow` | 12 215.55 G | 12 255.41 G | **+0.326 %** |
+| Mathlib `--trusted --nested-shadow` | 11 248.52 G | 11 297.40 G | **+0.434 %** |
+
+The `init-full` rows are this harness's noise floor (one shadow block,
+and K.61's guard is never reached there).  The Mathlib rows are the
+forecast for when the dispatch arm lands, and they are **two and a half
+to three times K.60's +0.128 %/+0.142 %, which was this route's
+ceiling**.  Today the route is not dispatched and the production cost
+is zero in both modes, but the brief's rule is to stop at a material
+trusted cost and give the number: this is the number, and the decision
+is the coordinator's.
+
+**WHERE THE PRICE IS — MEASURED, AND THE FIRST GUESS WAS WRONG.**
+
+* *not the term walk.*  The first form of `nestedInstMapOkAt`
+  instantiated each container constructor's WHOLE telescope at the
+  openers (`Expr.instPisAtF`); the landed form strips the telescope and
+  substitutes into the CUT alone.  The two cost the SAME to three
+  digits — 12 275.57 G against 12 275.91 G on a Mathlib shadow run,
+  both +0.49 % over the baseline before the lookup fix below.  The term
+  work is not the price;
+* *the ENVIRONMENT LOOKUPS.*  `Env.find?` is `env.consts.find?`, a
+  LINEAR scan of the constant list, and a container like `List` sits at
+  the far end of a 654 504-entry Mathlib environment.  `containerInfo?`
+  costs a handful of such scans (the type, the recursor, then two per
+  member and one per constructor).  The record adds, per PIN, two more
+  `containerInfo?` calls and two more `Env.find?`s inside
+  `nestedInstMapAt` (`nestedPinLvlsDs`, then `containerOwnPinsAt`) on
+  top of K.60's one per pin and one per constant-headed field.
+
+The ablation, on a Mathlib shadow run (`--verified`):
+
+| arrangement | instructions | over baseline |
+|---|---|---|
+| baseline, neither record | 12 215.55 G | — |
+| K.61's field walk disabled, the map table and K.62 kept | 12 237.56 G | +0.180 % |
+| the map table stubbed empty, K.61's field walk kept | 12 231.33 G | +0.129 % |
+| both, before the lookup fix | 12 275.91 G | +0.494 % |
+| both, as landed | 12 255.41 G | **+0.326 %** |
+
+**THE LOOKUP FIX THAT LANDED**: `containerOwnPinsSelf` was read once
+per PIN and is now read INSIDE the guarded field branch — the guard is
+reached at nine blocks over three corpora and a pin is not.  It is
+exact, not an approximation: the walk already requires
+`containerInfo? env qn.container = some ci` with a member at
+`q - qn.grpBase`, so `containerOwnPinsSelf` is never `none` where it is
+now read.  Worth **+0.494 % → +0.326 %** verified and
+**+0.615 % → +0.434 %** trusted.
+
+**THE LEVERS LEFT, priced but NOT taken:**
+
+1. fuse `nestedPinLvlsDs`' `containerInfo?` with `containerOwnPinsAt`'s
+   inside `nestedInstMapAt` — one lookup group per pin instead of two.
+   It changes that function's BODY, so `nestedInstMapOk_at`'s proof
+   (not its statement) is redone: about one session, and it should take
+   roughly half of the +0.18 % the map table costs;
+2. the structural one, outside this lane: `Env.find?` is a list scan
+   and every container reader on the nested path pays it.  An index
+   would take this record, K.60, K.57 and K.41 down together, and it is
+   the only lever that reaches the other three.
+
+##### (e) LEDGER ROW — K.61
+
+Not certification-only: an unconditional check in both routes whose
+failure is `.internal`.  Category **(B)**, by-construction-only —
+official computes nothing of the kind; the instance map is OUR
+elimination's own and the fact is true by construction of `mkCopies`
+and of `replaceIfNested`'s dedup.  **Gating: NONE, and the reason is the
+consumer's** — the wide identification reads it in every mode, so a
+`certOnly` clause would be `true` in trusted mode and could serve
+nobody.  **It cannot fire.**
+
+**IF IT EVER FIRES** the elimination's instance map disagrees with its
+own pin table — a defect in the ROUTE, not in the stream, and the
+answer is never to relax the check.  The message is "nested: a
+container's own pin is not the block pin the copy's field records", and
+both routes carry that instruction at the point of failure.
+
+##### (f) WHAT CONSUMES IT, BY NAME
+
+`hstgt` and the totality are `hfit_wide_mem_of_inst`'s and
+`hfit_wide_of_inst`'s; `hσ` is `ofNested_pin_block_of_wide_inst`'s.
+Three more consumers came from lane WIDE while this landed, all at a
+COLLAPSED pair and all off ONE `PinCorr` pair at the shared block
+target — `hmemσ` (σ identifies no member class with a pin class),
+`hidxσ` (two own pins identified by σ have one index-tuple set) and
+`hcarσ` (the container's own wide carrier is fibre-constant along σ).
+They are why `nestedInstMapOk_at` hands back the correspondence
+POSITIONALLY — the block pin `σ q qK` together with
+`st.pins[σ q qK].pin = own[qK]`, `nestedPinRootPairOk_inv`'s four
+`ClassPin` data in ONE equality of pin terms — and why
+`nestedInstMapOk_collapsed` exists: two own pins with one image have
+one pin term, so their components and index telescopes agree.
+`hmemσ` additionally needs the own pin's head to be no member of the
+container's group, and `nestedInstMapOk_target` hands that out as a
+HYPOTHESIS it already took (`hnm`, K.60's guard), so no second record
+is needed for it either.
+
+#### K.62 — a rewritten ordinary field leaves the container instance (2026-09-19, task #315, lane WIDE's request)
+
+**A SECOND record, separate on purpose.**  It needs no walk of its own
+— it is a predicate on `nestedPinEdges`' existing rows against K.61's
+table — its clause is a NEGATIVE one, and a fire in it means something
+different from a fire in K.61: K.61 firing says the instance map is not
+what the mint produced; K.62 firing says a rewritten ORDINARY field
+re-entered the instance, which would refute the argument that such a
+target's container is not one of the container's own classes.
+
+**WHAT THE ROUTE RECORDS.**  `nestedOrdOutsideAt maps? edges?`: at
+every row `(q, t, mentions)` of `nestedPinEdgesAt` with
+`mentions = false` — the `ordF`-RIGHT rows, whose container-side field
+mentions no member of the container's own group — `t` is not in
+`σ q`'s image.  `nestedOrdOutsideOk` is it at the route's own tables.
+
+Gating, placement and carrier are K.61's, and the two share the hoisted
+edge list and instance-map table.  The COST is K.61's row (d): they
+were measured together, and K.62's own share of it is the hoisted edge
+list in trusted mode plus one `contains` per edge.
+
+##### (a) THE MEASUREMENT
+
+| corpus | shadow blocks | accepting | fires |
+|---|---|---|---|
+| `tests/e2e/*` + `_tmp/arena-tests/{good,bad}`, both `CON_LECHE_INMODEL` settings (190 runs) | 95 | 89 | 0 |
+| `init-full` (53 093 accepted) | 1 | 1 | 0 |
+| Mathlib (654 504 accepted), both modes | 41 | 41 | 0 |
+
+*Firing control* — the same check demanding the target be INSIDE the
+image: **26 fires over the e2e+arena sweep**, at 12 blocks
+(`InModelNested.W`, `P3`, `P4`, `P4C`, `P20`, `P22`, `P26`, `P31`,
+`NoCollide`, and `Lean.Syntax` in three streams), **1 of `init-full`'s
+1** (`Lean.Syntax`) and **35 of Mathlib's 41**.  *Reachability*: this
+clause is reached far more widely than K.61's — every `ordF`-right edge
+is a row, and every nested block with a component reference has one —
+which is why the two records are separate and why `init-full`, where
+K.61's guard is never reached, still exercises K.62.  The control fires
+in `--trusted` as well as `--verified` (checked at `nested_p04`).
+
+##### (b) LEDGER ROW — K.62
+
+Category **(B)**, by-construction-only, unconditional in both routes,
+`.internal` on failure, not gated — K.61's reasons throughout.  **It
+cannot fire.**
+
+**IF IT EVER FIRES** a rewritten ordinary field re-entered the
+instance: again a defect in the ROUTE and never a reason to relax the
+check.  The message is "nested: a rewritten ordinary field's target is
+inside the container instance".
+
+##### (c) WHAT CONSUMES IT
+
+`houtσ`, a hypothesis of `hfit_wide_mem_of_inst`/`hfit_wide_of_inst`.
+
+##### (d) THE HEARTBEAT COST OF THE TWO CONJUNCTS
+
+`checkNested_inv_rest`, by the split row's own bisection method
+(`set_option maxHeartbeats N in` on a scratch edit, reverted;
+`lake env lean` over the whole module): **24 500 < c ≤ 25 000**, where
+the split row measured the tail at 20 000 < c ≤ 25 000 and K.60 left it
+in that bracket.  So the two conjuncts together cost at most 5 000 of
+the 200 000 budget, the tail is at 12.5 % of it, and the ~175 000 of
+headroom the split row promised is untouched.  Both conjuncts come out
+of `nestedPinChecks_inv` (two more `by_cases`) rather than out of a new
+`by_cases` in `checkNested_inv_rest`, which is why the tail moved so
+little.
+
 #### U.117 — M7-3 session 24: **`ContainerModeled.ownPins` LANDED at all nine sites** — the covering premise closed (lane M7-3, session 24, 2026-09-18)
 
 The field lane L-E's covering premise waits on.  Every ingredient was
@@ -115804,7 +116107,7 @@ derivation.
 `row_congr` yet — it is (2)'s product, which (2)'s remainder consumes.
 The accept set is untouched.
 
-#### The next rows, priced: THE CONTAINER INSTANCE MAP (lane WIDE's request — K.61 and K.62)
+#### The next rows, priced: THE CONTAINER INSTANCE MAP (lane WIDE's request — LANDED as K.61 and K.62)
 
 Self-contained; a lane implementing this needs nothing else from the
 WIDE thread.
