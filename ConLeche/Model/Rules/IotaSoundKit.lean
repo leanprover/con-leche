@@ -4,14 +4,13 @@ public import ConLeche.Model.Rules.Inputs
 -- lane S-red's transplanted kit: `ReadSpine.length`, `PiChain`,
 -- `frame_spine`, `hoist_spine`, `mkAppN_of_fitA` … are shared rather
 -- than transplanted twice (the two lanes met in the middle).
-public import ConLeche.Model.Rules.RedSoundKit
+import ConLeche.Model.Rules.RedSoundKit
 import ConLeche.Model.CtxOkKit
 import ConLeche.Model.WellDenotedTransport
 import ConLeche.Model.Annot.BitInst
 import ConLeche.Model.Annot.BitShift
 import ConLeche.Verify.Denote.OpenRevDenote
 import ConLeche.Verify.Denote.OpenVars
-import ConLeche.Verify.InstSpine
 
 public section
 

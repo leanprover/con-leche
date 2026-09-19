@@ -1,7 +1,8 @@
 module
 
 public import ConLeche.Model.Rules.Inputs
-public import ConLeche.Model.Rules.IotaSoundKit
+import ConLeche.Model.Rules.IotaSoundKit
+import ConLeche.Model.Rules.RedSoundKit
 import ConLeche.Model.CtxOkKit
 import ConLeche.Semantics.DefEqList
 
@@ -87,7 +88,6 @@ universe w
 
 variable {V : Type w} [SetTheory V] {env : Env} {m : EnvModel V env}
   {φ : Name → Nat}
-set_option maxHeartbeats 1000000 in
 set_option linter.unusedVariables false in
 /-- The ι row (`iotaStep_of`, `Steps/IotaRows.lean:492`, with
 `iotaReads_of`, `:332`, for the reduct's reading): the stored
