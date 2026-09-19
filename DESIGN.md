@@ -120788,3 +120788,28 @@ The `GroupFacts` forms are UNCHANGED: six consumers still hold a
 `GroupFacts` and nothing is gained by routing them through a weaker
 record.  The three twins are unconsumed until (4′) switches the two
 sites, which is what they are for.
+
+#### WIDE THE WIDE ROUTE'S `hent` WEAKENED TO THE `ordF`-RIGHT ARM (lane LE, 2026-09-19)
+
+`CopyEntryOut` asks for the entry at EVERY field whose target leaves
+the segment — the `pinF` arm included.  Inside the instance induction
+that arm's entry is what the induction is proving, so asking for it is
+circular (the LE4 lane's finding).  The wide fit equivalence never
+consumes it: at a container-recursive field, even one of the
+container's own pins, both sides read the segment's own variable
+(`CopyCtorShape.fit_iff_wide`'s `hZY`).
+
+So `CopyEntryAOrd` is `CopyEntryA` through `CopyEntryOrd` instead of
+`CopyEntryOut`, and the three wide theorems take it:
+`hfit_wide_mem_of_inst`, `hfit_wide_of_inst`,
+`ofNested_pin_block_of_wide_inst`.  `hfit_wide_mem_of_inst` already
+narrowed its argument to `CopyEntryOrd` on the way in, so the change is
+a signature weakening and the one `CopyEntryOut.ord` application there
+simply disappears; no proof body moved.
+
+The NARROW route keeps `CopyEntryA`: `hfit_at_of_inst`,
+`hfit_le_of_inst` and `ofNested_pin_block_of_inst` consume both arms.
+`CopyEntryOut.ord` itself stays — it has a consumer on
+`agent/uniform-le4` (`NestedPinsLeInd.lean`), which merges into this
+lane later.  No caller of the three wide theorems exists yet, so
+nothing else had to move.

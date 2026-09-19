@@ -1971,6 +1971,22 @@ local notation "TVA" => nestedTV (V := V) nP k resSort ppsA W pins acval memberN
     (k + q₀) kJ ((Fss₀ ψ).getD (offs (k + q₀ + i) + j) []) (rss.getD (offs (k + q₀ + i) + j) [])
     (resSort.eval ψ) (nestedU k W pins ψ) L⁺
 
+/-- **The entries the WIDE route asks for**, at the copy
+`offs (k + q₀ + i) + j` — `CopyEntryA` restricted to the `ordF`-right
+arm (`CopyEntryOrd`).  The wide fit equivalence consumes the entry at
+a container-ORDINARY field only: at a container-recursive field, even
+one of the container's own pins, both sides read the SEGMENT's own
+variable (`CopyCtorShape.fit_iff_wide`'s `hZY`).  Asking for the
+`pinF` arm as well would be circular inside the instance induction —
+that arm's entry is what the induction is proving — so the wide
+theorems take THIS and the narrow ones keep `CopyEntryA`. -/
+@[expose] def CopyEntryAOrd (dJ : BlockModel V) (ψJ : Name → Nat) (Ds : List AnnotTerm)
+    (q₀ kJ i j : Nat) : Prop :=
+  CopyEntryOrd dJ ψJ Ds (fun l => (tgtsG.getD (offs (k + q₀ + i) + j) []).getD l 0)
+    ((tlss ψ).getD (offs (k + q₀ + i) + j) []) ((Eiss₀ ψ).getD (offs (k + q₀ + i) + j) []) ρp i j
+    (k + q₀) kJ ((Fss₀ ψ).getD (offs (k + q₀ + i) + j) []) (rss.getD (offs (k + q₀ + i) + j) [])
+    (resSort.eval ψ) (nestedU k W pins ψ) L⁺
+
 
 /-- **`CopyShapeA` at another carrier** agreeing on the block's members,
 the block's pins' containers and the container's own pins' containers. -/
@@ -2150,7 +2166,7 @@ theorem hfit_wide_mem_of_inst {env : Env} {m : EnvModel V env} {q₀ : Nat} {σ 
         (tlss := tlss) (Eiss₀ := Eiss₀) (Fss₀ := Fss₀) (Ess₀ := Ess₀) (ψ := ψ) (ρp := ρp)
         acval dJ ψJ Ds DsE lpsJ lvlsJ q₀ dJ.k i j)
     (hent : ∀ i, i < dJ.k → ∀ j, j < (dJ.ctorsM i).length →
-      CopyEntryA (V := V) (nP := nP) (k := k) (resSort := resSort) (ppsA := ppsA) (W := W)
+      CopyEntryAOrd (V := V) (nP := nP) (k := k) (resSort := resSort) (ppsA := ppsA) (W := W)
         (pins := pins) (offs := offs) (mems := mems) (nFs := nFs) (tgtsG := tgtsG) (rss := rss)
         (tlss := tlss) (Eiss₀ := Eiss₀) (Fss₀ := Fss₀) (Ess₀ := Ess₀) (ψ := ψ) (ρp := ρp)
         dJ ψJ Ds q₀ dJ.k i j)
@@ -2251,7 +2267,7 @@ theorem hfit_wide_mem_of_inst {env : Env} {m : EnvModel V env} {q₀ : Nat} {σ 
         (setJoin σ (dJ.k + dJ.nPins) L⁺ Y) := by
       intro l hl hr' hrC hout fs₁ hl₁ hsp
       rw [setJoin_out _ _ (houtσ i hi j hj l (by rwa [hshij.len] at hl) hr' hrC)]
-      exact CopyEntryOut.ord (hent i hi j hj) l hl hr' hrC hout fs₁ hl₁ hsp
+      exact hent i hi j hj l hl hr' hrC hout fs₁ hl₁ hsp
     have hfit := CopyCtorShape.fit_iff_wide (TV := nestedTV nP k resSort ppsA W pins acval
         memberNames ψ) hreps hfT hPT hi hw hρJ hnI hj' hshij huT hZY hYle hentZ t fs
     obtain ⟨h1, h2⟩ := (hgrp i hi j).mpr hj
@@ -2296,7 +2312,7 @@ theorem hfit_wide_of_inst {env : Env} {m : EnvModel V env} {q₀ : Nat} {σ : Na
         (tlss := tlss) (Eiss₀ := Eiss₀) (Fss₀ := Fss₀) (Ess₀ := Ess₀) (ψ := ψ) (ρp := ρp)
         acval dJ ψJ Ds DsE lpsJ lvlsJ q₀ dJ.k i j)
     (hent : ∀ i, i < dJ.k → ∀ j, j < (dJ.ctorsM i).length →
-      CopyEntryA (V := V) (nP := nP) (k := k) (resSort := resSort) (ppsA := ppsA) (W := W)
+      CopyEntryAOrd (V := V) (nP := nP) (k := k) (resSort := resSort) (ppsA := ppsA) (W := W)
         (pins := pins) (offs := offs) (mems := mems) (nFs := nFs) (tgtsG := tgtsG) (rss := rss)
         (tlss := tlss) (Eiss₀ := Eiss₀) (Fss₀ := Fss₀) (Ess₀ := Ess₀) (ψ := ψ) (ρp := ρp)
         dJ ψJ Ds q₀ dJ.k i j)
@@ -2462,7 +2478,7 @@ theorem ofNested_pin_block_of_wide_inst {env : Env} {m : EnvModel V env} {q₀ :
         (tlss := tlss) (Eiss₀ := Eiss₀) (Fss₀ := Fss₀) (Ess₀ := Ess₀) (ψ := ψ) (ρp := ρp)
         acval dJ ψJ Ds DsE lpsJ lvlsJ q₀ dJ.k i j)
     (hent : ∀ i, i < dJ.k → ∀ j, j < (dJ.ctorsM i).length →
-      CopyEntryA (V := V) (nP := nP) (k := k) (resSort := resSort) (ppsA := ppsA) (W := W)
+      CopyEntryAOrd (V := V) (nP := nP) (k := k) (resSort := resSort) (ppsA := ppsA) (W := W)
         (pins := pins) (offs := offs) (mems := mems) (nFs := nFs) (tgtsG := tgtsG) (rss := rss)
         (tlss := tlss) (Eiss₀ := Eiss₀) (Fss₀ := Fss₀) (Ess₀ := Ess₀) (ψ := ψ) (ρp := ρp)
         dJ ψJ Ds q₀ dJ.k i j)
