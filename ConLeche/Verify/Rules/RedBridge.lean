@@ -173,21 +173,40 @@ certificate becomes the `DefEq fab major` premise through
 theorem majorToCtor_bridge (hw : WhnfBridge env fuel)
     (hd : DefEqBridge env fuel) (hio : InferIOBridge env fuel)
     {d : Nat} {recName : Name} {rules : List RecRule} {major major' : Expr}
+    (hrec : ∃ cv mI rP, env.find? recName = some (.recInfo cv mI rP rules))
     (h : majorToCtorFueled .verified env fuel d recName rules major = .ok major') :
     Red env d major major' := by
-  sorry
+  obtain ⟨cv, mI, rP, hfr⟩ := hrec
+  rcases majorToCtor_inv h with rfl | ⟨hsc1, hsc2, hsc3, rl, cvj, cnP, cnF,
+    tmaj₀, tmaj, T, us₀, ust, cvT, caps, rfl, hfj, hpi, hfT, hinf, hwh, hfn, harm⟩
+  · exact .refl
+  rcases harm with ⟨hk, hlps, hle, rfl, hcerts, ⟨tf, htf, hdq⟩, hpirr⟩ |
+    ⟨heta, hnz, hlen, hlps, rfl, hcerts, hcert⟩ |
+    ⟨rfl, hlen, hlps, hslots, rfl, hcerts, ⟨tf, htf, hdq⟩, hpirr⟩
+  · exact .rescueK hfr hk hfj hpi hfT (inferTypeIO_bridge hio hinf) (hw hwh) hfn
+      hlps hle rfl hsc1 hsc2 hsc3 (iotaCerts_bridge hd hio hcerts)
+      (inferTypeIO_bridge hio htf) (hd hdq) (proofIrrel_bridge hw hio hpirr)
+  · refine .rescueEta hfr heta hfj hpi hfT (inferTypeIO_bridge hio hinf) (hw hwh)
+      hfn hlen hlps hnz rfl hsc1 hsc2 hsc3 (iotaCerts_bridge hd hio hcerts) ?_
+    rcases hcert with hse | ⟨-, hpirr⟩
+    · exact structEtaCertWith_bridge hw hd hio hinf hwh hse
+    · exact proofIrrel_bridge hw hio hpirr
+  · exact .rescueAnd hfr hfj hpi hfT (inferTypeIO_bridge hio hinf) (hw hwh) hfn
+      hlen hlps hslots rfl hsc1 hsc2 hsc3 (iotaCerts_bridge hd hio hcerts)
+      (inferTypeIO_bridge hio htf) (hd hdq) (proofIrrel_bridge hw hio hpirr)
 
 /-- `prepareMajor` ⇒ a `Red` chain (`prepareMajorFueled_ind` with the
 motive `Red env d a ·`: each of the three steps is a `Red.trans`). -/
 theorem prepareMajor_bridge (hw : WhnfBridge env fuel)
     (hd : DefEqBridge env fuel) (hio : InferIOBridge env fuel)
     {d : Nat} {recName : Name} {rules : List RecRule} {a m : Expr}
+    (hrec : ∃ cv mI rP, env.find? recName = some (.recInfo cv mI rP rules))
     (h : prepareMajorFueled .verified env fuel d recName rules a = .ok m) :
     Red env d a m :=
   prepareMajorFueled_ind h (Red env d a)
     (fun hwh hp => .trans hp (hw hwh))
     (fun hl hp => .trans hp (litMajorToCtor_bridge hw hl))
-    (fun hm hp => .trans hp (majorToCtor_bridge hw hd hio hm))
+    (fun hm hp => .trans hp (majorToCtor_bridge hw hd hio hrec hm))
     .refl
 
 /-- `iotaRec` ⇒ `Red.iota` (`iotaRec_inv`, `prepareMajor_bridge`,
