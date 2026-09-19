@@ -1,6 +1,10 @@
 module
 
-public import ConLeche.Verify.Rules.Certs
+public import ConLeche.Verify.Rules.Defs
+public import ConLeche.Verify.Knot
+import ConLeche.Verify.Rules.Certs
+import ConLeche.Rules.Derived
+import ConLeche.Verify.InferLemmas
 
 public section
 

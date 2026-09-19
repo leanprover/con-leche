@@ -1,6 +1,7 @@
 module
 
-public import ConLeche.Verify.Rules.Certs
+public import ConLeche.Verify.Rules.Defs
+import ConLeche.Verify.Knot
 
 public section
 
@@ -20,21 +21,21 @@ lands each exit on its rule:
 
 | exit (`Core.lean`) | rule |
 |---|---|
-| `a == b` (`:2431`) | `DefEq.refl` |
-| the `Bool.true` shortcut (`:2432-2433`) | `boolTrueShortcut_bridge` |
-| `whnfCore` both, `a' == b'` (`:2434-2436`) | `DefEq.redBoth` + `refl` |
-| `propIrrel` (`:2455-2457`) | `redBoth` + `propIrrel_bridge` |
-| `reduceNat` left / right (`:2493-2497`) | `redBoth` + `redL (reduceNat_bridge)` / `redR` + continuation |
-| lazy δ, one side / both (`:2510-2545`) | `redBoth` + `deltaL` / `deltaR` / `deltaBoth` + continuation |
-| same-head short-circuit (`:2528-2533`) | `redBoth` + `defeqSpine_bridge` |
-| sorts / literals / fvars / consts (`:2554-2594`) | `sort` / `lit` / `fvar` / `const`, else `stuckIrrel_bridge` |
-| `lit` vs `Nat.zero` / `Nat.succ` (`:2559-2574`) | `natZero`(`R`) / `natSucc`(`R`) with the continuation |
-| string literal vs `String.ofList` (`:2578-2585`) | `strLitL` / `strLitR` with the continuation |
-| ∀ / λ congruence (`:2595-2619`) | `forallE` / `lam` |
-| stuck applications (`:2620-2647`) | `spine` (head + `defEqList_bridge`), else `stuckIrrel_bridge` |
-| stuck projections (`:2648-2657`) | `proj`, else `stuckIrrel_bridge` |
-| one-sided λ (`:2659-2664`) | `etaCert_bridge` / `etaR`, else `stuckIrrel_bridge` |
-| distinct heads (`:2668`) | `stuckIrrel_bridge` |
+| `a == b` (`:1463`) | `DefEq.refl` |
+| the `Bool.true` shortcut (`:1468-1471`) | `boolTrueShortcut_bridge` |
+| `whnfCore` both, `a' == b'` (`:1466-1472`) | `DefEq.redBoth` + `refl` |
+| `propIrrel` (`:1498-1500`) | `redBoth` + `propIrrel_bridge` |
+| `reduceNat` left / right (`:1517-1529`) | `redBoth` + `redL (reduceNat_bridge)` / `redR` + continuation |
+| lazy δ, one side / both (`:1537-1577`) | `redBoth` + `deltaL` / `deltaR` / `deltaBoth` + continuation |
+| same-head short-circuit (`:1568-1571`) | `redBoth` + `defeqSpine_bridge` |
+| sorts / literals / fvars / consts (`:1581-1626`) | `sort` / `lit` / `fvar` / `const`, else `stuckIrrel_bridge` |
+| `lit` vs `Nat.zero` / `Nat.succ` (`:1586-1603`) | `natZero`(`R`) / `natSucc`(`R`) with the continuation |
+| string literal vs `String.ofList` (`:1610-1617`) | `strLitL` / `strLitR` with the continuation |
+| ∀ / λ congruence (`:1627-1651`) | `forallE` / `lam` |
+| stuck applications (`:1652-1678`) | `spine` (head + `defEqList_bridge`), else `stuckIrrel_bridge` |
+| stuck projections (`:1679-1689`) | `proj`, else `stuckIrrel_bridge` |
+| one-sided λ (`:1690-1696`) | `etaCert_bridge` / `etaR`, else `stuckIrrel_bridge` |
+| distinct heads (`:1700`) | `stuckIrrel_bridge` |
 
 all under the `redBoth` of the two `whnfCore` reducts.
 -/

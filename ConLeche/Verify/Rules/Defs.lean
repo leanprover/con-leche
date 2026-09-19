@@ -1,8 +1,10 @@
 module
 
-public import ConLeche.Rules.Derived
-public import ConLeche.Verify.Knot
-public import ConLeche.Verify.InferIOLemmas
+public import ConLeche.Rules.Rel
+import ConLeche.Kernel.TypeChecker
+public import ConLeche.Kernel.CoreIO
+import ConLeche.Verify.Knot
+import ConLeche.Verify.InferLemmas
 
 public section
 

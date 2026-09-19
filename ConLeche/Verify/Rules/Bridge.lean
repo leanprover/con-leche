@@ -1,8 +1,9 @@
 module
 
-public import ConLeche.Verify.Rules.RedBridge
-public import ConLeche.Verify.Rules.DefEqBridge
-public import ConLeche.Verify.Rules.InferBridge
+public import ConLeche.Verify.Rules.Defs
+import ConLeche.Verify.Rules.RedBridge
+import ConLeche.Verify.Rules.DefEqBridge
+import ConLeche.Verify.Rules.InferBridge
 
 public section
 

@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Verify.Rules.Certs
+public import ConLeche.Verify.Rules.Defs
 
 public section
 
