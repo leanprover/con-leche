@@ -3,6 +3,7 @@ module
 public import ConLeche.Model.Rules.Inputs
 import ConLeche.Semantics.LitParams
 import ConLeche.Model.Rules.InferSoundKit
+import ConLeche.Model.IOLicense
 
 public section
 
@@ -474,12 +475,89 @@ theorem Infer.app_sound (_hin : RulesInputs V m φ) {g : Grade} {d : Nat}
 membership from the subject's own hereditary app slot,
 `io_domain_transfer` + `piR_dom_unique` at a bit pinned positive by
 `pwBit_ne_zero_of_isNever`. -/
-theorem Infer.appSkip_sound (hin : RulesInputs V m φ) {d : Nat}
+theorem Infer.appSkip_sound (_hin : RulesInputs V m φ) {d : Nat}
     {f a tf ty body : Expr} {mt : BinderMeta}
     (htf : InferSemIO m φ d f tf) (hw : RedSem m φ d tf (.forallE ty body mt))
     (hnev : mt.pw.isNever = true) :
     InferSemIO m φ d (.app f a) (body.instantiate1 a) := by
-  sorry
+  intro hfr Δa ea hC hea hge
+  obtain ⟨hws, hb, hLb⟩ := hfr
+  simp only [Expr.WScoped] at hws
+  simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
+  have hLf : Expr.LeavesBounded f := fun l hl =>
+    hLb l (by simp [Expr.fvarLeaves, hl])
+  have hLa : Expr.LeavesBounded a := fun l hl =>
+    hLb l (by simp [Expr.fvarLeaves, hl])
+  -- the subject's reading splits
+  rw [denoteMeta] at hea
+  rcases hfa : denoteMeta m.acval env φ d f with _ | fa
+  · rw [hfa] at hea; exact nomatch hea
+  rw [hfa] at hea
+  rcases haa : denoteMeta m.acval env φ d a with _ | aa
+  · rw [haa] at hea; exact nomatch hea
+  rw [haa] at hea
+  obtain rfl : ea = .app fa aa := (Option.some.inj hea).symm
+  -- **the premise, spent**: the parts' grading and the hereditary slot
+  obtain ⟨hokf, hoka, hslot⟩ := WellDenotedV.hoist_app (V := V) hge
+  obtain ⟨htff, htfsub, tfa, htfa, hgtfa, hrowfM⟩ :=
+    htf ⟨hws.1, hb.1, hLf⟩ hC.app_fn hfa hokf
+  obtain ⟨hpif, hpisub, pa, hpa, hokpa, hredf⟩ :=
+    hw htff (hC.app_fn.of_subset htfsub) htfa hgtfa
+  obtain ⟨hwfe, hbfe, hLfe⟩ := hpif
+  simp only [Expr.WScoped] at hwfe
+  simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hbfe
+  obtain ⟨Aa, Ba, hAa, hBa, rfl⟩ := denoteMeta_forallE_inv hpa
+  have hokBa : ∀ (ρ : Nat → V), Sat V Δa ρ →
+      ∀ x, x ∈ˢ interp V ρ Aa → WellDenotedV V (cons x ρ) Ba := by
+    intro ρ hρ x hx
+    obtain ⟨h1, h2⟩ := hokpa ρ hρ
+    rw [WellDenoted_pi] at h1
+    rw [AnnotValid_pi] at h2
+    exact ⟨h1.2 x hx, h2.2.1 x hx⟩
+  have hcod0 : ∀ (ρ : Nat → V), Sat V Δa ρ → pwBit φ mt.pw = 0 →
+      ∀ x, x ∈ˢ interp V ρ Aa →
+        interp V (cons x ρ) Ba ∈ˢ (univZero : V) := by
+    intro ρ hρ h0 x hx
+    obtain ⟨-, h2⟩ := hokpa ρ hρ
+    rw [AnnotValid_pi] at h2
+    exact h2.2.2 h0 x hx
+  have hf2 : ∀ ρ : Nat → V, Sat V Δa ρ →
+      interp V ρ fa ∈ˢ interp V ρ (.pi 0 (pwBit φ mt.pw) Aa Ba) := by
+    intro ρ hρ
+    rw [← hredf ρ hρ]
+    exact hrowfM ρ hρ
+  -- **THE LICENCE**: the skipped membership, from the subject's own
+  -- hereditary app slot at a bit pinned positive by the datum
+  have ha2 : ∀ ρ : Nat → V, Sat V Δa ρ →
+      interp V ρ aa ∈ˢ interp V ρ Aa := by
+    have hw0 : pwBit φ mt.pw ≠ 0 := pwBit_ne_zero_of_isNever hnev φ
+    intro ρ hρ
+    obtain ⟨v, A, B, hfslot, haslot, -⟩ := hslot ρ hρ
+    have hf' := hf2 ρ hρ
+    rw [interp_pi] at hf'
+    exact io_domain_transfer hw0 hfslot haslot hf'
+  have hcross : denoteMeta m.acval env φ d (body.instantiate1 a)
+      = some (Ba.inst aa) := by
+    rw [denoteMeta_beta (ty := ty) m.acval_closed
+      (acval_inst_self m) hwfe.2.fvarsBelow hws.2 hb.2 haa 0, hBa]
+    rfl
+  refine ⟨⟨Expr.WScoped.instantiate1_gen hws.2 0 hwfe.2,
+      Expr.looseBVarsBounded_instantiate1_gen hb.2 hbfe.2,
+      fun l hl => ?_⟩, fun l hl => ?_, _, hcross, ?_, ?_⟩
+  · rcases Expr.fvarLeaves_instantiate1 body 0 hl with h2 | h2
+    · exact hLfe l (by simp [Expr.fvarLeaves, h2])
+    · exact hLa l h2
+  · rcases Expr.fvarLeaves_instantiate1 body 0 hl with h2 | h2
+    · rw [Expr.fvarLeaves]
+      exact List.mem_append_left _ (htfsub l (hpisub l
+        (by simp [Expr.fvarLeaves, h2])))
+    · rw [Expr.fvarLeaves]
+      exact List.mem_append_right _ h2
+  · intro ρ hρ
+    exact (WellDenotedV_inst0 (hoka ρ hρ)).mpr (hokBa ρ hρ _ (ha2 ρ hρ))
+  · intro ρ hρ
+    exact (sound_app V (hokf ρ hρ).1 (hoka ρ hρ).1 (hf2 ρ hρ)
+      (ha2 ρ hρ) (hcod0 ρ hρ)).2
 
 /-- `inferProjStep_of_claims` / `inferProjStepIO_of_claims`
 (`Steps/ProjRows.lean:71`, `:160`): the tower law's typing clause. -/
