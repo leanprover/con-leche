@@ -2,6 +2,7 @@ module
 
 public import ConLeche.Model.Rules.Inputs
 import ConLeche.Semantics.LitParams
+import ConLeche.Model.Rules.InferSoundKit
 
 public section
 
@@ -169,7 +170,23 @@ theorem Infer.natLit_sound (hin : RulesInputs V m φ) {g : Grade} {d n : Nat}
 theorem Infer.strLit_sound (hin : RulesInputs V m φ) {g : Grade} {d : Nat}
     {s : String} (h : ConLeche.strLitSupported env = true) :
     InferSem m φ g d (.lit (.strVal s)) (.const stringName []) := by
-  sorry
+  refine InferSemFull.toSem ?_
+  intro _ Δa ea _ hea
+  obtain ⟨-, ciS, -, -, -, -, -, -, -, -, -, hfS, -,
+    -, -, -, -, -, hlpS, -, -, -, -, -, -, -, -, -, -, -, -, -⟩ :=
+    ConLeche.strLitSupported_inv h
+  have hta : denoteMeta m.acval env φ d (.const stringName [])
+      = some (m.acval ConLeche.stringName (Level.substFn φ [] [])) := by
+    have hc := denoteMeta_const (acval := m.acval) (φ := φ) (d := d)
+      (us := []) hfS (by simp [hlpS])
+    rwa [hlpS] at hc
+  exact ⟨⟨by simp [Expr.WScoped], by simp [Expr.looseBVarsBounded],
+      fun l hl => by simp [Expr.fvarLeaves] at hl⟩,
+    (fun l hl => by simp [Expr.fvarLeaves] at hl),
+    _, hta,
+    fun ρ _ => (strLitFacts hin.const_ty hin.leaf_valid hin.nat_heads h hea ρ).1,
+    fun ρ _ => ⟨m.acval_wellDenoted _ _ ρ, hin.leaf_valid _ _ ρ⟩,
+    fun ρ _ => (strLitFacts hin.const_ty hin.leaf_valid hin.nat_heads h hea ρ).2⟩
 
 /-- `infer_forallE_claim(IO)` (`Steps/Infer.lean:254`, `InferIO.lean:339`):
 the two sort facts (`sortSemAt_of_claims`'s content) and the bit law. -/
