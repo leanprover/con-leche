@@ -121939,3 +121939,42 @@ naming one class.
 
 So: the tenth conjunct (K.67 at the group, the ninth's twin), the
 correspondence, `hslotOrd`, `hfitc`.
+
+#### WIDE (3) WHERE K.67 REACHES THE MODEL — `GroupFacts`, not `PinGroupInst` (lane LE, 2026-09-19)
+
+Stating the tenth conjunct showed that `PinGroupInst` is the wrong
+carrier for K.67, and the reason is sharp.
+
+`NestedPinsRun.instOrdTgtAt` is parameterised by the COPY's group and
+by an OWNER pin `g`, and the owner relation it consumes is
+`nestedInstMapAt env st g`'s value — an `ElimState` object.
+`PinGroupInst` carries no `st` (deliberately: it is the residual the
+identities hand to the assembly, and its other eight clauses are
+model-only).  Expressing "this copy is that container's own pin `qK`"
+without `st` forces the OWNER's σ into the clause — the σ of a
+DIFFERENT group from the one the clause sits on — and the conjunct
+stops being statable at either group:
+
+* at the OWNER's group (the root), the copies of its own pins live in
+  OTHER groups, and `instOrdTgtAt` cannot be invoked for them — it is
+  parameterised by the copy's own group;
+* at the COPY's group, the owner relation is the root's σ, which that
+  group's residual does not have.
+
+**`GroupFacts` is the carrier.**  It is parameterised by `st`
+(`GroupFacts (st : ElimState) …`), which is exactly what the owner
+relation needs, and it is what the consumer already holds:
+`nestedPinFit_pin` takes `G : GF st m a kk (dJf a)`, and
+`hfit_wide_pin_of_class` and the wide step read the same record.  So
+K.67's model-side clause is a new `GroupFacts` field, stated at the
+copy's group with the owner pin and its own-pin index as parameters —
+`instOrdTgtAt`'s own shape, with `ownSelf` identified with the owner's
+`ownPinTerms` (`ContainerOwnPinsSyn`) and the owner's member names with
+its `memberNames` (`ContainerModeled.memberNames_eq`) so that it meets
+`rowTargetOrd` at one head `M`.
+
+That is the next step, and after it the correspondence is the two rows
+naming one class, then `hslotOrd` and `hfitc`.  Nothing else about the
+plan changes: the ninth `PinGroupInst` conjunct stays where it is,
+because K.68 IS model-only — it speaks of the block's own classes and
+needs no owner.
