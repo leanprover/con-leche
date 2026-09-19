@@ -236,6 +236,16 @@ FALLBACK = {
     # `lake build`.
     ('ConLeche.Model.Inductives.NestedOwnPinsRead','ConLeche.Model.Inductives.NestedPremise'),
     ('ConLeche.Model.Inductives.NestedOwnPinsRead','ConLeche.Verify.Inductives.NestedRestoreOpen'),
+    # task #315 WIDE (3) step 0: `NestedFieldRead` generalises that file to a
+    # constructor field's cut, and the SAME re-export is its own public view —
+    # the dummy telescope's `ConLeche.mkPisB` is what its public statements
+    # lose when the edge is demoted (`Unknown identifier ConLeche.mkPisB`,
+    # a failing `lake build` of the module alone).  The `NestedCopyRead`
+    # edge the check proposed alongside it is NOT one: demoting it builds
+    # the whole tree, so it is a plain import here (its vocabulary —
+    # `AnnotTerm.instAll_mkPisAV`/`instAll_mkAppN`, `instTeleP_length` — is
+    # the proofs', and removing the edge outright does fail).
+    ('ConLeche.Model.Inductives.NestedFieldRead','ConLeche.Model.Inductives.NestedOwnPinsRead'),
     # task #315 M7-2 (§U.29 (yyy)): the store swap's two files hold ONLY
     # theorems — bar the one `def nestedProvOf`, whose re-export the model
     # DOES see and does not ask for.  A theorem's STATEMENT is public but

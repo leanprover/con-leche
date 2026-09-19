@@ -123902,3 +123902,46 @@ not enter because the run lemma consumes them.  Nothing of the
 `pins_le_*` / `NestedPinsLe`-producer family moved.  `#print axioms`
 on all three new declarations: `propext`, `Classical.choice`,
 `Quot.sound`.
+
+#### WIDE (3) STEP 0 — THE SHAKE RED CLEARED, AND ONE HALF OF THE PREVIOUS ROW'S FINDING WAS WRONG (lane LE, 2026-09-19)
+
+The previous row's §(d) recorded `tests/shake.sh` red on two
+`public import` lines of `ConLeche/Model/Inductives/NestedFieldRead.lean`
+and called BOTH proposals false, with `Unknown identifier SetTheory` as
+the symptom.  Probed one at a time against the compiler, that is right
+for one line and wrong for the other, and the symptom was wrong for
+both:
+
+* **`…NestedOwnPinsRead` — false, as recorded.**  Demoting it to a
+  plain `import` fails to build the module alone: `Unknown identifier
+  ConLeche.mkPisB` (the dummy telescope), not `SetTheory` — the file's
+  public statements reach `mkPisB` through this one re-export.  The
+  task #223 criterion agrees: `lake shake --keep-implied --only
+  ConLeche.Model.Inductives.NestedFieldRead <roots>` is COMPENSATED —
+  it asks for `import …NestedOwnPinsRead` here **plus** `public
+  import` of `Verify.Inductives.NestedRestoreOpen`,
+  `Semantics.Tower.InstAll`, `Model.Steps.Stuck` and
+  `Verify.Denote.OpenVars` in exchange, so the edge moves rather than
+  goes away.  Recorded as one line in `tests/shake-allowlist.txt`
+  (half (a)) and one `FALLBACK` pair in `scripts/pub-import-plan.py`
+  (half (b)), the one-import-view class of §U.21 (f);
+* **`…NestedCopyRead` — NOT false.**  Demoting it builds the WHOLE
+  tree (exit 0).  Its vocabulary — `AnnotTerm.instAll_mkPisAV`,
+  `instAll_mkAppN`, `instTeleP_length` — is the PROOFS', so the edge
+  is real but plain; deleting the line outright does fail (`Unknown
+  identifier instTeleP`), which is why the proposal was a demotion and
+  not a removal.  The line is demoted and the file's header comment
+  says which half of it is public and why.
+
+A `FALLBACK` is a claim about the tree, so the half that the tree
+refutes buys no entry: after the demotion, half (b) reports *none
+demotable* on its own.
+
+##### THE GATES
+
+`tests/shake.sh`: 514 removals proposed, all 514 allowlisted; 1343 of
+2303 in-tree edges public, none demotable.  `tests/arena.sh` exit 0 —
+`nested-shadow: 42/42 as expected`, arena 91/96 good tests accepted,
+e2e 200/200, the three sweeps as at the default worker count.  No
+`.lean` statement changed: the commit is two import lines, a header
+comment, one allowlist line and one fallback pair.

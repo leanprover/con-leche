@@ -3,10 +3,12 @@ module
 -- `NestedOwnPinsRead` is a FALLBACK re-export: the cut-`0` bridge
 -- (`denoteMeta_ownAt_component`) and the dummy-telescope kit this file
 -- generalises are stated there, and this file's PUBLIC statements
--- mention both.  `NestedCopyRead` carries `AnnotTerm.instAll_mkPisAV`
--- and `instTeleP_length`, `StructData` carries `mkPisAV_inj`.
+-- mention both (`ConLeche.mkPisB` without it).  `NestedCopyRead`
+-- carries `AnnotTerm.instAll_mkPisAV`/`instAll_mkAppN` and
+-- `instTeleP_length` — PROOF vocabulary, so a plain import; `StructData`
+-- carries `mkPisAV_inj`.
 public import ConLeche.Model.Inductives.NestedOwnPinsRead
-public import ConLeche.Model.Inductives.NestedCopyRead
+import ConLeche.Model.Inductives.NestedCopyRead
 import ConLeche.Model.Inductives.StructData
 import ConLeche.Verify.Inductives.NestedCopyTele
 import ConLeche.Verify.InstSpine
