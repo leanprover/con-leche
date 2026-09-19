@@ -119563,3 +119563,150 @@ it.  The order, once clause 3 has a source:
 
 DESIGN-only session: no `.lean` file changed, so no gate could move and
 none was re-run.
+
+#### WIDE (3′) (a) ROUTE 1 LANDED — `hρ` has its producer, and step 3 is REPRICED as three items, not one (lane LE, 2026-09-19)
+
+The close-out (f) named one missing input and two lines; all three are
+in, the producer is built, and the one further piece the σ clause turns
+out to need is built too.  What follows the producer is then priced at
+the proof rather than at the brief, and it is **not** "`hρ` → `hpin` →
+`hrowsσ` → the σ clause" as one step.
+
+##### (a) WHAT LANDED
+
+* **`NestedPinsRun.pinsWScoped`** (`Model/Inductives/NestedPins.lean`,
+  beside `NestedPinsRun.scoped`) — every run pin is `Expr.WScoped b.nP`.
+  Exactly (f)'s reading: `pinRead_of_inferAt` already ran the machinery
+  for the pin as a whole (the opened first former's `var` clause turns
+  each of K.30's leaves into its own index bound and its annotation's
+  scope, then `WScoped_of_leaves`), and this takes that block on its
+  own.  With it two `mkAppN` heredity lemmas, `WScoped_mkAppN_fn`/
+  `_args`, the twins of `lbb_mkAppN_fn`/`_args` at the scope predicate —
+  which is the form `ContainerOwnPins`' premise asks of a pin's
+  COMPONENTS.  Priced at one `have` over `opened_of`'s `var`; paid at
+  that, first build.
+* **`NestedPinsRun.instMapPinOwn`'s conclusion EXTENDED** — the
+  correspondence `PinCorr` at the block pin the instance map names, at
+  EVERY own pin `qK` of the container, through `pinCorr_of_ownPins_at`
+  at `ContainerModeled.ownPinsRead`.  The ten premises (f) found in the
+  proof were there; the three goals it named closed as it said — the
+  table entry by a `show` and `hcnameσ`/`hrnpin`, the components'
+  `WScoped` by `pinsWScoped` through `WScoped_mkAppN_args`, and `huIds`
+  by weakening.  `NestedOwnPinsRead` becomes an import of
+  `NestedInstMap` (no cycle).
+* **`huIds` WEAKENED** on `pinCorr_of_pinEq` and `pinCorr_of_ownPins_at`:
+  the identification at the ONE own pin the proof spends it at
+  (`obtain ⟨hu, hIds⟩ := huIds hJ`), not at all of them.  The membership
+  form `pinCorr_of_ownPins` specialises its own `∀`-form at the
+  existential the table hands back.  Both had no callers, so it was free.
+* **`NestedPinsRun.instMapGroup`** and `pinLvlsDsAt` beside it — the
+  instance map agrees at any two pins of one group (below).
+
+##### (b) THE FINDING THE σ CLAUSE FORCED — the map is keyed by a PIN, σ is keyed by a CLASS
+
+`ofNested_pin_block_of_wide_inst` takes ONE `σ : Nat → Nat` and its
+`hstgt`/`houtσ` quantify over EVERY member `i < dJ.k` of the container.
+K.61's `nestedInstMapAt env st q` is keyed by a BLOCK PIN, and
+`copyPinFInstTgt` at member `i'` hands the map at `q₀ + i'`.  So σ is
+that map only if the member it is read at does not matter — and nothing
+said so.
+
+It does not matter, and the proof is short once the right three facts
+are named: a group's pins share their level arguments and components
+(`NestedPinGroupSyn.same`), two members of one group name ONE container
+record (both carry the same block model, so
+`ContainerModeled.memberNames_eq` feeds `containerInfo?_eq_of_names`),
+and a group's members share their level parameters
+(`containerInfo?_inv`'s `cvC.levelParams = cvT.levelParams`).  Those are
+exactly the four arguments `containerOwnPinsAt` walks with — the
+member's own `find?` for the level parameters, the group's `ci` for the
+walk's base name and `nP`, and the pin's `lvls`/`Ds`.  **No new record.**
+
+`containerInfo?_member_ctor_det` is NOT enough for this (it gives
+`nP`/`lps`/`type`/ctor and says nothing about the members LIST, hence
+nothing about `ci.members.head?`, which is the walk's base); the route
+that works is the two `ContainerModeled`s at one `dJ`.
+
+##### (c) STEP 3 REPRICED — three items, and the brief's order is the wrong way round
+
+The brief's step 3 was "`hρ` → `hpin` → `hrowsσ` → the σ clause".  Read
+at the proofs:
+
+1. **`hrowsσ` is free** once `hcnt` and `hfitc` exist:
+   `rowsσ_of_pin_class`'s body is fifteen lines and its other inputs
+   (`hmemσ`, `hidxσ`) are `instMapPinOwn`'s, which is landed.  It is not
+   a step.
+2. **`hpin` is `hfit_wide_pin_of_class` at `hfitc`, and `hfitc` is
+   `pinClassFit_of_transfer` once per own-pin class — TWENTY premises**,
+   of which `hρ` is one.  Reading them against sources: `h₂`, `hdom₂`,
+   `hent₂` are `PinShapes`/`PinRecLaws` at `blockOf mp.base2`; `h₁`,
+   `hdom₁`, `hent₁` are the BLOCK's group at `σ c` through `SF.groups`
+   and `NestedPinGroupIds.shape`/`entry`; `hρ`/`hψ` are the new
+   `PinCorr` and `instMapPinOwn`'s `hpsi`; `hrel` is σ's; and the
+   remaining eight (`hwK`, `huT`, `hIdsLen`, `hw₁`, `hw₂`, `hu₁`,
+   `hu₂`, `hnI₁`/`hnI₂`) are level-assignment and length bridges between
+   two instantiations of one container.  The MEMBER half's proved twin
+   (`hfit_wide_mem_of_inst`) is ~90 lines with SIX such bridges and one
+   `fit_iff_wide`; the pin half has the two-copies transfer in the
+   middle and a second group to instantiate.  **This is a session of its
+   own, and it is where the risk is.**
+3. **The σ clause** — a converter from the run's `nestedInstMapAt`
+   facts to the abstract σ.  Its home is `NestedPinGroupIds`, which
+   takes NO `ElimState` parameter, so the clause is
+   `∃ σ : Nat → Nat, …` with the run's map as the witness at the
+   producer, not the kernel map itself; `instMapGroup` is what lets one
+   σ serve all members.  Its conjuncts are `hσ`/`hroot`/`hstgt`/
+   `houtσ`/`hmemσ`/`hidxσ` plus the own-pin `PinCorr`.  **The clause's
+   SHAPE is a design decision about a named structure**, and item 2 can
+   be stated with σ free, so item 3 does not gate item 2 — but item 2
+   does not gate item 3 either, and item 3 is the cheaper of the two.
+
+So the order that follows the proofs is **3 then 2 then 1**, not 1 then
+2 then 3: with σ named on `NestedPinGroupIds`, `hstgt`/`houtσ` become
+available to the switch site at the same time as `hpin`, and `hrowsσ`
+falls out of `hpin`.
+
+##### (d) STATE AND ORDER
+
+Landed: the components' `WScoped`, the own-pin `PinCorr` producer, the
+`huIds` weakening, `pinLvlsDsAt`, `instMapGroup`.  Open, in the
+repriced order:
+
+1. the σ CLAUSE on `NestedPinGroupIds` (and `NestedPinsIdent`'s fourth
+   conjunct), discharged at `nestedPinsIdent_of`'s site from
+   `copyPinFInstTgt` (`hstgt`), `copyOrdFOutside` (`houtσ`),
+   `instMapPinOwn` (`hmemσ`/`hidxσ`/`PinCorr`) and `instMapGroup`;
+2. `hfitc` at the own-pin classes — `pinClassFit_of_transfer`'s twenty
+   premises, on `hfit_wide_mem_of_inst`'s skeleton — then `hpin` and
+   `hrowsσ`;
+3. (4′) the switch at both sites; then the merge of `agent/uniform-le4`
+   and (4).
+
+##### (e) GATES
+
+`tests/warning-free.sh f5ccd94c`:
+
+```
+warning-free: 19 changed module(s) since f5ccd94c
+warning-free: lake build — 19 module(s) recompiled, 0 warning line(s)
+warning-free: lake test — 0 module(s) recompiled, 0 warning line(s)
+warning-free: OK (a run that could have failed)
+```
+
+`lake build` and `lake test` EXIT 0, zero warning lines.
+`tests/layering.sh` 353/290/3/1, 0 base→lane, 0 impl→theory;
+`tests/shake.sh` 513 removals all allowlisted, pub-imports 1341 of 2284,
+none demotable; `tests/proofdeps.sh` 4975 rows / 12 roots / **doors 0**;
+`tests/quote-gate.sh`, `tests/overview-links.sh` (112 links),
+`tests/no-local-paths.sh`, `tests/trust-surface.sh` OK.
+
+`tests/unconsumed.sh` **185 of 3741** against the base's **186 of 3736**.
+The diff READ: `ContainerModeled.ownPinsRead` and
+`pinCorr_of_ownPins_at` LEFT the list — the producer is their first
+consumer, which is the whole point of the session — and
+`NestedPinsRun.instMapGroup` joined it, its consumer being (d) 1.
+**Nothing from the `pins_le_*`/`NestedPinsLe`-producer family moved**, as
+it must not before (4′).
+
+No kernel file changed, so the accept set is untouched and
+`tests/arena.sh` was not re-run.
