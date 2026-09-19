@@ -12,8 +12,8 @@ public section
 
 The five bridges at every fuel: one mutual fuel induction, the shape
 of `checkSoundAtP5`'s (`Model/Steps/Tiers.lean`), with the zero cases
-from `Defs` and the step from the three lane files.  This theorem is
-proved; what is `sorry` is inside the lane files.
+from `Defs` and the step from the three lane files.  Proved, and so
+is everything it consumes: the branch carries no `sorry`.
 -/
 
 namespace ConLeche.Rules
