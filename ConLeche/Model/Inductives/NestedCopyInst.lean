@@ -2138,6 +2138,21 @@ private theorem piBinders_mkPisB_of_head :
     show (Expr.forallE b.1 (ConLeche.mkPisB bs res) b.2).piBinders = _
     rw [Expr.piBinders_forallE, piBinders_mkPisB_of_head bs h]
 
+omit [SetTheory V] R SF S in
+/-- Two binder lists of equal length agreeing at every position are
+equal. -/
+private theorem tele_ext {L L' : List (Expr × ConLeche.BinderMeta)}
+    (hlen : L'.length = L.length)
+    (h : ∀ k, k < L.length →
+      (L'.getD k default).1 = (L.getD k default).1 ∧
+        (L'.getD k default).2 = (L.getD k default).2) :
+    L' = L := by
+  refine List.ext_getElem hlen fun k hk hk' => ?_
+  obtain ⟨h1, h2⟩ := h k hk'
+  rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hk, Option.getD_some] at h1 h2
+  rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hk', Option.getD_some] at h1 h2
+  exact Prod.ext h1 h2
+
 omit R SF in
 /-- **THE COPY'S REFLEXIVE NESTED FIELD, MINTED** (task #315 PINF):
 `copyPinFDom` one `Π`-tower down.  At a container field `l` of member
@@ -3763,13 +3778,19 @@ A reflexive nested field's minted domain is a `Π` tower over the
 container spine (`copyPinFDomRefl`), and the rewrite commutes with a
 `∀`-telescope (`replaceAllNested_mkPisB`): the stored domain is a
 tower of the SAME depth and its BODY is a run of the spine at a state
-between the telescope's own two.  That body's run is what the fire
-wants, and the tower it sits in is the `hFlStrip` the reader needs, so
-this theorem is the whole peel — and it needs NOTHING about the
-telescope's binders, because the fire reads only the body.  (The
-binders' own image is what a READING would ask about, and that is
-where `replaceAllNested_mkPisB_inert` and the positivity walk's
-`normPosDomM_mkPisB_free` come in.) -/
+between the telescope's own two.  That body's run is what the FIRE
+wants, and `copyPinFStoredRefl` takes it from here; the fire reads
+only the body, so no hypothesis about the binders reaches it.
+
+The binders are the READER's business, and `hfree` is where they are
+settled: at a field the positivity walk accepted, every binder of the
+REWRITTEN tower mentions no member (`normPosDomM_piDomsFree` at the
+caller), so the rewrite's own prune
+(`replaceAllNested_unchanged_or_aux` against `groupCopyFormer`) says
+each binder's run was the identity and the two towers are towers over
+LITERALLY the same binder list.  That is what lets the reading side
+align the two peels binder for binder, and it is why the conclusion
+names `TLm` on both sides rather than only matching its length. -/
 theorem NestedPinsRun.copyPinFStoredReflM {pbs : List (Expr × ConLeche.BinderMeta)}
     (hPD : ∀ q, q < st.pins.length → PinData env st p pbs q)
     {i' j : Nat}
@@ -3797,10 +3818,12 @@ theorem NestedPinsRun.copyPinFStoredReflM {pbs : List (Expr × ConLeche.BinderMe
     {st₁ st₂ : ElimState}
     (hrun : ConLeche.replaceAllNested env (p.lps.map Level.param) params pbs₀ st₁ M
       = .ok ((Fs'.getD l default).1, st₂))
-    (hpre : st₂.pins <+: st.pins) :
-    ∃ (qn' : ConLeche.NestedPin) (qq : Nat) (TL : List (Expr × ConLeche.BinderMeta)) (Fl : Expr),
-      (Fs'.getD l default).1.stripPis TL.length = some (TL, Fl) ∧
-      TL.length = TLm.length ∧
+    (hpre : st₂.pins <+: st.pins)
+    (hfree : ∀ k, k < (((Fs'.getD l default).1.piBinders).1).length →
+      ConLeche.mentionsMember b.memberNames
+        ((((Fs'.getD l default).1.piBinders).1).getD k default).1 = false) :
+    ∃ (qn' : ConLeche.NestedPin) (qq : Nat) (Fl : Expr),
+      (Fs'.getD l default).1.stripPis TLm.length = some (TLm, Fl) ∧
       st.pins[qq]? = some qn' ∧
       (∀ a ∈ AS.take ci'.nP, a.looseBVarsBounded 0 = true) ∧
       qn'.pin = Expr.mkAppN (Expr.const I us) (AS.take ci'.nP) ∧
@@ -3811,14 +3834,40 @@ theorem NestedPinsRun.copyPinFStoredReflM {pbs : List (Expr × ConLeche.BinderMe
   have hMmk : M = ConLeche.mkPisB TLm (Expr.mkAppN (Expr.const I us) AS) :=
     ConLeche.stripPis_mkPisB _ hM
   rw [hMmk] at hrun
-  obtain ⟨bs', res', hFlEq, hbslen, -, stR₁, stR₂, hresRun, -, hp2, -⟩ :=
+  obtain ⟨bs', res', hFlEq, hbslen, hbinds, stR₁, stR₂, hresRun, -, hp2, -⟩ :=
     ConLeche.replaceAllNested_mkPisB TLm hrun
   have hFlStrip : (Fs'.getD l default).1.stripPis bs'.length = some (bs', res') := by
     rw [hFlEq]; exact ConLeche.stripPis_mkPisB_self _ _
+  -- ==== the FIRE, at the tower's body ====
   obtain ⟨qn', qq, hqq, hloose, hqnPin, hres, hidx⟩ :=
     R.copyPinFStoredRefl hPD hopb hplenB hidxP hpbs₀len hpbs₀f hstripF hcbb hcbl hlenF hcb'
       hcA hnF hbc hlcc hkA hFlStrip hci' hnPle hresRun (hp2.trans hpre)
-  exact ⟨qn', qq, bs', res', hFlStrip, hbslen, hqq, hloose, hqnPin, hres, hidx⟩
+  -- ==== the TELESCOPE: the prune at every binder ====
+  have hresHead : res'.getAppFn = Expr.const qn'.aux (p.lps.map Level.param) := by
+    rw [hres, Expr.getAppFn_mkAppN, Expr.getAppFn_mkAppN]
+    rfl
+  have hFlPis : ((Fs'.getD l default).1.piBinders) = (bs', res') := by
+    rw [hFlEq]; exact piBinders_mkPisB_of_head bs' hresHead
+  rw [hFlPis] at hfree
+  have hbsEq : bs' = TLm := by
+    refine tele_ext hbslen fun k hk => ?_
+    obtain ⟨hbm, stB₁, stB₂, hrunB, -, hpb2, -⟩ := hbinds k hk
+    refine ⟨?_, hbm⟩
+    rcases ConLeche.replaceAllNested_unchanged_or_aux _ hrunB with heq | ⟨qn₂, hqnMem, hqnM⟩
+    · exact heq
+    · exfalso
+      have hkb : k < bs'.length := by rw [hbslen]; exact hk
+      obtain ⟨qi, hqi⟩ := List.getElem?_of_mem ((hpb2.trans hpre).subset hqnMem)
+      have hqiLt : qi < st.pins.length := (List.getElem?_eq_some_iff.mp hqi).1
+      obtain ⟨-, -, -, -, -, -, -, hauxN⟩ := R.groupCopyFormer hPD hqiLt
+      have hpinEq2 : pinAtE st qi = qn₂ := Option.some.inj ((hPD _ hqiLt).pin.symm.trans hqi)
+      rw [hpinEq2] at hauxN
+      have hmm : ConLeche.mentionsMember b.memberNames (bs'.getD k default).1 = true :=
+        List.any_eq_true.mpr ⟨qn₂.aux, hauxN, hqnM⟩
+      rw [hfree k hkb] at hmm
+      exact nomatch hmm
+  subst hbsEq
+  exact ⟨qn', qq, res', hFlStrip, hqq, hloose, hqnPin, hres, hidx⟩
 
 /-- **THE COPY'S NESTED FIELD LANDS ON A BLOCK PIN** (task #315 L-B):
 at a container field finitary-recursive at one of the CONTAINER's own
@@ -5297,21 +5346,6 @@ binder domain of the REWRITTEN tower mentions no member
 (`normPosDomM_piDomsFree`), so the rewrite's own prune
 (`replaceAllNested_unchanged_or_aux` against `groupCopyFormer`) says it
 was the identity there. -/
-
-omit [SetTheory V] R SF S in
-/-- Two binder lists of equal length agreeing at every position are
-equal. -/
-private theorem tele_ext {L L' : List (Expr × ConLeche.BinderMeta)}
-    (hlen : L'.length = L.length)
-    (h : ∀ k, k < L.length →
-      (L'.getD k default).1 = (L.getD k default).1 ∧
-        (L'.getD k default).2 = (L.getD k default).2) :
-    L' = L := by
-  refine List.ext_getElem hlen fun k hk hk' => ?_
-  obtain ⟨h1, h2⟩ := h k hk'
-  rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hk, Option.getD_some] at h1 h2
-  rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hk', Option.getD_some] at h1 h2
-  exact Prod.ext h1 h2
 
 /-- **THE COPY'S REFLEXIVE FIELD, REWRITTEN** (task #315 L-B): at a
 container field `l` of member `i'` constructor `j` that is REFLEXIVE at
