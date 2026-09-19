@@ -726,12 +726,14 @@ theorem Red.rescueEta_sound (hin : RulesInputs V m φ) {d : Nat}
         (ConLeche.etaFabArgsE env T ust tmaj.getAppArgs major caps.etaFields)
         (tsa ++ (List.range caps.etaFields).map fun j =>
           projAV (j + env.projOff T) ea) := by
-      rw [ConLeche.etaFabArgsE, ConLeche.etaProjs, if_pos htow]
+      unfold ConLeche.etaFabArgsE ConLeche.etaProjs
+      rw [if_pos htow]
       exact hspt.append (ReadSpine.map_list _ _ _ hpfacts)
     have hfrF : ∀ x ∈ ConLeche.etaFabArgsE env T ust tmaj.getAppArgs major
         caps.etaFields, Frame d x ∧ CtxOk m φ d Δa x := by
       intro x hx
-      rw [ConLeche.etaFabArgsE, ConLeche.etaProjs, if_pos htow] at hx
+      unfold ConLeche.etaFabArgsE ConLeche.etaProjs at hx
+      rw [if_pos htow] at hx
       rcases List.mem_append.mp hx with hx' | hx'
       · exact hfrT x hx'
       · obtain ⟨j, -, rfl⟩ := List.mem_map.mp hx'
