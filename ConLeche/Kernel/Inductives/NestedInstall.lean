@@ -1015,6 +1015,117 @@ def nestedCopyTargetsAt (env : Env) (p : NestedParts) (st : ElimState)
     (st : ElimState) (stored : List AuxStored) : Bool :=
   nestedCopyTargetsAt env p st stored (nestedPinKinds p b stored)
 
+/-! ### THE COPY FIELDS' TWO RECORDS, ON ONE WALK (task #315 K.60 and K.63)
+
+K.60 and K.63 ask the same question of the same field at the two shapes
+a container field can have: K.60 when the stored domain is headed by a
+constant, K.63 when it is a `Π` whose BODY is.  The two guards are
+disjoint by construction — a `Π`'s `getAppFn` is never a `.const` — and
+their per-field environment lookups are disjoint with them, so folding
+them shares the constructor telescopes and one `containerInfo?` per
+pin, which is what the ablation in DESIGN "#### K.61" (d) says the
+route pays for.
+
+`nestedCopyFieldsAt` is that fold: it runs BOTH arms in one pass and
+returns the pair, so each route's throw site can name the right record.
+The two `all`-shaped Bools below are the SPEC — what the run relation
+records and what the model inverts — and `nestedCopyFieldsAt_fst`/`_snd`
+(`ConLeche/Verify/Inductives/NestedCopyKinds.lean`) are the bridge. -/
+
+/-- `List.all` of BOTH components of a pair-valued predicate, in ONE
+pass over the list (`allPair_fst`/`allPair_snd`). -/
+def allPair {α : Type} : List α → (α → Bool × Bool) → Bool × Bool
+  | [], _ => (true, true)
+  | a :: as, f =>
+    let x := f a
+    let y := allPair as f
+    (x.1 && y.1, x.2 && y.2)
+
+/-- **K.60's ARM at one field**: a container field headed by `.const K`
+with `K` not a member of the container's own group, `K` itself a stored
+container, and one of its first `ciK.nP` arguments mentioning a member
+of the group, forces the copy's field to be `.recursive` into a PIN. -/
+def copyPinFieldOk (env : Env) (p : NestedParts) (mems : List Name)
+    (r : RecFieldKind) (t : Nat) (dom : Expr) : Bool :=
+  match dom.getAppFn with
+  | .const K _ =>
+    if mems.contains K then true
+    else
+      match containerInfo? env K with
+      | none => true
+      | some ciK =>
+        if (dom.getAppArgs.take ciK.nP).any (mentionsMember mems) then
+          r == .recursive && decide (p.k ≤ t)
+        else true
+  | _ => true
+
+/-- The container's stored field domain, stripped of its own binders. -/
+def stripDomPis : Expr → Expr
+  | .forallE _ b _ => stripDomPis b
+  | e => e
+
+/-- **K.63's ARM at one field**: the same guard one `Π`-tower down —
+the domain is a non-empty `Π` telescope whose BODY is headed by
+`.const K` with `K` not a member of the container's own group, `K`
+itself a stored container, and one of its first `ciK.nP` arguments
+mentioning a member of the group.  Then the copy's field is
+`.reflexive` into a PIN.
+
+The two arms cannot both fire at one field: the `.forallE` test is what
+separates them, and `stripDomPis` is the identity on a domain that is
+not a `Π`. -/
+def copyReflFieldOk (env : Env) (p : NestedParts) (mems : List Name)
+    (r : RecFieldKind) (t : Nat) (dom : Expr) : Bool :=
+  match dom with
+  | .forallE _ _ _ =>
+    match (stripDomPis dom).getAppFn with
+    | .const K _ =>
+      if mems.contains K then true
+      else
+        match containerInfo? env K with
+        | none => true
+        | some ciK =>
+          if ((stripDomPis dom).getAppArgs.take ciK.nP).any (mentionsMember mems) then
+            r == .reflexive && decide (p.k ≤ t)
+          else true
+    | _ => true
+  | _ => true
+
+/-- **THE TWO ARMS ON ONE WALK** (task #315 K.60 + K.63): the pair
+`(K.60's verdict, K.63's verdict)`, computed in a single pass over the
+containers' stored constructors.  `nestedCopyFieldsAt_fst` and
+`nestedCopyFieldsAt_snd` say it IS the pair of the two specs; the route
+calls this one and reads the components for the two messages. -/
+def nestedCopyFieldsAt (env : Env) (p : NestedParts) (st : ElimState)
+    (kinds? : Option (List (List (List (RecFieldKind × Nat))))) : Bool × Bool :=
+  match kinds? with
+  | none => (false, false)
+  | some kinds =>
+    allPair (List.range st.pins.length) fun q =>
+      match st.pins[q]?, kinds[q]? with
+      | some qn, some ks =>
+        match containerInfo? env qn.container with
+        | none => (false, false)
+        | some ci =>
+          match ci.members[q - qn.grpBase]? with
+          | none => (false, false)
+          | some J =>
+            let mems := ci.members.map (·.name)
+            allPair (List.range ks.length) fun j =>
+              match ks[j]?, J.ctors[j]? with
+              | some kf, some cJ =>
+                match cJ.type.stripPis (ci.nP + cJ.nFields) with
+                | none => (false, false)
+                | some (jbs, _) =>
+                  allPair (List.range kf.length) fun l =>
+                    match kf[l]?, jbs[ci.nP + l]? with
+                    | some (r, t), some domJ =>
+                      (copyPinFieldOk env p mems r t domJ.1,
+                        copyReflFieldOk env p mems r t domJ.1)
+                    | _, _ => (false, false)
+              | _, _ => (false, false)
+      | _, _ => (false, false)
+
 /-- **A CONTAINER'S NESTED FIELD LANDS ON A BLOCK PIN** (task #315
 K.60): K.32's twin, running the other way.
 
@@ -1033,8 +1144,9 @@ holds:
 The third conjunct is what keeps the check off an ORDINARY
 container-headed field — `mk : List Nat → Tree` has head `List`, a
 container, and no member in its parameter part, so no pin is minted and
-nothing is claimed.  Reflexive nested fields fall outside the guard by
-construction: their domain is a `Π`, so `getAppFn` is not a `.const`.
+nothing is claimed.  Reflexive nested fields fall outside THIS guard by
+construction — their domain is a `Π`, so `getAppFn` is not a `.const` —
+and they are K.63's, on the same walk.
 
 Under the guard, the auxiliary block classified the copy's
 corresponding field `.recursive` into a PIN: `kf[l] = (.recursive, t)`
@@ -1063,51 +1175,55 @@ stream, and the answer is never to relax the check.  See DESIGN
 "#### K.60". -/
 def nestedCopyPinFieldsAt (env : Env) (p : NestedParts) (st : ElimState)
     (kinds? : Option (List (List (List (RecFieldKind × Nat))))) : Bool :=
-  match kinds? with
-  | none => false
-  | some kinds =>
-    (List.range st.pins.length).all fun q =>
-      match st.pins[q]?, kinds[q]? with
-      | some qn, some ks =>
-        match containerInfo? env qn.container with
-        | none => false
-        | some ci =>
-          match ci.members[q - qn.grpBase]? with
-          | none => false
-          | some J =>
-            let mems := ci.members.map (·.name)
-            (List.range ks.length).all fun j =>
-              match ks[j]?, J.ctors[j]? with
-              | some kf, some cJ =>
-                match cJ.type.stripPis (ci.nP + cJ.nFields) with
-                | none => false
-                | some (jbs, _) =>
-                  (List.range kf.length).all fun l =>
-                    match kf[l]?, jbs[ci.nP + l]? with
-                    | some (r, t), some domJ =>
-                      -- the guard: a container-headed field whose
-                      -- parameter part carries one of the container's
-                      -- own members
-                      match domJ.1.getAppFn with
-                      | .const K _ =>
-                        if mems.contains K then true
-                        else
-                          match containerInfo? env K with
-                          | none => true
-                          | some ciK =>
-                            if (domJ.1.getAppArgs.take ciK.nP).any (mentionsMember mems) then
-                              r == .recursive && decide (p.k ≤ t)
-                            else true
-                      | _ => true
-                    | _, _ => false
-              | _, _ => false
-      | _, _ => false
+  (nestedCopyFieldsAt env p st kinds?).1
 
 /-- The Bool the route records (task #315 K.60), on the same field kinds
 `nestedPinKinds` computes for K.26 and K.32. -/
 @[inline] def nestedCopyPinFieldsOk (env : Env) (p : NestedParts) (b : MutualBlock)
     (st : ElimState) (stored : List AuxStored) : Bool :=
   nestedCopyPinFieldsAt env p st (nestedPinKinds p b stored)
+
+/-- **A CONTAINER'S REFLEXIVE NESTED FIELD LANDS ON A BLOCK PIN**
+(task #315 K.63, lane PINF's request).
+
+K.60's twin one `Π`-tower down, and it exists because K.60 claims
+nothing there BY CONSTRUCTION: K.60's guard reads the stored domain's
+head and a reflexive field's domain is a `Π`, so `getAppFn` is not a
+`.const` and the walk falls into its catch-all.  The model cannot
+supply the kind in its place, and the reason is the circle K.60 exists
+to break: the copy's stored domain is mimic-headed only if the rewrite
+FIRED, the fire needs the MENTION, and at a pin target the mention is
+read off the kind.  Nor can the model exclude `.ordinary` instead —
+`mutualOpenedOk`'s ordinary clause says the stored domain resolves in
+the pre-block environment, which an UNFIRED container-headed domain
+satisfies, so that arm closes nothing.
+
+Each part of the guard is available to the model, which is the
+criterion K.60 was designed against: `BlockOpened.nestReflF` gives the
+reflexive nested field's OPENED form as exactly a non-empty `Π`
+telescope whose body is headed by the pin's container at the pin's
+level arguments, the non-membership is
+`ContainerModeled.pinsNotMembers`, the further container is `pinNP` +
+`NestedPinGroupSyn.contsEnv`, and the mention is the reflexive twin of
+`ContainerModeled.nestArgsMentionAbs`.
+
+Under the guard, `kf[l] = (.reflexive, t)` with `p.k ≤ t`.
+
+Gating, carrier and category are K.60's, and so is the WALK: the two
+are folded into `nestedCopyFieldsAt`, which runs both arms in one pass.
+
+**IF THIS EVER FIRES** the elimination's classification of a copy's
+reflexive field disagrees with its container's — a defect in the ROUTE,
+not in the stream, and the answer is never to relax the check.  See
+DESIGN "#### K.63". -/
+def nestedCopyReflFieldsAt (env : Env) (p : NestedParts) (st : ElimState)
+    (kinds? : Option (List (List (List (RecFieldKind × Nat))))) : Bool :=
+  (nestedCopyFieldsAt env p st kinds?).2
+
+/-- The Bool the route records (task #315 K.63). -/
+@[inline] def nestedCopyReflFieldsOk (env : Env) (p : NestedParts) (b : MutualBlock)
+    (st : ElimState) (stored : List AuxStored) : Bool :=
+  nestedCopyReflFieldsAt env p st (nestedPinKinds p b stored)
 
 /-- Every argument of an application spine is a proper subterm: the
 measure that lets `auxAppsOk` recurse into `getAppArgs`. -/
@@ -1614,11 +1730,6 @@ the environment does not hold, which `containerInfo?` has already
 excluded for every container this walk visits. -/
 def declPos (env : Env) (n : Name) : Option Nat :=
   env.consts.findIdx? (fun ci => ci.name == n)
-
-/-- The container's stored field domain, stripped of its own binders. -/
-def stripDomPis : Expr → Expr
-  | .forallE _ b _ => stripDomPis b
-  | e => e
 
 @[inline] def nestedPinEdges (env : Env) (p : NestedParts) (b : MutualBlock) (st : ElimState)
     (stored : List AuxStored) : Option (List (Nat × Nat × Bool)) :=
@@ -2581,6 +2692,13 @@ def nestedPinChecks (ops : CheckerOps m) (env envN : Env) (p : NestedParts) (b :
   let edges? := nestedPinEdgesAt env p st stored kinds?
   -- ONE instance-map table (K.61), shared by K.61 and K.62
   let maps? := nestedInstMaps env st
+  -- ONE walk of the containers' stored constructors for K.60 AND K.63
+  -- (their guards are disjoint — a `Π`'s `getAppFn` is never a
+  -- `.const` — and so are their per-field environment lookups, so the
+  -- fold shares the constructor telescopes and one `containerInfo?`
+  -- per pin); the pair's components carry the two records' verdicts so
+  -- each throw site names the right one
+  let copyF := nestedCopyFieldsAt env p st kinds?
   -- **A CONTAINER'S NESTED FIELD LANDS ON A BLOCK PIN** (task #315
   -- K.60): at a container field headed by another stored container
   -- whose parameter part carries one of the container's own members,
@@ -2595,9 +2713,22 @@ def nestedPinChecks (ops : CheckerOps m) (env envN : Env) (p : NestedParts) (b :
   -- field disagrees with its container's: that is a defect in the
   -- ROUTE, not in the stream, and the answer is never to relax the
   -- check.  See DESIGN "#### K.60".
-  if !nestedCopyPinFieldsAt env p st kinds? then
+  if !copyF.1 then
     throw (.internal "nested: a container's nested field is not classified recursive \
       into a pin of the block")
+  -- **A CONTAINER'S REFLEXIVE NESTED FIELD LANDS ON A BLOCK PIN**
+  -- (task #315 K.63, lane PINF's request): K.60's guard one `Π`-tower
+  -- down, where K.60 claims nothing by construction.  Same walk, same
+  -- gating (none), same category; the model's `pinF` arm at a
+  -- REFLEXIVE nested field has no other producer for its `hkA`.
+  --
+  -- **IF THIS EVER FIRES** the elimination's classification of a
+  -- copy's reflexive field disagrees with its container's: a defect in
+  -- the ROUTE, not in the stream, and the answer is never to relax the
+  -- check.  See DESIGN "#### K.63".
+  else if !copyF.2 then
+    throw (.internal "nested: a container's reflexive nested field is not classified \
+      reflexive into a pin of the block")
   -- **THE CONTAINER INSTANCE MAP** (task #315 K.61): every own pin of
   -- every pin's container, instantiated at that pin's own levels and
   -- components, IS a pin of the block (totality), and a copy's field at

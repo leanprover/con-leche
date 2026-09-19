@@ -290,6 +290,14 @@ def DeclNestedRun (μ : CheckMode) (F : Nat) (env : Env)
     -- `pinF` arm needs.  UNCONDITIONAL, like K.59 and for the same
     -- reason: the consumer reads it in every mode
     ConLeche.nestedCopyPinFieldsOk env p b st stored = true ∧
+    -- **A CONTAINER'S REFLEXIVE NESTED FIELD LANDS ON A BLOCK PIN**
+    -- (K.63): K.60's guard one `Π`-tower down, where K.60 claims
+    -- nothing by construction — a reflexive field's stored domain is a
+    -- `Π`, so `getAppFn` is not a `.const`.  The model's `pinF` arm at
+    -- a reflexive nested field has no other producer for its `hkA`.
+    -- UNCONDITIONAL, like K.60 and for the same reason; the two are
+    -- computed by ONE walk
+    ConLeche.nestedCopyReflFieldsOk env p b st stored = true ∧
     -- **THE CONTAINER INSTANCE MAP** (K.61): every own pin of every
     -- pin's container, instantiated at that pin's own level arguments
     -- and components, IS a pin of the block (totality), and a copy's
@@ -568,7 +576,7 @@ theorem declNestedRun_etaClosed {μ : CheckMode} {F : Nat} {env envOut : Env}
     (h : DeclNestedRun μ F env p envOut) : EtaFamiliesClosed envOut := by
   obtain ⟨-, -, st, b, envAux, stored, ctorsR, cvRms, cvRns, rulesM, rulesN, fmsA, ctorsA,
     -, -, -, -, -, -, -, -, -, -, -, -, hcaps,
-    -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -,
+    -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -,
     hctors, hrm, hrn, -, -, -, -, -, htbl,
     -, -, -, -, -, -⟩ := h
   refine EtaFamiliesClosed.ofFreshExt hE ?_

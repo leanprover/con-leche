@@ -1004,6 +1004,32 @@ theorem nestedBlockNames_nodup {env envAux : Env} {b : MutualBlock} {F : Nat}
     (haux : checkMutualCore (m := CheckM) (fueledOps mode F) env b none true = .ok envAux) :
     b.blockNames.Nodup := (checkMutualCore_inv haux).1
 
+/-! ### THE TWO COPY-FIELD ARMS' SHARED WALK, READ COMPONENTWISE (task #315 K.60, K.63)
+
+`nestedCopyFieldsAt` runs K.60's and K.63's guards in ONE pass and
+returns the pair; `nestedCopyPinFieldsAt` and `nestedCopyReflFieldsAt`
+are its two components.  These are the two extraction lemmas the
+inversions use where an `all`-shaped walk would use
+`List.all_eq_true`. -/
+
+theorem allPair_fst_mem {α : Type} {f : α → Bool × Bool} :
+    ∀ {l : List α}, (allPair l f).1 = true → ∀ a ∈ l, (f a).1 = true
+  | [], _, _, ha => absurd ha (by simp)
+  | b :: bs, h, a, ha => by
+    simp only [allPair, Bool.and_eq_true] at h
+    rcases List.mem_cons.mp ha with rfl | ha'
+    · exact h.1
+    · exact allPair_fst_mem h.2 a ha'
+
+theorem allPair_snd_mem {α : Type} {f : α → Bool × Bool} :
+    ∀ {l : List α}, (allPair l f).2 = true → ∀ a ∈ l, (f a).2 = true
+  | [], _, _, ha => absurd ha (by simp)
+  | b :: bs, h, a, ha => by
+    simp only [allPair, Bool.and_eq_true] at h
+    rcases List.mem_cons.mp ha with rfl | ha'
+    · exact h.1
+    · exact allPair_snd_mem h.2 a ha'
+
 /-- **K.46's grouped gate, inverted**: `nestedPinChecks` bundles K.26,
 K.32, K.37 and K.41 so that the field kinds and the reference edge list
 are computed ONCE, and this reads the four conjuncts back in the shape
@@ -1039,6 +1065,9 @@ theorem nestedPinChecks_inv {ops : CheckerOps CheckM} {env envN : Env} {p : Nest
       -- UNCONDITIONAL — it stands before the mode test, because its
       -- consumer reads it in every mode
       nestedCopyPinFieldsOk env p b st stored = true ∧
+      -- **K.63**: a container's REFLEXIVE nested field lands on a block
+      -- pin — K.60's guard one `Π`-tower down, on the same walk
+      nestedCopyReflFieldsOk env p b st stored = true ∧
       -- **K.61**: the container instance map, and the own-pin fields'
       -- targets.  UNCONDITIONAL, for K.60's reason
       nestedInstMapOk env p b st stored = true ∧
@@ -1047,9 +1076,12 @@ theorem nestedPinChecks_inv {ops : CheckerOps CheckM} {env envN : Env} {p : Nest
       nestedOrdOutsideOk env p b st stored = true := by
   unfold nestedPinChecks at h
   simp only at h
-  by_cases hcpf : nestedCopyPinFieldsAt env p st (nestedPinKinds p b stored) = true
+  by_cases hcpf : (nestedCopyFieldsAt env p st (nestedPinKinds p b stored)).1 = true
   case neg => rw [if_pos (by simpa using hcpf)] at h; close_throw
   rw [if_neg (by simpa using hcpf)] at h
+  by_cases hcrf : (nestedCopyFieldsAt env p st (nestedPinKinds p b stored)).2 = true
+  case neg => rw [if_pos (by simpa using hcrf)] at h; close_throw
+  rw [if_neg (by simpa using hcrf)] at h
   by_cases him : nestedInstMapOkAt env p st (nestedInstMaps env st)
       (nestedPinKinds p b stored) = true
   case neg => rw [if_pos (by simpa using him)] at h; close_throw
@@ -1108,12 +1140,12 @@ theorem nestedPinChecks_inv {ops : CheckerOps CheckM} {env envN : Env} {p : Nest
               by simp [certOnly, nestedPinOrderOk, hord'],
               fun _ => ⟨jobs, ws, unwrapOr_ok hjobs, hws, by simpa using hcmp⟩,
               fun _ => ⟨pd.1, pd.2, jobsP, wsP, unwrapOr_ok hpd, unwrapOr_ok hjobsP,
-                hwsP, hrw⟩, hcpf, him, hout⟩
+                hwsP, hrw⟩, hcpf, hcrf, him, hout⟩
   · -- `.trusted`: the group does not run, and every `certOnly` is `true`
     exact ⟨by simp [certOnly, hv], by simp [certOnly, hv], by simp [certOnly, hv],
       by simp [certOnly, hv], by simp [certOnly, hv],
       fun hv' => absurd hv' (by simp [hv]),
-      fun hv' => absurd hv' (by simp [hv]), hcpf, him, hout⟩
+      fun hv' => absurd hv' (by simp [hv]), hcpf, hcrf, him, hout⟩
 
 /-- **The nested chain's FRONT half**: official's two syntactic guards,
 the elimination on the annotated inputs, the mimic count, the minted
@@ -1309,6 +1341,10 @@ private theorem checkNested_inv_rest {env envOut : Env} {p : NestedParts} {F : N
       -- PIN.  K.32's twin, running the other way; UNCONDITIONAL, since
       -- the model's `pinF` arm reads it in every mode
       nestedCopyPinFieldsOk env p b st stored = true ∧
+      -- **A CONTAINER'S REFLEXIVE NESTED FIELD LANDS ON A BLOCK PIN**
+      -- (K.63): K.60's guard one `Π`-tower down, where K.60 claims
+      -- nothing by construction; the same walk computes both
+      nestedCopyReflFieldsOk env p b st stored = true ∧
       -- **THE CONTAINER INSTANCE MAP** (K.61): every own pin of every
       -- pin's container, instantiated at that pin's own levels and
       -- components, IS a block pin, and a copy's field at one of those
@@ -1466,7 +1502,7 @@ private theorem checkNested_inv_rest {env envOut : Env} {p : NestedParts} {F : N
   rw [if_pos hpa] at h
   try simp only [bind, Except.bind] at h
   obtain ⟨uPC, hpc4, h⟩ := exceptBind_ok h
-  obtain ⟨htg, hkd, hrk, hrh, hordC, hord, hpinN, hcpf, him, hout⟩ :=
+  obtain ⟨htg, hkd, hrk, hrh, hordC, hord, hpinN, hcpf, hcrf, him, hout⟩ :=
     nestedPinChecks_inv hpc4
   try simp only at h
   obtain ⟨uP₁, hpins₁, h⟩ := exceptBind_ok h
@@ -1539,8 +1575,8 @@ private theorem checkNested_inv_rest {env envOut : Env} {p : NestedParts} {F : N
   exact ⟨stored, ctorsR, cvRms, cvRns, rulesM, rulesN,
     hst', hpc, (by cases uA; exact hpinsAux), hcaps, hsrc,
     certOnly_and_left hcont, hgrp, hmn, hsc, hpl, htg, hkd, haa, hrk, hpa, hrh, hordC,
-    hord, hpinN, hcpf, him, hout, (by cases uP₁; exact hpins₁), hctors, hrm, hrn, hnd,
-    hdj,
+    hord, hpinN, hcpf, hcrf, him, hout, (by cases uP₁; exact hpins₁), hctors, hrm, hrn,
+    hnd, hdj,
     hrlm, hrln, hrb2, htbl, (by cases u₀; exact hpins), hnums, hlen,
     (by cases u₁; exact hrecs), hrb, hop, hom⟩
 
@@ -1664,6 +1700,10 @@ theorem checkNested_inv {env envOut : Env} {p : NestedParts} {F : Nat}
       -- PIN.  K.32's twin, running the other way; UNCONDITIONAL, since
       -- the model's `pinF` arm reads it in every mode
       nestedCopyPinFieldsOk env p b st stored = true ∧
+      -- **A CONTAINER'S REFLEXIVE NESTED FIELD LANDS ON A BLOCK PIN**
+      -- (K.63): K.60's guard one `Π`-tower down, where K.60 claims
+      -- nothing by construction; the same walk computes both
+      nestedCopyReflFieldsOk env p b st stored = true ∧
       -- **THE CONTAINER INSTANCE MAP** (K.61): every own pin of every
       -- pin's container, instantiated at that pin's own levels and
       -- components, IS a block pin, and a copy's field at one of those
@@ -1780,13 +1820,13 @@ theorem checkNested_inv {env envOut : Env} {p : NestedParts} {F : Nat}
     hcont, hcomp, hb, haux, hrest⟩ := checkNested_inv_front h
   obtain ⟨stored, ctorsR, cvRms, cvRns, rulesM, rulesN, hst, hpc, hpinsAux, hcaps, hsrc,
     hdist, hgrp, hmn, hsc, hpl, htg, hkd, haa, hrk, hpa, hrh, hordC, hord, hpinN, hcpf,
-    him, hout, hpins₁, hctors, hrm, hrn, hnd, hdj, hrlm, hrln, hrb2, htbl, hpins, hnums,
-    hlen, hrecs, hrb, hop, hom⟩ := checkNested_inv_rest hcont hrest
+    hcrf, him, hout, hpins₁, hctors, hrm, hrn, hnd, hdj, hrlm, hrln, hrb2, htbl, hpins,
+    hnums, hlen, hrecs, hrb, hop, hom⟩ := checkNested_inv_rest hcont hrest
   exact ⟨hg₀, hg₁, st, b, envAux, stored, ctorsR, cvRms, cvRns, rulesM, rulesN, fmsA,
     ctorsA, hfmsA, hctorsA, helim, hcnt, hfresh, hcont, hcomp, hb, haux, hst, hpc,
     hpinsAux, hcaps, hsrc, hdist, hgrp, hmn, hsc, hpl, htg, hkd, haa, hrk, hpa, hrh,
-    hordC, hord, hpinN, hcpf, him, hout, hpins₁, hctors, hrm, hrn, hnd, hdj, hrlm, hrln,
-    hrb2, htbl, hpins, hnums, hlen, hrecs, hrb, hop, hom⟩
+    hordC, hord, hpinN, hcpf, hcrf, him, hout, hpins₁, hctors, hrm, hrn, hnd, hdj, hrlm,
+    hrln, hrb2, htbl, hpins, hnums, hlen, hrecs, hrb, hop, hom⟩
 
 
 /-! ## The restore, syntactically (task #315)
