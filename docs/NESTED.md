@@ -644,6 +644,19 @@ it at the descending cuts.  Both send the `i`-th parameter to the `i`-th
 opener, so on a pin — closed, standing in the parameter context — they
 compute the same expression.
 
+A third fact of the same family travels with them, and it is the one
+that is easiest to believe already recorded.  The table a consumer looks
+a field's spine up in is written in the container's own scope, at
+synthetic parameter variables — so its entries are the recorded pins
+with every parameter variable's TYPE ANNOTATION replaced by a stand-in.
+Erasing annotations is not injective in general, so "the container's
+pins are spelled differently from one another" does not by itself say
+that the table's entries are; what makes it true here is that a pin's
+variables are the block's own parameter openers, so a given position
+carries one annotation throughout and the erasure loses nothing.  That,
+too, is a fact about the block's own installation, and it is carried the
+way the other two are.
+
 What is still to be built is the consumer: the reindexing itself, as
 clauses on the object that holds a block's own pins, and the two sites
 that would switch to it.  Until those land the tree still takes the long

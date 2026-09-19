@@ -118174,3 +118174,147 @@ allowlisted, pub-imports 1339 of 2273, none demotable;
 `tests/overview-links.sh` (112 links) and `tests/quote-gate.sh` OK;
 `tests/unconsumed.sh` 185 of 3709.  No kernel file changed, so no
 accept set moved and `tests/arena.sh` was not re-run.
+
+#### WIDE (2″) LANDED — `pinsDistinct` at the spelling the table uses, and why annotation-erasure needs K.30 (lane WIDE, 2026-09-19)
+
+**The sentence for the top of this row is (1′)'s**: that carry deleted
+three lines per arm and added none, because the producer had PROVED the
+spine and then weakened it to a mention for the one consumer it had.
+This row is the same defect in the other direction — a clause stated
+one `ownAt` away from where it is read — and it is the second time in
+one session that a price quoted in TIERS turned out to be a
+RE-SPELLING.  Both were caught by reading the CONSUMER before spending,
+and neither was visible from the clause's name.
+
+##### (a) WHAT LANDED
+
+`ContainerModeled.pinsDistinctAt` (`NestedPremise.lean`, beside
+`pinsDistinct`): two of a container's recorded pins with ONE own-pin
+TABLE ENTRY are one pin, at every `lps`.  Eight vacuous sites in
+`pinsDistinct`'s own idiom, one discharge at `nestedContainerModeled`.
+
+Beside it, three general lemmas that were missing:
+
+* `abstractRange_instSeq_fvs` (`Verify/Inductives/NestedCopyInstU.lean`)
+  — `instSeq_abstractRange_fvs`'s trip run the OTHER way: opening a
+  body with no `fvar` of its own at a variable list whose `j`-th entry
+  is `fvar j`, then closing the leading `k` levels again, returns the
+  body on the nose.  The mirror needs no `fvarConsistent` (the closing
+  never reads an annotation) and instead needs `fvarsBelow 0` (nothing
+  the abstraction could capture);
+* `fvarsBelow_of_fvarLeaves` and `fvarsBelow_abstractRange` (same file),
+  the two small steps that turn K.30's leaf clause into that
+  hypothesis;
+* `instantiate1_abstract1_self` MOVED to its canonical home beside
+  `abstract1_instantiate1` in `Verify/Abstract.lean`, and its two
+  downstream copies deleted — the cached checker's, and a `private` one
+  in `NestedCopyNorm` whose docstring recorded that it was a copy.
+  This clause is its fourth caller; three copies would have been four.
+
+The discharge also hoisted two `have`s out of the bullets:
+`hpinsInj` (K.31 read back through the block model's record, which
+`pinsDistinct` and `pinsDistinctAt` now share) and `hownAtSelf` (the
+own-pin table's entry AS the recorded pin's closure-and-reopening,
+which `nestPinSpineAbs` and `pinsDistinctAt` now share).
+
+##### (b) THE FACT A LATER READER WILL NEED — annotation-erasure, and what makes it injective HERE
+
+`containerOwnPinsSelf`'s entry at `q` is
+`(d.pinAt q).ownAt d.nP lps (lps.map Level.param) (containerParamOpeners d.nP)`,
+and working that out at the identity instantiation it is **the recorded
+pin term with every parameter `fvar`'s ANNOTATION replaced by
+`Expr.sort Level.zero`**: `abstractRange` turns those `fvar`s into
+`bvar`s and drops the annotation, and the reopening puts the SYNTHETIC
+opener's back.
+
+**Annotation-erasure is not injective in general** — two terms
+differing only in an `fvar`'s annotation have one image — so
+`pinsDistinct`, which is about the recorded TERM, does not give
+distinctness of the table's entries, and no argument about the model
+recovers it.  **What makes it injective here is K.30** (`pinsScoped`):
+a recorded pin's `fvar` leaves are the FIRST FORMER's openers, so for a
+given index every pin of a block carries the SAME annotation, and on
+that set the erasure loses nothing.  That is a fact about the block's
+own run, which is why the clause is carried rather than re-derived, and
+why its discharge sits at the block's own read-back where K.30 is still
+in hand.
+
+**Record this shape.**  Three clauses of one family have now been
+found, each a fact the checker establishes about the block it is
+INSTALLING and each needed about a CONTAINER at a later block, each
+stated at one spelling and read at another: `ownPins` (membership vs
+POSITION — step 1), `nestArgsMentionAbs` (a mention vs the SPINE —
+(1′)), and `pinsDistinct` (the recorded term vs the TABLE ENTRY —
+this row).  When a fourth shows up, the question to ask of the existing
+clause is not "is it true" but "is it stated where the consumer
+reads".
+
+##### (c) WHAT `pinsDistinctAt` IS FOR, EXACTLY — measured at `nestedInstMapAt`, because the first reading was one step short
+
+Worth recording, because the obvious statement of the need is wrong in
+a way that does not matter but would confuse the next reader.
+
+`nestedInstMapAt` is `own.mapM fun e => st.pins.findIdx? (·.pin == e)`:
+the map's value at a position is a FUNCTION OF THE ENTRY.  So σ does
+NOT need `findIdx?` to answer the minimal position, and the previous
+row's "(ii) `own0` has no earlier entry equal to it" over-states the
+need: equal entries have equal map values whatever `findIdx?` answers.
+
+What the consumer really needs is one step further along.  K.61 gives
+the entry equality at the IDENTITY instantiation (its cut is matched
+against `containerOwnPinsSelf`), and the map runs on the table at the
+PIN's instantiation.  Moving an equality from one instantiation to the
+other is exactly what `pinsDistinctAt` does — it identifies the two
+CLASSES, after which `pinAt` and hence every instantiation agree.  So
+the clause is the right one and the route through it is:
+
+    K.61's `nestedInstMapOk_target`         own0.findIdx? … = some qK, own0[qK] = cut
+    `nestPinSpineAbs` ((1′)) + step 1       own0[c] = cut, c = dJ.nestOf i j l
+    `ownPins`'s membership clause           own0[qK] = (dJ.pinAt q').ownAt … , q' < dJ.nPins
+    `pinsDistinctAt` ((2″))                 q' = c
+    `nestedInstMapAt` is a `mapM` on ENTRIES  m.getD qK = m.getD c  =  σ c
+
+and `hstgt` is K.61's `m.getD qK = t - p.k` read at `σ c`.
+
+##### (d) STATE AND ORDER
+
+Landed: step 0 (the threading), (1′) at spine strength with its clause,
+(2″).  Open, in order:
+
+1. **(3′)** — the σ clauses beside `NestedPinGroup.shape`/`entry`, with
+   `nestedPinEdges_mem` for `houtσ`, where `NestedPinsRun` is in scope.
+   Both model inputs are now in hand and the chain in (c) is the recipe
+   for its first arrow.  It remains the session DESIGN priced at twice
+   its brief: `ofNested_pin_block_of_wide_inst` takes about twenty
+   hypotheses, of which `hcarσ` (~⅓ session) and `hpin` (~18 premises)
+   were separately priced, and the rest transfer from the NARROW site;
+2. **(4′)** — the switch at BOTH sites and the deletion, with the
+   unconsumed gate read against the (f3) step-4 row's two lists.
+   **Nothing from the `pins_le_*`/`NestedPinsLe`-producer family may
+   leave at the switch**; anything that does is a finding for step (4),
+   not a tidy-up.
+
+**The unconsumed baseline before the switch**: 185 of 3712 (the base's
+185 of 3706).  The six new declarations are all consumed; the gate does
+not see structure fields, so `nestPinSpineAbs` and `pinsDistinctAt` do
+not appear on it and their consumer is (3′).
+
+##### (e) GATES
+
+`tests/warning-free.sh 9eb414c3`:
+
+```
+warning-free: 17 changed module(s) since 9eb414c3
+warning-free: lake build — 17 module(s) recompiled, 0 warning line(s)
+warning-free: lake test — 2 module(s) recompiled, 0 warning line(s)
+warning-free: OK (a run that could have failed)
+```
+
+`lake build` 725 jobs and `lake test` EXIT 0; `tests/proofdeps.sh` 4975
+rows / 12 roots / **doors 0**; `tests/shake.sh` 513 removals all
+allowlisted, pub-imports 1339 of 2274, none demotable;
+`tests/quote-gate.sh` OK; `tests/overview-links.sh` 112 links, OK after
+repointing the two `StreamConsts.lean` citations the lemma move shifted
+by 51 lines (the cited TEXT is unchanged, both paragraphs re-read);
+`tests/unconsumed.sh` 185 of 3712.  No kernel file changed, so no
+accept set moved and `tests/arena.sh` was not re-run.
