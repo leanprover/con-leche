@@ -117975,3 +117975,162 @@ list and every tier below it is off, which is exactly the hand-off to
 the read twin.  The only kernel file touched is a DOCSTRING
 (`NestedInstall.lean`, the dead `_fst`/`_snd` citation), so no accept
 set moved and `tests/arena.sh` was not re-run.
+
+#### PINF: B3a AND B3b LANDED — the reflexive dom twin, the fire AT A BOUND OUTPUT, and the peel (lane PINF, 2026-09-19)
+
+Three of the five items the previous record listed are theorems in the
+tree; (iii)/(v) at the reflexive field are still open and their
+remaining shape is now exact rather than estimated.  The re-pricing
+that record did held everywhere it was tested: both corrections were
+right, and the ORDER it prescribed — `copyPinFDomRefl` first, the
+generalisation second — was what made the second one mechanical.
+
+##### (a) B3a — `copyPinFDomRefl` (`NestedCopyInst.lean:2166`)
+
+`copyPinFDom` one `Π`-tower down: at a container field REFLEXIVE at one
+of the container's own pins, the closed field domain is a NON-EMPTY `Π`
+telescope whose body is that pin's container applied to `nPJ + nIdx`
+arguments, and the minted domain is a telescope of the SAME depth whose
+body is that application with the head's level arguments substituted
+and the spine mapped at the cut BELOW the telescope.
+
+**Priced at its inputs, and the price held.**  Its inputs are
+`copyPinFDom`'s — `IsBlockModel.stored`/`.ctors`/`.tgtsLt`,
+`BlockModel.nestOf_some`, `blockCtorFieldDomain` — with
+`BlockOpened.nestReflF` in place of `.nestF`, plus the tower transport
+`copyPinFKindRefl` had already assembled (`Expr.piBinders_instSeq`,
+`openPisAtFvars_instSeq`, `os_instSeq_getAppFn_const_inv`,
+`os_instSeq_getAppArgs`) and two telescope substitution bricks that
+already existed (`ilp_mkPisB`, `instSeq_mkPisB`).  No new induction,
+160 lines against `copyPinFDom`'s 90 — NOT `copyRecFDomRefl`'s 740,
+which is what pricing by the member-target twin would have predicted.
+
+**One module-system finding.**  Its conclusion is stated at
+`Expr.piBinders`, not at `mkPisB`: `mkPisB` and `instTeleSeq` are
+imported PRIVATELY into this module, so they may appear in a `private`
+declaration's statement (which is how `piBinders_mkPisB_of_head` gets
+away with it) and in any proof, but not in a public theorem's.  The
+`piBinders` spelling is no weaker — depth, binders and body come back
+from one reading, and `Expr.stripPis_piBinders` re-spells it as a
+`∀`-tower wherever a consumer wants that — and it avoided guessing at a
+`public import`.  `piBinders_mkPisB_of_head` moved up to this use,
+unchanged.
+
+##### (b) B3b — the generalisation, in THREE pieces, not one
+
+**(b1) `copyPinFStoredGen` (`:3277`) — the fire at a bound output.**
+The cut is exact rather than a re-proof, and the reason is the second
+correction on the previous record read at the proof: `copyPinFStored`
+reads its output in exactly TWO places and both ask the SAME question
+of it — the head is a constant, the constant is a former of the block,
+WHICH member did the classification record at this field?  So that
+question becomes one parameter,
+
+```
+(hname : ∀ cn uus cv caps, Fl.getAppFn = Expr.const cn uus →
+  (consMutualFormers fms env).find? cn = some (.indInfo cv caps) →
+  ∃ ft, fms[tgtAt (mutKsOf kinds G) l]? = some ft ∧ ft.cvTa.name = cn)
+```
+
+and everything else — the mention by contradiction,
+`replaceIfNested_loose`, `replaceAllNested_occurrence`, the pin's index
+through `groupCopyFormer` and `Nodup` — moves across untouched.
+`copyPinFStored` keeps its statement and its call sites (two:
+`copyPinFCorr` and `copyPinFRead`; grep finds five hits, of which one
+is the declaration and two are prose), and its body is the same
+preamble answering `hname` through `os_field_domain` and
+`mutualOpenedOk_recHead`.
+
+**(b2) `mutualOpenedOk_reflHead` (`:2364`) — 45 lines, as measured.**
+The Bool's reflexive cell opens the field's own telescope with
+`openPisAtFvars` at `(piBinders).1.length` and then asks the SAME head
+equation the recursive cell asks of the domain, so the reader is
+`mutualOpenedOk_recHead`'s body plus the `match` arm on the opening.
+The previous record's correction 1 was right: this was never a risk.
+
+**(b3) `copyPinFStoredRefl` (`:3582`) and `copyPinFStoredReflM`
+(`:3773`).**  The first answers `hname` at a reflexive field: `Fl`'s
+head is the stored domain's tower body's head
+(`Expr.piBinders_instSeq`, `instSeq_mkPisB`),
+`normCtorValM_domErasedPi` carries the tower across the positivity
+normalisation, `Expr.ErasedEq.stripPis_inv` reads the ANNOTATED tower
+off it, `piBinders_mkPisB_of_head` identifies its depth with the one
+the Bool opens at, and (b2) names the member.  Its template is
+`copyRecFKindRefl`, which does the same crossing at a MEMBER target, so
+this was a transcription; `erasedEq_const_invD` moved up to the first
+use.
+
+The second is the PEEL, and it is the session's cheapest surprise: it
+needs NOTHING about the telescope's binders.  `replaceAllNested_mkPisB`
+says the rewrite commutes with a `∀`-telescope — the output is a tower
+of the SAME depth whose BODY is a run of the body at a state between
+the telescope's two — so the body's run is the fire's input and the
+tower it sits in is `copyPinFStoredRefl`'s `hFlStrip`, and that is the
+whole proof (15 lines).  `replaceAllNested_mkPisB_inert` and the
+positivity walk's `normPosDomM_mkPisB_free`, which `copyRecFDomRefl`
+spends its `hfree` machinery on, are a READING question — which binders
+the output tower has — and the fire never looks at them.  The minted
+domain enters abstractly, as `M` with
+`M.stripPis TLm.length = some (TLm, mkAppN (.const I us) AS)`, which is
+exactly what B3a's last conjunct produces at any components.
+
+##### (c) WHAT IS LEFT, and where the remaining price now sits
+
+* **B3c `copyPinFReadRefl`** — conjuncts 4-5 at a reflexive nested
+  field.  Its template is `copyRecFReadRefl` (`:5992`), which does the
+  same reading at a MEMBER target: both sides opened at the SAME tower
+  (`openPisAtFvars_mkPisB` on each), the minted side read through
+  `mintFieldRead` + `BlockCtorData.nestReflEntry` (which exists, with
+  `nestReflOpen` and `nestEisLenRefl` beside it) instead of
+  `.reflEntry`, and the copy side through `normCtorValM_domErasedPi`.
+  It is here, and ONLY here, that the telescope's binders matter and
+  `replaceAllNested_mkPisB_inert` + `normPosDomM_mkPisB_free` are
+  wanted — the two peels have to align binder for binder.  This is the
+  big item.
+* **B3d `copyPinFCorrRefl`** — conjunct 3.  `copyPinFCorr`'s fire half
+  is now available at the reflexive field (b3), so what is left of it
+  is the COMPONENTS' READING under the tower, which is the same
+  `nestReflEntry` step B3c needs; the two should be built together, and
+  B3c first.  `copyPinFUIds`/`copyPinFUIdsCorr` take `copyPinFCorr`'s
+  output and their own hypotheses are kind-free, so they are twins by
+  substitution once B3d exists — NOT separate items.
+* **(v) `nestedPinsShapePinFRefl_of`** — conjuncts 1-2 are
+  `copyPinFKindRefl`, 3 is B3d, 4-5 are B3c; the assembly itself is
+  `nestedPinsShapePinF_of`'s finitary branch with the reflexive
+  lemmas substituted, which that theorem is already shaped for (it
+  dispatches on the container field's kind and hands the reflexive
+  branch straight to the hypothesis).  `nestedModeled_of_one` follows
+  the moment (v) does.
+
+##### (d) THE K.63 THREADING — unchanged, still four edits
+
+`copyPinFKindRefl` still takes `hK63` as a PARAMETER and the four edits
+the previous record listed are still the whole of it
+(`DeclNestedCore.lean`, `NestedCore.lean`, `NestedLoop.lean`,
+`NestedPins.lean`); when lane A's `R.hK63` lands the swap is ONE line
+at `copyPinFKindRefl`'s call sites.  Nothing this session touched that
+file set.
+
+##### (e) GATES
+
+`tests/warning-free.sh 9eb414c3`:
+
+```
+warning-free: 1 changed module(s) since 9eb414c3
+warning-free: lake build — 3 module(s) recompiled, 0 warning line(s)
+warning-free: lake test — 0 module(s) recompiled, 0 warning line(s)
+warning-free: OK (a run that could have failed)
+```
+
+`lake build` and `lake test` EXIT 0; `tests/proofdeps.sh` 4975 rows /
+12 roots / **doors 0**; `tests/shake.sh` 513 removals all allowlisted,
+pub-imports 1339 of 2270, none demotable; `tests/quote-gate.sh`,
+`tests/overview-links.sh` (112 links) and `tests/no-local-paths.sh` OK;
+`tests/unconsumed.sh` 188 of 3713, with `copyPinFDomRefl` and
+`copyPinFStoredReflM` newly on that list beside
+`copyPinFKindRefl` — the three inputs the read twin will
+consume, which is exactly the hand-off.  `tests/shake.sh` wants
+`ConLeche.PinGen.{Prelude,Certs,Dump}` built first, not just
+`ConLeche.PinGen`; it says so by failing on the missing `.olean`.
+No kernel file and no `Semantics` file was touched, so no accept set
+moved and `tests/arena.sh` was not re-run.
