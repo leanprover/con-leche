@@ -121730,3 +121730,50 @@ Landed this session: `PinGroupInst`'s eighth conjunct (part 2),
 `ordTargetDom`'s signature, `instOrdTgtAt` (part 1's run-level half).
 Not built: the `PinShapes` conjunct, whose producer needs K.68, and
 everything downstream of it.  No new record added without asking.
+
+#### WIDE (3) SESSION 2 — BOTH RUN-LEVEL HALVES LANDED; WHAT IS LEFT IS ONE BRIDGE (lane LE, 2026-09-19)
+
+`NestedPinsRun.instOrdSelfAt` is K.68 at the copy's field, the
+SELF-relative twin of `instOrdTgtAt` and on the same
+`copyOrdFOutside` scaffolding.  It drops `instOrdTgtAt`'s `p.k ≤ t`
+hypothesis, and that is not tidiness: under `p.k ≤ t` the MEMBER branch
+of K.68's conclusion is vacuous (`t = mm < p.k`), and the member branch
+is exactly the half a later block needs for
+`Tree α := node (List (Tree α))`.
+
+So both halves of the correspondence now exist as run facts:
+`instOrdTgtAt` (the block's own side, K.67) and `instOrdSelfAt` (the
+side a later block reads, K.68).
+
+##### WHAT IS LEFT, AND IT IS ONE BRIDGE PLUS MECHANICS
+
+The `PinShapes` conjunct's statement is written and measured again (79
+lines, `_tmp/le2/part1-statement.patch`): `BlockModel.ownPinTerms`,
+the conjunct itself, `PinShapes.crossEnv` one word, `rowTarget` and the
+two `hshR _ hqK` destructurings one `-` each — eight of nine sites
+free, as before.  The NINTH still needs a ninth `PinGroupInst`
+conjunct, because `nestedPinShapes_of` holds only a
+`NestedPinGroup` and must read the fact off `G.inst`.
+
+And that ninth conjunct's producer needs ONE lemma that does not yet
+exist, now identified precisely:
+
+    (D).ownPinTerms lps = ConLeche.nestedPinTermsSelf p st
+
+— the model's spelling of the block's own pin table IS the checker's.
+Every ingredient is in the tree: `hownAtSelf`'s rewrite chain
+(`abstractRange_mkAppN`, `abstractRange_const`, `instSeq_mkAppN_const`,
+`instantiateLevelParams_self`) transposed from `O.record.pin` to
+`NestedPinsSyn.pinRec`, which states the same equation;
+`instantiateList_openers_eq_instSeq` at cut `0`;
+`Expr.liftLooseBVars_zero`; and
+`ConLeche.looseBVarsBounded_abstractRange` at `d = 0, k = nP, c = 0`,
+whose premise is that a recorded pin term is CLOSED — the block's
+parameters ride in it as FVARS, which is what `abstractRange` turns
+back into bound variables.  The one thing to locate is the run-level
+accessor for that closedness (`nestedOccOk`'s `looseBVarsBounded 0`,
+`NestedInstall.lean:646`).
+
+Then: the ninth conjunct, `nestedPinShapes_of`'s discharge,
+`rowTargetOrd`, the correspondence, `hslotOrd`, `hfitc`.  The tree is
+left green and `sorry`-free; the statement patch is out of tree.
