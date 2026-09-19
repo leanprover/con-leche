@@ -640,6 +640,7 @@ theorem nestedContainerModeled {F : Nat} {st : ElimState} {envAux : Env}
       (ctorsR := ctorsR) (dsR := dsR) (xFvsR := xFvsR) (pinsS := pinsS) mp stored mp₂ envOut mpOut)
     (hpinParams : ∀ (i : Nat), i < p.k →
       ContainerPinParams (V := V) (stored.getD i default).cvTa (D))
+    (hK64 : ConLeche.pinsResolve (ConLeche.consNestedFormers (stored.take p.k) env) st.pins = true)
     (hown : ContainerOwnPinsSyn (V := V) envOut (D)) :
     ContainerModeled mpOut.base2 (ConLeche.blockContainerInfo p.nP
         (((stored.take p.k).zip ctorsR).map fun (a, cs) =>
@@ -712,12 +713,45 @@ theorem nestedContainerModeled {F : Nat} {st : ElimState} {envAux : Env}
       show (ConLeche.containerParamOpeners p.nP).length = p.nP from by
         simp [ConLeche.containerParamOpeners]]
     simp only [List.map_map, Function.comp_def, Expr.instantiateLevelParams_self]
+  -- resolution at the prefix formers' environment carries to the
+  -- OUTPUT one: a member is stored by the install itself and everything
+  -- else comes from the pre-block environment (task #315 K.64's
+  -- consumer)
+  have hresOut : ∀ e : Expr,
+      e.constsResolve (ConLeche.consNestedFormers (stored.take p.k) env) = true →
+      e.constsResolve envOut = true := by
+    obtain ⟨new, E, -⟩ := T.install
+    obtain ⟨henv, -⟩ := ConLeche.consNestedFormers_take_eq haux O.formers hstored p.k hkle
+    rw [henv]
+    refine fun e he => ConLeche.Expr.constsResolve_of_find (fun n hn => ?_) he
+    by_cases hm : ∃ i, i < (D).k ∧ (D).memberName i = n
+    · obtain ⟨i, hi, rfl⟩ := hm
+      obtain ⟨cvT', cvR', mI', rP', rules', hI'⟩ := T.repsAt.toIsBlockModels i hi
+      obtain ⟨cv, caps, hf⟩ := hI'.memsFound i hi
+      rw [hf]; rfl
+    · have heq : (ConLeche.consMutualFormers (fms.take p.k) env).find? n = env.find? n := by
+        refine ConLeche.consMutualFormers_find?_of_ne fun g hg heq => hm ?_
+        obtain ⟨i, hi⟩ := List.getElem?_of_mem hg
+        have hilt : i < p.k := by
+          have := (List.getElem?_eq_some_iff.mp hi).1
+          rw [List.length_take] at this
+          omega
+        refine ⟨i, by rw [hdk]; exact hilt, ?_⟩
+        rw [hnamesD i hilt, ← heq]
+        show (fms.getD i default).cvTa.name = g.cvTa.name
+        rw [List.getD_eq_getElem?_getD,
+          show fms[i]? = some g from by rw [← List.getElem?_take_of_lt hilt]; exact hi]
+        rfl
+      rw [heq] at hn
+      cases hf : env.find? n with
+      | none => rw [hf] at hn; exact nomatch hn
+      | some c => rw [E.toConsExt.ext _ _ hf]; rfl
   refine ContainerModeled.of_readBack ?_ O.record.nP ?_ ?_ ?_ T.repsAt.toIsBlockModels
     (fun ψ => ⟨(O.typed ψ).1.crossEnv T.agree O.reps.toIsBlockModels,
       (O.typed ψ).2.1.crossEnv T.agree O.reps.toIsBlockModels,
       (O.typed ψ).2.2.crossEnv T.agree O.reps.toIsBlockModels ?_⟩)
     (fun ψ mm' j fs => ofNested_inj ψ mm' j fs) ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ hown
-    ?_ ?_ ?_ ?_ ?_
+    ?_ ?_ ?_ ?_ ?_ ?_ ?_
   · -- `hk`
     rw [hdk, List.length_map, List.length_zip, List.length_take, hclen]
     omega
@@ -1265,6 +1299,49 @@ theorem nestedContainerModeled {F : Nat} {st : ElimState} {envAux : Env}
         = Expr.abstractRange (st.pins[q']'hql').pin 0 p.nP 0 := by
       rw [← hround q hql, ← hround q' hql', heq]
     rw [← hback q hql, ← hback q' hql', hA]
+  · -- `pinDsScoped`: K.30 AT THE COMPONENTS (task #315 WIDE, lane LE).
+    -- The record is about the whole pin TERM; the clause is about its
+    -- components, and the spine is hereditary both ways
+    -- (`looseBVarsBounded_mkAppN`, `fvarLeaves_mkAppN`).  The openers
+    -- are the FIRST elimination type's, which `nestedFormerType`
+    -- identifies with the first former's.
+    intro q hq
+    have hql : q < st.pins.length := by rw [← O.record.nPins]; exact hq
+    obtain ⟨t₀, prms, o, ht₀, hopenP, hallP⟩ := ConLeche.pinsScoped_inv hsc
+    have hlenP : prms.length = p.nP := openPisAtFvars_length p.nP hopenP
+    have hidxP' : ∀ j, j < p.nP → ∃ ty, prms[j]? = some (Expr.fvar j ty) := by
+      intro j hj
+      have hx : prms[j]? = some prms[j] := List.getElem?_eq_getElem (by omega)
+      obtain ⟨ty, hty⟩ := ConLeche.openPisAtFvars_index p.nP t₀.type 0 hopenP j _ hx
+      exact ⟨ty, by rw [hx, hty, Nat.zero_add]⟩
+    have hpq : st.pins[q]? = some st.pins[q] := List.getElem?_eq_getElem hql
+    obtain ⟨-, hpin⟩ := O.stage.pinRec q _ hpq
+    obtain ⟨hbnd, hleaf⟩ := hallP _ (List.mem_of_getElem? hpq)
+    have hnP' : (D).nP = p.nP := O.record.nP
+    have hargs : ∀ x ∈ ((D).pinAt q).DsE, x ∈ (st.pins[q]'hql).pin.getAppArgs := by
+      intro x hx
+      rw [hpin, ConLeche.Expr.getAppArgs_mkAppN]
+      simp only [ConLeche.Expr.getAppArgs, List.nil_append]
+      exact hx
+    refine ⟨prms, by rw [hnP']; exact hlenP, by rw [hnP']; exact hidxP', fun x hx => ?_⟩
+    exact ⟨ConLeche.looseBVarsBounded_getAppArgs hbnd x (hargs x hx),
+      fun l hl => hleaf l (ConLeche.fvarLeaves_getAppArgs (hargs x hx) l hl)⟩
+  · -- `pinDsRes`: K.64 AT THE COMPONENTS, carried to the OUTPUT
+    -- environment (task #315 WIDE, lane LE).  The record is at the
+    -- prefix formers' environment, where the block's members are
+    -- stored — which is why it is stated there and not at the
+    -- pre-block one — and resolution is monotone along the install's
+    -- own conses.
+    intro q hq x hx
+    have hql : q < st.pins.length := by rw [← O.record.nPins]; exact hq
+    have hpq : st.pins[q]? = some st.pins[q] := List.getElem?_eq_getElem hql
+    obtain ⟨-, hpin⟩ := O.stage.pinRec q _ hpq
+    have hres1 := ConLeche.pinsResolve_inv hK64 _ (List.mem_of_getElem? hpq)
+    have hargs : x ∈ (st.pins[q]'hql).pin.getAppArgs := by
+      rw [hpin, ConLeche.Expr.getAppArgs_mkAppN]
+      simp only [ConLeche.Expr.getAppArgs, List.nil_append]
+      exact hx
+    exact hresOut x (ConLeche.constsResolve_getAppArgs hres1 x hargs)
 
 /-- **THE BLOCK'S OWN PINS ARE ITS RECORDED PINS, AT EVERY
 INSTANTIATION** (task #315 M7-3 session 18, DESIGN §U.104):
@@ -1928,7 +2005,7 @@ theorem declNested_of (hμ : μ.verifiedChecks = true) {F : Nat} {env envOut : E
         xrestF eissF tssF ctorsR dsR xFvsR pinsS) :=
     nestedOwnPins_of mpOut hk0 hcount haux hstored hctors hrb hlps hownP hmimB O
   have hcm := nestedContainerModeled hcaps hcont hk0 hmn hsc hb haux hstored hctors O T
-    (nestedPinParams_of hcaps hcont hlv hsc hb hPM hlps haux hstored O) hown
+    (nestedPinParams_of hcaps hcont hlv hsc hb hPM hlps haux hstored O) hK64 hown
   have hfreshMs : ∀ n ∈ p.memberNames, env.find? n = none := by
     rw [← O.record.memberNames]
     exact nestedMembersFresh hcaps haux hstored O

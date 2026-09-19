@@ -597,6 +597,39 @@ structure ContainerModeled {env : Env} (m : EnvModel V env) (ci : ContainerInfo)
         (ConLeche.containerParamOpeners d.nP)
       = (d.pinAt q').ownAt d.nP lps (lps.map Level.param)
           (ConLeche.containerParamOpeners d.nP) → q = q'
+  /-- **THE PINS' COMPONENTS STAND AT THE PARAMETER OPENERS** (task
+  #315 WIDE, lane LE): at every own pin, every recorded component has
+  no loose bound variable and every free variable it carries —
+  annotation included — is one of `d.nP` openers, at that opener's own
+  index.  K.30 (`pinsScoped`) at a container, which is where the
+  reading of the own-pin TABLE begins: `PinSyn.ownAt` closes a
+  component over the parameters and reopens it at the instantiation,
+  and `denoteMeta_ownAt_component` reads that round trip only for a
+  component the openers scope.
+
+  Stated PER PIN, so a pins-free block discharges it in
+  `nestMention`'s idiom; it mentions no environment and no model, so it
+  crosses an extension verbatim. -/
+  pinDsScoped : ∀ q, q < d.nPins →
+    ∃ params : List Expr, params.length = d.nP ∧
+      (∀ j, j < d.nP → ∃ ty, params[j]? = some (Expr.fvar j ty)) ∧
+      ∀ x ∈ (d.pinAt q).DsE, x.looseBVarsBounded 0 = true ∧
+        ∀ l ∈ x.fvarLeaves, Expr.fvar l.1 l.2 ∈ params
+  /-- **AND THEIR CONSTANTS RESOLVE** (task #315 K.64's consumer): the
+  GUARD the next clause needs to cross a later install.
+
+  `pinDsRead` below is a `denoteMeta` conclusion, so it crosses
+  covariantly — but through `crossEnvP`'s `hde`, which is guarded,
+  because `hde` is refutable across a projection-table cons
+  (`hde_not_of_newTable`).  Every other subject of that crossing takes
+  its guard from a front door's resolution
+  (`ProjFree.of_constsResolve`); a pin's components have no front
+  door, and K.64 (`pinsResolve`) is the record that supplies it.
+
+  Crosses by `crossEnvP`'s `hres`, and vacuous at a pins-free
+  block. -/
+  pinDsRes : ∀ q, q < d.nPins → ∀ x ∈ (d.pinAt q).DsE,
+    x.constsResolve env = true
 
 /-- **The block model's member names ARE the container group's**, as
 lists (task #315 PINF): `k` and `namesLen` give the length and

@@ -287,6 +287,8 @@ theorem zeroCtorBlock_containerModeled {env : Env} {m : EnvModel V env}
   pinψ := fun _ h => nomatch h
   pinsDistinct := fun _ _ h _ _ => nomatch h
   pinsDistinctAt := fun _ _ _ h _ _ => nomatch h
+  pinDsScoped := fun _ h => nomatch h
+  pinDsRes := fun _ h => nomatch h
   pinParams := fun _ _ _ => ContainerPinParams.of_noPins rfl
 
 /-! ## The read-back at `Empty` -/

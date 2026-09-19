@@ -106630,6 +106630,79 @@ the check.  The message is "nested: a pin names a constant the block's
 environment does not store", and both routes carry it at the point of
 failure.
 
+#### WIDE (3′) (a) ROUTE 1 STEP 1 — the three clauses, and the ONE site that needs a fourth fact (lane LE, 2026-09-19)
+
+K.64 landed, so clause 3 has its source.  **TWO of the three clauses
+are in, at all nine sites and across the crossing**; the third — the
+READINGS — is not, and the reason is worth a row because it is K.64's
+own question asked at a DIFFERENT environment change.
+
+##### (a) THE CLAUSES
+
+* **`pinDsScoped`** — at every own pin, the recorded components have no
+  loose bound variable and every free variable they carry is one of
+  `d.nP` openers, at that opener's index.  K.30 at a container.  Stated
+  PER PIN, so the pins-free sites discharge it in `nestMention`'s
+  idiom; mentions no environment, so it crosses verbatim;
+* **`pinDsRes`** — the components' constants resolve at the record's
+  environment.  K.64 at a container.  Crosses by `crossEnvP`'s `hres`;
+* **`pinDsRead`** (NOT LANDED) — the components READ, at the
+  container's own parameter depth, as the `PinSyn`'s recorded `Ds`.
+  `PinSyn.Ds` is an abstract field and only a clause ties it to `DsE`.
+  Its LATER crossing is free: it is a `denoteMeta` conclusion, so it
+  crosses through `crossEnvP`'s `hde` with the `ProjFree` guard from
+  `pinDsRes` + `hfresh` (`ProjFree.of_constsResolve`) — the crossing's
+  own hypotheses, no new parameter on `crossEnvP`.  What stops it is
+  the ninth site, (b).
+
+The two landed clauses' ninth-site sources are K.30
+(`pinsScoped_inv`, spine-hereditary by
+`looseBVarsBounded_getAppArgs`/`fvarLeaves_getAppArgs`) and K.64
+(`pinsResolve_inv`, hereditary by `constsResolve_getAppArgs`, carried
+to the OUTPUT environment because a member is stored by the install
+itself and everything else comes from the pre-block environment).
+
+`ContainerOwnPinsSyn.toReadOf` restated at the per-pin scope, and
+`ContainerModeled.ownPinsRead` — the syntactic own-pin table plus the
+scope and the readings IS `ContainerOwnPins`, the form
+`pinCorr_of_ownPins_at` consumes — are written and TYPE-CHECK against
+the three clauses (the proof that their shapes are right); they are
+held back with `pinDsRead`.
+
+##### (b) THE NINTH SITE, AND THE FOURTH FACT IT NEEDS
+
+At `nestedContainerModeled` the record is built at the OUTPUT model,
+and `pinDsRead` there is the run's reading at the prefix formers'
+environment CROSSED over the block's own install.  That install conses
+projection TABLES for its structure-like members
+(`nestedTables`/`nestedMemberTable`), so the crossing is
+`denoteMeta_env_mono_projFree` at `Ts := p.memberNames` — and it wants
+`ProjFree p.memberNames` of the pin COMPONENTS, which is
+*no `.proj` node at one of the block's own members*.
+
+K.64 does not give it and cannot: its resolution is at the environment
+holding the restored FORMERS, where a member IS stored, so
+`ProjFree.of_constsResolve` has no freshness to work with.  The fact is
+true — a pin's components are sub-terms of material the front door
+`projTablesOk`-checked at the PRE-BLOCK environment, where no member
+has a table — and there are two routes to it, neither started:
+
+1. **through the stored mimic recursors.**  K.47 (`nestedOwnPinsOk`)
+   certifies that the own-pin reader, run on the block this route just
+   installed, returns the recorded pin list verbatim; the reader reads
+   the pins off the stored MIMIC RECURSOR types.  `mutualNoProj` gives
+   `NoProjEnv` at the members' slots for the scratch block, hence
+   `ProjFree.of_noProjEnv` at a stored type, and `ProjFree` is
+   hereditary through `getAppArgs`/`openPisAtFvars`.  No new record,
+   a handful of lemmas;
+2. **a second conjunct on K.64** — `q.pin.projTablesOk env` at the
+   PRE-BLOCK environment, which gives the guard at BOTH crossings at
+   once.  It needs the members' TABLE names to be free in `env`
+   (`projTableName T = (T.str "projTable").num 0`), which the install's
+   own table cons checks and `nestedTables`' inversion would hand back.
+
+Route 1 costs no kernel change and is the one to price first.
+
 #### TWO FINDINGS ABOUT THE OWN-PIN TABLE, for whoever reads it next (2026-09-19, task #315, lane K61)
 
 Both cost this lane a build and a measurement; neither is obvious from

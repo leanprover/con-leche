@@ -543,6 +543,8 @@ theorem ContainerModeled.crossEnvP {Ts : List Name} {env₁ env₂ : Env}
       pinConts := fun q hq ci' h => hci q hq ci' (C.pinConts q hq ci' h)
       ownPins := hownCross C.ownPins
       pinParams := C.pinParams
+      pinDsScoped := C.pinDsScoped
+      pinDsRes := fun q hq x hx => hres _ (C.pinDsRes q hq x hx)
       pinψ := fun q hq cvT caps hf => by
         obtain ⟨cvT', cvR', mI', rP', rules', h0⟩ := C.reps 0 hk
         obtain ⟨cv, caps', hf₁⟩ := h0.pinsFound q hq
@@ -1597,7 +1599,14 @@ theorem ContainerModeled.of_readBack {env : Env} {m : EnvModel V env} {nP : Nat}
       (d.pinAt q).ownAt d.nP lps (lps.map Level.param)
           (ConLeche.containerParamOpeners d.nP)
         = (d.pinAt q').ownAt d.nP lps (lps.map Level.param)
-            (ConLeche.containerParamOpeners d.nP) → q = q') :
+            (ConLeche.containerParamOpeners d.nP) → q = q')
+    (hpinDsScoped : ∀ q, q < d.nPins →
+      ∃ params : List Expr, params.length = d.nP ∧
+        (∀ j, j < d.nP → ∃ ty, params[j]? = some (Expr.fvar j ty)) ∧
+        ∀ x ∈ (d.pinAt q).DsE, x.looseBVarsBounded 0 = true ∧
+          ∀ l ∈ x.fvarLeaves, Expr.fvar l.1 l.2 ∈ params)
+    (hpinDsRes : ∀ q, q < d.nPins → ∀ x ∈ (d.pinAt q).DsE,
+      x.constsResolve env = true) :
     ContainerModeled m (ConLeche.blockContainerInfo nP members) d where
   k := by rw [hk]; show _ = (members.map _).length; rw [List.length_map]
   namesLen := hnamesLen
@@ -1610,6 +1619,8 @@ theorem ContainerModeled.of_readBack {env : Env} {m : EnvModel V env} {nP : Nat}
   nestMention := hnestMention
   pinsDistinct := hpinsDistinct
   pinsDistinctAt := hpinsDistinctAt
+  pinDsScoped := hpinDsScoped
+  pinDsRes := hpinDsRes
   nestArgsMention := hnestArgsMention
   nestArgsMentionAbs := hnestArgsMentionAbs
   nestArgsMentionAbsRefl := hnestArgsMentionAbsRefl
