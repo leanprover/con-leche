@@ -117512,3 +117512,108 @@ warning-free: lake build — 9 module(s) recompiled, 0 warning line(s)
 warning-free: lake test — 2 module(s) recompiled, 0 warning line(s)
 warning-free: OK (a run that could have failed)
 ```
+
+#### WIDE (f3) (1′): IT IS PINF's (ii), AND PINF's MEASUREMENT TRANSFERS — the spine clause is four clauses across three tiers, not one clause and nine discharges (lane WIDE, 2026-09-19)
+
+**The design fact behind BOTH of the revised order's `ContainerModeled`
+clauses, stated once.**  A run's checks are about the block BEING
+INSTALLED.  A container is consumed at a LATER block, where its own run
+is gone and only what its block model carries survives.  K.61 is such a
+check: it records, for the block being installed, which of a container's
+own pins each of that container's fields lands on.  The wide
+identification needs that content ABOUT THE CONTAINER — because σ runs
+on the container's own pin classes — and the container's own K.61 was
+checked at its own install and is not carried anywhere.  **Consuming a
+kernel record one level up is what costs a `ContainerModeled` clause**,
+and it costs two here: (2′), the container's own pins being spelled
+differently from one another (LANDED, K.31 carried), and (1′), a
+container member's field spine BEING its pin (this row).
+
+##### (a) WHAT (1′) HAS TO SAY, AND WHAT IT WOULD BE PROVED FROM
+
+K.61's inversion computes, at a container field, the cut
+
+    Expr.instantiateList (Expr.mkAppN domJ.1.getAppFn (domJ.1.getAppArgs.take ciK.nP))
+      (containerParamOpeners ci.nP).reverse l
+
+and looks it up in `containerOwnPinsSelf`.  Step 1's positional clause
+says that table's entry at `q` is
+`(d.pinAt q).ownAt d.nP lps (lps.map Level.param) (containerParamOpeners d.nP)`.
+So (1′) is the equation between those two at `q = d.nestOf i j l`, and
+its only candidate source is `NestedStageFacts.pinArgsAbs`.
+
+**`pinArgsAbs` is two conjuncts short, and both shortfalls are
+deliberate.**
+
+1. **The depth is EXISTENTIAL.**  It concludes
+   `∃ d, dom.1.getAppArgs.take ((D).pinAt q).nPJ
+   = ((Expr.abstractRange pin 0 p.nP 0).liftLooseBVars d 0).getAppArgs`,
+   and its docstring says why: "the consumer's use of it is a MENTION,
+   and a mention survives any lift".  (1′)'s consumer is an EQUATION at
+   a fixed substitution — `instantiateList … l` — and
+   `instantiateList σ (e.liftLooseBVars d 0)` depends on `d`.  An
+   existential lift does not survive the cut;
+2. **There is no HEAD conjunct.**  The cut is
+   `mkAppN dom.1.getAppFn (args.take ciK.nP)` and the pin's spelling is
+   headed by `.const (d.pinAt q).J (d.pinAt q).lvls`; `pinArgsAbs`
+   speaks only of `getAppArgs`.  This is the member-side twin of the
+   gap lane PINF measured on the copy side — "`copyPinFDom` has no `Fl`
+   conjunct, and the reason is not an oversight" — and it is the same
+   asymmetry.
+
+##### (b) THE PRICE, AND WHY IT IS PINF's OWN NUMBER
+
+Both shortfalls are repaired in the same place, and the tree already
+says where and at what cost.  `restoreWalk_pin`
+(`Verify/Inductives/NestedInv.lean`) has BOTH — the restored node at a
+pin target is `Expr.mkAppN (pin.liftLooseBVars d 0) (args.drop R.nP)`,
+head and args and a DEFINITE depth — and the carrying chain from there
+is the one lane PINF wrote down for its item (ii):
+
+1. a new arm in `ReadCtx.restoredOpened` / `RestoredField` on the
+   ABSTRACT binder (surgery inside a ~200-line theorem in the middle of
+   the stack);
+2. a new `NestedCtorRead` clause beside `pinArgs`;
+3. a new `NestedStageFacts` clause beside it;
+4. the `ContainerModeled` clause and its nine discharges.
+
+**So (1′) is not a new item: it IS PINF's (ii), and that lane's
+measurement transfers verbatim** — four clauses across three tiers
+against the one clause and nine discharges this order priced it at.
+The rule is to stop when a price doubles, and nothing of (1′) was
+built.
+
+**What HAS changed since PINF stopped is the consumer count.**  PINF's
+(ii) was gated on a decision about whether three tiers of carrying was
+the right spend for the `pinF` arm alone.  It now has a SECOND consumer
+— the wide identification's reindexing, which cannot be built without
+it — and that is a coordinator decision, not this lane's.  Note also
+that PINF's item (ii) as it stated the need was the MENTION on the
+abstract side; (1′) needs the stronger SPINE (head + definite depth),
+so if (ii) is unblocked it should be built at the spine strength and
+the mention read off it, rather than twice.
+
+##### (c) STATE, AND THE ORDER AS IT NOW STANDS
+
+Landed this session: step 1 (the own-pin table's position kept,
+`pinCorr_of_ownPins_at`) and (2′) (`ContainerModeled.pinsDistinct`).
+Open, in order:
+
+1. **PINF's (ii) at spine strength** — the blocker for (1′), a
+   coordinator decision because it is another lane's stopped item;
+2. **(1′)** — the `ContainerModeled` clause, one session once 1 lands;
+3. **(3′)** — `hK61`/`hK62` into `NestedPinsRun`, the σ clauses beside
+   `NestedPinGroup.shape`/`entry`, `nestedPinEdges_mem` for `houtσ`;
+4. **(4′)** — the switch at BOTH sites and the deletion, then the
+   unconsumed gate read as the (f3) step-4 row says.
+
+##### (d) GATES
+
+`tests/warning-free.sh 17fdc7ad`:
+
+```
+warning-free: 8 changed module(s) since 17fdc7ad
+warning-free: lake build — 8 module(s) recompiled, 0 warning line(s)
+warning-free: lake test — 2 module(s) recompiled, 0 warning line(s)
+warning-free: OK (a run that could have failed)
+```

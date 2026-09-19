@@ -614,15 +614,22 @@ and was being thrown away.
 One arrow further along is still missing, and it is of the same kind.
 To know which of the container's own pins a field of that container
 lands on, one reads the field's stored domain and finds its spine in
-the table.  That the spine IS the pin is a fact the checker establishes
-about the block it is INSTALLING, and it is not carried on a container
-that was installed earlier — nor is the fact that a container's own
-pins are spelled differently from one another, which is what makes
-"find it in the table" answer at all.  Both are true by construction
-of the expansion, both are cheap where they are proved, and neither
-travels to where the identification reads them.  Until they do, the
-tree still takes the long way round (Resolution 3) at the two sites
-that consume the identification.
+the table.  Two facts make that work, and both are facts the checker
+establishes about the block it is INSTALLING rather than about a
+container installed earlier: that a container's own pins are spelled
+differently from one another, and that a member's field spine IS its
+pin.  The first now travels — a container's model carries it, the way
+it already carried the table.  The second does not, and it is the more
+expensive of the two: what the model holds today about such a field is
+that its arguments MENTION a member of the group, which is enough to
+know a pin was minted and not enough to say which, and strengthening a
+mention to the spine itself means carrying head, arguments and depth
+down from the restore, where they are all still visible, through every
+tier in between.
+
+That is the whole of what stands between the identification and the
+two sites that consume it; until it is carried, the tree still takes
+the long way round (Resolution 3) there.
 
 **The instance map is not an injection, and the identification no
 longer asks it to be.**  The expansion's dedup by pin expression
