@@ -73373,3 +73373,298 @@ whether to start.**
    (perf note F1–F4: a `perf record` of the shipped binary on
    `app-lam`/`init-full`/a Mathlib prefix), so that the gate compares
    against attributed numbers rather than buckets?
+
+## TASK #308 — THE PARAMETRIC-Prop MODEL: a design check (2026-09-19, `agent/propreg-308`, read-only)
+
+The maintainer's idea, in one line: *level polymorphism is parametric,
+so read every level-polymorphic body into predicative universes only
+(a predicative `U(0)` next to `P`), and apply an operator `trunc`
+at the level-instantiation boundary when a parameter goes to `0`* —
+hoping that "maybe Prop" then never has to be modelled and `PropWhen`
+collapses to a boolean.  Asked to double-check it and, if it does not
+fly, to come back with a concrete example.
+
+**Verdict: it does not fly, for two independent reasons, and the part
+of it that is right is already how the tree works.**  (1) Polymorphism
+is parametric for *inhabitants*, not for *statements*: a polymorphic
+proposition can be true at `u := 0` and false at `u := 1`, so its
+Prop-level truth value is not a function of any predicative reading
+(§3, E2 — a four-line fixture Lean 4.33.0 accepts).  (2) `imax`
+makes impredicativity available polymorphically: `∀ α : Sort v, α → α`
+has sort `imax (v+1) v`, which is `Prop` at `v := 0`, and no
+predicative `U(0)` can house a product over itself; reading `imax` as
+`max` instead breaks the soundness of `DefEq.sort` on every
+`Iff (…) (∀ x : α, …)` in core (§3, E1).  What the idea gets right —
+carriers of `Sort u` inductives at `0` are the truncation of their
+positive-level carriers — is literally the definition of `sigmaSet 0`,
+`towerSet 0`, `sumSet 0`, `quotSet 0` (§3, "where it passes").
+
+### 1. The candidate model, stated precisely
+
+**What the tree does today** (the thing to compare against).  The
+model tier never sees an open level: a polymorphic declaration is
+denoted **once per ground valuation** `φ : Name → Nat`
+(`ConLeche/Term/Syntax.lean:24-35`), `Sort l ↦ univ (Level.eval φ l)`
+(`Model/Annot/Bit.lean:156`) with `univ 0 = univZero = power {pt}` —
+`P` *is* `U(0)`, there is no predicative bottom
+(`SetTheory/Derive/Univ.lean:34-36`).  Each binder reads the bit
+`pwBit φ m.pw ∈ {0,1}` of its validated datum (`Bit.lean:75`), and
+`piR`/`lamR` dispatch on that bit alone (`SetModel/Ops.lean:58-66`).
+A stored constant at `.const n us` denotes its stored annotated leaf
+at the *composed* valuation, `acval n (Level.substFn φ lps us)`
+(`Bit.lean:158-162`); the level crossing is the algebraic law
+`PropWhen.holds_substPW` (`Verify/PropWhen.lean:276`), proved outright.
+So "instantiate a parameter at `0`" is today: re-read the same syntax
+at a valuation where the conditional bits flip to `0`.
+
+**The candidate.**  Two readings and a transport:
+
+* A universe tower `U⁺(n)`, every level a Grothendieck universe
+  (`U⁺(0)` included), and separately `P = {∅, {pt}}`, with
+  `U⁺(0), P ∈ U⁺(1)`.
+* `⟦·⟧ᵤ`, the **predicative reading** of a body with open level
+  parameters: every binder in the graph regime (`piSet`/`graph`),
+  `Sort l ↦ U⁺(‖l‖_φ)` for `l` mentioning a parameter, and — per the
+  maintainer's "actual Prop" clause — closed `Sort 0 ↦ P`.  Two
+  choices for the magnitude `‖l‖`: **(a)** `imax := max`, or
+  **(b)** Lean's `eval` (`Verify/Level.lean:26-32`) with the datum's
+  *shape* deciding `P` versus `U⁺` (`ifAllZero [] ↦ P`, anything else
+  `↦ U⁺`).
+* `⟦·⟧ₚ`, the **Prop reading** at closed levels: today's `interp`.
+* `trunc_T`, **type-directed** on the instantiated closed type `T`
+  (the coordinator's observation 2 is right, and it is the whole
+  difficulty): at `T` a proposition, `↦ pt`; at `T = Sort 0`,
+  inhabitedness (`S ↦ truthVal (S ≠ ∅)`); at `T = Π x:A. B`, the graph
+  over `⟦A⟧ₚ` of `x ↦ trunc_{B x} (app f (emb_A x))` with
+  `emb_A : ⟦A⟧ₚ → ⟦A⟧ᵤ` the inverse embedding (`P ↪ U⁺(0)` at
+  `A = Sort 0`), or `pt` when the Π is a proposition; at
+  `T = Sort (n+1)`: **undefined — see E3**.
+* **Where applied.**  At `.const n us` with `us` closed, replacing
+  `acval n (substFn φ …)` by `trunc_{type(n)[us]} (⟦n⟧ᵤ ‖us‖)`.  For
+  `us` *not* closed the boundary is still there: a polymorphic
+  consumer instantiating `foo.{imax v 0}` sends `foo`'s
+  `ifAllZero [u]` binders to `ifAllZero []` (`Level.substPW`,
+  `Kernel/Level.lean:205`), i.e. from "maybe" to "actually" Prop
+  *inside* a body that is itself read predicatively.  So the transport
+  is not confined to a closed-level boundary; it is needed at every
+  substitution that zeroes a parameter, which is exactly the
+  bookkeeping `substPW` does today.
+
+### 2. The coherence obligations the candidate would owe
+
+For every stored polymorphic `n` with type `T` and every closed `us`:
+
+| # | obligation |
+|---|---|
+| O1 | `trunc_{T[us]} (⟦n⟧ᵤ ‖us‖) = ⟦body(n)[us]⟧ₚ` — δ: the transported value is the closed instance's Prop reading |
+| O2 | `trunc` commutes with `app`/`lam` (β), with `fst`/`snd`/`projS` (projection), with the inductive carriers and their recursors (ι) at `0` |
+| O3 | `DefEq` transfer: `isDefEq = true` at open levels ⇒ `⟦·⟧ᵤ` equal, **including `DefEq.sort`**, i.e. `Level.isEquiv l r ⇒ ∀ φ, ⟦Sort l⟧ᵤ = ⟦Sort r⟧ᵤ` |
+| O4 | formation: `⟦Π⟧ᵤ ∈ ⟦Sort (imax u v)⟧ᵤ` at every `φ` (today `piR_mem_univ`, `Semantics/Univ.lean:83`, sharp) |
+| O5 | the basis pins (`Eq.rec` with `ifAllZero [u_1]` on six binders, `Classical.choice`, `False.rec`, `Quot.*`) have a predicative reading whose transport is their Prop pin |
+| O6 | `WellDenoted` is preserved by the transport (a transported λ has a bounded codomain, a transported app hits a graph) |
+| O7 | the environment invariant `⟦value⟧ ∈ ⟦type⟧` holds for the *family* at every `φ`, including `φ u = 0` |
+
+O3 and O4 are already in tension (E1); O1/O7 fail outright (E2); the
+transport is not even definable at `Sort (n+1)` (E3).  The rest were
+not reached.
+
+### 3. The verdict, with the examples
+
+**E1 — `imax`: no predicative reading of an open `Sort` respects both
+level equivalence and formation.**  Under (a), `imax := max`, take any
+theorem of the shape
+
+```lean
+theorem funext_iff'.{a,b} {α : Sort a} {β : α → Sort b} {f g : ∀ x, β x} :
+    f = g ↔ ∀ x, f x = g x := ⟨fun h _ => h ▸ rfl, funext⟩
+```
+
+(`Iff (Eq f g) (∀ x, Eq (f x) (g x))`, the elaborator's own output).
+`Infer.app` at `Iff`'s second argument infers `Sort (imax a 0)` and
+compares it with the domain `Prop` (`Rules/Rel.lean`, `Infer.app`'s
+`DefEq ta ty` premise); `Level.isEquiv (imax a 0) 0 = some true`.
+Under (a) the two denote `U⁺(φ a)` and `P`: `DefEq.sort_sound` is
+false at every `φ`.  This is not a corner: every `∀ x : α, …` passed
+at a `Prop` position, every `def T.{u} : Prop := ∀ α : Sort u, …`,
+trips it.  Under (b), Lean's `eval`, `DefEq.sort` is fine but O4 dies:
+`∀ α : Sort v, α → α : Sort (imax (v+1) v)`, at `φ v = 0` the
+predicative product `Π_{α ∈ U⁺(0)} α^α` must lie in
+`⟦Sort 0⟧ᵤ = U⁺(0)`, and it cannot — it has more than `|U⁺(0)|`
+members (choose independently one of `≥ 2` self-maps at each
+`α ∈ U⁺(0)` with two elements).  Impredicativity is available to a
+polymorphic body through `imax` whether or not the body mentions
+`Prop`, so `Sort v` at `φ v = 0` must be read impredicatively — as
+`P`, the current model — or the product must be read as a truth
+value there — the current model's `pwBit`.  (A third variant, datum
+shape for `P`-versus-`U⁺` and `max` for the magnitude, fails O3 too:
+`max (imax 3 v) (imax 5 (imax v 0))` and `imax 3 v` are `isEquiv`
+— `simplify` kills `imax _ zero` — yet read as `U⁺(max 5 v)` and
+`U⁺(max 3 v)`.)
+
+**E2 — the decisive one: a polymorphic proposition is not
+parametric.**  Checked with `lean` v4.33.0 (no axioms):
+
+```lean
+def AllSub.{v} : Prop := ∀ (α : Sort v) (x y : α), x = y
+theorem allSub_zero : AllSub.{0} := fun _ _ _ => rfl
+theorem not_allSub_one : ¬ AllSub.{1} :=
+  fun h => Bool.noConfusion (h Bool true false)
+```
+
+`AllSub`'s three binders carry the datum `ifAllZero []`
+(`zeronessOf (imax _ b) = zeronessOf b`, down to `0`): they are
+"actual Prop" in the maintainer's sense, so even the candidate reads
+them as truth-value products.  What the candidate changes is the
+*domain*: `Sort v ↦ U⁺(0)` at `φ v = 0`.  Then
+`⟦AllSub⟧ᵤ(0) = truthVal (∀ α ∈ U⁺(0), ∀ x y ∈ α, x = y) = ∅`
+(witness `α = {∅, {∅}}`), `trunc_{Prop} ∅ = ∅`, while
+`⟦AllSub.{0}⟧ₚ = truthVal (∀ α ∈ P, …) = {pt}`.  The checker accepts
+`allSub_zero` (δ on `AllSub.{0}`, then `DefEq.proofIrrel` at
+`α : Sort 0`, `Rel.lean:393-395`), so the environment invariant O7
+demands `⟦allSub_zero⟧ ∈ ⟦AllSub⟧(0)`, and the candidate's family has
+`∅` there.  No transport repairs it: the information "which fibres
+were subsingletons" is gone from the set `∅`, and the true family is
+`{pt}` at `0` and `∅` at `1` (`not_allSub_one`) — **not constant in
+the level and not a function of the positive-level values**.  The
+maintainer's premise, "nothing that is `Sort u` can use the special
+behaviour of Prop", is Reynolds' parametricity and holds of
+*inhabitants*: no term proves `AllSub.{v}`.  It does not hold of
+*types*: `AllSub` states proof irrelevance and is true exactly where
+proof irrelevance is.  A consistency model must get statements right,
+and the statements that matter most (`Empty`, `False`, the type of
+every accepted theorem) are exactly these.
+
+The shape that fails is a `Sort u`-domain binder **under** a binder of
+the stored term.  With the `Sort u` at the parameter spine —
+`def S.{u} (α : Sort u) : Prop := ∀ x y : α, x = y` — the candidate
+passes, because `trunc` restricts the argument to `P` *before*
+evaluating.  Nothing in the checker distinguishes the two shapes.
+
+**E3 — the transport is not definable at `Sort (n+1)`.**
+
+```lean
+def F.{v} : Sort (max 1 (v+1)) := ∀ α : Sort v, α → Nat
+```
+
+`⟦F⟧ᵤ(0) = Π_{α ∈ U⁺(0)} (α → ω) ∈ U⁺(1)`; `⟦F.{0}⟧ₚ = Π_{α ∈ P} (α → ω)`.
+`trunc_{Type}` must send the first set to the second, but a set of
+graphs over `U⁺(0)` does not record that its index set came from a
+`Sort v` rather than from a closed `Type`-level index set of the same
+shape — the restriction `U⁺(0) ⇝ P` is only defined once you know the
+element's *own* type `∀ α : Sort v, …`, i.e. its syntax.  A syntactic
+transport that re-reads the body at the instantiated levels is
+`denoteMeta acval env φ` at the composed valuation: the current model.
+(E2 is the same fact one level down, where the only candidate for
+`trunc_{Prop}` is inhabitedness, and it is wrong.)
+
+**Where it passes — and why that is no news.**  Stress cases that
+hold under the candidate, each because the tree already does what the
+candidate wants: (i) polymorphic *terms* with all `Sort u` at the
+parameter spine (`id`, `funext`, `Quot.lift`) — parametric, transport
+by restriction + `trunc` in the codomain; (ii) `Sort u` inductives at
+`u := 0` — the install checks `fieldSort ≤ resSort` at symbolic levels
+(`Kernel/Inductives/SumInstall.lean:114-139`, the `!isProp` branch),
+cashed per valuation as `resSort.eval ψ = 0 → fieldSort.eval ψ = 0`
+(`Model/Inductives/SumData.lean:574-579`), so at `0` every field is a
+proposition and `towerSet 0 T = truthVal (∃ as, FitsS T as)`
+(`SetModel/TupleTower.lean:263-291`) — the carrier at `0` **is** the
+truncation of the carrier at `1`, over the unsquashed fields; large
+elimination there is `towerRec_zero` (constant minors), the semantic
+subsingleton criterion; (iii) `Quot.{0}`:
+`quotSet 0 A R = image (fun _ => pt) A` (`SetTheory/Derive/Quot.lean:68-76`),
+literally `trunc A`; (iv) `PUnit.{u}` is `unitSet` at every level, and
+`False`/`Empty.{u}` are `∅` at every level — their own truncations;
+(v) `Eq.rec` at `u_1 := 0`: six bits flip to `0` and the eliminator
+is `pt` returning `pt` — forced by its pinned type
+(`Model/EqTower.lean:80-90`, `bit_forced_zero`): a value's regime is
+not a design choice, its stored type fixes it.  The maintainer's
+`trunc` exists in the tree as the `w = 0` branch of every carrier
+constructor; it is a *definition*, not a transport, and it is
+computed from the unsquashed arguments at the valuation — never from
+a positive-level denotation.
+
+### 4. What the annotation would become
+
+The maintainer's parenthetical answers itself, and the tree already
+says so.  `PropWhen` is canonical two-case, `never | ifAllZero ps`
+(`Kernel/PropWhen.lean:651`, `casesZ`; the five-case representation is
+allocation-only).  **At closed levels it is already a boolean**:
+`ifAllZero []` / `never`, and at every valuation the model reads only
+`pwBit φ pw ∈ {0,1}`.  The only non-boolean case is `ifAllZero ps`
+with `ps ≠ []` — the level-conditional binder — and E2 shows the
+model must read it at the composed valuation, which means the
+declaration must record *which parameters* each binder's regime
+depends on: that list **is** the datum, and audit (f) of task #161
+(`DESIGN.md:11381-11393`, `eq_iff_holds`) proves nothing weaker is
+sound-to-model.  On init-full (the packed-datum census,
+`DESIGN.md:40385`): 1 229 779 binder nodes, `never` 500 939,
+`ifAllZero []` 605 492, **one-name 123 332, two-name 16, longer 0** —
+the "maybe Prop" surface is 10.0 % of binders, all but sixteen of them
+a single parameter.  So: on stored polymorphic declarations the
+conditional datum **survives** (it cannot be a boolean); at closed
+levels and at every valuation it **is** a boolean already; nothing
+**disappears**.  The one representation-level saving on the table is
+the positional `UInt64` bitmask of that census (0.075 % of RSS today —
+recorded as not worth landing).
+
+### 5. Cost/benefit against the current tier
+
+**Deleted: nothing.**  The two-regime `interp` stays (the candidate
+keeps `P` for actual Prop, and E1 forces it at `φ u = 0` too); the
+conditional datum stays (§4); the io licence stays — its fence
+(`io_membership_fails_at_squash`, `Model/IOLicense.lean:122`) is at
+squash-regime binders, i.e. at `ifAllZero []` and at conditional
+binders at their zero valuations, and is model-class-wide, so no
+reading licenses those.  **Added, were one to try:** a second
+universe tower with `P` outside `U⁺(0)` (re-deriving `univZero` over a
+different singleton, which `SetModel/Ops.lean:43-47` records as not
+achievable for `pt`); the `imax` level semantics (E1: no consistent
+choice); the transport family (E3: undefinable at `Sort (n+1)`); the
+coherence proof (E2: false).  Sizing is moot.
+
+**Composition with the rules tier (#305).**  Eight of the 51
+constructors carry a `pw` premise; the three check-skip licences
+(`Red.betaGate`, `Infer.appSkip`, `Certs.skip`) fire at `.never` and
+cover 92–96 % of fires (`DESIGN.md:23963`); the residual is exactly
+the 10 % conditional binders plus the closed-Prop ones.  The
+candidate would not move that residual: the maintainer's hoped-for
+"β gate fires everywhere in a polymorphic body" is the claim that a
+conditional binder may be treated as graph regime at its zero
+valuation, which is `io_membership_fails_at_squash` with the witness
+`A := truthVal True, A' := ∅, f := a := pt` — the skip is unsound
+there, whatever the datum is called.  **With the NbE spike (#307):**
+closures carry `BinderMeta` and hash `mb.pw` (`NbE/Value.lean:569-585`),
+the fast readers `peelNeverPis`/`typeSortPWV`/`proofPWE`
+(`NbE/Core.lean:198-268`) read `isNever`; a boolean would save one
+hash mix per closure and nothing else.
+
+**What survives as a positive suggestion.**  (1) The parametricity
+intuition is a *theorem* one could prove in the current model — a free
+theorem: for a declaration whose `Sort u` domains all sit at the
+parameter spine, the family at `φ u = 0` is the restriction-plus-
+truncation of the family at `φ u = 1`.  It would be a cross-check on
+the model, not a simplification of it, and E2 bounds its scope.  (2)
+If the goal is to shrink the maybe-Prop surface in the *checker*, the
+census says the lever is representational: 123 332 of 123 348
+conditional data name one parameter.  (3) The inductive route already
+is the maintainer's design (levelwise field bound ⇒ automatic
+truncation at `0`); nothing to change there.
+
+### 6. Open questions for the maintainer
+
+1. Was the intent that `Sort u` *domains* under a binder also read
+   predicatively at `φ u = 0` (then E2 applies), or only the body's
+   own binders (then the model is today's, with the bits read at `φ`)?
+   I could not find a third reading in which the proposal differs from
+   the tree.
+2. Is the pain point the *model* (the `pwBit` dispatch is one `if` in
+   `piR`/`lamR`, and every claim is already `∀ φ`) or the *checker*
+   (the three validation sites, `substPW` at every δ, the datum in
+   every `BinderMeta`)?  The second has a representational answer; the
+   first has none.
+3. Would a mechanized free theorem (5.1) be worth its cost as a
+   regression fence for the annotation machinery?
+
+**What was run.**  No build; the fixtures of E1–E3 were checked with
+`lean` v4.33.0 (`_tmp/` of the worktree); `#print axioms allSub_zero`
+reports none.  No file outside `DESIGN.md` changed.
