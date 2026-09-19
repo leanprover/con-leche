@@ -2037,4 +2037,97 @@ theorem normPosDomM_indApp_former {fms : List MutualFormerA} {env : Env}
   obtain ⟨cv', caps', hfind⟩ := consMutualFormers_find?_indInfo_mem (env := env) hf
   exact normPosDomM_indApp hfind h
 
+
+/-! ## The walk through a `Π`-TOWER (task #315 WIDE (3), step 1)
+
+`normPosDomM_indApp_cons` is the finitary arm's whole use of the
+positivity walk: at a constant-headed inductive application the walk
+is the identity, so the stored domain and its normalisation are one
+term.  A REFLEXIVE field's domain is that application under its own
+`∀`-telescope, and the walk is NOT the identity there — it opens every
+binder and closes it again (`normPosDomM_forallE_inv`'s `Π` arm).
+What survives is the shape: the binder DOMAINS are handed back
+untouched, and the leaf is the identity case one telescope down.  So
+the two openings — the input's and the output's, at the same depth and
+the same count — end at the SAME leaf, which is what the reflexive
+arm reads.
+
+The `abstract1`/`instantiate1` round trip that closes each binder is
+exact here (not merely `ErasedEq`): `normPosDomM_pres` carries the
+output's leaves back into the input's, whose leaf at the binder's own
+index is the binder's domain (`Expr.LeafCond`), and that is
+`abstract1_instantiate1`'s side condition. -/
+
+/-- **THE POSITIVITY WALK'S OUTPUT OPENS TO THE SAME LEAF** (task #315
+WIDE (3), lane LE): at a `∀`-tower whose body is a constant-headed
+application of a pre-block inductive, the walk's output opens — same
+depth, same count — at exactly that body. -/
+theorem normPosDomM_openPis_indApp {fms : List MutualFormerA} {env : Env}
+    (henv : EnvWF (consMutualFormers fms env)) {memberNames : List Name} {F : Nat}
+    {J : Name} {lvls : List Level} {args : List Expr}
+    {cv : ConstantVal} {caps : IndCaps}
+    (hJ : env.find? J = some (.indInfo cv caps)) :
+    ∀ (n : Nat) {d fuel : Nat} {e w : Expr} {fvsE fvsW : List Expr} {leafW : Expr},
+      normPosDomM (m := CheckM) (fueledOps mode F) (consMutualFormers fms env)
+          memberNames d fuel e = .ok w →
+      Expr.WScoped d e → e.looseBVarsBounded 0 = true →
+      openPisAtFvars n e d = some (fvsE, Expr.mkAppN (.const J lvls) args) →
+      openPisAtFvars n w d = some (fvsW, leafW) →
+      leafW = Expr.mkAppN (.const J lvls) args := by
+  intro n
+  induction n with
+  | zero =>
+    intro d fuel e w fvsE fvsW leafW h hws hb hopE hopW
+    simp only [openPisAtFvars, Option.some.injEq, Prod.mk.injEq] at hopE hopW
+    obtain ⟨-, rfl⟩ := hopW
+    rw [hopE.2] at h
+    exact normPosDomM_indApp_cons hJ h
+  | succ n ih =>
+    intro d fuel e w fvsE fvsW leafW h hws hb hopE hopW
+    match e, hopE, h, hws, hb with
+    | .forallE ty rest bm, hopE, h, hws, hb =>
+      simp only [openPisAtFvars] at hopE
+      cases hq : openPisAtFvars n (rest.instantiate1 (.fvar d ty) 0) (d + 1) with
+      | none => rw [hq] at hopE; exact nomatch hopE
+      | some q =>
+        obtain ⟨afvs, bodyq⟩ := q
+        rw [hq] at hopE
+        simp only [Option.some.injEq, Prod.mk.injEq] at hopE
+        obtain ⟨-, rfl⟩ := hopE
+        simp only [Expr.WScoped] at hws
+        simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
+        have hwopen : Expr.WScoped (d + 1) (rest.instantiate1 (.fvar d ty) 0) :=
+          Expr.WScoped.instantiate1 hws.1 0 hws.2
+        have hbopen : (rest.instantiate1 (.fvar d ty) 0).looseBVarsBounded 0 = true :=
+          looseBVarsBounded_instantiate1 rest 0 hb.2
+        rcases normPosDomM_forallE_inv h with ⟨-, rfl⟩ | ⟨-, body', fuel', hbody', rfl⟩
+        · simp only [openPisAtFvars, hq, Option.some.injEq, Prod.mk.injEq] at hopW
+          exact hopW.2.symm
+        · obtain ⟨-, hbbody, hlbody⟩ := normPosDomM_pres henv fuel' hbody' hwopen hbopen
+          have hleaf : Expr.LeafCond d ty (rest.instantiate1 (.fvar d ty) 0) := by
+            intro l hl hd
+            rcases Expr.fvarLeaves_instantiate1 rest 0 hl with h2 | h2
+            · exact absurd hd (by
+                have := Expr.fvarLeaves_lt_of_wscoped hws.2 l h2
+                omega)
+            · rw [Expr.fvarLeaves] at h2
+              rcases List.mem_cons.mp h2 with rfl | h3
+              · rfl
+              · exact absurd hd (by
+                  have := Expr.fvarLeaves_lt_of_wscoped hws.1 l h3
+                  omega)
+          have hcons : Expr.fvarConsistent d ty body' :=
+            Expr.fvarConsistent_of_leafCond body' (fun l hl => hleaf l (hlbody l hl))
+          have hround : (body'.abstract1 d 0).instantiate1 (.fvar d ty) 0 = body' :=
+            abstract1_instantiate1 body' 0 hcons hbbody
+          simp only [openPisAtFvars, hround] at hopW
+          cases hqW : openPisAtFvars n body' (d + 1) with
+          | none => rw [hqW] at hopW; exact nomatch hopW
+          | some qw =>
+            obtain ⟨afvsW, bodyW⟩ := qw
+            rw [hqW] at hopW
+            simp only [Option.some.injEq, Prod.mk.injEq] at hopW
+            obtain ⟨-, rfl⟩ := hopW
+            exact ih hbody' hwopen hbopen hq hqW
+
 end ConLeche
