@@ -121445,3 +121445,67 @@ block's own rewrite, the way K.61 and K.62 already are.
 the row that carries it, and it should be priced as such before
 anything is built.  Nothing was built for this row beyond the
 docstring correction.
+
+#### WIDE (3) SESSION 2 PRICED BY INPUTS — the container-side row is `nestPinSpineAbs`'s family, not `hpinσ`'s, and it carries two more parts (lane LE, 2026-09-19)
+
+Priced against the tree before building, as ruled.  Every named input
+EXISTS; what does not hold is the brief's prediction of the SHAPE, and
+the difference is a doubling, so this is recorded rather than built.
+
+##### WHY IT IS NOT `hpinσ`'s PATTERN
+
+`hpinσ`/`PinShapes.rowTarget` compare the two sides' picks at the
+pin's DATA, and they can because K.61 gives both sides a SHARED INDEX
+— the container's own-pin position `qK`.  At the `ordF` guard there is
+no shared index: side 2's pick is a class of the ROOT container's wide
+space (`(pc (q₀+i')).tgts j l`, a member or an own pin of `d`), side
+1's is a block class, and the only language both the container's model
+and a later block's run speak about that field is the SYNTAX K.67
+recomputes (`ordTargetDom`).  So the clause has to be stated at the
+kernel's own functions — which is `ContainerModeled.nestPinSpineAbs`'s
+family, not `rowTarget`'s.
+
+That much is good news for the transport: stated at
+`PinSyn.ownAt d.nP lps (lps.map Level.param) (containerParamOpeners
+d.nP)` it names NO environment (`ContainerModeled.ownPins`, K.47's
+model side, is what makes `ownSelf.getD qK` spellable as the recorded
+pin), so `PinShapes.crossEnv`/`congrB` stay one word, exactly as the
+brief predicted.
+
+##### THE THREE PARTS, AND WHY THEY ARE THREE
+
+1. **The `PinShapes` `ordF` conjunct** — ~25 lines of statement plus
+   its seven producer sites (five pinned basis blocks and M7-3's
+   native/mutual, all vacuous at `d.pins = []`; the nested route from
+   `NestedPinsRun.hK67` through `nestedOrdTargetOk_at_refl`).  As
+   priced.
+2. **AN EIGHTH `PinGroupInst` CONJUNCT**, not in the brief: σ at an
+   OWN-PIN CLASS.  The correspondence needs `σ (d.k + x) = p.k +
+   mapR.getD x` at an arbitrary own pin `x`, and the residual's seven
+   clauses give σ only at `hroot`'s members and at `hstgt`/`hpinσ`'s
+   RECURSIVE-field targets.  K.67's pin branch lands on an own pin
+   that is not such a target, so the value is not covered.
+3. **A COLLAPSE ARGUMENT AT THE SELF SCOPE**, not in the brief.  K.67's
+   pin branch identifies the owner's class by `findIdx?` into the
+   own-pin table by TERM, so it returns the FIRST position with that
+   term, while the container's model names the class by its own index.
+   The two need not be equal; what is true and needed is weaker —
+   equal self terms have equal images under the instance map, because
+   the map instantiates the table positionally and substitution is a
+   function.  That is `nestedInstMapOk_collapsed`'s argument one scope
+   over, and it is a lemma of its own.
+
+##### THE INPUTS, ALL PRESENT
+
+`PinSyn.ownAt` (`nestPinSpineAbs`'s own spelling),
+`ContainerModeled.ownPins` (the recorded pins ARE the mimics' stored
+types), `ContainerModeled.memberName_inj` (`ContainerCross.lean`, the
+member branch's matching), `ContainerModeled.pinsNotMembers` (which
+separates the two branches), `nestedOrdTargetOk_at_refl` (K.67, landed)
+and `nestedInstMapOk_collapsed` (the template for part 3).  Nothing is
+missing; the work is three parts where the brief priced one.
+
+##### STATE
+
+Nothing built for this row.  `NestedPinsRun.hK67` stays unconsumed
+until session 2 is re-scoped or re-authorised at three parts.
