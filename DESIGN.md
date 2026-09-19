@@ -120591,3 +120591,60 @@ premises rather than a missing kernel record.
 (`docs/NESTED.md` §7's "each side's own entries at its rewritten
 ordinary fields" is the sentence that hides this: it reads as
 symmetric and is not.)
+
+#### WIDE (3′) THE THREE AUTHORISED STEPS, PRICED BY INPUTS — a tripling, and the reason is a SHARED theorem (lane LE, 2026-09-19)
+
+Priced before building, as ruled.  Nothing was built.
+
+##### (1) THE PREMISE SPLIT IS FREE TO RESTATE, BUT THE CHANGE IS NOT WHERE THE FREEDOM IS
+
+The chain `copyTransfer_iff` → `pinClassFit_of_transfer` →
+`nestedPinFit_pin` is entirely this lane's: `copyTransfer_iff`'s only
+call site is `pinClassFit_of_transfer`, whose only consumer is
+`nestedPinFit_pin` — confirmed the way the ruling asked, by
+`tests/unconsumed.sh`'s movement and not by grep:
+`pinClassFit_of_transfer` LEFT the unconsumed list in the same commit
+in which `nestedPinFit_pin` joined it.
+
+**But the edit the diagnosis calls for is inside `copyTransfer_via`,
+and that one is SHARED.**  `copyTransfer_iff` is proved by two calls to
+`copyTransfer_via`, and `copyTransfer_via` is also `nestedPinPair_pin`'s
+— the COVERING's per-pair transfer.  The change is:
+
+* `hrel`'s premise moves from `((dK.rss i).getD j []).getD l false =
+  true` (the container-of-the-pin's own recursive fields) to
+  `rs₁.getD l false = true` (side 1's copy recursive), which is
+  STRICTLY STRONGER and so is not free at the shared callers;
+* with that, the `ordF`-right arm routes through
+  `slotSet_mono_app (hrel …)` exactly as the recursive arm does, and
+  `hent₂` is unreachable — because `rs₂ = true → rs₁ = true` (a
+  mention is preserved by the block's further substitution, so if
+  `dJ`'s rewrite fired the block's did too).
+
+So step (1) is **a pin-half TWIN of `copyTransfer_via`'s ~230-line
+proof**, not a premise edit — or a strengthening that ripples into the
+covering.  Either way it is session-shaped on its own.
+
+##### (2) AND (3) ARE EACH SESSION-SHAPED TOO
+
+* the carry of K.61's content about a CONTAINER's own pins' copies onto
+  `ContainerModeled` is the `ownPins`/`nestPinSpineAbs` pattern again —
+  one clause, nine sites, eight vacuous, the ninth through
+  `nestedInstMapOk_at`, plus the crossing.  That is exactly WIDE (1′)'s
+  and (2″)'s shape, each of which was a session;
+* the correspondence lemma modulo σ and collapse is the one genuinely
+  new proof, and its inputs (`pinsDistinctAt` on both sides,
+  fibre-constancy of σ) are in hand.
+
+##### (4) THE VERDICT
+
+Three session-shaped items where one was authorised — **a tripling, and
+it is the shared `copyTransfer_via` that makes it one**.  The route is
+not in doubt: the diagnosis holds, every input exists, and no kernel
+record is needed (K.61 is recorded at both installs, which is the whole
+point).  What is needed is a decision on the order, because (1)'s twin
+and (2)'s carry are independent and (3) needs both.
+
+The cheapest first move, if one is wanted: **(2), the carry** — it is
+the only one of the three whose shape is already proved twice on this
+lane, and it is what both (1) and (3) consume.
