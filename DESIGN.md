@@ -123645,3 +123645,132 @@ entering (`nestedOrdNormOk_at_pi`, `ordSpine_inst_of_reads`), which is
 the chain's back half waiting on its front.  Nothing of the
 `pins_le_*` family moved.  `#print axioms` on both: `propext`,
 `Classical.choice`, `Quot.sound`.
+
+#### WIDE (3) (4d) THE TIE'S THREE PIECES, PRICED AGAINST THE TREE — TWO WERE ALREADY THERE, THE THIRD IS SYNTACTIC AND IS CLOSED (lane LE, 2026-09-19)
+
+The previous row named the tie in three pieces and priced them at "two
+to four sessions, the bulk being a run-tier lemma over three gaps".
+Read at the tree, **the bulk is not where the row put it**: two of the
+three gaps are shallower than the row's framing, and the third's
+SYNTACTIC half closes in four declarations.  What is left of the tie is
+its DENOTATIONAL half alone, and this row says exactly what that is.
+
+##### (a) GAP 1 IS NOT ABOUT `ReadRel` AT ALL — THE WALK IS TOP-DOWN
+
+The row read gap 1 as "`denoteMeta_of_rewriteRel` gives a `ReadRel`,
+not an equality … what is owed is that the walk fires at no ARGUMENT".
+`replaceAllNested` asks `replaceIfNested` BEFORE it descends, and a
+firing step returns
+
+    Expr.mkAppN (Expr.mkAppN (.const q.aux blvls) params) (args.drop ci.nP)
+
+— the occurrence's index arguments THREADED, never visited and never
+rebuilt (`Kernel/Inductives/NestedElim.lean:281`, the `.ok (some r)`
+arm above the `.app` descent).  `replaceAllNested_occurrence`
+(`Verify/Inductives/NestedCopyRewrite.lean:880`) already reads that
+off; the tie's form of it is two rewrites away and is now
+`replaceAllNested_occurrence_args` (same file, end): at a fired
+occurrence the result's arguments past the BLOCK's parameters are the
+occurrence's past the CONTAINER's, and the head is a pin's auxiliary.
+
+**And the run tier already had the instance**: `hargsX`
+(`Model/Inductives/NestedCopyInst.lean:9346`, inside
+`copyOrdFRightPinRead`) is `xt.getAppArgs.drop b.nP = w.getAppArgs.drop
+ci'.nP`, off `copyOrdFRightPinCorr`'s `hqe`.  So gap 1 was never
+open at the consumer; what the row owed was its statement, and no
+reading law is involved on either side.
+
+##### (b) GAP 2 IS A `find?`-CONSTRUCTOR TRANSPORT, NOT A MONOTONICITY
+
+K.69's WHAT IS OWED names "`whnf`-monotonicity-under-environment-
+extension … owed on BOTH paths".  On the path the consumer walks it is
+not needed.  `normPosDomM_indApp` reads ONE thing about the
+environment — that the head's `find?` answers with an `indInfo` — and
+the head a copy field carries at this guard is either a J-pin
+CONTAINER (a stored constant of the pre-block environment, which the
+formers' conses do not touch) or a minted copy's AUXILIARY (one of the
+consed formers).  Both are `indInfo` at `consMutualFormers (fms.take
+p.k) env`.  Landed beside `normPosDomM_indApp`
+(`Verify/Inductives/NestedCopyNorm.lean`, end):
+
+* `consMutualFormers_find?_indInfo` — an `indInfo` survives the conses
+  (a former may SHADOW it, which is all a head test reads);
+* `consMutualFormers_find?_indInfo_mem` — a consed former at its own
+  name, with NO `Nodup` hypothesis (the first cons answers, the later
+  ones keep it an `indInfo`);
+* `normPosDomM_indApp_cons`, `normPosDomM_indApp_former` — the walk's
+  identity at each.
+
+That is K.69's owed `nestedOrdNorm_norm_of` on its CONSTANT-HEAD path.
+**The SLIVER path's three inputs stay owed and did not stop this
+session**: the consumer chain never enters it, because
+`nestedOrdNormOk_at_pi` discharges `ordRootNorm` by `ordRootNorm_const`
+at BOTH sides and no walk is run.  They become owed again only for a
+consumer that takes the reduction arm, and none is planned.
+
+##### (c) GAP 3's SYNTACTIC HALF, CLOSED — `ordTargetDom` IN THE RUN'S IDIOM
+
+`ordTargetDom` instantiates in BULK (`Expr.instantiateList` at the
+reversed component list, from the cut `l + domPiDepth`); the run's
+minted telescope is spelled with the descending `instantiate1` fold
+(`Expr.instSeq Ds (nP - 1 + l) …`, `NestedPinsRun.copyResid`'s
+`hfcs'`).  The two are `instSpine_eq_instantiateList_at` +
+`instSpine_eq_instSeq` apart, and the components and levels are read
+off the table ENTRY itself.  In
+`Verify/Inductives/NestedCopyKinds.lean` (end):
+
+* `ordTargetDom_eq_instSeq` — the identification with
+  `stripDomPis`/`domPiDepth` still in it, so a REFLEXIVE field's tower
+  is covered too;
+* `ordTargetDom_eq_instSeq_const` — the tower-free corollary;
+* `nestedPinTermsSelf_shape` — the BLOCK's table entry is the run's
+  recorded pin: same head, same levels, same arity.  The
+  `containerParamOpeners` are the parameter FVARS (at the placeholder
+  annotation `sort 0`), so the abstract-and-reopen round trip
+  normalises a component's fvar ANNOTATIONS and moves nothing else;
+* `ordTargetDom_pinTermsSelf` — the two composed: K.69's BLOCK side in
+  the run's idiom, with `st.pins[q]? = some pn` as its only input;
+* `instantiateList_mkAppN` — the spine lemma the above needed and the
+  tree did not have.
+
+##### (d) WHAT IS LEFT OF THE TIE, EXACTLY
+
+Only the DENOTATIONAL half of gap 3, and it is now a single step with
+both ends named:
+
+* the run's reading is `hCD.eisRead` at `x'.fvarTypeD.getAppArgs.drop
+  nP` (`MutualData.lean:214`), and `x'.fvarTypeD` is the STORED domain;
+  (a) carries it to `w.getAppArgs.drop ci'.nP` and (b) carries `w` back
+  to the MINTED domain `xI.fvarTypeD`
+  (`copyOrdFRightPinRun`'s `normPosDomM … xI.fvarTypeD = .ok w`);
+* the minted domain is `Expr.instSeq (xfvs'.take l) (l - 1)` of
+  `copyResid`'s `(fcs'.getD l default).1` — the opener round trip
+  `copyPinFRead` performs with `instSeq_abstractRange_fvs_at`
+  (`NestedCopyInst.lean:5429`), and `hfcs'` is (c)'s right-hand side;
+* `ordSpine_inst_of_reads` wants that reading at `Expr.instSeq
+  (Verify.openFvars dp cut) (cut - 1) Wb`.
+
+So the residue is: the OPENER LIST the run opens with
+(`xfvs'.take l`) against the bridge's `Verify.openFvars dp cut`, and
+the component ANNOTATIONS `nestedPinTermsSelf` normalised, which a
+reading does not see (`Expr.ErasedEq`, `DenoteMetaSpine.erasedEq` —
+`copyPinFRead`'s own closing move at the twin arm).  **That is one
+lemma's worth at a reading, not a file-section**, and it is the first
+thing the next session should attempt; the `PinShapes` clause, its
+`crossEnv` transport and the `PinGroupInst` conjunct are downstream of
+it and unchanged in price.
+
+##### (e) THE PRICE PAID
+
+| piece | priced by inputs | paid |
+|---|---|---|
+| 1 the rewrite | `replaceAllNested_occurrence` + two `getAppArgs` rewrites | 1 declaration |
+| 2 the normalisation | `normPosDomM_indApp` + a `find?` transport over the conses | 4 declarations |
+| 3 the opener-vs-cut, SYNTACTIC | `instSpine_eq_instantiateList_at`, `instSpine_eq_instSeq`, `abstractRange_mkAppN` | 5 declarations |
+
+Well inside the ONE session the brief authorised for the three
+together, because the row's pricing of gaps 1 and 2 read them as
+semantic when both are syntactic.  Step 2 of the brief (`hslotOrd`,
+`hfitc`) is downstream of the tie's denotational half and is NOT
+started; (4′)'s switch and (4) are downstream of `hfitc` and are not
+started either.
