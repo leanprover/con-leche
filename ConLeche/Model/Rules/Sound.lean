@@ -2,6 +2,7 @@ module
 
 public import ConLeche.Model.Rules.Inputs
 import ConLeche.Model.Rules.RedSound
+import ConLeche.Model.Rules.IotaSound
 import ConLeche.Model.Rules.DefEqSound
 import ConLeche.Model.Rules.InferSound
 import ConLeche.Model.Rules.CertsSound
