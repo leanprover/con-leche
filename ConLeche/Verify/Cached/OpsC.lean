@@ -123,7 +123,12 @@ def Memo1Inv (v : Expr) (memo : Expr.MemoN) : Prop :=
   ∀ (k : Expr) (c : Nat) (r : Expr), memo[(k, c)]? = some r →
     r = (Expr.instantiate1 k v c)
 
-theorem Memo1Inv.empty {v : Expr} : Memo1Inv v {} := by
+/-- An empty table satisfies the invariant **at any capacity**: a
+capacity is a sizing hint, not content.  The generality is what the
+budgeted walks need — a walk that overran its budget restarts on
+`memoAfterBudget`, a table pre-sized to the budget rather than `{}`. -/
+theorem Memo1Inv.empty {v : Expr} {n : Nat} :
+    Memo1Inv v (Std.HashMap.emptyWithCapacity n) := by
   intro k c r h
   simp at h
 
@@ -297,13 +302,226 @@ theorem instantiate1GoC_spec {v : Expr} : ∀ {e : Expr},
           rw [mkProj_eq, h3]; rfl
         exact ⟨h2.insert hres, hres⟩
 
+/-- **The budgeted plain descent computes `Expr.instantiate1` wherever
+it completes** (task #313).  Success is the returned fuel: a compound
+node that gave up returns `0` beside a meaningless `Expr`, so the
+`0` arms are discharged from the hypothesis and only the completed
+rebuild is claimed. -/
+theorem instantiate1BC_spec {v : Expr} : ∀ (e : Expr) (fuel d : Nat),
+    (Expr.instantiate1BC v fuel e d).2 ≠ 0 →
+      (Expr.instantiate1BC v fuel e d).1 = Expr.instantiate1 e v d := by
+  intro e
+  induction e with
+  | bvar i =>
+    intro fuel d
+    rw [Expr.instantiate1BC.eq_def]
+    split
+    · rename_i hcut
+      intro _
+      exact (Expr.instantiate1_eq_self (bvarB_le hcut)).symm
+    · dsimp only
+      intro _
+      by_cases hid : i = d <;> by_cases hid' : i > d <;>
+        simp [Expr.instantiate1, hid, hid']
+  | fvar idx ty _ =>
+    intro fuel d
+    rw [Expr.instantiate1BC.eq_def]
+    split
+    · rename_i hcut
+      intro _
+      exact (Expr.instantiate1_eq_self (bvarB_le hcut)).symm
+    · intro _; rfl
+  | sort u =>
+    intro fuel d
+    rw [Expr.instantiate1BC.eq_def]
+    split
+    · rename_i hcut
+      intro _
+      exact (Expr.instantiate1_eq_self (bvarB_le hcut)).symm
+    · intro _; rfl
+  | const n us =>
+    intro fuel d
+    rw [Expr.instantiate1BC.eq_def]
+    split
+    · rename_i hcut
+      intro _
+      exact (Expr.instantiate1_eq_self (bvarB_le hcut)).symm
+    · intro _; rfl
+  | lit l =>
+    intro fuel d
+    rw [Expr.instantiate1BC.eq_def]
+    split
+    · rename_i hcut
+      intro _
+      exact (Expr.instantiate1_eq_self (bvarB_le hcut)).symm
+    · intro _; rfl
+  | app f a ihf iha =>
+    intro fuel d
+    rw [Expr.instantiate1BC.eq_def]
+    split
+    · rename_i hcut
+      intro _
+      exact (Expr.instantiate1_eq_self (bvarB_le hcut)).symm
+    · dsimp only
+      split
+      · intro h; simp at h
+      · rcases hpf : Expr.instantiate1BC v (fuel - 1) f d with ⟨f', fuel₁⟩
+        dsimp only
+        split
+        · intro h; simp at h
+        · rename_i h1
+          rcases hpa : Expr.instantiate1BC v fuel₁ a d with ⟨a', fuel₂⟩
+          dsimp only
+          split
+          · intro h; simp at h
+          · rename_i h2
+            intro _
+            have hf3 : f' = Expr.instantiate1 f v d := by
+              have := ihf (fuel - 1) d (by rw [hpf]; exact h1)
+              rw [hpf] at this; exact this
+            have ha3 : a' = Expr.instantiate1 a v d := by
+              have := iha fuel₁ d (by rw [hpa]; exact h2)
+              rw [hpa] at this; exact this
+            dsimp only
+            rw [mkApp_eq, hf3, ha3]
+            rfl
+  | lam ty bd m iht ihb =>
+    intro fuel d
+    rw [Expr.instantiate1BC.eq_def]
+    split
+    · rename_i hcut
+      intro _
+      exact (Expr.instantiate1_eq_self (bvarB_le hcut)).symm
+    · dsimp only
+      split
+      · intro h; simp at h
+      · rcases hpt : Expr.instantiate1BC v (fuel - 1) ty d with ⟨ty', fuel₁⟩
+        dsimp only
+        split
+        · intro h; simp at h
+        · rename_i h1
+          rcases hpb : Expr.instantiate1BC v fuel₁ bd (d + 1) with ⟨b', fuel₂⟩
+          dsimp only
+          split
+          · intro h; simp at h
+          · rename_i h2
+            intro _
+            have h3 : ty' = Expr.instantiate1 ty v d := by
+              have := iht (fuel - 1) d (by rw [hpt]; exact h1)
+              rw [hpt] at this; exact this
+            have h6 : b' = Expr.instantiate1 bd v (d + 1) := by
+              have := ihb fuel₁ (d + 1) (by rw [hpb]; exact h2)
+              rw [hpb] at this; exact this
+            dsimp only
+            rw [mkLam_eq, h3, h6]
+            rfl
+  | forallE ty bd m iht ihb =>
+    intro fuel d
+    rw [Expr.instantiate1BC.eq_def]
+    split
+    · rename_i hcut
+      intro _
+      exact (Expr.instantiate1_eq_self (bvarB_le hcut)).symm
+    · dsimp only
+      split
+      · intro h; simp at h
+      · rcases hpt : Expr.instantiate1BC v (fuel - 1) ty d with ⟨ty', fuel₁⟩
+        dsimp only
+        split
+        · intro h; simp at h
+        · rename_i h1
+          rcases hpb : Expr.instantiate1BC v fuel₁ bd (d + 1) with ⟨b', fuel₂⟩
+          dsimp only
+          split
+          · intro h; simp at h
+          · rename_i h2
+            intro _
+            have h3 : ty' = Expr.instantiate1 ty v d := by
+              have := iht (fuel - 1) d (by rw [hpt]; exact h1)
+              rw [hpt] at this; exact this
+            have h6 : b' = Expr.instantiate1 bd v (d + 1) := by
+              have := ihb fuel₁ (d + 1) (by rw [hpb]; exact h2)
+              rw [hpb] at this; exact this
+            dsimp only
+            rw [mkForallE_eq, h3, h6]
+            rfl
+  | letE ty val bd iht ihv ihb =>
+    intro fuel d
+    rw [Expr.instantiate1BC.eq_def]
+    split
+    · rename_i hcut
+      intro _
+      exact (Expr.instantiate1_eq_self (bvarB_le hcut)).symm
+    · dsimp only
+      split
+      · intro h; simp at h
+      · rcases hpt : Expr.instantiate1BC v (fuel - 1) ty d with ⟨ty', fuel₁⟩
+        dsimp only
+        split
+        · intro h; simp at h
+        · rename_i h1
+          rcases hpv : Expr.instantiate1BC v fuel₁ val d with ⟨v', fuel₂⟩
+          dsimp only
+          split
+          · intro h; simp at h
+          · rename_i h2
+            rcases hpb : Expr.instantiate1BC v fuel₂ bd (d + 1) with ⟨b', fuel₃⟩
+            dsimp only
+            split
+            · intro h; simp at h
+            · rename_i h3
+              intro _
+              have e3 : ty' = Expr.instantiate1 ty v d := by
+                have := iht (fuel - 1) d (by rw [hpt]; exact h1)
+                rw [hpt] at this; exact this
+              have e6 : v' = Expr.instantiate1 val v d := by
+                have := ihv fuel₁ d (by rw [hpv]; exact h2)
+                rw [hpv] at this; exact this
+              have e9 : b' = Expr.instantiate1 bd v (d + 1) := by
+                have := ihb fuel₂ (d + 1) (by rw [hpb]; exact h3)
+                rw [hpb] at this; exact this
+              dsimp only
+              rw [mkLetE_eq, e3, e6, e9]
+              rfl
+  | proj sn i sub ih =>
+    intro fuel d
+    rw [Expr.instantiate1BC.eq_def]
+    split
+    · rename_i hcut
+      intro _
+      exact (Expr.instantiate1_eq_self (bvarB_le hcut)).symm
+    · dsimp only
+      split
+      · intro h; simp at h
+      · rcases hps : Expr.instantiate1BC v (fuel - 1) sub d with ⟨s', fuel₁⟩
+        dsimp only
+        split
+        · intro h; simp at h
+        · rename_i h1
+          intro _
+          have h3 : s' = Expr.instantiate1 sub v d := by
+            have := ih (fuel - 1) d (by rw [hps]; exact h1)
+            rw [hps] at this; exact this
+          dsimp only
+          rw [mkProj_eq, h3]
+          rfl
+
 theorem instantiate1C_spec {e v : Expr} {d : Nat} :
       (Expr.instantiate1C e v d) = (Expr.instantiate1 e v d) := by
   rw [Expr.instantiate1C]
   split
   · rename_i hcut
     exact (Expr.instantiate1_eq_self (bvarB_le hcut)).symm
-  · exact (instantiate1GoC_spec (v := v) (d := d) Memo1Inv.empty).2
+  · rcases hbc : Expr.instantiate1BC v Expr.walkBudget e d with ⟨r, fuel⟩
+    dsimp only
+    split
+    · rename_i hfuel
+      have hb := instantiate1BC_spec (v := v) e Expr.walkBudget d
+        (by rw [hbc]; exact hfuel)
+      rw [hbc] at hb
+      exact hb
+    · exact (instantiate1GoC_spec (v := v) (d := d)
+        Memo1Inv.empty).2
 
 /-! ## Bulk instantiation -/
 
@@ -318,7 +536,9 @@ def MemoLInv (ws : List Expr) (k : Nat) (memo : Expr.MemoNL) : Prop :=
   ∀ (e : Expr) (c : Nat) (r : Expr), memo[(e, c)]? = some r →
     r = (Expr.instantiateList e (ws.take k) c)
 
-theorem MemoLInv.empty {ws : List Expr} {k : Nat} : MemoLInv ws k {} := by
+/-- An empty table at any capacity (see `Memo1Inv.empty`). -/
+theorem MemoLInv.empty {ws : List Expr} {k n : Nat} :
+    MemoLInv ws k (Std.HashMap.emptyWithCapacity n) := by
   intro e c r h
   simp at h
 
@@ -627,6 +847,311 @@ theorem instantiateListGoC_spec {vs : Array Expr} :
             rw [instList_proj, mkProj_eq, h3]
           exact ⟨h2.insert hres, hres⟩
 
+/-- **The budgeted bulk descent computes `Expr.instantiateList`
+wherever it completes** (task #313).  The induction is
+`instantiateListGoC_spec`'s — strong on the live prefix `k` (the `bvar`
+arm re-enters at the replacement on the same fuel but a shorter
+prefix), structural on the node inside it. -/
+theorem instantiateListBC_spec {vs : Array Expr} :
+    ∀ (k : Nat) (e : Expr), ∀ {fuel d : Nat}, k ≤ vs.size →
+      (Expr.instantiateListBC vs fuel e k d).2 ≠ 0 →
+        (Expr.instantiateListBC vs fuel e k d).1
+          = Expr.instantiateList e (vs.toList.take k) d := by
+  intro k
+  induction k using Nat.strongRecOn with
+  | _ k ihk =>
+  intro e
+  induction e with
+  | bvar i =>
+    intro fuel d hk
+    rw [Expr.instantiateListBC.eq_def]
+    split
+    · rename_i hk0
+      subst hk0
+      intro _
+      simp [Expr.instantiateList_nil]
+    · split
+      · rename_i hcut
+        intro _
+        exact (Expr.instantiateList_eq_self (bvarB_le hcut)).symm
+      · rename_i hk0 hcut
+        have hlen : ((vs.toList).take k).length = k := by
+          simp; omega
+        dsimp only
+        split
+        · rename_i hid
+          intro _
+          simp [Expr.instantiateList, hid]
+        · rename_i hid
+          split
+          · rename_i hidk
+            split
+            · rename_i hidv
+              have hget : ((vs.toList).take k)[i - d]'(by
+                  rw [hlen]; exact hidk) = vs[i - d] := by
+                rw [List.getElem_take]
+                simp
+              have htk : ((vs.toList).take k).take (i - d)
+                  = (vs.toList).take (i - d) := by
+                rw [List.take_take]
+                congr 1
+                omega
+              have hRHS : (Expr.instantiateList (Expr.bvar i)
+                    ((vs.toList).take k) d)
+                  = (Expr.instantiateList vs[i - d]
+                      ((vs.toList).take (i - d)) d) := by
+                rw [Expr.instantiateList, if_neg hid,
+                  dif_pos (by rw [hlen]; exact hidk), hget, htk]
+              split
+              · rename_i hfast
+                intro _
+                rw [hRHS]
+                rcases Bool.or_eq_true .. |>.mp hfast with h0 | hb
+                · have hnil : (vs.toList).take (i - d) = [] := by
+                    have h0' : i - d = 0 := by simpa using h0
+                    rw [h0']
+                    simp
+                  rw [hnil]
+                  exact (Expr.instantiateList_nil _ _).symm
+                · have hb' : vs[i - d].bvarB ≤ d := by simpa using hb
+                  exact (Expr.instantiateList_eq_self (bvarB_le hb')).symm
+              · intro h
+                rw [hRHS]
+                exact ihk (i - d) hidk vs[i - d] (fuel := fuel) (d := d)
+                  (Nat.le_of_lt hidv) h
+            · rename_i hidv
+              exact absurd (by omega : i - d < vs.size) hidv
+          · rename_i hidk
+            intro _
+            rw [Expr.mkBvar_eq, Expr.instantiateList,
+              if_neg hid, dif_neg (by rw [hlen]; exact hidk), hlen]
+  | fvar idx ty _ =>
+    intro fuel d hk
+    rw [Expr.instantiateListBC.eq_def]
+    split
+    · rename_i hk0
+      subst hk0
+      intro _
+      simp [Expr.instantiateList_nil]
+    · split
+      · rename_i hcut
+        intro _
+        exact (Expr.instantiateList_eq_self (bvarB_le hcut)).symm
+      · intro _
+        exact instList_leaf rfl
+  | sort u =>
+    intro fuel d hk
+    rw [Expr.instantiateListBC.eq_def]
+    split
+    · rename_i hk0
+      subst hk0
+      intro _
+      simp [Expr.instantiateList_nil]
+    · split
+      · rename_i hcut
+        intro _
+        exact (Expr.instantiateList_eq_self (bvarB_le hcut)).symm
+      · intro _
+        exact instList_leaf rfl
+  | const n us =>
+    intro fuel d hk
+    rw [Expr.instantiateListBC.eq_def]
+    split
+    · rename_i hk0
+      subst hk0
+      intro _
+      simp [Expr.instantiateList_nil]
+    · split
+      · rename_i hcut
+        intro _
+        exact (Expr.instantiateList_eq_self (bvarB_le hcut)).symm
+      · intro _
+        exact instList_leaf rfl
+  | lit l =>
+    intro fuel d hk
+    rw [Expr.instantiateListBC.eq_def]
+    split
+    · rename_i hk0
+      subst hk0
+      intro _
+      simp [Expr.instantiateList_nil]
+    · split
+      · rename_i hcut
+        intro _
+        exact (Expr.instantiateList_eq_self (bvarB_le hcut)).symm
+      · intro _
+        exact instList_leaf rfl
+  | app f a ihf iha =>
+    intro fuel d hk
+    rw [Expr.instantiateListBC.eq_def]
+    split
+    · rename_i hk0
+      subst hk0
+      intro _
+      simp [Expr.instantiateList_nil]
+    · split
+      · rename_i hcut
+        intro _
+        exact (Expr.instantiateList_eq_self (bvarB_le hcut)).symm
+      · dsimp only
+        split
+        · intro h; simp at h
+        · rcases hpf : Expr.instantiateListBC vs (fuel - 1) f k d with ⟨f', fuel₁⟩
+          dsimp only
+          split
+          · intro h; simp at h
+          · rename_i h1
+            rcases hpa : Expr.instantiateListBC vs fuel₁ a k d with ⟨a', fuel₂⟩
+            dsimp only
+            split
+            · intro h; simp at h
+            · rename_i h2
+              intro _
+              have hf3 : f' = Expr.instantiateList f (vs.toList.take k) d := by
+                have := ihf (fuel := fuel - 1) (d := d) hk (by rw [hpf]; exact h1)
+                rw [hpf] at this; exact this
+              have ha3 : a' = Expr.instantiateList a (vs.toList.take k) d := by
+                have := iha (fuel := fuel₁) (d := d) hk (by rw [hpa]; exact h2)
+                rw [hpa] at this; exact this
+              dsimp only
+              rw [instList_app, mkApp_eq, hf3, ha3]
+  | lam ty bd m iht ihb =>
+    intro fuel d hk
+    rw [Expr.instantiateListBC.eq_def]
+    split
+    · rename_i hk0
+      subst hk0
+      intro _
+      simp [Expr.instantiateList_nil]
+    · split
+      · rename_i hcut
+        intro _
+        exact (Expr.instantiateList_eq_self (bvarB_le hcut)).symm
+      · dsimp only
+        split
+        · intro h; simp at h
+        · rcases hpt : Expr.instantiateListBC vs (fuel - 1) ty k d with ⟨ty', fuel₁⟩
+          dsimp only
+          split
+          · intro h; simp at h
+          · rename_i h1
+            rcases hpb : Expr.instantiateListBC vs fuel₁ bd k (d + 1) with ⟨b', fuel₂⟩
+            dsimp only
+            split
+            · intro h; simp at h
+            · rename_i h2
+              intro _
+              have h3 : ty' = Expr.instantiateList ty (vs.toList.take k) d := by
+                have := iht (fuel := fuel - 1) (d := d) hk (by rw [hpt]; exact h1)
+                rw [hpt] at this; exact this
+              have h6 : b' = Expr.instantiateList bd (vs.toList.take k) (d + 1) := by
+                have := ihb (fuel := fuel₁) (d := d + 1) hk (by rw [hpb]; exact h2)
+                rw [hpb] at this; exact this
+              dsimp only
+              rw [instList_lam, mkLam_eq, h3, h6]
+  | forallE ty bd m iht ihb =>
+    intro fuel d hk
+    rw [Expr.instantiateListBC.eq_def]
+    split
+    · rename_i hk0
+      subst hk0
+      intro _
+      simp [Expr.instantiateList_nil]
+    · split
+      · rename_i hcut
+        intro _
+        exact (Expr.instantiateList_eq_self (bvarB_le hcut)).symm
+      · dsimp only
+        split
+        · intro h; simp at h
+        · rcases hpt : Expr.instantiateListBC vs (fuel - 1) ty k d with ⟨ty', fuel₁⟩
+          dsimp only
+          split
+          · intro h; simp at h
+          · rename_i h1
+            rcases hpb : Expr.instantiateListBC vs fuel₁ bd k (d + 1) with ⟨b', fuel₂⟩
+            dsimp only
+            split
+            · intro h; simp at h
+            · rename_i h2
+              intro _
+              have h3 : ty' = Expr.instantiateList ty (vs.toList.take k) d := by
+                have := iht (fuel := fuel - 1) (d := d) hk (by rw [hpt]; exact h1)
+                rw [hpt] at this; exact this
+              have h6 : b' = Expr.instantiateList bd (vs.toList.take k) (d + 1) := by
+                have := ihb (fuel := fuel₁) (d := d + 1) hk (by rw [hpb]; exact h2)
+                rw [hpb] at this; exact this
+              dsimp only
+              rw [instList_forallE, mkForallE_eq, h3, h6]
+  | letE ty val bd iht ihv ihb =>
+    intro fuel d hk
+    rw [Expr.instantiateListBC.eq_def]
+    split
+    · rename_i hk0
+      subst hk0
+      intro _
+      simp [Expr.instantiateList_nil]
+    · split
+      · rename_i hcut
+        intro _
+        exact (Expr.instantiateList_eq_self (bvarB_le hcut)).symm
+      · dsimp only
+        split
+        · intro h; simp at h
+        · rcases hpt : Expr.instantiateListBC vs (fuel - 1) ty k d with ⟨ty', fuel₁⟩
+          dsimp only
+          split
+          · intro h; simp at h
+          · rename_i h1
+            rcases hpv : Expr.instantiateListBC vs fuel₁ val k d with ⟨v', fuel₂⟩
+            dsimp only
+            split
+            · intro h; simp at h
+            · rename_i h2
+              rcases hpb : Expr.instantiateListBC vs fuel₂ bd k (d + 1) with ⟨b', fuel₃⟩
+              dsimp only
+              split
+              · intro h; simp at h
+              · rename_i h3
+                intro _
+                have e3 : ty' = Expr.instantiateList ty (vs.toList.take k) d := by
+                  have := iht (fuel := fuel - 1) (d := d) hk (by rw [hpt]; exact h1)
+                  rw [hpt] at this; exact this
+                have e6 : v' = Expr.instantiateList val (vs.toList.take k) d := by
+                  have := ihv (fuel := fuel₁) (d := d) hk (by rw [hpv]; exact h2)
+                  rw [hpv] at this; exact this
+                have e9 : b' = Expr.instantiateList bd (vs.toList.take k) (d + 1) := by
+                  have := ihb (fuel := fuel₂) (d := d + 1) hk (by rw [hpb]; exact h3)
+                  rw [hpb] at this; exact this
+                dsimp only
+                rw [instList_letE, mkLetE_eq, e3, e6, e9]
+  | proj sn i sub ih =>
+    intro fuel d hk
+    rw [Expr.instantiateListBC.eq_def]
+    split
+    · rename_i hk0
+      subst hk0
+      intro _
+      simp [Expr.instantiateList_nil]
+    · split
+      · rename_i hcut
+        intro _
+        exact (Expr.instantiateList_eq_self (bvarB_le hcut)).symm
+      · dsimp only
+        split
+        · intro h; simp at h
+        · rcases hps : Expr.instantiateListBC vs (fuel - 1) sub k d with ⟨s', fuel₁⟩
+          dsimp only
+          split
+          · intro h; simp at h
+          · rename_i h1
+            intro _
+            have h3 : s' = Expr.instantiateList sub (vs.toList.take k) d := by
+              have := ih (fuel := fuel - 1) (d := d) hk (by rw [hps]; exact h1)
+              rw [hps] at this; exact this
+            dsimp only
+            rw [instList_proj, mkProj_eq, h3]
+
 theorem instantiateListC_spec {e : Expr} {vs : List Expr} {d : Nat} :
     (Expr.instantiateListC e vs d)
       = (Expr.instantiateList e vs d) := by
@@ -634,15 +1159,31 @@ theorem instantiateListC_spec {e : Expr} {vs : List Expr} {d : Nat} :
   | nil => rw [Expr.instantiateListC]; simp [Expr.instantiateList_nil]
   | cons v vs' =>
     have harr : (v :: vs').toArray.toList = v :: vs' := rfl
-    obtain ⟨-, h3⟩ :=
-      instantiateListGoC_spec (vs := (v :: vs').toArray)
-        (v :: vs').toArray.size e (d := d)
-        (Nat.le_refl _) MemoLInv.empty
+    have htail : ∀ x : Expr,
+        x = (Expr.instantiateList e
+              ((v :: vs').toArray.toList.take (v :: vs').toArray.size) d) →
+        x = (Expr.instantiateList e (v :: vs') d) := by
+      intro x hx
+      rw [hx, harr]
+      congr 1
+      rw [show (v :: vs').toArray.size = ((v :: vs')).length from
+          by simp, List.take_length]
     rw [Expr.instantiateListC]
-    rw [h3, harr]
-    congr 1
-    rw [show (v :: vs').toArray.size = ((v :: vs')).length from
-        by simp, List.take_length]
+    rcases hbc : Expr.instantiateListBC (v :: vs').toArray Expr.walkBudget e
+        (v :: vs').toArray.size d with ⟨r, fuel⟩
+    dsimp only
+    split
+    · rename_i hfuel
+      have hb := instantiateListBC_spec (vs := (v :: vs').toArray)
+        (v :: vs').toArray.size e (fuel := Expr.walkBudget) (d := d)
+        (Nat.le_refl _) (by rw [hbc]; exact hfuel)
+      rw [hbc] at hb
+      exact htail _ hb
+    · obtain ⟨-, h3⟩ :=
+        instantiateListGoC_spec (vs := (v :: vs').toArray)
+          (v :: vs').toArray.size e (d := d)
+          (Nat.le_refl _) MemoLInv.empty
+      exact htail _ h3
 
 /-! ## Telescope-context spine instantiation -/
 
@@ -803,6 +1344,145 @@ theorem instantiateRevGo_eq {vs : Array Expr} :
       dsimp only
       rw [ihe memo d]
 
+/-- The reversed budgeted descent is the forward one on the reversed
+array — `instantiateRevGo_eq` one tier down, so every
+`instantiateList` fact transfers unchanged. -/
+theorem instantiateRevBC_eq {vs : Array Expr} :
+    ∀ (k : Nat) (e : Expr) (fuel d : Nat),
+      Expr.instantiateRevBC vs fuel e k d
+        = Expr.instantiateListBC vs.reverse fuel e k d := by
+  intro k
+  induction k using Nat.strongRecOn with
+  | _ k ihk =>
+  intro e
+  induction e with
+  | bvar i =>
+    intro fuel d
+    rw [Expr.instantiateRevBC.eq_def, Expr.instantiateListBC.eq_def]
+    by_cases hk0 : k = 0
+    · simp only [if_pos hk0]
+    rw [if_neg hk0, if_neg hk0]
+    by_cases hcut : (Expr.bvar i).bvarB ≤ d
+    · rw [if_pos hcut, if_pos hcut]
+    rw [if_neg hcut, if_neg hcut]
+    dsimp only
+    by_cases hid : i < d
+    · rw [if_pos hid, if_pos hid]
+    rw [if_neg hid, if_neg hid]
+    by_cases hidk : i - d < k
+    · rw [dif_pos hidk, dif_pos hidk]
+      have hsz : vs.reverse.size = vs.size := by simp
+      by_cases hidv : i - d < vs.size
+      · rw [dif_pos hidv, dif_pos (hsz ▸ hidv)]
+        have hget : vs.reverse[i - d]'(hsz ▸ hidv)
+            = vs[vs.size - 1 - (i - d)]'(by omega) := by
+          simp [Array.getElem_reverse]
+        rw [ihk (i - d) hidk, hget]
+      · rw [dif_neg hidv, dif_neg (fun h => hidv (hsz ▸ h))]
+    · rw [dif_neg hidk, dif_neg hidk]
+  | fvar idx ty _ =>
+    intro fuel d
+    rw [Expr.instantiateRevBC.eq_def, Expr.instantiateListBC.eq_def]
+  | sort u =>
+    intro fuel d
+    rw [Expr.instantiateRevBC.eq_def, Expr.instantiateListBC.eq_def]
+  | const n us =>
+    intro fuel d
+    rw [Expr.instantiateRevBC.eq_def, Expr.instantiateListBC.eq_def]
+  | lit l =>
+    intro fuel d
+    rw [Expr.instantiateRevBC.eq_def, Expr.instantiateListBC.eq_def]
+  | app f a ihf iha =>
+    intro fuel d
+    rw [Expr.instantiateRevBC.eq_def, Expr.instantiateListBC.eq_def]
+    by_cases hk0 : k = 0
+    · simp only [if_pos hk0]
+    rw [if_neg hk0, if_neg hk0]
+    by_cases hcut : (Expr.app f a).bvarB ≤ d
+    · rw [if_pos hcut, if_pos hcut]
+    rw [if_neg hcut, if_neg hcut]
+    dsimp only
+    by_cases hfuel : fuel < 2
+    · rw [if_pos hfuel, if_pos hfuel]
+    rw [if_neg hfuel, if_neg hfuel, ihf (fuel - 1) d]
+    rcases h1 : Expr.instantiateListBC vs.reverse (fuel - 1) f k d with ⟨f', fuel₁⟩
+    dsimp only
+    by_cases h1z : fuel₁ = 0
+    · rw [if_pos h1z, if_pos h1z]
+    rw [if_neg h1z, if_neg h1z, iha fuel₁ d]
+  | lam ty bd m iht ihb =>
+    intro fuel d
+    rw [Expr.instantiateRevBC.eq_def, Expr.instantiateListBC.eq_def]
+    by_cases hk0 : k = 0
+    · simp only [if_pos hk0]
+    rw [if_neg hk0, if_neg hk0]
+    by_cases hcut : (Expr.lam ty bd m).bvarB ≤ d
+    · rw [if_pos hcut, if_pos hcut]
+    rw [if_neg hcut, if_neg hcut]
+    dsimp only
+    by_cases hfuel : fuel < 2
+    · rw [if_pos hfuel, if_pos hfuel]
+    rw [if_neg hfuel, if_neg hfuel, iht (fuel - 1) d]
+    rcases h1 : Expr.instantiateListBC vs.reverse (fuel - 1) ty k d with ⟨ty', fuel₁⟩
+    dsimp only
+    by_cases h1z : fuel₁ = 0
+    · rw [if_pos h1z, if_pos h1z]
+    rw [if_neg h1z, if_neg h1z, ihb fuel₁ (d + 1)]
+  | forallE ty bd m iht ihb =>
+    intro fuel d
+    rw [Expr.instantiateRevBC.eq_def, Expr.instantiateListBC.eq_def]
+    by_cases hk0 : k = 0
+    · simp only [if_pos hk0]
+    rw [if_neg hk0, if_neg hk0]
+    by_cases hcut : (Expr.forallE ty bd m).bvarB ≤ d
+    · rw [if_pos hcut, if_pos hcut]
+    rw [if_neg hcut, if_neg hcut]
+    dsimp only
+    by_cases hfuel : fuel < 2
+    · rw [if_pos hfuel, if_pos hfuel]
+    rw [if_neg hfuel, if_neg hfuel, iht (fuel - 1) d]
+    rcases h1 : Expr.instantiateListBC vs.reverse (fuel - 1) ty k d with ⟨ty', fuel₁⟩
+    dsimp only
+    by_cases h1z : fuel₁ = 0
+    · rw [if_pos h1z, if_pos h1z]
+    rw [if_neg h1z, if_neg h1z, ihb fuel₁ (d + 1)]
+  | letE ty val bd iht ihv ihb =>
+    intro fuel d
+    rw [Expr.instantiateRevBC.eq_def, Expr.instantiateListBC.eq_def]
+    by_cases hk0 : k = 0
+    · simp only [if_pos hk0]
+    rw [if_neg hk0, if_neg hk0]
+    by_cases hcut : (Expr.letE ty val bd).bvarB ≤ d
+    · rw [if_pos hcut, if_pos hcut]
+    rw [if_neg hcut, if_neg hcut]
+    dsimp only
+    by_cases hfuel : fuel < 2
+    · rw [if_pos hfuel, if_pos hfuel]
+    rw [if_neg hfuel, if_neg hfuel, iht (fuel - 1) d]
+    rcases h1 : Expr.instantiateListBC vs.reverse (fuel - 1) ty k d with ⟨ty', fuel₁⟩
+    dsimp only
+    by_cases h1z : fuel₁ = 0
+    · rw [if_pos h1z, if_pos h1z]
+    rw [if_neg h1z, if_neg h1z, ihv fuel₁ d]
+    rcases h2 : Expr.instantiateListBC vs.reverse fuel₁ val k d with ⟨v', fuel₂⟩
+    dsimp only
+    by_cases h2z : fuel₂ = 0
+    · rw [if_pos h2z, if_pos h2z]
+    rw [if_neg h2z, if_neg h2z, ihb fuel₂ (d + 1)]
+  | proj sn i sub ih =>
+    intro fuel d
+    rw [Expr.instantiateRevBC.eq_def, Expr.instantiateListBC.eq_def]
+    by_cases hk0 : k = 0
+    · simp only [if_pos hk0]
+    rw [if_neg hk0, if_neg hk0]
+    by_cases hcut : (Expr.proj sn i sub).bvarB ≤ d
+    · rw [if_pos hcut, if_pos hcut]
+    rw [if_neg hcut, if_neg hcut]
+    dsimp only
+    by_cases hfuel : fuel < 2
+    · rw [if_pos hfuel, if_pos hfuel]
+    rw [if_neg hfuel, if_neg hfuel, ih (fuel - 1) d]
+
 theorem instantiateRev_spec {e : Expr} {vs : Array Expr} {d : Nat}
     :
       (Expr.instantiateRev e vs d)
@@ -822,14 +1502,30 @@ theorem instantiateRev_spec {e : Expr} {vs : Array Expr} {d : Nat}
   · split
     · rename_i hcut
       exact (Expr.instantiateList_eq_self (bvarB_le hcut)).symm
-    · rw [instantiateRevGo_eq]
-      obtain ⟨-, h3⟩ :=
-        instantiateListGoC_spec (vs := vs.reverse) vs.size e (d := d)
-          (by simp) MemoLInv.empty
-      rw [h3, hws]
-      congr 1
-      rw [show vs.size = (vs.toList.reverse).length from by simp,
-        List.take_length]
+    · have htail : ∀ x : Expr,
+          x = (Expr.instantiateList e (vs.reverse.toList.take vs.size) d) →
+          x = (Expr.instantiateList e vs.toList.reverse d) := by
+        intro x hx
+        rw [hx, hws]
+        congr 1
+        rw [show vs.size = (vs.toList.reverse).length from by simp,
+          List.take_length]
+      rw [instantiateRevBC_eq]
+      rcases hbc : Expr.instantiateListBC vs.reverse Expr.walkBudget e
+          vs.size d with ⟨r, fuel⟩
+      dsimp only
+      split
+      · rename_i hfuel
+        have hb := instantiateListBC_spec (vs := vs.reverse) vs.size e
+          (fuel := Expr.walkBudget) (d := d) (by simp)
+          (by rw [hbc]; exact hfuel)
+        rw [hbc] at hb
+        exact htail _ hb
+      · rw [instantiateRevGo_eq]
+        obtain ⟨-, h3⟩ :=
+          instantiateListGoC_spec (vs := vs.reverse) vs.size e (d := d)
+            (by simp) MemoLInv.empty
+        exact htail _ h3
 
 /-! ## Abstraction
 
@@ -855,7 +1551,9 @@ def MemoAInv (d : Nat) (memo : Expr.MemoN) : Prop :=
   ∀ (e : Expr) (k : Nat) (r : Expr), memo[(e, k)]? = some r →
     r = (Expr.abstract1 e d k)
 
-theorem MemoAInv.empty {d : Nat} : MemoAInv d {} := by
+/-- An empty table at any capacity (see `Memo1Inv.empty`). -/
+theorem MemoAInv.empty {d n : Nat} :
+    MemoAInv d (Std.HashMap.emptyWithCapacity n) := by
   intro e k r h
   simp at h
 
@@ -1024,13 +1722,223 @@ theorem abstract1GoC_spec {d : Nat} : ∀ {e : Expr},
           rw [mkProj_eq, h3]; rfl
         exact ⟨h2.insert hres, hres⟩
 
+/-- **The budgeted abstraction descent computes `Expr.abstract1`
+wherever it completes** (task #313; the cutoff is the walk's
+documented deviation, `abstract1_eq_self`). -/
+theorem abstract1BC_spec {d : Nat} : ∀ (e : Expr) (fuel k : Nat),
+    (Expr.abstract1BC d fuel e k).2 ≠ 0 →
+      (Expr.abstract1BC d fuel e k).1 = Expr.abstract1 e d k := by
+  intro e
+  induction e with
+  | fvar idx ty _ =>
+    intro fuel k
+    rw [Expr.abstract1BC.eq_def]
+    split
+    · rename_i hcut
+      intro _
+      exact (abstract1_eq_self (fvarB_le hcut)).symm
+    · dsimp only
+      intro _
+      by_cases hidx : idx = d <;> simp [Expr.abstract1, hidx]
+  | bvar i =>
+    intro fuel k
+    rw [Expr.abstract1BC.eq_def]
+    split
+    · rename_i hcut
+      intro _
+      exact (abstract1_eq_self (fvarB_le hcut)).symm
+    · intro _; rfl
+  | sort u =>
+    intro fuel k
+    rw [Expr.abstract1BC.eq_def]
+    split
+    · rename_i hcut
+      intro _
+      exact (abstract1_eq_self (fvarB_le hcut)).symm
+    · intro _; rfl
+  | const n us =>
+    intro fuel k
+    rw [Expr.abstract1BC.eq_def]
+    split
+    · rename_i hcut
+      intro _
+      exact (abstract1_eq_self (fvarB_le hcut)).symm
+    · intro _; rfl
+  | lit l =>
+    intro fuel k
+    rw [Expr.abstract1BC.eq_def]
+    split
+    · rename_i hcut
+      intro _
+      exact (abstract1_eq_self (fvarB_le hcut)).symm
+    · intro _; rfl
+  | app f a ihf iha =>
+    intro fuel k
+    rw [Expr.abstract1BC.eq_def]
+    split
+    · rename_i hcut
+      intro _
+      exact (abstract1_eq_self (fvarB_le hcut)).symm
+    · dsimp only
+      split
+      · intro h; simp at h
+      · rcases hpf : Expr.abstract1BC d (fuel - 1) f k with ⟨f', fuel₁⟩
+        dsimp only
+        split
+        · intro h; simp at h
+        · rename_i h1
+          rcases hpa : Expr.abstract1BC d fuel₁ a k with ⟨a', fuel₂⟩
+          dsimp only
+          split
+          · intro h; simp at h
+          · rename_i h2
+            intro _
+            have hf3 : f' = Expr.abstract1 f d k := by
+              have := ihf (fuel - 1) k (by rw [hpf]; exact h1)
+              rw [hpf] at this; exact this
+            have ha3 : a' = Expr.abstract1 a d k := by
+              have := iha fuel₁ k (by rw [hpa]; exact h2)
+              rw [hpa] at this; exact this
+            dsimp only
+            rw [mkApp_eq, hf3, ha3]
+            rfl
+  | lam ty bd m iht ihb =>
+    intro fuel k
+    rw [Expr.abstract1BC.eq_def]
+    split
+    · rename_i hcut
+      intro _
+      exact (abstract1_eq_self (fvarB_le hcut)).symm
+    · dsimp only
+      split
+      · intro h; simp at h
+      · rcases hpt : Expr.abstract1BC d (fuel - 1) ty k with ⟨ty', fuel₁⟩
+        dsimp only
+        split
+        · intro h; simp at h
+        · rename_i h1
+          rcases hpb : Expr.abstract1BC d fuel₁ bd (k + 1) with ⟨b', fuel₂⟩
+          dsimp only
+          split
+          · intro h; simp at h
+          · rename_i h2
+            intro _
+            have h3 : ty' = Expr.abstract1 ty d k := by
+              have := iht (fuel - 1) k (by rw [hpt]; exact h1)
+              rw [hpt] at this; exact this
+            have h6 : b' = Expr.abstract1 bd d (k + 1) := by
+              have := ihb fuel₁ (k + 1) (by rw [hpb]; exact h2)
+              rw [hpb] at this; exact this
+            dsimp only
+            rw [mkLam_eq, h3, h6]
+            rfl
+  | forallE ty bd m iht ihb =>
+    intro fuel k
+    rw [Expr.abstract1BC.eq_def]
+    split
+    · rename_i hcut
+      intro _
+      exact (abstract1_eq_self (fvarB_le hcut)).symm
+    · dsimp only
+      split
+      · intro h; simp at h
+      · rcases hpt : Expr.abstract1BC d (fuel - 1) ty k with ⟨ty', fuel₁⟩
+        dsimp only
+        split
+        · intro h; simp at h
+        · rename_i h1
+          rcases hpb : Expr.abstract1BC d fuel₁ bd (k + 1) with ⟨b', fuel₂⟩
+          dsimp only
+          split
+          · intro h; simp at h
+          · rename_i h2
+            intro _
+            have h3 : ty' = Expr.abstract1 ty d k := by
+              have := iht (fuel - 1) k (by rw [hpt]; exact h1)
+              rw [hpt] at this; exact this
+            have h6 : b' = Expr.abstract1 bd d (k + 1) := by
+              have := ihb fuel₁ (k + 1) (by rw [hpb]; exact h2)
+              rw [hpb] at this; exact this
+            dsimp only
+            rw [mkForallE_eq, h3, h6]
+            rfl
+  | letE ty val bd iht ihv ihb =>
+    intro fuel k
+    rw [Expr.abstract1BC.eq_def]
+    split
+    · rename_i hcut
+      intro _
+      exact (abstract1_eq_self (fvarB_le hcut)).symm
+    · dsimp only
+      split
+      · intro h; simp at h
+      · rcases hpt : Expr.abstract1BC d (fuel - 1) ty k with ⟨ty', fuel₁⟩
+        dsimp only
+        split
+        · intro h; simp at h
+        · rename_i h1
+          rcases hpv : Expr.abstract1BC d fuel₁ val k with ⟨v', fuel₂⟩
+          dsimp only
+          split
+          · intro h; simp at h
+          · rename_i h2
+            rcases hpb : Expr.abstract1BC d fuel₂ bd (k + 1) with ⟨b', fuel₃⟩
+            dsimp only
+            split
+            · intro h; simp at h
+            · rename_i h3
+              intro _
+              have e3 : ty' = Expr.abstract1 ty d k := by
+                have := iht (fuel - 1) k (by rw [hpt]; exact h1)
+                rw [hpt] at this; exact this
+              have e6 : v' = Expr.abstract1 val d k := by
+                have := ihv fuel₁ k (by rw [hpv]; exact h2)
+                rw [hpv] at this; exact this
+              have e9 : b' = Expr.abstract1 bd d (k + 1) := by
+                have := ihb fuel₂ (k + 1) (by rw [hpb]; exact h3)
+                rw [hpb] at this; exact this
+              dsimp only
+              rw [mkLetE_eq, e3, e6, e9]
+              rfl
+  | proj sn i sub ih =>
+    intro fuel k
+    rw [Expr.abstract1BC.eq_def]
+    split
+    · rename_i hcut
+      intro _
+      exact (abstract1_eq_self (fvarB_le hcut)).symm
+    · dsimp only
+      split
+      · intro h; simp at h
+      · rcases hps : Expr.abstract1BC d (fuel - 1) sub k with ⟨s', fuel₁⟩
+        dsimp only
+        split
+        · intro h; simp at h
+        · rename_i h1
+          intro _
+          have h3 : s' = Expr.abstract1 sub d k := by
+            have := ih (fuel - 1) k (by rw [hps]; exact h1)
+            rw [hps] at this; exact this
+          dsimp only
+          rw [mkProj_eq, h3]
+          rfl
+
 theorem abstract1C_spec {e : Expr} {d k : Nat} :
       (Expr.abstract1C e d k) = (Expr.abstract1 e d k) := by
   rw [Expr.abstract1C]
   split
   · rename_i hcut
     exact (abstract1_eq_self (fvarB_le hcut)).symm
-  · exact (abstract1GoC_spec (d := d) (k := k) MemoAInv.empty).2
+  · rcases hbc : Expr.abstract1BC d Expr.walkBudget e k with ⟨r, fuel⟩
+    dsimp only
+    split
+    · rename_i hfuel
+      have hb := abstract1BC_spec (d := d) e Expr.walkBudget k
+        (by rw [hbc]; exact hfuel)
+      rw [hbc] at hb
+      exact hb
+    · exact (abstract1GoC_spec (d := d) (k := k)
+        MemoAInv.empty).2
 
 /-! ### Bulk abstraction -/
 
@@ -1045,7 +1953,9 @@ def MemoARInv (d k : Nat) (memo : Expr.MemoN) : Prop :=
   ∀ (e : Expr) (c : Nat) (r : Expr), memo[(e, c)]? = some r →
     r = (Expr.abstractRange e d k c)
 
-theorem MemoARInv.empty {d k : Nat} : MemoARInv d k {} := by
+/-- An empty table at any capacity (see `Memo1Inv.empty`). -/
+theorem MemoARInv.empty {d k n : Nat} :
+    MemoARInv d k (Std.HashMap.emptyWithCapacity n) := by
   intro e c r h
   simp at h
 
@@ -1215,6 +2125,206 @@ theorem abstractRangeGoC_spec {d k : Nat} : ∀ {e : Expr},
           rw [mkProj_eq, h3]; rfl
         exact ⟨h2.insert hres, hres⟩
 
+/-- **The budgeted bulk-abstraction descent computes
+`Expr.abstractRange` wherever it completes** (task #313). -/
+theorem abstractRangeBC_spec {d k : Nat} : ∀ (e : Expr) (fuel c : Nat),
+    (Expr.abstractRangeBC d k fuel e c).2 ≠ 0 →
+      (Expr.abstractRangeBC d k fuel e c).1 = Expr.abstractRange e d k c := by
+  intro e
+  induction e with
+  | fvar idx ty _ =>
+    intro fuel c
+    rw [Expr.abstractRangeBC.eq_def]
+    split
+    · rename_i hcut
+      intro _
+      exact (abstractRange_eq_self (fvarB_le hcut)).symm
+    · dsimp only
+      intro _
+      by_cases hidx : d ≤ idx ∧ idx < d + k <;> simp [Expr.abstractRange, hidx]
+  | bvar i =>
+    intro fuel c
+    rw [Expr.abstractRangeBC.eq_def]
+    split
+    · rename_i hcut
+      intro _
+      exact (abstractRange_eq_self (fvarB_le hcut)).symm
+    · intro _; rfl
+  | sort u =>
+    intro fuel c
+    rw [Expr.abstractRangeBC.eq_def]
+    split
+    · rename_i hcut
+      intro _
+      exact (abstractRange_eq_self (fvarB_le hcut)).symm
+    · intro _; rfl
+  | const n us =>
+    intro fuel c
+    rw [Expr.abstractRangeBC.eq_def]
+    split
+    · rename_i hcut
+      intro _
+      exact (abstractRange_eq_self (fvarB_le hcut)).symm
+    · intro _; rfl
+  | lit l =>
+    intro fuel c
+    rw [Expr.abstractRangeBC.eq_def]
+    split
+    · rename_i hcut
+      intro _
+      exact (abstractRange_eq_self (fvarB_le hcut)).symm
+    · intro _; rfl
+  | app f a ihf iha =>
+    intro fuel c
+    rw [Expr.abstractRangeBC.eq_def]
+    split
+    · rename_i hcut
+      intro _
+      exact (abstractRange_eq_self (fvarB_le hcut)).symm
+    · dsimp only
+      split
+      · intro h; simp at h
+      · rcases hpf : Expr.abstractRangeBC d k (fuel - 1) f c with ⟨f', fuel₁⟩
+        dsimp only
+        split
+        · intro h; simp at h
+        · rename_i h1
+          rcases hpa : Expr.abstractRangeBC d k fuel₁ a c with ⟨a', fuel₂⟩
+          dsimp only
+          split
+          · intro h; simp at h
+          · rename_i h2
+            intro _
+            have hf3 : f' = Expr.abstractRange f d k c := by
+              have := ihf (fuel - 1) c (by rw [hpf]; exact h1)
+              rw [hpf] at this; exact this
+            have ha3 : a' = Expr.abstractRange a d k c := by
+              have := iha fuel₁ c (by rw [hpa]; exact h2)
+              rw [hpa] at this; exact this
+            dsimp only
+            rw [mkApp_eq, hf3, ha3]
+            rfl
+  | lam ty bd m iht ihb =>
+    intro fuel c
+    rw [Expr.abstractRangeBC.eq_def]
+    split
+    · rename_i hcut
+      intro _
+      exact (abstractRange_eq_self (fvarB_le hcut)).symm
+    · dsimp only
+      split
+      · intro h; simp at h
+      · rcases hpt : Expr.abstractRangeBC d k (fuel - 1) ty c with ⟨ty', fuel₁⟩
+        dsimp only
+        split
+        · intro h; simp at h
+        · rename_i h1
+          rcases hpb : Expr.abstractRangeBC d k fuel₁ bd (c + 1) with ⟨b', fuel₂⟩
+          dsimp only
+          split
+          · intro h; simp at h
+          · rename_i h2
+            intro _
+            have h3 : ty' = Expr.abstractRange ty d k c := by
+              have := iht (fuel - 1) c (by rw [hpt]; exact h1)
+              rw [hpt] at this; exact this
+            have h6 : b' = Expr.abstractRange bd d k (c + 1) := by
+              have := ihb fuel₁ (c + 1) (by rw [hpb]; exact h2)
+              rw [hpb] at this; exact this
+            dsimp only
+            rw [mkLam_eq, h3, h6]
+            rfl
+  | forallE ty bd m iht ihb =>
+    intro fuel c
+    rw [Expr.abstractRangeBC.eq_def]
+    split
+    · rename_i hcut
+      intro _
+      exact (abstractRange_eq_self (fvarB_le hcut)).symm
+    · dsimp only
+      split
+      · intro h; simp at h
+      · rcases hpt : Expr.abstractRangeBC d k (fuel - 1) ty c with ⟨ty', fuel₁⟩
+        dsimp only
+        split
+        · intro h; simp at h
+        · rename_i h1
+          rcases hpb : Expr.abstractRangeBC d k fuel₁ bd (c + 1) with ⟨b', fuel₂⟩
+          dsimp only
+          split
+          · intro h; simp at h
+          · rename_i h2
+            intro _
+            have h3 : ty' = Expr.abstractRange ty d k c := by
+              have := iht (fuel - 1) c (by rw [hpt]; exact h1)
+              rw [hpt] at this; exact this
+            have h6 : b' = Expr.abstractRange bd d k (c + 1) := by
+              have := ihb fuel₁ (c + 1) (by rw [hpb]; exact h2)
+              rw [hpb] at this; exact this
+            dsimp only
+            rw [mkForallE_eq, h3, h6]
+            rfl
+  | letE ty val bd iht ihv ihb =>
+    intro fuel c
+    rw [Expr.abstractRangeBC.eq_def]
+    split
+    · rename_i hcut
+      intro _
+      exact (abstractRange_eq_self (fvarB_le hcut)).symm
+    · dsimp only
+      split
+      · intro h; simp at h
+      · rcases hpt : Expr.abstractRangeBC d k (fuel - 1) ty c with ⟨ty', fuel₁⟩
+        dsimp only
+        split
+        · intro h; simp at h
+        · rename_i h1
+          rcases hpv : Expr.abstractRangeBC d k fuel₁ val c with ⟨v', fuel₂⟩
+          dsimp only
+          split
+          · intro h; simp at h
+          · rename_i h2
+            rcases hpb : Expr.abstractRangeBC d k fuel₂ bd (c + 1) with ⟨b', fuel₃⟩
+            dsimp only
+            split
+            · intro h; simp at h
+            · rename_i h3
+              intro _
+              have e3 : ty' = Expr.abstractRange ty d k c := by
+                have := iht (fuel - 1) c (by rw [hpt]; exact h1)
+                rw [hpt] at this; exact this
+              have e6 : v' = Expr.abstractRange val d k c := by
+                have := ihv fuel₁ c (by rw [hpv]; exact h2)
+                rw [hpv] at this; exact this
+              have e9 : b' = Expr.abstractRange bd d k (c + 1) := by
+                have := ihb fuel₂ (c + 1) (by rw [hpb]; exact h3)
+                rw [hpb] at this; exact this
+              dsimp only
+              rw [mkLetE_eq, e3, e6, e9]
+              rfl
+  | proj sn i sub ih =>
+    intro fuel c
+    rw [Expr.abstractRangeBC.eq_def]
+    split
+    · rename_i hcut
+      intro _
+      exact (abstractRange_eq_self (fvarB_le hcut)).symm
+    · dsimp only
+      split
+      · intro h; simp at h
+      · rcases hps : Expr.abstractRangeBC d k (fuel - 1) sub c with ⟨s', fuel₁⟩
+        dsimp only
+        split
+        · intro h; simp at h
+        · rename_i h1
+          intro _
+          have h3 : s' = Expr.abstractRange sub d k c := by
+            have := ih (fuel - 1) c (by rw [hps]; exact h1)
+            rw [hps] at this; exact this
+          dsimp only
+          rw [mkProj_eq, h3]
+          rfl
+
 theorem abstractRangeC_spec {e : Expr} {d k c : Nat} :
       (Expr.abstractRangeC e d k c) = (Expr.abstractRange e d k c) := by
   cases k with
@@ -1224,8 +2334,17 @@ theorem abstractRangeC_spec {e : Expr} {d k c : Nat} :
     split
     · rename_i hcut
       exact (abstractRange_eq_self (fvarB_le hcut)).symm
-    · exact (abstractRangeGoC_spec (d := d) (k := k' + 1) (c := c)
-        MemoARInv.empty).2
+    · rcases hbc : Expr.abstractRangeBC d (k' + 1) Expr.walkBudget e c
+        with ⟨r, fuel⟩
+      dsimp only
+      split
+      · rename_i hfuel
+        have hb := abstractRangeBC_spec (d := d) (k := k' + 1) e
+          Expr.walkBudget c (by rw [hbc]; exact hfuel)
+        rw [hbc] at hb
+        exact hb
+      · exact (abstractRangeGoC_spec (d := d) (k := k' + 1) (c := c)
+          MemoARInv.empty).2
 
 /-! ## Level instantiation -/
 

@@ -258,9 +258,94 @@ def instantiate1LiftC (e v : Expr) (d : Nat := 0) : Expr :=
   | (some r, _) => r
   | (none, _) => (instantiate1LiftGoC v {} e d).1
 
-/-- The cached `Expr.instantiate1` (fresh per-call memo). -/
+/-! ### The budgeted plain descent (task #313)
+
+Every substitution walk below runs in two stages: a PLAIN rebuild on
+a node budget first — no memo table, no key allocation, no bucket
+probe — and the memoised walk above only when the budget runs out,
+from scratch.  The budget is a fuel threaded through the result pair:
+a compound node needs at least two units and hands one fewer to its
+children, a leaf hands its fuel back unchanged, and a returned fuel of
+`0` means the descent was abandoned (the `Expr` beside it is then
+meaningless).  The invariant that makes `0` an unambiguous signal: a
+completed descent always returns fuel `≥ 1`, because every child of a
+node that proceeds receives `≥ 1` and a leaf returns what it received.
+So the result carries no `Option` — one `Prod` per node, which the
+compiler's reset/reuse recycles up the spine — and the wrapper reads
+success off the scalar.
+
+Why a budget rather than a memo always: the memo's whole cost — the
+`(Expr × Nat)` key, the bucket cons cell, the rehash from an
+eight-bucket table at every β — is paid per node whether or not any
+node is shared, and the day-one profile put it at 7 % of `init-full`
+and 38 % of `app-lam`.  What the plain descent gives up is sharing: a
+subterm reached twice under the cursor is rebuilt twice, and the
+copies are distinct objects downstream — every later memo probe on
+them is a structural `beq` instead of a pointer hit, and every later
+walk visits both.  The budget bounds that loss to `walkBudget` rebuilt
+nodes per walk, and a walk that exceeds it is RESTARTED under the memo
+rather than continued: the alternative (switching to the memo
+mid-walk, which keeps the plain part) was measured and lost — it
+keeps the duplicated prefix, and on `app-lam` that compounds to 7×
+at a 32 768 budget where the restart costs 0.6 % — see the task #313
+record (DESIGN.md), which also holds the budget sweep the value below
+comes from: a LARGE budget loses on every sharing-heavy stream.  The
+restarted walk begins on a table pre-sized to the budget, since the
+term is by then known to be at least that large. -/
+
+/-- Node budget of the plain descent before a memo table is built. -/
+def walkBudget : Nat := 256
+
+/-- The memo table a walk restarts on after its budget ran out:
+pre-sized to the budget. -/
+@[inline] def memoAfterBudget : MemoN :=
+  Std.HashMap.emptyWithCapacity walkBudget
+
+/-- The budgeted plain descent of `instantiate1C` (see the section
+docstring for the fuel convention). -/
+def instantiate1BC (v : Expr) (fuel : Nat) (e : Expr) (d : Nat) : Expr × Nat :=
+  if e.bvarB ≤ d then (e, fuel) else
+  match e with
+  | .bvar i .. =>
+    (if i = d then v else if i > d then Expr.mkBvar (i - 1) else e, fuel)
+  | .fvar .. | .sort .. | .const .. | .lit .. => (e, fuel)
+  | .app f a .. =>
+    if fuel < 2 then (e, 0) else
+    let (f', fuel) := instantiate1BC v (fuel - 1) f d
+    if fuel = 0 then (e, 0) else
+    let (a', fuel) := instantiate1BC v fuel a d
+    if fuel = 0 then (e, 0) else (mkApp f' a', fuel)
+  | .lam ty body m .. =>
+    if fuel < 2 then (e, 0) else
+    let (ty', fuel) := instantiate1BC v (fuel - 1) ty d
+    if fuel = 0 then (e, 0) else
+    let (b', fuel) := instantiate1BC v fuel body (d + 1)
+    if fuel = 0 then (e, 0) else (mkLam ty' b' m, fuel)
+  | .forallE ty body m .. =>
+    if fuel < 2 then (e, 0) else
+    let (ty', fuel) := instantiate1BC v (fuel - 1) ty d
+    if fuel = 0 then (e, 0) else
+    let (b', fuel) := instantiate1BC v fuel body (d + 1)
+    if fuel = 0 then (e, 0) else (mkForallE ty' b' m, fuel)
+  | .letE ty val body .. =>
+    if fuel < 2 then (e, 0) else
+    let (ty', fuel) := instantiate1BC v (fuel - 1) ty d
+    if fuel = 0 then (e, 0) else
+    let (v', fuel) := instantiate1BC v fuel val d
+    if fuel = 0 then (e, 0) else
+    let (b', fuel) := instantiate1BC v fuel body (d + 1)
+    if fuel = 0 then (e, 0) else (mkLetE ty' v' b', fuel)
+  | .proj sn i sub .. =>
+    if fuel < 2 then (e, 0) else
+    let (s', fuel) := instantiate1BC v (fuel - 1) sub d
+    if fuel = 0 then (e, 0) else (mkProj sn i s', fuel)
+
+/-- The cached `Expr.instantiate1`: the cutoff, the budgeted plain
+descent, the memoised walk past the budget. -/
 def instantiate1C (e v : Expr) (d : Nat := 0) : Expr :=
-  if e.bvarB ≤ d then e else (instantiate1GoC v {} e d).1
+  if e.bvarB ≤ d then e else
+  let (r, fuel) := instantiate1BC v walkBudget e d
+  if fuel ≠ 0 then r else (instantiate1GoC v memoAfterBudget e d).1
 
 /-- Core of `instantiateListC` (task #50): `vs` innermost binder first,
 `k` the live prefix length.
@@ -345,13 +430,70 @@ decreasing_by
     | (apply Prod.Lex.left; omega)
     | (apply Prod.Lex.right; simp +arith +decide)
 
-/-- The cached `Expr.instantiateList` (bulk, one memoized DAG pass). -/
+/-- The budgeted plain descent of `instantiateListC` (task #313; the
+fuel convention of `instantiate1BC`).  The `bvar` arm's re-entry at a
+replacement continues on the same fuel — it is one walk's budget. -/
+def instantiateListBC (vs : Array Expr) (fuel : Nat)
+    (e : Expr) (k : Nat) (d : Nat) : Expr × Nat :=
+  if k = 0 then (e, fuel)
+  else if e.bvarB ≤ d then (e, fuel)
+  else
+    match e with
+    | .bvar i .. =>
+      if i < d then (e, fuel)
+      else if _h : i - d < k then
+        if h : i - d < vs.size then
+          let w := vs[i - d]
+          if i - d = 0 || w.bvarB ≤ d then (w, fuel)
+          else instantiateListBC vs fuel w (i - d) d
+        else (e, fuel)
+      else (Expr.mkBvar (i - k), fuel)
+    | .fvar .. | .sort .. | .const .. | .lit .. => (e, fuel)
+    | .app f a .. =>
+      if fuel < 2 then (e, 0) else
+      let (f', fuel) := instantiateListBC vs (fuel - 1) f k d
+      if fuel = 0 then (e, 0) else
+      let (a', fuel) := instantiateListBC vs fuel a k d
+      if fuel = 0 then (e, 0) else (mkApp f' a', fuel)
+    | .lam ty body m .. =>
+      if fuel < 2 then (e, 0) else
+      let (ty', fuel) := instantiateListBC vs (fuel - 1) ty k d
+      if fuel = 0 then (e, 0) else
+      let (b', fuel) := instantiateListBC vs fuel body k (d + 1)
+      if fuel = 0 then (e, 0) else (mkLam ty' b' m, fuel)
+    | .forallE ty body m .. =>
+      if fuel < 2 then (e, 0) else
+      let (ty', fuel) := instantiateListBC vs (fuel - 1) ty k d
+      if fuel = 0 then (e, 0) else
+      let (b', fuel) := instantiateListBC vs fuel body k (d + 1)
+      if fuel = 0 then (e, 0) else (mkForallE ty' b' m, fuel)
+    | .letE ty val body .. =>
+      if fuel < 2 then (e, 0) else
+      let (ty', fuel) := instantiateListBC vs (fuel - 1) ty k d
+      if fuel = 0 then (e, 0) else
+      let (v', fuel) := instantiateListBC vs fuel val k d
+      if fuel = 0 then (e, 0) else
+      let (b', fuel) := instantiateListBC vs fuel body k (d + 1)
+      if fuel = 0 then (e, 0) else (mkLetE ty' v' b', fuel)
+    | .proj sn i sub .. =>
+      if fuel < 2 then (e, 0) else
+      let (s', fuel) := instantiateListBC vs (fuel - 1) sub k d
+      if fuel = 0 then (e, 0) else (mkProj sn i s', fuel)
+termination_by (k, sizeOf e)
+decreasing_by
+  all_goals first
+    | (apply Prod.Lex.left; omega)
+    | (apply Prod.Lex.right; simp +arith +decide)
+
+/-- The cached `Expr.instantiateList` (bulk): the budgeted plain
+descent, the memoised DAG pass past the budget. -/
 def instantiateListC (e : Expr) (vs : List Expr) (d : Nat := 0) : Expr :=
   match vs with
   | [] => e
   | _ :: _ =>
     let a := vs.toArray
-    (instantiateListGoC a {} e a.size d).1
+    let (r, fuel) := instantiateListBC a walkBudget e a.size d
+    if fuel ≠ 0 then r else (instantiateListGoC a memoAfterBudget e a.size d).1
 
 /-- Core of `instantiateRev`: as `instantiateListGoC`, but the
 replacement array holds the innermost binder **last** (the binder
@@ -424,11 +566,68 @@ decreasing_by
     | (apply Prod.Lex.left; omega)
     | (apply Prod.Lex.right; simp +arith +decide)
 
-/-- Bulk instantiation on a reversed accumulator array. -/
+/-- The budgeted plain descent of `instantiateRev` (task #313; as
+`instantiateListBC` on the reversed array). -/
+def instantiateRevBC (vs : Array Expr) (fuel : Nat)
+    (e : Expr) (k : Nat) (d : Nat) : Expr × Nat :=
+  if k = 0 then (e, fuel)
+  else if e.bvarB ≤ d then (e, fuel)
+  else
+    match e with
+    | .bvar i .. =>
+      if i < d then (e, fuel)
+      else if _h : i - d < k then
+        if h : i - d < vs.size then
+          let w := vs[vs.size - 1 - (i - d)]'(by omega)
+          if i - d = 0 || w.bvarB ≤ d then (w, fuel)
+          else instantiateRevBC vs fuel w (i - d) d
+        else (e, fuel)
+      else (Expr.mkBvar (i - k), fuel)
+    | .fvar .. | .sort .. | .const .. | .lit .. => (e, fuel)
+    | .app f a .. =>
+      if fuel < 2 then (e, 0) else
+      let (f', fuel) := instantiateRevBC vs (fuel - 1) f k d
+      if fuel = 0 then (e, 0) else
+      let (a', fuel) := instantiateRevBC vs fuel a k d
+      if fuel = 0 then (e, 0) else (mkApp f' a', fuel)
+    | .lam ty body m .. =>
+      if fuel < 2 then (e, 0) else
+      let (ty', fuel) := instantiateRevBC vs (fuel - 1) ty k d
+      if fuel = 0 then (e, 0) else
+      let (b', fuel) := instantiateRevBC vs fuel body k (d + 1)
+      if fuel = 0 then (e, 0) else (mkLam ty' b' m, fuel)
+    | .forallE ty body m .. =>
+      if fuel < 2 then (e, 0) else
+      let (ty', fuel) := instantiateRevBC vs (fuel - 1) ty k d
+      if fuel = 0 then (e, 0) else
+      let (b', fuel) := instantiateRevBC vs fuel body k (d + 1)
+      if fuel = 0 then (e, 0) else (mkForallE ty' b' m, fuel)
+    | .letE ty val body .. =>
+      if fuel < 2 then (e, 0) else
+      let (ty', fuel) := instantiateRevBC vs (fuel - 1) ty k d
+      if fuel = 0 then (e, 0) else
+      let (v', fuel) := instantiateRevBC vs fuel val k d
+      if fuel = 0 then (e, 0) else
+      let (b', fuel) := instantiateRevBC vs fuel body k (d + 1)
+      if fuel = 0 then (e, 0) else (mkLetE ty' v' b', fuel)
+    | .proj sn i sub .. =>
+      if fuel < 2 then (e, 0) else
+      let (s', fuel) := instantiateRevBC vs (fuel - 1) sub k d
+      if fuel = 0 then (e, 0) else (mkProj sn i s', fuel)
+termination_by (k, sizeOf e)
+decreasing_by
+  all_goals first
+    | (apply Prod.Lex.left; omega)
+    | (apply Prod.Lex.right; simp +arith +decide)
+
+/-- Bulk instantiation on a reversed accumulator array: the budgeted
+plain descent, the memoised pass past the budget. -/
 def instantiateRev (e : Expr) (vs : Array Expr) (d : Nat := 0) : Expr :=
   if vs.size = 0 then e
   else if e.bvarB ≤ d then e
-  else (instantiateRevGo vs {} e vs.size d).1
+  else
+    let (r, fuel) := instantiateRevBC vs walkBudget e vs.size d
+    if fuel ≠ 0 then r else (instantiateRevGo vs memoAfterBudget e vs.size d).1
 
 /-! ## Abstraction -/
 
@@ -493,9 +692,50 @@ def abstract1GoC (d : Nat) (memo : MemoN) (e : Expr) (k : Nat) :
       let r := mkProj sn i s'
       (r, memo.insert key r)
 
-/-- The cached `Expr.abstract1`. -/
+/-- The budgeted plain descent of `abstract1C` (task #313; the fuel
+convention of `instantiate1BC`). -/
+def abstract1BC (d : Nat) (fuel : Nat) (e : Expr) (k : Nat) : Expr × Nat :=
+  if e.fvarB ≤ d then (e, fuel) else
+  match e with
+  | .fvar idx .. => (if idx = d then Expr.mkBvar k else e, fuel)
+  | .bvar .. | .sort .. | .const .. | .lit .. => (e, fuel)
+  | .app f a .. =>
+    if fuel < 2 then (e, 0) else
+    let (f', fuel) := abstract1BC d (fuel - 1) f k
+    if fuel = 0 then (e, 0) else
+    let (a', fuel) := abstract1BC d fuel a k
+    if fuel = 0 then (e, 0) else (mkApp f' a', fuel)
+  | .lam ty body m .. =>
+    if fuel < 2 then (e, 0) else
+    let (ty', fuel) := abstract1BC d (fuel - 1) ty k
+    if fuel = 0 then (e, 0) else
+    let (b', fuel) := abstract1BC d fuel body (k + 1)
+    if fuel = 0 then (e, 0) else (mkLam ty' b' m, fuel)
+  | .forallE ty body m .. =>
+    if fuel < 2 then (e, 0) else
+    let (ty', fuel) := abstract1BC d (fuel - 1) ty k
+    if fuel = 0 then (e, 0) else
+    let (b', fuel) := abstract1BC d fuel body (k + 1)
+    if fuel = 0 then (e, 0) else (mkForallE ty' b' m, fuel)
+  | .letE ty val body .. =>
+    if fuel < 2 then (e, 0) else
+    let (ty', fuel) := abstract1BC d (fuel - 1) ty k
+    if fuel = 0 then (e, 0) else
+    let (v', fuel) := abstract1BC d fuel val k
+    if fuel = 0 then (e, 0) else
+    let (b', fuel) := abstract1BC d fuel body (k + 1)
+    if fuel = 0 then (e, 0) else (mkLetE ty' v' b', fuel)
+  | .proj sn i sub .. =>
+    if fuel < 2 then (e, 0) else
+    let (s', fuel) := abstract1BC d (fuel - 1) sub k
+    if fuel = 0 then (e, 0) else (mkProj sn i s', fuel)
+
+/-- The cached `Expr.abstract1`: the cutoff, the budgeted plain
+descent, the memoised walk past the budget. -/
 def abstract1C (e : Expr) (d : Nat) (k : Nat := 0) : Expr :=
-  if e.fvarB ≤ d then e else (abstract1GoC d {} e k).1
+  if e.fvarB ≤ d then e else
+  let (r, fuel) := abstract1BC d walkBudget e k
+  if fuel ≠ 0 then r else (abstract1GoC d memoAfterBudget e k).1
 
 /-- Core of `abstractRangeC` (bulk abstraction, task #72; same memo
 discipline as `abstract1GoC`). -/
@@ -552,12 +792,55 @@ def abstractRangeGoC (d k : Nat) (memo : MemoN) (e : Expr) (c : Nat) :
       let r := mkProj sn i s'
       (r, memo.insert key r)
 
+/-- The budgeted plain descent of `abstractRangeC` (task #313; the
+fuel convention of `instantiate1BC`). -/
+def abstractRangeBC (d k : Nat) (fuel : Nat) (e : Expr) (c : Nat) : Expr × Nat :=
+  if e.fvarB ≤ d then (e, fuel) else
+  match e with
+  | .fvar idx .. =>
+    (if d ≤ idx ∧ idx < d + k then Expr.mkBvar (c + (d + k - 1 - idx)) else e, fuel)
+  | .bvar .. | .sort .. | .const .. | .lit .. => (e, fuel)
+  | .app f a .. =>
+    if fuel < 2 then (e, 0) else
+    let (f', fuel) := abstractRangeBC d k (fuel - 1) f c
+    if fuel = 0 then (e, 0) else
+    let (a', fuel) := abstractRangeBC d k fuel a c
+    if fuel = 0 then (e, 0) else (mkApp f' a', fuel)
+  | .lam ty body m .. =>
+    if fuel < 2 then (e, 0) else
+    let (ty', fuel) := abstractRangeBC d k (fuel - 1) ty c
+    if fuel = 0 then (e, 0) else
+    let (b', fuel) := abstractRangeBC d k fuel body (c + 1)
+    if fuel = 0 then (e, 0) else (mkLam ty' b' m, fuel)
+  | .forallE ty body m .. =>
+    if fuel < 2 then (e, 0) else
+    let (ty', fuel) := abstractRangeBC d k (fuel - 1) ty c
+    if fuel = 0 then (e, 0) else
+    let (b', fuel) := abstractRangeBC d k fuel body (c + 1)
+    if fuel = 0 then (e, 0) else (mkForallE ty' b' m, fuel)
+  | .letE ty val body .. =>
+    if fuel < 2 then (e, 0) else
+    let (ty', fuel) := abstractRangeBC d k (fuel - 1) ty c
+    if fuel = 0 then (e, 0) else
+    let (v', fuel) := abstractRangeBC d k fuel val c
+    if fuel = 0 then (e, 0) else
+    let (b', fuel) := abstractRangeBC d k fuel body (c + 1)
+    if fuel = 0 then (e, 0) else (mkLetE ty' v' b', fuel)
+  | .proj sn i sub .. =>
+    if fuel < 2 then (e, 0) else
+    let (s', fuel) := abstractRangeBC d k (fuel - 1) sub c
+    if fuel = 0 then (e, 0) else (mkProj sn i s', fuel)
+
 /-- The cached `Expr.abstractRange` (`k = 0` is the identity and skips
-the traversal, as in the arena). -/
+the traversal, as in the arena): the cutoff, the budgeted plain
+descent, the memoised walk past the budget. -/
 def abstractRangeC (e : Expr) (d k : Nat) (c : Nat := 0) : Expr :=
   match k with
   | 0 => e
-  | _ + 1 => if e.fvarB ≤ d then e else (abstractRangeGoC d k {} e c).1
+  | _ + 1 =>
+    if e.fvarB ≤ d then e else
+    let (r, fuel) := abstractRangeBC d k walkBudget e c
+    if fuel ≠ 0 then r else (abstractRangeGoC d k memoAfterBudget e c).1
 
 /-! ## Level instantiation -/
 
