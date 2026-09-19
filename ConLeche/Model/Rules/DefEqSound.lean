@@ -206,28 +206,34 @@ theorem DefEq.proofFast_sound (hin : RulesInputs V m φ) {d : Nat} {a b : Expr}
     (ha : ConLeche.isProofFast env.find? a = true)
     (hb : ConLeche.isProofFast env.find? b = true) :
     DefEqSem m φ d a b := by
-  sorry
+  intro _ _ Δa aa ba hCa hCb haa hba _ _ ρ hρ
+  rw [prf_of_isProofFast hin.const_ty ha hCa haa ρ hρ,
+    prf_of_isProofFast hin.const_ty hb hCb hba ρ hρ]
 
 /-- `prop_side_pt` twice (`Steps/Irrel.lean:71`): a term whose type's
 sort is zero-equivalent interprets to the point. -/
-theorem DefEq.proofIrrel_sound (hin : RulesInputs V m φ) {d : Nat}
+theorem DefEq.proofIrrel_sound (_hin : RulesInputs V m φ) {d : Nat}
     {a ta tta b tb ttb : Expr} {u v : Level}
     (hta : InferSemIO m φ d a ta) (htta : InferSemIO m φ d ta tta)
     (hu : RedSem m φ d tta (.sort u)) (hu0 : Level.isEquiv u .zero = some true)
     (htb : InferSemIO m φ d b tb) (httb : InferSemIO m φ d tb ttb)
     (hv : RedSem m φ d ttb (.sort v)) (hv0 : Level.isEquiv v .zero = some true) :
     DefEqSem m φ d a b := by
-  sorry
+  intro hfa hfb Δa aa ba hCa hCb haa hba hga hgb ρ hρ
+  rw [prop_side_pt' hta htta hu hu0 hfa hCa haa hga ρ hρ,
+    prop_side_pt' htb httb hv hv0 hfb hCb hba hgb ρ hρ]
 
 /-- `unit_side_pt` twice (`unitIrrelPQ_of_claims`, `Steps/Irrel.lean:179`). -/
-theorem DefEq.unitLike_sound (hin : RulesInputs V m φ) {d : Nat}
+theorem DefEq.unitLike_sound (_hin : RulesInputs V m φ) {d : Nat}
     {a ta wta b tb wtb : Expr}
     (hta : InferSemIO m φ d a ta) (hwta : RedSem m φ d ta wta)
     (hua : ConLeche.isUnitLikeTy env wta = true)
     (htb : InferSemIO m φ d b tb) (hwtb : RedSem m φ d tb wtb)
     (hub : ConLeche.isUnitLikeTy env wtb = true) :
     DefEqSem m φ d a b := by
-  sorry
+  intro hfa hfb Δa aa ba hCa hCb haa hba hga hgb ρ hρ
+  rw [unit_side_pt' hta hwta hua hfa hCa haa hga ρ hρ,
+    unit_side_pt' htb hwtb hub hfb hCb hba hgb ρ hρ]
 
 /-- Structure η (`structEtaCertWithFueled_step`, `Steps/CapsRows.lean:501`,
 and `structEtaIrrel_of_claims`, `:897`): the stored η law at the
