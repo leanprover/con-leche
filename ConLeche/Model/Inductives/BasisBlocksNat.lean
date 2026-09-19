@@ -739,7 +739,7 @@ theorem natBlock_ownPins {env : Env}
     (hS : env.find? ConLeche.natSuccName = some ConLeche.natSuccA)
     (hmim : ConLeche.blockOwnMimicsOk env ConLeche.natName 0 = true) :
     ContainerOwnPinsSyn (V := V) env (natBlock (V := V)) :=
-  ContainerOwnPinsSyn.of_noMimics hmim fun i hi => by
+  ContainerOwnPinsSyn.of_noMimics rfl hmim fun i hi => by
     obtain rfl : i = 0 := Nat.lt_one_iff.mp (show i < 1 from hi)
     exact ⟨_, _, containerInfo?_natA hT hR hZ hS, rfl, rfl⟩
 

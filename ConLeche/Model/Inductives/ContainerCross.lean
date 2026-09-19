@@ -408,7 +408,7 @@ theorem ContainerOwnPinsSyn.crossInd {env₁ env₂ : Env} {N : List Name} {d : 
   have hciEq : ∀ K : Name, (env₁.find? K).isSome = true →
       ConLeche.containerInfo? env₂ K = ConLeche.containerInfo? env₁ K := fun K hK =>
     ConLeche.containerInfo?_ext_ind_eq hext hnewN hfreshN hrecN hwf hrc (hstored K hK)
-  intro i cvC caps lvls DsE ps hi hf₂ hcl hps e he
+  intro i cvC caps lvls DsE ps hi hf₂ hcl hps
   -- the member is old, so it is stored as it was
   have hf₁ : env₁.find? (d.memberName i) = some (.indInfo cvC caps) :=
     (hnewN _ _ hf₂).resolve_right (hold i hi)
@@ -423,8 +423,8 @@ theorem ContainerOwnPinsSyn.crossInd {env₁ env₂ : Env} {N : List Name} {d : 
   have hMold : M.name ∉ N := hstored _ (by rw [hfM]; rfl)
   rw [containerOwnPinsAtGo_ext hext hnewN
     (fun j cv' mI rP rules h2 hmem => hMold (hmimN M.name j cv' mI rP rules h2 hmem))
-    hciEq hhead 64 0] at he
-  exact h i _ _ lvls DsE _ hi hf₁ hcl (containerOwnPinsAt_eq hf₁ hci₁ hM) e he
+    hciEq hhead 64 0]
+  exact h i _ _ lvls DsE _ hi hf₁ hcl (containerOwnPinsAt_eq hf₁ hci₁ hM)
 
 /-- **THE CROSSING, AT `EnvBlocksOf.crossIndP`'s OWN HYPOTHESES** (task
 #315 M7-3 session 21): `ContainerOwnPinsSyn.crossInd` with `hold` —

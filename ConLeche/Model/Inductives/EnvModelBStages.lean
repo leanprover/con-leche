@@ -347,7 +347,9 @@ theorem mutualOwnPins_of {envB envOut : Env} {b : MutualBlock} {fms : List Mutua
       (f.cvTa, (b.ownCtors mIdx).filterMap fun (J, _) => ctorsA[J]?)) = true)
     (hmim : ConLeche.blockOwnMimicsOk envOut f₀.cvTa.name 0 = true) :
     ContainerOwnPinsSyn (V := V) envOut d := by
-  refine ContainerOwnPinsSyn.of_noMimics hmim fun i hi => ?_
+  refine ContainerOwnPinsSyn.of_noMimics (by
+      show d.pins.length = 0
+      rw [hd.pins]; rfl) hmim fun i hi => ?_
   have hclt : i < fms.length := by rw [hlenF, ← hd.k]; exact hi
   have hname : d.memberName i = (fms.getD i default).cvTa.name := by
     show d.memberNames.getD i .anonymous = _
@@ -1241,7 +1243,7 @@ theorem nativeOwnPins_of {mC : EnvModel V envC}
       ctorsA sortss rhss bsT ppsAll uAV idxF dsF esF srcsF ksF fvsPF xFvsF xrestF eissF tssF
       fssZ) :
     ContainerOwnPinsSyn (V := V) env₂ DN := by
-  refine ContainerOwnPinsSyn.of_noMimics hf.ownMimics fun i hi => ?_
+  refine ContainerOwnPinsSyn.of_noMimics rfl hf.ownMimics fun i hi => ?_
   obtain rfl : i = 0 := Nat.lt_one_iff.mp hi
   refine ⟨ConLeche.blockContainerInfo p.nP [(cvTa, ctorsA)],
     ⟨cvTa.name, cvTa.levelParams, cvTa.type,

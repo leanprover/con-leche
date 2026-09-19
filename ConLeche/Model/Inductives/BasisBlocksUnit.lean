@@ -380,7 +380,7 @@ theorem punitBlock_ownPins {env : Env}
     (hU : env.find? ConLeche.punitUnitName = some ConLeche.punitUnitA)
     (hmim : ConLeche.blockOwnMimicsOk env ConLeche.punitName 0 = true) :
     ContainerOwnPinsSyn (V := V) env (punitBlock (V := V)) :=
-  ContainerOwnPinsSyn.of_noMimics hmim fun i hi => by
+  ContainerOwnPinsSyn.of_noMimics rfl hmim fun i hi => by
     obtain rfl : i = 0 := Nat.lt_one_iff.mp (show i < 1 from hi)
     exact ⟨_, _, containerInfo?_punitA hT hR hU, rfl, rfl⟩
 

@@ -1141,7 +1141,7 @@ theorem nestedOwnPins_of {F : Nat} {st : ElimState} {envAux : Env}
   -- the base walk, at the group the read-back names
   obtain ⟨cv₀, caps₀, ci₀, M₀, hfc₀, hci₀, hM₀, hps₀Eq⟩ := containerOwnPinsAt_inv hbase
   -- the clause
-  intro i cvC caps lvls DsE ps hi hfind hDcl hps e he
+  intro i cvC caps lvls DsE ps hi hfind hDcl hps
   obtain ⟨cv, caps', ci, M, hfc, hci, hM, hpsEq⟩ := containerOwnPinsAt_inv hps
   have hciEq : ci = ciB := Option.some.inj (hci.symm.trans (hciB i (hdk ▸ hi)))
   rw [hciEq] at hci hM hpsEq
@@ -1191,27 +1191,43 @@ theorem nestedOwnPins_of {F : Nat} {st : ElimState} {envAux : Env}
     have hlen : (ConLeche.containerOwnPinsAtGo envOut (M.name.str "rec") p.lps
         (p.lps.map Level.param) params p.nP 64 0).length = p.numNested := by
       rw [hbaseWalk, List.length_map, hcount]
-    rw [hpsEq, containerOwnPinsAtGo_subst mpOut.base2.wf hplen hidx hDlen hDcl
-      p.numNested 64 0 hstop hlen, hbaseWalk] at he
-    -- every entry is a recorded pin, re-spelled
-    obtain ⟨e₀, he₀mem, rfl⟩ := List.mem_map.mp he
-    obtain ⟨pin, hpin, rfl⟩ := List.mem_map.mp he₀mem
-    obtain ⟨q, hq⟩ := List.getElem?_of_mem hpin
-    have hqlt : q < st.pins.length := by
-      rcases Nat.lt_or_ge q st.pins.length with h | h
-      · exact h
-      · rw [List.getElem?_eq_none h] at hq; exact nomatch hq
-    obtain ⟨hJ, hpinEq⟩ := O.record.pin q _ hq
-    refine ⟨q, by rw [O.record.nPins]; exact hqlt, ?_⟩
-    rw [hpinEq, ← hJ, hlpsC]
-    show ownSubst p.nP p.lps lvls DsE
-        (Expr.mkAppN (Expr.const ((D).pinAt q).J ((D).pinAt q).lvls) ((D).pinAt q).DsE) = _
-    unfold ownSubst ConLeche.Model.PinSyn.ownAt
-    rw [Expr.getAppFn_mkAppN, Expr.getAppArgs_mkAppN, O.record.nP]
-    simp only [Expr.getAppFn, Expr.getAppArgs, List.nil_append, Expr.instantiateLevelParams]
-  · rw [containerOwnPinsAtGo_nil_of_len hDlen 64 0] at hpsEq
-    rw [hpsEq] at he
-    exact nomatch he
+    have hlist : ps = (st.pins.map (·.pin)).map (ownSubst p.nP p.lps lvls DsE) := by
+      rw [hpsEq, containerOwnPinsAtGo_subst mpOut.base2.wf hplen hidx hDlen hDcl
+        p.numNested 64 0 hstop hlen, hbaseWalk]
+    -- ONE recorded pin, re-spelled — the step both clauses share, at a POSITION
+    have hstep : ∀ (q : Nat) (pin : ConLeche.NestedPin), st.pins[q]? = some pin →
+        ownSubst p.nP p.lps lvls DsE pin.pin
+          = ((D).pinAt q).ownAt (D).nP cvC.levelParams lvls DsE := by
+      intro q pin hq
+      obtain ⟨hJ, hpinEq⟩ := O.record.pin q _ hq
+      rw [hpinEq, ← hJ, hlpsC]
+      show ownSubst p.nP p.lps lvls DsE
+          (Expr.mkAppN (Expr.const ((D).pinAt q).J ((D).pinAt q).lvls) ((D).pinAt q).DsE) = _
+      unfold ownSubst ConLeche.Model.PinSyn.ownAt
+      rw [Expr.getAppFn_mkAppN, Expr.getAppArgs_mkAppN, O.record.nP]
+      simp only [Expr.getAppFn, Expr.getAppArgs, List.nil_append, Expr.instantiateLevelParams]
+    refine ⟨fun e he => ?_, fun qK hqK _ => ?_⟩
+    · -- every entry is a recorded pin, re-spelled
+      rw [hlist] at he
+      obtain ⟨e₀, he₀mem, rfl⟩ := List.mem_map.mp he
+      obtain ⟨pin, hpin, rfl⟩ := List.mem_map.mp he₀mem
+      obtain ⟨q, hq⟩ := List.getElem?_of_mem hpin
+      have hqlt : q < st.pins.length := by
+        rcases Nat.lt_or_ge q st.pins.length with h | h
+        · exact h
+        · rw [List.getElem?_eq_none h] at hq; exact nomatch hq
+      exact ⟨q, by rw [O.record.nPins]; exact hqlt, hstep q pin hq⟩
+    · -- and the entry AT a recorded pin's own index is THAT pin (the position kept)
+      have hqlt : qK < st.pins.length := by rw [O.record.nPins] at hqK; exact hqK
+      have hq : st.pins[qK]? = some st.pins[qK] := List.getElem?_eq_getElem hqlt
+      rw [hlist, List.getElem?_map, List.getElem?_map, hq]
+      simp only [Option.map_some]
+      exact congrArg some (hstep qK _ hq)
+  · refine ⟨fun e he => ?_, fun qK _ hlen => absurd hlen ?_⟩
+    · rw [containerOwnPinsAtGo_nil_of_len hDlen 64 0] at hpsEq
+      rw [hpsEq] at he
+      exact nomatch he
+    · rw [O.record.nP]; exact hDlen
 
 end TailOut
 
