@@ -579,6 +579,192 @@ theorem NestedPinsRun.copyOrdFOutside {pbs : List (Expr × ConLeche.BinderMeta)}
     rw [hmenAbs] at hmem
     exact ConLeche.nestedOrdOutsideOk_at R.hK62 hed hq hmem rfl
 
+omit R SF S in
+/-- The function part of a closed application is closed. -/
+private theorem lbb_mkAppN_fn {k : Nat} : ∀ {xs : List Expr} {f : Expr},
+    (Expr.mkAppN f xs).looseBVarsBounded k = true → f.looseBVarsBounded k = true := by
+  intro xs
+  induction xs with
+  | nil => intro f h; exact h
+  | cons x xs ih =>
+    intro f h
+    have h' : (f.looseBVarsBounded k && x.looseBVarsBounded k) = true := ih h
+    cases hf : f.looseBVarsBounded k with
+    | false => rw [hf, Bool.false_and] at h'; exact nomatch h'
+    | true => rfl
+
+omit R SF S in
+/-- The arguments of a closed application are closed. -/
+private theorem lbb_mkAppN_args {k : Nat} : ∀ {xs : List Expr} {f : Expr},
+    (Expr.mkAppN f xs).looseBVarsBounded k = true → ∀ x ∈ xs, x.looseBVarsBounded k = true := by
+  intro xs
+  induction xs with
+  | nil => intro f _ x hx; exact nomatch hx
+  | cons x xs ih =>
+    intro f h y hy
+    rcases List.mem_cons.mp hy with rfl | hy'
+    · have h' : (f.looseBVarsBounded k && y.looseBVarsBounded k) = true :=
+        lbb_mkAppN_fn (xs := xs) (f := Expr.app f y) h
+      cases hy2 : y.looseBVarsBounded k with
+      | false => rw [hy2, Bool.and_false] at h'; exact nomatch h'
+      | true => rfl
+    · exact ih h y hy'
+
+/-- **THE INSTANCE MAP'S VALUE IS THE CONTAINER'S OWN PIN, AT THE
+BLOCK'S PIN TABLE** (task #315 WIDE (3′)): at every own pin `qK` of the
+container of the block's pin `q₀ + i'`, the instance map is defined and
+its value `σq` is a pin of the block whose container is `qK`'s, with
+`qK`'s index universe and index telescope.
+
+`hmemσ` and `hidxσ` — the two σ-facts of `rowsσ_of_pin_class` — are
+read off this and nothing else.  `hmemσ` is the container NAME: an own
+pin's container is no member of the container's own group
+(`pinsNotMembers`) while a pin of the group's own segment has a member
+for its container, so no member class shares a block pin with a pin
+class.  `hidxσ` is the `u`/`Ids` pair at a COLLAPSED pair: two own pins
+with one image have one block pin, hence one universe and one
+telescope, hence one index-tuple set.
+
+**It takes no READING of the own-pin table, and that is the point.**
+The obvious route — `pinCorr_of_ownPins_at` — wants `ContainerOwnPins`,
+the reading form, whose only producer (`ContainerOwnPinsSyn.toReadOf`)
+asks two facts about a STORED container that `ContainerModeled` does
+not carry: its pins' components' SCOPE (K.30's twin at a container) and
+their READINGS (`NestedStageFacts.pinDs`' twin).  What the two σ-facts
+actually need is weaker — the SYNTACTIC clause `ownPins` to place the
+container's own pin at the table position, and
+`NestedPinGroupSyn.pinOwn` (the block's pin and the container's own pin
+are ONE pin's index data) to read `u` and `Ids` off the block's side —
+and both are in hand. -/
+theorem NestedPinsRun.instMapPinOwn {pbs : List (Expr × ConLeche.BinderMeta)}
+    (hPD : ∀ q, q < st.pins.length → PinData env st p pbs q)
+    {i' : Nat} (hi' : i' < kJ)
+    {ci : ContainerInfo}
+    (hciP : ConLeche.containerInfo? env (pinsS.getD (q₀ + i') default).J = some ci)
+    (CM : ContainerModeled mp₁'.base2 ci dJ)
+    {qK : Nat} (hqK : qK < dJ.nPins) :
+    ∃ (mm : List Nat) (σq : Nat),
+      ConLeche.nestedInstMapAt env st (q₀ + i') = some mm ∧
+      mm[qK]? = some σq ∧ σq < pinsS.length ∧
+      (pinsS.getD σq default).J = (dJ.pinAt qK).J ∧
+      ∀ φ : Name → Nat,
+        (pinsS.getD σq default).u φ = (dJ.pinAt qK).u ((pinsS.getD (q₀ + i') default).ψJ φ) ∧
+        (pinsS.getD σq default).Ids φ
+          = (dJ.pinAt qK).Ids ((pinsS.getD (q₀ + i') default).ψJ φ) := by
+  classical
+  have hq : q₀ + i' < st.pins.length := by
+    rw [← SF.pinsLen]; have := S.seg; omega
+  have hqS : q₀ + i' < pinsS.length := by rw [SF.pinsLen]; exact hq
+  have PD := hPD _ hq
+  obtain ⟨hcname, hpinEq⟩ := SF.pinRec _ _ PD.pin
+  have hik : i' < dJ.k := by rw [S.kEq]; exact hi'
+  have hcimem : i' < ci.members.length := by rw [← CM.k]; exact hik
+  obtain ⟨J₂, hJ₂⟩ : ∃ J₂, ci.members[i']? = some J₂ :=
+    ⟨_, List.getElem?_eq_getElem hcimem⟩
+  have hmemJ₂ : dJ.memberName i' = J₂.name := (CM.member i' J₂ hJ₂).1
+  obtain ⟨cvT, caps, cvR, mI, rP, rules, hfindP, hI, hψlaw⟩ := S.stored i' hi'
+  have hψlaw' : ∀ φ : Name → Nat, (pinsS.getD (q₀ + i') default).ψJ φ
+      = Level.substFn φ cvT.levelParams ((pinsS.getD (q₀ + i') default).lvls) := hψlaw
+  have hCname : (pinsS.getD (q₀ + i') default).J = J₂.name := by
+    rw [← hmemJ₂]; exact hI.member.symm
+  obtain ⟨cvT₀, caps₀, cvR₀, mI₀, rP₀, rules₀, -, -, -, -, hmembers⟩ :=
+    ConLeche.containerInfo?_inv hciP
+  obtain ⟨cvC, capsC, cvRc, mIc, rulesC, hfindC, -, -, -, -, -, -⟩ :=
+    hmembers J₂ (List.mem_of_getElem? hJ₂)
+  have hcvTC : cvT = cvC := by
+    have h1 : (ConLeche.consMutualFormers (fms.take p.k) env).find?
+        (pinsS.getD (q₀ + i') default).J = some (.indInfo cvT caps) := hfindP
+    have h2 : (ConLeche.consMutualFormers (fms.take p.k) env).find?
+        (pinsS.getD (q₀ + i') default).J = some (.indInfo cvC capsC) := by
+      rw [hCname]
+      exact R.cross.1 _ _ (fun _ _ _ _ hh => nomatch hh) hfindC
+    exact (ConLeche.ConstantInfo.indInfo.inj (Option.some.inj (h1.symm.trans h2))).1
+  have hmem0 : 0 < ci.members.length := by omega
+  obtain ⟨M₀, hM₀⟩ : ∃ M₀, ci.members[0]? = some M₀ :=
+    ⟨_, List.getElem?_eq_getElem hmem0⟩
+  have hhead0 : ci.members.head? = some M₀ := by
+    rw [List.head?_eq_getElem?]; exact hM₀
+  have hDsLen : ((pinsS.getD (q₀ + i') default).DsE).length = dJ.nP := by
+    rw [(SF.pinDs _ hqS (fun _ => 0)).length]
+    exact S.pinDsLen i' hi' (fun _ => 0)
+  have hclosed : ∀ a ∈ (pinsS.getD (q₀ + i') default).DsE, a.looseBVarsBounded 0 = true := by
+    obtain ⟨-, fvs, o, hop, hsc⟩ := R.scoped
+    have hb := (hsc _ (List.mem_of_getElem? PD.pin)).1
+    rw [hpinEq] at hb
+    exact lbb_mkAppN_args hb
+  have hnPci : ci.nP = dJ.nP := CM.nP.symm
+  have hlds : ConLeche.nestedPinLvlsDs env (pinAtE st (q₀ + i'))
+      = some ((pinsS.getD (q₀ + i') default).lvls, (pinsS.getD (q₀ + i') default).DsE) := by
+    unfold ConLeche.nestedPinLvlsDs
+    rw [hpinEq]
+    simp only [Expr.getAppFn_mkAppN, Expr.getAppArgs_mkAppN, bind, Option.bind, pure]
+    rw [show (pinAtE st (q₀ + i')).container = (pinsS.getD (q₀ + i') default).J from hcname.symm,
+      hciP]
+    simp only [show (Expr.const (pinsS.getD (q₀ + i') default).J
+        (pinsS.getD (q₀ + i') default).lvls).getAppFn
+        = Expr.const (pinsS.getD (q₀ + i') default).J (pinsS.getD (q₀ + i') default).lvls from rfl,
+      show (Expr.const (pinsS.getD (q₀ + i') default).J
+        (pinsS.getD (q₀ + i') default).lvls).getAppArgs = [] from rfl,
+      List.nil_append]
+    rw [hnPci, ← hDsLen, List.take_length]
+  obtain ⟨own, hown⟩ : ∃ own : List Expr,
+      ConLeche.containerOwnPinsAt env (pinsS.getD (q₀ + i') default).J
+        ((pinsS.getD (q₀ + i') default).lvls) ((pinsS.getD (q₀ + i') default).DsE)
+        = some own :=
+    ⟨_, containerOwnPinsAt_eq (by rw [hCname]; exact hfindC) hciP hhead0⟩
+  obtain ⟨-, hpos⟩ := CM.ownPins i' cvC capsC ((pinsS.getD (q₀ + i') default).lvls)
+    ((pinsS.getD (q₀ + i') default).DsE) own hik
+    (by rw [hmemJ₂, ← hCname]
+        exact R.cross.1 _ _ (fun _ _ _ _ hh => nomatch hh) (by rw [hCname]; exact hfindC))
+    hclosed
+    (by rw [hmemJ₂, ← hCname, R.ownPinsCross (C := (pinsS.getD (q₀ + i') default).J)
+          (by rw [hCname, hfindC]; rfl)]
+        exact hown)
+  have hat := hpos qK hqK hDsLen
+  obtain ⟨mm, σq, rn, hmapAt, hmmqK, hσlt, hrn, hrnpin⟩ :=
+    ConLeche.nestedInstMapOk_at R.hK61 hq PD.pin hlds
+      (by rw [show (pinAtE st (q₀ + i')).container
+            = (pinsS.getD (q₀ + i') default).J from hcname.symm]
+          exact hown) hat
+  have hσS : σq < pinsS.length := by rw [SF.pinsLen]; exact hσlt
+  have PDσ := hPD σq hσlt
+  obtain rfl : rn = pinAtE st σq := Option.some.inj (hrn.symm.trans PDσ.pin)
+  obtain ⟨hcnameσ, hpinEqσ⟩ := SF.pinRec _ _ PDσ.pin
+  rw [hpinEqσ] at hrnpin
+  have hhead : (Expr.const (pinAtE st σq).container (pinsS.getD σq default).lvls)
+      = .const (dJ.pinAt qK).J ((dJ.pinAt qK).lvls.map
+          (Level.subst cvC.levelParams ((pinsS.getD (q₀ + i') default).lvls))) := by
+    have h := congrArg Expr.getAppFn hrnpin
+    unfold PinSyn.ownAt at h
+    rwa [Expr.getAppFn_mkAppN, Expr.getAppFn_mkAppN] at h
+  have hJeq : (pinsS.getD σq default).J = (dJ.pinAt qK).J := by
+    rw [hcnameσ]
+    exact congrArg (fun e => match e with | .const n _ => n | _ => .anonymous) hhead
+  have hlvlsEq : (pinsS.getD σq default).lvls
+      = (dJ.pinAt qK).lvls.map (Level.subst cvC.levelParams
+          ((pinsS.getD (q₀ + i') default).lvls)) :=
+    congrArg (fun e => match e with | .const _ us => us | _ => []) hhead
+  obtain ⟨cv, cp, hfK⟩ := hI.pinsFound qK hqK
+  obtain ⟨hvlen, hlawK⟩ := CM.pinψ qK hqK cv cp hfK
+  obtain ⟨aG, kkG, iG, dJG, hqeG, hiG, SG⟩ := SF.groups dsR xFvsR σq hσS
+  obtain ⟨cvσ, capsσ, cvRσ, mIσ, rPσ, rulesσ, hfindσ, -, hψσ⟩ := SG.stored iG hiG
+  rw [← hqeG] at hfindσ hψσ
+  have hψσ' : ∀ φ : Name → Nat, (pinsS.getD σq default).ψJ φ
+      = Level.substFn φ cvσ.levelParams ((pinsS.getD σq default).lvls) := hψσ
+  have hcvσ : cvσ = cv := by
+    have h1 : (ConLeche.consMutualFormers (fms.take p.k) env).find?
+        (pinsS.getD σq default).J = some (.indInfo cvσ capsσ) := hfindσ
+    rw [hJeq, hfK] at h1
+    exact (ConLeche.ConstantInfo.indInfo.inj (Option.some.inj h1)).1.symm
+  have hpsi : ∀ pp ∈ cv.levelParams, ∀ φ : Name → Nat,
+      (pinsS.getD σq default).ψJ φ pp
+        = (dJ.pinAt qK).ψJ ((pinsS.getD (q₀ + i') default).ψJ φ) pp := by
+    intro pp hpp φ
+    rw [hψσ' φ, hcvσ, hlvlsEq, Level.substFn_map_subst hvlen hpp, hlawK, hψlaw' φ, hcvTC]
+  refine ⟨mm, σq, hmapAt, hmmqK, hσS, hJeq, fun φ => ?_⟩
+  exact S.pinOwn qK hqK σq hσS hJeq cv cp hfK φ ((pinsS.getD (q₀ + i') default).ψJ φ)
+    (fun pp hpp => hpsi pp hpp φ)
+
 end Assembly
 
 end ConLeche.Model
