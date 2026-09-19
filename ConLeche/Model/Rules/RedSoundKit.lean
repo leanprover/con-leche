@@ -390,6 +390,42 @@ theorem denoteMeta_strLitToConstructor
   rfl
 
 
+/-! ## The application congruence at the reading -/
+
+/-- The frame of a closed atom. -/
+theorem frame_atom {d : Nat} {e : Expr} (h : e.fvarLeaves = [])
+    (hw : Expr.WScoped d e) (hb : e.looseBVarsBounded 0 = true) :
+    Frame d e ∧ ∀ (x : Expr), LeavesSub e x :=
+  ⟨⟨hw, hb, fun l hl => by rw [h] at hl; exact nomatch hl⟩,
+   fun _ l hl => by rw [h] at hl; exact nomatch hl⟩
+
+/-- The two components of a graded application are graded. -/
+theorem graded_app {Δa : List AnnotTerm} {f x : AnnotTerm}
+    (h : Graded V Δa (.app f x)) : Graded V Δa f ∧ Graded V Δa x :=
+  ⟨fun σ hσ =>
+      ⟨by have h1 := (h σ hσ).1; rw [WellDenoted_app] at h1; exact h1.1,
+        by have h2 := (h σ hσ).2; rw [AnnotValid_app] at h2; exact h2.1⟩,
+   fun σ hσ =>
+      ⟨by have h1 := (h σ hσ).1; rw [WellDenoted_app] at h1; exact h1.2.1,
+        by have h2 := (h σ hσ).2; rw [AnnotValid_app] at h2; exact h2.2⟩⟩
+
+
+/-- An application's grading depends on its two components only through
+their VALUES, so it transfers along equal-valued graded replacements
+(the content `whnfCore_app_claim` (`Steps/Whnf.lean:509`) writes inline
+at its head slot; stated once, for either slot). -/
+theorem appCongrV {σ : Nat → V} {f a f' a' : AnnotTerm}
+    (heqf : interp V σ f = interp V σ f')
+    (heqa : interp V σ a = interp V σ a')
+    (hgf' : WellDenotedV V σ f') (hga' : WellDenotedV V σ a')
+    (h : WellDenotedV V σ (.app f a)) : WellDenotedV V σ (.app f' a') := by
+  refine ⟨?_, by rw [AnnotValid_app]; exact ⟨hgf'.2, hga'.2⟩⟩
+  have h1 := h.1
+  rw [WellDenoted_app] at h1 ⊢
+  obtain ⟨-, -, v, A, B, h2, h3, h4⟩ := h1
+  exact ⟨hgf'.1, hga'.1, v, A, B, heqf ▸ h2, heqa ▸ h3, h4⟩
+
+
 /-! ## `projAV`'s grading under equal-valued subjects
 (`Model/Steps/ProjAVKit.lean` and `projAV_validV`, transplanted) -/
 

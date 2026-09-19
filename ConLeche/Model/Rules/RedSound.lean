@@ -211,7 +211,32 @@ theorem Red.natSucc_sound (hin : RulesInputs V m φ) {d : Nat} {a w : Expr}
     {n : Nat} (hsup : ConLeche.natLitSupported env = true)
     (hw : RedSem m φ d a w) (hn : ConLeche.rawNatLit? w = some n) :
     RedSem m φ d (.app (.const natSuccName []) a) (.lit (.natVal (n + 1))) := by
-  sorry
+  intro hf Δa ea hC hea hg
+  obtain ⟨hws, hb, hLb⟩ := hf
+  simp only [Expr.WScoped] at hws
+  simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
+  have hLa : Expr.LeavesBounded a := fun l hl =>
+    hLb l (by simp [Expr.fvarLeaves, hl])
+  obtain ⟨fa, aa, hfa, haa, rfl⟩ := denoteMeta_app_inv hea
+  have hokf : Graded V Δa fa := fun σ hσ =>
+    ⟨by have h1 := (hg σ hσ).1; rw [WellDenoted_app] at h1; exact h1.1,
+      by have h2 := (hg σ hσ).2; rw [AnnotValid_app] at h2; exact h2.1⟩
+  have hoka : Graded V Δa aa := fun σ hσ =>
+    ⟨by have h1 := (hg σ hσ).1; rw [WellDenoted_app] at h1; exact h1.2.1,
+      by have h2 := (hg σ hσ).2; rw [AnnotValid_app] at h2; exact h2.2⟩
+  obtain ⟨-, -, wa, hwa, hgw, heqw⟩ :=
+    hw ⟨hws.2, hb.2, hLa⟩ hC.app_arg haa hoka
+  have hsw : denoteMeta m.acval env φ d (.app (.const ConLeche.natSuccName []) w)
+      = some (.app fa wa) := by rw [denoteMeta_app, hfa, hwa]; rfl
+  have hgsw : Graded V Δa (.app fa wa) := fun σ hσ =>
+    appCongrV rfl (heqw σ hσ) (hokf σ hσ) (hgw σ hσ) (hg σ hσ)
+  obtain ⟨ra, hra, hgra, heqra⟩ := hin.nat_succ hsup hn hsw hgsw
+  obtain ⟨hfr, hsubr⟩ := frame_atom (d := d) (e := .lit (.natVal (n + 1)))
+    (by simp [Expr.fvarLeaves]) (by simp [Expr.WScoped])
+    (by simp [Expr.looseBVarsBounded])
+  refine ⟨hfr, hsubr _, ra, hra, hgra, fun σ hσ => ?_⟩
+  rw [interp_app, heqw σ hσ, ← interp_app]
+  exact heqra σ hσ
 
 /-- The binary row at the reduced arguments (`NatOpRow`). -/
 theorem Red.natOp_sound (hin : RulesInputs V m φ) {d : Nat} {c : Name}
@@ -221,7 +246,39 @@ theorem Red.natOp_sound (hin : RulesInputs V m φ) {d : Nat} {c : Name}
     (hwb : RedSem m φ d b wb) (hn₂ : ConLeche.rawNatLit? wb = some n₂)
     (hr : ConLeche.natOpResult c n₁ n₂ = some r) :
     RedSem m φ d (.app (.app (.const c []) a) b) r := by
-  sorry
+  intro hf Δa ea hC hea hg
+  obtain ⟨hws, hb, hLb⟩ := hf
+  simp only [Expr.WScoped] at hws
+  simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
+  have hLa : Expr.LeavesBounded a := fun l hl =>
+    hLb l (by simp [Expr.fvarLeaves, hl])
+  have hLbb : Expr.LeavesBounded b := fun l hl =>
+    hLb l (by simp [Expr.fvarLeaves, hl])
+  obtain ⟨ga, ba, hga, hba, rfl⟩ := denoteMeta_app_inv hea
+  obtain ⟨ca, aa, hca, haa, rfl⟩ := denoteMeta_app_inv hga
+  obtain ⟨hgga, hgba⟩ := graded_app hg
+  obtain ⟨hgca, hgaa⟩ := graded_app hgga
+  obtain ⟨-, -, waA, hwaA, hgwaA, heqa⟩ :=
+    hwa ⟨hws.1.2, hb.1.2, hLa⟩ hC.app_fn.app_arg haa hgaa
+  obtain ⟨-, -, wbA, hwbA, hgwbA, heqb⟩ :=
+    hwb ⟨hws.2, hb.2, hLbb⟩ hC.app_arg hba hgba
+  have hsw : denoteMeta m.acval env φ d (.app (.app (.const c []) wa) wb)
+      = some (.app (.app ca waA) wbA) := by
+    rw [denoteMeta_app, denoteMeta_app, hca, hwaA, hwbA]; rfl
+  have hgsw : Graded V Δa (.app (.app ca waA) wbA) := fun σ hσ =>
+    appCongrV (by rw [interp_app, interp_app, heqa σ hσ]) (heqb σ hσ)
+      (appCongrV rfl (heqa σ hσ) (hgca σ hσ) (hgwaA σ hσ) (hgga σ hσ))
+      (hgwbA σ hσ) (hg σ hσ)
+  obtain ⟨ra, hra, hgra, heqra⟩ := hin.nat_op hc hst hn₁ hn₂ hr hsw hgsw
+  obtain ⟨hfr, hsubr⟩ : Frame d r ∧ ∀ (x : Expr), LeavesSub r x := by
+    rcases ConLeche.natOpResult_shape hr with ⟨k, rfl⟩ | ⟨bn, rfl⟩
+    · exact frame_atom (by simp [Expr.fvarLeaves]) (by simp [Expr.WScoped])
+        (by simp [Expr.looseBVarsBounded])
+    · exact frame_atom (by simp [Expr.fvarLeaves]) (by simp [Expr.WScoped])
+        (by simp [Expr.looseBVarsBounded])
+  refine ⟨hfr, hsubr _, ra, hra, hgra, fun σ hσ => ?_⟩
+  rw [interp_app, interp_app, heqa σ hσ, heqb σ hσ, ← interp_app, ← interp_app]
+  exact heqra σ hσ
 
 /-- The tower law's iota clause at a certified spine (`projStep_of_claims`'s
 firing branch, `Steps/ProjRows.lean:278`; `teleFit_of_teleFitPA`). -/
