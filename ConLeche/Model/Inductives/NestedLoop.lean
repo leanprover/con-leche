@@ -431,6 +431,10 @@ container block model per group. -/
     -- K.62: a rewritten ORDINARY field's target is OUTSIDE that map's
     -- image (the wide identification's `houtσ`)
     ConLeche.nestedOrdOutsideOk env p b st stored = true →
+    -- K.67: and it IS the owning container's own class, imaged — the
+    -- positive twin at the same guard, which the wide identification's
+    -- PIN half needs where `houtσ` only says the target is outside
+    ConLeche.nestedOrdTargetOk env p b st stored = true →
     -- POST-CHECK (a) A THIRD TIME (K.30): the pins typed at the prefix
     -- formers' environment
     ConLeche.nestedPinsOk (m := ConLeche.CheckM) (fueledOps μ F)
@@ -633,6 +637,7 @@ theorem nestedLoopFacts_of (hpins : NestedPinsStaged V μ F) (hread : NestedRead
     (hK63 : ConLeche.nestedCopyReflFieldsOk env p b st stored = true)
     (hK61 : ConLeche.nestedInstMapOk env p b st stored = true)
     (hK62 : ConLeche.nestedOrdOutsideOk env p b st stored = true)
+    (hK67 : ConLeche.nestedOrdTargetOk env p b st stored = true)
     (hpins₁ : ConLeche.nestedPinsOk (m := ConLeche.CheckM) (fueledOps μ F) ENV₁ p.nP st.pins = .ok ())
     (hK64 : ConLeche.pinsResolve (ENV₁) st.pins = true)
     (hformers : ConLeche.mutualFormers (m := ConLeche.CheckM) (fueledOps μ F) b.nP b.formers env true
@@ -666,7 +671,7 @@ theorem nestedLoopFacts_of (hpins : NestedPinsStaged V μ F) (hread : NestedRead
         (tssF := tssF) (ctorsR := ctorsR) (dsR := dsR) (xFvsR := xFvsR) (pinsS := pinsS) st mp₁' mp₂ := by
   obtain ⟨pinsS, PF⟩ := hpins hμ mp hE p st b envAux stored ctorsR fmsA ctorsA₀ fms f₀ ctorsA sortss kinds mp₁ ppsF W idxF dsF
     esF srcsF fvsPF xFvsF xrestF eissF tssF mp₁' hPM h0 h1 hfA hcA helim hcount hfresh hcont hb haux
-    hstored hclosed hpinsAux hcaps hsrc hgrp hsc hK32 hkinds hrank hK42 hK51 hK60 hK63 hK61 hK62 hpins₁ hK64 hformers h hbk h3
+    hstored hclosed hpinsAux hcaps hsrc hgrp hsc hK32 hkinds hrank hK42 hK51 hK60 hK63 hK61 hK62 hK67 hpins₁ hK64 hformers h hbk h3
     hnd
     hctorsA hleafM' hoff' hfind' hctors
   obtain ⟨dsR, xFvsR, hR⟩ := hread hμ mp hE p st b envAux stored ctorsR fmsA ctorsA₀ fms f₀ ctorsA sortss kinds mp₁ ppsF W idxF dsF
@@ -852,9 +857,9 @@ theorem nestedCtorsStaged_of {F : Nat} (hpins : NestedPinsStaged V μ F)
     (hread : NestedReadLaw V μ F) : NestedCtorsStaged V μ F :=
   fun hμ _ mp hE _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ mp₁' hPM h0 h1 hfA hcA helim
     hcount hfresh hcont hb haux hstored hclosed hpinsAux hcaps hsrc hgrp hsc hK32 hkinds hrank hK42
-    hK51 hK60 hK63 hK61 hK62 hpins₁ hformers h hbk h3 hnd hctorsA hleafM' hoff' hfind' hctors =>
+    hK51 hK60 hK63 hK61 hK62 hK67 hpins₁ hformers h hbk h3 hnd hctorsA hleafM' hoff' hfind' hctors =>
   nestedLoopFacts_of hpins hread hμ hE (mp := mp) mp₁' hPM h0 h1 hfA hcA helim hcount hfresh hcont
-    hb haux hstored hclosed hpinsAux hcaps hsrc hgrp hsc hK32 hkinds hrank hK42 hK51 hK60 hK63 hK61 hK62 hpins₁ hformers h
+    hb haux hstored hclosed hpinsAux hcaps hsrc hgrp hsc hK32 hkinds hrank hK42 hK51 hK60 hK63 hK61 hK62 hK67 hpins₁ hformers h
     hbk h3 hnd hctorsA hleafM' hoff' hfind' hctors
 
 end ConLeche.Model

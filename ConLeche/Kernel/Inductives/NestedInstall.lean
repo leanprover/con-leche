@@ -2522,6 +2522,132 @@ def nestedOrdOutsideAt (st : ElimState) (maps? : Option (List (List Nat)))
     (st : ElimState) (stored : List AuxStored) : Bool :=
   nestedOrdOutsideAt st (nestedInstMaps env st) (nestedPinEdges env p b st stored)
 
+/-- **THE OWNER'S OWN READING OF A CONTAINER FIELD** (task #315 K.67):
+the container `K`'s stored constructor field domain, cut the way K.63
+and K.65 cut it (`stripDomPis`, the cut moving with the tower by
+`domPiDepth`) and instantiated at `K`'s PARAMETERS AS THE OWNER GAVE
+THEM — the own-pin term's argument spine, reversed because the binder
+order inside a stripped telescope is the parameters' reverse (K.61
+instantiates the same positions with `(containerParamOpeners ci.nP).reverse`).
+
+This is what makes the record a RECOMPUTATION rather than a reading:
+the owner's own elimination left no constant behind to ask. -/
+def ordTargetDom (ci : ContainerInfo) (ownSelf : List Expr) (qK l : Nat) (dom : Expr) : Expr :=
+  Expr.instantiateList (stripDomPis dom)
+    (((ownSelf.getD qK default).getAppArgs.take ci.nP).reverse) (l + domPiDepth dom)
+
+
+/-- **A REWRITTEN ORDINARY FIELD'S TARGET IS THE OWNER'S OWN CLASS**
+(task #315 K.67).
+
+K.62 says where such a target is NOT — outside the instance.  The wide
+identification's PIN half needs where it IS: at a field the container
+`K` calls ORDINARY and the block's rewrite made recursive, the block's
+recorded target must be the image of the class the OWNING container
+`J` — the container whose own pin this copy is — gave the same field.
+Without it the two copies of one `K` constructor, `J`'s own and the
+block's, have no relation at that field, and the `ordF`-right arm of
+`CopyCtorShape` relates them no longer: its `TargetHead` conjunct was
+refuted at an accepted block (`tests/e2e/nested_lam_pin_prop.ndjson`),
+so the shape carries the reading and nothing about the target.
+
+**THE CLASSIFICATION IS RECOMPUTED, NOT READ, AND IT HAS TO BE.**  The
+obvious form — read `J`'s own record of its pin of `K` — has nothing to
+read: the nested install RESTORES, the scratch environment is dropped,
+and what survives of a container's own pins is the pin TERM alone,
+recovered from the mimic recursor's first domain
+(`containerOwnPinsAtGo` keeps `K lvlsK DsK`).  There are no stored
+fields, constructors or kinds.  So `J`'s classification is recomputed
+from `K`'s STORED constructor at `J`'s own components — which is
+exactly K.61's inner block with the lookup table changed from `K`'s own
+pins to `J`'s members and own pins, and both cuts (`stripDomPis` /
+`domPiDepth`, K.63 and K.65's pattern) come with it.
+
+**THE OWNER IS READ OFF THE MAP, NOT OFF THE PARENT.**  Iterating pins
+`g` and their own-pin tables is K.61's own addressing, and it is the
+addressing the consumer uses (`dJ.pinCtors qK` at the group).  K.40's
+`nestedPinParent` would be VACUOUS where the consumer needs content: in
+`tests/e2e/nested_p04` the chain is `P4C → Array → List` and `Array`
+mints nothing, so the parent of the `List` copy has an empty own-pin
+table while `P4C`'s is `[Array, List]` — K.41's own correction, one arm
+over.  A collapsed map is handled for free: every own-pin position
+whose image is this pin is checked, not just the first.
+
+**It cannot fire by construction**: the block's rewrite of the copy is
+ONE substitution applied to the very constructor `J` copied, so the
+block's target is `J`'s target instantiated.  CERTIFICATION-ONLY in
+spirit but UNCONDITIONAL and `.internal` for K.61's reason — the wide
+identification reads it in every mode, and a gated check is `true` in
+the trusted one.  Cost is K.30's: one stored-constructor read per pin
+field, plus `containerOwnPinsSelf` HOISTED PER PIN rather than per
+field, which is the order `nestedInstMaps` already runs at. -/
+def nestedOrdTargetAt (env : Env) (p : NestedParts) (st : ElimState)
+    (maps? : Option (List (List Nat)))
+    (kinds? : Option (List (List (List (RecFieldKind × Nat))))) : Bool :=
+  match maps?, kinds? with
+  | some maps, some kinds =>
+    (List.range st.pins.length).all fun g =>
+      match st.pins[g]? with
+      | none => false
+      | some gn =>
+        match containerInfo? env gn.container with
+        | none => false
+        | some ciJ =>
+          match containerOwnPinsSelf env gn.container with
+          | none => false
+          | some ownSelf =>
+            let memsJ := ciJ.members.map (·.name)
+            let mapR := maps.getD g []
+            (List.range ownSelf.length).all fun qK =>
+              let q := mapR.getD qK st.pins.length
+              match st.pins[q]?, kinds[q]? with
+              | some qn, some ks =>
+                match containerInfo? env qn.container with
+                | none => false
+                | some ci =>
+                  match ci.members[q - qn.grpBase]? with
+                  | none => false
+                  | some Jm =>
+                    let memsK := ci.members.map (·.name)
+                    (List.range ks.length).all fun j =>
+                      match ks[j]?, Jm.ctors[j]? with
+                      | some kf, some cJ =>
+                        match cJ.type.stripPis (ci.nP + cJ.nFields) with
+                        | none => false
+                        | some (jbs, _) =>
+                          (List.range kf.length).all fun l =>
+                            match kf[l]?, jbs[ci.nP + l]? with
+                            | some (r, t), some domJ =>
+                              if !((r == .recursive || r == .reflexive) && p.k ≤ t) then true
+                              else if mentionsMember memsK domJ.1 then true
+                              else
+                                let dmJ := ordTargetDom ci ownSelf qK l domJ.1
+                                match dmJ.getAppFn with
+                                | .const M _ =>
+                                  match memsJ.findIdx? (· == M) with
+                                  | some mm => t == p.k + gn.grpBase + mm
+                                  | none =>
+                                    match containerInfo? env M with
+                                    | none => true
+                                    | some ciM =>
+                                      match ownSelf.findIdx? (fun e => e ==
+                                          Expr.mkAppN dmJ.getAppFn
+                                            (dmJ.getAppArgs.take ciM.nP)) with
+                                      | some qJ => t == p.k + mapR.getD qJ st.pins.length
+                                      | none => true
+                                | _ => true
+                            | _, _ => false
+                      | _, _ => false
+              | _, _ => true
+  | _, _ => false
+
+/-- The Bool the route records (task #315 K.67), on the same instance-map
+table K.61 and K.62 read and the same field kinds `nestedPinKinds`
+computes. -/
+@[inline] def nestedOrdTargetOk (env : Env) (p : NestedParts) (b : MutualBlock)
+    (st : ElimState) (stored : List AuxStored) : Bool :=
+  nestedOrdTargetAt env p st (nestedInstMaps env st) (nestedPinKinds p b stored)
+
 /-! ## THE POSITIVITY NORMALISATION ON THE MINTED COPY (task #315 K.42)
 
 Lane L-B's `ordF`-LEFT arm (DESIGN §U.62) needs, at an ORDINARY field of
@@ -2863,6 +2989,22 @@ def nestedPinChecks (ops : CheckerOps m) (env envN : Env) (p : NestedParts) (b :
   else if !nestedOrdOutsideAt st maps? edges? then
     throw (.internal "nested: a rewritten ordinary field's target is inside the \
       container instance")
+  -- **A REWRITTEN ORDINARY FIELD'S TARGET IS THE OWNER'S OWN CLASS**
+  -- (task #315 K.67): K.62's positive twin at the same guard.  K.62
+  -- says where the target is NOT; the wide identification's PIN half
+  -- needs where it IS — the image of the class the OWNING container
+  -- gave the same field, recomputed from the container's STORED
+  -- constructor at the owner's own components, because no `_nested`
+  -- constant survives the restore.  UNCONDITIONAL and `.internal`, for
+  -- K.61's reason, on K.61's own table and K.46's field kinds.
+  --
+  -- **IF THIS EVER FIRES** the block's rewrite of a copy disagrees with
+  -- the container it copied, at a field neither calls recursive — a
+  -- defect in the ROUTE, not in the stream, and the answer is never to
+  -- relax the check.  See DESIGN "#### K.67".
+  else if !nestedOrdTargetAt env p st maps? kinds? then
+    throw (.internal "nested: a rewritten ordinary field's target is not the owning \
+      container's own class")
   else if !ops.mode.verifiedChecks then pure () else
   let roots := nestedPinRootGroupAt p st (nestedPinInstAt st edges?)
   -- **THE COPIES' RECURSIVE TARGETS** (K.32): a copy field the aux
