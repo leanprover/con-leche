@@ -3,6 +3,7 @@ module
 import ConLeche.Semantics.Inductives.DeclNested
 public import ConLeche.Model.Inductives.NestedCopyInst
 public import ConLeche.Model.Inductives.NestedPinLeafAll
+import ConLeche.Model.Inductives.NestedInstMap
 import ConLeche.Model.Inductives.NestedStoreRun
 import ConLeche.Model.Inductives.NestedReadLaw
 public section
@@ -81,7 +82,8 @@ theorem nestedModeled_of_two
     (nestedCoreModeled_of (nestedCtorsStaged_of_pins (nestedPinsStaged_of
       (nestedPinsIdent_of (nestedPinsShape_of (nestedPinsShapePinF_of hPin))
         (nestedPinsEntry_of_le_all (nestedPinsShape_of (nestedPinsShapePinF_of hPin))
-          hLe)))))
+          hLe)
+        nestedPinsInst_of))))
     nestedTailModeled h
 
 /-- **THE CHAIN AT ONE MODEL-TIER HYPOTHESIS** (task #315): the nested

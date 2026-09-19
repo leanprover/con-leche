@@ -479,9 +479,29 @@ a self-nested container. -/
         (Ess₀ := fun ψ => mutEss0 ctorsA.length esF ψ) (ψ := ψ) (ρp := ρp)
         dJ ((pinsS.getD (q₀ + i) default).ψJ ψ) ((pinsS.getD (q₀ + i) default).Ds ψ) q₀ kJ i' j
 
-/-- **`NestedPinsIdent` from the shapes and the entries**: `idx` is a
-theorem (`nestedPinsIdx`), the shape and the entry the named residuals. -/
-theorem nestedPinsIdent_of {F : Nat} (hSh : NestedPinsShape V μ F) (hEn : NestedPinsEntry V μ F) :
+/-- **THE INSTANCE MAP, AS THE ASSEMBLY'S σ** (NAMED — task #315 WIDE
+(3′); consumer `nestedPinsIdent_of`): `PinGroupInst` at every pin
+group — the six facts `ofNested_pin_block_of_wide_inst` reads off the
+instance map, with the map itself existential because this tier
+carries no `ElimState`.  Discharged at the run from K.61, K.62 and
+K.66 (`NestedPinsRun.instMapSigmaFacts`, `instTgtAt`, `instOutAt`).
+
+Not a per-group fact only in appearance: `σ`'s value at the container's
+own pins is the block pin the MINT made, which is a fact about the
+whole elimination, and the group is only where it is read. -/
+@[expose] def NestedPinsInst (V : Type w) [SetTheory V] (μ : CheckMode) (F : Nat) : Prop :=
+  NestedPinsIdsAt V μ F fun {env} _ p _ b fms f₀ ctorsA kinds ppsF W idxF dsF esF srcsF fvsPF
+      xrestF eissF tssF ctorsR dsR xFvsR pinsS _ q₀ kJ dJ =>
+    PinGroupInst (V := V) (p := p) (b := b) (fms := fms) (f₀ := f₀) (ctorsA := ctorsA)
+      (kinds := kinds) (env := env) (ppsF := ppsF) (W := W) (idxF := idxF) (dsF := dsF)
+      (esF := esF) (srcsF := srcsF) (fvsPF := fvsPF) (xrestF := xrestF) (eissF := eissF)
+      (tssF := tssF) (ctorsR := ctorsR) (dsR := dsR) (xFvsR := xFvsR) (pinsS := pinsS) q₀ kJ dJ
+
+/-- **`NestedPinsIdent` from the shapes, the entries and the instance
+map**: `idx` is a theorem (`nestedPinsIdx`), the shape, the entry and
+the instance map the named residuals. -/
+theorem nestedPinsIdent_of {F : Nat} (hSh : NestedPinsShape V μ F) (hEn : NestedPinsEntry V μ F)
+    (hIn : NestedPinsInst V μ F) :
     NestedPinsIdent V μ F := by
   intro env mp p st b envAux stored ctorsR fmsA ctorsA₀ fms f₀ ctorsA sortss kinds mp₁ ppsF W idxF
     dsF esF srcsF fvsPF xFvsF xrestF eissF tssF mp₁' R pinsS SF dsR xFvsR q₀ kJ dJ S
@@ -490,6 +510,8 @@ theorem nestedPinsIdent_of {F : Nat} (hSh : NestedPinsShape V μ F) (hEn : Neste
     hSh mp p st b envAux stored ctorsR fmsA ctorsA₀ fms f₀ ctorsA sortss kinds mp₁ ppsF W idxF dsF
       esF srcsF fvsPF xFvsF xrestF eissF tssF mp₁' R pinsS SF dsR xFvsR q₀ kJ dJ S,
     hEn mp p st b envAux stored ctorsR fmsA ctorsA₀ fms f₀ ctorsA sortss kinds mp₁ ppsF W idxF dsF
+      esF srcsF fvsPF xFvsF xrestF eissF tssF mp₁' R pinsS SF dsR xFvsR q₀ kJ dJ S,
+    hIn mp p st b envAux stored ctorsR fmsA ctorsA₀ fms f₀ ctorsA sortss kinds mp₁ ppsF W idxF dsF
       esF srcsF fvsPF xFvsF xrestF eissF tssF mp₁' R pinsS SF dsR xFvsR q₀ kJ dJ S⟩
 
 end ConLeche.Model

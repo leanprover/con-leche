@@ -92,7 +92,8 @@ theorem NestedPinGroup.crossEnv {env₁ env₂ : Env} {m₁ : EnvModel V env₁}
     (hmem : ∀ t, t < p.k → (env₁.find? ((D).memberName t)).isSome = true)
     (hpin : ∀ q, q < pinsS.length → (env₁.find? ((D).pinAt q).J).isSome = true)
     (G : PG m₁ q₀ kJ dJ) : PG m₂ q₀ kJ dJ :=
-  { seg := G.seg
+  { inst := G.inst
+    seg := G.seg
     reps := G.reps.crossEnv hF hres hag hde
     kpos := G.kpos
     kEq := G.kEq

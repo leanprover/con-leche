@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Model.Inductives.NestedPins
+import ConLeche.Model.Inductives.NestedPins
 import ConLeche.Model.Inductives.NestedCopyInst
 import ConLeche.Verify.Inductives.NestedCopyKinds
 import ConLeche.Verify.Inductives.NestedAuxInv
@@ -10,6 +10,7 @@ import ConLeche.Verify.Inductives.MutualInv
 import ConLeche.Model.Inductives.ContainerCross
 import ConLeche.Model.Inductives.NestedOwnPinsRead
 import ConLeche.Verify.Inductives.NestedOpenSpine
+public import ConLeche.Model.Inductives.NestedCopyIdx
 public section
 
 /-!
@@ -1537,6 +1538,123 @@ theorem NestedPinsRun.instOutAt {pbs : List (Expr × ConLeche.BinderMeta)}
     · rw [if_pos hcm] at hceq; omega
     · rw [if_neg hcm] at hceq; omega
 
+/-- **THE σ CLAUSE, ASSEMBLED AT ONE GROUP** (task #315 WIDE (3′)):
+`PinGroupInst` from the four run halves and nothing else — `hroot` is
+σ's own definition, `hσ`/`hmemσ`/`hidxσ` are `instMapSigmaFacts`,
+`hstgt` is `instTgtAt` and `houtσ` is `instOutAt`.
+
+σ is the kernel's instance map at the group's BASE pin, lifted over
+the container's members by `hroot`:
+
+    fun c => if c < dJ.k then p.k + q₀ + c else p.k + mm.getD (c - dJ.k) 0
+
+and that it may be read at the base rather than at the member whose
+field is in hand is `instMapGroup`, which the two target halves
+already spend. -/
+theorem NestedPinsRun.pinGroupInst_of {pbs : List (Expr × ConLeche.BinderMeta)}
+    (hPD : ∀ q, q < st.pins.length → PinData env st p pbs q)
+    (hkindsRun : ConLeche.classifyMutualKinds (m := ConLeche.CheckM) b.members3 b.lps b.nP ctorsA
+      = .ok kinds) :
+    PinGroupInst (V := V) (p := p) (b := b) (fms := fms) (f₀ := f₀) (ctorsA := ctorsA)
+      (kinds := kinds) (env := env) (ppsF := ppsF) (W := W) (idxF := idxF) (dsF := dsF)
+      (esF := esF) (srcsF := srcsF) (fvsPF := fvsPF) (xrestF := xrestF) (eissF := eissF)
+      (tssF := tssF) (ctorsR := ctorsR) (dsR := dsR) (xFvsR := xFvsR) (pinsS := pinsS) q₀ kJ dJ := by
+  classical
+  -- the pins of the group, their container records and their models
+  have hqAt : ∀ i', i' < kJ → q₀ + i' < st.pins.length := by
+    intro i' hi'; rw [← SF.pinsLen]; have := S.seg; omega
+  have hci : ∀ i', i' < kJ → ∃ ci : ContainerInfo,
+      ConLeche.containerInfo? env (pinsS.getD (q₀ + i') default).J = some ci ∧
+      ContainerModeled mp₁'.base2 ci dJ := by
+    intro i' hi'
+    obtain ⟨hcname, -⟩ := SF.pinRec _ _ (hPD _ (hqAt i' hi')).pin
+    obtain ⟨ci, hci0, -⟩ := (hPD _ (hqAt i' hi')).own
+    have hciJ : ConLeche.containerInfo? env (pinsS.getD (q₀ + i') default).J = some ci := by
+      rw [hcname]; exact hci0
+    exact ⟨ci, hciJ, S.modeled i' hi' ci hciJ⟩
+  obtain ⟨ci0, hci0, CM0⟩ := hci 0 S.kpos
+  obtain ⟨cvT, caps, cvR, mI, rP, rules, hfind, hI0, -⟩ := S.stored 0 S.kpos
+  -- the group's own instance map
+  have hq0 : q₀ + 0 < st.pins.length := hqAt 0 S.kpos
+  obtain ⟨mm, hmm⟩ : ∃ mm : List Nat, ConLeche.nestedInstMapAt env st (q₀ + 0) = some mm := by
+    cases hms : ConLeche.nestedInstMaps env st with
+    | none =>
+      have hK61 := R.hK61
+      unfold ConLeche.nestedInstMapOk ConLeche.nestedInstMapOkAt at hK61
+      rw [hms] at hK61; simp at hK61
+    | some maps =>
+      obtain ⟨m, -, hm⟩ := ConLeche.mapM_option_inv hms (q₀ + 0) (q₀ + 0)
+        (by rw [List.getElem?_range (by omega)])
+      exact ⟨m, hm⟩
+  obtain ⟨hrange, hmem, hidx⟩ := R.instMapSigmaFacts SF S hPD hci hfind hmm
+  have hgb : ∀ i', i' < kJ → (pinAtE st (q₀ + i')).grpBase = q₀ := by
+    intro i' hi'
+    have h := (S.grp i' hi').1
+    rw [← pinAtE_eq] at h
+    exact h
+  refine ⟨fun c => if c < dJ.k then p.k + q₀ + c else p.k + mm.getD (c - dJ.k) 0,
+    fun c hc => if_pos hc, ?_, ?_, ?_, ?_, ?_⟩
+  · -- `hσ`
+    intro c hc
+    dsimp only
+    by_cases hcm : c < dJ.k
+    · rw [if_pos hcm]
+      have hck : c < kJ := by rw [← S.kEq]; exact hcm
+      have := S.seg
+      omega
+    · rw [if_neg hcm]
+      have := hrange (c - dJ.k) (by omega)
+      omega
+  · -- `hmemσ`
+    intro c c' hcm hc'm hc'
+    dsimp only
+    rw [if_pos hcm, if_neg hc'm]
+    have := hmem c (c' - dJ.k) hcm (by omega)
+    omega
+  · -- `hidxσ`
+    intro c c' hcm hc hc'm hc' heq ψ ρp
+    dsimp only at heq
+    rw [if_neg hcm, if_neg hc'm] at heq
+    have hv : mm.getD (c - dJ.k) 0 = mm.getD (c' - dJ.k) 0 := by omega
+    have h := hidx (c - dJ.k) (c' - dJ.k) (by omega) (by omega) hv ψ ρp
+    rw [show dJ.k + (c - dJ.k) = c from by omega, show dJ.k + (c' - dJ.k) = c' from by omega] at h
+    exact h
+  · -- `hstgt`
+    intro ψ i' hi' j hj l hl hrs hpinT
+    dsimp only
+    obtain ⟨cAJ, hjA⟩ : ∃ cAJ, (dJ.ctorsM i')[j]? = some cAJ :=
+      ⟨_, List.getElem?_eq_getElem hj⟩
+    obtain ⟨cvT', caps', cvR', mI', rP', rules', -, hI', -⟩ := S.stored i' hi'
+    have hlF : l < cAJ.2 := by rw [← hI'.Fss_length hjA ((pinsS.getD q₀ default).ψJ ψ)]; exact hl
+    obtain ⟨ci, hciP, CM⟩ := hci i' hi'
+    obtain ⟨mm', hmm', hval⟩ :=
+      R.instTgtAt SF S hPD hkindsRun hi' (hgb i' hi') hciP CM hci0 CM0 hfind hjA hlF hrs hpinT
+    obtain rfl : mm' = mm := Option.some.inj (hmm'.symm.trans hmm)
+    rw [hval, if_neg hpinT]
+  · -- `houtσ`
+    intro ψ i' hi' j hj l hl hord hrss
+    dsimp only
+    obtain ⟨cAJ, hjA⟩ : ∃ cAJ, (dJ.ctorsM i')[j]? = some cAJ :=
+      ⟨_, List.getElem?_eq_getElem hj⟩
+    obtain ⟨cvT', caps', cvR', mI', rP', rules', -, hI', -⟩ := S.stored i' hi'
+    have hlF : l < cAJ.2 := by rw [← hI'.Fss_length hjA ((pinsS.getD q₀ default).ψJ ψ)]; exact hl
+    obtain ⟨ci, hciP, CM⟩ := hci i' hi'
+    obtain ⟨mm', hmm', hout⟩ :=
+      R.instOutAt SF S hPD hkindsRun hi' (hgb i' hi') hciP CM hci0 CM0 hfind hjA hlF hord hrss
+    obtain rfl : mm' = mm := Option.some.inj (hmm'.symm.trans hmm)
+    exact hout
+
 end Assembly
+
+/-- **THE σ RESIDUAL, DISCHARGED** (task #315 WIDE (3′)):
+`NestedPinsInst` at every run and every pin group, from
+`NestedPinsRun.pinGroupInst_of`.  The chain's fourth named residual,
+and the last one the instance map owes — K.61, K.62 and K.66 reach
+the assembly through exactly this. -/
+theorem nestedPinsInst_of {F : Nat} : NestedPinsInst V μ F := by
+  intro env mp p st b envAux stored ctorsR fmsA ctorsA₀ fms f₀ ctorsA sortss kinds mp₁ ppsF W idxF
+    dsF esF srcsF fvsPF xFvsF xrestF eissF tssF mp₁' R pinsS SF dsR xFvsR q₀ kJ dJ S
+  obtain ⟨pbs, -, hPD⟩ := R.pinData
+  exact R.pinGroupInst_of SF S hPD R.h.classify
 
 end ConLeche.Model

@@ -261,6 +261,53 @@ variable {F : Nat} {g : Bool} {mp : EnvModelM V μ env} {p : NestedParts} {b : M
 local notation "D" => (nestedBlockModel (V := V) p b fms f₀ ctorsA kinds env ppsF W idxF dsF esF
   srcsF fvsPF xrestF eissF tssF ctorsR dsR xFvsR pinsS)
 
+/-- **THE INSTANCE MAP, AS THE ASSEMBLY'S σ** (task #315 WIDE (3′),
+K.61/K.62/K.66 consumed): the function taking a class of the
+container's own WIDE space — its members first, then its own pins — to
+the class of the block's auxiliary tuple the expansion minted for it,
+with the six facts `ofNested_pin_block_of_wide_inst` reads off it.
+
+`σ` is EXISTENTIAL because the witness is the kernel's own instance
+map at the group's base pin (`nestedInstMapAt`, K.61), lifted over the
+members by `hroot`, and this structure carries no `ElimState`.  The
+six clauses are, in the order that theorem takes them: `hroot`, `hσ`,
+`hmemσ`, `hidxσ`, `hstgt`, `houtσ`.
+
+**`hIsσ` is NOT here on purpose.**  It is the only one of the seven
+that is not a fact about the run: it equates two INDEX SETS, and every
+consumer that needs it already holds the group facts it is proved
+from.  Putting it here would make this residual depend on the group
+records it sits beside. -/
+@[expose] def PinGroupInst (q₀ kJ : Nat) (dJ : BlockModel V) : Prop :=
+  ∃ σ : Nat → Nat,
+    -- `hroot`: the container's MEMBERS are the mint group, contiguous
+    (∀ c, c < dJ.k → σ c = p.k + q₀ + c) ∧
+    -- `hσ`: every class has a block class
+    (∀ c, c < dJ.k + dJ.nPins → σ c < p.k + pinsS.length) ∧
+    -- `hmemσ`: no member class shares a block pin with a pin class
+    (∀ c c', c < dJ.k → ¬ c' < dJ.k → c' < dJ.k + dJ.nPins → σ c ≠ σ c') ∧
+    -- `hidxσ`: two pin classes that COLLAPSE have one index-tuple set
+    (∀ c c', ¬ c < dJ.k → c < dJ.k + dJ.nPins → ¬ c' < dJ.k → c' < dJ.k + dJ.nPins →
+      σ c = σ c' → ∀ (ψ : Name → Nat) (ρp : Nat → V),
+        dJ.idx (((D).pinAt q₀).ψJ ψ) ((D).pinFrame q₀ ψ ρp) c
+          = dJ.idx (((D).pinAt q₀).ψJ ψ) ((D).pinFrame q₀ ψ ρp) c') ∧
+    -- `hstgt`: a container-recursive field at one of the container's OWN
+    -- pins lands on `σ` of that class
+    (∀ (ψ : Name → Nat) (i' : Nat), i' < kJ → ∀ j, j < (dJ.ctorsM i').length → ∀ l,
+      l < ((dJ.Fss i' (((D).pinAt q₀).ψJ ψ)).getD j []).length →
+      ((dJ.rss i').getD j []).getD l false = true →
+      ¬ dJ.tgts i' j l < dJ.k →
+      ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+        (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0 = σ (dJ.tgts i' j l)) ∧
+    -- `houtσ`: a rewritten container-ORDINARY field leaves the instance
+    (∀ (ψ : Name → Nat) (i' : Nat), i' < kJ → ∀ j, j < (dJ.ctorsM i').length → ∀ l,
+      l < ((dJ.Fss i' (((D).pinAt q₀).ψJ ψ)).getD j []).length →
+      ((dJ.rss i').getD j []).getD l false = false →
+      ((blkRss ctorsA kinds).getD (b.ownOffset (p.k + q₀ + i') + j) []).getD l false = true →
+      ¬ ∃ c, c < dJ.k + dJ.nPins ∧
+        σ c = ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+          (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0)
+
 /-- **A pin group's facts** (NAMED, DESIGN §U.18 (d)): the copies
 `[q₀, q₀ + kJ)` of the auxiliary block are the members of ONE
 container block model `dJ` at the model `m` of the restored
@@ -355,6 +402,11 @@ structure NestedPinGroup (m : EnvModel V env₂) (q₀ kJ : Nat) (dJ : BlockMode
         (Fss₀ := fun ψ => blkFss0 b ctorsA kinds dsF ψ)
         (Ess₀ := fun ψ => mutEss0 ctorsA.length esF ψ) (ψ := ψ) (ρp := ρp)
         dJ (((D).pinAt (q₀ + i)).ψJ ψ) (((D).pinAt (q₀ + i)).Ds ψ) q₀ kJ i' j
+  /-- **the instance map, as the assembly's σ** (task #315 WIDE (3′)) -/
+  inst : PinGroupInst (V := V) (p := p) (b := b) (fms := fms) (f₀ := f₀) (ctorsA := ctorsA)
+    (kinds := kinds) (env := env) (ppsF := ppsF) (W := W) (idxF := idxF) (dsF := dsF)
+    (esF := esF) (srcsF := srcsF) (fvsPF := fvsPF) (xrestF := xrestF) (eissF := eissF)
+    (tssF := tssF) (ctorsR := ctorsR) (dsR := dsR) (xFvsR := xFvsR) (pinsS := pinsS) q₀ kJ dJ
 
 /-! ### The pin groups' consequences -/
 
