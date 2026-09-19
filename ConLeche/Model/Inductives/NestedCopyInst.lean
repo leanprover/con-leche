@@ -2124,6 +2124,196 @@ theorem copyPinFDom
     simp only [Expr.getAppArgs_mkAppN, Expr.getAppArgs, List.nil_append]
 
 omit [SetTheory V] R SF S in
+/-- A `∀`-telescope over an application spine peels exactly its own
+binders (`rk_piBinders_mkPisB_length` with the body). -/
+private theorem piBinders_mkPisB_of_head :
+    ∀ (bs : List (Expr × ConLeche.BinderMeta)) {res : Expr} {c : Name} {us : List Level},
+      res.getAppFn = Expr.const c us → (ConLeche.mkPisB bs res).piBinders = (bs, res)
+  | [], res, c, us, h => by
+    show res.piBinders = ([], res)
+    have h1 : (res.piBinders).1 = [] := Expr.piBinders_nil_of_getAppFn_const h
+    have h2 : (res.piBinders).2 = res := Expr.piBinders_nil_body h1
+    exact Prod.ext h1 h2
+  | b :: bs, res, c, us, h => by
+    show (Expr.forallE b.1 (ConLeche.mkPisB bs res) b.2).piBinders = _
+    rw [Expr.piBinders_forallE, piBinders_mkPisB_of_head bs h]
+
+omit R SF in
+/-- **THE COPY'S REFLEXIVE NESTED FIELD, MINTED** (task #315 PINF):
+`copyPinFDom` one `Π`-tower down.  At a container field `l` of member
+`i'` constructor `j` that is REFLEXIVE at one of the CONTAINER's own
+pins, the closed field domain is a NON-EMPTY `Π` telescope whose body
+is that pin's container applied to `nPJ + nIdx` arguments; and the
+minted domain — the closed one level-substituted and instantiated at
+any components — is a telescope of the SAME depth whose body is that
+same application with the head's level arguments substituted and the
+spine mapped at the cut BELOW the telescope.
+
+The tower crosses the opening by `Expr.piBinders_instSeq`: the openers
+are free VARIABLES, so the opening neither makes nor unmakes a binder,
+and the closed body's head and arity are read off the OPENED ones
+(`BlockOpened.nestReflF`) exactly as `copyPinFDom` reads them at depth
+zero.  The two substitutions then walk the telescope (`ilp_mkPisB`,
+`instSeq_mkPisB`) and distribute over the body's spine (`ilp_mkAppN`,
+`instSeq_mkAppN_const`), and the result's own binders are its
+telescope's because the body is a constant spine
+(`piBinders_mkPisB_of_head`).
+
+The conclusion is stated at `piBinders` rather than at `mkPisB` so
+that the whole tower — the depth, the binder list and the body — comes
+back from ONE reading; a consumer that wants the telescope spelled as
+a `∀`-tower gets it from `Expr.stripPis_piBinders`. -/
+theorem copyPinFDomRefl
+    {i' : Nat} (hi' : i' < kJ)
+    {j : Nat} {cAJ : ConstantVal × Nat} (hj : (dJ.ctorsM i')[j]? = some cAJ)
+    {cc : ContainerCtor} (hty : cAJ.1.type = cc.type) (hnf : cAJ.2 = cc.nFields)
+    {pcs fcs : List (Expr × ConLeche.BinderMeta)} {residJ : Expr}
+    (hstripJ : cc.type.stripPis (dJ.nP + cc.nFields) = some (pcs ++ fcs, residJ))
+    (hpl : pcs.length = dJ.nP) (hfl : fcs.length = cc.nFields)
+    {l : Nat} (hlF : l < cc.nFields)
+    (hnest : ¬ dJ.tgts i' j l < dJ.k)
+    (hrefl : (dJ.ksF i' j).getD l .ordinary = RecFieldKind.reflexive) :
+    dJ.tgts i' j l - dJ.k < dJ.nPins ∧
+    ((fcs.getD l default).1.piBinders).1.length ≠ 0 ∧
+    ((fcs.getD l default).1.piBinders).2.getAppFn
+        = Expr.const (dJ.pinAt (dJ.tgts i' j l - dJ.k)).J
+            (dJ.pinAt (dJ.tgts i' j l - dJ.k)).lvls ∧
+    ((fcs.getD l default).1.piBinders).2.getAppArgs.length
+        = (dJ.pinAt (dJ.tgts i' j l - dJ.k)).nPJ
+          + (dJ.pinAt (dJ.tgts i' j l - dJ.k)).nIdx ∧
+    ∀ (lps : List Name) (lvls : List Level) (Ds : List Expr) (c : Nat), Ds.length ≤ c + 1 →
+      ((Expr.instSeq Ds c
+            (Expr.instantiateLevelParams lps lvls (fcs.getD l default).1)).piBinders).1.length
+          = ((fcs.getD l default).1.piBinders).1.length ∧
+      ((Expr.instSeq Ds c
+            (Expr.instantiateLevelParams lps lvls (fcs.getD l default).1)).piBinders).2
+          = Expr.mkAppN
+              (.const (dJ.pinAt (dJ.tgts i' j l - dJ.k)).J
+                ((dJ.pinAt (dJ.tgts i' j l - dJ.k)).lvls.map (Level.subst lps lvls)))
+              ((((fcs.getD l default).1.piBinders).2.getAppArgs.map
+                  (Expr.instantiateLevelParams lps lvls)).map
+                (Expr.instSeq Ds (c + ((fcs.getD l default).1.piBinders).1.length))) := by
+  classical
+  obtain ⟨cvT, caps, cvR, mI, rP, rules, -, hI, -⟩ := S.stored i' hi'
+  obtain ⟨-, -, hCDJ⟩ := hI.ctors i' j cAJ hI.memberLt hj
+  have hjlt : j < (dJ.ctorsM i').length := (List.getElem?_eq_some_iff.mp hj).1
+  have hlA : l < cAJ.2 := by rw [hnf]; exact hlF
+  have hkindLen : l < (dJ.ksF i' j).length := by rw [hCDJ.ksLen]; exact hlA
+  -- the target is a PIN of the container's own block
+  have hqlt : dJ.tgts i' j l - dJ.k < dJ.nPins := by
+    have h := hI.tgtsLt i' j l hI.memberLt hjlt hkindLen
+    omega
+  have hnestOf : dJ.nestOf i' j l = some (dJ.tgts i' j l - dJ.k) := dJ.nestOf_some hnest
+  -- the OPENED domain: a non-empty `Π` tower over the pin's container
+  obtain ⟨x, hx⟩ : ∃ x, (dJ.xFvsF i' j)[l]? = some x :=
+    ⟨_, List.getElem?_eq_getElem (by rw [hCDJ.xLen]; exact hlA)⟩
+  obtain ⟨afvs, bodyO, hopA, hafvs, -, hfnO, hlenO, -, -, -⟩ :=
+    hCDJ.opened.nestReflF l x _ hx hnestOf hrefl
+  -- B1: the CLOSED domain, at the field's own cut
+  have hstrip' : cAJ.1.type.stripPis (dJ.nP + cAJ.2) = some (pcs ++ fcs, residJ) := by
+    rw [hty, hnf]; exact hstripJ
+  obtain ⟨bd, hbd⟩ : ∃ bd, fcs[l]? = some bd :=
+    ⟨_, List.getElem?_eq_getElem (by rw [hfl]; exact hlF)⟩
+  have hbdD : fcs.getD l default = bd := by
+    rw [List.getD_eq_getElem?_getD, hbd]; rfl
+  have hdomEq : x.fvarTypeD
+      = Expr.instSeq (dJ.fvsPF i' j ++ (dJ.xFvsF i' j).take l) (dJ.nP + l - 1) bd.1 :=
+    blockCtorFieldDomain hCDJ hstrip' hpl hx hbd
+  rw [hbdD]
+  -- the openers are variables, on both towers
+  obtain ⟨crestA, hopPA, hopXA⟩ := hCDJ.opens
+  obtain ⟨bodyA₀, hopAll⟩ : ∃ bodyA₀, ConLeche.openPisAtFvars (dJ.nP + cAJ.2) cAJ.1.type 0
+      = some (dJ.fvsPF i' j ++ dJ.xFvsF i' j, bodyA₀) :=
+    ⟨_, openPisAtFvars_add dJ.nP hopPA (by rw [Nat.zero_add]; exact hopXA)⟩
+  have hfvAll : ∀ v ∈ dJ.fvsPF i' j ++ dJ.xFvsF i' j,
+      ∃ (idx : Nat) (ty : Expr), v = Expr.fvar idx ty := by
+    obtain ⟨-, -, -, hlenO', hIdxO, -⟩ :=
+      ConLeche.Verify.openPisAtFvars_stripPis (dJ.nP + cAJ.2) hopAll
+    intro v hv
+    obtain ⟨iv, hiv, hvi⟩ := List.mem_iff_getElem.mp hv
+    obtain ⟨tyv, hjv⟩ := hIdxO iv (by rw [← hlenO']; exact hiv)
+    rw [List.getElem?_eq_getElem hiv] at hjv
+    exact ⟨0 + iv, tyv, by rw [← hvi]; exact Option.some.inj hjv⟩
+  have hfvL : ∀ v ∈ dJ.fvsPF i' j ++ (dJ.xFvsF i' j).take l,
+      ∃ (idx : Nat) (ty : Expr), v = Expr.fvar idx ty := by
+    intro v hv
+    refine hfvAll v ?_
+    rcases List.mem_append.mp hv with h | h
+    · exact List.mem_append_left _ h
+    · exact List.mem_append_right _ (List.mem_of_mem_take h)
+  have hlenL : (dJ.fvsPF i' j ++ (dJ.xFvsF i' j).take l).length ≤ dJ.nP + l - 1 + 1 := by
+    rw [List.length_append, hCDJ.pLen, List.length_take]; omega
+  have hafvsIdx : ∀ v ∈ afvs, ∃ (idx : Nat) (ty : Expr), v = Expr.fvar idx ty := by
+    obtain ⟨-, -, -, hlenA', hIdxA, -⟩ := ConLeche.Verify.openPisAtFvars_stripPis _ hopA
+    intro v hv
+    obtain ⟨iv, hiv, hvi⟩ := List.mem_iff_getElem.mp hv
+    obtain ⟨tyv, hjv⟩ := hIdxA iv (by rw [← hlenA']; exact hiv)
+    rw [List.getElem?_eq_getElem hiv] at hjv
+    exact ⟨dJ.nP + l + iv, tyv, by rw [← hvi]; exact Option.some.inj hjv⟩
+  -- the tower's DEPTH and BODY cross the opening
+  obtain ⟨hdepEq, hbodyEq⟩ := ConLeche.Model.Expr.piBinders_instSeq
+    (dJ.fvsPF i' j ++ (dJ.xFvsF i' j).take l) (dJ.nP + l - 1) bd.1 hfvL hlenL
+  rw [← hdomEq] at hdepEq hbodyEq
+  have hbodyO : bodyO
+      = Expr.instSeq afvs ((x.fvarTypeD.piBinders).1.length - 1) ((x.fvarTypeD.piBinders).2) :=
+    openPisAtFvars_instSeq _ hopA
+      (ConLeche.Model.Expr.stripPis_piBinders x.fvarTypeD)
+  have hfnPB : ((x.fvarTypeD.piBinders).2).getAppFn
+      = Expr.const (dJ.pinAt (dJ.tgts i' j l - dJ.k)).J
+          (dJ.pinAt (dJ.tgts i' j l - dJ.k)).lvls := by
+    refine ConLeche.os_instSeq_getAppFn_const_inv afvs hafvsIdx
+      ((x.fvarTypeD.piBinders).1.length - 1) _ ?_
+    rw [← hbodyO]; exact hfnO
+  have hheadPB : ((bd.1.piBinders).2).getAppFn
+      = Expr.const (dJ.pinAt (dJ.tgts i' j l - dJ.k)).J
+          (dJ.pinAt (dJ.tgts i' j l - dJ.k)).lvls := by
+    refine ConLeche.os_instSeq_getAppFn_const_inv _ hfvL
+      (dJ.nP + l - 1 + (bd.1.piBinders).1.length) _ ?_
+    rw [← hbodyEq]; exact hfnPB
+  -- the tower is NON-EMPTY, and the body's arity is the pin's
+  have hdepNe : (bd.1.piBinders).1.length ≠ 0 := by
+    rw [← hdepEq]
+    intro hz
+    obtain ⟨-, -, -, hlenA', -, -⟩ := ConLeche.Verify.openPisAtFvars_stripPis _ hopA
+    exact hafvs (hlenA'.trans hz)
+  have hargPB : ((bd.1.piBinders).2).getAppArgs.length
+      = (dJ.pinAt (dJ.tgts i' j l - dJ.k)).nPJ
+        + (dJ.pinAt (dJ.tgts i' j l - dJ.k)).nIdx := by
+    rw [← hlenO, hbodyO, ConLeche.os_instSeq_getAppArgs _ hafvsIdx, List.length_map, hbodyEq,
+      ConLeche.os_instSeq_getAppArgs _ hfvL, List.length_map]
+  -- the closed domain as a `∀`-tower over a constant spine
+  have hpiS : bd.1 = ConLeche.mkPisB (bd.1.piBinders).1
+      (Expr.mkAppN (Expr.const (dJ.pinAt (dJ.tgts i' j l - dJ.k)).J
+        (dJ.pinAt (dJ.tgts i' j l - dJ.k)).lvls) (((bd.1.piBinders).2).getAppArgs)) := by
+    rw [show Expr.mkAppN (Expr.const (dJ.pinAt (dJ.tgts i' j l - dJ.k)).J
+          (dJ.pinAt (dJ.tgts i' j l - dJ.k)).lvls) (((bd.1.piBinders).2).getAppArgs)
+        = (bd.1.piBinders).2 from by rw [← hheadPB]; exact (Expr.mkAppN_getApp _)]
+    exact ConLeche.stripPis_mkPisB _ (ConLeche.Model.Expr.stripPis_piBinders bd.1)
+  refine ⟨hqlt, hdepNe, hheadPB, hargPB, ?_⟩
+  -- the mint's two substitutions, over the telescope and the body's spine
+  intro lps lvls Ds c hDs
+  have key : (Expr.instSeq Ds c (Expr.instantiateLevelParams lps lvls bd.1)).piBinders
+      = (ConLeche.instTeleSeq Ds c ((bd.1.piBinders).1.map fun bb =>
+            (Expr.instantiateLevelParams lps lvls bb.1,
+              (⟨Level.substPW lps lvls bb.2.pw⟩ : ConLeche.BinderMeta))),
+         Expr.mkAppN (Expr.const (dJ.pinAt (dJ.tgts i' j l - dJ.k)).J
+             ((dJ.pinAt (dJ.tgts i' j l - dJ.k)).lvls.map (Level.subst lps lvls)))
+           ((((bd.1.piBinders).2).getAppArgs.map (Expr.instantiateLevelParams lps lvls)).map
+             (Expr.instSeq Ds (c + (bd.1.piBinders).1.length)))) := by
+    rw [congrArg (fun e => Expr.instSeq Ds c (Expr.instantiateLevelParams lps lvls e)) hpiS,
+      ConLeche.ilp_mkPisB, ConLeche.instSeq_mkPisB _ _ _ _ hDs, List.length_map,
+      ConLeche.ilp_mkAppN, show Expr.instantiateLevelParams lps lvls
+          (Expr.const (dJ.pinAt (dJ.tgts i' j l - dJ.k)).J
+            (dJ.pinAt (dJ.tgts i' j l - dJ.k)).lvls)
+          = Expr.const (dJ.pinAt (dJ.tgts i' j l - dJ.k)).J
+              ((dJ.pinAt (dJ.tgts i' j l - dJ.k)).lvls.map (Level.subst lps lvls)) from rfl,
+      ConLeche.instSeq_mkAppN_const,
+      piBinders_mkPisB_of_head _ (by rw [Expr.getAppFn_mkAppN]; rfl)]
+  exact ⟨by rw [key, ConLeche.instTeleSeq_length, List.length_map], by rw [key]⟩
+
+
+
+omit [SetTheory V] R SF S in
 /-- **`mutualOpenedOk`'s `.recursive` clause, read** (task #315 L-B):
 the kernel re-checks the classification on the ANNOTATED constructor
 opened at variables, and at a recursive field that re-check says the
@@ -4744,21 +4934,6 @@ binder domain of the REWRITTEN tower mentions no member
 (`normPosDomM_piDomsFree`), so the rewrite's own prune
 (`replaceAllNested_unchanged_or_aux` against `groupCopyFormer`) says it
 was the identity there. -/
-
-omit [SetTheory V] R SF S in
-/-- A `∀`-telescope over an application spine peels exactly its own
-binders (`rk_piBinders_mkPisB_length` with the body). -/
-private theorem piBinders_mkPisB_of_head :
-    ∀ (bs : List (Expr × ConLeche.BinderMeta)) {res : Expr} {c : Name} {us : List Level},
-      res.getAppFn = Expr.const c us → (ConLeche.mkPisB bs res).piBinders = (bs, res)
-  | [], res, c, us, h => by
-    show res.piBinders = ([], res)
-    have h1 : (res.piBinders).1 = [] := Expr.piBinders_nil_of_getAppFn_const h
-    have h2 : (res.piBinders).2 = res := Expr.piBinders_nil_body h1
-    exact Prod.ext h1 h2
-  | b :: bs, res, c, us, h => by
-    show (Expr.forallE b.1 (ConLeche.mkPisB bs res) b.2).piBinders = _
-    rw [Expr.piBinders_forallE, piBinders_mkPisB_of_head bs h]
 
 omit [SetTheory V] R SF S in
 /-- Two binder lists of equal length agreeing at every position are
