@@ -316,12 +316,6 @@ inductive DefEq (env : Env) : Nat → Expr → Expr → Prop where
   /-- Symmetry.  Not a checker move: the constructor from which every
   right-hand-side variant of a one-sided rule is derived. -/
   | symm {d : Nat} {a b : Expr} : DefEq env d a b → DefEq env d b a
-  /-- **EXPERIMENTAL (task #309)**: transitivity.  Not a checker move;
-  the rule the maintainer's ruling 1 left out.  Under test: whether the
-  soundness induction can discharge it and whether the four
-  recursive-structure rules can then be simplified. -/
-  | trans {d : Nat} {a b c : Expr} :
-      DefEq env d a b → DefEq env d b c → DefEq env d a c
   /-- **Reduce the left side, then continue** — the recursive-structure
   rule (ruling 1).  Covers `whnfCore` of both sides (`Core.lean:1466-1467`,
   with `symm`), literal acceleration (`:1517-1529`), every lazy-delta

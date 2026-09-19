@@ -72858,7 +72858,9 @@ divergences.
   used by the motives' `Frame`) belongs in the same move.
 * **The `DefEq.trans` experiment** (the maintainer's): add `trans`,
   drop the recursive-structure premises from `natSucc`, `redL`, `eta`,
-  `structUnit`, prove the present rules as derived rules.
+  `structUnit`, prove the present rules as derived rules.  **Closed by
+  task #309 (below): `trans` is UNSOUND for this relation — ruling 1
+  is what keeps `DefEq` sound.**
 * **`Semantics/DeclRun.lean`'s run records in derivation language**:
   `DeclDefnRun` etc. carry `inferTypeCore … = .ok t ∧ isDefEqCore … =
   .ok true` pairs; with the bridge they become `Infer … ∧ DefEq …`,
@@ -72868,3 +72870,205 @@ divergences.
   and `DefEq.absentArg`, belong in `Rel.lean` when that spike lands
   (the checker sites do not exist yet; the rules would be premise-exact
   against them).
+
+## TASK #309 — THE `DefEq.trans` EXPERIMENT (2026-09-19, `agent/trans-309`)
+
+**Outcome: `trans` is not merely unprovable — it is UNSOUND for this
+relation, and the tree is back at master.**  The maintainer's ruling 1
+(no `trans`; every non-leaf `DefEq` rule carries a continuation `DefEq`
+premise instead) is not a proof-engineering convenience that a better
+motive could retire: it is what keeps `DefEq` sound at all.  Adding
+
+```lean
+  | trans {d : Nat} {a b c : Expr} :
+      DefEq env d a b → DefEq env d b c → DefEq env d a c
+```
+
+makes **every two free variables definitionally equal**, whatever their
+indices and annotations.  The branch's final state is master plus this
+record; the experiment's five checked theorems are in the branch's
+history (`agent/trans-309`, commits *step 1* and *step 2*) and quoted
+below, so they can be re-run by re-adding the constructor.
+
+### The obstruction, first pass (as hypothesised)
+
+`DefEq.trans_sound`'s goal, after `intro hfa hfc Δa aa ca hCa hCc haa
+hca hga hgc ρ hρ`, is `interp V ρ aa = interp V ρ ca`, and the first
+induction hypothesis `DefEqSem m φ d a b` wants FOUR facts about the
+MIDDLE term that the conclusion's premises do not mention: `Frame d b`,
+`CtxOk m φ d Δa b`, `denoteMeta m.acval env φ d b = some ba`, and
+`Graded V Δa ba`.  Nothing supplies them.  `DefEq.redL` escapes exactly
+here: `RedSem` is in existence form and CONCLUDES its reduct's frame,
+leaf inclusion, reading and grading (`Model/Rules/Motive.lean`,
+strengthening 1), so the continuation's motive applies at `a'`.
+`trans`'s middle is produced by nothing.
+
+With those four facts supplied the lemma is two lines and was proved
+(`DefEq.trans_sound_of_mid`) — **the obstruction is the premise, not
+the proof**.  But the premise is semantic (`CtxOk` and the reading
+mention `Δa`, `m` and `φ`), and `Rules/Rel.lean` imports
+`Kernel/CoreDefs` and nothing else by design, so it can never be a
+premise of the constructor.
+
+### The decisive finding: the rule is unsound
+
+The experiment did not stop at "unprovable", and the reason it should
+not have is this.  Two rules of `DefEq` read the SAME datum in
+opposite ways:
+
+* `DefEq.fvar` relates `.fvar i ty₁` and `.fvar i ty₂` at **arbitrary**
+  annotations — the checker does not compare them
+  (`Core.lean:1618-1620`), and the reading ignores them
+  (`denoteMeta_fvar`).
+* `DefEq.proofFast` **reads** the annotation: `isProofFast`'s datum for
+  an `fvar` head is `typeSortPW find? ty` (`Kernel/PropRead.lean`,
+  `headProofPW`'s `.fvar _ ty` clause), so `.fvar i (.fvar k (.sort
+  .zero))` — a variable whose declared type is a variable of type
+  `Prop` — is "definitely a proof" with **no environment assumption at
+  all** (`fvarProof_isProofFast`, closed by `rfl`).
+
+Each is sound on its own because at a well-formed call `CtxOk` pins
+every annotation to the context's real type.  `trans` threads a middle
+that no premise pins, and the two rules meet there:
+
+```lean
+theorem all_fvars_defEq (env : Env) (d i i' : Nat) (ty ty' : Expr) :
+    DefEq env d (.fvar i ty) (.fvar i' ty') :=
+  .trans (b := .fvar i (.fvar 0 (.sort .zero))) .fvar
+    (.trans (b := .fvar i' (.fvar 0 (.sort .zero))) (.proofFast rfl rfl) .fvar)
+```
+
+Re-annotate each side as a proof, join the two proofs by `proofFast`.
+Both ends are framed, `CtxOk` and graded in any ordinary context, and
+they read as DIFFERENT de Bruijn variables (`.bvar (d-1-i)` and
+`.bvar (d-1-i')`), so soundness would force them equal —
+`all_slots_equal`, also checked:
+
+```lean
+theorem all_slots_equal
+    (hsound : ∀ {d : Nat} {a b : Expr}, DefEq env d a b → DefEqSem (V := V) m φ d a b)
+    … (ρ : Nat → V) (hρ : Sat V Δa ρ) :
+    ρ (d - 1 - i) = ρ (d - 1 - i') := …
+```
+
+**every two context slots equal under every satisfying valuation.**
+(Without `trans` the derivation does not exist: `DefEq.fvar` needs the
+same index, and an ordinary variable's `isProofFast` is `false`.)
+
+### The invariant ruling 1 was protecting
+
+Read the eighteen constructors with this in mind and the rule is
+uniform: **every `DefEq` premise's subject is either a subterm of the
+conclusion, or produced by an existence-form `Red`/`Infer` premise of
+the same rule.**  `redL`'s `a'` comes from `Red env d a a'`; `natSucc`'s
+`x` is a subterm of `.app (.const natSuccName []) x`; `forallE`, `lam`,
+`app`, `proj` recurse into subterms; `eta`'s `ty₂` comes out of
+`Infer … b tb` then `Red … tb (.forallE ty₂ B m₂)`; `structUnit`'s
+`wta`/`wtb` and `structEta`'s field spine likewise.  That is precisely
+why the well-formedness the motive needs is always available, and
+`trans` is the unique rule that violates it.  The "recursive-structure
+premise" formulation is therefore not a stylistic choice — it is the
+well-formedness discipline of the relation, stated syntactically.
+
+### The three repairs, each refuted
+
+**(a) A derivation-level well-formedness lemma** (`DefEq env d a b →
+Frame/reads/CtxOk at `a` → same at `b`) — **false in both halves**, and
+the witnesses are one line each:
+
+* `wscoped_not_propagated`: `DefEq.fvar` gives `DefEq env 1 (.fvar 0
+  (.sort .zero)) (.fvar 0 (.fvar 5 (.sort .zero)))`, and `WScoped 1
+  (.fvar 0 (.fvar 5 _))` unfolds to `5 < 0`.
+* `reading_not_propagated`: `isProofFast` of a λ is the λ's OWN `pw`
+  datum (`proofPW`'s `.lam _ _ m` clause), so `DefEq.proofFast` relates
+  `.lam (.sort .zero) (.bvar 0) ⟨.ifAllZero []⟩`, which reads, to
+  `.lam (.const n []) (.bvar 0) ⟨.ifAllZero []⟩` at a name the
+  environment does not have, which reads as `none`.
+
+The same two witnesses kill the weaker form "the middle is well-formed
+whenever *one* side is", i.e. every variant of (a) that could feed
+`trans_sound_of_mid`.
+
+**(b) Restricting `trans` to a middle that is a `Red`-reduct of one
+side** — **no gain, because it is already there**: `Red env d a b →
+DefEq env d b c → DefEq env d a c` is `DefEq.redL`, character for
+character.  The repair that works is the rule the ruling already
+chose.
+
+**(c) Putting `DefEqSem` in existence form** for one side, the way
+`RedSem` is — "`a` framed, `CtxOk`, read and graded ⇒ `b` framed,
+`CtxOk`, reads, graded, same `interp`".  Two separate answers:
+
+* **It would type-check against the claims.**  `DefEqClaim`
+  (`Model/Claims.lean:103`) hands BOTH sides' frame, `CtxOk`, reading
+  and grading as premises and asks only for `interp V ρ aa = interp V ρ
+  ba`; an existence-form motive concludes a reading `denoteMeta … b =
+  some ba'` which `Option.some.inj` identifies with the claim's `ba` —
+  exactly the dual-success move `RedSem` already makes in
+  `Recompose.lean`.  So the recomposition is not the obstacle.
+* **It is false, twice over.**  `reading_not_propagated` above is a
+  direct counterexample; and `DefEq.symm` is a constructor, so the
+  motive would have to be in existence form on BOTH sides
+  (`symm_sound` needs `DefEqSem b a` from `DefEqSem a b`), i.e. the
+  full (a), refuted above.
+
+**(d) The per-rule lemma's SHAPE is false anyway**, independently of
+the rule and of any model: `DefEqSem` is *vacuous* at an unreadable
+middle, so it is not a transitive relation.  `defEqSem_not_transitive`
+takes `b = .const n []` at a name the environment does not have —
+`denoteMeta` of it is `none`, both `DefEqSem a b` and `DefEqSem b c`
+hold vacuously for EVERY `a` and `c`, and `DefEqSem a c` does not
+follow.  This is worth keeping in view for any future motive:
+`DefEqSem`'s premises make it a *conditional* statement, and
+conditional statements do not compose.
+
+### The simplification, not reached
+
+Step 3 of the task — drop the continuation premises from `natSucc`,
+`redL`, `eta`, `structUnit`, keep the present four as derived rules,
+re-prove their soundness at the simplified statements — was not
+attempted: it is downstream of a sound `trans`.  What it would have
+saved, for the record: `redL_sound` is 7 lines, `natSucc_sound` 13,
+`eta_sound` 104, `structUnit_sound` 64 (`Model/Rules/DefEqSound.lean`),
+and only the first two are premise-shaped rather than
+certificate-shaped, so the ceiling was small — the continuation premise
+is one hypothesis and one application in each, not a proof burden.  The
+cost it avoids (this record's subject) is unbounded.
+
+**Line delta: 0.**  The tree is byte-identical to master
+(`git diff master` empty at the closing commit); the branch adds this
+record and nothing else.
+
+### Recommendation
+
+**Keep the recursive-structure rules; do not add `trans`, now or
+later.**  The follow-up listed at the end of the task #305 record is
+closed by this one, and `Rules/Rel.lean`'s module docstring already
+says the right thing ("**No `trans`** (ruling 1)") — it is now backed
+by a refutation rather than by a proof-engineering difficulty, and a
+future reader who is tempted should be pointed here first.
+
+If a `trans`-shaped rule is ever genuinely wanted (a checker site that
+chains two `isDefEq` sub-runs with no reduction between them — there is
+none today), the only sound shape is `DefEq.trans_sound_of_mid`'s: the
+middle must be pinned, and the two ways to pin it syntactically are
+"the middle is a `Red`-reduct of a side" (= `redL`) and "the middle is
+a subterm of a side" (= the congruences).  Both are already
+constructors.
+
+### Gates
+
+At the closing commit, worktree `trans-309`:
+
+| gate | result |
+| --- | --- |
+| `lake build` | EXIT 0, 565 jobs, 0 warnings, 0 `sorry` |
+| `lake test` | EXIT 0, 0 warnings |
+| `tests/layering.sh` | EXIT 0: base 304 / model 184 / caps 3 / umbrella 1; 0 base→lane, 0 impl→theory, 0 rules→impl; rules closure 14 modules, 5 doors — master's numbers |
+| `tests/shake.sh` | EXIT 0: 445 removals proposed, all 445 allowlisted; pub-imports 949 of 1,415 public, none demotable, 9 dot-notation fallbacks — master's numbers |
+
+(The experiment's own build — commits *step 1* and *step 2* — was EXIT
+0 with exactly one warning, `DefEqSound.lean`'s deliberate `sorry` at
+`DefEq.trans_sound`; no `cases`/`match` over `DefEq` anywhere outside
+`Sound.lean` needed a new case, so the constructor could be added and
+removed with a three-file diff.)
