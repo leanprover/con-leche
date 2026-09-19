@@ -7,6 +7,7 @@ import ConLeche.Model.Caps
 import ConLeche.Model.RecRulesCons
 public import ConLeche.Model.ReduceOps
 import ConLeche.Semantics.DeclRun
+import ConLeche.Model.Annot.BitLevels
 
 public section
 
@@ -216,9 +217,9 @@ theorem harvestDefn (hμ : μ.verifiedChecks = true)
     simp [hta]
   -- the claims and the reads, per assignment
   have hclaims := fun ψ =>
-    checkSoundAt (V := V) hμ (TierInputsAt.ofSem mp ψ) F
+    checkSoundAt (V := V) hμ (Rules.RulesInputs.ofSem mp ψ) F
   have hreads : ∀ ψ, InferReads mp.base2 μ ψ F :=
-    fun ψ => inferReads_of (TierInputsAt.ofSem mp ψ).reads
+    fun ψ => inferReads_of hμ (Rules.RulesInputs.ofSem mp ψ)
   -- the value's rows: gradings and the membership at its own type
   have hrowsV : ∀ ψ : Name → Nat, ∃ vta,
       denoteMeta mp.base2.acval env ψ 0 vtype = some vta ∧
@@ -229,7 +230,7 @@ theorem harvestDefn (hμ : μ.verifiedChecks = true)
     intro ψ
     obtain ⟨-, -, -, ihi⟩ := hclaims ψ
     obtain ⟨vta, hvta⟩ :=
-      hreads ψ hvrun hwv hbv' hLv (LeafReads.of_ctxOk (CtxOk.nil hnlv))
+      hreads ψ hvrun hwv hbv' hLv (CtxOk.nil hnlv)
         (hA ψ)
     exact ⟨vta, hvta, ihi hvrun hwv hbv' hLv (CtxOk.nil hnlv)
       (hA ψ) hvta⟩
@@ -243,7 +244,7 @@ theorem harvestDefn (hμ : μ.verifiedChecks = true)
     intro ψ
     obtain ⟨-, -, -, ihi⟩ := hclaims ψ
     obtain ⟨sta, hsta⟩ :=
-      hreads ψ hst hwt hbt' hLt (LeafReads.of_ctxOk (CtxOk.nil hnlt))
+      hreads ψ hst hwt hbt' hLt (CtxOk.nil hnlt)
         (hTa ψ)
     exact ⟨sta, hsta, ihi hst hwt hbt' hLt (CtxOk.nil hnlt)
       (hTa ψ) hsta⟩
@@ -594,9 +595,9 @@ theorem harvestThm (hμ : μ.verifiedChecks = true)
     simp [hta]
   -- the claims and the reads, per assignment
   have hclaims := fun ψ =>
-    checkSoundAt (V := V) hμ (TierInputsAt.ofSem mp ψ) F
+    checkSoundAt (V := V) hμ (Rules.RulesInputs.ofSem mp ψ) F
   have hreads : ∀ ψ, InferReads mp.base2 μ ψ F :=
-    fun ψ => inferReads_of (TierInputsAt.ofSem mp ψ).reads
+    fun ψ => inferReads_of hμ (Rules.RulesInputs.ofSem mp ψ)
   -- the value's rows: gradings and the membership at its own type
   have hrowsV : ∀ ψ : Name → Nat, ∃ vta,
       denoteMeta mp.base2.acval env ψ 0 vtype = some vta ∧
@@ -607,7 +608,7 @@ theorem harvestThm (hμ : μ.verifiedChecks = true)
     intro ψ
     obtain ⟨-, -, -, ihi⟩ := hclaims ψ
     obtain ⟨vta, hvta⟩ :=
-      hreads ψ hvrun hwv hbv' hLv (LeafReads.of_ctxOk (CtxOk.nil hnlv))
+      hreads ψ hvrun hwv hbv' hLv (CtxOk.nil hnlv)
         (hA ψ)
     exact ⟨vta, hvta, ihi hvrun hwv hbv' hLv (CtxOk.nil hnlv)
       (hA ψ) hvta⟩
@@ -621,7 +622,7 @@ theorem harvestThm (hμ : μ.verifiedChecks = true)
     intro ψ
     obtain ⟨-, -, -, ihi⟩ := hclaims ψ
     obtain ⟨sta, hsta⟩ :=
-      hreads ψ hst hwt hbt' hLt (LeafReads.of_ctxOk (CtxOk.nil hnlt))
+      hreads ψ hst hwt hbt' hLt (CtxOk.nil hnlt)
         (hTa ψ)
     exact ⟨sta, hsta, ihi hst hwt hbt' hLt (CtxOk.nil hnlt)
       (hTa ψ) hsta⟩
@@ -913,9 +914,9 @@ theorem harvestAxiom (hμ : μ.verifiedChecks = true)
     simp [hta]
   -- the claims and the reads, per assignment
   have hclaims := fun ψ =>
-    checkSoundAt (V := V) hμ (TierInputsAt.ofSem mp ψ) F
+    checkSoundAt (V := V) hμ (Rules.RulesInputs.ofSem mp ψ) F
   have hreads : ∀ ψ, InferReads mp.base2 μ ψ F :=
-    fun ψ => inferReads_of (TierInputsAt.ofSem mp ψ).reads
+    fun ψ => inferReads_of hμ (Rules.RulesInputs.ofSem mp ψ)
   -- the type's rows: its own grading as a subject
   have hrowsT : ∀ ψ : Name → Nat, ∃ sta,
       denoteMeta mp.base2.acval env ψ 0 stype = some sta ∧
@@ -926,7 +927,7 @@ theorem harvestAxiom (hμ : μ.verifiedChecks = true)
     intro ψ
     obtain ⟨-, -, -, ihi⟩ := hclaims ψ
     obtain ⟨sta, hsta⟩ :=
-      hreads ψ hst hwt hbt' hLt (LeafReads.of_ctxOk (CtxOk.nil hnlt))
+      hreads ψ hst hwt hbt' hLt (CtxOk.nil hnlt)
         (hTa ψ)
     exact ⟨sta, hsta, ihi hst hwt hbt' hLt (CtxOk.nil hnlt)
       (hTa ψ) hsta⟩
@@ -1099,9 +1100,9 @@ theorem harvestOpaque (hμ : μ.verifiedChecks = true)
     simp [hta]
   -- the claims and the reads, per assignment
   have hclaims := fun ψ =>
-    checkSoundAt (V := V) hμ (TierInputsAt.ofSem mp ψ) F
+    checkSoundAt (V := V) hμ (Rules.RulesInputs.ofSem mp ψ) F
   have hreads : ∀ ψ, InferReads mp.base2 μ ψ F :=
-    fun ψ => inferReads_of (TierInputsAt.ofSem mp ψ).reads
+    fun ψ => inferReads_of hμ (Rules.RulesInputs.ofSem mp ψ)
   -- the value's rows: gradings and the membership at its own type
   have hrowsV : ∀ ψ : Name → Nat, ∃ vta,
       denoteMeta mp.base2.acval env ψ 0 vtype = some vta ∧
@@ -1112,7 +1113,7 @@ theorem harvestOpaque (hμ : μ.verifiedChecks = true)
     intro ψ
     obtain ⟨-, -, -, ihi⟩ := hclaims ψ
     obtain ⟨vta, hvta⟩ :=
-      hreads ψ hvrun hwv hbv' hLv (LeafReads.of_ctxOk (CtxOk.nil hnlv))
+      hreads ψ hvrun hwv hbv' hLv (CtxOk.nil hnlv)
         (hA ψ)
     exact ⟨vta, hvta, ihi hvrun hwv hbv' hLv (CtxOk.nil hnlv)
       (hA ψ) hvta⟩
@@ -1126,7 +1127,7 @@ theorem harvestOpaque (hμ : μ.verifiedChecks = true)
     intro ψ
     obtain ⟨-, -, -, ihi⟩ := hclaims ψ
     obtain ⟨sta, hsta⟩ :=
-      hreads ψ hst hwt hbt' hLt (LeafReads.of_ctxOk (CtxOk.nil hnlt))
+      hreads ψ hst hwt hbt' hLt (CtxOk.nil hnlt)
         (hTa ψ)
     exact ⟨sta, hsta, ihi hst hwt hbt' hLt (CtxOk.nil hnlt)
       (hTa ψ) hsta⟩

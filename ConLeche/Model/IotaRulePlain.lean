@@ -5,7 +5,7 @@ public import ConLeche.Model.IndBottomProj
 import ConLeche.Model.Annot.Bit
 -- task #161 S10: `acceptedReads_of` — the rule rhs's reading comes
 -- from the recorded RUN, not from `IotaRuleR`'s derivation row.
-public import ConLeche.Model.Steps.Accepted
+public import ConLeche.Model.Tiers
 public section
 
 /-!
@@ -167,7 +167,7 @@ theorem iotaRulePlain {μ : CheckMode} {F : Nat} {env₂ envSelf : Env}
     have hctx : CtxOk mp.base2 ψ 0 [] rhsA :=
       ⟨rfl, fun l hl => absurd hl (fun h => hrhsLeafNil l h)⟩
     obtain ⟨ta, hta⟩ := hreadsP ψ hrun hrhsWs hrhsAb hrhsLb
-      (LeafReads.of_ctxOk hctx) hRa
+      hctx hRa
     obtain ⟨hokRa, -, hmemRa⟩ :=
       hinf ψ hrun hrhsWs hrhsAb hrhsLb hctx hRa hta
     exact ⟨Ra, ta, hRa, fun ρ =>

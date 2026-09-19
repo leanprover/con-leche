@@ -3,6 +3,7 @@ module
 public import ConLeche.Model.IndDomGrade
 import ConLeche.Model.IndRuns
 import ConLeche.Verify.BridgeWfImp
+import ConLeche.Model.Annot.BitInst
 public section
 
 /-!

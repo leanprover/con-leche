@@ -6,23 +6,12 @@ public import ConLeche.Model.ClaimsIO
 public import ConLeche.Model.IOLicense
 public import ConLeche.Model.WellDenotedTransport
 public import ConLeche.Model.CtxOkKit
-public import ConLeche.Model.Steps.Infer
-public import ConLeche.Model.Steps.InferIO
-public import ConLeche.Model.Steps.Whnf
-public import ConLeche.Model.Steps.Gate
-public import ConLeche.Model.Steps.DefEq
+public import ConLeche.Model.Currency
 public import ConLeche.Model.Annot.EnvModel
+public import ConLeche.Model.Annot.Laws
 public import ConLeche.Model.Annot.EnvModelM
-public import ConLeche.Model.Steps.Irrel
-public import ConLeche.Model.Steps.IrrelFast
-public import ConLeche.Model.Steps.Stuck
-public import ConLeche.Model.Steps.Reads
-public import ConLeche.Model.Steps.ReadsIO
-public import ConLeche.Model.Steps.Accepted
-public import ConLeche.Model.Steps.Nat
-public import ConLeche.Model.Steps.CapsRows
-public import ConLeche.Model.Steps.Tiers
 public import ConLeche.Model.Rules.Recompose
+public import ConLeche.Model.Tiers
 public import ConLeche.Model.Install
 public import ConLeche.Model.NatEqs
 public import ConLeche.Model.NatSem
@@ -115,11 +104,6 @@ public import ConLeche.Model.AxiomReduce
 public import ConLeche.Model.ErasePwInv
 public import ConLeche.Model.RecRulesCons
 public import ConLeche.Model.ReduceOps
-public import ConLeche.Model.Steps.IotaKit
-public import ConLeche.Model.Steps.IotaRows
-public import ConLeche.Model.Steps.Major
-public import ConLeche.Model.Steps.ProjRows
-public import ConLeche.Model.Steps.StrLit
 
 @[expose] public section
 

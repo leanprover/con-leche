@@ -1,6 +1,7 @@
 module
 
 public import ConLeche.Model.IndGrade
+import ConLeche.Model.Annot.BitInst
 public section
 
 /-!

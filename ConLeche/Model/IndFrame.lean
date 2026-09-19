@@ -1,6 +1,7 @@
 module
 
 public import ConLeche.Model.IndTele
+import ConLeche.Model.Annot.BitInst
 public section
 
 /-!

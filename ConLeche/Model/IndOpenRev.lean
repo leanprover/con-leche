@@ -1,6 +1,9 @@
 module
 
 public import ConLeche.Model.IndTransport
+import ConLeche.Model.Rules.IotaSoundKit
+import ConLeche.Verify.Denote.OpenRevDenote
+import ConLeche.Model.Annot.BitInst
 public section
 
 /-!
@@ -18,8 +21,9 @@ depth — and `RecRuleLaw`'s repaired conjunct is about
 order-reversing renaming of the frame's variables, and nothing but the
 `openRev` pair identifies them:
 
-* `denoteMeta_openRev_base` and `denoteMeta_openRev` — **already in the
-  tree**, landed with the ι row (`Steps/IotaKit.lean:61,98`).  The
+* `Rules.denoteMeta_openRev_base` and `Rules.denoteMeta_openRev` —
+  **already in the tree**, landed with the ι row and living since the
+  task #305 closing in `Model/Rules/IotaSoundKit.lean`.  The
   part-6 seal's "the consumer's bridge is the `denoteMeta` mirror of the
   `denote_openRev` pair" was already paid for; this file spends it;
 * `instSeqAV_instRevChain`, `instSeqAV_eq_self_of_bvarsBelow`, `padHit`
@@ -218,7 +222,7 @@ The composite below takes the `openRev` reading as a premise and
 produces the instantiated one; the consumer (`iotaRuleNested`) has
 the instantiated one — the `TypedListW` row's own denotation, read
 through `denoteP_isSome_of_denote` — and needs the `openRev` one.  The
-same two laws run backwards: `denoteMeta_openRev` presents the
+same two laws run backwards: `Rules.denoteMeta_openRev` presents the
 instantiated reading as an `Option.map` of the `openRev` one, so the
 former being `some` forces the latter. -/
 theorem pinOpenRevReads
@@ -262,7 +266,7 @@ theorem pinOpenRevReads
       rfl
     rw [h1, h2]
     exact denoteMeta_fvar acval (rP + cnF) q ty
-  have hkey := denoteMeta_openRev (acval := acval) (env := env) (φ := φ)
+  have hkey := Rules.denoteMeta_openRev (acval := acval) (env := env) (φ := φ)
     hacl hainst os (e := p) (d := rP + cnF)
     (fun a ha => ⟨hwsOs a ha, hbOs a ha⟩)
     (Expr.fvarsBelow_of_fvarLeaves (fun l hl => by
@@ -270,7 +274,7 @@ theorem pinOpenRevReads
       exact nomatch hl))
     (by rw [hoslen]; exact hpb) hsp
   rw [hoslen] at hkey
-  have hbase := denoteMeta_openRev_base (acval := acval) (cval := cval)
+  have hbase := Rules.denoteMeta_openRev_base (acval := acval) (cval := cval)
     (env := env) (φ := φ) hacl hlink hcl hpw hpb (rP + cnF)
   rw [hbase] at hkey
   rw [Expr.instSpine_eq_instSeq] at hw0
@@ -350,7 +354,7 @@ theorem pinCross
     rw [h1, h2]
     exact denoteMeta_fvar acval (rP + cnF) q ty
   -- the instantiation, read through the reverse opening
-  have hkey := denoteMeta_openRev (acval := acval) (env := env) (φ := φ)
+  have hkey := Rules.denoteMeta_openRev (acval := acval) (env := env) (φ := φ)
     hacl hainst os (e := p) (d := rP + cnF)
     (fun a ha => ⟨hwsOs a ha, hbOs a ha⟩)
     (Expr.fvarsBelow_of_fvarLeaves (fun l hl => by
@@ -359,7 +363,7 @@ theorem pinCross
     (by rw [hoslen]; exact hpb) hsp
   rw [hoslen] at hkey
   -- the opened reading is base-independent
-  have hbase := denoteMeta_openRev_base (acval := acval) (cval := cval)
+  have hbase := Rules.denoteMeta_openRev_base (acval := acval) (cval := cval)
     (env := env) (φ := φ) hacl hlink hcl hpw hpb (rP + cnF)
   rw [hbase, hvpden] at hkey
   simp only [Option.map_some] at hkey

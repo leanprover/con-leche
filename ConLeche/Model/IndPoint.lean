@@ -2,6 +2,8 @@ module
 
 public import ConLeche.Model.IndPointKit
 public import ConLeche.Model.IndProjEta
+import ConLeche.Model.Annot.BitRename
+import ConLeche.Verify.Denote.OpenRevDenote
 public section
 
 /-!

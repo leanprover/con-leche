@@ -2,6 +2,7 @@ module
 
 public import ConLeche.Model.IndStageKit
 public import ConLeche.Verify.Denote.IndFrame
+import ConLeche.Model.Annot.BitInst
 
 public section
 

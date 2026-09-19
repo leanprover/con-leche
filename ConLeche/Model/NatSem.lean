@@ -1,6 +1,8 @@
 module
 
 public import ConLeche.Model.NatEqs
+import ConLeche.Semantics.LitStep
+import ConLeche.Model.Annot.ValidSpine
 
 public section
 

@@ -2,6 +2,8 @@ module
 
 import ConLeche.Model.IndProjKit
 public import ConLeche.Model.IndBottomPlain
+import ConLeche.Model.Annot.BitLevels
+import ConLeche.Model.Annot.BitRename
 public section
 
 /-!
@@ -539,9 +541,9 @@ theorem indBottomProj {μ : CheckMode} {env : Env}
   have hLTr : Expr.LeavesBounded tr := fun l hl =>
     hlbFvs l.1 l.2 (hleafTr l hl)
   obtain ⟨tla, htla⟩ := hreadsP (Level.substFn φ lps us) hInfL hwsL hbL
-    hLL (LeafReads.of_ctxOk (hctxOf lhsS hleafL hltL)) hvl0
+    hLL (hctxOf lhsS hleafL hltL) hvl0
   obtain ⟨tra, htra⟩ := hreadsP (Level.substFn φ lps us) hInfR hwsR hbR
-    hLR (LeafReads.of_ctxOk (hctxOf rhsS hleafR hltR)) hvr0
+    hLR (hctxOf rhsS hleafR hltR) hvr0
   obtain ⟨hokVL, hokVR, hmemLR⟩ := sidesMem (hinf _) (hdeq _)
     (hctxOf αS hleafα hltα) (hctxOf lhsS hleafL hltL)
     (hctxOf rhsS hleafR hltR) hwsα hbα hLα hwsL hbL hLL hwsR hbR hLR

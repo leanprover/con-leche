@@ -2,6 +2,8 @@ module
 
 public import ConLeche.Model.Inductives.FixRecReadDefs
 public import ConLeche.Verify.Inductives.FixRec
+import ConLeche.Model.Annot.BitInst
+import ConLeche.Model.Annot.BitRename
 public section
 
 /-!

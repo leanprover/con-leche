@@ -2,6 +2,7 @@ module
 
 public import ConLeche.Model.Inductives.StructRecKit2
 public import ConLeche.Verify.Inductives.StructRec
+import ConLeche.Model.Annot.BitInst
 public section
 
 /-!

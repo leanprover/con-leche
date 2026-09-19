@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Model.IndZipper
-import ConLeche.Model.Steps.Stuck
+import ConLeche.Model.Annot.BitLemmas
 public section
 
 /-!

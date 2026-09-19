@@ -1,6 +1,8 @@
 module
 
 public import ConLeche.Model.IndParamGrade
+import ConLeche.Model.Annot.BitInst
+import ConLeche.Verify.Denote.OpenRevDenote
 public section
 
 /-!

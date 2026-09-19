@@ -4,6 +4,8 @@ import ConLeche.Semantics.IndBlockRun
 public import ConLeche.Model.IotaRulePlain
 import ConLeche.Model.IndPinRow
 import ConLeche.Model.IndBottomNested
+import ConLeche.Model.Annot.BitLevels
+import ConLeche.Verify.Denote.OpenRevDenote
 public section
 
 /-!
@@ -148,7 +150,7 @@ theorem iotaRuleNested {μ : CheckMode} {F : Nat} {env₂ envSelf : Env}
     have hctx : CtxOk mp.base2 ψ 0 [] rhsA :=
       ⟨rfl, fun l hl => absurd hl (fun h => hrhsLeafNil l h)⟩
     obtain ⟨ta, hta⟩ := hreadsP ψ hrun hrhsWs hrhsAb hrhsLb
-      (LeafReads.of_ctxOk hctx) hRa
+      hctx hRa
     obtain ⟨hokRa, -, hmemRa⟩ :=
       hinf ψ hrun hrhsWs hrhsAb hrhsLb hctx hRa hta
     exact ⟨Ra, ta, hRa, fun ρ =>

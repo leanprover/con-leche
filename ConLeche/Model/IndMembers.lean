@@ -323,7 +323,7 @@ theorem indMembersPM (hetaP : MemberEtaLaw V)
 rule-less, giving the **self** environment the rule certificates were
 checked against *together with a `EnvModelM` at it* — which is what the
 iota phase's run-certificate route needs, since `checkSoundAt` runs
-at `TierInputsAt.ofEnvModelM` and there is no other way to get one at
+at `Rules.RulesInputs.ofSem` and there is no other way to get one at
 `envSelf`. -/
 theorem provisionRecsPM (hetaP : MemberEtaLaw V)
     (hunitP : MemberUnitLaw V)

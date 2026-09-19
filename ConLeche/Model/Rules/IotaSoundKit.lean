@@ -417,8 +417,8 @@ depth `rP` into the instantiated comparand's reading at the ambient
 depth. -/
 
 /-- **The base-independence of the opened validated reading**
-(`denote_openRev_base`'s mirror, `Model/Steps/IotaKit.lean:66`): a constant-frame subject's reverse
-opening reads to the same annotation at every base.  The lift the
+(`denote_openRev_base`'s mirror, `Model/Steps/IotaKit.lean:66`): a
+constant-frame subject's reverse opening reads to the same annotation at every base.  The lift the
 induction has to absorb is killed by `AnnotTerm.liftN_eq_self` at the
 erasure's bvar bound — `denoteMeta_closed`'s route, one depth up. -/
 theorem denoteMeta_openRev_base {acval : Name → (Name → Nat) → AnnotTerm}

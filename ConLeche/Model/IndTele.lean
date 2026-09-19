@@ -1,7 +1,9 @@
 module
 
 public import ConLeche.Model.IndMembers
-import ConLeche.Model.Steps.CapsRows
+import ConLeche.Model.Annot.Laws
+import ConLeche.Model.Annot.BitLemmas
+import ConLeche.Model.Annot.BitRename
 
 public section
 

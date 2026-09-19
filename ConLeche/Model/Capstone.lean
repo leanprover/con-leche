@@ -176,7 +176,7 @@ invariant**: seven fields are `EnvModelM` projections
 literal rows are this file's own imports — `natSuccRow_of`/
 `natOpRow_of` (`Model/NatStep.lean`), which stand on the numeral
 transports and so cannot be projections down there.  Successor of
-`TierInputsAt.ofSem` (task #305 closing). -/
+`Rules.RulesInputs.ofSem` (task #305 closing). -/
 theorem Rules.RulesInputs.ofSem (mp : EnvModelM V μ env) (φ : Name → Nat) :
     Rules.RulesInputs V mp.base2 φ :=
   Rules.RulesInputs.ofEnvModelM mp (natSuccRow_of mp φ) (natOpRow_of mp φ)

@@ -5,6 +5,7 @@ public import ConLeche.Model.Inductives.FixCtorReads
 import ConLeche.Verify.Inductives.FixInv
 import ConLeche.Verify.Inductives.FixWF
 public import ConLeche.Model.Inductives.SumStageRec
+import ConLeche.Model.Annot.BitLevels
 public section
 
 /-!

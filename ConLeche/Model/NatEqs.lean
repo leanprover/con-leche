@@ -1,7 +1,6 @@
 module
 
 public import ConLeche.Model.Install
-public import ConLeche.Model.Steps.Nat
 public import ConLeche.Semantics.NatFrag
 public import ConLeche.Semantics.DeclRun
 

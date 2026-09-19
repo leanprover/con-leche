@@ -7,6 +7,7 @@ public import ConLeche.Semantics.BasisRules
 `@[expose]`d, so a `cases`-then-`rfl` proof cannot see the reduct.
 `import all` restores that view HERE only. -/
 import all ConLeche.Kernel.PropWhen
+import ConLeche.Model.Annot.BitInst
 
 public section
 

@@ -2,6 +2,7 @@ module
 
 public import ConLeche.Model.NatWf
 import ConLeche.Semantics.DivModEval
+import ConLeche.Model.Annot.BitInst
 public section
 
 /-!
@@ -469,7 +470,7 @@ theorem certValue {F : Nat} (mp : EnvModelM V μ env) (ψ : Name → Nat)
   -- the readings
   obtain ⟨ea, hea⟩ := hacc hinf hWA hBA hLA
   obtain ⟨ta, hta⟩ :=
-    hreads hinf hWA hBA hLA (LeafReads.of_ctxOk hCA') hea
+    hreads hinf hWA hBA hLA hCA' hea
   obtain ⟨-, hokT, hmem⟩ := hinfC hinf hWA hBA hLA hCA' hea hta
   -- the inferred type's frame
   have hWtp : Expr.WScoped 4 tp :=

@@ -2,6 +2,7 @@ module
 
 public import ConLeche.Model.IndPinGrade
 import ConLeche.Model.IndPlainParam
+import ConLeche.Verify.Denote.OpenRevDenote
 public section
 
 /-!
@@ -335,7 +336,7 @@ theorem nestedPinFire {m : EnvModel V env} {F : Nat}
   obtain ⟨ta, hta⟩ := hreads hInf (hpinWs _ (hpinMem q hq))
     (hpinB _ (hpinMem q hq))
     (fun l hl => hlbFvsP l.1 l.2 (hpinLeaf _ (hpinMem q hq) l hl).1)
-    (LeafReads.of_ctxOk (hctxPin q hq)) hw
+    (hctxPin q hq) hw
   -- the inference claim: the pin is graded and inhabits its type
   obtain ⟨hgw, hgta, hmem⟩ := hinfC hInf (hpinWs _ (hpinMem q hq))
     (hpinB _ (hpinMem q hq))

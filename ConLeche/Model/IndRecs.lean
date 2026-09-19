@@ -92,13 +92,13 @@ theorem indRecsFold (hμ : μ.verifiedChecks = true) {F : Nat}
         RecLawsAt mp.base2 cv mI rP rules := by
   -- the four claims and the reads, at every assignment (`hμ` + `mp`)
   have hclaims := fun ψ =>
-    checkSoundAt (V := V) hμ (TierInputsAt.ofSem mp ψ) F
+    checkSoundAt (V := V) hμ (Rules.RulesInputs.ofSem mp ψ) F
   have hdeq : ∀ ψ : Name → Nat, DefEqClaim μ mp.base2 ψ F :=
     fun ψ => (hclaims ψ).2.2.1
   have hinf : ∀ ψ : Name → Nat, InferClaim μ mp.base2 ψ F :=
     fun ψ => (hclaims ψ).2.2.2
   have hreadsP : ∀ ψ : Name → Nat, InferReads mp.base2 μ ψ F :=
-    fun ψ => inferReads_of (TierInputsAt.ofSem mp ψ).reads
+    fun ψ => inferReads_of hμ (Rules.RulesInputs.ofSem mp ψ)
   intro recs
   induction recs with
   | nil =>

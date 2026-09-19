@@ -1,6 +1,8 @@
 module
 
 public import ConLeche.Model.IndPinGrade
+import ConLeche.Model.Annot.BitInst
+import ConLeche.Model.Annot.BitRename
 public section
 
 /-!
