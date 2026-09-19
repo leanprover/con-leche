@@ -3278,11 +3278,24 @@ both slots' data into the CONTAINER's `tlss`/`Eiss`, and it is stated
 for container-recursive fields only — at a field the container calls
 ordinary there is no recursive datum of its own to normalise into.  So
 the correspondence is stated DIRECTLY between the two copies
-(`hslotOrd`), which is what K.61's rows on both sides give.
+(`hslotOrd`).
+
+**`hslotOrd` is not K.61's row, and the guards say why.**  K.61 (and
+the carry's `PinShapes.rowTarget`/`PinGroupInst.hpinσ`) fire at
+`(dK.rss i) = true` — a field the container calls RECURSIVE whose
+target is one of its own pins — which is `hrel`'s pin sub-case, not
+this arm.  `hslotOrd`'s guard is `(dK.rss i) = false`, where the
+container has no row at all on either side.  Its inputs are the two
+targets: side 2's is the ROOT container's own class
+(`(dJ.pinCtors qK).tgts j l`, a member or an own pin of `dJ`), side
+1's is the block's, and the arm asks that the block's be `σ` of the
+root's, with the slot data to match.  That is the pin half's `hstgt`,
+and it has no source in the SHAPE: the `ordF`-right arm carries
+`EntryRead` and nothing about the target, `TargetHead` having been
+refuted at an accepted block.
 
 `hfireOrd` is the other half of the same fact: the two copies fire
-together at such a field.  One direction is a mention surviving the
-block's further substitution; the other is what the rows say.
+together at such a field.
 
 `copyTransfer_via` is untouched and keeps serving the covering
 (`nestedPinPair_pin`); this twin serves the FIT's pin half alone. -/

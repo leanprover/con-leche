@@ -121173,3 +121173,77 @@ two in `NestedPinLeafAll.lean` (`hshR _ hqK`) and the one in
 `PinShapes.crossEnv` are already updated here.  `NestedInstMap.lean`
 was touched at `pinGroupInst_of`'s bullet list and at `instTgtAt`
 only.
+
+#### WIDE (3) `hslotOrd` RE-PRICED AFTER THE CARRY — IT IS THE PIN HALF'S `hstgt`, AND THE SHAPE HAS NO TARGET THERE (lane LE, 2026-09-19)
+
+The carry's correction is decisive and is now recorded at the twin's
+docstring as well.  `PinShapes.rowTarget` and `PinGroupInst.hpinσ`
+fire at `(dK.rss i) = true` — a field the container calls RECURSIVE
+whose target is one of its own pins — so what they feed is `hrel`'s
+PIN sub-case.  `hslotOrd` is guarded by `(dK.rss i) = false`, where
+the container has no row on either side.  The sentence that said
+otherwise is corrected.
+
+##### THE ARM IS THE ORDINARY CASE OF NESTING, NOT A CORNER
+
+At `Tree α := node (List (Tree α))`: the pin's container is `K = List`,
+`K`'s `cons` field `α` is K-ORDINARY, and BOTH copies — the root `J`'s
+own record of its pin and the block's copy of it — rewrite it to
+recursive.  So the arm is live at the first example anyone writes, and
+no vacuity argument will retire it.
+
+##### WHAT THE ARM ACTUALLY NEEDS, AND WHY IT IS FORCED
+
+Side 1 contributes `slotSet … (setJoin σ … L⁺ Y (tg₁ l))`, side 2
+`slotSet … (Y (tg₂ l))`, and `hfitc` quantifies over EVERY `Y` of the
+space below `C`.  An equation uniform in `Y` forces
+
+    tg₁ l = σ (tg₂ l)
+
+plus agreement of the slot data (`u`, `tls`, `Eis`) at the two
+targets.  This is not an artifact of how the twin is stated: any
+correct `hfitc` needs it.  It is the PIN half's `hstgt`/`hpinσ` — side
+2's target `(dJ.pinCtors qK).tgts j l` is a member or an own pin of the
+ROOT container `dJ`, and the block's target must be `σ` of it.
+
+##### THE INPUTS, CHECKED ONE BY ONE AT THEIR OWN GUARD
+
+* `PinShapes.rowTarget` / `hpinσ` (the carry) — guard `(dK.rss i) = true`.
+  **Wrong guard.**
+* `hstgt` / K.61 `NestedPinsRun.copyPinFInstTgt` — guard `(dJ.rss i') = true`
+  at the group's MEMBERS.  **Wrong guard and wrong half.**
+* `houtσ` / K.62 `copyOrdFOutside` — right guard, but NEGATIVE ("the
+  target leaves the instance") and stated against the COPY's own
+  container's instance map, not the root's.  It cannot give a positive
+  target.
+* `ContainerModeled.nestPinSpineAbs` / `nestPinSpineAbsRefl` — the
+  coordinator's proposed route.  Both are guarded by
+  `d.nestOf i j l = some q` together with
+  `(d.ksF i j).getD l .ordinary = .recursive` (resp `.reflexive`).
+  At a field the container calls ORDINARY there is no `nestOf` and the
+  kind is `.ordinary`, so **neither clause applies**; the spine route
+  is closed at the guard, not at the proof.
+* `CopyCtorShape.ordF`'s right arm — carries `EntryRead` and, since
+  DESIGN §U.61, **nothing about the target at all**: the `TargetHead`
+  conjunct, which is exactly the one that related the two sides'
+  targets, was REFUTED at an accepted block
+  (`tests/e2e/nested_lam_pin_prop.ndjson`, where the positivity `whnf`
+  turns `(fun _ => T) trivial` into a member).
+
+##### MISSING OBJECT, BY NAME
+
+**A positive record of the block's TARGET at a rewritten
+container-ordinary field of a PIN copy**, tying it to `σ` of the root
+container's own classification of the same field — the pin half's twin
+of `hstgt`+`hpinσ`, and the positive counterpart of K.62's negative
+row at the same guard.  It is a fact about the block's own
+elimination, so its source is a kernel record, not a model lemma, and
+this lane does not add one without asking.  The refuted `TargetHead`
+does not block it: that conjunct read the target off the CONTAINER's
+stored field, while this would be recorded by the checker at the
+block's own rewrite, the way K.61 and K.62 already are.
+
+(3) is therefore NOT a session of proof; it is one kernel record plus
+the row that carries it, and it should be priced as such before
+anything is built.  Nothing was built for this row beyond the
+docstring correction.
