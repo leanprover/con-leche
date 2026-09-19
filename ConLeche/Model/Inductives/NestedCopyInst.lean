@@ -3754,6 +3754,72 @@ theorem NestedPinsRun.copyPinFStoredRefl {pbs : List (Expr × ConLeche.BinderMet
   exact ⟨ft, hft, by rw [← hnameT]; exact ((ConLeche.Expr.const.inj hcn).1).symm⟩
 
 
+omit SF S in
+/-- **THE PIN ARM'S REWRITTEN DOMAIN, FROM THE MINTED TOWER** (task
+#315 PINF): `copyPinFStoredRefl` fed the run of the MINTED domain
+rather than of its body.
+
+A reflexive nested field's minted domain is a `Π` tower over the
+container spine (`copyPinFDomRefl`), and the rewrite commutes with a
+`∀`-telescope (`replaceAllNested_mkPisB`): the stored domain is a
+tower of the SAME depth and its BODY is a run of the spine at a state
+between the telescope's own two.  That body's run is what the fire
+wants, and the tower it sits in is the `hFlStrip` the reader needs, so
+this theorem is the whole peel — and it needs NOTHING about the
+telescope's binders, because the fire reads only the body.  (The
+binders' own image is what a READING would ask about, and that is
+where `replaceAllNested_mkPisB_inert` and the positivity walk's
+`normPosDomM_mkPisB_free` come in.) -/
+theorem NestedPinsRun.copyPinFStoredReflM {pbs : List (Expr × ConLeche.BinderMeta)}
+    (hPD : ∀ q, q < st.pins.length → PinData env st p pbs q)
+    {i' j : Nat}
+    {Fs' pbs₀ : List (Expr × ConLeche.BinderMeta)} {cbody' o o' resB : Expr}
+    {params : List Expr} {cA : ConstantVal × Nat} {cname : Name} {nFlds : Nat}
+    (hopb : ConLeche.openPisAtFvars b.nP f₀.cvTa.type 0 = some (params, o))
+    (hplenB : params.length = b.nP)
+    (hidxP : ∀ n, n < b.nP → ∃ ty, params[n]? = some (Expr.fvar n ty))
+    (hpbs₀len : pbs₀.length = b.nP) (hpbs₀f : ∀ y ∈ pbs₀, y.1.hasFvar = false)
+    (hstripF : f₀.cvTa.type.stripPis b.nP = some (pbs₀, o'))
+    (hcbb : cbody'.looseBVarsBounded 0 = true)
+    (hcbl : ∀ lf ∈ cbody'.fvarLeaves, Expr.fvar lf.1 lf.2 ∈ params)
+    (hlenF : Fs'.length = nFlds)
+    (hcb' : cbody'.stripPis nFlds = some (Fs', resB))
+    (hcA : ctorsA[b.ownOffset (p.k + q₀ + i') + j]? = some cA) (hnF : cA.2 = nFlds)
+    (hbc : b.ctors[b.ownOffset (p.k + q₀ + i') + j]?
+      = some ⟨⟨cname, p.lps, closeTelescope pbs₀ 0 cbody'⟩, nFlds, p.k + q₀ + i'⟩)
+    {l : Nat} (hlcc : l < nFlds)
+    (hkA : kindAt (mutKsOf kinds (b.ownOffset (p.k + q₀ + i') + j)) l = RecFieldKind.reflexive)
+    {TLm : List (Expr × ConLeche.BinderMeta)} {M : Expr}
+    {I : Name} {ci' : ContainerInfo} {us : List Level} {AS : List Expr}
+    (hM : M.stripPis TLm.length = some (TLm, Expr.mkAppN (Expr.const I us) AS))
+    (hci' : ConLeche.containerInfo? env I = some ci')
+    (hnPle : ci'.nP ≤ AS.length)
+    {st₁ st₂ : ElimState}
+    (hrun : ConLeche.replaceAllNested env (p.lps.map Level.param) params pbs₀ st₁ M
+      = .ok ((Fs'.getD l default).1, st₂))
+    (hpre : st₂.pins <+: st.pins) :
+    ∃ (qn' : ConLeche.NestedPin) (qq : Nat) (TL : List (Expr × ConLeche.BinderMeta)) (Fl : Expr),
+      (Fs'.getD l default).1.stripPis TL.length = some (TL, Fl) ∧
+      TL.length = TLm.length ∧
+      st.pins[qq]? = some qn' ∧
+      (∀ a ∈ AS.take ci'.nP, a.looseBVarsBounded 0 = true) ∧
+      qn'.pin = Expr.mkAppN (Expr.const I us) (AS.take ci'.nP) ∧
+      Fl = Expr.mkAppN (Expr.mkAppN (Expr.const qn'.aux (p.lps.map Level.param)) params)
+            (AS.drop ci'.nP) ∧
+      tgtAt (mutKsOf kinds (b.ownOffset (p.k + q₀ + i') + j)) l = p.k + qq := by
+  classical
+  have hMmk : M = ConLeche.mkPisB TLm (Expr.mkAppN (Expr.const I us) AS) :=
+    ConLeche.stripPis_mkPisB _ hM
+  rw [hMmk] at hrun
+  obtain ⟨bs', res', hFlEq, hbslen, -, stR₁, stR₂, hresRun, -, hp2, -⟩ :=
+    ConLeche.replaceAllNested_mkPisB TLm hrun
+  have hFlStrip : (Fs'.getD l default).1.stripPis bs'.length = some (bs', res') := by
+    rw [hFlEq]; exact ConLeche.stripPis_mkPisB_self _ _
+  obtain ⟨qn', qq, hqq, hloose, hqnPin, hres, hidx⟩ :=
+    R.copyPinFStoredRefl hPD hopb hplenB hidxP hpbs₀len hpbs₀f hstripF hcbb hcbl hlenF hcb'
+      hcA hnF hbc hlcc hkA hFlStrip hci' hnPle hresRun (hp2.trans hpre)
+  exact ⟨qn', qq, bs', res', hFlStrip, hbslen, hqq, hloose, hqnPin, hres, hidx⟩
+
 /-- **THE COPY'S NESTED FIELD LANDS ON A BLOCK PIN** (task #315 L-B):
 at a container field finitary-recursive at one of the CONTAINER's own
 pins, whose copy the auxiliary block also classified `.recursive`, the
