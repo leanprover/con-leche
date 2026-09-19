@@ -1437,4 +1437,97 @@ theorem nestedOrdNormOk_at_pi {mode : CheckMode} {env : Env} {p : NestedParts}
     hcJ hsJ hl hdJ hrec hord (ordRootNorm_const hheadR) hfire hinst
     (ordRootNorm_const hheadB)
 
+/-! ## K.69's recomputation, in the run's spelling (task #315 WIDE (3) (4c))
+
+`ordTargetDom` is the kernel's spelling of "the container's stored
+field domain at the pin's components": the stored domain at the copy's
+LEVEL instantiation, stripped of its own `Π`-tower, and instantiated in
+BULK (`Expr.instantiateList` at the reversed component list, from the
+cut the field's earlier binders add).  What the RUN carries at the same
+field is the MINTED domain — `mkCopy`'s `instPis` of the same stored
+constructor type at the same components, read off the minted
+telescope — and the model reads that one, so the two spellings have to
+be identified before either reading can be compared.
+
+They are one lemma apart and no more: `instantiateList` at the reversed
+list IS the descending `instantiate1` fold (`instSpine_eq_instantiateList_at`,
+`instSpine_eq_instSeq`), which is the idiom `NestedPinsRun.copyResid`'s
+minted telescope is stated in (`Expr.instSeq Ds (nP - 1 + l) …`).  The
+components themselves are read off the OWN-PIN TABLE entry: its head
+carries the levels `ordTargetLvls` picks up, and its first `nP`
+arguments are the components.  Nothing is normalised and nothing is
+run — this is the third of the three gaps the tie is named in, at its
+SYNTACTIC half. -/
+
+/-- **`ordTargetDom` IS THE MINTED DOMAIN'S SPELLING** (task #315 WIDE
+(3), lane LE): at an own-pin table entry that is a constant applied to
+exactly `nP` components, the recomputation is the stored domain at the
+entry's levels, stripped, and instantiated at the components by the
+descending fold the run's minted telescope uses.
+
+Stated with `stripDomPis`/`domPiDepth` still in it, so that it covers a
+REFLEXIVE field's `Π`-tower as well as a finitary field's spine; the
+finitary corollary below is the tower-free reading. -/
+theorem ordTargetDom_eq_instSeq {lps : List Name} {nP l : Nat} {ownSelf : List Expr}
+    {qK : Nat} {I : Name} {lvls : List Level} {Ds : List Expr} {dom : Expr}
+    (hown : ownSelf.getD qK default = Expr.mkAppN (.const I lvls) Ds)
+    (hlen : Ds.length = nP) :
+    ordTargetDom lps nP ownSelf qK l dom
+      = Expr.instSeq Ds (nP - 1 + (l + domPiDepth (ordTargetDomL lps ownSelf qK dom)))
+          (stripDomPis (dom.instantiateLevelParams lps lvls)) := by
+  have hlvls : ordTargetLvls ownSelf qK = lvls := by
+    unfold ordTargetLvls
+    rw [hown, Expr.getAppFn_mkAppN]
+    rfl
+  have hargs : ((ownSelf.getD qK default).getAppArgs.take nP) = Ds := by
+    rw [hown, Expr.getAppArgs_mkAppN]
+    simp only [Expr.getAppArgs, List.nil_append]
+    rw [List.take_of_length_le (Nat.le_of_eq hlen)]
+  unfold ordTargetDom
+  rw [hargs]
+  have hL : ordTargetDomL lps ownSelf qK dom = dom.instantiateLevelParams lps lvls := by
+    unfold ordTargetDomL; rw [hlvls]
+  rw [hL]
+  cases hnP : nP with
+  | zero =>
+    obtain rfl : Ds = [] := List.length_eq_zero_iff.mp (by rw [hlen, hnP])
+    rw [List.reverse_nil, Expr.instantiateList_nil]
+    rfl
+  | succ n =>
+    rw [← Expr.instSpine_eq_instantiateList_at, Expr.instSpine_eq_instSeq, hlen, hnP,
+      show l + domPiDepth (dom.instantiateLevelParams lps lvls) + (n + 1) - 1
+        = n + 1 - 1 + (l + domPiDepth (dom.instantiateLevelParams lps lvls)) from by omega]
+
+/-- **The same at a FINITARY field**, where the tower is empty: a
+recomputation whose stored domain is already at a constant head has
+`stripDomPis` the identity and `domPiDepth` zero, so the cut is the
+field's own `l` and the term is the stored domain at the entry's
+levels — `NestedPinsRun.copyResid`'s minted-telescope entry, character
+for character. -/
+theorem ordTargetDom_eq_instSeq_const {lps : List Name} {nP l : Nat} {ownSelf : List Expr}
+    {qK : Nat} {I : Name} {lvls : List Level} {Ds : List Expr} {dom : Expr}
+    {K : Name} {usK : List Level}
+    (hown : ownSelf.getD qK default = Expr.mkAppN (.const I lvls) Ds)
+    (hlen : Ds.length = nP)
+    (hfin : (dom.instantiateLevelParams lps lvls).getAppFn = .const K usK) :
+    ordTargetDom lps nP ownSelf qK l dom
+      = Expr.instSeq Ds (nP - 1 + l) (dom.instantiateLevelParams lps lvls) := by
+  have hlvls : ordTargetLvls ownSelf qK = lvls := by
+    unfold ordTargetLvls
+    rw [hown, Expr.getAppFn_mkAppN]
+    rfl
+  have hL : ordTargetDomL lps ownSelf qK dom = dom.instantiateLevelParams lps lvls := by
+    unfold ordTargetDomL; rw [hlvls]
+  have hnotPi : ∀ ty bo bm, dom.instantiateLevelParams lps lvls ≠ Expr.forallE ty bo bm := by
+    intro ty bo bm h
+    rw [h] at hfin
+    exact nomatch (hfin : Expr.forallE ty bo bm = Expr.const K usK)
+  have hstrip : stripDomPis (dom.instantiateLevelParams lps lvls)
+      = dom.instantiateLevelParams lps lvls ∧
+      domPiDepth (dom.instantiateLevelParams lps lvls) = 0 := by
+    cases hd : dom.instantiateLevelParams lps lvls with
+    | forallE ty bo bm => exact absurd hd (hnotPi ty bo bm)
+    | _ => exact ⟨rfl, rfl⟩
+  rw [ordTargetDom_eq_instSeq hown hlen, hL, hstrip.1, hstrip.2, Nat.add_zero]
+
 end ConLeche
