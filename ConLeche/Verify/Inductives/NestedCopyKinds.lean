@@ -1366,4 +1366,75 @@ theorem nestedOrdNormOk_at {mode : CheckMode} {env : Env} {p : NestedParts}
   · rw [hdmR]; exact hfire
   · rw [hdmR, hd₁, Nat.add_zero]; exact hinst
 
+/-- **K.69 AS A TERM EQUATION AT A REFLEXIVE FIELD** (task #315 WIDE (3),
+lane LE) — `nestedOrdNormOk_at`'s twin under a `Π`-tower, and the shape
+the model side reads the row in.
+
+`nestedOrdNormOk_at` asks the head test of the recomputation ITSELF,
+which is the finitary guard: a domain that is a `Π` has a `.forallE`
+head and the hypothesis is unsatisfiable there.  A REFLEXIVE field's
+domain is a tower over the spine, and both cuts move with it
+(`stripDomPis`, `domPiDepth`) — so the guard belongs on the STRIPPED
+term, which is exactly where `ordTargetDom` performs its own
+instantiation.  Stated that way the theorem covers BOTH kinds: at a
+finitary field `stripDomPis` is the identity and `domPiDepth` is `0`.
+
+**Nothing is normalised and nothing is run.**  A `.const`-headed
+stripped term stays `.const`-headed under the bulk instantiation
+(`getAppFn_instantiateList_const`), so `ordRootNorm` returns its input
+on BOTH sides (`ordRootNorm_const`) and the row's comparison is between
+the two RECOMPUTATIONS: the block's IS the owner's, at the owner's
+level parameters instantiated at the block pin's levels and the owner's
+parameter openers instantiated at the block pin's components.  That is
+`ordRootInst`'s spelling, which is the left-hand side of the model
+side's own reading law (`denoteMeta_ordRootInst_read`,
+`Model/Inductives/NestedFieldRead.lean`), so the two meet with nothing
+in between. -/
+theorem nestedOrdNormOk_at_pi {mode : CheckMode} {env : Env} {p : NestedParts}
+    {b : MutualBlock} {st : ElimState} {stored : List AuxStored}
+    (h : nestedOrdNormOk mode env p b st stored = true)
+    {kinds : List (List (List (RecFieldKind × Nat)))}
+    (hk : nestedPinKinds p b stored = some kinds)
+    {g : Nat} (hg : g < st.pins.length) {gn : NestedPin} (hgn : st.pins[g]? = some gn)
+    {ciJ : ContainerInfo} (hciJ : containerInfo? env gn.container = some ciJ)
+    {ownSelf : List Expr} (hown : containerOwnPinsSelf env gn.container = some ownSelf)
+    {m₀ : ContainerMember} (hm₀ : ciJ.members.head? = some m₀)
+    {mapR : List Nat} (hmapR : nestedInstMapAt env st g = some mapR)
+    {qK : Nat} (hqK : qK < ownSelf.length)
+    {q : Nat} (hq : mapR.getD qK st.pins.length = q)
+    {qn : NestedPin} (hqn : st.pins[q]? = some qn)
+    {ks : List (List (RecFieldKind × Nat))} (hks : kinds[q]? = some ks)
+    {ci : ContainerInfo} (hci : containerInfo? env qn.container = some ci)
+    {Jm : ContainerMember} (hJm : ci.members[q - qn.grpBase]? = some Jm)
+    {j : Nat} (hj : j < ks.length)
+    {kf : List (RecFieldKind × Nat)} (hkf : ks[j]? = some kf)
+    {cJ : ContainerCtor} (hcJ : Jm.ctors[j]? = some cJ)
+    {jbs : List (Expr × BinderMeta)} {rJ : Expr}
+    (hsJ : cJ.type.stripPis (ci.nP + cJ.nFields) = some (jbs, rJ))
+    {l : Nat} {r : RecFieldKind} {t : Nat} (hl : kf[l]? = some (r, t))
+    {domJ : Expr × BinderMeta} (hdJ : jbs[ci.nP + l]? = some domJ)
+    (hrec : (r == RecFieldKind.recursive || r == RecFieldKind.reflexive) = true)
+    (hord : mentionsMember (ci.members.map (·.name)) domJ.1 = false)
+    {K : Name} {usK : List Level}
+    (hfin : (stripDomPis (ordTargetDomL Jm.lps ownSelf qK domJ.1)).getAppFn = .const K usK)
+    {KB : Name} {usB : List Level}
+    (hfinB : (stripDomPis (ordTargetDomL Jm.lps (nestedPinTermsSelf p st) q domJ.1)).getAppFn
+      = .const KB usB)
+    (hfire : ordRootFired env (ciJ.members.map (·.name)) ownSelf
+      (ordTargetDom Jm.lps ci.nP ownSelf qK l domJ.1) = true)
+    {Wb : Expr}
+    (hinst : ordRootInst m₀.lps ciJ.nP
+        (l + domPiDepth (ordTargetDomL Jm.lps ownSelf qK domJ.1))
+        ((nestedPinTermsSelf p st).getD g default)
+        (ordTargetDom Jm.lps ci.nP ownSelf qK l domJ.1) = some Wb) :
+    ordTargetDom Jm.lps ci.nP (nestedPinTermsSelf p st) q l domJ.1 = Wb := by
+  have hheadR : (ordTargetDom Jm.lps ci.nP ownSelf qK l domJ.1).getAppFn = .const K usK :=
+    getAppFn_instantiateList_const hfin
+  have hheadB : (ordTargetDom Jm.lps ci.nP (nestedPinTermsSelf p st) q l domJ.1).getAppFn
+      = .const KB usB :=
+    getAppFn_instantiateList_const hfinB
+  exact nestedOrdNormOk_at_refl h hk hg hgn hciJ hown hm₀ hmapR hqK hq hqn hks hci hJm hj hkf
+    hcJ hsJ hl hdJ hrec hord (ordRootNorm_const hheadR) hfire hinst
+    (ordRootNorm_const hheadB)
+
 end ConLeche
