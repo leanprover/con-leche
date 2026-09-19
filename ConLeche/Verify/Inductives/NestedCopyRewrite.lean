@@ -1998,4 +1998,51 @@ theorem replaceAllNested_mkPisB_inv :
         exact ⟨(ty, b'.2) :: bs, res, by rw [mkPisB_cons, hbs], by
           simp only [List.length_cons, hbsl]⟩
 
+/-! ## (R7) The fire touches the head and no ARGUMENT (task #315 WIDE (3) (4c))
+
+`replaceAllNested_occurrence` reads the walk's result at a fired
+occurrence off the walk's FIRST line: the top-down replace asks
+`replaceIfNested` before it descends, and a firing step returns the
+mimic applied to the block's parameters and the occurrence's INDEX
+arguments — which it neither visits nor rebuilds.  So the rewrite is
+the identity on every argument past the container's parameters, and
+that is a fact about WHERE the walk fires rather than about what it
+does to what it replaces: no congruence, no `ReadRel`, no transport.
+
+This is the first of the three gaps the wide identification's pin half
+is named in.  The reading of a copy's stored field domain
+(`MutualCtorDataI.eisRead`) is taken at `getAppArgs.drop nP`, and this
+is what puts the UN-rewritten domain's own index arguments there.
+-/
+
+/-- **THE INDEX ARGUMENTS COME BACK VERBATIM** (task #315 WIDE (3)): at
+an occurrence the top-down replace fires on, the result is headed by a
+pin's auxiliary and its arguments past the BLOCK's parameters are the
+occurrence's arguments past the CONTAINER's — the walk replaced the
+maximal occurrence as a unit and descended into no argument. -/
+theorem replaceAllNested_occurrence_args {st st' : ElimState} {e e' : Expr}
+    {I : Name} {us : List Level} {args : List Expr} {cv : ConstantVal}
+    {caps : IndCaps} {ci : ContainerInfo} {nPB : Nat}
+    (he : e = Expr.mkAppN (.const I us) args)
+    (hfind : env.find? I = some (.indInfo cv caps))
+    (hci : containerInfo? env I = some ci)
+    (hnP : ci.nP ≤ args.length)
+    (hment : ((args.take ci.nP).any fun a =>
+      st.newNames.any fun T => a.mentionsConst T) = true)
+    (hloose : ∀ a ∈ args.take ci.nP, a.looseBVarsBounded 0 = true)
+    (hplen : params.length = nPB)
+    (hrun : replaceAllNested env blvls params pbs₀ st e = .ok (e', st')) :
+    e'.getAppArgs.drop nPB = args.drop ci.nP ∧
+      ∃ q : NestedPin, q ∈ st'.pins ∧
+        q.pin = Expr.mkAppN (.const I us) (args.take ci.nP) ∧
+        e'.getAppFn = Expr.const q.aux blvls := by
+  obtain ⟨q, hqm, hqp, rfl⟩ :=
+    replaceAllNested_occurrence he hfind hci hnP hment hloose hrun
+  refine ⟨?_, q, hqm, hqp, ?_⟩
+  · rw [Expr.getAppArgs_mkAppN, Expr.getAppArgs_mkAppN]
+    simp only [Expr.getAppArgs, List.nil_append]
+    rw [List.drop_left' hplen]
+  · rw [Expr.getAppFn_mkAppN, Expr.getAppFn_mkAppN]
+    rfl
+
 end ConLeche
