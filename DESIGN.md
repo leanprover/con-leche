@@ -75749,3 +75749,12 @@ reference clones `soko-instr`, `soko-ablate`, `soko-bisect`,
 reference checkouts' working trees were not touched; the sokonanoda
 clone is now a full clone.  Gates: nothing in ConLeche changed;
 `tests/no-local-paths.sh` OK; `git status` clean at the commit.
+
+**Maintainer's ruling on the recommendation (2026-09-19):** no
+cross-declaration caches, the whnf store included — a memo that
+outlives one declaration couples the check phase's records, which are
+independent by design (`InstalledEnv`, `GroupChecked`: each record is
+checked against its prefix from a fresh memo state, which is what lets
+the worker pool hand them out) and would make parallelism harder.  The
+item is off the table; what remains of §312's recommendation is the
+shipped core's per-step price.
