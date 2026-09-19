@@ -58,6 +58,56 @@ theorem Frame.proj_arg {d : Nat} {s : Name} {i : Nat} {e : Expr}
   simp only [Expr.looseBVarsBounded] at hb
   exact ⟨hw, hb, fun l hl => hL l (by simp [Expr.fvarLeaves, hl])⟩
 
+/-- The opened body's frame, at an arbitrary (well-framed) domain —
+`binder_congr`'s `hLo₁`/`hLo₂` plus its two scoping arguments. -/
+theorem Frame.open_body {d : Nat} {ty' bd : Expr} (hty' : Frame d ty')
+    (hwb : Expr.WScoped d bd) (hbb : bd.looseBVarsBounded 1 = true)
+    (hLb : Expr.LeavesBounded bd) :
+    Frame (d + 1) (bd.instantiate1 (.fvar d ty')) := by
+  refine ⟨Expr.WScoped.instantiate1 hty'.1 0 hwb,
+    ConLeche.looseBVarsBounded_instantiate1 bd 0 hbb, ?_⟩
+  intro l hl
+  rcases ConLeche.Expr.fvarLeaves_instantiate1 bd 0 hl with h2 | h2
+  · exact hLb l h2
+  · rw [ConLeche.Expr.fvarLeaves] at h2
+    rcases List.mem_cons.mp h2 with rfl | h3
+    · exact hty'.2.1
+    · exact hty'.2.2 l h3
+
+theorem Frame.forallE_ty {d : Nat} {ty bd : Expr} {mb : ConLeche.BinderMeta}
+    (h : Frame d (.forallE ty bd mb)) : Frame d ty := by
+  obtain ⟨hw, hb, hL⟩ := h
+  simp only [Expr.WScoped] at hw
+  simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
+  exact ⟨hw.1, hb.1, fun l hl => hL l (by simp [Expr.fvarLeaves, hl])⟩
+
+theorem Frame.forallE_open {d : Nat} {ty bd ty' : Expr}
+    {mb : ConLeche.BinderMeta} (h : Frame d (.forallE ty bd mb))
+    (hty' : Frame d ty') :
+    Frame (d + 1) (bd.instantiate1 (.fvar d ty')) := by
+  obtain ⟨hw, hb, hL⟩ := h
+  simp only [Expr.WScoped] at hw
+  simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
+  exact Frame.open_body hty' hw.2 hb.2
+    (fun l hl => hL l (by simp [Expr.fvarLeaves, hl]))
+
+theorem Frame.lam_ty {d : Nat} {ty bd : Expr} {mb : ConLeche.BinderMeta}
+    (h : Frame d (.lam ty bd mb)) : Frame d ty := by
+  obtain ⟨hw, hb, hL⟩ := h
+  simp only [Expr.WScoped] at hw
+  simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
+  exact ⟨hw.1, hb.1, fun l hl => hL l (by simp [Expr.fvarLeaves, hl])⟩
+
+theorem Frame.lam_open {d : Nat} {ty bd ty' : Expr}
+    {mb : ConLeche.BinderMeta} (h : Frame d (.lam ty bd mb))
+    (hty' : Frame d ty') :
+    Frame (d + 1) (bd.instantiate1 (.fvar d ty')) := by
+  obtain ⟨hw, hb, hL⟩ := h
+  simp only [Expr.WScoped] at hw
+  simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
+  exact Frame.open_body hty' hw.2 hb.2
+    (fun l hl => hL l (by simp [Expr.fvarLeaves, hl]))
+
 theorem Frame.of_not_hasFvar {d : Nat} {e : Expr} (hf : e.hasFvar = false)
     (hb : e.looseBVarsBounded 0 = true) : Frame d e :=
   ⟨Expr.WScoped.of_not_hasFvar hf, hb, Expr.LeavesBounded.of_not_hasFvar hf⟩
@@ -156,6 +206,18 @@ theorem denoteMeta_natSuccConst {acval : Name → (Name → Nat) → AnnotTerm}
           using h3.1
       | _ => simp [ConLeche.natSuccOk] at h3
     rw [denoteMeta_const hf (by simp [hlp]), hlp]
+
+/-- The opened body's reading does not see the domain annotation
+(`binder_congr`'s `hva₁'`). -/
+theorem denoteMeta_open_rename {acval : Name → (Name → Nat) → AnnotTerm}
+    {d : Nat} {bd ty ty' : Expr} {ba : AnnotTerm}
+    (h : denoteMeta acval env φ (d + 1) (bd.instantiate1 (.fvar d ty))
+      = some ba) :
+    denoteMeta acval env φ (d + 1) (bd.instantiate1 (.fvar d ty'))
+      = some ba := by
+  rw [denoteMeta_erasedEq (Expr.ErasedEq.instantiate1 (Expr.ErasedEq.rfl bd)
+    (show Expr.ErasedEq (.fvar d ty') (.fvar d ty) from rfl))]
+  exact h
 
 /-! ## The constant congruence (`Steps/DefEq.lean:844`) -/
 

@@ -115,7 +115,21 @@ theorem DefEq.forallE_sound {d : Nat} {ty₁ body₁ ty₂ body₂ : Expr}
       (body₂.instantiate1 (.fvar d ty₂)))
     (hpw : m₁.pw = m₂.pw) :
     DefEqSem m φ d (.forallE ty₁ body₁ m₁) (.forallE ty₂ body₂ m₂) := by
-  sorry
+  intro hfa hfb Δa aa ba hCa hCb haa hba hga hgb ρ hρ
+  obtain ⟨ta₁, ba₁, hta₁, hva₁, rfl⟩ := denoteMeta_forallE_inv haa
+  obtain ⟨ta₂, ba₂, hta₂, hva₂, rfl⟩ := denoteMeta_forallE_inv hba
+  obtain ⟨hoT₁, hoB₁⟩ := Graded.pi hga
+  obtain ⟨hoT₂, hoB₂⟩ := Graded.pi hgb
+  have hdom : ∀ σ : Nat → V, Sat V Δa σ → interp V σ ta₁ = interp V σ ta₂ :=
+    fun σ hσ => hty hfa.forallE_ty hfb.forallE_ty hCa.forallE_ty
+      hCb.forallE_ty hta₁ hta₂ hoT₁ hoT₂ σ hσ
+  rw [hpw]
+  refine deqStep_piCong (hdom ρ hρ) (fun x hx => ?_)
+  exact hbody (hfa.forallE_open hfb.forallE_ty) (hfb.forallE_open hfb.forallE_ty)
+    (CtxOk.openCongC hCa.forallE_body hCb.forallE_ty hta₂ hoT₂ hdom)
+    (CtxOk.openCongC hCb.forallE_body hCb.forallE_ty hta₂ hoT₂ hdom)
+    (denoteMeta_open_rename hva₁) hva₂ hoB₁ (Graded.head_congr hdom hoB₂)
+    (cons x ρ) (Sat_cons V hρ hx)
 
 /-- `binder_congr`, the λ half. -/
 theorem DefEq.lam_sound {d : Nat} {ty₁ body₁ ty₂ body₂ : Expr}
@@ -125,7 +139,21 @@ theorem DefEq.lam_sound {d : Nat} {ty₁ body₁ ty₂ body₂ : Expr}
       (body₂.instantiate1 (.fvar d ty₂)))
     (hpw : m₁.pw = m₂.pw) :
     DefEqSem m φ d (.lam ty₁ body₁ m₁) (.lam ty₂ body₂ m₂) := by
-  sorry
+  intro hfa hfb Δa aa ba hCa hCb haa hba hga hgb ρ hρ
+  obtain ⟨ta₁, ba₁, hta₁, hva₁, rfl⟩ := denoteMeta_lam_inv haa
+  obtain ⟨ta₂, ba₂, hta₂, hva₂, rfl⟩ := denoteMeta_lam_inv hba
+  obtain ⟨hoT₁, hoB₁⟩ := Graded.lam hga
+  obtain ⟨hoT₂, hoB₂⟩ := Graded.lam hgb
+  have hdom : ∀ σ : Nat → V, Sat V Δa σ → interp V σ ta₁ = interp V σ ta₂ :=
+    fun σ hσ => hty hfa.lam_ty hfb.lam_ty hCa.lam_ty
+      hCb.lam_ty hta₁ hta₂ hoT₁ hoT₂ σ hσ
+  rw [hpw]
+  refine deqStep_lamCong (hdom ρ hρ) (fun x hx => ?_)
+  exact hbody (hfa.lam_open hfb.lam_ty) (hfb.lam_open hfb.lam_ty)
+    (CtxOk.openCongC hCa.lam_body hCb.lam_ty hta₂ hoT₂ hdom)
+    (CtxOk.openCongC hCb.lam_body hCb.lam_ty hta₂ hoT₂ hdom)
+    (denoteMeta_open_rename hva₁) hva₂ hoB₁ (Graded.head_congr hdom hoB₂)
+    (cons x ρ) (Sat_cons V hρ hx)
 
 /-- Per-node congruence (`spine_congr`'s one step, `Steps/Stuck.lean:270`). -/
 theorem DefEq.app_sound {d : Nat} {f₁ a₁ f₂ a₂ : Expr}
