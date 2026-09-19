@@ -2330,12 +2330,10 @@ theorem NestedPinsRun.ordTgtReadAt {pbs : List (Expr × ConLeche.BinderMeta)}
       = .const K usK)
     (hciK : ConLeche.containerInfo? env K = some ciK) :
     OrdTargetRead (V := V) mp₁'.base2.acval (ENV₁) ψ ρp b.nP l
-      (l + ConLeche.domPiDepth
-        (ConLeche.ordTargetDomL lpsC ((D).ownPinTerms lps) (q₀ + i') dom.1))
-      ciK.nP ((pinsS.getD q₀ default).Ds ψ)
+      ((pinsS.getD q₀ default).Ds ψ)
       ((dJ.Fss i' ((pinsS.getD q₀ default).ψJ ψ)).getD j [])
       (((mutEiss0 ctorsA.length eissF ψ).getD (b.ownOffset (p.k + q₀ + i') + j) []).getD l [])
-      (ConLeche.ordTargetDom lpsC dJ.nP ((D).ownPinTerms lps) (q₀ + i') l dom.1) := by
+      ciK.nP lpsC dJ.nP (q₀ + i') ((D).ownPinTerms lps) dom.1 := by
   classical
   -- the container record at this pin, its member and the block's own constructor
   obtain ⟨cc, J, ci, cI₀, cAB, cname, hciP, hJmem, hcc, hn, hty, hnf, hJname, hinst, hcj,
@@ -2422,10 +2420,10 @@ theorem NestedPinsRun.ordTgtReadAt {pbs : List (Expr × ConLeche.BinderMeta)}
       exact nomatch (hfinJ : Expr.forallE ty bo bm = Expr.const K usK)
     | _ => rfl
   -- the goal, in the run's own spelling
-  rw [show ((D).ownPinTerms lps) = ConLeche.nestedPinTermsSelf p st from R.ownPinTerms_eq SF lps,
-    ← hlpsJ, hnPci, hdep, Nat.add_zero]
   intro fs₁ hfs hfit
   rw [hDs, hψ] at hfit
+  rw [show ((D).ownPinTerms lps) = ConLeche.nestedPinTermsSelf p st from R.ownPinTerms_eq SF lps,
+    ← hlpsJ, hnPci, hdep, Nat.add_zero]
   rcases hrr with hkA | hkA
   · exact R.copyOrdFRightPinOrdTargetReadAt SF S hPD hi' hjA hlF
       (fun _ _ _ _ _ _ _ h1 h2 h3 h4 h5 h6 h7 => by
@@ -2459,5 +2457,17 @@ theorem nestedPinsInst_of {F : Nat} : NestedPinsInst V μ F := by
     dsF esF srcsF fvsPF xFvsF xrestF eissF tssF mp₁' R pinsS SF dsR xFvsR q₀ kJ dJ S
   obtain ⟨pbs, -, hPD⟩ := R.pinData
   exact R.pinGroupInst_of SF S hPD R.h.classify
+
+/-- **THE OWNER-HALF RESIDUAL, DISCHARGED** (task #315 WIDE (3), step
+1(a)): `NestedPinsOrdTgt` at every run and every pin group, from
+`NestedPinsRun.ordTgtReadAt`. -/
+theorem nestedPinsOrdTgt_of {F : Nat} : NestedPinsOrdTgt V μ F := by
+  intro env mp p st b envAux stored ctorsR fmsA ctorsA₀ fms f₀ ctorsA sortss kinds mp₁ ppsF W idxF
+    dsF esF srcsF fvsPF xFvsF xrestF eissF tssF mp₁' R pinsS SF dsR xFvsR q₀ kJ dJ S
+  intro ψ ρp hsat i' hi' j hj l hl _hord hrss hpinT cA bs rr dom lps lpsC hjA hstrip hdom
+    i₀ hi₀ ciC Jm hciC hJmC hlpsE K usK ciK hfin hciK
+  obtain ⟨pbs, -, hPD⟩ := R.pinData
+  exact R.ordTgtReadAt SF S hPD ψ ρp hsat hi' hl hrss hpinT lps lpsC hjA hstrip hdom hi₀ hciC
+    hJmC hlpsE hfin hciK
 
 end ConLeche.Model

@@ -1101,16 +1101,23 @@ the head `fb` and the head container's parameters `Ps` are existential
 — nothing about them is claimed beyond their count, which is what the
 consumer splits the spine at.
 
-`cut` is `l` at a finitary field and `l + domPiDepth …` at a reflexive
-one, so the two arms are ONE statement; the caller supplies the cut. -/
+The cut is the field's own `l` at a finitary field and `l +
+domPiDepth …` at a reflexive one, so the two arms are ONE statement:
+the recomputation's own tower depth is a function of the arguments the
+predicate already takes, and no call site spells it. -/
 @[expose] def OrdTargetRead (acval : Name → (Name → Nat) → AnnotTerm) (env : Env)
-    (ψ : Name → Nat) (ρp : Nat → V) (nP l cut nPK : Nat)
-    (Ds Fs Eis : List AnnotTerm) (dtm : Expr) : Prop :=
+    (ψ : Name → Nat) (ρp : Nat → V) (nP l : Nat) (Ds Fs Eis : List AnnotTerm)
+    (nPK : Nat) (lpsC : List Name) (nPJ q : Nat) (ownSelf : List Expr) (dom : Expr) : Prop :=
   ∀ fs₁ : List V, fs₁.length = l →
     SpineFit (consList (Ds.map (interp V ρp)) ρp) (Fs.take l) fs₁ →
     ∃ (fb : AnnotTerm) (Ps : List AnnotTerm), Ps.length = nPK ∧
-      denoteMeta acval env ψ (nP + cut)
-          (Expr.instSeq (ConLeche.Verify.openFvars nP cut) (cut - 1) dtm)
+      denoteMeta acval env ψ
+          (nP + (l + ConLeche.domPiDepth (ConLeche.ordTargetDomL lpsC ownSelf q dom)))
+          (Expr.instSeq
+            (ConLeche.Verify.openFvars nP
+              (l + ConLeche.domPiDepth (ConLeche.ordTargetDomL lpsC ownSelf q dom)))
+            (l + ConLeche.domPiDepth (ConLeche.ordTargetDomL lpsC ownSelf q dom) - 1)
+            (ConLeche.ordTargetDom lpsC nPJ ownSelf q l dom))
         = some (AnnotTerm.mkAppN fb (Ps ++ Eis))
 
 /-- **The pins' shapes of a stored block** against a global assignment

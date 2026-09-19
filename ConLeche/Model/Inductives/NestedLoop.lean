@@ -132,7 +132,18 @@ theorem NestedPinGroup.crossEnv {env₁ env₂ : Env} {m₁ : EnvModel V env₁}
       obtain ⟨cvT, cvR, mI, rP, rules, hI⟩ := G.rep i hi
       obtain ⟨cv, caps, hf⟩ := hI.pinsFound qK hqK
       exact congrFun (hag _ (by rw [hf]; rfl)) _
-    entry := G.entry }
+    entry := G.entry
+    -- the owner-half tie (task #315 WIDE (3), step 1(a)) is a
+    -- `denoteMeta` CONCLUSION at the block's own parameter frame, so it
+    -- crosses on `hde` alone: every other object it names — the pins'
+    -- records, the container's stored constructor, the own-pin table —
+    -- is read at the PRE-BLOCK environment, which does not move.
+    ordTgt := fun ψ ρp hsat i' hi' j hj l hl hord hrss hpinT cA bs rr dom lps lpsC hjA hstrip
+        hdom i₀ hi₀ ciC Jm hciC hJmC hlpsE Kn usK ciK hfin hciK fs₁ hfs hfit => by
+      obtain ⟨fb, Ps, hlen, hd⟩ := G.ordTgt ψ ρp hsat i' hi' j hj l hl hord hrss hpinT cA bs rr
+        dom lps lpsC hjA hstrip hdom i₀ hi₀ ciC Jm hciC hJmC hlpsE Kn usK ciK hfin hciK fs₁ hfs
+        hfit
+      exact ⟨fb, Ps, hlen, hde _ _ _ hd⟩ }
 
 /-! ## The two named facts' interfaces -/
 
