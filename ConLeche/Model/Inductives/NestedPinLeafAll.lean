@@ -5,6 +5,7 @@ import ConLeche.Model.Inductives.NestedAux
 import ConLeche.Model.Inductives.ContainerCross
 public import ConLeche.Model.Inductives.NestedCopyIdx
 import ConLeche.Model.Inductives.NestedInstMap
+import ConLeche.Verify.Inductives.NestedGroupInv
 public section
 
 /-!
@@ -1575,6 +1576,9 @@ theorem nestedPinShapes_of (m : EnvModel V env₂) {B : ContainerInfo → BlockM
         ∀ i', i' < kJ → ((D).pinAt (q₀ + i')).DsE = ((D).pinAt q₀).DsE)
     (hcont : ∀ q, q < pinsS.length →
       ∃ ci : ContainerInfo, ConLeche.containerInfo? env₂ ((D).pinAt q).J = some ci)
+    (hcontE : ∀ q, q < pinsS.length → ∀ ci : ContainerInfo,
+      ConLeche.containerInfo? env₂ ((D).pinAt q).J = some ci →
+      ConLeche.containerInfo? env ((D).pinAt q).J = some ci)
     (hdist : ∀ (q q' : Nat) (lps : List Name), q < (D).nPins → q' < (D).nPins →
       ((D).pinAt q).ownAt (D).nP lps (lps.map Level.param)
           (ConLeche.containerParamOpeners (D).nP)
@@ -1606,10 +1610,16 @@ theorem nestedPinShapes_of (m : EnvModel V env₂) {B : ContainerInfo → BlockM
     -- two agree exactly because the own-pin table is INJECTIVE at this
     -- spelling — `pinsDistinctAt`, K.31's twin, which the block's own
     -- read-back proves and the caller hands in.
-    intro ψ i' hi' j hj l hl hrs hrc cA bs rr dom lps hjA hst hdm M us hhd
+    intro ψ i' hi' j hj l hl hrs hrc cA bs rr dom lps hjA hst hdm lpsC Jm hJm hlpsE M us hhd
     simp only [nestedPc, getD_drop, ← Nat.add_assoc] at hrc
     obtain ⟨σ, -, -, -, -, -, -, -, -, hordσ⟩ := G.inst
-    obtain ⟨hmem, hpin⟩ := hordσ ψ i' hi' j hj l hl hrs hrc cA bs rr dom lps hjA hst hdm M us hhd
+    -- the GUARD (task #315 WIDE (3), option 2): the clause names the
+    -- container MEMBER whose level parameters `ordTargetDom` cuts at.
+    -- `hordσ` names that container at an ARBITRARY member of the group
+    -- — so this side hands in the one it already holds, at its own
+    -- member `i`, read at the ELIMINATION's environment (`hcontE`).
+    obtain ⟨hmem, hpin⟩ := hordσ ψ i' hi' j hj l hl hrs hrc cA bs rr dom lps hjA hst hdm
+      lpsC i hi ci Jm (by rw [← hqe]; exact hcontE q hq ci hci) hJm hlpsE M us hhd
     refine ⟨fun mm hmm => ?_, fun z hz hnm hterm => ?_⟩
     · simp only [nestedPc, ← Nat.add_assoc]
       exact hmem mm hmm
@@ -1624,8 +1634,8 @@ theorem nestedPinShapes_of (m : EnvModel V env₂) {B : ContainerInfo → BlockM
         rw [List.getD_eq_getElem?_getD, List.getElem?_map, List.getElem?_range hy]
         rfl
       obtain ⟨rhs, hrhs⟩ : ∃ e : Expr, e = Expr.mkAppN
-          (ConLeche.ordTargetDom (B ci).nP ((D).ownPinTerms lps) (q₀ + i') l dom.1).getAppFn
-          ((ConLeche.ordTargetDom (B ci).nP ((D).ownPinTerms lps) (q₀ + i') l
+          (ConLeche.ordTargetDom lpsC (B ci).nP ((D).ownPinTerms lps) (q₀ + i') l dom.1).getAppFn
+          ((ConLeche.ordTargetDom lpsC (B ci).nP ((D).ownPinTerms lps) (q₀ + i') l
             dom.1).getAppArgs.take ((D).pinAt z).nPJ) := ⟨_, rfl⟩
       rw [← hrhs] at hterm
       have hzT : z < ((D).ownPinTerms lps).length := by rw [hlenT]; exact hz
@@ -2077,13 +2087,17 @@ structure GroupFacts (st : ElimState) (m : EnvModel V env₂) (q₀ kJ : Nat) (d
     (dJ.ctorsM i')[j]? = some cA →
     cA.1.type.stripPis (dJ.nP + cA.2) = some (bs, rr) →
     bs[dJ.nP + l]? = some dom →
+    ∀ (lpsC : List Name) (i₀ : Nat), i₀ < kJ →
+    ∀ (ciC : ContainerInfo) (Jm : ContainerMember),
+    ConLeche.containerInfo? env ((D).pinAt (q₀ + i₀)).J = some ciC →
+    ciC.members[i']? = some Jm → Jm.lps = lpsC →
     ∀ (g : Nat), g < st.pins.length → ∀ gn : ConLeche.NestedPin, st.pins[g]? = some gn →
     ∀ (ciO : ContainerInfo), ConLeche.containerInfo? env gn.container = some ciO →
     ∀ (ownT : List Expr), ConLeche.containerOwnPinsSelf env gn.container = some ownT →
     ∀ (mapR : List Nat), ConLeche.nestedInstMapAt env st g = some mapR →
     ∀ qK, qK < ownT.length → mapR.getD qK st.pins.length = q₀ + i' →
     ∀ (M : Name) (us : List Level),
-    (ConLeche.ordTargetDom dJ.nP ownT qK l dom.1).getAppFn = .const M us →
+    (ConLeche.ordTargetDom lpsC dJ.nP ownT qK l dom.1).getAppFn = .const M us →
     (∀ mm, (ciO.members.map (·.name)).findIdx? (· == M) = some mm →
         ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
           (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0 = p.k + gn.grpBase + mm) ∧
@@ -2091,8 +2105,8 @@ structure GroupFacts (st : ElimState) (m : EnvModel V env₂) (q₀ kJ : Nat) (d
       (ciO.members.map (·.name)).findIdx? (· == M) = none →
       ConLeche.containerInfo? env M = some ciM →
       ownT.findIdx? (fun e => e == Expr.mkAppN
-          (ConLeche.ordTargetDom dJ.nP ownT qK l dom.1).getAppFn
-          ((ConLeche.ordTargetDom dJ.nP ownT qK l dom.1).getAppArgs.take ciM.nP)) = some qJ →
+          (ConLeche.ordTargetDom lpsC dJ.nP ownT qK l dom.1).getAppFn
+          ((ConLeche.ordTargetDom lpsC dJ.nP ownT qK l dom.1).getAppArgs.take ciM.nP)) = some qJ →
       ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
         (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0 = p.k + mapR.getD qJ st.pins.length)
   idx : ∀ i, i < kJ → ∀ (ψ : Name → Nat) (i' : Nat), i' < kJ →
@@ -6112,6 +6126,7 @@ theorem nestedPinsEntry_of_le_all {F : Nat} (hSh : NestedPinsShape V μ F)
     · -- K.67 at the group, as the run states it (`instOrdTgtAt`)
       obtain ⟨pbs, -, hPD⟩ := R.pinData
       intro ψ₂ i₂ hi₂ j₂ hj₂ l₂ hl₂ hordR hrss hge cA bs rr dom hjA hst hdm
+        lpsC i₀ hi₀ ciC Jm hciC hJmC hlpsE
         g hg gn hgn ciO hciO ownT hownT mapR hmapR qK hqK hqm M us hhd
       obtain ⟨cvT', caps', cvR', mI', rP', rules', -, hI', -⟩ := S'.stored i₂ hi₂
       have hlF : l₂ < cA.2 := by
@@ -6134,9 +6149,24 @@ theorem nestedPinsEntry_of_le_all {F : Nat} (hSh : NestedPinsShape V μ F)
         have hgr := (S'.grp i₂ hi₂).1
         rw [← pinAtE_eq] at hgr
         exact hgr
+      -- the guard's container is named at an ARBITRARY member of the
+      -- group; it is THIS member's, because both model `d`
+      -- (`NestedPinGroupSyn.modeled`) and a container is determined by
+      -- its member names and parameter count
+      have hlpsC : ∀ ciP : ContainerInfo,
+          ConLeche.containerInfo? env (pinsS.getD (a + i₂) default).J = some ciP →
+          ∀ Jm' : ContainerMember, ciP.members[i₂]? = some Jm' → Jm'.lps = lpsC := by
+        intro ciP hciP' Jm' hJm'
+        have CMP := S'.modeled i₂ hi₂ ciP hciP'
+        have CMC := S'.modeled i₀ hi₀ ciC hciC
+        obtain rfl : ciP = ciC :=
+          ConLeche.containerInfo?_eq_of_names hciP' hciC (CMP.nP.symm.trans CMC.nP)
+            (CMP.memberNames_eq.symm.trans CMC.memberNames_eq)
+        obtain rfl : Jm' = Jm := Option.some.inj (hJm'.symm.trans hJmC)
+        exact hlpsE
       exact R.instOrdTgtAt SF S' hPD R.h.classify hi₂ hgb
         (fun ciJ hciJ => S'.modeled i₂ hi₂ ciJ hciJ)
-        hjA hlF hordC hrss hge hst hdm hg hgn hciO hownT hmapR hqK hqm hhd
+        hjA hlF hordC hrss hge hst hdm hlpsC hg hgn hciO hownT hmapR hqK hqm hhd
     · intro i₂ hi₂ ψ₂ i₃ hi₃
       exact nestedPinsIdx mp p st b envAux stored ctorsR fmsA ctorsA₀ fms f₀ ctorsA sortss kinds
         mp₁ ppsF W idxF dsF esF srcsF fvsPF xFvsF xrestF eissF tssF mp₁' R pinsS SF dsR xFvsR

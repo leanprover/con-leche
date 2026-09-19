@@ -931,6 +931,10 @@ theorem NestedPinsRun.instOrdTgtAt {pbs : List (Expr × ConLeche.BinderMeta)}
     {bs : List (Expr × ConLeche.BinderMeta)} {rr : Expr}
     (hstrip : cAJ.1.type.stripPis (dJ.nP + cAJ.2) = some (bs, rr))
     {dom : Expr × ConLeche.BinderMeta} (hdomM : bs[dJ.nP + l]? = some dom)
+    {lpsC : List Name}
+    (hlpsC : ∀ ciP : ContainerInfo,
+      ConLeche.containerInfo? env (pinsS.getD (q₀ + i') default).J = some ciP →
+      ∀ Jm : ContainerMember, ciP.members[i']? = some Jm → Jm.lps = lpsC)
     {g : Nat} (hg : g < st.pins.length) {gn : ConLeche.NestedPin}
     (hgn : st.pins[g]? = some gn)
     {ciO : ContainerInfo} (hciO : ConLeche.containerInfo? env gn.container = some ciO)
@@ -940,7 +944,7 @@ theorem NestedPinsRun.instOrdTgtAt {pbs : List (Expr × ConLeche.BinderMeta)}
     {qK : Nat} (hqK : qK < ownSelf.length)
     (hqm : mapR.getD qK st.pins.length = q₀ + i')
     {M : Name} {us : List Level}
-    (hhead : (ConLeche.ordTargetDom dJ.nP ownSelf qK l dom.1).getAppFn = .const M us) :
+    (hhead : (ConLeche.ordTargetDom lpsC dJ.nP ownSelf qK l dom.1).getAppFn = .const M us) :
     (∀ mm, (ciO.members.map (·.name)).findIdx? (· == M) = some mm →
         ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
           (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0 = p.k + gn.grpBase + mm) ∧
@@ -948,8 +952,8 @@ theorem NestedPinsRun.instOrdTgtAt {pbs : List (Expr × ConLeche.BinderMeta)}
       (ciO.members.map (·.name)).findIdx? (· == M) = none →
       ConLeche.containerInfo? env M = some ciM →
       ownSelf.findIdx? (fun e => e == Expr.mkAppN
-          (ConLeche.ordTargetDom dJ.nP ownSelf qK l dom.1).getAppFn
-          ((ConLeche.ordTargetDom dJ.nP ownSelf qK l dom.1).getAppArgs.take ciM.nP)) = some qJ →
+          (ConLeche.ordTargetDom lpsC dJ.nP ownSelf qK l dom.1).getAppFn
+          ((ConLeche.ordTargetDom lpsC dJ.nP ownSelf qK l dom.1).getAppArgs.take ciM.nP)) = some qJ →
       ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
         (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0 = p.k + mapR.getD qJ st.pins.length) := by
   classical
@@ -1065,9 +1069,11 @@ theorem NestedPinsRun.instOrdTgtAt {pbs : List (Expr × ConLeche.BinderMeta)}
   subst hdd
   have hpinJ : (pinAtE st (q₀ + i')).container = (pinsS.getD (q₀ + i') default).J :=
     (SF.pinRec _ _ PD.pin).1.symm
-  have hhead' : (ConLeche.ordTargetDom ci.nP ownSelf qK l dom.1).getAppFn = .const M us := by
-    rw [hnPci]; exact hhead
-  rw [← hnPci]
+  have hlps' : J₂.lps = lpsC := hlpsC ci hciP J₂ hJ₂
+  have hhead' : (ConLeche.ordTargetDom J₂.lps ci.nP ownSelf qK l dom.1).getAppFn
+      = .const M us := by
+    rw [hlps', hnPci]; exact hhead
+  rw [← hnPci, ← hlps']
   exact ConLeche.nestedOrdTargetOk_at_refl R.hK67 hkP hg hgn hciO hown hmapR hqK hqm
     PD.pin hkq (by rw [hpinJ]; exact hciP)
     (by rw [hgb, Nat.add_sub_cancel_left]; exact hJ₂)
@@ -1098,8 +1104,12 @@ theorem NestedPinsRun.instOrdSelfAt {pbs : List (Expr × ConLeche.BinderMeta)}
     {bs : List (Expr × ConLeche.BinderMeta)} {rr : Expr}
     (hstrip : cAJ.1.type.stripPis (dJ.nP + cAJ.2) = some (bs, rr))
     {dom : Expr × ConLeche.BinderMeta} (hdomM : bs[dJ.nP + l]? = some dom)
+    {lpsC : List Name}
+    (hlpsC : ∀ ciP : ContainerInfo,
+      ConLeche.containerInfo? env (pinsS.getD (q₀ + i') default).J = some ciP →
+      ∀ Jm : ContainerMember, ciP.members[i']? = some Jm → Jm.lps = lpsC)
     {M : Name} {us : List Level}
-    (hhead : (ConLeche.ordTargetDom dJ.nP (ConLeche.nestedPinTermsSelf p st)
+    (hhead : (ConLeche.ordTargetDom lpsC dJ.nP (ConLeche.nestedPinTermsSelf p st)
       (q₀ + i') l dom.1).getAppFn = .const M us) :
     (∀ mm, p.memberNames.findIdx? (· == M) = some mm →
         ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
@@ -1108,9 +1118,9 @@ theorem NestedPinsRun.instOrdSelfAt {pbs : List (Expr × ConLeche.BinderMeta)}
       p.memberNames.findIdx? (· == M) = none →
       ConLeche.containerInfo? env M = some ciM →
       (ConLeche.nestedPinTermsSelf p st).findIdx? (fun e => e == Expr.mkAppN
-          (ConLeche.ordTargetDom dJ.nP (ConLeche.nestedPinTermsSelf p st)
+          (ConLeche.ordTargetDom lpsC dJ.nP (ConLeche.nestedPinTermsSelf p st)
             (q₀ + i') l dom.1).getAppFn
-          ((ConLeche.ordTargetDom dJ.nP (ConLeche.nestedPinTermsSelf p st)
+          ((ConLeche.ordTargetDom lpsC dJ.nP (ConLeche.nestedPinTermsSelf p st)
             (q₀ + i') l dom.1).getAppArgs.take ciM.nP)) = some z →
       ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
         (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0 = p.k + z) := by
@@ -1225,10 +1235,11 @@ theorem NestedPinsRun.instOrdSelfAt {pbs : List (Expr × ConLeche.BinderMeta)}
   subst hdd
   have hpinJ : (pinAtE st (q₀ + i')).container = (pinsS.getD (q₀ + i') default).J :=
     (SF.pinRec _ _ PD.pin).1.symm
-  have hhead' : (ConLeche.ordTargetDom ci.nP (ConLeche.nestedPinTermsSelf p st)
+  have hlps' : J₂.lps = lpsC := hlpsC ci hciP J₂ hJ₂
+  have hhead' : (ConLeche.ordTargetDom J₂.lps ci.nP (ConLeche.nestedPinTermsSelf p st)
       (q₀ + i') l dom.1).getAppFn = .const M us := by
-    rw [hnPci]; exact hhead
-  rw [htg, ← hnPci]
+    rw [hlps', hnPci]; exact hhead
+  rw [htg, ← hnPci, ← hlps']
   exact ConLeche.nestedOrdSelfTargetOk_at_refl R.hK68 hkP hq PD.pin hkq
     (by rw [hpinJ]; exact hciP)
     (by rw [hgb, Nat.add_sub_cancel_left]; exact hJ₂)
@@ -2153,7 +2164,8 @@ theorem NestedPinsRun.pinGroupInst_of {pbs : List (Expr × ConLeche.BinderMeta)}
   · -- `hordσ`: K.68's row, `instOrdSelfAt` with the two tables and the
     -- two member-name lists identified (`ownPinTerms_eq`, the block's
     -- own names)
-    intro ψ i' hi' j hj l hl hord hrss cA bs rr dom lps hjA hstrip hdom M us hhead
+    intro ψ i' hi' j hj l hl hord hrss cA bs rr dom lps hjA hstrip hdom
+      lpsC i₀ hi₀ ciC Jm hciC hJmC hlpsE M us hhead
     obtain ⟨cvT', caps', cvR', mI', rP', rules', -, hI', -⟩ := S.stored i' hi'
     have hlF : l < cA.2 := by rw [← hI'.Fss_length hjA ((pinsS.getD q₀ default).ψJ ψ)]; exact hl
     obtain ⟨ci, hciP, CM⟩ := hci i' hi'
@@ -2179,9 +2191,24 @@ theorem NestedPinsRun.pinGroupInst_of {pbs : List (Expr × ConLeche.BinderMeta)}
       · exact absurd (Or.inr hrf) hne
     rw [R.ownPinTerms_eq SF lps] at hhead ⊢
     rw [hnames]
+    -- the guard's container is named at an ARBITRARY member of the
+    -- group; it is THIS member's, because both model `dJ`
+    -- (`NestedPinGroupSyn.modeled`) and a container is determined by
+    -- its member names and parameter count
+    have hlpsC : ∀ ciP : ContainerInfo,
+        ConLeche.containerInfo? env (pinsS.getD (q₀ + i') default).J = some ciP →
+        ∀ Jm' : ContainerMember, ciP.members[i']? = some Jm' → Jm'.lps = lpsC := by
+      intro ciP hciP' Jm' hJm'
+      have CMP := S.modeled i' hi' ciP hciP'
+      have CMC := S.modeled i₀ hi₀ ciC hciC
+      obtain rfl : ciP = ciC :=
+        ConLeche.containerInfo?_eq_of_names hciP' hciC (CMP.nP.symm.trans CMC.nP)
+          (CMP.memberNames_eq.symm.trans CMC.memberNames_eq)
+      obtain rfl : Jm' = Jm := Option.some.inj (hJm'.symm.trans hJmC)
+      exact hlpsE
     have hbase := R.instOrdSelfAt SF S hPD hkindsRun hi' (hgb i' hi') (fun ciJ hh => by
         rw [hciP] at hh; obtain rfl := Option.some.inj hh; exact CM)
-      hjA hlF hordC hrss hstrip hdom hhead
+      hjA hlF hordC hrss hstrip hdom hlpsC hhead
     refine ⟨hbase.1, fun z hz hnm hfi => ?_⟩
     -- the matched entry's container IS the head `M`, and `pinNP` at
     -- that pin turns the clause's `nPJ` into the `ContainerInfo`'s own
@@ -2201,9 +2228,9 @@ theorem NestedPinsRun.pinGroupInst_of {pbs : List (Expr × ConLeche.BinderMeta)}
       rfl
     have hterm : (((D).pinAt z).ownAt b.nP lps (lps.map Level.param)
         (ConLeche.containerParamOpeners b.nP) == Expr.mkAppN
-          (ConLeche.ordTargetDom dJ.nP (ConLeche.nestedPinTermsSelf p st)
+          (ConLeche.ordTargetDom lpsC dJ.nP (ConLeche.nestedPinTermsSelf p st)
             (q₀ + i') l dom.1).getAppFn
-          ((ConLeche.ordTargetDom dJ.nP (ConLeche.nestedPinTermsSelf p st)
+          ((ConLeche.ordTargetDom lpsC dJ.nP (ConLeche.nestedPinTermsSelf p st)
             (q₀ + i') l dom.1).getAppArgs.take ((D).pinAt z).nPJ)) = true := by
       rw [← hentry, show (ConLeche.nestedPinTermsSelf p st).getD z default
           = (ConLeche.nestedPinTermsSelf p st)[z]'hzlt from by

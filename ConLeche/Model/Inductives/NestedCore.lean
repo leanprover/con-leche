@@ -369,16 +369,20 @@ records it sits beside. -/
       (dJ.ctorsM i')[j]? = some cA →
       cA.1.type.stripPis (dJ.nP + cA.2) = some (bs, rr) →
       bs[dJ.nP + l]? = some dom →
+      ∀ (lpsC : List Name) (i₀ : Nat), i₀ < kJ →
+      ∀ (ciC : ContainerInfo) (Jm : ContainerMember),
+      ConLeche.containerInfo? env ((D).pinAt (q₀ + i₀)).J = some ciC →
+      ciC.members[i']? = some Jm → Jm.lps = lpsC →
       ∀ (M : Name) (us : List Level),
-      (ConLeche.ordTargetDom dJ.nP ((D).ownPinTerms lps) (q₀ + i') l dom.1).getAppFn
+      (ConLeche.ordTargetDom lpsC dJ.nP ((D).ownPinTerms lps) (q₀ + i') l dom.1).getAppFn
           = .const M us →
       (∀ mm, (D).memberNames.findIdx? (· == M) = some mm →
           ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
             (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0 = mm) ∧
       (∀ z : Nat, z < (D).nPins → (D).memberNames.findIdx? (· == M) = none →
         ((D).ownPinTerms lps).findIdx? (fun e => e == Expr.mkAppN
-            (ConLeche.ordTargetDom dJ.nP ((D).ownPinTerms lps) (q₀ + i') l dom.1).getAppFn
-            ((ConLeche.ordTargetDom dJ.nP ((D).ownPinTerms lps) (q₀ + i') l
+            (ConLeche.ordTargetDom lpsC dJ.nP ((D).ownPinTerms lps) (q₀ + i') l dom.1).getAppFn
+            ((ConLeche.ordTargetDom lpsC dJ.nP ((D).ownPinTerms lps) (q₀ + i') l
               dom.1).getAppArgs.take ((D).pinAt z).nPJ)) = some z →
         ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
           (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0 = p.k + z))

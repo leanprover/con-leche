@@ -893,14 +893,14 @@ theorem nestedOrdTargetOk_at_refl {env : Env} {p : NestedParts} {b : MutualBlock
     (hkt : p.k ≤ t)
     (hord : mentionsMember (ci.members.map (·.name)) domJ.1 = false)
     {M : Name} {us : List Level}
-    (hhead : (ordTargetDom ci.nP ownSelf qK l domJ.1).getAppFn = .const M us) :
+    (hhead : (ordTargetDom Jm.lps ci.nP ownSelf qK l domJ.1).getAppFn = .const M us) :
     (∀ mm, (ciJ.members.map (·.name)).findIdx? (· == M) = some mm →
         t = p.k + gn.grpBase + mm) ∧
     (∀ (ciM : ContainerInfo) (qJ : Nat),
       (ciJ.members.map (·.name)).findIdx? (· == M) = none →
       containerInfo? env M = some ciM →
-      ownSelf.findIdx? (fun e => e == Expr.mkAppN (ordTargetDom ci.nP ownSelf qK l domJ.1).getAppFn
-          ((ordTargetDom ci.nP ownSelf qK l domJ.1).getAppArgs.take ciM.nP)) = some qJ →
+      ownSelf.findIdx? (fun e => e == Expr.mkAppN (ordTargetDom Jm.lps ci.nP ownSelf qK l domJ.1).getAppFn
+          ((ordTargetDom Jm.lps ci.nP ownSelf qK l domJ.1).getAppArgs.take ciM.nP)) = some qJ →
       t = p.k + mapR.getD qJ st.pins.length) := by
   cases hms : nestedInstMaps env st with
   | none =>
@@ -977,9 +977,10 @@ theorem nestedOrdTargetOk_at {env : Env} {p : NestedParts} {b : MutualBlock}
     (hrec : (r == RecFieldKind.recursive || r == RecFieldKind.reflexive) = true)
     (hkt : p.k ≤ t)
     (hord : mentionsMember (ci.members.map (·.name)) domJ.1 = false)
-    {K : Name} {usK : List Level} (hfin : domJ.1.getAppFn = .const K usK)
+    {K : Name} {usK : List Level}
+    (hfin : (ordTargetDomL Jm.lps ownSelf qK domJ.1).getAppFn = .const K usK)
     {M : Name} {us : List Level}
-    (hhead : (Expr.instantiateList domJ.1
+    (hhead : (Expr.instantiateList (ordTargetDomL Jm.lps ownSelf qK domJ.1)
         (((ownSelf.getD qK default).getAppArgs.take ci.nP).reverse) l).getAppFn
       = .const M us) :
     (∀ mm, (ciJ.members.map (·.name)).findIdx? (· == M) = some mm →
@@ -988,21 +989,23 @@ theorem nestedOrdTargetOk_at {env : Env} {p : NestedParts} {b : MutualBlock}
       (ciJ.members.map (·.name)).findIdx? (· == M) = none →
       containerInfo? env M = some ciM →
       ownSelf.findIdx? (fun e => e == Expr.mkAppN
-          (Expr.instantiateList domJ.1
+          (Expr.instantiateList (ordTargetDomL Jm.lps ownSelf qK domJ.1)
             (((ownSelf.getD qK default).getAppArgs.take ci.nP).reverse) l).getAppFn
-          ((Expr.instantiateList domJ.1
+          ((Expr.instantiateList (ordTargetDomL Jm.lps ownSelf qK domJ.1)
             (((ownSelf.getD qK default).getAppArgs.take ci.nP).reverse) l).getAppArgs.take
               ciM.nP)) = some qJ →
       t = p.k + mapR.getD qJ st.pins.length) := by
-  have hnf : stripDomPis domJ.1 = domJ.1 ∧ domPiDepth domJ.1 = 0 := by
-    cases hd : domJ.1 with
+  have hnf : stripDomPis (ordTargetDomL Jm.lps ownSelf qK domJ.1)
+      = ordTargetDomL Jm.lps ownSelf qK domJ.1 ∧
+      domPiDepth (ordTargetDomL Jm.lps ownSelf qK domJ.1) = 0 := by
+    cases hd : ordTargetDomL Jm.lps ownSelf qK domJ.1 with
     | forallE ty bo bm =>
       rw [hd] at hfin
       have hc : Expr.forallE ty bo bm = Expr.const K usK := hfin
       exact nomatch hc
     | _ => exact ⟨rfl, rfl⟩
-  have hdm : ordTargetDom ci.nP ownSelf qK l domJ.1
-      = Expr.instantiateList domJ.1
+  have hdm : ordTargetDom Jm.lps ci.nP ownSelf qK l domJ.1
+      = Expr.instantiateList (ordTargetDomL Jm.lps ownSelf qK domJ.1)
           (((ownSelf.getD qK default).getAppArgs.take ci.nP).reverse) l := by
     unfold ordTargetDom
     rw [hnf.1, hnf.2, Nat.add_zero]
@@ -1042,14 +1045,14 @@ theorem nestedOrdSelfTargetOk_at_refl {env : Env} {p : NestedParts} {b : MutualB
     (hrec : (r == RecFieldKind.recursive || r == RecFieldKind.reflexive) = true)
     (hord : mentionsMember (ci.members.map (·.name)) domJ.1 = false)
     {M : Name} {us : List Level}
-    (hhead : (ordTargetDom ci.nP (nestedPinTermsSelf p st) q l domJ.1).getAppFn = .const M us) :
+    (hhead : (ordTargetDom Jm.lps ci.nP (nestedPinTermsSelf p st) q l domJ.1).getAppFn = .const M us) :
     (∀ mm, p.memberNames.findIdx? (· == M) = some mm → t = mm) ∧
     (∀ (ciM : ContainerInfo) (z : Nat),
       p.memberNames.findIdx? (· == M) = none →
       containerInfo? env M = some ciM →
       (nestedPinTermsSelf p st).findIdx? (fun e => e == Expr.mkAppN
-          (ordTargetDom ci.nP (nestedPinTermsSelf p st) q l domJ.1).getAppFn
-          ((ordTargetDom ci.nP (nestedPinTermsSelf p st) q l
+          (ordTargetDom Jm.lps ci.nP (nestedPinTermsSelf p st) q l domJ.1).getAppFn
+          ((ordTargetDom Jm.lps ci.nP (nestedPinTermsSelf p st) q l
             domJ.1).getAppArgs.take ciM.nP)) = some z →
       t = p.k + z) := by
   unfold nestedOrdSelfTargetOk nestedOrdSelfTargetAt at h
@@ -1102,9 +1105,10 @@ theorem nestedOrdSelfTargetOk_at {env : Env} {p : NestedParts} {b : MutualBlock}
     {domJ : Expr × BinderMeta} (hdJ : jbs[ci.nP + l]? = some domJ)
     (hrec : (r == RecFieldKind.recursive || r == RecFieldKind.reflexive) = true)
     (hord : mentionsMember (ci.members.map (·.name)) domJ.1 = false)
-    {K : Name} {usK : List Level} (hfin : domJ.1.getAppFn = .const K usK)
+    {K : Name} {usK : List Level}
+    (hfin : (ordTargetDomL Jm.lps (nestedPinTermsSelf p st) q domJ.1).getAppFn = .const K usK)
     {M : Name} {us : List Level}
-    (hhead : (Expr.instantiateList domJ.1
+    (hhead : (Expr.instantiateList (ordTargetDomL Jm.lps (nestedPinTermsSelf p st) q domJ.1)
         ((((nestedPinTermsSelf p st).getD q default).getAppArgs.take ci.nP).reverse)
         l).getAppFn = .const M us) :
     (∀ mm, p.memberNames.findIdx? (· == M) = some mm → t = mm) ∧
@@ -1112,22 +1116,24 @@ theorem nestedOrdSelfTargetOk_at {env : Env} {p : NestedParts} {b : MutualBlock}
       p.memberNames.findIdx? (· == M) = none →
       containerInfo? env M = some ciM →
       (nestedPinTermsSelf p st).findIdx? (fun e => e == Expr.mkAppN
-          (Expr.instantiateList domJ.1
+          (Expr.instantiateList (ordTargetDomL Jm.lps (nestedPinTermsSelf p st) q domJ.1)
             ((((nestedPinTermsSelf p st).getD q default).getAppArgs.take ci.nP).reverse)
             l).getAppFn
-          ((Expr.instantiateList domJ.1
+          ((Expr.instantiateList (ordTargetDomL Jm.lps (nestedPinTermsSelf p st) q domJ.1)
             ((((nestedPinTermsSelf p st).getD q default).getAppArgs.take ci.nP).reverse)
             l).getAppArgs.take ciM.nP)) = some z →
       t = p.k + z) := by
-  have hnf : stripDomPis domJ.1 = domJ.1 ∧ domPiDepth domJ.1 = 0 := by
-    cases hd : domJ.1 with
+  have hnf : stripDomPis (ordTargetDomL Jm.lps (nestedPinTermsSelf p st) q domJ.1)
+      = ordTargetDomL Jm.lps (nestedPinTermsSelf p st) q domJ.1 ∧
+      domPiDepth (ordTargetDomL Jm.lps (nestedPinTermsSelf p st) q domJ.1) = 0 := by
+    cases hd : ordTargetDomL Jm.lps (nestedPinTermsSelf p st) q domJ.1 with
     | forallE ty bo bm =>
       rw [hd] at hfin
       have hc : Expr.forallE ty bo bm = Expr.const K usK := hfin
       exact nomatch hc
     | _ => exact ⟨rfl, rfl⟩
-  have hdm : ordTargetDom ci.nP (nestedPinTermsSelf p st) q l domJ.1
-      = Expr.instantiateList domJ.1
+  have hdm : ordTargetDom Jm.lps ci.nP (nestedPinTermsSelf p st) q l domJ.1
+      = Expr.instantiateList (ordTargetDomL Jm.lps (nestedPinTermsSelf p st) q domJ.1)
           ((((nestedPinTermsSelf p st).getD q default).getAppArgs.take ci.nP).reverse) l := by
     unfold ordTargetDom
     rw [hnf.1, hnf.2, Nat.add_zero]

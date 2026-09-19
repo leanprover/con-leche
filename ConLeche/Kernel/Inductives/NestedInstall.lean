@@ -2532,9 +2532,23 @@ instantiates the same positions with `(containerParamOpeners ci.nP).reverse`).
 
 This is what makes the record a RECOMPUTATION rather than a reading:
 the owner's own elimination left no constant behind to ask. -/
-def ordTargetDom (nP : Nat) (ownSelf : List Expr) (qK l : Nat) (dom : Expr) : Expr :=
-  Expr.instantiateList (stripDomPis dom)
-    (((ownSelf.getD qK default).getAppArgs.take nP).reverse) (l + domPiDepth dom)
+def ordTargetLvls (ownSelf : List Expr) (qK : Nat) : List Level :=
+  match (ownSelf.getD qK default).getAppFn with
+  | .const _ us => us
+  | _ => []
+
+/-- The stored domain at the copy's LEVEL instantiation — `mkCopy`'s own
+substitution, performed before the cut so that the recomputed term is
+syntactically the minted pin (task #315 WIDE (3): without it the
+`findIdx?` into the own-pin table misses at five accepted blocks). -/
+def ordTargetDomL (lps : List Name) (ownSelf : List Expr) (qK : Nat) (dom : Expr) : Expr :=
+  dom.instantiateLevelParams lps (ordTargetLvls ownSelf qK)
+
+def ordTargetDom (lps : List Name) (nP : Nat) (ownSelf : List Expr) (qK l : Nat)
+    (dom : Expr) : Expr :=
+  Expr.instantiateList (stripDomPis (ordTargetDomL lps ownSelf qK dom))
+    (((ownSelf.getD qK default).getAppArgs.take nP).reverse)
+    (l + domPiDepth (ordTargetDomL lps ownSelf qK dom))
 
 
 /-- **A REWRITTEN ORDINARY FIELD'S TARGET IS THE OWNER'S OWN CLASS**
@@ -2621,20 +2635,20 @@ def nestedOrdTargetAt (env : Env) (p : NestedParts) (st : ElimState)
                               if !((r == .recursive || r == .reflexive) && p.k ≤ t) then true
                               else if mentionsMember memsK domJ.1 then true
                               else
-                                let dmJ := ordTargetDom ci.nP ownSelf qK l domJ.1
+                                let dmJ := ordTargetDom Jm.lps ci.nP ownSelf qK l domJ.1
                                 match dmJ.getAppFn with
                                 | .const M _ =>
                                   match memsJ.findIdx? (· == M) with
                                   | some mm => t == p.k + gn.grpBase + mm
                                   | none =>
                                     match containerInfo? env M with
-                                    | none => true
+                                    | none => false
                                     | some ciM =>
                                       match ownSelf.findIdx? (fun e => e ==
                                           Expr.mkAppN dmJ.getAppFn
                                             (dmJ.getAppArgs.take ciM.nP)) with
                                       | some qJ => t == p.k + mapR.getD qJ st.pins.length
-                                      | none => true
+                                      | none => false
                                 | _ => true
                             | _, _ => false
                       | _, _ => false
@@ -2724,20 +2738,20 @@ def nestedOrdSelfTargetAt (env : Env) (p : NestedParts) (st : ElimState)
                       if !(r == .recursive || r == .reflexive) then true
                       else if mentionsMember memsK domJ.1 then true
                       else
-                        let dmJ := ordTargetDom ci.nP terms q l domJ.1
+                        let dmJ := ordTargetDom Jm.lps ci.nP terms q l domJ.1
                         match dmJ.getAppFn with
                         | .const M _ =>
                           match p.memberNames.findIdx? (· == M) with
                           | some mm => t == mm
                           | none =>
                             match containerInfo? env M with
-                            | none => true
+                            | none => false
                             | some ciM =>
                               match terms.findIdx? (fun e => e ==
                                   Expr.mkAppN dmJ.getAppFn
                                     (dmJ.getAppArgs.take ciM.nP)) with
                               | some z => t == p.k + z
-                              | none => true
+                              | none => false
                         | _ => true
                     | _, _ => false
               | _, _ => false

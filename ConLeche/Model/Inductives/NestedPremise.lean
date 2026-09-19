@@ -1099,8 +1099,10 @@ unchanged. -/
       ((B ci).ctorsM i')[j]? = some cA →
       cA.1.type.stripPis ((B ci).nP + cA.2) = some (bs, rr) →
       bs[(B ci).nP + l]? = some dom →
+      ∀ (lpsC : List Name) (Jm : ContainerMember),
+      ci.members[i']? = some Jm → Jm.lps = lpsC →
       ∀ (M : Name) (us : List Level),
-      (ConLeche.ordTargetDom (B ci).nP (d.ownPinTerms lps) (q₀ + i') l dom.1).getAppFn
+      (ConLeche.ordTargetDom lpsC (B ci).nP (d.ownPinTerms lps) (q₀ + i') l dom.1).getAppFn
           = .const M us →
       (∀ mm, d.memberNames.findIdx? (· == M) = some mm → (pc (q₀ + i')).tgts j l = mm) ∧
       (∀ z : Nat, z < d.nPins →
@@ -1108,8 +1110,8 @@ unchanged. -/
         (d.pinAt z).ownAt d.nP lps (lps.map Level.param)
             (ConLeche.containerParamOpeners d.nP)
           = Expr.mkAppN
-              (ConLeche.ordTargetDom (B ci).nP (d.ownPinTerms lps) (q₀ + i') l dom.1).getAppFn
-              ((ConLeche.ordTargetDom (B ci).nP (d.ownPinTerms lps) (q₀ + i') l
+              (ConLeche.ordTargetDom lpsC (B ci).nP (d.ownPinTerms lps) (q₀ + i') l dom.1).getAppFn
+              ((ConLeche.ordTargetDom lpsC (B ci).nP (d.ownPinTerms lps) (q₀ + i') l
                 dom.1).getAppArgs.take (d.pinAt z).nPJ) →
         (pc (q₀ + i')).tgts j l = d.k + z)) ∧
     ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (d.params ψ).reverse ρp →
@@ -1225,8 +1227,10 @@ theorem PinShapes.rowTargetOrd {env : Env} {m : EnvModel V env} {B : ContainerIn
         ((B ci).ctorsM i')[j]? = some cA →
         cA.1.type.stripPis ((B ci).nP + cA.2) = some (bs, rr) →
         bs[(B ci).nP + l]? = some dom →
+        ∀ (lpsC : List Name) (Jm : ContainerMember),
+        ci.members[i']? = some Jm → Jm.lps = lpsC →
         ∀ (M : Name) (us : List Level),
-        (ConLeche.ordTargetDom (B ci).nP (d.ownPinTerms lps) (q₀ + i') l dom.1).getAppFn
+        (ConLeche.ordTargetDom lpsC (B ci).nP (d.ownPinTerms lps) (q₀ + i') l dom.1).getAppFn
             = .const M us →
         (∀ mm, d.memberNames.findIdx? (· == M) = some mm → (pc (q₀ + i')).tgts j l = mm) ∧
         (∀ z : Nat, z < d.nPins →
@@ -1234,8 +1238,8 @@ theorem PinShapes.rowTargetOrd {env : Env} {m : EnvModel V env} {B : ContainerIn
           (d.pinAt z).ownAt d.nP lps (lps.map Level.param)
               (ConLeche.containerParamOpeners d.nP)
             = Expr.mkAppN
-                (ConLeche.ordTargetDom (B ci).nP (d.ownPinTerms lps) (q₀ + i') l dom.1).getAppFn
-                ((ConLeche.ordTargetDom (B ci).nP (d.ownPinTerms lps) (q₀ + i') l
+                (ConLeche.ordTargetDom lpsC (B ci).nP (d.ownPinTerms lps) (q₀ + i') l dom.1).getAppFn
+                ((ConLeche.ordTargetDom lpsC (B ci).nP (d.ownPinTerms lps) (q₀ + i') l
                   dom.1).getAppArgs.take (d.pinAt z).nPJ) →
           (pc (q₀ + i')).tgts j l = d.k + z) := by
   obtain ⟨q₀, kJ, i, ci', hqe, hi, hci', hgv, -, -, hord, -⟩ := h q hq
