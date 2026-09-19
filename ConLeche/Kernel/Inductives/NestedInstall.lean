@@ -1134,6 +1134,15 @@ def stripDomPis : Expr → Expr
   | .forallE _ b _ => stripDomPis b
   | e => e
 
+/-- **How many binders `stripDomPis` removed** — `0` on a domain that
+is not a `Π`, so a finitary field's cut is unmoved.  A reflexive
+field's spine stands under its own telescope, so the parameters it
+mentions are that many `bvar`s further out, and any comparison against
+the container's own-pin table has to instantiate at the deeper cut. -/
+def domPiDepth : Expr → Nat
+  | .forallE _ b _ => domPiDepth b + 1
+  | _ => 0
+
 /-- **K.63's ARM at one field**: the same guard one `Π`-tower down —
 the domain is a non-empty `Π` telescope whose BODY is headed by
 `.const K` with `K` not a member of the container's own group, `K`
@@ -2400,8 +2409,16 @@ parameters, so `instantiateList … opens l` with the openers REVERSED
 maps `bvar (l + i)` to parameter `ci.nP - 1 - i`'s opener and leaves the
 earlier fields' variables alone.
 
-Reflexive nested fields fall outside the guard exactly as they do in
-K.60: their domain is a `Π`, so `getAppFn` is not a `.const`. -/
+**REFLEXIVE nested fields are INSIDE the guard** (task #315 K.65),
+folded in the way K.63 was folded into K.60's walk: the dispatch reads
+`stripDomPis domJ.1`, which is the identity on a domain that is not a
+`Π`, so a finitary field's verdict is unchanged character for
+character, and a reflexive field — whose domain IS a `Π` and which
+used to fall into the catch-all — is classified by the same arm.  Its
+spine stands under its own telescope, so the cut moves out by
+`domPiDepth domJ.1` (which is `0` in the finitary case); `| _ => true`
+now keeps only a domain that is neither, i.e. one whose `Π`-stripped
+body is not headed by a constant. -/
 def nestedInstMapOkAt (env : Env) (p : NestedParts) (st : ElimState)
     (maps? : Option (List (List Nat)))
     (kinds? : Option (List (List (List (RecFieldKind × Nat))))) : Bool :=
@@ -2427,14 +2444,16 @@ def nestedInstMapOkAt (env : Env) (p : NestedParts) (st : ElimState)
                   (List.range kf.length).all fun l =>
                     match kf[l]?, jbs[ci.nP + l]? with
                     | some (_, t), some domJ =>
-                      match domJ.1.getAppFn with
+                      let dm := stripDomPis domJ.1
+                      let cut := l + domPiDepth domJ.1
+                      match dm.getAppFn with
                       | .const K _ =>
                         if mems.contains K then true
                         else
                           match containerInfo? env K with
                           | none => true
                           | some ciK =>
-                            if (domJ.1.getAppArgs.take ciK.nP).any (mentionsMember mems) then
+                            if (dm.getAppArgs.take ciK.nP).any (mentionsMember mems) then
                               -- the own-pin table is read HERE and not above:
                               -- `containerOwnPinsSelf` costs two whole-environment
                               -- scans (`Env.find?` is a list walk) and a guarded
@@ -2444,8 +2463,8 @@ def nestedInstMapOkAt (env : Env) (p : NestedParts) (st : ElimState)
                               | none => false
                               | some own0 =>
                               match own0.findIdx? (fun e => e ==
-                                  Expr.instantiateList (Expr.mkAppN domJ.1.getAppFn
-                                    (domJ.1.getAppArgs.take ciK.nP)) opens l) with
+                                  Expr.instantiateList (Expr.mkAppN dm.getAppFn
+                                    (dm.getAppArgs.take ciK.nP)) opens cut) with
                               | some qK =>
                                 (maps.getD q []).getD qK st.pins.length == t - p.k
                               | none => false

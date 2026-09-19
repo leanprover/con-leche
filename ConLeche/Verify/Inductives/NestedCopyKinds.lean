@@ -681,9 +681,13 @@ theorem nestedInstMapOk_collapsed {env : Env} {st : ElimState}
   subst hσ12
   exact hq₁.symm.trans hq₂
 
-/-- **K.61's clause at an own-pin field**, in `nestedCopyPinFieldsOk_head`'s
-binders. -/
-theorem nestedInstMapOk_target {env : Env} {p : NestedParts} {b : MutualBlock}
+/-- **K.61's clause at an own-pin field, AT EITHER DEPTH** (task #315
+K.65): the inversion stated after the `Π`-strip, so that it answers at
+a REFLEXIVE nested field as well as at a finitary one.  `stripDomPis`
+is the identity on a domain that is not a `Π` and `domPiDepth` is `0`
+there, so `nestedInstMapOk_target` below is this theorem at a
+const-headed domain. -/
+theorem nestedInstMapOk_target_refl {env : Env} {p : NestedParts} {b : MutualBlock}
     {st : ElimState} {stored : List AuxStored}
     (h : nestedInstMapOk env p b st stored = true)
     {kinds : List (List (List (RecFieldKind × Nat)))}
@@ -700,19 +704,21 @@ theorem nestedInstMapOk_target {env : Env} {p : NestedParts} {b : MutualBlock}
     (hsJ : cJ.type.stripPis (ci.nP + cJ.nFields) = some (jbs, rJ))
     {l : Nat} {r : RecFieldKind} {t : Nat} (hl : kf[l]? = some (r, t))
     {domJ : Expr × BinderMeta} (hdJ : jbs[ci.nP + l]? = some domJ)
-    {K : Name} {us : List Level} (hhead : domJ.1.getAppFn = .const K us)
+    {K : Name} {us : List Level} (hhead : (stripDomPis domJ.1).getAppFn = .const K us)
     (hnm : ((ci.members.map (·.name)).contains K) = false)
     {ciK : ContainerInfo} (hciK : containerInfo? env K = some ciK)
-    {a : Expr} (ha : a ∈ domJ.1.getAppArgs.take ciK.nP)
+    {a : Expr} (ha : a ∈ (stripDomPis domJ.1).getAppArgs.take ciK.nP)
     (hmen : mentionsMember (ci.members.map (·.name)) a = true) :
     ∃ (qK : Nat) (e0 : Expr) (m : List Nat),
       own0.findIdx? (fun x => x == Expr.instantiateList
-          (Expr.mkAppN domJ.1.getAppFn (domJ.1.getAppArgs.take ciK.nP))
-          (containerParamOpeners ci.nP).reverse l) = some qK ∧
+          (Expr.mkAppN (stripDomPis domJ.1).getAppFn
+            ((stripDomPis domJ.1).getAppArgs.take ciK.nP))
+          (containerParamOpeners ci.nP).reverse (l + domPiDepth domJ.1)) = some qK ∧
         own0[qK]? = some e0 ∧
         e0 = Expr.instantiateList
-          (Expr.mkAppN domJ.1.getAppFn (domJ.1.getAppArgs.take ciK.nP))
-          (containerParamOpeners ci.nP).reverse l ∧
+          (Expr.mkAppN (stripDomPis domJ.1).getAppFn
+            ((stripDomPis domJ.1).getAppArgs.take ciK.nP))
+          (containerParamOpeners ci.nP).reverse (l + domPiDepth domJ.1) ∧
         nestedInstMapAt env st q = some m ∧
         m.getD qK st.pins.length = t - p.k := by
   cases hms : nestedInstMaps env st with
@@ -749,8 +755,9 @@ theorem nestedInstMapOk_target {env : Env} {p : NestedParts} {b : MutualBlock}
     exact ⟨a, ha, hmen⟩)] at hlv
   rw [← hhead] at hlv
   cases hfi : own0.findIdx? (fun x => x == Expr.instantiateList
-      (Expr.mkAppN domJ.1.getAppFn (domJ.1.getAppArgs.take ciK.nP))
-      (containerParamOpeners ci.nP).reverse l) with
+      (Expr.mkAppN (stripDomPis domJ.1).getAppFn
+        ((stripDomPis domJ.1).getAppArgs.take ciK.nP))
+      (containerParamOpeners ci.nP).reverse (l + domPiDepth domJ.1)) with
   | none => rw [hfi] at hlv; simp at hlv
   | some qK =>
     rw [hfi] at hlv
@@ -759,6 +766,55 @@ theorem nestedInstMapOk_target {env : Env} {p : NestedParts} {b : MutualBlock}
     refine ⟨qK, own0[qK], m, rfl, List.getElem?_eq_getElem hlt, by simpa using hp, hm, ?_⟩
     rw [show maps.getD q [] = m from by rw [List.getD_eq_getElem?_getD, hmq]; rfl] at hlv
     simpa using hlv
+
+/-- **K.61's clause at an own-pin FINITARY field**, in
+`nestedCopyPinFieldsOk_head`'s binders: `nestedInstMapOk_target_refl`
+at a domain whose head is a constant, where `stripDomPis` is the
+identity and `domPiDepth` is `0` (a `Π`'s `getAppFn` is the `Π`
+itself, never a `.const`). -/
+theorem nestedInstMapOk_target {env : Env} {p : NestedParts} {b : MutualBlock}
+    {st : ElimState} {stored : List AuxStored}
+    (h : nestedInstMapOk env p b st stored = true)
+    {kinds : List (List (List (RecFieldKind × Nat)))}
+    (hk : nestedPinKinds p b stored = some kinds)
+    {q : Nat} (hq : q < st.pins.length) {qn : NestedPin} (hqn : st.pins[q]? = some qn)
+    {ks : List (List (RecFieldKind × Nat))} (hks : kinds[q]? = some ks)
+    {ci : ContainerInfo} (hci : containerInfo? env qn.container = some ci)
+    {J : ContainerMember} (hJ : ci.members[q - qn.grpBase]? = some J)
+    {own0 : List Expr} (hown0 : containerOwnPinsSelf env qn.container = some own0)
+    {j : Nat} (hj : j < ks.length)
+    {kf : List (RecFieldKind × Nat)} (hkf : ks[j]? = some kf)
+    {cJ : ContainerCtor} (hcJ : J.ctors[j]? = some cJ)
+    {jbs : List (Expr × BinderMeta)} {rJ : Expr}
+    (hsJ : cJ.type.stripPis (ci.nP + cJ.nFields) = some (jbs, rJ))
+    {l : Nat} {r : RecFieldKind} {t : Nat} (hl : kf[l]? = some (r, t))
+    {domJ : Expr × BinderMeta} (hdJ : jbs[ci.nP + l]? = some domJ)
+    {K : Name} {us : List Level} (hhead : domJ.1.getAppFn = .const K us)
+    (hnm : ((ci.members.map (·.name)).contains K) = false)
+    {ciK : ContainerInfo} (hciK : containerInfo? env K = some ciK)
+    {a : Expr} (ha : a ∈ domJ.1.getAppArgs.take ciK.nP)
+    (hmen : mentionsMember (ci.members.map (·.name)) a = true) :
+    ∃ (qK : Nat) (e0 : Expr) (m : List Nat),
+      own0.findIdx? (fun x => x == Expr.instantiateList
+          (Expr.mkAppN domJ.1.getAppFn (domJ.1.getAppArgs.take ciK.nP))
+          (containerParamOpeners ci.nP).reverse l) = some qK ∧
+        own0[qK]? = some e0 ∧
+        e0 = Expr.instantiateList
+          (Expr.mkAppN domJ.1.getAppFn (domJ.1.getAppArgs.take ciK.nP))
+          (containerParamOpeners ci.nP).reverse l ∧
+        nestedInstMapAt env st q = some m ∧
+        m.getD qK st.pins.length = t - p.k := by
+  have hnf : stripDomPis domJ.1 = domJ.1 ∧ domPiDepth domJ.1 = 0 := by
+    cases hd : domJ.1 with
+    | forallE ty bo bm =>
+      rw [hd] at hhead
+      have hc : Expr.forallE ty bo bm = Expr.const K us := hhead
+      exact nomatch hc
+    | _ => exact ⟨rfl, rfl⟩
+  have hres := nestedInstMapOk_target_refl h hk hq hqn hks hci hJ hown0 hj hkf hcJ hsJ hl hdJ
+    (by rw [hnf.1]; exact hhead) hnm hciK (by rw [hnf.1]; exact ha) hmen
+  rw [hnf.1, hnf.2, Nat.add_zero] at hres
+  exact hres
 
 /-- **K.62 at one edge**: an `ordF`-right reference leaves the instance. -/
 theorem nestedOrdOutsideOk_at {env : Env} {p : NestedParts} {b : MutualBlock}
