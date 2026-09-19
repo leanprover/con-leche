@@ -106738,6 +106738,44 @@ that decides it.
 So route 1 needs no new record and no new environment fact — only the
 carry, and the heredity chain down to the component.
 
+##### (d) AND THE CARRY IS NOT THE ONE-LINE STEP IT LOOKS — priced at the walk
+
+Pricing the plumbing step by inputs before opening it, as the rule
+asks: it is not `repsAt`'s one-liner, and the reason is a GAP between
+the two ends.  `storeNoProj` hands `NoProjAt T j` at a stored
+RECURSOR'S TYPE; the consumer needs it at the recorded COMPONENTS; and
+the only thing in the tree that ties those two is the own-pin READER,
+which is a walk:
+
+* `containerOwnPinsAtGo_cons` shows a step is
+  `ownPinsStep env lps lvls Ds nPr mI cvR.type` at the mimic recursor
+  looked up by name, so "every entry comes from a stored recursor's
+  type" is a new induction over the walk's fuel;
+* `ownPinsStep` itself instantiates the type's telescope at `Ds ++ pad`
+  and returns `mkAppN dom.getAppFn (dom.getAppArgs.take ciK.nP)`, so
+  its heredity is four more small lemmas —
+  `instantiateLevelParams` (levels only), `Expr.instPis`
+  (`rg_noProjAt_stripPis` plus a substitution step), `getAppArgs.take`
+  (`ProjFree.getAppArgs`) and `mkAppN` (the builder direction);
+* and the entry the walk produces is `(d.pinAt qK).ownAt …`
+  (`ContainerOwnPinsSyn`'s positional conjunct, which the ninth site
+  already holds as `hown`), so the last step REFLECTS from `ownAt`
+  back to the components — where `abstractRange` has dropped the
+  openers' ANNOTATIONS, so the annotation side has to come from
+  `pinDsScoped` (landed) together with `NoProjAt` at the stored
+  former's type.
+
+The `.rule` route is the same shape, not shorter: `NoProjEnv.rule`
+gives the fact at a `.nested` fire's pins, and tying pin `q` to the
+mimic recursor whose fire carries it is the same syntactic tie, which
+the tree records only through K.47 and the reader.
+
+**~200 lines and a session, against a step briefed as one line.**  By
+the standing rule that is where it stops for a decision: the missing
+piece is ONE named lemma — *every entry of `containerOwnPinsAt` is
+`NoProjAt T j` when the environment is `NoProjEnv T j` and the
+reader's own arguments are* — and everything else is its corollaries.
+
 #### TWO FINDINGS ABOUT THE OWN-PIN TABLE, for whoever reads it next (2026-09-19, task #315, lane K61)
 
 Both cost this lane a build and a measurement; neither is obvious from
