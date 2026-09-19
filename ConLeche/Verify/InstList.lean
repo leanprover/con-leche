@@ -147,4 +147,25 @@ theorem instSpine_eq_instantiateList :
       congr 2
       simp [hlen']
 
+/-- **The same at an arbitrary cut** (task #315 WIDE (1′)):
+`instSpine_eq_instantiateList` is this at `d = 0`.  The spine's `k`-th
+entry lands on `bvar (d + as.length - 1 - k)`, so the bulk form
+substitutes the REVERSED list from the cut `d` upward — which is how
+the kernel's own-pin reader (`nestedInstMapOkAt`) spells a field's
+cut, at the depth `l` the field's earlier binders add. -/
+theorem instSpine_eq_instantiateList_at :
+    ∀ (as : List Expr) (d : Nat) (e : Expr),
+      Expr.instSpine as (d + as.length - 1) e = e.instantiateList as.reverse d
+  | [], d, e => by
+    rw [show Expr.instSpine [] (d + ([] : List Expr).length - 1) e = e from rfl,
+      List.reverse_nil, instantiateList_nil]
+  | a :: as, d, e => by
+    rw [show (a :: as).length = as.length + 1 from rfl,
+      show d + (as.length + 1) - 1 = d + as.length from by omega, instSpine,
+      show d + as.length - 1 = d + as.length - 1 from rfl]
+    rw [show d + as.length - 1 = d + as.length - 1 from rfl]
+    have hih := instSpine_eq_instantiateList_at as d (e.instantiate1 a (d + as.length))
+    rw [List.reverse_cons, instantiateList_append_one, List.length_reverse]
+    exact hih
+
 end ConLeche.Expr

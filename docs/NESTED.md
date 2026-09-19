@@ -616,25 +616,38 @@ instantiation to be the recorded pin list verbatim, and moving it to
 another instantiation is a map, so the position was there to be kept
 and was being thrown away.
 
-One arrow further along is still missing, and it is of the same kind.
-To know which of the container's own pins a field of that container
-lands on, one reads the field's stored domain and finds its spine in
-the table.  Two facts make that work, and both are facts the checker
-establishes about the block it is INSTALLING rather than about a
-container installed earlier: that a container's own pins are spelled
-differently from one another, and that a member's field spine IS its
-pin.  The first now travels — a container's model carries it, the way
-it already carried the table.  The second does not, and it is the more
-expensive of the two: what the model holds today about such a field is
-that its arguments MENTION a member of the group, which is enough to
-know a pin was minted and not enough to say which, and strengthening a
-mention to the spine itself means carrying head, arguments and depth
-down from the restore, where they are all still visible, through every
-tier in between.
+One arrow further along is now carried too.  To know which of the
+container's own pins a field of that container lands on, one reads the
+field's stored domain and finds its spine in the table.  Two facts make
+that work, and both are facts the checker establishes about the block it
+is INSTALLING rather than about a container installed earlier: that a
+container's own pins are spelled differently from one another, and that
+a member's field spine IS its pin.  Both now travel on a container's
+block model, the way the table already did.  The second was the more
+expensive: what the model held was that such a field's arguments MENTION
+a member of the group, which is enough to know a pin was minted and not
+enough to say which, and strengthening a mention to the spine itself
+meant carrying head, arguments and a DEFINITE lift depth down from the
+restore, where they are all still visible, through every tier in
+between.  The carry turned out to be cheap where it looked expensive:
+the restore's own walk already hands the restored domain as the pin
+lifted past the field's binders, and it was the tiers above that were
+throwing head and depth away — because their only consumer was a
+mention, and a mention survives any lift.  What the new consumer needs
+is an EQUATION, and an equation does not.
 
-That is the whole of what stands between the identification and the
-two sites that consume it; until it is carried, the tree still takes
-the long way round (Resolution 3) there.
+The two spellings of "the container's own scope" then have to be shown
+to agree, and they do: the reader instantiates a field's cut with the
+parameter openers reversed from the depth the field's earlier binders
+add, and the model closes a recorded pin over the parameters and reopens
+it at the descending cuts.  Both send the `i`-th parameter to the `i`-th
+opener, so on a pin — closed, standing in the parameter context — they
+compute the same expression.
+
+What is still to be built is the consumer: the reindexing itself, as
+clauses on the object that holds a block's own pins, and the two sites
+that would switch to it.  Until those land the tree still takes the long
+way round (Resolution 3) there.
 
 **The instance map is not an injection, and the identification no
 longer asks it to be.**  The expansion's dedup by pin expression

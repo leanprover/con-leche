@@ -476,6 +476,44 @@ theorem looseBVarsBounded_instSeq (as : List Expr) (t : Nat) (e : Expr)
   have h := looseBVarsBounded_instSeq_gen as t e hcl he (by omega)
   rwa [hlen, Nat.sub_self] at h
 
+/-- **THE TWO SPELLINGS OF "THE CONTAINER'S OWN SCOPE" AGREE** (task
+#315 WIDE (1′)).
+
+The own-pin reader's cut (`nestedInstMapOkAt`, and K.61's inversion)
+instantiates a field's spine with the parameter openers REVERSED, from
+the cut `l` the field's earlier binders add; the model's
+`PinSyn.ownAt` closes the recorded pin over the parameters and reopens
+it with `instSeq` at the descending cuts `nP - 1 … 0`.  Both send the
+parameter variable `i` to `containerParamOpeners nP`'s `i`-th entry, so
+on a body bounded at `nP` — a pin closed over the parameters, lifted
+past the field binders — they compute the same expression.
+
+Three steps: the bulk form at cut `l` IS the `instantiate1` fold at the
+descending cuts (`instSpine_eq_instantiateList_at`); the fold drops past
+the lift because every opener is closed (`instSeq_liftLooseBVars`); and
+what is left is closed — a full argument list closes a body bounded at
+its length — so the lift that comes back is the identity. -/
+theorem instantiateList_openers_eq_instSeq (nP l : Nat) {A : Expr}
+    (hA : A.looseBVarsBounded nP = true) :
+    Expr.instantiateList (A.liftLooseBVars l 0) (containerParamOpeners nP).reverse l
+      = Expr.instSeq (containerParamOpeners nP) (nP - 1) A := by
+  have hlenO : (containerParamOpeners nP).length = nP := by
+    simp [containerParamOpeners]
+  have hclO : ∀ a ∈ containerParamOpeners nP, a.looseBVarsBounded 0 = true := by
+    intro a ha
+    obtain ⟨i, -, rfl⟩ := List.mem_map.mp ha
+    rfl
+  rw [← Expr.instSpine_eq_instantiateList_at, Expr.instSpine_eq_instSeq, hlenO,
+    Expr.instSeq_liftLooseBVars (kL := l) (c := 0) _ (l + nP - 1) hclO (by rw [hlenO]; omega),
+    show l + nP - 1 - l = nP - 1 from by omega]
+  refine Expr.liftLooseBVars_eq_self ?_
+  cases nP with
+  | zero =>
+    rw [show containerParamOpeners 0 = [] from by simp [containerParamOpeners]]
+    exact hA
+  | succ n =>
+    exact looseBVarsBounded_instSeq _ n _ hclO (by simpa using hA) (by rw [hlenO])
+
 /-! ## The copy's constructor telescope, in one step (task #315 L-B) -/
 
 /-- **`mkCopy`'s constructor body, as a telescope**: the container

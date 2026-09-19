@@ -377,6 +377,43 @@ structure ContainerModeled {env : Env} (m : EnvModel V env) (ci : ContainerInfo)
     (d.ksF i j).getD l .ordinary = .reflexive →
     ∃ e ∈ (ConLeche.stripDomPis dom.1).getAppArgs.take (d.pinAt q).nPJ,
       ConLeche.mentionsMember d.memberNames e = true
+  /-- **AND THE SPINE ITSELF, NOT ONLY A MENTION** (task #315 WIDE
+  (1′)): a nested finitary field's abstract domain, CUT at the
+  container's own parameter count and read in the container's own
+  scope, IS the recorded pin spelled at that scope.
+
+  `nestArgsMentionAbs` says only that SOME argument of that cut
+  mentions a member.  That is enough to know a pin was minted and not
+  enough to know WHICH, and a consumer that needs a FUNCTION from the
+  container's own pin classes — the wide identification's reindexing —
+  needs which: it reads the cut's position in
+  `containerOwnPinsSelf`, whose entry at `q` is exactly this clause's
+  right-hand side (`ContainerOwnPinsSyn`'s positional conjunct).
+
+  The two spellings of "the container's own scope" are the two
+  substitution idioms this tree uses, and they agree: the kernel's cut
+  is `instantiateList … (containerParamOpeners nP).reverse l` — the
+  field stands under `l` earlier binders, so the pin's parameter
+  variables are `bvar (l + i)` — and `PinSyn.ownAt` closes the recorded
+  components and reopens them with `instSeq` at cut `nP - 1`.  The
+  level arguments are the identity instantiation, so the clause holds
+  at EVERY `lps` and takes it as a parameter rather than reading the
+  member's own.
+
+  Recursive only and with `q < d.nPins`, in `nestArgsMentionAbs`' own
+  idiom, so the pins-free sites stay vacuous. -/
+  nestPinSpineAbs : ∀ (i j l : Nat) (cA : ConstantVal × Nat)
+      (bs : List (Expr × ConLeche.BinderMeta)) (r : Expr)
+      (dom : Expr × ConLeche.BinderMeta) (q : Nat) (lps : List Name), i < d.k →
+    (d.ctorsM i)[j]? = some cA →
+    cA.1.type.stripPis (d.nP + cA.2) = some (bs, r) → bs[d.nP + l]? = some dom →
+    d.nestOf i j l = some q → q < d.nPins →
+    (d.ksF i j).getD l .ordinary = .recursive →
+    Expr.instantiateList
+        (Expr.mkAppN dom.1.getAppFn (dom.1.getAppArgs.take (d.pinAt q).nPJ))
+        (ConLeche.containerParamOpeners d.nP).reverse l
+      = (d.pinAt q).ownAt d.nP lps (lps.map Level.param)
+          (ConLeche.containerParamOpeners d.nP)
   /-- **NO `.proj` NODE OF A STORED CONSTRUCTOR TYPE NAMES A MEMBER**
   (task #315 PINF, DESIGN "the `ConstWF` fifth clause does NOT deliver
   the derivation").

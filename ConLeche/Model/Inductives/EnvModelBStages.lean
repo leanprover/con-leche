@@ -289,6 +289,7 @@ theorem mutualContainerModeled {env envR : Env} {m : EnvModel V envR}
     (fun _ _ _ _ _ _ _ _ _ hq _ => absurd hq (by rw [hnoPins]; omega))
     (fun _ _ _ _ _ _ _ _ _ _ _ _ _ hq _ => absurd hq (by rw [hnoPins]; omega))
     (fun _ _ _ _ _ _ _ _ _ _ _ _ _ hq _ => absurd hq (by rw [hnoPins]; omega))
+    (fun _ _ _ _ _ _ _ _ _ _ _ _ _ _ hq _ => absurd hq (by rw [hnoPins]; omega))
     (fun i j cA hi hj T hT n => hnpC i j cA hi hj T (hd.memberNames ▸ hT) n)
     (fun q hq => absurd hq (by rw [hnoPins]; omega))
     (fun q hq => absurd hq (by rw [hnoPins]; omega))
@@ -1201,6 +1202,7 @@ theorem nativeContainerModeled {envO : Env} {m : EnvModel V envO} {mC : EnvModel
     (fun _ _ _ _ _ _ _ _ _ hq _ => absurd hq (Nat.not_lt_zero _))
     (fun _ _ _ _ _ _ _ _ _ _ _ _ _ hq _ => absurd hq (Nat.not_lt_zero _))
     (fun _ _ _ _ _ _ _ _ _ _ _ _ _ hq _ => absurd hq (Nat.not_lt_zero _))
+    (fun _ _ _ _ _ _ _ _ _ _ _ _ _ _ hq _ => absurd hq (Nat.not_lt_zero _))
     (fun i j cA hi hj => by
       obtain rfl : i = 0 := Nat.lt_one_iff.mp hi
       exact hnpC j cA hj)

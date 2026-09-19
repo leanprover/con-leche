@@ -14,6 +14,16 @@ import ConLeche.Verify.Inductives.NestedElimInv
 import ConLeche.Verify.Inductives.NestedCopyTele
 -- `WScoped_of_openers`: K.30's openers turned into a pin's scope
 import ConLeche.Model.Inductives.NestedCopyIdx
+-- `instantiateList_openers_eq_instSeq`: the own-pin reader's cut and
+-- `PinSyn.ownAt` are the same substitution, for
+-- `ContainerModeled.nestPinSpineAbs` (task #315 WIDE (1′))
+import ConLeche.Verify.Inductives.NestedCopyInstU
+-- `looseBVarsBounded_abstractRange`: a closed pin, closed over the
+-- parameters, is bounded at their number (same clause)
+import ConLeche.Verify.Inductives.NestedRecCtorPin
+-- `abstractRange_mkAppN`/`abstractRange_const`: the closed pin, read
+-- component by component (same clause)
+import ConLeche.Verify.Inductives.NestedCopyKinds
 -- `findProj?_none_of_indFresh`/`findProj?_none_consMutualFormers`: the
 -- members' EMPTY projection slot at the prefix environment, for
 -- `ContainerModeled.ctorProjFree` (task #315 PINF)
@@ -670,7 +680,8 @@ theorem nestedContainerModeled {F : Nat} {st : ElimState} {envAux : Env}
     (fun ψ => ⟨(O.typed ψ).1.crossEnv T.agree O.reps.toIsBlockModels,
       (O.typed ψ).2.1.crossEnv T.agree O.reps.toIsBlockModels,
       (O.typed ψ).2.2.crossEnv T.agree O.reps.toIsBlockModels ?_⟩)
-    (fun ψ mm' j fs => ofNested_inj ψ mm' j fs) ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ hown ?_ ?_ ?_ ?_
+    (fun ψ mm' j fs => ofNested_inj ψ mm' j fs) ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ hown
+    ?_ ?_ ?_ ?_
   · -- `hk`
     rw [hdk, List.length_map, List.length_zip, List.length_take, hclen]
     omega
@@ -1017,6 +1028,52 @@ theorem nestedContainerModeled {F : Nat} {st : ElimState} {envAux : Env}
       rw [hhd, Bool.false_or] at hTm
       obtain ⟨a, ha, ham⟩ := List.any_eq_true.mp hTm
       exact ⟨a, ha, List.any_eq_true.mpr ⟨T, hT, ham⟩⟩
+  · -- `nestPinSpineAbs`: NOT ONLY A MENTION BUT THE SPINE (task #315
+    -- WIDE (1′)).  `NestedStageFacts.pinArgsAbs` now hands the whole
+    -- abstract domain as the recorded pin CLOSED over the parameters
+    -- and LIFTED past the field's own binders, applied to a
+    -- remainder, with the pin's argument count beside it — so the cut
+    -- at the container's parameter count IS that lifted pin, and the
+    -- two substitution idioms agree on it
+    -- (`instantiateList_openers_eq_instSeq`).  K.30 supplies the one
+    -- semantic input, that a recorded pin is bvar-closed.
+    intro i j l cA bs r dom q lps hi hcA hstrip hdom hn hq hk
+    have hql : q < st.pins.length := by rw [← O.record.nPins]; exact hq
+    have hpq : st.pins[q]? = some st.pins[q] := List.getElem?_eq_getElem hql
+    obtain ⟨hJ, hpin⟩ := O.record.pin q _ hpq
+    have hj' : ((ctorsR.getD i []).map (fun c => (c.1, c.2.2)))[j]? = some cA := by
+      rw [← O.record.ctors i (hdk ▸ hi)]; exact hcA
+    rw [List.getElem?_map] at hj'
+    cases hc : (ctorsR.getD i [])[j]? with
+    | none => rw [hc] at hj'; exact nomatch hj'
+    | some c =>
+      rw [hc] at hj'
+      obtain rfl : ((c.1, c.2.2) : ConstantVal × Nat) = cA := Option.some.inj hj'
+      obtain ⟨rest, hPar, hspine⟩ := O.stage.pinArgsAbs i j l c bs r dom st.pins[q].pin q
+        (hdk ▸ hi) hc hstrip hdom (by rw [hpin, hJ]) hn hk
+      -- K.30: a recorded pin carries no loose bound variable
+      obtain ⟨t₀, params, o, ht₀, hopen, hall⟩ := ConLeche.pinsScoped_inv hsc
+      obtain ⟨hbndPin, -⟩ := hall _ (List.mem_of_getElem? hpq)
+      -- the cut is the closed pin, lifted past the field's binders
+      have hcut : Expr.mkAppN dom.1.getAppFn (dom.1.getAppArgs.take ((D).pinAt q).nPJ)
+          = (Expr.abstractRange st.pins[q].pin 0 p.nP 0).liftLooseBVars l 0 := by
+        rw [hspine, Expr.getAppFn_mkAppN, Expr.getAppArgs_mkAppN, List.take_left' hPar,
+          Expr.mkAppN_getApp]
+      -- the identity level instantiation is the identity
+      have hlvlId : ∀ us : List Level,
+          us.map (Level.subst lps (lps.map Level.param)) = us := by
+        intro us
+        have h := Expr.instantiateLevelParams_self lps (Expr.const .anonymous us)
+        simpa [Expr.instantiateLevelParams] using h
+      rw [hcut, O.record.nP,
+        ConLeche.instantiateList_openers_eq_instSeq p.nP l
+          (by simpa using ConLeche.looseBVarsBounded_abstractRange _ 0 p.nP 0 hbndPin)]
+      unfold ConLeche.Model.PinSyn.ownAt
+      rw [hpin, ← hJ, ConLeche.abstractRange_mkAppN, ConLeche.abstractRange_const,
+        ConLeche.instSeq_mkAppN_const, hlvlId,
+        show (ConLeche.containerParamOpeners p.nP).length = p.nP from by
+          simp [ConLeche.containerParamOpeners]]
+      simp only [List.map_map, Function.comp_def, Expr.instantiateLevelParams_self]
   · -- `ctorProjFree`: the restored constructor's front-door
     -- `.proj`-slot fact, at the members' prefix environment, against
     -- the member's EMPTY slot there (task #315 PINF).  `ProjSlotsOk`
