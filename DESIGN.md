@@ -120340,3 +120340,37 @@ JOINED — `instMapGroup`, `instMapSigmaFacts`, `instTgtAt`, `instOutAt`
 and `nestedIsSigma_pin`, whose common consumer is the σ clause of (f).
 **Nothing from the `pins_le_*`/`NestedPinsLe`-producer family moved**,
 as it must not before (4′).
+
+#### WIDE (3′) THE σ CLAUSE'S SHAPE — `pinSegAt` CANNOT BUILD A `GroupFacts`, AND DOES NOT NEED ONE (lane LE, 2026-09-19)
+
+The coordinator's ruling is that the clause carries the six RUN facts
+(`hroot`, `hσ`, `hmemσ`, `hidxσ`, `hstgt`, `houtσ`) and that `hIsσ` is
+proved at the consumer, unless a consumer cannot get there — in which
+case the clause carries it under a `GroupFacts` hypothesis.  Checked
+at both consumers, and the answer is the good one.
+
+**`nestedPinWideStep`'s site has it**: `hgroups` at `GroupFacts` is one
+of its own hypotheses, so `nestedIsSigma_pin` applies directly.
+
+**`NestedTailIn.pinSegAt` does NOT.**  What it holds is
+`I.out.stage.groups`, which is `NestedPinGroup` (`PG`) — and `PG` is
+NOT `GroupFacts`.  `NestedPinGroupSyn.ofParts` weakens on the way:
+`PG.stored` drops the `IsBlockModel`, and `grp`, `modeled`,
+`contsEnv`, `ψJEq`, `pinViews` and `pinOwn` do not travel at all.  So
+a `GroupFacts` cannot be rebuilt there.
+
+**But `hIsσ` does not need one.**  Read at the proof rather than at
+the structure, what it consumes is five things — `pinU`, `idx`,
+`kpos`, `same`, and the pin's `ψJ` law — plus a `PinGroupView`, and
+`NestedPinGroup` carries every one of them: `pinGroupView_of_group`
+already builds the view FROM a `PG` (it is stated at `PG`, not at
+`GF`).  The `GroupFacts` in `nestedIdx_of_group`,
+`nestedIdx_eq_pinIdx` and `classPin_of_blockPinCorr` is therefore an
+over-strong hypothesis, not a real one.
+
+**So the clause stays at the six run facts**, as ruled, and the one
+extra piece of work is a RESTATEMENT at the minimal interface — the
+five facts and the view — after which both consumers prove `hIsσ`
+themselves and neither residual depends on the other.  It is a
+contained step and it is the next one, ahead of the wiring, because
+the wiring's shape depends on the answer and the answer is "six".
