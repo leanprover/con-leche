@@ -117361,3 +117361,154 @@ No `.lean` file changed this session, so the gates are the base's
 (`a076eb1c`): `lake build` 725 jobs exit 0, `lake test` exit 0,
 `tests/unconsumed.sh` 184 of 3696 unchanged.  `tests/overview-links.sh`
 and `tests/quote-gate.sh` re-run for the `docs/NESTED.md` edit.
+
+#### WIDE (f3) step 1 LANDED, step 2 REPRICED AND STOPPED — the position is kept; what σ still needs is a fact about the CONTAINER's own elimination (lane WIDE, 2026-09-19)
+
+The coordinator's order was (1) the positional own-pins restatement,
+(2) the σ fields on `NestedPinGroup`, (3) the switch at both sites.
+**(1) is landed.  (2) is repriced at twice its brief and stopped**, one
+level below where the previous entry stopped, and the second gap has
+the same shape as the first — a fact that is true, cheap where it is
+proved, and simply not carried on the object the consumer holds.
+
+##### (a) STEP 1, AS LANDED
+
+`ContainerOwnPinsSyn` and `ContainerOwnPins` are now conjunctions: the
+membership-to-existence clause unchanged (the block-to-container
+direction, which is all `pinCorr_of_ownPins` ever needed) and a
+POSITIONAL one — `ps[qK]? = some ((d.pinAt qK).ownAt d.nP cvC.levelParams
+lvls DsE)` for every `qK < d.nPins`.  Three things worth recording:
+
+* **the guard is not decoration.**  The positional clause is stated
+  under `DsE.length = d.nP`, because a reader asked at the wrong number
+  of components gets the EMPTY table — vacuous for the membership
+  clause and FALSE for this one.  The reading form needs no guard:
+  `toReadOf`'s `hDsE` gives the length at every table read;
+* **the discharge cost nothing new.**  `nestedOwnPins_of` already had
+  the position and threw it away (`List.getElem?_of_mem` after two
+  `List.mem_map`s); it now factors the re-spelling into one `hstep` at
+  a position and uses `List.getElem?_map` twice.  K.47 is verbatim and
+  `containerOwnPinsAtGo_subst` is a `List.map`, so nothing else moved;
+* **the eight pins-free sites stayed vacuous**, at one `rfl` each
+  (`of_noOwn`/`of_noMimics` now take `d.nPins = 0`; the mutual route
+  reads it off its block record's `pins` clause).
+
+`pinCorr_of_ownPins` is split into `pinCorr_of_pinEq` (the shared core:
+an equality of pin terms to `PinCorr`), the old `pinCorr_of_ownPins`
+(membership, existential `qK`) and the new **`pinCorr_of_ownPins_at`**
+(a GIVEN `qK`) — the direction σ needs.  `containerOwnPinsSelf` is
+`containerOwnPinsAt` at `lps.map Level.param` and the parameter
+OPENERS, whose length is `ci.nP` and which are fvars, so the guard and
+the closedness premise are both met at exactly the instantiation K.61
+indexes by.
+
+##### (b) STEP 2, REPRICED — two facts about the CONTAINER that are not in the price
+
+The brief for (2) was: thread `hK61`/`hK62` into `NestedPinsRun` from
+`declNested_of`, then the clauses beside `shape`/`entry`, with
+`nestedPinEdges_mem` for `houtσ`.  Threading is real but mechanical
+(~6 `∀`-prefixed `def`s and ~12 intro/apply sites, the shape `hK60`'s
+own threading already has).  **The content is not the threading.**
+
+σ's pin half must be a total FUNCTION on the container's block model's
+pin classes.  With step 1 in hand the chain is
+
+    field of the container's member  ──K.61──▶  position in `containerOwnPinsSelf`  ──step 1──▶  the container's model pin class
+
+and the FIRST arrow is the one nothing supplies.  Write it out at a
+container member field `(i, j, l)` with `dJ.tgts i j l = dJ.k + c`:
+
+* K.61's `nestedInstMapOk_target` gives
+  `own0.findIdx? (· == cut(domJ)) = some qK` and `m.getD qK = t - p.k`,
+  where `cut(domJ)` is the field's stored domain's head applied to its
+  first `ciK.nP` arguments, instantiated at the parameter openers;
+* step 1 gives `own0[c] = (dJ.pinAt c).ownAt dJ.nP lps (lps.map Level.param) openers`;
+* to conclude `qK = c` — which is exactly what makes `hstgt` hold and
+  what makes σ single-valued across two fields at one class — one needs
+  **(i)** `cut(domJ) = (dJ.pinAt c).ownAt …`, i.e. the container
+  member's abstract field domain's spine IS its pin, and **(ii)**
+  `own0` has no earlier entry equal to it, i.e. the container's own pin
+  terms are pairwise distinct at the identity instantiation.
+
+Neither is on `ContainerModeled`.  (i) is exactly
+`NestedStageFacts.pinArgsAbs`, which EXISTS — at the RUN, about the
+block being installed, and `declNested_of` consumes it two lines from
+where it would be needed (`nestArgsMentionAbs`'s discharge).  What is
+absent is its twin on a STORED container, and the shape of that
+addition is the tree's own established one: one `ContainerModeled`
+clause, nine discharges, eight of them vacuous because `d.nPins = 0`
+there and a pin target cannot arise, the ninth reading
+`O.stage.pinArgsAbs` at the nested route.  (ii) is the elimination's
+dedup by pin EXPRESSION, i.e. `(st.pins.map (·.pin)).Nodup`, which the
+route makes true by construction and records nowhere.
+
+**Why this is a doubling and not a detail.**  K.61 is a record about
+the block BEING INSTALLED; the wide identification needs its content
+about the CONTAINER, whose own K.61 was checked at its own install and
+is not carried on its block model.  So (2) is not "thread two Bools and
+write the clauses": it is a `ContainerModeled` structure change plus a
+second record, on top of the threading, on top of the nine σ facts
+(of which `hcarσ` and `hpin` were separately priced at ~⅓ session and
+"~18 premises").  The standing rule is to stop when a price doubles;
+nothing of (2) was built.
+
+##### (c) WHAT THE NEXT SESSION SHOULD DO, IN ORDER
+
+1. **the `ContainerModeled` clause** — `pinArgsAbs`'s twin at a stored
+   container, in `nestArgsMentionAbs`' own idiom and beside it (it is
+   the strengthening of that clause from a MENTION to the spine
+   itself), with the eight pins-free discharges vacuous;
+2. **the container's own pin terms are distinct** — recorded or
+   derived, enough for `findIdx?` to answer the model class;
+3. then (2) as the coordinator briefed it: `hK61`/`hK62` into
+   `NestedPinsRun`, the σ clauses beside `NestedPinGroup.shape`/`entry`,
+   `nestedPinEdges_mem` for `houtσ` where `NestedPinsRun` is in scope;
+4. then (3), the switch at BOTH sites (`NestedRecFibre.lean:299` and
+   `ofNested_pinLeaf_of`), and the deletion of `hfit_le_of_inst`/`hfitLe`.
+
+##### (d) STEP (4), STATED BEFORE IT IS BUILT — what the unconsumed gate after (3) is being read for
+
+The coordinator's question, recorded so that the gate's report after
+the switch is read against an expectation rather than eyeballed.
+
+With the wide identification at the TRUE frame as the induction step,
+is `NestedPinsLe` an induction over INSTANCES with NO candidate frame
+at all?  **The expectation is YES, and here is why.**  The
+identification's only cross-instance appetite is `hent` at the
+`ordF`-RIGHT arm — the copies' entries at targets OUTSIDE the instance
+— and `houtσ` (K.62) says those targets leave the instance.  A
+cross-instance edge is parameter-headed (nothing required) or
+constant-headed with the head a constant of the source container's own
+declaration, hence declared strictly EARLIER, which K.57 records.  The
+components are read as VALUES at the true frame, so containment creates
+no dependency of its own (the collapse finding: what the frame carries
+is the components' readings, not their syntax).  If those are the only
+cross-instance dependencies, the induction is over instances along
+declaration order alone, and then `pinLfpAt`, `CandParamFit`,
+`CandIdxAgree`, G1's bridge and law (M) all die with the candidate
+frame, leaving the induction skeleton (`pins_le_of_instanceLe`,
+`nestedPinsLe_of_rank`) and K.57.
+
+**So the unconsumed gate after (3) is being read for two things**, and
+they are different: the switch itself should free exactly
+`hfit_le_of_inst`'s chain (`CopyCtorShape.fit_imp_T_le`/`_dom`,
+`copyEntryAtF_le_of_app`/`_of_famLe`, `BlockModel.famAt_le_of_TClosed`,
+the `instanceLe_of_*` family) and NOTHING from the "not freed" list; if
+anything from the `pins_le_*`/`NestedPinsLe`-producer family leaves at
+the SWITCH, that is a finding, because it is step (4)'s business and
+step (4) has not happened.  Step (4), when it runs, is the one entitled
+to free `pinLfpAt` and the candidate-frame apparatus — and if it does
+NOT free them, the reason will name a cross-instance dependency that is
+neither parameter-headed nor declaration-earlier, which would be a
+finding about the accept set and not about the proof.
+
+##### (e) GATES
+
+`tests/warning-free.sh a076eb1c`:
+
+```
+warning-free: 9 changed module(s) since a076eb1c
+warning-free: lake build — 9 module(s) recompiled, 0 warning line(s)
+warning-free: lake test — 2 module(s) recompiled, 0 warning line(s)
+warning-free: OK (a run that could have failed)
+```
