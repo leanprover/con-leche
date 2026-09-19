@@ -9,6 +9,8 @@ import ConLeche.Verify.Inductives.NestedInv
 import ConLeche.Verify.Inductives.MutualInv
 import ConLeche.Model.Inductives.ContainerCross
 import ConLeche.Model.Inductives.NestedOwnPinsRead
+import ConLeche.Model.Inductives.NestedFieldRead
+import ConLeche.Model.Annot.BitErase
 import ConLeche.Verify.Inductives.NestedOpenSpine
 import ConLeche.Verify.Inductives.NestedRecCtorPin
 import ConLeche.Verify.Inductives.NestedElimInv
@@ -2772,6 +2774,325 @@ theorem NestedPinsRun.ordNormAt {pbs : List (Expr × ConLeche.BinderMeta)}
     hkfj hcJ hsJ hrt (by rw [hnPci]; exact hdomJ) hrecB hmenAbs hfin hfinB hfire hrootInst
 
 
+omit R SF S in
+/-- **A CONSTANT HEAD IS READ OFF THE UNINSTANTIATED TERM** (task #315
+WIDE (3), step 2): level instantiation rewrites a head's LEVELS and
+never its shape (`Expr.getAppFn_instantiateLevelParams`), so a domain
+whose head is a constant at ONE level assignment is constant-headed at
+every other — which is what lets the block's guard (`ordTgtReadAt`'s
+`hfin`, at the BLOCK pin's levels) serve K.69's two, at the OWNER's
+levels and stripped. -/
+private theorem getAppFn_const_of_ilp {e : Expr} {ks : List Name} {us : List Level}
+    {K : Name} {usK : List Level}
+    (h : (Expr.instantiateLevelParams ks us e).getAppFn = .const K usK) :
+    ∃ vs : List Level, e.getAppFn = .const K vs := by
+  rw [Expr.getAppFn_instantiateLevelParams] at h
+  cases hE : e.getAppFn with
+  | const c vs =>
+    rw [hE] at h
+    simp only [Expr.instantiateLevelParams, Expr.const.injEq] at h
+    exact ⟨vs, by rw [h.1]⟩
+  | _ => rw [hE] at h; simp [Expr.instantiateLevelParams] at h
+
+omit R SF S in
+/-- **AT A CONSTANT-HEADED DOMAIN THE RECOMPUTATION'S CUT IS THE
+FIELD'S OWN** (task #315 WIDE (3), step 2): `stripDomPis` peels only
+`∀` nodes and a constant spine is none, so the tower is empty and
+`domPiDepth` is `0` — at EVERY table, because the head's shape does
+not move under the level instantiation the table supplies. -/
+private theorem ordTargetDomL_flat {lpsC : List Name} {dom : Expr} {K : Name} {vs : List Level}
+    (hK : dom.getAppFn = .const K vs) (t : List Expr) (q : Nat) :
+    ConLeche.stripDomPis (ConLeche.ordTargetDomL lpsC t q dom)
+        = ConLeche.ordTargetDomL lpsC t q dom ∧
+      ConLeche.domPiDepth (ConLeche.ordTargetDomL lpsC t q dom) = 0 ∧
+      (ConLeche.ordTargetDomL lpsC t q dom).getAppFn
+        = .const K (vs.map (Level.subst lpsC (ConLeche.ordTargetLvls t q))) := by
+  have hh : (ConLeche.ordTargetDomL lpsC t q dom).getAppFn
+      = .const K (vs.map (Level.subst lpsC (ConLeche.ordTargetLvls t q))) := by
+    rw [ConLeche.ordTargetDomL, Expr.getAppFn_instantiateLevelParams, hK]
+    rfl
+  exact ⟨ConLeche.stripDomPis_eq_self_of_getAppFn_const hh,
+    ConLeche.domPiDepth_eq_zero_of_getAppFn_const hh, hh⟩
+
+
+omit S in
+/-- **THE BLOCK'S OWN-PIN TERM, AS A SPINE** (task #315 WIDE (3), step
+2): the entry `nestedPinTermsSelf` writes at a pin is that pin's
+container applied to the pin's recorded components, each closed over
+the block's parameters and re-opened at the openers — so its head
+carries the pin's own name and levels, and its arguments are as many as
+the components, scoped at the block's parameter depth and reading as
+the pin's recorded readings.
+
+The three inputs `ordRootInst`'s bridge asks of the components it
+substitutes (`hDlen`, `hDs`, `hspine`) are exactly these, and this is
+where they are FREE: `NestedPinSynFacts.pinDs` reads a pin's components
+at every level assignment, and the openers' round trip changes nothing
+a reading can see (`instantiateList_openers_abstractRange_erasedEq`,
+`DenoteMetaSpine.eraseAnnots`). -/
+theorem NestedPinsRun.pinTermSpine {gp : Nat} (hgp : gp < pinsS.length)
+    {gn : ConLeche.NestedPin} (hgn : st.pins[gp]? = some gn) :
+    ((ConLeche.nestedPinTermsSelf p st).getD gp default).getAppFn
+        = .const (pinsS.getD gp default).J (pinsS.getD gp default).lvls ∧
+      ((ConLeche.nestedPinTermsSelf p st).getD gp default).getAppArgs.length
+        = (pinsS.getD gp default).DsE.length ∧
+      (∀ a ∈ ((ConLeche.nestedPinTermsSelf p st).getD gp default).getAppArgs,
+        Expr.WScoped b.nP a ∧ a.looseBVarsBounded 0 = true) ∧
+      ∀ ψ : Name → Nat,
+        DenoteMetaSpine mp₁'.base2.acval (ENV₁) ψ b.nP
+          ((ConLeche.nestedPinTermsSelf p st).getD gp default).getAppArgs
+          ((pinsS.getD gp default).Ds ψ) := by
+  classical
+  obtain ⟨-, fvs, o, hop, hsc⟩ := R.scoped
+  have hnP : b.nP = p.nP := (ConLeche.auxBlock_former R.hb).1
+  obtain ⟨hJ, hpin⟩ := SF.pinRec gp gn hgn
+  have hpinMem : gn ∈ st.pins := List.mem_of_getElem? hgn
+  have hcl : gn.pin.looseBVarsBounded 0 = true := (hsc gn hpinMem).1
+  have hlv : ∀ le ∈ gn.pin.fvarLeaves, Expr.fvar le.1 le.2 ∈ fvs := (hsc gn hpinMem).2
+  have hfvsLen : fvs.length = b.nP := openPisAtFvars_length b.nP hop
+  have hfvsIdx : ∀ jj, jj < b.nP → ∃ ty, fvs[jj]? = some (Expr.fvar jj ty) := by
+    intro jj hjj
+    have hjl : jj < fvs.length := by rw [hfvsLen]; exact hjj
+    obtain ⟨ty, hty⟩ := openPisAtFvars_index b.nP f₀.cvTa.type 0 hop jj _
+      (List.getElem?_eq_getElem hjl)
+    rw [Nat.zero_add] at hty
+    exact ⟨ty, by rw [List.getElem?_eq_getElem hjl, hty]⟩
+  -- the entry, spelled out
+  have hentry : (ConLeche.nestedPinTermsSelf p st).getD gp default
+      = Expr.instantiateList (Expr.abstractRange gn.pin 0 p.nP 0)
+          (ConLeche.containerParamOpeners p.nP).reverse 0 := by
+    unfold ConLeche.nestedPinTermsSelf
+    rw [List.getD_eq_getElem?_getD, List.getElem?_map, hgn]
+    rfl
+  have hlenO : (ConLeche.containerParamOpeners p.nP).length = p.nP := by
+    simp [ConLeche.containerParamOpeners]
+  have hoclo : ∀ a ∈ ConLeche.containerParamOpeners p.nP, a.looseBVarsBounded 0 = true := by
+    intro a ha
+    rw [ConLeche.containerParamOpeners] at ha
+    obtain ⟨i, -, rfl⟩ := List.mem_map.mp ha
+    rfl
+  have hosc : ∀ a ∈ ConLeche.containerParamOpeners p.nP, Expr.WScoped p.nP a := by
+    intro a ha
+    rw [ConLeche.containerParamOpeners] at ha
+    obtain ⟨i, hi, rfl⟩ := List.mem_map.mp ha
+    rw [List.mem_range] at hi
+    simp only [Expr.WScoped]
+    exact ⟨hi, by simp⟩
+  -- the entry distributes over the spine
+  have hspineForm : (ConLeche.nestedPinTermsSelf p st).getD gp default
+      = Expr.mkAppN (.const (pinsS.getD gp default).J (pinsS.getD gp default).lvls)
+          ((pinsS.getD gp default).DsE.map fun x =>
+            Expr.instantiateList (Expr.abstractRange x 0 p.nP 0)
+              (ConLeche.containerParamOpeners p.nP).reverse 0) :=
+    ConLeche.nestedPinTermsSelf_shape hgn (by rw [hpin, hJ])
+  have hargs : ((ConLeche.nestedPinTermsSelf p st).getD gp default).getAppArgs
+      = (pinsS.getD gp default).DsE.map fun x =>
+          Expr.instantiateList (Expr.abstractRange x 0 p.nP 0)
+            (ConLeche.containerParamOpeners p.nP).reverse 0 := by
+    rw [hspineForm, Expr.getAppArgs_mkAppN]
+    simp [Expr.getAppArgs]
+  -- each component is closed and stands at the openers
+  have hcomp : ∀ x ∈ (pinsS.getD gp default).DsE,
+      x.looseBVarsBounded 0 = true ∧ ∀ le ∈ x.fvarLeaves, Expr.fvar le.1 le.2 ∈ fvs := by
+    intro x hx
+    have hmem : x ∈ gn.pin.getAppArgs := by
+      rw [hpin, Expr.getAppArgs_mkAppN]
+      simpa [Expr.getAppArgs] using hx
+    exact ⟨ConLeche.looseBVarsBounded_getAppArgs hcl x hmem,
+      fun le hle => hlv le (fvarLeaves_getAppArgs hmem hle)⟩
+  refine ⟨by rw [hspineForm, Expr.getAppFn_mkAppN]; rfl,
+    by rw [hargs, List.length_map], ?_, ?_⟩
+  · intro a ha
+    rw [hargs] at ha
+    obtain ⟨x, hx, rfl⟩ := List.mem_map.mp ha
+    have hA : (Expr.abstractRange x 0 p.nP 0).looseBVarsBounded p.nP = true := by
+      simpa using ConLeche.looseBVarsBounded_abstractRange x 0 p.nP 0 (hcomp x hx).1
+    have hstep : Expr.instantiateList (Expr.abstractRange x 0 p.nP 0)
+        (ConLeche.containerParamOpeners p.nP).reverse 0
+        = Expr.instSeq (ConLeche.containerParamOpeners p.nP) (p.nP - 1)
+            (Expr.abstractRange x 0 p.nP 0) := by
+      have h := ConLeche.instantiateList_openers_eq_instSeq p.nP 0 hA
+      rwa [Expr.liftLooseBVars_zero] at h
+    have hAF : (Expr.abstractRange x 0 p.nP 0).hasFvar = false :=
+      hasFvar_abstractRange_of_leaves x p.nP 0 (by
+        intro le hle
+        obtain ⟨i, hi⟩ := List.getElem?_of_mem ((hcomp x hx).2 le hle)
+        have hib : i < fvs.length := by
+          rcases Nat.lt_or_ge i fvs.length with h | h
+          · exact h
+          · rw [List.getElem?_eq_none h] at hi; exact nomatch hi
+        obtain ⟨tyi, htyi⟩ := hfvsIdx i (by omega)
+        rw [hi] at htyi
+        have : le.1 = i := by simpa using (by simpa using htyi : le.1 = i ∧ le.2 = tyi).1
+        omega)
+    refine ⟨?_, ?_⟩
+    · rw [hstep, hnP]
+      exact Expr.instSeq_WScoped _ _ hosc (Expr.WScoped.of_not_hasFvar hAF)
+    · rw [hstep]
+      have h := looseBVarsBounded_instSeq_openers (nP := p.nP) hA
+      rwa [hlenO] at h
+  · intro ψ
+    have hbase := SF.pinDs gp hgp ψ
+    rw [hargs]
+    refine (DenoteMetaSpine.eraseAnnots (as := _)).mp ?_
+    have hmapEq : ((pinsS.getD gp default).DsE.map fun x =>
+          Expr.instantiateList (Expr.abstractRange x 0 p.nP 0)
+            (ConLeche.containerParamOpeners p.nP).reverse 0).map Expr.eraseAnnots
+        = (pinsS.getD gp default).DsE.map Expr.eraseAnnots := by
+      rw [List.map_map]
+      refine List.map_congr_left fun x hx => ?_
+      exact Expr.erasedEq_iff_eraseAnnots.mp
+        (ConLeche.instantiateList_openers_abstractRange_erasedEq p.nP fvs x
+          (hcomp x hx).1 (by rw [hfvsLen, hnP]) (by rw [← hnP]; exact hfvsIdx) (hcomp x hx).2)
+    rw [hmapEq]
+    exact (DenoteMetaSpine.eraseAnnots (as := (pinsS.getD gp default).DsE)).mpr hbase
+
+
+/-- **THE TWO COPIES' FIELD DATA, AT THE RUN** (task #315 WIDE (3),
+step 2): the BLOCK-side half of the tie — the block's own reading of
+its recomputation IS the OWNER's reading, carried across `ordRootInst`
+by the block pin's levels and components.
+
+Three landed pieces compose, and nothing else is needed here:
+
+* `ordTgtReadAt` reads the BLOCK's recomputation at the block's
+  parameter openers and names the target pin `z` (the owner's half's
+  mirror, at the run's own tables);
+* `ordNormAt` (K.69 at the copy's field) says that recomputation IS
+  `ordRootInst` of the OWNER's, under the owner's firing guard;
+* `denoteMeta_ordRootInst_read` reads `ordRootInst`'s output as the
+  owner's reading with the block pin's components substituted at the
+  cut — its three component inputs free from `pinTermSpine`, which is
+  why the whole block-side half is stated HERE and not at the
+  assembly, where the components' readings are a hypothesis nobody
+  holds.
+
+**The cut is the field's own `l`.** `ordTgtReadAt`'s guard is the
+stored domain's head at the pin's LEVELS, and a constant head is not a
+`Π`, so both tables' towers are empty (`ordTargetDomL_flat`) and the
+two sides' cuts agree without an argument.  The reflexive Π-prefix is
+a separate object and is not in this statement.
+
+**The owner's reading and the owner's scoping are HYPOTHESES**, per
+the re-price: they are `PinShapes`' conjunct and `ordTargetDom_scoped`
+at the OWNER's container model, neither of which exists at this tier. -/
+theorem NestedPinsRun.ordReadAt {pbs : List (Expr × ConLeche.BinderMeta)}
+    (hPD : ∀ q, q < st.pins.length → PinData env st p pbs q)
+    (hkindsRun : ConLeche.classifyMutualKinds (m := ConLeche.CheckM) b.members3 b.lps b.nP ctorsA
+      = .ok kinds)
+    (ψ : Name → Nat) (ρp : Nat → V)
+    (hsat : Sat V (((ppsF 0 ψ).take b.nP).map (·.2.2)).reverse ρp)
+    {i' : Nat} (hi' : i' < kJ)
+    (hgb : (pinAtE st (q₀ + i')).grpBase = q₀)
+    (CM : ∀ ciJ : ContainerInfo,
+      ConLeche.containerInfo? env (pinsS.getD (q₀ + i') default).J = some ciJ →
+      ContainerModeled mp₁'.base2 ciJ dJ)
+    {j l : Nat}
+    (hl : l < ((dJ.Fss i' ((pinsS.getD q₀ default).ψJ ψ)).getD j []).length)
+    (hord : ((dJ.rss i').getD j []).getD l false = false)
+    (hrss : ((blkRss ctorsA kinds).getD (b.ownOffset (p.k + q₀ + i') + j) []).getD l false = true)
+    (hpinT : ¬ ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+      (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0 < p.k)
+    {cA : ConstantVal × Nat} {bs : List (Expr × ConLeche.BinderMeta)} {rr : Expr}
+    {dom : Expr × ConLeche.BinderMeta} (lps lpsC : List Name)
+    (hjA : (dJ.ctorsM i')[j]? = some cA)
+    (hlF : l < cA.2)
+    (hordC : (dJ.ksF i' j).getD l .ordinary = .ordinary)
+    (hstrip : cA.1.type.stripPis (dJ.nP + cA.2) = some (bs, rr))
+    (hdomM : bs[dJ.nP + l]? = some dom)
+    {i₀ : Nat} (hi₀ : i₀ < kJ) {ciC : ContainerInfo} {Jm : ContainerMember}
+    (hciC : ConLeche.containerInfo? env (pinsS.getD (q₀ + i₀) default).J = some ciC)
+    (hJmC : ciC.members[i']? = some Jm) (hlpsE : Jm.lps = lpsC)
+    (hlpsC : ∀ ciP : ContainerInfo,
+      ConLeche.containerInfo? env (pinsS.getD (q₀ + i') default).J = some ciP →
+      ∀ Jm' : ContainerMember, ciP.members[i']? = some Jm' → Jm'.lps = lpsC)
+    {K : Name} {usK : List Level}
+    (hfin : (Expr.instantiateLevelParams lpsC (pinsS.getD (q₀ + i') default).lvls dom.1).getAppFn
+      = .const K usK)
+    -- the OWNER
+    {gp : Nat} (hgp : gp < st.pins.length) {gn : ConLeche.NestedPin}
+    (hgn : st.pins[gp]? = some gn)
+    {ciO : ContainerInfo} (hciO : ConLeche.containerInfo? env gn.container = some ciO)
+    {m₀ : ContainerMember} (hm₀ : ciO.members.head? = some m₀)
+    {ownT : List Expr} (hownT : ConLeche.containerOwnPinsSelf env gn.container = some ownT)
+    {mapR : List Nat} (hmapR : ConLeche.nestedInstMapAt env st gp = some mapR)
+    {qK : Nat} (hqK : qK < ownT.length) (hqm : mapR.getD qK st.pins.length = q₀ + i')
+    (hfire : ConLeche.ordRootFired env (ciO.members.map (·.name)) ownT
+      (ConLeche.ordTargetDom lpsC dJ.nP ownT qK l dom.1) = true)
+    (hnPO : (pinsS.getD gp default).DsE.length = ciO.nP)
+    -- the owner's recomputation, scoped and read
+    (hxb : (ConLeche.ordTargetDom lpsC dJ.nP ownT qK l dom.1).looseBVarsBounded l = true)
+    (hxlv : ∀ le ∈ (ConLeche.ordTargetDom lpsC dJ.nP ownT qK l dom.1).fvarLeaves,
+      Expr.fvar le.1 le.2 ∈ ConLeche.containerParamOpeners ciO.nP)
+    {rx : AnnotTerm}
+    (hreadO : denoteMeta mp₁'.base2.acval (ENV₁)
+        (Level.substFn ψ m₀.lps (pinsS.getD gp default).lvls) (ciO.nP + l)
+        (Expr.instSeq (ConLeche.Verify.openFvars ciO.nP l) (l - 1)
+          (ConLeche.ordTargetDom lpsC dJ.nP ownT qK l dom.1)) = some rx) :
+    ∃ z : Nat, z < pinsS.length ∧
+      ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+        (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0 = p.k + z ∧
+      ∀ fs₁ : List V, fs₁.length = l →
+        SpineFit (consList (((pinsS.getD q₀ default).Ds ψ).map (interp V ρp)) ρp)
+          (((dJ.Fss i' ((pinsS.getD q₀ default).ψJ ψ)).getD j []).take l) fs₁ →
+        ∃ (fb : AnnotTerm) (Ps : List AnnotTerm), Ps.length = (pinsS.getD z default).nPJ ∧
+          AnnotTerm.mkAppN fb (Ps ++ (((mutEiss0 ctorsA.length eissF ψ).getD
+              (b.ownOffset (p.k + q₀ + i') + j) []).getD l []))
+            = AnnotTerm.instAll ((pinsS.getD gp default).Ds ψ) l rx := by
+  classical
+  have hgpS : gp < pinsS.length := by rw [SF.pinsLen]; exact hgp
+  obtain ⟨vs, hK⟩ := getAppFn_const_of_ilp hfin
+  obtain ⟨hstripB, hdpB, hhdB⟩ :=
+    ordTargetDomL_flat (lpsC := lpsC) hK (ConLeche.nestedPinTermsSelf p st) (q₀ + i')
+  obtain ⟨hstripO, hdpO, hhdO⟩ := ordTargetDomL_flat (lpsC := lpsC) hK ownT qK
+  obtain ⟨hhd, hlenA, hscA, hspA⟩ := R.pinTermSpine SF hgpS hgn
+  have hown_eq : (D).ownPinTerms lps = ConLeche.nestedPinTermsSelf p st := R.ownPinTerms_eq SF lps
+  -- the substitution `ordRootInst` writes, computed
+  have hDlen : (((ConLeche.nestedPinTermsSelf p st).getD gp default).getAppArgs.take
+      ciO.nP).length = ciO.nP := by
+    rw [List.length_take, hlenA, hnPO]; omega
+  have htakeAll : ((ConLeche.nestedPinTermsSelf p st).getD gp default).getAppArgs.take ciO.nP
+      = ((ConLeche.nestedPinTermsSelf p st).getD gp default).getAppArgs :=
+    List.take_of_length_le (by rw [hlenA, hnPO]; omega)
+  have hrootInst : ConLeche.ordRootInst m₀.lps ciO.nP
+      (l + ConLeche.domPiDepth (ConLeche.ordTargetDomL lpsC ownT qK dom.1))
+      ((ConLeche.nestedPinTermsSelf p st).getD gp default)
+      (ConLeche.ordTargetDom lpsC dJ.nP ownT qK l dom.1)
+      = some (Expr.instantiateList
+          (Expr.abstractRange (Expr.instantiateLevelParams m₀.lps
+            (pinsS.getD gp default).lvls
+            (ConLeche.ordTargetDom lpsC dJ.nP ownT qK l dom.1)) 0 ciO.nP l)
+          ((((ConLeche.nestedPinTermsSelf p st).getD gp default).getAppArgs.take
+            ciO.nP).reverse) l) := by
+    rw [hdpO, Nat.add_zero]
+    unfold ConLeche.ordRootInst
+    rw [hhd]
+  -- K.69 at the copy's field
+  have hK69 := R.ordNormAt SF S hPD hkindsRun hi' hgb CM hjA hlF hordC hrss hstrip hdomM hlpsC
+    hgp hgn hciO hm₀ hownT hmapR hqK hqm
+    (by rw [hstripO]; exact hhdO) (by rw [hstripB]; exact hhdB) hfire hrootInst
+  -- the block's own reading, and its target
+  obtain ⟨z, hz, htg, hOT⟩ := R.ordTgtReadAt SF S hPD ψ ρp hsat hi' hl hord hrss hpinT lps lpsC
+    hjA hstrip hdomM hi₀ hciC hJmC hlpsE hfin
+  refine ⟨z, hz, htg, fun fs₁ hfs hspf => ?_⟩
+  obtain ⟨fb, Ps, hPs, hread⟩ := hOT fs₁ hfs hspf
+  refine ⟨fb, Ps, hPs, ?_⟩
+  -- the bridge: `ordRootInst`'s output is the owner's reading, instantiated
+  have hbr := denoteMeta_ordRootInst_read (V := V) mp₁'.base2 (ψ := ψ)
+    (lps := m₀.lps) (lvls := (pinsS.getD gp default).lvls) (nP := ciO.nP) (dp := b.nP) (cut := l)
+    (params := ConLeche.containerParamOpeners ciO.nP)
+    (DsE := ((ConLeche.nestedPinTermsSelf p st).getD gp default).getAppArgs.take ciO.nP)
+    (Ds := (pinsS.getD gp default).Ds ψ)
+    (x := ConLeche.ordTargetDom lpsC dJ.nP ownT qK l dom.1) (rx := rx)
+    (by simp [ConLeche.containerParamOpeners])
+    (fun jj hjj => ⟨Expr.sort Level.zero, ConLeche.containerParamOpeners_getElem? hjj⟩)
+    hxb hxlv hDlen
+    (by rw [htakeAll]; exact hscA)
+    (by rw [htakeAll]; exact hspA ψ)
+    hreadO
+  rw [hown_eq, hdpB, Nat.add_zero, hK69] at hread
+  rw [hbr] at hread
+  exact (Option.some.inj hread).symm
 
 end Assembly
 

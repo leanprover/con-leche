@@ -2117,6 +2117,76 @@ structure GroupFacts (st : ElimState) (m : EnvModel V env₂) (q₀ kJ : Nat) (d
           ((ConLeche.ordTargetDom lpsC dJ.nP ownT qK l dom.1).getAppArgs.take ciM.nP)) = some qJ →
       ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
         (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0 = p.k + mapR.getD qJ st.pins.length)
+  /-- **K.69 AT THE GROUP, READ** (task #315 WIDE (3), step 2): the
+  BLOCK-side half of the two copies' FIELD-DATA tie, where the row
+  beside it (`ordTgt`) carries their TARGETS.
+
+  At a field the copy's container calls ORDINARY and the block's
+  rewrite made recursive, whose target is a PIN, the block's own
+  reading of its recomputation — the `Eis` the copy recorded, past the
+  head container's parameters — is the OWNER's reading with the block
+  pin's components substituted at the field's cut.
+
+  **It lives here for `ordTgt`'s reason and for one more.**  The owner
+  relation is an `ElimState` object, as there; and the block pin's
+  components' READINGS, which the substitution's bridge needs, are
+  free only where a `NestedPinSynFacts` is (`pinDs`) — at the
+  assembly they are a hypothesis nobody holds.  So the reading, K.69's
+  equation and the bridge are one field, stated at `ordRootInst`'s
+  output, with the OWNER's reading (`rx`, `PinShapes`' own conjunct)
+  and the owner's SCOPING (`ordTargetDom_scoped` at the owner's
+  container model) as its hypotheses — the two things this tier
+  cannot produce.
+
+  The cut is the field's own `l`: the guard is the stored domain's
+  head at the pin's levels, a constant head is not a `Π`, and both
+  tables' towers are therefore empty.  The reflexive Π-prefix is a
+  separate object. -/
+  ordRead : ∀ (ψ : Name → Nat) (ρp : Nat → V),
+    Sat V (((ppsF 0 ψ).take b.nP).map (·.2.2)).reverse ρp →
+    ∀ (i' : Nat), i' < kJ → ∀ j, j < (dJ.ctorsM i').length → ∀ l,
+    l < ((dJ.Fss i' (((D).pinAt q₀).ψJ ψ)).getD j []).length →
+    ((dJ.rss i').getD j []).getD l false = false →
+    ((blkRss ctorsA kinds).getD (b.ownOffset (p.k + q₀ + i') + j) []).getD l false = true →
+    ¬ ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+      (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0 < p.k →
+    ∀ (cA : ConstantVal × Nat) (bs : List (Expr × ConLeche.BinderMeta)) (rr : Expr)
+      (dom : Expr × ConLeche.BinderMeta) (lpsC : List Name),
+    (dJ.ctorsM i')[j]? = some cA →
+    cA.1.type.stripPis (dJ.nP + cA.2) = some (bs, rr) →
+    bs[dJ.nP + l]? = some dom →
+    ∀ (i₀ : Nat), i₀ < kJ → ∀ (ciC : ContainerInfo) (Jm : ContainerMember),
+    ConLeche.containerInfo? env ((D).pinAt (q₀ + i₀)).J = some ciC →
+    ciC.members[i']? = some Jm → Jm.lps = lpsC →
+    ∀ (K : Name) (usK : List Level),
+    (Expr.instantiateLevelParams lpsC ((D).pinAt (q₀ + i')).lvls dom.1).getAppFn
+      = .const K usK →
+    ∀ (gp : Nat), gp < st.pins.length → ∀ gn : ConLeche.NestedPin, st.pins[gp]? = some gn →
+    ∀ (ciO : ContainerInfo), ConLeche.containerInfo? env gn.container = some ciO →
+    ∀ (m₀ : ContainerMember), ciO.members.head? = some m₀ →
+    ∀ (ownT : List Expr), ConLeche.containerOwnPinsSelf env gn.container = some ownT →
+    ∀ (mapR : List Nat), ConLeche.nestedInstMapAt env st gp = some mapR →
+    ∀ (qK : Nat), qK < ownT.length → mapR.getD qK st.pins.length = q₀ + i' →
+    ConLeche.ordRootFired env (ciO.members.map (·.name)) ownT
+      (ConLeche.ordTargetDom lpsC dJ.nP ownT qK l dom.1) = true →
+    ((D).pinAt gp).DsE.length = ciO.nP →
+    (ConLeche.ordTargetDom lpsC dJ.nP ownT qK l dom.1).looseBVarsBounded l = true →
+    (∀ le ∈ (ConLeche.ordTargetDom lpsC dJ.nP ownT qK l dom.1).fvarLeaves,
+      Expr.fvar le.1 le.2 ∈ ConLeche.containerParamOpeners ciO.nP) →
+    ∀ rx : AnnotTerm,
+    denoteMeta m.acval env₂ (Level.substFn ψ m₀.lps ((D).pinAt gp).lvls) (ciO.nP + l)
+        (Expr.instSeq (ConLeche.Verify.openFvars ciO.nP l) (l - 1)
+          (ConLeche.ordTargetDom lpsC dJ.nP ownT qK l dom.1)) = some rx →
+    ∃ z : Nat, z < pinsS.length ∧
+      ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+        (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0 = p.k + z ∧
+      ∀ fs₁ : List V, fs₁.length = l →
+        SpineFit (consList ((((D).pinAt q₀).Ds ψ).map (interp V ρp)) ρp)
+          (((dJ.Fss i' (((D).pinAt q₀).ψJ ψ)).getD j []).take l) fs₁ →
+        ∃ (fb : AnnotTerm) (Ps : List AnnotTerm), Ps.length = ((D).pinAt z).nPJ ∧
+          AnnotTerm.mkAppN fb (Ps ++ (((mutEiss0 ctorsA.length eissF ψ).getD
+              (b.ownOffset (p.k + q₀ + i') + j) []).getD l []))
+            = AnnotTerm.instAll (((D).pinAt gp).Ds ψ) l rx
   idx : ∀ i, i < kJ → ∀ (ψ : Name → Nat) (i' : Nat), i' < kJ →
     blockIds b.nP ppsF ψ (p.k + q₀ + i')
       = instTele (((D).pinAt (q₀ + i)).Ds ψ) 0 (dJ.IdsM i' (((D).pinAt (q₀ + i)).ψJ ψ))
@@ -6402,7 +6472,7 @@ theorem nestedPinsEntry_of_le_all {F : Nat} (hSh : NestedPinsShape V μ F)
         (tssF := tssF) (ctorsR := ctorsR) (dsR := dsR) (xFvsR := xFvsR) (pinsS := pinsS)
         st mp₁'.base2 a kk d := by
     intro a kk d S'
-    refine ⟨S', ?_, ?_, ?_⟩
+    refine ⟨S', ?_, ?_, ?_, ?_⟩
     · -- K.67 at the group, as the run states it (`instOrdTgtAt`)
       obtain ⟨pbs, -, hPD⟩ := R.pinData
       intro ψ₂ i₂ hi₂ j₂ hj₂ l₂ hl₂ hordR hrss hge cA bs rr dom hjA hst hdm
@@ -6447,6 +6517,48 @@ theorem nestedPinsEntry_of_le_all {F : Nat} (hSh : NestedPinsShape V μ F)
       exact R.instOrdTgtAt SF S' hPD R.h.classify hi₂ hgb
         (fun ciJ hciJ => S'.modeled i₂ hi₂ ciJ hciJ)
         hjA hlF hordC hrss hge hst hdm hlpsC hg hgn hciO hownT hmapR hqK hqm hhd
+    · -- K.69 at the group, read (`ordReadAt`): the same preamble, and the
+      -- three run pieces composed
+      obtain ⟨pbs, -, hPD⟩ := R.pinData
+      intro ψ₂ ρ₂ hρ₂ i₂ hi₂ j₂ hj₂ l₂ hl₂ hordR hrss hpinT cA bs rr dom lpsC hjA hst hdm
+        i₀ hi₀ ciC Jm hciC hJmC hlpsE K usK hfin
+        g hg gn hgn ciO hciO m₀ hm₀ ownT hownT mapR hmapR qK hqK hqm hfire hnPO hxb hxlv rx hreadO
+      obtain ⟨cvT', caps', cvR', mI', rP', rules', -, hI', -⟩ := S'.stored i₂ hi₂
+      have hlF : l₂ < cA.2 := by
+        rw [← hI'.Fss_length hjA ((pinsS.getD a default).ψJ ψ₂)]; exact hl₂
+      obtain ⟨-, -, hCD⟩ := hI'.ctors i₂ j₂ cA hI'.memberLt hjA
+      have hksl : l₂ < (d.ksF i₂ j₂).length := by rw [hCD.ksLen]; exact hlF
+      have hordC : (d.ksF i₂ j₂).getD l₂ .ordinary = .ordinary := by
+        have hh := hordR
+        rw [show (d.rss i₂).getD j₂ [] = rsOf (d.ksF i₂ j₂) from
+            rssOfK_getD (List.getElem?_eq_some_iff.mp hjA).1,
+          rsOf_getD hksl] at hh
+        have hne : ¬ ((d.ksF i₂ j₂).getD l₂ .ordinary = .recursive
+            ∨ (d.ksF i₂ j₂).getD l₂ .ordinary = .reflexive) := by
+          intro hc; rw [decide_eq_true hc] at hh; exact nomatch hh
+        rcases hCD.opened.kinds l₂ (by rw [← hCD.ksLen]; exact hksl) with ho | hr | hrf
+        · exact ho
+        · exact absurd (Or.inl hr) hne
+        · exact absurd (Or.inr hrf) hne
+      have hgb : (pinAtE st (a + i₂)).grpBase = a := by
+        have hgr := (S'.grp i₂ hi₂).1
+        rw [← pinAtE_eq] at hgr
+        exact hgr
+      have hlpsC : ∀ ciP : ContainerInfo,
+          ConLeche.containerInfo? env (pinsS.getD (a + i₂) default).J = some ciP →
+          ∀ Jm' : ContainerMember, ciP.members[i₂]? = some Jm' → Jm'.lps = lpsC := by
+        intro ciP hciP' Jm' hJm'
+        have CMP := S'.modeled i₂ hi₂ ciP hciP'
+        have CMC := S'.modeled i₀ hi₀ ciC hciC
+        obtain rfl : ciP = ciC :=
+          ConLeche.containerInfo?_eq_of_names hciP' hciC (CMP.nP.symm.trans CMC.nP)
+            (CMP.memberNames_eq.symm.trans CMC.memberNames_eq)
+        obtain rfl : Jm' = Jm := Option.some.inj (hJm'.symm.trans hJmC)
+        exact hlpsE
+      exact R.ordReadAt SF S' hPD R.h.classify ψ₂ ρ₂ hρ₂ hi₂ hgb
+        (fun ciJ hciJ => S'.modeled i₂ hi₂ ciJ hciJ)
+        hl₂ hordR hrss hpinT [] lpsC hjA hlF hordC hst hdm hi₀ hciC hJmC hlpsE hlpsC hfin
+        hg hgn hciO hm₀ hownT hmapR hqK hqm hfire hnPO hxb hxlv hreadO
     · intro i₂ hi₂ ψ₂ i₃ hi₃
       exact nestedPinsIdx mp p st b envAux stored ctorsR fmsA ctorsA₀ fms f₀ ctorsA sortss kinds
         mp₁ ppsF W idxF dsF esF srcsF fvsPF xFvsF xrestF eissF tssF mp₁' R pinsS SF dsR xFvsR
