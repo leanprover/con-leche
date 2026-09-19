@@ -36,6 +36,57 @@ universe w
 variable {V : Type w} [SetTheory V]
 variable {env : Env} {φ : Name → Nat}
 
+/-! ## The `WellDenotedV` splitters (`Steps/InferIO.lean:75`, `:123`, `:142`)
+
+The consumption motive's entry into every non-leaf clause: the io
+grade's premise splits hereditarily into the parts' gradings, and at
+an application into the **hereditary app slot** the io licence reads.
+-/
+
+/-- The `WellDenotedV` ∀-splitter. -/
+theorem WellDenotedV.hoist_pi {Δa : List AnnotTerm} {u v : Nat} {A B : AnnotTerm}
+    (h : ∀ ρ : Nat → V, Sat V Δa ρ → WellDenotedV V ρ (.pi u v A B)) :
+    (∀ ρ : Nat → V, Sat V Δa ρ → WellDenotedV V ρ A) ∧
+      (∀ ρ : Nat → V, Sat V (A :: Δa) ρ → WellDenotedV V ρ B) := by
+  obtain ⟨h1, h2⟩ := WellDenoted.hoist_pi (V := V) (fun ρ hρ => (h ρ hρ).1)
+  refine ⟨fun ρ hρ => ⟨h1 ρ hρ, ?_⟩, fun ρ hρ => ⟨h2 ρ hρ, ?_⟩⟩
+  · exact ((AnnotValid_pi V ρ u v A B) ▸ (h ρ hρ).2).1
+  · have hcons : cons (ρ 0) (fun j => ρ (j + 1)) = ρ := by
+      funext i; cases i with | zero => rfl | succ i => rfl
+    have := ((AnnotValid_pi V _ u v A B) ▸
+      (h _ (Sat_tail hρ)).2).2.1 (ρ 0) (hρ 0 A rfl)
+    rwa [hcons] at this
+
+/-- The `WellDenotedV` λ-splitter. -/
+theorem WellDenotedV.hoist_lam {Δa : List AnnotTerm} {v : Nat} {A b : AnnotTerm}
+    (h : ∀ ρ : Nat → V, Sat V Δa ρ → WellDenotedV V ρ (.lam v A b)) :
+    (∀ ρ : Nat → V, Sat V Δa ρ → WellDenotedV V ρ A) ∧
+      (∀ ρ : Nat → V, Sat V (A :: Δa) ρ → WellDenotedV V ρ b) := by
+  obtain ⟨h1, h2⟩ := WellDenoted.hoist_lam (V := V) (fun ρ hρ => (h ρ hρ).1)
+  refine ⟨fun ρ hρ => ⟨h1 ρ hρ, ?_⟩, fun ρ hρ => ⟨h2 ρ hρ, ?_⟩⟩
+  · exact ((AnnotValid_lam V ρ v A b) ▸ (h ρ hρ).2).1
+  · have hcons : cons (ρ 0) (fun j => ρ (j + 1)) = ρ := by
+      funext i; cases i with | zero => rfl | succ i => rfl
+    have := ((AnnotValid_lam V _ v A b) ▸
+      (h _ (Sat_tail hρ)).2).2 (ρ 0) (hρ 0 A rfl)
+    rwa [hcons] at this
+
+/-- The `WellDenotedV` application splitter, the hereditary app slot
+included. -/
+theorem WellDenotedV.hoist_app {Δa : List AnnotTerm} {f a : AnnotTerm}
+    (h : ∀ ρ : Nat → V, Sat V Δa ρ → WellDenotedV V ρ (.app f a)) :
+    (∀ ρ : Nat → V, Sat V Δa ρ → WellDenotedV V ρ f) ∧
+      (∀ ρ : Nat → V, Sat V Δa ρ → WellDenotedV V ρ a) ∧
+      ∀ ρ : Nat → V, Sat V Δa ρ →
+        ∃ (v : Nat) (A : V) (B : V → V),
+          interp V ρ f ∈ˢ piR v A B ∧ interp V ρ a ∈ˢ A ∧
+          (v = 0 → ∀ x, x ∈ˢ A → B x ∈ˢ (univZero : V)) :=
+  ⟨fun ρ hρ => ⟨((WellDenoted_app V ρ f a) ▸ (h ρ hρ).1).1,
+      ((AnnotValid_app V ρ f a) ▸ (h ρ hρ).2).1⟩,
+    fun ρ hρ => ⟨((WellDenoted_app V ρ f a) ▸ (h ρ hρ).1).2.1,
+      ((AnnotValid_app V ρ f a) ▸ (h ρ hρ).2).2⟩,
+    fun ρ hρ => ((WellDenoted_app V ρ f a) ▸ (h ρ hρ).1).2.2⟩
+
 /-! ## The fit-to-application kit (`Steps/CapsRows.lean`) -/
 
 /-- The empty fit pins its residual. -/

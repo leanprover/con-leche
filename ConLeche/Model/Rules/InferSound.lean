@@ -56,6 +56,41 @@ theorem InferSemFull.toSem {g : Grade} {d : Nat} {e t : Expr}
   | full => exact h
   | io => exact h.toIO
 
+/-- **The sort fact at a grade** (`sortSemAt_of_claims`,
+`Steps/Infer.lean:798`, at the motives): a subject whose inferred type
+reduces to `.sort u` reads into the universe — and is graded, which at
+the io grade is the premise and at the full grade the first motive's
+conclusion.  The totality factor the run version routes
+(`InferReads`) is the existence form of `InferSem`. -/
+theorem sortSem_of {g : Grade} {d : Nat} {e s : Expr} {u : Level}
+    (hs : InferSem m φ g d e s) (hu : RedSem m φ d s (.sort u))
+    (hfe : Frame d e) {Δa : List AnnotTerm} {ea : AnnotTerm}
+    (hC : CtxOk m φ d Δa e)
+    (hea : denoteMeta m.acval env φ d e = some ea)
+    (hgr : g = .io → Graded V Δa ea) :
+    ∀ ρ : Nat → V, Sat V Δa ρ →
+      WellDenotedV V ρ ea ∧ interp V ρ ea ∈ˢ (univ (u.eval φ) : V) := by
+  have hstep : Graded V Δa ea ∧ Frame d s ∧ LeavesSub s e ∧
+      ∃ sa, denoteMeta m.acval env φ d s = some sa ∧ Graded V Δa sa ∧
+        ∀ ρ : Nat → V, Sat V Δa ρ → interp V ρ ea ∈ˢ interp V ρ sa := by
+    cases g with
+    | full =>
+      obtain ⟨hfs, hsub, sa, hsa, hge, hgs, hmem⟩ := hs hfe hC hea
+      exact ⟨hge, hfs, hsub, sa, hsa, hgs, hmem⟩
+    | io =>
+      have hge := hgr rfl
+      obtain ⟨hfs, hsub, sa, hsa, hgs, hmem⟩ := hs hfe hC hea hge
+      exact ⟨hge, hfs, hsub, sa, hsa, hgs, hmem⟩
+  obtain ⟨hge, hfs, hsub, sa, hsa, hgs, hmem⟩ := hstep
+  obtain ⟨-, -, ua, hua, -, heq⟩ := hu hfs (hC.of_subset hsub) hsa hgs
+  rw [denoteMeta] at hua
+  obtain rfl : ua = .sort (u.eval φ) := (Option.some.inj hua).symm
+  intro ρ hρ
+  refine ⟨hge ρ hρ, ?_⟩
+  have hm := hmem ρ hρ
+  rw [heq ρ hρ, interp_sort] at hm
+  exact hm
+
 /-- `infer_sort_claim` / `infer_sort_claimIO`. -/
 theorem Infer.sort_sound {g : Grade} {d : Nat} {u : Level} :
     InferSem m φ g d (.sort u) (.sort (.succ u)) := by
@@ -190,14 +225,92 @@ theorem Infer.strLit_sound (hin : RulesInputs V m φ) {g : Grade} {d : Nat}
 
 /-- `infer_forallE_claim(IO)` (`Steps/Infer.lean:254`, `InferIO.lean:339`):
 the two sort facts (`sortSemAt_of_claims`'s content) and the bit law. -/
-theorem Infer.forallE_sound (hin : RulesInputs V m φ) {g : Grade} {d : Nat}
+theorem Infer.forallE_sound (_hin : RulesInputs V m φ) {g : Grade} {d : Nat}
     {ty body s bs : Expr} {u v : Level} {mb : BinderMeta}
     (hs : InferSem m φ g d ty s) (hu : RedSem m φ d s (.sort u))
     (hbs : InferSem m φ g (d + 1) (body.instantiate1 (.fvar d ty)) bs)
     (hv : RedSem m φ (d + 1) bs (.sort v))
     (hz : Level.zeronessOf v = mb.pw) :
     InferSem m φ g d (.forallE ty body mb) (.sort (.imax u v)) := by
-  sorry
+  have main : ∀ {Δa : List AnnotTerm} {ea : AnnotTerm},
+      Frame d (.forallE ty body mb) →
+      CtxOk m φ d Δa (.forallE ty body mb) →
+      denoteMeta m.acval env φ d (.forallE ty body mb) = some ea →
+      (g = .io → Graded V Δa ea) →
+      Frame d (.sort (.imax u v)) ∧
+        LeavesSub (.sort (.imax u v)) (.forallE ty body mb) ∧
+        ∃ ta, denoteMeta m.acval env φ d (.sort (.imax u v)) = some ta ∧
+          Graded V Δa ea ∧ Graded V Δa ta ∧
+          ∀ ρ : Nat → V, Sat V Δa ρ → interp V ρ ea ∈ˢ interp V ρ ta := by
+    intro Δa ea hfr hC hea hgr
+    obtain ⟨hws, hb, hLb⟩ := hfr
+    simp only [Expr.WScoped] at hws
+    simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
+    have hLty : Expr.LeavesBounded ty := fun l hl =>
+      hLb l (by simp [Expr.fvarLeaves, hl])
+    have hLbody : Expr.LeavesBounded body := fun l hl =>
+      hLb l (by simp [Expr.fvarLeaves, hl])
+    obtain ⟨hwopen, hbopen, hLopen⟩ :=
+      frame_open2 hws.1 hb.1 hws.2 hb.2 hLty hLbody
+    obtain ⟨tyA, baA, htyA, hbaA, rfl⟩ := denoteMeta_forallE_inv hea
+    -- the io grade's premise, split hereditarily
+    have hoist : g = .io →
+        Graded V Δa tyA ∧ Graded V (tyA :: Δa) baA := fun hg =>
+      WellDenotedV.hoist_pi (V := V) (hgr hg)
+    have hdomU := sortSem_of hs hu ⟨hws.1, hb.1, hLty⟩ hC.forallE_ty htyA
+      (fun hg => (hoist hg).1)
+    have hCop : CtxOk m φ (d + 1) (tyA :: Δa)
+        (body.instantiate1 (.fvar d ty)) :=
+      CtxOk.openS hC.forallE_ty hC.forallE_body htyA
+        (fun ρ hρ => (hdomU ρ hρ).1)
+    have hcodU := sortSem_of hbs hv ⟨hwopen, hbopen, hLopen⟩ hCop hbaA
+      (fun hg => (hoist hg).2)
+    have hgea : Graded V Δa (.pi 0 (pwBit φ mb.pw) tyA baA) := by
+      intro ρ hρ
+      have hdom := hdomU ρ hρ
+      have hcod : ∀ x, x ∈ˢ interp V ρ tyA →
+          WellDenotedV V (cons x ρ) baA ∧
+            interp V (cons x ρ) baA ∈ˢ (univ (v.eval φ) : V) :=
+        fun x hx => hcodU (cons x ρ) (Sat_cons V hρ hx)
+      refine ⟨?_, ?_⟩
+      · rw [WellDenoted_pi]
+        exact ⟨hdom.1.1, fun x hx => (hcod x hx).1.1⟩
+      · rw [AnnotValid_pi]
+        refine ⟨hdom.1.2, fun x hx => (hcod x hx).1.2, ?_⟩
+        intro hbit x hx
+        exact pwBit_zero_mem_univZero hz hbit (hcod x hx).2
+    refine ⟨⟨by simp [Expr.WScoped], by simp [Expr.looseBVarsBounded],
+        fun l hl => by simp [Expr.fvarLeaves] at hl⟩,
+      (fun l hl => by simp [Expr.fvarLeaves] at hl),
+      _, by rw [denoteMeta], hgea, fun _ _ => ⟨by simp, by simp⟩, ?_⟩
+    intro ρ hρ
+    have hdom := hdomU ρ hρ
+    have hcod : ∀ x, x ∈ˢ interp V ρ tyA →
+        WellDenoted V (cons x ρ) baA ∧
+          interp V (cons x ρ) baA ∈ˢ (univ (v.eval φ) : V) :=
+      fun x hx =>
+        ⟨(hcodU (cons x ρ) (Sat_cons V hρ hx)).1.1,
+          (hcodU (cons x ρ) (Sat_cons V hρ hx)).2⟩
+    have hrow := sound_pi V (u := u.eval φ) (v := v.eval φ)
+      hdom.1.1 (fun x hx => (hcod x hx).1) hdom.2
+      (fun x hx => (hcod x hx).2)
+    have hzag : pwBit φ mb.pw = 0 ↔ v.eval φ = 0 := by
+      rw [← hz]; exact pwBit_zeronessOf φ v
+    have hbridge :
+        interp V ρ (.pi 0 (pwBit φ mb.pw) tyA baA)
+          = interp V ρ (.pi (u.eval φ) (v.eval φ) tyA baA) := by
+      rw [interp_pi, interp_pi]
+      exact piR_zero_agree hzag fun x _ => rfl
+    rw [hbridge]
+    exact hrow.2
+  cases g with
+  | full =>
+    intro hfr Δa ea hC hea
+    exact main hfr hC hea (fun hg => by simp at hg)
+  | io =>
+    intro hfr Δa ea hC hea hge
+    obtain ⟨hft, hsub, ta, hta, -, hgt, hmem⟩ := main hfr hC hea (fun _ => hge)
+    exact ⟨hft, hsub, ta, hta, hgt, hmem⟩
 
 /-- `infer_lam_claim(IO)` (`Steps/Infer.lean:358`, `InferIO.lean:456`):
 the fibre regime fact from the leaf sort run or, at a chain node, from
