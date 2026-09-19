@@ -326,6 +326,13 @@ def DeclNestedRun (μ : CheckMode) (F : Nat) (env : Env)
     -- one, and the half the CONTAINER's side of the wide
     -- correspondence is built from
     ConLeche.nestedOrdSelfTargetOk env p b st stored = true ∧
+    -- **AND ITS DOMAIN IS THE OWNER'S, ONE SUBSTITUTION APART** (K.69):
+    -- K.67's and K.68's twin with the field DOMAINS compared instead of
+    -- the targets, under the guard that the OWNER's copy fired — the
+    -- one guard under which the positivity normalisation may be pushed
+    -- across the block's instantiation.  UNCONDITIONAL for K.61's
+    -- reason
+    ConLeche.nestedOrdNormOk env p b st stored = true ∧
     -- POST-CHECK (a) A THIRD TIME (K.30): the pins typed at the
     -- environment holding the RESTORED formers — the model tier's own
     ConLeche.nestedPinsOk (m := CheckM) (fueledOps μ F)
@@ -598,7 +605,7 @@ theorem declNestedRun_etaClosed {μ : CheckMode} {F : Nat} {env envOut : Env}
     (h : DeclNestedRun μ F env p envOut) : EtaFamiliesClosed envOut := by
   obtain ⟨-, -, st, b, envAux, stored, ctorsR, cvRms, cvRns, rulesM, rulesN, fmsA, ctorsA,
     -, -, -, -, -, -, -, -, -, -, -, -, hcaps,
-    -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -,
+    -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -,
     hctors, hrm, hrn, -, -, -, -, -, htbl,
     -, -, -, -, -, -⟩ := h
   refine EtaFamiliesClosed.ofFreshExt hE ?_

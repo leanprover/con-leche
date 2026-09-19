@@ -1158,6 +1158,17 @@ structure NestedPinsRun (V : Type w) [SetTheory V] (μ : CheckMode) (F : Nat) {e
   correspondence reads; this is what a LATER block reads of this one,
   carried onto the container's model through `PinShapes`. -/
   hK68 : ConLeche.nestedOrdSelfTargetOk env p b st stored = true
+  /-- **AND ITS DOMAIN IS THE OWNER'S, ONE SUBSTITUTION APART** (task
+  #315 K.69): K.67 and K.68 compare the two copies' TARGETS at a field
+  the container calls ordinary; this compares their field DOMAINS —
+  the block's copy's is the owner's, instantiated at the block pin's
+  levels and components — under the guard that the OWNER's copy FIRED.
+  That guard is what lets the positivity normalisation be pushed across
+  the instantiation at all: a term already at a constant inductive head
+  is its own normalisation (`normPosDomM_indApp`) and stays so under
+  the substitution, while the mixed corner — the block's copy fires
+  where the owner's did not — is REAL and is the model's entry arm. -/
+  hK69 : ConLeche.nestedOrdNormOk env p b st stored = true
   hpinsE : ConLeche.nestedPinsOk (m := ConLeche.CheckM) (fueledOps μ F)
       (ConLeche.consMutualFormers (fms.take p.k) env) p.nP st.pins = .ok ()
   /-- **THE PINS' CONSTANTS RESOLVE** (K.64, task #315, lane LE): at the
@@ -2198,12 +2209,12 @@ DESIGN §U.22.) -/
 theorem nestedPinsStaged_of {F : Nat} (hId : NestedPinsIdent V μ F) : NestedPinsStaged V μ F := by
   intro hμ env mp hE p st b envAux stored ctorsR fmsA ctorsA₀ fms f₀ ctorsA sortss kinds mp₁ ppsF W
     idxF dsF esF srcsF fvsPF xFvsF xrestF eissF tssF mp₁' hPM h0 h1 hfA hcA helim hcount hfresh hcont
-    hb haux hstored hclosed hpinsAux hcaps hsrc hgrp hscoped hK32 hkinds hrank hK42 hK51 hK60 hK63 hK61 hK62 hK67 hK68 hpinsE hK64 hformers h hbk
+    hb haux hstored hclosed hpinsAux hcaps hsrc hgrp hscoped hK32 hkinds hrank hK42 hK51 hK60 hK63 hK61 hK62 hK67 hK68 hK69 hpinsE hK64 hformers h hbk
     h3 hnd hctorsA hleafM' hoff' hfind' hctors
   have R : NestedPinsRun V μ F mp p st b envAux stored ctorsR fmsA ctorsA₀ fms f₀ ctorsA sortss kinds
       mp₁ ppsF W idxF dsF esF srcsF fvsPF xFvsF xrestF eissF tssF mp₁' :=
     ⟨hμ, hE, hPM, h0, h1, hfA, hcA, helim, hcount, hfresh, hcont, hb, haux, hstored, hclosed, hpinsAux,
-      hcaps, hsrc, hgrp, hscoped, hK32, hkinds, hrank, hK42, hK51, hK60, hK63, hK61, hK62, hK67, hK68, hpinsE, hK64, hformers, h, hbk, h3, hnd, hctorsA,
+      hcaps, hsrc, hgrp, hscoped, hK32, hkinds, hrank, hK42, hK51, hK60, hK63, hK61, hK62, hK67, hK68, hK69, hpinsE, hK64, hformers, h, hbk, h3, hnd, hctorsA,
       hleafM',
       hoff', hfind', hctors⟩
   obtain ⟨hpinsE, fvs, o, hop, hsc⟩ := R.scoped

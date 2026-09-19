@@ -2764,6 +2764,158 @@ def nestedOrdSelfTargetAt (env : Env) (p : NestedParts) (st : ElimState)
     (st : ElimState) (stored : List AuxStored) : Bool :=
   nestedOrdSelfTargetAt env p st (nestedPinKinds p b stored)
 
+/-! ## THE ROOT'S NORMALISED DOMAIN, INSTANTIATED (task #315 K.69) -/
+
+/-- **THE ROOT'S COPY FIRED AT THIS FIELD** (task #315 K.69): its own
+recomputation of the field (`ordTargetDom` at the owner's own
+components) is headed by a CONSTANT that is one of the owner's group
+MEMBERS or the container of one of the owner's own PINS — K.67's head
+test, read as a Bool instead of as a case split.
+
+That is the guard under which the normalisation may be pushed across
+the block's instantiation, and it is a guard about the ROOT alone: a
+term already at a constant inductive head is its own `whnf`
+(`whnf_indApp_eq`, `normPosDomM_indApp`), a constant head survives any
+substitution, and so the block's copy of the same field is head-normal
+too.  The converse fails — a root STUCK at a variable head is unblocked
+by the block's substitution — which is why the guard is the root's
+firing and not the block's. -/
+def ordRootFired (env : Env) (memsJ : List Name) (ownSelf : List Expr) (W : Expr) : Bool :=
+  match W.getAppFn with
+  | .const M _ =>
+    memsJ.contains M ||
+      (match containerInfo? env M with
+       | none => false
+       | some ciM =>
+         (ownSelf.findIdx? (fun e => e ==
+           Expr.mkAppN W.getAppFn (W.getAppArgs.take ciM.nP))).isSome)
+  | _ => false
+
+/-- **THE ROOT-ERA TERM AT THE BLOCK'S INSTANTIATION** (task #315 K.69):
+a term in the OWNER's parameter-opener scope, carried to the BLOCK's by
+the one substitution that relates the two — the owner's level parameters
+at the block pin's levels, the owner's openers at the block pin's
+components.
+
+`cut` is the recomputation's own (`l + domPiDepth`), and it is what the
+abstraction has to start above: `ordTargetDom` leaves the binders BELOW
+the cut loose, so abstracting the openers at `0` would collide with
+them.  Above the cut there is nothing to lower — the container's
+parameters are exactly the `nP` the recomputation already consumed.
+
+`none` where the block pin's head is not a constant: nothing is asserted
+there, and a mint always writes one (`replaceIfNested`). -/
+def ordRootInst (lpsJ : List Name) (nPJ cut : Nat) (pinG W : Expr) : Option Expr :=
+  match pinG.getAppFn with
+  | .const _ lvlsJ =>
+    some (Expr.instantiateList
+      (Expr.abstractRange (W.instantiateLevelParams lpsJ lvlsJ) 0 nPJ cut)
+      ((pinG.getAppArgs.take nPJ).reverse) cut)
+  | _ => none
+
+/-- **THE NORMALISATION COMMUTES WITH THE INSTANTIATION AT THIS FIELD**
+(task #315 K.69) — K.67's and K.68's twin at the same walk, with the
+TERMS compared instead of the targets.
+
+K.67 says which class the owner `J` gave a field its container `K`
+calls ordinary; K.68 says which class the block gave it.  Neither says
+that the two field DOMAINS are one substitution apart, and the wide
+identification's pin half needs exactly that: the block's copy's domain
+at the field IS the owner's, instantiated at the block pin's levels and
+components.
+
+**WHY IT IS A RECORD AND NOT A THEOREM.**  What the two installs
+compare is not the mint but the mint after the POSITIVITY
+NORMALISATION, and a normalisation is not a substitution: substitution
+creates redexes, so `whnf (e[s]) = (whnf e)[s]` is false in general and
+no such theorem exists in the tree.  Under this row's GUARD it is true
+and needs no commutation at all: where the owner's own recomputation is
+already at a constant inductive head, it is its own normalisation
+(`normPosDomM_indApp`), the head survives the substitution, and the
+block's is its own normalisation too — so the equation this Bool
+records, which is about the MINTS, carries the normalised domains with
+it.  The guard is the ROOT's firing, and it is the root's alone
+because the mixed corner — the block's copy fires where the owner's did
+not — is REAL (a root stuck at a variable head is unblocked by the
+block's substitution) and is the arm the model closes with an entry.
+
+**It cannot fire by construction**: the block's copy of the owner's pin
+is ONE substitution applied to the very constructor the owner copied,
+and both sides instantiate the SAME stored domain — the owner's at its
+own components, the block's at those components substituted.
+UNCONDITIONAL and `.internal`, for K.61's reason.
+
+**The arms that assert nothing.**  Where the root did NOT fire the row
+is silent — that is the mixed corner, and it has no claim to make;
+where the block pin's head is not a constant it is silent too.  The
+LOOKUP arms are K.67's, character for character. -/
+def nestedOrdNormAt (env : Env) (p : NestedParts) (st : ElimState)
+    (maps? : Option (List (List Nat)))
+    (kinds? : Option (List (List (List (RecFieldKind × Nat))))) : Bool :=
+  match maps?, kinds? with
+  | some maps, some kinds =>
+    let terms := nestedPinTermsSelf p st
+    (List.range st.pins.length).all fun g =>
+      match st.pins[g]? with
+      | none => false
+      | some gn =>
+        match containerInfo? env gn.container with
+        | none => false
+        | some ciJ =>
+          match containerOwnPinsSelf env gn.container with
+          | none => false
+          | some ownSelf =>
+            match ciJ.members.head? with
+            | none => false
+            | some m₀ =>
+              let memsJ := ciJ.members.map (·.name)
+              let mapR := maps.getD g []
+              let pinG := terms.getD g default
+              (List.range ownSelf.length).all fun qK =>
+                let q := mapR.getD qK st.pins.length
+                match st.pins[q]?, kinds[q]? with
+                | some qn, some ks =>
+                  match containerInfo? env qn.container with
+                  | none => false
+                  | some ci =>
+                    match ci.members[q - qn.grpBase]? with
+                    | none => false
+                    | some Jm =>
+                      let memsK := ci.members.map (·.name)
+                      (List.range ks.length).all fun j =>
+                        match ks[j]?, Jm.ctors[j]? with
+                        | some kf, some cJ =>
+                          match cJ.type.stripPis (ci.nP + cJ.nFields) with
+                          | none => false
+                          | some (jbs, _) =>
+                            (List.range kf.length).all fun l =>
+                              match kf[l]?, jbs[ci.nP + l]? with
+                              | some (r, _), some domJ =>
+                                if !(r == .recursive || r == .reflexive) then true
+                                else if mentionsMember memsK domJ.1 then true
+                                else
+                                  let W := ordTargetDom Jm.lps ci.nP ownSelf qK l domJ.1
+                                  if !ordRootFired env memsJ ownSelf W then true
+                                  else
+                                    match ordRootInst m₀.lps ciJ.nP
+                                        (l + domPiDepth
+                                          (ordTargetDomL Jm.lps ownSelf qK domJ.1))
+                                        pinG W with
+                                    | none => true
+                                    | some Wb =>
+                                      ordTargetDom Jm.lps ci.nP terms q l domJ.1 == Wb
+                              | _, _ => false
+                        | _, _ => false
+                | _, _ => true
+  | _, _ => false
+
+/-- The Bool the route records (task #315 K.69), on the same instance-map
+table K.61, K.62 and K.67 read and the same field kinds
+`nestedPinKinds` computes. -/
+@[inline] def nestedOrdNormOk (env : Env) (p : NestedParts) (b : MutualBlock)
+    (st : ElimState) (stored : List AuxStored) : Bool :=
+  nestedOrdNormAt env p st (nestedInstMaps env st) (nestedPinKinds p b stored)
+
 /-! ## THE POSITIVITY NORMALISATION ON THE MINTED COPY (task #315 K.42)
 
 Lane L-B's `ordF`-LEFT arm (DESIGN §U.62) needs, at an ORDINARY field of
@@ -3135,6 +3287,24 @@ def nestedPinChecks (ops : CheckerOps m) (env envN : Env) (p : NestedParts) (b :
   else if !nestedOrdSelfTargetAt env p st kinds? then
     throw (.internal "nested: a rewritten ordinary field's target is not the block's own \
       class")
+  -- **AND ITS DOMAIN IS THE OWNER'S, ONE SUBSTITUTION APART** (task
+  -- #315 K.69): K.67 and K.68 compare the two copies' TARGETS; this
+  -- compares their field DOMAINS, at the one guard under which the
+  -- positivity normalisation may be pushed across the block's
+  -- instantiation — the OWNER's own recomputation already at a
+  -- constant inductive head, hence its own normalisation
+  -- (`normPosDomM_indApp`), hence head-normal after the substitution
+  -- too.  Where the root did NOT fire the row is silent: that is the
+  -- mixed corner the model closes with an entry.  UNCONDITIONAL and
+  -- `.internal`, for K.61's reason.
+  --
+  -- **IF THIS EVER FIRES** the block's copy of a container field is
+  -- not the owner's copy substituted — a defect in the ROUTE, not in
+  -- the stream, and the answer is never to relax the check.  See
+  -- DESIGN "#### K.69".
+  else if !nestedOrdNormAt env p st maps? kinds? then
+    throw (.internal "nested: a rewritten ordinary field's domain is not the owning \
+      container's domain instantiated")
   else if !ops.mode.verifiedChecks then pure () else
   let roots := nestedPinRootGroupAt p st (nestedPinInstAt st edges?)
   -- **THE COPIES' RECURSIVE TARGETS** (K.32): a copy field the aux
