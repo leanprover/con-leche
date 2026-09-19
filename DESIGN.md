@@ -107292,11 +107292,18 @@ abstracting the openers into `bvar 0 …` would collide with them.
 K.69's guard is K.67's `p.k ≤ t` bound DROPPED — the equation is about
 terms, not targets, so a block member target is covered too.
 
-**THE CORRECTION: THE NORMALISATION IS NOT RUN, AND THAT IS THE ROW
-AND NOT A RETREAT.**  The row was authorised as "the block's
-`normPosDomM` of the substituted domain equals the substitution of the
-root's `normPosDomM`", with both walks RE-RUN by the check.  Priced by
-inputs against the tree first, as ruled:
+**THE CORRECTION, AND THEN ITS COMPLETION.**  The row was authorised
+as "the block's `normPosDomM` of the substituted domain equals the
+substitution of the root's `normPosDomM`", with both walks RE-RUN by
+the check.  It landed WITHOUT the re-run, because under the guard as
+first written the walk is the identity; the guard as first written then
+turned out to be a SUB-guard, and the re-run came back — in a PURE
+form the pricing below does not touch.  Both halves are recorded, the
+pricing first, because it is the pricing that rules out the
+`ops`-level clause for good.
+
+An `ops`-LEVEL (monadic) clause was priced by inputs against the tree,
+as ruled, and REFUSED:
 
 * a monadic clause needs a CACHED-BRIDGE lemma, because `normPosDomM`
   calls `ops.whnf`: K.42's and K.51's are `nestedOrdNormsS_run` /
@@ -107313,8 +107320,8 @@ inputs against the tree first, as ruled:
   would need TWO more of them (the owner's own-pin table at the
   openers, and `nestedPinTermsSelf`).
 
-**And none of it buys anything, because under this row's guard the
-normalisation is the IDENTITY on both sides.**  The guard is the
+**THE FIRST HALF: AT A CONSTANT HEAD THE NORMALISATION IS THE IDENTITY
+ON BOTH SIDES, AND NOTHING IS RUN.**  The guard's first arm is the
 owner's recomputation being headed by a `.const` that is one of the
 owner's group members or the container of one of the owner's own pins
 (`ordRootFired`, K.67's head test).  A constant-headed application at
@@ -107329,13 +107336,63 @@ substitution, so the block's side is head-normal too.  So
 
 with the middle equality THIS ROW's Bool and the two outer ones
 `normPosDomM_indApp`.  **The kernel must not re-run a walk it can prove
-is the identity**: the row records the syntactic equation and the
-normalisation is the Verify tier's, which is where the identity lives.
+is the identity**: on this arm the row records the syntactic equation
+and the normalisation is the Verify tier's, which is where the identity
+lives.
+
+**THE SECOND HALF: THE REDUCTION SLIVER, AND THE PURE WALK THAT CLOSES
+IT** (2026-09-19, the same lane, one session later).  `ordRootFired`
+reads the head of the recomputed mint BEFORE any reduction, so it means
+"the owner fired WITHOUT a reduction step", and an owner whose mint is
+a REDEX — `(fun _ => T α) trivial`, the shape
+`tests/e2e/nested_lam_pin_prop.ndjson` exhibits one level down — fires
+only after the walk's `whnf` and was left SILENT.  The model's consumer
+(`hslotOrd`, the T/T arm of `copyTransfer_via_pin`,
+`Model/Inductives/NestedPinLeafAll.lean`) needs the row whenever the
+OWNER fired, reduction or not, and **a proof's case split is over the
+SYNTAX and never over a corpus** — the standing ruling — so the
+measurement below, which finds the sliver empty everywhere, does not
+retire that arm.  `ordRootNorm` (`Kernel/Inductives/NestedInstall.lean`)
+closes it:
+
+* at a mint already headed by a `.const` it returns the mint and runs
+  NOTHING — the first half, unchanged, and the cost argument's whole
+  content;
+* otherwise it runs `normPosDomM` at `fueledOps` and at `checkFuel`,
+  and the comparison is made between the two NORMAL FORMS, the block's
+  side computed THE SAME WAY (the same function, the same member list —
+  the OWNER's group, `memsJ` — the same depth and fuel).
+
+**THE PURE FORM IS WHAT KEEPS IT SIMULABLE, AND IT COSTS THE PRICING
+ABOVE NOTHING.**  `nestedPinChecks` is ONE definition, shared by the
+pure route and the cached one (`Cached/CheckerC.lean:439` calls it with
+`sharedOpsC`), so a clause that is a PURE `Bool` of the arguments it
+already has is literally the same function on the same inputs in both
+routes and owes no bridge lemma — confirmed against the `SimC`/`Yields`
+idiom by building: `ConLeche.Verify.Cached.PushChain` and the whole
+`Verify/Cached` tier built UNCHANGED.  That is exactly what an
+`ops`-level clause could not be, for the `hμ` reason above.  Two
+consequences are forced and recorded rather than chosen:
+
+* **the fuel is `checkFuel` and not the route's `F`** — the cached
+  route has no `F` to hand, so a fuel-parametric clause would not be
+  one function.  What that costs is named under WHAT IS OWED;
+* **the mode is `ops.mode`**, which both instantiations agree on
+  (`fueledOps_mode`, `sharedOpsC`'s own), so the Bool gains a
+  `CheckMode` parameter and `hK69` is stated at `μ`.
+
+**THE COST IS THE SLIVER'S**, and the "no unmemoized traversals" rule
+is met by RARITY and by SIZE, not by a memo: the walk runs only where
+the mint's head is not already a constant — measured EMPTY at
+`init-full` and at Mathlib, one e2e block — and then on ONE field
+domain of ONE constructor of ONE pin.  The cost table below is the
+evidence.
 
 ##### WHAT IS OWED, AND WHERE THE ENVIRONMENT GAP IS
 
 The corollary above is NOT landed — it has no consumer yet (`hK69` is
-unconsumed, like `hK67` and `hK68`), and it has one real input to find:
+unconsumed, like `hK67` and `hK68`), and it is now owed for BOTH paths.
+On the CONSTANT-HEAD path it has one real input to find:
 `normPosDomM_indApp` wants `env.find? M = some (.indInfo …)` **at the
 environment the walk ran in**, which is the block's own
 (`consNestedFormers (stored.take p.k) env`) and not the pre-block one
@@ -107353,6 +107410,30 @@ neither environment.  The owed lemma is one declaration,
 `normPosDomM (block's mint) = .ok (s (owner's mint))` and its twin on
 the owner's side.  It is named here rather than built because its
 consumer is the model correspondence, which is the carry lane's.
+
+**ON THE SLIVER PATH THE SAME COROLLARY IS OWED THREE MORE INPUTS**,
+and they are named here because none of them is in the tree:
+
+* **the walk's reduction is closed under the substitution, in THIS
+  direction**: `t →* W` at the owner gives `t[s] →* W[s]`.  Substitution
+  creating redexes is what makes the CONVERSE false; this direction is
+  the one the argument walks, and it has no lemma;
+* **and `whnf` is the function that finds it**: `W[s]` is
+  constant-headed at an inductive (the guard, transported), hence its
+  own `whnf` (`whnf_indApp_eq` K.22), so `whnf (t[s]) = W[s]` — which
+  is determinism of the reduction strategy at a head-normal reduct, not
+  merely of `whnf` as a function;
+* **and the walk the ROW ran is the walk the INSTALL ran.**  The row's
+  call is at `checkFuel` and the install's at the route's `F`, so the
+  corollary crosses a FUEL: what is owed is that a successful
+  `normPosDomM` at one fuel is the same at any larger one — the
+  fuel-monotonicity the P tier's family already lives by, but not
+  stated for `normPosDomM`.  On the constant-head path the crossing is
+  free (`normPosDomM_indApp` holds at every fuel), which is why this
+  item appears only here.
+
+`whnf`-monotonicity-under-environment-extension is owed on BOTH paths
+and is the same missing theorem as above.
 
 ##### THE GUARD IS THE ROOT'S FIRING — THE FOUR ARMS, AND A SUB-GUARD
 
@@ -107372,37 +107453,50 @@ is REAL: a root STUCK at a variable head is unblocked by the block's
 substitution.  So the guard has to be the root's firing, and where it
 fails the row says nothing.
 
-**AND THE LANDED GUARD IS A SUB-GUARD OF IT**, which is recorded rather
-than glossed: `ordRootFired` tests the head of the owner's mint
-BEFORE any reduction, so it means "the root fired WITHOUT a reduction
-step".  A root that fires only after a `whnf` — its mint a beta-redex,
-`(fun _ => T) trivial`, the shape `tests/e2e/nested_lam_pin_prop.ndjson`
-exhibits one level down — is in the SILENT set here, together with the
-mixed corner.  Separating the two costs exactly the monadic form priced
-above; the control below counts them together and separately from the
-arm that fires.
+**AND THE GUARD IS NOW THE WHOLE OF IT.**  The landed guard was a
+SUB-guard — `ordRootFired` on the un-reduced mint, which means "the
+root fired WITHOUT a reduction step" — and the reduction sliver sat in
+the silent set beside the mixed corner.  `ordRootNorm` moved the head
+test onto the mint's NORMAL FORM, so the silent set is now the mixed
+corner alone (plus the two lookup silences below).  Separating the two
+did NOT cost the monadic form priced above: the walk is pure, and the
+controls count the corner and the sliver apart.
 
 ##### THE `| _ => true` ARMS, ANSWERED
 
-Three arms assert nothing, and each is a deliberate silence, not a
-concession: the root did NOT fire (the mixed corner and the
-reduction sliver — `hmixOrd`'s territory, where the block's target
-leaves the instance and the model closes with an entry); the block
-pin's head is not a `.const` (`ordRootInst = none`); and the field is
-not one the block's rewrite made recursive or reflexive, or its
-container-side domain already mentions a member of the container's own
-group (K.67's two `if`s).  The LOOKUP arms are K.67's, character for
-character, `false` included — those are asserted, because K.67 already
-asserts them at a sub-set of the same fields.
+Four arms assert nothing, and each is a deliberate silence, not a
+concession: the root did NOT fire, after the normalisation (the mixed
+corner and nothing else now — `hmixOrd`'s territory, where the block's
+target leaves the instance and the model closes with an entry); the
+OWNER's walk THREW (fuel, or a non-positive occurrence), where the
+owner's own side is not in hand; the block pin's head is not a `.const`
+(`ordRootInst = none`); and the field is not one the block's rewrite
+made recursive or reflexive, or its container-side domain already
+mentions a member of the container's own group (K.67's two `if`s).
+
+**The BLOCK's walk throwing is NOT a silence**, and that is deliberate
+too: under the guard the owner's normal form is constant-headed, so the
+block's side reduces to its substitution and cannot throw — the arm
+asserts `false` there, and the control table's `c69e` column is what
+would find it if the argument were wrong.
+
+The LOOKUP arms are K.67's, character for character, `false` included —
+those are asserted, because K.67 already asserts them at a sub-set of
+the same fields.
 
 ##### PLACEMENT
 
 Inside `nestedPinChecks`, directly after K.68 and ABOVE the
 `verifiedChecks` gate: UNCONDITIONAL in both routes, `.internal` on
-failure, on K.61's own instance-map table and K.46's field kinds.
-**No `PushChain` change**, confirmed — the record is a pure `Bool`, so
-the cached simulation (which names only K.64 among these) is untouched
-and `ConLeche.Verify.Cached.PushChain` built unchanged.  Inversions
+failure, on K.61's own instance-map table and K.46's field kinds.  The
+Bool takes `ops.mode` (the completed guard's `normPosDomM` call is at
+`fueledOps mode checkFuel`), so `hK69` is stated at `μ` wherever the
+run relation carries it.
+**No `PushChain` change**, confirmed TWICE — at the landed guard and
+again with the walk inside — because the record is a pure `Bool` of
+arguments `nestedPinChecks` already has, and `nestedPinChecks` is ONE
+definition: the cached simulation (which names only K.64 among these)
+is untouched and `ConLeche.Verify.Cached.PushChain` built unchanged.  Inversions
 `nestedOrdNormOk_at_refl` (general) and `nestedOrdNormOk_at` (finitary,
 both cuts the identity), both in
 `Verify/Inductives/NestedCopyKinds.lean`; run conjunct through
@@ -107421,63 +107515,71 @@ fixed in the recomputation, never by weakening the row.
 
 ##### (a) THE MEASUREMENT
 
-`tests/arena.sh` EXIT 0 with the K.69 binary: `e2e: 200/200`,
-`nested-shadow: 42/42`, `arena suite: 91/96 good tests accepted`,
-`annot suite: 15/15`, `axioms: pinned`, trusted / `--jobs=1` /
-`--jobs=4` sweeps unchanged — the accept set did not move.
+`tests/arena.sh` EXIT 0 with the completed-guard binary: `e2e:
+200/200`, `nested-shadow: 42/42`, `arena suite: 91/96 good tests
+accepted`, `annot suite: 15/15`, `axioms: pinned`, trusted /
+`--jobs=1` / `--jobs=4` sweeps unchanged — the accept set did not move,
+and neither did it at the landed guard.
 
 | corpus | shadow blocks | accepting | fires |
 |---|---|---|---|
 | `init-full` (53 093 accepted), both modes | 1 | 1 | 0 |
 | Mathlib (654 504 accepted), both modes | 41 | 41 | 0 |
 
-**THE TWO CONTROLS**, because this row has two silences and they are
-different things.  The first negates the equation, so it fires exactly
-where the ARM IS REACHED (the root fired and the comparison was made);
-the second replaces the guard's `true` arm by `false`, so it fires
-exactly at the MIXED CORNER — the guard region entered and the root's
-head test failing, which is the mixed arm together with the reduction
-sliver the sub-guard leaves out.  The corner becomes countable with
-this row's recomputation and was NOT countable before it (WIDE (3) (1)
-recorded exactly that).
+**FOUR CONTROLS**, because the row has four silences and they are
+different things — and because the sliver arm this session added is
+countable only against its own control.  Each negates exactly one arm:
 
-| corpus | arm reached | mixed corner | K.67's control, for scale |
-|---|---|---|---|
-| e2e (`tests/nested-shadow.sh`) | 4 blocks in 3 of 42 rows — `nested_p04` `P4`, `inmodel_groups` `M` and `H`, `nested_pin_nocollide` `NoCollide` (39/42) | 1 block in 1 of 42 rows — `nested_pin_nocollide` `NoCollide` (41/42) | 4 of 42 |
-| `init-full` | 0 of 1 | 0 of 1 | 0 of 1 |
-| Mathlib | 5 of 41 — `Lean.Elab.InfoTree`, `Lean.Widget.MsgEmbed`, `Lean.Widget.HighlightedMsgEmbed` and the two `Lean.Server.Test.Runner.Client` twins | 0 of 41 | 5 of 41 |
+| control | what it makes assertive | what it therefore counts |
+|---|---|---|
+| `c69` | the equation | the ARM IS REACHED: the owner fired and the comparison was made |
+| `c69m` | the "owner did not fire" silence | the MIXED CORNER proper — after the normalisation, so no longer the corner plus the sliver |
+| `c69s` | the sliver path, on the fired side | the REDUCTION SLIVER: the owner fired, but only AFTER the walk |
+| `c69e` | the "owner's walk threw" silence | the guard region entered and `normPosDomM` erroring on the owner's mint |
 
-The arm's reach is K.67's exactly, which is what the shape predicts:
-the two walks have the same addressing and the same outer guard, and
-K.69 only drops K.67's `p.k ≤ t`.
+| corpus | `c69` arm reached | `c69m` mixed corner | `c69s` reduction sliver | `c69e` owner's walk threw |
+|---|---|---|---|---|
+| e2e (`tests/nested-shadow.sh`, 42 rows) | 4 blocks in 3 rows — `nested_p04` `P4`, `inmodel_groups` `InModelGroups.M` and `.H`, `nested_pin_nocollide` `NoCollide` | 1 block in 1 row — `nested_pin_nocollide` `NoCollide` | **0** | **0** |
+| `init-full` | 0 of 1 | 0 of 1 | **0 of 1** | **0 of 1** |
+| Mathlib | 5 of 41 | 0 of 41 | **0 of 41** | **0 of 41** |
 
-**THE MIXED CORNER IS NOT EMPTY, AND IT IS RARE.**  `NoCollide` has
-fields of BOTH kinds, so the four-arm table's (F,T) row is a shape the
-corpus exhibits and not a hypothetical — `hmixOrd` and `hentOrd₁` are
-paying for something real, and WIDE (3) (1)'s repair was not
-precautionary.  At the two real corpora the count is ZERO: at every
-`init-full` and Mathlib block that enters the guard region the owner's
-copy fired, syntactically, with no reduction — which is also what
-bounds the sub-guard's sliver from above, since the second control
-fires on the sliver too and never did.  A measurement, not a proof:
-the case split that would make it one is over the syntax, and the
-monadic form priced above is what would take it.
+**THE SLIVER IS EMPTY EVERYWHERE MEASURED, AND THE ARM IS IN THE TREE
+ANYWAY.**  That is the whole point of the standing ruling: a proof's
+case split is exhaustive over the SYNTAX, and `hslotOrd` asks for the
+row at every field where the OWNER fired, which the syntax allows to
+happen after a reduction step whether or not a corpus exhibits it.
+What the zero DOES buy is the cost argument — the extra walk never runs
+at either real corpus, which is why the cells below are noise — and a
+sharper reading of the corner: `c69m` is unchanged from the landed
+guard's count, so `NoCollide`'s one block is the MIXED corner
+(`hmixOrd`'s territory, a root stuck at a VARIABLE head) and was never
+the sliver.  The landed row could not tell those apart; this one can,
+and the answer is that the corner is real and the sliver is not yet
+exhibited.
 
-##### (b) THE COST — NOISE, AT INIT-FULL
+`c69`'s reach is unchanged at every corpus, which is what the shape
+predicts: moving the head test onto the normal form can only ENLARGE
+the fired set, and at every field of every corpus the owner's mint was
+already constant-headed.
+
+##### (b) THE COST — STILL NOISE, AT INIT-FULL
 
 `perf stat -e instructions:u`, one run per cell, `--nested-shadow
 --jobs=1`, the same binary with the check's call site removed.
 
 | run | without | with | delta |
 |---|---|---|---|
-| `init-full --verified --nested-shadow` | 538.2251 G | 538.2409 G | +0.0029 % |
-| `init-full --trusted --nested-shadow` | 520.8715 G | 520.8794 G | +0.0015 % |
+| `init-full --verified --nested-shadow` | 538.2235 G | 538.2360 G | +0.0023 % |
+| `init-full --trusted --nested-shadow` | 520.8791 G | 520.8829 G | +0.0007 % |
 
-Two orders below K.62's +0.436 %: the walk is K.67's, its expensive
-lookups (`containerOwnPinsSelf`, `nestedPinTermsSelf`) are HOISTED per
-pin and per block, and the per-field work is one more stored-domain
-recomputation plus one `abstractRange`/`instantiateList` pass on a term
-the row already built.  No Mathlib perf cell, per the standing ruling.
+The extra work the completed guard can add is ONE `normPosDomM` call
+per field that enters the guard region with a non-constant head, and
+`c69m`+`c69s` measure that population at ZERO for both real corpora —
+so these cells measure the same walk the landed row measured, and the
+deltas are the same order (two below K.62's +0.436 %).  **The "no
+unmemoized traversals" rule is met by rarity and by size**, and the
+rarity is the two control columns above, not an assertion.  No Mathlib
+perf cell, per the standing ruling.
 
 ##### (c) STATE
 
@@ -107485,7 +107587,10 @@ the row already built.  No Mathlib perf cell, per the standing ruling.
 consumer is `hslotOrd` in `pinClassFit_of_transfer`, which needs the
 ROOT side's readings as well, and those are the carry lane's
 `PinShapes` clause plus the opener→reading bridge WIDE (3) (b) priced.
-What this row removes from that price is the SYNTAX half, outright.
+What this row removes from that price is the SYNTAX half, outright —
+and, with the guard completed, it removes it at EVERY field where the
+owner fired, which is the shape `hslotOrd` asks for and not a
+corpus-shaped subset of it.
 
 #### WIDE (3′) (a) ROUTE 1 STEP 1 — the three clauses, and the ONE site that needs a fourth fact (lane LE, 2026-09-19)
 
