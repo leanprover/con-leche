@@ -121509,3 +121509,57 @@ missing; the work is three parts where the brief priced one.
 
 Nothing built for this row.  `NestedPinsRun.hK67` stays unconsumed
 until session 2 is re-scoped or re-authorised at three parts.
+
+#### WIDE (3) SESSION 2 — PART 2 LANDED, PART 1's STATEMENT MEASURED AND ITS REAL COST NAMED (lane LE, 2026-09-19)
+
+##### PART 3 DISSOLVED, AND THAT IS THE USEFUL FINDING
+
+The collapse lemma is not needed at all, and the reason is a choice of
+spelling.  K.67's pin branch names the owner's class by `findIdx?` into
+the own-pin table BY TERM; if the container's model names its own class
+by its own index, the two have to be reconciled and that is the
+collapse argument.  If instead the model's clause runs **the same
+`findIdx?` over the model's own spelling of that table**, both sides
+name one index and there is nothing to reconcile.
+
+`BlockModel.ownPinTerms d lps :=
+  (List.range d.nPins).map fun z => (d.pinAt z).ownAt d.nP lps
+    (lps.map Level.param) (containerParamOpeners d.nP)`
+
+is that spelling, and `ContainerOwnPinsSyn`'s SECOND clause — the
+table's entry at a recorded pin's own index IS that pin, at any
+instantiation — is exactly what identifies it with the checker's
+`containerOwnPinsSelf`.  It names no environment, so the transports
+stay one word.
+
+##### PART 2 — LANDED
+
+`PinGroupInst`'s eighth conjunct `hownσ`: σ at an arbitrary own-pin
+class, `instMapPinOwn` at the group's base member.  One consumer's
+positional destructuring gained a `-`.
+
+##### PART 1 — STATEMENT MEASURED, NOT LANDED, AND WHY
+
+The `PinShapes` conjunct was written, and eight of its nine sites cost
+NOTHING: `PinShapes.crossEnv` one word (as predicted),
+`PinShapes.congrB` and `PinShapes.views` unchanged (their patterns
+absorb the new conjunct), `PinShapes.rowTarget` and the two
+`hshR _ hqK` destructurings one `-` each, and the basis / M7-3 sites
+never see it.  The build is green with only the NINTH — the nested
+route's own producer inside `nestedPinShapes_of` — outstanding.
+
+That ninth is the whole remaining cost, and it is not small: the row
+has to come off `NestedPinsRun.hK67` through
+`nestedOrdTargetOk_at_refl`, whose twenty-odd hypotheses are assembled
+from the run exactly the way `NestedPinsRun.copyPinFInstTgtRefl`
+assembles K.61's — **that lemma is ~300 lines** (`NestedInstMap.lean:446`),
+and this is its `ordF` twin, plus a NINTH `PinGroupInst` conjunct to
+carry it (`nestedPinShapes_of` holds only `PG`, so the fact must ride
+on `G.inst` as the existing row does).
+
+So session 2's remaining shape is: the run-level `ordF` twin of
+`copyPinFInstTgtRefl` (~300 lines), the ninth `PinGroupInst` conjunct,
+the `PinShapes` conjunct re-applied (its patch is measured and
+reproducible in minutes), the reader `rowTargetOrd`, then the
+correspondence and `hslotOrd`.  The tree is left clean and `sorry`-free;
+nothing conditional was committed.
