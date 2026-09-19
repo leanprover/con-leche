@@ -369,6 +369,100 @@ theorem Red.proj_sound (hin : RulesInputs V m φ) {d : Nat} {sn : Name} {i : Nat
       (cvC.type.instantiateLevelParams cvC.levelParams us) e.getAppArgs) :
     RedSem m φ d (.proj sn i e)
       (e.getAppArgs.getD (entry.numParams + i) (.bvar 0)) := by
-  sorry
+  intro hf Δa ea hC hea hg
+  obtain ⟨hws, hb, hLb⟩ := hf
+  simp only [Expr.WScoped] at hws
+  simp only [Expr.looseBVarsBounded] at hb
+  have hsube : ∀ l ∈ e.fvarLeaves, l ∈ (Expr.proj sn i e).fvarLeaves :=
+    fun l hl => by simpa [Expr.fvarLeaves] using hl
+  have hLe : Expr.LeavesBounded e := fun l hl => hLb l (hsube l hl)
+  have hCe : CtxOk m φ d Δa e := hC.of_subset hsube
+  obtain ⟨vp, hvp, rfl⟩ := denoteMeta_proj_inv_tower hent hea
+  -- the tower entry's laws
+  obtain ⟨-, -, -, -, hO5, cvC₀, hfC, hlpsC, hlaw, -⟩ := hin.tower_ok sn i entry hent
+  obtain rfl : cvC₀ = cvC := by
+    obtain ⟨rfl, -, -⟩ :=
+      ConstantInfo.ctorInfo.inj (Option.some.inj (hfC.symm.trans hctor))
+    rfl
+  obtain ⟨-, ⟨TCa, hTCa, hB⟩⟩ := hlaw us hus
+  -- the constructor spine, read at the constructor's leaf
+  have he₃ : e = Expr.mkAppN (.const entry.ctor us) e.getAppArgs := by
+    rw [← hhead]; exact (ConLeche.Expr.mkAppN_getApp e).symm
+  have hvp' := hvp
+  rw [he₃] at hvp'
+  obtain ⟨vf, vs, hvf, hspa, hveq⟩ := denoteMeta_mkAppN_inv hvp'
+  have hlenC : us.length = (ConstantInfo.ctorInfo cvC₀ entry.numParams
+      entry.numFields).toConstantVal.levelParams.length := by
+    show us.length = cvC₀.levelParams.length
+    rw [hlpsC]; exact hus
+  rw [denoteMeta_const hfC hlenC] at hvf
+  obtain rfl : vf = m.acval entry.ctor (Level.substFn φ entry.levelParams us) := by
+    rw [← hlpsC]; exact (Option.some.inj hvf).symm
+  -- the selected argument's frame, reading and grading
+  have hidx : entry.numParams + i < e.getAppArgs.length := by rw [hlen]; omega
+  have hmemArg : e.getAppArgs.getD (entry.numParams + i) (.bvar 0)
+      ∈ e.getAppArgs := ConLeche.getD_mem hidx
+  obtain ⟨hfF, hCF⟩ := frame_spine ⟨hws, hb, hLe⟩ hCe _ hmemArg
+  have hlenVs : vs.length = entry.numParams + entry.numFields := by
+    rw [← hspa.length]; exact hlen
+  have hfvd : denoteMeta m.acval env φ d
+      (e.getAppArgs.getD (entry.numParams + i) (.bvar 0))
+      = some (vs.getD (entry.numParams + i) default) := hspa.getD_read hidx
+  have hgvp : Graded V Δa (AnnotTerm.mkAppN
+      (m.acval entry.ctor (Level.substFn φ entry.levelParams us)) vs) := by
+    rw [← hveq]
+    exact fun σ hσ => ProjAV.hoistV (hg σ hσ)
+  obtain ⟨-, hoA⟩ := hoist_spine vs hgvp
+  have hokArg : Graded V Δa (vs.getD (entry.numParams + i) default) :=
+    hoA _ (ConLeche.getD_mem (by rw [hlenVs]; omega))
+  -- the constructor type's frame, reading and grading
+  have hwfC := m.wf _ (ConLeche.Semantics.Env.find?_mem hfC)
+  have hnfC : (cvC₀.type.instantiateLevelParams cvC₀.levelParams us).hasFvar
+      = false := by
+    rw [ConLeche.Expr.hasFvar_instantiateLevelParams]; exact hwfC.1
+  have hbdC : (cvC₀.type.instantiateLevelParams cvC₀.levelParams
+      us).looseBVarsBounded 0 = true := by
+    rw [ConLeche.Expr.looseBVarsBounded_instantiateLevelParams]
+    exact hwfC.2.2.2.1
+  have hTCd : denoteMeta m.acval env φ d
+      (cvC₀.type.instantiateLevelParams cvC₀.levelParams us) = some TCa :=
+    denoteMeta_depth_of_closed m.acval_closed hnfC
+      (fun k => denoteMeta_closed m.acval_erase m.cval_closed hnfC hbdC hTCa 1 k)
+      hTCa d
+  have hTC : CtxOk m φ d Δa
+      (cvC₀.type.instantiateLevelParams cvC₀.levelParams us) :=
+    ⟨hC.1, fun l hl => by
+      rw [ConLeche.Expr.fvarLeaves_eq_nil_of_not_hasFvar hnfC] at hl
+      exact nomatch hl⟩
+  obtain ⟨TCa', hTCa', hokTCa, hmemC0⟩ := hin.const_ty 0 entry.ctor _ us hfC rfl
+    (by show us.length = cvC₀.levelParams.length; rw [hlpsC]; exact hus)
+  obtain rfl : TCa = TCa' := Option.some.inj (hTCa.symm.trans hTCa')
+  have hmemC : ∀ σ : Nat → V, Sat V Δa σ →
+      interp V σ (m.acval entry.ctor (Level.substFn φ entry.levelParams us))
+        ∈ˢ interp V σ TCa := by
+    intro σ _
+    rw [← hlpsC]
+    exact hmemC0 σ
+  -- the ∀-chain, off the head data's arity pin
+  obtain ⟨cvC'', hfC'', -, hstrip⟩ := (m.proj_ok.towerHead hent).2.2.2.2.2
+  obtain ⟨rfl, -, -⟩ :=
+    ConstantInfo.ctorInfo.inj (Option.some.inj (hfC.symm.trans hfC''))
+  have hpc : PiChain e.getAppArgs.length TCa := by
+    rw [hlen]
+    exact piChain_of_stripPis (entry.numParams + entry.numFields)
+      (ConLeche.Expr.stripPis_instantiateLevelParams_isSome cvC₀.levelParams us _
+        hstrip) hTCd
+  -- the licensed walk
+  obtain ⟨resta, hfitA, -⟩ :=
+    hcerts ⟨ConLeche.Expr.WScoped.of_not_hasFvar hnfC, hbdC,
+        ConLeche.Expr.LeavesBounded.of_not_hasFvar hnfC⟩
+      hTC hTCd (fun σ _ => hokTCa σ)
+      (frame_spine ⟨hws, hb, hLe⟩ hCe) hspa hoA
+      (fun _ => ⟨hgvp, hmemC⟩)
+  refine ⟨hfF, fun l hl => hsube l (ConLeche.fvarLeaves_getAppArgs hmemArg l hl),
+    vs.getD (entry.numParams + i) default, hfvd, hokArg, fun σ hσ => ?_⟩
+  have hfit : TeleFit V σ TCa (vs.map (interp V σ)) (interp V σ resta) :=
+    teleFit_of_teleFitPA (by rw [← hspa.length]; exact hpc) (hfitA σ hσ)
+  rw [hveq, hB (towerGuardAt_of_fireOk hO5 hfire) σ vs _ hlenVs (hgvp σ hσ) hfit]
 
 end ConLeche.Model.Rules
