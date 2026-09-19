@@ -526,4 +526,63 @@ theorem denoteMeta_ordRootInst_mkAppN_read {env : Env} (m : EnvModel V env) {ψ 
   rw [denoteMeta_ordRootInst_read m hplen hidx hxb hxlv hDlen hDs hspine hx,
     AnnotTerm.instAll_mkAppN, AnnotTerm.instAll_eq_self hfa]
 
+/-! ## THE TWO COPIES' INDEX EXPRESSIONS, RELATED -/
+
+/-- **THE TWO COPIES OF ONE CONTAINER FIELD CARRY ONE INDEX SPINE, ONE
+INSTANTIATION APART** (task #315 WIDE (3), lane LE) — the bridge and
+K.69 composed, which is the equation the wide identification's pin half
+asks `hslotOrd` for at the `ordF` guard.
+
+The OWNER read its rewritten copy-field domain at its own parameter
+openers and recorded the arguments' readings as `Eis₂`
+(`hhead`/`hargs`, `denoteMeta_ordRootInst_mkAppN_read`'s own inputs).
+The BLOCK read ITS copy of the same field — the term `Wb` — at the
+block's openers and recorded `Eis₁` (`hreadB`).  K.69 (`hK69`, read as
+a term equation by `nestedOrdNormOk_at_pi`) says `Wb` IS the owner's
+domain at `ordRootInst`'s spelling; the bridge reads that spelling as
+the owner's head applied to `Eis₂` with `AnnotTerm.instAll Ds cut`
+applied POSITION BY POSITION, the head not moving.  So the two
+readings are two `mkAppN`s of one arity, and `AnnotTerm.mkAppN_inj`
+reads the spines off.
+
+**Both sides' readings are premises, and that is the point.**  Neither
+is derivable here: a copy's recorded index expressions are tied to its
+own rewritten domain by the install that made it, and at this guard
+that tie is carried by no clause on either model — the object the
+lane's ledger names as step 2's remaining content.  What this theorem
+settles is everything AFTER those two readings, so that when they
+arrive the comparison is one application and not an argument. -/
+theorem ordSpine_inst_of_reads {env : Env} (m : EnvModel V env) {ψ : Name → Nat}
+    {lps : List Name} {lvls : List Level} {nP dp cut : Nat}
+    {params DsE : List Expr} {Ds : List AnnotTerm}
+    {J : Name} {lvlsJ : List Level} {es : List Expr} {Wb : Expr}
+    {fa fb : AnnotTerm} {Eis₁ Eis₂ : List AnnotTerm}
+    (hplen : params.length = nP)
+    (hidx : ∀ j, j < nP → ∃ ty, params[j]? = some (Expr.fvar j ty))
+    (hxb : (Expr.mkAppN (Expr.const J lvlsJ) es).looseBVarsBounded cut = true)
+    (hxlv : ∀ l ∈ (Expr.mkAppN (Expr.const J lvlsJ) es).fvarLeaves,
+      Expr.fvar l.1 l.2 ∈ params)
+    (hDlen : DsE.length = nP)
+    (hDs : ∀ a ∈ DsE, Expr.WScoped dp a ∧ a.looseBVarsBounded 0 = true)
+    (hspine : DenoteMetaSpine m.acval env ψ dp DsE Ds)
+    (hhead : denoteMeta m.acval env (Level.substFn ψ lps lvls) (nP + cut)
+      (Expr.const J lvlsJ) = some fa)
+    (hfa : ∀ (y : AnnotTerm) (k : Nat), fa.inst y k = fa)
+    (hargs : DenoteMetaSpine m.acval env (Level.substFn ψ lps lvls) (nP + cut)
+      (es.map (Expr.instSeq (Verify.openFvars nP cut) (cut - 1))) Eis₂)
+    (hK69 : Wb = Expr.instantiateList
+      (Expr.abstractRange (Expr.instantiateLevelParams lps lvls
+        (Expr.mkAppN (Expr.const J lvlsJ) es)) 0 nP cut)
+      DsE.reverse cut)
+    (hreadB : denoteMeta m.acval env ψ (dp + cut)
+        (Expr.instSeq (Verify.openFvars dp cut) (cut - 1) Wb)
+      = some (AnnotTerm.mkAppN fb Eis₁))
+    (hlen : Eis₁.length = Eis₂.length) :
+    fb = fa ∧ Eis₁ = Eis₂.map (AnnotTerm.instAll Ds cut) := by
+  rw [hK69,
+    denoteMeta_ordRootInst_mkAppN_read m hplen hidx hxb hxlv hDlen hDs hspine hhead hfa hargs
+      (J := J) (lvlsJ := lvlsJ) (es := es)] at hreadB
+  exact AnnotTerm.mkAppN_inj (Option.some.inj hreadB).symm
+    (by rw [hlen, List.length_map])
+
 end ConLeche.Model
