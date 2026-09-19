@@ -36,7 +36,103 @@ theorem reduceNat_bridge (hw : WhnfBridge env fuel)
     {d : Nat} {e e₂ : Expr}
     (h : reduceNatFueled .verified env fuel d e = .ok (some e₂)) :
     Red env d e e₂ := by
-  sorry
+  match e, h with
+  | .app (.const c []) a, h =>
+    simp only [reduceNatFueled, reduceNat, Bind.bind, Except.bind, whnf_def] at h
+    split at h
+    · next hcond =>
+      obtain ⟨rfl, hnat⟩ := hcond
+      cases hwa : whnf .verified env fuel d a with
+      | error err => rw [hwa] at h; exact nomatch h
+      | ok a0 =>
+      rw [hwa] at h
+      dsimp only at h
+      cases hra : rawNatLit? a0 with
+      | none => rw [hra] at h; simp [pure, Except.pure] at h
+      | some n =>
+        rw [hra] at h
+        simp only [pure, Except.pure, Except.ok.injEq, Option.some.injEq] at h
+        subst h
+        exact .natSucc hnat (hw hwa) hra
+    · simp [pure, Except.pure] at h
+  | .app (.app (.const c []) a) b, h =>
+    simp only [reduceNatFueled, reduceNat, Bind.bind, Except.bind, whnf_def] at h
+    split at h
+    · next hcond =>
+      obtain ⟨hnames, hstored⟩ := hcond
+      have hmem : c ∈ natBinOpNames := by
+        rcases hnames with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl |
+          rfl | rfl | rfl | rfl | rfl | rfl <;> decide
+      cases hwa : whnf .verified env fuel d a with
+      | error err => rw [hwa] at h; exact nomatch h
+      | ok a0 =>
+      rw [hwa] at h
+      dsimp only at h
+      cases hra : rawNatLit? a0 with
+      | none => rw [hra] at h; simp [pure, Except.pure] at h
+      | some n₁ =>
+      rw [hra] at h
+      dsimp only at h
+      cases hwb : whnf .verified env fuel d b with
+      | error err => rw [hwb] at h; exact nomatch h
+      | ok b0 =>
+      rw [hwb] at h
+      dsimp only at h
+      cases hrb : rawNatLit? b0 with
+      | none => rw [hrb] at h; simp [pure, Except.pure] at h
+      | some n₂ =>
+        rw [hrb] at h
+        dsimp only at h
+        cases hres : natOpResult c n₁ n₂ with
+        | none => rw [hres] at h; simp [pure, Except.pure] at h
+        | some r =>
+          rw [hres] at h
+          simp only [pure, Except.pure, Except.ok.injEq, Option.some.injEq] at h
+          subst h
+          exact .natOp hmem hstored (hw hwa) hra (hw hwb) hrb hres
+    · split at h
+      · cases hwa : whnf .verified env fuel d a with
+        | error err => rw [hwa] at h; exact nomatch h
+        | ok a0 =>
+        rw [hwa] at h
+        dsimp only at h
+        cases hra : rawNatLit? a0 with
+        | none => rw [hra] at h; simp [pure, Except.pure] at h
+        | some n₁ =>
+        rw [hra] at h
+        dsimp only at h
+        cases hwb : whnf .verified env fuel d b with
+        | error err => rw [hwb] at h; exact nomatch h
+        | ok b0 =>
+        rw [hwb] at h
+        dsimp only at h
+        cases hrb : rawNatLit? b0 with
+        | none => rw [hrb] at h; simp [pure, Except.pure] at h
+        | some n₂ =>
+          rw [hrb] at h
+          simp [throw, throwThe, MonadExceptOf.throw] at h
+      · simp [pure, Except.pure] at h
+  | .bvar _, h | .fvar _ _, h | .sort _, h | .lam _ _ _, h
+  | .forallE _ _ _, h | .letE _ _ _, h | .lit _, h
+  | .proj _ _ _, h | .const _ _, h =>
+    simp [reduceNatFueled, reduceNat, pure, Except.pure] at h
+  | .app (.bvar _) _, h | .app (.fvar _ _) _, h
+  | .app (.sort _) _, h | .app (.lam _ _ _) _, h
+  | .app (.forallE _ _ _) _, h | .app (.letE _ _ _) _, h
+  | .app (.lit _) _, h | .app (.proj _ _ _) _, h =>
+    simp [reduceNatFueled, reduceNat, pure, Except.pure] at h
+  | .app (.const c (_ :: _)) _, h =>
+    simp [reduceNatFueled, reduceNat, pure, Except.pure] at h
+  | .app (.app (.bvar _) _) _, h | .app (.app (.fvar _ _) _) _, h
+  | .app (.app (.sort _) _) _, h | .app (.app (.app _ _) _) _, h
+  | .app (.app (.lam _ _ _) _) _, h
+  | .app (.app (.forallE _ _ _) _) _, h
+  | .app (.app (.letE _ _ _) _) _, h
+  | .app (.app (.lit _) _) _, h
+  | .app (.app (.proj _ _ _) _) _, h =>
+    simp [reduceNatFueled, reduceNat, pure, Except.pure] at h
+  | .app (.app (.const c (_ :: _)) _) _, h =>
+    simp [reduceNatFueled, reduceNat, pure, Except.pure] at h
 
 /-- `litMajorToCtor` ⇒ `Red.litToCtorIfNat` or `Red.strLitWhnf`
 (`litMajorToCtorFueled_inv`). -/
