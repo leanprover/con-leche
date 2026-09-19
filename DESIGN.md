@@ -122339,3 +122339,150 @@ index over, so that use is gone — and `pinsDistinctAt` has no other
 consumer in the tree.  The hypothesis is kept as `_hdist` rather than
 removed, because retiring a `ContainerModeled` field is not this row's
 decision.
+
+#### WIDE (3) THE CORRESPONDENCE LANDED — side 1's two lookups come out of side 2's `z`, and `pinsDistinctAt` keeps its one consumer (lane LE, 2026-09-19)
+
+`ordTgt_corr` is written and building
+(`Model/Inductives/NestedPinLeafAll.lean`): at a field the pin's
+container `dK` calls ORDINARY and both copies rewrote to recursive,
+the BLOCK's recorded target is `σ` of the OWNER's class.
+
+##### HOW THE CIRCLE BROKE
+
+The previous row left the pin branch stopped on a circle — side 1's
+predicate needed the head's `ContainerInfo`, which came from side 2's
+`z`, and side 2's `z` came from side 1's `findIdx?`.  With K.68's row
+POSITIVE the circle is gone and both lookups are DERIVED, each in one
+step:
+
+* **the head's container.**  Side 2's term equality at `z` is
+  `(dR.pinAt z).ownAt … = mkAppN dmJ.getAppFn (dmJ.getAppArgs.take
+  (dR.pinAt z).nPJ)`.  `PinSyn.ownAt` is a `mkAppN` at `.const
+  (dR.pinAt z).J`, so `congrArg Expr.getAppFn` through
+  `Expr.getAppFn_mkAppN` identifies `M` with `(dR.pinAt z).J` — and
+  then `ContainerModeled.pinNP` + `pinConts` read that container's
+  group, with `ciM.nP = (dR.pinAt z).nPJ`, which is EXACTLY the cut
+  side 2 states its equality at.  Nothing has to argue that the two
+  cuts agree; they are the same number because the same clause
+  supplies both;
+* **the `findIdx?`.**  Position `z` of the environment's table IS that
+  term (`ContainerOwnPinsSyn`'s positional clause), so the search
+  cannot fail; and the FIRST match it answers with is `z` itself by
+  `ContainerModeled.pinsDistinctAt`.  So `_hdist`'s retirement was
+  premature by one site: the row hands the INDEX over, but the
+  correspondence still has to identify a `findIdx?` value with it, and
+  that is what `pinsDistinctAt` is for.  The field keeps a consumer.
+
+##### THE TWO SUPPORTING PIECES
+
+* `ContainerModeled.ownPinsSelfAt` (`NestedPremise.lean`) — the
+  environment's `containerOwnPinsSelf` is the model's `ownPinTerms`
+  position by position, with the level parameters handed back
+  EXISTENTIALLY so that the consumer instantiates side 2's own `lps`
+  there rather than naming a spelling of its own.  The proof is the
+  group's bookkeeping: the member index the container's name sits at
+  (`memberNames_eq`), the head member's level parameters
+  (`containerInfo?_inv`, because the clause answers at the READ
+  member's and the reader asks at the HEAD member's), the openers'
+  length;
+* `ordTargetDom_congr_at` — the recomputation reads the table at ONE
+  position (`ordTargetLvls` and the parameter spine are both
+  `getD qK`), so the two spellings of the owner's own pins need be
+  identified only THERE.  The draft's list equality is not needed and
+  is dropped.
+
+##### THE THREE INPUTS THE THEOREM TAKES AND DOES NOT PROVE
+
+1. `hhd` — the recomputation's head is a `.const`.  BOTH kernel Bools
+   concede at `| _ => true` there, so it is an input on every route
+   that reads them; it is already threaded as `M us hhd` through
+   `hordσ`, the `PinShapes` clause and `rowTargetOrd`, and the
+   correspondence takes it in the same place.
+2. `hciR₂` / `hownT₂` — the owner's group and its own-pin table read
+   the same at the MODEL's environment, where `ContainerModeled`
+   lives, as at the block's own, where the kernel reads them.
+3. `hcontZ` — the same for the owner's PINS' containers, in the
+   direction the `findIdx?` argument needs.
+
+All three are the run's (`NestedPinsRun.ownPinsCross`, `contsCross`),
+and the consumer holds it; a `ContainerModeled` clause may not carry
+them, because it is a fact about two environments and the record names
+one.  `σ`'s two values (`hroot`, `hσpin`) stay hypotheses for the same
+reason `hownσ` exists: `PinGroupInst` may not name the instance map.
+
+#### WIDE (3) `hslotOrd` PRICED AT THE PROOF — FOUR OF ITS FIVE PARTS ARE IN HAND, AND THE FIFTH HAS NO CLAUSE ON EITHER SIDE (lane LE, 2026-09-19)
+
+Priced against the tree before building, as ruled.  `hslotOrd` is
+
+    slotSet w (nestedU … (tg₁ l)) (consList fs₁ ρp) tls₁ Eis₁ (X₁ (tg₁ l))
+      = slotSet (dR.w ψJ) (dR.uT (tg₂ l) ψJ) (consList fs₁ ρJ) tls₂ Eis₂ (Y (tg₂ l))
+
+and `slotSet` is `piTele w (teleOfFields ρ (tl.map (·.2.2))) (fun bs =>
+app X (tupW u (Eis.map (interp (consList bs ρ)))))`, so an equation
+UNIFORM IN `Y` — which is what `hfitc` quantifies over — needs five
+things, not one.
+
+| part | source | verdict |
+|---|---|---|
+| the targets, `tg₁ l = σ (tg₂ l)` | `ordTgt_corr` (the row above) | **IN HAND** |
+| the sorts, `w` | `GroupFacts.syn.w` / `PinGroupView.w` | in hand |
+| the target's universe, `nestedU … (σ c) = dR.uT c ψJ` | `hroot` at a member, `hownσ`'s `u` clause at an own pin | in hand |
+| the carriers, `X₁ (σ c) = Y c` | `setJoin`'s own equation at a σ-related class | in hand |
+| **the FIELD data, `tls`/`Eis`** | — | **NO CLAUSE, EITHER SIDE** |
+
+##### WHY THE FIFTH IS NOT A PROOF BUT AN OBJECT
+
+In the container-RECURSIVE branch `copyTransfer_via_pin` normalises
+both sides' field data into the CONTAINER's — `h₁.slot_container`,
+`h₂.slot_container`, then `copyTarget_u`, `htl`/`hE` and
+`slotSet_congr_below`.  `slot_container` reads `CopyCtorShape`'s
+`recF`/`pinF` conjuncts 3 and 4 ("the copy's telescope is the
+container's instantiated"), and it is stated for container-RECURSIVE
+fields only.  At the `ordF` guard the container has no recursive datum
+to normalise into, `ordF`'s right arm carries `EntryRead` and NOTHING
+about `tls`/`Eis`, and `PinCtors` is a bare record with no invariant
+on its `tlss`/`Eiss`.  So neither side's data is constrained at this
+guard by anything in the tree.
+
+Checked one by one, as the guard table discipline asks:
+
+* `hpinσ` / `hownσ` / `PinShapes.rowTarget` / `PinCorr` — all carry the
+  TARGET's data (`J`, `u`, `Ids`, `Ds`).  They pay the universe part
+  and say nothing about a FIELD's telescope or index expressions;
+* `CopyCtorShape.recF` / `pinF` conjuncts 3–4 — wrong guard
+  (`(dK.rss i) = true`);
+* `CopyCtorShape.ordF` right arm — right guard, carries `EntryRead`
+  alone;
+* the two ENTRIES (`hent₁`/`hent₂`, the shape NESTED.md §7 names) —
+  they equate the two `slotSet`s only AT the stored-reading tuple, and
+  `hfitc` needs the equation at every fibre-constant `Y` below `C`.
+  One value does not determine a `piTele`'s telescope;
+* `IsBlockModel`'s `tssNone` — it makes the BLOCK's copy's telescope
+  `[]` at a finitary recursive field (`NestedCopyInst` already uses
+  it), which is half of one of the two halves; there is no counterpart
+  on the container's side, because a `PinCtors` carries no such clause.
+
+##### WHAT THE MISSING OBJECT IS, BY NAME
+
+**The two copies' field data at a rewritten container-ordinary field,
+related directly**: the BLOCK's copy's telescope and index expressions
+are the ROOT copy's instantiated at the block's components — `recF`'s
+conjuncts 3 and 4 with `dK`'s data replaced by the ROOT COPY's, which
+is the only form available since the container has no datum there.
+That is a `PinShapes` clause (the container's side) plus a
+`PinGroupInst`/`GroupFacts` conjunct (the block's side) with their
+producers, and the block's half is a fact about the block's own
+rewrite, so it is a kernel record and not a model lemma — K.67's
+family again, one datum over.
+
+That is the carry lane's whole session AGAIN plus a kernel record,
+against a step the brief priced as "discharge `hslotOrd` at the
+consumers".  **The doubling stop applies and nothing was built.**
+Steps (3) and (4) of the brief are downstream of `hfitc` and are not
+started; step (4′)'s switch would leave the two switched sites with
+undischarged obligations for the same reason, so it is not started
+either.
+
+The four parts that ARE in hand are not lost: they are exactly what a
+`hslotOrd` producer will consume once the fifth has a source, and
+`ordTgt_corr` is the one of them that had no other route.
