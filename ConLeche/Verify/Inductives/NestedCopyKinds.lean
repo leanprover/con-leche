@@ -1047,13 +1047,13 @@ theorem nestedOrdSelfTargetOk_at_refl {env : Env} {p : NestedParts} {b : MutualB
     {M : Name} {us : List Level}
     (hhead : (ordTargetDom Jm.lps ci.nP (nestedPinTermsSelf p st) q l domJ.1).getAppFn = .const M us) :
     (∀ mm, p.memberNames.findIdx? (· == M) = some mm → t = mm) ∧
-    (∀ (ciM : ContainerInfo) (z : Nat),
-      p.memberNames.findIdx? (· == M) = none →
-      containerInfo? env M = some ciM →
+    (p.memberNames.findIdx? (· == M) = none →
+      ∃ (ciM : ContainerInfo) (z : Nat),
+      containerInfo? env M = some ciM ∧
       (nestedPinTermsSelf p st).findIdx? (fun e => e == Expr.mkAppN
           (ordTargetDom Jm.lps ci.nP (nestedPinTermsSelf p st) q l domJ.1).getAppFn
           ((ordTargetDom Jm.lps ci.nP (nestedPinTermsSelf p st) q l
-            domJ.1).getAppArgs.take ciM.nP)) = some z →
+            domJ.1).getAppArgs.take ciM.nP)) = some z ∧
       t = p.k + z) := by
   unfold nestedOrdSelfTargetOk nestedOrdSelfTargetAt at h
   rw [hk] at h
@@ -1077,14 +1077,33 @@ theorem nestedOrdSelfTargetOk_at_refl {env : Env} {p : NestedParts} {b : MutualB
   rw [if_neg (by simp [hrec]), if_neg (by simp [hord])] at hlv
   rw [hhead] at hlv
   simp only at hlv
-  refine ⟨fun mm hmm => ?_, fun ciM z hnm hciM hfi => ?_⟩
+  refine ⟨fun mm hmm => ?_, fun hnm => ?_⟩
   · rw [hmm] at hlv
     simpa using hlv
-  · rw [hnm, hciM] at hlv
+  · -- the strengthened arms (task #315 WIDE (3)): the head's container
+    -- lookup and the own-pin `findIdx?` BOTH succeed, because their
+    -- `none` arms are `false`
+    rw [hnm] at hlv
+    simp only at hlv
+    obtain ⟨ciM, hciM⟩ : ∃ ciM, containerInfo? env M = some ciM := by
+      cases hc : containerInfo? env M with
+      | none => rw [hc] at hlv; exact nomatch hlv
+      | some c => exact ⟨c, rfl⟩
+    rw [hciM] at hlv
     simp only at hlv
     rw [← hhead] at hlv
+    obtain ⟨z, hfi⟩ : ∃ z, (nestedPinTermsSelf p st).findIdx? (fun e => e == Expr.mkAppN
+        (ordTargetDom Jm.lps ci.nP (nestedPinTermsSelf p st) q l domJ.1).getAppFn
+        ((ordTargetDom Jm.lps ci.nP (nestedPinTermsSelf p st) q l
+          domJ.1).getAppArgs.take ciM.nP)) = some z := by
+      cases hc : (nestedPinTermsSelf p st).findIdx? (fun e => e == Expr.mkAppN
+          (ordTargetDom Jm.lps ci.nP (nestedPinTermsSelf p st) q l domJ.1).getAppFn
+          ((ordTargetDom Jm.lps ci.nP (nestedPinTermsSelf p st) q l
+            domJ.1).getAppArgs.take ciM.nP)) with
+      | none => rw [hc] at hlv; exact nomatch hlv
+      | some z => exact ⟨z, rfl⟩
     rw [hfi] at hlv
-    simpa using hlv
+    exact ⟨ciM, z, hciM, hfi, by simpa using hlv⟩
 
 /-- **K.68 at a FINITARY field**, where the cut is the identity. -/
 theorem nestedOrdSelfTargetOk_at {env : Env} {p : NestedParts} {b : MutualBlock}
@@ -1112,16 +1131,16 @@ theorem nestedOrdSelfTargetOk_at {env : Env} {p : NestedParts} {b : MutualBlock}
         ((((nestedPinTermsSelf p st).getD q default).getAppArgs.take ci.nP).reverse)
         l).getAppFn = .const M us) :
     (∀ mm, p.memberNames.findIdx? (· == M) = some mm → t = mm) ∧
-    (∀ (ciM : ContainerInfo) (z : Nat),
-      p.memberNames.findIdx? (· == M) = none →
-      containerInfo? env M = some ciM →
+    (p.memberNames.findIdx? (· == M) = none →
+      ∃ (ciM : ContainerInfo) (z : Nat),
+      containerInfo? env M = some ciM ∧
       (nestedPinTermsSelf p st).findIdx? (fun e => e == Expr.mkAppN
           (Expr.instantiateList (ordTargetDomL Jm.lps (nestedPinTermsSelf p st) q domJ.1)
             ((((nestedPinTermsSelf p st).getD q default).getAppArgs.take ci.nP).reverse)
             l).getAppFn
           ((Expr.instantiateList (ordTargetDomL Jm.lps (nestedPinTermsSelf p st) q domJ.1)
             ((((nestedPinTermsSelf p st).getD q default).getAppArgs.take ci.nP).reverse)
-            l).getAppArgs.take ciM.nP)) = some z →
+            l).getAppArgs.take ciM.nP)) = some z ∧
       t = p.k + z) := by
   have hnf : stripDomPis (ordTargetDomL Jm.lps (nestedPinTermsSelf p st) q domJ.1)
       = ordTargetDomL Jm.lps (nestedPinTermsSelf p st) q domJ.1 ∧

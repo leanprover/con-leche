@@ -1579,7 +1579,14 @@ theorem nestedPinShapes_of (m : EnvModel V env₂) {B : ContainerInfo → BlockM
     (hcontE : ∀ q, q < pinsS.length → ∀ ci : ContainerInfo,
       ConLeche.containerInfo? env₂ ((D).pinAt q).J = some ci →
       ConLeche.containerInfo? env ((D).pinAt q).J = some ci)
-    (hdist : ∀ (q q' : Nat) (lps : List Name), q < (D).nPins → q' < (D).nPins →
+    -- `_hdist` (task #315 WIDE (3)): the own-pin table's INJECTIVITY was
+    -- what turned `hordσ`'s `findIdx?` answer into the clause's index
+    -- while the clause was an implication keyed by the term.  The
+    -- strengthened arm makes the row POSITIVE — it produces the index —
+    -- so the conversion, and with it this hypothesis, is retired.  It is
+    -- kept because it is `ContainerModeled.pinsDistinctAt`'s only
+    -- consumer and that field's fate is not this row's to decide.
+    (_hdist : ∀ (q q' : Nat) (lps : List Name), q < (D).nPins → q' < (D).nPins →
       ((D).pinAt q).ownAt (D).nP lps (lps.map Level.param)
           (ConLeche.containerParamOpeners (D).nP)
         = ((D).pinAt q').ownAt (D).nP lps (lps.map Level.param)
@@ -1620,10 +1627,14 @@ theorem nestedPinShapes_of (m : EnvModel V env₂) {B : ContainerInfo → BlockM
     -- member `i`, read at the ELIMINATION's environment (`hcontE`).
     obtain ⟨hmem, hpin⟩ := hordσ ψ i' hi' j hj l hl hrs hrc cA bs rr dom lps hjA hst hdm
       lpsC i hi ci Jm (by rw [← hqe]; exact hcontE q hq ci hci) hJm hlpsE M us hhd
-    refine ⟨fun mm hmm => ?_, fun z hz hnm hterm => ?_⟩
+    refine ⟨fun mm hmm => ?_, fun hnm => ?_⟩
     · simp only [nestedPc, ← Nat.add_assoc]
       exact hmem mm hmm
-    · have hlenT : ((D).ownPinTerms lps).length = (D).nPins := by
+    · -- POSITIVE (task #315 WIDE (3)): the strengthened arm makes
+      -- `hordσ` produce the matching own-pin position, and the table's
+      -- entry at it IS that pin's `ownAt` term
+      obtain ⟨z, hz, hfi, htgz⟩ := hpin hnm
+      have hlenT : ((D).ownPinTerms lps).length = (D).nPins := by
         unfold BlockModel.ownPinTerms; simp
       have hentry : ∀ y (hy : y < (D).nPins),
           ((D).ownPinTerms lps).getD y default
@@ -1633,35 +1644,14 @@ theorem nestedPinShapes_of (m : EnvModel V env₂) {B : ContainerInfo → BlockM
         unfold BlockModel.ownPinTerms
         rw [List.getD_eq_getElem?_getD, List.getElem?_map, List.getElem?_range hy]
         rfl
-      obtain ⟨rhs, hrhs⟩ : ∃ e : Expr, e = Expr.mkAppN
-          (ConLeche.ordTargetDom lpsC (B ci).nP ((D).ownPinTerms lps) (q₀ + i') l dom.1).getAppFn
-          ((ConLeche.ordTargetDom lpsC (B ci).nP ((D).ownPinTerms lps) (q₀ + i') l
-            dom.1).getAppArgs.take ((D).pinAt z).nPJ) := ⟨_, rfl⟩
-      rw [← hrhs] at hterm
-      have hzT : z < ((D).ownPinTerms lps).length := by rw [hlenT]; exact hz
-      have hgetZ : (((D).ownPinTerms lps)[z]'hzT) = rhs := by
-        rw [show (((D).ownPinTerms lps)[z]'hzT) = ((D).ownPinTerms lps).getD z default from by
-          rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hzT]; rfl, hentry z hz]
-        exact hterm
-      cases hfi : ((D).ownPinTerms lps).findIdx? (fun e => e == rhs) with
-      | none =>
-        exact absurd (List.findIdx?_eq_none_iff.mp hfi _ (List.getElem_mem hzT))
-          (by rw [hgetZ]; simp)
-      | some z₀ =>
-        obtain ⟨hz₀lt, hm₀, -⟩ := List.findIdx?_eq_some_iff_getElem.mp hfi
-        have hz₀n : z₀ < (D).nPins := by rw [← hlenT]; exact hz₀lt
-        have hgetZ₀ : (((D).ownPinTerms lps)[z₀]'hz₀lt) = rhs := by simpa using hm₀
-        have hzz : z₀ = z :=
-          hdist z₀ z lps hz₀n hz (by
-            rw [← hentry z₀ hz₀n, ← hentry z hz,
-              show ((D).ownPinTerms lps).getD z₀ default = (((D).ownPinTerms lps)[z₀]'hz₀lt) from by
-                rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hz₀lt]; rfl,
-              show ((D).ownPinTerms lps).getD z default = (((D).ownPinTerms lps)[z]'hzT) from by
-                rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hzT]; rfl,
-              hgetZ, hgetZ₀])
-        rw [hzz] at hfi
-        simp only [nestedPc, ← Nat.add_assoc]
-        exact hpin z hz hnm (by rw [← hrhs]; exact hfi)
+      obtain ⟨hzT, hm₀, -⟩ := List.findIdx?_eq_some_iff_getElem.mp hfi
+      refine ⟨z, hz, ?_, ?_⟩
+      · rw [← hentry z hz,
+          show ((D).ownPinTerms lps).getD z default = (((D).ownPinTerms lps)[z]'hzT) from by
+            rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hzT]; rfl]
+        simpa using hm₀
+      · simp only [nestedPc, ← Nat.add_assoc]
+        exact htgz
   · -- the shape, at the base pin's record and the dropped lists
     intro ψ ρp hρp i' j hi' hj cvT caps hf
     have hsh := G.shape i' hi' cvT caps hf ψ ρp hρp i' hi' j hj

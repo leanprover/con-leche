@@ -1105,15 +1105,16 @@ unchanged. -/
       (ConLeche.ordTargetDom lpsC (B ci).nP (d.ownPinTerms lps) (q₀ + i') l dom.1).getAppFn
           = .const M us →
       (∀ mm, d.memberNames.findIdx? (· == M) = some mm → (pc (q₀ + i')).tgts j l = mm) ∧
-      (∀ z : Nat, z < d.nPins →
-        d.memberNames.findIdx? (· == M) = none →
-        (d.pinAt z).ownAt d.nP lps (lps.map Level.param)
-            (ConLeche.containerParamOpeners d.nP)
-          = Expr.mkAppN
-              (ConLeche.ordTargetDom lpsC (B ci).nP (d.ownPinTerms lps) (q₀ + i') l dom.1).getAppFn
-              ((ConLeche.ordTargetDom lpsC (B ci).nP (d.ownPinTerms lps) (q₀ + i') l
-                dom.1).getAppArgs.take (d.pinAt z).nPJ) →
-        (pc (q₀ + i')).tgts j l = d.k + z)) ∧
+      (d.memberNames.findIdx? (· == M) = none →
+        ∃ z : Nat, z < d.nPins ∧
+          (d.pinAt z).ownAt d.nP lps (lps.map Level.param)
+              (ConLeche.containerParamOpeners d.nP)
+            = Expr.mkAppN
+                (ConLeche.ordTargetDom lpsC (B ci).nP (d.ownPinTerms lps)
+                  (q₀ + i') l dom.1).getAppFn
+                ((ConLeche.ordTargetDom lpsC (B ci).nP (d.ownPinTerms lps) (q₀ + i') l
+                  dom.1).getAppArgs.take (d.pinAt z).nPJ) ∧
+          (pc (q₀ + i')).tgts j l = d.k + z)) ∧
     ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (d.params ψ).reverse ρp →
       ∀ i' j, i' < kJ → j < ((B ci).ctorsM i').length →
       ∀ (cvT : ConstantVal) (caps : IndCaps),
@@ -1233,15 +1234,16 @@ theorem PinShapes.rowTargetOrd {env : Env} {m : EnvModel V env} {B : ContainerIn
         (ConLeche.ordTargetDom lpsC (B ci).nP (d.ownPinTerms lps) (q₀ + i') l dom.1).getAppFn
             = .const M us →
         (∀ mm, d.memberNames.findIdx? (· == M) = some mm → (pc (q₀ + i')).tgts j l = mm) ∧
-        (∀ z : Nat, z < d.nPins →
-          d.memberNames.findIdx? (· == M) = none →
-          (d.pinAt z).ownAt d.nP lps (lps.map Level.param)
-              (ConLeche.containerParamOpeners d.nP)
-            = Expr.mkAppN
-                (ConLeche.ordTargetDom lpsC (B ci).nP (d.ownPinTerms lps) (q₀ + i') l dom.1).getAppFn
-                ((ConLeche.ordTargetDom lpsC (B ci).nP (d.ownPinTerms lps) (q₀ + i') l
-                  dom.1).getAppArgs.take (d.pinAt z).nPJ) →
-          (pc (q₀ + i')).tgts j l = d.k + z) := by
+        (d.memberNames.findIdx? (· == M) = none →
+          ∃ z : Nat, z < d.nPins ∧
+            (d.pinAt z).ownAt d.nP lps (lps.map Level.param)
+                (ConLeche.containerParamOpeners d.nP)
+              = Expr.mkAppN
+                  (ConLeche.ordTargetDom lpsC (B ci).nP (d.ownPinTerms lps)
+                    (q₀ + i') l dom.1).getAppFn
+                  ((ConLeche.ordTargetDom lpsC (B ci).nP (d.ownPinTerms lps) (q₀ + i') l
+                    dom.1).getAppArgs.take (d.pinAt z).nPJ) ∧
+            (pc (q₀ + i')).tgts j l = d.k + z) := by
   obtain ⟨q₀, kJ, i, ci', hqe, hi, hci', hgv, -, -, hord, -⟩ := h q hq
   obtain rfl : ci' = ci := Option.some.inj (hci'.symm.trans hci)
   exact ⟨q₀, kJ, i, hqe, hi, hgv, hord⟩

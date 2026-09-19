@@ -379,13 +379,14 @@ records it sits beside. -/
       (∀ mm, (D).memberNames.findIdx? (· == M) = some mm →
           ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
             (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0 = mm) ∧
-      (∀ z : Nat, z < (D).nPins → (D).memberNames.findIdx? (· == M) = none →
-        ((D).ownPinTerms lps).findIdx? (fun e => e == Expr.mkAppN
-            (ConLeche.ordTargetDom lpsC dJ.nP ((D).ownPinTerms lps) (q₀ + i') l dom.1).getAppFn
-            ((ConLeche.ordTargetDom lpsC dJ.nP ((D).ownPinTerms lps) (q₀ + i') l
-              dom.1).getAppArgs.take ((D).pinAt z).nPJ)) = some z →
-        ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
-          (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0 = p.k + z))
+      ((D).memberNames.findIdx? (· == M) = none →
+        ∃ z : Nat, z < (D).nPins ∧
+          ((D).ownPinTerms lps).findIdx? (fun e => e == Expr.mkAppN
+              (ConLeche.ordTargetDom lpsC dJ.nP ((D).ownPinTerms lps) (q₀ + i') l dom.1).getAppFn
+              ((ConLeche.ordTargetDom lpsC dJ.nP ((D).ownPinTerms lps) (q₀ + i') l
+                dom.1).getAppArgs.take ((D).pinAt z).nPJ)) = some z ∧
+          ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+            (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0 = p.k + z))
 
 /-- **A pin group's facts** (NAMED, DESIGN §U.18 (d)): the copies
 `[q₀, q₀ + kJ)` of the auxiliary block are the members of ONE

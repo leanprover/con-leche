@@ -1114,14 +1114,14 @@ theorem NestedPinsRun.instOrdSelfAt {pbs : List (Expr × ConLeche.BinderMeta)}
     (∀ mm, p.memberNames.findIdx? (· == M) = some mm →
         ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
           (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0 = mm) ∧
-    (∀ (ciM : ContainerInfo) (z : Nat),
-      p.memberNames.findIdx? (· == M) = none →
-      ConLeche.containerInfo? env M = some ciM →
+    (p.memberNames.findIdx? (· == M) = none →
+      ∃ (ciM : ContainerInfo) (z : Nat),
+      ConLeche.containerInfo? env M = some ciM ∧
       (ConLeche.nestedPinTermsSelf p st).findIdx? (fun e => e == Expr.mkAppN
           (ConLeche.ordTargetDom lpsC dJ.nP (ConLeche.nestedPinTermsSelf p st)
             (q₀ + i') l dom.1).getAppFn
           ((ConLeche.ordTargetDom lpsC dJ.nP (ConLeche.nestedPinTermsSelf p st)
-            (q₀ + i') l dom.1).getAppArgs.take ciM.nP)) = some z →
+            (q₀ + i') l dom.1).getAppArgs.take ciM.nP)) = some z ∧
       ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
         (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0 = p.k + z) := by
   classical
@@ -2209,10 +2209,13 @@ theorem NestedPinsRun.pinGroupInst_of {pbs : List (Expr × ConLeche.BinderMeta)}
     have hbase := R.instOrdSelfAt SF S hPD hkindsRun hi' (hgb i' hi') (fun ciJ hh => by
         rw [hciP] at hh; obtain rfl := Option.some.inj hh; exact CM)
       hjA hlF hordC hrss hstrip hdom hlpsC hhead
-    refine ⟨hbase.1, fun z hz hnm hfi => ?_⟩
-    -- the matched entry's container IS the head `M`, and `pinNP` at
-    -- that pin turns the clause's `nPJ` into the `ContainerInfo`'s own
-    -- parameter count, which is what K.68's row is stated at
+    refine ⟨hbase.1, fun hnm => ?_⟩
+    -- the STRENGTHENED arms give the answer POSITIVELY (task #315
+    -- WIDE (3)): the head's container reads, and its own-pin term is
+    -- in the block's table.  The matched entry's container IS the head
+    -- `M`, and `pinNP` at that pin turns the `ContainerInfo`'s own
+    -- parameter count into the clause's `nPJ`.
+    obtain ⟨ciM, z, hciM, hfi, htgz⟩ := hbase.2 hnm
     obtain ⟨hzlt, hm₀, -⟩ := List.findIdx?_eq_some_iff_getElem.mp hfi
     have hzS : z < pinsS.length := by
       have : z < (ConLeche.nestedPinTermsSelf p st).length := hzlt
@@ -2231,7 +2234,7 @@ theorem NestedPinsRun.pinGroupInst_of {pbs : List (Expr × ConLeche.BinderMeta)}
           (ConLeche.ordTargetDom lpsC dJ.nP (ConLeche.nestedPinTermsSelf p st)
             (q₀ + i') l dom.1).getAppFn
           ((ConLeche.ordTargetDom lpsC dJ.nP (ConLeche.nestedPinTermsSelf p st)
-            (q₀ + i') l dom.1).getAppArgs.take ((D).pinAt z).nPJ)) = true := by
+            (q₀ + i') l dom.1).getAppArgs.take ciM.nP)) = true := by
       rw [← hentry, show (ConLeche.nestedPinTermsSelf p st).getD z default
           = (ConLeche.nestedPinTermsSelf p st)[z]'hzlt from by
         rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hzlt]; rfl]
@@ -2254,8 +2257,10 @@ theorem NestedPinsRun.pinGroupInst_of {pbs : List (Expr × ConLeche.BinderMeta)}
       show (pinsS.getD z default).nPJ = ciz.nP
       rw [hqez]
       exact hp.trans hm
-    refine hbase.2 ciz z hnm (by rw [← hJM]; exact hcizJ) ?_
-    rw [← hnPz]; exact hfi
+    have hcizM : ConLeche.containerInfo? env ((D).pinAt z).J = some ciM := by
+      rw [hJM]; exact hciM
+    obtain rfl : ciz = ciM := Option.some.inj (hcizJ.symm.trans hcizM)
+    exact ⟨z, hzD, by rw [hnPz]; exact hfi, htgz⟩
 
 end Assembly
 
