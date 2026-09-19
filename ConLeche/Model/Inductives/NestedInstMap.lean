@@ -615,6 +615,103 @@ private theorem lbb_mkAppN_args {k : Nat} : ∀ {xs : List Expr} {f : Expr},
       | true => rfl
     · exact ih h y hy'
 
+omit R in
+/-- **A PIN'S LEVEL ARGUMENTS AND COMPONENTS, AS THE KERNEL READS
+THEM** (task #315 WIDE (3′)): `nestedPinLvlsDs` at a pin of a group is
+the pin's recorded `lvls` and `DsE` — the pin's term is the container
+at them (`NestedPinSynFacts.pinRec`), the container's group is the
+one the record names, and the components are `dJ.nP` in number so the
+reader's `take` is the whole list. -/
+theorem NestedPinsRun.pinLvlsDsAt {pbs : List (Expr × ConLeche.BinderMeta)}
+    (hPD : ∀ q, q < st.pins.length → PinData env st p pbs q)
+    {i' : Nat} (hi' : i' < kJ)
+    {ci : ContainerInfo}
+    (hciP : ConLeche.containerInfo? env (pinsS.getD (q₀ + i') default).J = some ci)
+    (CM : ContainerModeled mp₁'.base2 ci dJ) :
+    ConLeche.nestedPinLvlsDs env (pinAtE st (q₀ + i'))
+      = some ((pinsS.getD (q₀ + i') default).lvls, (pinsS.getD (q₀ + i') default).DsE) := by
+  have hq : q₀ + i' < st.pins.length := by
+    rw [← SF.pinsLen]; have := S.seg; omega
+  have hqS : q₀ + i' < pinsS.length := by rw [SF.pinsLen]; exact hq
+  have PD := hPD _ hq
+  obtain ⟨hcname, hpinEq⟩ := SF.pinRec _ _ PD.pin
+  have hDsLen : ((pinsS.getD (q₀ + i') default).DsE).length = dJ.nP := by
+    rw [(SF.pinDs _ hqS (fun _ => 0)).length]
+    exact S.pinDsLen i' hi' (fun _ => 0)
+  unfold ConLeche.nestedPinLvlsDs
+  rw [hpinEq]
+  simp only [Expr.getAppFn_mkAppN, Expr.getAppArgs_mkAppN, bind, Option.bind, pure]
+  rw [show (pinAtE st (q₀ + i')).container = (pinsS.getD (q₀ + i') default).J from hcname.symm,
+    hciP]
+  simp only [show (Expr.const (pinsS.getD (q₀ + i') default).J
+      (pinsS.getD (q₀ + i') default).lvls).getAppFn
+      = Expr.const (pinsS.getD (q₀ + i') default).J (pinsS.getD (q₀ + i') default).lvls from rfl,
+    show (Expr.const (pinsS.getD (q₀ + i') default).J
+      (pinsS.getD (q₀ + i') default).lvls).getAppArgs = [] from rfl,
+    List.nil_append]
+  rw [CM.nP.symm, ← hDsLen, List.take_length]
+
+omit R in
+/-- **THE INSTANCE MAP IS THE GROUP'S, NOT THE MEMBER'S** (task #315
+WIDE (3′)): `nestedInstMapAt` agrees at any two pins of one group.
+
+The assembly's `σ` is ONE function of the container's wide classes
+while K.61's map is keyed by a BLOCK PIN, and the wide theorem's
+`hstgt` quantifies over every member of the container — so the two are
+the same object only if the member the map is read at does not matter.
+It does not, and three facts say so: the group's pins share their
+level arguments and components (`NestedPinGroupSyn.same`); two members
+of one group name ONE container record, because both carry the same
+block model, hence the same member names and parameter count
+(`ContainerModeled.memberNames_eq`, `containerInfo?_eq_of_names`); and
+a group's members share their level parameters
+(`containerInfo?_inv`).  Those are exactly the four arguments
+`containerOwnPinsAt` walks with. -/
+theorem NestedPinsRun.instMapGroup {pbs : List (Expr × ConLeche.BinderMeta)}
+    (hPD : ∀ q, q < st.pins.length → PinData env st p pbs q)
+    {i i' : Nat} (hi : i < kJ) (hi' : i' < kJ)
+    {ci ci' : ContainerInfo}
+    (hciP : ConLeche.containerInfo? env (pinsS.getD (q₀ + i) default).J = some ci)
+    (hciP' : ConLeche.containerInfo? env (pinsS.getD (q₀ + i') default).J = some ci')
+    (CM : ContainerModeled mp₁'.base2 ci dJ) (CM' : ContainerModeled mp₁'.base2 ci' dJ) :
+    ConLeche.nestedInstMapAt env st (q₀ + i) = ConLeche.nestedInstMapAt env st (q₀ + i') := by
+  have hq : q₀ + i < st.pins.length := by
+    rw [← SF.pinsLen]; have := S.seg; omega
+  have hq' : q₀ + i' < st.pins.length := by
+    rw [← SF.pinsLen]; have := S.seg; omega
+  obtain ⟨hcname, -⟩ := SF.pinRec _ _ (hPD _ hq).pin
+  obtain ⟨hcname', -⟩ := SF.pinRec _ _ (hPD _ hq').pin
+  -- one container record
+  obtain rfl : ci = ci' :=
+    ConLeche.containerInfo?_eq_of_names hciP hciP' (by rw [← CM.nP, CM'.nP])
+      (CM.memberNames_eq.symm.trans CM'.memberNames_eq)
+  -- one level-parameter list
+  obtain ⟨cvT, caps, cvR, mI, rP, rules, hf, hfr, hmem, hnd, hall⟩ :=
+    ConLeche.containerInfo?_inv hciP
+  obtain ⟨cvT', caps', cvR', mI', rP', rules', hf', hfr', hmem', hnd', hall'⟩ :=
+    ConLeche.containerInfo?_inv hciP'
+  obtain ⟨M', hM', hMn'⟩ := List.mem_map.mp hmem'
+  obtain ⟨cvC', capsC', cvRc', mIc', rulesC', hfC', hrC', hlpsM', htyM', hlpsC', hlenC', hctC'⟩ :=
+    hall M' hM'
+  rw [hMn', hf'] at hfC'
+  obtain rfl : cvC' = cvT' := (ConLeche.ConstantInfo.indInfo.inj (Option.some.inj hfC'.symm)).1
+  -- the shared level arguments and components
+  have hlvls : (pinsS.getD (q₀ + i) default).lvls = (pinsS.getD (q₀ + i') default).lvls :=
+    (S.same i hi).1.trans (S.same i' hi').1.symm
+  have hDsE : (pinsS.getD (q₀ + i) default).DsE = (pinsS.getD (q₀ + i') default).DsE :=
+    (S.same i hi).2.trans (S.same i' hi').2.symm
+  unfold ConLeche.nestedInstMapAt
+  rw [(hPD _ hq).pin, (hPD _ hq').pin]
+  simp only [bind, Option.bind]
+  rw [NestedPinsRun.pinLvlsDsAt SF S hPD hi hciP CM,
+    NestedPinsRun.pinLvlsDsAt SF S hPD hi' hciP' CM', hlvls, hDsE]
+  simp only []
+  unfold ConLeche.containerOwnPinsAt
+  rw [show (pinAtE st (q₀ + i)).container = (pinsS.getD (q₀ + i) default).J from hcname.symm,
+    show (pinAtE st (q₀ + i')).container = (pinsS.getD (q₀ + i') default).J from hcname'.symm,
+    hf, hf', hciP, hciP']
+  simp only [bind, Option.bind, pure, hlpsC']
+
 /-- **THE INSTANCE MAP'S VALUE IS THE CONTAINER'S OWN PIN, AT THE
 BLOCK'S PIN TABLE** (task #315 WIDE (3′)): at every own pin `qK` of the
 container of the block's pin `q₀ + i'`, the instance map is defined and
@@ -716,19 +813,8 @@ theorem NestedPinsRun.instMapPinOwn {pbs : List (Expr × ConLeche.BinderMeta)}
     exact lbb_mkAppN_args hb
   have hnPci : ci.nP = dJ.nP := CM.nP.symm
   have hlds : ConLeche.nestedPinLvlsDs env (pinAtE st (q₀ + i'))
-      = some ((pinsS.getD (q₀ + i') default).lvls, (pinsS.getD (q₀ + i') default).DsE) := by
-    unfold ConLeche.nestedPinLvlsDs
-    rw [hpinEq]
-    simp only [Expr.getAppFn_mkAppN, Expr.getAppArgs_mkAppN, bind, Option.bind, pure]
-    rw [show (pinAtE st (q₀ + i')).container = (pinsS.getD (q₀ + i') default).J from hcname.symm,
-      hciP]
-    simp only [show (Expr.const (pinsS.getD (q₀ + i') default).J
-        (pinsS.getD (q₀ + i') default).lvls).getAppFn
-        = Expr.const (pinsS.getD (q₀ + i') default).J (pinsS.getD (q₀ + i') default).lvls from rfl,
-      show (Expr.const (pinsS.getD (q₀ + i') default).J
-        (pinsS.getD (q₀ + i') default).lvls).getAppArgs = [] from rfl,
-      List.nil_append]
-    rw [hnPci, ← hDsLen, List.take_length]
+      = some ((pinsS.getD (q₀ + i') default).lvls, (pinsS.getD (q₀ + i') default).DsE) :=
+    NestedPinsRun.pinLvlsDsAt SF S hPD hi' hciP CM
   obtain ⟨own, hown⟩ : ∃ own : List Expr,
       ConLeche.containerOwnPinsAt env (pinsS.getD (q₀ + i') default).J
         ((pinsS.getD (q₀ + i') default).lvls) ((pinsS.getD (q₀ + i') default).DsE)
