@@ -1334,23 +1334,30 @@ theorem NestedPinsRun.instMapSigmaFacts {pbs : List (Expr × ConLeche.BinderMeta
       congrArg (fun l => consList l ((D).pinFrame (q₀ + 0) φ ρp)) hmapEq
     rw [hframe, hu.symm.trans hu', hIds.symm.trans hIds']
 
-/-- **`hstgt` AT THE RUN, AT BOTH ARMS** (task #315 WIDE (3′)): a
-container-RECURSIVE field of a pin's container whose target is one of
-the container's OWN PINS lands, in the copy, on the block pin the
-INSTANCE MAP names — whatever tower the field's domain wears.
+/-- **THE BLOCK'S PICK AT A COPY'S OWN-PIN FIELD, AS A PIN** (task
+#315 WIDE, lane `uniform-carry`): `instTgtAt` with the block pin it
+names KEPT rather than projected away — the copy's field lands on
+`p.k + σq`, and `σq` is a pin of the block whose container is that of
+the container's own pin, with the own pin's index universe, index
+telescope and `PinCorr`.
 
-`rss = true` is `.recursive ∨ .reflexive` (`rsOf`), which is exactly
-the two arms: `copyPinFInstTgt` on the first, `copyPinFInstTgtRefl` on
-the second.  The map is read at the GROUP's base rather than at the
-member the field belongs to (`instMapGroup`), because the assembly's
-`σ` is one function of the container's classes while K.61's map is
-keyed by a block pin.
+`instTgtAt` below is this theorem's `getD` form, and the reason to
+have both is the CONSUMER.  `hstgt` — the wide identification's
+hypothesis — asks only for the map's VALUE, and that is `instTgtAt`.
+The correspondence at an `ordF`-right field of a pin's copy (DESIGN
+"WIDE (3′) `hent₂`", `docs/NESTED.md` §8's last item) asks something
+strictly more: that the block's pick and the CONTAINER's pick at the
+same field are one pin.  Neither side's index is a handle for that —
+they index different lists, and two own pins that collapse at one
+instantiation need not collapse at the other — so the comparison is
+made at the pin's DATA, which is what this theorem hands back and
+`instTgtAt` throws away.
 
-The `getD` default moves with it: the map has an entry at every own
-pin of the container (`instMapPinOwn`), so `0` and `st.pins.length`
-agree at this index, and the `- p.k` of K.61's own statement is
-undone by `copyPinFKind`'s `p.k ≤ t`. -/
-theorem NestedPinsRun.instTgtAt {pbs : List (Expr × ConLeche.BinderMeta)}
+Everything here is `copyPinFInstTgt`/`copyPinFInstTgtRefl` at the
+field and `instMapPinOwn` at the own pin the field names; the two are
+glued at the map's entry, which `instMapGroup` reads at the group's
+base for both. -/
+theorem NestedPinsRun.instTgtPin {pbs : List (Expr × ConLeche.BinderMeta)}
     (hPD : ∀ q, q < st.pins.length → PinData env st p pbs q)
     (hkindsRun : ConLeche.classifyMutualKinds (m := ConLeche.CheckM) b.members3 b.lps b.nP ctorsA
       = .ok kinds)
@@ -1369,10 +1376,22 @@ theorem NestedPinsRun.instTgtAt {pbs : List (Expr × ConLeche.BinderMeta)}
     {l : Nat} (hlF : l < cAJ.2)
     (hrs : ((dJ.rss i').getD j []).getD l false = true)
     (hpinT : ¬ dJ.tgts i' j l < dJ.k) :
-    ∃ mm : List Nat, ConLeche.nestedInstMapAt env st (q₀ + 0) = some mm ∧
+    ∃ (mm : List Nat) (σq : Nat),
+      ConLeche.nestedInstMapAt env st (q₀ + 0) = some mm ∧
+      mm[dJ.tgts i' j l - dJ.k]? = some σq ∧
       ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
-        (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0
-        = p.k + mm.getD (dJ.tgts i' j l - dJ.k) 0 := by
+        (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0 = p.k + σq ∧
+      σq < pinsS.length ∧
+      (pinsS.getD σq default).J = (dJ.pinAt (dJ.tgts i' j l - dJ.k)).J ∧
+      ∀ φ : Name → Nat,
+        ((pinsS.getD σq default).u φ
+            = (dJ.pinAt (dJ.tgts i' j l - dJ.k)).u ((pinsS.getD (q₀ + 0) default).ψJ φ) ∧
+          (pinsS.getD σq default).Ids φ
+            = (dJ.pinAt (dJ.tgts i' j l - dJ.k)).Ids ((pinsS.getD (q₀ + 0) default).ψJ φ)) ∧
+        PinCorr ((D).targetView mp₁'.base2.acval φ) mp₁'.base2.acval dJ
+          ((pinsS.getD (q₀ + 0) default).ψJ φ) ((pinsS.getD (q₀ + 0) default).Ds φ)
+          cvT.levelParams ((pinsS.getD (q₀ + 0) default).lvls) (p.k + σq)
+          (dJ.tgts i' j l - dJ.k) := by
   classical
   have hik : i' < dJ.k := by rw [S.kEq]; exact hi'
   have hjlt : j < (dJ.ctorsM i').length := (List.getElem?_eq_some_iff.mp hj).1
@@ -1413,16 +1432,59 @@ theorem NestedPinsRun.instTgtAt {pbs : List (Expr × ConLeche.BinderMeta)}
     hI.Fss_length hj (fun _ => 0)
   have hqq : dJ.tgts i' j l - dJ.k < dJ.nPins :=
     CM.reps.tgt_pin_lt hik hj l (by rw [hFssLen]; exact hlF) hpinT
-  obtain ⟨mm₂, σq, hmapAt, hmmqK, -, -, -⟩ :=
+  obtain ⟨mm₂, σq, hmapAt, hmmqK, hσlt, hJeq, hrest⟩ :=
     R.instMapPinOwn SF S hPD S.kpos hci0 CM0 hqq hfind
   have hmmEq : mm₂ = mm' := Option.some.inj (hmapAt.symm.trans hmm0)
   rw [hmmEq] at hmmqK
-  have hdef : List.getD mm' (dJ.tgts i' j l - dJ.k) st.pins.length
-      = List.getD mm' (dJ.tgts i' j l - dJ.k) 0 := by
-    rw [List.getD_eq_getElem?_getD, List.getD_eq_getElem?_getD, hmmqK]; rfl
-  refine ⟨mm', hmm0, ?_⟩
-  rw [← hdef, hval]
-  omega
+  have hdef : List.getD mm' (dJ.tgts i' j l - dJ.k) st.pins.length = σq := by
+    rw [List.getD_eq_getElem?_getD, hmmqK]; rfl
+  exact ⟨mm', σq, hmm0, hmmqK, by rw [hdef] at hval; omega, hσlt, hJeq, hrest⟩
+
+/-- **`hstgt` AT THE RUN, AT BOTH ARMS** (task #315 WIDE (3′)): a
+container-RECURSIVE field of a pin's container whose target is one of
+the container's OWN PINS lands, in the copy, on the block pin the
+INSTANCE MAP names — whatever tower the field's domain wears.
+
+`rss = true` is `.recursive ∨ .reflexive` (`rsOf`), which is exactly
+the two arms: `copyPinFInstTgt` on the first, `copyPinFInstTgtRefl` on
+the second.  The map is read at the GROUP's base rather than at the
+member the field belongs to (`instMapGroup`), because the assembly's
+`σ` is one function of the container's classes while K.61's map is
+keyed by a block pin.
+
+The `getD` default moves with it: the map has an entry at every own
+pin of the container (`instMapPinOwn`), so `0` and `st.pins.length`
+agree at this index, and the `- p.k` of K.61's own statement is
+undone by `copyPinFKind`'s `p.k ≤ t`.  This is `instTgtPin` with the
+pin projected away. -/
+theorem NestedPinsRun.instTgtAt {pbs : List (Expr × ConLeche.BinderMeta)}
+    (hPD : ∀ q, q < st.pins.length → PinData env st p pbs q)
+    (hkindsRun : ConLeche.classifyMutualKinds (m := ConLeche.CheckM) b.members3 b.lps b.nP ctorsA
+      = .ok kinds)
+    {i' : Nat} (hi' : i' < kJ)
+    (hgb : (pinAtE st (q₀ + i')).grpBase = q₀)
+    {ci : ContainerInfo}
+    (hciP : ConLeche.containerInfo? env (pinsS.getD (q₀ + i') default).J = some ci)
+    (CM : ContainerModeled mp₁'.base2 ci dJ)
+    {ci0 : ContainerInfo}
+    (hci0 : ConLeche.containerInfo? env (pinsS.getD (q₀ + 0) default).J = some ci0)
+    (CM0 : ContainerModeled mp₁'.base2 ci0 dJ)
+    {cvT : ConstantVal} {caps : IndCaps}
+    (hfind : (ConLeche.consMutualFormers (fms.take p.k) env).find?
+      (pinsS.getD (q₀ + 0) default).J = some (.indInfo cvT caps))
+    {j : Nat} {cAJ : ConstantVal × Nat} (hj : (dJ.ctorsM i')[j]? = some cAJ)
+    {l : Nat} (hlF : l < cAJ.2)
+    (hrs : ((dJ.rss i').getD j []).getD l false = true)
+    (hpinT : ¬ dJ.tgts i' j l < dJ.k) :
+    ∃ mm : List Nat, ConLeche.nestedInstMapAt env st (q₀ + 0) = some mm ∧
+      ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+        (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0
+        = p.k + mm.getD (dJ.tgts i' j l - dJ.k) 0 := by
+  obtain ⟨mm, σq, hmm0, hmmqK, htg, -, -, -⟩ :=
+    R.instTgtPin SF S hPD hkindsRun hi' hgb hciP CM hci0 CM0 hfind hj hlF hrs hpinT
+  refine ⟨mm, hmm0, ?_⟩
+  rw [htg, List.getD_eq_getElem?_getD, hmmqK]
+  rfl
 
 /-- **`houtσ` AT THE RUN, OVER BOTH HALVES OF THE INSTANCE** (task
 #315 WIDE (3′), K.62 and K.66 consumed): a container-ORDINARY field
