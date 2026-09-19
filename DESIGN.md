@@ -124511,3 +124511,36 @@ not owed: the one `Verify/` change is an end-of-file append.
 `#print axioms` on `nestedPinShapes_of`, `PinShapes.crossEnv`,
 `BlockAt.crossEnvP` and `declNested_of`: `propext`,
 `Classical.choice`, `Quot.sound`.
+
+#### WIDE (3) STEP 1(b) RE-SITED BEFORE IT WAS BUILT — THE TWO-BLOCK FACT IS NOT A `PinGroupInst` CLAUSE (lane LE, 2026-09-19)
+
+Step 1(b) was priced as a conjunct on `PinGroupInst`, produced in
+`NestedPinsRun.pinGroupInst_of` (`NestedInstMap.lean:2051`) from the
+container `dJ`'s own `PinShapes`.  It cannot be: **`PinShapes dJ` does
+not reach the run tier, and cannot be made to.**
+
+* `pinGroupInst_of` sees the container only through
+  `NestedPinGroupSyn.modeled` (`NestedPins.lean:527`), a
+  `ContainerModeled`.  `PinShapes` is the OTHER half of `BlockAt`, and
+  `BlockAt` is `EnvBlocksOf`'s — carried on an `EnvModelB`;
+* the run tier's model is `mp₁' : EnvModelM V μ ENV₁`
+  (`NestedInstMap.lean:77`), which has no `blocks` field at all.  So
+  no field of `NestedPinGroupSyn` or hypothesis of `pinGroupInst_of`
+  can be supplied with one: the object does not exist at that tier.
+
+This is `GroupFacts.ordTgt`'s own situation, and its docstring already
+states the rule ("It lives here and not on `PinGroupInst` because …").
+The tier that holds BOTH the run's readings and another block's
+`PinShapes` is the ASSEMBLY (`NestedPinLeafAll.lean`), and the shape
+to copy is `ordTgt_corr` (`NestedPinLeafAll.lean:4547`): a theorem, not
+a clause, taking the owner `dR`, its `ContainerModeled`, the two
+environment crossings, the instance map and — as a plain hypothesis
+`hrow` — the owner's `PinShapes` row already applied.
+
+So step 1(b) is an assembly-tier theorem beside `ordTgt_corr`: the
+owner's side is the conjunct landed above (applied, as `hrow` is), the
+block's side is its own reading through `hK69`/`nestedOrdNormOk_at`,
+and the conclusion `Eis₁ = Eis₂.map (AnnotTerm.instAll Ds cut)` is
+`ordSpine_inst_of_reads` (`NestedFieldRead.lean:555`) with the two
+readings supplied.  Its consumer is step 1(c)'s `hslotOrd`, in the
+same session, per the consumer-first rule.
