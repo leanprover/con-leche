@@ -153,19 +153,92 @@ theorem Red.projArg_sound (_hin : RulesInputs V m φ) {d : Nat} {sn : Name}
       exact ⟨(hg' σ hσ).1, u, v, A, Bf, (heq σ hσ) ▸ hsig, hA, hfib⟩
 
 
+/-- The β redex's syntactic side, shared by the gated and the certified
+rule: the reduct's frame, its leaf inclusion and its reading. -/
+theorem beta_syntax {d : Nat} {ty body a : Expr} {mb : ConLeche.BinderMeta}
+    {ba aa : AnnotTerm}
+    (hws : Expr.WScoped d (.app (.lam ty body mb) a))
+    (hb : (Expr.app (.lam ty body mb) a).looseBVarsBounded 0 = true)
+    (hLb : Expr.LeavesBounded (.app (.lam ty body mb) a))
+    (hbb : denoteMeta m.acval env φ (d + 1)
+      (body.instantiate1 (.fvar d ty)) = some ba)
+    (haa : denoteMeta m.acval env φ d a = some aa) :
+    Frame d (body.instantiate1 a) ∧
+      LeavesSub (body.instantiate1 a) (.app (.lam ty body mb) a) ∧
+      denoteMeta m.acval env φ d (body.instantiate1 a) = some (ba.inst aa) := by
+  simp only [Expr.WScoped] at hws
+  simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
+  have hsubred : LeavesSub (body.instantiate1 a) (.app (.lam ty body mb) a) := by
+    intro l hl
+    rcases ConLeche.Expr.fvarLeaves_instantiate1 body 0 hl with h2 | h2
+    · simp [Expr.fvarLeaves, h2]
+    · simp [Expr.fvarLeaves, h2]
+  refine ⟨⟨ConLeche.Expr.WScoped.instantiate1_gen hws.2 0 hws.1.2,
+      ConLeche.Expr.looseBVarsBounded_instantiate1_gen hb.2 hb.1.2,
+      fun l hl => hLb l (hsubred l hl)⟩, hsubred, ?_⟩
+  rw [denoteMeta_beta m.acval_closed (acval_inst_self m)
+    (ty := ty) hws.1.2.fvarsBelow hws.2 hb.2 haa 0, hbb]
+  rfl
+
 /-- `WellDenotedV_beta_gate` (`Steps/Gate.lean:80`) + `denoteMeta_beta`. -/
-theorem Red.betaGate_sound (hin : RulesInputs V m φ) {d : Nat}
+theorem Red.betaGate_sound (_hin : RulesInputs V m φ) {d : Nat}
     {ty body a : Expr} {mb : BinderMeta} (hnev : mb.pw.isNever = true) :
     RedSem m φ d (.app (.lam ty body mb) a) (body.instantiate1 a) := by
-  sorry
+  intro hf Δa ea hC hea hg
+  obtain ⟨hws, hb, hLb⟩ := hf
+  obtain ⟨fa, aa, hfa, haa, rfl⟩ := denoteMeta_app_inv hea
+  obtain ⟨tya, ba, htya, hbb, rfl⟩ := denoteMeta_lam_inv hfa
+  obtain ⟨hfr, hsub, hred⟩ := beta_syntax hws hb hLb hbb haa
+  have hstep : ∀ ρ : Nat → V, Sat V Δa ρ →
+      interp V ρ (.app (.lam (pwBit φ mb.pw) tya ba) aa)
+          = interp V ρ (ba.inst aa) ∧
+        WellDenotedV V ρ (ba.inst aa) := fun ρ hρ =>
+    betaPosV (pwBit_ne_zero_of_isNever hnev φ) (hg ρ hρ)
+  exact ⟨hfr, hsub, ba.inst aa, hred, fun ρ hρ => (hstep ρ hρ).2,
+    fun ρ hρ => (hstep ρ hρ).1⟩
 
 /-- `WellDenotedV_beta_pos` / `WellDenotedV_beta_zero` with the
 certificate's membership (`betaCert_of_claims`, `Steps/Whnf.lean:424`). -/
-theorem Red.beta_sound (hin : RulesInputs V m φ) {d : Nat}
+theorem Red.beta_sound (_hin : RulesInputs V m φ) {d : Nat}
     {ty body a ta : Expr} {mb : BinderMeta}
     (hta : InferSemIO m φ d a ta) (hd : DefEqSem m φ d ta ty) :
     RedSem m φ d (.app (.lam ty body mb) a) (body.instantiate1 a) := by
-  sorry
+  intro hf Δa ea hC hea hg
+  obtain ⟨hws, hb, hLb⟩ := hf
+  obtain ⟨fa, aa, hfa, haa, rfl⟩ := denoteMeta_app_inv hea
+  obtain ⟨tya, ba, htya, hbb, rfl⟩ := denoteMeta_lam_inv hfa
+  obtain ⟨hfr, hsub, hred⟩ := beta_syntax hws hb hLb hbb haa
+  obtain ⟨hgf, hga⟩ := graded_app hg
+  -- the two sides of the β certificate
+  have hwsA := hws
+  have hbA := hb
+  simp only [Expr.WScoped] at hwsA
+  simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hbA
+  have hLty : Expr.LeavesBounded ty := fun l hl =>
+    hLb l (by simp [Expr.fvarLeaves, hl])
+  have hLa : Expr.LeavesBounded a := fun l hl =>
+    hLb l (by simp [Expr.fvarLeaves, hl])
+  obtain ⟨hfta, hsubta, taA, htaA, hgtaA, hmemA⟩ :=
+    hta ⟨hwsA.2, hbA.2, hLa⟩ hC.app_arg haa hga
+  have hmem : ∀ ρ : Nat → V, Sat V Δa ρ →
+      interp V ρ aa ∈ˢ interp V ρ tya := by
+    intro ρ hρ
+    have h1 := hmemA ρ hρ
+    rw [hd hfta ⟨hwsA.1.1, hbA.1.1, hLty⟩ (hC.app_arg.of_subset hsubta)
+      hC.app_fn.lam_ty htaA htya hgtaA (fun σ hσ => lamDomV (hgf σ hσ))
+      ρ hρ] at h1
+    exact h1
+  have hstep : ∀ ρ : Nat → V, Sat V Δa ρ →
+      interp V ρ (.app (.lam (pwBit φ mb.pw) tya ba) aa)
+          = interp V ρ (ba.inst aa) ∧
+        WellDenotedV V ρ (ba.inst aa) := by
+    intro ρ hρ
+    by_cases hz : pwBit φ mb.pw = 0
+    · rw [hz] at hg ⊢
+      exact betaZeroV (hg ρ hρ) (hmem ρ hρ)
+    · exact betaPosV hz (hg ρ hρ)
+  exact ⟨hfr, hsub, ba.inst aa, hred, fun ρ hρ => (hstep ρ hρ).2,
+    fun ρ hρ => (hstep ρ hρ).1⟩
 
 /-- The δ identity (`delta_of`, `Steps/Whnf.lean:329`: the same
 annotation reads the unfolding) + `unfoldDefinition_WScoped`. -/

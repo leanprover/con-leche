@@ -8,6 +8,8 @@ import ConLeche.Model.CtxOkKit
 import ConLeche.Verify.InstLevels
 import ConLeche.Verify.InferLeaves
 import ConLeche.Verify.Denote.StrLit
+public import ConLeche.Model.Annot.BitInst
+public import ConLeche.Model.WellDenotedTransport
 
 public section
 
@@ -500,6 +502,61 @@ theorem interp_congr {i : Nat} {e e' : AnnotTerm} {σ : Nat → V}
   rw [projAV_interp, projAV_interp, heq]
 
 end ProjAV
+
+
+/-! ## The β step at the currency (`Steps/Whnf.lean:117-161`, transplanted) -/
+
+/-- **The argument is in the λ's domain**, at a positive kind, from the
+application's `WellDenoted` alone (`wellDenoted_beta_dom_pos`). -/
+theorem betaDomPos {v : Nat} (hv : v ≠ 0) {A b a : AnnotTerm}
+    {ρ : Nat → V} (h : WellDenoted V ρ (.app (.lam v A b) a)) :
+    interp V ρ a ∈ˢ interp V ρ A := by
+  rw [WellDenoted_app] at h
+  obtain ⟨hlam, -, v', A', B', hslot, hmem, -⟩ := h
+  rw [WellDenoted_lam] at hlam
+  obtain ⟨-, -, B, hfib, -⟩ := hlam
+  have hv' : v' ≠ 0 := by
+    intro h0
+    subst h0
+    have h1 := eq_pt_of_mem_piR_zero hslot
+    rw [interp_lam] at h1
+    exact lamR_ne_pt hv h1
+  have hown : interp V ρ (.lam v A b) ∈ˢ piR v (interp V ρ A) B := by
+    rw [interp_lam]
+    exact lamR_mem hfib
+  rw [piR_dom_unique hv hv' hown hslot]
+  exact hmem
+
+/-- A λ's domain annotation is graded when the λ is
+(`WellDenotedV.lam_dom`). -/
+theorem lamDomV {v : Nat} {A b : AnnotTerm} {ρ : Nat → V}
+    (h : WellDenotedV V ρ (.lam v A b)) : WellDenotedV V ρ A :=
+  ⟨by have h1 := h.1; rw [WellDenoted_lam] at h1; exact h1.1,
+   by have h2 := h.2; rw [AnnotValid_lam] at h2; exact h2.1⟩
+
+/-- **The graded β step at a positive kind** (`WellDenotedV_beta_pos`). -/
+theorem betaPosV {v : Nat} (hv : v ≠ 0) {A b a : AnnotTerm} {ρ : Nat → V}
+    (h : WellDenotedV V ρ (.app (.lam v A b) a)) :
+    interp V ρ (.app (.lam v A b) a) = interp V ρ (b.inst a) ∧
+      WellDenotedV V ρ (b.inst a) := by
+  obtain ⟨heq, hok2⟩ := WellDenoted_beta_pos V hv h.1
+  refine ⟨heq, hok2, ?_⟩
+  have hv2 := h.2
+  rw [AnnotValid_app, AnnotValid_lam] at hv2
+  exact (AnnotValid_inst0 V hv2.2).mpr (hv2.1.2 _ (betaDomPos hv h.1))
+
+/-- **The graded β step at kind `0`** (`WellDenotedV_beta_zero`): the
+domain membership is the β certificate's. -/
+theorem betaZeroV {A b a : AnnotTerm} {ρ : Nat → V}
+    (h : WellDenotedV V ρ (.app (.lam 0 A b) a))
+    (hmem : interp V ρ a ∈ˢ interp V ρ A) :
+    interp V ρ (.app (.lam 0 A b) a) = interp V ρ (b.inst a) ∧
+      WellDenotedV V ρ (b.inst a) := by
+  obtain ⟨heq, hok2⟩ := WellDenoted_beta_zero V h.1 hmem
+  refine ⟨heq, hok2, ?_⟩
+  have hv2 := h.2
+  rw [AnnotValid_app, AnnotValid_lam] at hv2
+  exact (AnnotValid_inst0 V hv2.2).mpr (hv2.1.2 _ hmem)
 
 
 /-! ## The δ identity (`delta_of`, `Steps/Whnf.lean:329`, transplanted) -/
