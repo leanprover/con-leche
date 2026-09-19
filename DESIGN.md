@@ -122690,3 +122690,130 @@ That is a new numbered obligation with its own measurement (the
 conformance cells), and it is the kernel's answer to the same question
 `TargetHead` asked and lost at the model tier.  It is not this lane's
 to authorise.
+
+#### WIDE (3) (a) `hfireOrd` IS AN IFF AND ONE DIRECTION IS FALSE — THE PIN HALF'S GAP, AND ITS REPAIR (lane LE, 2026-09-19)
+
+Read off the statement, as directed.  **`hfireOrd` is an IFF**
+(`Model/Inductives/NestedPinLeafAll.lean:3449`):
+
+    ∀ l, l < … → ((dK.rss i).getD j []).getD l false = false →
+      (rs₁.getD l false = true ↔ rs₂.getD l false = true)
+
+and the proof consumes BOTH directions: `mpr` in the neither-fired arm
+(`by_cases hb : rs₂ = true; rw [(hfireOrd …).mpr hb] at hrC₁`) and `mp`
+in the both-fired arm.  There are exactly two arms after
+`rcases h₁.ordF` and **no mixed arm**.
+
+##### THE CORNER IS REAL, AND IT KILLS `mp`
+
+The coordinator's shape, checked against what the checker does: `K`'s
+field is `β trivial` with `β` a PARAMETER of `K`, so `K` itself calls
+it ordinary (the guard).  At `J`'s install the copy's field is
+`α trivial` with `α` a parameter of `J` — the head is a VARIABLE, the
+positivity walk is stuck, the field mentions no member of `J`'s group,
+so `rs₂ = false`.  The block instantiates `α := fun _ => Foo`, the
+positivity `whnf` reduces `(fun _ => Foo) trivial` to `Foo`, and the
+block's copy fires at a block MEMBER, so `rs₁ = true`.  That is exactly
+the reduction DESIGN already records as happening at an ACCEPTED block
+(the `TargetHead` refutation, `tests/e2e/nested_lam_pin_prop.ndjson`).
+So `mp` has a counterexample shape and **`hfireOrd` as landed is false
+in general**.  (Whether an EXISTING fixture exhibits it at
+nested-in-nested depth, which is what the pin half needs, is
+unmeasured; a `--nested-shadow` count would settle it and is the cheap
+next measurement.)
+
+##### `mpr` SURVIVES, AND THE REASON IS THE ONE K.69 WANTS TO USE
+
+The other direction is TRUE, by the facts (b) names.  `rs₂ = true`
+means the ROOT's normalised domain is headed by a CONSTANT — one of
+`J`'s group members or one of its pins' containers.  The block's term
+is that one with `J`'s parameters substituted, and a substitution
+cannot change a constant head; a constant-headed application at an
+inductive head is its own `whnf` (K.22 `whnf_indApp_eq`, and
+`normPosDomM_indApp`, `Verify/Inductives/NestedCopyNorm.lean:269`, for
+the walk), and the rewrite sends that member to the block's copy of it.
+So the block fires too.  The asymmetry is exactly that a ROOT can be
+STUCK AT A VARIABLE head and the block's substitution unblocks it,
+while a root that is already constant-headed cannot be blocked.
+
+##### THE FOUR COMBINATIONS, AND WHICH HYPOTHESIS EACH NEEDS
+
+At a field `K` calls ordinary, in `copyTransfer_via_pin`'s own
+direction (side 1 ⟹ side 2):
+
+| `rs₁` | `rs₂` | what closes it | state |
+|---|---|---|---|
+| false | false | `h₁.ordF`-left, `h₂.ordF`-left, `hcdom` | present |
+| true | true | `hdom₁` + `hslotOrd` | present |
+| **true** | **false** | `hdom₁` into the container's domain, `hcdom` to the other frame, `h₂.ordF`-left | **FREE — no new hypothesis, ~6 lines** |
+| false | true | the container's domain ⊆ side 2's slot — a ROOT-side entry (`hent₂`) | **impossible**, by `mpr` above |
+
+So the repair is: **weaken `hfireOrd` to the single implication
+`rs₂ = true → rs₁ = true`** and add the third arm.  The fourth row —
+the one that would need `hent₂`, the hypothesis DESIGN records as
+UNSTATABLE ("the container has no OUTSIDE", all three ways out
+refuted) — is ruled out rather than assumed, which is why the
+weakening is not a retreat.
+
+`copyTransfer_iff_pin` applies the twin in BOTH orientations
+(`:3643`, `:3648`), so the mixed case is needed in the other direction
+too, and there it is NOT free: it asks the container's domain ⊆ the
+BLOCK's slot at `tg₁ l`, i.e. `hent₁` — the block-side entry at a
+target that leaves the instance.  That one HAS a producer by design:
+it is the entry NESTED.md §7 says the identification consumes and the
+instance induction supplies, and the mixed case's target IS outside
+the instance (a block member).  So the entry arm removed in WIDE (3′)
+STEP (1) was removed one step too far, and only on side 1.
+
+**Recorded now, as directed**: the gap is in `copyTransfer_via_pin` as
+landed, independent of `hslotOrd`; the repair is a weakening plus one
+free arm plus `hent₁` back on side 1 only.  Nothing built.
+
+#### WIDE (3) (b) K.69 READ AGAINST THE TREE — THE WHNF FACTS EXIST, THE COMMUTATION DOES NOT, AND THE GUARD IS WHAT SAVES THE ARGUMENT (lane LE, 2026-09-19)
+
+##### THE FACTS THE CANNOT-FIRE ARGUMENT NAMES
+
+* "a constant-headed application with an inductive head is its own
+  `whnf`" — **PRESENT**, twice: `whnfCore_constApp_eq`
+  (`Verify/InferLemmas.lean:755`) and K.22's `whnf_indApp_eq`, with the
+  positivity walk's form `normPosDomM_indApp`
+  (`Verify/Inductives/NestedCopyNorm.lean:269`).  There is no
+  `Verify/Steps/` directory; these are where the fact lives.
+* "reduction is closed under substitution", i.e.
+  `whnf (e[s]) = whnf (whnf e [s])` — **MISSING**, and not merely
+  unproved: as a total statement it is FALSE in the direction the
+  argument walks, because substitution CREATES redexes.  Its
+  counterexample is (a)'s corner verbatim: `whnf (α trivial) = α
+  trivial`, while `whnf ((α trivial)[α := fun _ => Foo]) = Foo`.  No
+  whnf/substitution commutation theorem exists anywhere in the tree.
+
+**The guard is what rescues it.**  Under K.69's stated guard — BOTH
+copies fire — the root's normalised domain `W` is already head-normal
+at a constant inductive head, so `W[s]` is too and
+`whnf (W[s]) = W[s]` is `normPosDomM_indApp`, no commutation needed.
+And by (a) that guard is equivalent to `rs₂ = true` alone, since
+`rs₂ → rs₁`.  So K.69's guard should be spelled as the ROOT's firing,
+and the mixed case is the entry arm's, exactly as (a) concludes.  The
+remaining step — `replaceAllNested` at the block on `args(W)[s]` is
+the root's rewrite substituted, with root pins mapped by the instance
+map — is the `RewriteRel` question one substitution over, and is
+where the record earns its keep; that part is correctly identified.
+
+##### "THE ROOT SIDE NEEDS NO CARRY BEYOND K.68's" — REFUTED
+
+K.68's clause carries a TARGET: a `Nat`, the class index, compared
+against `memberNames`/`ownPinTerms`.  K.69's model consumption is
+`Eis₁ = Eis₂[s]`, and `Eis₂` is `(dR.pinCtors qK).Eiss` — **model data
+on the root's block model, a list of `AnnotTerm`s**.  No kernel Bool
+can mention it, so no K.69 stated at the BLOCK's run can conclude
+anything about it; and K.68's carried clause says nothing about it
+either.  Tying `Eis₂` to the root's recomputation is a ROOT-side fact,
+hence a carry — the `PinShapes` DATA clause of the previous row — and
+it additionally needs the opener→reading bridge for a field domain
+(`ContainerOwnPinsSyn.toReadOf`'s twin), because the recomputation
+lives in the parameter-opener scope and `Eis₂` is a reading.
+
+So the middle term is the recomputation for the SYNTAX, as the
+coordinator says, but not for the READINGS, and `Eis₂` is a reading.
+K.69 would give side 1 outright; side 2 still costs the carry plus the
+bridge.
