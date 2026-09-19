@@ -45,6 +45,7 @@ open ConLeche.Rules
 universe w
 
 variable {V : Type w} [SetTheory V] {env : Env} {φ : Name → Nat}
+variable {m : EnvModel V env}
 
 /-! ## The level crossing (`Steps/BitLevels.lean`, transplanted) -/
 
@@ -623,6 +624,195 @@ theorem slotTransfer {v v' : Nat} {A A' f a : V} {B B' : V → V}
     (hv : v ≠ 0) (hf : f ∈ˢ piR v A B)
     (hslot : f ∈ˢ piR v' A' B') (ha : a ∈ˢ A') : a ∈ˢ A :=
   io_domain_transfer hv hslot ha hf
+
+
+/-! ## The spine kit at `ReadSpine` (`Steps/Stuck.lean:94-210`,
+`TowerKit.lean:60-92`, transplanted onto `Motive.lean`'s relation) -/
+
+/-- A read spine has the length of its source. -/
+theorem ReadSpine.length {d : Nat} {as : List Expr} {vs : List AnnotTerm}
+    (h : ReadSpine m.acval env φ d as vs) : as.length = vs.length := by
+  induction h with
+  | nil => rfl
+  | cons _ _ ih => simp [ih]
+
+/-- The `k`-th argument of a read spine reads to the `k`-th reading. -/
+theorem ReadSpine.getD_read {d : Nat} :
+    ∀ {as : List Expr} {vs : List AnnotTerm}, ReadSpine m.acval env φ d as vs →
+      ∀ {k : Nat}, k < as.length →
+        denoteMeta m.acval env φ d (as.getD k (.bvar 0))
+          = some (vs.getD k default)
+  | _, _, .nil, k, hk => absurd hk (Nat.not_lt_zero k)
+  | _, _, .cons ha _, 0, _ => by simpa [List.getD] using ha
+  | _, _, .cons _ hsp, k + 1, hk => by
+    simpa [List.getD] using ReadSpine.getD_read hsp (Nat.lt_of_succ_lt_succ hk)
+
+/-- **The application spine, inverted at the validated reading**
+(`denoteMeta_mkAppN_inv`, at `ReadSpine`). -/
+theorem denoteMeta_mkAppN_inv {d : Nat} :
+    ∀ {as : List Expr} {f : Expr} {ea : AnnotTerm},
+    denoteMeta m.acval env φ d (Expr.mkAppN f as) = some ea →
+    ∃ fa vs, denoteMeta m.acval env φ d f = some fa ∧
+      ReadSpine m.acval env φ d as vs ∧ ea = AnnotTerm.mkAppN fa vs := by
+  intro as
+  induction as with
+  | nil => intro f ea h; exact ⟨ea, [], h, .nil, rfl⟩
+  | cons a as ih =>
+    intro f ea h
+    obtain ⟨fa, vs, hfa, hsp, rfl⟩ := ih h
+    obtain ⟨ff, aa, hff, haa, rfl⟩ := denoteMeta_app_inv hfa
+    exact ⟨ff, aa :: vs, hff, .cons haa hsp, rfl⟩
+
+/-- Every argument of a graded application spine is graded, and so is
+its head (`hoist_spine`). -/
+theorem hoist_spine {Δa : List AnnotTerm} :
+    ∀ (asa : List AnnotTerm) {fa : AnnotTerm},
+      Graded V Δa (AnnotTerm.mkAppN fa asa) →
+      Graded V Δa fa ∧ ∀ x ∈ asa, Graded V Δa x := by
+  intro asa
+  induction asa with
+  | nil => intro fa h; exact ⟨h, by simp⟩
+  | cons a as ih =>
+    intro fa h
+    obtain ⟨happ, hrest⟩ := ih (fa := .app fa a) h
+    refine ⟨fun ρ hρ => ⟨?_, ?_⟩, ?_⟩
+    · exact ((WellDenoted_app V ρ fa a) ▸ (happ ρ hρ).1).1
+    · exact ((AnnotValid_app V ρ fa a) ▸ (happ ρ hρ).2).1
+    · intro x hx
+      rcases List.mem_cons.mp hx with rfl | hx'
+      · exact fun ρ hρ =>
+          ⟨((WellDenoted_app V ρ fa x) ▸ (happ ρ hρ).1).2.1,
+            ((AnnotValid_app V ρ fa x) ▸ (happ ρ hρ).2).2⟩
+      · exact hrest x hx'
+
+/-- The frame conditions of every argument of a spine (`frame_spine`). -/
+theorem frame_spine {d : Nat} {Δa : List AnnotTerm} {a : Expr}
+    (hf : Frame d a) (hC : CtxOk m φ d Δa a) :
+    ∀ x ∈ a.getAppArgs, Frame d x ∧ CtxOk m φ d Δa x := fun x hx =>
+  ⟨⟨hf.1.getAppArgs x hx, ConLeche.looseBVarsBounded_getAppArgs hf.2.1 x hx,
+      fun l hl => hf.2.2 l (ConLeche.fvarLeaves_getAppArgs hx l hl)⟩,
+    hC.of_subset (fun l hl => ConLeche.fvarLeaves_getAppArgs hx l hl)⟩
+
+/-- The inversion of a `.proj` reading at a stored entry
+(`denoteMeta_proj_inv_tower`). -/
+theorem denoteMeta_proj_inv_tower {d : Nat} {s : Name} {i : Nat} {e : Expr}
+    {entry : ProjEntry} {ea : AnnotTerm}
+    (hfe : env.findProj? s i = some entry)
+    (h : denoteMeta m.acval env φ d (.proj s i e) = some ea) :
+    ∃ ia, denoteMeta m.acval env φ d e = some ia ∧
+      ea = projAV (i + entry.off) ia := by
+  obtain ⟨ia, hia, hcase⟩ := denoteMeta_proj_inv h
+  rcases hcase with ⟨entry', hfe', rfl⟩ | ⟨hnt, -⟩
+  · obtain rfl : entry = entry' := Option.some.inj (hfe.symm.trans hfe')
+    exact ⟨ia, hia, rfl⟩
+  · rw [hnt] at hfe; exact nomatch hfe
+
+/-! ## The ∀-chain guard and the fit's un-instantiation
+(`Steps/CapsRows.lean:79-180`, `ProjRows.lean:254`, transplanted) -/
+
+/-- The reading's first `n` heads are `.pi` nodes (`PiChain`). -/
+@[expose] def PiChain : Nat → AnnotTerm → Prop
+  | 0, _ => True
+  | n + 1, e =>
+    match e with
+    | .pi _ _ _ B => PiChain n B
+    | _ => False
+
+theorem piChain_succ_inv {n : Nat} {e : AnnotTerm} (h : PiChain (n + 1) e) :
+    ∃ u v A B, e = .pi u v A B ∧ PiChain n B := by
+  match e with
+  | .pi u v A B => exact ⟨u, v, A, B, rfl, h⟩
+  | .bvar _ | .sort _ | .const _ _ | .app _ _ | .lam _ _ _
+  | .eqE _ _ | .fst _ | .snd _ | .prf => exact nomatch h
+
+theorem PiChain.inst : ∀ {n : Nat} {e : AnnotTerm} (a : AnnotTerm) (k : Nat),
+    PiChain n e → PiChain n (e.inst a k) := by
+  intro n
+  induction n with
+  | zero => intro _ _ _ _; trivial
+  | succ n ih =>
+    intro e a k h
+    obtain ⟨u, v, A, B, rfl, hB⟩ := piChain_succ_inv h
+    exact ih a (k + 1) hB
+
+/-- **A syntactic ∀-telescope reads to a ∀-chain**
+(`piChain_of_stripPis`). -/
+theorem piChain_of_stripPis {acval : Name → (Name → Nat) → AnnotTerm} :
+    ∀ (n : Nat) {d : Nat} {e : Expr} {ea : AnnotTerm},
+      (e.stripPis n).isSome = true →
+      denoteMeta acval env φ d e = some ea → PiChain n ea := by
+  intro n
+  induction n with
+  | zero => intro _ _ _ _ _; trivial
+  | succ n ih =>
+    intro d e ea hs hd
+    match e, hs with
+    | .bvar _, hs => exact nomatch hs
+    | .fvar _ _, hs => exact nomatch hs
+    | .sort _, hs => exact nomatch hs
+    | .const _ _, hs => exact nomatch hs
+    | .app _ _, hs => exact nomatch hs
+    | .lam _ _ _, hs => exact nomatch hs
+    | .letE _ _ _, hs => exact nomatch hs
+    | .lit _, hs => exact nomatch hs
+    | .proj _ _ _, hs => exact nomatch hs
+    | .forallE ty bd mb, hs =>
+      obtain ⟨ta, ba, -, hba, rfl⟩ := denoteMeta_forallE_inv hd
+      simp only [ConLeche.Expr.stripPis, Option.isSome_map] at hs
+      exact ih (ConLeche.Expr.stripPis_instantiate1_isSome n 0 hs) hba
+
+theorem teleFit_nil_inv {ρ : Nat → V} {T : AnnotTerm} {rest : V}
+    (h : TeleFit V ρ T [] rest) : rest = interp V ρ T := by
+  cases h; rfl
+
+/-- **The fit un-instantiates, under the ∀-chain guard**
+(`teleFit_of_inst`). -/
+theorem teleFit_of_inst {aa : AnnotTerm} :
+    ∀ {L : List V} {E : AnnotTerm} {k : Nat} {ρ : Nat → V} {rest : V},
+      PiChain L.length E →
+      TeleFit V ρ (E.inst aa k) L rest →
+      TeleFit V (instE k (interp V (shiftE k 0 ρ) aa) ρ) E L rest := by
+  intro L
+  induction L with
+  | nil =>
+    intro E k ρ rest _ h
+    obtain rfl : rest = interp V ρ (E.inst aa k) := teleFit_nil_inv h
+    rw [interp_inst]
+    exact .nil
+  | cons y ys ih =>
+    intro E k ρ rest hpc h
+    obtain ⟨u, v, A, B, rfl, hB⟩ := piChain_succ_inv hpc
+    rw [AnnotTerm.inst_pi] at h
+    cases h with
+    | cons hmem hfit =>
+      refine .cons (by rwa [interp_inst] at hmem) ?_
+      have hrec := ih (E := B) (k := k + 1) (ρ := cons y ρ) hB hfit
+      rw [shiftE_succ_cons] at hrec
+      rw [cons_instE]
+      exact hrec
+
+theorem teleFit_of_inst0 {aa : AnnotTerm} {L : List V} {E : AnnotTerm}
+    {ρ : Nat → V} {rest : V} (hpc : PiChain L.length E)
+    (h : TeleFit V ρ (E.inst aa) L rest) :
+    TeleFit V (cons (interp V ρ aa) ρ) E L rest := by
+  have := teleFit_of_inst hpc h
+  rwa [shiftE_zero_zero, instE_zero] at this
+
+/-- **An annotation-level fit is a value-level fit**
+(`teleFit_of_teleFitPA`). -/
+theorem teleFit_of_teleFitPA {ρ : Nat → V} :
+    ∀ {T : AnnotTerm} {as : List AnnotTerm} {resta : AnnotTerm},
+      PiChain as.length T → TeleFitPA V ρ T as resta →
+      TeleFit V ρ T (as.map (interp V ρ)) (interp V ρ resta) := by
+  intro T as resta hpc h
+  revert hpc
+  induction h with
+  | nil => intro _; exact .nil
+  | @cons u v A B rest a as hmem hfit ih =>
+    intro hpc
+    have hpcB : PiChain as.length B := hpc
+    exact .cons hmem (teleFit_of_inst0 (by rw [List.length_map]; exact hpcB)
+      (ih (PiChain.inst a 0 hpcB)))
 
 
 /-! ## The δ identity (`delta_of`, `Steps/Whnf.lean:329`, transplanted) -/
