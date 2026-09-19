@@ -595,10 +595,24 @@ reduction to them, the reindexing and the congruence below a common
 bound compose into one theorem: a pin's carrier at the block's carrier
 is its container's least tuple, with the container's side read entirely
 off its stored model.  What is not yet done is reading its inputs off
-the RUN — the instance map from the container's pin table, the two
-facts about where that map sends a field's target, and the own-pin
-half's own premises — so the tree still takes the long way round
-(Resolution 3) at the one site that consumes the identification.
+the RUN, and one obstacle there is now exactly located.  The instance
+map itself is recorded: the checker computes, for each copy, which of
+its container's own pins each of its fields lands on, and that a
+rewritten ordinary field lands outside the instance.  But a container's
+own pins are counted TWICE in the tree and the two counts have never
+been tied together — once by position in the table the checker reads
+off the container's mimic recursors, and once by position in the
+container's stored block model, which is where the identification's
+reindexing has to be stated.  The only bridge between the two says that
+each table entry is SOME model pin, not WHICH, and says nothing at all
+about a model pin the table happens not to mention; so the reindexing
+is neither total nor single-valued from what is recorded.  The tie is
+true — the checker certifies the table at its own instantiation to be
+the recorded pin list verbatim, position by position, and moving it to
+another instantiation is a map — so the repair is to keep the position
+in the bridge rather than to record anything new.  Until it is kept,
+the tree still takes the long way round (Resolution 3) at the two sites
+that consume the identification.
 
 **The instance map is not an injection, and the identification no
 longer asks it to be.**  The expansion's dedup by pin expression
@@ -631,6 +645,21 @@ instances, and the declaration-order record for cross-instance
 constant-headed edges — and the exact cost of that residue, in
 particular whether the closure's identification is as cheap as the
 experiment suggests once the readings are threaded.
+
+The induction over instances is not something the identification can
+absorb, and the reason is worth stating because it is easy to hope
+otherwise.  The identification hands back an EQUALITY — a pin's slot is
+its container's least tuple at the pin's components — so the inclusion
+the block-model construction consumes at that pin is immediate from it,
+with no ordering among the pins of one instance.  But the identification
+itself is stated with the copies' ENTRY identities as a hypothesis, and
+it spends them at exactly one place: a rewritten container-ordinary
+field, whose target lies outside the instance.  Those entries are what
+the inclusion produces.  So the identification at one instance consumes
+the inclusion at pins of OTHER instances, and the induction over
+instances is the thing that must still supply them.  What the
+identification removes is the ordering WITHIN an instance, and nothing
+more.
 
 ## 8. What the abstraction hides
 

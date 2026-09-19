@@ -117156,3 +117156,208 @@ list now (its consumer is `nestedPinsShapePinF_of`), and
 `copyPinFStored`, `copyPinFRead` and the dispatch never reach it.  No
 kernel file changed, so no accept set moved and `tests/arena.sh` was
 not re-run.
+
+#### WIDE (f3): THE SWITCH IS BLOCKED ON ONE INDEX — the container's own-pin TABLE position is not the container's own-pin MODEL index, and nothing records the tie (lane WIDE, 2026-09-19)
+
+(f3)'s brief said "no statement question remains in it": σ, `hstgt`,
+`houtσ`, `hmemσ`, `hidxσ`, `hcarσ` are K.61's and K.62's, and the rest
+is plumbing.  **The brief is right about the facts and wrong about the
+INDEX they are stated at.**  The switch was not made, nothing of it was
+built, and this section is what the session produced instead: the
+obstruction, measured against the inversions as landed, and the repair
+named and priced.  Every gate is the base's — no `.lean` file changed.
+
+##### (a) THE TWO INDEXINGS
+
+A container's own pins are counted TWICE in this tree, and the two
+counts have never been tied together:
+
+* **the TABLE index** — the position in `containerOwnPinsAt env C lvls
+  Ds` (and in `containerOwnPinsSelf env C`, the same list at the
+  identity instantiation).  This is what K.61 is stated at:
+  `nestedInstMapAt env st q` is a `List Nat` indexed by it, and
+  `nestedInstMapOk_at`'s `qK` is `own[qK]?`'s position,
+  `nestedInstMapOk_target`'s is `own0.findIdx?`'s answer;
+* **the MODEL index** — the position in the container's block model's
+  own pin list, i.e. the `qK` of `dJ.pinAt qK`, `dJ.pinIdx qK`, and the
+  `dJ.tgts i j l - dJ.k` that `CopyCtorShape.pinF` and `IsBlockModels.
+  tgt_pin_lt` produce.  This is what the wide assembly's σ has to be
+  indexed by: `ofNested_pin_block_of_wide_inst` takes σ on
+  `[0, dJ.k + dJ.nPins)` and reads `dJ.Ψaux`, `dJ.idx`, `dJ.ctorsT`,
+  `dJ.ChainFitT` at those classes.
+
+The ONE crossing between them is `ContainerModeled.ownPins`, and it
+throws the position away.  Both forms —
+
+```lean
+  ContainerOwnPinsSyn env d :=
+    … → ∀ e ∈ ps, ∃ qK, qK < d.nPins ∧ e = (d.pinAt qK).ownAt d.nP cvC.levelParams lvls DsE
+  ContainerOwnPins m d :=
+    … → ∀ e ∈ ps, ∃ (qK : Nat) (es : List Expr), qK < d.nPins ∧ …
+```
+
+— are MEMBERSHIP-to-EXISTENCE.  From `own[qK]? = some e` they give a
+model index, but not `qK`; and they give NO model index at all for a
+class that the table happens not to mention.  `pinCorr_of_ownPins`
+inherits both defects (its `qK` comes out of `ContainerOwnPins`'
+existential), and `InstanceCovered`/`instanceCovered_of_others` run the
+same way — from a BLOCK pin to SOME container class.
+
+##### (b) WHAT THAT COSTS EACH OF (f3a)'s FACTS
+
+σ's pin half has to be a TOTAL FUNCTION `[dJ.k, dJ.k + dJ.nPins) → [0, k + pins.length)`.
+
+* **TOTALITY** — every model pin class needs a block pin.  K.61's
+  totality is over the TABLE (`nestedInstMaps`' `mapM` succeeds, so
+  every `own` entry has a block pin).  Carrying it to the model classes
+  needs the table to enumerate them, which is the tie;
+* **FUNCTIONALITY** — one block pin per model class.  K.61's map is a
+  function on TABLE indices, and `nestedInstMapOk_target` fixes the
+  field's block target by the field's own-pin TERM through
+  `own0.findIdx?`.  Carrying that to model classes needs the tie again.
+  A counting argument does not substitute for it: at a collapsing
+  instantiation two model classes have equal `ownAt` terms, so the
+  table-to-model assignment is not injective there, which is the very
+  case the collapse witnesses exhibit;
+* **`hstgt`** turns out not to need K.61 at all once σ exists:
+  `CopyCtorShape.pinF` already hands back
+  `PinCorr TV acval dJ ψJ Ds lpsJ lvlsJ (tg l) (dJ.tgts i j l - dJ.k)`,
+  and `copyPinFCorr` (`NestedCopyInst.lean:3036`) already gives the
+  block target as `p.k + qq` with `st.pins[qq]` the copy of
+  `dJ.pinAt (dJ.tgts i' j l - dJ.k)`.  What is missing is only that two
+  fields at ONE model class give ONE `qq` — functionality again;
+* **`hIsσ`'s pin half, `hmemσ`, `hidxσ`, `hcarσ`, `hpin`** are all
+  stated at σ and inherit the block;
+* **`houtσ`** has a SECOND, independent gap: K.62 is a predicate on
+  `nestedPinEdges`' rows, and the bridge from a copy's `ordF`-right
+  field to an edge row is `nestedPinEdges_mem`
+  (`Verify/Inductives/NestedInv.lean:2763`), whose hypotheses are the
+  run's own lookups.  Its docstring already says where it may be used:
+  "the run-level assembly (where `NestedPinsRun` is in scope) is the
+  only place that ever has to exhibit an edge".  `NestedTailIn.pinSegAt`
+  is not that place;
+* **`hinjJ`** is as the brief priced it (members `G.inj` through
+  `injT_of_mem`, pin classes `PinRecLaws.injW` off `BlockAt`) and is
+  the one item with no new obstruction.
+
+##### (c) WHERE THE SWITCH'S INPUTS HAVE TO BE PRODUCED — NOT AT THE SITE
+
+Independently of the index, the brief's "define σ at the site" is the
+wrong shape.  `NestedTailIn` carries neither `nestedInstMapOk` nor
+`nestedOrdOutsideOk` (it does not carry K.60's `nestedCopyPinFieldsOk`
+either), and `NestedPinGroup` has no σ field.  The tree's own pattern
+for exactly this crossing is `NestedPinGroup.shape`/`.entry`: a
+run-level fact is turned into a model-level clause ONCE, in the
+assembly where `NestedPinsRun` is in scope, and the group carries it.
+σ, `hstgt`, `houtσ`, `hIsσ` and `hinjJ` belong there, as new
+`NestedPinGroup` fields produced beside `shape` and `entry`, with
+K.61/K.62 threaded into `NestedPinsRun` from `declNested_of`'s two new
+conjuncts.  That is a structural item on top of (f3)'s own list, and it
+is `NestedPins.lean`/`NestedCore.lean` work, not `NestedFit.lean`'s.
+
+##### (d) THE REPAIR, NAMED AND PRICED — ONE POSITIONAL RESTATEMENT
+
+The tie is TRUE and very nearly recorded: K.47 (`nestedOwnPinsOk`)
+certifies `containerOwnPinsAt` at the identity instantiation to be
+`st.pins.map (·.pin)` **verbatim, positionally**, and
+`containerOwnPinsAtGo_subst` moves the whole table to any other
+`lvls`/`Ds` as a `List.map`, which is positional as well.  The nested
+route's discharge `nestedOwnPins_of` (`DeclNestedCore.lean`) has the
+position in hand and DISCARDS it — the proof ends
+
+```lean
+    obtain ⟨e₀, he₀mem, rfl⟩ := List.mem_map.mp he
+    obtain ⟨pin, hpin, rfl⟩ := List.mem_map.mp he₀mem
+    obtain ⟨q, hq⟩ := List.getElem?_of_mem hpin
+```
+
+where `List.getElem?_map` twice would have kept it.  So the repair is:
+
+1. restate `ContainerOwnPinsSyn` as `∀ qK e, ps[qK]? = some e → qK <
+   d.nPins ∧ e = (d.pinAt qK).ownAt …`, with `ps.length = d.nPins`
+   beside it (the length is what makes the model classes exhaustible);
+2. the same for `ContainerOwnPins`; `ContainerOwnPinsSyn.toReadOf`
+   passes `qK` straight through, so it is a one-line change;
+3. `ContainerOwnPinsSyn.of_noOwn`/`of_noMimics` stay vacuous (`ps = []`),
+   so the SEVEN pins-free `ContainerModeled` sites and `mutualOwnPins_of`
+   / `nativeOwnPins_of` (both `of_noMimics`) cost nothing;
+4. `nestedOwnPins_of` keeps its position — the two `List.mem_map`s
+   become `List.getElem?_map`s;
+5. `pinCorr_of_ownPins` restated at a given `qK` (it is the only
+   consumer of the existential today), and `ContainerModeled.crossEnvP`
+   / `crossIndOf` carried through.
+
+Estimate: one session on the M7-3/K61 side, self-contained, with no
+kernel record and no new check — K.61 and K.62 as landed are then
+consumed AS THEY STAND.  **That is the one line for the K61 lane.**
+
+##### (e) (f3e) ANSWERED: `NestedPinsLe` does NOT follow from the identification — the obstruction is `hent`, and it is exact
+
+The maintainer's question: with each pin's slot identified with its
+container's fixpoint at the true frame, does `NestedPinsLe` follow
+directly, with no candidate frame, no declaration order and no law (M)?
+
+**The implication is trivial and the discharge is circular.**  The
+implication: `ofNested_pin_block_of_wide_inst`'s conclusion is
+`(D).pinCar ψ ρp L (q₀+i) = lfpTuple (dJ.w ψJ) dJ.k (dJ.idx ψJ ρJ)
+(dJ.Φ ψJ ρJ) i`, whose right side IS `pinLfp st pinsS dJf (f₀.s.eval ψ)
+ψ ρp (q₀+i)` (with `G.w` matching the sorts) and whose left side is
+`L⁺ (p.k + q₀ + i)` by `ofNested_pinCar_lfp`.  `NestedPinsLe`'s `hle`
+is a `FamLe` between exactly those two, so it is `FamLe.refl` — one
+line, no induction, no order.
+
+The circularity: `ofNested_pin_block_of_wide_inst` takes
+`hent : CopyEntryA …` — the copies' entries at the block's own carrier
+`L⁺` — and `hfit_wide_mem_of_inst` spends it at the `ordF`-RIGHT arm,
+i.e. at a rewritten container-ordinary field whose target `houtσ` puts
+OUTSIDE the instance.  Those entries are `NestedPinsEntry`, which is
+`nestedPinsEntry_of_le_all`'s output and is produced FROM
+`NestedPinsLe`.  So the identification at a pin of instance `I`
+consumes `NestedPinsLe` at pins outside `I`.
+
+**The pin the identification does not reach**, named as the brief asks:
+any pin that is the target of an `ordF`-right field of a copy in
+another instance — a pin OUTSIDE the instance being identified.  That
+is exactly `docs/NESTED.md` §5's surviving residue ("besides the
+comparison there is still an induction over instances for targets
+outside a segment"), and it confirms the corrected `hle` list (c):
+`NestedPinsLe`'s producers `pins_le_of_instanceLe`,
+`nestedPinsLe_of_rank`, `pins_le_of_declOrder` and the record
+`declPos`/`nestedPinOrderAt` survive the switch.  What the switch DOES
+buy against them is the WITHIN-instance part: the identification needs
+no order among the pins of one instance, so the induction that produces
+`NestedPinsLe` can in principle be cut down to the instance level
+(`nestedPinInstLe`'s within-instance content), which is a separate
+question and is not answered here.
+
+So `nestedModeled_of_two` cannot become `nestedModeled_of_one` with
+`NestedPinsShapePinFRefl` alone, and none of the candidate-frame
+apparatus (`pinLfpAt`, `pins_le_of_declOrder`, `pins_all_of_measure`,
+`CandParamFit`, `CandIdxAgree`, G1's bridge, K.57's model consumer)
+becomes unconsumed at the switch.
+
+##### (f) STATE, AND WHAT THE NEXT SESSION SHOULD DO
+
+Nothing of (f3a)–(f3d) was built; `NestedTailIn.pinSegAt` still calls
+`ofNested_pin_block_of_inst` and `hfit_le_of_inst`/`hfitLe` keep their
+consumer.  A second scope fact for whoever takes the switch:
+`ofNested_pin_block_of_inst` has TWO consumers, `pinSegAt` and
+`ofNested_pinLeaf_of` (`NestedFit.lean`, consumed at `NestedCore.lean`'s
+`nestedPinLeaf_of`), so `hfit_le_of_inst` is not deletable until BOTH
+move — the switch is two sites, not one.
+
+Order, revised:
+
+1. **the positional own-pins restatement** of (d) — the blocker, one
+   session, no kernel work;
+2. **the group's σ fields** of (c) — K.61/K.62 threaded into
+   `NestedPinsRun` and turned into `NestedPinGroup` clauses beside
+   `shape`/`entry`, with `nestedPinEdges_mem` for `houtσ`;
+3. **(f3d)**, the switch at both sites, and the deletion.
+
+##### (g) GATES
+
+No `.lean` file changed this session, so the gates are the base's
+(`a076eb1c`): `lake build` 725 jobs exit 0, `lake test` exit 0,
+`tests/unconsumed.sh` 184 of 3696 unchanged.  `tests/overview-links.sh`
+and `tests/quote-gate.sh` re-run for the `docs/NESTED.md` edit.
