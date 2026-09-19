@@ -380,6 +380,92 @@ theorem DefEq.structUnit_sound (hin : RulesInputs V m φ) {d : Nat}
     (hcerts : CertsSem m φ d false
       (cvT.type.instantiateLevelParams cvT.levelParams us') wta.getAppArgs) :
     DefEqSem m φ d a b := by
-  sorry
+  intro hfa hfb Δa aa ba hCa hCb hda hdb hokA hokB ρ hρ
+  -- the two sides' inferred types, reduced, with their readings
+  obtain ⟨hfta, hsuba, taa, htaa, hokTa, hmemA⟩ := hta hfa hCa hda hokA
+  have hCta : CtxOk m φ d Δa ta := hCa.of_subset hsuba
+  obtain ⟨hfWA, hsubWA, wtaa, hwtaa, hokWA, heqWA⟩ := hwta hfta hCta htaa hokTa
+  have hCwa : CtxOk m φ d Δa wta := hCta.of_subset hsubWA
+  obtain ⟨hftb, hsubb, tba, htba, hokTb, hmemB⟩ := htb hfb hCb hdb hokB
+  have hCtb : CtxOk m φ d Δa tb := hCb.of_subset hsubb
+  obtain ⟨hfWB, hsubWB, wtba, hwtba, hokWB, heqWB⟩ := hwtb hftb hCtb htba hokTb
+  have hCwb : CtxOk m φ d Δa wtb := hCtb.of_subset hsubWB
+  have hmemAW : interp V ρ aa ∈ˢ interp V ρ wtaa := by
+    rw [← heqWA ρ hρ]; exact hmemA ρ hρ
+  have hmemBW : interp V ρ ba ∈ˢ interp V ρ wtba := by
+    rw [← heqWB ρ hρ]; exact hmemB ρ hρ
+  -- the certificate's defeq identifies the two family instances
+  have hEq : interp V ρ wtaa = interp V ρ wtba :=
+    hd hfWA hfWB hCwa hCwb hwtaa hwtba hokWA hokWB ρ hρ
+  -- side a's reduct is the family applied to its parameters
+  rw [show wta = Expr.mkAppN wta.getAppFn wta.getAppArgs from
+    (ConLeche.Expr.mkAppN_getApp wta).symm, hthead] at hwtaa
+  obtain ⟨vT, tsa, hvT, hspt, rfl⟩ := denoteMeta_mkAppN_inv hwtaa
+  rw [denoteMeta, hind] at hvT
+  dsimp only at hvT
+  split at hvT
+  case isFalse => exact nomatch hvT
+  case isTrue =>
+  obtain rfl : vT = m.acval T (Level.substFn φ cvT.levelParams us') :=
+    (Option.some.inj hvT).symm
+  -- the former's telescope arity, from the environment invariant
+  have hstrip : (cvT.type.stripPis caps.unitParams).isSome = true :=
+    (m.wf.indCaps hind).1 hunit
+  -- the (repaired) unit law, and its carried reading at depth `d`
+  obtain ⟨TVa, hTVa, hokTVa, hlaw⟩ :=
+    hin.caps_ok.2 T cvT caps hind hunit hresT φ us' hlv
+  have hwfT := m.wf _ (ConLeche.Semantics.Env.find?_mem hind)
+  have hnfT : (cvT.type.instantiateLevelParams cvT.levelParams
+      us').hasFvar = false := by
+    rw [ConLeche.Expr.hasFvar_instantiateLevelParams]; exact hwfT.1
+  have hbdT : (cvT.type.instantiateLevelParams cvT.levelParams
+      us').looseBVarsBounded 0 = true := by
+    rw [ConLeche.Expr.looseBVarsBounded_instantiateLevelParams]
+    exact hwfT.2.2.2.1
+  have hTVd : denoteMeta m.acval env φ d
+      (cvT.type.instantiateLevelParams cvT.levelParams us')
+      = some TVa :=
+    denoteMeta_depth_of_closed m.acval_closed hnfT
+      (fun k => denoteMeta_closed m.acval_erase m.cval_closed
+        hnfT hbdT hTVa 1 k) hTVa d
+  have hTF : Frame d (cvT.type.instantiateLevelParams cvT.levelParams us') :=
+    ⟨ConLeche.Expr.WScoped.of_not_hasFvar hnfT, hbdT,
+      ConLeche.Expr.LeavesBounded.of_not_hasFvar hnfT⟩
+  have hTC : CtxOk m φ d Δa
+      (cvT.type.instantiateLevelParams cvT.levelParams us') :=
+    ⟨hCa.1, fun l hl => by
+      rw [ConLeche.Expr.fvarLeaves_eq_nil_of_not_hasFvar hnfT] at hl
+      exact nomatch hl⟩
+  have hpcT : PiChain wta.getAppArgs.length TVa := by
+    rw [htlen]
+    exact piChain_of_stripPis caps.unitParams
+      (ConLeche.Expr.stripPis_instantiateLevelParams_isSome
+        cvT.levelParams us' caps.unitParams hstrip) hTVd
+  obtain ⟨hohT, hoT⟩ := Graded.mkAppN tsa hokWA
+  -- the certified parameter spine fits the former's telescope
+  obtain ⟨resta, hfitPA, -⟩ := hcerts (fa := TVa) hTF hTC hTVd
+    (fun σ _ => hokTVa σ)
+    (Frame.getAppArgs hfWA hCwa) hspt hoT (by simp)
+  have hfitT : TeleFit V ρ TVa (tsa.map (interp V ρ)) (interp V ρ resta) :=
+    teleFit_of_PA (by rw [← hspt.length]; exact hpcT) (hfitPA ρ hρ)
+  -- both members, at the folded family instance
+  have hfold : ∀ (l : List AnnotTerm) (x : V),
+      l.foldl (fun r y => SetTheory.app r (interp V ρ y)) x
+        = (l.map (interp V ρ)).foldl SetTheory.app x := by
+    intro l x; rw [List.foldl_map]
+  have hmx : interp V ρ aa
+      ∈ˢ (tsa.map (interp V ρ)).foldl SetTheory.app
+          (interp V ρ (m.acval T (Level.substFn φ cvT.levelParams us'))) := by
+    have := hmemAW
+    rwa [interp_mkAppN, hfold] at this
+  have hmy : interp V ρ ba
+      ∈ˢ (tsa.map (interp V ρ)).foldl SetTheory.app
+          (interp V ρ (m.acval T (Level.substFn φ cvT.levelParams us'))) := by
+    have := hEq ▸ hmemBW
+    rwa [interp_mkAppN, hfold] at this
+  have hlenTs : (tsa.map (interp V ρ)).length = caps.unitParams := by
+    rw [List.length_map, ← hspt.length, htlen]
+  exact hlaw ρ (tsa.map (interp V ρ)) (interp V ρ resta) (interp V ρ aa)
+    (interp V ρ ba) hlenTs hfitT hmx hmy
 
 end ConLeche.Model.Rules
