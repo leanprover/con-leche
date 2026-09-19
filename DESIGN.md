@@ -121978,3 +121978,50 @@ naming one class, then `hslotOrd` and `hfitc`.  Nothing else about the
 plan changes: the ninth `PinGroupInst` conjunct stays where it is,
 because K.68 IS model-only — it speaks of the block's own classes and
 needs no owner.
+
+#### WIDE (3) `GroupFacts.ordTgt` — THE FIELD IS RIGHT, AND ITS PRODUCER NAMES THREE MORE INPUTS (lane LE, 2026-09-19)
+
+The field is written and the structure, all its consumers and the whole
+build take it (`_tmp/le2/ordTgt-field.patch`, 79 lines): K.67 at the
+group, stated at the owner's class by INDEX so that it meets
+`PinShapes.rowTargetOrd` at one head `M`, with the owner pin `g`, its
+`ContainerInfo`, its block model `dR` with `ContainerModeled`, the
+instance map and the own-pin index `qK` as parameters.
+
+**`GroupFacts` DOES have a producer**, contrary to the last row's
+reading: `mkGF`, inside `nestedPinsEntry_of_le_all`
+(`NestedPinLeafAll.lean`), which builds it from a
+`NestedPinGroupSyn` — `R`, `SF` and `S` are all in scope there, and
+`hPD`/`hkindsRun` come off `R.pinData`/`R.h.classify`.  So the field
+costs a producer bullet, not nothing.
+
+##### WHAT THAT BULLET NEEDS, NAMED
+
+`instOrdTgtAt` answers over the ENVIRONMENT's own-pin table
+(`containerOwnPinsSelf env gn.container`) and at a `findIdx?` value;
+the field is stated over `dR.ownPinTerms lps` and at an INDEX.  The two
+identifications are `ContainerOwnPinsSyn` (the table) and
+`ContainerModeled.memberNames_eq` (the names), and the index is
+recovered by `ContainerModeled.pinsDistinctAt` at `dR` — all three on
+`CR`, which is already a parameter.
+
+`ContainerOwnPinsSyn` is stated at `d.memberName iO` and at
+`cvC.levelParams`, so the bullet needs THREE inputs the field does not
+yet carry:
+
+1. the owner pin's MEMBER INDEX in its own container, `iO < dR.k` with
+   `dR.memberName iO = gn.container` — without it the clause cannot be
+   applied at the right member;
+2. that member's stored record, `env₂.find? (dR.memberName iO)
+   = some (.indInfo cvC caps)`, which is the clause's own guard;
+3. `lps` pinned to `cvC.levelParams` rather than universally
+   quantified — `ownAt` is stated at the container's OWN level
+   parameters, and `rowTargetOrd` should be read at the same ones.
+
+All three are data the consumer holds (the root group's records), so
+they are parameters and not a new obligation.  The field's shape is
+settled; what is left is to add them and write the bullet, then the
+correspondence at one head `M`, `hslotOrd`, `hfitc`.
+
+The patch is kept out of tree rather than committed with a `sorry` in
+the producer bullet.
