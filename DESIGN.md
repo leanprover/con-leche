@@ -124165,3 +124165,112 @@ stand where they stood).  `tests/arena.sh` not run and not owed: no
 `Kernel/`, `Cached/` or `Verify/` file changed.  `#print axioms` on the
 two wrappers and on the two retargeted lemmas: `propext`,
 `Classical.choice`, `Quot.sound`.
+
+#### WIDE (3) STEP 1(a) — PARTS 1 AND 2 LANDED; PART 3's CLAUSE CANNOT CONSUME ITS CONTAINER, AND THAT IS WHERE IT STOPS (lane LE, 2026-09-19)
+
+The previous row priced step 1(a) in three parts — the carrier, its
+discharge at the run, and the `PinShapes` clause with its transports —
+at two sessions.  Two of the three landed this session; the third is
+named here with the ONE thing that blocks its statement, found by
+writing it out and not by building it.
+
+##### (a) THE PREDICATE, AND WHY IT COMPUTES ITS OWN CUT
+
+`OrdTargetRead` (`Model/Inductives/NestedPremise.lean`, beside
+`PinShapes`) is the two wrappers' conclusion as one predicate: the
+frame, a fitting prefix and the field's `l` are INPUTS, the head and
+the head container's parameters are existential, and the CUT is
+computed — `l + domPiDepth (ordTargetDomL …)` — from arguments the
+predicate already takes.  So the finitary and the reflexive arm are
+one statement and no call site spells a cut; the carrier, the residual
+and the run-level row spell the predicate once each.
+
+##### (b) THE DISCHARGE, AND THE GUARD THAT MAKES BOTH ARMS FREE
+
+`NestedPinsRun.ordTgtReadAt` (`NestedInstMap.lean`, beside
+`pinGroupInst_of`, whose `hordσ` preamble it spends through the new
+private `NestedPinGroupSyn.groupMemberLps`).  The dispatch is the copy
+field's KIND, which the block's `blkRss` bit gives in three lines
+(`blkRss_getD`, `rsOf_getD_true_lt`, `rsOf_getD_iff`, `kindsOf_getD'`
+— `instOutAt`'s long kind preamble is not needed for the bit alone),
+and the positivity run is `copyOrdFRightPinRun` at either kind.
+
+**The guard is `hfin` on the level-instantiated stored DOMAIN**, the
+cheaper of the two options the previous row priced.  It buys more than
+the row expected: a constant-headed term is not a `Π`, so
+`stripDomPis` is the identity and `domPiDepth` is `0` on it, and the
+SAME guard serves the reflexive wrapper (whose own guard is at
+`stripDomPis`) with its cut collapsing to `l`.  Both arms close with
+no new fact.  What the guard costs is stated plainly: under it the
+clause is SILENT at a container field whose stored domain is a real
+`Π` — a reflexive OWNER — and relaxing it to the stripped head needs
+"a recursive copy field's container domain is not a `Π`", which is a
+walk fact (`normPosDomM` preserves `forallE`, the rewrite preserves
+it, and `mutualOpenedOk_recHead` refutes it at a `.const` head) and a
+file-section of its own.  The statement is carried at the GENERAL cut
+so that buying that later moves nothing else.
+
+##### (c) THE CARRIER
+
+`ordTgt` on `NestedPinGroupIds` and on `NestedPinGroup`, the fifth
+conjunct of `NestedPinsIdent`, `NestedPinGroupSyn.ofParts`, and
+`NestedPinGroup.crossEnv` — which carries it on `hde` alone: the
+clause's conclusion is a `denoteMeta`, and every other object it names
+(the pins' records, the container's stored constructor, the own-pin
+table) is read at the PRE-BLOCK environment, which does not move.  The
+residual `NestedPinsOrdTgt` (`NestedCopyIdx.lean`) is discharged
+unconditionally by `nestedPinsOrdTgt_of`, so `nestedPinsIdent_of`
+takes a fourth theorem and `nestedModeled_of_two` plugs it in; nothing
+became conditional.
+
+##### (d) WHAT STOPS PART 3, AND IT IS THE CLAUSE'S SHAPE AND NOT ITS PROOF
+
+Written against `PinShapes`, the clause's guard is `hfin` (about
+`dom.1`, a datum the consumer holds) plus **`containerInfo? env K =
+some ciK`, which is an ENVIRONMENT fact in HYPOTHESIS position** — and
+a `PinShapes` clause may only PRODUCE environment facts.  The consumer
+of the clause is the transfer at a LATER install and cannot produce a
+`containerInfo?` at the environment `PinShapes` is stated over; the
+producer `nestedPinShapes_of` is at the RESTORED environment while the
+carrier's field is at the PRE-BLOCK one, and neither direction of
+`containerInfo?` transport is free (`hcontE` is supplied for the PINS'
+containers only, and the converse is false — the block's own formers
+are containers at the restored environment and at no earlier one).
+
+So the clause must read
+
+    … → ∃ ciK, containerInfo? env K = some ciK ∧ OrdTargetRead … ciK.nP …
+
+and **its producer then owes the head's container-hood, which neither
+the carrier's field nor the two wrappers produce** — they take `hciK`
+as a hypothesis, which their own docstring calls K.69's dispatch.  The
+place to look is the run's own `hK60`/`hK63` records, whose guards are
+at THIS object: K.60 dispatches on the container field's stored domain
+being `.const K …` and K.63's reflexive arm reads `K` itself a stored
+container.  Establishing that is part 3's first brick, before the
+conjunct, `nestedPinShapes_of`, the vacuous producers (all of which
+stay vacuous: every clause of `PinShapes` sits under `q < d.nPins`)
+and `PinShapes.crossEnv`'s `hde` plus the `ProjFree` its guarded call
+site needs from K.64.  **Two of three parts landed against the row's
+two-session price; part 3 is the third session the row already named,
+and this session stops here.**
+
+##### (e) THE GATES
+
+`tests/warning-free.sh 6cca754a`: 7 changed modules, `lake build` 7
+recompiled and 0 warning lines, `lake test` 0 warning lines.
+`tests/shake.sh` green (514 removals, all allowlisted; no import line
+moved — `Expr.instSeq` and `Verify.openFvars` were already reachable
+from `NestedPremise.lean`).  `tests/unconsumed.sh` 196/3821 against
+198/3816; the diff read against a baseline run at `6cca754a`: the two
+wrappers LEAVE and nothing enters — the five new declarations
+(`OrdTargetRead`, `groupMemberLps`, `ordTgtReadAt`, `NestedPinsOrdTgt`,
+`nestedPinsOrdTgt_of`) all have consumers, and nothing of the
+`pins_le_*`/`NestedPinsLe` family moved.  The lens found one trap worth
+recording: it matches the LAST name component, so a new
+`NestedPinGroupSyn.memberLps` made `ContainerModeled.memberLps` read as
+consumed; the rename to `groupMemberLps` is the fix.  `tests/arena.sh`
+not run and not owed: no `Kernel/`, `Cached/` or `Verify/` file
+changed.  `#print axioms` on `ordTgtReadAt`, `nestedPinsOrdTgt_of`,
+`nestedPinsIdent_of` and `nestedModeled_of_two`: `propext`,
+`Classical.choice`, `Quot.sound`.
