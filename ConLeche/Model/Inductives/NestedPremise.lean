@@ -1433,7 +1433,7 @@ theorem pinCorr_of_pinEq {env : Env} {m : EnvModel V env} {D dR : BlockModel V}
       ∀ ψ' : Name → Nat, (dR.pinAt qK).ψJ ψ' = Level.substFn ψ' cv.levelParams (dR.pinAt qK).lvls)
     (hfoundK : ∀ qK, qK < dR.nPins →
       ∃ (cv : ConstantVal) (cp : IndCaps), env.find? (dR.pinAt qK).J = some (.indInfo cv cp))
-    (huIds : ∀ qK, qK < dR.nPins → (D.pinAt q).J = (dR.pinAt qK).J →
+    (huIds : (D.pinAt q).J = (dR.pinAt qK).J →
       (D.pinAt q).u ψ = (dR.pinAt qK).u (Level.substFn ψ cvC.levelParams lvlsK) ∧
       (D.pinAt q).Ids ψ = (dR.pinAt qK).Ids (Level.substFn ψ cvC.levelParams lvlsK)) :
     PinCorr (D.targetView m.acval ψ) m.acval dR (Level.substFn ψ cvC.levelParams lvlsK)
@@ -1474,7 +1474,7 @@ theorem pinCorr_of_pinEq {env : Env} {m : EnvModel V env} {D dR : BlockModel V}
     exact m.acval_params _ _ hfK _ _ hpsi
   have hnk : ¬ D.k + q < D.k := by omega
   have hsub : D.k + q - D.k = q := by omega
-  obtain ⟨hu, hIds⟩ := huIds qK hqK hJ
+  obtain ⟨hu, hIds⟩ := huIds hJ
   refine ⟨?_, ?_, ?_, ?_, ?_, ?_⟩
   · -- the stored reading at the pin
     show targetRead m.acval D.memberNames D.pins D.nP D.k ψ (D.k + q) = _
@@ -1525,7 +1525,7 @@ theorem pinCorr_of_ownPins {env : Env} {m : EnvModel V env} {D dR : BlockModel V
         Ds₀ cvC.levelParams lvlsK (D.k + q) qK := by
   obtain ⟨qK, es, hqK, heq, hes⟩ :=
     (hown i cvC caps lvlsK DsE₀ ps Ds₀ ψ dp hi hfind hps h0 hsc hDlen).1 _ hmem
-  exact ⟨qK, hqK, pinCorr_of_pinEq hqK heq hes hDsD hψD hψK hfoundK huIds⟩
+  exact ⟨qK, hqK, pinCorr_of_pinEq hqK heq hes hDsD hψD hψK hfoundK (huIds qK hqK)⟩
 
 /-- **THE BRIDGE, at a GIVEN own pin** (task #315, lane WIDE's (f3)):
 `pinCorr_of_pinEq` off the POSITIONAL clause of `ContainerOwnPins`.
@@ -1558,7 +1558,7 @@ theorem pinCorr_of_ownPins_at {env : Env} {m : EnvModel V env} {D dR : BlockMode
       ∀ ψ' : Name → Nat, (dR.pinAt qK).ψJ ψ' = Level.substFn ψ' cv.levelParams (dR.pinAt qK).lvls)
     (hfoundK : ∀ qK, qK < dR.nPins →
       ∃ (cv : ConstantVal) (cp : IndCaps), env.find? (dR.pinAt qK).J = some (.indInfo cv cp))
-    (huIds : ∀ qK, qK < dR.nPins → (D.pinAt q).J = (dR.pinAt qK).J →
+    (huIds : (D.pinAt q).J = (dR.pinAt qK).J →
       (D.pinAt q).u ψ = (dR.pinAt qK).u (Level.substFn ψ cvC.levelParams lvlsK) ∧
       (D.pinAt q).Ids ψ = (dR.pinAt qK).Ids (Level.substFn ψ cvC.levelParams lvlsK)) :
     PinCorr (D.targetView m.acval ψ) m.acval dR (Level.substFn ψ cvC.levelParams lvlsK)
