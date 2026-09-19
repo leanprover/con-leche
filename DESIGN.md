@@ -106701,7 +106701,42 @@ has a table — and there are two routes to it, neither started:
    (`projTableName T = (T.str "projTable").num 0`), which the install's
    own table cons checks and `nestedTables`' inversion would hand back.
 
-Route 1 costs no kernel change and is the one to price first.
+Route 1 costs no kernel change and is the one to price first — and
+pricing it by inputs, as the standing rule asks, turns up the theorem
+that decides it.
+
+##### (c) ROUTE 1, PRICED BY INPUTS — five that exist, one plumbing step
+
+* **`hwf`** — `mutualNoProj`'s `EnvWF` wants the **PRE-BLOCK**
+  environment, and it is not something `NestedPinsRun` has to carry:
+  `EnvWF env` is a FIELD of the environment model (`EnvFacts.wf`), so
+  `mp.base2.wf` is it, exactly as `mp.base2.proj_ok` is the `ProjOkT`
+  three lines away in `ctorProjFree`'s own discharge.  That was the
+  one input whose availability the statement did not show;
+* **and `mutualNoProj` itself is not what route 1 should call.**  Its
+  conclusion is `NoProjEnv` at the SCRATCH recursors' environment,
+  where the pins do not appear at all — the scratch block's copies are
+  MIMICS, and a pin term `J Ds` exists only after the restore.  The
+  nested tier has its own, at the right environment:
+  **`NestedTailIn.storeNoProj`** — `NoProjEnv` at the RESTORED
+  recursors' environment, for every member name, BEFORE the tables are
+  consed, and its docstring's fourth bullet says it covers the
+  recursors' type, every rule's right-hand side **and every `.nested`
+  fire's PINS**;
+* from there the chain is the one that theorem's own proof already
+  uses: `NoProjEnv.type` (or `.rule`) at the stored mimic recursor,
+  `rg_noProjAt_stripPis`/`rg_noProjAt_getAppArgs`/`rg_noProjAt_of_lift`
+  down the telescope and the spine to the pin, K.47's reader equation
+  to name it as the RECORDED pin, and `ProjFree.getAppArgs` to reach
+  the component;
+* **the one plumbing step**: `storeNoProj` lives on `NestedTailIn`, the
+  tail's INPUT record, while the ninth site holds `NestedTailOut`.
+  Either a field on the output record (the tail's producer has the
+  input in hand, so it is a one-line discharge, `repsAt`'s pattern) or
+  the same fact re-derived where the tables are consed.
+
+So route 1 needs no new record and no new environment fact — only the
+carry, and the heredity chain down to the component.
 
 #### TWO FINDINGS ABOUT THE OWN-PIN TABLE, for whoever reads it next (2026-09-19, task #315, lane K61)
 
