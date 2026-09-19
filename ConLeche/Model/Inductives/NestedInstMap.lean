@@ -2020,7 +2020,7 @@ record at its OWN pin (`i'`); both models `dJ`
 member names and parameter count (`containerInfo?_eq_of_names`), so
 the two records are one and the member's level parameters are the
 clause's. -/
-private theorem NestedPinGroupSyn.memberLps {i₀ i' : Nat} (hi₀ : i₀ < kJ) (hi' : i' < kJ)
+private theorem NestedPinGroupSyn.groupMemberLps {i₀ i' : Nat} (hi₀ : i₀ < kJ) (hi' : i' < kJ)
     {ciC : ContainerInfo} {Jm : ContainerMember} {lpsC : List Name}
     (hciC : ConLeche.containerInfo? env (pinsS.getD (q₀ + i₀) default).J = some ciC)
     (hJmC : ciC.members[i']? = some Jm) (hlpsE : Jm.lps = lpsC)
@@ -2225,7 +2225,7 @@ theorem NestedPinsRun.pinGroupInst_of {pbs : List (Expr × ConLeche.BinderMeta)}
     have hlpsC : ∀ ciP : ContainerInfo,
         ConLeche.containerInfo? env (pinsS.getD (q₀ + i') default).J = some ciP →
         ∀ Jm' : ContainerMember, ciP.members[i']? = some Jm' → Jm'.lps = lpsC :=
-      fun ciP hciP' Jm' hJm' => S.memberLps hi₀ hi' hciC hJmC hlpsE hciP' hJm'
+      fun ciP hciP' Jm' hJm' => S.groupMemberLps hi₀ hi' hciC hJmC hlpsE hciP' hJm'
     have hbase := R.instOrdSelfAt SF S hPD hkindsRun hi' (hgb i' hi') (fun ciJ hh => by
         rw [hciP] at hh; obtain rfl := Option.some.inj hh; exact CM)
       hjA hlF hordC hrss hstrip hdom hlpsC hhead
@@ -2299,7 +2299,7 @@ the copy field's KIND, which the block's `blkRss` bit gives
 `copyOrdFRightPinRun` at either kind.  The tables are identified as
 `hordσ`'s are: the container's own-pin table is the block's
 (`ownPinTerms_eq`), the clause's `lpsC` is the group's member's
-(`memberLps`), and `dJ.nP` is the container's (`ctorsOf`).
+(`groupMemberLps`), and `dJ.nP` is the container's (`ctorsOf`).
 
 **THE GUARD IS THE STORED DOMAIN'S HEAD AT THE PIN'S LEVELS** (`hfin`)
 and not `ordTargetDom`'s: `instSeq_getAppFn_const` carries a constant
@@ -2368,7 +2368,7 @@ theorem NestedPinsRun.ordTgtReadAt {pbs : List (Expr × ConLeche.BinderMeta)}
       hJ₂name.symm
   have hlpsJ : J.lps = lpsC := by
     rw [hJeq]
-    exact S.memberLps hi₀ hi' hciC hJmC hlpsE hciP hJ₂
+    exact S.groupMemberLps hi₀ hi' hciC hJmC hlpsE hciP hJ₂
   -- the group's shared level assignment and components
   have h0 : q₀ + 0 = q₀ := Nat.add_zero q₀
   have hψ : (pinsS.getD q₀ default).ψJ ψ = (pinsS.getD (q₀ + i') default).ψJ ψ := by
