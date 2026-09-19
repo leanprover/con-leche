@@ -34,7 +34,7 @@ proof" arm** (`notProofFast`) needs no model theorem: refusing the
 proof-irrelevance shortcut is always sound; its obligation is
 kernel-level agreement with the slow path, which the landing census
 records (DESIGN.md, task #168).  The **"definitely a proof" arm** is a
-squash-regime licence (`ConLeche/Model/Steps/IrrelFast.lean`).
+squash-regime licence (`prf_of_isProofFast`, `ConLeche/Model/Rules/DefEqSoundKit.lean`).
 -/
 
 namespace ConLeche
@@ -48,7 +48,7 @@ peeled binders; the readers only look at its head shape).  The
 binders of a type former `∀ p⃗, Sort u` all carry the datum of a
 `succ` codomain sort — and it is what licenses the "yes" arm's
 telescope walk without a certificate (`neverChain_of_peel`,
-`ConLeche/Model/Steps/IrrelFast.lean`: every slot is in the graph
+`ConLeche/Model/Rules/DefEqSoundKit.lean`: every slot is in the graph
 regime, `io_domain_transfer`). -/
 def peelNeverPis : Nat → Expr → Option Expr
   | 0, e => some e

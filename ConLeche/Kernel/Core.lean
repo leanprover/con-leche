@@ -218,8 +218,9 @@ AUDIT" §9.1): at a *licensed* walk (`lic = true`, set only by
 is a subterm of the subject and carries its own `WellDenoted` app slots)
 a slot whose `∀`-binder datum is `.never` is skipped: the membership
 the run would establish follows from the slot and the head's
-membership in the telescope's reading (`io_domain_transfer`, the io
-gate's theorem verbatim; `Model/Steps/IotaGate.lean`).  The rescue's
+membership in the telescope's reading (`io_domain_transfer`,
+`Model/IOLicense.lean`, consumed by `Certs.skip_sound` in
+`Model/Rules/CertsSound.lean`).  The rescue's
 synthetic-spine certifications (`majorToCtor`, the η/unit/K
 fabrications) run at `lic = false`: a fabricated spine is not a
 subterm of the subject and its grading is *produced* by this very
@@ -321,8 +322,8 @@ arm's obligation is *agreement* with the slow path, recorded by the
 landing census (DESIGN.md, task #168: 0 disagreements in 7.5 M calls).
 The **"yes" arm** (`isProofFast` on both sides → `true`) is the
 squash-regime licence, stage 3 of the same design
-(`prf_of_isProofFast`, `ConLeche/Model/Steps/IrrelFast.lean`), which the
-verified mode's P row consumes; the trusted mode is unverified and
+(`prf_of_isProofFast`, `ConLeche/Model/Rules/DefEqSoundKit.lean`), which the
+verified mode's `DefEq.proofFast` rule consumes; the trusted mode is unverified and
 inherits the arm without a row, as it inherits every other body. -/
 def propIrrel (r : CoreFns m) (env : Env) (depth : Nat) (a b : Expr) :
     m Bool := do
@@ -331,7 +332,7 @@ def propIrrel (r : CoreFns m) (env : Env) (depth : Nat) (a b : Expr) :
   else if isProofFast env.find? a && isProofFast env.find? b then
     -- the yes arm (task #168 stage 3): both heads' validated data say
     -- "a proposition at every valuation" — the squash-regime licence
-    -- (`prf_of_isProofFast`, `ConLeche/Model/Steps/IrrelFast.lean`)
+    -- (`prf_of_isProofFast`, `ConLeche/Model/Rules/DefEqSoundKit.lean`)
     pure true
   else
   -- task #172 B4: every inference here is at the io grade

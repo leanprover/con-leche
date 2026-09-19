@@ -64,13 +64,23 @@ nothing else — the `Empty` statement lives with the letters, and the
 The axiom footprint is **pinned in the tree, not only claimed**:
 `tests/ConLecheTests/Axioms.lean` (built by `lake test`, reported by `tests/arena.sh`
 as the `axioms:` line) carries a `#guard_msgs in #print axioms` for each
-of the eleven, so a drifting axiom footprint is a test failure. Seven
-of them — the main theorem, `no_proof_of_{False,Empty}_cached`,
-`checkDecls_sound`, `fold_preserves` and
-`no_proof_of_{False,Empty}_pure` — additionally have their
-module-level dependency closure pinned by `tests/proofdeps.sh`; the
-two gates measure different things (what a proof term ASSUMES vs which
-modules it REACHES) and neither implies the other.
+of the eleven, so a drifting axiom footprint is a test failure. (Until task #305
+seven of them additionally had their module-level dependency closure
+pinned by `tests/proofdeps.sh`; under the module system what a proof
+term can REACH is exactly its module's import closure along `public
+import` edges, which `tests/layering.sh` now computes from source for
+the rules tier, so the pin retired — see the task #305 closing record.)
+
+**Where the claims are proved** (task #305): the four claims of
+`Model/Claims.lean` are proved through the RULES TIER — a relational
+description of the core checker (`ConLeche/Rules/Rel.lean`), the
+bridge from an accepting run to a derivation
+(`ConLeche/Verify/Rules/Bridge.lean`), the soundness of a derivation
+by structural induction (`ConLeche/Model/Rules/Sound.lean`), and the
+recomposition `checkSoundAtP5` (`ConLeche/Model/Rules/Recompose.lean`,
+under `RulesInputs`, the environment-level inputs of
+`Model/Rules/Inputs.lean`); the declaration fold consumes it through
+`Model/Tiers.lean`.
 
 **THE PROGRESS LANE IS A SECOND, UNVERIFIED FOLD** (user ruling,
 2026-09-07).  A default run calls `checkDecls` — the function
@@ -72394,7 +72404,12 @@ rules tier's two shapes.
    per-field fits `structEtaCertWithFueled_step` obtains from
    `certs_telePA` at the projection function's telescope — the motive
    `CertsSem` is `certs_telePA`'s conclusion verbatim, so it should
-   fit; flagged, not blocked.
+   fit; flagged, not blocked.  **Resolved** (lane S-defeq and the
+   fix-up): every non-leaf rule's soundness is proved at its
+   recursive-structure premise, and `structEta` at a projection-function
+   family consumes `EtaProjCertsSem` exactly as predicted — the one
+   shape repair needed was on the OTHER η site (`Red.rescueEta`, see
+   the closing record).
 5. **`trust-surface.sh` is red on this branch by construction**: it
    counts `sorry` as an escape (61 = the 60 sorries plus one docstring
    mention); it goes green when the lanes land.  NOT allowlisted.

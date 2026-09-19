@@ -89,9 +89,11 @@ The literal accelerations' semantic content, at the shapes
 readings: `Rules.NatSuccRow` and `Rules.NatOpRow`
 (`Model/Rules/Inputs.lean`).  The run inversion that puts a
 `reduceNat` run into these shapes — the `whnf`/`rawNatLit?` case
-analysis and the whnf IH at the two arguments — is
-`reduceNatStep_of_rows` (`Model/Steps/Tiers.lean`), which is all that
-is left of the old run rows. -/
+analysis and the whnf IH at the two arguments — is the bridge's
+`reduceNat_bridge` (`Verify/Rules/RedBridge.lean`), whose `Red.natSucc`/
+`Red.natOp` derivations `Red.natSucc_sound`/`Red.natOp_sound` read
+through these rows; the old run rows went with `Model/Steps/*` at the
+task #305 closing. -/
 
 /-- **`NatSuccRow`, proved.**  At a literal reading of the argument
 the `Nat.succ` application *is* the packed numeral: the head reads to

@@ -984,8 +984,8 @@ this binder?
 At `mode.betaGate` (i.e. at `.verified`, and nowhere else) a λ-binder
 whose *validated* annotation datum is `.never` — "the codomain sort is
 nonzero at every valuation" — licenses skipping the certificate: the
-sealed P claim's positive branch (`WellDenotedV_beta_gate`,
-`ConLeche/Model/Steps/Gate.lean`) derives the domain membership from the
+`Red.betaGate` rule's soundness (`Red.betaGate_sound`,
+`ConLeche/Model/Rules/RedSound.lean`) derives the domain membership from the
 redex's own `WellDenoted` slot and consumes no certificate at all.
 
 At a possibly-zero datum, and at every non-gated mode, the certificate

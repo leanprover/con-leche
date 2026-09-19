@@ -51,7 +51,8 @@ install from the recorded `isDefEqCore` runs (`NatEqsRun`) through
 `DefEqClaim` — the run-certificate route (`Interp/NatEqsP.lean`)
 — and preserved across every other fresh cons.  Consumed by the
 numeral-transport inductions (`Sound/NatOps`' shape at `interp`),
-which close `ReduceNatStep`/`PQ` below. -/
+which close the literal rows `NatSuccRow`/`NatOpRow` of
+`Model/Rules/Inputs.lean` (`Model/NatStep.lean`). -/
 @[expose] def NatOps {V : Type w} [SetTheory V] {env : Env}
     (m : EnvModel V env) (φ : Name → Nat) : Prop :=
   ∀ c ∈ ConLeche.natOpNames, ∀ cv v hint,
@@ -205,9 +206,10 @@ this adds no census entry).  The v1 establishment path is the
 capability pipeline (kernel pin → `EtaPins` → rule_fold → `ModeledOk`
 law → cert+sound, `Install/EtaLawS.lean`); the P path re-runs its
 defeq certificates through the claims — the run-certificate route —
-when the ind tier lands.  Consumers: `StructEtaIrrel` /
-`StructUnitIrrel` (`Steps/CapsRows.lean`), discharged from the
-field by the caps batch. -/
+when the ind tier lands.  Consumers: the structure-η and unit-like
+rules' soundness (`DefEq.structEta_sound`/`DefEq.structUnit_sound`,
+`Model/Rules/DefEqSound.lean`; the `Steps/CapsRows.lean` rows until
+the task #305 closing). -/
 
 /-- **The annotated telescope fit** (`TeleFitV`'s `interp` mirror):
 each argument value inhabits its progressively-peeled domain, the
@@ -366,9 +368,10 @@ this file.
 
 **Establishment**: the inductive install — `IndStepPB`'s bill, where
 the flagged new mathematics lives (a `Prop`-valued motive's minors at
-the squash regime).  **Consumers**: `IotaStep`/`IotaReads`
-(`Steps/Whnf.lean:182`, `Steps/Reads.lean:173`), discharged by the
-iota tier (`Steps/IotaRows.lean`). -/
+the squash regime).  **Consumers**: the ι rule's soundness
+(`Red.iota_sound`, `Model/Rules/IotaSound.lean`; the `IotaStep`/
+`IotaReads` rows of `Steps/{Whnf,Reads,IotaRows}.lean` until the task
+#305 closing). -/
 
 /-- **The annotated telescope fit** (`TeleFitV`'s transpose,
 substitution-peeling): each argument reading inhabits its

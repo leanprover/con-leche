@@ -119,14 +119,15 @@ structure EnvModelM (μ : CheckMode) (env : Env) where
   an *environment law* for the same reason `eq_law` is — an
   η-capable family's leaf value is fixed by the inductive install and
   by nothing else, so the supplier is `IndStepPB`).  Consumed by the
-  `stuckIrrel` cascade's two stored-family arms
-  (`Steps/CapsRows.lean`) -/
+  structure-η and unit-like rules' soundness
+  (`Model/Rules/DefEqSound.lean`, through `RulesInputs.caps_ok`) -/
   caps_ok : CapsOk base2
   /-- the stored recursors' fired modeled-iota contracts (`RecRulesV`'s
   mirror; an *environment law* for the same reason `caps_ok` is — a
   recursor's rules are fixed by the inductive install and by nothing
-  else, so the supplier is `IndStepPB`).  Consumed by the ι row
-  (`Steps/IotaRows.lean`) -/
+  else, so the supplier is `IndStepPB`).  Consumed by the ι rule's
+  soundness (`Model/Rules/IotaSound.lean`, through
+  `RulesInputs.rec_rules`) -/
   rec_rules : ∀ φ : Name → Nat, RecRules base2 φ
   /-- every stored compiler-trust opaque is the identity on its
   element type (`EnvS.reduce_ops`'s mirror; an *environment law* for
