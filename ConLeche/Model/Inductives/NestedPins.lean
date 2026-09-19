@@ -254,6 +254,36 @@ theorem WScoped_of_leaves : ∀ (e : Expr) {d : Nat},
   | const _ _ => intro _ _; simp [Expr.WScoped]
   | lit _ => intro _ _; simp [Expr.WScoped]
 
+/-- The function part of a well-scoped application is well-scoped
+(`lbb_mkAppN_fn`'s twin at the scope predicate). -/
+theorem WScoped_mkAppN_fn {d : Nat} : ∀ {xs : List Expr} {f : Expr},
+    Expr.WScoped d (Expr.mkAppN f xs) → Expr.WScoped d f := by
+  intro xs
+  induction xs with
+  | nil => intro f h; exact h
+  | cons x xs ih =>
+    intro f h
+    have h' : Expr.WScoped d f ∧ Expr.WScoped d x := by
+      simpa only [Expr.WScoped] using ih (f := Expr.app f x) h
+    exact h'.1
+
+/-- The arguments of a well-scoped application are well-scoped
+(`lbb_mkAppN_args`' twin at the scope predicate): the form a reading
+premise asks of a pin's COMPONENTS, given the pin's own scope. -/
+theorem WScoped_mkAppN_args {d : Nat} : ∀ {xs : List Expr} {f : Expr},
+    Expr.WScoped d (Expr.mkAppN f xs) → ∀ x ∈ xs, Expr.WScoped d x := by
+  intro xs
+  induction xs with
+  | nil => intro f _ x hx; exact nomatch hx
+  | cons x xs ih =>
+    intro f h y hy
+    rcases List.mem_cons.mp hy with rfl | hy'
+    · have h' : Expr.WScoped d f ∧ Expr.WScoped d y := by
+        simpa only [Expr.WScoped] using
+          WScoped_mkAppN_fn (xs := xs) (f := Expr.app f y) h
+      exact h'.2
+    · exact ih h y hy'
+
 /-- **A spine's readings are the pointwise readings** (the relation is
 functional). -/
 theorem DenoteMetaSpine.eq_map {acval : Name → (Name → Nat) → AnnotTerm} {φ : Name → Nat}
@@ -1502,6 +1532,33 @@ theorem NestedPinsRun.scoped :
   refine ⟨params, o, ?_, hall⟩
   rw [hcvTa, hnP]
   exact hop
+
+/-- **THE PINS ARE WELL-SCOPED AT THE BLOCK'S PARAMETERS** (K.30's
+second conjunct, at the scope PREDICATE): `scoped` hands the pin's
+free-variable leaves among the first former's openers, and the opened
+former's `var` clause turns each opener into its own index bound and
+its annotation's scope — which is what `WScoped_of_leaves` asks for.
+It is the machinery `pinRead_of_inferAt` runs for the pin as a whole,
+taken on its own so that a consumer wanting a pin's COMPONENTS scoped
+(`ContainerOwnPins`' premise, through `WScoped_mkAppN_args`) needs no
+reading. -/
+theorem NestedPinsRun.pinsWScoped : ∀ q ∈ st.pins, Expr.WScoped b.nP q.pin := by
+  obtain ⟨-, hcl, hbt, hFD₀⟩ := R.former0
+  obtain ⟨-, fvs, o, hop, hsc⟩ := R.scoped
+  obtain ⟨Γ, Rt, htele, O⟩ :=
+    opened_of (V := V) hop hcl hbt (hFD₀.read (fun _ => 0)) (hFD₀.okTy (fun _ => 0))
+  have hlenF : fvs.length = b.nP := openPisAtFvars_length b.nP hop
+  have hidx := openPisAtFvars_index b.nP f₀.cvTa.type 0 hop
+  intro q hq
+  refine WScoped_of_leaves q.pin fun l hl => ?_
+  obtain ⟨pos, hpos⟩ := List.getElem?_of_mem ((hsc q hq).2 l hl)
+  obtain ⟨ty', hx⟩ := hidx pos _ hpos
+  rw [Nat.zero_add] at hx
+  obtain ⟨rfl, -⟩ : l.1 = pos ∧ l.2 = ty' := by
+    injection hx with a bb
+    exact ⟨a, bb⟩
+  obtain ⟨-, hw, -, -, -⟩ := O.var l.1 _ hpos
+  exact ⟨by rw [← hlenF]; exact (List.getElem?_eq_some_iff.mp hpos).1, hw⟩
 
 /-- **THE PINS' CONSTANTS RESOLVE AT THE PREFIX ENVIRONMENT** (task
 #315 K.64 consumed, lane LE): `scoped`'s neighbour — the record
