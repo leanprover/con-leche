@@ -595,6 +595,7 @@ theorem eqBlock_containerModeled {env : Env} {m : EnvModel V env}
   nestArgsMentionAbs := fun _ _ _ _ _ _ _ _ _ _ _ _ _ h _ => nomatch h
   nestArgsMentionAbsRefl := fun _ _ _ _ _ _ _ _ _ _ _ _ _ h _ => nomatch h
   nestPinSpineAbs := fun _ _ _ _ _ _ _ _ _ _ _ _ _ _ h _ => nomatch h
+  nestPinSpineAbsRefl := fun _ _ _ _ _ _ _ _ _ _ _ _ _ _ h _ => nomatch h
   ctorProjFree := fun i j cA hi hj T hT n => by
     obtain rfl : i = 0 := Nat.lt_one_iff.mp hi
     obtain rfl := List.mem_singleton.mp hT

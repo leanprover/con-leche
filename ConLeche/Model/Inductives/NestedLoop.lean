@@ -312,11 +312,12 @@ structure NestedCtorRead (mp₁ : EnvModelM V μ ENV₁) (mm j : Nat) (c : Const
     pin = Expr.mkAppN (.const ((D).pinAt q).J ((D).pinAt q).lvls) ((D).pinAt q).DsE →
     (D).nestOf mm j l = some q →
     ((D).ksF mm j).getD l .ordinary = .reflexive →
-    ∃ (dep : Nat) (rest : List Expr),
-      ((Expr.abstractRange pin 0 p.nP 0).liftLooseBVars (l + dep) 0).getAppArgs.length
-          = ((D).pinAt q).nPJ ∧
+    ∃ rest : List Expr,
+      ((Expr.abstractRange pin 0 p.nP 0).liftLooseBVars
+          (l + ConLeche.domPiDepth dom.1) 0).getAppArgs.length = ((D).pinAt q).nPJ ∧
       ConLeche.stripDomPis dom.1
-        = Expr.mkAppN ((Expr.abstractRange pin 0 p.nP 0).liftLooseBVars (l + dep) 0) rest
+        = Expr.mkAppN ((Expr.abstractRange pin 0 p.nP 0).liftLooseBVars
+            (l + ConLeche.domPiDepth dom.1) 0) rest
   /-- **THE RESTORED CONSTRUCTOR'S STORED TYPE HAS ITS `.proj` SLOTS AT
   THE MEMBERS' PREFIX ENVIRONMENT** (task #315 PINF): the front door's
   own `slots`, kept because it is the only place the fact is TRUE.

@@ -1485,6 +1485,77 @@ theorem stripDomPis_of_stripPis :
     | bvar _ | fvar _ _ | sort _ | const _ _ | app _ _
     | lam _ _ _ | letE _ _ _ | lit _ | proj _ _ _ => exact nomatch h
 
+/-- **`domPiDepth` ADDS UP ACROSS A `stripPis`** (task #315 K.65) —
+`stripDomPis_of_stripPis`' twin at the depth: peeling `n` binders and
+then the rest counts the same tower.  It is what turns the restore
+walk's own strip depth, which is an input there, into the kernel's
+`domPiDepth` at the consumer. -/
+theorem domPiDepth_of_stripPis :
+    ∀ (n : Nat) {e : Expr} {bs : List (Expr × BinderMeta)} {body : Expr},
+      e.stripPis n = some (bs, body) → domPiDepth e = n + domPiDepth body := by
+  intro n
+  induction n with
+  | zero =>
+    intro e bs body h
+    simp only [Expr.stripPis, Option.some.injEq, Prod.mk.injEq] at h
+    obtain ⟨-, rfl⟩ := h
+    omega
+  | succ n ih =>
+    intro e bs body h
+    cases e with
+    | forallE ty b bm =>
+      rw [Expr.stripPis] at h
+      cases hb : b.stripPis n with
+      | none => rw [hb] at h; exact nomatch h
+      | some pr =>
+        obtain ⟨bs₀, body₀⟩ := pr
+        rw [hb] at h
+        simp only [Option.map_some, Option.some.injEq, Prod.mk.injEq] at h
+        obtain ⟨-, rfl⟩ := h
+        show domPiDepth b + 1 = n + 1 + domPiDepth body₀
+        rw [ih hb]; omega
+    | bvar _ | fvar _ _ | sort _ | const _ _ | app _ _
+    | lam _ _ _ | letE _ _ _ | lit _ | proj _ _ _ => exact nomatch h
+
+/-- **THE STRIP AT ITS OWN DEPTH** (task #315 K.65): `stripPis` at
+`domPiDepth` peels exactly the tower `stripDomPis` removes.  It is what
+lets a record stated at `stripPis` — the restore walk's, which takes
+its depth as an input — be read at the depth K.65's guard instantiates
+with, and it is the reflexive twin of
+`stripDomPis_eq_self_of_getAppFn_const`'s role on the finitary arm.
+
+(`Expr.stripPis_piBinders` says the same thing about `piBinders`, of
+which `stripDomPis` and `domPiDepth` are the two components; it lives
+in the MODEL tier, which this file may not import, so the induction is
+repeated here rather than transported.) -/
+theorem stripPis_domPiDepth : ∀ e : Expr,
+    ∃ bs : List (Expr × BinderMeta), e.stripPis (domPiDepth e) = some (bs, stripDomPis e) := by
+  intro e
+  induction e with
+  | forallE ty b bm _ ihb =>
+    obtain ⟨bs, hb⟩ := ihb
+    refine ⟨(ty, bm) :: bs, ?_⟩
+    show (b.stripPis (domPiDepth b)).map (fun q => ((ty, bm) :: q.1, q.2)) = _
+    rw [hb]; rfl
+  | bvar _ | fvar _ _ | sort _ | const _ _ | app _ _
+  | lam _ _ _ | letE _ _ _ | lit _ | proj _ _ _ => exact ⟨[], rfl⟩
+
+/-- **`domPiDepth` is `0` on a constant spine** — `stripDomPis`' twin
+(task #315 K.65): the cut a finitary field's record is stated at is
+the cut K.65's guard instantiates with. -/
+theorem domPiDepth_eq_zero_of_getAppFn_const : ∀ {e : Expr} {c : Name} {us : List Level},
+    e.getAppFn = .const c us → domPiDepth e = 0
+  | .app _ _, _, _, _ => rfl
+  | .const _ _, _, _, _ => rfl
+  | .bvar _, _, _, h => nomatch h
+  | .fvar _ _, _, _, h => nomatch h
+  | .sort _, _, _, h => nomatch h
+  | .lit _, _, _, h => nomatch h
+  | .lam _ _ _, _, _, h => nomatch h
+  | .forallE _ _ _, _, _, h => nomatch h
+  | .letE _ _ _, _, _, h => nomatch h
+  | .proj _ _ _, _, _, h => nomatch h
+
 /-- **`stripDomPis` is the identity on a constant spine**: it peels
 only `.forallE` nodes, and a spine's head is read through its `.app`
 nodes (task #315 K.63). -/

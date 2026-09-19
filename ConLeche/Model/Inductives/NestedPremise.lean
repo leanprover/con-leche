@@ -414,6 +414,36 @@ structure ContainerModeled {env : Env} (m : EnvModel V env) (ci : ContainerInfo)
         (ConLeche.containerParamOpeners d.nP).reverse l
       = (d.pinAt q).ownAt d.nP lps (lps.map Level.param)
           (ConLeche.containerParamOpeners d.nP)
+  /-- **AND THE SPINE AT A REFLEXIVE NESTED FIELD** (task #315 K.65's
+  consumer): `nestPinSpineAbs` one `Π`-tower down, carried beside it
+  for the reason `nestArgsMentionAbsRefl` is carried beside
+  `nestArgsMentionAbs` — a reflexive nested field's stored domain is a
+  `Π`, so the finitary clause's `getAppFn` is the `Π` itself and it
+  says nothing there.
+
+  The cut moves with the tower.  The spine sits under the field's own
+  binders as well as the constructor's, so the parameters it mentions
+  are `domPiDepth dom.1` further out and the instantiation follows
+  them; `domPiDepth` is `0` and `stripDomPis` the identity on a
+  finitary domain, so this clause and the one above ask the same
+  question of the same cut wherever both could apply.  **It is stated
+  at the kernel's own two functions on purpose**: K.65's arm is
+  reached by no accepted stream, so the agreement between the cut the
+  checker compares at and the cut the model records cannot be
+  certified by a corpus and has to be BY CONSTRUCTION. -/
+  nestPinSpineAbsRefl : ∀ (i j l : Nat) (cA : ConstantVal × Nat)
+      (bs : List (Expr × ConLeche.BinderMeta)) (r : Expr)
+      (dom : Expr × ConLeche.BinderMeta) (q : Nat) (lps : List Name), i < d.k →
+    (d.ctorsM i)[j]? = some cA →
+    cA.1.type.stripPis (d.nP + cA.2) = some (bs, r) → bs[d.nP + l]? = some dom →
+    d.nestOf i j l = some q → q < d.nPins →
+    (d.ksF i j).getD l .ordinary = .reflexive →
+    Expr.instantiateList
+        (Expr.mkAppN (ConLeche.stripDomPis dom.1).getAppFn
+          ((ConLeche.stripDomPis dom.1).getAppArgs.take (d.pinAt q).nPJ))
+        (ConLeche.containerParamOpeners d.nP).reverse (l + ConLeche.domPiDepth dom.1)
+      = (d.pinAt q).ownAt d.nP lps (lps.map Level.param)
+          (ConLeche.containerParamOpeners d.nP)
   /-- **NO `.proj` NODE OF A STORED CONSTRUCTOR TYPE NAMES A MEMBER**
   (task #315 PINF, DESIGN "the `ConstWF` fifth clause does NOT deliver
   the derivation").

@@ -822,7 +822,7 @@ theorem nestedContainerModeled {F : Nat} {st : ElimState} {envAux : Env}
     (fun ψ => ⟨(O.typed ψ).1.crossEnv T.agree O.reps.toIsBlockModels,
       (O.typed ψ).2.1.crossEnv T.agree O.reps.toIsBlockModels,
       (O.typed ψ).2.2.crossEnv T.agree O.reps.toIsBlockModels ?_⟩)
-    (fun ψ mm' j fs => ofNested_inj ψ mm' j fs) ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ hown
+    (fun ψ mm' j fs => ofNested_inj ψ mm' j fs) ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ hown
     ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_
   · -- `hk`
     rw [hdk, List.length_map, List.length_zip, List.length_take, hclen]
@@ -1099,11 +1099,12 @@ theorem nestedContainerModeled {F : Nat} {st : ElimState} {envAux : Env}
     | some c =>
       rw [hc] at hj'
       obtain rfl : ((c.1, c.2.2) : ConstantVal × Nat) = cA := Option.some.inj hj'
-      obtain ⟨dep, rest, hPar, hspine⟩ := O.stage.pinArgsAbsRefl i j l c bs r dom st.pins[q].pin q
+      obtain ⟨rest, hPar, hspine⟩ := O.stage.pinArgsAbsRefl i j l c bs r dom st.pins[q].pin q
         (hdk ▸ hi) hc hstrip hdom (by rw [hpin, hJ]) hn hk
       obtain ⟨dd, hargs⟩ : ∃ dd, (ConLeche.stripDomPis dom.1).getAppArgs.take ((D).pinAt q).nPJ
           = ((Expr.abstractRange st.pins[q].pin 0 p.nP 0).liftLooseBVars dd 0).getAppArgs :=
-        ⟨l + dep, by rw [hspine, Expr.getAppArgs_mkAppN, List.take_left' hPar]⟩
+        ⟨l + ConLeche.domPiDepth dom.1,
+          by rw [hspine, Expr.getAppArgs_mkAppN, List.take_left' hPar]⟩
       -- K.30: the pin is closed and its variables are the first former's openers
       obtain ⟨t₀, params, o, ht₀, hopen, hall⟩ := ConLeche.pinsScoped_inv hsc
       have hty0 : st.types[0]? = some t₀ := by rw [← List.head?_eq_getElem?]; exact ht₀
@@ -1203,6 +1204,45 @@ theorem nestedContainerModeled {F : Nat} {st : ElimState} {envAux : Env}
           Expr.mkAppN_getApp]
       rw [hcut, O.record.nP,
         ConLeche.instantiateList_openers_eq_instSeq p.nP l
+          (by simpa using ConLeche.looseBVarsBounded_abstractRange _ 0 p.nP 0 hbndPin)]
+      exact (hownAtSelf q lps _ hpq).symm
+  · -- `nestPinSpineAbsRefl`: THE SAME SPINE ONE `Π`-TOWER DOWN (task
+    -- #315 K.65's consumer).  `NestedStageFacts.pinArgsAbsRefl` hands
+    -- the STRIPPED domain as the recorded pin closed over the
+    -- parameters and lifted past BOTH towers — the field's own binders
+    -- `l` and the domain's `domPiDepth` — so the cut at the
+    -- container's parameter count is that lifted pin and the two
+    -- substitution idioms agree on it at the deeper cut, exactly as
+    -- they do at `l`.  The depth is the KERNEL's function on the nose
+    -- (the producer names it, `NestedCtorRead`), which is what makes
+    -- this clause and K.65's guard agree BY CONSTRUCTION — the arm is
+    -- reached by no accepted stream, so no corpus could check it.
+    intro i j l cA bs r dom q lps hi hcA hstrip hdom hn hq hk
+    have hql : q < st.pins.length := by rw [← O.record.nPins]; exact hq
+    have hpq : st.pins[q]? = some st.pins[q] := List.getElem?_eq_getElem hql
+    obtain ⟨hJ, hpin⟩ := O.record.pin q _ hpq
+    have hj' : ((ctorsR.getD i []).map (fun c => (c.1, c.2.2)))[j]? = some cA := by
+      rw [← O.record.ctors i (hdk ▸ hi)]; exact hcA
+    rw [List.getElem?_map] at hj'
+    cases hc : (ctorsR.getD i [])[j]? with
+    | none => rw [hc] at hj'; exact nomatch hj'
+    | some c =>
+      rw [hc] at hj'
+      obtain rfl : ((c.1, c.2.2) : ConstantVal × Nat) = cA := Option.some.inj hj'
+      obtain ⟨rest, hPar, hspine⟩ := O.stage.pinArgsAbsRefl i j l c bs r dom st.pins[q].pin q
+        (hdk ▸ hi) hc hstrip hdom (by rw [hpin, hJ]) hn hk
+      -- K.30: a recorded pin carries no loose bound variable
+      obtain ⟨t₀, params, o, ht₀, hopen, hall⟩ := ConLeche.pinsScoped_inv hsc
+      obtain ⟨hbndPin, -⟩ := hall _ (List.mem_of_getElem? hpq)
+      -- the cut is the closed pin, lifted past both towers
+      have hcut : Expr.mkAppN (ConLeche.stripDomPis dom.1).getAppFn
+            ((ConLeche.stripDomPis dom.1).getAppArgs.take ((D).pinAt q).nPJ)
+          = (Expr.abstractRange st.pins[q].pin 0 p.nP 0).liftLooseBVars
+              (l + ConLeche.domPiDepth dom.1) 0 := by
+        rw [hspine, Expr.getAppFn_mkAppN, Expr.getAppArgs_mkAppN, List.take_left' hPar,
+          Expr.mkAppN_getApp]
+      rw [hcut, O.record.nP,
+        ConLeche.instantiateList_openers_eq_instSeq p.nP (l + ConLeche.domPiDepth dom.1)
           (by simpa using ConLeche.looseBVarsBounded_abstractRange _ 0 p.nP 0 hbndPin)]
       exact (hownAtSelf q lps _ hpq).symm
   · -- `ctorProjFree`: the restored constructor's front-door

@@ -2314,6 +2314,16 @@ theorem ReadCtx.nestedCtorRead_of {mm j : Nat} {c : ConstantVal × Nat × Nat} {
               (((domA.1.piBinders).2).getAppArgs.drop b.nP) := by
         rw [ConLeche.stripDomPis_of_stripPis _ habs,
           ConLeche.stripDomPis_eq_self_of_getAppFn_const hfnL]
+      -- **THE DEPTH IS THE KERNEL'S** (task #315 K.65): the restore's
+      -- strip depth is an INPUT here, and the consumer's clause — and
+      -- K.65's guard with it — is stated at `domPiDepth` of the
+      -- RESTORED domain.  They agree: the restored domain peels the
+      -- same tower and what is left is the lifted pin, whose head is a
+      -- constant, so it peels no further.
+      have hdep : ConLeche.domPiDepth dom.1 = (domA.1.piBinders).1.length := by
+        rw [ConLeche.domPiDepth_of_stripPis _ habs,
+          ConLeche.domPiDepth_eq_zero_of_getAppFn_const hfnL]
+        omega
       -- the pin's own arity
       have hDs := C.PF.pinDs q' hql (fun _ => 0)
       obtain ⟨q₀, kJ, i', dJ, hqe, hi', G⟩ := C.PF.groups dsR xFvsR q' hql
@@ -2332,7 +2342,8 @@ theorem ReadCtx.nestedCtorRead_of {mm j : Nat} {c : ConstantVal × Nat × Nat} {
         rw [show (Expr.const qn.container (pinsS.getD q' default).lvls).getAppArgs = [] from rfl,
           List.nil_append]
         exact hDsLen
-      exact ⟨(domA.1.piBinders).1.length, _, hPargs, hsd⟩
+      rw [← hdep] at hPargs hsd
+      exact ⟨_, hPargs, hsd⟩
   · -- the front door's own `.proj`-slot fact, at the members' prefix
     -- environment (task #315 PINF)
     exact RC.hfd.slots
