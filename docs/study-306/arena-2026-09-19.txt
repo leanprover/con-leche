@@ -1,0 +1,237 @@
+Arena results.json, generated 2026-09-19 08:59:27 UTC at arena rev f6280771
+checker | threads | version | url
+sokonanoda | ? | master (28c03d0) | https://github.com/intgrah/sokonanoda
+mathgraph | ? | dulce-de-leche | https://github.com/metalogiclabs/mathgraph-lean-kernel
+nanoclo | ? | main (cdeb070) | https://github.com/sgraf812/nanoclo
+nanoda | ? | master (4c544ed) | https://github.com/ammkrn/nanoda_lib
+still-nanoda | ? | cache-study-port (06a07b7) | https://github.com/SchrodingerZhu/still-nanoda
+nanobruijn | ? | master (3a86285) | https://github.com/nomeata/nanobruijn
+official | ? | v4.34.0-rc2 | None
+con-leche | 4 | master (2f53a7b) | https://github.com/leanprover/con-leche
+con-ron | 4 | master (3f5ebd5) | https://github.com/leanprover/con-ron
+lean4lean | ? | arena (bce3448) | https://github.com/digama0/lean4lean
+tenet | 4 | 0.10.0 | https://github.com/keithadler/tenet
+
+### wall_time  (G = 1e9 instructions)
+test                        sokonanoda   mathgraph    nanoclo      nanoda       still-nanoda nanobruijn   official     con-leche    con-ron      lean4lean    tenet        
+cedar                       17.2s        17.6s        15.7s        22.3s        24.2s        26.2s        84.7s        0.5s(dec)    0.3s(dec)    101.0s       29.5s        
+con-leche                   10.0s        8.9s         12.5s        19.2s        18.3s        51.4s        67.5s        37.0s        37.5s        116.1s       28.9s        
+cslib                       16.7s        13.7s        62.0s        70.9s        53.7s        76.7s        297.9s       120.2s       295.2s       414.9s       71.0s        
+init                        2.5s         2.4s         5.5s         9.0s         8.5s         11.5s        37.0s        16.9s        16.9s        66.2s        11.7s        
+init-prelude                0.0s         0.0s         0.0s         0.0s         0.0s         0.1s         0.2s         0.2s         0.2s         0.2s         0.2s         
+mathlib                     53.9s        44.0s        187.4s       417.9s       194.7s       337.3s       2035.2s      428.8s       1066.9s      1703.6s      529.3s       
+std                         4.3s         3.8s         9.7s         14.5s        13.9s        17.6s        71.3s        26.3s        33.4s        81.6s        20.0s        
+perf/app-lam                0.6s         0.0s         0.0s         11.9s        11.4s        0.0s         3.1s         21.1s        15.9s        2.9s         3.2s         
+perf/args-before-unfold     0.0s         0.0s         0.0s         0.0s         0.0s         0.0s         0.0s         0.0s         0.0s         0.0s         0.1s         
+perf/beta-ladder            3.3s         0.3s         0.0s         2.8s         2.8s         2.4s         1.0s         4.4s         4.4s         0.9s         1.3s         
+perf/church-numerals        0.0s         0.0s         0.0s         0.0s         0.0s         0.0s         0.0s         0.0s         0.0s         0.1s         0.1s         
+perf/discarded-argument     0.0s         0.0s         0.0s         0.0s         0.0s         0.0s         0.1s         0.0s         0.0s         0.3s         0.1s         
+perf/discarded-argument-match0.0s         0.0s         0.0s         0.0s         0.0s         0.0s         0.1s         0.0s         0.0s         3.3s         0.1s         
+perf/folded-constant-first  0.0s         0.0s         0.0s         0.0s         0.0s         0.0s         0.0s         0.0s         0.0s         0.0s         0.1s         
+perf/folded-constant-last   0.0s         0.0s         0.0s         0.0s         0.0s         0.0s         0.0s         0.0s         0.0s         0.0s         0.1s         
+perf/fueled-chain           0.0s         0.0s         0.0s         0.0s         0.1s         0.0s         0.1s         0.1s         0.0s         0.1s         0.1s         
+perf/grind-ring-5           0.5s         0.5s         0.4s         0.8s         0.8s         2.2s         1.2s         2.0s         1.9s         1.8s         1.3s         
+perf/identical-nesting      0.0s         0.0s         0.0s         0.0s         0.0s         0.0s         0.0s         0.0s         0.0s         0.0s         0.1s         
+perf/irrelevance-before-evaluation0.0s         0.0s         0.0s         0.0s         0.0s         0.0s         0.0s         0.0s         0.0s         0.0s         0.1s         
+perf/let-ladder             0.1s         0.0s         0.0s         1.2s         1.2s         2.3s         0.4s         0.9s         0.8s         0.4s         0.8s         
+perf/magma-list-deep-n21    1.0s         1.0s         0.8s         1.5s         1.6s         1.3s         1.6s         4.3s         3.3s         2.0s         1.8s         
+perf/magma-list-deep-n36    27.6s        24.5s        45.9s        44.5s        47.5s        38.3s        31.2s        65.7s        54.3s        39.0s        28.9s        
+perf/magma-list-pair-n21    31.5s        27.8s        26.2s        26.0s        25.8s        26.3s        17.4s        35.0s        31.8s        21.6s        15.1s        
+perf/magma-list-pair-n7     1.4s         1.4s         1.0s         1.5s         1.5s         1.4s         1.3s         2.6s         2.6s         1.6s         1.4s         
+perf/magma-string-n4        0.2s         0.2s         0.2s         0.4s         0.6s         0.5s         2.1s         1.5s         2.2s         2.9s         1.3s         
+perf/magma-string-pair-n9   2.5s         2.4s         2.2s         4.3s         4.1s         4.2s         5.4s         7.5s         9.4s         6.6s         4.8s         
+perf/refute-cheap-first     0.0s         0.0s         0.0s         0.0s         0.0s         0.0s         0.0s         0.0s         0.0s         0.0s         0.1s         
+perf/refute-cheap-last      0.0s         0.0s         0.0s         0.0s         0.0s         0.0s         0.1s         0.0s         0.0s         0.3s         0.3s         
+perf/repeated-subproblem    0.0s         0.0s         0.0s         0.0s         0.0s         0.0s         0.0s         0.0s         0.0s         0.0s         0.1s         
+perf/shared-subterm         0.0s         0.0s         0.0s         0.0s         0.0s         0.0s         0.0s         0.0s         0.0s         0.0s         0.1s         
+perf/shift-cascade          0.0s         0.0s         0.0s         0.0s         0.0s         0.2s         0.0s         0.0s         0.0s         0.0s         0.1s         
+perf/unroll-versus-evaluate 0.0s         0.0s         0.0s         0.0s         0.0s         0.0s         0.0s         0.0s         0.0s         0.0s         0.1s         
+
+### cpu_time  (G = 1e9 instructions)
+test                        sokonanoda   mathgraph    nanoclo      nanoda       still-nanoda nanobruijn   official     con-leche    con-ron      lean4lean    tenet        
+cedar                       66.4s        67.4s        50.6s        63.4s        72.1s        71.7s        84.7s        0.5s(dec)    0.3s(dec)    101.0s       144.1s       
+con-leche                   38.6s        34.1s        40.5s        57.8s        54.9s        131.6s       67.4s        113.0s       118.4s       116.1s       135.3s       
+cslib                       58.8s        48.0s        195.7s       207.7s       145.3s       225.9s       297.7s       319.0s       484.7s       414.8s       354.4s       
+init                        9.4s         8.7s         17.4s        26.4s        25.3s        32.8s        37.0s        52.4s        52.5s        66.2s        56.6s        
+init-prelude                0.1s         0.1s         0.1s         0.1s         0.1s         0.2s         0.2s         0.3s         0.3s         0.2s         0.5s         
+mathlib                     191.2s       156.1s       617.0s       1451.5s      584.2s       1108.7s      2034.8s      1211.1s      1781.4s      1703.3s      2600.2s      
+std                         15.5s        13.9s        30.5s        42.0s        39.7s        50.4s        71.3s        79.7s        96.5s        81.6s        97.5s        
+perf/app-lam                0.6s         0.0s         0.0s         11.9s        11.4s        0.0s         3.1s         21.1s        15.9s        2.9s         3.3s         
+perf/args-before-unfold     0.0s         0.0s         0.0s         0.0s         0.0s         0.0s         0.0s         0.0s         0.0s         0.0s         0.1s         
+perf/beta-ladder            3.3s         0.3s         0.0s         2.8s         2.8s         2.4s         1.0s         4.4s         4.4s         0.9s         1.4s         
+perf/church-numerals        0.0s         0.0s         0.0s         0.0s         0.0s         0.0s         0.0s         0.0s         0.0s         0.1s         0.2s         
+perf/discarded-argument     0.0s         0.0s         0.0s         0.0s         0.0s         0.0s         0.1s         0.0s         0.0s         0.3s         0.2s         
+perf/discarded-argument-match0.0s         0.0s         0.0s         0.0s         0.0s         0.0s         0.1s         0.0s         0.0s         3.3s         0.2s         
+perf/folded-constant-first  0.0s         0.0s         0.0s         0.0s         0.0s         0.0s         0.0s         0.0s         0.0s         0.0s         0.2s         
+perf/folded-constant-last   0.0s         0.0s         0.0s         0.0s         0.0s         0.0s         0.0s         0.0s         0.0s         0.0s         0.2s         
+perf/fueled-chain           0.0s         0.0s         0.0s         0.1s         0.1s         0.0s         0.1s         0.1s         0.1s         0.1s         0.2s         
+perf/grind-ring-5           0.6s         0.6s         0.6s         1.0s         1.0s         2.5s         1.2s         2.5s         2.4s         1.8s         2.6s         
+perf/identical-nesting      0.0s         0.0s         0.0s         0.0s         0.0s         0.0s         0.0s         0.0s         0.0s         0.0s         0.1s         
+perf/irrelevance-before-evaluation0.0s         0.0s         0.0s         0.0s         0.0s         0.0s         0.0s         0.0s         0.0s         0.0s         0.1s         
+perf/let-ladder             0.1s         0.0s         0.0s         1.2s         1.2s         2.3s         0.4s         0.9s         0.8s         0.4s         1.0s         
+perf/magma-list-deep-n21    1.0s         1.0s         0.8s         1.5s         1.6s         1.3s         1.6s         4.3s         3.3s         2.0s         2.1s         
+perf/magma-list-deep-n36    27.6s        24.5s        46.0s        44.5s        47.5s        38.3s        31.1s        65.7s        54.3s        39.0s        57.3s        
+perf/magma-list-pair-n21    31.5s        27.8s        26.3s        26.0s        25.8s        26.3s        17.4s        35.0s        31.8s        21.6s        31.5s        
+perf/magma-list-pair-n7     1.4s         1.4s         1.0s         1.5s         1.5s         1.4s         1.3s         2.6s         2.6s         1.6s         1.7s         
+perf/magma-string-n4        0.6s         0.6s         0.7s         1.1s         1.7s         1.5s         2.1s         3.3s         4.2s         2.9s         4.9s         
+perf/magma-string-pair-n9   3.0s         2.7s         2.7s         5.0s         5.2s         5.3s         5.4s         9.2s         11.4s        6.6s         10.6s        
+perf/refute-cheap-first     0.0s         0.0s         0.0s         0.0s         0.0s         0.0s         0.0s         0.0s         0.0s         0.0s         0.1s         
+perf/refute-cheap-last      0.0s         0.0s         0.0s         0.0s         0.0s         0.0s         0.1s         0.0s         0.0s         0.3s         0.4s         
+perf/repeated-subproblem    0.0s         0.0s         0.0s         0.0s         0.0s         0.0s         0.0s         0.0s         0.0s         0.0s         0.1s         
+perf/shared-subterm         0.0s         0.0s         0.0s         0.0s         0.0s         0.0s         0.0s         0.0s         0.0s         0.0s         0.2s         
+perf/shift-cascade          0.0s         0.0s         0.0s         0.0s         0.0s         0.2s         0.0s         0.0s         0.0s         0.0s         0.2s         
+perf/unroll-versus-evaluate 0.0s         0.0s         0.0s         0.0s         0.0s         0.0s         0.0s         0.0s         0.0s         0.0s         0.1s         
+
+### instructions  (G = 1e9 instructions)
+test                        sokonanoda   mathgraph    nanoclo      nanoda       still-nanoda nanobruijn   official     con-leche    con-ron      lean4lean    tenet        
+cedar                       160.9G       194.2G       293.7G       425.5G       504.5G       436.7G       798.3G       6.6G(dec)    4.2G(dec)    1081.7G      849.7G       
+con-leche                   146.5G       156.4G       263.5G       413.8G       566.4G       561.4G       669.6G       1209.9G      1089.9G      1027.8G      877.8G       
+cslib                       248.4G       272.1G       777.7G       1221.5G      1243.6G      1262.4G      2428.6G      3422.7G      3128.9G      3278.5G      2331.0G      
+init                        38.9G        52.6G        121.0G       206.3G       276.6G       205.0G       367.2G       579.4G       510.7G       529.7G       392.3G       
+init-prelude                0.2G         0.2G         0.5G         0.9G         0.9G         1.3G         2.2G         3.4G         3.0G         2.6G         3.4G         
+mathlib                     743.3G       833.0G       2841.3G      6462.5G      5593.0G      7543.6G      11834.3G     12902.9G     10626.5G     14346.0G     16388.8G     
+std                         65.0G        82.7G        201.4G       327.8G       406.3G       335.8G       617.3G       961.4G       834.0G       862.5G       666.0G       
+perf/app-lam                5.8G         0.2G         0.1G         26.0G        23.3G        0.2G         29.2G        167.8G       125.5G       29.5G        34.4G        
+perf/args-before-unfold     0.0G         0.0G         0.0G         0.0G         0.0G         0.0G         0.2G         0.1G         0.1G         0.3G         0.9G         
+perf/beta-ladder            50.5G        4.4G         0.0G         7.6G         6.8G         9.4G         10.0G        42.8G        39.7G        10.1G        13.2G        
+perf/church-numerals        0.0G         0.0G         0.0G         0.1G         0.1G         0.1G         0.3G         0.3G         0.3G         0.6G         1.1G         
+perf/discarded-argument     0.0G         0.0G         0.0G         0.0G         0.2G         0.1G         1.0G         0.1G         0.1G         7.3G         0.9G         
+perf/discarded-argument-match0.0G         0.0G         0.0G         0.1G         0.6G         0.4G         0.7G         0.2G         0.2G         64.9G        1.2G         
+perf/folded-constant-first  0.0G         0.0G         0.0G         0.0G         0.0G         0.0G         0.2G         0.1G         0.1G         0.3G         1.0G         
+perf/folded-constant-last   0.0G         0.0G         0.0G         0.0G         0.0G         0.0G         0.2G         0.1G         0.1G         0.3G         1.0G         
+perf/fueled-chain           0.1G         0.1G         0.1G         0.9G         0.9G         0.3G         0.6G         1.2G         0.7G         0.8G         1.7G         
+perf/grind-ring-5           2.0G         2.4G         4.1G         8.3G         8.4G         37.4G        12.9G        24.3G        24.1G        17.4G        22.5G        
+perf/identical-nesting      0.0G         0.0G         0.0G         0.0G         0.0G         0.0G         0.2G         0.0G         0.0G         0.2G         0.8G         
+perf/irrelevance-before-evaluation0.0G         0.0G         0.0G         0.0G         0.0G         0.0G         0.2G         0.0G         0.0G         0.2G         0.8G         
+perf/let-ladder             0.9G         0.1G         0.0G         4.2G         3.8G         10.0G        6.1G         8.6G         6.6G         6.2G         9.5G         
+perf/magma-list-deep-n21    2.2G         2.5G         3.6G         11.2G        10.5G        9.5G         13.5G        30.0G        29.6G        17.7G        15.6G        
+perf/magma-list-deep-n36    27.9G        31.3G        140.3G       218.7G       206.8G       131.8G       174.6G       348.2G       321.3G       234.7G       335.6G       
+perf/magma-list-pair-n21    43.5G        47.9G        86.3G        85.6G        81.9G        93.7G        102.4G       213.8G       197.8G       141.7G       173.1G       
+perf/magma-list-pair-n7     3.2G         3.6G         4.3G         7.5G         7.2G         8.4G         9.3G         19.4G        17.1G        12.7G        12.6G        
+perf/magma-string-n4        2.3G         3.3G         6.5G         12.3G        18.3G        12.5G        20.9G        41.1G        40.7G        30.7G        44.8G        
+perf/magma-string-pair-n9   7.0G         8.9G         14.7G        34.6G        38.8G        30.7G        45.7G        92.6G        95.5G        65.4G        81.4G        
+perf/refute-cheap-first     0.0G         0.0G         0.0G         0.0G         0.0G         0.0G         0.3G         0.0G         0.0G         0.5G         0.8G         
+perf/refute-cheap-last      0.0G         0.0G         0.1G         0.0G         0.2G         0.1G         1.1G         0.1G         0.1G         7.8G         3.2G         
+perf/repeated-subproblem    0.0G         0.0G         0.0G         0.0G         0.0G         0.0G         0.2G         0.0G         0.0G         0.2G         0.8G         
+perf/shared-subterm         0.0G         0.0G         0.1G         0.1G         0.1G         0.1G         0.3G         0.3G         0.2G         0.5G         1.2G         
+perf/shift-cascade          0.0G         0.1G         0.0G         0.0G         0.0G         1.6G         0.3G         0.1G         0.1G         0.3G         0.9G         
+perf/unroll-versus-evaluate 0.0G         0.0G         0.0G         0.0G         0.0G         0.0G         0.2G         0.0G         0.0G         0.2G         0.8G         
+
+### max_rss  (G = 1e9 instructions)
+test                        sokonanoda   mathgraph    nanoclo      nanoda       still-nanoda nanobruijn   official     con-leche    con-ron      lean4lean    tenet        
+cedar                       6.40GB       7.61GB       1.50GB       0.95GB       0.91GB       1.32GB       1.46GB       0.13GB(dec)  0.14GB(dec)  1.65GB       3.46GB       
+con-leche                   3.87GB       5.73GB       1.19GB       0.98GB       1.02GB       4.34GB       0.91GB       1.03GB       1.01GB       1.10GB       4.01GB       
+cslib                       3.05GB       3.36GB       3.41GB       2.43GB       2.43GB       2.74GB       3.31GB       3.60GB       3.76GB       3.90GB       5.40GB       
+init                        0.74GB       0.76GB       0.61GB       0.45GB       0.43GB       0.46GB       0.56GB       0.58GB       0.62GB       0.61GB       2.70GB       
+init-prelude                0.19GB       0.17GB       0.09GB       0.01GB       0.01GB       0.03GB       0.08GB       0.04GB       0.06GB       0.11GB       0.13GB       
+mathlib                     6.39GB       7.23GB       7.17GB       7.88GB       5.61GB       6.59GB       8.16GB       8.65GB       9.20GB       9.95GB       14.26GB      
+std                         1.02GB       1.05GB       1.03GB       0.70GB       0.69GB       0.79GB       0.92GB       0.93GB       0.96GB       1.09GB       3.31GB       
+perf/app-lam                0.32GB       0.07GB       0.09GB       2.21GB       2.21GB       0.04GB       1.50GB       2.86GB       2.86GB       1.53GB       1.80GB       
+perf/args-before-unfold     0.04GB       0.05GB       0.06GB       0.00GB       0.00GB       0.01GB       0.07GB       0.03GB       0.03GB       0.11GB       0.05GB       
+perf/beta-ladder            1.50GB       0.13GB       0.07GB       0.64GB       0.64GB       0.87GB       0.53GB       0.75GB       0.63GB       0.56GB       0.60GB       
+perf/church-numerals        0.05GB       0.05GB       0.06GB       0.01GB       0.01GB       0.03GB       0.08GB       0.05GB       0.05GB       0.12GB       0.06GB       
+perf/discarded-argument     0.04GB       0.03GB       0.05GB       0.00GB       0.00GB       0.01GB       0.07GB       0.03GB       0.02GB       0.10GB       0.05GB       
+perf/discarded-argument-match0.04GB       0.04GB       0.06GB       0.00GB       0.00GB       0.02GB       0.07GB       0.03GB       0.03GB       0.11GB       0.06GB       
+perf/folded-constant-first  0.05GB       0.05GB       0.06GB       0.00GB       0.00GB       0.02GB       0.07GB       0.04GB       0.03GB       0.10GB       0.05GB       
+perf/folded-constant-last   0.05GB       0.05GB       0.06GB       0.00GB       0.00GB       0.01GB       0.07GB       0.04GB       0.03GB       0.11GB       0.05GB       
+perf/fueled-chain           0.14GB       0.15GB       0.09GB       0.01GB       0.02GB       0.03GB       0.08GB       0.04GB       0.04GB       0.10GB       0.07GB       
+perf/grind-ring-5           0.57GB       0.57GB       0.33GB       0.16GB       0.16GB       0.21GB       0.24GB       0.23GB       0.23GB       0.31GB       0.61GB       
+perf/identical-nesting      0.04GB       0.04GB       0.05GB       0.00GB       0.00GB       0.01GB       0.07GB       0.03GB       0.02GB       0.10GB       0.05GB       
+perf/irrelevance-before-evaluation0.03GB       0.03GB       0.05GB       0.00GB       0.00GB       0.01GB       0.07GB       0.03GB       0.02GB       0.10GB       0.05GB       
+perf/let-ladder             0.10GB       0.06GB       0.07GB       0.32GB       0.32GB       0.87GB       0.34GB       0.24GB       0.25GB       0.37GB       0.35GB       
+perf/magma-list-deep-n21    0.81GB       0.92GB       0.44GB       0.23GB       0.23GB       0.22GB       0.59GB       0.63GB       0.54GB       0.61GB       1.28GB       
+perf/magma-list-deep-n36    8.27GB       9.63GB       4.12GB       2.63GB       2.63GB       2.52GB       6.83GB       7.71GB       6.90GB       6.92GB       9.52GB       
+perf/magma-list-pair-n21    12.45GB      14.33GB      5.78GB       4.35GB       4.35GB       3.73GB       3.84GB       5.61GB       5.08GB       3.98GB       6.25GB       
+perf/magma-list-pair-n7     1.11GB       1.20GB       0.78GB       0.34GB       0.34GB       0.34GB       0.40GB       0.51GB       0.46GB       0.44GB       0.91GB       
+perf/magma-string-n4        0.38GB       0.34GB       0.23GB       0.07GB       0.07GB       0.09GB       0.12GB       0.15GB       0.19GB       0.15GB       0.59GB       
+perf/magma-string-pair-n9   1.56GB       1.82GB       1.02GB       0.60GB       0.59GB       0.55GB       0.94GB       1.02GB       0.96GB       0.97GB       1.82GB       
+perf/refute-cheap-first     0.04GB       0.03GB       0.05GB       0.00GB       0.00GB       0.01GB       0.07GB       0.03GB       0.02GB       0.11GB       0.05GB       
+perf/refute-cheap-last      0.04GB       0.04GB       0.05GB       0.00GB       0.00GB       0.02GB       0.07GB       0.03GB       0.02GB       0.11GB       0.12GB       
+perf/repeated-subproblem    0.04GB       0.04GB       0.06GB       0.00GB       0.00GB       0.01GB       0.07GB       0.02GB       0.02GB       0.10GB       0.05GB       
+perf/shared-subterm         0.05GB       0.06GB       0.07GB       0.01GB       0.01GB       0.02GB       0.08GB       0.04GB       0.03GB       0.11GB       0.06GB       
+perf/shift-cascade          0.05GB       0.05GB       0.07GB       0.00GB       0.00GB       0.07GB       0.07GB       0.03GB       0.03GB       0.10GB       0.05GB       
+perf/unroll-versus-evaluate 0.05GB       0.05GB       0.06GB       0.00GB       0.00GB       0.01GB       0.07GB       0.03GB       0.02GB       0.10GB       0.05GB       
+
+### status summary (correctness field counts)
+sokonanoda {'correct': 197, 'either': 18}
+mathgraph {'correct': 197, 'either': 18}
+nanoclo {'correct': 197, 'either': 18}
+nanoda {'correct': 195, 'either': 18, 'declined': 2}
+still-nanoda {'correct': 189, 'incorrect': 8, 'either': 18}
+nanobruijn {'correct': 197, 'either': 18}
+official {'correct': 197, 'either': 18}
+con-leche {'correct': 184, 'declined': 13, 'either': 18}
+con-ron {'correct': 184, 'declined': 13, 'either': 18}
+lean4lean {'correct': 197, 'either': 18}
+tenet {'correct': 197, 'either': 18}
+
+### con-leche run / description
+.lake/build/bin/con-leche --verified --jobs=4 "$IN" 
+ [**con-leche**](https://github.com/leanprover/con-leche) is an external
+Lean checker with a consistency proof: if it accepts a set of
+declarations, then they have a model in set theory (ZFC with enough
+inaccessibles) — one set per constant under which every constant is a
+member of its type — and in particular no theorem of `False` is accepted.
+The proof is done directly against a set-theoretic model, not against
+an abstract typing relation; the parser and the Lean runtime are
+outside it.
+
+Written in Lean, entirely by Claude under close human guidance. It
+runs in verified mode here (the mode the theorem is about) with four
+worker threads for the check phase. Slower than the official kernel,
+but fast enough for real proofs. It accepts only the three standard
+axioms and declines streams that use others.
+
+
+### sokonanoda run / description
+target/release/sokonanoda config.json < "$IN" || exit 1
+ 
+ sokonanoda: conversion checking uses closures.
+
+A (distant) fork of
+[nanoda](https://github.com/ammkrn/nanoda_lib).
+Inspired by
+[smalltt](https://github.com/AndrasKovacs/smalltt).
+
+
+### nanoclo run / description
+timeout 3600 target/release/nanoclo config.json < "$IN" || exit 1
+ 
+ **nanoclo** — a Lean 4 kernel based on *delayed substitutions*.
+Terms in flight are closures over interned environments.
+
+Forked from [nanoda_lib](https://github.com/ammkrn/nanoda_lib). Entering
+a binder extends the environment in O(1); a variable occurrence reads its
+entry through skew-binary jump pointers; substitution into a body happens
+only when a type leaves the checker.
+
+Conversion is [sokonanoda](https://github.com/intgrah/sokonanoda)'s
+(Apache-2.0), as is the fast path of the export parser.
+
+The modifications from the original nanoda_lib were written by Claude
+(Anthropic), directed by Sebastian Graf.
+
+
+### mathgraph run / description
+target/release/sokonanoda config.json < "$IN" || exit 1
+ 
+ MathGraph explores a verifier-guided approach to machine reasoning: treat
+failed or inefficient attempts as structured residuals rather than discarded
+search.
+
+Each residual asks: what is the minimal refinement of the current
+representation needed to eliminate it? Candidate refinements are tested by
+external verification; those that survive become reusable constraints, while
+counterexamples refine the remaining search space.
+
+This checker applies that process to a fork of
+[sokonanoda](https://github.com/intgrah/sokonanoda). Arena profiling exposed
+concentrated cost in environment handling; controlled intervention and
+ablation isolated the retained optimizations. Changes that improved local
+measurements but failed the full semantic gate were discarded.
+
+residual → conjecture → minimal refinement → verification → retained
+constraint → new residual
+
+Developed by [Metalogic Labs](https://mathgraph.org/).
+
