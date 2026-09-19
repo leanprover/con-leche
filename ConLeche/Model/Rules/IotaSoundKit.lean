@@ -799,4 +799,11 @@ theorem denoteMeta_openRevK {acval : Name → (Name → Nat) → AnnotTerm}
         = AnnotTerm.instRevChain vs' (X.inst (va.liftN vs'.length) 0) from rfl,
         hsp'.length]
 
+/-- A list member is the value at one of its indices (the shape the
+`∀ x ∈ bsa` grading premises need when the fact is indexed). -/
+theorem mem_getD_index {α : Type _} [Inhabited α] {l : List α} {x : α}
+    (h : x ∈ l) : ∃ j, j < l.length ∧ l.getD j default = x := by
+  obtain ⟨j, hj, hx⟩ := List.getElem_of_mem h
+  exact ⟨j, hj, by rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hj, hx]; rfl⟩
+
 end ConLeche.Model.Rules

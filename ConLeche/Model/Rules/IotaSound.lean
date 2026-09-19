@@ -3,6 +3,7 @@ module
 public import ConLeche.Model.Rules.Inputs
 public import ConLeche.Model.Rules.IotaSoundKit
 import ConLeche.Model.CtxOkKit
+import ConLeche.Semantics.DefEqList
 
 public section
 
@@ -49,6 +50,29 @@ back, per slot, `env.find? (projFnName T i) = some (.recInfo cvp …)`,
 that grades the spine — exactly the four facts the transplanted η arm
 of `majorToCtorFueled_{reads,step}` consumes.  `Rel.lean` is a shared
 file, so the change is the coordinator's.
+
+## FINDING — `DefEqListSem` drops the walk's length
+
+`Red.iota_sound` is proved except for one `have` inside the `.nested`
+fire's comparand block: `pins.length = RecRule.ctorParams rl`.  The
+checker knows it (a `defEqList` run compares two lists and rejects
+unequal lengths, so `Model/Steps/IotaRows.lean` reads it off with
+`defEqListFueled_length`), and so does the DERIVATION — `Rules/Derived.lean`
+proves `DefEqList.length` — but the MOTIVE does not: `DefEqListSem`
+concludes `asa.map (interp V ρ) = bsa.map (interp V ρ)` and only after
+both lists have been handed to it as read spines, which is exactly
+what the length is needed to build.  `Sound.lean` applies
+`defEqList_sound` and the length is gone.
+
+The repair is one conjunct on `DefEqListSem` (`Model/Rules/Motive.lean`):
+
+    as.length = bs.length ∧ (∀ {Δa asa bsa}, …)
+
+discharged in `DefEqList.nil_sound`/`cons_sound` by the same recursion
+that is already there — `Rel.lean` and the constructors are untouched.
+Everything else in `Red.iota_sound` — the law, the two licensed fits,
+the index pin, the `.plain` comparands, the `.nested` chain through
+`denoteMeta_openRevK`, the reduct's frame and reading — is proved.
 -/
 
 namespace ConLeche.Model.Rules
@@ -63,6 +87,8 @@ universe w
 
 variable {V : Type w} [SetTheory V] {env : Env} {m : EnvModel V env}
   {φ : Name → Nat}
+set_option maxHeartbeats 1000000 in
+set_option linter.unusedVariables false in
 /-- The ι row (`iotaStep_of`, `Steps/IotaRows.lean:492`, with
 `iotaReads_of`, `:332`, for the reduct's reading): the stored
 recursor's fired contract (`RecRules`) at the two certified telescopes
@@ -101,7 +127,396 @@ theorem Red.iota_sound (hin : RulesInputs V m φ) {d : Nat} {e : Expr} {c : Name
     RedSem m φ d e
       (Expr.mkAppN (rl.rhs.instantiateLevelParams cv.levelParams us)
         (e.getAppArgs.take rP ++ major.getAppArgs.drop rl.ctorParams)) := by
-  sorry
+  intro hf Δa ea hC hea hg
+  have hrmem : rl ∈ rules := List.mem_of_find?_eq_some hrule
+  have hrctor : rl.ctor = cj := by
+    have := List.find?_some hrule
+    simpa using this
+  subst hrctor
+  -- **the law**, and the fired right-hand side's reading at every depth
+  obtain ⟨hrPle, hlaw0⟩ := hin.rec_rules c cv mI rP rules hrec rl hrmem hfire
+  obtain ⟨Ra, hRa0, hokRa, hpinsOk, hlaw⟩ := hlaw0 us hus
+  obtain ⟨hRaD, hRnf, hRbd⟩ := recRhs_depthK hrec hrmem hRa0
+  -- the recursor spine, read
+  have hfrE := frame_spineK hf hC
+  have hea' := hea
+  rw [show e = Expr.mkAppN e.getAppFn e.getAppArgs from
+    (ConLeche.Expr.mkAppN_getApp e).symm, hhead] at hea'
+  obtain ⟨vc, xs, hvc, hspx, rfl⟩ := readSpine_mkAppN_inv hea'
+  rw [denoteMeta_const hrec (show us.length = _ from hus)] at hvc
+  obtain rfl : vc = m.acval c (Level.substFn φ cv.levelParams us) :=
+    (Option.some.inj hvc).symm
+  obtain ⟨-, hoX⟩ := hoist_spineK xs hg
+  have hxsLen : xs.length = mI + 1 := by rw [← hspx.length]; exact hlen
+  -- the prepared major: read, graded, and equal to the slot's reading
+  have hmIlt : mI < e.getAppArgs.length := by rw [hlen]; omega
+  obtain ⟨hfMa, hCMa⟩ := hfrE _ (ConLeche.getD_mem hmIlt)
+  have hdMaj : denoteMeta m.acval env φ d (e.getAppArgs.getD mI (.bvar 0))
+      = some (xs.getD mI default) := hspx.getD _ mI hmIlt
+  have hokMajArg : Graded V Δa (xs.getD mI default) :=
+    hoX _ (ConLeche.getD_mem (by rw [← hspx.length]; exact hmIlt))
+  obtain ⟨hfmj, hsubmj, vmaj, hvmajSave, hokMj, heqAll⟩ :=
+    hmajor hfMa hCMa hdMaj hokMajArg
+  have hCmj : CtxOk m φ d Δa major := hCMa.of_subset hsubmj
+  -- the constructor spine
+  have hvmaj := hvmajSave
+  rw [show major = Expr.mkAppN major.getAppFn major.getAppArgs from
+    (ConLeche.Expr.mkAppN_getApp major).symm, hmhead] at hvmaj
+  obtain ⟨vj, ys, hvj, hspy, rfl⟩ := readSpine_mkAppN_inv hvmaj
+  obtain ⟨hlenUj, rfl⟩ := denoteMeta_const_arityK hctor hvj
+  have hfrC := frame_spineK hfmj hCmj
+  obtain ⟨-, hoY⟩ := hoist_spineK ys hokMj
+  -- the two stored types
+  obtain ⟨TVa, hTVaD, hokTVa, hmemR, hnfR, hbdR⟩ :=
+    constTy_pkg hin.const_ty hrec rfl (show us.length = _ from hus)
+  obtain ⟨TVja, hTVjaD, hokTVja, hmemJ, hnfJ, hbdJ⟩ :=
+    constTy_pkg hin.const_ty hctor rfl hlenUj
+  dsimp only [ConLeche.ConstantInfo.toConstantVal] at hTVaD hmemR hnfR hbdR
+  dsimp only [ConLeche.ConstantInfo.toConstantVal] at hTVjaD hmemJ hnfJ hbdJ
+  obtain ⟨hfR, hCR⟩ := frame_of_not_hasFvar (m := m) (Δa := Δa) hnfR hbdR hC.1
+  obtain ⟨hfJ, hCJ⟩ := frame_of_not_hasFvar (m := m) (Δa := Δa) hnfJ hbdJ hC.1
+  -- **the two licensed fits**: the redex's own slots license the walk,
+  -- the subject's grading supplying them with the major slot exchanged
+  -- along the reduction's equation (`wellDenotedV_mkAppN_snoc_congrK`)
+  have hspR : ReadSpine m.acval env φ d (e.getAppArgs.take mI ++ [major])
+      (xs.take mI ++ [AnnotTerm.mkAppN
+        (m.acval rl.ctor (Level.substFn φ cvj.levelParams usj)) ys]) :=
+    (hspx.take mI).append (ReadSpine.cons hvmajSave ReadSpine.nil)
+  have hframesR : ∀ x ∈ e.getAppArgs.take mI ++ [major],
+      Frame d x ∧ CtxOk m φ d Δa x := by
+    intro x hx
+    rcases List.mem_append.mp hx with hx' | hx'
+    · exact hfrE x (List.mem_of_mem_take hx')
+    · rcases List.mem_singleton.mp hx' with rfl
+      exact ⟨hfmj, hCmj⟩
+  have hoksR : ∀ x ∈ (xs.take mI ++ [AnnotTerm.mkAppN
+      (m.acval rl.ctor (Level.substFn φ cvj.levelParams usj)) ys]),
+      Graded V Δa x := by
+    intro x hx
+    rcases List.mem_append.mp hx with hx' | hx'
+    · exact hoX x (List.mem_of_mem_take hx')
+    · rcases List.mem_singleton.mp hx' with rfl; exact hokMj
+  have hokSR : Graded V Δa (AnnotTerm.mkAppN
+      (m.acval c (Level.substFn φ cv.levelParams us))
+      (xs.take mI ++ [AnnotTerm.mkAppN
+        (m.acval rl.ctor (Level.substFn φ cvj.levelParams usj)) ys])) := by
+    intro ρ hρ
+    have h := hg ρ hρ
+    rw [take_getD_splitAK hxsLen] at h
+    exact wellDenotedV_mkAppN_snoc_congrK h (hokMj ρ hρ) (heqAll ρ hρ)
+  obtain ⟨restR, hfitR, -⟩ :=
+    hcertR (fa := m.acval c (Level.substFn φ cv.levelParams us))
+      hfR hCR (hTVaD d) (fun ρ _ => hokTVa ρ) hframesR hspR hoksR
+      (fun _ => ⟨hokSR, fun ρ _ => hmemR ρ⟩)
+  obtain ⟨restC, hfitC, hokRestC⟩ :=
+    hcertC (fa := m.acval rl.ctor (Level.substFn φ cvj.levelParams usj))
+      hfJ hCJ (hTVjaD d) (fun ρ _ => hokTVja ρ) hfrC hspy hoY
+      (fun _ => ⟨hokMj, fun ρ _ => hmemJ ρ⟩)
+  -- the level congruence (currency-free: the comparand reads no arguments)
+  have hψ : Level.substFn φ cvj.levelParams usj
+      = Level.substFn φ cvj.levelParams
+          (ConLeche.recFireComparands rl cv.levelParams us cvj.levelParams
+            [] rP).1 := by
+    rw [recFireComparands_fst_nil] at hlv
+    exact ConLeche.Level.substFn_congr (ConLeche.Level.isEquivList_sound hlv φ)
+  -- the fired equation and the transported grading, at each valuation
+  have hmain : ∀ ρ : Nat → V, Sat V Δa ρ →
+      interp V ρ (AnnotTerm.mkAppN
+          (m.acval c (Level.substFn φ cv.levelParams us)) xs)
+          = interp V ρ (AnnotTerm.mkAppN Ra
+              (xs.take rP ++ ys.drop (RecRule.ctorParams rl))) ∧
+        WellDenotedV V ρ (AnnotTerm.mkAppN Ra
+          (xs.take rP ++ ys.drop (RecRule.ctorParams rl))) := by
+    intro ρ hρ
+    -- **the index pin**: trivial where the recursor has no indices,
+    -- else the constructor telescope's residual against the indices
+    have hpinI : IotaIndexPin (V := V) ρ restC (RecRule.ctorParams rl) mI rP
+        (xs.take mI) := by
+      by_cases hmr : mI = rP
+      · exact ⟨restC, [], rfl, Or.inl hmr, fun i hi => absurd hi (by omega)⟩
+      have hpres := hres hmr
+      obtain ⟨hfRes, hCRes⟩ := piResidual_frameK hpres hfJ hCJ hfrC
+      have hfrRes := frame_spineK hfRes hCRes
+      have hresC : denoteMeta m.acval env φ d residual = some restC :=
+        teleFitPA_residualK m.acval_closed (acval_inst_self m) major.getAppArgs
+          hpres hfJ.1 (fun x hx => ⟨(hfrC x hx).1.1, (hfrC x hx).1.2.1⟩)
+          (hTVjaD d) hspy (hfitC ρ hρ)
+      rw [show residual = Expr.mkAppN residual.getAppFn residual.getAppArgs from
+        (ConLeche.Expr.mkAppN_getApp residual).symm] at hresC
+      obtain ⟨Ha, cargsa, -, hspRes, hCeq⟩ := readSpine_mkAppN_inv hresC
+      obtain ⟨-, hoCargs⟩ :=
+        hoist_spineK cargsa (fun σ hσ => hCeq ▸ hokRestC σ hσ)
+      have hspIdx : ReadSpine m.acval env φ d ((e.getAppArgs.take mI).drop rP)
+          ((xs.take mI).drop rP) := (hspx.take mI).drop rP
+      have hmapI : (cargsa.drop (RecRule.ctorParams rl)).map (interp V ρ)
+          = ((xs.take mI).drop rP).map (interp V ρ) :=
+        hidx hmr (fun x hx => hfrRes x (List.mem_of_mem_drop hx))
+          (fun x hx => hfrE x (List.mem_of_mem_take (List.mem_of_mem_drop hx)))
+          (hspRes.drop _) hspIdx
+          (fun x hx => hoCargs x (List.mem_of_mem_drop hx))
+          (fun x hx => hoX x (List.mem_of_mem_take (List.mem_of_mem_drop hx)))
+          ρ hρ
+      have hlenDisj : mI = rP ∨
+          cargsa.length = RecRule.ctorParams rl + (mI - rP) := by
+        have hlen2 := congrArg List.length hmapI
+        simp only [List.length_map, List.length_drop, List.length_take] at hlen2
+        rw [hxsLen] at hlen2
+        omega
+      refine ⟨Ha, cargsa, hCeq, hlenDisj, fun i hi => ?_⟩
+      have hlt : i < (cargsa.drop (RecRule.ctorParams rl)).length := by
+        rw [List.length_drop]
+        rcases hlenDisj with hh | hh <;> omega
+      have hgi := map_interp_getD_eqK hmapI hlt
+      rw [getD_dropAK, getD_dropAK] at hgi
+      exact hgi
+    -- the `.plain` comparands
+    have hplain : RecRule.paramsBlind rl = false → RecRule.fire rl = .plain →
+        ∀ i, i < RecRule.ctorParams rl → i < mI →
+          interp V ρ (ys.getD i default)
+            = interp V ρ ((xs.take mI).getD i default) := by
+      intro hpb hp i hi him
+      have hdefP' : DefEqListSem m φ d
+          (major.getAppArgs.take (RecRule.ctorParams rl))
+          (ConLeche.recFireComparands rl cv.levelParams us cvj.levelParams
+            e.getAppArgs rP).2 :=
+        hparams (RecRule.compareParams_plain hp hpb)
+      rw [show (ConLeche.recFireComparands rl cv.levelParams us cvj.levelParams
+          e.getAppArgs rP).2 = e.getAppArgs.take (RecRule.ctorParams rl) from by
+        unfold ConLeche.recFireComparands; rw [hp]] at hdefP'
+      have hmapP := hdefP'
+        (fun x hx => hfrC x (List.mem_of_mem_take hx))
+        (fun x hx => hfrE x (List.mem_of_mem_take hx))
+        (hspy.take _) (hspx.take _)
+        (fun x hx => hoY x (List.mem_of_mem_take hx))
+        (fun x hx => hoX x (List.mem_of_mem_take hx)) ρ hρ
+      have hlt : i < (ys.take (RecRule.ctorParams rl)).length := by
+        rw [List.length_take, ← hspy.length, hmlen]; omega
+      have hgi := map_interp_getD_eqK hmapP hlt
+      rw [getD_takeAK hi, getD_takeAK hi] at hgi
+      rw [getD_takeAK him]
+      exact hgi
+    -- the `.nested` pins
+    have hnested : ∀ lvls pins, RecRule.fire rl = .nested lvls pins →
+        ∀ i, i < RecRule.ctorParams rl →
+        ∀ vpa : AnnotTerm,
+          denoteMeta m.acval env φ rP (ConLeche.Verify.openRev 0 rP
+            ((pins.getD i default).instantiateLevelParams cv.levelParams us))
+            = some vpa →
+          interp V ρ (ys.getD i default)
+            = interp V ρ (AnnotTerm.instRevChain ((xs.take mI).take rP) vpa) := by
+      intro lvls pins hn i hi vpa hvpa
+      have hdefP' : DefEqListSem m φ d
+          (major.getAppArgs.take (RecRule.ctorParams rl))
+          (ConLeche.recFireComparands rl cv.levelParams us cvj.levelParams
+            e.getAppArgs rP).2 :=
+        hparams (RecRule.compareParams_nested hn)
+      obtain ⟨-, -, -, -, -, hrec', -⟩ :=
+        m.wf _ (ConLeche.Semantics.Env.find?_mem hrec)
+      obtain ⟨-, -, -, -, hnest⟩ := hrec' cv mI rP rules rfl rl hrmem
+      obtain ⟨-, -, hpinsWf, -⟩ := hnest lvls pins hn
+      have hcmp : (ConLeche.recFireComparands rl cv.levelParams us
+          cvj.levelParams e.getAppArgs rP).2
+          = pins.map (fun p => Expr.instSpine (e.getAppArgs.take rP) (rP - 1)
+              (p.instantiateLevelParams cv.levelParams us)) := by
+        unfold ConLeche.recFireComparands; rw [hn]
+      have hprelen : (e.getAppArgs.take rP).length = rP := by
+        rw [List.length_take, hlen]; omega
+      have hargsPre : ∀ x ∈ e.getAppArgs.take rP, Expr.WScoped d x ∧
+          x.looseBVarsBounded 0 = true := by
+        intro x hx
+        obtain ⟨⟨hw2, hb2, -⟩, -⟩ := hfrE x (List.mem_of_mem_take hx)
+        exact ⟨hw2, hb2⟩
+      -- **THE LANE'S SECOND FINDING** (see the module docstring): the
+      -- stored pin list's length is the checker's `defEqList` verdict,
+      -- and `DefEqListSem` — which concludes only the pointwise
+      -- `interp` equality, and only once BOTH lists are handed to it
+      -- as read spines — does not carry it.  Both directions are
+      -- needed here: `pins.length ≤ ctorParams` to build the
+      -- comparand list's read spine at all (the law reads the pins
+      -- only below `ctorParams`), and `ctorParams ≤ pins.length` to
+      -- select the `i`-th comparand.
+      have hlenPins : pins.length = RecRule.ctorParams rl := by
+        sorry
+      -- the frames of the comparand list
+      have hfrPin : ∀ (p : Expr), p ∈ pins →
+          Frame d (Expr.instSpine (e.getAppArgs.take rP) (rP - 1)
+            (p.instantiateLevelParams cv.levelParams us)) ∧
+          CtxOk m φ d Δa (Expr.instSpine (e.getAppArgs.take rP) (rP - 1)
+            (p.instantiateLevelParams cv.levelParams us)) := by
+        intro p hp
+        obtain ⟨hpinF, -, -, hpinB⟩ := hpinsWf p hp
+        have hpinF' : (p.instantiateLevelParams cv.levelParams us).hasFvar
+            = false := by
+          rw [ConLeche.Expr.hasFvar_instantiateLevelParams]; exact hpinF
+        have hpinB' : (p.instantiateLevelParams cv.levelParams
+            us).looseBVarsBounded (e.getAppArgs.take rP).length = true := by
+          rw [ConLeche.Expr.looseBVarsBounded_instantiateLevelParams, hprelen]
+          exact hpinB
+        refine ⟨⟨ConLeche.instSpine_WScoped _
+            (ConLeche.Expr.WScoped.of_not_hasFvar hpinF')
+            (fun y hy => (hargsPre y hy).1), ?_, fun l hl => ?_⟩,
+          ⟨hC.1, fun l hl => ?_⟩⟩
+        · rw [show rP - 1 = (e.getAppArgs.take rP).length - 1 from by
+            rw [hprelen]]
+          exact ConLeche.instSpine_closed (fun y hy => (hargsPre y hy).2) hpinB'
+        · rcases ConLeche.fvarLeaves_instSpine _ hl with hl' | ⟨y, hy, hly⟩
+          · exact absurd hl' (by
+              rw [ConLeche.Expr.fvarLeaves_eq_nil_of_not_hasFvar hpinF']; simp)
+          · exact (hfrE y (List.mem_of_mem_take hy)).1.2.2 l hly
+        · rcases ConLeche.fvarLeaves_instSpine _ hl with hl' | ⟨y, hy, hly⟩
+          · exact absurd hl' (by
+              rw [ConLeche.Expr.fvarLeaves_eq_nil_of_not_hasFvar hpinF']; simp)
+          · exact ((hfrE y (List.mem_of_mem_take hy)).2).2 l hly
+      -- each comparand reads, to the pin's open reading chained along
+      -- the recursor's parameter prefix
+      have hcompRead : ∀ (p : Expr), p ∈ pins →
+          denoteMeta m.acval env φ d
+              (Expr.instSpine (e.getAppArgs.take rP) (rP - 1)
+                (p.instantiateLevelParams cv.levelParams us))
+            = (denoteMeta m.acval env φ rP (ConLeche.Verify.openRev 0 rP
+                (p.instantiateLevelParams cv.levelParams us))).map
+                (AnnotTerm.instRevChain (xs.take rP)) := by
+        intro p hp
+        obtain ⟨hpinF, -, -, hpinB⟩ := hpinsWf p hp
+        have hpinF' : (p.instantiateLevelParams cv.levelParams us).hasFvar
+            = false := by
+          rw [ConLeche.Expr.hasFvar_instantiateLevelParams]; exact hpinF
+        have hpinB' : (p.instantiateLevelParams cv.levelParams
+            us).looseBVarsBounded (e.getAppArgs.take rP).length = true := by
+          rw [ConLeche.Expr.looseBVarsBounded_instantiateLevelParams, hprelen]
+          exact hpinB
+        have hcden := denoteMeta_openRevK m.acval_closed (acval_inst_self m)
+          (e.getAppArgs.take rP) hargsPre
+          ((ConLeche.Expr.WScoped.of_not_hasFvar (d := d) hpinF').fvarsBelow)
+          hpinB' (hspx.take rP)
+        rw [hprelen] at hcden
+        have hbase := denoteMeta_openRev_baseK (env := env) (φ := φ)
+          m.acval_closed m.acval_erase m.cval_closed hpinF'
+          (by rw [ConLeche.Expr.looseBVarsBounded_instantiateLevelParams]
+              exact hpinB) d
+        rw [hbase] at hcden
+        rw [Expr.instSpine_eq_instSeq]
+        simpa using hcden
+      -- so the comparand list reads, and its readings are graded by the
+      -- law's context-guarded pin conjunct
+      have hbsRead : ∀ x ∈ pins.map (fun p =>
+          Expr.instSpine (e.getAppArgs.take rP) (rP - 1)
+            (p.instantiateLevelParams cv.levelParams us)),
+          ∃ v, denoteMeta m.acval env φ d x = some v := by
+        intro x hx
+        obtain ⟨p, hp, rfl⟩ := List.mem_map.mp hx
+        obtain ⟨j, hj, hpj⟩ := mem_getD_index hp
+        obtain ⟨vpa', hvpa', -⟩ := hpinsOk lvls pins hn j (by omega)
+        rw [hcompRead p hp, ← hpj, hvpa']
+        exact ⟨_, rfl⟩
+      obtain ⟨bsa, hspB⟩ := ReadSpine.exists_of_all _ hbsRead
+      have hokChain : ∀ (vv : AnnotTerm) (j : Nat), j < pins.length →
+          denoteMeta m.acval env φ rP (ConLeche.Verify.openRev 0 rP
+            ((pins.getD j default).instantiateLevelParams cv.levelParams us))
+            = some vv →
+          Graded V Δa (AnnotTerm.instRevChain (xs.take rP) vv) := by
+        intro vv j hj hvv σ hσ
+        obtain ⟨vpa', hvpa', hok'⟩ := hpinsOk lvls pins hn j (by omega)
+        obtain rfl : vpa' = vv := Option.some.inj (hvpa'.symm.trans hvv)
+        obtain ⟨mid, hmid⟩ := (hfitR σ hσ).take rP
+        rw [List.take_append_of_le_length (by
+              rw [List.length_take, hxsLen]; omega),
+            List.take_take, Nat.min_eq_left hrPle] at hmid
+        exact hok' σ (xs.take rP) TVa mid
+          (by rw [List.length_take, hxsLen]; omega)
+          (fun v hv => hoX v (List.mem_of_mem_take hv) σ hσ)
+          (hTVaD 0) hmid
+      have hgetB : ∀ j, j < pins.length →
+          denoteMeta m.acval env φ d
+              ((pins.map (fun p => Expr.instSpine (e.getAppArgs.take rP) (rP - 1)
+                (p.instantiateLevelParams cv.levelParams us))).getD j default)
+            = (denoteMeta m.acval env φ rP (ConLeche.Verify.openRev 0 rP
+                ((pins.getD j default).instantiateLevelParams cv.levelParams us))).map
+                (AnnotTerm.instRevChain (xs.take rP)) := by
+        intro j hj
+        rw [show (pins.map (fun p => Expr.instSpine (e.getAppArgs.take rP) (rP - 1)
+            (p.instantiateLevelParams cv.levelParams us))).getD j default
+            = Expr.instSpine (e.getAppArgs.take rP) (rP - 1)
+              ((pins.getD j default).instantiateLevelParams cv.levelParams us) from by
+          simp [List.getD, List.getElem?_map, List.getElem?_eq_getElem hj]]
+        exact hcompRead _ (ConLeche.getD_mem hj)
+      have hgB : ∀ x ∈ bsa, Graded V Δa x := by
+        intro x hx
+        obtain ⟨j, hj, rfl⟩ := mem_getD_index hx
+        have hlenB : pins.length = bsa.length := by
+          have := hspB.length
+          simpa using this
+        have hjp : j < pins.length := by omega
+        have h1 := hspB.getD (default : Expr) j (by
+          rw [List.length_map]; omega)
+        rw [hgetB j hjp] at h1
+        obtain ⟨vpa', hvpa', -⟩ := hpinsOk lvls pins hn j (by omega)
+        rw [hvpa'] at h1
+        simp only [Option.map_some, Option.some.injEq] at h1
+        rw [← h1]
+        exact hokChain vpa' j hjp hvpa'
+      rw [hcmp] at hdefP'
+      have hmapN := hdefP'
+        (fun x hx => hfrC x (List.mem_of_mem_take hx))
+        (fun x hx => by
+          obtain ⟨p, hp, rfl⟩ := List.mem_map.mp hx
+          exact hfrPin p hp)
+        (hspy.take _) hspB
+        (fun x hx => hoY x (List.mem_of_mem_take hx)) hgB ρ hρ
+      have hlt : i < (ys.take (RecRule.ctorParams rl)).length := by
+        rw [List.length_take, ← hspy.length, hmlen]; omega
+      have hgi := map_interp_getD_eqK hmapN hlt
+      rw [getD_takeAK hi] at hgi
+      -- the `i`-th comparand's reading is the chained pin
+      have hiB := hspB.getD (default : Expr) i (by
+        simp only [List.length_map]; omega)
+      rw [hgetB i (by omega), hvpa] at hiB
+      simp only [Option.map_some, Option.some.injEq] at hiB
+      rw [List.take_take, Nat.min_eq_left hrPle]
+      rw [hgi, ← hiB]
+    -- fire the law
+    obtain ⟨heqLaw, htrans⟩ := hlaw cvj cnP cnF hctor usj ρ (xs.take mI) ys
+      TVa TVja restR restC
+      (by rw [List.length_take, hxsLen]; omega)
+      (by rw [← hspy.length, hmlen])
+      hlenUj hψ hplain hnested hpinI (hTVaD 0) (hTVjaD 0)
+      (hfitR ρ hρ) (hfitC ρ hρ)
+    rw [List.take_take, Nat.min_eq_left hrPle] at heqLaw htrans
+    have hsubj : interp V ρ (AnnotTerm.mkAppN
+        (m.acval c (Level.substFn φ cv.levelParams us)) xs)
+        = interp V ρ (AnnotTerm.mkAppN
+          (m.acval c (Level.substFn φ cv.levelParams us))
+          (xs.take mI ++ [AnnotTerm.mkAppN
+            (m.acval rl.ctor (Level.substFn φ cvj.levelParams usj)) ys])) := by
+      refine interp_mkAppN_congrK xs _ rfl ?_
+      have hsplit : xs.map (interp V ρ)
+          = (xs.take mI ++ [xs.getD mI default]).map (interp V ρ) := by
+        rw [← take_getD_splitAK hxsLen]
+      rw [hsplit, List.map_append, List.map_append]
+      simp only [List.map_cons, List.map_nil, heqAll ρ hρ]
+      rfl
+    exact ⟨hsubj.trans heqLaw,
+      htrans (fun a ha => hoX a (List.mem_of_mem_take ha) ρ hρ)
+        (fun b hb2 => hoY b hb2 ρ hρ)⟩
+  -- the reduct: framed, leaf-covered, read, graded, interpretation-equal
+  have hspOut : ReadSpine m.acval env φ d
+      (e.getAppArgs.take rP ++ major.getAppArgs.drop (RecRule.ctorParams rl))
+      (xs.take rP ++ ys.drop (RecRule.ctorParams rl)) :=
+    (hspx.take rP).append (hspy.drop _)
+  refine ⟨frame_mkAppN ⟨ConLeche.Expr.WScoped.of_not_hasFvar hRnf, hRbd,
+      ConLeche.Expr.LeavesBounded.of_not_hasFvar hRnf⟩ (fun y hy => ?_),
+    leavesSub_mkAppN (leavesSub_of_not_hasFvar hRnf) (fun y hy => ?_),
+    _, readSpine_mkAppN hspOut (hRaD d), fun ρ hρ => (hmain ρ hρ).2,
+    fun ρ hρ => (hmain ρ hρ).1⟩
+  · rcases List.mem_append.mp hy with hy' | hy'
+    · exact (hfrE y (List.mem_of_mem_take hy')).1
+    · exact (hfrC y (List.mem_of_mem_drop hy')).1
+  · rcases List.mem_append.mp hy with hy' | hy'
+    · intro l hl
+      exact ConLeche.fvarLeaves_getAppArgs (List.mem_of_mem_take hy') l hl
+    · intro l hl
+      exact ConLeche.fvarLeaves_getAppArgs (ConLeche.getD_mem hmIlt) l
+        (hsubmj l (ConLeche.fvarLeaves_getAppArgs (List.mem_of_mem_drop hy') l hl))
 
 set_option linter.unusedVariables false in
 /-- The K rescue (`majorToCtorFueled_step`'s K arm, `Steps/Major.lean:383`,
