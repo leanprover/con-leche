@@ -1,6 +1,10 @@
 module
 
 public import ConLeche.Model.Rules.Inputs
+-- lane S-red's transplanted kit: `ReadSpine.length`, `PiChain`,
+-- `frame_spine`, `hoist_spine`, `mkAppN_of_fitA` … are shared rather
+-- than transplanted twice (the two lanes met in the middle).
+public import ConLeche.Model.Rules.RedSoundKit
 import ConLeche.Model.CtxOkKit
 import ConLeche.Model.WellDenotedTransport
 import ConLeche.Model.Annot.BitInst
@@ -67,12 +71,6 @@ theorem mem {as : List Expr} {vs : List AnnotTerm}
     rcases List.mem_cons.mp hx with rfl | hx'
     · exact ⟨_, ha⟩
     · exact ih x hx'
-
-theorem length {as : List Expr} {vs : List AnnotTerm}
-    (h : ReadSpine acval env φ d as vs) : as.length = vs.length := by
-  induction h with
-  | nil => rfl
-  | cons _ _ ih => simp [ih]
 
 theorem take {as : List Expr} {vs : List AnnotTerm}
     (h : ReadSpine acval env φ d as vs) :
@@ -736,25 +734,25 @@ theorem denoteMeta_openRev_baseK {acval : Name → (Name → Nat) → AnnotTerm}
       exact hbv.mono (by omega)
 
 /-- **Real-argument instantiation, read through the reverse opening**. -/
-theorem denoteMeta_openRevK {acval : Name → (Name → Nat) → AnnotTerm}
+theorem denoteMeta_openRevK {m : EnvModel V env}
     (hacl : ∀ (n : Name) (ψ : Name → Nat) (k : Nat),
-      (acval n ψ).liftN 1 k = acval n ψ)
+      (m.acval n ψ).liftN 1 k = m.acval n ψ)
     (hainst : ∀ (n : Name) (ψ : Name → Nat) (y : AnnotTerm) (k : Nat),
-      (acval n ψ).inst y k = acval n ψ) :
+      (m.acval n ψ).inst y k = m.acval n ψ) :
     ∀ (as : List Expr) {e : Expr} {d : Nat},
       (∀ a ∈ as, Expr.WScoped d a ∧ a.looseBVarsBounded 0 = true) →
       Expr.fvarsBelow d e → e.looseBVarsBounded as.length = true →
-      ∀ {vs : List AnnotTerm}, ReadSpine acval env φ d as vs →
-      denoteMeta acval env φ d (Expr.instSeq as (as.length - 1) e)
-        = (denoteMeta acval env φ (d + as.length)
+      ∀ {vs : List AnnotTerm}, ReadSpine m.acval env φ d as vs →
+      denoteMeta m.acval env φ d (Expr.instSeq as (as.length - 1) e)
+        = (denoteMeta m.acval env φ (d + as.length)
             (openRev d as.length e)).map (AnnotTerm.instRevChain vs) := by
   intro as
   induction as with
   | nil =>
     intro e d _ _ _ vs hsp
     cases hsp
-    show denoteMeta acval env φ d e = (denoteMeta acval env φ (d + 0) e).map _
-    cases denoteMeta acval env φ d e <;> rfl
+    show denoteMeta m.acval env φ d e = (denoteMeta m.acval env φ (d + 0) e).map _
+    cases denoteMeta m.acval env φ d e <;> rfl
   | cons a as ih =>
     intro e d hargs hfb hb vs hsp
     cases hsp with
@@ -763,7 +761,7 @@ theorem denoteMeta_openRevK {acval : Name → (Name → Nat) → AnnotTerm}
         x.looseBVarsBounded 0 = true :=
       fun x hx => hargs x (List.mem_cons_of_mem _ hx)
     obtain ⟨hwa, hba⟩ := hargs a List.mem_cons_self
-    show denoteMeta acval env φ d
+    show denoteMeta m.acval env φ d
       (Expr.instSeq as ((a :: as).length - 1 - 1)
         (e.instantiate1 a ((a :: as).length - 1))) = _
     rw [show (a :: as).length - 1 - 1 = as.length - 1 from by simp,
@@ -773,14 +771,14 @@ theorem denoteMeta_openRevK {acval : Name → (Name → Nat) → AnnotTerm}
       (Expr.looseBVarsBounded_instantiate1_gen hba (by simpa using hb))
       hsp']
     rw [openRev_instantiate1_top hba d as.length e]
-    have ha' : denoteMeta acval env φ (d + as.length) a
+    have ha' : denoteMeta m.acval env φ (d + as.length) a
         = some (va.liftN as.length) := by
       rw [denoteMeta_lift hacl hwa (d + as.length) (by omega), ha,
         show d + as.length - d = as.length from by omega]
       rfl
     rw [denoteMeta_beta (ty := .sort .zero) hacl hainst
       (openRev_fvarsBelow hfb as.length) (hwa.mono (by omega)) hba ha' 0]
-    show ((denoteMeta acval env φ (d + as.length + 1)
+    show ((denoteMeta m.acval env φ (d + as.length + 1)
       (openRev d (as.length + 1) e)).map
         (AnnotTerm.inst · (va.liftN as.length) 0)).map
         (AnnotTerm.instRevChain vs') = _
@@ -789,7 +787,7 @@ theorem denoteMeta_openRevK {acval : Name → (Name → Nat) → AnnotTerm}
         simp only [List.length_cons]
         omega,
       show (a :: as).length = as.length + 1 from rfl]
-    cases denoteMeta acval env φ (d + (as.length + 1))
+    cases denoteMeta m.acval env φ (d + (as.length + 1))
         (openRev d (as.length + 1) e) with
     | none => rfl
     | some X =>
