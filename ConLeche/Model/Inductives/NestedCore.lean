@@ -1723,6 +1723,20 @@ structure NestedStageFacts (st : ElimState) (mp₂ : EnvModelM V μ ENV₂) : Pr
     ((D).ksF mm j).getD l .ordinary = .recursive →
     ∃ d : Nat, dom.1.getAppArgs.take ((D).pinAt q).nPJ
       = ((Expr.abstractRange pin 0 p.nP 0).liftLooseBVars d 0).getAppArgs
+  /-- **AND THE SAME AT A REFLEXIVE NESTED FIELD** (task #315 K.63):
+  carried beside `pinArgsAbs` because K.63's guard reads the stored
+  domain's `Π`-BODY, where K.60's claims nothing by construction. -/
+  pinArgsAbsRefl : ∀ (mm j l : Nat) (c : ConstantVal × Nat × Nat)
+      (bs : List (Expr × BinderMeta)) (r : Expr) (dom : Expr × BinderMeta)
+      (pin : Expr) (q : Nat), mm < p.k →
+    (ctorsR.getD mm [])[j]? = some c →
+    c.1.type.stripPis ((D).nP + c.2.2) = some (bs, r) →
+    bs[(D).nP + l]? = some dom →
+    pin = Expr.mkAppN (.const ((D).pinAt q).J ((D).pinAt q).lvls) ((D).pinAt q).DsE →
+    (D).nestOf mm j l = some q →
+    ((D).ksF mm j).getD l .ordinary = .reflexive →
+    ∃ d : Nat, (ConLeche.stripDomPis dom.1).getAppArgs.take ((D).pinAt q).nPJ
+      = ((Expr.abstractRange pin 0 p.nP 0).liftLooseBVars d 0).getAppArgs
   /-- **THE RESTORED CONSTRUCTOR'S STORED TYPE HAS ITS `.proj` SLOTS AT
   THE MEMBERS' PREFIX ENVIRONMENT** (task #315 PINF): the front door's
   own `slots`, kept because it is the only place the fact is TRUE.
@@ -1853,6 +1867,20 @@ structure NestedLoopFacts (st : ElimState) (mp₁ : EnvModelM V μ ENV₁) (mp�
     (D).nestOf mm j l = some q →
     ((D).ksF mm j).getD l .ordinary = .recursive →
     ∃ d : Nat, dom.1.getAppArgs.take ((D).pinAt q).nPJ
+      = ((Expr.abstractRange pin 0 p.nP 0).liftLooseBVars d 0).getAppArgs
+  /-- **AND THE SAME AT A REFLEXIVE NESTED FIELD** (task #315 K.63):
+  carried beside `pinArgsAbs` because K.63's guard reads the stored
+  domain's `Π`-BODY, where K.60's claims nothing by construction. -/
+  pinArgsAbsRefl : ∀ (mm j l : Nat) (c : ConstantVal × Nat × Nat)
+      (bs : List (Expr × BinderMeta)) (r : Expr) (dom : Expr × BinderMeta)
+      (pin : Expr) (q : Nat), mm < p.k →
+    (ctorsR.getD mm [])[j]? = some c →
+    c.1.type.stripPis ((D).nP + c.2.2) = some (bs, r) →
+    bs[(D).nP + l]? = some dom →
+    pin = Expr.mkAppN (.const ((D).pinAt q).J ((D).pinAt q).lvls) ((D).pinAt q).DsE →
+    (D).nestOf mm j l = some q →
+    ((D).ksF mm j).getD l .ordinary = .reflexive →
+    ∃ d : Nat, (ConLeche.stripDomPis dom.1).getAppArgs.take ((D).pinAt q).nPJ
       = ((Expr.abstractRange pin 0 p.nP 0).liftLooseBVars d 0).getAppArgs
   /-- **THE RESTORED CONSTRUCTOR'S STORED TYPE HAS ITS `.proj` SLOTS AT
   THE MEMBERS' PREFIX ENVIRONMENT** (task #315 PINF): the front door's
@@ -2221,7 +2249,8 @@ theorem nestedStageFacts_of (hst : NestedCtorsStaged V μ F) (hμ : μ.verifiedC
       leafM := fun t f ht hft => (L.leafKeep t f ht hft).trans (hleafM' t f ht hft)
       FD := fun t f ht hft => FormerData.crossEnv' L.hde (hfind' t f ht hft).2
       ctorsLen := hctorsLen, ctorFacts := L.ctorFacts, domFacts := L.domFacts
-      pinArgs := L.pinArgs, pinArgsAbs := L.pinArgsAbs, ctorSlots := L.ctorSlots
+      pinArgs := L.pinArgs, pinArgsAbs := L.pinArgsAbs, pinArgsAbsRefl := L.pinArgsAbsRefl
+      ctorSlots := L.ctorSlots
       groups := L.groups, groupsAt := L.groupsAt }⟩
   intro n hn ψ
   have hnM : n ∉ p.memberNames := fun hm => hn (List.mem_append_left _ hm)
