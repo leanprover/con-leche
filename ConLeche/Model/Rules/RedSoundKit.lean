@@ -2,12 +2,12 @@ module
 
 public import ConLeche.Model.Rules.Inputs
 import ConLeche.Model.Annot.BitLemmas
+import ConLeche.Verify.InferLeaves
 import ConLeche.Model.Annot.BitLevels
 import ConLeche.Model.Annot.BitClosed
 import ConLeche.Model.Annot.BitInstall
 import ConLeche.Model.CtxOkKit
 import ConLeche.Verify.InstLevels
-import ConLeche.Verify.InferLeaves
 import ConLeche.Verify.Denote.StrLit
 import ConLeche.Model.WellDenotedTransport
 import ConLeche.Model.IOLicense

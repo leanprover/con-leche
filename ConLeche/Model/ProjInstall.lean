@@ -3,6 +3,7 @@ module
 import ConLeche.Semantics.IndBlockRun
 public import ConLeche.Model.ProjCons
 import ConLeche.Model.Annot.BitLevels
+import ConLeche.Model.Capstone
 public section
 
 /-!

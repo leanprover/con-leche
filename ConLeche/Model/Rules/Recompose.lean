@@ -1,7 +1,6 @@
 module
 
 public import ConLeche.Model.Rules.Inputs
-public import ConLeche.Model.Claims
 public import ConLeche.Model.ClaimsIO
 import ConLeche.Model.Rules.Sound
 import ConLeche.Verify.Rules.Bridge

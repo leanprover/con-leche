@@ -1,8 +1,8 @@
 module
 
 import ConLeche.Model.Install
-public import ConLeche.Model.NatStep
 public import ConLeche.Model.Tiers
+import ConLeche.Model.NatStep
 
 public section
 

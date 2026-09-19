@@ -1,7 +1,7 @@
 module
 
-public import ConLeche.Model.Rules.Recompose
 public import ConLeche.Model.CtxOkKit
+public import ConLeche.Model.Rules.Recompose
 import ConLeche.Model.Annot.BitLemmas
 import ConLeche.Model.Rules.Sound
 import ConLeche.Verify.Rules.Bridge

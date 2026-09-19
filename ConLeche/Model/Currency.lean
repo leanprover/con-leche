@@ -3,7 +3,6 @@ module
 public import ConLeche.Model.Annot.Valid
 public import ConLeche.Model.Annot.EnvModel
 public import ConLeche.Semantics.Sat
-public import ConLeche.Semantics.WellDenoted
 public import ConLeche.Verify.Shift
 
 public section

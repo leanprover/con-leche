@@ -3,10 +3,8 @@ module
 public import ConLeche.Model.Rules.Inputs
 import ConLeche.Semantics.LitParams
 import ConLeche.Model.Rules.InferSoundKit
-import ConLeche.Model.Rules.RedSoundKit
 import ConLeche.Model.IOLicense
 import ConLeche.Model.CtxOkKit
-import ConLeche.Model.Rules.DefEqSoundKit
 import ConLeche.Model.Annot.BitInst
 import ConLeche.Model.Annot.ValidSpine
 import ConLeche.Model.WellDenotedTransport

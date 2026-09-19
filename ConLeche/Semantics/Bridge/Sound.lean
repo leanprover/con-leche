@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Semantics.Inductives.DeclNative
-public import ConLeche.Semantics.Bridge.DeclRun
+import ConLeche.Semantics.Bridge.DeclRun
 import ConLeche.Semantics.Bridge.DeclIndRun
 
 @[expose] public section

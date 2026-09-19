@@ -4,11 +4,8 @@ public import ConLeche.Model.Annot.Laws
 import ConLeche.Model.Annot.BitLevels
 import ConLeche.Model.Annot.BitClosed
 public import ConLeche.Semantics.EnvFacts
-public import ConLeche.Semantics.DivModEval
 import ConLeche.Verify.Denote
-import ConLeche.Verify.Denote.OpenVars
 import ConLeche.Verify.Denote.VClosed
-public import ConLeche.Verify.ProjTele
 
 public section
 

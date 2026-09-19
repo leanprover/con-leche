@@ -8,7 +8,7 @@ import ConLeche.Verify.Inductives.StructBody
 `import all` restores that view HERE only. -/
 import all ConLeche.Kernel.PropWhen
 import ConLeche.Model.Rules.InferSoundKit
-public import ConLeche.Model.Inductives.StructIntro
+import ConLeche.Model.Inductives.StructIntro
 
 public section
 

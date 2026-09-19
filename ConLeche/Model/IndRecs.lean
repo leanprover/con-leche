@@ -4,7 +4,7 @@ import ConLeche.Semantics.IndBlockRun
 public import ConLeche.Semantics.IndRecsCore
 public import ConLeche.Model.Swap
 import ConLeche.Model.IndMembers
-public import ConLeche.Model.Capstone
+import ConLeche.Model.Capstone
 public section
 
 /-!

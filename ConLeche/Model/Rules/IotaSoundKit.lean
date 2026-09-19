@@ -1,10 +1,10 @@
 module
 
-public import ConLeche.Model.Rules.Inputs
 -- lane S-red's kit is the SHARED one: `DenoteMetaSpine`'s list algebra,
 -- `denoteMeta_mkAppN(_inv)`, `frame_spine`, `hoist_spine`,
 -- `mkAppN_of_fitA`, `PiChain`/`peelPis_of_piChain` and the tower
 -- entry's reading live there, not here.
+public import ConLeche.Model.Rules.Inputs
 import ConLeche.Model.Rules.RedSoundKit
 import ConLeche.Model.Annot.BitInst
 import ConLeche.Model.Annot.BitShift

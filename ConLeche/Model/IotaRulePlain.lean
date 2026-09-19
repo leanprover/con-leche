@@ -5,7 +5,7 @@ public import ConLeche.Model.IndBottomProj
 import ConLeche.Model.Annot.Bit
 -- task #161 S10: `acceptedReads_of` — the rule rhs's reading comes
 -- from the recorded RUN, not from `IotaRuleR`'s derivation row.
-public import ConLeche.Model.Tiers
+import ConLeche.Model.Tiers
 public section
 
 /-!
