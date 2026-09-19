@@ -715,6 +715,162 @@ theorem prf_of_isProofFast {m : EnvModel V env} (hct : ConstTy m φ)
     exact absurd hprop (by simp)
 
 
+
+/-! ## The ∀-chain guard and the fit's un-instantiation
+(`Steps/CapsRows.lean:73-182`, `:452`) -/
+
+/-- The reading's first `n` heads are `.pi` nodes. -/
+@[expose] def PiChain : Nat → AnnotTerm → Prop
+  | 0, _ => True
+  | n + 1, e =>
+    match e with
+    | .pi _ _ _ B => PiChain n B
+    | _ => False
+
+@[simp] theorem piChain_zero (e : AnnotTerm) : PiChain 0 e := trivial
+
+@[simp] theorem piChain_succ_pi {n u v : Nat} {A B : AnnotTerm} :
+    PiChain (n + 1) (.pi u v A B) = PiChain n B := rfl
+
+theorem piChain_succ_inv {n : Nat} {e : AnnotTerm} (h : PiChain (n + 1) e) :
+    ∃ u v A B, e = .pi u v A B ∧ PiChain n B := by
+  match e with
+  | .pi u v A B => exact ⟨u, v, A, B, rfl, h⟩
+  | .bvar _ | .sort _ | .const _ _ | .app _ _ | .lam _ _ _
+  | .eqE _ _ | .fst _ | .snd _ | .prf => exact nomatch h
+
+theorem PiChain.inst : ∀ {n : Nat} {e : AnnotTerm} (a : AnnotTerm) (k : Nat),
+    PiChain n e → PiChain n (e.inst a k) := by
+  intro n
+  induction n with
+  | zero => intro _ _ _ _; trivial
+  | succ n ih =>
+    intro e a k h
+    obtain ⟨u, v, A, B, rfl, hB⟩ := piChain_succ_inv h
+    exact ih a (k + 1) hB
+
+/-- **A syntactic ∀-telescope reads to a ∀-chain.** -/
+theorem piChain_of_stripPis {acval : Name → (Name → Nat) → AnnotTerm} :
+    ∀ (n : Nat) {d : Nat} {e : Expr} {ea : AnnotTerm},
+      (e.stripPis n).isSome = true →
+      denoteMeta acval env φ d e = some ea → PiChain n ea := by
+  intro n
+  induction n with
+  | zero => intro _ _ _ _ _; trivial
+  | succ n ih =>
+    intro d e ea hs hd
+    match e, hs with
+    | .bvar _, hs => exact nomatch hs
+    | .fvar _ _, hs => exact nomatch hs
+    | .sort _, hs => exact nomatch hs
+    | .const _ _, hs => exact nomatch hs
+    | .app _ _, hs => exact nomatch hs
+    | .lam _ _ _, hs => exact nomatch hs
+    | .letE _ _ _, hs => exact nomatch hs
+    | .lit _, hs => exact nomatch hs
+    | .proj _ _ _, hs => exact nomatch hs
+    | .forallE ty bd mb, hs =>
+      obtain ⟨ta, ba, -, hba, rfl⟩ := denoteMeta_forallE_inv hd
+      simp only [ConLeche.Expr.stripPis, Option.isSome_map] at hs
+      exact ih (ConLeche.Expr.stripPis_instantiate1_isSome n 0 hs) hba
+
+theorem teleFit_nil_inv {ρ : Nat → V} {T : AnnotTerm} {rest : V}
+    (h : TeleFit V ρ T [] rest) : rest = interp V ρ T := by
+  cases h; rfl
+
+/-- **The fit un-instantiates, under the ∀-chain guard.** -/
+theorem teleFit_of_inst {aa : AnnotTerm} :
+    ∀ {L : List V} {E : AnnotTerm} {k : Nat} {ρ : Nat → V} {rest : V},
+      PiChain L.length E →
+      TeleFit V ρ (E.inst aa k) L rest →
+      TeleFit V (instE k (interp V (shiftE k 0 ρ) aa) ρ) E L rest := by
+  intro L
+  induction L with
+  | nil =>
+    intro E k ρ rest _ h
+    obtain rfl : rest = interp V ρ (E.inst aa k) := teleFit_nil_inv h
+    rw [interp_inst]
+    exact .nil
+  | cons y ys ih =>
+    intro E k ρ rest hpc h
+    obtain ⟨u, v, A, B, rfl, hB⟩ := piChain_succ_inv hpc
+    rw [AnnotTerm.inst_pi] at h
+    cases h with
+    | cons hmem hfit =>
+      refine .cons (by rwa [interp_inst] at hmem) ?_
+      have hrec := ih (E := B) (k := k + 1) (ρ := cons y ρ) hB hfit
+      rw [shiftE_succ_cons] at hrec
+      rw [cons_instE]
+      exact hrec
+
+theorem teleFit_of_inst0 {aa : AnnotTerm} {L : List V} {E : AnnotTerm}
+    {ρ : Nat → V} {rest : V} (hpc : PiChain L.length E)
+    (h : TeleFit V ρ (E.inst aa) L rest) :
+    TeleFit V (cons (interp V ρ aa) ρ) E L rest := by
+  have := teleFit_of_inst hpc h
+  rwa [shiftE_zero_zero, instE_zero] at this
+
+/-- **The rules tier's bridge**: the motive `CertsSem` concludes the
+substitution-peeling fit `TeleFitPA` (`certs_telePA`'s currency) while
+the capability laws `EtaLaw`/`UnitLaw` consume the value-level
+`TeleFit`.  Under the ∀-chain guard — which every call site holds from
+the family's `stripPis` conjunct — the two agree: `TeleFitPA` peels
+`B.inst a` where `TeleFit` extends the environment, and
+`teleFit_of_inst0` is exactly that exchange.  (Without the guard the
+PA fit is strictly stronger: it can walk through a `.bvar 0` body,
+`teleFit_bvar_stuck`.) -/
+theorem teleFit_of_PA {ρ : Nat → V} :
+    ∀ {as : List AnnotTerm} {T rest : AnnotTerm},
+      PiChain as.length T → TeleFitPA V ρ T as rest →
+      TeleFit V ρ T (as.map (interp V ρ)) (interp V ρ rest) := by
+  intro as
+  induction as with
+  | nil =>
+    intro T rest _ h
+    cases h
+    exact .nil
+  | cons a as ih =>
+    intro T rest hpc h
+    obtain ⟨u, v, A, B, rfl, hB⟩ := piChain_succ_inv hpc
+    cases h with
+    | cons hmem htail =>
+      refine .cons hmem ?_
+      exact teleFit_of_inst0 (by simpa using hB)
+        (ih (PiChain.inst a 0 hB) htail)
+
+/-! ## Spine frames and gradings (`Steps/Stuck.lean:171`, `:194`) -/
+
+/-- Every argument of a graded application spine is graded, and so is
+its head. -/
+theorem Graded.mkAppN {Δa : List AnnotTerm} :
+    ∀ (asa : List AnnotTerm) {fa : AnnotTerm},
+      Graded V Δa (AnnotTerm.mkAppN fa asa) →
+      Graded V Δa fa ∧ ∀ x ∈ asa, Graded V Δa x := by
+  intro asa
+  induction asa with
+  | nil => intro fa h; exact ⟨h, by simp⟩
+  | cons a as ih =>
+    intro fa h
+    obtain ⟨happ, hrest⟩ := ih (fa := .app fa a) h
+    refine ⟨fun ρ hρ => ⟨?_, ?_⟩, ?_⟩
+    · exact ((WellDenoted_app V ρ fa a) ▸ (happ ρ hρ).1).1
+    · exact ((AnnotValid_app V ρ fa a) ▸ (happ ρ hρ).2).1
+    · intro x hx
+      rcases List.mem_cons.mp hx with rfl | hx'
+      · exact fun ρ hρ =>
+          ⟨((WellDenoted_app V ρ fa x) ▸ (happ ρ hρ).1).2.1,
+            ((AnnotValid_app V ρ fa x) ▸ (happ ρ hρ).2).2⟩
+      · exact hrest x hx'
+
+/-- The frame and context of every argument of a spine. -/
+theorem Frame.getAppArgs {m : EnvModel V env} {d : Nat}
+    {Δa : List AnnotTerm} {a : Expr} (hf : Frame d a)
+    (hC : CtxOk m φ d Δa a) :
+    ∀ x ∈ a.getAppArgs, Frame d x ∧ CtxOk m φ d Δa x := fun x hx =>
+  ⟨⟨hf.1.getAppArgs x hx, ConLeche.looseBVarsBounded_getAppArgs hf.2.1 x hx,
+      fun l hl => hf.2.2 l (ConLeche.fvarLeaves_getAppArgs hx l hl)⟩,
+    hC.of_subset (fun l hl => ConLeche.fvarLeaves_getAppArgs hx l hl)⟩
+
 /-! ## The two proof-irrelevance sides (`Steps/Irrel.lean:71`, `:119`)
 
 `prop_side_pt`/`unit_side_pt` at the motives: the run premises become
