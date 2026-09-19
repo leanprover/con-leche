@@ -2355,6 +2355,59 @@ private theorem mutualOpenedOk_recHead {env₀ : Env} {members : List (Name × N
   exact hcell.1.1.1.1.1
 
 omit [SetTheory V] R SF S in
+/-- **`mutualOpenedOk`'s `.reflexive` clause, read** (task #315 PINF):
+`mutualOpenedOk_recHead` one `Π`-tower down.  At a REFLEXIVE field the
+kernel's re-check opens the field's OWN telescope with
+`openPisAtFvars` at `(piBinders).1.length` and then asks the SAME head
+equation of the body that the recursive cell asks of the domain — so
+the reader is that one's, plus the `match` arm on the opening. -/
+private theorem mutualOpenedOk_reflHead {env₀ : Env} {members : List (Name × Nat × Nat)}
+    {lps : List Name} {nP nF : Nat} {cty : Expr} {ks : List (RecFieldKind × Nat)}
+    (h : ConLeche.mutualOpenedOk env₀ members lps nP cty nF ks = true)
+    {fvsP xFvs : List Expr} {crest xrest : Expr}
+    (hop1 : ConLeche.openPisAtFvars nP cty 0 = some (fvsP, crest))
+    (hop2 : ConLeche.openPisAtFvars nF crest nP = some (xFvs, xrest))
+    {l : Nat} {x' : Expr} (hx' : xFvs[l]? = some x')
+    (hk : kindAt ks l = RecFieldKind.reflexive) :
+    ∃ afvs body,
+      ConLeche.openPisAtFvars (x'.fvarTypeD.piBinders).1.length x'.fvarTypeD (nP + l)
+        = some (afvs, body) ∧
+      body.getAppFn
+        = Expr.const (mutualNameOf members (tgtAt ks l)) (lps.map Level.param) := by
+  classical
+  rw [ConLeche.mutualOpenedOk] at h
+  simp only at h
+  rw [hop1] at h
+  simp only at h
+  rw [hop2] at h
+  simp only [Bool.and_eq_true] at h
+  obtain ⟨-, hfields⟩ := h
+  have hlt : l < nF := by
+    have h1 := ConLeche.openPisAtFvars_len _ hop2
+    have h2 := (List.getElem?_eq_some_iff.mp hx').1
+    omega
+  have hcell := (List.all_eq_true.mp hfields) l (by simpa using List.mem_range.mpr hlt)
+  rw [hx'] at hcell
+  rcases hks : ks.getD l (.ordinary, 0) with ⟨r, t⟩
+  rw [hks] at hcell
+  have hr : r = RecFieldKind.reflexive := by
+    simp only [kindAt, hks] at hk
+    exact hk
+  subst hr
+  simp only at hcell
+  cases hop : ConLeche.openPisAtFvars (x'.fvarTypeD.piBinders).1.length x'.fvarTypeD (nP + l) with
+  | none =>
+    rw [hop] at hcell
+    exact nomatch hcell
+  | some pr =>
+    obtain ⟨afvs, body⟩ := pr
+    rw [hop] at hcell
+    simp only [Bool.and_eq_true, beq_iff_eq] at hcell
+    simp only [tgtAt, hks]
+    exact ⟨afvs, body, rfl, hcell.1.1.1.1.1.2⟩
+
+
+omit [SetTheory V] R SF S in
 /-- A `Nodup` list's positions are determined by their entries. -/
 private theorem nodup_getElem?_inj {α : Type} : ∀ {L : List α}, L.Nodup →
     ∀ {i₁ i₂ : Nat} {a : α}, L[i₁]? = some a → L[i₂]? = some a → i₁ = i₂
@@ -3495,6 +3548,211 @@ theorem NestedPinsRun.copyPinFStored {pbs : List (Expr × ConLeche.BinderMeta)}
       = some ft := ⟨_, List.getElem?_eq_getElem (htgtLt l)⟩
   obtain ⟨hnameT, -⟩ := R.h.memT _ _ hft
   exact ⟨ft, hft, by rw [← hnameT]; exact ((ConLeche.Expr.const.inj hmemHead).1).symm⟩
+
+omit [SetTheory V] R SF S in
+/-- An erasure-equal partner of a constant IS that constant. -/
+private theorem erasedEq_const_invD {T : Name} {lvls : List Level} {e : Expr}
+    (h : Expr.ErasedEq e (.const T lvls)) : e = .const T lvls := by
+  match e, h with
+  | .const n us, h =>
+    obtain ⟨rfl, rfl⟩ := h
+    rfl
+
+omit SF S in
+/-- **THE PIN ARM'S REWRITTEN DOMAIN, AT A REFLEXIVE FIELD** (task
+#315 PINF): `copyPinFStored` one `Π`-tower down.
+
+The minted domain of a reflexive nested field is a `Π` TOWER whose
+BODY is the container spine, so the run that fires is the BODY's and
+its output `Fl` is the stored domain's tower body, not the stored
+domain — which is why the fire itself is `copyPinFStoredGen`, stated
+at a bound output.  All this theorem adds is that lemma's `hname` at
+the tower: `Fl`'s head is the stored domain's tower body's head
+(`Expr.piBinders_instSeq` and `instSeq_mkPisB`, the openers being
+variables), the positivity normalisation carries the tower across
+(`normCtorValM_domErasedPi`, read through
+`Expr.ErasedEq.stripPis_inv`), and the classification's own re-check
+names the member at its REFLEXIVE cell (`mutualOpenedOk_reflHead`),
+which opens the field's own telescope and asks the same head equation
+the recursive cell asks one binder level up.
+
+The caller supplies the tower `hFlStrip`; at the copy's field it comes
+from the rewrite's descent into a `∀`-telescope
+(`replaceAllNested_mkPisB_inert`). -/
+theorem NestedPinsRun.copyPinFStoredRefl {pbs : List (Expr × ConLeche.BinderMeta)}
+    (hPD : ∀ q, q < st.pins.length → PinData env st p pbs q)
+    {i' j : Nat}
+    {Fs' pbs₀ : List (Expr × ConLeche.BinderMeta)} {cbody' o o' resB : Expr}
+    {params : List Expr} {cA : ConstantVal × Nat} {cname : Name} {nFlds : Nat}
+    (hopb : ConLeche.openPisAtFvars b.nP f₀.cvTa.type 0 = some (params, o))
+    (hplenB : params.length = b.nP)
+    (hidxP : ∀ n, n < b.nP → ∃ ty, params[n]? = some (Expr.fvar n ty))
+    (hpbs₀len : pbs₀.length = b.nP) (hpbs₀f : ∀ y ∈ pbs₀, y.1.hasFvar = false)
+    (hstripF : f₀.cvTa.type.stripPis b.nP = some (pbs₀, o'))
+    (hcbb : cbody'.looseBVarsBounded 0 = true)
+    (hcbl : ∀ lf ∈ cbody'.fvarLeaves, Expr.fvar lf.1 lf.2 ∈ params)
+    (hlenF : Fs'.length = nFlds)
+    (hcb' : cbody'.stripPis nFlds = some (Fs', resB))
+    (hcA : ctorsA[b.ownOffset (p.k + q₀ + i') + j]? = some cA) (hnF : cA.2 = nFlds)
+    (hbc : b.ctors[b.ownOffset (p.k + q₀ + i') + j]?
+      = some ⟨⟨cname, p.lps, closeTelescope pbs₀ 0 cbody'⟩, nFlds, p.k + q₀ + i'⟩)
+    {l : Nat} (hlcc : l < nFlds)
+    (hkA : kindAt (mutKsOf kinds (b.ownOffset (p.k + q₀ + i') + j)) l = RecFieldKind.reflexive)
+    {TL : List (Expr × ConLeche.BinderMeta)} {Fl : Expr}
+    (hFlStrip : (Fs'.getD l default).1.stripPis TL.length = some (TL, Fl))
+    {I : Name} {ci' : ContainerInfo} {us : List Level} {AS : List Expr}
+    (hci' : ConLeche.containerInfo? env I = some ci')
+    (hnPle : ci'.nP ≤ AS.length)
+    {st₁ st₂ : ElimState}
+    (hrun : ConLeche.replaceAllNested env (p.lps.map Level.param) params pbs₀ st₁
+        (Expr.mkAppN (Expr.const I us) AS) = .ok (Fl, st₂))
+    (hpre : st₂.pins <+: st.pins) :
+    ∃ (qn' : ConLeche.NestedPin) (qq : Nat),
+      st.pins[qq]? = some qn' ∧
+      (∀ a ∈ AS.take ci'.nP, a.looseBVarsBounded 0 = true) ∧
+      qn'.pin = Expr.mkAppN (Expr.const I us) (AS.take ci'.nP) ∧
+      Fl
+        = Expr.mkAppN (Expr.mkAppN (Expr.const qn'.aux (p.lps.map Level.param)) params)
+            (AS.drop ci'.nP) ∧
+      tgtAt (mutKsOf kinds (b.ownOffset (p.k + q₀ + i') + j)) l = p.k + qq := by
+  classical
+  have hCD := R.h.CD _ _ hcA
+  -- the given type's two-stage opening, and the field's domain in it
+  obtain ⟨crest', hopP', hopX'⟩ := hCD.opens
+  obtain ⟨-, sorts, -, hCtor⟩ := R.h.runC _ _ hcA
+  obtain ⟨hnorm, -, hbndC⟩ := ConLeche.checkMutualCtor_true_norm hCtor
+  have hcvC : (b.ctors.getD (b.ownOffset (p.k + q₀ + i') + j) default).cv
+      = ⟨cname, p.lps, closeTelescope pbs₀ 0 cbody'⟩ := by
+    rw [List.getD_eq_getElem?_getD, hbc]; rfl
+  rw [hcvC] at hnorm hbndC
+  rw [hnF] at hnorm hopX'
+  obtain ⟨fvsA, -, -, hlawA⟩ := ConLeche.openPisAtFvars_mkPisB b.nP pbs₀ hpbs₀len 0
+  have hfvsA : fvsA = params := by
+    have hlaw := hlawA o'
+    rw [← ConLeche.stripPis_mkPisB _ hstripF] at hlaw
+    exact (Prod.mk.inj (Option.some.inj (hlaw.symm.trans hopb))).1
+  have hop1 : ConLeche.openPisAtFvars b.nP (closeTelescope pbs₀ 0 cbody') 0
+      = some (params, cbody') := by
+    rw [ConLeche.closeTelescope_eq_mkPisB pbs₀ 0 cbody' hpbs₀f, hpbs₀len, hlawA, hfvsA,
+      ConLeche.instSeq_abstractRange_fvs b.nP params cbody' hcbb hplenB hidxP hcbl]
+  obtain ⟨xfvs, hxflen, -, hlawX⟩ := ConLeche.openPisAtFvars_mkPisB nFlds Fs' hlenF b.nP
+  have hop2 : ConLeche.openPisAtFvars nFlds cbody' b.nP
+      = some (xfvs, Expr.instSeq xfvs (nFlds - 1) resB) := by
+    rw [ConLeche.stripPis_mkPisB _ hcb']; exact hlawX resB
+  obtain ⟨x, hx⟩ : ∃ x, xfvs[l]? = some x :=
+    ⟨_, List.getElem?_eq_getElem (by rw [hxflen]; exact hlcc)⟩
+  -- the given opened domain, at the field's own cut
+  have hstripC : (closeTelescope pbs₀ 0 cbody').stripPis (b.nP + nFlds)
+      = some (pbs₀ ++ ConLeche.abstractTele 0 pbs₀.length 0 Fs',
+          resB.abstractRange 0 pbs₀.length Fs'.length) := by
+    rw [ConLeche.stripPis_mkPisB _ hcb']
+    rw [show b.nP + nFlds = pbs₀.length + Fs'.length from by rw [hpbs₀len, hlenF]]
+    exact ConLeche.closeTelescope_mkPisB_strip hpbs₀f
+  have habs : (ConLeche.abstractTele 0 pbs₀.length 0 Fs')[l]?
+      = some ((ConLeche.abstractTele 0 pbs₀.length 0 Fs').getD l default) := by
+    rw [List.getD_eq_getElem?_getD,
+      List.getElem?_eq_getElem (show l < (ConLeche.abstractTele 0 pbs₀.length 0 Fs').length from by
+        rw [ConLeche.abstractTele_length, hlenF]; exact hlcc)]
+    rfl
+  have hxdom : x.fvarTypeD = Expr.instSeq (params ++ xfvs.take l) (b.nP + l - 1)
+      ((ConLeche.abstractTele 0 pbs₀.length 0 Fs').getD l default).1 :=
+    ConLeche.os_field_domain b.nP nFlds l
+      (openPisAtFvars_add b.nP hop1 (by rw [Nat.zero_add]; exact hop2))
+      hstripC hplenB hpbs₀len hx habs
+  have hFsl : Fs'[l]? = some (Fs'.getD l default) := by
+    rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem (by rw [hlenF]; exact hlcc)]
+    rfl
+  have hFlBnd : (Fs'.getD l default).1.looseBVarsBounded l = true := by
+    have h := ConLeche.stripPis_binder_bounded nFlds hcb' hcbb l _ hFsl
+    simpa using h
+  have hFlLeaves : ∀ lf ∈ (Fs'.getD l default).1.fvarLeaves, Expr.fvar lf.1 lf.2 ∈ params :=
+    fun lf hlf => hcbl lf (ConLeche.stripPis_binder_leaves nFlds hcb' l _ hFsl lf hlf)
+  have hxdom2 : x.fvarTypeD = Expr.instSeq (xfvs.take l) (l - 1) (Fs'.getD l default).1 := by
+    rw [hxdom, ConLeche.abstractTele_getD 0 pbs₀.length Fs' 0 l (by rw [hlenF]; exact hlcc),
+      Expr.instSeq_append, hplenB, show b.nP + l - 1 - b.nP = l - 1 from by omega, hpbs₀len]
+    simp only [Nat.zero_add]
+    rw [ConLeche.instSeq_abstractRange_fvs_at b.nP l params _ hFlBnd hplenB hidxP hFlLeaves]
+  obtain ⟨x', hx'⟩ : ∃ x', (xFvsF (b.ownOffset (p.k + q₀ + i') + j))[l]? = some x' :=
+    ⟨_, List.getElem?_eq_getElem (by rw [hCD.xLen, hnF]; exact hlcc)⟩
+  -- `copyPinFStoredGen`'s `hname`, at a REFLEXIVE field: the stored
+  -- domain is a tower over the run's output, so the question is asked of
+  -- the tower's BODY on both sides of the normalisation
+  refine R.copyPinFStoredGen hPD hci' hnPle hrun hpre ?_
+  intro cn uus cv caps hFlHead hfind
+  have hxfvsLe : (xfvs.take l).length ≤ l - 1 + 1 := by
+    rw [List.length_take]; omega
+  have hfbC : Expr.fvarsBelow b.nP cbody' := by
+    refine ConLeche.fvarsBelow_of_leaves fun lf hlf => ?_
+    obtain ⟨k, hk⟩ := List.getElem?_of_mem (hcbl lf hlf)
+    have hklt : k < b.nP := by
+      rw [← hplenB]; exact (List.getElem?_eq_some_iff.mp hk).1
+    obtain ⟨ty, hty2⟩ := hidxP k hklt
+    rw [hk] at hty2
+    have := (ConLeche.Expr.fvar.inj (Option.some.inj hty2)).1
+    omega
+  -- the GIVEN domain, as a tower over the run's output
+  have hFlSplit : Fl = Expr.mkAppN (Expr.const cn uus) Fl.getAppArgs := by
+    rw [← hFlHead]; exact (Expr.mkAppN_getApp Fl).symm
+  have hFlMk : (Fs'.getD l default).1 = ConLeche.mkPisB TL Fl :=
+    ConLeche.stripPis_mkPisB _ hFlStrip
+  have hxMk : x.fvarTypeD
+      = ConLeche.mkPisB (ConLeche.instTeleSeq (xfvs.take l) (l - 1) TL)
+          (Expr.instSeq (xfvs.take l) (l - 1 + TL.length) Fl) := by
+    rw [hxdom2, hFlMk, ConLeche.instSeq_mkPisB _ _ _ _ hxfvsLe]
+  obtain ⟨afvs2, hafvs2len, -, hlawA2⟩ :=
+    ConLeche.openPisAtFvars_mkPisB TL.length (ConLeche.instTeleSeq (xfvs.take l) (l - 1) TL)
+      (ConLeche.instTeleSeq_length _ _ _) (b.nP + l)
+  have hbodyEqB : Expr.instSeq (xfvs.take l) (l - 1 + TL.length) Fl
+      = Expr.mkAppN (Expr.const cn uus)
+          (Fl.getAppArgs.map (Expr.instSeq (xfvs.take l) (l - 1 + TL.length))) := by
+    rw [hFlSplit, ConLeche.instSeq_mkAppN_const]
+    simp only [Expr.getAppArgs_mkAppN, Expr.getAppArgs, List.nil_append]
+  have hbodyEqA : Expr.instSeq afvs2 (TL.length - 1)
+        (Expr.instSeq (xfvs.take l) (l - 1 + TL.length) Fl)
+      = Expr.mkAppN (Expr.const cn uus)
+          ((Fl.getAppArgs.map (Expr.instSeq (xfvs.take l) (l - 1 + TL.length))).map
+            (Expr.instSeq afvs2 (TL.length - 1))) := by
+    rw [hbodyEqB, ConLeche.instSeq_mkAppN_const]
+  have hopA : ConLeche.openPisAtFvars TL.length x.fvarTypeD (b.nP + l)
+      = some (afvs2, Expr.mkAppN (Expr.const cn uus)
+          ((Fl.getAppArgs.map (Expr.instSeq (xfvs.take l) (l - 1 + TL.length))).map
+            (Expr.instSeq afvs2 (TL.length - 1)))) := by
+    rw [hxMk, hlawA2 _, hbodyEqA]
+  -- the positivity normalisation carries the tower across
+  have her := ConLeche.normCtorValM_domErasedPi mp₁.base2.wf hnorm hbndC hop1 hop2 hfbC
+    hopP' hopX' hx hx' hfind hopA
+  have hxpeel2 : x.fvarTypeD.stripPis TL.length
+      = some (ConLeche.instTeleSeq (xfvs.take l) (l - 1) TL,
+          Expr.instSeq (xfvs.take l) (l - 1 + TL.length) Fl) := by
+    rw [hxMk, show TL.length = (ConLeche.instTeleSeq (xfvs.take l) (l - 1) TL).length from
+      (ConLeche.instTeleSeq_length _ _ _).symm]
+    exact ConLeche.stripPis_mkPisB_self _ _
+  obtain ⟨bs₁, body₁, hstrip₁, hlen₁, -, hbody₁⟩ :=
+    Expr.ErasedEq.stripPis_inv TL.length her hxpeel2
+  have hbody₁head : body₁.getAppFn = Expr.const cn uus := by
+    rw [hbodyEqB] at hbody₁
+    obtain ⟨hfn, -, -⟩ := ConLeche.ErasedEq.getApp hbody₁
+    rw [Expr.getAppFn_mkAppN] at hfn
+    exact erasedEq_const_invD hfn
+  have hx'Mk : x'.fvarTypeD = ConLeche.mkPisB bs₁ body₁ := ConLeche.stripPis_mkPisB _ hstrip₁
+  have hx'pb : (x'.fvarTypeD.piBinders) = (bs₁, body₁) := by
+    rw [hx'Mk]; exact piBinders_mkPisB_of_head bs₁ hbody₁head
+  -- the classification's own re-check, at its REFLEXIVE cell
+  obtain ⟨-, hopen, htgtLt⟩ := R.h.ksJ _ _ hcA
+  obtain ⟨afvs₃, body₃, hop₃, hhead₃⟩ :=
+    mutualOpenedOk_reflHead hopen hopP' (by rw [hnF]; exact hopX') hx' hkA
+  rw [hx'pb] at hop₃
+  obtain ⟨afvs₄, hafvs₄len, -, hlawA₄⟩ :=
+    ConLeche.openPisAtFvars_mkPisB bs₁.length bs₁ rfl (b.nP + l)
+  rw [hx'Mk, hlawA₄ _] at hop₃
+  obtain ⟨-, hb₃⟩ := Prod.mk.inj (Option.some.inj hop₃)
+  obtain ⟨ft, hft⟩ : ∃ ft, fms[tgtAt (mutKsOf kinds (b.ownOffset (p.k + q₀ + i') + j)) l]?
+      = some ft := ⟨_, List.getElem?_eq_getElem (htgtLt l)⟩
+  obtain ⟨hnameT, -⟩ := R.h.memT _ _ hft
+  have hcn := ((os_instSeq_head hbody₁head afvs₄ (bs₁.length - 1)).symm.trans
+    (congrArg Expr.getAppFn hb₃)).trans hhead₃
+  exact ⟨ft, hft, by rw [← hnameT]; exact ((ConLeche.Expr.const.inj hcn).1).symm⟩
+
 
 /-- **THE COPY'S NESTED FIELD LANDS ON A BLOCK PIN** (task #315 L-B):
 at a container field finitary-recursive at one of the CONTAINER's own
@@ -5383,15 +5641,6 @@ private theorem mkAppN_append' : ∀ (as : List Expr) (f : Expr) (bs : List Expr
   | a :: as, f, bs => by
     show Expr.mkAppN (Expr.mkAppN (.app f a) as) bs = Expr.mkAppN f ((a :: as) ++ bs)
     rw [mkAppN_append' as (.app f a) bs]
-    rfl
-
-omit [SetTheory V] R SF S in
-/-- An erasure-equal partner of a constant IS that constant. -/
-private theorem erasedEq_const_invD {T : Name} {lvls : List Level} {e : Expr}
-    (h : Expr.ErasedEq e (.const T lvls)) : e = .const T lvls := by
-  match e, h with
-  | .const n us, h =>
-    obtain ⟨rfl, rfl⟩ := h
     rfl
 
 /-- **THE AUXILIARY BLOCK'S KIND AT A COPY'S REFLEXIVE FIELD** (task
