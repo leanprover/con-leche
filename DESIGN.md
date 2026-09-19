@@ -118016,3 +118016,161 @@ previous row measured as missing — (1′) the container member's abstract
 field spine IS its pin, and the container's own-pin distinctness (2′,
 landed as `ContainerModeled.pinsDistinct`) — are what σ's pin half still
 waits on.
+
+#### WIDE (1′) LANDED — the spine, in ONE tier not four; and (3′)'s FIRST arrow is still one lemma short: `pinsDistinct` is about the RECORDED pin, `findIdx?` asks about the TABLE ENTRY (lane WIDE, 2026-09-19)
+
+The previous row priced (1′) as "PINF's (ii) all over again — four
+clauses across three tiers" and stopped.  **That figure was an
+over-statement and the row says so**: tier 1 already had everything.
+(1′) is landed, with its clause and its nine sites, in one session
+together with (3′)'s threading (step 0 above).  What the session also
+produced is the next obstruction, measured at the proof rather than
+guessed, and it is one lemma and not a doubling.
+
+##### (a) THE FIGURE WAS WRONG, AND WHY — worth keeping, because it is the reusable part
+
+"Four clauses across three tiers" counted a carry that was already
+built.  `restoreWalk_stripPis_pin` (`NestedRestoreOpen.lean:1440`) and
+its reflexive twin `_pinRefl` (`:1551`) conclude
+
+    dR.1 = Expr.mkAppN (pin.liftLooseBVars (d + l) 0) (dA.1.getAppArgs.drop R.nP)
+
+— HEAD, ARGUMENTS and a DEFINITE depth — and `RestoredCtor.absPin` /
+`absPinRefl` (`NestedCtorRead.lean`) carry exactly that up to tier 2.
+The loss was one level higher and it was DELIBERATE: `NestedCtorRead`,
+`NestedLoopFacts` and `NestedStageFacts`'s `pinArgsAbs` concluded
+`∃ d, dom.1.getAppArgs.take nPJ = (…liftLooseBVars d 0).getAppArgs`,
+because their only consumer was a MENTION and a mention survives any
+lift.  The producer PROVES the spine and then throws it away
+(`refine ⟨l, ?_⟩; show …take…; rw [habs, …, List.take_left' hPargs]`),
+arity `hPargs` included.
+
+So the restatement deleted three lines per arm and added none.  **The
+lesson: when a carry is priced by its TIERS, check what each tier
+already holds — a clause weakened for its first consumer can be at full
+strength one file down.**
+
+##### (b) WHAT LANDED
+
+* **the three tiers at SPINE strength** — `pinArgsAbs` and
+  `pinArgsAbsRefl` now conclude
+  `∃ rest, (…liftLooseBVars l 0).getAppArgs.length = (D).pinAt q |>.nPJ ∧
+  dom.1 = Expr.mkAppN (…liftLooseBVars l 0) rest`
+  (the reflexive twin at `l + dep` on `stripDomPis dom.1`).  The
+  mention form is `List.take_left'` away and is derived at its ONE
+  consumer, so `nestArgsMentionAbs`/`Refl` are unchanged;
+* **the clause** `ContainerModeled.nestPinSpineAbs`
+  (`NestedPremise.lean`): the container member's abstract field domain,
+  CUT at the container's own parameter count and read in the
+  container's own scope, IS the recorded pin at that scope —
+  `Expr.instantiateList (mkAppN dom.1.getAppFn (dom.1.getAppArgs.take
+  (d.pinAt q).nPJ)) (containerParamOpeners d.nP).reverse l
+  = (d.pinAt q).ownAt d.nP lps (lps.map Level.param)
+  (containerParamOpeners d.nP)`.  Quantified over `lps`, because the
+  level instantiation is the identity and the equation holds at every
+  parameter list.  Nine sites: four basis blocks, the crossing kit's
+  two, `EnvModelBStages`' two `of_readBack` calls (all vacuous at
+  `d.nPins = 0`), and `nestedContainerModeled`;
+* **two syntactic lemmas**, both general and both missing:
+  `Expr.instSpine_eq_instantiateList_at` (`Verify/InstList.lean`) —
+  the existing depth-0 bridge at an arbitrary cut — and
+  `instantiateList_openers_eq_instSeq`
+  (`Verify/Inductives/NestedCopyInstU.lean`): **THE TWO SUBSTITUTION
+  IDIOMS AGREE.**  The reader's cut instantiates with the openers
+  REVERSED from the cut `l`; `PinSyn.ownAt` closes and reopens with
+  `instSeq` at the descending cuts `nP-1 … 0`.  Both send the `i`-th
+  parameter to the `i`-th opener.  Three steps: the bulk form at cut
+  `l` IS the `instantiate1` fold (the new bridge); the fold drops past
+  the lift because every opener is closed (`instSeq_liftLooseBVars`,
+  which already existed in exactly the shape wanted); and what is left
+  is closed, so the lift that comes back is the identity.
+
+##### (c) THE FINDING — (3′)'s first arrow needs ONE more restatement, and this row names it (2″)
+
+The previous row's chain for σ's pin half was
+
+    field of the container's member ──K.61──▶ position in `containerOwnPinsSelf`
+                                    ──step 1──▶ the container's model pin class
+
+and it said the two missing inputs were **(i)** the field's spine IS
+its pin — (1′), landed here — and **(ii)** the container's own pin
+terms pairwise distinct — recorded as `ContainerModeled.pinsDistinct`
+and declared landed.  **(ii) as landed does not answer the question the
+consumer asks**, and the gap is exact:
+
+* `nestedInstMapOk_target` hands `own0.findIdx? (· == cut) = some qK`
+  and `own0[qK]? = some cut`.  (1′) + step 1 hand `own0[c] = cut` at
+  the model class `c = dJ.nestOf i j l`.  `qK = c` follows only if
+  `own0` has no EARLIER entry equal to `cut` — that is, if `own0` is
+  `Nodup`;
+* `own0 = containerOwnPinsSelf env C` is the table at the SYNTHETIC
+  parameter openers (`containerParamOpeners`, `fvar i (sort 0)`), and
+  step 1 says its entry at `q` is `(d.pinAt q).ownAt …`.  Working
+  `ownAt` out at the identity instantiation: it is the recorded pin
+  term with **every parameter `fvar`'s ANNOTATION replaced by
+  `sort 0`** (`abstractRange` kills them, `instSeq` at the openers puts
+  back the synthetic ones);
+* `ContainerModeled.pinsDistinct` is about the RECORDED terms
+  (`mkAppN (.const (d.pinAt q).J (d.pinAt q).lvls) (d.pinAt q).DsE`
+  injective in `q`).  Annotation-erasure is not injective in general,
+  so distinct recorded pins do not by themselves give distinct table
+  entries.  **`pinsDistinct` is one `ownAt` short of `own0.Nodup`.**
+
+**It is TRUE, and the repair is step 1's own shape: restate the clause
+at the spelling the consumer reads.**  By K.30 (`pinsScoped`) every
+pin's `fvar` leaves are the FIRST FORMER's openers, so a given index
+carries ONE annotation across all of a block's pins and the erasure is
+injective THERE.  The proof is a round trip that the tree almost has:
+apply `abstractRange · 0 nP 0` to both sides of `ownAt x = ownAt y` (it
+kills the annotations either way), then `instSeq params (nP-1)` and
+`instSeq_abstractRange_fvs` (`NestedCopyGlue.lean:239`, whose `hlv` is
+K.30's leaf clause verbatim) to get `x = y`.  What may be missing is
+the other round trip, `abstractRange (instSeq opens … (abstractRange x
+…)) … = abstractRange x …`.
+
+So **(2″)**: `ContainerModeled.pinsDistinct` restated at the `ownAt`
+spelling (or a second clause beside it), eight vacuous sites, one
+discharge at `nestedContainerModeled` off K.15(2)'s `pinsDistinct` and
+K.30.  Estimate: under a session, no kernel record, no new check.
+**This is a restatement and not a doubling** — it is the same defect
+step 1 found in `ownPins` (a fact recorded at one spelling, consumed at
+another), and it was missed for the same reason: the previous row read
+`pinsDistinct`'s NAME against `own0`'s entries rather than its
+STATEMENT.
+
+##### (d) THE ORDER AS IT NOW STANDS
+
+1. **(2″)** — `pinsDistinct` at the `ownAt` spelling (c).  The blocker
+   for σ's `hstgt` and for its single-valuedness;
+2. **(3′)** — the σ clauses beside `NestedPinGroup.shape`/`entry`, with
+   `nestedPinEdges_mem` for `houtσ`, where `NestedPinsRun` is in scope.
+   Its threading (step 0) and its two model inputs ((1′), (2″)) are then
+   all in hand, and nothing in it is a statement question;
+3. **(4′)** — the switch at BOTH sites (`NestedRecFibre.lean`'s
+   `NestedTailIn.pinSegAt` and `ofNested_pinLeaf_of`), the deletion of
+   `hfit_le_of_inst`/`hfitLe`, and the unconsumed gate read as the (f3)
+   step-4 row says.
+
+**The unconsumed reading before the switch, for that comparison**:
+`tests/unconsumed.sh` 185 of 3709 (the base's 185 of 3706; the three
+new declarations are the two syntactic lemmas, both consumed, and the
+gate does not see structure fields).  `hfit_le_of_inst`'s chain is
+still consumed, as it must be until (4′).
+
+##### (e) GATES
+
+`tests/warning-free.sh 9eb414c3`:
+
+```
+warning-free: 14 changed module(s) since 9eb414c3
+warning-free: lake build — 14 module(s) recompiled, 0 warning line(s)
+warning-free: lake test — 5 module(s) recompiled, 0 warning line(s)
+warning-free: OK (a run that could have failed)
+```
+
+`lake build` 725 jobs and `lake test` EXIT 0; `tests/proofdeps.sh` 4975
+rows / 12 roots / **doors 0**; `tests/shake.sh` 513 removals all
+allowlisted, pub-imports 1339 of 2273, none demotable;
+`tests/overview-links.sh` (112 links) and `tests/quote-gate.sh` OK;
+`tests/unconsumed.sh` 185 of 3709.  No kernel file changed, so no
+accept set moved and `tests/arena.sh` was not re-run.
