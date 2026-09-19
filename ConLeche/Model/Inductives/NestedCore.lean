@@ -524,15 +524,15 @@ structure NestedPinGroup (m : EnvModel V env₂) (q₀ kJ : Nat) (dJ : BlockMode
       ∀ i₀, i₀ < kJ → ∀ (ciC : ContainerInfo) (Jm : ContainerMember),
       ConLeche.containerInfo? env ((D).pinAt (q₀ + i₀)).J = some ciC →
       ciC.members[i']? = some Jm → Jm.lps = lpsC →
-      ∀ (K : Name) (usK : List Level) (ciK : ContainerInfo),
+      ∀ (K : Name) (usK : List Level),
       (Expr.instantiateLevelParams lpsC ((D).pinAt (q₀ + i')).lvls dom.1).getAppFn
           = .const K usK →
-      ConLeche.containerInfo? env K = some ciK →
-      OrdTargetRead (V := V) m.acval env₂ ψ ρp b.nP l
-        (((D).pinAt q₀).Ds ψ)
-        ((dJ.Fss i' (((D).pinAt q₀).ψJ ψ)).getD j [])
-        (((mutEiss0 ctorsA.length eissF ψ).getD (b.ownOffset (p.k + q₀ + i') + j) []).getD l [])
-        ciK.nP lpsC dJ.nP (q₀ + i') ((D).ownPinTerms lps) dom.1
+      ∃ ciK : ContainerInfo, ConLeche.containerInfo? env K = some ciK ∧
+        OrdTargetRead (V := V) m.acval env₂ ψ ρp b.nP l
+          (((D).pinAt q₀).Ds ψ)
+          ((dJ.Fss i' (((D).pinAt q₀).ψJ ψ)).getD j [])
+          (((mutEiss0 ctorsA.length eissF ψ).getD (b.ownOffset (p.k + q₀ + i') + j) []).getD l [])
+          ciK.nP lpsC dJ.nP (q₀ + i') ((D).ownPinTerms lps) dom.1
 
 /-! ### The pin groups' consequences -/
 
