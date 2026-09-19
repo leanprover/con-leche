@@ -118617,3 +118617,116 @@ repointing the two `StreamConsts.lean` citations the lemma move shifted
 by 51 lines (the cited TEXT is unchanged, both paragraphs re-read);
 `tests/unconsumed.sh` 185 of 3712.  No kernel file changed, so no
 accept set moved and `tests/arena.sh` was not re-run.
+
+#### MERGE: lane WIDE joined, K.63 SWAPPED, and the model tier's residual is `NestedPinsLe` ALONE (integration, 2026-09-19)
+
+The two lanes that were open on task #315 are one tree again, and the
+hand-off both of them named — the one each could only write half of —
+is made.
+
+##### (a) THE MERGE
+
+`agent/uniform-sw` at `18ef14ac` (7 commits off `9eb414c3`) into
+`agent/uniform-merge` at `0453aad6`.  **No Lean file is touched by both
+sides**: WIDE left `NestedCopyInst.lean` and `NestedChain.lean` alone,
+and the (pinf3) tip since the common base touched only those two.  The
+one conflict is `DESIGN.md`, where both lanes append their 2026-09-19
+records at the same point; the resolution is the base's 117 977 lines,
+then the PINF block (299 lines), then the WIDE block (343 lines).  Each
+side's file is a line-SUBSEQUENCE of the result — checked, not eyeballed
+— so no section of either was dropped or reordered.
+
+`ContainerModeled` reaches **23 fields**, the union of the two lanes'
+additions and nothing else, read off the compiled environment rather
+than the source:
+
+    k namesLen nP reps typed inj member frame ordFree nestMention
+    nestArgsMention nestArgsMentionAbs nestArgsMentionAbsRefl
+    nestPinSpineAbs ctorProjFree pinsNotMembers pinNP pinConts ownPins
+    pinψ pinParams pinsDistinct pinsDistinctAt
+
+The nine discharge sites carry both new clauses because WIDE wrote them
+at all nine; the merge added nothing there.
+
+##### (b) THE SWAP
+
+The PINF lane wrote its reflexive `pinF` arm against `NestedPinsK63`, a
+predicate standing in for a field that did not exist yet, and carried it
+as a PARAMETER through three declarations.  The WIDE lane's step 0 put
+that field on `NestedPinsRun` as `hK63`.  The swap is what the two
+docstrings predicted it would be:
+
+* `nestedPinsK63 : NestedPinsK63 V μ F := fun R => R.hK63`.  The two
+  spellings are the same statement — the predicate's binder list IS
+  `NestedPinsRun`'s parameter list and its conclusion IS the field's —
+  so the proof is the projection.  Nothing had to be weakened on either
+  side, which is the interesting part: a stand-in written blind against
+  a field specified only in prose matched it exactly.
+* `copyPinFKindRefl`, `copyPinFPinCorrRefl` and
+  `nestedPinsShapePinFRefl_of` lose the parameter.  The first two hold
+  the run record already (`R` is an `include`d variable in that file),
+  so each is the one-line substitution its docstring promised; the
+  third had used it only as `hK63 R` twice and is now unconditional.
+* `NestedChain.lean`: `nestedModeled_of_le` is REPLACED by
+  `nestedModeled_of_one` — nothing consumed the former, so it is not
+  kept.  Its full hypothesis list, from the environment:
+
+      NestedPinsLe V μ F →
+      μ.verifiedChecks = true →
+      ∀ (mp : EnvModelB V μ env),
+      EtaFamiliesClosed env →
+      DeclNestedRun μ F env p envOut →
+      Nonempty (EnvModelB V μ envOut)
+
+  — one LANE hypothesis and the run's own four.  The file's job is
+  unchanged: the residual count is elaborator-checked, so this is a
+  claim that fails to compile rather than a claim someone has to read
+  seven statements to believe.
+
+`NestedPinsK63` and `nestedPinsK63` are kept rather than inlined: the
+predicate is the name under which "what the `pinF` arm asks of the run"
+is said in one word, and the theorem is the record that the two
+spellings agree.  The theorem is consequently unconsumed, and that is
+the right reading of it — it is a statement about the tree, not a step
+in a proof.
+
+##### (c) GATES, at the final tip
+
+`tests/warning-free.sh 0453aad6`:
+
+```
+warning-free: 19 changed module(s) since 0453aad6
+warning-free: lake build — 19 module(s) recompiled, 0 warning line(s)
+warning-free: lake test — 0 module(s) recompiled, 0 warning line(s)
+warning-free: OK (a run that could have failed)
+```
+
+`lake build` 725 jobs and `lake test` EXIT 0; `tests/proofdeps.sh` 4975
+rows / 12 roots / **doors 0**, UNCHANGED, so no re-pin; `tests/shake.sh`
+513 removals all allowlisted, pub-imports 1339 of 2274, none demotable;
+`tests/layering.sh` 0 base->lane and 0 impl->theory edges;
+`tests/quote-gate.sh` 2 statements match; `tests/overview-links.sh` 112
+links OK with NO repointing — the swap's two files are cited by neither
+document, and WIDE's regenerated pin still holds;
+`tests/no-local-paths.sh` OK.
+
+`tests/unconsumed.sh` **185 of 3725**, the same 185 the two lanes each
+reported: `nestedModeled_of_le` left the list and `nestedPinsK63`
+joined it, one chain-root-shaped declaration for another.
+`copyPinFUIds` is still there, as it was before either lane began.
+
+Full `tests/arena.sh` EXIT 0: arena 91/96 good accepted, **e2e
+200/200**, **nested-shadow 42/42**, annot 15/15, mode flags 10/10,
+prelude 3/3, progress 15/15, worker pool 15/15, DAG tower 14/14, the
+trusted and `--jobs=1`/`--jobs=4` sweeps all as expected, axioms pinned
+at `[propext, Classical.choice, Quot.sound]`.  `nestedModeled_of_one`'s
+own `#print axioms` is those three and nothing else.
+
+##### (d) WHERE THIS LEAVES THE ROUTE
+
+The model tier's residual is `NestedPinsLe` and nothing else.
+`docs/NESTED.md` §7 says so in the human register: the second residual —
+the syntactic correspondence at a container's own pins, at the finitary
+field and at the reflexive one — is discharged, and what remains is the
+single inclusion, whose expected shape is the induction over instances
+the same section already describes, taken at the true frame.
