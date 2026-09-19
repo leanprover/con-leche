@@ -349,7 +349,7 @@ theorem Infer.forallE_sound (_hin : RulesInputs V m φ) {g : Grade} {d : Nat}
 /-- `infer_lam_claim(IO)` (`Steps/Infer.lean:358`, `InferIO.lean:456`):
 the fibre regime fact from the leaf sort run or, at a chain node, from
 the copied annotation (`piR_zero_mem_univZero`). -/
-theorem Infer.lam_sound (hin : RulesInputs V m φ) {g : Grade} {d : Nat}
+theorem Infer.lam_sound (_hin : RulesInputs V m φ) {g : Grade} {d : Nat}
     {ty body s bt btt : Expr} {u v : Level} {mb : BinderMeta}
     (hs : g = .full → InferSemFull m φ d ty s)
     (hu : g = .full → RedSem m φ d s (.sort u))
@@ -361,7 +361,147 @@ theorem Infer.lam_sound (hin : RulesInputs V m φ) {g : Grade} {d : Nat}
     (hv : body.lamPw = none → RedSem m φ (d + 1) btt (.sort v))
     (hz : body.lamPw = none → Level.zeronessOf v = mb.pw) :
     InferSem m φ g d (.lam ty body mb) (.forallE ty (bt.abstract1 d) mb) := by
-  sorry
+  refine InferSem.of_uniform ?_
+  intro Δa ea hfr hC hea hgr
+  obtain ⟨hws, hb, hLb⟩ := hfr
+  simp only [Expr.WScoped] at hws
+  simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
+  have hLty : Expr.LeavesBounded ty := fun l hl =>
+    hLb l (by simp [Expr.fvarLeaves, hl])
+  have hLbody : Expr.LeavesBounded body := fun l hl =>
+    hLb l (by simp [Expr.fvarLeaves, hl])
+  -- the subject's reading
+  rw [denoteMeta] at hea
+  rcases htyA : denoteMeta m.acval env φ d ty with _ | tyA
+  · rw [htyA] at hea; exact nomatch hea
+  rw [htyA] at hea
+  rcases hba : denoteMeta m.acval env φ (d + 1)
+      (body.instantiate1 (.fvar d ty)) with _ | ba
+  · rw [hba] at hea; exact nomatch hea
+  rw [hba] at hea
+  obtain rfl : ea = .lam (pwBit φ mb.pw) tyA ba :=
+    (Option.some.inj hea).symm
+  obtain ⟨hwopen, hbopen, hLopen⟩ :=
+    frame_open2 hws.1 hb.1 hws.2 hb.2 hLty hLbody
+  -- the domain's grading: established at the full grade by its own
+  -- sort run, consumed at the io grade off the subject (`hoist_lam`)
+  have hoist : g = .io →
+      Graded V Δa tyA ∧ Graded V (tyA :: Δa) ba := fun hg =>
+    WellDenotedV.hoist_lam (V := V) (hgr hg)
+  have hokty : Graded V Δa tyA := by
+    cases g with
+    | full =>
+      exact fun ρ hρ =>
+        (sortSem_of (g := .full) (hs rfl) (hu rfl) ⟨hws.1, hb.1, hLty⟩
+          hC.lam_ty htyA (fun hg => by simp at hg) ρ hρ).1
+    | io => exact (hoist rfl).1
+  have hCop : CtxOk m φ (d + 1) (tyA :: Δa)
+      (body.instantiate1 (.fvar d ty)) :=
+    CtxOk.openS hC.lam_ty hC.lam_body htyA hokty
+  -- the opened body's inferred type
+  obtain ⟨hbtf, hbtsub, hrowE, btA, hbtA, hrowT, hrowM⟩ :=
+    hbt.apply ⟨hwopen, hbopen, hLopen⟩ hCop hba (fun hg => (hoist hg).2)
+  obtain ⟨hwbt, hbtb, hLbt⟩ := hbtf
+  -- the abstraction round trip, for the ∀-type's reading
+  have hleaf : Expr.LeafCond d ty (body.instantiate1 (.fvar d ty)) := by
+    intro l hl hd
+    rcases Expr.fvarLeaves_instantiate1 body 0 hl with h2 | h2
+    · exact absurd hd (by
+        have := Expr.fvarLeaves_lt_of_wscoped hws.2 l h2
+        omega)
+    · rw [Expr.fvarLeaves] at h2
+      rcases List.mem_cons.mp h2 with rfl | h3
+      · exact rfl
+      · exact absurd hd (by
+          have := Expr.fvarLeaves_lt_of_wscoped hws.1 l h3
+          omega)
+  have hcons : Expr.fvarConsistent d ty bt :=
+    Expr.fvarConsistent_of_leafCond bt (fun l hl => hleaf l (hbtsub l hl))
+  have hround : (bt.abstract1 d).instantiate1 (.fvar d ty) = bt :=
+    ConLeche.abstract1_instantiate1 bt 0 hcons hbtb
+  have hta : denoteMeta m.acval env φ d (.forallE ty (bt.abstract1 d) mb)
+      = some (.pi 0 (pwBit φ mb.pw) tyA btA) := by
+    rw [denoteMeta, htyA, hround, hbtA]
+    rfl
+  have hCbt : CtxOk m φ (d + 1) (tyA :: Δa) bt := hCop.of_subset hbtsub
+  -- the fibre regime fact, one `have`, both uses (the meta copy)
+  have hzfib : pwBit φ mb.pw = 0 →
+      ∀ (ρ' : Nat → V), Sat V (tyA :: Δa) ρ' →
+        interp V ρ' btA ∈ˢ (univZero : V) := by
+    intro hb0 ρ' hρ'
+    cases hpw : body.lamPw with
+    | some pwI =>
+      -- chain: no run — impredicativity at the copied meta
+      obtain ⟨tyI, bI, mbI, rfl⟩ : ∃ tyI bI mbI, body = .lam tyI bI mbI := by
+        cases body <;> simp [Expr.lamPw] at hpw
+        exact ⟨_, _, _, rfl⟩
+      have hpwEq : mb.pw = mbI.pw := by
+        have := hchain pwI hpw
+        simp only [Expr.lamPw, Option.some.injEq] at hpw
+        rw [this, hpw]
+      obtain ⟨btI, rfl⟩ := hshape tyI bI mbI rfl
+      obtain ⟨tyIA, btIA, -, -, rfl⟩ := denoteMeta_forallE_inv hbtA
+      rw [interp_pi]
+      have hinner : pwBit φ mbI.pw = 0 := by rw [← hpwEq]; exact hb0
+      rw [hinner]
+      exact piR_zero_mem_univZero
+    | none =>
+      -- leaf: the io sort walk on the body type + the bit law
+      exact pwBit_zero_mem_univZero (hz hpw) hb0
+        (sortSem_of (g := .io)
+          (show InferSem m φ .io (d + 1) bt btt from hbtt hpw) (hv hpw)
+          ⟨hwbt, hbtb, hLbt⟩ hCbt hbtA (fun _ => hrowT) ρ' hρ').2
+  -- the conclusion's frame and leaves
+  have hsubT : ∀ l ∈ (Expr.forallE ty (bt.abstract1 d) mb).fvarLeaves,
+      l ∈ (Expr.lam ty body mb).fvarLeaves := by
+    intro l hl
+    simp only [Expr.fvarLeaves, List.mem_append] at hl ⊢
+    rcases hl with h2 | h2
+    · exact Or.inl h2
+    · obtain ⟨hlbt, hlne⟩ := ConLeche.Expr.fvarLeaves_abstract1_ne bt 0 hwbt l h2
+      rcases Expr.fvarLeaves_instantiate1 body 0 (hbtsub l hlbt) with h3 | h3
+      · exact Or.inr h3
+      · rw [Expr.fvarLeaves] at h3
+        rcases List.mem_cons.mp h3 with rfl | h4
+        · exact absurd rfl hlne
+        · exact Or.inl h4
+  have hwT : Expr.WScoped d (.forallE ty (bt.abstract1 d) mb) := by
+    simp only [Expr.WScoped]
+    exact ⟨hws.1, ConLeche.WScoped.abstract1 0 hwbt⟩
+  have hbT : (Expr.forallE ty (bt.abstract1 d) mb).looseBVarsBounded 0
+      = true := by
+    simp only [Expr.looseBVarsBounded, Bool.and_eq_true]
+    exact ⟨hb.1, ConLeche.looseBVarsBounded_abstract1 bt 0 hbtb⟩
+  refine ⟨⟨hwT, hbT, fun l hl => hLb l (hsubT l hl)⟩,
+    hsubT, ?_, _, hta, ?_, ?_⟩
+  · -- the λ's own grading
+    intro ρ hρ
+    refine ⟨?_, ?_⟩
+    · rw [WellDenoted_lam]
+      exact ⟨(hokty ρ hρ).1,
+        fun x hx => (hrowE (cons x ρ) (Sat_cons V hρ hx)).1,
+        fun x => interp V (cons x ρ) btA,
+        fun x hx => hrowM (cons x ρ) (Sat_cons V hρ hx),
+        fun h0 x hx => hzfib h0 (cons x ρ) (Sat_cons V hρ hx)⟩
+    · rw [AnnotValid_lam]
+      exact ⟨(hokty ρ hρ).2,
+        fun x hx => (hrowE (cons x ρ) (Sat_cons V hρ hx)).2⟩
+  · -- the copied ∀-type's grading
+    intro ρ hρ
+    refine ⟨?_, ?_⟩
+    · rw [WellDenoted_pi]
+      exact ⟨(hokty ρ hρ).1,
+        fun x hx => (hrowT (cons x ρ) (Sat_cons V hρ hx)).1⟩
+    · rw [AnnotValid_pi]
+      exact ⟨(hokty ρ hρ).2,
+        fun x hx => (hrowT (cons x ρ) (Sat_cons V hρ hx)).2,
+        fun h0 x hx => hzfib h0 (cons x ρ) (Sat_cons V hρ hx)⟩
+  · -- the membership row
+    intro ρ hρ
+    exact (sound_lam V (hokty ρ hρ).1
+      (fun x hx => (hrowE (cons x ρ) (Sat_cons V hρ hx)).1)
+      (fun x hx => hrowM (cons x ρ) (Sat_cons V hρ hx))
+      (fun h0 x hx => hzfib h0 (cons x ρ) (Sat_cons V hρ hx))).2
 
 /-- `infer_app_claim` / `infer_app_claimIO`'s kept arm
 (`Steps/Infer.lean:842`, `InferIO.lean:609`). -/
