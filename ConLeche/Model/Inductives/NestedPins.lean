@@ -1168,7 +1168,7 @@ structure NestedPinsRun (V : Type w) [SetTheory V] (μ : CheckMode) (F : Nat) {e
   is its own normalisation (`normPosDomM_indApp`) and stays so under
   the substitution, while the mixed corner — the block's copy fires
   where the owner's did not — is REAL and is the model's entry arm. -/
-  hK69 : ConLeche.nestedOrdNormOk env p b st stored = true
+  hK69 : ConLeche.nestedOrdNormOk μ env p b st stored = true
   hpinsE : ConLeche.nestedPinsOk (m := ConLeche.CheckM) (fueledOps μ F)
       (ConLeche.consMutualFormers (fms.take p.k) env) p.nP st.pins = .ok ()
   /-- **THE PINS' CONSTANTS RESOLVE** (K.64, task #315, lane LE): at the

@@ -441,7 +441,7 @@ container block model per group. -/
     ConLeche.nestedOrdSelfTargetOk env p b st stored = true →
     -- K.69: and its DOMAIN is the owner's, one substitution apart,
     -- under the guard that the OWNER's copy fired
-    ConLeche.nestedOrdNormOk env p b st stored = true →
+    ConLeche.nestedOrdNormOk μ env p b st stored = true →
     -- POST-CHECK (a) A THIRD TIME (K.30): the pins typed at the prefix
     -- formers' environment
     ConLeche.nestedPinsOk (m := ConLeche.CheckM) (fueledOps μ F)
@@ -646,7 +646,7 @@ theorem nestedLoopFacts_of (hpins : NestedPinsStaged V μ F) (hread : NestedRead
     (hK62 : ConLeche.nestedOrdOutsideOk env p b st stored = true)
     (hK67 : ConLeche.nestedOrdTargetOk env p b st stored = true)
     (hK68 : ConLeche.nestedOrdSelfTargetOk env p b st stored = true)
-    (hK69 : ConLeche.nestedOrdNormOk env p b st stored = true)
+    (hK69 : ConLeche.nestedOrdNormOk μ env p b st stored = true)
     (hpins₁ : ConLeche.nestedPinsOk (m := ConLeche.CheckM) (fueledOps μ F) ENV₁ p.nP st.pins = .ok ())
     (hK64 : ConLeche.pinsResolve (ENV₁) st.pins = true)
     (hformers : ConLeche.mutualFormers (m := ConLeche.CheckM) (fueledOps μ F) b.nP b.formers env true

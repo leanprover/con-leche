@@ -1845,7 +1845,7 @@ discharged modulo the loop by `nestedCoreModeled_of`. -/
     -- K.69: and its DOMAIN is the owner's, one substitution apart,
     -- under the guard that the OWNER's copy fired — the terms where
     -- K.67 and K.68 compare the targets
-    ConLeche.nestedOrdNormOk env p b st stored = true →
+    ConLeche.nestedOrdNormOk μ env p b st stored = true →
     -- POST-CHECK (a) A THIRD TIME (K.30): the pins typed at the
     -- environment holding the RESTORED formers
     ConLeche.nestedPinsOk (m := ConLeche.CheckM) (fueledOps μ F)

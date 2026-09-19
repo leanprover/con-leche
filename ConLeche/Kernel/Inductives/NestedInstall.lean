@@ -2779,7 +2779,13 @@ term already at a constant inductive head is its own `whnf`
 substitution, and so the block's copy of the same field is head-normal
 too.  The converse fails — a root STUCK at a variable head is unblocked
 by the block's substitution — which is why the guard is the root's
-firing and not the block's. -/
+firing and not the block's.
+
+It is applied to the mint's POSITIVITY NORMAL FORM (`ordRootNorm`) and
+not to the mint, so that a root that fires only AFTER a reduction step
+— its mint a redex, `(fun _ => T α) trivial` — is inside the guard and
+not in the silent set.  At a mint already at a constant head the normal
+form is the mint and no walk is run. -/
 def ordRootFired (env : Env) (memsJ : List Name) (ownSelf : List Expr) (W : Expr) : Bool :=
   match W.getAppFn with
   | .const M _ =>
@@ -2813,6 +2819,57 @@ def ordRootInst (lpsJ : List Name) (nPJ cut : Nat) (pinG W : Expr) : Option Expr
       ((pinG.getAppArgs.take nPJ).reverse) cut)
   | _ => none
 
+/-- **THE MINT AT ITS POSITIVITY NORMAL FORM** (task #315 K.69's
+REDUCTION SLIVER).
+
+`ordRootFired` tests the head of a recomputed mint BEFORE any
+reduction, and so leaves out an owner copy that fires only after the
+positivity walk's `whnf` — a mint that is a REDEX at the owner, say
+`(fun _ => T α) trivial`, the shape `tests/e2e/nested_lam_pin_prop.ndjson`
+exhibits one level down.  The model's consumer needs the row whenever
+the OWNER fired, reduction or not, and a proof's case split is over the
+SYNTAX and not over a corpus, so "measured zero" does not retire that
+arm.  This is what closes it: at a mint whose head is ALREADY a
+constant nothing is run — the term is its own normal form
+(`normPosDomM_indApp`) — and otherwise the walk the install itself uses
+is run on it.
+
+**IT IS THE PURE WALK, AND THAT IS WHAT KEEPS THE ROW SIMULABLE.**
+`normPosDomM` is monadic over `CheckerOps`, and the CACHED
+instantiation's simulation (`normPosDomMS_sim`, `BridgeCS3.lean`)
+exists in the VERIFIED mode only — which is why the row could not be
+an `ops`-level clause and stay unconditional.  Here the call is at
+`fueledOps` and at the STANDARD fuel: a pure function of the arguments
+`nestedPinChecks` already has, so the two routes run the SAME function
+on the SAME inputs (`nestedPinChecks` is one definition, shared) and no
+bridge lemma is owed.  The fuel is `checkFuel` and NOT the route's `F`
+for the same reason: the cached route has no `F` to hand, so a
+fuel-parametric clause would not be one function.
+
+**THE COST IS THE SLIVER'S.**  The walk runs only where the mint's head
+is not already a constant — measured EMPTY at `init-full` and at
+Mathlib, and one block in the e2e suite — and then on ONE field domain,
+so the "no unmemoized traversals" rule is met by rarity and by size,
+not by a memo.  `none` on an error: the walk can throw (fuel, or a
+non-positive occurrence), and where it does the row says nothing about
+the OWNER's side. -/
+def ordRootNorm (mode : CheckMode) (env : Env) (memsJ : List Name) (W : Expr) :
+    Option Expr :=
+  match W.getAppFn with
+  | .const _ _ => some W
+  | _ =>
+    match normPosDomM (m := CheckM) (fueledOps mode checkFuel) env memsJ 0 1024 W with
+    | .ok w => some w
+    | .error _ => none
+
+/-- At a constant head the normal form is the term: the walk is not run
+at all, which is both the cost argument and `normPosDomM_indApp` read
+as a definitional fact. -/
+theorem ordRootNorm_const {mode : CheckMode} {env : Env} {memsJ : List Name}
+    {W : Expr} {c : Name} {us : List Level} (h : W.getAppFn = .const c us) :
+    ordRootNorm mode env memsJ W = some W := by
+  unfold ordRootNorm; rw [h]
+
 /-- **THE NORMALISATION COMMUTES WITH THE INSTANTIATION AT THIS FIELD**
 (task #315 K.69) — K.67's and K.68's twin at the same walk, with the
 TERMS compared instead of the targets.
@@ -2828,16 +2885,24 @@ components.
 compare is not the mint but the mint after the POSITIVITY
 NORMALISATION, and a normalisation is not a substitution: substitution
 creates redexes, so `whnf (e[s]) = (whnf e)[s]` is false in general and
-no such theorem exists in the tree.  Under this row's GUARD it is true
-and needs no commutation at all: where the owner's own recomputation is
-already at a constant inductive head, it is its own normalisation
-(`normPosDomM_indApp`), the head survives the substitution, and the
-block's is its own normalisation too — so the equation this Bool
-records, which is about the MINTS, carries the normalised domains with
-it.  The guard is the ROOT's firing, and it is the root's alone
-because the mixed corner — the block's copy fires where the owner's did
-not — is REAL (a root stuck at a variable head is unblocked by the
-block's substitution) and is the arm the model closes with an entry.
+no such theorem exists in the tree.  Under this row's GUARD it holds,
+in TWO shapes.  Where the owner's own recomputation is already at a
+constant inductive head it needs no commutation at all: such a term is
+its own normalisation (`normPosDomM_indApp`), the head survives the
+substitution, the block's is its own normalisation too, and the
+equation this Bool records — about the MINTS — carries the normalised
+domains with it, with NO walk run.  Where it is not — the REDUCTION
+SLIVER — both sides are put through `ordRootNorm`, the very walk the
+install uses, and the equation is recorded between the two NORMAL
+FORMS; what is owed there is that the owner's reduction survives the
+substitution (`t →* W` gives `t[s] →* W[s]`, the direction that IS
+closed under substitution) and that `whnf` is the function that finds
+it, `W[s]` being constant-headed and so its own `whnf`.  The guard is
+the ROOT's firing, and it is the root's alone because the mixed corner
+— the block's copy fires where the owner's did not — is REAL (a root
+stuck at a VARIABLE head is unblocked by the block's substitution, and
+no reduction at the owner can unstick it) and is the arm the model
+closes with an entry.
 
 **It cannot fire by construction**: the block's copy of the owner's pin
 is ONE substitution applied to the very constructor the owner copied,
@@ -2845,11 +2910,17 @@ and both sides instantiate the SAME stored domain — the owner's at its
 own components, the block's at those components substituted.
 UNCONDITIONAL and `.internal`, for K.61's reason.
 
-**The arms that assert nothing.**  Where the root did NOT fire the row
-is silent — that is the mixed corner, and it has no claim to make;
-where the block pin's head is not a constant it is silent too.  The
-LOOKUP arms are K.67's, character for character. -/
-def nestedOrdNormAt (env : Env) (p : NestedParts) (st : ElimState)
+**The arms that assert nothing.**  Where the root did NOT fire — after
+the normalisation, so the mixed corner and nothing else — the row is
+silent, and that corner has no claim to make; where the OWNER's walk
+threw (fuel, or a non-positive occurrence) it is silent too, since the
+owner's own side is then not in hand; and where the block pin's head is
+not a constant it is silent for `ordRootInst`'s reason.  The BLOCK's
+walk throwing is NOT silent: under the guard the owner's normal form is
+constant-headed, so the block's reduces to its substitution and cannot
+throw, and the arm asserts that.  The LOOKUP arms are K.67's, character
+for character. -/
+def nestedOrdNormAt (mode : CheckMode) (env : Env) (p : NestedParts) (st : ElimState)
     (maps? : Option (List (List Nat)))
     (kinds? : Option (List (List (List (RecFieldKind × Nat))))) : Bool :=
   match maps?, kinds? with
@@ -2895,15 +2966,21 @@ def nestedOrdNormAt (env : Env) (p : NestedParts) (st : ElimState)
                                 else if mentionsMember memsK domJ.1 then true
                                 else
                                   let W := ordTargetDom Jm.lps ci.nP ownSelf qK l domJ.1
-                                  if !ordRootFired env memsJ ownSelf W then true
+                                  match ordRootNorm mode env memsJ W with
+                                  | none => true
+                                  | some Wn =>
+                                  if !ordRootFired env memsJ ownSelf Wn then true
                                   else
                                     match ordRootInst m₀.lps ciJ.nP
                                         (l + domPiDepth
                                           (ordTargetDomL Jm.lps ownSelf qK domJ.1))
-                                        pinG W with
+                                        pinG Wn with
                                     | none => true
                                     | some Wb =>
-                                      ordTargetDom Jm.lps ci.nP terms q l domJ.1 == Wb
+                                      match ordRootNorm mode env memsJ
+                                        (ordTargetDom Jm.lps ci.nP terms q l domJ.1) with
+                                      | none => false
+                                      | some Wn₁ => Wn₁ == Wb
                               | _, _ => false
                         | _, _ => false
                 | _, _ => true
@@ -2912,9 +2989,9 @@ def nestedOrdNormAt (env : Env) (p : NestedParts) (st : ElimState)
 /-- The Bool the route records (task #315 K.69), on the same instance-map
 table K.61, K.62 and K.67 read and the same field kinds
 `nestedPinKinds` computes. -/
-@[inline] def nestedOrdNormOk (env : Env) (p : NestedParts) (b : MutualBlock)
-    (st : ElimState) (stored : List AuxStored) : Bool :=
-  nestedOrdNormAt env p st (nestedInstMaps env st) (nestedPinKinds p b stored)
+@[inline] def nestedOrdNormOk (mode : CheckMode) (env : Env) (p : NestedParts)
+    (b : MutualBlock) (st : ElimState) (stored : List AuxStored) : Bool :=
+  nestedOrdNormAt mode env p st (nestedInstMaps env st) (nestedPinKinds p b stored)
 
 /-! ## THE POSITIVITY NORMALISATION ON THE MINTED COPY (task #315 K.42)
 
@@ -3302,7 +3379,7 @@ def nestedPinChecks (ops : CheckerOps m) (env envN : Env) (p : NestedParts) (b :
   -- not the owner's copy substituted — a defect in the ROUTE, not in
   -- the stream, and the answer is never to relax the check.  See
   -- DESIGN "#### K.69".
-  else if !nestedOrdNormAt env p st maps? kinds? then
+  else if !nestedOrdNormAt ops.mode env p st maps? kinds? then
     throw (.internal "nested: a rewritten ordinary field's domain is not the owning \
       container's domain instantiated")
   else if !ops.mode.verifiedChecks then pure () else

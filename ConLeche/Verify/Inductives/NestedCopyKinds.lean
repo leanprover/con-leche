@@ -1168,23 +1168,43 @@ is the owner's, at the owner's level parameters instantiated at the
 block pin's levels and the owner's parameter openers instantiated at
 the block pin's components (`ordRootInst`).
 
-The guard is the OWNER's firing (`ordRootFired`) — K.67's head test —
-and it is what makes the claim a claim about the NORMALISED domains
-too: a term already at a constant inductive head is its own positivity
-normalisation (`normPosDomM_indApp`), a constant head survives the
-substitution, so the block's copy's domain is head-normal as well and
-the equation below carries from the mints to the normalisations.
-Where the owner did NOT fire nothing is claimed — that is the mixed
-corner, whose block-side target leaves the instance and which the
-model closes with an entry.
+The guard is the OWNER's firing — K.67's head test, applied to the
+mint's POSITIVITY NORMAL FORM (`ordRootNorm`, which runs the walk only
+where the mint's head is not already a constant).  Where the head IS
+already a constant the normal form is the term itself and nothing is
+run: such a term is its own positivity normalisation
+(`normPosDomM_indApp`), the head survives the substitution, and the
+equation carries from the mints to the normalisations.  Where it is
+not — the REDUCTION SLIVER — both sides are normalised the same way
+before the comparison, so the row holds whenever the owner fired at
+all.  Where the owner did NOT fire nothing is claimed: that is the
+mixed corner, whose block-side target leaves the instance and which
+the model closes with an entry.
 
 Every datum is one of `nestedOrdNormOk`'s own lookups, so this costs no
 new check. -/
 
+/-- **A CONSTANT SPINE HEAD SURVIVES A BULK INSTANTIATION**: neither
+`instantiateList`'s `.app` clause nor its `.const` clause moves the
+head of an application spine.  What lets the FINITARY inversion below
+read `ordRootNorm` off `ordTargetDomL`'s head, which is where the
+recomputation's own guards are stated. -/
+theorem getAppFn_instantiateList_const : ∀ {e : Expr} {c : Name} {us : List Level}
+    {vs : List Expr} {d : Nat}, e.getAppFn = .const c us →
+    (e.instantiateList vs d).getAppFn = .const c us := by
+  intro e
+  induction e with
+  | app f a ih _ =>
+    intro c us vs d h
+    simp only [Expr.instantiateList, Expr.getAppFn] at h ⊢
+    exact ih h
+  | const n us' => intro c us vs d h; simpa only [Expr.instantiateList] using h
+  | _ => intro c us vs d h; simp only [Expr.getAppFn] at h; exact absurd h (by simp)
+
 /-- **K.69 at one owner, one own pin, one constructor and one field.** -/
-theorem nestedOrdNormOk_at_refl {env : Env} {p : NestedParts} {b : MutualBlock}
-    {st : ElimState} {stored : List AuxStored}
-    (h : nestedOrdNormOk env p b st stored = true)
+theorem nestedOrdNormOk_at_refl {mode : CheckMode} {env : Env} {p : NestedParts}
+    {b : MutualBlock} {st : ElimState} {stored : List AuxStored}
+    (h : nestedOrdNormOk mode env p b st stored = true)
     {kinds : List (List (List (RecFieldKind × Nat)))}
     (hk : nestedPinKinds p b stored = some kinds)
     {g : Nat} (hg : g < st.pins.length) {gn : NestedPin} (hgn : st.pins[g]? = some gn)
@@ -1207,14 +1227,18 @@ theorem nestedOrdNormOk_at_refl {env : Env} {p : NestedParts} {b : MutualBlock}
     {domJ : Expr × BinderMeta} (hdJ : jbs[ci.nP + l]? = some domJ)
     (hrec : (r == RecFieldKind.recursive || r == RecFieldKind.reflexive) = true)
     (hord : mentionsMember (ci.members.map (·.name)) domJ.1 = false)
-    (hfire : ordRootFired env (ciJ.members.map (·.name)) ownSelf
-      (ordTargetDom Jm.lps ci.nP ownSelf qK l domJ.1) = true)
+    {Wn : Expr}
+    (hnorm : ordRootNorm mode env (ciJ.members.map (·.name))
+      (ordTargetDom Jm.lps ci.nP ownSelf qK l domJ.1) = some Wn)
+    (hfire : ordRootFired env (ciJ.members.map (·.name)) ownSelf Wn = true)
     {Wb : Expr}
     (hinst : ordRootInst m₀.lps ciJ.nP
         (l + domPiDepth (ordTargetDomL Jm.lps ownSelf qK domJ.1))
-        ((nestedPinTermsSelf p st).getD g default)
-        (ordTargetDom Jm.lps ci.nP ownSelf qK l domJ.1) = some Wb) :
-    ordTargetDom Jm.lps ci.nP (nestedPinTermsSelf p st) q l domJ.1 = Wb := by
+        ((nestedPinTermsSelf p st).getD g default) Wn = some Wb)
+    {Wn₁ : Expr}
+    (hnormB : ordRootNorm mode env (ciJ.members.map (·.name))
+      (ordTargetDom Jm.lps ci.nP (nestedPinTermsSelf p st) q l domJ.1) = some Wn₁) :
+    Wn₁ = Wb := by
   cases hms : nestedInstMaps env st with
   | none =>
     unfold nestedOrdNormOk nestedOrdNormAt at h
@@ -1253,8 +1277,12 @@ theorem nestedOrdNormOk_at_refl {env : Env} {p : NestedParts} {b : MutualBlock}
   rw [hl, hdJ] at hlv
   simp only at hlv
   rw [if_neg (by simp [hrec]), if_neg (by simp [hord])] at hlv
+  rw [hnorm] at hlv
+  simp only at hlv
   rw [if_neg (by simp [hfire])] at hlv
   rw [hinst] at hlv
+  simp only at hlv
+  rw [hnormB] at hlv
   simpa using hlv
 
 /-- **K.69 at a FINITARY field**, where the two cuts are the identity:
@@ -1263,9 +1291,9 @@ the recomputed domains' heads are `.const`s, so neither is a `Π` and
 `nestedOrdTargetOk_at` pattern, at both sides — the owner's cut is what
 `ordRootInst` abstracts above, and the block's is what the conclusion's
 left-hand side carries. -/
-theorem nestedOrdNormOk_at {env : Env} {p : NestedParts} {b : MutualBlock}
-    {st : ElimState} {stored : List AuxStored}
-    (h : nestedOrdNormOk env p b st stored = true)
+theorem nestedOrdNormOk_at {mode : CheckMode} {env : Env} {p : NestedParts}
+    {b : MutualBlock} {st : ElimState} {stored : List AuxStored}
+    (h : nestedOrdNormOk mode env p b st stored = true)
     {kinds : List (List (List (RecFieldKind × Nat)))}
     (hk : nestedPinKinds p b stored = some kinds)
     {g : Nat} (hg : g < st.pins.length) {gn : NestedPin} (hgn : st.pins[g]? = some gn)
@@ -1327,9 +1355,14 @@ theorem nestedOrdNormOk_at {env : Env} {p : NestedParts} {b : MutualBlock}
           ((((nestedPinTermsSelf p st).getD q default).getAppArgs.take ci.nP).reverse) l := by
     unfold ordTargetDom
     rw [hs₂, hd₂, Nat.add_zero]
+  have hheadR : (ordTargetDom Jm.lps ci.nP ownSelf qK l domJ.1).getAppFn = .const K usK := by
+    rw [hdmR]; exact getAppFn_instantiateList_const hfin
+  have hheadB : (ordTargetDom Jm.lps ci.nP (nestedPinTermsSelf p st) q l domJ.1).getAppFn
+      = .const KB usB := by
+    rw [hdmB]; exact getAppFn_instantiateList_const hfinB
   rw [← hdmB]
   refine nestedOrdNormOk_at_refl h hk hg hgn hciJ hown hm₀ hmapR hqK hq hqn hks hci hJm hj hkf
-    hcJ hsJ hl hdJ hrec hord ?_ ?_
+    hcJ hsJ hl hdJ hrec hord (ordRootNorm_const hheadR) ?_ ?_ (ordRootNorm_const hheadB)
   · rw [hdmR]; exact hfire
   · rw [hdmR, hd₁, Nat.add_zero]; exact hinst
 

@@ -332,7 +332,7 @@ def DeclNestedRun (μ : CheckMode) (F : Nat) (env : Env)
     -- one guard under which the positivity normalisation may be pushed
     -- across the block's instantiation.  UNCONDITIONAL for K.61's
     -- reason
-    ConLeche.nestedOrdNormOk env p b st stored = true ∧
+    ConLeche.nestedOrdNormOk μ env p b st stored = true ∧
     -- POST-CHECK (a) A THIRD TIME (K.30): the pins typed at the
     -- environment holding the RESTORED formers — the model tier's own
     ConLeche.nestedPinsOk (m := CheckM) (fueledOps μ F)

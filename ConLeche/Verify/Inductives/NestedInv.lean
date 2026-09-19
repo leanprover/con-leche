@@ -1085,7 +1085,7 @@ theorem nestedPinChecks_inv {ops : CheckerOps CheckM} {env envN : Env} {p : Nest
       -- **K.69**: and its DOMAIN is the owner's, one substitution
       -- apart — the terms where K.67 and K.68 compare the targets,
       -- under the guard that the OWNER's copy fired
-      nestedOrdNormOk env p b st stored = true := by
+      nestedOrdNormOk ops.mode env p b st stored = true := by
   unfold nestedPinChecks at h
   simp only at h
   by_cases hcpf : (nestedCopyFieldsAt env p st (nestedPinKinds p b stored)).1 = true
@@ -1109,7 +1109,7 @@ theorem nestedPinChecks_inv {ops : CheckerOps CheckM} {env envN : Env} {p : Nest
   by_cases hstgt : nestedOrdSelfTargetAt env p st (nestedPinKinds p b stored) = true
   case neg => rw [if_pos (by simpa using hstgt)] at h; close_throw
   rw [if_neg (by simpa using hstgt)] at h
-  by_cases hnrm : nestedOrdNormAt env p st (nestedInstMaps env st)
+  by_cases hnrm : nestedOrdNormAt ops.mode env p st (nestedInstMaps env st)
       (nestedPinKinds p b stored) = true
   case neg => rw [if_pos (by simpa using hnrm)] at h; close_throw
   rw [if_neg (by simpa using hnrm)] at h
@@ -1387,7 +1387,7 @@ private theorem checkNested_inv_rest {env envOut : Env} {p : NestedParts} {F : N
       nestedOrdSelfTargetOk env p b st stored = true ∧
       -- **K.69**: and its DOMAIN is the owner's, one substitution
       -- apart, where the owner's copy fired
-      nestedOrdNormOk env p b st stored = true ∧
+      nestedOrdNormOk mode env p b st stored = true ∧
       -- POST-CHECK (a) A THIRD TIME (K.30): the pins typed at the
       -- environment holding the RESTORED formers
       nestedPinsOk (m := CheckM) (fueledOps mode F)
@@ -1767,7 +1767,7 @@ theorem checkNested_inv {env envOut : Env} {p : NestedParts} {F : Nat}
       nestedOrdSelfTargetOk env p b st stored = true ∧
       -- **K.69**: and its DOMAIN is the owner's, one substitution
       -- apart, where the owner's copy fired
-      nestedOrdNormOk env p b st stored = true ∧
+      nestedOrdNormOk mode env p b st stored = true ∧
       -- POST-CHECK (a) A THIRD TIME (K.30): the pins typed at the
       -- environment holding the RESTORED formers
       nestedPinsOk (m := CheckM) (fueledOps mode F)
