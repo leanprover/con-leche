@@ -119073,3 +119073,128 @@ one approved, so the order stands for the coordinator:
 DESIGN-only session: no `.lean` file changed, so no gate could move and
 none was re-run.  `tests/unconsumed.sh` and the accept set stand where
 "(3′) PART-LANDED AND REPRICED" (f) left them.
+
+#### WIDE (3′) (a) ROUTE 1, PRICED AT THE PROOF — clauses 1 and 2 are ready, clause 3 has NO SOURCE, and the cheap one is a kernel Bool (lane LE, 2026-09-19)
+
+The coordinator's ruling on the refutation above is route 1, three
+`ContainerModeled` clauses at nine sites, the ninth "from K.30's
+`R.scoped`, `SF.pinDs` at `b.nP`, and the pins' own check".  Two of the
+three are exactly that.  **The third is not: the pins' own check does
+not certify the components' resolution, and nothing else in the tree
+does either.**  Nothing was built this session beyond the two DESIGN
+records; the tree is unchanged apart from them.
+
+**A FAMILY RULE, from the refutation.**  A pin minted while expanding
+one of the container's OWN COPIES has no member field asking for it —
+`nested_p04`'s `P4C` mints `List (P4C α)` inside the `Array` copy — so
+at such a pin the own-pin TABLE is the only handle, and a table of
+expressions is only usable once it is READ.  That is why the reading
+form has to be carried after all, and why route 2's "one clause" was
+one clause about the wrong quantifier: it quantified over the fields,
+and the obligation quantifies over the pins.  (`nested_p04` deciding
+it is the THIRD time that fixture has been this route's witness — it
+refuted §U.48 (e″)'s rank spec, it forced K.41's "root, not parent",
+and it now refutes the field-target clause.)
+
+##### (a) CLAUSES 1 AND 2, AS PRICED
+
+* **the scope** — `ContainerOwnPinsSyn.toReadOf`'s `hscope`, per pin so
+  that it is vacuous at `d.nPins = 0`: at every own pin the components
+  stand at `d.nP` parameter openers with no loose bound variable.
+  Mentions no environment and no model, so it crosses `crossEnvP`
+  verbatim.  Ninth site: K.30 (`pinsScoped_inv` through
+  `NestedPinsRun.scoped`), spine-hereditary to the components by
+  `looseBVarsBounded_mkAppN`/`fvarLeaves_mkAppN`
+  (`Verify/InferLeaves.lean`), exactly as `instMapPinOwn` already does
+  it for the boundedness half;
+* **the readings** — `toReadOf`'s `hpinDs`: `DenoteMetaSpine m.acval
+  env φ d.nP (d.pinAt q).DsE ((d.pinAt q).Ds φ)`.  Ninth site:
+  `NestedStageFacts.pinDs` at `b.nP`, crossed to the output model the
+  way the typing clauses are.  It is a `denoteMeta` CONCLUSION, so —
+  unlike the reading FORM `ContainerOwnPins`, whose `DenoteMetaSpine`
+  PREMISE is what makes that one uncrossable — it crosses
+  COVARIANTLY, through `crossEnvP`'s `hde`.
+
+##### (b) CLAUSE 3 IS THE `hde` GUARD, AND IT HAS NO SOURCE
+
+`hde` is guarded: `∀ ψ dp e, ProjFree Ts e → denoteMeta … env₁ … →
+denoteMeta … env₂ …`, and the guard is not decoration — `hde` is
+refutable across a table cons (`hde_not_of_newTable`), because a
+`.proj` node whose table appears only in `env₂` reads one way before
+and another after.  Every existing subject of the crossing gets the
+guard the same way (`EnvModelBStages.lean:1689`):
+`ProjFree.of_constsResolve hmemFresh hf.Tres` — the FRONT DOOR's
+resolution of a stored type, plus the tabled names' freshness.  So
+clause 3 has to be `∀ q < d.nPins, ∀ x ∈ (d.pinAt q).DsE,
+x.constsResolve env = true`, which then crosses by `hres` and hands
+the guard to clause 2's crossing at the stage's own `hmemFresh`.
+
+**What the ninth site can offer, checked one by one:**
+
+* *the pins' own check* — `nestedPinsOk` runs `pinB.hasFvar`,
+  `pinB.looseBVarsBounded nP` and `ops.inferType env nP q.pin`, and
+  `nestedPinsOk_inv` hands back exactly those three.  Inference is not
+  resolution: `Expr.projTablesOk` is a SEPARATE syntactic walk, run by
+  `checkConstantVal`/`checkConstantValPre` and NOT by `nestedPinsOk`;
+* *the reading* — `acceptedReads_aux`'s case analysis shows what a
+  reading does and does not certify: `.const` gives `env.find? n =
+  some ci` (resolution), but `.fvar` ignores its ANNOTATION (which
+  `constsResolve` descends into) and `.proj sn i` is satisfied either
+  by a table at `sn` — which is `find? (projTableName sn)`, not
+  `find? sn` — or by the `projPair?` fallback, which asks the
+  environment nothing.  So reading ⇏ resolution, at exactly the node
+  the guard exists for;
+* *`EnvWF`* — `ConstWF`'s projection clause constrains a stored table's
+  BODIES; no clause says a stored table's structure is stored, so the
+  table-name route does not reach `find? sn` either;
+* *the stored material* — the components are subterms of stored types
+  only through the mint chain (`P4C`'s `List` pin's component comes off
+  the `Array` COPY's stored constructor type, substituted), so
+  recovering them from `EnvWF` is an invariant over `elimNested`'s
+  loop, not a lookup.
+
+##### (c) THE CHEAP ANSWER IS K.30's OWN — a kernel Bool
+
+`pinsScoped`'s docstring gives the argument verbatim for its own
+existence: "a pin's components appear in no other term the route
+checks".  The same sentence is why the resolution is unrecorded, and
+the same remedy fits:
+
+    def pinsResolve (env : Env) (st : ElimState) : Bool :=
+      st.pins.all fun q => q.pin.constsResolve env
+
+one line beside `pinsClosed`/`pinsScoped`/`pinsLevelsOk` (K.30/K.48),
+UNCONDITIONAL in both routes, `.internal` on failure, category (B)
+by-construction-only, **cannot fire** — a pin is `J Ds` with `Ds` read
+out of a constructor body the front door resolved, and `mkCopy`
+substitutes resolving terms into a stored container's resolving type.
+Cost: one `constsResolve` (the memoized walk, `@[csimp]`) per pin over
+terms of a handful of nodes — K.30's own cost model.  The model-side
+consumer is then three lines: `constsResolve_mkAppN`/`_getAppArgs`
+(`Verify/InferLeaves.lean`) split the pin term, and
+`ProjFree.of_constsResolve` is the crossing's existing idiom.
+
+The two alternatives inside the Model/Verify tiers were priced and are
+both session-scale: an inference-induction mirroring
+`acceptedReads_aux` gives only `projTablesOk` (not `find? sn`), leaves
+the fvar ANNOTATIONS uncovered, and forces the crossing's guard to be
+respelled at `projTableName` and re-sourced at every stage; and an
+`elimNested`-loop resolution invariant is a walk over the elimination.
+
+##### (d) STATE AND ORDER
+
+Unchanged from the refutation row except for this pricing: `hρ` is
+where "(3′) (e) 1" left it, and (c), (d), (4′), (4) are downstream of
+it.  The order, once clause 3 has a source:
+
+1. the kernel Bool (K.64) — a kernel-lane item, outside this lane's
+   scope;
+2. the three clauses at the nine sites, the crossing, and the producer
+   beside `instMapPinOwn` (`PinCorr` at EVERY own pin through
+   `pinCorr_of_pinEq`, whose other five premises are in hand);
+3. `hρ` → `hpin` → `hrowsσ` → the σ clause → (4′) → (4).
+
+##### (e) GATES
+
+DESIGN-only session: no `.lean` file changed, so no gate could move and
+none was re-run.
