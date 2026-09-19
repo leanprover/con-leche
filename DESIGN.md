@@ -106503,6 +106503,132 @@ With it in the tree, that lane's next step is (iv)(b), the two
 reflexive mention clauses, which it deliberately held until this
 record's shape was fixed.
 
+#### K.64 — the pins' constants resolve (2026-09-19, task #315, lane LE's request)
+
+`pinsClosed`'s and `pinsLevelsOk`'s third twin, one line below them:
+every constant a pin's term names — the container at its head, the
+block's own members inside its components, everything the components
+inherit from the constructor body they were read out of — is stored at
+the environment holding the RESTORED FORMERS, and every `.proj` node in
+a pin names a stored structure.
+
+    def pinsResolve (env : Env) (pins : List NestedPin) : Bool :=
+      pins.all fun q => q.pin.constsResolve env
+
+**WHY A RECORD AND NOT A DERIVATION — four dead ends, each checked.**
+This is the whole justification, and it is `pinsScoped`'s own argument
+("a pin's components appear in no other term the route checks") at a
+different predicate:
+
+* `nestedPinsOk` runs THREE walks on a pin — `hasFvar`,
+  `looseBVarsBounded` and `inferType` — and `nestedPinsOk_inv` hands
+  back exactly those three.  `Expr.projTablesOk`, the syntactic
+  projection-slot walk, is NOT one of them: it belongs to
+  `checkConstantVal`/`checkConstantValPre`, which no pin passes through;
+* the pin's READING does not give it either, and `acceptedReads_aux`'s
+  own case analysis is the proof: `.const` gives `env.find? n = some ci`,
+  but `.fvar` IGNORES its type annotation — which `Expr.constsResolve`
+  descends into — and `.proj sn i` is satisfied either by a table,
+  which is `find? (projTableName sn)` and not `find? sn`, or by the
+  `projPair?` fallback, which asks the environment nothing;
+* `ConstWF`'s projection clause constrains a stored table's BODIES, not
+  its structure's storage, so the table route does not reach `find? sn`;
+* and a pin's components reach stored types only through the MINT
+  CHAIN — a pin minted inside one of the container's own copies has its
+  components off the COPY's type, which is where `nested_p04`'s
+  `List (P4C α)` comes from — so recovering them from `EnvWF` would be
+  an invariant over `elimNested`'s loop rather than a lookup.
+
+**WHAT CONSUMES IT.**  The `ContainerModeled` clause carrying a
+container's pins' components' READINGS.  That clause is a `denoteMeta`
+CONCLUSION, so it crosses a later install covariantly — but through
+`ContainerModeled.crossEnvP`'s `hde`, which is GUARDED, because `hde`
+is refutable across a table cons (`hde_not_of_newTable`): a `.proj`
+node whose table appears only in the new environment reads one way
+before and another after.  Every other subject of that crossing takes
+its guard from a front door's resolution plus the tabled names'
+freshness (`ProjFree.of_constsResolve`, `EnvModelBStages.lean`); the
+pins had no such fact, and this is it.  `NestedPinsRun.resolved` is the
+model-side reading, `pinsResolve_inv` the inversion beside
+`pinsScoped_inv`.
+
+**PLACEMENT.**  At the environment holding the restored formers
+(`env₁ = consNestedFormers members env`), immediately after the third
+`nestedPinsOk` — and it must be there and not at the pre-block `env`: a
+pin's components MENTION a member of the block (K.44), and a member is
+not stored before the install.  OUTSIDE `nestedPinChecks`, so the two
+cached simulation walks in `Verify/Cached/PushChain.lean` take one
+`Yields.ofDecCases` each (K.59's arrangement; K.60-K.63 sit inside
+`nestedPinChecks` and needed none).  UNCONDITIONAL in both routes —
+the pure `checkNested` and the cached `checkNestedS` — `.internal` on
+failure, **gating NONE** for K.61's reason: the consumer reads it in
+every mode, so a `certOnly` clause would be `true` in trusted mode and
+could serve nobody.
+
+##### (a) THE MEASUREMENT
+
+| corpus | shadow blocks | accepting | fires |
+|---|---|---|---|
+| `tests/e2e/*` + `_tmp/arena-tests/{good,bad}`, each at both modes (454 runs) | 92 | 88 | 0 |
+| `init-full` (53 093 accepted) | 1 | 1 | 0 |
+| Mathlib (654 504 accepted), both modes | 41 | 41 | 0 |
+
+*Firing control* — the same check at the PRE-BLOCK environment, where a
+pin's member mention is unresolvable by construction: **88 fires over
+the e2e+arena sweep, one at every one of the 88 accepting shadow blocks
+and in BOTH modes**, and the same control on Mathlib was still running when this row was written on Mathlib.  So the guard is
+reached with content wherever a nested block is installed, which is the
+widest reachability any of K.59-K.64 has — unlike K.60's and K.61's,
+whose guards are reached at nine blocks over three corpora.
+
+##### (b) THE COST — NOISE, IN BOTH MODES
+
+`perf stat -e instructions:u`.
+
+| run | without | with | delta |
+|---|---|---|---|
+| `init-full --verified` (no shadow) | 539.248 G | 539.240 G | −0.001 % |
+| `init-full --trusted` (no shadow) | 521.910 G | 521.895 G | −0.003 % |
+| `init-full --verified --nested-shadow` | 539.305 G | 539.303 G | −0.000 % |
+| `init-full --trusted --nested-shadow` | 521.979 G | 521.998 G | +0.004 % |
+| Mathlib `--verified --nested-shadow` | 12 255.40 G | 12 257.30 G | +0.015 % |
+| Mathlib `--trusted --nested-shadow` | 11 297.31 G | 11 299.81 G | +0.022 % |
+
+K.30's cost model, confirmed: one `constsResolve` — the memoized walk,
+`@[csimp]` — over one small term per pin, and a nested block has a
+handful of pins.  The `init-full` rows are the harness's noise band in
+both directions.  The Mathlib rows are the real figure and they are
+**+0.015 % / +0.022 %**, an order of magnitude below K.60's
++0.128 %/+0.142 % and twenty times below K.61+K.62's
++0.326 %/+0.434 % — the check walks the PINS, of which a nested block
+has a handful, and not a field table or an environment lookup per
+field.  Today the route is not dispatched and the production cost is
+zero in both modes; these are the forecast for when the dispatch arm
+lands.
+
+##### (c) THE HEARTBEAT COST OF THE CONJUNCT
+
+`checkNested_inv_rest`, by the split row's bisection method
+(`set_option maxHeartbeats N in` on a scratch edit, reverted;
+`lake env lean` over the whole module): **26 750 < c ≤ 27 500**, where
+K.62's row left the tail at 24 500 < c ≤ 25 000.  So the conjunct costs
+at most 3 000 of the 200 000 budget, the tail sits at 13.8 % of it, and
+the headroom the split row promised is untouched.
+
+##### (d) LEDGER ROW — K.64
+
+Category **(B)**, by-construction-only: official computes nothing of
+the kind, and the fact is true by construction of the front door's
+resolution and of `mkCopy`.  Not certification-only and not gated —
+K.61's reason, the consumer's.  **It cannot fire.**
+
+**IF IT EVER FIRES** a pin names a constant the block's own environment
+does not store, which is a defect in the ROUTE — the elimination built
+a term out of something it did not check — and never a reason to relax
+the check.  The message is "nested: a pin names a constant the block's
+environment does not store", and both routes carry it at the point of
+failure.
+
 #### TWO FINDINGS ABOUT THE OWN-PIN TABLE, for whoever reads it next (2026-09-19, task #315, lane K61)
 
 Both cost this lane a build and a measurement; neither is obvious from

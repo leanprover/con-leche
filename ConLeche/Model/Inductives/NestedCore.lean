@@ -2032,6 +2032,10 @@ Consumer: `nestedStageFacts_of` → `nestedCoreModeled_of`. -/
     -- formers' environment (`consNestedFormers_take_eq`)
     ConLeche.nestedPinsOk (m := ConLeche.CheckM) (fueledOps μ F)
       (ConLeche.consMutualFormers (fms.take p.k) env) p.nP st.pins = .ok () →
+    -- **THE PINS' CONSTANTS RESOLVE** (K.64): at that same environment
+    -- — the guard a container's pins' components' READINGS need to
+    -- cross a later install's projection table
+    ConLeche.pinsResolve (ConLeche.consMutualFormers (fms.take p.k) env) st.pins = true →
     -- the auxiliary block's formers' stage, at the scratch run
     ConLeche.mutualFormers (m := ConLeche.CheckM) (fueledOps μ F) b.nP b.formers env true
       = .ok (ConLeche.consMutualFormers fms env, fms) →
@@ -2138,6 +2142,7 @@ theorem nestedStageFacts_of (hst : NestedCtorsStaged V μ F) (hμ : μ.verifiedC
     (hK62 : ConLeche.nestedOrdOutsideOk env p b st stored = true)
     (hpins₁ : ConLeche.nestedPinsOk (m := ConLeche.CheckM) (fueledOps μ F)
       (ConLeche.consMutualFormers (fms.take p.k) env) p.nP st.pins = .ok ())
+    (hK64 : ConLeche.pinsResolve (ConLeche.consMutualFormers (fms.take p.k) env) st.pins = true)
     (hnd : b.blockNames.Nodup) (h3 : ConLeche.mutualCtorsGrouped b.ctors = true)
     (hformers : ConLeche.mutualFormers (m := ConLeche.CheckM) (fueledOps μ F) b.nP b.formers env true
       = .ok (ConLeche.consMutualFormers fms env, fms))
@@ -2207,8 +2212,8 @@ theorem nestedStageFacts_of (hst : NestedCtorsStaged V μ F) (hμ : μ.verifiedC
   obtain ⟨mp₂, dsR, xFvsR, pinsS, L⟩ := hst hμ mp hE p st b envAux stored ctorsR fmsA ctorsA₀ fms f₀
     ctorsA sortss kinds mp₁ ppsF W idxF dsF esF srcsF fvsPF xFvsF xrestF eissF tssF mp₁' hPM h0 h1
     hfA hcA helim hcount hfresh hcont hb haux hstored hclosed hpinsAux hcaps hsrc hgrp hsc hK32
-    hkinds hrank hK42 hK51 hK60 hK63 hK61 hK62 hpins₁ hformers h hbk h3 hnd hctorsA hleafM' hoff'
-    hfind' hctors
+    hkinds hrank hK42 hK51 hK60 hK63 hK61 hK62 hpins₁ hK64 hformers h hbk h3 hnd hctorsA hleafM'
+    hoff' hfind' hctors
   -- the names
   have hnames : (fms.take p.k).map (·.cvTa.name) = p.memberNames := by
     rw [List.map_take, h.names]

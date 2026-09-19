@@ -316,6 +316,14 @@ def DeclNestedRun (μ : CheckMode) (F : Nat) (env : Env)
     -- environment holding the RESTORED formers — the model tier's own
     ConLeche.nestedPinsOk (m := CheckM) (fueledOps μ F)
         (consNestedFormers (stored.take p.k) env) p.nP st.pins = .ok () ∧
+    -- **THE PINS' CONSTANTS RESOLVE** (K.64): at that same environment,
+    -- every constant a pin names is stored and every `.proj` node in it
+    -- names a stored structure.  The clause carrying a container's
+    -- pins' components' READINGS is a `denoteMeta` conclusion, so it
+    -- crosses a later install through the GUARDED `hde`, and this is
+    -- where that guard comes from — as it does for every other subject
+    -- of that crossing.  UNCONDITIONAL, like K.59-K.63
+    ConLeche.pinsResolve (consNestedFormers (stored.take p.k) env) st.pins = true ∧
     -- the restored constructors, at the environment holding the formers
     (stored.take p.k).mapM (fun a =>
         restoreCtors (m := CheckM) (fueledOps μ F)
@@ -576,7 +584,7 @@ theorem declNestedRun_etaClosed {μ : CheckMode} {F : Nat} {env envOut : Env}
     (h : DeclNestedRun μ F env p envOut) : EtaFamiliesClosed envOut := by
   obtain ⟨-, -, st, b, envAux, stored, ctorsR, cvRms, cvRns, rulesM, rulesN, fmsA, ctorsA,
     -, -, -, -, -, -, -, -, -, -, -, -, hcaps,
-    -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -,
+    -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -, -,
     hctors, hrm, hrn, -, -, -, -, -, htbl,
     -, -, -, -, -, -⟩ := h
   refine EtaFamiliesClosed.ofFreshExt hE ?_

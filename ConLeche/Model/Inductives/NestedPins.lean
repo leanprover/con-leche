@@ -1109,6 +1109,16 @@ structure NestedPinsRun (V : Type w) [SetTheory V] (μ : CheckMode) (F : Nat) {e
   hK62 : ConLeche.nestedOrdOutsideOk env p b st stored = true
   hpinsE : ConLeche.nestedPinsOk (m := ConLeche.CheckM) (fueledOps μ F)
       (ConLeche.consMutualFormers (fms.take p.k) env) p.nP st.pins = .ok ()
+  /-- **THE PINS' CONSTANTS RESOLVE** (K.64, task #315, lane LE): at the
+  prefix formers' environment, every constant a pin names is stored and
+  every `.proj` node in it names a stored structure.  Nothing else in
+  the run carries it — `nestedPinsOk` runs `hasFvar`,
+  `looseBVarsBounded` and `inferType` and not `projTablesOk`, and a
+  reading ignores an `.fvar`'s annotation and settles a `.proj` node
+  with a table or the pair fallback — and the clause carrying a
+  container's pins' components' READINGS needs it to cross a later
+  install's projection table -/
+  hK64 : ConLeche.pinsResolve (ConLeche.consMutualFormers (fms.take p.k) env) st.pins = true
   hformers : ConLeche.mutualFormers (m := ConLeche.CheckM) (fueledOps μ F) b.nP b.formers env true
       = .ok (ConLeche.consMutualFormers fms env, fms)
   h : MutualFormersFacts V F true mp b fms f₀ ctorsA sortss kinds mp₁ ppsF W idxF dsF esF srcsF
@@ -1492,6 +1502,17 @@ theorem NestedPinsRun.scoped :
   refine ⟨params, o, ?_, hall⟩
   rw [hcvTa, hnP]
   exact hop
+
+/-- **THE PINS' CONSTANTS RESOLVE AT THE PREFIX ENVIRONMENT** (task
+#315 K.64 consumed, lane LE): `scoped`'s neighbour — the record
+inverted, per pin.  Its consumer is the container clause carrying a
+pin's components' READINGS, which crosses a later install only under
+the projection guard, and which takes that guard from this fact the
+way every other subject of the crossing does
+(`ProjFree.of_constsResolve`). -/
+theorem NestedPinsRun.resolved :
+    ∀ q ∈ st.pins, q.pin.constsResolve (ENV₁) = true :=
+  ConLeche.pinsResolve_inv R.hK64
 
 /-- **A pin's reading at the prefix model** (K.30 consumed): the pin's
 `inferType` run at the prefix environment and its scope give its
@@ -2085,12 +2106,12 @@ DESIGN §U.22.) -/
 theorem nestedPinsStaged_of {F : Nat} (hId : NestedPinsIdent V μ F) : NestedPinsStaged V μ F := by
   intro hμ env mp hE p st b envAux stored ctorsR fmsA ctorsA₀ fms f₀ ctorsA sortss kinds mp₁ ppsF W
     idxF dsF esF srcsF fvsPF xFvsF xrestF eissF tssF mp₁' hPM h0 h1 hfA hcA helim hcount hfresh hcont
-    hb haux hstored hclosed hpinsAux hcaps hsrc hgrp hscoped hK32 hkinds hrank hK42 hK51 hK60 hK63 hK61 hK62 hpinsE hformers h hbk
+    hb haux hstored hclosed hpinsAux hcaps hsrc hgrp hscoped hK32 hkinds hrank hK42 hK51 hK60 hK63 hK61 hK62 hpinsE hK64 hformers h hbk
     h3 hnd hctorsA hleafM' hoff' hfind' hctors
   have R : NestedPinsRun V μ F mp p st b envAux stored ctorsR fmsA ctorsA₀ fms f₀ ctorsA sortss kinds
       mp₁ ppsF W idxF dsF esF srcsF fvsPF xFvsF xrestF eissF tssF mp₁' :=
     ⟨hμ, hE, hPM, h0, h1, hfA, hcA, helim, hcount, hfresh, hcont, hb, haux, hstored, hclosed, hpinsAux,
-      hcaps, hsrc, hgrp, hscoped, hK32, hkinds, hrank, hK42, hK51, hK60, hK63, hK61, hK62, hpinsE, hformers, h, hbk, h3, hnd, hctorsA,
+      hcaps, hsrc, hgrp, hscoped, hK32, hkinds, hrank, hK42, hK51, hK60, hK63, hK61, hK62, hpinsE, hK64, hformers, h, hbk, h3, hnd, hctorsA,
       hleafM',
       hoff', hfind', hctors⟩
   obtain ⟨hpinsE, fvs, o, hop, hsc⟩ := R.scoped

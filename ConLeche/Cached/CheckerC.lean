@@ -440,6 +440,9 @@ def checkNestedS (fe : FEnv) (p : NestedParts) : CheckCM FEnv := do
   -- post-check (a) a third time (K.30), at the restored formers' index
   flushC
   nestedPinsOk (sharedOpsC mode fe₁) fe₁.env p.nP st.pins
+  -- the pins' constants resolve there (K.64), as in the pure route
+  unless pinsResolve fe₁.env st.pins do
+    throw (.internal "nested: a pin names a constant the block's environment does not store")
   flushC
   let ctorsR ← members.mapM fun a =>
     restoreCtorsF (sharedOpsC mode fe₁) fe₁ R p.lps a.ctors

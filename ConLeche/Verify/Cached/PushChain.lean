@@ -1356,6 +1356,11 @@ theorem checkNestedS_push (mode : CheckMode) {env : Env} {fe : FEnv}
   ybind
   ybind
   ybind
+  -- K.64's guard is a pure Bool OUTSIDE `nestedPinChecks`, so — unlike
+  -- K.60-K.63, which sit inside it — the walk meets it here: the
+  -- throwing branch yields nothing
+  refine Yields.ofDecCases (fun _ => Yields.ofThrowBind) (fun _ => ?_)
+  try simp only []
   ybind
   -- (2) THE RESTORED CONSTRUCTORS' CONS: each restored constructor is
   -- checked at the formers' index it is pushed onto, and the names are
@@ -1593,6 +1598,9 @@ theorem checkNestedS_skels (mode : CheckMode) {fe : FEnv} {sk : List InstallSkel
   ybind
   ybind
   ybind
+  -- K.64's guard, as in the push walk above
+  refine Yields.ofDecCases (fun _ => Yields.ofThrowBind) (fun _ => ?_)
+  try simp only []
   ybind
   refine Yields.bind' (Yields.mapM_getElem
     (fun a : AuxStored => restoreCtorsF_names _ _ _ _ a.ctors) _) fun ctorsR hctorsR => ?_

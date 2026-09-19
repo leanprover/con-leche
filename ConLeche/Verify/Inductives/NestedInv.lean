@@ -1359,6 +1359,11 @@ private theorem checkNested_inv_rest {env envOut : Env} {p : NestedParts} {F : N
       -- environment holding the RESTORED formers
       nestedPinsOk (m := CheckM) (fueledOps mode F)
           (consNestedFormers (stored.take p.k) env) p.nP st.pins = .ok () ∧
+      -- **THE PINS' CONSTANTS RESOLVE** (K.64): at that same
+      -- environment.  UNCONDITIONAL: the consumer — a container's
+      -- pins' components' READINGS, which cross a later install only
+      -- under the projection guard — reads it in every mode
+      pinsResolve (consNestedFormers (stored.take p.k) env) st.pins = true ∧
       -- the restored constructors, at the environment holding the formers
       (stored.take p.k).mapM (fun a =>
           restoreCtors (m := CheckM) (fueledOps mode F)
@@ -1507,6 +1512,11 @@ private theorem checkNested_inv_rest {env envOut : Env} {p : NestedParts} {F : N
   try simp only at h
   obtain ⟨uP₁, hpins₁, h⟩ := exceptBind_ok h
   try simp only at h
+  try simp only [bind, Except.bind] at h
+  by_cases hres : pinsResolve (consNestedFormers (stored.take p.k) env) st.pins = true
+  case neg => rw [if_neg hres] at h; close_throw
+  rw [if_pos hres] at h
+  try simp only [bind, Except.bind] at h
   obtain ⟨ctorsR, hctors, h⟩ := exceptBind_ok h
   try simp only at h
   obtain ⟨cvRms, hrm, h⟩ := exceptBind_ok h
@@ -1575,7 +1585,7 @@ private theorem checkNested_inv_rest {env envOut : Env} {p : NestedParts} {F : N
   exact ⟨stored, ctorsR, cvRms, cvRns, rulesM, rulesN,
     hst', hpc, (by cases uA; exact hpinsAux), hcaps, hsrc,
     certOnly_and_left hcont, hgrp, hmn, hsc, hpl, htg, hkd, haa, hrk, hpa, hrh, hordC,
-    hord, hpinN, hcpf, hcrf, him, hout, (by cases uP₁; exact hpins₁), hctors, hrm, hrn,
+    hord, hpinN, hcpf, hcrf, him, hout, (by cases uP₁; exact hpins₁), hres, hctors, hrm, hrn,
     hnd, hdj,
     hrlm, hrln, hrb2, htbl, (by cases u₀; exact hpins), hnums, hlen,
     (by cases u₁; exact hrecs), hrb, hop, hom⟩
@@ -1718,6 +1728,11 @@ theorem checkNested_inv {env envOut : Env} {p : NestedParts} {F : Nat}
       -- environment holding the RESTORED formers
       nestedPinsOk (m := CheckM) (fueledOps mode F)
           (consNestedFormers (stored.take p.k) env) p.nP st.pins = .ok () ∧
+      -- **THE PINS' CONSTANTS RESOLVE** (K.64): at that same
+      -- environment.  UNCONDITIONAL: the consumer — a container's
+      -- pins' components' READINGS, which cross a later install only
+      -- under the projection guard — reads it in every mode
+      pinsResolve (consNestedFormers (stored.take p.k) env) st.pins = true ∧
       -- the restored constructors, at the environment holding the formers
       (stored.take p.k).mapM (fun a =>
           restoreCtors (m := CheckM) (fueledOps mode F)

@@ -132,6 +132,15 @@ theorem pinsScoped_inv {nP : Nat} {st : ElimState} (h : pinsScoped nP st = true)
       have hl' := List.all_eq_true.mp hq'.2 l hl
       exact List.mem_of_getElem? (beq_iff_eq.mp hl')
 
+/-- **THE PINS' CONSTANTS RESOLVE, INVERTED** (task #315 K.64):
+`pinsScoped_inv`'s neighbour, and the same one-line shape — the Bool
+is an `all` over the pin list, so its content is the per-pin fact. -/
+theorem pinsResolve_inv {env : Env} {pins : List NestedPin}
+    (h : pinsResolve env pins = true) :
+    ∀ q ∈ pins, q.pin.constsResolve env = true := by
+  unfold pinsResolve at h
+  exact fun q hq => List.all_eq_true.mp h q hq
+
 /-- **POST-CHECK (a), INVERTED** (task #315): the loop's two syntactic
 tests and its inference, at every pin. -/
 theorem nestedPinsOk_inv {F : Nat} {env : Env} {nP : Nat} :

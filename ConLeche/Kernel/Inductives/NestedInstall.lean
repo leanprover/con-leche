@@ -677,6 +677,56 @@ CERTIFICATION-ONLY: gated. -/
 def pinsLevelsOk (lps : List Name) (pins : List NestedPin) : Bool :=
   pins.all fun q => q.pin.allLevelParamsDefined lps
 
+/-- **THE PINS' CONSTANTS RESOLVE** (task #315 K.64, lane LE's
+DESIGN "route 1, priced at the proof").
+
+`pinsClosed`'s and `pinsLevelsOk`'s third twin, at the environment
+holding the RESTORED formers: every constant a pin's term names — the
+container at its head, the block's own members inside its components,
+and everything the components inherit from the constructor type they
+were read out of — is stored there, and every `.proj` node in it names
+a stored structure.
+
+**Why it is recorded and not derived**, which is the whole of its
+justification and is four dead ends, each checked:
+
+* `nestedPinsOk` runs three walks on a pin — `hasFvar`,
+  `looseBVarsBounded` and `inferType` — and `Expr.projTablesOk`, the
+  syntactic projection-slot walk, is NOT one of them: that one belongs
+  to `checkConstantVal`/`checkConstantValPre`, which no pin passes
+  through;
+* the pin's READING does not give it either.  `denoteMeta` ignores an
+  `.fvar`'s type ANNOTATION, which `Expr.constsResolve` descends into;
+  and at a `.proj sn i` node it is satisfied either by a table — which
+  is `find? (projTableName sn)`, not `find? sn` — or by the
+  `projPair?` fallback, which asks the environment nothing;
+* `ConstWF`'s projection clause constrains a stored table's BODIES,
+  not its structure's storage, so the table route does not reach
+  `find? sn`;
+* and a pin's components reach stored types only through the MINT
+  CHAIN — a pin minted inside one of the container's own copies has
+  its components off the COPY's type — so recovering them from
+  `EnvWF` would be an invariant over `elimNested`'s loop rather than a
+  lookup.
+
+The consumer is the wide identification's `ContainerModeled` clause
+carrying a container's pins' components' READINGS: that clause is a
+`denoteMeta` conclusion, it crosses a later install through the
+GUARDED `hde` (a `.proj` node whose table appears only afterwards
+reads one way before and another after), and every other subject of
+that crossing takes its guard from exactly this fact — a front door's
+resolution plus the tabled names' freshness.
+
+**It cannot fire.**  `pinsScoped`'s own argument applies verbatim: a
+pin is `J Ds` with `Ds` the container's parameter arguments read out of
+a constructor body the front door RESOLVED, `mkCopy` substitutes
+resolving terms into a stored container's resolving type, and the
+members the components mention are the formers this very environment
+holds.  A failure is `.internal`.  Category (B), by-construction-only,
+and NOT gated: the consumer reads it in every mode. -/
+def pinsResolve (env : Env) (pins : List NestedPin) : Bool :=
+  pins.all fun q => q.pin.constsResolve env
+
 /-- The projection table of a restored structure-like member: the
 scratch block's table with its bodies recomputed from the RESTORED
 constructor type (the guards and the result sort are levels, which the
@@ -2942,6 +2992,14 @@ def checkNestedRest (ops : CheckerOps m) (env : Env) (p : NestedParts)
   -- constants and the block's members, which this environment holds
   -- exactly as the scratch one does.
   nestedPinsOk ops env₁ p.nP st.pins
+  -- **THE PINS' CONSTANTS RESOLVE** (K.64): at that same environment,
+  -- every constant a pin names is stored and every `.proj` node in it
+  -- names a stored structure — what lets a container's pins' READINGS
+  -- cross a later install's projection table.  UNCONDITIONAL, like
+  -- K.59-K.63 and for the same reason: the consumer reads it in every
+  -- mode.  A failure is `.internal`.
+  unless pinsResolve env₁ st.pins do
+    throw (.internal "nested: a pin names a constant the block's environment does not store")
   -- 4. the constructors, restored and re-checked (post-check (b))
   let ctorsR ← members.mapM fun a => restoreCtors ops env₁ R p.lps a.ctors
   let env₂ := consNestedCtors ctorsR.flatten env₁
