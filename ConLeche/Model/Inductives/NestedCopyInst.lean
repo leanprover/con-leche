@@ -1622,16 +1622,15 @@ neither makes nor unmakes a binder), the head's non-membership is
 `pinsNotMembers`, the further container is `pinNP`/`contsEnv`, and the
 mention in the parameter part is `nestArgsMentionAbsRefl`.
 
-`hK63` is a PARAMETER and not `R.hK63`: the run relation carries the
-record (`DeclNestedRun`'s conjunct after K.60), but the field that
-would put it on `NestedPinsRun` is the wide lane's to add.  Its two
-conclusions are `NestedPinsShapePinFRefl`'s conjunct 1 and the `hkA` a
-reflexive `copyPinFCorr` needs.  -/
+K.63 is read off the run as `R.hK63` (task #315 WIDE: the field that
+carries `DeclNestedRun`'s conjunct after K.60 down to `NestedPinsRun`
+has landed, so this is no longer a parameter).  Its two conclusions are
+`NestedPinsShapePinFRefl`'s conjunct 1 and the `hkA` a reflexive
+`copyPinFCorr` needs.  -/
 theorem NestedPinsRun.copyPinFKindRefl {pbs : List (Expr × ConLeche.BinderMeta)}
     (hPD : ∀ q, q < st.pins.length → PinData env st p pbs q)
     (hkindsRun : ConLeche.classifyMutualKinds (m := ConLeche.CheckM) b.members3 b.lps b.nP ctorsA
       = .ok kinds)
-    (hK63 : ConLeche.nestedCopyReflFieldsOk env p b st stored = true)
     {i' : Nat} (hi' : i' < kJ)
     (hgb : (pinAtE st (q₀ + i')).grpBase = q₀)
     (CM : ∀ ciJ : ContainerInfo,
@@ -1822,7 +1821,7 @@ theorem NestedPinsRun.copyPinFKindRefl {pbs : List (Expr × ConLeche.BinderMeta)
   -- K.60, inverted
   have hpinJ : (pinAtE st (q₀ + i')).container = (pinsS.getD (q₀ + i') default).J :=
     (SF.pinRec _ _ PD.pin).1.symm
-  obtain ⟨hrEq, hpk⟩ := ConLeche.nestedCopyReflFieldsOk_head hK63 hkP hq PD.pin hkq
+  obtain ⟨hrEq, hpk⟩ := ConLeche.nestedCopyReflFieldsOk_head R.hK63 hkP hq PD.pin hkq
     (by rw [hpinJ]; exact hciP)
     (by rw [hgb, Nat.add_sub_cancel_left]; exact hJ₂)
     (show j < (kindsP[q₀ + i']'hkqlt).length from (List.getElem?_eq_some_iff.mp hkfj).1)
@@ -5124,15 +5123,12 @@ others want, `copyPinFCorrRefl` gives `PinCorr`'s `EA`, `Ds`, `J` and
 and `Ids`.  Conjunct 1 lands on the RIGHT disjunct of the
 recursive-or-reflexive bit, which is the only step that changes shape.
 
-`hK63` is a PARAMETER and not `R.hK63` for `copyPinFKindRefl`'s reason:
-the run relation carries the record but the field that would put it on
-`NestedPinsRun` is the wide lane's to add, and when it lands the swap
-is one line here and one there. -/
+K.63 is read off the run as `R.hK63`, for `copyPinFKindRefl`'s
+reason. -/
 theorem NestedPinsRun.copyPinFPinCorrRefl {pbs : List (Expr × ConLeche.BinderMeta)}
     (hPD : ∀ q, q < st.pins.length → PinData env st p pbs q)
     (hkindsRun : ConLeche.classifyMutualKinds (m := ConLeche.CheckM) b.members3 b.lps b.nP ctorsA
       = .ok kinds)
-    (hK63 : ConLeche.nestedCopyReflFieldsOk env p b st stored = true)
     {i' : Nat} (hi' : i' < kJ)
     (hgb : (pinAtE st (q₀ + i')).grpBase = q₀)
     (CM : ∀ ciJ : ContainerInfo,
@@ -5158,7 +5154,7 @@ theorem NestedPinsRun.copyPinFPinCorrRefl {pbs : List (Expr × ConLeche.BinderMe
         (b.ownOffset (p.k + q₀ + i') + j) []).getD l 0) (dJ.tgts i' j l - dJ.k) := by
   classical
   obtain ⟨hkA, hle⟩ :=
-    R.copyPinFKindRefl SF S hPD hkindsRun hK63 hi' hgb CM hj hlF hreflC hpinT
+    R.copyPinFKindRefl SF S hPD hkindsRun hi' hgb CM hj hlF hreflC hpinT
   obtain ⟨cc, J, ci, cI, cA, cname, hciP, hJmem, hJcc, hn, hty, hnf, hJname, hinst, hcj, hcA,
     hbc, hnF⟩ := R.ctorPair SF S hPD hi' hj
   have hGlt : b.ownOffset (p.k + q₀ + i') + j < ctorsA.length :=
@@ -10616,15 +10612,13 @@ theorem nestedPinsShapeOrdRight_of {F : Nat} : NestedPinsShapeOrdRight V μ F :=
       hkA hpinT SF.pinNIdx ψ ρp hsat
 
 
-/-- **K.63, READ OFF THE RUN** (task #315 PINF): the record the wide
-lane's `NestedPinsRun.hK63` field will be, named so that what is still
-open on the `pinF` arm can be said in one word.
+/-- **K.63, READ OFF THE RUN** (task #315 PINF): the record
+`NestedPinsRun.hK63` is, named so that what the `pinF` arm asks of the
+run can be said in one word.
 
-The run relation already CARRIES K.63 one level up —
-`DeclNestedRun`'s conjunct after K.60 — and the four edits that thread
-it down to `NestedPinsRun` are listed in DESIGN; until they land this
-predicate stands in for the field, and the moment it is there this
-becomes `fun R => R.hK63` and every consumer's hypothesis goes away. -/
+The lane that threaded K.63 down to `NestedPinsRun` has landed, so this
+is no longer a standing hypothesis: `nestedPinsK63` below proves it
+outright, and the consumers read the field. -/
 @[expose] def NestedPinsK63 (V : Type w) [SetTheory V] (μ : CheckMode) (F : Nat) : Prop :=
   ∀ {env : Env} {mp : EnvModelM V μ env} {p : NestedParts} {st : ElimState}
     {b : MutualBlock} {envAux : Env} {stored : List AuxStored}
@@ -10643,6 +10637,16 @@ becomes `fun R => R.hK63` and every consumer's hypothesis goes away. -/
       mp₁ ppsF W idxF dsF esF srcsF fvsPF xFvsF xrestF eissF tssF mp₁' →
     ConLeche.nestedCopyReflFieldsOk env p b st stored = true
 
+/-- **K.63 IS THE RUN'S OWN RECORD** (task #315 WIDE): `NestedPinsK63`
+holds, with no hypothesis at all.
+
+The two spellings are the same statement: `NestedPinsK63`'s binder list
+is `NestedPinsRun`'s parameter list and its conclusion is the field
+`hK63`'s, so the proof is the projection.  It was a standing hypothesis
+only while the run record had the conjunct (`DeclNestedRun`'s, after
+K.60) but no field carrying it down; the field is there now. -/
+theorem nestedPinsK63 {F : Nat} : NestedPinsK63 V μ F := fun R => R.hK63
+
 /-- **THE PIN ARM'S REMAINDER, DISCHARGED** (task #315 PINF):
 `NestedPinsShapePinFRefl` — the `pinF` arm at a container field that is
 REFLEXIVE at one of the container's own pins — from the reflexive
@@ -10659,15 +10663,12 @@ the constant's level PARAMETERS off each pin's own `IsBlockModel.ctors`
 — are the finitary branch's, unchanged: they do not look at the
 field's kind.
 
-**`hK63` IS A PARAMETER, and it is the ONLY thing between this theorem
-and an unconditional one.**  The run relation carries the record
-(`DeclNestedRun`'s conjunct after K.60), but the field that would put
-it in `NestedPinsRun`'s hands is the wide lane's to add; the hypothesis
-here is exactly that field, read off the run, so when it lands the
-whole of this lemma's dependence on it is the single application
-`hK63 R` below — replace it by `R.hK63` and delete the hypothesis. -/
-theorem nestedPinsShapePinFRefl_of {F : Nat}
-    (hK63 : NestedPinsK63 V μ F) :
+**THE THEOREM IS UNCONDITIONAL** (task #315 WIDE): K.63 used to be a
+parameter, because the run relation carried the record
+(`DeclNestedRun`'s conjunct after K.60) with no field putting it in
+`NestedPinsRun`'s hands.  The field has landed, so the two consumers
+below read `R.hK63` themselves and nothing is assumed here. -/
+theorem nestedPinsShapePinFRefl_of {F : Nat} :
     NestedPinsShapePinFRefl V μ F := by
   intro env mp p st b envAux stored ctorsR fmsA ctorsA₀ fms f₀ ctorsA sortss kinds mp₁ ppsF W idxF
     dsF esF srcsF fvsPF xFvsF xrestF eissF tssF mp₁' R pinsS SF dsR xFvsR q₀ kJ dJ S
@@ -10721,10 +10722,10 @@ theorem nestedPinsShapePinFRefl_of {F : Nat}
   obtain ⟨cc, J, ci, cI, cA, cname, hciP, hJmem, hJcc, hn, hty, hnf, hJname, hinst, hcj,
     hcA, hbc, hnF⟩ := R.ctorPair SF S hPD hi' hj'
   obtain ⟨h1, h2, h3⟩ :=
-    R.copyPinFPinCorrRefl SF S hPD R.h.classify (hK63 R) hi' hgb CM hj' hlF hk hnest hfind' ψ
+    R.copyPinFPinCorrRefl SF S hPD R.h.classify hi' hgb CM hj' hlF hk hnest hfind' ψ
   obtain ⟨h4, h5⟩ :=
     R.copyPinFReadRefl SF S hPD hi' CM hj' hlF hnest hk
-      (R.copyPinFKindRefl SF S hPD R.h.classify (hK63 R) hi' hgb CM hj' hlF hk hnest).1 ψ
+      (R.copyPinFKindRefl SF S hPD R.h.classify hi' hgb CM hj' hlF hk hnest).1 ψ
   rw [hψ, hDs, hlvls, hlvlp]
   exact ⟨h1, h2, h3, h4, h5⟩
 

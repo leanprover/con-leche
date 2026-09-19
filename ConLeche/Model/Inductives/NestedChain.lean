@@ -25,7 +25,7 @@ that the nested route's model side composes: the links
 * `declNested_of`          (`DeclNestedCore.lean`)
 
 meet at their ends, and that what is left over when they do is EXACTLY
-two open hypotheses.  An edit that breaks the composition fails here
+one open hypothesis.  An edit that breaks the composition fails here
 rather than in someone's reading of the tree.
 -/
 
@@ -49,8 +49,9 @@ nested block's install carries the environment's model across, given
 * `NestedPinsLe` (`NestedPinLeafAll.lean`): the pins' rank order.
 
 The first is no longer open: `nestedPinsShapePinFRefl_of` proves it
-from the kernel record K.60's reflexive twin K.63, which landed, and
-`nestedModeled_of_le` below is this theorem with that lemma plugged in.
+outright from the kernel record K.60's reflexive twin K.63, and
+`nestedModeled_of_one` below is this theorem with that lemma plugged
+in.
 
 Everything else the chain needs is a theorem in this tree.  The other
 half of the field shape, `NestedPinsShapeOrdRight`, was the third
@@ -83,25 +84,26 @@ theorem nestedModeled_of_two
           hLe)))))
     nestedTailModeled h
 
-/-- **THE CHAIN AT ONE MODEL-TIER HYPOTHESIS** (task #315 PINF): the
-reflexive `pinF` arm is a theorem (`nestedPinsShapePinFRefl_of`), so
-`nestedModeled_of_two`'s first hypothesis is discharged here and what
-is left of the MODEL tier is `NestedPinsLe` alone.
+/-- **THE CHAIN AT ONE MODEL-TIER HYPOTHESIS** (task #315): the nested
+route's model side carries an environment's model across a nested
+install from `NestedPinsLe` — the pins' rank order — and nothing else.
 
-`NestedPinsK63` is not a model-tier residual: it is the RUN's own
-record, which `DeclNestedRun` already carries one level up and which
-four edits listed in DESIGN thread down to `NestedPinsRun`.  When they
-land it is `fun R => R.hK63`, the hypothesis disappears from here and
-from `nestedPinsShapePinFRefl_of`, and this theorem becomes
-`nestedModeled_of_one` — the chain from `NestedPinsLe` and nothing
-else.  Stated as the composition for the same reason
-`nestedModeled_of_two` is: the residual count is elaborator-checked. -/
-theorem nestedModeled_of_le
-    (hK63 : NestedPinsK63 V μ F) (hLe : NestedPinsLe V μ F)
+`NestedPinsShapePinFRefl` was the other hypothesis until
+`nestedPinsShapePinFRefl_of` proved it, and it is plugged in here.
+`NestedPinsK63` never was a model-tier residual: it is the RUN's own
+record, the conjunct `DeclNestedRun` carries after K.60, and it now
+reaches its consumers as the field `NestedPinsRun.hK63`
+(`nestedPinsK63`).
+
+Stated as the composition for the same reason `nestedModeled_of_two`
+is: the residual count is elaborator-checked, so a link whose statement
+drifts stops this theorem compiling. -/
+theorem nestedModeled_of_one
+    (hLe : NestedPinsLe V μ F)
     (hμ : μ.verifiedChecks = true) (mp : EnvModelB V μ env)
     (hE : ConLeche.EtaFamiliesClosed env)
     (h : ConLeche.Semantics.DeclNestedRun μ F env p envOut) :
     Nonempty (EnvModelB V μ envOut) :=
-  nestedModeled_of_two (nestedPinsShapePinFRefl_of hK63) hLe hμ mp hE h
+  nestedModeled_of_two nestedPinsShapePinFRefl_of hLe hμ mp hE h
 
 end ConLeche.Model
