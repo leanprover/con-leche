@@ -335,6 +335,23 @@ records it sits beside. -/
           ((D).pinAt q').Ids φ = (dJ.pinAt (dJ.tgts i' j l - dJ.k)).Ids (((D).pinAt q₀).ψJ φ) ∧
           ((D).pinAt q').Ds φ
             = ((dJ.pinAt (dJ.tgts i' j l - dJ.k)).Ds (((D).pinAt q₀).ψJ φ)).map
+                (AnnotTerm.instAll (((D).pinAt q₀).Ds φ) 0)) ∧
+    -- `hownσ`: AND σ AT AN ARBITRARY OWN-PIN CLASS (task #315 WIDE (3),
+    -- session 2): `hpinσ` with the guard "at a recursive field's
+    -- target" dropped.  The `ordF` correspondence lands on an own pin
+    -- that is NOT such a target — it is the class the OWNER gave a
+    -- field the container calls ordinary — so the value σ takes there
+    -- is not covered by any of the seven clauses above.  Same data,
+    -- same producer (`instMapPinOwn` at the group's BASE member), no
+    -- new run fact.
+    (∀ x, x < dJ.nPins →
+      ∃ q', q' < pinsS.length ∧ σ (dJ.k + x) = p.k + q' ∧
+        ((D).pinAt q').J = (dJ.pinAt x).J ∧
+        ∀ φ : Name → Nat,
+          ((D).pinAt q').u φ = (dJ.pinAt x).u (((D).pinAt q₀).ψJ φ) ∧
+          ((D).pinAt q').Ids φ = (dJ.pinAt x).Ids (((D).pinAt q₀).ψJ φ) ∧
+          ((D).pinAt q').Ds φ
+            = ((dJ.pinAt x).Ds (((D).pinAt q₀).ψJ φ)).map
                 (AnnotTerm.instAll (((D).pinAt q₀).Ds φ) 0))
 
 /-- **A pin group's facts** (NAMED, DESIGN §U.18 (d)): the copies

@@ -1655,7 +1655,7 @@ theorem NestedPinsRun.pinGroupInst_of {pbs : List (Expr × ConLeche.BinderMeta)}
     rw [← pinAtE_eq] at h
     exact h
   refine ⟨fun c => if c < dJ.k then p.k + q₀ + c else p.k + mm.getD (c - dJ.k) 0,
-    fun c hc => if_pos hc, ?_, ?_, ?_, ?_, ?_, ?_⟩
+    fun c hc => if_pos hc, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
   · -- `hσ`
     intro c hc
     dsimp only
@@ -1722,6 +1722,28 @@ theorem NestedPinsRun.pinGroupInst_of {pbs : List (Expr × ConLeche.BinderMeta)}
     obtain rfl : mm' = mm := Option.some.inj (hmm'.symm.trans hmm)
     refine ⟨σq, hσlt, ?_, hJeq, fun φ => ?_⟩
     · rw [if_neg hpinT, List.getD_eq_getElem?_getD, hmmqK]; rfl
+    · obtain ⟨⟨hu, hIds⟩, hcorr⟩ := hrest φ
+      refine ⟨hu, hIds, ?_⟩
+      have hDs := hcorr.2.1
+      show ((D).pinAt σq).Ds φ = _
+      rw [show ((D).pinAt σq).Ds φ
+          = ((D).targetView mp₁'.base2.acval φ).Ds ((D).k + σq) from by
+        show _ = ((D).pinAt ((D).k + σq - (D).k)).Ds φ
+        rw [Nat.add_sub_cancel_left]]
+      exact hDs
+  · -- `hownσ`: the same data at an ARBITRARY own pin, which is
+    -- `instMapPinOwn` at the group's BASE member — the map is the
+    -- group's (`instMapGroup`), so the base member's map is the one
+    -- σ is built from
+    intro x hx
+    dsimp only
+    obtain ⟨mm', σq, hmm', hmmqK, hσlt, hJeq, hrest⟩ :=
+      R.instMapPinOwn SF S hPD S.kpos hci0 CM0 hx hfind
+    obtain rfl : mm' = mm := Option.some.inj (hmm'.symm.trans hmm)
+    refine ⟨σq, hσlt, ?_, hJeq, fun φ => ?_⟩
+    · rw [if_neg (by omega : ¬ dJ.k + x < dJ.k), Nat.add_sub_cancel_left,
+        List.getD_eq_getElem?_getD, hmmqK]
+      rfl
     · obtain ⟨⟨hu, hIds⟩, hcorr⟩ := hrest φ
       refine ⟨hu, hIds, ?_⟩
       have hDs := hcorr.2.1

@@ -1587,7 +1587,7 @@ theorem nestedPinShapes_of (m : EnvModel V env₂) {B : ContainerInfo → BlockM
     -- sends the container's own pin to, the second says that class is
     -- a pin of the block and carries its data
     intro ψ i' hi' j hj l hl hrs hpinT
-    obtain ⟨σ, -, -, -, -, hstgt, -, hpinσ⟩ := G.inst
+    obtain ⟨σ, -, -, -, -, hstgt, -, hpinσ, -⟩ := G.inst
     obtain ⟨q', hq'lt, hσq, hJ, hrest⟩ := hpinσ ψ i' hi' j hj l hl hrs hpinT
     refine ⟨q', hq'lt, ?_, hJ, hrest⟩
     simp only [nestedPc, ← Nat.add_assoc]
