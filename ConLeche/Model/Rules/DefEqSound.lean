@@ -80,17 +80,17 @@ theorem DefEq.const_sound {d : Nat} {n : Name} {us us' : List Level}
   obtain rfl : aa = ba := acval_const_congr' (acvalParams m) h haa hba
   rfl
 
-/-- `denoteMeta_natZeroConst` (`Steps/DefEq.lean:99`). -/
+/-- `denoteMetaNatZeroConst` (`Steps/DefEq.lean:99`). -/
 theorem DefEq.natZero_sound {d : Nat} :
     DefEqSem m φ d (.lit (.natVal 0)) (.const natZeroName []) := by
   intro _ _ Δa aa ba _ _ haa hba _ _ ρ _
   obtain ⟨hg, rfl⟩ := denoteMeta_natLit_inv haa
-  rw [denoteMeta_natZeroConst hg] at hba
+  rw [denoteMetaNatZeroConst hg] at hba
   obtain rfl : ba = m.acval ConLeche.natZeroName (Level.substFn φ [] []) :=
     (Option.some.inj hba).symm
   rfl
 
-/-- `denoteMeta_natSuccConst` (`Steps/DefEq.lean:119`): the packed
+/-- `denoteMetaNatSuccConst` (`Steps/DefEq.lean:119`): the packed
 successor reads as `succ` applied to the packed predecessor. -/
 theorem DefEq.natSucc_sound {d : Nat} {k : Nat} {x : Expr}
     (h : DefEqSem m φ d (.lit (.natVal k)) x) :
@@ -98,7 +98,7 @@ theorem DefEq.natSucc_sound {d : Nat} {k : Nat} {x : Expr}
   intro hfa hfb Δa aa ba hCa hCb haa hba hga hgb ρ hρ
   obtain ⟨hg, rfl⟩ := denoteMeta_natLit_inv haa
   obtain ⟨fa, xa, hfa', hxa, rfl⟩ := denoteMeta_app_inv hba
-  rw [denoteMeta_natSuccConst hg] at hfa'
+  rw [denoteMetaNatSuccConst hg] at hfa'
   obtain rfl : fa = m.acval ConLeche.natSuccName (Level.substFn φ [] []) :=
     (Option.some.inj hfa').symm
   refine deqStep_appCong rfl (h (Frame.of_not_hasFvar rfl rfl) hfb.app_arg
@@ -178,7 +178,7 @@ theorem DefEq.proj_sound {d : Nat} {s : Name} {i : Nat} {e₁ e₂ : Expr}
   rcases hrd₁ with ⟨entry, hfe, rfl⟩ | ⟨hnt, hdec₁⟩
   · rcases hrd₂ with ⟨entry', hfe', rfl⟩ | ⟨hnt', -⟩
     · obtain rfl : entry = entry' := Option.some.inj (hfe.symm.trans hfe')
-      exact interp_projAV_congr' (h hfa.proj_arg hfb.proj_arg hCa.proj_arg
+      exact ProjAV.interp_congr (h hfa.proj_arg hfb.proj_arg hCa.proj_arg
         hCb.proj_arg he₁ he₂ (Graded.projAV hga) (Graded.projAV hgb) ρ hρ)
     · rw [hnt'] at hfe; exact nomatch hfe
   · rcases hrd₂ with ⟨entry', hfe', -⟩ | ⟨-, hdec₂⟩
@@ -457,7 +457,7 @@ theorem DefEq.structEta_sound (hin : RulesInputs V m φ) {d : Nat}
     obtain ⟨resta, hfitPA, -⟩ := hcerts (fa := TVa) hTF hTC hTVd
       (fun σ _ => hokTVa σ) (Frame.getAppArgs hfW hCr) hspt hoT (by simp)
     exact ⟨interp V ρ resta,
-      teleFit_of_PA (by rw [← hspt.length]; exact hpcT) (hfitPA ρ hρ)⟩
+      teleFit_of_teleFitPA (by rw [← hspt.length]; exact hpcT) (hfitPA ρ hρ)⟩
   -- the fold form both sides are read in
   have hfold : ∀ (l : List AnnotTerm) (x : V),
       l.foldl (fun r y => SetTheory.app r (interp V ρ y)) x
@@ -568,7 +568,7 @@ theorem DefEq.structEta_sound (hin : RulesInputs V m φ) {d : Nat}
           by simpa [Expr.looseBVarsBounded] using hfb.2.1,
           fun l hl => hfb.2.2 l (by simpa [Expr.fvarLeaves] using hl)⟩,
         ⟨hCb.1, fun l hl => hCb.2 l (by simpa [Expr.fvarLeaves] using hl)⟩⟩
-    rw [ConLeche.etaProjs, if_pos htow] at hfields
+    rw [etaProjs_eq, if_pos htow] at hfields
     have hdrop : (asa.drop caps.etaParams).map (interp V ρ)
         = ((List.range caps.etaFields).map fun j =>
             projAV (j + e0.off) ba).map (interp V ρ) :=
@@ -595,7 +595,7 @@ theorem DefEq.structEta_sound (hin : RulesInputs V m φ) {d : Nat}
     have hetaP : ConLeche.etaProjs env T us' wtb.getAppArgs b caps.etaFields
         = (List.range caps.etaFields).map (fun i =>
             Expr.mkAppN (.const (projFnName T i) us') (wtb.getAppArgs ++ [b])) := by
-      unfold ConLeche.etaProjs
+      rw [etaProjs_eq]
       split
       · next h => rw [htow0 h]; simp
       · rfl
@@ -644,7 +644,7 @@ theorem DefEq.structEta_sound (hin : RulesInputs V m φ) {d : Nat}
         Graded V Δa x := by
       intro x hx σ hσ
       obtain ⟨j, hj, rfl⟩ := List.mem_map.mp hx
-      obtain ⟨cvp, mIp, rPp, rulesp, hfp, hlpj, hstrpj, hicj⟩ := hslotR j hj
+      obtain ⟨cvp, mIp, rPp, rulesp, hfp, hlpj, -, hicj⟩ := hslotR j hj
       have hlenp : us'.length = cvp.levelParams.length := by
         rw [hlpj]; exact hlv
       obtain ⟨tpa, htpa, hoktpa, hmemp⟩ :=
@@ -657,11 +657,6 @@ theorem DefEq.structEta_sound (hin : RulesInputs V m φ) {d : Nat}
           us').looseBVarsBounded 0 = true := by
         rw [ConLeche.Expr.looseBVarsBounded_instantiateLevelParams]
         exact hwfp.2.2.2.1
-      have hpcp : PiChain (wtb.getAppArgs ++ [b]).length tpa := by
-        rw [List.length_append, List.length_singleton]
-        exact piChain_of_stripPis _
-          (ConLeche.Expr.stripPis_instantiateLevelParams_isSome
-            cvp.levelParams us' _ hstrpj) htpa
       obtain ⟨restp, hfitpPA, -⟩ := hicj (fa := tpa)
         ⟨ConLeche.Expr.WScoped.of_not_hasFvar hnfp, hbdp,
           ConLeche.Expr.LeavesBounded.of_not_hasFvar hnfp⟩
@@ -669,12 +664,9 @@ theorem DefEq.structEta_sound (hin : RulesInputs V m φ) {d : Nat}
           rw [ConLeche.Expr.fvarLeaves_eq_nil_of_not_hasFvar hnfp] at hl
           exact nomatch hl⟩
         htpa (fun τ _ => hoktpa τ) hframeTb hspTb hokTb' (by simp)
-      have hfitp : TeleFit V σ tpa ((tsa ++ [ba]).map (interp V σ))
-          (interp V σ restp) :=
-        teleFit_of_PA (by rw [← hspTb.length]; exact hpcp) (hfitpPA σ hσ)
-      refine (wellDenotedV_mkAppN_of_fit (tsa ++ [ba]) (hoktpa σ)
+      refine (mkAppN_of_fitA (tsa ++ [ba]) (hoktpa σ)
         ⟨m.acval_wellDenoted _ _ σ, hin.leaf_valid _ _ σ⟩
-        (fun x hx => hokTb' x hx σ hσ) ?_ hfitp).1
+        (fun x hx => hokTb' x hx σ hσ) ?_ (hfitpPA σ hσ)).1
       have := hmemp σ
       dsimp only [ConLeche.ConstantInfo.toConstantVal] at this
       rwa [hlpj] at this
@@ -708,7 +700,7 @@ theorem DefEq.structEta_sound (hin : RulesInputs V m φ) {d : Nat}
         = etaFabArgsV (fun n => interp V ρ
             (m.acval n (Level.substFn φ cvT.levelParams us'))) T
             (tsa.map (interp V ρ)) (interp V ρ ba) caps.etaFields := by
-      rw [etaFabArgsV, projSpines, ← List.take_append_drop caps.etaParams asa,
+      rw [etaFabArgsV_eq, ← List.take_append_drop caps.etaParams asa,
         List.map_append, htake, hdrop, List.map_map]
       refine congrArg _ (List.map_congr_left fun j _ => ?_)
       show interp V ρ (AnnotTerm.mkAppN (m.acval (projFnName T j)
@@ -800,7 +792,7 @@ theorem DefEq.structUnit_sound (hin : RulesInputs V m φ) {d : Nat}
     (fun σ _ => hokTVa σ)
     (Frame.getAppArgs hfWA hCwa) hspt hoT (by simp)
   have hfitT : TeleFit V ρ TVa (tsa.map (interp V ρ)) (interp V ρ resta) :=
-    teleFit_of_PA (by rw [← hspt.length]; exact hpcT) (hfitPA ρ hρ)
+    teleFit_of_teleFitPA (by rw [← hspt.length]; exact hpcT) (hfitPA ρ hρ)
   -- both members, at the folded family instance
   have hfold : ∀ (l : List AnnotTerm) (x : V),
       l.foldl (fun r y => SetTheory.app r (interp V ρ y)) x

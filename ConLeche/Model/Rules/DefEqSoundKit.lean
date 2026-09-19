@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Model.Rules.Inputs
+public import ConLeche.Model.Rules.RedSoundKit
 public import ConLeche.Model.Inductives.StructIntro
 import ConLeche.Model.CtxOkKit
 public import ConLeche.Model.Annot.BitLemmas
@@ -8,6 +8,7 @@ import ConLeche.Model.Annot.BitRename
 import ConLeche.Verify.PropRead
 import ConLeche.Model.IOLicense
 import ConLeche.Model.Annot.BitClosed
+import ConLeche.Verify.InstLevels
 import ConLeche.Verify.PinnedShapes
 /- `ConLeche.Kernel.PropWhen` seals its representation on purpose (the
 `Std.HashMap` pattern, task #194): the datum's module is `public` but
@@ -176,50 +177,6 @@ theorem Graded.head_congr {Δa : List AnnotTerm} {A B e : AnnotTerm}
     (h : Graded V (B :: Δa) e) : Graded V (A :: Δa) e :=
   fun ρ hρ => h ρ (Sat.head_congr heq hρ)
 
-/-! ## The two `Nat` constant readings (`Steps/DefEq.lean:99`, `:119`) -/
-
-/-- `Nat.zero`, in the validated reading. -/
-theorem denoteMeta_natZeroConst {acval : Name → (Name → Nat) → AnnotTerm}
-    (hg : ConLeche.natLitSupported env = true) {d : Nat} :
-    denoteMeta acval env φ d (.const ConLeche.natZeroName [])
-      = some (acval ConLeche.natZeroName (Level.substFn φ [] [])) := by
-  simp only [ConLeche.natLitSupported, Bool.and_eq_true] at hg
-  obtain ⟨⟨-, h2⟩, -⟩ := hg
-  cases hf : env.find? ConLeche.natZeroName with
-  | none => rw [hf] at h2; exact nomatch h2
-  | some ci =>
-    rw [hf] at h2
-    have hlp : ci.toConstantVal.levelParams = [] := by
-      cases ci with
-      | ctorInfo cv p q =>
-        simp only [ConLeche.natZeroOk, Bool.and_eq_true] at h2
-        simpa [ConLeche.ConstantInfo.toConstantVal, List.isEmpty_iff]
-          using h2.1
-      | _ => simp [ConLeche.natZeroOk] at h2
-    rw [denoteMeta_const hf (by simp [hlp]), hlp]
-
-/-- `Nat.succ`, in the validated reading. -/
-theorem denoteMeta_natSuccConst {acval : Name → (Name → Nat) → AnnotTerm}
-    (hg : ConLeche.natLitSupported env = true) {d : Nat} :
-    denoteMeta acval env φ d (.const ConLeche.natSuccName [])
-      = some (acval ConLeche.natSuccName (Level.substFn φ [] [])) := by
-  simp only [ConLeche.natLitSupported, Bool.and_eq_true] at hg
-  obtain ⟨-, h3⟩ := hg
-  cases hf : env.find? ConLeche.natSuccName with
-  | none => rw [hf] at h3; exact nomatch h3
-  | some ci =>
-    rw [hf] at h3
-    have hlp : ci.toConstantVal.levelParams = [] := by
-      cases ci with
-      | ctorInfo cv p q =>
-        simp only [ConLeche.natSuccOk, Bool.and_eq_true] at h3
-        simpa [ConLeche.ConstantInfo.toConstantVal, List.isEmpty_iff]
-          using h3.1
-      | _ => simp [ConLeche.natSuccOk] at h3
-    rw [denoteMeta_const hf (by simp [hlp]), hlp]
-
-/-- The opened body's reading does not see the domain annotation
-(`binder_congr`'s `hva₁'`). -/
 theorem denoteMeta_open_rename {acval : Name → (Name → Nat) → AnnotTerm}
     {d : Nat} {bd ty ty' : Expr} {ba : AnnotTerm}
     (h : denoteMeta acval env φ (d + 1) (bd.instantiate1 (.fvar d ty))
@@ -256,70 +213,11 @@ theorem acval_const_congr' {m : EnvModel V env} (hap : AcvalParams m)
       · exact nomatch hdb
     · exact nomatch hda
 
-/-! ## `projAV` at equal-valued subjects (`Steps/ProjAVKit.lean`) -/
-
-theorem WellDenoted_projAV_hoist' :
-    ∀ {i : Nat} {e : AnnotTerm} {σ : Nat → V},
-      WellDenoted V σ (projAV i e) → WellDenoted V σ e
-  | 0, e, σ, h => ((WellDenoted_fst V σ e) ▸ h).1
-  | i + 1, e, σ, h =>
-    ((WellDenoted_snd V σ e) ▸
-      (WellDenoted_projAV_hoist' (i := i) (e := .snd e) h)).1
-
-theorem AnnotValid_projAV_hoist' :
-    ∀ {i : Nat} {e : AnnotTerm} {σ : Nat → V},
-      AnnotValid V σ (projAV i e) → AnnotValid V σ e
-  | 0, e, σ, h => (AnnotValid_fst V σ e) ▸ h
-  | i + 1, e, σ, h =>
-    (AnnotValid_snd V σ e) ▸
-      (AnnotValid_projAV_hoist' (i := i) (e := .snd e) h)
-
+/-- The subject of a graded projection spine is graded (`ProjAV.hoistV`
+of `RedSoundKit`, at `Graded`). -/
 theorem Graded.projAV {Δa : List AnnotTerm} {i : Nat} {e : AnnotTerm}
     (h : Graded V Δa (ConLeche.Semantics.projAV i e)) : Graded V Δa e :=
-  fun ρ hρ =>
-    ⟨WellDenoted_projAV_hoist' (h ρ hρ).1, AnnotValid_projAV_hoist' (h ρ hρ).2⟩
-
-/-- The interpretation of the spine, at equal-valued subjects. -/
-theorem interp_projAV_congr' {i : Nat} {e e' : AnnotTerm} {σ : Nat → V}
-    (heq : interp V σ e = interp V σ e') :
-    interp V σ (projAV i e) = interp V σ (projAV i e') := by
-  rw [projAV_interp, projAV_interp, heq]
-
-/-! ## Spine readings and gradings (`Steps/Stuck.lean:129`,
-`Steps/IotaGate.lean:72`) -/
-
-/-- The head of a graded spine is graded. -/
-theorem wellDenotedV_mkAppN_head {ρ : Nat → V} :
-    ∀ (as : List AnnotTerm) {f : AnnotTerm},
-      WellDenotedV V ρ (AnnotTerm.mkAppN f as) → WellDenotedV V ρ f
-  | [], _, h => h
-  | a :: as, f, h => by
-    have h' : WellDenotedV V ρ (.app f a) := wellDenotedV_mkAppN_head as h
-    exact ⟨((WellDenoted_app V ρ f a) ▸ h'.1).1,
-      ((AnnotValid_app V ρ f a) ▸ h'.2).1⟩
-
-/-- A read spine has the length of its source. -/
-theorem ReadSpine.length {acval : Name → (Name → Nat) → AnnotTerm}
-    {d : Nat} {as : List Expr} {vs : List AnnotTerm}
-    (h : ReadSpine acval env φ d as vs) : as.length = vs.length := by
-  induction h with
-  | nil => rfl
-  | cons _ _ ih => simp [ih]
-
-/-- A spine that reads splits into a head reading and a `ReadSpine`. -/
-theorem denoteMeta_mkAppN_inv {acval : Name → (Name → Nat) → AnnotTerm}
-    {d : Nat} : ∀ {as : List Expr} {f : Expr} {ea : AnnotTerm},
-    denoteMeta acval env φ d (Expr.mkAppN f as) = some ea →
-    ∃ fa vs, denoteMeta acval env φ d f = some fa ∧
-      ReadSpine acval env φ d as vs ∧ ea = AnnotTerm.mkAppN fa vs := by
-  intro as
-  induction as with
-  | nil => intro f ea h; exact ⟨ea, [], h, .nil, rfl⟩
-  | cons a as ih =>
-    intro f ea h
-    obtain ⟨fa, vs, hfa, hsp, rfl⟩ := ih h
-    obtain ⟨ff, aa, hff, haa, rfl⟩ := denoteMeta_app_inv hfa
-    exact ⟨ff, aa :: vs, hff, .cons haa hsp, rfl⟩
+  fun ρ hρ => ProjAV.hoistV (h ρ hρ)
 
 /-! ## The stored constant's package (`Steps/IotaRows.lean:200`) -/
 
@@ -502,7 +400,7 @@ theorem spine_mem_univ_of_neverChain {ρ : Nat → V} :
   | cons a vs ih =>
     intro Ta f u hch hokT hokS hf
     obtain ⟨w, v, A, B, rfl, hv, hB⟩ := neverChain_succ_inv hch
-    have hokApp : WellDenotedV V ρ (.app f a) := wellDenotedV_mkAppN_head vs hokS
+    have hokApp : WellDenotedV V ρ (.app f a) := mkAppN_head vs hokS
     have hoka : WellDenotedV V ρ a :=
       ⟨((WellDenoted_app V ρ f a) ▸ hokApp.1).2.1,
         ((AnnotValid_app V ρ f a) ▸ hokApp.2).2⟩
@@ -526,11 +424,11 @@ theorem spine_mem_univ_of_neverChain {ρ : Nat → V} :
 /-- The reading of a type-former application `T = hd b⃗` lands in
 `univ 0` once the head's type reads to a chain of `b⃗`'s length ending
 in `Sort 0`, the head inhabits it, and both readings are graded. -/
-theorem mem_univ_zero_of_spine {acval : Name → (Name → Nat) → AnnotTerm}
+theorem mem_univ_zero_of_spine {m : EnvModel V env}
     {ρ : Nat → V} {d : Nat} {T hd : Expr} {Ta fa taH : AnnotTerm}
     (hfn : T.getAppFn = hd)
-    (hTa : denoteMeta acval env φ d T = some Ta)
-    (hfa : denoteMeta acval env φ d hd = some fa)
+    (hTa : denoteMeta m.acval env φ d T = some Ta)
+    (hfa : denoteMeta m.acval env φ d hd = some fa)
     (hchain : NeverChain T.getAppArgs.length 0 taH)
     (hokH : WellDenotedV V ρ taH) (hokT : WellDenotedV V ρ Ta)
     (hmem : interp V ρ fa ∈ˢ interp V ρ taH) :
@@ -560,7 +458,7 @@ theorem typeFormer_mem_univ_zero {m : EnvModel V env}
     interp V ρ Ta ∈ˢ (univ 0 : V) := by
   obtain ⟨taI, htaI, hokI, hmemI, -, -⟩ := constType_pkg hct hfI hnt hlen
   have htaI' := htaI d
-  rw [denotePInstLevels] at htaI'
+  rw [denoteMetaInstLevels] at htaI'
   have hchain := neverChain_of_peel (env := env) T.getAppArgs.length hpeel htaI'
   rw [hz] at hchain
   exact mem_univ_zero_of_spine hfn hTa (denoteMeta_const hfI hlen) hchain
@@ -716,128 +614,6 @@ theorem prf_of_isProofFast {m : EnvModel V env} (hct : ConstTy m φ)
 
 
 
-/-! ## The ∀-chain guard and the fit's un-instantiation
-(`Steps/CapsRows.lean:73-182`, `:452`) -/
-
-/-- The reading's first `n` heads are `.pi` nodes. -/
-@[expose] def PiChain : Nat → AnnotTerm → Prop
-  | 0, _ => True
-  | n + 1, e =>
-    match e with
-    | .pi _ _ _ B => PiChain n B
-    | _ => False
-
-@[simp] theorem piChain_zero (e : AnnotTerm) : PiChain 0 e := trivial
-
-@[simp] theorem piChain_succ_pi {n u v : Nat} {A B : AnnotTerm} :
-    PiChain (n + 1) (.pi u v A B) = PiChain n B := rfl
-
-theorem piChain_succ_inv {n : Nat} {e : AnnotTerm} (h : PiChain (n + 1) e) :
-    ∃ u v A B, e = .pi u v A B ∧ PiChain n B := by
-  match e with
-  | .pi u v A B => exact ⟨u, v, A, B, rfl, h⟩
-  | .bvar _ | .sort _ | .const _ _ | .app _ _ | .lam _ _ _
-  | .eqE _ _ | .fst _ | .snd _ | .prf => exact nomatch h
-
-theorem PiChain.inst : ∀ {n : Nat} {e : AnnotTerm} (a : AnnotTerm) (k : Nat),
-    PiChain n e → PiChain n (e.inst a k) := by
-  intro n
-  induction n with
-  | zero => intro _ _ _ _; trivial
-  | succ n ih =>
-    intro e a k h
-    obtain ⟨u, v, A, B, rfl, hB⟩ := piChain_succ_inv h
-    exact ih a (k + 1) hB
-
-/-- **A syntactic ∀-telescope reads to a ∀-chain.** -/
-theorem piChain_of_stripPis {acval : Name → (Name → Nat) → AnnotTerm} :
-    ∀ (n : Nat) {d : Nat} {e : Expr} {ea : AnnotTerm},
-      (e.stripPis n).isSome = true →
-      denoteMeta acval env φ d e = some ea → PiChain n ea := by
-  intro n
-  induction n with
-  | zero => intro _ _ _ _ _; trivial
-  | succ n ih =>
-    intro d e ea hs hd
-    match e, hs with
-    | .bvar _, hs => exact nomatch hs
-    | .fvar _ _, hs => exact nomatch hs
-    | .sort _, hs => exact nomatch hs
-    | .const _ _, hs => exact nomatch hs
-    | .app _ _, hs => exact nomatch hs
-    | .lam _ _ _, hs => exact nomatch hs
-    | .letE _ _ _, hs => exact nomatch hs
-    | .lit _, hs => exact nomatch hs
-    | .proj _ _ _, hs => exact nomatch hs
-    | .forallE ty bd mb, hs =>
-      obtain ⟨ta, ba, -, hba, rfl⟩ := denoteMeta_forallE_inv hd
-      simp only [ConLeche.Expr.stripPis, Option.isSome_map] at hs
-      exact ih (ConLeche.Expr.stripPis_instantiate1_isSome n 0 hs) hba
-
-theorem teleFit_nil_inv {ρ : Nat → V} {T : AnnotTerm} {rest : V}
-    (h : TeleFit V ρ T [] rest) : rest = interp V ρ T := by
-  cases h; rfl
-
-/-- **The fit un-instantiates, under the ∀-chain guard.** -/
-theorem teleFit_of_inst {aa : AnnotTerm} :
-    ∀ {L : List V} {E : AnnotTerm} {k : Nat} {ρ : Nat → V} {rest : V},
-      PiChain L.length E →
-      TeleFit V ρ (E.inst aa k) L rest →
-      TeleFit V (instE k (interp V (shiftE k 0 ρ) aa) ρ) E L rest := by
-  intro L
-  induction L with
-  | nil =>
-    intro E k ρ rest _ h
-    obtain rfl : rest = interp V ρ (E.inst aa k) := teleFit_nil_inv h
-    rw [interp_inst]
-    exact .nil
-  | cons y ys ih =>
-    intro E k ρ rest hpc h
-    obtain ⟨u, v, A, B, rfl, hB⟩ := piChain_succ_inv hpc
-    rw [AnnotTerm.inst_pi] at h
-    cases h with
-    | cons hmem hfit =>
-      refine .cons (by rwa [interp_inst] at hmem) ?_
-      have hrec := ih (E := B) (k := k + 1) (ρ := cons y ρ) hB hfit
-      rw [shiftE_succ_cons] at hrec
-      rw [cons_instE]
-      exact hrec
-
-theorem teleFit_of_inst0 {aa : AnnotTerm} {L : List V} {E : AnnotTerm}
-    {ρ : Nat → V} {rest : V} (hpc : PiChain L.length E)
-    (h : TeleFit V ρ (E.inst aa) L rest) :
-    TeleFit V (cons (interp V ρ aa) ρ) E L rest := by
-  have := teleFit_of_inst hpc h
-  rwa [shiftE_zero_zero, instE_zero] at this
-
-/-- **The rules tier's bridge**: the motive `CertsSem` concludes the
-substitution-peeling fit `TeleFitPA` (`certs_telePA`'s currency) while
-the capability laws `EtaLaw`/`UnitLaw` consume the value-level
-`TeleFit`.  Under the ∀-chain guard — which every call site holds from
-the family's `stripPis` conjunct — the two agree: `TeleFitPA` peels
-`B.inst a` where `TeleFit` extends the environment, and
-`teleFit_of_inst0` is exactly that exchange.  (Without the guard the
-PA fit is strictly stronger: it can walk through a `.bvar 0` body,
-`teleFit_bvar_stuck`.) -/
-theorem teleFit_of_PA {ρ : Nat → V} :
-    ∀ {as : List AnnotTerm} {T rest : AnnotTerm},
-      PiChain as.length T → TeleFitPA V ρ T as rest →
-      TeleFit V ρ T (as.map (interp V ρ)) (interp V ρ rest) := by
-  intro as
-  induction as with
-  | nil =>
-    intro T rest _ h
-    cases h
-    exact .nil
-  | cons a as ih =>
-    intro T rest hpc h
-    obtain ⟨u, v, A, B, rfl, hB⟩ := piChain_succ_inv hpc
-    cases h with
-    | cons hmem htail =>
-      refine .cons hmem ?_
-      exact teleFit_of_inst0 (by simpa using hB)
-        (ih (PiChain.inst a 0 hB) htail)
-
 /-! ## Spine frames and gradings (`Steps/Stuck.lean:171`, `:194`) -/
 
 /-- Every argument of a graded application spine is graded, and so is
@@ -935,51 +711,6 @@ theorem denoteMeta_mkAppN {acval : Name → (Name → Nat) → AnnotTerm} {d : N
 
 /-- A `TeleFit` plus the type's grading yields the applied spine's
 grading and its residual membership. -/
-theorem wellDenotedV_mkAppN_of_fit {ρ : Nat → V} :
-    ∀ (vs : List AnnotTerm) {Ta f : AnnotTerm} {σ : Nat → V} {rest : V},
-      WellDenotedV V σ Ta → WellDenotedV V ρ f →
-      (∀ x ∈ vs, WellDenotedV V ρ x) →
-      interp V ρ f ∈ˢ interp V σ Ta →
-      TeleFit V σ Ta (vs.map (interp V ρ)) rest →
-      WellDenotedV V ρ (AnnotTerm.mkAppN f vs) ∧
-        interp V ρ (AnnotTerm.mkAppN f vs) ∈ˢ rest := by
-  intro vs
-  induction vs with
-  | nil =>
-    intro Ta f σ rest _ hf _ hmem hfit
-    obtain rfl : rest = interp V σ Ta := teleFit_nil_inv hfit
-    exact ⟨hf, hmem⟩
-  | cons x xs ih =>
-    intro Ta f σ rest hokT hf hoks hmem hfit
-    simp only [List.map_cons] at hfit
-    cases hfit with
-    | @cons _ u v A B _ _ _ hx hfit' =>
-      have hokA : WellDenotedV V σ A :=
-        ⟨((WellDenoted_pi V σ u v A B) ▸ hokT.1).1,
-          ((AnnotValid_pi V σ u v A B) ▸ hokT.2).1⟩
-      have hokB : ∀ y, y ∈ˢ interp V σ A → WellDenotedV V (cons y σ) B :=
-        fun y hy =>
-          ⟨((WellDenoted_pi V σ u v A B) ▸ hokT.1).2 y hy,
-            ((AnnotValid_pi V σ u v A B) ▸ hokT.2).2.1 y hy⟩
-      have hfib : v = 0 → ∀ y, y ∈ˢ interp V σ A →
-          interp V (cons y σ) B ∈ˢ (univZero : V) :=
-        ((AnnotValid_pi V σ u v A B) ▸ hokT.2).2.2
-      rw [interp_pi] at hmem
-      have hokx : WellDenotedV V ρ x := hoks x List.mem_cons_self
-      have hstep : WellDenotedV V ρ (.app f x) := by
-        refine ⟨?_, ?_⟩
-        · rw [WellDenoted_app]
-          exact ⟨hf.1, hokx.1, v, interp V σ A,
-            (fun y => interp V (cons y σ) B), hmem, hx, hfib⟩
-        · rw [AnnotValid_app]; exact ⟨hf.2, hokx.2⟩
-      have hmem' : interp V ρ (.app f x)
-          ∈ˢ interp V (cons (interp V ρ x) σ) B := by
-        rw [interp_app]
-        exact app_mem_piR hmem hx hfib
-      exact ih (hokB _ hx) hstep
-        (fun y hy => hoks y (List.mem_cons_of_mem x hy)) hmem' hfit'
-
-/-- A ∀-chain of a list's length peels along it. -/
 theorem peelPis_of_piChain : ∀ (as : List AnnotTerm) {T : AnnotTerm},
     PiChain as.length T →
       ∃ rest, ConLeche.Model.AnnotTerm.peelPis T as = some rest
@@ -1034,6 +765,35 @@ theorem towerEntry_tele_at_depth {m : EnvModel V env} {T : Name} {i : Nat}
   have hcl : ∀ k : Nat, Ta.liftN 1 k = Ta := fun k =>
     denoteMeta_closed m.acval_erase m.cval_closed hnf hb hTa 1 k
   exact ⟨denoteMeta_depth_of_closed m.acval_closed hnf hcl hTa, hcl⟩
+
+/-! ## The η-projection spelling, unfolded locally
+
+`rw [ConLeche.etaProjs]` would reference the function's EQUATION
+LEMMA, which Lean generated in `Model/Steps/CapsRows.lean` — the first
+module to force it — so the proof term would name a `Model/Steps`
+module and the proof-term pin would read a door.  The checker's
+definitions are `@[expose]`d, so the clause is available by `rfl`
+here, in this tier's own module. -/
+
+theorem etaProjs_eq (T : Name) (us : List Level) (targs : List Expr)
+    (b : Expr) (nF : Nat) :
+    ConLeche.etaProjs env T us targs b nF =
+      if ConLeche.towerSlotsAll env T nF then
+        (List.range nF).map fun j => Expr.proj T j b
+      else
+        (List.range nF).map fun j =>
+          Expr.mkAppN (.const (projFnName T j) us) (targs ++ [b]) := by
+  rfl
+
+/-- The fabricated η spine's values, unfolded here for the same reason
+(`etaFabArgsV`/`projSpines` are `EnvModelM`'s, but their equation
+lemmas were generated in `Model/Steps/CapsRows.lean`). -/
+theorem etaFabArgsV_eq (val : Name → V) (T : Name) (ts : List V) (b : V)
+    (nF : Nat) :
+    etaFabArgsV val T ts b nF =
+      ts ++ (List.range nF).map
+        (fun j => (ts ++ [b]).foldl SetTheory.app (val (projFnName T j))) := by
+  rfl
 
 /-! ## The two proof-irrelevance sides (`Steps/Irrel.lean:71`, `:119`)
 
