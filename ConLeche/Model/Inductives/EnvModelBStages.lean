@@ -295,6 +295,7 @@ theorem mutualContainerModeled {env envR : Env} {m : EnvModel V envR}
     hownPins
     (fun q hq => absurd hq (by rw [hnoPins]; omega))
     (fun _ _ => ContainerPinParams.of_noPins hd.pins) (fun i hi => ?_)
+    (fun _ _ hq _ _ => absurd hq (by rw [hnoPins]; omega))
   · rw [List.length_map, List.length_zipIdx, hkF]
   · rw [mutualReadBack_getD (by rw [← hkF]; exact hi), hnames i hi]
   · rw [mutualReadBack_getD (by rw [← hkF]; exact hi)]
@@ -347,7 +348,9 @@ theorem mutualOwnPins_of {envB envOut : Env} {b : MutualBlock} {fms : List Mutua
       (f.cvTa, (b.ownCtors mIdx).filterMap fun (J, _) => ctorsA[J]?)) = true)
     (hmim : ConLeche.blockOwnMimicsOk envOut f₀.cvTa.name 0 = true) :
     ContainerOwnPinsSyn (V := V) envOut d := by
-  refine ContainerOwnPinsSyn.of_noMimics hmim fun i hi => ?_
+  refine ContainerOwnPinsSyn.of_noMimics (by
+      show d.pins.length = 0
+      rw [hd.pins]; rfl) hmim fun i hi => ?_
   have hclt : i < fms.length := by rw [hlenF, ← hd.k]; exact hi
   have hname : d.memberName i = (fms.getD i default).cvTa.name := by
     show d.memberNames.getD i .anonymous = _
@@ -1204,6 +1207,7 @@ theorem nativeContainerModeled {envO : Env} {m : EnvModel V envO} {mC : EnvModel
     hown
     (fun q hq => absurd hq (Nat.not_lt_zero q))
     (fun _ _ => ContainerPinParams.of_noPins rfl) (fun i hi => ?_)
+    (fun _ _ hq _ _ => absurd hq (Nat.not_lt_zero _))
   · obtain rfl : i = 0 := Nat.lt_one_iff.mp hi
     exact hf.Tname.symm
   · obtain rfl : i = 0 := Nat.lt_one_iff.mp hi
@@ -1241,7 +1245,7 @@ theorem nativeOwnPins_of {mC : EnvModel V envC}
       ctorsA sortss rhss bsT ppsAll uAV idxF dsF esF srcsF ksF fvsPF xFvsF xrestF eissF tssF
       fssZ) :
     ContainerOwnPinsSyn (V := V) env₂ DN := by
-  refine ContainerOwnPinsSyn.of_noMimics hf.ownMimics fun i hi => ?_
+  refine ContainerOwnPinsSyn.of_noMimics rfl hf.ownMimics fun i hi => ?_
   obtain rfl : i = 0 := Nat.lt_one_iff.mp hi
   refine ⟨ConLeche.blockContainerInfo p.nP [(cvTa, ctorsA)],
     ⟨cvTa.name, cvTa.levelParams, cvTa.type,

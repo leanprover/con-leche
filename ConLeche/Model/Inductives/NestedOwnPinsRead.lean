@@ -372,10 +372,14 @@ theorem ContainerOwnPinsSyn.toReadOf {env : Env} {m : EnvModel V env} {d : Block
       DsE.length = d.nP ∧ ∀ a ∈ DsE, Expr.WScoped dp a ∧ a.looseBVarsBounded 0 = true) :
     ContainerOwnPins m d := by
   obtain ⟨params, hplen, hidx, hpins⟩ := hscope
-  intro i cvC caps lvls DsE ps Ds ψ dp hi hfind hps hspine e he
+  intro i cvC caps lvls DsE ps Ds ψ dp hi hfind hps hspine
   obtain ⟨hDlen, hsc⟩ := hDsE i cvC caps lvls DsE ps Ds ψ dp hi hfind hps hspine
-  obtain ⟨qK, hqK, rfl⟩ :=
-    hsyn i cvC caps lvls DsE ps hi hfind (fun a ha => (hsc a ha).2) hps e he
+  have hsy := hsyn i cvC caps lvls DsE ps hi hfind (fun a ha => (hsc a ha).2) hps
+  refine ⟨fun e he => ?_, fun qK hqK => ⟨_, hsy.2 qK hqK hDlen,
+    denoteMetaSpine_ownAt m hplen hidx hDlen hsc hspine
+      (hpinDs qK hqK (Level.substFn ψ cvC.levelParams lvls))
+      (fun x hx => (hpins qK hqK x hx).1) (fun x hx => (hpins qK hqK x hx).2)⟩⟩
+  obtain ⟨qK, hqK, rfl⟩ := hsy.1 e he
   exact ⟨qK, _, hqK, rfl,
     denoteMetaSpine_ownAt m hplen hidx hDlen hsc hspine
       (hpinDs qK hqK (Level.substFn ψ cvC.levelParams lvls))

@@ -380,7 +380,7 @@ theorem punitBlock_ownPins {env : Env}
     (hU : env.find? ConLeche.punitUnitName = some ConLeche.punitUnitA)
     (hmim : ConLeche.blockOwnMimicsOk env ConLeche.punitName 0 = true) :
     ContainerOwnPinsSyn (V := V) env (punitBlock (V := V)) :=
-  ContainerOwnPinsSyn.of_noMimics hmim fun i hi => by
+  ContainerOwnPinsSyn.of_noMimics rfl hmim fun i hi => by
     obtain rfl : i = 0 := Nat.lt_one_iff.mp (show i < 1 from hi)
     exact ⟨_, _, containerInfo?_punitA hT hR hU, rfl, rfl⟩
 
@@ -447,6 +447,7 @@ theorem punitBlock_containerModeled {env : Env} {m : EnvModel V env}
   pinConts := fun _ h => nomatch h
   ownPins := punitBlock_ownPins hT hR hU hmim
   pinψ := fun _ h => nomatch h
+  pinsDistinct := fun _ _ h _ _ => nomatch h
   pinParams := fun _ _ _ => ContainerPinParams.of_noPins rfl
 
 /-- **`PUnit` carries its block's model** at any assignment that sends

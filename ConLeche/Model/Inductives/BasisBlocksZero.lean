@@ -230,7 +230,7 @@ theorem zeroCtorBlock_ownPins {env env₀ : Env} {T : Name} {resSort : Level}
     (hci : ConLeche.containerInfo? env T = some ⟨0, [⟨T, lps, ty, []⟩]⟩)
     (hmim : ConLeche.blockOwnMimicsOk env T 0 = true) :
     ContainerOwnPinsSyn (V := V) env (zeroCtorBlock (V := V) T resSort env₀) :=
-  ContainerOwnPinsSyn.of_noMimics hmim fun i hi => by
+  ContainerOwnPinsSyn.of_noMimics rfl hmim fun i hi => by
     obtain rfl : i = 0 := Nat.lt_one_iff.mp (show i < 1 from hi)
     exact ⟨_, _, hci, rfl, rfl⟩
 
@@ -283,6 +283,7 @@ theorem zeroCtorBlock_containerModeled {env : Env} {m : EnvModel V env}
   pinConts := fun _ h => nomatch h
   ownPins := zeroCtorBlock_ownPins hci hmim
   pinψ := fun _ h => nomatch h
+  pinsDistinct := fun _ _ h _ _ => nomatch h
   pinParams := fun _ _ _ => ContainerPinParams.of_noPins rfl
 
 /-! ## The read-back at `Empty` -/

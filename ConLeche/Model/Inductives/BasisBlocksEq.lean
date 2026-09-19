@@ -535,7 +535,7 @@ theorem eqBlock_ownPins {env : Env}
     (hC : env.find? ConLeche.eqReflName = some ConLeche.eqReflA)
     (hmim : ConLeche.blockOwnMimicsOk env ConLeche.eqName 0 = true) :
     ContainerOwnPinsSyn (V := V) env (eqBlock (V := V)) :=
-  ContainerOwnPinsSyn.of_noMimics hmim fun i hi => by
+  ContainerOwnPinsSyn.of_noMimics rfl hmim fun i hi => by
     obtain rfl : i = 0 := Nat.lt_one_iff.mp (show i < 1 from hi)
     exact ⟨_, _, containerInfo?_eqA hT hR hC, rfl, rfl⟩
 
@@ -605,6 +605,7 @@ theorem eqBlock_containerModeled {env : Env} {m : EnvModel V env}
   pinConts := fun _ h => (nomatch h)
   ownPins := eqBlock_ownPins hE hRec hR hmim
   pinψ := fun _ h => (nomatch h)
+  pinsDistinct := fun _ _ h _ _ => nomatch h
   pinParams := fun _ _ _ => ContainerPinParams.of_noPins rfl
 
 /-- **`Eq`'s pins' laws**: no pins. -/

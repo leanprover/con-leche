@@ -408,7 +408,7 @@ theorem ContainerOwnPinsSyn.crossInd {env₁ env₂ : Env} {N : List Name} {d : 
   have hciEq : ∀ K : Name, (env₁.find? K).isSome = true →
       ConLeche.containerInfo? env₂ K = ConLeche.containerInfo? env₁ K := fun K hK =>
     ConLeche.containerInfo?_ext_ind_eq hext hnewN hfreshN hrecN hwf hrc (hstored K hK)
-  intro i cvC caps lvls DsE ps hi hf₂ hcl hps e he
+  intro i cvC caps lvls DsE ps hi hf₂ hcl hps
   -- the member is old, so it is stored as it was
   have hf₁ : env₁.find? (d.memberName i) = some (.indInfo cvC caps) :=
     (hnewN _ _ hf₂).resolve_right (hold i hi)
@@ -423,8 +423,8 @@ theorem ContainerOwnPinsSyn.crossInd {env₁ env₂ : Env} {N : List Name} {d : 
   have hMold : M.name ∉ N := hstored _ (by rw [hfM]; rfl)
   rw [containerOwnPinsAtGo_ext hext hnewN
     (fun j cv' mI rP rules h2 hmem => hMold (hmimN M.name j cv' mI rP rules h2 hmem))
-    hciEq hhead 64 0] at he
-  exact h i _ _ lvls DsE _ hi hf₁ hcl (containerOwnPinsAt_eq hf₁ hci₁ hM) e he
+    hciEq hhead 64 0]
+  exact h i _ _ lvls DsE _ hi hf₁ hcl (containerOwnPinsAt_eq hf₁ hci₁ hM)
 
 /-- **THE CROSSING, AT `EnvBlocksOf.crossIndP`'s OWN HYPOTHESES** (task
 #315 M7-3 session 21): `ContainerOwnPinsSyn.crossInd` with `hold` —
@@ -531,6 +531,7 @@ theorem ContainerModeled.crossEnvP {Ts : List Name} {env₁ env₂ : Env}
       frame := C.frame
       ordFree := C.ordFree
       nestMention := C.nestMention
+      pinsDistinct := C.pinsDistinct
       nestArgsMention := C.nestArgsMention
       nestArgsMentionAbs := C.nestArgsMentionAbs
       ctorProjFree := C.ctorProjFree
@@ -1564,7 +1565,10 @@ theorem ContainerModeled.of_readBack {env : Env} {m : EnvModel V env} {nP : Nat}
       ContainerPinParams (V := V) (members.getD i default).1 d)
     (hmember : ∀ i, i < d.k → ∃ (cvR : ConstantVal) (mI rP : Nat) (rules : List RecRule),
       IsBlockModel m (members.getD i default).1.name (members.getD i default).1 cvR mI rP rules
-        d i) :
+        d i)
+    (hpinsDistinct : ∀ q q', q < d.nPins → q' < d.nPins →
+      Expr.mkAppN (.const (d.pinAt q).J (d.pinAt q).lvls) (d.pinAt q).DsE
+        = Expr.mkAppN (.const (d.pinAt q').J (d.pinAt q').lvls) (d.pinAt q').DsE → q = q') :
     ContainerModeled m (ConLeche.blockContainerInfo nP members) d where
   k := by rw [hk]; show _ = (members.map _).length; rw [List.length_map]
   namesLen := hnamesLen
@@ -1575,6 +1579,7 @@ theorem ContainerModeled.of_readBack {env : Env} {m : EnvModel V env} {nP : Nat}
   frame := hframe
   ordFree := hordFree
   nestMention := hnestMention
+  pinsDistinct := hpinsDistinct
   nestArgsMention := hnestArgsMention
   nestArgsMentionAbs := hnestArgsMentionAbs
   ctorProjFree := hctorProjFree
