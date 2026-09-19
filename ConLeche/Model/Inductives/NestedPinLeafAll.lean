@@ -4417,6 +4417,197 @@ theorem nestedPinPair_pin (m : EnvModel V env₂) {st : ElimState} {dJf : Nat �
       exact G.syn.pinU iq hiq ψ i' hi')
     rfl hnI h₁ hsh hdom₁ hent₂ hrel t fs hfit hidx
 
+/-- **THE RECOMPUTATION READS THE TABLE AT ONE POSITION ONLY** (task
+#315 WIDE (3)): `ordTargetDom`'s two uses of the own-pin table — the
+level arguments it reads off the entry (`ordTargetLvls`) and the
+parameter spine it instantiates with — are both `getD qK`, so two
+tables agreeing THERE give one recomputation.  This is what spares the
+correspondence a list equality: the two spellings of a container's own
+pins need be identified only at the position the record is about. -/
+theorem ordTargetDom_congr_at {lps : List Name} {nP : Nat} {t₁ t₂ : List Expr} {qK l : Nat}
+    {dom : Expr} (h : t₁.getD qK default = t₂.getD qK default) :
+    ConLeche.ordTargetDom lps nP t₁ qK l dom = ConLeche.ordTargetDom lps nP t₂ qK l dom := by
+  unfold ConLeche.ordTargetDom ConLeche.ordTargetDomL ConLeche.ordTargetLvls
+  rw [h]
+
+/-- **THE TWO ROWS NAME ONE CLASS** (task #315 WIDE (3), the
+correspondence): at a field the pin's container `dK` calls ORDINARY and
+both copies rewrote to recursive, the BLOCK's target is `σ` of the
+OWNER's.
+
+Side 1 is `GroupFacts.ordTgt` (K.67), stated as the run states it —
+over the environment's own-pin table and at a `findIdx?` value.  Side 2
+is `PinShapes.rowTargetOrd` (K.68 carried), stated over the container
+model's `ownPinTerms` and POSITIVELY: at an own-pin class it PRODUCES
+the position `z`.  That is what breaks the circle the pre-positive
+spelling had — side 1's two lookups are derived from side 2's `z`:
+
+* the head's container, because `z`'s term equality identifies `M`
+  with `(dR.pinAt z).J` (take `getAppFn` through `PinSyn.ownAt`'s
+  `mkAppN`), whose group the container's own model reads
+  (`pinNP`/`pinConts`) with `ciM.nP = (dR.pinAt z).nPJ` — which is
+  exactly the cut side 2's equality is stated at;
+* the `findIdx?`, because position `z` of the environment's table IS
+  that term (`ownPinsSelfAt`), so the search cannot fail; the FIRST
+  match it answers with is `z` itself by `pinsDistinctAt`.
+
+`σ`'s two values are the assembly's: `hroot` at a member class and
+`hσpin` at an own-pin class, the latter a run fact at the OWNER's
+group carried as a hypothesis because `PinGroupInst` may not name the
+instance map.
+
+The two CROSSINGS are hypotheses and not derivations: the container's
+model lives at the model's environment and the kernel's tables are
+read at the block's own, and only the consumer — which holds the run —
+can say the two readings agree (`NestedPinsRun.contsCross`,
+`ownPinsCross`). -/
+theorem ordTgt_corr {st : ElimState} {m : EnvModel V env₂} {dK dR : BlockModel V}
+    {σ : Nat → Nat} {pcR : Nat → PinCtors V} {ψ : Name → Nat} {a kk i' j l : Nat}
+    (G : GF st m a kk dK) (hi' : i' < kk)
+    (hj : j < (dK.ctorsM i').length)
+    (hl : l < ((dK.Fss i' (((D).pinAt a).ψJ ψ)).getD j []).length)
+    (hord : ((dK.rss i').getD j []).getD l false = false)
+    (hrs₁ : ((blkRss ctorsA kinds).getD (b.ownOffset (p.k + a + i') + j) []).getD l false = true)
+    (hge : p.k ≤ ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+      (b.ownOffset (p.k + a + i') + j) []).getD l 0)
+    {cA : ConstantVal × Nat} {bs : List (Expr × ConLeche.BinderMeta)} {rr : Expr}
+    {dom : Expr × ConLeche.BinderMeta}
+    (hjA : (dK.ctorsM i')[j]? = some cA)
+    (hst : cA.1.type.stripPis (dK.nP + cA.2) = some (bs, rr))
+    (hdm : bs[dK.nP + l]? = some dom)
+    -- the guard's container, at an ARBITRARY member of the block's group
+    {lpsC : List Name} {i₀ : Nat} (hi₀ : i₀ < kk) {ciC : ContainerInfo} {Jm : ContainerMember}
+    (hciC : ConLeche.containerInfo? env ((D).pinAt (a + i₀)).J = some ciC)
+    (hJm : ciC.members[i']? = some Jm) (hlpsJ : Jm.lps = lpsC)
+    -- the OWNER: the container whose own pin `qK` this copy is
+    {g : Nat} (hg : g < st.pins.length) {gn : ConLeche.NestedPin}
+    (hgn : st.pins[g]? = some gn)
+    {ciR : ContainerInfo} (hciR : ConLeche.containerInfo? env gn.container = some ciR)
+    (CR : ContainerModeled m ciR dR)
+    {ownT : List Expr} (hownT : ConLeche.containerOwnPinsSelf env gn.container = some ownT)
+    {mapR : List Nat} (hmapR : ConLeche.nestedInstMapAt env st g = some mapR)
+    {qK : Nat} (hqKT : qK < ownT.length) (hqKn : qK < dR.nPins)
+    (hqm : mapR.getD qK st.pins.length = a + i')
+    -- the crossings: the owner's group and its own-pin table read the
+    -- same at the MODEL's environment, where `CR` lives
+    (hciR₂ : ConLeche.containerInfo? env₂ gn.container = some ciR)
+    (hownT₂ : ConLeche.containerOwnPinsSelf env₂ gn.container = some ownT)
+    (hcontZ : ∀ z, z < dR.nPins → ∀ ciZ : ContainerInfo,
+      ConLeche.containerInfo? env₂ (dR.pinAt z).J = some ciZ →
+      ConLeche.containerInfo? env (dR.pinAt z).J = some ciZ)
+    -- the head of the recomputation
+    {M : Name} {us : List Level}
+    (hhd : (ConLeche.ordTargetDom lpsC dK.nP ownT qK l dom.1).getAppFn = .const M us)
+    -- side 2: K.68 at the OWNER's own install, in its POSITIVE form
+    (hrow : ∀ lps : List Name,
+      (ConLeche.ordTargetDom lpsC dK.nP (dR.ownPinTerms lps) qK l dom.1).getAppFn
+          = .const M us →
+      (∀ mm, dR.memberNames.findIdx? (· == M) = some mm → (pcR qK).tgts j l = mm) ∧
+      (dR.memberNames.findIdx? (· == M) = none →
+        ∃ z : Nat, z < dR.nPins ∧
+          (dR.pinAt z).ownAt dR.nP lps (lps.map Level.param)
+              (ConLeche.containerParamOpeners dR.nP)
+            = Expr.mkAppN
+                (ConLeche.ordTargetDom lpsC dK.nP (dR.ownPinTerms lps) qK l dom.1).getAppFn
+                ((ConLeche.ordTargetDom lpsC dK.nP (dR.ownPinTerms lps) qK l
+                  dom.1).getAppArgs.take (dR.pinAt z).nPJ) ∧
+          (pcR qK).tgts j l = dR.k + z))
+    -- `σ`'s two values
+    (hroot : ∀ c, c < dR.k → σ c = p.k + gn.grpBase + c)
+    (hσpin : ∀ z, z < dR.nPins → σ (dR.k + z) = p.k + mapR.getD z st.pins.length) :
+    ((mutTgts ctorsA.length (mutKsOf kinds) (mutNFOf ctorsA)).getD
+      (b.ownOffset (p.k + a + i') + j) []).getD l 0 = σ ((pcR qK).tgts j l) := by
+  classical
+  -- THE TABLE: the environment's reader is the model's list, at every position
+  obtain ⟨lps, htab⟩ := CR.ownPinsSelfAt hciR₂ hownT₂
+  have hentry : ∀ y, y < dR.nPins →
+      (dR.ownPinTerms lps).getD y default
+        = (dR.pinAt y).ownAt dR.nP lps (lps.map Level.param)
+            (ConLeche.containerParamOpeners dR.nP) := by
+    intro y hy
+    unfold BlockModel.ownPinTerms
+    rw [List.getD_eq_getElem?_getD, List.getElem?_map, List.getElem?_range hy]
+    rfl
+  have hown : ∀ y, y < dR.nPins →
+      ownT.getD y default
+        = (dR.pinAt y).ownAt dR.nP lps (lps.map Level.param)
+            (ConLeche.containerParamOpeners dR.nP) := by
+    intro y hy
+    rw [List.getD_eq_getElem?_getD, htab y hy]; rfl
+  -- so the two sides run ONE recomputation
+  have hdomEq : ConLeche.ordTargetDom lpsC dK.nP ownT qK l dom.1
+      = ConLeche.ordTargetDom lpsC dK.nP (dR.ownPinTerms lps) qK l dom.1 :=
+    ordTargetDom_congr_at (by rw [hown qK hqKn, hentry qK hqKn])
+  obtain ⟨hmem₂, hpin₂⟩ := hrow lps (by rw [← hdomEq]; exact hhd)
+  -- THE NAMES: the two member lists are one
+  have hnames : dR.memberNames = ciR.members.map (·.name) := CR.memberNames_eq
+  obtain ⟨hmem₁, hpin₁⟩ := G.ordTgt ψ i' hi' j hj l hl hord hrs₁ hge cA bs rr dom hjA hst hdm
+    lpsC i₀ hi₀ ciC Jm hciC hJm hlpsJ g hg gn hgn ciR hciR ownT hownT mapR hmapR qK hqKT hqm
+    M us hhd
+  cases hfi : dR.memberNames.findIdx? (· == M) with
+  | some mm =>
+    -- a MEMBER class: `hroot` is `σ` there
+    have hmmlt : mm < dR.k := by
+      obtain ⟨hlt, -, -⟩ := List.findIdx?_eq_some_iff_getElem.mp hfi
+      rw [← CR.namesLen]; exact hlt
+    rw [hmem₂ mm hfi, hroot mm hmmlt]
+    exact hmem₁ mm (by rw [← hnames]; exact hfi)
+  | none =>
+    -- an OWN-PIN class: side 2 produces the position, side 1's two
+    -- lookups follow from it
+    obtain ⟨z, hz, heqz, htgz⟩ := hpin₂ hfi
+    -- the head IS the pin's container
+    have hJz : (dR.pinAt z).J = M := by
+      have h := congrArg Expr.getAppFn heqz
+      rw [Expr.getAppFn_mkAppN] at h
+      simp only [ConLeche.Model.PinSyn.ownAt, Expr.getAppFn_mkAppN] at h
+      rw [← hdomEq, hhd] at h
+      exact Expr.const.inj h |>.1
+    -- its group, at the model's environment and then at the block's
+    obtain ⟨ciZ, hciZ0, hnPZ⟩ := CR.pinNP z hz
+    have hciM : ConLeche.containerInfo? env M = some ciZ := by
+      rw [← hJz]; exact hcontZ z hz ciZ (CR.pinConts z hz ciZ hciZ0)
+    -- the searched term is the table's entry at `z`
+    have hsearch : Expr.mkAppN (ConLeche.ordTargetDom lpsC dK.nP ownT qK l dom.1).getAppFn
+        ((ConLeche.ordTargetDom lpsC dK.nP ownT qK l dom.1).getAppArgs.take ciZ.nP)
+        = ownT.getD z default := by
+      rw [hown z hz, heqz, hdomEq, hnPZ]
+    have hzlt : z < ownT.length := by
+      obtain ⟨hlt, -⟩ := List.getElem?_eq_some_iff.mp (htab z hz)
+      exact hlt
+    have hzmem : ownT[z]'hzlt = ownT.getD z default := by
+      rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hzlt]; rfl
+    -- so `findIdx?` answers, and its answer is `z`
+    cases hF : ownT.findIdx? (fun e => e == Expr.mkAppN
+        (ConLeche.ordTargetDom lpsC dK.nP ownT qK l dom.1).getAppFn
+        ((ConLeche.ordTargetDom lpsC dK.nP ownT qK l dom.1).getAppArgs.take ciZ.nP)) with
+    | none =>
+      exfalso
+      have hne := List.findIdx?_eq_none_iff.mp hF (ownT[z]'hzlt) (List.getElem_mem hzlt)
+      rw [hzmem, hsearch] at hne
+      simp at hne
+    | some qJ =>
+      obtain ⟨hqJlt, hqJp, hqJmin⟩ := List.findIdx?_eq_some_iff_getElem.mp hF
+      have hqJle : qJ ≤ z := by
+        refine Nat.not_lt.mp fun hlt => ?_
+        have hx := hqJmin z hlt
+        rw [hzmem, hsearch] at hx
+        simp at hx
+      have hqJn : qJ < dR.nPins := by omega
+      have hqJz : qJ = z := by
+        refine CR.pinsDistinctAt qJ z lps hqJn hz ?_
+        have h1 : ownT[qJ]'hqJlt = ownT.getD qJ default := by
+          rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hqJlt]; rfl
+        have h2 : ownT.getD qJ default = ownT.getD z default := by
+          have := hqJp
+          simp only [beq_iff_eq] at this
+          rw [← h1, this, hsearch]
+        rw [← hown qJ hqJn, ← hown z hz]
+        exact h2
+      rw [htgz, hσpin z hz]
+      have := hpin₁ ciZ qJ (by rw [← hnames]; exact hfi) hciM hF
+      rw [this, hqJz]
+
 
 /-- **THE WIDE FIT AT A PIN CLASS, WITH THE BLOCK SIDE READ OFF THE
 GROUP** (task #315 WIDE (3′), `hfitc`'s first half):

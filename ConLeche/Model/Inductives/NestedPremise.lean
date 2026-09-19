@@ -724,6 +724,72 @@ theorem ContainerModeled.memberNames_eq {env : Env} {m : EnvModel V env} {ci : C
     exact Option.some.inj h
   rw [hmn, hml, hname]
 
+/-- **THE ENVIRONMENT'S OWN-PIN TABLE IS THE MODEL'S, POSITION BY
+POSITION** (task #315 WIDE (3), the correspondence's TABLE
+translation): `containerOwnPinsSelf` — the reader K.67's and K.68's
+Bools run their `findIdx?` over — hands back exactly `d.ownPinTerms`
+at the container's own level parameters.
+
+`ContainerOwnPinsSyn`'s positional clause says this of
+`containerOwnPinsAt`, and `containerOwnPinsSelf` IS that reader at the
+identity level instantiation and the parameter openers.  What the
+proof adds is the group's own bookkeeping: the member index the name
+sits at (`memberNames_eq`), the head member's level parameters — the
+clause answers at the READ member's and the reader asks at the HEAD
+member's, and `containerInfo?_inv` says a group's members share the
+first's — and the openers' length.
+
+The level parameters are handed back EXISTENTIALLY: a consumer that
+must meet a second reading of the same table (`d.ownPinTerms lps` on
+the model side) instantiates that side here rather than naming a
+spelling of its own. -/
+theorem ContainerModeled.ownPinsSelfAt {env : Env} {m : EnvModel V env} {ci : ContainerInfo}
+    {d : BlockModel V} (C : ContainerModeled m ci d) {Cn : Name}
+    (hci : ConLeche.containerInfo? env Cn = some ci)
+    {ownT : List Expr} (hown : ConLeche.containerOwnPinsSelf env Cn = some ownT) :
+    ∃ lps : List Name, ∀ z, z < d.nPins →
+      ownT[z]? = some ((d.pinAt z).ownAt d.nP lps (lps.map Level.param)
+        (ConLeche.containerParamOpeners d.nP)) := by
+  classical
+  obtain ⟨cvT, caps, cvR, mI, rP, rules, hfI, -, hmemI, -, hmembers⟩ :=
+    ConLeche.containerInfo?_inv hci
+  -- the group is non-empty, and its HEAD member's level parameters are the read one's
+  have hmem0 : 0 < ci.members.length := by
+    rcases List.mem_iff_getElem.mp hmemI with ⟨y, hy, -⟩
+    rw [List.length_map] at hy; omega
+  obtain ⟨M₀, hM₀⟩ : ∃ M₀, ci.members[0]? = some M₀ :=
+    ⟨_, List.getElem?_eq_getElem hmem0⟩
+  obtain ⟨cvC₀, -, -, -, -, -, -, hlps₀, -, hlpsT₀, -, -⟩ :=
+    hmembers M₀ (List.mem_of_getElem? hM₀)
+  have hhead0 : ci.members.head? = some M₀ := by
+    rw [List.head?_eq_getElem?]; exact hM₀
+  have hlvlsEq : M₀.lps = cvT.levelParams := by rw [hlps₀, hlpsT₀]
+  have hAt : ConLeche.containerOwnPinsAt env Cn (cvT.levelParams.map Level.param)
+      (ConLeche.containerParamOpeners ci.nP) = some ownT := by
+    rw [← hlvlsEq, ← hown]
+    simp only [ConLeche.containerOwnPinsSelf, bind, Option.bind, hci, hhead0]
+  -- the member index the container's name sits at
+  have hCn : Cn ∈ d.memberNames := by rw [C.memberNames_eq]; exact hmemI
+  obtain ⟨i, hi, hiv⟩ := List.mem_iff_getElem.mp hCn
+  have hik : i < d.k := by rw [← C.namesLen]; exact hi
+  have hname : d.memberName i = Cn := by
+    show d.memberNames.getD i .anonymous = Cn
+    rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hi, Option.getD_some]; exact hiv
+  have hclO : ∀ a ∈ ConLeche.containerParamOpeners ci.nP, a.looseBVarsBounded 0 = true := by
+    intro a ha
+    obtain ⟨y, -, rfl⟩ := List.mem_map.mp ha
+    rfl
+  have hlenO : (ConLeche.containerParamOpeners ci.nP).length = d.nP := by
+    rw [C.nP]; simp [ConLeche.containerParamOpeners]
+  have hopen : ConLeche.containerParamOpeners ci.nP = ConLeche.containerParamOpeners d.nP := by
+    rw [C.nP]
+  obtain ⟨-, hpos⟩ := C.ownPins i cvT caps (cvT.levelParams.map Level.param)
+    (ConLeche.containerParamOpeners ci.nP) ownT hik (by rw [hname]; exact hfI) hclO
+    (by rw [hname]; exact hAt)
+  refine ⟨cvT.levelParams, fun z hz => ?_⟩
+  have h := hpos z hz hlenO
+  rwa [hopen] at h
+
 /-- **A member's index telescope is bounded at the parameters** — the
 MEMBER twin of `pinIds_below` (task #315 L-E, DESIGN §U.77). -/
 theorem memberIds_below {env : Env} {m : EnvModel V env} {dJ : BlockModel V}
