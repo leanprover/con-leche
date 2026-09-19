@@ -120813,3 +120813,77 @@ The NARROW route keeps `CopyEntryA`: `hfit_at_of_inst`,
 `agent/uniform-le4` (`NestedPinsLeInd.lean`), which merges into this
 lane later.  No caller of the three wide theorems exists yet, so
 nothing else had to move.
+
+#### WIDE (4) `hinjJ` AT THE WIDE CLASSES — LANDED, WITH A BOUND THE CONSUMER'S SHAPE DOES NOT CARRY (lane LE, 2026-09-19)
+
+`injT_wide_of_pinRecLaws` (`NestedRecCand.lean`, beside `PinRecLaws`):
+`injT` at a class of `d.k + d.nPins` is the tagged tower.  At a MEMBER
+class `injT_of_mem` hands back `d.inj` and the law is the container's
+own (`ContainerModeled.inj`, or a pin group's `inj`); at a PIN class
+`injT_of_pin` hands back the pin constructors' injection and the law is
+`PinRecLaws.injW` — which is where the container's own pins' side
+lives, and is NOT on `GroupFacts`, exactly as step (4)'s table said.
+Twelve lines, two halves, no new object.
+
+##### THE BOUND
+
+`PinRecLaws.injW` is guarded by `q < d.nPins`, so the theorem concludes
+at `c < d.k + d.nPins`.  Step (4)'s `hinjJ` is stated UNBOUNDED, and it
+is unbounded because `ofNested_hΦ_of_fit`'s own `hinjJ` is
+(`BlockComposed.lean`).  Two ways to close the gap, neither taken here:
+
+* bound `ofNested_hΦ_of_fit`'s `hinjJ` by the container's width.  Both
+  of its uses sit under `intro i hi` with `hi : i < s`, so this is two
+  tokens (`hinjJ i j fs` → `hinjJ i hi j fs`, `rw [hinjJ]` →
+  `rw [hinjJ i hi]`) and no proof restructuring — but it is a
+  signature change on the wide theorem's `hΦ`, which this lane is told
+  to leave alone;
+* drop `PinRecLaws.injW`'s guard.  Its producers are
+  `BasisBlocksUnit.lean` and `BasisBlocksZero.lean`, which discharge it
+  vacuously at `nPins = 0` (`fun _ _ h => nomatch h`) and would then
+  need real proofs.  Both files belong to the parallel carry lane, so
+  this route is closed to this lane for now.
+
+The bounded theorem is the real content either way; only the last
+`∀ i'` has to move.
+
+#### WIDE (4) THE MAP-vs-LABEL TIE IS NOT K.37 CLAUSE (1) — IT IS K.41's COVERING, AT THE INSTANCE'S ROOT (lane LE, 2026-09-19)
+
+Priced by reading the consumer before building anything, and the price
+is not the one the brief assumed.
+
+What step (4) needs at the `houtσ`-to-IH step is, at a rewritten
+container-ordinary field of the copy at pin `q` with target pin `t`:
+
+    t ∉ (nestedInstMapAt env st q)'s image  ∧  t ∉ q's mint group
+      ⇒  nestedPinInstOf … t ≠ nestedPinInstOf … q
+
+whose contrapositive is **`label t = label q` ⇒ `t` is in the group or
+in the map's image** — the ⊇ direction of "an instance is its group
+plus its container's own pins".
+
+K.37's clause (1) is the ⊆ direction: `edges.all (fun e => if e.2.2
+then inst e.1 == inst e.2.1 else …)` — an OWN edge stays inside the
+instance.  Read backwards it says "a different label ⇒ the edge is not
+own", which is not the implication above and does not combine with
+K.62's row to give it.  Clause (4) (a mint group is one instance) adds
+the group half of ⊆ and nothing of ⊇.
+
+The ⊇ direction IS recorded, by **K.41**: `nestedPinRootPairAt` says
+every pin of an instance is in the ROOT group's members or in the
+ROOT's own-pin pool, and `nestedPinRootPairOk_inv`
+(`Verify/Inductives/NestedCopyKinds.lean`) already inverts it.  But it
+is keyed at the instance's ROOT group, while `nestedInstMapAt q` is
+keyed at `q`'s OWN container.  So the missing step is not a reading of
+K.37 at all; it is
+
+1. K.41's covering at the root, through the existing inversion, and
+2. the identification of the step's mint group `q₀` with the
+   instance's root group — `nestedPinRootGroupAt p st inst = some q₀`
+   — which the wide step's docstring ASSUMES ("at the instance's mint
+   group") and which nothing in the signature supplies.
+
+(2) is the real open item, and it is a fact about which group the
+induction enters an instance at, not about the map.  Nothing was built
+for this row; step (4b) should be repriced against (1)+(2) before it is
+scheduled.

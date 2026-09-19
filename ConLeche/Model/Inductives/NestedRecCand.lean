@@ -304,6 +304,33 @@ structure PinRecLaws {env : Env} (m : EnvModel V env) (d : BlockModel V) (pc : N
       P q t ((pc q).inj ψ j fs)) →
     ∀ q, q < d.nPins → ∀ t, t ∈ˢ d.pinIdx q ψ ρp → ∀ x, x ∈ˢ app (d.pinCar ψ ρp X q) t → P q t x
 
+/-- **THE CLASS INJECTION AT THE WIDE WIDTH IS THE TAGGED TOWER**
+(task #315 WIDE (4)): `injT` at every class of `d.k + d.nPins`, which
+is what the wide identification's `hinjJ` asks for.
+
+Two halves and no new object.  At a MEMBER class `injT_of_mem` hands
+back `d.inj`, whose law `hinj` is the container's own
+(`ContainerModeled.inj` at a container with parameters, or a pin
+group's `inj`).  At a PIN class `injT_of_pin` hands back the pin
+constructors' injection and the law is `PinRecLaws.injW`, which is
+where the container's own pins' side lives — not on the pin group.
+
+The bound is `PinRecLaws.injW`'s: it is stated at `q < d.nPins`, and
+the basis blocks discharge it vacuously at `nPins = 0`. -/
+theorem injT_wide_of_pinRecLaws {env : Env} {m : EnvModel V env} {d : BlockModel V}
+    {pc : Nat → PinCtors V} (h : PinRecLaws m d pc)
+    (hinj : ∀ (ψ : Name → Nat) (mm' j : Nat) (fs : List V),
+      d.inj ψ mm' j fs = injW (d.w ψ) j (mkTower (fs ++ [pt])))
+    (ψ : Name → Nat) {wv : Nat} (hw : d.w ψ = wv) {c : Nat} (hc : c < d.k + d.nPins)
+    (j : Nat) (fs : List V) :
+    d.injT pc ψ c j fs = injW wv j (mkTower (fs ++ [pt])) := by
+  subst hw
+  by_cases hm : c < d.k
+  · rw [BlockModel.injT_of_mem hm ψ]
+    exact hinj ψ c j fs
+  · rw [BlockModel.injT_of_pin hm ψ]
+    exact h.injW ψ (c - d.k) (by omega) j fs
+
 /-! ## Kit -/
 
 
